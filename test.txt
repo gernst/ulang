@@ -1,0 +1,14 @@
+type Any
+
+f: Any → Any
+g:   Any  
+   → Any
+
+h: Any
+  //
+z: Any
+
+f
+  = g
+  
+  g = g

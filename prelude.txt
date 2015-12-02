@@ -1,0 +1,242 @@
+infix       1 ↔
+infix right 2 →
+infix left  3 ∨
+infix left  4 ∧
+prefix      5 ¬
+
+infix right 7 ++
+
+infix right 8 ::
+infix left 8 +
+infix left 8 -
+
+infix left 9 *
+infix left 9 ×
+infix left 9 ,
+
+prefix 11 #
+postfix 11 +1
+postfix 11 -1
+
+infix right 20 ·
+
+id: a → a
+id x = x
+
+const: a → b → a
+const x y = x
+
+· : (b → c) → (a → b) → (a → c)
+(f · g) x = f (g x)
+
+lift: (c → c → b) → (a → c) → (a → c) → a → b
+lift op f g x
+  = op (f x) (g x)
+
+// poor man's let
+// let _. = _ in ._
+let: a → (a → b) → b
+let x f = f x
+
+// Unit
+data () = () : ()
+
+/* ********* Bool ********* */
+
+data Bool
+  = true: Bool
+  | false: Bool
+
+¬ : Bool → Bool
+(¬ true) = false
+(¬ false) = true
+
+→ : Bool → Bool → Bool
+(true → b) = b
+(false → b) = true
+
+∨ : Bool → Bool → Bool
+(true ∨ b) = true
+(false ∨ b) = b
+
+∧ : Bool → Bool → Bool
+(true ∧ b) = b
+(false ∧ b) = false
+
+↔ : Bool → Bool → Bool
+(true ↔ b) = b
+(false ↔ b) = (¬ b)
+
+/* ********* Nat ********* */
+
+data Nat
+  =  0: Nat
+  | +1: Nat → Nat
+
+1: Nat
+1 = 0 +1
+
+2: Nat
+2 = 1 +1
+
+-1: Nat → Nat
+n +1 -1 = n
+
++: Nat → Nat → Nat
+n + 0 = n
+n + m +1 = (n + m) +1
+
+-: Nat → Nat → Nat
+n - 0 = n
+n - m +1 = (n - m) -1
+
+*: Nat → Nat → Nat
+n * 0 = 0
+n * m +1 = (n * m) + n
+
+/* ********* Option ********* */
+
+data Option a
+  = none: Option a
+  | some: a → Option a
+
+empty: Option a → Bool
+empty x = (x = none)
+
+the: Option a → a
+the (some x) = x
+
+map: (a → b) → Option a → Option b
+map f (some x) = some (f x)
+map f none = none
+
+filter: (a → Bool) → Option a → Option a
+filter p (some x)
+  = if_then_else (p x) (some x) none
+filter p none = none
+
+flatten: Option (Option a) → Option a
+flatten (some x) = x
+flatten none = none
+
+/* ********* Pair ********* */
+
+data (×) a b
+  = , : a → b → a × b
+
+fst: a × b → a
+fst (x, y) = x
+
+snd: a × b → b
+snd (x, y) = y
+
+curry: (a × b → c) → a → b → c
+curry f x y = f (x, y)
+
+uncurry: (a → b → c) → (a × b) → c
+uncurry f (x, y) = f x y
+
+/* ********* List ********* */
+
+data List a
+  = [] : List a
+  | :: : a → List a → List a
+
+empty: List a → Bool
+empty xs = (xs = [])
+
+some: a → List a
+some x = x :: []
+
+head: List a → a
+head (x :: xs) = x
+
+tail: List a → List a
+tail (x :: xs) = xs
+
+last: List a → a
+last (x :: []) = x
+last (x :: xs) = last xs
+
+init: List a → List a
+init (x :: []) = []
+init (x :: xs) = x :: init xs
+
+++ : List a → List a → List a
+[] ++ ys = ys
+x :: xs ++ ys = x :: (xs ++ ys)
+
+#: List a → nat
+# [] = 0
+# (x :: xs) = # xs + 1
+
+nth: nat → List a → a
+nth 0 (x :: xs) = x
+nth (n +1) (x :: xs) = nth n xs
+
+map : (a → b) → List a → List b
+map f [] = []
+map f (x :: xs) = (f x) :: (map f xs)
+
+filter : (a → Bool) → List a → List a
+filter p [] = []
+filter p (x :: xs)
+  = if_then_else
+      (p x)
+      (x :: filter p xs)
+      (filter p xs)
+
+foldl : b → (b → a → b) → List a → b
+foldl z f [] = z
+foldl z f (x :: xs) = foldl (f z x) f xs
+
+foldr : b → (a → b → b) → List a → b
+foldr z f [] = z
+foldr z f (x :: xs) = f x (foldr z f xs)
+
+flatten : List (List a) → List a
+flatten xss = foldr [] (++) xss
+
+/* take: Nat → List a → List a
+take 0 xs = []
+take (n +1) (x :: xs) = x :: take n xs
+
+drop: Nat → List a → List a
+drop 0 xs = xs
+drop (n +1) (x :: xs) = drop n xs */
+
+take: (a → Bool) → List a → List a
+take p [] = []
+take p (x :: xs)
+  = if_then_else
+      (p x)
+      (x :: take p xs)
+      []
+
+drop: (a → Bool) → List a → List a
+drop p [] = []
+drop p (x :: xs)
+  = if_then_else
+      (p x)
+      (take p xs)
+      xs
+
+/* ********* Map ********* */
+
+type Map a b = List (a × b)
+
+get: a → Map a b → b
+get x ((k, v) :: m)
+  = if_then_else
+      (x = k)
+      v
+      (get x m)
+
+put: (a × b) → Map a b → Map a b
+put kv m = kv :: m
+
+keys: Map a b → List a
+keys m = map fst m
+
+// values: Map a b → List b
+// values m = distinct (map snd m)

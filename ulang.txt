@@ -1,0 +1,53 @@
+import prelude;
+
+type Name;
+
+data Type
+  = param:  Name → Type
+  | app:    Name → List Type → Type;
+
+data Expr
+  = bound: Nat → Expr
+  | free:  Name → Type → Expr
+  | op:    Name → Type → Expr
+  | app:   Expr → Expr → Expr
+  | lam:   Name → Expr → Expr;
+
+/*
+// app with n args from Expr has a clash with app from Type 
+app: Expr → List Expr → Expr;
+app fun args
+  = foldl fun app args;
+
+lam: List Name → Expr → Expr;
+lam bounds body
+  = foldr body lam bounds;
+*/
+
+type Val a; /* forward declaration */
+type Stack a = List (Val a);
+type Model a = Map Name (Val a);
+type Closure a = Val a → Model a → Val a;
+
+data Val a
+  = const: a → Val a
+  | clos: Closure a → Val a;
+
+eval: Expr → Stack a → Model a → Val a;
+apply: Val a → Closure a;
+
+apply (clos f) = f;
+
+eval (bound n) stack model
+  = nth n stack;
+
+eval (op name typ) stack model
+  = get name model; 
+
+eval (app fun arg) stack model
+  = apply (eval fun stack model)
+          (eval arg stack model)
+          model;
+
+eval (lam x body) stack model
+  = fun (λ a model. eval body (a :: stack) model);

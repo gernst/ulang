@@ -1,0 +1,68 @@
+import prelude
+
+infix right 7 |
+postfix 11 *
+postfix 11 +
+
+type Parser t a
+  = List t → Option (a × List t)
+
+result: a → Parser t a
+result x in
+  = some (x, in)
+
+bind: Parser t a → (a → Parser t b) → Parser t b
+bind p f in
+  = flatten (map (uncurry f) (p in))
+
+zero: Parser t a
+zero in = none
+
+// XXX: a is unified with t
+//      however, both should be non-generic!
+item: Parser t a
+item [] = none
+item (a :: in) = some (a, in)
+
+test: (a → Bool) → Parser t a
+test p
+  = bind item (λ x.
+    if_then_else (p x)
+    (result x)
+    zero)
+
+seq : (a → b → c) → Parser t a → Parser t b → Parser t c
+seq f p q
+  = bind p (λ x.
+    bind q (λ y.
+    result (f x y)))
+
+, : Parser t a → Parser t b → Parser t (a × b)
+p, q = seq (,) p q
+
+:: : Parser t a → Parser t (List a) → Parser t (List a)
+p :: q = seq (::) p q
+
+++ : Parser t (List a) → Parser t (List a) → Parser t (List a)
+p ++ q = seq (++) p q
+
+| : Parser t a → Parser t a → Parser t a
+// p | q = lift (++) p q
+(p | q) in
+  = let (p in)
+    (λ r. if_then_else (empty r) (q in) r)
+
+* : Parser t a → Parser t (List a)
+p * = bind p (λ x.
+      bind (p *) (λ xs.
+      result (x :: xs)))
+    | result []
+
++ : Parser t a → Parser t (List a)
+p + = p :: p *
+
+in: List Bool
+in = true :: true :: true :: false :: true :: []
+
+// wrong: a
+// wrong = fst (the (item in))

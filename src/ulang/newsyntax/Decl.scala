@@ -1,0 +1,13 @@
+package ulang.newsyntax
+
+import ulang.syntax._
+import arse.Fixity
+
+sealed trait Decl
+case class Import(thy: Thy) extends Decl
+case class FixDecl(fixity: Fixity, op: String) extends Decl
+case class TypeDecl(con: Con) extends Decl
+case class DataDef(typ: Schema, constrs: List[OpDecl]) extends Decl
+case class TypeDef(lhs: Schema, rhs: Type) extends Decl
+case class OpDecl(name: String, typ: Type) extends Decl
+case class OpDef(expr: Expr) extends Decl

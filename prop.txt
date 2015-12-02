@@ -1,0 +1,5 @@
+import prelude;
+
+p: Bool;
+q: Bool;
+r: Bool;
