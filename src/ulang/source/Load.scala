@@ -1,18 +1,16 @@
-package ulang.newsyntax
+package ulang.source
 
 import arse.control._
 import java.io.File
-import arse.Parser
-import scala.collection.mutable.ListBuffer
 
 object Load {
-  import ulang.Parsers._
-
   val Extension = ".txt"
 
   var pending: Set[String] = Set.empty
-  
+
   def load(name: String): List[List[String]] = {
+    import Parsers._
+
     try {
       if (pending contains name)
         error("in load: recursive dependency in " + name)

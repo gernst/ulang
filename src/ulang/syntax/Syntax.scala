@@ -2,7 +2,6 @@ package ulang.syntax
 
 import arse._
 import arse.control._
-import ulang.source.Id
 
 case object Bindfix extends Fixity
 // case object Outfix extends Fixity
@@ -18,10 +17,6 @@ case class Syntax(
       || (postfix_ops contains name)
       || (infix_ops contains name)
       || (bindfix_ops contains name))
-  }
-
-  def contains(id: Id): Boolean = {
-    contains(id.name)
   }
 
   def insert[A](m: Map[String, A], name_a: (String, A)) = {

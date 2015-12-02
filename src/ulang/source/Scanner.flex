@@ -2,7 +2,6 @@ package ulang;
 
 %%
 
-%public
 %class Scanner
 %function next
 %type String
