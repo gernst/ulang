@@ -3,14 +3,13 @@ package ulang.calculus
 import arse._
 import arse.Combinators._
 import ulang.Context
-import ulang.syntax.Type
-import ulang.syntax.FreeVar
+import ulang.syntax._
 
-object Parsers extends ulang.Parsers {
+object Parsers extends ulang.source.Parsers {
   import Basic._
   val basic_rules = rules.map(r => (r.name, r)).toMap
 
-  def expr(ctx: Context) = ulang.source.Parsers.expr.strict_tree map (ctx toExpr _)
+  def expr(ctx: Context): Parser[String, (Expr, Type)] = ??? // ulang.source.Parsers.expr.strict_tree map (ctx toExpr _)
 
   def formula(ctx: Context) = expr(ctx) map {
     case (phi, typ) =>
@@ -26,12 +25,12 @@ object Parsers extends ulang.Parsers {
   }
 
   val rotate = lit("rotate") ~> parse(Rotate)(int)
-  def cut(ctx: Context) = lit("cut") ~> parse(Cut)(formula(ctx))
+  def cut(ctx: Context) = lit("cut") ~> parse(Cut)(??? /*formula(ctx)*/)
   val simplify = lit("simplify") ~> ret(Simplify)
-  def structural(ctx: Context) = lit("structural induction") ~> expr(ctx) map {
+  def structural(ctx: Context): Parser[String, Rule] = ??? /*lit("structural induction") ~> expr(ctx) map {
     case (x: FreeVar, typ) =>
       Structural(ctx, x)
-  }
+  }*/
 
   def rule(ctx: Context) = basic_rule | rotate | simplify | cut(ctx) | structural(ctx)
 }

@@ -11,7 +11,7 @@ case class Structural(ctx: Context, x: FreeVar) extends Rule {
 
   val cases: List[Expr] = {
     val TypeApp(con, args) = x.typ
-    val constrs = ctx.df.data(Con(con, args.length)).toList
+    val constrs: List[Op] = ??? // ctx.df.data(Con(con, args.length)).toList
     constrs map {
       case op @ Op(_, TypeApp(con, args)) =>
         val free = args map { FreeVar("x", _)}

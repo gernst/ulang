@@ -7,7 +7,7 @@ import ulang.calculus._
 import scala.annotation.tailrec
 
 case class Prove(context: Context) extends Shell {
-  import ulang.Parsers._
+  import ulang.source.Parsers._
   import ulang.calculus.Parsers._
   
   val parse_rule = rule(context) $

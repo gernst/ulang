@@ -14,7 +14,7 @@ object Repl extends Shell {
   val prompt = "> "
 
   def clear() {
-    context = Context.default rename "shell"
+    context = Context.default
   }
 
   clear()
@@ -23,15 +23,15 @@ object Repl extends Shell {
 
   val commands = Map(
     ":sig" -> cmd(out(context.sig)),
-    ":defs" -> cmd(out(context.df)),
+    // ":defs" -> cmd(out(context.df)),
     ":syntax" -> cmd(out(context.syntax)),
-    ":net" -> cmd(out(context.df.net)),
-    ":model" -> cmd(out(context.model.keys.mkString(" "))),
+    // ":net" -> cmd(out(context.df.net)),
+    // ":model" -> cmd(out(context.model.keys.mkString(" "))),
     ":prove" -> cmd(Prove(context).repl),
     ":clear" -> cmd(clear()))
 
   def read(line: String) = {
-    import ulang.Parsers._
+    import ulang.source.Parsers._
     import Parsers._
     import Reorder._
     import Convert._
@@ -39,7 +39,7 @@ object Repl extends Shell {
     import Eval._
     import Model._
     import ulang.syntax.predefined.pred.Eq
-
+/*
     val parse = decl $
     val res = parse(tokenize(line))
 
@@ -56,6 +56,6 @@ object Repl extends Shell {
       case _ =>
         context += res
         out("defined " + res)
-    }
+    }*/
   }
 }
