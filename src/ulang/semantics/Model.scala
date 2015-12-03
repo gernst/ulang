@@ -17,7 +17,7 @@ object Model {
   def empty: Model = Map.empty
   def default: Model = Map(Op.equals -> equals _)
 
-  def apply(df: Def, init: Model): Model = {
+  def apply(df: Defs, init: Model): Model = {
     val cmodel = df.constrs.foldLeft(init) {
       case (m, op) =>
         m + (op -> constr(op, op.typ.arity))

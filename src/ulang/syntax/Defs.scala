@@ -1,12 +1,12 @@
 package ulang.syntax
 
-case class Def(data: Map[Con, Set[Op]], syn: Map[Con, (List[TypeParam], Type)], axioms: List[Expr]) {
+case class Defs(data: Map[Con, Set[Op]], syn: Map[Con, (List[TypeParam], Type)], axioms: List[Expr]) {
   def +(con: Con, params: List[TypeParam], rhs: Type) = copy(syn = syn + (con -> (params, rhs)))
   def +(con: Con, constrs: Set[Op]) = copy(data = data + (con -> constrs))
   def +(ax: Expr) = copy(axioms = axioms :+ ax)
-  def ++(that: Def) = {
+  def ++(that: Defs) = {
     val _axioms = (this.axioms ++ that.axioms).distinct
-    Def(this.data ++ that.data, this.syn ++ that.syn, _axioms)
+    Defs(this.data ++ that.data, this.syn ++ that.syn, _axioms)
   }
 
   override def toString = {
@@ -64,7 +64,7 @@ case class Def(data: Map[Con, Set[Op]], syn: Map[Con, (List[TypeParam], Type)], 
   }
 }
 
-object Def {
-  val empty = Def(Map.empty, Map.empty, List.empty)
+object Defs {
+  val empty = Defs(Map.empty, Map.empty, List.empty)
   val default = empty
 }

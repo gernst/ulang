@@ -33,8 +33,6 @@ object Repl extends Shell {
   def read(line: String) = {
     import ulang.source.Parsers._
     import Parsers._
-    import Reorder._
-    import Convert._
     import Infer._
     import Eval._
     import Model._

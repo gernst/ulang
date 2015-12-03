@@ -5,7 +5,7 @@ import ulang.source._
 import ulang.syntax._
 import arse.control._
 
-class Infer(sig: Sig, df: Def) {
+class Infer(sig: Sig, df: Defs) {
   import Unify._
 
   def infer(preexpr: Expr): (Expr, Type) = {
@@ -144,5 +144,5 @@ class Infer(sig: Sig, df: Def) {
 }
 
 object Infer {
-  implicit def toInfer(sig: Sig, df: Def) = new Infer(sig, df)
+  implicit def toInfer(sig: Sig, df: Defs) = new Infer(sig, df)
 }
