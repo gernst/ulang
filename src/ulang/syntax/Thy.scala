@@ -8,7 +8,7 @@ case class Thy(name: String, imports: List[Thy], syntax: Syntax, sig: Sig, df: D
   def +(op: Op) = copy(sig = sig + op)
   def +(con: Con, constrs: Set[Op]) = copy(df = df + (con, constrs))
   def +(con: Con, params: List[TypeParam], rhs: Type) = copy(df = df + (con, params, rhs))
-  def +(ax: Expr) = copy(df = df + ax)
+  def +(op: Op, rhs: Expr) = copy(df = df + (op, rhs))
   def +(name: String, fixity: Fixity) = copy(syntax = syntax + (name -> fixity))
   def +(thy: Thy) = copy(imports = imports :+ thy)
   def ++(that: Thy) = Thy(name, this.imports ++ that.imports, this.syntax ++ that.syntax, this.sig ++ that.sig, this.df ++ that.df)
@@ -38,8 +38,9 @@ case class Thy(name: String, imports: List[Thy], syntax: Syntax, sig: Sig, df: D
     case OpDecl(name, typ) =>
       this + Op(name, typ)
 
-    case OpDef(expr) =>
-      this + expr
+    case OpDef(name, args, rhs) =>
+      ???
+      // this + (name, Case(args, rhs))
   }
 
   override def toString = sig + "\n" + df + "\n" + syntax

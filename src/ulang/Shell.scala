@@ -1,11 +1,8 @@
 package ulang
 
 import scala.io.StdIn
+
 import arse.control._
-import ulang.source._
-import ulang.syntax._
-import ulang.semantics._
-import ulang.transform._
 
 abstract class Shell {
   def commands: Map[String, () => Any]

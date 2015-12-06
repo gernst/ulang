@@ -71,9 +71,9 @@ case class Lambda(bound: FreeVar, body: Expr) extends Expr {
 
 case class Case(args: List[Expr], body: Expr)
 
-case class Match(cases: List[(List[Expr], Expr)]) extends Expr {
+case class Match(cases: List[Case]) extends Expr {
   override def toString = {
-    val ss = cases.map { case (args, rhs) => args.mkString(" ") + ". " + rhs }
+    val ss = cases.map { case Case(args, rhs) => args.mkString(" ") + ". " + rhs }
     ss.mkString("(λ ", " | ", ")")
   }
   def abs(x: FreeVar, index: Int) = ???

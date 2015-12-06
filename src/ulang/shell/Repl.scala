@@ -18,42 +18,24 @@ object Repl extends Shell {
   }
 
   clear()
-  // read("import bool")
-  // read("import nat")
 
   val commands = Map(
-    ":sig" -> cmd(out(context.sig)),
-    // ":defs" -> cmd(out(context.df)),
-    ":syntax" -> cmd(out(context.syntax)),
-    // ":net" -> cmd(out(context.df.net)),
+    ":sig" -> cmd(out(context.thy.sig)),
+    ":defs" -> cmd(out(context.thy.df)),
+    ":syntax" -> cmd(out(context.thy.syntax)),
+    // ":net" -> cmd(out(context.thy.df.net)),
     // ":model" -> cmd(out(context.model.keys.mkString(" "))),
     ":prove" -> cmd(Prove(context).repl),
     ":clear" -> cmd(clear()))
 
   def read(line: String) = {
-    import ulang.source.Parsers._
-    import Parsers._
-    import Infer._
-    import Eval._
-    import Model._
-    import ulang.syntax.predefined.pred.Eq
-/*
-    val parse = decl $
-    val res = parse(tokenize(line))
+    import ulang.syntax.predefined._
 
-    res match {
-      case OpDef(_expr) =>
-        val (expr, typ) = context toExpr _expr
-        expr match {
-          case Eq(_, _) =>
-            context += expr
-          case _ =>
-            val v = eval(expr, context.model)
-            out("  = " + v + " : " + typ)
-        }
-      case _ =>
-        context += res
-        out("defined " + res)
-    }*/
+    {
+      val decl = context.parse.decl(line)
+      context += decl
+    } or {
+      val expr = context.parse.expr(line)
+    }
   }
 }

@@ -1,14 +1,3 @@
-type Any
-
-f: Any → Any
-g:   Any  
-   → Any
-
-h: Any
-  //
-z: Any
-
-f
-  = g
-  
-  g = g
+append: List a → List a → List a
+append [] ys = ys
+append (x :: xs) ys = x :: (append xs ys)

@@ -3,9 +3,9 @@ package ulang.semantics
 import ulang.syntax._
 import arse.control._
 import ulang.Ref
-import Eval._
 
 object Model {
+  import Eval._
   import ulang.syntax.predefined._
 
   def equals(x: Any)(y: Any) = {
@@ -23,9 +23,9 @@ object Model {
         m + (op -> constr(op, op.typ.arity))
     }
 
-    val fmodel = df.nets.foldLeft(cmodel) {
-      case (m, (op, net)) =>
-        m + (op -> function(net, Nil, m))
+    val fmodel = df.ops.foldLeft(cmodel) {
+      case (m, (op, rhs)) =>
+        m + (op -> eval(rhs, Nil, Map.empty, m))
     }
 
     fmodel

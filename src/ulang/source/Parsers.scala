@@ -126,6 +126,7 @@ case class ExprParsers(syntax: Syntax, sig: Sig) extends Parsers with SyntaxPars
   val lambda = lit("λ") ~> binding
   val bindfix_app = parse(unary _)(bindfix_op, binding)
 
+  val arg = parens(mixfix_expr) | free_var
   val closed = parens(mixfix_expr) | lambda | bindfix_app | free_var
 
   val normal_app = parse(app _)(closed, closed *)
@@ -180,13 +181,13 @@ case class TypeParsers(syntax: Syntax, sig: Sig) extends Parsers with SyntaxPars
   val parser = mixfix_expr
 }
 
-case class DeclParsers(syntax: Syntax, sig: Sig) extends Parsers {
+case class DeclParsers(thy: Thy) extends Parsers {
   import Parsers._
   import FixityParsers.fixity
 
-  val schema = SchemaParsers(syntax)
-  val typ = TypeParsers(syntax, sig)
-  val expr = ExprParsers(syntax, sig)
+  val schema = SchemaParsers(thy.syntax)
+  val typ = TypeParsers(thy.syntax, thy.sig)
+  val expr = ExprParsers(thy.syntax, thy.sig)
 
   val strict_schema = schema.parser ! "expected schema"
   val strict_typ = typ.parser ! "expected type"
@@ -199,7 +200,7 @@ case class DeclParsers(syntax: Syntax, sig: Sig) extends Parsers {
   val eq_expr = lit("=") ~> strict_expr
 
   val con = strict_schema map (_.con)
-  
+
   val fixdecl = parse(FixDecl)(fixity, nonkw)
 
   val opdecl = parse(OpDecl)(expr.name, colon_typ)
@@ -212,5 +213,7 @@ case class DeclParsers(syntax: Syntax, sig: Sig) extends Parsers {
   val datadef = lit("data") ~> parse(DataDef)(strict_schema, constrdecls)
   val typedef = lit("type") ~> parse(TypeDef)(strict_schema, eq_typ)
 
-  val opdef = parse(OpDef)(expr.parser)
+  val opdef = parse(OpDef)(expr.name, expr.arg *, eq_expr)
+
+  val parser = fixdecl | datadef | typedef | opdecl | opdef
 }

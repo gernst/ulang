@@ -6,8 +6,13 @@ import ulang.syntax._
 import ulang.source._
 import scala.collection.mutable.ListBuffer
 
-case class Context(syntax: Syntax, sig: Sig, free: List[FreeVar] = Nil) {
+case class Context(thy: Thy, free: List[FreeVar] = Nil) {
   type Phase = Parser[String, Decl]
+  
+  import Load._
+  import Parsers._
+
+  def +(decl: Decl) = Context(thy + decl, free)
 
   def phase[A](p: Parser[String, A], source: List[List[String]]): List[A] = {
     val as = new ListBuffer[A]
@@ -19,18 +24,24 @@ case class Context(syntax: Syntax, sig: Sig, free: List[FreeVar] = Nil) {
   }
 
   def phase(thy: Thy, fp: DeclParsers => Parser[String, Decl], source: List[List[String]]): Thy = {
-    val decls = DeclParsers(thy.syntax, thy.sig)
+    val decls = DeclParsers(thy)
     thy ++ phase(fp(decls), source)
   }
 
-  object parse {
-    import Load._
-    import Parsers._
+  def single[A](p: Parser[String, A], line: String) = {
+    val q = p $;
+    q(tokenize(line))
+  }
 
+  val _decls = DeclParsers(thy)
+  def _imprt(d: DeclParsers) = d.imprt map { name => Import(parse.thy(name)) }
+
+  object parse {
     def thy(name: String): Thy = {
       val source = load(name)
       var res = Thy.default
 
+      res = phase(res, _imprt, source)
       res = phase(res, _.fixdecl, source)
       res = phase(res, _.typedecl, source)
       res = phase(res, _.typedef, source)
@@ -38,10 +49,13 @@ case class Context(syntax: Syntax, sig: Sig, free: List[FreeVar] = Nil) {
       res = phase(res, _.opdef, source)
       res
     }
+
+    def expr(line: String): Expr = single(_decls.expr.parser, line)
+    def decl(line: String): Decl = single(_imprt(_decls) | _decls.parser, line)
   }
 }
 
 object Context {
-  val empty = Context(Syntax.empty, Sig.empty)
-  val default = Context(Syntax.default, Sig.default)
+  val empty = Context(Thy.empty)
+  val default = Context(Thy.default)
 }
