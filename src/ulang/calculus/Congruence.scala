@@ -1,7 +1,7 @@
 package ulang.calculus
 
 import ulang.syntax._
-import de.gidonernst.util.DisjointSets
+import ulang.DisjointSets
 
 case class Congruence(var _cong: DisjointSets[Expr], var _use: Map[Expr, Set[Expr]], var _sig: Map[Expr, Expr]) {
   def find(e: Expr) = _cong find e
