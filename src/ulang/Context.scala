@@ -29,7 +29,7 @@ case class Context(thy: Thy, free: List[FreeVar] = Nil) {
   }
 
   def single[A](p: Parser[String, A], line: String) = {
-    val q = p $;
+    val q = p.$;
     q(tokenize(line))
   }
 

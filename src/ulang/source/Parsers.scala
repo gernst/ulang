@@ -9,6 +9,7 @@ import java.io.StringReader
 import java.io.FileReader
 import java.io.Reader
 import java.io.File
+import scala.language.implicitConversions
 
 class Parsers extends Combinators with Primitives {
   type T = String
@@ -119,7 +120,7 @@ case class ExprParsers(syntax: Syntax, sig: Sig) extends Parsers with SyntaxPars
       FreeVar(name)
   }
 
-  val free_vars = free_var +
+  val free_vars = free_var.+
 
   val binding = parse(abs _)(free_vars <~ lit("."), mixfix_expr)
 
@@ -129,7 +130,7 @@ case class ExprParsers(syntax: Syntax, sig: Sig) extends Parsers with SyntaxPars
   val arg = parens(mixfix_expr) | free_var
   val closed = parens(mixfix_expr) | lambda | bindfix_app | free_var
 
-  val normal_app = parse(app _)(closed, closed *)
+  val normal_app = parse(app _)(closed, closed.*)
   val inner_expr: Parser[String, Expr] = normal_app
 
   def lift_ops(expr: Expr): Expr = expr mapFree {
@@ -154,7 +155,7 @@ case class SchemaParsers(syntax: Syntax) extends Parsers with SyntaxParsers {
   val prefix = (prefix_op ~ param) map { case ((op, _), arg) => unary(op, arg) }
   val postfix = (param ~ postfix_op) map { case (arg, (op, _)) => unary(op, arg) }
   val infix = (param ~ infix_op ~ param) map { case ((arg1, (op, _)), arg2) => binary(op, arg1, arg2) }
-  val normal = parse(app _)(name, param *)
+  val normal = parse(app _)(name, param.*)
 
   val parser = prefix | postfix | infix | normal
 }
@@ -174,7 +175,7 @@ case class TypeParsers(syntax: Syntax, sig: Sig) extends Parsers with SyntaxPars
   val param = name filterNot sig.cons.contains map TypeParam
 
   val closed = parens(mixfix_expr) | param
-  val type_app = parse(app _)(con, closed *)
+  val type_app = parse(app _)(con, closed.*)
 
   val inner_expr: Parser[String, Type] = type_app | closed
 
@@ -213,7 +214,7 @@ case class DeclParsers(thy: Thy) extends Parsers {
   val datadef = lit("data") ~> parse(DataDef)(strict_schema, constrdecls)
   val typedef = lit("type") ~> parse(TypeDef)(strict_schema, eq_typ)
 
-  val opdef = parse(OpDef)(expr.name, expr.arg *, eq_expr)
+  val opdef = parse(OpDef)(expr.name, expr.arg.*, eq_expr)
 
   val parser = fixdecl | datadef | typedef | opdecl | opdef
 }

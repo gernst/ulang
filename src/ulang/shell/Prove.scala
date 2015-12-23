@@ -10,8 +10,8 @@ case class Prove(context: Context) extends Shell {
   import ulang.source.Parsers._
   import ulang.calculus.Parsers._
   
-  val parse_rule = rule(context) $
-  val parse_phi = formula(context) $
+  val parse_rule = rule(context).$
+  val parse_phi = formula(context).$
 
   val prompt = "prove> "
   val commands = Map(

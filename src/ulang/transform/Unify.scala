@@ -3,6 +3,7 @@ package ulang.transform
 import ulang.syntax._
 import arse.control._
 import ulang.DisjointSets
+import scala.language.implicitConversions
 
 class Unify(sig: Sig) {
   import Unify.Subst
