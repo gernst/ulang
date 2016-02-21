@@ -7,7 +7,7 @@ import ulang.source._
 import scala.collection.mutable.ListBuffer
 
 case class Context(thy: Thy, free: List[FreeVar] = Nil) {
-  type Phase = Parser[String, Decl]
+  type pass = Parser[String, Decl]
   
   import Load._
   import Parsers._
@@ -15,7 +15,7 @@ case class Context(thy: Thy, free: List[FreeVar] = Nil) {
   def flatten = Context(thy.flatten, free)
   def +(decl: Decl) = Context(thy + decl, free)
 
-  def phase[A](p: Parser[String, A], source: List[List[String]]): List[A] = {
+  def pass[A](p: Parser[String, A], source: List[List[String]]): List[A] = {
     val as = new ListBuffer[A]
     for (in <- source) {
       try { val (a, _) = p(in); as += a }
@@ -24,9 +24,9 @@ case class Context(thy: Thy, free: List[FreeVar] = Nil) {
     as.toList
   }
 
-  def phase(thy: Thy, fp: DeclParsers => Parser[String, Decl], source: List[List[String]]): Thy = {
+  def pass(thy: Thy, fp: DeclParsers => Parser[String, Decl], source: List[List[String]]): Thy = {
     val decls = DeclParsers(thy)
-    thy ++ phase(fp(decls), source)
+    thy ++ pass(fp(decls), source)
   }
 
   def single[A](p: Parser[String, A], line: String) = {
@@ -42,12 +42,12 @@ case class Context(thy: Thy, free: List[FreeVar] = Nil) {
       val source = load(name)
       var res = Thy.default
 
-      res = phase(res, _imprt, source)
-      res = phase(res, _.fixdecl, source)
-      res = phase(res, _.typedecl, source)
-      res = phase(res, _.typedef, source)
-      res = phase(res, _.opdecl, source)
-      res = phase(res, _.opdef, source)
+      res = pass(res, _imprt, source)
+      res = pass(res, _.fixdecl, source)
+      res = pass(res, _.typedecl, source)
+      res = pass(res, _.typedef, source)
+      res = pass(res, _.opdecl, source)
+      res = pass(res, _.opdef, source)
       res
     }
 

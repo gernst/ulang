@@ -27,7 +27,7 @@ object Parsers {
   val keywords = Set(
     "import", "data", "type",
     "prefix", "infix", "postfix", "binder",
-    "(", ")", ";", "\\", ".")
+    "(", ")", ";", "λ", ".")
 
   type Region = List[String]
 
@@ -184,9 +184,11 @@ case class TypeParsers(syntax: Syntax, sig: Sig) extends Parsers with SyntaxPars
   val parser = mixfix_expr
 }
 
-case class DeclParsers(thy: Thy) extends Parsers {
+case class DeclParsers(_thy: Thy) extends Parsers {
   import Parsers._
   import FixityParsers.fixity
+
+  val thy = _thy.flatten
 
   val schema = SchemaParsers(thy.syntax)
   val typ = TypeParsers(thy.syntax, thy.sig)
@@ -216,7 +218,11 @@ case class DeclParsers(thy: Thy) extends Parsers {
   val datadef = lit("data") ~> parse(DataDef)(strict_schema, constrdecls)
   val typedef = lit("type") ~> parse(TypeDef)(strict_schema, eq_typ)
 
-  val opdef = parse(OpDef)(expr.name, expr.arg.*, eq_expr)
+  def _opdef(name: String, args: List[Expr], rhs: Expr): OpDef = {
+    ???
+  }
+
+  val opdef = parse(_opdef _)(expr.name, expr.arg.*, eq_expr)
 
   val parser = fixdecl | datadef | typedef | opdecl | opdef
 }

@@ -27,10 +27,8 @@ case class Sig(cons: Map[String, Set[Int]], ops: Map[String, Set[Type]]) {
   }
 
   def contains(op: Op) = op match {
-    case Op(name, typ: TypeApp) =>
+    case Op(name, typ) =>
       (ops contains name) && (ops(name) contains typ)
-    case _ =>
-      false
   }
 
   override def toString = {

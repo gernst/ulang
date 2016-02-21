@@ -23,6 +23,7 @@ object Repl extends Shell {
     ":sig" -> cmd(out(context.thy.sig)),
     ":defs" -> cmd(out(context.thy.df)),
     ":syntax" -> cmd(out(context.thy.syntax)),
+    ":flatten" -> cmd(context = context.flatten),
     // ":net" -> cmd(out(context.thy.df.net)),
     // ":model" -> cmd(out(context.model.keys.mkString(" "))),
     ":prove" -> cmd(Prove(context).repl),
@@ -36,6 +37,7 @@ object Repl extends Shell {
       context += decl
     } or {
       val expr = context.parse.expr(line)
+      out(expr)
     }
   }
 }
