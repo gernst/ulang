@@ -87,16 +87,18 @@ trait SyntaxParsers {
   def keywords: Set[String]
 
   def mixfix_op[A](m: Map[String, A], name: String) = {
-    if (m contains name) (op(name), m(name))
+    if (keywords contains name) fail
+    else if (m contains name) (op(name), m(name))
     else fail
   }
 
   def mixfix_op(s: Set[String], name: String) = {
-    if (s contains name) op(name)
+    if (keywords contains name) fail
+    else if (s contains name) op(name)
     else fail
   }
 
-  val name = string filterNot keywords
+  lazy val name = string filterNot keywords // keywords is initialized in subclass
   val prefix_op = next { mixfix_op(syntax.prefix_ops, _) }
   val postfix_op = next { mixfix_op(syntax.postfix_ops, _) }
   val infix_op = next { mixfix_op(syntax.infix_ops, _) }

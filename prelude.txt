@@ -121,7 +121,7 @@ flatten none = none
 
 /* ********* Pair ********* */
 
-data (×) a b
+data a × b
   = , : a → b → a × b
 
 fst: a × b → a

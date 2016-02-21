@@ -12,6 +12,7 @@ case class Context(thy: Thy, free: List[FreeVar] = Nil) {
   import Load._
   import Parsers._
 
+  def flatten = Context(thy.flatten, free)
   def +(decl: Decl) = Context(thy + decl, free)
 
   def phase[A](p: Parser[String, A], source: List[List[String]]): List[A] = {

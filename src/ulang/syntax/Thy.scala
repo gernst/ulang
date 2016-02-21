@@ -13,6 +13,10 @@ case class Thy(name: String, imports: List[Thy], syntax: Syntax, sig: Sig, df: D
   def +(thy: Thy) = copy(imports = imports :+ thy)
   def ++(that: Thy) = Thy(name, this.imports ++ that.imports, this.syntax ++ that.syntax, this.sig ++ that.sig, this.df ++ that.df)
 
+  def flatten: Thy = {
+    imports.foldLeft(this)(_ ++ _)
+  }
+
   def ++(decls: List[Decl]): Thy = {
     decls.foldLeft(this)(_ + _)
   }
@@ -39,7 +43,8 @@ case class Thy(name: String, imports: List[Thy], syntax: Syntax, sig: Sig, df: D
       this + Op(name, typ)
 
     case OpDef(name, args, rhs) =>
-      ???
+      // ???
+      this
       // this + (name, Case(args, rhs))
   }
 

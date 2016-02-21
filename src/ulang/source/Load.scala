@@ -16,7 +16,7 @@ object Load {
         error("in load: recursive dependency in " + name)
       pending += name
 
-      regionize(new File(name))
+      regionize(new File(name + Extension))
     } finally {
       pending -= name
     }
