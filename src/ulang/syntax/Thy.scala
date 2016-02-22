@@ -13,17 +13,13 @@ case class Thy(name: String, imports: List[Thy], syntax: Syntax, sig: Sig, df: D
   def +(thy: Thy) = copy(imports = imports :+ thy)
   def ++(that: Thy) = Thy(name, this.imports ++ that.imports, this.syntax ++ that.syntax, this.sig ++ that.sig, this.df ++ that.df)
 
-  lazy val flatten: Thy = {
-    imports.foldLeft(this)(_ ++ _.flatten) copy (imports = Nil)
-  }
-
   def ++(decls: List[Decl]): Thy = {
     decls.foldLeft(this)(_ + _)
   }
 
   def +(decl: Decl): Thy = decl match {
-    case Import(thy) =>
-      this + thy
+    case Import(mod) =>
+      this + mod.thy
 
     case FixDecl(fixity, name) =>
       this + (name, fixity)
@@ -42,9 +38,9 @@ case class Thy(name: String, imports: List[Thy], syntax: Syntax, sig: Sig, df: D
     case OpDecl(name, typ) =>
       this + Op(name, typ)
 
-    case OpDef(name, typ, args, rhs) =>
+    case OpDef(op, args, rhs) =>
       import ulang.syntax.predefined.pred
-      this + pred.Eq(App(Op(name, typ), args), rhs)
+      this + pred.Eq(App(op, args), rhs)
   }
 
   override def toString = sig + "\n" + df + "\n" + syntax

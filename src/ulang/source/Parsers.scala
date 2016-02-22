@@ -61,6 +61,15 @@ object Parsers {
     }
     buffer.toList
   }
+  
+  def pass[A](p: Parser[String, A], source: List[List[String]]): List[A] = {
+    val as = new ListBuffer[A]
+    for (in <- source) {
+      try { val (a, _) = p(in); as += a }
+      catch { case _: Backtrack => }
+    }
+    as.toList
+  }
 }
 
 object FixityParsers extends Parsers {
@@ -184,15 +193,13 @@ case class TypeParsers(syntax: Syntax, sig: Sig) extends Parsers with SyntaxPars
   val parser = mixfix_expr
 }
 
-case class DeclParsers(_thy: Thy) extends Parsers {
+case class DeclParsers(syntax: Syntax, sig: Sig) extends Parsers {
   import Parsers._
   import FixityParsers.fixity
 
-  val thy = _thy.flatten
-
-  val schema = SchemaParsers(thy.syntax)
-  val typ = TypeParsers(thy.syntax, thy.sig)
-  val expr = ExprParsers(thy.syntax, thy.sig)
+  val schema = SchemaParsers(syntax)
+  val typ = TypeParsers(syntax, sig)
+  val expr = ExprParsers(syntax, sig)
 
   val strict_schema = schema.parser ! "expected schema"
   val strict_typ = typ.parser ! "expected type"
@@ -219,7 +226,8 @@ case class DeclParsers(_thy: Thy) extends Parsers {
   val typedef = lit("type") ~> parse(TypeDef)(strict_schema, eq_typ)
 
   def _opdef(name: String, args: List[Expr], rhs: Expr): OpDef = {
-    ???
+    val typ: Type = ??? // TODO: infer and check type
+    OpDef(Op(name, typ), args, rhs)
   }
 
   val opdef = parse(_opdef _)(expr.name, expr.arg.*, eq_expr)
