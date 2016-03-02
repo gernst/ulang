@@ -1,6 +1,7 @@
 package ulang.syntax
 
 import arse.control._
+import ulang.source._
 
 case class Sig(cons: Map[String, Set[Int]], ops: Map[String, Set[Type]]) {
   def +(con: Con) = {
@@ -21,6 +22,17 @@ case class Sig(cons: Map[String, Set[Int]], ops: Map[String, Set[Type]]) {
     Sig(this.cons ++ that.cons, this.ops ++ that.ops)
   }
 
+  def ++(pairs: List[Decl]): Sig = {
+    pairs.foldLeft(this)(_ + _)
+  }
+
+  def +(decl: Decl): Sig = decl match {
+    case Import(mod) => this ++ mod.decls
+    case TypeDecl(con) => this + con
+    case OpDecl(name, typ) => this + Op(name, typ)
+    case _ => this
+  }
+
   def contains(con: Con) = con match {
     case Con(name, arity) =>
       (cons contains name) && (cons(name) contains arity)
@@ -39,9 +51,10 @@ case class Sig(cons: Map[String, Set[Int]], ops: Map[String, Set[Type]]) {
 }
 
 object Sig {
+  def apply(decls: List[Decl]): Sig = empty ++ decls
   val empty = Sig(Map.empty[String, Set[Int]], Map.empty[String, Set[Type]])
   val default = Sig(List(Con.function, Con.bool), List(Op.equals, Op.if_then_else))
-  
+
   def apply(cons: List[Con], ops: List[Op]): Sig = {
     var res = Sig.empty
     res = cons.foldLeft(res)(_ + _)

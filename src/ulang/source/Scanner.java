@@ -234,6 +234,7 @@ class Scanner {
     public int line() { return yyline; }
     public int column() { return yycolumn; }
     public int pos() { return yychar; }
+    public String tok() { return yytext(); }
 
 
   /**
@@ -601,7 +602,7 @@ class Scanner {
           }
         case 13: break;
         case 1: 
-          { return yytext();
+          { return tok();
           }
         case 14: break;
         case 6: 

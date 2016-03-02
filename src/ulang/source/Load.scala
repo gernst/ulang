@@ -6,9 +6,14 @@ import java.io.File
 object Load {
   val Extension = ".txt"
 
+  var cache: Map[String, Any] = Map.empty
   var pending: Set[String] = Set.empty
 
-  def load(name: String): List[List[String]] = {
+  def clear {
+    cache = Map.empty
+  }
+
+  def load[A](name: String)(f: List[List[String]] => A): A = {
     import Parsers._
 
     try {
@@ -16,7 +21,14 @@ object Load {
         error("in load: recursive dependency in " + name)
       pending += name
 
-      regionize(new File(name + Extension))
+      if (cache contains name) {
+        cache(name).asInstanceOf[A]
+      } else {
+        val a = f(regionize(new File(name + Extension)))
+        cache += name -> a
+        a
+      }
+
     } finally {
       pending -= name
     }

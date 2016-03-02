@@ -11,9 +11,11 @@ package ulang;
 %{
     private int commentNesting = 0;
     
-    public int line() { return yyline; }
+    public int line()   { return yyline; }
     public int column() { return yycolumn; }
-    public int pos() { return yychar; }
+    public int pos()    { return yychar; }
+    
+    public String tok() { return yytext(); }
 %}
 
 nl = \r|\n|\r\n
@@ -54,9 +56,9 @@ delim = [()\[\]\\.,:;]
 {ws}* {nl}  { return ";";  }
 {sp}+       { /* ignore */ }
 
-{delim}     { return yytext(); }
-{id}        { return yytext(); }
-{special}   { return yytext(); }
+{delim}     { return tok(); }
+{id}        { return tok(); }
+{special}   { return tok(); }
 
-// .|\n        { throw new RuntimeException("in scan: unexpected character '" + yytext() + "'"); }
+// .|\n        { throw new RuntimeException("in scan: unexpected character '" + tok() + "'"); }
 }
