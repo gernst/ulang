@@ -1,6 +1,6 @@
 package ulang.transform
 
-import de.gidonernst.util.DisjointSets
+import ulang.DisjointSets
 import ulang.source._
 import ulang.syntax._
 import arse.control._

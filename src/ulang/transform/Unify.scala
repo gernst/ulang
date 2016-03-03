@@ -2,7 +2,7 @@ package ulang.transform
 
 import ulang.syntax._
 import arse.control._
-import de.gidonernst.util.DisjointSets
+import ulang.DisjointSets
 
 class Unify(sig: Sig) {
   import Unify.Subst
