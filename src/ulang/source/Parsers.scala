@@ -21,15 +21,15 @@ class Parsers extends Combinators with Primitives {
 }
 
 object Parsers {
-  implicit def toFileReader(file: File) = new FileReader(file)
-  implicit def toStringReader(text: String) = new StringReader(text)
-
   val keywords = Set(
     "import", "data", "type",
     "prefix", "infix", "postfix", "binder",
     "(", ")", ";", "λ", ".")
 
   type Region = List[String]
+
+  implicit def toFileReader(file: File) = new FileReader(file)
+  implicit def toStringReader(string: String) = new StringReader(string)
 
   def tokenize(reader: Reader): List[String] = {
     val scan = new Scanner(reader)
@@ -62,7 +62,13 @@ object Parsers {
     buffer.toList
   }
 
-  def pass[A](p: Parser[String, A], source: List[List[String]]): List[A] = {
+  def single[A](p: Parser[String, A], source: List[String]) = {
+    val q = p.$;
+    q(source)
+  }
+
+  def pass[A](thy: Thy, gp: Grammar => Parser[String, A], source: List[List[String]]): List[A] = {
+    val p = gp(new Grammar(thy))
     val as = new ListBuffer[A]
     for (in <- source) {
       try { val (a, _) = p(in); as += a }
@@ -71,37 +77,18 @@ object Parsers {
     as.toList
   }
 
-  def pass[A <: Decl](syntax: Syntax, sig: Sig, fp: DeclParsers => Parser[String, A], source: List[List[String]]): List[A] = {
-    val decls = DeclParsers(syntax, sig)
-    Parsers.pass(fp(decls), source)
-  }
-
-  def module(name: String): Module = Load.load(name) {
-    source =>
-
-      var syntax = Syntax.default
-      var sig = Sig.default
-      var defs = Defs.default
-
-      val imports = pass(syntax, sig, _.imprt, source)
-      syntax ++= imports
-      sig ++= imports
-
-      val fixdecls = pass(syntax, sig, _.fixdecl, source)
-      syntax ++= fixdecls
-
-      val typedecls = pass(syntax, sig, _.typedecl, source)
-      sig ++= typedecls
-
-      val opdecls = pass(syntax, sig, _.opdecl, source)
-      sig ++= opdecls
-
-      val datadefs = pass(syntax, sig, _.datadef, source)
-      val typedefs = pass(syntax, sig, _.typedef, source)
-      val opdefs = pass(syntax, sig, _.opdef, source)
-
-      val decls = imports ::: fixdecls ::: typedecls ::: opdecls ::: datadefs ::: typedefs ::: opdefs
-      Module(name, decls)
+  def theory(name: String): Thy = Load.load(name) {
+    reader =>
+      val source = regionize(reader)
+      var thy = Thy.default
+      thy ++= pass(thy, _.decls.imprt, source)
+      thy ++= pass(thy, _.decls.fixdecl, source)
+      thy ++= pass(thy, _.decls.typedecl, source)
+      thy ++= pass(thy, _.decls.opdecl, source)
+      thy ++= pass(thy, _.decls.datadef, source)
+      thy ++= pass(thy, _.decls.typedef, source)
+      thy ++= pass(thy, _.decls.opdef, source)
+      thy
   }
 }
 

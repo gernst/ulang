@@ -4,27 +4,56 @@ import ulang.DisjointSets
 import ulang.source._
 import ulang.syntax._
 import arse.control._
+import ulang.syntax.predefined.pred.Eq
 
 class Infer(sig: Sig, df: Defs) {
   import Unify._
 
-  def infer(preexpr: Expr): (Expr, Type) = {
-    val (ityp, thetas) = infer(preexpr, Nil, List(DisjointSets.empty))
+  def check_overloading(expr: Expr, pairs: List[(Expr, Type)]): (Expr, Type) = pairs match {
+    case Nil =>
+      error("in infer: no type for " + expr)
 
-    val (expr, rtyp) = thetas match {
-      case Nil =>
-        error("in infer: no type for " + preexpr)
-      case List(theta) =>
-        // println("in infer: subst = " + theta)
-        (subst(preexpr, theta), subst(ityp, theta))
-      case _ =>
-        error("in infer: unresolved overloading for: " + preexpr)
-    }
+    case List((expr, typ)) =>
+      // println("in infer: subst = " + theta)
 
-    if (rtyp.isInstanceOf[TypeVar])
-      error("in infer: unspecified type of " + preexpr + ": " + rtyp)
+      if (!typ.isConcrete)
+        error("in infer: unspecified type of " + expr + ": " + typ)
 
-    (expr, rtyp)
+      (expr, typ)
+
+    case _ =>
+      error("in infer: unresolved overloading for: " + expr)
+  }
+
+  def infer(expr: Expr): (Expr, Type) = {
+    val (typ, thetas) = _infer(expr)
+    check_overloading(expr, subst(expr, typ, thetas))
+  }
+
+  def infer_def(op: Op, args: List[Expr], _rhs: Expr): (Expr, Type) = {
+    val (lhs, rhs, typ) = infer_eq(App(op, args), _rhs)
+    (Eq(lhs, rhs), Type.bool)
+  }
+
+  def infer_defs(name: String, args: List[Expr], rhs: Expr): (Expr, Type) = {
+    val ts = sig.ops(name).toList
+    val ops = ts map (Op(name, _))
+    val preexpr = Eq(App(Op(name), args), rhs)
+    check_overloading(preexpr, ops map (infer_def(_, args, rhs)))
+  }
+
+  def infer_eq(_lhs: Expr, _rhs: Expr): (Expr, Expr, Type) = {
+    val (_ltyp, thetas1) = _infer(_lhs)
+    val (_rtyp, thetas2) = _infer(_rhs, Nil, thetas1)
+    val thetas3 = unify(_rtyp, _ltyp, thetas2)
+    val (lhs, ltyp) = check_overloading(_lhs, subst(_lhs, _ltyp, thetas3))
+    val (rhs, rtyp) = check_overloading(_rhs, subst(_rhs, _rtyp, thetas3))
+    assert(ltyp == rtyp)
+    (lhs, rhs, ltyp)
+  }
+
+  def _infer(expr: Expr): (Type, List[Subst]) = {
+    infer(expr, Nil, List(DisjointSets.empty))
   }
 
   def infer(expr: Expr, stack: List[FreeVar], thetas: List[Subst]): (Type, List[Subst]) = {
@@ -61,6 +90,11 @@ class Infer(sig: Sig, df: Defs) {
       val ts1 = ts0 map (df synonym _.generic)
       (typ, ts1.flatMap(unify(typ, _, thetas)))
 
+    case op @ Op(name, typ) =>
+      if (!(sig contains op))
+        fatal("in infer: " + expr + " is not in the signature")
+      (typ, thetas)
+
     case App(fun, arg) =>
       val (ft, thetas1) = infer(fun, stack, thetas)
       val (at, thetas2) = infer(arg, stack, thetas1)
@@ -83,6 +117,10 @@ class Infer(sig: Sig, df: Defs) {
 
     case _ =>
       error("in infer: cannot type " + expr)
+  }
+
+  def subst(expr: Expr, typ: Type, thetas: List[Subst]): List[(Expr, Type)] = {
+    thetas map { theta => (subst(expr, theta), subst(typ, theta)) }
   }
 
   def subst(typ: Type, theta: Subst): Type = typ match {

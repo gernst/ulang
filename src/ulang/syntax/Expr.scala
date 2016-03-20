@@ -19,7 +19,7 @@ sealed trait Expr {
 }
 
 case class Op(name: String, typ: Type = TypeVar.fresh) extends Expr with ulang.semantics.Data {
-  override def toString = name
+  override def toString = name + ":" + typ
   def abs(x: FreeVar, index: Int) = this
   def bind(stack: List[FreeVar]) = this
   def free = Set.empty[FreeVar]
@@ -37,7 +37,7 @@ case class BoundVar(index: Int) extends Expr {
 }
 
 case class FreeVar(name: String, typ: Type = TypeVar.fresh) extends Expr {
-  override def toString = "$" + name
+  override def toString = "$" + name + ":" + typ
   def abs(x: FreeVar, index: Int) = if (x == this) BoundVar(index) else this
 
   def bind(stack: List[FreeVar]) = {

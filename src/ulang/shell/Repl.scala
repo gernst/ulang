@@ -30,13 +30,13 @@ object Repl extends Shell {
 
   def read(line: String) = {
     import ulang.syntax.predefined._
-/*
+
     {
       val decl = context.parse.decl(line)
       context += decl
     } or {
       val expr = context.parse.expr(line)
       out(expr)
-    }*/
+    }
   }
 }

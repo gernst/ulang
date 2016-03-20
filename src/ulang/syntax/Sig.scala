@@ -22,13 +22,14 @@ case class Sig(cons: Map[String, Set[Int]], ops: Map[String, Set[Type]]) {
     Sig(this.cons ++ that.cons, this.ops ++ that.ops)
   }
 
-  def ++(pairs: List[Decl]): Sig = {
-    pairs.foldLeft(this)(_ + _)
+  def ++(decls: List[Decl]): Sig = {
+    decls.foldLeft(this)(_ + _)
   }
 
   def +(decl: Decl): Sig = decl match {
-    case Import(mod) => this ++ mod.decls
+    case Import(thy) => this ++ thy.sig
     case TypeDecl(con) => this + con
+    case DataDef(_, constrs) => this ++ constrs
     case OpDecl(name, typ) => this + Op(name, typ)
     case _ => this
   }
@@ -52,6 +53,7 @@ case class Sig(cons: Map[String, Set[Int]], ops: Map[String, Set[Type]]) {
 
 object Sig {
   def apply(decls: List[Decl]): Sig = empty ++ decls
+  
   val empty = Sig(Map.empty[String, Set[Int]], Map.empty[String, Set[Type]])
   val default = Sig(List(Con.function, Con.bool), List(Op.equals, Op.if_then_else))
 

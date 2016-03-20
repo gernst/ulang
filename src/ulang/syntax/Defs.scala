@@ -15,8 +15,8 @@ case class Defs(data: Map[Con, Set[Op]], syn: Map[Con, (List[TypeParam], Type)],
   }
 
   def +(decl: Decl): Defs = decl match {
-    case Import(mod) =>
-      this ++ mod.decls
+    case Import(thy) =>
+      this ++ thy.df
     case TypeDef(schema, rhs) =>
       this + (schema.con, schema.args, rhs)
     case DataDef(schema, constrs) =>

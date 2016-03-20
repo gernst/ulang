@@ -36,13 +36,13 @@ case class Syntax(
     that.infix_ops.foldLeft(this.infix_ops)(insert),
     that.bindfix_ops)
 
-  def ++(pairs: List[Decl]): Syntax = {
-    pairs.foldLeft(this)(_ + _)
+  def ++(decls: List[Decl]): Syntax = {
+    decls.foldLeft(this)(_ + _)
   }
 
   def +(decl: Decl): Syntax = decl match {
-    case Import(mod) =>
-      this ++ mod.decls
+    case Import(thy) =>
+      this ++ thy.syntax
     case FixDecl(Prefix(prec), name) =>
       copy(prefix_ops = insert(prefix_ops, name -> prec))
     case FixDecl(Postfix(prec), name) =>

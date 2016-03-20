@@ -5,7 +5,7 @@ import arse.Fixity
 import ulang.syntax.Thy
 
 sealed trait Decl
-case class Import(mod: Module) extends Decl
+case class Import(thy: Thy) extends Decl
 case class FixDecl(fixity: Fixity, name: String) extends Decl
 case class TypeDecl(con: Con) extends Decl
 case class OpDecl(name: String, typ: Type) extends Decl
