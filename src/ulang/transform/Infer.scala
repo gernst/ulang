@@ -9,6 +9,8 @@ import ulang.syntax.predefined.pred.Eq
 class Infer(sig: Sig, df: Defs) {
   import Unify._
 
+  val unify = new Unify(Nil)
+
   def check_overloading(expr: Expr, pairs: List[(Expr, Type)]): (Expr, Type) = pairs match {
     case Nil =>
       error("in infer: no type for " + expr)
@@ -26,8 +28,8 @@ class Infer(sig: Sig, df: Defs) {
   }
 
   def infer(expr: Expr): (Expr, Type) = {
-    val (typ, thetas) = _infer(expr)
-    check_overloading(expr, subst(expr, typ, thetas))
+    val (typ) = infer(expr, Nil)
+    check_overloading(expr, subst(expr, typ))
   }
 
   def infer_def(op: Op, args: List[Expr], _rhs: Expr): (Expr, Type) = {
@@ -36,91 +38,94 @@ class Infer(sig: Sig, df: Defs) {
   }
 
   def infer_defs(name: String, args: List[Expr], rhs: Expr): (Expr, Type) = {
-    val ts = sig.ops(name).toList
+    val ts = sig.ops(name)
     val ops = ts map (Op(name, _))
     val preexpr = Eq(App(Op(name), args), rhs)
+
+    val solve = new Solve(sig)
+    val (ct, cs) = solve.constraints(preexpr, Nil)
+    println("constraints for " + preexpr + ": " + ct)
+    for ((t, ts) <- cs) {
+      println("  " + t + " in " + ts.mkString("{ ", ", ", " }"))
+    }
+    println()
+
     check_overloading(preexpr, ops map (infer_def(_, args, rhs)))
   }
 
   def infer_eq(_lhs: Expr, _rhs: Expr): (Expr, Expr, Type) = {
-    val (_ltyp, thetas1) = _infer(_lhs)
-    val (_rtyp, thetas2) = _infer(_rhs, Nil, thetas1)
-    val thetas3 = unify(_rtyp, _ltyp, thetas2)
-    val (lhs, ltyp) = check_overloading(_lhs, subst(_lhs, _ltyp, thetas3))
-    val (rhs, rtyp) = check_overloading(_rhs, subst(_rhs, _rtyp, thetas3))
+    val _ltyp = infer(_lhs, Nil)
+    val _rtyp = infer(_rhs, Nil)
+    unify(_rtyp, _ltyp)
+    val (lhs, ltyp) = check_overloading(_lhs, subst(_lhs, _ltyp))
+    val (rhs, rtyp) = check_overloading(_rhs, subst(_rhs, _rtyp))
     assert(ltyp == rtyp)
     (lhs, rhs, ltyp)
   }
 
-  def _infer(expr: Expr): (Type, List[Subst]) = {
-    infer(expr, Nil, List(DisjointSets.empty))
-  }
-
-  def infer(expr: Expr, stack: List[FreeVar], thetas: List[Subst]): (Type, List[Subst]) = {
-    val (typ, new_thetas) = _infer(expr, stack, thetas)
-    if (new_thetas.isEmpty)
+  def infer(expr: Expr, stack: List[FreeVar]): Type = {
+    val typ = _infer(expr, stack)
+    if (unify.thetas.isEmpty)
       error("in infer: no type for " + expr)
 
     // val ts = new_thetas.map(_.find(typ))
     // println("in infer: " + expr + " in " + ts.mkString("{ ", ", ", " }"))
 
-    (typ, new_thetas)
+    typ
   }
 
-  def unify(t1: Type, t2: Type, thetas: List[Subst]) = {
-    sig unify (t1, t2, thetas)
-  }
-
-  def _infer(expr: Expr, stack: List[FreeVar], thetas: List[Subst]): (Type, List[Subst]) = expr match {
+  def _infer(expr: Expr, stack: List[FreeVar]): Type = expr match {
     // case FreeVar(_, typ: TypeVar) =>
     //   fatal("in infer: unbound variable " + expr)
 
     case FreeVar(_, typ) =>
-      (typ, thetas)
+      (typ)
 
     case BoundVar(index) =>
       val FreeVar(_, typ) = stack(index)
-      (typ, thetas)
+      (typ)
 
     case Op(name, typ: TypeVar) =>
       if (!(sig.ops contains name))
         fatal("in infer: " + expr + " is not in the signature")
 
-      val ts0 = sig.ops(name).toList
+      val ts0 = sig.ops(name)
       val ts1 = ts0 map (df synonym _.generic)
-      (typ, ts1.flatMap(unify(typ, _, thetas)))
+      ts1 foreach (unify(typ, _))
+      typ
 
     case op @ Op(name, typ) =>
       if (!(sig contains op))
         fatal("in infer: " + expr + " is not in the signature")
-      (typ, thetas)
+      (typ)
 
     case App(fun, arg) =>
-      val (ft, thetas1) = infer(fun, stack, thetas)
-      val (at, thetas2) = infer(arg, stack, thetas1)
+      val ft = infer(fun, stack)
+      val at = infer(arg, stack)
       val rt = TypeVar.fresh
-      val thetas3 = unify(ft, at → rt, thetas2)
+      unify(ft, at → rt)
 
-      if (thetas3.isEmpty) {
-        val fts = thetas2.map(_.find(ft))
+      if (unify.thetas.isEmpty) {
+        val fts = unify.thetas.map(_.find(ft))
         println("in infer: " + fun + " in " + fts.mkString("{ ", ", ", " }"))
-        val ats = thetas2.map(_.find(at))
+        val ats = unify.thetas.map(_.find(at))
         println("in infer: " + arg + " in " + ats.mkString("{ ", ", ", " }"))
         error("in infer: cannot apply " + fun + " to " + arg)
       }
-      (rt, thetas3)
+
+      rt
 
     case Lambda(bound, body) =>
-      val (at, thetas1) = infer(bound, stack, thetas)
-      val (bt, thetas2) = infer(body, bound :: stack, thetas1)
-      (at → bt, thetas2)
+      val (at) = infer(bound, stack)
+      val (bt) = infer(body, bound :: stack)
+      (at → bt)
 
     case _ =>
       error("in infer: cannot type " + expr)
   }
 
-  def subst(expr: Expr, typ: Type, thetas: List[Subst]): List[(Expr, Type)] = {
-    thetas map { theta => (subst(expr, theta), subst(typ, theta)) }
+  def subst(expr: Expr, typ: Type): List[(Expr, Type)] = {
+    unify.thetas map { theta => (subst(expr, theta), subst(typ, theta)) }
   }
 
   def subst(typ: Type, theta: Subst): Type = typ match {
@@ -140,47 +145,4 @@ class Infer(sig: Sig, df: Defs) {
     case Lambda(bound, body) => Lambda(subst(bound, theta).asInstanceOf[FreeVar], subst(body, theta))
     case _ => expr
   }
-
-  type Constraint = (TypeVar, Set[Type])
-
-  def constraints(expr: Expr, stack: List[FreeVar]): (TypeVar, List[Constraint]) = expr match {
-    case FreeVar(name, typ: TypeVar) =>
-      (typ, Nil)
-
-    case BoundVar(index) =>
-      constraints(stack(index), stack)
-
-    case Op(name, typ: TypeVar) =>
-      if (!(sig.ops contains name))
-        fatal("in infer: " + expr + " is not in the signature")
-
-      val ts = sig.ops(name) map (_.generic)
-      (typ, List((typ, ts)))
-
-    case op @ Op(name, typ) =>
-      if (!(sig contains op))
-        fatal("in infer: " + expr + " is not in the signature")
-
-      val to = TypeVar.fresh
-      (to, List((to → Set(typ.generic))))
-
-    case App(fun, arg) =>
-      val (tf, csf) = constraints(fun, stack)
-      val (ta, csa) = constraints(arg, stack)
-      val tr = TypeVar.fresh
-      (tr, (tf, Set(ta → tr)) :: csf ::: csa)
-
-    case Lambda(bound, body) =>
-      val (ta, _) = constraints(bound, stack)
-      val (tb, cs) = constraints(body, bound :: stack)
-      val tl = TypeVar.fresh
-      (tl, (tl, Set(ta → tb)) :: cs)
-
-    case _ =>
-      fatal("in infer: non-generic type for " + expr)
-  }
-}
-
-object Infer {
-  implicit def toInfer(sig: Sig, df: Defs) = new Infer(sig, df)
 }

@@ -3,16 +3,16 @@ package ulang.syntax
 import arse.control._
 import ulang.source._
 
-case class Sig(cons: Map[String, Set[Int]], ops: Map[String, Set[Type]]) {
+case class Sig(cons: Map[String, List[Int]], ops: Map[String, List[Type]]) {
   def +(con: Con) = {
-    val as = cons.getOrElse(con.name, Set.empty)
-    copy(cons = cons + (con.name -> (as + con.arity)))
+    val as = cons.getOrElse(con.name, Nil)
+    copy(cons = cons + (con.name -> (as :+ con.arity)))
   }
 
   def +(op: Op) = op match {
     case Op(name, typ: TypeApp) =>
-      val ts = ops.getOrElse(op.name, Set.empty)
-      copy(ops = ops + (name -> (ts + typ)))
+      val ts = ops.getOrElse(op.name, Nil)
+      copy(ops = ops + (name -> (ts :+ typ)))
     case _ =>
       // this should be fatal?
       error("in sig: " + op + " has arbitrary type " + op.typ)
@@ -54,7 +54,7 @@ case class Sig(cons: Map[String, Set[Int]], ops: Map[String, Set[Type]]) {
 object Sig {
   def apply(decls: List[Decl]): Sig = empty ++ decls
   
-  val empty = Sig(Map.empty[String, Set[Int]], Map.empty[String, Set[Type]])
+  val empty = Sig(Map.empty[String, List[Int]], Map.empty[String, List[Type]])
   val default = Sig(List(Con.function, Con.bool), List(Op.equals, Op.if_then_else))
 
   def apply(cons: List[Con], ops: List[Op]): Sig = {
