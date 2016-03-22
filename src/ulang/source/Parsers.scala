@@ -77,7 +77,7 @@ object Parsers {
     as.toList
   }
 
-  def theory(name: String): Thy = Load.load(name) {
+  def module(name: String): Module = Load.load(name) {
     reader =>
       val source = regionize(reader)
       var thy = Thy.default
@@ -89,6 +89,8 @@ object Parsers {
       thy ++= pass(thy, _.decls.typedef, source)
       thy ++= pass(thy, _.decls.opdef, source)
       thy
+
+      Module(name, Nil)
   }
 }
 

@@ -3,7 +3,8 @@ package ulang.source
 import arse._
 import arse.control._
 import arse.Combinators.parse
-import ulang.syntax._
+import ulang.syntax.Thy
+import ulang.syntax.Bindfix
 import ulang.transform.Infer
 import scala.util.DynamicVariable
 
@@ -28,33 +29,21 @@ case class Grammar(thy: Thy) {
   }
 
   object exprs extends Parsers with SyntaxParsers with Mixfix {
-    type Op = ulang.syntax.Expr
-    type Expr = ulang.syntax.Expr
+    type Op = ulang.source.Expr
+    type Expr = ulang.source.Expr
 
     def syntax = thy.syntax
 
-    // keep identifiers as variables locally,
-    // so that they can be bound by outer contexts
-    // and lift them to ops at the top-level
-
-    def fv(name: String) = if (decls.scope contains name) {
-      decls.scope(name)
-    } else {
-      val res = FreeVar(name)
-      decls.scope += (name -> res)
-      res
-    }
-
     def app(op: Op, args: List[Expr]) = App(op, args)
 
-    def op(name: String) = fv(name)
+    def op(name: String) = Id(name)
     def unary(op: Op, arg: Expr) = app(op, List(arg))
     def binary(op: Op, arg1: Expr, arg2: Expr) = app(op, List(arg1, arg2))
-    def abs(bound: List[FreeVar], body: Expr) = Lambda(bound, body bind bound)
+    def abs(bound: List[Id], body: Expr) = Lambda(bound, body)
 
     val keywords = Parsers.keywords
 
-    val free_var = name filterNot (syntax.contains) map fv
+    val free_var = parse(Id)(name filterNot (syntax.contains))
     val free_vars = free_var.+
 
     val binding = parse(abs _)(free_vars <~ lit("."), mixfix_expr)
@@ -69,13 +58,7 @@ case class Grammar(thy: Thy) {
     val normal_app = parse(app _)(closed, closed.*)
     val inner_expr: Parser[String, Expr] = normal_app
 
-    def lift_ops(expr: Expr): Expr = expr mapFree {
-      case fv @ FreeVar(name, _) =>
-        if (sig.ops contains name) Op(name)
-        else fv
-    }
-
-    val parser = mixfix_expr map lift_ops
+    def parser = mixfix_expr
   }
 
   object schemas extends Parsers with SyntaxParsers {
@@ -127,8 +110,6 @@ case class Grammar(thy: Thy) {
 
     val infer = new Infer(sig, df)
 
-    var scope: Map[String, FreeVar] = Map()
-
     val strict_schema = schemas.parser ! "expected schema"
     val strict_typ = types.parser ! "expected type"
     val strict_expr = exprs.parser ! "expected expression"
@@ -139,13 +120,13 @@ case class Grammar(thy: Thy) {
 
     val con = strict_schema map (_.con)
 
-    val theory = string map Parsers.theory
-    val strict_theory = theory ! "expected module name"
-    val imprt = lit("import") ~> parse(Import)(strict_theory)
+    val module = string map Parsers.module
+    val strict_module = module ! "expected module name"
+    val imprt = lit("import") ~> parse(Import)(strict_module)
 
     val fixdecl = parse(FixDecl)(fixities.parser, nonkw)
 
-    val opdecl = parse(OpDecl)(exprs.name, colon_typ)
+    val opdecl = parse(OpDecl)(exprs.name, ??? /*colon_typ*/)
     val strict_opdecl = opdecl ! "expected operator declaration"
 
     val constrdecls = repsep(strict_opdecl, lit("|"))
@@ -156,20 +137,14 @@ case class Grammar(thy: Thy) {
     val datadef = lit("data") ~> parse(DataDef)(strict_schema, eq_constrdecls)
     val typedef = lit("type") ~> parse(TypeDef)(strict_schema, eq_typ)
 
-    def _opdef(name: String, _args: List[Expr], _rhs: Expr): OpDef = {
+    /*def _opdef(name: String, _args: List[Expr], _rhs: Expr): OpDef = {
       import ulang.syntax.predefined.pred.Eq
       val res = infer.infer_defs(name, _args, _rhs)
       val (Eq(FlatApp(op, args), rhs), _) = res
       OpDef(op, args, rhs)
-    }
+    }*/
 
-    val opdef = lift { in0 =>
-      scope = Map()
-      val (name, in1) = exprs.name(in0)
-      val (args, in2) = exprs.args(in1)
-      val (rhs, in3) = eq_expr(in2)
-      (_opdef(name, args, rhs), in3)
-    }
+    val opdef = parse(OpDef)(exprs.name, exprs.args, eq_expr)
 
     val parser = imprt | fixdecl | datadef | typedef | opdecl | opdef
   }
