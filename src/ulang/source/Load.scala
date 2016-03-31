@@ -3,7 +3,6 @@ package ulang.source
 import arse.control._
 import java.io.File
 import java.io.Reader
-import java.io.FileReader
 
 object Load {
   val Extension = ".txt"

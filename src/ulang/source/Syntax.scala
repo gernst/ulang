@@ -1,8 +1,7 @@
-package ulang.syntax
+package ulang.source
 
 import arse._
 import arse.control._
-import ulang.source._
 
 case object Bindfix extends Fixity
 // case object Outfix extends Fixity
@@ -36,24 +35,17 @@ case class Syntax(
     that.infix_ops.foldLeft(this.infix_ops)(insert),
     that.bindfix_ops)
 
-  def ++(decls: List[Decl]): Syntax = {
-    decls.foldLeft(this)(_ + _)
-  }
-
-  def +(decl: Decl): Syntax = decl match {
-    case Import(thy) =>
-      this ++ thy.syntax
-    case FixDecl(Prefix(prec), name) =>
+  def +(name: String, fixity: Fixity): Syntax = fixity match {
+    case Prefix(prec) =>
       copy(prefix_ops = insert(prefix_ops, name -> prec))
-    case FixDecl(Postfix(prec), name) =>
+    case Postfix(prec) =>
       copy(postfix_ops = insert(postfix_ops, name -> prec))
-    case FixDecl(Infix(assoc, prec), name) =>
+    case Infix(assoc, prec) =>
       copy(infix_ops = insert(infix_ops, name -> (assoc, prec)))
-    case FixDecl(Bindfix, name) =>
+    case Bindfix =>
       copy(bindfix_ops = bindfix_ops + name)
     case _ =>
-      // fatal("in syntax: unknown mixfix declaration " + fd)
-      this
+      fatal("in syntax: unknown mixfix declaration for " + name + ":" + fixity)
   }
 
   override def toString = {
@@ -67,10 +59,6 @@ case class Syntax(
 }
 
 object Syntax {
-  def apply(decls: List[Decl]): Syntax = empty ++ decls
-
   val empty = Syntax(Map.empty, Map.empty, Map.empty, Set.empty)
-  val arrow = FixDecl(Infix(Right, 2), "→")
-  val equals = FixDecl(Infix(Non, 6), "=")
-  val default = empty + arrow + equals
+  val default = empty + ("→",Infix(Right, 2)) + ("=", Infix(Non, 6))
 }

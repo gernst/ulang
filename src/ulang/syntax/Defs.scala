@@ -60,8 +60,8 @@ case class Defs(data: Map[Con, Set[Op]], syn: Map[Con, (List[TypeParam], Type)],
       val res = _synonym(TypeApp(name, args map synonym))
       if (res != typ) synonym(res) /* until fixpoint */
       else typ
-    case TypeInst(orig, gen) =>
-      TypeInst(orig, synonym(gen))
+    /*case TypeInst(orig, gen) =>
+      TypeInst(orig, synonym(gen)) */
     case _ =>
       typ
   }

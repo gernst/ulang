@@ -9,7 +9,7 @@ import ulang.syntax.predefined.pred.Eq
 class Infer(sig: Sig, df: Defs) {
   import Unify._
 
-  val unify = new Unify(Nil)
+  val unify = Unify.default
 
   def check_overloading(expr: Expr, pairs: List[(Expr, Type)]): (Expr, Type) = pairs match {
     case Nil =>
@@ -65,7 +65,7 @@ class Infer(sig: Sig, df: Defs) {
 
   def infer(expr: Expr, stack: List[FreeVar]): Type = {
     val typ = _infer(expr, stack)
-    if (unify.thetas.isEmpty)
+    if (unify.isEmpty)
       error("in infer: no type for " + expr)
 
     // val ts = new_thetas.map(_.find(typ))
@@ -103,12 +103,14 @@ class Infer(sig: Sig, df: Defs) {
       val ft = infer(fun, stack)
       val at = infer(arg, stack)
       val rt = TypeVar.fresh
+      
+      val thetas = unify.thetas
       unify(ft, at → rt)
 
       if (unify.thetas.isEmpty) {
-        val fts = unify.thetas.map(_.find(ft))
+        val fts = thetas.map(_.find(ft))
         println("in infer: " + fun + " in " + fts.mkString("{ ", ", ", " }"))
-        val ats = unify.thetas.map(_.find(at))
+        val ats = thetas.map(_.find(at))
         println("in infer: " + arg + " in " + ats.mkString("{ ", ", ", " }"))
         error("in infer: cannot apply " + fun + " to " + arg)
       }

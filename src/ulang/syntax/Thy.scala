@@ -1,7 +1,7 @@
 package ulang.syntax
 
 import arse._
-import ulang.source.Decl
+import ulang.source.Syntax
 
 case class Thy(name: String, syntax: Syntax, sig: Sig, df: Defs) {
   def ++(that: Thy) = {
@@ -9,7 +9,7 @@ case class Thy(name: String, syntax: Syntax, sig: Sig, df: Defs) {
   }
 
   def +(decl: Decl): Thy = {
-    Thy(name, syntax + decl, sig + decl, df + decl)
+    Thy(name, syntax /* decl */ , sig + decl, df + decl)
   }
 
   def ++(decls: List[Decl]): Thy = {
@@ -20,8 +20,10 @@ case class Thy(name: String, syntax: Syntax, sig: Sig, df: Defs) {
 }
 
 object Thy {
-  def apply(decls: List[Decl]): Thy = empty ++ decls
+  def apply(name: String, decls: List[Decl] = Nil): Thy = {
+    empty(name) ++ decls
+  }
 
-  val empty = Thy("empty", Syntax.default, Sig.empty, Defs.empty)
-  val default = Thy("default", Syntax.default, Sig.default, Defs.default)
+  def empty(name: String) = Thy(name, Syntax.empty, Sig.empty, Defs.empty)
+  def default(name: String) = Thy(name, Syntax.default, Sig.default, Defs.default)
 }

@@ -1,7 +1,7 @@
 package ulang.syntax
 
 import arse.control._
-import ulang.source._
+import ulang.syntax._
 
 case class Sig(cons: Map[String, List[Int]], ops: Map[String, List[Type]]) {
   def +(con: Con) = {

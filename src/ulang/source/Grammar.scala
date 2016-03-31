@@ -3,14 +3,10 @@ package ulang.source
 import arse._
 import arse.control._
 import arse.Combinators.parse
-import ulang.syntax._
-import ulang.transform.Infer
 import scala.util.DynamicVariable
 
-case class Grammar(thy: Thy) {
-  def syntax = thy.syntax
-  def sig = thy.sig
-  def df = thy.df
+class Grammar(var syntax: Syntax) {
+  def grammar = this
 
   object fixities extends Parsers {
     val left = lit("left", Left)
@@ -28,33 +24,21 @@ case class Grammar(thy: Thy) {
   }
 
   object exprs extends Parsers with SyntaxParsers with Mixfix {
-    type Op = ulang.syntax.Expr
-    type Expr = ulang.syntax.Expr
+    type Op = ulang.source.Expr
+    type Expr = ulang.source.Expr
 
-    def syntax = thy.syntax
-
-    // keep identifiers as variables locally,
-    // so that they can be bound by outer contexts
-    // and lift them to ops at the top-level
-
-    def fv(name: String) = if (decls.scope contains name) {
-      decls.scope(name)
-    } else {
-      val res = FreeVar(name)
-      decls.scope += (name -> res)
-      res
-    }
+    def syntax = grammar.syntax
 
     def app(op: Op, args: List[Expr]) = App(op, args)
 
-    def op(name: String) = fv(name)
+    def op(name: String) = Id(name)
     def unary(op: Op, arg: Expr) = app(op, List(arg))
     def binary(op: Op, arg1: Expr, arg2: Expr) = app(op, List(arg1, arg2))
-    def abs(bound: List[FreeVar], body: Expr) = Lambda(bound, body bind bound)
+    def abs(ids: List[Id], body: Expr) = Lambda(ids, body)
 
     val keywords = Parsers.keywords
 
-    val free_var = name filterNot (syntax.contains) map fv
+    val free_var = name filterNot (syntax.contains) map Id
     val free_vars = free_var.+
 
     val binding = parse(abs _)(free_vars <~ lit("."), mixfix_expr)
@@ -69,40 +53,16 @@ case class Grammar(thy: Thy) {
     val normal_app = parse(app _)(closed, closed.*)
     val inner_expr: Parser[String, Expr] = normal_app
 
-    def lift_ops(expr: Expr): Expr = expr mapFree {
-      case fv @ FreeVar(name, _) =>
-        if (sig.ops contains name) Op(name)
-        else fv
-    }
+    def infer(expr: ulang.source.Expr): ulang.syntax.Expr = ???
 
-    val parser = mixfix_expr map lift_ops
-  }
-
-  object schemas extends Parsers with SyntaxParsers {
-    type Op = String
-
-    def syntax = thy.syntax
-
-    def op(name: String) = name
-    def unary(op: String, arg: TypeParam) = app(op, List(arg))
-    def binary(op: String, arg1: TypeParam, arg2: TypeParam) = app(op, List(arg1, arg2))
-    def app(op: Op, args: List[TypeParam]) = Schema(op, args)
-    val keywords = Parsers.keywords ++ Set("|", "=")
-
-    val param = parse(TypeParam)(name)
-    val prefix = (prefix_op ~ param) map { case ((op, _), arg) => unary(op, arg) }
-    val postfix = (param ~ postfix_op) map { case (arg, (op, _)) => unary(op, arg) }
-    val infix = (param ~ infix_op ~ param) map { case ((arg1, (op, _)), arg2) => binary(op, arg1, arg2) }
-    val normal = parse(app _)(name, param.*)
-
-    val parser = prefix | postfix | infix | normal
+    val parser = mixfix_expr map infer
   }
 
   object types extends Parsers with SyntaxParsers with Mixfix {
     type Op = String
     type Expr = Type
 
-    def syntax = thy.syntax
+    def syntax = grammar.syntax
 
     def op(name: String) = name
     def unary(op: String, arg: Type) = app(op, List(arg))
@@ -111,11 +71,10 @@ case class Grammar(thy: Thy) {
 
     val keywords = Parsers.keywords ++ Set("|", "=")
 
-    val con = name filter sig.cons.contains
-    val param = name filterNot sig.cons.contains map TypeParam
+    val param = parse(Id)(name)
 
     val closed = parens(mixfix_expr) | param
-    val type_app = parse(app _)(con, closed.*)
+    val type_app = parse(app _)(name, closed.*)
 
     val inner_expr: Parser[String, Type] = type_app | closed
 
@@ -125,11 +84,6 @@ case class Grammar(thy: Thy) {
   object decls extends Parsers {
     import Parsers._
 
-    val infer = new Infer(sig, df)
-
-    var scope: Map[String, FreeVar] = Map()
-
-    val strict_schema = schemas.parser ! "expected schema"
     val strict_typ = types.parser ! "expected type"
     val strict_expr = exprs.parser ! "expected expression"
 
@@ -137,13 +91,16 @@ case class Grammar(thy: Thy) {
     val eq_typ = lit("=") ~> strict_typ
     val eq_expr = lit("=") ~> strict_expr
 
-    val con = strict_schema map (_.con)
+    val mod = string map Parsers.mod
+    val strict_mod = mod ! "expected module name"
+    val imprt = lit("import") ~> parse(Import)(strict_mod)
 
-    val theory = string map Parsers.theory
-    val strict_theory = theory ! "expected module name"
-    val imprt = lit("import") ~> parse(Import)(strict_theory)
+    def fix(fixity: Fixity, name: String) = {
+      syntax += (name, fixity)
+      FixDecl(fixity, name)
+    }
 
-    val fixdecl = parse(FixDecl)(fixities.parser, nonkw)
+    val fixdecl = parse(fix _)(fixities.parser, nonkw)
 
     val opdecl = parse(OpDecl)(exprs.name, colon_typ)
     val strict_opdecl = opdecl ! "expected operator declaration"
@@ -151,25 +108,9 @@ case class Grammar(thy: Thy) {
     val constrdecls = repsep(strict_opdecl, lit("|"))
     val eq_constrdecls = lit("=") ~> constrdecls
 
-    val typedecl = (lit("data") | lit("type")) ~> parse(TypeDecl)(con)
-
-    val datadef = lit("data") ~> parse(DataDef)(strict_schema, eq_constrdecls)
-    val typedef = lit("type") ~> parse(TypeDef)(strict_schema, eq_typ)
-
-    def _opdef(name: String, _args: List[Expr], _rhs: Expr): OpDef = {
-      import ulang.syntax.predefined.pred.Eq
-      val res = infer.infer_defs(name, _args, _rhs)
-      val (Eq(FlatApp(op, args), rhs), _) = res
-      OpDef(op, args, rhs)
-    }
-
-    val opdef = lift { in0 =>
-      scope = Map()
-      val (name, in1) = exprs.name(in0)
-      val (args, in2) = exprs.args(in1)
-      val (rhs, in3) = eq_expr(in2)
-      (_opdef(name, args, rhs), in3)
-    }
+    val datadef = lit("data") ~> parse(DataDef)(strict_typ, eq_constrdecls)
+    val typedef = lit("type") ~> parse(TypeDef)(strict_typ, eq_typ)
+    val opdef = parse(OpDef)(exprs.mixfix_expr)
 
     val parser = imprt | fixdecl | datadef | typedef | opdecl | opdef
   }

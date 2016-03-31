@@ -3,12 +3,11 @@ package ulang.source
 import arse._
 import arse.control._
 import arse.Combinators.parse
-import ulang.syntax._
-import scala.collection.mutable.ListBuffer
 import java.io.StringReader
 import java.io.FileReader
 import java.io.Reader
 import java.io.File
+import scala.collection.mutable.ListBuffer
 import scala.language.implicitConversions
 
 class Parsers extends Combinators with Primitives {
@@ -24,7 +23,7 @@ object Parsers {
   val keywords = Set(
     "import", "data", "type",
     "prefix", "infix", "postfix", "binder",
-    "(", ")", ";", "λ", ".")
+    "(", ")", ";", "λ", ".", ":")
 
   type Region = List[String]
 
@@ -48,47 +47,28 @@ object Parsers {
     var run = new ListBuffer[String]
     var tok = scan.next
 
+    def flush() = if (!run.isEmpty) {
+      buffer += run.toList
+      run.clear
+    }
+
     while (tok != null) {
-      if (tok == ";") {
-        if (!run.isEmpty) {
-          buffer += run.toList
-          run.clear
-        }
-      } else {
-        run += tok
-      }
+      if (tok == ";") flush()
+      else run += tok
       tok = scan.next
     }
+    flush() // flush non ";" terminated tokens
     buffer.toList
   }
 
-  def single[A](p: Parser[String, A], source: List[String]) = {
-    val q = p.$;
-    q(source)
-  }
-
-  def pass[A](thy: Thy, gp: Grammar => Parser[String, A], source: List[List[String]]): List[A] = {
-    val p = gp(new Grammar(thy))
-    val as = new ListBuffer[A]
-    for (in <- source) {
-      try { val (a, _) = p(in); as += a }
-      catch { case _: Backtrack => }
-    }
-    as.toList
-  }
-
-  def theory(name: String): Thy = Load.load(name) {
+  def mod(name: String): Module = Load.load(name) {
     reader =>
+      val grammar = new Grammar(Syntax.default)
+      val parse = grammar.decls.parser.$
       val source = regionize(reader)
-      var thy = Thy.default
-      thy ++= pass(thy, _.decls.imprt, source)
-      thy ++= pass(thy, _.decls.fixdecl, source)
-      thy ++= pass(thy, _.decls.typedecl, source)
-      thy ++= pass(thy, _.decls.opdecl, source)
-      thy ++= pass(thy, _.decls.datadef, source)
-      thy ++= pass(thy, _.decls.typedef, source)
-      thy ++= pass(thy, _.decls.opdef, source)
-      thy
+      val decls = source map parse
+      val syntax = grammar.syntax
+      Module(name, decls)
   }
 }
 

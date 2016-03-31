@@ -25,18 +25,19 @@ object Repl extends Shell {
     ":syntax" -> cmd(out(context.thy.syntax)),
     // ":net" -> cmd(out(context.thy.df.net)),
     // ":model" -> cmd(out(context.model.keys.mkString(" "))),
-    ":prove" -> cmd(Prove(context).repl),
+    // ":prove" -> cmd(Prove(context).repl),
     ":clear" -> cmd(clear()))
 
   def read(line: String) = {
     import ulang.syntax.predefined._
-
+    
+/*
     {
       val decl = context.parse.decl(line)
       context += decl
     } or {
       val expr = context.parse.expr(line)
       out(expr)
-    }
+    }*/
   }
 }
