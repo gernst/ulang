@@ -9,6 +9,8 @@ import java.io.Reader
 import java.io.File
 import scala.collection.mutable.ListBuffer
 import scala.language.implicitConversions
+import ulang.syntax
+import ulang.transform.Convert
 
 class Parsers extends Combinators with Primitives {
   type T = String
@@ -17,6 +19,11 @@ class Parsers extends Combinators with Primitives {
   def parens[A](p: Parser[T, A]) = lit("(") ~> p <~ expect(")")
 
   val nonkw = string filterNot Parsers.keywords
+
+  def partial[A](syntax: Syntax, p: Parser[String, A]): Parser[String, A] = lift {
+    in =>
+      Grammar.context.withValue(syntax)(p(in))
+  }
 }
 
 object Parsers {
@@ -61,14 +68,45 @@ object Parsers {
     buffer.toList
   }
 
-  def mod(name: String): Module = Load.load(name) {
+  def complete[A](line: String, syntax: Syntax, p: Parser[String, A]): A = {
+    Grammar.context.withValue(syntax) {
+      val parse = p.$
+      val source = tokenize(line)
+      parse(source)
+    }
+  }
+
+  def thy(name: String): syntax.Thy = Load.load(name) {
     reader =>
-      val grammar = new Grammar(Syntax.default)
-      val parse = grammar.decls.parser.$
-      val source = regionize(reader)
-      val decls = source map parse
-      val syntax = grammar.syntax
-      Module(name, decls)
+      Grammar.context.withValue(Syntax.default) {
+        val parse = Grammar.decls.parser.$
+        val source = regionize(reader)
+        val decls = source map parse
+        val thy = Convert.decls(syntax.Thy.default, decls)
+        thy rename name
+      }
+  }
+
+  def decl(line: String, thy: syntax.Thy) = {
+    val res = complete(line, thy.sig.syntax, Grammar.decls.parser)
+    Convert.decl(thy, res)
+  }
+
+  def expr(line: String, thy: syntax.Thy, free: List[syntax.FreeVar]) = {
+    val res = complete(line, thy.sig.syntax, Grammar.exprs.parser)
+    Convert.expr_infer_top(thy.sig, thy.df, res, free)
+  }
+
+  def typ(line: String, thy: syntax.Thy) = {
+    val res = complete(line, thy.sig.syntax, Grammar.types.parser)
+    Convert.typ(thy.sig, res)
+  }
+
+  def formula(line: String, thy: syntax.Thy, free: List[syntax.FreeVar]) = {
+    val (e, t) = expr(line, thy, free)
+    if (!t.isBool)
+      error("in parse: " + e + ": " + t + " is not a formula")
+    e
   }
 }
 
@@ -93,6 +131,11 @@ trait SyntaxParsers {
   }
 
   lazy val name = string filterNot keywords // keywords is initialized in subclass
+  lazy val nonmixfix = name filterNot { syntax.contains(_) } // defer evaluation of syntax
+
+  lazy val id = parse(Id)(nonmixfix)
+  lazy val ids = id.+
+
   val prefix_op = next { mixfix_op(syntax.prefix_ops, _) }
   val postfix_op = next { mixfix_op(syntax.postfix_ops, _) }
   val infix_op = next { mixfix_op(syntax.infix_ops, _) }

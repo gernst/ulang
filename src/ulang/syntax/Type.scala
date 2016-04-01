@@ -21,7 +21,6 @@ case class Schema(name: String, args: List[TypeParam]) {
 sealed trait Type {
   def →(that: Type): Type = TypeApp("→", List(this, that))
 
-
   def arity: Int = this match {
     case predefined.pred.Function(t1, t2) =>
       1 + t2.arity
@@ -30,6 +29,7 @@ sealed trait Type {
   }
 
   def subst(theta: Map[TypeParam, Type]): Type
+  def isBool = (this == Type.bool)
 }
 
 case class TypeParam(name: String) extends Type {

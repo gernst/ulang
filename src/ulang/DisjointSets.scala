@@ -38,6 +38,16 @@ class DisjointSets[A](var parent: Map[A, A]) {
     val r2 = find(a2)
     new DisjointSets[A](parent + (r1 -> r2))
   }
+
+  override def toString = {
+    val m = parent.keys map { a => (find(a), a) }
+    val g = m.groupBy(_._1).toList
+    val gs = g map {
+      case (r, c) =>
+        c.map(_._2).mkString("{ " + r + "*, ", ", ", " }")
+    }
+    gs.mkString("\n")
+  }
 }
 
 object DisjointSets {

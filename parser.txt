@@ -18,18 +18,17 @@ bind p f in
 zero: Parser t a
 zero in = none
 
-// XXX: a is unified with t
-//      however, both should be non-generic!
-item: Parser t a
+item: Parser t t
 item [] = none
-item (a :: in) = some (a, in)
+item (x :: in) = some (x, in)
 
 test: (a → Bool) → Parser t a
-test p
+
+/* test p
   = bind item (λ x.
-    if_then_else (p x)
-    (result x)
-    zero)
+    (if_then_else (p x)
+     (result x)
+     zero)) */
 
 seq : (a → b → c) → Parser t a → Parser t b → Parser t c
 seq f p q
@@ -61,8 +60,5 @@ p * = bind p (λ x.
 + : Parser t a → Parser t (List a)
 p + = p :: p *
 
-in: List Bool
-in = true :: true :: true :: false :: true :: []
-
-// wrong: a
-// wrong = fst (the (item in))
+_in: List Bool
+_in = true :: true :: true :: false :: true :: []

@@ -6,32 +6,13 @@ import arse.Combinators._
 import ulang.Context
 import ulang.syntax._
 
-object Parsers extends ulang.source.Parsers {
-  import Basic._
-  val basic_rules = rules.map(r => (r.name, r)).toMap
-
-  def expr(ctx: Context): Parser[String, (Expr, Type)] = ??? // ulang.source.Parsers.expr.strict_tree map (ctx toExpr _)
-
-  def formula(ctx: Context) = expr(ctx) map {
-    case (phi, typ) =>
-      if (typ != Type.bool)
-        error("in prove: not a formula (type " + typ + ")")
-
-      phi
-  }
-
-  val basic_rule = __ collect {
-    case name if basic_rules contains name =>
-      basic_rules(name)
-  }
-
-  val rotate = lit("rotate") ~> parse(Rotate)(int)
-  def cut(ctx: Context) = lit("cut") ~> parse(Cut)(??? /*formula(ctx)*/)
+class Parsers(thy: Thy) extends ulang.syntax.Parsers(thy) {
+  val cut = lit("cut") ~> parse(Cut)(formula)
   val simplify = lit("simplify") ~> ret(Simplify)
-  def structural(ctx: Context): Parser[String, Rule] = ??? /*lit("structural induction") ~> expr(ctx) map {
-    case (x: FreeVar, typ) =>
-      Structural(ctx, x)
-  }*/
+  val structural: Parser[String, Rule] = lit("structural induction") ~> expr map {
+    case x: FreeVar =>
+      Structural(thy, x)
+  }
 
-  def rule(ctx: Context) = basic_rule | rotate | simplify | cut(ctx) | structural(ctx)
+  def rule = simplify | cut | structural
 }

@@ -1,5 +1,41 @@
-import prelude;
+infix       1 ↔
+infix right 2 →
+infix left  3 ∨
+infix left  4 ∧
+prefix      5 ¬
 
-p: Bool;
-q: Bool;
-r: Bool;
+p: Bool
+q: Bool
+r: Bool
+
+data Any = foo : Any
+
+f: Any → Any
+g: Any → Any
+c: Any
+
+// f (f c) = f c ∧ g c = f c → f (g c) = g c
+
+data Bool
+  = true: Bool
+  | false: Bool
+
+¬ : Bool → Bool
+(¬ true) = false
+(¬ false) = true
+
+→ : Bool → Bool → Bool
+(true → b) = b
+(false → b) = true
+
+∨ : Bool → Bool → Bool
+(true ∨ b) = true
+(false ∨ b) = b
+
+∧ : Bool → Bool → Bool
+(true ∧ b) = b
+(false ∧ b) = false
+
+↔ : Bool → Bool → Bool
+(true ↔ b) = b
+(false ↔ b) = (¬ b)

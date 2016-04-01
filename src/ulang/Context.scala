@@ -3,25 +3,19 @@ package ulang
 import arse._
 import arse.control._
 import ulang.syntax._
-import ulang.source._
-import scala.collection.mutable.ListBuffer
+import ulang.source.Parsers
+import ulang.transform.Convert
 import ulang.source.Grammar
-import ulang.syntax.Decl
 
 case class Context(thy: Thy, free: List[FreeVar] = Nil) {
-  def +(decl: Decl) = Context(thy + decl, free)
-
   object parse {
-    import Parsers._
-/*
-    val grammar = Grammar(thy)
-    def decl(line: String): Decl = ??? single(grammar.decls.parser, tokenize(line))
-    def expr(line: String): ulang.syntax.Expr = ??? single(grammar.exprs.parser, tokenize(line))
-    */
+    def decl(line: String) = Context(Parsers.decl(line, thy), free)
+    def expr(line: String) = Parsers.expr(line, thy, free)
+    def typ(line: String) = Parsers.typ(line, thy)
   }
 }
 
 object Context {
-  val empty = Context(Thy.empty("empty"))
-  val default = Context(Thy.default("default"))
+  val empty = Context(Thy.empty)
+  val default = Context(Thy.default)
 }

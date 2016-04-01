@@ -1,17 +1,3 @@
-data Bool
-  = true:  Bool
-  | false: Bool
+import prelude
 
-data Option a
-  = none: Option a
-  | some: a → Option a
-
-data List a
-  = nil: List a
-  | cons: a → List a → List a
-
-empty: Option a → Bool
-empty x = (x = none)
-
-empty: List a → Bool
-empty x = (x = nil)
+foo: Bool

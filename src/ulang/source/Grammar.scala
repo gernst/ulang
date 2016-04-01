@@ -5,8 +5,11 @@ import arse.control._
 import arse.Combinators.parse
 import scala.util.DynamicVariable
 
-class Grammar(var syntax: Syntax) {
-  def grammar = this
+object Grammar {
+  object context extends DynamicVariable(Syntax.default) {
+    def syntax = value
+    def syntax_=(other: Syntax) { value = other }
+  }
 
   object fixities extends Parsers {
     val left = lit("left", Left)
@@ -27,7 +30,7 @@ class Grammar(var syntax: Syntax) {
     type Op = ulang.source.Expr
     type Expr = ulang.source.Expr
 
-    def syntax = grammar.syntax
+    def syntax = context.syntax
 
     def app(op: Op, args: List[Expr]) = App(op, args)
 
@@ -38,43 +41,37 @@ class Grammar(var syntax: Syntax) {
 
     val keywords = Parsers.keywords
 
-    val free_var = name filterNot (syntax.contains) map Id
-    val free_vars = free_var.+
-
-    val binding = parse(abs _)(free_vars <~ lit("."), mixfix_expr)
-
+    val binding = parse(abs _)(ids <~ lit("."), mixfix_expr)
     val lambda = lit("λ") ~> binding
     val bindfix_app = parse(unary _)(bindfix_op, binding)
 
-    val arg = parens(mixfix_expr) | free_var
-    val args = arg.*
-    val closed = parens(mixfix_expr) | lambda | bindfix_app | free_var
+    val anyop = parse(Id)(name)
+    val closed = parens(mixfix_expr | anyop) | lambda | bindfix_app | id
 
     val normal_app = parse(app _)(closed, closed.*)
     val inner_expr: Parser[String, Expr] = normal_app
 
-    def infer(expr: ulang.source.Expr): ulang.syntax.Expr = ???
-
-    val parser = mixfix_expr map infer
+    val parser = mixfix_expr
   }
 
   object types extends Parsers with SyntaxParsers with Mixfix {
     type Op = String
     type Expr = Type
 
-    def syntax = grammar.syntax
+    def syntax = context.syntax
 
     def op(name: String) = name
     def unary(op: String, arg: Type) = app(op, List(arg))
     def binary(op: String, arg1: Type, arg2: Type) = app(op, List(arg1, arg2))
-    def app(op: Op, args: List[Type]) = TypeApp(op, args)
+    def app(op: Op, args: List[Type]) = {
+      if (args.isEmpty) Id(op)
+      else TypeApp(op, args)
+    }
 
     val keywords = Parsers.keywords ++ Set("|", "=")
 
-    val param = parse(Id)(name)
-
-    val closed = parens(mixfix_expr) | param
-    val type_app = parse(app _)(name, closed.*)
+    val closed = parens(mixfix_expr) | id
+    val type_app = parse(app _)(nonmixfix, closed.*)
 
     val inner_expr: Parser[String, Type] = type_app | closed
 
@@ -91,12 +88,17 @@ class Grammar(var syntax: Syntax) {
     val eq_typ = lit("=") ~> strict_typ
     val eq_expr = lit("=") ~> strict_expr
 
-    val mod = string map Parsers.mod
-    val strict_mod = mod ! "expected module name"
-    val imprt = lit("import") ~> parse(Import)(strict_mod)
+    def in(thy: ulang.syntax.Thy) = {
+      context.syntax ++= thy.exported.syntax
+      Import(thy)
+    }
+
+    val thy = string map Parsers.thy
+    val strict_thy = thy ! "expected module name"
+    val imprt = lit("import") ~> parse(in _)(strict_thy)
 
     def fix(fixity: Fixity, name: String) = {
-      syntax += (name, fixity)
+      context.syntax += (name, fixity)
       FixDecl(fixity, name)
     }
 
@@ -108,6 +110,7 @@ class Grammar(var syntax: Syntax) {
     val constrdecls = repsep(strict_opdecl, lit("|"))
     val eq_constrdecls = lit("=") ~> constrdecls
 
+    // TODO: fails silently when no eq is given 
     val datadef = lit("data") ~> parse(DataDef)(strict_typ, eq_constrdecls)
     val typedef = lit("type") ~> parse(TypeDef)(strict_typ, eq_typ)
     val opdef = parse(OpDef)(exprs.mixfix_expr)

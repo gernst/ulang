@@ -60,5 +60,5 @@ case class Syntax(
 
 object Syntax {
   val empty = Syntax(Map.empty, Map.empty, Map.empty, Set.empty)
-  val default = empty + ("→",Infix(Right, 2)) + ("=", Infix(Non, 6))
+  val default = empty + ("→", Infix(Right, 2)) + ("=", Infix(Non, 6))
 }

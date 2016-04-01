@@ -24,7 +24,6 @@ lam bounds body
   = foldr body lam bounds;
 */
 
-type Val a; /* forward declaration */
 type Stack a = List (Val a);
 type Model a = Map Name (Val a);
 type Closure a = Val a → Model a → Val a;

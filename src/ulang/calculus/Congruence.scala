@@ -3,30 +3,16 @@ package ulang.calculus
 import ulang.syntax._
 import ulang.DisjointSets
 
-case class Congruence(var _cong: DisjointSets[Expr], var _use: Map[Expr, Set[Expr]], var _sig: Map[Expr, Expr]) {
+class Congruence(var _cong: DisjointSets[Expr], var _use: Map[Expr, Set[Expr]], var _sig: Map[Expr, Expr]) {
   def find(e: Expr) = _cong find e
   def union(e1: Expr, e2: Expr) { _cong = _cong union (e1, e2) }
   def use(e: Expr) = _use.getOrElse(e, Set.empty)
   def sig(e: Expr) = _sig.getOrElse(e, e)
-  
-  def +(e: Expr) = e match {
-    case ulang.syntax.predefined.pred.Eq(e1, e2) =>
-      val cc = copy()
-      cc.merge(e1, e2)
-      cc
-  }
 
-  def merge(e1: Expr, e2: Expr) {
-    if (e1 != e2) {
-      union(e1, e2)
-      for(u <- use(e1)) {
-        _sig += u -> (sig(u) replace (e1, e2))
-        for(v <- use(e2) if sig(v) == sig(u)) {
-          merge(find(u), find(v))
-        }
-        _use += e2 -> (use(e2) + u)
-      }
-    }
+  def merge(e1: Expr, e2: Expr) = {
+    val cc = new Congruence(_cong, _use, _sig)
+    cc _merge (canon(e1), canon(e2))
+    cc
   }
 
   def canon(e: Expr): Expr = e match {
@@ -36,9 +22,22 @@ case class Congruence(var _cong: DisjointSets[Expr], var _use: Map[Expr, Set[Exp
       canonsig(e)
   }
 
-  def canonsig(e: Expr): Expr = e match {
+  private def _merge(e1: Expr, e2: Expr) {
+    if (e1 != e2) {
+      union(e1, e2)
+      for (u <- use(e1)) {
+        _sig += u -> (sig(u) replace (e1, e2))
+        for (v <- use(e2) if sig(v) == sig(u)) {
+          _merge(find(u), find(v))
+        }
+        _use += e2 -> (use(find(e2)) + u)
+      }
+    }
+  }
+
+  private def canonsig(e: Expr): Expr = e match {
     case App(fun, arg) =>
-      use(arg) find (_ == e) match {
+      use(arg) find (sig(_) == e) match {
         case Some(u) =>
           find(u)
         case None =>
@@ -47,10 +46,12 @@ case class Congruence(var _cong: DisjointSets[Expr], var _use: Map[Expr, Set[Exp
           e
       }
     case _ =>
-      _cong find e
+      find(e)
   }
+
+  override def toString = _cong.toString
 }
 
 object Congruence {
-  def empty = Congruence(DisjointSets.empty, Map.empty, Map.empty)
+  def empty = new Congruence(DisjointSets.empty, Map.empty, Map.empty)
 }
