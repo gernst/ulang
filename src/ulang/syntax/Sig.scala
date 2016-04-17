@@ -1,53 +1,39 @@
 package ulang.syntax
 
 import arse.control._
+import ulang.syntax._
+import ulang.MultiMap._
+import arse.Fixity
+import ulang.source.Syntax
 
-case class Sig(cons: Map[String, Set[Int]], ops: Map[String, Set[Type]]) {
-  def +(con: Con) = {
-    val as = cons.getOrElse(con.name, Set.empty)
-    copy(cons = cons + (con.name -> (as + con.arity)))
-  }
+case class Sig(cons: List[Con], ops: List[Op], syntax: Syntax) {
+  // assert(cons.distinct == cons)
+  // assert(ops.distinct == ops)
 
-  def +(op: Op) = op match {
-    case Op(name, typ: TypeApp) =>
-      val ts = ops.getOrElse(op.name, Set.empty)
-      copy(ops = ops + (name -> (ts + typ)))
-    case _ =>
-      // this should be fatal?
-      error("in sig: " + op + " has arbitrary type " + op.typ)
+  def +(con: Con) = copy(cons = cons :+ con)
+  def +(op: Op) = copy(ops = ops :+ op)
+  def +(name: String, fixity: Fixity) = copy(syntax = syntax + (name, fixity))
+
+  def contains_con(name: String) = cons.exists(_.name == name)
+  def contains_con(name: String, arity: Int) = cons contains Con(name, arity)
+
+  def contains_op(name: String) = ops.exists(_.name == name)
+  def contains_op(name: String, typ: Type) = ops contains Op(name, typ)
+
+  def types(name: String) = ops collect {
+    case Op(`name`, typ) => typ
   }
 
   def ++(that: Sig) = {
-    Sig(this.cons ++ that.cons, this.ops ++ that.ops)
-  }
-
-  def contains(con: Con) = con match {
-    case Con(name, arity) =>
-      (cons contains name) && (cons(name) contains arity)
-  }
-
-  def contains(op: Op) = op match {
-    case Op(name, typ: TypeApp) =>
-      (ops contains name) && (ops(name) contains typ)
-    case _ =>
-      false
+    Sig(this.cons ++ that.cons, this.ops ++ that.ops, this.syntax ++ that.syntax)
   }
 
   override def toString = {
-    val cs = cons.flatMap { case (name, arities) => arities.map(name + "/" + _) }
-    val os = ops.flatMap { case (name, types) => types.map(name + ": " + _) }
-    (cs ++ os).mkString("\n")
+    (cons ++ ops).mkString("\n")
   }
 }
 
 object Sig {
-  val empty = Sig(Map.empty[String, Set[Int]], Map.empty[String, Set[Type]])
-  val default = Sig(List(Con.function, Con.bool), List(Op.equals, Op.if_then_else))
-  
-  def apply(cons: List[Con], ops: List[Op]): Sig = {
-    var res = Sig.empty
-    res = cons.foldLeft(res)(_ + _)
-    res = ops.foldLeft(res)(_ + _)
-    res
-  }
+  val empty = Sig(Nil, Nil, Syntax.empty)
+  val default = Sig(List(Con.function, Con.bool), List(Op.equals, Op.if_then_else), Syntax.default)
 }

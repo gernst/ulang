@@ -5,13 +5,14 @@ import ulang._
 import ulang.syntax._
 import ulang.calculus._
 import scala.annotation.tailrec
+import ulang.syntax.predefined.prop._
 
-case class Prove(context: Context) extends Shell {
-  import ulang.Parsers._
-  import ulang.calculus.Parsers._
-  
-  val parse_rule = rule(context) $
-  val parse_phi = formula(context) $
+case class Prove(thy: Thy) extends Shell {
+  object parse extends ulang.calculus.Parsers(thy) {
+    import ulang.source.Parsers._
+    def parse_rule(line: String) = complete(line, rule)
+    def parse_phi(line: String) = complete(line, formula)
+  }
 
   val prompt = "prove> "
   val commands = Map(
@@ -26,7 +27,7 @@ case class Prove(context: Context) extends Shell {
         case null | ":sorry" =>
           goal
         case _ => {
-          val res = parse_rule(tokenize(line))
+          val res = parse.parse_rule(line)
           prove(res apply seq)
         } or {
           out("in prove: rule " + line + " invalid or failed")
@@ -39,13 +40,12 @@ case class Prove(context: Context) extends Shell {
   }
 
   def read(line: String) {
-    import ulang.source.Parsers._
 
-    val phi = parse_phi(tokenize(line))
-    val res = prove(Seq(Nil, phi))
+    val phi = parse.parse_phi(line)
+    val res = prove(Seq(List(Not(phi))))
 
     if (res.isClosed) out("finished.")
-    else ("aborted.")
+    else out("aborted.")
 
     out(res)
   }

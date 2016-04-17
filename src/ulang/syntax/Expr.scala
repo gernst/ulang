@@ -18,8 +18,8 @@ sealed trait Expr {
   }
 }
 
-case class Op(name: String, typ: Type = TypeVar.fresh) extends Expr with ulang.semantics.Data {
-  override def toString = name
+case class Op(name: String, typ: Type) extends Expr with ulang.semantics.Data {
+  override def toString = name // + ":" + typ
   def abs(x: FreeVar, index: Int) = this
   def bind(stack: List[FreeVar]) = this
   def free = Set.empty[FreeVar]
@@ -36,8 +36,8 @@ case class BoundVar(index: Int) extends Expr {
   def mapFree(f: FreeVar => Expr) = this
 }
 
-case class FreeVar(name: String, typ: Type = TypeVar.fresh) extends Expr {
-  override def toString = "$" + name
+case class FreeVar(name: String, typ: Type) extends Expr {
+  override def toString = "$" + name // + ":" + typ
   def abs(x: FreeVar, index: Int) = if (x == this) BoundVar(index) else this
 
   def bind(stack: List[FreeVar]) = {
@@ -52,7 +52,11 @@ case class FreeVar(name: String, typ: Type = TypeVar.fresh) extends Expr {
 }
 
 case class App(fun: Expr, arg: Expr) extends Expr {
-  override def toString = "(" + fun + " " + arg + ")"
+  override def toString = this match {
+    case FlatApp(op, args) =>
+      "(" + op + " " + args.mkString(" ") + ")"
+  }
+
   def abs(x: FreeVar, index: Int) = App(fun abs (x, index), arg abs (x, index))
   def bind(stack: List[FreeVar]) = App(fun bind stack, arg bind stack)
   def free = fun.free ++ arg.free
@@ -71,9 +75,9 @@ case class Lambda(bound: FreeVar, body: Expr) extends Expr {
 
 case class Case(args: List[Expr], body: Expr)
 
-case class Match(cases: List[(List[Expr], Expr)]) extends Expr {
+case class Match(cases: List[Case]) extends Expr {
   override def toString = {
-    val ss = cases.map { case (args, rhs) => args.mkString(" ") + ". " + rhs }
+    val ss = cases.map { case Case(args, rhs) => args.mkString(" ") + ". " + rhs }
     ss.mkString("(λ ", " | ", ")")
   }
   def abs(x: FreeVar, index: Int) = ???

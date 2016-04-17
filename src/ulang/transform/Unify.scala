@@ -1,18 +1,20 @@
 package ulang.transform
 
-import ulang.syntax._
+import ulang.source._
 import arse.control._
 import ulang.DisjointSets
+import scala.language.implicitConversions
 
-class Unify(sig: Sig) {
-  import Unify.Subst
+object Unify {
+  type Subst = DisjointSets[Type]
+  def default = List(DisjointSets.empty: Subst)
 
   def unify(t1: Type, t2: Type, thetas: List[Subst]): List[Subst] = {
     val res = thetas.map { (theta: Subst) => some(unify(t1, t2, theta)) or none }
     res.collect { case Some(theta) => theta }
   }
 
-  def unify(ts1: Iterable[Type], ts2: Iterable[Type], theta: Subst): Subst = {
+  def unify(ts1: List[Type], ts2: List[Type], theta: Subst): Subst = {
     (ts1 zip ts2).foldLeft(theta) {
       case (theta, (t1, t2)) => unify(t1, t2, theta)
     }
@@ -32,26 +34,23 @@ class Unify(sig: Sig) {
         theta.union(a1, t2)
       case (t1, a2: TypeVar) =>
         unify(a2, t1, theta)
-      case (TypeInst(_, t1), t2) =>
+      /*case (TypeInst(_, t1), t2) =>
         unify(t1, t2, theta)
       case (t1, TypeInst(_, t2)) =>
-        unify(t1, t2, theta)
+        unify(t1, t2, theta)*/
       case (TypeApp(name1, args1), TypeApp(name2, args2)) =>
         if (name1 != name2 || args1.length != args2.length)
           fail
         unify(args1, args2, theta)
+      case _ =>
+        fail
     }
   }
 
   def contains(typ: Type, vr: TypeVar, theta: Subst): Boolean = (theta find typ) match {
     case `vr` => true
     case TypeApp(_, args) => args.exists(contains(_, vr, theta))
-    case TypeInst(_, typ) => contains(typ, vr, theta)
+    // case TypeInst(_, typ) => contains(typ, vr, theta)
     case _ => false
   }
-}
-
-object Unify {
-  type Subst = DisjointSets[Type]
-  implicit def toUnify(sig: Sig) = new Unify(sig)
 }

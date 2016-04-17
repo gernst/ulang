@@ -8,94 +8,102 @@ import scala.annotation.tailrec
 object Simplify extends Rule {
   def name = "simplify"
 
-  type Rewrites = Map[Op, (List[Expr], List[Expr]) => Expr]
+  type Rewrites = Map[Op, (List[Expr], Goal) => Expr]
 
-  def simp(phi: Expr, ant: List[Expr]): Expr = phi match {
-    case True | False => phi
-    case Not(phi) => not(phi, ant)
-    case And(phi, psi) => and(phi, psi, ant)
-    case Or(phi, psi) => or(phi, psi, ant)
-    case Imp(phi, psi) => imp(phi, psi, ant)
-    case Eqv(phi, psi) => eqv(phi, psi, ant)
-    case _ => literal(phi, ant)
-  }
+  def simp(phi: Expr, prove: Boolean, ctx: Goal): Expr = {
+    if (prove)
+      println("prove " + phi + " in " + ctx)
 
-  def apply(seq: Seq): Proof = {
-    val ant = con(seq.ant, Nil)
-
-    // contradicting assumptions
-    if (ant contains False) {
-      Step(Nil, seq, this)
-    } else {
-      val suc = simp(seq.suc, ant)
-
-      if (suc == True)
-        Step(Nil, seq, this)
-      else
-        Step(List(Seq(ant, suc)), seq, this)
+    phi match {
+      case True | False => phi
+      case Not(phi) => not(phi, prove, ctx)
+      case And(phi, psi) => and(phi, psi, prove, ctx)
+      case Or(phi, psi) => or(phi, psi, prove, ctx)
+      case Imp(phi, psi) => imp(phi, psi, prove, ctx)
+      case Eqv(phi, psi) => eqv(phi, psi, prove, ctx)
+      case Eq(lhs, rhs) => eq(lhs, rhs, prove, ctx)
+      case _ => literal(phi, ctx)
     }
   }
 
-  def rewrite(self: Expr, ant: List[Expr], rw: Rewrites): Expr = {
-    rewrite(self, Nil, ant, rw)
+  def apply(seq: Seq): Proof = {
+    val goal = con(seq.phis, Goal.empty)
+
+    goal match {
+      case Closed =>
+        Step(Nil, seq, this)
+      case Open(_, phis) =>
+        Step(List(Seq(phis)), seq, this)
+    }
+  }
+
+  def rewrite(self: Expr, ctx: Goal, rw: Rewrites): Expr = {
+    rewrite(self, Nil, ctx, rw)
   }
 
   @tailrec
-  def rewrite(self: Expr, args: List[Expr], ant: List[Expr], rw: Rewrites): Expr = self match {
+  def rewrite(self: Expr, args: List[Expr], ctx: Goal, rw: Rewrites): Expr = self match {
     case op: Op =>
-      rw(op)(args, ant)
+      rw(op)(args, ctx)
     case App(fun, arg) =>
-      rewrite(fun, simp(arg, ant) :: args, ant, rw)
+      rewrite(fun, literal(arg, ctx) :: args, ctx, rw)
     case _ =>
       self
   }
 
   @tailrec
-  def con(todo: List[Expr], ant: List[Expr]): List[Expr] = todo match {
-    case Nil => ant.reverse
+  def con(todo: List[Expr], ctx: Goal): Goal = todo match {
+    case Nil => ctx.reverse
     case phi :: rest =>
       // may produce duplicate work:
-      val newant = assume(rest, ant)
-      val newphi = simp(phi, newant)
-      con(rest, assume(newphi, ant))
+      val newctx = assume(rest, ctx)
+      val newphi = simp(phi, false, newctx)
+      con(rest, assume(newphi, ctx))
   }
-  
-  def imps(suc: Expr): (List[Expr], Expr) = suc match {
-    case Imp(phi, psi) =>
-      val (ant, newsuc) = imps(psi)
-      (phi :: ant, newsuc)
-    case _ =>
-      (Nil, suc)
-  }
-  
-  def literal(phi: Expr, ant: List[Expr]): Expr = {
-    if (ant contains phi) True
-    else if (ant contains Not(phi)) False
+
+  def literal(phi: Expr, ctx: Goal): Expr = {
+    if (ctx contains phi) True
+    else if (ctx contains Not(phi)) False
     else phi
   }
 
-  def not(phi: Expr, ant: List[Expr]): Expr = {
-    triv.not(simp(phi, ant))
+  def term(expr: Expr, ctx: Goal): Expr = {
+    expr
   }
 
-  def and(phi: Expr, psi: Expr, ant: List[Expr]): Expr = {
-    val (newphi, newpsi) = binary(phi, true, psi, true, ant)
+  def canon(expr: Expr, ctx: Goal): Expr = {
+    val res = ctx canon expr
+    println("canon " + expr + " ~> " + res)
+    res
+  }
+
+  def merge(lhs: Expr, rhs: Expr, ctx: Goal): Goal = {
+    println("merge " + lhs + " ~> " + rhs)
+    ctx merge (lhs, rhs)
+  }
+
+  def not(phi: Expr, prove: Boolean, ctx: Goal): Expr = {
+    triv.not(simp(phi, !prove, ctx))
+  }
+
+  def and(phi: Expr, psi: Expr, prove: Boolean, ctx: Goal): Expr = {
+    val (newphi, newpsi) = binary(phi, true, prove, psi, true, prove, ctx)
     triv.and(newphi, newpsi)
   }
 
-  def or(phi: Expr, psi: Expr, ant: List[Expr]): Expr = {
-    val (newphi, newpsi) = binary(phi, false, psi, false, ant)
+  def or(phi: Expr, psi: Expr, prove: Boolean, ctx: Goal): Expr = {
+    val (newphi, newpsi) = binary(phi, false, prove, psi, false, prove, ctx)
     triv.or(newphi, newpsi)
   }
 
-  def imp(phi: Expr, psi: Expr, ant: List[Expr]): Expr = {
-    val (newphi, newpsi) = binary(phi, true, psi, false, ant)
+  def imp(phi: Expr, psi: Expr, prove: Boolean, ctx: Goal): Expr = {
+    val (newphi, newpsi) = binary(phi, true, !prove, psi, false, prove, ctx)
     triv.imp(newphi, newpsi)
   }
 
-  def eqv(phi: Expr, psi: Expr, ant: List[Expr]): Expr = {
-    val lr = simp(Imp(phi, psi), ant)
-    val rl = simp(Imp(psi, phi), ant)
+  def eqv(phi: Expr, psi: Expr, prove: Boolean, ctx: Goal): Expr = {
+    val lr = simp(Imp(phi, psi), prove, ctx)
+    val rl = simp(Imp(psi, phi), prove, ctx)
 
     // try to extract con/dis
 
@@ -105,59 +113,81 @@ object Simplify extends Rule {
       case (True, _) => rl // already simplified
       case (_, True) => lr
       case _ =>
-        triv.eqv(simp(phi, ant), simp(psi, ant)) // does a lot of work again
+        triv.eqv(simp(phi, false, ctx), simp(psi, false, ctx)) // does a lot of work again
+    }
+  }
+
+  def eq(lhs: Expr, rhs: Expr, prove: Boolean, ctx: Goal): Expr = {
+    val newlhs = term(lhs, ctx)
+    val newrhs = term(rhs, ctx)
+
+    if (prove && canon(lhs, ctx) == canon(rhs, ctx)) {
+      True
+    } else {
+      triv.eq(newlhs, newrhs)
     }
   }
 
   def binary(
-    phi: Expr, phi_pos: Boolean,
-    psi: Expr, psi_pos: Boolean,
-    ant: List[Expr],
+    phi: Expr, phi_pos: Boolean, phi_prove: Boolean,
+    psi: Expr, psi_pos: Boolean, psi_prove: Boolean,
+    ctx: Goal,
     psi_done: Boolean = false,
     swap: Boolean = false): (Expr, Expr) =
     {
-      val newant = if (psi_pos) assume(psi, ant) else assert(psi, ant)
-      val newphi = simp(phi, newant)
+      val newctx = if (psi_pos) assume(psi, ctx) else assert(psi, ctx)
+      val newphi = simp(phi, phi_prove, newctx)
       val phi_done = phi == newphi
 
       if (phi_done && psi_done) {
         if (swap) (psi, phi)
         else (phi, psi)
       } else {
-        binary(psi, psi_pos, newphi, phi_pos, ant, phi_done, !swap)
+        binary(psi, psi_pos, psi_prove,
+          /**/ newphi, phi_pos, phi_prove,
+          /**/ ctx, phi_done, !swap)
       }
     }
 
-  def push(phi: Expr, ant: List[Expr]): List[Expr] = {
-    if (phi == False) List(phi)
-    else if (phi == True) ant
-    else phi :: ant
-  }
-
-  def assume(phi: Expr, ant: List[Expr]): List[Expr] = phi match {
-    case Not(psi) => assert(psi, ant)
-    case And(phi, psi) => assume(phi, assume(psi, ant))
+  def assume(phi: Expr, ctx: Goal): Goal = phi match {
+    case True =>
+      ctx
+    case False =>
+      Closed
+    case Not(psi) =>
+      assert(psi, ctx)
+    case And(phi, psi) =>
+      assume(phi, assume(psi, ctx))
+    case Eq(lhs, rhs) =>
+      phi :: merge(lhs, rhs, ctx)
     /*case Ex(bound, body) => // slow
-      val avoid = free(phi :: ant)
-      assume(inst(body, fresh(bound, avoid)), ant)*/
-    case _ => push(phi, ant)
+      val avoid = free(phi :: ctx)
+      assume(inst(body, fresh(bound, avoid)), ctx)*/
+    case _ => phi :: ctx
   }
 
-  def assert(phi: Expr, ant: List[Expr]): List[Expr] = phi match {
-    case Not(psi) => assume(psi, ant)
-    case Imp(phi, psi) => assert(psi, assume(phi, ant))
-    case Or(phi, psi) => assert(psi, assert(phi, ant))
+  def assert(phi: Expr, ctx: Goal): Goal = phi match {
+    case True =>
+      Closed
+    case False =>
+      ctx
+    case Not(psi) =>
+      assume(psi, ctx)
+    case Imp(phi, psi) =>
+      assert(psi, assume(phi, ctx))
+    case Or(phi, psi) =>
+      assert(psi, assert(phi, ctx))
     /*case All(bound, body) => // slow
-      val avoid = free(phi :: ant)
-      assert(inst(body, fresh(bound, avoid)), ant)*/
-    case _ => push(triv.not(phi), ant)
+      val avoid = free(phi :: ctx)
+      assert(inst(body, fresh(bound, avoid)), ctx)*/
+    case _ => triv.not(phi) :: ctx
   }
 
-  def assume(args: List[Expr], ant: List[Expr]): List[Expr] = {
-    args.foldRight(ant)(assume)
+  def assume(args: List[Expr], ctx: Goal): Goal = {
+    args.foldRight(ctx)(assume)
   }
 
-  def assert(args: List[Expr], ant: List[Expr]): List[Expr] = {
-    args.foldRight(ant)(assert)
+  def assert(args: List[Expr], ctx: Goal): Goal = {
+    args.foldRight(ctx)(assert)
   }
 }

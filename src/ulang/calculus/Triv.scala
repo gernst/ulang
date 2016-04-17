@@ -52,4 +52,9 @@ object triv {
     case (Not(phi), Not(psi)) => eqv(phi, psi)
     case _ => Eqv(phi, psi)
   }
+  
+  def eq(lhs: Expr, rhs: Expr) = {
+    if(lhs == rhs) True
+    else Eq(lhs, rhs)
+  }
 }

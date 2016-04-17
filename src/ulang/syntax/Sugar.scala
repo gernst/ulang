@@ -79,16 +79,14 @@ class Binder(op: Op) extends ((FreeVar, Expr) => Expr) {
 
 object FlatApp {
   @tailrec
-  def flatten(e: Expr, args: List[Expr]): Option[(Op, List[Expr])] = e match {
-    case op: Op =>
-      Some((op, args))
+  def flatten(e: Expr, args: List[Expr]): Option[(Expr, List[Expr])] = e match {
     case App(fun, arg) =>
       flatten(fun, arg :: args)
     case _ =>
-      None
+      Some((e, args))
   }
 
-  def unapply(e: Expr): Option[(Op, List[Expr])] = {
+  def unapply(e: Expr): Option[(Expr, List[Expr])] = {
     flatten(e, Nil)
   }
 }

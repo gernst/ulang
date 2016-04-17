@@ -1,13 +1,20 @@
 package ulang.source
 
 import arse.Fixity
+import ulang.syntax.Thy
 
 sealed trait Decl
-case class Import(name: String) extends Decl
-case class FixDecl(fixity: Fixity, op: String) extends Decl
-case class DataDef(typ: Tree, constrs: List[OpDecl]) extends Decl
-case class TypeDef(lhs: Tree, rhs: Option[Tree]) extends Decl
-case class OpDecl(name: String, typ: Tree) extends Decl
-case class OpDef(expr: Tree) extends Decl
-case class TheoremDef(expr: Tree) extends Decl
-case class Incomplete(data: Any) extends Decl
+case class Import(thy: Thy) extends Decl
+case class FixDecl(fixity: Fixity, name: String) extends Decl
+case class OpDecl(name: String, typ: Type) extends Decl
+case class DataDef(typ: Type, constrs: List[OpDecl]) extends Decl
+case class TypeDef(lhs: Type, rhs: Type) extends Decl
+case class OpDef(axiom: Expr) extends Decl
+
+object TypeDecl {
+  def unapply(decl: Decl): Option[Type] = decl match {
+    case DataDef(typ, _) => Some(typ)
+    case TypeDef(lhs, _) => Some(lhs)
+    case _ => None
+  }
+}

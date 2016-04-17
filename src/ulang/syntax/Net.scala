@@ -5,6 +5,20 @@ import scala.annotation.tailrec
 import ulang.syntax._
 
 case class Net(ops: Map[Op, Net], app: Option[Net], bound: Option[Net], rhs: List[Expr]) {
+  def isDeterm: Boolean = {
+    val m = !ops.isEmpty || !app.isEmpty // specific match
+    val b = !bound.isEmpty // catch all
+    val r = !rhs.isEmpty // rewrite
+
+    if (m) {
+      !b && !r && ops.values.forall(_.isDeterm) && app.forall(_.isDeterm)
+    } else if (b) {
+      !r && bound.forall(_.isDeterm)
+    } else {
+      rhs.length == 1
+    }
+  }
+
   def insert(args: List[Expr], stack: List[FreeVar], expr: Expr): Net = args match {
     case Nil =>
       copy(rhs = rhs :+ (expr bind stack))
@@ -25,8 +39,8 @@ case class Net(ops: Map[Op, Net], app: Option[Net], bound: Option[Net], rhs: Lis
       error("in net: " + arg + " is not a pattern")
   }
 
-  def +(args_expr: (List[Expr], Expr)) = args_expr match {
-    case (args, expr) => this.insert(args, Nil, expr)
+  def +(cs: Case) = cs match {
+    case Case(args, expr) => this.insert(args, Nil, expr)
   }
 
   def format(ident: Int): String = {
@@ -55,7 +69,7 @@ case class Net(ops: Map[Op, Net], app: Option[Net], bound: Option[Net], rhs: Lis
 }
 
 object Net {
-  def apply(cases: List[(List[Expr], Expr)]): Net = {
+  def apply(cases: List[Case]): Net = {
     cases.foldLeft(Net.empty)(_ + _)
   }
 

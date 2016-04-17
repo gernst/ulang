@@ -10,52 +10,33 @@ import ulang.semantics._
 import ulang.transform._
 
 object Repl extends Shell {
-  var context: Context = _
+  var thy: Thy = _
   val prompt = "> "
 
+  clear()
+
   def clear() {
-    context = Context.default rename "shell"
+    thy = Thy.default
   }
 
-  clear()
-  // read("import bool")
-  // read("import nat")
-
   val commands = Map(
-    ":sig" -> cmd(out(context.sig)),
-    ":defs" -> cmd(out(context.df)),
-    ":syntax" -> cmd(out(context.syntax)),
-    ":net" -> cmd(out(context.df.net)),
-    ":model" -> cmd(out(context.model.keys.mkString(" "))),
-    ":prove" -> cmd(Prove(context).repl),
+    ":thy" -> cmd(out(thy)),
+    ":sig" -> cmd(out(thy.sig)),
+    ":defs" -> cmd(out(thy.df)),
+    // ":net" -> cmd(out(context.thy.df.net)),
+    // ":model" -> cmd(out(context.model.keys.mkString(" "))),
+    ":prove" -> cmd(Prove(thy).repl),
     ":clear" -> cmd(clear()))
 
   def read(line: String) = {
-    import ulang.Parsers._
-    import Parsers._
-    import Reorder._
-    import Convert._
-    import Infer._
-    import Eval._
-    import Model._
-    import ulang.syntax.predefined.pred.Eq
+    import ulang.syntax.predefined._
+    import ulang.source.Parsers.decl
 
-    val parse = decl $
-    val res = parse(tokenize(line))
-
-    res match {
-      case OpDef(_expr) =>
-        val (expr, typ) = context toExpr _expr
-        expr match {
-          case Eq(_, _) =>
-            context += expr
-          case _ =>
-            val v = eval(expr, context.model)
-            out("  = " + v + " : " + typ)
-        }
-      case _ =>
-        context += res
-        out("defined " + res)
-    }
+    {
+      thy = decl(line, thy)
+    } /*or {
+      val expr = context.parse.expr(line)
+      out(expr)
+    }*/
   }
 }

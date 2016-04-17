@@ -121,7 +121,7 @@ flatten none = none
 
 /* ********* Pair ********* */
 
-data (×) a b
+data a × b
   = , : a → b → a × b
 
 fst: a × b → a
@@ -145,8 +145,10 @@ data List a
 empty: List a → Bool
 empty xs = (xs = [])
 
+/*
 some: a → List a
 some x = x :: []
+*/
 
 head: List a → a
 head (x :: xs) = x
@@ -166,11 +168,11 @@ init (x :: xs) = x :: init xs
 [] ++ ys = ys
 x :: xs ++ ys = x :: (xs ++ ys)
 
-#: List a → nat
+#: List a → Nat
 # [] = 0
 # (x :: xs) = # xs + 1
 
-nth: nat → List a → a
+nth: Nat → List a → a
 nth 0 (x :: xs) = x
 nth (n +1) (x :: xs) = nth n xs
 

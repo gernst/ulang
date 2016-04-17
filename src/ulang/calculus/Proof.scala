@@ -1,6 +1,7 @@
 package ulang.calculus
 
 import ulang.syntax._
+import ulang.syntax.predefined.prop._
 
 trait Proof {
   def format(ident: Int): String
@@ -22,8 +23,28 @@ case class Step(prems: List[Proof], concl: Seq, rule: Rule) extends Proof {
   def isClosed = prems forall (_.isClosed)
 }
 
-case class Seq(ant: List[Expr], suc: Expr) extends Proof {
+case class Seq(phis: List[Expr]) extends Proof {
   def format(ident: Int): String = ("  " * ident) + this
-  override def toString = ant.mkString(", ") + " ⊦ " + suc
+
+  def ant = phis filter {
+    case Not(_) => false
+    case _ => true
+  }
+
+  def suc = phis collect {
+    case Not(phi) => phi
+  }
+
+  override def toString = {
+    ant.mkString(", ") + " ⊦ " + suc.mkString(", ")
+  }
+
+  def ::(phi: Expr) = Seq(phi :: phis)
   def isClosed = false
+}
+
+object Seq {
+  def apply(ant: List[Expr], suc: List[Expr]): Seq = {
+    Seq(ant ::: (suc map Not))
+  }
 }
