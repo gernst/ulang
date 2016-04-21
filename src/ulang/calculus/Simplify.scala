@@ -11,9 +11,6 @@ object Simplify extends Rule {
   type Rewrites = Map[Op, (List[Expr], Goal) => Expr]
 
   def simp(phi: Expr, prove: Boolean, ctx: Goal): Expr = {
-    if (prove)
-      println("prove " + phi + " in " + ctx)
-
     phi match {
       case True | False => phi
       case Not(phi) => not(phi, prove, ctx)
@@ -73,12 +70,12 @@ object Simplify extends Rule {
 
   def canon(expr: Expr, ctx: Goal): Expr = {
     val res = ctx canon expr
-    println("canon " + expr + " ~> " + res)
+    // println("canon " + expr + " ~> " + res)
     res
   }
 
   def merge(lhs: Expr, rhs: Expr, ctx: Goal): Goal = {
-    println("merge " + lhs + " ~> " + rhs)
+    // println("merge " + lhs + " ~> " + rhs)
     ctx merge (lhs, rhs)
   }
 

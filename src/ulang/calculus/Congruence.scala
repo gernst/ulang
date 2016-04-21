@@ -7,11 +7,11 @@ class Congruence(var _cong: DisjointSets[Expr], var _use: Map[Expr, Set[Expr]], 
   def find(e: Expr) = _cong find e
   def union(e1: Expr, e2: Expr) { _cong = _cong union (e1, e2) }
   def use(e: Expr) = _use.getOrElse(e, Set.empty)
-  def sig(e: Expr) = _sig.getOrElse(e, e)
+  def sig(e: Expr) = _sig(e)
 
   def merge(e1: Expr, e2: Expr) = {
     val cc = new Congruence(_cong, _use, _sig)
-    cc _merge (canon(e1), canon(e2))
+    cc _process (e1, e2)
     cc
   }
 
@@ -20,6 +20,10 @@ class Congruence(var _cong: DisjointSets[Expr], var _use: Map[Expr, Set[Expr]], 
       canonsig(App(canon(fun), canon(arg)))
     case _ =>
       canonsig(e)
+  }
+  
+  private def _process(e1: Expr, e2: Expr) {
+    _merge(canon(e1), canon(e2))
   }
 
   private def _merge(e1: Expr, e2: Expr) {
@@ -30,7 +34,7 @@ class Congruence(var _cong: DisjointSets[Expr], var _use: Map[Expr, Set[Expr]], 
         for (v <- use(e2) if sig(v) == sig(u)) {
           _merge(find(u), find(v))
         }
-        _use += e2 -> (use(find(e2)) + u)
+        _use += e2 -> (use(e2) + u)
       }
     }
   }
@@ -42,6 +46,7 @@ class Congruence(var _cong: DisjointSets[Expr], var _use: Map[Expr, Set[Expr]], 
           find(u)
         case None =>
           _use += arg -> (use(arg) + e)
+          _sig += e -> e
           _use = _use - e
           e
       }
@@ -49,7 +54,7 @@ class Congruence(var _cong: DisjointSets[Expr], var _use: Map[Expr, Set[Expr]], 
       find(e)
   }
 
-  override def toString = _cong.toString
+  override def toString = _cong.toString + " | use: " + _use + " | sig: " + _sig  
 }
 
 object Congruence {
