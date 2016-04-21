@@ -47,7 +47,7 @@ class Congruence(var _cong: DisjointSets[Expr], var _use: Map[Expr, Set[Expr]], 
         case None =>
           _use += arg -> (use(arg) + e)
           _sig += e -> e
-          _use = _use - e
+          _use -= e
           e
       }
     case _ =>

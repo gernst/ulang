@@ -54,7 +54,7 @@ object triv {
   }
   
   def eq(lhs: Expr, rhs: Expr) = {
-    if(lhs == rhs) True
+    if(lhs === rhs) True
     else Eq(lhs, rhs)
   }
 }

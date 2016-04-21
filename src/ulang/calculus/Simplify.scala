@@ -19,7 +19,7 @@ object Simplify extends Rule {
       case Imp(phi, psi) => imp(phi, psi, prove, ctx)
       case Eqv(phi, psi) => eqv(phi, psi, prove, ctx)
       case Eq(lhs, rhs) => eq(lhs, rhs, prove, ctx)
-      case _ => literal(phi, ctx)
+      case _ => literal(phi, prove, ctx)
     }
   }
 
@@ -43,7 +43,7 @@ object Simplify extends Rule {
     case op: Op =>
       rw(op)(args, ctx)
     case App(fun, arg) =>
-      rewrite(fun, literal(arg, ctx) :: args, ctx, rw)
+      rewrite(fun, term(arg, ctx) :: args, ctx, rw)
     case _ =>
       self
   }
@@ -58,14 +58,14 @@ object Simplify extends Rule {
       con(rest, assume(newphi, ctx))
   }
 
-  def literal(phi: Expr, ctx: Goal): Expr = {
+  def literal(phi: Expr, prove: Boolean, ctx: Goal): Expr = {
     if (ctx contains phi) True
     else if (ctx contains Not(phi)) False
     else phi
   }
 
   def term(expr: Expr, ctx: Goal): Expr = {
-    expr
+    canon(expr, ctx)
   }
 
   def canon(expr: Expr, ctx: Goal): Expr = {
@@ -117,12 +117,7 @@ object Simplify extends Rule {
   def eq(lhs: Expr, rhs: Expr, prove: Boolean, ctx: Goal): Expr = {
     val newlhs = term(lhs, ctx)
     val newrhs = term(rhs, ctx)
-
-    if (prove && canon(lhs, ctx) == canon(rhs, ctx)) {
-      True
-    } else {
-      triv.eq(newlhs, newrhs)
-    }
+    triv.eq(newlhs, newrhs)
   }
 
   def binary(

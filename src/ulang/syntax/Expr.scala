@@ -9,6 +9,7 @@ sealed trait Expr {
   def free: Set[FreeVar]
   def vars: Set[FreeVar]
   def mapFree(f: FreeVar => Expr): Expr
+  def ===(that: Expr): Boolean = (this == that)
 
   def replace(e1: Expr, e2: Expr): Expr = this match {
     case `e1` => e2
@@ -62,6 +63,12 @@ case class App(fun: Expr, arg: Expr) extends Expr {
   def free = fun.free ++ arg.free
   def vars = fun.vars ++ arg.vars
   def mapFree(f: FreeVar => Expr) = App(fun mapFree f, arg mapFree f)
+
+  override def ===(that: Expr): Boolean = that match {
+    case that: App =>
+      this.fun === that.fun && this.arg === that.arg
+    case _ => false
+  }
 }
 
 case class Lambda(bound: FreeVar, body: Expr) extends Expr {
@@ -71,6 +78,12 @@ case class Lambda(bound: FreeVar, body: Expr) extends Expr {
   def free = body.free - bound
   def vars = body.free + bound
   def mapFree(f: FreeVar => Expr) = Lambda(bound, body mapFree f)
+
+  override def ===(that: Expr): Boolean = that match {
+    case that: Lambda =>
+      this.body === that.body
+    case _ => false
+  }
 }
 
 case class Case(args: List[Expr], body: Expr)
