@@ -1,7 +1,7 @@
 package ulang.source
 
 import arse._
-import arse.control._
+import arse._
 import arse.Combinators.parse
 import java.io.StringReader
 import java.io.FileReader
@@ -13,14 +13,14 @@ import ulang.syntax
 import ulang.transform.Convert
 
 class Parsers extends Combinators with Primitives {
-  type T = String
+  type T = Token
 
   def expect(s: String) = lit(s) ! "expected '" + s + "'"
   def parens[A](p: Parser[T, A]) = lit("(") ~> p <~ expect(")")
 
   val nonkw = string filterNot Parsers.keywords
 
-  def partial[A](syntax: Syntax, p: Parser[String, A]): Parser[String, A] = lift {
+  def partial[A](syntax: Syntax, p: Parser[T, A]): Parser[T, A] = lift {
     in =>
       Grammar.context.withValue(syntax)(p(in))
   }
@@ -32,14 +32,14 @@ object Parsers {
     "prefix", "infix", "postfix", "binder",
     "(", ")", ";", "λ", ".", ":")
 
-  type Region = List[String]
+  type Region = List[Token]
 
   implicit def toFileReader(file: File) = new FileReader(file)
   implicit def toStringReader(string: String) = new StringReader(string)
 
-  def tokenize(reader: Reader): List[String] = {
+  def tokenize(reader: Reader): List[Token] = {
     val scan = new Scanner(reader)
-    val buffer = new ListBuffer[String]
+    val buffer = new ListBuffer[Token]
     var tok = scan.next
     while (tok != null) {
       buffer += tok
@@ -51,7 +51,7 @@ object Parsers {
   def regionize(reader: Reader): List[Region] = {
     val scan = new Scanner(reader)
     val buffer = new ListBuffer[Region]
-    var run = new ListBuffer[String]
+    var run = new ListBuffer[Token]
     var tok = scan.next
 
     def flush() = if (!run.isEmpty) {
@@ -60,7 +60,7 @@ object Parsers {
     }
 
     while (tok != null) {
-      if (tok == ";") flush()
+      if (tok.toString == ";") flush()
       else run += tok
       tok = scan.next
     }
@@ -68,7 +68,7 @@ object Parsers {
     buffer.toList
   }
 
-  def complete[A](line: String, syntax: Syntax, p: Parser[String, A]): A = {
+  def complete[A](line: String, syntax: Syntax, p: Parser[Token, A]): A = {
     Grammar.context.withValue(syntax) {
       val parse = p.$
       val source = tokenize(line)
@@ -118,13 +118,15 @@ trait SyntaxParsers {
   def op(name: String): Op
   def keywords: Set[String]
 
-  def mixfix_op[A](m: Map[String, A], name: String) = {
+  def mixfix_op[A](m: Map[String, A], tok: Token) = {
+    val name = tok.text
     if (keywords contains name) fail
     else if (m contains name) (op(name), m(name))
     else fail
   }
 
-  def mixfix_op(s: Set[String], name: String) = {
+  def mixfix_op(s: Set[String], tok: Token) = {
+    val name = tok.text
     if (keywords contains name) fail
     else if (s contains name) op(name)
     else fail

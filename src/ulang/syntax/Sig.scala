@@ -1,6 +1,6 @@
 package ulang.syntax
 
-import arse.control._
+import arse._
 import ulang.syntax._
 import ulang.MultiMap._
 import arse.Fixity

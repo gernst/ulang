@@ -1,12 +1,12 @@
 package ulang.syntax
 
-import arse.control._
+import arse._
+import arse._
 import ulang.transform.Convert
 import ulang.source.Grammar
-import arse.Parser
 
 class Parsers(thy: Thy) extends ulang.source.Parsers {
-  def complete[A](line: String, p: Parser[String, A]): A = {
+  def complete[A](line: String, p: Parser[Token, A]): A = {
     ulang.source.Parsers.complete(line, thy.sig.syntax, p)
   }
 

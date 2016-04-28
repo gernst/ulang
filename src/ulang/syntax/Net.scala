@@ -1,6 +1,6 @@
 package ulang.syntax
 
-import arse.control._
+import arse._
 import scala.annotation.tailrec
 import ulang.syntax._
 

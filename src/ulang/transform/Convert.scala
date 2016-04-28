@@ -2,7 +2,7 @@ package ulang.transform
 
 import ulang.source
 import ulang.syntax
-import arse.control._
+import arse._
 
 object Convert {
   import Unify._
@@ -88,6 +88,9 @@ object Convert {
         val typ = subst(sig, e.typ, theta)
         syntax.FreeVar(name, typ)
       }
+      
+    case source.Typed(arg, _) =>
+      expr(sig, arg, stack, theta)
 
     case source.App(fun, arg) =>
       syntax.App(expr(sig, fun, stack, theta), expr(sig, arg, stack, theta))

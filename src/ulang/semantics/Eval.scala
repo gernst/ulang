@@ -1,6 +1,6 @@
 package ulang.semantics
 
-import arse.control._
+import arse._
 import ulang.syntax._
 import ulang.syntax.predefined._
 

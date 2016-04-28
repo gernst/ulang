@@ -1,10 +1,12 @@
 package ulang.source;
 
+import arse.*;
+
 %%
 
 %class Scanner
 %function next
-%type String
+%type arse.Token
 %unicode
 %line
 %column
@@ -15,7 +17,17 @@ package ulang.source;
     public int column() { return yycolumn; }
     public int pos()    { return yychar; }
     
-    public String tok() { return yytext(); }
+    public Token tok(String text) {
+		return new Token(text, pos(), text.length());
+	}
+	
+    public Token tok() {
+    	return tok(yytext());
+    }
+	
+	public Token semicolon() {
+    	return tok(";");
+	}
 %}
 
 nl = \r|\n|\r\n
@@ -40,7 +52,7 @@ delim = [()\[\]\\.,:;]
 }
 
 <LINE_COMMENT> {
-{nl}        { yybegin(YYINITIAL); return (";"); }
+{nl}        { yybegin(YYINITIAL); return semicolon(); }
 .           { /* ignore */ }
 }
 
@@ -51,9 +63,9 @@ delim = [()\[\]\\.,:;]
 
 // {ws}+    { /* ignore */ }
 
-{sp}* {nl} {sp}+ 
+{sp}* {nl} {sp}+
             { /* continue on the next indented line */ }
-{ws}* {nl}  { return ";";  }
+{ws}* {nl}  { return semicolon();  }
 {sp}+       { /* ignore */ }
 
 {delim}     { return tok(); }

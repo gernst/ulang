@@ -1,6 +1,6 @@
 package ulang.source
 
-import arse.control._
+import arse._
 import java.io.File
 import java.io.Reader
 

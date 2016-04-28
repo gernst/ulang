@@ -1,9 +1,10 @@
 package ulang.source
 
-import arse.control._
+import arse._
 
 sealed trait Expr {
   val typ = TypeVar.fresh
+  
   def op: Id
   def free: Set[Id]
 
@@ -18,6 +19,12 @@ case class Id(name: String) extends Expr with Type {
   val orig = TypeVar.fresh
   def op = this
   def free = Set(this)
+}
+
+case class Typed(expr: Expr, orig: Type) extends Expr {
+  override def toString = "(" + expr + ": " + orig + ")"
+  def op = expr.op
+  def free = expr.free
 }
 
 case class App(fun: Expr, arg: Expr) extends Expr {

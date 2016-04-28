@@ -1,6 +1,6 @@
 package ulang.shell
 
-import arse.control._
+import arse._
 import ulang._
 import ulang.syntax._
 import ulang.calculus._

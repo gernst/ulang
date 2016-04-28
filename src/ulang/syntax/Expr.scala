@@ -1,7 +1,7 @@
 package ulang.syntax
 
 import arse.Fixity
-import arse.control._
+import arse._
 
 sealed trait Expr {
   def abs(x: FreeVar, index: Int): Expr

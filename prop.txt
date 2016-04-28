@@ -3,6 +3,7 @@ infix right 2 →
 infix left  3 ∨
 infix left  4 ∧
 prefix      5 ¬
+postfix    11 *
 
 p: Bool
 q: Bool
@@ -39,3 +40,4 @@ data Bool
 ↔ : Bool → Bool → Bool
 (true ↔ b) = b
 (false ↔ b) = (¬ b)
+

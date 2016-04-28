@@ -1,7 +1,7 @@
 package ulang.source
 
 import arse._
-import arse.control._
+import arse._
 import arse.Combinators.parse
 import scala.util.DynamicVariable
 
@@ -38,18 +38,23 @@ object Grammar {
     def unary(op: Op, arg: Expr) = app(op, List(arg))
     def binary(op: Op, arg1: Expr, arg2: Expr) = app(op, List(arg1, arg2))
     def abs(ids: List[Id], body: Expr) = Lambda(ids, body)
+    def typed(op: Op, typ: Option[Type]) = typ match {
+      case None => op
+      case Some(typ) => Typed(op, typ)
+    }
 
     val keywords = Parsers.keywords
 
-    val binding = parse(abs _)(ids <~ lit("."), mixfix_expr)
+    val binding = parse(abs _)(ids <~ expect("."), mixfix_expr)
     val lambda = lit("λ") ~> binding
     val bindfix_app = parse(unary _)(bindfix_op, binding)
 
     val anyop = parse(Id)(name)
-    val closed = parens(mixfix_expr | anyop) | lambda | bindfix_app | id
+    val typedop = parse(typed _)(anyop, (lit(":") ~> decls.strict_typ).?)
+    val closed = parens(typedop | mixfix_expr | anyop) | lambda | bindfix_app | id
 
     val normal_app = parse(app _)(closed, closed.*)
-    val inner_expr: Parser[String, Expr] = normal_app
+    val inner_expr: Parser[Token, Expr] = normal_app
 
     val parser = mixfix_expr
   }
@@ -73,7 +78,7 @@ object Grammar {
     val closed = parens(mixfix_expr) | id
     val type_app = parse(app _)(nonmixfix, closed.*)
 
-    val inner_expr: Parser[String, Type] = type_app | closed
+    val inner_expr: Parser[Token, Type] = type_app | closed
 
     val parser = mixfix_expr
   }
@@ -83,10 +88,10 @@ object Grammar {
 
     val strict_typ = types.parser ! "expected type"
     val strict_expr = exprs.parser ! "expected expression"
-
+    
     val colon_typ = lit(":") ~> strict_typ
-    val eq_typ = lit("=") ~> strict_typ
-    val eq_expr = lit("=") ~> strict_expr
+    val eq_typ = expect("=") ~> strict_typ
+    val eq_expr = expect("=") ~> strict_expr
 
     def in(thy: ulang.syntax.Thy) = {
       context.syntax ++= thy.exported.syntax
@@ -108,7 +113,7 @@ object Grammar {
     val strict_opdecl = opdecl ! "expected operator declaration"
 
     val constrdecls = repsep(strict_opdecl, lit("|"))
-    val eq_constrdecls = lit("=") ~> constrdecls
+    val eq_constrdecls = expect("=") ~> constrdecls
 
     // TODO: fails silently when no eq is given 
     val datadef = lit("data") ~> parse(DataDef)(strict_typ, eq_constrdecls)

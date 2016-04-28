@@ -1,7 +1,6 @@
 package ulang
 
 import arse._
-import arse.control._
 import ulang.syntax._
 import ulang.source.Parsers
 import ulang.transform.Convert

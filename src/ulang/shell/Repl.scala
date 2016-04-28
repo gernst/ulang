@@ -3,7 +3,7 @@ package ulang.shell
 import ulang.Shell
 import ulang.Context
 
-import arse.control._
+import arse._
 import ulang.source._
 import ulang.syntax._
 import ulang.semantics._

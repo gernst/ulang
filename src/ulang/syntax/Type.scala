@@ -1,6 +1,6 @@
 package ulang.syntax
 
-import arse.control._
+import arse._
 
 case class Con(name: String, arity: Int) {
   override def toString = name + "/" + arity

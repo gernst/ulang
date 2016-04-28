@@ -1,6 +1,6 @@
 package ulang.transform
 
-import arse.control._
+import arse._
 import ulang.DisjointSets
 import ulang.source._
 import ulang.syntax
@@ -41,8 +41,8 @@ case class Infer(sig: syntax.Sig, df: syntax.Defs) {
 
   def solve(thetas: List[Subst], c: Constraint): List[Subst] = c match {
     case Eq(lhs, rhs) => unify(lhs, rhs, thetas)
-    case All(cs) => cs.foldLeft(thetas)(solve)
-    case Any(cs) => cs.flatMap(solve(thetas, _))
+    case All(cs)      => cs.foldLeft(thetas)(solve)
+    case Any(cs)      => cs.flatMap(solve(thetas, _))
   }
 
   def constraints_def(expr: Expr): List[Constraint] = {
@@ -80,6 +80,10 @@ case class Infer(sig: syntax.Sig, df: syntax.Defs) {
     case Id(name) =>
       fatal("in infer: unbound identifier " + expr)
 
+    case Typed(expr, typ) =>
+      val c = expr.typ ~> typ
+      c :: Nil
+
     case App(fun, arg) =>
       val cf = constraints(fun, scope)
       val ca = constraints(arg, scope)
@@ -90,9 +94,6 @@ case class Infer(sig: syntax.Sig, df: syntax.Defs) {
       val cb = constraints(body, scope + (bound.name -> bound.typ))
       val cl = expr.typ ~> (bound.typ → body.typ)
       cl :: cb
-
-    case _ =>
-      fatal("in infer: non-generic type for " + expr)
   }
 
   def nongeneric(typ: syntax.Type): Type = typ match {

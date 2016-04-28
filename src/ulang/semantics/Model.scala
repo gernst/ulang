@@ -1,7 +1,7 @@
 package ulang.semantics
 
 import ulang.syntax._
-import arse.control._
+import arse._
 import ulang.Ref
 
 object Model {

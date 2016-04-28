@@ -1,7 +1,7 @@
 package ulang.transform
 
 import ulang.source._
-import arse.control._
+import arse._
 import ulang.DisjointSets
 import scala.language.implicitConversions
 

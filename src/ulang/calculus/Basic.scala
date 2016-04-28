@@ -1,6 +1,6 @@
 package ulang.calculus
 
-import arse.control._
+import arse._
 import ulang.syntax._
 import ulang.syntax.predefined._
 import ulang.calculus._

@@ -1,7 +1,7 @@
 package ulang.source
 
 import arse._
-import arse.control._
+import arse._
 
 case object Bindfix extends Fixity
 // case object Outfix extends Fixity
