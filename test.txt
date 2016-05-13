@@ -4,3 +4,17 @@ foo: Bool
 
 id: a → a
 id x = x
+
+op: t
+op p1 … pn = e
+
+infer x = [(x,'x)]
+infer f = [(f,t) | t in sig(f) ]
+infer e1 e2
+  = foreach
+      (e1,t1) in infer e1 // function type
+      (e2,t2) in infer e2
+    do
+      theta = unify t1 t2
+      t = theta t1 = theta t2
+      theta (e1 e2, t)

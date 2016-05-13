@@ -246,7 +246,7 @@ class Scanner {
     public int pos()    { return yychar; }
     
     public Token tok(String text) {
-		return new Token(text, pos(), text.length());
+		return new Token(text, pos());
 	}
 	
     public Token tok() {

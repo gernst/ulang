@@ -41,7 +41,7 @@ eval (bound n) stack model
   = nth n stack
 
 eval (op name typ) stack model
-  = get name model 
+  = get name model
 
 eval (app fun arg) stack model
   = apply (eval fun stack model)
