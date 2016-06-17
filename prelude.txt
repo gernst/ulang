@@ -3,20 +3,18 @@ infix right 2 →
 infix left  3 ∨
 infix left  4 ∧
 prefix      5 ¬
+infix       6 = ≠ < > ≤ ≥
 
 infix right 7 ++
 
 infix right 8 ::
-infix left 8 +
-infix left 8 -
+infix left 8 + -
 
 infix left 9 *
-infix left 9 ×
-infix left 9 ,
+infix left 9 × ,
 
 prefix 11 #
-postfix 11 +1
-postfix 11 -1
+postfix 11 +1 -1
 
 infix right 20 ·
 
@@ -25,6 +23,9 @@ id x = x
 
 const: a → b → a
 const x y = x
+
+≠: a → a → Bool
+(x ≠ y) = ¬ (x = y)
 
 · : (b → c) → (a → b) → (a → c)
 (f · g) x = f (g x)
@@ -39,12 +40,12 @@ let: a → (a → b) → b
 let x f = f x
 
 // Unit
-data () = () : ()
+data () = (): ()
 
 /* ********* Bool ********* */
 
 data Bool
-  = true: Bool
+  = true:  Bool
   | false: Bool
 
 ¬ : Bool → Bool
@@ -94,6 +95,12 @@ n - m +1 = (n - m) -1
 n * 0 = 0
 n * m +1 = (n * m) + n
 
+<: Nat → Nat → Bool
+(0 < 0)       = false
+(0 < n +1)    = true
+(m +1 < 0)    = false
+(m +1 < n +1) = (n < m)
+
 /* ********* Option ********* */
 
 data Option a
@@ -103,32 +110,24 @@ data Option a
 empty: Option a → Bool
 empty x = (x = none)
 
-the: Option a → a
-the (some x) = x
-
 map: (a → b) → Option a → Option b
-map f (some x) = some (f x)
 map f none = none
+map f (some x) = some (f x)
 
 filter: (a → Bool) → Option a → Option a
-filter p (some x)
-  = if_then_else (p x) (some x) none
 filter p none = none
+filter p (some x)
+  = some x if p x 
+  | none   otherwise
 
 flatten: Option (Option a) → Option a
-flatten (some x) = x
 flatten none = none
+flatten (some x) = x
 
 /* ********* Pair ********* */
 
 data a × b
-  = , : a → b → a × b
-
-fst: a × b → a
-fst (x, y) = x
-
-snd: a × b → b
-snd (x, y) = y
+  = ,: a → b → a × b
 
 curry: (a × b → c) → a → b → c
 curry f x y = f (x, y)
@@ -142,16 +141,11 @@ data List a
   = [] : List a
   | :: : a → List a → List a
 
+.head: List a → a
+(x :: xs).head = x
+
 empty: List a → Bool
 empty xs = (xs = [])
-
-/*
-some: a → List a
-some x = x :: []
-*/
-
-head: List a → a
-head (x :: xs) = x
 
 tail: List a → List a
 tail (x :: xs) = xs
@@ -183,10 +177,18 @@ map f (x :: xs) = (f x) :: (map f xs)
 filter : (a → Bool) → List a → List a
 filter p [] = []
 filter p (x :: xs)
-  = if_then_else
-      (p x)
-      (x :: filter p xs)
-      (filter p xs)
+  = x :: filter p xs if p x
+  |      filter p xs otherwise
+
+filter p (x :: xs)
+  = let ys = filter p xs in
+    x :: ys if p x
+  |      ys otherwise
+
+filter p (x :: xs)
+  = x :: ys if p x
+  |      ys otherwise
+  where ys = filter p xs
 
 foldl : b → (b → a → b) → List a → b
 foldl z f [] = z
@@ -199,29 +201,28 @@ foldr z f (x :: xs) = f x (foldr z f xs)
 flatten : List (List a) → List a
 flatten xss = foldr [] (++) xss
 
-/* take: Nat → List a → List a
+flatmap : (a → List b) → List a → List b
+flatmap f = flatten · (map f)
+
+take: Nat → List a → List a
 take 0 xs = []
 take (n +1) (x :: xs) = x :: take n xs
 
 drop: Nat → List a → List a
 drop 0 xs = xs
-drop (n +1) (x :: xs) = drop n xs */
+drop (n +1) (x :: xs) = drop n xs
 
 take: (a → Bool) → List a → List a
 take p [] = []
 take p (x :: xs)
-  = if_then_else
-      (p x)
-      (x :: take p xs)
-      []
+  = x :: take p xs if p x
+  | []             otherwise
 
 drop: (a → Bool) → List a → List a
 drop p [] = []
 drop p (x :: xs)
-  = if_then_else
-      (p x)
-      (take p xs)
-      xs
+  = drop p xs if p x
+  | xs        otherwise
 
 /* ********* Map ********* */
 
@@ -229,10 +230,8 @@ type Map a b = List (a × b)
 
 get: a → Map a b → b
 get x ((k, v) :: m)
-  = if_then_else
-      (x = k)
-      v
-      (get x m)
+  = v       if x = k
+  | get x m otherwise
 
 put: (a × b) → Map a b → Map a b
 put kv m = kv :: m

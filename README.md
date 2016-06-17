@@ -80,7 +80,16 @@ Functions are defined by equations and pattern matching.
 Several equations for the same function (as determined by overloading resolution
 during type checking) are automatically grouped. The pattern match may discern
 data type constructors (and possibly view patterns in the future).
-Pattern matches must be deterministic.
+
+Pattern are matched from left to right, preferring more specific patterns,
+i.e., constructors over variables.
+Given this rule, patterns must resolve deterministically.
+The following definition satisfies this requirement, for example.
+
+    last: List a → a
+    last (x :: []) = x
+    last (x :: xs) = last xs
+
 Functions may be mutually recursive and it is possible to state higher order
 equations without specifying all of the arguments.
 

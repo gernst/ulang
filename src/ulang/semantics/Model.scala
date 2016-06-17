@@ -1,21 +1,22 @@
 package ulang.semantics
 
-import ulang.syntax._
 import arse._
-import ulang.Ref
+
+import ulang._
+import ulang.syntax._
+
 
 object Model {
   import Eval._
-  import ulang.syntax.predefined._
 
   def equals(x: Any)(y: Any) = {
     if (!x.isInstanceOf[Data] || !y.isInstanceOf[Data])
       error("in eval: cannot compare " + x + " and " + y)
-    if (x == y) prop.True else prop.False
+    if (x == y) True else False
   }
 
   def empty: Model = Map.empty
-  def default: Model = Map(Op.equals -> equals _)
+  def default: Model = Map(Eq.op -> equals _)
 
   def apply(df: Defs, init: Model): Model = {
     val cmodel = df.constrs.foldLeft(init) {

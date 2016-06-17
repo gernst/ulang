@@ -1,9 +1,8 @@
 package ulang.shell
 
-import ulang.Shell
-import ulang.Context
-
 import arse._
+
+import ulang._
 import ulang.source._
 import ulang.syntax._
 import ulang.semantics._
@@ -29,9 +28,8 @@ object Repl extends Shell {
     ":clear" -> cmd(clear()))
 
   def read(line: String) = {
-    import ulang.syntax.predefined._
-    import ulang.source.Parsers.decl
-
+    import Parsers.decl
+    
     {
       thy = decl(line, thy)
     } /*or {

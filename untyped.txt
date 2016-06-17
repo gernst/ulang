@@ -1,0 +1,35 @@
+m + 0 = m
+m + n +1 = (m + n) +1
+
+debruijn(Id(n), stack)
+  = Id(stack[n])
+
+debruijn(Const(v), _)
+  = Const(v)
+
+debruijn(Apply(f, a), stack)
+  = Apply(debruijn(f,stack), debruijn(a, stack))
+
+debruijn(Lambda(n, b), stack)
+  = Lambda(debruijn(b, n :: stack))
+
+debruijn
+
+
+compile(Id(n))
+  = Load(n)
+
+compile(Const(v))
+  = Const(v)
+
+compile(Apply(f, a))
+  = compile(a) ++ compile(f) ++ [Call]
+
+compile(Lambda(e))
+  = Closure(compile(e) ++ [Return])
+
+compile (Id n)      = Load n
+      | (Const v)   = Const v
+      | (Apply f a) = compile a ++ compile f ++ [Call]
+      | (Lambda e)  = Closure (compile e ++ [Return])
+

@@ -1,8 +1,9 @@
 package ulang.semantics
 
 import arse._
+
+import ulang._
 import ulang.syntax._
-import ulang.syntax.predefined._
 
 object Eval {
   type Stack = List[Any]
@@ -29,11 +30,11 @@ object Eval {
     case fv: FreeVar =>
       state.getOrElse(fv, fatal("in eval: unbound var " + fv))
 
-    case pred.IfThenElse(test, arg1, arg2) =>
+    case IfThenElse(test, arg1, arg2) =>
       eval(test, stack, state, model) match {
-        case prop.True =>
+        case True =>
           eval(arg1, stack, state, model)
-        case prop.False =>
+        case False =>
           eval(arg2, stack, state, model)
         case v =>
           fatal("in eval: non-boolean result of test " + v)

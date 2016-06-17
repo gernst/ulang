@@ -13,6 +13,6 @@ object Symbols extends (String => String) {
     "lambda" -> "λ",
     "|-" -> "⊦")
 
-  // called from Parsers.tree.name
+  // called from the parser
   def apply(s: String) = map.getOrElse(s, s)
 }

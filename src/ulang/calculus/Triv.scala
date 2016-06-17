@@ -1,8 +1,6 @@
 package ulang.calculus
 
 import ulang.syntax._
-import ulang.syntax.predefined.prop._
-import ulang.syntax.predefined.pred._
 
 object triv {
   def not(phi: Expr): Expr = phi match {
@@ -54,7 +52,7 @@ object triv {
   }
   
   def eq(lhs: Expr, rhs: Expr) = {
-    if(lhs === rhs) True
+    if(lhs == rhs) True
     else Eq(lhs, rhs)
   }
 }

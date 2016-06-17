@@ -3,15 +3,37 @@ import prelude
 type Name
 
 data Type
-  = param:  Name → Type
-  | app:    Name → List Type → Type
+  = param: Name
+  | app: Name (List Type)
 
 data Expr
-  = bound: Nat → Expr
-  | free:  Name → Type → Expr
-  | op:    Name → Type → Expr
-  | app:   Expr → Expr → Expr
-  | lam:   Name → Expr → Expr
+  = bound: Nat
+  | free: Name Type
+  | op    (name: Name)  (type: Type)
+  | app   (fun:  Expr)  (arg:  Expr)
+  | lam   (bound: Name) (body: Expr)
+
+data Pattern
+  = free:  Name → Type → Pattern
+  | op:    Name → Type → Pattern
+  | app:   Pattern → Pattern → Pattern
+
+free: Type → List Name
+free (param name) = name :: []
+   | (app name args) = flatmap free args
+
+function free: Expr → List Name
+free (bound n) = []
+   | (free name type) = name :: []
+   | (op name type) = []
+   | (app fun arg) = (free fun) ++ (free arg)
+   | (lam bound body) = (free body) -- bound
+
+// lots of clashes -> def
+free: Pattern → List Name
+  | (free name type) = name :: []
+  | (op name typ) = []
+  | (app fun arg) = (free fun) ++ (free arg)
 
 /*
 // app with n args from Expr has a clash with app from Type 
@@ -32,7 +54,7 @@ data Val a
   = const: a → Val a
   | clos: Closure a → Val a
 
-eval: Expr → Stack a → Model a → Val a
+eval: Expr (Stack a) (Model a) → Val a
 apply: Val a → Closure a
 
 apply (clos f) = f

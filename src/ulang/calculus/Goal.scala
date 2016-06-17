@@ -1,8 +1,6 @@
 package ulang.calculus
 
 import ulang.syntax._
-import ulang.syntax.predefined.prop._
-import ulang.syntax.predefined.pred._
 
 sealed trait Goal {
   def ::(phi: Expr): Goal
@@ -30,5 +28,5 @@ case class Open(cong: Congruence, phis: List[Expr]) extends Goal {
 }
 
 object Goal {
-  def empty = Open(Congruence.empty, Nil)
+  val empty = Open(Congruence.empty, Nil)
 }

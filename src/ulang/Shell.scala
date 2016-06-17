@@ -43,12 +43,12 @@ abstract class Shell {
             read(line)
         }
       } catch {
-        case e @ Error(msg) =>
+        /*case e @ Error(msg) =>
           err("error: " + msg)
         // e.printStackTrace()
         case e @ Fatal(msg) =>
           err("fatal: " + msg)
-          e.printStackTrace()
+          e.printStackTrace()*/
         case e: StackOverflowError =>
           err("fatal: stack overflow")
         case e: Throwable =>

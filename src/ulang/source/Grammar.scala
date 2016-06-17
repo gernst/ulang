@@ -1,125 +1,68 @@
 package ulang.source
 
-import arse._
-import arse._
-import arse.Combinators.parse
 import scala.util.DynamicVariable
 
+import arse._
+import ulang._
+import ulang.syntax._
+
 object Grammar {
-  object context extends DynamicVariable(Syntax.default) {
-    def syntax = value
-    def syntax_=(other: Syntax) { value = other }
-  }
+  import Parser._
+  import Recognizer._
+  import Mixfix._
 
-  object fixities extends Parsers {
-    val left = lit("left", Left)
-    val right = lit("right", Right)
-    val non = ret(Non)
+  import Operators._
 
-    val assoc = left | right | non
+  def expect(s: String) = s ! "expected '" + s + "'"
+  def parens[A](p: Parser[String, A]) = "(" ~ p ~ expect(")")
 
-    val prefix = lit("prefix") ~> parse(Prefix)
-    val postfix = lit("postfix") ~> parse(Postfix)
-    val infix = lit("infix") ~> parse(Infix)(assoc, int)
-    val bindfix = lit("binder", Bindfix)
+  val name = __ filterNot Parsers.keywords
+  val nonmixfix = name filterNot Operators.contains
 
-    val parser = prefix | postfix | infix | bindfix
-  }
+  val expr: Parser[String, Expr] = mixfix(expr_app, FreeVar, Apps, Operators)
 
-  object exprs extends Parsers with SyntaxParsers with Mixfix {
-    type Op = ulang.source.Expr
-    type Expr = ulang.source.Expr
+  val fv = FreeVar.from(nonmixfix)
+  val fvs = fv.+
+  val keywords = Parsers.keywords
 
-    def syntax = context.syntax
+  val binding = Lambdas.from(fvs ~ expect("."), expr)
+  val lambda = "λ" ~ binding
+  val bindfix_app = App.from(bindfix_op, binding)
 
-    def app(op: Op, args: List[Expr]) = App(op, args)
+  val anyfv = FreeVar.from(name)
+  val expr_closed = parens(expr | anyfv) | lambda | bindfix_app | fv
 
-    def op(name: String) = Id(name)
-    def unary(op: Op, arg: Expr) = app(op, List(arg))
-    def binary(op: Op, arg1: Expr, arg2: Expr) = app(op, List(arg1, arg2))
-    def abs(ids: List[Id], body: Expr) = Lambda(ids, body)
-    def typed(op: Op, typ: Option[Type]) = typ match {
-      case None => op
-      case Some(typ) => Typed(op, typ)
-    }
+  val expr_app = Apps.from(expr_closed, expr_closed.*)
 
-    val keywords = Parsers.keywords
+  val typ: Parser[String, Type] = mixfix(type_app, id _, TypeApp, Operators)
 
-    val binding = parse(abs _)(ids <~ expect("."), mixfix_expr)
-    val lambda = lit("λ") ~> binding
-    val bindfix_app = parse(unary _)(bindfix_op, binding)
+  val tv = TypeVar.from(nonmixfix)
+  val tvs = tv.+
 
-    val anyop = parse(Id)(name)
-    val typedop = parse(typed _)(anyop, (lit(":") ~> decls.strict_typ).?)
-    val closed = parens(typedop | mixfix_expr | anyop) | lambda | bindfix_app | id
+  val type_closed = parens(typ) | tv
+  val type_app = TypeApp.from(nonmixfix, type_closed.*) | type_closed
 
-    val normal_app = parse(app _)(closed, closed.*)
-    val inner_expr: Parser[Token, Expr] = normal_app
+  val strict_typ = typ ! "expected type"
+  val strict_expr = expr ! "expected expression"
 
-    val parser = mixfix_expr
-  }
+  val colon_typ = ":" ~ strict_typ
+  val eq_typ = "=" ~ strict_typ
+  val eq_expr = "=" ~ strict_expr
 
-  object types extends Parsers with SyntaxParsers with Mixfix {
-    type Op = String
-    type Expr = Type
+  val thy = string map Parsers.thy
+  val strict_thy = thy ! "expected module name"
+  val imprt = "import" ~ Import.from(strict_thy)
 
-    def syntax = context.syntax
+  val opdecl = OpDecl.from(name, colon_typ)
+  val strict_opdecl = opdecl ! "expected operator declaration"
 
-    def op(name: String) = name
-    def unary(op: String, arg: Type) = app(op, List(arg))
-    def binary(op: String, arg1: Type, arg2: Type) = app(op, List(arg1, arg2))
-    def app(op: Op, args: List[Type]) = {
-      if (args.isEmpty) Id(op)
-      else TypeApp(op, args)
-    }
+  val constrdecls = strict_opdecl sep "|"
+  val eq_constrdecls = expect("=") ~ constrdecls
 
-    val keywords = Parsers.keywords ++ Set("|", "=")
+  // TODO: fails silently when no eq is given 
+  val datadef = "data" ~ DataDef.from(strict_typ, eq_constrdecls)
+  val typedef = "type" ~ TypeDef.from(strict_typ, eq_typ)
+  val opdef = OpDef.from(expr)
 
-    val closed = parens(mixfix_expr) | id
-    val type_app = parse(app _)(nonmixfix, closed.*)
-
-    val inner_expr: Parser[Token, Type] = type_app | closed
-
-    val parser = mixfix_expr
-  }
-
-  object decls extends Parsers {
-    import Parsers._
-
-    val strict_typ = types.parser ! "expected type"
-    val strict_expr = exprs.parser ! "expected expression"
-    
-    val colon_typ = lit(":") ~> strict_typ
-    val eq_typ = expect("=") ~> strict_typ
-    val eq_expr = expect("=") ~> strict_expr
-
-    def in(thy: ulang.syntax.Thy) = {
-      context.syntax ++= thy.exported.syntax
-      Import(thy)
-    }
-
-    val thy = string map Parsers.thy
-    val strict_thy = thy ! "expected module name"
-    val imprt = lit("import") ~> parse(in _)(strict_thy)
-
-    def fix(fixity: Fixity, name: String) = {
-      context.syntax += (name, fixity)
-      FixDecl(fixity, name)
-    }
-
-    val fixdecl = parse(fix _)(fixities.parser, nonkw)
-
-    val opdecl = parse(OpDecl)(exprs.name, colon_typ)
-    val strict_opdecl = opdecl ! "expected operator declaration"
-
-    val constrdecls = repsep(strict_opdecl, lit("|"))
-    val eq_constrdecls = expect("=") ~> constrdecls
-
-    // TODO: fails silently when no eq is given 
-    val datadef = lit("data") ~> parse(DataDef)(strict_typ, eq_constrdecls)
-    val typedef = lit("type") ~> parse(TypeDef)(strict_typ, eq_typ)
-    val opdef = parse(OpDef)(exprs.mixfix_expr)
-
-    val parser = imprt | fixdecl | datadef | typedef | opdecl | opdef
-  }
+  val decl = imprt | datadef | typedef | opdecl | opdef
 }

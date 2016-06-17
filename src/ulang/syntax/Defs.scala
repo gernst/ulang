@@ -2,8 +2,8 @@ package ulang.syntax
 
 import ulang.source._
 
-case class Defs(data: Map[Con, Set[Op]], syn: Map[Con, (List[TypeParam], Type)], axioms: List[Expr]) {
-  def +(con: Con, params: List[TypeParam], rhs: Type) = copy(syn = syn + (con -> (params, rhs)))
+case class Defs(data: Map[Con, Set[Op]], syn: Map[Con, (List[TypeVar], Type)], axioms: List[Expr]) {
+  def +(con: Con, params: List[TypeVar], rhs: Type) = copy(syn = syn + (con -> (params, rhs)))
   def +(con: Con, constrs: Set[Op]) = copy(data = data + (con -> constrs))
   // def +(op: Op, rhs: Expr) = copy(ops = ops + (op -> rhs)) 
   def +(ax: Expr) = copy(axioms = axioms :+ ax)
@@ -13,10 +13,8 @@ case class Defs(data: Map[Con, Set[Op]], syn: Map[Con, (List[TypeParam], Type)],
   lazy val constrs = data.flatMap(_._2)
 
   lazy val ops: Map[Op, Expr] = {
-    import ulang.syntax.predefined.pred
-
     val dfs = axioms map {
-      case pred.Eq(FlatApp(op: Op, args), rhs) =>
+      case Eq(Apps(op: Op, args), rhs) =>
         (op, args, rhs)
     }
 
@@ -61,10 +59,10 @@ case class Defs(data: Map[Con, Set[Op]], syn: Map[Con, (List[TypeParam], Type)],
 }
 
 object Defs {
-  val empty = Defs(Map.empty[Con, Set[Op]], Map.empty[Con, (List[TypeParam], Type)], Nil)
+  val empty = Defs(Map.empty[Con, Set[Op]], Map.empty[Con, (List[TypeVar], Type)], Nil)
   val default = empty
 
-  def apply(data: List[(Con, Set[Op])], syn: List[(Con, (List[TypeParam], Type))], axioms: List[Expr]): Defs = {
+  def apply(data: List[(Con, Set[Op])], syn: List[(Con, (List[TypeVar], Type))], axioms: List[Expr]): Defs = {
     Defs(data.toMap, syn.toMap, axioms)
   }
 }

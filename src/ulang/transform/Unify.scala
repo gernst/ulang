@@ -1,16 +1,16 @@
 package ulang.transform
 
-import ulang.source._
 import arse._
 import ulang.DisjointSets
 import scala.language.implicitConversions
+import ulang.syntax._
 
 object Unify {
   type Subst = DisjointSets[Type]
   def default = List(DisjointSets.empty: Subst)
 
   def unify(t1: Type, t2: Type, thetas: List[Subst]): List[Subst] = {
-    val res = thetas.map { (theta: Subst) => some(unify(t1, t2, theta)) or none }
+    val res = thetas.map { (theta: Subst) => { Some(unify(t1, t2, theta)): Option[Subst] } or None }
     res.collect { case Some(theta) => theta }
   }
 

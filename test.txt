@@ -1,5 +1,12 @@
 import prelude
 
+definition op: type
+op x = y
+op z = j
+
+op longpattern
+  = foo
+
 foo: Bool
 
 id: a → a
@@ -18,3 +25,30 @@ infer e1 e2
       theta = unify t1 t2
       t = theta t1 = theta t2
       theta (e1 e2, t)
+      
+
+
+data Type
+  = param: Nat → Type
+  | app:   Name → List Type → Type
+
+data Poly
+  = all:  List Name → Type → Poly
+
+data Expr
+  bound: Nat
+  free:  Name Type
+  op:    Name Type
+  app:   Expr Expr
+  lam:   Name Expr
+
+type: Expr → List Type → Type
+// type (bound name) env = ?
+type (free name type) env = eval type env
+type (op name type) env = type
+
+
+
+
+
+

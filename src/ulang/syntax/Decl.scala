@@ -1,7 +1,6 @@
-package ulang.source
+package ulang.syntax
 
 import arse.Fixity
-import ulang.syntax.Thy
 
 sealed trait Decl
 case class Import(thy: Thy) extends Decl

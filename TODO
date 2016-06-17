@@ -1,5 +1,8 @@
 TODO
 
+parsing: parse tree data structure
+expr: store instantiated type?
+
 test: unit tests
 test: publish framework, find a way to integrate with arse
 check: all variables are bound in a definition
@@ -14,14 +17,15 @@ syntax: generalize top-level definitions with match expressions
 syntax: support more top-level effects (i.e., declarations, assert, main)
 syntax: support view patterns (limited subset) when the inverse function is obvious
 modules: theory + syntax? should be able to reconstruct source
-theories: find a good model for theory composition
-theories: import by name or import by value?
-theories: what about f: B if f is exported and (concrete) B not?
 theories: when is it necessary to invalidate?
 integration: provide some simple IO and reflection
 logic: type invariants (prove when constructing, assume after pattern match)
 
 DONE
+
+theories: find a good model for theory composition
+theories: import by name or import by value?
+theories: what about f: B if f is exported and (concrete) B not?
 
 parsing: concept of regions (can use whitespace for indentation)
 

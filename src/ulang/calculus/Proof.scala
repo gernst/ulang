@@ -1,7 +1,6 @@
 package ulang.calculus
 
 import ulang.syntax._
-import ulang.syntax.predefined.prop._
 
 trait Proof {
   def format(ident: Int): String

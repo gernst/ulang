@@ -2,10 +2,8 @@ package ulang.transform
 
 import arse._
 import ulang.DisjointSets
-import ulang.source._
-import ulang.syntax
-import ulang.syntax.Sig
-import ulang.syntax.Defs
+import ulang._
+import ulang.syntax._
 
 sealed trait Constraint {
   def size: Int
@@ -23,7 +21,7 @@ case class All(cs: List[Constraint]) extends Constraint {
   val size = cs.foldLeft(0)(_ + _.size)
 }
 
-case class Infer(sig: syntax.Sig, df: syntax.Defs) {
+case class Infer(sig: Sig, df: Defs) {
   import Unify._
 
   def infer(e: Expr, scope: Map[String, Type]): List[Subst] = {
@@ -47,22 +45,22 @@ case class Infer(sig: syntax.Sig, df: syntax.Defs) {
 
   def constraints_def(expr: Expr): List[Constraint] = {
     val ce = constraints_closed(expr)
-    val op = expr.defop
+    val op: Op = ??? // expr.defop
     val tso = sig.types(op.name)
     val tss = tso map df.synonym
-    val tsn = tss map nongeneric
-    val co = Any(tsn map (op.typ ~> _))
+    val tsn = tss // map nongeneric
+    val co = ??? // Any(tsn map (op.typ ~> _))
     List(All(ce.sortBy(_.size)), co)
   }
 
   def constraints_closed(expr: Expr): List[Constraint] = {
     val fvs = expr.free filter {
-      case Id(name) => !sig.contains_op(name)
+      case FreeVar(name, _) => !sig.contains_op(name)
     }
     constraints(expr, fvs.map(id => (id.name, id.typ)).toMap)
   }
 
-  def constraints(expr: Expr, scope: Map[String, Type]): List[Constraint] = expr match {
+  def constraints(expr: Expr, scope: Map[String, Type]): List[Constraint] = ??? /*expr match {
     case Id(name) if scope contains name =>
       val c = expr.typ ~> scope(name)
       c :: Nil
@@ -94,26 +92,19 @@ case class Infer(sig: syntax.Sig, df: syntax.Defs) {
       val cb = constraints(body, scope + (bound.name -> bound.typ))
       val cl = expr.typ ~> (bound.typ → body.typ)
       cl :: cb
-  }
+  }*/
 
-  def nongeneric(typ: syntax.Type): Type = typ match {
-    case syntax.TypeParam(name) =>
-      Id(name)
-    case syntax.TypeApp(name, args) =>
-      TypeApp(name, args map nongeneric)
-  }
-
-  def generic(typ: syntax.Type): Type = {
+  def generic(typ: Type): Type = {
     var ren: Map[String, TypeVar] = Map.empty
 
-    def gen_rec(typ: syntax.Type): Type = typ match {
-      case syntax.TypeParam(name) if ren contains name =>
+    def gen_rec(typ: Type): Type = typ match {
+      case TypeVar(name, _) if ren contains name =>
         ren(name)
-      case syntax.TypeParam(name) =>
-        val alpha = TypeVar.fresh
+      case TypeVar(name, _) =>
+        val alpha = TypeVar.fresh(name)
         ren += name -> alpha
         alpha
-      case syntax.TypeApp(name, args) =>
+      case TypeApp(name, args) =>
         TypeApp(name, args map gen_rec)
     }
 

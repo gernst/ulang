@@ -1,7 +1,8 @@
 package ulang.syntax
 
-import arse.Fixity
 import arse._
+
+import ulang._
 
 sealed trait Expr {
   def abs(x: FreeVar, index: Int): Expr
@@ -9,7 +10,6 @@ sealed trait Expr {
   def free: Set[FreeVar]
   def vars: Set[FreeVar]
   def mapFree(f: FreeVar => Expr): Expr
-  def ===(that: Expr): Boolean = (this == that)
 
   def replace(e1: Expr, e2: Expr): Expr = this match {
     case `e1` => e2
@@ -54,7 +54,7 @@ case class FreeVar(name: String, typ: Type) extends Expr {
 
 case class App(fun: Expr, arg: Expr) extends Expr {
   override def toString = this match {
-    case FlatApp(op, args) =>
+    case Apps(op, args) =>
       "(" + op + " " + args.mkString(" ") + ")"
   }
 
@@ -63,12 +63,6 @@ case class App(fun: Expr, arg: Expr) extends Expr {
   def free = fun.free ++ arg.free
   def vars = fun.vars ++ arg.vars
   def mapFree(f: FreeVar => Expr) = App(fun mapFree f, arg mapFree f)
-
-  override def ===(that: Expr): Boolean = that match {
-    case that: App =>
-      this.fun === that.fun && this.arg === that.arg
-    case _ => false
-  }
 }
 
 case class Lambda(bound: FreeVar, body: Expr) extends Expr {
@@ -78,12 +72,6 @@ case class Lambda(bound: FreeVar, body: Expr) extends Expr {
   def free = body.free - bound
   def vars = body.free + bound
   def mapFree(f: FreeVar => Expr) = Lambda(bound, body mapFree f)
-
-  override def ===(that: Expr): Boolean = that match {
-    case that: Lambda =>
-      this.body === that.body
-    case _ => false
-  }
 }
 
 case class Case(args: List[Expr], body: Expr)
@@ -100,20 +88,6 @@ case class Match(cases: List[Case]) extends Expr {
   def mapFree(f: FreeVar => Expr) = ???
 }
 
-object Op {
-  import Type._
-  def equals = Op("=", alpha → (alpha → bool))
-  val if_then_else = Op("if_then_else", bool → (alpha → (alpha → alpha)))
-}
-
-object App {
-  def apply(fun: Expr, args: List[Expr]): Expr = {
-    args.foldLeft(fun)(App(_, _))
-  }
-}
-
-object Lambda {
-  def apply(bound: List[FreeVar], body: Expr): Expr = {
-    bound.foldRight(body)(Lambda(_, _))
-  }
+object FreeVar extends (String => FreeVar) {
+  def apply(name: String) = FreeVar(name, Type.none)
 }

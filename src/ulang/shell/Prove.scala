@@ -1,11 +1,12 @@
 package ulang.shell
 
+import scala.annotation.tailrec
+
 import arse._
+
 import ulang._
 import ulang.syntax._
 import ulang.calculus._
-import scala.annotation.tailrec
-import ulang.syntax.predefined.prop._
 
 case class Prove(thy: Thy) extends Shell {
   object parse extends ulang.calculus.Parsers(thy) {

@@ -2,7 +2,6 @@ package ulang.calculus
 
 import arse._
 import ulang.syntax._
-import ulang.syntax.predefined._
 import ulang.calculus._
 
 case class Cut(phi: Expr) extends Rule {

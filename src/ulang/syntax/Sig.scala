@@ -1,18 +1,15 @@
 package ulang.syntax
 
 import arse._
-import ulang.syntax._
-import ulang.MultiMap._
-import arse.Fixity
-import ulang.source.Syntax
 
-case class Sig(cons: List[Con], ops: List[Op], syntax: Syntax) {
+import ulang.syntax._
+
+case class Sig(cons: List[Con], ops: List[Op]) {
   // assert(cons.distinct == cons)
   // assert(ops.distinct == ops)
 
   def +(con: Con) = copy(cons = cons :+ con)
   def +(op: Op) = copy(ops = ops :+ op)
-  def +(name: String, fixity: Fixity) = copy(syntax = syntax + (name, fixity))
 
   def contains_con(name: String) = cons.exists(_.name == name)
   def contains_con(name: String, arity: Int) = cons contains Con(name, arity)
@@ -25,7 +22,7 @@ case class Sig(cons: List[Con], ops: List[Op], syntax: Syntax) {
   }
 
   def ++(that: Sig) = {
-    Sig(this.cons ++ that.cons, this.ops ++ that.ops, this.syntax ++ that.syntax)
+    Sig(this.cons ++ that.cons, this.ops ++ that.ops)
   }
 
   override def toString = {
@@ -34,6 +31,6 @@ case class Sig(cons: List[Con], ops: List[Op], syntax: Syntax) {
 }
 
 object Sig {
-  val empty = Sig(Nil, Nil, Syntax.empty)
-  val default = Sig(List(Con.function, Con.bool), List(Op.equals, Op.if_then_else), Syntax.default)
+  val empty = Sig(Nil, Nil)
+  val default = Sig(List(Con.function, Con.bool), List(Eq.op, IfThenElse.op))
 }

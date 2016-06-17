@@ -6,7 +6,7 @@ import arse._
 
 object Convert {
   import Unify._
-
+/*
   def typ(sig: syntax.Sig, t: source.Type): syntax.Type = t match {
     case source.Id(name) =>
       if (sig contains_con (name, 0))
@@ -199,5 +199,5 @@ object Convert {
 
     case _ =>
       thy
-  }
+  }*/
 }

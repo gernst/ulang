@@ -1,8 +1,6 @@
 package ulang.calculus
 
 import ulang.syntax._
-import ulang.syntax.predefined.prop._
-import ulang.syntax.predefined.pred._
 import scala.annotation.tailrec
 
 object Simplify extends Rule {
@@ -12,14 +10,14 @@ object Simplify extends Rule {
 
   def simp(phi: Expr, prove: Boolean, ctx: Goal): Expr = {
     phi match {
-      case True | False => phi
-      case Not(phi) => not(phi, prove, ctx)
+      case True | False  => phi
+      case Not(phi)      => not(phi, prove, ctx)
       case And(phi, psi) => and(phi, psi, prove, ctx)
-      case Or(phi, psi) => or(phi, psi, prove, ctx)
+      case Or(phi, psi)  => or(phi, psi, prove, ctx)
       case Imp(phi, psi) => imp(phi, psi, prove, ctx)
       case Eqv(phi, psi) => eqv(phi, psi, prove, ctx)
-      case Eq(lhs, rhs) => eq(lhs, rhs, prove, ctx)
-      case _ => literal(phi, prove, ctx)
+      case Eq(lhs, rhs)  => eq(lhs, rhs, prove, ctx)
+      case _             => literal(phi, prove, ctx)
     }
   }
 
@@ -107,8 +105,8 @@ object Simplify extends Rule {
     (lr, rl) match {
       case (False, _) => False
       case (_, False) => False
-      case (True, _) => rl // already simplified
-      case (_, True) => lr
+      case (True, _)  => rl // already simplified
+      case (_, True)  => lr
       case _ =>
         triv.eqv(simp(phi, false, ctx), simp(psi, false, ctx)) // does a lot of work again
     }
