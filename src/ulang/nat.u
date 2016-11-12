@@ -1,0 +1,27 @@
+import hol;
+
+data
+  Nat = 0 | +1: Nat;
+
+definition
+  + : Nat → Nat → Nat;
+where
+  m + 0 = n;
+  m + (n +1) = (m + n) +1;
+
+/*
+inductive
+  < : Nat → Nat → Bool;
+where
+  0 < n +1;
+  m < n → m +1 < n +1;
+
+lemma
+  ¬ n < n;
+  k < m ∧ m < n → k < n;
+  m < n ∨ m = n ∨ n < m;
+
+theorem
+  (∀ n. (∀ m. m < n → P m) → P n)
+    → P n;
+*/

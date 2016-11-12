@@ -1,4 +1,47 @@
+data List a
+  = Nil
+  | Const a (List a)
+
+data List a
+  = Nil: List a
+  | Const: a → List a → List a;
+
 import prelude
+
+grammars
+
+id  = Id name
+app = App "(" expr expr) ")"
+lam = Lam "\" id "." expr
+
+expr = id | app
+
+P x → P (ε P)
+
+inductive
+
+0 ≤ n
+m ≤ n → m +1 ≤ n +1
+
+P 0 ∧ (∀ n. P n → P n +1)
+  → P n
+
+(∀ n. (∀ m. m < n → P(m)) → P n)
+  → P n
+
+// not injective because op: Expr?
+apps op []
+  = op
+apps op (x: xs)
+  = apps (app op x) xs
+
+lemma
+apps e1 args1 = apps e2 args2
+  → e1 = e2 and args1 = args2
+
+proof by induction on args1
+apps e1 [] = e1 = apps e2 args2
+fails since e1 = apps e2 args2 does not require args2 = []
 
 definition op: type
 op x = y

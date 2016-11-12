@@ -1,0 +1,62 @@
+data
+  Bool = true | false;
+
+definition
+  ¬ : Bool → Bool;
+  → : Bool → Bool → Bool;
+  ∨ : Bool → Bool → Bool;
+  ∧ : Bool → Bool → Bool;
+  ↔ : Bool → Bool → Bool;
+where
+  ¬ true ↔ false;
+  ¬ false ↔ true;
+
+  true → b ↔ b;
+  false → b ↔ true;
+
+  true ∨ b ↔ true;
+  false ∨ b ↔ b;
+
+  true ∧ b ↔ b;
+  false ∧ b ↔ false;
+
+  (true ↔ b) ↔ b;
+  (false ↔ b) ↔ ¬ b;
+
+
+definition
+  ≠ : a → a → Bool;
+where
+  x ≠ y ↔ ¬ x = y;
+
+axiomatization
+where
+  f = g ↔ ∀ x. f x = g x;
+
+definition
+  id : a → a;
+  const : a  → b → a;
+  · : (b → c) → (a → b) → (a → c);
+where
+  id x = x;
+  const c x = c; 
+  (f · g) x = f (g x);
+
+definition
+  ∀ : (a → Bool) → Bool;
+  ∃ : (a → Bool) → Bool;
+where
+  (∀) P ↔ (P = const true);
+  (∃) P ↔ (P ≠ const false);
+
+/*
+lemma
+  (∀ x. P x) ↔ (¬ ∃ x. ¬ P x);
+  P y → (∃ x. P x);
+  (∀ x. P x) → P y;
+*/
+
+axiomatization
+  ε : (a → Bool) → a;
+where
+  P x → P ((ε) P);

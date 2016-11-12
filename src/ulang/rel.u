@@ -1,0 +1,9 @@
+data
+  a × b = , : a b;
+
+definition
+  curry   : (a × b → c) → (a → b → c);
+  uncurry : (a → b → c) → (a × b → c);
+where
+  curry f x y = f (x, y);
+  uncurry f (x, y) = f x y;

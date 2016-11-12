@@ -1,3 +1,5 @@
+/*
+
 infix       1 ↔
 infix right 2 →
 infix left  3 ∨
@@ -17,6 +19,7 @@ prefix 11 #
 postfix 11 +1 -1
 
 infix right 20 ·
+*/
 
 id: a → a
 id x = x

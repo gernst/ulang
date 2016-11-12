@@ -1,0 +1,17 @@
+import nat hol;
+type
+  Map a b = List (a × b);
+  Parser a t = List t → Option (a × List t);
+
+data
+  Bool = true | false;
+  Nat = 0 | +1: Nat;
+
+definition
+  id: a → a;
+  ¬ : Bool → Bool;
+where
+  id x = x;
+  phi;
+  (¬ true) = false; 
+  a → b;
