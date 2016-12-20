@@ -1,7 +1,7 @@
 package ulang.expr
 
-sealed trait Term[+A] {
-  def bind[A1 >: A](e: Term[A1], i: Int = 0): Term[A1] = this match {
+sealed trait Expr[+A] {
+  def bind[A1 >: A](e: Expr[A1], i: Int = 0): Expr[A1] = this match {
     case Bound(_) => this
     case `e` => Bound(i)
     case Free(b) => Free(b)
@@ -9,7 +9,7 @@ sealed trait Term[+A] {
     case Lambda(a, body) => Lambda(a, body bind (e, i + 1))
   }
 
-  def unbind[A1 >: A](e: Term[A1], i: Int = 0): Term[A1] = this match {
+  def unbind[A1 >: A](e: Expr[A1], i: Int = 0): Expr[A1] = this match {
     case Bound(`i`) => e
     case Bound(_) => this
     case Free(a) => Free(a)
@@ -17,14 +17,14 @@ sealed trait Term[+A] {
     case Lambda(a, body) => Lambda(a, body unbind (e, i + 1))
   }
 
-  def rename[B](r: A => B): Term[B] = this match {
+  def rename[B](r: A => B): Expr[B] = this match {
     case Bound(n) => Bound(n)
     case Free(a) => Free(r(a))
     case App(fun, arg) => App(fun rename r, arg rename r)
     case Lambda(a, body) => Lambda(r(a), body rename r)
   }
 
-  def subst[A1 >: A](s: A1 => Term[A1]): Term[A1] = this match {
+  def subst[A1 >: A](s: A1 => Expr[A1]): Expr[A1] = this match {
     case Bound(n) => this
     case Free(a) => s(a)
     case App(fun, arg) => App(fun subst s, arg subst s)
@@ -46,7 +46,7 @@ sealed trait Term[+A] {
       (x: Value) => body eval (x :: s, m)
   }
 
-  def reduce[A1 >: A](m: A1 => Option[Term[A1]]): Term[A1] = this match {
+  def reduce[A1 >: A](m: A1 => Option[Expr[A1]]): Expr[A1] = this match {
     case Bound(_) => this
     case Free(a) =>
       m(a) match {
@@ -67,10 +67,10 @@ sealed trait Term[+A] {
   }
 }
 
-case class Bound(n: Int) extends Term[Nothing]
+case class Bound(n: Int) extends Expr[Nothing]
 
-case class Free[+A](a: A) extends Term[A] {
-  def in[A1 >: A](e: Term[A1]): Boolean = e match {
+case class Free[+A](a: A) extends Expr[A] {
+  def in[A1 >: A](e: Expr[A1]): Boolean = e match {
     case Bound(_) => false
     case Free(_) => e == this
     case App(fun, arg) => (this in fun) || (this in arg)
@@ -78,11 +78,11 @@ case class Free[+A](a: A) extends Term[A] {
   }
 }
 
-case class App[+A](fun: Term[A], arg: Term[A]) extends Term[A]
-case class Lambda[+A](a: A, body: Term[A]) extends Term[A]
+case class App[+A](fun: Expr[A], arg: Expr[A]) extends Expr[A]
+case class Lambda[+A](a: A, body: Expr[A]) extends Expr[A]
 
-object Lambda {
-  def apply[A](bound: Free[A], body: Term[A]): Term[A] = {
+object Abs {
+  def apply[A](bound: Expr[A], body: Expr[A]): Expr[A] = {
     val Free(a) = bound
     Lambda(a, body bind bound)
   }

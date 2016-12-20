@@ -3,7 +3,9 @@ package ulang.source
 import scala.language.implicitConversions
 
 import arse._
-import ulang.syntax.Sig
+import ulang.FoldLeft
+import ulang.FoldRight
+import ulang.expr.Expr
 
 object Grammar {
   import Parser._
@@ -16,32 +18,41 @@ object Grammar {
 
   val sections = Set("data", "type", "definition", "axiomatization", "lemma")
 
-  val expr: Parser[List[String], Expr] = {
+  val expr: Parser[List[String], Expr[String]] = {
     import Ops._
 
-    val id = Id.from(nonmixfix)
+    val Free = ulang.expr.Free.apply[String] _
+    val App = FoldLeft(ulang.expr.App.apply[String] _)
+    val Abs = FoldRight(ulang.expr.Abs.apply[String] _)
+
+    val bindfix_op = Mixfix.mixfix_op(bindfix_ops, Free)
+
+    val id = Free.from(nonmixfix)
     val ids = id +
-    val anyid = Id.from(name)
+    val anyid = Free.from(name)
 
     val top = Parser.rec(expr)
-    val binding = Lambda.from(ids ~ ".", top)
+    val binding = Abs.from(ids ~ ".", top)
     val lambda = "λ" ~ binding
-    val bindfix_app = ExprApp.from(bindfix_op, list(binding))
+    val bindfix_app = App.from(bindfix_op, list(binding))
     val closed = parens(top | anyid) | lambda | bindfix_app | id
-    val app = ExprApp.from(closed, closed.*)
+    val app = App.from(closed, closed.*)
 
-    mixfix(app, Id, ExprApp, Ops)
+    mixfix(app, Free, App, Ops)
   }
 
-  val typ: Parser[List[String], Type] = {
+  val typ: Parser[List[String], ulang.typ.Type] = {
     import Cons._
 
-    val id = Id.from(nonmixfix)
+    val Free = ulang.typ.Free.apply[String] _
+    val App = ulang.typ.App.apply[String, String] _
+
+    val id = Free.from(nonmixfix)
     val top = Parser.rec(typ)
     val closed = parens(top) | id
-    val app = TypeApp.from(nonmixfix, closed *) | closed
+    val app = App.from(nonmixfix, closed +) | closed
 
-    mixfix(app, (s: String) => s, TypeApp, Cons)
+    mixfix(app, (s: String) => s, App, Cons)
   }
 
   val opttypes = ":" ~ (typ +) | ret(Nil)
@@ -118,8 +129,6 @@ object Ops extends Syntax[String] {
     "∃",
     "∀",
     "ε")
-
-  val bindfix_op = Mixfix.mixfix_op(bindfix_ops, Id)
 }
 
 object Cons extends Syntax[String] {

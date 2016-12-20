@@ -6,7 +6,6 @@ package object expr {
   type Value = Any
   type Function = (Value => Value)
   
-  type Expr = Term[(String, Type)]
   type Op = Free[(String, Type)]
   type FreeVar = Free[(String, Type)]
   
@@ -45,7 +44,7 @@ package object expr {
   object All extends Binder(all)
   object Ex extends Binder(ex)
 
-  implicit class SubstOps[A, B](s: A => Term[A]) {
-    def o(t: A => Term[A]) = (a: A) => s(a) subst t
+  implicit class SubstOps[A, B](s: A => Expr[A]) {
+    def o(t: A => Expr[A]) = (a: A) => s(a) subst t
   }
 }

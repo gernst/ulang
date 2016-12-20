@@ -8,7 +8,7 @@ object Test extends tst.Test {
     ulang.source.Load.load(name) {
       reader =>
         val tokens = ulang.source.Parsers.tokenize(reader)
-        val parser: Parser[List[String], Module] = ??? // ulang.source.Grammar.module
+        val parser: Parser[List[String], Module] = ulang.source.Grammar.module
         val (res, out) = parser(tokens)
         println(res)
         out expect Nil
@@ -16,8 +16,8 @@ object Test extends tst.Test {
   }
 
   def main(args: Array[String]): Unit = {
-    // parse("src/ulang/hol")
-    // parse("src/ulang/nat")
+    parse("src/ulang/hol")
+    parse("src/ulang/nat")
     import ulang.typ._
 
     val a = App("L", List(Free("a"), Free("c")))
