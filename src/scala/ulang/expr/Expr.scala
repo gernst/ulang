@@ -1,6 +1,16 @@
 package ulang.expr
 
 sealed trait Expr[+A] {
+  override def toString = format(Nil)
+
+  def format[A1 >: A](s: List[A1]): String = this match {
+    case Bound(n) => s(n).toString
+    case Free(a) => a.toString
+    case App(fun, arg) => "(" + (fun format s) + " " + (arg format s) + ")"
+    // case Apps(fun, args) => (fun :: args).map(_ format s).mkString("(", " ", ")")
+    case Lambda(a, body) => body format (a :: s)
+  }
+
   def bind[A1 >: A](e: Expr[A1], i: Int = 0): Expr[A1] = this match {
     case Bound(_) => this
     case `e` => Bound(i)
@@ -39,7 +49,6 @@ sealed trait Expr[+A] {
       val a = arg eval (s, m)
       f match {
         case f: Function @unchecked =>
-          val a = arg eval (s, m)
           f(a)
       }
     case Lambda(a, body) =>
@@ -80,10 +89,3 @@ case class Free[+A](a: A) extends Expr[A] {
 
 case class App[+A](fun: Expr[A], arg: Expr[A]) extends Expr[A]
 case class Lambda[+A](a: A, body: Expr[A]) extends Expr[A]
-
-object Abs {
-  def apply[A](bound: Expr[A], body: Expr[A]): Expr[A] = {
-    val Free(a) = bound
-    Lambda(a, body bind bound)
-  }
-}

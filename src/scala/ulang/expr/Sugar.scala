@@ -1,5 +1,7 @@
 package ulang.expr
 
+// op _
+
 class Unary[A](val op: Free[A]) extends (Expr[A] => Expr[A]) {
   def unapply(e: Expr[A]) = e match {
     case App(`op`, arg) =>
@@ -12,6 +14,8 @@ class Unary[A](val op: Free[A]) extends (Expr[A] => Expr[A]) {
     App(op, arg)
   }
 }
+
+// _ op _
 
 class Binary[A](val op: Free[A]) extends ((Expr[A], Expr[A]) => Expr[A]) {
   def unapply(e: Expr[A]) = e match {
@@ -26,6 +30,8 @@ class Binary[A](val op: Free[A]) extends ((Expr[A], Expr[A]) => Expr[A]) {
   }
 }
 
+// op _ _ _
+
 class Ternary[A](val op: Free[A]) extends ((Expr[A], Expr[A], Expr[A]) => Expr[A]) {
   def unapply(e: Expr[A]) = e match {
     case App(App(App(`op`, arg1), arg2), arg3) =>
@@ -38,6 +44,8 @@ class Ternary[A](val op: Free[A]) extends ((Expr[A], Expr[A], Expr[A]) => Expr[A
     App(App(App(op, arg1), arg2), arg3)
   }
 }
+
+// _ op ... op _
 
 class Nary[A](val op: Free[A], val neutral: Free[A]) {
   def flatArgs(e: Expr[A]): List[Expr[A]] = e match {
@@ -58,6 +66,15 @@ class Nary[A](val op: Free[A], val neutral: Free[A]) {
   }
 }
 
+object Abs {
+  def apply[A](bound: Expr[A], body: Expr[A]): Expr[A] = {
+    val Free(a) = bound
+    Lambda(a, body bind bound)
+  }
+}
+
+// op _. _
+
 class Binder[A](val op: Free[A]) extends ((Free[A], Expr[A]) => Expr[A]) {
   def apply(bound: Free[A], body: Expr[A]): Expr[A] = {
     Bind(op, bound, body)
@@ -71,6 +88,8 @@ class Binder[A](val op: Free[A]) extends ((Free[A], Expr[A]) => Expr[A]) {
   }
 }
 
+// _ _. _
+
 object Bind {
   def apply[A](op: Free[A], bound: Free[A], body: Expr[A]): Expr[A] = {
     App(op, Abs(op, body))
@@ -83,6 +102,8 @@ object Bind {
       None
   }
 }
+
+// _ _ ... _
 
 object Apps {
   def apply[A](fun: Expr[A], args: List[Expr[A]]): Expr[A] = {
@@ -100,6 +121,8 @@ object Apps {
       (expr, args)
   }
 }
+
+// 
 
 object Abss {
   def apply[A](bounds: List[Free[A]], body: Expr[A]): Expr[A] = {

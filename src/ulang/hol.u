@@ -3,22 +3,22 @@ data
 
 definition
   ¬ : Bool → Bool;
-  → : Bool → Bool → Bool;
   ∨ : Bool → Bool → Bool;
   ∧ : Bool → Bool → Bool;
+  → : Bool → Bool → Bool;
   ↔ : Bool → Bool → Bool;
 where
   ¬ true ↔ false;
   ¬ false ↔ true;
-
-  true → b ↔ b;
-  false → b ↔ true;
 
   true ∨ b ↔ true;
   false ∨ b ↔ b;
 
   true ∧ b ↔ b;
   false ∧ b ↔ false;
+
+  true → b ↔ b;
+  false → b ↔ true;
 
   (true ↔ b) ↔ b;
   (false ↔ b) ↔ ¬ b;

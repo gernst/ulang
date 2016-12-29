@@ -11,9 +11,21 @@ object Con {
   val bool = Con("Bool", 0)
 }
 
-sealed trait Poly[+C, +A]
+sealed trait Poly[+C, +A] {
+  override def toString = this match {
+    case Forall(as, body) => body format as
+  }
+}
 
 sealed trait Mono[+C, +A] {
+  override def toString = format(Nil)
+  
+  def format[A1 >: A](s: List[A1]): String = this match {
+    case Bound(n) => s(n).toString
+    case Free(a) => a.toString
+    case App(c, args) => c + args.map(_ format s).mkString("(", " ", ")")
+  }
+  
   def bind[A1 >: A, C1 >: C](ts: List[Mono[C1, A1]]): Mono[C1, A1] = this match {
     case Bound(_) => this
     case t if ts contains t => Bound(ts indexOf t)
@@ -33,7 +45,7 @@ sealed trait Mono[+C, +A] {
     case App(c, args) => App(c, args map (_ rename r))
   }
 
-  def subst[A1 >: A, C1 >: C](s: A1 => Mono[C1, A1]): Mono[C1, A1] = this match {
+  def subst[A1 >: A, C1 >: C](s: Subst[C1,A1]): Mono[C1, A1] = this match {
     case Bound(n) => this
     case Free(a) => s(a)
     case App(c, args) => App(c, args map (_ subst s))
@@ -66,7 +78,7 @@ sealed trait Mono[+C, +A] {
       }
   }
 
-  def unify[C1 >: C, A1 >: A](that: Mono[C1, A1]): Option[A1 => Mono[C1, A1]] = (this, that) match {
+  def unify[C1 >: C, A1 >: A](that: Mono[C1, A1]): Option[Subst[C1,A1]] = (this, that) match {
     case _ if this == that =>
       Some(Subst.empty)
     case (f @ Free(a), _) if !(f in that) =>
@@ -97,7 +109,7 @@ case class Free[+A](a: A) extends Mono[Nothing, A] {
 
 case class App[+C, +A](c: C, args: List[Mono[C, A]] = Nil) extends Mono[C, A]
 
-case class Forall[+C, +A](a: List[A], body: Mono[C, A]) extends Poly[C, A]
+case class Forall[+C, +A](as: List[A], body: Mono[C, A]) extends Poly[C, A]
 
 object Forall {
   def apply[C, A](bound: List[Free[A]], body: Mono[C, A]): Poly[C, A] = {

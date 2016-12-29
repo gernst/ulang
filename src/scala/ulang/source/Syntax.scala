@@ -20,13 +20,13 @@ case class Imports(names: List[String]) extends Decl {
 case class Types(types: List[(Type,Type)]) extends Decl {
   override def toString = types.map {
     case (lhs, rhs) => lhs + " = " + rhs
-  } mkString("types\n  ", ";\n  ", ";")
+  } mkString("type\n  ", ";\n  ", ";")
 }
 
 case class Datas(datas: List[(Type, List[Constr])]) extends Decl {
   override def toString = datas.map {
     case (lhs, constrs) => lhs + " = " + constrs.mkString(" | ")
-  } mkString("types\n  ", ";\n  ", ";")
+  } mkString("data\n  ", ";\n  ", ";")
 }
 
 // TODO: empty list has semicolon

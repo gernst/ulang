@@ -3,7 +3,6 @@ package ulang.expr
 import ulang.syntax.Sig
 import ulang.typ._
 
-/*
 object Infer {
   val sig: Sig = ???
 
@@ -13,10 +12,10 @@ object Infer {
    * - ops either have a variable type (in which new generic instances are needed)
    *   or they have a fixed, non-generic type (in which case this is the right one)
    */
-  def infer(expr: Expr, scope: List[Type]): (Type, Typing) = expr match {
+  def infer[A,B,C](expr: Expr[A], scope: List[Type]): (Type, Typing[C,B]) = expr match {
     case Bound(index) =>
       (scope(index), Typing.empty)
-
+/*
     case Free(name, typ) =>
       (typ, Typing.empty)
 
@@ -43,6 +42,6 @@ object Infer {
       val at = bound.typ
       val (bt, ty) = infer(body, at :: scope)
       (Function(at, bt), ty)
+      */
   }
 }
-*/
