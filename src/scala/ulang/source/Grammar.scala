@@ -3,8 +3,8 @@ package ulang.source
 import scala.language.implicitConversions
 
 import arse._
-import ulang.FoldLeft
-import ulang.FoldRight
+import ulang.util.FoldLeft
+import ulang.util.FoldRight
 import ulang.expr.Expr
 
 object Grammar {

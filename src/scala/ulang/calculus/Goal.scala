@@ -1,8 +1,5 @@
 package ulang.calculus
 
-import ulang.syntax._
-import ulang.expr.Expr
-
 sealed trait Goal {
   def ::(phi: Expr): Goal
   def canon(expr: Expr): Expr

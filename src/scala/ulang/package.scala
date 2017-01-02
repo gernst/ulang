@@ -7,7 +7,8 @@ package object ulang {
     if (i == j) j else fix(j, f)
   }
   
-  def id[A](a: A) = a
+  def id[A] = (a: A) => a
+
   def fatal(msg: String) = sys.error(msg)
   def error(msg: String) = sys.error(msg)
 }

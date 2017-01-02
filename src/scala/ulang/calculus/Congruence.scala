@@ -1,7 +1,7 @@
 package ulang.calculus
 
 import ulang.syntax._
-import ulang.DisjointSets
+import ulang.util.DisjointSets
 import ulang.expr.Expr
 import ulang.expr.App
 

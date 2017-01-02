@@ -1,4 +1,4 @@
-package ulang
+package ulang.util
 
 case class FoldLeft[A,B <: A](f: (A,A) => B) extends ((A,List[A]) => A) {
   def apply(b: A, as: List[A]): A = {

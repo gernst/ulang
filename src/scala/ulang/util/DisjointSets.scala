@@ -1,4 +1,4 @@
-package ulang
+package ulang.util
 
 /**
  * Persistent union-find data structure
