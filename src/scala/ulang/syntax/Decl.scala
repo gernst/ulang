@@ -1,7 +1,6 @@
 package ulang.syntax
 
 import arse.Fixity
-import ulang.expr.Expr
 import ulang.typ.Type
 
 sealed trait Decl

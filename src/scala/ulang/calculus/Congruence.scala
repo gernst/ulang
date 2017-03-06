@@ -2,7 +2,6 @@ package ulang.calculus
 
 import ulang.syntax._
 import ulang.util.DisjointSets
-import ulang.expr.Expr
 import ulang.expr.App
 
 class Congruence(var _cong: DisjointSets[Expr], var _use: Map[Expr, Set[Expr]], var _sig: Map[Expr, Expr]) {

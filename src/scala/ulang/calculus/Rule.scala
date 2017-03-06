@@ -1,6 +1,6 @@
 package ulang.calculus
 
-import arse._
+import arse.control._
 
 trait Rule extends (Seq => Proof) {
   def name: String

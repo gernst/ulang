@@ -2,7 +2,7 @@ package ulang.shell
 
 import scala.annotation.tailrec
 
-import arse._
+import arse.control._
 
 import ulang._
 import ulang.expr._

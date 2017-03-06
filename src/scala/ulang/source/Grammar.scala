@@ -8,52 +8,47 @@ import ulang.util.FoldRight
 import ulang.expr.Expr
 
 object Grammar {
-  import Parser._
-  import Recognizer._
   import Mixfix._
 
-  def expect(s: String) = s ! "expected '" + s + "'"
-  def parens[A](p: Parser[List[String], A]) = "(" ~ p ~ expect(")")
+  def parens[A](p: Parser[List[String], A]) = "(" ~! p ~! ")"
   def list[A](p: Parser[List[String], A]) = p map (List(_))
 
   val sections = Set("data", "type", "definition", "axiomatization", "lemma")
 
-  val expr: Parser[List[String], Expr[String]] = {
+  val expr: Parser[List[String], Expr[String]] = P({
     import Ops._
 
     val Free = ulang.expr.Free.apply[String] _
     val App = FoldLeft(ulang.expr.App.apply[String] _)
     val Abs = FoldRight(ulang.expr.Abs.apply[String] _)
 
-    val bindfix_op = Mixfix.mixfix_op(bindfix_ops, Free)
+    val bindfix_op = ??? // Mixfix.mixfix_op(bindfix_ops, Free)
 
     val id = Free.from(nonmixfix)
     val ids = id +
     val anyid = Free.from(name)
 
-    val top = Parser.rec(expr)
-    val binding = Abs.from(ids ~ ".", top)
+    val binding = Abs.from(ids ~ ".", expr)
     val lambda = "λ" ~ binding
     val bindfix_app = App.from(bindfix_op, list(binding))
-    val closed = parens(top | anyid) | lambda | bindfix_app | id
+    val closed = parens(expr | anyid) | lambda | bindfix_app | id
     val app = App.from(closed, closed.*)
 
     mixfix(app, Free, App, Ops)
-  }
+  })
 
-  val typ: Parser[List[String], ulang.typ.Type] = {
+  val typ: Parser[List[String], ulang.typ.Type] = P({
     import Cons._
 
     val Free = ulang.typ.Free.apply[String] _
     val App = ulang.typ.App.apply[String, String] _
 
     val id = Free.from(nonmixfix)
-    val top = Parser.rec(typ)
-    val closed = parens(top) | id
+    val closed = parens(typ) | id
     val app = App.from(nonmixfix, closed +) | closed
 
     mixfix(app, (s: String) => s, App, Cons)
-  }
+  })
 
   val opttypes = ":" ~ (typ +) | ret(Nil)
 
@@ -81,11 +76,8 @@ object Grammar {
 }
 
 object Ops extends Syntax[String] {
-  import Recognizer._
-  import Parser._
-
   val keywords = Grammar.sections ++ Set("(", ")", ";", "λ", ".")
-  val name = __ filterNot keywords
+  val name = string filterNot keywords
   val nonmixfix = name filterNot contains
 
   override def contains(s: String) =
@@ -132,11 +124,8 @@ object Ops extends Syntax[String] {
 }
 
 object Cons extends Syntax[String] {
-  import Recognizer._
-  import Parser._
-
   val keywords = Grammar.sections ++ Set("(", ")", ";", "=", "|")
-  val name = __ filterNot keywords
+  val name = string filterNot keywords
   val nonmixfix = name filterNot contains
 
   val prefix_ops: Map[String, Int] = Map()

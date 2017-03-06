@@ -6,9 +6,6 @@ import ulang.syntax._
 import ulang.expr.FreeVar
 
 class Parsers(thy: Thy) extends ulang.syntax.Parsers(thy) {
-  import Parser._
-  import Recognizer._
-  
   val cut = "cut" ~ Cut.from(formula)
   
   val simplify = "simplify" ~ ret[List[String], Rule](Simplify)
