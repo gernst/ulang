@@ -1,0 +1,66 @@
+// list functions of the checker and the interpreter
+
+function contains[A](x: A, xs: List[A]): Bool =
+  match xs
+    case nil => false
+    case y :: ys => x == y or contains(x, ys)
+  end
+
+function distinct[A](xs: List[A]): List[A] =
+  match xs
+    case nil => nil
+    case y :: ys => y :: distinct([z for z in ys if z != y])
+  end
+
+// an element that occurs twice
+function repeated[A](xs: List[A]): Option[A] =
+  match xs
+    case nil => none
+    case y :: ys => if contains(y, ys) then some(y) else repeated(ys)
+  end
+
+function diff[A](xs: List[A], ys: List[A]): List[A] =
+  [x for x in xs if not contains(x, ys)]
+
+function concat[A](xss: List[List[A]]): List[A] =
+  match xss
+    case nil => nil
+    case xs :: yss => xs ++ concat(yss)
+  end
+
+function zip[A, B](xs: List[A], ys: List[B]): List[(A, B)] =
+  match (xs, ys)
+    case (x :: xs1, y :: ys1) => (x, y) :: zip(xs1, ys1)
+    case _ => nil
+  end
+
+function take[A](n: Int, xs: List[A]): List[A] =
+  match xs
+    case nil => nil
+    case y :: ys => if n == 0 then nil else y :: take(n - 1, ys)
+  end
+
+function drop[A](n: Int, xs: List[A]): List[A] =
+  match xs
+    case nil => nil
+    case _ :: ys => if n == 0 then xs else drop(n - 1, ys)
+  end
+
+function replicate[A](n: Int, x: A): List[A] =
+  if n == 0 then nil else x :: replicate(n - 1, x)
+
+function or_else[A](a: Option[A], b: Option[A]): Option[A] =
+  match a
+    case some(_) => a
+    case none => b
+  end
+
+test
+  assert distinct([1, 2, 1, 3, 2]) == [1, 2, 3];
+  assert repeated([1, 2, 1]) == some(1);
+  assert diff([1, 2, 3], [2]) == [1, 3];
+  assert concat([[1], [], [2, 3]]) == [1, 2, 3];
+  assert zip([1, 2, 3], [true, false]) == [(1, true), (2, false)];
+  assert take(2, [1, 2, 3]) == [1, 2] and drop(2, [1, 2, 3]) == [3];
+  assert replicate(2, 0) == [0, 0];
+end

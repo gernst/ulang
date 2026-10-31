@@ -20,3 +20,18 @@ test
   assert [x for x in []] == [];
   assert [[y for y in range(x)] for x in [1, 2]] == [[1], [2, 1]];
 end
+
+// association lists
+test
+  local m: List[(Str, Int)];
+  assign m := update("b", 2, update("a", 1, nil));
+  assert m == [("b", 2), ("a", 1)];
+  assert lookup("a", m) == some(1);
+  assert lookup("c", m) == none;
+  assign m := update("a", 3, m);
+  assert m == [("a", 3), ("b", 2)];
+  assert lookup("a", [("a", 1), ("a", 2)]) == some(1);
+  assert remove("a", [("a", 1), ("b", 2), ("a", 3)]) == [("b", 2)];
+  assert keys(m) == ["a", "b"];
+  assert values(m) == [3, 2];
+end

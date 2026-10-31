@@ -81,6 +81,13 @@ function names(xs: List[Var]): List[Name] =
 function types(xs: List[Var]): List[Type] =
   [typ(x) for x in xs]
 
+// the number of arguments of a function type, functions are overloaded by it
+function arity(t: Type): Int =
+  match t
+    case tsort("->", args) => length(args) - 1
+    case _ => -1
+  end
+
 // f(x) + 1, as the parser would produce it
 test
   local f: Var, x: Var, e: Expr;

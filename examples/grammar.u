@@ -8,19 +8,13 @@ data Grammar[T, V] =
   | seq(List[Grammar[T, V]], List[V] -> Option[V])
   | chain(Grammar[T, V], List[(T, (V, V) -> V)])
 
-// grammars cannot be cyclic, hence nonterminals refer to the rules by name
-function lookup[T, V](x: Str, rules: List[(Str, Grammar[T, V])]): Option[Grammar[T, V]] =
-  match rules
-    case nil => none
-    case (y, g) :: rest => if x == y then some(g) else lookup(x, rest)
-  end
-
 function combine[V](f: (V, V) -> V, a: Option[V], b: Option[V]): Option[V] =
   match (a, b)
     case (some(x), some(y)) => some(f(x, y))
     case _ => none
   end
 
+// grammars cannot be cyclic, hence nonterminals refer to the rules by name, looked up in an association list
 procedure interpret[T, V](g: Grammar[T, V], rules: List[(Str, Grammar[T, V])]; r: Option[V]; ts: List[T])
   local s: Option[V], vs: Option[List[V]], o: Option[(V, V) -> V], saved: List[T], more: Bool;
   match g

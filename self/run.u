@@ -1,0 +1,758 @@
+// the interpreter of ulang/src/ulang/Run.scala, which runs programs of self/syntax.u that self/check.u has checked,
+// where the variables of statements refer to cells of a heap that is passed by reference,
+// and errors are values of RuntimeError, while the exceptions of the program are values of Thrown
+
+import syntax
+import util
+import check
+
+data Value =
+    lit(Val)
+  | obj(Name, List[Value])
+  | clos(List[(Name, Value)], List[Var], Expr)
+  | fn(Name, Int)
+  | con(Name)
+  | prim(Name)
+
+sort Bindings = List[(Name, Value)]
+
+data ProcDef = procdef(List[Var], List[Var], List[Var], Stmt)
+
+// the functions by name and number of arguments, the procedures, and the constructors with their numbers of arguments
+data Prog = prog(List[((Name, Int), (List[Var], Expr))], List[(Name, ProcDef)], List[(Name, Int)])
+
+// the cells by address, which are unassigned initially, and the next address
+data Heap = heap(List[(Int, Option[Value])], Int)
+
+// the cells of variables
+sort Store = List[(Name, Int)]
+
+data RuntimeError =
+    uninitialized(Name)
+  | not_function(Value)
+  | unspecified(Name, List[Value])
+  | no_case(Value)
+  | division_by_zero
+  | compare_functions
+  | not_list(Value)
+  | assertion_failed
+  | assertion_unequal(Value, Value)
+  | unassigned_output(Name, Name)
+  | unknown_proc(Name)
+
+// an exception of the program with its type
+data Thrown = thrown(Value, Type)
+
+// the values of evals and the assigned variables of runs
+data Output = evaluated(Value) | ran(Bindings)
+
+function funs_in(p: Prog): List[((Name, Int), (List[Var], Expr))] =
+  match p
+    case prog(f, _, _) => f
+  end
+
+function procs_in(p: Prog): List[(Name, ProcDef)] =
+  match p
+    case prog(_, d, _) => d
+  end
+
+function constrs_in(p: Prog): List[(Name, Int)] =
+  match p
+    case prog(_, _, k) => k
+  end
+
+function load(q: Program): Prog =
+  match q
+    case program(cs) => prog(fun_defs(cs), proc_defs(cs), (",", 2) :: constr_defs(cs))
+  end
+
+// functions are overloaded by their number of arguments
+function fun_defs(cs: List[Cmd]): List[((Name, Int), (List[Var], Expr))] =
+  match cs
+    case nil => nil
+    case cfun(n, _, xs, _, b) :: rest => ((n, length(xs)), (xs, b)) :: fun_defs(rest)
+    case _ :: rest => fun_defs(rest)
+  end
+
+function proc_defs(cs: List[Cmd]): List[(Name, ProcDef)] =
+  match cs
+    case nil => nil
+    case cproc(n, _, ins, outs, refs, b) :: rest => (n, procdef(ins, outs, refs, b)) :: proc_defs(rest)
+    case _ :: rest => proc_defs(rest)
+  end
+
+function constr_defs(cs: List[Cmd]): List[(Name, Int)] =
+  match cs
+    case nil => nil
+    case cdata(_, _, ks) :: rest => [constr_arity(k) for k in ks] ++ constr_defs(rest)
+    case _ :: rest => constr_defs(rest)
+  end
+
+function constr_arity(k: Constr): (Name, Int) =
+  match k
+    case constr(n, ts) => (n, length(ts))
+  end
+
+function is_builtin(n: Name): Bool =
+  contains(n, ["+", "-", "*", "/", "%", "<", "=="])
+
+function is_function(v: Value): Bool =
+  match v
+    case lit(_) => false
+    case obj(_, _) => false
+    case _ => true
+  end
+
+function truth(v: Value): Bool =
+  v == lit(vbool(true))
+
+function list_value(vs: List[Value]): Value =
+  match vs
+    case nil => obj("nil", nil)
+    case v :: rest => obj("::", [v, list_value(rest)])
+  end
+
+function elements(v: Value): Option[List[Value]] =
+  match v
+    case obj("nil", nil) => some(nil)
+    case obj("::", w :: ws :: nil) =>
+      match elements(ws)
+        case some(us) => some(w :: us)
+        case none => none
+      end
+    case _ => none
+  end
+
+function bind_values(xs: List[Var], vs: List[Value]): Bindings =
+  zip(names(xs), vs)
+
+function matches(p: Pat, v: Value): Option[Bindings] =
+  match (p, v)
+    case (pwild, _) => some(nil)
+    case (plit(l), _) => if v == lit(l) then some(nil) else none
+    case (pvar(var(n, _)), _) => some([(n, v)])
+    case (papp(c, ps), obj(d, vs)) => if c == d then matches_all(ps, vs) else none
+    case (papp(_, _), _) => none
+  end
+
+function matches_all(ps: List[Pat], vs: List[Value]): Option[Bindings] =
+  match (ps, vs)
+    case (nil, nil) => some(nil)
+    case (p :: ps1, v :: vs1) =>
+      match matches(p, v)
+        case some(bs) =>
+          match matches_all(ps1, vs1)
+            case some(cs) => some(bs ++ cs)
+            case none => none
+          end
+        case none => none
+      end
+    case _ => none
+  end
+
+function select[A](v: Value, cases: List[Branch[A]]): Option[(A, Bindings)] =
+  match cases
+    case nil => none
+    case branch(p, b) :: rest =>
+      match matches(p, v)
+        case some(bs) => some((b, bs))
+        case none => select(v, rest)
+      end
+  end
+
+function read_cell(h: Heap, a: Int): Option[Value] =
+  match h
+    case heap(cells, _) =>
+      match lookup(a, cells)
+        case some(c) => c
+        case none => none
+      end
+  end
+
+function address_of(store: Store, n: Name): Int =
+  match lookup(n, store)
+    case some(a) => a
+    case none => -1
+  end
+
+// the values of the assigned variables, where unassigned cells hide the variables of the same name further out
+function values_of(store: Store, h: Heap): Bindings =
+  assigned(store, h, nil)
+
+function assigned(store: Store, h: Heap, seen: List[Name]): Bindings =
+  match store
+    case nil => nil
+    case (n, a) :: rest =>
+      if contains(n, seen) then
+        assigned(rest, h, seen)
+      else
+        match read_cell(h, a)
+          case some(v) => (n, v) :: assigned(rest, h, n :: seen)
+          case none => assigned(rest, h, n :: seen)
+        end
+  end
+
+procedure alloc(c: Option[Value]; a: Int; h: Heap)
+  match h
+    case heap(cells, n) =>
+      assign a, h := n, heap((n, c) :: cells, n + 1);
+  end
+end
+
+procedure write_cell(a: Int, v: Value;; h: Heap)
+  match h
+    case heap(cells, n) =>
+      assign h := heap(update(a, some(v), cells), n);
+  end
+end
+
+procedure alloc_vars(xs: List[Var]; store: Store; h: Heap)
+  local a: Int, rest: Store;
+  match xs
+    case nil =>
+      assign store := nil;
+    case x :: more =>
+      call alloc(none; a; h);
+      call alloc_vars(more; rest; h);
+      assign store := (name(x), a) :: rest;
+  end
+end
+
+procedure alloc_bindings(bs: Bindings; store: Store; h: Heap)
+  local a: Int, rest: Store;
+  match bs
+    case nil =>
+      assign store := nil;
+    case (n, v) :: more =>
+      call alloc(some(v); a; h);
+      call alloc_bindings(more; rest; h);
+      assign store := (n, a) :: rest;
+  end
+end
+
+procedure write_vars(store: Store, xs: List[Var], vs: List[Value];; h: Heap)
+  match (xs, vs)
+    case (x :: xs1, v :: vs1) =>
+      call write_cell(address_of(store, name(x)), v;; h);
+      call write_vars(store, xs1, vs1;; h);
+    case _ =>
+      skip;
+  end
+end
+
+procedure read_outs(p: Name, outs: Store, h: Heap; vs: List[Value])
+  local rest: List[Value];
+  match outs
+    case nil =>
+      assign vs := nil;
+    case (n, a) :: more =>
+      match read_cell(h, a)
+        case some(v) =>
+          call read_outs(p, more, h; rest);
+          assign vs := v :: rest;
+        case none =>
+          raise unassigned_output(n, p);
+      end
+  end
+end
+
+procedure evaluate(p: Prog, env: Bindings, e: Expr; v: Value)
+  local w: Value, vs: List[Value], envs: List[Bindings];
+  match e
+    case elit(l) =>
+      assign v := lit(l);
+    case evar(var(n, t)) =>
+      call variable_value(p, env, n, t; v);
+    case eapp(f, args) =>
+      call apply_expr(p, env, f, args; v);
+    case elam(xs, body) =>
+      assign v := clos(env, xs, body);
+    case elet(xs, args, body) =>
+      call evaluate_all(p, env, args; vs);
+      call evaluate(p, bind_values(xs, vs) ++ env, body; v);
+    case eite(cond, left, right) =>
+      call evaluate(p, env, cond; w);
+      if truth(w) then
+        call evaluate(p, env, left; v);
+      else
+        call evaluate(p, env, right; v);
+      end
+    case ematch(arg, cases) =>
+      call evaluate(p, env, arg; w);
+      match select(w, cases)
+        case some((body, bs)) =>
+          call evaluate(p, bs ++ env, body; v);
+        case none =>
+          raise no_case(w);
+      end
+    case ecomp(result, xs, lists, cond) =>
+      call combinations(p, env, xs, lists; envs);
+      call comprehension(p, envs, result, cond; vs);
+      assign v := list_value(vs);
+  end
+end
+
+procedure evaluate_all(p: Prog, env: Bindings, es: List[Expr]; vs: List[Value])
+  local v: Value, rest: List[Value];
+  match es
+    case nil =>
+      assign vs := nil;
+    case e :: more =>
+      call evaluate(p, env, e; v);
+      call evaluate_all(p, env, more; rest);
+      assign vs := v :: rest;
+  end
+end
+
+procedure variable_value(p: Prog, env: Bindings, n: Name, t: Type; v: Value)
+  match lookup(n, env)
+    case some(w) =>
+      assign v := w;
+    case none =>
+      match lookup((n, arity(t)), funs_in(p))
+        case some(_) =>
+          assign v := fn(n, arity(t));
+        case none =>
+          match lookup(n, constrs_in(p))
+            case some(k) =>
+              if k == 0 then
+                assign v := obj(n, nil);
+              else
+                assign v := con(n);
+              end
+            case none =>
+              if is_builtin(n) then
+                assign v := prim(n);
+              else
+                raise uninitialized(n);
+              end
+          end
+      end
+  end
+end
+
+// and, or are not strict and therefore not builtins
+procedure apply_expr(p: Prog, env: Bindings, f: Expr, args: List[Expr]; v: Value)
+  local a: Value, g: Value, vs: List[Value];
+  match (f, args)
+    case (evar(var("and", _)), l :: r :: nil) =>
+      call evaluate(p, env, l; a);
+      if truth(a) then
+        call evaluate(p, env, r; v);
+      else
+        assign v := a;
+      end
+    case (evar(var("or", _)), l :: r :: nil) =>
+      call evaluate(p, env, l; a);
+      if truth(a) then
+        assign v := a;
+      else
+        call evaluate(p, env, r; v);
+      end
+    case _ =>
+      call evaluate(p, env, f; g);
+      call evaluate_all(p, env, args; vs);
+      call apply_value(p, g, vs; v);
+  end
+end
+
+procedure apply_value(p: Prog, f: Value, vs: List[Value]; v: Value)
+  match f
+    case clos(env, xs, body) =>
+      call evaluate(p, bind_values(xs, vs) ++ env, body; v);
+    case fn(n, k) =>
+      match lookup((n, k), funs_in(p))
+        case some((xs, body)) =>
+          call evaluate(p, bind_values(xs, vs), body; v);
+        case none =>
+          raise uninitialized(n);
+      end
+    case con(n) =>
+      assign v := obj(n, vs);
+    case prim(n) =>
+      call primitive(n, vs; v);
+    case _ =>
+      raise not_function(f);
+  end
+end
+
+procedure primitive(n: Name, vs: List[Value]; v: Value)
+  local r: Bool;
+  match (n, vs)
+    case ("+", lit(vint(a)) :: lit(vint(b)) :: nil) =>
+      assign v := lit(vint(a + b));
+    case ("-", lit(vint(a)) :: lit(vint(b)) :: nil) =>
+      assign v := lit(vint(a - b));
+    case ("*", lit(vint(a)) :: lit(vint(b)) :: nil) =>
+      assign v := lit(vint(a * b));
+    case ("/", lit(vint(_)) :: lit(vint(0)) :: nil) =>
+      raise division_by_zero;
+    case ("/", lit(vint(a)) :: lit(vint(b)) :: nil) =>
+      assign v := lit(vint(a / b));
+    case ("%", lit(vint(_)) :: lit(vint(0)) :: nil) =>
+      raise division_by_zero;
+    case ("%", lit(vint(a)) :: lit(vint(b)) :: nil) =>
+      assign v := lit(vint(a % b));
+    case ("<", lit(vint(a)) :: lit(vint(b)) :: nil) =>
+      assign v := lit(vbool(a < b));
+    case ("==", a :: b :: nil) =>
+      call equal(a, b; r);
+      assign v := lit(vbool(r));
+    case _ =>
+      raise unspecified(n, vs);
+  end
+end
+
+procedure equal(a: Value, b: Value; r: Bool)
+  if is_function(a) or is_function(b) then
+    raise compare_functions;
+  end
+  match (a, b)
+    case (obj(c, xs), obj(d, ys)) =>
+      if c == d and length(xs) == length(ys) then
+        call equal_all(xs, ys; r);
+      else
+        assign r := false;
+      end
+    case _ =>
+      assign r := a == b;
+  end
+end
+
+procedure equal_all(xs: List[Value], ys: List[Value]; r: Bool)
+  match (xs, ys)
+    case (x :: xs1, y :: ys1) =>
+      call equal(x, y; r);
+      if r then
+        call equal_all(xs1, ys1; r);
+      end
+    case _ =>
+      assign r := true;
+  end
+end
+
+// env extended by all combinations of elements of lists
+procedure combinations(p: Prog, env: Bindings, xs: List[Var], lists: List[Expr]; envs: List[Bindings])
+  local l: Value;
+  match (xs, lists)
+    case (x :: ys, e :: more) =>
+      call evaluate(p, env, e; l);
+      match elements(l)
+        case some(vs) =>
+          call extend(p, env, x, vs, ys, more; envs);
+        case none =>
+          raise not_list(l);
+      end
+    case _ =>
+      assign envs := [env];
+  end
+end
+
+procedure extend(p: Prog, env: Bindings, x: Var, vs: List[Value], ys: List[Var], lists: List[Expr]; envs: List[Bindings])
+  local first: List[Bindings], rest: List[Bindings];
+  match vs
+    case nil =>
+      assign envs := nil;
+    case v :: more =>
+      call combinations(p, (name(x), v) :: env, ys, lists; first);
+      call extend(p, env, x, more, ys, lists; rest);
+      assign envs := first ++ rest;
+  end
+end
+
+procedure comprehension(p: Prog, envs: List[Bindings], result: Expr, cond: Expr; vs: List[Value])
+  local b: Value, r: Value, rest: List[Value];
+  match envs
+    case nil =>
+      assign vs := nil;
+    case env :: more =>
+      call evaluate(p, env, cond; b);
+      if truth(b) then
+        call evaluate(p, env, result; r);
+        call comprehension(p, more, result, cond; rest);
+        assign vs := r :: rest;
+      else
+        call comprehension(p, more, result, cond; vs);
+      end
+  end
+end
+
+procedure exec(p: Prog, store: Store, x: Stmt;; h: Heap)
+  local v: Value, w: Value, vs: List[Value], r: Bool, inner: Store;
+  match x
+    case sskip =>
+      skip;
+    case sassign(xs, es) =>
+      call evaluate_all(p, values_of(store, h), es; vs);
+      call write_vars(store, xs, vs;; h);
+    case sblock(locals, body) =>
+      call alloc_vars(locals; inner; h);
+      call exec_all(p, inner ++ store, body;; h);
+    case sif(cond, left, right) =>
+      call evaluate(p, values_of(store, h), cond; v);
+      if truth(v) then
+        call exec(p, store, left;; h);
+      else
+        call exec(p, store, right;; h);
+      end
+    case swhile(cond, body) =>
+      call evaluate(p, values_of(store, h), cond; v);
+      while truth(v) do
+        call exec(p, store, body;; h);
+        call evaluate(p, values_of(store, h), cond; v);
+      end
+    case scall(n, ins, outs, refs) =>
+      call evaluate_all(p, values_of(store, h), ins; vs);
+      call invoke(p, n, vs, [address_of(store, name(y)) for y in refs]; vs; h);
+      call write_vars(store, outs, vs;; h);
+    case smatch(arg, cases) =>
+      call evaluate(p, values_of(store, h), arg; v);
+      match select(v, cases)
+        case some((body, bs)) =>
+          call alloc_bindings(bs; inner; h);
+          call exec(p, inner ++ store, body;; h);
+        case none =>
+          raise no_case(v);
+      end
+    // assertions of equations show both sides when they fail
+    case sassert(eapp(evar(var("==", _)), lhs :: rhs :: nil)) =>
+      call evaluate(p, values_of(store, h), lhs; v);
+      call evaluate(p, values_of(store, h), rhs; w);
+      call equal(v, w; r);
+      if not r then
+        raise assertion_unequal(v, w);
+      end
+    case sassert(cond) =>
+      call evaluate(p, values_of(store, h), cond; v);
+      if not truth(v) then
+        raise assertion_failed;
+      end
+    case sraise(arg, t) =>
+      call evaluate(p, values_of(store, h), arg; v);
+      raise thrown(v, t);
+    case stry(body, handlers) =>
+      try
+        call exec(p, store, body;; h);
+      catch
+        case thrown(u, t) =>
+          call handle(p, store, handlers, u, t;; h);
+      end
+  end
+end
+
+procedure exec_all(p: Prog, store: Store, xs: List[Stmt];; h: Heap)
+  match xs
+    case nil =>
+      skip;
+    case x :: more =>
+      call exec(p, store, x;; h);
+      call exec_all(p, store, more;; h);
+  end
+end
+
+// the first handler of v of type t, where _ handles exceptions of any type, or else raises v again
+procedure handle(p: Prog, store: Store, hs: List[Handler], v: Value, t: Type;; h: Heap)
+  local inner: Store;
+  match hs
+    case nil =>
+      raise thrown(v, t);
+    case handler(_, pwild, body) :: _ =>
+      call exec(p, store, body;; h);
+    case handler(u, q, body) :: rest =>
+      if u == t then
+        match matches(q, v)
+          case some(bs) =>
+            call alloc_bindings(bs; inner; h);
+            call exec(p, inner ++ store, body;; h);
+          case none =>
+            call handle(p, store, rest, v, t;; h);
+        end
+      else
+        call handle(p, store, rest, v, t;; h);
+      end
+  end
+end
+
+procedure invoke(p: Prog, n: Name, ins: List[Value], refs: List[Int]; outs: List[Value]; h: Heap)
+  local in_cells: Store, out_cells: Store;
+  match lookup(n, procs_in(p))
+    case some(procdef(xs, ys, zs, body)) =>
+      call alloc_bindings(bind_values(xs, ins); in_cells; h);
+      call alloc_vars(ys; out_cells; h);
+      call exec(p, in_cells ++ out_cells ++ zip(names(zs), refs), body;; h);
+      call read_outs(n, out_cells, h; outs);
+    case none =>
+      raise unknown_proc(n);
+  end
+end
+
+// executes a block and returns the assigned values of its variables
+procedure results(p: Prog, body: Stmt; bs: Bindings; h: Heap)
+  local store: Store;
+  match body
+    case sblock(locals, stmts) =>
+      call alloc_vars(locals; store; h);
+      call exec_all(p, store, stmts;; h);
+      assign bs := values_of(store, h);
+    case _ =>
+      call exec(p, nil, body;; h);
+      assign bs := nil;
+  end
+end
+
+procedure outputs(p: Prog, cs: List[Cmd]; os: List[Output]; h: Heap)
+  local v: Value, bs: Bindings, rest: List[Output];
+  match cs
+    case nil =>
+      assign os := nil;
+    case ceval(e) :: more =>
+      call evaluate(p, nil, e; v);
+      call outputs(p, more; rest; h);
+      assign os := evaluated(v) :: rest;
+    case crun(body) :: more =>
+      call results(p, body; bs; h);
+      call outputs(p, more; rest; h);
+      assign os := ran(bs) :: rest;
+    case ctest(body) :: more =>
+      call exec(p, nil, body;; h);
+      call outputs(p, more; os; h);
+    case _ :: more =>
+      call outputs(p, more; os; h);
+  end
+end
+
+// the outputs of a checked program, failed assertions are errors
+procedure run_program(q: Program; os: List[Output])
+  local h: Heap;
+  assign h := heap(nil, 0);
+  call outputs(load(q), cmds_of(q); os; h);
+end
+
+function cmds_of(q: Program): List[Cmd] =
+  match q
+    case program(cs) => cs
+  end
+
+// checks and runs the commands
+procedure check_and_run(cs: List[Cmd]; os: List[Output])
+  local q: Program;
+  call check_program(program(cs); q);
+  call run_program(q; os);
+end
+
+function int(n: Int): Value =
+  lit(vint(n))
+
+test
+  local os: List[Output];
+  call check_and_run(
+    lists() ++
+    [
+      ceval(ap("len", [ap("::", [num(1), ap("::", [num(2), ev("nil")])])])),
+      // let f = lambda x => x * x in f(3) + f(4)
+      ceval(elet([var("f", thole)], [elam([var("x", thole)], ap("*", [ev("x"), ev("x")]))], ap("+", [ap("f", [num(3)]), ap("f", [num(4)])]))),
+      // [x * y for x in [1, 2], y in [x, 3] if x < y]
+      ceval(
+        ecomp(
+          ap("*", [ev("x"), ev("y")]),
+          [var("x", thole), var("y", thole)],
+          [ap("::", [num(1), ap("::", [num(2), ev("nil")])]), ap("::", [ev("x"), ap("::", [num(3), ev("nil")])])],
+          ap("<", [ev("x"), ev("y")])
+        )
+      ),
+      // false and 1 / 0 == 0
+      ceval(ap("and", [elit(vbool(false)), ap("==", [ap("/", [num(1), num(0)]), num(0)])]))
+    ];
+    os
+  );
+  assert
+    os ==
+    [
+      evaluated(int(2)),
+      evaluated(int(25)),
+      evaluated(list_value([int(3), int(6)])),
+      evaluated(lit(vbool(false)))
+    ];
+end
+
+// procedure sum(n: Int; s: Int) with a loop, and procedure count(;; k: Int) raising fail after an increment
+function procedures(): List[Cmd] =
+  [
+    cdata("Fail", nil, [constr("fail", [tint()])]),
+    cproc(
+      "sum",
+      nil,
+      [var("n", tint())],
+      [var("s", tint())],
+      nil,
+      sblock(
+        [var("i", tint())],
+        [
+          sassign([var("s", thole), var("i", thole)], [num(0), num(0)]),
+          swhile(
+            ap("<", [ev("i"), ev("n")]),
+            sblock(nil, [sassign([var("i", thole), var("s", thole)], [ap("+", [ev("i"), num(1)]), ap("+", [ev("s"), ap("+", [ev("i"), num(1)])])])])
+          )
+        ]
+      )
+    ),
+    cproc(
+      "count",
+      nil,
+      nil,
+      nil,
+      [var("k", tint())],
+      sblock(nil, [sassign([var("k", thole)], [ap("+", [ev("k"), num(1)])]), sraise(ap("fail", [ev("k")]), thole)])
+    )
+  ]
+
+test
+  local os: List[Output];
+  call check_and_run(
+    procedures() ++
+    [
+      crun(sblock([var("s", tint())], [scall("sum", [num(4)], [var("s", thole)], nil)])),
+      // the assignment to k before the exception remains, and the handler for Fail binds its argument
+      crun(
+        sblock(
+          [var("k", tint()), var("m", tint())],
+          [
+            sassign([var("k", thole)], [num(1)]),
+            stry(
+              sblock(nil, [scall("count", nil, nil, [var("k", thole)])]),
+              [handler(thole, papp("fail", [pv("j")]), sblock(nil, [sassign([var("m", thole)], [ev("j")])]))]
+            )
+          ]
+        )
+      )
+    ];
+    os
+  );
+  assert os == [ran([("s", int(10))]), ran([("k", int(2)), ("m", int(2))])];
+end
+
+test
+  local os: List[Output];
+  try
+    call check_and_run(procedures() ++ [ctest(sblock(nil, [sraise(ap("fail", [num(1)]), thole)]))]; os);
+    assert false;
+  catch
+    case thrown(v, t) =>
+      assert v == obj("fail", [int(1)]);
+      assert t == tsort("Fail", nil);
+  end
+  try
+    call check_and_run([ctest(sblock(nil, [sassert(ap("==", [num(1), num(2)]))]))]; os);
+    assert false;
+  catch
+    case assertion_unequal(a, b) =>
+      assert (a, b) == (int(1), int(2));
+  end
+  try
+    call check_and_run([ceval(ap("/", [num(1), num(0)]))]; os);
+    assert false;
+  catch
+    case division_by_zero =>
+      skip;
+  end
+end

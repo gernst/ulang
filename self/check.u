@@ -1,0 +1,1427 @@
+// the type checker of ulang/src/ulang/Check.scala, which checks and elaborates programs of self/syntax.u,
+// where the state is passed by reference, and errors are values of TypeError instead of messages
+
+import syntax
+import util
+
+// unknowns by their index
+sort Subst = List[(Int, Type)]
+
+// params are the Params of a generic declaration or the Metas generalized by a let
+data Scheme = scheme(List[Type], Type)
+
+sort Env = List[(Name, Scheme)]
+
+data Sig = sig(List[Type], List[Type], List[Type], List[Type])
+
+data Constructor = constructor(List[Type], List[Type], Type)
+
+// sort definitions, functions, procedures, datatypes with their numbers of parameters, their constructors, and constructors
+data Ctx =
+  ctx(
+    List[(Name, (List[Name], Type))],
+    List[(Name, List[Scheme])],
+    List[(Name, Sig)],
+    List[(Name, Int)],
+    List[(Name, List[Name])],
+    List[(Name, Constructor)]
+  )
+
+// the context, the substitution, and the number of unknowns so far
+data State = state(Ctx, Subst, Int)
+
+data TypeError =
+    unknown_sort(Name)
+  | sort_arity(Name, Int, Int)
+  | sort_defined(Name)
+  | missing_type(Name)
+  | undeclared_params(Name, List[Type])
+  | cannot_unify(Type, Type)
+  | infinite_type(Type, Type)
+  | unknown_variable(Name)
+  | overloaded_unapplied(Name)
+  | wrong_arity(Name, Int)
+  | already_defined(Name)
+  | duplicate(Name)
+  | count_mismatch(Int, Int)
+  | unknown_constructor(Name)
+  | not_exhaustive(Pat)
+  | unreachable(Pat)
+  | not_assignable(Name)
+  | unknown_procedure(Name)
+  | unknown_exception(Type)
+
+// the constructor of a pattern, where literals count as constructors without arguments
+data Head = hcon(Name) | hlit(Val)
+
+function aliases(c: Ctx): List[(Name, (List[Name], Type))] =
+  match c
+    case ctx(a, _, _, _, _, _) => a
+  end
+
+function funs(c: Ctx): List[(Name, List[Scheme])] =
+  match c
+    case ctx(_, f, _, _, _, _) => f
+  end
+
+function procs(c: Ctx): List[(Name, Sig)] =
+  match c
+    case ctx(_, _, p, _, _, _) => p
+  end
+
+function datas(c: Ctx): List[(Name, Int)] =
+  match c
+    case ctx(_, _, _, d, _, _) => d
+  end
+
+function members(c: Ctx): List[(Name, List[Name])] =
+  match c
+    case ctx(_, _, _, _, m, _) => m
+  end
+
+function constrs(c: Ctx): List[(Name, Constructor)] =
+  match c
+    case ctx(_, _, _, _, _, k) => k
+  end
+
+function with_alias(c: Ctx, n: Name, ps: List[Name], t: Type): Ctx =
+  match c
+    case ctx(a, f, p, d, m, k) => ctx((n, (ps, t)) :: a, f, p, d, m, k)
+  end
+
+function with_fun(c: Ctx, n: Name, sc: Scheme): Ctx =
+  match c
+    case ctx(a, f, p, d, m, k) => ctx(a, update(n, schemes_of(c, n) ++ [sc], f), p, d, m, k)
+  end
+
+function with_proc(c: Ctx, n: Name, g: Sig): Ctx =
+  match c
+    case ctx(a, f, p, d, m, k) => ctx(a, f, (n, g) :: p, d, m, k)
+  end
+
+function with_data(c: Ctx, n: Name, arity: Int): Ctx =
+  match c
+    case ctx(a, f, p, d, m, k) => ctx(a, f, p, (n, arity) :: d, m, k)
+  end
+
+function with_members(c: Ctx, n: Name, cs: List[Name]): Ctx =
+  match c
+    case ctx(a, f, p, d, m, k) => ctx(a, f, p, d, (n, cs) :: m, k)
+  end
+
+function with_constr(c: Ctx, n: Name, kc: Constructor): Ctx =
+  match c
+    case ctx(a, f, p, d, m, k) => ctx(a, f, p, d, m, (n, kc) :: k)
+  end
+
+function ctx_of(s: State): Ctx =
+  match s
+    case state(c, _, _) => c
+  end
+
+function sub_of(s: State): Subst =
+  match s
+    case state(_, su, _) => su
+  end
+
+function with_ctx(s: State, c: Ctx): State =
+  match s
+    case state(_, su, n) => state(c, su, n)
+  end
+
+function tbool(): Type =
+  tsort("Bool", nil)
+
+function tint(): Type =
+  tsort("Int", nil)
+
+function fun(args: List[Type], res: Type): Type =
+  tsort("->", args ++ [res])
+
+function params(ps: List[Name]): List[Type] =
+  [tparam(p) for p in ps]
+
+function basic(n: Name): Bool =
+  n == "Bool" or n == "Int" or n == "Str" or n == "Unit"
+
+function literal(v: Val): Type =
+  match v
+    case vunit => tsort("Unit", nil)
+    case vbool(_) => tbool()
+    case vint(_) => tint()
+    case vstr(_) => tsort("Str", nil)
+  end
+
+// pairs are a datatype *[A, B] with the constructor ,
+function initial(): Ctx =
+  let ab = [tparam("A"), tparam("B")] in
+  ctx(nil, nil, nil, [("*", 2)], [("*", [","])], [(",", constructor(ab, ab, tsort("*", ab)))])
+
+// only what cannot be defined in the prelude
+function builtins(): Env =
+  let arith, logic, a = scheme(nil, fun([tint(), tint()], tint())), scheme(nil, fun([tbool(), tbool()], tbool())), tparam("A") in
+  [
+    ("+", arith),
+    ("-", arith),
+    ("*", arith),
+    ("/", arith),
+    ("%", arith),
+    ("<", scheme(nil, fun([tint(), tint()], tbool()))),
+    ("==", scheme([a], fun([a, a], tbool()))),
+    ("and", logic),
+    ("or", logic)
+  ]
+
+function builtin(n: Name): List[Scheme] =
+  match lookup(n, builtins())
+    case some(sc) => [sc]
+    case none => nil
+  end
+
+function is_meta(t: Type): Bool =
+  match t
+    case tmeta(_) => true
+    case _ => false
+  end
+
+// the Params and Metas in t
+function free(t: Type): List[Type] =
+  match t
+    case tparam(_) => [t]
+    case tmeta(_) => [t]
+    case thole => nil
+    case tsort(_, args) => distinct(concat([free(a) for a in args]))
+  end
+
+function holes(t: Type): Bool =
+  match t
+    case thole => true
+    case tsort(_, args) => contains(true, [holes(a) for a in args])
+    case _ => false
+  end
+
+function subst(t: Type, m: List[(Type, Type)]): Type =
+  match t
+    case tsort(n, args) => tsort(n, [subst(a, m) for a in args])
+    case _ =>
+      match lookup(t, m)
+        case some(u) => u
+        case none => t
+      end
+  end
+
+function resolve(su: Subst, t: Type): Type =
+  match t
+    case tmeta(i) =>
+      match lookup(i, su)
+        case some(u) => resolve(su, u)
+        case none => t
+      end
+    case _ => t
+  end
+
+function occurs(su: Subst, i: Int, t: Type): Bool =
+  match resolve(su, t)
+    case tmeta(j) => i == j
+    case tsort(_, args) => contains(true, [occurs(su, i, a) for a in args])
+    case _ => false
+  end
+
+function schemes_of(c: Ctx, n: Name): List[Scheme] =
+  match lookup(n, funs(c))
+    case some(ss) => ss
+    case none => nil
+  end
+
+function constructor_scheme(k: Constructor): Scheme =
+  match k
+    case constructor(ps, ks, r) => scheme(ps, if ks == nil then r else fun(ks, r))
+  end
+
+// local variables hide functions, constructors, and builtins
+function candidates(c: Ctx, env: Env, n: Name): List[Scheme] =
+  match lookup(n, env)
+    case some(sc) => [sc]
+    case none =>
+      match lookup(n, constrs(c))
+        case some(k) => schemes_of(c, n) ++ [constructor_scheme(k)] ++ builtin(n)
+        case none => schemes_of(c, n) ++ builtin(n)
+      end
+  end
+
+function with_arity(scs: List[Scheme], k: Int): Option[Scheme] =
+  match scs
+    case nil => none
+    case scheme(ps, t) :: rest => if arity(t) == k then some(scheme(ps, t)) else with_arity(rest, k)
+  end
+
+function bind(xs: List[Var]): Env =
+  [(name(x), scheme(nil, typ(x))) for x in xs]
+
+// the unknowns of the types of env, which a let cannot generalize
+function fixed(su: Subst, env: Env): List[Type] =
+  match env
+    case nil => nil
+    case (_, scheme(ps, t)) :: rest => diff(free(zonk_type(su, t)), ps) ++ fixed(su, rest)
+  end
+
+function generalize(su: Subst, env: Env, t: Type): Scheme =
+  let fx, u = fixed(su, env), zonk_type(su, t) in
+  scheme([m for m in free(u) if is_meta(m) and not contains(m, fx)], u)
+
+function generalized(su: Subst, env: Env, xs: List[Var]): Env =
+  [(name(x), generalize(su, env, typ(x))) for x in xs]
+
+function pat_of[A](b: Branch[A]): Pat =
+  match b
+    case branch(p, _) => p
+  end
+
+function zonk_type(su: Subst, t: Type): Type =
+  match resolve(su, t)
+    case tsort(n, args) => tsort(n, [zonk_type(su, a) for a in args])
+    case u => u
+  end
+
+function zonk_var(su: Subst, x: Var): Var =
+  match x
+    case var(n, t) => var(n, zonk_type(su, t))
+  end
+
+function zonk_vars(su: Subst, xs: List[Var]): List[Var] =
+  [zonk_var(su, x) for x in xs]
+
+function zonk_expr(su: Subst, e: Expr): Expr =
+  match e
+    case elit(_) => e
+    case evar(x) => evar(zonk_var(su, x))
+    case eapp(f, args) => eapp(zonk_expr(su, f), [zonk_expr(su, a) for a in args])
+    case elam(xs, b) => elam(zonk_vars(su, xs), zonk_expr(su, b))
+    case elet(xs, args, b) => elet(zonk_vars(su, xs), [zonk_expr(su, a) for a in args], zonk_expr(su, b))
+    case eite(c, l, r) => eite(zonk_expr(su, c), zonk_expr(su, l), zonk_expr(su, r))
+    case ematch(a, bs) => ematch(zonk_expr(su, a), [zonk_expr_branch(su, b) for b in bs])
+    case ecomp(r, xs, ls, c) => ecomp(zonk_expr(su, r), zonk_vars(su, xs), [zonk_expr(su, l) for l in ls], zonk_expr(su, c))
+  end
+
+function zonk_expr_branch(su: Subst, b: Branch[Expr]): Branch[Expr] =
+  match b
+    case branch(p, e) => branch(zonk_pat(su, p), zonk_expr(su, e))
+  end
+
+function zonk_pat(su: Subst, p: Pat): Pat =
+  match p
+    case pvar(x) => pvar(zonk_var(su, x))
+    case papp(n, args) => papp(n, [zonk_pat(su, a) for a in args])
+    case _ => p
+  end
+
+function zonk_stmt(su: Subst, x: Stmt): Stmt =
+  match x
+    case sskip => x
+    case sassign(xs, es) => sassign(zonk_vars(su, xs), [zonk_expr(su, e) for e in es])
+    case sblock(xs, ys) => sblock(zonk_vars(su, xs), [zonk_stmt(su, y) for y in ys])
+    case sif(c, l, r) => sif(zonk_expr(su, c), zonk_stmt(su, l), zonk_stmt(su, r))
+    case swhile(c, b) => swhile(zonk_expr(su, c), zonk_stmt(su, b))
+    case scall(p, ins, outs, refs) => scall(p, [zonk_expr(su, e) for e in ins], zonk_vars(su, outs), zonk_vars(su, refs))
+    case smatch(a, bs) => smatch(zonk_expr(su, a), [zonk_stmt_branch(su, b) for b in bs])
+    case sassert(c) => sassert(zonk_expr(su, c))
+    case sraise(a, t) => sraise(zonk_expr(su, a), zonk_type(su, t))
+    case stry(b, hs) => stry(zonk_stmt(su, b), [zonk_handler(su, h) for h in hs])
+  end
+
+function zonk_stmt_branch(su: Subst, b: Branch[Stmt]): Branch[Stmt] =
+  match b
+    case branch(p, y) => branch(zonk_pat(su, p), zonk_stmt(su, y))
+  end
+
+function zonk_handler(su: Subst, h: Handler): Handler =
+  match h
+    case handler(t, p, b) => handler(zonk_type(su, t), zonk_pat(su, p), zonk_stmt(su, b))
+  end
+
+function zonk_cmd(su: Subst, c: Cmd): Cmd =
+  match c
+    case cfun(n, ps, xs, r, b) => cfun(n, ps, zonk_vars(su, xs), zonk_type(su, r), zonk_expr(su, b))
+    case cproc(n, ps, ins, outs, refs, b) => cproc(n, ps, zonk_vars(su, ins), zonk_vars(su, outs), zonk_vars(su, refs), zonk_stmt(su, b))
+    case ceval(e) => ceval(zonk_expr(su, e))
+    case crun(b) => crun(zonk_stmt(su, b))
+    case ctest(b) => ctest(zonk_stmt(su, b))
+    case _ => c
+  end
+
+// exceptions are told apart by their types at runtime, which must therefore be known after checking
+function unknown_type(t: Type): Option[Type] =
+  if free(t) == nil then none else some(t)
+
+function unknown_in(x: Stmt): Option[Type] =
+  match x
+    case sblock(_, ys) => unknown_in_all(ys)
+    case sif(_, l, r) => or_else(unknown_in(l), unknown_in(r))
+    case swhile(_, b) => unknown_in(b)
+    case smatch(_, bs) => unknown_in_branches(bs)
+    case sraise(_, t) => unknown_type(t)
+    case stry(b, hs) => or_else(unknown_in(b), unknown_in_handlers(hs))
+    case _ => none
+  end
+
+function unknown_in_all(xs: List[Stmt]): Option[Type] =
+  match xs
+    case nil => none
+    case y :: ys => or_else(unknown_in(y), unknown_in_all(ys))
+  end
+
+function unknown_in_branches(bs: List[Branch[Stmt]]): Option[Type] =
+  match bs
+    case nil => none
+    case branch(_, y) :: rest => or_else(unknown_in(y), unknown_in_branches(rest))
+  end
+
+// handlers of _ catch exceptions of any type
+function unknown_in_handlers(hs: List[Handler]): Option[Type] =
+  match hs
+    case nil => none
+    case handler(_, pwild, b) :: rest => or_else(unknown_in(b), unknown_in_handlers(rest))
+    case handler(t, _, b) :: rest => or_else(unknown_type(t), or_else(unknown_in(b), unknown_in_handlers(rest)))
+  end
+
+function unknown_in_cmd(c: Cmd): Option[Type] =
+  match c
+    case cproc(_, _, _, _, _, b) => unknown_in(b)
+    case crun(b) => unknown_in(b)
+    case ctest(b) => unknown_in(b)
+    case _ => none
+  end
+
+function head_of(p: Pat): Option[(Head, List[Pat])] =
+  match p
+    case papp(n, args) => some((hcon(n), args))
+    case plit(v) => some((hlit(v), nil))
+    case _ => none
+  end
+
+// the constructors in the first column
+function heads(rows: List[List[Pat]]): List[Head] =
+  match rows
+    case nil => nil
+    case (p :: _) :: rest =>
+      match head_of(p)
+        case some((h, _)) => h :: heads(rest)
+        case none => heads(rest)
+      end
+    case nil :: rest => heads(rest)
+  end
+
+// the argument types of constructor k of a datatype with type arguments args
+function field_types(c: Ctx, k: Name, args: List[Type]): List[Type] =
+  match lookup(k, constrs(c))
+    case some(constructor(ps, ks, _)) => [subst(a, zip(ps, args)) for a in ks]
+    case none => nil
+  end
+
+// all constructors of t with their argument types, if there are finitely many
+function constructors_of(c: Ctx, su: Subst, t: Type): Option[List[(Head, List[Type])]] =
+  match zonk_type(su, t)
+    case tsort("Bool", nil) => some([(hlit(vbool(true)), nil), (hlit(vbool(false)), nil)])
+    case tsort("Unit", nil) => some([(hlit(vunit), nil)])
+    case tsort(n, args) =>
+      match lookup(n, members(c))
+        case some(ks) => some([(hcon(k), field_types(c, k, args)) for k in ks])
+        case none => none
+      end
+    case _ => none
+  end
+
+function fields_of(c: Ctx, su: Subst, t: Type, h: Head): List[Type] =
+  match constructors_of(c, su, t)
+    case some(ks) =>
+      match lookup(h, ks)
+        case some(ts) => ts
+        case none => nil
+      end
+    case none => nil
+  end
+
+function covers(hs: List[Head], ks: List[(Head, List[Type])]): Bool =
+  match ks
+    case nil => true
+    case (h, _) :: rest => contains(h, hs) and covers(hs, rest)
+  end
+
+// the rows whose first pattern has no constructor, without it
+function defaults(rows: List[List[Pat]]): List[List[Pat]] =
+  match rows
+    case nil => nil
+    case (p :: ps) :: rest =>
+      match head_of(p)
+        case some(_) => defaults(rest)
+        case none => ps :: defaults(rest)
+      end
+    case nil :: rest => defaults(rest)
+  end
+
+function specialize(rows: List[List[Pat]], h: Head, n: Int): List[List[Pat]] =
+  match rows
+    case nil => nil
+    case (p :: ps) :: rest =>
+      match head_of(p)
+        case some((g, args)) => if g == h then (args ++ ps) :: specialize(rest, h, n) else specialize(rest, h, n)
+        case none => (replicate(n, pwild) ++ ps) :: specialize(rest, h, n)
+      end
+    case nil :: rest => specialize(rest, h, n)
+  end
+
+// some values of types ts match q but no row
+function useful(c: Ctx, su: Subst, rows: List[List[Pat]], q: List[Pat], ts: List[Type]): Bool =
+  match (q, ts)
+    case (nil, _) => rows == nil
+    case (p :: ps, t :: rest) =>
+      match head_of(p)
+        case some((h, args)) => useful(c, su, specialize(rows, h, length(args)), args ++ ps, fields_of(c, su, t, h) ++ rest)
+        case none =>
+          match constructors_of(c, su, t)
+            case some(ks) =>
+              if covers(heads(rows), ks) then useful_in(c, su, rows, ks, ps, rest) else useful(c, su, defaults(rows), ps, rest)
+            case none => useful(c, su, defaults(rows), ps, rest)
+          end
+      end
+    case (_ :: _, nil) => false
+  end
+
+function useful_in(c: Ctx, su: Subst, rows: List[List[Pat]], ks: List[(Head, List[Type])], ps: List[Pat], rest: List[Type]): Bool =
+  match ks
+    case nil => false
+    case (h, args) :: more =>
+      useful(c, su, specialize(rows, h, length(args)), replicate(length(args), pwild) ++ ps, args ++ rest) or
+      useful_in(c, su, rows, more, ps, rest)
+  end
+
+function witness(h: Head, args: List[Pat]): Pat =
+  match h
+    case hcon(n) => papp(n, args)
+    case hlit(v) => plit(v)
+  end
+
+// values of types ts, as patterns, that no row matches
+function missing(c: Ctx, su: Subst, rows: List[List[Pat]], ts: List[Type]): Option[List[Pat]] =
+  match ts
+    case nil => if rows == nil then some(nil) else none
+    case t :: rest => missing_in(c, su, rows, heads(rows), constructors_of(c, su, t), rest)
+  end
+
+// hs are the constructors in the first column, cs are all constructors of its type if there are finitely many
+function missing_in(c: Ctx, su: Subst, rows: List[List[Pat]], hs: List[Head], cs: Option[List[(Head, List[Type])]], rest: List[Type]): Option[List[Pat]] =
+  match cs
+    case some(ks) => if covers(hs, ks) then first_missing(c, su, rows, ks, rest) else other_missing(c, su, rows, hs, cs, rest)
+    case none => other_missing(c, su, rows, hs, cs, rest)
+  end
+
+function first_missing(c: Ctx, su: Subst, rows: List[List[Pat]], ks: List[(Head, List[Type])], rest: List[Type]): Option[List[Pat]] =
+  match ks
+    case nil => none
+    case (h, args) :: more =>
+      match missing(c, su, specialize(rows, h, length(args)), args ++ rest)
+        case some(ws) => some(witness(h, take(length(args), ws)) :: drop(length(args), ws))
+        case none => first_missing(c, su, rows, more, rest)
+      end
+  end
+
+function other_missing(c: Ctx, su: Subst, rows: List[List[Pat]], hs: List[Head], cs: Option[List[(Head, List[Type])]], rest: List[Type]): Option[List[Pat]] =
+  match missing(c, su, defaults(rows), rest)
+    case some(ws) => some(uncovered(hs, cs) :: ws)
+    case none => none
+  end
+
+// a value of the first column that hs do not cover
+function uncovered(hs: List[Head], cs: Option[List[(Head, List[Type])]]): Pat =
+  match cs
+    case some(ks) => if hs == nil then pwild else first_uncovered(hs, ks)
+    case none => pwild
+  end
+
+function first_uncovered(hs: List[Head], ks: List[(Head, List[Type])]): Pat =
+  match ks
+    case nil => pwild
+    case (h, args) :: rest => if contains(h, hs) then first_uncovered(hs, rest) else witness(h, replicate(length(args), pwild))
+  end
+
+procedure fresh(; t: Type; s: State)
+  match s
+    case state(c, su, n) =>
+      assign t, s := tmeta(n + 1), state(c, su, n + 1);
+  end
+end
+
+procedure bind_meta(i: Int, t: Type;; s: State)
+  if occurs(sub_of(s), i, t) then
+    raise infinite_type(tmeta(i), zonk_type(sub_of(s), t));
+  end
+  match s
+    case state(c, su, n) =>
+      assign s := state(c, (i, t) :: su, n);
+  end
+end
+
+procedure unify(t1: Type, t2: Type;; s: State)
+  local a: Type, b: Type;
+  assign a, b := resolve(sub_of(s), t1), resolve(sub_of(s), t2);
+  match (a, b)
+    case (tmeta(i), tmeta(j)) =>
+      if i != j then
+        call bind_meta(i, b;; s);
+      end
+    case (tmeta(i), _) =>
+      call bind_meta(i, b;; s);
+    case (_, tmeta(j)) =>
+      call bind_meta(j, a;; s);
+    case (tparam(x), tparam(y)) =>
+      if x != y then
+        raise cannot_unify(a, b);
+      end
+    case (tsort(f, xs), tsort(g, ys)) =>
+      if f == g and length(xs) == length(ys) then
+        call unifies(xs, ys;; s);
+      else
+        raise cannot_unify(zonk_type(sub_of(s), t1), zonk_type(sub_of(s), t2));
+      end
+    case _ =>
+      raise cannot_unify(zonk_type(sub_of(s), t1), zonk_type(sub_of(s), t2));
+  end
+end
+
+procedure unifies(xs: List[Type], ys: List[Type];; s: State)
+  match (xs, ys)
+    case (x :: xs1, y :: ys1) =>
+      call unify(x, y;; s);
+      call unifies(xs1, ys1;; s);
+    case (nil, nil) =>
+      skip;
+    case _ =>
+      raise count_mismatch(length(xs), length(ys));
+  end
+end
+
+procedure instance(ps: List[Type]; m: List[(Type, Type)]; s: State)
+  local t: Type, rest: List[(Type, Type)];
+  match ps
+    case nil =>
+      assign m := nil;
+    case p :: qs =>
+      call fresh(; t; s);
+      call instance(qs; rest; s);
+      assign m := (p, t) :: rest;
+  end
+end
+
+procedure instantiate(sc: Scheme; t: Type; s: State)
+  local m: List[(Type, Type)];
+  match sc
+    case scheme(ps, u) =>
+      call instance(ps; m; s);
+      assign t := subst(zonk_type(sub_of(s), u), m);
+  end
+end
+
+procedure unique(ns: List[Name])
+  match repeated(ns)
+    case some(n) =>
+      raise duplicate(n);
+    case none =>
+      skip;
+  end
+end
+
+procedure same_length(m: Int, n: Int)
+  if m != n then
+    raise count_mismatch(m, n);
+  end
+end
+
+procedure arguments(n: Name, k: Int, args: List[Type])
+  if length(args) != k then
+    raise sort_arity(n, k, length(args));
+  end
+end
+
+// expands sort definitions and replaces holes by fresh unknowns
+procedure normalize(t: Type; u: Type; s: State)
+  local us: List[Type];
+  match t
+    case thole =>
+      call fresh(; u; s);
+    case tparam(_) =>
+      assign u := t;
+    case tmeta(_) =>
+      assign u := t;
+    case tsort(n, args) =>
+      if n == "->" and args != nil then
+        call normalizes(args; us; s);
+        assign u := tsort(n, us);
+      else if basic(n) then
+        call arguments(n, 0, args);
+        assign u := t;
+      else
+        match lookup(n, datas(ctx_of(s)))
+          case some(k) =>
+            call arguments(n, k, args);
+            call normalizes(args; us; s);
+            assign u := tsort(n, us);
+          case none =>
+            match lookup(n, aliases(ctx_of(s)))
+              case some((ps, rhs)) =>
+                call arguments(n, length(ps), args);
+                call normalizes(args; us; s);
+                assign u := subst(rhs, zip(params(ps), us));
+              case none =>
+                raise unknown_sort(n);
+            end
+        end
+      end
+  end
+end
+
+procedure normalizes(ts: List[Type]; us: List[Type]; s: State)
+  local u: Type, rest: List[Type];
+  match ts
+    case nil =>
+      assign us := nil;
+    case t :: more =>
+      call normalize(t; u; s);
+      call normalizes(more; rest; s);
+      assign us := u :: rest;
+  end
+end
+
+procedure known(t: Type, what: Name; u: Type; s: State)
+  if holes(t) then
+    raise missing_type(what);
+  end
+  call normalize(t; u; s);
+end
+
+procedure knowns(ts: List[Type], what: Name; us: List[Type]; s: State)
+  local u: Type, rest: List[Type];
+  match ts
+    case nil =>
+      assign us := nil;
+    case t :: more =>
+      call known(t, what; u; s);
+      call knowns(more, what; rest; s);
+      assign us := u :: rest;
+  end
+end
+
+// the variables of a lambda, let, or comprehension
+procedure formals(xs: List[Var]; ys: List[Var]; s: State)
+  call unique(names(xs));
+  call normalize_vars(xs; ys; s);
+end
+
+procedure normalize_vars(xs: List[Var]; ys: List[Var]; s: State)
+  local u: Type, rest: List[Var];
+  match xs
+    case nil =>
+      assign ys := nil;
+    case var(n, t) :: more =>
+      call normalize(t; u; s);
+      call normalize_vars(more; rest; s);
+      assign ys := var(n, u) :: rest;
+  end
+end
+
+// the parameters and locals, which have types
+procedure signature(xs: List[Var]; ys: List[Var]; s: State)
+  call unique(names(xs));
+  call known_vars(xs; ys; s);
+end
+
+procedure known_vars(xs: List[Var]; ys: List[Var]; s: State)
+  local u: Type, rest: List[Var];
+  match xs
+    case nil =>
+      assign ys := nil;
+    case var(n, t) :: more =>
+      call known(t, n; u; s);
+      call known_vars(more; rest; s);
+      assign ys := var(n, u) :: rest;
+  end
+end
+
+// the meaning of n applied to k arguments, or k < 0 if n is not applied
+procedure resolve_name(c: Ctx, env: Env, n: Name, k: Int; sc: Scheme)
+  match candidates(c, env, n)
+    case nil =>
+      raise unknown_variable(n);
+    case one :: nil =>
+      assign sc := one;
+    case scs =>
+      if k < 0 then
+        raise overloaded_unapplied(n);
+      end
+      match with_arity(scs, k)
+        case some(one) =>
+          assign sc := one;
+        case none =>
+          raise wrong_arity(n, k);
+      end
+  end
+end
+
+// a use of n elaborated with an instance of sc
+procedure use(n: Name, a: Type, sc: Scheme; x: Var; s: State)
+  local u: Type, w: Type;
+  call instantiate(sc; u; s);
+  call normalize(a; w; s);
+  call unify(u, w;; s);
+  assign x := var(n, u);
+end
+
+procedure infer(env: Env, e: Expr; e1: Expr, t: Type; s: State)
+  local sc: Scheme, x: Var, xs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, es: List[Expr], bs: List[Branch[Expr]];
+  match e
+    case elit(v) =>
+      assign e1, t := e, literal(v);
+    case evar(var(n, a)) =>
+      call resolve_name(ctx_of(s), env, n, -1; sc);
+      call use(n, a, sc; x; s);
+      assign e1, t := evar(x), typ(x);
+    case eapp(f, args) =>
+      call application(env, f, args; e1, t; s);
+    case elam(bound, body) =>
+      call formals(bound; xs; s);
+      call infer(bind(xs) ++ env, body; b, u; s);
+      assign e1, t := elam(xs, b), fun(types(xs), u);
+    case elet(bound, args, body) =>
+      call formals(bound; xs; s);
+      call same_length(length(xs), length(args));
+      call checks(env, args, types(xs); es; s);
+      call infer(generalized(sub_of(s), env, xs) ++ env, body; b, u; s);
+      assign e1, t := elet(xs, es, b), u;
+    case eite(cond, left, right) =>
+      call check(env, cond, tbool(); c; s);
+      call infer(env, left; l, u; s);
+      call check(env, right, u; b; s);
+      assign e1, t := eite(c, l, b), u;
+    case ecomp(result, bound, lists, cond) =>
+      call formals(bound; xs; s);
+      call same_length(length(xs), length(lists));
+      call generators(env, xs, lists; es; s);
+      call check(bind(xs) ++ env, cond, tbool(); c; s);
+      call infer(bind(xs) ++ env, result; b, u; s);
+      assign e1, t := ecomp(b, xs, es, c), tsort("List", [u]);
+    case ematch(arg, cases) =>
+      call fresh(; t; s);
+      call infer(env, arg; c, u; s);
+      call expr_branches(env, cases, u, t; bs; s);
+      call coverage(s, u, [pat_of(br) for br in bs]);
+      assign e1 := ematch(c, bs);
+  end
+end
+
+// overloaded functions are resolved by their number of arguments
+procedure application(env: Env, f: Expr, args: List[Expr]; e1: Expr, t: Type; s: State)
+  local sc: Scheme, x: Var, f1: Expr, u: Type, args1: List[Expr];
+  match f
+    case evar(var(n, a)) =>
+      if length(candidates(ctx_of(s), env, n)) > 1 then
+        call resolve_name(ctx_of(s), env, n, length(args); sc);
+        call use(n, a, sc; x; s);
+        call apply(env, typ(x), args; args1, t; s);
+        assign e1 := eapp(evar(x), args1);
+      else
+        call infer(env, f; f1, u; s);
+        call apply(env, u, args; args1, t; s);
+        assign e1 := eapp(f1, args1);
+      end
+    case _ =>
+      call infer(env, f; f1, u; s);
+      call apply(env, u, args; args1, t; s);
+      assign e1 := eapp(f1, args1);
+  end
+end
+
+procedure apply(env: Env, f: Type, args: List[Expr]; args1: List[Expr], r: Type; s: State)
+  local ts: List[Type];
+  call fresh(; r; s);
+  call infers(env, args; args1, ts; s);
+  call unify(f, fun(ts, r);; s);
+end
+
+procedure check(env: Env, e: Expr, t: Type; e1: Expr; s: State)
+  local u: Type;
+  call infer(env, e; e1, u; s);
+  call unify(u, t;; s);
+end
+
+procedure checks(env: Env, es: List[Expr], ts: List[Type]; es1: List[Expr]; s: State)
+  local e1: Expr, rest: List[Expr];
+  match (es, ts)
+    case (e :: more, t :: ts1) =>
+      call check(env, e, t; e1; s);
+      call checks(env, more, ts1; rest; s);
+      assign es1 := e1 :: rest;
+    case (nil, nil) =>
+      assign es1 := nil;
+    case _ =>
+      raise count_mismatch(length(ts), length(es));
+  end
+end
+
+procedure infers(env: Env, es: List[Expr]; es1: List[Expr], ts: List[Type]; s: State)
+  local e1: Expr, t: Type, rest: List[Expr], us: List[Type];
+  match es
+    case nil =>
+      assign es1, ts := nil, nil;
+    case e :: more =>
+      call infer(env, e; e1, t; s);
+      call infers(env, more; rest, us; s);
+      assign es1, ts := e1 :: rest, t :: us;
+  end
+end
+
+// each list may refer to the variables bound before it
+procedure generators(env: Env, xs: List[Var], lists: List[Expr]; lists1: List[Expr]; s: State)
+  local l: Expr, rest: List[Expr];
+  match (xs, lists)
+    case (x :: ys, e :: es) =>
+      call check(env, e, tsort("List", [typ(x)]); l; s);
+      call generators(bind([x]) ++ env, ys, es; rest; s);
+      assign lists1 := l :: rest;
+    case _ =>
+      assign lists1 := nil;
+  end
+end
+
+procedure expr_branches(env: Env, cases: List[Branch[Expr]], t: Type, r: Type; cases1: List[Branch[Expr]]; s: State)
+  local p1: Pat, xs: List[Var], b1: Expr, rest: List[Branch[Expr]];
+  match cases
+    case nil =>
+      assign cases1 := nil;
+    case branch(p, b) :: more =>
+      call pattern(p, t; p1, xs; s);
+      call check(bind(xs) ++ env, b, r; b1; s);
+      call expr_branches(env, more, t, r; rest; s);
+      assign cases1 := branch(p1, b1) :: rest;
+  end
+end
+
+procedure coverage(s: State, t: Type, ps: List[Pat])
+  call reachable(s, t, nil, ps);
+  match missing(ctx_of(s), sub_of(s), [[p] for p in ps], [t])
+    case some(w :: _) =>
+      raise not_exhaustive(w);
+    case _ =>
+      skip;
+  end
+end
+
+procedure reachable(s: State, t: Type, before: List[Pat], ps: List[Pat])
+  match ps
+    case nil =>
+      skip;
+    case p :: rest =>
+      if not useful(ctx_of(s), sub_of(s), [[q] for q in before], [p], [t]) then
+        raise unreachable(p);
+      end
+      call reachable(s, t, before ++ [p], rest);
+  end
+end
+
+procedure pattern(p: Pat, t: Type; p1: Pat, xs: List[Var]; s: State)
+  call binders(p, t; p1, xs; s);
+  call unique(names(xs));
+end
+
+procedure binders(p: Pat, t: Type; p1: Pat, xs: List[Var]; s: State)
+  local u: Type, m: List[(Type, Type)], qs: List[Pat];
+  match p
+    case pwild =>
+      assign p1, xs := p, nil;
+    case plit(v) =>
+      call unify(literal(v), t;; s);
+      assign p1, xs := p, nil;
+    case pvar(var(n, a)) =>
+      if contains(n, keys(constrs(ctx_of(s)))) then
+        call binders(papp(n, nil), t; p1, xs; s);
+      else
+        call normalize(a; u; s);
+        call unify(u, t;; s);
+        assign p1, xs := pvar(var(n, u)), [var(n, u)];
+      end
+    case papp(n, args) =>
+      match lookup(n, constrs(ctx_of(s)))
+        case some(constructor(ps, ks, r)) =>
+          call same_length(length(ks), length(args));
+          call instance(ps; m; s);
+          call unify(subst(r, m), t;; s);
+          call binder_list(args, [subst(k, m) for k in ks]; qs, xs; s);
+          assign p1 := papp(n, qs);
+        case none =>
+          raise unknown_constructor(n);
+      end
+  end
+end
+
+procedure binder_list(ps: List[Pat], ts: List[Type]; qs: List[Pat], xs: List[Var]; s: State)
+  local q: Pat, ys: List[Var], rest: List[Pat], zs: List[Var];
+  match (ps, ts)
+    case (p :: more, t :: ts1) =>
+      call binders(p, t; q, ys; s);
+      call binder_list(more, ts1; rest, zs; s);
+      assign qs, xs := q :: rest, ys ++ zs;
+    case (nil, nil) =>
+      assign qs, xs := nil, nil;
+    case _ =>
+      raise count_mismatch(length(ts), length(ps));
+  end
+end
+
+procedure variable(env: Env, assignable: List[Name], x: Var; y: Var; s: State)
+  local u: Type;
+  match x
+    case var(n, a) =>
+      if not contains(n, assignable) then
+        raise not_assignable(n);
+      end
+      match lookup(n, env)
+        case some(scheme(_, t)) =>
+          call normalize(a; u; s);
+          call unify(t, u;; s);
+          assign y := var(n, t);
+        case none =>
+          raise unknown_variable(n);
+      end
+  end
+end
+
+procedure variables(env: Env, assignable: List[Name], xs: List[Var]; ys: List[Var]; s: State)
+  local y: Var, rest: List[Var];
+  match xs
+    case nil =>
+      assign ys := nil;
+    case x :: more =>
+      call variable(env, assignable, x; y; s);
+      call variables(env, assignable, more; rest; s);
+      assign ys := y :: rest;
+  end
+end
+
+procedure statement(env: Env, assignable: List[Name], x: Stmt; y: Stmt; s: State)
+  local ys: List[Var], es: List[Expr], c: Expr, t: Type, u: Type, l: Stmt, r: Stmt, xs: List[Stmt], bs: List[Branch[Stmt]], hs: List[Handler];
+  match x
+    case sskip =>
+      assign y := x;
+    case sassign(vs, args) =>
+      call unique(names(vs));
+      call same_length(length(vs), length(args));
+      call variables(env, assignable, vs; ys; s);
+      call checks(env, args, types(ys); es; s);
+      assign y := sassign(ys, es);
+    case sblock(locals, body) =>
+      call signature(locals; ys; s);
+      call statements(bind(ys) ++ env, names(ys) ++ assignable, body; xs; s);
+      assign y := sblock(ys, xs);
+    case sif(cond, left, right) =>
+      call check(env, cond, tbool(); c; s);
+      call statement(env, assignable, left; l; s);
+      call statement(env, assignable, right; r; s);
+      assign y := sif(c, l, r);
+    case swhile(cond, body) =>
+      call check(env, cond, tbool(); c; s);
+      call statement(env, assignable, body; l; s);
+      assign y := swhile(c, l);
+    case scall(p, ins, outs, refs) =>
+      call call_proc(env, assignable, p, ins, outs, refs; y; s);
+    case smatch(arg, cases) =>
+      call infer(env, arg; c, t; s);
+      call stmt_branches(env, assignable, cases, t; bs; s);
+      call coverage(s, t, [pat_of(br) for br in bs]);
+      assign y := smatch(c, bs);
+    case sassert(cond) =>
+      call check(env, cond, tbool(); c; s);
+      assign y := sassert(c);
+    case sraise(arg, a) =>
+      call infer(env, arg; c, t; s);
+      call normalize(a; u; s);
+      call unify(t, u;; s);
+      assign y := sraise(c, t);
+    case stry(body, handlers) =>
+      call statement(env, assignable, body; l; s);
+      call handler_list(env, assignable, handlers; hs; s);
+      assign y := stry(l, hs);
+  end
+end
+
+procedure statements(env: Env, assignable: List[Name], xs: List[Stmt]; ys: List[Stmt]; s: State)
+  local y: Stmt, rest: List[Stmt];
+  match xs
+    case nil =>
+      assign ys := nil;
+    case x :: more =>
+      call statement(env, assignable, x; y; s);
+      call statements(env, assignable, more; rest; s);
+      assign ys := y :: rest;
+  end
+end
+
+procedure call_proc(env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var]; y: Stmt; s: State)
+  local m: List[(Type, Type)], ins1: List[Expr], outs1: List[Var], refs1: List[Var];
+  match lookup(p, procs(ctx_of(s)))
+    case some(sig(ps, is, os, rs)) =>
+      call instance(ps; m; s);
+      call same_length(length(is), length(ins));
+      call same_length(length(os), length(outs));
+      call same_length(length(rs), length(refs));
+      call unique(names(outs ++ refs));
+      call checks(env, ins, [subst(t, m) for t in is]; ins1; s);
+      call variables(env, assignable, outs; outs1; s);
+      call variables(env, assignable, refs; refs1; s);
+      call unifies(types(outs1 ++ refs1), [subst(t, m) for t in os ++ rs];; s);
+      assign y := scall(p, ins1, outs1, refs1);
+    case none =>
+      raise unknown_procedure(p);
+  end
+end
+
+procedure stmt_branches(env: Env, assignable: List[Name], cases: List[Branch[Stmt]], t: Type; cases1: List[Branch[Stmt]]; s: State)
+  local p1: Pat, xs: List[Var], b1: Stmt, rest: List[Branch[Stmt]];
+  match cases
+    case nil =>
+      assign cases1 := nil;
+    case branch(p, b) :: more =>
+      call pattern(p, t; p1, xs; s);
+      call statement(bind(xs) ++ env, diff(assignable, names(xs)), b; b1; s);
+      call stmt_branches(env, assignable, more, t; rest; s);
+      assign cases1 := branch(p1, b1) :: rest;
+  end
+end
+
+procedure handler_list(env: Env, assignable: List[Name], hs: List[Handler]; hs1: List[Handler]; s: State)
+  local u: Type, p1: Pat, xs: List[Var], b1: Stmt, rest: List[Handler];
+  match hs
+    case nil =>
+      assign hs1 := nil;
+    case handler(a, p, b) :: more =>
+      call normalize(a; u; s);
+      call pattern(p, u; p1, xs; s);
+      call statement(bind(xs) ++ env, diff(assignable, names(xs)), b; b1; s);
+      call handler_list(env, assignable, more; rest; s);
+      assign hs1 := handler(u, p1, b1) :: rest;
+  end
+end
+
+procedure declare_name(c: Ctx, n: Name)
+  if contains(n, keys(funs(c))) or contains(n, keys(procs(c))) or contains(n, keys(constrs(c))) or builtin(n) != nil then
+    raise already_defined(n);
+  end
+end
+
+// functions of the same name must differ in their number of arguments
+procedure overload(c: Ctx, n: Name, k: Int)
+  if contains(n, keys(procs(c))) or contains(n, keys(constrs(c))) or with_arity(schemes_of(c, n) ++ builtin(n), k) != none then
+    raise already_defined(n);
+  end
+end
+
+procedure declare_sort(c: Ctx, n: Name)
+  if basic(n) or n == "->" or contains(n, keys(aliases(c))) or contains(n, keys(datas(c))) then
+    raise sort_defined(n);
+  end
+end
+
+procedure closed(n: Name, ps: List[Name], ts: List[Type])
+  local undeclared: List[Type];
+  assign undeclared := diff(distinct(concat([free(t) for t in ts])), params(ps));
+  if undeclared != nil then
+    raise undeclared_params(n, undeclared);
+  end
+end
+
+// datatypes may be mutually recursive, so they are known before any sort is checked
+procedure declare_datas(cs: List[Cmd];; s: State)
+  match cs
+    case nil =>
+      skip;
+    case cdata(n, ps, _) :: rest =>
+      call declare_sort(ctx_of(s), n);
+      assign s := with_ctx(s, with_data(ctx_of(s), n, length(ps)));
+      call declare_datas(rest;; s);
+    case _ :: rest =>
+      call declare_datas(rest;; s);
+  end
+end
+
+procedure declare_sorts(cs: List[Cmd];; s: State)
+  local u: Type;
+  match cs
+    case nil =>
+      skip;
+    case csort(n, ps, t) :: rest =>
+      call declare_sort(ctx_of(s), n);
+      call unique(ps);
+      call known(t, n; u; s);
+      call closed(n, ps, [u]);
+      assign s := with_ctx(s, with_alias(ctx_of(s), n, ps, u));
+      call declare_sorts(rest;; s);
+    case _ :: rest =>
+      call declare_sorts(rest;; s);
+  end
+end
+
+procedure declare_constrs(cs: List[Cmd];; s: State)
+  match cs
+    case nil =>
+      skip;
+    case cdata(n, ps, ks) :: rest =>
+      call unique(ps);
+      assign s := with_ctx(s, with_members(ctx_of(s), n, [constr_name(k) for k in ks]));
+      call declare_constructors(n, ps, ks;; s);
+      call declare_constrs(rest;; s);
+    case _ :: rest =>
+      call declare_constrs(rest;; s);
+  end
+end
+
+function constr_name(k: Constr): Name =
+  match k
+    case constr(n, _) => n
+  end
+
+procedure declare_constructors(n: Name, ps: List[Name], ks: List[Constr];; s: State)
+  local ts: List[Type];
+  match ks
+    case nil =>
+      skip;
+    case constr(k, args) :: rest =>
+      call declare_name(ctx_of(s), k);
+      call knowns(args, k; ts; s);
+      call closed(n, ps, ts);
+      assign s := with_ctx(s, with_constr(ctx_of(s), k, constructor(params(ps), ts, tsort(n, params(ps)))));
+      call declare_constructors(n, ps, rest;; s);
+  end
+end
+
+procedure declare_funs(cs: List[Cmd];; s: State)
+  local xs: List[Var], r: Type;
+  match cs
+    case nil =>
+      skip;
+    case cfun(n, ps, bound, res, _) :: rest =>
+      call overload(ctx_of(s), n, length(bound));
+      call unique(ps);
+      call signature(bound; xs; s);
+      call known(res, n; r; s);
+      call closed(n, ps, [fun(types(xs), r)]);
+      assign s := with_ctx(s, with_fun(ctx_of(s), n, scheme(params(ps), fun(types(xs), r))));
+      call declare_funs(rest;; s);
+    case _ :: rest =>
+      call declare_funs(rest;; s);
+  end
+end
+
+procedure declare_procs(cs: List[Cmd];; s: State)
+  local xs: List[Var], ts: List[Type];
+  match cs
+    case nil =>
+      skip;
+    case cproc(n, ps, ins, outs, refs, _) :: rest =>
+      call declare_name(ctx_of(s), n);
+      call unique(ps);
+      call signature(ins ++ outs ++ refs; xs; s);
+      assign ts := types(xs);
+      call closed(n, ps, ts);
+      assign s := with_ctx(s, with_proc(ctx_of(s), n, sig(params(ps), take(length(ins), ts), take(length(outs), drop(length(ins), ts)), drop(length(ins) + length(outs), ts))));
+      call declare_procs(rest;; s);
+    case _ :: rest =>
+      call declare_procs(rest;; s);
+  end
+end
+
+// the elaborated command c
+procedure command(c: Cmd; c1: Cmd; s: State)
+  local xs: List[Var], r: Type, b: Expr, t: Type, is: List[Var], os: List[Var], rs: List[Var], y: Stmt;
+  match c
+    case cfun(n, ps, bound, res, body) =>
+      call signature(bound; xs; s);
+      call known(res, n; r; s);
+      call check(bind(xs), body, r; b; s);
+      assign c1 := cfun(n, ps, xs, r, b);
+    case cproc(n, ps, ins, outs, refs, body) =>
+      call signature(ins; is; s);
+      call signature(outs; os; s);
+      call signature(refs; rs; s);
+      call statement(bind(is ++ os ++ rs), names(os ++ rs), body; y; s);
+      assign c1 := cproc(n, ps, is, os, rs, y);
+    case ceval(e) =>
+      call infer(nil, e; b, t; s);
+      assign c1 := ceval(b);
+    case crun(body) =>
+      call statement(nil, nil, body; y; s);
+      assign c1 := crun(y);
+    case ctest(body) =>
+      call statement(nil, nil, body; y; s);
+      assign c1 := ctest(y);
+    case _ =>
+      assign c1 := c;
+  end
+end
+
+procedure commands(cs: List[Cmd]; cs1: List[Cmd]; s: State)
+  local c1: Cmd, c2: Cmd, rest: List[Cmd];
+  match cs
+    case nil =>
+      assign cs1 := nil;
+    case c :: more =>
+      call command(c; c1; s);
+      assign c2 := zonk_cmd(sub_of(s), c1);
+      match unknown_in_cmd(c2)
+        case some(t) =>
+          raise unknown_exception(t);
+        case none =>
+          skip;
+      end
+      call commands(more; rest; s);
+      assign cs1 := c2 :: rest;
+  end
+end
+
+procedure check_program(p: Program; q: Program)
+  local s: State, cs: List[Cmd];
+  assign s := state(initial(), nil, 0);
+  match p
+    case program(cmds) =>
+      call declare_datas(cmds;; s);
+      call declare_sorts(cmds;; s);
+      call declare_constrs(cmds;; s);
+      call declare_funs(cmds;; s);
+      call declare_procs(cmds;; s);
+      call commands(cmds; cs; s);
+      assign q := program(cs);
+  end
+end
+
+// the type of e without a program
+procedure type_of(e: Expr; t: Type)
+  local s: State, e1: Expr, u: Type;
+  assign s := state(initial(), nil, 0);
+  call infer(nil, e; e1, u; s);
+  assign t := zonk_type(sub_of(s), u);
+end
+
+// abbreviations for the syntax in tests
+
+function ev(n: Name): Expr =
+  evar(var(n, thole))
+
+function pv(n: Name): Pat =
+  pvar(var(n, thole))
+
+function num(n: Int): Expr =
+  elit(vint(n))
+
+function ap(f: Name, args: List[Expr]): Expr =
+  eapp(ev(f), args)
+
+function tlist(t: Type): Type =
+  tsort("List", [t])
+
+// lists with constructors nil and ::, as in the prelude, and their length
+function lists(): List[Cmd] =
+  [
+    cdata("List", ["A"], [constr("nil", nil), constr("::", [tparam("A"), tlist(tparam("A"))])]),
+    cfun(
+      "len",
+      ["A"],
+      [var("xs", tlist(tparam("A")))],
+      tint(),
+      ematch(ev("xs"), [branch(pv("nil"), num(0)), branch(papp("::", [pwild, pv("ys")]), ap("+", [num(1), ap("len", [ev("ys")])]))])
+    )
+  ]
+
+test
+  local t: Type;
+  call type_of(ap("+", [num(1), num(2)]); t);
+  assert t == tint();
+  // let id = lambda x => x in (id(1), id(true))
+  call type_of(elet([var("id", thole)], [elam([var("x", thole)], ev("x"))], ap(",", [ap("id", [num(1)]), ap("id", [elit(vbool(true))])])); t);
+  assert t == tsort("*", [tint(), tbool()]);
+  // lambda f => f(f)
+  try
+    call type_of(elam([var("f", thole)], ap("f", [ev("f")])); t);
+    assert false;
+  catch
+    case infinite_type(_, _) =>
+      skip;
+  end
+  try
+    call type_of(ap("+", [num(1), elit(vbool(true))]); t);
+    assert false;
+  catch
+    case cannot_unify(a, b) =>
+      assert (a, b) == (tint(), tbool());
+  end
+  try
+    call type_of(ap("x", nil); t);
+    assert false;
+  catch
+    case unknown_variable(x) =>
+      assert x == "x";
+  end
+end
+
+test
+  local q: Program;
+  call check_program(program(lists() ++ [ceval(ap("len", [ap("::", [num(1), ev("nil")])]))]); q);
+  match q
+    case program(_ :: cfun(_, _, _, _, ematch(_, branch(p, _) :: _)) :: ceval(eapp(evar(var(_, t)), _)) :: nil) =>
+      // the constructor nil is elaborated to a pattern of a constructor
+      assert p == papp("nil", nil);
+      assert t == fun([tlist(tint())], tint());
+    case _ =>
+      assert false;
+  end
+end
+
+test
+  local q: Program;
+  try
+    call check_program(program(lists() ++ [cfun("f", nil, [var("xs", tlist(tint()))], tint(), ematch(ev("xs"), [branch(pv("nil"), num(0))]))]); q);
+    assert false;
+  catch
+    case not_exhaustive(w) =>
+      assert w == papp("::", [pwild, pwild]);
+  end
+  try
+    call check_program(program(lists() ++ [cfun("f", nil, [var("xs", tlist(tint()))], tint(), ematch(ev("xs"), [branch(pwild, num(0)), branch(pv("nil"), num(1))]))]); q);
+    assert false;
+  catch
+    case unreachable(p) =>
+      assert p == papp("nil", nil);
+  end
+end
+
+test
+  local q: Program;
+  // procedure inc(;; k: Int) assign k := k + 1; end, called with an input
+  try
+    call check_program(
+      program(
+        [
+          cproc("inc", nil, nil, nil, [var("k", tint())], sblock(nil, [sassign([var("k", thole)], [ap("+", [ev("k"), num(1)])])])),
+          cproc("p", nil, [var("n", tint())], nil, nil, sblock(nil, [scall("inc", nil, nil, [var("n", thole)])]))
+        ]
+      );
+      q
+    );
+    assert false;
+  catch
+    case not_assignable(n) =>
+      assert n == "n";
+  end
+  try
+    call check_program(program(lists() ++ [ctest(sblock(nil, [sraise(ev("nil"), thole)]))]); q);
+    assert false;
+  catch
+    case unknown_exception(tsort("List", _)) =>
+      skip;
+  end
+end
