@@ -19,7 +19,7 @@ object FileTest extends TestSuite:
       msg
     }
     try
-      Main.run(text)
+      Main.run(text, file)
       expected.map(msg => s"$file: expected $msg")
     catch
       case e: Error if expected.contains(e.getMessage) =>

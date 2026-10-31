@@ -46,6 +46,7 @@ enum Cmd:
   case Data(name: Name, params: List[Name], constrs: List[Constr])
   case Fun(name: Name, params: List[Name], bound: List[Pat.Var], res: Type, body: Expr)
   case Proc(name: Name, params: List[Name], ins: List[Pat.Var], outs: List[Pat.Var], refs: List[Pat.Var], body: Stmt)
+  case Import(name: Name)
   case Notation(fixity: Fixity, prec: Int, names: List[Name])
   case Eval(expr: Expr)
   case Run(body: Stmt)

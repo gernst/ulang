@@ -1,0 +1,1 @@
+data Option[A] = none | some(A)

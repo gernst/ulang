@@ -6,7 +6,6 @@ infix left 3 or
 infix left 4 and
 prefix 5 not
 infix 6 == != < <= > >=
-infix right 7 :: ++
 infix left 8 + -
 infix left 9 * / %
 prefix 10 -
@@ -32,18 +31,6 @@ function >=(m: Int, n: Int): Bool =
 function -(n: Int): Int =
   0 - n
 
-data List[A] = nil | ::(A, List[A])
-data Option[A] = none | some(A)
-data Nat = zero | succ(Nat)
-
-function ++[A](xs: List[A], ys: List[A]): List[A] =
-  match xs
-    case nil => ys
-    case x :: zs => x :: zs ++ ys
-  end
-
-function length[A](xs: List[A]): Int =
-  match xs
-    case nil => 0
-    case _ :: ys => 1 + length(ys)
-  end
+import nat
+import option
+import list

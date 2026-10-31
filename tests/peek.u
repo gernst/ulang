@@ -1,0 +1,8 @@
+// a module that imports another module
+import stack
+
+function peek[A](s: Stack[A], x: A): A =
+  match top(s)
+    case none => x
+    case some(y) => y
+  end

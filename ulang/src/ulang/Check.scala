@@ -299,7 +299,7 @@ class Check(program: Program):
         Cmd.Fun(name, params, bound.map(zonk(_)), zonk(res), zonk(body))
       case Cmd.Proc(name, params, ins, outs, refs, body) =>
         Cmd.Proc(name, params, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))
-      case Cmd.Notation(_, _, _) =>
+      case Cmd.Import(_) | Cmd.Notation(_, _, _) =>
         d
       case Cmd.Eval(expr) =>
         Cmd.Eval(zonk(expr))
@@ -766,6 +766,9 @@ class Check(program: Program):
         val os = signature(outs)
         val rs = signature(refs)
         Cmd.Proc(name, params, is, os, rs, stmt(bind(is ++ os ++ rs), (os ++ rs).names.toSet, body))
+
+      case d: Cmd.Import =>
+        d
 
       case d: Cmd.Notation =>
         d

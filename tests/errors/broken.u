@@ -1,0 +1,3 @@
+// parse error: keyword then is not a name at 3.11
+function f(): Int =
+  let then = 1 in then

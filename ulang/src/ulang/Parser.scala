@@ -1,8 +1,14 @@
 package ulang
 
 // params are the type parameters in scope, which distinguish Param from Sort,
-// and notations are the operators declared so far
-case class Scope(params: Set[Name], notations: List[Cmd.Notation]):
+// notations are the operators declared so far, loaded are the modules imported so far,
+// and read gives the text of a module
+case class Scope(
+    params: Set[Name],
+    notations: List[Cmd.Notation],
+    loaded: Set[Name] = Set(),
+    read: Name => String = Scope.none
+):
   def prefix(op: Name): Option[Int] =
     notations.collectFirst:
       case Cmd.Notation(Fixity.Prefix, prec, names) if names.contains(op) =>
@@ -20,6 +26,10 @@ case class Scope(params: Set[Name], notations: List[Cmd.Notation]):
 
   def declared(op: Name): Boolean =
     notations.exists(_.names.contains(op))
+
+object Scope:
+  def none(name: Name): String =
+    throw new ulang.Error(s"parse error: unknown module $name")
 
 // operands and operators of an expression or type, before their precedence is resolved
 enum Item[A]:
@@ -43,6 +53,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     "for",
     "function",
     "if",
+    "import",
     "in",
     "infix",
     "lambda",
@@ -380,7 +391,23 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
           Cmd.Proc(n, ps, ins, outs, refs, b)
         }
 
-  def command(s: Scope): Parser[Cmd] =
+  def command(s: Scope): Parser[List[Cmd]] =
+    kw("import") ~> name ^^ (load(s, _)) | declaration(s) ^^ (List(_))
+
+  // inlines module n, after the marker Import(n), unless it is loaded already
+  def load(s: Scope, n: Name): List[Cmd] =
+    if s.loaded(n)
+    then Nil
+    else
+      val text = s.read(n)
+      val cmds =
+        try parse(commands(s.copy(loaded = s.loaded + n)), text)
+        catch
+          case e: ulang.Error =>
+            throw new ulang.Error(s"${e.getMessage} in $n")
+      Cmd.Import(n) :: cmds
+
+  def declaration(s: Scope): Parser[Cmd] =
     notation(s)
       | sort(s)
       | data(s)
@@ -392,14 +419,21 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
 
   // notations apply to the commands after them
   def commands(s: Scope): Parser[List[Cmd]] =
-    command(s) >> (c => commands(declare(s, c)) ^^ (c :: _)) | success(Nil)
+    command(s) >> (cs => commands(cs.foldLeft(s)(declare)) ^^ (cs ++ _)) | success(Nil)
 
   def declare(s: Scope, c: Cmd): Scope =
     c match
       case n: Cmd.Notation =>
         s.copy(notations = s.notations :+ n)
+      case Cmd.Import(n) =>
+        s.copy(loaded = s.loaded + n)
       case _ =>
         s
+
+  def imports(p: Program): Set[Name] =
+    p.cmds.collect { case Cmd.Import(n) =>
+      n
+    }.toSet
 
   def notations(p: Program): List[Cmd.Notation] =
     p.cmds.collect:
@@ -414,8 +448,8 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         throw new ulang.Error(s"parse error: ${failure.msg} at ${failure.next.pos}")
 
   // the program text with the notations of a preceding program, e.g., the prelude
-  def parseProgram(text: String, notations: List[Cmd.Notation]): Program =
-    Program(parse(commands(Scope(Set(), notations)), text))
+  def parseProgram(text: String, notations: List[Cmd.Notation], loaded: Set[Name] = Set(), read: Name => String = Scope.none): Program =
+    Program(parse(commands(Scope(Set(), notations, loaded, read)), text))
 
 // precedence climbing, where prefix operators bind their operand with their own precedence
 case class Resolve[A](s: Scope, prefix: (Name, A) => A, postfix: (Name, A) => A, infix: (Name, A, A) => A):
