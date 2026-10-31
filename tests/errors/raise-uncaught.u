@@ -1,0 +1,11 @@
+// runtime error: uncaught exception fail(2) at 9.7
+data Fail = fail(Int)
+
+test
+  try
+    raise fail(1);
+  catch
+    case fail(1) =>
+      raise fail(2);
+  end
+end

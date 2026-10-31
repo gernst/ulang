@@ -4,6 +4,9 @@ case class Obj(name: Name, args: List[Any])
 
 class Cell(get: Option[Any]) extends Ref[Option[Any]](get)
 
+// an exception of type typ raised at pos, which try catches
+class Raised(val value: Any, val typ: Type, val pos: Pos) extends Exception with scala.util.control.NoStackTrace
+
 object Run:
   def int(v: Any): BigInt =
     v match
@@ -255,6 +258,33 @@ class Run(val program: Program):
         case Stmt.Assert(test) =>
           require("runtime", bool(value(store, test)), "assertion failed")
 
+        case Stmt.Raise(arg, typ) =>
+          throw Raised(value(store, arg), typ, s.pos)
+
+        case Stmt.Try(body, handlers) =>
+          try
+            exec(store, body)
+          catch
+            case e: Raised if handler(e, handlers).nonEmpty =>
+              val (b, bs) = handler(e, handlers).get
+              exec(store ++ bs.view.mapValues(cell), b)
+
+  // the first handler of e, where _ handles exceptions of any type
+  def handler(e: Raised, handlers: List[Handler]): Option[(Stmt, Map[Name, Any])] =
+    handlers match
+      case Nil =>
+        None
+      case Handler(_, _: Pat.Wild, body) :: _ =>
+        Some(body -> Map())
+      case Handler(typ, pat, body) :: rest if typ == e.typ =>
+        matches(pat, e.value) match
+          case Some(bs) =>
+            Some(body -> bs)
+          case None =>
+            handler(e, rest)
+      case _ :: rest =>
+        handler(e, rest)
+
   def assign(store: Map[Name, Cell], xs: List[Expr.Var], vs: List[Any]): Unit =
     (xs, vs) match
       case (Nil, Nil)         =>
@@ -276,16 +306,20 @@ class Run(val program: Program):
     program.cmds.flatMap(output)
 
   def output(c: Cmd): List[String] =
-    c match
-      case Cmd.Eval(expr) =>
-        List(Printer.show(eval(Map(), expr)))
-      case Cmd.Run(body) =>
-        results(body)
-      case Cmd.Test(body) =>
-        exec(Map(), body)
-        Nil
-      case _ =>
-        Nil
+    try
+      c match
+        case Cmd.Eval(expr) =>
+          List(Printer.show(eval(Map(), expr)))
+        case Cmd.Run(body) =>
+          results(body)
+        case Cmd.Test(body) =>
+          exec(Map(), body)
+          Nil
+        case _ =>
+          Nil
+    catch
+      case e: Raised =>
+        error("runtime", s"uncaught exception ${Printer.show(e.value)}", e.pos)
 
   // executes a block and returns the assigned values of its variables
   def results(body: Stmt): List[String] =

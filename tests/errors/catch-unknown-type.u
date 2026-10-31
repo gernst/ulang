@@ -1,0 +1,9 @@
+// type error: the type ?1 of an exception is not fully known at 6.10
+test
+  try
+    raise 1;
+  catch
+    case e =>
+      skip;
+  end
+end

@@ -286,6 +286,23 @@ class Check(program: Program):
         Stmt.Match(zonk(arg), cases.map(c => Case(zonk(c.pat), zonk(c.body))))(s.pos)
       case Stmt.Assert(test) =>
         Stmt.Assert(zonk(test))(s.pos)
+      case Stmt.Raise(arg, typ) =>
+        Stmt.Raise(zonk(arg), at(s.pos)(exception(typ)))(s.pos)
+      case Stmt.Try(body, handlers) =>
+        Stmt.Try(zonk(body), handlers.map(zonk(_)))(s.pos)
+
+  def zonk(h: Handler): Handler =
+    h.pat match
+      case Pat.Wild() =>
+        Handler(zonk(h.typ), h.pat, zonk(h.body))
+      case _ =>
+        Handler(at(h.pat.pos)(exception(h.typ)), zonk(h.pat), zonk(h.body))
+
+  // exceptions are told apart by their types at runtime, which must therefore be known after checking
+  def exception(t: Type): Type =
+    val u = zonk(t)
+    require("type", free(u).isEmpty, s"the type ${shows(List(u)).head} of an exception is not fully known")
+    u
 
   def zonk(d: Cmd): Cmd =
     d match
@@ -344,7 +361,11 @@ class Check(program: Program):
 
   // shows types for a message, with their unknowns numbered from 1 in order of appearance
   def shows(ts: List[Type]): List[String] =
-    val ms = ts.map(zonk(_)).flatMap(free).filter(_.isInstanceOf[Type.Meta]).distinct
+    val ms =
+      (for
+        t <- ts
+        case m: Type.Meta <- free(zonk(t))
+      yield m).distinct
     val su: Map[Type, Type] = ms.zipWithIndex.map((m, i) => m -> Type.Meta(i + 1)).toMap
     ts.map(t => show(subst(zonk(t), su)))
 
@@ -382,7 +403,13 @@ class Check(program: Program):
   def generalize(env: Map[Name, Scheme], t: Type): Scheme =
     val fixed = env.values.flatMap(s => free(zonk(s.typ)).diff(s.params)).toSet
     val typ = zonk(t)
-    Scheme(free(typ).filter(p => p.isInstanceOf[Type.Meta] && !fixed(p)), typ)
+    Scheme(
+      for
+        case m: Type.Meta <- free(typ)
+        if !fixed(m)
+      yield m,
+      typ
+    )
 
   def infer(env: Map[Name, Scheme], e: Expr): (Expr, Type) =
     at(e.pos):
@@ -527,7 +554,12 @@ class Check(program: Program):
 
   // the argument types of constructor c of type t
   def fields(t: Type, c: Name): List[Type] =
-    signature(t).flatMap(_.find(_._1 == c)).map(_._2).getOrElse(Nil)
+    for
+      cs <- signature(t).toList
+      (d, args) <- cs
+      if d == c
+      a <- args
+    yield a
 
   // some values of types ts match q but no row
   def useful(rows: List[List[Pat]], q: List[Pat], ts: List[Type]): Boolean =
@@ -595,18 +627,34 @@ class Check(program: Program):
   def missing(rows: List[List[Pat]], heads: Set[Name], cs: Option[List[(Name, List[Type])]], rest: List[Type]): Option[List[String]] =
     cs match
       case Some(cs) if cs.forall((c, _) => heads(c)) =>
-        cs.iterator.flatMap((c, args) =>
-          missing(specialize(rows, c, args.length), args ++ rest).map(ws => witness(c, ws.take(args.length)) :: ws.drop(args.length))
-        ).nextOption()
+        first(rows, cs, rest)
       case _ =>
         missing(rows.filter(r => head(r.head).isEmpty).map(_.tail), rest).map(uncovered(heads, cs) :: _)
 
+  // the first missing value whose constructor is one of cs
+  def first(rows: List[List[Pat]], cs: List[(Name, List[Type])], rest: List[Type]): Option[List[String]] =
+    cs match
+      case Nil =>
+        None
+      case (c, args) :: cs =>
+        missing(specialize(rows, c, args.length), args ++ rest) match
+          case Some(ws) =>
+            Some(witness(c, ws.take(args.length)) :: ws.drop(args.length))
+          case None =>
+            first(rows, cs, rest)
+
   // a value of the first column that heads do not cover
   def uncovered(heads: Set[Name], cs: Option[List[(Name, List[Type])]]): String =
-    cs.flatMap(_.find((c, _) => !heads(c))) match
-      case Some((c, args)) if heads.nonEmpty =>
-        witness(c, args.map(_ => "_"))
-      case _ =>
+    val ws =
+      for
+        cs <- cs.toList
+        (c, args) <- cs
+        if heads.nonEmpty && !heads(c)
+      yield witness(c, args.map(_ => "_"))
+    ws match
+      case w :: _ =>
+        w
+      case Nil =>
         "_"
 
   def specialize(rows: List[List[Pat]], c: Name, n: Int): List[List[Pat]] =
@@ -690,6 +738,20 @@ class Check(program: Program):
 
         case Stmt.Assert(test) =>
           Stmt.Assert(check(env, test, Bool))(s.pos)
+
+        case Stmt.Raise(arg, typ) =>
+          val (arg1, t) = infer(env, arg)
+          unify(t, normalize(typ))
+          Stmt.Raise(arg1, t)(s.pos)
+
+        case Stmt.Try(body, handlers) =>
+          val handlers1 =
+            for Handler(typ, pat, b) <- handlers
+            yield
+              val t = normalize(typ)
+              val (pat1, bs) = pattern(pat, t)
+              Handler(t, pat1, stmt(env ++ bs, assignable -- bs.keys, b))
+          Stmt.Try(stmt(env, assignable, body), handlers1)(s.pos)
 
   def declare(name: Name): Unit =
     require(

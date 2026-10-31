@@ -1,0 +1,147 @@
+data Token = num(Int) | sym(Str)
+
+data ParseError = expected(Str) | trailing(List[Token])
+
+procedure accept(s: Str;; ts: List[Token])
+  match ts
+    case sym(t) :: us =>
+      if t == s then
+        assign ts := us;
+      else
+        raise expected(s);
+      end
+    case _ =>
+      raise expected(s);
+  end
+end
+
+procedure number(; n: Int; ts: List[Token])
+  match ts
+    case num(m) :: us =>
+      assign n, ts := m, us;
+    case _ =>
+      raise expected("number");
+  end
+end
+
+// (n), where the parentheses are optional
+procedure atom(; n: Int; ts: List[Token])
+  try
+    call number(; n; ts);
+  catch
+    case expected(_) =>
+      call accept("(";; ts);
+      call atom(; n; ts);
+      call accept(")";; ts);
+  end
+end
+
+procedure parse(ts: List[Token]; n: Int)
+  local rest: List[Token];
+  assign rest := ts;
+  call atom(; n; rest);
+  if rest != nil then
+    raise trailing(rest);
+  end
+end
+
+// the result, or 0 if ts is not a number
+procedure value(ts: List[Token]; n: Int)
+  try
+    call parse(ts; n);
+  catch
+    case expected(_) =>
+      assign n := 0;
+    case trailing(_) =>
+      assign n := 0;
+  end
+end
+
+data Fail = fail
+
+// the cells of refs keep their assignments before the exception
+procedure count(;; k: Int)
+  assign k := k + 1;
+  raise fail;
+end
+
+test
+  local n: Int, e: Str, k: Int;
+  call parse([sym("("), sym("("), num(3), sym(")"), sym(")")]; n);
+  assert n == 3;
+  try
+    call parse([sym("("), num(3)]; n);
+    assert false;
+  catch
+    case expected(s) =>
+      assign e := s;
+    case trailing(_) =>
+      assert false;
+  end
+  assert e == ")";
+  try
+    call parse([num(1), num(2)]; n);
+    assert false;
+  catch
+    case trailing(ts) =>
+      assert ts == [num(2)];
+  end
+  call value([sym(")")]; n);
+  assert n == 0;
+  assign k := 0;
+  try
+    call count(;; k);
+  catch
+    case fail =>
+      skip;
+  end
+  assert k == 1;
+end
+
+// an exception that no case matches is raised further
+test
+  local e: Str;
+  try
+    try
+      raise expected("x");
+    catch
+      case expected("y") =>
+        assign e := "y";
+    end
+  catch
+    case expected(s) =>
+      assign e := s;
+  end
+  assert e == "x";
+end
+
+// exceptions of any type, which cases catch only if the types agree, while _ catches all
+test
+  local n: Int, s: Str;
+  try
+    raise 42;
+  catch
+    case k =>
+      assign n := k;
+  end
+  assert n == 42;
+  try
+    try
+      raise some(1);
+    catch
+      case some(t) =>
+        assign s := t;
+    end
+  catch
+    case some(k) =>
+      assign n := k + 1;
+  end
+  assert n == 2;
+  try
+    raise "x";
+  catch
+    case _ =>
+      assign s := "caught";
+  end
+  assert s == "caught";
+end

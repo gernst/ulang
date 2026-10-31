@@ -46,6 +46,11 @@ enum Stmt:
   case Call(proc: Name, ins: List[Expr], outs: List[Expr.Var], refs: List[Expr.Var])(val pos: Pos = nowhere)
   case Match(arg: Expr, cases: List[Case[Stmt]])(val pos: Pos = nowhere)
   case Assert(test: Expr)(val pos: Pos = nowhere)
+  case Raise(arg: Expr, typ: Type)(val pos: Pos = nowhere)
+  case Try(body: Stmt, handlers: List[Handler])(val pos: Pos = nowhere)
+
+// handles exceptions of type typ that match pat, or of any type if pat is _
+case class Handler(typ: Type, pat: Pat, body: Stmt)
 
 case class Constr(name: Name, args: List[Type])
 

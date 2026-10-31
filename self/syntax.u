@@ -1,0 +1,92 @@
+// the core syntax, mirroring ulang/src/ulang/Syntax.scala without positions,
+// where constructors are prefixed by their type, since they share one namespace and some names are keywords
+
+sort Name = Str
+
+data Type =
+    thole
+  | tmeta(Int)
+  | tparam(Name)
+  | tsort(Name, List[Type])
+
+data Val = vunit | vbool(Bool) | vint(Int) | vstr(Str)
+
+// variable uses, binders, and pattern variables, which Syntax.scala distinguishes as Expr.Var and Pat.Var
+data Var = var(Name, Type)
+
+data Expr =
+    elit(Val)
+  | evar(Var)
+  | eapp(Expr, List[Expr])
+  | elam(List[Var], Expr)
+  | elet(List[Var], List[Expr], Expr)
+  | eite(Expr, Expr, Expr)
+  | ematch(Expr, List[Branch[Expr]])
+  | ecomp(Expr, List[Var], List[Expr], Expr)
+
+data Pat =
+    pwild
+  | plit(Val)
+  | pvar(Var)
+  | papp(Name, List[Pat])
+
+// a case of a match, which is Case in Syntax.scala
+data Branch[A] = branch(Pat, A)
+
+data Stmt =
+    sskip
+  | sassign(List[Var], List[Expr])
+  | sblock(List[Var], List[Stmt])
+  | sif(Expr, Stmt, Stmt)
+  | swhile(Expr, Stmt)
+  | scall(Name, List[Expr], List[Var], List[Var])
+  | smatch(Expr, List[Branch[Stmt]])
+  | sassert(Expr)
+  | sraise(Expr, Type)
+  | stry(Stmt, List[Handler])
+
+// handles exceptions of the type that match the pattern, or of any type if the pattern is pwild
+data Handler = handler(Type, Pat, Stmt)
+
+data Constr = constr(Name, List[Type])
+
+data Fixity = fprefix | fpostfix | finfix | fleft | fright
+
+data Cmd =
+    csort(Name, List[Name], Type)
+  | cdata(Name, List[Name], List[Constr])
+  | cfun(Name, List[Name], List[Var], Type, Expr)
+  | cproc(Name, List[Name], List[Var], List[Var], List[Var], Stmt)
+  | cimport(Name)
+  | cnotation(Fixity, Int, List[Name])
+  | ceval(Expr)
+  | crun(Stmt)
+  | ctest(Stmt)
+
+data Program = program(List[Cmd])
+
+function name(x: Var): Name =
+  match x
+    case var(n, _) => n
+  end
+
+function typ(x: Var): Type =
+  match x
+    case var(_, t) => t
+  end
+
+function names(xs: List[Var]): List[Name] =
+  [name(x) for x in xs]
+
+function types(xs: List[Var]): List[Type] =
+  [typ(x) for x in xs]
+
+// f(x) + 1, as the parser would produce it
+test
+  local f: Var, x: Var, e: Expr;
+  assign f, x := var("f", thole), var("x", thole);
+  assign e := eapp(evar(var("+", thole)), [eapp(evar(f), [evar(x)]), elit(vint(1))]);
+  assert names([f, x]) == ["f", "x"];
+  assert types([f]) == [thole];
+  assert e == eapp(evar(var("+", thole)), [eapp(evar(f), [evar(x)]), elit(vint(1))]);
+end

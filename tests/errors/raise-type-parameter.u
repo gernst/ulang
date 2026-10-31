@@ -1,0 +1,4 @@
+// type error: the type A of an exception is not fully known at 3.3
+procedure p[A](x: A)
+  raise x;
+end

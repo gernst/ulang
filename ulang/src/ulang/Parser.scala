@@ -40,6 +40,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     "assign",
     "call",
     "case",
+    "catch",
     "data",
     "do",
     "else",
@@ -59,12 +60,14 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     "postfix",
     "prefix",
     "procedure",
+    "raise",
     "run",
     "skip",
     "sort",
     "test",
     "then",
     "true",
+    "try",
     "while"
   )
 
@@ -316,11 +319,28 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         }
 
   def stmt(s: Scope): Parser[Stmt] =
-    skip | ifs(s) | loop(s) | call(s) | matches(s, stmts(s))(Stmt.Match(_, _)(_)) | check(s) | assign(s)
+    skip | ifs(s) | loop(s) | call(s) | matches(s, stmts(s))(Stmt.Match(_, _)(_)) | check(s) | assign(s) | raise(s) |
+      attempt(s)
 
   def check(s: Scope): Parser[Stmt] =
     located: pos =>
       kw("assert") ~> expr(s) <~ ";" ^^ (Stmt.Assert(_)(pos))
+
+  def raise(s: Scope): Parser[Stmt] =
+    located: pos =>
+      kw("raise") ~> expr(s) <~ ";" ^^ (Stmt.Raise(_, Type.Hole)(pos))
+
+  def attempt(s: Scope): Parser[Stmt] =
+    located: pos =>
+      (kw("try") ~> body(s)) ~
+        (kw("catch") ~> rep(kw("case") ~> pattern(s) ~ ("=>" ~> stmts(s))) <~ kw("end")) ^^ { case b ~ hs =>
+          Stmt.Try(
+            b,
+            hs.map { case p ~ c =>
+              Handler(Type.Hole, p, c)
+            }
+          )(pos)
+        }
 
   // the body of a case, which declares no variables
   def stmts(s: Scope): Parser[Stmt] =
