@@ -37,6 +37,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   val keywords = Set(
     "_",
     "assert",
+    "assign",
     "call",
     "case",
     "data",
@@ -192,7 +193,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     list(formal(s))
 
   def expr(s: Scope): Parser[Expr] =
-    let(s) | ite(s) | lam(s) | matches(s, expr(s))(Expr.Match.apply) | operators(s)
+    operators(s)
 
   def exprs(s: Scope): Parser[List[Expr]] =
     rep1sep(expr(s), ",")
@@ -278,8 +279,10 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       "(" ~ ")" ^^^
       (())
 
+  // let, if, and lambda extend as far to the right as possible, also as the last operand of an operator
   def atom(s: Scope): Parser[Expr] =
-    value ^^ Expr.Lit.apply | tuple(expr(s))(op(",", _, _)) | comp(s) |
+    let(s) | ite(s) | lam(s) | matches(s, expr(s))(Expr.Match.apply) | value ^^ Expr.Lit.apply |
+      tuple(expr(s))(op(",", _, _)) | comp(s) |
       "[" ~> list(expr(s)) <~ "]" ^^
       (_.foldRight(Expr.Var("nil", Type.Hole): Expr)(op("::", _, _))) | variable(s)
 
@@ -304,7 +307,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   val skip: Parser[Stmt] = kw("skip") ~ ";" ^^^ Stmt.Skip
 
   def assign(s: Scope): Parser[Stmt] =
-    rep1sep(variable(s), ",") ~
+    (kw("assign") ~> rep1sep(variable(s), ",")) ~
       (":=" ~> exprs(s)) <~ ";" ^^ { case xs ~ es =>
         Stmt.Assign(xs, es)
       }
@@ -403,7 +406,15 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         catch
           case e: ulang.Error =>
             throw new ulang.Error(s"${e.getMessage} in $n")
-      Cmd.Import(n) :: cmds
+      Cmd.Import(n) :: cmds.filter(declares)
+
+  // modules contribute their declarations, but not their evals, runs, and tests
+  def declares(c: Cmd): Boolean =
+    c match
+      case Cmd.Eval(_) | Cmd.Run(_) | Cmd.Test(_) =>
+        false
+      case _ =>
+        true
 
   def declaration(s: Scope): Parser[Cmd] =
     notation(s) | sort(s) | data(s) | fun(s) | proc(s) | kw("eval") ~> expr(s) ^^ Cmd.Eval.apply |

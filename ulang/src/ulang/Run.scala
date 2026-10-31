@@ -76,7 +76,7 @@ object Run:
       case _ =>
         error("runtime", s"$f${args.map(Printer.show).mkString("(", ", ", ")")} is unspecified")
 
-class Run(program: Program):
+class Run(val program: Program):
   import Run.*
 
   // functions are overloaded by their number of arguments
@@ -271,7 +271,10 @@ class Run(program: Program):
 
   // the values of evals and of the variables of runs, failed assertions are errors
   def run(): List[String] =
-    program.cmds.flatMap:
+    program.cmds.flatMap(output)
+
+  def output(c: Cmd): List[String] =
+    c match
       case Cmd.Eval(expr) =>
         List(Printer.show(eval(Map(), expr)))
       case Cmd.Run(body) =>

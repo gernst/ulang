@@ -1,0 +1,186 @@
+// a grammar as data, over tokens of type T, whose nonterminals all produce values of type V,
+// interpreted by a procedure that consumes the tokens of its in/out parameter ts, with none for failure
+
+data Grammar[T, V] =
+    token(T -> Option[V])
+  | ref(Str)
+  | alt(Grammar[T, V], Grammar[T, V])
+  | seq(List[Grammar[T, V]], List[V] -> Option[V])
+  | chain(Grammar[T, V], List[(T, (V, V) -> V)])
+
+// grammars cannot be cyclic, hence nonterminals refer to the rules by name
+function lookup[T, V](x: Str, rules: List[(Str, Grammar[T, V])]): Option[Grammar[T, V]] =
+  match rules
+    case nil => none
+    case (y, g) :: rest => if x == y then some(g) else lookup(x, rest)
+  end
+
+function combine[V](f: (V, V) -> V, a: Option[V], b: Option[V]): Option[V] =
+  match (a, b)
+    case (some(x), some(y)) => some(f(x, y))
+    case _ => none
+  end
+
+procedure interpret[T, V](g: Grammar[T, V], rules: List[(Str, Grammar[T, V])]; r: Option[V]; ts: List[T])
+  local s: Option[V], vs: Option[List[V]], o: Option[(V, V) -> V], saved: List[T], more: Bool;
+  match g
+    case token(f) =>
+      match ts
+        case t :: us =>
+          assign r := f(t);
+          if r != none then
+            assign ts := us;
+          end
+        case nil =>
+          assign r := none;
+      end
+    case ref(x) =>
+      match lookup(x, rules)
+        case some(h) =>
+          call interpret(h, rules; r; ts);
+        case none =>
+          assign r := none;
+      end
+    // backtracks to the tokens before g1 if it fails
+    case alt(g1, g2) =>
+      assign saved := ts;
+      call interpret(g1, rules; r; ts);
+      if r == none then
+        assign ts := saved;
+        call interpret(g2, rules; r; ts);
+      end
+    case seq(gs, action) =>
+      call parts(gs, rules; vs; ts);
+      match vs
+        case some(xs) =>
+          assign r := action(xs);
+        case none =>
+          assign r := none;
+      end
+    case chain(h, ops) =>
+      call interpret(h, rules; r; ts);
+      assign more := r != none;
+      while more do
+        call operator(ops; o; ts);
+        match o
+          case some(f) =>
+            call interpret(h, rules; s; ts);
+            assign r := combine(f, r, s);
+            assign more := r != none;
+          case none =>
+            assign more := false;
+        end
+      end
+  end
+end
+
+// the values of gs, one after the other
+procedure parts[T, V](gs: List[Grammar[T, V]], rules: List[(Str, Grammar[T, V])]; vs: Option[List[V]]; ts: List[T])
+  local r: Option[V];
+  match gs
+    case nil =>
+      assign vs := some([]);
+    case g :: hs =>
+      call interpret(g, rules; r; ts);
+      match r
+        case some(v) =>
+          call parts(hs, rules; vs; ts);
+          match vs
+            case some(xs) =>
+              assign vs := some(v :: xs);
+            case none =>
+              skip;
+          end
+        case none =>
+          assign vs := none;
+      end
+  end
+end
+
+// the meaning of the first of the operators that is next
+procedure operator[T, V](ops: List[(T, (V, V) -> V)]; o: Option[(V, V) -> V]; ts: List[T])
+  match ops
+    case nil =>
+      assign o := none;
+    case (u, f) :: rest =>
+      match ts
+        case t :: us =>
+          if t == u then
+            assign o, ts := some(f), us;
+          else
+            call operator(rest; o; ts);
+          end
+        case nil =>
+          assign o := none;
+      end
+  end
+end
+
+data Token = num(Int) | sym(Str)
+
+function symbol[V](s: Str, v: V): Grammar[Token, V] =
+  token(lambda t => if t == sym(s) then some(v) else none)
+
+function second[V](vs: List[V]): Option[V] =
+  match vs
+    case _ :: v :: _ => some(v)
+    case _ => none
+  end
+
+// arithmetic expressions, given the values of numbers, the meaning of the operators, and a value for symbols
+function arithmetic[V](leaf: Int -> V, plus: (V, V) -> V, minus: (V, V) -> V, times: (V, V) -> V, unit: V): List[(Str, Grammar[Token, V])] =
+  [
+    ("expr", chain(ref("term"), [(sym("+"), plus), (sym("-"), minus)])),
+    ("term", chain(ref("factor"), [(sym("*"), times)])),
+    ("factor", alt(token(lambda t => match t case num(n) => some(leaf(n)) case _ => none end), seq([symbol("(", unit), ref("expr"), symbol(")", unit)], second)))
+  ]
+
+// all of ts must be consumed
+procedure parse[V](rules: List[(Str, Grammar[Token, V])], ts: List[Token]; r: Option[V])
+  local rest: List[Token];
+  assign rest := ts;
+  call interpret(ref("expr"), rules; r; rest);
+  if rest != nil then
+    assign r := none;
+  end
+end
+
+// the same grammar evaluates expressions and builds syntax trees
+function values(): List[(Str, Grammar[Token, Int])] =
+  arithmetic(lambda n => n, lambda a, b => a + b, lambda a, b => a - b, lambda a, b => a * b, 0)
+
+data Tree = leaf(Int) | node(Str, Tree, Tree)
+
+function trees(): List[(Str, Grammar[Token, Tree])] =
+  arithmetic(leaf, lambda a, b => node("+", a, b), lambda a, b => node("-", a, b), lambda a, b => node("*", a, b), leaf(0))
+
+test
+  local r: Option[Int], t: Option[Tree];
+  // 1 + 2 * (3 - 1)
+  call parse(values(), [num(1), sym("+"), num(2), sym("*"), sym("("), num(3), sym("-"), num(1), sym(")")]; r);
+  assert r == some(5);
+  // 10 - 3 - 2, to the left
+  call parse(values(), [num(10), sym("-"), num(3), sym("-"), num(2)]; r);
+  assert r == some(5);
+  call parse(values(), [num(1), sym("+")]; r);
+  assert r == none;
+  call parse(values(), [sym("("), num(1)]; r);
+  assert r == none;
+  call parse(trees(), [num(1), sym("+"), num(2), sym("*"), num(3)]; t);
+  assert t == some(node("+", leaf(1), node("*", leaf(2), leaf(3))));
+end
+
+// grammars are data, here over tokens that are booleans, counting the true separated by false
+test
+  local r: Option[Int], rest: List[Bool];
+  assign rest := [true, false, true];
+  call interpret(chain(token(lambda b => if b then some(1) else none), [(false, lambda a, b => a + b)]), []; r; rest);
+  assert r == some(2);
+  assert rest == [];
+end
+
+run
+  local r: Option[Int], t: Option[Tree];
+  call parse(values(), [num(2), sym("*"), num(3), sym("+"), num(4)]; r);
+  call parse(trees(), [num(2), sym("*"), num(3), sym("+"), num(4)]; t);
+end

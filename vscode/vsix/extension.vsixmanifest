@@ -3,7 +3,7 @@
   <Metadata>
     <Identity Language="en-US" Id="ulang" Version="0.1.0" Publisher="ulang" />
     <DisplayName>ulang</DisplayName>
-    <Description xml:space="preserve">Syntax highlighting for ulang</Description>
+    <Description xml:space="preserve">Syntax highlighting, running, and tests for ulang</Description>
     <Categories>Programming Languages</Categories>
     <Properties>
       <Property Id="Microsoft.VisualStudio.Code.Engine" Value="^1.70.0" />

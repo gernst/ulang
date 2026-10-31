@@ -27,11 +27,22 @@ object Main:
 
   val prelude: Program = Parser.parseProgram(library("prelude"), Nil, Set("prelude"), library)
 
-  // runs the text of file after the prelude, whose notations and modules apply to it, inlining its imports
-  def run(text: String, file: os.Path): List[String] =
+  // the checked text of file after the prelude, whose notations and modules apply to it, inlining its imports
+  def load(text: String, file: os.Path): Run =
     val loaded = Parser.imports(prelude) + file.baseName
     val program = Parser.parseProgram(text, Parser.notations(prelude), loaded, module(file / os.up))
-    new Run(Check.program(Program(prelude.cmds ++ program.cmds))).run()
+    new Run(Check.program(Program(prelude.cmds ++ program.cmds)))
+
+  def run(text: String, file: os.Path): List[String] =
+    load(text, file).run()
+
+  // the runs and tests of a program, which are numbered from 1 in the order of the file
+  def blocks(r: Run): List[Cmd] =
+    r.program.cmds.filter:
+      case Cmd.Run(_) | Cmd.Test(_) =>
+        true
+      case _ =>
+        false
 
   // modules are files in the directory of the importing file, or in the library
   def module(dir: os.Path)(name: Name): String =
@@ -40,20 +51,60 @@ object Main:
     else
       library(name)
 
-  // prints the output of file and whether it succeeded
-  def report(file: String): Boolean =
+  // reports errors of file, and whether f succeeded
+  def attempt(file: String)(f: => Boolean): Boolean =
     try
-      val path = os.Path(file, os.pwd)
-      val lines = run(os.read(path), path)
-      for line <- lines do
-        println(line)
-      true
+      f
     catch
       case e: Error =>
         System.err.println(s"$file: ${e.getMessage}")
         false
 
+  // prints the output of file and whether it succeeded
+  def report(file: String): Boolean =
+    attempt(file):
+      val path = os.Path(file, os.pwd)
+      for line <- run(os.read(path), path) do
+        println(line)
+      true
+
+  // runs each test of file on its own, also after a failed one, printing whether it passed
+  def tests(file: String): Boolean =
+    attempt(file):
+      val path = os.Path(file, os.pwd)
+      val r = load(os.read(path), path)
+      val results =
+        for case (c @ Cmd.Test(_), i) <- blocks(r).zip(LazyList.from(1))
+        yield
+          try
+            r.output(c)
+            println(s"test $i passed")
+            true
+          catch
+            case e: Error =>
+              println(s"test $i failed: ${e.getMessage}")
+              false
+      results.forall(identity)
+
+  // runs the n-th run or test of file
+  def only(n: Int, file: String): Boolean =
+    attempt(file):
+      val path = os.Path(file, os.pwd)
+      val r = load(os.read(path), path)
+      val c = blocks(r).lift(n - 1).getOrElse(error("runtime", s"there is no run or test $n"))
+      for line <- r.output(c) do
+        println(line)
+      true
+
+  // ulang file.u ..., ulang --tests file.u ..., or ulang --only n file.u
   def main(args: Array[String]): Unit =
-    val results = args.toList.map(report)
+    val results =
+      args.toList match
+        case "--tests" :: files =>
+          files.map(tests)
+        case "--only" :: n :: List(file) =>
+          List(only(n.toInt, file))
+        case files =>
+          files.map(report)
     if results.contains(false) then
       sys.exit(1)

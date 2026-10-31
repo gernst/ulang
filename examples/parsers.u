@@ -1,0 +1,85 @@
+// parser combinators over lists of tokens of any type T, and arithmetic expressions as an example
+
+sort Parser[T, A] = List[T] -> Option[(A, List[T])]
+
+infix left 3 <|>
+infix left 4 >>=
+
+function succeed[T, A](a: A): Parser[T, A] =
+  lambda ts => some((a, ts))
+
+function satisfy[T](p: T -> Bool): Parser[T, T] =
+  lambda ts =>
+    match ts
+      case t :: us => if p(t) then some((t, us)) else none
+      case nil => none
+    end
+
+// sequencing, where f gets the result of p
+function >>=[T, A, B](p: Parser[T, A], f: A -> Parser[T, B]): Parser[T, B] =
+  lambda ts =>
+    match p(ts)
+      case some((a, us)) => f(a)(us)
+      case none => none
+    end
+
+// alternatives, where q is tried if p fails
+function <|>[T, A](p: Parser[T, A], q: Parser[T, A]): Parser[T, A] =
+  lambda ts =>
+    match p(ts)
+      case some(r) => some(r)
+      case none => q(ts)
+    end
+
+function many[T, A](p: Parser[T, A]): Parser[T, List[A]] =
+  (p >>= lambda a => many(p) >>= lambda as => succeed(a :: as)) <|> succeed([])
+
+// p, separated by operators o, which are applied to the left
+function chain[T, A](p: Parser[T, A], o: Parser[T, (A, A) -> A]): Parser[T, A] =
+  p >>= lambda a => rest(p, o, a)
+
+function rest[T, A](p: Parser[T, A], o: Parser[T, (A, A) -> A], a: A): Parser[T, A] =
+  (o >>= lambda f => p >>= lambda b => rest(p, o, f(a, b))) <|> succeed(a)
+
+// the result of p for all of ts
+function parse[T, A](p: Parser[T, A], ts: List[T]): Option[A] =
+  match p(ts)
+    case some((a, nil)) => some(a)
+    case _ => none
+  end
+
+data Token = num(Int) | sym(Str)
+
+function symbol(s: Str): Parser[Token, Token] =
+  satisfy(lambda t => t == sym(s))
+
+function number(ts: List[Token]): Option[(Int, List[Token])] =
+  match ts
+    case num(n) :: us => some((n, us))
+    case _ => none
+  end
+
+function op(s: Str, f: (Int, Int) -> Int): Parser[Token, (Int, Int) -> Int] =
+  symbol(s) >>= lambda t => succeed(f)
+
+// the nonterminals are functions on tokens, so that they can be recursive
+function expr(ts: List[Token]): Option[(Int, List[Token])] =
+  chain(term, op("+", lambda a, b => a + b) <|> op("-", lambda a, b => a - b))(ts)
+
+function term(ts: List[Token]): Option[(Int, List[Token])] =
+  chain(factor, op("*", lambda a, b => a * b))(ts)
+
+function factor(ts: List[Token]): Option[(Int, List[Token])] =
+  (number <|> (symbol("(") >>= lambda l => expr >>= lambda n => symbol(")") >>= lambda r => succeed(n)))(ts)
+
+test
+  // 1 + 2 * (3 - 1)
+  assert parse(expr, [num(1), sym("+"), num(2), sym("*"), sym("("), num(3), sym("-"), num(1), sym(")")]) == some(5);
+  // 10 - 3 - 2, to the left
+  assert parse(expr, [num(10), sym("-"), num(3), sym("-"), num(2)]) == some(5);
+  assert parse(expr, [num(1), sym("+")]) == none;
+  assert parse(expr, [sym("("), num(1)]) == none;
+  assert parse(many(symbol("x")), [sym("x"), sym("x")]) == some([sym("x"), sym("x")]);
+end
+
+eval parse(expr, [num(2), sym("*"), num(3), sym("+"), num(4)])

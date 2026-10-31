@@ -2,15 +2,15 @@ package ulang
 
 import utest.*
 
-// runs every tests/**/*.u, which must succeed including all assertions,
+// runs every tests/**/*.u and examples/**/*.u, which must succeed including all assertions,
 // or fail with the error stated in its first line, e.g. "// type error: unknown variable x"
 object FileTest extends TestSuite:
-  val root = os.Path(sys.env("MILL_WORKSPACE_ROOT")) / "tests"
+  val roots = List("tests", "examples").map(os.Path(sys.env("MILL_WORKSPACE_ROOT")) / _)
 
   val error = "// ((parse|type|runtime) error: .*)".r
 
   def files: List[os.Path] =
-    os.walk(root).filter(_.ext == "u").sorted.toList
+    roots.flatMap(os.walk(_)).filter(_.ext == "u").sorted.toList
 
   // the problem with file, if any
   def problem(file: os.Path): Option[String] =

@@ -2,7 +2,7 @@
 procedure p(; x: Int)
   if x > 0 then
     local y: Int;
-    y := x;
+    assign y := x;
   end
-  y := 1;
+  assign y := 1;
 end

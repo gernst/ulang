@@ -58,7 +58,7 @@
       "patterns": [
         {
           "name": "keyword.control.ulang",
-          "match": "\\b(if|then|else|while|do|match|case|end|let|in|lambda|for|call|skip|assert)\\b"
+          "match": "\\b(if|then|else|while|do|match|case|end|let|in|lambda|for|call|assign|skip|assert)\\b"
         },
         {
           "name": "keyword.other.ulang",

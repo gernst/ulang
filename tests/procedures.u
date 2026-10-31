@@ -1,54 +1,54 @@
 procedure sum(n: Int; s: Int)
   local i: Int;
-  i, s := 0, 0;
+  assign i, s := 0, 0;
   while i < n do
-    i, s := i + 1, s + i;
+    assign i, s := i + 1, s + i;
   end
 end
 
 procedure total(xs: List[Int]; s: Int)
   local ys: List[Int];
-  s, ys := 0, xs;
+  assign s, ys := 0, xs;
   while ys != nil do
     match ys
       case y :: zs =>
-        s := s + y;
-        ys := zs;
+        assign s := s + y;
+        assign ys := zs;
       case nil => skip;
     end
   end
 end
 
 procedure swap[A](;; x: A, y: A)
-  x, y := y, x;
+  assign x, y := y, x;
 end
 
 procedure inc(;; x: Int)
-  x := x + 1;
+  assign x := x + 1;
 end
 
 procedure main(; a: Int, b: Int, c: Int)
   local f: Int -> Int;
-  a, b := 1, 2;
+  assign a, b := 1, 2;
   call swap(;; a, b);
   call inc(;; a);
   call sum(a; c);
-  f := lambda x => x + a;
+  assign f := lambda x => x + a;
   if a > b then
-    c := f(c);
+    assign c := f(c);
   else if a == b then
     skip;
   else
-    c := 0;
+    assign c := 0;
   end
 end
 
 procedure capture(; r: Int)
   local i: Int, f: Int -> Int;
-  i := 1;
-  f := lambda x => x + i;
-  i := 10;
-  r := f(0);
+  assign i := 1;
+  assign f := lambda x => x + i;
+  assign i := 10;
+  assign r := f(0);
 end
 
 test
@@ -57,7 +57,7 @@ test
   assert c == 45;
   call total([1, 2, 3]; c);
   assert c == 6;
-  a, b := 1, 2;
+  assign a, b := 1, 2;
   call swap(;; a, b);
   assert (a, b) == (2, 1);
   call inc(;; a);
@@ -76,5 +76,5 @@ end
 run
   local x: Int, y: Int, z: Int;
   call sum(4; x);
-  y := x * 2;
+  assign y := x * 2;
 end

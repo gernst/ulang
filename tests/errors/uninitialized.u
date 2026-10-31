@@ -1,5 +1,5 @@
 // runtime error: x is not initialized
 test
   local x: Int, y: Int;
-  y := x;
+  assign y := x;
 end

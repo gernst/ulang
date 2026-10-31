@@ -1,19 +1,26 @@
 {
   "name": "ulang",
   "displayName": "ulang",
-  "description": "Syntax highlighting for ulang",
+  "description": "Syntax highlighting, running, and tests for ulang",
   "version": "0.1.0",
   "publisher": "ulang",
   "engines": {
     "vscode": "^1.70.0"
   },
-  "categories": ["Programming Languages"],
+  "categories": [
+    "Programming Languages",
+    "Testing"
+  ],
   "contributes": {
     "languages": [
       {
         "id": "ulang",
-        "aliases": ["ulang"],
-        "extensions": [".u"],
+        "aliases": [
+          "ulang"
+        ],
+        "extensions": [
+          ".u"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -23,6 +30,62 @@
         "scopeName": "source.ulang",
         "path": "./syntaxes/ulang.tmLanguage.json"
       }
-    ]
-  }
+    ],
+    "commands": [
+      {
+        "command": "ulang.runFile",
+        "title": "Run File",
+        "category": "ulang",
+        "icon": "$(play)"
+      },
+      {
+        "command": "ulang.runBlock",
+        "title": "Run Block",
+        "category": "ulang"
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "ulang.runFile",
+          "when": "resourceLangId == ulang"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "ulang.runFile",
+          "when": "editorLangId == ulang"
+        },
+        {
+          "command": "ulang.runBlock",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "ulang",
+      "properties": {
+        "ulang.jar": {
+          "type": "string",
+          "default": "",
+          "description": "The path to ulang.jar, by default ulang.jar in the workspace folder"
+        },
+        "ulang.java": {
+          "type": "string",
+          "default": "java",
+          "description": "The command to run Java"
+        },
+        "ulang.checkOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run files when they are saved, to show their errors"
+        }
+      }
+    }
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:ulang",
+    "workspaceContains:**/*.u"
+  ]
 }

@@ -1,0 +1,111 @@
+// recursive descent with procedures, which consume the tokens of their in/out parameter ts,
+// and report whether they succeeded in their output ok
+
+data Token = num(Int) | sym(Str)
+
+procedure accept(s: Str; ok: Bool; ts: List[Token])
+  match ts
+    case sym(t) :: us =>
+      if t == s then
+        assign ok, ts := true, us;
+      else
+        assign ok := false;
+      end
+    case _ =>
+      assign ok := false;
+  end
+end
+
+procedure number(; n: Int, ok: Bool; ts: List[Token])
+  match ts
+    case num(m) :: us =>
+      assign n, ok, ts := m, true, us;
+    case _ =>
+      assign n, ok := 0, false;
+  end
+end
+
+// one of the operators + and -
+procedure additive(; o: Str, ok: Bool; ts: List[Token])
+  match ts
+    case sym(s) :: us =>
+      if s == "+" or s == "-" then
+        assign o, ok, ts := s, true, us;
+      else
+        assign o, ok := "", false;
+      end
+    case _ =>
+      assign o, ok := "", false;
+  end
+end
+
+procedure expr(; n: Int, ok: Bool; ts: List[Token])
+  local m: Int, o: Str, more: Bool;
+  call term(; n, ok; ts);
+  assign more := ok;
+  while more do
+    call additive(; o, more; ts);
+    if more then
+      call term(; m, ok; ts);
+      if o == "+" then
+        assign n := n + m;
+      else
+        assign n := n - m;
+      end
+      assign more := ok;
+    end
+  end
+end
+
+procedure term(; n: Int, ok: Bool; ts: List[Token])
+  local m: Int, more: Bool;
+  call factor(; n, ok; ts);
+  assign more := ok;
+  while more do
+    call accept("*"; more; ts);
+    if more then
+      call factor(; m, ok; ts);
+      assign n, more := n * m, ok;
+    end
+  end
+end
+
+procedure factor(; n: Int, ok: Bool; ts: List[Token])
+  call number(; n, ok; ts);
+  if not ok then
+    call accept("("; ok; ts);
+    if ok then
+      call expr(; n, ok; ts);
+      if ok then
+        call accept(")"; ok; ts);
+      end
+    end
+  end
+end
+
+// all of ts must be consumed
+procedure parse(ts: List[Token]; n: Int, ok: Bool)
+  local rest: List[Token];
+  assign rest := ts;
+  call expr(; n, ok; rest);
+  assign ok := ok and rest == nil;
+end
+
+test
+  local n: Int, ok: Bool;
+  // 1 + 2 * (3 - 1)
+  call parse([num(1), sym("+"), num(2), sym("*"), sym("("), num(3), sym("-"), num(1), sym(")")]; n, ok);
+  assert ok and n == 5;
+  // 10 - 3 - 2, to the left
+  call parse([num(10), sym("-"), num(3), sym("-"), num(2)]; n, ok);
+  assert ok and n == 5;
+  call parse([num(1), sym("+")]; n, ok);
+  assert not ok;
+  call parse([sym("("), num(1)]; n, ok);
+  assert not ok;
+end
+
+run
+  local n: Int, ok: Bool;
+  call parse([num(2), sym("*"), num(3), sym("+"), num(4)]; n, ok);
+end

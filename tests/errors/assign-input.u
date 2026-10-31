@@ -1,2 +1,2 @@
 // type error: x is not assignable
-procedure p(x: Int) x := 1; end
+procedure p(x: Int) assign x := 1; end
