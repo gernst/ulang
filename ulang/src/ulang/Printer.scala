@@ -13,8 +13,6 @@ object Printer:
         vs.map(show).mkString("(", ", ", ")")
       case Obj("nil" | "cons", _) if items(v).nonEmpty =>
         items(v).get.map(show).mkString("[", ", ", "]")
-      case Obj("{}", vs) =>
-        vs.map(show).mkString("{", ", ", "}")
       case Obj(c, Nil) =>
         c
       case Obj(c, vs) =>

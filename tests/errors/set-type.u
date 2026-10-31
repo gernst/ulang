@@ -1,4 +1,0 @@
-// type error: cannot unify Str and Int
-test
-  assert {1, "a"} == {};
-end

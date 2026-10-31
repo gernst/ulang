@@ -204,7 +204,6 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     value ^^ Expr.Lit.apply
       | tuple(expr(ps))(op(",", _, _))
       | "[" ~> list(expr(ps)) <~ "]" ^^ (_.foldRight(Expr.Var("nil", Type.Hole): Expr)(op("cons", _, _)))
-      | "{" ~> list(expr(ps)) <~ "}" ^^ (op("{}", _*))
       | variable
 
   def stmt(ps: Set[Name]): Parser[Stmt] =

@@ -30,8 +30,6 @@ object Run:
     (a, b) match
       case (_: Function1[?, ?], _) | (_, _: Function1[?, ?]) =>
         error("cannot compare functions")
-      case (Obj("{}", as), Obj("{}", bs)) =>
-        subset(as, bs) && subset(bs, as)
       case (Obj(c, as), Obj(d, bs)) =>
         c == d && equal(as, bs)
       case _ =>
@@ -45,17 +43,6 @@ object Run:
         equal(a, b) && equal(as, bs)
       case _ =>
         false
-
-  def subset(as: List[Any], bs: List[Any]): Boolean =
-    as.forall(a => bs.exists(equal(a, _)))
-
-  // the first of equal values
-  def distinct(vs: List[Any]): List[Any] =
-    vs match
-      case Nil =>
-        Nil
-      case v :: vs =>
-        v :: distinct(vs.filterNot(equal(v, _)))
 
   def function(v: Any): List[Any] => Any =
     v match
@@ -102,8 +89,6 @@ object Run:
         !equal(a, b)
       case ("not", List(a)) =>
         !bool(a)
-      case ("{}", vs) =>
-        Obj("{}", distinct(vs))
       case _ =>
         error(s"$f${args.map(Printer.show).mkString("(", ", ", ")")} is unspecified")
 
@@ -140,7 +125,7 @@ class Run(program: Program):
         fun(funs(name))
       case Expr.Var(name, _) if constrs.contains(name) =>
         constr(name)(constrs(name))
-      case Expr.Var(name, _) if Check.builtins.contains(name) || Check.collections.contains(name) =>
+      case Expr.Var(name, _) if Check.builtins.contains(name) =>
         builtin(name)
       case Expr.Var(name, _) =>
         error(s"$name is not initialized")
