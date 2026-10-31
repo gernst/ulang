@@ -15,15 +15,20 @@ object FileTest extends TestSuite:
   // the problem with file, if any
   def problem(file: os.Path): Option[String] =
     val text = os.read(file)
-    val expected = text.linesIterator.nextOption().collect { case error(msg, _) => msg }
+    val expected = text.linesIterator.nextOption().collect { case error(msg, _) =>
+      msg
+    }
     try
       val failures = Main.run(text).filter(Main.failed)
-      if expected.nonEmpty
-      then Some(s"$file: expected ${expected.get}")
-      else Option.when(failures.nonEmpty)(s"$file: ${failures.mkString(", ")}")
+      if expected.nonEmpty then
+        Some(s"$file: expected ${expected.get}")
+      else
+        Option.when(failures.nonEmpty)(s"$file: ${failures.mkString(", ")}")
     catch
-      case e: Error if expected.contains(e.getMessage) => None
-      case e: Error                                     => Some(s"$file: expected ${expected.getOrElse("success")}, got ${e.getMessage}")
+      case e: Error if expected.contains(e.getMessage) =>
+        None
+      case e: Error =>
+        Some(s"$file: expected ${expected.getOrElse("success")}, got ${e.getMessage}")
 
   val tests = Tests:
     test("files"):

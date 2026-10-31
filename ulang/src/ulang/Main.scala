@@ -12,7 +12,8 @@ object Main:
   def report(file: String): Boolean =
     try
       val lines = run(os.read(os.Path(file, os.pwd)))
-      for line <- lines do println(line)
+      for line <- lines do
+        println(line)
       !lines.exists(failed)
     catch
       case e: Error =>
@@ -21,4 +22,5 @@ object Main:
 
   def main(args: Array[String]): Unit =
     val results = args.toList.map(report)
-    if results.contains(false) then sys.exit(1)
+    if results.contains(false) then
+      sys.exit(1)

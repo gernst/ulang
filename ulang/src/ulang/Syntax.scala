@@ -47,9 +47,17 @@ enum Cmd:
 case class Program(cmds: List[Cmd])
 
 extension (xs: List[Expr.Var])
-  @scala.annotation.targetName("Vars.names") def names: List[Name] = xs.map(_.name)
-  @scala.annotation.targetName("Vars.types") def types: List[Type] = xs.map(_.typ)
+  @scala.annotation.targetName("Vars.names")
+  def names: List[Name] =
+    xs.map(_.name)
+  @scala.annotation.targetName("Vars.types")
+  def types: List[Type] =
+    xs.map(_.typ)
 
 extension (xs: List[Pat.Var])
-  @scala.annotation.targetName("Pats.names") def names: List[Name] = xs.map(_.name)
-  @scala.annotation.targetName("Pats.types") def types: List[Type] = xs.map(_.typ)
+  @scala.annotation.targetName("Pats.names")
+  def names: List[Name] =
+    xs.map(_.name)
+  @scala.annotation.targetName("Pats.types")
+  def types: List[Type] =
+    xs.map(_.typ)
