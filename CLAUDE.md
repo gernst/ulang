@@ -12,13 +12,6 @@ Mill with `build.mill.yaml`; the language lives in the module `ulang`. Do not us
 - `make` builds `ulang.jar`, which `./ulang.sh file.u ...` runs (the module directory `ulang/` prevents a script `./ulang`)
 - `make install` packages the VS Code extension in `vscode/` (syntax highlighting) as `ulang.vsix` and installs it into VSCodium (`codium`)
 
-## Structure
-
-- `ulang.source`: the surface syntax as written, with positions, and its context-free `Parser`
-- `ulang.Resolve`: turns the surface syntax into the core syntax, resolving operators by their notations, sugar, and imports
-- `ulang.core`: the core syntax, `Check` (type inference and elaboration), `Run` (interpreter), and `Printer` (values)
-- `ulang.Main`: loads the prelude and runs files
-
 ## Tests
 
 Tests are end-to-end only: programs in `tests/` with `test ... end` blocks of `assert` statements.

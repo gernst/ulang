@@ -1,5 +1,4 @@
 package ulang
-package core
 
 type Name = String
 
@@ -40,7 +39,11 @@ enum Stmt:
 case class Constr(name: Name, args: List[Type])
 
 enum Fixity:
-  case Prefix, Postfix, Infix, Left, Right
+  case Prefix,
+    Postfix,
+    Infix,
+    Left,
+    Right
 
 enum Cmd:
   case Sort(name: Name, params: List[Name], typ: Type)

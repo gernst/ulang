@@ -1,5 +1,4 @@
 package ulang
-package core
 
 object Printer:
   def show(v: Any): String =

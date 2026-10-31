@@ -1,5 +1,4 @@
 package ulang
-package core
 
 // params are the Params of a generic declaration or the Metas generalized by a let
 case class Scheme(params: List[Type], typ: Type)
@@ -111,7 +110,10 @@ object Check:
 
   def infix(op: Name, l: String, r: String): String =
     def operand(a: String): String =
-      if a.contains(" ") && !a.startsWith("(") then s"($a)" else a
+      if a.contains(" ") && !a.startsWith("(") then
+        s"($a)"
+      else
+        a
     s"${operand(l)} $op ${operand(r)}"
 
   def show(p: Pat): String =
@@ -169,26 +171,19 @@ class Check(program: Program):
   def update(f: Ctx => Ctx): Unit =
     context.get = f(context.get)
 
-  def error(msg: String): Nothing =
-    throw new Error(s"type error: $msg")
-
-  def require(cond: Boolean, msg: => String): Unit =
-    if !cond then
-      error(msg)
-
   def fresh(): Type =
     next.get += 1
     Type.Meta(next.get)
 
   def distinct(names: List[Name], what: String): Unit =
     val dups = names.diff(names.distinct)
-    require(dups.isEmpty, s"duplicate $what ${dups.distinct.mkString(", ")}")
+    require("type", dups.isEmpty, s"duplicate $what ${dups.distinct.mkString(", ")}")
 
   def sameLength(xs: List[?], es: List[?], what: String): Unit =
-    require(xs.length == es.length, s"$what expects ${xs.length} values, got ${es.length}")
+    require("type", xs.length == es.length, s"$what expects ${xs.length} values, got ${es.length}")
 
   def arguments(name: Name, arity: Int, args: List[Type]): Unit =
-    require(arity == args.length, s"sort $name expects $arity arguments, got ${args.length}")
+    require("type", arity == args.length, s"sort $name expects $arity arguments, got ${args.length}")
 
   // expands sort definitions and replaces holes by fresh unknowns
   def normalize(t: Type): Type =
@@ -206,12 +201,12 @@ class Check(program: Program):
         arguments(name, datas(name), args)
         Type.Sort(name, args.map(normalize))
       case Type.Sort(name, args) =>
-        val (params, rhs) = aliases.getOrElse(name, error(s"unknown sort $name"))
+        val (params, rhs) = aliases.getOrElse(name, error("type", s"unknown sort $name"))
         arguments(name, params.length, args)
         subst(rhs, params.map(Type.Param(_)).zip(args.map(normalize)).toMap)
 
   def known(t: Type, what: String): Type =
-    require(!holes(t), s"missing type for $what")
+    require("type", !holes(t), s"missing type for $what")
     normalize(t)
 
   def formals(xs: List[Pat.Var]): List[Pat.Var] =
@@ -332,7 +327,7 @@ class Check(program: Program):
         unify(as, bs)
       case _ =>
         val List(a, b) = shows(List(t1, t2)): @unchecked
-        error(s"cannot unify $a and $b")
+        error("type", s"cannot unify $a and $b")
 
   def unify(as: List[Type], bs: List[Type]): Unit =
     (as, bs) match
@@ -341,10 +336,10 @@ class Check(program: Program):
         unify(a, b);
         unify(as, bs)
       case _ =>
-        error(s"cannot unify ${as.length} types with ${bs.length} types")
+        error("type", s"cannot unify ${as.length} types with ${bs.length} types")
 
   def assign(i: Int, t: Type): Unit =
-    require(!occurs(i, t), s"infinite type ${shows(List(Type.Meta(i), t)).mkString(" = ")}")
+    require("type", !occurs(i, t), s"infinite type ${shows(List(Type.Meta(i), t)).mkString(" = ")}")
     su.get += i -> t
 
   // shows types for a message, with their unknowns numbered from 1 in order of appearance
@@ -361,21 +356,22 @@ class Check(program: Program):
 
   // local variables hide functions, constructors, and builtins
   def lookup(env: Map[Name, Scheme], x: Name): List[Scheme] =
-    if env.contains(x)
-    then List(env(x))
-    else funs.getOrElse(x, Nil) ++ constrs.get(x).map(_.scheme) ++ builtins.get(x)
+    if env.contains(x) then
+      List(env(x))
+    else
+      funs.getOrElse(x, Nil) ++ constrs.get(x).map(_.scheme) ++ builtins.get(x)
 
   // the meaning of x applied to n arguments, or n < 0 if x is not applied
   def resolve(env: Map[Name, Scheme], x: Name, n: Int): Scheme =
     lookup(env, x) match
       case Nil =>
-        error(s"unknown variable $x")
+        error("type", s"unknown variable $x")
       case List(s) =>
         s
       case ss if n < 0 =>
-        error(s"overloaded $x must be applied")
+        error("type", s"overloaded $x must be applied")
       case ss =>
-        ss.find(s => arity(s.typ) == n).getOrElse(error(s"$x does not take $n arguments"))
+        ss.find(s => arity(s.typ) == n).getOrElse(error("type", s"$x does not take $n arguments"))
 
   // a use of x elaborated with an instance of s
   def use(x: Name, t: Type, s: Scheme): Expr.Var =
@@ -399,7 +395,7 @@ class Check(program: Program):
       case Expr.Lit(_: String) =>
         (e, Str)
       case Expr.Lit(value) =>
-        error(s"invalid literal $value")
+        error("type", s"invalid literal $value")
 
       case Expr.Var(name, typ) =>
         val v = use(name, typ, resolve(env, name, -1))
@@ -455,7 +451,7 @@ class Check(program: Program):
       case (x :: xs, list :: lists) =>
         check(env, list, Type.Sort("List", List(x.typ))) :: generators(env ++ bind(List(x)), xs, lists)
       case _ =>
-        error(s"expected ${xs.length} lists, got ${lists.length}")
+        error("type", s"expected ${xs.length} lists, got ${lists.length}")
 
   // checks the patterns against arg and each body with the variables its pattern binds
   def branches[A](env: Map[Name, Scheme], arg: Expr, cases: List[Case[A]])(elaborate: (Map[Name, Scheme], A) => A): (Expr, List[Case[A]]) =
@@ -493,7 +489,7 @@ class Check(program: Program):
         (x, List(x))
 
       case Pat.App(name, args) =>
-        val k = constrs.getOrElse(name, error(s"unknown constructor $name"))
+        val k = constrs.getOrElse(name, error("type", s"unknown constructor $name"))
         sameLength(k.args, args, s"constructor $name")
         val su = instance(k.params)
         unify(subst(k.res, su), t)
@@ -509,15 +505,15 @@ class Check(program: Program):
         val (ps1, cs) = binders(ps, ts)
         (p1 :: ps1, bs ++ cs)
       case _ =>
-        error(s"expected ${ts.length} patterns, got ${ps.length}")
+        error("type", s"expected ${ts.length} patterns, got ${ps.length}")
 
   def exhaustive(t: Type, cases: List[Case[?]]): Unit =
     for w <- missing(cases.map(c => List(c.pat)), List(t)) do
-      error(s"match is not exhaustive, missing ${w.head}")
+      error("type", s"match is not exhaustive, missing ${w.head}")
 
   def reachable(t: Type, cases: List[Case[?]]): Unit =
     for (c, i) <- cases.zipWithIndex do
-      require(useful(cases.take(i).map(c => List(c.pat)), List(c.pat), List(t)), s"unreachable case ${show(c.pat)}")
+      require("type", useful(cases.take(i).map(c => List(c.pat)), List(c.pat), List(t)), s"unreachable case ${show(c.pat)}")
 
   // the constructors in the first column
   def heads(rows: List[List[Pat]]): Set[Name] =
@@ -632,7 +628,7 @@ class Check(program: Program):
       case (e :: es, t :: ts) =>
         check(env, e, t) :: check(env, es, ts)
       case _ =>
-        error(s"expected ${ts.length} values, got ${es.length}")
+        error("type", s"expected ${ts.length} values, got ${es.length}")
 
   def infer(env: Map[Name, Scheme], es: List[Expr]): (List[Expr], List[Type]) =
     es.map(infer(env, _)).unzip
@@ -644,7 +640,7 @@ class Check(program: Program):
     (args1, r)
 
   def variable(env: Map[Name, Scheme], assignable: Set[Name], x: Expr.Var): Expr.Var =
-    require(assignable(x.name), s"${x.name} is not assignable")
+    require("type", assignable(x.name), s"${x.name} is not assignable")
     val t = env(x.name).typ
     unify(t, normalize(x.typ))
     Expr.Var(x.name, t)
@@ -671,7 +667,7 @@ class Check(program: Program):
         Stmt.While(check(env, test, Bool), stmt(env, assignable, body))
 
       case Stmt.Call(proc, ins, outs, refs) =>
-        val sig = procs.getOrElse(proc, error(s"unknown procedure $proc"))
+        val sig = procs.getOrElse(proc, error("type", s"unknown procedure $proc"))
         val su = instance(sig.params)
         sameLength(sig.ins, ins, proc)
         sameLength(sig.outs, outs, proc)
@@ -692,6 +688,7 @@ class Check(program: Program):
 
   def declare(name: Name): Unit =
     require(
+      "type",
       !funs.contains(name) && !procs.contains(name) && !constrs.contains(name) && !builtins.contains(name),
       s"$name is already defined"
     )
@@ -699,12 +696,13 @@ class Check(program: Program):
   // functions of the same name must differ in their number of arguments
   def overload(name: Name, n: Int): Unit =
     require(
+      "type",
       !procs.contains(name) && !constrs.contains(name) && !(funs.getOrElse(name, Nil) ++ builtins.get(name)).exists(s => arity(s.typ) == n),
       s"$name is already defined"
     )
 
   def declareSort(name: Name): Unit =
-    require(!basic(name) && name != "->" && !aliases.contains(name) && !datas.contains(name), s"sort $name is already defined")
+    require("type", !basic(name) && name != "->" && !aliases.contains(name) && !datas.contains(name), s"sort $name is already defined")
 
   def cmds(): Program =
     // datatypes may be mutually recursive, so they are known before any sort is checked
@@ -714,7 +712,7 @@ class Check(program: Program):
 
     def closed(what: String, params: List[Name], t: Type): Unit =
       val undeclared = free(t).diff(params.map(Type.Param(_)))
-      require(undeclared.isEmpty, s"$what has undeclared type parameters ${undeclared.map(show(_)).mkString(", ")}")
+      require("type", undeclared.isEmpty, s"$what has undeclared type parameters ${undeclared.map(show(_)).mkString(", ")}")
 
     for case Cmd.Sort(name, params, typ) <- program.cmds do
       declareSort(name)

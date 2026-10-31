@@ -1,36 +1,28 @@
 package ulang
-package core
 
 case class Obj(name: Name, args: List[Any])
 
 class Cell(get: Option[Any]) extends Ref[Option[Any]](get)
 
 object Run:
-  def error(msg: String): Nothing =
-    throw new Error(s"runtime error: $msg")
-
-  def require(cond: Boolean, msg: => String): Unit =
-    if !cond then
-      error(msg)
-
   def int(v: Any): BigInt =
     v match
       case n: BigInt =>
         n
       case _ =>
-        error(s"expected an integer, got ${Printer.show(v)}")
+        error("runtime", s"expected an integer, got ${Printer.show(v)}")
 
   def bool(v: Any): Boolean =
     v match
       case b: Boolean =>
         b
       case _ =>
-        error(s"expected a boolean, got ${Printer.show(v)}")
+        error("runtime", s"expected a boolean, got ${Printer.show(v)}")
 
   def equal(a: Any, b: Any): Boolean =
     (a, b) match
       case (_: Function1[?, ?], _) | (_, _: Function1[?, ?]) =>
-        error("cannot compare functions")
+        error("runtime", "cannot compare functions")
       case (Obj(c, as), Obj(d, bs)) =>
         c == d && equal(as, bs)
       case _ =>
@@ -46,14 +38,14 @@ object Run:
         false
 
   def elements(v: Any): List[Any] =
-    Printer.items(v).getOrElse(error(s"expected a list, got ${Printer.show(v)}"))
+    Printer.items(v).getOrElse(error("runtime", s"expected a list, got ${Printer.show(v)}"))
 
   def function(v: Any): List[Any] => Any =
     v match
       case f: Function1[?, ?] =>
         f.asInstanceOf[List[Any] => Any]
       case _ =>
-        error(s"cannot apply ${Printer.show(v)}")
+        error("runtime", s"cannot apply ${Printer.show(v)}")
 
   def bind[A](xs: List[Pat.Var], vs: List[A]): Map[Name, A] =
     xs.names.zip(vs).toMap
@@ -62,7 +54,7 @@ object Run:
     Cell(Some(v))
 
   def nonzero(v: Any): BigInt =
-    require(int(v) != 0, "division by zero")
+    require("runtime", int(v) != 0, "division by zero")
     int(v)
 
   def builtin(f: Name)(args: List[Any]): Any =
@@ -82,7 +74,7 @@ object Run:
       case ("==", List(a, b)) =>
         equal(a, b)
       case _ =>
-        error(s"$f${args.map(Printer.show).mkString("(", ", ", ")")} is unspecified")
+        error("runtime", s"$f${args.map(Printer.show).mkString("(", ", ", ")")} is unspecified")
 
 class Run(program: Program):
   import Run.*
@@ -121,7 +113,7 @@ class Run(program: Program):
       case Expr.Var(name, _) if Check.builtins.contains(name) =>
         builtin(name)
       case Expr.Var(name, _) =>
-        error(s"$name is not initialized")
+        error("runtime", s"$name is not initialized")
 
       // and, or are not strict and therefore not builtins
       case Expr.App(Expr.Var("and", _), List(a, b)) =>
@@ -173,12 +165,12 @@ class Run(program: Program):
           env1 <- combinations(env + (x.name -> v), xs, lists)
         yield env1
       case _ =>
-        error(s"expected ${xs.length} lists, got ${lists.length}")
+        error("runtime", s"expected ${xs.length} lists, got ${lists.length}")
 
   def select[A](v: Any, cases: List[Case[A]]): (A, Map[Name, Any]) =
     cases match
       case Nil =>
-        error(s"no case matches ${Printer.show(v)}")
+        error("runtime", s"no case matches ${Printer.show(v)}")
       case c :: cs =>
         matches(c.pat, v) match
           case Some(bs) =>
@@ -256,10 +248,10 @@ class Run(program: Program):
       // assertions of equations show both sides when they fail
       case Stmt.Assert(Expr.App(Expr.Var("==", _), List(lhs, rhs))) =>
         val (a, b) = (value(store, lhs), value(store, rhs))
-        require(equal(a, b), s"assertion failed: ${Printer.show(a)} != ${Printer.show(b)}")
+        require("runtime", equal(a, b), s"assertion failed: ${Printer.show(a)} != ${Printer.show(b)}")
 
       case Stmt.Assert(test) =>
-        require(bool(value(store, test)), "assertion failed")
+        require("runtime", bool(value(store, test)), "assertion failed")
 
   def assign(store: Map[Name, Cell], xs: List[Expr.Var], vs: List[Any]): Unit =
     (xs, vs) match
@@ -268,14 +260,14 @@ class Run(program: Program):
         store(x.name).get = Some(v)
         assign(store, xs, vs)
       case _ =>
-        error(s"cannot assign ${vs.length} values to ${xs.length} variables")
+        error("runtime", s"cannot assign ${vs.length} values to ${xs.length} variables")
 
   def invoke(p: Name, ins: List[Any], refs: List[Cell]): List[Any] =
-    val d = procs.getOrElse(p, error(s"unknown procedure $p"))
+    val d = procs.getOrElse(p, error("runtime", s"unknown procedure $p"))
     val outs = d.outs.map(_ => Cell(None))
     exec(bind(d.ins, ins.map(cell)) ++ bind(d.outs, outs) ++ bind(d.refs, refs), d.body)
     for (x, r) <- d.outs.zip(outs)
-    yield r.get.getOrElse(error(s"output ${x.name} of $p is not assigned"))
+    yield r.get.getOrElse(error("runtime", s"output ${x.name} of $p is not assigned"))
 
   // the values of evals and of the variables of runs, failed assertions are errors
   def run(): List[String] =
@@ -297,7 +289,9 @@ class Run(program: Program):
         val store = bind(locals, locals.map(_ => Cell(None)))
         for s <- stmts do
           exec(store, s)
-        for x <- locals; v <- store(x.name).get.toList
+        for
+          x <- locals;
+          v <- store(x.name).get.toList
         yield s"${x.name} = ${Printer.show(v)}"
       case _ =>
         exec(Map(), body)

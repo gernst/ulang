@@ -2,32 +2,43 @@ package ulang
 
 class Error(msg: String) extends Exception(msg)
 
+// errors of a phase, i.e., "parse", "type", or "runtime"
+def error(phase: String, msg: String): Nothing =
+  throw new Error(s"$phase error: $msg")
+
+def error(phase: String, msg: String, pos: scala.util.parsing.input.Position): Nothing =
+  error(phase, s"$msg at $pos")
+
+def require(phase: String, cond: Boolean, msg: => String): Unit =
+  if !cond then
+    error(phase, msg)
+
 // the only mutable state, a reference to an immutable value
 class Ref[A](var get: A)
 
 object Main:
   // the modules of the library are resources, next to the prelude
-  def library(name: String): String =
-    try os.read(os.resource / s"$name.u")
+  def library(name: Name): String =
+    try
+      os.read(os.resource / s"$name.u")
     catch
       case _: os.ResourceNotFoundException =>
-        throw new Error(s"parse error: unknown module $name")
+        error("parse", s"unknown module $name")
 
-  // the commands of the prelude, and the scope with its notations and modules
-  val (prelude, scope) =
-    Resolve.cmds(Scope(Set(), Nil, Set("prelude"), library), source.Parser.parse(library("prelude")).cmds)
+  val prelude: Program = Parser.parseProgram(library("prelude"), Nil, Set("prelude"), library)
 
-  // runs the text of file after the prelude, inlining its imports
+  // runs the text of file after the prelude, whose notations and modules apply to it, inlining its imports
   def run(text: String, file: os.Path): List[String] =
-    val s = scope.copy(loaded = scope.loaded + file.baseName, read = module(file / os.up))
-    val (cmds, _) = Resolve.cmds(s, source.Parser.parse(text).cmds)
-    new core.Run(core.Check.program(core.Program(prelude ++ cmds))).run()
+    val loaded = Parser.imports(prelude) + file.baseName
+    val program = Parser.parseProgram(text, Parser.notations(prelude), loaded, module(file / os.up))
+    new Run(Check.program(Program(prelude.cmds ++ program.cmds))).run()
 
   // modules are files in the directory of the importing file, or in the library
-  def module(dir: os.Path)(name: String): String =
-    if os.isFile(dir / s"$name.u")
-    then os.read(dir / s"$name.u")
-    else library(name)
+  def module(dir: os.Path)(name: Name): String =
+    if os.isFile(dir / s"$name.u") then
+      os.read(dir / s"$name.u")
+    else
+      library(name)
 
   // prints the output of file and whether it succeeded
   def report(file: String): Boolean =
