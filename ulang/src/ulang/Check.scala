@@ -247,6 +247,8 @@ class Check(program: Program):
         Expr.Ite(zonk(test), zonk(left), zonk(right))
       case Expr.Match(arg, cases) =>
         Expr.Match(zonk(arg), cases.map(c => Case(zonk(c.pat), zonk(c.body))))
+      case Expr.Comp(result, bound, lists, test) =>
+        Expr.Comp(zonk(result), bound.map(zonk(_)), lists.map(zonk(_)), zonk(test))
 
   def zonk(p: Pat): Pat =
     p match
@@ -389,10 +391,28 @@ class Check(program: Program):
         val right1 = check(env, right, t)
         (Expr.Ite(test1, left1, right1), t)
 
+      case Expr.Comp(result, bound, lists, test) =>
+        val xs = formals(bound)
+        sameLength(xs, lists, "comprehension")
+        val lists1 = generators(env, xs, lists)
+        val test1 = check(env ++ bind(xs), test, Bool)
+        val (result1, t) = infer(env ++ bind(xs), result)
+        (Expr.Comp(result1, xs, lists1, test1), Type.Sort("List", List(t)))
+
       case Expr.Match(arg, cases) =>
         val r = fresh()
         val (arg1, cases1) = branches(env, arg, cases)((bs, b) => check(env ++ bs, b, r))
         (Expr.Match(arg1, cases1), r)
+
+  // each list may refer to the variables bound before it
+  def generators(env: Map[Name, Scheme], xs: List[Pat.Var], lists: List[Expr]): List[Expr] =
+    (xs, lists) match
+      case (Nil, Nil) =>
+        Nil
+      case (x :: xs, list :: lists) =>
+        check(env, list, Type.Sort("List", List(x.typ))) :: generators(env ++ bind(List(x)), xs, lists)
+      case _ =>
+        error(s"expected ${xs.length} lists, got ${lists.length}")
 
   // checks the patterns against arg and each body with the variables its pattern binds
   def branches[A](env: Map[Name, Scheme], arg: Expr, cases: List[Case[A]])(elaborate: (Map[Name, Scheme], A) => A): (Expr, List[Case[A]]) =

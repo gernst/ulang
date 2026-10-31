@@ -15,6 +15,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     "end",
     "eval",
     "false",
+    "for",
     "fun",
     "function",
     "if",
@@ -203,8 +204,17 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def atom(ps: Set[Name]): Parser[Expr] =
     value ^^ Expr.Lit.apply
       | tuple(expr(ps))(op(",", _, _))
+      | comp(ps)
       | "[" ~> list(expr(ps)) <~ "]" ^^ (_.foldRight(Expr.Var("nil", Type.Hole): Expr)(op("cons", _, _)))
       | variable
+
+  // [result for x in xs, y in ys if test], where if test is optional
+  def comp(ps: Set[Name]): Parser[Expr] =
+    ("[" ~> expr(ps)) ~
+      (kw("for") ~> rep1sep(formal(ps) ~ (kw("in") ~> expr(ps)), ",")) ~
+      (opt(kw("if") ~> expr(ps)) <~ "]") ^^ { case e ~ gs ~ t =>
+        Expr.Comp(e, gs.map(_._1), gs.map(_._2), t.getOrElse(Expr.Lit(true)))
+      }
 
   def stmt(ps: Set[Name]): Parser[Stmt] =
     skip | ifs(ps) | loop(ps) | call(ps) | matches(ps, stmts(ps))(Stmt.Match.apply) | check(ps) | assign(ps)

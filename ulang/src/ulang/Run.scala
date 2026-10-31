@@ -44,6 +44,9 @@ object Run:
       case _ =>
         false
 
+  def elements(v: Any): List[Any] =
+    Printer.items(v).getOrElse(error(s"expected a list, got ${Printer.show(v)}"))
+
   def function(v: Any): List[Any] => Any =
     v match
       case f: Function1[?, ?] =>
@@ -155,11 +158,29 @@ class Run(program: Program):
         val (b, bs) = select(eval(env, arg), cases)
         eval(env ++ bs, b)
 
+      case Expr.Comp(result, bound, lists, test) =>
+        val vs =
+          for
+            env1 <- combinations(env, bound, lists)
+            if bool(eval(env1, test))
+          yield eval(env1, result)
+        vs.foldRight(Obj("nil", Nil): Any)((v, vs) => Obj("cons", List(v, vs)))
+
   def constr(c: Name)(arity: Int): Any =
     if arity == 0 then
       Obj(c, Nil)
     else
       (vs: List[Any]) => Obj(c, vs)
+
+  // env extended by all combinations of elements of lists
+  def combinations(env: Map[Name, Any], xs: List[Pat.Var], lists: List[Expr]): List[Map[Name, Any]] =
+    (xs, lists) match
+      case (Nil, Nil) =>
+        List(env)
+      case (x :: xs, list :: lists) =>
+        elements(eval(env, list)).flatMap(v => combinations(env + (x.name -> v), xs, lists))
+      case _ =>
+        error(s"expected ${xs.length} lists, got ${lists.length}")
 
   def select[A](v: Any, cases: List[Case[A]]): (A, Map[Name, Any]) =
     cases match

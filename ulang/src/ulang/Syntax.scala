@@ -16,6 +16,7 @@ enum Expr:
   case Let(bound: List[Pat.Var], args: List[Expr], body: Expr)
   case Ite(test: Expr, left: Expr, right: Expr)
   case Match(arg: Expr, cases: List[Case[Expr]])
+  case Comp(result: Expr, bound: List[Pat.Var], lists: List[Expr], test: Expr)
 
 enum Pat:
   case Wild
