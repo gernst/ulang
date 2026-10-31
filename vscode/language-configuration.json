@@ -1,0 +1,23 @@
+{
+  "comments": {
+    "lineComment": "//"
+  },
+  "brackets": [
+    ["(", ")"],
+    ["[", "]"]
+  ],
+  "autoClosingPairs": [
+    { "open": "(", "close": ")" },
+    { "open": "[", "close": "]" },
+    { "open": "\"", "close": "\"", "notIn": ["string", "comment"] }
+  ],
+  "surroundingPairs": [
+    ["(", ")"],
+    ["[", "]"],
+    ["\"", "\""]
+  ],
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*(procedure\\b.*|test|run|match\\b.*|case\\b.*=>\\s*|.*\\b(then|else|do)|.*=)\\s*(//.*)?$",
+    "decreaseIndentPattern": "^\\s*(end|else|case)\\b"
+  }
+}

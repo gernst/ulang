@@ -1,0 +1,98 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "ulang",
+  "scopeName": "source.ulang",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#string" },
+    { "include": "#declaration" },
+    { "include": "#notation" },
+    { "include": "#keyword" },
+    { "include": "#constant" },
+    { "include": "#type" },
+    { "include": "#operator" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.double-slash.ulang",
+      "match": "//.*$"
+    },
+    "string": {
+      "name": "string.quoted.double.ulang",
+      "match": "\"[^\"]*\""
+    },
+    "declaration": {
+      "patterns": [
+        {
+          "match": "\\b(function|procedure)\\s+([A-Za-z_][A-Za-z0-9_]*|[-+*/%<>=!&|:^~?@#$]+)",
+          "captures": {
+            "1": { "name": "keyword.declaration.ulang" },
+            "2": { "name": "entity.name.function.ulang" }
+          }
+        },
+        {
+          "match": "\\b(data|sort)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.declaration.ulang" },
+            "2": { "name": "entity.name.type.ulang" }
+          }
+        },
+        {
+          "match": "\\b(import)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.control.import.ulang" },
+            "2": { "name": "entity.name.namespace.ulang" }
+          }
+        }
+      ]
+    },
+    "notation": {
+      "match": "\\b(infix|prefix|postfix)\\b(?:\\s+(left|right)\\b)?\\s+([0-9]+)",
+      "captures": {
+        "1": { "name": "keyword.declaration.ulang" },
+        "2": { "name": "keyword.declaration.ulang" },
+        "3": { "name": "constant.numeric.ulang" }
+      }
+    },
+    "keyword": {
+      "patterns": [
+        {
+          "name": "keyword.control.ulang",
+          "match": "\\b(if|then|else|while|do|match|case|end|let|in|lambda|for|call|skip|assert)\\b"
+        },
+        {
+          "name": "keyword.other.ulang",
+          "match": "\\b(local|eval|run|test)\\b"
+        },
+        {
+          "name": "keyword.operator.word.ulang",
+          "match": "\\b(and|or|not)\\b"
+        }
+      ]
+    },
+    "constant": {
+      "patterns": [
+        {
+          "name": "constant.language.ulang",
+          "match": "\\b(true|false)\\b|\\(\\s*\\)"
+        },
+        {
+          "name": "constant.numeric.ulang",
+          "match": "\\b[0-9]+\\b"
+        },
+        {
+          "name": "variable.language.wildcard.ulang",
+          "match": "\\b_\\b"
+        }
+      ]
+    },
+    "type": {
+      "name": "entity.name.type.ulang",
+      "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+    },
+    "operator": {
+      "name": "keyword.operator.ulang",
+      "match": "[-+*/%<>=!&|:^~?@#$]+"
+    }
+  }
+}

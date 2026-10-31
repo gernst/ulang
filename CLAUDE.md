@@ -10,6 +10,7 @@ Mill with `build.mill.yaml`; the language lives in the module `ulang`. Do not us
 - `./mill ulang.run file.u ...` checks and runs the files, printing the values of `eval`s and the variables of `run`s
 - `./mill ulang.test` runs every `tests/**/*.u` (utest, `FileTest`)
 - `make` builds `ulang.jar`, which `./ulang.sh file.u ...` runs (the module directory `ulang/` prevents a script `./ulang`)
+- `make install` packages the VS Code extension in `vscode/` (syntax highlighting) as `ulang.vsix` and installs it into VSCodium (`codium`)
 
 ## Tests
 
