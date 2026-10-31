@@ -616,7 +616,7 @@ class Check(program: Program):
         Stmt.Assign(vars1, check(env, args, vars1.types))
 
       case Stmt.Block(locals, stmts) =>
-        val xs = formals(locals)
+        val xs = signature(locals)
         Stmt.Block(xs, stmts.map(stmt(env ++ bind(xs), assignable ++ xs.names, _)))
 
       case Stmt.If(test, left, right) =>

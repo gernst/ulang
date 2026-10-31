@@ -1,5 +1,5 @@
 procedure sum(n: Int; s: Int)
-  var i: Int;
+  local i: Int;
   i, s := 0, 0;
   while i < n do
     i, s := i + 1, s + i;
@@ -7,7 +7,7 @@ procedure sum(n: Int; s: Int)
 end
 
 procedure total(xs: List[Int]; s: Int)
-  var ys;
+  local ys: List[Int];
   s, ys := 0, xs;
   while ys != nil do
     match ys
@@ -28,12 +28,12 @@ procedure inc(;; x: Int)
 end
 
 procedure main(; a: Int, b: Int, c: Int)
-  var f: Int -> Int;
+  local f: Int -> Int;
   a, b := 1, 2;
   call swap(;; a, b);
   call inc(;; a);
   call sum(a; c);
-  f := fun (x) => x + a;
+  f := lambda x => x + a;
   if a > b then
     c := f(c);
   else if a == b then
@@ -44,15 +44,15 @@ procedure main(; a: Int, b: Int, c: Int)
 end
 
 procedure capture(; r: Int)
-  var i: Int, f: Int -> Int;
+  local i: Int, f: Int -> Int;
   i := 1;
-  f := fun (x) => x + i;
+  f := lambda x => x + i;
   i := 10;
   r := f(0);
 end
 
 test
-  var a: Int, b: Int, c: Int;
+  local a: Int, b: Int, c: Int;
   call sum(10; c);
   assert c == 45;
   call total(cons(1, cons(2, cons(3, nil))); c);
@@ -68,13 +68,13 @@ end
 
 // closures capture values, not variables
 test
-  var r: Int;
+  local r: Int;
   call capture(; r);
   assert r == 1;
 end
 
 run
-  var x: Int, y: Int, z: Int;
+  local x: Int, y: Int, z: Int;
   call sum(4; x);
   y := x * 2;
 end

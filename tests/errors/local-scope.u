@@ -1,7 +1,7 @@
 // type error: y is not assignable
 procedure p(; x: Int)
   if x > 0 then
-    var y: Int;
+    local y: Int;
     y := x;
   end
   y := 1;

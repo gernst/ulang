@@ -1,0 +1,5 @@
+// type error: missing type for x
+test
+  local x;
+  x := 1;
+end

@@ -20,8 +20,8 @@ test
 end
 
 test
-  assert (fun (f) => f(f(1)))(fun (x) => x * 2) == 4;
-  assert (fun (f: Int -> Int) => f(1))(fun (x: Int) => x) == 1;
+  assert (lambda f => f(f(1)))(lambda x => x * 2) == 4;
+  assert (lambda f, x => f(x))(lambda y => y + 1, 1) == 2;
 end
 
 test

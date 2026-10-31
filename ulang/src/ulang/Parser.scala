@@ -16,11 +16,12 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     "eval",
     "false",
     "for",
-    "fun",
     "function",
     "if",
     "in",
+    "lambda",
     "let",
+    "local",
     "match",
     "not",
     "or",
@@ -31,7 +32,6 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     "test",
     "then",
     "true",
-    "var",
     "while"
   )
 
@@ -92,6 +92,10 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
 
   val variable: Parser[Expr.Var] = name ^^ (Expr.Var(_, Type.Hole))
 
+  // only parameters and locals have type annotations
+  val untyped: Parser[Pat.Var] =
+    name ^^ (Pat.Var(_, Type.Hole))
+
   def formal(ps: Set[Name]): Parser[Pat.Var] =
     name ~ opt(":" ~> typ(ps)) ^^ { case x ~ t =>
       Pat.Var(x, t.getOrElse(Type.Hole))
@@ -106,13 +110,9 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def exprs(ps: Set[Name]): Parser[List[Expr]] =
     rep1sep(expr(ps), ",")
 
-  // a variable, possibly with a type, or a pattern
-  def binder(ps: Set[Name]): Parser[Pat] =
-    formal(ps) <~ not("(") | pattern
-
   // variables are bound in parallel, other patterns are matched against the tuple of values
   def let(ps: Set[Name]): Parser[Expr] =
-    (kw("let") ~> rep1sep(binder(ps), ",")) ~
+    (kw("let") ~> rep1sep(pattern, ",")) ~
       ("=" ~> exprs(ps)) ~
       (kw("in") ~> expr(ps)) ^? (
         {
@@ -140,7 +140,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       }
 
   def lam(ps: Set[Name]): Parser[Expr] =
-    (kw("fun") ~> parens(formals(ps))) ~
+    (kw("lambda") ~> repsep(untyped, ",")) ~
       ("=>" ~> expr(ps)) ^^ { case xs ~ b =>
         Expr.Lam(xs, b)
       }
@@ -211,7 +211,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   // [result for x in xs, y in ys if test], where if test is optional
   def comp(ps: Set[Name]): Parser[Expr] =
     ("[" ~> expr(ps)) ~
-      (kw("for") ~> rep1sep(formal(ps) ~ (kw("in") ~> expr(ps)), ",")) ~
+      (kw("for") ~> rep1sep(untyped ~ (kw("in") ~> expr(ps)), ",")) ~
       (opt(kw("if") ~> expr(ps)) <~ "]") ^^ { case e ~ gs ~ t =>
         Expr.Comp(e, gs.map(_._1), gs.map(_._2), t.getOrElse(Expr.Lit(true)))
       }
@@ -262,7 +262,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     }
 
   def locals(ps: Set[Name]): Parser[List[Pat.Var]] =
-    kw("var") ~> rep1sep(formal(ps), ",") <~ ";"
+    kw("local") ~> rep1sep(formal(ps), ",") <~ ";"
 
   // a declaration that starts with keyword, name, and type parameters
   def generic(keyword: String)(rest: (Name, List[Name], Set[Name]) => Parser[Cmd]): Parser[Cmd] =

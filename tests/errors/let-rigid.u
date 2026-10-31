@@ -1,3 +1,3 @@
 // type error: cannot unify A and Int
 function f[A](x: A): Bool =
-  let g = fun (y: A) => y in g(1) == 1
+  let g = lambda y => x in g(1) == 1

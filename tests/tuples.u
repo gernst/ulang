@@ -45,5 +45,5 @@ end
 test
   assert (let (q, r) = divmod(7, 2) in q * 10 + r) == 31;
   assert (let (x, y), z = (1, 2), 3 in x + y + z) == 6;
-  assert (let _, z: Int = 1, 2 in z) == 2;
+  assert (let _, z = 1, 2 in z) == 2;
 end

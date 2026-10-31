@@ -4,6 +4,6 @@ procedure p(; r: Int)
 end
 
 test
-  var x: Int;
+  local x: Int;
   call p(; x);
 end

@@ -15,6 +15,6 @@ test
   assert [x for x in [1, 2, 3, 4] if x % 2 == 0] == [2, 4];
   assert [(x, y) for x in [1, 2], y in [true, false]] == [(1, true), (1, false), (2, true), (2, false)];
   assert [(x, y) for x in range(3), y in range(x) if x + y == 4] == [(3, 1), (2, 2)];
-  assert [x for x: Int in []] == [];
+  assert [x for x in []] == [];
   assert [[y for y in range(x)] for x in [1, 2]] == [[1], [2, 1]];
 end

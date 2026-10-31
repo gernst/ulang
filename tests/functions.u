@@ -11,19 +11,19 @@ function twice[A](f: A -> A, x: A): A =
 function poly(): Bool =
   let f = id in f(1) == twice(f, 1) and f(true)
 
-function local(): Bool =
-  let g = fun (y) => y in g(1) == 1 and g(true)
+function generic(): Bool =
+  let g = lambda y => y in g(1) == 1 and g(true)
 
 sort Pred[A] = A -> Bool
 
 function pos(): Pred[Int] =
-  fun (x: Int) => x > 0
+  lambda x => x > 0
 
 test
   assert fact(5) == 120;
-  assert twice(fun (x) => x * 3, 1) == 9;
+  assert twice(lambda x => x * 3, 1) == 9;
   assert poly();
-  assert local();
+  assert generic();
   assert pos()(1);
   assert pos()(0) == false;
 end

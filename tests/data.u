@@ -45,7 +45,7 @@ function unit(u: Unit): Int =
 test
   assert range(3) == cons(3, cons(2, cons(1, nil)));
   assert len(range(3)) == 3;
-  assert map(fun (x) => x * x, range(3)) == cons(9, cons(4, cons(1, nil)));
+  assert map(lambda x => x * x, range(3)) == cons(9, cons(4, cons(1, nil)));
   assert head(range(2)) == some(2);
   assert head(nil) == none;
   assert nested(cons(some(1), cons(none, nil))) == 1;
