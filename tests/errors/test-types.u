@@ -1,4 +1,4 @@
-// type error: cannot unify Int and Bool
+// type error: cannot unify Int and Bool at 3.10
 test
   assert 1;
 end

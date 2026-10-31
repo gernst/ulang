@@ -1,4 +1,4 @@
-// type error: overloaded f must be applied
+// type error: overloaded f must be applied at 8.6
 function f(x: Int): Int =
   x
 

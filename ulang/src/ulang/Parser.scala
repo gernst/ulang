@@ -71,6 +71,13 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   // symbols with a fixed meaning, which cannot be operators
   val reserved = Set("=", "=>", ":=", ":", "|")
 
+  // the position of the next token
+  val at: Parser[Pos] = Parser(in => Success(in.drop(handleWhiteSpace(in.source, in.offset) - in.offset).pos, in))
+
+  // p, given the position of its first token
+  def located[A](p: Pos => Parser[A]): Parser[A] =
+    at >> p
+
   def kw(word: String): Parser[String] =
     s"$word\\b".r
 
@@ -178,16 +185,18 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   val typarams: Parser[List[Name]] = opt("[" ~> names <~ "]") ^^ (_.getOrElse(Nil))
 
   def variable(s: Scope): Parser[Expr.Var] =
-    plain(s) ^^ (Expr.Var(_, Type.Hole))
+    located(pos => plain(s) ^^ (x => Expr.Var(x, Type.Hole)(pos)))
 
   // only parameters and locals have type annotations
   def untyped(s: Scope): Parser[Pat.Var] =
-    plain(s) ^^ (Pat.Var(_, Type.Hole))
+    located(pos => plain(s) ^^ (x => Pat.Var(x, Type.Hole)(pos)))
 
   def formal(s: Scope): Parser[Pat.Var] =
-    plain(s) ~ opt(":" ~> typ(s)) ^^ { case x ~ t =>
-      Pat.Var(x, t.getOrElse(Type.Hole))
-    }
+    located(pos =>
+      plain(s) ~ opt(":" ~> typ(s)) ^^ { case x ~ t =>
+        Pat.Var(x, t.getOrElse(Type.Hole))(pos)
+      }
+    )
 
   def formals(s: Scope): Parser[List[Pat.Var]] =
     list(formal(s))
@@ -203,71 +212,80 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
 
   // variables are bound in parallel, other patterns are matched against the tuple of values
   def let(s: Scope): Parser[Expr] =
-    (kw("let") ~> rep1sep(pattern(s), ",")) ~
-      ("=" ~> exprs(s)) ~
-      (kw("in") ~> expr(s)) ^? (
-        {
-          case xs ~ es ~ b if xs.forall(_.isInstanceOf[Pat.Var]) =>
-            Expr.Let(
-              xs.collect { case x: Pat.Var =>
-                x
-              },
-              es,
-              b
-            )
-          case xs ~ es ~ b if xs.length == es.length =>
-            Expr.Match(es.reduceRight(op(",", _, _)), List(Case(xs.reduceRight((a, b) => Pat.App(",", List(a, b))), b)))
-        },
-        { case xs ~ es ~ _ =>
-          s"let expects ${xs.length} values, got ${es.length}"
-        }
-      )
-
-  def ite(s: Scope): Parser[Expr] =
-    (kw("if") ~> expr(s)) ~
-      (kw("then") ~> expr(s)) ~
-      (kw("else") ~> expr(s)) ^^ { case c ~ l ~ r =>
-        Expr.Ite(c, l, r)
-      }
-
-  def lam(s: Scope): Parser[Expr] =
-    (kw("lambda") ~> repsep(untyped(s), ",")) ~
-      ("=>" ~> expr(s)) ^^ { case xs ~ b =>
-        Expr.Lam(xs, b)
-      }
-
-  def matches[A, B](s: Scope, body: => Parser[A])(make: (Expr, List[Case[A]]) => B): Parser[B] =
-    (kw("match") ~> expr(s)) ~
-      (rep(kw("case") ~> pattern(s) ~ ("=>" ~> body)) <~ kw("end")) ^^ { case e ~ cs =>
-        make(
-          e,
-          cs.map { case p ~ b =>
-            Case(p, b)
+    located: pos =>
+      (kw("let") ~> rep1sep(pattern(s), ",")) ~
+        ("=" ~> exprs(s)) ~
+        (kw("in") ~> expr(s)) ^? (
+          {
+            case xs ~ es ~ b if xs.forall(_.isInstanceOf[Pat.Var]) =>
+              Expr.Let(
+                xs.collect { case x: Pat.Var =>
+                  x
+                },
+                es,
+                b
+              )(pos)
+            case xs ~ es ~ b if xs.length == es.length =>
+              Expr.Match(es.reduceRight(op(",", _, _)), List(Case(xs.reduceRight((a, b) => Pat.App(",", List(a, b))(pos)), b)))(pos)
+          },
+          { case xs ~ es ~ _ =>
+            s"let expects ${xs.length} values, got ${es.length}"
           }
         )
-      }
+
+  def ite(s: Scope): Parser[Expr] =
+    located: pos =>
+      (kw("if") ~> expr(s)) ~
+        (kw("then") ~> expr(s)) ~
+        (kw("else") ~> expr(s)) ^^ { case c ~ l ~ r =>
+          Expr.Ite(c, l, r)(pos)
+        }
+
+  def lam(s: Scope): Parser[Expr] =
+    located: pos =>
+      (kw("lambda") ~> repsep(untyped(s), ",")) ~
+        ("=>" ~> expr(s)) ^^ { case xs ~ b =>
+          Expr.Lam(xs, b)(pos)
+        }
+
+  def matches[A, B](s: Scope, body: => Parser[A])(make: (Expr, List[Case[A]], Pos) => B): Parser[B] =
+    located: pos =>
+      (kw("match") ~> expr(s)) ~
+        (rep(kw("case") ~> pattern(s) ~ ("=>" ~> body)) <~ kw("end")) ^^ { case e ~ cs =>
+          make(
+            e,
+            cs.map { case p ~ b =>
+              Case(p, b)
+            },
+            pos
+          )
+        }
 
   // operators in patterns are constructors
   def pattern(s: Scope): Parser[Pat] =
     resolved(s, items(s, simple(s)))(
-      (op, p) => Pat.App(op, List(p)),
-      (op, p) => Pat.App(op, List(p)),
-      (op, l, r) => Pat.App(op, List(l, r))
+      (op, p) => Pat.App(op, List(p))(p.pos),
+      (op, p) => Pat.App(op, List(p))(p.pos),
+      (op, l, r) => Pat.App(op, List(l, r))(l.pos)
     )
 
   def simple(s: Scope): Parser[Pat] =
-    plain(s) ~ parens(list(pattern(s))) ^^ { case c ~ ps =>
-      Pat.App(c, ps)
-    } | value ^^ Pat.Lit.apply | tuple(pattern(s))((a, b) => Pat.App(",", List(a, b))) | kw("_") ^^^ Pat.Wild |
-      plain(s) ^^
-      (Pat.Var(_, Type.Hole))
+    located: pos =>
+      plain(s) ~ parens(list(pattern(s))) ^^ { case c ~ ps =>
+        Pat.App(c, ps)(pos)
+      } |
+        value ^^
+        (Pat.Lit(_)(pos)) | tuple(pattern(s))((a, b) => Pat.App(",", List(a, b))(pos)) | kw("_") ^^^ Pat.Wild()(pos) |
+        plain(s) ^^
+        (Pat.Var(_, Type.Hole)(pos))
 
+  // applications of operators are at their first operand
   def op(f: Name, args: Expr*): Expr =
-    Expr.App(Expr.Var(f, Type.Hole), args.toList)
+    Expr.App(Expr.Var(f, Type.Hole)(args.head.pos), args.toList)(args.head.pos)
 
   def app(s: Scope): Parser[Expr] =
     atom(s) ~ rep(parens(list(expr(s)))) ^^ { case f ~ argss =>
-      argss.foldLeft(f)(Expr.App(_, _))
+      argss.foldLeft(f)(Expr.App(_, _)(f.pos))
     }
 
   val value: Parser[Any] =
@@ -281,63 +299,73 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
 
   // let, if, and lambda extend as far to the right as possible, also as the last operand of an operator
   def atom(s: Scope): Parser[Expr] =
-    let(s) | ite(s) | lam(s) | matches(s, expr(s))(Expr.Match.apply) | value ^^ Expr.Lit.apply |
-      tuple(expr(s))(op(",", _, _)) | comp(s) |
-      "[" ~> list(expr(s)) <~ "]" ^^
-      (_.foldRight(Expr.Var("nil", Type.Hole): Expr)(op("::", _, _))) | variable(s)
+    located: pos =>
+      let(s) | ite(s) | lam(s) | matches(s, expr(s))(Expr.Match(_, _)(_)) |
+        value ^^
+        (Expr.Lit(_)(pos)) | tuple(expr(s))(op(",", _, _)) | comp(s) |
+        "[" ~> list(expr(s)) <~ "]" ^^
+        (_.foldRight(Expr.Var("nil", Type.Hole)(pos): Expr)(op("::", _, _))) | variable(s)
 
   // [result for x in xs, y in ys if test], where if test is optional
   def comp(s: Scope): Parser[Expr] =
-    ("[" ~> expr(s)) ~
-      (kw("for") ~> rep1sep(untyped(s) ~ (kw("in") ~> expr(s)), ",")) ~
-      (opt(kw("if") ~> expr(s)) <~ "]") ^^ { case e ~ gs ~ t =>
-        Expr.Comp(e, gs.map(_._1), gs.map(_._2), t.getOrElse(Expr.Lit(true)))
-      }
+    located: pos =>
+      ("[" ~> expr(s)) ~
+        (kw("for") ~> rep1sep(untyped(s) ~ (kw("in") ~> expr(s)), ",")) ~
+        (opt(kw("if") ~> expr(s)) <~ "]") ^^ { case e ~ gs ~ t =>
+          Expr.Comp(e, gs.map(_._1), gs.map(_._2), t.getOrElse(Expr.Lit(true)(pos)))(pos)
+        }
 
   def stmt(s: Scope): Parser[Stmt] =
-    skip | ifs(s) | loop(s) | call(s) | matches(s, stmts(s))(Stmt.Match.apply) | check(s) | assign(s)
+    skip | ifs(s) | loop(s) | call(s) | matches(s, stmts(s))(Stmt.Match(_, _)(_)) | check(s) | assign(s)
 
   def check(s: Scope): Parser[Stmt] =
-    kw("assert") ~> expr(s) <~ ";" ^^ Stmt.Assert.apply
+    located: pos =>
+      kw("assert") ~> expr(s) <~ ";" ^^ (Stmt.Assert(_)(pos))
 
   // the body of a case, which declares no variables
   def stmts(s: Scope): Parser[Stmt] =
-    rep(stmt(s)) ^^ (Stmt.Block(Nil, _))
+    located: pos =>
+      rep(stmt(s)) ^^ (Stmt.Block(Nil, _)(pos))
 
-  val skip: Parser[Stmt] = kw("skip") ~ ";" ^^^ Stmt.Skip
+  val skip: Parser[Stmt] = located(pos => kw("skip") ~ ";" ^^^ Stmt.Skip()(pos))
 
   def assign(s: Scope): Parser[Stmt] =
-    (kw("assign") ~> rep1sep(variable(s), ",")) ~
-      (":=" ~> exprs(s)) <~ ";" ^^ { case xs ~ es =>
-        Stmt.Assign(xs, es)
-      }
+    located: pos =>
+      (kw("assign") ~> rep1sep(variable(s), ",")) ~
+        (":=" ~> exprs(s)) <~ ";" ^^ { case xs ~ es =>
+          Stmt.Assign(xs, es)(pos)
+        }
 
   // an if after else ends the whole chain
   def ifs(s: Scope): Parser[Stmt] =
-    (kw("if") ~> expr(s)) ~
-      (kw("then") ~> body(s)) ~ otherwise(s) ^^ { case c ~ l ~ r =>
-        Stmt.If(c, l, r)
-      }
+    located: pos =>
+      (kw("if") ~> expr(s)) ~
+        (kw("then") ~> body(s)) ~ otherwise(s) ^^ { case c ~ l ~ r =>
+          Stmt.If(c, l, r)(pos)
+        }
 
   def otherwise(s: Scope): Parser[Stmt] =
-    kw("else") ~> (ifs(s) | body(s) <~ kw("end")) | kw("end") ^^^ Stmt.Skip
+    kw("else") ~> (ifs(s) | body(s) <~ kw("end")) | kw("end") ^^^ Stmt.Skip()(nowhere)
 
   def loop(s: Scope): Parser[Stmt] =
-    (kw("while") ~> expr(s)) ~
-      (kw("do") ~> body(s) <~ kw("end")) ^^ { case c ~ b =>
-        Stmt.While(c, b)
-      }
+    located: pos =>
+      (kw("while") ~> expr(s)) ~
+        (kw("do") ~> body(s) <~ kw("end")) ^^ { case c ~ b =>
+          Stmt.While(c, b)(pos)
+        }
 
   def call(s: Scope): Parser[Stmt] =
-    (kw("call") ~> name) ~ parens(sections(list(expr(s)), list(variable(s)))) <~ ";" ^^ { case p ~ ((ins, outs, refs)) =>
-      Stmt.Call(p, ins, outs, refs)
-    }
+    located: pos =>
+      (kw("call") ~> name) ~ parens(sections(list(expr(s)), list(variable(s)))) <~ ";" ^^ { case p ~ ((ins, outs, refs)) =>
+        Stmt.Call(p, ins, outs, refs)(pos)
+      }
 
   // the body of an if, while, or procedure, which may declare variables first
   def body(s: Scope): Parser[Stmt] =
-    rep(locals(s)) ~ rep(stmt(s)) ^^ { case ls ~ ss =>
-      Stmt.Block(ls.flatten, ss)
-    }
+    located: pos =>
+      rep(locals(s)) ~ rep(stmt(s)) ^^ { case ls ~ ss =>
+        Stmt.Block(ls.flatten, ss)(pos)
+      }
 
   def locals(s: Scope): Parser[List[Pat.Var]] =
     kw("local") ~> rep1sep(formal(s), ",") <~ ";"
@@ -348,21 +376,21 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       rest(n, ps, Scope(ps.toSet, Nil))
     }
 
-  def notation(s: Scope): Parser[Cmd] =
+  def notation(s: Scope, pos: Pos): Parser[Cmd] =
     val fixity =
       kw("prefix") ^^^ Fixity.Prefix | kw("postfix") ^^^ Fixity.Postfix |
         kw("infix") ~>
         (kw("left") ^^^ Fixity.Left | kw("right") ^^^ Fixity.Right | success(Fixity.Infix))
     fixity ~
       ("""\d+""".r ^^ (_.toInt)) ~ rep1(symbol | name) ^^ { case f ~ p ~ ns =>
-        Cmd.Notation(f, p, ns)
+        Cmd.Notation(f, p, ns)(pos)
       }
 
-  def sort(s: Scope): Parser[Cmd] =
+  def sort(s: Scope, pos: Pos): Parser[Cmd] =
     generic("sort", name): (n, ps, t) =>
-      "=" ~> typ(t.copy(notations = s.notations)) ^^ (Cmd.Sort(n, ps, _))
+      "=" ~> typ(t.copy(notations = s.notations)) ^^ (Cmd.Sort(n, ps, _)(pos))
 
-  def data(s: Scope): Parser[Cmd] =
+  def data(s: Scope, pos: Pos): Parser[Cmd] =
     generic("data", name): (n, ps, t) =>
 
       val u = t.copy(notations = s.notations)
@@ -370,32 +398,32 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         (name | symbol) ~ opt(parens(list(typ(u)))) ^^ { case c ~ ts =>
           Constr(c, ts.getOrElse(Nil))
         }
-      "=" ~> rep1sep(constr, "|") ^^ (Cmd.Data(n, ps, _))
+      "=" ~> rep1sep(constr, "|") ^^ (Cmd.Data(n, ps, _)(pos))
 
-  def fun(s: Scope): Parser[Cmd] =
+  def fun(s: Scope, pos: Pos): Parser[Cmd] =
     generic("function", name | symbol): (n, ps, t) =>
 
       val u = t.copy(notations = s.notations)
       parens(formals(u)) ~
         (":" ~> typ(u)) ~
         ("=" ~> expr(u)) ^^ { case xs ~ r ~ b =>
-          Cmd.Fun(n, ps, xs, r, b)
+          Cmd.Fun(n, ps, xs, r, b)(pos)
         }
 
-  def proc(s: Scope): Parser[Cmd] =
+  def proc(s: Scope, pos: Pos): Parser[Cmd] =
     generic("procedure", name): (n, ps, t) =>
 
       val u = t.copy(notations = s.notations)
       parens(sections(formals(u), formals(u))) ~
         (body(u) <~ kw("end")) ^^ { case (ins, outs, refs) ~ b =>
-          Cmd.Proc(n, ps, ins, outs, refs, b)
+          Cmd.Proc(n, ps, ins, outs, refs, b)(pos)
         }
 
   def command(s: Scope): Parser[List[Cmd]] =
-    kw("import") ~> name ^^ (load(s, _)) | declaration(s) ^^ (List(_))
+    located(pos => kw("import") ~> name ^^ (load(s, _, pos))) | declaration(s) ^^ (List(_))
 
   // inlines module n, after the marker Import(n), unless it is loaded already
-  def load(s: Scope, n: Name): List[Cmd] =
+  def load(s: Scope, n: Name, pos: Pos): List[Cmd] =
     if s.loaded(n) then
       Nil
     else
@@ -406,7 +434,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         catch
           case e: ulang.Error =>
             throw new ulang.Error(s"${e.getMessage} in $n")
-      Cmd.Import(n) :: cmds.filter(declares)
+      Cmd.Import(n)(pos) :: cmds.filter(declares)
 
   // modules contribute their declarations, but not their evals, runs, and tests
   def declares(c: Cmd): Boolean =
@@ -417,8 +445,14 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         true
 
   def declaration(s: Scope): Parser[Cmd] =
-    notation(s) | sort(s) | data(s) | fun(s) | proc(s) | kw("eval") ~> expr(s) ^^ Cmd.Eval.apply |
-      kw("run") ~> body(s) <~ kw("end") ^^ Cmd.Run.apply | kw("test") ~> body(s) <~ kw("end") ^^ Cmd.Test.apply
+    located: pos =>
+      notation(s, pos) | sort(s, pos) | data(s, pos) | fun(s, pos) | proc(s, pos) |
+        kw("eval") ~> expr(s) ^^
+        (Cmd.Eval(_)(pos)) |
+        kw("run") ~> body(s) <~ kw("end") ^^
+        (Cmd.Run(_)(pos)) |
+        kw("test") ~> body(s) <~ kw("end") ^^
+        (Cmd.Test(_)(pos))
 
   // notations apply to the commands after them
   def commands(s: Scope): Parser[List[Cmd]] =

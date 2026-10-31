@@ -1,4 +1,4 @@
-// type error: missing type for x
+// type error: missing type for x at 3.9
 test
   local x;
   assign x := 1;

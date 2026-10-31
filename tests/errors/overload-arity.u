@@ -1,4 +1,4 @@
-// type error: f does not take 3 arguments
+// type error: f does not take 3 arguments at 8.6
 function f(x: Int): Int =
   x
 

@@ -9,6 +9,17 @@ def error(phase: String, msg: String): Nothing =
 def error(phase: String, msg: String, pos: scala.util.parsing.input.Position): Nothing =
   error(phase, s"$msg at $pos")
 
+// adds pos to the errors of f that have no position yet, such that errors are at the innermost node
+def at[A](pos: Pos)(f: => A): A =
+  try
+    f
+  catch
+    case e: Error if pos != nowhere && !located(e.getMessage) =>
+      throw new Error(s"${e.getMessage} at $pos")
+
+def located(msg: String): Boolean =
+  """.* at \d+\.\d+( in \w+)*""".r.matches(msg)
+
 def require(phase: String, cond: Boolean, msg: => String): Unit =
   if !cond then
     error(phase, msg)

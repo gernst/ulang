@@ -1,2 +1,2 @@
-// type error: unknown sort Q
+// type error: unknown sort Q at 2.1
 sort P = Q

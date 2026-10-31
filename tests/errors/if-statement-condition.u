@@ -1,4 +1,4 @@
-// type error: cannot unify Int and Bool
+// type error: cannot unify Int and Bool at 3.6
 procedure p(; x: Int)
   if x then
     skip;

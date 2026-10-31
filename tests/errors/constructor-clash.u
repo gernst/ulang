@@ -1,4 +1,4 @@
-// type error: c is already defined
+// type error: c is already defined at 4.1
 data T = c
 
 function c(): Int =

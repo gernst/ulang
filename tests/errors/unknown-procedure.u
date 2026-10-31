@@ -1,2 +1,2 @@
-// type error: unknown procedure r
+// type error: unknown procedure r at 2.21
 procedure q(x: Int) call r(x); end

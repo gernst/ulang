@@ -1,4 +1,4 @@
-// type error: y is not assignable
+// type error: y is not assignable at 7.10
 procedure p(; x: Int)
   if x > 0 then
     local y: Int;

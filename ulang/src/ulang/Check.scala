@@ -118,7 +118,7 @@ object Check:
 
   def show(p: Pat): String =
     p match
-      case Pat.Wild =>
+      case Pat.Wild() =>
         "_"
       case Pat.Lit(value) =>
         Printer.show(value)
@@ -211,11 +211,11 @@ class Check(program: Program):
 
   def formals(xs: List[Pat.Var]): List[Pat.Var] =
     distinct(xs.names, "variable")
-    xs.map(x => Pat.Var(x.name, normalize(x.typ)))
+    xs.map(x => Pat.Var(x.name, normalize(x.typ))(x.pos))
 
   def signature(xs: List[Pat.Var]): List[Pat.Var] =
     distinct(xs.names, "variable")
-    xs.map(x => Pat.Var(x.name, known(x.typ, x.name)))
+    xs.map(x => at(x.pos)(Pat.Var(x.name, known(x.typ, x.name))(x.pos)))
 
   def bind(xs: List[Pat.Var]): Map[Name, Scheme] =
     xs.map(x => x.name -> mono(x.typ)).toMap
@@ -235,10 +235,10 @@ class Check(program: Program):
         t
 
   def zonk(x: Expr.Var): Expr.Var =
-    Expr.Var(x.name, zonk(x.typ))
+    Expr.Var(x.name, zonk(x.typ))(x.pos)
 
   def zonk(x: Pat.Var): Pat.Var =
-    Pat.Var(x.name, zonk(x.typ))
+    Pat.Var(x.name, zonk(x.typ))(x.pos)
 
   def zonk(e: Expr): Expr =
     e match
@@ -247,62 +247,62 @@ class Check(program: Program):
       case x: Expr.Var =>
         zonk(x)
       case Expr.App(fun, args) =>
-        Expr.App(zonk(fun), args.map(zonk(_)))
+        Expr.App(zonk(fun), args.map(zonk(_)))(e.pos)
       case Expr.Lam(bound, body) =>
-        Expr.Lam(bound.map(zonk(_)), zonk(body))
+        Expr.Lam(bound.map(zonk(_)), zonk(body))(e.pos)
       case Expr.Let(bound, args, body) =>
-        Expr.Let(bound.map(zonk(_)), args.map(zonk(_)), zonk(body))
+        Expr.Let(bound.map(zonk(_)), args.map(zonk(_)), zonk(body))(e.pos)
       case Expr.Ite(test, left, right) =>
-        Expr.Ite(zonk(test), zonk(left), zonk(right))
+        Expr.Ite(zonk(test), zonk(left), zonk(right))(e.pos)
       case Expr.Match(arg, cases) =>
-        Expr.Match(zonk(arg), cases.map(c => Case(zonk(c.pat), zonk(c.body))))
+        Expr.Match(zonk(arg), cases.map(c => Case(zonk(c.pat), zonk(c.body))))(e.pos)
       case Expr.Comp(result, bound, lists, test) =>
-        Expr.Comp(zonk(result), bound.map(zonk(_)), lists.map(zonk(_)), zonk(test))
+        Expr.Comp(zonk(result), bound.map(zonk(_)), lists.map(zonk(_)), zonk(test))(e.pos)
 
   def zonk(p: Pat): Pat =
     p match
-      case Pat.Wild | Pat.Lit(_) =>
+      case Pat.Wild() | Pat.Lit(_) =>
         p
       case Pat.Var(name, typ) =>
-        Pat.Var(name, zonk(typ))
+        Pat.Var(name, zonk(typ))(p.pos)
       case Pat.App(name, args) =>
-        Pat.App(name, args.map(zonk(_)))
+        Pat.App(name, args.map(zonk(_)))(p.pos)
 
   def zonk(s: Stmt): Stmt =
     s match
-      case Stmt.Skip =>
+      case Stmt.Skip() =>
         s
       case Stmt.Assign(vars, args) =>
-        Stmt.Assign(vars.map(zonk(_)), args.map(zonk(_)))
+        Stmt.Assign(vars.map(zonk(_)), args.map(zonk(_)))(s.pos)
       case Stmt.Block(locals, stmts) =>
-        Stmt.Block(locals.map(zonk(_)), stmts.map(zonk(_)))
+        Stmt.Block(locals.map(zonk(_)), stmts.map(zonk(_)))(s.pos)
       case Stmt.If(test, left, right) =>
-        Stmt.If(zonk(test), zonk(left), zonk(right))
+        Stmt.If(zonk(test), zonk(left), zonk(right))(s.pos)
       case Stmt.While(test, body) =>
-        Stmt.While(zonk(test), zonk(body))
+        Stmt.While(zonk(test), zonk(body))(s.pos)
       case Stmt.Call(proc, ins, outs, refs) =>
-        Stmt.Call(proc, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)))
+        Stmt.Call(proc, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)))(s.pos)
       case Stmt.Match(arg, cases) =>
-        Stmt.Match(zonk(arg), cases.map(c => Case(zonk(c.pat), zonk(c.body))))
+        Stmt.Match(zonk(arg), cases.map(c => Case(zonk(c.pat), zonk(c.body))))(s.pos)
       case Stmt.Assert(test) =>
-        Stmt.Assert(zonk(test))
+        Stmt.Assert(zonk(test))(s.pos)
 
   def zonk(d: Cmd): Cmd =
     d match
       case Cmd.Sort(_, _, _) | Cmd.Data(_, _, _) =>
         d
       case Cmd.Fun(name, params, bound, res, body) =>
-        Cmd.Fun(name, params, bound.map(zonk(_)), zonk(res), zonk(body))
+        Cmd.Fun(name, params, bound.map(zonk(_)), zonk(res), zonk(body))(d.pos)
       case Cmd.Proc(name, params, ins, outs, refs, body) =>
-        Cmd.Proc(name, params, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))
+        Cmd.Proc(name, params, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))(d.pos)
       case Cmd.Import(_) | Cmd.Notation(_, _, _) =>
         d
       case Cmd.Eval(expr) =>
-        Cmd.Eval(zonk(expr))
+        Cmd.Eval(zonk(expr))(d.pos)
       case Cmd.Run(body) =>
-        Cmd.Run(zonk(body))
+        Cmd.Run(zonk(body))(d.pos)
       case Cmd.Test(body) =>
-        Cmd.Test(zonk(body))
+        Cmd.Test(zonk(body))(d.pos)
 
   def occurs(i: Int, t: Type): Boolean =
     resolve(t) match
@@ -374,10 +374,10 @@ class Check(program: Program):
         ss.find(s => arity(s.typ) == n).getOrElse(error("type", s"$x does not take $n arguments"))
 
   // a use of x elaborated with an instance of s
-  def use(x: Name, t: Type, s: Scheme): Expr.Var =
+  def use(x: Name, t: Type, s: Scheme, pos: Pos): Expr.Var =
     val u = instantiate(s)
     unify(u, normalize(t))
-    Expr.Var(x, u)
+    Expr.Var(x, u)(pos)
 
   def generalize(env: Map[Name, Scheme], t: Type): Scheme =
     val fixed = env.values.flatMap(s => free(zonk(s.typ)).diff(s.params)).toSet
@@ -385,63 +385,64 @@ class Check(program: Program):
     Scheme(free(typ).filter(p => p.isInstanceOf[Type.Meta] && !fixed(p)), typ)
 
   def infer(env: Map[Name, Scheme], e: Expr): (Expr, Type) =
-    e match
-      case Expr.Lit(()) =>
-        (e, Unit)
-      case Expr.Lit(_: Boolean) =>
-        (e, Bool)
-      case Expr.Lit(_: BigInt) =>
-        (e, Int)
-      case Expr.Lit(_: String) =>
-        (e, Str)
-      case Expr.Lit(value) =>
-        error("type", s"invalid literal $value")
+    at(e.pos):
+      e match
+        case Expr.Lit(()) =>
+          (e, Unit)
+        case Expr.Lit(_: Boolean) =>
+          (e, Bool)
+        case Expr.Lit(_: BigInt) =>
+          (e, Int)
+        case Expr.Lit(_: String) =>
+          (e, Str)
+        case Expr.Lit(value) =>
+          error("type", s"invalid literal $value")
 
-      case Expr.Var(name, typ) =>
-        val v = use(name, typ, resolve(env, name, -1))
-        (v, v.typ)
+        case Expr.Var(name, typ) =>
+          val v = use(name, typ, resolve(env, name, -1), e.pos)
+          (v, v.typ)
 
-      case Expr.App(Expr.Var(name, typ), args) if lookup(env, name).length > 1 =>
-        val v = use(name, typ, resolve(env, name, args.length))
-        val (args1, r) = apply(env, v.typ, args)
-        (Expr.App(v, args1), r)
+        case Expr.App(Expr.Var(name, typ), args) if lookup(env, name).length > 1 =>
+          val v = use(name, typ, resolve(env, name, args.length), e.pos)
+          val (args1, r) = apply(env, v.typ, args)
+          (Expr.App(v, args1)(e.pos), r)
 
-      case Expr.App(fun, args) =>
-        val (fun1, t) = infer(env, fun)
-        val (args1, r) = apply(env, t, args)
-        (Expr.App(fun1, args1), r)
+        case Expr.App(fun, args) =>
+          val (fun1, t) = infer(env, fun)
+          val (args1, r) = apply(env, t, args)
+          (Expr.App(fun1, args1)(e.pos), r)
 
-      case Expr.Lam(bound, body) =>
-        val xs = formals(bound)
-        val (body1, t) = infer(env ++ bind(xs), body)
-        (Expr.Lam(xs, body1), fun(xs.types, t))
+        case Expr.Lam(bound, body) =>
+          val xs = formals(bound)
+          val (body1, t) = infer(env ++ bind(xs), body)
+          (Expr.Lam(xs, body1)(e.pos), fun(xs.types, t))
 
-      case Expr.Let(bound, args, body) =>
-        val xs = formals(bound)
-        sameLength(xs, args, "let")
-        val args1 = check(env, args, xs.types)
-        val ss = xs.map(x => x.name -> generalize(env, x.typ))
-        val (body1, t) = infer(env ++ ss, body)
-        (Expr.Let(xs, args1, body1), t)
+        case Expr.Let(bound, args, body) =>
+          val xs = formals(bound)
+          sameLength(xs, args, "let")
+          val args1 = check(env, args, xs.types)
+          val ss = xs.map(x => x.name -> generalize(env, x.typ))
+          val (body1, t) = infer(env ++ ss, body)
+          (Expr.Let(xs, args1, body1)(e.pos), t)
 
-      case Expr.Ite(test, left, right) =>
-        val test1 = check(env, test, Bool)
-        val (left1, t) = infer(env, left)
-        val right1 = check(env, right, t)
-        (Expr.Ite(test1, left1, right1), t)
+        case Expr.Ite(test, left, right) =>
+          val test1 = check(env, test, Bool)
+          val (left1, t) = infer(env, left)
+          val right1 = check(env, right, t)
+          (Expr.Ite(test1, left1, right1)(e.pos), t)
 
-      case Expr.Comp(result, bound, lists, test) =>
-        val xs = formals(bound)
-        sameLength(xs, lists, "comprehension")
-        val lists1 = generators(env, xs, lists)
-        val test1 = check(env ++ bind(xs), test, Bool)
-        val (result1, t) = infer(env ++ bind(xs), result)
-        (Expr.Comp(result1, xs, lists1, test1), Type.Sort("List", List(t)))
+        case Expr.Comp(result, bound, lists, test) =>
+          val xs = formals(bound)
+          sameLength(xs, lists, "comprehension")
+          val lists1 = generators(env, xs, lists)
+          val test1 = check(env ++ bind(xs), test, Bool)
+          val (result1, t) = infer(env ++ bind(xs), result)
+          (Expr.Comp(result1, xs, lists1, test1)(e.pos), Type.Sort("List", List(t)))
 
-      case Expr.Match(arg, cases) =>
-        val r = fresh()
-        val (arg1, cases1) = branches(env, arg, cases)((bs, b) => check(env ++ bs, b, r))
-        (Expr.Match(arg1, cases1), r)
+        case Expr.Match(arg, cases) =>
+          val r = fresh()
+          val (arg1, cases1) = branches(env, arg, cases)((bs, b) => check(env ++ bs, b, r))
+          (Expr.Match(arg1, cases1)(e.pos), r)
 
   // each list may refer to the variables bound before it
   def generators(env: Map[Name, Scheme], xs: List[Pat.Var], lists: List[Expr]): List[Expr] =
@@ -471,30 +472,31 @@ class Check(program: Program):
     (p1, bind(bs))
 
   def binders(p: Pat, t: Type): (Pat, List[Pat.Var]) =
-    p match
-      case Pat.Wild =>
-        (p, Nil)
+    at(p.pos):
+      p match
+        case Pat.Wild() =>
+          (p, Nil)
 
-      case Pat.Lit(value) =>
-        check(Map(), Expr.Lit(value), t)
-        (p, Nil)
+        case Pat.Lit(value) =>
+          check(Map(), Expr.Lit(value)(p.pos), t)
+          (p, Nil)
 
-      case Pat.Var(name, _) if constrs.contains(name) =>
-        binders(Pat.App(name, Nil), t)
+        case Pat.Var(name, _) if constrs.contains(name) =>
+          binders(Pat.App(name, Nil)(p.pos), t)
 
-      case Pat.Var(name, typ) =>
-        val u = normalize(typ)
-        unify(u, t)
-        val x: Pat.Var = Pat.Var(name, u)
-        (x, List(x))
+        case Pat.Var(name, typ) =>
+          val u = normalize(typ)
+          unify(u, t)
+          val x: Pat.Var = Pat.Var(name, u)(p.pos)
+          (x, List(x))
 
-      case Pat.App(name, args) =>
-        val k = constrs.getOrElse(name, error("type", s"unknown constructor $name"))
-        sameLength(k.args, args, s"constructor $name")
-        val su = instance(k.params)
-        unify(subst(k.res, su), t)
-        val (args1, bs) = binders(args, k.args.map(subst(_, su)))
-        (Pat.App(name, args1), bs)
+        case Pat.App(name, args) =>
+          val k = constrs.getOrElse(name, error("type", s"unknown constructor $name"))
+          sameLength(k.args, args, s"constructor $name")
+          val su = instance(k.params)
+          unify(subst(k.res, su), t)
+          val (args1, bs) = binders(args, k.args.map(subst(_, su)))
+          (Pat.App(name, args1)(p.pos), bs)
 
   def binders(ps: List[Pat], ts: List[Type]): (List[Pat], List[Pat.Var]) =
     (ps, ts) match
@@ -536,7 +538,8 @@ class Check(program: Program):
         val (c, args) = head(p).get
         useful(specialize(rows, c, args.length), args ++ ps, fields(t, c) ++ rest)
       case (_ :: ps, t :: rest) if complete(rows, t) =>
-        signature(t).get.exists((c, args) => useful(specialize(rows, c, args.length), args.map(_ => Pat.Wild) ++ ps, args ++ rest))
+        signature(t).get
+          .exists((c, args) => useful(specialize(rows, c, args.length), args.map(_ => Pat.Wild()(nowhere)) ++ ps, args ++ rest))
       case (_ :: ps, _ :: rest) =>
         useful(rows.filter(r => head(r.head).isEmpty).map(_.tail), ps, rest)
       case (_, Nil) =>
@@ -614,11 +617,11 @@ class Check(program: Program):
       case Some((_, ps)) =>
         ps ++ r.tail
       case None =>
-        List.fill(n)(Pat.Wild) ++ r.tail
+        List.fill(n)(Pat.Wild()(nowhere)) ++ r.tail
 
   def check(env: Map[Name, Scheme], e: Expr, t: Type): Expr =
     val (e1, t1) = infer(env, e)
-    unify(t1, t)
+    at(e.pos)(unify(t1, t))
     e1
 
   def check(env: Map[Name, Scheme], es: List[Expr], ts: List[Type]): List[Expr] =
@@ -640,51 +643,53 @@ class Check(program: Program):
     (args1, r)
 
   def variable(env: Map[Name, Scheme], assignable: Set[Name], x: Expr.Var): Expr.Var =
-    require("type", assignable(x.name), s"${x.name} is not assignable")
-    val t = env(x.name).typ
-    unify(t, normalize(x.typ))
-    Expr.Var(x.name, t)
+    at(x.pos):
+      require("type", assignable(x.name), s"${x.name} is not assignable")
+      val t = env(x.name).typ
+      unify(t, normalize(x.typ))
+      Expr.Var(x.name, t)(x.pos)
 
   def stmt(env: Map[Name, Scheme], assignable: Set[Name], s: Stmt): Stmt =
-    s match
-      case Stmt.Skip =>
-        s
+    at(s.pos):
+      s match
+        case Stmt.Skip() =>
+          s
 
-      case Stmt.Assign(vars, args) =>
-        distinct(vars.names, "assignment to")
-        sameLength(vars, args, "assignment")
-        val vars1 = vars.map(variable(env, assignable, _))
-        Stmt.Assign(vars1, check(env, args, vars1.types))
+        case Stmt.Assign(vars, args) =>
+          distinct(vars.names, "assignment to")
+          sameLength(vars, args, "assignment")
+          val vars1 = vars.map(variable(env, assignable, _))
+          Stmt.Assign(vars1, check(env, args, vars1.types))(s.pos)
 
-      case Stmt.Block(locals, stmts) =>
-        val xs = signature(locals)
-        Stmt.Block(xs, stmts.map(stmt(env ++ bind(xs), assignable ++ xs.names, _)))
+        case Stmt.Block(locals, stmts) =>
+          val xs = signature(locals)
+          Stmt.Block(xs, stmts.map(stmt(env ++ bind(xs), assignable ++ xs.names, _)))(s.pos)
 
-      case Stmt.If(test, left, right) =>
-        Stmt.If(check(env, test, Bool), stmt(env, assignable, left), stmt(env, assignable, right))
+        case Stmt.If(test, left, right) =>
+          Stmt.If(check(env, test, Bool), stmt(env, assignable, left), stmt(env, assignable, right))(s.pos)
 
-      case Stmt.While(test, body) =>
-        Stmt.While(check(env, test, Bool), stmt(env, assignable, body))
+        case Stmt.While(test, body) =>
+          Stmt.While(check(env, test, Bool), stmt(env, assignable, body))(s.pos)
 
-      case Stmt.Call(proc, ins, outs, refs) =>
-        val sig = procs.getOrElse(proc, error("type", s"unknown procedure $proc"))
-        val su = instance(sig.params)
-        sameLength(sig.ins, ins, proc)
-        sameLength(sig.outs, outs, proc)
-        sameLength(sig.refs, refs, proc)
-        distinct((outs ++ refs).names, s"argument to $proc")
-        val ins1 = check(env, ins, sig.ins.map(subst(_, su)))
-        val outs1 = outs.map(variable(env, assignable, _))
-        val refs1 = refs.map(variable(env, assignable, _))
-        unify((outs1 ++ refs1).types, (sig.outs ++ sig.refs).map(subst(_, su)))
-        Stmt.Call(proc, ins1, outs1, refs1)
+        case Stmt.Call(proc, ins, outs, refs) =>
+          val sig = procs.getOrElse(proc, error("type", s"unknown procedure $proc"))
+          val su = instance(sig.params)
+          sameLength(sig.ins, ins, proc)
+          sameLength(sig.outs, outs, proc)
+          sameLength(sig.refs, refs, proc)
+          distinct((outs ++ refs).names, s"argument to $proc")
+          val ins1 = check(env, ins, sig.ins.map(subst(_, su)))
+          val outs1 = outs.map(variable(env, assignable, _))
+          val refs1 = refs.map(variable(env, assignable, _))
+          unify((outs1 ++ refs1).types, (sig.outs ++ sig.refs).map(subst(_, su)))
+          Stmt.Call(proc, ins1, outs1, refs1)(s.pos)
 
-      case Stmt.Match(arg, cases) =>
-        val (arg1, cases1) = branches(env, arg, cases)((bs, b) => stmt(env ++ bs, assignable -- bs.keys, b))
-        Stmt.Match(arg1, cases1)
+        case Stmt.Match(arg, cases) =>
+          val (arg1, cases1) = branches(env, arg, cases)((bs, b) => stmt(env ++ bs, assignable -- bs.keys, b))
+          Stmt.Match(arg1, cases1)(s.pos)
 
-      case Stmt.Assert(test) =>
-        Stmt.Assert(check(env, test, Bool))
+        case Stmt.Assert(test) =>
+          Stmt.Assert(check(env, test, Bool))(s.pos)
 
   def declare(name: Name): Unit =
     require(
@@ -706,50 +711,59 @@ class Check(program: Program):
 
   def cmds(): Program =
     // datatypes may be mutually recursive, so they are known before any sort is checked
-    for case Cmd.Data(name, params, _) <- program.cmds do
-      declareSort(name)
-      update(c => c.copy(datas = c.datas + (name -> params.length)))
+    for case d @ Cmd.Data(name, params, _) <- program.cmds do
+      at(d.pos):
+        declareSort(name)
+        update(c => c.copy(datas = c.datas + (name -> params.length)))
 
     def closed(what: String, params: List[Name], t: Type): Unit =
       val undeclared = free(t).diff(params.map(Type.Param(_)))
       require("type", undeclared.isEmpty, s"$what has undeclared type parameters ${undeclared.map(show(_)).mkString(", ")}")
 
-    for case Cmd.Sort(name, params, typ) <- program.cmds do
-      declareSort(name)
-      distinct(params, "type parameter")
-      val rhs = known(typ, s"sort $name")
-      closed(s"sort $name", params, rhs)
-      update(c => c.copy(aliases = c.aliases + (name -> (params, rhs))))
+    for case d @ Cmd.Sort(name, params, typ) <- program.cmds do
+      at(d.pos):
+        declareSort(name)
+        distinct(params, "type parameter")
+        val rhs = known(typ, s"sort $name")
+        closed(s"sort $name", params, rhs)
+        update(c => c.copy(aliases = c.aliases + (name -> (params, rhs))))
 
-    for case Cmd.Data(name, params, cs) <- program.cmds do
-      distinct(params, "type parameter")
-      val ps = params.map(Type.Param(_))
-      update(c => c.copy(members = c.members + (name -> cs.map(_.name))))
-      for Constr(c, args) <- cs do
-        declare(c)
-        val ts = args.map(known(_, s"constructor $c"))
-        for t <- ts do
-          closed(s"sort $name", params, t)
-        update(ctx => ctx.copy(constrs = ctx.constrs + (c -> Constructor(ps, ts, Type.Sort(name, ps)))))
+    for case d @ Cmd.Data(name, params, cs) <- program.cmds do
+      at(d.pos):
+        distinct(params, "type parameter")
+        val ps = params.map(Type.Param(_))
+        update(c => c.copy(members = c.members + (name -> cs.map(_.name))))
+        for Constr(c, args) <- cs do
+          declare(c)
+          val ts = args.map(known(_, s"constructor $c"))
+          for t <- ts do
+            closed(s"sort $name", params, t)
+          update(ctx => ctx.copy(constrs = ctx.constrs + (c -> Constructor(ps, ts, Type.Sort(name, ps)))))
 
-    for case Cmd.Fun(name, params, bound, res, _) <- program.cmds do
-      overload(name, bound.length)
-      distinct(params, "type parameter")
-      val t = fun(signature(bound).types, known(res, s"result of $name"))
-      closed(name, params, t)
-      update(c => c.copy(funs = c.funs + (name -> (c.funs.getOrElse(name, Nil) :+ Scheme(params.map(Type.Param(_)), t)))))
-
-    for case Cmd.Proc(name, params, ins, outs, refs, _) <- program.cmds do
-      declare(name)
-      distinct(params, "type parameter")
-      val ts = signature(ins ++ outs ++ refs).types
-      for t <- ts do
+    for case d @ Cmd.Fun(name, params, bound, res, _) <- program.cmds do
+      at(d.pos):
+        overload(name, bound.length)
+        distinct(params, "type parameter")
+        val t = fun(signature(bound).types, known(res, s"result of $name"))
         closed(name, params, t)
-      val (is, rest) = ts.splitAt(ins.length)
-      val (os, rs) = rest.splitAt(outs.length)
-      update(c => c.copy(procs = c.procs + (name -> Sig(params.map(Type.Param(_)), is, os, rs))))
+        update(c => c.copy(funs = c.funs + (name -> (c.funs.getOrElse(name, Nil) :+ Scheme(params.map(Type.Param(_)), t)))))
 
-    val cmds = program.cmds.map:
+    for case d @ Cmd.Proc(name, params, ins, outs, refs, _) <- program.cmds do
+      at(d.pos):
+        declare(name)
+        distinct(params, "type parameter")
+        val ts = signature(ins ++ outs ++ refs).types
+        for t <- ts do
+          closed(name, params, t)
+        val (is, rest) = ts.splitAt(ins.length)
+        val (os, rs) = rest.splitAt(outs.length)
+        update(c => c.copy(procs = c.procs + (name -> Sig(params.map(Type.Param(_)), is, os, rs))))
+
+    Program(program.cmds.map(c => at(c.pos)(zonk(command(c)))))
+
+  // the elaborated command c
+  def command(c: Cmd): Cmd =
+    c match
       case d: Cmd.Sort =>
         d
       case d: Cmd.Data =>
@@ -758,13 +772,13 @@ class Check(program: Program):
       case Cmd.Fun(name, params, bound, res, body) =>
         val xs = signature(bound)
         val t = known(res, s"result of $name")
-        Cmd.Fun(name, params, xs, t, check(bind(xs), body, t))
+        Cmd.Fun(name, params, xs, t, check(bind(xs), body, t))(c.pos)
 
       case Cmd.Proc(name, params, ins, outs, refs, body) =>
         val is = signature(ins)
         val os = signature(outs)
         val rs = signature(refs)
-        Cmd.Proc(name, params, is, os, rs, stmt(bind(is ++ os ++ rs), (os ++ rs).names.toSet, body))
+        Cmd.Proc(name, params, is, os, rs, stmt(bind(is ++ os ++ rs), (os ++ rs).names.toSet, body))(c.pos)
 
       case d: Cmd.Import =>
         d
@@ -773,12 +787,10 @@ class Check(program: Program):
         d
 
       case Cmd.Eval(expr) =>
-        Cmd.Eval(infer(Map(), expr)._1)
+        Cmd.Eval(infer(Map(), expr)._1)(c.pos)
 
       case Cmd.Run(body) =>
-        Cmd.Run(stmt(Map(), Set(), body))
+        Cmd.Run(stmt(Map(), Set(), body))(c.pos)
 
       case Cmd.Test(body) =>
-        Cmd.Test(stmt(Map(), Set(), body))
-
-    Program(cmds.map(zonk(_)))
+        Cmd.Test(stmt(Map(), Set(), body))(c.pos)

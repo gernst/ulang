@@ -1,4 +1,4 @@
-// type error: match is not exhaustive, missing _ :: _
+// type error: match is not exhaustive, missing _ :: _ at 3.3
 function f(x: List[Option[Int]]): Int =
   match x
     case nil => 0

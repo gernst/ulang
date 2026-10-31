@@ -1,4 +1,4 @@
-// type error: cannot unify Bool and Int
+// type error: cannot unify Bool and Int at 5.20
 function f(): Int =
   match nil
     case nil => 0

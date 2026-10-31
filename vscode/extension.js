@@ -75,6 +75,43 @@ function activate(context) {
       output.append(result.stderr);
       output.show(true);
     }
+    await record(document);
+  }
+
+  // the results of all tests of document, as a test run, so that they show up in the editor and the Testing view
+  async function record(document) {
+    discover(document);
+    const file = controller.items.get(document.uri.toString());
+    if (!file || file.children.size === 0) return;
+    const run = controller.createTestRun(new vscode.TestRunRequest([file]), undefined, false);
+    const tests = [...file.children].map(([, child]) => child);
+    await test(file, tests, run);
+    run.end();
+  }
+
+  // runs the tests of file with ulang --tests, reporting the results of tests to run
+  async function test(file, tests, run) {
+    tests.forEach((t) => run.started(t));
+    const result = await ulang(["--tests", file.uri.fsPath], file.uri.fsPath);
+    if (!result) return;
+    diagnose(file.uri.fsPath, result.stderr);
+    const outcomes = new Map();
+    for (const line of result.stdout.split("\n")) {
+      const match = testLine.exec(line);
+      if (match) outcomes.set(Number(match[1]), match[3]);
+    }
+    for (const t of tests) {
+      const index = indices.get(t.id);
+      if (!outcomes.has(index)) {
+        run.errored(t, new vscode.TestMessage(result.stderr.trim() || "the test was not run"));
+      } else if (outcomes.get(index) === undefined) {
+        run.passed(t);
+      } else {
+        const message = new vscode.TestMessage(outcomes.get(index));
+        message.location = new vscode.Location(t.uri, t.range);
+        run.failed(t, message);
+      }
+    }
   }
 
   function document(uri) {
@@ -160,29 +197,9 @@ function activate(context) {
       }
       for (const [file, tests] of files) {
         if (token.isCancellationRequested) break;
-        tests.forEach((test) => run.started(test));
         const doc = await vscode.workspace.openTextDocument(file.uri);
         if (doc.isDirty) await doc.save();
-        const result = await ulang(["--tests", file.uri.fsPath], file.uri.fsPath);
-        if (!result) break;
-        diagnose(file.uri.fsPath, result.stderr);
-        const outcomes = new Map();
-        for (const line of result.stdout.split("\n")) {
-          const match = testLine.exec(line);
-          if (match) outcomes.set(Number(match[1]), match[3]);
-        }
-        for (const test of tests) {
-          const index = indices.get(test.id);
-          if (!outcomes.has(index)) {
-            run.errored(test, new vscode.TestMessage(result.stderr.trim() || "the test was not run"));
-          } else if (outcomes.get(index) === undefined) {
-            run.passed(test);
-          } else {
-            const message = new vscode.TestMessage(outcomes.get(index));
-            message.location = new vscode.Location(test.uri, test.range);
-            run.failed(test, message);
-          }
-        }
+        await test(file, tests, run);
       }
       run.end();
     },

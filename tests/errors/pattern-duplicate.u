@@ -1,4 +1,4 @@
-// type error: duplicate pattern variable x
+// type error: duplicate pattern variable x at 3.3
 function f(): Int =
   match nil
     case x :: x => 0

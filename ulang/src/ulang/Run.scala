@@ -100,53 +100,54 @@ class Run(val program: Program):
       .flatten.toMap
 
   def eval(env: Map[Name, Any], e: Expr): Any =
-    e match
-      case Expr.Lit(value) =>
-        value
+    at(e.pos):
+      e match
+        case Expr.Lit(value) =>
+          value
 
-      case Expr.Var(name, _) if env.contains(name) =>
-        env(name)
-      case Expr.Var(name, typ) if funs.contains((name, Check.arity(typ))) =>
-        fun(funs((name, Check.arity(typ))))
-      case Expr.Var(name, _) if constrs.contains(name) =>
-        constr(name)(constrs(name))
-      case Expr.Var(name, _) if Check.builtins.contains(name) =>
-        builtin(name)
-      case Expr.Var(name, _) =>
-        error("runtime", s"$name is not initialized")
+        case Expr.Var(name, _) if env.contains(name) =>
+          env(name)
+        case Expr.Var(name, typ) if funs.contains((name, Check.arity(typ))) =>
+          fun(funs((name, Check.arity(typ))))
+        case Expr.Var(name, _) if constrs.contains(name) =>
+          constr(name)(constrs(name))
+        case Expr.Var(name, _) if Check.builtins.contains(name) =>
+          builtin(name)
+        case Expr.Var(name, _) =>
+          error("runtime", s"$name is not initialized")
 
-      // and, or are not strict and therefore not builtins
-      case Expr.App(Expr.Var("and", _), List(a, b)) =>
-        bool(eval(env, a)) && bool(eval(env, b))
-      case Expr.App(Expr.Var("or", _), List(a, b)) =>
-        bool(eval(env, a)) || bool(eval(env, b))
+        // and, or are not strict and therefore not builtins
+        case Expr.App(Expr.Var("and", _), List(a, b)) =>
+          bool(eval(env, a)) && bool(eval(env, b))
+        case Expr.App(Expr.Var("or", _), List(a, b)) =>
+          bool(eval(env, a)) || bool(eval(env, b))
 
-      case Expr.App(fun, args) =>
-        function(eval(env, fun))(args.map(eval(env, _)))
+        case Expr.App(fun, args) =>
+          function(eval(env, fun))(args.map(eval(env, _)))
 
-      case Expr.Lam(bound, body) =>
-        (vs: List[Any]) => eval(env ++ bind(bound, vs), body)
+        case Expr.Lam(bound, body) =>
+          (vs: List[Any]) => eval(env ++ bind(bound, vs), body)
 
-      case Expr.Let(bound, args, body) =>
-        eval(env ++ bind(bound, args.map(eval(env, _))), body)
+        case Expr.Let(bound, args, body) =>
+          eval(env ++ bind(bound, args.map(eval(env, _))), body)
 
-      case Expr.Ite(test, left, right) =>
-        if bool(eval(env, test)) then
-          eval(env, left)
-        else
-          eval(env, right)
+        case Expr.Ite(test, left, right) =>
+          if bool(eval(env, test)) then
+            eval(env, left)
+          else
+            eval(env, right)
 
-      case Expr.Match(arg, cases) =>
-        val (b, bs) = select(eval(env, arg), cases)
-        eval(env ++ bs, b)
+        case Expr.Match(arg, cases) =>
+          val (b, bs) = select(eval(env, arg), cases)
+          eval(env ++ bs, b)
 
-      case Expr.Comp(result, bound, lists, test) =>
-        val vs =
-          for
-            env1 <- combinations(env, bound, lists)
-            if bool(eval(env1, test))
-          yield eval(env1, result)
-        vs.foldRight(Obj("nil", Nil): Any)((v, vs) => Obj("::", List(v, vs)))
+        case Expr.Comp(result, bound, lists, test) =>
+          val vs =
+            for
+              env1 <- combinations(env, bound, lists)
+              if bool(eval(env1, test))
+            yield eval(env1, result)
+          vs.foldRight(Obj("nil", Nil): Any)((v, vs) => Obj("::", List(v, vs)))
 
   def constr(c: Name)(arity: Int): Any =
     if arity == 0 then
@@ -180,12 +181,12 @@ class Run(val program: Program):
 
   def matches(p: Pat, v: Any): Option[Map[Name, Any]] =
     (p, v) match
-      case (Pat.Wild, _) =>
+      case (Pat.Wild(), _) =>
         Some(Map())
       case (Pat.Lit(value), _) =>
         Option.when(equal(value, v))(Map())
       case (Pat.Var(name, _), _) if constrs.contains(name) =>
-        matches(Pat.App(name, Nil), v)
+        matches(Pat.App(name, Nil)(p.pos), v)
       case (Pat.Var(name, _), _) =>
         Some(Map(name -> v))
       case (Pat.App(c, ps), Obj(d, vs)) if c == d =>
@@ -215,43 +216,44 @@ class Run(val program: Program):
     eval(values(store), e)
 
   def exec(store: Map[Name, Cell], s: Stmt): Unit =
-    s match
-      case Stmt.Skip =>
+    at(s.pos):
+      s match
+        case Stmt.Skip() =>
 
-      case Stmt.Assign(vars, args) =>
-        val env = values(store)
-        assign(store, vars, args.map(eval(env, _)))
+        case Stmt.Assign(vars, args) =>
+          val env = values(store)
+          assign(store, vars, args.map(eval(env, _)))
 
-      case Stmt.Block(locals, stmts) =>
-        val inner = store ++ locals.map(_.name -> Cell(None))
-        for s <- stmts do
-          exec(inner, s)
+        case Stmt.Block(locals, stmts) =>
+          val inner = store ++ locals.map(_.name -> Cell(None))
+          for s <- stmts do
+            exec(inner, s)
 
-      case Stmt.If(test, left, right) =>
-        if bool(value(store, test)) then
-          exec(store, left)
-        else
-          exec(store, right)
+        case Stmt.If(test, left, right) =>
+          if bool(value(store, test)) then
+            exec(store, left)
+          else
+            exec(store, right)
 
-      case Stmt.While(test, body) =>
-        while bool(value(store, test)) do
-          exec(store, body)
+        case Stmt.While(test, body) =>
+          while bool(value(store, test)) do
+            exec(store, body)
 
-      case Stmt.Call(proc, ins, outs, refs) =>
-        val env = values(store)
-        assign(store, outs, invoke(proc, ins.map(eval(env, _)), refs.map(x => store(x.name))))
+        case Stmt.Call(proc, ins, outs, refs) =>
+          val env = values(store)
+          assign(store, outs, invoke(proc, ins.map(eval(env, _)), refs.map(x => store(x.name))))
 
-      case Stmt.Match(arg, cases) =>
-        val (b, bs) = select(value(store, arg), cases)
-        exec(store ++ bs.view.mapValues(cell), b)
+        case Stmt.Match(arg, cases) =>
+          val (b, bs) = select(value(store, arg), cases)
+          exec(store ++ bs.view.mapValues(cell), b)
 
-      // assertions of equations show both sides when they fail
-      case Stmt.Assert(Expr.App(Expr.Var("==", _), List(lhs, rhs))) =>
-        val (a, b) = (value(store, lhs), value(store, rhs))
-        require("runtime", equal(a, b), s"assertion failed: ${Printer.show(a)} != ${Printer.show(b)}")
+        // assertions of equations show both sides when they fail
+        case Stmt.Assert(Expr.App(Expr.Var("==", _), List(lhs, rhs))) =>
+          val (a, b) = (value(store, lhs), value(store, rhs))
+          require("runtime", equal(a, b), s"assertion failed: ${Printer.show(a)} != ${Printer.show(b)}")
 
-      case Stmt.Assert(test) =>
-        require("runtime", bool(value(store, test)), "assertion failed")
+        case Stmt.Assert(test) =>
+          require("runtime", bool(value(store, test)), "assertion failed")
 
   def assign(store: Map[Name, Cell], xs: List[Expr.Var], vs: List[Any]): Unit =
     (xs, vs) match

@@ -1,2 +1,2 @@
-// type error: x is not assignable
+// type error: x is not assignable at 2.28
 procedure p(x: Int) assign x := 1; end

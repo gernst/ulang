@@ -1,2 +1,2 @@
-// type error: missing type for x
+// type error: missing type for x at 2.15
 procedure p(; x) skip; end

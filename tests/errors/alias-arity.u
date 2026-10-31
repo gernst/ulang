@@ -1,4 +1,4 @@
-// type error: sort P expects 1 arguments, got 0
+// type error: sort P expects 1 arguments, got 0 at 4.12
 sort P[A] = A -> A
 
 function f(x: P): Int =

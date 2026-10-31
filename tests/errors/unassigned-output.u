@@ -1,4 +1,4 @@
-// runtime error: output r of p is not assigned
+// runtime error: output r of p is not assigned at 8.3
 procedure p(; r: Int)
   skip;
 end

@@ -1,2 +1,2 @@
-// type error: unknown sort A
+// type error: unknown sort A at 2.1
 data T = c(A)
