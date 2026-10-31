@@ -271,18 +271,18 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       "=" ~> rep1sep(constr, "|") ^^ (Cmd.Data(n, ps, _))
 
   val fun: Parser[Cmd] =
-    generic("function"): (n, _, s) =>
+    generic("function"): (n, ps, s) =>
       parens(formals(s)) ~
         (":" ~> typ(s)) ~
         ("=" ~> expr(s)) ^^ { case xs ~ t ~ b =>
-          Cmd.Fun(n, xs, t, b)
+          Cmd.Fun(n, ps, xs, t, b)
         }
 
   val proc: Parser[Cmd] =
-    generic("procedure"): (n, _, s) =>
+    generic("procedure"): (n, ps, s) =>
       parens(sections(formals(s), formals(s))) ~
         (body(s) <~ kw("end")) ^^ { case (ins, outs, refs) ~ b =>
-          Cmd.Proc(n, ins, outs, refs, b)
+          Cmd.Proc(n, ps, ins, outs, refs, b)
         }
 
   val eval: Parser[Cmd] = kw("eval") ~> expr(Set()) ^^ Cmd.Eval.apply

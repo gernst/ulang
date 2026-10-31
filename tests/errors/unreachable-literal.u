@@ -1,0 +1,7 @@
+// type error: unreachable case 0
+function f(n: Int): Int =
+  match n
+    case 0 => 0
+    case _ => 1
+    case 0 => 2
+  end

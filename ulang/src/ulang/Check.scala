@@ -75,13 +75,13 @@ object Check:
       case Type.Meta(index) =>
         s"?$index"
       case Type.Sort("->", args) =>
-        args.init.map(show).mkString("(", ", ", ")") + " -> " + show(args.last)
+        args.init.map(show(_)).mkString("(", ", ", ")") + " -> " + show(args.last)
       case Type.Sort("*", args) =>
-        args.map(show).mkString("(", ", ", ")")
+        args.map(show(_)).mkString("(", ", ", ")")
       case Type.Sort(name, Nil) =>
         name
       case Type.Sort(name, args) =>
-        args.map(show).mkString(s"$name[", ", ", "]")
+        args.map(show(_)).mkString(s"$name[", ", ", "]")
 
   // the Params and Metas in t
   def free(t: Type): List[Type] =
@@ -102,6 +102,21 @@ object Check:
       case _ =>
         false
 
+  def show(p: Pat): String =
+    p match
+      case Pat.Wild =>
+        "_"
+      case Pat.Lit(value) =>
+        Run.show(value)
+      case Pat.Var(name, _) =>
+        name
+      case Pat.App(",", args) =>
+        args.map(show(_)).mkString("(", ", ", ")")
+      case Pat.App(name, Nil) =>
+        name
+      case Pat.App(name, args) =>
+        args.map(show(_)).mkString(s"$name(", ", ", ")")
+
   def subst(t: Type, su: Map[Type, Type]): Type =
     t match
       case Type.Sort(name, args) =>
@@ -120,9 +135,9 @@ object Check:
 class Check(program: Program):
   import Check.*
 
-  val context = util.Ref(initial)
-  val su = util.Ref(Map[Int, Type]())
-  val next = util.Ref(0)
+  val context = Ref(initial)
+  val su = Ref(Map[Int, Type]())
+  val next = Ref(0)
 
   def aliases =
     context.get.aliases
@@ -265,10 +280,10 @@ class Check(program: Program):
     d match
       case Cmd.Sort(_, _, _) | Cmd.Data(_, _, _) =>
         d
-      case Cmd.Fun(name, bound, res, body) =>
-        Cmd.Fun(name, bound.map(zonk(_)), zonk(res), zonk(body))
-      case Cmd.Proc(name, ins, outs, refs, body) =>
-        Cmd.Proc(name, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))
+      case Cmd.Fun(name, params, bound, res, body) =>
+        Cmd.Fun(name, params, bound.map(zonk(_)), zonk(res), zonk(body))
+      case Cmd.Proc(name, params, ins, outs, refs, body) =>
+        Cmd.Proc(name, params, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))
       case Cmd.Eval(expr) =>
         Cmd.Eval(zonk(expr))
       case Cmd.Run(body) =>
@@ -387,6 +402,7 @@ class Check(program: Program):
       yield
         val (pat1, bs) = pattern(pat, t)
         Case(pat1, elaborate(bs, body))
+    reachable(t, cases1)
     exhaustive(t, cases1)
     (arg1, cases1)
 
@@ -436,6 +452,37 @@ class Check(program: Program):
     for w <- missing(cases.map(c => List(c.pat)), List(t)) do
       error(s"match is not exhaustive, missing ${w.head}")
 
+  def reachable(t: Type, cases: List[Case[?]]): Unit =
+    for (c, i) <- cases.zipWithIndex do
+      require(useful(cases.take(i).map(c => List(c.pat)), List(c.pat), List(t)), s"unreachable case ${show(c.pat)}")
+
+  // the constructors in the first column
+  def heads(rows: List[List[Pat]]): Set[Name] =
+    rows.flatMap(r => head(r.head)).map(_._1).toSet
+
+  // the type has finitely many constructors, which all occur in the first column
+  def complete(rows: List[List[Pat]], t: Type): Boolean =
+    signature(t).exists(_.forall((c, _) => heads(rows)(c)))
+
+  // the argument types of constructor c of type t
+  def fields(t: Type, c: Name): List[Type] =
+    signature(t).flatMap(_.find(_._1 == c)).map(_._2).getOrElse(Nil)
+
+  // some values of types ts match q but no row
+  def useful(rows: List[List[Pat]], q: List[Pat], ts: List[Type]): Boolean =
+    (q, ts) match
+      case (Nil, _) =>
+        rows.isEmpty
+      case (p :: ps, t :: rest) if head(p).nonEmpty =>
+        val (c, args) = head(p).get
+        useful(specialize(rows, c, args.length), args ++ ps, fields(t, c) ++ rest)
+      case (_ :: ps, t :: rest) if complete(rows, t) =>
+        signature(t).get.exists((c, args) => useful(specialize(rows, c, args.length), args.map(_ => Pat.Wild) ++ ps, args ++ rest))
+      case (_ :: ps, _ :: rest) =>
+        useful(rows.filter(r => head(r.head).isEmpty).map(_.tail), ps, rest)
+      case (_, Nil) =>
+        false
+
   // the constructor of an elaborated pattern, literals count as constructors without arguments
   def head(p: Pat): Option[(Name, List[Pat])] =
     p match
@@ -478,7 +525,7 @@ class Check(program: Program):
       case Nil =>
         Option.when(rows.isEmpty)(Nil)
       case t :: rest =>
-        missing(rows, rows.flatMap(r => head(r.head)).map(_._1).toSet, signature(t), rest)
+        missing(rows, heads(rows), signature(t), rest)
 
   // heads are the constructors in the first column, cs are all constructors of its type if there are finitely many
   def missing(rows: List[List[Pat]], heads: Set[Name], cs: Option[List[(Name, List[Type])]], rest: List[Type]): Option[List[String]] =
@@ -593,15 +640,15 @@ class Check(program: Program):
       declareSort(name)
       update(c => c.copy(datas = c.datas + (name -> params.length)))
 
-    def closed(name: Name, params: List[Name], t: Type): Unit =
+    def closed(what: String, params: List[Name], t: Type): Unit =
       val undeclared = free(t).diff(params.map(Type.Param(_)))
-      require(undeclared.isEmpty, s"sort $name has undeclared type parameters ${undeclared.map(show).mkString(", ")}")
+      require(undeclared.isEmpty, s"$what has undeclared type parameters ${undeclared.map(show(_)).mkString(", ")}")
 
     for case Cmd.Sort(name, params, typ) <- program.cmds do
       declareSort(name)
       distinct(params, "type parameter")
       val rhs = known(typ, s"sort $name")
-      closed(name, params, rhs)
+      closed(s"sort $name", params, rhs)
       update(c => c.copy(aliases = c.aliases + (name -> (params, rhs))))
 
     for case Cmd.Data(name, params, cs) <- program.cmds do
@@ -612,20 +659,25 @@ class Check(program: Program):
         declare(c)
         val ts = args.map(known(_, s"constructor $c"))
         for t <- ts do
-          closed(name, params, t)
+          closed(s"sort $name", params, t)
         update(ctx => ctx.copy(constrs = ctx.constrs + (c -> Constructor(ps, ts, Type.Sort(name, ps)))))
 
-    for case Cmd.Fun(name, bound, res, _) <- program.cmds do
+    for case Cmd.Fun(name, params, bound, res, _) <- program.cmds do
       declare(name)
+      distinct(params, "type parameter")
       val t = fun(signature(bound).types, known(res, s"result of $name"))
-      update(c => c.copy(funs = c.funs + (name -> Scheme(free(t), t))))
+      closed(name, params, t)
+      update(c => c.copy(funs = c.funs + (name -> Scheme(params.map(Type.Param(_)), t))))
 
-    for case Cmd.Proc(name, ins, outs, refs, _) <- program.cmds do
+    for case Cmd.Proc(name, params, ins, outs, refs, _) <- program.cmds do
       declare(name)
+      distinct(params, "type parameter")
       val ts = signature(ins ++ outs ++ refs).types
+      for t <- ts do
+        closed(name, params, t)
       val (is, rest) = ts.splitAt(ins.length)
       val (os, rs) = rest.splitAt(outs.length)
-      update(c => c.copy(procs = c.procs + (name -> Sig(ts.flatMap(free).distinct, is, os, rs))))
+      update(c => c.copy(procs = c.procs + (name -> Sig(params.map(Type.Param(_)), is, os, rs))))
 
     val cmds = program.cmds.map:
       case d: Cmd.Sort =>
@@ -633,16 +685,16 @@ class Check(program: Program):
       case d: Cmd.Data =>
         d
 
-      case Cmd.Fun(name, bound, res, body) =>
+      case Cmd.Fun(name, params, bound, res, body) =>
         val xs = signature(bound)
         val t = known(res, s"result of $name")
-        Cmd.Fun(name, xs, t, check(bind(xs), body, t))
+        Cmd.Fun(name, params, xs, t, check(bind(xs), body, t))
 
-      case Cmd.Proc(name, ins, outs, refs, body) =>
+      case Cmd.Proc(name, params, ins, outs, refs, body) =>
         val is = signature(ins)
         val os = signature(outs)
         val rs = signature(refs)
-        Cmd.Proc(name, is, os, rs, stmt(bind(is ++ os ++ rs), (os ++ rs).names.toSet, body))
+        Cmd.Proc(name, params, is, os, rs, stmt(bind(is ++ os ++ rs), (os ++ rs).names.toSet, body))
 
       case Cmd.Eval(expr) =>
         Cmd.Eval(infer(Map(), expr)._1)

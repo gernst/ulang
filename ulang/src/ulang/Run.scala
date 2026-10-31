@@ -2,7 +2,7 @@ package ulang
 
 case class Obj(name: Name, args: List[Any])
 
-class Cell(get: Option[Any]) extends util.Ref[Option[Any]](get)
+class Cell(get: Option[Any]) extends Ref[Option[Any]](get)
 
 object Run:
   def error(msg: String): Nothing =

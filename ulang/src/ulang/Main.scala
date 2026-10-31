@@ -1,5 +1,10 @@
 package ulang
 
+class Error(msg: String) extends Exception(msg)
+
+// the only mutable state, a reference to an immutable value
+class Ref[A](var get: A)
+
 object Main:
   def run(text: String): List[String] =
     new Run(Check.program(Parser.parseProgram(text))).run()

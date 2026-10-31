@@ -1,0 +1,6 @@
+// type error: unreachable case true
+function f(b: Bool): Int =
+  match b
+    case _ => 0
+    case true => 1
+  end
