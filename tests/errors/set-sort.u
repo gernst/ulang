@@ -1,0 +1,2 @@
+// type error: sort Set is already defined
+data Set = empty

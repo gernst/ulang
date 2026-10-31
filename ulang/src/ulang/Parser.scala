@@ -201,7 +201,11 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       (())
 
   def atom(ps: Set[Name]): Parser[Expr] =
-    value ^^ Expr.Lit.apply | tuple(expr(ps))(op(",", _, _)) | variable
+    value ^^ Expr.Lit.apply
+      | tuple(expr(ps))(op(",", _, _))
+      | "[" ~> list(expr(ps)) <~ "]" ^^ (_.foldRight(Expr.Var("nil", Type.Hole): Expr)(op("cons", _, _)))
+      | "{" ~> list(expr(ps)) <~ "}" ^^ (op("{}", _*))
+      | variable
 
   def stmt(ps: Set[Name]): Parser[Stmt] =
     skip | ifs(ps) | loop(ps) | call(ps) | matches(ps, stmts(ps))(Stmt.Match.apply) | check(ps) | assign(ps)

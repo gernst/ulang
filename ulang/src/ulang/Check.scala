@@ -38,6 +38,9 @@ object Check:
   def mono(t: Type): Scheme =
     Scheme(Nil, t)
 
+  // the literal {...} builds a Set
+  val collections = Map("{}" -> "Set")
+
   // pairs are a datatype *[A, B] with the constructor ,
   val initial: Ctx =
     val ps = List(Type.Param("A"), Type.Param("B"))
@@ -107,7 +110,7 @@ object Check:
       case Pat.Wild =>
         "_"
       case Pat.Lit(value) =>
-        Run.show(value)
+        Printer.show(value)
       case Pat.Var(name, _) =>
         name
       case Pat.App(",", args) =>
@@ -190,6 +193,9 @@ class Check(program: Program):
         t
       case Type.Sort(name, args) if datas.contains(name) =>
         arguments(name, datas(name), args)
+        Type.Sort(name, args.map(normalize))
+      case Type.Sort(name, args) if collections.values.toSet(name) =>
+        arguments(name, 1, args)
         Type.Sort(name, args.map(normalize))
       case Type.Sort(name, args) =>
         val (params, rhs) = aliases.getOrElse(name, error(s"unknown sort $name"))
@@ -365,6 +371,12 @@ class Check(program: Program):
         val v = use(name, typ, lookup(env, name).getOrElse(error(s"unknown variable $name")))
         (v, v.typ)
 
+      case Expr.App(Expr.Var(name, typ), args) if collections.contains(name) =>
+        val a = fresh()
+        val res = Type.Sort(collections(name), List(a))
+        val v = use(name, typ, mono(fun(args.map(_ => a), res)))
+        (Expr.App(v, check(env, args, args.map(_ => a))), res)
+
       case Expr.App(fun, args) =>
         val (fun1, t) = infer(env, fun)
         val (args1, r) = apply(env, t, args)
@@ -489,7 +501,7 @@ class Check(program: Program):
       case Pat.App(name, args) =>
         Some(name -> args)
       case Pat.Lit(value) =>
-        Some(Run.show(value) -> Nil)
+        Some(Printer.show(value) -> Nil)
       case _ =>
         None
 
@@ -632,7 +644,10 @@ class Check(program: Program):
     )
 
   def declareSort(name: Name): Unit =
-    require(!basic(name) && name != "->" && !aliases.contains(name) && !datas.contains(name), s"sort $name is already defined")
+    require(
+      !basic(name) && name != "->" && !collections.values.toSet(name) && !aliases.contains(name) && !datas.contains(name),
+      s"sort $name is already defined"
+    )
 
   def cmds(): Program =
     // datatypes may be mutually recursive, so they are known before any sort is checked

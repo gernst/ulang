@@ -14,6 +14,7 @@ Mill with `build.mill.yaml`; the language lives in the module `ulang`. Do not us
 ## Tests
 
 Tests are end-to-end only: programs in `tests/` with `test ... end` blocks of `assert` statements.
+Every program is checked after `ulang/resources/prelude.u`, which declares `List`, `Option`, and `Nat`.
 A file that is expected to fail states the error in its first line, e.g. `// type error: unknown variable x`, see `tests/errors/`.
 
 ## Style

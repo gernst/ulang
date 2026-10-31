@@ -12,41 +12,26 @@ object Run:
     if !cond then
       error(msg)
 
-  def show(v: Any): String =
-    v match
-      case () =>
-        "()"
-      case s: String =>
-        "\"" + s + "\""
-      case _: Function1[?, ?] =>
-        "<function>"
-      case Obj(",", vs) =>
-        vs.map(show).mkString("(", ", ", ")")
-      case Obj(c, Nil) =>
-        c
-      case Obj(c, vs) =>
-        vs.map(show).mkString(s"$c(", ", ", ")")
-      case _ =>
-        v.toString
-
   def int(v: Any): BigInt =
     v match
       case n: BigInt =>
         n
       case _ =>
-        error(s"expected an integer, got ${show(v)}")
+        error(s"expected an integer, got ${Printer.show(v)}")
 
   def bool(v: Any): Boolean =
     v match
       case b: Boolean =>
         b
       case _ =>
-        error(s"expected a boolean, got ${show(v)}")
+        error(s"expected a boolean, got ${Printer.show(v)}")
 
   def equal(a: Any, b: Any): Boolean =
     (a, b) match
       case (_: Function1[?, ?], _) | (_, _: Function1[?, ?]) =>
         error("cannot compare functions")
+      case (Obj("{}", as), Obj("{}", bs)) =>
+        subset(as, bs) && subset(bs, as)
       case (Obj(c, as), Obj(d, bs)) =>
         c == d && equal(as, bs)
       case _ =>
@@ -61,12 +46,23 @@ object Run:
       case _ =>
         false
 
+  def subset(as: List[Any], bs: List[Any]): Boolean =
+    as.forall(a => bs.exists(equal(a, _)))
+
+  // the first of equal values
+  def distinct(vs: List[Any]): List[Any] =
+    vs match
+      case Nil =>
+        Nil
+      case v :: vs =>
+        v :: distinct(vs.filterNot(equal(v, _)))
+
   def function(v: Any): List[Any] => Any =
     v match
       case f: Function1[?, ?] =>
         f.asInstanceOf[List[Any] => Any]
       case _ =>
-        error(s"cannot apply ${show(v)}")
+        error(s"cannot apply ${Printer.show(v)}")
 
   def bind[A](xs: List[Pat.Var], vs: List[A]): Map[Name, A] =
     xs.names.zip(vs).toMap
@@ -106,8 +102,10 @@ object Run:
         !equal(a, b)
       case ("not", List(a)) =>
         !bool(a)
+      case ("{}", vs) =>
+        Obj("{}", distinct(vs))
       case _ =>
-        error(s"$f${args.map(show).mkString("(", ", ", ")")} is unspecified")
+        error(s"$f${args.map(Printer.show).mkString("(", ", ", ")")} is unspecified")
 
 class Run(program: Program):
   import Run.*
@@ -142,7 +140,7 @@ class Run(program: Program):
         fun(funs(name))
       case Expr.Var(name, _) if constrs.contains(name) =>
         constr(name)(constrs(name))
-      case Expr.Var(name, _) if Check.builtins.contains(name) =>
+      case Expr.Var(name, _) if Check.builtins.contains(name) || Check.collections.contains(name) =>
         builtin(name)
       case Expr.Var(name, _) =>
         error(s"$name is not initialized")
@@ -181,7 +179,7 @@ class Run(program: Program):
   def select[A](v: Any, cases: List[Case[A]]): (A, Map[Name, Any]) =
     cases match
       case Nil =>
-        error(s"no case matches ${show(v)}")
+        error(s"no case matches ${Printer.show(v)}")
       case c :: cs =>
         matches(c.pat, v).map(c.body -> _).getOrElse(select(v, cs))
 
@@ -255,7 +253,7 @@ class Run(program: Program):
       // assertions of equations show both sides when they fail
       case Stmt.Assert(Expr.App(Expr.Var("==", _), List(lhs, rhs))) =>
         val (a, b) = (value(store, lhs), value(store, rhs))
-        require(equal(a, b), s"assertion failed: ${show(a)} != ${show(b)}")
+        require(equal(a, b), s"assertion failed: ${Printer.show(a)} != ${Printer.show(b)}")
 
       case Stmt.Assert(test) =>
         require(bool(value(store, test)), "assertion failed")
@@ -280,7 +278,7 @@ class Run(program: Program):
   def run(): List[String] =
     program.cmds.flatMap:
       case Cmd.Eval(expr) =>
-        List(show(eval(Map(), expr)))
+        List(Printer.show(eval(Map(), expr)))
       case Cmd.Run(body) =>
         results(body)
       case Cmd.Test(body) =>
@@ -297,7 +295,7 @@ class Run(program: Program):
         for s <- stmts do
           exec(store, s)
         for x <- locals; v <- store(x.name).get.toList
-        yield s"${x.name} = ${show(v)}"
+        yield s"${x.name} = ${Printer.show(v)}"
       case _ =>
         exec(Map(), body)
         Nil

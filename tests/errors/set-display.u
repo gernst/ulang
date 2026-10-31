@@ -1,0 +1,4 @@
+// runtime error: assertion failed: {2, 1} != {1}
+test
+  assert {2, 1, 2} == {1};
+end

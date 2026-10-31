@@ -1,0 +1,4 @@
+// type error: cannot unify Int and Bool
+test
+  assert [1, true] == [];
+end

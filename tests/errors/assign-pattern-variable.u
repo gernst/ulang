@@ -1,6 +1,4 @@
 // type error: x is not assignable
-data List[A] = nil | cons(A, List[A])
-
 procedure p(; r: Int)
   match cons(1, nil)
     case cons(x, _) => x := 1;

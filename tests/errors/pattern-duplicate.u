@@ -1,7 +1,4 @@
 // type error: duplicate pattern variable x
-data List[A] = nil | cons(A, List[A])
-data Option[A] = none | some(A)
-
 function f(): Int =
   match nil
     case cons(x, x) => 0

@@ -1,5 +1,3 @@
-data Nat = zero | succ(Nat)
-
 function add(m: Nat, n: Nat): Nat =
   match m
     case zero => n

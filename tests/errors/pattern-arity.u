@@ -1,7 +1,4 @@
 // type error: constructor cons expects 2 values, got 1
-data List[A] = nil | cons(A, List[A])
-data Option[A] = none | some(A)
-
 function f(): Int =
   match nil
     case cons(x) => 0

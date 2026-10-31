@@ -6,8 +6,12 @@ class Error(msg: String) extends Exception(msg)
 class Ref[A](var get: A)
 
 object Main:
+  val prelude: Program =
+    Parser.parseProgram(os.read(os.resource / "prelude.u"))
+
+  // runs text after the prelude
   def run(text: String): List[String] =
-    new Run(Check.program(Parser.parseProgram(text))).run()
+    new Run(Check.program(Program(prelude.cmds ++ Parser.parseProgram(text).cmds))).run()
 
   // prints the output of file and whether it succeeded
   def report(file: String): Boolean =

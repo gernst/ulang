@@ -1,7 +1,4 @@
 // type error: match is not exhaustive, missing cons(some(_), _)
-data List[A] = nil | cons(A, List[A])
-data Option[A] = none | some(A)
-
 function f(x: List[Option[Int]]): Int =
   match x
     case nil => 0

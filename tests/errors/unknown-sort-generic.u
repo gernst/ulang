@@ -1,2 +1,2 @@
-// type error: unknown sort List
-sort P[A] = List[A]
+// type error: unknown sort Map
+sort P[A] = Map[A]

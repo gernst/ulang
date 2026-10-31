@@ -1,0 +1,5 @@
+// loaded before every program
+
+data List[A] = nil | cons(A, List[A])
+data Option[A] = none | some(A)
+data Nat = zero | succ(Nat)

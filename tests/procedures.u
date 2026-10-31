@@ -1,5 +1,3 @@
-data List[A] = nil | cons(A, List[A])
-
 procedure sum(n: Int; s: Int)
   var i: Int;
   i, s := 0, 0;

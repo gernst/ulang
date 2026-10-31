@@ -1,6 +1,3 @@
-data List[A] = nil | cons(A, List[A])
-data Option[A] = none | some(A)
-
 function len[A](xs: List[A]): Int =
   match xs
     case nil => 0
