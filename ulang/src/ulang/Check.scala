@@ -7,7 +7,7 @@ case class Sig(params: List[Type], ins: List[Type], outs: List[Type], refs: List
 
 case class Ctx(
     aliases: Map[Name, (List[Name], Type)] = Map(),
-    funs: Map[Name, Scheme] = Map(),
+    funs: Map[Name, List[Scheme]] = Map(),
     procs: Map[Name, Sig] = Map(),
     datas: Map[Name, Int] = Map(),
     members: Map[Name, List[Name]] = Map(),
@@ -43,28 +43,30 @@ object Check:
     val ps = List(Type.Param("A"), Type.Param("B"))
     Ctx(datas = Map("*" -> 2), members = Map("*" -> List(",")), constrs = Map("," -> Constructor(ps, ps, Type.Sort("*", ps))))
 
+  // only what cannot be defined in the prelude
   val builtins: Map[Name, Scheme] =
     val arith = mono(fun(List(Int, Int), Int))
-    val cmp = mono(fun(List(Int, Int), Bool))
     val logic = mono(fun(List(Bool, Bool), Bool))
     val eq = Scheme(List(Type.Param("A")), fun(List(Type.Param("A"), Type.Param("A")), Bool))
     Map(
       "+" -> arith,
       "-" -> arith,
-      "uminus" -> mono(fun(List(Int), Int)),
       "*" -> arith,
       "/" -> arith,
       "%" -> arith,
-      "<" -> cmp,
-      "<=" -> cmp,
-      ">" -> cmp,
-      ">=" -> cmp,
+      "<" -> mono(fun(List(Int, Int), Bool)),
       "==" -> eq,
-      "!=" -> eq,
       "and" -> logic,
-      "or" -> logic,
-      "not" -> mono(fun(List(Bool), Bool))
+      "or" -> logic
     )
+
+  // the number of arguments of a function, functions are overloaded by it
+  def arity(t: Type): Int =
+    t match
+      case Type.Sort("->", args) =>
+        args.length - 1
+      case _ =>
+        -1
 
   def show(t: Type): String =
     t match
@@ -286,6 +288,8 @@ class Check(program: Program):
         Cmd.Fun(name, params, bound.map(zonk(_)), zonk(res), zonk(body))
       case Cmd.Proc(name, params, ins, outs, refs, body) =>
         Cmd.Proc(name, params, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))
+      case Cmd.Notation(_, _, _) =>
+        d
       case Cmd.Eval(expr) =>
         Cmd.Eval(zonk(expr))
       case Cmd.Run(body) =>
@@ -315,7 +319,8 @@ class Check(program: Program):
       case (Type.Sort(f, as), Type.Sort(g, bs)) if f == g && as.length == bs.length =>
         unify(as, bs)
       case _ =>
-        error(s"cannot unify ${show(zonk(t1))} and ${show(zonk(t2))}")
+        val List(a, b) = shows(List(t1, t2)): @unchecked
+        error(s"cannot unify $a and $b")
 
   def unify(as: List[Type], bs: List[Type]): Unit =
     (as, bs) match
@@ -327,8 +332,14 @@ class Check(program: Program):
         error(s"cannot unify ${as.length} types with ${bs.length} types")
 
   def assign(i: Int, t: Type): Unit =
-    require(!occurs(i, t), s"infinite type ?$i = ${show(zonk(t))}")
+    require(!occurs(i, t), s"infinite type ${shows(List(Type.Meta(i), t)).mkString(" = ")}")
     su.get += i -> t
+
+  // shows types for a message, with their unknowns numbered from 1 in order of appearance
+  def shows(ts: List[Type]): List[String] =
+    val ms = ts.map(zonk(_)).flatMap(free).filter(_.isInstanceOf[Type.Meta]).distinct
+    val su: Map[Type, Type] = ms.zipWithIndex.map((m, i) => m -> Type.Meta(i + 1)).toMap
+    ts.map(t => show(subst(zonk(t), su)))
 
   def instance(params: List[Type]): Map[Type, Type] =
     params.map(_ -> fresh()).toMap
@@ -336,8 +347,23 @@ class Check(program: Program):
   def instantiate(s: Scheme): Type =
     subst(zonk(s.typ), instance(s.params))
 
-  def lookup(env: Map[Name, Scheme], x: Name): Option[Scheme] =
-    env.get(x).orElse(funs.get(x)).orElse(constrs.get(x).map(_.scheme)).orElse(builtins.get(x))
+  // local variables hide functions, constructors, and builtins
+  def lookup(env: Map[Name, Scheme], x: Name): List[Scheme] =
+    if env.contains(x)
+    then List(env(x))
+    else funs.getOrElse(x, Nil) ++ constrs.get(x).map(_.scheme) ++ builtins.get(x)
+
+  // the meaning of x applied to n arguments, or n < 0 if x is not applied
+  def resolve(env: Map[Name, Scheme], x: Name, n: Int): Scheme =
+    lookup(env, x) match
+      case Nil =>
+        error(s"unknown variable $x")
+      case List(s) =>
+        s
+      case ss if n < 0 =>
+        error(s"overloaded $x must be applied")
+      case ss =>
+        ss.find(s => arity(s.typ) == n).getOrElse(error(s"$x does not take $n arguments"))
 
   // a use of x elaborated with an instance of s
   def use(x: Name, t: Type, s: Scheme): Expr.Var =
@@ -364,8 +390,13 @@ class Check(program: Program):
         error(s"invalid literal $value")
 
       case Expr.Var(name, typ) =>
-        val v = use(name, typ, lookup(env, name).getOrElse(error(s"unknown variable $name")))
+        val v = use(name, typ, resolve(env, name, -1))
         (v, v.typ)
+
+      case Expr.App(Expr.Var(name, typ), args) if lookup(env, name).length > 1 =>
+        val v = use(name, typ, resolve(env, name, args.length))
+        val (args1, r) = apply(env, v.typ, args)
+        (Expr.App(v, args1), r)
 
       case Expr.App(fun, args) =>
         val (fun1, t) = infer(env, fun)
@@ -651,6 +682,13 @@ class Check(program: Program):
       s"$name is already defined"
     )
 
+  // functions of the same name must differ in their number of arguments
+  def overload(name: Name, n: Int): Unit =
+    require(
+      !procs.contains(name) && !constrs.contains(name) && !(funs.getOrElse(name, Nil) ++ builtins.get(name)).exists(s => arity(s.typ) == n),
+      s"$name is already defined"
+    )
+
   def declareSort(name: Name): Unit =
     require(!basic(name) && name != "->" && !aliases.contains(name) && !datas.contains(name), s"sort $name is already defined")
 
@@ -683,11 +721,11 @@ class Check(program: Program):
         update(ctx => ctx.copy(constrs = ctx.constrs + (c -> Constructor(ps, ts, Type.Sort(name, ps)))))
 
     for case Cmd.Fun(name, params, bound, res, _) <- program.cmds do
-      declare(name)
+      overload(name, bound.length)
       distinct(params, "type parameter")
       val t = fun(signature(bound).types, known(res, s"result of $name"))
       closed(name, params, t)
-      update(c => c.copy(funs = c.funs + (name -> Scheme(params.map(Type.Param(_)), t))))
+      update(c => c.copy(funs = c.funs + (name -> (c.funs.getOrElse(name, Nil) :+ Scheme(params.map(Type.Param(_)), t)))))
 
     for case Cmd.Proc(name, params, ins, outs, refs, _) <- program.cmds do
       declare(name)
@@ -715,6 +753,9 @@ class Check(program: Program):
         val os = signature(outs)
         val rs = signature(refs)
         Cmd.Proc(name, params, is, os, rs, stmt(bind(is ++ os ++ rs), (os ++ rs).names.toSet, body))
+
+      case d: Cmd.Notation =>
+        d
 
       case Cmd.Eval(expr) =>
         Cmd.Eval(infer(Map(), expr)._1)

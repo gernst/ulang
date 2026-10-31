@@ -7,11 +7,12 @@ class Ref[A](var get: A)
 
 object Main:
   val prelude: Program =
-    Parser.parseProgram(os.read(os.resource / "prelude.u"))
+    Parser.parseProgram(os.read(os.resource / "prelude.u"), Nil)
 
-  // runs text after the prelude
+  // runs text after the prelude, whose notations apply to text
   def run(text: String): List[String] =
-    new Run(Check.program(Program(prelude.cmds ++ Parser.parseProgram(text).cmds))).run()
+    val program = Parser.parseProgram(text, Parser.notations(prelude))
+    new Run(Check.program(Program(prelude.cmds ++ program.cmds))).run()
 
   // prints the output of file and whether it succeeded
   def report(file: String): Boolean =

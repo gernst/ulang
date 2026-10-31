@@ -1,0 +1,4 @@
+// parse error: * is not a prefix operator at 3.18
+test
+  assert * 2 == 2;
+end

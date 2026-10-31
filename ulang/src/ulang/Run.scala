@@ -70,8 +70,6 @@ object Run:
         int(a) + int(b)
       case ("-", List(a, b)) =>
         int(a) - int(b)
-      case ("uminus", List(a)) =>
-        -int(a)
       case ("*", List(a, b)) =>
         int(a) * int(b)
       case ("/", List(a, b)) =>
@@ -80,28 +78,19 @@ object Run:
         int(a) % nonzero(b)
       case ("<", List(a, b)) =>
         int(a) < int(b)
-      case ("<=", List(a, b)) =>
-        int(a) <= int(b)
-      case (">", List(a, b)) =>
-        int(a) > int(b)
-      case (">=", List(a, b)) =>
-        int(a) >= int(b)
       case ("==", List(a, b)) =>
         equal(a, b)
-      case ("!=", List(a, b)) =>
-        !equal(a, b)
-      case ("not", List(a)) =>
-        !bool(a)
       case _ =>
         error(s"$f${args.map(Printer.show).mkString("(", ", ", ")")} is unspecified")
 
 class Run(program: Program):
   import Run.*
 
+  // functions are overloaded by their number of arguments
   val funs =
     program.cmds.collect:
       case d: Cmd.Fun =>
-        d.name -> d
+        (d.name, d.bound.length) -> d
     .toMap
 
   val procs =
@@ -124,8 +113,8 @@ class Run(program: Program):
 
       case Expr.Var(name, _) if env.contains(name) =>
         env(name)
-      case Expr.Var(name, _) if funs.contains(name) =>
-        fun(funs(name))
+      case Expr.Var(name, typ) if funs.contains((name, Check.arity(typ))) =>
+        fun(funs((name, Check.arity(typ))))
       case Expr.Var(name, _) if constrs.contains(name) =>
         constr(name)(constrs(name))
       case Expr.Var(name, _) if Check.builtins.contains(name) =>

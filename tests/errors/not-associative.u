@@ -1,0 +1,4 @@
+// parse error: operator == is not associative at 3.24
+test
+  assert 1 == 1 == true;
+end

@@ -1,0 +1,8 @@
+// type error: overloaded f must be applied
+function f(x: Int): Int =
+  x
+
+function f(x: Int, y: Int): Int =
+  x
+
+eval f

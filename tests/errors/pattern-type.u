@@ -1,4 +1,4 @@
-// type error: cannot unify List[?2] and Int
+// type error: cannot unify List[?1] and Int
 function f(): Int =
   match 1
     case nil => 0

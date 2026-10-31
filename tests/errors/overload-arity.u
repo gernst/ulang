@@ -1,0 +1,8 @@
+// type error: f does not take 3 arguments
+function f(x: Int): Int =
+  x
+
+function f(x: Int, y: Int): Int =
+  x
+
+eval f(1, 2, 3)
