@@ -1,0 +1,2 @@
+// type error: unknown sort List
+sort P[A] = List[A]

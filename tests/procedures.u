@@ -1,0 +1,47 @@
+// procedures are only type checked, they cannot be tested yet
+data List[A] = nil | cons(A, List[A])
+
+procedure sum(n: Int; s: Int)
+  var i: Int;
+  i, s := 0, 0;
+  while i < n
+    i, s := i + 1, s + i;
+  end
+end
+
+procedure total(xs: List[Int]; s: Int)
+  var ys;
+  s, ys := 0, xs;
+  while ys != nil
+    match ys
+      case cons(y, zs) =>
+        s := s + y;
+        ys := zs;
+      case nil => skip;
+    end
+  end
+end
+
+procedure swap[A](;; x: A, y: A)
+  x, y := y, x;
+end
+
+procedure inc(;; x: Int)
+  x := x + 1;
+end
+
+procedure main(; a: Int, b: Int, c: Int)
+  var f: Int -> Int;
+  a, b := 1, 2;
+  call swap(;; a, b);
+  call inc(;; a);
+  call sum(a; c);
+  f := fun (x) => x + a;
+  if a > b then
+    c := f(c);
+  else if a == b then
+    skip;
+  else
+    c := 0;
+  end
+end

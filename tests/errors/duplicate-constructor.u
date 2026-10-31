@@ -1,0 +1,2 @@
+// type error: c is already defined
+data T = c | c

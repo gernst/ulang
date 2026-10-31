@@ -1,0 +1,2 @@
+// type error: cannot unify Bool and Int
+procedure p(; x: Int) x := true; end

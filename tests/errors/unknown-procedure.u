@@ -1,0 +1,2 @@
+// type error: unknown procedure r
+procedure q(x: Int) call r(x); end

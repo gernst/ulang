@@ -1,0 +1,6 @@
+// type error: cannot unify Int and Bool
+procedure p(; x: Int)
+  if x then
+    skip;
+  end
+end

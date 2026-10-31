@@ -1,0 +1,5 @@
+// type error: cannot unify Bool and Int
+function f(p: (Int, Int)): Int =
+  match p
+    case (x, true) => x
+  end

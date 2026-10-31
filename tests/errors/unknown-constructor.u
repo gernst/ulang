@@ -1,0 +1,8 @@
+// type error: unknown constructor f
+data List[A] = nil | cons(A, List[A])
+data Option[A] = none | some(A)
+
+function f(): Int =
+  match nil
+    case f(x) => 0
+  end

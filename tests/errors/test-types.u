@@ -1,0 +1,2 @@
+// type error: cannot unify Bool and Int
+test 1 == true

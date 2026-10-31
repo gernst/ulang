@@ -1,0 +1,2 @@
+// type error: sort T expects 1 arguments, got 0
+data T[A] = c(T)

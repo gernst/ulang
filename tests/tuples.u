@@ -1,0 +1,45 @@
+sort Pair[A] = (A, A)
+
+function swap[A](p: Pair[A]): Pair[A] =
+  match p
+    case (x, y) => (y, x)
+  end
+
+// a function of one pair, unlike (Int, Int) -> Int
+function sum(p: (Int, Int)): Int =
+  match p
+    case (x, y) => x + y
+  end
+
+function apply(f: ((Int, Int)) -> Int): Int =
+  f((1, 2))
+
+function xor(p: (Bool, Bool)): Bool =
+  match p
+    case (true, false) => true
+    case (false, true) => true
+    case _ => false
+  end
+
+// commas associate to the right
+function last(t: (Int, Bool, Str)): Str =
+  match t
+    case (_, (_, s)) => s
+  end
+
+function divmod(a: Int, b: Int): (Int, Int) =
+  (a / b, a % b)
+
+test swap((1, 2)) == (2, 1)
+test sum((3, 4)) == 7
+test apply(sum) == 3
+test xor((true, false)) == true
+test xor((true, true)) == false
+test (1, true, "x") == (1, (true, "x"))
+test last((1, true, "x")) == "x"
+test (1) == 1
+
+// let binds one value per binder, patterns destructure them
+test (let (q, r) = divmod(7, 2) in q * 10 + r) == 31
+test (let (x, y), z = (1, 2), 3 in x + y + z) == 6
+test (let _, z: Int = 1, 2 in z) == 2

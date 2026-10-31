@@ -1,0 +1,2 @@
+// type error: missing type for x
+procedure p(; x) skip; end

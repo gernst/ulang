@@ -1,0 +1,14 @@
+# build output
+out/
+
+# IDE and build server state
+.bsp/
+.bloop/
+.metals/
+.vscode/
+
+# editor backups
+*~
+
+# built by make
+ulang.jar

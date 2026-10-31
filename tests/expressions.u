@@ -1,0 +1,25 @@
+// arithmetic and precedence
+test 1 + 2 * 3 - 4 / 2 == 5
+test -2 * -3 == 6
+test 7 % 3 == 1
+test -7 % 3 == -1
+test (not 1 < 2 or 1 + 1 == 2 and true) == true
+test (not true and false) == false
+test (1 < 2) == (2 > 1)
+
+// let binds in parallel
+test (let x, y = 1, 2 in x + y * 3) == 7
+test (let x, y = 1, 2 in let x, y = y, x in x - y) == 1
+
+test (if not 1 < 2 then 0 else 1) == 1
+
+test (fun (f) => f(f(1)))(fun (x) => x * 2) == 4
+test (fun (f: Int -> Int) => f(1))(fun (x: Int) => x) == 1
+
+test "a" == "a"
+test () == ()
+test (1 != 2) == true
+
+// and, or are not strict
+test (false and 1 / 0 == 0) == false
+test (true or 1 / 0 == 0) == true

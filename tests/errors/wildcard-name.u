@@ -1,0 +1,3 @@
+// parse error: keyword _ is not a name at 3.17
+function f(): Int =
+  let _ = 1 in _

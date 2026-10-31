@@ -1,0 +1,8 @@
+// type error: match is not exhaustive, missing succ(zero)
+data Nat = zero | succ(Nat)
+
+function f(n: Nat): Nat =
+  match n
+    case zero => zero
+    case succ(succ(m)) => m
+  end

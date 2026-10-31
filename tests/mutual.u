@@ -1,0 +1,24 @@
+// mutually recursive datatypes, and a sort definition before the datatype it uses
+data Tree[A] = node(A, Forest[A])
+data Forest[A] = leaf | grow(Tree[A], Forest[A])
+sort Pair[A] = Tuple[A, A]
+data Tuple[A, B] = tuple(A, B)
+
+function size[A](t: Tree[A]): Int =
+  match t
+    case node(_, f) => 1 + sizes(f)
+  end
+
+function sizes[A](f: Forest[A]): Int =
+  match f
+    case leaf => 0
+    case grow(t, g) => size(t) + sizes(g)
+  end
+
+function swap[A](p: Pair[A]): Pair[A] =
+  match p
+    case tuple(x, y) => tuple(y, x)
+  end
+
+test size(node(1, grow(node(2, leaf), grow(node(3, leaf), leaf)))) == 3
+test swap(tuple(1, 2)) == tuple(2, 1)

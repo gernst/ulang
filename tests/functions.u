@@ -1,0 +1,27 @@
+function fact(n: Int): Int =
+  if n == 0 then 1 else n * fact(n - 1)
+
+function id[A](x: A): A =
+  x
+
+function twice[A](f: A -> A, x: A): A =
+  f(f(x))
+
+// let generalizes its bindings
+function poly(): Bool =
+  let f = id in f(1) == twice(f, 1) and f(true)
+
+function local(): Bool =
+  let g = fun (y) => y in g(1) == 1 and g(true)
+
+sort Pred[A] = A -> Bool
+
+function pos(): Pred[Int] =
+  fun (x: Int) => x > 0
+
+test fact(5) == 120
+test twice(fun (x) => x * 3, 1) == 9
+test poly() == true
+test local() == true
+test pos()(1) == true
+test pos()(0) == false

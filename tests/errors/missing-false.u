@@ -1,0 +1,5 @@
+// type error: match is not exhaustive, missing false
+function f(x: Bool): Int =
+  match x
+    case true => 0
+  end

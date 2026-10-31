@@ -1,0 +1,6 @@
+// type error: match is not exhaustive, missing (false, true)
+function f(p: (Bool, Bool)): Int =
+  match p
+    case (true, _) => 0
+    case (false, false) => 1
+  end

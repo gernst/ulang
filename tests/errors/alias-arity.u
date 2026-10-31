@@ -1,0 +1,5 @@
+// type error: sort P expects 1 arguments, got 0
+sort P[A] = A -> A
+
+function f(x: P): Int =
+  0

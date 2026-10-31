@@ -1,0 +1,6 @@
+// type error: match is not exhaustive, missing false
+procedure p(x: Bool; r: Int)
+  match x
+    case true => r := 0;
+  end
+end

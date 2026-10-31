@@ -1,0 +1,3 @@
+// type error: cannot unify Int and Bool
+function f(): Bool =
+  (fun (g) => g(1) == 1 and g(true))(fun (y) => y)

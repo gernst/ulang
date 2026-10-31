@@ -1,0 +1,3 @@
+// type error: duplicate argument to p z
+procedure p(;; x: Int, y: Int) skip; end
+procedure q(; z: Int) call p(;; z, z); end

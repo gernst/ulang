@@ -1,0 +1,3 @@
+// type error: cannot unify Bool and Int
+procedure p(x: Int; y: Int) skip; end
+procedure q(; z: Bool) call p(1; z); end

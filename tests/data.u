@@ -1,0 +1,59 @@
+data List[A] = nil | cons(A, List[A])
+data Option[A] = none | some(A)
+
+function len[A](xs: List[A]): Int =
+  match xs
+    case nil => 0
+    case cons(_, ys) => 1 + len(ys)
+  end
+
+function map[A, B](f: A -> B, xs: List[A]): List[B] =
+  match xs
+    case nil => nil
+    case cons(y, ys) => cons(f(y), map(f, ys))
+  end
+
+function range(n: Int): List[Int] =
+  if n == 0 then nil else cons(n, range(n - 1))
+
+function head[A](xs: List[A]): Option[A] =
+  match xs
+    case cons(x, _) => some(x)
+    case _ => none
+  end
+
+function nested(xs: List[Option[Int]]): Int =
+  match xs
+    case cons(some(1), cons(none, _)) => 1
+    case _ => 0
+  end
+
+function word(x: Int): Str =
+  match x
+    case 0 => "zero"
+    case _ => "other"
+  end
+
+function flip(b: Bool): Int =
+  match b
+    case true => 0
+    case false => 1
+  end
+
+function unit(u: Unit): Int =
+  match u
+    case () => 0
+  end
+
+test range(3) == cons(3, cons(2, cons(1, nil)))
+test len(range(3)) == 3
+test map(fun (x) => x * x, range(3)) == cons(9, cons(4, cons(1, nil)))
+test head(range(2)) == some(2)
+test head(nil) == none
+test nested(cons(some(1), cons(none, nil))) == 1
+test nested(nil) == 0
+test word(0) == "zero"
+test word(7) == "other"
+test flip(false) == 1
+test unit(()) == 0
+test (range(2) != nil) == true

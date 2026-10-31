@@ -1,0 +1,5 @@
+// type error: match is not exhaustive, missing _
+function f(x: Int): Int =
+  match x
+    case 0 => 0
+  end
