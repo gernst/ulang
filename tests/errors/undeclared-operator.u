@@ -1,4 +1,4 @@
-// parse error: undeclared operator <+> at 3.22
+// parse error: undeclared operator <+> at 3.12
 test
   assert 1 <+> 2 == 3;
 end

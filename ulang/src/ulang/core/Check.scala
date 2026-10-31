@@ -1,4 +1,5 @@
 package ulang
+package core
 
 // params are the Params of a generic declaration or the Metas generalized by a let
 case class Scheme(params: List[Type], typ: Type)

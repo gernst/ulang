@@ -1,4 +1,5 @@
 package ulang
+package core
 
 object Printer:
   def show(v: Any): String =
@@ -11,7 +12,7 @@ object Printer:
         "<function>"
       case Obj(",", vs) =>
         vs.map(show).mkString("(", ", ", ")")
-      case Obj("nil" | "::", _) if items(v).nonEmpty =>
+      case Obj("::", _) if items(v).nonEmpty =>
         items(v).get.map(show).mkString("[", ", ", "]")
       case Obj(c, Nil) =>
         c

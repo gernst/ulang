@@ -1,4 +1,5 @@
 package ulang
+package core
 
 type Name = String
 

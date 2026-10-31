@@ -1,4 +1,5 @@
 package ulang
+package core
 
 case class Obj(name: Name, args: List[Any])
 
@@ -167,7 +168,10 @@ class Run(program: Program):
       case (Nil, Nil) =>
         List(env)
       case (x :: xs, list :: lists) =>
-        elements(eval(env, list)).flatMap(v => combinations(env + (x.name -> v), xs, lists))
+        for
+          v <- elements(eval(env, list))
+          env1 <- combinations(env + (x.name -> v), xs, lists)
+        yield env1
       case _ =>
         error(s"expected ${xs.length} lists, got ${lists.length}")
 
@@ -176,7 +180,11 @@ class Run(program: Program):
       case Nil =>
         error(s"no case matches ${Printer.show(v)}")
       case c :: cs =>
-        matches(c.pat, v).map(c.body -> _).getOrElse(select(v, cs))
+        matches(c.pat, v) match
+          case Some(bs) =>
+            (c.body, bs)
+          case None =>
+            select(v, cs)
 
   def matches(p: Pat, v: Any): Option[Map[Name, Any]] =
     (p, v) match
