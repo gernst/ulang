@@ -38,11 +38,14 @@ object Main:
 
   val prelude: Program = Parser.parseProgram(library("prelude"), Nil, Set("prelude"), library)
 
-  // the checked text of file after the prelude, whose notations and modules apply to it, inlining its imports
-  def load(text: String, file: os.Path): Run =
+  // the text of file, to which the notations and modules of the prelude apply, inlining its imports
+  def parse(text: String, file: os.Path): Program =
     val loaded = Parser.imports(prelude) + file.baseName
-    val program = Parser.parseProgram(text, Parser.notations(prelude), loaded, module(file / os.up))
-    new Run(Check.program(Program(prelude.cmds ++ program.cmds)))
+    Parser.parseProgram(text, Parser.notations(prelude), loaded, module(file / os.up))
+
+  // the checked text of file after the prelude
+  def load(text: String, file: os.Path): Run =
+    new Run(Check.program(Program(prelude.cmds ++ parse(text, file).cmds)), file / os.up)
 
   def run(text: String, file: os.Path): List[String] =
     load(text, file).run()

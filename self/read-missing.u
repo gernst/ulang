@@ -1,0 +1,7 @@
+// runtime error: cannot read missing.u at 6.3
+import syntax
+
+test
+  local p: Program;
+  call read("missing.u"; p);
+end

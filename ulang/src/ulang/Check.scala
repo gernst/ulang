@@ -1,29 +1,5 @@
 package ulang
 
-// params are the Params of a generic declaration or the Metas generalized by a let
-case class Scheme(params: List[Type], typ: Type)
-
-case class Sig(params: List[Type], ins: List[Type], outs: List[Type], refs: List[Type])
-
-case class Ctx(
-    aliases: Map[Name, (List[Name], Type)] = Map(),
-    funs: Map[Name, List[Scheme]] = Map(),
-    procs: Map[Name, Sig] = Map(),
-    datas: Map[Name, Int] = Map(),
-    members: Map[Name, List[Name]] = Map(),
-    constrs: Map[Name, Constructor] = Map()
-)
-
-case class Constructor(params: List[Type], args: List[Type], res: Type):
-  def scheme: Scheme =
-    Scheme(
-      params,
-      if args.isEmpty then
-        res
-      else
-        Check.fun(args, res)
-    )
-
 object Check:
   val Bool = Type.Sort("Bool", Nil)
   val Int = Type.Sort("Int", Nil)
@@ -35,19 +11,28 @@ object Check:
   def fun(args: List[Type], res: Type): Type =
     Type.Sort("->", args :+ res)
 
-  def mono(t: Type): Scheme =
-    Scheme(Nil, t)
+  // type schemes are types with the Params of a generic declaration or the Metas generalized by a let
+  def mono(t: Type): (List[Type], Type) =
+    (Nil, t)
+
+  // the type scheme of a constructor, which is a function if it has arguments
+  def scheme(k: (List[Type], List[Type], Type)): (List[Type], Type) =
+    k match
+      case (params, Nil, res) =>
+        (params, res)
+      case (params, args, res) =>
+        (params, fun(args, res))
 
   // pairs are a datatype *[A, B] with the constructor ,
   val initial: Ctx =
     val ps = List(Type.Param("A"), Type.Param("B"))
-    Ctx(datas = Map("*" -> 2), members = Map("*" -> List(",")), constrs = Map("," -> Constructor(ps, ps, Type.Sort("*", ps))))
+    Ctx(datas = Map("*" -> 2), members = Map("*" -> List(",")), constrs = Map("," -> (ps, ps, Type.Sort("*", ps))))
 
   // only what cannot be defined in the prelude
-  val builtins: Map[Name, Scheme] =
+  val builtins: Map[Name, (List[Type], Type)] =
     val arith = mono(fun(List(Int, Int), Int))
     val logic = mono(fun(List(Bool, Bool), Bool))
-    val eq = Scheme(List(Type.Param("A")), fun(List(Type.Param("A"), Type.Param("A")), Bool))
+    val eq = (List(Type.Param("A")), fun(List(Type.Param("A"), Type.Param("A")), Bool))
     Map(
       "+" -> arith,
       "-" -> arith,
@@ -103,35 +88,6 @@ object Check:
         args.exists(holes)
       case _ =>
         false
-
-  // constructors named by operators are shown infix
-  def symbolic(name: Name): Boolean =
-    !name.head.isLetter && name.head != '_' && name != ","
-
-  def infix(op: Name, l: String, r: String): String =
-    def operand(a: String): String =
-      if a.contains(" ") && !a.startsWith("(") then
-        s"($a)"
-      else
-        a
-    s"${operand(l)} $op ${operand(r)}"
-
-  def show(p: Pat): String =
-    p match
-      case Pat.Wild() =>
-        "_"
-      case Pat.Lit(value) =>
-        Printer.show(value)
-      case Pat.Var(name, _) =>
-        name
-      case Pat.App(",", args) =>
-        args.map(show(_)).mkString("(", ", ", ")")
-      case Pat.App(name, List(l, r)) if symbolic(name) =>
-        infix(name, show(l), show(r))
-      case Pat.App(name, Nil) =>
-        name
-      case Pat.App(name, args) =>
-        args.map(show(_)).mkString(s"$name(", ", ", ")")
 
   def subst(t: Type, su: Map[Type, Type]): Type =
     t match
@@ -217,7 +173,7 @@ class Check(program: Program):
     distinct(xs.names, "variable")
     xs.map(x => at(x.pos)(Pat.Var(x.name, known(x.typ, x.name))(x.pos)))
 
-  def bind(xs: List[Pat.Var]): Map[Name, Scheme] =
+  def bind(xs: List[Pat.Var]): Map[Name, (List[Type], Type)] =
     xs.map(x => x.name -> mono(x.typ)).toMap
 
   def resolve(t: Type): Type =
@@ -372,18 +328,19 @@ class Check(program: Program):
   def instance(params: List[Type]): Map[Type, Type] =
     params.map(_ -> fresh()).toMap
 
-  def instantiate(s: Scheme): Type =
-    subst(zonk(s.typ), instance(s.params))
+  def instantiate(s: (List[Type], Type)): Type =
+    val (params, typ) = s
+    subst(zonk(typ), instance(params))
 
   // local variables hide functions, constructors, and builtins
-  def lookup(env: Map[Name, Scheme], x: Name): List[Scheme] =
+  def lookup(env: Map[Name, (List[Type], Type)], x: Name): List[(List[Type], Type)] =
     if env.contains(x) then
       List(env(x))
     else
-      funs.getOrElse(x, Nil) ++ constrs.get(x).map(_.scheme) ++ builtins.get(x)
+      funs.getOrElse(x, Nil) ++ constrs.get(x).map(scheme) ++ builtins.get(x)
 
   // the meaning of x applied to n arguments, or n < 0 if x is not applied
-  def resolve(env: Map[Name, Scheme], x: Name, n: Int): Scheme =
+  def resolve(env: Map[Name, (List[Type], Type)], x: Name, n: Int): (List[Type], Type) =
     lookup(env, x) match
       case Nil =>
         error("type", s"unknown variable $x")
@@ -392,18 +349,18 @@ class Check(program: Program):
       case ss if n < 0 =>
         error("type", s"overloaded $x must be applied")
       case ss =>
-        ss.find(s => arity(s.typ) == n).getOrElse(error("type", s"$x does not take $n arguments"))
+        ss.find((_, t) => arity(t) == n).getOrElse(error("type", s"$x does not take $n arguments"))
 
   // a use of x elaborated with an instance of s
-  def use(x: Name, t: Type, s: Scheme, pos: Pos): Expr.Var =
+  def use(x: Name, t: Type, s: (List[Type], Type), pos: Pos): Expr.Var =
     val u = instantiate(s)
     unify(u, normalize(t))
     Expr.Var(x, u)(pos)
 
-  def generalize(env: Map[Name, Scheme], t: Type): Scheme =
-    val fixed = env.values.flatMap(s => free(zonk(s.typ)).diff(s.params)).toSet
+  def generalize(env: Map[Name, (List[Type], Type)], t: Type): (List[Type], Type) =
+    val fixed = env.values.flatMap((params, u) => free(zonk(u)).diff(params)).toSet
     val typ = zonk(t)
-    Scheme(
+    (
       for
         case m: Type.Meta <- free(typ)
         if !fixed(m)
@@ -411,7 +368,7 @@ class Check(program: Program):
       typ
     )
 
-  def infer(env: Map[Name, Scheme], e: Expr): (Expr, Type) =
+  def infer(env: Map[Name, (List[Type], Type)], e: Expr): (Expr, Type) =
     at(e.pos):
       e match
         case Expr.Lit(()) =>
@@ -472,7 +429,7 @@ class Check(program: Program):
           (Expr.Match(arg1, cases1)(e.pos), r)
 
   // each list may refer to the variables bound before it
-  def generators(env: Map[Name, Scheme], xs: List[Pat.Var], lists: List[Expr]): List[Expr] =
+  def generators(env: Map[Name, (List[Type], Type)], xs: List[Pat.Var], lists: List[Expr]): List[Expr] =
     (xs, lists) match
       case (Nil, Nil) =>
         Nil
@@ -482,7 +439,7 @@ class Check(program: Program):
         error("type", s"expected ${xs.length} lists, got ${lists.length}")
 
   // checks the patterns against arg and each body with the variables its pattern binds
-  def branches[A](env: Map[Name, Scheme], arg: Expr, cases: List[Case[A]])(elaborate: (Map[Name, Scheme], A) => A): (Expr, List[Case[A]]) =
+  def branches[A](env: Map[Name, (List[Type], Type)], arg: Expr, cases: List[Case[A]])(elaborate: (Map[Name, (List[Type], Type)], A) => A): (Expr, List[Case[A]]) =
     val (arg1, t) = infer(env, arg)
     val cases1 =
       for Case(pat, body) <- cases
@@ -493,7 +450,7 @@ class Check(program: Program):
     exhaustive(t, cases1)
     (arg1, cases1)
 
-  def pattern(p: Pat, t: Type): (Pat, Map[Name, Scheme]) =
+  def pattern(p: Pat, t: Type): (Pat, Map[Name, (List[Type], Type)]) =
     val (p1, bs) = binders(p, t)
     distinct(bs.names, "pattern variable")
     (p1, bind(bs))
@@ -518,11 +475,11 @@ class Check(program: Program):
           (x, List(x))
 
         case Pat.App(name, args) =>
-          val k = constrs.getOrElse(name, error("type", s"unknown constructor $name"))
-          sameLength(k.args, args, s"constructor $name")
-          val su = instance(k.params)
-          unify(subst(k.res, su), t)
-          val (args1, bs) = binders(args, k.args.map(subst(_, su)))
+          val (params, kargs, res) = constrs.getOrElse(name, error("type", s"unknown constructor $name"))
+          sameLength(kargs, args, s"constructor $name")
+          val su = instance(params)
+          unify(subst(res, su), t)
+          val (args1, bs) = binders(args, kargs.map(subst(_, su)))
           (Pat.App(name, args1)(p.pos), bs)
 
   def binders(ps: List[Pat], ts: List[Type]): (List[Pat], List[Pat.Var]) =
@@ -542,7 +499,7 @@ class Check(program: Program):
 
   def reachable(t: Type, cases: List[Case[?]]): Unit =
     for (c, i) <- cases.zipWithIndex do
-      require("type", useful(cases.take(i).map(c => List(c.pat)), List(c.pat), List(t)), s"unreachable case ${show(c.pat)}")
+      require("type", useful(cases.take(i).map(c => List(c.pat)), List(c.pat), List(t)), s"unreachable case ${Printer.show(c.pat)}")
 
   // the constructors in the first column
   def heads(rows: List[List[Pat]]): Set[Name] =
@@ -591,8 +548,8 @@ class Check(program: Program):
     (c, args) match
       case (",", _) =>
         args.mkString("(", ", ", ")")
-      case (_, List(l, r)) if symbolic(c) =>
-        infix(c, l, r)
+      case (_, List(l, r)) if Printer.symbolic(c) =>
+        Printer.infix(c, l, r)
       case (_, Nil) =>
         c
       case _ =>
@@ -609,8 +566,8 @@ class Check(program: Program):
         Some(
           for c <- members(name)
           yield
-            val k = constrs(c)
-            c -> k.args.map(subst(_, k.params.zip(args).toMap))
+            val (params, kargs, _) = constrs(c)
+            c -> kargs.map(subst(_, params.zip(args).toMap))
         )
       case _ =>
         None
@@ -667,12 +624,12 @@ class Check(program: Program):
       case None =>
         List.fill(n)(Pat.Wild()(nowhere)) ++ r.tail
 
-  def check(env: Map[Name, Scheme], e: Expr, t: Type): Expr =
+  def check(env: Map[Name, (List[Type], Type)], e: Expr, t: Type): Expr =
     val (e1, t1) = infer(env, e)
     at(e.pos)(unify(t1, t))
     e1
 
-  def check(env: Map[Name, Scheme], es: List[Expr], ts: List[Type]): List[Expr] =
+  def check(env: Map[Name, (List[Type], Type)], es: List[Expr], ts: List[Type]): List[Expr] =
     (es, ts) match
       case (Nil, Nil) =>
         Nil
@@ -681,23 +638,23 @@ class Check(program: Program):
       case _ =>
         error("type", s"expected ${ts.length} values, got ${es.length}")
 
-  def infer(env: Map[Name, Scheme], es: List[Expr]): (List[Expr], List[Type]) =
+  def infer(env: Map[Name, (List[Type], Type)], es: List[Expr]): (List[Expr], List[Type]) =
     es.map(infer(env, _)).unzip
 
-  def apply(env: Map[Name, Scheme], f: Type, args: List[Expr]): (List[Expr], Type) =
+  def apply(env: Map[Name, (List[Type], Type)], f: Type, args: List[Expr]): (List[Expr], Type) =
     val r = fresh()
     val (args1, ts) = infer(env, args)
     unify(f, fun(ts, r))
     (args1, r)
 
-  def variable(env: Map[Name, Scheme], assignable: Set[Name], x: Expr.Var): Expr.Var =
+  def variable(env: Map[Name, (List[Type], Type)], assignable: Set[Name], x: Expr.Var): Expr.Var =
     at(x.pos):
       require("type", assignable(x.name), s"${x.name} is not assignable")
-      val t = env(x.name).typ
+      val (_, t) = env(x.name)
       unify(t, normalize(x.typ))
       Expr.Var(x.name, t)(x.pos)
 
-  def stmt(env: Map[Name, Scheme], assignable: Set[Name], s: Stmt): Stmt =
+  def stmt(env: Map[Name, (List[Type], Type)], assignable: Set[Name], s: Stmt): Stmt =
     at(s.pos):
       s match
         case Stmt.Skip() =>
@@ -720,16 +677,16 @@ class Check(program: Program):
           Stmt.While(check(env, test, Bool), stmt(env, assignable, body))(s.pos)
 
         case Stmt.Call(proc, ins, outs, refs) =>
-          val sig = procs.getOrElse(proc, error("type", s"unknown procedure $proc"))
-          val su = instance(sig.params)
-          sameLength(sig.ins, ins, proc)
-          sameLength(sig.outs, outs, proc)
-          sameLength(sig.refs, refs, proc)
+          val (params, is, os, rs) = procedure(proc).getOrElse(error("type", s"unknown procedure $proc"))
+          val su = instance(params)
+          sameLength(is, ins, proc)
+          sameLength(os, outs, proc)
+          sameLength(rs, refs, proc)
           distinct((outs ++ refs).names, s"argument to $proc")
-          val ins1 = check(env, ins, sig.ins.map(subst(_, su)))
+          val ins1 = check(env, ins, is.map(subst(_, su)))
           val outs1 = outs.map(variable(env, assignable, _))
           val refs1 = refs.map(variable(env, assignable, _))
-          unify((outs1 ++ refs1).types, (sig.outs ++ sig.refs).map(subst(_, su)))
+          unify((outs1 ++ refs1).types, (os ++ rs).map(subst(_, su)))
           Stmt.Call(proc, ins1, outs1, refs1)(s.pos)
 
         case Stmt.Match(arg, cases) =>
@@ -753,10 +710,17 @@ class Check(program: Program):
               Handler(t, pat1, stmt(env ++ bs, assignable -- bs.keys, b))
           Stmt.Try(stmt(env, assignable, body), handlers1)(s.pos)
 
+  // read gives the syntax of self/syntax.u, so it exists only in programs that declare its Program
+  def procedure(name: Name): Option[(List[Type], List[Type], List[Type], List[Type])] =
+    if name == "read" && datas.contains("Program") then
+      Some((Nil, List(Str), List(Type.Sort("Program", Nil)), Nil))
+    else
+      procs.get(name)
+
   def declare(name: Name): Unit =
     require(
       "type",
-      !funs.contains(name) && !procs.contains(name) && !constrs.contains(name) && !builtins.contains(name),
+      !funs.contains(name) && procedure(name).isEmpty && !constrs.contains(name) && !builtins.contains(name),
       s"$name is already defined"
     )
 
@@ -764,7 +728,7 @@ class Check(program: Program):
   def overload(name: Name, n: Int): Unit =
     require(
       "type",
-      !procs.contains(name) && !constrs.contains(name) && !(funs.getOrElse(name, Nil) ++ builtins.get(name)).exists(s => arity(s.typ) == n),
+      procedure(name).isEmpty && !constrs.contains(name) && !(funs.getOrElse(name, Nil) ++ builtins.get(name)).exists((_, t) => arity(t) == n),
       s"$name is already defined"
     )
 
@@ -800,7 +764,7 @@ class Check(program: Program):
           val ts = args.map(known(_, s"constructor $c"))
           for t <- ts do
             closed(s"sort $name", params, t)
-          update(ctx => ctx.copy(constrs = ctx.constrs + (c -> Constructor(ps, ts, Type.Sort(name, ps)))))
+          update(ctx => ctx.copy(constrs = ctx.constrs + (c -> (ps, ts, Type.Sort(name, ps)))))
 
     for case d @ Cmd.Fun(name, params, bound, res, _) <- program.cmds do
       at(d.pos):
@@ -808,7 +772,7 @@ class Check(program: Program):
         distinct(params, "type parameter")
         val t = fun(signature(bound).types, known(res, s"result of $name"))
         closed(name, params, t)
-        update(c => c.copy(funs = c.funs + (name -> (c.funs.getOrElse(name, Nil) :+ Scheme(params.map(Type.Param(_)), t)))))
+        update(c => c.copy(funs = c.funs + (name -> (c.funs.getOrElse(name, Nil) :+ (params.map(Type.Param(_)), t)))))
 
     for case d @ Cmd.Proc(name, params, ins, outs, refs, _) <- program.cmds do
       at(d.pos):
@@ -819,7 +783,7 @@ class Check(program: Program):
           closed(name, params, t)
         val (is, rest) = ts.splitAt(ins.length)
         val (os, rs) = rest.splitAt(outs.length)
-        update(c => c.copy(procs = c.procs + (name -> Sig(params.map(Type.Param(_)), is, os, rs))))
+        update(c => c.copy(procs = c.procs + (name -> (params.map(Type.Param(_)), is, os, rs))))
 
     Program(program.cmds.map(c => at(c.pos)(zonk(command(c)))))
 

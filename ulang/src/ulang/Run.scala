@@ -79,7 +79,8 @@ object Run:
       case _ =>
         error("runtime", s"$f${args.map(Printer.show).mkString("(", ", ", ")")} is unspecified")
 
-class Run(val program: Program):
+// dir is the directory of the program, which the paths of read are relative to
+class Run(val program: Program, val dir: os.Path = os.pwd):
   import Run.*
 
   // functions are overloaded by their number of arguments
@@ -295,11 +296,22 @@ class Run(val program: Program):
         error("runtime", s"cannot assign ${vs.length} values to ${xs.length} variables")
 
   def invoke(p: Name, ins: List[Any], refs: List[Cell]): List[Any] =
-    val d = procs.getOrElse(p, error("runtime", s"unknown procedure $p"))
-    val outs = d.outs.map(_ => Cell(None))
-    exec(bind(d.ins, ins.map(cell)) ++ bind(d.outs, outs) ++ bind(d.refs, refs), d.body)
-    for (x, r) <- d.outs.zip(outs)
-    yield r.get.getOrElse(error("runtime", s"output ${x.name} of $p is not assigned"))
+    (procs.get(p), ins) match
+      case (Some(d), _) =>
+        val outs = d.outs.map(_ => Cell(None))
+        exec(bind(d.ins, ins.map(cell)) ++ bind(d.outs, outs) ++ bind(d.refs, refs), d.body)
+        for (x, r) <- d.outs.zip(outs)
+        yield r.get.getOrElse(error("runtime", s"output ${x.name} of $p is not assigned"))
+      case (None, List(path: String)) if p == "read" =>
+        List(read(path))
+      case _ =>
+        error("runtime", s"unknown procedure $p")
+
+  // the syntax of a file as a value of self/syntax.u, unchecked
+  def read(path: String): Any =
+    val file = os.Path(path, dir)
+    require("runtime", os.isFile(file), s"cannot read $path")
+    Quote.quote(Main.parse(os.read(file), file))
 
   // the values of evals and of the variables of runs, failed assertions are errors
   def run(): List[String] =

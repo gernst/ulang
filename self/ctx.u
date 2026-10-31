@@ -1,0 +1,82 @@
+// the context of the checker, mirroring ulang/src/ulang/Ctx.scala, with association lists instead of maps
+
+import syntax
+
+// sort definitions with their parameters, the type schemes of functions with their parameters, the signatures of procedures
+// with parameters, ins, outs, and refs, datatypes with their numbers of parameters, their constructors,
+// and constructors with the parameters of their datatype, their argument types, and their datatype
+data Ctx =
+  ctx(
+    List[(Name, (List[Name], Type))],
+    List[(Name, List[(List[Type], Type)])],
+    List[(Name, (List[Type], List[Type], List[Type], List[Type]))],
+    List[(Name, Int)],
+    List[(Name, List[Name])],
+    List[(Name, (List[Type], List[Type], Type))]
+  )
+
+function aliases(c: Ctx): List[(Name, (List[Name], Type))] =
+  match c
+    case ctx(a, _, _, _, _, _) => a
+  end
+
+function funs(c: Ctx): List[(Name, List[(List[Type], Type)])] =
+  match c
+    case ctx(_, f, _, _, _, _) => f
+  end
+
+function procs(c: Ctx): List[(Name, (List[Type], List[Type], List[Type], List[Type]))] =
+  match c
+    case ctx(_, _, p, _, _, _) => p
+  end
+
+function datas(c: Ctx): List[(Name, Int)] =
+  match c
+    case ctx(_, _, _, d, _, _) => d
+  end
+
+function members(c: Ctx): List[(Name, List[Name])] =
+  match c
+    case ctx(_, _, _, _, m, _) => m
+  end
+
+function constrs(c: Ctx): List[(Name, (List[Type], List[Type], Type))] =
+  match c
+    case ctx(_, _, _, _, _, k) => k
+  end
+
+function with_alias(c: Ctx, n: Name, ps: List[Name], t: Type): Ctx =
+  match c
+    case ctx(a, f, p, d, m, k) => ctx((n, (ps, t)) :: a, f, p, d, m, k)
+  end
+
+function with_fun(c: Ctx, n: Name, sc: (List[Type], Type)): Ctx =
+  match c
+    case ctx(a, f, p, d, m, k) => ctx(a, update(n, schemes_of(c, n) ++ [sc], f), p, d, m, k)
+  end
+
+function with_proc(c: Ctx, n: Name, g: (List[Type], List[Type], List[Type], List[Type])): Ctx =
+  match c
+    case ctx(a, f, p, d, m, k) => ctx(a, f, (n, g) :: p, d, m, k)
+  end
+
+function with_data(c: Ctx, n: Name, arity: Int): Ctx =
+  match c
+    case ctx(a, f, p, d, m, k) => ctx(a, f, p, (n, arity) :: d, m, k)
+  end
+
+function with_members(c: Ctx, n: Name, cs: List[Name]): Ctx =
+  match c
+    case ctx(a, f, p, d, m, k) => ctx(a, f, p, d, (n, cs) :: m, k)
+  end
+
+function with_constr(c: Ctx, n: Name, kc: (List[Type], List[Type], Type)): Ctx =
+  match c
+    case ctx(a, f, p, d, m, k) => ctx(a, f, p, d, m, (n, kc) :: k)
+  end
+
+function schemes_of(c: Ctx, n: Name): List[(List[Type], Type)] =
+  match lookup(n, funs(c))
+    case some(ss) => ss
+    case none => nil
+  end

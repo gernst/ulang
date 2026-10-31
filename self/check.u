@@ -1,31 +1,14 @@
-// the type checker of ulang/src/ulang/Check.scala, which checks and elaborates programs of self/syntax.u,
+// the type checker of ulang/src/ulang/Check.scala, which checks and elaborates programs of self/syntax.u in contexts of self/ctx.u,
 // where the state is passed by reference, and errors are values of TypeError instead of messages
 
 import syntax
 import util
+import ctx
 
 // unknowns by their index
 sort Subst = List[(Int, Type)]
 
-// params are the Params of a generic declaration or the Metas generalized by a let
-data Scheme = scheme(List[Type], Type)
-
-sort Env = List[(Name, Scheme)]
-
-data Sig = sig(List[Type], List[Type], List[Type], List[Type])
-
-data Constructor = constructor(List[Type], List[Type], Type)
-
-// sort definitions, functions, procedures, datatypes with their numbers of parameters, their constructors, and constructors
-data Ctx =
-  ctx(
-    List[(Name, (List[Name], Type))],
-    List[(Name, List[Scheme])],
-    List[(Name, Sig)],
-    List[(Name, Int)],
-    List[(Name, List[Name])],
-    List[(Name, Constructor)]
-  )
+sort Env = List[(Name, (List[Type], Type))]
 
 // the context, the substitution, and the number of unknowns so far
 data State = state(Ctx, Subst, Int)
@@ -53,66 +36,6 @@ data TypeError =
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head = hcon(Name) | hlit(Val)
-
-function aliases(c: Ctx): List[(Name, (List[Name], Type))] =
-  match c
-    case ctx(a, _, _, _, _, _) => a
-  end
-
-function funs(c: Ctx): List[(Name, List[Scheme])] =
-  match c
-    case ctx(_, f, _, _, _, _) => f
-  end
-
-function procs(c: Ctx): List[(Name, Sig)] =
-  match c
-    case ctx(_, _, p, _, _, _) => p
-  end
-
-function datas(c: Ctx): List[(Name, Int)] =
-  match c
-    case ctx(_, _, _, d, _, _) => d
-  end
-
-function members(c: Ctx): List[(Name, List[Name])] =
-  match c
-    case ctx(_, _, _, _, m, _) => m
-  end
-
-function constrs(c: Ctx): List[(Name, Constructor)] =
-  match c
-    case ctx(_, _, _, _, _, k) => k
-  end
-
-function with_alias(c: Ctx, n: Name, ps: List[Name], t: Type): Ctx =
-  match c
-    case ctx(a, f, p, d, m, k) => ctx((n, (ps, t)) :: a, f, p, d, m, k)
-  end
-
-function with_fun(c: Ctx, n: Name, sc: Scheme): Ctx =
-  match c
-    case ctx(a, f, p, d, m, k) => ctx(a, update(n, schemes_of(c, n) ++ [sc], f), p, d, m, k)
-  end
-
-function with_proc(c: Ctx, n: Name, g: Sig): Ctx =
-  match c
-    case ctx(a, f, p, d, m, k) => ctx(a, f, (n, g) :: p, d, m, k)
-  end
-
-function with_data(c: Ctx, n: Name, arity: Int): Ctx =
-  match c
-    case ctx(a, f, p, d, m, k) => ctx(a, f, p, (n, arity) :: d, m, k)
-  end
-
-function with_members(c: Ctx, n: Name, cs: List[Name]): Ctx =
-  match c
-    case ctx(a, f, p, d, m, k) => ctx(a, f, p, d, (n, cs) :: m, k)
-  end
-
-function with_constr(c: Ctx, n: Name, kc: Constructor): Ctx =
-  match c
-    case ctx(a, f, p, d, m, k) => ctx(a, f, p, d, m, (n, kc) :: k)
-  end
 
 function ctx_of(s: State): Ctx =
   match s
@@ -155,24 +78,24 @@ function literal(v: Val): Type =
 // pairs are a datatype *[A, B] with the constructor ,
 function initial(): Ctx =
   let ab = [tparam("A"), tparam("B")] in
-  ctx(nil, nil, nil, [("*", 2)], [("*", [","])], [(",", constructor(ab, ab, tsort("*", ab)))])
+  ctx(nil, nil, nil, [("*", 2)], [("*", [","])], [(",", (ab, ab, tsort("*", ab)))])
 
 // only what cannot be defined in the prelude
 function builtins(): Env =
-  let arith, logic, a = scheme(nil, fun([tint(), tint()], tint())), scheme(nil, fun([tbool(), tbool()], tbool())), tparam("A") in
+  let arith, logic, a = (nil, fun([tint(), tint()], tint())), (nil, fun([tbool(), tbool()], tbool())), tparam("A") in
   [
     ("+", arith),
     ("-", arith),
     ("*", arith),
     ("/", arith),
     ("%", arith),
-    ("<", scheme(nil, fun([tint(), tint()], tbool()))),
-    ("==", scheme([a], fun([a, a], tbool()))),
+    ("<", (nil, fun([tint(), tint()], tbool()))),
+    ("==", ([a], fun([a, a], tbool()))),
     ("and", logic),
     ("or", logic)
   ]
 
-function builtin(n: Name): List[Scheme] =
+function builtin(n: Name): List[(List[Type], Type)] =
   match lookup(n, builtins())
     case some(sc) => [sc]
     case none => nil
@@ -227,19 +150,13 @@ function occurs(su: Subst, i: Int, t: Type): Bool =
     case _ => false
   end
 
-function schemes_of(c: Ctx, n: Name): List[Scheme] =
-  match lookup(n, funs(c))
-    case some(ss) => ss
-    case none => nil
-  end
-
-function constructor_scheme(k: Constructor): Scheme =
+function constructor_scheme(k: (List[Type], List[Type], Type)): (List[Type], Type) =
   match k
-    case constructor(ps, ks, r) => scheme(ps, if ks == nil then r else fun(ks, r))
+    case (ps, ks, r) => (ps, if ks == nil then r else fun(ks, r))
   end
 
 // local variables hide functions, constructors, and builtins
-function candidates(c: Ctx, env: Env, n: Name): List[Scheme] =
+function candidates(c: Ctx, env: Env, n: Name): List[(List[Type], Type)] =
   match lookup(n, env)
     case some(sc) => [sc]
     case none =>
@@ -249,25 +166,25 @@ function candidates(c: Ctx, env: Env, n: Name): List[Scheme] =
       end
   end
 
-function with_arity(scs: List[Scheme], k: Int): Option[Scheme] =
+function with_arity(scs: List[(List[Type], Type)], k: Int): Option[(List[Type], Type)] =
   match scs
     case nil => none
-    case scheme(ps, t) :: rest => if arity(t) == k then some(scheme(ps, t)) else with_arity(rest, k)
+    case (ps, t) :: rest => if arity(t) == k then some((ps, t)) else with_arity(rest, k)
   end
 
 function bind(xs: List[Var]): Env =
-  [(name(x), scheme(nil, typ(x))) for x in xs]
+  [(name(x), (nil, typ(x))) for x in xs]
 
 // the unknowns of the types of env, which a let cannot generalize
 function fixed(su: Subst, env: Env): List[Type] =
   match env
     case nil => nil
-    case (_, scheme(ps, t)) :: rest => diff(free(zonk_type(su, t)), ps) ++ fixed(su, rest)
+    case (_, (ps, t)) :: rest => diff(free(zonk_type(su, t)), ps) ++ fixed(su, rest)
   end
 
-function generalize(su: Subst, env: Env, t: Type): Scheme =
+function generalize(su: Subst, env: Env, t: Type): (List[Type], Type) =
   let fx, u = fixed(su, env), zonk_type(su, t) in
-  scheme([m for m in free(u) if is_meta(m) and not contains(m, fx)], u)
+  ([m for m in free(u) if is_meta(m) and not contains(m, fx)], u)
 
 function generalized(su: Subst, env: Env, xs: List[Var]): Env =
   [(name(x), generalize(su, env, typ(x))) for x in xs]
@@ -414,7 +331,7 @@ function heads(rows: List[List[Pat]]): List[Head] =
 // the argument types of constructor k of a datatype with type arguments args
 function field_types(c: Ctx, k: Name, args: List[Type]): List[Type] =
   match lookup(k, constrs(c))
-    case some(constructor(ps, ks, _)) => [subst(a, zip(ps, args)) for a in ks]
+    case some((ps, ks, _)) => [subst(a, zip(ps, args)) for a in ks]
     case none => nil
   end
 
@@ -612,10 +529,10 @@ procedure instance(ps: List[Type]; m: List[(Type, Type)]; s: State)
   end
 end
 
-procedure instantiate(sc: Scheme; t: Type; s: State)
+procedure instantiate(sc: (List[Type], Type); t: Type; s: State)
   local m: List[(Type, Type)];
   match sc
-    case scheme(ps, u) =>
+    case (ps, u) =>
       call instance(ps; m; s);
       assign t := subst(zonk_type(sub_of(s), u), m);
   end
@@ -747,7 +664,7 @@ procedure known_vars(xs: List[Var]; ys: List[Var]; s: State)
 end
 
 // the meaning of n applied to k arguments, or k < 0 if n is not applied
-procedure resolve_name(c: Ctx, env: Env, n: Name, k: Int; sc: Scheme)
+procedure resolve_name(c: Ctx, env: Env, n: Name, k: Int; sc: (List[Type], Type))
   match candidates(c, env, n)
     case nil =>
       raise unknown_variable(n);
@@ -767,7 +684,7 @@ procedure resolve_name(c: Ctx, env: Env, n: Name, k: Int; sc: Scheme)
 end
 
 // a use of n elaborated with an instance of sc
-procedure use(n: Name, a: Type, sc: Scheme; x: Var; s: State)
+procedure use(n: Name, a: Type, sc: (List[Type], Type); x: Var; s: State)
   local u: Type, w: Type;
   call instantiate(sc; u; s);
   call normalize(a; w; s);
@@ -776,7 +693,7 @@ procedure use(n: Name, a: Type, sc: Scheme; x: Var; s: State)
 end
 
 procedure infer(env: Env, e: Expr; e1: Expr, t: Type; s: State)
-  local sc: Scheme, x: Var, xs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, es: List[Expr], bs: List[Branch[Expr]];
+  local sc: (List[Type], Type), x: Var, xs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, es: List[Expr], bs: List[Branch[Expr]];
   match e
     case elit(v) =>
       assign e1, t := e, literal(v);
@@ -819,7 +736,7 @@ end
 
 // overloaded functions are resolved by their number of arguments
 procedure application(env: Env, f: Expr, args: List[Expr]; e1: Expr, t: Type; s: State)
-  local sc: Scheme, x: Var, f1: Expr, u: Type, args1: List[Expr];
+  local sc: (List[Type], Type), x: Var, f1: Expr, u: Type, args1: List[Expr];
   match f
     case evar(var(n, a)) =>
       if length(candidates(ctx_of(s), env, n)) > 1 then
@@ -949,7 +866,7 @@ procedure binders(p: Pat, t: Type; p1: Pat, xs: List[Var]; s: State)
       end
     case papp(n, args) =>
       match lookup(n, constrs(ctx_of(s)))
-        case some(constructor(ps, ks, r)) =>
+        case some((ps, ks, r)) =>
           call same_length(length(ks), length(args));
           call instance(ps; m; s);
           call unify(subst(r, m), t;; s);
@@ -983,7 +900,7 @@ procedure variable(env: Env, assignable: List[Name], x: Var; y: Var; s: State)
         raise not_assignable(n);
       end
       match lookup(n, env)
-        case some(scheme(_, t)) =>
+        case some((_, t)) =>
           call normalize(a; u; s);
           call unify(t, u;; s);
           assign y := var(n, t);
@@ -1066,7 +983,7 @@ end
 procedure call_proc(env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var]; y: Stmt; s: State)
   local m: List[(Type, Type)], ins1: List[Expr], outs1: List[Var], refs1: List[Var];
   match lookup(p, procs(ctx_of(s)))
-    case some(sig(ps, is, os, rs)) =>
+    case some((ps, is, os, rs)) =>
       call instance(ps; m; s);
       call same_length(length(is), length(ins));
       call same_length(length(os), length(outs));
@@ -1195,7 +1112,7 @@ procedure declare_constructors(n: Name, ps: List[Name], ks: List[Constr];; s: St
       call declare_name(ctx_of(s), k);
       call knowns(args, k; ts; s);
       call closed(n, ps, ts);
-      assign s := with_ctx(s, with_constr(ctx_of(s), k, constructor(params(ps), ts, tsort(n, params(ps)))));
+      assign s := with_ctx(s, with_constr(ctx_of(s), k, (params(ps), ts, tsort(n, params(ps)))));
       call declare_constructors(n, ps, rest;; s);
   end
 end
@@ -1211,7 +1128,7 @@ procedure declare_funs(cs: List[Cmd];; s: State)
       call signature(bound; xs; s);
       call known(res, n; r; s);
       call closed(n, ps, [fun(types(xs), r)]);
-      assign s := with_ctx(s, with_fun(ctx_of(s), n, scheme(params(ps), fun(types(xs), r))));
+      assign s := with_ctx(s, with_fun(ctx_of(s), n, (params(ps), fun(types(xs), r))));
       call declare_funs(rest;; s);
     case _ :: rest =>
       call declare_funs(rest;; s);
@@ -1229,7 +1146,7 @@ procedure declare_procs(cs: List[Cmd];; s: State)
       call signature(ins ++ outs ++ refs; xs; s);
       assign ts := types(xs);
       call closed(n, ps, ts);
-      assign s := with_ctx(s, with_proc(ctx_of(s), n, sig(params(ps), take(length(ins), ts), take(length(outs), drop(length(ins), ts)), drop(length(ins) + length(outs), ts))));
+      assign s := with_ctx(s, with_proc(ctx_of(s), n, (params(ps), take(length(ins), ts), take(length(outs), drop(length(ins), ts)), drop(length(ins) + length(outs), ts))));
       call declare_procs(rest;; s);
     case _ :: rest =>
       call declare_procs(rest;; s);
