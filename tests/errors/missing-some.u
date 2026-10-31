@@ -1,6 +1,6 @@
-// type error: match is not exhaustive, missing cons(some(_), _)
+// type error: match is not exhaustive, missing some(_) :: _
 function f(x: List[Option[Int]]): Int =
   match x
     case nil => 0
-    case cons(none, _) => 1
+    case none :: _ => 1
   end

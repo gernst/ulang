@@ -238,7 +238,15 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         )
       }
 
+  // operators in patterns are constructors
   def pattern(s: Scope): Parser[Pat] =
+    resolved(s, items(s, simple(s)))(
+      (op, p) => Pat.App(op, List(p)),
+      (op, p) => Pat.App(op, List(p)),
+      (op, l, r) => Pat.App(op, List(l, r))
+    )
+
+  def simple(s: Scope): Parser[Pat] =
     plain(s) ~ parens(list(pattern(s))) ^^ { case c ~ ps =>
       Pat.App(c, ps)
     }
@@ -268,7 +276,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     value ^^ Expr.Lit.apply
       | tuple(expr(s))(op(",", _, _))
       | comp(s)
-      | "[" ~> list(expr(s)) <~ "]" ^^ (_.foldRight(Expr.Var("nil", Type.Hole): Expr)(op("cons", _, _)))
+      | "[" ~> list(expr(s)) <~ "]" ^^ (_.foldRight(Expr.Var("nil", Type.Hole): Expr)(op("::", _, _)))
       | variable(s)
 
   // [result for x in xs, y in ys if test], where if test is optional
@@ -350,7 +358,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     generic("data", name): (n, ps, t) =>
       val u = t.copy(notations = s.notations)
       val constr =
-        name ~ opt(parens(list(typ(u)))) ^^ { case c ~ ts =>
+        (name | symbol) ~ opt(parens(list(typ(u)))) ^^ { case c ~ ts =>
           Constr(c, ts.getOrElse(Nil))
         }
       "=" ~> rep1sep(constr, "|") ^^ (Cmd.Data(n, ps, _))

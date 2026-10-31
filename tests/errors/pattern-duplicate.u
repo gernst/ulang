@@ -1,5 +1,5 @@
 // type error: duplicate pattern variable x
 function f(): Int =
   match nil
-    case cons(x, x) => 0
+    case x :: x => 0
   end

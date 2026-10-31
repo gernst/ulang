@@ -1,7 +1,7 @@
 // type error: x is not assignable
 procedure p(; r: Int)
-  match cons(1, nil)
-    case cons(x, _) => x := 1;
+  match [1]
+    case x :: _ => x := 1;
     case nil => skip;
   end
 end

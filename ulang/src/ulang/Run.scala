@@ -153,7 +153,7 @@ class Run(program: Program):
             env1 <- combinations(env, bound, lists)
             if bool(eval(env1, test))
           yield eval(env1, result)
-        vs.foldRight(Obj("nil", Nil): Any)((v, vs) => Obj("cons", List(v, vs)))
+        vs.foldRight(Obj("nil", Nil): Any)((v, vs) => Obj("::", List(v, vs)))
 
   def constr(c: Name)(arity: Int): Any =
     if arity == 0 then

@@ -2,6 +2,6 @@
 function f(xs: List[Int]): Int =
   match xs
     case nil => 0
-    case cons(_, _) => 1
+    case _ :: _ => 1
     case nil => 2
   end

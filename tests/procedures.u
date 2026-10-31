@@ -11,7 +11,7 @@ procedure total(xs: List[Int]; s: Int)
   s, ys := 0, xs;
   while ys != nil do
     match ys
-      case cons(y, zs) =>
+      case y :: zs =>
         s := s + y;
         ys := zs;
       case nil => skip;
@@ -55,7 +55,7 @@ test
   local a: Int, b: Int, c: Int;
   call sum(10; c);
   assert c == 45;
-  call total(cons(1, cons(2, cons(3, nil))); c);
+  call total([1, 2, 3]; c);
   assert c == 6;
   a, b := 1, 2;
   call swap(;; a, b);

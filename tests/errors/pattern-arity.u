@@ -1,5 +1,5 @@
-// type error: constructor cons expects 2 values, got 1
+// type error: constructor some expects 1 values, got 2
 function f(): Int =
-  match nil
-    case cons(x) => 0
+  match none
+    case some(x, y) => 0
   end

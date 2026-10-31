@@ -2,5 +2,5 @@
 function f(): Int =
   match nil
     case nil => 0
-    case cons(_, _) => true
+    case _ :: _ => true
   end

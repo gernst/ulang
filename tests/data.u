@@ -1,27 +1,15 @@
-function len[A](xs: List[A]): Int =
-  match xs
-    case nil => 0
-    case cons(_, ys) => 1 + len(ys)
-  end
-
-function map[A, B](f: A -> B, xs: List[A]): List[B] =
-  match xs
-    case nil => nil
-    case cons(y, ys) => cons(f(y), map(f, ys))
-  end
-
 function range(n: Int): List[Int] =
-  if n == 0 then nil else cons(n, range(n - 1))
+  if n == 0 then nil else n :: range(n - 1)
 
 function head[A](xs: List[A]): Option[A] =
   match xs
-    case cons(x, _) => some(x)
+    case x :: _ => some(x)
     case _ => none
   end
 
 function nested(xs: List[Option[Int]]): Int =
   match xs
-    case cons(some(1), cons(none, _)) => 1
+    case some(1) :: none :: _ => 1
     case _ => 0
   end
 
@@ -43,12 +31,12 @@ function unit(u: Unit): Int =
   end
 
 test
-  assert range(3) == cons(3, cons(2, cons(1, nil)));
-  assert len(range(3)) == 3;
-  assert map(lambda x => x * x, range(3)) == cons(9, cons(4, cons(1, nil)));
+  assert range(3) == 3 :: 2 :: 1 :: nil;
+  assert length(range(3)) == 3;
+  assert [x * x for x in range(3)] == 9 :: 4 :: 1 :: nil;
   assert head(range(2)) == some(2);
   assert head(nil) == none;
-  assert nested(cons(some(1), cons(none, nil))) == 1;
+  assert nested(some(1) :: none :: nil) == 1;
   assert nested(nil) == 0;
   assert word(0) == "zero";
   assert word(7) == "other";

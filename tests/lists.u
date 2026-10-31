@@ -1,14 +1,16 @@
-// [...] is notation for the List of the prelude
+// [...] is notation for the List of the prelude, whose constructor :: is an operator
 test
-  assert [1, 2, 3] == cons(1, cons(2, cons(3, nil)));
+  assert [1, 2, 3] == 1 :: 2 :: 3 :: nil;
   assert [] == nil;
-  assert [[1], []] == cons(cons(1, nil), cons(nil, nil));
+  assert [[1], []] == (1 :: nil) :: nil :: nil;
+  assert [1] ++ [2, 3] ++ [] == [1, 2, 3];
+  assert length([1, 2] ++ [3]) == 3;
 end
 
 eval [1, 2, 3]
 
 function range(n: Int): List[Int] =
-  if n == 0 then [] else cons(n, range(n - 1))
+  if n == 0 then [] else n :: range(n - 1)
 
 test
   assert [x * x for x in [1, 2, 3]] == [1, 4, 9];

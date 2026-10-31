@@ -1,12 +1,5 @@
 // operators are declared before their use, and defined as functions
-infix right 7 ++
-infix left 9 **
-
-function ++[A](xs: List[A], ys: List[A]): List[A] =
-  match xs
-    case nil => ys
-    case cons(x, zs) => cons(x, zs ++ ys)
-  end
+infix left 10 **
 
 function **(m: Int, n: Int): Int =
   if n == 0 then 1 else m * m ** (n - 1)
@@ -19,14 +12,14 @@ function curry(f: (Int, Int) -> Int): Int -> Int -> Int =
 function size(xs: List[Int]): Int =
   match xs
     case nil => 0
-    case cons(_, ys) => 1 + size(ys)
+    case _ :: ys => 1 + size(ys)
   end
 
 function size(xs: List[Int], ys: List[Int]): Int =
   size(xs) + size(ys)
 
 test
-  assert [1] ++ [2] ++ [3] == [1, 2, 3];
+  assert 1 :: [2] ++ [3] == [1, 2, 3];
   assert 2 ** 3 + 1 == 9;
   assert 2 * 3 ** 2 == 18;
   assert -2 * -3 == 6;

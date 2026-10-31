@@ -11,7 +11,7 @@ object Printer:
         "<function>"
       case Obj(",", vs) =>
         vs.map(show).mkString("(", ", ", ")")
-      case Obj("nil" | "cons", _) if items(v).nonEmpty =>
+      case Obj("nil" | "::", _) if items(v).nonEmpty =>
         items(v).get.map(show).mkString("[", ", ", "]")
       case Obj(c, Nil) =>
         c
@@ -20,12 +20,12 @@ object Printer:
       case _ =>
         v.toString
 
-  // the elements of a list built by nil and cons
+  // the elements of a list built by nil and ::
   def items(v: Any): Option[List[Any]] =
     v match
       case Obj("nil", Nil) =>
         Some(Nil)
-      case Obj("cons", List(x, xs)) =>
+      case Obj("::", List(x, xs)) =>
         items(xs).map(x :: _)
       case _ =>
         None

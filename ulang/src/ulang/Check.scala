@@ -104,6 +104,15 @@ object Check:
       case _ =>
         false
 
+  // constructors named by operators are shown infix
+  def symbolic(name: Name): Boolean =
+    !name.head.isLetter && name.head != '_' && name != ","
+
+  def infix(op: Name, l: String, r: String): String =
+    def operand(a: String): String =
+      if a.contains(" ") && !a.startsWith("(") then s"($a)" else a
+    s"${operand(l)} $op ${operand(r)}"
+
   def show(p: Pat): String =
     p match
       case Pat.Wild =>
@@ -114,6 +123,8 @@ object Check:
         name
       case Pat.App(",", args) =>
         args.map(show(_)).mkString("(", ", ", ")")
+      case Pat.App(name, List(l, r)) if symbolic(name) =>
+        infix(name, show(l), show(r))
       case Pat.App(name, Nil) =>
         name
       case Pat.App(name, args) =>
@@ -548,6 +559,8 @@ class Check(program: Program):
     (c, args) match
       case (",", _) =>
         args.mkString("(", ", ", ")")
+      case (_, List(l, r)) if symbolic(c) =>
+        infix(c, l, r)
       case (_, Nil) =>
         c
       case _ =>
