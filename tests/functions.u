@@ -19,9 +19,11 @@ sort Pred[A] = A -> Bool
 function pos(): Pred[Int] =
   fun (x: Int) => x > 0
 
-test fact(5) == 120
-test twice(fun (x) => x * 3, 1) == 9
-test poly() == true
-test local() == true
-test pos()(1) == true
-test pos()(0) == false
+test
+  assert fact(5) == 120;
+  assert twice(fun (x) => x * 3, 1) == 9;
+  assert poly();
+  assert local();
+  assert pos()(1);
+  assert pos()(0) == false;
+end

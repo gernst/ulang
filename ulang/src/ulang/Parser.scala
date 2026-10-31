@@ -6,9 +6,11 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   val keywords = Set(
     "_",
     "and",
+    "assert",
     "call",
     "case",
     "data",
+    "do",
     "else",
     "end",
     "eval",
@@ -22,6 +24,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     "not",
     "or",
     "procedure",
+    "run",
     "skip",
     "sort",
     "test",
@@ -201,7 +204,10 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     value ^^ Expr.Lit.apply | tuple(expr(ps))(op(",", _, _)) | variable
 
   def stmt(ps: Set[Name]): Parser[Stmt] =
-    skip | ifs(ps) | loop(ps) | call(ps) | matches(ps, stmts(ps))(Stmt.Match.apply) | assign(ps)
+    skip | ifs(ps) | loop(ps) | call(ps) | matches(ps, stmts(ps))(Stmt.Match.apply) | check(ps) | assign(ps)
+
+  def check(ps: Set[Name]): Parser[Stmt] =
+    kw("assert") ~> expr(ps) <~ ";" ^^ Stmt.Assert.apply
 
   // the body of a case, which declares no variables
   def stmts(ps: Set[Name]): Parser[Stmt] =
@@ -227,7 +233,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
 
   def loop(ps: Set[Name]): Parser[Stmt] =
     (kw("while") ~> expr(ps)) ~
-      (body(ps) <~ kw("end")) ^^ { case c ~ b =>
+      (kw("do") ~> body(ps) <~ kw("end")) ^^ { case c ~ b =>
         Stmt.While(c, b)
       }
 
@@ -281,15 +287,11 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
 
   val eval: Parser[Cmd] = kw("eval") ~> expr(Set()) ^^ Cmd.Eval.apply
 
-  val test: Parser[Cmd] =
-    kw("test") ~> expr(Set()) ^? (
-      { case Expr.App(Expr.Var("==", _), List(lhs, rhs)) =>
-        Cmd.Test(lhs, rhs)
-      },
-      _ => "test expects an equation"
-    )
+  val run: Parser[Cmd] = kw("run") ~> body(Set()) <~ kw("end") ^^ Cmd.Run.apply
 
-  val program: Parser[Program] = rep(sort | data | fun | proc | eval | test) ^^ Program.apply
+  val test: Parser[Cmd] = kw("test") ~> body(Set()) <~ kw("end") ^^ Cmd.Test.apply
+
+  val program: Parser[Program] = rep(sort | data | fun | proc | eval | run | test) ^^ Program.apply
 
   def parse[A](p: Parser[A], text: String): A =
     parseAll(p, text) match

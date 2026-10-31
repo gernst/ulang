@@ -1,0 +1,9 @@
+// runtime error: output r of p is not assigned
+procedure p(; r: Int)
+  skip;
+end
+
+test
+  var x: Int;
+  call p(; x);
+end

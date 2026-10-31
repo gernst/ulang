@@ -258,6 +258,8 @@ class Check(program: Program):
         Stmt.Call(proc, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)))
       case Stmt.Match(arg, cases) =>
         Stmt.Match(zonk(arg), cases.map(c => Case(zonk(c.pat), zonk(c.body))))
+      case Stmt.Assert(test) =>
+        Stmt.Assert(zonk(test))
 
   def zonk(d: Cmd): Cmd =
     d match
@@ -269,8 +271,10 @@ class Check(program: Program):
         Cmd.Proc(name, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))
       case Cmd.Eval(expr) =>
         Cmd.Eval(zonk(expr))
-      case Cmd.Test(lhs, rhs) =>
-        Cmd.Test(zonk(lhs), zonk(rhs))
+      case Cmd.Run(body) =>
+        Cmd.Run(zonk(body))
+      case Cmd.Test(body) =>
+        Cmd.Test(zonk(body))
 
   def occurs(i: Int, t: Type): Boolean =
     resolve(t) match
@@ -571,6 +575,9 @@ class Check(program: Program):
         val (arg1, cases1) = branches(env, arg, cases)((bs, b) => stmt(env ++ bs, assignable -- bs.keys, b))
         Stmt.Match(arg1, cases1)
 
+      case Stmt.Assert(test) =>
+        Stmt.Assert(check(env, test, Bool))
+
   def declare(name: Name): Unit =
     require(
       !funs.contains(name) && !procs.contains(name) && !constrs.contains(name) && !builtins.contains(name),
@@ -640,8 +647,10 @@ class Check(program: Program):
       case Cmd.Eval(expr) =>
         Cmd.Eval(infer(Map(), expr)._1)
 
-      case Cmd.Test(lhs, rhs) =>
-        val (lhs1, t) = infer(Map(), lhs)
-        Cmd.Test(lhs1, check(Map(), rhs, t))
+      case Cmd.Run(body) =>
+        Cmd.Run(stmt(Map(), Set(), body))
+
+      case Cmd.Test(body) =>
+        Cmd.Test(stmt(Map(), Set(), body))
 
     Program(cmds.map(zonk(_)))

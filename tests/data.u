@@ -45,15 +45,17 @@ function unit(u: Unit): Int =
     case () => 0
   end
 
-test range(3) == cons(3, cons(2, cons(1, nil)))
-test len(range(3)) == 3
-test map(fun (x) => x * x, range(3)) == cons(9, cons(4, cons(1, nil)))
-test head(range(2)) == some(2)
-test head(nil) == none
-test nested(cons(some(1), cons(none, nil))) == 1
-test nested(nil) == 0
-test word(0) == "zero"
-test word(7) == "other"
-test flip(false) == 1
-test unit(()) == 0
-test (range(2) != nil) == true
+test
+  assert range(3) == cons(3, cons(2, cons(1, nil)));
+  assert len(range(3)) == 3;
+  assert map(fun (x) => x * x, range(3)) == cons(9, cons(4, cons(1, nil)));
+  assert head(range(2)) == some(2);
+  assert head(nil) == none;
+  assert nested(cons(some(1), cons(none, nil))) == 1;
+  assert nested(nil) == 0;
+  assert word(0) == "zero";
+  assert word(7) == "other";
+  assert flip(false) == 1;
+  assert unit(()) == 0;
+  assert (range(2) != nil);
+end

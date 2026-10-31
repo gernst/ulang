@@ -33,6 +33,7 @@ enum Stmt:
   case While(test: Expr, body: Stmt)
   case Call(proc: Name, ins: List[Expr], outs: List[Expr.Var], refs: List[Expr.Var])
   case Match(arg: Expr, cases: List[Case[Stmt]])
+  case Assert(test: Expr)
 
 case class Constr(name: Name, args: List[Type])
 
@@ -42,7 +43,8 @@ enum Cmd:
   case Fun(name: Name, bound: List[Pat.Var], res: Type, body: Expr)
   case Proc(name: Name, ins: List[Pat.Var], outs: List[Pat.Var], refs: List[Pat.Var], body: Stmt)
   case Eval(expr: Expr)
-  case Test(lhs: Expr, rhs: Expr)
+  case Run(body: Stmt)
+  case Test(body: Stmt)
 
 case class Program(cmds: List[Cmd])
 

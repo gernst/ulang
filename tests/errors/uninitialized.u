@@ -1,0 +1,5 @@
+// runtime error: x is not initialized
+test
+  var x: Int, y: Int;
+  y := x;
+end

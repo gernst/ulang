@@ -1,2 +1,4 @@
 // runtime error: division by zero
-test 1 / 0 == 0
+test
+  assert 1 / 0 == 0;
+end

@@ -2,7 +2,7 @@ package ulang
 
 import utest.*
 
-// runs every tests/**/*.u, which must succeed with all tests passing,
+// runs every tests/**/*.u, which must succeed including all assertions,
 // or fail with the error stated in its first line, e.g. "// type error: unknown variable x"
 object FileTest extends TestSuite:
   val root = os.Path(sys.env("MILL_WORKSPACE_ROOT")) / "tests"
@@ -19,11 +19,8 @@ object FileTest extends TestSuite:
       msg
     }
     try
-      val failures = Main.run(text).filter(Main.failed)
-      if expected.nonEmpty then
-        Some(s"$file: expected ${expected.get}")
-      else
-        Option.when(failures.nonEmpty)(s"$file: ${failures.mkString(", ")}")
+      Main.run(text)
+      expected.map(msg => s"$file: expected $msg")
     catch
       case e: Error if expected.contains(e.getMessage) =>
         None

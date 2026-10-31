@@ -20,5 +20,7 @@ function swap[A](p: Pair[A]): Pair[A] =
     case tuple(x, y) => tuple(y, x)
   end
 
-test size(node(1, grow(node(2, leaf), grow(node(3, leaf), leaf)))) == 3
-test swap(tuple(1, 2)) == tuple(2, 1)
+test
+  assert size(node(1, grow(node(2, leaf), grow(node(3, leaf), leaf)))) == 3;
+  assert swap(tuple(1, 2)) == tuple(2, 1);
+end

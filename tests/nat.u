@@ -19,6 +19,8 @@ function int(n: Nat): Int =
     case succ(m) => 1 + int(m)
   end
 
-test int(add(succ(succ(zero)), succ(zero))) == 3
-test even(add(succ(zero), succ(zero))) == true
-test even(succ(succ(succ(zero)))) == false
+test
+  assert int(add(succ(succ(zero)), succ(zero))) == 3;
+  assert even(add(succ(zero), succ(zero)));
+  assert even(succ(succ(succ(zero)))) == false;
+end

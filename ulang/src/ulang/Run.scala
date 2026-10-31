@@ -252,6 +252,14 @@ class Run(program: Program):
         val (b, bs) = select(value(store, arg), cases)
         exec(store ++ bs.view.mapValues(cell), b)
 
+      // assertions of equations show both sides when they fail
+      case Stmt.Assert(Expr.App(Expr.Var("==", _), List(lhs, rhs))) =>
+        val (a, b) = (value(store, lhs), value(store, rhs))
+        require(equal(a, b), s"assertion failed: ${show(a)} != ${show(b)}")
+
+      case Stmt.Assert(test) =>
+        require(bool(value(store, test)), "assertion failed")
+
   def assign(store: Map[Name, Cell], xs: List[Expr.Var], vs: List[Any]): Unit =
     (xs, vs) match
       case (Nil, Nil)         =>
@@ -268,13 +276,28 @@ class Run(program: Program):
     for (x, r) <- d.outs.zip(outs)
     yield r.get.getOrElse(error(s"output ${x.name} of $p is not assigned"))
 
-  // the values of evals and the failed tests
+  // the values of evals and of the variables of runs, failed assertions are errors
   def run(): List[String] =
     program.cmds.flatMap:
       case Cmd.Eval(expr) =>
         List(show(eval(Map(), expr)))
-      case Cmd.Test(lhs, rhs) =>
-        val (a, b) = (eval(Map(), lhs), eval(Map(), rhs))
-        Option.when(!equal(a, b))(s"test failed: ${show(a)} != ${show(b)}")
+      case Cmd.Run(body) =>
+        results(body)
+      case Cmd.Test(body) =>
+        exec(Map(), body)
+        Nil
       case _ =>
+        Nil
+
+  // executes a block and returns the assigned values of its variables
+  def results(body: Stmt): List[String] =
+    body match
+      case Stmt.Block(locals, stmts) =>
+        val store = bind(locals, locals.map(_ => Cell(None)))
+        for s <- stmts do
+          exec(store, s)
+        for x <- locals; v <- store(x.name).get.toList
+        yield s"${x.name} = ${show(v)}"
+      case _ =>
+        exec(Map(), body)
         Nil

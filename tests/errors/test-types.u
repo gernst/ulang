@@ -1,2 +1,4 @@
-// type error: cannot unify Bool and Int
-test 1 == true
+// type error: cannot unify Int and Bool
+test
+  assert 1;
+end
