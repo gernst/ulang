@@ -1,4 +1,4 @@
-// a module, imported by import.u and peek.u
+// a module, which modules.u imports
 infix right 7 <+
 
 data Stack[A] :=
@@ -12,6 +12,12 @@ function top[A](s: Stack[A]): Option[A] :=
   match s
     case Empty => None
     case Push(x, _) => Some(x)
+  end
+
+function peek[A](s: Stack[A], x: A): A :=
+  match top(s)
+    case None => x
+    case Some(y) => y
   end
 
 test stack :=

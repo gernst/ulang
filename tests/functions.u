@@ -27,3 +27,47 @@ test functions :=
   assert generic()
   assert pos()(1)
   assert pos()(0) == false
+
+// further parameter lists return functions, which may be applied partially
+function add(a: Int)(b: Int): Int :=
+  a + b
+
+function sum3(a: Int)(b: Int, c: Int)(): Int :=
+  a + b + c
+
+test curried :=
+  assert add(1)(2) == 3
+  assert twice(add(3), 1) == 7
+  assert sum3(1)(2, 3)() == 6
+  assert (let f := add in f(1)(2)) == 3
+
+// operators are declared before their use, and defined as functions
+infix left 10 **
+
+function **(m: Int, n: Int): Int :=
+  if n == 0 then 1 else m * m ** (n - 1)
+
+// types use the same operators, -> associates to the right
+function curry(f: (Int, Int) -> Int): Int -> Int -> Int :=
+  lambda x => lambda y => f(x, y)
+
+// functions are overloaded by their number of arguments
+function size(xs: List[Int]): Int :=
+  match xs
+    case Nil => 0
+    case _ :: ys => 1 + size(ys)
+  end
+
+function size(xs: List[Int], ys: List[Int]): Int :=
+  size(xs) + size(ys)
+
+test notations :=
+  assert 1 :: [2] ++ [3] == [1, 2, 3]
+  assert 2 ** 3 + 1 == 9
+  assert 2 * 3 ** 2 == 18
+  assert -2 * -3 == 6
+  assert curry(lambda a, b => a - b)(5)(3) == 2
+  assert false ==> false
+  assert not (true ==> false)
+  assert size([1, 2]) == 2
+  assert size([1], [2, 3]) == 3

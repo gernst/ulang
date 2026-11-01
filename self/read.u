@@ -8,7 +8,7 @@ test read_files :=
   match p
     case Program(CFun(n, ps, xs, t, _) :: _) =>
       assert (n, ps) == ("contains", ["A"])
-      assert xs == [Var("x", TParam("A")), Var("xs", TSort("List", [TParam("A")]))]
+      assert xs == [[Var("x", TParam("A")), Var("xs", TSort("List", [TParam("A")]))]]
       assert t == TSort("Bool", Nil)
     case _ =>
       assert false

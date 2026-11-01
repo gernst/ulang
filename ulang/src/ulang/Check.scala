@@ -4,20 +4,16 @@ object Check:
   val Bool = Type.Sort("Bool", Nil)
   val Int = Type.Sort("Int", Nil)
   val Str = Type.Sort("Str", Nil)
-  val Unit = Type.Tuple(Nil)
+  val Empty = Type.Tuple(Nil)
 
   val basic = Set("Bool", "Int", "Str")
 
-  // the argument of a function of several arguments is their tuple
-  def argument(args: List[Type]): Type =
-    args match
-      case List(t) =>
-        t
-      case ts =>
-        Type.Tuple(ts)
-
   def fun(args: List[Type], res: Type): Type =
-    Type.Fun(argument(args), res)
+    Type.Fun(args, res)
+
+  // the type of a function with several lists of parameters, which returns functions for all but the first
+  def curried(argss: List[List[Type]], res: Type): Type =
+    argss.foldRight(res)(fun)
 
   // type schemes are types with the Params of a generic declaration or the Metas generalized by a let
   def mono(t: Type): (List[Type], Type) =
@@ -33,6 +29,14 @@ object Check:
 
   val initial: Ctx =
     Ctx()
+
+  // the number of arguments of a function, functions are overloaded by it
+  def arity(t: Type): Int =
+    t match
+      case Type.Fun(args, _) =>
+        args.length
+      case _ =>
+        -1
 
   // only what cannot be defined in the prelude
   val builtins: Map[Name, (List[Type], Type)] =
@@ -51,15 +55,6 @@ object Check:
       "or" -> logic
     )
 
-  // the number of arguments of a function, functions are overloaded by it
-  def arity(t: Type): Int =
-    t match
-      case Type.Fun(Type.Tuple(ts), _) =>
-        ts.length
-      case Type.Fun(_, _) =>
-        1
-      case _ =>
-        -1
 
   def show(t: Type): String =
     t match
@@ -69,8 +64,13 @@ object Check:
         "_"
       case Type.Meta(index) =>
         s"?$index"
-      case Type.Fun(a, r) =>
+      // a function of the empty tuple, unlike one without arguments () -> r
+      case Type.Fun(List(Type.Tuple(Nil)), r) =>
+        s"(()) -> ${show(r)}"
+      case Type.Fun(List(a), r) =>
         s"${operand(a)} -> ${show(r)}"
+      case Type.Fun(args, r) =>
+        args.map(show(_)).mkString("(", ", ", ") -> ") + show(r)
       case Type.Tuple(Nil) =>
         "()"
       case Type.Tuple(ts) =>
@@ -105,8 +105,8 @@ object Check:
         Nil
       case Type.Sort(_, args) =>
         args.flatMap(free).distinct
-      case Type.Fun(a, r) =>
-        (free(a) ++ free(r)).distinct
+      case Type.Fun(args, r) =>
+        (args :+ r).flatMap(free).distinct
       case Type.Tuple(ts) =>
         ts.flatMap(free).distinct
 
@@ -116,8 +116,8 @@ object Check:
         true
       case Type.Sort(_, args) =>
         args.exists(holes)
-      case Type.Fun(a, r) =>
-        holes(a) || holes(r)
+      case Type.Fun(args, r) =>
+        (args :+ r).exists(holes)
       case Type.Tuple(ts) =>
         ts.exists(holes)
       case _ =>
@@ -127,8 +127,8 @@ object Check:
     t match
       case Type.Sort(name, args) =>
         Type.Sort(name, args.map(subst(_, su)))
-      case Type.Fun(a, r) =>
-        Type.Fun(subst(a, su), subst(r, su))
+      case Type.Fun(args, r) =>
+        Type.Fun(args.map(subst(_, su)), subst(r, su))
       case Type.Tuple(ts) =>
         Type.Tuple(ts.map(subst(_, su)))
       case _ =>
@@ -186,12 +186,10 @@ class Check(program: Program):
         fresh()
       case Type.Param(_) | Type.Meta(_) =>
         t
-      case Type.Fun(a, r) =>
-        Type.Fun(normalize(a), normalize(r))
+      case Type.Fun(args, r) =>
+        Type.Fun(args.map(normalize), normalize(r))
       case Type.Tuple(ts) =>
         Type.Tuple(ts.map(normalize))
-      case Type.Sort("Unit", Nil) =>
-        Unit
       case Type.Sort(name, args) if basic(name) =>
         arguments(name, 0, args)
         t
@@ -229,8 +227,8 @@ class Check(program: Program):
     resolve(t) match
       case Type.Sort(name, args) =>
         Type.Sort(name, args.map(zonk(_)))
-      case Type.Fun(a, r) =>
-        Type.Fun(zonk(a), zonk(r))
+      case Type.Fun(args, r) =>
+        Type.Fun(args.map(zonk(_)), zonk(r))
       case Type.Tuple(ts) =>
         Type.Tuple(ts.map(zonk(_)))
       case t =>
@@ -315,7 +313,7 @@ class Check(program: Program):
       case Cmd.Sort(_, _, _) | Cmd.Data(_, _, _) =>
         d
       case Cmd.Fun(name, params, bound, res, body) =>
-        Cmd.Fun(name, params, bound.map(zonk(_)), zonk(res), zonk(body))(d.pos)
+        Cmd.Fun(name, params, bound.map(_.map(zonk(_))), zonk(res), zonk(body))(d.pos)
       case Cmd.Proc(name, params, ins, outs, refs, body) =>
         Cmd.Proc(name, params, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))(d.pos)
       case Cmd.Import(_) | Cmd.Notation(_, _, _) =>
@@ -333,8 +331,8 @@ class Check(program: Program):
         i == index
       case Type.Sort(_, args) =>
         args.exists(occurs(i, _))
-      case Type.Fun(a, r) =>
-        occurs(i, a) || occurs(i, r)
+      case Type.Fun(args, r) =>
+        (args :+ r).exists(occurs(i, _))
       case Type.Tuple(ts) =>
         ts.exists(occurs(i, _))
       case _ =>
@@ -352,8 +350,8 @@ class Check(program: Program):
         assign(index, t)
       case (Type.Sort(f, as), Type.Sort(g, bs)) if f == g && as.length == bs.length =>
         unify(as, bs)
-      case (Type.Fun(a, r), Type.Fun(b, s)) =>
-        unify(List(a, r), List(b, s))
+      case (Type.Fun(as, r), Type.Fun(bs, s)) if as.length == bs.length =>
+        unify(as :+ r, bs :+ s)
       case (Type.Tuple(as), Type.Tuple(bs)) if as.length == bs.length =>
         unify(as, bs)
       case _ =>
@@ -429,8 +427,6 @@ class Check(program: Program):
   def infer(env: Map[Name, (List[Type], Type)], e: Expr): (Expr, Type) =
     at(e.pos):
       e match
-        case Expr.Lit(()) =>
-          (e, Unit)
         case Expr.Lit(_: Boolean) =>
           (e, Bool)
         case Expr.Lit(_: BigInt) =>
@@ -799,7 +795,7 @@ class Check(program: Program):
   def overload(name: Name, n: Int): Unit =
     require(
       "type",
-      procedure(name).isEmpty && !constrs.contains(name) && !(funs.getOrElse(name, Nil) ++ builtins.get(name)).exists((_, t) => arity(t) == n),
+      procedure(name).isEmpty && !constrs.contains(name) && !lookup(Map(), name).exists((_, t) => arity(t) == n),
       s"$name is already defined"
     )
 
@@ -840,8 +836,9 @@ class Check(program: Program):
     for case d @ Cmd.Fun(name, params, bound, res, _) <- program.cmds do
       at(d.pos):
         distinct(params, "type parameter")
-        val t = fun(signature(bound).types, known(res, s"result of $name"))
-        overload(name, arity(t))
+        overload(name, bound.head.length)
+        distinct(bound.flatten.names, "variable")
+        val t = curried(bound.map(signature(_).types), known(res, s"result of $name"))
         closed(name, params, t)
         update(c => c.copy(funs = c.funs + (name -> (c.funs.getOrElse(name, Nil) :+ (params.map(Type.Param(_)), t)))))
 
@@ -873,9 +870,9 @@ class Check(program: Program):
         d
 
       case Cmd.Fun(name, params, bound, res, body) =>
-        val xs = signature(bound)
+        val xss = bound.map(signature)
         val t = known(res, s"result of $name")
-        Cmd.Fun(name, params, xs, t, check(bind(xs), body, t))(c.pos)
+        Cmd.Fun(name, params, xss, t, check(bind(xss.flatten), body, t))(c.pos)
 
       case Cmd.Proc(name, params, ins, outs, refs, body) =>
         val is = signature(ins)

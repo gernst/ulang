@@ -43,30 +43,12 @@ object Run:
   def elements(v: Any): List[Any] =
     Printer.items(v).getOrElse(error("runtime", s"expected a list, got ${Printer.show(v)}"))
 
-  def function(v: Any): Any => Any =
+  def function(v: Any): List[Any] => Any =
     v match
       case f: Function1[?, ?] =>
-        f.asInstanceOf[Any => Any]
+        f.asInstanceOf[List[Any] => Any]
       case _ =>
         error("runtime", s"cannot apply ${Printer.show(v)}")
-
-  // functions take one value, which is the tuple of the arguments of a call if there are several
-  def argument(vs: List[Any]): Any =
-    vs match
-      case List(v) =>
-        v
-      case _ =>
-        Obj(",", vs)
-
-  // the values of the n parameters of a function in its argument v
-  def spread(v: Any, n: Int): List[Any] =
-    (n, v) match
-      case (1, _) =>
-        List(v)
-      case (_, Obj(",", vs)) if vs.length == n =>
-        vs
-      case _ =>
-        error("runtime", s"expected $n values, got ${Printer.show(v)}")
 
   def bind[A](xs: List[Pat.Var], vs: List[A]): Map[Name, A] =
     xs.names.zip(vs).toMap
@@ -78,10 +60,7 @@ object Run:
     require("runtime", int(v) != 0, "division by zero")
     int(v)
 
-  def builtin(f: Name)(v: Any): Any =
-    primitive(f, spread(v, 2))
-
-  def primitive(f: Name, args: List[Any]): Any =
+  def builtin(f: Name)(args: List[Any]): Any =
     (f, args) match
       case ("+", List(a, b)) =>
         int(a) + int(b)
@@ -108,7 +87,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
   val funs =
     program.cmds.collect:
       case d: Cmd.Fun =>
-        (d.name, Check.arity(Check.fun(d.bound.types, d.res))) -> d
+        (d.name, d.bound.head.length) -> d
     .toMap
 
   val procs =
@@ -126,8 +105,6 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
   def eval(env: Map[Name, Any], e: Expr): Any =
     at(e.pos):
       e match
-        case Expr.Lit(()) =>
-          Obj(",", Nil)
         case Expr.Lit(value) =>
           value
 
@@ -149,10 +126,10 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
           bool(eval(env, a)) || bool(eval(env, b))
 
         case Expr.App(fun, args) =>
-          function(eval(env, fun))(argument(args.map(eval(env, _))))
+          function(eval(env, fun))(args.map(eval(env, _)))
 
         case Expr.Lam(bound, body) =>
-          (v: Any) => eval(env ++ bind(bound, spread(v, bound.length)), body)
+          (vs: List[Any]) => eval(env ++ bind(bound, vs), body)
 
         // the variables are bound in parallel
         case Expr.Let(bound, body) =>
@@ -183,7 +160,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
     if arity == 0 then
       Obj(c, Nil)
     else
-      (v: Any) => Obj(c, spread(v, arity))
+      (vs: List[Any]) => Obj(c, vs)
 
   // env extended by all combinations of elements of lists
   def combinations(env: Map[Name, Any], xs: List[Pat.Var], lists: List[Expr]): List[Map[Name, Any]] =
@@ -240,8 +217,18 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
       case _ =>
         None
 
-  def fun(d: Cmd.Fun): Any => Any =
-    v => eval(bind(d.bound, spread(v, d.bound.length)), d.body)
+  def fun(d: Cmd.Fun): List[Any] => Any =
+    curried(Map(), d.bound, d.body)
+
+  // a function for the first of bound, which returns functions for the others, and finally evaluates body
+  def curried(env: Map[Name, Any], bound: List[List[Pat.Var]], body: Expr): List[Any] => Any =
+    bound match
+      case xs :: Nil =>
+        vs => eval(env ++ bind(xs, vs), body)
+      case xs :: rest =>
+        vs => curried(env ++ bind(xs, vs), rest, body)
+      case Nil =>
+        error("runtime", "a function without parameters")
 
   def values(store: Map[Name, Cell]): Map[Name, Any] =
     store.flatMap((x, r) => r.get.map(x -> _))

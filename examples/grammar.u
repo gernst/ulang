@@ -6,9 +6,9 @@ data Grammar[T, V] :=
   | Rule(Str)
   | Alt(Grammar[T, V], Grammar[T, V])
   | Seq(List[Grammar[T, V]], List[V] -> Option[V])
-  | Chain(Grammar[T, V], List[T * (V * V -> V)])
+  | Chain(Grammar[T, V], List[T * ((V, V) -> V)])
 
-function combine[V](f: V * V -> V, a: Option[V], b: Option[V]): Option[V] :=
+function combine[V](f: (V, V) -> V, a: Option[V], b: Option[V]): Option[V] :=
   match (a, b)
     case (Some(x), Some(y)) => Some(f(x, y))
     case _ => None
@@ -16,7 +16,7 @@ function combine[V](f: V * V -> V, a: Option[V], b: Option[V]): Option[V] :=
 
 // grammars cannot be cyclic, hence nonterminals refer to the rules by name, looked up in an association list
 procedure interpret[T, V](in g: Grammar[T, V], rules: List[Str * Grammar[T, V]], out r: Option[V], ref ts: List[T]) :=
-  local s: Option[V], vs: Option[List[V]], o: Option[V * V -> V], saved: List[T], more: Bool
+  local s: Option[V], vs: Option[List[V]], o: Option[(V, V) -> V], saved: List[T], more: Bool
   match g
     case Token(f) =>
       match ts
@@ -91,7 +91,7 @@ procedure parts[T, V](in gs: List[Grammar[T, V]], rules: List[Str * Grammar[T, V
   end
 
 // the meaning of the first of the operators that is next
-procedure operator[T, V](in ops: List[T * (V * V -> V)], out o: Option[V * V -> V], ref ts: List[T]) :=
+procedure operator[T, V](in ops: List[T * ((V, V) -> V)], out o: Option[(V, V) -> V], ref ts: List[T]) :=
   match ops
     case Nil =>
       assign o := None
@@ -122,7 +122,7 @@ function second[V](vs: List[V]): Option[V] :=
   end
 
 // arithmetic expressions, given the values of numbers, the meaning of the operators, and a value for symbols
-function arithmetic[V](leaf: Int -> V, plus: V * V -> V, minus: V * V -> V, times: V * V -> V, unit: V): List[Str * Grammar[Token, V]] :=
+function arithmetic[V](leaf: Int -> V, plus: (V, V) -> V, minus: (V, V) -> V, times: (V, V) -> V, unit: V): List[Str * Grammar[Token, V]] :=
   [
     ("expr", Chain(Rule("term"), [(Sym("+"), plus), (Sym("-"), minus)])),
     ("term", Chain(Rule("factor"), [(Sym("*"), times)])),

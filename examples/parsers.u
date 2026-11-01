@@ -37,10 +37,10 @@ function many[T, A](p: Parser[T, A]): Parser[T, List[A]] :=
   (p >>= lambda a => many(p) >>= lambda as => succeed(a :: as)) <|> succeed([])
 
 // p, separated by operators o, which are applied to the left
-function chain[T, A](p: Parser[T, A], o: Parser[T, A * A -> A]): Parser[T, A] :=
+function chain[T, A](p: Parser[T, A], o: Parser[T, (A, A) -> A]): Parser[T, A] :=
   p >>= lambda a => rest(p, o, a)
 
-function rest[T, A](p: Parser[T, A], o: Parser[T, A * A -> A], a: A): Parser[T, A] :=
+function rest[T, A](p: Parser[T, A], o: Parser[T, (A, A) -> A], a: A): Parser[T, A] :=
   (o >>= lambda f => p >>= lambda b => rest(p, o, f(a, b))) <|> succeed(a)
 
 // the result of p for all of ts
@@ -63,7 +63,7 @@ function number(ts: List[Token]): Option[Int * List[Token]] :=
     case _ => None
   end
 
-function op(s: Str, f: Int * Int -> Int): Parser[Token, Int * Int -> Int] :=
+function op(s: Str, f: (Int, Int) -> Int): Parser[Token, (Int, Int) -> Int] :=
   symbol(s) >>= lambda t => succeed(f)
 
 // the nonterminals are functions on tokens, so that they can be recursive

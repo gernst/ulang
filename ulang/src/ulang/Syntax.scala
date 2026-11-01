@@ -12,8 +12,8 @@ enum Type:
   case Meta(index: Int)
   case Param(name: Name)
   case Sort(name: Name, args: List[Type])
-  // functions take one argument, which is a tuple for several arguments
-  case Fun(arg: Type, res: Type)
+  // functions take a fixed number of arguments, since there is no currying
+  case Fun(args: List[Type], res: Type)
   // () is the empty tuple, i.e., the unit type
   case Tuple(items: List[Type])
 
@@ -72,7 +72,8 @@ enum Cmd:
 
   case Sort(name: Name, params: List[Name], typ: Type)(val pos: Pos = nowhere)
   case Data(name: Name, params: List[Name], constrs: List[Constr])(val pos: Pos = nowhere)
-  case Fun(name: Name, params: List[Name], bound: List[Pat.Var], res: Type, body: Expr)(val pos: Pos = nowhere)
+  // functions have at least one list of parameters, and further ones curry them
+  case Fun(name: Name, params: List[Name], bound: List[List[Pat.Var]], res: Type, body: Expr)(val pos: Pos = nowhere)
   case Proc(name: Name, params: List[Name], ins: List[Pat.Var], outs: List[Pat.Var], refs: List[Pat.Var], body: Stmt)(
       val pos: Pos = nowhere
   )

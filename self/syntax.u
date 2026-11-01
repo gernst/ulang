@@ -9,6 +9,8 @@ data Type :=
   | TMeta(Int)
   | TParam(Name)
   | TSort(Name, List[Type])
+  | TFun(List[Type], Type)
+  | TTuple(List[Type])
 
 data Val :=
   | VUnit
@@ -29,12 +31,14 @@ data Expr :=
   | EIte(Expr, Expr, Expr)
   | EMatch(Expr, List[Branch[Expr]])
   | EComp(Expr, List[Var], List[Expr], Expr)
+  | ETuple(List[Expr])
 
 data Pat :=
   | PWild
   | PLit(Val)
   | PVar(Var)
   | PApp(Name, List[Pat])
+  | PTuple(List[Pat])
 
 // a case of a match, which is Case in Syntax.scala
 data Branch[A] :=
@@ -69,7 +73,7 @@ data Fixity :=
 data Cmd :=
   | CSort(Name, List[Name], Type)
   | CData(Name, List[Name], List[Constr])
-  | CFun(Name, List[Name], List[Var], Type, Expr)
+  | CFun(Name, List[Name], List[List[Var]], Type, Expr)
   | CProc(Name, List[Name], List[Var], List[Var], List[Var], Stmt)
   | CImport(Name)
   | CNotation(Fixity, Int, List[Name])
@@ -99,7 +103,7 @@ function types(xs: List[Var]): List[Type] :=
 // the number of arguments of a function type, functions are overloaded by it
 function arity(t: Type): Int :=
   match t
-    case TSort("->", args) => length(args) - 1
+    case TFun(args, _) => length(args)
     case _ => -1
   end
 

@@ -11,11 +11,6 @@
 7. **`Run` has an unused default `dir = os.pwd`**, which invites resolving paths against the working directory.
 8. **Wrong arguments to `read`** fall through to the message "unknown procedure read".
 
-## Functions and tuples
-
-1. **`self/` still has the previous semantics**, where functions take several arguments and tuples are nested pairs. `syntax.u` lacks the cases `Type.Fun`, `Type.Tuple`, `Expr.Tuple`, and `Pat.Tuple`, so `Quote` encodes them as the sorts `->` and `*` and the constructor `,`. `self/syntax.u`, `self/check.u`, and `self/run.u` should get these cases and the semantics of Check.scala and Run.scala.
-2. **Overloading counts the components of a tuple argument.** `function f(p: Int * Int)` has the same type as `function f(x: Int, y: Int)`, so it counts as a function of two arguments, while a call is resolved by the number of arguments written. Calling an overloaded `f` with one pair `f(p)` therefore does not find it.
-
 ## Syntax
 
 Points of a critique of the syntax, ordered by how much they cost when writing `self/check.u` and `self/run.u`.

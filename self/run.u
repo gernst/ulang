@@ -24,7 +24,7 @@ data ProcDef :=
 
 // the functions by name and number of arguments, the procedures, and the constructors with their numbers of arguments
 data Prog :=
-  | Prog(List[(Name * Int) * (List[Var] * Expr)], List[Name * ProcDef], List[Name * Int])
+  | Prog(List[(Name * Int) * (List[List[Var]] * Expr)], List[Name * ProcDef], List[Name * Int])
 
 // the cells by address, which are unassigned initially, and the next address
 data Heap :=
@@ -56,7 +56,7 @@ data Output :=
   | Evaluated(Value)
   | Ran(Bindings)
 
-function funs_in(p: Prog): List[(Name * Int) * (List[Var] * Expr)] :=
+function funs_in(p: Prog): List[(Name * Int) * (List[List[Var]] * Expr)] :=
   match p
     case Prog(f, _, _) => f
   end
@@ -73,14 +73,14 @@ function constrs_in(p: Prog): List[Name * Int] :=
 
 function load(q: Program): Prog :=
   match q
-    case Program(cs) => Prog(fun_defs(cs), proc_defs(cs), (",", 2) :: constr_defs(cs))
+    case Program(cs) => Prog(fun_defs(cs), proc_defs(cs), constr_defs(cs))
   end
 
-// functions are overloaded by their number of arguments
-function fun_defs(cs: List[Cmd]): List[(Name * Int) * (List[Var] * Expr)] :=
+// functions are overloaded by the number of arguments of their first list of parameters
+function fun_defs(cs: List[Cmd]): List[(Name * Int) * (List[List[Var]] * Expr)] :=
   match cs
     case Nil => Nil
-    case CFun(n, _, xs, _, b) :: rest => ((n, length(xs)), (xs, b)) :: fun_defs(rest)
+    case CFun(n, _, xss, _, b) :: rest => ((n, length(first_list(xss))), (xss, b)) :: fun_defs(rest)
     case _ :: rest => fun_defs(rest)
   end
 
@@ -133,6 +133,12 @@ function elements(v: Value): Option[List[Value]] :=
     case _ => None
   end
 
+function lambdas(xss: List[List[Var]], b: Expr): Expr :=
+  match xss
+    case Nil => b
+    case xs :: rest => ELam(xs, lambdas(rest, b))
+  end
+
 function bind_values(xs: List[Var], vs: List[Value]): Bindings :=
   zip(names(xs), vs)
 
@@ -143,6 +149,8 @@ function matches(p: Pat, v: Value): Option[Bindings] :=
     case (PVar(Var(n, _)), _) => Some([(n, v)])
     case (PApp(c, ps), Obj(d, vs)) => if c == d then matches_all(ps, vs) else None
     case (PApp(_, _), _) => None
+    case (PTuple(ps), Obj(",", vs)) => matches_all(ps, vs)
+    case (PTuple(_), _) => None
   end
 
 function matches_all(ps: List[Pat], vs: List[Value]): Option[Bindings] :=
@@ -294,6 +302,10 @@ procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value) :=
       call   combinations(in p, env, xs, lists, out envs)
       call   comprehension(in p, envs, result, cond, out vs)
       assign v := list_value(vs)
+    // tuples are objects of the constructor ,
+    case ETuple(items) =>
+      call   evaluate_all(in p, env, items, out vs)
+      assign v := Obj(",", vs)
   end
 
 procedure evaluate_all(in p: Prog, env: Bindings, es: List[Expr], out vs: List[Value]) :=
@@ -363,8 +375,13 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value) :=
       call evaluate(in p, bind_values(xs, vs) ++ env, body, out v)
     case Fn(n, k) =>
       match lookup((n, k), funs_in(p))
-        case Some((xs, body)) =>
+        case Some((xs :: Nil, body)) =>
           call evaluate(in p, bind_values(xs, vs), body, out v)
+        // further lists of parameters are closures over the arguments so far
+        case Some((xs :: ys :: rest, body)) =>
+          assign v := Clos(bind_values(xs, vs), ys, lambdas(rest, body))
+        case Some((Nil, _)) =>
+          raise Uninitialized(n)
         case None =>
           raise Uninitialized(n)
       end
@@ -735,3 +752,21 @@ test errors :=
     case DivisionByZero =>
       skip
   end
+
+// add(a: Int)(b: Int): Int := a + b, applied partially
+test curried :=
+  local  os: List[Output]
+  call   check_and_run(
+    in [
+      CFun("add", Nil, [[Var("a", tint())], [Var("b", tint())]], tint(), ap("+", [ev("a"), ev("b")])),
+      CEval(EApp(ap("add", [num(1)]), [num(2)]))
+    ],
+    out os
+  )
+  assert os == [Evaluated(int(3))]
+
+// match (1, true, 3) case (_, _, z) => z end, a flat tuple
+test tuples :=
+  local  os: List[Output]
+  call   check_and_run(in [CEval(EMatch(ETuple([num(1), ELit(VBool(true)), num(3)]), [Branch(PTuple([PWild, PWild, pv("z")]), ev("z"))]))], out os)
+  assert os == [Evaluated(int(3))]

@@ -1,11 +1,8 @@
-// modules are inlined once, peek imports stack as well
-import peek
-
+// modules are inlined once, and their notations apply after their import
 import stack
 
 import stack
 
-// the notations of a module apply after its import
 test imported_notations :=
   assert top(2 <+ 1 <+ Empty) == Some(2)
   assert peek(Empty, 3) == 3

@@ -1,0 +1,135 @@
+function range(n: Int): List[Int] :=
+  if n == 0 then Nil else n :: range(n - 1)
+
+function head[A](xs: List[A]): Option[A] :=
+  match xs
+    case x :: _ => Some(x)
+    case _ => None
+  end
+
+function nested(xs: List[Option[Int]]): Int :=
+  match xs
+    case Some(1) :: None :: _ => 1
+    case _ => 0
+  end
+
+function word(x: Int): Str :=
+  match x
+    case 0 => "zero"
+    case _ => "other"
+  end
+
+function flip(b: Bool): Int :=
+  match b
+    case true => 0
+    case false => 1
+  end
+
+function unit(u: ()): Int :=
+  match u
+    case () => 0
+  end
+
+test ranges :=
+  assert range(3) == 3 :: 2 :: 1 :: Nil
+  assert length(range(3)) == 3
+  assert [x * x for x in range(3)] == 9 :: 4 :: 1 :: Nil
+  assert head(range(2)) == Some(2)
+  assert head(Nil) == None
+  assert nested(Some(1) :: None :: Nil) == 1
+  assert nested(Nil) == 0
+  assert word(0) == "zero"
+  assert word(7) == "other"
+  assert flip(false) == 1
+  assert unit(()) == 0
+  assert (range(2) != Nil)
+
+// [...] is notation for the List of the prelude, whose constructor :: is an operator
+test list_notation :=
+  assert [1, 2, 3] == 1 :: 2 :: 3 :: Nil
+  assert [] == Nil
+  assert [[1], []] == (1 :: Nil) :: Nil :: Nil
+  assert [1] ++ [2, 3] ++ [] == [1, 2, 3]
+  assert length([1, 2] ++ [3]) == 3
+
+eval [1, 2, 3]
+
+test comprehensions :=
+  assert [x * x for x in [1, 2, 3]] == [1, 4, 9]
+  assert [x for x in [1, 2, 3, 4] if x % 2 == 0] == [2, 4]
+  assert [(x, y) for x in [1, 2], y in [true, false]] == [(1, true), (1, false), (2, true), (2, false)]
+  assert [(x, y) for x in range(3), y in range(x) if x + y == 4] == [(3, 1), (2, 2)]
+  assert [x for x in []] == []
+  assert [[y for y in range(x)] for x in [1, 2]] == [[1], [2, 1]]
+
+// association lists
+test association_lists :=
+  local  m: List[Str * Int]
+  assign m := update("b", 2, update("a", 1, Nil))
+  assert m == [("b", 2), ("a", 1)]
+  assert lookup("a", m) == Some(1)
+  assert lookup("c", m) == None
+  assign m := update("a", 3, m)
+  assert m == [("a", 3), ("b", 2)]
+  assert lookup("a", [("a", 1), ("a", 2)]) == Some(1)
+  assert remove("a", [("a", 1), ("b", 2), ("a", 3)]) == [("b", 2)]
+  assert keys(m) == ["a", "b"]
+  assert values(m) == [3, 2]
+
+// mutually recursive datatypes, and a sort definition before the datatype it uses
+data Tree[A] :=
+  | Node(A, Forest[A])
+
+data Forest[A] :=
+  | Leaf
+  | Grow(Tree[A], Forest[A])
+
+sort Pair[A] :=
+  | Tuple[A, A]
+
+data Tuple[A, B] :=
+  | Tuple(A, B)
+
+function size[A](t: Tree[A]): Int :=
+  match t
+    case Node(_, f) => 1 + sizes(f)
+  end
+
+function sizes[A](f: Forest[A]): Int :=
+  match f
+    case Leaf => 0
+    case Grow(t, g) => size(t) + sizes(g)
+  end
+
+function swap[A](p: Pair[A]): Pair[A] :=
+  match p
+    case Tuple(x, y) => Tuple(y, x)
+  end
+
+test mutual_recursion :=
+  assert size(Node(1, Grow(Node(2, Leaf), Grow(Node(3, Leaf), Leaf)))) == 3
+  assert swap(Tuple(1, 2)) == Tuple(2, 1)
+
+function add(m: Nat, n: Nat): Nat :=
+  match m
+    case Zero => n
+    case Succ(k) => Succ(add(k, n))
+  end
+
+function even(n: Nat): Bool :=
+  match n
+    case Zero => true
+    case Succ(Zero) => false
+    case Succ(Succ(m)) => even(m)
+  end
+
+function int(n: Nat): Int :=
+  match n
+    case Zero => 0
+    case Succ(m) => 1 + int(m)
+  end
+
+test nat :=
+  assert int(add(Succ(Succ(Zero)), Succ(Zero))) == 3
+  assert even(add(Succ(Zero), Succ(Zero)))
+  assert even(Succ(Succ(Succ(Zero)))) == false

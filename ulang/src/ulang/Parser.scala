@@ -183,7 +183,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   // the components of a tuple type A * B * C while its operators are resolved, such that (A * B) * C stays nested
   val product = "(product)"
 
-  // a single type of a list, where () is the empty tuple, and tuples are not written (A, B)
+  // a single type of a list, where () is the empty tuple, and only the arguments of a function are written (A, B)
   def one(ts: List[Type]): Type =
     ts match
       case List(Type.Sort(`product`, cs)) =>
@@ -206,9 +206,10 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     resolved(s, items(s, basic(s)))(
       (op, t) => List(Type.Sort(op, List(one(t)))),
       (op, t) => List(Type.Sort(op, List(one(t)))),
+      // the arguments of a function (A, B) -> C are a list, while A * B -> C takes a tuple
       (op, l, r) =>
         if op == "->" then
-          List(Type.Fun(one(l), one(r)))
+          List(Type.Fun(l.map(t => one(List(t))), one(r)))
         else if op == "*" then
           List(Type.Sort(product, components(l) ++ components(r)))
         else
@@ -221,7 +222,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       _ => "tuple types are written A * B"
     )
 
-  // a type, a type in parentheses, or () for the empty tuple
+  // a type, a type in parentheses, the arguments (A, B) of a function, or ()
   def basic(s: Scope): Parser[List[Type]] =
     plain(s) ~ opt("[" ~> rep1sep(typ(s), ",") <~ "]") ^^ {
       case n ~ None if s.params(n) =>
@@ -466,10 +467,10 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     generic("function", name | symbol): (n, ps, t) =>
 
       val u = t.copy(notations = s.notations)
-      parens(formals(u)) ~
+      rep1(parens(formals(u))) ~
         (":" ~> typ(u)) ~
-        (":=" ~> expr(u)) ^^ { case xs ~ r ~ b =>
-          Cmd.Fun(n, ps, xs, r, b)(pos)
+        (":=" ~> expr(u)) ^^ { case xss ~ r ~ b =>
+          Cmd.Fun(n, ps, xss, r, b)(pos)
         }
 
   def proc(s: Scope, pos: Pos): Parser[Cmd] =

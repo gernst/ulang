@@ -29,3 +29,76 @@ test literals :=
 test non_strict_and_or :=
   assert (false and 1 / 0 == 0) == false
   assert (true or 1 / 0 == 0)
+
+sort Pair[A] :=
+  | A * A
+
+function swap[A](p: Pair[A]): Pair[A] :=
+  match p
+    case (x, y) => (y, x)
+  end
+
+// a function of one pair, whose type Int * Int -> Int differs from (Int, Int) -> Int of add
+function sum(p: Int * Int): Int :=
+  match p
+    case (x, y) => x + y
+  end
+
+function add(x: Int, y: Int): Int :=
+  x + y
+
+function apply(f: Int * Int -> Int): Int :=
+  f((1, 2))
+
+function xor(p: Bool * Bool): Bool :=
+  match p
+    case (true, false) => true
+    case (false, true) => true
+    case _ => false
+  end
+
+// tuples are flat, unlike nested ones
+function last(t: Int * Bool * Str): Str :=
+  match t
+    case (_, _, s) => s
+  end
+
+function nested(t: Int * (Bool * Str)): Str :=
+  match t
+    case (_, (_, s)) => s
+  end
+
+function divmod(a: Int, b: Int): Int * Int :=
+  (a / b, a % b)
+
+test tuples :=
+  assert swap((1, 2)) == (2, 1)
+  assert sum((3, 4)) == 7
+  assert apply(sum) == 3
+  assert add(1, 2) == sum((1, 2))
+  assert xor((true, false))
+  assert xor((true, true)) == false
+  assert last((1, true, "x")) == "x"
+  assert nested((1, (true, "x"))) == "x"
+  assert (1) == 1
+  assert () == ()
+
+// let binds one value per binder, patterns destructure them
+test let_patterns :=
+  assert (let (q, r) := divmod(7, 2) in q * 10 + r) == 31
+  assert (let (x, y) := (1, 2), z := 3 in x + y + z) == 6
+  assert (let _ := 1, z := 2 in z) == 2
+
+// overloads are told apart by their numbers of parameters
+function pick(p: Int * Int): Int :=
+  1
+
+function pick(x: Int, y: Int): Int :=
+  2
+
+test overloads_by_parameters :=
+  local  p: Int * Int
+  assign p := (3, 4)
+  assert pick(p) == 1
+  assert pick(3, 4) == 2
+  assert pick((3, 4)) == 1

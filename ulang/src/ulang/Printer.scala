@@ -3,8 +3,6 @@ package ulang
 object Printer:
   def show(v: Any): String =
     v match
-      case () =>
-        "()"
       case s: String =>
         "\"" + s + "\""
       case _: Function1[?, ?] =>
