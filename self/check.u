@@ -1166,8 +1166,10 @@ procedure statement(in env: Env, assignable: List[Name], x: Stmt, out y: Stmt, r
       call   variables(in env, assignable, firsts(pairs), out ys, ref s)
       call   checks(in env, seconds(pairs), types(ys), out es, ref s)
       assign y := SAssign(zip(ys, es))
+    // the types of locals that are initialized at the start of the block may be inferred
     case SBlock(locals, body) =>
-      call   signature(in locals, out ys, ref s)
+      call   untyped(in locals, initialized(body))
+      call   formals(in locals, out ys, ref s)
       call   statements(in bind(ys) ++ env, names(ys) ++ assignable, body, out xs, ref s)
       assign y := SBlock(ys, xs)
     case SIf(cond, left, right) =>
@@ -1198,6 +1200,26 @@ procedure statement(in env: Env, assignable: List[Name], x: Stmt, out y: Stmt, r
       call   statement(in env, assignable, body, out l, ref s)
       call   handler_list(in env, assignable, handlers, out hs, ref s)
       assign y := STry(l, hs)
+  end
+
+// the variables that the leading assignments of a block assign one at a time, as local x := e does
+function initialized(xs: List[Stmt]): List[Name] :=
+  match xs
+    case [SAssign([(x, _)]); rest] => [name(x); initialized(rest)]
+    else Nil
+  end
+
+// the locals without a type are initialized
+procedure untyped(in xs: List[Var], inits: List[Name]) :=
+  match xs
+    case Nil =>
+      skip
+    case [Var(n, t); rest] =>
+      if holes(t) and not contains(n, inits)
+        raise MissingType(n)
+      end
+
+      call untyped(in rest, inits)
   end
 
 procedure statements(in env: Env, assignable: List[Name], xs: List[Stmt], out ys: List[Stmt], ref s: State) :=

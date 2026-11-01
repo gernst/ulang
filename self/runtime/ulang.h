@@ -33,7 +33,11 @@ struct u_object {
   union {
     mpz_t big;
     long long num;
-    const char *text;
+    // strings with their length, which is measured once
+    struct {
+      const char *text;
+      long long length;
+    };
     struct {
       union {
         const struct u_name *name;
@@ -45,33 +49,43 @@ struct u_object {
   };
 };
 
-u_value mk_int(long long n);
-u_value mk_int_str(const char *digits);
-u_value mk_bool(int b);
-u_value mk_char(long long c);
-u_value mk_str(const char *s);
-u_value mk_con(const struct u_name *name, int size, ...);
-u_value mk_con_array(const struct u_name *name, int size, u_value *items);
-u_value mk_tuple(int size, ...);
-u_value mk_closure(code fun, int size, ...);
+u_value u_mk_int(long long n);
+u_value u_mk_int_str(const char *digits);
+u_value u_mk_bool(int b);
+u_value u_mk_char(long long c);
+u_value u_mk_str(const char *s);
+u_value u_mk_str_n(const char *s, long long n);
+
+// a string literal, whose length the C compiler knows
+#define u_mk_lit(s) u_mk_str_n(s, sizeof(s) - 1)
+
+// the cache of a function without arguments while its value is computed, which is no object
+#define U_COMPUTING ((u_value)-1)
+
+// the initializer of a static object of a string literal, which needs no allocation
+#define U_LIT(s) {.kind = STR, .text = s, .length = sizeof(s) - 1}
+u_value u_mk_con(const struct u_name *name, int size, ...);
+u_value u_mk_con_array(const struct u_name *name, int size, u_value *items);
+u_value u_mk_tuple(int size, ...);
+u_value u_mk_closure(code fun, int size, ...);
 
 // the booleans and the empty list, which exist once
 extern struct u_object u_true, u_false, u_nil;
 
-static inline int truth(u_value v) {
+static inline int u_truth(u_value v) {
   return v->num != 0;
 }
 
-static inline int is_con(u_value v, const struct u_name *name) {
+static inline int u_is_con(u_value v, const struct u_name *name) {
   return v->kind == CON && v->name == name;
 }
 
-static inline u_value field(u_value v, int i) {
+static inline u_value u_field(u_value v, int i) {
   return v->items[i];
 }
 int u_equals(u_value a, u_value b);
 u_value u_compare(u_value a, u_value b);
-u_value apply(u_value f, int n, ...);
+u_value u_apply(u_value f, int n, ...);
 
 u_value u_add(u_value a, u_value b);
 u_value u_sub(u_value a, u_value b);
@@ -100,18 +114,18 @@ u_value u_is_digit(u_value c);
 u_value u_is_letter(u_value c);
 u_value u_is_space(u_value c);
 
-void print_value(u_value v);
-void print_line(u_value v);
-void print_binding(const char *name, u_value v);
-void no_case(u_value v);
-void assert_true(u_value v);
-void assert_equal(u_value a, u_value b);
-void fail(const char *msg);
+void u_print_value(u_value v);
+void u_print_line(u_value v);
+void u_print_binding(const char *name, u_value v);
+void u_no_case(u_value v);
+void u_assert_true(u_value v);
+void u_assert_equal(u_value a, u_value b);
+void u_fail(const char *msg);
 
 // the handlers of the trys in progress, innermost first, where a raise jumps to the innermost one
-struct handler {
+struct u_handler {
   jmp_buf env;
-  struct handler *next;
+  struct u_handler *next;
   u_value value;
   const char *type;
 };
@@ -127,11 +141,11 @@ void p_read(u_value path, u_value *program);
 void p_library(u_value name, u_value *program);
 
 
-struct handler *u_push(void);
-void u_pop(struct handler *h);
-int u_has_type(struct handler *h, const char *type);
-u_value u_caught(struct handler *h);
+struct u_handler *u_push(void);
+void u_pop(struct u_handler *h);
+int u_has_type(struct u_handler *h, const char *type);
+u_value u_caught(struct u_handler *h);
 void u_raise(u_value v, const char *type);
-void u_reraise(struct handler *h);
+void u_reraise(struct u_handler *h);
 
 #endif

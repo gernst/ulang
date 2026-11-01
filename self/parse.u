@@ -869,14 +869,19 @@ function handlers(cs: List[Branch[Stmt]]): List[Handler] :=
   end
 
 // the body of an if, while, case, or procedure, which may declare variables first
+// where local x := e initializes x by an assignment at the start of the block, in order, such that its type can be inferred
 procedure parse_body(in sc: Scope, out b: Stmt, ref ts: List[Token * Int]) :=
-  local  xs: List[Var], more: List[Var], s: Stmt, rev: List[Stmt]
-  assign xs := Nil, rev := Nil
+  local  xs: List[Var], inits: List[Stmt], s: Stmt, rev: List[Stmt]
+  assign xs := Nil, inits := Nil, rev := Nil
 
   while at_keyword(ts, "local")
     call   advance(ref ts)
-    call   parse_formals1(in sc, out more, ref ts)
-    assign xs := xs ++ more
+    call   parse_local(in sc, ref xs, inits, ts)
+
+    while at_punct(ts, ',')
+      call   advance(ref ts)
+      call   parse_local(in sc, ref xs, inits, ts)
+    end
   end
 
   while starts_stmt(head_token(ts))
@@ -884,7 +889,26 @@ procedure parse_body(in sc: Scope, out b: Stmt, ref ts: List[Token * Int]) :=
     assign rev := [s; rev]
   end
 
-  assign b := SBlock(xs, reverse(rev))
+  assign b := SBlock(xs, inits ++ reverse(rev))
+
+// x: T, x := e, or x: T := e, where the checker requires a type or an initial value
+procedure parse_local(in sc: Scope, ref xs: List[Var], inits: List[Stmt], ts: List[Token * Int]) :=
+  local  n: Id, t: Type, e: Expr
+  call   parse_plain(in sc, out n, ref ts)
+  assign t := THole
+
+  if head_token(ts) == TSym(":")
+    call advance(ref ts)
+    call parse_type(in sc, out t, ref ts)
+  end
+
+  if head_token(ts) == TSym(":=")
+    call   advance(ref ts)
+    call   parse_expr(in sc, out e, ref ts)
+    assign inits := inits ++ [SAssign([(Var(unqualified(n), THole), e)])]
+  end
+
+  assign xs := xs ++ [Var(unqualified(n), t)]
 
 procedure parse_stmt(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
   local e: Expr, b: Stmt, cs: List[Branch[Stmt]]

@@ -1,0 +1,25 @@
+// locals with initial values, whose types are inferred, which only the compiler of self/ knows so far
+
+procedure total(in xs: List[Int], out t: Int) :=
+  local  rest := xs, sum := 0
+
+  while rest != Nil
+    match rest
+      case [x; more] =>
+        assign sum := sum + x, rest := more
+      case Nil =>
+        skip
+    end
+  end
+
+  assign t := sum
+
+// the initial values are assigned in order, so each may refer to the locals before it
+test initialized_locals :=
+  local  a := 1, b := a + 1, c: Int := b * 2, s := "x", t: Int
+  call   total(in [a, b, c], out t)
+  assert (a, b, c, s, t) == (1, 2, 4, "x", 7)
+
+test inferred_types :=
+  local  xs := [Some(1), None], m := lookup("a", [("a", true)])
+  assert length(xs) == 2 and m == Some(true)

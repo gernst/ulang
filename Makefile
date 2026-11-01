@@ -66,3 +66,14 @@ selfcompile: ulang.bin
 	$(COMPILE) $(STAGE)/ulang2.bin self/ulang.u $(STAGE)/ulang3.c
 	cmp $(STAGE)/ulang2.c $(STAGE)/ulang3.c
 	$(call install,$(STAGE)/ulang2.c,$(STAGE)/ulang2.bin)
+
+# the programs of selftests/, which use what only the compiler of self/ knows, compiled by ulang.bin and run
+.PHONY: selftest
+selftest: ulang.bin
+	mkdir -p $(STAGE)
+	for f in selftests/*.u; do \
+	  n=$$(basename $$f .u); \
+	  ($(COMPILE) ./ulang.bin $$f $(STAGE)/$$n.c > /dev/null) && \
+	  cc $(CFLAGS) $(STAGE)/$$n.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/$$n && \
+	  $(STAGE)/$$n && echo "$$f passed" || exit 1; \
+	done

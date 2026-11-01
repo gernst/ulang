@@ -10,6 +10,32 @@
 
 #include "ulang.h"
 
+// the functions of libc on strings and memory, which are loops of the runtime when it is built with -DULANG_PROFILE,
+// such that gprof attributes their time
+#ifdef ULANG_PROFILE
+__attribute__((noinline)) static size_t u_strlen(const char *s) {
+  size_t n = 0;
+  while (s[n]) n++;
+  return n;
+}
+
+__attribute__((noinline)) static int u_strcmp(const char *s, const char *t) {
+  while (*s && *s == *t) s++, t++;
+  return (unsigned char)*s - (unsigned char)*t;
+}
+
+__attribute__((noinline)) static void *u_memcpy(void *d, const void *s, size_t n) {
+  char *p = d;
+  const char *q = s;
+  while (n--) *p++ = *q++;
+  return d;
+}
+#else
+#define u_strlen strlen
+#define u_strcmp strcmp
+#define u_memcpy memcpy
+#endif
+
 static void *gc_realloc(void *p, size_t old, size_t size) {
   (void)old;
   return GC_REALLOC(p, size);
@@ -37,12 +63,12 @@ __attribute__((constructor)) static void init(void) {
 
 static u_value object(enum kind kind) {
   u_value v = GC_MALLOC(sizeof(struct u_object));
-  if (!v) fail("out of memory");
+  if (!v) u_fail("out of memory");
   v->kind = kind;
   return v;
 }
 
-u_value mk_int(long long n) {
+u_value u_mk_int(long long n) {
   if (n >= SMALL_MIN && n <= SMALL_MAX) return &small_ints[n - SMALL_MIN];
   u_value v = object(INT);
   v->num = n;
@@ -57,10 +83,10 @@ static u_value big(void) {
 
 // v as INT if it fits, which keeps one kind per value
 static u_value normalize(u_value v) {
-  return mpz_fits_slong_p(v->big) ? mk_int(mpz_get_si(v->big)) : v;
+  return mpz_fits_slong_p(v->big) ? u_mk_int(mpz_get_si(v->big)) : v;
 }
 
-u_value mk_int_str(const char *digits) {
+u_value u_mk_int_str(const char *digits) {
   u_value v = big();
   mpz_set_str(v->big, digits, 10);
   return normalize(v);
@@ -111,20 +137,27 @@ struct u_object u_true = {.kind = BOOL, .num = 1};
 struct u_object u_false = {.kind = BOOL, .num = 0};
 struct u_object u_nil = {.kind = CON, .name = &n_list_46_Nil, .size = 0, .items = NULL};
 
-u_value mk_bool(int b) {
+u_value u_mk_bool(int b) {
   return b ? &u_true : &u_false;
 }
 
-u_value mk_char(long long c) {
+u_value u_mk_char(long long c) {
   u_value v = object(CHAR);
   v->num = c;
   return v;
 }
 
-u_value mk_str(const char *s) {
+// a string of n characters, which the runtime knows when it builds the string
+u_value u_mk_str_n(const char *s, long long n) {
   u_value v = object(STR);
   v->text = s;
+  v->length = n;
   return v;
+}
+
+// a string of C, e.g. a literal, whose length is measured once
+u_value u_mk_str(const char *s) {
+  return u_mk_str_n(s, (long long)u_strlen(s));
 }
 
 static u_value *items(int size, va_list args) {
@@ -139,7 +172,7 @@ const struct u_name n_option_46_None = {"option", "None", 0};
 const struct u_name n_option_46_Some = {"option", "Some", 1};
 const struct u_name n_os_46_OsError = {"os", "OsError", 0};
 
-u_value mk_con(const struct u_name *name, int size, ...) {
+u_value u_mk_con(const struct u_name *name, int size, ...) {
   va_list args;
   va_start(args, size);
   u_value v = object(CON);
@@ -150,7 +183,7 @@ u_value mk_con(const struct u_name *name, int size, ...) {
   return v;
 }
 
-u_value mk_con_array(const struct u_name *name, int size, u_value *xs) {
+u_value u_mk_con_array(const struct u_name *name, int size, u_value *xs) {
   u_value v = object(CON);
   v->name = name;
   v->size = size;
@@ -159,7 +192,7 @@ u_value mk_con_array(const struct u_name *name, int size, u_value *xs) {
   return v;
 }
 
-u_value mk_tuple(int size, ...) {
+u_value u_mk_tuple(int size, ...) {
   va_list args;
   va_start(args, size);
   u_value v = object(TUPLE);
@@ -169,7 +202,7 @@ u_value mk_tuple(int size, ...) {
   return v;
 }
 
-u_value mk_closure(code fun, int size, ...) {
+u_value u_mk_closure(code fun, int size, ...) {
   va_list args;
   va_start(args, size);
   u_value v = object(CLOSURE);
@@ -186,7 +219,7 @@ static int sign(long long d) {
 
 // -1, 0, or 1 for values of the same type, where constructors are ordered by their declaration and then by their fields
 static int compare(u_value a, u_value b) {
-  if (a->kind == CLOSURE || b->kind == CLOSURE) fail("cannot compare functions");
+  if (a->kind == CLOSURE || b->kind == CLOSURE) u_fail("cannot compare functions");
   if (a == b) return 0;
   switch (a->kind) {
   case INT:
@@ -196,12 +229,12 @@ static int compare(u_value a, u_value b) {
   case CHAR:
     return sign(a->num - b->num);
   case STR:
-    return sign(strcmp(a->text, b->text));
+    return sign(u_strcmp(a->text, b->text));
   case CON:
     // descriptors of compilers before positions all have position 0, whose constructors still differ by name
     if (a->name != b->name) {
       int c = sign(a->name->index - b->name->index);
-      return c != 0 ? c : sign(strcmp(a->name->base, b->name->base));
+      return c != 0 ? c : sign(u_strcmp(a->name->base, b->name->base));
     }
     /* fall through */
   case TUPLE:
@@ -220,10 +253,10 @@ int u_equals(u_value a, u_value b) {
 }
 
 u_value u_compare(u_value a, u_value b) {
-  return mk_int(compare(a, b));
+  return u_mk_int(compare(a, b));
 }
 
-u_value apply(u_value f, int n, ...) {
+u_value u_apply(u_value f, int n, ...) {
   va_list args;
   va_start(args, n);
   u_value *xs = items(n, args);
@@ -233,19 +266,19 @@ u_value apply(u_value f, int n, ...) {
 
 u_value u_add(u_value a, u_value b) {
   long long r;
-  if (a->kind == INT && b->kind == INT && !__builtin_add_overflow(a->num, b->num, &r)) return mk_int(r);
+  if (a->kind == INT && b->kind == INT && !__builtin_add_overflow(a->num, b->num, &r)) return u_mk_int(r);
   return slow(mpz_add, a, b);
 }
 
 u_value u_sub(u_value a, u_value b) {
   long long r;
-  if (a->kind == INT && b->kind == INT && !__builtin_sub_overflow(a->num, b->num, &r)) return mk_int(r);
+  if (a->kind == INT && b->kind == INT && !__builtin_sub_overflow(a->num, b->num, &r)) return u_mk_int(r);
   return slow(mpz_sub, a, b);
 }
 
 u_value u_mul(u_value a, u_value b) {
   long long r;
-  if (a->kind == INT && b->kind == INT && !__builtin_mul_overflow(a->num, b->num, &r)) return mk_int(r);
+  if (a->kind == INT && b->kind == INT && !__builtin_mul_overflow(a->num, b->num, &r)) return u_mk_int(r);
   return slow(mpz_mul, a, b);
 }
 
@@ -256,54 +289,54 @@ static int divisible(u_value a, u_value b) {
 
 // division truncates toward zero, as BigInt in Scala and C, and a big integer is never zero
 u_value u_div(u_value a, u_value b) {
-  if (b->kind == INT && b->num == 0) fail("division by zero");
-  if (divisible(a, b)) return mk_int(a->num / b->num);
+  if (b->kind == INT && b->num == 0) u_fail("division by zero");
+  if (divisible(a, b)) return u_mk_int(a->num / b->num);
   return slow(mpz_tdiv_q, a, b);
 }
 
 u_value u_mod(u_value a, u_value b) {
-  if (b->kind == INT && b->num == 0) fail("division by zero");
-  if (divisible(a, b)) return mk_int(a->num % b->num);
+  if (b->kind == INT && b->num == 0) u_fail("division by zero");
+  if (divisible(a, b)) return u_mk_int(a->num % b->num);
   return slow(mpz_tdiv_r, a, b);
 }
 
 u_value u_lt(u_value a, u_value b) {
-  return mk_bool(compare_ints(a, b) < 0);
+  return u_mk_bool(compare_ints(a, b) < 0);
 }
 
 u_value u_eq(u_value a, u_value b) {
-  return mk_bool(u_equals(a, b));
+  return u_mk_bool(u_equals(a, b));
 }
 
 u_value u_chars(u_value s) {
   u_value cs = &u_nil;
-  for (long i = (long)strlen(s->text) - 1; i >= 0; i--) cs = mk_con(&n_list_46_Cons, 2, mk_char((unsigned char)s->text[i]), cs);
+  for (long i = (long)(size_t)s->length - 1; i >= 0; i--) cs = u_mk_con(&n_list_46_Cons, 2, u_mk_char((unsigned char)s->text[i]), cs);
   return cs;
 }
 
 u_value u_string(u_value cs) {
   long n = 0;
-  for (u_value c = cs; is_con(c, &n_list_46_Cons); c = c->items[1]) n++;
+  for (u_value c = cs; u_is_con(c, &n_list_46_Cons); c = c->items[1]) n++;
   char *s = GC_MALLOC_ATOMIC(n + 1);
   long i = 0;
-  for (u_value c = cs; is_con(c, &n_list_46_Cons); c = c->items[1]) s[i++] = (char)c->items[0]->num;
+  for (u_value c = cs; u_is_con(c, &n_list_46_Cons); c = c->items[1]) s[i++] = (char)c->items[0]->num;
   s[n] = 0;
-  return mk_str(s);
+  return u_mk_str_n(s, n);
 }
 
 u_value u_ord(u_value c) {
-  return mk_int(c->num);
+  return u_mk_int(c->num);
 }
 
 u_value u_chr(u_value n) {
-  if (n->kind != INT || n->num < 0 || n->num > 65535) fail("no character");
-  return mk_char(n->num);
+  if (n->kind != INT || n->num < 0 || n->num > 65535) u_fail("no character");
+  return u_mk_char(n->num);
 }
 
 // a cell with x at the place end of a list being built, whose tail is the place of the next cell,
 // which changes the list only before it is visible to the program
 u_value *u_append(u_value *end, u_value x) {
-  *end = mk_con(&n_list_46_Cons, 2, x, &u_nil);
+  *end = u_mk_con(&n_list_46_Cons, 2, x, &u_nil);
   return &(*end)->items[1];
 }
 
@@ -324,53 +357,53 @@ static const char *escape(long long c, char quote) {
 }
 
 u_value u_concat(u_value s, u_value t) {
-  size_t m = strlen(s->text), n = strlen(t->text);
+  size_t m = (size_t)s->length, n = (size_t)t->length;
   char *r = text(m + n);
-  memcpy(r, s->text, m);
-  memcpy(r + m, t->text, n);
-  return mk_str(r);
+  u_memcpy(r, s->text, m);
+  u_memcpy(r + m, t->text, n);
+  return u_mk_str_n(r, (long long)(m + n));
 }
 
 u_value u_str_size(u_value s) {
-  return mk_int((long long)strlen(s->text));
+  return u_mk_int(s->length);
 }
 
 u_value u_str_join(u_value sep, u_value ss) {
-  size_t n = 0, k = strlen(sep->text);
-  for (u_value c = ss; is_con(c, &n_list_46_Cons); c = c->items[1]) n += strlen(c->items[0]->text) + (c != ss ? k : 0);
+  size_t n = 0, k = (size_t)sep->length;
+  for (u_value c = ss; u_is_con(c, &n_list_46_Cons); c = c->items[1]) n += (size_t)c->items[0]->length + (c != ss ? k : 0);
   char *r = text(n), *p = r;
-  for (u_value c = ss; is_con(c, &n_list_46_Cons); c = c->items[1]) {
+  for (u_value c = ss; u_is_con(c, &n_list_46_Cons); c = c->items[1]) {
     if (c != ss) {
-      memcpy(p, sep->text, k);
+      u_memcpy(p, sep->text, k);
       p += k;
     }
-    size_t m = strlen(c->items[0]->text);
-    memcpy(p, c->items[0]->text, m);
+    size_t m = (size_t)c->items[0]->length;
+    u_memcpy(p, c->items[0]->text, m);
     p += m;
   }
-  return mk_str(r);
+  return u_mk_str_n(r, (long long)n);
 }
 
 // from i up to but excluding j, as drop(i) and take(j - i) in Scala, which ignore indices outside of s
 u_value u_str_slice(u_value s, u_value i, u_value j) {
-  long long n = (long long)strlen(s->text), a = index_of(i), b = index_of(j);
+  long long n = s->length, a = index_of(i), b = index_of(j);
   long long start = a < 0 ? 0 : (a > n ? n : a), count = b - a;
   if (count < 0) count = 0;
   if (start + count > n) count = n - start;
   char *r = text(count);
-  memcpy(r, s->text + start, count);
-  return mk_str(r);
+  u_memcpy(r, s->text + start, count);
+  return u_mk_str_n(r, count);
 }
 
 // the parts between the occurrences of c, including empty ones
 u_value u_str_split(u_value s, u_value c) {
   u_value parts = &u_nil;
-  const char *end = s->text + strlen(s->text), *from = end;
+  const char *end = s->text + (size_t)s->length, *from = end;
   for (const char *p = end; p >= s->text; p--) {
     if (p == s->text || p[-1] == (char)c->num) {
       char *r = text(from - p);
-      memcpy(r, p, from - p);
-      parts = mk_con(&n_list_46_Cons, 2, mk_str(r), parts);
+      u_memcpy(r, p, from - p);
+      parts = u_mk_con(&n_list_46_Cons, 2, u_mk_str_n(r, from - p), parts);
       from = p - 1;
     }
   }
@@ -378,31 +411,31 @@ u_value u_str_split(u_value s, u_value c) {
 }
 
 u_value u_str_get(u_value s, u_value i) {
-  size_t n = strlen(s->text);
+  size_t n = (size_t)s->length;
   if (i->kind != INT || i->num < 0 || (size_t)i->num >= n) {
     char *d = digits(i);
-    char *m = GC_MALLOC_ATOMIC(64 + strlen(d));
+    char *m = GC_MALLOC_ATOMIC(64 + u_strlen(d));
     sprintf(m, "no index %s in a string of size %zu", d, n);
-    fail(m);
+    u_fail(m);
   }
-  return mk_char((unsigned char)s->text[i->num]);
+  return u_mk_char((unsigned char)s->text[i->num]);
 }
 
 u_value u_str_contains(u_value s, u_value c) {
-  return mk_bool(c->num != 0 && strchr(s->text, (int)c->num) != NULL);
+  return u_mk_bool(c->num != 0 && strchr(s->text, (int)c->num) != NULL);
 }
 
 u_value u_str_compare(u_value s, u_value t) {
-  int c = strcmp(s->text, t->text);
-  return mk_int(c < 0 ? -1 : c > 0);
+  int c = u_strcmp(s->text, t->text);
+  return u_mk_int(c < 0 ? -1 : c > 0);
 }
 
 u_value u_str_show(u_value n) {
-  return mk_str(digits(n));
+  return u_mk_str(digits(n));
 }
 
 u_value u_str_quote(u_value s) {
-  char *r = text(2 * strlen(s->text) + 2), *p = r;
+  char *r = text(2 * (size_t)s->length + 2), *p = r;
   *p++ = '"';
   for (const char *c = s->text; *c; c++) {
     const char *e = escape(*c, '"');
@@ -411,27 +444,27 @@ u_value u_str_quote(u_value s) {
   }
   *p++ = '"';
   *p = 0;
-  return mk_str(r);
+  return u_mk_str_n(r, p - r);
 }
 
 u_value u_str_number(u_value s) {
   const char *p = s->text + (s->text[0] == '-');
-  if (!*p) return mk_con(&n_option_46_None, 0);
+  if (!*p) return u_mk_con(&n_option_46_None, 0);
   for (; *p; p++)
-    if (*p < '0' || *p > '9') return mk_con(&n_option_46_None, 0);
-  return mk_con(&n_option_46_Some, 1, mk_int_str(s->text));
+    if (*p < '0' || *p > '9') return u_mk_con(&n_option_46_None, 0);
+  return u_mk_con(&n_option_46_Some, 1, u_mk_int_str(s->text));
 }
 
 u_value u_is_digit(u_value c) {
-  return mk_bool('0' <= c->num && c->num <= '9');
+  return u_mk_bool('0' <= c->num && c->num <= '9');
 }
 
 u_value u_is_letter(u_value c) {
-  return mk_bool(('a' <= c->num && c->num <= 'z') || ('A' <= c->num && c->num <= 'Z'));
+  return u_mk_bool(('a' <= c->num && c->num <= 'z') || ('A' <= c->num && c->num <= 'Z'));
 }
 
 u_value u_is_space(u_value c) {
-  return mk_bool(c->num == ' ' || c->num == '\n' || c->num == '\t' || c->num == '\r');
+  return u_mk_bool(c->num == ' ' || c->num == '\n' || c->num == '\t' || c->num == '\r');
 }
 
 static void print_char(FILE *out, long long c, char quote) {
@@ -441,12 +474,12 @@ static void print_char(FILE *out, long long c, char quote) {
 }
 
 static int is_list(u_value v) {
-  for (; is_con(v, &n_list_46_Cons); v = v->items[1]);
-  return is_con(v, &n_list_46_Nil);
+  for (; u_is_con(v, &n_list_46_Cons); v = v->items[1]);
+  return u_is_con(v, &n_list_46_Nil);
 }
 
 // values as ulang/src/ulang/Printer.scala shows them
-void fprint_value(FILE *out, u_value v) {
+void u_fprint_value(FILE *out, u_value v) {
   switch (v->kind) {
   case INT:
     fprintf(out, "%lld", v->num);
@@ -471,16 +504,16 @@ void fprint_value(FILE *out, u_value v) {
     fputc('(', out);
     for (int i = 0; i < v->size; i++) {
       if (i > 0) fprintf(out, ", ");
-      fprint_value(out, v->items[i]);
+      u_fprint_value(out, v->items[i]);
     }
     fputc(')', out);
     break;
   case CON:
-    if (is_con(v, &n_list_46_Cons) && is_list(v)) {
+    if (u_is_con(v, &n_list_46_Cons) && is_list(v)) {
       fputc('[', out);
-      for (u_value x = v; is_con(x, &n_list_46_Cons); x = x->items[1]) {
+      for (u_value x = v; u_is_con(x, &n_list_46_Cons); x = x->items[1]) {
         if (x != v) fprintf(out, ", ");
-        fprint_value(out, x->items[0]);
+        u_fprint_value(out, x->items[0]);
       }
       fputc(']', out);
     } else {
@@ -489,7 +522,7 @@ void fprint_value(FILE *out, u_value v) {
         fputc('(', out);
         for (int i = 0; i < v->size; i++) {
           if (i > 0) fprintf(out, ", ");
-          fprint_value(out, v->items[i]);
+          u_fprint_value(out, v->items[i]);
         }
         fputc(')', out);
       }
@@ -501,69 +534,69 @@ void fprint_value(FILE *out, u_value v) {
   }
 }
 
-void print_value(u_value v) {
-  fprint_value(stdout, v);
+void u_print_value(u_value v) {
+  u_fprint_value(stdout, v);
 }
 
-void print_line(u_value v) {
-  print_value(v);
+void u_print_line(u_value v) {
+  u_print_value(v);
   putchar('\n');
 }
 
-void print_binding(const char *name, u_value v) {
+void u_print_binding(const char *name, u_value v) {
   if (!v) return;
   printf("%s = ", name);
-  print_line(v);
+  u_print_line(v);
 }
 
-void fail(const char *msg) {
+void u_fail(const char *msg) {
   fflush(stdout);
   fprintf(stderr, "runtime error: %s\n", msg);
   exit(1);
 }
 
-void no_case(u_value v) {
+void u_no_case(u_value v) {
   fflush(stdout);
   fprintf(stderr, "runtime error: no case matches ");
-  fprint_value(stderr, v);
+  u_fprint_value(stderr, v);
   fprintf(stderr, "\n");
   exit(1);
 }
 
-void assert_true(u_value v) {
-  if (!truth(v)) fail("assertion failed");
+void u_assert_true(u_value v) {
+  if (!u_truth(v)) u_fail("assertion failed");
 }
 
-void assert_equal(u_value a, u_value b) {
+void u_assert_equal(u_value a, u_value b) {
   if (!u_equals(a, b)) {
     fflush(stdout);
     fprintf(stderr, "runtime error: assertion failed: ");
-    fprint_value(stderr, a);
+    u_fprint_value(stderr, a);
     fprintf(stderr, " != ");
-    fprint_value(stderr, b);
+    u_fprint_value(stderr, b);
     fprintf(stderr, "\n");
     exit(1);
   }
 }
 
-static struct handler *handlers = NULL;
+static struct u_handler *handlers = NULL;
 
-struct handler *u_push(void) {
-  struct handler *h = GC_MALLOC(sizeof(struct handler));
+struct u_handler *u_push(void) {
+  struct u_handler *h = GC_MALLOC(sizeof(struct u_handler));
   h->next = handlers;
   handlers = h;
   return h;
 }
 
-void u_pop(struct handler *h) {
+void u_pop(struct u_handler *h) {
   handlers = h->next;
 }
 
-int u_has_type(struct handler *h, const char *type) {
-  return strcmp(h->type, type) == 0;
+int u_has_type(struct u_handler *h, const char *type) {
+  return u_strcmp(h->type, type) == 0;
 }
 
-u_value u_caught(struct handler *h) {
+u_value u_caught(struct u_handler *h) {
   return h->value;
 }
 
@@ -572,7 +605,7 @@ void u_raise(u_value v, const char *type) {
   if (!handlers) {
     fflush(stdout);
     fprintf(stderr, "runtime error: uncaught exception ");
-    fprint_value(stderr, v);
+    u_fprint_value(stderr, v);
     fprintf(stderr, "\n");
     exit(1);
   }
@@ -581,7 +614,7 @@ void u_raise(u_value v, const char *type) {
   longjmp(handlers->env, 1);
 }
 
-void u_reraise(struct handler *h) {
+void u_reraise(struct u_handler *h) {
   u_raise(h->value, h->type);
 }
 
@@ -591,7 +624,7 @@ void u_reraise(struct handler *h) {
 #endif
 
 static void os_error(const char *message, const char *arg) {
-  u_raise(mk_con(&n_os_46_OsError, 1, u_concat(mk_str(message), mk_str(arg))), "os.OsError");
+  u_raise(u_mk_con(&n_os_46_OsError, 1, u_concat(u_mk_str(message), u_mk_str(arg))), "os.OsError");
 }
 
 // the contents of a file, or else NULL
@@ -606,7 +639,7 @@ static u_value read_file(const char *path) {
   char *s = text(st.st_size);
   size_t n = fread(s, 1, st.st_size, f);
   fclose(f);
-  return n == (size_t)st.st_size ? mk_str(s) : NULL;
+  return n == (size_t)st.st_size ? u_mk_str_n(s, (long long)n) : NULL;
 }
 
 // the arguments of the program, after its name
@@ -614,7 +647,7 @@ static u_value args = NULL;
 
 void u_args(int argc, char **argv) {
   args = &u_nil;
-  for (int i = argc - 1; i >= 1; i--) args = mk_con(&n_list_46_Cons, 2, mk_str(argv[i]), args);
+  for (int i = argc - 1; i >= 1; i--) args = u_mk_con(&n_list_46_Cons, 2, u_mk_str(argv[i]), args);
 }
 
 void p_os_args(u_value *result) {
@@ -629,7 +662,7 @@ void p_os_read(u_value path, u_value *result) {
 
 // creates the missing directories of path, as the interpreter does
 void p_os_write(u_value path, u_value contents) {
-  char *dir = strcpy(text(strlen(path->text)), path->text);
+  char *dir = strcpy(text((size_t)path->length), path->text);
   for (char *p = strchr(dir + 1, '/'); p; p = strchr(p + 1, '/')) {
     *p = 0;
     mkdir(dir, 0777);
@@ -637,13 +670,13 @@ void p_os_write(u_value path, u_value contents) {
   }
   FILE *f = fopen(path->text, "wb");
   if (!f) os_error("cannot write ", path->text);
-  size_t n = strlen(contents->text);
+  size_t n = (size_t)contents->length;
   int ok = fwrite(contents->text, 1, n, f) == n;
   if (fclose(f) || !ok) os_error("cannot write ", path->text);
 }
 
 void p_os_library(u_value name, u_value *result) {
-  char *path = text(strlen(ULANG_LIB) + strlen(name->text) + 3);
+  char *path = text(u_strlen(ULANG_LIB) + (size_t)name->length + 3);
   sprintf(path, "%s/%s.u", ULANG_LIB, name->text);
   u_value t = read_file(path);
   if (!t) os_error("unknown module ", name->text);
@@ -651,9 +684,9 @@ void p_os_library(u_value name, u_value *result) {
 }
 
 void p_read(u_value path, u_value *program) {
-  fail("read is not available in compiled programs");
+  u_fail("read is not available in compiled programs");
 }
 
 void p_library(u_value name, u_value *program) {
-  fail("library is not available in compiled programs");
+  u_fail("library is not available in compiled programs");
 }
