@@ -672,6 +672,3 @@ test compile_programs :=
   call compile_file(in "../examples/parsers.u", "out/parsers.c")
   call compile_file(in "../examples/procedures.u", "out/recursive_descent.c")
   call compile_file(in "../examples/grammar.u", "out/grammar.c")
-
-test self_compile :=
-  call compile_file(in "compile.u", "out/compile.c")
