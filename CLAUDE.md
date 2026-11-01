@@ -11,13 +11,14 @@ Mill with `build.mill.yaml`; the language lives in the module `ulang`. Do not us
 - `./mill ulang.test` runs every `tests/**/*.u`, `examples/**/*.u`, and `self/**/*.u` (utest, `FileTest`)
 - `make` builds `ulang.jar`, which `./ulang.sh file.u ...` runs (the module directory `ulang/` prevents a script `./ulang`)
 - `./ulang.sh --tests file.u ...` runs each test on its own and prints `test name passed` or `test name failed: ...`; `./ulang.sh --only name file.u` runs only the test of that name, and `--only n` the `n`-th `run` or `test` of the file
-- `self/compile.u` compiles ulang programs to C, where its test writes the translations of some tests and examples to `self/out/`, which `cc -I self/runtime self/out/NAME.c self/runtime/ulang.c -lgmp -lgc` compiles with the runtime, using GMP and the Boehm collector
+- `self/compile.u` compiles ulang programs to C, where its test writes the translations of some tests and examples to `self/out/`, which `cc -DULANG_LIB='"'$PWD/ulang/resources'"' -I self/runtime self/out/NAME.c self/runtime/ulang.c -lgmp -lgc` compiles with the runtime, using GMP and the Boehm collector, where `ULANG_LIB` is the directory of the library for `os_library`
 - `make install` packages the VS Code extension in `vscode/` as `ulang.vsix` and installs it into VSCodium (`codium`): syntax highlighting, a run button, `▶ Run` links above `run` and `test`, errors in the Problems view, and the tests in the Testing view, all by running `ulang.jar`
 
 ## Tests
 
 Tests are end-to-end only: programs in `tests/` with named tests `test name := ...` of `assert` statements.
 Every program is checked after `ulang/resources/prelude.u`, which declares the operators and imports the library modules `nat`, `option`, and `list` (also in `ulang/resources/`).
+The library module `os` declares `OsError`, and with it come the builtin procedures `os_read`, `os_write`, and `os_library`, which raise `OsError` when they fail.
 `import name` inlines the declarations of the module `name.u` from the importing file's directory, or else from the library, once, while parsing, so its notations apply after the import; its `eval`s, `run`s, and `test`s are not imported.
 A file that is expected to fail states the error in its first line, e.g. `// type error: unknown variable x`, see `tests/errors/`.
 

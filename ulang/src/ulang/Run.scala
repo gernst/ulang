@@ -115,6 +115,8 @@ object Run:
         list(s.split(java.util.regex.Pattern.quote(c.toString), -1).toList)
       case ("str_show", List(n)) =>
         int(n).toString
+      case ("str_quote", List(s: String)) =>
+        Printer.show(s)
       case ("str_number", List(s: String)) =>
         if "-?[0-9]+".r.matches(s) then Obj("Some", List(BigInt(s))) else Obj("None", Nil)
       case ("is_digit", List(c: Char)) =>
@@ -319,7 +321,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
 
         case Stmt.Call(proc, ins, outs, refs) =>
           val env = values(store)
-          assign(store, outs, invoke(proc, ins.map(eval(env, _)), refs.map(x => store(x.name))))
+          assign(store, outs, invoke(proc, ins.map(eval(env, _)), refs.map(x => store(x.name)), s.pos))
 
         case Stmt.Match(arg, cases) =>
           val (b, bs) = select(values(store), value(store, arg), cases)
@@ -372,7 +374,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
       case _ =>
         error("runtime", s"cannot assign ${vs.length} values to ${xs.length} variables")
 
-  def invoke(p: Name, ins: List[Any], refs: List[Cell]): List[Any] =
+  def invoke(p: Name, ins: List[Any], refs: List[Cell], pos: Pos): List[Any] =
     (procs.get(p), ins) match
       case (Some(d), _) =>
         val outs = d.outs.map(_ => Cell(None))
@@ -383,11 +385,21 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
         List(read(path))
       case (None, List(name: String)) if p == "library" =>
         List(library(name))
-      case (None, List(path: String, text: String)) if p == "write" =>
-        os.write.over(os.Path(path, dir), text, createFolders = true)
+      case (None, List(path: String)) if p == "os_read" =>
+        try List(os.read(os.Path(path, dir)))
+        catch case _: java.io.IOException => throw osError(s"cannot read $path", pos)
+      case (None, List(path: String, text: String)) if p == "os_write" =>
+        try os.write.over(os.Path(path, dir), text, createFolders = true)
+        catch case _: java.io.IOException => throw osError(s"cannot write $path", pos)
         Nil
+      case (None, List(name: String)) if p == "os_library" =>
+        try List(os.read(os.resource / s"$name.u"))
+        catch case _: os.ResourceNotFoundException => throw osError(s"unknown module $name", pos)
       case _ =>
         error("runtime", s"unknown procedure $p")
+
+  def osError(message: String, pos: Pos): Raised =
+    Raised(Obj("OsError", List(message)), Type.Sort("OsError", Nil), pos)
 
   // the syntax of a file as a value of self/syntax.u, unchecked
   def read(path: String): Any =

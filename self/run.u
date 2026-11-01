@@ -8,6 +8,8 @@ import util
 
 import check
 
+import os
+
 data Value :=
   | Lit(Val)
   | Obj(Name, List[Value])
@@ -104,7 +106,7 @@ function constr_arity(k: Constr): Name * Int :=
   end
 
 function is_builtin(n: Name): Bool :=
-  contains(n, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "str_show", "str_number", "is_digit", "is_letter", "is_space"])
+  contains(n, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"])
 
 function is_function(v: Value): Bool :=
   match v
@@ -450,6 +452,8 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := list_value([Lit(VStr(part)) for part in str_split(s, c)])
     case ("str_show", [Lit(VInt(k))]) =>
       assign v := Lit(VStr(str_show(k)))
+    case ("str_quote", [Lit(VStr(s))]) =>
+      assign v := Lit(VStr(str_quote(s)))
     case ("str_number", [Lit(VStr(s))]) =>
       match str_number(s)
         case Some(k) =>
@@ -682,7 +686,29 @@ procedure invoke(in p: Prog, n: Name, ins: List[Value], refs: List[Int], out out
       call   exec(in p, in_cells ++ out_cells ++ zip(names(zs), refs), body, ref h)
       call   read_outs(in n, out_cells, h, out outs)
     case None =>
-      raise UnknownProc(n)
+      call os_proc(in n, ins, out outs)
+  end
+
+// the procedures of the library os are those of the interpreter of this program, whose OsError the program can catch
+procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
+  local text: Str
+  try
+    match (n, ins)
+      case ("os_read", [Lit(VStr(path))]) =>
+        call   os_read(in path, out text)
+        assign outs := [Lit(VStr(text))]
+      case ("os_write", [Lit(VStr(path)), Lit(VStr(t))]) =>
+        call   os_write(in path, t)
+        assign outs := Nil
+      case ("os_library", [Lit(VStr(name))]) =>
+        call   os_library(in name, out text)
+        assign outs := [Lit(VStr(text))]
+      else
+        raise UnknownProc(n)
+    end
+  catch
+    case OsError(m) =>
+      raise Thrown(Obj("OsError", [Lit(VStr(m))]), TSort("OsError", Nil))
   end
 
 // executes a block and returns the assigned values of its variables

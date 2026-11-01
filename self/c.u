@@ -1,5 +1,5 @@
 // the part of C that compiled ulang programs need, as datatypes, and a printer to C source code,
-// where the runtime defines the type value of all ulang values in a header, which is not part of the syntax
+// where the runtime defines the type u_value of all ulang values in a header, which is not part of the syntax
 
 import util
 data CType :=
@@ -59,7 +59,8 @@ function c_expr(e: CExpr): Str :=
   match e
     case CeVar(x) => x
     case CeNum(n) => str_show(n)
-    case CeStr(s) => c_string(s)
+    // the escapes of C strings are those of ulang
+    case CeStr(s) => str_quote(s)
     case CeCall(f, args) => c_operand(f) ^ "(" ^ str_join(", ", [c_expr(a) for a in args]) ^ ")"
     case CeUnary(o, a) => o ^ c_operand(a)
     case CeBinary(o, a, b) => c_operand(a) ^ " " ^ o ^ " " ^ c_operand(b)
@@ -78,19 +79,6 @@ function c_operand(e: CExpr): Str :=
     case CeIndex(_, _) => c_expr(e)
     case CeArrow(_, _) => c_expr(e)
     else "(" ^ c_expr(e) ^ ")"
-  end
-
-function c_string(s: Str): Str :=
-  "\"" ^ string(concat([c_escape(c) for c in chars(s)])) ^ "\""
-
-function c_escape(c: Char): List[Char] :=
-  match c
-    case '"' => ['\\', '"']
-    case '\\' => ['\\', '\\']
-    case '\n' => ['\\', 'n']
-    case '\t' => ['\\', 't']
-    case '\r' => ['\\', 'r']
-    else [c]
   end
 
 // the lines of a statement, indented by ind
@@ -125,7 +113,7 @@ function c_param(p: CType * Str): Str :=
 
 function c_decl(d: CDecl): List[Str] :=
   match d
-    case CdInclude(h) => ["#include " ^ c_string(h)]
+    case CdInclude(h) => ["#include " ^ str_quote(h)]
     case CdPrototype(t, f, ps) => [c_declare(t, f) ^ "(" ^ c_params(ps) ^ ");"]
     case CdFunction(t, f, ps, b) => [c_declare(t, f) ^ "(" ^ c_params(ps) ^ ") {"] ++ c_stmts("  ", b) ++ ["}"]
     case CdGlobal(t, x, None) => [c_declare(t, x) ^ ";"]

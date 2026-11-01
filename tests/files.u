@@ -1,0 +1,32 @@
+import os
+
+test files :=
+  local  t: Str
+  call   os_write(in "out/files/a.txt", "line\n\"quoted\"\n")
+  call   os_read(in "out/files/a.txt", out t)
+  assert t == "line\n\"quoted\"\n"
+  call   os_write(in "out/files/a.txt", "")
+  call   os_read(in "out/files/a.txt", out t)
+  assert t == ""
+
+test library :=
+  local  t: Str
+  call   os_library(in "option", out t)
+  assert str_slice(t, 0, 16) == "data Option[A] :"
+
+test failures :=
+  local  t: Str, m: Str
+  try
+    call os_read(in "out/files/missing.txt", out t)
+  catch
+    case OsError(e) =>
+      assign m := e
+  end
+  assert m == "cannot read out/files/missing.txt"
+  try
+    call os_library(in "missing", out t)
+  catch
+    case OsError(e) =>
+      assign m := e
+  end
+  assert m == "unknown module missing"

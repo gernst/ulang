@@ -66,6 +66,7 @@ object Check:
       "str_slice" -> mono(fun(List(Str, Int, Int), Str)),
       "str_split" -> mono(fun(List(Str, Char), Type.Sort("List", List(Str)))),
       "str_show" -> mono(fun(List(Int), Str)),
+      "str_quote" -> mono(fun(List(Str), Str)),
       "str_number" -> mono(fun(List(Str), Type.Sort("Option", List(Int)))),
       "is_digit" -> mono(fun(List(Char), Bool)),
       "is_letter" -> mono(fun(List(Char), Bool)),
@@ -813,12 +814,15 @@ class Check(program: Program):
       case None =>
         builtinProcedure(name)
 
-  // read and library give the syntax of self/syntax.u, so they exist only in programs that declare its Program
+  // read and library give the syntax of self/syntax.u, so they exist only in programs that declare its Program,
+  // and the procedures of the library os exist only in programs that import it, which declares OsError
   def builtinProcedure(name: Name): Option[(List[Type], List[Type], List[Type], List[Type])] =
     name match
       case "read" | "library" if datas.contains("Program") =>
         Some((Nil, List(Str), List(Type.Sort("Program", Nil)), Nil))
-      case "write" =>
+      case "os_read" | "os_library" if datas.contains("OsError") =>
+        Some((Nil, List(Str), List(Str), Nil))
+      case "os_write" if datas.contains("OsError") =>
         Some((Nil, List(Str, Str), Nil, Nil))
       case _ =>
         None

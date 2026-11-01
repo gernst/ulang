@@ -109,6 +109,7 @@ function builtins(): Env :=
     ("str_slice", (Nil, fun([TSort("Str", Nil), tint(), tint()], TSort("Str", Nil)))),
     ("str_split", (Nil, fun([TSort("Str", Nil), TSort("Char", Nil)], TSort("List", [TSort("Str", Nil)])))),
     ("str_show", (Nil, fun([tint()], TSort("Str", Nil)))),
+    ("str_quote", (Nil, fun([TSort("Str", Nil)], TSort("Str", Nil)))),
     ("str_number", (Nil, fun([TSort("Str", Nil)], TSort("Option", [tint()])))),
     ("is_digit", (Nil, fun([TSort("Char", Nil)], tbool()))),
     ("is_letter", (Nil, fun([TSort("Char", Nil)], tbool()))),
@@ -1046,9 +1047,20 @@ procedure statements(in env: Env, assignable: List[Name], xs: List[Stmt], out ys
       assign ys := [y; rest]
   end
 
+// the procedures of the library os, which exist in programs that import it, which declares OsError
+function os_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * List[Type])] :=
+  if contains("OsError", keys(datas(c))) then
+    [
+      ("os_read", (Nil, [TSort("Str", Nil)], [TSort("Str", Nil)], Nil)),
+      ("os_write", (Nil, [TSort("Str", Nil), TSort("Str", Nil)], Nil, Nil)),
+      ("os_library", (Nil, [TSort("Str", Nil)], [TSort("Str", Nil)], Nil))
+    ]
+  else
+    Nil
+
 procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
   local m: List[Type * Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var]
-  match lookup(p, procs(ctx_of(s)))
+  match lookup(p, procs(ctx_of(s)) ++ os_procs(ctx_of(s)))
     case Some((ps, is, os, rs)) =>
       call   instance(in ps, out m, ref s)
       call   same_length(in length(is), length(ins))

@@ -1,10 +1,11 @@
 // a compiler from programs of self/syntax.u, which self/check.u has checked, to C in the syntax of self/c.u,
-// whose code calls the runtime in self/runtime, where every value has the C type value
+// whose code calls the runtime in self/runtime, where every value has the C type u_value
 
 import syntax
 import util
 import check
 import c
+import os
 data CompileError :=
   | Unsupported(Str)
 
@@ -21,10 +22,10 @@ data Gen :=
   | Gen(Int, List[CDecl])
 
 function value_type(): CType :=
-  CtNamed("value")
+  CtNamed("u_value")
 
 function value_ptr(): CType :=
-  CtPtr(CtNamed("value"))
+  CtPtr(CtNamed("u_value"))
 
 // names of ulang as names of C, where other characters than letters, digits, and _ are their codes
 function mangle(n: Name): Str :=
@@ -65,6 +66,7 @@ function builtin_functions(): List[Name * (Str * Int)] :=
     ("str_slice", ("u_str_slice", 3)),
     ("str_split", ("u_str_split", 2)),
     ("str_show", ("u_str_show", 1)),
+    ("str_quote", ("u_str_quote", 1)),
     ("str_number", ("u_str_number", 1)),
     ("is_digit", ("u_is_digit", 1)),
     ("is_letter", ("u_is_letter", 1)),
@@ -307,11 +309,13 @@ procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], 
       assign ss := as ++ [CsDecl(value_type(), d, Some(ra)), CsDecl(value_type(), t, Some(CeVar("NULL")))] ++ bs
       assign ss := ss ++ [CsIf(CeUnary("!", CeVar(t)), [CsExpr(c_call("no_case", [CeVar(d)]))], [])]
       assign r := CeVar(t)
+    // the list is built in order, where d points to the place of the next cell, first t and then the tail of the last cell
     case EComp(result, xs, lists, c) =>
       call   gen_name(in "t", out t, ref g)
-      call   compile_loops(in gl, env, xs, lists, result, c, t, out bs, ref g)
-      assign ss := [CsDecl(value_type(), t, Some(c_call("mk_con", [CeStr("Nil"), CeNum(0)])))] ++ bs
-      assign r := c_call("u_reverse", [CeVar(t)])
+      call   gen_name(in "e", out d, ref g)
+      call   compile_loops(in gl, env, xs, lists, result, c, d, out bs, ref g)
+      assign ss := [CsDecl(value_type(), t, Some(c_call("mk_con", [CeStr("Nil"), CeNum(0)]))), CsDecl(value_ptr(), d, Some(CeUnary("&", CeVar(t))))] ++ bs
+      assign r := CeVar(t)
     case ETuple(items) =>
       call   compile_exprs(in gl, env, items, out ss, rs, ref g)
       assign r := c_call("mk_tuple", [CeNum(length(items))] ++ rs)
@@ -417,7 +421,7 @@ procedure expr_cases(in gl: Globals, env: Vars, cases: List[Branch[Expr]], v: CE
       assign ss := [CsIf(conjunction([CeUnary("!", CeVar(t))] ++ pattern_tests(p, v)), pattern_binds(p, v) ++ body, [])] ++ rest
   end
 
-// loops over the lists of a comprehension, which add the results to the front of the list t
+// loops over the lists of a comprehension, which append the results at the place t
 procedure compile_loops(in gl: Globals, env: Vars, xs: List[Var], lists: List[Expr], result: Expr, c: Expr, t: Str, out ss: List[CStmt], ref g: Gen) :=
   local  cs: List[CStmt], rc: CExpr, bs: List[CStmt], rb: CExpr, ls: List[CStmt], rl: CExpr, l: Str, inner: List[CStmt]
   match (xs, lists)
@@ -430,7 +434,7 @@ procedure compile_loops(in gl: Globals, env: Vars, xs: List[Var], lists: List[Ex
     else
       call   compile_expr(in gl, env, c, out cs, rc, ref g)
       call   compile_expr(in gl, env, result, out bs, rb, ref g)
-      assign ss := cs ++ [CsIf(truth(rc), bs ++ [CsAssign(CeVar(t), c_call("mk_con", [CeStr("Cons"), CeNum(2), rb, CeVar(t)]))], [])]
+      assign ss := cs ++ [CsIf(truth(rc), bs ++ [CsAssign(CeVar(t), c_call("u_append", [CeVar(t), rb]))], [])]
   end
 
 // statements, whose variables are local variables of C, where procedures copy outs and refs back at their end
@@ -651,7 +655,7 @@ procedure compile_file(in source: Str, target: Str) :=
   call   read(in source, out p)
   call   check_program(in Program(program_cmds(pre) ++ program_cmds(p)), out q)
   call   compile_program(in q, out f)
-  call   write(in target, c_file(f))
+  call   os_write(in target, c_file(f))
 
 // translates programs of the tests and examples to C in self/out, which the C compiler compiles to compare their output
 test compile_programs :=
@@ -662,6 +666,7 @@ test compile_programs :=
   call compile_file(in "../tests/exceptions.u", "out/exceptions.c")
   call compile_file(in "../tests/strings.u", "out/strings.c")
   call compile_file(in "../tests/modules.u", "out/modules.c")
+  call compile_file(in "../tests/files.u", "out/files.c")
   call compile_file(in "../examples/parsers.u", "out/parsers.c")
   call compile_file(in "../examples/procedures.u", "out/recursive_descent.c")
   call compile_file(in "../examples/grammar.u", "out/grammar.c")
