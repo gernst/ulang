@@ -30,8 +30,8 @@ test non_strict_and_or :=
   assert (false and 1 / 0 == 0) == false
   assert (true or 1 / 0 == 0)
 
-sort Pair[A] :=
-  | A * A
+type Pair[A] :=
+  A * A
 
 function swap[A](p: Pair[A]): Pair[A] :=
   match p

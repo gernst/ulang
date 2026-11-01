@@ -1,7 +1,7 @@
 // parser combinators over lists of tokens of any type T, and arithmetic expressions as an example
 
-sort Parser[T, A] :=
-  | List[T] -> Option[A * List[T]]
+type Parser[T, A] :=
+  List[T] -> Option[A * List[T]]
 
 infix left 3 <|>
 

@@ -76,7 +76,7 @@ test association_lists :=
   assert keys(m) == ["a", "b"]
   assert values(m) == [3, 2]
 
-// mutually recursive datatypes, and a sort definition before the datatype it uses
+// mutually recursive datatypes, and a type definition before the datatype it uses
 data Tree[A] :=
   | Node(A, Forest[A])
 
@@ -84,8 +84,8 @@ data Forest[A] :=
   | Leaf
   | Grow(Tree[A], Forest[A])
 
-sort Pair[A] :=
-  | Tuple[A, A]
+type Pair[A] :=
+  Tuple[A, A]
 
 data Tuple[A, B] :=
   | Tuple(A, B)

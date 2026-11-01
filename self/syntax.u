@@ -1,8 +1,8 @@
 // the core syntax, mirroring ulang/src/ulang/Syntax.scala without positions,
 // where constructors are prefixed by their type, since they share one namespace
 
-sort Name :=
-  | Str
+type Name :=
+  Str
 
 data Type :=
   | THole

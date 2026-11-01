@@ -74,7 +74,7 @@
           }
         },
         {
-          "begin": "\\b(sort)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "begin": "\\b(type)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "end": "^(?=\\S)",
           "beginCaptures": {
             "1": {

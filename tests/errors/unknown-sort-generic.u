@@ -1,3 +1,3 @@
 // type error: unknown sort Map at 2.1
-sort P[A] :=
-  | Map[A]
+type P[A] :=
+  Map[A]

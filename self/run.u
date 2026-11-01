@@ -16,8 +16,8 @@ data Value :=
   | Con(Name)
   | Prim(Name)
 
-sort Bindings :=
-  | List[Name * Value]
+type Bindings :=
+  List[Name * Value]
 
 data ProcDef :=
   | ProcDef(List[Var], List[Var], List[Var], Stmt)
@@ -31,8 +31,8 @@ data Heap :=
   | Heap(List[Int * Option[Value]], Int)
 
 // the cells of variables
-sort Store :=
-  | List[Name * Int]
+type Store :=
+  List[Name * Int]
 
 data RuntimeError :=
   | Uninitialized(Name)

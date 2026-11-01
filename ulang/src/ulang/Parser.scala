@@ -68,10 +68,10 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     "ref",
     "run",
     "skip",
-    "sort",
     "test",
     "then",
     "true",
+    "type",
     "try",
     "while"
   )
@@ -448,9 +448,8 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       }
 
   def sort(s: Scope, pos: Pos): Parser[Cmd] =
-    generic("sort", name): (n, ps, t) =>
-      // the type may be preceded by |, like the constructors of a datatype
-      ":=" ~> opt("|") ~> typ(t.copy(notations = s.notations)) ^^ (Cmd.Sort(n, ps, _)(pos))
+    generic("type", name): (n, ps, t) =>
+      ":=" ~> typ(t.copy(notations = s.notations)) ^^ (Cmd.Sort(n, ps, _)(pos))
 
   def data(s: Scope, pos: Pos): Parser[Cmd] =
     generic("data", name): (n, ps, t) =>

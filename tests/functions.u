@@ -14,8 +14,8 @@ function poly(): Bool :=
 function generic(): Bool :=
   let g := lambda y => y in g(1) == 1 and g(true)
 
-sort Pred[A] :=
-  | A -> Bool
+type Pred[A] :=
+  A -> Bool
 
 function pos(): Pred[Int] :=
   lambda x => x > 0

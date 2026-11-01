@@ -1,6 +1,6 @@
 // type error: sort P expects 1 arguments, got 0 at 5.12
-sort P[A] :=
-  | A -> A
+type P[A] :=
+  A -> A
 
 function f(x: P): Int :=
   0

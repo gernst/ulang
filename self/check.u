@@ -8,11 +8,11 @@ import util
 import ctx
 
 // unknowns by their index
-sort Subst :=
-  | List[Int * Type]
+type Subst :=
+  List[Int * Type]
 
-sort Env :=
-  | List[Name * (List[Type] * Type)]
+type Env :=
+  List[Name * (List[Type] * Type)]
 
 // the context, the substitution, and the number of unknowns so far
 data State :=
@@ -604,7 +604,7 @@ procedure arguments(in n: Name, k: Int, args: List[Type]) :=
     raise SortArity(n, k, length(args))
   end
 
-// expands sort definitions and replaces holes by fresh unknowns
+// expands type definitions and replaces holes by fresh unknowns
 procedure normalize(in t: Type, out u: Type, ref s: State) :=
   local us: List[Type], v: Type
   match t

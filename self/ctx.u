@@ -2,7 +2,7 @@
 
 import syntax
 
-// sort definitions with their parameters, the type schemes of functions with their parameters, the signatures of procedures
+// type definitions with their parameters, the type schemes of functions with their parameters, the signatures of procedures
 // with parameters, ins, outs, and refs, datatypes with their numbers of parameters, their constructors,
 // and constructors with the parameters of their datatype, their argument types, and their datatype
 data Ctx :=
