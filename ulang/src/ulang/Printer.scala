@@ -4,7 +4,9 @@ object Printer:
   def show(v: Any): String =
     v match
       case s: String =>
-        "\"" + s + "\""
+        "\"" + s.toList.map(escape(_, '"')).mkString + "\""
+      case c: Char =>
+        "'" + escape(c, '\'') + "'"
       case _: Function1[?, ?] =>
         "<function>"
       case Obj(",", vs) =>
@@ -49,7 +51,23 @@ object Printer:
       case Pat.App(name, args) =>
         args.map(show(_)).mkString(s"$name(", ", ", ")")
 
-  // the elements of a list built by nil and ::
+  // c in a string or character delimited by quote, as the parser reads it
+  def escape(c: Char, quote: Char): String =
+    c match
+      case '\\' =>
+        "\\\\"
+      case '\n' =>
+        "\\n"
+      case '\t' =>
+        "\\t"
+      case '\r' =>
+        "\\r"
+      case `quote` =>
+        s"\\$quote"
+      case _ =>
+        c.toString
+
+  // the elements of a list built by Nil and Cons
   def items(v: Any): Option[List[Any]] =
     v match
       case Obj("Nil", Nil) =>

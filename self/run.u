@@ -104,7 +104,7 @@ function constr_arity(k: Constr): Name * Int :=
   end
 
 function is_builtin(n: Name): Bool :=
-  contains(n, ["+", "-", "*", "/", "%", "<", "=="])
+  contains(n, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr"])
 
 function is_function(v: Value): Bool :=
   match v
@@ -137,6 +137,12 @@ function lambdas(xss: List[List[Var]], b: Expr): Expr :=
   match xss
     case Nil => b
     case [xs; rest] => ELam(xs, lambdas(rest, b))
+  end
+
+function char_values(vs: List[Value]): List[Char] :=
+  match vs
+    case [Lit(VChar(c)); rest] => [c; char_values(rest)]
+    else Nil
   end
 
 function bind_values(xs: List[Var], vs: List[Value]): Bindings :=
@@ -407,6 +413,20 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
     case ("==", [a, b]) =>
       call   equal(in a, b, out r)
       assign v := Lit(VBool(r))
+    // strings are converted with the builtins of the interpreter of this program
+    case ("chars", [Lit(VStr(s))]) =>
+      assign v := list_value([Lit(VChar(c)) for c in chars(s)])
+    case ("string", [w]) =>
+      match elements(w)
+        case Some(ws) =>
+          assign v := Lit(VStr(string(char_values(ws))))
+        else
+          raise NotList(w)
+      end
+    case ("ord", [Lit(VChar(c))]) =>
+      assign v := Lit(VInt(ord(c)))
+    case ("chr", [Lit(VInt(k))]) =>
+      assign v := Lit(VChar(chr(k)))
     else
       raise Unspecified(n, vs)
   end

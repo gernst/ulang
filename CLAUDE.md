@@ -16,7 +16,7 @@ Mill with `build.mill.yaml`; the language lives in the module `ulang`. Do not us
 ## Tests
 
 Tests are end-to-end only: programs in `tests/` with named tests `test name := ...` of `assert` statements.
-Every program is checked after `ulang/resources/prelude.u`, which declares the operators and imports the library modules `nat`, `option`, and `list` (also in `ulang/resources/`).
+Every program is checked after `ulang/resources/prelude.u`, which declares the operators and imports the library modules `nat`, `option`, and `list` (also in `ulang/resources/`), while `str` is imported explicitly.
 `import name` inlines the declarations of the module `name.u` from the importing file's directory, or else from the library, once, while parsing, so its notations apply after the import; its `eval`s, `run`s, and `test`s are not imported.
 A file that is expected to fail states the error in its first line, e.g. `// type error: unknown variable x`, see `tests/errors/`.
 

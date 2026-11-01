@@ -17,6 +17,7 @@ data Val :=
   | VBool(Bool)
   | VInt(Int)
   | VStr(Str)
+  | VChar(Char)
 
 // variable uses, binders, and pattern variables, which Syntax.scala distinguishes as Expr.Var and Pat.Var
 data Var :=

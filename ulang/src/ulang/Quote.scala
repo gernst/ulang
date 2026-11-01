@@ -43,6 +43,8 @@ object Quote:
         obj("VInt", n)
       case s: String =>
         obj("VStr", s)
+      case c: Char =>
+        obj("VChar", c)
       case _ =>
         error("runtime", s"invalid literal $v")
 
@@ -202,6 +204,8 @@ object Quote:
         n
       case Obj("VStr", List(s: String)) =>
         s
+      case Obj("VChar", List(c: Char)) =>
+        c
       case _ =>
         invalid("a literal", v)
 

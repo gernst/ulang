@@ -37,8 +37,16 @@
       "match": "//.*$"
     },
     "string": {
-      "name": "string.quoted.double.ulang",
-      "match": "\"[^\"]*\""
+      "patterns": [
+        {
+          "name": "string.quoted.double.ulang",
+          "match": "\"(?:[^\"\\\\]|\\\\.)*\""
+        },
+        {
+          "name": "constant.character.ulang",
+          "match": "'(?:[^'\\\\]|\\\\.)'"
+        }
+      ]
     },
     "declaration": {
       "patterns": [

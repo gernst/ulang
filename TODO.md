@@ -20,7 +20,6 @@ Points of a critique of the syntax, ordered by how much they cost when writing `
 3. **Patterns are weaker than expressions.** There are no or-patterns `case TParam(_) | TMeta(_) =>`, or as-patterns, which forced `self/run.u` to rebuild values it had just taken apart.
 4. **One global namespace.** Functions, procedures, and constructors share one namespace, and overloading only distinguishes arities, hence names like `zonk_type` and `zonk_expr`, or `UnknownProc` next to `UnknownProcedure`. Qualified names for modules (`check.infer`) or constructors (`Expr.Var`) would help.
 5. **Smaller points.**
-   - Strings have no escapes and no operations.
    - `assign` is redundant before `x := e`.
    - `[…]` is both type arguments and list literals.
 

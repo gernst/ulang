@@ -4,9 +4,10 @@ object Check:
   val Bool = Type.Sort("Bool", Nil)
   val Int = Type.Sort("Int", Nil)
   val Str = Type.Sort("Str", Nil)
+  val Char = Type.Sort("Char", Nil)
   val Empty = Type.Tuple(Nil)
 
-  val basic = Set("Bool", "Int", "Str")
+  val basic = Set("Bool", "Int", "Str", "Char")
 
   def fun(args: List[Type], res: Type): Type =
     Type.Fun(args, res)
@@ -52,7 +53,12 @@ object Check:
       "<" -> mono(fun(List(Int, Int), Bool)),
       "==" -> eq,
       "and" -> logic,
-      "or" -> logic
+      "or" -> logic,
+      // strings are converted from and to lists of characters
+      "chars" -> mono(fun(List(Str), Type.Sort("List", List(Char)))),
+      "string" -> mono(fun(List(Type.Sort("List", List(Char))), Str)),
+      "ord" -> mono(fun(List(Char), Int)),
+      "chr" -> mono(fun(List(Int), Char))
     )
 
 
@@ -433,6 +439,8 @@ class Check(program: Program):
           (e, Int)
         case Expr.Lit(_: String) =>
           (e, Str)
+        case Expr.Lit(_: Char) =>
+          (e, Char)
         case Expr.Lit(value) =>
           error("type", s"invalid literal $value")
 

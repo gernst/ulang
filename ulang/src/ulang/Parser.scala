@@ -356,12 +356,48 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       argss.foldLeft(f)(Expr.App(_, _)(f.pos))
     }
 
+  // the characters escaped by \ in strings and characters
+  val escapes = Map('"' -> '"', '\'' -> '\'', '\\' -> '\\', 'n' -> '\n', 't' -> '\t', 'r' -> '\r')
+
+  // the characters between quotes with their escapes resolved, or None for an unknown escape
+  def unescape(cs: List[Char]): Option[List[Char]] =
+    cs match
+      case Nil =>
+        Some(Nil)
+      case '\\' :: c :: rest if escapes.contains(c) =>
+        unescape(rest) match
+          case Some(ds) =>
+            Some(escapes(c) :: ds)
+          case None =>
+            None
+      case '\\' :: _ =>
+        None
+      case c :: rest =>
+        unescape(rest) match
+          case Some(ds) =>
+            Some(c :: ds)
+          case None =>
+            None
+
+  def quoted(s: String): Option[List[Char]] =
+    unescape(s.toList.drop(1).dropRight(1))
+
   val value: Parser[Any] =
     kw("true") ^^^ true | kw("false") ^^^ false |
       """\d+""".r ^^
       (BigInt(_)) |
-      "\"[^\"]*\"".r ^^
-      (s => s.substring(1, s.length - 1))
+      "\"([^\"\\\\\n]|\\\\.)*\"".r ^^ quoted ^? (
+        { case Some(cs) =>
+          cs.mkString
+        },
+        _ => "invalid escape in a string"
+      ) |
+      "'([^'\\\\\n]|\\\\.)'".r ^^ quoted ^? (
+        { case Some(List(c)) =>
+          c
+        },
+        _ => "invalid character"
+      )
 
   // let, if, and lambda extend as far to the right as possible, also as the last operand of an operator
   def atom(s: Scope): Parser[Expr] =

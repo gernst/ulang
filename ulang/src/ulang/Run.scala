@@ -40,6 +40,13 @@ object Run:
       case _ =>
         false
 
+  def character(v: Any): Char =
+    v match
+      case c: Char =>
+        c
+      case _ =>
+        error("runtime", s"expected a character, got ${Printer.show(v)}")
+
   def elements(v: Any): List[Any] =
     Printer.items(v).getOrElse(error("runtime", s"expected a list, got ${Printer.show(v)}"))
 
@@ -76,6 +83,15 @@ object Run:
         int(a) < int(b)
       case ("==", List(a, b)) =>
         equal(a, b)
+      case ("chars", List(s: String)) =>
+        s.toList.foldRight(Obj("Nil", Nil): Any)((c, cs) => Obj("Cons", List(c, cs)))
+      case ("string", List(cs)) =>
+        elements(cs).map(character).mkString
+      case ("ord", List(c: Char)) =>
+        BigInt(c.toInt)
+      case ("chr", List(n)) =>
+        require("runtime", int(n) >= 0 && int(n) <= Char.MaxValue.toInt, s"no character ${int(n)}")
+        int(n).toChar
       case _ =>
         error("runtime", s"$f${args.map(Printer.show).mkString("(", ", ", ")")} is unspecified")
 

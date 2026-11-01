@@ -72,7 +72,7 @@ function params(ps: List[Name]): List[Type] :=
   [TParam(p) for p in ps]
 
 function basic(n: Name): Bool :=
-  n == "Bool" or n == "Int" or n == "Str"
+  n == "Bool" or n == "Int" or n == "Str" or n == "Char"
 
 function literal(v: Val): Type :=
   match v
@@ -80,6 +80,7 @@ function literal(v: Val): Type :=
     case VBool(_) => tbool()
     case VInt(_) => tint()
     case VStr(_) => TSort("Str", Nil)
+    case VChar(_) => TSort("Char", Nil)
   end
 
 function initial(): Ctx :=
@@ -97,7 +98,11 @@ function builtins(): Env :=
     ("<", (Nil, fun([tint(), tint()], tbool()))),
     ("==", ([a], fun([a, a], tbool()))),
     ("and", logic),
-    ("or", logic)
+    ("or", logic),
+    ("chars", (Nil, fun([TSort("Str", Nil)], TSort("List", [TSort("Char", Nil)])))),
+    ("string", (Nil, fun([TSort("List", [TSort("Char", Nil)])], TSort("Str", Nil)))),
+    ("ord", (Nil, fun([TSort("Char", Nil)], tint()))),
+    ("chr", (Nil, fun([tint()], TSort("Char", Nil))))
   ]
 
 function builtin(n: Name): List[List[Type] * Type] :=

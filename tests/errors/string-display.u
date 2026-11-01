@@ -1,0 +1,3 @@
+// runtime error: assertion failed: "a\"b\n" != "c" at 3.3
+test shown :=
+  assert "a\"b\n" == "c"
