@@ -9,51 +9,38 @@ import map
 // and the declarations of each base name, of any kind and module
 data Ctx :=
   | Ctx(
-    Map[Name, List[Id] * Type],
-    Map[Name, List[List[Type] * Type]],
-    Map[Name, List[Type] * List[Type] * List[Type] * List[Type]],
-    Map[Name, Int],
-    Map[Name, List[Name]],
-    Map[Name, List[Type] * List[Type] * Type],
-    Map[Id, List[Name]]
+    aliases: Map[Name, List[Id] * Type],
+    funs: Map[Name, List[List[Type] * Type]],
+    procs: Map[Name, List[Type] * List[Type] * List[Type] * List[Type]],
+    datas: Map[Name, Int],
+    members: Map[Name, List[Name]],
+    constrs: Map[Name, List[Type] * List[Type] * Type],
+    named: Map[Id, List[Name]]
   )
 
 function empty_ctx(): Ctx :=
   Ctx(empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
 function alias_of(c: Ctx, n: Name): Option[List[Id] * Type] :=
-  match c
-    case Ctx(a, _, _, _, _, _, _) => get(n, a)
-  end
+  get(n, c.aliases)
 
 function schemes_of(c: Ctx, n: Name): List[List[Type] * Type] :=
-  match c
-    case Ctx(_, f, _, _, _, _, _) =>
-      match get(n, f)
-        case Some(ss) => ss
-        case None => Nil
-      end
+  match get(n, c.funs)
+    case Some(ss) => ss
+    case None => Nil
   end
 
 function proc_of(c: Ctx, n: Name): Option[List[Type] * List[Type] * List[Type] * List[Type]] :=
-  match c
-    case Ctx(_, _, p, _, _, _, _) => get(n, p)
-  end
+  get(n, c.procs)
 
 function data_of(c: Ctx, n: Name): Option[Int] :=
-  match c
-    case Ctx(_, _, _, d, _, _, _) => get(n, d)
-  end
+  get(n, c.datas)
 
 function members_of(c: Ctx, n: Name): Option[List[Name]] :=
-  match c
-    case Ctx(_, _, _, _, m, _, _) => get(n, m)
-  end
+  get(n, c.members)
 
 function constr_of(c: Ctx, n: Name): Option[List[Type] * List[Type] * Type] :=
-  match c
-    case Ctx(_, _, _, _, _, k, _) => get(n, k)
-  end
+  get(n, c.constrs)
 
 function is_fun(c: Ctx, n: Name): Bool :=
   schemes_of(c, n) != Nil
@@ -71,19 +58,16 @@ function is_constr(c: Ctx, n: Name): Bool :=
   constr_of(c, n) != None
 
 // the declarations with base name b, of any kind and module
-function named(c: Ctx, b: Id): List[Name] :=
-  match c
-    case Ctx(_, _, _, _, _, _, bs) =>
-      match get(b, bs)
-        case Some(ns) => ns
-        case None => Nil
-      end
+function names_of(c: Ctx, b: Id): List[Name] :=
+  match get(b, c.named)
+    case Some(ns) => ns
+    case None => Nil
   end
 
 function with_named(bs: Map[Id, List[Name]], n: Name): Map[Id, List[Name]] :=
-  match get(base(n), bs)
-    case Some(ns) => if contains(n, ns) then bs else put(base(n), [n; ns], bs)
-    case None => put(base(n), [n], bs)
+  match get(n.base, bs)
+    case Some(ns) => if contains(n, ns) then bs else put(n.base, [n; ns], bs)
+    case None => put(n.base, [n], bs)
   end
 
 function with_alias(c: Ctx, n: Name, ps: List[Id], t: Type): Ctx :=

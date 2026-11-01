@@ -25,7 +25,7 @@ data ProcDef :=
 // the functions by name and number of arguments, the procedures, the constructors with their numbers of arguments,
 // and the constructors with their positions in their declarations, which order values
 data Prog :=
-  | Prog(List[(Name * Int) * (List[List[Var]] * Expr)], List[Name * ProcDef], List[Name * Int], List[Name * Int])
+  | Prog(funs: List[(Name * Int) * (List[List[Var]] * Expr)], procs: List[Name * ProcDef], constrs: List[Name * Int], positions: List[Name * Int])
 
 // the cells by address, which are unassigned initially, and the next address
 data Heap :=
@@ -47,6 +47,7 @@ data RuntimeError :=
   | AssertionUnequal(Value, Value)
   | UnassignedOutput(Name, Name)
   | UnknownProc(Name)
+  | Error(Str)
 
 // an exception of the program with its type
 data Thrown :=
@@ -56,21 +57,6 @@ data Thrown :=
 data Output :=
   | Evaluated(Value)
   | Ran(Bindings)
-
-function funs_in(p: Prog): List[(Name * Int) * (List[List[Var]] * Expr)] :=
-  match p
-    case Prog(f, _, _, _) => f
-  end
-
-function procs_in(p: Prog): List[Name * ProcDef] :=
-  match p
-    case Prog(_, d, _, _) => d
-  end
-
-function constrs_in(p: Prog): List[Name * Int] :=
-  match p
-    case Prog(_, _, k, _) => k
-  end
 
 function position_of(p: Prog, k: Name): Int :=
   match p
@@ -104,7 +90,7 @@ function proc_defs(cs: List[Cmd]): List[Name * ProcDef] :=
 function constr_positions(cs: List[Cmd]): List[Name * Int] :=
   match cs
     case Nil => Nil
-    case [CData(_, _, ks); rest] => zip([constr_name(k) for k in ks], numbers_from(0, length(ks))) ++ constr_positions(rest)
+    case [CData(_, _, ks); rest] => zip([k.name for k in ks], numbers_from(0, length(ks))) ++ constr_positions(rest)
     case [_; rest] => constr_positions(rest)
   end
 
@@ -125,7 +111,7 @@ function constr_arity(k: Constr): Name * Int :=
 
 function is_builtin(n: Name): Bool :=
   match n
-    case Name(None, b) => contains(b, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "compare", "str_get", "str_contains", "str_compare", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"])
+    case Name(None, b) => contains(b, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "compare", "error", "str_get", "str_contains", "str_compare", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"])
     else false
   end
 
@@ -257,7 +243,7 @@ procedure alloc_vars(in xs: List[Var], out store: Store, ref h: Heap) :=
     case [x; more] =>
       call   alloc(in None, out a, ref h)
       call   alloc_vars(in more, out rest, ref h)
-      assign store := [(name(x), a); rest]
+      assign store := [(x.name, a); rest]
   end
 
 procedure alloc_bindings(in bs: Bindings, out store: Store, ref h: Heap) :=
@@ -275,7 +261,7 @@ procedure alloc_bindings(in bs: Bindings, out store: Store, ref h: Heap) :=
 procedure write_vars(in store: Store, xs: List[Var], vs: List[Value], ref h: Heap) :=
   match (xs, vs)
     case ([x; xs1], [v; vs1]) =>
-      call   write_cell(in address_of(store, name(x)), v, ref h)
+      call   write_cell(in address_of(store, x.name), v, ref h)
       call   write_vars(in store, xs1, vs1, ref h)
     else
       skip
@@ -364,11 +350,11 @@ procedure variable_value(in p: Prog, env: Bindings, n: Name, t: Type, out v: Val
     case Some(w) =>
       assign v := w
     case None =>
-      match lookup((n, arity(t)), funs_in(p))
+      match lookup((n, arity(t)), p.funs)
         case Some(_) =>
           assign v := Fn(n, arity(t))
         case None =>
-          match lookup(n, constrs_in(p))
+          match lookup(n, p.constrs)
             case Some(k) =>
               if k == 0
                 assign v := Obj(n, Nil)
@@ -418,7 +404,7 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value) :=
       call evaluate(in p, bind_values(xs, vs) ++ env, body, out v)
 
     case Fn(n, k) =>
-      match lookup((n, k), funs_in(p))
+      match lookup((n, k), p.funs)
         case Some(([xs], body)) =>
           call evaluate(in p, bind_values(xs, vs), body, out v)
         // further lists of parameters are closures over the arguments so far
@@ -437,7 +423,7 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value) :=
       assign v := Obj(n, vs)
 
     case Prim(n) =>
-      match (base(n), vs)
+      match (n.base, vs)
         case ("compare", [a, b]) =>
           call   compare_values(in p, a, b, out k)
           assign v := Lit(VInt(k))
@@ -452,7 +438,7 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value) :=
 procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
   local r: Bool
 
-  match (base(n), vs)
+  match (n.base, vs)
     case ("+", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a + b))
 
@@ -525,6 +511,8 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
     case ("str_contains", [Lit(VStr(s)), Lit(VChar(c))]) =>
       assign v := Lit(VBool(str_contains(s, c)))
 
+    case ("error", [Lit(VStr(m))]) =>
+      raise Error(m)
     case ("str_compare", [Lit(VStr(s)), Lit(VStr(t))]) =>
       assign v := Lit(VInt(str_compare(s, t)))
 
@@ -650,7 +638,7 @@ procedure extend(in p: Prog, env: Bindings, x: Var, vs: List[Value], ys: List[Va
     case Nil =>
       assign envs := Nil
     case [v; more] =>
-      call   combinations(in p, [(name(x), v); env], ys, lists, out first)
+      call   combinations(in p, [(x.name, v); env], ys, lists, out first)
       call   extend(in p, env, x, more, ys, lists, out rest)
       assign envs := first ++ rest
   end
@@ -706,7 +694,7 @@ procedure exec(in p: Prog, store: Store, x: Stmt, ref h: Heap) :=
 
     case SCall(n, ins, outs, refs) =>
       call   evaluate_all(in p, values_of(store, h), ins, out vs)
-      call   invoke(in p, n, vs, [address_of(store, name(y)) for y in refs], out vs, ref h)
+      call   invoke(in p, n, vs, [address_of(store, y.name) for y in refs], out vs, ref h)
       call   write_vars(in store, outs, vs, ref h)
 
     case SMatch(arg, cases) =>
@@ -826,7 +814,7 @@ procedure handle(in p: Prog, store: Store, hs: List[Handler], v: Value, t: Type,
 procedure invoke(in p: Prog, n: Name, ins: List[Value], refs: List[Int], out outs: List[Value], ref h: Heap) :=
   local in_cells: Store, out_cells: Store
 
-  match lookup(n, procs_in(p))
+  match lookup(n, p.procs)
     case Some(ProcDef(xs, ys, zs, body)) =>
       call   alloc_bindings(in bind_values(xs, ins), out in_cells, ref h)
       call   alloc_vars(in ys, out out_cells, ref h)
@@ -841,7 +829,7 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
   local text: Str, args: List[Str]
 
   try
-    match (base(n), ins)
+    match (n.base, ins)
       case ("os_args", []) =>
         call   os_args(out args)
         assign outs := [list_value([Lit(VStr(a)) for a in args])]
@@ -909,12 +897,7 @@ procedure outputs(in p: Prog, cs: List[Cmd], out os: List[Output], ref h: Heap) 
 procedure run_program(in q: Program, out os: List[Output]) :=
   local h := Heap(Nil, 0)
 
-  call outputs(in load(q), cmds_of(q), out os, ref h)
-
-function cmds_of(q: Program): List[Cmd] :=
-  match q
-    case Program(cs) => cs
-  end
+  call outputs(in load(q), q.cmds, out os, ref h)
 
 // checks and runs the commands
 procedure check_and_run(in cs: List[Cmd], out os: List[Output]) :=

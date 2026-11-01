@@ -60,6 +60,8 @@ object Check:
       "==" -> eq,
       // a total order of values consistent with ==, which is -1, 0, or 1
       "compare" -> (List(Type.Param("A")), fun(List(Type.Param("A"), Type.Param("A")), Int)),
+      // a runtime error with a message, e.g. for a field that a value does not have
+      "error" -> (List(Type.Param("A")), fun(List(Str), Type.Param("A"))),
       "and" -> logic,
       "or" -> logic,
       // strings are converted from and to lists of characters
@@ -570,6 +572,26 @@ class Check(program: Program, main: Id):
         case Expr.Var(name, typ) =>
           val v = use(resolve(env, name, -1), typ, e.pos)
           (v, v.typ)
+
+        // e.f is the accessor T.f of the type T of e, of the module of T, which must be known here
+        case Expr.App(Expr.Var(Name(None, field), typ), List(arg)) if field.length > 1 && field.startsWith(".") =>
+          val (arg1, u) = infer(env, arg)
+          val accessor =
+            zonk(u) match
+              case Type.Sort(Name(Some(m), t), _) =>
+                Name(Some(m), t + field)
+              case v =>
+                error("type", s"the type ${shows(List(v)).head} of the value of $field is not known")
+          val s =
+            funs.getOrElse(accessor, Nil) match
+              case List(s) =>
+                s
+              case _ =>
+                error("type", s"unknown field ${field.drop(1)} of ${shows(List(u)).head}")
+          val v = use((accessor, s), typ, e.pos)
+          val r = fresh()
+          unify(v.typ, fun(List(u), r))
+          (Expr.App(v, List(arg1))(e.pos), r)
 
         case Expr.App(Expr.Var(name, typ), args) if lookup(env, name).length > 1 =>
           val v = use(resolve(env, name, args.length), typ, e.pos)

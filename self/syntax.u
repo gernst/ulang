@@ -7,7 +7,7 @@ type Id :=
 
 // a name with the module that declares it, which is None for locals, builtins, and names before checking
 data Name :=
-  | Name(Option[Id], Id)
+  | Name(module: Option[Id], base: Id)
 
 data Type :=
   | THole
@@ -26,7 +26,7 @@ data Val :=
 
 // variable uses, binders, and pattern variables, which Syntax.scala distinguishes as Expr.Var and Pat.Var
 data Var :=
-  | Var(Name, Type)
+  | Var(name: Name, typ: Type)
 
 data Expr :=
   | ELit(Val)
@@ -48,7 +48,7 @@ data Pat :=
 
 // a case of a match with an optional guard, which is Case in Syntax.scala
 data Branch[A] :=
-  | Branch(Pat, Option[Expr], A)
+  | Branch(pat: Pat, guard: Option[Expr], body: A)
 
 data Stmt :=
   | SSkip
@@ -64,10 +64,10 @@ data Stmt :=
 
 // handles exceptions of the type that match the pattern, or of any type if the pattern is PWild
 data Handler :=
-  | Handler(Type, Pat, Option[Expr], Stmt)
+  | Handler(typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
 
 data Constr :=
-  | Constr(Name, List[Type])
+  | Constr(name: Name, args: List[Type])
 
 data Fixity :=
   | FPrefix
@@ -90,21 +90,11 @@ data Cmd :=
   | CTest(Id, Stmt)
 
 data Program :=
-  | Program(List[Cmd])
-
-function name(x: Var): Name :=
-  match x
-    case Var(n, _) => n
-  end
+  | Program(cmds: List[Cmd])
 
 // a name without a module, of a local or a builtin, or before checking
 function unqualified(x: Id): Name :=
   Name(None, x)
-
-function base(n: Name): Id :=
-  match n
-    case Name(_, b) => b
-  end
 
 // the name with its module, to tell names apart
 function qualified(n: Name): Str :=
@@ -138,16 +128,11 @@ function os_error_name(): Name :=
 function tuple_name(): Name :=
   unqualified(",")
 
-function typ(x: Var): Type :=
-  match x
-    case Var(_, t) => t
-  end
-
 function names(xs: List[Var]): List[Name] :=
-  [name(x) for x in xs]
+  [x.name for x in xs]
 
 function types(xs: List[Var]): List[Type] :=
-  [typ(x) for x in xs]
+  [x.typ for x in xs]
 
 // the number of arguments of a function type, functions are overloaded by it
 function arity(t: Type): Int :=
@@ -164,4 +149,4 @@ test syntax :=
   assign e := EApp(EVar(Var(unqualified("+"), THole)), [EApp(EVar(f), [EVar(x)]), ELit(VInt(1))])
   assert names([f, x]) == [unqualified("f"), unqualified("x")]
   assert types([f]) == [THole]
-  assert qualified(cons_name()) == "list.Cons" and base(cons_name()) == "Cons"
+  assert qualified(cons_name()) == "list.Cons" and cons_name().base == "Cons"

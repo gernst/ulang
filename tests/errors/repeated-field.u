@@ -1,0 +1,4 @@
+// parse error: repeated field v of A
+data T :=
+  | A(v: Int, v: Int)
+  | B

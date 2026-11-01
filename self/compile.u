@@ -13,7 +13,7 @@ data CompileError :=
 // the functions of a program by name and number of arguments, and its constructors with their numbers of fields,
 // as lists and as maps from the names to the numbers of arguments and fields
 data Globals :=
-  | Globals(List[Name * Int], List[Name * Int], Map[Name, List[Int]], Map[Name, Int])
+  | Globals(funs: List[Name * Int], constrs: List[Name * Int], arities: Map[Name, List[Int]], fields: Map[Name, Int])
 
 // the variables in scope with the C expressions they are accessed through, which are pointers for outs and refs
 type Vars :=
@@ -59,6 +59,7 @@ function builtin_functions(): List[Name * (Str * Int)] :=
     (unqualified("<"), ("u_lt", 2)),
     (unqualified("=="), ("u_eq", 2)),
     (unqualified("compare"), ("u_compare", 2)),
+    (unqualified("error"), ("u_error", 1)),
     (unqualified("chars"), ("u_chars", 1)),
     (unqualified("string"), ("u_string", 1)),
     (unqualified("ord"), ("u_ord", 1)),
@@ -79,16 +80,6 @@ function builtin_functions(): List[Name * (Str * Int)] :=
     (unqualified("is_space"), ("u_is_space", 1))
   ]
 
-function funs_of(gl: Globals): List[Name * Int] :=
-  match gl
-    case Globals(fs, _, _, _) => fs
-  end
-
-function constrs_of(gl: Globals): List[Name * Int] :=
-  match gl
-    case Globals(_, ks, _, _) => ks
-  end
-
 // the descriptor of constructor n, which the runtime compares by its address
 function descriptor(n: Name): CExpr :=
   CeUnary("&", CeVar("n_" ^ mangle(n)))
@@ -108,7 +99,7 @@ function descriptor_decl(n: Name, i: Int): CDecl :=
 function descriptor_decls(cs: List[Cmd]): List[CDecl] :=
   match cs
     case Nil => Nil
-    case [CData(_, _, ks); rest] => constructor_decls([constr_name(k) for k in ks], 0) ++ descriptor_decls(rest)
+    case [CData(_, _, ks); rest] => constructor_decls([k.name for k in ks], 0) ++ descriptor_decls(rest)
     case [_; rest] => descriptor_decls(rest)
   end
 
@@ -146,11 +137,6 @@ function type_key(t: Type): Str :=
     case TFun(args, r) => "(" ^ str_join(", ", [type_key(a) for a in args]) ^ ") -> " ^ type_key(r)
     case TTuple(ts) => "(" ^ str_join(" * ", [type_key(a) for a in ts]) ^ ")"
     else "?"
-  end
-
-function program_cmds(p: Program): List[Cmd] :=
-  match p
-    case Program(cs) => cs
   end
 
 function globals(cs: List[Cmd]): Globals :=
@@ -512,9 +498,9 @@ procedure compile_loops(in gl: Globals, env: Vars, xs: List[Var], lists: List[Ex
     case ([x; more], [list; others]) =>
       call   compile_expr(in gl, env, list, out ls, rl, ref g)
       call   gen_name(in "l", out l, ref g)
-      call   compile_loops(in gl, in_scope([name(x)]) ++ env, more, others, result, c, t, out inner, ref g)
+      call   compile_loops(in gl, in_scope([x.name]) ++ env, more, others, result, c, t, out inner, ref g)
       assign ss := ls ++ [CsDecl(value_type(), l, Some(rl))]
-      assign ss := ss ++ [CsWhile(c_call("u_is_con", [CeVar(l), descriptor(cons_name())]), [CsDecl(value_type(), var_name(name(x)), Some(field(CeVar(l), 0)))] ++ inner ++ [CsAssign(CeVar(l), field(CeVar(l), 1))])]
+      assign ss := ss ++ [CsWhile(c_call("u_is_con", [CeVar(l), descriptor(cons_name())]), [CsDecl(value_type(), var_name(x.name), Some(field(CeVar(l), 0)))] ++ inner ++ [CsAssign(CeVar(l), field(CeVar(l), 1))])]
     else
       call   compile_expr(in gl, env, c, out cs, rc, ref g)
       call   compile_expr(in gl, env, result, out bs, rb, ref g)
@@ -688,7 +674,7 @@ procedure compile_cmd(in gl: Globals, c: Cmd, out ds: List[CDecl], ms: List[CStm
     case CRun(_, SBlock(xs, body)) =>
       call   compile_stmts(in gl, in_scope(names(xs)), body, out bs, ref g)
       assign copy := [CsDecl(value_type(), var_name(x), Some(CeVar("NULL"))) for x in names(xs)]
-      assign back := [CsExpr(c_call("u_print_binding", [CeStr(base(x)), CeVar(var_name(x))])) for x in names(xs)]
+      assign back := [CsExpr(c_call("u_print_binding", [CeStr(x.base), CeVar(var_name(x))])) for x in names(xs)]
       assign ds := Nil, ms := [CsBlock(copy ++ bs ++ back)]
 
     case CRun(_, body) =>
@@ -727,7 +713,7 @@ function cached(n: Str, bs: List[CStmt], r: CExpr): List[CStmt] :=
 
 // closures of functions, constructors, and builtins, which take their arguments from an array
 function wrappers(gl: Globals): List[CDecl] :=
-  [fun_wrapper(p) for p in funs_of(gl)] ++ concat([constr_wrapper(p) for p in constrs_of(gl)]) ++
+  [fun_wrapper(p) for p in gl.funs] ++ concat([constr_wrapper(p) for p in gl.constrs]) ++
   [builtin_wrapper(p) for p in seconds(builtin_functions())]
 
 function fun_wrapper(p: Name * Int): CDecl :=
@@ -761,14 +747,14 @@ function prototype(d: CDecl): List[CDecl] :=
   end
 
 procedure compile_program(in q: Program, out f: CFile) :=
-  local g := Gen(0, Nil), gl := globals(program_cmds(q)), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl]
+  local g := Gen(0, Nil), gl := globals(q.cmds), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl]
 
-  call compile_cmds(in gl, program_cmds(q), out ds, ms, ref g)
+  call compile_cmds(in gl, q.cmds, out ds, ms, ref g)
   match g
     case Gen(_, lifted) =>
       assign fs := wrappers(gl) ++ ds ++ lifted
   end
-  assign f := CFile([CdInclude("ulang.h")] ++ descriptor_decls(program_cmds(q)) ++ concat([prototype(d) for d in fs]) ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
+  assign f := CFile([CdInclude("ulang.h")] ++ descriptor_decls(q.cmds) ++ concat([prototype(d) for d in fs]) ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
 
 // checks the program of the file source after the prelude, which is its module, and writes its translation to C to target
 procedure compile_file(in source: Str, target: Str) :=
@@ -776,7 +762,7 @@ procedure compile_file(in source: Str, target: Str) :=
 
   call   parse_library(in "prelude", out pre)
   call   parse_file_after(in source, pre, out p)
-  call   check_program(in Program([CModule("prelude", program_cmds(pre)); program_cmds(p)]), base_name(source), out q)
+  call   check_program(in Program([CModule("prelude", pre.cmds); p.cmds]), base_name(source), out q)
   call   compile_program(in q, out f)
   call   os_write(in target, c_file(f))
 
@@ -790,5 +776,7 @@ test compile_programs :=
   call compile_file(in "../tests/strings.u", "out/strings.c")
   call compile_file(in "../tests/modules.u", "out/modules.c")
   call compile_file(in "../tests/files.u", "out/files.c")
+  call compile_file(in "../tests/fields.u", "out/fields.c")
+  call compile_file(in "../tests/locals.u", "out/locals.c")
   call compile_file(in "../ulang/resources/map.u", "out/map.c")
   call compile_file(in "../ulang/resources/set.u", "out/set.c")

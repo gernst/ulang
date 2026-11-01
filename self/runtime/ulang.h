@@ -85,6 +85,7 @@ static inline u_value u_field(u_value v, int i) {
 }
 int u_equals(u_value a, u_value b);
 u_value u_compare(u_value a, u_value b);
+u_value u_error(u_value message);
 u_value u_apply(u_value f, int n, ...);
 
 u_value u_add(u_value a, u_value b);

@@ -1,0 +1,71 @@
+# ulang
+
+A small programming language with pure functional expressions, imperative statements, algebraic datatypes, and Hindley-Milner type inference.
+It comes with an interpreter in Scala 3 and a compiler to C that is written in ulang itself and compiles itself.
+
+```
+data Tree[A] :=
+  | Leaf
+  | Node(left: Tree[A], key: A, right: Tree[A])
+
+function size[A](t: Tree[A]): Int :=
+  match t
+    case Leaf => 0
+    case Node(l, _, r) => size(l) + 1 + size(r)
+  end
+
+function smallest(t: Tree[Int]): Int :=
+  match t.left
+    case Leaf => t.key
+    else smallest(t.left)
+  end
+
+procedure count(in t: Tree[Int], out n: Int) :=
+  local k := size(t)
+
+  assign n := k
+
+test sizes :=
+  local n: Int
+
+  call   count(in Node(Leaf, 1, Node(Leaf, 2, Leaf)), out n)
+  assert n == 2 and smallest(Node(Node(Leaf, 0, Leaf), 1, Leaf)) == 0
+```
+
+## Language
+
+- Functions are pure expressions, procedures are statements with `in`, `out`, and `ref` parameters.
+- Datatypes with pattern matching, guards, and checks that matches are exhaustive and cases reachable.
+- Named fields of constructors, read as `e.field`, which is resolved by the type of `e`, and a runtime error for a constructor without that field.
+- Type inference with let-polymorphism, where top-level declarations carry their types.
+- Exceptions of any type, raised and caught by statements.
+- Unbounded integers, characters, and strings.
+- User-defined operators by `infix`, `prefix`, and `postfix` notations.
+- Modules: `import name` makes the declarations of a file available, but not transitively.
+- Named tests `test name := …` and runs `run name := …`.
+
+The library in `ulang/resources/` contains the prelude with natural numbers, options, and lists, as well as maps, sets, and access to files.
+
+## Usage
+
+Requires a JVM and [Mill](https://mill-build.org) (included as `./mill`), and for the compiler GMP and the Boehm garbage collector.
+
+```
+make                          # builds ulang.jar
+./ulang.sh file.u             # checks and runs a program
+./ulang.sh --tests file.u     # runs its tests one by one
+./mill ulang.test             # runs all tests
+
+make ulang.bin                # builds the compiler from bootstrap/ulang.c
+./ulang.bin file.u file.c     # compiles a program to C
+cc -I self/runtime file.c self/runtime/ulang.c -lgmp -lgc
+```
+
+## Layout
+
+- `ulang/src/` is the interpreter in Scala: parser, type checker, and evaluator.
+- `self/` is the implementation in ulang: lexer, parser, checker, interpreter, and the compiler to C, with its runtime in `self/runtime/`.
+- `bootstrap/ulang.c` is the C of the last compiler that compiled itself to the same C, from which `make ulang.bin` builds it without the JVM.
+  `make selfcompile` rebuilds the compiler with itself, and `make bootstrap` with the interpreter.
+- `tests/` are the tests, also of expected errors in `tests/errors/`, and `selftests/` those of features that only the compiler knows so far.
+- `vscode/` is an extension for VS Code and VSCodium, installed by `make install`.

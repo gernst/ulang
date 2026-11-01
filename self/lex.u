@@ -20,7 +20,7 @@ function is_symbol(c: Char): Bool :=
   str_contains("-+*/%<>=!&|:^~?@#$", c)
 
 function is_punct(c: Char): Bool :=
-  str_contains("()[],;", c)
+  str_contains("()[],;.", c)
 
 function is_name_char(c: Char): Bool :=
   is_letter(c) or is_digit(c) or c == '_'

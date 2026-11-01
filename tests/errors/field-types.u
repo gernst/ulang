@@ -1,0 +1,4 @@
+// parse error: field v of T has different types
+data T :=
+  | A(v: Int)
+  | B(v: Str)

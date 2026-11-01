@@ -67,13 +67,14 @@ selfcompile: ulang.bin
 	cmp $(STAGE)/ulang2.c $(STAGE)/ulang3.c
 	$(call install,$(STAGE)/ulang2.c,$(STAGE)/ulang2.bin)
 
-# the programs of selftests/, which use what only the compiler of self/ knows, compiled by ulang.bin and run
+# the tests of the modules of self/, compiled by ulang.bin and run in self/, except those that need read of the interpreter
+SELFTESTS = syntax ctx check run lex c compile
+
 .PHONY: selftest
 selftest: ulang.bin
 	mkdir -p $(STAGE)
-	for f in selftests/*.u; do \
-	  n=$$(basename $$f .u); \
-	  ($(COMPILE) ./ulang.bin $$f $(STAGE)/$$n.c > /dev/null) && \
+	for n in $(SELFTESTS); do \
+	  ($(COMPILE) ./ulang.bin self/$$n.u $(STAGE)/$$n.c > /dev/null) && \
 	  cc $(CFLAGS) $(STAGE)/$$n.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/$$n && \
-	  $(STAGE)/$$n && echo "$$f passed" || exit 1; \
+	  (cd self && $(COMPILE) ../$(STAGE)/$$n > /dev/null) && echo "self/$$n.u passed" || exit 1; \
 	done

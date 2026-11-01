@@ -89,3 +89,11 @@ What a language would ideally offer for writing code with an AI assistant, which
 - **Already there**: explicit data flow with `in`, `out`, and `ref`, pure expressions with effects only in statements, exhaustive matches and inference, a small language without implicit behavior, exceptions as values of a type, and named tests with `assert` showing both sides.
 - **Missing**: records, modules with exports, procedures as values or functions that can fail, `local x := e`, positions in errors, and contracts. These are extensions, not redesigns, see the points above.
 - **Questionable**: user-defined notations make the syntax depend on declarations, e.g. whether `and` is an operator or a name, for tools and for writing code alike.
+
+## Review
+
+Open findings of a review of the named fields, where the others are resolved: `self/` runs in Scala again, `C()` parses, and repeated fields and fields of different types are errors at the declaration.
+
+1. **Accessors need known types.** `e.f` needs the type of `e` when the access is inferred, so a lambda `lambda p => p.x` fails with an unknown type, although the type would be inferred later. Resolving accesses at the end of the command, with a fresh type for the result in the meantime, would remove this restriction.
+2. **Accesses as variables.** An access is the application of a variable `.f` until the checker resolves it, instead of a node `EField(e, f)` of the syntax. Only the parser produces it, always applied, so other passes do not see it, but a node would be clearer, which goes well with resolving accesses later.
+3. **Accessors ignore visibility.** `e.f` resolves to the accessor of the module of the type of `e`, also if the module of the access does not import it, which is intended: whoever has a value of a type may read its fields.

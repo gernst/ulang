@@ -359,9 +359,14 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def op(f: Id, args: Expr*): Expr =
     Expr.App(Expr.Var(Name(f), Type.Hole)(args.head.pos), args.toList)(args.head.pos)
 
+  // f(x) and e.f, which reads the field f of e, as the checker resolves it by the type of e
   def app(s: Scope): Parser[Expr] =
-    atom(s) ~ rep(parens(list(expr(s)))) ^^ { case f ~ argss =>
-      argss.foldLeft(f)(Expr.App(_, _)(f.pos))
+    atom(s) ~ rep(parens(list(expr(s))) ^^ (Left(_)) | "." ~> name ^^ (Right(_))) ^^ { case f ~ suffixes =>
+      suffixes.foldLeft(f):
+        case (e, Left(args)) =>
+          Expr.App(e, args)(f.pos)
+        case (e, Right(field)) =>
+          Expr.App(Expr.Var(Name("." + field), Type.Hole)(f.pos), List(e))(f.pos)
     }
 
   // the characters escaped by \ in strings and characters
@@ -519,16 +524,49 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     generic("type", name): (n, ps, t) =>
       ":=" ~> typ(t.copy(notations = s.notations)) ^^ (Cmd.Sort(Name(n), ps, _)(pos))
 
-  def data(s: Scope, pos: Pos): Parser[Cmd] =
-    generic("data", name): (n, ps, t) =>
-
-      val u = t.copy(notations = s.notations)
+  // with the accessors T.f of its named fields f
+  def data(s: Scope, pos: Pos): Parser[List[Cmd]] =
+    (kw("data") ~> name) ~ typarams >> { case n ~ ps =>
+      val u = Scope(ps.toSet, s.notations)
+      // C or C(T, U), where the arguments may be named fields, as in C(name: T, rest: U)
+      val field = opt(name <~ ":") ~ typ(u) ^^ { case f ~ t =>
+        (f, t)
+      }
       val constr =
-        (name | symbol) ~ opt(parens(list(typ(u)))) ^^ { case c ~ ts =>
-          Constr(Name(c), ts.getOrElse(Nil))
+        (name | symbol) ~ opt(parens(list(field))) ^^ { case c ~ fs =>
+          (Constr(Name(c), fs.getOrElse(Nil).map(_._2)), fs.getOrElse(Nil).map(_._1))
         }
       // the first constructor may be preceded by | as well
-      ":=" ~> opt("|") ~> rep1sep(constr, "|") ^^ (Cmd.Data(Name(n), ps, _)(pos))
+      ":=" ~> opt("|") ~> rep1sep(constr, "|") ^^ { ks =>
+        for (k, fs) <- ks do
+          val names = fs.flatten
+          for f <- names.diff(names.distinct).headOption do
+            error("parse", s"repeated field $f of ${k.name}")
+        Cmd.Data(Name(n), ps, ks.map(_._1))(pos) :: accessors(n, ps, ks, pos)
+      }
+    }
+
+  // the accessor T.f of each field f, which is partial if f is not a field of all constructors
+  def accessors(t: Id, ps: List[Id], ks: List[(Constr, List[Option[Id]])], pos: Pos): List[Cmd] =
+    val fields =
+      for
+        (k, names) <- ks
+        case ((Some(f), a), i) <- names.zip(k.args).zipWithIndex
+      yield (f, k.name, i, k.args.length, a)
+    for f <- fields.map(_._1).distinct
+    yield
+      val es = fields.filter(_._1 == f)
+      require("parse", es.map(_._5).distinct.length == 1, s"field $f of $t has different types")
+      val cases =
+        for (_, k, i, n, _) <- es
+        yield
+          val ps = List.tabulate(n)(j => if j == i then Pat.Var(Name("y"), Type.Hole)(pos) else Pat.Wild()(pos))
+          Case(Pat.App(k, ps)(pos), None, Expr.Var(Name("y"), Type.Hole)(pos))
+      val missing =
+        if es.length == ks.length then Nil
+        else List(Case(Pat.Wild()(pos), None, Expr.App(Expr.Var(Name("error"), Type.Hole)(pos), List(Expr.Lit(s"no field $f of $t")(pos)))(pos)))
+      val x: Pat.Var = Pat.Var(Name("x"), Type.Sort(Name(t), ps.map(Type.Param(_))))(pos)
+      Cmd.Fun(Name(s"$t.$f"), ps, List(List(x)), es.head._5, Expr.Match(Expr.Var(Name("x"), Type.Hole)(pos), cases ++ missing)(pos))(pos)
 
   def fun(s: Scope, pos: Pos): Parser[Cmd] =
     generic("function", name | symbol): (n, ps, t) =>
@@ -550,7 +588,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         }
 
   def command(s: Scope): Parser[List[Cmd]] =
-    located(pos => kw("import") ~> name ^^ (load(s, _, pos))) | declaration(s) ^^ (List(_))
+    located(pos => kw("import") ~> name ^^ (load(s, _, pos))) | located(pos => data(s, pos)) | declaration(s) ^^ (List(_))
 
   // the marker Import(n), preceded by module n at its first import, which is parsed with the notations of the prelude
   // and of its own imports, since imports are not transitive
@@ -580,7 +618,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   // the bodies of commands end at the keyword of the next command, so commands need no end
   def declaration(s: Scope): Parser[Cmd] =
     located: pos =>
-      notation(s, pos) | sort(s, pos) | data(s, pos) | fun(s, pos) | proc(s, pos) |
+      notation(s, pos) | sort(s, pos) | fun(s, pos) | proc(s, pos) |
         kw("eval") ~> expr(s) ^^
         (Cmd.Eval(_)(pos)) |
         (kw("run") ~> name) ~ (":=" ~> body(s)) ^^ { case n ~ b =>

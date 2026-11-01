@@ -11,17 +11,7 @@ data ParseError :=
 
 // the type parameters in scope, which distinguish TParam from TSort, and the notations declared so far
 data Scope :=
-  | Scope(List[Id], List[Cmd])
-
-function scope_params(sc: Scope): List[Id] :=
-  match sc
-    case Scope(ps, _) => ps
-  end
-
-function scope_notations(sc: Scope): List[Cmd] :=
-  match sc
-    case Scope(_, ns) => ns
-  end
+  | Scope(params: List[Id], notations: List[Cmd])
 
 function keywords(): List[Id] :=
   [
@@ -143,7 +133,7 @@ procedure parse_name(out n: Id, ref ts: List[Token * Int]) :=
 // a name that is not declared as an operator
 procedure parse_plain(in sc: Scope, out n: Id, ref ts: List[Token * Int]) :=
   match head_token(ts)
-    case TName(m) if declared(scope_notations(sc), m) =>
+    case TName(m) if declared(sc.notations, m) =>
       raise ParseError("operator " ^ m ^ " is not a name", head_offset(ts))
     else
       call parse_name(out n, ref ts)
@@ -168,27 +158,7 @@ data Item[A] :=
 
 // the notations, and how to apply prefix, postfix, and infix operators
 data Ops[A] :=
-  | Ops(List[Cmd], (Id, A) -> A, (Id, A) -> A, (Id, A, A) -> A)
-
-function ops_notations[A](o: Ops[A]): List[Cmd] :=
-  match o
-    case Ops(ns, _, _, _) => ns
-  end
-
-function apply_prefix[A](o: Ops[A], op: Id, a: A): A :=
-  match o
-    case Ops(_, f, _, _) => f(op, a)
-  end
-
-function apply_postfix[A](o: Ops[A], op: Id, a: A): A :=
-  match o
-    case Ops(_, _, f, _) => f(op, a)
-  end
-
-function apply_infix[A](o: Ops[A], op: Id, a: A, b: A): A :=
-  match o
-    case Ops(_, _, _, f) => f(op, a, b)
-  end
+  | Ops(notations: List[Cmd], prefix_op: (Id, A) -> A, postfix_op: (Id, A) -> A, infix_op: (Id, A, A) -> A)
 
 // the operand of all items, where at is the offset after them
 procedure resolve_items[A](in items: List[Item[A]], o: Ops[A], at: Int, out a: A) :=
@@ -217,11 +187,11 @@ procedure operand[A](in items: List[Item[A]], o: Ops[A], at: Int, out a: A, rest
     case [Operand(x); more] =>
       assign a := x, rest := more
     case [Operator(op, i); more] =>
-      match prefix_prec(ops_notations(o), op)
+      match prefix_prec(o.notations, op)
         case Some(p) =>
           call   climb(in more, p, o, at, out b, rest)
-          assign a := apply_prefix(o, op, b)
-        case None if declared(ops_notations(o), op) =>
+          assign a := o.prefix_op(op, b)
+        case None if declared(o.notations, op) =>
           raise ParseError(op ^ " is not a prefix operator", i)
         case None =>
           raise ParseError("undeclared operator " ^ op, i)
@@ -235,16 +205,16 @@ procedure climb_loop[A](in lhs: A, items: List[Item[A]], min: Int, o: Ops[A], at
 
   match items
     case [Operator(op, i); tail] =>
-      match (postfix_prec(ops_notations(o), op), infix_of(ops_notations(o), op))
+      match (postfix_prec(o.notations, op), infix_of(o.notations, op))
         case (Some(p), _) if p >= min =>
-          call climb_loop(in apply_postfix(o, op, lhs), tail, min, o, at, out a, rest)
+          call climb_loop(in o.postfix_op(op, lhs), tail, min, o, at, out a, rest)
 
         case (_, Some((f, p))) if p >= min =>
           call climb(in tail, if f == FRight then p else p + 1, o, at, out rhs, more)
-          call nonassociative(in op, f, p, more, ops_notations(o))
-          call climb_loop(in apply_infix(o, op, lhs, rhs), more, min, o, at, out a, rest)
+          call nonassociative(in op, f, p, more, o.notations)
+          call climb_loop(in o.infix_op(op, lhs, rhs), more, min, o, at, out a, rest)
 
-        case _ if not declared(ops_notations(o), op) =>
+        case _ if not declared(o.notations, op) =>
           raise ParseError("undeclared operator " ^ op, i)
 
         else
@@ -322,7 +292,7 @@ procedure parse_type(in sc: Scope, out t: Type, ref ts: List[Token * Int]) :=
   local start := head_offset(ts), items: List[Item[List[Type]]], r: List[Type]
 
   call   type_items(in sc, out items, ref ts)
-  call   resolve_items(in items, Ops(scope_notations(sc), type_prefix, type_prefix, type_infix), head_offset(ts), out r)
+  call   resolve_items(in items, Ops(sc.notations, type_prefix, type_prefix, type_infix), head_offset(ts), out r)
   assign t := type_one(r)
 
   if has_invalid(t)
@@ -333,11 +303,11 @@ procedure type_items(in sc: Scope, out items: List[Item[List[Type]]], ref ts: Li
   local rev: List[Item[List[Type]]] := Nil, next := true, go := true, b: List[Type]
 
   while go
-    match operator_at(scope_notations(sc), ts)
+    match operator_at(sc.notations, ts)
       case Some(op) =>
         assign rev := [Operator(op, head_offset(ts)); rev], next := true
         call   advance(ref ts)
-      case None if next and starts_type(scope_notations(sc), head_token(ts)) =>
+      case None if next and starts_type(sc.notations, head_token(ts)) =>
         call   type_basic(in sc, out b, ref ts)
         assign rev := [Operand(b); rev], next := false
       else
@@ -366,7 +336,7 @@ procedure type_basic(in sc: Scope, out r: List[Type], ref ts: List[Token * Int])
       call   advance(ref ts)
       call   type_list(in sc, ']', out args, ref ts)
       assign r := [TSort(unqualified(n), args)]
-    else if contains(n, scope_params(sc))
+    else if contains(n, sc.params)
       assign r := [TParam(n)]
     else
       assign r := [TSort(unqualified(n), Nil)]
@@ -422,18 +392,18 @@ procedure parse_expr(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
   local items: List[Item[Expr]]
 
   call   expr_items(in sc, out items, ref ts)
-  call   resolve_items(in items, Ops(scope_notations(sc), expr_op1, expr_op1, expr_op2), head_offset(ts), out e)
+  call   resolve_items(in items, Ops(sc.notations, expr_op1, expr_op1, expr_op2), head_offset(ts), out e)
 
 // operands and operators, where an operand follows only an operator, since let, if, and lambda extend as far to the right as possible
 procedure expr_items(in sc: Scope, out items: List[Item[Expr]], ref ts: List[Token * Int]) :=
   local rev: List[Item[Expr]] := Nil, next := true, go := true, e: Expr
 
   while go
-    match operator_at(scope_notations(sc), ts)
+    match operator_at(sc.notations, ts)
       case Some(op) =>
         assign rev := [Operator(op, head_offset(ts)); rev], next := true
         call   advance(ref ts)
-      case None if next and starts_expr(scope_notations(sc), head_token(ts)) =>
+      case None if next and starts_expr(sc.notations, head_token(ts)) =>
         call   parse_app(in sc, out e, ref ts)
         assign rev := [Operand(e); rev], next := false
       else
@@ -473,15 +443,22 @@ procedure expr_list(in sc: Scope, close: Char, out es: List[Expr], ref ts: List[
     call expect(in TPunct(close), ref ts)
   end
 
+// f(x) and e.f, which reads the field f of e, as the checker resolves it by the type of e
 procedure parse_app(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
-  local args: List[Expr]
+  local args: List[Expr], f: Id
 
   call parse_atom(in sc, out e, ref ts)
 
-  while at_punct(ts, '(')
-    call   advance(ref ts)
-    call   expr_list(in sc, ')', out args, ref ts)
-    assign e := EApp(e, args)
+  while at_punct(ts, '(') or at_punct(ts, '.')
+    if at_punct(ts, '(')
+      call   advance(ref ts)
+      call   expr_list(in sc, ')', out args, ref ts)
+      assign e := EApp(e, args)
+    else
+      call   advance(ref ts)
+      call   parse_name(out f, ref ts)
+      assign e := EApp(EVar(Var(unqualified("." ^ f), THole)), [e])
+    end
   end
 
 procedure parse_atom(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
@@ -542,7 +519,7 @@ procedure parse_atom(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
     case TPunct('[') =>
       call parse_brackets(in sc, out e, ref ts)
 
-    case TName(n) if not is_keyword(n) and not declared(scope_notations(sc), n) =>
+    case TName(n) if not is_keyword(n) and not declared(sc.notations, n) =>
       call   advance(ref ts)
       assign e := EVar(Var(unqualified(n), THole))
 
@@ -738,17 +715,17 @@ procedure parse_pattern(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
   local items: List[Item[Pat]]
 
   call   pattern_items(in sc, out items, ref ts)
-  call   resolve_items(in items, Ops(scope_notations(sc), pat_op1, pat_op1, pat_op2), head_offset(ts), out p)
+  call   resolve_items(in items, Ops(sc.notations, pat_op1, pat_op1, pat_op2), head_offset(ts), out p)
 
 procedure pattern_items(in sc: Scope, out items: List[Item[Pat]], ref ts: List[Token * Int]) :=
   local rev: List[Item[Pat]] := Nil, next := true, go := true, p: Pat
 
   while go
-    match operator_at(scope_notations(sc), ts)
+    match operator_at(sc.notations, ts)
       case Some(op) =>
         assign rev := [Operator(op, head_offset(ts)); rev], next := true
         call   advance(ref ts)
-      case None if next and starts_pattern(scope_notations(sc), head_token(ts)) =>
+      case None if next and starts_pattern(sc.notations, head_token(ts)) =>
         call   pattern_simple(in sc, out p, ref ts)
         assign rev := [Operand(p); rev], next := false
       else
@@ -1161,27 +1138,7 @@ function is_notation(c: Cmd): Bool :=
 // the notations of the prelude, which modules are parsed with, or None while parsing the prelude,
 // whose modules are parsed with its notations so far, and the directory of the parsed file, whose modules hide the library
 data Loader :=
-  | Loader(List[Id * List[Cmd]], List[Id], Option[List[Cmd]], Option[Str])
-
-function loaded_modules(ld: Loader): List[Id * List[Cmd]] :=
-  match ld
-    case Loader(ms, _, _, _) => ms
-  end
-
-function loading(ld: Loader): List[Id] :=
-  match ld
-    case Loader(_, ls, _, _) => ls
-  end
-
-function base_notations(ld: Loader): Option[List[Cmd]] :=
-  match ld
-    case Loader(_, _, b, _) => b
-  end
-
-function directory(ld: Loader): Option[Str] :=
-  match ld
-    case Loader(_, _, _, d) => d
-  end
+  | Loader(modules: List[Id * List[Cmd]], loading: List[Id], base: Option[List[Cmd]], dir: Option[Str])
 
 // module c and the modules it loads, with their own notations
 function modules_of(c: Cmd): List[Id * List[Cmd]] :=
@@ -1191,7 +1148,7 @@ function modules_of(c: Cmd): List[Id * List[Cmd]] :=
   end
 
 function own_notations(ld: Loader, n: Id): List[Cmd] :=
-  match lookup(n, loaded_modules(ld))
+  match lookup(n, ld.modules)
     case Some(ns) => ns
     case None => Nil
   end
@@ -1267,22 +1224,56 @@ procedure parse_notation(out c: Cmd, ref ts: List[Token * Int]) :=
       assign c := CNotation(f, p, reverse(ops))
   end
 
-procedure constructor(in sc: Scope, out k: Constr, ref ts: List[Token * Int]) :=
-  local n: Id, args: List[Type]
+// C or C(T, U), where the arguments may be named fields, as in C(name: T, rest: U)
+procedure constructor(in sc: Scope, out k: Constr, fs: List[Option[Id]], ref ts: List[Token * Int]) :=
+  local n: Id, args: List[Type], t: Type, f: Option[Id]
 
   call   parse_name_or_symbol(out n, ref ts)
-  assign args := Nil
+  assign args := Nil, fs := Nil
 
   if at_punct(ts, '(')
     call advance(ref ts)
-    call type_list(in sc, ')', out args, ref ts)
+
+    if not at_punct(ts, ')')
+      call   field(in sc, out f, t, ref ts)
+      assign args := [t], fs := [f]
+
+      while at_punct(ts, ',')
+        call   advance(ref ts)
+        call   field(in sc, out f, t, ref ts)
+        assign args := [t; args], fs := [f; fs]
+      end
+    end
+
+    call expect(in TPunct(')'), ref ts)
   end
 
-  assign k := Constr(unqualified(n), args)
+  assign k := Constr(unqualified(n), reverse(args)), fs := reverse(fs)
+
+  match repeated(field_names(fs))
+    case Some(f) =>
+      raise ParseError("repeated field " ^ f ^ " of " ^ n, head_offset(ts))
+    case None =>
+      skip
+  end
+
+// a type of a constructor, which may be named
+procedure field(in sc: Scope, out f: Option[Id], t: Type, ref ts: List[Token * Int]) :=
+  match (head_token(ts), second_token(ts))
+    case (TName(n), TSym(":")) if not is_keyword(n) =>
+      call   advance(ref ts)
+      call   advance(ref ts)
+      assign f := Some(n)
+    else
+      assign f := None
+  end
+
+  call parse_type(in sc, out t, ref ts)
 
 // data T[A] := | C(A) | D, where the first | is optional
-procedure parse_data(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
-  local n: Id, ps: List[Id], k: Constr, rev: List[Constr]
+// with the accessors T.f of its named fields f
+procedure parse_data(in ns: List[Cmd], out cs: List[Cmd], ref ts: List[Token * Int]) :=
+  local n: Id, ps: List[Id], k: Constr, fs: List[Option[Id]], rev: List[Constr * List[Option[Id]]]
 
   call   advance(ref ts)
   call   parse_name(out n, ref ts)
@@ -1293,16 +1284,99 @@ procedure parse_data(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
     call advance(ref ts)
   end
 
-  call   constructor(in Scope(ps, ns), out k, ref ts)
-  assign rev := [k]
+  call   constructor(in Scope(ps, ns), out k, fs, ref ts)
+  assign rev := [(k, fs)]
 
   while head_token(ts) == TSym("|")
     call   advance(ref ts)
-    call   constructor(in Scope(ps, ns), out k, ref ts)
-    assign rev := [k; rev]
+    call   constructor(in Scope(ps, ns), out k, fs, ref ts)
+    assign rev := [(k, fs); rev]
   end
 
-  assign c := CData(unqualified(n), ps, reverse(rev))
+  match differing(fields_of(reverse(rev)))
+    case Some(f) =>
+      raise ParseError("field " ^ f ^ " of " ^ n ^ " has different types", head_offset(ts))
+    case None =>
+      skip
+  end
+
+  assign cs := [CData(unqualified(n), ps, firsts(reverse(rev))); accessors(n, ps, reverse(rev))]
+
+function field_names(fs: List[Option[Id]]): List[Id] :=
+  match fs
+    case Nil => Nil
+    case [Some(f); rest] => [f; field_names(rest)]
+    case [None; rest] => field_names(rest)
+  end
+
+// a field with different types in different constructors, if any
+function differing(fs: List[Id * (Name * Int * Int * Type)]): Option[Id] :=
+  match fs
+    case Nil => None
+    case [(f, (_, _, _, t)); rest] => if contains(true, [type_of_field(e) != t for e in fields_named(f, rest)]) then Some(f) else differing(rest)
+  end
+
+function type_of_field(e: Id * (Name * Int * Int * Type)): Type :=
+  match e
+    case (_, (_, _, _, t)) => t
+  end
+
+function fields_named(f: Id, fs: List[Id * (Name * Int * Int * Type)]): List[Id * (Name * Int * Int * Type)] :=
+  match fs
+    case Nil => Nil
+    case [(g, d); rest] => if g == f then [(g, d); fields_named(f, rest)] else fields_named(f, rest)
+  end
+
+// the fields of the constructors with each constructor, the position of the field, its number of arguments, and its type
+function fields_of(ks: List[Constr * List[Option[Id]]]): List[Id * (Name * Int * Int * Type)] :=
+  match ks
+    case Nil => Nil
+    case [(Constr(k, args), fs); rest] => named_fields(k, length(args), zip(fs, args), 0) ++ fields_of(rest)
+  end
+
+function named_fields(k: Name, n: Int, fs: List[Option[Id] * Type], i: Int): List[Id * (Name * Int * Int * Type)] :=
+  match fs
+    case Nil => Nil
+    case [(Some(f), t); rest] => [(f, (k, i, n, t)); named_fields(k, n, rest, i + 1)]
+    case [(None, _); rest] => named_fields(k, n, rest, i + 1)
+  end
+
+// the accessor T.f of each field f, which is partial if f is not a field of all constructors
+function accessors(t: Id, ps: List[Id], ks: List[Constr * List[Option[Id]]]): List[Cmd] :=
+  let fs := fields_of(ks) in
+    [accessor(t, ps, f, fields_named(f, fs), length(ks)) for f in distinct(firsts(fs))]
+
+function accessor(t: Id, ps: List[Id], f: Id, es: List[Id * (Name * Int * Int * Type)], n: Int): Cmd :=
+  let x := Var(unqualified("x"), THole), owner := TSort(unqualified(t), [TParam(p) for p in ps]) in
+    CFun(
+      unqualified(t ^ "." ^ f),
+      ps,
+      [[Var(unqualified("x"), owner)]],
+      field_type(es),
+      EMatch(EVar(x), [field_case(e) for e in es] ++ (if length(es) == n then [] else [missing_field(t, f)]))
+    )
+
+function field_type(es: List[Id * (Name * Int * Int * Type)]): Type :=
+  match es
+    case [(_, (_, _, _, t)); _] => t
+    else THole
+  end
+
+// case C(_, y, _) => y, where y is the field at its position
+function field_case(e: Id * (Name * Int * Int * Type)): Branch[Expr] :=
+  match e
+    case (_, (k, i, n, _)) =>
+      Branch(PApp(k, [if j == i then PVar(Var(unqualified("y"), THole)) else PWild for j in positions(n)]), None, EVar(Var(unqualified("y"), THole)))
+  end
+
+function missing_field(t: Id, f: Id): Branch[Expr] :=
+  Branch(PWild, None, EApp(EVar(Var(unqualified("error"), THole)), [ELit(VStr("no field " ^ f ^ " of " ^ t))]))
+
+function positions(n: Int): List[Int] :=
+  positions_from(0, n)
+
+function positions_from(i: Int, n: Int): List[Int] :=
+  if i == n then Nil else [i; positions_from(i + 1, n)]
 
 procedure parse_function(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
   local n: Id, ps: List[Id], xs: List[Var], xss: List[List[Var]], r: Type, b: Expr
@@ -1365,7 +1439,7 @@ procedure parse_command(in ns: List[Cmd], ld: Loader, out cs: List[Cmd], ref ts:
       call   advance(ref ts)
       call   parse_name(out n, ref ts)
 
-      if contains(n, keys(loaded_modules(ld)))
+      if contains(n, keys(ld.modules))
         assign cs := [CImport(n)]
       else
         call   load_module(in n, ns, ld, at, out cs)
@@ -1385,8 +1459,7 @@ procedure parse_command(in ns: List[Cmd], ld: Loader, out cs: List[Cmd], ref ts:
       assign cs := [CSort(unqualified(n), ps, t)]
 
     case TName("data") =>
-      call   parse_data(in ns, out c, ref ts)
-      assign cs := [c]
+      call parse_data(in ns, out cs, ref ts)
 
     case TName("function") =>
       call   parse_function(in ns, out c, ref ts)
@@ -1430,7 +1503,7 @@ procedure declare_all(in cs: List[Cmd], ref ns: List[Cmd], ld: Loader) :=
       call   declare_all(in more, ref ns, ld)
 
     case [CModule(n, ds); more] =>
-      assign ld := Loader(modules_of(CModule(n, ds)) ++ loaded_modules(ld), loading(ld), base_notations(ld), directory(ld))
+      assign ld := Loader(modules_of(CModule(n, ds)) ++ ld.modules, ld.loading, ld.base, ld.dir)
       call   declare_all(in more, ref ns, ld)
 
     case [CImport(n); more] =>
@@ -1479,14 +1552,14 @@ procedure library_text(in n: Id, at: Int, out text: Str) :=
 procedure load_module(in n: Id, ns: List[Cmd], ld: Loader, at: Int, out cs: List[Cmd]) :=
   local text: Str, mns: List[Cmd], mld: Loader, mts: List[Token * Int]
 
-  if contains(n, loading(ld))
+  if contains(n, ld.loading)
     raise ParseError("cyclic import of " ^ n, at)
   end
 
-  call   module_text(in n, directory(ld), at, out text)
-  assign mld := Loader(loaded_modules(ld), [n; loading(ld)], base_notations(ld), directory(ld))
+  call   module_text(in n, ld.dir, at, out text)
+  assign mld := Loader(ld.modules, [n; ld.loading], ld.base, ld.dir)
 
-  match base_notations(ld)
+  match ld.base
     case Some(b) =>
       assign mns := b
     case None =>
@@ -1522,8 +1595,8 @@ procedure prelude_scope(in pre: Program, out ns: List[Cmd], ms: List[Id * List[C
   local ld: Loader
 
   assign ns := Nil, ld := Loader(Nil, Nil, None, None)
-  call   declare_all(in commands_of(pre), ref ns, ld)
-  assign ms := loaded_modules(ld)
+  call   declare_all(in pre.cmds, ref ns, ld)
+  assign ms := ld.modules
 
 // the module of name, which is parsed after the prelude pre with its notations, and reads modules from dir, or else the library
 procedure module_after(in name: Id, pre: Program, dir: Option[Str], text: Str, out p: Program) :=
@@ -1573,11 +1646,6 @@ procedure parse_file(in path: Str, out p: Program) :=
   call   parse_library(in "prelude", out pre)
   call   parse_file_after(in path, pre, out p)
 
-function commands_of(p: Program): List[Cmd] :=
-  match p
-    case Program(cs) => cs
-  end
-
 // the commands agree one by one, shown with path if they do not
 procedure same_commands(in path: Str, cs: List[Cmd], ds: List[Cmd]) :=
   match (cs, ds)
@@ -1598,7 +1666,7 @@ procedure same_parses(in paths: List[Str], pre: Program) :=
     case [path; more] =>
       call read(in path, out p)
       call parse_file_after(in path, pre, out q)
-      call same_commands(in path, commands_of(p), commands_of(q))
+      call same_commands(in path, p.cmds, q.cmds)
       call same_parses(in more, pre)
   end
 
@@ -1626,13 +1694,13 @@ test parse_library_modules :=
 
   call   library(in "prelude", out p)
   call   parse_library(in "prelude", out q)
-  call   same_commands(in "prelude", commands_of(p), commands_of(q))
+  call   same_commands(in "prelude", p.cmds, q.cmds)
   call   library(in "list", out p)
   call   parse_library(in "list", out q)
-  call   same_commands(in "list", commands_of(p), commands_of(q))
+  call   same_commands(in "list", p.cmds, q.cmds)
   call   library(in "os", out p)
   call   parse_library(in "os", out q)
-  call   same_commands(in "os", commands_of(p), commands_of(q))
+  call   same_commands(in "os", p.cmds, q.cmds)
 
 test parse_files :=
   local pre: Program
@@ -1644,8 +1712,10 @@ test parse_files :=
     "../tests/doubler.u",
     "../tests/exceptions.u",
     "../tests/expressions.u",
+    "../tests/fields.u",
     "../tests/files.u",
     "../tests/functions.u",
+    "../tests/locals.u",
     "../tests/modules.u",
     "../tests/procedures.u",
     "../tests/stack.u",
@@ -1693,6 +1763,7 @@ test parse_error_files :=
     "../tests/errors/duplicate-type-parameter.u",
     "../tests/errors/empty-match.u",
     "../tests/errors/empty-tuple-argument.u",
+    "../tests/errors/field-of-unknown-type.u",
     "../tests/errors/guard-not-exhaustive.u",
     "../tests/errors/guard-type.u",
     "../tests/errors/if-condition.u",
@@ -1706,6 +1777,7 @@ test parse_error_files :=
     "../tests/errors/local-scope.u",
     "../tests/errors/missing-cons.u",
     "../tests/errors/missing-false.u",
+    "../tests/errors/missing-field.u",
     "../tests/errors/missing-int.u",
     "../tests/errors/missing-local-type.u",
     "../tests/errors/missing-nested-zero.u",
@@ -1739,6 +1811,7 @@ test parse_error_files :=
     "../tests/errors/uninitialized.u",
     "../tests/errors/unit.u",
     "../tests/errors/unknown-constructor.u",
+    "../tests/errors/unknown-field.u",
     "../tests/errors/unknown-procedure.u",
     "../tests/errors/unknown-sort-generic.u",
     "../tests/errors/unknown-sort.u",
@@ -1755,12 +1828,14 @@ test parse_error_files :=
     "../tests/errors/broken.u",
     "../tests/errors/cycle.u",
     "../tests/errors/else-not-last.u",
+    "../tests/errors/field-types.u",
     "../tests/errors/import-error.u",
     "../tests/errors/keyword-name.u",
     "../tests/errors/list-without-elements.u",
     "../tests/errors/not-associative.u",
     "../tests/errors/not-prefix.u",
     "../tests/errors/operator-before-declaration.u",
+    "../tests/errors/repeated-field.u",
     "../tests/errors/string-escape.u",
     "../tests/errors/undeclared-operator.u",
     "../tests/errors/unknown-module.u",

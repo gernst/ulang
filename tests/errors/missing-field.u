@@ -1,0 +1,6 @@
+// runtime error: no field radius of Shape at 2.1
+data Shape :=
+  | Circle(label: Str, radius: Int)
+  | Box(label: Str)
+
+eval Box("b").radius

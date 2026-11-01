@@ -13,6 +13,8 @@ Mill with `build.mill.yaml`; the language lives in the module `ulang`. Do not us
 - `./ulang.sh --tests file.u ...` runs each test on its own and prints `test name passed` or `test name failed: ...`; `./ulang.sh --only name file.u` runs only the `run` or `test` of that name
 - `self/compile.u` compiles ulang programs to C, where its test writes the translations of some tests to `self/out/`, which `cc -DULANG_LIB='"'$PWD/ulang/resources'"' -I self/runtime self/out/NAME.c self/runtime/ulang.c -lgmp -lgc` compiles with the runtime, using GMP and the Boehm collector, where `ULANG_LIB` is the directory of the library for `os_library`
 - `make ulang.bin` builds the self-hosted compiler `./ulang.bin source.u target.c` from `bootstrap/ulang.c`; `make bootstrap` compiles it with the interpreter and `make selfcompile` with `ulang.bin`, and both replace it only if the new compiler compiles itself to the same C, after keeping the previous one in `bootstrap/` with a time stamp, where the C files are versioned and the binaries are not
+- `make selftest` compiles the tests of the modules of `self/` with `ulang.bin` and runs them, except those of `parse.u` and `read.u`, which need `read` of the interpreter
+- named fields of constructors, `C(name: T, …)`, give accessors `e.name`, which the checkers resolve by the type of `e` to the generated function `T.name`, which ends in the builtin `error` for constructors without the field
 - `make install` packages the VS Code extension in `vscode/` as `ulang.vsix` and installs it into VSCodium (`codium`): syntax highlighting, a run button, `▶ Run` links above `run` and `test`, errors in the Problems view, and the tests in the Testing view, all by running `ulang.jar`
 
 ## Tests

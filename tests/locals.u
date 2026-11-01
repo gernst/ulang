@@ -1,4 +1,4 @@
-// locals with initial values, whose types are inferred, which only the compiler of self/ knows so far
+// locals with initial values, whose types are inferred
 
 procedure total(in xs: List[Int], out t: Int) :=
   local rest := xs, sum := 0

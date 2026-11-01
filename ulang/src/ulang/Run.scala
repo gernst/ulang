@@ -116,6 +116,8 @@ object Run:
       case ("str_get", List(s: String, i)) =>
         require("runtime", int(i) >= 0 && int(i) < s.length, s"no index ${int(i)} in a string of size ${s.length}")
         s(int(i).toInt)
+      case ("error", List(m: String)) =>
+        error("runtime", m)
       case ("str_contains", List(s: String, c: Char)) =>
         s.contains(c)
       // -1, 0, or 1 as s is before, equal to, or after t, by the codes of their characters

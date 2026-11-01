@@ -252,6 +252,12 @@ int u_equals(u_value a, u_value b) {
   return compare(a, b) == 0;
 }
 
+// a runtime error of an expression, which ends the program
+u_value u_error(u_value message) {
+  u_fail(message->text);
+  return NULL;
+}
+
 u_value u_compare(u_value a, u_value b) {
   return u_mk_int(compare(a, b));
 }

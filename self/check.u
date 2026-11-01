@@ -16,7 +16,7 @@ type Env :=
 // the context, the substitution, the number of unknowns so far, the module whose declarations are checked
 // with the modules it sees, and the modules that each module sees, itself first
 data State :=
-  | State(Ctx, Subst, Int, Id, List[Id], List[Id * List[Id]])
+  | State(ctx: Ctx, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]])
 
 data TypeError :=
   | UnknownSort(Name)
@@ -32,6 +32,8 @@ data TypeError :=
   | AlreadyDefined(Name)
   | Duplicate(Str)
   | Ambiguous(Name, List[Name])
+  | UnknownField(Name)
+  | UnknownFieldType(Id, Type)
   | CountMismatch(Int, Int)
   | UnknownConstructor(Name)
   | NotExhaustive(Pat)
@@ -44,26 +46,6 @@ data TypeError :=
 data Head :=
   | HCon(Name)
   | HLit(Val)
-
-function ctx_of(s: State): Ctx :=
-  match s
-    case State(c, _, _, _, _, _) => c
-  end
-
-function sub_of(s: State): Subst :=
-  match s
-    case State(_, su, _, _, _, _) => su
-  end
-
-function module_of(s: State): Id :=
-  match s
-    case State(_, _, _, m, _, _) => m
-  end
-
-function visible_of(s: State): List[Id] :=
-  match s
-    case State(_, _, _, _, ms, _) => ms
-  end
 
 function with_ctx(s: State, c: Ctx): State :=
   match s
@@ -95,7 +77,7 @@ function flatten(m: Id, cs: List[Cmd]): List[Id * Cmd] :=
   end
 
 function in_module(m: Id, n: Name): Name :=
-  Name(Some(m), base(n))
+  Name(Some(m), n.base)
 
 function qualify(m: Id, c: Cmd): Cmd :=
   match c
@@ -128,24 +110,24 @@ function visible_names(s: State, n: Name, declared: List[Name]): List[Name] :=
   match n
     case Name(Some(_), _) => [d for d in [n] if contains(d, declared)]
     case Name(None, b) =>
-      if contains(Name(Some(module_of(s)), b), declared) then
-        [Name(Some(module_of(s)), b)]
+      if contains(Name(Some(s.module), b), declared) then
+        [Name(Some(s.module), b)]
       else
-        [d for d in [Name(Some(m), b) for m in drop(1, visible_of(s))] if contains(d, declared)]
+        [d for d in [Name(Some(m), b) for m in drop(1, s.visible)] if contains(d, declared)]
   end
 
 // the declarations of a kind with the base name of n, of all modules
 function funs_named(c: Ctx, n: Name): List[Name] :=
-  [d for d in named(c, base(n)) if is_fun(c, d)]
+  [d for d in names_of(c, n.base) if is_fun(c, d)]
 
 function constrs_named(c: Ctx, n: Name): List[Name] :=
-  [d for d in named(c, base(n)) if is_constr(c, d)]
+  [d for d in names_of(c, n.base) if is_constr(c, d)]
 
 function procs_named(c: Ctx, n: Name): List[Name] :=
-  [d for d in named(c, base(n)) if is_proc(c, d)]
+  [d for d in names_of(c, n.base) if is_proc(c, d)]
 
 function sorts_named(c: Ctx, n: Name): List[Name] :=
-  [d for d in named(c, base(n)) if is_data(c, d) or is_alias(c, d)]
+  [d for d in names_of(c, n.base) if is_data(c, d) or is_alias(c, d)]
 
 function tbool(): Type :=
   TSort(unqualified("Bool"), Nil)
@@ -210,6 +192,8 @@ function builtin_scheme(b: Id): List[List[Type] * Type] :=
       case "<" => [(Nil, fun([tint(), tint()], tbool()))]
       case "==" => [([a], fun([a, a], tbool()))]
       case "compare" => [([a], fun([a, a], tint()))]
+      // a runtime error with a message, e.g. for a field that a value does not have
+      case "error" => [([a], fun([tstr()], a))]
       case "and" => [logic()]
       case "or" => [logic()]
       case "chars" => [(Nil, fun([tstr()], tlist(tchar())))]
@@ -306,8 +290,8 @@ function candidates(s: State, env: Env, n: Name): List[Name * (List[Type] * Type
   match lookup(n, env)
     case Some(sc) => [(n, sc)]
     case None =>
-      concat([[(f, sc) for sc in schemes_of(ctx_of(s), f)] for f in visible_names(s, n, funs_named(ctx_of(s), n))]) ++
-        [(k, constructor_of(ctx_of(s), k)) for k in visible_names(s, n, constrs_named(ctx_of(s), n))] ++
+      concat([[(f, sc) for sc in schemes_of(s.ctx, f)] for f in visible_names(s, n, funs_named(s.ctx, n))]) ++
+        [(k, constructor_of(s.ctx, k)) for k in visible_names(s, n, constrs_named(s.ctx, n))] ++
         [(n, sc) for sc in builtin(n)]
   end
 
@@ -324,7 +308,7 @@ function has_arity(scs: List[List[Type] * Type], k: Int): Bool :=
   end
 
 function bind(xs: List[Var]): Env :=
-  [(name(x), (Nil, typ(x))) for x in xs]
+  [(x.name, (Nil, x.typ)) for x in xs]
 
 // the unknowns of the types of env, which a let cannot generalize
 function fixed(su: Subst, env: Env): List[Type] :=
@@ -338,7 +322,7 @@ function generalize(su: Subst, env: Env, t: Type): List[Type] * Type :=
   ([m for m in free(u) if is_meta(m) and not contains(m, fx)], u)
 
 function generalized(su: Subst, env: Env, xs: List[Var]): Env :=
-  [(name(x), generalize(su, env, typ(x))) for x in xs]
+  [(x.name, generalize(su, env, x.typ)) for x in xs]
 
 // the pattern of a case, and whether it has no guard, such that it may cover values
 function case_of[A](b: Branch[A]): Pat * Bool :=
@@ -636,8 +620,8 @@ procedure fresh(out t: Type, ref s: State) :=
   end
 
 procedure bind_meta(in i: Int, t: Type, ref s: State) :=
-  if occurs(sub_of(s), i, t)
-    raise InfiniteType(TMeta(i), zonk_type(sub_of(s), t))
+  if occurs(s.sub, i, t)
+    raise InfiniteType(TMeta(i), zonk_type(s.sub, t))
   end
   match s
     case State(c, su, n, m, ms, vs) =>
@@ -645,7 +629,7 @@ procedure bind_meta(in i: Int, t: Type, ref s: State) :=
   end
 
 procedure unify(in t1: Type, t2: Type, ref s: State) :=
-  local a := resolve(sub_of(s), t1), b := resolve(sub_of(s), t2)
+  local a := resolve(s.sub, t1), b := resolve(s.sub, t2)
 
   match (a, b)
     case (TMeta(i), TMeta(j)) =>
@@ -668,25 +652,25 @@ procedure unify(in t1: Type, t2: Type, ref s: State) :=
       if f == g and length(xs) == length(ys)
         call unifies(in xs, ys, ref s)
       else
-        raise CannotUnify(zonk_type(sub_of(s), t1), zonk_type(sub_of(s), t2))
+        raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
     case (TFun(xs, r1), TFun(ys, r2)) =>
       if length(xs) == length(ys)
         call unifies(in xs ++ [r1], ys ++ [r2], ref s)
       else
-        raise CannotUnify(zonk_type(sub_of(s), t1), zonk_type(sub_of(s), t2))
+        raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
     case (TTuple(xs), TTuple(ys)) =>
       if length(xs) == length(ys)
         call unifies(in xs, ys, ref s)
       else
-        raise CannotUnify(zonk_type(sub_of(s), t1), zonk_type(sub_of(s), t2))
+        raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
     else
-      raise CannotUnify(zonk_type(sub_of(s), t1), zonk_type(sub_of(s), t2))
+      raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
   end
 
 procedure unifies(in xs: List[Type], ys: List[Type], ref s: State) :=
@@ -731,7 +715,7 @@ procedure instantiate(in sc: List[Type] * Type, out t: Type, ref s: State) :=
   match sc
     case (ps, u) =>
       call   instance(in ps, out m, ref s)
-      assign t := subst(zonk_type(sub_of(s), u), m)
+      assign t := subst(zonk_type(s.sub, u), m)
   end
 
 procedure unique(in ns: List[Name]) :=
@@ -799,7 +783,7 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
         call   arguments(in n, 0, args)
         assign u := t
       else
-        match visible_names(s, n, sorts_named(ctx_of(s), n))
+        match visible_names(s, n, sorts_named(s.ctx, n))
           case [m] =>
             call normalize_sort(in m, args, out u, ref s)
           case Nil =>
@@ -813,13 +797,13 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
 procedure normalize_sort(in n: Name, args: List[Type], out u: Type, ref s: State) :=
   local us: List[Type]
 
-  match data_of(ctx_of(s), n)
+  match data_of(s.ctx, n)
     case Some(k) =>
       call   arguments(in n, k, args)
       call   normalizes(in args, out us, ref s)
       assign u := TSort(n, us)
     case None =>
-      match alias_of(ctx_of(s), n)
+      match alias_of(s.ctx, n)
         case Some((ps, rhs)) =>
           call   arguments(in n, length(ps), args)
           call   normalizes(in args, out us, ref s)
@@ -934,7 +918,7 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
     case EVar(Var(n, a)) =>
       call   resolve_name(in s, env, n, -1, out m, sc)
       call   use(in m, a, sc, out x, ref s)
-      assign e1 := EVar(x), t := typ(x)
+      assign e1 := EVar(x), t := x.typ
 
     case EApp(f, args) =>
       call application(in env, f, args, out e1, t, ref s)
@@ -947,7 +931,7 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
     case ELet(bound, body) =>
       call   formals(in firsts(bound), out xs, ref s)
       call   checks(in env, seconds(bound), types(xs), out es, ref s)
-      call   infer(in generalized(sub_of(s), env, xs) ++ env, body, out b, u, ref s)
+      call   infer(in generalized(s.sub, env, xs) ++ env, body, out b, u, ref s)
       assign e1 := ELet(zip(xs, es), b), t := u
 
     case EIte(cond, left, right) =>
@@ -981,11 +965,14 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
   local sc: List[Type] * Type, m: Name, x: Var, f1: Expr, u: Type, args1: List[Expr]
 
   match f
+    case EVar(Var(Name(None, b), a)) if str_size(b) > 1 and str_get(b, 0) == '.' =>
+      call field_access(in env, b, a, args, out e1, t, ref s)
+
     case EVar(Var(n, a)) =>
       if length(candidates(s, env, n)) > 1
         call   resolve_name(in s, env, n, length(args), out m, sc)
         call   use(in m, a, sc, out x, ref s)
-        call   apply(in env, typ(x), args, out args1, t, ref s)
+        call   apply(in env, x.typ, args, out args1, t, ref s)
         assign e1 := EApp(EVar(x), args1)
       else
         call   infer(in env, f, out f1, u, ref s)
@@ -996,6 +983,35 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
       call   infer(in env, f, out f1, u, ref s)
       call   apply(in env, u, args, out args1, t, ref s)
       assign e1 := EApp(f1, args1)
+  end
+
+// e.f, which is the accessor T.f of the type T of e, of the module of T, which must be known here
+procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Expr, t: Type, ref s: State) :=
+  local arg1: Expr, u: Type, acc: Name, x: Var
+
+  match args
+    case [arg] =>
+      call infer(in env, arg, out arg1, u, ref s)
+
+      match zonk_type(s.sub, u)
+        case TSort(Name(Some(m), tn), _) =>
+          assign acc := Name(Some(m), tn ^ f)
+        case v =>
+          raise UnknownFieldType(f, v)
+      end
+
+      match schemes_of(s.ctx, acc)
+        case [sc] =>
+          call use(in acc, a, sc, out x, ref s)
+        else
+          raise UnknownField(acc)
+      end
+
+      call   fresh(out t, ref s)
+      call   unify(in x.typ, fun([u], t), ref s)
+      assign e1 := EApp(EVar(x), [arg1])
+    else
+      raise CountMismatch(1, length(args))
   end
 
 procedure apply(in env: Env, f: Type, args: List[Expr], out args1: List[Expr], r: Type, ref s: State) :=
@@ -1043,7 +1059,7 @@ procedure generators(in env: Env, xs: List[Var], lists: List[Expr], out lists1: 
 
   match (xs, lists)
     case ([x; ys], [e; es]) =>
-      call   check(in env, e, tlist(typ(x)), out l, ref s)
+      call   check(in env, e, tlist(x.typ), out l, ref s)
       call   generators(in bind([x]) ++ env, ys, es, out rest, ref s)
       assign lists1 := [l; rest]
     else
@@ -1078,7 +1094,7 @@ procedure guard(in env: Env, g: Option[Expr], out g1: Option[Expr], ref s: State
 // guarded cases neither cover values for exhaustiveness nor make later cases unreachable
 procedure coverage(in s: State, t: Type, cs: List[Pat * Bool]) :=
   call reachable(in s, t, Nil, cs)
-  match missing(ctx_of(s), sub_of(s), [[p] for p in unguarded(cs)], [t])
+  match missing(s.ctx, s.sub, [[p] for p in unguarded(cs)], [t])
     case Some([w; _]) =>
       raise NotExhaustive(w)
     else
@@ -1097,7 +1113,7 @@ procedure reachable(in s: State, t: Type, before: List[Pat], cs: List[Pat * Bool
     case Nil =>
       skip
     case [(p, open); rest] =>
-      if not useful(ctx_of(s), sub_of(s), [[q] for q in before], [p], [t])
+      if not useful(s.ctx, s.sub, [[q] for q in before], [p], [t])
         raise Unreachable(p)
       end
       if open
@@ -1123,7 +1139,7 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
       assign p1 := p, xs := Nil
 
     case PVar(Var(n, a)) =>
-      if visible_names(s, n, constrs_named(ctx_of(s), n)) != Nil
+      if visible_names(s, n, constrs_named(s.ctx, n)) != Nil
         call binders(in PApp(n, Nil), t, out p1, xs, ref s)
       else
         call   normalize(in a, out u, ref s)
@@ -1132,7 +1148,7 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
       end
 
     case PApp(n, args) =>
-      match visible_names(s, n, constrs_named(ctx_of(s), n))
+      match visible_names(s, n, constrs_named(s.ctx, n))
         case [k1] =>
           assign k := k1
         case Nil =>
@@ -1141,7 +1157,7 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
           raise Ambiguous(n, ks)
       end
 
-      match constr_of(ctx_of(s), k)
+      match constr_of(s.ctx, k)
         case Some((ps, ks, r)) =>
           call   same_length(in length(ks), length(args))
           call   instance(in ps, out m, ref s)
@@ -1262,7 +1278,7 @@ procedure statement(in env: Env, assignable: List[Name], x: Stmt, out y: Stmt, r
 // the variables that the leading assignments of a block assign one at a time, as local x := e does
 function initialized(xs: List[Stmt]): List[Name] :=
   match xs
-    case [SAssign([(x, _)]); rest] => [name(x); initialized(rest)]
+    case [SAssign([(x, _)]); rest] => [x.name; initialized(rest)]
     else Nil
   end
 
@@ -1305,7 +1321,7 @@ function os_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * L
 
 // read and library give the syntax of self/syntax.u, so they exist only in programs that declare its Program
 function syntax_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * List[Type])] :=
-  match [d for d in named(c, "Program") if is_data(c, d)]
+  match [d for d in names_of(c, "Program") if is_data(c, d)]
     case [d; _] =>
       [(unqualified("read"), (Nil, [tstr()], [TSort(d, Nil)], Nil)), (unqualified("library"), (Nil, [tstr()], [TSort(d, Nil)], Nil))]
     else Nil
@@ -1315,7 +1331,7 @@ function syntax_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type]
 procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
   local m: List[Type * Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var], q: Name
 
-  match visible_names(s, p, procs_named(ctx_of(s), p))
+  match visible_names(s, p, procs_named(s.ctx, p))
     case [q1] =>
       assign q := q1
     case Nil =>
@@ -1324,7 +1340,7 @@ procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr
       raise Ambiguous(p, qs)
   end
 
-  match or_else(proc_of(ctx_of(s), q), lookup(q, os_procs(ctx_of(s)) ++ syntax_procs(ctx_of(s))))
+  match or_else(proc_of(s.ctx, q), lookup(q, os_procs(s.ctx) ++ syntax_procs(s.ctx)))
     case Some((ps, is, os, rs)) =>
       call   instance(in ps, out m, ref s)
       call   same_length(in length(is), length(ins))
@@ -1370,18 +1386,18 @@ procedure handler_list(in env: Env, assignable: List[Name], hs: List[Handler], o
   end
 
 procedure declare_name(in c: Ctx, n: Name) :=
-  if is_fun(c, n) or is_proc(c, n) or is_constr(c, n) or builtin(unqualified(base(n))) != Nil
+  if is_fun(c, n) or is_proc(c, n) or is_constr(c, n) or builtin(unqualified(n.base)) != Nil
     raise AlreadyDefined(n)
   end
 
 // functions of the same name must differ in their number of arguments
 procedure overload(in c: Ctx, n: Name, k: Int) :=
-  if is_proc(c, n) or is_constr(c, n) or has_arity(schemes_of(c, n) ++ builtin(unqualified(base(n))), k)
+  if is_proc(c, n) or is_constr(c, n) or has_arity(schemes_of(c, n) ++ builtin(unqualified(n.base)), k)
     raise AlreadyDefined(n)
   end
 
 procedure declare_sort(in c: Ctx, n: Name) :=
-  if contains(base(n), ["Bool", "Int", "Str", "Char", "->"]) or is_alias(c, n) or is_data(c, n)
+  if contains(n.base, ["Bool", "Int", "Str", "Char", "->"]) or is_alias(c, n) or is_data(c, n)
     raise SortDefined(n)
   end
 
@@ -1399,8 +1415,8 @@ procedure declare_datas(in cs: List[Id * Cmd], ref s: State) :=
       skip
     case [(m, CData(n, ps, _)); rest] =>
       assign s := enter(s, m)
-      call   declare_sort(in ctx_of(s), n)
-      assign s := with_ctx(s, with_data(ctx_of(s), n, length(ps)))
+      call   declare_sort(in s.ctx, n)
+      assign s := with_ctx(s, with_data(s.ctx, n, length(ps)))
       call   declare_datas(in rest, ref s)
     case [_; rest] =>
       call declare_datas(in rest, ref s)
@@ -1414,11 +1430,11 @@ procedure declare_sorts(in cs: List[Id * Cmd], ref s: State) :=
       skip
     case [(m, CSort(n, ps, t)); rest] =>
       assign s := enter(s, m)
-      call   declare_sort(in ctx_of(s), n)
+      call   declare_sort(in s.ctx, n)
       call   unique_ids(in ps)
       call   known(in t, n, out u, ref s)
       call   closed(in n, ps, [u])
-      assign s := with_ctx(s, with_alias(ctx_of(s), n, ps, u))
+      assign s := with_ctx(s, with_alias(s.ctx, n, ps, u))
       call   declare_sorts(in rest, ref s)
     case [_; rest] =>
       call declare_sorts(in rest, ref s)
@@ -1431,16 +1447,11 @@ procedure declare_constrs(in cs: List[Id * Cmd], ref s: State) :=
     case [(m, CData(n, ps, ks)); rest] =>
       assign s := enter(s, m)
       call   unique_ids(in ps)
-      assign s := with_ctx(s, with_members(ctx_of(s), n, [constr_name(k) for k in ks]))
+      assign s := with_ctx(s, with_members(s.ctx, n, [k.name for k in ks]))
       call   declare_constructors(in n, ps, ks, ref s)
       call   declare_constrs(in rest, ref s)
     case [_; rest] =>
       call declare_constrs(in rest, ref s)
-  end
-
-function constr_name(k: Constr): Name :=
-  match k
-    case Constr(n, _) => n
   end
 
 procedure declare_constructors(in n: Name, ps: List[Id], ks: List[Constr], ref s: State) :=
@@ -1450,10 +1461,10 @@ procedure declare_constructors(in n: Name, ps: List[Id], ks: List[Constr], ref s
     case Nil =>
       skip
     case [Constr(k, args); rest] =>
-      call   declare_name(in ctx_of(s), k)
+      call   declare_name(in s.ctx, k)
       call   knowns(in args, k, out ts, ref s)
       call   closed(in n, ps, ts)
-      assign s := with_ctx(s, with_constr(ctx_of(s), k, (params(ps), ts, TSort(n, params(ps)))))
+      assign s := with_ctx(s, with_constr(s.ctx, k, (params(ps), ts, TSort(n, params(ps)))))
       call   declare_constructors(in n, ps, rest, ref s)
   end
 
@@ -1490,13 +1501,13 @@ procedure declare_funs(in cs: List[Id * Cmd], ref s: State) :=
       skip
     case [(m, CFun(n, ps, bound, res, _)); rest] =>
       assign s := enter(s, m)
-      call   overload(in ctx_of(s), n, length(first_list(bound)))
+      call   overload(in s.ctx, n, length(first_list(bound)))
       call   unique_ids(in ps)
       call   unique(in names(concat(bound)))
       call   signatures(in bound, out xss, ref s)
       call   known(in res, n, out r, ref s)
       call   closed(in n, ps, [curried(xss, r)])
-      assign s := with_ctx(s, with_fun(ctx_of(s), n, (params(ps), curried(xss, r))))
+      assign s := with_ctx(s, with_fun(s.ctx, n, (params(ps), curried(xss, r))))
       call   declare_funs(in rest, ref s)
     case [_; rest] =>
       call declare_funs(in rest, ref s)
@@ -1510,12 +1521,12 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
       skip
     case [(m, CProc(n, ps, ins, outs, refs, _)); rest] =>
       assign s := enter(s, m)
-      call   declare_name(in ctx_of(s), n)
+      call   declare_name(in s.ctx, n)
       call   unique_ids(in ps)
       call   signature(in ins ++ outs ++ refs, out xs, ref s)
       assign ts := types(xs)
       call   closed(in n, ps, ts)
-      assign s := with_ctx(s, with_proc(ctx_of(s), n, (params(ps), take(length(ins), ts), take(length(outs), drop(length(ins), ts)), drop(length(ins) + length(outs), ts))))
+      assign s := with_ctx(s, with_proc(s.ctx, n, (params(ps), take(length(ins), ts), take(length(outs), drop(length(ins), ts)), drop(length(ins) + length(outs), ts))))
       call   declare_procs(in rest, ref s)
     case [_; rest] =>
       call declare_procs(in rest, ref s)
@@ -1564,7 +1575,7 @@ procedure commands(in cs: List[Id * Cmd], out cs1: List[Cmd], ref s: State) :=
     case [(m, c); more] =>
       assign s := enter(s, m)
       call   command(in c, out c1, ref s)
-      assign c2 := zonk_cmd(sub_of(s), c1)
+      assign c2 := zonk_cmd(s.sub, c1)
       match unknown_in_cmd(c2)
         case Some(t) =>
           raise UnknownException(t)
@@ -1607,7 +1618,7 @@ procedure type_of(in e: Expr, out t: Type) :=
   local s := start("main", Nil), e1: Expr, u: Type
 
   call   infer(in Nil, e, out e1, u, ref s)
-  assign t := zonk_type(sub_of(s), u)
+  assign t := zonk_type(s.sub, u)
 
 // abbreviations for the syntax in tests
 
