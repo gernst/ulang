@@ -111,8 +111,8 @@ function pick(x: Int, y: Int): Int :=
   2
 
 test overloads_by_parameters :=
-  local  p: Int * Int
-  assign p := (3, 4)
+  local p := (3, 4)
+
   assert pick(p) == 1
   assert pick(3, 4) == 2
   assert pick((3, 4)) == 1

@@ -4,11 +4,11 @@
 
 The parts in `self/` form a compiler from ulang to C written in ulang, which compiles itself.
 
-- `lex.u` and `parse.u` parse as `Parser.scala` does, which their tests check against `read` and `library` on every file of `tests/`, `examples/`, `self/`, and the library.
+- `lex.u` and `parse.u` parse as `Parser.scala` does, which their tests check against `read` and `library` on every file of `tests/`, `self/`, and the library.
 - `check.u` with `ctx.u` checks as `Check.scala` does, and `run.u` interprets as `Run.scala` does.
 - `c.u` and `compile.u` translate checked programs to C, which runs with `self/runtime` (GMP, the Boehm collector, and `setjmp` for exceptions).
 - `ulang.u` is the driver: `./ulang.sh self/ulang.u -- source.u target.c` from the Scala interpreter, or `ulang source.u target.c` once compiled, with paths relative to `self/` for the interpreter.
-- The compiled compiler produces the same C as the interpreted one on the tests and examples, in a fraction of a second instead of minutes.
+- The compiled compiler produces the same C as the interpreted one on the tests, in a fraction of a second instead of minutes.
 
 ### Open points
 

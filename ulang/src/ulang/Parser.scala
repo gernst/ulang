@@ -481,11 +481,23 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def body(s: Scope): Parser[Stmt] =
     located: pos =>
       rep(locals(s)) ~ rep(stmt(s)) ^^ { case ls ~ ss =>
-        Stmt.Block(ls.flatten, ss)(pos)
+        val decls = ls.flatten
+        val inits =
+          for case (_, Some(a)) <- decls
+          yield a
+        Stmt.Block(decls.map(_._1), inits ++ ss)(pos)
       }
 
-  def locals(s: Scope): Parser[List[Pat.Var]] =
-    kw("local") ~> rep1sep(formal(s), ",")
+  def locals(s: Scope): Parser[List[(Pat.Var, Option[Stmt])]] =
+    kw("local") ~> rep1sep(local(s), ",")
+
+  // x: T, x := e, or x: T := e, where e initializes x by an assignment at the start of the block,
+  // in order, such that its type can be inferred
+  def local(s: Scope): Parser[(Pat.Var, Option[Stmt])] =
+    located: pos =>
+      formal(s) ~ opt(":=" ~> expr(s)) ^^ { case x ~ e =>
+        (x, e.map(a => Stmt.Assign(List(Expr.Var(x.name, Type.Hole)(x.pos) -> a))(pos)))
+      }
 
   // a declaration that starts with keyword, name, and type parameters
   def generic(keyword: String, name: Parser[Id])(rest: (Id, List[Id], Scope) => Parser[Cmd]): Parser[Cmd] =

@@ -8,10 +8,10 @@ Mill with `build.mill.yaml`; the language lives in the module `ulang`. Do not us
 
 - `./mill ulang.compile`
 - `./mill ulang.run file.u ...` checks and runs the files, printing the values of `eval`s and the variables of `run`s
-- `./mill ulang.test` runs every `tests/**/*.u`, `examples/**/*.u`, and `self/**/*.u` (utest, `FileTest`)
+- `./mill ulang.test` runs every `tests/**/*.u`, `self/**/*.u`, and `ulang/resources/*.u` (utest, `FileTest`)
 - `make` builds `ulang.jar`, which `./ulang.sh file.u ...` runs (the module directory `ulang/` prevents a script `./ulang`)
 - `./ulang.sh --tests file.u ...` runs each test on its own and prints `test name passed` or `test name failed: ...`; `./ulang.sh --only name file.u` runs only the `run` or `test` of that name
-- `self/compile.u` compiles ulang programs to C, where its test writes the translations of some tests and examples to `self/out/`, which `cc -DULANG_LIB='"'$PWD/ulang/resources'"' -I self/runtime self/out/NAME.c self/runtime/ulang.c -lgmp -lgc` compiles with the runtime, using GMP and the Boehm collector, where `ULANG_LIB` is the directory of the library for `os_library`
+- `self/compile.u` compiles ulang programs to C, where its test writes the translations of some tests to `self/out/`, which `cc -DULANG_LIB='"'$PWD/ulang/resources'"' -I self/runtime self/out/NAME.c self/runtime/ulang.c -lgmp -lgc` compiles with the runtime, using GMP and the Boehm collector, where `ULANG_LIB` is the directory of the library for `os_library`
 - `make ulang.bin` builds the self-hosted compiler `./ulang.bin source.u target.c` from `bootstrap/ulang.c`; `make bootstrap` compiles it with the interpreter and `make selfcompile` with `ulang.bin`, and both replace it only if the new compiler compiles itself to the same C, after keeping the previous one in `bootstrap/` with a time stamp, where the C files are versioned and the binaries are not
 - `make install` packages the VS Code extension in `vscode/` as `ulang.vsix` and installs it into VSCodium (`codium`): syntax highlighting, a run button, `▶ Run` links above `run` and `test`, errors in the Problems view, and the tests in the Testing view, all by running `ulang.jar`
 

@@ -874,8 +874,12 @@ class Check(program: Program, main: Id):
           val vars1 = vars.map(variable(env, assignable, _))
           Stmt.Assign(vars1.zip(check(env, args, vars1.types)))(s.pos)
 
+        // the types of locals that are initialized at the start of the block may be inferred
         case Stmt.Block(locals, stmts) =>
-          val xs = signature(locals)
+          val inits = initialized(stmts)
+          for x <- locals do
+            at(x.pos)(require("type", !holes(x.typ) || inits(x.name), s"missing type for ${x.name}"))
+          val xs = formals(locals)
           Stmt.Block(xs, stmts.map(stmt(env ++ bind(xs), assignable ++ xs.names, _)))(s.pos)
 
         case Stmt.If(test, left, right) =>
@@ -917,6 +921,14 @@ class Check(program: Program, main: Id):
               val (pat1, bs) = pattern(pat, t)
               Handler(t, pat1, guard.map(check(env ++ bs, _, Bool)), stmt(env ++ bs, assignable -- bs.keys, b))
           Stmt.Try(stmt(env, assignable, body), handlers1)(s.pos)
+
+  // the variables that the leading assignments of a block assign one at a time, as local x := e does
+  def initialized(stmts: List[Stmt]): Set[Name] =
+    stmts match
+      case Stmt.Assign(List((x, _))) :: rest =>
+        initialized(rest) + x.name
+      case _ =>
+        Set()
 
   // the procedures of the program with their names, which hide the builtin ones
   def procedure(name: Name): Option[(Name, (List[Type], List[Type], List[Type], List[Type]))] =

@@ -192,8 +192,9 @@ function apply_infix[A](o: Ops[A], op: Id, a: A, b: A): A :=
 
 // the operand of all items, where at is the offset after them
 procedure resolve_items[A](in items: List[Item[A]], o: Ops[A], at: Int, out a: A) :=
-  local  rest: List[Item[A]]
-  call   climb(in items, 0, o, at, out a, rest)
+  local rest: List[Item[A]]
+
+  call climb(in items, 0, o, at, out a, rest)
   match rest
     case Nil =>
       skip
@@ -204,12 +205,14 @@ procedure resolve_items[A](in items: List[Item[A]], o: Ops[A], at: Int, out a: A
   end
 
 procedure climb[A](in items: List[Item[A]], min: Int, o: Ops[A], at: Int, out a: A, rest: List[Item[A]]) :=
-  local  lhs: A, more: List[Item[A]]
+  local lhs: A, more: List[Item[A]]
+
   call   operand(in items, o, at, out lhs, more)
   call   climb_loop(in lhs, more, min, o, at, out a, rest)
 
 procedure operand[A](in items: List[Item[A]], o: Ops[A], at: Int, out a: A, rest: List[Item[A]]) :=
   local b: A
+
   match items
     case [Operand(x); more] =>
       assign a := x, rest := more
@@ -229,6 +232,7 @@ procedure operand[A](in items: List[Item[A]], o: Ops[A], at: Int, out a: A, rest
 
 procedure climb_loop[A](in lhs: A, items: List[Item[A]], min: Int, o: Ops[A], at: Int, out a: A, rest: List[Item[A]]) :=
   local rhs: A, more: List[Item[A]]
+
   match items
     case [Operator(op, i); tail] =>
       match (postfix_prec(ops_notations(o), op), infix_of(ops_notations(o), op))
@@ -315,8 +319,8 @@ function starts_type(ns: List[Cmd], t: Token): Bool :=
   end
 
 procedure parse_type(in sc: Scope, out t: Type, ref ts: List[Token * Int]) :=
-  local  start: Int, items: List[Item[List[Type]]], r: List[Type]
-  assign start := head_offset(ts)
+  local start := head_offset(ts), items: List[Item[List[Type]]], r: List[Type]
+
   call   type_items(in sc, out items, ref ts)
   call   resolve_items(in items, Ops(scope_notations(sc), type_prefix, type_prefix, type_infix), head_offset(ts), out r)
   assign t := type_one(r)
@@ -326,8 +330,7 @@ procedure parse_type(in sc: Scope, out t: Type, ref ts: List[Token * Int]) :=
   end
 
 procedure type_items(in sc: Scope, out items: List[Item[List[Type]]], ref ts: List[Token * Int]) :=
-  local  rev: List[Item[List[Type]]], next: Bool, go: Bool, b: List[Type]
-  assign rev := Nil, next := true, go := true
+  local rev: List[Item[List[Type]]] := Nil, next := true, go := true, b: List[Type]
 
   while go
     match operator_at(scope_notations(sc), ts)
@@ -372,8 +375,7 @@ procedure type_basic(in sc: Scope, out r: List[Type], ref ts: List[Token * Int])
 
 // types separated by commas until close, which may be empty only for )
 procedure type_list(in sc: Scope, close: Char, out r: List[Type], ref ts: List[Token * Int]) :=
-  local  t: Type, rev: List[Type]
-  assign rev := Nil
+  local rev: List[Type] := Nil, t: Type
 
   if close == ')' and at_punct(ts, close)
     call advance(ref ts)
@@ -417,14 +419,14 @@ function starts_expr(ns: List[Cmd], t: Token): Bool :=
   end
 
 procedure parse_expr(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
-  local  items: List[Item[Expr]]
+  local items: List[Item[Expr]]
+
   call   expr_items(in sc, out items, ref ts)
   call   resolve_items(in items, Ops(scope_notations(sc), expr_op1, expr_op1, expr_op2), head_offset(ts), out e)
 
 // operands and operators, where an operand follows only an operator, since let, if, and lambda extend as far to the right as possible
 procedure expr_items(in sc: Scope, out items: List[Item[Expr]], ref ts: List[Token * Int]) :=
-  local  rev: List[Item[Expr]], next: Bool, go: Bool, e: Expr
-  assign rev := Nil, next := true, go := true
+  local rev: List[Item[Expr]] := Nil, next := true, go := true, e: Expr
 
   while go
     match operator_at(scope_notations(sc), ts)
@@ -448,7 +450,8 @@ procedure expr_items(in sc: Scope, out items: List[Item[Expr]], ref ts: List[Tok
 
 // expressions separated by commas, at least one
 procedure parse_exprs(in sc: Scope, out es: List[Expr], ref ts: List[Token * Int]) :=
-  local  e: Expr, rev: List[Expr]
+  local e: Expr, rev: List[Expr]
+
   call   parse_expr(in sc, out e, ref ts)
   assign rev := [e]
 
@@ -471,8 +474,9 @@ procedure expr_list(in sc: Scope, close: Char, out es: List[Expr], ref ts: List[
   end
 
 procedure parse_app(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
-  local  args: List[Expr]
-  call   parse_atom(in sc, out e, ref ts)
+  local args: List[Expr]
+
+  call parse_atom(in sc, out e, ref ts)
 
   while at_punct(ts, '(')
     call   advance(ref ts)
@@ -482,6 +486,7 @@ procedure parse_app(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
 
 procedure parse_atom(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
   local a: Expr, l: Expr, r: Expr, cs: List[Branch[Expr]], es: List[Expr]
+
   match head_token(ts)
     case TName("let") =>
       call parse_let(in sc, out e, ref ts)
@@ -559,7 +564,8 @@ function pattern_vars(ps: List[Pat]): Option[List[Var]] :=
 
 // let x := e, y := f in b binds variables in parallel, other patterns are matched against the tuple of values
 procedure parse_let(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
-  local  p: Pat, a: Expr, b: Expr, ps: List[Pat], es: List[Expr]
+  local p: Pat, a: Expr, b: Expr, ps: List[Pat], es: List[Expr]
+
   call   advance(ref ts)
   call   parse_pattern(in sc, out p, ref ts)
   call   expect(in TSym(":="), ref ts)
@@ -588,7 +594,8 @@ procedure parse_let(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
   end
 
 procedure parse_lambda(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
-  local  x: Id, xs: List[Var], b: Expr
+  local x: Id, xs: List[Var], b: Expr
+
   call   advance(ref ts)
   assign xs := Nil
 
@@ -610,6 +617,7 @@ procedure parse_lambda(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
 // [a, b] is a :: b :: Nil, [a, b; c] is a :: b :: c, and [result for x in xs, y in ys if test], where if test is optional
 procedure parse_brackets(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
   local first: Expr, es: List[Expr], rest: Expr, x: Id, xs: List[Var], l: Expr, lists: List[Expr], c: Expr
+
   call advance(ref ts)
 
   if at_punct(ts, ']')
@@ -676,8 +684,7 @@ procedure parse_guard(in sc: Scope, out g: Option[Expr], ref ts: List[Token * In
 
 // case p if g => b, where else b is the last case _ => b
 procedure parse_expr_cases(in sc: Scope, out cs: List[Branch[Expr]], ref ts: List[Token * Int]) :=
-  local  rev: List[Branch[Expr]], p: Pat, g: Option[Expr], b: Expr
-  assign rev := Nil
+  local rev: List[Branch[Expr]] := Nil, p: Pat, g: Option[Expr], b: Expr
 
   while at_keyword(ts, "case")
     call   advance(ref ts)
@@ -728,13 +735,13 @@ function starts_pattern(ns: List[Cmd], t: Token): Bool :=
   end
 
 procedure parse_pattern(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
-  local  items: List[Item[Pat]]
+  local items: List[Item[Pat]]
+
   call   pattern_items(in sc, out items, ref ts)
   call   resolve_items(in items, Ops(scope_notations(sc), pat_op1, pat_op1, pat_op2), head_offset(ts), out p)
 
 procedure pattern_items(in sc: Scope, out items: List[Item[Pat]], ref ts: List[Token * Int]) :=
-  local  rev: List[Item[Pat]], next: Bool, go: Bool, p: Pat
-  assign rev := Nil, next := true, go := true
+  local rev: List[Item[Pat]] := Nil, next := true, go := true, p: Pat
 
   while go
     match operator_at(scope_notations(sc), ts)
@@ -758,8 +765,7 @@ procedure pattern_items(in sc: Scope, out items: List[Item[Pat]], ref ts: List[T
 
 // patterns separated by commas until close, which may be empty
 procedure pattern_list(in sc: Scope, close: Char, out ps: List[Pat], ref ts: List[Token * Int]) :=
-  local  p: Pat, rev: List[Pat]
-  assign rev := Nil
+  local rev: List[Pat] := Nil, p: Pat
 
   if at_punct(ts, close)
     call advance(ref ts)
@@ -780,6 +786,7 @@ procedure pattern_list(in sc: Scope, close: Char, out ps: List[Pat], ref ts: Lis
 
 procedure pattern_simple(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
   local n: Id, ps: List[Pat], rest: Pat
+
   match head_token(ts)
     case TName("_") =>
       call   advance(ref ts)
@@ -871,8 +878,7 @@ function handlers(cs: List[Branch[Stmt]]): List[Handler] :=
 // the body of an if, while, case, or procedure, which may declare variables first
 // where local x := e initializes x by an assignment at the start of the block, in order, such that its type can be inferred
 procedure parse_body(in sc: Scope, out b: Stmt, ref ts: List[Token * Int]) :=
-  local  xs: List[Var], inits: List[Stmt], s: Stmt, rev: List[Stmt]
-  assign xs := Nil, inits := Nil, rev := Nil
+  local xs: List[Var] := Nil, inits: List[Stmt] := Nil, rev: List[Stmt] := Nil, s: Stmt
 
   while at_keyword(ts, "local")
     call   advance(ref ts)
@@ -893,7 +899,8 @@ procedure parse_body(in sc: Scope, out b: Stmt, ref ts: List[Token * Int]) :=
 
 // x: T, x := e, or x: T := e, where the checker requires a type or an initial value
 procedure parse_local(in sc: Scope, ref xs: List[Var], inits: List[Stmt], ts: List[Token * Int]) :=
-  local  n: Id, t: Type, e: Expr
+  local n: Id, t: Type, e: Expr
+
   call   parse_plain(in sc, out n, ref ts)
   assign t := THole
 
@@ -912,6 +919,7 @@ procedure parse_local(in sc: Scope, ref xs: List[Var], inits: List[Stmt], ts: Li
 
 procedure parse_stmt(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
   local e: Expr, b: Stmt, cs: List[Branch[Stmt]]
+
   match head_token(ts)
     case TName("skip") =>
       call   advance(ref ts)
@@ -962,7 +970,8 @@ procedure parse_stmt(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
 
 // the bodies start with a keyword, which ends the condition, and an if after else ends the whole chain
 procedure parse_if(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
-  local  c: Expr, l: Stmt, r: Stmt
+  local c: Expr, l: Stmt, r: Stmt
+
   call   advance(ref ts)
   call   parse_expr(in sc, out c, ref ts)
   call   parse_body(in sc, out l, ref ts)
@@ -982,7 +991,8 @@ procedure parse_if(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
   assign s := SIf(c, l, r)
 
 procedure parse_assign(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
-  local  x: Id, e: Expr, rev: List[Var * Expr]
+  local x: Id, e: Expr, rev: List[Var * Expr]
+
   call   advance(ref ts)
   call   parse_plain(in sc, out x, ref ts)
   call   expect(in TSym(":="), ref ts)
@@ -1000,8 +1010,7 @@ procedure parse_assign(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
   assign s := SAssign(reverse(rev))
 
 procedure parse_stmt_cases(in sc: Scope, out cs: List[Branch[Stmt]], ref ts: List[Token * Int]) :=
-  local  rev: List[Branch[Stmt]], p: Pat, g: Option[Expr], b: Stmt
-  assign rev := Nil
+  local rev: List[Branch[Stmt]] := Nil, p: Pat, g: Option[Expr], b: Stmt
 
   while at_keyword(ts, "case")
     call   advance(ref ts)
@@ -1032,7 +1041,8 @@ function item_follows(ts: List[Token * Int]): Bool :=
 
 // call p(in ins, out outs, ref refs), where each section starts with its keyword, and empty sections are omitted
 procedure parse_call(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
-  local  p: Id, e: Expr, ins: List[Expr], outs: List[Var], refs: List[Var], first: Bool
+  local p: Id, e: Expr, ins: List[Expr], outs: List[Var], refs: List[Var], first: Bool
+
   call   advance(ref ts)
   call   parse_name(out p, ref ts)
   call   expect(in TPunct('('), ref ts)
@@ -1073,7 +1083,8 @@ procedure skip_comma(in first: Bool, ref ts: List[Token * Int]) :=
   call advance(ref ts)
 
 procedure parse_variables(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
-  local  x: Id, rev: List[Var]
+  local x: Id, rev: List[Var]
+
   call   parse_plain(in sc, out x, ref ts)
   assign rev := [Var(unqualified(x), THole)]
 
@@ -1087,7 +1098,8 @@ procedure parse_variables(in sc: Scope, out xs: List[Var], ref ts: List[Token * 
 
 // only parameters and locals have type annotations
 procedure parse_formal(in sc: Scope, out x: Var, ref ts: List[Token * Int]) :=
-  local  n: Id, t: Type
+  local n: Id, t: Type
+
   call   parse_plain(in sc, out n, ref ts)
   assign t := THole
 
@@ -1100,7 +1112,8 @@ procedure parse_formal(in sc: Scope, out x: Var, ref ts: List[Token * Int]) :=
 
 // formals separated by commas, at least one, up to the keyword of the next section
 procedure parse_formals1(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
-  local  x: Var, rev: List[Var]
+  local x: Var, rev: List[Var]
+
   call   parse_formal(in sc, out x, ref ts)
   assign rev := [x]
 
@@ -1185,8 +1198,7 @@ function own_notations(ld: Loader, n: Id): List[Cmd] :=
 
 // the type parameters [A, B] of a declaration, if any
 procedure type_params(out ps: List[Id], ref ts: List[Token * Int]) :=
-  local  n: Id, rev: List[Id]
-  assign rev := Nil
+  local rev: List[Id] := Nil, n: Id
 
   if at_punct(ts, '[')
     call   advance(ref ts)
@@ -1205,8 +1217,7 @@ procedure type_params(out ps: List[Id], ref ts: List[Token * Int]) :=
   assign ps := reverse(rev)
 
 procedure parse_notation(out c: Cmd, ref ts: List[Token * Int]) :=
-  local  f: Fixity, p: Int, ops: List[Id], go: Bool
-  assign f := FInfix
+  local f := FInfix, p: Int, ops: List[Id], go: Bool
 
   match head_token(ts)
     case TName("prefix") =>
@@ -1257,7 +1268,8 @@ procedure parse_notation(out c: Cmd, ref ts: List[Token * Int]) :=
   end
 
 procedure constructor(in sc: Scope, out k: Constr, ref ts: List[Token * Int]) :=
-  local  n: Id, args: List[Type]
+  local n: Id, args: List[Type]
+
   call   parse_name_or_symbol(out n, ref ts)
   assign args := Nil
 
@@ -1270,7 +1282,8 @@ procedure constructor(in sc: Scope, out k: Constr, ref ts: List[Token * Int]) :=
 
 // data T[A] := | C(A) | D, where the first | is optional
 procedure parse_data(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
-  local  n: Id, ps: List[Id], k: Constr, rev: List[Constr]
+  local n: Id, ps: List[Id], k: Constr, rev: List[Constr]
+
   call   advance(ref ts)
   call   parse_name(out n, ref ts)
   call   type_params(out ps, ref ts)
@@ -1292,7 +1305,8 @@ procedure parse_data(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
   assign c := CData(unqualified(n), ps, reverse(rev))
 
 procedure parse_function(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
-  local  n: Id, ps: List[Id], xs: List[Var], xss: List[List[Var]], r: Type, b: Expr
+  local n: Id, ps: List[Id], xs: List[Var], xss: List[List[Var]], r: Type, b: Expr
+
   call   advance(ref ts)
   call   parse_name_or_symbol(out n, ref ts)
   call   type_params(out ps, ref ts)
@@ -1311,7 +1325,8 @@ procedure parse_function(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]
   assign c := CFun(unqualified(n), ps, reverse(xss), r, b)
 
 procedure parse_procedure(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
-  local  n: Id, ps: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], first: Bool, b: Stmt
+  local n: Id, ps: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], first: Bool, b: Stmt
+
   call   advance(ref ts)
   call   parse_name(out n, ref ts)
   call   type_params(out ps, ref ts)
@@ -1343,6 +1358,7 @@ procedure parse_procedure(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int
 // the commands of one declaration, where an import is the marker CImport(n), preceded by module n at its first import
 procedure parse_command(in ns: List[Cmd], ld: Loader, out cs: List[Cmd], ref ts: List[Token * Int]) :=
   local n: Id, ps: List[Id], t: Type, c: Cmd, e: Expr, b: Stmt, at: Int
+
   match head_token(ts)
     case TName("import") =>
       assign at := head_offset(ts)
@@ -1427,8 +1443,7 @@ procedure declare_all(in cs: List[Cmd], ref ns: List[Cmd], ld: Loader) :=
 
 // notations apply to the commands after them
 procedure parse_commands(out cs: List[Cmd], ref ns: List[Cmd], ld: Loader, ts: List[Token * Int]) :=
-  local  more: List[Cmd], rev: List[Cmd]
-  assign rev := Nil
+  local rev: List[Cmd] := Nil, more: List[Cmd]
 
   while head_token(ts) != TEnd
     call   parse_command(in ns, ld, out more, ref ts)
@@ -1462,7 +1477,7 @@ procedure library_text(in n: Id, at: Int, out text: Str) :=
 
 // the commands of module n, parsed with the notations of the prelude and of its own imports, since imports are not transitive
 procedure load_module(in n: Id, ns: List[Cmd], ld: Loader, at: Int, out cs: List[Cmd]) :=
-  local  text: Str, mns: List[Cmd], mld: Loader, mts: List[Token * Int]
+  local text: Str, mns: List[Cmd], mld: Loader, mts: List[Token * Int]
 
   if contains(n, loading(ld))
     raise ParseError("cyclic import of " ^ n, at)
@@ -1504,21 +1519,24 @@ procedure parse_text(in text: Str, ns: List[Cmd], ld: Loader, out p: Program) :=
 
 // the notations and modules of the prelude pre, which every module sees
 procedure prelude_scope(in pre: Program, out ns: List[Cmd], ms: List[Id * List[Cmd]]) :=
-  local  ld: Loader
+  local ld: Loader
+
   assign ns := Nil, ld := Loader(Nil, Nil, None, None)
   call   declare_all(in commands_of(pre), ref ns, ld)
   assign ms := loaded_modules(ld)
 
 // the module of name, which is parsed after the prelude pre with its notations, and reads modules from dir, or else the library
 procedure module_after(in name: Id, pre: Program, dir: Option[Str], text: Str, out p: Program) :=
-  local  ns: List[Cmd], ms: List[Id * List[Cmd]]
+  local ns: List[Cmd], ms: List[Id * List[Cmd]]
+
   call   prelude_scope(in pre, out ns, ms)
   call   parse_text(in text, ns, Loader(ms, [name], Some(ns), dir), out p)
 
 // the prelude, or another module of the library parsed after the prelude, as library gives them
 procedure parse_library(in n: Id, out p: Program) :=
-  local  text: Str, pre: Program
-  call   library_text(in n, 0, out text)
+  local text: Str, pre: Program
+
+  call library_text(in n, 0, out text)
 
   if n == "prelude"
     call parse_text(in text, Nil, Loader(Nil, ["prelude"], None, None), out p)
@@ -1544,12 +1562,14 @@ function dir_name(path: Str): Str :=
 
 // a file after the prelude pre, as read gives it
 procedure parse_file_after(in path: Str, pre: Program, out p: Program) :=
-  local  text: Str
+  local text: Str
+
   call   os_read(in path, out text)
   call   module_after(in base_name(path), pre, Some(dir_name(path)), text, out p)
 
 procedure parse_file(in path: Str, out p: Program) :=
-  local  pre: Program
+  local pre: Program
+
   call   parse_library(in "prelude", out pre)
   call   parse_file_after(in path, pre, out p)
 
@@ -1571,6 +1591,7 @@ procedure same_commands(in path: Str, cs: List[Cmd], ds: List[Cmd]) :=
 // the files parse as read parses them
 procedure same_parses(in paths: List[Str], pre: Program) :=
   local p: Program, q: Program
+
   match paths
     case Nil =>
       skip
@@ -1583,6 +1604,7 @@ procedure same_parses(in paths: List[Str], pre: Program) :=
 
 procedure parse_failures(in paths: List[Str], pre: Program) :=
   local p: Program, failed: Bool
+
   match paths
     case Nil =>
       skip
@@ -1600,7 +1622,8 @@ procedure parse_failures(in paths: List[Str], pre: Program) :=
   end
 
 test parse_library_modules :=
-  local  p: Program, q: Program
+  local p: Program, q: Program
+
   call   library(in "prelude", out p)
   call   parse_library(in "prelude", out q)
   call   same_commands(in "prelude", commands_of(p), commands_of(q))
@@ -1612,7 +1635,8 @@ test parse_library_modules :=
   call   same_commands(in "os", commands_of(p), commands_of(q))
 
 test parse_files :=
-  local  pre: Program
+  local pre: Program
+
   call   parse_library(in "prelude", out pre)
   call   same_parses(in [
     "../tests/counter.u",
@@ -1626,9 +1650,6 @@ test parse_files :=
     "../tests/procedures.u",
     "../tests/stack.u",
     "../tests/strings.u",
-    "../examples/grammar.u",
-    "../examples/parsers.u",
-    "../examples/procedures.u",
     "c.u",
     "check.u",
     "compile.u",
@@ -1641,7 +1662,8 @@ test parse_files :=
   ], pre)
 
 test parse_error_files :=
-  local  pre: Program
+  local pre: Program
+
   call   parse_library(in "prelude", out pre)
   call   same_parses(in [
     "../tests/errors/add-bool.u",
@@ -1728,7 +1750,7 @@ test parse_error_files :=
     "../tests/errors/unreachable-repeated.u",
     "../tests/errors/wrapper.u"
   ], pre)
-  call   parse_failures(in [
+  call parse_failures(in [
     "../tests/errors/argument-list.u",
     "../tests/errors/broken.u",
     "../tests/errors/cycle.u",

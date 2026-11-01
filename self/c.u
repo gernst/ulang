@@ -134,9 +134,8 @@ function c_call(f: Str, args: List[CExpr]): CExpr :=
   CeCall(CeVar(f), args)
 
 test print_c :=
-  local  v: CType, f: CFile
-  assign v := CtNamed("value")
-  assign f :=
+  local v := CtNamed("value"), f := 
+
     CFile(
       [
         CdInclude("ulang.h"),

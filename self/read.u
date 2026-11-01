@@ -5,8 +5,9 @@ import syntax
 import os
 
 test read_files :=
-  local  p: Program
-  call   read(in "../ulang/resources/option.u", out p)
+  local p: Program
+
+  call read(in "../ulang/resources/option.u", out p)
   match p
     case Program([_, CFun(n, ps, xs, t, _); _]) =>
       assert (n, ps) == (unqualified("or_else"), ["A"])
@@ -24,7 +25,8 @@ test read_files :=
   end
 
 test missing_file :=
-  local  p: Program, m: Str
+  local p: Program, m: Str
+
   try
     call read(in "missing.u", out p)
   catch

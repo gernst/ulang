@@ -1,5 +1,6 @@
 procedure sum(in n: Int, out s: Int) :=
-  local  i: Int
+  local i: Int
+
   assign i := 0, s := 0
 
   while i < n
@@ -7,7 +8,8 @@ procedure sum(in n: Int, out s: Int) :=
   end
 
 procedure total(in xs: List[Int], out s: Int) :=
-  local  ys: List[Int]
+  local ys: List[Int]
+
   assign s := 0, ys := xs
 
   while ys != Nil
@@ -26,7 +28,8 @@ procedure inc(ref x: Int) :=
   assign x := x + 1
 
 procedure main(out a: Int, b: Int, c: Int) :=
-  local  f: Int -> Int
+  local f: Int -> Int
+
   assign a := 1, b := 2
   call   swap(ref a, b)
   call   inc(ref a)
@@ -41,14 +44,14 @@ procedure main(out a: Int, b: Int, c: Int) :=
   end
 
 procedure capture(out r: Int) :=
-  local  i: Int, f: Int -> Int
-  assign i := 1
-  assign f := lambda x => x + i
+  local i := 1, f := lambda x => x + i
+
   assign i := 10
   assign r := f(0)
 
 test procedures :=
-  local  a: Int, b: Int, c: Int
+  local a: Int, b: Int, c: Int
+
   call   sum(in 10, out c)
   assert c == 45
   call   total(in [1, 2, 3], out c)
@@ -63,22 +66,24 @@ test procedures :=
 
 // closures capture values, not variables
 test closures_capture_values :=
-  local  r: Int
+  local r: Int
+
   call   capture(out r)
   assert r == 1
 
 run sums :=
-  local  x: Int, y: Int, z: Int
+  local x: Int, y: Int, z: Int
+
   call   sum(in 4, out x)
   assign y := x * 2
 
 // the bodies of cases may declare variables, like those of if and while
 test locals_in_cases :=
   local n: Int
+
   match Some(3)
     case Some(m) =>
-      local  k: Int
-      assign k := m * 2
+      local  k := m * 2
       assign n := k + 1
     case None =>
       assign n := 0
@@ -88,7 +93,6 @@ test locals_in_cases :=
     raise "x"
   catch
     case s =>
-      local  t: Str
-      assign t := s
+      local  t := s
       assert t == "x"
   end

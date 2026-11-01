@@ -645,39 +645,46 @@ procedure bind_meta(in i: Int, t: Type, ref s: State) :=
   end
 
 procedure unify(in t1: Type, t2: Type, ref s: State) :=
-  local  a: Type, b: Type
-  assign a := resolve(sub_of(s), t1), b := resolve(sub_of(s), t2)
+  local a := resolve(sub_of(s), t1), b := resolve(sub_of(s), t2)
+
   match (a, b)
     case (TMeta(i), TMeta(j)) =>
       if i != j
         call bind_meta(in i, b, ref s)
       end
+
     case (TMeta(i), _) =>
       call bind_meta(in i, b, ref s)
+
     case (_, TMeta(j)) =>
       call bind_meta(in j, a, ref s)
+
     case (TParam(x), TParam(y)) =>
       if x != y
         raise CannotUnify(a, b)
       end
+
     case (TSort(f, xs), TSort(g, ys)) =>
       if f == g and length(xs) == length(ys)
         call unifies(in xs, ys, ref s)
       else
         raise CannotUnify(zonk_type(sub_of(s), t1), zonk_type(sub_of(s), t2))
       end
+
     case (TFun(xs, r1), TFun(ys, r2)) =>
       if length(xs) == length(ys)
         call unifies(in xs ++ [r1], ys ++ [r2], ref s)
       else
         raise CannotUnify(zonk_type(sub_of(s), t1), zonk_type(sub_of(s), t2))
       end
+
     case (TTuple(xs), TTuple(ys)) =>
       if length(xs) == length(ys)
         call unifies(in xs, ys, ref s)
       else
         raise CannotUnify(zonk_type(sub_of(s), t1), zonk_type(sub_of(s), t2))
       end
+
     else
       raise CannotUnify(zonk_type(sub_of(s), t1), zonk_type(sub_of(s), t2))
   end
@@ -695,7 +702,8 @@ procedure unifies(in xs: List[Type], ys: List[Type], ref s: State) :=
 
 // a fresh unknown for each of xs
 procedure fresh_list[A](in xs: List[A], out ts: List[Type], ref s: State) :=
-  local  t: Type, rest: List[Type]
+  local t: Type, rest: List[Type]
+
   match xs
     case Nil =>
       assign ts := Nil
@@ -707,6 +715,7 @@ procedure fresh_list[A](in xs: List[A], out ts: List[Type], ref s: State) :=
 
 procedure instance(in ps: List[Type], out m: List[Type * Type], ref s: State) :=
   local t: Type, rest: List[Type * Type]
+
   match ps
     case Nil =>
       assign m := Nil
@@ -718,6 +727,7 @@ procedure instance(in ps: List[Type], out m: List[Type * Type], ref s: State) :=
 
 procedure instantiate(in sc: List[Type] * Type, out t: Type, ref s: State) :=
   local m: List[Type * Type]
+
   match sc
     case (ps, u) =>
       call   instance(in ps, out m, ref s)
@@ -764,20 +774,26 @@ procedure arguments(in n: Name, k: Int, args: List[Type]) :=
 // expands type definitions and replaces holes by fresh unknowns
 procedure normalize(in t: Type, out u: Type, ref s: State) :=
   local us: List[Type], v: Type
+
   match t
     case THole =>
       call fresh(out u, ref s)
+
     case TParam(_) =>
       assign u := t
+
     case TMeta(_) =>
       assign u := t
+
     case TFun(args, r) =>
       call   normalizes(in args, out us, ref s)
       call   normalize(in r, out v, ref s)
       assign u := TFun(us, v)
+
     case TTuple(ts) =>
       call   normalizes(in ts, out us, ref s)
       assign u := TTuple(us)
+
     case TSort(n, args) =>
       if basic(n)
         call   arguments(in n, 0, args)
@@ -796,6 +812,7 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
 
 procedure normalize_sort(in n: Name, args: List[Type], out u: Type, ref s: State) :=
   local us: List[Type]
+
   match data_of(ctx_of(s), n)
     case Some(k) =>
       call   arguments(in n, k, args)
@@ -814,6 +831,7 @@ procedure normalize_sort(in n: Name, args: List[Type], out u: Type, ref s: State
 
 procedure normalizes(in ts: List[Type], out us: List[Type], ref s: State) :=
   local u: Type, rest: List[Type]
+
   match ts
     case Nil =>
       assign us := Nil
@@ -831,6 +849,7 @@ procedure known(in t: Type, what: Name, out u: Type, ref s: State) :=
 
 procedure knowns(in ts: List[Type], what: Name, out us: List[Type], ref s: State) :=
   local u: Type, rest: List[Type]
+
   match ts
     case Nil =>
       assign us := Nil
@@ -847,6 +866,7 @@ procedure formals(in xs: List[Var], out ys: List[Var], ref s: State) :=
 
 procedure normalize_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
   local u: Type, rest: List[Var]
+
   match xs
     case Nil =>
       assign ys := Nil
@@ -863,6 +883,7 @@ procedure signature(in xs: List[Var], out ys: List[Var], ref s: State) :=
 
 procedure known_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
   local u: Type, rest: List[Var]
+
   match xs
     case Nil =>
       assign ys := Nil
@@ -896,7 +917,8 @@ procedure resolve_name(in s: State, env: Env, n: Name, k: Int, out m: Name, sc: 
 
 // a use of n elaborated with an instance of sc
 procedure use(in n: Name, a: Type, sc: List[Type] * Type, out x: Var, ref s: State) :=
-  local  u: Type, w: Type
+  local u: Type, w: Type
+
   call   instantiate(in sc, out u, ref s)
   call   normalize(in a, out w, ref s)
   call   unify(in u, w, ref s)
@@ -904,29 +926,36 @@ procedure use(in n: Name, a: Type, sc: List[Type] * Type, out x: Var, ref s: Sta
 
 procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
   local sc: List[Type] * Type, m: Name, x: Var, xs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, es: List[Expr], ts: List[Type], bs: List[Branch[Expr]]
+
   match e
     case ELit(v) =>
       assign e1 := e, t := literal(v)
+
     case EVar(Var(n, a)) =>
       call   resolve_name(in s, env, n, -1, out m, sc)
       call   use(in m, a, sc, out x, ref s)
       assign e1 := EVar(x), t := typ(x)
+
     case EApp(f, args) =>
       call application(in env, f, args, out e1, t, ref s)
+
     case ELam(bound, body) =>
       call   formals(in bound, out xs, ref s)
       call   infer(in bind(xs) ++ env, body, out b, u, ref s)
       assign e1 := ELam(xs, b), t := fun(types(xs), u)
+
     case ELet(bound, body) =>
       call   formals(in firsts(bound), out xs, ref s)
       call   checks(in env, seconds(bound), types(xs), out es, ref s)
       call   infer(in generalized(sub_of(s), env, xs) ++ env, body, out b, u, ref s)
       assign e1 := ELet(zip(xs, es), b), t := u
+
     case EIte(cond, left, right) =>
       call   check(in env, cond, tbool(), out c, ref s)
       call   infer(in env, left, out l, u, ref s)
       call   check(in env, right, u, out b, ref s)
       assign e1 := EIte(c, l, b), t := u
+
     case EComp(result, bound, lists, cond) =>
       call   formals(in bound, out xs, ref s)
       call   same_length(in length(xs), length(lists))
@@ -934,9 +963,11 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
       call   check(in bind(xs) ++ env, cond, tbool(), out c, ref s)
       call   infer(in bind(xs) ++ env, result, out b, u, ref s)
       assign e1 := EComp(b, xs, es, c), t := tlist(u)
+
     case ETuple(items) =>
       call   infers(in env, items, out es, ts, ref s)
       assign e1 := ETuple(es), t := TTuple(ts)
+
     case EMatch(arg, cases) =>
       call   fresh(out t, ref s)
       call   infer(in env, arg, out c, u, ref s)
@@ -948,6 +979,7 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
 // overloaded functions are resolved by their number of arguments
 procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: Type, ref s: State) :=
   local sc: List[Type] * Type, m: Name, x: Var, f1: Expr, u: Type, args1: List[Expr]
+
   match f
     case EVar(Var(n, a)) =>
       if length(candidates(s, env, n)) > 1
@@ -967,18 +999,21 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
   end
 
 procedure apply(in env: Env, f: Type, args: List[Expr], out args1: List[Expr], r: Type, ref s: State) :=
-  local  ts: List[Type]
+  local ts: List[Type]
+
   call   fresh(out r, ref s)
   call   infers(in env, args, out args1, ts, ref s)
   call   unify(in f, fun(ts, r), ref s)
 
 procedure check(in env: Env, e: Expr, t: Type, out e1: Expr, ref s: State) :=
-  local  u: Type
+  local u: Type
+
   call   infer(in env, e, out e1, u, ref s)
   call   unify(in u, t, ref s)
 
 procedure checks(in env: Env, es: List[Expr], ts: List[Type], out es1: List[Expr], ref s: State) :=
   local e1: Expr, rest: List[Expr]
+
   match (es, ts)
     case ([e; more], [t; ts1]) =>
       call   check(in env, e, t, out e1, ref s)
@@ -992,6 +1027,7 @@ procedure checks(in env: Env, es: List[Expr], ts: List[Type], out es1: List[Expr
 
 procedure infers(in env: Env, es: List[Expr], out es1: List[Expr], ts: List[Type], ref s: State) :=
   local e1: Expr, t: Type, rest: List[Expr], us: List[Type]
+
   match es
     case Nil =>
       assign es1 := Nil, ts := Nil
@@ -1004,6 +1040,7 @@ procedure infers(in env: Env, es: List[Expr], out es1: List[Expr], ts: List[Type
 // each list may refer to the variables bound before it
 procedure generators(in env: Env, xs: List[Var], lists: List[Expr], out lists1: List[Expr], ref s: State) :=
   local l: Expr, rest: List[Expr]
+
   match (xs, lists)
     case ([x; ys], [e; es]) =>
       call   check(in env, e, tlist(typ(x)), out l, ref s)
@@ -1015,6 +1052,7 @@ procedure generators(in env: Env, xs: List[Var], lists: List[Expr], out lists1: 
 
 procedure expr_branches(in env: Env, cases: List[Branch[Expr]], t: Type, r: Type, out cases1: List[Branch[Expr]], ref s: State) :=
   local p1: Pat, xs: List[Var], g1: Option[Expr], b1: Expr, rest: List[Branch[Expr]]
+
   match cases
     case Nil =>
       assign cases1 := Nil
@@ -1028,6 +1066,7 @@ procedure expr_branches(in env: Env, cases: List[Branch[Expr]], t: Type, r: Type
 
 procedure guard(in env: Env, g: Option[Expr], out g1: Option[Expr], ref s: State) :=
   local e1: Expr
+
   match g
     case Some(e) =>
       call   check(in env, e, tbool(), out e1, ref s)
@@ -1074,12 +1113,15 @@ procedure pattern(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
 
 procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) :=
   local u: Type, m: List[Type * Type], qs: List[Pat], ts: List[Type], k: Name
+
   match p
     case PWild =>
       assign p1 := p, xs := Nil
+
     case PLit(v) =>
       call   unify(in literal(v), t, ref s)
       assign p1 := p, xs := Nil
+
     case PVar(Var(n, a)) =>
       if visible_names(s, n, constrs_named(ctx_of(s), n)) != Nil
         call binders(in PApp(n, Nil), t, out p1, xs, ref s)
@@ -1088,6 +1130,7 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
         call   unify(in u, t, ref s)
         assign p1 := PVar(Var(n, u)), xs := [Var(n, u)]
       end
+
     case PApp(n, args) =>
       match visible_names(s, n, constrs_named(ctx_of(s), n))
         case [k1] =>
@@ -1108,6 +1151,7 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
         case None =>
           raise UnknownConstructor(n)
       end
+
     case PTuple(items) =>
       call   fresh_list(in items, out ts, ref s)
       call   unify(in TTuple(ts), t, ref s)
@@ -1117,6 +1161,7 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
 
 procedure binder_list(in ps: List[Pat], ts: List[Type], out qs: List[Pat], xs: List[Var], ref s: State) :=
   local q: Pat, ys: List[Var], rest: List[Pat], zs: List[Var]
+
   match (ps, ts)
     case ([p; more], [t; ts1]) =>
       call   binders(in p, t, out q, ys, ref s)
@@ -1130,6 +1175,7 @@ procedure binder_list(in ps: List[Pat], ts: List[Type], out qs: List[Pat], xs: L
 
 procedure variable(in env: Env, assignable: List[Name], x: Var, out y: Var, ref s: State) :=
   local u: Type
+
   match x
     case Var(n, a) =>
       if not contains(n, assignable)
@@ -1147,6 +1193,7 @@ procedure variable(in env: Env, assignable: List[Name], x: Var, out y: Var, ref 
 
 procedure variables(in env: Env, assignable: List[Name], xs: List[Var], out ys: List[Var], ref s: State) :=
   local y: Var, rest: List[Var]
+
   match xs
     case Nil =>
       assign ys := Nil
@@ -1158,44 +1205,54 @@ procedure variables(in env: Env, assignable: List[Name], xs: List[Var], out ys: 
 
 procedure statement(in env: Env, assignable: List[Name], x: Stmt, out y: Stmt, ref s: State) :=
   local ys: List[Var], es: List[Expr], c: Expr, t: Type, u: Type, l: Stmt, r: Stmt, xs: List[Stmt], bs: List[Branch[Stmt]], hs: List[Handler]
+
   match x
     case SSkip =>
       assign y := x
+
     case SAssign(pairs) =>
       call   unique(in names(firsts(pairs)))
       call   variables(in env, assignable, firsts(pairs), out ys, ref s)
       call   checks(in env, seconds(pairs), types(ys), out es, ref s)
       assign y := SAssign(zip(ys, es))
     // the types of locals that are initialized at the start of the block may be inferred
+
     case SBlock(locals, body) =>
       call   untyped(in locals, initialized(body))
       call   formals(in locals, out ys, ref s)
       call   statements(in bind(ys) ++ env, names(ys) ++ assignable, body, out xs, ref s)
       assign y := SBlock(ys, xs)
+
     case SIf(cond, left, right) =>
       call   check(in env, cond, tbool(), out c, ref s)
       call   statement(in env, assignable, left, out l, ref s)
       call   statement(in env, assignable, right, out r, ref s)
       assign y := SIf(c, l, r)
+
     case SWhile(cond, body) =>
       call   check(in env, cond, tbool(), out c, ref s)
       call   statement(in env, assignable, body, out l, ref s)
       assign y := SWhile(c, l)
+
     case SCall(p, ins, outs, refs) =>
       call call_proc(in env, assignable, p, ins, outs, refs, out y, ref s)
+
     case SMatch(arg, cases) =>
       call   infer(in env, arg, out c, t, ref s)
       call   stmt_branches(in env, assignable, cases, t, out bs, ref s)
       call   coverage(in s, t, [case_of(br) for br in bs])
       assign y := SMatch(c, bs)
+
     case SAssert(cond) =>
       call   check(in env, cond, tbool(), out c, ref s)
       assign y := SAssert(c)
+
     case SRaise(arg, a) =>
       call   infer(in env, arg, out c, t, ref s)
       call   normalize(in a, out u, ref s)
       call   unify(in t, u, ref s)
       assign y := SRaise(c, t)
+
     case STry(body, handlers) =>
       call   statement(in env, assignable, body, out l, ref s)
       call   handler_list(in env, assignable, handlers, out hs, ref s)
@@ -1224,6 +1281,7 @@ procedure untyped(in xs: List[Var], inits: List[Name]) :=
 
 procedure statements(in env: Env, assignable: List[Name], xs: List[Stmt], out ys: List[Stmt], ref s: State) :=
   local y: Stmt, rest: List[Stmt]
+
   match xs
     case Nil =>
       assign ys := Nil
@@ -1284,6 +1342,7 @@ procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr
 
 procedure stmt_branches(in env: Env, assignable: List[Name], cases: List[Branch[Stmt]], t: Type, out cases1: List[Branch[Stmt]], ref s: State) :=
   local p1: Pat, xs: List[Var], g1: Option[Expr], b1: Stmt, rest: List[Branch[Stmt]]
+
   match cases
     case Nil =>
       assign cases1 := Nil
@@ -1297,6 +1356,7 @@ procedure stmt_branches(in env: Env, assignable: List[Name], cases: List[Branch[
 
 procedure handler_list(in env: Env, assignable: List[Name], hs: List[Handler], out hs1: List[Handler], ref s: State) :=
   local u: Type, p1: Pat, xs: List[Var], g1: Option[Expr], b1: Stmt, rest: List[Handler]
+
   match hs
     case Nil =>
       assign hs1 := Nil
@@ -1326,8 +1386,8 @@ procedure declare_sort(in c: Ctx, n: Name) :=
   end
 
 procedure closed(in n: Name, ps: List[Id], ts: List[Type]) :=
-  local  undeclared: List[Type]
-  assign undeclared := diff(distinct(concat([free(t) for t in ts])), params(ps))
+  local undeclared := diff(distinct(concat([free(t) for t in ts])), params(ps))
+
   if undeclared != Nil
     raise UndeclaredParams(n, undeclared)
   end
@@ -1348,6 +1408,7 @@ procedure declare_datas(in cs: List[Id * Cmd], ref s: State) :=
 
 procedure declare_sorts(in cs: List[Id * Cmd], ref s: State) :=
   local u: Type
+
   match cs
     case Nil =>
       skip
@@ -1384,6 +1445,7 @@ function constr_name(k: Constr): Name :=
 
 procedure declare_constructors(in n: Name, ps: List[Id], ks: List[Constr], ref s: State) :=
   local ts: List[Type]
+
   match ks
     case Nil =>
       skip
@@ -1410,6 +1472,7 @@ function first_list(xss: List[List[Var]]): List[Var] :=
 
 procedure signatures(in xss: List[List[Var]], out yss: List[List[Var]], ref s: State) :=
   local ys: List[Var], rest: List[List[Var]]
+
   match xss
     case Nil =>
       assign yss := Nil
@@ -1421,6 +1484,7 @@ procedure signatures(in xss: List[List[Var]], out yss: List[List[Var]], ref s: S
 
 procedure declare_funs(in cs: List[Id * Cmd], ref s: State) :=
   local xss: List[List[Var]], r: Type
+
   match cs
     case Nil =>
       skip
@@ -1440,6 +1504,7 @@ procedure declare_funs(in cs: List[Id * Cmd], ref s: State) :=
 
 procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
   local xs: List[Var], ts: List[Type]
+
   match cs
     case Nil =>
       skip
@@ -1459,33 +1524,40 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
 // the elaborated command c
 procedure command(in c: Cmd, out c1: Cmd, ref s: State) :=
   local xss: List[List[Var]], r: Type, b: Expr, t: Type, is: List[Var], os: List[Var], rs: List[Var], y: Stmt
+
   match c
     case CFun(n, ps, bound, res, body) =>
       call   signatures(in bound, out xss, ref s)
       call   known(in res, n, out r, ref s)
       call   check(in bind(concat(xss)), body, r, out b, ref s)
       assign c1 := CFun(n, ps, xss, r, b)
+
     case CProc(n, ps, ins, outs, refs, body) =>
       call   signature(in ins, out is, ref s)
       call   signature(in outs, out os, ref s)
       call   signature(in refs, out rs, ref s)
       call   statement(in bind(is ++ os ++ rs), names(os ++ rs), body, out y, ref s)
       assign c1 := CProc(n, ps, is, os, rs, y)
+
     case CEval(e) =>
       call   infer(in Nil, e, out b, t, ref s)
       assign c1 := CEval(b)
+
     case CRun(n, body) =>
       call   statement(in Nil, Nil, body, out y, ref s)
       assign c1 := CRun(n, y)
+
     case CTest(n, body) =>
       call   statement(in Nil, Nil, body, out y, ref s)
       assign c1 := CTest(n, y)
+
     else
       assign c1 := c
   end
 
 procedure commands(in cs: List[Id * Cmd], out cs1: List[Cmd], ref s: State) :=
   local c1: Cmd, c2: Cmd, rest: List[Cmd]
+
   match cs
     case Nil =>
       assign cs1 := Nil
@@ -1514,7 +1586,8 @@ function block_names(cs: List[Id * Cmd]): List[Id] :=
 
 // the commands of p, which is the module main, flattened and with qualified names
 procedure check_program(in p: Program, main: Id, out q: Program) :=
-  local  s: State, ds: List[Id * Cmd], cs: List[Cmd]
+  local s: State, ds: List[Id * Cmd], cs: List[Cmd]
+
   match p
     case Program(cmds) =>
       assign ds := flatten(main, cmds)
@@ -1531,8 +1604,8 @@ procedure check_program(in p: Program, main: Id, out q: Program) :=
 
 // the type of e without a program
 procedure type_of(in e: Expr, out t: Type) :=
-  local  s: State, e1: Expr, u: Type
-  assign s := start("main", Nil)
+  local s := start("main", Nil), e1: Expr, u: Type
+
   call   infer(in Nil, e, out e1, u, ref s)
   assign t := zonk_type(sub_of(s), u)
 
@@ -1569,7 +1642,8 @@ function lists(): List[Cmd] :=
   ]
 
 test inference :=
-  local  t: Type
+  local t: Type
+
   call   type_of(in ap("+", [num(1), num(2)]), out t)
   assert t == tint()
   // let id = lambda x => x in (id(1), id(true))
@@ -1599,8 +1673,9 @@ test inference :=
   end
 
 test elaboration :=
-  local  q: Program
-  call   check_program(in Program(lists() ++ [CEval(ap("len", [ap("Cons", [num(1), ev("Nil")])]))]), "main", out q)
+  local q: Program
+
+  call check_program(in Program(lists() ++ [CEval(ap("len", [ap("Cons", [num(1), ev("Nil")])]))]), "main", out q)
   match q
     case Program([_, _, CFun(_, _, _, _, EMatch(_, [Branch(p, _, _); _])), CEval(EApp(EVar(Var(_, t)), _))]) =>
       // the constructor Nil is elaborated to a pattern of a constructor
@@ -1612,6 +1687,7 @@ test elaboration :=
 
 test coverage :=
   local q: Program
+
   try
     call   check_program(in Program(lists() ++ [CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), tl(tint()))]], tint(), EMatch(ev("xs"), [Branch(pv("Nil"), None, num(0))]))]), "main", out q)
     assert false
@@ -1629,6 +1705,7 @@ test coverage :=
 
 test statements :=
   local q: Program
+
   // procedure inc(ref k: Int) := assign k := k + 1, called with an input
   try
     call check_program(in Program(

@@ -106,16 +106,16 @@ function numbers(n: Int): List[Int] :=
   if n == 0 then Nil else numbers(n - 1) ++ [n]
 
 test maps :=
-  local  m: Map[Str, Int]
-  assign m := put("b", 2, put("a", 1, empty()))
+  local m := put("b", 2, put("a", 1, empty()))
+
   assert get("a", m) == Some(1) and get("c", m) == None and has("b", m) and not has("c", m)
   assign m := put("a", 3, m)
   assert entries(m) == [("a", 3), ("b", 2)] and size(m) == 2
 
 // ascending keys would make a list of an unbalanced tree
 test balance :=
-  local  m: Map[Str, Int]
-  assign m := put_all([(str_show(1000 + i), i) for i in numbers(200)], empty())
+  local m := put_all([(str_show(1000 + i), i) for i in numbers(200)], empty())
+
   assert balanced(m) and size(m) == 200 and height(m) <= 11
   assert get("1100", m) == Some(100) and get("1201", m) == None
   assert entries(m) == [(str_show(1000 + i), i) for i in numbers(200)]

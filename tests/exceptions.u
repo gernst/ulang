@@ -38,9 +38,9 @@ procedure atom(out n: Int, ref ts: List[Token]) :=
   end
 
 procedure parse(in ts: List[Token], out n: Int) :=
-  local  rest: List[Token]
-  assign rest := ts
-  call   atom(out n, ref rest)
+  local rest := ts
+
+  call atom(out n, ref rest)
   if rest != Nil
     raise Trailing(rest)
   end
@@ -65,7 +65,8 @@ procedure count(ref k: Int) :=
   raise  Fail
 
 test parse_errors :=
-  local  n: Int, e: Str, k: Int
+  local n: Int, e: Str, k: Int
+
   call   parse(in [Sym("("), Sym("("), Num(3), Sym(")"), Sym(")")], out n)
   assert n == 3
   try
@@ -99,6 +100,7 @@ test parse_errors :=
 // an exception that no case matches is raised further
 test unmatched_raised_further :=
   local e: Str
+
   try
     try
       raise Expected("x")
@@ -115,6 +117,7 @@ test unmatched_raised_further :=
 // exceptions of any type, which cases catch only if the types agree, while _ catches all
 test any_type :=
   local n: Int, s: Str
+
   try
     raise 42
   catch
@@ -144,7 +147,8 @@ test any_type :=
 
 // handlers apply if their guards hold
 test guarded_handlers :=
-  local  n: Int
+  local n: Int
+
   try
     raise 2
   catch

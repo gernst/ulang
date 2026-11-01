@@ -7481,8 +7481,8 @@ void p_check_46_unify(u_value v_t1, u_value v_t2, u_value *r_s) {
     u_value v_a = NULL;
     u_value v_b = NULL;
     u_value t489 = f_check_46_resolve_2(f_check_46_sub_of_1(*r_s), v_t1);
-    u_value t490 = f_check_46_resolve_2(f_check_46_sub_of_1(*r_s), v_t2);
     v_a = t489;
+    u_value t490 = f_check_46_resolve_2(f_check_46_sub_of_1(*r_s), v_t2);
     v_b = t490;
     u_value s491 = u_mk_tuple(2, v_a, v_b);
     int d492 = 0;
@@ -10737,12 +10737,12 @@ void p_lex_46_lex_token(u_value v_s, u_value *r_t, u_value *r_i) {
 void p_lex_46_lex(u_value v_s, u_value *r_ts) {
   {
     u_value v_i = NULL;
+    u_value v_rev = NULL;
     u_value v_start = NULL;
     u_value v_t = NULL;
-    u_value v_rev = NULL;
     u_value t955 = u_mk_int(0);
-    u_value t956 = u_mk_con(&n_list_46_Nil, 0);
     v_i = t955;
+    u_value t956 = u_mk_con(&n_list_46_Nil, 0);
     v_rev = t956;
     u_value t963 = u_lt(v_i, u_str_size(v_s));
     while (u_truth(t963)) {
@@ -11681,10 +11681,10 @@ void p_parse_46_type_items(u_value v_sc, u_value *r_items, u_value *r_ts) {
     u_value v_go = NULL;
     u_value v_b = NULL;
     u_value t1113 = u_mk_con(&n_list_46_Nil, 0);
-    u_value t1114 = u_mk_bool(1);
-    u_value t1115 = u_mk_bool(1);
     v_rev = t1113;
+    u_value t1114 = u_mk_bool(1);
     v_next = t1114;
+    u_value t1115 = u_mk_bool(1);
     v_go = t1115;
     u_value t1124 = v_go;
     while (u_truth(t1124)) {
@@ -11793,8 +11793,8 @@ void p_parse_46_type_basic(u_value v_sc, u_value *r_r, u_value *r_ts) {
 
 void p_parse_46_type_list(u_value v_sc, u_value v_close, u_value *r_r, u_value *r_ts) {
   {
-    u_value v_t = NULL;
     u_value v_rev = NULL;
+    u_value v_t = NULL;
     u_value t1133 = u_mk_con(&n_list_46_Nil, 0);
     v_rev = t1133;
     u_value t1134 = u_eq(v_close, u_mk_char(41));
@@ -11916,10 +11916,10 @@ void p_parse_46_expr_items(u_value v_sc, u_value *r_items, u_value *r_ts) {
     u_value v_go = NULL;
     u_value v_e = NULL;
     u_value t1153 = u_mk_con(&n_list_46_Nil, 0);
-    u_value t1154 = u_mk_bool(1);
-    u_value t1155 = u_mk_bool(1);
     v_rev = t1153;
+    u_value t1154 = u_mk_bool(1);
     v_next = t1154;
+    u_value t1155 = u_mk_bool(1);
     v_go = t1155;
     u_value t1164 = v_go;
     while (u_truth(t1164)) {
@@ -12584,10 +12584,10 @@ void p_parse_46_pattern_items(u_value v_sc, u_value *r_items, u_value *r_ts) {
     u_value v_go = NULL;
     u_value v_p = NULL;
     u_value t1267 = u_mk_con(&n_list_46_Nil, 0);
-    u_value t1268 = u_mk_bool(1);
-    u_value t1269 = u_mk_bool(1);
     v_rev = t1267;
+    u_value t1268 = u_mk_bool(1);
     v_next = t1268;
+    u_value t1269 = u_mk_bool(1);
     v_go = t1269;
     u_value t1278 = v_go;
     while (u_truth(t1278)) {
@@ -12659,8 +12659,8 @@ void p_parse_46_pattern_items(u_value v_sc, u_value *r_items, u_value *r_ts) {
 
 void p_parse_46_pattern_list(u_value v_sc, u_value v_close, u_value *r_ps, u_value *r_ts) {
   {
-    u_value v_p = NULL;
     u_value v_rev = NULL;
+    u_value v_p = NULL;
     u_value t1284 = u_mk_con(&n_list_46_Nil, 0);
     v_rev = t1284;
     if (u_truth(f_parse_46_at_punct_2(*r_ts, v_close))) {
@@ -12890,13 +12890,13 @@ void p_parse_46_parse_body(u_value v_sc, u_value *r_b, u_value *r_ts) {
   {
     u_value v_xs = NULL;
     u_value v_inits = NULL;
-    u_value v_s = NULL;
     u_value v_rev = NULL;
+    u_value v_s = NULL;
     u_value t1324 = u_mk_con(&n_list_46_Nil, 0);
-    u_value t1325 = u_mk_con(&n_list_46_Nil, 0);
-    u_value t1326 = u_mk_con(&n_list_46_Nil, 0);
     v_xs = t1324;
+    u_value t1325 = u_mk_con(&n_list_46_Nil, 0);
     v_inits = t1325;
+    u_value t1326 = u_mk_con(&n_list_46_Nil, 0);
     v_rev = t1326;
     static struct u_object l_local_1327 = U_LIT("local");
     u_value t1329 = f_parse_46_at_keyword_2(*r_ts, &l_local_1327);
@@ -13502,8 +13502,8 @@ u_value f_parse_46_own_notations_2(u_value v_ld, u_value v_n) {
 
 void p_parse_46_type_params(u_value *r_ps, u_value *r_ts) {
   {
-    u_value v_n = NULL;
     u_value v_rev = NULL;
+    u_value v_n = NULL;
     u_value t1426 = u_mk_con(&n_list_46_Nil, 0);
     v_rev = t1426;
     if (u_truth(f_parse_46_at_punct_2(*r_ts, u_mk_char(91)))) {
@@ -14009,8 +14009,8 @@ void p_parse_46_declare_all(u_value v_cs, u_value *r_ns, u_value *r_ld) {
 
 void p_parse_46_parse_commands(u_value *r_cs, u_value *r_ns, u_value *r_ld, u_value *r_ts) {
   {
-    u_value v_more = NULL;
     u_value v_rev = NULL;
+    u_value v_more = NULL;
     u_value t1511 = u_mk_con(&n_list_46_Nil, 0);
     v_rev = t1511;
     u_value t1513 = f_prelude_46__33__61__2(f_parse_46_head_token_1(*r_ts), u_mk_con(&n_lex_46_TEnd, 0));
@@ -16285,13 +16285,13 @@ u_value f_compile_46_reassign_3(u_value v_env, u_value v_xs, u_value v_ts) {
 
 void p_compile_46_handler_cases(u_value v_gl, u_value v_env, u_value v_hs, u_value v_h, u_value v_d, u_value *r_ss, u_value *r_g) {
   {
+    u_value v_v = NULL;
     u_value v_bs = NULL;
     u_value v_gs = NULL;
     u_value v_rg = NULL;
     u_value v_body = NULL;
     u_value v_rest = NULL;
     u_value v_env1 = NULL;
-    u_value v_v = NULL;
     u_value v_tests = NULL;
     static struct u_object l_u_caught_1957 = U_LIT("u_caught");
     u_value t1958 = f_c_46_c_call_2(&l_u_caught_1957, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_h), u_mk_con(&n_list_46_Nil, 0)));
@@ -16801,8 +16801,8 @@ void p_compile_46_compile_program(u_value v_q, u_value *r_f) {
     u_value v_ms = NULL;
     u_value v_fs = NULL;
     u_value t2078 = u_mk_con(&n_compile_46_Gen, 2, u_mk_int(0), u_mk_con(&n_list_46_Nil, 0));
-    u_value t2079 = f_compile_46_globals_1(f_compile_46_program_cmds_1(v_q));
     v_g = t2078;
+    u_value t2079 = f_compile_46_globals_1(f_compile_46_program_cmds_1(v_q));
     v_gl = t2079;
     p_compile_46_compile_cmds(v_gl, f_compile_46_program_cmds_1(v_q), &v_ds, &v_ms, &v_g);
     u_value s2080 = v_g;

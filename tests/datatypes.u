@@ -64,8 +64,8 @@ test comprehensions :=
 
 // association lists
 test association_lists :=
-  local  m: List[Str * Int]
-  assign m := update("b", 2, update("a", 1, Nil))
+  local m := update("b", 2, update("a", 1, Nil))
+
   assert m == [("b", 2), ("a", 1)]
   assert lookup("a", m) == Some(1)
   assert lookup("c", m) == None
@@ -144,7 +144,8 @@ function sign(n: Int): Int :=
   end
 
 test guards :=
-  local  s: Str
+  local s: Str
+
   assert sign(-5) == -1 and sign(0) == 0 and sign(7) == 1
   match [1, 2]
     case [x; _] if x > 1 =>

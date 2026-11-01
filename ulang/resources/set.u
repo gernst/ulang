@@ -104,8 +104,8 @@ function upto(n: Int): List[Int] :=
   if n == 0 then Nil else upto(n - 1) ++ [n]
 
 test sets :=
-  local  s: Set[Str]
-  assign s := insert("b", insert("a", empty_set()))
+  local s := insert("b", insert("a", empty_set()))
+
   assert member("a", s) and not member("c", s)
   assign s := insert("a", s)
   assert elements(s) == ["a", "b"] and count(s) == 2
@@ -115,7 +115,7 @@ test sets :=
 
 // ascending elements would make a list of an unbalanced tree
 test set_balance :=
-  local  s: Set[Int]
-  assign s := from_list(upto(200))
+  local s := from_list(upto(200))
+
   assert well_formed(s) and count(s) == 200 and depth(s) <= 11
   assert member(100, s) and not member(201, s) and elements(s) == upto(200)

@@ -5,8 +5,9 @@ import compile
 import os
 
 run main :=
-  local  args: List[Str]
-  call   os_args(out args)
+  local args: List[Str]
+
+  call os_args(out args)
   match args
     case [] =>
       skip

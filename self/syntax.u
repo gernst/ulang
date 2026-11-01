@@ -158,7 +158,8 @@ function arity(t: Type): Int :=
 
 // f(x) + 1, as the parser would produce it
 test syntax :=
-  local  f: Var, x: Var, e: Expr
+  local f: Var, x: Var, e: Expr
+
   assign f := Var(unqualified("f"), THole), x := Var(unqualified("x"), THole)
   assign e := EApp(EVar(Var(unqualified("+"), THole)), [EApp(EVar(f), [EVar(x)]), ELit(VInt(1))])
   assert names([f, x]) == [unqualified("f"), unqualified("x")]
