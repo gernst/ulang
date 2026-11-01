@@ -401,8 +401,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
         catch case _: java.io.IOException => throw osError(s"cannot write $path", pos)
         Nil
       case (None, "os_library", List(name: String)) =>
-        try List(os.read(os.resource / s"$name.u"))
-        catch case _: os.ResourceNotFoundException => throw osError(s"unknown module $name", pos)
+        List(Main.libraryText(name).getOrElse(throw osError(s"unknown module $name", pos)))
       case _ =>
         error("runtime", s"unknown procedure $p")
 

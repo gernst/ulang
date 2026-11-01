@@ -52,9 +52,20 @@ u_value mk_con_array(const struct u_name *name, int size, u_value *items);
 u_value mk_tuple(int size, ...);
 u_value mk_closure(code fun, int size, ...);
 
-int truth(u_value v);
-int is_con(u_value v, const struct u_name *name);
-u_value field(u_value v, int i);
+// the booleans and the empty list, which exist once
+extern struct u_object u_true, u_false, u_nil;
+
+static inline int truth(u_value v) {
+  return v->num != 0;
+}
+
+static inline int is_con(u_value v, const struct u_name *name) {
+  return v->kind == CON && v->name == name;
+}
+
+static inline u_value field(u_value v, int i) {
+  return v->items[i];
+}
 int equal(u_value a, u_value b);
 u_value apply(u_value f, int n, ...);
 

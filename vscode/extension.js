@@ -29,7 +29,10 @@ function ulang(args, file) {
       return;
     }
     const java = vscode.workspace.getConfiguration("ulang").get("java") || "java";
-    cp.execFile(java, ["-jar", path_, ...args], { cwd: path.dirname(file) }, (error, stdout, stderr) => {
+    // the library next to ulang.jar, as ulang.sh reads it, or else the one in the jar
+    const lib = path.join(path.dirname(path_), "ulang", "resources");
+    const props = fs.existsSync(lib) ? ["-Dulang.lib=" + lib] : [];
+    cp.execFile(java, [...props, "-jar", path_, ...args], { cwd: path.dirname(file) }, (error, stdout, stderr) => {
       resolve({ code: error ? error.code || 1 : 0, stdout, stderr });
     });
   });

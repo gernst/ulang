@@ -28,13 +28,26 @@ def require(phase: String, cond: Boolean, msg: => String): Unit =
 class Ref[A](var get: A)
 
 object Main:
-  // the modules of the library are resources, next to the prelude
+  // the directory of the library, given by the property ulang.lib or the variable ULANG_LIB,
+  // or else None, when the library is read from the resources
+  val libraryDir: Option[os.Path] =
+    sys.props.get("ulang.lib") match
+      case Some(dir) =>
+        Some(os.Path(dir, os.pwd))
+      case None =>
+        sys.env.get("ULANG_LIB").map(os.Path(_, os.pwd))
+
+  // the text of a module of the library, which is next to the prelude
+  def libraryText(name: Id): Option[String] =
+    libraryDir match
+      case Some(dir) =>
+        Option.when(os.isFile(dir / s"$name.u"))(os.read(dir / s"$name.u"))
+      case None =>
+        try Some(os.read(os.resource / s"$name.u"))
+        catch case _: os.ResourceNotFoundException => None
+
   def library(name: Id): String =
-    try
-      os.read(os.resource / s"$name.u")
-    catch
-      case _: os.ResourceNotFoundException =>
-        error("parse", s"unknown module $name")
+    libraryText(name).getOrElse(error("parse", s"unknown module $name"))
 
   val prelude: Program = Parser.parseProgram(library("prelude"), Scope(Set(), Nil, loading = Set("prelude"), read = library))
 

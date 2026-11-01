@@ -7,6 +7,9 @@ import utest.*
 object FileTest extends TestSuite:
   val roots = List("tests", "examples", "self", "ulang/resources").map(os.Path(sys.env("MILL_WORKSPACE_ROOT")) / os.RelPath(_))
 
+  // the library of the workspace, which Main reads when it is first used
+  System.setProperty("ulang.lib", (os.Path(sys.env("MILL_WORKSPACE_ROOT")) / "ulang" / "resources").toString)
+
   val error = "// ((parse|type|runtime) error: .*)".r
 
   def files: List[os.Path] =

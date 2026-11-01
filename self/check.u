@@ -12,10 +12,10 @@ type Subst :=
 type Env :=
   List[Name * (List[Type] * Type)]
 
-// the context, the substitution, the number of unknowns so far, the module whose declarations are checked,
-// and the modules that each module sees, itself first
+// the context, the substitution, the number of unknowns so far, the module whose declarations are checked
+// with the modules it sees, and the modules that each module sees, itself first
 data State :=
-  | State(Ctx, Subst, Int, Id, List[Id * List[Id]])
+  | State(Ctx, Subst, Int, Id, List[Id], List[Id * List[Id]])
 
 data TypeError :=
   | UnknownSort(Name)
@@ -46,41 +46,44 @@ data Head :=
 
 function ctx_of(s: State): Ctx :=
   match s
-    case State(c, _, _, _, _) => c
+    case State(c, _, _, _, _, _) => c
   end
 
 function sub_of(s: State): Subst :=
   match s
-    case State(_, su, _, _, _) => su
+    case State(_, su, _, _, _, _) => su
   end
 
 function module_of(s: State): Id :=
   match s
-    case State(_, _, _, m, _) => m
+    case State(_, _, _, m, _, _) => m
   end
 
 function visible_of(s: State): List[Id] :=
   match s
-    case State(_, _, _, m, vs) =>
-      match lookup(m, vs)
-        case Some(ms) => ms
-        case None => [m]
-      end
+    case State(_, _, _, _, ms, _) => ms
   end
 
 function with_ctx(s: State, c: Ctx): State :=
   match s
-    case State(_, su, n, m, vs) => State(c, su, n, m, vs)
+    case State(_, su, n, m, ms, vs) => State(c, su, n, m, ms, vs)
   end
 
-// the state for checking the declarations of module m
+// the state for checking a declaration of module m, where the substitution starts empty,
+// since unknowns do not outlive the command that introduces them
 function enter(s: State, m: Id): State :=
   match s
-    case State(c, su, n, _, vs) => State(c, su, n, m, vs)
+    case State(c, _, n, _, _, vs) => State(c, Nil, n, m, sees(m, vs), vs)
+  end
+
+function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
+  match lookup(m, vs)
+    case Some(ms) => ms
+    case None => [m]
   end
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
-  State(initial(), Nil, 0, main, vs)
+  State(initial(), Nil, 0, main, sees(main, vs), vs)
 
 // the commands of the modules with the module of each, where declarations get their module
 function flatten(m: Id, cs: List[Cmd]): List[Id * Cmd] :=
@@ -119,6 +122,7 @@ function visibility(ds: List[Id * Cmd], main: Id): List[Id * List[Id]] :=
   [(m, distinct([m] ++ imports_in(ds, m) ++ ["prelude"] ++ imports_in(ds, "prelude"))) for m in distinct([main] ++ firsts(ds))]
 
 // the declarations named n of a kind that the module sees, where its own declarations hide those of other modules
+// where declared are the declarations of that kind with the base name of n, of all modules
 function visible_names(s: State, n: Name, declared: List[Name]): List[Name] :=
   match n
     case Name(Some(_), _) => [d for d in [n] if contains(d, declared)]
@@ -127,6 +131,13 @@ function visible_names(s: State, n: Name, declared: List[Name]): List[Name] :=
         [Name(Some(module_of(s)), b)]
       else
         [d for d in [Name(Some(m), b) for m in drop(1, visible_of(s))] if contains(d, declared)]
+  end
+
+// the keys of xs with the base name of n, which are few, found by comparing strings only
+function with_base[A](n: Name, xs: List[Name * A]): List[Name] :=
+  match xs
+    case Nil => Nil
+    case [(Name(m, b), _); rest] => if b == base(n) then [Name(m, b); with_base(n, rest)] else with_base(n, rest)
   end
 
 function tbool(): Type :=
@@ -168,43 +179,50 @@ function literal(v: Val): Type :=
 function initial(): Ctx :=
   Ctx(Nil, Nil, Nil, Nil, Nil, Nil)
 
-// only what cannot be defined in the prelude
-function builtins(): Env :=
-  let arith := (Nil, fun([tint(), tint()], tint())), logic := (Nil, fun([tbool(), tbool()], tbool())), a := TParam("A") in
-  [
-    (unqualified("+"), arith),
-    (unqualified("-"), arith),
-    (unqualified("*"), arith),
-    (unqualified("/"), arith),
-    (unqualified("%"), arith),
-    (unqualified("<"), (Nil, fun([tint(), tint()], tbool()))),
-    (unqualified("=="), ([a], fun([a, a], tbool()))),
-    (unqualified("and"), logic),
-    (unqualified("or"), logic),
-    (unqualified("chars"), (Nil, fun([tstr()], tlist(tchar())))),
-    (unqualified("string"), (Nil, fun([tlist(tchar())], tstr()))),
-    (unqualified("ord"), (Nil, fun([tchar()], tint()))),
-    (unqualified("chr"), (Nil, fun([tint()], tchar()))),
-    (unqualified("^"), (Nil, fun([tstr(), tstr()], tstr()))),
-    (unqualified("str_size"), (Nil, fun([tstr()], tint()))),
-    (unqualified("str_join"), (Nil, fun([tstr(), tlist(tstr())], tstr()))),
-    (unqualified("str_slice"), (Nil, fun([tstr(), tint(), tint()], tstr()))),
-    (unqualified("str_split"), (Nil, fun([tstr(), tchar()], tlist(tstr())))),
-    (unqualified("str_get"), (Nil, fun([tstr(), tint()], tchar()))),
-    (unqualified("str_contains"), (Nil, fun([tstr(), tchar()], tbool()))),
-    (unqualified("str_show"), (Nil, fun([tint()], tstr()))),
-    (unqualified("str_quote"), (Nil, fun([tstr()], tstr()))),
-    (unqualified("str_number"), (Nil, fun([tstr()], TSort(option_name(), [tint()])))),
-    (unqualified("is_digit"), (Nil, fun([tchar()], tbool()))),
-    (unqualified("is_letter"), (Nil, fun([tchar()], tbool()))),
-    (unqualified("is_space"), (Nil, fun([tchar()], tbool())))
-  ]
+function arith(): List[Type] * Type :=
+  (Nil, fun([tint(), tint()], tint()))
 
+function logic(): List[Type] * Type :=
+  (Nil, fun([tbool(), tbool()], tbool()))
+
+// only what cannot be defined in the prelude, which are names without a module
 function builtin(n: Name): List[List[Type] * Type] :=
-  match lookup(n, builtins())
-    case Some(sc) => [sc]
-    case None => Nil
+  match n
+    case Name(None, b) => builtin_scheme(b)
+    else Nil
   end
+
+function builtin_scheme(b: Id): List[List[Type] * Type] :=
+  let a := TParam("A") in
+    match b
+      case "+" => [arith()]
+      case "-" => [arith()]
+      case "*" => [arith()]
+      case "/" => [arith()]
+      case "%" => [arith()]
+      case "<" => [(Nil, fun([tint(), tint()], tbool()))]
+      case "==" => [([a], fun([a, a], tbool()))]
+      case "and" => [logic()]
+      case "or" => [logic()]
+      case "chars" => [(Nil, fun([tstr()], tlist(tchar())))]
+      case "string" => [(Nil, fun([tlist(tchar())], tstr()))]
+      case "ord" => [(Nil, fun([tchar()], tint()))]
+      case "chr" => [(Nil, fun([tint()], tchar()))]
+      case "^" => [(Nil, fun([tstr(), tstr()], tstr()))]
+      case "str_size" => [(Nil, fun([tstr()], tint()))]
+      case "str_join" => [(Nil, fun([tstr(), tlist(tstr())], tstr()))]
+      case "str_slice" => [(Nil, fun([tstr(), tint(), tint()], tstr()))]
+      case "str_split" => [(Nil, fun([tstr(), tchar()], tlist(tstr())))]
+      case "str_get" => [(Nil, fun([tstr(), tint()], tchar()))]
+      case "str_contains" => [(Nil, fun([tstr(), tchar()], tbool()))]
+      case "str_show" => [(Nil, fun([tint()], tstr()))]
+      case "str_quote" => [(Nil, fun([tstr()], tstr()))]
+      case "str_number" => [(Nil, fun([tstr()], TSort(option_name(), [tint()])))]
+      case "is_digit" => [(Nil, fun([tchar()], tbool()))]
+      case "is_letter" => [(Nil, fun([tchar()], tbool()))]
+      case "is_space" => [(Nil, fun([tchar()], tbool()))]
+      else Nil
+    end
 
 function is_meta(t: Type): Bool :=
   match t
@@ -279,8 +297,8 @@ function candidates(s: State, env: Env, n: Name): List[Name * (List[Type] * Type
   match lookup(n, env)
     case Some(sc) => [(n, sc)]
     case None =>
-      concat([[(f, sc) for sc in schemes_of(ctx_of(s), f)] for f in visible_names(s, n, keys(funs(ctx_of(s))))]) ++
-        [(k, constructor_of(ctx_of(s), k)) for k in visible_names(s, n, keys(constrs(ctx_of(s))))] ++
+      concat([[(f, sc) for sc in schemes_of(ctx_of(s), f)] for f in visible_names(s, n, with_base(n, funs(ctx_of(s))))]) ++
+        [(k, constructor_of(ctx_of(s), k)) for k in visible_names(s, n, with_base(n, constrs(ctx_of(s))))] ++
         [(n, sc) for sc in builtin(n)]
   end
 
@@ -604,8 +622,8 @@ function first_uncovered(hs: List[Head], ks: List[Head * List[Type]]): Pat :=
 
 procedure fresh(out t: Type, ref s: State) :=
   match s
-    case State(c, su, n, m, vs) =>
-      assign t := TMeta(n + 1), s := State(c, su, n + 1, m, vs)
+    case State(c, su, n, m, ms, vs) =>
+      assign t := TMeta(n + 1), s := State(c, su, n + 1, m, ms, vs)
   end
 
 procedure bind_meta(in i: Int, t: Type, ref s: State) :=
@@ -613,8 +631,8 @@ procedure bind_meta(in i: Int, t: Type, ref s: State) :=
     raise InfiniteType(TMeta(i), zonk_type(sub_of(s), t))
   end
   match s
-    case State(c, su, n, m, vs) =>
-      assign s := State(c, [(i, t); su], n, m, vs)
+    case State(c, su, n, m, ms, vs) =>
+      assign s := State(c, [(i, t); su], n, m, ms, vs)
   end
 
 procedure unify(in t1: Type, t2: Type, ref s: State) :=
@@ -756,7 +774,7 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
         call   arguments(in n, 0, args)
         assign u := t
       else
-        match visible_names(s, n, keys(datas(ctx_of(s))) ++ keys(aliases(ctx_of(s))))
+        match visible_names(s, n, with_base(n, datas(ctx_of(s))) ++ with_base(n, aliases(ctx_of(s))))
           case [m] =>
             call normalize_sort(in m, args, out u, ref s)
           case Nil =>
@@ -1054,7 +1072,7 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
       call   unify(in literal(v), t, ref s)
       assign p1 := p, xs := Nil
     case PVar(Var(n, a)) =>
-      if visible_names(s, n, keys(constrs(ctx_of(s)))) != Nil
+      if visible_names(s, n, with_base(n, constrs(ctx_of(s)))) != Nil
         call binders(in PApp(n, Nil), t, out p1, xs, ref s)
       else
         call   normalize(in a, out u, ref s)
@@ -1062,7 +1080,7 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
         assign p1 := PVar(Var(n, u)), xs := [Var(n, u)]
       end
     case PApp(n, args) =>
-      match visible_names(s, n, keys(constrs(ctx_of(s))))
+      match visible_names(s, n, with_base(n, constrs(ctx_of(s))))
         case [k1] =>
           assign k := k1
         case Nil =>
@@ -1186,7 +1204,7 @@ procedure statements(in env: Env, assignable: List[Name], xs: List[Stmt], out ys
 
 // the procedures of the library os, which exist in programs that import it, which declares OsError
 function os_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * List[Type])] :=
-  if contains(os_error_name(), keys(datas(c))) then
+  if has_key(os_error_name(), datas(c)) then
     [
       (unqualified("os_args"), (Nil, Nil, [tlist(tstr())], Nil)),
       (unqualified("os_read"), (Nil, [tstr()], [tstr()], Nil)),
@@ -1208,7 +1226,7 @@ function syntax_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type]
 procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
   local m: List[Type * Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var], q: Name
 
-  match visible_names(s, p, keys(procs(ctx_of(s))))
+  match visible_names(s, p, with_base(p, procs(ctx_of(s))))
     case [q1] =>
       assign q := q1
     case Nil =>
@@ -1261,18 +1279,18 @@ procedure handler_list(in env: Env, assignable: List[Name], hs: List[Handler], o
   end
 
 procedure declare_name(in c: Ctx, n: Name) :=
-  if contains(n, keys(funs(c))) or contains(n, keys(procs(c))) or contains(n, keys(constrs(c))) or builtin(unqualified(base(n))) != Nil
+  if has_key(n, funs(c)) or has_key(n, procs(c)) or has_key(n, constrs(c)) or builtin(unqualified(base(n))) != Nil
     raise AlreadyDefined(n)
   end
 
 // functions of the same name must differ in their number of arguments
 procedure overload(in c: Ctx, n: Name, k: Int) :=
-  if contains(n, keys(procs(c))) or contains(n, keys(constrs(c))) or has_arity(schemes_of(c, n) ++ builtin(unqualified(base(n))), k)
+  if has_key(n, procs(c)) or has_key(n, constrs(c)) or has_arity(schemes_of(c, n) ++ builtin(unqualified(base(n))), k)
     raise AlreadyDefined(n)
   end
 
 procedure declare_sort(in c: Ctx, n: Name) :=
-  if contains(base(n), ["Bool", "Int", "Str", "Char", "->"]) or contains(n, keys(aliases(c))) or contains(n, keys(datas(c)))
+  if contains(base(n), ["Bool", "Int", "Str", "Char", "->"]) or has_key(n, aliases(c)) or has_key(n, datas(c))
     raise SortDefined(n)
   end
 

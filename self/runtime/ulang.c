@@ -50,10 +50,12 @@ static u_value big(void) {
   return v;
 }
 
+struct u_object u_true = {.kind = BOOL, .num = 1};
+struct u_object u_false = {.kind = BOOL, .num = 0};
+struct u_object u_nil = {.kind = CON, .name = &n_list_46_Nil, .size = 0, .items = NULL};
+
 u_value mk_bool(int b) {
-  u_value v = object(BOOL);
-  v->num = b != 0;
-  return v;
+  return b ? &u_true : &u_false;
 }
 
 u_value mk_char(long long c) {
@@ -121,20 +123,9 @@ u_value mk_closure(code fun, int size, ...) {
   return v;
 }
 
-int truth(u_value v) {
-  return v->num != 0;
-}
-
-int is_con(u_value v, const struct u_name *name) {
-  return v->kind == CON && v->name == name;
-}
-
-u_value field(u_value v, int i) {
-  return v->items[i];
-}
-
 int equal(u_value a, u_value b) {
   if (a->kind == CLOSURE || b->kind == CLOSURE) fail("cannot compare functions");
+  if (a == b) return 1;
   if (a->kind != b->kind) return 0;
   switch (a->kind) {
   case INT:
@@ -143,7 +134,7 @@ int equal(u_value a, u_value b) {
   case CHAR:
     return a->num == b->num;
   case STR:
-    return strcmp(a->text, b->text) == 0;
+    return a->text == b->text || strcmp(a->text, b->text) == 0;
   case CON:
     if (a->name != b->name) return 0;
     /* fall through */
@@ -207,7 +198,7 @@ u_value u_eq(u_value a, u_value b) {
 }
 
 u_value u_chars(u_value s) {
-  u_value cs = mk_con(&n_list_46_Nil, 0);
+  u_value cs = &u_nil;
   for (long i = (long)strlen(s->text) - 1; i >= 0; i--) cs = mk_con(&n_list_46_Cons, 2, mk_char((unsigned char)s->text[i]), cs);
   return cs;
 }
@@ -234,7 +225,7 @@ u_value u_chr(u_value n) {
 // a cell with x at the place end of a list being built, whose tail is the place of the next cell,
 // which changes the list only before it is visible to the program
 u_value *u_append(u_value *end, u_value x) {
-  *end = mk_con(&n_list_46_Cons, 2, x, mk_con(&n_list_46_Nil, 0));
+  *end = mk_con(&n_list_46_Cons, 2, x, &u_nil);
   return &(*end)->items[1];
 }
 
@@ -295,7 +286,7 @@ u_value u_str_slice(u_value s, u_value i, u_value j) {
 
 // the parts between the occurrences of c, including empty ones
 u_value u_str_split(u_value s, u_value c) {
-  u_value parts = mk_con(&n_list_46_Nil, 0);
+  u_value parts = &u_nil;
   const char *end = s->text + strlen(s->text), *from = end;
   for (const char *p = end; p >= s->text; p--) {
     if (p == s->text || p[-1] == (char)c->num) {
@@ -535,7 +526,7 @@ static u_value read_file(const char *path) {
 static u_value args = NULL;
 
 void u_args(int argc, char **argv) {
-  args = mk_con(&n_list_46_Nil, 0);
+  args = &u_nil;
   for (int i = argc - 1; i >= 1; i--) args = mk_con(&n_list_46_Cons, 2, mk_str(argv[i]), args);
 }
 
