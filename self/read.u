@@ -1,15 +1,17 @@
-// call read(in path, out p) reads a file relative to this one, and returns its syntax before checking, where types are holes
+// call read(in path, out p) reads a file relative to this one, and returns its syntax before checking, where types are holes,
+// and raises OsError if there is no such file
 
 import syntax
+import os
 
 test read_files :=
   local  p: Program
-  call   read(in "util.u", out p)
+  call   read(in "../ulang/resources/option.u", out p)
   match p
-    case Program([CFun(n, ps, xs, t, _); _]) =>
-      assert (n, ps) == ("contains", ["A"])
-      assert xs == [[Var("x", TParam("A")), Var("xs", TSort("List", [TParam("A")]))]]
-      assert t == TSort("Bool", Nil)
+    case Program([_, CFun(n, ps, xs, t, _); _]) =>
+      assert (n, ps) == ("or_else", ["A"])
+      assert xs == [[Var("a", TSort("Option", [TParam("A")])), Var("b", TSort("Option", [TParam("A")]))]]
+      assert t == TSort("Option", [TParam("A")])
     else
       assert false
   end
@@ -20,3 +22,13 @@ test read_files :=
     else
       assert false
   end
+
+test missing_file :=
+  local  p: Program, m: Str
+  try
+    call read(in "missing.u", out p)
+  catch
+    case OsError(e) =>
+      assign m := e
+  end
+  assert m == "cannot read missing.u"

@@ -50,3 +50,90 @@ function values[K, V](xs: List[K * V]): List[V] :=
     case Nil => Nil
     case [(_, v); ys] => [v; values(ys)]
   end
+
+function contains[A](x: A, xs: List[A]): Bool :=
+  match xs
+    case Nil => false
+    case [y; ys] => x == y or contains(x, ys)
+  end
+
+function distinct[A](xs: List[A]): List[A] :=
+  match xs
+    case Nil => Nil
+    case [y; ys] => [y; distinct([z for z in ys if z != y])]
+  end
+
+// an element that occurs twice
+function repeated[A](xs: List[A]): Option[A] :=
+  match xs
+    case Nil => None
+    case [y; ys] => if contains(y, ys) then Some(y) else repeated(ys)
+  end
+
+function diff[A](xs: List[A], ys: List[A]): List[A] :=
+  [x for x in xs if not contains(x, ys)]
+
+function concat[A](xss: List[List[A]]): List[A] :=
+  match xss
+    case Nil => Nil
+    case [xs; yss] => xs ++ concat(yss)
+  end
+
+// the elements of xs in reverse order, before ys
+function reverse_onto[A](xs: List[A], ys: List[A]): List[A] :=
+  match xs
+    case Nil => ys
+    case [x; rest] => reverse_onto(rest, [x; ys])
+  end
+
+function reverse[A](xs: List[A]): List[A] :=
+  reverse_onto(xs, Nil)
+
+function zip[A, B](xs: List[A], ys: List[B]): List[A * B] :=
+  match (xs, ys)
+    case ([x; xs1], [y; ys1]) => [(x, y); zip(xs1, ys1)]
+    else Nil
+  end
+
+function take[A](n: Int, xs: List[A]): List[A] :=
+  match xs
+    case Nil => Nil
+    case [y; ys] => if n == 0 then Nil else [y; take(n - 1, ys)]
+  end
+
+function drop[A](n: Int, xs: List[A]): List[A] :=
+  match xs
+    case Nil => Nil
+    case [_; ys] => if n == 0 then xs else drop(n - 1, ys)
+  end
+
+function replicate[A](n: Int, x: A): List[A] :=
+  if n == 0 then Nil else [x; replicate(n - 1, x)]
+
+function firsts[A, B](ps: List[A * B]): List[A] :=
+  match ps
+    case Nil => Nil
+    case [(a, _); rest] => [a; firsts(rest)]
+  end
+
+function seconds[A, B](ps: List[A * B]): List[B] :=
+  match ps
+    case Nil => Nil
+    case [(_, b); rest] => [b; seconds(rest)]
+  end
+
+test lists :=
+  assert [1, 2] ++ [3] == [1, 2, 3] and length([1, 2, 3]) == 3
+  assert lookup(2, [(1, "a"), (2, "b"), (2, "c")]) == Some("b") and lookup(3, [(1, "a")]) == None
+  assert update(1, "c", [(1, "a"), (2, "b")]) == [(1, "c"), (2, "b")] and remove(1, [(1, "a"), (2, "b"), (1, "c")]) == [(2, "b")]
+  assert keys([(1, "a"), (2, "b")]) == [1, 2] and values([(1, "a"), (2, "b")]) == ["a", "b"]
+  assert contains(2, [1, 2]) and not contains(3, [1, 2])
+  assert distinct([1, 2, 1, 3, 2]) == [1, 2, 3]
+  assert repeated([1, 2, 1]) == Some(1)
+  assert diff([1, 2, 3], [2]) == [1, 3]
+  assert concat([[1], [], [2, 3]]) == [1, 2, 3]
+  assert zip([1, 2, 3], [true, false]) == [(1, true), (2, false)]
+  assert take(2, [1, 2, 3]) == [1, 2] and drop(2, [1, 2, 3]) == [3]
+  assert replicate(2, 0) == [0, 0]
+  assert reverse([1, 2, 3]) == [3, 2, 1] and reverse_onto([2, 1], [3]) == [1, 2, 3]
+  assert firsts([(1, true), (2, false)]) == [1, 2] and seconds([(1, true), (2, false)]) == [true, false]

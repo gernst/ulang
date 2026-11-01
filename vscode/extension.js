@@ -35,12 +35,12 @@ function ulang(args, file) {
   });
 }
 
-// the runs and tests of a document, numbered from 1 as by ulang --only, where tests have names
+// the runs and tests of a document with their names, which ulang --only selects
 function blocks(document) {
   const result = [];
   for (let line = 0; line < document.lineCount; line++) {
-    const match = /^(test|run)\b(?:\s+(\w+))?/.exec(document.lineAt(line).text);
-    if (match) result.push({ kind: match[1], name: match[2], line, index: result.length + 1 });
+    const match = /^(test|run)\s+(\w+)/.exec(document.lineAt(line).text);
+    if (match) result.push({ kind: match[1], name: match[2], line });
   }
   return result;
 }
@@ -124,9 +124,9 @@ function activate(context) {
       const doc = await document(uri);
       if (doc) await execute(doc, [], true);
     }),
-    vscode.commands.registerCommand("ulang.runBlock", async (uri, index) => {
+    vscode.commands.registerCommand("ulang.runBlock", async (uri, name) => {
       const doc = await document(uri);
-      if (doc) await execute(doc, ["--only", String(index)], true);
+      if (doc) await execute(doc, ["--only", name], true);
     }),
     vscode.workspace.onDidSaveTextDocument((doc) => {
       if (doc.languageId === "ulang" && vscode.workspace.getConfiguration("ulang").get("checkOnSave")) execute(doc, [], false);
@@ -138,7 +138,7 @@ function activate(context) {
           return blocks(doc).map((block) => {
             const range = new vscode.Range(block.line, 0, block.line, 0);
             const title = block.kind === "test" ? "▶ Run test" : "▶ Run";
-            return new vscode.CodeLens(range, { title, command: "ulang.runBlock", arguments: [doc.uri, block.index] });
+            return new vscode.CodeLens(range, { title, command: "ulang.runBlock", arguments: [doc.uri, block.name] });
           });
         },
       }

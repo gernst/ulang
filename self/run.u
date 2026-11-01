@@ -4,8 +4,6 @@
 
 import syntax
 
-import util
-
 import check
 
 import os
@@ -106,7 +104,7 @@ function constr_arity(k: Constr): Name * Int :=
   end
 
 function is_builtin(n: Name): Bool :=
-  contains(n, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"])
+  contains(n, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "str_get", "str_contains", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"])
 
 function is_function(v: Value): Bool :=
   match v
@@ -450,6 +448,10 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := Lit(VStr(str_slice(s, i, j)))
     case ("str_split", [Lit(VStr(s)), Lit(VChar(c))]) =>
       assign v := list_value([Lit(VStr(part)) for part in str_split(s, c)])
+    case ("str_get", [Lit(VStr(s)), Lit(VInt(i))]) =>
+      assign v := Lit(VChar(str_get(s, i)))
+    case ("str_contains", [Lit(VStr(s)), Lit(VChar(c))]) =>
+      assign v := Lit(VBool(str_contains(s, c)))
     case ("str_show", [Lit(VInt(k))]) =>
       assign v := Lit(VStr(str_show(k)))
     case ("str_quote", [Lit(VStr(s))]) =>
@@ -733,7 +735,7 @@ procedure outputs(in p: Prog, cs: List[Cmd], out os: List[Output], ref h: Heap) 
       call   evaluate(in p, Nil, e, out v)
       call   outputs(in p, more, out rest, ref h)
       assign os := [Evaluated(v); rest]
-    case [CRun(body); more] =>
+    case [CRun(_, body); more] =>
       call   results(in p, body, out bs, ref h)
       call   outputs(in p, more, out rest, ref h)
       assign os := [Ran(bs); rest]
@@ -827,9 +829,10 @@ test procedures :=
   local  os: List[Output]
   call   check_and_run(in procedures() ++
     [
-      CRun(SBlock([Var("s", tint())], [SCall("sum", [num(4)], [Var("s", THole)], Nil)])),
+      CRun("sum", SBlock([Var("s", tint())], [SCall("sum", [num(4)], [Var("s", THole)], Nil)])),
       // the assignment to k before the exception remains, and the handler for Fail binds its argument
       CRun(
+        "count",
         SBlock(
           [Var("k", tint()), Var("m", tint())],
           [

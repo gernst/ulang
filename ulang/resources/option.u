@@ -1,3 +1,12 @@
 data Option[A] :=
   | None
   | Some(A)
+
+function or_else[A](a: Option[A], b: Option[A]): Option[A] :=
+  match a
+    case Some(_) => a
+    case None => b
+  end
+
+test options :=
+  assert or_else(Some(1), Some(2)) == Some(1) and or_else(None, Some(2)) == Some(2)

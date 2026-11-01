@@ -172,7 +172,7 @@ test generic_tokens :=
   assert r == Some(2)
   assert rest == []
 
-run
+run example :=
   local  r: Option[Int], t: Option[Tree]
   call   parse(in values(), [Num(2), Sym("*"), Num(3), Sym("+"), Num(4)], out r)
   call   parse(in trees(), [Num(2), Sym("*"), Num(3), Sym("+"), Num(4)], out t)

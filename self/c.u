@@ -1,7 +1,6 @@
 // the part of C that compiled ulang programs need, as datatypes, and a printer to C source code,
 // where the runtime defines the type u_value of all ulang values in a header, which is not part of the syntax
 
-import util
 data CType :=
   | CtVoid
   | CtInt

@@ -113,6 +113,11 @@ object Run:
         s.drop(int(i).toInt).take((int(j) - int(i)).toInt)
       case ("str_split", List(s: String, c: Char)) =>
         list(s.split(java.util.regex.Pattern.quote(c.toString), -1).toList)
+      case ("str_get", List(s: String, i)) =>
+        require("runtime", int(i) >= 0 && int(i) < s.length, s"no index ${int(i)} in a string of size ${s.length}")
+        s(int(i).toInt)
+      case ("str_contains", List(s: String, c: Char)) =>
+        s.contains(c)
       case ("str_show", List(n)) =>
         int(n).toString
       case ("str_quote", List(s: String)) =>
@@ -382,7 +387,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
         for (x, r) <- d.outs.zip(outs)
         yield r.get.getOrElse(error("runtime", s"output ${x.name} of $p is not assigned"))
       case (None, List(path: String)) if p == "read" =>
-        List(read(path))
+        List(read(path, pos))
       case (None, List(name: String)) if p == "library" =>
         List(library(name))
       case (None, List(path: String)) if p == "os_read" =>
@@ -402,9 +407,9 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
     Raised(Obj("OsError", List(message)), Type.Sort("OsError", Nil), pos)
 
   // the syntax of a file as a value of self/syntax.u, unchecked
-  def read(path: String): Any =
+  def read(path: String, pos: Pos): Any =
     val file = os.Path(path, dir)
-    require("runtime", os.isFile(file), s"cannot read $path")
+    if !os.isFile(file) then throw osError(s"cannot read $path", pos)
     Quote.quote(Main.parse(os.read(file), file))
 
   // the syntax of the prelude, or of another module of the library parsed after the prelude, unchecked
@@ -423,7 +428,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
       c match
         case Cmd.Eval(expr) =>
           List(Printer.show(eval(Map(), expr)))
-        case Cmd.Run(body) =>
+        case Cmd.Run(_, body) =>
           results(body)
         case Cmd.Test(_, body) =>
           exec(Map(), body)

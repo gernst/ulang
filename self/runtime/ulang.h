@@ -66,6 +66,8 @@ u_value u_str_size(u_value s);
 u_value u_str_join(u_value sep, u_value ss);
 u_value u_str_slice(u_value s, u_value i, u_value j);
 u_value u_str_split(u_value s, u_value c);
+u_value u_str_get(u_value s, u_value i);
+u_value u_str_contains(u_value s, u_value c);
 u_value u_str_show(u_value n);
 u_value u_str_quote(u_value s);
 u_value u_str_number(u_value s);
@@ -92,6 +94,10 @@ struct handler {
 void p_os_read(u_value path, u_value *text);
 void p_os_write(u_value path, u_value text);
 void p_os_library(u_value name, u_value *text);
+
+// read and library of the interpreter, which give the syntax of a program, are not available in compiled programs
+void p_read(u_value path, u_value *program);
+void p_library(u_value name, u_value *program);
 
 struct handler *u_push(void);
 void u_pop(struct handler *h);

@@ -65,6 +65,8 @@ object Check:
       "str_join" -> mono(fun(List(Str, Type.Sort("List", List(Str))), Str)),
       "str_slice" -> mono(fun(List(Str, Int, Int), Str)),
       "str_split" -> mono(fun(List(Str, Char), Type.Sort("List", List(Str)))),
+      "str_get" -> mono(fun(List(Str, Int), Char)),
+      "str_contains" -> mono(fun(List(Str, Char), Bool)),
       "str_show" -> mono(fun(List(Int), Str)),
       "str_quote" -> mono(fun(List(Str), Str)),
       "str_number" -> mono(fun(List(Str), Type.Sort("Option", List(Int)))),
@@ -338,8 +340,8 @@ class Check(program: Program):
         d
       case Cmd.Eval(expr) =>
         Cmd.Eval(zonk(expr))(d.pos)
-      case Cmd.Run(body) =>
-        Cmd.Run(zonk(body))(d.pos)
+      case Cmd.Run(name, body) =>
+        Cmd.Run(name, zonk(body))(d.pos)
       case Cmd.Test(name, body) =>
         Cmd.Test(name, zonk(body))(d.pos)
 
@@ -896,11 +898,15 @@ class Check(program: Program):
         val (os, rs) = rest.splitAt(outs.length)
         update(c => c.copy(procs = c.procs + (name -> (params.map(Type.Param(_)), is, os, rs))))
 
+    // runs and tests are chosen by name
     distinct(
-      program.cmds.collect { case Cmd.Test(name, _) =>
-        name
+      program.cmds.collect {
+        case Cmd.Run(name, _) =>
+          name
+        case Cmd.Test(name, _) =>
+          name
       },
-      "test"
+      "run or test"
     )
     Program(program.cmds.map(c => at(c.pos)(zonk(command(c)))))
 
@@ -932,8 +938,8 @@ class Check(program: Program):
       case Cmd.Eval(expr) =>
         Cmd.Eval(infer(Map(), expr)._1)(c.pos)
 
-      case Cmd.Run(body) =>
-        Cmd.Run(stmt(Map(), Set(), body))(c.pos)
+      case Cmd.Run(name, body) =>
+        Cmd.Run(name, stmt(Map(), Set(), body))(c.pos)
 
       case Cmd.Test(name, body) =>
         Cmd.Test(name, stmt(Map(), Set(), body))(c.pos)

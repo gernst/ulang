@@ -67,7 +67,7 @@ test closures_capture_values :=
   call   capture(out r)
   assert r == 1
 
-run
+run sums :=
   local  x: Int, y: Int, z: Int
   call   sum(in 4, out x)
   assign y := x * 2

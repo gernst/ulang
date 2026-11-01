@@ -302,6 +302,20 @@ u_value u_str_split(u_value s, u_value c) {
   return parts;
 }
 
+u_value u_str_get(u_value s, u_value i) {
+  size_t n = strlen(s->text);
+  if (mpz_sgn(i->big) < 0 || mpz_cmp_ui(i->big, n) >= 0) {
+    char *m = GC_MALLOC_ATOMIC(64 + mpz_sizeinbase(i->big, 10));
+    sprintf(m, "no index %s in a string of size %zu", mpz_get_str(NULL, 10, i->big), n);
+    fail(m);
+  }
+  return mk_char((unsigned char)s->text[mpz_get_ui(i->big)]);
+}
+
+u_value u_str_contains(u_value s, u_value c) {
+  return mk_bool(c->num != 0 && strchr(s->text, (int)c->num) != NULL);
+}
+
 u_value u_str_show(u_value n) {
   return mk_str(mpz_get_str(NULL, 10, n->big));
 }
@@ -538,4 +552,12 @@ void p_os_library(u_value name, u_value *result) {
   u_value t = read_file(path);
   if (!t) os_error("unknown module ", name->text);
   *result = t;
+}
+
+void p_read(u_value path, u_value *program) {
+  fail("read is not available in compiled programs");
+}
+
+void p_library(u_value name, u_value *program) {
+  fail("library is not available in compiled programs");
 }

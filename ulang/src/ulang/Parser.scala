@@ -549,7 +549,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   // modules contribute their declarations, but not their evals, runs, and tests
   def declares(c: Cmd): Boolean =
     c match
-      case Cmd.Eval(_) | Cmd.Run(_) | Cmd.Test(_, _) =>
+      case Cmd.Eval(_) | Cmd.Run(_, _) | Cmd.Test(_, _) =>
         false
       case _ =>
         true
@@ -560,8 +560,9 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       notation(s, pos) | sort(s, pos) | data(s, pos) | fun(s, pos) | proc(s, pos) |
         kw("eval") ~> expr(s) ^^
         (Cmd.Eval(_)(pos)) |
-        kw("run") ~> body(s) ^^
-        (Cmd.Run(_)(pos)) |
+        (kw("run") ~> name) ~ (":=" ~> body(s)) ^^ { case n ~ b =>
+          Cmd.Run(n, b)(pos)
+        } |
         (kw("test") ~> name) ~ (":=" ~> body(s)) ^^ { case n ~ b =>
           Cmd.Test(n, b)(pos)
         }

@@ -143,8 +143,8 @@ object Quote:
         obj("CNotation", quote(fixity), BigInt(prec), names(ops))
       case Cmd.Eval(expr) =>
         obj("CEval", quote(expr))
-      case Cmd.Run(body) =>
-        obj("CRun", quote(body))
+      case Cmd.Run(name, body) =>
+        obj("CRun", name, quote(body))
       case Cmd.Test(name, body) =>
         obj("CTest", name, quote(body))
 
@@ -359,8 +359,8 @@ object Quote:
         Cmd.Notation(fixity(f), int(prec), items(ops)(name))()
       case Obj("CEval", List(e)) =>
         Cmd.Eval(expr(e))()
-      case Obj("CRun", List(body)) =>
-        Cmd.Run(stmt(body))()
+      case Obj("CRun", List(n, body)) =>
+        Cmd.Run(name(n), stmt(body))()
       case Obj("CTest", List(n, body)) =>
         Cmd.Test(name(n), stmt(body))()
       case _ =>

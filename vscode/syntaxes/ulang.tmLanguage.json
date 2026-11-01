@@ -40,11 +40,25 @@
       "patterns": [
         {
           "name": "string.quoted.double.ulang",
-          "match": "\"(?:[^\"\\\\]|\\\\.)*\""
+          "begin": "\"",
+          "end": "\"|$",
+          "patterns": [
+            {
+              "include": "#escape"
+            }
+          ]
         },
         {
-          "name": "constant.character.ulang",
-          "match": "'(?:[^'\\\\]|\\\\.)'"
+          "name": "string.quoted.single.ulang",
+          "match": "(')(?:([^'\\\\])|(\\\\[\"'\\\\ntr])|(\\\\.))(')",
+          "captures": {
+            "3": {
+              "name": "constant.character.escape.ulang"
+            },
+            "4": {
+              "name": "invalid.illegal.escape.ulang"
+            }
+          }
         }
       ]
     },
@@ -153,7 +167,7 @@
           }
         },
         {
-          "match": "^(test)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "^(test|run)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
               "name": "keyword.other.ulang"
@@ -245,6 +259,18 @@
     "constructor": {
       "name": "entity.name.function.constructor.ulang",
       "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+    },
+    "escape": {
+      "patterns": [
+        {
+          "name": "constant.character.escape.ulang",
+          "match": "\\\\[\"'\\\\ntr]"
+        },
+        {
+          "name": "invalid.illegal.escape.ulang",
+          "match": "\\\\."
+        }
+      ]
     }
   }
 }

@@ -101,6 +101,6 @@ test arithmetic :=
   call   parse(in [Sym("("), Num(1)], out n, ok)
   assert not ok
 
-run
+run example :=
   local  n: Int, ok: Bool
   call   parse(in [Num(2), Sym("*"), Num(3), Sym("+"), Num(4)], out n, ok)

@@ -1,0 +1,1582 @@
+// the parser of ulang/src/ulang/Parser.scala, which parses the tokens of self/lex.u into programs of self/syntax.u,
+// where notations apply to the commands after them, and imports inline the declarations of modules,
+// read from the directory of the parsed file, or else from the library
+
+import syntax
+import lex
+
+data ParseError :=
+  | ParseError(Str, Int)
+
+// the type parameters in scope, which distinguish TParam from TSort, and the notations declared so far
+data Scope :=
+  | Scope(List[Name], List[Cmd])
+
+function scope_params(sc: Scope): List[Name] :=
+  match sc
+    case Scope(ps, _) => ps
+  end
+
+function scope_notations(sc: Scope): List[Cmd] :=
+  match sc
+    case Scope(_, ns) => ns
+  end
+
+function keywords(): List[Name] :=
+  [
+    "_", "assert", "assign", "call", "case", "catch", "data", "else", "end", "eval", "false", "for", "function", "if", "import",
+    "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix", "procedure", "raise", "ref", "run", "skip",
+    "test", "then", "true", "type", "try", "while"
+  ]
+
+function is_keyword(n: Name): Bool :=
+  contains(n, keywords())
+
+// symbols with a fixed meaning, which cannot be operators
+function is_reserved(s: Str): Bool :=
+  contains(s, ["=", "=>", ":=", ":", "|"])
+
+// notations
+
+function prefix_prec(ns: List[Cmd], op: Name): Option[Int] :=
+  match ns
+    case Nil => None
+    case [CNotation(FPrefix, p, ops); _] if contains(op, ops) => Some(p)
+    case [_; more] => prefix_prec(more, op)
+  end
+
+function postfix_prec(ns: List[Cmd], op: Name): Option[Int] :=
+  match ns
+    case Nil => None
+    case [CNotation(FPostfix, p, ops); _] if contains(op, ops) => Some(p)
+    case [_; more] => postfix_prec(more, op)
+  end
+
+function infix_of(ns: List[Cmd], op: Name): Option[Fixity * Int] :=
+  match ns
+    case Nil => None
+    case [CNotation(f, p, ops); _] if contains(op, ops) and f != FPrefix and f != FPostfix => Some((f, p))
+    case [_; more] => infix_of(more, op)
+  end
+
+function declared(ns: List[Cmd], op: Name): Bool :=
+  match ns
+    case Nil => false
+    case [CNotation(_, _, ops); _] if contains(op, ops) => true
+    case [_; more] => declared(more, op)
+  end
+
+// tokens
+
+function head_token(ts: List[Token * Int]): Token :=
+  match ts
+    case [(t, _); _] => t
+    else TEnd
+  end
+
+function second_token(ts: List[Token * Int]): Token :=
+  match ts
+    case [_, (t, _); _] => t
+    else TEnd
+  end
+
+function head_offset(ts: List[Token * Int]): Int :=
+  match ts
+    case [(_, i); _] => i
+    else 0
+  end
+
+function at_keyword(ts: List[Token * Int], w: Str): Bool :=
+  head_token(ts) == TName(w)
+
+function at_punct(ts: List[Token * Int], c: Char): Bool :=
+  head_token(ts) == TPunct(c)
+
+function describe(t: Token): Str :=
+  match t
+    case TName(n) => n
+    case TSym(s) => s
+    case TPunct(c) => string([c])
+    case TNum(n) => str_show(n)
+    case TStr(s) => str_quote(s)
+    case TChar(c) => "'" ^ string([c]) ^ "'"
+    case TEnd => "end of input"
+  end
+
+// a name that may be declared as an operator, as a name and an operator are
+function operator_at(ns: List[Cmd], ts: List[Token * Int]): Option[Name] :=
+  match head_token(ts)
+    case TSym(s) if not is_reserved(s) => Some(s)
+    case TName(n) if declared(ns, n) => Some(n)
+    else None
+  end
+
+procedure advance(ref ts: List[Token * Int]) :=
+  match ts
+    case [_; more] =>
+      assign ts := more
+    else
+      skip
+  end
+
+procedure expect(in t: Token, ref ts: List[Token * Int]) :=
+  if head_token(ts) == t
+    call advance(ref ts)
+  else
+    raise ParseError(describe(t) ^ " expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
+  end
+
+procedure keyword(in w: Str, ref ts: List[Token * Int]) :=
+  call expect(in TName(w), ref ts)
+
+// a name that is not a keyword
+procedure parse_name(out n: Name, ref ts: List[Token * Int]) :=
+  match head_token(ts)
+    case TName(m) if not is_keyword(m) =>
+      assign n := m
+      call   advance(ref ts)
+    else
+      raise ParseError("name expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
+  end
+
+// a name that is not declared as an operator
+procedure parse_plain(in sc: Scope, out n: Name, ref ts: List[Token * Int]) :=
+  match head_token(ts)
+    case TName(m) if declared(scope_notations(sc), m) =>
+      raise ParseError("operator " ^ m ^ " is not a name", head_offset(ts))
+    else
+      call parse_name(out n, ref ts)
+  end
+
+// a name or a symbol that is not reserved
+procedure parse_name_or_symbol(out n: Name, ref ts: List[Token * Int]) :=
+  match head_token(ts)
+    case TSym(s) if not is_reserved(s) =>
+      assign n := s
+      call   advance(ref ts)
+    else
+      call parse_name(out n, ref ts)
+  end
+
+// precedence climbing as Resolve in ulang/src/ulang/Parser.scala, where prefix operators bind their operand with their own precedence
+
+// operands and operators, which remember their offsets for errors
+data Item[A] :=
+  | Operand(A)
+  | Operator(Name, Int)
+
+// the notations, and how to apply prefix, postfix, and infix operators
+data Ops[A] :=
+  | Ops(List[Cmd], (Name, A) -> A, (Name, A) -> A, (Name, A, A) -> A)
+
+function ops_notations[A](o: Ops[A]): List[Cmd] :=
+  match o
+    case Ops(ns, _, _, _) => ns
+  end
+
+function apply_prefix[A](o: Ops[A], op: Name, a: A): A :=
+  match o
+    case Ops(_, f, _, _) => f(op, a)
+  end
+
+function apply_postfix[A](o: Ops[A], op: Name, a: A): A :=
+  match o
+    case Ops(_, _, f, _) => f(op, a)
+  end
+
+function apply_infix[A](o: Ops[A], op: Name, a: A, b: A): A :=
+  match o
+    case Ops(_, _, _, f) => f(op, a, b)
+  end
+
+// the operand of all items, where at is the offset after them
+procedure resolve[A](in items: List[Item[A]], o: Ops[A], at: Int, out a: A) :=
+  local  rest: List[Item[A]]
+  call   climb(in items, 0, o, at, out a, rest)
+  match rest
+    case Nil =>
+      skip
+    case [Operator(op, i); _] =>
+      raise ParseError("unexpected operator " ^ op, i)
+    else
+      raise ParseError("missing operator", at)
+  end
+
+procedure climb[A](in items: List[Item[A]], min: Int, o: Ops[A], at: Int, out a: A, rest: List[Item[A]]) :=
+  local  lhs: A, more: List[Item[A]]
+  call   operand(in items, o, at, out lhs, more)
+  call   climb_loop(in lhs, more, min, o, at, out a, rest)
+
+procedure operand[A](in items: List[Item[A]], o: Ops[A], at: Int, out a: A, rest: List[Item[A]]) :=
+  local b: A
+  match items
+    case [Operand(x); more] =>
+      assign a := x, rest := more
+    case [Operator(op, i); more] =>
+      match prefix_prec(ops_notations(o), op)
+        case Some(p) =>
+          call   climb(in more, p, o, at, out b, rest)
+          assign a := apply_prefix(o, op, b)
+        case None if declared(ops_notations(o), op) =>
+          raise ParseError(op ^ " is not a prefix operator", i)
+        case None =>
+          raise ParseError("undeclared operator " ^ op, i)
+      end
+    case Nil =>
+      raise ParseError("missing operand", at)
+  end
+
+procedure climb_loop[A](in lhs: A, items: List[Item[A]], min: Int, o: Ops[A], at: Int, out a: A, rest: List[Item[A]]) :=
+  local rhs: A, more: List[Item[A]]
+  match items
+    case [Operator(op, i); tail] =>
+      match (postfix_prec(ops_notations(o), op), infix_of(ops_notations(o), op))
+        case (Some(p), _) if p >= min =>
+          call climb_loop(in apply_postfix(o, op, lhs), tail, min, o, at, out a, rest)
+        case (_, Some((f, p))) if p >= min =>
+          call climb(in tail, if f == FRight then p else p + 1, o, at, out rhs, more)
+          call nonassociative(in op, f, p, more, ops_notations(o))
+          call climb_loop(in apply_infix(o, op, lhs, rhs), more, min, o, at, out a, rest)
+        case _ if not declared(ops_notations(o), op) =>
+          raise ParseError("undeclared operator " ^ op, i)
+        else
+          assign a := lhs, rest := items
+      end
+    else
+      assign a := lhs, rest := items
+  end
+
+procedure nonassociative[A](in op: Name, f: Fixity, p: Int, rest: List[Item[A]], ns: List[Cmd]) :=
+  match rest
+    case [Operator(next, i); _] if f == FInfix and is_prec(infix_of(ns, next), p) =>
+      raise ParseError("operator " ^ op ^ " is not associative", i)
+    else
+      skip
+  end
+
+function is_prec(fp: Option[Fixity * Int], p: Int): Bool :=
+  match fp
+    case Some((_, q)) => q == p
+    else false
+  end
+
+// types, whose operands are lists, since only the arguments of a function are written (A, B),
+// and the components of a tuple type A * B * C are collected in TSort("(product)", _), such that (A * B) * C stays nested
+
+function type_one(ts: List[Type]): Type :=
+  match ts
+    case [TSort("(product)", cs)] => TTuple(cs)
+    case [t] => t
+    case Nil => TTuple(Nil)
+    else TSort("(invalid)", ts)
+  end
+
+function type_components(ts: List[Type]): List[Type] :=
+  match ts
+    case [TSort("(product)", cs)] => cs
+    else [type_one(ts)]
+  end
+
+function type_prefix(op: Name, t: List[Type]): List[Type] :=
+  [TSort(op, [type_one(t)])]
+
+function type_infix(op: Name, l: List[Type], r: List[Type]): List[Type] :=
+  if op == "->" then
+    [TFun([type_one([t]) for t in l], type_one(r))]
+  else if op == "*" then
+    [TSort("(product)", type_components(l) ++ type_components(r))]
+  else
+    [TSort(op, [type_one(l), type_one(r)])]
+
+function has_invalid(t: Type): Bool :=
+  match t
+    case TSort("(invalid)", _) => true
+    case TSort(_, ts) => any_invalid(ts)
+    case TFun(ts, r) => any_invalid(ts) or has_invalid(r)
+    case TTuple(ts) => any_invalid(ts)
+    else false
+  end
+
+function any_invalid(ts: List[Type]): Bool :=
+  match ts
+    case Nil => false
+    case [t; more] => has_invalid(t) or any_invalid(more)
+  end
+
+function starts_type(ns: List[Cmd], t: Token): Bool :=
+  match t
+    case TName(n) => not is_keyword(n) and not declared(ns, n)
+    case TPunct('(') => true
+    else false
+  end
+
+procedure parse_type(in sc: Scope, out t: Type, ref ts: List[Token * Int]) :=
+  local  start: Int, items: List[Item[List[Type]]], r: List[Type]
+  assign start := head_offset(ts)
+  call   type_items(in sc, out items, ref ts)
+  call   resolve(in items, Ops(scope_notations(sc), type_prefix, type_prefix, type_infix), head_offset(ts), out r)
+  assign t := type_one(r)
+
+  if has_invalid(t)
+    raise ParseError("tuple types are written A * B", start)
+  end
+
+procedure type_items(in sc: Scope, out items: List[Item[List[Type]]], ref ts: List[Token * Int]) :=
+  local  rev: List[Item[List[Type]]], next: Bool, go: Bool, b: List[Type]
+  assign rev := Nil, next := true, go := true
+
+  while go
+    match operator_at(scope_notations(sc), ts)
+      case Some(op) =>
+        assign rev := [Operator(op, head_offset(ts)); rev], next := true
+        call   advance(ref ts)
+      case None if next and starts_type(scope_notations(sc), head_token(ts)) =>
+        call   type_basic(in sc, out b, ref ts)
+        assign rev := [Operand(b); rev], next := false
+      else
+        assign go := false
+    end
+  end
+
+  match rev
+    case Nil =>
+      raise ParseError("type expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
+    else
+      assign items := reverse(rev)
+  end
+
+// a type, a type in parentheses, the arguments (A, B) of a function, or ()
+procedure type_basic(in sc: Scope, out r: List[Type], ref ts: List[Token * Int]) :=
+  local n: Name, args: List[Type]
+
+  if at_punct(ts, '(')
+    call advance(ref ts)
+    call type_list(in sc, ')', out r, ref ts)
+  else
+    call parse_plain(in sc, out n, ref ts)
+
+    if at_punct(ts, '[')
+      call   advance(ref ts)
+      call   type_list(in sc, ']', out args, ref ts)
+      assign r := [TSort(n, args)]
+    else if contains(n, scope_params(sc))
+      assign r := [TParam(n)]
+    else
+      assign r := [TSort(n, Nil)]
+    end
+  end
+
+// types separated by commas until close, which may be empty only for )
+procedure type_list(in sc: Scope, close: Char, out r: List[Type], ref ts: List[Token * Int]) :=
+  local  t: Type, rev: List[Type]
+  assign rev := Nil
+
+  if close == ')' and at_punct(ts, close)
+    call advance(ref ts)
+  else
+    call   parse_type(in sc, out t, ref ts)
+    assign rev := [t]
+
+    while at_punct(ts, ',')
+      call   advance(ref ts)
+      call   parse_type(in sc, out t, ref ts)
+      assign rev := [t; rev]
+    end
+    call expect(in TPunct(close), ref ts)
+  end
+  assign r := reverse(rev)
+
+// expressions
+
+function expr_op1(op: Name, a: Expr): Expr :=
+  EApp(EVar(Var(op, THole)), [a])
+
+function expr_op2(op: Name, a: Expr, b: Expr): Expr :=
+  EApp(EVar(Var(op, THole)), [a, b])
+
+function cons_exprs(es: List[Expr], rest: Expr): Expr :=
+  match es
+    case Nil => rest
+    case [e; more] => expr_op2("Cons", e, cons_exprs(more, rest))
+  end
+
+function starts_expr(ns: List[Cmd], t: Token): Bool :=
+  match t
+    case TName(n) => contains(n, ["let", "if", "lambda", "match", "true", "false"]) or not is_keyword(n) and not declared(ns, n)
+    case TNum(_) => true
+    case TStr(_) => true
+    case TChar(_) => true
+    case TPunct(c) => c == '(' or c == '['
+    else false
+  end
+
+procedure parse_expr(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
+  local  items: List[Item[Expr]]
+  call   expr_items(in sc, out items, ref ts)
+  call   resolve(in items, Ops(scope_notations(sc), expr_op1, expr_op1, expr_op2), head_offset(ts), out e)
+
+// operands and operators, where an operand follows only an operator, since let, if, and lambda extend as far to the right as possible
+procedure expr_items(in sc: Scope, out items: List[Item[Expr]], ref ts: List[Token * Int]) :=
+  local  rev: List[Item[Expr]], next: Bool, go: Bool, e: Expr
+  assign rev := Nil, next := true, go := true
+
+  while go
+    match operator_at(scope_notations(sc), ts)
+      case Some(op) =>
+        assign rev := [Operator(op, head_offset(ts)); rev], next := true
+        call   advance(ref ts)
+      case None if next and starts_expr(scope_notations(sc), head_token(ts)) =>
+        call   parse_app(in sc, out e, ref ts)
+        assign rev := [Operand(e); rev], next := false
+      else
+        assign go := false
+    end
+  end
+
+  match rev
+    case Nil =>
+      raise ParseError("expression expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
+    else
+      assign items := reverse(rev)
+  end
+
+// expressions separated by commas, at least one
+procedure parse_exprs(in sc: Scope, out es: List[Expr], ref ts: List[Token * Int]) :=
+  local  e: Expr, rev: List[Expr]
+  call   parse_expr(in sc, out e, ref ts)
+  assign rev := [e]
+
+  while at_punct(ts, ',')
+    call   advance(ref ts)
+    call   parse_expr(in sc, out e, ref ts)
+    assign rev := [e; rev]
+  end
+  assign es := reverse(rev)
+
+// expressions separated by commas until close, which may be empty
+procedure expr_list(in sc: Scope, close: Char, out es: List[Expr], ref ts: List[Token * Int]) :=
+  if at_punct(ts, close)
+    call   advance(ref ts)
+    assign es := Nil
+  else
+    call parse_exprs(in sc, out es, ref ts)
+    call expect(in TPunct(close), ref ts)
+  end
+
+procedure parse_app(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
+  local  args: List[Expr]
+  call   parse_atom(in sc, out e, ref ts)
+
+  while at_punct(ts, '(')
+    call   advance(ref ts)
+    call   expr_list(in sc, ')', out args, ref ts)
+    assign e := EApp(e, args)
+  end
+
+procedure parse_atom(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
+  local a: Expr, l: Expr, r: Expr, cs: List[Branch[Expr]], es: List[Expr]
+  match head_token(ts)
+    case TName("let") =>
+      call parse_let(in sc, out e, ref ts)
+    case TName("if") =>
+      call   advance(ref ts)
+      call   parse_expr(in sc, out a, ref ts)
+      call   keyword(in "then", ref ts)
+      call   parse_expr(in sc, out l, ref ts)
+      call   keyword(in "else", ref ts)
+      call   parse_expr(in sc, out r, ref ts)
+      assign e := EIte(a, l, r)
+    case TName("lambda") =>
+      call parse_lambda(in sc, out e, ref ts)
+    case TName("match") =>
+      call   advance(ref ts)
+      call   parse_expr(in sc, out a, ref ts)
+      call   expr_cases(in sc, out cs, ref ts)
+      assign e := EMatch(a, cs)
+    case TName("true") =>
+      call   advance(ref ts)
+      assign e := ELit(VBool(true))
+    case TName("false") =>
+      call   advance(ref ts)
+      assign e := ELit(VBool(false))
+    case TNum(n) =>
+      call   advance(ref ts)
+      assign e := ELit(VInt(n))
+    case TStr(s) =>
+      call   advance(ref ts)
+      assign e := ELit(VStr(s))
+    case TChar(c) =>
+      call   advance(ref ts)
+      assign e := ELit(VChar(c))
+    case TPunct('(') =>
+      call advance(ref ts)
+      call expr_list(in sc, ')', out es, ref ts)
+      match es
+        case [x] =>
+          assign e := x
+        else
+          assign e := ETuple(es)
+      end
+    case TPunct('[') =>
+      call parse_brackets(in sc, out e, ref ts)
+    case TName(n) if not is_keyword(n) and not declared(scope_notations(sc), n) =>
+      call   advance(ref ts)
+      assign e := EVar(Var(n, THole))
+    else
+      raise ParseError("expression expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
+  end
+
+// the variables of patterns that are all variables
+function pattern_vars(ps: List[Pat]): Option[List[Var]] :=
+  match ps
+    case Nil => Some(Nil)
+    case [PVar(x); more] =>
+      match pattern_vars(more)
+        case Some(xs) => Some([x; xs])
+        case None => None
+      end
+    else None
+  end
+
+// let x := e, y := f in b binds variables in parallel, other patterns are matched against the tuple of values
+procedure parse_let(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
+  local  p: Pat, a: Expr, b: Expr, ps: List[Pat], es: List[Expr]
+  call   advance(ref ts)
+  call   parse_pattern(in sc, out p, ref ts)
+  call   expect(in TSym(":="), ref ts)
+  call   parse_expr(in sc, out a, ref ts)
+  assign ps := [p], es := [a]
+
+  while at_punct(ts, ',')
+    call   advance(ref ts)
+    call   parse_pattern(in sc, out p, ref ts)
+    call   expect(in TSym(":="), ref ts)
+    call   parse_expr(in sc, out a, ref ts)
+    assign ps := [p; ps], es := [a; es]
+  end
+  call   keyword(in "in", ref ts)
+  call   parse_expr(in sc, out b, ref ts)
+  assign ps := reverse(ps), es := reverse(es)
+
+  match (pattern_vars(ps), ps, es)
+    case (Some(xs), _, _) =>
+      assign e := ELet(zip(xs, es), b)
+    case (None, [q], [c]) =>
+      assign e := EMatch(c, [Branch(q, None, b)])
+    else
+      assign e := EMatch(ETuple(es), [Branch(PTuple(ps), None, b)])
+  end
+
+procedure parse_lambda(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
+  local  x: Name, xs: List[Var], b: Expr
+  call   advance(ref ts)
+  assign xs := Nil
+
+  if head_token(ts) != TSym("=>")
+    call   parse_plain(in sc, out x, ref ts)
+    assign xs := [Var(x, THole)]
+
+    while at_punct(ts, ',')
+      call   advance(ref ts)
+      call   parse_plain(in sc, out x, ref ts)
+      assign xs := [Var(x, THole); xs]
+    end
+  end
+  call   expect(in TSym("=>"), ref ts)
+  call   parse_expr(in sc, out b, ref ts)
+  assign e := ELam(reverse(xs), b)
+
+// [a, b] is a :: b :: Nil, [a, b; c] is a :: b :: c, and [result for x in xs, y in ys if test], where if test is optional
+procedure parse_brackets(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
+  local first: Expr, es: List[Expr], rest: Expr, x: Name, xs: List[Var], l: Expr, lists: List[Expr], c: Expr
+  call advance(ref ts)
+
+  if at_punct(ts, ']')
+    call   advance(ref ts)
+    assign e := EVar(Var("Nil", THole))
+  else
+    call parse_expr(in sc, out first, ref ts)
+
+    if at_keyword(ts, "for")
+      call   advance(ref ts)
+      call   parse_plain(in sc, out x, ref ts)
+      call   keyword(in "in", ref ts)
+      call   parse_expr(in sc, out l, ref ts)
+      assign xs := [Var(x, THole)], lists := [l]
+
+      while at_punct(ts, ',')
+        call   advance(ref ts)
+        call   parse_plain(in sc, out x, ref ts)
+        call   keyword(in "in", ref ts)
+        call   parse_expr(in sc, out l, ref ts)
+        assign xs := [Var(x, THole); xs], lists := [l; lists]
+      end
+      assign c := ELit(VBool(true))
+
+      if at_keyword(ts, "if")
+        call advance(ref ts)
+        call parse_expr(in sc, out c, ref ts)
+      end
+      call   expect(in TPunct(']'), ref ts)
+      assign e := EComp(first, reverse(xs), reverse(lists), c)
+    else
+      assign es := [first]
+
+      while at_punct(ts, ',')
+        call   advance(ref ts)
+        call   parse_expr(in sc, out first, ref ts)
+        assign es := [first; es]
+      end
+      assign rest := EVar(Var("Nil", THole))
+
+      if at_punct(ts, ';')
+        call advance(ref ts)
+        call parse_expr(in sc, out rest, ref ts)
+      end
+      call   expect(in TPunct(']'), ref ts)
+      assign e := cons_exprs(reverse(es), rest)
+    end
+  end
+
+procedure parse_guard(in sc: Scope, out g: Option[Expr], ref ts: List[Token * Int]) :=
+  local e: Expr
+
+  if at_keyword(ts, "if")
+    call   advance(ref ts)
+    call   parse_expr(in sc, out e, ref ts)
+    assign g := Some(e)
+  else
+    assign g := None
+  end
+
+// case p if g => b, where else b is the last case _ => b
+procedure expr_cases(in sc: Scope, out cs: List[Branch[Expr]], ref ts: List[Token * Int]) :=
+  local  rev: List[Branch[Expr]], p: Pat, g: Option[Expr], b: Expr
+  assign rev := Nil
+
+  while at_keyword(ts, "case")
+    call   advance(ref ts)
+    call   parse_pattern(in sc, out p, ref ts)
+    call   parse_guard(in sc, out g, ref ts)
+    call   expect(in TSym("=>"), ref ts)
+    call   parse_expr(in sc, out b, ref ts)
+    assign rev := [Branch(p, g, b); rev]
+  end
+
+  if at_keyword(ts, "else")
+    call   advance(ref ts)
+    call   parse_expr(in sc, out b, ref ts)
+    assign rev := [Branch(PWild, None, b); rev]
+    call   last_case(ref ts)
+  end
+  call   keyword(in "end", ref ts)
+  assign cs := reverse(rev)
+
+procedure last_case(ref ts: List[Token * Int]) :=
+  if at_keyword(ts, "case")
+    raise ParseError("else must be the last case", head_offset(ts))
+  end
+
+// patterns, where operators are constructors
+
+function pat_op1(op: Name, p: Pat): Pat :=
+  PApp(op, [p])
+
+function pat_op2(op: Name, l: Pat, r: Pat): Pat :=
+  PApp(op, [l, r])
+
+function cons_pats(ps: List[Pat], rest: Pat): Pat :=
+  match ps
+    case Nil => rest
+    case [p; more] => PApp("Cons", [p, cons_pats(more, rest)])
+  end
+
+function starts_pattern(ns: List[Cmd], t: Token): Bool :=
+  match t
+    case TName(n) => contains(n, ["_", "true", "false"]) or not is_keyword(n) and not declared(ns, n)
+    case TNum(_) => true
+    case TStr(_) => true
+    case TChar(_) => true
+    case TPunct(c) => c == '(' or c == '['
+    else false
+  end
+
+procedure parse_pattern(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
+  local  items: List[Item[Pat]]
+  call   pattern_items(in sc, out items, ref ts)
+  call   resolve(in items, Ops(scope_notations(sc), pat_op1, pat_op1, pat_op2), head_offset(ts), out p)
+
+procedure pattern_items(in sc: Scope, out items: List[Item[Pat]], ref ts: List[Token * Int]) :=
+  local  rev: List[Item[Pat]], next: Bool, go: Bool, p: Pat
+  assign rev := Nil, next := true, go := true
+
+  while go
+    match operator_at(scope_notations(sc), ts)
+      case Some(op) =>
+        assign rev := [Operator(op, head_offset(ts)); rev], next := true
+        call   advance(ref ts)
+      case None if next and starts_pattern(scope_notations(sc), head_token(ts)) =>
+        call   pattern_simple(in sc, out p, ref ts)
+        assign rev := [Operand(p); rev], next := false
+      else
+        assign go := false
+    end
+  end
+
+  match rev
+    case Nil =>
+      raise ParseError("pattern expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
+    else
+      assign items := reverse(rev)
+  end
+
+// patterns separated by commas until close, which may be empty
+procedure pattern_list(in sc: Scope, close: Char, out ps: List[Pat], ref ts: List[Token * Int]) :=
+  local  p: Pat, rev: List[Pat]
+  assign rev := Nil
+
+  if at_punct(ts, close)
+    call advance(ref ts)
+  else
+    call   parse_pattern(in sc, out p, ref ts)
+    assign rev := [p]
+
+    while at_punct(ts, ',')
+      call   advance(ref ts)
+      call   parse_pattern(in sc, out p, ref ts)
+      assign rev := [p; rev]
+    end
+    call expect(in TPunct(close), ref ts)
+  end
+  assign ps := reverse(rev)
+
+procedure pattern_simple(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
+  local n: Name, ps: List[Pat], rest: Pat
+  match head_token(ts)
+    case TName("_") =>
+      call   advance(ref ts)
+      assign p := PWild
+    case TName("true") =>
+      call   advance(ref ts)
+      assign p := PLit(VBool(true))
+    case TName("false") =>
+      call   advance(ref ts)
+      assign p := PLit(VBool(false))
+    case TNum(k) =>
+      call   advance(ref ts)
+      assign p := PLit(VInt(k))
+    case TStr(s) =>
+      call   advance(ref ts)
+      assign p := PLit(VStr(s))
+    case TChar(c) =>
+      call   advance(ref ts)
+      assign p := PLit(VChar(c))
+    case TPunct('(') =>
+      call advance(ref ts)
+      call pattern_list(in sc, ')', out ps, ref ts)
+      match ps
+        case [q] =>
+          assign p := q
+        else
+          assign p := PTuple(ps)
+      end
+    case TPunct('[') =>
+      call advance(ref ts)
+
+      if at_punct(ts, ']')
+        call   advance(ref ts)
+        assign p := PApp("Nil", Nil)
+      else
+        call   parse_pattern(in sc, out p, ref ts)
+        assign ps := [p]
+
+        while at_punct(ts, ',')
+          call   advance(ref ts)
+          call   parse_pattern(in sc, out p, ref ts)
+          assign ps := [p; ps]
+        end
+        assign rest := PApp("Nil", Nil)
+
+        if at_punct(ts, ';')
+          call advance(ref ts)
+          call parse_pattern(in sc, out rest, ref ts)
+        end
+        call   expect(in TPunct(']'), ref ts)
+        assign p := cons_pats(reverse(ps), rest)
+      end
+    else
+      call parse_plain(in sc, out n, ref ts)
+
+      if at_punct(ts, '(')
+        call   advance(ref ts)
+        call   pattern_list(in sc, ')', out ps, ref ts)
+        assign p := PApp(n, ps)
+      else
+        assign p := PVar(Var(n, THole))
+      end
+  end
+
+// statements
+
+function starts_stmt(t: Token): Bool :=
+  match t
+    case TName(n) => contains(n, ["skip", "if", "while", "call", "match", "assert", "assign", "raise", "try"])
+    else false
+  end
+
+function handlers(cs: List[Branch[Stmt]]): List[Handler] :=
+  match cs
+    case Nil => Nil
+    case [Branch(p, g, b); more] => [Handler(THole, p, g, b); handlers(more)]
+  end
+
+// the body of an if, while, case, or procedure, which may declare variables first
+procedure parse_body(in sc: Scope, out b: Stmt, ref ts: List[Token * Int]) :=
+  local  xs: List[Var], more: List[Var], s: Stmt, rev: List[Stmt]
+  assign xs := Nil, rev := Nil
+
+  while at_keyword(ts, "local")
+    call   advance(ref ts)
+    call   formals1(in sc, out more, ref ts)
+    assign xs := xs ++ more
+  end
+
+  while starts_stmt(head_token(ts))
+    call   parse_stmt(in sc, out s, ref ts)
+    assign rev := [s; rev]
+  end
+  assign b := SBlock(xs, reverse(rev))
+
+procedure parse_stmt(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
+  local e: Expr, b: Stmt, cs: List[Branch[Stmt]]
+  match head_token(ts)
+    case TName("skip") =>
+      call   advance(ref ts)
+      assign s := SSkip
+    case TName("if") =>
+      call parse_if(in sc, out s, ref ts)
+    case TName("while") =>
+      call   advance(ref ts)
+      call   parse_expr(in sc, out e, ref ts)
+      call   parse_body(in sc, out b, ref ts)
+      call   keyword(in "end", ref ts)
+      assign s := SWhile(e, b)
+    case TName("call") =>
+      call parse_call(in sc, out s, ref ts)
+    case TName("match") =>
+      call   advance(ref ts)
+      call   parse_expr(in sc, out e, ref ts)
+      call   stmt_cases(in sc, out cs, ref ts)
+      assign s := SMatch(e, cs)
+    case TName("assert") =>
+      call   advance(ref ts)
+      call   parse_expr(in sc, out e, ref ts)
+      assign s := SAssert(e)
+    case TName("assign") =>
+      call parse_assign(in sc, out s, ref ts)
+    case TName("raise") =>
+      call   advance(ref ts)
+      call   parse_expr(in sc, out e, ref ts)
+      assign s := SRaise(e, THole)
+    case TName("try") =>
+      call   advance(ref ts)
+      call   parse_body(in sc, out b, ref ts)
+      call   keyword(in "catch", ref ts)
+      call   stmt_cases(in sc, out cs, ref ts)
+      assign s := STry(b, handlers(cs))
+    else
+      raise ParseError("statement expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
+  end
+
+// the bodies start with a keyword, which ends the condition, and an if after else ends the whole chain
+procedure parse_if(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
+  local  c: Expr, l: Stmt, r: Stmt
+  call   advance(ref ts)
+  call   parse_expr(in sc, out c, ref ts)
+  call   parse_body(in sc, out l, ref ts)
+
+  if not at_keyword(ts, "else")
+    call   keyword(in "end", ref ts)
+    assign r := SSkip
+  else if second_token(ts) == TName("if")
+    call advance(ref ts)
+    call parse_if(in sc, out r, ref ts)
+  else
+    call advance(ref ts)
+    call parse_body(in sc, out r, ref ts)
+    call keyword(in "end", ref ts)
+  end
+  assign s := SIf(c, l, r)
+
+procedure parse_assign(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
+  local  x: Name, e: Expr, rev: List[Var * Expr]
+  call   advance(ref ts)
+  call   parse_plain(in sc, out x, ref ts)
+  call   expect(in TSym(":="), ref ts)
+  call   parse_expr(in sc, out e, ref ts)
+  assign rev := [(Var(x, THole), e)]
+
+  while at_punct(ts, ',')
+    call   advance(ref ts)
+    call   parse_plain(in sc, out x, ref ts)
+    call   expect(in TSym(":="), ref ts)
+    call   parse_expr(in sc, out e, ref ts)
+    assign rev := [(Var(x, THole), e); rev]
+  end
+  assign s := SAssign(reverse(rev))
+
+procedure stmt_cases(in sc: Scope, out cs: List[Branch[Stmt]], ref ts: List[Token * Int]) :=
+  local  rev: List[Branch[Stmt]], p: Pat, g: Option[Expr], b: Stmt
+  assign rev := Nil
+
+  while at_keyword(ts, "case")
+    call   advance(ref ts)
+    call   parse_pattern(in sc, out p, ref ts)
+    call   parse_guard(in sc, out g, ref ts)
+    call   expect(in TSym("=>"), ref ts)
+    call   parse_body(in sc, out b, ref ts)
+    assign rev := [Branch(p, g, b); rev]
+  end
+
+  if at_keyword(ts, "else")
+    call   advance(ref ts)
+    call   parse_body(in sc, out b, ref ts)
+    assign rev := [Branch(PWild, None, b); rev]
+    call   last_case(ref ts)
+  end
+  call   keyword(in "end", ref ts)
+  assign cs := reverse(rev)
+
+// the next section starts with keyword w, after a comma unless it is the first section
+function section_at(ts: List[Token * Int], w: Str, first: Bool): Bool :=
+  if first then at_keyword(ts, w) else at_punct(ts, ',') and second_token(ts) == TName(w)
+
+// a comma before another item of a section, not before the keyword of the next section
+function item_follows(ts: List[Token * Int]): Bool :=
+  at_punct(ts, ',') and second_token(ts) != TName("out") and second_token(ts) != TName("ref")
+
+// call p(in ins, out outs, ref refs), where each section starts with its keyword, and empty sections are omitted
+procedure parse_call(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
+  local  p: Name, e: Expr, ins: List[Expr], outs: List[Var], refs: List[Var], first: Bool
+  call   advance(ref ts)
+  call   parse_name(out p, ref ts)
+  call   expect(in TPunct('('), ref ts)
+  assign ins := Nil, outs := Nil, refs := Nil, first := true
+
+  if at_keyword(ts, "in")
+    call   advance(ref ts)
+    call   parse_expr(in sc, out e, ref ts)
+    assign ins := [e], first := false
+
+    while item_follows(ts)
+      call   advance(ref ts)
+      call   parse_expr(in sc, out e, ref ts)
+      assign ins := [e; ins]
+    end
+  end
+
+  if section_at(ts, "out", first)
+    call   skip_comma(in first, ref ts)
+    call   variables(in sc, out outs, ref ts)
+    assign first := false
+  end
+
+  if section_at(ts, "ref", first)
+    call skip_comma(in first, ref ts)
+    call variables(in sc, out refs, ref ts)
+  end
+  call   expect(in TPunct(')'), ref ts)
+  assign s := SCall(p, reverse(ins), outs, refs)
+
+// the comma before a section unless it is the first, and the keyword of the section
+procedure skip_comma(in first: Bool, ref ts: List[Token * Int]) :=
+  if not first
+    call advance(ref ts)
+  end
+  call advance(ref ts)
+
+procedure variables(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
+  local  x: Name, rev: List[Var]
+  call   parse_plain(in sc, out x, ref ts)
+  assign rev := [Var(x, THole)]
+
+  while item_follows(ts)
+    call   advance(ref ts)
+    call   parse_plain(in sc, out x, ref ts)
+    assign rev := [Var(x, THole); rev]
+  end
+  assign xs := reverse(rev)
+
+// only parameters and locals have type annotations
+procedure formal(in sc: Scope, out x: Var, ref ts: List[Token * Int]) :=
+  local  n: Name, t: Type
+  call   parse_plain(in sc, out n, ref ts)
+  assign t := THole
+
+  if head_token(ts) == TSym(":")
+    call advance(ref ts)
+    call parse_type(in sc, out t, ref ts)
+  end
+  assign x := Var(n, t)
+
+// formals separated by commas, at least one, up to the keyword of the next section
+procedure formals1(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
+  local  x: Var, rev: List[Var]
+  call   formal(in sc, out x, ref ts)
+  assign rev := [x]
+
+  while item_follows(ts)
+    call   advance(ref ts)
+    call   formal(in sc, out x, ref ts)
+    assign rev := [x; rev]
+  end
+  assign xs := reverse(rev)
+
+// formals in parentheses, which may be empty
+procedure formals(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
+  call expect(in TPunct('('), ref ts)
+
+  if at_punct(ts, ')')
+    assign xs := Nil
+  else
+    call formals1(in sc, out xs, ref ts)
+  end
+  call expect(in TPunct(')'), ref ts)
+
+// commands
+
+function declarations(cs: List[Cmd]): List[Cmd] :=
+  match cs
+    case Nil => Nil
+    case [CEval(_); more] => declarations(more)
+    case [CRun(_, _); more] => declarations(more)
+    case [CTest(_, _); more] => declarations(more)
+    case [c; more] => [c; declarations(more)]
+  end
+
+function program_notations(p: Program): List[Cmd] :=
+  match p
+    case Program(cs) => [c for c in cs if is_notation(c)]
+  end
+
+function is_notation(c: Cmd): Bool :=
+  match c
+    case CNotation(_, _, _) => true
+    else false
+  end
+
+function program_imports(p: Program): List[Name] :=
+  match p
+    case Program(cs) => imported(cs)
+  end
+
+function imported(cs: List[Cmd]): List[Name] :=
+  match cs
+    case Nil => Nil
+    case [CImport(n); more] => [n; imported(more)]
+    case [_; more] => imported(more)
+  end
+
+// the type parameters [A, B] of a declaration, if any
+procedure type_params(out ps: List[Name], ref ts: List[Token * Int]) :=
+  local  n: Name, rev: List[Name]
+  assign rev := Nil
+
+  if at_punct(ts, '[')
+    call   advance(ref ts)
+    call   parse_name(out n, ref ts)
+    assign rev := [n]
+
+    while at_punct(ts, ',')
+      call   advance(ref ts)
+      call   parse_name(out n, ref ts)
+      assign rev := [n; rev]
+    end
+    call expect(in TPunct(']'), ref ts)
+  end
+  assign ps := reverse(rev)
+
+procedure parse_notation(out c: Cmd, ref ts: List[Token * Int]) :=
+  local  f: Fixity, p: Int, ops: List[Name], go: Bool
+  assign f := FInfix
+
+  match head_token(ts)
+    case TName("prefix") =>
+      assign f := FPrefix
+    case TName("postfix") =>
+      assign f := FPostfix
+    else
+      match second_token(ts)
+        case TName("left") =>
+          assign f := FLeft
+          call   advance(ref ts)
+        case TName("right") =>
+          assign f := FRight
+          call   advance(ref ts)
+        else
+          skip
+      end
+  end
+  call advance(ref ts)
+
+  match head_token(ts)
+    case TNum(n) =>
+      assign p := n
+      call   advance(ref ts)
+    else
+      raise ParseError("precedence expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
+  end
+  assign ops := Nil, go := true
+
+  while go
+    match head_token(ts)
+      case TSym(s) if not is_reserved(s) =>
+        assign ops := [s; ops]
+        call   advance(ref ts)
+      case TName(n) if not is_keyword(n) =>
+        assign ops := [n; ops]
+        call   advance(ref ts)
+      else
+        assign go := false
+    end
+  end
+
+  match ops
+    case Nil =>
+      raise ParseError("operator expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
+    else
+      assign c := CNotation(f, p, reverse(ops))
+  end
+
+procedure constructor(in sc: Scope, out k: Constr, ref ts: List[Token * Int]) :=
+  local  n: Name, args: List[Type]
+  call   parse_name_or_symbol(out n, ref ts)
+  assign args := Nil
+
+  if at_punct(ts, '(')
+    call advance(ref ts)
+    call type_list(in sc, ')', out args, ref ts)
+  end
+  assign k := Constr(n, args)
+
+// data T[A] := | C(A) | D, where the first | is optional
+procedure parse_data(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
+  local  n: Name, ps: List[Name], k: Constr, rev: List[Constr]
+  call   advance(ref ts)
+  call   parse_name(out n, ref ts)
+  call   type_params(out ps, ref ts)
+  call   expect(in TSym(":="), ref ts)
+
+  if head_token(ts) == TSym("|")
+    call advance(ref ts)
+  end
+  call   constructor(in Scope(ps, ns), out k, ref ts)
+  assign rev := [k]
+
+  while head_token(ts) == TSym("|")
+    call   advance(ref ts)
+    call   constructor(in Scope(ps, ns), out k, ref ts)
+    assign rev := [k; rev]
+  end
+  assign c := CData(n, ps, reverse(rev))
+
+procedure parse_function(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
+  local  n: Name, ps: List[Name], xs: List[Var], xss: List[List[Var]], r: Type, b: Expr
+  call   advance(ref ts)
+  call   parse_name_or_symbol(out n, ref ts)
+  call   type_params(out ps, ref ts)
+  call   formals(in Scope(ps, ns), out xs, ref ts)
+  assign xss := [xs]
+
+  while at_punct(ts, '(')
+    call   formals(in Scope(ps, ns), out xs, ref ts)
+    assign xss := [xs; xss]
+  end
+  call   expect(in TSym(":"), ref ts)
+  call   parse_type(in Scope(ps, ns), out r, ref ts)
+  call   expect(in TSym(":="), ref ts)
+  call   parse_expr(in Scope(ps, ns), out b, ref ts)
+  assign c := CFun(n, ps, reverse(xss), r, b)
+
+procedure parse_procedure(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
+  local  n: Name, ps: List[Name], ins: List[Var], outs: List[Var], refs: List[Var], first: Bool, b: Stmt
+  call   advance(ref ts)
+  call   parse_name(out n, ref ts)
+  call   type_params(out ps, ref ts)
+  call   expect(in TPunct('('), ref ts)
+  assign ins := Nil, outs := Nil, refs := Nil, first := true
+
+  if at_keyword(ts, "in")
+    call   advance(ref ts)
+    call   formals1(in Scope(ps, ns), out ins, ref ts)
+    assign first := false
+  end
+
+  if section_at(ts, "out", first)
+    call   skip_comma(in first, ref ts)
+    call   formals1(in Scope(ps, ns), out outs, ref ts)
+    assign first := false
+  end
+
+  if section_at(ts, "ref", first)
+    call skip_comma(in first, ref ts)
+    call formals1(in Scope(ps, ns), out refs, ref ts)
+  end
+  call   expect(in TPunct(')'), ref ts)
+  call   expect(in TSym(":="), ref ts)
+  call   parse_body(in Scope(ps, ns), out b, ref ts)
+  assign c := CProc(n, ps, ins, outs, refs, b)
+
+// the commands of one declaration, which are several for an import, and none for an import of a loaded module
+procedure parse_command(in ns: List[Cmd], loaded: List[Name], dir: Option[Str], out cs: List[Cmd], ref ts: List[Token * Int]) :=
+  local n: Name, ps: List[Name], t: Type, c: Cmd, e: Expr, b: Stmt, at: Int
+  match head_token(ts)
+    case TName("import") =>
+      assign at := head_offset(ts)
+      call   advance(ref ts)
+      call   parse_name(out n, ref ts)
+
+      if contains(n, loaded)
+        assign cs := Nil
+      else
+        call   load_module(in n, ns, loaded, dir, at, out cs)
+        assign cs := [CImport(n); declarations(cs)]
+      end
+    case TName(w) if contains(w, ["prefix", "postfix", "infix"]) =>
+      call   parse_notation(out c, ref ts)
+      assign cs := [c]
+    case TName("type") =>
+      call   advance(ref ts)
+      call   parse_name(out n, ref ts)
+      call   type_params(out ps, ref ts)
+      call   expect(in TSym(":="), ref ts)
+      call   parse_type(in Scope(ps, ns), out t, ref ts)
+      assign cs := [CSort(n, ps, t)]
+    case TName("data") =>
+      call   parse_data(in ns, out c, ref ts)
+      assign cs := [c]
+    case TName("function") =>
+      call   parse_function(in ns, out c, ref ts)
+      assign cs := [c]
+    case TName("procedure") =>
+      call   parse_procedure(in ns, out c, ref ts)
+      assign cs := [c]
+    case TName("eval") =>
+      call   advance(ref ts)
+      call   parse_expr(in Scope(Nil, ns), out e, ref ts)
+      assign cs := [CEval(e)]
+    case TName("run") =>
+      call   advance(ref ts)
+      call   parse_name(out n, ref ts)
+      call   expect(in TSym(":="), ref ts)
+      call   parse_body(in Scope(Nil, ns), out b, ref ts)
+      assign cs := [CRun(n, b)]
+    case TName("test") =>
+      call   advance(ref ts)
+      call   parse_name(out n, ref ts)
+      call   expect(in TSym(":="), ref ts)
+      call   parse_body(in Scope(Nil, ns), out b, ref ts)
+      assign cs := [CTest(n, b)]
+    else
+      raise ParseError("declaration expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
+  end
+
+// the notations and loaded modules after the commands cs
+procedure declare_all(in cs: List[Cmd], ref ns: List[Cmd], loaded: List[Name]) :=
+  match cs
+    case Nil =>
+      skip
+    case [CNotation(f, p, ops); more] =>
+      assign ns := ns ++ [CNotation(f, p, ops)]
+      call   declare_all(in more, ref ns, loaded)
+    case [CImport(n); more] =>
+      assign loaded := [n; loaded]
+      call   declare_all(in more, ref ns, loaded)
+    case [_; more] =>
+      call declare_all(in more, ref ns, loaded)
+  end
+
+// notations apply to the commands after them
+procedure parse_commands(in dir: Option[Str], out cs: List[Cmd], ref ns: List[Cmd], loaded: List[Name], ts: List[Token * Int]) :=
+  local  more: List[Cmd], rev: List[Cmd]
+  assign rev := Nil
+
+  while head_token(ts) != TEnd
+    call   parse_command(in ns, loaded, dir, out more, ref ts)
+    call   declare_all(in more, ref ns, loaded)
+    assign rev := reverse_onto(more, rev)
+  end
+  assign cs := reverse(rev)
+
+// modules are files in the directory of the parsed file, or in the library
+procedure module_text(in n: Name, dir: Option[Str], at: Int, out text: Str) :=
+  match dir
+    case Some(d) =>
+      try
+        call os_read(in d ^ "/" ^ n ^ ".u", out text)
+      catch
+        case OsError(_) =>
+          call library_text(in n, at, out text)
+      end
+    case None =>
+      call library_text(in n, at, out text)
+  end
+
+procedure library_text(in n: Name, at: Int, out text: Str) :=
+  try
+    call os_library(in n, out text)
+  catch
+    case OsError(_) =>
+      raise ParseError("unknown module " ^ n, at)
+  end
+
+// the commands of module n, parsed with the notations so far
+procedure load_module(in n: Name, ns: List[Cmd], loaded: List[Name], dir: Option[Str], at: Int, out cs: List[Cmd]) :=
+  local  text: Str, mns: List[Cmd], ml: List[Name], mts: List[Token * Int]
+  call   module_text(in n, dir, at, out text)
+  assign mns := ns, ml := [n; loaded]
+
+  try
+    call lex(in text, out mts)
+    call parse_commands(in dir, out cs, ref mns, ml, mts)
+  catch
+    case LexError(m, i) =>
+      raise ParseError(m ^ " in " ^ n, i)
+    case ParseError(m, i) =>
+      raise ParseError(m ^ " in " ^ n, i)
+  end
+
+// the program text with the notations and loaded modules of a preceding program, e.g., the prelude
+procedure parse_text(in text: Str, ns: List[Cmd], loaded: List[Name], dir: Option[Str], out p: Program) :=
+  local  ts: List[Token * Int], cs: List[Cmd], ns1: List[Cmd], loaded1: List[Name]
+
+  try
+    call lex(in text, out ts)
+  catch
+    case LexError(m, i) =>
+      raise ParseError(m, i)
+  end
+  assign ns1 := ns, loaded1 := loaded
+  call   parse_commands(in dir, out cs, ref ns1, loaded1, ts)
+  assign p := Program(cs)
+
+// the prelude, or another module of the library parsed after the prelude, as library gives them
+procedure parse_library(in n: Name, out p: Program) :=
+  local  text: Str, pre: Program
+  call   library_text(in n, 0, out text)
+
+  if n == "prelude"
+    call parse_text(in text, Nil, ["prelude"], None, out p)
+  else
+    call parse_library(in "prelude", out pre)
+    call parse_text(in text, program_notations(pre), program_imports(pre), None, out p)
+  end
+
+function last_part(xs: List[Str]): Str :=
+  match xs
+    case [x] => x
+    case [_; more] => last_part(more)
+    else ""
+  end
+
+// the name of a file without its directory and .u
+function base_name(path: Str): Str :=
+  let f := last_part(str_split(path, '/')) in
+    if str_size(f) >= 2 and str_slice(f, str_size(f) - 2, str_size(f)) == ".u" then str_slice(f, 0, str_size(f) - 2) else f
+
+function dir_name(path: Str): Str :=
+  let parts := str_split(path, '/') in if length(parts) == 1 then "." else str_join("/", take(length(parts) - 1, parts))
+
+// a file after the prelude pre, as read gives it
+procedure parse_file_after(in path: Str, pre: Program, out p: Program) :=
+  local  text: Str
+  call   os_read(in path, out text)
+  call   parse_text(in text, program_notations(pre), [base_name(path); program_imports(pre)], Some(dir_name(path)), out p)
+
+procedure parse_file(in path: Str, out p: Program) :=
+  local  pre: Program
+  call   parse_library(in "prelude", out pre)
+  call   parse_file_after(in path, pre, out p)
+
+function commands_of(p: Program): List[Cmd] :=
+  match p
+    case Program(cs) => cs
+  end
+
+// the commands agree one by one, shown with path if they do not
+procedure same_commands(in path: Str, cs: List[Cmd], ds: List[Cmd]) :=
+  match (cs, ds)
+    case ([c; more], [d; rest]) =>
+      assert (path, c) == (path, d)
+      call   same_commands(in path, more, rest)
+    else
+      assert (path, length(cs)) == (path, length(ds))
+  end
+
+// the files parse as read parses them
+procedure same_parses(in paths: List[Str], pre: Program) :=
+  local p: Program, q: Program
+  match paths
+    case Nil =>
+      skip
+    case [path; more] =>
+      call read(in path, out p)
+      call parse_file_after(in path, pre, out q)
+      call same_commands(in path, commands_of(p), commands_of(q))
+      call same_parses(in more, pre)
+  end
+
+procedure parse_failures(in paths: List[Str], pre: Program) :=
+  local p: Program, failed: Bool
+  match paths
+    case Nil =>
+      skip
+    case [path; more] =>
+      assign failed := false
+
+      try
+        call parse_file_after(in path, pre, out p)
+      catch
+        case ParseError(_, _) =>
+          assign failed := true
+      end
+      assert (path, failed) == (path, true)
+      call   parse_failures(in more, pre)
+  end
+
+test parse_library_modules :=
+  local  p: Program, q: Program
+  call   library(in "prelude", out p)
+  call   parse_library(in "prelude", out q)
+  call   same_commands(in "prelude", commands_of(p), commands_of(q))
+  call   library(in "list", out p)
+  call   parse_library(in "list", out q)
+  call   same_commands(in "list", commands_of(p), commands_of(q))
+  call   library(in "os", out p)
+  call   parse_library(in "os", out q)
+  call   same_commands(in "os", commands_of(p), commands_of(q))
+
+test parse_files :=
+  local  pre: Program
+  call   parse_library(in "prelude", out pre)
+  call   same_parses(in [
+    "../tests/datatypes.u",
+    "../tests/exceptions.u",
+    "../tests/expressions.u",
+    "../tests/files.u",
+    "../tests/functions.u",
+    "../tests/modules.u",
+    "../tests/procedures.u",
+    "../tests/stack.u",
+    "../tests/strings.u",
+    "../examples/grammar.u",
+    "../examples/parsers.u",
+    "../examples/procedures.u",
+    "c.u",
+    "check.u",
+    "compile.u",
+    "ctx.u",
+    "lex.u",
+    "parse.u",
+    "read.u",
+    "run.u",
+    "syntax.u"
+  ], pre)
+
+test parse_error_files :=
+  local  pre: Program
+  call   parse_library(in "prelude", out pre)
+  call   same_parses(in [
+    "../tests/errors/add-bool.u",
+    "../tests/errors/alias-arity.u",
+    "../tests/errors/assertion.u",
+    "../tests/errors/assign-input.u",
+    "../tests/errors/assign-pattern-variable.u",
+    "../tests/errors/assign-twice.u",
+    "../tests/errors/assign-type.u",
+    "../tests/errors/call-aliasing.u",
+    "../tests/errors/call-arity.u",
+    "../tests/errors/call-output-type.u",
+    "../tests/errors/case-types.u",
+    "../tests/errors/catch-unknown-type.u",
+    "../tests/errors/comprehension-list.u",
+    "../tests/errors/comprehension-test.u",
+    "../tests/errors/constructor-clash.u",
+    "../tests/errors/curried-duplicate.u",
+    "../tests/errors/curried-missing-type.u",
+    "../tests/errors/data-arity.u",
+    "../tests/errors/data-unknown-param.u",
+    "../tests/errors/division-by-zero.u",
+    "../tests/errors/duplicate-constructor.u",
+    "../tests/errors/duplicate-let.u",
+    "../tests/errors/duplicate-run.u",
+    "../tests/errors/duplicate-type-parameter.u",
+    "../tests/errors/empty-match.u",
+    "../tests/errors/empty-tuple-argument.u",
+    "../tests/errors/guard-not-exhaustive.u",
+    "../tests/errors/guard-type.u",
+    "../tests/errors/if-condition.u",
+    "../tests/errors/if-statement-condition.u",
+    "../tests/errors/lambda-monomorphic.u",
+    "../tests/errors/let-rigid.u",
+    "../tests/errors/list-display.u",
+    "../tests/errors/list-type.u",
+    "../tests/errors/local-scope.u",
+    "../tests/errors/missing-cons.u",
+    "../tests/errors/missing-false.u",
+    "../tests/errors/missing-int.u",
+    "../tests/errors/missing-local-type.u",
+    "../tests/errors/missing-nested-zero.u",
+    "../tests/errors/missing-nil.u",
+    "../tests/errors/missing-output-type.u",
+    "../tests/errors/missing-pair-case.u",
+    "../tests/errors/missing-parameter-type.u",
+    "../tests/errors/missing-some-literal.u",
+    "../tests/errors/missing-some.u",
+    "../tests/errors/missing-statement-case.u",
+    "../tests/errors/missing-successor.u",
+    "../tests/errors/overload-arity.u",
+    "../tests/errors/overload-same-arity.u",
+    "../tests/errors/overload-unapplied.u",
+    "../tests/errors/pair-type.u",
+    "../tests/errors/pattern-arity.u",
+    "../tests/errors/pattern-duplicate.u",
+    "../tests/errors/pattern-type.u",
+    "../tests/errors/raise-type-parameter.u",
+    "../tests/errors/raise-uncaught.u",
+    "../tests/errors/raise-unknown-type.u",
+    "../tests/errors/rigid-param.u",
+    "../tests/errors/rigid-params.u",
+    "../tests/errors/sort-arity.u",
+    "../tests/errors/string-display.u",
+    "../tests/errors/test-types.u",
+    "../tests/errors/too-many-arguments.u",
+    "../tests/errors/unassigned-output.u",
+    "../tests/errors/uninitialized.u",
+    "../tests/errors/unit.u",
+    "../tests/errors/unknown-constructor.u",
+    "../tests/errors/unknown-procedure.u",
+    "../tests/errors/unknown-sort-generic.u",
+    "../tests/errors/unknown-sort.u",
+    "../tests/errors/unknown-variable.u",
+    "../tests/errors/unreachable-after-wildcard.u",
+    "../tests/errors/unreachable-covered.u",
+    "../tests/errors/unreachable-else.u",
+    "../tests/errors/unreachable-literal.u",
+    "../tests/errors/unreachable-repeated.u"
+  ], pre)
+  call   parse_failures(in [
+    "../tests/errors/argument-list.u",
+    "../tests/errors/broken.u",
+    "../tests/errors/else-not-last.u",
+    "../tests/errors/import-error.u",
+    "../tests/errors/keyword-name.u",
+    "../tests/errors/list-without-elements.u",
+    "../tests/errors/not-associative.u",
+    "../tests/errors/not-prefix.u",
+    "../tests/errors/operator-before-declaration.u",
+    "../tests/errors/string-escape.u",
+    "../tests/errors/undeclared-operator.u",
+    "../tests/errors/unknown-module.u",
+    "../tests/errors/wildcard-name.u"
+  ], pre)

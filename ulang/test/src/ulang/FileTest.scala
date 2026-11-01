@@ -2,10 +2,10 @@ package ulang
 
 import utest.*
 
-// runs every tests/**/*.u, examples/**/*.u, and self/**/*.u, which must succeed including all assertions,
+// runs every tests/**/*.u, examples/**/*.u, self/**/*.u, and ulang/resources/*.u, which must succeed including all assertions,
 // or fail with the error stated in its first line, e.g. "// type error: unknown variable x"
 object FileTest extends TestSuite:
-  val roots = List("tests", "examples", "self").map(os.Path(sys.env("MILL_WORKSPACE_ROOT")) / _)
+  val roots = List("tests", "examples", "self", "ulang/resources").map(os.Path(sys.env("MILL_WORKSPACE_ROOT")) / os.RelPath(_))
 
   val error = "// ((parse|type|runtime) error: .*)".r
 

@@ -79,7 +79,7 @@ data Cmd :=
   | CImport(Name)
   | CNotation(Fixity, Int, List[Name])
   | CEval(Expr)
-  | CRun(Stmt)
+  | CRun(Name, Stmt)
   | CTest(Name, Stmt)
 
 data Program :=

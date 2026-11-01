@@ -81,7 +81,7 @@ enum Cmd:
   case Import(name: Name)(val pos: Pos = nowhere)
   case Notation(fixity: Fixity, prec: Int, names: List[Name])(val pos: Pos = nowhere)
   case Eval(expr: Expr)(val pos: Pos = nowhere)
-  case Run(body: Stmt)(val pos: Pos = nowhere)
+  case Run(name: Name, body: Stmt)(val pos: Pos = nowhere)
   case Test(name: Name, body: Stmt)(val pos: Pos = nowhere)
 
 case class Program(cmds: List[Cmd])

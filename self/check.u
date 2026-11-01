@@ -3,8 +3,6 @@
 
 import syntax
 
-import util
-
 import ctx
 
 // unknowns by their index
@@ -108,6 +106,8 @@ function builtins(): Env :=
     ("str_join", (Nil, fun([TSort("Str", Nil), TSort("List", [TSort("Str", Nil)])], TSort("Str", Nil)))),
     ("str_slice", (Nil, fun([TSort("Str", Nil), tint(), tint()], TSort("Str", Nil)))),
     ("str_split", (Nil, fun([TSort("Str", Nil), TSort("Char", Nil)], TSort("List", [TSort("Str", Nil)])))),
+    ("str_get", (Nil, fun([TSort("Str", Nil), tint()], TSort("Char", Nil)))),
+    ("str_contains", (Nil, fun([TSort("Str", Nil), TSort("Char", Nil)], tbool()))),
     ("str_show", (Nil, fun([tint()], TSort("Str", Nil)))),
     ("str_quote", (Nil, fun([TSort("Str", Nil)], TSort("Str", Nil)))),
     ("str_number", (Nil, fun([TSort("Str", Nil)], TSort("Option", [tint()])))),
@@ -306,7 +306,7 @@ function zonk_cmd(su: Subst, c: Cmd): Cmd :=
     case CFun(n, ps, xss, r, b) => CFun(n, ps, [zonk_vars(su, xs) for xs in xss], zonk_type(su, r), zonk_expr(su, b))
     case CProc(n, ps, ins, outs, refs, b) => CProc(n, ps, zonk_vars(su, ins), zonk_vars(su, outs), zonk_vars(su, refs), zonk_stmt(su, b))
     case CEval(e) => CEval(zonk_expr(su, e))
-    case CRun(b) => CRun(zonk_stmt(su, b))
+    case CRun(n, b) => CRun(n, zonk_stmt(su, b))
     case CTest(n, b) => CTest(n, zonk_stmt(su, b))
     else c
   end
@@ -349,7 +349,7 @@ function unknown_in_handlers(hs: List[Handler]): Option[Type] :=
 function unknown_in_cmd(c: Cmd): Option[Type] :=
   match c
     case CProc(_, _, _, _, _, b) => unknown_in(b)
-    case CRun(b) => unknown_in(b)
+    case CRun(_, b) => unknown_in(b)
     case CTest(_, b) => unknown_in(b)
     else None
   end
@@ -1058,9 +1058,16 @@ function os_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * L
   else
     Nil
 
+// read and library give the syntax of self/syntax.u, so they exist only in programs that declare its Program
+function syntax_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * List[Type])] :=
+  if contains("Program", keys(datas(c))) then
+    [("read", (Nil, [TSort("Str", Nil)], [TSort("Program", Nil)], Nil)), ("library", (Nil, [TSort("Str", Nil)], [TSort("Program", Nil)], Nil))]
+  else
+    Nil
+
 procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
   local m: List[Type * Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var]
-  match lookup(p, procs(ctx_of(s)) ++ os_procs(ctx_of(s)))
+  match lookup(p, procs(ctx_of(s)) ++ os_procs(ctx_of(s)) ++ syntax_procs(ctx_of(s)))
     case Some((ps, is, os, rs)) =>
       call   instance(in ps, out m, ref s)
       call   same_length(in length(is), length(ins))
@@ -1263,9 +1270,9 @@ procedure command(in c: Cmd, out c1: Cmd, ref s: State) :=
     case CEval(e) =>
       call   infer(in Nil, e, out b, t, ref s)
       assign c1 := CEval(b)
-    case CRun(body) =>
+    case CRun(n, body) =>
       call   statement(in Nil, Nil, body, out y, ref s)
-      assign c1 := CRun(y)
+      assign c1 := CRun(n, y)
     case CTest(n, body) =>
       call   statement(in Nil, Nil, body, out y, ref s)
       assign c1 := CTest(n, y)
@@ -1291,6 +1298,15 @@ procedure commands(in cs: List[Cmd], out cs1: List[Cmd], ref s: State) :=
       assign cs1 := [c2; rest]
   end
 
+// runs and tests are chosen by name
+function block_names(cs: List[Cmd]): List[Name] :=
+  match cs
+    case Nil => Nil
+    case [CRun(n, _); more] => [n; block_names(more)]
+    case [CTest(n, _); more] => [n; block_names(more)]
+    case [_; more] => block_names(more)
+  end
+
 procedure check_program(in p: Program, out q: Program) :=
   local  s: State, cs: List[Cmd]
   assign s := State(initial(), Nil, 0)
@@ -1301,6 +1317,7 @@ procedure check_program(in p: Program, out q: Program) :=
       call   declare_constrs(in cmds, ref s)
       call   declare_funs(in cmds, ref s)
       call   declare_procs(in cmds, ref s)
+      call   unique(in block_names(cmds))
       call   commands(in cmds, out cs, ref s)
       assign q := Program(cs)
   end

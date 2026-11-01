@@ -43,9 +43,21 @@ object Main:
     val loaded = Parser.imports(prelude) + file.baseName
     Parser.parseProgram(text, Parser.notations(prelude), loaded, module(file / os.up))
 
-  // the checked text of file after the prelude
+  // the checked text of file after the prelude, where a module of the library that the prelude imports
+  // keeps only its evals, runs, and tests, since the prelude declares the rest
   def load(text: String, file: os.Path): Run =
-    new Run(Check.program(Program(prelude.cmds ++ parse(text, file).cmds)), file / os.up)
+    val cmds = parse(text, file).cmds
+    val own = if (Parser.imports(prelude) + "prelude").contains(file.baseName) && text == library(file.baseName) then runnable(cmds) else cmds
+    new Run(Check.program(Program(prelude.cmds ++ own)), file / os.up)
+
+  def runnable(cmds: List[Cmd]): List[Cmd] =
+    cmds match
+      case Nil =>
+        Nil
+      case (c: (Cmd.Eval | Cmd.Run | Cmd.Test)) :: rest =>
+        c :: runnable(rest)
+      case _ :: rest =>
+        runnable(rest)
 
   def run(text: String, file: os.Path): List[String] =
     deep(load(text, file).run())
@@ -64,10 +76,10 @@ object Main:
       case None =>
         error("runtime", "the program did not finish")
 
-  // the runs and tests of a program, which are numbered from 1 in the order of the file
+  // the runs and tests of a program
   def blocks(r: Run): List[Cmd] =
     r.program.cmds.filter:
-      case Cmd.Run(_) | Cmd.Test(_, _) =>
+      case Cmd.Run(_, _) | Cmd.Test(_, _) =>
         true
       case _ =>
         false
@@ -114,19 +126,15 @@ object Main:
               false
       results.forall(identity)
 
-  // the test of that name, or else the run or test with that number
+  // the run or test of that name
   def block(r: Run, which: String): Cmd =
     val named =
       blocks(r).collectFirst:
+        case c @ Cmd.Run(name, _) if name == which =>
+          c
         case c @ Cmd.Test(name, _) if name == which =>
           c
-    named match
-      case Some(c) =>
-        c
-      case None if which.forall(_.isDigit) && which.nonEmpty =>
-        blocks(r).lift(which.toInt - 1).getOrElse(error("runtime", s"there is no run or test $which"))
-      case None =>
-        error("runtime", s"there is no test $which")
+    named.getOrElse(error("runtime", s"there is no run or test $which"))
 
   // runs one run or test of file
   def only(which: String, file: String): Boolean =
@@ -138,7 +146,7 @@ object Main:
         println(line)
       true
 
-  // ulang file.u ..., ulang --tests file.u ..., or ulang --only name-or-number file.u
+  // ulang file.u ..., ulang --tests file.u ..., or ulang --only name file.u
   def main(args: Array[String]): Unit =
     val results = deep:
       args.toList match

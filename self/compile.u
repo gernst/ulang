@@ -2,7 +2,6 @@
 // whose code calls the runtime in self/runtime, where every value has the C type u_value
 
 import syntax
-import util
 import check
 import c
 import os
@@ -65,6 +64,8 @@ function builtin_functions(): List[Name * (Str * Int)] :=
     ("str_join", ("u_str_join", 2)),
     ("str_slice", ("u_str_slice", 3)),
     ("str_split", ("u_str_split", 2)),
+    ("str_get", ("u_str_get", 2)),
+    ("str_contains", ("u_str_contains", 2)),
     ("str_show", ("u_str_show", 1)),
     ("str_quote", ("u_str_quote", 1)),
     ("str_number", ("u_str_number", 1)),
@@ -577,12 +578,12 @@ procedure compile_cmd(in gl: Globals, c: Cmd, out ds: List[CDecl], ms: List[CStm
       call   compile_expr(in gl, Nil, e, out bs, rb, ref g)
       assign ds := Nil, ms := [CsBlock(bs ++ [CsExpr(c_call("print_line", [rb]))])]
     // runs show their assigned variables
-    case CRun(SBlock(xs, body)) =>
+    case CRun(_, SBlock(xs, body)) =>
       call   compile_stmts(in gl, in_scope(names(xs)), body, out bs, ref g)
       assign copy := [CsDecl(value_type(), var_name(x), Some(CeVar("NULL"))) for x in names(xs)]
       assign back := [CsExpr(c_call("print_binding", [CeStr(x), CeVar(var_name(x))])) for x in names(xs)]
       assign ds := Nil, ms := [CsBlock(copy ++ bs ++ back)]
-    case CRun(body) =>
+    case CRun(_, body) =>
       call   compile_stmt(in gl, Nil, body, out bs, ref g)
       assign ds := Nil, ms := [CsBlock(bs)]
     case CTest(_, body) =>
@@ -670,3 +671,6 @@ test compile_programs :=
   call compile_file(in "../examples/parsers.u", "out/parsers.c")
   call compile_file(in "../examples/procedures.u", "out/recursive_descent.c")
   call compile_file(in "../examples/grammar.u", "out/grammar.c")
+
+test self_compile :=
+  call compile_file(in "compile.u", "out/compile.c")
