@@ -190,7 +190,7 @@ function apply_infix[A](o: Ops[A], op: Name, a: A, b: A): A :=
   end
 
 // the operand of all items, where at is the offset after them
-procedure resolve[A](in items: List[Item[A]], o: Ops[A], at: Int, out a: A) :=
+procedure resolve_items[A](in items: List[Item[A]], o: Ops[A], at: Int, out a: A) :=
   local  rest: List[Item[A]]
   call   climb(in items, 0, o, at, out a, rest)
   match rest
@@ -233,12 +233,15 @@ procedure climb_loop[A](in lhs: A, items: List[Item[A]], min: Int, o: Ops[A], at
       match (postfix_prec(ops_notations(o), op), infix_of(ops_notations(o), op))
         case (Some(p), _) if p >= min =>
           call climb_loop(in apply_postfix(o, op, lhs), tail, min, o, at, out a, rest)
+
         case (_, Some((f, p))) if p >= min =>
           call climb(in tail, if f == FRight then p else p + 1, o, at, out rhs, more)
           call nonassociative(in op, f, p, more, ops_notations(o))
           call climb_loop(in apply_infix(o, op, lhs, rhs), more, min, o, at, out a, rest)
+
         case _ if not declared(ops_notations(o), op) =>
           raise ParseError("undeclared operator " ^ op, i)
+
         else
           assign a := lhs, rest := items
       end
@@ -314,7 +317,7 @@ procedure parse_type(in sc: Scope, out t: Type, ref ts: List[Token * Int]) :=
   local  start: Int, items: List[Item[List[Type]]], r: List[Type]
   assign start := head_offset(ts)
   call   type_items(in sc, out items, ref ts)
-  call   resolve(in items, Ops(scope_notations(sc), type_prefix, type_prefix, type_infix), head_offset(ts), out r)
+  call   resolve_items(in items, Ops(scope_notations(sc), type_prefix, type_prefix, type_infix), head_offset(ts), out r)
   assign t := type_one(r)
 
   if has_invalid(t)
@@ -382,8 +385,10 @@ procedure type_list(in sc: Scope, close: Char, out r: List[Type], ref ts: List[T
       call   parse_type(in sc, out t, ref ts)
       assign rev := [t; rev]
     end
+
     call expect(in TPunct(close), ref ts)
   end
+
   assign r := reverse(rev)
 
 // expressions
@@ -413,7 +418,7 @@ function starts_expr(ns: List[Cmd], t: Token): Bool :=
 procedure parse_expr(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
   local  items: List[Item[Expr]]
   call   expr_items(in sc, out items, ref ts)
-  call   resolve(in items, Ops(scope_notations(sc), expr_op1, expr_op1, expr_op2), head_offset(ts), out e)
+  call   resolve_items(in items, Ops(scope_notations(sc), expr_op1, expr_op1, expr_op2), head_offset(ts), out e)
 
 // operands and operators, where an operand follows only an operator, since let, if, and lambda extend as far to the right as possible
 procedure expr_items(in sc: Scope, out items: List[Item[Expr]], ref ts: List[Token * Int]) :=
@@ -451,6 +456,7 @@ procedure parse_exprs(in sc: Scope, out es: List[Expr], ref ts: List[Token * Int
     call   parse_expr(in sc, out e, ref ts)
     assign rev := [e; rev]
   end
+
   assign es := reverse(rev)
 
 // expressions separated by commas until close, which may be empty
@@ -478,6 +484,7 @@ procedure parse_atom(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
   match head_token(ts)
     case TName("let") =>
       call parse_let(in sc, out e, ref ts)
+
     case TName("if") =>
       call   advance(ref ts)
       call   parse_expr(in sc, out a, ref ts)
@@ -486,28 +493,36 @@ procedure parse_atom(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
       call   keyword(in "else", ref ts)
       call   parse_expr(in sc, out r, ref ts)
       assign e := EIte(a, l, r)
+
     case TName("lambda") =>
       call parse_lambda(in sc, out e, ref ts)
+
     case TName("match") =>
       call   advance(ref ts)
       call   parse_expr(in sc, out a, ref ts)
-      call   expr_cases(in sc, out cs, ref ts)
+      call   parse_expr_cases(in sc, out cs, ref ts)
       assign e := EMatch(a, cs)
+
     case TName("true") =>
       call   advance(ref ts)
       assign e := ELit(VBool(true))
+
     case TName("false") =>
       call   advance(ref ts)
       assign e := ELit(VBool(false))
+
     case TNum(n) =>
       call   advance(ref ts)
       assign e := ELit(VInt(n))
+
     case TStr(s) =>
       call   advance(ref ts)
       assign e := ELit(VStr(s))
+
     case TChar(c) =>
       call   advance(ref ts)
       assign e := ELit(VChar(c))
+
     case TPunct('(') =>
       call advance(ref ts)
       call expr_list(in sc, ')', out es, ref ts)
@@ -517,11 +532,14 @@ procedure parse_atom(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
         else
           assign e := ETuple(es)
       end
+
     case TPunct('[') =>
       call parse_brackets(in sc, out e, ref ts)
+
     case TName(n) if not is_keyword(n) and not declared(scope_notations(sc), n) =>
       call   advance(ref ts)
       assign e := EVar(Var(n, THole))
+
     else
       raise ParseError("expression expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
   end
@@ -554,6 +572,7 @@ procedure parse_let(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
     call   parse_expr(in sc, out a, ref ts)
     assign ps := [p; ps], es := [a; es]
   end
+
   call   keyword(in "in", ref ts)
   call   parse_expr(in sc, out b, ref ts)
   assign ps := reverse(ps), es := reverse(es)
@@ -582,6 +601,7 @@ procedure parse_lambda(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
       assign xs := [Var(x, THole); xs]
     end
   end
+
   call   expect(in TSym("=>"), ref ts)
   call   parse_expr(in sc, out b, ref ts)
   assign e := ELam(reverse(xs), b)
@@ -611,12 +631,14 @@ procedure parse_brackets(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :
         call   parse_expr(in sc, out l, ref ts)
         assign xs := [Var(x, THole); xs], lists := [l; lists]
       end
+
       assign c := ELit(VBool(true))
 
       if at_keyword(ts, "if")
         call advance(ref ts)
         call parse_expr(in sc, out c, ref ts)
       end
+
       call   expect(in TPunct(']'), ref ts)
       assign e := EComp(first, reverse(xs), reverse(lists), c)
     else
@@ -627,12 +649,14 @@ procedure parse_brackets(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :
         call   parse_expr(in sc, out first, ref ts)
         assign es := [first; es]
       end
+
       assign rest := EVar(Var("Nil", THole))
 
       if at_punct(ts, ';')
         call advance(ref ts)
         call parse_expr(in sc, out rest, ref ts)
       end
+
       call   expect(in TPunct(']'), ref ts)
       assign e := cons_exprs(reverse(es), rest)
     end
@@ -650,7 +674,7 @@ procedure parse_guard(in sc: Scope, out g: Option[Expr], ref ts: List[Token * In
   end
 
 // case p if g => b, where else b is the last case _ => b
-procedure expr_cases(in sc: Scope, out cs: List[Branch[Expr]], ref ts: List[Token * Int]) :=
+procedure parse_expr_cases(in sc: Scope, out cs: List[Branch[Expr]], ref ts: List[Token * Int]) :=
   local  rev: List[Branch[Expr]], p: Pat, g: Option[Expr], b: Expr
   assign rev := Nil
 
@@ -669,6 +693,7 @@ procedure expr_cases(in sc: Scope, out cs: List[Branch[Expr]], ref ts: List[Toke
     assign rev := [Branch(PWild, None, b); rev]
     call   last_case(ref ts)
   end
+
   call   keyword(in "end", ref ts)
   assign cs := reverse(rev)
 
@@ -704,7 +729,7 @@ function starts_pattern(ns: List[Cmd], t: Token): Bool :=
 procedure parse_pattern(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
   local  items: List[Item[Pat]]
   call   pattern_items(in sc, out items, ref ts)
-  call   resolve(in items, Ops(scope_notations(sc), pat_op1, pat_op1, pat_op2), head_offset(ts), out p)
+  call   resolve_items(in items, Ops(scope_notations(sc), pat_op1, pat_op1, pat_op2), head_offset(ts), out p)
 
 procedure pattern_items(in sc: Scope, out items: List[Item[Pat]], ref ts: List[Token * Int]) :=
   local  rev: List[Item[Pat]], next: Bool, go: Bool, p: Pat
@@ -746,8 +771,10 @@ procedure pattern_list(in sc: Scope, close: Char, out ps: List[Pat], ref ts: Lis
       call   parse_pattern(in sc, out p, ref ts)
       assign rev := [p; rev]
     end
+
     call expect(in TPunct(close), ref ts)
   end
+
   assign ps := reverse(rev)
 
 procedure pattern_simple(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
@@ -756,21 +783,27 @@ procedure pattern_simple(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
     case TName("_") =>
       call   advance(ref ts)
       assign p := PWild
+
     case TName("true") =>
       call   advance(ref ts)
       assign p := PLit(VBool(true))
+
     case TName("false") =>
       call   advance(ref ts)
       assign p := PLit(VBool(false))
+
     case TNum(k) =>
       call   advance(ref ts)
       assign p := PLit(VInt(k))
+
     case TStr(s) =>
       call   advance(ref ts)
       assign p := PLit(VStr(s))
+
     case TChar(c) =>
       call   advance(ref ts)
       assign p := PLit(VChar(c))
+
     case TPunct('(') =>
       call advance(ref ts)
       call pattern_list(in sc, ')', out ps, ref ts)
@@ -780,6 +813,7 @@ procedure pattern_simple(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
         else
           assign p := PTuple(ps)
       end
+
     case TPunct('[') =>
       call advance(ref ts)
 
@@ -795,15 +829,18 @@ procedure pattern_simple(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
           call   parse_pattern(in sc, out p, ref ts)
           assign ps := [p; ps]
         end
+
         assign rest := PApp("Nil", Nil)
 
         if at_punct(ts, ';')
           call advance(ref ts)
           call parse_pattern(in sc, out rest, ref ts)
         end
+
         call   expect(in TPunct(']'), ref ts)
         assign p := cons_pats(reverse(ps), rest)
       end
+
     else
       call parse_plain(in sc, out n, ref ts)
 
@@ -837,7 +874,7 @@ procedure parse_body(in sc: Scope, out b: Stmt, ref ts: List[Token * Int]) :=
 
   while at_keyword(ts, "local")
     call   advance(ref ts)
-    call   formals1(in sc, out more, ref ts)
+    call   parse_formals1(in sc, out more, ref ts)
     assign xs := xs ++ more
   end
 
@@ -845,6 +882,7 @@ procedure parse_body(in sc: Scope, out b: Stmt, ref ts: List[Token * Int]) :=
     call   parse_stmt(in sc, out s, ref ts)
     assign rev := [s; rev]
   end
+
   assign b := SBlock(xs, reverse(rev))
 
 procedure parse_stmt(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
@@ -853,37 +891,46 @@ procedure parse_stmt(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
     case TName("skip") =>
       call   advance(ref ts)
       assign s := SSkip
+
     case TName("if") =>
       call parse_if(in sc, out s, ref ts)
+
     case TName("while") =>
       call   advance(ref ts)
       call   parse_expr(in sc, out e, ref ts)
       call   parse_body(in sc, out b, ref ts)
       call   keyword(in "end", ref ts)
       assign s := SWhile(e, b)
+
     case TName("call") =>
       call parse_call(in sc, out s, ref ts)
+
     case TName("match") =>
       call   advance(ref ts)
       call   parse_expr(in sc, out e, ref ts)
-      call   stmt_cases(in sc, out cs, ref ts)
+      call   parse_stmt_cases(in sc, out cs, ref ts)
       assign s := SMatch(e, cs)
+
     case TName("assert") =>
       call   advance(ref ts)
       call   parse_expr(in sc, out e, ref ts)
       assign s := SAssert(e)
+
     case TName("assign") =>
       call parse_assign(in sc, out s, ref ts)
+
     case TName("raise") =>
       call   advance(ref ts)
       call   parse_expr(in sc, out e, ref ts)
       assign s := SRaise(e, THole)
+
     case TName("try") =>
       call   advance(ref ts)
       call   parse_body(in sc, out b, ref ts)
       call   keyword(in "catch", ref ts)
-      call   stmt_cases(in sc, out cs, ref ts)
+      call   parse_stmt_cases(in sc, out cs, ref ts)
       assign s := STry(b, handlers(cs))
+
     else
       raise ParseError("statement expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
   end
@@ -906,6 +953,7 @@ procedure parse_if(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
     call parse_body(in sc, out r, ref ts)
     call keyword(in "end", ref ts)
   end
+
   assign s := SIf(c, l, r)
 
 procedure parse_assign(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
@@ -923,9 +971,10 @@ procedure parse_assign(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
     call   parse_expr(in sc, out e, ref ts)
     assign rev := [(Var(x, THole), e); rev]
   end
+
   assign s := SAssign(reverse(rev))
 
-procedure stmt_cases(in sc: Scope, out cs: List[Branch[Stmt]], ref ts: List[Token * Int]) :=
+procedure parse_stmt_cases(in sc: Scope, out cs: List[Branch[Stmt]], ref ts: List[Token * Int]) :=
   local  rev: List[Branch[Stmt]], p: Pat, g: Option[Expr], b: Stmt
   assign rev := Nil
 
@@ -944,6 +993,7 @@ procedure stmt_cases(in sc: Scope, out cs: List[Branch[Stmt]], ref ts: List[Toke
     assign rev := [Branch(PWild, None, b); rev]
     call   last_case(ref ts)
   end
+
   call   keyword(in "end", ref ts)
   assign cs := reverse(rev)
 
@@ -977,14 +1027,15 @@ procedure parse_call(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
 
   if section_at(ts, "out", first)
     call   skip_comma(in first, ref ts)
-    call   variables(in sc, out outs, ref ts)
+    call   parse_variables(in sc, out outs, ref ts)
     assign first := false
   end
 
   if section_at(ts, "ref", first)
     call skip_comma(in first, ref ts)
-    call variables(in sc, out refs, ref ts)
+    call parse_variables(in sc, out refs, ref ts)
   end
+
   call   expect(in TPunct(')'), ref ts)
   assign s := SCall(p, reverse(ins), outs, refs)
 
@@ -993,9 +1044,10 @@ procedure skip_comma(in first: Bool, ref ts: List[Token * Int]) :=
   if not first
     call advance(ref ts)
   end
+
   call advance(ref ts)
 
-procedure variables(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
+procedure parse_variables(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
   local  x: Name, rev: List[Var]
   call   parse_plain(in sc, out x, ref ts)
   assign rev := [Var(x, THole)]
@@ -1005,10 +1057,11 @@ procedure variables(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) 
     call   parse_plain(in sc, out x, ref ts)
     assign rev := [Var(x, THole); rev]
   end
+
   assign xs := reverse(rev)
 
 // only parameters and locals have type annotations
-procedure formal(in sc: Scope, out x: Var, ref ts: List[Token * Int]) :=
+procedure parse_formal(in sc: Scope, out x: Var, ref ts: List[Token * Int]) :=
   local  n: Name, t: Type
   call   parse_plain(in sc, out n, ref ts)
   assign t := THole
@@ -1017,30 +1070,33 @@ procedure formal(in sc: Scope, out x: Var, ref ts: List[Token * Int]) :=
     call advance(ref ts)
     call parse_type(in sc, out t, ref ts)
   end
+
   assign x := Var(n, t)
 
 // formals separated by commas, at least one, up to the keyword of the next section
-procedure formals1(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
+procedure parse_formals1(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
   local  x: Var, rev: List[Var]
-  call   formal(in sc, out x, ref ts)
+  call   parse_formal(in sc, out x, ref ts)
   assign rev := [x]
 
   while item_follows(ts)
     call   advance(ref ts)
-    call   formal(in sc, out x, ref ts)
+    call   parse_formal(in sc, out x, ref ts)
     assign rev := [x; rev]
   end
+
   assign xs := reverse(rev)
 
 // formals in parentheses, which may be empty
-procedure formals(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
+procedure parse_formals(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
   call expect(in TPunct('('), ref ts)
 
   if at_punct(ts, ')')
     assign xs := Nil
   else
-    call formals1(in sc, out xs, ref ts)
+    call parse_formals1(in sc, out xs, ref ts)
   end
+
   call expect(in TPunct(')'), ref ts)
 
 // commands
@@ -1092,8 +1148,10 @@ procedure type_params(out ps: List[Name], ref ts: List[Token * Int]) :=
       call   parse_name(out n, ref ts)
       assign rev := [n; rev]
     end
+
     call expect(in TPunct(']'), ref ts)
   end
+
   assign ps := reverse(rev)
 
 procedure parse_notation(out c: Cmd, ref ts: List[Token * Int]) :=
@@ -1157,6 +1215,7 @@ procedure constructor(in sc: Scope, out k: Constr, ref ts: List[Token * Int]) :=
     call advance(ref ts)
     call type_list(in sc, ')', out args, ref ts)
   end
+
   assign k := Constr(n, args)
 
 // data T[A] := | C(A) | D, where the first | is optional
@@ -1170,6 +1229,7 @@ procedure parse_data(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
   if head_token(ts) == TSym("|")
     call advance(ref ts)
   end
+
   call   constructor(in Scope(ps, ns), out k, ref ts)
   assign rev := [k]
 
@@ -1178,6 +1238,7 @@ procedure parse_data(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
     call   constructor(in Scope(ps, ns), out k, ref ts)
     assign rev := [k; rev]
   end
+
   assign c := CData(n, ps, reverse(rev))
 
 procedure parse_function(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]) :=
@@ -1185,13 +1246,14 @@ procedure parse_function(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int]
   call   advance(ref ts)
   call   parse_name_or_symbol(out n, ref ts)
   call   type_params(out ps, ref ts)
-  call   formals(in Scope(ps, ns), out xs, ref ts)
+  call   parse_formals(in Scope(ps, ns), out xs, ref ts)
   assign xss := [xs]
 
   while at_punct(ts, '(')
-    call   formals(in Scope(ps, ns), out xs, ref ts)
+    call   parse_formals(in Scope(ps, ns), out xs, ref ts)
     assign xss := [xs; xss]
   end
+
   call   expect(in TSym(":"), ref ts)
   call   parse_type(in Scope(ps, ns), out r, ref ts)
   call   expect(in TSym(":="), ref ts)
@@ -1208,20 +1270,21 @@ procedure parse_procedure(in ns: List[Cmd], out c: Cmd, ref ts: List[Token * Int
 
   if at_keyword(ts, "in")
     call   advance(ref ts)
-    call   formals1(in Scope(ps, ns), out ins, ref ts)
+    call   parse_formals1(in Scope(ps, ns), out ins, ref ts)
     assign first := false
   end
 
   if section_at(ts, "out", first)
     call   skip_comma(in first, ref ts)
-    call   formals1(in Scope(ps, ns), out outs, ref ts)
+    call   parse_formals1(in Scope(ps, ns), out outs, ref ts)
     assign first := false
   end
 
   if section_at(ts, "ref", first)
     call skip_comma(in first, ref ts)
-    call formals1(in Scope(ps, ns), out refs, ref ts)
+    call parse_formals1(in Scope(ps, ns), out refs, ref ts)
   end
+
   call   expect(in TPunct(')'), ref ts)
   call   expect(in TSym(":="), ref ts)
   call   parse_body(in Scope(ps, ns), out b, ref ts)
@@ -1242,9 +1305,11 @@ procedure parse_command(in ns: List[Cmd], loaded: List[Name], dir: Option[Str], 
         call   load_module(in n, ns, loaded, dir, at, out cs)
         assign cs := [CImport(n); declarations(cs)]
       end
+
     case TName(w) if contains(w, ["prefix", "postfix", "infix"]) =>
       call   parse_notation(out c, ref ts)
       assign cs := [c]
+
     case TName("type") =>
       call   advance(ref ts)
       call   parse_name(out n, ref ts)
@@ -1252,31 +1317,38 @@ procedure parse_command(in ns: List[Cmd], loaded: List[Name], dir: Option[Str], 
       call   expect(in TSym(":="), ref ts)
       call   parse_type(in Scope(ps, ns), out t, ref ts)
       assign cs := [CSort(n, ps, t)]
+
     case TName("data") =>
       call   parse_data(in ns, out c, ref ts)
       assign cs := [c]
+
     case TName("function") =>
       call   parse_function(in ns, out c, ref ts)
       assign cs := [c]
+
     case TName("procedure") =>
       call   parse_procedure(in ns, out c, ref ts)
       assign cs := [c]
+
     case TName("eval") =>
       call   advance(ref ts)
       call   parse_expr(in Scope(Nil, ns), out e, ref ts)
       assign cs := [CEval(e)]
+
     case TName("run") =>
       call   advance(ref ts)
       call   parse_name(out n, ref ts)
       call   expect(in TSym(":="), ref ts)
       call   parse_body(in Scope(Nil, ns), out b, ref ts)
       assign cs := [CRun(n, b)]
+
     case TName("test") =>
       call   advance(ref ts)
       call   parse_name(out n, ref ts)
       call   expect(in TSym(":="), ref ts)
       call   parse_body(in Scope(Nil, ns), out b, ref ts)
       assign cs := [CTest(n, b)]
+
     else
       raise ParseError("declaration expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
   end
@@ -1286,12 +1358,15 @@ procedure declare_all(in cs: List[Cmd], ref ns: List[Cmd], loaded: List[Name]) :
   match cs
     case Nil =>
       skip
+
     case [CNotation(f, p, ops); more] =>
       assign ns := ns ++ [CNotation(f, p, ops)]
       call   declare_all(in more, ref ns, loaded)
+
     case [CImport(n); more] =>
       assign loaded := [n; loaded]
       call   declare_all(in more, ref ns, loaded)
+
     case [_; more] =>
       call declare_all(in more, ref ns, loaded)
   end
@@ -1306,6 +1381,7 @@ procedure parse_commands(in dir: Option[Str], out cs: List[Cmd], ref ns: List[Cm
     call   declare_all(in more, ref ns, loaded)
     assign rev := reverse_onto(more, rev)
   end
+
   assign cs := reverse(rev)
 
 // modules are files in the directory of the parsed file, or in the library
@@ -1348,7 +1424,7 @@ procedure load_module(in n: Name, ns: List[Cmd], loaded: List[Name], dir: Option
 
 // the program text with the notations and loaded modules of a preceding program, e.g., the prelude
 procedure parse_text(in text: Str, ns: List[Cmd], loaded: List[Name], dir: Option[Str], out p: Program) :=
-  local  ts: List[Token * Int], cs: List[Cmd], ns1: List[Cmd], loaded1: List[Name]
+  local ts: List[Token * Int], cs: List[Cmd], ns1: List[Cmd], loaded1: List[Name]
 
   try
     call lex(in text, out ts)

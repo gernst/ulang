@@ -43,6 +43,7 @@ function c_type(t: CType): Str :=
     case CtVoid => "void"
     case CtInt => "int"
     case CtNamed(n) => n
+    case CtPtr(CtPtr(u)) => c_type(CtPtr(u)) ^ "*"
     case CtPtr(u) => c_type(u) ^ " *"
   end
 

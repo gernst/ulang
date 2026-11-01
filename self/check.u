@@ -1051,6 +1051,7 @@ procedure statements(in env: Env, assignable: List[Name], xs: List[Stmt], out ys
 function os_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * List[Type])] :=
   if contains("OsError", keys(datas(c))) then
     [
+      ("os_args", (Nil, Nil, [TSort("List", [TSort("Str", Nil)])], Nil)),
       ("os_read", (Nil, [TSort("Str", Nil)], [TSort("Str", Nil)], Nil)),
       ("os_write", (Nil, [TSort("Str", Nil), TSort("Str", Nil)], Nil, Nil)),
       ("os_library", (Nil, [TSort("Str", Nil)], [TSort("Str", Nil)], Nil))

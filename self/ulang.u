@@ -1,0 +1,16 @@
+// the compiler as a program, which compiles source.u to target.c, as ./ulang.sh self/ulang.u -- source.u target.c,
+// or as ulang source.u target.c once it is compiled itself, where paths are relative to self/ for the interpreter
+
+import compile
+
+run main :=
+  local  args: List[Str]
+  call   os_args(out args)
+  match args
+    case [] =>
+      skip
+    case [source, target] =>
+      call compile_file(in source, target)
+    else
+      raise OsError("usage: ulang source.u target.c")
+  end

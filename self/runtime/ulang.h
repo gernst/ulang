@@ -91,6 +91,8 @@ struct handler {
   const char *type;
 };
 
+void u_args(int argc, char **argv);
+void p_os_args(u_value *args);
 void p_os_read(u_value path, u_value *text);
 void p_os_write(u_value path, u_value text);
 void p_os_library(u_value name, u_value *text);
@@ -98,6 +100,7 @@ void p_os_library(u_value name, u_value *text);
 // read and library of the interpreter, which give the syntax of a program, are not available in compiled programs
 void p_read(u_value path, u_value *program);
 void p_library(u_value name, u_value *program);
+
 
 struct handler *u_push(void);
 void u_pop(struct handler *h);

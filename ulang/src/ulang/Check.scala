@@ -824,6 +824,8 @@ class Check(program: Program):
         Some((Nil, List(Str), List(Type.Sort("Program", Nil)), Nil))
       case "os_read" | "os_library" if datas.contains("OsError") =>
         Some((Nil, List(Str), List(Str), Nil))
+      case "os_args" if datas.contains("OsError") =>
+        Some((Nil, Nil, List(Type.Sort("List", List(Str))), Nil))
       case "os_write" if datas.contains("OsError") =>
         Some((Nil, List(Str, Str), Nil, Nil))
       case _ =>

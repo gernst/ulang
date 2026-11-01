@@ -134,7 +134,7 @@ object Run:
         error("runtime", s"$f${args.map(Printer.show).mkString("(", ", ", ")")} is unspecified")
 
 // dir is the directory of the program, which the paths of read are relative to
-class Run(val program: Program, val dir: os.Path = os.pwd):
+class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String] = Nil):
   import Run.*
 
   // functions are overloaded by their number of arguments
@@ -390,6 +390,8 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
         List(read(path, pos))
       case (None, List(name: String)) if p == "library" =>
         List(library(name))
+      case (None, Nil) if p == "os_args" =>
+        List(args.foldRight(Obj("Nil", Nil))((a, as) => Obj("Cons", List(a, as))))
       case (None, List(path: String)) if p == "os_read" =>
         try List(os.read(os.Path(path, dir)))
         catch case _: java.io.IOException => throw osError(s"cannot read $path", pos)

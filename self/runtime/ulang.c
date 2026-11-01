@@ -525,6 +525,18 @@ static u_value read_file(const char *path) {
   return n == (size_t)st.st_size ? mk_str(s) : NULL;
 }
 
+// the arguments of the program, after its name
+static u_value args = NULL;
+
+void u_args(int argc, char **argv) {
+  args = mk_con("Nil", 0);
+  for (int i = argc - 1; i >= 1; i--) args = mk_con("Cons", 2, mk_str(argv[i]), args);
+}
+
+void p_os_args(u_value *result) {
+  *result = args;
+}
+
 void p_os_read(u_value path, u_value *result) {
   u_value t = read_file(path->text);
   if (!t) os_error("cannot read ", path->text);

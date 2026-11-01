@@ -45,10 +45,10 @@ object Main:
 
   // the checked text of file after the prelude, where a module of the library that the prelude imports
   // keeps only its evals, runs, and tests, since the prelude declares the rest
-  def load(text: String, file: os.Path): Run =
+  def load(text: String, file: os.Path, args: List[String] = Nil): Run =
     val cmds = parse(text, file).cmds
     val own = if (Parser.imports(prelude) + "prelude").contains(file.baseName) && text == library(file.baseName) then runnable(cmds) else cmds
-    new Run(Check.program(Program(prelude.cmds ++ own)), file / os.up)
+    new Run(Check.program(Program(prelude.cmds ++ own)), file / os.up, args)
 
   def runnable(cmds: List[Cmd]): List[Cmd] =
     cmds match
@@ -59,8 +59,8 @@ object Main:
       case _ :: rest =>
         runnable(rest)
 
-  def run(text: String, file: os.Path): List[String] =
-    deep(load(text, file).run())
+  def run(text: String, file: os.Path, args: List[String] = Nil): List[String] =
+    deep(load(text, file, args).run())
 
   // f in a thread with a large stack, since the interpreter recurses as deeply as the programs it runs
   def deep[A](f: => A): A =
@@ -101,18 +101,18 @@ object Main:
         false
 
   // prints the output of file and whether it succeeded
-  def report(file: String): Boolean =
+  def report(file: String, args: List[String]): Boolean =
     attempt(file):
       val path = os.Path(file, os.pwd)
-      for line <- run(os.read(path), path) do
+      for line <- run(os.read(path), path, args) do
         println(line)
       true
 
   // runs each test of file on its own, also after a failed one, printing whether it passed
-  def tests(file: String): Boolean =
+  def tests(file: String, args: List[String]): Boolean =
     attempt(file):
       val path = os.Path(file, os.pwd)
-      val r = load(os.read(path), path)
+      val r = load(os.read(path), path, args)
       val results =
         for case c @ Cmd.Test(name, _) <- blocks(r)
         yield
@@ -137,24 +137,26 @@ object Main:
     named.getOrElse(error("runtime", s"there is no run or test $which"))
 
   // runs one run or test of file
-  def only(which: String, file: String): Boolean =
+  def only(which: String, file: String, args: List[String]): Boolean =
     attempt(file):
       val path = os.Path(file, os.pwd)
-      val r = load(os.read(path), path)
+      val r = load(os.read(path), path, args)
       val c = block(r, which)
       for line <- r.output(c) do
         println(line)
       true
 
-  // ulang file.u ..., ulang --tests file.u ..., or ulang --only name file.u
+  // ulang file.u ..., ulang --tests file.u ..., or ulang --only name file.u, each followed by -- and the arguments of os_args
   def main(args: Array[String]): Unit =
+    val (options, rest) = args.toList.span(_ != "--")
+    val arguments = rest.drop(1)
     val results = deep:
-      args.toList match
+      options match
         case "--tests" :: files =>
-          files.map(tests)
+          files.map(tests(_, arguments))
         case "--only" :: n :: List(file) =>
-          List(only(n, file))
+          List(only(n, file, arguments))
         case files =>
-          files.map(report)
+          files.map(report(_, arguments))
     if results.contains(false) then
       sys.exit(1)

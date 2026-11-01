@@ -4,7 +4,8 @@
 import syntax
 import check
 import c
-import os
+import parse
+
 data CompileError :=
   | Unsupported(Str)
 
@@ -647,13 +648,13 @@ procedure compile_program(in q: Program, out f: CFile) :=
     case Gen(_, lifted) =>
       assign fs := wrappers(gl) ++ ds ++ lifted
   end
-  assign f := CFile([CdInclude("ulang.h")] ++ concat([prototype(d) for d in fs]) ++ fs ++ [CdFunction(CtInt, "main", Nil, ms ++ [CsReturn(Some(CeNum(0)))])])
+  assign f := CFile([CdInclude("ulang.h")] ++ concat([prototype(d) for d in fs]) ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
 
 // checks the program of the file source after the prelude, and writes its translation to C to target
 procedure compile_file(in source: Str, target: Str) :=
   local  pre: Program, p: Program, q: Program, f: CFile
-  call   library(in "prelude", out pre)
-  call   read(in source, out p)
+  call   parse_library(in "prelude", out pre)
+  call   parse_file_after(in source, pre, out p)
   call   check_program(in Program(program_cmds(pre) ++ program_cmds(p)), out q)
   call   compile_program(in q, out f)
   call   os_write(in target, c_file(f))

@@ -55,11 +55,12 @@ procedure position(in s: Str, i: Int, out line: Int, column: Int) :=
     else
       assign column := column + 1
     end
+
     assign j := j + 1
   end
 
 // the contents of the literal delimited by q at i, with its escapes resolved, where i ends after the closing quote
-procedure literal(in s: Str, q: Char, out text: Str, ref i: Int) :=
+procedure lex_literal(in s: Str, q: Char, out text: Str, ref i: Int) :=
   local  start: Int, from: Int, parts: List[Str], c: Char
   assign start := i, i := i + 1, parts := Nil
   assign from := i
@@ -83,6 +84,7 @@ procedure literal(in s: Str, q: Char, out text: Str, ref i: Int) :=
       assign i := i + 1
     end
   end
+
   assign text := str_join("", reverse([str_slice(s, from, i); parts])), i := i + 1
 
 procedure lex_name(in s: Str, out t: Token, ref i: Int) :=
@@ -108,17 +110,18 @@ procedure lex_symbol(in s: Str, out t: Token, ref i: Int) :=
 
 procedure lex_string(in s: Str, out t: Token, ref i: Int) :=
   local  text: Str
-  call   literal(in s, '"', out text, ref i)
+  call   lex_literal(in s, '"', out text, ref i)
   assign t := TStr(text)
 
 procedure lex_char(in s: Str, out t: Token, ref i: Int) :=
   local  start: Int, text: Str
   assign start := i
-  call   literal(in s, '\'', out text, ref i)
+  call   lex_literal(in s, '\'', out text, ref i)
 
   if str_size(text) != 1
     raise LexError("invalid character", start)
   end
+
   assign t := TChar(str_get(text, 0))
 
 // the token at i, where i ends after it
@@ -160,6 +163,7 @@ procedure lex(in s: Str, out ts: List[Token * Int]) :=
       assign rev := [(t, start); rev]
     end
   end
+
   assign ts := reverse([(TEnd, i); rev])
 
 function tokens(ts: List[Token * Int]): List[Token] :=
@@ -192,7 +196,7 @@ test lex_literals :=
   assert tokens(ts) == [TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\''), TPunct('['), TName("x"), TPunct(';'), TName("xs"), TPunct(']'), TEnd]
 
 test lex_errors :=
-  local  ts: List[Token * Int], e: LexError
+  local ts: List[Token * Int], e: LexError
   try
     call lex(in "x := \"ab", out ts)
   catch

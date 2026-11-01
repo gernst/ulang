@@ -693,9 +693,12 @@ procedure invoke(in p: Prog, n: Name, ins: List[Value], refs: List[Int], out out
 
 // the procedures of the library os are those of the interpreter of this program, whose OsError the program can catch
 procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
-  local text: Str
+  local text: Str, args: List[Str]
   try
     match (n, ins)
+      case ("os_args", []) =>
+        call   os_args(out args)
+        assign outs := [list_value([Lit(VStr(a)) for a in args])]
       case ("os_read", [Lit(VStr(path))]) =>
         call   os_read(in path, out text)
         assign outs := [Lit(VStr(text))]
