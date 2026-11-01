@@ -12,6 +12,8 @@ prefix 5 not
 
 infix 6 == != < <= > >=
 
+infix right 7 ^
+
 infix left 8 + -
 
 infix left 9 * / %

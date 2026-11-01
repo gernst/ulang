@@ -48,7 +48,21 @@ object Main:
     new Run(Check.program(Program(prelude.cmds ++ parse(text, file).cmds)), file / os.up)
 
   def run(text: String, file: os.Path): List[String] =
-    load(text, file).run()
+    deep(load(text, file).run())
+
+  // f in a thread with a large stack, since the interpreter recurses as deeply as the programs it runs
+  def deep[A](f: => A): A =
+    val result = Ref[Option[Either[Throwable, A]]](None)
+    val thread = Thread(null, () => result.get = Some(try Right(f) catch case e: Throwable => Left(e)), "ulang", 1L << 30)
+    thread.start()
+    thread.join()
+    result.get match
+      case Some(Right(a)) =>
+        a
+      case Some(Left(e)) =>
+        throw e
+      case None =>
+        error("runtime", "the program did not finish")
 
   // the runs and tests of a program, which are numbered from 1 in the order of the file
   def blocks(r: Run): List[Cmd] =
@@ -126,7 +140,7 @@ object Main:
 
   // ulang file.u ..., ulang --tests file.u ..., or ulang --only name-or-number file.u
   def main(args: Array[String]): Unit =
-    val results =
+    val results = deep:
       args.toList match
         case "--tests" :: files =>
           files.map(tests)

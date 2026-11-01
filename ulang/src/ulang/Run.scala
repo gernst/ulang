@@ -40,6 +40,16 @@ object Run:
       case _ =>
         false
 
+  def string(v: Any): String =
+    v match
+      case s: String =>
+        s
+      case _ =>
+        error("runtime", s"expected a string, got ${Printer.show(v)}")
+
+  def list(vs: List[Any]): Any =
+    vs.foldRight(Obj("Nil", Nil): Any)((v, rest) => Obj("Cons", List(v, rest)))
+
   def character(v: Any): Char =
     v match
       case c: Char =>
@@ -92,6 +102,27 @@ object Run:
       case ("chr", List(n)) =>
         require("runtime", int(n) >= 0 && int(n) <= Char.MaxValue.toInt, s"no character ${int(n)}")
         int(n).toChar
+      case ("^", List(s: String, t: String)) =>
+        s + t
+      case ("str_size", List(s: String)) =>
+        BigInt(s.length)
+      case ("str_join", List(sep: String, ss)) =>
+        elements(ss).map(string).mkString(sep)
+      // from i up to but excluding j, as drop(i) and take(j - i), which ignore indices outside of s
+      case ("str_slice", List(s: String, i, j)) =>
+        s.drop(int(i).toInt).take((int(j) - int(i)).toInt)
+      case ("str_split", List(s: String, c: Char)) =>
+        list(s.split(java.util.regex.Pattern.quote(c.toString), -1).toList)
+      case ("str_show", List(n)) =>
+        int(n).toString
+      case ("str_number", List(s: String)) =>
+        if "-?[0-9]+".r.matches(s) then Obj("Some", List(BigInt(s))) else Obj("None", Nil)
+      case ("is_digit", List(c: Char)) =>
+        '0' <= c && c <= '9'
+      case ("is_letter", List(c: Char)) =>
+        'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z'
+      case ("is_space", List(c: Char)) =>
+        c == ' ' || c == '\n' || c == '\t' || c == '\r'
       case _ =>
         error("runtime", s"$f${args.map(Printer.show).mkString("(", ", ", ")")} is unspecified")
 
@@ -350,6 +381,11 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
         yield r.get.getOrElse(error("runtime", s"output ${x.name} of $p is not assigned"))
       case (None, List(path: String)) if p == "read" =>
         List(read(path))
+      case (None, List(name: String)) if p == "library" =>
+        List(library(name))
+      case (None, List(path: String, text: String)) if p == "write" =>
+        os.write.over(os.Path(path, dir), text, createFolders = true)
+        Nil
       case _ =>
         error("runtime", s"unknown procedure $p")
 
@@ -358,6 +394,13 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
     val file = os.Path(path, dir)
     require("runtime", os.isFile(file), s"cannot read $path")
     Quote.quote(Main.parse(os.read(file), file))
+
+  // the syntax of the prelude, or of another module of the library parsed after the prelude, unchecked
+  def library(name: String): Any =
+    if name == "prelude" then
+      Quote.quote(Main.prelude)
+    else
+      Quote.quote(Parser.parseProgram(Main.library(name), Parser.notations(Main.prelude), Parser.imports(Main.prelude), Main.library))
 
   // the values of evals and of the variables of runs, failed assertions are errors
   def run(): List[String] =

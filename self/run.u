@@ -104,7 +104,7 @@ function constr_arity(k: Constr): Name * Int :=
   end
 
 function is_builtin(n: Name): Bool :=
-  contains(n, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr"])
+  contains(n, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "str_show", "str_number", "is_digit", "is_letter", "is_space"])
 
 function is_function(v: Value): Bool :=
   match v
@@ -137,6 +137,12 @@ function lambdas(xss: List[List[Var]], b: Expr): Expr :=
   match xss
     case Nil => b
     case [xs; rest] => ELam(xs, lambdas(rest, b))
+  end
+
+function str_values(vs: List[Value]): List[Str] :=
+  match vs
+    case [Lit(VStr(s)); rest] => [s; str_values(rest)]
+    else Nil
   end
 
 function char_values(vs: List[Value]): List[Char] :=
@@ -427,6 +433,36 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := Lit(VInt(ord(c)))
     case ("chr", [Lit(VInt(k))]) =>
       assign v := Lit(VChar(chr(k)))
+    case ("^", [Lit(VStr(s)), Lit(VStr(t))]) =>
+      assign v := Lit(VStr(s ^ t))
+    case ("str_size", [Lit(VStr(s))]) =>
+      assign v := Lit(VInt(str_size(s)))
+    case ("str_join", [Lit(VStr(sep)), w]) =>
+      match elements(w)
+        case Some(ws) =>
+          assign v := Lit(VStr(str_join(sep, str_values(ws))))
+        else
+          raise NotList(w)
+      end
+    case ("str_slice", [Lit(VStr(s)), Lit(VInt(i)), Lit(VInt(j))]) =>
+      assign v := Lit(VStr(str_slice(s, i, j)))
+    case ("str_split", [Lit(VStr(s)), Lit(VChar(c))]) =>
+      assign v := list_value([Lit(VStr(part)) for part in str_split(s, c)])
+    case ("str_show", [Lit(VInt(k))]) =>
+      assign v := Lit(VStr(str_show(k)))
+    case ("str_number", [Lit(VStr(s))]) =>
+      match str_number(s)
+        case Some(k) =>
+          assign v := Obj("Some", [Lit(VInt(k))])
+        case None =>
+          assign v := Obj("None", Nil)
+      end
+    case ("is_digit", [Lit(VChar(c))]) =>
+      assign v := Lit(VBool(is_digit(c)))
+    case ("is_letter", [Lit(VChar(c))]) =>
+      assign v := Lit(VBool(is_letter(c)))
+    case ("is_space", [Lit(VChar(c))]) =>
+      assign v := Lit(VBool(is_space(c)))
     else
       raise Unspecified(n, vs)
   end

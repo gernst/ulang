@@ -102,7 +102,17 @@ function builtins(): Env :=
     ("chars", (Nil, fun([TSort("Str", Nil)], TSort("List", [TSort("Char", Nil)])))),
     ("string", (Nil, fun([TSort("List", [TSort("Char", Nil)])], TSort("Str", Nil)))),
     ("ord", (Nil, fun([TSort("Char", Nil)], tint()))),
-    ("chr", (Nil, fun([tint()], TSort("Char", Nil))))
+    ("chr", (Nil, fun([tint()], TSort("Char", Nil)))),
+    ("^", (Nil, fun([TSort("Str", Nil), TSort("Str", Nil)], TSort("Str", Nil)))),
+    ("str_size", (Nil, fun([TSort("Str", Nil)], tint()))),
+    ("str_join", (Nil, fun([TSort("Str", Nil), TSort("List", [TSort("Str", Nil)])], TSort("Str", Nil)))),
+    ("str_slice", (Nil, fun([TSort("Str", Nil), tint(), tint()], TSort("Str", Nil)))),
+    ("str_split", (Nil, fun([TSort("Str", Nil), TSort("Char", Nil)], TSort("List", [TSort("Str", Nil)])))),
+    ("str_show", (Nil, fun([tint()], TSort("Str", Nil)))),
+    ("str_number", (Nil, fun([TSort("Str", Nil)], TSort("Option", [tint()])))),
+    ("is_digit", (Nil, fun([TSort("Char", Nil)], tbool()))),
+    ("is_letter", (Nil, fun([TSort("Char", Nil)], tbool()))),
+    ("is_space", (Nil, fun([TSort("Char", Nil)], tbool())))
   ]
 
 function builtin(n: Name): List[List[Type] * Type] :=

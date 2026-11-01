@@ -1,0 +1,169 @@
+// the part of C that compiled ulang programs need, as datatypes, and a printer to C source code,
+// where the runtime defines the type value of all ulang values in a header, which is not part of the syntax
+
+import util
+data CType :=
+  | CtVoid
+  | CtInt
+  | CtNamed(Str)
+  | CtPtr(CType)
+
+// operators are their C symbols, e.g. "+" or "==", and unary ones include "!", "-", "*", and "&"
+data CExpr :=
+  | CeVar(Str)
+  | CeNum(Int)
+  | CeStr(Str)
+  | CeCall(CExpr, List[CExpr])
+  | CeUnary(Str, CExpr)
+  | CeBinary(Str, CExpr, CExpr)
+  | CeIndex(CExpr, CExpr)
+  | CeArrow(CExpr, Str)
+  | CeCast(CType, CExpr)
+  | CeCond(CExpr, CExpr, CExpr)
+
+data CStmt :=
+  | CsExpr(CExpr)
+  | CsDecl(CType, Str, Option[CExpr])
+  | CsAssign(CExpr, CExpr)
+  | CsIf(CExpr, List[CStmt], List[CStmt])
+  | CsWhile(CExpr, List[CStmt])
+  | CsReturn(Option[CExpr])
+  | CsBlock(List[CStmt])
+
+data CDecl :=
+  | CdInclude(Str)
+  | CdPrototype(CType, Str, List[CType * Str])
+  | CdFunction(CType, Str, List[CType * Str], List[CStmt])
+  | CdGlobal(CType, Str, Option[CExpr])
+
+data CFile :=
+  | CFile(List[CDecl])
+
+function c_type(t: CType): Str :=
+  match t
+    case CtVoid => "void"
+    case CtInt => "int"
+    case CtNamed(n) => n
+    case CtPtr(u) => c_type(u) ^ " *"
+  end
+
+// a declaration of x with type t, without a space after a pointer
+function c_declare(t: CType, x: Str): Str :=
+  match t
+    case CtPtr(_) => c_type(t) ^ x
+    else c_type(t) ^ " " ^ x
+  end
+
+// subexpressions are in parentheses unless they are atomic, which avoids the precedences of C
+function c_expr(e: CExpr): Str :=
+  match e
+    case CeVar(x) => x
+    case CeNum(n) => str_show(n)
+    case CeStr(s) => c_string(s)
+    case CeCall(f, args) => c_operand(f) ^ "(" ^ str_join(", ", [c_expr(a) for a in args]) ^ ")"
+    case CeUnary(o, a) => o ^ c_operand(a)
+    case CeBinary(o, a, b) => c_operand(a) ^ " " ^ o ^ " " ^ c_operand(b)
+    case CeIndex(a, i) => c_operand(a) ^ "[" ^ c_expr(i) ^ "]"
+    case CeArrow(a, f) => c_operand(a) ^ "->" ^ f
+    case CeCast(t, a) => "(" ^ c_type(t) ^ ")" ^ c_operand(a)
+    case CeCond(c, a, b) => c_operand(c) ^ " ? " ^ c_operand(a) ^ " : " ^ c_operand(b)
+  end
+
+function c_operand(e: CExpr): Str :=
+  match e
+    case CeVar(_) => c_expr(e)
+    case CeNum(n) if n >= 0 => c_expr(e)
+    case CeStr(_) => c_expr(e)
+    case CeCall(_, _) => c_expr(e)
+    case CeIndex(_, _) => c_expr(e)
+    case CeArrow(_, _) => c_expr(e)
+    else "(" ^ c_expr(e) ^ ")"
+  end
+
+function c_string(s: Str): Str :=
+  "\"" ^ string(concat([c_escape(c) for c in chars(s)])) ^ "\""
+
+function c_escape(c: Char): List[Char] :=
+  match c
+    case '"' => ['\\', '"']
+    case '\\' => ['\\', '\\']
+    case '\n' => ['\\', 'n']
+    case '\t' => ['\\', 't']
+    case '\r' => ['\\', 'r']
+    else [c]
+  end
+
+// the lines of a statement, indented by ind
+function c_stmt(ind: Str, s: CStmt): List[Str] :=
+  match s
+    case CsExpr(e) => [ind ^ c_expr(e) ^ ";"]
+    case CsDecl(t, x, None) => [ind ^ c_declare(t, x) ^ ";"]
+    case CsDecl(t, x, Some(e)) => [ind ^ c_declare(t, x) ^ " = " ^ c_expr(e) ^ ";"]
+    case CsAssign(a, e) => [ind ^ c_expr(a) ^ " = " ^ c_expr(e) ^ ";"]
+    case CsIf(c, l, []) => [ind ^ "if (" ^ c_expr(c) ^ ") {"] ++ c_stmts(ind ^ "  ", l) ++ [ind ^ "}"]
+    case CsIf(c, l, r) =>
+      [ind ^ "if (" ^ c_expr(c) ^ ") {"] ++ c_stmts(ind ^ "  ", l) ++ [ind ^ "} else {"] ++ c_stmts(ind ^ "  ", r) ++ [ind ^ "}"]
+    case CsWhile(c, b) => [ind ^ "while (" ^ c_expr(c) ^ ") {"] ++ c_stmts(ind ^ "  ", b) ++ [ind ^ "}"]
+    case CsReturn(None) => [ind ^ "return;"]
+    case CsReturn(Some(e)) => [ind ^ "return " ^ c_expr(e) ^ ";"]
+    case CsBlock(b) => [ind ^ "{"] ++ c_stmts(ind ^ "  ", b) ++ [ind ^ "}"]
+  end
+
+function c_stmts(ind: Str, ss: List[CStmt]): List[Str] :=
+  concat([c_stmt(ind, s) for s in ss])
+
+function c_params(ps: List[CType * Str]): Str :=
+  match ps
+    case [] => "void"
+    else str_join(", ", [c_param(p) for p in ps])
+  end
+
+function c_param(p: CType * Str): Str :=
+  match p
+    case (t, x) => c_declare(t, x)
+  end
+
+function c_decl(d: CDecl): List[Str] :=
+  match d
+    case CdInclude(h) => ["#include " ^ c_string(h)]
+    case CdPrototype(t, f, ps) => [c_declare(t, f) ^ "(" ^ c_params(ps) ^ ");"]
+    case CdFunction(t, f, ps, b) => [c_declare(t, f) ^ "(" ^ c_params(ps) ^ ") {"] ++ c_stmts("  ", b) ++ ["}"]
+    case CdGlobal(t, x, None) => [c_declare(t, x) ^ ";"]
+    case CdGlobal(t, x, Some(e)) => [c_declare(t, x) ^ " = " ^ c_expr(e) ^ ";"]
+  end
+
+// the source code of a file, with an empty line between declarations
+function c_file(f: CFile): Str :=
+  match f
+    case CFile(ds) => str_join("\n\n", [str_join("\n", c_decl(d)) for d in ds]) ^ "\n"
+  end
+
+// a function of the runtime, which compiled code calls
+function c_call(f: Str, args: List[CExpr]): CExpr :=
+  CeCall(CeVar(f), args)
+
+test print_c :=
+  local  v: CType, f: CFile
+  assign v := CtNamed("value")
+  assign f :=
+    CFile(
+      [
+        CdInclude("ulang.h"),
+        CdFunction(
+          v,
+          "fact",
+          [(v, "n")],
+          [
+            CsIf(c_call("is_zero", [CeVar("n")]), [CsReturn(Some(c_call("make_int", [CeNum(1)])))], []),
+            CsDecl(v, "m", Some(c_call("fact", [c_call("sub", [CeVar("n"), c_call("make_int", [CeNum(1)])])]))),
+            CsReturn(Some(c_call("mul", [CeVar("n"), CeVar("m")])))
+          ]
+        ),
+        CdFunction(CtInt, "main", [], [CsExpr(c_call("print", [c_call("fact", [c_call("make_int", [CeNum(5)])])])), CsReturn(Some(CeNum(0)))])
+      ]
+    )
+  assert c_file(f) ==
+    "#include \"ulang.h\"\n\nvalue fact(value n) {\n  if (is_zero(n)) {\n    return make_int(1);\n  }\n  value m = fact(sub(n, make_int(1)));\n  return mul(n, m);\n}\n\nint main(void) {\n  print(fact(make_int(5)));\n  return 0;\n}\n"
+  assert c_expr(CeBinary("+", CeBinary("*", CeVar("a"), CeNum(2)), CeUnary("-", CeVar("b")))) == "(a * 2) + (-b)"
+  assert c_expr(CeStr("a\"b\n")) == "\"a\\\"b\\n\""
+  assert c_stmt("", CsIf(CeVar("c"), [CsReturn(None)], [CsExpr(c_call("f", []))])) == ["if (c) {", "  return;", "} else {", "  f();", "}"]

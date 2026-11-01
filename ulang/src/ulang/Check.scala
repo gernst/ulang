@@ -58,7 +58,18 @@ object Check:
       "chars" -> mono(fun(List(Str), Type.Sort("List", List(Char)))),
       "string" -> mono(fun(List(Type.Sort("List", List(Char))), Str)),
       "ord" -> mono(fun(List(Char), Int)),
-      "chr" -> mono(fun(List(Int), Char))
+      "chr" -> mono(fun(List(Int), Char)),
+      // operations on strings and characters, which are built in for speed
+      "^" -> mono(fun(List(Str, Str), Str)),
+      "str_size" -> mono(fun(List(Str), Int)),
+      "str_join" -> mono(fun(List(Str, Type.Sort("List", List(Str))), Str)),
+      "str_slice" -> mono(fun(List(Str, Int, Int), Str)),
+      "str_split" -> mono(fun(List(Str, Char), Type.Sort("List", List(Str)))),
+      "str_show" -> mono(fun(List(Int), Str)),
+      "str_number" -> mono(fun(List(Str), Type.Sort("Option", List(Int)))),
+      "is_digit" -> mono(fun(List(Char), Bool)),
+      "is_letter" -> mono(fun(List(Char), Bool)),
+      "is_space" -> mono(fun(List(Char), Bool))
     )
 
 
@@ -794,17 +805,28 @@ class Check(program: Program):
               Handler(t, pat1, guard.map(check(env ++ bs, _, Bool)), stmt(env ++ bs, assignable -- bs.keys, b))
           Stmt.Try(stmt(env, assignable, body), handlers1)(s.pos)
 
-  // read gives the syntax of self/syntax.u, so it exists only in programs that declare its Program
+  // the procedures of the program, which hide the builtin ones
   def procedure(name: Name): Option[(List[Type], List[Type], List[Type], List[Type])] =
-    if name == "read" && datas.contains("Program") then
-      Some((Nil, List(Str), List(Type.Sort("Program", Nil)), Nil))
-    else
-      procs.get(name)
+    procs.get(name) match
+      case Some(sig) =>
+        Some(sig)
+      case None =>
+        builtinProcedure(name)
+
+  // read and library give the syntax of self/syntax.u, so they exist only in programs that declare its Program
+  def builtinProcedure(name: Name): Option[(List[Type], List[Type], List[Type], List[Type])] =
+    name match
+      case "read" | "library" if datas.contains("Program") =>
+        Some((Nil, List(Str), List(Type.Sort("Program", Nil)), Nil))
+      case "write" =>
+        Some((Nil, List(Str, Str), Nil, Nil))
+      case _ =>
+        None
 
   def declare(name: Name): Unit =
     require(
       "type",
-      !funs.contains(name) && procedure(name).isEmpty && !constrs.contains(name) && !builtins.contains(name),
+      !funs.contains(name) && !procs.contains(name) && !constrs.contains(name) && !builtins.contains(name),
       s"$name is already defined"
     )
 
@@ -812,7 +834,7 @@ class Check(program: Program):
   def overload(name: Name, n: Int): Unit =
     require(
       "type",
-      procedure(name).isEmpty && !constrs.contains(name) && !lookup(Map(), name).exists((_, t) => arity(t) == n),
+      !procs.contains(name) && !constrs.contains(name) && !lookup(Map(), name).exists((_, t) => arity(t) == n),
       s"$name is already defined"
     )
 
