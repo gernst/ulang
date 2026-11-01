@@ -3,20 +3,20 @@
 function contains[A](x: A, xs: List[A]): Bool :=
   match xs
     case Nil => false
-    case y :: ys => x == y or contains(x, ys)
+    case [y; ys] => x == y or contains(x, ys)
   end
 
 function distinct[A](xs: List[A]): List[A] :=
   match xs
     case Nil => Nil
-    case y :: ys => y :: distinct([z for z in ys if z != y])
+    case [y; ys] => [y; distinct([z for z in ys if z != y])]
   end
 
 // an element that occurs twice
 function repeated[A](xs: List[A]): Option[A] :=
   match xs
     case Nil => None
-    case y :: ys => if contains(y, ys) then Some(y) else repeated(ys)
+    case [y; ys] => if contains(y, ys) then Some(y) else repeated(ys)
   end
 
 function diff[A](xs: List[A], ys: List[A]): List[A] :=
@@ -25,29 +25,29 @@ function diff[A](xs: List[A], ys: List[A]): List[A] :=
 function concat[A](xss: List[List[A]]): List[A] :=
   match xss
     case Nil => Nil
-    case xs :: yss => xs ++ concat(yss)
+    case [xs; yss] => xs ++ concat(yss)
   end
 
 function zip[A, B](xs: List[A], ys: List[B]): List[A * B] :=
   match (xs, ys)
-    case (x :: xs1, y :: ys1) => (x, y) :: zip(xs1, ys1)
+    case ([x; xs1], [y; ys1]) => [(x, y); zip(xs1, ys1)]
     else Nil
   end
 
 function take[A](n: Int, xs: List[A]): List[A] :=
   match xs
     case Nil => Nil
-    case y :: ys => if n == 0 then Nil else y :: take(n - 1, ys)
+    case [y; ys] => if n == 0 then Nil else [y; take(n - 1, ys)]
   end
 
 function drop[A](n: Int, xs: List[A]): List[A] :=
   match xs
     case Nil => Nil
-    case _ :: ys => if n == 0 then xs else drop(n - 1, ys)
+    case [_; ys] => if n == 0 then xs else drop(n - 1, ys)
   end
 
 function replicate[A](n: Int, x: A): List[A] :=
-  if n == 0 then Nil else x :: replicate(n - 1, x)
+  if n == 0 then Nil else [x; replicate(n - 1, x)]
 
 function or_else[A](a: Option[A], b: Option[A]): Option[A] :=
   match a
@@ -67,11 +67,11 @@ test lists :=
 function firsts[A, B](ps: List[A * B]): List[A] :=
   match ps
     case Nil => Nil
-    case (a, _) :: rest => a :: firsts(rest)
+    case [(a, _); rest] => [a; firsts(rest)]
   end
 
 function seconds[A, B](ps: List[A * B]): List[B] :=
   match ps
     case Nil => Nil
-    case (_, b) :: rest => b :: seconds(rest)
+    case [(_, b); rest] => [b; seconds(rest)]
   end

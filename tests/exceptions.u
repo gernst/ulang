@@ -8,7 +8,7 @@ data ParseError :=
 
 procedure accept(in s: Str, ref ts: List[Token]) :=
   match ts
-    case Sym(t) :: us =>
+    case [Sym(t); us] =>
       if t == s
         assign ts := us
       else
@@ -20,7 +20,7 @@ procedure accept(in s: Str, ref ts: List[Token]) :=
 
 procedure number(out n: Int, ref ts: List[Token]) :=
   match ts
-    case Num(m) :: us =>
+    case [Num(m); us] =>
       assign n := m, ts := us
     else
       raise Expected("number")

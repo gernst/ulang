@@ -1,23 +1,23 @@
-// [a, b] is notation for a :: b :: Nil
+// [a, b; xs] is notation for Cons(a, Cons(b, xs)), and [a, b] for Cons(a, Cons(b, Nil))
 
 import option
 
-infix right 7 :: ++
+infix right 7 ++
 
 data List[A] :=
   | Nil
-  | ::(A, List[A])
+  | Cons(A, List[A])
 
 function ++[A](xs: List[A], ys: List[A]): List[A] :=
   match xs
     case Nil => ys
-    case x :: zs => x :: zs ++ ys
+    case [x; zs] => [x; zs ++ ys]
   end
 
 function length[A](xs: List[A]): Int :=
   match xs
     case Nil => 0
-    case _ :: ys => 1 + length(ys)
+    case [_; ys] => 1 + length(ys)
   end
 
 // association lists of keys and values, where the first pair of a key counts
@@ -25,28 +25,28 @@ function length[A](xs: List[A]): Int :=
 function lookup[K, V](k: K, xs: List[K * V]): Option[V] :=
   match xs
     case Nil => None
-    case (j, v) :: _ if j == k => Some(v)
-    case _ :: ys => lookup(k, ys)
+    case [(j, v); _] if j == k => Some(v)
+    case [_; ys] => lookup(k, ys)
   end
 
 function update[K, V](k: K, v: V, xs: List[K * V]): List[K * V] :=
-  (k, v) :: remove(k, xs)
+  [(k, v); remove(k, xs)]
 
 function remove[K, V](k: K, xs: List[K * V]): List[K * V] :=
   match xs
     case Nil => Nil
-    case (j, _) :: ys if j == k => remove(k, ys)
-    case p :: ys => p :: remove(k, ys)
+    case [(j, _); ys] if j == k => remove(k, ys)
+    case [p; ys] => [p; remove(k, ys)]
   end
 
 function keys[K, V](xs: List[K * V]): List[K] :=
   match xs
     case Nil => Nil
-    case (k, _) :: ys => k :: keys(ys)
+    case [(k, _); ys] => [k; keys(ys)]
   end
 
 function values[K, V](xs: List[K * V]): List[V] :=
   match xs
     case Nil => Nil
-    case (_, v) :: ys => v :: values(ys)
+    case [(_, v); ys] => [v; values(ys)]
   end

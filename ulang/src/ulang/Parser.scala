@@ -331,8 +331,21 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       } |
         value ^^
         (Pat.Lit(_)(pos)) | tuple(pattern(s))(Pat.Tuple(_)(pos)) | kw("_") ^^^ Pat.Wild()(pos) |
+        brackets(pattern(s))(Pat.App("Nil", Nil)(pos), (p, ps) => Pat.App("Cons", List(p, ps))(pos)) |
         plain(s) ^^
         (Pat.Var(_, Type.Hole)(pos))
+
+  // [a, b] is a :: b :: Nil, and [a, b; c] is a :: b :: c, with at least one element before ;
+  def brackets[A](p: => Parser[A])(nil: A, cons: (A, A) => A): Parser[A] =
+    ("[" ~> list(p) ~ opt(";" ~> p) <~ "]") ^? (
+      {
+        case as ~ None =>
+          as.foldRight(nil)(cons)
+        case as ~ Some(rest) if as.nonEmpty =>
+          as.foldRight(rest)(cons)
+      },
+      _ => "a list [a; b] needs elements before ;"
+    )
 
   // applications of operators are at their first operand
   def op(f: Name, args: Expr*): Expr =
@@ -356,8 +369,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       let(s) | ite(s) | lam(s) | matches(s, expr(s))(Expr.Match(_, _)(_)) |
         value ^^
         (Expr.Lit(_)(pos)) | tuple(expr(s))(Expr.Tuple(_)(pos)) | comp(s) |
-        "[" ~> list(expr(s)) <~ "]" ^^
-        (_.foldRight(Expr.Var("Nil", Type.Hole)(pos): Expr)(op("::", _, _))) | variable(s)
+        brackets(expr(s))(Expr.Var("Nil", Type.Hole)(pos), op("Cons", _, _)) | variable(s)
 
   // [result for x in xs, y in ys if test], where if test is optional
   def comp(s: Scope): Parser[Expr] =

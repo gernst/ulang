@@ -2,6 +2,6 @@
 function f(xs: List[Int]): Int :=
   match xs
     case Nil => 0
-    case _ :: _ => 1
+    case [_; _] => 1
     case Nil => 2
   end

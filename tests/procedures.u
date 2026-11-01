@@ -12,7 +12,7 @@ procedure total(in xs: List[Int], out s: Int) :=
 
   while ys != Nil
     match ys
-      case y :: zs =>
+      case [y; zs] =>
         assign s := s + y
         assign ys := zs
       case Nil => skip

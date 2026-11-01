@@ -6,7 +6,7 @@ test read_files :=
   local  p: Program
   call   read(in "util.u", out p)
   match p
-    case Program(CFun(n, ps, xs, t, _) :: _) =>
+    case Program([CFun(n, ps, xs, t, _); _]) =>
       assert (n, ps) == ("contains", ["A"])
       assert xs == [[Var("x", TParam("A")), Var("xs", TSort("List", [TParam("A")]))]]
       assert t == TSort("Bool", Nil)
@@ -15,7 +15,7 @@ test read_files :=
   end
   call read(in "read.u", out p)
   match p
-    case Program(CImport("syntax") :: _) =>
+    case Program([CImport("syntax"); _]) =>
       skip
     else
       assert false

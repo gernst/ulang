@@ -151,7 +151,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
               env1 <- combinations(env, bound, lists)
               if bool(eval(env1, test))
             yield eval(env1, result)
-          vs.foldRight(Obj("Nil", Nil): Any)((v, vs) => Obj("::", List(v, vs)))
+          vs.foldRight(Obj("Nil", Nil): Any)((v, vs) => Obj("Cons", List(v, vs)))
 
         case Expr.Tuple(items) =>
           Obj(",", items.map(eval(env, _)))

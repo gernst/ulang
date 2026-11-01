@@ -7,7 +7,7 @@ data Token :=
 
 procedure accept(in s: Str, out ok: Bool, ref ts: List[Token]) :=
   match ts
-    case Sym(t) :: us =>
+    case [Sym(t); us] =>
       if t == s
         assign ok := true, ts := us
       else
@@ -19,7 +19,7 @@ procedure accept(in s: Str, out ok: Bool, ref ts: List[Token]) :=
 
 procedure number(out n: Int, ok: Bool, ref ts: List[Token]) :=
   match ts
-    case Num(m) :: us =>
+    case [Num(m); us] =>
       assign n := m, ok := true, ts := us
     else
       assign n := 0, ok := false
@@ -28,7 +28,7 @@ procedure number(out n: Int, ok: Bool, ref ts: List[Token]) :=
 // one of the operators + and -
 procedure additive(out o: Str, ok: Bool, ref ts: List[Token]) :=
   match ts
-    case Sym(s) :: us =>
+    case [Sym(s); us] =>
       if s == "+" or s == "-"
         assign o := s, ok := true, ts := us
       else

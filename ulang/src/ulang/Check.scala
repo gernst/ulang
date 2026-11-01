@@ -622,6 +622,8 @@ class Check(program: Program):
     (c, args) match
       case (",", _) =>
         args.mkString("(", ", ", ")")
+      case ("Cons", List(x, xs)) =>
+        s"[$x; $xs]"
       case (_, List(l, r)) if Printer.symbolic(c) =>
         Printer.infix(c, l, r)
       case (_, Nil) =>

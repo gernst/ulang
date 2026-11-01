@@ -13,7 +13,7 @@ function succeed[T, A](a: A): Parser[T, A] :=
 function satisfy[T](p: T -> Bool): Parser[T, T] :=
   lambda ts =>
     match ts
-      case t :: us => if p(t) then Some((t, us)) else None
+      case [t; us] => if p(t) then Some((t, us)) else None
       case Nil => None
     end
 
@@ -34,7 +34,7 @@ function <|>[T, A](p: Parser[T, A], q: Parser[T, A]): Parser[T, A] :=
     end
 
 function many[T, A](p: Parser[T, A]): Parser[T, List[A]] :=
-  (p >>= lambda a => many(p) >>= lambda as => succeed(a :: as)) <|> succeed([])
+  (p >>= lambda a => many(p) >>= lambda as => succeed([a; as])) <|> succeed([])
 
 // p, separated by operators o, which are applied to the left
 function chain[T, A](p: Parser[T, A], o: Parser[T, (A, A) -> A]): Parser[T, A] :=
@@ -59,7 +59,7 @@ function symbol(s: Str): Parser[Token, Token] :=
 
 function number(ts: List[Token]): Option[Int * List[Token]] :=
   match ts
-    case Num(n) :: us => Some((n, us))
+    case [Num(n); us] => Some((n, us))
     else None
   end
 

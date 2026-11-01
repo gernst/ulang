@@ -20,7 +20,7 @@ procedure interpret[T, V](in g: Grammar[T, V], rules: List[Str * Grammar[T, V]],
   match g
     case Token(f) =>
       match ts
-        case t :: us =>
+        case [t; us] =>
           assign r := f(t)
           if r != None
             assign ts := us
@@ -74,14 +74,14 @@ procedure parts[T, V](in gs: List[Grammar[T, V]], rules: List[Str * Grammar[T, V
   match gs
     case Nil =>
       assign vs := Some([])
-    case g :: hs =>
+    case [g; hs] =>
       call interpret(in g, rules, out r, ref ts)
       match r
         case Some(v) =>
           call parts(in hs, rules, out vs, ref ts)
           match vs
             case Some(xs) =>
-              assign vs := Some(v :: xs)
+              assign vs := Some([v; xs])
             case None =>
               skip
           end
@@ -95,9 +95,9 @@ procedure operator[T, V](in ops: List[T * ((V, V) -> V)], out o: Option[(V, V) -
   match ops
     case Nil =>
       assign o := None
-    case (u, f) :: rest =>
+    case [(u, f); rest] =>
       match ts
-        case t :: us =>
+        case [t; us] =>
           if t == u
             assign o := Some(f), ts := us
           else
@@ -117,7 +117,7 @@ function symbol[V](s: Str, v: V): Grammar[Token, V] :=
 
 function second[V](vs: List[V]): Option[V] :=
   match vs
-    case _ :: v :: _ => Some(v)
+    case [_, v; _] => Some(v)
     else None
   end
 

@@ -6,7 +6,7 @@ object Quote:
     Obj(c, args.toList)
 
   def list[A](xs: List[A])(f: A => Any): Any =
-    xs.foldRight(obj("Nil"))((x, v) => obj("::", f(x), v))
+    xs.foldRight(obj("Nil"))((x, v) => obj("Cons", f(x), v))
 
   def option[A](o: Option[A])(f: A => Any): Any =
     o match
@@ -156,7 +156,7 @@ object Quote:
     v match
       case Obj("Nil", Nil) =>
         Nil
-      case Obj("::", List(x, xs)) =>
+      case Obj("Cons", List(x, xs)) =>
         f(x) :: items(xs)(f)
       case _ =>
         invalid("a list", v)

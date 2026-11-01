@@ -1,15 +1,15 @@
 function range(n: Int): List[Int] :=
-  if n == 0 then Nil else n :: range(n - 1)
+  if n == 0 then Nil else [n; range(n - 1)]
 
 function head[A](xs: List[A]): Option[A] :=
   match xs
-    case x :: _ => Some(x)
+    case [x; _] => Some(x)
     else None
   end
 
 function nested(xs: List[Option[Int]]): Int :=
   match xs
-    case Some(1) :: None :: _ => 1
+    case [Some(1), None; _] => 1
     else 0
   end
 
@@ -31,12 +31,12 @@ function unit(u: ()): Int :=
   end
 
 test ranges :=
-  assert range(3) == 3 :: 2 :: 1 :: Nil
+  assert range(3) == [3, 2, 1]
   assert length(range(3)) == 3
-  assert [x * x for x in range(3)] == 9 :: 4 :: 1 :: Nil
+  assert [x * x for x in range(3)] == [9, 4, 1]
   assert head(range(2)) == Some(2)
   assert head(Nil) == None
-  assert nested(Some(1) :: None :: Nil) == 1
+  assert nested([Some(1), None]) == 1
   assert nested(Nil) == 0
   assert word(0) == "zero"
   assert word(7) == "other"
@@ -44,11 +44,11 @@ test ranges :=
   assert unit(()) == 0
   assert (range(2) != Nil)
 
-// [...] is notation for the List of the prelude, whose constructor :: is an operator
+// [...] is notation for the List of the prelude, with the constructors Nil and Cons
 test list_notation :=
-  assert [1, 2, 3] == 1 :: 2 :: 3 :: Nil
+  assert [1, 2, 3] == Cons(1, Cons(2, Cons(3, Nil)))
   assert [] == Nil
-  assert [[1], []] == (1 :: Nil) :: Nil :: Nil
+  assert [[1], []] == Cons(Cons(1, Nil), Cons(Nil, Nil))
   assert [1] ++ [2, 3] ++ [] == [1, 2, 3]
   assert length([1, 2] ++ [3]) == 3
 
@@ -146,11 +146,25 @@ test guards :=
   local  s: Str
   assert sign(-5) == -1 and sign(0) == 0 and sign(7) == 1
   match [1, 2]
-    case x :: _ if x > 1 =>
+    case [x; _] if x > 1 =>
       assign s := "big"
-    case x :: _ if x == 1 =>
+    case [x; _] if x == 1 =>
       assign s := "one"
     else
       assign s := "other"
   end
   assert s == "one"
+
+// [a, b] is Cons(a, Cons(b, Nil)) and [a, b; c] is Cons(a, Cons(b, c)), in patterns and expressions
+function sum_pairs(xs: List[Int]): Int :=
+  match xs
+    case [] => 0
+    case [x] => x
+    case [x, y; rest] => x * y + sum_pairs(rest)
+  end
+
+test list_patterns :=
+  assert sum_pairs([1, 2, 3, 4, 5]) == 19
+  assert sum_pairs([]) == 0
+  assert [1; [2, 3]] == [1, 2, 3]
+  assert [1, 2; [3]] == Cons(1, Cons(2, Cons(3, Nil)))

@@ -9,7 +9,7 @@ object Printer:
         "<function>"
       case Obj(",", vs) =>
         vs.map(show).mkString("(", ", ", ")")
-      case Obj("::", _) if items(v).nonEmpty =>
+      case Obj("Cons", _) if items(v).nonEmpty =>
         items(v).get.map(show).mkString("[", ", ", "]")
       case Obj(c, Nil) =>
         c
@@ -40,6 +40,8 @@ object Printer:
         name
       case Pat.Tuple(items) =>
         items.map(show(_)).mkString("(", ", ", ")")
+      case Pat.App("Cons", List(x, xs)) =>
+        s"[${show(x)}; ${show(xs)}]"
       case Pat.App(name, List(l, r)) if symbolic(name) =>
         infix(name, show(l), show(r))
       case Pat.App(name, Nil) =>
@@ -52,7 +54,7 @@ object Printer:
     v match
       case Obj("Nil", Nil) =>
         Some(Nil)
-      case Obj("::", List(x, xs)) =>
+      case Obj("Cons", List(x, xs)) =>
         items(xs).map(x :: _)
       case _ =>
         None
