@@ -1,6 +1,31 @@
 package ulang
 
-type Name = String
+// identifiers that never refer to declarations of modules: type parameters, modules, notations, runs, and tests
+type Id = String
+
+// a name with the module that declares it, which is None for locals, builtins, and names before checking
+case class Name(module: Option[Id], base: Id):
+  override def toString: String =
+    base
+
+  // the name with its module, to tell names apart
+  def qualified: String =
+    module.map(m => s"$m.$base").getOrElse(base)
+
+object Name:
+  def apply(base: Id): Name =
+    Name(None, base)
+
+// names that builtins and the runtime create, of the modules of the library
+object Names:
+  val list = Name(Some("list"), "List")
+  val nil = Name(Some("list"), "Nil")
+  val cons = Name(Some("list"), "Cons")
+  val option = Name(Some("option"), "Option")
+  val none = Name(Some("option"), "None")
+  val some = Name(Some("option"), "Some")
+  val osError = Name(Some("os"), "OsError")
+  val tuple = Name(",")
 
 // source positions, which are not part of the equality and the patterns of nodes
 type Pos = scala.util.parsing.input.Position
@@ -10,7 +35,7 @@ val nowhere: Pos = scala.util.parsing.input.NoPosition
 enum Type:
   case Hole
   case Meta(index: Int)
-  case Param(name: Name)
+  case Param(name: Id)
   case Sort(name: Name, args: List[Type])
   // functions take a fixed number of arguments, since there is no currying
   case Fun(args: List[Type], res: Type)
@@ -71,18 +96,20 @@ enum Fixity:
 enum Cmd:
   def pos: Pos
 
-  case Sort(name: Name, params: List[Name], typ: Type)(val pos: Pos = nowhere)
-  case Data(name: Name, params: List[Name], constrs: List[Constr])(val pos: Pos = nowhere)
+  case Sort(name: Name, params: List[Id], typ: Type)(val pos: Pos = nowhere)
+  case Data(name: Name, params: List[Id], constrs: List[Constr])(val pos: Pos = nowhere)
   // functions have at least one list of parameters, and further ones curry them
-  case Fun(name: Name, params: List[Name], bound: List[List[Pat.Var]], res: Type, body: Expr)(val pos: Pos = nowhere)
-  case Proc(name: Name, params: List[Name], ins: List[Pat.Var], outs: List[Pat.Var], refs: List[Pat.Var], body: Stmt)(
+  case Fun(name: Name, params: List[Id], bound: List[List[Pat.Var]], res: Type, body: Expr)(val pos: Pos = nowhere)
+  case Proc(name: Name, params: List[Id], ins: List[Pat.Var], outs: List[Pat.Var], refs: List[Pat.Var], body: Stmt)(
       val pos: Pos = nowhere
   )
-  case Import(name: Name)(val pos: Pos = nowhere)
-  case Notation(fixity: Fixity, prec: Int, names: List[Name])(val pos: Pos = nowhere)
+  // the first import of a module comes with the module itself, whose commands are those it declares
+  case Module(name: Id, cmds: List[Cmd])(val pos: Pos = nowhere)
+  case Import(name: Id)(val pos: Pos = nowhere)
+  case Notation(fixity: Fixity, prec: Int, names: List[Id])(val pos: Pos = nowhere)
   case Eval(expr: Expr)(val pos: Pos = nowhere)
-  case Run(name: Name, body: Stmt)(val pos: Pos = nowhere)
-  case Test(name: Name, body: Stmt)(val pos: Pos = nowhere)
+  case Run(name: Id, body: Stmt)(val pos: Pos = nowhere)
+  case Test(name: Id, body: Stmt)(val pos: Pos = nowhere)
 
 case class Program(cmds: List[Cmd])
 

@@ -9,22 +9,22 @@ object Printer:
         "'" + escape(c, '\'') + "'"
       case _: Function1[?, ?] =>
         "<function>"
-      case Obj(",", vs) =>
+      case Obj(Names.tuple, vs) =>
         vs.map(show).mkString("(", ", ", ")")
-      case Obj("Cons", _) if items(v).nonEmpty =>
+      case Obj(Names.cons, _) if items(v).nonEmpty =>
         items(v).get.map(show).mkString("[", ", ", "]")
       case Obj(c, Nil) =>
-        c
+        c.toString
       case Obj(c, vs) =>
         vs.map(show).mkString(s"$c(", ", ", ")")
       case _ =>
         v.toString
 
   // constructors named by operators are shown infix
-  def symbolic(name: Name): Boolean =
+  def symbolic(name: Id): Boolean =
     !name.head.isLetter && name.head != '_' && name != ","
 
-  def infix(op: Name, l: String, r: String): String =
+  def infix(op: Id, l: String, r: String): String =
     def operand(a: String): String =
       if a.contains(" ") && !a.startsWith("(") then
         s"($a)"
@@ -39,15 +39,16 @@ object Printer:
       case Pat.Lit(value) =>
         show(value)
       case Pat.Var(name, _) =>
-        name
+        name.toString
       case Pat.Tuple(items) =>
         items.map(show(_)).mkString("(", ", ", ")")
-      case Pat.App("Cons", List(x, xs)) =>
+      // before checking, the list constructor is not resolved yet
+      case Pat.App(name, List(x, xs)) if name == Names.cons || name == Name("Cons") =>
         s"[${show(x)}; ${show(xs)}]"
-      case Pat.App(name, List(l, r)) if symbolic(name) =>
-        infix(name, show(l), show(r))
+      case Pat.App(name, List(l, r)) if symbolic(name.base) =>
+        infix(name.base, show(l), show(r))
       case Pat.App(name, Nil) =>
-        name
+        name.toString
       case Pat.App(name, args) =>
         args.map(show(_)).mkString(s"$name(", ", ", ")")
 
@@ -70,9 +71,9 @@ object Printer:
   // the elements of a list built by Nil and Cons
   def items(v: Any): Option[List[Any]] =
     v match
-      case Obj("Nil", Nil) =>
+      case Obj(Names.nil, Nil) =>
         Some(Nil)
-      case Obj("Cons", List(x, xs)) =>
+      case Obj(Names.cons, List(x, xs)) =>
         items(xs).map(x :: _)
       case _ =>
         None

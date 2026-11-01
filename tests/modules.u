@@ -1,7 +1,19 @@
-// modules are inlined once, and their notations apply after their import
+// modules are loaded once, and their notations apply after their import
 import stack
 
 import stack
+
+// each module sees its own declarations, its direct imports, and the prelude,
+// where its own declarations hide those of other modules
+import counter
+import doubler
+
+function helper(n: Int): Int :=
+  n - 1
+
+test own_names :=
+  assert next(1) == 2 and double(3) == 6
+  assert helper(5) == 4
 
 test imported_notations :=
   assert top(2 <+ 1 <+ Empty) == Some(2)

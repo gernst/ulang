@@ -1,0 +1,9 @@
+// a module for tests/errors/transitive-name.u and tests/errors/transitive-notation.u
+
+infix left 5 <+>
+
+function <+>(m: Int, n: Int): Int :=
+  m + n
+
+function twice(n: Int): Int :=
+  n <+> n

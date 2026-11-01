@@ -1,13 +1,19 @@
 package ulang
 
 object Check:
-  val Bool = Type.Sort("Bool", Nil)
-  val Int = Type.Sort("Int", Nil)
-  val Str = Type.Sort("Str", Nil)
-  val Char = Type.Sort("Char", Nil)
+  val Bool = Type.Sort(Name("Bool"), Nil)
+  val Int = Type.Sort(Name("Int"), Nil)
+  val Str = Type.Sort(Name("Str"), Nil)
+  val Char = Type.Sort(Name("Char"), Nil)
   val Empty = Type.Tuple(Nil)
 
   val basic = Set("Bool", "Int", "Str", "Char")
+
+  def isBasic(name: Name): Boolean =
+    name.module.isEmpty && basic(name.base)
+
+  def list(t: Type): Type =
+    Type.Sort(Names.list, List(t))
 
   def fun(args: List[Type], res: Type): Type =
     Type.Fun(args, res)
@@ -40,7 +46,7 @@ object Check:
         -1
 
   // only what cannot be defined in the prelude
-  val builtins: Map[Name, (List[Type], Type)] =
+  val builtins: Map[Id, (List[Type], Type)] =
     val arith = mono(fun(List(Int, Int), Int))
     val logic = mono(fun(List(Bool, Bool), Bool))
     val eq = (List(Type.Param("A")), fun(List(Type.Param("A"), Type.Param("A")), Bool))
@@ -55,21 +61,21 @@ object Check:
       "and" -> logic,
       "or" -> logic,
       // strings are converted from and to lists of characters
-      "chars" -> mono(fun(List(Str), Type.Sort("List", List(Char)))),
-      "string" -> mono(fun(List(Type.Sort("List", List(Char))), Str)),
+      "chars" -> mono(fun(List(Str), list(Char))),
+      "string" -> mono(fun(List(list(Char)), Str)),
       "ord" -> mono(fun(List(Char), Int)),
       "chr" -> mono(fun(List(Int), Char)),
       // operations on strings and characters, which are built in for speed
       "^" -> mono(fun(List(Str, Str), Str)),
       "str_size" -> mono(fun(List(Str), Int)),
-      "str_join" -> mono(fun(List(Str, Type.Sort("List", List(Str))), Str)),
+      "str_join" -> mono(fun(List(Str, list(Str)), Str)),
       "str_slice" -> mono(fun(List(Str, Int, Int), Str)),
-      "str_split" -> mono(fun(List(Str, Char), Type.Sort("List", List(Str)))),
+      "str_split" -> mono(fun(List(Str, Char), list(Str))),
       "str_get" -> mono(fun(List(Str, Int), Char)),
       "str_contains" -> mono(fun(List(Str, Char), Bool)),
       "str_show" -> mono(fun(List(Int), Str)),
       "str_quote" -> mono(fun(List(Str), Str)),
-      "str_number" -> mono(fun(List(Str), Type.Sort("Option", List(Int)))),
+      "str_number" -> mono(fun(List(Str), Type.Sort(Names.option, List(Int)))),
       "is_digit" -> mono(fun(List(Char), Bool)),
       "is_letter" -> mono(fun(List(Char), Bool)),
       "is_space" -> mono(fun(List(Char), Bool))
@@ -96,7 +102,7 @@ object Check:
       case Type.Tuple(ts) =>
         ts.map(component).mkString(" * ")
       case Type.Sort(name, Nil) =>
-        name
+        name.toString
       case Type.Sort(name, args) =>
         args.map(show(_)).mkString(s"$name[", ", ", "]")
 
@@ -154,16 +160,59 @@ object Check:
       case _ =>
         su.getOrElse(t, t)
 
-  def program(p: Program): Program =
-    new Check(p).cmds()
+  // the commands of p, which is the module main, flattened and with qualified names
+  def program(p: Program, main: Id = "main"): Program =
+    new Check(p, main).cmds()
+
+  // the commands of the modules with the module of each, where declarations get their module
+  def flatten(m: Id, cmds: List[Cmd]): List[(Id, Cmd)] =
+    cmds match
+      case Nil =>
+        Nil
+      case Cmd.Module(n, cs) :: rest =>
+        flatten(n, cs) ++ flatten(m, rest)
+      case c :: rest =>
+        (m -> qualify(m, c)) :: flatten(m, rest)
+
+  def qualify(m: Id, c: Cmd): Cmd =
+    def q(n: Name): Name =
+      Name(Some(m), n.base)
+    c match
+      case Cmd.Sort(name, params, typ) =>
+        Cmd.Sort(q(name), params, typ)(c.pos)
+      case Cmd.Data(name, params, constrs) =>
+        Cmd.Data(q(name), params, constrs.map(k => Constr(q(k.name), k.args)))(c.pos)
+      case Cmd.Fun(name, params, bound, res, body) =>
+        Cmd.Fun(q(name), params, bound, res, body)(c.pos)
+      case Cmd.Proc(name, params, ins, outs, refs, body) =>
+        Cmd.Proc(q(name), params, ins, outs, refs, body)(c.pos)
+      case _ =>
+        c
 
   def expr(e: Expr): (Expr, Type) =
-    val c = new Check(Program(Nil))
+    val c = new Check(Program(Nil), "main")
     val (e1, t) = c.infer(Map(), e)
     (c.zonk(e1), c.zonk(t))
 
-class Check(program: Program):
+class Check(program: Program, main: Id):
   import Check.*
+
+  val decls = flatten(main, program.cmds)
+
+  // the modules that each module imports directly
+  val imports: Map[Id, List[Id]] =
+    (for case (m, Cmd.Import(n)) <- decls yield m -> n).groupMap(_._1)(_._2)
+
+  // the prelude and its modules, which every module sees
+  val global: List[Id] =
+    "prelude" :: imports.getOrElse("prelude", Nil)
+
+  // the module whose declarations are checked
+  val current = Ref(main)
+
+  // the modules that module m sees, itself first
+  def visible(m: Id): List[Id] =
+    (m :: imports.getOrElse(m, Nil) ++ global).distinct
 
   val context = Ref(initial)
   val su = Ref(Map[Int, Type]())
@@ -189,7 +238,7 @@ class Check(program: Program):
     next.get += 1
     Type.Meta(next.get)
 
-  def distinct(names: List[Name], what: String): Unit =
+  def distinct[A](names: List[A], what: String): Unit =
     val dups = names.diff(names.distinct)
     require("type", dups.isEmpty, s"duplicate $what ${dups.distinct.mkString(", ")}")
 
@@ -198,6 +247,41 @@ class Check(program: Program):
 
   def arguments(name: Name, arity: Int, args: List[Type]): Unit =
     require("type", arity == args.length, s"sort $name expects $arity arguments, got ${args.length}")
+
+  // the declarations named x that the current module sees, where its own declarations hide those of other modules
+  def candidates(x: Name, declared: Name => Boolean): List[Name] =
+    x.module match
+      case Some(_) =>
+        List(x).filter(declared)
+      case None =>
+        val own = Name(Some(current.get), x.base)
+        if declared(own) then
+          List(own)
+        else
+          for
+            m <- visible(current.get).tail
+            n = Name(Some(m), x.base)
+            if declared(n)
+          yield n
+
+  def ambiguous(x: Name, ns: List[Name]): Nothing =
+    error("type", s"$x is ambiguous: ${ns.map(_.qualified).mkString(", ")}")
+
+  // the declaration named x of a kind, if there is one
+  def unique(x: Name, declared: Name => Boolean): Option[Name] =
+    candidates(x, declared) match
+      case Nil =>
+        None
+      case List(n) =>
+        Some(n)
+      case ns =>
+        ambiguous(x, ns)
+
+  def sort(x: Name): Name =
+    unique(x, n => datas.contains(n) || aliases.contains(n)).getOrElse(error("type", s"unknown sort $x"))
+
+  def constructor(x: Name): Option[Name] =
+    unique(x, constrs.contains)
 
   // expands sort definitions and replaces holes by fresh unknowns
   def normalize(t: Type): Type =
@@ -210,16 +294,18 @@ class Check(program: Program):
         Type.Fun(args.map(normalize), normalize(r))
       case Type.Tuple(ts) =>
         Type.Tuple(ts.map(normalize))
-      case Type.Sort(name, args) if basic(name) =>
+      case Type.Sort(name, args) if isBasic(name) =>
         arguments(name, 0, args)
         t
-      case Type.Sort(name, args) if datas.contains(name) =>
-        arguments(name, datas(name), args)
-        Type.Sort(name, args.map(normalize))
       case Type.Sort(name, args) =>
-        val (params, rhs) = aliases.getOrElse(name, error("type", s"unknown sort $name"))
-        arguments(name, params.length, args)
-        subst(rhs, params.map(Type.Param(_)).zip(args.map(normalize)).toMap)
+        val n = sort(name)
+        if datas.contains(n) then
+          arguments(n, datas(n), args)
+          Type.Sort(n, args.map(normalize))
+        else
+          val (params, rhs) = aliases(n)
+          arguments(n, params.length, args)
+          subst(rhs, params.map(Type.Param(_)).zip(args.map(normalize)).toMap)
 
   def known(t: Type, what: String): Type =
     require("type", !holes(t), s"missing type for $what")
@@ -231,7 +317,7 @@ class Check(program: Program):
 
   def signature(xs: List[Pat.Var]): List[Pat.Var] =
     distinct(xs.names, "variable")
-    xs.map(x => at(x.pos)(Pat.Var(x.name, known(x.typ, x.name))(x.pos)))
+    xs.map(x => at(x.pos)(Pat.Var(x.name, known(x.typ, x.name.toString))(x.pos)))
 
   def bind(xs: List[Pat.Var]): Map[Name, (List[Type], Type)] =
     xs.map(x => x.name -> mono(x.typ)).toMap
@@ -336,7 +422,7 @@ class Check(program: Program):
         Cmd.Fun(name, params, bound.map(_.map(zonk(_))), zonk(res), zonk(body))(d.pos)
       case Cmd.Proc(name, params, ins, outs, refs, body) =>
         Cmd.Proc(name, params, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))(d.pos)
-      case Cmd.Import(_) | Cmd.Notation(_, _, _) =>
+      case Cmd.Module(_, _) | Cmd.Import(_) | Cmd.Notation(_, _, _) =>
         d
       case Cmd.Eval(expr) =>
         Cmd.Eval(zonk(expr))(d.pos)
@@ -408,15 +494,28 @@ class Check(program: Program):
     val (params, typ) = s
     subst(zonk(typ), instance(params))
 
-  // local variables hide functions, constructors, and builtins
-  def lookup(env: Map[Name, (List[Type], Type)], x: Name): List[(List[Type], Type)] =
+  // the meanings of x with their names, where local variables hide functions, constructors, and builtins
+  def lookup(env: Map[Name, (List[Type], Type)], x: Name): List[(Name, (List[Type], Type))] =
     if env.contains(x) then
-      List(env(x))
+      List(x -> env(x))
     else
-      funs.getOrElse(x, Nil) ++ constrs.get(x).map(scheme) ++ builtins.get(x)
+      val fs =
+        for
+          n <- candidates(x, funs.contains)
+          s <- funs(n)
+        yield n -> s
+      val ks =
+        for n <- candidates(x, constrs.contains)
+        yield n -> scheme(constrs(n))
+      val bs =
+        for
+          s <- builtins.get(x.base).toList
+          if x.module.isEmpty
+        yield x -> s
+      fs ++ ks ++ bs
 
   // the meaning of x applied to n arguments, or n < 0 if x is not applied
-  def resolve(env: Map[Name, (List[Type], Type)], x: Name, n: Int): (List[Type], Type) =
+  def resolve(env: Map[Name, (List[Type], Type)], x: Name, n: Int): (Name, (List[Type], Type)) =
     lookup(env, x) match
       case Nil =>
         error("type", s"unknown variable $x")
@@ -425,10 +524,17 @@ class Check(program: Program):
       case ss if n < 0 =>
         error("type", s"overloaded $x must be applied")
       case ss =>
-        ss.find((_, t) => arity(t) == n).getOrElse(error("type", s"$x does not take $n arguments"))
+        ss.filter((_, s) => arity(s._2) == n) match
+          case Nil =>
+            error("type", s"$x does not take $n arguments")
+          case List(s) =>
+            s
+          case ts =>
+            ambiguous(x, ts.map(_._1))
 
-  // a use of x elaborated with an instance of s
-  def use(x: Name, t: Type, s: (List[Type], Type), pos: Pos): Expr.Var =
+  // a use of the resolved name with an instance of its scheme
+  def use(r: (Name, (List[Type], Type)), t: Type, pos: Pos): Expr.Var =
+    val (x, s) = r
     val u = instantiate(s)
     unify(u, normalize(t))
     Expr.Var(x, u)(pos)
@@ -459,11 +565,11 @@ class Check(program: Program):
           error("type", s"invalid literal $value")
 
         case Expr.Var(name, typ) =>
-          val v = use(name, typ, resolve(env, name, -1), e.pos)
+          val v = use(resolve(env, name, -1), typ, e.pos)
           (v, v.typ)
 
         case Expr.App(Expr.Var(name, typ), args) if lookup(env, name).length > 1 =>
-          val v = use(name, typ, resolve(env, name, args.length), e.pos)
+          val v = use(resolve(env, name, args.length), typ, e.pos)
           val (args1, r) = apply(env, v.typ, args)
           (Expr.App(v, args1)(e.pos), r)
 
@@ -497,7 +603,7 @@ class Check(program: Program):
           val lists1 = generators(env, xs, lists)
           val test1 = check(env ++ bind(xs), test, Bool)
           val (result1, t) = infer(env ++ bind(xs), result)
-          (Expr.Comp(result1, xs, lists1, test1)(e.pos), Type.Sort("List", List(t)))
+          (Expr.Comp(result1, xs, lists1, test1)(e.pos), list(t))
 
         case Expr.Match(arg, cases) =>
           val r = fresh()
@@ -514,7 +620,7 @@ class Check(program: Program):
       case (Nil, Nil) =>
         Nil
       case (x :: xs, list :: lists) =>
-        check(env, list, Type.Sort("List", List(x.typ))) :: generators(env ++ bind(List(x)), xs, lists)
+        check(env, list, Check.list(x.typ)) :: generators(env ++ bind(List(x)), xs, lists)
       case _ =>
         error("type", s"expected ${xs.length} lists, got ${lists.length}")
 
@@ -545,7 +651,7 @@ class Check(program: Program):
           check(Map(), Expr.Lit(value)(p.pos), t)
           (p, Nil)
 
-        case Pat.Var(name, _) if constrs.contains(name) =>
+        case Pat.Var(name, _) if constructor(name).nonEmpty =>
           binders(Pat.App(name, Nil)(p.pos), t)
 
         case Pat.Var(name, typ) =>
@@ -555,12 +661,13 @@ class Check(program: Program):
           (x, List(x))
 
         case Pat.App(name, args) =>
-          val (params, kargs, res) = constrs.getOrElse(name, error("type", s"unknown constructor $name"))
+          val c = constructor(name).getOrElse(error("type", s"unknown constructor $name"))
+          val (params, kargs, res) = constrs(c)
           sameLength(kargs, args, s"constructor $name")
           val su = instance(params)
           unify(subst(res, su), t)
           val (args1, bs) = binders(args, kargs.map(subst(_, su)))
-          (Pat.App(name, args1)(p.pos), bs)
+          (Pat.App(c, args1)(p.pos), bs)
 
         case Pat.Tuple(items) =>
           val ts = items.map(_ => fresh())
@@ -634,32 +741,32 @@ class Check(program: Program):
       case Pat.App(name, args) =>
         Some(name -> args)
       case Pat.Tuple(items) =>
-        Some("," -> items)
+        Some(Names.tuple -> items)
       case Pat.Lit(value) =>
-        Some(Printer.show(value) -> Nil)
+        Some(Name(Printer.show(value)) -> Nil)
       case _ =>
         None
 
   def witness(c: Name, args: List[String]): String =
     (c, args) match
-      case (",", _) =>
+      case (Names.tuple, _) =>
         args.mkString("(", ", ", ")")
-      case ("Cons", List(x, xs)) =>
+      case (Names.cons, List(x, xs)) =>
         s"[$x; $xs]"
-      case (_, List(l, r)) if Printer.symbolic(c) =>
-        Printer.infix(c, l, r)
+      case (_, List(l, r)) if Printer.symbolic(c.base) =>
+        Printer.infix(c.base, l, r)
       case (_, Nil) =>
-        c
+        c.base
       case _ =>
         args.mkString(s"$c(", ", ", ")")
 
   // all constructors of t with their argument types, if there are finitely many
   def signature(t: Type): Option[List[(Name, List[Type])]] =
     zonk(t) match
-      case Type.Sort("Bool", Nil) =>
-        Some(List("true" -> Nil, "false" -> Nil))
+      case Type.Sort(Name(None, "Bool"), Nil) =>
+        Some(List(Name("true") -> Nil, Name("false") -> Nil))
       case Type.Tuple(ts) =>
-        Some(List("," -> ts))
+        Some(List(Names.tuple -> ts))
       case Type.Sort(name, args) if datas.contains(name) =>
         Some(
           for c <- members(name)
@@ -775,17 +882,17 @@ class Check(program: Program):
           Stmt.While(check(env, test, Bool), stmt(env, assignable, body))(s.pos)
 
         case Stmt.Call(proc, ins, outs, refs) =>
-          val (params, is, os, rs) = procedure(proc).getOrElse(error("type", s"unknown procedure $proc"))
+          val (p, (params, is, os, rs)) = procedure(proc).getOrElse(error("type", s"unknown procedure $proc"))
           val su = instance(params)
-          sameLength(is, ins, proc)
-          sameLength(os, outs, proc)
-          sameLength(rs, refs, proc)
+          sameLength(is, ins, proc.toString)
+          sameLength(os, outs, proc.toString)
+          sameLength(rs, refs, proc.toString)
           distinct((outs ++ refs).names, s"argument to $proc")
           val ins1 = check(env, ins, is.map(subst(_, su)))
           val outs1 = outs.map(variable(env, assignable, _))
           val refs1 = refs.map(variable(env, assignable, _))
           unify((outs1 ++ refs1).types, (os ++ rs).map(subst(_, su)))
-          Stmt.Call(proc, ins1, outs1, refs1)(s.pos)
+          Stmt.Call(p, ins1, outs1, refs1)(s.pos)
 
         case Stmt.Match(arg, cases) =>
           val (arg1, cases1) = branches(env, arg, cases)((bs, b) => stmt(env ++ bs, assignable -- bs.keys, b))
@@ -808,25 +915,28 @@ class Check(program: Program):
               Handler(t, pat1, guard.map(check(env ++ bs, _, Bool)), stmt(env ++ bs, assignable -- bs.keys, b))
           Stmt.Try(stmt(env, assignable, body), handlers1)(s.pos)
 
-  // the procedures of the program, which hide the builtin ones
-  def procedure(name: Name): Option[(List[Type], List[Type], List[Type], List[Type])] =
-    procs.get(name) match
-      case Some(sig) =>
-        Some(sig)
+  // the procedures of the program with their names, which hide the builtin ones
+  def procedure(name: Name): Option[(Name, (List[Type], List[Type], List[Type], List[Type]))] =
+    unique(name, procs.contains) match
+      case Some(n) =>
+        Some(n -> procs(n))
+      case None if name.module.isEmpty =>
+        builtinProcedure(name.base).map(name -> _)
       case None =>
-        builtinProcedure(name)
+        None
 
   // read and library give the syntax of self/syntax.u, so they exist only in programs that declare its Program,
   // and the procedures of the library os exist only in programs that import it, which declares OsError
-  def builtinProcedure(name: Name): Option[(List[Type], List[Type], List[Type], List[Type])] =
+  def builtinProcedure(name: Id): Option[(List[Type], List[Type], List[Type], List[Type])] =
+    val program = datas.keys.find(_.base == "Program")
     name match
-      case "read" | "library" if datas.contains("Program") =>
-        Some((Nil, List(Str), List(Type.Sort("Program", Nil)), Nil))
-      case "os_read" | "os_library" if datas.contains("OsError") =>
+      case "read" | "library" if program.nonEmpty =>
+        Some((Nil, List(Str), List(Type.Sort(program.get, Nil)), Nil))
+      case "os_read" | "os_library" if datas.contains(Names.osError) =>
         Some((Nil, List(Str), List(Str), Nil))
-      case "os_args" if datas.contains("OsError") =>
-        Some((Nil, Nil, List(Type.Sort("List", List(Str))), Nil))
-      case "os_write" if datas.contains("OsError") =>
+      case "os_args" if datas.contains(Names.osError) =>
+        Some((Nil, Nil, List(list(Str)), Nil))
+      case "os_write" if datas.contains(Names.osError) =>
         Some((Nil, List(Str, Str), Nil, Nil))
       case _ =>
         None
@@ -834,7 +944,7 @@ class Check(program: Program):
   def declare(name: Name): Unit =
     require(
       "type",
-      !funs.contains(name) && !procs.contains(name) && !constrs.contains(name) && !builtins.contains(name),
+      !funs.contains(name) && !procs.contains(name) && !constrs.contains(name) && !builtins.contains(name.base),
       s"$name is already defined"
     )
 
@@ -842,25 +952,28 @@ class Check(program: Program):
   def overload(name: Name, n: Int): Unit =
     require(
       "type",
-      !procs.contains(name) && !constrs.contains(name) && !lookup(Map(), name).exists((_, t) => arity(t) == n),
+      !procs.contains(name) && !constrs.contains(name) && !funs.getOrElse(name, Nil).exists((_, t) => arity(t) == n) &&
+        !builtins.get(name.base).exists((_, t) => arity(t) == n),
       s"$name is already defined"
     )
 
   def declareSort(name: Name): Unit =
-    require("type", !basic(name) && name != "->" && !aliases.contains(name) && !datas.contains(name), s"sort $name is already defined")
+    require("type", !basic(name.base) && name.base != "->" && !aliases.contains(name) && !datas.contains(name), s"sort $name is already defined")
 
   def cmds(): Program =
     // datatypes may be mutually recursive, so they are known before any sort is checked
-    for case d @ Cmd.Data(name, params, _) <- program.cmds do
+    for case (m, d @ Cmd.Data(name, params, _)) <- decls do
+      current.get = m
       at(d.pos):
         declareSort(name)
         update(c => c.copy(datas = c.datas + (name -> params.length)))
 
-    def closed(what: String, params: List[Name], t: Type): Unit =
+    def closed(what: String, params: List[Id], t: Type): Unit =
       val undeclared = free(t).diff(params.map(Type.Param(_)))
       require("type", undeclared.isEmpty, s"$what has undeclared type parameters ${undeclared.map(show(_)).mkString(", ")}")
 
-    for case d @ Cmd.Sort(name, params, typ) <- program.cmds do
+    for case (m, d @ Cmd.Sort(name, params, typ)) <- decls do
+      current.get = m
       at(d.pos):
         declareSort(name)
         distinct(params, "type parameter")
@@ -868,7 +981,8 @@ class Check(program: Program):
         closed(s"sort $name", params, rhs)
         update(c => c.copy(aliases = c.aliases + (name -> (params, rhs))))
 
-    for case d @ Cmd.Data(name, params, cs) <- program.cmds do
+    for case (m, d @ Cmd.Data(name, params, cs)) <- decls do
+      current.get = m
       at(d.pos):
         distinct(params, "type parameter")
         val ps = params.map(Type.Param(_))
@@ -880,37 +994,44 @@ class Check(program: Program):
             closed(s"sort $name", params, t)
           update(ctx => ctx.copy(constrs = ctx.constrs + (c -> (ps, ts, Type.Sort(name, ps)))))
 
-    for case d @ Cmd.Fun(name, params, bound, res, _) <- program.cmds do
+    for case (m, d @ Cmd.Fun(name, params, bound, res, _)) <- decls do
+      current.get = m
       at(d.pos):
         distinct(params, "type parameter")
         overload(name, bound.head.length)
         distinct(bound.flatten.names, "variable")
         val t = curried(bound.map(signature(_).types), known(res, s"result of $name"))
-        closed(name, params, t)
+        closed(name.toString, params, t)
         update(c => c.copy(funs = c.funs + (name -> (c.funs.getOrElse(name, Nil) :+ (params.map(Type.Param(_)), t)))))
 
-    for case d @ Cmd.Proc(name, params, ins, outs, refs, _) <- program.cmds do
+    for case (m, d @ Cmd.Proc(name, params, ins, outs, refs, _)) <- decls do
+      current.get = m
       at(d.pos):
         declare(name)
         distinct(params, "type parameter")
         val ts = signature(ins ++ outs ++ refs).types
         for t <- ts do
-          closed(name, params, t)
+          closed(name.toString, params, t)
         val (is, rest) = ts.splitAt(ins.length)
         val (os, rs) = rest.splitAt(outs.length)
         update(c => c.copy(procs = c.procs + (name -> (params.map(Type.Param(_)), is, os, rs))))
 
     // runs and tests are chosen by name
     distinct(
-      program.cmds.collect {
-        case Cmd.Run(name, _) =>
+      decls.collect {
+        case (_, Cmd.Run(name, _)) =>
           name
-        case Cmd.Test(name, _) =>
+        case (_, Cmd.Test(name, _)) =>
           name
       },
       "run or test"
     )
-    Program(program.cmds.map(c => at(c.pos)(zonk(command(c)))))
+    val checked =
+      for (m, c) <- decls
+      yield
+        current.get = m
+        at(c.pos)(zonk(command(c)))
+    Program(checked)
 
   // the elaborated command c
   def command(c: Cmd): Cmd =
@@ -930,6 +1051,9 @@ class Check(program: Program):
         val os = signature(outs)
         val rs = signature(refs)
         Cmd.Proc(name, params, is, os, rs, stmt(bind(is ++ os ++ rs), (os ++ rs).names.toSet, body))(c.pos)
+
+      case d: Cmd.Module =>
+        d
 
       case d: Cmd.Import =>
         d

@@ -1,0 +1,4 @@
+// type error: unknown variable twice at 4.16
+import wrapper
+
+eval quad(1) + twice(1)

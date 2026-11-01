@@ -19,6 +19,8 @@ data CExpr :=
   | CeArrow(CExpr, Str)
   | CeCast(CType, CExpr)
   | CeCond(CExpr, CExpr, CExpr)
+  // the initializer {a, b} of a struct
+  | CeInit(List[CExpr])
 
 data CStmt :=
   | CsExpr(CExpr)
@@ -68,6 +70,7 @@ function c_expr(e: CExpr): Str :=
     case CeArrow(a, f) => c_operand(a) ^ "->" ^ f
     case CeCast(t, a) => "(" ^ c_type(t) ^ ")" ^ c_operand(a)
     case CeCond(c, a, b) => c_operand(c) ^ " ? " ^ c_operand(a) ^ " : " ^ c_operand(b)
+    case CeInit(es) => "{" ^ str_join(", ", [c_expr(a) for a in es]) ^ "}"
   end
 
 function c_operand(e: CExpr): Str :=

@@ -1,13 +1,18 @@
 // the core syntax, mirroring ulang/src/ulang/Syntax.scala without positions,
 // where constructors are prefixed by their type, since they share one namespace
 
-type Name :=
+// identifiers that never refer to declarations of modules: type parameters, modules, notations, runs, and tests
+type Id :=
   Str
+
+// a name with the module that declares it, which is None for locals, builtins, and names before checking
+data Name :=
+  | Name(Option[Id], Id)
 
 data Type :=
   | THole
   | TMeta(Int)
-  | TParam(Name)
+  | TParam(Id)
   | TSort(Name, List[Type])
   | TFun(List[Type], Type)
   | TTuple(List[Type])
@@ -72,15 +77,17 @@ data Fixity :=
   | FRight
 
 data Cmd :=
-  | CSort(Name, List[Name], Type)
-  | CData(Name, List[Name], List[Constr])
-  | CFun(Name, List[Name], List[List[Var]], Type, Expr)
-  | CProc(Name, List[Name], List[Var], List[Var], List[Var], Stmt)
-  | CImport(Name)
-  | CNotation(Fixity, Int, List[Name])
+  | CSort(Name, List[Id], Type)
+  | CData(Name, List[Id], List[Constr])
+  | CFun(Name, List[Id], List[List[Var]], Type, Expr)
+  | CProc(Name, List[Id], List[Var], List[Var], List[Var], Stmt)
+  // the first import of a module comes with the module itself, whose commands are those it declares
+  | CModule(Id, List[Cmd])
+  | CImport(Id)
+  | CNotation(Fixity, Int, List[Id])
   | CEval(Expr)
-  | CRun(Name, Stmt)
-  | CTest(Name, Stmt)
+  | CRun(Id, Stmt)
+  | CTest(Id, Stmt)
 
 data Program :=
   | Program(List[Cmd])
@@ -89,6 +96,47 @@ function name(x: Var): Name :=
   match x
     case Var(n, _) => n
   end
+
+// a name without a module, of a local or a builtin, or before checking
+function unqualified(x: Id): Name :=
+  Name(None, x)
+
+function base(n: Name): Id :=
+  match n
+    case Name(_, b) => b
+  end
+
+// the name with its module, to tell names apart
+function qualified(n: Name): Str :=
+  match n
+    case Name(Some(m), b) => m ^ "." ^ b
+    case Name(None, b) => b
+  end
+
+// names that builtins and the runtime create, of the modules of the library
+function list_name(): Name :=
+  Name(Some("list"), "List")
+
+function nil_name(): Name :=
+  Name(Some("list"), "Nil")
+
+function cons_name(): Name :=
+  Name(Some("list"), "Cons")
+
+function option_name(): Name :=
+  Name(Some("option"), "Option")
+
+function none_name(): Name :=
+  Name(Some("option"), "None")
+
+function some_name(): Name :=
+  Name(Some("option"), "Some")
+
+function os_error_name(): Name :=
+  Name(Some("os"), "OsError")
+
+function tuple_name(): Name :=
+  unqualified(",")
 
 function typ(x: Var): Type :=
   match x
@@ -111,8 +159,8 @@ function arity(t: Type): Int :=
 // f(x) + 1, as the parser would produce it
 test syntax :=
   local  f: Var, x: Var, e: Expr
-  assign f := Var("f", THole), x := Var("x", THole)
-  assign e := EApp(EVar(Var("+", THole)), [EApp(EVar(f), [EVar(x)]), ELit(VInt(1))])
-  assert names([f, x]) == ["f", "x"]
+  assign f := Var(unqualified("f"), THole), x := Var(unqualified("x"), THole)
+  assign e := EApp(EVar(Var(unqualified("+"), THole)), [EApp(EVar(f), [EVar(x)]), ELit(VInt(1))])
+  assert names([f, x]) == [unqualified("f"), unqualified("x")]
   assert types([f]) == [THole]
-  assert e == EApp(EVar(Var("+", THole)), [EApp(EVar(f), [EVar(x)]), ELit(VInt(1))])
+  assert qualified(cons_name()) == "list.Cons" and base(cons_name()) == "Cons"

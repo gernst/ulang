@@ -7,7 +7,7 @@ import syntax
 // and constructors with the parameters of their datatype, their argument types, and their datatype
 data Ctx :=
   | Ctx(
-    List[Name * (List[Name] * Type)],
+    List[Name * (List[Id] * Type)],
     List[Name * List[List[Type] * Type]],
     List[Name * (List[Type] * List[Type] * List[Type] * List[Type])],
     List[Name * Int],
@@ -15,7 +15,7 @@ data Ctx :=
     List[Name * (List[Type] * List[Type] * Type)]
   )
 
-function aliases(c: Ctx): List[Name * (List[Name] * Type)] :=
+function aliases(c: Ctx): List[Name * (List[Id] * Type)] :=
   match c
     case Ctx(a, _, _, _, _, _) => a
   end
@@ -45,7 +45,7 @@ function constrs(c: Ctx): List[Name * (List[Type] * List[Type] * Type)] :=
     case Ctx(_, _, _, _, _, k) => k
   end
 
-function with_alias(c: Ctx, n: Name, ps: List[Name], t: Type): Ctx :=
+function with_alias(c: Ctx, n: Name, ps: List[Id], t: Type): Ctx :=
   match c
     case Ctx(a, f, p, d, m, k) => Ctx([(n, (ps, t)); a], f, p, d, m, k)
   end

@@ -1,0 +1,4 @@
+// parse error: undeclared operator <+> at 4.8
+import wrapper
+
+eval 1 <+> 2

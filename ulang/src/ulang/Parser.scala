@@ -1,36 +1,44 @@
 package ulang
 
-// params are the type parameters in scope, which distinguish Param from Sort,
-// notations are the operators declared so far, loaded are the modules imported so far,
-// and read gives the text of a module
-case class Scope(params: Set[Name], notations: List[Cmd.Notation], loaded: Set[Name] = Set(), read: Name => String = Scope.none):
-  def prefix(op: Name): Option[Int] =
+// params are the type parameters in scope, which distinguish Param from Sort, notations are the operators declared so far,
+// modules are the modules loaded so far with their own notations, loading are the modules being parsed, which cannot be imported,
+// base are the notations of the prelude, which modules are parsed with, or None while parsing the prelude,
+// whose modules are parsed with its notations so far, and read gives the text of a module
+case class Scope(
+    params: Set[Id],
+    notations: List[Cmd.Notation],
+    modules: Map[Id, List[Cmd.Notation]] = Map(),
+    loading: Set[Id] = Set(),
+    base: Option[List[Cmd.Notation]] = None,
+    read: Id => String = Scope.none
+):
+  def prefix(op: Id): Option[Int] =
     notations.collectFirst:
       case Cmd.Notation(Fixity.Prefix, prec, names) if names.contains(op) =>
         prec
 
-  def postfix(op: Name): Option[Int] =
+  def postfix(op: Id): Option[Int] =
     notations.collectFirst:
       case Cmd.Notation(Fixity.Postfix, prec, names) if names.contains(op) =>
         prec
 
-  def infix(op: Name): Option[(Fixity, Int)] =
+  def infix(op: Id): Option[(Fixity, Int)] =
     notations.collectFirst:
       case Cmd.Notation(fixity @ (Fixity.Infix | Fixity.Left | Fixity.Right), prec, names) if names.contains(op) =>
         (fixity, prec)
 
-  def declared(op: Name): Boolean =
+  def declared(op: Id): Boolean =
     notations.exists(_.names.contains(op))
 
 object Scope:
-  def none(name: Name): String =
+  def none(name: Id): String =
     error("parse", s"unknown module $name")
 
 // operands and operators of an expression or type, before their precedence is resolved,
 // where operators remember their input for errors
 enum Item[A]:
   case Operand(a: A)
-  case Operator(name: Name, at: scala.util.parsing.input.Reader[Char])
+  case Operator(name: Id, at: scala.util.parsing.input.Reader[Char])
 
 // operators that cannot be resolved, with the input of the offending operator if there is one
 case class Unresolved(msg: String, at: Option[scala.util.parsing.input.Reader[Char]]) extends Exception(msg)
@@ -93,7 +101,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def kw(word: String): Parser[String] =
     s"$word\\b".r.withFailureMessage(s"$word expected")
 
-  val name: Parser[Name] =
+  val name: Parser[Id] =
     "[a-zA-Z_][a-zA-Z0-9_]*".r ^? (
       {
         case x if !keywords(x) =>
@@ -102,7 +110,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       x => s"keyword $x is not a name"
     )
 
-  val symbol: Parser[Name] =
+  val symbol: Parser[Id] =
     "[-+*/%<>=!&|:^~?@#$]+".r ^? (
       {
         case x if !reserved(x) =>
@@ -112,7 +120,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     )
 
   // a name that is not declared as an operator
-  def plain(s: Scope): Parser[Name] =
+  def plain(s: Scope): Parser[Id] =
     name ^? (
       {
         case x if !s.declared(x) =>
@@ -122,14 +130,14 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     )
 
   // a symbol, or a name declared as an operator
-  def operator(s: Scope): Parser[Name] =
+  def operator(s: Scope): Parser[Id] =
     symbol |
       name ^? {
         case x if s.declared(x) =>
           x
       }
 
-  val names: Parser[List[Name]] = rep1sep(name, ",")
+  val names: Parser[List[Id]] = rep1sep(name, ",")
 
   def list[A](p: => Parser[A]): Parser[List[A]] =
     repsep(p, ",")
@@ -168,7 +176,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def resolved[A](
       s: Scope,
       items: Parser[List[Item[A]]]
-  )(prefix: (Name, A) => A, postfix: (Name, A) => A, infix: (Name, A, A) => A): Parser[A] =
+  )(prefix: (Id, A) => A, postfix: (Id, A) => A, infix: (Id, A, A) => A): Parser[A] =
     Parser: in =>
       items(in) match
         case Success(is, rest) =>
@@ -181,7 +189,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
           failure
 
   // the components of a tuple type A * B * C while its operators are resolved, such that (A * B) * C stays nested
-  val product = "(product)"
+  val product = Name("(product)")
 
   // a single type of a list, where () is the empty tuple, and only the arguments of a function are written (A, B)
   def one(ts: List[Type]): Type =
@@ -204,8 +212,8 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
 
   def typ(s: Scope): Parser[Type] =
     resolved(s, items(s, basic(s)))(
-      (op, t) => List(Type.Sort(op, List(one(t)))),
-      (op, t) => List(Type.Sort(op, List(one(t)))),
+      (op, t) => List(Type.Sort(Name(op), List(one(t)))),
+      (op, t) => List(Type.Sort(Name(op), List(one(t)))),
       // the arguments of a function (A, B) -> C are a list, while A * B -> C takes a tuple
       (op, l, r) =>
         if op == "->" then
@@ -213,7 +221,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         else if op == "*" then
           List(Type.Sort(product, components(l) ++ components(r)))
         else
-          List(Type.Sort(op, List(one(l), one(r))))
+          List(Type.Sort(Name(op), List(one(l), one(r))))
     ) ^? (
       {
         case ts if ts.length <= 1 =>
@@ -228,22 +236,22 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       case n ~ None if s.params(n) =>
         List(Type.Param(n))
       case n ~ args =>
-        List(Type.Sort(n, args.getOrElse(Nil)))
+        List(Type.Sort(Name(n), args.getOrElse(Nil)))
     } | parens(list(typ(s)))
 
-  val typarams: Parser[List[Name]] = opt("[" ~> names <~ "]") ^^ (_.getOrElse(Nil))
+  val typarams: Parser[List[Id]] = opt("[" ~> names <~ "]") ^^ (_.getOrElse(Nil))
 
   def variable(s: Scope): Parser[Expr.Var] =
-    located(pos => plain(s) ^^ (x => Expr.Var(x, Type.Hole)(pos)))
+    located(pos => plain(s) ^^ (x => Expr.Var(Name(x), Type.Hole)(pos)))
 
   // only parameters and locals have type annotations
   def untyped(s: Scope): Parser[Pat.Var] =
-    located(pos => plain(s) ^^ (x => Pat.Var(x, Type.Hole)(pos)))
+    located(pos => plain(s) ^^ (x => Pat.Var(Name(x), Type.Hole)(pos)))
 
   def formal(s: Scope): Parser[Pat.Var] =
     located(pos =>
       plain(s) ~ opt(":" ~> typ(s)) ^^ { case x ~ t =>
-        Pat.Var(x, t.getOrElse(Type.Hole))(pos)
+        Pat.Var(Name(x), t.getOrElse(Type.Hole))(pos)
       }
     )
 
@@ -319,21 +327,21 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   // operators in patterns are constructors
   def pattern(s: Scope): Parser[Pat] =
     resolved(s, items(s, simple(s)))(
-      (op, p) => Pat.App(op, List(p))(p.pos),
-      (op, p) => Pat.App(op, List(p))(p.pos),
-      (op, l, r) => Pat.App(op, List(l, r))(l.pos)
+      (op, p) => Pat.App(Name(op), List(p))(p.pos),
+      (op, p) => Pat.App(Name(op), List(p))(p.pos),
+      (op, l, r) => Pat.App(Name(op), List(l, r))(l.pos)
     )
 
   def simple(s: Scope): Parser[Pat] =
     located: pos =>
       plain(s) ~ parens(list(pattern(s))) ^^ { case c ~ ps =>
-        Pat.App(c, ps)(pos)
+        Pat.App(Name(c), ps)(pos)
       } |
         value ^^
         (Pat.Lit(_)(pos)) | tuple(pattern(s))(Pat.Tuple(_)(pos)) | kw("_") ^^^ Pat.Wild()(pos) |
-        brackets(pattern(s))(Pat.App("Nil", Nil)(pos), (p, ps) => Pat.App("Cons", List(p, ps))(pos)) |
+        brackets(pattern(s))(Pat.App(Name("Nil"), Nil)(pos), (p, ps) => Pat.App(Name("Cons"), List(p, ps))(pos)) |
         plain(s) ^^
-        (Pat.Var(_, Type.Hole)(pos))
+        (x => Pat.Var(Name(x), Type.Hole)(pos))
 
   // [a, b] is a :: b :: Nil, and [a, b; c] is a :: b :: c, with at least one element before ;
   def brackets[A](p: => Parser[A])(nil: A, cons: (A, A) => A): Parser[A] =
@@ -348,8 +356,8 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     )
 
   // applications of operators are at their first operand
-  def op(f: Name, args: Expr*): Expr =
-    Expr.App(Expr.Var(f, Type.Hole)(args.head.pos), args.toList)(args.head.pos)
+  def op(f: Id, args: Expr*): Expr =
+    Expr.App(Expr.Var(Name(f), Type.Hole)(args.head.pos), args.toList)(args.head.pos)
 
   def app(s: Scope): Parser[Expr] =
     atom(s) ~ rep(parens(list(expr(s)))) ^^ { case f ~ argss =>
@@ -405,7 +413,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       let(s) | ite(s) | lam(s) | matches(s, expr(s))(Expr.Match(_, _)(_)) |
         value ^^
         (Expr.Lit(_)(pos)) | tuple(expr(s))(Expr.Tuple(_)(pos)) | comp(s) |
-        brackets(expr(s))(Expr.Var("Nil", Type.Hole)(pos), op("Cons", _, _)) | variable(s)
+        brackets(expr(s))(Expr.Var(Name("Nil"), Type.Hole)(pos), op("Cons", _, _)) | variable(s)
 
   // [result for x in xs, y in ys if test], where if test is optional
   def comp(s: Scope): Parser[Expr] =
@@ -466,7 +474,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def call(s: Scope): Parser[Stmt] =
     located: pos =>
       (kw("call") ~> name) ~ parens(sections(expr(s), variable(s))) ^^ { case p ~ ((ins, outs, refs)) =>
-        Stmt.Call(p, ins, outs, refs)(pos)
+        Stmt.Call(Name(p), ins, outs, refs)(pos)
       }
 
   // the body of an if, while, case, or procedure, which may declare variables first
@@ -480,7 +488,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     kw("local") ~> rep1sep(formal(s), ",")
 
   // a declaration that starts with keyword, name, and type parameters
-  def generic(keyword: String, name: Parser[Name])(rest: (Name, List[Name], Scope) => Parser[Cmd]): Parser[Cmd] =
+  def generic(keyword: String, name: Parser[Id])(rest: (Id, List[Id], Scope) => Parser[Cmd]): Parser[Cmd] =
     (kw(keyword) ~> name) ~ typarams >> { case n ~ ps =>
       rest(n, ps, Scope(ps.toSet, Nil))
     }
@@ -497,7 +505,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
 
   def sort(s: Scope, pos: Pos): Parser[Cmd] =
     generic("type", name): (n, ps, t) =>
-      ":=" ~> typ(t.copy(notations = s.notations)) ^^ (Cmd.Sort(n, ps, _)(pos))
+      ":=" ~> typ(t.copy(notations = s.notations)) ^^ (Cmd.Sort(Name(n), ps, _)(pos))
 
   def data(s: Scope, pos: Pos): Parser[Cmd] =
     generic("data", name): (n, ps, t) =>
@@ -505,10 +513,10 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       val u = t.copy(notations = s.notations)
       val constr =
         (name | symbol) ~ opt(parens(list(typ(u)))) ^^ { case c ~ ts =>
-          Constr(c, ts.getOrElse(Nil))
+          Constr(Name(c), ts.getOrElse(Nil))
         }
       // the first constructor may be preceded by | as well
-      ":=" ~> opt("|") ~> rep1sep(constr, "|") ^^ (Cmd.Data(n, ps, _)(pos))
+      ":=" ~> opt("|") ~> rep1sep(constr, "|") ^^ (Cmd.Data(Name(n), ps, _)(pos))
 
   def fun(s: Scope, pos: Pos): Parser[Cmd] =
     generic("function", name | symbol): (n, ps, t) =>
@@ -517,7 +525,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       rep1(parens(formals(u))) ~
         (":" ~> typ(u)) ~
         (":=" ~> expr(u)) ^^ { case xss ~ r ~ b =>
-          Cmd.Fun(n, ps, xss, r, b)(pos)
+          Cmd.Fun(Name(n), ps, xss, r, b)(pos)
         }
 
   def proc(s: Scope, pos: Pos): Parser[Cmd] =
@@ -526,25 +534,28 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       val u = t.copy(notations = s.notations)
       parens(sections(formal(u), formal(u))) ~
         (":=" ~> body(u)) ^^ { case (ins, outs, refs) ~ b =>
-          Cmd.Proc(n, ps, ins, outs, refs, b)(pos)
+          Cmd.Proc(Name(n), ps, ins, outs, refs, b)(pos)
         }
 
   def command(s: Scope): Parser[List[Cmd]] =
     located(pos => kw("import") ~> name ^^ (load(s, _, pos))) | declaration(s) ^^ (List(_))
 
-  // inlines module n, after the marker Import(n), unless it is loaded already
-  def load(s: Scope, n: Name, pos: Pos): List[Cmd] =
-    if s.loaded(n) then
-      Nil
+  // the marker Import(n), preceded by module n at its first import, which is parsed with the notations of the prelude
+  // and of its own imports, since imports are not transitive
+  def load(s: Scope, n: Id, pos: Pos): List[Cmd] =
+    if s.modules.contains(n) then
+      List(Cmd.Import(n)(pos))
     else
+      require("parse", !s.loading(n), s"cyclic import of $n")
       val text = s.read(n)
+      val inner = Scope(Set(), s.base.getOrElse(s.notations), s.modules, s.loading + n, s.base, s.read)
       val cmds =
         try
-          parse(commands(s.copy(loaded = s.loaded + n)), text)
+          parse(commands(inner), text)
         catch
           case e: ulang.Error =>
             throw new ulang.Error(s"${e.getMessage} in $n")
-      Cmd.Import(n)(pos) :: cmds.filter(declares)
+      List(Cmd.Module(n, cmds.filter(declares))(pos), Cmd.Import(n)(pos))
 
   // modules contribute their declarations, but not their evals, runs, and tests
   def declares(c: Cmd): Boolean =
@@ -571,22 +582,31 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def commands(s: Scope): Parser[List[Cmd]] =
     command(s) >> (cs => commands(cs.foldLeft(s)(declare)) ^^ (cs ++ _)) | success(Nil)
 
+  // an import brings the own notations of the module
   def declare(s: Scope, c: Cmd): Scope =
     c match
       case n: Cmd.Notation =>
         s.copy(notations = s.notations :+ n)
+      case d: Cmd.Module =>
+        s.copy(modules = s.modules ++ modules(d))
       case Cmd.Import(n) =>
-        s.copy(loaded = s.loaded + n)
+        s.copy(notations = s.notations ++ s.modules.getOrElse(n, Nil))
       case _ =>
         s
 
-  def imports(p: Program): Set[Name] =
-    p.cmds.collect { case Cmd.Import(n) =>
-      n
-    }.toSet
+  // the scope after cmds
+  def after(cmds: List[Cmd], s: Scope): Scope =
+    cmds.foldLeft(s)(declare)
 
-  def notations(p: Program): List[Cmd.Notation] =
-    p.cmds.collect:
+  // module d and the modules it loads, with their own notations
+  def modules(d: Cmd.Module): Map[Id, List[Cmd.Notation]] =
+    val nested =
+      for case m: Cmd.Module <- d.cmds
+      yield modules(m)
+    nested.foldLeft(Map(d.name -> notations(d.cmds)))(_ ++ _)
+
+  def notations(cmds: List[Cmd]): List[Cmd.Notation] =
+    cmds.collect:
       case n: Cmd.Notation =>
         n
 
@@ -597,12 +617,12 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       case failure: NoSuccess =>
         error("parse", failure.msg, failure.next.pos)
 
-  // the program text with the notations of a preceding program, e.g., the prelude
-  def parseProgram(text: String, notations: List[Cmd.Notation], loaded: Set[Name] = Set(), read: Name => String = Scope.none): Program =
-    Program(parse(commands(Scope(Set(), notations, loaded, read)), text))
+  // the program text in scope s, e.g., after the prelude
+  def parseProgram(text: String, s: Scope): Program =
+    Program(parse(commands(s), text))
 
 // precedence climbing, where prefix operators bind their operand with their own precedence
-case class Resolve[A](s: Scope, prefix: (Name, A) => A, postfix: (Name, A) => A, infix: (Name, A, A) => A):
+case class Resolve[A](s: Scope, prefix: (Id, A) => A, postfix: (Id, A) => A, infix: (Id, A, A) => A):
   def fail(msg: String, at: Option[scala.util.parsing.input.Reader[Char]] = None): Nothing =
     throw Unresolved(msg, at)
 
@@ -653,7 +673,7 @@ case class Resolve[A](s: Scope, prefix: (Name, A) => A, postfix: (Name, A) => A,
       case _ =>
         (lhs, items)
 
-  def nonassociative(op: Name, fixity: Fixity, prec: Int, rest: List[Item[A]]): Unit =
+  def nonassociative(op: Id, fixity: Fixity, prec: Int, rest: List[Item[A]]): Unit =
     rest match
       case Item.Operator(next, at) :: _ if fixity == Fixity.Infix && s.infix(next).exists(_._2 == prec) =>
         fail(s"operator $op is not associative", Some(at))

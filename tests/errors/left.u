@@ -1,0 +1,4 @@
+// a module for tests/errors/ambiguous-name.u
+
+function helper(n: Int): Int :=
+  n + 1

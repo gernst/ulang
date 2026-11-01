@@ -9,15 +9,15 @@ test read_files :=
   call   read(in "../ulang/resources/option.u", out p)
   match p
     case Program([_, CFun(n, ps, xs, t, _); _]) =>
-      assert (n, ps) == ("or_else", ["A"])
-      assert xs == [[Var("a", TSort("Option", [TParam("A")])), Var("b", TSort("Option", [TParam("A")]))]]
-      assert t == TSort("Option", [TParam("A")])
+      assert (n, ps) == (unqualified("or_else"), ["A"])
+      assert xs == [[Var(unqualified("a"), TSort(unqualified("Option"), [TParam("A")])), Var(unqualified("b"), TSort(unqualified("Option"), [TParam("A")]))]]
+      assert t == TSort(unqualified("Option"), [TParam("A")])
     else
       assert false
   end
   call read(in "read.u", out p)
   match p
-    case Program([CImport("syntax"); _]) =>
+    case Program([CModule("syntax", _), CImport("syntax"); _]) =>
       skip
     else
       assert false

@@ -15,7 +15,7 @@ The parts in `self/` form a compiler from ulang to C written in ulang, which com
 1. **The bootstrap reaches a fixed point**: the interpreter compiles `ulang.u` to `ulang1.c` in about 8 minutes, whose program compiles `ulang.u` to `ulang2.c` in about 35 seconds, and both are identical. This has no make target or test yet, and 35 seconds for 400 KB of C suggests quadratic list operations, e.g. `++` on growing lists or association lists as maps.
 2. **Builtins are registered in five places**: their types in `Check.scala` and `self/check.u`, and their implementations in `Run.scala`, `self/run.u`, and the runtime with `builtin_functions` of `self/compile.u`. Signatures declared in library modules, e.g. `builtin function str_get(s: Str, i: Int): Char`, would leave only the implementations, and would make a builtin exist once its module is imported.
 3. **Builtins are enabled by datatype names**: `read` and `library` by any datatype `Program`, the `os_` procedures by `OsError`. Enabling them by the import of their module would be sturdier, e.g. with `syntax.u` in the library.
-4. **One global namespace across modules.** Hooking up the parser hit clashes of `literal`, `resolve`, `formals`, and `expr_cases`, now avoided by prefixes. Helpers that an import does not export would avoid this.
+4. **Prefixes against clashes.** Hooking up the parser hit clashes of `literal`, `resolve`, `formals`, and `expr_cases`, which prefixes avoid. With modules, helpers of modules that are not imported together may share names, so the prefixes in `lex.u` and `parse.u` could go where no module imports both.
 5. **No positions in `self/syntax.u`.** The parser knows offsets, but `check.u` and `compile.u` cannot say where an error is. A position per command would be a start.
 6. **Errors of the driver.** `LexError`, `ParseError`, `TypeError`, `RuntimeError`, `CompileError`, and `OsError` leave `ulang.u` as uncaught exceptions, instead of a message with a position.
 7. **The driver prints `args`**, since a run shows its local variables.
@@ -24,6 +24,23 @@ The parts in `self/` form a compiler from ulang to C written in ulang, which com
 10. **The file lists in the tests of `parse.u`** are written out, since there is no `os_list`.
 11. **`read`, `library`, and `Quote`** only remain as the oracle of the tests of `parse.u`, and as stubs in the runtime, since imported procedures that call them are compiled.
 12. **Parsing is slow in the interpreter**: compiling the compiler with it takes about ten minutes.
+
+## Modules
+
+A module is a file, and modules see only what they import directly. This is done in Scala and in `self/`:
+
+- **Visibility.** A module sees its own declarations, the declarations of the modules it imports directly, and the prelude with `nat`, `option`, and `list`, where its own declarations hide imported ones, and a name that two imports declare is ambiguous where it is used. Imports are not transitive for notations either: a module is parsed with the notations of the prelude and of its direct imports. Cyclic imports are errors, and source files never use qualified names.
+- **Syntax.** The first import of a module comes with `Module(name, cmds)`, and every import is the marker `Import(name)`.
+- **Compound names** `Name(module, base)`: the parser leaves the module open, and the checker gives declarations their module and resolves every reference to a global, so that the checked syntax has qualified names, while locals and builtins have none. The main file is the module of its base name. Printers and messages show the base name.
+- **Names created by hand**, by builtins and `Quote`, are defined once: `Names` in Scala, `list_name()` and the like in `self/syntax.u`.
+- **The runtime** represents constructors by static descriptors `struct u_name`, compared by address, and C names contain their module, e.g. `f_functions_46_fact_1`.
+
+### Open points
+
+1. **Once per module.** A module depends only on the prelude and its direct imports, so it could be parsed, checked, and turned into interpreter tables once, which would spare the prelude for every file.
+2. **Errors in modules have no file**: a type error in an imported module shows a position without its module.
+3. **Imports are resolved against the directory of the parsed file**, not of the importing module, and modules are known by name instead of their location.
+4. **Exports.** All declarations are exported, so helpers of different modules only coexist if no module imports both.
 
 ## The read procedure
 

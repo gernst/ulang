@@ -48,7 +48,7 @@ object Run:
         error("runtime", s"expected a string, got ${Printer.show(v)}")
 
   def list(vs: List[Any]): Any =
-    vs.foldRight(Obj("Nil", Nil): Any)((v, rest) => Obj("Cons", List(v, rest)))
+    vs.foldRight(Obj(Names.nil, Nil): Any)((v, rest) => Obj(Names.cons, List(v, rest)))
 
   def character(v: Any): Char =
     v match
@@ -77,7 +77,7 @@ object Run:
     require("runtime", int(v) != 0, "division by zero")
     int(v)
 
-  def builtin(f: Name)(args: List[Any]): Any =
+  def builtin(f: Id)(args: List[Any]): Any =
     (f, args) match
       case ("+", List(a, b)) =>
         int(a) + int(b)
@@ -94,7 +94,7 @@ object Run:
       case ("==", List(a, b)) =>
         equal(a, b)
       case ("chars", List(s: String)) =>
-        s.toList.foldRight(Obj("Nil", Nil): Any)((c, cs) => Obj("Cons", List(c, cs)))
+        list(s.toList)
       case ("string", List(cs)) =>
         elements(cs).map(character).mkString
       case ("ord", List(c: Char)) =>
@@ -123,7 +123,7 @@ object Run:
       case ("str_quote", List(s: String)) =>
         Printer.show(s)
       case ("str_number", List(s: String)) =>
-        if "-?[0-9]+".r.matches(s) then Obj("Some", List(BigInt(s))) else Obj("None", Nil)
+        if "-?[0-9]+".r.matches(s) then Obj(Names.some, List(BigInt(s))) else Obj(Names.none, Nil)
       case ("is_digit", List(c: Char)) =>
         '0' <= c && c <= '9'
       case ("is_letter", List(c: Char)) =>
@@ -168,15 +168,15 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
           fun(funs((name, Check.arity(typ))))
         case Expr.Var(name, _) if constrs.contains(name) =>
           constr(name)(constrs(name))
-        case Expr.Var(name, _) if Check.builtins.contains(name) =>
-          builtin(name)
+        case Expr.Var(name, _) if name.module.isEmpty && Check.builtins.contains(name.base) =>
+          builtin(name.base)
         case Expr.Var(name, _) =>
           error("runtime", s"$name is not initialized")
 
         // and, or are not strict and therefore not builtins
-        case Expr.App(Expr.Var("and", _), List(a, b)) =>
+        case Expr.App(Expr.Var(Name(None, "and"), _), List(a, b)) =>
           bool(eval(env, a)) && bool(eval(env, b))
-        case Expr.App(Expr.Var("or", _), List(a, b)) =>
+        case Expr.App(Expr.Var(Name(None, "or"), _), List(a, b)) =>
           bool(eval(env, a)) || bool(eval(env, b))
 
         case Expr.App(fun, args) =>
@@ -205,10 +205,10 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
               env1 <- combinations(env, bound, lists)
               if bool(eval(env1, test))
             yield eval(env1, result)
-          vs.foldRight(Obj("Nil", Nil): Any)((v, vs) => Obj("Cons", List(v, vs)))
+          list(vs)
 
         case Expr.Tuple(items) =>
-          Obj(",", items.map(eval(env, _)))
+          Obj(Names.tuple, items.map(eval(env, _)))
 
   def constr(c: Name)(arity: Int): Any =
     if arity == 0 then
@@ -262,7 +262,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
         matches(ps, vs)
       case (Pat.App(_, _), _) =>
         None
-      case (Pat.Tuple(ps), Obj(",", vs)) =>
+      case (Pat.Tuple(ps), Obj(Names.tuple, vs)) =>
         matches(ps, vs)
       case (Pat.Tuple(_), _) =>
         None
@@ -333,7 +333,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
           exec(store ++ bs.view.mapValues(cell), b)
 
         // assertions of equations show both sides when they fail
-        case Stmt.Assert(Expr.App(Expr.Var("==", _), List(lhs, rhs))) =>
+        case Stmt.Assert(Expr.App(Expr.Var(Name(None, "=="), _), List(lhs, rhs))) =>
           val (a, b) = (value(store, lhs), value(store, rhs))
           require("runtime", equal(a, b), s"assertion failed: ${Printer.show(a)} != ${Printer.show(b)}")
 
@@ -379,47 +379,56 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
       case _ =>
         error("runtime", s"cannot assign ${vs.length} values to ${xs.length} variables")
 
+  // the builtin procedures have no module
   def invoke(p: Name, ins: List[Any], refs: List[Cell], pos: Pos): List[Any] =
-    (procs.get(p), ins) match
-      case (Some(d), _) =>
+    (procs.get(p), p.base, ins) match
+      case (Some(d), _, _) =>
         val outs = d.outs.map(_ => Cell(None))
         exec(bind(d.ins, ins.map(cell)) ++ bind(d.outs, outs) ++ bind(d.refs, refs), d.body)
         for (x, r) <- d.outs.zip(outs)
         yield r.get.getOrElse(error("runtime", s"output ${x.name} of $p is not assigned"))
-      case (None, List(path: String)) if p == "read" =>
+      case (None, "read", List(path: String)) =>
         List(read(path, pos))
-      case (None, List(name: String)) if p == "library" =>
+      case (None, "library", List(name: String)) =>
         List(library(name))
-      case (None, Nil) if p == "os_args" =>
-        List(args.foldRight(Obj("Nil", Nil))((a, as) => Obj("Cons", List(a, as))))
-      case (None, List(path: String)) if p == "os_read" =>
+      case (None, "os_args", Nil) =>
+        List(list(args))
+      case (None, "os_read", List(path: String)) =>
         try List(os.read(os.Path(path, dir)))
         catch case _: java.io.IOException => throw osError(s"cannot read $path", pos)
-      case (None, List(path: String, text: String)) if p == "os_write" =>
+      case (None, "os_write", List(path: String, text: String)) =>
         try os.write.over(os.Path(path, dir), text, createFolders = true)
         catch case _: java.io.IOException => throw osError(s"cannot write $path", pos)
         Nil
-      case (None, List(name: String)) if p == "os_library" =>
+      case (None, "os_library", List(name: String)) =>
         try List(os.read(os.resource / s"$name.u"))
         catch case _: os.ResourceNotFoundException => throw osError(s"unknown module $name", pos)
       case _ =>
         error("runtime", s"unknown procedure $p")
 
   def osError(message: String, pos: Pos): Raised =
-    Raised(Obj("OsError", List(message)), Type.Sort("OsError", Nil), pos)
+    Raised(Obj(Names.osError, List(message)), Type.Sort(Names.osError, Nil), pos)
+
+  // the module that declares the syntax of self/syntax.u, whose values read and library give
+  def quote: Quote =
+    val module =
+      program.cmds.collectFirst:
+        case Cmd.Data(Name(Some(m), "Program"), _, _) =>
+          m
+    Quote(module.getOrElse(error("runtime", "the program does not declare Program")))
 
   // the syntax of a file as a value of self/syntax.u, unchecked
   def read(path: String, pos: Pos): Any =
     val file = os.Path(path, dir)
     if !os.isFile(file) then throw osError(s"cannot read $path", pos)
-    Quote.quote(Main.parse(os.read(file), file))
+    quote.quote(Main.parse(os.read(file), file))
 
   // the syntax of the prelude, or of another module of the library parsed after the prelude, unchecked
   def library(name: String): Any =
     if name == "prelude" then
-      Quote.quote(Main.prelude)
+      quote.quote(Main.prelude)
     else
-      Quote.quote(Parser.parseProgram(Main.library(name), Parser.notations(Main.prelude), Parser.imports(Main.prelude), Main.library))
+      quote.quote(Parser.parseProgram(Main.library(name), Main.scope(name, Main.library)))
 
   // the values of evals and of the variables of runs, failed assertions are errors
   def run(): List[String] =

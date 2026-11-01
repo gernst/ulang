@@ -2,6 +2,7 @@
 // or as ulang source.u target.c once it is compiled itself, where paths are relative to self/ for the interpreter
 
 import compile
+import os
 
 run main :=
   local  args: List[Str]

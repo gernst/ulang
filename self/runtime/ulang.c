@@ -74,7 +74,13 @@ static u_value *items(int size, va_list args) {
   return xs;
 }
 
-u_value mk_con(const char *name, int size, ...) {
+const struct u_name n_list_46_Nil = {"list", "Nil"};
+const struct u_name n_list_46_Cons = {"list", "Cons"};
+const struct u_name n_option_46_None = {"option", "None"};
+const struct u_name n_option_46_Some = {"option", "Some"};
+const struct u_name n_os_46_OsError = {"os", "OsError"};
+
+u_value mk_con(const struct u_name *name, int size, ...) {
   va_list args;
   va_start(args, size);
   u_value v = object(CON);
@@ -85,7 +91,7 @@ u_value mk_con(const char *name, int size, ...) {
   return v;
 }
 
-u_value mk_con_array(const char *name, int size, u_value *xs) {
+u_value mk_con_array(const struct u_name *name, int size, u_value *xs) {
   u_value v = object(CON);
   v->name = name;
   v->size = size;
@@ -119,8 +125,8 @@ int truth(u_value v) {
   return v->num != 0;
 }
 
-int is_con(u_value v, const char *name) {
-  return v->kind == CON && strcmp(v->name, name) == 0;
+int is_con(u_value v, const struct u_name *name) {
+  return v->kind == CON && v->name == name;
 }
 
 u_value field(u_value v, int i) {
@@ -139,7 +145,7 @@ int equal(u_value a, u_value b) {
   case STR:
     return strcmp(a->text, b->text) == 0;
   case CON:
-    if (strcmp(a->name, b->name) != 0) return 0;
+    if (a->name != b->name) return 0;
     /* fall through */
   case TUPLE:
     if (a->size != b->size) return 0;
@@ -201,17 +207,17 @@ u_value u_eq(u_value a, u_value b) {
 }
 
 u_value u_chars(u_value s) {
-  u_value cs = mk_con("Nil", 0);
-  for (long i = (long)strlen(s->text) - 1; i >= 0; i--) cs = mk_con("Cons", 2, mk_char((unsigned char)s->text[i]), cs);
+  u_value cs = mk_con(&n_list_46_Nil, 0);
+  for (long i = (long)strlen(s->text) - 1; i >= 0; i--) cs = mk_con(&n_list_46_Cons, 2, mk_char((unsigned char)s->text[i]), cs);
   return cs;
 }
 
 u_value u_string(u_value cs) {
   long n = 0;
-  for (u_value c = cs; is_con(c, "Cons"); c = c->items[1]) n++;
+  for (u_value c = cs; is_con(c, &n_list_46_Cons); c = c->items[1]) n++;
   char *s = GC_MALLOC_ATOMIC(n + 1);
   long i = 0;
-  for (u_value c = cs; is_con(c, "Cons"); c = c->items[1]) s[i++] = (char)c->items[0]->num;
+  for (u_value c = cs; is_con(c, &n_list_46_Cons); c = c->items[1]) s[i++] = (char)c->items[0]->num;
   s[n] = 0;
   return mk_str(s);
 }
@@ -228,7 +234,7 @@ u_value u_chr(u_value n) {
 // a cell with x at the place end of a list being built, whose tail is the place of the next cell,
 // which changes the list only before it is visible to the program
 u_value *u_append(u_value *end, u_value x) {
-  *end = mk_con("Cons", 2, x, mk_con("Nil", 0));
+  *end = mk_con(&n_list_46_Cons, 2, x, mk_con(&n_list_46_Nil, 0));
   return &(*end)->items[1];
 }
 
@@ -262,9 +268,9 @@ u_value u_str_size(u_value s) {
 
 u_value u_str_join(u_value sep, u_value ss) {
   size_t n = 0, k = strlen(sep->text);
-  for (u_value c = ss; is_con(c, "Cons"); c = c->items[1]) n += strlen(c->items[0]->text) + (c != ss ? k : 0);
+  for (u_value c = ss; is_con(c, &n_list_46_Cons); c = c->items[1]) n += strlen(c->items[0]->text) + (c != ss ? k : 0);
   char *r = text(n), *p = r;
-  for (u_value c = ss; is_con(c, "Cons"); c = c->items[1]) {
+  for (u_value c = ss; is_con(c, &n_list_46_Cons); c = c->items[1]) {
     if (c != ss) {
       memcpy(p, sep->text, k);
       p += k;
@@ -289,13 +295,13 @@ u_value u_str_slice(u_value s, u_value i, u_value j) {
 
 // the parts between the occurrences of c, including empty ones
 u_value u_str_split(u_value s, u_value c) {
-  u_value parts = mk_con("Nil", 0);
+  u_value parts = mk_con(&n_list_46_Nil, 0);
   const char *end = s->text + strlen(s->text), *from = end;
   for (const char *p = end; p >= s->text; p--) {
     if (p == s->text || p[-1] == (char)c->num) {
       char *r = text(from - p);
       memcpy(r, p, from - p);
-      parts = mk_con("Cons", 2, mk_str(r), parts);
+      parts = mk_con(&n_list_46_Cons, 2, mk_str(r), parts);
       from = p - 1;
     }
   }
@@ -335,10 +341,10 @@ u_value u_str_quote(u_value s) {
 
 u_value u_str_number(u_value s) {
   const char *p = s->text + (s->text[0] == '-');
-  if (!*p) return mk_con("None", 0);
+  if (!*p) return mk_con(&n_option_46_None, 0);
   for (; *p; p++)
-    if (*p < '0' || *p > '9') return mk_con("None", 0);
-  return mk_con("Some", 1, mk_int_str(s->text));
+    if (*p < '0' || *p > '9') return mk_con(&n_option_46_None, 0);
+  return mk_con(&n_option_46_Some, 1, mk_int_str(s->text));
 }
 
 u_value u_is_digit(u_value c) {
@@ -360,8 +366,8 @@ static void print_char(FILE *out, long long c, char quote) {
 }
 
 static int is_list(u_value v) {
-  for (; is_con(v, "Cons"); v = v->items[1]);
-  return is_con(v, "Nil");
+  for (; is_con(v, &n_list_46_Cons); v = v->items[1]);
+  return is_con(v, &n_list_46_Nil);
 }
 
 // values as ulang/src/ulang/Printer.scala shows them
@@ -392,15 +398,15 @@ void fprint_value(FILE *out, u_value v) {
     fputc(')', out);
     break;
   case CON:
-    if (is_con(v, "Cons") && is_list(v)) {
+    if (is_con(v, &n_list_46_Cons) && is_list(v)) {
       fputc('[', out);
-      for (u_value x = v; is_con(x, "Cons"); x = x->items[1]) {
+      for (u_value x = v; is_con(x, &n_list_46_Cons); x = x->items[1]) {
         if (x != v) fprintf(out, ", ");
         fprint_value(out, x->items[0]);
       }
       fputc(']', out);
     } else {
-      fprintf(out, "%s", v->name);
+      fprintf(out, "%s", v->name->base);
       if (v->size > 0) {
         fputc('(', out);
         for (int i = 0; i < v->size; i++) {
@@ -507,7 +513,7 @@ void u_reraise(struct handler *h) {
 #endif
 
 static void os_error(const char *message, const char *arg) {
-  u_raise(mk_con("OsError", 1, u_concat(mk_str(message), mk_str(arg))), "OsError");
+  u_raise(mk_con(&n_os_46_OsError, 1, u_concat(mk_str(message), mk_str(arg))), "os.OsError");
 }
 
 // the contents of a file, or else NULL
@@ -529,8 +535,8 @@ static u_value read_file(const char *path) {
 static u_value args = NULL;
 
 void u_args(int argc, char **argv) {
-  args = mk_con("Nil", 0);
-  for (int i = argc - 1; i >= 1; i--) args = mk_con("Cons", 2, mk_str(argv[i]), args);
+  args = mk_con(&n_list_46_Nil, 0);
+  for (int i = argc - 1; i >= 1; i--) args = mk_con(&n_list_46_Cons, 2, mk_str(argv[i]), args);
 }
 
 void p_os_args(u_value *result) {

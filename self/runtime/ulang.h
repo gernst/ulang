@@ -10,6 +10,15 @@
 
 typedef struct u_object *u_value;
 
+// the name of a constructor with its module, which exists once and is compared by its address
+struct u_name {
+  const char *module;
+  const char *base;
+};
+
+// the constructors that the builtins create, of the modules list, option, and os of the library
+extern const struct u_name n_list_46_Nil, n_list_46_Cons, n_option_46_None, n_option_46_Some, n_os_46_OsError;
+
 // the code of a closure, with its captured values and its arguments
 typedef u_value (*code)(u_value *env, u_value *args);
 
@@ -24,7 +33,7 @@ struct u_object {
     const char *text;
     struct {
       union {
-        const char *name;
+        const struct u_name *name;
         code fun;
       };
       int size;
@@ -38,13 +47,13 @@ u_value mk_int_str(const char *digits);
 u_value mk_bool(int b);
 u_value mk_char(long long c);
 u_value mk_str(const char *s);
-u_value mk_con(const char *name, int size, ...);
-u_value mk_con_array(const char *name, int size, u_value *items);
+u_value mk_con(const struct u_name *name, int size, ...);
+u_value mk_con_array(const struct u_name *name, int size, u_value *items);
 u_value mk_tuple(int size, ...);
 u_value mk_closure(code fun, int size, ...);
 
 int truth(u_value v);
-int is_con(u_value v, const char *name);
+int is_con(u_value v, const struct u_name *name);
 u_value field(u_value v, int i);
 int equal(u_value a, u_value b);
 u_value apply(u_value f, int n, ...);

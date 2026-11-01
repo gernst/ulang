@@ -1,0 +1,5 @@
+// type error: helper is ambiguous: left.helper, right.helper at 5.6
+import left
+import right
+
+eval helper(1)

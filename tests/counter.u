@@ -1,0 +1,7 @@
+// a module for tests/modules.u, with a helper of the same name as in tests/doubler.u
+
+function helper(n: Int): Int :=
+  n + 1
+
+function next(n: Int): Int :=
+  helper(n)

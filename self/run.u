@@ -104,7 +104,10 @@ function constr_arity(k: Constr): Name * Int :=
   end
 
 function is_builtin(n: Name): Bool :=
-  contains(n, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "str_get", "str_contains", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"])
+  match n
+    case Name(None, b) => contains(b, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "str_get", "str_contains", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"])
+    else false
+  end
 
 function is_function(v: Value): Bool :=
   match v
@@ -118,14 +121,14 @@ function truth(v: Value): Bool :=
 
 function list_value(vs: List[Value]): Value :=
   match vs
-    case Nil => Obj("Nil", Nil)
-    case [v; rest] => Obj("Cons", [v, list_value(rest)])
+    case Nil => Obj(nil_name(), Nil)
+    case [v; rest] => Obj(cons_name(), [v, list_value(rest)])
   end
 
 function elements(v: Value): Option[List[Value]] :=
   match v
-    case Obj("Nil", Nil) => Some(Nil)
-    case Obj("Cons", [w, ws]) =>
+    case Obj(n, Nil) if n == nil_name() => Some(Nil)
+    case Obj(n, [w, ws]) if n == cons_name() =>
       match elements(ws)
         case Some(us) => Some([w; us])
         case None => None
@@ -161,7 +164,7 @@ function matches(p: Pat, v: Value): Option[Bindings] :=
     case (PVar(Var(n, _)), _) => Some([(n, v)])
     case (PApp(c, ps), Obj(d, vs)) => if c == d then matches_all(ps, vs) else None
     case (PApp(_, _), _) => None
-    case (PTuple(ps), Obj(",", vs)) => matches_all(ps, vs)
+    case (PTuple(ps), Obj(n, vs)) if n == tuple_name() => matches_all(ps, vs)
     case (PTuple(_), _) => None
   end
 
@@ -309,7 +312,7 @@ procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value) :=
     // tuples are objects of the constructor ,
     case ETuple(items) =>
       call   evaluate_all(in p, env, items, out vs)
-      assign v := Obj(",", vs)
+      assign v := Obj(tuple_name(), vs)
   end
 
 procedure evaluate_all(in p: Prog, env: Bindings, es: List[Expr], out vs: List[Value]) :=
@@ -353,14 +356,14 @@ procedure variable_value(in p: Prog, env: Bindings, n: Name, t: Type, out v: Val
 procedure apply_expr(in p: Prog, env: Bindings, f: Expr, args: List[Expr], out v: Value) :=
   local a: Value, g: Value, vs: List[Value]
   match (f, args)
-    case (EVar(Var("and", _)), [l, r]) =>
+    case (EVar(Var(Name(None, "and"), _)), [l, r]) =>
       call evaluate(in p, env, l, out a)
       if truth(a)
         call evaluate(in p, env, r, out v)
       else
         assign v := a
       end
-    case (EVar(Var("or", _)), [l, r]) =>
+    case (EVar(Var(Name(None, "or"), _)), [l, r]) =>
       call evaluate(in p, env, l, out a)
       if truth(a)
         assign v := a
@@ -399,7 +402,7 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value) :=
 
 procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
   local r: Bool
-  match (n, vs)
+  match (base(n), vs)
     case ("+", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a + b))
     case ("-", [Lit(VInt(a)), Lit(VInt(b))]) =>
@@ -459,9 +462,9 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
     case ("str_number", [Lit(VStr(s))]) =>
       match str_number(s)
         case Some(k) =>
-          assign v := Obj("Some", [Lit(VInt(k))])
+          assign v := Obj(some_name(), [Lit(VInt(k))])
         case None =>
-          assign v := Obj("None", Nil)
+          assign v := Obj(none_name(), Nil)
       end
     case ("is_digit", [Lit(VChar(c))]) =>
       assign v := Lit(VBool(is_digit(c)))
@@ -583,7 +586,7 @@ procedure exec(in p: Prog, store: Store, x: Stmt, ref h: Heap) :=
           raise NoCase(v)
       end
     // assertions of equations show both sides when they fail
-    case SAssert(EApp(EVar(Var("==", _)), [lhs, rhs])) =>
+    case SAssert(EApp(EVar(Var(Name(None, "=="), _)), [lhs, rhs])) =>
       call   evaluate(in p, values_of(store, h), lhs, out v)
       call   evaluate(in p, values_of(store, h), rhs, out w)
       call   equal(in v, w, out r)
@@ -695,7 +698,7 @@ procedure invoke(in p: Prog, n: Name, ins: List[Value], refs: List[Int], out out
 procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
   local text: Str, args: List[Str]
   try
-    match (n, ins)
+    match (base(n), ins)
       case ("os_args", []) =>
         call   os_args(out args)
         assign outs := [list_value([Lit(VStr(a)) for a in args])]
@@ -713,7 +716,7 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
     end
   catch
     case OsError(m) =>
-      raise Thrown(Obj("OsError", [Lit(VStr(m))]), TSort("OsError", Nil))
+      raise Thrown(Obj(os_error_name(), [Lit(VStr(m))]), TSort(os_error_name(), Nil))
   end
 
 // executes a block and returns the assigned values of its variables
@@ -763,7 +766,7 @@ function cmds_of(q: Program): List[Cmd] :=
 // checks and runs the commands
 procedure check_and_run(in cs: List[Cmd], out os: List[Output]) :=
   local  q: Program
-  call   check_program(in Program(cs), out q)
+  call   check_program(in Program(cs), "main", out q)
   call   run_program(in q, out os)
 
 function int(n: Int): Value :=
@@ -775,12 +778,12 @@ test expressions :=
     [
       CEval(ap("len", [ap("Cons", [num(1), ap("Cons", [num(2), ev("Nil")])])])),
       // let f = lambda x => x * x in f(3) + f(4)
-      CEval(ELet([(Var("f", THole), ELam([Var("x", THole)], ap("*", [ev("x"), ev("x")])))], ap("+", [ap("f", [num(3)]), ap("f", [num(4)])]))),
+      CEval(ELet([(Var(unqualified("f"), THole), ELam([Var(unqualified("x"), THole)], ap("*", [ev("x"), ev("x")])))], ap("+", [ap("f", [num(3)]), ap("f", [num(4)])]))),
       // [x * y for x in [1, 2], y in [x, 3] if x < y]
       CEval(
         EComp(
           ap("*", [ev("x"), ev("y")]),
-          [Var("x", THole), Var("y", THole)],
+          [Var(unqualified("x"), THole), Var(unqualified("y"), THole)],
           [ap("Cons", [num(1), ap("Cons", [num(2), ev("Nil")])]), ap("Cons", [ev("x"), ap("Cons", [num(3), ev("Nil")])])],
           ap("<", [ev("x"), ev("y")])
         )
@@ -800,31 +803,31 @@ test expressions :=
 // procedure sum(in n: Int, out s: Int) with a loop, and procedure count(ref k: Int) raising Fail after an increment
 function procedures(): List[Cmd] :=
   [
-    CData("Fail", Nil, [Constr("Fail", [tint()])]),
+    CData(unqualified("Fail"), Nil, [Constr(unqualified("Fail"), [tint()])]),
     CProc(
-      "sum",
+      unqualified("sum"),
       Nil,
-      [Var("n", tint())],
-      [Var("s", tint())],
+      [Var(unqualified("n"), tint())],
+      [Var(unqualified("s"), tint())],
       Nil,
       SBlock(
-        [Var("i", tint())],
+        [Var(unqualified("i"), tint())],
         [
-          SAssign([(Var("s", THole), num(0)), (Var("i", THole), num(0))]),
+          SAssign([(Var(unqualified("s"), THole), num(0)), (Var(unqualified("i"), THole), num(0))]),
           SWhile(
             ap("<", [ev("i"), ev("n")]),
-            SBlock(Nil, [SAssign([(Var("i", THole), ap("+", [ev("i"), num(1)])), (Var("s", THole), ap("+", [ev("s"), ap("+", [ev("i"), num(1)])]))])])
+            SBlock(Nil, [SAssign([(Var(unqualified("i"), THole), ap("+", [ev("i"), num(1)])), (Var(unqualified("s"), THole), ap("+", [ev("s"), ap("+", [ev("i"), num(1)])]))])])
           )
         ]
       )
     ),
     CProc(
-      "count",
+      unqualified("count"),
       Nil,
       Nil,
       Nil,
-      [Var("k", tint())],
-      SBlock(Nil, [SAssign([(Var("k", THole), ap("+", [ev("k"), num(1)]))]), SRaise(ap("Fail", [ev("k")]), THole)])
+      [Var(unqualified("k"), tint())],
+      SBlock(Nil, [SAssign([(Var(unqualified("k"), THole), ap("+", [ev("k"), num(1)]))]), SRaise(ap("Fail", [ev("k")]), THole)])
     )
   ]
 
@@ -832,23 +835,23 @@ test procedures :=
   local  os: List[Output]
   call   check_and_run(in procedures() ++
     [
-      CRun("sum", SBlock([Var("s", tint())], [SCall("sum", [num(4)], [Var("s", THole)], Nil)])),
+      CRun("sum", SBlock([Var(unqualified("s"), tint())], [SCall(unqualified("sum"), [num(4)], [Var(unqualified("s"), THole)], Nil)])),
       // the assignment to k before the exception remains, and the handler for Fail binds its argument
       CRun(
         "count",
         SBlock(
-          [Var("k", tint()), Var("m", tint())],
+          [Var(unqualified("k"), tint()), Var(unqualified("m"), tint())],
           [
-            SAssign([(Var("k", THole), num(1))]),
+            SAssign([(Var(unqualified("k"), THole), num(1))]),
             STry(
-              SBlock(Nil, [SCall("count", Nil, Nil, [Var("k", THole)])]),
-              [Handler(THole, PApp("Fail", [pv("j")]), None, SBlock(Nil, [SAssign([(Var("m", THole), ev("j"))])]))]
+              SBlock(Nil, [SCall(unqualified("count"), Nil, Nil, [Var(unqualified("k"), THole)])]),
+              [Handler(THole, PApp(unqualified("Fail"), [pv("j")]), None, SBlock(Nil, [SAssign([(Var(unqualified("m"), THole), ev("j"))])]))]
             )
           ]
         )
       )
     ], out os)
-  assert os == [Ran([("s", int(10))]), Ran([("k", int(2)), ("m", int(2))])]
+  assert os == [Ran([(unqualified("s"), int(10))]), Ran([(unqualified("k"), int(2)), (unqualified("m"), int(2))])]
 
 test errors :=
   local os: List[Output]
@@ -857,8 +860,8 @@ test errors :=
     assert false
   catch
     case Thrown(v, t) =>
-      assert v == Obj("Fail", [int(1)])
-      assert t == TSort("Fail", Nil)
+      assert v == Obj(Name(Some("main"), "Fail"), [int(1)])
+      assert t == TSort(Name(Some("main"), "Fail"), Nil)
   end
   try
     call   check_and_run(in [CTest("t", SBlock(Nil, [SAssert(ap("==", [num(1), num(2)]))]))], out os)
@@ -880,7 +883,7 @@ test curried :=
   local  os: List[Output]
   call   check_and_run(
     in [
-      CFun("add", Nil, [[Var("a", tint())], [Var("b", tint())]], tint(), ap("+", [ev("a"), ev("b")])),
+      CFun(unqualified("add"), Nil, [[Var(unqualified("a"), tint())], [Var(unqualified("b"), tint())]], tint(), ap("+", [ev("a"), ev("b")])),
       CEval(EApp(ap("add", [num(1)]), [num(2)]))
     ],
     out os

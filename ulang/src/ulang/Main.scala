@@ -29,26 +29,33 @@ class Ref[A](var get: A)
 
 object Main:
   // the modules of the library are resources, next to the prelude
-  def library(name: Name): String =
+  def library(name: Id): String =
     try
       os.read(os.resource / s"$name.u")
     catch
       case _: os.ResourceNotFoundException =>
         error("parse", s"unknown module $name")
 
-  val prelude: Program = Parser.parseProgram(library("prelude"), Nil, Set("prelude"), library)
+  val prelude: Program = Parser.parseProgram(library("prelude"), Scope(Set(), Nil, loading = Set("prelude"), read = library))
 
-  // the text of file, to which the notations and modules of the prelude apply, inlining its imports
+  // the notations and modules of the prelude, which every module sees
+  val preludeScope: Scope = Parser.after(prelude.cmds, Scope(Set(), Nil))
+
+  // the scope of module name, which is parsed after the prelude with its notations, and reads modules with read
+  def scope(name: Id, read: Id => String): Scope =
+    Scope(Set(), preludeScope.notations, preludeScope.modules, Set(name), Some(preludeScope.notations), read)
+
+  // the text of file, to which the notations and modules of the prelude apply
   def parse(text: String, file: os.Path): Program =
-    val loaded = Parser.imports(prelude) + file.baseName
-    Parser.parseProgram(text, Parser.notations(prelude), loaded, module(file / os.up))
+    Parser.parseProgram(text, scope(file.baseName, module(file / os.up)))
 
-  // the checked text of file after the prelude, where a module of the library that the prelude imports
-  // keeps only its evals, runs, and tests, since the prelude declares the rest
+  // the checked text of file after the prelude, which is the module of its base name, where a module of the library
+  // that the prelude imports keeps only its evals, runs, and tests, since the prelude declares the rest
   def load(text: String, file: os.Path, args: List[String] = Nil): Run =
     val cmds = parse(text, file).cmds
-    val own = if (Parser.imports(prelude) + "prelude").contains(file.baseName) && text == library(file.baseName) then runnable(cmds) else cmds
-    new Run(Check.program(Program(prelude.cmds ++ own)), file / os.up, args)
+    val name = file.baseName
+    val own = if (preludeScope.modules.contains(name) || name == "prelude") && text == library(name) then runnable(cmds) else cmds
+    new Run(Check.program(Program(Cmd.Module("prelude", prelude.cmds)() :: own), name), file / os.up, args)
 
   def runnable(cmds: List[Cmd]): List[Cmd] =
     cmds match
@@ -85,7 +92,7 @@ object Main:
         false
 
   // modules are files in the directory of the importing file, or in the library
-  def module(dir: os.Path)(name: Name): String =
+  def module(dir: os.Path)(name: Id): String =
     if os.isFile(dir / s"$name.u") then
       os.read(dir / s"$name.u")
     else
