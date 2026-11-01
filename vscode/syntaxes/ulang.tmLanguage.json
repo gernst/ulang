@@ -10,6 +10,9 @@
       "include": "#string"
     },
     {
+      "include": "#access"
+    },
+    {
       "include": "#declaration"
     },
     {
@@ -137,6 +140,17 @@
               "include": "#comment"
             },
             {
+              "match": "\\b([a-z_][A-Za-z0-9_]*)\\s*(:)(?!=)",
+              "captures": {
+                "1": {
+                  "name": "variable.other.member.ulang"
+                },
+                "2": {
+                  "name": "keyword.operator.ulang"
+                }
+              }
+            },
+            {
               "match": "(:=|\\|)\\s*([A-Za-z_][A-Za-z0-9_]*|[-+*/%<>=!&^~?@#$:]+)",
               "captures": {
                 "1": {
@@ -246,6 +260,38 @@
           "include": "#comment"
         },
         {
+          "begin": ":=",
+          "beginCaptures": {
+            "0": {
+              "name": "keyword.operator.ulang"
+            }
+          },
+          "end": "(?=,\\s*[a-z_][A-Za-z0-9_]*\\s*:)|$",
+          "patterns": [
+            {
+              "include": "#comment"
+            },
+            {
+              "include": "#string"
+            },
+            {
+              "include": "#access"
+            },
+            {
+              "include": "#keyword"
+            },
+            {
+              "include": "#constant"
+            },
+            {
+              "include": "#constructor"
+            },
+            {
+              "include": "#operator"
+            }
+          ]
+        },
+        {
           "include": "#keyword"
         },
         {
@@ -271,6 +317,17 @@
           "match": "\\\\."
         }
       ]
+    },
+    "access": {
+      "match": "(?<=[\\w)\\]])(\\.)([a-z_][A-Za-z0-9_]*)\\b",
+      "captures": {
+        "1": {
+          "name": "punctuation.accessor.ulang"
+        },
+        "2": {
+          "name": "variable.other.member.ulang"
+        }
+      }
     }
   }
 }
