@@ -47,7 +47,7 @@ function rest[T, A](p: Parser[T, A], o: Parser[T, (A, A) -> A], a: A): Parser[T,
 function parse[T, A](p: Parser[T, A], ts: List[T]): Option[A] :=
   match p(ts)
     case Some((a, Nil)) => Some(a)
-    case _ => None
+    else None
   end
 
 data Token :=
@@ -60,7 +60,7 @@ function symbol(s: Str): Parser[Token, Token] :=
 function number(ts: List[Token]): Option[Int * List[Token]] :=
   match ts
     case Num(n) :: us => Some((n, us))
-    case _ => None
+    else None
   end
 
 function op(s: Str, f: (Int, Int) -> Int): Parser[Token, (Int, Int) -> Int] :=

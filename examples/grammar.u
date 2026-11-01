@@ -11,7 +11,7 @@ data Grammar[T, V] :=
 function combine[V](f: (V, V) -> V, a: Option[V], b: Option[V]): Option[V] :=
   match (a, b)
     case (Some(x), Some(y)) => Some(f(x, y))
-    case _ => None
+    else None
   end
 
 // grammars cannot be cyclic, hence nonterminals refer to the rules by name, looked up in an association list
@@ -118,7 +118,7 @@ function symbol[V](s: Str, v: V): Grammar[Token, V] :=
 function second[V](vs: List[V]): Option[V] :=
   match vs
     case _ :: v :: _ => Some(v)
-    case _ => None
+    else None
   end
 
 // arithmetic expressions, given the values of numbers, the meaning of the operators, and a value for symbols
@@ -126,7 +126,7 @@ function arithmetic[V](leaf: Int -> V, plus: (V, V) -> V, minus: (V, V) -> V, ti
   [
     ("expr", Chain(Rule("term"), [(Sym("+"), plus), (Sym("-"), minus)])),
     ("term", Chain(Rule("factor"), [(Sym("*"), times)])),
-    ("factor", Alt(Token(lambda t => match t case Num(n) => Some(leaf(n)) case _ => None end), Seq([symbol("(", unit), Rule("expr"), symbol(")", unit)], second)))
+    ("factor", Alt(Token(lambda t => match t case Num(n) => Some(leaf(n)) else None end), Seq([symbol("(", unit), Rule("expr"), symbol(")", unit)], second)))
   ]
 
 // all of ts must be consumed

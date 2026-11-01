@@ -142,7 +142,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
             eval(env, right)
 
         case Expr.Match(arg, cases) =>
-          val (b, bs) = select(eval(env, arg), cases)
+          val (b, bs) = select(env, eval(env, arg), cases)
           eval(env ++ bs, b)
 
         case Expr.Comp(result, bound, lists, test) =>
@@ -175,16 +175,24 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
       case _ =>
         error("runtime", s"expected ${xs.length} lists, got ${lists.length}")
 
-  def select[A](v: Any, cases: List[Case[A]]): (A, Map[Name, Any]) =
+  // the first case whose pattern matches v and whose guard holds
+  def select[A](env: Map[Name, Any], v: Any, cases: List[Case[A]]): (A, Map[Name, Any]) =
     cases match
       case Nil =>
         error("runtime", s"no case matches ${Printer.show(v)}")
       case c :: cs =>
         matches(c.pat, v) match
-          case Some(bs) =>
+          case Some(bs) if holds(env ++ bs, c.guard) =>
             (c.body, bs)
-          case None =>
-            select(v, cs)
+          case _ =>
+            select(env, v, cs)
+
+  def holds(env: Map[Name, Any], guard: Option[Expr]): Boolean =
+    guard match
+      case Some(g) =>
+        bool(eval(env, g))
+      case None =>
+        true
 
   def matches(p: Pat, v: Any): Option[Map[Name, Any]] =
     (p, v) match
@@ -267,7 +275,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
           assign(store, outs, invoke(proc, ins.map(eval(env, _)), refs.map(x => store(x.name))))
 
         case Stmt.Match(arg, cases) =>
-          val (b, bs) = select(value(store, arg), cases)
+          val (b, bs) = select(values(store), value(store, arg), cases)
           exec(store ++ bs.view.mapValues(cell), b)
 
         // assertions of equations show both sides when they fail
@@ -285,25 +293,28 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
           try
             exec(store, body)
           catch
-            case e: Raised if handler(e, handlers).nonEmpty =>
-              val (b, bs) = handler(e, handlers).get
+            case e: Raised if handler(values(store), e, handlers).nonEmpty =>
+              val (b, bs) = handler(values(store), e, handlers).get
               exec(store ++ bs.view.mapValues(cell), b)
 
-  // the first handler of e, where _ handles exceptions of any type
-  def handler(e: Raised, handlers: List[Handler]): Option[(Stmt, Map[Name, Any])] =
+  // the first handler of e whose guard holds, where _ handles exceptions of any type
+  def handler(env: Map[Name, Any], e: Raised, handlers: List[Handler]): Option[(Stmt, Map[Name, Any])] =
     handlers match
       case Nil =>
         None
-      case Handler(_, _: Pat.Wild, body) :: _ =>
-        Some(body -> Map())
-      case Handler(typ, pat, body) :: rest if typ == e.typ =>
+      case Handler(_, _: Pat.Wild, guard, body) :: rest =>
+        if holds(env, guard) then
+          Some(body -> Map())
+        else
+          handler(env, e, rest)
+      case Handler(typ, pat, guard, body) :: rest if typ == e.typ =>
         matches(pat, e.value) match
-          case Some(bs) =>
+          case Some(bs) if holds(env ++ bs, guard) =>
             Some(body -> bs)
-          case None =>
-            handler(e, rest)
+          case _ =>
+            handler(env, e, rest)
       case _ :: rest =>
-        handler(e, rest)
+        handler(env, e, rest)
 
   def assign(store: Map[Name, Cell], xs: List[Expr.Var], vs: List[Any]): Unit =
     (xs, vs) match

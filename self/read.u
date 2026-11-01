@@ -10,13 +10,13 @@ test read_files :=
       assert (n, ps) == ("contains", ["A"])
       assert xs == [[Var("x", TParam("A")), Var("xs", TSort("List", [TParam("A")]))]]
       assert t == TSort("Bool", Nil)
-    case _ =>
+    else
       assert false
   end
   call read(in "read.u", out p)
   match p
     case Program(CImport("syntax") :: _) =>
       skip
-    case _ =>
+    else
       assert false
   end

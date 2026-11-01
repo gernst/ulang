@@ -13,7 +13,7 @@ procedure accept(in s: Str, out ok: Bool, ref ts: List[Token]) :=
       else
         assign ok := false
       end
-    case _ =>
+    else
       assign ok := false
   end
 
@@ -21,7 +21,7 @@ procedure number(out n: Int, ok: Bool, ref ts: List[Token]) :=
   match ts
     case Num(m) :: us =>
       assign n := m, ok := true, ts := us
-    case _ =>
+    else
       assign n := 0, ok := false
   end
 
@@ -34,7 +34,7 @@ procedure additive(out o: Str, ok: Bool, ref ts: List[Token]) :=
       else
         assign o := "", ok := false
       end
-    case _ =>
+    else
       assign o := "", ok := false
   end
 

@@ -39,7 +39,8 @@ enum Pat:
   case App(name: Name, args: List[Pat])(val pos: Pos = nowhere)
   case Tuple(items: List[Pat])(val pos: Pos = nowhere)
 
-case class Case[A](pat: Pat, body: A)
+// a case applies if its pattern matches and its guard holds
+case class Case[A](pat: Pat, guard: Option[Expr], body: A)
 
 enum Stmt:
   def pos: Pos
@@ -56,7 +57,7 @@ enum Stmt:
   case Try(body: Stmt, handlers: List[Handler])(val pos: Pos = nowhere)
 
 // handles exceptions of type typ that match pat, or of any type if pat is _
-case class Handler(typ: Type, pat: Pat, body: Stmt)
+case class Handler(typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
 
 case class Constr(name: Name, args: List[Type])
 

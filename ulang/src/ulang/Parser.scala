@@ -91,7 +91,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     at >> p
 
   def kw(word: String): Parser[String] =
-    s"$word\\b".r
+    s"$word\\b".r.withFailureMessage(s"$word expected")
 
   val name: Parser[Name] =
     "[a-zA-Z_][a-zA-Z0-9_]*".r ^? (
@@ -278,9 +278,9 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
             case _ =>
               (xs, es) match
                 case (List(x), List(e)) =>
-                  Expr.Match(e, List(Case(x, b)))(pos)
+                  Expr.Match(e, List(Case(x, None, b)))(pos)
                 case _ =>
-                  Expr.Match(Expr.Tuple(es)(pos), List(Case(Pat.Tuple(xs)(pos), b)))(pos)
+                  Expr.Match(Expr.Tuple(es)(pos), List(Case(Pat.Tuple(xs)(pos), None, b)))(pos)
         }
 
   def ite(s: Scope): Parser[Expr] =
@@ -298,18 +298,23 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
           Expr.Lam(xs, b)(pos)
         }
 
+  // case p if g => b, where else b is the last case _ => b
+  def cases[A](s: Scope, body: => Parser[A]): Parser[List[Case[A]]] =
+    val guarded =
+      kw("case") ~> pattern(s) ~ opt(kw("if") ~> expr(s)) ~ ("=>" ~> body) ^^ { case p ~ g ~ b =>
+        Case(p, g, b)
+      }
+    val otherwise =
+      located(pos => kw("else") ~> body ^^ (Case(Pat.Wild()(pos), None, _))) <~ (not(kw("case")) | err("else must be the last case"))
+    rep(guarded) ~ opt(otherwise) <~ kw("end") ^^ { case cs ~ e =>
+      cs ++ e
+    }
+
   def matches[A, B](s: Scope, body: => Parser[A])(make: (Expr, List[Case[A]], Pos) => B): Parser[B] =
     located: pos =>
-      (kw("match") ~> expr(s)) ~
-        (rep(kw("case") ~> pattern(s) ~ ("=>" ~> body)) <~ kw("end")) ^^ { case e ~ cs =>
-          make(
-            e,
-            cs.map { case p ~ b =>
-              Case(p, b)
-            },
-            pos
-          )
-        }
+      (kw("match") ~> expr(s)) ~ cases(s, body) ^^ { case e ~ cs =>
+        make(e, cs, pos)
+      }
 
   // operators in patterns are constructors
   def pattern(s: Scope): Parser[Pat] =
@@ -378,13 +383,8 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def attempt(s: Scope): Parser[Stmt] =
     located: pos =>
       (kw("try") ~> body(s)) ~
-        (kw("catch") ~> rep(kw("case") ~> pattern(s) ~ ("=>" ~> body(s))) <~ kw("end")) ^^ { case b ~ hs =>
-          Stmt.Try(
-            b,
-            hs.map { case p ~ c =>
-              Handler(Type.Hole, p, c)
-            }
-          )(pos)
+        (kw("catch") ~> cases(s, body(s))) ^^ { case b ~ cs =>
+          Stmt.Try(b, cs.map(c => Handler(Type.Hole, c.pat, c.guard, c.body)))(pos)
         }
 
   val skip: Parser[Stmt] = located(pos => kw("skip") ^^^ Stmt.Skip()(pos))

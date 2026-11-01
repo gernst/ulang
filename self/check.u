@@ -109,7 +109,7 @@ function builtin(n: Name): List[List[Type] * Type] :=
 function is_meta(t: Type): Bool :=
   match t
     case TMeta(_) => true
-    case _ => false
+    else false
   end
 
 // the Params and Metas in t
@@ -129,7 +129,7 @@ function holes(t: Type): Bool :=
     case TSort(_, args) => contains(true, [holes(a) for a in args])
     case TFun(args, r) => contains(true, [holes(a) for a in args ++ [r]])
     case TTuple(ts) => contains(true, [holes(a) for a in ts])
-    case _ => false
+    else false
   end
 
 function subst(t: Type, m: List[Type * Type]): Type :=
@@ -137,7 +137,7 @@ function subst(t: Type, m: List[Type * Type]): Type :=
     case TSort(n, args) => TSort(n, [subst(a, m) for a in args])
     case TFun(args, r) => TFun([subst(a, m) for a in args], subst(r, m))
     case TTuple(ts) => TTuple([subst(a, m) for a in ts])
-    case _ =>
+    else
       match lookup(t, m)
         case Some(u) => u
         case None => t
@@ -151,7 +151,7 @@ function resolve(su: Subst, t: Type): Type :=
         case Some(u) => resolve(su, u)
         case None => t
       end
-    case _ => t
+    else t
   end
 
 function occurs(su: Subst, i: Int, t: Type): Bool :=
@@ -160,7 +160,7 @@ function occurs(su: Subst, i: Int, t: Type): Bool :=
     case TSort(_, args) => contains(true, [occurs(su, i, a) for a in args])
     case TFun(args, r) => contains(true, [occurs(su, i, a) for a in args ++ [r]])
     case TTuple(ts) => contains(true, [occurs(su, i, a) for a in ts])
-    case _ => false
+    else false
   end
 
 function constructor_scheme(k: List[Type] * List[Type] * Type): List[Type] * Type :=
@@ -202,9 +202,16 @@ function generalize(su: Subst, env: Env, t: Type): List[Type] * Type :=
 function generalized(su: Subst, env: Env, xs: List[Var]): Env :=
   [(name(x), generalize(su, env, typ(x))) for x in xs]
 
-function pat_of[A](b: Branch[A]): Pat :=
+// the pattern of a case, and whether it has no guard, such that it may cover values
+function case_of[A](b: Branch[A]): Pat * Bool :=
   match b
-    case Branch(p, _) => p
+    case Branch(p, g, _) => (p, g == None)
+  end
+
+function zonk_guard(su: Subst, g: Option[Expr]): Option[Expr] :=
+  match g
+    case Some(e) => Some(zonk_expr(su, e))
+    case None => None
   end
 
 function zonk_type(su: Subst, t: Type): Type :=
@@ -243,7 +250,7 @@ function zonk_binding(su: Subst, p: Var * Expr): Var * Expr :=
 
 function zonk_expr_branch(su: Subst, b: Branch[Expr]): Branch[Expr] :=
   match b
-    case Branch(p, e) => Branch(zonk_pat(su, p), zonk_expr(su, e))
+    case Branch(p, g, e) => Branch(zonk_pat(su, p), zonk_guard(su, g), zonk_expr(su, e))
   end
 
 function zonk_pat(su: Subst, p: Pat): Pat :=
@@ -251,7 +258,7 @@ function zonk_pat(su: Subst, p: Pat): Pat :=
     case PVar(x) => PVar(zonk_var(su, x))
     case PApp(n, args) => PApp(n, [zonk_pat(su, a) for a in args])
     case PTuple(ps) => PTuple([zonk_pat(su, q) for q in ps])
-    case _ => p
+    else p
   end
 
 function zonk_stmt(su: Subst, x: Stmt): Stmt :=
@@ -270,12 +277,12 @@ function zonk_stmt(su: Subst, x: Stmt): Stmt :=
 
 function zonk_stmt_branch(su: Subst, b: Branch[Stmt]): Branch[Stmt] :=
   match b
-    case Branch(p, y) => Branch(zonk_pat(su, p), zonk_stmt(su, y))
+    case Branch(p, g, y) => Branch(zonk_pat(su, p), zonk_guard(su, g), zonk_stmt(su, y))
   end
 
 function zonk_handler(su: Subst, h: Handler): Handler :=
   match h
-    case Handler(t, p, b) => Handler(zonk_type(su, t), zonk_pat(su, p), zonk_stmt(su, b))
+    case Handler(t, p, g, b) => Handler(zonk_type(su, t), zonk_pat(su, p), zonk_guard(su, g), zonk_stmt(su, b))
   end
 
 function zonk_cmd(su: Subst, c: Cmd): Cmd :=
@@ -285,7 +292,7 @@ function zonk_cmd(su: Subst, c: Cmd): Cmd :=
     case CEval(e) => CEval(zonk_expr(su, e))
     case CRun(b) => CRun(zonk_stmt(su, b))
     case CTest(n, b) => CTest(n, zonk_stmt(su, b))
-    case _ => c
+    else c
   end
 
 // exceptions are told apart by their types at runtime, which must therefore be known after checking
@@ -300,7 +307,7 @@ function unknown_in(x: Stmt): Option[Type] :=
     case SMatch(_, bs) => unknown_in_branches(bs)
     case SRaise(_, t) => unknown_type(t)
     case STry(b, hs) => or_else(unknown_in(b), unknown_in_handlers(hs))
-    case _ => None
+    else None
   end
 
 function unknown_in_all(xs: List[Stmt]): Option[Type] :=
@@ -312,15 +319,15 @@ function unknown_in_all(xs: List[Stmt]): Option[Type] :=
 function unknown_in_branches(bs: List[Branch[Stmt]]): Option[Type] :=
   match bs
     case Nil => None
-    case Branch(_, y) :: rest => or_else(unknown_in(y), unknown_in_branches(rest))
+    case Branch(_, _, y) :: rest => or_else(unknown_in(y), unknown_in_branches(rest))
   end
 
 // handlers of _ catch exceptions of any type
 function unknown_in_handlers(hs: List[Handler]): Option[Type] :=
   match hs
     case Nil => None
-    case Handler(_, PWild, b) :: rest => or_else(unknown_in(b), unknown_in_handlers(rest))
-    case Handler(t, _, b) :: rest => or_else(unknown_type(t), or_else(unknown_in(b), unknown_in_handlers(rest)))
+    case Handler(_, PWild, _, b) :: rest => or_else(unknown_in(b), unknown_in_handlers(rest))
+    case Handler(t, _, _, b) :: rest => or_else(unknown_type(t), or_else(unknown_in(b), unknown_in_handlers(rest)))
   end
 
 function unknown_in_cmd(c: Cmd): Option[Type] :=
@@ -328,7 +335,7 @@ function unknown_in_cmd(c: Cmd): Option[Type] :=
     case CProc(_, _, _, _, _, b) => unknown_in(b)
     case CRun(b) => unknown_in(b)
     case CTest(_, b) => unknown_in(b)
-    case _ => None
+    else None
   end
 
 function head_of(p: Pat): Option[Head * List[Pat]] :=
@@ -336,7 +343,7 @@ function head_of(p: Pat): Option[Head * List[Pat]] :=
     case PApp(n, args) => Some((HCon(n), args))
     case PTuple(ps) => Some((HCon(","), ps))
     case PLit(v) => Some((HLit(v), Nil))
-    case _ => None
+    else None
   end
 
 // the constructors in the first column
@@ -368,7 +375,7 @@ function constructors_of(c: Ctx, su: Subst, t: Type): Option[List[Head * List[Ty
         case Some(ks) => Some([(HCon(k), field_types(c, k, args)) for k in ks])
         case None => None
       end
-    case _ => None
+    else None
   end
 
 function fields_of(c: Ctx, su: Subst, t: Type, h: Head): List[Type] :=
@@ -533,7 +540,7 @@ procedure unify(in t1: Type, t2: Type, ref s: State) :=
       else
         raise CannotUnify(zonk_type(sub_of(s), t1), zonk_type(sub_of(s), t2))
       end
-    case _ =>
+    else
       raise CannotUnify(zonk_type(sub_of(s), t1), zonk_type(sub_of(s), t2))
   end
 
@@ -544,7 +551,7 @@ procedure unifies(in xs: List[Type], ys: List[Type], ref s: State) :=
       call   unifies(in xs1, ys1, ref s)
     case (Nil, Nil) =>
       skip
-    case _ =>
+    else
       raise CountMismatch(length(xs), length(ys))
   end
 
@@ -763,7 +770,7 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
       call   fresh(out t, ref s)
       call   infer(in env, arg, out c, u, ref s)
       call   expr_branches(in env, cases, u, t, out bs, ref s)
-      call   coverage(in s, u, [pat_of(br) for br in bs])
+      call   coverage(in s, u, [case_of(br) for br in bs])
       assign e1 := EMatch(c, bs)
   end
 
@@ -782,7 +789,7 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
         call   apply(in env, u, args, out args1, t, ref s)
         assign e1 := EApp(f1, args1)
       end
-    case _ =>
+    else
       call   infer(in env, f, out f1, u, ref s)
       call   apply(in env, u, args, out args1, t, ref s)
       assign e1 := EApp(f1, args1)
@@ -808,7 +815,7 @@ procedure checks(in env: Env, es: List[Expr], ts: List[Type], out es1: List[Expr
       assign es1 := e1 :: rest
     case (Nil, Nil) =>
       assign es1 := Nil
-    case _ =>
+    else
       raise CountMismatch(length(ts), length(es))
   end
 
@@ -831,40 +838,63 @@ procedure generators(in env: Env, xs: List[Var], lists: List[Expr], out lists1: 
       call   check(in env, e, TSort("List", [typ(x)]), out l, ref s)
       call   generators(in bind([x]) ++ env, ys, es, out rest, ref s)
       assign lists1 := l :: rest
-    case _ =>
+    else
       assign lists1 := Nil
   end
 
 procedure expr_branches(in env: Env, cases: List[Branch[Expr]], t: Type, r: Type, out cases1: List[Branch[Expr]], ref s: State) :=
-  local p1: Pat, xs: List[Var], b1: Expr, rest: List[Branch[Expr]]
+  local p1: Pat, xs: List[Var], g1: Option[Expr], b1: Expr, rest: List[Branch[Expr]]
   match cases
     case Nil =>
       assign cases1 := Nil
-    case Branch(p, b) :: more =>
+    case Branch(p, g, b) :: more =>
       call   pattern(in p, t, out p1, xs, ref s)
+      call   guard(in bind(xs) ++ env, g, out g1, ref s)
       call   check(in bind(xs) ++ env, b, r, out b1, ref s)
       call   expr_branches(in env, more, t, r, out rest, ref s)
-      assign cases1 := Branch(p1, b1) :: rest
+      assign cases1 := Branch(p1, g1, b1) :: rest
   end
 
-procedure coverage(in s: State, t: Type, ps: List[Pat]) :=
-  call reachable(in s, t, Nil, ps)
-  match missing(ctx_of(s), sub_of(s), [[p] for p in ps], [t])
+procedure guard(in env: Env, g: Option[Expr], out g1: Option[Expr], ref s: State) :=
+  local e1: Expr
+  match g
+    case Some(e) =>
+      call   check(in env, e, tbool(), out e1, ref s)
+      assign g1 := Some(e1)
+    case None =>
+      assign g1 := None
+  end
+
+// guarded cases neither cover values for exhaustiveness nor make later cases unreachable
+procedure coverage(in s: State, t: Type, cs: List[Pat * Bool]) :=
+  call reachable(in s, t, Nil, cs)
+  match missing(ctx_of(s), sub_of(s), [[p] for p in unguarded(cs)], [t])
     case Some(w :: _) =>
       raise NotExhaustive(w)
-    case _ =>
+    else
       skip
   end
 
-procedure reachable(in s: State, t: Type, before: List[Pat], ps: List[Pat]) :=
-  match ps
+function unguarded(cs: List[Pat * Bool]): List[Pat] :=
+  match cs
+    case Nil => Nil
+    case (p, true) :: rest => p :: unguarded(rest)
+    case (_, false) :: rest => unguarded(rest)
+  end
+
+procedure reachable(in s: State, t: Type, before: List[Pat], cs: List[Pat * Bool]) :=
+  match cs
     case Nil =>
       skip
-    case p :: rest =>
+    case (p, open) :: rest =>
       if not useful(ctx_of(s), sub_of(s), [[q] for q in before], [p], [t])
         raise Unreachable(p)
       end
-      call reachable(in s, t, before ++ [p], rest)
+      if open
+        call reachable(in s, t, before ++ [p], rest)
+      else
+        call reachable(in s, t, before, rest)
+      end
   end
 
 procedure pattern(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) :=
@@ -914,7 +944,7 @@ procedure binder_list(in ps: List[Pat], ts: List[Type], out qs: List[Pat], xs: L
       assign qs := q :: rest, xs := ys ++ zs
     case (Nil, Nil) =>
       assign qs := Nil, xs := Nil
-    case _ =>
+    else
       raise CountMismatch(length(ts), length(ps))
   end
 
@@ -974,7 +1004,7 @@ procedure statement(in env: Env, assignable: List[Name], x: Stmt, out y: Stmt, r
     case SMatch(arg, cases) =>
       call   infer(in env, arg, out c, t, ref s)
       call   stmt_branches(in env, assignable, cases, t, out bs, ref s)
-      call   coverage(in s, t, [pat_of(br) for br in bs])
+      call   coverage(in s, t, [case_of(br) for br in bs])
       assign y := SMatch(c, bs)
     case SAssert(cond) =>
       call   check(in env, cond, tbool(), out c, ref s)
@@ -1020,28 +1050,30 @@ procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr
   end
 
 procedure stmt_branches(in env: Env, assignable: List[Name], cases: List[Branch[Stmt]], t: Type, out cases1: List[Branch[Stmt]], ref s: State) :=
-  local p1: Pat, xs: List[Var], b1: Stmt, rest: List[Branch[Stmt]]
+  local p1: Pat, xs: List[Var], g1: Option[Expr], b1: Stmt, rest: List[Branch[Stmt]]
   match cases
     case Nil =>
       assign cases1 := Nil
-    case Branch(p, b) :: more =>
+    case Branch(p, g, b) :: more =>
       call   pattern(in p, t, out p1, xs, ref s)
+      call   guard(in bind(xs) ++ env, g, out g1, ref s)
       call   statement(in bind(xs) ++ env, diff(assignable, names(xs)), b, out b1, ref s)
       call   stmt_branches(in env, assignable, more, t, out rest, ref s)
-      assign cases1 := Branch(p1, b1) :: rest
+      assign cases1 := Branch(p1, g1, b1) :: rest
   end
 
 procedure handler_list(in env: Env, assignable: List[Name], hs: List[Handler], out hs1: List[Handler], ref s: State) :=
-  local u: Type, p1: Pat, xs: List[Var], b1: Stmt, rest: List[Handler]
+  local u: Type, p1: Pat, xs: List[Var], g1: Option[Expr], b1: Stmt, rest: List[Handler]
   match hs
     case Nil =>
       assign hs1 := Nil
-    case Handler(a, p, b) :: more =>
+    case Handler(a, p, g, b) :: more =>
       call   normalize(in a, out u, ref s)
       call   pattern(in p, u, out p1, xs, ref s)
+      call   guard(in bind(xs) ++ env, g, out g1, ref s)
       call   statement(in bind(xs) ++ env, diff(assignable, names(xs)), b, out b1, ref s)
       call   handler_list(in env, assignable, more, out rest, ref s)
-      assign hs1 := Handler(u, p1, b1) :: rest
+      assign hs1 := Handler(u, p1, g1, b1) :: rest
   end
 
 procedure declare_name(in c: Ctx, n: Name) :=
@@ -1210,7 +1242,7 @@ procedure command(in c: Cmd, out c1: Cmd, ref s: State) :=
     case CTest(n, body) =>
       call   statement(in Nil, Nil, body, out y, ref s)
       assign c1 := CTest(n, y)
-    case _ =>
+    else
       assign c1 := c
   end
 
@@ -1279,7 +1311,7 @@ function lists(): List[Cmd] :=
       ["A"],
       [[Var("xs", tlist(TParam("A")))]],
       tint(),
-      EMatch(ev("xs"), [Branch(pv("Nil"), num(0)), Branch(PApp("::", [PWild, pv("ys")]), ap("+", [num(1), ap("len", [ev("ys")])]))])
+      EMatch(ev("xs"), [Branch(pv("Nil"), None, num(0)), Branch(PApp("::", [PWild, pv("ys")]), None, ap("+", [num(1), ap("len", [ev("ys")])]))])
     )
   ]
 
@@ -1317,25 +1349,25 @@ test elaboration :=
   local  q: Program
   call   check_program(in Program(lists() ++ [CEval(ap("len", [ap("::", [num(1), ev("Nil")])]))]), out q)
   match q
-    case Program(_ :: CFun(_, _, _, _, EMatch(_, Branch(p, _) :: _)) :: CEval(EApp(EVar(Var(_, t)), _)) :: Nil) =>
+    case Program(_ :: CFun(_, _, _, _, EMatch(_, Branch(p, _, _) :: _)) :: CEval(EApp(EVar(Var(_, t)), _)) :: Nil) =>
       // the constructor Nil is elaborated to a pattern of a constructor
       assert p == PApp("Nil", Nil)
       assert t == fun([tlist(tint())], tint())
-    case _ =>
+    else
       assert false
   end
 
 test coverage :=
   local q: Program
   try
-    call   check_program(in Program(lists() ++ [CFun("f", Nil, [[Var("xs", tlist(tint()))]], tint(), EMatch(ev("xs"), [Branch(pv("Nil"), num(0))]))]), out q)
+    call   check_program(in Program(lists() ++ [CFun("f", Nil, [[Var("xs", tlist(tint()))]], tint(), EMatch(ev("xs"), [Branch(pv("Nil"), None, num(0))]))]), out q)
     assert false
   catch
     case NotExhaustive(w) =>
       assert w == PApp("::", [PWild, PWild])
   end
   try
-    call   check_program(in Program(lists() ++ [CFun("f", Nil, [[Var("xs", tlist(tint()))]], tint(), EMatch(ev("xs"), [Branch(PWild, num(0)), Branch(pv("Nil"), num(1))]))]), out q)
+    call   check_program(in Program(lists() ++ [CFun("f", Nil, [[Var("xs", tlist(tint()))]], tint(), EMatch(ev("xs"), [Branch(PWild, None, num(0)), Branch(pv("Nil"), None, num(1))]))]), out q)
     assert false
   catch
     case Unreachable(p) =>

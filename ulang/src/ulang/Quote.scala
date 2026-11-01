@@ -8,6 +8,13 @@ object Quote:
   def list[A](xs: List[A])(f: A => Any): Any =
     xs.foldRight(obj("Nil"))((x, v) => obj("::", f(x), v))
 
+  def option[A](o: Option[A])(f: A => Any): Any =
+    o match
+      case Some(a) =>
+        obj("Some", f(a))
+      case None =>
+        obj("None")
+
   def names(xs: List[Name]): Any =
     list(xs)(x => x)
 
@@ -65,7 +72,7 @@ object Quote:
       case Expr.Ite(test, left, right) =>
         obj("EIte", quote(test), quote(left), quote(right))
       case Expr.Match(arg, cases) =>
-        obj("EMatch", quote(arg), list(cases)(c => obj("Branch", quote(c.pat), quote(c.body))))
+        obj("EMatch", quote(arg), list(cases)(c => obj("Branch", quote(c.pat), option(c.guard)(quote), quote(c.body))))
       case Expr.Comp(result, bound, lists, test) =>
         obj("EComp", quote(result), binders(bound), list(lists)(quote), quote(test))
 
@@ -97,13 +104,13 @@ object Quote:
       case Stmt.Call(proc, ins, outs, refs) =>
         obj("SCall", proc, list(ins)(quote), vars(outs), vars(refs))
       case Stmt.Match(arg, cases) =>
-        obj("SMatch", quote(arg), list(cases)(c => obj("Branch", quote(c.pat), quote(c.body))))
+        obj("SMatch", quote(arg), list(cases)(c => obj("Branch", quote(c.pat), option(c.guard)(quote), quote(c.body))))
       case Stmt.Assert(test) =>
         obj("SAssert", quote(test))
       case Stmt.Raise(arg, typ) =>
         obj("SRaise", quote(arg), quote(typ))
       case Stmt.Try(body, handlers) =>
-        obj("STry", quote(body), list(handlers)(h => obj("Handler", quote(h.typ), quote(h.pat), quote(h.body))))
+        obj("STry", quote(body), list(handlers)(h => obj("Handler", quote(h.typ), quote(h.pat), option(h.guard)(quote), quote(h.body))))
 
   def quote(f: Fixity): Any =
     f match
@@ -219,10 +226,19 @@ object Quote:
       case _ =>
         invalid("a pair", v)
 
+  def optional[A](v: Any)(f: Any => A): Option[A] =
+    v match
+      case Obj("Some", List(a)) =>
+        Some(f(a))
+      case Obj("None", Nil) =>
+        None
+      case _ =>
+        invalid("an option", v)
+
   def branch[A](v: Any)(body: Any => A): Case[A] =
     v match
-      case Obj("Branch", List(p, b)) =>
-        Case(pat(p), body(b))
+      case Obj("Branch", List(p, g, b)) =>
+        Case(pat(p), optional(g)(expr), body(b))
       case _ =>
         invalid("a case", v)
 
@@ -271,8 +287,8 @@ object Quote:
 
   def handler(v: Any): Handler =
     v match
-      case Obj("Handler", List(t, p, body)) =>
-        Handler(typ(t), pat(p), stmt(body))
+      case Obj("Handler", List(t, p, g, body)) =>
+        Handler(typ(t), pat(p), optional(g)(expr), stmt(body))
       case _ =>
         invalid("a handler", v)
 

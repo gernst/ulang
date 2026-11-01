@@ -54,7 +54,7 @@ function xor(p: Bool * Bool): Bool :=
   match p
     case (true, false) => true
     case (false, true) => true
-    case _ => false
+    else false
   end
 
 // tuples are flat, unlike nested ones

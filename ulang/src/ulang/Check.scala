@@ -255,7 +255,7 @@ class Check(program: Program):
       case Expr.Ite(test, left, right) =>
         Expr.Ite(zonk(test), zonk(left), zonk(right))(e.pos)
       case Expr.Match(arg, cases) =>
-        Expr.Match(zonk(arg), cases.map(c => Case(zonk(c.pat), zonk(c.body))))(e.pos)
+        Expr.Match(zonk(arg), cases.map(c => Case(zonk(c.pat), c.guard.map(zonk(_)), zonk(c.body))))(e.pos)
       case Expr.Comp(result, bound, lists, test) =>
         Expr.Comp(zonk(result), bound.map(zonk(_)), lists.map(zonk(_)), zonk(test))(e.pos)
       case Expr.Tuple(items) =>
@@ -287,7 +287,7 @@ class Check(program: Program):
       case Stmt.Call(proc, ins, outs, refs) =>
         Stmt.Call(proc, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)))(s.pos)
       case Stmt.Match(arg, cases) =>
-        Stmt.Match(zonk(arg), cases.map(c => Case(zonk(c.pat), zonk(c.body))))(s.pos)
+        Stmt.Match(zonk(arg), cases.map(c => Case(zonk(c.pat), c.guard.map(zonk(_)), zonk(c.body))))(s.pos)
       case Stmt.Assert(test) =>
         Stmt.Assert(zonk(test))(s.pos)
       case Stmt.Raise(arg, typ) =>
@@ -298,9 +298,9 @@ class Check(program: Program):
   def zonk(h: Handler): Handler =
     h.pat match
       case Pat.Wild() =>
-        Handler(zonk(h.typ), h.pat, zonk(h.body))
+        Handler(zonk(h.typ), h.pat, h.guard.map(zonk(_)), zonk(h.body))
       case _ =>
-        Handler(at(h.pat.pos)(exception(h.typ)), zonk(h.pat), zonk(h.body))
+        Handler(at(h.pat.pos)(exception(h.typ)), zonk(h.pat), h.guard.map(zonk(_)), zonk(h.body))
 
   // exceptions are told apart by their types at runtime, which must therefore be known after checking
   def exception(t: Type): Type =
@@ -500,10 +500,10 @@ class Check(program: Program):
   def branches[A](env: Map[Name, (List[Type], Type)], arg: Expr, cases: List[Case[A]])(elaborate: (Map[Name, (List[Type], Type)], A) => A): (Expr, List[Case[A]]) =
     val (arg1, t) = infer(env, arg)
     val cases1 =
-      for Case(pat, body) <- cases
+      for Case(pat, guard, body) <- cases
       yield
         val (pat1, bs) = pattern(pat, t)
-        Case(pat1, elaborate(bs, body))
+        Case(pat1, guard.map(check(env ++ bs, _, Bool)), elaborate(bs, body))
     reachable(t, cases1)
     exhaustive(t, cases1)
     (arg1, cases1)
@@ -557,13 +557,20 @@ class Check(program: Program):
       case _ =>
         error("type", s"expected ${ts.length} patterns, got ${ps.length}")
 
+  // the patterns of cases without guards, since guarded cases may not apply
+  def unguarded(cases: List[Case[?]]): List[List[Pat]] =
+    for
+      c <- cases
+      if c.guard.isEmpty
+    yield List(c.pat)
+
   def exhaustive(t: Type, cases: List[Case[?]]): Unit =
-    for w <- missing(cases.map(c => List(c.pat)), List(t)) do
+    for w <- missing(unguarded(cases), List(t)) do
       error("type", s"match is not exhaustive, missing ${w.head}")
 
   def reachable(t: Type, cases: List[Case[?]]): Unit =
     for (c, i) <- cases.zipWithIndex do
-      require("type", useful(cases.take(i).map(c => List(c.pat)), List(c.pat), List(t)), s"unreachable case ${Printer.show(c.pat)}")
+      at(c.pat.pos)(require("type", useful(unguarded(cases.take(i)), List(c.pat), List(t)), s"unreachable case ${Printer.show(c.pat)}"))
 
   // the constructors in the first column
   def heads(rows: List[List[Pat]]): Set[Name] =
@@ -770,11 +777,11 @@ class Check(program: Program):
 
         case Stmt.Try(body, handlers) =>
           val handlers1 =
-            for Handler(typ, pat, b) <- handlers
+            for Handler(typ, pat, guard, b) <- handlers
             yield
               val t = normalize(typ)
               val (pat1, bs) = pattern(pat, t)
-              Handler(t, pat1, stmt(env ++ bs, assignable -- bs.keys, b))
+              Handler(t, pat1, guard.map(check(env ++ bs, _, Bool)), stmt(env ++ bs, assignable -- bs.keys, b))
           Stmt.Try(stmt(env, assignable, body), handlers1)(s.pos)
 
   // read gives the syntax of self/syntax.u, so it exists only in programs that declare its Program

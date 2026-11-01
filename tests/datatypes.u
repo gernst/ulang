@@ -4,19 +4,19 @@ function range(n: Int): List[Int] :=
 function head[A](xs: List[A]): Option[A] :=
   match xs
     case x :: _ => Some(x)
-    case _ => None
+    else None
   end
 
 function nested(xs: List[Option[Int]]): Int :=
   match xs
     case Some(1) :: None :: _ => 1
-    case _ => 0
+    else 0
   end
 
 function word(x: Int): Str :=
   match x
     case 0 => "zero"
-    case _ => "other"
+    else "other"
   end
 
 function flip(b: Bool): Int :=
@@ -133,3 +133,24 @@ test nat :=
   assert int(add(Succ(Succ(Zero)), Succ(Zero))) == 3
   assert even(add(Succ(Zero), Succ(Zero)))
   assert even(Succ(Succ(Succ(Zero)))) == false
+
+// cases apply if their guards hold, and else is the last case
+function sign(n: Int): Int :=
+  match n
+    case m if m < 0 => -1
+    case 0 => 0
+    else 1
+  end
+
+test guards :=
+  local  s: Str
+  assert sign(-5) == -1 and sign(0) == 0 and sign(7) == 1
+  match [1, 2]
+    case x :: _ if x > 1 =>
+      assign s := "big"
+    case x :: _ if x == 1 =>
+      assign s := "one"
+    else
+      assign s := "other"
+  end
+  assert s == "one"

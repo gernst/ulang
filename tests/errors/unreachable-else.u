@@ -1,0 +1,7 @@
+// type error: unreachable case _ at 6.5
+function f(b: Bool): Int :=
+  match b
+    case true => 0
+    case false => 1
+    else 2
+  end

@@ -14,7 +14,7 @@ procedure accept(in s: Str, ref ts: List[Token]) :=
       else
         raise Expected(s)
       end
-    case _ =>
+    else
       raise Expected(s)
   end
 
@@ -22,7 +22,7 @@ procedure number(out n: Int, ref ts: List[Token]) :=
   match ts
     case Num(m) :: us =>
       assign n := m, ts := us
-    case _ =>
+    else
       raise Expected("number")
   end
 
@@ -137,7 +137,20 @@ test any_type :=
   try
     raise "x"
   catch
-    case _ =>
+    else
       assign s := "caught"
   end
   assert s == "caught"
+
+// handlers apply if their guards hold
+test guarded_handlers :=
+  local  n: Int
+  try
+    raise 2
+  catch
+    case k if k < 2 =>
+      assign n := 0
+    case k =>
+      assign n := k
+  end
+  assert n == 2

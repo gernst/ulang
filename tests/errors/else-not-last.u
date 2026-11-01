@@ -1,0 +1,7 @@
+// parse error: else must be the last case at 6.5
+function f(n: Int): Int :=
+  match n
+    case 1 => 1
+    else 2
+    case 3 => 3
+  end

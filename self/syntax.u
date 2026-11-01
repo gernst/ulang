@@ -40,9 +40,9 @@ data Pat :=
   | PApp(Name, List[Pat])
   | PTuple(List[Pat])
 
-// a case of a match, which is Case in Syntax.scala
+// a case of a match with an optional guard, which is Case in Syntax.scala
 data Branch[A] :=
-  | Branch(Pat, A)
+  | Branch(Pat, Option[Expr], A)
 
 data Stmt :=
   | SSkip
@@ -58,7 +58,7 @@ data Stmt :=
 
 // handles exceptions of the type that match the pattern, or of any type if the pattern is PWild
 data Handler :=
-  | Handler(Type, Pat, Stmt)
+  | Handler(Type, Pat, Option[Expr], Stmt)
 
 data Constr :=
   | Constr(Name, List[Type])
@@ -104,7 +104,7 @@ function types(xs: List[Var]): List[Type] :=
 function arity(t: Type): Int :=
   match t
     case TFun(args, _) => length(args)
-    case _ => -1
+    else -1
   end
 
 // f(x) + 1, as the parser would produce it

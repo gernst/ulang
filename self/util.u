@@ -31,7 +31,7 @@ function concat[A](xss: List[List[A]]): List[A] :=
 function zip[A, B](xs: List[A], ys: List[B]): List[A * B] :=
   match (xs, ys)
     case (x :: xs1, y :: ys1) => (x, y) :: zip(xs1, ys1)
-    case _ => Nil
+    else Nil
   end
 
 function take[A](n: Int, xs: List[A]): List[A] :=
