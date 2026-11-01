@@ -19,6 +19,7 @@ Mill with `build.mill.yaml`; the language lives in the module `ulang`. Do not us
 
 Tests are end-to-end only: programs in `tests/` with named tests `test name := ...` of `assert` statements, where runs `run name := ...` are named as well, and the names of runs and tests are distinct.
 Every program is checked after `ulang/resources/prelude.u`, which declares the operators and imports the library modules `nat`, `option`, and `list` (also in `ulang/resources/`).
+The library modules `map` and `set` give maps `Map[K, V]` and sets `Set[A]` as AVL trees, ordered by the builtin `compare`, a total order of values consistent with `==`, where constructors are ordered by their position in their declaration.
 The library module `os` declares `OsError`, and with it come the builtin procedures `os_args`, `os_read`, `os_write`, and `os_library`, where the latter raise `OsError` when they fail, and `os_args` gives the arguments after `--`, e.g. `./ulang.sh self/ulang.u -- source.u target.c`.
 `import name` loads the module `name.u` from the directory of the parsed file, or else from the library, once, without its `eval`s, `run`s, and `test`s. A module sees its own declarations, those of its direct imports, and the prelude, and the same holds for notations: imports are not transitive. The checker resolves every name to its module, so that names may repeat in modules that are not imported together.
 A file that is expected to fail states the error in its first line, e.g. `// type error: unknown variable x`, see `tests/errors/`.

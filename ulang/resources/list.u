@@ -29,8 +29,23 @@ function lookup[K, V](k: K, xs: List[K * V]): Option[V] :=
     case [_; ys] => lookup(k, ys)
   end
 
+// xs where the first pair of k has the value v, sharing the pairs after it, or with (k, v) in front if k has none
 function update[K, V](k: K, v: V, xs: List[K * V]): List[K * V] :=
-  [(k, v); remove(k, xs)]
+  match replaced(k, v, xs)
+    case Some(ys) => ys
+    case None => [(k, v); xs]
+  end
+
+function replaced[K, V](k: K, v: V, xs: List[K * V]): Option[List[K * V]] :=
+  match xs
+    case Nil => None
+    case [(j, _); ys] if j == k => Some([(k, v); ys])
+    case [p; ys] =>
+      match replaced(k, v, ys)
+        case Some(zs) => Some([p; zs])
+        case None => None
+      end
+  end
 
 function remove[K, V](k: K, xs: List[K * V]): List[K * V] :=
   match xs
@@ -131,7 +146,8 @@ function seconds[A, B](ps: List[A * B]): List[B] :=
 test lists :=
   assert [1, 2] ++ [3] == [1, 2, 3] and length([1, 2, 3]) == 3
   assert lookup(2, [(1, "a"), (2, "b"), (2, "c")]) == Some("b") and lookup(3, [(1, "a")]) == None
-  assert update(1, "c", [(1, "a"), (2, "b")]) == [(1, "c"), (2, "b")] and remove(1, [(1, "a"), (2, "b"), (1, "c")]) == [(2, "b")]
+  assert update(1, "c", [(1, "a"), (2, "b")]) == [(1, "c"), (2, "b")] and update(2, "c", [(1, "a"), (2, "b")]) == [(1, "a"), (2, "c")]
+  assert update(3, "c", [(1, "a")]) == [(3, "c"), (1, "a")] and remove(1, [(1, "a"), (2, "b"), (1, "c")]) == [(2, "b")]
   assert has_key(2, [(1, "a"), (2, "b")]) and not has_key(3, [(1, "a")])
   assert keys([(1, "a"), (2, "b")]) == [1, 2] and values([(1, "a"), (2, "b")]) == ["a", "b"]
   assert contains(2, [1, 2]) and not contains(3, [1, 2])

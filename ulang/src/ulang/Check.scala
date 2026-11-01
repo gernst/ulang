@@ -58,6 +58,8 @@ object Check:
       "%" -> arith,
       "<" -> mono(fun(List(Int, Int), Bool)),
       "==" -> eq,
+      // a total order of values consistent with ==, which is -1, 0, or 1
+      "compare" -> (List(Type.Param("A")), fun(List(Type.Param("A"), Type.Param("A")), Int)),
       "and" -> logic,
       "or" -> logic,
       // strings are converted from and to lists of characters
@@ -73,6 +75,7 @@ object Check:
       "str_split" -> mono(fun(List(Str, Char), list(Str))),
       "str_get" -> mono(fun(List(Str, Int), Char)),
       "str_contains" -> mono(fun(List(Str, Char), Bool)),
+      "str_compare" -> mono(fun(List(Str, Str), Int)),
       "str_show" -> mono(fun(List(Int), Str)),
       "str_quote" -> mono(fun(List(Str), Str)),
       "str_number" -> mono(fun(List(Str), Type.Sort(Names.option, List(Int)))),

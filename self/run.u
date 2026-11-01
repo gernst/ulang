@@ -22,9 +22,10 @@ type Bindings :=
 data ProcDef :=
   | ProcDef(List[Var], List[Var], List[Var], Stmt)
 
-// the functions by name and number of arguments, the procedures, and the constructors with their numbers of arguments
+// the functions by name and number of arguments, the procedures, the constructors with their numbers of arguments,
+// and the constructors with their positions in their declarations, which order values
 data Prog :=
-  | Prog(List[(Name * Int) * (List[List[Var]] * Expr)], List[Name * ProcDef], List[Name * Int])
+  | Prog(List[(Name * Int) * (List[List[Var]] * Expr)], List[Name * ProcDef], List[Name * Int], List[Name * Int])
 
 // the cells by address, which are unassigned initially, and the next address
 data Heap :=
@@ -58,22 +59,31 @@ data Output :=
 
 function funs_in(p: Prog): List[(Name * Int) * (List[List[Var]] * Expr)] :=
   match p
-    case Prog(f, _, _) => f
+    case Prog(f, _, _, _) => f
   end
 
 function procs_in(p: Prog): List[Name * ProcDef] :=
   match p
-    case Prog(_, d, _) => d
+    case Prog(_, d, _, _) => d
   end
 
 function constrs_in(p: Prog): List[Name * Int] :=
   match p
-    case Prog(_, _, k) => k
+    case Prog(_, _, k, _) => k
+  end
+
+function position_of(p: Prog, k: Name): Int :=
+  match p
+    case Prog(_, _, _, ps) =>
+      match lookup(k, ps)
+        case Some(i) => i
+        case None => 0
+      end
   end
 
 function load(q: Program): Prog :=
   match q
-    case Program(cs) => Prog(fun_defs(cs), proc_defs(cs), constr_defs(cs))
+    case Program(cs) => Prog(fun_defs(cs), proc_defs(cs), constr_defs(cs), constr_positions(cs))
   end
 
 // functions are overloaded by the number of arguments of their first list of parameters
@@ -91,6 +101,16 @@ function proc_defs(cs: List[Cmd]): List[Name * ProcDef] :=
     case [_; rest] => proc_defs(rest)
   end
 
+function constr_positions(cs: List[Cmd]): List[Name * Int] :=
+  match cs
+    case Nil => Nil
+    case [CData(_, _, ks); rest] => zip([constr_name(k) for k in ks], numbers_from(0, length(ks))) ++ constr_positions(rest)
+    case [_; rest] => constr_positions(rest)
+  end
+
+function numbers_from(i: Int, n: Int): List[Int] :=
+  if n == 0 then Nil else [i; numbers_from(i + 1, n - 1)]
+
 function constr_defs(cs: List[Cmd]): List[Name * Int] :=
   match cs
     case Nil => Nil
@@ -105,7 +125,7 @@ function constr_arity(k: Constr): Name * Int :=
 
 function is_builtin(n: Name): Bool :=
   match n
-    case Name(None, b) => contains(b, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "str_get", "str_contains", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"])
+    case Name(None, b) => contains(b, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "compare", "str_get", "str_contains", "str_compare", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"])
     else false
   end
 
@@ -377,6 +397,7 @@ procedure apply_expr(in p: Prog, env: Bindings, f: Expr, args: List[Expr], out v
   end
 
 procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value) :=
+  local k: Int
   match f
     case Clos(env, xs, body) =>
       call evaluate(in p, bind_values(xs, vs) ++ env, body, out v)
@@ -395,7 +416,13 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value) :=
     case Con(n) =>
       assign v := Obj(n, vs)
     case Prim(n) =>
-      call primitive(in n, vs, out v)
+      match (base(n), vs)
+        case ("compare", [a, b]) =>
+          call   compare_values(in p, a, b, out k)
+          assign v := Lit(VInt(k))
+        else
+          call primitive(in n, vs, out v)
+      end
     else
       raise NotFunction(f)
   end
@@ -455,6 +482,8 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := Lit(VChar(str_get(s, i)))
     case ("str_contains", [Lit(VStr(s)), Lit(VChar(c))]) =>
       assign v := Lit(VBool(str_contains(s, c)))
+    case ("str_compare", [Lit(VStr(s)), Lit(VStr(t))]) =>
+      assign v := Lit(VInt(str_compare(s, t)))
     case ("str_show", [Lit(VInt(k))]) =>
       assign v := Lit(VStr(str_show(k)))
     case ("str_quote", [Lit(VStr(s))]) =>
@@ -490,6 +519,46 @@ procedure equal(in a: Value, b: Value, out r: Bool) :=
     else
       assign r := a == b
   end
+
+// -1, 0, or 1 for values of the same type, where constructors are ordered by their declaration and then by their fields
+procedure compare_values(in p: Prog, a: Value, b: Value, out r: Int) :=
+  if is_function(a) or is_function(b)
+    raise CompareFunctions
+  end
+
+  match (a, b)
+    case (Lit(VInt(x)), Lit(VInt(y))) =>
+      assign r := order(x, y)
+    case (Lit(VChar(x)), Lit(VChar(y))) =>
+      assign r := order(ord(x), ord(y))
+    case (Lit(VBool(x)), Lit(VBool(y))) =>
+      assign r := order(if x then 1 else 0, if y then 1 else 0)
+    case (Lit(VStr(x)), Lit(VStr(y))) =>
+      assign r := str_compare(x, y)
+    case (Obj(c, xs), Obj(d, ys)) =>
+      if c == d
+        call compare_all(in p, xs, ys, out r)
+      else
+        assign r := order(position_of(p, c), position_of(p, d))
+      end
+    else
+      assign r := 0
+  end
+
+procedure compare_all(in p: Prog, xs: List[Value], ys: List[Value], out r: Int) :=
+  match (xs, ys)
+    case ([x; xs1], [y; ys1]) =>
+      call compare_values(in p, x, y, out r)
+
+      if r == 0
+        call compare_all(in p, xs1, ys1, out r)
+      end
+    else
+      assign r := order(length(xs), length(ys))
+  end
+
+function order(x: Int, y: Int): Int :=
+  if x < y then -1 else if y < x then 1 else 0
 
 procedure equal_all(in xs: List[Value], ys: List[Value], out r: Bool) :=
   match (xs, ys)

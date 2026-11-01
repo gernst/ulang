@@ -118,6 +118,9 @@ object Run:
         s(int(i).toInt)
       case ("str_contains", List(s: String, c: Char)) =>
         s.contains(c)
+      // -1, 0, or 1 as s is before, equal to, or after t, by the codes of their characters
+      case ("str_compare", List(s: String, t: String)) =>
+        BigInt(Integer.signum(s.compareTo(t)))
       case ("str_show", List(n)) =>
         int(n).toString
       case ("str_quote", List(s: String)) =>
@@ -156,6 +159,44 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
         d.constrs.map(c => c.name -> c.args.length)
     .flatten.toMap
 
+  // the position of each constructor in its declaration, which orders values
+  val positions =
+    program.cmds.collect:
+      case d: Cmd.Data =>
+        d.constrs.map(_.name).zipWithIndex
+    .flatten.toMap
+
+  // values of the same type, where constructors are ordered by their declaration and then by their fields
+  def compare(a: Any, b: Any): Int =
+    (a, b) match
+      case (_: Function1[?, ?], _) | (_, _: Function1[?, ?]) =>
+        error("runtime", "cannot compare functions")
+      case (x: BigInt, y: BigInt) =>
+        x.compare(y).sign
+      case (x: Boolean, y: Boolean) =>
+        x.compare(y).sign
+      case (x: Char, y: Char) =>
+        x.compare(y).sign
+      case (x: String, y: String) =>
+        x.compareTo(y).sign
+      case (Obj(c, as), Obj(d, bs)) if c == d =>
+        compare(as, bs)
+      case (Obj(c, _), Obj(d, _)) =>
+        positions.getOrElse(c, 0).compare(positions.getOrElse(d, 0)).sign
+      case _ =>
+        error("runtime", s"cannot compare ${Printer.show(a)} and ${Printer.show(b)}")
+
+  def compare(as: List[Any], bs: List[Any]): Int =
+    (as, bs) match
+      case (a :: as, b :: bs) =>
+        compare(a, b) match
+          case 0 =>
+            compare(as, bs)
+          case c =>
+            c
+      case _ =>
+        as.length.compare(bs.length).sign
+
   def eval(env: Map[Name, Any], e: Expr): Any =
     at(e.pos):
       e match
@@ -168,6 +209,14 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
           fun(funs((name, Check.arity(typ))))
         case Expr.Var(name, _) if constrs.contains(name) =>
           constr(name)(constrs(name))
+        // compare needs the order of the constructors of the program
+        case Expr.Var(Name(None, "compare"), _) =>
+          (vs: List[Any]) =>
+            vs match
+              case List(a, b) =>
+                BigInt(compare(a, b))
+              case _ =>
+                error("runtime", "compare takes two arguments")
         case Expr.Var(name, _) if name.module.isEmpty && Check.builtins.contains(name.base) =>
           builtin(name.base)
         case Expr.Var(name, _) =>

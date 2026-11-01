@@ -10,10 +10,12 @@
 
 typedef struct u_object *u_value;
 
-// the name of a constructor with its module, which exists once and is compared by its address
+// the name of a constructor with its module and its position in its declaration, which orders values,
+// where each name exists once and is compared by its address
 struct u_name {
   const char *module;
   const char *base;
+  int index;
 };
 
 // the constructors that the builtins create, of the modules list, option, and os of the library
@@ -22,7 +24,8 @@ extern const struct u_name n_list_46_Nil, n_list_46_Cons, n_option_46_None, n_op
 // the code of a closure, with its captured values and its arguments
 typedef u_value (*code)(u_value *env, u_value *args);
 
-enum kind { INT, BOOL, CHAR, STR, CON, TUPLE, CLOSURE };
+// integers that fit into a long long are INT with num, and others are BIG with an mpz_t, such that each value has one kind
+enum kind { INT, BIG, BOOL, CHAR, STR, CON, TUPLE, CLOSURE };
 
 // the fields of the kind of an object, where constructors, tuples, and closures have items
 struct u_object {
@@ -66,7 +69,8 @@ static inline int is_con(u_value v, const struct u_name *name) {
 static inline u_value field(u_value v, int i) {
   return v->items[i];
 }
-int equal(u_value a, u_value b);
+int u_equals(u_value a, u_value b);
+u_value u_compare(u_value a, u_value b);
 u_value apply(u_value f, int n, ...);
 
 u_value u_add(u_value a, u_value b);
@@ -88,6 +92,7 @@ u_value u_str_slice(u_value s, u_value i, u_value j);
 u_value u_str_split(u_value s, u_value c);
 u_value u_str_get(u_value s, u_value i);
 u_value u_str_contains(u_value s, u_value c);
+u_value u_str_compare(u_value s, u_value t);
 u_value u_str_show(u_value n);
 u_value u_str_quote(u_value s);
 u_value u_str_number(u_value s);

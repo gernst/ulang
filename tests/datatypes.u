@@ -69,12 +69,13 @@ test association_lists :=
   assert m == [("b", 2), ("a", 1)]
   assert lookup("a", m) == Some(1)
   assert lookup("c", m) == None
+  // the pair of a key keeps its place
   assign m := update("a", 3, m)
-  assert m == [("a", 3), ("b", 2)]
+  assert m == [("b", 2), ("a", 3)]
   assert lookup("a", [("a", 1), ("a", 2)]) == Some(1)
   assert remove("a", [("a", 1), ("b", 2), ("a", 3)]) == [("b", 2)]
-  assert keys(m) == ["a", "b"]
-  assert values(m) == [3, 2]
+  assert keys(m) == ["b", "a"]
+  assert values(m) == [2, 3]
 
 // mutually recursive datatypes, and a type definition before the datatype it uses
 data Tree[A] :=
@@ -168,3 +169,12 @@ test list_patterns :=
   assert sum_pairs([]) == 0
   assert [1; [2, 3]] == [1, 2, 3]
   assert [1, 2; [3]] == Cons(1, Cons(2, Cons(3, Nil)))
+
+// compare orders values of a type, constructors by their declaration and then by their fields
+test comparisons :=
+  assert compare(1, 2) == -1 and compare(2, 1) == 1 and compare(3, 3) == 0
+  assert compare("ab", "b") == -1 and compare('b', 'a') == 1 and compare(false, true) == -1
+  assert compare((1, "b"), (1, "a")) == 1 and compare((), ()) == 0
+  assert compare(None, Some(0)) == -1 and compare(Some(2), Some(1)) == 1
+  assert compare(Zero, Succ(Zero)) == -1 and compare([1, 2], [1]) == 1 and compare([1], [1, 2]) == -1
+  assert compare(100000000000000000000, 99999999999999999999) == 1 and compare(-100000000000000000000, 1) == -1

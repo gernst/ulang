@@ -1,0 +1,121 @@
+// maps from keys to values as AVL trees, ordered by compare, where the heights of the subtrees of each node
+// differ by at most one, such that get and put take logarithmic time
+
+data Map[K, V] :=
+  | MLeaf
+  | MNode(Map[K, V], K, V, Map[K, V], Int)
+
+function empty[K, V](): Map[K, V] :=
+  MLeaf
+
+function get[K, V](k: K, m: Map[K, V]): Option[V] :=
+  match m
+    case MLeaf => None
+    case MNode(l, j, v, r, _) =>
+      let c := compare(k, j) in if c < 0 then get(k, l) else if c > 0 then get(k, r) else Some(v)
+  end
+
+function has[K, V](k: K, m: Map[K, V]): Bool :=
+  get(k, m) != None
+
+// m where k has the value v
+function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V] :=
+  match m
+    case MLeaf => MNode(MLeaf, k, v, MLeaf, 1)
+    case MNode(l, j, w, r, h) =>
+      let c := compare(k, j) in
+        if c < 0 then balance(put(k, v, l), j, w, r) else if c > 0 then balance(l, j, w, put(k, v, r)) else MNode(l, k, v, r, h)
+  end
+
+// the pairs of m in the order of their keys
+function entries[K, V](m: Map[K, V]): List[K * V] :=
+  entries_onto(m, Nil)
+
+function entries_onto[K, V](m: Map[K, V], rest: List[K * V]): List[K * V] :=
+  match m
+    case MLeaf => rest
+    case MNode(l, k, v, r, _) => entries_onto(l, [(k, v); entries_onto(r, rest)])
+  end
+
+function size[K, V](m: Map[K, V]): Int :=
+  match m
+    case MLeaf => 0
+    case MNode(l, _, _, r, _) => size(l) + 1 + size(r)
+  end
+
+function height[K, V](m: Map[K, V]): Int :=
+  match m
+    case MLeaf => 0
+    case MNode(_, _, _, _, h) => h
+  end
+
+function mnode[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
+  MNode(l, k, v, r, mnode_height(l, r))
+
+function rotate_left[K, V](m: Map[K, V]): Map[K, V] :=
+  match m
+    case MNode(a, j, v, MNode(b, k, w, c, _), _) => mnode(mnode(a, j, v, b), k, w, c)
+    else m
+  end
+
+function rotate_right[K, V](m: Map[K, V]): Map[K, V] :=
+  match m
+    case MNode(MNode(a, j, v, b, _), k, w, c, _) => mnode(a, j, v, mnode(b, k, w, c))
+    else m
+  end
+
+function left_of[K, V](m: Map[K, V]): Map[K, V] :=
+  match m
+    case MNode(l, _, _, _, _) => l
+    else m
+  end
+
+function right_of[K, V](m: Map[K, V]): Map[K, V] :=
+  match m
+    case MNode(_, _, _, r, _) => r
+    else m
+  end
+
+// the node of l, k, v, r, where the heights of l and r differ by at most two, rebalanced by one or two rotations
+function balance[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
+  if height(l) > height(r) + 1 then
+    rotate_right(mnode(if height(left_of(l)) < height(right_of(l)) then rotate_left(l) else l, k, v, r))
+  else if height(r) > height(l) + 1 then
+    rotate_left(mnode(l, k, v, if height(right_of(r)) < height(left_of(r)) then rotate_right(r) else r))
+  else
+    mnode(l, k, v, r)
+
+// the heights of the subtrees of each node differ by at most one, and its height is correct
+function balanced[K, V](m: Map[K, V]): Bool :=
+  match m
+    case MLeaf => true
+    case MNode(l, _, _, r, h) =>
+      balanced(l) and balanced(r) and h == mnode_height(l, r) and height(l) <= height(r) + 1 and height(r) <= height(l) + 1
+  end
+
+function mnode_height[K, V](l: Map[K, V], r: Map[K, V]): Int :=
+  1 + (if height(l) < height(r) then height(r) else height(l))
+
+function put_all[K, V](ps: List[K * V], m: Map[K, V]): Map[K, V] :=
+  match ps
+    case Nil => m
+    case [(k, v); rest] => put_all(rest, put(k, v, m))
+  end
+
+function numbers(n: Int): List[Int] :=
+  if n == 0 then Nil else numbers(n - 1) ++ [n]
+
+test maps :=
+  local  m: Map[Str, Int]
+  assign m := put("b", 2, put("a", 1, empty()))
+  assert get("a", m) == Some(1) and get("c", m) == None and has("b", m) and not has("c", m)
+  assign m := put("a", 3, m)
+  assert entries(m) == [("a", 3), ("b", 2)] and size(m) == 2
+
+// ascending keys would make a list of an unbalanced tree
+test balance :=
+  local  m: Map[Str, Int]
+  assign m := put_all([(str_show(1000 + i), i) for i in numbers(200)], empty())
+  assert balanced(m) and size(m) == 200 and height(m) <= 11
+  assert get("1100", m) == Some(100) and get("1201", m) == None
+  assert entries(m) == [(str_show(1000 + i), i) for i in numbers(200)]

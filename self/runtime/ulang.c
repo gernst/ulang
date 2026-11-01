@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <gc.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,10 +20,19 @@ static void gc_free(void *p, size_t size) {
   (void)size;
 }
 
+// the small integers, which exist once, since most integers of programs are small
+#define SMALL_MIN (-16)
+#define SMALL_MAX 255
+static struct u_object small_ints[SMALL_MAX - SMALL_MIN + 1];
+
 // the collector also manages the memory of GMP
 __attribute__((constructor)) static void init(void) {
   GC_INIT();
   mp_set_memory_functions(GC_malloc, gc_realloc, gc_free);
+  for (int i = 0; i <= SMALL_MAX - SMALL_MIN; i++) {
+    small_ints[i].kind = INT;
+    small_ints[i].num = i + SMALL_MIN;
+  }
 }
 
 static u_value object(enum kind kind) {
@@ -33,21 +43,68 @@ static u_value object(enum kind kind) {
 }
 
 u_value mk_int(long long n) {
+  if (n >= SMALL_MIN && n <= SMALL_MAX) return &small_ints[n - SMALL_MIN];
   u_value v = object(INT);
-  mpz_init_set_si(v->big, n);
-  return v;
-}
-
-u_value mk_int_str(const char *digits) {
-  u_value v = object(INT);
-  mpz_init_set_str(v->big, digits, 10);
+  v->num = n;
   return v;
 }
 
 static u_value big(void) {
-  u_value v = object(INT);
+  u_value v = object(BIG);
   mpz_init(v->big);
   return v;
+}
+
+// v as INT if it fits, which keeps one kind per value
+static u_value normalize(u_value v) {
+  return mpz_fits_slong_p(v->big) ? mk_int(mpz_get_si(v->big)) : v;
+}
+
+u_value mk_int_str(const char *digits) {
+  u_value v = big();
+  mpz_set_str(v->big, digits, 10);
+  return normalize(v);
+}
+
+static void to_mpz(mpz_t z, u_value v) {
+  if (v->kind == INT) mpz_set_si(z, v->num);
+  else mpz_set(z, v->big);
+}
+
+// the result of the operation of GMP on a and b, for integers that are big or whose result may be
+static u_value slow(void (*op)(mpz_ptr, mpz_srcptr, mpz_srcptr), u_value a, u_value b) {
+  mpz_t x, y;
+  mpz_init(x);
+  mpz_init(y);
+  to_mpz(x, a);
+  to_mpz(y, b);
+  u_value v = big();
+  op(v->big, x, y);
+  return normalize(v);
+}
+
+// -1, 0, or 1 as a is less than, equal to, or greater than b
+static int compare_ints(u_value a, u_value b) {
+  int c;
+  if (a->kind == INT && b->kind == INT) return (a->num > b->num) - (a->num < b->num);
+  if (a->kind == INT) c = -mpz_cmp_si(b->big, a->num);
+  else if (b->kind == INT) c = mpz_cmp_si(a->big, b->num);
+  else c = mpz_cmp(a->big, b->big);
+  return (c > 0) - (c < 0);
+}
+
+// the decimal digits of an integer
+static char *digits(u_value v) {
+  if (v->kind == BIG) return mpz_get_str(NULL, 10, v->big);
+  char *s = GC_MALLOC_ATOMIC(24);
+  snprintf(s, 24, "%lld", v->num);
+  return s;
+}
+
+// an integer as an index of a string, where big integers are beyond any string
+static long long index_of(u_value v) {
+  if (v->kind == INT) return v->num;
+  return mpz_sgn(v->big) < 0 ? LLONG_MIN / 4 : LLONG_MAX / 4;
 }
 
 struct u_object u_true = {.kind = BOOL, .num = 1};
@@ -76,11 +133,11 @@ static u_value *items(int size, va_list args) {
   return xs;
 }
 
-const struct u_name n_list_46_Nil = {"list", "Nil"};
-const struct u_name n_list_46_Cons = {"list", "Cons"};
-const struct u_name n_option_46_None = {"option", "None"};
-const struct u_name n_option_46_Some = {"option", "Some"};
-const struct u_name n_os_46_OsError = {"os", "OsError"};
+const struct u_name n_list_46_Nil = {"list", "Nil", 0};
+const struct u_name n_list_46_Cons = {"list", "Cons", 1};
+const struct u_name n_option_46_None = {"option", "None", 0};
+const struct u_name n_option_46_Some = {"option", "Some", 1};
+const struct u_name n_os_46_OsError = {"os", "OsError", 0};
 
 u_value mk_con(const struct u_name *name, int size, ...) {
   va_list args;
@@ -123,29 +180,47 @@ u_value mk_closure(code fun, int size, ...) {
   return v;
 }
 
-int equal(u_value a, u_value b) {
+static int sign(long long d) {
+  return (d > 0) - (d < 0);
+}
+
+// -1, 0, or 1 for values of the same type, where constructors are ordered by their declaration and then by their fields
+static int compare(u_value a, u_value b) {
   if (a->kind == CLOSURE || b->kind == CLOSURE) fail("cannot compare functions");
-  if (a == b) return 1;
-  if (a->kind != b->kind) return 0;
+  if (a == b) return 0;
   switch (a->kind) {
   case INT:
-    return mpz_cmp(a->big, b->big) == 0;
+  case BIG:
+    return compare_ints(a, b);
   case BOOL:
   case CHAR:
-    return a->num == b->num;
+    return sign(a->num - b->num);
   case STR:
-    return a->text == b->text || strcmp(a->text, b->text) == 0;
+    return sign(strcmp(a->text, b->text));
   case CON:
-    if (a->name != b->name) return 0;
+    // descriptors of compilers before positions all have position 0, whose constructors still differ by name
+    if (a->name != b->name) {
+      int c = sign(a->name->index - b->name->index);
+      return c != 0 ? c : sign(strcmp(a->name->base, b->name->base));
+    }
     /* fall through */
   case TUPLE:
-    if (a->size != b->size) return 0;
-    for (int i = 0; i < a->size; i++)
-      if (!equal(a->items[i], b->items[i])) return 0;
-    return 1;
+    for (int i = 0; i < a->size && i < b->size; i++) {
+      int c = compare(a->items[i], b->items[i]);
+      if (c != 0) return c;
+    }
+    return sign(a->size - b->size);
   default:
     return 0;
   }
+}
+
+int u_equals(u_value a, u_value b) {
+  return compare(a, b) == 0;
+}
+
+u_value u_compare(u_value a, u_value b) {
+  return mk_int(compare(a, b));
 }
 
 u_value apply(u_value f, int n, ...) {
@@ -157,44 +232,47 @@ u_value apply(u_value f, int n, ...) {
 }
 
 u_value u_add(u_value a, u_value b) {
-  u_value v = big();
-  mpz_add(v->big, a->big, b->big);
-  return v;
+  long long r;
+  if (a->kind == INT && b->kind == INT && !__builtin_add_overflow(a->num, b->num, &r)) return mk_int(r);
+  return slow(mpz_add, a, b);
 }
 
 u_value u_sub(u_value a, u_value b) {
-  u_value v = big();
-  mpz_sub(v->big, a->big, b->big);
-  return v;
+  long long r;
+  if (a->kind == INT && b->kind == INT && !__builtin_sub_overflow(a->num, b->num, &r)) return mk_int(r);
+  return slow(mpz_sub, a, b);
 }
 
 u_value u_mul(u_value a, u_value b) {
-  u_value v = big();
-  mpz_mul(v->big, a->big, b->big);
-  return v;
+  long long r;
+  if (a->kind == INT && b->kind == INT && !__builtin_mul_overflow(a->num, b->num, &r)) return mk_int(r);
+  return slow(mpz_mul, a, b);
 }
 
-// division truncates toward zero, as BigInt in Scala
+// small integers that C divides, where the quotient of LLONG_MIN and -1 overflows
+static int divisible(u_value a, u_value b) {
+  return a->kind == INT && b->kind == INT && !(a->num == LLONG_MIN && b->num == -1);
+}
+
+// division truncates toward zero, as BigInt in Scala and C, and a big integer is never zero
 u_value u_div(u_value a, u_value b) {
-  if (mpz_sgn(b->big) == 0) fail("division by zero");
-  u_value v = big();
-  mpz_tdiv_q(v->big, a->big, b->big);
-  return v;
+  if (b->kind == INT && b->num == 0) fail("division by zero");
+  if (divisible(a, b)) return mk_int(a->num / b->num);
+  return slow(mpz_tdiv_q, a, b);
 }
 
 u_value u_mod(u_value a, u_value b) {
-  if (mpz_sgn(b->big) == 0) fail("division by zero");
-  u_value v = big();
-  mpz_tdiv_r(v->big, a->big, b->big);
-  return v;
+  if (b->kind == INT && b->num == 0) fail("division by zero");
+  if (divisible(a, b)) return mk_int(a->num % b->num);
+  return slow(mpz_tdiv_r, a, b);
 }
 
 u_value u_lt(u_value a, u_value b) {
-  return mk_bool(mpz_cmp(a->big, b->big) < 0);
+  return mk_bool(compare_ints(a, b) < 0);
 }
 
 u_value u_eq(u_value a, u_value b) {
-  return mk_bool(equal(a, b));
+  return mk_bool(u_equals(a, b));
 }
 
 u_value u_chars(u_value s) {
@@ -218,8 +296,8 @@ u_value u_ord(u_value c) {
 }
 
 u_value u_chr(u_value n) {
-  if (mpz_cmp_si(n->big, 0) < 0 || mpz_cmp_si(n->big, 65535) > 0) fail("no character");
-  return mk_char(mpz_get_si(n->big));
+  if (n->kind != INT || n->num < 0 || n->num > 65535) fail("no character");
+  return mk_char(n->num);
 }
 
 // a cell with x at the place end of a list being built, whose tail is the place of the next cell,
@@ -275,8 +353,8 @@ u_value u_str_join(u_value sep, u_value ss) {
 
 // from i up to but excluding j, as drop(i) and take(j - i) in Scala, which ignore indices outside of s
 u_value u_str_slice(u_value s, u_value i, u_value j) {
-  long n = (long)strlen(s->text), a = mpz_get_si(i->big), b = mpz_get_si(j->big);
-  long start = a < 0 ? 0 : (a > n ? n : a), count = b - a;
+  long long n = (long long)strlen(s->text), a = index_of(i), b = index_of(j);
+  long long start = a < 0 ? 0 : (a > n ? n : a), count = b - a;
   if (count < 0) count = 0;
   if (start + count > n) count = n - start;
   char *r = text(count);
@@ -301,20 +379,26 @@ u_value u_str_split(u_value s, u_value c) {
 
 u_value u_str_get(u_value s, u_value i) {
   size_t n = strlen(s->text);
-  if (mpz_sgn(i->big) < 0 || mpz_cmp_ui(i->big, n) >= 0) {
-    char *m = GC_MALLOC_ATOMIC(64 + mpz_sizeinbase(i->big, 10));
-    sprintf(m, "no index %s in a string of size %zu", mpz_get_str(NULL, 10, i->big), n);
+  if (i->kind != INT || i->num < 0 || (size_t)i->num >= n) {
+    char *d = digits(i);
+    char *m = GC_MALLOC_ATOMIC(64 + strlen(d));
+    sprintf(m, "no index %s in a string of size %zu", d, n);
     fail(m);
   }
-  return mk_char((unsigned char)s->text[mpz_get_ui(i->big)]);
+  return mk_char((unsigned char)s->text[i->num]);
 }
 
 u_value u_str_contains(u_value s, u_value c) {
   return mk_bool(c->num != 0 && strchr(s->text, (int)c->num) != NULL);
 }
 
+u_value u_str_compare(u_value s, u_value t) {
+  int c = strcmp(s->text, t->text);
+  return mk_int(c < 0 ? -1 : c > 0);
+}
+
 u_value u_str_show(u_value n) {
-  return mk_str(mpz_get_str(NULL, 10, n->big));
+  return mk_str(digits(n));
 }
 
 u_value u_str_quote(u_value s) {
@@ -365,6 +449,9 @@ static int is_list(u_value v) {
 void fprint_value(FILE *out, u_value v) {
   switch (v->kind) {
   case INT:
+    fprintf(out, "%lld", v->num);
+    break;
+  case BIG:
     mpz_out_str(out, 10, v->big);
     break;
   case BOOL:
@@ -448,7 +535,7 @@ void assert_true(u_value v) {
 }
 
 void assert_equal(u_value a, u_value b) {
-  if (!equal(a, b)) {
+  if (!u_equals(a, b)) {
     fflush(stdout);
     fprintf(stderr, "runtime error: assertion failed: ");
     fprint_value(stderr, a);
