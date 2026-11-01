@@ -26,10 +26,14 @@ object Scope:
   def none(name: Name): String =
     error("parse", s"unknown module $name")
 
-// operands and operators of an expression or type, before their precedence is resolved
+// operands and operators of an expression or type, before their precedence is resolved,
+// where operators remember their input for errors
 enum Item[A]:
   case Operand(a: A)
-  case Operator(name: Name)
+  case Operator(name: Name, at: scala.util.parsing.input.Reader[Char])
+
+// operators that cannot be resolved, with the input of the offending operator if there is one
+case class Unresolved(msg: String, at: Option[scala.util.parsing.input.Reader[Char]]) extends Exception(msg)
 
 object Parser extends scala.util.parsing.combinator.RegexParsers:
   override val whiteSpace = """(\s|//.*)+""".r
@@ -42,7 +46,6 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     "case",
     "catch",
     "data",
-    "do",
     "else",
     "end",
     "eval",
@@ -57,10 +60,12 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     "let",
     "local",
     "match",
+    "out",
     "postfix",
     "prefix",
     "procedure",
     "raise",
+    "ref",
     "run",
     "skip",
     "sort",
@@ -74,8 +79,12 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   // symbols with a fixed meaning, which cannot be operators
   val reserved = Set("=", "=>", ":=", ":", "|")
 
+  // the input at the next token
+  def skip(in: Input): Input =
+    in.drop(handleWhiteSpace(in.source, in.offset) - in.offset)
+
   // the position of the next token
-  val at: Parser[Pos] = Parser(in => Success(in.drop(handleWhiteSpace(in.source, in.offset) - in.offset).pos, in))
+  val at: Parser[Pos] = Parser(in => Success(skip(in).pos, in))
 
   // p, given the position of its first token
   def located[A](p: Pos => Parser[A]): Parser[A] =
@@ -128,55 +137,91 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def parens[A](p: => Parser[A]): Parser[A] =
     "(" ~> p <~ ")"
 
-  def pair[A](items: List[A])(pair: (A, A) => A): A =
-    items.reduceRight(pair)
-
-  // (a) is just a, and (a, b, c) is (a, (b, c)), since tuples are binary
-  def tuple[A](p: => Parser[A])(pair: (A, A) => A): Parser[A] =
-    parens(rep1sep(p, ",")) ^^ (_.reduceRight(pair))
-
-  // ins; outs; refs, where trailing empty sections may be omitted
-  def sections[A, B](ins: Parser[List[A]], rest: Parser[List[B]]): Parser[(List[A], List[B], List[B])] =
-    ins ~ opt(";" ~> rest ~ opt(";" ~> rest)) ^^ {
-      case as ~ None =>
-        (as, Nil, Nil)
-      case as ~ Some(bs ~ cs) =>
-        (as, bs, cs.getOrElse(Nil))
+  // (a) is just a, while () and (a, b, c) are tuples
+  def tuple[A](p: => Parser[A])(tuple: List[A] => A): Parser[A] =
+    parens(list(p)) ^^ {
+      case List(a) =>
+        a
+      case as =>
+        tuple(as)
     }
+
+  // in ins, out outs, ref refs, where each section starts with its keyword, and empty sections are omitted
+  def sections[A, B](in: Parser[A], rest: Parser[B]): Parser[(List[A], List[B], List[B])] =
+    val ins = kw("in") ~> rep1sep(in, ",")
+    val outs = kw("out") ~> rep1sep(rest, ",")
+    val refs = kw("ref") ~> rep1sep(rest, ",")
+    def tail[C](p: Parser[List[C]]): Parser[List[C]] =
+      opt("," ~> p) ^^ (_.getOrElse(Nil))
+    ins ~ tail(outs) ~ tail(refs) ^^ { case is ~ os ~ rs =>
+      (is, os, rs)
+    } | outs ~ tail(refs) ^^ { case os ~ rs =>
+      (Nil, os, rs)
+    } | refs ^^ (rs => (Nil, Nil, rs)) | success((Nil, Nil, Nil))
 
   // a sequence of operands and operators
   def items[A](s: Scope, operand: => Parser[A]): Parser[List[Item[A]]] =
-    rep1(operand ^^ (Item.Operand(_)) | operator(s) ^^ (Item.Operator[A](_)))
+    rep1(operand ^^ (Item.Operand(_)) | Parser(in => operator(s)(in).map(Item.Operator[A](_, skip(in)))))
 
-  // resolves the precedence of operators by precedence climbing, failing with a message
+  // resolves the precedence of operators by precedence climbing, or else stops parsing with a message,
+  // since no other parse of the operators and operands can succeed
   def resolved[A](
       s: Scope,
       items: Parser[List[Item[A]]]
   )(prefix: (Name, A) => A, postfix: (Name, A) => A, infix: (Name, A, A) => A): Parser[A] =
-    items >> { is =>
+    Parser: in =>
+      items(in) match
+        case Success(is, rest) =>
+          try
+            Success(Resolve(s, prefix, postfix, infix).all(is), rest)
+          catch
+            case Unresolved(msg, at) =>
+              Error(msg, at.getOrElse(skip(rest)))
+        case failure: NoSuccess =>
+          failure
 
-      try
-        success(Resolve(s, prefix, postfix, infix).all(is))
-      catch
-        case e: ulang.Error =>
-          failure(e.getMessage)
-    }
+  // the components of a tuple type A * B * C while its operators are resolved, such that (A * B) * C stays nested
+  val product = "(product)"
+
+  // a single type of a list, where () is the empty tuple, and tuples are not written (A, B)
+  def one(ts: List[Type]): Type =
+    ts match
+      case List(Type.Sort(`product`, cs)) =>
+        Type.Tuple(cs)
+      case List(t) =>
+        t
+      case Nil =>
+        Type.Tuple(Nil)
+      case _ =>
+        throw Unresolved("tuple types are written A * B", None)
+
+  def components(ts: List[Type]): List[Type] =
+    ts match
+      case List(Type.Sort(`product`, cs)) =>
+        cs
+      case _ =>
+        List(one(ts))
 
   def typ(s: Scope): Parser[Type] =
-    def single(ts: List[Type]): Type =
-      pair(ts)((a, b) => Type.Sort("*", List(a, b)))
     resolved(s, items(s, basic(s)))(
-      (op, t) => List(Type.Sort(op, List(single(t)))),
-      (op, t) => List(Type.Sort(op, List(single(t)))),
-      // for ->, a parenthesized list on the left are the arguments of a function
+      (op, t) => List(Type.Sort(op, List(one(t)))),
+      (op, t) => List(Type.Sort(op, List(one(t)))),
       (op, l, r) =>
         if op == "->" then
-          List(Type.Sort("->", l :+ single(r)))
+          List(Type.Fun(one(l), one(r)))
+        else if op == "*" then
+          List(Type.Sort(product, components(l) ++ components(r)))
         else
-          List(Type.Sort(op, List(single(l), single(r))))
-    ) ^^ single
+          List(Type.Sort(op, List(one(l), one(r))))
+    ) ^? (
+      {
+        case ts if ts.length <= 1 =>
+          one(ts)
+      },
+      _ => "tuple types are written A * B"
+    )
 
-  // a type, or a parenthesized list of types
+  // a type, a type in parentheses, or () for the empty tuple
   def basic(s: Scope): Parser[List[Type]] =
     plain(s) ~ opt("[" ~> rep1sep(typ(s), ",") <~ "]") ^^ {
       case n ~ None if s.params(n) =>
@@ -213,28 +258,29 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def operators(s: Scope): Parser[Expr] =
     resolved(s, items(s, app(s)))(op(_, _), op(_, _), op(_, _, _))
 
-  // variables are bound in parallel, other patterns are matched against the tuple of values
+  // let x := e, y := f in b binds variables in parallel, other patterns are matched against the tuple of values
   def let(s: Scope): Parser[Expr] =
     located: pos =>
-      (kw("let") ~> rep1sep(pattern(s), ",")) ~
-        ("=" ~> exprs(s)) ~
-        (kw("in") ~> expr(s)) ^? (
-          {
-            case xs ~ es ~ b if xs.forall(_.isInstanceOf[Pat.Var]) =>
+      (kw("let") ~> rep1sep(pattern(s) ~ (":=" ~> expr(s)), ",")) ~
+        (kw("in") ~> expr(s)) ^^ { case bs ~ b =>
+          val (xs, es) = bs.map { case x ~ e =>
+            (x, e)
+          }.unzip
+          xs match
+            case _ if xs.forall(_.isInstanceOf[Pat.Var]) =>
               Expr.Let(
                 xs.collect { case x: Pat.Var =>
                   x
-                },
-                es,
+                }.zip(es),
                 b
               )(pos)
-            case xs ~ es ~ b if xs.length == es.length =>
-              Expr.Match(es.reduceRight(op(",", _, _)), List(Case(xs.reduceRight((a, b) => Pat.App(",", List(a, b))(pos)), b)))(pos)
-          },
-          { case xs ~ es ~ _ =>
-            s"let expects ${xs.length} values, got ${es.length}"
-          }
-        )
+            case _ =>
+              (xs, es) match
+                case (List(x), List(e)) =>
+                  Expr.Match(e, List(Case(x, b)))(pos)
+                case _ =>
+                  Expr.Match(Expr.Tuple(es)(pos), List(Case(Pat.Tuple(xs)(pos), b)))(pos)
+        }
 
   def ite(s: Scope): Parser[Expr] =
     located: pos =>
@@ -278,7 +324,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         Pat.App(c, ps)(pos)
       } |
         value ^^
-        (Pat.Lit(_)(pos)) | tuple(pattern(s))((a, b) => Pat.App(",", List(a, b))(pos)) | kw("_") ^^^ Pat.Wild()(pos) |
+        (Pat.Lit(_)(pos)) | tuple(pattern(s))(Pat.Tuple(_)(pos)) | kw("_") ^^^ Pat.Wild()(pos) |
         plain(s) ^^
         (Pat.Var(_, Type.Hole)(pos))
 
@@ -296,18 +342,16 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       """\d+""".r ^^
       (BigInt(_)) |
       "\"[^\"]*\"".r ^^
-      (s => s.substring(1, s.length - 1)) |
-      "(" ~ ")" ^^^
-      (())
+      (s => s.substring(1, s.length - 1))
 
   // let, if, and lambda extend as far to the right as possible, also as the last operand of an operator
   def atom(s: Scope): Parser[Expr] =
     located: pos =>
       let(s) | ite(s) | lam(s) | matches(s, expr(s))(Expr.Match(_, _)(_)) |
         value ^^
-        (Expr.Lit(_)(pos)) | tuple(expr(s))(op(",", _, _)) | comp(s) |
+        (Expr.Lit(_)(pos)) | tuple(expr(s))(Expr.Tuple(_)(pos)) | comp(s) |
         "[" ~> list(expr(s)) <~ "]" ^^
-        (_.foldRight(Expr.Var("nil", Type.Hole)(pos): Expr)(op("::", _, _))) | variable(s)
+        (_.foldRight(Expr.Var("Nil", Type.Hole)(pos): Expr)(op("::", _, _))) | variable(s)
 
   // [result for x in xs, y in ys if test], where if test is optional
   def comp(s: Scope): Parser[Expr] =
@@ -319,21 +363,21 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         }
 
   def stmt(s: Scope): Parser[Stmt] =
-    skip | ifs(s) | loop(s) | call(s) | matches(s, stmts(s))(Stmt.Match(_, _)(_)) | check(s) | assign(s) | raise(s) |
+    skip | ifs(s) | loop(s) | call(s) | matches(s, body(s))(Stmt.Match(_, _)(_)) | check(s) | assign(s) | raise(s) |
       attempt(s)
 
   def check(s: Scope): Parser[Stmt] =
     located: pos =>
-      kw("assert") ~> expr(s) <~ ";" ^^ (Stmt.Assert(_)(pos))
+      kw("assert") ~> expr(s) ^^ (Stmt.Assert(_)(pos))
 
   def raise(s: Scope): Parser[Stmt] =
     located: pos =>
-      kw("raise") ~> expr(s) <~ ";" ^^ (Stmt.Raise(_, Type.Hole)(pos))
+      kw("raise") ~> expr(s) ^^ (Stmt.Raise(_, Type.Hole)(pos))
 
   def attempt(s: Scope): Parser[Stmt] =
     located: pos =>
       (kw("try") ~> body(s)) ~
-        (kw("catch") ~> rep(kw("case") ~> pattern(s) ~ ("=>" ~> stmts(s))) <~ kw("end")) ^^ { case b ~ hs =>
+        (kw("catch") ~> rep(kw("case") ~> pattern(s) ~ ("=>" ~> body(s))) <~ kw("end")) ^^ { case b ~ hs =>
           Stmt.Try(
             b,
             hs.map { case p ~ c =>
@@ -342,25 +386,21 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
           )(pos)
         }
 
-  // the body of a case, which declares no variables
-  def stmts(s: Scope): Parser[Stmt] =
-    located: pos =>
-      rep(stmt(s)) ^^ (Stmt.Block(Nil, _)(pos))
-
-  val skip: Parser[Stmt] = located(pos => kw("skip") ~ ";" ^^^ Stmt.Skip()(pos))
+  val skip: Parser[Stmt] = located(pos => kw("skip") ^^^ Stmt.Skip()(pos))
 
   def assign(s: Scope): Parser[Stmt] =
     located: pos =>
-      (kw("assign") ~> rep1sep(variable(s), ",")) ~
-        (":=" ~> exprs(s)) <~ ";" ^^ { case xs ~ es =>
-          Stmt.Assign(xs, es)(pos)
-        }
+      kw("assign") ~> rep1sep(variable(s) ~ (":=" ~> expr(s)), ",") ^^ { bs =>
+        Stmt.Assign(bs.map { case x ~ e =>
+          (x, e)
+        })(pos)
+      }
 
-  // an if after else ends the whole chain
+  // the bodies start with a keyword, which ends the condition, and an if after else ends the whole chain
   def ifs(s: Scope): Parser[Stmt] =
     located: pos =>
       (kw("if") ~> expr(s)) ~
-        (kw("then") ~> body(s)) ~ otherwise(s) ^^ { case c ~ l ~ r =>
+        body(s) ~ otherwise(s) ^^ { case c ~ l ~ r =>
           Stmt.If(c, l, r)(pos)
         }
 
@@ -370,17 +410,17 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def loop(s: Scope): Parser[Stmt] =
     located: pos =>
       (kw("while") ~> expr(s)) ~
-        (kw("do") ~> body(s) <~ kw("end")) ^^ { case c ~ b =>
+        (body(s) <~ kw("end")) ^^ { case c ~ b =>
           Stmt.While(c, b)(pos)
         }
 
   def call(s: Scope): Parser[Stmt] =
     located: pos =>
-      (kw("call") ~> name) ~ parens(sections(list(expr(s)), list(variable(s)))) <~ ";" ^^ { case p ~ ((ins, outs, refs)) =>
+      (kw("call") ~> name) ~ parens(sections(expr(s), variable(s))) ^^ { case p ~ ((ins, outs, refs)) =>
         Stmt.Call(p, ins, outs, refs)(pos)
       }
 
-  // the body of an if, while, or procedure, which may declare variables first
+  // the body of an if, while, case, or procedure, which may declare variables first
   def body(s: Scope): Parser[Stmt] =
     located: pos =>
       rep(locals(s)) ~ rep(stmt(s)) ^^ { case ls ~ ss =>
@@ -388,7 +428,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       }
 
   def locals(s: Scope): Parser[List[Pat.Var]] =
-    kw("local") ~> rep1sep(formal(s), ",") <~ ";"
+    kw("local") ~> rep1sep(formal(s), ",")
 
   // a declaration that starts with keyword, name, and type parameters
   def generic(keyword: String, name: Parser[Name])(rest: (Name, List[Name], Scope) => Parser[Cmd]): Parser[Cmd] =
@@ -408,7 +448,8 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
 
   def sort(s: Scope, pos: Pos): Parser[Cmd] =
     generic("sort", name): (n, ps, t) =>
-      "=" ~> typ(t.copy(notations = s.notations)) ^^ (Cmd.Sort(n, ps, _)(pos))
+      // the type may be preceded by |, like the constructors of a datatype
+      ":=" ~> opt("|") ~> typ(t.copy(notations = s.notations)) ^^ (Cmd.Sort(n, ps, _)(pos))
 
   def data(s: Scope, pos: Pos): Parser[Cmd] =
     generic("data", name): (n, ps, t) =>
@@ -418,7 +459,8 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         (name | symbol) ~ opt(parens(list(typ(u)))) ^^ { case c ~ ts =>
           Constr(c, ts.getOrElse(Nil))
         }
-      "=" ~> rep1sep(constr, "|") ^^ (Cmd.Data(n, ps, _)(pos))
+      // the first constructor may be preceded by | as well
+      ":=" ~> opt("|") ~> rep1sep(constr, "|") ^^ (Cmd.Data(n, ps, _)(pos))
 
   def fun(s: Scope, pos: Pos): Parser[Cmd] =
     generic("function", name | symbol): (n, ps, t) =>
@@ -426,7 +468,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       val u = t.copy(notations = s.notations)
       parens(formals(u)) ~
         (":" ~> typ(u)) ~
-        ("=" ~> expr(u)) ^^ { case xs ~ r ~ b =>
+        (":=" ~> expr(u)) ^^ { case xs ~ r ~ b =>
           Cmd.Fun(n, ps, xs, r, b)(pos)
         }
 
@@ -434,8 +476,8 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     generic("procedure", name): (n, ps, t) =>
 
       val u = t.copy(notations = s.notations)
-      parens(sections(formals(u), formals(u))) ~
-        (body(u) <~ kw("end")) ^^ { case (ins, outs, refs) ~ b =>
+      parens(sections(formal(u), formal(u))) ~
+        (":=" ~> body(u)) ^^ { case (ins, outs, refs) ~ b =>
           Cmd.Proc(n, ps, ins, outs, refs, b)(pos)
         }
 
@@ -459,20 +501,22 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   // modules contribute their declarations, but not their evals, runs, and tests
   def declares(c: Cmd): Boolean =
     c match
-      case Cmd.Eval(_) | Cmd.Run(_) | Cmd.Test(_) =>
+      case Cmd.Eval(_) | Cmd.Run(_) | Cmd.Test(_, _) =>
         false
       case _ =>
         true
 
+  // the bodies of commands end at the keyword of the next command, so commands need no end
   def declaration(s: Scope): Parser[Cmd] =
     located: pos =>
       notation(s, pos) | sort(s, pos) | data(s, pos) | fun(s, pos) | proc(s, pos) |
         kw("eval") ~> expr(s) ^^
         (Cmd.Eval(_)(pos)) |
-        kw("run") ~> body(s) <~ kw("end") ^^
+        kw("run") ~> body(s) ^^
         (Cmd.Run(_)(pos)) |
-        kw("test") ~> body(s) <~ kw("end") ^^
-        (Cmd.Test(_)(pos))
+        (kw("test") ~> name) ~ (":=" ~> body(s)) ^^ { case n ~ b =>
+          Cmd.Test(n, b)(pos)
+        }
 
   // notations apply to the commands after them
   def commands(s: Scope): Parser[List[Cmd]] =
@@ -510,15 +554,15 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
 
 // precedence climbing, where prefix operators bind their operand with their own precedence
 case class Resolve[A](s: Scope, prefix: (Name, A) => A, postfix: (Name, A) => A, infix: (Name, A, A) => A):
-  def fail(msg: String): Nothing =
-    throw new ulang.Error(msg)
+  def fail(msg: String, at: Option[scala.util.parsing.input.Reader[Char]] = None): Nothing =
+    throw Unresolved(msg, at)
 
   def all(items: List[Item[A]]): A =
     climb(items, 0) match
       case (a, Nil) =>
         a
-      case (_, Item.Operator(op) :: _) =>
-        fail(s"unexpected operator $op")
+      case (_, Item.Operator(op, at) :: _) =>
+        fail(s"unexpected operator $op", Some(at))
       case (_, _) =>
         fail("missing operator")
 
@@ -530,21 +574,21 @@ case class Resolve[A](s: Scope, prefix: (Name, A) => A, postfix: (Name, A) => A,
     items match
       case Item.Operand(a) :: rest =>
         (a, rest)
-      case Item.Operator(op) :: rest if s.prefix(op).nonEmpty =>
+      case Item.Operator(op, _) :: rest if s.prefix(op).nonEmpty =>
         val (a, rest1) = climb(rest, s.prefix(op).get)
         (prefix(op, a), rest1)
-      case Item.Operator(op) :: _ if s.declared(op) =>
-        fail(s"$op is not a prefix operator")
-      case Item.Operator(op) :: _ =>
-        fail(s"undeclared operator $op")
+      case Item.Operator(op, at) :: _ if s.declared(op) =>
+        fail(s"$op is not a prefix operator", Some(at))
+      case Item.Operator(op, at) :: _ =>
+        fail(s"undeclared operator $op", Some(at))
       case Nil =>
         fail("missing operand")
 
   def loop(lhs: A, items: List[Item[A]], min: Int): (A, List[Item[A]]) =
     items match
-      case Item.Operator(op) :: rest if s.postfix(op).exists(_ >= min) =>
+      case Item.Operator(op, _) :: rest if s.postfix(op).exists(_ >= min) =>
         loop(postfix(op, lhs), rest, min)
-      case Item.Operator(op) :: rest if s.infix(op).exists(_._2 >= min) =>
+      case Item.Operator(op, _) :: rest if s.infix(op).exists(_._2 >= min) =>
         val (fixity, prec) = s.infix(op).get
         val (rhs, rest1) = climb(
           rest,
@@ -555,13 +599,13 @@ case class Resolve[A](s: Scope, prefix: (Name, A) => A, postfix: (Name, A) => A,
         )
         nonassociative(op, fixity, prec, rest1)
         loop(infix(op, lhs, rhs), rest1, min)
-      case Item.Operator(op) :: _ if !s.declared(op) =>
-        fail(s"undeclared operator $op")
+      case Item.Operator(op, at) :: _ if !s.declared(op) =>
+        fail(s"undeclared operator $op", Some(at))
       case _ =>
         (lhs, items)
 
   def nonassociative(op: Name, fixity: Fixity, prec: Int, rest: List[Item[A]]): Unit =
     rest match
-      case Item.Operator(next) :: _ if fixity == Fixity.Infix && s.infix(next).exists(_._2 == prec) =>
-        fail(s"operator $op is not associative")
+      case Item.Operator(next, at) :: _ if fixity == Fixity.Infix && s.infix(next).exists(_._2 == prec) =>
+        fail(s"operator $op is not associative", Some(at))
       case _ =>

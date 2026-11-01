@@ -1,5 +1,5 @@
 // type error: unreachable case 0 at 3.3
-function f(n: Int): Int =
+function f(n: Int): Int :=
   match n
     case 0 => 0
     case _ => 1

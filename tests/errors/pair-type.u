@@ -1,5 +1,5 @@
 // type error: cannot unify Bool and Int at 4.14
-function f(p: (Int, Int)): Int =
+function f(p: Int * Int): Int :=
   match p
     case (x, true) => x
   end

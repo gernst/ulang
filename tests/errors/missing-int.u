@@ -1,5 +1,5 @@
 // type error: match is not exhaustive, missing _ at 3.3
-function f(x: Int): Int =
+function f(x: Int): Int :=
   match x
     case 0 => 0
   end

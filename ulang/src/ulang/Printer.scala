@@ -40,8 +40,8 @@ object Printer:
         show(value)
       case Pat.Var(name, _) =>
         name
-      case Pat.App(",", args) =>
-        args.map(show(_)).mkString("(", ", ", ")")
+      case Pat.Tuple(items) =>
+        items.map(show(_)).mkString("(", ", ", ")")
       case Pat.App(name, List(l, r)) if symbolic(name) =>
         infix(name, show(l), show(r))
       case Pat.App(name, Nil) =>
@@ -52,7 +52,7 @@ object Printer:
   // the elements of a list built by nil and ::
   def items(v: Any): Option[List[Any]] =
     v match
-      case Obj("nil", Nil) =>
+      case Obj("Nil", Nil) =>
         Some(Nil)
       case Obj("::", List(x, xs)) =>
         items(xs).map(x :: _)

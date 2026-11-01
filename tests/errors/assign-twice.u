@@ -1,2 +1,3 @@
-// type error: duplicate assignment to x at 2.23
-procedure p(; x: Int) assign x, x := 1, 2; end
+// type error: duplicate assignment to x at 3.3
+procedure p(out x: Int) :=
+  assign x := 1, x := 2

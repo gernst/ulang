@@ -1,5 +1,6 @@
-// type error: c is already defined at 4.1
-data T = c
+// type error: C is already defined at 5.1
+data T :=
+  | C
 
-function c(): Int =
+function C(): Int :=
   0

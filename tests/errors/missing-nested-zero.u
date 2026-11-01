@@ -1,6 +1,6 @@
-// type error: match is not exhaustive, missing succ(zero) at 3.3
-function f(n: Nat): Nat =
+// type error: match is not exhaustive, missing Succ(Zero) at 3.3
+function f(n: Nat): Nat :=
   match n
-    case zero => zero
-    case succ(succ(m)) => m
+    case Zero => Zero
+    case Succ(Succ(m)) => m
   end

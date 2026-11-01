@@ -1,180 +1,178 @@
 // a grammar as data, over tokens of type T, whose nonterminals all produce values of type V,
-// interpreted by a procedure that consumes the tokens of its in/out parameter ts, with none for failure
+// interpreted by a procedure that consumes the tokens of its in/out parameter ts, with None for failure
 
-data Grammar[T, V] =
-    token(T -> Option[V])
-  | ref(Str)
-  | alt(Grammar[T, V], Grammar[T, V])
-  | seq(List[Grammar[T, V]], List[V] -> Option[V])
-  | chain(Grammar[T, V], List[(T, (V, V) -> V)])
+data Grammar[T, V] :=
+  | Token(T -> Option[V])
+  | Rule(Str)
+  | Alt(Grammar[T, V], Grammar[T, V])
+  | Seq(List[Grammar[T, V]], List[V] -> Option[V])
+  | Chain(Grammar[T, V], List[T * (V * V -> V)])
 
-function combine[V](f: (V, V) -> V, a: Option[V], b: Option[V]): Option[V] =
+function combine[V](f: V * V -> V, a: Option[V], b: Option[V]): Option[V] :=
   match (a, b)
-    case (some(x), some(y)) => some(f(x, y))
-    case _ => none
+    case (Some(x), Some(y)) => Some(f(x, y))
+    case _ => None
   end
 
 // grammars cannot be cyclic, hence nonterminals refer to the rules by name, looked up in an association list
-procedure interpret[T, V](g: Grammar[T, V], rules: List[(Str, Grammar[T, V])]; r: Option[V]; ts: List[T])
-  local s: Option[V], vs: Option[List[V]], o: Option[(V, V) -> V], saved: List[T], more: Bool;
+procedure interpret[T, V](in g: Grammar[T, V], rules: List[Str * Grammar[T, V]], out r: Option[V], ref ts: List[T]) :=
+  local s: Option[V], vs: Option[List[V]], o: Option[V * V -> V], saved: List[T], more: Bool
   match g
-    case token(f) =>
+    case Token(f) =>
       match ts
         case t :: us =>
-          assign r := f(t);
-          if r != none then
-            assign ts := us;
+          assign r := f(t)
+          if r != None
+            assign ts := us
           end
-        case nil =>
-          assign r := none;
+        case Nil =>
+          assign r := None
       end
-    case ref(x) =>
+    case Rule(x) =>
       match lookup(x, rules)
-        case some(h) =>
-          call interpret(h, rules; r; ts);
-        case none =>
-          assign r := none;
+        case Some(h) =>
+          call interpret(in h, rules, out r, ref ts)
+        case None =>
+          assign r := None
       end
     // backtracks to the tokens before g1 if it fails
-    case alt(g1, g2) =>
-      assign saved := ts;
-      call interpret(g1, rules; r; ts);
-      if r == none then
-        assign ts := saved;
-        call interpret(g2, rules; r; ts);
+    case Alt(g1, g2) =>
+      assign saved := ts
+      call   interpret(in g1, rules, out r, ref ts)
+      if r == None
+        assign ts := saved
+        call   interpret(in g2, rules, out r, ref ts)
       end
-    case seq(gs, action) =>
-      call parts(gs, rules; vs; ts);
+    case Seq(gs, action) =>
+      call parts(in gs, rules, out vs, ref ts)
       match vs
-        case some(xs) =>
-          assign r := action(xs);
-        case none =>
-          assign r := none;
+        case Some(xs) =>
+          assign r := action(xs)
+        case None =>
+          assign r := None
       end
-    case chain(h, ops) =>
-      call interpret(h, rules; r; ts);
-      assign more := r != none;
-      while more do
-        call operator(ops; o; ts);
+    case Chain(h, ops) =>
+      call   interpret(in h, rules, out r, ref ts)
+      assign more := r != None
+
+      while more
+        call operator(in ops, out o, ref ts)
         match o
-          case some(f) =>
-            call interpret(h, rules; s; ts);
-            assign r := combine(f, r, s);
-            assign more := r != none;
-          case none =>
-            assign more := false;
+          case Some(f) =>
+            call   interpret(in h, rules, out s, ref ts)
+            assign r := combine(f, r, s)
+            assign more := r != None
+          case None =>
+            assign more := false
         end
       end
   end
-end
 
 // the values of gs, one after the other
-procedure parts[T, V](gs: List[Grammar[T, V]], rules: List[(Str, Grammar[T, V])]; vs: Option[List[V]]; ts: List[T])
-  local r: Option[V];
+procedure parts[T, V](in gs: List[Grammar[T, V]], rules: List[Str * Grammar[T, V]], out vs: Option[List[V]], ref ts: List[T]) :=
+  local r: Option[V]
   match gs
-    case nil =>
-      assign vs := some([]);
+    case Nil =>
+      assign vs := Some([])
     case g :: hs =>
-      call interpret(g, rules; r; ts);
+      call interpret(in g, rules, out r, ref ts)
       match r
-        case some(v) =>
-          call parts(hs, rules; vs; ts);
+        case Some(v) =>
+          call parts(in hs, rules, out vs, ref ts)
           match vs
-            case some(xs) =>
-              assign vs := some(v :: xs);
-            case none =>
-              skip;
+            case Some(xs) =>
+              assign vs := Some(v :: xs)
+            case None =>
+              skip
           end
-        case none =>
-          assign vs := none;
+        case None =>
+          assign vs := None
       end
   end
-end
 
 // the meaning of the first of the operators that is next
-procedure operator[T, V](ops: List[(T, (V, V) -> V)]; o: Option[(V, V) -> V]; ts: List[T])
+procedure operator[T, V](in ops: List[T * (V * V -> V)], out o: Option[V * V -> V], ref ts: List[T]) :=
   match ops
-    case nil =>
-      assign o := none;
+    case Nil =>
+      assign o := None
     case (u, f) :: rest =>
       match ts
         case t :: us =>
-          if t == u then
-            assign o, ts := some(f), us;
+          if t == u
+            assign o := Some(f), ts := us
           else
-            call operator(rest; o; ts);
+            call operator(in rest, out o, ref ts)
           end
-        case nil =>
-          assign o := none;
+        case Nil =>
+          assign o := None
       end
   end
-end
 
-data Token = num(Int) | sym(Str)
+data Token :=
+  | Num(Int)
+  | Sym(Str)
 
-function symbol[V](s: Str, v: V): Grammar[Token, V] =
-  token(lambda t => if t == sym(s) then some(v) else none)
+function symbol[V](s: Str, v: V): Grammar[Token, V] :=
+  Token(lambda t => if t == Sym(s) then Some(v) else None)
 
-function second[V](vs: List[V]): Option[V] =
+function second[V](vs: List[V]): Option[V] :=
   match vs
-    case _ :: v :: _ => some(v)
-    case _ => none
+    case _ :: v :: _ => Some(v)
+    case _ => None
   end
 
 // arithmetic expressions, given the values of numbers, the meaning of the operators, and a value for symbols
-function arithmetic[V](leaf: Int -> V, plus: (V, V) -> V, minus: (V, V) -> V, times: (V, V) -> V, unit: V): List[(Str, Grammar[Token, V])] =
+function arithmetic[V](leaf: Int -> V, plus: V * V -> V, minus: V * V -> V, times: V * V -> V, unit: V): List[Str * Grammar[Token, V]] :=
   [
-    ("expr", chain(ref("term"), [(sym("+"), plus), (sym("-"), minus)])),
-    ("term", chain(ref("factor"), [(sym("*"), times)])),
-    ("factor", alt(token(lambda t => match t case num(n) => some(leaf(n)) case _ => none end), seq([symbol("(", unit), ref("expr"), symbol(")", unit)], second)))
+    ("expr", Chain(Rule("term"), [(Sym("+"), plus), (Sym("-"), minus)])),
+    ("term", Chain(Rule("factor"), [(Sym("*"), times)])),
+    ("factor", Alt(Token(lambda t => match t case Num(n) => Some(leaf(n)) case _ => None end), Seq([symbol("(", unit), Rule("expr"), symbol(")", unit)], second)))
   ]
 
 // all of ts must be consumed
-procedure parse[V](rules: List[(Str, Grammar[Token, V])], ts: List[Token]; r: Option[V])
-  local rest: List[Token];
-  assign rest := ts;
-  call interpret(ref("expr"), rules; r; rest);
-  if rest != nil then
-    assign r := none;
+procedure parse[V](in rules: List[Str * Grammar[Token, V]], ts: List[Token], out r: Option[V]) :=
+  local  rest: List[Token]
+  assign rest := ts
+  call   interpret(in Rule("expr"), rules, out r, ref rest)
+  if rest != Nil
+    assign r := None
   end
-end
 
 // the same grammar evaluates expressions and builds syntax trees
-function values(): List[(Str, Grammar[Token, Int])] =
+function values(): List[Str * Grammar[Token, Int]] :=
   arithmetic(lambda n => n, lambda a, b => a + b, lambda a, b => a - b, lambda a, b => a * b, 0)
 
-data Tree = leaf(Int) | node(Str, Tree, Tree)
+data Tree :=
+  | Leaf(Int)
+  | Node(Str, Tree, Tree)
 
-function trees(): List[(Str, Grammar[Token, Tree])] =
-  arithmetic(leaf, lambda a, b => node("+", a, b), lambda a, b => node("-", a, b), lambda a, b => node("*", a, b), leaf(0))
+function trees(): List[Str * Grammar[Token, Tree]] :=
+  arithmetic(Leaf, lambda a, b => Node("+", a, b), lambda a, b => Node("-", a, b), lambda a, b => Node("*", a, b), Leaf(0))
 
-test
-  local r: Option[Int], t: Option[Tree];
+test arithmetic :=
+  local  r: Option[Int], t: Option[Tree]
   // 1 + 2 * (3 - 1)
-  call parse(values(), [num(1), sym("+"), num(2), sym("*"), sym("("), num(3), sym("-"), num(1), sym(")")]; r);
-  assert r == some(5);
+  call   parse(in values(), [Num(1), Sym("+"), Num(2), Sym("*"), Sym("("), Num(3), Sym("-"), Num(1), Sym(")")], out r)
+  assert r == Some(5)
   // 10 - 3 - 2, to the left
-  call parse(values(), [num(10), sym("-"), num(3), sym("-"), num(2)]; r);
-  assert r == some(5);
-  call parse(values(), [num(1), sym("+")]; r);
-  assert r == none;
-  call parse(values(), [sym("("), num(1)]; r);
-  assert r == none;
-  call parse(trees(), [num(1), sym("+"), num(2), sym("*"), num(3)]; t);
-  assert t == some(node("+", leaf(1), node("*", leaf(2), leaf(3))));
-end
+  call   parse(in values(), [Num(10), Sym("-"), Num(3), Sym("-"), Num(2)], out r)
+  assert r == Some(5)
+  call   parse(in values(), [Num(1), Sym("+")], out r)
+  assert r == None
+  call   parse(in values(), [Sym("("), Num(1)], out r)
+  assert r == None
+  call   parse(in trees(), [Num(1), Sym("+"), Num(2), Sym("*"), Num(3)], out t)
+  assert t == Some(Node("+", Leaf(1), Node("*", Leaf(2), Leaf(3))))
 
 // grammars are data, here over tokens that are booleans, counting the true separated by false
-test
-  local r: Option[Int], rest: List[Bool];
-  assign rest := [true, false, true];
-  call interpret(chain(token(lambda b => if b then some(1) else none), [(false, lambda a, b => a + b)]), []; r; rest);
-  assert r == some(2);
-  assert rest == [];
-end
+test generic_tokens :=
+  local  r: Option[Int], rest: List[Bool]
+  assign rest := [true, false, true]
+  call   interpret(in Chain(Token(lambda b => if b then Some(1) else None), [(false, lambda a, b => a + b)]), [], out r, ref rest)
+  assert r == Some(2)
+  assert rest == []
 
 run
-  local r: Option[Int], t: Option[Tree];
-  call parse(values(), [num(2), sym("*"), num(3), sym("+"), num(4)]; r);
-  call parse(trees(), [num(2), sym("*"), num(3), sym("+"), num(4)]; t);
-end
+  local  r: Option[Int], t: Option[Tree]
+  call   parse(in values(), [Num(2), Sym("*"), Num(3), Sym("+"), Num(4)], out r)
+  call   parse(in trees(), [Num(2), Sym("*"), Num(3), Sym("+"), Num(4)], out t)

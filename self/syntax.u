@@ -1,99 +1,113 @@
 // the core syntax, mirroring ulang/src/ulang/Syntax.scala without positions,
-// where constructors are prefixed by their type, since they share one namespace and some names are keywords
+// where constructors are prefixed by their type, since they share one namespace
 
-sort Name = Str
+sort Name :=
+  | Str
 
-data Type =
-    thole
-  | tmeta(Int)
-  | tparam(Name)
-  | tsort(Name, List[Type])
+data Type :=
+  | THole
+  | TMeta(Int)
+  | TParam(Name)
+  | TSort(Name, List[Type])
 
-data Val = vunit | vbool(Bool) | vint(Int) | vstr(Str)
+data Val :=
+  | VUnit
+  | VBool(Bool)
+  | VInt(Int)
+  | VStr(Str)
 
 // variable uses, binders, and pattern variables, which Syntax.scala distinguishes as Expr.Var and Pat.Var
-data Var = var(Name, Type)
+data Var :=
+  | Var(Name, Type)
 
-data Expr =
-    elit(Val)
-  | evar(Var)
-  | eapp(Expr, List[Expr])
-  | elam(List[Var], Expr)
-  | elet(List[Var], List[Expr], Expr)
-  | eite(Expr, Expr, Expr)
-  | ematch(Expr, List[Branch[Expr]])
-  | ecomp(Expr, List[Var], List[Expr], Expr)
+data Expr :=
+  | ELit(Val)
+  | EVar(Var)
+  | EApp(Expr, List[Expr])
+  | ELam(List[Var], Expr)
+  | ELet(List[Var * Expr], Expr)
+  | EIte(Expr, Expr, Expr)
+  | EMatch(Expr, List[Branch[Expr]])
+  | EComp(Expr, List[Var], List[Expr], Expr)
 
-data Pat =
-    pwild
-  | plit(Val)
-  | pvar(Var)
-  | papp(Name, List[Pat])
+data Pat :=
+  | PWild
+  | PLit(Val)
+  | PVar(Var)
+  | PApp(Name, List[Pat])
 
 // a case of a match, which is Case in Syntax.scala
-data Branch[A] = branch(Pat, A)
+data Branch[A] :=
+  | Branch(Pat, A)
 
-data Stmt =
-    sskip
-  | sassign(List[Var], List[Expr])
-  | sblock(List[Var], List[Stmt])
-  | sif(Expr, Stmt, Stmt)
-  | swhile(Expr, Stmt)
-  | scall(Name, List[Expr], List[Var], List[Var])
-  | smatch(Expr, List[Branch[Stmt]])
-  | sassert(Expr)
-  | sraise(Expr, Type)
-  | stry(Stmt, List[Handler])
+data Stmt :=
+  | SSkip
+  | SAssign(List[Var * Expr])
+  | SBlock(List[Var], List[Stmt])
+  | SIf(Expr, Stmt, Stmt)
+  | SWhile(Expr, Stmt)
+  | SCall(Name, List[Expr], List[Var], List[Var])
+  | SMatch(Expr, List[Branch[Stmt]])
+  | SAssert(Expr)
+  | SRaise(Expr, Type)
+  | STry(Stmt, List[Handler])
 
-// handles exceptions of the type that match the pattern, or of any type if the pattern is pwild
-data Handler = handler(Type, Pat, Stmt)
+// handles exceptions of the type that match the pattern, or of any type if the pattern is PWild
+data Handler :=
+  | Handler(Type, Pat, Stmt)
 
-data Constr = constr(Name, List[Type])
+data Constr :=
+  | Constr(Name, List[Type])
 
-data Fixity = fprefix | fpostfix | finfix | fleft | fright
+data Fixity :=
+  | FPrefix
+  | FPostfix
+  | FInfix
+  | FLeft
+  | FRight
 
-data Cmd =
-    csort(Name, List[Name], Type)
-  | cdata(Name, List[Name], List[Constr])
-  | cfun(Name, List[Name], List[Var], Type, Expr)
-  | cproc(Name, List[Name], List[Var], List[Var], List[Var], Stmt)
-  | cimport(Name)
-  | cnotation(Fixity, Int, List[Name])
-  | ceval(Expr)
-  | crun(Stmt)
-  | ctest(Stmt)
+data Cmd :=
+  | CSort(Name, List[Name], Type)
+  | CData(Name, List[Name], List[Constr])
+  | CFun(Name, List[Name], List[Var], Type, Expr)
+  | CProc(Name, List[Name], List[Var], List[Var], List[Var], Stmt)
+  | CImport(Name)
+  | CNotation(Fixity, Int, List[Name])
+  | CEval(Expr)
+  | CRun(Stmt)
+  | CTest(Name, Stmt)
 
-data Program = program(List[Cmd])
+data Program :=
+  | Program(List[Cmd])
 
-function name(x: Var): Name =
+function name(x: Var): Name :=
   match x
-    case var(n, _) => n
+    case Var(n, _) => n
   end
 
-function typ(x: Var): Type =
+function typ(x: Var): Type :=
   match x
-    case var(_, t) => t
+    case Var(_, t) => t
   end
 
-function names(xs: List[Var]): List[Name] =
+function names(xs: List[Var]): List[Name] :=
   [name(x) for x in xs]
 
-function types(xs: List[Var]): List[Type] =
+function types(xs: List[Var]): List[Type] :=
   [typ(x) for x in xs]
 
 // the number of arguments of a function type, functions are overloaded by it
-function arity(t: Type): Int =
+function arity(t: Type): Int :=
   match t
-    case tsort("->", args) => length(args) - 1
+    case TSort("->", args) => length(args) - 1
     case _ => -1
   end
 
 // f(x) + 1, as the parser would produce it
-test
-  local f: Var, x: Var, e: Expr;
-  assign f, x := var("f", thole), var("x", thole);
-  assign e := eapp(evar(var("+", thole)), [eapp(evar(f), [evar(x)]), elit(vint(1))]);
-  assert names([f, x]) == ["f", "x"];
-  assert types([f]) == [thole];
-  assert e == eapp(evar(var("+", thole)), [eapp(evar(f), [evar(x)]), elit(vint(1))]);
-end
+test syntax :=
+  local  f: Var, x: Var, e: Expr
+  assign f := Var("f", THole), x := Var("x", THole)
+  assign e := EApp(EVar(Var("+", THole)), [EApp(EVar(f), [EVar(x)]), ELit(VInt(1))])
+  assert names([f, x]) == ["f", "x"]
+  assert types([f]) == [THole]
+  assert e == EApp(EVar(Var("+", THole)), [EApp(EVar(f), [EVar(x)]), ELit(VInt(1))])

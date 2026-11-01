@@ -1,5 +1,5 @@
 // type error: duplicate pattern variable x at 3.3
-function f(): Int =
-  match nil
+function f(): Int :=
+  match Nil
     case x :: x => 0
   end

@@ -1,24 +1,23 @@
-function add(m: Nat, n: Nat): Nat =
+function add(m: Nat, n: Nat): Nat :=
   match m
-    case zero => n
-    case succ(k) => succ(add(k, n))
+    case Zero => n
+    case Succ(k) => Succ(add(k, n))
   end
 
-function even(n: Nat): Bool =
+function even(n: Nat): Bool :=
   match n
-    case zero => true
-    case succ(zero) => false
-    case succ(succ(m)) => even(m)
+    case Zero => true
+    case Succ(Zero) => false
+    case Succ(Succ(m)) => even(m)
   end
 
-function int(n: Nat): Int =
+function int(n: Nat): Int :=
   match n
-    case zero => 0
-    case succ(m) => 1 + int(m)
+    case Zero => 0
+    case Succ(m) => 1 + int(m)
   end
 
-test
-  assert int(add(succ(succ(zero)), succ(zero))) == 3;
-  assert even(add(succ(zero), succ(zero)));
-  assert even(succ(succ(succ(zero)))) == false;
-end
+test nat :=
+  assert int(add(Succ(Succ(Zero)), Succ(Zero))) == 3
+  assert even(add(Succ(Zero), Succ(Zero)))
+  assert even(Succ(Succ(Succ(Zero)))) == false

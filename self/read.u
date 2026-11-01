@@ -1,23 +1,22 @@
-// call read(path; p) reads a file relative to this one, and returns its syntax before checking, where types are holes
+// call read(in path, out p) reads a file relative to this one, and returns its syntax before checking, where types are holes
 
 import syntax
 
-test
-  local p: Program;
-  call read("util.u"; p);
+test read_files :=
+  local  p: Program
+  call   read(in "util.u", out p)
   match p
-    case program(cfun(n, ps, xs, t, _) :: _) =>
-      assert (n, ps) == ("contains", ["A"]);
-      assert xs == [var("x", tparam("A")), var("xs", tsort("List", [tparam("A")]))];
-      assert t == tsort("Bool", nil);
+    case Program(CFun(n, ps, xs, t, _) :: _) =>
+      assert (n, ps) == ("contains", ["A"])
+      assert xs == [Var("x", TParam("A")), Var("xs", TSort("List", [TParam("A")]))]
+      assert t == TSort("Bool", Nil)
     case _ =>
-      assert false;
+      assert false
   end
-  call read("read.u"; p);
+  call read(in "read.u", out p)
   match p
-    case program(cimport("syntax") :: _) =>
-      skip;
+    case Program(CImport("syntax") :: _) =>
+      skip
     case _ =>
-      assert false;
+      assert false
   end
-end

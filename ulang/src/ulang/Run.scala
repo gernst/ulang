@@ -43,12 +43,30 @@ object Run:
   def elements(v: Any): List[Any] =
     Printer.items(v).getOrElse(error("runtime", s"expected a list, got ${Printer.show(v)}"))
 
-  def function(v: Any): List[Any] => Any =
+  def function(v: Any): Any => Any =
     v match
       case f: Function1[?, ?] =>
-        f.asInstanceOf[List[Any] => Any]
+        f.asInstanceOf[Any => Any]
       case _ =>
         error("runtime", s"cannot apply ${Printer.show(v)}")
+
+  // functions take one value, which is the tuple of the arguments of a call if there are several
+  def argument(vs: List[Any]): Any =
+    vs match
+      case List(v) =>
+        v
+      case _ =>
+        Obj(",", vs)
+
+  // the values of the n parameters of a function in its argument v
+  def spread(v: Any, n: Int): List[Any] =
+    (n, v) match
+      case (1, _) =>
+        List(v)
+      case (_, Obj(",", vs)) if vs.length == n =>
+        vs
+      case _ =>
+        error("runtime", s"expected $n values, got ${Printer.show(v)}")
 
   def bind[A](xs: List[Pat.Var], vs: List[A]): Map[Name, A] =
     xs.names.zip(vs).toMap
@@ -60,7 +78,10 @@ object Run:
     require("runtime", int(v) != 0, "division by zero")
     int(v)
 
-  def builtin(f: Name)(args: List[Any]): Any =
+  def builtin(f: Name)(v: Any): Any =
+    primitive(f, spread(v, 2))
+
+  def primitive(f: Name, args: List[Any]): Any =
     (f, args) match
       case ("+", List(a, b)) =>
         int(a) + int(b)
@@ -87,7 +108,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
   val funs =
     program.cmds.collect:
       case d: Cmd.Fun =>
-        (d.name, d.bound.length) -> d
+        (d.name, Check.arity(Check.fun(d.bound.types, d.res))) -> d
     .toMap
 
   val procs =
@@ -97,15 +118,16 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
     .toMap
 
   val constrs =
-    Map("," -> 2) ++
-      program.cmds.collect:
-        case d: Cmd.Data =>
-          d.constrs.map(c => c.name -> c.args.length)
-      .flatten.toMap
+    program.cmds.collect:
+      case d: Cmd.Data =>
+        d.constrs.map(c => c.name -> c.args.length)
+    .flatten.toMap
 
   def eval(env: Map[Name, Any], e: Expr): Any =
     at(e.pos):
       e match
+        case Expr.Lit(()) =>
+          Obj(",", Nil)
         case Expr.Lit(value) =>
           value
 
@@ -127,13 +149,14 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
           bool(eval(env, a)) || bool(eval(env, b))
 
         case Expr.App(fun, args) =>
-          function(eval(env, fun))(args.map(eval(env, _)))
+          function(eval(env, fun))(argument(args.map(eval(env, _))))
 
         case Expr.Lam(bound, body) =>
-          (vs: List[Any]) => eval(env ++ bind(bound, vs), body)
+          (v: Any) => eval(env ++ bind(bound, spread(v, bound.length)), body)
 
-        case Expr.Let(bound, args, body) =>
-          eval(env ++ bind(bound, args.map(eval(env, _))), body)
+        // the variables are bound in parallel
+        case Expr.Let(bound, body) =>
+          eval(env ++ bound.map((x, a) => x.name -> eval(env, a)), body)
 
         case Expr.Ite(test, left, right) =>
           if bool(eval(env, test)) then
@@ -151,13 +174,16 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
               env1 <- combinations(env, bound, lists)
               if bool(eval(env1, test))
             yield eval(env1, result)
-          vs.foldRight(Obj("nil", Nil): Any)((v, vs) => Obj("::", List(v, vs)))
+          vs.foldRight(Obj("Nil", Nil): Any)((v, vs) => Obj("::", List(v, vs)))
+
+        case Expr.Tuple(items) =>
+          Obj(",", items.map(eval(env, _)))
 
   def constr(c: Name)(arity: Int): Any =
     if arity == 0 then
       Obj(c, Nil)
     else
-      (vs: List[Any]) => Obj(c, vs)
+      (v: Any) => Obj(c, spread(v, arity))
 
   // env extended by all combinations of elements of lists
   def combinations(env: Map[Name, Any], xs: List[Pat.Var], lists: List[Expr]): List[Map[Name, Any]] =
@@ -197,6 +223,10 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
         matches(ps, vs)
       case (Pat.App(_, _), _) =>
         None
+      case (Pat.Tuple(ps), Obj(",", vs)) =>
+        matches(ps, vs)
+      case (Pat.Tuple(_), _) =>
+        None
 
   def matches(ps: List[Pat], vs: List[Any]): Option[Map[Name, Any]] =
     (ps, vs) match
@@ -210,8 +240,8 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
       case _ =>
         None
 
-  def fun(d: Cmd.Fun): List[Any] => Any =
-    vs => eval(bind(d.bound, vs), d.body)
+  def fun(d: Cmd.Fun): Any => Any =
+    v => eval(bind(d.bound, spread(v, d.bound.length)), d.body)
 
   def values(store: Map[Name, Cell]): Map[Name, Any] =
     store.flatMap((x, r) => r.get.map(x -> _))
@@ -224,8 +254,10 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
       s match
         case Stmt.Skip() =>
 
-        case Stmt.Assign(vars, args) =>
+        // the variables are assigned in parallel
+        case Stmt.Assign(pairs) =>
           val env = values(store)
+          val (vars, args) = pairs.unzip
           assign(store, vars, args.map(eval(env, _)))
 
         case Stmt.Block(locals, stmts) =>
@@ -324,7 +356,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd):
           List(Printer.show(eval(Map(), expr)))
         case Cmd.Run(body) =>
           results(body)
-        case Cmd.Test(body) =>
+        case Cmd.Test(_, body) =>
           exec(Map(), body)
           Nil
         case _ =>

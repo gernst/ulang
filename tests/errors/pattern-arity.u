@@ -1,5 +1,5 @@
-// type error: constructor some expects 1 values, got 2 at 4.10
-function f(): Int =
-  match none
-    case some(x, y) => 0
+// type error: constructor Some expects 1 values, got 2 at 4.10
+function f(): Int :=
+  match None
+    case Some(x, y) => 0
   end

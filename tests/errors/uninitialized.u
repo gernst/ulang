@@ -1,5 +1,4 @@
 // runtime error: x is not initialized at 4.15
-test
-  local x: Int, y: Int;
-  assign y := x;
-end
+test uninitialized :=
+  local  x: Int, y: Int
+  assign y := x

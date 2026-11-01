@@ -1,9 +1,7 @@
-// runtime error: output r of p is not assigned at 8.3
-procedure p(; r: Int)
-  skip;
-end
+// runtime error: output r of p is not assigned at 7.3
+procedure p(out r: Int) :=
+  skip
 
-test
-  local x: Int;
-  call p(; x);
-end
+test unassigned_output :=
+  local  x: Int
+  call   p(out x)

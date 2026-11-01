@@ -1,11 +1,11 @@
-// runtime error: uncaught exception fail(2) at 9.7
-data Fail = fail(Int)
+// runtime error: uncaught exception Fail(2) at 10.7
+data Fail :=
+  | Fail(Int)
 
-test
+test raise_uncaught :=
   try
-    raise fail(1);
+    raise Fail(1)
   catch
-    case fail(1) =>
-      raise fail(2);
+    case Fail(1) =>
+      raise Fail(2)
   end
-end

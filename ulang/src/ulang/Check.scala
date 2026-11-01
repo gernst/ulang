@@ -4,12 +4,20 @@ object Check:
   val Bool = Type.Sort("Bool", Nil)
   val Int = Type.Sort("Int", Nil)
   val Str = Type.Sort("Str", Nil)
-  val Unit = Type.Sort("Unit", Nil)
+  val Unit = Type.Tuple(Nil)
 
-  val basic = Set("Bool", "Int", "Str", "Unit")
+  val basic = Set("Bool", "Int", "Str")
+
+  // the argument of a function of several arguments is their tuple
+  def argument(args: List[Type]): Type =
+    args match
+      case List(t) =>
+        t
+      case ts =>
+        Type.Tuple(ts)
 
   def fun(args: List[Type], res: Type): Type =
-    Type.Sort("->", args :+ res)
+    Type.Fun(argument(args), res)
 
   // type schemes are types with the Params of a generic declaration or the Metas generalized by a let
   def mono(t: Type): (List[Type], Type) =
@@ -23,10 +31,8 @@ object Check:
       case (params, args, res) =>
         (params, fun(args, res))
 
-  // pairs are a datatype *[A, B] with the constructor ,
   val initial: Ctx =
-    val ps = List(Type.Param("A"), Type.Param("B"))
-    Ctx(datas = Map("*" -> 2), members = Map("*" -> List(",")), constrs = Map("," -> (ps, ps, Type.Sort("*", ps))))
+    Ctx()
 
   // only what cannot be defined in the prelude
   val builtins: Map[Name, (List[Type], Type)] =
@@ -48,8 +54,10 @@ object Check:
   // the number of arguments of a function, functions are overloaded by it
   def arity(t: Type): Int =
     t match
-      case Type.Sort("->", args) =>
-        args.length - 1
+      case Type.Fun(Type.Tuple(ts), _) =>
+        ts.length
+      case Type.Fun(_, _) =>
+        1
       case _ =>
         -1
 
@@ -61,14 +69,32 @@ object Check:
         "_"
       case Type.Meta(index) =>
         s"?$index"
-      case Type.Sort("->", args) =>
-        args.init.map(show(_)).mkString("(", ", ", ")") + " -> " + show(args.last)
-      case Type.Sort("*", args) =>
-        args.map(show(_)).mkString("(", ", ", ")")
+      case Type.Fun(a, r) =>
+        s"${operand(a)} -> ${show(r)}"
+      case Type.Tuple(Nil) =>
+        "()"
+      case Type.Tuple(ts) =>
+        ts.map(component).mkString(" * ")
       case Type.Sort(name, Nil) =>
         name
       case Type.Sort(name, args) =>
         args.map(show(_)).mkString(s"$name[", ", ", "]")
+
+  // the argument of a function, in parentheses if it is a function
+  def operand(t: Type): String =
+    t match
+      case Type.Fun(_, _) =>
+        s"(${show(t)})"
+      case _ =>
+        show(t)
+
+  // a component of a tuple, in parentheses if it is a function or a tuple
+  def component(t: Type): String =
+    t match
+      case Type.Fun(_, _) | Type.Tuple(_ :: _ :: _) =>
+        s"(${show(t)})"
+      case _ =>
+        show(t)
 
   // the Params and Metas in t
   def free(t: Type): List[Type] =
@@ -79,6 +105,10 @@ object Check:
         Nil
       case Type.Sort(_, args) =>
         args.flatMap(free).distinct
+      case Type.Fun(a, r) =>
+        (free(a) ++ free(r)).distinct
+      case Type.Tuple(ts) =>
+        ts.flatMap(free).distinct
 
   def holes(t: Type): Boolean =
     t match
@@ -86,6 +116,10 @@ object Check:
         true
       case Type.Sort(_, args) =>
         args.exists(holes)
+      case Type.Fun(a, r) =>
+        holes(a) || holes(r)
+      case Type.Tuple(ts) =>
+        ts.exists(holes)
       case _ =>
         false
 
@@ -93,6 +127,10 @@ object Check:
     t match
       case Type.Sort(name, args) =>
         Type.Sort(name, args.map(subst(_, su)))
+      case Type.Fun(a, r) =>
+        Type.Fun(subst(a, su), subst(r, su))
+      case Type.Tuple(ts) =>
+        Type.Tuple(ts.map(subst(_, su)))
       case _ =>
         su.getOrElse(t, t)
 
@@ -148,8 +186,12 @@ class Check(program: Program):
         fresh()
       case Type.Param(_) | Type.Meta(_) =>
         t
-      case Type.Sort("->", args) if args.nonEmpty =>
-        Type.Sort("->", args.map(normalize))
+      case Type.Fun(a, r) =>
+        Type.Fun(normalize(a), normalize(r))
+      case Type.Tuple(ts) =>
+        Type.Tuple(ts.map(normalize))
+      case Type.Sort("Unit", Nil) =>
+        Unit
       case Type.Sort(name, args) if basic(name) =>
         arguments(name, 0, args)
         t
@@ -187,6 +229,10 @@ class Check(program: Program):
     resolve(t) match
       case Type.Sort(name, args) =>
         Type.Sort(name, args.map(zonk(_)))
+      case Type.Fun(a, r) =>
+        Type.Fun(zonk(a), zonk(r))
+      case Type.Tuple(ts) =>
+        Type.Tuple(ts.map(zonk(_)))
       case t =>
         t
 
@@ -206,14 +252,16 @@ class Check(program: Program):
         Expr.App(zonk(fun), args.map(zonk(_)))(e.pos)
       case Expr.Lam(bound, body) =>
         Expr.Lam(bound.map(zonk(_)), zonk(body))(e.pos)
-      case Expr.Let(bound, args, body) =>
-        Expr.Let(bound.map(zonk(_)), args.map(zonk(_)), zonk(body))(e.pos)
+      case Expr.Let(bound, body) =>
+        Expr.Let(bound.map((x, a) => (zonk(x), zonk(a))), zonk(body))(e.pos)
       case Expr.Ite(test, left, right) =>
         Expr.Ite(zonk(test), zonk(left), zonk(right))(e.pos)
       case Expr.Match(arg, cases) =>
         Expr.Match(zonk(arg), cases.map(c => Case(zonk(c.pat), zonk(c.body))))(e.pos)
       case Expr.Comp(result, bound, lists, test) =>
         Expr.Comp(zonk(result), bound.map(zonk(_)), lists.map(zonk(_)), zonk(test))(e.pos)
+      case Expr.Tuple(items) =>
+        Expr.Tuple(items.map(zonk(_)))(e.pos)
 
   def zonk(p: Pat): Pat =
     p match
@@ -223,13 +271,15 @@ class Check(program: Program):
         Pat.Var(name, zonk(typ))(p.pos)
       case Pat.App(name, args) =>
         Pat.App(name, args.map(zonk(_)))(p.pos)
+      case Pat.Tuple(items) =>
+        Pat.Tuple(items.map(zonk(_)))(p.pos)
 
   def zonk(s: Stmt): Stmt =
     s match
       case Stmt.Skip() =>
         s
-      case Stmt.Assign(vars, args) =>
-        Stmt.Assign(vars.map(zonk(_)), args.map(zonk(_)))(s.pos)
+      case Stmt.Assign(pairs) =>
+        Stmt.Assign(pairs.map((x, a) => (zonk(x), zonk(a))))(s.pos)
       case Stmt.Block(locals, stmts) =>
         Stmt.Block(locals.map(zonk(_)), stmts.map(zonk(_)))(s.pos)
       case Stmt.If(test, left, right) =>
@@ -274,8 +324,8 @@ class Check(program: Program):
         Cmd.Eval(zonk(expr))(d.pos)
       case Cmd.Run(body) =>
         Cmd.Run(zonk(body))(d.pos)
-      case Cmd.Test(body) =>
-        Cmd.Test(zonk(body))(d.pos)
+      case Cmd.Test(name, body) =>
+        Cmd.Test(name, zonk(body))(d.pos)
 
   def occurs(i: Int, t: Type): Boolean =
     resolve(t) match
@@ -283,6 +333,10 @@ class Check(program: Program):
         i == index
       case Type.Sort(_, args) =>
         args.exists(occurs(i, _))
+      case Type.Fun(a, r) =>
+        occurs(i, a) || occurs(i, r)
+      case Type.Tuple(ts) =>
+        ts.exists(occurs(i, _))
       case _ =>
         false
 
@@ -297,6 +351,10 @@ class Check(program: Program):
       case (t, Type.Meta(index)) =>
         assign(index, t)
       case (Type.Sort(f, as), Type.Sort(g, bs)) if f == g && as.length == bs.length =>
+        unify(as, bs)
+      case (Type.Fun(a, r), Type.Fun(b, s)) =>
+        unify(List(a, r), List(b, s))
+      case (Type.Tuple(as), Type.Tuple(bs)) if as.length == bs.length =>
         unify(as, bs)
       case _ =>
         val List(a, b) = shows(List(t1, t2)): @unchecked
@@ -401,13 +459,13 @@ class Check(program: Program):
           val (body1, t) = infer(env ++ bind(xs), body)
           (Expr.Lam(xs, body1)(e.pos), fun(xs.types, t))
 
-        case Expr.Let(bound, args, body) =>
-          val xs = formals(bound)
-          sameLength(xs, args, "let")
+        case Expr.Let(bound, body) =>
+          val (vars, args) = bound.unzip
+          val xs = formals(vars)
           val args1 = check(env, args, xs.types)
           val ss = xs.map(x => x.name -> generalize(env, x.typ))
           val (body1, t) = infer(env ++ ss, body)
-          (Expr.Let(xs, args1, body1)(e.pos), t)
+          (Expr.Let(xs.zip(args1), body1)(e.pos), t)
 
         case Expr.Ite(test, left, right) =>
           val test1 = check(env, test, Bool)
@@ -427,6 +485,10 @@ class Check(program: Program):
           val r = fresh()
           val (arg1, cases1) = branches(env, arg, cases)((bs, b) => check(env ++ bs, b, r))
           (Expr.Match(arg1, cases1)(e.pos), r)
+
+        case Expr.Tuple(items) =>
+          val (items1, ts) = infer(env, items)
+          (Expr.Tuple(items1)(e.pos), Type.Tuple(ts))
 
   // each list may refer to the variables bound before it
   def generators(env: Map[Name, (List[Type], Type)], xs: List[Pat.Var], lists: List[Expr]): List[Expr] =
@@ -482,6 +544,12 @@ class Check(program: Program):
           val (args1, bs) = binders(args, kargs.map(subst(_, su)))
           (Pat.App(name, args1)(p.pos), bs)
 
+        case Pat.Tuple(items) =>
+          val ts = items.map(_ => fresh())
+          unify(Type.Tuple(ts), t)
+          val (items1, bs) = binders(items, ts)
+          (Pat.Tuple(items1)(p.pos), bs)
+
   def binders(ps: List[Pat], ts: List[Type]): (List[Pat], List[Pat.Var]) =
     (ps, ts) match
       case (Nil, Nil) =>
@@ -535,10 +603,13 @@ class Check(program: Program):
         false
 
   // the constructor of an elaborated pattern, literals count as constructors without arguments
+  // the constructor of tuples is ,
   def head(p: Pat): Option[(Name, List[Pat])] =
     p match
       case Pat.App(name, args) =>
         Some(name -> args)
+      case Pat.Tuple(items) =>
+        Some("," -> items)
       case Pat.Lit(value) =>
         Some(Printer.show(value) -> Nil)
       case _ =>
@@ -560,8 +631,8 @@ class Check(program: Program):
     zonk(t) match
       case Type.Sort("Bool", Nil) =>
         Some(List("true" -> Nil, "false" -> Nil))
-      case Type.Sort("Unit", Nil) =>
-        Some(List("()" -> Nil))
+      case Type.Tuple(ts) =>
+        Some(List("," -> ts))
       case Type.Sort(name, args) if datas.contains(name) =>
         Some(
           for c <- members(name)
@@ -660,11 +731,11 @@ class Check(program: Program):
         case Stmt.Skip() =>
           s
 
-        case Stmt.Assign(vars, args) =>
+        case Stmt.Assign(pairs) =>
+          val (vars, args) = pairs.unzip
           distinct(vars.names, "assignment to")
-          sameLength(vars, args, "assignment")
           val vars1 = vars.map(variable(env, assignable, _))
-          Stmt.Assign(vars1, check(env, args, vars1.types))(s.pos)
+          Stmt.Assign(vars1.zip(check(env, args, vars1.types)))(s.pos)
 
         case Stmt.Block(locals, stmts) =>
           val xs = signature(locals)
@@ -768,9 +839,9 @@ class Check(program: Program):
 
     for case d @ Cmd.Fun(name, params, bound, res, _) <- program.cmds do
       at(d.pos):
-        overload(name, bound.length)
         distinct(params, "type parameter")
         val t = fun(signature(bound).types, known(res, s"result of $name"))
+        overload(name, arity(t))
         closed(name, params, t)
         update(c => c.copy(funs = c.funs + (name -> (c.funs.getOrElse(name, Nil) :+ (params.map(Type.Param(_)), t)))))
 
@@ -785,6 +856,12 @@ class Check(program: Program):
         val (os, rs) = rest.splitAt(outs.length)
         update(c => c.copy(procs = c.procs + (name -> (params.map(Type.Param(_)), is, os, rs))))
 
+    distinct(
+      program.cmds.collect { case Cmd.Test(name, _) =>
+        name
+      },
+      "test"
+    )
     Program(program.cmds.map(c => at(c.pos)(zonk(command(c)))))
 
   // the elaborated command c
@@ -818,5 +895,5 @@ class Check(program: Program):
       case Cmd.Run(body) =>
         Cmd.Run(stmt(Map(), Set(), body))(c.pos)
 
-      case Cmd.Test(body) =>
-        Cmd.Test(stmt(Map(), Set(), body))(c.pos)
+      case Cmd.Test(name, body) =>
+        Cmd.Test(name, stmt(Map(), Set(), body))(c.pos)

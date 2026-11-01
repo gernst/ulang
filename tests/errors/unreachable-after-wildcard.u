@@ -1,5 +1,5 @@
 // type error: unreachable case true at 3.3
-function f(b: Bool): Int =
+function f(b: Bool): Int :=
   match b
     case _ => 0
     case true => 1

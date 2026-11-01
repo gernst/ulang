@@ -7,7 +7,7 @@ const path = require("path");
 
 // e.g. "/a/b.u: type error: cannot unify Int and Bool", optionally followed by "at 3.11" and "in module"
 const errorLine = /^(.*?): ((?:parse|type|runtime) error: .*?)(?: at (\d+)\.(\d+))?( in \w+)?$/;
-const testLine = /^test (\d+) (passed|failed: (.*))$/;
+const testLine = /^test (\S+) (passed|failed: (.*))$/;
 
 function jar() {
   const configured = vscode.workspace.getConfiguration("ulang").get("jar");
@@ -35,12 +35,12 @@ function ulang(args, file) {
   });
 }
 
-// the runs and tests of a document, numbered from 1 as by ulang --only and --tests
+// the runs and tests of a document, numbered from 1 as by ulang --only, where tests have names
 function blocks(document) {
   const result = [];
   for (let line = 0; line < document.lineCount; line++) {
-    const match = /^(test|run)\b/.exec(document.lineAt(line).text);
-    if (match) result.push({ kind: match[1], line, index: result.length + 1 });
+    const match = /^(test|run)\b(?:\s+(\w+))?/.exec(document.lineAt(line).text);
+    if (match) result.push({ kind: match[1], name: match[2], line, index: result.length + 1 });
   }
   return result;
 }
@@ -98,16 +98,16 @@ function activate(context) {
     const outcomes = new Map();
     for (const line of result.stdout.split("\n")) {
       const match = testLine.exec(line);
-      if (match) outcomes.set(Number(match[1]), match[3]);
+      if (match) outcomes.set(match[1], match[3]);
     }
     for (const t of tests) {
-      const index = indices.get(t.id);
-      if (!outcomes.has(index)) {
+      const name = names.get(t.id);
+      if (!outcomes.has(name)) {
         run.errored(t, new vscode.TestMessage(result.stderr.trim() || "the test was not run"));
-      } else if (outcomes.get(index) === undefined) {
+      } else if (outcomes.get(name) === undefined) {
         run.passed(t);
       } else {
-        const message = new vscode.TestMessage(outcomes.get(index));
+        const message = new vscode.TestMessage(outcomes.get(name));
         message.location = new vscode.Location(t.uri, t.range);
         run.failed(t, message);
       }
@@ -148,7 +148,7 @@ function activate(context) {
   // the Testing view, with a test item for each file and each of its tests
   const controller = vscode.tests.createTestController("ulang", "ulang");
   context.subscriptions.push(controller);
-  const indices = new Map();
+  const names = new Map();
 
   function discover(doc) {
     if (doc.languageId !== "ulang" || doc.uri.scheme !== "file") return;
@@ -157,9 +157,9 @@ function activate(context) {
     const tests = blocks(doc)
       .filter((block) => block.kind === "test")
       .map((block) => {
-        const item = controller.createTestItem(`${id}#${block.index}`, `test ${block.index}`, doc.uri);
+        const item = controller.createTestItem(`${id}#${block.name}`, block.name, doc.uri);
         item.range = new vscode.Range(block.line, 0, block.line, 4);
-        indices.set(item.id, block.index);
+        names.set(item.id, block.name);
         return item;
       });
     file.children.replace(tests);

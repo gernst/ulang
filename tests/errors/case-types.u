@@ -1,6 +1,6 @@
 // type error: cannot unify Bool and Int at 5.20
-function f(): Int =
-  match nil
-    case nil => 0
+function f(): Int :=
+  match Nil
+    case Nil => 0
     case _ :: _ => true
   end

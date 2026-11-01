@@ -1,8 +1,8 @@
 // type error: overloaded f must be applied at 8.6
-function f(x: Int): Int =
+function f(x: Int): Int :=
   x
 
-function f(x: Int, y: Int): Int =
+function f(x: Int, y: Int): Int :=
   x
 
 eval f

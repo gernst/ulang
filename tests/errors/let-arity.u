@@ -1,3 +1,0 @@
-// parse error: let expects 2 values, got 1 at 3.30
-function f(): Int =
-  let (x, y), z = (1, 2) in z

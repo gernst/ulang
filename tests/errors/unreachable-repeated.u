@@ -1,7 +1,7 @@
-// type error: unreachable case nil at 3.3
-function f(xs: List[Int]): Int =
+// type error: unreachable case Nil at 3.3
+function f(xs: List[Int]): Int :=
   match xs
-    case nil => 0
+    case Nil => 0
     case _ :: _ => 1
-    case nil => 2
+    case Nil => 2
   end

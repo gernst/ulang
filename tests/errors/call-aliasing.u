@@ -1,3 +1,6 @@
-// type error: duplicate argument to p z at 3.23
-procedure p(;; x: Int, y: Int) skip; end
-procedure q(; z: Int) call p(;; z, z); end
+// type error: duplicate argument to p z at 6.3
+procedure p(ref x: Int, y: Int) :=
+  skip
+
+procedure q(out z: Int) :=
+  call p(ref z, z)

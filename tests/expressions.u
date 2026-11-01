@@ -1,37 +1,31 @@
 // arithmetic and precedence
-test
-  assert 1 + 2 * 3 - 4 / 2 == 5;
-  assert -2 * -3 == 6;
-  assert 7 % 3 == 1;
-  assert -7 % 3 == -1;
-  assert (not 1 < 2 or 1 + 1 == 2 and true);
-  assert (not true and false) == false;
-  assert (1 < 2) == (2 > 1);
-end
+test arithmetic_precedence :=
+  assert 1 + 2 * 3 - 4 / 2 == 5
+  assert -2 * -3 == 6
+  assert 7 % 3 == 1
+  assert -7 % 3 == -1
+  assert (not 1 < 2 or 1 + 1 == 2 and true)
+  assert (not true and false) == false
+  assert (1 < 2) == (2 > 1)
 
 // let binds in parallel
-test
-  assert (let x, y = 1, 2 in x + y * 3) == 7;
-  assert (let x, y = 1, 2 in let x, y = y, x in x - y) == 1;
-end
+test let_parallel :=
+  assert (let x := 1, y := 2 in x + y * 3) == 7
+  assert (let x := 1, y := 2 in let x := y, y := x in x - y) == 1
 
-test
-  assert (if not 1 < 2 then 0 else 1) == 1;
-end
+test conditionals :=
+  assert (if not 1 < 2 then 0 else 1) == 1
 
-test
-  assert (lambda f => f(f(1)))(lambda x => x * 2) == 4;
-  assert (lambda f, x => f(x))(lambda y => y + 1, 1) == 2;
-end
+test lambdas :=
+  assert (lambda f => f(f(1)))(lambda x => x * 2) == 4
+  assert (lambda f, x => f(x))(lambda y => y + 1, 1) == 2
 
-test
-  assert "a" == "a";
-  assert () == ();
-  assert (1 != 2);
-end
+test literals :=
+  assert "a" == "a"
+  assert () == ()
+  assert (1 != 2)
 
 // and, or are not strict
-test
-  assert (false and 1 / 0 == 0) == false;
-  assert (true or 1 / 0 == 0);
-end
+test non_strict_and_or :=
+  assert (false and 1 / 0 == 0) == false
+  assert (true or 1 / 0 == 0)

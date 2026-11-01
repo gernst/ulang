@@ -1,7 +1,6 @@
 // runtime error: cannot read missing.u at 6.3
 import syntax
 
-test
-  local p: Program;
-  call read("missing.u"; p);
-end
+test missing_file :=
+  local  p: Program
+  call   read(in "missing.u", out p)

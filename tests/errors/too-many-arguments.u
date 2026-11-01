@@ -1,3 +1,6 @@
-// type error: cannot unify (?1) -> ?1 and (Int, Int) -> ?2 at 3.4
-function f(): Int =
-  (lambda x => x)(1, 2)
+// type error: cannot unify Int and Int * Int at 6.3
+function g(x: Int): Int :=
+  x
+
+function f(): Int :=
+  g(1, 2)

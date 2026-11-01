@@ -1,12 +1,13 @@
 package ulang
 
-// the syntax as values of the datatypes of self/syntax.u and back, without positions
+// the syntax as values of the datatypes of self/syntax.u and back, without positions,
+// where functions and tuples are encoded by the sorts -> and *, and the constructor , as in self/syntax.u
 object Quote:
   def obj(c: Name, args: Any*): Any =
     Obj(c, args.toList)
 
   def list[A](xs: List[A])(f: A => Any): Any =
-    xs.foldRight(obj("nil"))((x, v) => obj("::", f(x), v))
+    xs.foldRight(obj("Nil"))((x, v) => obj("::", f(x), v))
 
   def names(xs: List[Name]): Any =
     list(xs)(x => x)
@@ -14,29 +15,33 @@ object Quote:
   def quote(t: Type): Any =
     t match
       case Type.Hole =>
-        obj("thole")
+        obj("THole")
       case Type.Meta(index) =>
-        obj("tmeta", BigInt(index))
+        obj("TMeta", BigInt(index))
       case Type.Param(name) =>
-        obj("tparam", name)
+        obj("TParam", name)
       case Type.Sort(name, args) =>
-        obj("tsort", name, list(args)(quote))
+        obj("TSort", name, list(args)(quote))
+      case Type.Fun(arg, res) =>
+        obj("TSort", "->", list(List(arg, res))(quote))
+      case Type.Tuple(items) =>
+        obj("TSort", "*", list(items)(quote))
 
   def value(v: Any): Any =
     v match
       case () =>
-        obj("vunit")
+        obj("VUnit")
       case b: Boolean =>
-        obj("vbool", b)
+        obj("VBool", b)
       case n: BigInt =>
-        obj("vint", n)
+        obj("VInt", n)
       case s: String =>
-        obj("vstr", s)
+        obj("VStr", s)
       case _ =>
         error("runtime", s"invalid literal $v")
 
   def variable(name: Name, typ: Type): Any =
-    obj("var", name, quote(typ))
+    obj("Var", name, quote(typ))
 
   def vars(xs: List[Expr.Var]): Any =
     list(xs)(x => variable(x.name, x.typ))
@@ -47,99 +52,103 @@ object Quote:
   def quote(e: Expr): Any =
     e match
       case Expr.Lit(v) =>
-        obj("elit", value(v))
+        obj("ELit", value(v))
       case Expr.Var(name, typ) =>
-        obj("evar", variable(name, typ))
+        obj("EVar", variable(name, typ))
       case Expr.App(fun, args) =>
-        obj("eapp", quote(fun), list(args)(quote))
+        obj("EApp", quote(fun), list(args)(quote))
+      case Expr.Tuple(items) =>
+        obj("EApp", obj("EVar", variable(",", Type.Hole)), list(items)(quote))
       case Expr.Lam(bound, body) =>
-        obj("elam", binders(bound), quote(body))
-      case Expr.Let(bound, args, body) =>
-        obj("elet", binders(bound), list(args)(quote), quote(body))
+        obj("ELam", binders(bound), quote(body))
+      case Expr.Let(bound, body) =>
+        obj("ELet", list(bound)((x, a) => obj(",", variable(x.name, x.typ), quote(a))), quote(body))
       case Expr.Ite(test, left, right) =>
-        obj("eite", quote(test), quote(left), quote(right))
+        obj("EIte", quote(test), quote(left), quote(right))
       case Expr.Match(arg, cases) =>
-        obj("ematch", quote(arg), list(cases)(c => obj("branch", quote(c.pat), quote(c.body))))
+        obj("EMatch", quote(arg), list(cases)(c => obj("Branch", quote(c.pat), quote(c.body))))
       case Expr.Comp(result, bound, lists, test) =>
-        obj("ecomp", quote(result), binders(bound), list(lists)(quote), quote(test))
+        obj("EComp", quote(result), binders(bound), list(lists)(quote), quote(test))
 
   def quote(p: Pat): Any =
     p match
       case Pat.Wild() =>
-        obj("pwild")
+        obj("PWild")
       case Pat.Lit(v) =>
-        obj("plit", value(v))
+        obj("PLit", value(v))
       case Pat.Var(name, typ) =>
-        obj("pvar", variable(name, typ))
+        obj("PVar", variable(name, typ))
       case Pat.App(name, args) =>
-        obj("papp", name, list(args)(quote))
+        obj("PApp", name, list(args)(quote))
+      case Pat.Tuple(items) =>
+        obj("PApp", ",", list(items)(quote))
 
   def quote(s: Stmt): Any =
     s match
       case Stmt.Skip() =>
-        obj("sskip")
-      case Stmt.Assign(vars, args) =>
-        obj("sassign", this.vars(vars), list(args)(quote))
+        obj("SSkip")
+      case Stmt.Assign(pairs) =>
+        obj("SAssign", list(pairs)((x, a) => obj(",", variable(x.name, x.typ), quote(a))))
       case Stmt.Block(locals, stmts) =>
-        obj("sblock", binders(locals), list(stmts)(quote))
+        obj("SBlock", binders(locals), list(stmts)(quote))
       case Stmt.If(test, left, right) =>
-        obj("sif", quote(test), quote(left), quote(right))
+        obj("SIf", quote(test), quote(left), quote(right))
       case Stmt.While(test, body) =>
-        obj("swhile", quote(test), quote(body))
+        obj("SWhile", quote(test), quote(body))
       case Stmt.Call(proc, ins, outs, refs) =>
-        obj("scall", proc, list(ins)(quote), vars(outs), vars(refs))
+        obj("SCall", proc, list(ins)(quote), vars(outs), vars(refs))
       case Stmt.Match(arg, cases) =>
-        obj("smatch", quote(arg), list(cases)(c => obj("branch", quote(c.pat), quote(c.body))))
+        obj("SMatch", quote(arg), list(cases)(c => obj("Branch", quote(c.pat), quote(c.body))))
       case Stmt.Assert(test) =>
-        obj("sassert", quote(test))
+        obj("SAssert", quote(test))
       case Stmt.Raise(arg, typ) =>
-        obj("sraise", quote(arg), quote(typ))
+        obj("SRaise", quote(arg), quote(typ))
       case Stmt.Try(body, handlers) =>
-        obj("stry", quote(body), list(handlers)(h => obj("handler", quote(h.typ), quote(h.pat), quote(h.body))))
+        obj("STry", quote(body), list(handlers)(h => obj("Handler", quote(h.typ), quote(h.pat), quote(h.body))))
 
   def quote(f: Fixity): Any =
     f match
       case Fixity.Prefix =>
-        obj("fprefix")
+        obj("FPrefix")
       case Fixity.Postfix =>
-        obj("fpostfix")
+        obj("FPostfix")
       case Fixity.Infix =>
-        obj("finfix")
+        obj("FInfix")
       case Fixity.Left =>
-        obj("fleft")
+        obj("FLeft")
       case Fixity.Right =>
-        obj("fright")
+        obj("FRight")
 
   def quote(c: Cmd): Any =
     c match
       case Cmd.Sort(name, params, typ) =>
-        obj("csort", name, names(params), quote(typ))
+        obj("CSort", name, names(params), quote(typ))
       case Cmd.Data(name, params, constrs) =>
-        obj("cdata", name, names(params), list(constrs)(k => obj("constr", k.name, list(k.args)(quote))))
+        obj("CData", name, names(params), list(constrs)(k => obj("Constr", k.name, list(k.args)(quote))))
       case Cmd.Fun(name, params, bound, res, body) =>
-        obj("cfun", name, names(params), binders(bound), quote(res), quote(body))
+        obj("CFun", name, names(params), binders(bound), quote(res), quote(body))
       case Cmd.Proc(name, params, ins, outs, refs, body) =>
-        obj("cproc", name, names(params), binders(ins), binders(outs), binders(refs), quote(body))
+        obj("CProc", name, names(params), binders(ins), binders(outs), binders(refs), quote(body))
       case Cmd.Import(name) =>
-        obj("cimport", name)
+        obj("CImport", name)
       case Cmd.Notation(fixity, prec, ops) =>
-        obj("cnotation", quote(fixity), BigInt(prec), names(ops))
+        obj("CNotation", quote(fixity), BigInt(prec), names(ops))
       case Cmd.Eval(expr) =>
-        obj("ceval", quote(expr))
+        obj("CEval", quote(expr))
       case Cmd.Run(body) =>
-        obj("crun", quote(body))
-      case Cmd.Test(body) =>
-        obj("ctest", quote(body))
+        obj("CRun", quote(body))
+      case Cmd.Test(name, body) =>
+        obj("CTest", name, quote(body))
 
   def quote(p: Program): Any =
-    obj("program", list(p.cmds)(quote))
+    obj("Program", list(p.cmds)(quote))
 
   def invalid(what: String, v: Any): Nothing =
     error("runtime", s"${Printer.show(v)} is not $what")
 
   def items[A](v: Any)(f: Any => A): List[A] =
     v match
-      case Obj("nil", Nil) =>
+      case Obj("Nil", Nil) =>
         Nil
       case Obj("::", List(x, xs)) =>
         f(x) :: items(xs)(f)
@@ -162,165 +171,184 @@ object Quote:
 
   def typ(v: Any): Type =
     v match
-      case Obj("thole", Nil) =>
+      case Obj("THole", Nil) =>
         Type.Hole
-      case Obj("tmeta", List(index)) =>
+      case Obj("TMeta", List(index)) =>
         Type.Meta(int(index))
-      case Obj("tparam", List(n)) =>
+      case Obj("TParam", List(n)) =>
         Type.Param(name(n))
-      case Obj("tsort", List(n, args)) =>
+      case Obj("TSort", List("->", args)) =>
+        items(args)(typ) match
+          case List(a, r) =>
+            Type.Fun(a, r)
+          case _ =>
+            invalid("a function type", v)
+      case Obj("TSort", List("*", args)) =>
+        Type.Tuple(items(args)(typ))
+      case Obj("TSort", List(n, args)) =>
         Type.Sort(name(n), items(args)(typ))
       case _ =>
         invalid("a type", v)
 
   def literal(v: Any): Any =
     v match
-      case Obj("vunit", Nil) =>
+      case Obj("VUnit", Nil) =>
         ()
-      case Obj("vbool", List(b: Boolean)) =>
+      case Obj("VBool", List(b: Boolean)) =>
         b
-      case Obj("vint", List(n: BigInt)) =>
+      case Obj("VInt", List(n: BigInt)) =>
         n
-      case Obj("vstr", List(s: String)) =>
+      case Obj("VStr", List(s: String)) =>
         s
       case _ =>
         invalid("a literal", v)
 
   def variable(v: Any): Expr.Var =
     v match
-      case Obj("var", List(n, t)) =>
+      case Obj("Var", List(n, t)) =>
         Expr.Var(name(n), typ(t))()
       case _ =>
         invalid("a variable", v)
 
   def binder(v: Any): Pat.Var =
     v match
-      case Obj("var", List(n, t)) =>
+      case Obj("Var", List(n, t)) =>
         Pat.Var(name(n), typ(t))()
       case _ =>
         invalid("a variable", v)
 
+  def pair[A, B](first: Any => A, second: Any => B)(v: Any): (A, B) =
+    v match
+      case Obj(",", List(a, b)) =>
+        (first(a), second(b))
+      case _ =>
+        invalid("a pair", v)
+
   def branch[A](v: Any)(body: Any => A): Case[A] =
     v match
-      case Obj("branch", List(p, b)) =>
+      case Obj("Branch", List(p, b)) =>
         Case(pat(p), body(b))
       case _ =>
         invalid("a case", v)
 
   def expr(v: Any): Expr =
     v match
-      case Obj("elit", List(l)) =>
+      case Obj("ELit", List(l)) =>
         Expr.Lit(literal(l))()
-      case Obj("evar", List(x)) =>
+      case Obj("EVar", List(x)) =>
         variable(x)
-      case Obj("eapp", List(fun, args)) =>
+      case Obj("EApp", List(Obj("EVar", List(Obj("Var", List(",", _)))), args)) =>
+        Expr.Tuple(items(args)(expr))()
+      case Obj("EApp", List(fun, args)) =>
         Expr.App(expr(fun), items(args)(expr))()
-      case Obj("elam", List(bound, body)) =>
+      case Obj("ELam", List(bound, body)) =>
         Expr.Lam(items(bound)(binder), expr(body))()
-      case Obj("elet", List(bound, args, body)) =>
-        Expr.Let(items(bound)(binder), items(args)(expr), expr(body))()
-      case Obj("eite", List(test, left, right)) =>
+      case Obj("ELet", List(bound, body)) =>
+        Expr.Let(items(bound)(pair(binder, expr)), expr(body))()
+      case Obj("EIte", List(test, left, right)) =>
         Expr.Ite(expr(test), expr(left), expr(right))()
-      case Obj("ematch", List(arg, cases)) =>
+      case Obj("EMatch", List(arg, cases)) =>
         Expr.Match(expr(arg), items(cases)(branch(_)(expr)))()
-      case Obj("ecomp", List(result, bound, lists, test)) =>
+      case Obj("EComp", List(result, bound, lists, test)) =>
         Expr.Comp(expr(result), items(bound)(binder), items(lists)(expr), expr(test))()
       case _ =>
         invalid("an expression", v)
 
   def pat(v: Any): Pat =
     v match
-      case Obj("pwild", Nil) =>
+      case Obj("PWild", Nil) =>
         Pat.Wild()()
-      case Obj("plit", List(l)) =>
+      case Obj("PLit", List(l)) =>
         Pat.Lit(literal(l))()
-      case Obj("pvar", List(x)) =>
+      case Obj("PVar", List(x)) =>
         binder(x)
-      case Obj("papp", List(n, args)) =>
+      case Obj("PApp", List(",", args)) =>
+        Pat.Tuple(items(args)(pat))()
+      case Obj("PApp", List(n, args)) =>
         Pat.App(name(n), items(args)(pat))()
       case _ =>
         invalid("a pattern", v)
 
   def handler(v: Any): Handler =
     v match
-      case Obj("handler", List(t, p, body)) =>
+      case Obj("Handler", List(t, p, body)) =>
         Handler(typ(t), pat(p), stmt(body))
       case _ =>
         invalid("a handler", v)
 
   def stmt(v: Any): Stmt =
     v match
-      case Obj("sskip", Nil) =>
+      case Obj("SSkip", Nil) =>
         Stmt.Skip()()
-      case Obj("sassign", List(vars, args)) =>
-        Stmt.Assign(items(vars)(variable), items(args)(expr))()
-      case Obj("sblock", List(locals, stmts)) =>
+      case Obj("SAssign", List(pairs)) =>
+        Stmt.Assign(items(pairs)(pair(variable, expr)))()
+      case Obj("SBlock", List(locals, stmts)) =>
         Stmt.Block(items(locals)(binder), items(stmts)(stmt))()
-      case Obj("sif", List(test, left, right)) =>
+      case Obj("SIf", List(test, left, right)) =>
         Stmt.If(expr(test), stmt(left), stmt(right))()
-      case Obj("swhile", List(test, body)) =>
+      case Obj("SWhile", List(test, body)) =>
         Stmt.While(expr(test), stmt(body))()
-      case Obj("scall", List(proc, ins, outs, refs)) =>
+      case Obj("SCall", List(proc, ins, outs, refs)) =>
         Stmt.Call(name(proc), items(ins)(expr), items(outs)(variable), items(refs)(variable))()
-      case Obj("smatch", List(arg, cases)) =>
+      case Obj("SMatch", List(arg, cases)) =>
         Stmt.Match(expr(arg), items(cases)(branch(_)(stmt)))()
-      case Obj("sassert", List(test)) =>
+      case Obj("SAssert", List(test)) =>
         Stmt.Assert(expr(test))()
-      case Obj("sraise", List(arg, t)) =>
+      case Obj("SRaise", List(arg, t)) =>
         Stmt.Raise(expr(arg), typ(t))()
-      case Obj("stry", List(body, handlers)) =>
+      case Obj("STry", List(body, handlers)) =>
         Stmt.Try(stmt(body), items(handlers)(handler))()
       case _ =>
         invalid("a statement", v)
 
   def fixity(v: Any): Fixity =
     v match
-      case Obj("fprefix", Nil) =>
+      case Obj("FPrefix", Nil) =>
         Fixity.Prefix
-      case Obj("fpostfix", Nil) =>
+      case Obj("FPostfix", Nil) =>
         Fixity.Postfix
-      case Obj("finfix", Nil) =>
+      case Obj("FInfix", Nil) =>
         Fixity.Infix
-      case Obj("fleft", Nil) =>
+      case Obj("FLeft", Nil) =>
         Fixity.Left
-      case Obj("fright", Nil) =>
+      case Obj("FRight", Nil) =>
         Fixity.Right
       case _ =>
         invalid("a fixity", v)
 
   def constr(v: Any): Constr =
     v match
-      case Obj("constr", List(n, args)) =>
+      case Obj("Constr", List(n, args)) =>
         Constr(name(n), items(args)(typ))
       case _ =>
         invalid("a constructor", v)
 
   def cmd(v: Any): Cmd =
     v match
-      case Obj("csort", List(n, params, t)) =>
+      case Obj("CSort", List(n, params, t)) =>
         Cmd.Sort(name(n), items(params)(name), typ(t))()
-      case Obj("cdata", List(n, params, constrs)) =>
+      case Obj("CData", List(n, params, constrs)) =>
         Cmd.Data(name(n), items(params)(name), items(constrs)(constr))()
-      case Obj("cfun", List(n, params, bound, res, body)) =>
+      case Obj("CFun", List(n, params, bound, res, body)) =>
         Cmd.Fun(name(n), items(params)(name), items(bound)(binder), typ(res), expr(body))()
-      case Obj("cproc", List(n, params, ins, outs, refs, body)) =>
+      case Obj("CProc", List(n, params, ins, outs, refs, body)) =>
         Cmd.Proc(name(n), items(params)(name), items(ins)(binder), items(outs)(binder), items(refs)(binder), stmt(body))()
-      case Obj("cimport", List(n)) =>
+      case Obj("CImport", List(n)) =>
         Cmd.Import(name(n))()
-      case Obj("cnotation", List(f, prec, ops)) =>
+      case Obj("CNotation", List(f, prec, ops)) =>
         Cmd.Notation(fixity(f), int(prec), items(ops)(name))()
-      case Obj("ceval", List(e)) =>
+      case Obj("CEval", List(e)) =>
         Cmd.Eval(expr(e))()
-      case Obj("crun", List(body)) =>
+      case Obj("CRun", List(body)) =>
         Cmd.Run(stmt(body))()
-      case Obj("ctest", List(body)) =>
-        Cmd.Test(stmt(body))()
+      case Obj("CTest", List(n, body)) =>
+        Cmd.Test(name(n), stmt(body))()
       case _ =>
         invalid("a command", v)
 
   def unquote(v: Any): Program =
     v match
-      case Obj("program", List(cmds)) =>
+      case Obj("Program", List(cmds)) =>
         Program(items(cmds)(cmd))
       case _ =>
         invalid("a program", v)

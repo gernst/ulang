@@ -1,5 +1,5 @@
-// type error: match is not exhaustive, missing nil at 3.3
-function f(x: List[Option[Int]]): Int =
+// type error: match is not exhaustive, missing Nil at 3.3
+function f(x: List[Option[Int]]): Int :=
   match x
     case _ :: _ => 0
   end

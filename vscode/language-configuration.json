@@ -3,21 +3,49 @@
     "lineComment": "//"
   },
   "brackets": [
-    ["(", ")"],
-    ["[", "]"]
+    [
+      "(",
+      ")"
+    ],
+    [
+      "[",
+      "]"
+    ]
   ],
   "autoClosingPairs": [
-    { "open": "(", "close": ")" },
-    { "open": "[", "close": "]" },
-    { "open": "\"", "close": "\"", "notIn": ["string", "comment"] }
+    {
+      "open": "(",
+      "close": ")"
+    },
+    {
+      "open": "[",
+      "close": "]"
+    },
+    {
+      "open": "\"",
+      "close": "\"",
+      "notIn": [
+        "string",
+        "comment"
+      ]
+    }
   ],
   "surroundingPairs": [
-    ["(", ")"],
-    ["[", "]"],
-    ["\"", "\""]
+    [
+      "(",
+      ")"
+    ],
+    [
+      "[",
+      "]"
+    ],
+    [
+      "\"",
+      "\""
+    ]
   ],
   "indentationRules": {
-    "increaseIndentPattern": "^\\s*(procedure\\b.*|test|run|match\\b.*|case\\b.*=>\\s*|.*\\b(then|else|do)|.*=)\\s*(//.*)?$",
-    "decreaseIndentPattern": "^\\s*(end|else|case)\\b"
+    "increaseIndentPattern": "^\\s*(.*:=|run|try|catch|(else )?if\\b.*|while\\b.*|match\\b.*|case\\b.*=>|else)\\s*(//.*)?$",
+    "decreaseIndentPattern": "^\\s*(end|else|case|catch)\\b"
   }
 }

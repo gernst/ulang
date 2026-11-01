@@ -1,9 +1,8 @@
-// parse error: undeclared operator +++ at 3.31
-test
-  assert [1] +++ [2] == [1, 2];
-end
+// parse error: undeclared operator +++ at 3.14
+test operator_before_declaration :=
+  assert [1] +++ [2] == [1, 2]
 
 infix right 7 +++
 
-function +++[A](xs: List[A], ys: List[A]): List[A] =
+function +++[A](xs: List[A], ys: List[A]): List[A] :=
   xs ++ ys

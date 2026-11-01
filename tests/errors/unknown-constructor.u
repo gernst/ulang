@@ -1,5 +1,5 @@
 // type error: unknown constructor f at 4.10
-function f(): Int =
-  match nil
+function f(): Int :=
+  match Nil
     case f(x) => 0
   end

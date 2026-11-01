@@ -1,36 +1,46 @@
 // loaded before every program, whose notations apply to it
 
 infix right 1 ->
+
 infix right 2 ==>
+
 infix left 3 or
+
 infix left 4 and
+
 prefix 5 not
+
 infix 6 == != < <= > >=
+
 infix left 8 + -
+
 infix left 9 * / %
+
 prefix 10 -
 
-function not(b: Bool): Bool =
+function not(b: Bool): Bool :=
   if b then false else true
 
-function ==>(a: Bool, b: Bool): Bool =
+function ==>(a: Bool, b: Bool): Bool :=
   not a or b
 
-function !=[A](x: A, y: A): Bool =
+function !=[A](x: A, y: A): Bool :=
   not (x == y)
 
-function <=(m: Int, n: Int): Bool =
+function <=(m: Int, n: Int): Bool :=
   m < n or m == n
 
-function >(m: Int, n: Int): Bool =
+function >(m: Int, n: Int): Bool :=
   n < m
 
-function >=(m: Int, n: Int): Bool =
+function >=(m: Int, n: Int): Bool :=
   n <= m
 
-function -(n: Int): Int =
+function -(n: Int): Int :=
   0 - n
 
 import nat
+
 import option
+
 import list

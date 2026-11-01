@@ -12,6 +12,10 @@ enum Type:
   case Meta(index: Int)
   case Param(name: Name)
   case Sort(name: Name, args: List[Type])
+  // functions take one argument, which is a tuple for several arguments
+  case Fun(arg: Type, res: Type)
+  // () is the empty tuple, i.e., the unit type
+  case Tuple(items: List[Type])
 
 enum Expr:
   def pos: Pos
@@ -20,10 +24,11 @@ enum Expr:
   case Var(name: Name, typ: Type)(val pos: Pos = nowhere)
   case App(fun: Expr, args: List[Expr])(val pos: Pos = nowhere)
   case Lam(bound: List[Pat.Var], body: Expr)(val pos: Pos = nowhere)
-  case Let(bound: List[Pat.Var], args: List[Expr], body: Expr)(val pos: Pos = nowhere)
+  case Let(bound: List[(Pat.Var, Expr)], body: Expr)(val pos: Pos = nowhere)
   case Ite(test: Expr, left: Expr, right: Expr)(val pos: Pos = nowhere)
   case Match(arg: Expr, cases: List[Case[Expr]])(val pos: Pos = nowhere)
   case Comp(result: Expr, bound: List[Pat.Var], lists: List[Expr], test: Expr)(val pos: Pos = nowhere)
+  case Tuple(items: List[Expr])(val pos: Pos = nowhere)
 
 enum Pat:
   def pos: Pos
@@ -32,6 +37,7 @@ enum Pat:
   case Lit(value: Any)(val pos: Pos = nowhere)
   case Var(name: Name, typ: Type)(val pos: Pos = nowhere)
   case App(name: Name, args: List[Pat])(val pos: Pos = nowhere)
+  case Tuple(items: List[Pat])(val pos: Pos = nowhere)
 
 case class Case[A](pat: Pat, body: A)
 
@@ -39,7 +45,7 @@ enum Stmt:
   def pos: Pos
 
   case Skip()(val pos: Pos = nowhere)
-  case Assign(vars: List[Expr.Var], args: List[Expr])(val pos: Pos = nowhere)
+  case Assign(pairs: List[(Expr.Var, Expr)])(val pos: Pos = nowhere)
   case Block(locals: List[Pat.Var], stmts: List[Stmt])(val pos: Pos = nowhere)
   case If(test: Expr, left: Stmt, right: Stmt)(val pos: Pos = nowhere)
   case While(test: Expr, body: Stmt)(val pos: Pos = nowhere)
@@ -74,7 +80,7 @@ enum Cmd:
   case Notation(fixity: Fixity, prec: Int, names: List[Name])(val pos: Pos = nowhere)
   case Eval(expr: Expr)(val pos: Pos = nowhere)
   case Run(body: Stmt)(val pos: Pos = nowhere)
-  case Test(body: Stmt)(val pos: Pos = nowhere)
+  case Test(name: Name, body: Stmt)(val pos: Pos = nowhere)
 
 case class Program(cmds: List[Cmd])
 

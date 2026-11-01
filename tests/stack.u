@@ -1,17 +1,18 @@
 // a module, imported by import.u and peek.u
 infix right 7 <+
 
-data Stack[A] = empty | push(A, Stack[A])
+data Stack[A] :=
+  | Empty
+  | Push(A, Stack[A])
 
-function <+[A](x: A, s: Stack[A]): Stack[A] =
-  push(x, s)
+function <+[A](x: A, s: Stack[A]): Stack[A] :=
+  Push(x, s)
 
-function top[A](s: Stack[A]): Option[A] =
+function top[A](s: Stack[A]): Option[A] :=
   match s
-    case empty => none
-    case push(x, _) => some(x)
+    case Empty => None
+    case Push(x, _) => Some(x)
   end
 
-test
-  assert top(1 <+ empty) == some(1);
-end
+test stack :=
+  assert top(1 <+ Empty) == Some(1)

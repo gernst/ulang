@@ -3,14 +3,33 @@
   "name": "ulang",
   "scopeName": "source.ulang",
   "patterns": [
-    { "include": "#comment" },
-    { "include": "#string" },
-    { "include": "#declaration" },
-    { "include": "#notation" },
-    { "include": "#keyword" },
-    { "include": "#constant" },
-    { "include": "#type" },
-    { "include": "#operator" }
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#string"
+    },
+    {
+      "include": "#declaration"
+    },
+    {
+      "include": "#local"
+    },
+    {
+      "include": "#notation"
+    },
+    {
+      "include": "#keyword"
+    },
+    {
+      "include": "#constant"
+    },
+    {
+      "include": "#constructor"
+    },
+    {
+      "include": "#operator"
+    }
   ],
   "repository": {
     "comment": {
@@ -24,24 +43,116 @@
     "declaration": {
       "patterns": [
         {
-          "match": "\\b(function|procedure)\\s+([A-Za-z_][A-Za-z0-9_]*|[-+*/%<>=!&|:^~?@#$]+)",
-          "captures": {
-            "1": { "name": "keyword.declaration.ulang" },
-            "2": { "name": "entity.name.function.ulang" }
+          "begin": "\\b(function|procedure)\\s+([A-Za-z_][A-Za-z0-9_]*|[-+*/%<>=!&|:^~?@#$]+)",
+          "end": ":=|$",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.declaration.ulang"
+            },
+            "2": {
+              "name": "entity.name.function.ulang"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#comment"
+            },
+            {
+              "include": "#keyword"
+            },
+            {
+              "include": "#type"
+            },
+            {
+              "include": "#operator"
+            }
+          ],
+          "endCaptures": {
+            "0": {
+              "name": "keyword.operator.ulang"
+            }
           }
         },
         {
-          "match": "\\b(data|sort)\\s+([A-Za-z_][A-Za-z0-9_]*)",
-          "captures": {
-            "1": { "name": "keyword.declaration.ulang" },
-            "2": { "name": "entity.name.type.ulang" }
-          }
+          "begin": "\\b(sort)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "end": "^(?=\\S)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.declaration.ulang"
+            },
+            "2": {
+              "name": "entity.name.type.ulang"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#comment"
+            },
+            {
+              "include": "#keyword"
+            },
+            {
+              "include": "#type"
+            },
+            {
+              "include": "#operator"
+            }
+          ]
+        },
+        {
+          "begin": "\\b(data)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "end": "^(?=\\S)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.declaration.ulang"
+            },
+            "2": {
+              "name": "entity.name.type.ulang"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#comment"
+            },
+            {
+              "match": "(:=|\\|)\\s*([A-Za-z_][A-Za-z0-9_]*|[-+*/%<>=!&^~?@#$:]+)",
+              "captures": {
+                "1": {
+                  "name": "keyword.operator.ulang"
+                },
+                "2": {
+                  "name": "entity.name.function.constructor.ulang"
+                }
+              }
+            },
+            {
+              "include": "#type"
+            },
+            {
+              "include": "#operator"
+            }
+          ]
         },
         {
           "match": "\\b(import)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
-            "1": { "name": "keyword.control.import.ulang" },
-            "2": { "name": "entity.name.namespace.ulang" }
+            "1": {
+              "name": "keyword.control.import.ulang"
+            },
+            "2": {
+              "name": "entity.name.namespace.ulang"
+            }
+          }
+        },
+        {
+          "match": "^(test)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.other.ulang"
+            },
+            "2": {
+              "name": "entity.name.function.ulang"
+            }
           }
         }
       ]
@@ -49,20 +160,26 @@
     "notation": {
       "match": "\\b(infix|prefix|postfix)\\b(?:\\s+(left|right)\\b)?\\s+([0-9]+)",
       "captures": {
-        "1": { "name": "keyword.declaration.ulang" },
-        "2": { "name": "keyword.declaration.ulang" },
-        "3": { "name": "constant.numeric.ulang" }
+        "1": {
+          "name": "keyword.declaration.ulang"
+        },
+        "2": {
+          "name": "keyword.declaration.ulang"
+        },
+        "3": {
+          "name": "constant.numeric.ulang"
+        }
       }
     },
     "keyword": {
       "patterns": [
         {
           "name": "keyword.control.ulang",
-          "match": "\\b(if|then|else|while|do|match|case|end|let|in|lambda|for|call|assign|skip|assert|raise|try|catch)\\b"
+          "match": "\\b(if|then|else|while|match|case|end|let|in|lambda|for|call|assign|skip|assert|raise|try|catch|out|ref)\\b"
         },
         {
           "name": "keyword.other.ulang",
-          "match": "\\b(local|eval|run|test)\\b"
+          "match": "\\b(eval|run|test)\\b"
         },
         {
           "name": "keyword.operator.word.ulang",
@@ -93,6 +210,33 @@
     "operator": {
       "name": "keyword.operator.ulang",
       "match": "[-+*/%<>=!&|:^~?@#$]+"
+    },
+    "local": {
+      "begin": "\\b(local)\\b",
+      "end": "$",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.ulang"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#keyword"
+        },
+        {
+          "include": "#type"
+        },
+        {
+          "include": "#operator"
+        }
+      ]
+    },
+    "constructor": {
+      "name": "entity.name.function.constructor.ulang",
+      "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
     }
   }
 }

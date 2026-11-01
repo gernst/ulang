@@ -1,29 +1,29 @@
-function fact(n: Int): Int =
+function fact(n: Int): Int :=
   if n == 0 then 1 else n * fact(n - 1)
 
-function id[A](x: A): A =
+function id[A](x: A): A :=
   x
 
-function twice[A](f: A -> A, x: A): A =
+function twice[A](f: A -> A, x: A): A :=
   f(f(x))
 
 // let generalizes its bindings
-function poly(): Bool =
-  let f = id in f(1) == twice(f, 1) and f(true)
+function poly(): Bool :=
+  let f := id in f(1) == twice(f, 1) and f(true)
 
-function generic(): Bool =
-  let g = lambda y => y in g(1) == 1 and g(true)
+function generic(): Bool :=
+  let g := lambda y => y in g(1) == 1 and g(true)
 
-sort Pred[A] = A -> Bool
+sort Pred[A] :=
+  | A -> Bool
 
-function pos(): Pred[Int] =
+function pos(): Pred[Int] :=
   lambda x => x > 0
 
-test
-  assert fact(5) == 120;
-  assert twice(lambda x => x * 3, 1) == 9;
-  assert poly();
-  assert generic();
-  assert pos()(1);
-  assert pos()(0) == false;
-end
+test functions :=
+  assert fact(5) == 120
+  assert twice(lambda x => x * 3, 1) == 9
+  assert poly()
+  assert generic()
+  assert pos()(1)
+  assert pos()(0) == false

@@ -1,1 +1,3 @@
-data Option[A] = none | some(A)
+data Option[A] :=
+  | None
+  | Some(A)

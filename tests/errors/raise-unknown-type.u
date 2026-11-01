@@ -1,4 +1,3 @@
 // type error: the type List[?1] of an exception is not fully known at 3.3
-test
-  raise nil;
-end
+test raise_unknown_type :=
+  raise Nil

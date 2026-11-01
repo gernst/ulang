@@ -1,6 +1,6 @@
-// type error: match is not exhaustive, missing some(_) :: _ at 3.3
-function f(x: List[Option[Int]]): Int =
+// type error: match is not exhaustive, missing Some(_) :: _ at 3.3
+function f(x: List[Option[Int]]): Int :=
   match x
-    case nil => 0
-    case none :: _ => 1
+    case Nil => 0
+    case None :: _ => 1
   end

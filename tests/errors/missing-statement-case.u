@@ -1,6 +1,5 @@
 // type error: match is not exhaustive, missing false at 3.3
-procedure p(x: Bool; r: Int)
+procedure p(in x: Bool, out r: Int) :=
   match x
-    case true => assign r := 0;
+    case true => assign r := 0
   end
-end

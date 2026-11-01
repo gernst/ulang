@@ -53,7 +53,7 @@ object Main:
   // the runs and tests of a program, which are numbered from 1 in the order of the file
   def blocks(r: Run): List[Cmd] =
     r.program.cmds.filter:
-      case Cmd.Run(_) | Cmd.Test(_) =>
+      case Cmd.Run(_) | Cmd.Test(_, _) =>
         true
       case _ =>
         false
@@ -88,36 +88,50 @@ object Main:
       val path = os.Path(file, os.pwd)
       val r = load(os.read(path), path)
       val results =
-        for case (c @ Cmd.Test(_), i) <- blocks(r).zip(LazyList.from(1))
+        for case c @ Cmd.Test(name, _) <- blocks(r)
         yield
           try
             r.output(c)
-            println(s"test $i passed")
+            println(s"test $name passed")
             true
           catch
             case e: Error =>
-              println(s"test $i failed: ${e.getMessage}")
+              println(s"test $name failed: ${e.getMessage}")
               false
       results.forall(identity)
 
-  // runs the n-th run or test of file
-  def only(n: Int, file: String): Boolean =
+  // the test of that name, or else the run or test with that number
+  def block(r: Run, which: String): Cmd =
+    val named =
+      blocks(r).collectFirst:
+        case c @ Cmd.Test(name, _) if name == which =>
+          c
+    named match
+      case Some(c) =>
+        c
+      case None if which.forall(_.isDigit) && which.nonEmpty =>
+        blocks(r).lift(which.toInt - 1).getOrElse(error("runtime", s"there is no run or test $which"))
+      case None =>
+        error("runtime", s"there is no test $which")
+
+  // runs one run or test of file
+  def only(which: String, file: String): Boolean =
     attempt(file):
       val path = os.Path(file, os.pwd)
       val r = load(os.read(path), path)
-      val c = blocks(r).lift(n - 1).getOrElse(error("runtime", s"there is no run or test $n"))
+      val c = block(r, which)
       for line <- r.output(c) do
         println(line)
       true
 
-  // ulang file.u ..., ulang --tests file.u ..., or ulang --only n file.u
+  // ulang file.u ..., ulang --tests file.u ..., or ulang --only name-or-number file.u
   def main(args: Array[String]): Unit =
     val results =
       args.toList match
         case "--tests" :: files =>
           files.map(tests)
         case "--only" :: n :: List(file) =>
-          List(only(n.toInt, file))
+          List(only(n, file))
         case files =>
           files.map(report)
     if results.contains(false) then
