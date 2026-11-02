@@ -12,7 +12,7 @@ The parts in `self/` form a compiler from ulang to C written in ulang, which com
 
 ### Open points
 
-1. **The bootstrap reaches a fixed point**: the interpreter compiles `ulang.u` to `ulang1.c` in about 8 minutes, whose program compiles `ulang.u` to `ulang2.c` in about 35 seconds, and both are identical. This has no make target or test yet, and 35 seconds for 400 KB of C suggests quadratic list operations, e.g. `++` on growing lists or association lists as maps.
+1. **The bootstrap reaches a fixed point**: `make bootstrap` compiles the compiler with the interpreter in about 40 seconds, and `make selfcompile` with itself in about a second, where the compiled compiler takes 0.3 seconds on itself.
 2. **Builtins are registered in five places**: their types in `Check.scala` and `self/check.u`, and their implementations in `Run.scala`, `self/run.u`, and the runtime with `builtin_functions` of `self/compile.u`. Signatures declared in library modules, e.g. `builtin function str_get(s: Str, i: Int): Char`, would leave only the implementations, and would make a builtin exist once its module is imported.
 3. **Builtins are enabled by datatype names**: `read` and `library` by any datatype `Program`, the `os_` procedures by `OsError`. Enabling them by the import of their module would be sturdier, e.g. with `syntax.u` in the library.
 4. **Prefixes against clashes.** Hooking up the parser hit clashes of `literal`, `resolve`, `formals`, and `expr_cases`, which prefixes avoid. With modules, helpers of modules that are not imported together may share names, so the prefixes in `lex.u` and `parse.u` could go where no module imports both.
@@ -23,7 +23,8 @@ The parts in `self/` form a compiler from ulang to C written in ulang, which com
 9. **Paths read at run time** are relative to the program in the interpreter, but to the working directory in compiled programs.
 10. **The file lists in the tests of `parse.u`** are written out, since there is no `os_list`.
 11. **`read`, `library`, and `Quote`** only remain as the oracle of the tests of `parse.u`, and as stubs in the runtime, since imported procedures that call them are compiled.
-12. **Parsing is slow in the interpreter**: compiling the compiler with it takes about ten minutes.
+12. **The interpreter is slow**: compiling the compiler with it takes about 40 seconds, more than a hundred times as long as compiled, since it walks the syntax with environments as immutable maps, `BigInt`s, and arguments as lists.
+13. **`self/run.u` does not cache functions without parameters**, unlike `Run.scala` and compiled code, so a value that needs itself overflows the stack instead of reporting a recursive initialization, and the literals of `keywords()` and `builtin_names()` are built at every call when `run.u` interprets the compiler.
 
 ## Modules
 
@@ -63,7 +64,7 @@ Points of a critique of the syntax, ordered by how much they cost when writing `
 
 1. **Updates of fields** (done). `c with funs := f, named := bs` applies the generated updaters `T.funs:=` and `T.named:=`.
 2. **Locals** (done). `local x := e` infers the type of `x` from its initial value.
-3. **No parsers as values.** Procedures are not values, and functions cannot fail, so `self/parse.u` repeats each loop of `repsep` and `rep1sep` per kind of item, and has the operator loop three times and `cases` twice, which makes it more than twice as long as `Parser.scala`.
+3. **No parsers as values.** Procedures are not values, and functions cannot fail, so `self/parse.u` repeats each loop of `repsep` and `rep1sep` per kind of item, and has the operator loop three times, `cases` twice, and the generators of comprehensions in `parse_brackets` and `set_comprehension`, which makes it more than twice as long as `Parser.scala`.
 4. **Patterns are weaker than expressions.** There are no or-patterns `case TParam(_) | TMeta(_) =>`, or as-patterns, which forced `self/run.u` to rebuild values it had just taken apart.
 5. **One global namespace.** Functions, procedures, and constructors share one namespace, and overloading only distinguishes arities, hence names like `zonk_type` and `zonk_expr`, or `UnknownProc` next to `UnknownProcedure`. Qualified names for modules (`check.infer`) or constructors (`Expr.Var`) would help.
 6. **Ad-hoc overloading.** Overloading by types, not only by arities, would let one name serve lists, sets, and maps,
@@ -345,3 +346,13 @@ Open findings of a review of the named fields, where the others are resolved: `s
 1. **Accessors need known types.** `e.f` needs the type of `e` when the access is inferred, so a lambda `lambda p => p.x` fails with an unknown type, although the type would be inferred later. Resolving accesses at the end of the command, with a fresh type for the result in the meantime, would remove this restriction.
 2. **Accesses as variables.** An access is the application of a variable `.f` until the checker resolves it, instead of a node `EField(e, f)` of the syntax. Only the parser produces it, always applied, so other passes do not see it, but a node would be clearer, which goes well with resolving accesses later.
 3. **Accessors ignore visibility.** `e.f` resolves to the accessor of the module of the type of `e`, also if the module of the access does not import it, which is intended: whoever has a value of a type may read its fields.
+
+Open findings of a review of the literals and comprehensions of sets and maps, negative literals, and the cache of functions without parameters:
+
+4. **Literals resolve to fixed modules.** `{a, b}` and `{k => v}` are calls of `set.from_list` and `map.put_all` with qualified names, which resolve whenever a module of that name is part of the program: a local `set.u` that an import loads instead of the library takes their place, and a module may use the literals without importing `set` or `map` if another module does.
+5. **Misleading errors after `for`.** In `Parser.scala`, a generator of a set or map comprehension that does not parse makes the parser backtrack into the literal, which reports `} expected` at `for`, while `self/parse.u` reports the generator, so the parsers disagree on the message.
+6. **Matches in map comprehensions repeat.** The key and value of each hidden entry are matched again for the result, the condition, and the map of each later generator. Patterns in generators of comprehensions, `for (k, v) in entries(m)`, would bind them once and remove the hidden variables.
+7. **Negative literals take the position of the number**, not of the `-`, so errors at `-1` point one column too far.
+8. **Smaller points.**
+   - `nil_expr()` in `self/parse.u` is still written out where `parse_brackets` builds `Nil`.
+   - `literal` and `comprehension` in `Parser.scala` use a `match` of guards only, and `forall`, `foldRight`, `zipWithIndex`, and `take`, instead of recursion and nested matches.
