@@ -40,14 +40,12 @@ data RuntimeError :=
   | NotFunction(Value)
   | Unspecified(Name, List[Value])
   | NoCase(Value)
-  | DivisionByZero
   | CompareFunctions
   | NotList(Value)
   | AssertionFailed
   | AssertionUnequal(Value, Value)
   | UnassignedOutput(Name, Name)
   | UnknownProc(Name)
-  | Error(Str)
 
 // an exception of the program with its type
 data Thrown :=
@@ -111,7 +109,7 @@ function constr_arity(k: Constr): Name * Int :=
 
 function is_builtin(n: Name): Bool :=
   match n
-    case Name(None, b) => contains(b, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "compare", "error", "str_get", "str_contains", "str_compare", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"])
+    case Name(None, b) => contains(b, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "compare", "str_get", "str_contains", "str_compare", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"])
     else false
   end
 
@@ -331,6 +329,10 @@ procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value) :=
     case ETuple(items) =>
       call   evaluate_all(in p, env, items, out vs)
       assign v := Obj(tuple_name(), vs)
+
+    case ERaise(arg, t) =>
+      call evaluate(in p, env, arg, out v)
+      raise Thrown(v, t)
   end
 
 procedure evaluate_all(in p: Prog, env: Bindings, es: List[Expr], out vs: List[Value]) :=
@@ -435,6 +437,10 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value) :=
       raise NotFunction(f)
   end
 
+// an exception of a builtin, of a type of the prelude
+function failure(n: Name, args: List[Value]): Thrown :=
+  Thrown(Obj(n, args), TSort(n, Nil))
+
 procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
   local r: Bool
 
@@ -449,13 +455,13 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := Lit(VInt(a * b))
 
     case ("/", [Lit(VInt(_)), Lit(VInt(0))]) =>
-      raise DivisionByZero
+      raise failure(division_by_zero_name(), Nil)
 
     case ("/", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a / b))
 
     case ("%", [Lit(VInt(_)), Lit(VInt(0))]) =>
-      raise DivisionByZero
+      raise failure(division_by_zero_name(), Nil)
 
     case ("%", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a % b))
@@ -483,6 +489,10 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := Lit(VInt(ord(c)))
 
     case ("chr", [Lit(VInt(k))]) =>
+      if k < 0 or k > 65535
+        raise failure(no_character_name(), [Lit(VInt(k))])
+      end
+
       assign v := Lit(VChar(chr(k)))
 
     case ("^", [Lit(VStr(s)), Lit(VStr(t))]) =>
@@ -499,20 +509,29 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
           raise NotList(w)
       end
 
+    // from i up to but excluding j, where i <= j are indices of s or its end
     case ("str_slice", [Lit(VStr(s)), Lit(VInt(i)), Lit(VInt(j))]) =>
+      if i < 0 or i > str_size(s) or i > j
+        raise failure(no_index_name(), [Lit(VStr(s)), Lit(VInt(i))])
+      else if j > str_size(s)
+        raise failure(no_index_name(), [Lit(VStr(s)), Lit(VInt(j))])
+      end
+
       assign v := Lit(VStr(str_slice(s, i, j)))
 
     case ("str_split", [Lit(VStr(s)), Lit(VChar(c))]) =>
       assign v := list_value([Lit(VStr(part)) for part in str_split(s, c)])
 
     case ("str_get", [Lit(VStr(s)), Lit(VInt(i))]) =>
+      if i < 0 or i >= str_size(s)
+        raise failure(no_index_name(), [Lit(VStr(s)), Lit(VInt(i))])
+      end
+
       assign v := Lit(VChar(str_get(s, i)))
 
     case ("str_contains", [Lit(VStr(s)), Lit(VChar(c))]) =>
       assign v := Lit(VBool(str_contains(s, c)))
 
-    case ("error", [Lit(VStr(m))]) =>
-      raise Error(m)
     case ("str_compare", [Lit(VStr(s)), Lit(VStr(t))]) =>
       assign v := Lit(VInt(str_compare(s, t)))
 
@@ -1014,7 +1033,7 @@ test errors :=
     call   check_and_run(in [CEval(ap("/", [num(1), num(0)]))], out os)
     assert false
   catch
-    case DivisionByZero =>
+    case Thrown(Obj(n, _), _) if n == division_by_zero_name() =>
       skip
   end
 

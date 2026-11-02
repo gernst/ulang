@@ -82,6 +82,8 @@ class Quote(syntax: Id):
         obj("EApp", quote(fun), list(args)(quote))
       case Expr.Tuple(items) =>
         obj("ETuple", list(items)(quote))
+      case Expr.Raise(arg, typ) =>
+        obj("ERaise", quote(arg), quote(typ))
       case Expr.Lam(bound, body) =>
         obj("ELam", binders(bound), quote(body))
       case Expr.Let(bound, body) =>
@@ -281,6 +283,8 @@ class Quote(syntax: Id):
         variable(x)
       case K("ETuple", List(es)) =>
         Expr.Tuple(items(es)(expr))()
+      case K("ERaise", List(a, t)) =>
+        Expr.Raise(expr(a), typ(t))()
       case K("EApp", List(fun, args)) =>
         Expr.App(expr(fun), items(args)(expr))()
       case K("ELam", List(bound, body)) =>

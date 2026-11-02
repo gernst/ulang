@@ -25,6 +25,11 @@ object Names:
   val none = Name(Some("option"), "None")
   val some = Name(Some("option"), "Some")
   val osError = Name(Some("os"), "OsError")
+  // the exceptions of builtins and accessors, which the prelude declares
+  val divisionByZero = Name(Some("prelude"), "DivisionByZero")
+  val noIndex = Name(Some("prelude"), "NoIndex")
+  val noCharacter = Name(Some("prelude"), "NoCharacter")
+  val missingField = Name(Some("prelude"), "MissingField")
   val tuple = Name(",")
 
 // source positions, which are not part of the equality and the patterns of nodes
@@ -54,6 +59,8 @@ enum Expr:
   case Match(arg: Expr, cases: List[Case[Expr]])(val pos: Pos = nowhere)
   case Comp(result: Expr, bound: List[Pat.Var], lists: List[Expr], test: Expr)(val pos: Pos = nowhere)
   case Tuple(items: List[Expr])(val pos: Pos = nowhere)
+  // an exception of type typ, as an expression of any type
+  case Raise(arg: Expr, typ: Type)(val pos: Pos = nowhere)
 
 enum Pat:
   def pos: Pos

@@ -38,6 +38,8 @@ data Expr :=
   | EMatch(Expr, List[Branch[Expr]])
   | EComp(Expr, List[Var], List[Expr], Expr)
   | ETuple(List[Expr])
+  // an exception, as an expression of any type
+  | ERaise(Expr, Type)
 
 data Pat :=
   | PWild
@@ -124,6 +126,19 @@ function some_name(): Name :=
 
 function os_error_name(): Name :=
   Name(Some("os"), "OsError")
+
+// the exceptions of the builtins and of accessors of fields, which the prelude declares
+function division_by_zero_name(): Name :=
+  Name(Some("prelude"), "DivisionByZero")
+
+function no_index_name(): Name :=
+  Name(Some("prelude"), "NoIndex")
+
+function no_character_name(): Name :=
+  Name(Some("prelude"), "NoCharacter")
+
+function missing_field_name(): Name :=
+  Name(Some("prelude"), "MissingField")
 
 function tuple_name(): Name :=
   unqualified(",")

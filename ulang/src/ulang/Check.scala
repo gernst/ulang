@@ -60,8 +60,6 @@ object Check:
       "==" -> eq,
       // a total order of values consistent with ==, which is -1, 0, or 1
       "compare" -> (List(Type.Param("A")), fun(List(Type.Param("A"), Type.Param("A")), Int)),
-      // a runtime error with a message, e.g. for a field that a value does not have
-      "error" -> (List(Type.Param("A")), fun(List(Str), Type.Param("A"))),
       "and" -> logic,
       "or" -> logic,
       // strings are converted from and to lists of characters
@@ -371,6 +369,8 @@ class Check(program: Program, main: Id):
         Expr.Comp(zonk(result), bound.map(zonk(_)), lists.map(zonk(_)), zonk(test))(e.pos)
       case Expr.Tuple(items) =>
         Expr.Tuple(items.map(zonk(_)))(e.pos)
+      case Expr.Raise(arg, typ) =>
+        Expr.Raise(zonk(arg), at(e.pos)(exception(typ)))(e.pos)
 
   def zonk(p: Pat): Pat =
     p match
@@ -638,6 +638,12 @@ class Check(program: Program, main: Id):
         case Expr.Tuple(items) =>
           val (items1, ts) = infer(env, items)
           (Expr.Tuple(items1)(e.pos), Type.Tuple(ts))
+
+        // the exception, whose type must be known after checking, and the expression of any type
+        case Expr.Raise(arg, typ) =>
+          val (arg1, t) = infer(env, arg)
+          unify(t, normalize(typ))
+          (Expr.Raise(arg1, t)(e.pos), fresh())
 
   // each list may refer to the variables bound before it
   def generators(env: Map[Name, (List[Type], Type)], xs: List[Pat.Var], lists: List[Expr]): List[Expr] =

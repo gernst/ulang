@@ -73,11 +73,21 @@ object Run:
   def cell(v: Any): Cell =
     Cell(Some(v))
 
-  def nonzero(v: Any): BigInt =
-    require("runtime", int(v) != 0, "division by zero")
+  // an exception of a builtin, of a type of the prelude
+  def raise(name: Name, args: List[Any], pos: Pos): Nothing =
+    throw Raised(Obj(name, args), Type.Sort(name, Nil), pos)
+
+  def nonzero(v: Any, pos: Pos): BigInt =
+    if int(v) == 0 then raise(Names.divisionByZero, Nil, pos)
     int(v)
 
-  def builtin(f: Id)(args: List[Any]): Any =
+  // the index i of s, which must be within s, or at its end if end is true
+  def index(s: String, i: Any, end: Boolean, pos: Pos): Int =
+    if int(i) < 0 || int(i) > s.length || int(i) == s.length && !end then raise(Names.noIndex, List(s, int(i)), pos)
+    int(i).toInt
+
+  // where builtins that fail raise exceptions at pos, the position of the call
+  def builtin(f: Id, pos: Pos)(args: List[Any]): Any =
     (f, args) match
       case ("+", List(a, b)) =>
         int(a) + int(b)
@@ -86,9 +96,9 @@ object Run:
       case ("*", List(a, b)) =>
         int(a) * int(b)
       case ("/", List(a, b)) =>
-        int(a) / nonzero(b)
+        int(a) / nonzero(b, pos)
       case ("%", List(a, b)) =>
-        int(a) % nonzero(b)
+        int(a) % nonzero(b, pos)
       case ("<", List(a, b)) =>
         int(a) < int(b)
       case ("==", List(a, b)) =>
@@ -100,7 +110,7 @@ object Run:
       case ("ord", List(c: Char)) =>
         BigInt(c.toInt)
       case ("chr", List(n)) =>
-        require("runtime", int(n) >= 0 && int(n) <= Char.MaxValue.toInt, s"no character ${int(n)}")
+        if int(n) < 0 || int(n) > Char.MaxValue.toInt then raise(Names.noCharacter, List(int(n)), pos)
         int(n).toChar
       case ("^", List(s: String, t: String)) =>
         s + t
@@ -108,16 +118,15 @@ object Run:
         BigInt(s.length)
       case ("str_join", List(sep: String, ss)) =>
         elements(ss).map(string).mkString(sep)
-      // from i up to but excluding j, as drop(i) and take(j - i), which ignore indices outside of s
+      // from i up to but excluding j, where i <= j are indices of s or its end
       case ("str_slice", List(s: String, i, j)) =>
-        s.drop(int(i).toInt).take((int(j) - int(i)).toInt)
+        val (a, b) = (index(s, i, true, pos), index(s, j, true, pos))
+        if a > b then raise(Names.noIndex, List(s, BigInt(a)), pos)
+        s.substring(a, b)
       case ("str_split", List(s: String, c: Char)) =>
         list(s.split(java.util.regex.Pattern.quote(c.toString), -1).toList)
       case ("str_get", List(s: String, i)) =>
-        require("runtime", int(i) >= 0 && int(i) < s.length, s"no index ${int(i)} in a string of size ${s.length}")
-        s(int(i).toInt)
-      case ("error", List(m: String)) =>
-        error("runtime", m)
+        s(index(s, i, false, pos))
       case ("str_contains", List(s: String, c: Char)) =>
         s.contains(c)
       // -1, 0, or 1 as s is before, equal to, or after t, by the codes of their characters
@@ -220,7 +229,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
               case _ =>
                 error("runtime", "compare takes two arguments")
         case Expr.Var(name, _) if name.module.isEmpty && Check.builtins.contains(name.base) =>
-          builtin(name.base)
+          builtin(name.base, e.pos)
         case Expr.Var(name, _) =>
           error("runtime", s"$name is not initialized")
 
@@ -260,6 +269,9 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
 
         case Expr.Tuple(items) =>
           Obj(Names.tuple, items.map(eval(env, _)))
+
+        case Expr.Raise(arg, typ) =>
+          throw Raised(eval(env, arg), typ, e.pos)
 
   def constr(c: Name)(arity: Int): Any =
     if arity == 0 then

@@ -1,5 +1,18 @@
 // loaded before every program, whose notations apply to it
 
+// the exceptions of the builtins and of accessors of fields, which every module sees
+data DivisionByZero :=
+  | DivisionByZero
+
+data NoIndex :=
+  | NoIndex(Str, Int)
+
+data NoCharacter :=
+  | NoCharacter(Int)
+
+data MissingField :=
+  | MissingField(Str)
+
 infix right 1 ->
 
 infix right 2 ==>

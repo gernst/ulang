@@ -158,3 +158,91 @@ test guarded_handlers :=
       assign n := k
   end
   assert n == 2
+
+// raise is also an expression of any type, such that functions can raise exceptions, which statements catch
+data NotDigit :=
+  | NotDigit(Char)
+
+function digit(c: Char): Int :=
+  if is_digit(c) then ord(c) - ord('0') else raise NotDigit(c)
+
+function digits(cs: List[Char]): Int :=
+  match cs
+    case Nil => 0
+    case [c; rest] => digit(c) + 10 * digits(rest)
+  end
+
+test raise_in_functions :=
+  local n := 0, bad := ' '
+
+  assign n := digits(['1', '2'])
+
+  try
+    assign n := digits(['1', 'x'])
+  catch
+    case NotDigit(c) =>
+      assign bad := c
+  end
+
+  assert n == 21 and bad == 'x'
+
+data Shape :=
+  | Circle(label: Str, radius: Int)
+  | Box(label: Str)
+
+// builtins and accessors of fields raise exceptions of the prelude
+procedure failure(in k: Int, out m: Str) :=
+  local x := 0
+
+  assign m := "none"
+
+  try
+    match k
+      case 0 =>
+        assign x := 1 / 0
+      case 1 =>
+        assign x := 1 % 0
+      case 2 =>
+        assign x := ord(str_get("ab", 2))
+      case 3 =>
+        assign x := str_size(str_slice("ab", 1, 3))
+      case 4 =>
+        assign x := str_size(str_slice("ab", 2, 1))
+      case 5 =>
+        assign x := ord(chr(-1))
+      else
+        assign x := Box("b").radius
+    end
+  catch
+    case DivisionByZero =>
+      assign m := "division"
+    case NoIndex(s, i) =>
+      assign m := s ^ str_show(i)
+    case NoCharacter(n) =>
+      assign m := str_show(n)
+    case MissingField(f) =>
+      assign m := f
+  end
+
+  if m == "none"
+    assign m := str_show(x)
+  end
+
+test builtin_exceptions :=
+  local m: Str
+
+  call   failure(in 0, out m)
+  assert m == "division"
+  call   failure(in 1, out m)
+  assert m == "division"
+  call   failure(in 2, out m)
+  assert m == "ab2"
+  call   failure(in 3, out m)
+  assert m == "ab3"
+  call   failure(in 4, out m)
+  assert m == "ab2"
+  call   failure(in 5, out m)
+  assert m == "-1"
+  call   failure(in 6, out m)
+  assert m == "Shape.radius"
+  assert str_slice("ab", 0, 2) == "ab" and str_slice("ab", 2, 2) == ""

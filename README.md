@@ -36,9 +36,10 @@ test sizes :=
 
 - Functions are pure expressions, procedures are statements with `in`, `out`, and `ref` parameters.
 - Datatypes with pattern matching, guards, and checks that matches are exhaustive and cases reachable.
-- Named fields of constructors, read as `e.field`, which is resolved by the type of `e`, and a runtime error for a constructor without that field.
+- Named fields of constructors, read as `e.field`, which is resolved by the type of `e`, and raises `MissingField` for a constructor without that field.
 - Type inference with let-polymorphism, where top-level declarations carry their types.
-- Exceptions of any type, raised and caught by statements.
+- Exceptions of any type, raised by `raise e` in statements and expressions, and caught by `try`.
+  Builtins raise `DivisionByZero`, `NoIndex`, and `NoCharacter`, whereas a failed `assert` ends the program.
 - Unbounded integers, characters, and strings.
 - User-defined operators by `infix`, `prefix`, and `postfix` notations.
 - Modules: `import name` makes the declarations of a file available, but not transitively.

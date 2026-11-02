@@ -90,6 +90,144 @@ What a language would ideally offer for writing code with an AI assistant, which
 - **Missing**: records, modules with exports, procedures as values or functions that can fail, `local x := e`, positions in errors, and contracts. These are extensions, not redesigns, see the points above.
 - **Questionable**: user-defined notations make the syntax depend on declarations, e.g. whether `and` is an operator or a name, for tools and for writing code alike.
 
+## Verification
+
+A design, not implemented yet: contracts on functions and procedures, lemmas about functions, and claims `correct p` that a procedure meets its contract, whose proofs stay out of the code.
+
+### Specifications
+
+- **Contracts follow `:=`**, before the body. Functions have only `requires`, which states their domain, and facts about their results are lemmas. Procedures have `requires` and `ensures`, one contract each for now, where `ensures` sees the outs and refs, and `old(x)` is the initial value of a ref (ins cannot be assigned):
+
+  ```
+  function div(m: Int, n: Int): Int :=
+    requires n != 0
+    ...
+
+  procedure sum(in n: Int, out s: Int) :=
+    requires n >= 0
+    ensures  2 * s == n * (n - 1)
+    local i := 0
+
+    assign s := 0
+    while i < n
+      assign s := s + i, i := i + 1
+    end
+  ```
+
+- **Quantifiers** are written like lambdas, `forall x: T => e` and `exists x, y => e`, where the types may be omitted and are inferred, and only occur in specifications and lemmas.
+- **Lemmas** have parameters like functions, which are universally quantified, and optionally outs as a tuple at the end, `: (q: Int, r: Int)`, which are named, unlike the components of tuple types, and existentially quantified. A lemma has a contract like a procedure, `requires` as hypotheses and `ensures` as the statement, or the claim `correct p(…)` with the arguments of a call, followed by a proof:
+
+  ```
+  lemma length_append[A](xs: List[A], ys: List[A]) :=
+    ensures length(xs ++ ys) == length(xs) + length(ys)
+  proof
+    ...
+
+  lemma division(m: Int, n: Int): (q: Int, r: Int) :=
+    requires n > 0
+    ensures  m == q * n + r and 0 <= r and r < n
+  proof
+    ...
+
+  lemma sum_correct(n: Int): (s: Int) :=
+    correct sum(in n, out s)
+  proof
+    ...
+  ```
+
+- **Outs of lemmas.** A lemma with a contract states that for all parameters that satisfy the `requires` there are outs that satisfy the `ensures`, so that its proof gives witnesses, which a proof as a program assigns, e.g. `assign q := m / n, r := m % n`, and a proof that uses the lemma obtains them with names of its own, e.g. `obtain (q, r) := division(a, b)`, a syntax still to be designed. In a claim `correct p(…)` the outs of the lemma are those of the call, which the run determines, not the proof: under partial correctness the claim holds for the outs of every run that ends normally, and under total correctness this is exactly the existential, since a run exists and gives them.
+- **Scopes are explicit.** A proof sees only names that it or its lemma binds, never the parameters of the procedure implicitly:
+  - the parameters and outs of the lemma, which name every argument of the call in the claim, `correct p(in n, out s)`,
+  - at a point `at …` of the body, its locals in scope there, which the quoted code names, e.g. `i` in `at while i < n`.
+
+  The names of the lemma may differ from the parameters of the procedure, whose contract is renamed to them, so that a proof does not change when a parameter is renamed.
+- **No invariants in the code.** Loops are specified in the proofs of the procedures, see below.
+
+### Meaning
+
+1. **`correct p`** states for all ins and initial refs: if the `requires` hold, every run of the body that ends normally satisfies the `ensures`. The claim does not restate the contract.
+2. **Calls use contracts**: at `call q(...)`, the `requires` of `q` are proven, the outs and refs havocked, and the `ensures` assumed. Callers depend only on the contract, not on whether or how it is proven.
+3. **Recursion.** Each body is proven assuming all contracts, including its own and those of procedures that call it back, which is sound for partial correctness for all of them at once by induction on the depth of calls (Hoare's recursion rule, generalized to mutual recursion). Proofs have no order and no cycles.
+4. **Unproven contracts** make this conditional: if the contract of `q` is not proven, the proofs that use it hold only under it, which `--verify` reports, e.g. `sum proved, assuming q`.
+5. **Every contract is an obligation.** Without a `correct` lemma, the verifier tries a default proof and reports the remaining goals, including those at loops, so that the workflow is to write the contract, see where it gets stuck, and add a lemma with a proof.
+6. **Definedness**: calls of functions with `requires`, `/`, `%`, and `raise` give obligations wherever they occur, taking guards into account, as in `n != 0 ==> m / n > 0`.
+7. **Functions in lemmas must terminate**, by structural recursion or a `decreases` after `:=`, since unfolding `f(x) = f(x) + 1` would prove false.
+
+### Obligations
+
+The verifier splits `correct p` into labeled obligations with positions, which errors show and proofs refer to:
+
+- the `requires` of calls and the definedness conditions,
+- every `assert` of the code, which then also holds as a fact,
+- for every loop, those of its invariant or contract (entry, preservation or step, and use),
+- the `ensures` at the end of every path through the body, where a `raise` ends a path that `ensures` does not cover, unless a handler of a `try` catches it.
+
+### Loops
+
+The proof of a procedure gives each loop an invariant or a loop contract.
+
+1. **Invariant `I`**: it holds on entry, `I` and the test lead through the body to `I`, and `I` and the negated test hold after the loop, where only the variables the loop assigns are havocked.
+2. **Loop contract `requires P ensures Q`**: a loop is the recursive procedure `if b then body; call loop(ref vs) end` over the variables it assigns, and the contract is its contract, proven by assuming it for the remaining iterations. `P` holds at every test of the loop, and `Q` relates that state, as `old(v)`, to the state at the exit:
+   - **exit**: `P` and not `b` imply `Q` with `old(v)` as `v`,
+   - **step**: from `P` and `b` the body leads to a state where `P` holds and `Q` up to the exit implies `Q` from before the body,
+   - **use**: `P` holds on entry, then the assigned variables are havocked and `Q` assumed with `old(v)` as the values on entry.
+3. **Invariants are a special case**, `requires I ensures I and not b`. `P` is an inductive invariant as well, but it need not imply the result, since `Q` carries that. An invariant relates the start of the loop to the current state, which may need ghost variables, while `Q` relates the current state to the end, for which `old` suffices: reversing a list into `ys` has the invariant `rev(xs) ++ ys == rev(xs0)` with the initial `xs0`, but the contract `ensures ys == rev(old(xs)) ++ old(ys)`, and `total` of `tests/procedures.u` has `ensures s == old(s) + sum(old(ys))`. Counting loops are usually simpler with invariants, loops that consume a structure with contracts.
+
+References: G. Ernst, Loop Verification with Invariants and Contracts, VMCAI 2022; T. Tuerk, Local Reasoning about While-Loops, VSTTE 2010; E. Hehner, Specified Blocks, VSTTE 2005, and A Practical Theory of Programming, 1993; the recursive loop proofs of VeriFast; A. Charguéraud, Characteristic Formulae for the Verification of Imperative Programs, ICFP 2011; C. A. R. Hoare, Procedures and Parameters: An Axiomatic Approach, 1971; T. Nipkow, Hoare Logics for Recursive Procedures and Unbounded Nondeterminism, CSL 2002.
+
+### Points of the code in proofs
+
+A proof of `correct p` is about the body, but not in it, so it refers to its loops, its branches, its calls, where a lemma may bridge the contract, and to intermediate facts.
+
+1. **By the order of goals** (KIV, KeY): symbolic execution stops at loops and branches, and the proof answers the goals in order, with `case` for branches. No names, but unreadable without the goals and fragile when code moves.
+2. **By matching the code**: the proof quotes enough of it, matched against the body modulo positions, readable without tools and robust to most edits, ambiguous where a loop repeats, which falls back to the order or a path like `at if a > b / else / while …`:
+
+   ```
+   at while i < n
+     invariant 0 <= i and i <= n and 2 * s == i * (i - 1)
+   at call total(in ys, out t)
+     using sum_append
+   ```
+
+3. **By labels in the code**, `while i < n as count`, stable, but in the code.
+4. **By proof outlines**, a skeleton of the body with annotations, explicit, but it duplicates the code.
+
+Matching the code, with the order as the fallback, is the candidate.
+
+### The proof language
+
+An open design point. It has to answer:
+
+1. case analysis on values, on branches of the code, and on obligations,
+2. induction, by schemes of datatypes or by recursive uses of the lemma,
+3. using lemmas, instantiating, and rewriting with them,
+4. intermediate facts and calculations, `have` and chains `a == b == c`,
+5. points of the code, see above,
+6. where automation ends, i.e. what the solver does unasked,
+7. whether proofs are readable without the goals,
+8. how much of a proof survives changes of the code and the lemmas.
+
+The styles:
+
+- **Tactic scripts** (Coq, Lean, Isabelle `apply`): `induction xs; simp; auto`, short and powerful, but unreadable without the goals, which the editor would have to show, and fragile.
+- **Structured proofs** (Isar, Lean `calc`): `case Cons(y, ys) => have … show …`, readable and robust with local errors, but verbose and a larger language.
+- **Hints only** (Dafny, Why3): invariants and `using` lemmas, small, with nothing to fall back on when the solver fails.
+- **Proofs as programs** (lemma bodies of Dafny, VeriFast): the proof is a statement, `match` for cases, `assert` for facts, and a recursive call of the lemma for the induction hypothesis, sound by a termination check like that of functions, with the parameters of the lemma as ins and its outs as outs. A proof of `correct p` would be a sequence of `at …` with invariants, loop contracts, and facts at calls, each with such a statement where needed. This adds only `at` and `invariant`/`loop` to the statements, but gives up rewriting tactics like `simp`, which could return as builtin procedures or hints `auto [lemmas]`.
+
+### Backend
+
+Tactics or proof statements reduce obligations to goals (fixed variables, hypotheses, a conclusion), which an SMT solver closes: Z3 or cvc5 by SMT-LIB 2.6, datatypes as `declare-datatypes`, functions as `define-fun-rec` guarded by their `requires`, lemmas as axioms, polymorphism monomorphized, and lambdas defunctionalized or rejected in specifications.
+
+### Open points
+
+1. **The proof language**, see above.
+2. **Refs in claims**: a ref of the procedure would be a parameter of the lemma for its initial value and an out for its final value, e.g. `lemma inc_correct(x: Int): (y: Int) := correct inc(ref x => y)`, which needs a syntax for the pair, and then needs no `old` in the lemma.
+3. **Contracts without a `correct` lemma**: tried by a default proof, or reported as unproven.
+4. **Several contracts per procedure**, e.g. as claims `correct p ensures …`, which calls would all assume.
+5. **Total correctness**, by `decreases` on loops and procedures, and claims about exceptions, e.g. `raises`.
+6. **`self/`** at first only parses specifications, lemmas, and proofs and drops them, since the tests of `parse.u` compare both parsers on `tests/`.
+7. **Runtime checks** of contracts in the interpreter, which make specifications useful in tests before they are proven.
+
 ## Review
 
 Open findings of a review of the named fields, where the others are resolved: `self/` runs in Scala again, `C()` parses, and repeated fields and fields of different types are errors at the declaration.

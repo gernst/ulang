@@ -388,7 +388,17 @@ function starts_expr(ns: List[Cmd], t: Token): Bool :=
     else false
   end
 
+// raise e is a whole expression, not an operand, such that a statement raise after an expression starts a statement
 procedure parse_expr(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
+  if at_keyword(ts, "raise")
+    call   advance(ref ts)
+    call   parse_expr(in sc, out e, ref ts)
+    assign e := ERaise(e, THole)
+  else
+    call operators(in sc, out e, ref ts)
+  end
+
+procedure operators(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
   local items: List[Item[Expr]]
 
   call   expr_items(in sc, out items, ref ts)
@@ -1370,7 +1380,7 @@ function field_case(e: Id * (Name * Int * Int * Type)): Branch[Expr] :=
   end
 
 function missing_field(t: Id, f: Id): Branch[Expr] :=
-  Branch(PWild, None, EApp(EVar(Var(unqualified("error"), THole)), [ELit(VStr("no field " ^ f ^ " of " ^ t))]))
+  Branch(PWild, None, ERaise(EApp(EVar(Var(unqualified("MissingField"), THole)), [ELit(VStr(t ^ "." ^ f))]), THole))
 
 function positions(n: Int): List[Int] :=
   positions_from(0, n)

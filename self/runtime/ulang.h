@@ -21,6 +21,9 @@ struct u_name {
 // the constructors that the builtins create, of the modules list, option, and os of the library
 extern const struct u_name n_list_46_Nil, n_list_46_Cons, n_option_46_None, n_option_46_Some, n_os_46_OsError;
 
+// the exceptions of the builtins and of accessors of fields, which the prelude declares
+extern const struct u_name n_prelude_46_DivisionByZero, n_prelude_46_NoIndex, n_prelude_46_NoCharacter, n_prelude_46_MissingField;
+
 // the code of a closure, with its captured values and its arguments
 typedef u_value (*code)(u_value *env, u_value *args);
 
@@ -85,7 +88,6 @@ static inline u_value u_field(u_value v, int i) {
 }
 int u_equals(u_value a, u_value b);
 u_value u_compare(u_value a, u_value b);
-u_value u_error(u_value message);
 u_value u_apply(u_value f, int n, ...);
 
 u_value u_add(u_value a, u_value b);

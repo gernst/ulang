@@ -192,8 +192,6 @@ function builtin_scheme(b: Id): List[List[Type] * Type] :=
       case "<" => [(Nil, fun([tint(), tint()], tbool()))]
       case "==" => [([a], fun([a, a], tbool()))]
       case "compare" => [([a], fun([a, a], tint()))]
-      // a runtime error with a message, e.g. for a field that a value does not have
-      case "error" => [([a], fun([tstr()], a))]
       case "and" => [logic()]
       case "or" => [logic()]
       case "chars" => [(Nil, fun([tstr()], tlist(tchar())))]
@@ -363,6 +361,7 @@ function zonk_expr(su: Subst, e: Expr): Expr :=
     case EMatch(a, bs) => EMatch(zonk_expr(su, a), [zonk_expr_branch(su, b) for b in bs])
     case EComp(r, xs, ls, c) => EComp(zonk_expr(su, r), zonk_vars(su, xs), [zonk_expr(su, l) for l in ls], zonk_expr(su, c))
     case ETuple(es) => ETuple([zonk_expr(su, e) for e in es])
+    case ERaise(a, t) => ERaise(zonk_expr(su, a), zonk_type(su, t))
   end
 
 function zonk_binding(su: Subst, p: Var * Expr): Var * Expr :=
@@ -421,15 +420,44 @@ function zonk_cmd(su: Subst, c: Cmd): Cmd :=
 function unknown_type(t: Type): Option[Type] :=
   if free(t) == Nil then None else Some(t)
 
+// the type of an exception that is not known, also of those raised in expressions
 function unknown_in(x: Stmt): Option[Type] :=
   match x
+    case SAssign(ps) => unknown_in_exprs(seconds(ps))
     case SBlock(_, ys) => unknown_in_all(ys)
-    case SIf(_, l, r) => or_else(unknown_in(l), unknown_in(r))
-    case SWhile(_, b) => unknown_in(b)
-    case SMatch(_, bs) => unknown_in_branches(bs)
-    case SRaise(_, t) => unknown_type(t)
+    case SIf(c, l, r) => or_else(unknown_in_expr(c), or_else(unknown_in(l), unknown_in(r)))
+    case SWhile(c, b) => or_else(unknown_in_expr(c), unknown_in(b))
+    case SCall(_, ins, _, _) => unknown_in_exprs(ins)
+    case SMatch(a, bs) => or_else(unknown_in_expr(a), unknown_in_branches(bs))
+    case SAssert(c) => unknown_in_expr(c)
+    case SRaise(a, t) => or_else(unknown_type(t), unknown_in_expr(a))
     case STry(b, hs) => or_else(unknown_in(b), unknown_in_handlers(hs))
     else None
+  end
+
+function unknown_in_expr(e: Expr): Option[Type] :=
+  match e
+    case ERaise(a, t) => or_else(unknown_type(t), unknown_in_expr(a))
+    case EApp(f, args) => unknown_in_exprs([f; args])
+    case ELam(_, b) => unknown_in_expr(b)
+    case ELet(ps, b) => unknown_in_exprs(seconds(ps) ++ [b])
+    case EIte(c, l, r) => unknown_in_exprs([c, l, r])
+    case EMatch(a, bs) => unknown_in_exprs([a; concat([branch_exprs(b) for b in bs])])
+    case EComp(r, _, ls, c) => unknown_in_exprs([r, c; ls])
+    case ETuple(es) => unknown_in_exprs(es)
+    else None
+  end
+
+function unknown_in_exprs(es: List[Expr]): Option[Type] :=
+  match es
+    case Nil => None
+    case [e; rest] => or_else(unknown_in_expr(e), unknown_in_exprs(rest))
+  end
+
+function branch_exprs(b: Branch[Expr]): List[Expr] :=
+  match b
+    case Branch(_, Some(g), e) => [g, e]
+    case Branch(_, None, e) => [e]
   end
 
 function unknown_in_all(xs: List[Stmt]): Option[Type] :=
@@ -441,7 +469,8 @@ function unknown_in_all(xs: List[Stmt]): Option[Type] :=
 function unknown_in_branches(bs: List[Branch[Stmt]]): Option[Type] :=
   match bs
     case Nil => None
-    case [Branch(_, _, y); rest] => or_else(unknown_in(y), unknown_in_branches(rest))
+    case [Branch(_, Some(g), y); rest] => or_else(unknown_in_expr(g), or_else(unknown_in(y), unknown_in_branches(rest)))
+    case [Branch(_, None, y); rest] => or_else(unknown_in(y), unknown_in_branches(rest))
   end
 
 // handlers of _ catch exceptions of any type
@@ -454,6 +483,8 @@ function unknown_in_handlers(hs: List[Handler]): Option[Type] :=
 
 function unknown_in_cmd(c: Cmd): Option[Type] :=
   match c
+    case CFun(_, _, _, _, b) => unknown_in_expr(b)
+    case CEval(e) => unknown_in_expr(e)
     case CProc(_, _, _, _, _, b) => unknown_in(b)
     case CRun(_, b) => unknown_in(b)
     case CTest(_, b) => unknown_in(b)
@@ -909,7 +940,7 @@ procedure use(in n: Name, a: Type, sc: List[Type] * Type, out x: Var, ref s: Sta
   assign x := Var(n, u)
 
 procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
-  local sc: List[Type] * Type, m: Name, x: Var, xs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, es: List[Expr], ts: List[Type], bs: List[Branch[Expr]]
+  local sc: List[Type] * Type, m: Name, x: Var, xs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, w: Type, es: List[Expr], ts: List[Type], bs: List[Branch[Expr]]
 
   match e
     case ELit(v) =>
@@ -951,6 +982,14 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
     case ETuple(items) =>
       call   infers(in env, items, out es, ts, ref s)
       assign e1 := ETuple(es), t := TTuple(ts)
+
+    // the exception, whose type must be known after checking, and the expression of any type
+    case ERaise(arg, a) =>
+      call   infer(in env, arg, out c, u, ref s)
+      call   normalize(in a, out w, ref s)
+      call   unify(in u, w, ref s)
+      call   fresh(out t, ref s)
+      assign e1 := ERaise(c, u)
 
     case EMatch(arg, cases) =>
       call   fresh(out t, ref s)

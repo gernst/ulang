@@ -258,8 +258,9 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def formals(s: Scope): Parser[List[Pat.Var]] =
     list(formal(s))
 
+  // raise e is a whole expression, not an operand, such that a statement raise after an expression starts a statement
   def expr(s: Scope): Parser[Expr] =
-    operators(s)
+    located(pos => kw("raise") ~> expr(s) ^^ (Expr.Raise(_, Type.Hole)(pos))) | operators(s)
 
   def exprs(s: Scope): Parser[List[Expr]] =
     rep1sep(expr(s), ",")
@@ -546,7 +547,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       }
     }
 
-  // the accessor T.f of each field f, which is partial if f is not a field of all constructors
+  // the accessor T.f of each field f, which raises MissingField if f is not a field of all constructors
   def accessors(t: Id, ps: List[Id], ks: List[(Constr, List[Option[Id]])], pos: Pos): List[Cmd] =
     val fields =
       for
@@ -564,7 +565,8 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
           Case(Pat.App(k, ps)(pos), None, Expr.Var(Name("y"), Type.Hole)(pos))
       val missing =
         if es.length == ks.length then Nil
-        else List(Case(Pat.Wild()(pos), None, Expr.App(Expr.Var(Name("error"), Type.Hole)(pos), List(Expr.Lit(s"no field $f of $t")(pos)))(pos)))
+        else
+          List(Case(Pat.Wild()(pos), None, Expr.Raise(Expr.App(Expr.Var(Name("MissingField"), Type.Hole)(pos), List(Expr.Lit(s"$t.$f")(pos)))(pos), Type.Hole)(pos)))
       val x: Pat.Var = Pat.Var(Name("x"), Type.Sort(Name(t), ps.map(Type.Param(_))))(pos)
       Cmd.Fun(Name(s"$t.$f"), ps, List(List(x)), es.head._5, Expr.Match(Expr.Var(Name("x"), Type.Hole)(pos), cases ++ missing)(pos))(pos)
 

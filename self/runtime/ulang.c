@@ -171,6 +171,18 @@ const struct u_name n_list_46_Cons = {"list", "Cons", 1};
 const struct u_name n_option_46_None = {"option", "None", 0};
 const struct u_name n_option_46_Some = {"option", "Some", 1};
 const struct u_name n_os_46_OsError = {"os", "OsError", 0};
+const struct u_name n_prelude_46_DivisionByZero = {"prelude", "DivisionByZero", 0};
+const struct u_name n_prelude_46_NoIndex = {"prelude", "NoIndex", 0};
+const struct u_name n_prelude_46_NoCharacter = {"prelude", "NoCharacter", 0};
+const struct u_name n_prelude_46_MissingField = {"prelude", "MissingField", 0};
+
+static void division_by_zero(void) {
+  u_raise(u_mk_con(&n_prelude_46_DivisionByZero, 0), "prelude.DivisionByZero");
+}
+
+static void no_index(u_value s, u_value i) {
+  u_raise(u_mk_con(&n_prelude_46_NoIndex, 2, s, i), "prelude.NoIndex");
+}
 
 u_value u_mk_con(const struct u_name *name, int size, ...) {
   va_list args;
@@ -252,12 +264,6 @@ int u_equals(u_value a, u_value b) {
   return compare(a, b) == 0;
 }
 
-// a runtime error of an expression, which ends the program
-u_value u_error(u_value message) {
-  u_fail(message->text);
-  return NULL;
-}
-
 u_value u_compare(u_value a, u_value b) {
   return u_mk_int(compare(a, b));
 }
@@ -295,13 +301,13 @@ static int divisible(u_value a, u_value b) {
 
 // division truncates toward zero, as BigInt in Scala and C, and a big integer is never zero
 u_value u_div(u_value a, u_value b) {
-  if (b->kind == INT && b->num == 0) u_fail("division by zero");
+  if (b->kind == INT && b->num == 0) division_by_zero();
   if (divisible(a, b)) return u_mk_int(a->num / b->num);
   return slow(mpz_tdiv_q, a, b);
 }
 
 u_value u_mod(u_value a, u_value b) {
-  if (b->kind == INT && b->num == 0) u_fail("division by zero");
+  if (b->kind == INT && b->num == 0) division_by_zero();
   if (divisible(a, b)) return u_mk_int(a->num % b->num);
   return slow(mpz_tdiv_r, a, b);
 }
@@ -335,7 +341,7 @@ u_value u_ord(u_value c) {
 }
 
 u_value u_chr(u_value n) {
-  if (n->kind != INT || n->num < 0 || n->num > 65535) u_fail("no character");
+  if (n->kind != INT || n->num < 0 || n->num > 65535) u_raise(u_mk_con(&n_prelude_46_NoCharacter, 1, n), "prelude.NoCharacter");
   return u_mk_char(n->num);
 }
 
@@ -393,12 +399,11 @@ u_value u_str_join(u_value sep, u_value ss) {
 // from i up to but excluding j, as drop(i) and take(j - i) in Scala, which ignore indices outside of s
 u_value u_str_slice(u_value s, u_value i, u_value j) {
   long long n = s->length, a = index_of(i), b = index_of(j);
-  long long start = a < 0 ? 0 : (a > n ? n : a), count = b - a;
-  if (count < 0) count = 0;
-  if (start + count > n) count = n - start;
-  char *r = text(count);
-  u_memcpy(r, s->text + start, count);
-  return u_mk_str_n(r, count);
+  if (a < 0 || a > n || a > b) no_index(s, i);
+  if (b > n) no_index(s, j);
+  char *r = text(b - a);
+  u_memcpy(r, s->text + a, b - a);
+  return u_mk_str_n(r, b - a);
 }
 
 // the parts between the occurrences of c, including empty ones
@@ -418,12 +423,7 @@ u_value u_str_split(u_value s, u_value c) {
 
 u_value u_str_get(u_value s, u_value i) {
   size_t n = (size_t)s->length;
-  if (i->kind != INT || i->num < 0 || (size_t)i->num >= n) {
-    char *d = digits(i);
-    char *m = GC_MALLOC_ATOMIC(64 + u_strlen(d));
-    sprintf(m, "no index %s in a string of size %zu", d, n);
-    u_fail(m);
-  }
+  if (i->kind != INT || i->num < 0 || (size_t)i->num >= n) no_index(s, i);
   return u_mk_char((unsigned char)s->text[i->num]);
 }
 

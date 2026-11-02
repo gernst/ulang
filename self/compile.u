@@ -59,7 +59,6 @@ function builtin_functions(): List[Name * (Str * Int)] :=
     (unqualified("<"), ("u_lt", 2)),
     (unqualified("=="), ("u_eq", 2)),
     (unqualified("compare"), ("u_compare", 2)),
-    (unqualified("error"), ("u_error", 1)),
     (unqualified("chars"), ("u_chars", 1)),
     (unqualified("string"), ("u_string", 1)),
     (unqualified("ord"), ("u_ord", 1)),
@@ -86,7 +85,7 @@ function descriptor(n: Name): CExpr :=
 
 // the constructors whose descriptors the runtime defines, since its builtins create them
 function runtime_constructors(): List[Name] :=
-  [nil_name(), cons_name(), none_name(), some_name(), os_error_name()]
+  [nil_name(), cons_name(), none_name(), some_name(), os_error_name(), division_by_zero_name(), no_index_name(), no_character_name(), missing_field_name()]
 
 // the descriptor of constructor n at position i of its declaration
 function descriptor_decl(n: Name, i: Int): CDecl :=
@@ -267,6 +266,7 @@ function free_vars(e: Expr, bound: List[Name]): List[Name] :=
     case EMatch(a, cs) => free_vars(a, bound) ++ concat([free_in_branch(b, bound) for b in cs])
     case EComp(r, xs, ls, c) => concat([free_vars(l, names(xs) ++ bound) for l in ls]) ++ free_vars(r, names(xs) ++ bound) ++ free_vars(c, names(xs) ++ bound)
     case ETuple(es) => concat([free_vars(a, bound) for a in es])
+    case ERaise(a, _) => free_vars(a, bound)
   end
 
 function free_in_branch(b: Branch[Expr], bound: List[Name]): List[Name] :=
@@ -321,7 +321,7 @@ procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], 
   match e
     // a string literal is a static object, which is created once, named after its text
     case ELit(VStr(s)) =>
-      call   gen_name(in "l_" ^ mangle(unqualified(str_slice(s, 0, 16))) ^ "_", out t, ref g)
+      call   gen_name(in "l_" ^ mangle(unqualified(str_slice(s, 0, if str_size(s) < 16 then str_size(s) else 16))) ^ "_", out t, ref g)
       assign ss := [CsDecl(CtNamed("static struct u_object"), t, Some(c_call("U_LIT", [CeStr(s)])))], r := CeUnary("&", CeVar(t))
 
     case ELit(l) =>
@@ -383,6 +383,11 @@ procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], 
     case ETuple(items) =>
       call   compile_exprs(in gl, env, items, out ss, rs, ref g)
       assign r := c_call("u_mk_tuple", [CeNum(length(items))] ++ rs)
+
+    // the value of a raise is never used, since u_raise does not return
+    case ERaise(arg, ty) =>
+      call   compile_expr(in gl, env, arg, out as, ra, ref g)
+      assign ss := as ++ [CsExpr(c_call("u_raise", [ra, CeStr(type_key(ty))]))], r := CeVar("NULL")
   end
 
 procedure compile_exprs(in gl: Globals, env: Vars, es: List[Expr], out ss: List[CStmt], rs: List[CExpr], ref g: Gen) :=
@@ -701,15 +706,23 @@ procedure compile_cmds(in gl: Globals, cs: List[Cmd], out ds: List[CDecl], ms: L
       assign ds := d1 ++ d2, ms := m1 ++ m2
   end
 
-// the body of a function without arguments, whose value is computed once, since expressions are pure,
-// where the cache is U_COMPUTING while the value is computed, which detects a value that needs itself
+// the body of a function without arguments, whose value is computed once, since expressions are deterministic,
+// where the cache is U_COMPUTING while the value is computed, which detects a value that needs itself,
+// and an exception that leaves the computation resets the cache, such that the next call computes it again
 function cached(n: Str, bs: List[CStmt], r: CExpr): List[CStmt] :=
-  [
-    CsDecl(CtNamed("static u_value"), "cache", Some(CeVar("NULL"))),
-    CsIf(CeBinary("==", CeVar("cache"), CeVar("U_COMPUTING")), [CsExpr(c_call("u_fail", [CeStr("recursive initialization of " ^ n)]))], []),
-    CsIf(CeVar("cache"), [CsReturn(Some(CeVar("cache")))], []),
-    CsAssign(CeVar("cache"), CeVar("U_COMPUTING"))
-  ] ++ bs ++ [CsAssign(CeVar("cache"), r), CsReturn(Some(CeVar("cache")))]
+  let h := CeVar("handler") in
+    [
+      CsDecl(CtNamed("static u_value"), "cache", Some(CeVar("NULL"))),
+      CsIf(CeBinary("==", CeVar("cache"), CeVar("U_COMPUTING")), [CsExpr(c_call("u_fail", [CeStr("recursive initialization of " ^ n)]))], []),
+      CsIf(CeVar("cache"), [CsReturn(Some(CeVar("cache")))], []),
+      CsAssign(CeVar("cache"), CeVar("U_COMPUTING")),
+      CsDecl(CtPtr(CtNamed("struct u_handler")), "handler", Some(c_call("u_push", []))),
+      CsIf(
+        CeBinary("!=", c_call("setjmp", [CeArrow(h, "env")]), CeNum(0)),
+        [CsExpr(c_call("u_pop", [h])), CsAssign(CeVar("cache"), CeVar("NULL")), CsExpr(c_call("u_reraise", [h]))],
+        []
+      )
+    ] ++ bs ++ [CsExpr(c_call("u_pop", [h])), CsAssign(CeVar("cache"), r), CsReturn(Some(CeVar("cache")))]
 
 // closures of functions, constructors, and builtins, which take their arguments from an array
 function wrappers(gl: Globals): List[CDecl] :=
