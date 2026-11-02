@@ -766,16 +766,6 @@ procedure unique_ids(in ns: List[Id]) :=
   end
 
 // the one of the names ns that n refers to
-procedure one_of(in n: Name, ns: List[Name], out m: Name) :=
-  match ns
-    case [k] =>
-      assign m := k
-    case Nil =>
-      raise UnknownVariable(n)
-    else
-      raise Ambiguous(n, ns)
-  end
-
 procedure same_length(in m: Int, n: Int) :=
   if m != n
     raise CountMismatch(m, n)

@@ -300,7 +300,7 @@ procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value) :=
       assign v := Lit(l)
 
     case EVar(Var(n, t)) =>
-      call variable_value(in p, env, n, t, out v)
+      assign v := variable_value(p, env, n, t)
 
     case EApp(f, args) =>
       call apply_expr(in p, env, f, args, out v)
@@ -361,30 +361,17 @@ procedure evaluate_all(in p: Prog, env: Bindings, es: List[Expr], out vs: List[V
       assign vs := [v; rest]
   end
 
-procedure variable_value(in p: Prog, env: Bindings, n: Name, t: Type, out v: Value) :=
+function variable_value(p: Prog, env: Bindings, n: Name, t: Type): Value :=
   match lookup(n, env)
-    case Some(w) =>
-      assign v := w
+    case Some(w) => w
     case None =>
       match lookup((n, arity(t)), p.funs)
-        case Some(_) =>
-          assign v := Fn(n, arity(t))
+        case Some(_) => Fn(n, arity(t))
         case None =>
           match lookup(n, p.constrs)
-            case Some(k) =>
-              if k == 0
-                assign v := Obj(n, Nil)
-              else
-                assign v := Con(n)
-              end
-            case None if has_key(n, p.procs) =>
-              assign v := Proc(n)
-            case None =>
-              if is_builtin(n)
-                assign v := Prim(n)
-              else
-                raise Uninitialized(n)
-              end
+            case Some(k) => if k == 0 then Obj(n, Nil) else Con(n)
+            case None if has_key(n, p.procs) => Proc(n)
+            case None => if is_builtin(n) then Prim(n) else raise Uninitialized(n)
           end
       end
   end

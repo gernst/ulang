@@ -325,26 +325,20 @@ procedure lift(in d: CDecl, ref g: Gen) :=
   assign g := g with lifted := g.lifted ++ [d]
 
 // a function, constructor, or builtin of name n with type t as a value, which is a closure of its wrapper
-procedure global_value(in gl: Globals, n: Name, t: Type, out r: CExpr) :=
-  if is_global_fun(gl, n, arity(t))
-    assign r := c_call("u_mk_closure", [CeVar("w_" ^ fun_name(n, arity(t))), CeNum(0)])
+function global_value(gl: Globals, n: Name, t: Type): CExpr :=
+  if is_global_fun(gl, n, arity(t)) then
+    c_call("u_mk_closure", [CeVar("w_" ^ fun_name(n, arity(t))), CeNum(0)])
   else
     match fields_count(gl, n)
-      case Some(0) =>
-        assign r := c_call("u_mk_con", [descriptor(n), CeNum(0)])
-      case Some(_) =>
-        assign r := c_call("u_mk_closure", [CeVar("wc_" ^ mangle(n)), CeNum(0)])
+      case Some(0) => c_call("u_mk_con", [descriptor(n), CeNum(0)])
+      case Some(_) => c_call("u_mk_closure", [CeVar("wc_" ^ mangle(n)), CeNum(0)])
       case None =>
         match get(n, builtin_functions())
-          case Some((f, _)) =>
-            assign r := c_call("u_mk_closure", [CeVar("w" ^ f), CeNum(0)])
-          case None if has(n, gl.procs) =>
-            assign r := c_call("u_mk_proc", [CeVar("wp_" ^ mangle(n)), CeNum(0)])
-          case None =>
-            raise Unsupported("the variable " ^ qualified(n))
+          case Some((f, _)) => c_call("u_mk_closure", [CeVar("w" ^ f), CeNum(0)])
+          case None if has(n, gl.procs) => c_call("u_mk_proc", [CeVar("wp_" ^ mangle(n)), CeNum(0)])
+          case None => raise Unsupported("the variable " ^ qualified(n))
         end
     end
-  end
 
 // the statements that compute e in a scope with the local variables env, and its value r
 procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], r: CExpr, ref g: Gen) :=
@@ -364,8 +358,7 @@ procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], 
         case Some(c) =>
           assign ss := Nil, r := c
         case None =>
-          call   global_value(in gl, n, ty, out r)
-          assign ss := Nil
+          assign ss := Nil, r := global_value(gl, n, ty)
       end
 
     case EApp(EVar(Var(n, ty)), args) if not contains(n, keys(env)) =>
@@ -459,7 +452,7 @@ function rebind(xs: List[Name], ts: List[CStmt]): List[CStmt] :=
 
 // applications of functions, constructors, and builtins of their arities are direct calls
 procedure compile_named(in gl: Globals, env: Vars, n: Name, ty: Type, args: List[Expr], out ss: List[CStmt], r: CExpr, ref g: Gen) :=
-  local as: List[CStmt], bs: List[CStmt], ra: CExpr, rb: CExpr, rs: List[CExpr], f: CExpr, t: Str
+  local as: List[CStmt], bs: List[CStmt], ra: CExpr, rb: CExpr, rs: List[CExpr], t: Str
 
   match args
     // and, or are not strict
@@ -484,8 +477,7 @@ procedure compile_named(in gl: Globals, env: Vars, n: Name, ty: Type, args: List
           case Some((b, k)) if k == length(args) =>
             assign r := c_call(b, rs)
           else
-            call   global_value(in gl, n, ty, out f)
-            assign r := c_call("u_apply", [f, CeNum(length(args))] ++ rs)
+            assign r := c_call("u_apply", [global_value(gl, n, ty), CeNum(length(args))] ++ rs)
         end
       end
   end
