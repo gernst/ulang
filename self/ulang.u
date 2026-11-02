@@ -113,12 +113,37 @@ function in_module(words: List[Str]): Bool :=
   end
 
 // the checked program of file after the prelude, which is the module of its base name
+// where a module of the library that the prelude imports keeps only its tests, since the prelude declares the rest
 procedure load_file(in file: Str, out q: Program) :=
-  local pre: Program, p: Program
+  local name := base_name(file), pre: Program, p: Program, text: Str, library: Str, own: List[Cmd]
 
-  call parse_library(in "prelude", out pre)
-  call parse_file_after(in file, pre, out p)
-  call check_program(in Program([CModule("prelude", pre.cmds); p.cmds]), base_name(file), out q)
+  call   parse_library(in "prelude", out pre)
+  call   parse_file_after(in file, pre, out p)
+  assign own := p.cmds
+
+  if contains(name, ["prelude"; module_names(pre.cmds)])
+    call os_read(in file, out text)
+    call os_library(in name, out library)
+
+    if text == library
+      assign own := [c for c in p.cmds if is_any_test(c)]
+    end
+  end
+
+  call check_program(in Program([CModule("prelude", pre.cmds); own]), name, out q)
+
+function module_names(cs: List[Cmd]): List[Id] :=
+  match cs
+    case Nil => Nil
+    case [CModule(n, _); rest] => [n; module_names(rest)]
+    case [_; rest] => module_names(rest)
+  end
+
+function is_any_test(c: Cmd): Bool :=
+  match c
+    case CTest(_, _) => true
+    else false
+  end
 
 procedure check_file(in file: Str, out ok: Bool) :=
   local q: Program
