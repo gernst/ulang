@@ -717,6 +717,10 @@ void p_os_write(u_value path, u_value contents) {
   if (fclose(f) || !ok) os_error("cannot write ", path->text);
 }
 
+void p_os_print(u_value v) {
+  u_print_line(v);
+}
+
 void p_os_library(u_value name, u_value *result) {
   char *path = text(u_strlen(ULANG_LIB) + (size_t)name->length + 3);
   sprintf(path, "%s/%s.u", ULANG_LIB, name->text);

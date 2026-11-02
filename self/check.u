@@ -1365,6 +1365,7 @@ function os_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * L
       (unqualified("os_args"), (Nil, Nil, [tlist(tstr())], Nil)),
       (unqualified("os_read"), (Nil, [tstr()], [tstr()], Nil)),
       (unqualified("os_write"), (Nil, [tstr(), tstr()], Nil, Nil)),
+      (unqualified("os_print"), ([TParam("A")], [TParam("A")], Nil, Nil)),
       (unqualified("os_library"), (Nil, [tstr()], [tstr()], Nil))
     ]
   else

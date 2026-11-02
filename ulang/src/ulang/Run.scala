@@ -511,6 +511,9 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
         try os.write.over(os.Path(path, dir), text, createFolders = true)
         catch case _: java.io.IOException => throw osError(s"cannot write $path", pos)
         Nil
+      case (None, "os_print", List(v)) =>
+        printed += Printer.show(v)
+        Nil
       case (None, "os_library", List(name: String)) =>
         List(Main.libraryText(name).getOrElse(throw osError(s"unknown module $name", pos)))
       case _ =>
@@ -544,21 +547,38 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
   def run(): List[String] =
     program.cmds.flatMap(output)
 
+  // the lines that os_print printed during the command so far
+  val printed = scala.collection.mutable.ListBuffer[String]()
+
+  // the lines of c after those it printed, which are printed at once if c fails
   def output(c: Cmd): List[String] =
     try
-      c match
-        case Cmd.Eval(expr) =>
-          List(Printer.show(eval(Map(), expr)))
-        case Cmd.Run(_, body) =>
-          results(body)
-        case Cmd.Test(_, body) =>
-          exec(Map(), body)
-          Nil
-        case _ =>
-          Nil
+      val lines =
+        c match
+          case Cmd.Eval(expr) =>
+            List(Printer.show(eval(Map(), expr)))
+          case Cmd.Run(_, body) =>
+            results(body)
+          case Cmd.Test(_, body) =>
+            exec(Map(), body)
+            Nil
+          case _ =>
+            Nil
+      val all = printed.toList ++ lines
+      printed.clear()
+      all
     catch
       case e: Raised =>
+        flush()
         error("runtime", s"uncaught exception ${Printer.show(e.value)}", e.pos)
+      case e: Throwable =>
+        flush()
+        throw e
+
+  def flush(): Unit =
+    for line <- printed do
+      println(line)
+    printed.clear()
 
   // executes a block and returns the assigned values of its variables
   def results(body: Stmt): List[String] =

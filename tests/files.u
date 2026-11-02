@@ -40,3 +40,8 @@ test arguments :=
 
   call   os_args(out args)
   assert args == []
+
+// os_print prints any value as the interpreter shows it
+run printing :=
+  call os_print(in [1, 2])
+  call os_print(in ("a", Some('b')))

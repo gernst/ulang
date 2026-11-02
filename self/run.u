@@ -8,6 +8,7 @@ import check
 
 import os
 import set
+import map
 
 data Value :=
   | Lit(Val)
@@ -37,9 +38,10 @@ data Prog :=
     computing: List[Name]
   )
 
-// the cells by address, which are unassigned initially, the next address, and the values of functions without parameters
+// the cells by address, which are unassigned initially, the next address, the values of functions without parameters,
+// and the values that os_print printed during the command so far, the last first
 data Heap :=
-  | Heap(cells: List[Int * Option[Value]], next: Int, values: List[Name * Value])
+  | Heap(cells: Map[Int, Option[Value]], next: Int, values: List[Name * Value], printed: List[Value])
 
 // the cells of variables
 type Store :=
@@ -67,6 +69,7 @@ data Thrown :=
 data Output :=
   | Evaluated(Value)
   | Ran(Bindings)
+  | Printed(Value)
 
 function position_of(p: Prog, k: Name): Int :=
   match lookup(k, p.positions)
@@ -204,12 +207,9 @@ function matches_all(ps: List[Pat], vs: List[Value]): Option[Bindings] :=
 
 
 function read_cell(h: Heap, a: Int): Option[Value] :=
-  match h
-    case Heap(cells, _, _) =>
-      match lookup(a, cells)
-        case Some(c) => c
-        case None => None
-      end
+  match get(a, h.cells)
+    case Some(c) => c
+    case None => None
   end
 
 function address_of(store: Store, n: Name): Int :=
@@ -236,16 +236,10 @@ function assigned(store: Store, h: Heap, seen: List[Name]): Bindings :=
   end
 
 procedure alloc(in c: Option[Value], out a: Int, ref h: Heap) :=
-  match h
-    case Heap(cells, n, vs) =>
-      assign a := n, h := Heap([(n, c); cells], n + 1, vs)
-  end
+  assign a := h.next, h := h with cells := put(h.next, c, h.cells), next := h.next + 1
 
 procedure write_cell(in a: Int, v: Value, ref h: Heap) :=
-  match h
-    case Heap(cells, n, vs) =>
-      assign h := Heap(update(a, Some(v), cells), n, vs)
-  end
+  assign h := h with cells := put(a, Some(v), h.cells)
 
 procedure alloc_vars(in xs: List[Var], out store: Store, ref h: Heap) :=
   local a: Int, rest: Store
@@ -871,6 +865,8 @@ procedure invoke(in p: Prog, n: Name, ins: List[Value], refs: List[Int], out out
       call   alloc_vars(in ys, out out_cells, ref h)
       call   exec(in p, in_cells ++ out_cells ++ zip(names(zs), refs), body, ref h)
       call   read_outs(in n, out_cells, h, out outs)
+    case None if n.base == "os_print" =>
+      assign outs := Nil, h := h with printed := reverse(ins) ++ h.printed
     case None =>
       call os_proc(in n, ins, out outs)
   end
@@ -936,8 +932,9 @@ procedure results(in p: Prog, body: Stmt, out bs: Bindings, ref h: Heap) :=
       assign bs := Nil
   end
 
+// the outputs of the commands cs, where the values that a command printed come before its own output
 procedure outputs(in p: Prog, cs: List[Cmd], out os: List[Output], ref h: Heap) :=
-  local v: Value, bs: Bindings, rest: List[Output]
+  local v: Value, bs: Bindings, ps: List[Output], rest: List[Output]
 
   match cs
     case Nil =>
@@ -945,25 +942,32 @@ procedure outputs(in p: Prog, cs: List[Cmd], out os: List[Output], ref h: Heap) 
 
     case [CEval(e); more] =>
       call   evaluate(in p, Nil, e, out v, ref h)
+      call   printed_outputs(out ps, ref h)
       call   outputs(in p, more, out rest, ref h)
-      assign os := [Evaluated(v); rest]
+      assign os := ps ++ [Evaluated(v); rest]
 
     case [CRun(_, body); more] =>
       call   results(in p, body, out bs, ref h)
+      call   printed_outputs(out ps, ref h)
       call   outputs(in p, more, out rest, ref h)
-      assign os := [Ran(bs); rest]
+      assign os := ps ++ [Ran(bs); rest]
 
     case [CTest(_, body); more] =>
       call   exec(in p, Nil, body, ref h)
-      call   outputs(in p, more, out os, ref h)
+      call   printed_outputs(out ps, ref h)
+      call   outputs(in p, more, out rest, ref h)
+      assign os := ps ++ rest
 
     case [_; more] =>
       call outputs(in p, more, out os, ref h)
   end
 
+procedure printed_outputs(out ps: List[Output], ref h: Heap) :=
+  assign ps := [Printed(v) for v in reverse(h.printed)], h := h with printed := Nil
+
 // the outputs of a checked program, failed assertions are errors
 procedure run_program(in q: Program, out os: List[Output]) :=
-  local h := Heap(Nil, 0, Nil)
+  local h := Heap(empty(), 0, Nil, Nil)
 
   call outputs(in load(q), q.cmds, out os, ref h)
 
@@ -1059,6 +1063,18 @@ test procedures :=
       )
     ], out os)
   assert os == [Ran([(unqualified("s"), int(10))]), Ran([(unqualified("k"), int(2)), (unqualified("m"), int(2))])]
+
+// os_print in a module that imports os, whose printed values come before the variables of the run
+test printing :=
+  local os: List[Output]
+
+  call check_and_run(in
+    [
+      CModule("os", [CData(unqualified("OsError"), Nil, [Constr(unqualified("OsError"), [tstr()])])]),
+      CImport("os"),
+      CRun("r", SBlock([Var(unqualified("x"), tint())], [SAssign([(hole_var("x"), num(1))]), SCall(unqualified("os_print"), [ev("x")], Nil, Nil)]))
+    ], out os)
+  assert os == [Printed(int(1)), Ran([(unqualified("x"), int(1))])]
 
 // a declared procedure and a lambda that captures k, called through variables
 test procedure_values :=

@@ -1073,6 +1073,8 @@ class Check(decls: List[(Id, Cmd)], main: Id, before: Ctx = Check.initial, impor
         Some((Nil, List(Str), List(Type.Sort(program.get, Nil)), Nil))
       case "os_read" | "os_library" if datas.contains(Names.osError) =>
         Some((Nil, List(Str), List(Str), Nil))
+      case "os_print" if datas.contains(Names.osError) =>
+        Some((List(Type.Param("A")), List(Type.Param("A")), Nil, Nil))
       case "os_args" if datas.contains(Names.osError) =>
         Some((Nil, Nil, List(list(Str)), Nil))
       case "os_write" if datas.contains(Names.osError) =>

@@ -2,6 +2,15 @@
 
 Open action items, each with the problem and the desired solution.
 
+## Command line
+
+1. **The drivers differ, and their options are flags**: `./ulang.sh` runs files and takes `--tests` and `--only`, while `./ulang.bin` only compiles; `eval` prints values, runs print their variables, and programs print only with `os_print`, which prints any value as `Printer.show` does. Solution, step by step, each committed with all checks passing:
+   1. Drop `eval` from the language, and runs no longer print their variables.
+   2. Commands as in git, the same for `./ulang.sh` and `./ulang.bin`: `ulang run <file> [<name>] [-- args]`, `ulang test <file> [<name> ...] [-- args]`, `ulang check <file>`, and `ulang compile <file> <entry> <target.c>`, with exit status 1 on failure, first in `Main`, where `compile` runs `self/ulang.u` in the interpreter, with the Makefile, the VS Code extension, and the docs.
+   3. The compiler with an entry: `main()` runs the run `<entry>`, or all tests for the entry `test`, which `make selftest` uses.
+   4. `self/ulang.u` as the driver with the same commands, on `run.u` with the arguments of the program, selected runs and tests, and errors with positions.
+   5. Both drivers with the same output on `tests/`, and then the time of `run.u` on the compiler.
+
 ## Builtins
 
 1. **Builtins are registered in five places**: their types in `Check.scala` and `self/check.u`, and their implementations in `Run.scala`, `self/run.u`, and the runtime with `builtin_functions` of `self/compile.u`. Solution: declare their signatures in library modules, e.g. `builtin function str_get(s: Str, i: Int): Char`, so that only the implementations remain, and a builtin exists once its module is imported.
