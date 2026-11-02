@@ -1,17 +1,18 @@
 // the values of the interpreter of self/run.u
 
 import syntax
+import map
 
 data Value :=
   | Lit(Val)
   | Obj(Name, List[Value])
-  | Clos(List[Name * Value], List[Var], Expr)
+  | Clos(Map[Name, Value], List[Var], Expr)
   | Fn(Name, Int)
   | Con(Name)
   | Prim(Name)
   // procedures as values, declared ones by their names, and lambdas with the values of the variables around them
   | Proc(Name)
-  | ProcClos(List[Name * Value], List[Var], List[Var], List[Var], Stmt)
+  | ProcClos(Map[Name, Value], List[Var], List[Var], List[Var], Stmt)
 
 function list_value(vs: List[Value]): Value :=
   match vs

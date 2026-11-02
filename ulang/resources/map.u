@@ -103,6 +103,45 @@ function balanced[K, V](m: Map[K, V]): Bool :=
 function mnode_height[K, V](l: Map[K, V], r: Map[K, V]): Int :=
   1 + (if height(l) < height(r) then height(r) else height(l))
 
+// m without k
+function delete[K, V](k: K, m: Map[K, V]): Map[K, V] :=
+  match m
+    case MLeaf => MLeaf
+    case MNode(l, j, v, r, _) =>
+      match compare(k, j)
+        case -1 => balance(delete(k, l), j, v, r)
+        case 1 => balance(l, j, v, delete(k, r))
+        else join(l, r)
+      end
+  end
+
+function delete_all[K, V](ks: List[K], m: Map[K, V]): Map[K, V] :=
+  match ks
+    case Nil => m
+    case [k; rest] => delete_all(rest, delete(k, m))
+  end
+
+// the entries of l and then r, whose heights differ by at most one
+function join[K, V](l: Map[K, V], r: Map[K, V]): Map[K, V] :=
+  match first_entry(r)
+    case Some((k, v)) => balance(l, k, v, remove_first(r))
+    case None => l
+  end
+
+function first_entry[K, V](m: Map[K, V]): Option[K * V] :=
+  match m
+    case MLeaf => None
+    case MNode(MLeaf, k, v, _, _) => Some((k, v))
+    case MNode(l, _, _, _, _) => first_entry(l)
+  end
+
+function remove_first[K, V](m: Map[K, V]): Map[K, V] :=
+  match m
+    case MLeaf => MLeaf
+    case MNode(MLeaf, _, _, r, _) => r
+    case MNode(l, k, v, r, _) => balance(remove_first(l), k, v, r)
+  end
+
 function put_all[K, V](ps: List[K * V], m: Map[K, V]): Map[K, V] :=
   match ps
     case Nil => m
@@ -126,3 +165,5 @@ test balance :=
   assert balanced(m) and size(m) == 200 and height(m) <= 11
   assert get("1100", m) == Some(100) and get("1201", m) == None
   assert entries(m) == [(str_show(1000 + i), i) for i in numbers(200)]
+  assign m := delete_all([str_show(1000 + 2 * i) for i in numbers(100)] ++ ["none"], m)
+  assert balanced(m) and size(m) == 100 and entries(m) == [(str_show(999 + 2 * i), 2 * i - 1) for i in numbers(100)]

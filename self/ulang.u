@@ -6,9 +6,11 @@ import lex
 import parse
 import check
 import print
+import value
 import run
 import compile
 import os
+import map
 
 procedure main() :=
   local args: List[Str], command: List[Str], rest: List[Str], ok := true
@@ -130,13 +132,13 @@ procedure compile_to(in file: Str, entry: Str, target: Str, out ok: Bool) :=
 
 // calls the procedure name of file, which takes no parameters, and prints as it runs
 procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
-  local q: Program, p: Prog, h := new_heap(true), n := Name(Some(base_name(file)), name)
+  local q: Program, p: Prog, cache: Map[Name, Value] := empty(), n := Name(Some(base_name(file)), name)
 
   call   load_file(in file, out q)
   assign p := load(q) with args := args
 
   if exists(q.cmds, lambda c => is_entry(c, n))
-    call   run_proc(in p, n, ref h)
+    call   run_proc(in p, n, ref cache)
     assign ok := true
   else
     call   os_print_error(in file ^ ": runtime error: there is no procedure " ^ name ^ " without parameters")
@@ -173,10 +175,10 @@ procedure run_tests(in p: Prog, tests: List[Cmd], out ok: Bool) :=
   end
 
 procedure run_test(in p: Prog, c: Cmd, out passed: Bool) :=
-  local h := new_heap(true), message := ""
+  local cache: Map[Name, Value] := empty(), message := ""
 
   try
-    call run_cmd(in p, c, ref h)
+    call run_cmd(in p, c, ref cache)
   catch
     case Thrown(v, _) =>
       assign message := "runtime error: uncaught exception " ^ show_value(v)
