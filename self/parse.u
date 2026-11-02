@@ -18,15 +18,15 @@ data Notations :=
 data Scope :=
   | Scope(params: List[Id], notations: Notations)
 
-function keywords(): List[Id] :=
-  [
+function keywords(): Set[Id] :=
+  {
     "_", "assert", "assign", "call", "case", "catch", "data", "else", "end", "eval", "false", "for", "function", "if", "import",
     "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix", "procedure", "raise", "ref", "run", "skip",
     "test", "then", "true", "type", "try", "while", "with"
-  ]
+  }
 
 function is_keyword(n: Id): Bool :=
-  contains(n, keywords())
+  member(n, keywords())
 
 // symbols with a fixed meaning, which cannot be operators
 function is_reserved(s: Str): Bool :=
@@ -383,6 +383,13 @@ procedure type_list(in sc: Scope, close: Char, out r: List[Type], ref ts: List[T
 function expr_op1(op: Id, a: Expr): Expr :=
   EApp(EVar(Var(unqualified(op), THole)), [a])
 
+// -n for a number n is the negative literal, in patterns and expressions, and otherwise a prefix operator is applied
+function expr_prefix(op: Id, a: Expr): Expr :=
+  match a
+    case ELit(VInt(n)) if op == "-" => ELit(VInt(0 - n))
+    else expr_op1(op, a)
+  end
+
 function expr_op2(op: Id, a: Expr, b: Expr): Expr :=
   EApp(EVar(Var(unqualified(op), THole)), [a, b])
 
@@ -398,7 +405,7 @@ function starts_expr(ns: Notations, t: Token): Bool :=
     case TNum(_) => true
     case TStr(_) => true
     case TChar(_) => true
-    case TPunct(c) => c == '(' or c == '['
+    case TPunct(c) => c == '(' or c == '[' or c == '{'
     else false
   end
 
@@ -442,7 +449,7 @@ procedure operators(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
   local items: List[Item[Expr]]
 
   call   expr_items(in sc, out items, ref ts)
-  call   resolve_items(in items, Ops(sc.notations, expr_op1, expr_op1, expr_op2), head_offset(ts), out e)
+  call   resolve_items(in items, Ops(sc.notations, expr_prefix, expr_op1, expr_op2), head_offset(ts), out e)
 
 // operands and operators, where an operand follows only an operator, since let, if, and lambda extend as far to the right as possible
 procedure expr_items(in sc: Scope, out items: List[Item[Expr]], ref ts: List[Token * Int]) :=
@@ -569,6 +576,9 @@ procedure parse_atom(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
     case TPunct('[') =>
       call parse_brackets(in sc, out e, ref ts)
 
+    case TPunct('{') =>
+      call parse_braces(in sc, out e, ref ts)
+
     case TName(n) if not is_keyword(n) and not declared(sc.notations, n) =>
       call   advance(ref ts)
       assign e := EVar(Var(unqualified(n), THole))
@@ -642,6 +652,130 @@ procedure parse_lambda(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
   assign e := ELam(reverse(xs), b)
 
 // [a, b] is a :: b :: Nil, [a, b; c] is a :: b :: c, and [result for x in xs, y in ys if test], where if test is optional
+// {a, b} is the set from_list([a, b]) and {k => v, l => w} the map put_all([(k, v), (l, w)], empty()),
+// by the functions of the modules set and map, and {e for x in s if c} and {k => v for k1 => v1 in m if c} their comprehensions
+procedure parse_braces(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
+  local at := head_offset(ts), k: Expr, v: Expr, entries: Bool, rev: List[Expr]
+
+  call   advance(ref ts)
+  call   parse_expr(in sc, out k, ref ts)
+  assign entries := head_token(ts) == TSym("=>")
+
+  if entries
+    call advance(ref ts)
+    call parse_expr(in sc, out v, ref ts)
+  end
+
+  if at_keyword(ts, "for") and entries
+    call advance(ref ts)
+    call map_comprehension(in sc, k, v, out e, ref ts)
+  else if at_keyword(ts, "for")
+    call advance(ref ts)
+    call set_comprehension(in sc, k, out e, ref ts)
+  else
+    assign rev := [if entries then ETuple([k, v]) else k]
+
+    while at_punct(ts, ',')
+      call   advance(ref ts)
+      call   parse_expr(in sc, out k, ref ts)
+
+      if entries != (head_token(ts) == TSym("=>"))
+        raise ParseError("a literal {...} has either elements a or entries k => v", at)
+      end
+
+      if entries
+        call   advance(ref ts)
+        call   parse_expr(in sc, out v, ref ts)
+        assign rev := [ETuple([k, v]); rev]
+      else
+        assign rev := [k; rev]
+      end
+    end
+
+    assign e :=
+      if entries then in_library("map", "put_all", [cons_exprs(reverse(rev), nil_expr()), in_library("map", "empty", [])])
+      else in_library("set", "from_list", [cons_exprs(reverse(rev), nil_expr())])
+  end
+
+  call expect(in TPunct('}'), ref ts)
+
+function nil_expr(): Expr :=
+  EVar(Var(unqualified("Nil"), THole))
+
+function in_library(m: Id, f: Id, args: List[Expr]): Expr :=
+  EApp(EVar(Var(Name(Some(m), f), THole)), args)
+
+procedure set_comprehension(in sc: Scope, r: Expr, out e: Expr, ref ts: List[Token * Int]) :=
+  local x: Id, l: Expr, xs: List[Var] := Nil, ls: List[Expr] := Nil, c := ELit(VBool(true))
+
+  call   parse_plain(in sc, out x, ref ts)
+  call   keyword(in "in", ref ts)
+  call   parse_expr(in sc, out l, ref ts)
+  assign xs := [Var(unqualified(x), THole)], ls := [in_library("set", "elements", [l])]
+
+  while at_punct(ts, ',')
+    call   advance(ref ts)
+    call   parse_plain(in sc, out x, ref ts)
+    call   keyword(in "in", ref ts)
+    call   parse_expr(in sc, out l, ref ts)
+    assign xs := [Var(unqualified(x), THole); xs], ls := [in_library("set", "elements", [l]); ls]
+  end
+
+  if at_keyword(ts, "if")
+    call advance(ref ts)
+    call parse_expr(in sc, out c, ref ts)
+  end
+
+  assign e := in_library("set", "from_list", [EComp(r, reverse(xs), reverse(ls), c)])
+
+// maps range over the entries of maps, each bound to a hidden variable whose key and value are matched
+procedure map_comprehension(in sc: Scope, k: Expr, v: Expr, out e: Expr, ref ts: List[Token * Int]) :=
+  local gs: List[Id * Id * Id] := Nil, ls: List[Expr] := Nil, c := ELit(VBool(true))
+
+  call map_generator(in sc, ref gs, ls, ts)
+
+  while at_punct(ts, ',')
+    call advance(ref ts)
+    call map_generator(in sc, ref gs, ls, ts)
+  end
+
+  if at_keyword(ts, "if")
+    call   advance(ref ts)
+    call   parse_expr(in sc, out c, ref ts)
+    assign c := unpack(reverse(gs), c)
+  end
+
+  assign e := in_library("map", "put_all", [
+    EComp(unpack(reverse(gs), ETuple([k, v])), reverse(hidden_vars(gs)), reverse(ls), c),
+    in_library("map", "empty", [])
+  ])
+
+// k => v in m, whose map m sees the keys and values of the generators gs before, which are in reverse order
+procedure map_generator(in sc: Scope, ref gs: List[Id * Id * Id], ls: List[Expr], ts: List[Token * Int]) :=
+  local a: Id, b: Id, m: Expr
+
+  call   parse_plain(in sc, out a, ref ts)
+  call   expect(in TSym("=>"), ref ts)
+  call   parse_plain(in sc, out b, ref ts)
+  call   keyword(in "in", ref ts)
+  call   parse_expr(in sc, out m, ref ts)
+  assign ls := [in_library("map", "entries", [unpack(reverse(gs), m)]); ls]
+  assign gs := [(a, b, "(entry " ^ str_show(length(gs) + 1) ^ ")"); gs]
+
+function hidden_vars(gs: List[Id * Id * Id]): List[Var] :=
+  match gs
+    case Nil => Nil
+    case [(_, _, h); rest] => [Var(unqualified(h), THole); hidden_vars(rest)]
+  end
+
+// e where the key and value of each hidden variable are bound
+function unpack(gs: List[Id * Id * Id], e: Expr): Expr :=
+  match gs
+    case Nil => e
+    case [(k, v, h); rest] =>
+      EMatch(EVar(Var(unqualified(h), THole)), [Branch(PTuple([PVar(Var(unqualified(k), THole)), PVar(Var(unqualified(v), THole))]), None, unpack(rest, e))])
+  end
+
 procedure parse_brackets(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
   local first: Expr, es: List[Expr], rest: Expr, x: Id, xs: List[Var], l: Expr, lists: List[Expr], c: Expr
 
@@ -742,6 +876,12 @@ procedure last_case(ref ts: List[Token * Int]) :=
 function pat_op1(op: Id, p: Pat): Pat :=
   PApp(unqualified(op), [p])
 
+function pat_prefix(op: Id, p: Pat): Pat :=
+  match p
+    case PLit(VInt(n)) if op == "-" => PLit(VInt(0 - n))
+    else pat_op1(op, p)
+  end
+
 function pat_op2(op: Id, l: Pat, r: Pat): Pat :=
   PApp(unqualified(op), [l, r])
 
@@ -765,7 +905,7 @@ procedure parse_pattern(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
   local items: List[Item[Pat]]
 
   call   pattern_items(in sc, out items, ref ts)
-  call   resolve_items(in items, Ops(sc.notations, pat_op1, pat_op1, pat_op2), head_offset(ts), out p)
+  call   resolve_items(in items, Ops(sc.notations, pat_prefix, pat_op1, pat_op2), head_offset(ts), out p)
 
 procedure pattern_items(in sc: Scope, out items: List[Item[Pat]], ref ts: List[Token * Int]) :=
   local rev: List[Item[Pat]] := Nil, next := true, go := true, p: Pat
@@ -1788,6 +1928,7 @@ test parse_files :=
     "../tests/fields.u",
     "../tests/files.u",
     "../tests/functions.u",
+    "../tests/literals.u",
     "../tests/locals.u",
     "../tests/modules.u",
     "../tests/procedures.u",
@@ -1906,6 +2047,7 @@ test parse_error_files :=
     "../tests/errors/import-error.u",
     "../tests/errors/keyword-name.u",
     "../tests/errors/list-without-elements.u",
+    "../tests/errors/mixed-literal.u",
     "../tests/errors/not-associative.u",
     "../tests/errors/not-prefix.u",
     "../tests/errors/operator-before-declaration.u",

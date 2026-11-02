@@ -12,14 +12,22 @@ function member[A](x: A, s: Set[A]): Bool :=
   match s
     case SLeaf => false
     case SNode(l, y, r, _) =>
-      let c := compare(x, y) in if c < 0 then member(x, l) else if c > 0 then member(x, r) else true
+      match compare(x, y)
+        case -1 => member(x, l)
+        case 1 => member(x, r)
+        else true
+      end
   end
 
 function insert[A](x: A, s: Set[A]): Set[A] :=
   match s
     case SLeaf => SNode(SLeaf, x, SLeaf, 1)
     case SNode(l, y, r, _) =>
-      let c := compare(x, y) in if c < 0 then rebalance(insert(x, l), y, r) else if c > 0 then rebalance(l, y, insert(x, r)) else s
+      match compare(x, y)
+        case -1 => rebalance(insert(x, l), y, r)
+        case 1 => rebalance(l, y, insert(x, r))
+        else s
+      end
   end
 
 function from_list[A](xs: List[A]): Set[A] :=
@@ -104,12 +112,12 @@ function upto(n: Int): List[Int] :=
   if n == 0 then Nil else upto(n - 1) ++ [n]
 
 test sets :=
-  local s := insert("b", insert("a", empty_set()))
+  local s := {"a", "b"}
 
   assert member("a", s) and not member("c", s)
   assign s := insert("a", s)
   assert elements(s) == ["a", "b"] and count(s) == 2
-  assert elements(from_list([3, 1, 2, 1])) == [1, 2, 3]
+  assert elements(from_list([3, 1, 2, 1])) == [1, 2, 3] and elements({3, 1, 2, 1}) == [1, 2, 3]
   assert elements(from_list([(2, 'a'), (1, 'b'), (2, 'a')])) == [(1, 'b'), (2, 'a')]
   assert elements(from_list([Some(2), None, Some(1)])) == [None, Some(1), Some(2)]
 

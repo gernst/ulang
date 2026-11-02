@@ -7,6 +7,7 @@ import syntax
 import check
 
 import os
+import set
 
 data Value :=
   | Lit(Val)
@@ -107,9 +108,15 @@ function constr_arity(k: Constr): Name * Int :=
     case Constr(n, ts) => (n, length(ts))
   end
 
+function builtin_names(): Set[Id] :=
+  {
+    "+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "compare",
+    "str_get", "str_contains", "str_compare", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"
+  }
+
 function is_builtin(n: Name): Bool :=
   match n
-    case Name(None, b) => contains(b, ["+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "compare", "str_get", "str_contains", "str_compare", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"])
+    case Name(None, b) => member(b, builtin_names())
     else false
   end
 

@@ -12,7 +12,11 @@ function get[K, V](k: K, m: Map[K, V]): Option[V] :=
   match m
     case MLeaf => None
     case MNode(l, j, v, r, _) =>
-      let c := compare(k, j) in if c < 0 then get(k, l) else if c > 0 then get(k, r) else Some(v)
+      match compare(k, j)
+        case -1 => get(k, l)
+        case 1 => get(k, r)
+        else Some(v)
+      end
   end
 
 function has[K, V](k: K, m: Map[K, V]): Bool :=
@@ -23,8 +27,11 @@ function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V] :=
   match m
     case MLeaf => MNode(MLeaf, k, v, MLeaf, 1)
     case MNode(l, j, w, r, h) =>
-      let c := compare(k, j) in
-        if c < 0 then balance(put(k, v, l), j, w, r) else if c > 0 then balance(l, j, w, put(k, v, r)) else MNode(l, k, v, r, h)
+      match compare(k, j)
+        case -1 => balance(put(k, v, l), j, w, r)
+        case 1 => balance(l, j, w, put(k, v, r))
+        else MNode(l, k, v, r, h)
+      end
   end
 
 // the pairs of m in the order of their keys
@@ -106,11 +113,11 @@ function numbers(n: Int): List[Int] :=
   if n == 0 then Nil else numbers(n - 1) ++ [n]
 
 test maps :=
-  local m := put("b", 2, put("a", 1, empty()))
+  local m := {"a" => 1, "b" => 2}
 
   assert get("a", m) == Some(1) and get("c", m) == None and has("b", m) and not has("c", m)
   assign m := put("a", 3, m)
-  assert entries(m) == [("a", 3), ("b", 2)] and size(m) == 2
+  assert entries(m) == [("a", 3), ("b", 2)] and size(m) == 2 and entries({"b" => 2, "a" => 1, "a" => 3}) == entries(m)
 
 // ascending keys would make a list of an unbalanced tree
 test balance :=

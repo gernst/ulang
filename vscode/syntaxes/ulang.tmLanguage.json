@@ -221,7 +221,7 @@
           "match": "\\b(eval|run|test)\\b"
         },
         {
-          "name": "keyword.operator.word.ulang",
+          "name": "keyword.control.ulang",
           "match": "\\b(and|or|not)\\b"
         }
       ]

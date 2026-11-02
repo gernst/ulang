@@ -41,6 +41,7 @@ test sizes :=
 - Exceptions of any type, raised by `raise e` in statements and expressions, and caught by `try`.
   Builtins raise `DivisionByZero`, `NoIndex`, and `NoCharacter`, whereas a failed `assert` ends the program.
 - Unbounded integers, characters, and strings.
+- Literals and comprehensions of lists `[x * x for x in xs if x > 0]`, sets `{a, b}` and `{f(x) for x in s}`, and maps `{k => v}` and `{k => f(v) for k => v in m}`, where sets and maps need `import set` and `import map`.
 - User-defined operators by `infix`, `prefix`, and `postfix` notations.
 - Modules: `import name` makes the declarations of a file available, but not transitively.
 - Named tests `test name := …` and runs `run name := …`.

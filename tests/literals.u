@@ -1,0 +1,19 @@
+// literals {a, b} of sets and {k => v} of maps, which need the modules set and map
+
+import set
+import map
+
+function vowels(): Set[Char] :=
+  {'a', 'e', 'i', 'o', 'u'}
+
+test literals :=
+  local  m := {"one" => {1}, "two" => {1, 2}}, n := {1 + 1 => "two", 3 => "three"}
+  assert member('e', vowels()) and not member('b', vowels())
+  assert [elements(s) for s in values(entries(m))] == [[1], [1, 2]] and get("three", m) == None
+  assert entries(n) == [(2, "two"), (3, "three")]
+
+test comprehensions :=
+  local  s := {1, 2, 3}, m := {"a" => 1, "b" => 2}
+  assert elements({x * x for x in s if x != 2}) == [1, 9] and elements({x + y for x in s, y in {10, 20}}) == [11, 12, 13, 21, 22, 23]
+  assert entries({k ^ "!" => v + 1 for k => v in m}) == [("a!", 2), ("b!", 3)] and entries({k => v for k => v in m if v > 1}) == [("b", 2)]
+  assert entries({k ^ l => v * w for k => v in m, l => w in {k => v}}) == [("aa", 1), ("bb", 4)]

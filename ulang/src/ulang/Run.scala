@@ -343,7 +343,33 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
         None
 
   def fun(d: Cmd.Fun): List[Any] => Any =
-    curried(Map(), d.bound, d.body)
+    d.bound match
+      case List(Nil) =>
+        _ => cached(d)
+      case _ =>
+        curried(Map(), d.bound, d.body)
+
+  // the values of functions without parameters, which are computed once, since expressions are deterministic,
+  // where None marks a value that is being computed, which detects a value that needs itself,
+  // and an exception that leaves the computation removes the mark, such that the next call computes it again
+  val cache = scala.collection.mutable.Map[Name, Option[Any]]()
+
+  def cached(d: Cmd.Fun): Any =
+    cache.get(d.name) match
+      case Some(Some(v)) =>
+        v
+      case Some(None) =>
+        error("runtime", s"recursive initialization of ${d.name}")
+      case None =>
+        cache(d.name) = None
+        try
+          val v = eval(Map(), d.body)
+          cache(d.name) = Some(v)
+          v
+        catch
+          case e: Throwable =>
+            cache.remove(d.name)
+            throw e
 
   // a function for the first of bound, which returns functions for the others, and finally evaluates body
   def curried(env: Map[Name, Any], bound: List[List[Pat.Var]], body: Expr): List[Any] => Any =

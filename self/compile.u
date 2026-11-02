@@ -6,6 +6,7 @@ import check
 import c
 import parse
 import map
+import set
 
 data CompileError :=
   | Unsupported(Str)
@@ -49,43 +50,43 @@ function ref_name(n: Name): Str :=
   "r_" ^ mangle(n)
 
 // the functions of the runtime for the builtins with their numbers of arguments
-function builtin_functions(): List[Name * (Str * Int)] :=
-  [
-    (unqualified("+"), ("u_add", 2)),
-    (unqualified("-"), ("u_sub", 2)),
-    (unqualified("*"), ("u_mul", 2)),
-    (unqualified("/"), ("u_div", 2)),
-    (unqualified("%"), ("u_mod", 2)),
-    (unqualified("<"), ("u_lt", 2)),
-    (unqualified("=="), ("u_eq", 2)),
-    (unqualified("compare"), ("u_compare", 2)),
-    (unqualified("chars"), ("u_chars", 1)),
-    (unqualified("string"), ("u_string", 1)),
-    (unqualified("ord"), ("u_ord", 1)),
-    (unqualified("chr"), ("u_chr", 1)),
-    (unqualified("^"), ("u_concat", 2)),
-    (unqualified("str_size"), ("u_str_size", 1)),
-    (unqualified("str_join"), ("u_str_join", 2)),
-    (unqualified("str_slice"), ("u_str_slice", 3)),
-    (unqualified("str_split"), ("u_str_split", 2)),
-    (unqualified("str_get"), ("u_str_get", 2)),
-    (unqualified("str_contains"), ("u_str_contains", 2)),
-    (unqualified("str_compare"), ("u_str_compare", 2)),
-    (unqualified("str_show"), ("u_str_show", 1)),
-    (unqualified("str_quote"), ("u_str_quote", 1)),
-    (unqualified("str_number"), ("u_str_number", 1)),
-    (unqualified("is_digit"), ("u_is_digit", 1)),
-    (unqualified("is_letter"), ("u_is_letter", 1)),
-    (unqualified("is_space"), ("u_is_space", 1))
-  ]
+function builtin_functions(): Map[Name, Str * Int] :=
+  {
+    unqualified("+") => ("u_add", 2),
+    unqualified("-") => ("u_sub", 2),
+    unqualified("*") => ("u_mul", 2),
+    unqualified("/") => ("u_div", 2),
+    unqualified("%") => ("u_mod", 2),
+    unqualified("<") => ("u_lt", 2),
+    unqualified("==") => ("u_eq", 2),
+    unqualified("compare") => ("u_compare", 2),
+    unqualified("chars") => ("u_chars", 1),
+    unqualified("string") => ("u_string", 1),
+    unqualified("ord") => ("u_ord", 1),
+    unqualified("chr") => ("u_chr", 1),
+    unqualified("^") => ("u_concat", 2),
+    unqualified("str_size") => ("u_str_size", 1),
+    unqualified("str_join") => ("u_str_join", 2),
+    unqualified("str_slice") => ("u_str_slice", 3),
+    unqualified("str_split") => ("u_str_split", 2),
+    unqualified("str_get") => ("u_str_get", 2),
+    unqualified("str_contains") => ("u_str_contains", 2),
+    unqualified("str_compare") => ("u_str_compare", 2),
+    unqualified("str_show") => ("u_str_show", 1),
+    unqualified("str_quote") => ("u_str_quote", 1),
+    unqualified("str_number") => ("u_str_number", 1),
+    unqualified("is_digit") => ("u_is_digit", 1),
+    unqualified("is_letter") => ("u_is_letter", 1),
+    unqualified("is_space") => ("u_is_space", 1)
+  }
 
 // the descriptor of constructor n, which the runtime compares by its address
 function descriptor(n: Name): CExpr :=
   CeUnary("&", CeVar("n_" ^ mangle(n)))
 
 // the constructors whose descriptors the runtime defines, since its builtins create them
-function runtime_constructors(): List[Name] :=
-  [nil_name(), cons_name(), none_name(), some_name(), os_error_name(), division_by_zero_name(), no_index_name(), no_character_name(), missing_field_name()]
+function runtime_constructors(): Set[Name] :=
+  {nil_name(), cons_name(), none_name(), some_name(), os_error_name(), division_by_zero_name(), no_index_name(), no_character_name(), missing_field_name()}
 
 // the descriptor of constructor n at position i of its declaration
 function descriptor_decl(n: Name, i: Int): CDecl :=
@@ -106,7 +107,7 @@ function constructor_decls(ks: List[Name], i: Int): List[CDecl] :=
   match ks
     case Nil => Nil
     case [k; rest] =>
-      if contains(k, runtime_constructors()) then constructor_decls(rest, i + 1) else [descriptor_decl(k, i); constructor_decls(rest, i + 1)]
+      if member(k, runtime_constructors()) then constructor_decls(rest, i + 1) else [descriptor_decl(k, i); constructor_decls(rest, i + 1)]
   end
 
 function in_scope(xs: List[Name]): Vars :=
@@ -299,7 +300,7 @@ procedure global_value(in gl: Globals, n: Name, t: Type, out r: CExpr) :=
       case Some(_) =>
         assign r := c_call("u_mk_closure", [CeVar("wc_" ^ mangle(n)), CeNum(0)])
       case None =>
-        match lookup(n, builtin_functions())
+        match get(n, builtin_functions())
           case Some((f, _)) =>
             assign r := c_call("u_mk_closure", [CeVar("w" ^ f), CeNum(0)])
           case None =>
@@ -439,7 +440,7 @@ procedure compile_named(in gl: Globals, env: Vars, n: Name, ty: Type, args: List
       else if fields_count(gl, n) == Some(length(args))
         assign r := c_call("u_mk_con", [descriptor(n), CeNum(length(args))] ++ rs)
       else
-        match lookup(n, builtin_functions())
+        match get(n, builtin_functions())
           case Some((b, k)) if k == length(args) =>
             assign r := c_call(b, rs)
           else
@@ -721,7 +722,7 @@ function cached(n: Str, bs: List[CStmt], r: CExpr): List[CStmt] :=
 // closures of functions, constructors, and builtins, which take their arguments from an array
 function wrappers(gl: Globals): List[CDecl] :=
   [fun_wrapper(p) for p in gl.funs] ++ concat([constr_wrapper(p) for p in gl.constrs]) ++
-  [builtin_wrapper(p) for p in seconds(builtin_functions())]
+  [builtin_wrapper(p) for p in seconds(entries(builtin_functions()))]
 
 function fun_wrapper(p: Name * Int): CDecl :=
   match p

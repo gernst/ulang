@@ -61,12 +61,15 @@ A module is a file, and modules see only what they import directly. This is done
 
 Points of a critique of the syntax, ordered by how much they cost when writing `self/check.u`, `self/run.u`, and `self/parse.u`.
 
-1. **Updates of fields.** Named fields have accessors `c.funs`, but no updates, so the `with_` functions of `self/ctx.u` still match `Ctx(a, f, p, d, m, k, bs)` and rebuild it with one component replaced. An update `c with funs := f, named := bs` would replace them, checked like accesses by the type of `c`, and raising `MissingField` for constructors without the field, e.g. as generated functions `T.with_name` next to the accessors `T.name`.
-2. **Locals.** Every result of a procedure call needs a local, declared with a type at the beginning of a block. Inferring the type from an initial value would help: `local x := e`.
+1. **Updates of fields** (done). `c with funs := f, named := bs` applies the generated updaters `T.funs:=` and `T.named:=`.
+2. **Locals** (done). `local x := e` infers the type of `x` from its initial value.
 3. **No parsers as values.** Procedures are not values, and functions cannot fail, so `self/parse.u` repeats each loop of `repsep` and `rep1sep` per kind of item, and has the operator loop three times and `cases` twice, which makes it more than twice as long as `Parser.scala`.
 4. **Patterns are weaker than expressions.** There are no or-patterns `case TParam(_) | TMeta(_) =>`, or as-patterns, which forced `self/run.u` to rebuild values it had just taken apart.
 5. **One global namespace.** Functions, procedures, and constructors share one namespace, and overloading only distinguishes arities, hence names like `zonk_type` and `zonk_expr`, or `UnknownProc` next to `UnknownProcedure`. Qualified names for modules (`check.infer`) or constructors (`Expr.Var`) would help.
-6. **Smaller points.**
+6. **Ad-hoc overloading.** Overloading by types, not only by arities, would let one name serve lists, sets, and maps,
+   e.g. `{}` as the empty set or map by its type, `==` and `compare` of sets and maps by their elements instead of the shapes of their trees,
+   and `size`, `member`, and `get` in place of `length`, `count`, `contains`, `has`, and `lookup`.
+7. **Smaller points.**
    - `assign` is redundant before `x := e`.
    - `[…]` is both type arguments and list literals.
    - `else` followed by `if` always continues a chain of statements, so a nested `if` cannot directly follow `else`.

@@ -278,7 +278,22 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     rep1sep(expr(s), ",")
 
   def operators(s: Scope): Parser[Expr] =
-    resolved(s, items(s, app(s)))(op(_, _), op(_, _), op(_, _, _))
+    resolved(s, items(s, app(s)))(prefix(_, _), op(_, _), op(_, _, _))
+
+  // -n for a number n is the negative literal, in expressions and patterns, and otherwise a prefix operator is applied
+  def prefix(f: Id, e: Expr): Expr =
+    e match
+      case Expr.Lit(n: BigInt) if f == "-" =>
+        Expr.Lit(-n)(e.pos)
+      case _ =>
+        op(f, e)
+
+  def prefix(f: Id, p: Pat): Pat =
+    p match
+      case Pat.Lit(n: BigInt) if f == "-" =>
+        Pat.Lit(-n)(p.pos)
+      case _ =>
+        Pat.App(Name(f), List(p))(p.pos)
 
   // let x := e, y := f in b binds variables in parallel, other patterns are matched against the tuple of values
   def let(s: Scope): Parser[Expr] =
@@ -340,7 +355,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   // operators in patterns are constructors
   def pattern(s: Scope): Parser[Pat] =
     resolved(s, items(s, simple(s)))(
-      (op, p) => Pat.App(Name(op), List(p))(p.pos),
+      prefix(_, _),
       (op, p) => Pat.App(Name(op), List(p))(p.pos),
       (op, l, r) => Pat.App(Name(op), List(l, r))(l.pos)
     )
@@ -431,7 +446,71 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       let(s) | ite(s) | lam(s) | matches(s, expr(s))(Expr.Match(_, _)(_)) |
         value ^^
         (Expr.Lit(_)(pos)) | tuple(expr(s))(Expr.Tuple(_)(pos)) | comp(s) |
-        brackets(expr(s))(Expr.Var(Name("Nil"), Type.Hole)(pos), op("Cons", _, _)) | variable(s)
+        brackets(expr(s))(Expr.Var(Name("Nil"), Type.Hole)(pos), op("Cons", _, _)) | braces(s) | variable(s)
+
+  // {a, b} is the set from_list([a, b]) and {k => v, l => w} the map put_all([(k, v), (l, w)], empty()),
+  // by the functions of the modules set and map, and {e for x in s if c} and {k => v for k1 => v1 in m if c} their comprehensions
+  def braces(s: Scope): Parser[Expr] =
+    located: pos =>
+      val entry = expr(s) ~ opt("=>" ~> expr(s))
+      ("{" ~> entry >> { first =>
+        (kw("for") ~> comprehension(s, first, pos)) | (rep("," ~> entry) ^^ (first :: _) ^^ (literal(_, pos)))
+      }) <~ "}"
+
+  def library(m: Id, f: Id, pos: Pos, args: Expr*): Expr =
+    Expr.App(Expr.Var(Name(Some(m), f), Type.Hole)(pos), args.toList)(pos)
+
+  def literal(entries: List[Expr ~ Option[Expr]], pos: Pos): Expr =
+    val nil: Expr = Expr.Var(Name("Nil"), Type.Hole)(pos)
+    entries match
+      case _ if entries.forall(_._2.isEmpty) =>
+        val xs =
+          entries.foldRight(nil):
+            case (x ~ _, r) =>
+              op("Cons", x, r)
+        library("set", "from_list", pos, xs)
+      case _ if entries.forall(_._2.nonEmpty) =>
+        val ps =
+          entries.foldRight(nil):
+            case (k ~ v, r) =>
+              op("Cons", Expr.Tuple(List(k, v.get))(pos), r)
+        library("map", "put_all", pos, ps, library("map", "empty", pos))
+      case _ =>
+        error("parse", "a literal {...} has either elements a or entries k => v", pos)
+
+  // sets range over sets, and maps over the entries of maps, each bound to a hidden variable whose key and value are matched
+  def comprehension(s: Scope, first: Expr ~ Option[Expr], pos: Pos): Parser[Expr] =
+    val test = opt(kw("if") ~> expr(s))
+    first match
+      case x ~ None =>
+        rep1sep(untyped(s) ~ (kw("in") ~> expr(s)), ",") ~ test ^^ { case gs ~ t =>
+          val lists =
+            for case _ ~ l <- gs
+            yield library("set", "elements", pos, l)
+          library("set", "from_list", pos, Expr.Comp(x, gs.map(_._1), lists, t.getOrElse(Expr.Lit(true)(pos)))(pos))
+        }
+      case k ~ Some(v) =>
+        rep1sep(untyped(s) ~ ("=>" ~> untyped(s)) ~ (kw("in") ~> expr(s)), ",") ~ test ^^ { case gs ~ t =>
+          val entries =
+            for case (a ~ b ~ _, i) <- gs.zipWithIndex
+            yield
+              val h: Pat.Var = Pat.Var(Name(s"(entry ${i + 1})"), Type.Hole)(pos)
+              (h, a, b)
+          val lists =
+            for case (_ ~ _ ~ m, i) <- gs.zipWithIndex
+            yield library("map", "entries", pos, unpack(entries.take(i), m, pos))
+          val result = unpack(entries, Expr.Tuple(List(k, v))(pos), pos)
+          val c = t.map(unpack(entries, _, pos)).getOrElse(Expr.Lit(true)(pos))
+          library("map", "put_all", pos, Expr.Comp(result, entries.map(_._1), lists, c)(pos), library("map", "empty", pos))
+        }
+
+  // e where the key and value of each hidden variable are bound
+  def unpack(entries: List[(Pat.Var, Pat.Var, Pat.Var)], e: Expr, pos: Pos): Expr =
+    entries match
+      case Nil =>
+        e
+      case (h, k, v) :: rest =>
+        Expr.Match(Expr.Var(h.name, Type.Hole)(pos), List(Case(Pat.Tuple(List(k, v))(pos), None, unpack(rest, e, pos))))(pos)
 
   // [result for x in xs, y in ys if test], where if test is optional
   def comp(s: Scope): Parser[Expr] =
