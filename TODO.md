@@ -135,7 +135,7 @@ A design, not implemented yet: contracts on functions and procedures, lemmas abo
     ...
   ```
 
-- **Outs of lemmas.** A lemma with a contract states that for all parameters that satisfy the `requires` there are outs that satisfy the `ensures`, so that its proof gives witnesses, which a proof as a program assigns, e.g. `assign q := m / n, r := m % n`, and a proof that uses the lemma obtains them with names of its own, e.g. `obtain (q, r) := division(a, b)`, a syntax still to be designed. In a claim `correct p(…)` the outs of the lemma are those of the call, which the run determines, not the proof: under partial correctness the claim holds for the outs of every run that ends normally, and under total correctness this is exactly the existential, since a run exists and gives them.
+- **Outs of lemmas.** A lemma with a contract states that for all parameters that satisfy the `requires` there are outs that satisfy the `ensures`, so that its proof gives witnesses, which a proof gives by `choose q := m / n, r := m % n`, and a proof that uses the lemma obtains them with names of its own by `obtain (q, r) := division(a, b)`, see the proofs below. In a claim `correct p(…)` the outs of the lemma are those of the call, which the run determines, not the proof: under partial correctness the claim holds for the outs of every run that ends normally, and under total correctness this is exactly the existential, since a run exists and gives them.
 - **Scopes are explicit.** A proof sees only names that it or its lemma binds, never the parameters of the procedure implicitly:
   - the parameters and outs of the lemma, which name every argument of the call in the claim, `correct p(in n, out s)`,
   - at a point `at …` of the body, its locals in scope there, which the quoted code names, e.g. `i` in `at while i < n`.
@@ -194,39 +194,109 @@ A proof of `correct p` is about the body, but not in it, so it refers to its loo
 
 Matching the code, with the order as the fallback, is the candidate.
 
-### The proof language
+### Proofs of propositions
 
-An open design point. It has to answer:
+Proofs of lemmas with contracts, while proofs of programs are open, see above. Proofs are always structured, simpler than in Isabelle, and read like expressions, with `match` and `if` chains as in functions.
 
-1. case analysis on values, on branches of the code, and on obligations,
-2. induction, by schemes of datatypes or by recursive uses of the lemma,
-3. using lemmas, instantiating, and rewriting with them,
-4. intermediate facts and calculations, `have` and chains `a == b == c`,
-5. points of the code, see above,
-6. where automation ends, i.e. what the solver does unasked,
-7. whether proofs are readable without the goals,
-8. how much of a proof survives changes of the code and the lemmas.
+**Goals** consist of fixed variables (the parameters of the lemma, and those bound by cases and witnesses), named facts (the `requires`, case equations, `have`s, and induction hypotheses), and a conclusion. Facts may be named in the contract, `requires pos: n > 0`, where names are only needed to cite them.
 
-The styles:
+**Simplification is implicit.** Every goal is simplified before the proof sees it, at the start of a lemma, in every case and branch, and after every `have`, `using`, `obtain`, and `choose`, see below. Goals that simplification closes need no proof: their cases are omitted, and a sequence may end without a closing form if its goal is closed.
 
-- **Tactic scripts** (Coq, Lean, Isabelle `apply`): `induction xs; simp; auto`, short and powerful, but unreadable without the goals, which the editor would have to show, and fragile.
-- **Structured proofs** (Isar, Lean `calc`): `case Cons(y, ys) => have … show …`, readable and robust with local errors, but verbose and a larger language.
-- **Hints only** (Dafny, Why3): invariants and `using` lemmas, small, with nothing to fall back on when the solver fails.
-- **Proofs as programs** (lemma bodies of Dafny, VeriFast): the proof is a statement, `match` for cases, `assert` for facts, and a recursive call of the lemma for the induction hypothesis, sound by a termination check like that of functions, with the parameters of the lemma as ins and its outs as outs. A proof of `correct p` would be a sequence of `at …` with invariants, loop contracts, and facts at calls, each with such a statement where needed. This adds only `at` and `invariant`/`loop` to the statements, but gives up rewriting tactics like `simp`, which could return as builtin procedures or hints `auto [lemmas]`.
+**Forms:**
 
-### Backend
+| Form | Meaning |
+|---|---|
+| `using f, …` | adds facts, where `f` is a fact, a lemma, an instance `take_drop(n - 1, rest)`, or a function for its definition, which simplification then uses |
+| `l(args)` | closes the goal by the instance of a lemma, whose `requires` are simplified to `true` or remain as subgoals |
+| `have h: e`, `have h: e by p` | a named intermediate fact, proven by simplification or by `p`, available to everything after it |
+| `match e case pat => p … end` | cases on a value, where each case gets the fact `e == pat` and its variables |
+| `induction x case pat => p … end` | structural induction on a parameter of a datatype, with cases as in `match` |
+| `if c then p else if d then p else p end` | a split on conditions, where each branch gets its condition and the negations of the earlier ones |
+| `subgoals case h: e => p … end` | named subgoals, each proven, from which the goal follows by simplification |
+| `obtain (q, r) := l(args)` | uses a lemma with outs: proves its `requires`, binds the witnesses, and adds its `ensures` |
+| `choose q := e, r := e` | gives the witnesses for the outs of the lemma being proven |
 
-Tactics or proof statements reduce obligations to goals (fixed variables, hypotheses, a conclusion), which an SMT solver closes: Z3 or cvc5 by SMT-LIB 2.6, datatypes as `declare-datatypes`, functions as `define-fun-rec` guarded by their `requires`, lemmas as axioms, polymorphism monomorphized, and lambdas defunctionalized or rejected in specifications.
+**Omitted cases.** Cases of `match` and `induction`, branches of `if` (`if c then p end` leaves the case `not c` to simplification), and subgoals that simplification closes are omitted, and those that remain are written out or covered by `else`. A case that is not closed and not written is an error that shows its simplified goal. Writing a case that simplification closes is allowed, so that proofs survive when simplification gets stronger.
+
+**Sequences.** A proof is a sequence of `using`, `have`, `obtain`, and `choose`, optionally ending in `l(args)`, `match`, `induction`, `if`, or `subgoals`, and its goal must be closed at its end. The bodies of `case`, `then`, and `else` are such sequences, which end at the next `case`, `else`, or `end` like the bodies of statements, which is why the `if` of proofs has an `end`, unlike that of expressions. A `have` with a longer proof is `have h: e`, a sequence, and `end`, like `while`.
+
+**Induction.** Its cases are the constructors of the type, with patterns as in `match`. The induction hypothesis is the lemma itself: in the case `[x; rest]` it may be used on `rest` with any values for its other parameters, e.g. `take_drop(n - 1, rest)`, so that these are generalized for free. The instance with the other arguments unchanged is a fact of the case, and other instances are added by `using`. Induction is only on parameters of datatypes, and the hypothesis only on variables of recursive arguments of constructors, the same structural check as for functions.
+
+**Rewrite rules.** Lemmas declared by `rewrite lemma` are used by simplification wherever they are visible, by the rules of modules for other declarations. Their `ensures` is an equation `l == r`, used from left to right, or a condition `e`, used as `e == true`, their `requires` are conditions that simplification must prove before rewriting, the variables of `r` and of the `requires` must occur in `l`, and every rule must decrease in the term order, see below, which is checked at the declaration.
+
+```
+rewrite lemma append_nil[A](xs: List[A]) :=
+  ensures xs ++ Nil == xs
+proof
+  induction xs
+  end
+
+rewrite lemma append_assoc[A](xs: List[A], ys: List[A], zs: List[A]) :=
+  ensures (xs ++ ys) ++ zs == xs ++ (ys ++ zs)
+proof
+  induction xs
+  end
+
+lemma take_drop[A](n: Int, xs: List[A]) :=
+  ensures take(n, xs) ++ drop(n, xs) == xs
+proof
+  induction xs
+    case [x; rest] =>
+      using take_drop(n - 1, rest)
+  end
+
+lemma reverse_onto_append[A](xs: List[A], ys: List[A]) :=
+  ensures reverse_onto(xs, ys) == reverse(xs) ++ ys
+proof
+  induction xs
+    case [x; rest] =>
+      using reverse_onto_append(rest, [x; ys]), reverse_onto_append(rest, [x])
+  end
+
+lemma division(m: Int, n: Int): (q: Int, r: Int) :=
+  requires m >= 0, n > 0
+  ensures  m == q * n + r and 0 <= r and r < n
+proof
+  choose q := m / n, r := m % n
+```
+
+`induction xs` without cases closes all of them by simplification. In `take_drop` the case `Nil` is closed, and in `[x; rest]` simplification splits on `n == 0` from `take` and `drop`, where both branches close, one with the cited instance. `division` requires `m >= 0`, since `/` and `%` truncate towards zero.
+
+### Simplification
+
+No external provers: simplification is one procedure in Scala, which turns a goal into a single goal that is equivalent to it, given the facts, or closes it.
+
+- **Safe**: every step preserves equivalence, so that simplifying never turns a provable goal into an unprovable one, and is applied without asking. Hence no heuristic instantiation of quantifiers, no induction, no generalization, and no facts are dropped.
+- **Desirable**: it terminates, normalizes, and keeps one goal, so that the proof sees one predictable goal. Case splits are only made internally, to close a goal, and their branches do not remain when they do not all close.
+
+Its steps:
+
+1. **Evaluation and unfolding**: closed terms are evaluated by `Run`, recursive functions are unfolded where their `match` or `if` is decided, `length([x; xs])` to `1 + length(xs)`, but not `length(xs)`, which terminates since functions do, and functions that are not recursive are unfolded always, as abbreviations.
+2. **Rewriting** to normal form with the rewrite rules, and with the facts, which are oriented by the term order, or used as conditions if they are not equations or cannot be oriented, under the context of `if`, `match`, `and`, and `==>`.
+3. **Splitting**, internally, on `if` and `match` whose test or argument is not decided, and on `or` in facts, kept only if all branches close.
+4. **Equality**: congruence closure, with injective and distinct constructors.
+5. **Linear integer arithmetic**: normalized sums, and Fourier–Motzkin with integer tightening to close goals, where products of variables are atoms, and `m / n` and `m % n` come with `m == (m / n) * n + m % n` and their bounds.
+6. **Propositional**: normalization of `not`, `and`, `or`, `==>`, and `==` on `Bool`.
+
+**The term order**, e.g. a lexicographic path order whose precedence is the order of declarations, with later functions above earlier ones, makes rewriting terminate: rewrite rules must decrease in it, and facts are oriented by it. A limit of steps is a safety net, which leaves an equivalent goal that is not normalized.
+
+This is weaker than SMT, which is why the language makes the structure explicit by cases, induction, named facts, and instances, but there are no timeouts, results are deterministic, and failures show the simplified goal. `self/` at first only parses proofs.
 
 ### Open points
 
-1. **The proof language**, see above.
-2. **Refs in claims**: a ref of the procedure would be a parameter of the lemma for its initial value and an out for its final value, e.g. `lemma inc_correct(x: Int): (y: Int) := correct inc(ref x => y)`, which needs a syntax for the pair, and then needs no `old` in the lemma.
-3. **Contracts without a `correct` lemma**: tried by a default proof, or reported as unproven.
-4. **Several contracts per procedure**, e.g. as claims `correct p ensures …`, which calls would all assume.
-5. **Total correctness**, by `decreases` on loops and procedures, and claims about exceptions, e.g. `raises`.
-6. **`self/`** at first only parses specifications, lemmas, and proofs and drops them, since the tests of `parse.u` compare both parsers on `tests/`.
-7. **Runtime checks** of contracts in the interpreter, which make specifications useful in tests before they are proven.
+1. **Proofs of programs**: the forms above inside the points `at …` of loops and calls, and which of the ways to refer to points of the code.
+2. **Arithmetic**: whether Fourier–Motzkin suffices, or the Omega test, which is complete for integer linear arithmetic, is needed.
+3. **Orientation**: rewrite rules only from left to right, or also `using <- l`, and which term order, where the precedence by declarations may reject natural rules.
+4. **More induction**: on `Int`, `induction n` for `n >= 0` with the cases `0` and `n + 1`, and computation induction `induction f(xs, ys)`, whose cases follow the `match` of `f`.
+5. **`calc` chains** `e1 == e2 by p == e3 by p` for equational proofs, which `have` covers for now.
+6. **Names**: `subgoals` or a shorter keyword, whether conjunctions give their parts as subgoals without restating them, and `rewrite lemma` or another marker.
+7. **Unfolding functions that are not recursive** always may break abstractions, e.g. `max`, which could be kept by a marker.
+8. **Refs in claims**: a ref of the procedure would be a parameter of the lemma for its initial value and an out for its final value, e.g. `lemma inc_correct(x: Int): (y: Int) := correct inc(ref x => y)`, which needs a syntax for the pair, and then needs no `old` in the lemma.
+9. **Contracts without a `correct` lemma**: tried by a default proof, or reported as unproven.
+10. **Several contracts per procedure**, e.g. as claims `correct p ensures …`, which calls would all assume.
+11. **Total correctness**, by `decreases` on loops and procedures, and claims about exceptions, e.g. `raises`.
+12. **`self/`** at first only parses specifications, lemmas, and proofs and drops them, since the tests of `parse.u` compare both parsers on `tests/`.
+13. **Runtime checks** of contracts in the interpreter, which make specifications useful in tests before they are proven.
 
 ## Review
 
