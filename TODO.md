@@ -2,9 +2,9 @@
 
 Open action items, each with the problem and the desired solution.
 
-## Command line
+## Testing
 
-1. **The drivers are not compared**: `./ulang.sh` and `./ulang.bin` have the same commands, but nothing checks that they print the same. Solution: run both on `tests/` with `test` and `check` and compare their output, and then measure the time of `run.u` on the compiler, `./ulang.bin run self/ulang.u -- compile ulang.u main out.c`.
+1. **Comparisons by hand**: the test of `self/compile.u` only writes the C of some tests to `self/out/`, and nothing checks that the compiled programs, `./ulang.sh`, and `./ulang.bin` print the same. Solution: a make target that compiles `self/out/*.c` and compares their output with `./ulang.sh test`, and compares `./ulang.sh` with `./ulang.bin` on `tests/` with `test` and `check`.
 
 ## Builtins
 
@@ -18,7 +18,8 @@ Open action items, each with the problem and the desired solution.
 3. **The file lists in the tests of `parse.u`** are written out, so new test files must be added by hand. Solution: a builtin `os_list` that lists a directory.
 4. **`read`, `library`, and `Quote`** remain only as the oracle of the tests of `parse.u`, and as stubs in the runtime. Solution: compare `parse.u` with the Scala parser without them, e.g. by printing both syntaxes to text, and then remove them.
 5. **Prefixes against clashes** in `lex.u` and `parse.u`, which predate modules. Solution: drop them where no module imports both modules of a clash.
-6. **No optimizations in the compiler.** Solution: passes between checking and translating to C, e.g. inlining small functions, folding constants, reading fields of single-constructor datatypes directly instead of calling their accessors, and avoiding the intermediate lists of comprehensions.
+6. **`self/run.u` is slow on large programs**: interpreting the compiler on itself takes 121 seconds, three times as long as the Scala interpreter, although it is faster on small programs. Likely causes are maps keyed by `Name`, which compare names structurally at every step, and the cache of checked modules, whose keys are whole modules. Solution: profile it on the compiler with gprof, and number the names of declarations when a program is loaded.
+7. **No optimizations in the compiler.** Solution: passes between checking and translating to C, e.g. inlining small functions, folding constants, reading fields of single-constructor datatypes directly instead of calling their accessors, and avoiding the intermediate lists of comprehensions.
 
 ## Modules
 
@@ -35,16 +36,15 @@ Open action items, each with the problem and the desired solution.
 ## Compiler
 
 1. **Variables after a raise.** `try` uses `setjmp`, after which C leaves local variables that changed since then undefined unless they are `volatile`; outs and refs work in practice since their address is taken, but this is not guaranteed. Solution: declare the locals that a `try` assigns as `volatile`.
-2. **Compiled programs are compared with the interpreter by hand**, while the test of `compile.u` only writes their translations. Solution: a make target or test that compiles `self/out/*.c` and compares their output with the interpreter.
-3. **Runtime errors have no positions**, and an unassigned variable is a `NULL` pointer instead of an error. Solution: positions in the messages of the runtime, and a check of unassigned variables.
-4. **Deep recursion.** Functions like `concat` and `str_join` over long lists recurse deeply, so compiled programs need `ulimit -s unlimited` for big inputs. Solution: loops in the runtime and library where possible, and a large stack for the main thread of compiled programs, as the interpreter has.
+2. **Runtime errors have no positions**, and an unassigned variable is a `NULL` pointer instead of an error. Solution: positions in the messages of the runtime, and a check of unassigned variables.
+3. **Deep recursion.** Functions like `concat` and `str_join` over long lists recurse deeply, so compiled programs need `ulimit -s unlimited` for big inputs. Solution: loops in the runtime and library where possible, and a large stack for the main thread of compiled programs, as the interpreter has.
 
 ## Syntax
 
 1. **Repeated loops in `self/parse.u`**: the operator loop three times, `cases` twice, and the generators of comprehensions in `parse_brackets` and `set_comprehension`. Solution: write each once, taking the parser of an item as a procedure value, as `sections` does.
 2. **Patterns are weaker than expressions**: no or-patterns `case TParam(_) | TMeta(_) =>` and no as-patterns, which forced `self/run.u` to rebuild values it had just taken apart. Solution: or-patterns and as-patterns.
 3. **One global namespace**: overloading only distinguishes arities, hence names like `zonk_type` and `zonk_expr`, or `UnknownProc` next to `UnknownProcedure`. Solution: qualified names for modules (`check.infer`) or constructors (`Expr.Var`).
-4. **No overloading by types**, so lists, sets, and maps need different names (`length`, `count`, `size`, `contains`, `member`, `has`, `lookup`, `get`), `{}` cannot be the empty set or map, and `==` and `compare` of sets and maps compare the shapes of their trees, not their elements. Solution: overloading by types, e.g. by interfaces that lists, sets, and maps implement.
+4. **No overloading by types**, so lists, sets, and maps need different names (`length`, `count`, `size`, `contains`, `member`, `has`, `lookup`, `get`, `remove`, `delete`), `{}` cannot be the empty set or map, and `==` and `compare` of sets and maps compare the shapes of their trees, not their elements. Solution: overloading by types, e.g. by interfaces that lists, sets, and maps implement.
 5. **Partial accesses are not visible**: `e.f` of a field that only some constructors have may raise `MissingField`, but nothing at the access shows it. Candidate: `e!f` for such fields and `e.f` for the others, as decided by the declaration and enforced by the checker. Reservations: one more rule to learn, and it reserves `!`.
 6. **Constructors may have unnamed parameters**, so some fields have no accessors or updates, and their partiality is not known. Candidate: require names for all parameters of constructors, as in Scala's case classes, where patterns stay positional and tuples remain for anonymous products. Costs: more writing for small types, names that agree in their types across the constructors of `self/syntax.u`, and generated accessors and updaters, of which the compiler could drop the unused ones.
 7. **`assign` is redundant** before `x := e`. Solution: decide whether to drop it.

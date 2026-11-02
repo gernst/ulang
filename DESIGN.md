@@ -13,8 +13,8 @@ What a language would ideally offer for writing code with an AI assistant, which
 
 ### Compared to ulang
 
-- **Already there**: explicit data flow with `in`, `out`, and `ref`, pure expressions with effects only in statements, exhaustive matches and inference, a small language without implicit behavior, exceptions as values of a type, and named tests with `assert` showing both sides.
-- **Missing**: modules with exports, positions in errors, failure in the types, and contracts, while records exist in part, as named fields with accessors and updates. These are extensions, not redesigns, see the points above.
+- **Already there**: explicit data flow with `in`, `out`, and `ref`, pure expressions with effects only in statements, exhaustive matches and inference, a small language without implicit behavior, exceptions as values of a type, named tests with `assert` showing both sides, and procedures as values, which abstract over effectful code such as the parsing of sections in `self/parse.u`.
+- **Missing**: modules with exports, positions in the errors of the self-hosted checker and compiler, failure in the types, and contracts, while records exist in part, as named fields with accessors and updates. These are extensions, not redesigns, see `TODO.md`.
 - **Questionable**: user-defined notations make the syntax depend on declarations, e.g. whether `and` is an operator or a name, for tools and for writing code alike.
 
 ## Verification
@@ -75,7 +75,7 @@ A design, not implemented yet: contracts on functions and procedures, lemmas abo
 1. **`correct p`** states for all ins and initial refs: if the `requires` hold, every run of the body that ends normally satisfies the `ensures`. The claim does not restate the contract.
 2. **Calls use contracts**: at `call q(...)`, the `requires` of `q` are proven, the outs and refs havocked, and the `ensures` assumed. Callers depend only on the contract, not on whether or how it is proven.
 3. **Recursion.** Each body is proven assuming all contracts, including its own and those of procedures that call it back, which is sound for partial correctness for all of them at once by induction on the depth of calls (Hoare's recursion rule, generalized to mutual recursion). Proofs have no order and no cycles.
-4. **Unproven contracts** make this conditional: if the contract of `q` is not proven, the proofs that use it hold only under it, which `--verify` reports, e.g. `sum proved, assuming q`.
+4. **Unproven contracts** make this conditional: if the contract of `q` is not proven, the proofs that use it hold only under it, which `ulang verify <file>` reports, e.g. `sum proved, assuming q`.
 5. **Every contract is an obligation.** Without a `correct` lemma, the verifier tries a default proof and reports the remaining goals, including those at loops, so that the workflow is to write the contract, see where it gets stuck, and add a lemma with a proof.
 6. **Definedness**: calls of functions with `requires`, `/`, `%`, and `raise` give obligations wherever they occur, taking guards into account, as in `n != 0 ==> m / n > 0`.
 7. **Functions in lemmas must terminate**, by structural recursion or a `decreases` after `:=`, since unfolding `f(x) = f(x) + 1` would prove false.
@@ -261,3 +261,4 @@ This is weaker than SMT, which is why the language makes the structure explicit 
 13. **Total correctness**, by `decreases` on loops and procedures, and claims about exceptions, e.g. `raises`.
 14. **`self/`** at first only parses specifications, lemmas, and proofs and drops them, since the tests of `parse.u` compare both parsers on `tests/`.
 15. **Runtime checks** of contracts in the interpreter, which make specifications useful in tests before they are proven.
+16. **Quantifiers and the functions `exists` and `forall`** of `list.u` share their names, so `forall x => e` in specifications would clash with `forall(xs, p)`, unless the quantifiers are keywords only in specifications, or the functions are renamed, e.g. to `any` and `all`.
