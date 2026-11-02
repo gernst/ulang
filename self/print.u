@@ -38,6 +38,69 @@ function escape_char(c: Char): Str :=
     else string([c])
   end
 
+// types as Check.scala shows them, without numbering the unknowns anew
+function show_type(t: Type): Str :=
+  match t
+    case TParam(n) => n
+    case THole => "_"
+    case TMeta(i) => "?" ^ str_show(i)
+    case TFun([TTuple([])], r) => "(()) -> " ^ show_type(r)
+    case TFun([a], r) => type_operand(a) ^ " -> " ^ show_type(r)
+    case TFun(args, r) => "(" ^ show_types(args) ^ ") -> " ^ show_type(r)
+    case TProc(is, os, rs) => "(" ^ str_join(", ", type_section("in", is) ++ type_section("out", os) ++ type_section("ref", rs)) ^ ")"
+    case TTuple([]) => "()"
+    case TTuple(ts) => str_join(" * ", [type_component(a) for a in ts])
+    case TSort(n, []) => n.base
+    case TSort(n, args) => n.base ^ "[" ^ show_types(args) ^ "]"
+  end
+
+function show_types(ts: List[Type]): Str :=
+  str_join(", ", [show_type(t) for t in ts])
+
+function type_section(mode: Str, ts: List[Type]): List[Str] :=
+  if ts == [] then [] else [mode ^ " " ^ show_types(ts)]
+
+// the argument of a function, in parentheses if it is a function
+function type_operand(t: Type): Str :=
+  match t
+    case TFun(_, _) => "(" ^ show_type(t) ^ ")"
+    else show_type(t)
+  end
+
+// a component of a tuple, in parentheses if it is a function or a tuple
+function type_component(t: Type): Str :=
+  match t
+    case TFun(_, _) => "(" ^ show_type(t) ^ ")"
+    case TTuple([_, _; _]) => "(" ^ show_type(t) ^ ")"
+    else show_type(t)
+  end
+
+// patterns as Printer.scala shows them
+function show_pat(p: Pat): Str :=
+  match p
+    case PWild => "_"
+    case PLit(l) => show_value(Lit(l))
+    case PVar(x) => x.name.base
+    case PTuple(ps) => "(" ^ show_pats(ps) ^ ")"
+    case PApp(n, [x, xs]) if n == cons_name() or n == unqualified("Cons") => "[" ^ show_pat(x) ^ "; " ^ show_pat(xs) ^ "]"
+    case PApp(n, [l, r]) if symbolic(n.base) => infix_text(n.base, show_pat(l), show_pat(r))
+    case PApp(n, []) => n.base
+    case PApp(n, ps) => n.base ^ "(" ^ show_pats(ps) ^ ")"
+  end
+
+function show_pats(ps: List[Pat]): Str :=
+  str_join(", ", [show_pat(p) for p in ps])
+
+// constructors named by operators are shown infix
+function symbolic(n: Id): Bool :=
+  let c := str_get(n, 0) in not is_letter(c) and c != '_' and n != ","
+
+function infix_text(op: Id, l: Str, r: Str): Str :=
+  pat_operand(l) ^ " " ^ op ^ " " ^ pat_operand(r)
+
+function pat_operand(a: Str): Str :=
+  if str_contains(a, ' ') and str_get(a, 0) != '(' then "(" ^ a ^ ")" else a
+
 // the text of a string, for os_print
 function text_of(v: Value): Str :=
   match v
@@ -46,5 +109,8 @@ function text_of(v: Value): Str :=
   end
 
 test printing :=
+  assert show_type(TFun([TFun([TParam("A")], TParam("B")), TTuple([TSort(unqualified("Int"), []), TSort(unqualified("Str"), [])])], TSort(unqualified("List"), [TParam("A")]))) == "(A -> B, Int * Str) -> List[A]"
+  assert show_type(TProc([TParam("A")], [], [TSort(unqualified("Int"), [])])) == "(in A, ref Int)"
+  assert show_pat(PApp(cons_name(), [PVar(Var(unqualified("x"), THole)), PApp(unqualified("Some"), [PWild])])) == "[x; Some(_)]"
   assert show_value(list_value([Lit(VInt(1)), Lit(VStr("a\"b"))])) == "[1, \"a\\\"b\"]"
   assert show_value(Obj(tuple_name(), [Lit(VChar('\'')), Obj(nil_name(), Nil), Obj(unqualified("Some"), [Lit(VBool(true))])])) == "('\\'', Nil, Some(true))"

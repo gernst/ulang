@@ -1,7 +1,8 @@
 // call os_read(in path, out text) and os_write(in path, text) read and write files, relative to the program,
 // os_library(in name, out text) gives the source of a module of the library, where failures raise OsError,
 // os_args(out args) gives the arguments of the program, after -- for the interpreter,
-// os_print(in text) prints a string as it is, and os_show(in x) any value as the interpreter shows values, strings with quotes
+// os_print(in text) prints a string as it is, and os_show(in x) any value as the interpreter shows values, strings with quotes,
+// os_print_error(in text) prints a string to the error output, and os_exit(in code) ends the program with the status code
 
 data OsError :=
   | OsError(Str)

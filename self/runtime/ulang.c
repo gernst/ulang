@@ -724,6 +724,17 @@ void p_os_print(u_value text) {
   putchar('\n');
 }
 
+void p_os_print_error(u_value text) {
+  fflush(stdout);
+  fwrite(text->text, 1, (size_t)text->length, stderr);
+  fputc('\n', stderr);
+}
+
+void p_os_exit(u_value code) {
+  fflush(stdout);
+  exit(code->kind == INT ? (int)code->num : 1);
+}
+
 void p_os_library(u_value name, u_value *result) {
   char *path = text(u_strlen(ULANG_LIB) + (size_t)name->length + 3);
   sprintf(path, "%s/%s.u", ULANG_LIB, name->text);

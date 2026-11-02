@@ -26,13 +26,17 @@ data Prog :=
     procs: List[Name * ProcDef],
     constrs: List[Name * Int],
     positions: List[Name * Int],
-    computing: List[Name]
+    computing: List[Name],
+    args: List[Str]
   )
 
 // the cells by address, which are unassigned initially, the next address, the values of functions without parameters,
-// and the lines that os_print and os_show printed so far, the last first
+// the lines that os_print and os_show printed so far, the last first, and whether they are printed at once instead
 data Heap :=
-  | Heap(cells: Map[Int, Option[Value]], next: Int, values: List[Name * Value], printed: List[Str])
+  | Heap(cells: Map[Int, Option[Value]], next: Int, values: List[Name * Value], printed: List[Str], direct: Bool)
+
+function new_heap(direct: Bool): Heap :=
+  Heap(empty(), 0, Nil, Nil, direct)
 
 // the cells of variables
 type Store :=
@@ -65,7 +69,7 @@ function position_of(p: Prog, k: Name): Int :=
 
 function load(q: Program): Prog :=
   match q
-    case Program(cs) => Prog(fun_defs(cs), proc_defs(cs), constr_defs(cs), constr_positions(cs), Nil)
+    case Program(cs) => Prog(fun_defs(cs), proc_defs(cs), constr_defs(cs), constr_positions(cs), Nil, Nil)
   end
 
 // functions are overloaded by the number of arguments of their first list of parameters
@@ -835,9 +839,13 @@ procedure invoke(in p: Prog, n: Name, ins: List[Value], refs: List[Int], out out
       call   exec(in p, in_cells ++ out_cells ++ zip(names(zs), refs), body, ref h)
       call   read_outs(in n, out_cells, h, out outs)
     case None if n.base == "os_show" =>
-      assign outs := Nil, h := h with printed := reverse([show_value(v) for v in ins]) ++ h.printed
+      assign outs := Nil
+      call   emit(in [show_value(v) for v in ins], ref h)
     case None if n.base == "os_print" =>
-      assign outs := Nil, h := h with printed := reverse([text_of(v) for v in ins]) ++ h.printed
+      assign outs := Nil
+      call   emit(in [text_of(v) for v in ins], ref h)
+    case None if n.base == "os_args" =>
+      assign outs := [list_value([Lit(VStr(a)) for a in p.args])]
     case None =>
       call os_proc(in n, ins, out outs)
   end
@@ -859,16 +867,24 @@ procedure invoke_value(in p: Prog, f: Value, ins: List[Value], refs: List[Int], 
       raise NotProc(f)
   end
 
+// prints the lines at once or collects them, as the heap says
+procedure emit(in lines: List[Str], ref h: Heap) :=
+  match lines
+    case Nil =>
+      skip
+    case [line; rest] if h.direct =>
+      call os_print(in line)
+      call emit(in rest, ref h)
+    case _ =>
+      assign h := h with printed := reverse(lines) ++ h.printed
+  end
+
 // the procedures of the library os are those of the interpreter of this program, whose OsError the program can catch
 procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
-  local text: Str, args: List[Str]
+  local text: Str
 
   try
     match (n.base, ins)
-      case ("os_args", []) =>
-        call   os_args(out args)
-        assign outs := [list_value([Lit(VStr(a)) for a in args])]
-
       case ("os_read", [Lit(VStr(path))]) =>
         call   os_read(in path, out text)
         assign outs := [Lit(VStr(text))]
@@ -881,12 +897,30 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
         call   os_library(in name, out text)
         assign outs := [Lit(VStr(text))]
 
+      case ("os_print_error", [Lit(VStr(t))]) =>
+        call   os_print_error(in t)
+        assign outs := Nil
+
+      case ("os_exit", [Lit(VInt(k))]) =>
+        call os_exit(in k)
+
       else
         raise UnknownProc(n)
     end
   catch
     case OsError(m) =>
       raise Thrown(Obj(os_error_name(), [Lit(VStr(m))]), TSort(os_error_name(), Nil))
+  end
+
+// runs the run or test c
+procedure run_cmd(in p: Prog, c: Cmd, ref h: Heap) :=
+  match c
+    case CRun(_, body) =>
+      call exec(in p, Nil, body, ref h)
+    case CTest(_, body) =>
+      call exec(in p, Nil, body, ref h)
+    else
+      skip
   end
 
 // runs the runs and tests of cs
@@ -906,7 +940,7 @@ procedure run_all(in p: Prog, cs: List[Cmd], ref h: Heap) :=
 
 // the lines that a checked program printed, where failed assertions are errors
 procedure run_program(in q: Program, out vs: List[Str]) :=
-  local h := Heap(empty(), 0, Nil, Nil)
+  local h := new_heap(false)
 
   call   run_all(in load(q), q.cmds, ref h)
   assign vs := reverse(h.printed)

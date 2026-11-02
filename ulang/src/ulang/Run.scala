@@ -517,6 +517,14 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
       case (None, "os_print", List(text: String)) =>
         printed += text
         Nil
+      case (None, "os_print_error", List(text: String)) =>
+        flush()
+        System.err.println(text)
+        Nil
+      case (None, "os_exit", List(code: BigInt)) =>
+        flush()
+        System.out.flush()
+        sys.exit(code.toInt)
       case (None, "os_library", List(name: String)) =>
         List(Main.libraryText(name).getOrElse(throw osError(s"unknown module $name", pos)))
       case _ =>

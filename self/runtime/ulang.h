@@ -143,6 +143,8 @@ void p_os_args(u_value *args);
 void p_os_read(u_value path, u_value *text);
 void p_os_show(u_value v);
 void p_os_print(u_value text);
+void p_os_print_error(u_value text);
+void p_os_exit(u_value code);
 void u_passed(const char *name);
 void p_os_write(u_value path, u_value text);
 void p_os_library(u_value name, u_value *text);
