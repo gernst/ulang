@@ -221,10 +221,10 @@ function free(t: Type): List[Type] :=
 function holes(t: Type): Bool :=
   match t
     case THole => true
-    case TSort(_, args) => contains(true, [holes(a) for a in args])
-    case TFun(args, r) => contains(true, [holes(a) for a in args ++ [r]])
+    case TSort(_, args) => exists(args, holes)
+    case TFun(args, r) => exists(args, holes) or holes(r)
     case TProc(is, os, rs) => exists(is ++ os ++ rs, holes)
-    case TTuple(ts) => contains(true, [holes(a) for a in ts])
+    case TTuple(ts) => exists(ts, holes)
     else false
   end
 

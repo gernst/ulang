@@ -1528,7 +1528,7 @@ function field_names(fs: List[Option[Id]]): List[Id] :=
 function differing(fs: List[Id * (Name * Int * Int * Type)]): Option[Id] :=
   match fs
     case Nil => None
-    case [(f, (_, _, _, t)); rest] => if contains(true, [type_of_field(e) != t for e in fields_named(f, rest)]) then Some(f) else differing(rest)
+    case [(f, (_, _, _, t)); rest] => if exists(fields_named(f, rest), lambda e => type_of_field(e) != t) then Some(f) else differing(rest)
   end
 
 function type_of_field(e: Id * (Name * Int * Int * Type)): Type :=
