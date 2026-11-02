@@ -7,7 +7,7 @@ A minimal programming language with pure functional expressions, imperative stat
 Mill with `build.mill.yaml`; the language lives in the module `ulang`. Do not use sbt.
 
 - `./mill ulang.compile`
-- `./mill ulang.run file.u ...` checks and runs the files, printing the values of `eval`s and the variables of `run`s
+- `./mill ulang.run file.u ...` checks and runs the files, whose `run`s and `test`s print with `os_print` of the module `os`
 - `./mill ulang.test` runs every `tests/**/*.u`, `self/**/*.u`, and `ulang/resources/*.u` (utest, `FileTest`)
 - `make` builds `ulang.jar`, which `./ulang.sh file.u ...` runs (the module directory `ulang/` prevents a script `./ulang`)
 - `./ulang.sh --tests file.u ...` runs each test on its own and prints `test name passed` or `test name failed: ...`; `./ulang.sh --only name file.u` runs only the `run` or `test` of that name
@@ -27,7 +27,7 @@ The parsers translate the literals `{a, b}` of sets to `set.from_list([a, b])` a
 Procedures are values of types `(in A, out B, ref C)`: a declared procedure by its name, and `lambda in x, out y, ref z => statements end`, which sees the variables around it by their values and assigns only its own outs and refs; `call p(...)` calls a variable `p` of such a type, which hides a procedure of that name, and compiled code calls them through `u_call_proc` and the wrappers `wp_`.
 The parsers read `-n` for a number `n` as a negative literal, in expressions and patterns, e.g. `case -1 =>`, and both the interpreter and compiled code compute the value of a function without parameters once.
 The library module `os` declares `OsError`, and with it come the builtin procedures `os_args`, `os_read`, `os_write`, and `os_library`, where the latter raise `OsError` when they fail, and `os_args` gives the arguments after `--`, e.g. `./ulang.sh self/ulang.u -- source.u target.c`.
-`import name` loads the module `name.u` from the directory of the parsed file, or else from the library, once, without its `eval`s, `run`s, and `test`s. A module sees its own declarations, those of its direct imports, and the prelude, and the same holds for notations: imports are not transitive. The checker resolves every name to its module, so that names may repeat in modules that are not imported together. The checkers check each imported module once, after the modules it imports, where the prelude with its imports is one unit, and keep it by its name, commands, and the modules it sees: `Check.cache` in Scala, and the `ref cache` of `check_modules` in `self/check.u`.
+`import name` loads the module `name.u` from the directory of the parsed file, or else from the library, once, without its `run`s and `test`s. A module sees its own declarations, those of its direct imports, and the prelude, and the same holds for notations: imports are not transitive. The checker resolves every name to its module, so that names may repeat in modules that are not imported together. The checkers check each imported module once, after the modules it imports, where the prelude with its imports is one unit, and keep it by its name, commands, and the modules it sees: `Check.cache` in Scala, and the `ref cache` of `check_modules` in `self/check.u`.
 A file that is expected to fail states the error in its first line, e.g. `// type error: unknown variable x`, see `tests/errors/`.
 
 ## Style

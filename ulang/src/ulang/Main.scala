@@ -63,7 +63,7 @@ object Main:
     Parser.parseProgram(text, scope(file.baseName, module(file / os.up)))
 
   // the checked text of file after the prelude, which is the module of its base name, where a module of the library
-  // that the prelude imports keeps only its evals, runs, and tests, since the prelude declares the rest
+  // that the prelude imports keeps only its runs and tests, since the prelude declares the rest
   def load(text: String, file: os.Path, args: List[String] = Nil): Run =
     val cmds = parse(text, file).cmds
     val name = file.baseName
@@ -74,7 +74,7 @@ object Main:
     cmds match
       case Nil =>
         Nil
-      case (c: (Cmd.Eval | Cmd.Run | Cmd.Test)) :: rest =>
+      case (c: (Cmd.Run | Cmd.Test)) :: rest =>
         c :: runnable(rest)
       case _ :: rest =>
         runnable(rest)

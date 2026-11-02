@@ -91,7 +91,6 @@ data Cmd :=
   | CModule(Id, List[Cmd])
   | CImport(Id)
   | CNotation(Fixity, Int, List[Id])
-  | CEval(Expr)
   | CRun(Id, Stmt)
   | CTest(Id, Stmt)
 

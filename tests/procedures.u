@@ -71,11 +71,12 @@ test closures_capture_values :=
   call   capture(out r)
   assert r == 1
 
-run sums :=
-  local x: Int, y: Int, z: Int
+test sums :=
+  local x: Int, y: Int
 
   call   sum(in 4, out x)
   assign y := x * 2
+  assert (x, y) == (6, 12)
 
 // the bodies of cases may declare variables, like those of if and while
 test locals_in_cases :=

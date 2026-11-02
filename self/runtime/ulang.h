@@ -125,7 +125,6 @@ u_value u_is_space(u_value c);
 
 void u_print_value(u_value v);
 void u_print_line(u_value v);
-void u_print_binding(const char *name, u_value v);
 void u_no_case(u_value v);
 void u_assert_true(u_value v);
 void u_assert_equal(u_value a, u_value b);

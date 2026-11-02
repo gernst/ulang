@@ -585,12 +585,6 @@ void u_print_line(u_value v) {
   putchar('\n');
 }
 
-void u_print_binding(const char *name, u_value v) {
-  if (!v) return;
-  printf("%s = ", name);
-  u_print_line(v);
-}
-
 void u_fail(const char *msg) {
   fflush(stdout);
   fprintf(stderr, "runtime error: %s\n", msg);

@@ -3,4 +3,5 @@ data Shape :=
   | Circle(label: Str, radius: Int)
   | Box(label: Str)
 
-eval Box("b").radius
+run r :=
+  local v := Box("b").radius

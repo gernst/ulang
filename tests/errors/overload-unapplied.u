@@ -1,8 +1,9 @@
-// type error: overloaded f must be applied at 8.6
+// type error: overloaded f must be applied at 9.14
 function f(x: Int): Int :=
   x
 
 function f(x: Int, y: Int): Int :=
   x
 
-eval f
+run r :=
+  local v := f

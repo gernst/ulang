@@ -20,7 +20,7 @@ data Scope :=
 
 function keywords(): Set[Id] :=
   {
-    "_", "assert", "assign", "call", "case", "catch", "data", "else", "end", "eval", "false", "for", "function", "if", "import",
+    "_", "assert", "assign", "call", "case", "catch", "data", "else", "end", "false", "for", "function", "if", "import",
     "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix", "procedure", "raise", "ref", "run", "skip",
     "test", "then", "true", "type", "try", "while", "with"
   }
@@ -1328,7 +1328,6 @@ procedure parse_formals(in sc: Scope, out xs: List[Var], ref ts: List[Token * In
 function declarations(cs: List[Cmd]): List[Cmd] :=
   match cs
     case Nil => Nil
-    case [CEval(_); more] => declarations(more)
     case [CRun(_, _); more] => declarations(more)
     case [CTest(_, _); more] => declarations(more)
     case [c; more] => [c; declarations(more)]
@@ -1691,11 +1690,6 @@ procedure parse_command(in cx: Context, out cs: List[Cmd], ref ts: List[Token * 
     case TName("procedure") =>
       call   parse_procedure(in ns, out c, ref ts)
       assign cs := [c]
-
-    case TName("eval") =>
-      call   advance(ref ts)
-      call   parse_expr(in Scope(Nil, ns), out e, ref ts)
-      assign cs := [CEval(e)]
 
     case TName("run") =>
       call   advance(ref ts)

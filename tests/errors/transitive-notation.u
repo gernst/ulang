@@ -1,4 +1,5 @@
-// parse error: undeclared operator <+> at 4.8
+// parse error: undeclared operator <+> at 5.16
 import wrapper
 
-eval 1 <+> 2
+run r :=
+  local v := 1 <+> 2

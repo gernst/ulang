@@ -1,5 +1,6 @@
-// type error: unknown field z of Point at 5.23
+// type error: unknown field z of Point at 6.31
 data Point :=
   | Point(x: Int, y: Int)
 
-eval Point(1, 2) with z := 3
+run r :=
+  local v := Point(1, 2) with z := 3

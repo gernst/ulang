@@ -164,8 +164,6 @@ class Quote(syntax: Id):
         obj("CImport", name)
       case Cmd.Notation(fixity, prec, ops) =>
         obj("CNotation", quote(fixity), BigInt(prec), names(ops))
-      case Cmd.Eval(expr) =>
-        obj("CEval", quote(expr))
       case Cmd.Run(name, body) =>
         obj("CRun", name, quote(body))
       case Cmd.Test(name, body) =>
@@ -395,8 +393,6 @@ class Quote(syntax: Id):
         Cmd.Import(name(n))()
       case K("CNotation", List(f, prec, ops)) =>
         Cmd.Notation(fixity(f), int(prec), items(ops)(name))()
-      case K("CEval", List(e)) =>
-        Cmd.Eval(expr(e))()
       case K("CRun", List(n, body)) =>
         Cmd.Run(name(n), stmt(body))()
       case K("CTest", List(n, body)) =>

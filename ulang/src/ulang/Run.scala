@@ -550,23 +550,18 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
   // the lines that os_print printed during the command so far
   val printed = scala.collection.mutable.ListBuffer[String]()
 
-  // the lines of c after those it printed, which are printed at once if c fails
+  // the lines that c printed, which are printed at once if c fails
   def output(c: Cmd): List[String] =
     try
-      val lines =
-        c match
-          case Cmd.Eval(expr) =>
-            List(Printer.show(eval(Map(), expr)))
-          case Cmd.Run(_, body) =>
-            results(body)
-          case Cmd.Test(_, body) =>
-            exec(Map(), body)
-            Nil
-          case _ =>
-            Nil
-      val all = printed.toList ++ lines
+      c match
+        case Cmd.Run(_, body) =>
+          exec(Map(), body)
+        case Cmd.Test(_, body) =>
+          exec(Map(), body)
+        case _ =>
+      val lines = printed.toList
       printed.clear()
-      all
+      lines
     catch
       case e: Raised =>
         flush()
@@ -580,17 +575,3 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
       println(line)
     printed.clear()
 
-  // executes a block and returns the assigned values of its variables
-  def results(body: Stmt): List[String] =
-    body match
-      case Stmt.Block(locals, stmts) =>
-        val store = bind(locals, locals.map(_ => Cell(None)))
-        for s <- stmts do
-          exec(store, s)
-        for
-          x <- locals;
-          v <- store(x.name).get.toList
-        yield s"${x.name} = ${Printer.show(v)}"
-      case _ =>
-        exec(Map(), body)
-        Nil

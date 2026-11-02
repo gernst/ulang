@@ -494,8 +494,6 @@ class Check(decls: List[(Id, Cmd)], main: Id, before: Ctx = Check.initial, impor
         Cmd.Proc(name, params, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))(d.pos)
       case Cmd.Module(_, _) | Cmd.Import(_) | Cmd.Notation(_, _, _) =>
         d
-      case Cmd.Eval(expr) =>
-        Cmd.Eval(zonk(expr))(d.pos)
       case Cmd.Run(name, body) =>
         Cmd.Run(name, zonk(body))(d.pos)
       case Cmd.Test(name, body) =>
@@ -1211,8 +1209,6 @@ class Check(decls: List[(Id, Cmd)], main: Id, before: Ctx = Check.initial, impor
       case d: Cmd.Notation =>
         d
 
-      case Cmd.Eval(expr) =>
-        Cmd.Eval(infer(Map(), expr)._1)(c.pos)
 
       case Cmd.Run(name, body) =>
         Cmd.Run(name, stmt(Map(), Set(), body))(c.pos)
