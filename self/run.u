@@ -140,38 +140,47 @@ function char_values(vs: List[Value]): List[Char] :=
     else Nil
   end
 
-function bind_values(xs: List[Var], vs: List[Value]): List[Name * Value] :=
-  zip(names(xs), vs)
+// env where the variables xs have the values vs
+function bind_all(xs: List[Var], vs: List[Value], env: Bindings): Bindings :=
+  match (xs, vs)
+    case ([x; xs1], [v; vs1]) => bind_all(xs1, vs1, put(x.name, v, env))
+    else env
+  end
 
-function matches(p: Pat, v: Value): Option[List[Name * Value]] :=
+// env where the variables of p have the parts of v that they match, if p matches v
+function match_into(p: Pat, v: Value, env: Bindings): Option[Bindings] :=
   match (p, v)
-    case (PWild, _) => Some(Nil)
-    case (PLit(l), _) => if v == Lit(l) then Some(Nil) else None
-    case (PVar(Var(n, _)), _) => Some([(n, v)])
-    case (PApp(c, ps), Obj(d, vs)) => if c == d then matches_all(ps, vs) else None
+    case (PWild, _) => Some(env)
+    case (PLit(l), _) => if v == Lit(l) then Some(env) else None
+    case (PVar(Var(n, _)), _) => Some(put(n, v, env))
+    case (PApp(c, ps), Obj(d, vs)) => if c == d then match_all_into(ps, vs, env) else None
     case (PApp(_, _), _) => None
-    case (PTuple(ps), Obj(n, vs)) if n == tuple_name() => matches_all(ps, vs)
+    case (PTuple(ps), Obj(n, vs)) if n == tuple_name() => match_all_into(ps, vs, env)
     case (PTuple(_), _) => None
   end
 
-function matches_all(ps: List[Pat], vs: List[Value]): Option[List[Name * Value]] :=
+function match_all_into(ps: List[Pat], vs: List[Value], env: Bindings): Option[Bindings] :=
   match (ps, vs)
-    case (Nil, Nil) => Some(Nil)
+    case (Nil, Nil) => Some(env)
     case ([p; ps1], [v; vs1]) =>
-      match matches(p, v)
-        case Some(bs) =>
-          match matches_all(ps1, vs1)
-            case Some(cs) => Some(bs ++ cs)
-            case None => None
-          end
+      match match_into(p, v, env)
+        case Some(inner) => match_all_into(ps1, vs1, inner)
         case None => None
       end
     else None
   end
 
+function pattern_vars(p: Pat): List[Name] :=
+  match p
+    case PVar(Var(n, _)) => [n]
+    case PApp(_, ps) => concat([pattern_vars(q) for q in ps])
+    case PTuple(ps) => concat([pattern_vars(q) for q in ps])
+    else []
+  end
+
 
 procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value, ref cache: Map[Name, Value]) :=
-  local w: Value, vs: List[Value], envs: List[Bindings], sel: Option[Expr * List[Name * Value]]
+  local w: Value, vs: List[Value], envs: List[Bindings], sel: Option[Expr * Bindings * List[Name]]
 
   match e
     case ELit(l) =>
@@ -192,7 +201,7 @@ procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value, ref cache: 
 
     case ELet(bound, body) =>
       call   evaluate_all(in p, env, seconds(bound), out vs, ref cache)
-      call   evaluate(in p, put_all(bind_values(firsts(bound), vs), env), body, out v, ref cache)
+      call   evaluate(in p, bind_all(firsts(bound), vs, env), body, out v, ref cache)
 
     case EIte(cond, left, right) =>
       call evaluate(in p, env, cond, out w, ref cache)
@@ -206,8 +215,8 @@ procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value, ref cache: 
       call   evaluate(in p, env, arg, out w, ref cache)
       call   select(in p, env, w, cases, out sel, ref cache)
       match sel
-        case Some((body, bs)) =>
-          call evaluate(in p, put_all(bs, env), body, out v, ref cache)
+        case Some((body, inner, _)) =>
+          call evaluate(in p, inner, body, out v, ref cache)
         case None =>
           raise NoCase(w)
       end
@@ -286,7 +295,7 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value, ref c
 
   match f
     case Clos(env, xs, body) =>
-      call evaluate(in p, put_all(bind_values(xs, vs), env), body, out v, ref cache)
+      call evaluate(in p, bind_all(xs, vs, env), body, out v, ref cache)
 
     case Fn(n, k) =>
       match get((n, k), p.funs)
@@ -294,11 +303,11 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value, ref c
           call cached(in p, n, body, out v, ref cache)
 
         case Some(([xs], body)) =>
-          call evaluate(in p, put_all(bind_values(xs, vs), empty()), body, out v, ref cache)
+          call evaluate(in p, bind_all(xs, vs, empty()), body, out v, ref cache)
         // further lists of parameters are closures over the arguments so far
 
         case Some(([xs, ys; rest], body)) =>
-          assign v := Clos(put_all(bind_values(xs, vs), empty()), ys, lambdas(rest, body))
+          assign v := Clos(bind_all(xs, vs, empty()), ys, lambdas(rest, body))
 
         case Some((Nil, _)) =>
           raise Uninitialized(n)
@@ -581,7 +590,7 @@ procedure comprehension(in p: Prog, envs: List[Bindings], result: Expr, cond: Ex
 
 // x updates the values of the variables in scope
 procedure exec(in p: Prog, x: Stmt, ref env: Bindings, cache: Map[Name, Value]) :=
-  local v: Value, w: Value, vs: List[Value], r: Bool, sel: Option[Stmt * List[Name * Value]]
+  local v: Value, w: Value, vs: List[Value], r: Bool, sel: Option[Stmt * Bindings * List[Name]]
 
   match x
     case SSkip =>
@@ -593,7 +602,7 @@ procedure exec(in p: Prog, x: Stmt, ref env: Bindings, cache: Map[Name, Value]) 
       assign env := put_all(zip(names(firsts(pairs)), vs), env)
 
     case SBlock(locals, body) =>
-      call scoped(in p, names(locals), Nil, body, ref env, cache)
+      call scoped(in p, names(locals), delete_all(names(locals), env), body, ref env, cache)
 
     case SIf(cond, left, right) =>
       call evaluate(in p, env, cond, out v, ref cache)
@@ -628,8 +637,8 @@ procedure exec(in p: Prog, x: Stmt, ref env: Bindings, cache: Map[Name, Value]) 
       call   evaluate(in p, env, arg, out v, ref cache)
       call   select(in p, env, v, cases, out sel, ref cache)
       match sel
-        case Some((body, bs)) =>
-          call scoped(in p, firsts(bs), bs, [body], ref env, cache)
+        case Some((body, inner, ns)) =>
+          call scoped(in p, ns, inner, [body], ref env, cache)
         case None =>
           raise NoCase(v)
       end
@@ -671,12 +680,12 @@ procedure exec_all(in p: Prog, xs: List[Stmt], ref env: Bindings, cache: Map[Nam
       call exec_all(in p, more, ref env, cache)
   end
 
-// runs the statements xs in the scope of the variables names, which start without values except for bs,
+// runs the statements xs from inner in the scope of the variables names, whose values inner gives,
 // where the variables of the same names outside the scope get their values back afterwards, also after an exception
-procedure scoped(in p: Prog, names: List[Name], bs: List[Name * Value], xs: List[Stmt], ref env: Bindings, cache: Map[Name, Value]) :=
+procedure scoped(in p: Prog, names: List[Name], inner: Bindings, xs: List[Stmt], ref env: Bindings, cache: Map[Name, Value]) :=
   local outer := env
 
-  assign env := put_all(bs, delete_all(names, env))
+  assign env := inner
 
   try
     call exec_all(in p, xs, ref env, cache)
@@ -699,19 +708,19 @@ function restored(names: List[Name], outer: Bindings, env: Bindings): Bindings :
       end
   end
 
-// the first case whose pattern matches v and whose guard holds
-procedure select[A](in p: Prog, env: Bindings, v: Value, cases: List[Branch[A]], out sel: Option[A * List[Name * Value]], ref cache: Map[Name, Value]) :=
+// the first case whose pattern matches v and whose guard holds, with env and the variables that the pattern binds
+procedure select[A](in p: Prog, env: Bindings, v: Value, cases: List[Branch[A]], out sel: Option[A * Bindings * List[Name]], ref cache: Map[Name, Value]) :=
   local ok: Bool
 
   match cases
     case Nil =>
       assign sel := None
     case [Branch(q, g, b); rest] =>
-      match matches(q, v)
-        case Some(bs) =>
-          call holds(in p, put_all(bs, env), g, out ok, ref cache)
+      match match_into(q, v, env)
+        case Some(inner) =>
+          call holds(in p, inner, g, out ok, ref cache)
           if ok
-            assign sel := Some((b, bs))
+            assign sel := Some((b, inner, pattern_vars(q)))
           else
             call select(in p, env, v, rest, out sel, ref cache)
           end
@@ -749,11 +758,11 @@ procedure handle(in p: Prog, hs: List[Handler], v: Value, t: Type, ref env: Bind
     case [Handler(u, q, g, body); rest] =>
       assign ok := false
       if u == t
-        match matches(q, v)
-          case Some(bs) =>
-            call holds(in p, put_all(bs, env), g, out ok, ref cache)
+        match match_into(q, v, env)
+          case Some(inner) =>
+            call holds(in p, inner, g, out ok, ref cache)
             if ok
-              call scoped(in p, firsts(bs), bs, [body], ref env, cache)
+              call scoped(in p, pattern_vars(q), inner, [body], ref env, cache)
             end
           else
             skip
@@ -799,7 +808,7 @@ procedure run_body(
   out outs: List[Value],
   ref env: Bindings, cache: Map[Name, Value]
 ) :=
-  local inner := put_all(bind_values(xs, ins) ++ values_in(zip(names(zs), refs), env), delete_all(names(ys ++ zs), around))
+  local inner := bind_all(xs, ins, put_all(values_in(zip(names(zs), refs), env), delete_all(names(ys ++ zs), around)))
 
   try
     call exec(in p, body, ref inner, cache)
