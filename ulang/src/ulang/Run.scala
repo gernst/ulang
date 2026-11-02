@@ -511,8 +511,11 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
         try os.write.over(os.Path(path, dir), text, createFolders = true)
         catch case _: java.io.IOException => throw osError(s"cannot write $path", pos)
         Nil
-      case (None, "os_print", List(v)) =>
+      case (None, "os_show", List(v)) =>
         printed += Printer.show(v)
+        Nil
+      case (None, "os_print", List(text: String)) =>
+        printed += text
         Nil
       case (None, "os_library", List(name: String)) =>
         List(Main.libraryText(name).getOrElse(throw osError(s"unknown module $name", pos)))
@@ -547,7 +550,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
   def run(): List[String] =
     program.cmds.flatMap(output)
 
-  // the lines that os_print printed during the command so far
+  // the lines that os_print and os_show printed during the command so far
   val printed = scala.collection.mutable.ListBuffer[String]()
 
   // the lines that c printed, which are printed at once if c fails

@@ -10,7 +10,7 @@ Mill with `build.mill.yaml`; the language lives in the module `ulang`. Do not us
 - `./mill ulang.run <command> ...` runs the interpreter with a command as `./ulang.sh` does
 - `./mill ulang.test` runs every `tests/**/*.u`, `self/**/*.u`, and `ulang/resources/*.u` (utest, `FileTest`)
 - `make` builds `ulang.jar`, which `./ulang.sh` runs (the module directory `ulang/` prevents a script `./ulang`), with a command as in git, and exit status 1 if anything fails:
-  - `./ulang.sh run <file> [<name>] [-- args]` runs all `run`s of the file in order, or the one named, where `os_args` gives the arguments after `--`, and programs print with `os_print` of the module `os`
+  - `./ulang.sh run <file> [<name>] [-- args]` runs all `run`s of the file in order, or the one named, where `os_args` gives the arguments after `--`, and programs print strings with `os_print` and any value with `os_show` of the module `os`
   - `./ulang.sh test <file> [<name> ...] [-- args]` runs all `test`s of the file, or the named ones, each on its own, and prints `test name passed` or `test name failed: ...`
   - `./ulang.sh check <file>` only checks the file
   - `./ulang.sh compile <file> <entry> <target.c>` translates the file to C by running `self/ulang.u` in the interpreter, which `ulang.sh` locates by the property `ulang.self`, where `main()` runs the `run` named entry, or all tests for the entry `test`, which then print `test name passed`

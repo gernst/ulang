@@ -1,0 +1,31 @@
+// the values of the interpreter of self/run.u
+
+import syntax
+
+data Value :=
+  | Lit(Val)
+  | Obj(Name, List[Value])
+  | Clos(List[Name * Value], List[Var], Expr)
+  | Fn(Name, Int)
+  | Con(Name)
+  | Prim(Name)
+  // procedures as values, declared ones by their names, and lambdas with the values of the variables around them
+  | Proc(Name)
+  | ProcClos(List[Name * Value], List[Var], List[Var], List[Var], Stmt)
+
+function list_value(vs: List[Value]): Value :=
+  match vs
+    case Nil => Obj(nil_name(), Nil)
+    case [v; rest] => Obj(cons_name(), [v, list_value(rest)])
+  end
+
+function list_elements(v: Value): Option[List[Value]] :=
+  match v
+    case Obj(n, Nil) if n == nil_name() => Some(Nil)
+    case Obj(n, [w, ws]) if n == cons_name() =>
+      match list_elements(ws)
+        case Some(us) => Some([w; us])
+        case None => None
+      end
+    else None
+  end

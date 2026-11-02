@@ -68,7 +68,7 @@ selfcompile: ulang.bin
 	$(call install,$(STAGE)/ulang2.c,$(STAGE)/ulang2.bin)
 
 # the tests of the modules of self/, compiled by ulang.bin and run in self/, except those that need read of the interpreter
-SELFTESTS = syntax ctx check run lex c compile
+SELFTESTS = syntax ctx check run print lex c compile
 
 .PHONY: selftest
 selftest: ulang.bin

@@ -1935,9 +1935,11 @@ test parse_files :=
     "ctx.u",
     "lex.u",
     "parse.u",
+    "print.u",
     "read.u",
     "run.u",
-    "syntax.u"
+    "syntax.u",
+    "value.u"
   ], pre)
 
 test parse_error_files :=

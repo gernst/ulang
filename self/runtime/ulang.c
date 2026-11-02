@@ -715,8 +715,13 @@ void u_passed(const char *name) {
   printf("test %s passed\n", name);
 }
 
-void p_os_print(u_value v) {
+void p_os_show(u_value v) {
   u_print_line(v);
+}
+
+void p_os_print(u_value text) {
+  fwrite(text->text, 1, (size_t)text->length, stdout);
+  putchar('\n');
 }
 
 void p_os_library(u_value name, u_value *result) {

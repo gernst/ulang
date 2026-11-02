@@ -41,7 +41,8 @@ test arguments :=
   call   os_args(out args)
   assert args == []
 
-// os_print prints any value as the interpreter shows it
+// os_print prints a string as it is, and os_show any value as the interpreter shows it
 test printing :=
-  call os_print(in [1, 2])
-  call os_print(in ("a", Some('b')))
+  call os_print(in "a \"text\"")
+  call os_show(in [1, 2])
+  call os_show(in ("a\n", Some('\''), [true], Nil, ()))

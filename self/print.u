@@ -1,0 +1,50 @@
+// values as text, as Printer.scala shows them, which os_show prints
+
+import syntax
+import value
+
+function show_value(v: Value): Str :=
+  match v
+    case Lit(VUnit) => "()"
+    case Lit(VBool(b)) => if b then "true" else "false"
+    case Lit(VInt(n)) => str_show(n)
+    case Lit(VStr(s)) => str_quote(s)
+    case Lit(VChar(c)) => "'" ^ escape_char(c) ^ "'"
+    case Obj(n, vs) if n == tuple_name() => "(" ^ show_values(vs) ^ ")"
+    case Obj(n, _) if n == cons_name() and list_elements(v) != None => "[" ^ show_values(list_items(v)) ^ "]"
+    case Obj(n, Nil) => n.base
+    case Obj(n, vs) => n.base ^ "(" ^ show_values(vs) ^ ")"
+    case Proc(_) => "<procedure>"
+    case ProcClos(_, _, _, _, _) => "<procedure>"
+    else "<function>"
+  end
+
+function show_values(vs: List[Value]): Str :=
+  str_join(", ", [show_value(v) for v in vs])
+
+function list_items(v: Value): List[Value] :=
+  match list_elements(v)
+    case Some(vs) => vs
+    case None => Nil
+  end
+
+function escape_char(c: Char): Str :=
+  match c
+    case '\\' => "\\\\"
+    case '\n' => "\\n"
+    case '\t' => "\\t"
+    case '\r' => "\\r"
+    case '\'' => "\\'"
+    else string([c])
+  end
+
+// the text of a string, for os_print
+function text_of(v: Value): Str :=
+  match v
+    case Lit(VStr(s)) => s
+    else show_value(v)
+  end
+
+test printing :=
+  assert show_value(list_value([Lit(VInt(1)), Lit(VStr("a\"b"))])) == "[1, \"a\\\"b\"]"
+  assert show_value(Obj(tuple_name(), [Lit(VChar('\'')), Obj(nil_name(), Nil), Obj(unqualified("Some"), [Lit(VBool(true))])])) == "('\\'', Nil, Some(true))"

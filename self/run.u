@@ -3,23 +3,14 @@
 // and errors are values of RuntimeError, while the exceptions of the program are values of Thrown
 
 import syntax
+import value
+import print
 
 import check
 
 import os
 import set
 import map
-
-data Value :=
-  | Lit(Val)
-  | Obj(Name, List[Value])
-  | Clos(List[Name * Value], List[Var], Expr)
-  | Fn(Name, Int)
-  | Con(Name)
-  | Prim(Name)
-  // procedures as values, declared ones by their names, and lambdas with the values of the variables around them
-  | Proc(Name)
-  | ProcClos(List[Name * Value], List[Var], List[Var], List[Var], Stmt)
 
 type Bindings :=
   List[Name * Value]
@@ -39,9 +30,9 @@ data Prog :=
   )
 
 // the cells by address, which are unassigned initially, the next address, the values of functions without parameters,
-// and the values that os_print printed during the command so far, the last first
+// and the lines that os_print and os_show printed so far, the last first
 data Heap :=
-  | Heap(cells: Map[Int, Option[Value]], next: Int, values: List[Name * Value], printed: List[Value])
+  | Heap(cells: Map[Int, Option[Value]], next: Int, values: List[Name * Value], printed: List[Str])
 
 // the cells of variables
 type Store :=
@@ -135,23 +126,6 @@ function is_function(v: Value): Bool :=
 
 function truth(v: Value): Bool :=
   v == Lit(VBool(true))
-
-function list_value(vs: List[Value]): Value :=
-  match vs
-    case Nil => Obj(nil_name(), Nil)
-    case [v; rest] => Obj(cons_name(), [v, list_value(rest)])
-  end
-
-function elements(v: Value): Option[List[Value]] :=
-  match v
-    case Obj(n, Nil) if n == nil_name() => Some(Nil)
-    case Obj(n, [w, ws]) if n == cons_name() =>
-      match elements(ws)
-        case Some(us) => Some([w; us])
-        case None => None
-      end
-    else None
-  end
 
 function lambdas(xss: List[List[Var]], b: Expr): Expr :=
   match xss
@@ -491,7 +465,7 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := list_value([Lit(VChar(c)) for c in chars(s)])
 
     case ("string", [w]) =>
-      match elements(w)
+      match list_elements(w)
         case Some(ws) =>
           assign v := Lit(VStr(string(char_values(ws))))
         else
@@ -515,7 +489,7 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := Lit(VInt(str_size(s)))
 
     case ("str_join", [Lit(VStr(sep)), w]) =>
-      match elements(w)
+      match list_elements(w)
         case Some(ws) =>
           assign v := Lit(VStr(str_join(sep, str_values(ws))))
         else
@@ -653,7 +627,7 @@ procedure combinations(in p: Prog, env: Bindings, xs: List[Var], lists: List[Exp
   match (xs, lists)
     case ([x; ys], [e; more]) =>
       call evaluate(in p, env, e, out l, ref h)
-      match elements(l)
+      match list_elements(l)
         case Some(vs) =>
           call extend(in p, env, x, vs, ys, more, out envs, ref h)
         case None =>
@@ -860,8 +834,10 @@ procedure invoke(in p: Prog, n: Name, ins: List[Value], refs: List[Int], out out
       call   alloc_vars(in ys, out out_cells, ref h)
       call   exec(in p, in_cells ++ out_cells ++ zip(names(zs), refs), body, ref h)
       call   read_outs(in n, out_cells, h, out outs)
+    case None if n.base == "os_show" =>
+      assign outs := Nil, h := h with printed := reverse([show_value(v) for v in ins]) ++ h.printed
     case None if n.base == "os_print" =>
-      assign outs := Nil, h := h with printed := reverse(ins) ++ h.printed
+      assign outs := Nil, h := h with printed := reverse([text_of(v) for v in ins]) ++ h.printed
     case None =>
       call os_proc(in n, ins, out outs)
   end
@@ -928,27 +904,27 @@ procedure run_all(in p: Prog, cs: List[Cmd], ref h: Heap) :=
       call run_all(in p, more, ref h)
   end
 
-// the values that a checked program printed, where failed assertions are errors
-procedure run_program(in q: Program, out vs: List[Value]) :=
+// the lines that a checked program printed, where failed assertions are errors
+procedure run_program(in q: Program, out vs: List[Str]) :=
   local h := Heap(empty(), 0, Nil, Nil)
 
   call   run_all(in load(q), q.cmds, ref h)
   assign vs := reverse(h.printed)
 
 // checks and runs the commands
-procedure check_and_run(in cs: List[Cmd], out vs: List[Value]) :=
+procedure check_and_run(in cs: List[Cmd], out vs: List[Str]) :=
   local q: Program
 
   call   check_program(in Program(cs), "main", out q)
   call   run_program(in q, out vs)
 
-// the module os of the library, which declares OsError and thereby enables os_print
+// the module os of the library, which declares OsError and thereby enables os_show
 function os_module(): List[Cmd] :=
   [CModule("os", [CData(unqualified("OsError"), Nil, [Constr(unqualified("OsError"), [tstr()])])]), CImport("os")]
 
-// the run n that prints e, which needs os_module
+// the run n that shows e, which needs os_module
 function printing(n: Id, e: Expr): Cmd :=
-  CRun(n, SBlock(Nil, [SCall(unqualified("os_print"), [e], Nil, Nil)]))
+  CRun(n, SBlock(Nil, [SCall(unqualified("os_show"), [e], Nil, Nil)]))
 
 // a run that assigns e to a local variable
 function assigning(e: Expr): Cmd :=
@@ -958,7 +934,7 @@ function int(n: Int): Value :=
   Lit(VInt(n))
 
 test expressions :=
-  local os: List[Value]
+  local os: List[Str]
 
   call check_and_run(in os_module() ++ lists() ++
     [
@@ -980,10 +956,10 @@ test expressions :=
   assert
     os ==
     [
-      int(2),
-      int(25),
-      list_value([int(3), int(6)]),
-      Lit(VBool(false))
+      "2",
+      "25",
+      "[3, 6]",
+      "false"
     ]
 
 // procedure sum(in n: Int, out s: Int) with a loop, and procedure count(ref k: Int) raising Fail after an increment
@@ -1018,7 +994,7 @@ function procedures(): List[Cmd] :=
   ]
 
 test procedures :=
-  local os: List[Value]
+  local os: List[Str]
 
   call check_and_run(in os_module() ++ procedures() ++
     [
@@ -1040,21 +1016,21 @@ test procedures :=
         )
       )
     ], out os)
-  assert os == [int(10), int(2), int(2)]
+  assert os == ["10", "2", "2"]
 
-// os_print in a module that imports os
+// os_show in a module that imports os
 test printing :=
-  local os: List[Value]
+  local os: List[Str]
 
   call check_and_run(in os_module() ++
     [
-      CRun("r", SBlock([Var(unqualified("x"), tint())], [SAssign([(hole_var("x"), num(1))]), SCall(unqualified("os_print"), [ev("x")], Nil, Nil)]))
+      CRun("r", SBlock([Var(unqualified("x"), tint())], [SAssign([(hole_var("x"), num(1))]), SCall(unqualified("os_show"), [ev("x")], Nil, Nil)]))
     ], out os)
-  assert os == [int(1)]
+  assert os == ["1"]
 
 // a declared procedure and a lambda that captures k, called through variables
 test procedure_values :=
-  local os: List[Value]
+  local os: List[Str]
 
   call check_and_run(in os_module() ++ procedures() ++
     [
@@ -1079,16 +1055,16 @@ test procedure_values :=
         )
       )
     ], out os)
-  assert os == [int(10), int(14)]
+  assert os == ["10", "14"]
 
 function hole_var(n: Id): Var :=
   Var(unqualified(n), THole)
 
 function print_var(n: Id): Stmt :=
-  SCall(unqualified("os_print"), [ev(n)], Nil, Nil)
+  SCall(unqualified("os_show"), [ev(n)], Nil, Nil)
 
 test errors :=
-  local os: List[Value]
+  local os: List[Str]
 
   try
     call   check_and_run(in procedures() ++ [CTest("t", SBlock(Nil, [SRaise(ap("Fail", [num(1)]), THole)]))], out os)
@@ -1123,7 +1099,7 @@ test errors :=
 
 // add(a: Int)(b: Int): Int := a + b, applied partially
 test curried :=
-  local os: List[Value]
+  local os: List[Str]
 
   call check_and_run(
     in os_module() ++ [
@@ -1132,18 +1108,18 @@ test curried :=
     ],
     out os
   )
-  assert os == [int(3)]
+  assert os == ["3"]
 
 // match (1, true, 3) case (_, _, z) => z end, a flat tuple
 test tuples :=
-  local os: List[Value]
+  local os: List[Str]
 
   call   check_and_run(in os_module() ++ [printing("p", EMatch(ETuple([num(1), ELit(VBool(true)), num(3)]), [Branch(PTuple([PWild, PWild, pv("z")]), None, ev("z"))]))], out os)
-  assert os == [int(3)]
+  assert os == ["3"]
 
 // a handler for integers skips a string without evaluating its guard, so the string is raised further
 test handler_types :=
-  local os: List[Value]
+  local os: List[Str]
 
   try
     call   check_and_run(in [CTest("t", STry(SRaise(ELit(VStr("x")), THole), [Handler(THole, pv("k"), Some(ap("<", [ev("k"), num(2)])), SSkip)]))], out os)
