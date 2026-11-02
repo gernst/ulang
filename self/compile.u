@@ -727,7 +727,7 @@ procedure compile_cmd(in gl: Globals, entry: Id, c: Cmd, out ds: List[CDecl], ms
 
     // main runs all tests for the entry test, which report that they passed
 
-    case CTest(n, body) if entry == "test" =>
+    case CTest(n, _, body) if entry == "test" =>
       call   compile_stmt(in gl, Nil, body, out bs, ref g)
       assign ds := Nil, ms := [CsBlock(bs ++ [CsExpr(c_call("u_passed", [CeStr(n)]))])]
 
@@ -848,7 +848,7 @@ procedure compile_with(in source: Str, entry: Id, target: Str, ref cache: Cache)
   call   os_write(in target, c_file(f))
 
 // translates programs of the tests to C in self/out, which the C compiler compiles to compare their output
-test compile_programs :=
+test compile_programs() :=
   local cache: Cache := Nil
 
   call compile_with(in "../tests/functions.u", "test", "out/functions.c", ref cache)

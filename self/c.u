@@ -133,7 +133,7 @@ function c_file(f: CFile): Str :=
 function c_call(f: Str, args: List[CExpr]): CExpr :=
   CeCall(CeVar(f), args)
 
-test print_c :=
+test print_c() :=
   local v := CtNamed("value"), f := 
 
     CFile(

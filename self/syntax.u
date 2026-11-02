@@ -91,7 +91,8 @@ data Cmd :=
   | CModule(Id, List[Cmd])
   | CImport(Id)
   | CNotation(Fixity, Int, List[Id])
-  | CTest(Id, Stmt)
+  // tests take no parameters, which the checker enforces
+  | CTest(Id, List[Var], Stmt)
 
 data Program :=
   | Program(cmds: List[Cmd])
@@ -159,7 +160,7 @@ function arity(t: Type): Int :=
   end
 
 // f(x) + 1, as the parser would produce it
-test syntax :=
+test syntax() :=
   local f: Var, x: Var
 
   assign f := Var(unqualified("f"), THole), x := Var(unqualified("x"), THole)

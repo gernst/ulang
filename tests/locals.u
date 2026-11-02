@@ -15,13 +15,13 @@ procedure total(in xs: List[Int], out t: Int) :=
   assign t := sum
 
 // the initial values are assigned in order, so each may refer to the locals before it
-test initialized_locals :=
+test initialized_locals() :=
   local a := 1, b := a + 1, c: Int := b * 2, s := "x", t: Int
 
   call   total(in [a, b, c], out t)
   assert (a, b, c, s, t) == (1, 2, 4, "x", 7)
 
-test inferred_types :=
+test inferred_types() :=
   local xs := [Some(1), None], m := lookup("a", [("a", true)])
 
   assert length(xs) == 2 and m == Some(true)

@@ -46,7 +46,7 @@ procedure main() :=
   call insert_all(in [3, 1, 2, 1], ref t)
   call os_show(in keys(t))
 
-test sorting :=
+test sorting() :=
   local t := Node(Leaf, 2, Leaf)
 
   call   insert_all(in [3, 1, 2], ref t)
@@ -67,7 +67,7 @@ test sorting :=
 - Literals and comprehensions of lists `[x * x for x in xs if x > 0]`, sets `{a, b}` and `{f(x) for x in s}`, and maps `{k => v}` and `{k => f(v) for k => v in m}`, where sets and maps need `import set` and `import map`, and `==` compares the shapes of their trees, not only their elements.
 - User-defined operators by `infix`, `prefix`, and `postfix` notations.
 - Modules: `import name` makes the declarations of a file available, but not transitively.
-- Named tests `test name := …`, while programs start at a procedure without parameters, like `procedure main() := …`.
+- Named tests `test name() := …`, whose parameters are reserved for later and must be empty, while programs start at a procedure without parameters, like `procedure main() := …`.
 
 The library in `ulang/resources/` contains the prelude with natural numbers, options, and lists, as well as maps, sets, and access to files.
 

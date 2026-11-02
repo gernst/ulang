@@ -1,6 +1,6 @@
 import os
 
-test files :=
+test files() :=
   local t: Str
 
   call   os_write(in "out/files/a.txt", "line\n\"quoted\"\n")
@@ -10,13 +10,13 @@ test files :=
   call   os_read(in "out/files/a.txt", out t)
   assert t == ""
 
-test library :=
+test library() :=
   local t: Str
 
   call   os_library(in "option", out t)
   assert str_slice(t, 0, 16) == "data Option[A] :"
 
-test failures :=
+test failures() :=
   local t: Str, m: Str
 
   try
@@ -35,14 +35,14 @@ test failures :=
   assert m == "unknown module missing"
 
 // the tests run without arguments
-test arguments :=
+test arguments() :=
   local args: List[Str]
 
   call   os_args(out args)
   assert args == []
 
 // os_print prints a string as it is, and os_show any value as the interpreter shows it
-test printing :=
+test printing() :=
   call os_print(in "a \"text\"")
   call os_show(in [1, 2])
   call os_show(in ("a\n", Some('\''), [true], Nil, ()))

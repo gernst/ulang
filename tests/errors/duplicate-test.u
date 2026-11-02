@@ -1,6 +1,6 @@
 // type error: duplicate test a
-test a :=
+test a() :=
   skip
 
-test a :=
+test a() :=
   skip

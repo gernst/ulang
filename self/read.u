@@ -4,7 +4,7 @@
 import syntax
 import os
 
-test read_files :=
+test read_files() :=
   local p: Program
 
   call read(in "../ulang/resources/option.u", out p)
@@ -24,7 +24,7 @@ test read_files :=
       assert false
   end
 
-test missing_file :=
+test missing_file() :=
   local p: Program, m: Str
 
   try

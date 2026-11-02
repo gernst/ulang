@@ -2,7 +2,7 @@
 data Fail :=
   | Fail(Int)
 
-test raise_uncaught :=
+test raise_uncaught() :=
   try
     raise Fail(1)
   catch

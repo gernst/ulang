@@ -11,10 +11,10 @@ import doubler
 function helper(n: Int): Int :=
   n - 1
 
-test own_names :=
+test own_names() :=
   assert next(1) == 2 and double(3) == 6
   assert helper(5) == 4
 
-test imported_notations :=
+test imported_notations() :=
   assert top(2 <+ 1 <+ Empty) == Some(2)
   assert peek(Empty, 3) == 3

@@ -20,7 +20,7 @@ type Pred[A] :=
 function pos(): Pred[Int] :=
   lambda x => x > 0
 
-test functions :=
+test functions() :=
   assert fact(5) == 120
   assert twice(lambda x => x * 3, 1) == 9
   assert poly()
@@ -35,7 +35,7 @@ function add(a: Int)(b: Int): Int :=
 function sum3(a: Int)(b: Int, c: Int)(): Int :=
   a + b + c
 
-test curried :=
+test curried() :=
   assert add(1)(2) == 3
   assert twice(add(3), 1) == 7
   assert sum3(1)(2, 3)() == 6
@@ -61,7 +61,7 @@ function size(xs: List[Int]): Int :=
 function size(xs: List[Int], ys: List[Int]): Int :=
   size(xs) + size(ys)
 
-test notations :=
+test notations() :=
   assert [1; [2] ++ [3]] ==  [1, 2, 3]
   assert 2 ** 3 + 1 == 9
   assert 2 * 3 ** 2 == 18

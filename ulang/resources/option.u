@@ -8,5 +8,5 @@ function or_else[A](a: Option[A], b: Option[A]): Option[A] :=
     case None => b
   end
 
-test options :=
+test options() :=
   assert or_else(Some(1), Some(2)) == Some(1) and or_else(None, Some(2)) == Some(2)

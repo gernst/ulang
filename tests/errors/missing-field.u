@@ -3,5 +3,5 @@ data Shape :=
   | Circle(label: Str, radius: Int)
   | Box(label: Str)
 
-test r :=
+test r() :=
   local v := Box("b").radius

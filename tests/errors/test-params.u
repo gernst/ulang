@@ -1,0 +1,3 @@
+// type error: test sorted takes parameters at 2.1
+test sorted(xs: List[Int]) :=
+  assert xs == xs

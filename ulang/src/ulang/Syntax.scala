@@ -118,7 +118,8 @@ enum Cmd:
   case Module(name: Id, cmds: List[Cmd])(val pos: Pos = nowhere)
   case Import(name: Id)(val pos: Pos = nowhere)
   case Notation(fixity: Fixity, prec: Int, names: List[Id])(val pos: Pos = nowhere)
-  case Test(name: Id, body: Stmt)(val pos: Pos = nowhere)
+  // tests take no parameters, which the checker enforces
+  case Test(name: Id, params: List[Pat.Var], body: Stmt)(val pos: Pos = nowhere)
 
 case class Program(cmds: List[Cmd])
 

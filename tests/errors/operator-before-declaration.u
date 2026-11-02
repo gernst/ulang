@@ -1,5 +1,5 @@
 // parse error: undeclared operator +++ at 3.14
-test operator_before_declaration :=
+test operator_before_declaration() :=
   assert [1] +++ [2] == [1, 2]
 
 infix right 7 +++

@@ -41,6 +41,7 @@ data TypeError :=
   | NotAssignable(Name)
   | UnknownProcedure(Name)
   | UnknownException(Type)
+  | TestParams(Id)
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -413,7 +414,7 @@ function zonk_cmd(su: Subst, c: Cmd): Cmd :=
   match c
     case CFun(n, ps, xss, r, b) => CFun(n, ps, [zonk_vars(su, xs) for xs in xss], zonk_type(su, r), zonk_expr(su, b))
     case CProc(n, ps, ins, outs, refs, b) => CProc(n, ps, zonk_vars(su, ins), zonk_vars(su, outs), zonk_vars(su, refs), zonk_stmt(su, b))
-    case CTest(n, b) => CTest(n, zonk_stmt(su, b))
+    case CTest(n, xs, b) => CTest(n, xs, zonk_stmt(su, b))
     case _ => c
   end
 
@@ -487,7 +488,7 @@ function unknown_in_cmd(c: Cmd): Option[Type] :=
   match c
     case CFun(_, _, _, _, b) => unknown_in_expr(b)
     case CProc(_, _, _, _, _, b) => unknown_in(b)
-    case CTest(_, b) => unknown_in(b)
+    case CTest(_, _, b) => unknown_in(b)
     case _ => None
   end
 
@@ -1625,9 +1626,12 @@ procedure command(in c: Cmd, out c1: Cmd, ref s: State) :=
       call   statement(in bind(is ++ os ++ rs), names(os ++ rs), body, out y, ref s)
       assign c1 := CProc(n, ps, is, os, rs, y)
 
-    case CTest(n, body) =>
+    case CTest(n, [], body) =>
       call   statement(in Nil, Nil, body, out y, ref s)
-      assign c1 := CTest(n, y)
+      assign c1 := CTest(n, Nil, y)
+
+    case CTest(n, _, _) =>
+      raise TestParams(n)
 
     case _ =>
       assign c1 := c
@@ -1657,7 +1661,7 @@ procedure commands(in cs: List[Id * Cmd], out cs1: List[Cmd], ref s: State) :=
 function block_names(cs: List[Id * Cmd]): List[Id] :=
   match cs
     case Nil => Nil
-    case [(_, CTest(n, _)); more] => [n; block_names(more)]
+    case [(_, CTest(n, _, _)); more] => [n; block_names(more)]
     case [_; more] => block_names(more)
   end
 
@@ -1796,7 +1800,7 @@ function lists(): List[Cmd] :=
     )
   ]
 
-test inference :=
+test inference() :=
   local t: Type
 
   call   type_of(in ap("+", [num(1), num(2)]), out t)
@@ -1827,12 +1831,12 @@ test inference :=
       assert x == unqualified("x")
   end
 
-test elaboration :=
+test elaboration() :=
   local q: Program
 
-  call check_program(in Program(lists() ++ [CTest("r", SBlock([Var(unqualified("n"), THole)], [SAssign([(Var(unqualified("n"), THole), ap("len", [ap("Cons", [num(1), ev("Nil")])]))])]))]), "main", out q)
+  call check_program(in Program(lists() ++ [CTest("r", Nil, SBlock([Var(unqualified("n"), THole)], [SAssign([(Var(unqualified("n"), THole), ap("len", [ap("Cons", [num(1), ev("Nil")])]))])]))]), "main", out q)
   match q
-    case Program([_, _, CFun(_, _, _, _, EMatch(_, [Branch(p, _, _); _])), CTest(_, SBlock(_, [SAssign([(_, EApp(EVar(Var(_, t)), _))])]))]) =>
+    case Program([_, _, CFun(_, _, _, _, EMatch(_, [Branch(p, _, _); _])), CTest(_, Nil, SBlock(_, [SAssign([(_, EApp(EVar(Var(_, t)), _))])]))]) =>
       // the constructor Nil is elaborated to a pattern of a constructor
       assert p == PApp(nil_name(), Nil)
       assert t == fun([tlist(tint())], tint())
@@ -1840,7 +1844,7 @@ test elaboration :=
       assert false
   end
 
-test coverage :=
+test coverage() :=
   local q: Program
 
   try
@@ -1858,7 +1862,7 @@ test coverage :=
       assert p == PApp(nil_name(), Nil)
   end
 
-test statements :=
+test statements() :=
   local q: Program
 
   // procedure inc(ref k: Int) := assign k := k + 1, called with an input
@@ -1875,7 +1879,7 @@ test statements :=
       assert n == unqualified("n")
   end
   try
-    call   check_program(in Program(lists() ++ [CTest("t", SBlock(Nil, [SRaise(ev("Nil"), THole)]))]), "main", out q)
+    call   check_program(in Program(lists() ++ [CTest("t", Nil, SBlock(Nil, [SRaise(ev("Nil"), THole)]))]), "main", out q)
     assert false
   catch
     case UnknownException(TSort(Name(Some("list"), "List"), _)) =>

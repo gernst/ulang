@@ -727,7 +727,7 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   // modules contribute their declarations, but not their tests
   def declares(c: Cmd): Boolean =
     c match
-      case Cmd.Test(_, _) =>
+      case Cmd.Test(_, _, _) =>
         false
       case _ =>
         true
@@ -736,8 +736,8 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def declaration(s: Scope): Parser[Cmd] =
     located: pos =>
       notation(s, pos) | sort(s, pos) | fun(s, pos) | proc(s, pos) |
-        (kw("test") ~> name) ~ (":=" ~> body(s)) ^^ { case n ~ b =>
-          Cmd.Test(n, b)(pos)
+        (kw("test") ~> name) ~ parens(formals(s)) ~ (":=" ~> body(s)) ^^ { case n ~ xs ~ b =>
+          Cmd.Test(n, xs, b)(pos)
         }
 
   // notations apply to the commands after them

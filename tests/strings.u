@@ -1,5 +1,5 @@
 // characters, escapes, and the builtins on strings and characters
-test characters :=
+test characters() :=
   assert ord('a') == 97
   assert chr(98) == 'b'
   assert chars("ab") == ['a', 'b']
@@ -14,10 +14,10 @@ function vowel(c: Char): Bool :=
     case _ => false
   end
 
-test char_patterns :=
+test char_patterns() :=
   assert vowel('a') and not vowel('b')
 
-test string_functions :=
+test string_functions() :=
   assert "ab" ^ "c" == "abc"
   assert str_size("hello") == 5
   assert str_join(", ", ["a", "b", "c"]) == "a, b, c"

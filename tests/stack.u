@@ -20,5 +20,5 @@ function peek[A](s: Stack[A], x: A): A :=
     case Some(y) => y
   end
 
-test stack :=
+test stack() :=
   assert top(1 <+ Empty) == Some(1)

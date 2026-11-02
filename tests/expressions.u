@@ -1,5 +1,5 @@
 // arithmetic and precedence
-test arithmetic_precedence :=
+test arithmetic_precedence() :=
   assert 1 + 2 * 3 - 4 / 2 == 5
   assert -2 * -3 == 6
   assert 7 % 3 == 1
@@ -9,7 +9,7 @@ test arithmetic_precedence :=
   assert (1 < 2) == (2 > 1)
 
 // integers are unbounded, also beyond 64 bits, where the runtime of compiled programs switches to GMP
-test big_integers :=
+test big_integers() :=
   assert 9223372036854775807 + 1 == 9223372036854775808
   assert -9223372036854775807 - 2 == -9223372036854775809
   assert 9223372036854775807 * 2 == 18446744073709551614
@@ -23,24 +23,24 @@ test big_integers :=
   assert str_show(100000000000000000000) == "100000000000000000000"
 
 // let binds in parallel
-test let_parallel :=
+test let_parallel() :=
   assert (let x := 1, y := 2 in x + y * 3) == 7
   assert (let x := 1, y := 2 in let x := y, y := x in x - y) == 1
 
-test conditionals :=
+test conditionals() :=
   assert (if not 1 < 2 then 0 else 1) == 1
 
-test lambdas :=
+test lambdas() :=
   assert (lambda f => f(f(1)))(lambda x => x * 2) == 4
   assert (lambda f, x => f(x))(lambda y => y + 1, 1) == 2
 
-test literals :=
+test literals() :=
   assert "a" == "a"
   assert () == ()
   assert (1 != 2)
 
 // and, or are not strict
-test non_strict_and_or :=
+test non_strict_and_or() :=
   assert (false and 1 / 0 == 0) == false
   assert (true or 1 / 0 == 0)
 
@@ -85,7 +85,7 @@ function nested(t: Int * (Bool * Str)): Str :=
 function divmod(a: Int, b: Int): Int * Int :=
   (a / b, a % b)
 
-test tuples :=
+test tuples() :=
   assert swap((1, 2)) == (2, 1)
   assert sum((3, 4)) == 7
   assert apply(sum) == 3
@@ -98,7 +98,7 @@ test tuples :=
   assert () == ()
 
 // let binds one value per binder, patterns destructure them
-test let_patterns :=
+test let_patterns() :=
   assert (let (q, r) := divmod(7, 2) in q * 10 + r) == 31
   assert (let (x, y) := (1, 2), z := 3 in x + y + z) == 6
   assert (let _ := 1, z := 2 in z) == 2
@@ -110,7 +110,7 @@ function pick(p: Int * Int): Int :=
 function pick(x: Int, y: Int): Int :=
   2
 
-test overloads_by_parameters :=
+test overloads_by_parameters() :=
   local p := (3, 4)
 
   assert pick(p) == 1
@@ -125,7 +125,7 @@ function sign_name(n: Int): Str :=
     case _ => "positive"
   end
 
-test negative_literals :=
+test negative_literals() :=
   local x := 3
 
   assert -2 + 5 == 3 and 2 * -3 == -6 and - x == -3 and -(1 + 2) == -3

@@ -896,7 +896,7 @@ procedure run_cmd(in p: Prog, c: Cmd, ref cache: Map[Name, Value]) :=
   local env: Bindings := empty()
 
   match c
-    case CTest(_, body) =>
+    case CTest(_, _, body) =>
       call exec(in p, body, ref env, cache)
     case _ =>
       skip
@@ -927,16 +927,16 @@ procedure check_and_run(in cs: List[Cmd]) :=
 
 // the test n that asserts that e equals expected
 function asserting(n: Id, e: Expr, expected: Expr): Cmd :=
-  CTest(n, SBlock(Nil, [SAssert(ap("==", [e, expected]))]))
+  CTest(n, Nil, SBlock(Nil, [SAssert(ap("==", [e, expected]))]))
 
 // a test that assigns e to a local variable
 function assigning(e: Expr): Cmd :=
-  CTest("a", SBlock([hole_var("v")], [SAssign([(hole_var("v"), e)])]))
+  CTest("a", Nil, SBlock([hole_var("v")], [SAssign([(hole_var("v"), e)])]))
 
 function int(n: Int): Value :=
   Lit(VInt(n))
 
-test expressions :=
+test expressions() :=
   call check_and_run(in lists() ++
     [
       asserting("p1", ap("len", [ap("Cons", [num(1), ap("Cons", [num(2), ev("Nil")])])]), num(2)),
@@ -988,13 +988,14 @@ function procedures(): List[Cmd] :=
     )
   ]
 
-test procedures :=
+test procedures() :=
   call check_and_run(in procedures() ++
     [
-      CTest("sum", SBlock([Var(unqualified("s"), tint())], [SCall(unqualified("sum"), [num(4)], [Var(unqualified("s"), THole)], Nil), equals("s", 10)])),
+      CTest("sum", Nil, SBlock([Var(unqualified("s"), tint())], [SCall(unqualified("sum"), [num(4)], [Var(unqualified("s"), THole)], Nil), equals("s", 10)])),
       // the assignment to k before the exception remains, and the handler for Fail binds its argument
       CTest(
         "count",
+        Nil,
         SBlock(
           [Var(unqualified("k"), tint()), Var(unqualified("m"), tint())],
           [
@@ -1011,11 +1012,12 @@ test procedures :=
     ])
 
 // a declared procedure and a lambda that captures k, called through variables
-test procedure_values :=
+test procedure_values() :=
   call check_and_run(in procedures() ++
     [
       CTest(
         "values",
+        Nil,
         SBlock(
           [Var(unqualified("s"), tint()), Var(unqualified("t"), tint())],
           [
@@ -1043,9 +1045,9 @@ function hole_var(n: Id): Var :=
 function equals(n: Id, k: Int): Stmt :=
   SAssert(ap("==", [ev(n), num(k)]))
 
-test errors :=
+test errors() :=
   try
-    call   check_and_run(in procedures() ++ [CTest("t", SBlock(Nil, [SRaise(ap("Fail", [num(1)]), THole)]))])
+    call   check_and_run(in procedures() ++ [CTest("t", Nil, SBlock(Nil, [SRaise(ap("Fail", [num(1)]), THole)]))])
     assert false
   catch
     case Thrown(v, t) =>
@@ -1053,7 +1055,7 @@ test errors :=
       assert t == TSort(Name(Some("main"), "Fail"), Nil)
   end
   try
-    call   check_and_run(in [CTest("t", SBlock(Nil, [SAssert(ap("==", [num(1), num(2)]))]))])
+    call   check_and_run(in [CTest("t", Nil, SBlock(Nil, [SAssert(ap("==", [num(1), num(2)]))]))])
     assert false
   catch
     case AssertionUnequal(a, b) =>
@@ -1076,7 +1078,7 @@ test errors :=
   end
 
 // add(a: Int)(b: Int): Int := a + b, applied partially
-test curried :=
+test curried() :=
   call check_and_run(
     in [
       CFun(unqualified("add"), Nil, [[Var(unqualified("a"), tint())], [Var(unqualified("b"), tint())]], tint(), ap("+", [ev("a"), ev("b")])),
@@ -1085,13 +1087,13 @@ test curried :=
   )
 
 // match (1, true, 3) case (_, _, z) => z end, a flat tuple
-test tuples :=
+test tuples() :=
   call check_and_run(in [asserting("p", EMatch(ETuple([num(1), ELit(VBool(true)), num(3)]), [Branch(PTuple([PWild, PWild, pv("z")]), None, ev("z"))]), num(3))])
 
 // a handler for integers skips a string without evaluating its guard, so the string is raised further
-test handler_types :=
+test handler_types() :=
   try
-    call   check_and_run(in [CTest("t", STry(SRaise(ELit(VStr("x")), THole), [Handler(THole, pv("k"), Some(ap("<", [ev("k"), num(2)])), SSkip)]))])
+    call   check_and_run(in [CTest("t", Nil, STry(SRaise(ELit(VStr("x")), THole), [Handler(THole, pv("k"), Some(ap("<", [ev("k"), num(2)])), SSkip)]))])
     assert false
   catch
     case Thrown(v, _) =>

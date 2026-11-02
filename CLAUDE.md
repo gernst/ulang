@@ -22,7 +22,7 @@ Mill with `build.mill.yaml`; the language lives in the module `ulang`. Do not us
 
 ## Tests
 
-Tests are end-to-end only: programs in `tests/` with named tests `test name := ...` of `assert` statements, whose names are distinct, and programs are entered by procedures without parameters, like `procedure main() := ...`.
+Tests are end-to-end only: programs in `tests/` with named tests `test name() := ...` of `assert` statements, whose names are distinct, where the parsers accept parameters, as of functions, which the checkers reject, and programs are entered by procedures without parameters, like `procedure main() := ...`.
 Every program is checked after `ulang/resources/prelude.u`, which declares the operators and imports the library modules `nat`, `option`, and `list` (also in `ulang/resources/`).
 The prelude also declares the exceptions of builtins: `DivisionByZero` of `/` and `%`, `NoIndex(Str, Int)` of `str_get` and the strict `str_slice`, `NoCharacter(Int)` of `chr`, and `MissingField(Str)` of an access `e.f` or update `e with f := a` of a constructor without `f`, with the name `T.f`. `raise e` is an expression of any type, and a failed `assert` cannot be caught.
 The library modules `map` and `set` give maps `Map[K, V]` and sets `Set[A]` as AVL trees, ordered by the builtin `compare`, a total order of values consistent with `==` whose results are only `-1`, `0`, and `1`, which `map` and `set` match, where constructors are ordered by their position in their declaration.

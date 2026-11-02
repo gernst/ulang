@@ -169,7 +169,7 @@ procedure lex(in s: Str, out ts: List[Token * Int]) :=
 function tokens(ts: List[Token * Int]): List[Token] :=
   firsts(ts)
 
-test lex_tokens :=
+test lex_tokens() :=
   local ts: List[Token * Int]
 
   call   lex(in "function f(x: Int): Int := x+-1 // one\n", out ts)
@@ -191,13 +191,13 @@ test lex_tokens :=
       (TEnd, 39)
     ]
 
-test lex_literals :=
+test lex_literals() :=
   local ts: List[Token * Int]
 
   call   lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' [x; xs]", out ts)
   assert tokens(ts) == [TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\''), TPunct('['), TName("x"), TPunct(';'), TName("xs"), TPunct(']'), TEnd]
 
-test lex_errors :=
+test lex_errors() :=
   local ts: List[Token * Int], e: LexError
 
   try
@@ -222,14 +222,14 @@ test lex_errors :=
   end
   assert e == LexError("invalid character", 0)
 
-test lex_position :=
+test lex_position() :=
   local line: Int, column: Int
 
   call   position(in "ab\ncd", 4, out line, column)
   assert (line, column) == (2, 2)
 
 // all files of self lex without errors
-test lex_files :=
+test lex_files() :=
   local text: Str, ts: List[Token * Int]
 
   call   os_read(in "lex.u", out text)

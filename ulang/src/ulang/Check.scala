@@ -494,8 +494,8 @@ class Check(decls: List[(Id, Cmd)], main: Id, before: Ctx = Check.initial, impor
         Cmd.Proc(name, params, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))(d.pos)
       case Cmd.Module(_, _) | Cmd.Import(_) | Cmd.Notation(_, _, _) =>
         d
-      case Cmd.Test(name, body) =>
-        Cmd.Test(name, zonk(body))(d.pos)
+      case Cmd.Test(name, params, body) =>
+        Cmd.Test(name, params, zonk(body))(d.pos)
 
   def occurs(i: Int, t: Type): Boolean =
     resolve(t) match
@@ -1159,7 +1159,7 @@ class Check(decls: List[(Id, Cmd)], main: Id, before: Ctx = Check.initial, impor
 
     // tests are chosen by name
     distinct(
-      decls.collect { case (_, Cmd.Test(name, _)) =>
+      decls.collect { case (_, Cmd.Test(name, _, _)) =>
         name
       },
       "test"
@@ -1210,5 +1210,6 @@ class Check(decls: List[(Id, Cmd)], main: Id, before: Ctx = Check.initial, impor
 
 
 
-      case Cmd.Test(name, body) =>
-        Cmd.Test(name, stmt(Map(), Set(), body))(c.pos)
+      case Cmd.Test(name, params, body) =>
+        require("type", params.isEmpty, s"test $name takes parameters")
+        Cmd.Test(name, params, stmt(Map(), Set(), body))(c.pos)

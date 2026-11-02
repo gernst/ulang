@@ -30,7 +30,7 @@ function unit(u: ()): Int :=
     case () => 0
   end
 
-test ranges :=
+test ranges() :=
   assert range(3) == [3, 2, 1]
   assert length(range(3)) == 3
   assert [x * x for x in range(3)] == [9, 4, 1]
@@ -45,14 +45,14 @@ test ranges :=
   assert (range(2) != Nil)
 
 // [...] is notation for the List of the prelude, with the constructors Nil and Cons
-test list_notation :=
+test list_notation() :=
   assert [1, 2, 3] == Cons(1, Cons(2, Cons(3, Nil)))
   assert [] == Nil
   assert [[1], []] == Cons(Cons(1, Nil), Cons(Nil, Nil))
   assert [1] ++ [2, 3] ++ [] == [1, 2, 3]
   assert length([1, 2] ++ [3]) == 3
 
-test comprehensions :=
+test comprehensions() :=
   assert [x * x for x in [1, 2, 3]] == [1, 4, 9]
   assert [x for x in [1, 2, 3, 4] if x % 2 == 0] == [2, 4]
   assert [(x, y) for x in [1, 2], y in [true, false]] == [(1, true), (1, false), (2, true), (2, false)]
@@ -61,7 +61,7 @@ test comprehensions :=
   assert [[y for y in range(x)] for x in [1, 2]] == [[1], [2, 1]]
 
 // association lists
-test association_lists :=
+test association_lists() :=
   local m := update("b", 2, update("a", 1, Nil))
 
   assert m == [("b", 2), ("a", 1)]
@@ -105,7 +105,7 @@ function swap[A](p: Pair[A]): Pair[A] :=
     case Tuple(x, y) => Tuple(y, x)
   end
 
-test mutual_recursion :=
+test mutual_recursion() :=
   assert size(Node(1, Grow(Node(2, Leaf), Grow(Node(3, Leaf), Leaf)))) == 3
   assert swap(Tuple(1, 2)) == Tuple(2, 1)
 
@@ -128,7 +128,7 @@ function int(n: Nat): Int :=
     case Succ(m) => 1 + int(m)
   end
 
-test nat :=
+test nat() :=
   assert int(add(Succ(Succ(Zero)), Succ(Zero))) == 3
   assert even(add(Succ(Zero), Succ(Zero)))
   assert even(Succ(Succ(Succ(Zero)))) == false
@@ -141,7 +141,7 @@ function sign(n: Int): Int :=
     case _ => 1
   end
 
-test guards :=
+test guards() :=
   local s: Str
 
   assert sign(-5) == -1 and sign(0) == 0 and sign(7) == 1
@@ -163,14 +163,14 @@ function sum_pairs(xs: List[Int]): Int :=
     case [x, y; rest] => x * y + sum_pairs(rest)
   end
 
-test list_patterns :=
+test list_patterns() :=
   assert sum_pairs([1, 2, 3, 4, 5]) == 19
   assert sum_pairs([]) == 0
   assert [1; [2, 3]] == [1, 2, 3]
   assert [1, 2; [3]] == Cons(1, Cons(2, Cons(3, Nil)))
 
 // compare orders values of a type, constructors by their declaration and then by their fields
-test comparisons :=
+test comparisons() :=
   assert compare(1, 2) == -1 and compare(2, 1) == 1 and compare(3, 3) == 0
   assert compare("ab", "b") == -1 and compare('b', 'a') == 1 and compare(false, true) == -1
   assert compare((1, "b"), (1, "a")) == 1 and compare((), ()) == 0

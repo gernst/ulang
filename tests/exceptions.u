@@ -64,7 +64,7 @@ procedure count(ref k: Int) :=
   assign k := k + 1
   raise  Fail
 
-test parse_errors :=
+test parse_errors() :=
   local n: Int, e: Str, k: Int
 
   call   parse(in [Sym("("), Sym("("), Num(3), Sym(")"), Sym(")")], out n)
@@ -98,7 +98,7 @@ test parse_errors :=
   assert k == 1
 
 // an exception that no case matches is raised further
-test unmatched_raised_further :=
+test unmatched_raised_further() :=
   local e: Str
 
   try
@@ -115,7 +115,7 @@ test unmatched_raised_further :=
   assert e == "x"
 
 // exceptions of any type, which cases catch only if the types agree, while _ catches all
-test any_type :=
+test any_type() :=
   local n: Int, s: Str
 
   try
@@ -146,7 +146,7 @@ test any_type :=
   assert s == "caught"
 
 // handlers apply if their guards hold
-test guarded_handlers :=
+test guarded_handlers() :=
   local n: Int
 
   try
@@ -172,7 +172,7 @@ function digits(cs: List[Char]): Int :=
     case [c; rest] => digit(c) + 10 * digits(rest)
   end
 
-test raise_in_functions :=
+test raise_in_functions() :=
   local n := 0, bad := ' '
 
   assign n := digits(['1', '2'])
@@ -228,7 +228,7 @@ procedure failure(in k: Int, out m: Str) :=
     assign m := str_show(x)
   end
 
-test builtin_exceptions :=
+test builtin_exceptions() :=
   local m: Str
 
   call   failure(in 0, out m)

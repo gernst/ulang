@@ -108,7 +108,7 @@ function text_of(v: Value): Str :=
     case _ => show_value(v)
   end
 
-test printing :=
+test printing() :=
   assert show_type(TFun([TFun([TParam("A")], TParam("B")), TTuple([TSort(unqualified("Int"), []), TSort(unqualified("Str"), [])])], TSort(unqualified("List"), [TParam("A")]))) == "(A -> B, Int * Str) -> List[A]"
   assert show_type(TProc([TParam("A")], [], [TSort(unqualified("Int"), [])])) == "(in A, ref Int)"
   assert show_pat(PApp(cons_name(), [PVar(Var(unqualified("x"), THole)), PApp(unqualified("Some"), [PWild])])) == "[x; Some(_)]"

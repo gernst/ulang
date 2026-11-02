@@ -151,7 +151,7 @@ function put_all[K, V](ps: List[K * V], m: Map[K, V]): Map[K, V] :=
 function numbers(n: Int): List[Int] :=
   if n == 0 then Nil else numbers(n - 1) ++ [n]
 
-test maps :=
+test maps() :=
   local m := {"a" => 1, "b" => 2}
 
   assert get("a", m) == Some(1) and get("c", m) == None and has("b", m) and not has("c", m)
@@ -159,7 +159,7 @@ test maps :=
   assert entries(m) == [("a", 3), ("b", 2)] and size(m) == 2 and entries({"b" => 2, "a" => 1, "a" => 3}) == entries(m)
 
 // ascending keys would make a list of an unbalanced tree
-test balance :=
+test balance() :=
   local m := put_all([(str_show(1000 + i), i) for i in numbers(200)], empty())
 
   assert balanced(m) and size(m) == 200 and height(m) <= 11

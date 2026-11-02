@@ -155,7 +155,7 @@ function seconds[A, B](ps: List[A * B]): List[B] :=
     case [(_, b); rest] => [b; seconds(rest)]
   end
 
-test lists :=
+test lists() :=
   assert [1, 2] ++ [3] == [1, 2, 3] and length([1, 2, 3]) == 3
   assert lookup(2, [(1, "a"), (2, "b"), (2, "c")]) == Some("b") and lookup(3, [(1, "a")]) == None
   assert update(1, "c", [(1, "a"), (2, "b")]) == [(1, "c"), (2, "b")] and update(2, "c", [(1, "a"), (2, "b")]) == [(1, "a"), (2, "c")]

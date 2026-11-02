@@ -164,8 +164,8 @@ class Quote(syntax: Id):
         obj("CImport", name)
       case Cmd.Notation(fixity, prec, ops) =>
         obj("CNotation", quote(fixity), BigInt(prec), names(ops))
-      case Cmd.Test(name, body) =>
-        obj("CTest", name, quote(body))
+      case Cmd.Test(name, params, body) =>
+        obj("CTest", name, binders(params), quote(body))
 
   def quote(p: Program): Any =
     obj("Program", list(p.cmds)(quote))
@@ -391,8 +391,8 @@ class Quote(syntax: Id):
         Cmd.Import(name(n))()
       case K("CNotation", List(f, prec, ops)) =>
         Cmd.Notation(fixity(f), int(prec), items(ops)(name))()
-      case K("CTest", List(n, body)) =>
-        Cmd.Test(name(n), stmt(body))()
+      case K("CTest", List(n, params, body)) =>
+        Cmd.Test(name(n), items(params)(binder), stmt(body))()
       case _ =>
         invalid("a command", v)
 

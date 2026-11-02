@@ -5,5 +5,5 @@ function f(x: Int): Int :=
 function f(x: Int, y: Int): Int :=
   x
 
-test r :=
+test r() :=
   local v := f

@@ -141,7 +141,7 @@ function module_names(cs: List[Cmd]): List[Id] :=
 
 function is_any_test(c: Cmd): Bool :=
   match c
-    case CTest(_, _) => true
+    case CTest(_, _, _) => true
     case _ => false
   end
 
@@ -221,19 +221,19 @@ procedure run_test(in p: Prog, c: Cmd, out passed: Bool) :=
 
 function is_selected_test(c: Cmd, names: List[Str]): Bool :=
   match c
-    case CTest(n, _) => names == [] or contains(n, names)
+    case CTest(n, _, _) => names == [] or contains(n, names)
     case _ => false
   end
 
 function is_test(c: Cmd, n: Str): Bool :=
   match c
-    case CTest(m, _) => m == n
+    case CTest(m, _, _) => m == n
     case _ => false
   end
 
 function cmd_name(c: Cmd): Str :=
   match c
-    case CTest(n, _) => n
+    case CTest(n, _, _) => n
     case _ => ""
   end
 
@@ -263,6 +263,7 @@ function type_message(e: TypeError): Str :=
     case NotAssignable(n) => n.base ^ " is not assignable"
     case UnknownProcedure(n) => "unknown procedure " ^ n.base
     case UnknownException(t) => "the type " ^ show_type(t) ^ " of an exception is not fully known"
+    case TestParams(n) => "test " ^ n ^ " takes parameters"
   end
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f

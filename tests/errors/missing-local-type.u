@@ -1,5 +1,5 @@
 // type error: missing type for x at 3.9
-test missing_local_type :=
+test missing_local_type() :=
   local x
 
   assert true

@@ -99,7 +99,7 @@ object Main:
   // the tests of a program
   def blocks(r: Run): List[Cmd] =
     r.program.cmds.filter:
-      case Cmd.Test(_, _) =>
+      case Cmd.Test(_, _, _) =>
         true
       case _ =>
         false
@@ -141,15 +141,15 @@ object Main:
       val r = load(os.read(path), path, args)
       val selected =
         for
-          case c @ Cmd.Test(n, _) <- blocks(r)
+          case c @ Cmd.Test(n, _, _) <- blocks(r)
           if names.isEmpty || names.contains(n)
         yield c
-      val all = for case Cmd.Test(n, _) <- blocks(r) yield n
+      val all = for case Cmd.Test(n, _, _) <- blocks(r) yield n
       for n <- names do
         if !all.contains(n) then
           error("runtime", s"there is no test $n")
       val results =
-        for case c @ Cmd.Test(name, _) <- selected
+        for case c @ Cmd.Test(name, _, _) <- selected
         yield
           try
             for line <- r.output(c) do

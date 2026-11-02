@@ -565,7 +565,7 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
   def output(c: Cmd): List[String] =
     printing:
       c match
-        case Cmd.Test(_, body) =>
+        case Cmd.Test(_, _, body) =>
           exec(Map(), body)
         case _ =>
 

@@ -1309,7 +1309,7 @@ procedure parse_formals(in sc: Scope, out xs: List[Var], ref ts: List[Token * In
 function declarations(cs: List[Cmd]): List[Cmd] :=
   match cs
     case Nil => Nil
-    case [CTest(_, _); more] => declarations(more)
+    case [CTest(_, _, _); more] => declarations(more)
     case [c; more] => [c; declarations(more)]
   end
 
@@ -1633,7 +1633,7 @@ procedure parse_procedure(in ns: Notations, out c: Cmd, ref ts: List[Token * Int
 
 // the commands of one declaration, where an import is the marker CImport(n), preceded by module n at its first import
 procedure parse_command(in cx: Context, out cs: List[Cmd], ref ts: List[Token * Int]) :=
-  local ns := cx.notations, n: Id, ps: List[Id], t: Type, c: Cmd, e: Expr, b: Stmt, at: Int
+  local ns := cx.notations, n: Id, ps: List[Id], t: Type, c: Cmd, e: Expr, b: Stmt, xs: List[Var], at: Int
 
   match head_token(ts)
     case TName("import") =>
@@ -1674,9 +1674,10 @@ procedure parse_command(in cx: Context, out cs: List[Cmd], ref ts: List[Token * 
     case TName("test") =>
       call   advance(ref ts)
       call   parse_name(out n, ref ts)
+      call   parse_formals(in Scope(Nil, ns), out xs, ref ts)
       call   expect(in TSym(":="), ref ts)
       call   parse_body(in Scope(Nil, ns), out b, ref ts)
-      assign cs := [CTest(n, b)]
+      assign cs := [CTest(n, xs, b)]
 
     case _ =>
       raise ParseError("declaration expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
@@ -1870,7 +1871,7 @@ procedure parse_failures(in paths: List[Str], pre: Program) :=
       call   parse_failures(in more, pre)
   end
 
-test parse_library_modules :=
+test parse_library_modules() :=
   local p: Program, q: Program
 
   call   library(in "prelude", out p)
@@ -1883,7 +1884,7 @@ test parse_library_modules :=
   call   parse_library(in "os", out q)
   call   same_commands(in "os", p.cmds, q.cmds)
 
-test parse_files :=
+test parse_files() :=
   local pre: Program
 
   call   parse_library(in "prelude", out pre)
@@ -1915,7 +1916,7 @@ test parse_files :=
     "value.u"
   ], pre)
 
-test parse_error_files :=
+test parse_error_files() :=
   local pre: Program
 
   call   parse_library(in "prelude", out pre)

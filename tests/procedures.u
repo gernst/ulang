@@ -49,7 +49,7 @@ procedure capture(out r: Int) :=
   assign i := 10
   assign r := f(0)
 
-test procedures :=
+test procedures() :=
   local a: Int, b: Int, c: Int
 
   call   sum(in 10, out c)
@@ -65,13 +65,13 @@ test procedures :=
   assert (a, b, c) == (3, 1, 6)
 
 // closures capture values, not variables
-test closures_capture_values :=
+test closures_capture_values() :=
   local r: Int
 
   call   capture(out r)
   assert r == 1
 
-test sums :=
+test sums() :=
   local x: Int, y: Int
 
   call   sum(in 4, out x)
@@ -79,7 +79,7 @@ test sums :=
   assert (x, y) == (6, 12)
 
 // the bodies of cases may declare variables, like those of if and while
-test locals_in_cases :=
+test locals_in_cases() :=
   local n: Int
 
   match Some(3)
@@ -120,7 +120,7 @@ procedure each[A](in p: (in A, ref Int), xs: List[A], ref n: Int) :=
 function step(by_two: Bool): (in Int, out Int) :=
   if by_two then double else lambda in x, out y => assign y := x + 1 end
 
-test procedure_values :=
+test procedure_values() :=
   local  z: Int, n := 0, k := 10, p := step(false)
 
   call   twice(in double, 3, out z)

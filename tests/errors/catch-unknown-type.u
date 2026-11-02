@@ -1,5 +1,5 @@
 // type error: the type ?1 of an exception is not fully known at 6.10
-test catch_unknown_type :=
+test catch_unknown_type() :=
   try
     raise 1
   catch
