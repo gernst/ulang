@@ -4,9 +4,7 @@ Open action items, each with the problem and the desired solution.
 
 ## Command line
 
-1. **`./ulang.bin` only compiles**: `self/ulang.u` knows `compile <file> <entry> <target.c>`, but not the commands `run`, `test`, and `check` of `./ulang.sh`. Solution, step by step, each committed with all checks passing:
-   1. `self/ulang.u` as the driver with the same commands, on `run.u` with the arguments of the program, selected runs and tests, values printed as `Printer.show` does, and errors as messages with positions.
-   2. Both drivers with the same output on `tests/`, and then the time of `run.u` on the compiler.
+1. **The drivers are not compared**: `./ulang.sh` and `./ulang.bin` have the same commands, but nothing checks that they print the same. Solution: run both on `tests/` with `test` and `check` and compare their output, and then measure the time of `run.u` on the compiler, `./ulang.bin run self/ulang.u -- compile ulang.u main out.c`.
 
 ## Builtins
 
@@ -16,13 +14,11 @@ Open action items, each with the problem and the desired solution.
 ## Self-hosted toolchain
 
 1. **No positions in `self/syntax.u`**, so `check.u` and `compile.u` cannot say where an error is, although the parser knows offsets. Solution: a position per command, and later per statement and expression.
-2. **Errors of the driver**: `LexError`, `ParseError`, `TypeError`, `RuntimeError`, `CompileError`, and `OsError` leave `ulang.u` as uncaught exceptions, so a parse error shows a raw offset like `ParseError("…", 1234)` instead of a line and column, although the parser knows its offsets, and in an imported module only its name is added. Solution: catch them in `ulang.u` and print a message with the file, line, and column, which `position` of `lex.u` computes from the offset and the text of the module; this suffices for lexing and parsing, while type and compile errors also need item 1.
-3. **The driver prints `args`**, since a run shows its local variables. Solution: a way to run a program without showing its locals, e.g. a run that calls a procedure `main`, whose locals are not shown.
-4. **Paths read at run time** are relative to the program in the interpreter, but to the working directory in compiled programs, so the same program reads different files. Solution: resolve them relative to the working directory in both, and run each test file from its directory, as `make selftest` does.
-5. **The file lists in the tests of `parse.u`** are written out, so new test files must be added by hand. Solution: a builtin `os_list` that lists a directory.
-6. **`read`, `library`, and `Quote`** remain only as the oracle of the tests of `parse.u`, and as stubs in the runtime. Solution: compare `parse.u` with the Scala parser without them, e.g. by printing both syntaxes to text, and then remove them.
-7. **Prefixes against clashes** in `lex.u` and `parse.u`, which predate modules. Solution: drop them where no module imports both modules of a clash.
-8. **No optimizations in the compiler.** Solution: passes between checking and translating to C, e.g. inlining small functions, folding constants, reading fields of single-constructor datatypes directly instead of calling their accessors, and avoiding the intermediate lists of comprehensions.
+2. **Paths read at run time** are relative to the program in the interpreter, but to the working directory in compiled programs, so the same program reads different files. Solution: resolve them relative to the working directory in both, and run each test file from its directory, as `make selftest` does.
+3. **The file lists in the tests of `parse.u`** are written out, so new test files must be added by hand. Solution: a builtin `os_list` that lists a directory.
+4. **`read`, `library`, and `Quote`** remain only as the oracle of the tests of `parse.u`, and as stubs in the runtime. Solution: compare `parse.u` with the Scala parser without them, e.g. by printing both syntaxes to text, and then remove them.
+5. **Prefixes against clashes** in `lex.u` and `parse.u`, which predate modules. Solution: drop them where no module imports both modules of a clash.
+6. **No optimizations in the compiler.** Solution: passes between checking and translating to C, e.g. inlining small functions, folding constants, reading fields of single-constructor datatypes directly instead of calling their accessors, and avoiding the intermediate lists of comprehensions.
 
 ## Modules
 

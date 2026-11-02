@@ -1,19 +1,265 @@
-// the driver of ulang, as ./ulang.bin compile <file> <entry> <target.c>, which translates file to C, whose main runs
-// the run entry, or all tests for the entry test, and as ./ulang.sh compile <file> <entry> <target.c> in the interpreter
+// the driver of ulang, with the commands of ./ulang.sh: run, test, and check with the interpreter of run.u,
+// and compile, which translates a file to C, whose main calls the procedure entry, or runs all tests for the entry test
 
+import syntax
+import lex
+import parse
+import check
+import print
+import run
 import compile
 import os
 
 procedure main() :=
-  local args: List[Str]
+  local args: List[Str], command: List[Str], rest: List[Str], ok := true
 
-  call os_args(out args)
+  call   os_args(out args)
+  assign command := before_dashes(args), rest := after_dashes(args)
+
   // without arguments, e.g. when the tests run all files, the driver does nothing
-  match args
+  match command
     case [] =>
       skip
-    case ["compile", source, entry, target] =>
-      call compile_file(in source, entry, target)
+    case ["run", file] =>
+      call attempt(in file, lambda out r => call run_file(in file, "main", rest, out r) end, out ok)
+    case ["run", file, name] =>
+      call attempt(in file, lambda out r => call run_file(in file, name, rest, out r) end, out ok)
+    case ["test", file; names] =>
+      call attempt(in file, lambda out r => call test_file(in file, names, rest, out r) end, out ok)
+    case ["check", file] =>
+      call attempt(in file, lambda out r => call check_file(in file, out r) end, out ok)
+    case ["compile", file, entry, target] =>
+      call attempt(in file, lambda out r => call compile_to(in file, entry, target, out r) end, out ok)
     else
-      raise OsError("usage: ulang compile <file> <entry> <target.c>")
+      call   os_print_error(in usage())
+      assign ok := false
+  end
+
+  if not ok
+    call os_exit(in 1)
+  end
+
+function usage(): Str :=
+  "usage: ulang run <file> [<procedure>] [-- args]\n" ^
+  "       ulang test <file> [<name> ...] [-- args]\n" ^
+  "       ulang check <file>\n" ^
+  "       ulang compile <file> <entry> <target.c>"
+
+// the arguments of the driver, and those of the program after --
+function before_dashes(args: List[Str]): List[Str] :=
+  match args
+    case Nil => Nil
+    case ["--"; _] => Nil
+    case [a; more] => [a; before_dashes(more)]
+  end
+
+function after_dashes(args: List[Str]): List[Str] :=
+  match args
+    case Nil => Nil
+    case ["--"; more] => more
+    case [_; more] => after_dashes(more)
+  end
+
+// runs a command for file, which reports the errors of file as Main.attempt does, and whether it succeeded
+procedure attempt(in file: Str, command: (out Bool), out ok: Bool) :=
+  local message := ""
+
+  try
+    call command(out ok)
+  catch
+    case LexError(m, i) =>
+      call located(in file, m, i, out message)
+    case ParseError(m, i) =>
+      call located(in file, m, i, out message)
+    case OsError(m) =>
+      assign message := "runtime error: " ^ m
+    case Thrown(v, _) =>
+      assign message := "runtime error: uncaught exception " ^ show_value(v)
+    case Unsupported(m) =>
+      assign message := "compile error: " ^ m
+    case UnknownEntry(n) =>
+      assign message := "compile error: there is no procedure " ^ n.base ^ " without parameters"
+    case e =>
+      assign message := "type error: " ^ type_message(e)
+    case e =>
+      assign message := "runtime error: " ^ runtime_message(e)
+  end
+
+  if message != ""
+    call   os_print_error(in file ^ ": " ^ message)
+    assign ok := false
+  end
+
+// a parse error at offset i of file, or in a module that file imports, which the message names,
+// whose offset is in the text of that module
+procedure located(in file: Str, m: Str, i: Int, out message: Str) :=
+  local text: Str, line: Int, column: Int
+
+  if in_module(str_split(m, ' '))
+    assign message := "parse error: " ^ m
+  else
+    call   os_read(in file, out text)
+    call   position(in text, i, out line, column)
+    assign message := "parse error: " ^ m ^ " at " ^ str_show(line) ^ "." ^ str_show(column)
+  end
+
+function in_module(words: List[Str]): Bool :=
+  match words
+    case [w, _] => w == "in"
+    case [_; more] => in_module(more)
+    else false
+  end
+
+// the checked program of file after the prelude, which is the module of its base name
+procedure load_file(in file: Str, out q: Program) :=
+  local pre: Program, p: Program
+
+  call parse_library(in "prelude", out pre)
+  call parse_file_after(in file, pre, out p)
+  call check_program(in Program([CModule("prelude", pre.cmds); p.cmds]), base_name(file), out q)
+
+procedure check_file(in file: Str, out ok: Bool) :=
+  local q: Program
+
+  call   load_file(in file, out q)
+  assign ok := true
+
+procedure compile_to(in file: Str, entry: Str, target: Str, out ok: Bool) :=
+  call   compile_file(in file, entry, target)
+  assign ok := true
+
+// calls the procedure name of file, which takes no parameters, and prints as it runs
+procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
+  local q: Program, p: Prog, h := new_heap(true), n := Name(Some(base_name(file)), name)
+
+  call   load_file(in file, out q)
+  assign p := load(q) with args := args
+
+  if exists(q.cmds, lambda c => is_entry(c, n))
+    call   run_proc(in p, n, ref h)
+    assign ok := true
+  else
+    call   os_print_error(in file ^ ": runtime error: there is no procedure " ^ name ^ " without parameters")
+    assign ok := false
+  end
+
+// runs the tests of file, all or the named ones, each on its own, also after a failed one, printing whether it passed
+procedure test_file(in file: Str, names: List[Str], args: List[Str], out ok: Bool) :=
+  local q: Program, p: Prog, tests: List[Cmd], missing: List[Str]
+
+  call   load_file(in file, out q)
+  assign p := load(q) with args := args
+  assign tests := [c for c in q.cmds if is_selected_test(c, names)]
+  assign missing := [n for n in names if not exists(tests, lambda c => is_test(c, n))]
+
+  match missing
+    case [n; _] =>
+      call   os_print_error(in file ^ ": runtime error: there is no test " ^ n)
+      assign ok := false
+    else
+      call run_tests(in p, tests, out ok)
+  end
+
+procedure run_tests(in p: Prog, tests: List[Cmd], out ok: Bool) :=
+  local passed: Bool, rest: Bool
+
+  match tests
+    case Nil =>
+      assign ok := true
+    case [c; more] =>
+      call   run_test(in p, c, out passed)
+      call   run_tests(in p, more, out rest)
+      assign ok := passed and rest
+  end
+
+procedure run_test(in p: Prog, c: Cmd, out passed: Bool) :=
+  local h := new_heap(true), message := ""
+
+  try
+    call run_cmd(in p, c, ref h)
+  catch
+    case Thrown(v, _) =>
+      assign message := "runtime error: uncaught exception " ^ show_value(v)
+    case e =>
+      assign message := "runtime error: " ^ runtime_message(e)
+  end
+
+  if message == ""
+    call   os_print(in "test " ^ cmd_name(c) ^ " passed")
+    assign passed := true
+  else
+    call   os_print(in "test " ^ cmd_name(c) ^ " failed: " ^ message)
+    assign passed := false
+  end
+
+function is_selected_test(c: Cmd, names: List[Str]): Bool :=
+  match c
+    case CTest(n, _) => names == [] or contains(n, names)
+    else false
+  end
+
+function is_test(c: Cmd, n: Str): Bool :=
+  match c
+    case CTest(m, _) => m == n
+    else false
+  end
+
+function cmd_name(c: Cmd): Str :=
+  match c
+    case CTest(n, _) => n
+    else ""
+  end
+
+// the messages of errors, as Check.scala and Run.scala say them, without positions
+
+function type_message(e: TypeError): Str :=
+  match e
+    case UnknownSort(n) => "unknown sort " ^ n.base
+    case SortArity(n, k, m) => "sort " ^ n.base ^ " expects " ^ str_show(k) ^ " arguments, got " ^ str_show(m)
+    case SortDefined(n) => "sort " ^ n.base ^ " is already defined"
+    case MissingType(n) => "missing type for " ^ n.base
+    case UndeclaredParams(n, ts) => n.base ^ " has undeclared type parameters " ^ show_types(ts)
+    case CannotUnify(a, b) => "cannot unify " ^ show_type(a) ^ " and " ^ show_type(b)
+    case InfiniteType(a, b) => "infinite type " ^ show_type(a) ^ " = " ^ show_type(b)
+    case UnknownVariable(n) => "unknown variable " ^ n.base
+    case OverloadedUnapplied(n) => "overloaded " ^ n.base ^ " must be applied"
+    case WrongArity(n, k) => n.base ^ " does not take " ^ str_show(k) ^ " arguments"
+    case AlreadyDefined(n) => n.base ^ " is already defined"
+    case Duplicate(s) => "duplicate " ^ s
+    case Ambiguous(n, ns) => n.base ^ " is ambiguous: " ^ str_join(", ", [qualified(m) for m in ns])
+    case UnknownField(n) => field_message(str_split(n.base, '.'))
+    case UnknownFieldType(f, t) => "the type " ^ show_type(t) ^ " of the value of " ^ f ^ " is not known"
+    case CountMismatch(k, m) => "expected " ^ str_show(k) ^ " values, got " ^ str_show(m)
+    case UnknownConstructor(n) => "unknown constructor " ^ n.base
+    case NotExhaustive(p) => "match is not exhaustive, missing " ^ show_pat(p)
+    case Unreachable(p) => "unreachable case " ^ show_pat(p)
+    case NotAssignable(n) => n.base ^ " is not assignable"
+    case UnknownProcedure(n) => "unknown procedure " ^ n.base
+    case UnknownException(t) => "the type " ^ show_type(t) ^ " of an exception is not fully known"
+  end
+
+// the accessor T.f, or the updater T.f:=, of an unknown field f
+function field_message(parts: List[Str]): Str :=
+  match parts
+    case [t, f] => "unknown field " ^ without_update(f) ^ " of " ^ t
+    else "unknown field " ^ str_join(".", parts)
+  end
+
+function without_update(f: Str): Str :=
+  let n := str_size(f) in if n > 2 and str_slice(f, n - 2, n) == ":=" then str_slice(f, 0, n - 2) else f
+
+function runtime_message(e: RuntimeError): Str :=
+  match e
+    case Uninitialized(n) => n.base ^ " is not initialized"
+    case NotFunction(v) => "cannot apply " ^ show_value(v)
+    case Unspecified(n, vs) => n.base ^ " is not specified for " ^ str_join(", ", [show_value(v) for v in vs])
+    case NoCase(v) => "no case matches " ^ show_value(v)
+    case CompareFunctions => "cannot compare functions"
+    case NotList(v) => "expected a list, got " ^ show_value(v)
+    case AssertionFailed => "assertion failed"
+    case AssertionUnequal(a, b) => "assertion failed: " ^ show_value(a) ^ " != " ^ show_value(b)
+    case UnassignedOutput(x, p) => "output " ^ x.base ^ " of " ^ p.base ^ " is not assigned"
+    case UnknownProc(n) => "unknown procedure " ^ n.base
+    case NotProc(v) => "cannot call " ^ show_value(v)
+    case RecursiveInitialization(n) => "recursive initialization of " ^ n.base
   end
