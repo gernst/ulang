@@ -25,6 +25,9 @@ The parts in `self/` form a compiler from ulang to C written in ulang, which com
 11. **`read`, `library`, and `Quote`** only remain as the oracle of the tests of `parse.u`, and as stubs in the runtime, since imported procedures that call them are compiled.
 12. **The interpreter is slow**: compiling the compiler with it takes about 40 seconds, more than a hundred times as long as compiled, since it walks the syntax with environments as immutable maps, `BigInt`s, and arguments as lists.
 13. **`self/run.u` does not cache functions without parameters**, unlike `Run.scala` and compiled code, so a value that needs itself overflows the stack instead of reporting a recursive initialization, and the literals of `keywords()` and `builtin_names()` are built at every call when `run.u` interprets the compiler.
+14. **Functions instead of procedures.** Since `raise` is an expression, functions can fail, so procedures of `self/` that only exist because they raise, or that have one out and no effects, could become functions.
+15. **Lists built only to test a property**, e.g. `contains(true, [p(x) for x in xs])` or `length([… if …]) > 0`, which `exists` and `forall` would answer without building the list and stop at the first answer, as the occurs check does now.
+16. **Optimization passes in the compiler**, between checking and translating to C, e.g. inlining small functions, folding constants, reading fields of single-constructor datatypes directly instead of calling their accessors, and avoiding intermediate lists of comprehensions.
 
 ## Modules
 
