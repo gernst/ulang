@@ -561,15 +561,22 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
   // the lines that os_print and os_show printed during the command so far
   val printed = scala.collection.mutable.ListBuffer[String]()
 
-  // the lines that c printed, which are printed at once if c fails
+  // the lines that the test c printed
   def output(c: Cmd): List[String] =
-    try
+    printing:
       c match
-        case Cmd.Run(_, body) =>
-          exec(Map(), body)
         case Cmd.Test(_, body) =>
           exec(Map(), body)
         case _ =>
+
+  // the lines that the procedure n without parameters printed
+  def call(n: Name): List[String] =
+    printing(invoke(n, Nil, Nil, nowhere))
+
+  // the lines that f printed, which are printed at once if f fails
+  def printing(f: => Any): List[String] =
+    try
+      f
       val lines = printed.toList
       printed.clear()
       lines

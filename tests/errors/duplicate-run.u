@@ -1,6 +1,0 @@
-// type error: duplicate run or test a
-run a :=
-  skip
-
-test a :=
-  skip

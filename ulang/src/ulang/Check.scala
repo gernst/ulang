@@ -494,8 +494,6 @@ class Check(decls: List[(Id, Cmd)], main: Id, before: Ctx = Check.initial, impor
         Cmd.Proc(name, params, ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))(d.pos)
       case Cmd.Module(_, _) | Cmd.Import(_) | Cmd.Notation(_, _, _) =>
         d
-      case Cmd.Run(name, body) =>
-        Cmd.Run(name, zonk(body))(d.pos)
       case Cmd.Test(name, body) =>
         Cmd.Test(name, zonk(body))(d.pos)
 
@@ -1159,15 +1157,12 @@ class Check(decls: List[(Id, Cmd)], main: Id, before: Ctx = Check.initial, impor
         val (os, rs) = rest.splitAt(outs.length)
         update(c => c.copy(procs = c.procs + (name -> (params.map(Type.Param(_)), is, os, rs))))
 
-    // runs and tests are chosen by name
+    // tests are chosen by name
     distinct(
-      decls.collect {
-        case (_, Cmd.Run(name, _)) =>
-          name
-        case (_, Cmd.Test(name, _)) =>
-          name
+      decls.collect { case (_, Cmd.Test(name, _)) =>
+        name
       },
-      "run or test"
+      "test"
     )
     val checked =
       for (m, c) <- decls
@@ -1214,8 +1209,6 @@ class Check(decls: List[(Id, Cmd)], main: Id, before: Ctx = Check.initial, impor
         d
 
 
-      case Cmd.Run(name, body) =>
-        Cmd.Run(name, stmt(Map(), Set(), body))(c.pos)
 
       case Cmd.Test(name, body) =>
         Cmd.Test(name, stmt(Map(), Set(), body))(c.pos)

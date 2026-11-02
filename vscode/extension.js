@@ -38,12 +38,15 @@ function ulang(args, file) {
   });
 }
 
-// the runs and tests of a document with their names, which ulang run and ulang test select
+// the procedures without parameters and the tests of a document with their names, which ulang run and ulang test select
 function blocks(document) {
   const result = [];
   for (let line = 0; line < document.lineCount; line++) {
-    const match = /^(test|run)\s+(\w+)/.exec(document.lineAt(line).text);
-    if (match) result.push({ kind: match[1], name: match[2], line });
+    const text = document.lineAt(line).text;
+    const test = /^test\s+(\w+)/.exec(text);
+    const proc = /^procedure\s+(\w+)\(\s*\)\s*:=/.exec(text);
+    if (test) result.push({ kind: "test", name: test[1], line });
+    if (proc) result.push({ kind: "run", name: proc[1], line });
   }
   return result;
 }

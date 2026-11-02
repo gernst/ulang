@@ -73,7 +73,6 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     "procedure",
     "raise",
     "ref",
-    "run",
     "skip",
     "test",
     "then",
@@ -729,10 +728,10 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
             throw new ulang.Error(s"${e.getMessage} in $n")
       List(Cmd.Module(n, cmds.filter(declares))(pos), Cmd.Import(n)(pos))
 
-  // modules contribute their declarations, but not their runs and tests
+  // modules contribute their declarations, but not their tests
   def declares(c: Cmd): Boolean =
     c match
-      case Cmd.Run(_, _) | Cmd.Test(_, _) =>
+      case Cmd.Test(_, _) =>
         false
       case _ =>
         true
@@ -741,9 +740,6 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
   def declaration(s: Scope): Parser[Cmd] =
     located: pos =>
       notation(s, pos) | sort(s, pos) | fun(s, pos) | proc(s, pos) |
-        (kw("run") ~> name) ~ (":=" ~> body(s)) ^^ { case n ~ b =>
-          Cmd.Run(n, b)(pos)
-        } |
         (kw("test") ~> name) ~ (":=" ~> body(s)) ^^ { case n ~ b =>
           Cmd.Test(n, b)(pos)
         }

@@ -74,7 +74,7 @@ object Main:
     cmds match
       case Nil =>
         Nil
-      case (c: (Cmd.Run | Cmd.Test)) :: rest =>
+      case (c: Cmd.Test) :: rest =>
         c :: runnable(rest)
       case _ :: rest =>
         runnable(rest)
@@ -96,10 +96,10 @@ object Main:
       case None =>
         error("runtime", "the program did not finish")
 
-  // the runs and tests of a program
+  // the tests of a program
   def blocks(r: Run): List[Cmd] =
     r.program.cmds.filter:
-      case Cmd.Run(_, _) | Cmd.Test(_, _) =>
+      case Cmd.Test(_, _) =>
         true
       case _ =>
         false
@@ -120,23 +120,19 @@ object Main:
         System.err.println(s"$file: ${e.getMessage}")
         false
 
-  // runs the runs of file, all in order or the one named, and prints what they print
-  def runs(file: String, name: Option[String], args: List[String]): Boolean =
+  // calls the procedure name of file, which takes no parameters, and prints what it prints
+  def runs(file: String, name: String, args: List[String]): Boolean =
     attempt(file):
       val path = os.Path(file, os.pwd)
       val r = load(os.read(path), path, args)
-      val selected =
-        for
-          case c @ Cmd.Run(n, _) <- blocks(r)
-          if name.forall(_ == n)
-        yield c
-      if name.nonEmpty && selected.isEmpty then
-        error("runtime", s"there is no run ${name.get}")
-      for
-        c <- selected
-        line <- r.output(c)
-      do println(line)
-      true
+      val n = Name(Some(path.baseName), name)
+      r.procs.get(n) match
+        case Some(d) if d.ins.isEmpty && d.outs.isEmpty && d.refs.isEmpty =>
+          for line <- r.call(n) do
+            println(line)
+          true
+        case _ =>
+          error("runtime", s"there is no procedure $name without parameters")
 
   // runs each test of file on its own, all or the named ones, also after a failed one, printing whether it passed
   def tests(file: String, names: List[String], args: List[String]): Boolean =
@@ -173,17 +169,17 @@ object Main:
       load(os.read(path), path)
       true
 
-  // translates file to C, whose main runs the run entry, or all tests for the entry test,
+  // translates file to C, whose main calls the procedure entry, or runs all tests for the entry test,
   // by the compiler of self/ulang.u in the interpreter, which the property ulang.self locates
   def compile(file: String, entry: String, target: String): Boolean =
     attempt(file):
       val dir = sys.props.get("ulang.self").map(os.Path(_, os.pwd)).getOrElse(error("runtime", "the property ulang.self does not name the directory self/"))
       val driver = dir / "ulang.u"
       val args = List("compile", os.Path(file, os.pwd).toString, entry, os.Path(target, os.pwd).toString)
-      runs(driver.toString, Some("main"), args)
+      runs(driver.toString, "main", args)
 
   val usage =
-    """usage: ulang run <file> [<name>] [-- args]
+    """usage: ulang run <file> [<procedure>] [-- args]
       |       ulang test <file> [<name> ...] [-- args]
       |       ulang check <file>
       |       ulang compile <file> <entry> <target.c>""".stripMargin
@@ -194,9 +190,9 @@ object Main:
     val ok = deep:
       command match
         case List("run", file) =>
-          runs(file, None, arguments)
+          runs(file, "main", arguments)
         case List("run", file, name) =>
-          runs(file, Some(name), arguments)
+          runs(file, name, arguments)
         case "test" :: file :: names =>
           tests(file, names, arguments)
         case List("check", file) =>

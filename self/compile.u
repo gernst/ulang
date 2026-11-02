@@ -10,7 +10,7 @@ import set
 
 data CompileError :=
   | Unsupported(Str)
-  | UnknownEntry(Id)
+  | UnknownEntry(Name)
 
 // the functions of a program by name and number of arguments, and its constructors with their numbers of fields,
 // as lists and as maps from the names to the numbers of arguments and fields
@@ -725,11 +725,7 @@ procedure compile_cmd(in gl: Globals, entry: Id, c: Cmd, out ds: List[CDecl], ms
       assign params := [(value_type(), var_name(x)) for x in names(ins)] ++ [(value_ptr(), ref_name(x)) for x in names(outs ++ refs)]
       assign ds := [CdFunction(CtVoid, proc_name(n), params, bs)], ms := Nil
 
-    // main runs the run entry, or all tests for the entry test, which report that they passed
-
-    case CRun(n, body) if n == entry =>
-      call   compile_stmt(in gl, Nil, body, out bs, ref g)
-      assign ds := Nil, ms := [CsBlock(bs)]
+    // main runs all tests for the entry test, which report that they passed
 
     case CTest(n, body) if entry == "test" =>
       call   compile_stmt(in gl, Nil, body, out bs, ref g)
@@ -811,15 +807,20 @@ function prototype(d: CDecl): List[CDecl] :=
     else []
   end
 
-// the C of q, whose main runs the run entry, or all tests for the entry test
-procedure compile_program(in q: Program, entry: Id, out f: CFile) :=
+// the C of q of module m, whose main calls the procedure entry without parameters, or runs all tests for the entry test
+procedure compile_program(in q: Program, m: Id, entry: Id, out f: CFile) :=
   local g := Gen(0, Nil), gl := globals(q.cmds), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl]
 
-  if entry != "test" and not exists(q.cmds, lambda c => is_run(c, entry))
-    raise UnknownEntry(entry)
+  if entry != "test" and not exists(q.cmds, lambda c => is_entry(c, Name(Some(m), entry)))
+    raise UnknownEntry(Name(Some(m), entry))
   end
 
   call   compile_cmds(in gl, entry, q.cmds, out ds, ms, ref g)
+
+  if entry != "test"
+    assign ms := [CsExpr(c_call(proc_name(Name(Some(m), entry)), []))]
+  end
+
   assign fs := wrappers(gl) ++ ds ++ g.lifted
   assign f := CFile([CdInclude("ulang.h")] ++ descriptor_decls(q.cmds) ++ concat([prototype(d) for d in fs]) ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
 
@@ -829,9 +830,10 @@ procedure compile_file(in source: Str, entry: Id, target: Str) :=
 
   call compile_with(in source, entry, target, ref cache)
 
-function is_run(c: Cmd, entry: Id): Bool :=
+// a procedure without parameters
+function is_entry(c: Cmd, n: Name): Bool :=
   match c
-    case CRun(n, _) => n == entry
+    case CProc(k, _, [], [], [], _) => k == n
     else false
   end
 
@@ -842,7 +844,7 @@ procedure compile_with(in source: Str, entry: Id, target: Str, ref cache: Cache)
   call   parse_library(in "prelude", out pre)
   call   parse_file_after(in source, pre, out p)
   call   check_modules(in Program([CModule("prelude", pre.cmds); p.cmds]), base_name(source), out q, ref cache)
-  call   compile_program(in q, entry, out f)
+  call   compile_program(in q, base_name(source), entry, out f)
   call   os_write(in target, c_file(f))
 
 // translates programs of the tests to C in self/out, which the C compiler compiles to compare their output

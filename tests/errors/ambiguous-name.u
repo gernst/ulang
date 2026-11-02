@@ -2,5 +2,5 @@
 import left
 import right
 
-run r :=
+test r :=
   local v := helper(1)

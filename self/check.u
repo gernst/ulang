@@ -413,7 +413,6 @@ function zonk_cmd(su: Subst, c: Cmd): Cmd :=
   match c
     case CFun(n, ps, xss, r, b) => CFun(n, ps, [zonk_vars(su, xs) for xs in xss], zonk_type(su, r), zonk_expr(su, b))
     case CProc(n, ps, ins, outs, refs, b) => CProc(n, ps, zonk_vars(su, ins), zonk_vars(su, outs), zonk_vars(su, refs), zonk_stmt(su, b))
-    case CRun(n, b) => CRun(n, zonk_stmt(su, b))
     case CTest(n, b) => CTest(n, zonk_stmt(su, b))
     else c
   end
@@ -488,7 +487,6 @@ function unknown_in_cmd(c: Cmd): Option[Type] :=
   match c
     case CFun(_, _, _, _, b) => unknown_in_expr(b)
     case CProc(_, _, _, _, _, b) => unknown_in(b)
-    case CRun(_, b) => unknown_in(b)
     case CTest(_, b) => unknown_in(b)
     else None
   end
@@ -1627,10 +1625,6 @@ procedure command(in c: Cmd, out c1: Cmd, ref s: State) :=
       call   statement(in bind(is ++ os ++ rs), names(os ++ rs), body, out y, ref s)
       assign c1 := CProc(n, ps, is, os, rs, y)
 
-    case CRun(n, body) =>
-      call   statement(in Nil, Nil, body, out y, ref s)
-      assign c1 := CRun(n, y)
-
     case CTest(n, body) =>
       call   statement(in Nil, Nil, body, out y, ref s)
       assign c1 := CTest(n, y)
@@ -1659,11 +1653,10 @@ procedure commands(in cs: List[Id * Cmd], out cs1: List[Cmd], ref s: State) :=
       assign cs1 := [c2; rest]
   end
 
-// runs and tests are chosen by name
+// tests are chosen by name
 function block_names(cs: List[Id * Cmd]): List[Id] :=
   match cs
     case Nil => Nil
-    case [(_, CRun(n, _)); more] => [n; block_names(more)]
     case [(_, CTest(n, _)); more] => [n; block_names(more)]
     case [_; more] => block_names(more)
   end
@@ -1837,9 +1830,9 @@ test inference :=
 test elaboration :=
   local q: Program
 
-  call check_program(in Program(lists() ++ [CRun("r", SBlock([Var(unqualified("n"), THole)], [SAssign([(Var(unqualified("n"), THole), ap("len", [ap("Cons", [num(1), ev("Nil")])]))])]))]), "main", out q)
+  call check_program(in Program(lists() ++ [CTest("r", SBlock([Var(unqualified("n"), THole)], [SAssign([(Var(unqualified("n"), THole), ap("len", [ap("Cons", [num(1), ev("Nil")])]))])]))]), "main", out q)
   match q
-    case Program([_, _, CFun(_, _, _, _, EMatch(_, [Branch(p, _, _); _])), CRun(_, SBlock(_, [SAssign([(_, EApp(EVar(Var(_, t)), _))])]))]) =>
+    case Program([_, _, CFun(_, _, _, _, EMatch(_, [Branch(p, _, _); _])), CTest(_, SBlock(_, [SAssign([(_, EApp(EVar(Var(_, t)), _))])]))]) =>
       // the constructor Nil is elaborated to a pattern of a constructor
       assert p == PApp(nil_name(), Nil)
       assert t == fun([tlist(tint())], tint())

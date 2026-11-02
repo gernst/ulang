@@ -2,5 +2,5 @@
 import set
 import map
 
-run r :=
+test r :=
   local v := {1, 2 => 3}

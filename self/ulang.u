@@ -4,7 +4,7 @@
 import compile
 import os
 
-run main :=
+procedure main() :=
   local args: List[Str]
 
   call os_args(out args)

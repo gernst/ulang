@@ -21,7 +21,7 @@ data Scope :=
 function keywords(): Set[Id] :=
   {
     "_", "assert", "assign", "call", "case", "catch", "data", "else", "end", "false", "for", "function", "if", "import",
-    "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix", "procedure", "raise", "ref", "run", "skip",
+    "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix", "procedure", "raise", "ref", "skip",
     "test", "then", "true", "type", "try", "while", "with"
   }
 
@@ -1328,7 +1328,6 @@ procedure parse_formals(in sc: Scope, out xs: List[Var], ref ts: List[Token * In
 function declarations(cs: List[Cmd]): List[Cmd] :=
   match cs
     case Nil => Nil
-    case [CRun(_, _); more] => declarations(more)
     case [CTest(_, _); more] => declarations(more)
     case [c; more] => [c; declarations(more)]
   end
@@ -1691,13 +1690,6 @@ procedure parse_command(in cx: Context, out cs: List[Cmd], ref ts: List[Token * 
       call   parse_procedure(in ns, out c, ref ts)
       assign cs := [c]
 
-    case TName("run") =>
-      call   advance(ref ts)
-      call   parse_name(out n, ref ts)
-      call   expect(in TSym(":="), ref ts)
-      call   parse_body(in Scope(Nil, ns), out b, ref ts)
-      assign cs := [CRun(n, b)]
-
     case TName("test") =>
       call   advance(ref ts)
       call   parse_name(out n, ref ts)
@@ -1971,7 +1963,7 @@ test parse_error_files :=
     "../tests/errors/division-by-zero.u",
     "../tests/errors/duplicate-constructor.u",
     "../tests/errors/duplicate-let.u",
-    "../tests/errors/duplicate-run.u",
+    "../tests/errors/duplicate-test.u",
     "../tests/errors/duplicate-type-parameter.u",
     "../tests/errors/empty-match.u",
     "../tests/errors/empty-tuple-argument.u",

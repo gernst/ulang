@@ -2,5 +2,5 @@
 data Point :=
   | Point(x: Int, y: Int)
 
-run r :=
+test r :=
   local v := (lambda p => p.x)(Point(1, 2))

@@ -184,7 +184,7 @@
           }
         },
         {
-          "match": "^(test|run)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "^(test)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
               "name": "keyword.other.ulang"
@@ -218,7 +218,7 @@
         },
         {
           "name": "keyword.other.ulang",
-          "match": "\\b(run|test)\\b"
+          "match": "\\b(test)\\b"
         },
         {
           "name": "keyword.control.ulang",

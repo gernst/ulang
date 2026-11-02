@@ -1,5 +1,5 @@
 // parse error: undeclared operator <+> at 5.16
 import wrapper
 
-run r :=
+test r :=
   local v := 1 <+> 2

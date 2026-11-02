@@ -45,7 +45,7 @@ test sizes :=
 - Literals and comprehensions of lists `[x * x for x in xs if x > 0]`, sets `{a, b}` and `{f(x) for x in s}`, and maps `{k => v}` and `{k => f(v) for k => v in m}`, where sets and maps need `import set` and `import map`, and `==` compares the shapes of their trees, not only their elements.
 - User-defined operators by `infix`, `prefix`, and `postfix` notations.
 - Modules: `import name` makes the declarations of a file available, but not transitively.
-- Named tests `test name := …` and runs `run name := …`.
+- Named tests `test name := …`, while programs start at a procedure without parameters, like `procedure main() := …`.
 
 The library in `ulang/resources/` contains the prelude with natural numbers, options, and lists, as well as maps, sets, and access to files.
 
@@ -55,13 +55,13 @@ Requires a JVM and [Mill](https://mill-build.org) (included as `./mill`), and fo
 
 ```
 make                          # builds ulang.jar
-./ulang.sh run file.u                     # checks a program and runs its runs
+./ulang.sh run file.u                     # checks a program and calls its procedure main
 ./ulang.sh test file.u                    # runs its tests one by one
 ./ulang.sh check file.u                   # only checks it
 ./mill ulang.test                         # runs all tests
 
 make ulang.bin                            # builds the compiler from bootstrap/ulang.c
-./ulang.bin compile file.u main file.c    # compiles a program to C, whose main runs the run main
+./ulang.bin compile file.u main file.c    # compiles a program to C, whose main calls the procedure main
 cc -I self/runtime file.c self/runtime/ulang.c -lgmp -lgc
 ```
 
