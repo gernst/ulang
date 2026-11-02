@@ -20,10 +20,9 @@ Open action items, each with the problem and the desired solution.
 
 ## Modules
 
-1. **Checked modules are not cached.** Parsing is cached: the Scala interpreter parses the prelude once, and each program parses each of its modules once. But the prelude and every imported module are checked again for each program, by the Scala interpreter, by `self/run.u`, and by the compiler, e.g. for each file of the tests. Solution: in all three, check a module once, since it depends only on the prelude and its direct imports, and keep its checked declarations, its context of the checker, and its tables of the interpreter for every program that imports it.
-2. **Type errors in imported modules have no file**: they show a position without the module. Solution: add the module to the messages, as parse errors do.
-3. **Imports are resolved against the directory of the parsed file**, not of the importing module, in both parsers, and loaded modules are known by name. Solution: resolve against the importing file, with modules known by their location, which makes nested imports and library modules consistent.
-4. **All declarations are exported**, so helpers of different modules only coexist if no module imports both. Solution: explicit exports.
+1. **Type errors in imported modules have no file**: they show a position without the module. Solution: add the module to the messages, as parse errors do.
+2. **Imports are resolved against the directory of the parsed file**, not of the importing module, in both parsers, and loaded modules are known by name. Solution: resolve against the importing file, with modules known by their location, which makes nested imports and library modules consistent.
+3. **All declarations are exported**, so helpers of different modules only coexist if no module imports both. Solution: explicit exports.
 
 ## The read procedure
 

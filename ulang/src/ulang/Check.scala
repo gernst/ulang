@@ -174,9 +174,58 @@ object Check:
       case _ =>
         su.getOrElse(t, t)
 
-  // the commands of p, which is the module main, flattened and with qualified names
+  // checked modules: their commands with qualified names, their declarations, and the modules each imports
+  case class Checked(cmds: List[Cmd], ctx: Ctx, imports: Map[Id, List[Id]])
+
+  // the checked modules by their names, parsed commands, and the keys of the modules they see,
+  // since a module depends only on the prelude and its direct imports
+  val cache = scala.collection.mutable.Map[(Id, List[(Id, Cmd)], List[Any]), Checked]()
+
+  // the commands of p, which is the module main, flattened and with qualified names, where each imported module
+  // is checked once, after the modules it imports, and the own commands of p last
   def program(p: Program, main: Id = "main"): Program =
-    new Check(p, main).cmds()
+    var ctx = initial
+    var imports = Map[Id, List[Id]]()
+    var keys = Map[Id, Any]()
+    val cmds = List.newBuilder[Cmd]
+    for (m, decls) <- modules(p.cmds) do
+      val seen =
+        for
+          case (_, Cmd.Import(n)) <- decls
+          if keys.contains(n)
+        yield keys(n)
+      val key = (m, decls, keys.get("prelude").toList ++ seen)
+      val checked = cache.getOrElseUpdate(key, new Check(decls, m, ctx, imports).module())
+      ctx = ctx ++ checked.ctx
+      imports = imports ++ checked.imports
+      for n <- checked.imports.keys do
+        keys += n -> key
+      cmds ++= checked.cmds
+    val own =
+      for
+        c <- p.cmds
+        if !c.isInstanceOf[Cmd.Module]
+      yield main -> qualify(main, c)
+    cmds ++= new Check(own, main, ctx, imports).cmds().cmds
+    Program(cmds.result())
+
+  // the modules of cmds with their commands, after the modules they import, where the prelude and its imports
+  // are one, since every module sees the prelude
+  def modules(cmds: List[Cmd]): List[(Id, List[(Id, Cmd)])] =
+    cmds match
+      case Nil =>
+        Nil
+      case Cmd.Module("prelude", cs) :: rest =>
+        ("prelude", flatten("prelude", cs)) :: modules(rest)
+      case Cmd.Module(n, cs) :: rest =>
+        val own =
+          for
+            c <- cs
+            if !c.isInstanceOf[Cmd.Module]
+          yield n -> qualify(n, c)
+        modules(cs) ++ ((n, own) :: modules(rest))
+      case _ :: rest =>
+        modules(rest)
 
   // the commands of the modules with the module of each, where declarations get their module
   def flatten(m: Id, cmds: List[Cmd]): List[(Id, Cmd)] =
@@ -204,18 +253,17 @@ object Check:
         c
 
   def expr(e: Expr): (Expr, Type) =
-    val c = new Check(Program(Nil), "main")
+    val c = new Check(Nil, "main")
     val (e1, t) = c.infer(Map(), e)
     (c.zonk(e1), c.zonk(t))
 
-class Check(program: Program, main: Id):
+// checks decls, the commands of module main, after the modules of before with the imports of each
+class Check(decls: List[(Id, Cmd)], main: Id, before: Ctx = Check.initial, imported: Map[Id, List[Id]] = Map()):
   import Check.*
-
-  val decls = flatten(main, program.cmds)
 
   // the modules that each module imports directly
   val imports: Map[Id, List[Id]] =
-    (for case (m, Cmd.Import(n)) <- decls yield m -> n).groupMap(_._1)(_._2)
+    imported ++ (for case (m, Cmd.Import(n)) <- decls yield m -> n).groupMap(_._1)(_._2)
 
   // the prelude and its modules, which every module sees
   val global: List[Id] =
@@ -228,7 +276,7 @@ class Check(program: Program, main: Id):
   def visible(m: Id): List[Id] =
     (m :: imports.getOrElse(m, Nil) ++ global).distinct
 
-  val context = Ref(initial)
+  val context = Ref(before)
   val su = Ref(Map[Int, Type]())
   val next = Ref(0)
 
@@ -1123,6 +1171,15 @@ class Check(program: Program, main: Id):
         current.get = m
         at(c.pos)(zonk(command(c)))
     Program(checked)
+
+  // the checked modules of decls, with their own declarations
+  def module(): Checked =
+    val checked = cmds().cmds
+    val ms = (for (m, _) <- decls yield m).distinct
+    var own = Ctx()
+    for m <- ms do
+      own = own ++ context.get.of(m)
+    Checked(checked, own, (for m <- ms yield m -> imports.getOrElse(m, Nil)).toMap)
 
   // the elaborated command c
   def command(c: Cmd): Cmd =

@@ -94,9 +94,15 @@ function imports_in(ds: List[Id * Cmd], m: Id): List[Id] :=
     case [_; rest] => imports_in(rest, m)
   end
 
-// each module sees itself, its direct imports, and the prelude with its imports
-function visibility(ds: List[Id * Cmd], main: Id): List[Id * List[Id]] :=
-  [(m, distinct([m] ++ imports_in(ds, m) ++ ["prelude"] ++ imports_in(ds, "prelude"))) for m in distinct([main] ++ firsts(ds))]
+// each module sees itself, its direct imports, and the prelude with its imports, for the imports of each module
+function visibility(imports: List[Id * List[Id]], main: Id): List[Id * List[Id]] :=
+  [(m, distinct([m] ++ imports_of(imports, m) ++ ["prelude"] ++ imports_of(imports, "prelude"))) for m in distinct([main] ++ firsts(imports))]
+
+function imports_of(imports: List[Id * List[Id]], m: Id): List[Id] :=
+  match lookup(m, imports)
+    case Some(ns) => ns
+    case None => Nil
+  end
 
 // the declarations named n of a kind that the module sees, where its own declarations hide those of other modules
 // and declared tells whether a name is a declaration of that kind
@@ -1664,22 +1670,100 @@ function block_names(cs: List[Id * Cmd]): List[Id] :=
     case [_; more] => block_names(more)
   end
 
+// checked modules: their commands with qualified names, their declarations, and the modules each imports
+data Checked :=
+  | Checked(cmds: List[Cmd], ctx: Ctx, imports: List[Id * List[Id]])
+
+// the checked modules by their names, their commands, and the positions in the cache of the modules they see,
+// since a module depends only on the prelude and its direct imports
+type Cache :=
+  List[(Id * List[Id * Cmd] * List[Int]) * Checked]
+
 // the commands of p, which is the module main, flattened and with qualified names
 procedure check_program(in p: Program, main: Id, out q: Program) :=
-  local s: State, ds: List[Id * Cmd], cs: List[Cmd]
+  local cache: Cache := Nil
 
-  match p
-    case Program(cmds) =>
-      assign ds := flatten(main, cmds)
-      assign s := start(main, visibility(ds, main))
-      call   declare_datas(in ds, ref s)
-      call   declare_sorts(in ds, ref s)
-      call   declare_constrs(in ds, ref s)
-      call   declare_funs(in ds, ref s)
-      call   declare_procs(in ds, ref s)
-      call   unique_ids(in block_names(ds))
-      call   commands(in ds, out cs, ref s)
-      assign q := Program(cs)
+  call check_modules(in p, main, out q, ref cache)
+
+// each imported module is checked once, after the modules it imports, and the own commands of p last
+procedure check_modules(in p: Program, main: Id, out q: Program, ref cache: Cache) :=
+  local c := empty_ctx(), imports: List[Id * List[Id]] := Nil, seen: List[Id * Int] := Nil, cs: List[Cmd] := Nil, own: Checked
+
+  call   check_units(in modules(p.cmds), ref c, imports, seen, cs, cache)
+  call   check_unit(in own_decls(main, p.cmds), main, c, imports, out own)
+  assign q := Program(cs ++ own.cmds)
+
+procedure check_units(in us: List[Id * List[Id * Cmd]], ref c: Ctx, imports: List[Id * List[Id]], seen: List[Id * Int], cs: List[Cmd], cache: Cache) :=
+  local key: Id * List[Id * Cmd] * List[Int], checked: Checked, i: Int
+
+  match us
+    case Nil =>
+      skip
+    case [(m, ds); rest] =>
+      assign key := (m, ds, positions_of(["prelude"; imports_in(ds, m)], seen))
+
+      match position_in(key, cache, 0)
+        case Some((k, done)) =>
+          assign i := k, checked := done
+        case None =>
+          call   check_unit(in ds, m, c, imports, out checked)
+          assign i := length(cache), cache := cache ++ [(key, checked)]
+      end
+
+      assign c := ctx_union(c, checked.ctx), imports := imports ++ checked.imports, cs := cs ++ checked.cmds
+      assign seen := [(n, i) for n in firsts(checked.imports)] ++ seen
+      call   check_units(in rest, ref c, imports, seen, cs, cache)
+  end
+
+function positions_of(ms: List[Id], seen: List[Id * Int]): List[Int] :=
+  match ms
+    case Nil => Nil
+    case [m; rest] =>
+      match lookup(m, seen)
+        case Some(i) => [i; positions_of(rest, seen)]
+        case None => positions_of(rest, seen)
+      end
+  end
+
+// the position of key in the cache with its checked modules
+function position_in(key: Id * List[Id * Cmd] * List[Int], cache: Cache, i: Int): Option[Int * Checked] :=
+  match cache
+    case Nil => None
+    case [(k, checked); rest] => if k == key then Some((i, checked)) else position_in(key, rest, i + 1)
+  end
+
+// the declarations ds of module main, checked after the declarations before of the modules that imports lists
+procedure check_unit(in ds: List[Id * Cmd], main: Id, before: Ctx, imports: List[Id * List[Id]], out checked: Checked) :=
+  local own := imports ++ [(m, imports_in(ds, m)) for m in distinct(firsts(ds))], s: State, cs: List[Cmd]
+
+  assign s := State(before, empty(), 0, main, Nil, visibility(own, main))
+  call   declare_datas(in ds, ref s)
+  call   declare_sorts(in ds, ref s)
+  call   declare_constrs(in ds, ref s)
+  call   declare_funs(in ds, ref s)
+  call   declare_procs(in ds, ref s)
+  call   unique_ids(in block_names(ds))
+  call   commands(in ds, out cs, ref s)
+  assign checked := Checked(cs, ctx_of(s.ctx, distinct(firsts(ds))), [(m, imports_in(ds, m)) for m in distinct(firsts(ds))])
+
+// the modules of cs with their commands, after the modules they import, where the prelude and its imports
+// are one, since every module sees the prelude
+function modules(cs: List[Cmd]): List[Id * List[Id * Cmd]] :=
+  match cs
+    case Nil => Nil
+    case [CModule("prelude", ds); rest] => [("prelude", flatten("prelude", ds)); modules(rest)]
+    case [CModule(n, ds); rest] => modules(ds) ++ [(n, own_decls(n, ds)); modules(rest)]
+    case [_; rest] => modules(rest)
+  end
+
+// the commands of module m without the modules it imports, with their module
+function own_decls(m: Id, cs: List[Cmd]): List[Id * Cmd] :=
+  [(m, qualify(m, c)) for c in cs if not is_module(c)]
+
+function is_module(c: Cmd): Bool :=
+  match c
+    case CModule(_, _) => true
+    else false
   end
 
 // the type of e without a program

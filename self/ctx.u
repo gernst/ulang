@@ -21,6 +21,62 @@ data Ctx :=
 function empty_ctx(): Ctx :=
   Ctx(empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
+// the declarations of the modules ms
+function ctx_of(c: Ctx, ms: List[Id]): Ctx :=
+  Ctx(
+    owned_map(c.aliases, ms),
+    owned_map(c.funs, ms),
+    owned_map(c.procs, ms),
+    owned_map(c.datas, ms),
+    owned_map(c.members, ms),
+    owned_map(c.constrs, ms),
+    put_all(owned_named(entries(c.named), ms), empty())
+  )
+
+function owned_map[V](m: Map[Name, V], ms: List[Id]): Map[Name, V] :=
+  put_all(owned(entries(m), ms), empty())
+
+function owned[V](es: List[Name * V], ms: List[Id]): List[Name * V] :=
+  match es
+    case Nil => Nil
+    case [(n, v); rest] => if in_modules(n, ms) then [(n, v); owned(rest, ms)] else owned(rest, ms)
+  end
+
+function owned_named(es: List[Id * List[Name]], ms: List[Id]): List[Id * List[Name]] :=
+  match es
+    case Nil => Nil
+    case [(b, ns); rest] =>
+      let ks := [n for n in ns if in_modules(n, ms)] in if ks == Nil then owned_named(rest, ms) else [(b, ks); owned_named(rest, ms)]
+  end
+
+function in_modules(n: Name, ms: List[Id]): Bool :=
+  match n.module
+    case Some(m) => contains(m, ms)
+    case None => false
+  end
+
+// the declarations of both, whose names differ since they are qualified by their modules
+function ctx_union(a: Ctx, b: Ctx): Ctx :=
+  Ctx(
+    put_all(entries(b.aliases), a.aliases),
+    put_all(entries(b.funs), a.funs),
+    put_all(entries(b.procs), a.procs),
+    put_all(entries(b.datas), a.datas),
+    put_all(entries(b.members), a.members),
+    put_all(entries(b.constrs), a.constrs),
+    union_named(entries(b.named), a.named)
+  )
+
+function union_named(es: List[Id * List[Name]], bs: Map[Id, List[Name]]): Map[Id, List[Name]] :=
+  match es
+    case Nil => bs
+    case [(k, ns); rest] =>
+      match get(k, bs)
+        case Some(ms) => union_named(rest, put(k, ms ++ ns, bs))
+        case None => union_named(rest, put(k, ns, bs))
+      end
+  end
+
 function alias_of(c: Ctx, n: Name): Option[List[Id] * Type] :=
   get(n, c.aliases)
 

@@ -828,25 +828,33 @@ procedure compile_program(in q: Program, out f: CFile) :=
 
 // checks the program of the file source after the prelude, which is its module, and writes its translation to C to target
 procedure compile_file(in source: Str, target: Str) :=
+  local cache: Cache := Nil
+
+  call compile_with(in source, target, ref cache)
+
+// compile_file with the modules checked so far
+procedure compile_with(in source: Str, target: Str, ref cache: Cache) :=
   local pre: Program, p: Program, q: Program, f: CFile
 
   call   parse_library(in "prelude", out pre)
   call   parse_file_after(in source, pre, out p)
-  call   check_program(in Program([CModule("prelude", pre.cmds); p.cmds]), base_name(source), out q)
+  call   check_modules(in Program([CModule("prelude", pre.cmds); p.cmds]), base_name(source), out q, ref cache)
   call   compile_program(in q, out f)
   call   os_write(in target, c_file(f))
 
 // translates programs of the tests to C in self/out, which the C compiler compiles to compare their output
 test compile_programs :=
-  call compile_file(in "../tests/functions.u", "out/functions.c")
-  call compile_file(in "../tests/expressions.u", "out/expressions.c")
-  call compile_file(in "../tests/datatypes.u", "out/datatypes.c")
-  call compile_file(in "../tests/procedures.u", "out/procedures.c")
-  call compile_file(in "../tests/exceptions.u", "out/exceptions.c")
-  call compile_file(in "../tests/strings.u", "out/strings.c")
-  call compile_file(in "../tests/modules.u", "out/modules.c")
-  call compile_file(in "../tests/files.u", "out/files.c")
-  call compile_file(in "../tests/fields.u", "out/fields.c")
-  call compile_file(in "../tests/locals.u", "out/locals.c")
-  call compile_file(in "../ulang/resources/map.u", "out/map.c")
-  call compile_file(in "../ulang/resources/set.u", "out/set.c")
+  local cache: Cache := Nil
+
+  call compile_with(in "../tests/functions.u", "out/functions.c", ref cache)
+  call compile_with(in "../tests/expressions.u", "out/expressions.c", ref cache)
+  call compile_with(in "../tests/datatypes.u", "out/datatypes.c", ref cache)
+  call compile_with(in "../tests/procedures.u", "out/procedures.c", ref cache)
+  call compile_with(in "../tests/exceptions.u", "out/exceptions.c", ref cache)
+  call compile_with(in "../tests/strings.u", "out/strings.c", ref cache)
+  call compile_with(in "../tests/modules.u", "out/modules.c", ref cache)
+  call compile_with(in "../tests/files.u", "out/files.c", ref cache)
+  call compile_with(in "../tests/fields.u", "out/fields.c", ref cache)
+  call compile_with(in "../tests/locals.u", "out/locals.c", ref cache)
+  call compile_with(in "../ulang/resources/map.u", "out/map.c", ref cache)
+  call compile_with(in "../ulang/resources/set.u", "out/set.c", ref cache)
