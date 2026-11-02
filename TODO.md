@@ -25,7 +25,7 @@ Open action items, each with the problem and the desired solution.
 ## Modules
 
 1. **Type errors in imported modules have no file**: they show a position without the module. Solution: add the module to the messages, as parse errors do.
-2. **Imports are resolved against the directory of the parsed file**, not of the importing module, in both parsers, and loaded modules are known by name. Solution: resolve against the importing file, with modules known by their location, which makes nested imports and library modules consistent.
+2. **Imports are resolved against the directory of the parsed file**, not of the importing module, in both parsers, and loaded modules are known by name. Solution: resolve against the importing file, with modules known by their location, which makes nested imports and library modules consistent. Also imports from other directories, e.g. of `simp/` by `self/prove.u`, by relative paths or a search path.
 3. **All declarations are exported**, so helpers of different modules only coexist if no module imports both. Solution: explicit exports.
 
 ## The read procedure
@@ -66,3 +66,4 @@ Open action items, each with the problem and the desired solution.
 ## Verification
 
 1. **Contracts, lemmas, and proofs** are designed in `DESIGN.md`, but not implemented. Solution: implement them, starting with parsing specifications in both parsers, and decide the open points listed there.
+2. **No simplifier**: the proofs of `DESIGN.md` rest on contextual simplification of nested sequents with CC(X), designed there under Simplification. Solution: implement it in `simp/`, in the order `term.u`, `seq.u`, `cc.u` with `constr.u`, `arith.u`, and `simp.u`, with its tests run by `./mill ulang.test` and `make selftest`, and then `self/prove.u` with goals as `Bool` functions and a command `simp`.

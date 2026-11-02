@@ -226,28 +226,114 @@ proof
 
 ### Simplification
 
-No external provers: simplification is one procedure in Scala, which turns a goal into a single goal that is equivalent to it, given the facts, or closes it.
+No external provers: simplification is one procedure in ulang, in `simp/`, which turns a goal into a single goal that is equivalent to it, given the facts, or closes it.
 
 - **Safe**: every step preserves equivalence, so that simplifying never turns a provable goal into an unprovable one, and is applied without asking. Hence no heuristic instantiation of quantifiers, no induction, no generalization, and no facts are dropped.
 - **Desirable**: it terminates, normalizes, and keeps one goal, so that the proof sees one predictable goal. Case splits are only made internally, to close a goal, and their branches do not remain when they do not all close.
 
-Its steps:
+This is weaker than SMT, which is why the language makes the structure explicit by cases, induction, named facts, and instances, but there are no timeouts, results are deterministic, and failures show the simplified goal.
 
-1. **Evaluation and unfolding**: closed terms are evaluated by `Run`, recursive functions are unfolded where their `match` or `if` is decided, `length([x; xs])` to `1 + length(xs)`, but not `length(xs)`, which terminates since functions do, and functions that are not recursive are unfolded always, as abbreviations.
-2. **Rewriting** to normal form with the rewrite rules, and with the facts, which are oriented by the term order, or used as conditions if they are not equations or cannot be oriented, under the context of `if`, `match`, `and`, and `==>`.
-3. **Splitting**, internally, on `if` and `match` whose test or argument is not decided, and on `or` in facts, kept only if all branches close.
-4. **Equality**: congruence closure, with injective and distinct constructors.
-5. **Linear integer arithmetic**: normalized sums, and Fourier–Motzkin with integer tightening to close goals, where products of variables are atoms, and `m / n` and `m % n` come with `m == (m / n) * n + m % n` and their bounds.
-6. **Propositional**: normalization of `not`, `and`, `or`, `==>`, and `==` on `Bool`.
+#### Sequents
 
-**The term order**, e.g. a lexicographic path order whose precedence is the order of declarations, with later functions above earlier ones, makes rewriting terminate: rewrite rules must decrease in it, and facts are oriented by it. A limit of steps is a safety net, which leaves an equivalent goal that is not normalized.
+Goals, facts, lemmas, and induction hypotheses are all nested sequents
 
-This is weaker than SMT, which is why the language makes the structure explicit by cases, induction, named facts, and instances, but there are no timeouts, results are deterministic, and failures show the simplified goal. `self/` at first only parses proofs.
+```
+forall xs. A1 and … and Ak ==> (exists ys1. C11 and … and C1m) or … or (exists ysj. Cj1 and …)
+```
+
+whose assumptions `Ai` and conclusions `Cij` are again sequents or atoms, where each disjunct of the conclusion is a conjunction under its existential, mirroring the assumptions, since a conjunction under `exists` cannot be split into goals:
+
+```
+data Seq :=
+  | Atom(Term)
+  | Seq(fixed: List[Type], assms: List[Seq], concls: List[Concl])
+
+data Concl :=
+  | Concl(vars: List[Type], body: List[Seq])
+```
+
+- `false` is a sequent without conclusions, `not A` is `A ==> false`, and several goals, as of the cases of `match` and `induction` or of `subgoals`, are a conjunction in a single conclusion.
+- **A lemma is a sequent**: `lemma l(xs): (ys) := requires A1, …, Ak ensures C` is `Seq(xs, [A1, …, Ak], [Concl(ys, [C])])`. Proving it opens it as the goal, using it, by `using l`, `rewrite lemma`, or as the induction hypothesis, adds it unopened as an assumption, `h(a, b)` instantiates its outer binders, and `obtain` opens the existential of an assumption.
+- **Normalization** from `Expr` moves `and`, `or`, `==>`, `not`, the quantifiers, and `if` on `Bool` into this structure, again after unfolding, which brings back connectives. It makes the steps that preserve equivalence and lose nothing: existentials of assumptions become fixed, `(exists y. A) ==> C` to `forall y. A ==> C`, and the one-point rules `forall x. x == t ==> P(x)` to `P(t)` and `exists y. y == t and P(y)` to `P(t)`.
+- **Quantifiers are constants applied to lambdas**, `forall x: T => e` is `forall(lambda x: T => e)` of type `(T -> Bool) -> Bool`, and several variables are nested lambdas, so that lambdas are the only binders of formulas, the types of the variables come with them, and `forall` and `exists` cannot be computed, which the checker allows only in specifications.
+
+#### Terms
+
+The prover works on its own terms, translated from checked `Expr`s, since it needs invariants that `Expr` does not guarantee, and nodes for the values of its decision procedures. It does not depend on the syntax of `self/`, so it lives in `simp/`, and the translations in `self/`:
+
+```
+data Term :=
+  | Bound(Int)                       // de Bruijn index: a binder inside the term
+  | Var(Int)                         // de Bruijn level: a variable of the context
+  | Lit(Val)
+  | Con(Sym, List[Term])
+  | Fun(Sym, List[Term])             // declared functions and builtins
+  | Apply(Term, List[Term])          // application of a term that is not a symbol
+  | Lam(Hint, Type, Term)
+  | Ite(Term, Term, Term)
+  | Match(Term, List[Alt])           // the variables of the patterns are indices too
+  | Sum(Int, List[Term * Int])       // c + k1·t1 + …: canonical linear sums
+```
+
+- **Indices for binders, levels for the context.** The binders of `Lam`, `Match`, `Seq`, and `Concl` are indices, so that terms with binders are closed and the same at every depth: definitions, lemmas, and rules are used anywhere unchanged, and terms that differ in the names of bound variables are equal. The variables of the opened sequents are levels, counted from the root, so that a term of an outer sequent is valid unchanged in the inner ones, and the state stored at a sequent is shared by those nested in it. Indices for everything would shift the stored states at every nesting, and levels for everything every closed term with binders that moves, e.g. a definition that is unfolded. Opening a binder, of a lambda or a sequent, pushes its variable onto the context and replaces its index by the level, and closing does the reverse, the only places where the two meet. The context keeps the types of the levels, and their hints for printing.
+- **No meta variables**: an assumption that is used as a rule, or a lemma, is closed, and its own binders are the variables that matching instantiates, where a pattern variable applied to distinct bound variables is matched as a higher-order pattern (Miller). Meta variables would only be needed for witnesses that are instantiated later by unification, which proofs give explicitly by `choose` instead. Type parameters of lemmas are matched the same way.
+- **Symbols are numbers**, so that terms compare as integers rather than as names, and a signature describes them, which the translation builds: the constructors of each datatype, the builtins, the definitions of functions as terms with whether they are recursive, the order of declarations for the term order, and the names for printing.
+- **Sums are canonical**: sorted by `compare` on their atoms, without coefficients `0`, nested sums, or sums of a single atom with coefficient `1`, and a constant is a `Lit`, kept by a smart constructor, and as lists, since `==` on maps compares their trees. Products with constants are sums, products of variables are atoms.
+- **Translations**, in `self/`: `let` is substituted, comprehensions become `flat_map` over lambdas, function definitions are translated once to lambdas over their parameters, so that unfolding is beta reduction, and the prelude's `not`, `==>`, `!=`, `<=`, `>`, `>=`, and `-` are unfolded to the builtins, and folded back when printing. Open goals are printed by translating back to `Expr`, with the hints as names, and `simp/` prints terms itself for its tests.
+
+#### Contextual simplification
+
+Each part of a sequent is replaced by one that is equivalent to it in its context, for all values of the variables bound around it, which is why simplifying under binders is sound.
+
+- **The context** of a sequent is that of its parent, its fixed variables as new levels, its assumptions, each simplified in the context of those before it, and for its `i`-th conclusion, the negations of the conclusions before it that have no existential, since `A ==> C1 or C2` is `A and not C1 ==> C2`. Siblings are simplified in order and each with the simplified earlier ones only, since simplifying `A and A`, each with the other, would give `true and true`.
+- **Assumptions** are used depending on their form, decided once when they are added: ground atoms go into the state of the decision procedures, ground clauses propagate their last undecided literal once the others are decided, and sequents with variables are rules: equations that the term order orients rewrite from left to right, with their assumptions as conditions that must simplify to `true`, and others close an assumption or conclusion that is an instance of them.
+- **Closing and dropping**: a sequent is proven if its state is inconsistent or a conclusion simplifies to `true`, and assumptions that simplify to `true` and conclusions that simplify to `false` are dropped.
+- **State in the sequents**: each opened sequent stores its context, `Ctx(cc: CC, rules: List[Seq], clauses: List[Seq])`. Since values are immutable, the state of a nested sequent extends that of its parent and shares it, and splits and proof steps need no undo: a `have` adds an assumption and simplifies the sequent again from the state of its parent, a `match` replaces a sequent by its cases, and when the context of a sequent changes, the states below it are recomputed.
+
+#### Decision procedures: CC(X)
+
+Congruence closure over terms, parameterized by Shostak theories, as in CC(X) of Alt-Ergo: each theory gives a canonizer, whose results are syntactically equal exactly when the terms are equal in the theory, and a solver, which turns an equation into a substitution or `false`, and treats the terms of other theories as atoms, its leaves. Solved equations are oriented substitutions, i.e. the rewriting with facts, and the canonical forms are what the proof sees in open goals.
+
+- **The core** is a union-find with use lists and a table of signatures, as maps keyed by terms, which costs a logarithm per operation instead of nearly constant time, but makes the states persistent. Lambdas, applications of variables, and comprehensions are uninterpreted terms, with applications as a symbol `@` of the function and its arguments.
+- **Constructors**: the canonizer is the identity, and the solver is unification with an occurs check, such that constructors are injective, distinct, and acyclic, `xs == [x; xs]` being `false`.
+- **Linear integer arithmetic**: the canonizer gives `Sum`s, the solver solves an equation for an atom with coefficient `1` or `-1`, and otherwise introduces fresh variables, `2·x == 3·y` to `x == 3·k` and `y == 2·k`, as in the Omega test. Inequalities are not Shostak: Fourier–Motzkin with integer tightening decides them over the canonical sums, and gives the equalities it implies back to the core, as in Nelson–Oppen, where `m / n` and `m % n` come with `m == (m / n) * n + m % n` and their bounds.
+- **Other theories**, e.g. finite sets, add nodes to `Term` for their canonical forms in the same way.
+- Nelson–Oppen alone would only decide validity and give no normal forms, and splits for theories that are not convex, as the integers, or finite types, which the internal splits cover here.
+
+#### Steps
+
+Simplification repeats these steps on a sequent until nothing changes:
+
+1. **Evaluation and unfolding**: closed terms are evaluated by the same unfolding and the builtins on literals, without `run.u`, recursive functions are unfolded where their `match` or `if` is decided, `length([x; xs])` to `1 + length(xs)`, but not `length(xs)`, which terminates since functions do, functions that are not recursive are unfolded always, as abbreviations, and beta reduction.
+2. **Normalization** of the connectives into the sequent structure, see above.
+3. **Rewriting** to normal form with the rules of the context and the canonical forms of the state.
+4. **Deciding** atoms by the state of CC(X), and closing and dropping, see above.
+5. **Splitting**, internally, on `if` and `match` whose test or argument is not decided, on ground clauses, and on disjunctions that theories imply, kept only if all branches close.
+
+**The term order**, e.g. a lexicographic path order whose precedence is the order of declarations, with later functions above earlier ones, makes rewriting terminate: rewrite rules must decrease in it, and facts are oriented by it. A limit of steps is a safety net, which leaves an equivalent goal that is not normalized. Unfolding interprets any function, so simplification is a procedure.
+
+#### Modules
+
+| Module | Contents |
+|---|---|
+| `simp/term.u` | `Term`, the signature, opening and closing, substitution, matching, the term order, and printing |
+| `simp/seq.u` | `Seq`, normalization, and printing |
+| `simp/cc.u` | the core of CC(X) and the interface of the theories |
+| `simp/constr.u` | constructors |
+| `simp/arith.u` | sums, solving, and Fourier–Motzkin |
+| `simp/simp.u` | contextual simplification with `Ctx` |
+| `self/prove.u` | the translations between `Expr` and `Term`, and the signature of a checked program |
+
+`simp/` is tested on its own, with terms and sequents built by its tests, and the tests run with those of `tests/` and `self/`. `self/prove.u` imports modules of both directories, which needs imports across directories, see `TODO.md`.
+
+Until the parsers read lemmas, goals are `Bool` functions, whose parameters are the fixed variables, with tests of goals that must close and of goals with their expected open form, and a command `simp <file> [<name> …]` that prints `name proved` or the simplified goal. An induction step is then a goal with the hypothesis as an assumption, e.g. `length(xs ++ ys) == length(xs) + length(ys) ==> length([x; xs] ++ ys) == length([x; xs]) + length(ys)`.
+
+References: G. Nelson, D. Oppen, Simplification by Cooperating Decision Procedures, TOPLAS 1979; R. Shostak, Deciding Combinations of Theories, JACM 1984; H. Rueß, N. Shankar, Deconstructing Shostak, LICS 2001; S. Krstić, S. Conchon, Canonization for Disjoint Unions of Theories, Information and Computation 2005; S. Conchon, E. Contejean, J. Kanig, S. Lescuyer, CC(X): Semantic Combination of Congruence Closure with Solvable Theories, ENTCS 2008; D. Miller, A Logic Programming Language with Lambda-Abstraction, Function Variables, and Simple Unification, 1991; W. Pugh, The Omega Test, 1991; A. Kovács, elaboration-zoo, for indices in terms and levels in contexts.
 
 ### Open points
 
 1. **Proofs of programs**: the forms above inside the points `at …` of loops and calls, and which of the ways to refer to points of the code.
-2. **Arithmetic**: whether Fourier–Motzkin suffices, or the Omega test, which is complete for integer linear arithmetic, is needed.
+2. **Arithmetic**: whether Fourier–Motzkin with tightening suffices for inequalities, or the Omega test, which is complete for integer linear arithmetic, is needed.
 3. **Orientation**: rewrite rules only from left to right, or also `using <- l`, and which term order, where the precedence by declarations may reject natural rules.
 4. **More induction**: on `Int`, `induction n` for `n >= 0` with the cases `0` and `n + 1`, and computation induction `induction f(xs, ys)`, whose cases follow the `match` of `f`.
 5. **`calc` chains** `e1 == e2 by p == e3 by p` for equational proofs, which `have` covers for now.
@@ -259,6 +345,10 @@ This is weaker than SMT, which is why the language makes the structure explicit 
 11. **Contracts without a `correct` lemma**: tried by a default proof, or reported as unproven.
 12. **Several contracts per procedure**, e.g. as claims `correct p ensures …`, which calls would all assume.
 13. **Total correctness**, by `decreases` on loops and procedures, and claims about exceptions, e.g. `raises`.
-14. **`self/`** at first only parses specifications, lemmas, and proofs and drops them, since the tests of `parse.u` compare both parsers on `tests/`.
+14. **Scala** only parses specifications, lemmas, and proofs and drops them, since the tests of `parse.u` compare both parsers on `tests/`, while the verifier is in `simp/` and `self/`.
 15. **Runtime checks** of contracts in the interpreter, which make specifications useful in tests before they are proven.
-16. **Quantifiers and the functions `exists` and `forall`** of `list.u` share their names, so `forall x => e` in specifications would clash with `forall(xs, p)`, unless the quantifiers are keywords only in specifications, or the functions are renamed, e.g. to `any` and `all`.
+16. **Quantifiers and the functions `exists` and `forall`** of `list.u` share their names, so `forall x => e` in specifications would clash with `forall(xs, p)`, unless the quantifiers are keywords only in specifications, or the functions are renamed, e.g. to `any` and `all`, or the quantifiers as constants of one argument coexist with them by arity, which may not work across modules.
+17. **Splitting on ground clauses** among the assumptions, or only unit propagation, where splits are a search, but finite and safe.
+18. **Theories as values or tags**: a datatype of functions per theory, or a tag dispatched by `match`, which is simpler and faster for two theories.
+19. **Equations between functions** among the assumptions, e.g. `f == lambda x => x + 1`, which need extensionality and congruence through `@`, left out at first.
+20. **Speed**: union-find on maps costs a logarithm per operation, and terms compare structurally, where interning terms to numbers in the core is an option.
