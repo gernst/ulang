@@ -73,7 +73,8 @@ Points of a critique of the syntax, ordered by how much they cost when writing `
 6. **Ad-hoc overloading.** Overloading by types, not only by arities, would let one name serve lists, sets, and maps,
    e.g. `{}` as the empty set or map by its type, `==` and `compare` of sets and maps by their elements instead of the shapes of their trees,
    and `size`, `member`, and `get` in place of `length`, `count`, `contains`, `has`, and `lookup`.
-7. **Smaller points.**
+7. **Partial accesses are not visible.** `e.f` of a field that only some constructors have may raise `MissingField`, like `/` may raise `DivisionByZero`, but nothing at the access shows it. An idea is a second access operator that the declaration decides, not the writer: `e.f` for fields of all constructors, and `e!f` for the others, where the checker rejects the other operator, as in Haskell's partial indexing `arr ! i`. It chains as `t!left!key`, does not clash with `!=`, and the verifier's obligations would be exactly the `!`. Reservations: it is one more rule to learn, whose errors explain the declaration of a field at each of its uses, it reserves `!` for all programs, and accessors returning `Option`, or `e.f?` next to `e.f`, were rejected since they give two ways to write an access.
+8. **Smaller points.**
    - `assign` is redundant before `x := e`.
    - `[…]` is both type arguments and list literals.
    - `else` followed by `if` always continues a chain of statements, so a nested `if` cannot directly follow `else`.
