@@ -10,6 +10,7 @@ import set
 
 data CompileError :=
   | Unsupported(Str)
+  | UnknownEntry(Id)
 
 // the functions of a program by name and number of arguments, and its constructors with their numbers of fields,
 // as lists and as maps from the names to the numbers of arguments and fields
@@ -703,7 +704,7 @@ procedure stmt_cases(in gl: Globals, env: Vars, cases: List[Branch[Stmt]], v: CE
   end
 
 // the C functions of a command, and the statements of main for runs and tests
-procedure compile_cmd(in gl: Globals, c: Cmd, out ds: List[CDecl], ms: List[CStmt], ref g: Gen) :=
+procedure compile_cmd(in gl: Globals, entry: Id, c: Cmd, out ds: List[CDecl], ms: List[CStmt], ref g: Gen) :=
   local bs: List[CStmt], rb: CExpr, params: List[CType * Str]
 
   match c
@@ -724,27 +725,29 @@ procedure compile_cmd(in gl: Globals, c: Cmd, out ds: List[CDecl], ms: List[CStm
       assign params := [(value_type(), var_name(x)) for x in names(ins)] ++ [(value_ptr(), ref_name(x)) for x in names(outs ++ refs)]
       assign ds := [CdFunction(CtVoid, proc_name(n), params, bs)], ms := Nil
 
-    case CRun(_, body) =>
+    // main runs the run entry, or all tests for the entry test, which report that they passed
+
+    case CRun(n, body) if n == entry =>
       call   compile_stmt(in gl, Nil, body, out bs, ref g)
       assign ds := Nil, ms := [CsBlock(bs)]
 
-    case CTest(_, body) =>
+    case CTest(n, body) if entry == "test" =>
       call   compile_stmt(in gl, Nil, body, out bs, ref g)
-      assign ds := Nil, ms := [CsBlock(bs)]
+      assign ds := Nil, ms := [CsBlock(bs ++ [CsExpr(c_call("u_passed", [CeStr(n)]))])]
 
     else
       assign ds := Nil, ms := Nil
   end
 
-procedure compile_cmds(in gl: Globals, cs: List[Cmd], out ds: List[CDecl], ms: List[CStmt], ref g: Gen) :=
+procedure compile_cmds(in gl: Globals, entry: Id, cs: List[Cmd], out ds: List[CDecl], ms: List[CStmt], ref g: Gen) :=
   local d1: List[CDecl], m1: List[CStmt], d2: List[CDecl], m2: List[CStmt]
 
   match cs
     case [] =>
       assign ds := Nil, ms := Nil
     case [c; rest] =>
-      call   compile_cmd(in gl, c, out d1, m1, ref g)
-      call   compile_cmds(in gl, rest, out d2, m2, ref g)
+      call   compile_cmd(in gl, entry, c, out d1, m1, ref g)
+      call   compile_cmds(in gl, entry, rest, out d2, m2, ref g)
       assign ds := d1 ++ d2, ms := m1 ++ m2
   end
 
@@ -808,42 +811,53 @@ function prototype(d: CDecl): List[CDecl] :=
     else []
   end
 
-procedure compile_program(in q: Program, out f: CFile) :=
+// the C of q, whose main runs the run entry, or all tests for the entry test
+procedure compile_program(in q: Program, entry: Id, out f: CFile) :=
   local g := Gen(0, Nil), gl := globals(q.cmds), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl]
 
-  call   compile_cmds(in gl, q.cmds, out ds, ms, ref g)
+  if entry != "test" and not exists(q.cmds, lambda c => is_run(c, entry))
+    raise UnknownEntry(entry)
+  end
+
+  call   compile_cmds(in gl, entry, q.cmds, out ds, ms, ref g)
   assign fs := wrappers(gl) ++ ds ++ g.lifted
   assign f := CFile([CdInclude("ulang.h")] ++ descriptor_decls(q.cmds) ++ concat([prototype(d) for d in fs]) ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
 
 // checks the program of the file source after the prelude, which is its module, and writes its translation to C to target
-procedure compile_file(in source: Str, target: Str) :=
+procedure compile_file(in source: Str, entry: Id, target: Str) :=
   local cache: Cache := Nil
 
-  call compile_with(in source, target, ref cache)
+  call compile_with(in source, entry, target, ref cache)
+
+function is_run(c: Cmd, entry: Id): Bool :=
+  match c
+    case CRun(n, _) => n == entry
+    else false
+  end
 
 // compile_file with the modules checked so far
-procedure compile_with(in source: Str, target: Str, ref cache: Cache) :=
+procedure compile_with(in source: Str, entry: Id, target: Str, ref cache: Cache) :=
   local pre: Program, p: Program, q: Program, f: CFile
 
   call   parse_library(in "prelude", out pre)
   call   parse_file_after(in source, pre, out p)
   call   check_modules(in Program([CModule("prelude", pre.cmds); p.cmds]), base_name(source), out q, ref cache)
-  call   compile_program(in q, out f)
+  call   compile_program(in q, entry, out f)
   call   os_write(in target, c_file(f))
 
 // translates programs of the tests to C in self/out, which the C compiler compiles to compare their output
 test compile_programs :=
   local cache: Cache := Nil
 
-  call compile_with(in "../tests/functions.u", "out/functions.c", ref cache)
-  call compile_with(in "../tests/expressions.u", "out/expressions.c", ref cache)
-  call compile_with(in "../tests/datatypes.u", "out/datatypes.c", ref cache)
-  call compile_with(in "../tests/procedures.u", "out/procedures.c", ref cache)
-  call compile_with(in "../tests/exceptions.u", "out/exceptions.c", ref cache)
-  call compile_with(in "../tests/strings.u", "out/strings.c", ref cache)
-  call compile_with(in "../tests/modules.u", "out/modules.c", ref cache)
-  call compile_with(in "../tests/files.u", "out/files.c", ref cache)
-  call compile_with(in "../tests/fields.u", "out/fields.c", ref cache)
-  call compile_with(in "../tests/locals.u", "out/locals.c", ref cache)
-  call compile_with(in "../ulang/resources/map.u", "out/map.c", ref cache)
-  call compile_with(in "../ulang/resources/set.u", "out/set.c", ref cache)
+  call compile_with(in "../tests/functions.u", "test", "out/functions.c", ref cache)
+  call compile_with(in "../tests/expressions.u", "test", "out/expressions.c", ref cache)
+  call compile_with(in "../tests/datatypes.u", "test", "out/datatypes.c", ref cache)
+  call compile_with(in "../tests/procedures.u", "test", "out/procedures.c", ref cache)
+  call compile_with(in "../tests/exceptions.u", "test", "out/exceptions.c", ref cache)
+  call compile_with(in "../tests/strings.u", "test", "out/strings.c", ref cache)
+  call compile_with(in "../tests/modules.u", "test", "out/modules.c", ref cache)
+  call compile_with(in "../tests/files.u", "test", "out/files.c", ref cache)
+  call compile_with(in "../tests/fields.u", "test", "out/fields.c", ref cache)
+  call compile_with(in "../tests/locals.u", "test", "out/locals.c", ref cache)
+  call compile_with(in "../ulang/resources/map.u", "test", "out/map.c", ref cache)
+  call compile_with(in "../ulang/resources/set.u", "test", "out/set.c", ref cache)

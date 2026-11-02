@@ -120,24 +120,44 @@ object Main:
         System.err.println(s"$file: ${e.getMessage}")
         false
 
-  // prints the output of file and whether it succeeded
-  def report(file: String, args: List[String]): Boolean =
-    attempt(file):
-      val path = os.Path(file, os.pwd)
-      for line <- run(os.read(path), path, args) do
-        println(line)
-      true
-
-  // runs each test of file on its own, also after a failed one, printing whether it passed
-  def tests(file: String, args: List[String]): Boolean =
+  // runs the runs of file, all in order or the one named, and prints what they print
+  def runs(file: String, name: Option[String], args: List[String]): Boolean =
     attempt(file):
       val path = os.Path(file, os.pwd)
       val r = load(os.read(path), path, args)
+      val selected =
+        for
+          case c @ Cmd.Run(n, _) <- blocks(r)
+          if name.forall(_ == n)
+        yield c
+      if name.nonEmpty && selected.isEmpty then
+        error("runtime", s"there is no run ${name.get}")
+      for
+        c <- selected
+        line <- r.output(c)
+      do println(line)
+      true
+
+  // runs each test of file on its own, all or the named ones, also after a failed one, printing whether it passed
+  def tests(file: String, names: List[String], args: List[String]): Boolean =
+    attempt(file):
+      val path = os.Path(file, os.pwd)
+      val r = load(os.read(path), path, args)
+      val selected =
+        for
+          case c @ Cmd.Test(n, _) <- blocks(r)
+          if names.isEmpty || names.contains(n)
+        yield c
+      val all = for case Cmd.Test(n, _) <- blocks(r) yield n
+      for n <- names do
+        if !all.contains(n) then
+          error("runtime", s"there is no test $n")
       val results =
-        for case c @ Cmd.Test(name, _) <- blocks(r)
+        for case c @ Cmd.Test(name, _) <- selected
         yield
           try
-            r.output(c)
+            for line <- r.output(c) do
+              println(line)
             println(s"test $name passed")
             true
           catch
@@ -146,37 +166,45 @@ object Main:
               false
       results.forall(identity)
 
-  // the run or test of that name
-  def block(r: Run, which: String): Cmd =
-    val named =
-      blocks(r).collectFirst:
-        case c @ Cmd.Run(name, _) if name == which =>
-          c
-        case c @ Cmd.Test(name, _) if name == which =>
-          c
-    named.getOrElse(error("runtime", s"there is no run or test $which"))
-
-  // runs one run or test of file
-  def only(which: String, file: String, args: List[String]): Boolean =
+  // only checks file
+  def check(file: String): Boolean =
     attempt(file):
       val path = os.Path(file, os.pwd)
-      val r = load(os.read(path), path, args)
-      val c = block(r, which)
-      for line <- r.output(c) do
-        println(line)
+      load(os.read(path), path)
       true
 
-  // ulang file.u ..., ulang --tests file.u ..., or ulang --only name file.u, each followed by -- and the arguments of os_args
+  // translates file to C, whose main runs the run entry, or all tests for the entry test,
+  // by the compiler of self/ulang.u in the interpreter, which the property ulang.self locates
+  def compile(file: String, entry: String, target: String): Boolean =
+    attempt(file):
+      val dir = sys.props.get("ulang.self").map(os.Path(_, os.pwd)).getOrElse(error("runtime", "the property ulang.self does not name the directory self/"))
+      val driver = dir / "ulang.u"
+      val args = List("compile", os.Path(file, os.pwd).toString, entry, os.Path(target, os.pwd).toString)
+      runs(driver.toString, Some("main"), args)
+
+  val usage =
+    """usage: ulang run <file> [<name>] [-- args]
+      |       ulang test <file> [<name> ...] [-- args]
+      |       ulang check <file>
+      |       ulang compile <file> <entry> <target.c>""".stripMargin
+
   def main(args: Array[String]): Unit =
-    val (options, rest) = args.toList.span(_ != "--")
+    val (command, rest) = args.toList.span(_ != "--")
     val arguments = rest.drop(1)
-    val results = deep:
-      options match
-        case "--tests" :: files =>
-          files.map(tests(_, arguments))
-        case "--only" :: n :: List(file) =>
-          List(only(n, file, arguments))
-        case files =>
-          files.map(report(_, arguments))
-    if results.contains(false) then
+    val ok = deep:
+      command match
+        case List("run", file) =>
+          runs(file, None, arguments)
+        case List("run", file, name) =>
+          runs(file, Some(name), arguments)
+        case "test" :: file :: names =>
+          tests(file, names, arguments)
+        case List("check", file) =>
+          check(file)
+        case List("compile", file, entry, target) =>
+          compile(file, entry, target)
+        case _ =>
+          System.err.println(usage)
+          false
+    if !ok then
       sys.exit(1)

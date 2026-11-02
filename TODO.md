@@ -4,11 +4,9 @@ Open action items, each with the problem and the desired solution.
 
 ## Command line
 
-1. **The drivers differ, and their options are flags**: `./ulang.sh` runs files and takes `--tests` and `--only`, while `./ulang.bin` only compiles; and programs print with `os_print`. Solution, step by step, each committed with all checks passing:
-   1. Commands as in git, the same for `./ulang.sh` and `./ulang.bin`: `ulang run <file> [<name>] [-- args]`, `ulang test <file> [<name> ...] [-- args]`, `ulang check <file>`, and `ulang compile <file> <entry> <target.c>`, with exit status 1 on failure, first in `Main`, where `compile` runs `self/ulang.u` in the interpreter, with the Makefile, the VS Code extension, and the docs.
-   2. The compiler with an entry: `main()` runs the run `<entry>`, or all tests for the entry `test`, which `make selftest` uses.
-   3. `self/ulang.u` as the driver with the same commands, on `run.u` with the arguments of the program, selected runs and tests, and errors with positions.
-   4. Both drivers with the same output on `tests/`, and then the time of `run.u` on the compiler.
+1. **`./ulang.bin` only compiles**: `self/ulang.u` knows `compile <file> <entry> <target.c>`, but not the commands `run`, `test`, and `check` of `./ulang.sh`. Solution, step by step, each committed with all checks passing:
+   1. `self/ulang.u` as the driver with the same commands, on `run.u` with the arguments of the program, selected runs and tests, values printed as `Printer.show` does, and errors as messages with positions.
+   2. Both drivers with the same output on `tests/`, and then the time of `run.u` on the compiler.
 
 ## Builtins
 

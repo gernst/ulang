@@ -711,6 +711,10 @@ void p_os_write(u_value path, u_value contents) {
   if (fclose(f) || !ok) os_error("cannot write ", path->text);
 }
 
+void u_passed(const char *name) {
+  printf("test %s passed\n", name);
+}
+
 void p_os_print(u_value v) {
   u_print_line(v);
 }

@@ -23,7 +23,7 @@ ulang.vsix: $(EXTENSION) vscode/vsix/*
 install: ulang.vsix
 	codium --install-extension ulang.vsix
 
-# the compiler of self/ as a program, ./ulang.bin source.u target.c, built from bootstrap/ulang.c, the C of the last
+# the compiler of self/ as a program, ./ulang.bin compile <file> <entry> <target.c>, built from bootstrap/ulang.c, the C of the last
 # working compiler, which is versioned as its backups are, with the runtime in self/runtime, GMP, and the Boehm collector
 CFLAGS = -O2 -std=c11 -Wall -Wno-unused-variable -Wno-unused-function -I self/runtime -DULANG_LIB='"$(CURDIR)/ulang/resources"'
 LIBS = -lgmp -lgc
@@ -49,9 +49,9 @@ endef
 # the interpreter compiles the compiler, which must compile itself to the same C, and replaces ulang.bin
 bootstrap: ulang.jar
 	mkdir -p $(STAGE)
-	./ulang.sh self/ulang.u -- ulang.u ../$(STAGE)/ulang1.c
+	./ulang.sh compile self/ulang.u main $(STAGE)/ulang1.c
 	cc $(CFLAGS) $(STAGE)/ulang1.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/ulang1.bin
-	$(COMPILE) $(STAGE)/ulang1.bin self/ulang.u $(STAGE)/ulang2.c
+	$(COMPILE) $(STAGE)/ulang1.bin compile self/ulang.u main $(STAGE)/ulang2.c
 	cmp $(STAGE)/ulang1.c $(STAGE)/ulang2.c
 	$(call install,$(STAGE)/ulang1.c,$(STAGE)/ulang1.bin)
 
@@ -59,11 +59,11 @@ bootstrap: ulang.jar
 # since the C of the old compiler may differ, and replaces ulang.bin
 selfcompile: ulang.bin
 	mkdir -p $(STAGE)
-	$(COMPILE) ./ulang.bin self/ulang.u $(STAGE)/ulang1.c
+	$(COMPILE) ./ulang.bin compile self/ulang.u main $(STAGE)/ulang1.c
 	cc $(CFLAGS) $(STAGE)/ulang1.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/ulang1.bin
-	$(COMPILE) $(STAGE)/ulang1.bin self/ulang.u $(STAGE)/ulang2.c
+	$(COMPILE) $(STAGE)/ulang1.bin compile self/ulang.u main $(STAGE)/ulang2.c
 	cc $(CFLAGS) $(STAGE)/ulang2.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/ulang2.bin
-	$(COMPILE) $(STAGE)/ulang2.bin self/ulang.u $(STAGE)/ulang3.c
+	$(COMPILE) $(STAGE)/ulang2.bin compile self/ulang.u main $(STAGE)/ulang3.c
 	cmp $(STAGE)/ulang2.c $(STAGE)/ulang3.c
 	$(call install,$(STAGE)/ulang2.c,$(STAGE)/ulang2.bin)
 
@@ -74,7 +74,7 @@ SELFTESTS = syntax ctx check run lex c compile
 selftest: ulang.bin
 	mkdir -p $(STAGE)
 	for n in $(SELFTESTS); do \
-	  ($(COMPILE) ./ulang.bin self/$$n.u $(STAGE)/$$n.c > /dev/null) && \
+	  ($(COMPILE) ./ulang.bin compile self/$$n.u test $(STAGE)/$$n.c > /dev/null) && \
 	  cc $(CFLAGS) $(STAGE)/$$n.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/$$n && \
 	  (cd self && $(COMPILE) ../$(STAGE)/$$n > /dev/null) && echo "self/$$n.u passed" || exit 1; \
 	done

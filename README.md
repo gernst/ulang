@@ -55,12 +55,13 @@ Requires a JVM and [Mill](https://mill-build.org) (included as `./mill`), and fo
 
 ```
 make                          # builds ulang.jar
-./ulang.sh file.u             # checks and runs a program
-./ulang.sh --tests file.u     # runs its tests one by one
-./mill ulang.test             # runs all tests
+./ulang.sh run file.u                     # checks a program and runs its runs
+./ulang.sh test file.u                    # runs its tests one by one
+./ulang.sh check file.u                   # only checks it
+./mill ulang.test                         # runs all tests
 
-make ulang.bin                # builds the compiler from bootstrap/ulang.c
-./ulang.bin file.u file.c     # compiles a program to C
+make ulang.bin                            # builds the compiler from bootstrap/ulang.c
+./ulang.bin compile file.u main file.c    # compiles a program to C, whose main runs the run main
 cc -I self/runtime file.c self/runtime/ulang.c -lgmp -lgc
 ```
 

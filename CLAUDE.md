@@ -7,15 +7,18 @@ A minimal programming language with pure functional expressions, imperative stat
 Mill with `build.mill.yaml`; the language lives in the module `ulang`. Do not use sbt.
 
 - `./mill ulang.compile`
-- `./mill ulang.run file.u ...` checks and runs the files, whose `run`s and `test`s print with `os_print` of the module `os`
+- `./mill ulang.run <command> ...` runs the interpreter with a command as `./ulang.sh` does
 - `./mill ulang.test` runs every `tests/**/*.u`, `self/**/*.u`, and `ulang/resources/*.u` (utest, `FileTest`)
-- `make` builds `ulang.jar`, which `./ulang.sh file.u ...` runs (the module directory `ulang/` prevents a script `./ulang`)
-- `./ulang.sh --tests file.u ...` runs each test on its own and prints `test name passed` or `test name failed: ...`; `./ulang.sh --only name file.u` runs only the `run` or `test` of that name
-- `self/compile.u` compiles ulang programs to C, where its test writes the translations of some tests to `self/out/`, which `cc -DULANG_LIB='"'$PWD/ulang/resources'"' -I self/runtime self/out/NAME.c self/runtime/ulang.c -lgmp -lgc` compiles with the runtime, using GMP and the Boehm collector, where `ULANG_LIB` is the directory of the library for `os_library`
-- `make ulang.bin` builds the self-hosted compiler `./ulang.bin source.u target.c` from `bootstrap/ulang.c`; `make bootstrap` compiles it with the interpreter and `make selfcompile` with `ulang.bin`, and both replace it only if the new compiler compiles itself to the same C, after keeping the previous one in `bootstrap/` with a time stamp, where the C files are versioned and the binaries are not
-- `make selftest` compiles the tests of the modules of `self/` with `ulang.bin` and runs them, except those of `parse.u` and `read.u`, which need `read` of the interpreter
+- `make` builds `ulang.jar`, which `./ulang.sh` runs (the module directory `ulang/` prevents a script `./ulang`), with a command as in git, and exit status 1 if anything fails:
+  - `./ulang.sh run <file> [<name>] [-- args]` runs all `run`s of the file in order, or the one named, where `os_args` gives the arguments after `--`, and programs print with `os_print` of the module `os`
+  - `./ulang.sh test <file> [<name> ...] [-- args]` runs all `test`s of the file, or the named ones, each on its own, and prints `test name passed` or `test name failed: ...`
+  - `./ulang.sh check <file>` only checks the file
+  - `./ulang.sh compile <file> <entry> <target.c>` translates the file to C by running `self/ulang.u` in the interpreter, which `ulang.sh` locates by the property `ulang.self`, where `main()` runs the `run` named entry, or all tests for the entry `test`, which then print `test name passed`
+- `self/compile.u` compiles ulang programs to C, where its test writes the translations of some tests with the entry `test` to `self/out/`, which `cc -DULANG_LIB='"'$PWD/ulang/resources'"' -I self/runtime self/out/NAME.c self/runtime/ulang.c -lgmp -lgc` compiles with the runtime, using GMP and the Boehm collector, where `ULANG_LIB` is the directory of the library for `os_library`
+- `make ulang.bin` builds the self-hosted compiler `./ulang.bin compile <file> <entry> <target.c>` from `bootstrap/ulang.c`; `make bootstrap` compiles it with the interpreter and `make selfcompile` with `ulang.bin`, and both replace it only if the new compiler compiles itself to the same C, after keeping the previous one in `bootstrap/` with a time stamp, where the C files are versioned and the binaries are not
+- `make selftest` compiles the tests of the modules of `self/` with `ulang.bin` and the entry `test`, and runs them, except those of `parse.u` and `read.u`, which need `read` of the interpreter
 - named fields of constructors, `C(name: T, …)`, give accessors `e.name` and updates `e with name := a, other := b`, which the checkers resolve by the type of `e` to the generated functions `T.name` and `T.name:=`, which raise `MissingField("T.name")` for constructors without the field; a comma followed by `name :=` continues the updates, also in `assign` and `local`
-- `make install` packages the VS Code extension in `vscode/` as `ulang.vsix` and installs it into VSCodium (`codium`): syntax highlighting, a run button, `▶ Run` links above `run` and `test`, errors in the Problems view, and the tests in the Testing view, all by running `ulang.jar`
+- `make install` packages the VS Code extension in `vscode/` as `ulang.vsix` and installs it into VSCodium (`codium`): syntax highlighting, a run button, `▶ Run` links above `run` and `test`, errors in the Problems view, and the tests in the Testing view, all by running `ulang.jar` with `run`, `test`, and `check`
 
 ## Tests
 

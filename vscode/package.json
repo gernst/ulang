@@ -78,7 +78,7 @@
         "ulang.checkOnSave": {
           "type": "boolean",
           "default": true,
-          "description": "Run files when they are saved, to show their errors"
+          "description": "Check files when they are saved, to show their errors"
         }
       }
     }

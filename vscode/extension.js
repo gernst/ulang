@@ -38,7 +38,7 @@ function ulang(args, file) {
   });
 }
 
-// the runs and tests of a document with their names, which ulang --only selects
+// the runs and tests of a document with their names, which ulang run and ulang test select
 function blocks(document) {
   const result = [];
   for (let line = 0; line < document.lineCount; line++) {
@@ -66,10 +66,11 @@ function activate(context) {
     diagnostics.set(vscode.Uri.file(file), found);
   }
 
-  async function execute(document, args, show) {
+  // ulang command file names..., e.g. ulang run file name, ulang test file name, or ulang check file
+  async function execute(document, command, names, show) {
     if (document.isDirty) await document.save();
     const file = document.uri.fsPath;
-    const result = await ulang([...args, file], file);
+    const result = await ulang([command, file, ...names], file);
     if (!result) return;
     diagnose(file, result.stderr);
     if (show) {
@@ -92,10 +93,10 @@ function activate(context) {
     run.end();
   }
 
-  // runs the tests of file with ulang --tests, reporting the results of tests to run
+  // runs the tests of file with ulang test, reporting the results of tests to run
   async function test(file, tests, run) {
     tests.forEach((t) => run.started(t));
-    const result = await ulang(["--tests", file.uri.fsPath], file.uri.fsPath);
+    const result = await ulang(["test", file.uri.fsPath], file.uri.fsPath);
     if (!result) return;
     diagnose(file.uri.fsPath, result.stderr);
     const outcomes = new Map();
@@ -125,14 +126,14 @@ function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand("ulang.runFile", async (uri) => {
       const doc = await document(uri);
-      if (doc) await execute(doc, [], true);
+      if (doc) await execute(doc, "run", [], true);
     }),
-    vscode.commands.registerCommand("ulang.runBlock", async (uri, name) => {
+    vscode.commands.registerCommand("ulang.runBlock", async (uri, kind, name) => {
       const doc = await document(uri);
-      if (doc) await execute(doc, ["--only", name], true);
+      if (doc) await execute(doc, kind, [name], true);
     }),
     vscode.workspace.onDidSaveTextDocument((doc) => {
-      if (doc.languageId === "ulang" && vscode.workspace.getConfiguration("ulang").get("checkOnSave")) execute(doc, [], false);
+      if (doc.languageId === "ulang" && vscode.workspace.getConfiguration("ulang").get("checkOnSave")) execute(doc, "check", [], false);
     }),
     vscode.languages.registerCodeLensProvider(
       { language: "ulang" },
@@ -141,7 +142,7 @@ function activate(context) {
           return blocks(doc).map((block) => {
             const range = new vscode.Range(block.line, 0, block.line, 0);
             const title = block.kind === "test" ? "▶ Run test" : "▶ Run";
-            return new vscode.CodeLens(range, { title, command: "ulang.runBlock", arguments: [doc.uri, block.name] });
+            return new vscode.CodeLens(range, { title, command: "ulang.runBlock", arguments: [doc.uri, block.kind, block.name] });
           });
         },
       }
