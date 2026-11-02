@@ -351,4 +351,4 @@ References: G. Nelson, D. Oppen, Simplification by Cooperating Decision Procedur
 17. **Splitting on ground clauses** among the assumptions, or only unit propagation, where splits are a search, but finite and safe.
 18. **Theories as values or tags**: a datatype of functions per theory, or a tag dispatched by `match`, which is simpler and faster for two theories.
 19. **Equations between functions** among the assumptions, e.g. `f == lambda x => x + 1`, which need extensionality and congruence through `@`, left out at first.
-20. **Speed**: union-find on maps costs a logarithm per operation, and terms compare structurally, where interning terms to numbers in the core is an option.
+20. **Speed**: union-find on maps costs a logarithm per operation, and terms compare structurally, where interning terms to numbers in the core is an option, while hash consing of all values in the runtime was deemed not worthwhile.
