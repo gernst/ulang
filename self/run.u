@@ -109,14 +109,14 @@ function builtin_names(): Set[Id] :=
 function is_builtin(n: Name): Bool :=
   match n
     case Name(None, b) => member(b, builtin_names())
-    else false
+    case _ => false
   end
 
 function is_function(v: Value): Bool :=
   match v
     case Lit(_) => false
     case Obj(_, _) => false
-    else true
+    case _ => true
   end
 
 function truth(v: Value): Bool :=
@@ -131,20 +131,20 @@ function lambdas(xss: List[List[Var]], b: Expr): Expr :=
 function str_values(vs: List[Value]): List[Str] :=
   match vs
     case [Lit(VStr(s)); rest] => [s; str_values(rest)]
-    else Nil
+    case _ => Nil
   end
 
 function char_values(vs: List[Value]): List[Char] :=
   match vs
     case [Lit(VChar(c)); rest] => [c; char_values(rest)]
-    else Nil
+    case _ => Nil
   end
 
 // env where the variables xs have the values vs
 function bind_all(xs: List[Var], vs: List[Value], env: Bindings): Bindings :=
   match (xs, vs)
     case ([x; xs1], [v; vs1]) => bind_all(xs1, vs1, put(x.name, v, env))
-    else env
+    case _ => env
   end
 
 // env where the variables of p have the parts of v that they match, if p matches v
@@ -167,7 +167,7 @@ function match_all_into(ps: List[Pat], vs: List[Value], env: Bindings): Option[B
         case Some(inner) => match_all_into(ps1, vs1, inner)
         case None => None
       end
-    else None
+    case _ => None
   end
 
 function pattern_vars(p: Pat): List[Name] :=
@@ -175,7 +175,7 @@ function pattern_vars(p: Pat): List[Name] :=
     case PVar(Var(n, _)) => [n]
     case PApp(_, ps) => concat([pattern_vars(q) for q in ps])
     case PTuple(ps) => concat([pattern_vars(q) for q in ps])
-    else []
+    case _ => []
   end
 
 
@@ -284,7 +284,7 @@ procedure apply_expr(in p: Prog, env: Bindings, f: Expr, args: List[Expr], out v
       else
         call evaluate(in p, env, r, out v, ref cache)
       end
-    else
+    case _ =>
       call   evaluate(in p, env, f, out g, ref cache)
       call   evaluate_all(in p, env, args, out vs, ref cache)
       call   apply_value(in p, g, vs, out v, ref cache)
@@ -324,11 +324,11 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value, ref c
         case ("compare", [a, b]) =>
           call   compare_values(in p, a, b, out k)
           assign v := Lit(VInt(k))
-        else
+        case _ =>
           call primitive(in n, vs, out v)
       end
 
-    else
+    case _ =>
       raise NotFunction(f)
   end
 
@@ -390,7 +390,7 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       match list_elements(w)
         case Some(ws) =>
           assign v := Lit(VStr(string(char_values(ws))))
-        else
+        case _ =>
           raise NotList(w)
       end
 
@@ -414,7 +414,7 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       match list_elements(w)
         case Some(ws) =>
           assign v := Lit(VStr(str_join(sep, str_values(ws))))
-        else
+        case _ =>
           raise NotList(w)
       end
 
@@ -467,7 +467,7 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
     case ("is_space", [Lit(VChar(c))]) =>
       assign v := Lit(VBool(is_space(c)))
 
-    else
+    case _ =>
       raise Unspecified(n, vs)
   end
 
@@ -482,7 +482,7 @@ procedure equal(in a: Value, b: Value, out r: Bool) :=
       else
         assign r := false
       end
-    else
+    case _ =>
       assign r := a == b
   end
 
@@ -512,7 +512,7 @@ procedure compare_values(in p: Prog, a: Value, b: Value, out r: Int) :=
         assign r := order(position_of(p, c), position_of(p, d))
       end
 
-    else
+    case _ =>
       assign r := 0
   end
 
@@ -524,7 +524,7 @@ procedure compare_all(in p: Prog, xs: List[Value], ys: List[Value], out r: Int) 
       if r == 0
         call compare_all(in p, xs1, ys1, out r)
       end
-    else
+    case _ =>
       assign r := order(length(xs), length(ys))
   end
 
@@ -538,7 +538,7 @@ procedure equal_all(in xs: List[Value], ys: List[Value], out r: Bool) :=
       if r
         call equal_all(in xs1, ys1, out r)
       end
-    else
+    case _ =>
       assign r := true
   end
 
@@ -555,7 +555,7 @@ procedure combinations(in p: Prog, env: Bindings, xs: List[Var], lists: List[Exp
         case None =>
           raise NotList(l)
       end
-    else
+    case _ =>
       assign envs := [env]
   end
 
@@ -764,7 +764,7 @@ procedure handle(in p: Prog, hs: List[Handler], v: Value, t: Type, ref env: Bind
             if ok
               call scoped(in p, pattern_vars(q), inner, [body], ref env, cache)
             end
-          else
+          case _ =>
             skip
         end
       end
@@ -798,7 +798,7 @@ procedure invoke_value(in p: Prog, f: Value, ins: List[Value], refs: List[Name],
       call invoke(in p, n, ins, refs, out outs, ref env, cache)
     case ProcClos(around, xs, ys, zs, body) =>
       call run_body(in p, unqualified("lambda"), around, xs, ys, zs, body, ins, refs, out outs, ref env, cache)
-    else
+    case _ =>
       raise NotProc(f)
   end
 
@@ -877,7 +877,7 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
       case ("os_exit", [Lit(VInt(k))]) =>
         call os_exit(in k)
 
-      else
+      case _ =>
         raise UnknownProc(n)
     end
   catch
@@ -898,7 +898,7 @@ procedure run_cmd(in p: Prog, c: Cmd, ref cache: Map[Name, Value]) :=
   match c
     case CTest(_, body) =>
       call exec(in p, body, ref env, cache)
-    else
+    case _ =>
       skip
   end
 

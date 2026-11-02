@@ -120,14 +120,14 @@ function pointer(x: Name): Name * CExpr :=
 function var_expr(env: Vars, x: Name): CExpr :=
   match lookup(x, env)
     case Some(c) => c
-    else CeVar(var_name(x))
+    case _ => CeVar(var_name(x))
   end
 
 // the address of a variable, which is the pointer itself for outs and refs
 function address(c: CExpr): CExpr :=
   match c
     case CeUnary("*", p) => p
-    else CeUnary("&", c)
+    case _ => CeUnary("&", c)
   end
 
 // types as names of exceptions, which handlers compare
@@ -138,7 +138,7 @@ function type_key(t: Type): Str :=
     case TFun(args, r) => "(" ^ str_join(", ", [type_key(a) for a in args]) ^ ") -> " ^ type_key(r)
     case TProc(is, os, rs) => "(in " ^ str_join(", ", [type_key(a) for a in is]) ^ ", out " ^ str_join(", ", [type_key(a) for a in os]) ^ ", ref " ^ str_join(", ", [type_key(a) for a in rs]) ^ ")"
     case TTuple(ts) => "(" ^ str_join(" * ", [type_key(a) for a in ts]) ^ ")"
-    else "?"
+    case _ => "?"
   end
 
 function globals(cs: List[Cmd]): Globals :=
@@ -149,7 +149,7 @@ function globals(cs: List[Cmd]): Globals :=
 function proc_arities(c: Cmd): List[Name * (Int * Int)] :=
   match c
     case CProc(n, _, ins, outs, refs, _) => [(n, (length(ins), length(outs) + length(refs)))]
-    else []
+    case _ => []
   end
 
 function arity_map(fs: List[Name * Int], m: Map[Name, List[Int]]): Map[Name, List[Int]] :=
@@ -181,13 +181,13 @@ function fields_count(gl: Globals, n: Name): Option[Int] :=
 function fun_arities(c: Cmd): List[Name * Int] :=
   match c
     case CFun(n, _, xss, _, _) => [(n, length(first_list(xss)))]
-    else []
+    case _ => []
   end
 
 function constr_arities(c: Cmd): List[Name * Int] :=
   match c
     case CData(_, _, ks) => [constr_arity(k) for k in ks]
-    else []
+    case _ => []
   end
 
 function constr_arity(k: Constr): Name * Int :=
@@ -232,7 +232,7 @@ function pattern_tests(p: Pat, v: CExpr): List[CExpr] :=
     case PLit(l) => [c_call("u_equals", [v, literal_value(l)])]
     case PApp(n, ps) => [c_call("u_is_con", [v, descriptor(n)])] ++ field_tests(numbered(ps, 0), v)
     case PTuple(ps) => field_tests(numbered(ps, 0), v)
-    else []
+    case _ => []
   end
 
 function field_tests(ps: List[Pat * Int], v: CExpr): List[CExpr] :=
@@ -247,7 +247,7 @@ function pattern_binds(p: Pat, v: CExpr): List[CStmt] :=
     case PVar(Var(n, _)) => [CsDecl(value_type(), var_name(n), Some(v))]
     case PApp(_, ps) => field_binds(numbered(ps, 0), v)
     case PTuple(ps) => field_binds(numbered(ps, 0), v)
-    else []
+    case _ => []
   end
 
 function field_binds(ps: List[Pat * Int], v: CExpr): List[CStmt] :=
@@ -261,7 +261,7 @@ function pattern_names(p: Pat): List[Name] :=
     case PVar(Var(n, _)) => [n]
     case PApp(_, ps) => concat([pattern_names(q) for q in ps])
     case PTuple(ps) => concat([pattern_names(q) for q in ps])
-    else []
+    case _ => []
   end
 
 // the variables of e that bound does not bind, which lambdas capture if they are local
@@ -448,7 +448,7 @@ procedure temps(in rs: List[CExpr], out ss: List[CStmt], ref g: Gen) :=
 function rebind(xs: List[Name], ts: List[CStmt]): List[CStmt] :=
   match (xs, ts)
     case ([x; more], [CsDecl(_, t, _); rest]) => [CsDecl(value_type(), var_name(x), Some(CeVar(t))); rebind(more, rest)]
-    else []
+    case _ => []
   end
 
 // applications of functions, constructors, and builtins of their arities are direct calls
@@ -467,7 +467,7 @@ procedure compile_named(in gl: Globals, env: Vars, n: Name, ty: Type, args: List
         assign ss := as ++ [CsDecl(value_type(), t, Some(ra)), CsIf(CeUnary("!", truth(CeVar(t))), bs ++ [CsAssign(CeVar(t), rb)], [])]
       end
       assign r := CeVar(t)
-    else
+    case _ =>
       call compile_exprs(in gl, env, args, out ss, rs, ref g)
       if is_global_fun(gl, n, length(args)) and arity(ty) == length(args)
         assign r := c_call(fun_name(n, length(args)), rs)
@@ -477,7 +477,7 @@ procedure compile_named(in gl: Globals, env: Vars, n: Name, ty: Type, args: List
         match get(n, builtin_functions())
           case Some((b, k)) if k == length(args) =>
             assign r := c_call(b, rs)
-          else
+          case _ =>
             assign r := c_call("u_apply", [global_value(gl, n, ty), CeNum(length(args))] ++ rs)
         end
       end
@@ -554,7 +554,7 @@ procedure compile_loops(in gl: Globals, env: Vars, xs: List[Var], lists: List[Ex
       call   compile_loops(in gl, in_scope([x.name]) ++ env, more, others, result, c, t, out inner, ref g)
       assign ss := ls ++ [CsDecl(value_type(), l, Some(rl))]
       assign ss := ss ++ [CsWhile(c_call("u_is_con", [CeVar(l), descriptor(cons_name())]), [CsDecl(value_type(), var_name(x.name), Some(field(CeVar(l), 0)))] ++ inner ++ [CsAssign(CeVar(l), field(CeVar(l), 1))])]
-    else
+    case _ =>
       call   compile_expr(in gl, env, c, out cs, rc, ref g)
       call   compile_expr(in gl, env, result, out bs, rb, ref g)
       assign ss := cs ++ [CsIf(truth(rc), bs ++ [CsAssign(CeVar(t), c_call("u_append", [CeVar(t), rb]))], [])]
@@ -649,7 +649,7 @@ procedure compile_stmts(in gl: Globals, env: Vars, xs: List[Stmt], out ss: List[
 function reassign(env: Vars, xs: List[Name], ts: List[CStmt]): List[CStmt] :=
   match (xs, ts)
     case ([x; more], [CsDecl(_, t, _); rest]) => [CsAssign(var_expr(env, x), CeVar(t)); reassign(env, more, rest)]
-    else []
+    case _ => []
   end
 
 // the handlers of an exception caught by h, which set the flag d when one applies, where _ handles all types
@@ -674,7 +674,7 @@ procedure handler_cases(in gl: Globals, env: Vars, hs: List[Handler], h: Str, d:
       match p
         case PWild =>
           assign tests := Nil
-        else
+        case _ =>
           assign tests := [c_call("u_has_type", [CeVar(h), CeStr(type_key(ty))])] ++ pattern_tests(p, v)
       end
       call   handler_cases(in gl, env, more, h, d, out rest, ref g)
@@ -731,7 +731,7 @@ procedure compile_cmd(in gl: Globals, entry: Id, c: Cmd, out ds: List[CDecl], ms
       call   compile_stmt(in gl, Nil, body, out bs, ref g)
       assign ds := Nil, ms := [CsBlock(bs ++ [CsExpr(c_call("u_passed", [CeStr(n)]))])]
 
-    else
+    case _ =>
       assign ds := Nil, ms := Nil
   end
 
@@ -804,7 +804,7 @@ function range_to(k: Int): List[Int] :=
 function prototype(d: CDecl): List[CDecl] :=
   match d
     case CdFunction(t, f, ps, _) => [CdPrototype(t, f, ps)]
-    else []
+    case _ => []
   end
 
 // the C of q of module m, whose main calls the procedure entry without parameters, or runs all tests for the entry test
@@ -834,7 +834,7 @@ procedure compile_file(in source: Str, entry: Id, target: Str) :=
 function is_entry(c: Cmd, n: Name): Bool :=
   match c
     case CProc(k, _, [], [], [], _) => k == n
-    else false
+    case _ => false
   end
 
 // compile_file with the modules checked so far

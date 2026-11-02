@@ -1,7 +1,7 @@
-// type error: unreachable case _ at 6.5
+// type error: unreachable case _ at 6.10
 function f(b: Bool): Int :=
   match b
     case true => 0
     case false => 1
-    else 2
+    case _ => 2
   end

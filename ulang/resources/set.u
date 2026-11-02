@@ -15,7 +15,7 @@ function member[A](x: A, s: Set[A]): Bool :=
       match compare(x, y)
         case -1 => member(x, l)
         case 1 => member(x, r)
-        else true
+        case _ => true
       end
   end
 
@@ -26,7 +26,7 @@ function insert[A](x: A, s: Set[A]): Set[A] :=
       match compare(x, y)
         case -1 => rebalance(insert(x, l), y, r)
         case 1 => rebalance(l, y, insert(x, r))
-        else s
+        case _ => s
       end
   end
 
@@ -70,25 +70,25 @@ function snode[A](l: Set[A], x: A, r: Set[A]): Set[A] :=
 function turn_left[A](s: Set[A]): Set[A] :=
   match s
     case SNode(a, x, SNode(b, y, c, _), _) => snode(snode(a, x, b), y, c)
-    else s
+    case _ => s
   end
 
 function turn_right[A](s: Set[A]): Set[A] :=
   match s
     case SNode(SNode(a, x, b, _), y, c, _) => snode(a, x, snode(b, y, c))
-    else s
+    case _ => s
   end
 
 function smaller[A](s: Set[A]): Set[A] :=
   match s
     case SNode(l, _, _, _) => l
-    else s
+    case _ => s
   end
 
 function greater[A](s: Set[A]): Set[A] :=
   match s
     case SNode(_, _, r, _) => r
-    else s
+    case _ => s
   end
 
 // the node of l, x, r, where the depths of l and r differ by at most two, rebalanced by one or two rotations

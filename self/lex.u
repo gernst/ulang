@@ -37,7 +37,7 @@ function unescape(c: Char): Option[Char] :=
     case 'n' => Some('\n')
     case 't' => Some('\t')
     case 'r' => Some('\r')
-    else None
+    case _ => None
   end
 
 // the end of the run of characters from i that satisfy p
@@ -143,7 +143,7 @@ procedure lex_token(in s: Str, out t: Token, ref i: Int) :=
       call lex_char(in s, out t, ref i)
     case _ if is_punct(c) =>
       assign t := TPunct(c), i := i + 1
-    else
+    case _ =>
       raise LexError("unexpected character", i)
   end
 

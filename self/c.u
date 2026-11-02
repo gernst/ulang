@@ -53,7 +53,7 @@ function c_type(t: CType): Str :=
 function c_declare(t: CType, x: Str): Str :=
   match t
     case CtPtr(_) => c_type(t) ^ x
-    else c_type(t) ^ " " ^ x
+    case _ => c_type(t) ^ " " ^ x
   end
 
 // subexpressions are in parentheses unless they are atomic, which avoids the precedences of C
@@ -81,7 +81,7 @@ function c_operand(e: CExpr): Str :=
     case CeCall(_, _) => c_expr(e)
     case CeIndex(_, _) => c_expr(e)
     case CeArrow(_, _) => c_expr(e)
-    else "(" ^ c_expr(e) ^ ")"
+    case _ => "(" ^ c_expr(e) ^ ")"
   end
 
 // the lines of a statement, indented by ind
@@ -106,7 +106,7 @@ function c_stmts(ind: Str, ss: List[CStmt]): List[Str] :=
 function c_params(ps: List[CType * Str]): Str :=
   match ps
     case [] => "void"
-    else str_join(", ", [c_param(p) for p in ps])
+    case _ => str_join(", ", [c_param(p) for p in ps])
   end
 
 function c_param(p: CType * Str): Str :=

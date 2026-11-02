@@ -13,14 +13,14 @@ test read_files :=
       assert (n, ps) == (unqualified("or_else"), ["A"])
       assert xs == [[Var(unqualified("a"), TSort(unqualified("Option"), [TParam("A")])), Var(unqualified("b"), TSort(unqualified("Option"), [TParam("A")]))]]
       assert t == TSort(unqualified("Option"), [TParam("A")])
-    else
+    case _ =>
       assert false
   end
   call read(in "read.u", out p)
   match p
     case Program([CModule("syntax", _), CImport("syntax"); _]) =>
       skip
-    else
+    case _ =>
       assert false
   end
 

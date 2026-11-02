@@ -11,7 +11,7 @@ function vowel(c: Char): Bool :=
   match c
     case 'a' => true
     case 'e' => true
-    else false
+    case _ => false
   end
 
 test char_patterns :=

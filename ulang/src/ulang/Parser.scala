@@ -341,17 +341,13 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
           }
       )
 
-  // case p if g => b, where else b is the last case _ => b
+  // case p if g => b
   def cases[A](s: Scope, body: => Parser[A]): Parser[List[Case[A]]] =
     val guarded =
       kw("case") ~> pattern(s) ~ opt(kw("if") ~> expr(s)) ~ ("=>" ~> body) ^^ { case p ~ g ~ b =>
         Case(p, g, b)
       }
-    val otherwise =
-      located(pos => kw("else") ~> body ^^ (Case(Pat.Wild()(pos), None, _))) <~ (not(kw("case")) | err("else must be the last case"))
-    rep(guarded) ~ opt(otherwise) <~ kw("end") ^^ { case cs ~ e =>
-      cs ++ e
-    }
+    rep(guarded) <~ kw("end")
 
   def matches[A, B](s: Scope, body: => Parser[A])(make: (Expr, List[Case[A]], Pos) => B): Parser[B] =
     located: pos =>

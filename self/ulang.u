@@ -32,7 +32,7 @@ procedure main() :=
       call attempt(in file, lambda out r => call check_file(in file, out r) end, out ok)
     case ["compile", file, entry, target] =>
       call attempt(in file, lambda out r => call compile_to(in file, entry, target, out r) end, out ok)
-    else
+    case _ =>
       call   os_print_error(in usage())
       assign ok := false
   end
@@ -109,7 +109,7 @@ function in_module(words: List[Str]): Bool :=
   match words
     case [w, _] => w == "in"
     case [_; more] => in_module(more)
-    else false
+    case _ => false
   end
 
 // the checked program of file after the prelude, which is the module of its base name
@@ -142,7 +142,7 @@ function module_names(cs: List[Cmd]): List[Id] :=
 function is_any_test(c: Cmd): Bool :=
   match c
     case CTest(_, _) => true
-    else false
+    case _ => false
   end
 
 procedure check_file(in file: Str, out ok: Bool) :=
@@ -183,7 +183,7 @@ procedure test_file(in file: Str, names: List[Str], args: List[Str], out ok: Boo
     case [n; _] =>
       call   os_print_error(in file ^ ": runtime error: there is no test " ^ n)
       assign ok := false
-    else
+    case _ =>
       call run_tests(in p, tests, out ok)
   end
 
@@ -222,19 +222,19 @@ procedure run_test(in p: Prog, c: Cmd, out passed: Bool) :=
 function is_selected_test(c: Cmd, names: List[Str]): Bool :=
   match c
     case CTest(n, _) => names == [] or contains(n, names)
-    else false
+    case _ => false
   end
 
 function is_test(c: Cmd, n: Str): Bool :=
   match c
     case CTest(m, _) => m == n
-    else false
+    case _ => false
   end
 
 function cmd_name(c: Cmd): Str :=
   match c
     case CTest(n, _) => n
-    else ""
+    case _ => ""
   end
 
 // the messages of errors, as Check.scala and Run.scala say them, without positions
@@ -269,7 +269,7 @@ function type_message(e: TypeError): Str :=
 function field_message(parts: List[Str]): Str :=
   match parts
     case [t, f] => "unknown field " ^ without_update(f) ^ " of " ^ t
-    else "unknown field " ^ str_join(".", parts)
+    case _ => "unknown field " ^ str_join(".", parts)
   end
 
 function without_update(f: Str): Str :=

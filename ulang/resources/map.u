@@ -15,7 +15,7 @@ function get[K, V](k: K, m: Map[K, V]): Option[V] :=
       match compare(k, j)
         case -1 => get(k, l)
         case 1 => get(k, r)
-        else Some(v)
+        case _ => Some(v)
       end
   end
 
@@ -30,7 +30,7 @@ function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V] :=
       match compare(k, j)
         case -1 => balance(put(k, v, l), j, w, r)
         case 1 => balance(l, j, w, put(k, v, r))
-        else MNode(l, k, v, r, h)
+        case _ => MNode(l, k, v, r, h)
       end
   end
 
@@ -62,25 +62,25 @@ function mnode[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
 function rotate_left[K, V](m: Map[K, V]): Map[K, V] :=
   match m
     case MNode(a, j, v, MNode(b, k, w, c, _), _) => mnode(mnode(a, j, v, b), k, w, c)
-    else m
+    case _ => m
   end
 
 function rotate_right[K, V](m: Map[K, V]): Map[K, V] :=
   match m
     case MNode(MNode(a, j, v, b, _), k, w, c, _) => mnode(a, j, v, mnode(b, k, w, c))
-    else m
+    case _ => m
   end
 
 function left_of[K, V](m: Map[K, V]): Map[K, V] :=
   match m
     case MNode(l, _, _, _, _) => l
-    else m
+    case _ => m
   end
 
 function right_of[K, V](m: Map[K, V]): Map[K, V] :=
   match m
     case MNode(_, _, _, r, _) => r
-    else m
+    case _ => m
   end
 
 // the node of l, k, v, r, where the heights of l and r differ by at most two, rebalanced by one or two rotations
@@ -111,7 +111,7 @@ function delete[K, V](k: K, m: Map[K, V]): Map[K, V] :=
       match compare(k, j)
         case -1 => balance(delete(k, l), j, v, r)
         case 1 => balance(l, j, v, delete(k, r))
-        else join(l, r)
+        case _ => join(l, r)
       end
   end
 

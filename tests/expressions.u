@@ -68,7 +68,7 @@ function xor(p: Bool * Bool): Bool :=
   match p
     case (true, false) => true
     case (false, true) => true
-    else false
+    case _ => false
   end
 
 // tuples are flat, unlike nested ones
@@ -122,7 +122,7 @@ function sign_name(n: Int): Str :=
   match compare(n, 0)
     case -1 => "negative"
     case 0 => "zero"
-    else "positive"
+    case _ => "positive"
   end
 
 test negative_literals :=

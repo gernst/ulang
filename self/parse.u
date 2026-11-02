@@ -76,19 +76,19 @@ function operators_of(cs: List[Cmd]): List[Id] :=
 function head_token(ts: List[Token * Int]): Token :=
   match ts
     case [(t, _); _] => t
-    else TEnd
+    case _ => TEnd
   end
 
 function second_token(ts: List[Token * Int]): Token :=
   match ts
     case [_, (t, _); _] => t
-    else TEnd
+    case _ => TEnd
   end
 
 function head_offset(ts: List[Token * Int]): Int :=
   match ts
     case [(_, i); _] => i
-    else 0
+    case _ => 0
   end
 
 function at_keyword(ts: List[Token * Int], w: Str): Bool :=
@@ -113,14 +113,14 @@ function operator_at(ns: Notations, ts: List[Token * Int]): Option[Id] :=
   match head_token(ts)
     case TSym(s) if not is_reserved(s) => Some(s)
     case TName(n) if declared(ns, n) => Some(n)
-    else None
+    case _ => None
   end
 
 procedure advance(ref ts: List[Token * Int]) :=
   match ts
     case [_; more] =>
       assign ts := more
-    else
+    case _ =>
       skip
   end
 
@@ -140,7 +140,7 @@ procedure parse_name(out n: Id, ref ts: List[Token * Int]) :=
     case TName(m) if not is_keyword(m) =>
       assign n := m
       call   advance(ref ts)
-    else
+    case _ =>
       raise ParseError("name expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
   end
 
@@ -149,7 +149,7 @@ procedure parse_plain(in sc: Scope, out n: Id, ref ts: List[Token * Int]) :=
   match head_token(ts)
     case TName(m) if declared(sc.notations, m) =>
       raise ParseError("operator " ^ m ^ " is not a name", head_offset(ts))
-    else
+    case _ =>
       call parse_name(out n, ref ts)
   end
 
@@ -159,7 +159,7 @@ procedure parse_name_or_symbol(out n: Id, ref ts: List[Token * Int]) :=
     case TSym(s) if not is_reserved(s) =>
       assign n := s
       call   advance(ref ts)
-    else
+    case _ =>
       call parse_name(out n, ref ts)
   end
 
@@ -184,7 +184,7 @@ procedure resolve_items[A](in items: List[Item[A]], o: Ops[A], at: Int, out a: A
       skip
     case [Operator(op, i); _] =>
       raise ParseError("unexpected operator " ^ op, i)
-    else
+    case _ =>
       raise ParseError("missing operator", at)
   end
 
@@ -231,10 +231,10 @@ procedure climb_loop[A](in lhs: A, items: List[Item[A]], min: Int, o: Ops[A], at
         case _ if not declared(o.notations, op) =>
           raise ParseError("undeclared operator " ^ op, i)
 
-        else
+        case _ =>
           assign a := lhs, rest := items
       end
-    else
+    case _ =>
       assign a := lhs, rest := items
   end
 
@@ -242,14 +242,14 @@ procedure nonassociative[A](in op: Id, f: Fixity, p: Int, rest: List[Item[A]], n
   match rest
     case [Operator(next, i); _] if f == FInfix and is_prec(infix_of(ns, next), p) =>
       raise ParseError("operator " ^ op ^ " is not associative", i)
-    else
+    case _ =>
       skip
   end
 
 function is_prec(fp: Option[Fixity * Int], p: Int): Bool :=
   match fp
     case Some((_, q)) => q == p
-    else false
+    case _ => false
   end
 
 // types, whose operands are lists, since only the arguments of a function are written (A, B),
@@ -260,13 +260,13 @@ function type_one(ts: List[Type]): Type :=
     case [TSort(Name(None, "(product)"), cs)] => TTuple(cs)
     case [t] => t
     case Nil => TTuple(Nil)
-    else TSort(unqualified("(invalid)"), ts)
+    case _ => TSort(unqualified("(invalid)"), ts)
   end
 
 function type_components(ts: List[Type]): List[Type] :=
   match ts
     case [TSort(Name(None, "(product)"), cs)] => cs
-    else [type_one(ts)]
+    case _ => [type_one(ts)]
   end
 
 function type_prefix(op: Id, t: List[Type]): List[Type] :=
@@ -286,7 +286,7 @@ function has_invalid(t: Type): Bool :=
     case TSort(_, ts) => any_invalid(ts)
     case TFun(ts, r) => any_invalid(ts) or has_invalid(r)
     case TTuple(ts) => any_invalid(ts)
-    else false
+    case _ => false
   end
 
 function any_invalid(ts: List[Type]): Bool :=
@@ -299,7 +299,7 @@ function starts_type(ns: Notations, t: Token): Bool :=
   match t
     case TName(n) => not is_keyword(n) and not declared(ns, n)
     case TPunct('(') => true
-    else false
+    case _ => false
   end
 
 procedure parse_type(in sc: Scope, out t: Type, ref ts: List[Token * Int]) :=
@@ -324,7 +324,7 @@ procedure type_items(in sc: Scope, out items: List[Item[List[Type]]], ref ts: Li
       case None if next and starts_type(sc.notations, head_token(ts)) =>
         call   type_basic(in sc, out b, ref ts)
         assign rev := [Operand(b); rev], next := false
-      else
+      case _ =>
         assign go := false
     end
   end
@@ -332,7 +332,7 @@ procedure type_items(in sc: Scope, out items: List[Item[List[Type]]], ref ts: Li
   match rev
     case Nil =>
       raise ParseError("type expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
-    else
+    case _ =>
       assign items := reverse(rev)
   end
 
@@ -392,7 +392,7 @@ function expr_op1(op: Id, a: Expr): Expr :=
 function expr_prefix(op: Id, a: Expr): Expr :=
   match a
     case ELit(VInt(n)) if op == "-" => ELit(VInt(0 - n))
-    else expr_op1(op, a)
+    case _ => expr_op1(op, a)
   end
 
 function expr_op2(op: Id, a: Expr, b: Expr): Expr :=
@@ -411,7 +411,7 @@ function starts_expr(ns: Notations, t: Token): Bool :=
     case TStr(_) => true
     case TChar(_) => true
     case TPunct(c) => c == '(' or c == '[' or c == '{'
-    else false
+    case _ => false
   end
 
 // raise e is a whole expression, not an operand, such that a statement raise after an expression starts a statement
@@ -447,7 +447,7 @@ procedure parse_update(in sc: Scope, ref e: Expr, ts: List[Token * Int]) :=
 function at_update(ts: List[Token * Int]): Bool :=
   match ts
     case [(TPunct(','), _), (TName(_), _), (TSym(":="), _); _] => true
-    else false
+    case _ => false
   end
 
 procedure operators(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
@@ -468,7 +468,7 @@ procedure expr_items(in sc: Scope, out items: List[Item[Expr]], ref ts: List[Tok
       case None if next and starts_expr(sc.notations, head_token(ts)) =>
         call   parse_app(in sc, out e, ref ts)
         assign rev := [Operand(e); rev], next := false
-      else
+      case _ =>
         assign go := false
     end
   end
@@ -476,7 +476,7 @@ procedure expr_items(in sc: Scope, out items: List[Item[Expr]], ref ts: List[Tok
   match rev
     case Nil =>
       raise ParseError("expression expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
-    else
+    case _ =>
       assign items := reverse(rev)
   end
 
@@ -574,7 +574,7 @@ procedure parse_atom(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
       match es
         case [x] =>
           assign e := x
-        else
+        case _ =>
           assign e := ETuple(es)
       end
 
@@ -588,7 +588,7 @@ procedure parse_atom(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
       call   advance(ref ts)
       assign e := EVar(Var(unqualified(n), THole))
 
-    else
+    case _ =>
       raise ParseError("expression expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
   end
 
@@ -601,7 +601,7 @@ function pattern_vars(ps: List[Pat]): Option[List[Var]] :=
         case Some(xs) => Some([x; xs])
         case None => None
       end
-    else None
+    case _ => None
   end
 
 // let x := e, y := f in b binds variables in parallel, other patterns are matched against the tuple of values
@@ -631,7 +631,7 @@ procedure parse_let(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
       assign e := ELet(zip(xs, es), b)
     case (None, [q], [c]) =>
       assign e := EMatch(c, [Branch(q, None, b)])
-    else
+    case _ =>
       assign e := EMatch(ETuple(es), [Branch(PTuple(ps), None, b)])
   end
 
@@ -864,7 +864,7 @@ procedure parse_guard(in sc: Scope, out g: Option[Expr], ref ts: List[Token * In
     assign g := None
   end
 
-// case p if g => b, where else b is the last case _ => b
+// case p if g => b
 procedure parse_expr_cases(in sc: Scope, out cs: List[Branch[Expr]], ref ts: List[Token * Int]) :=
   local rev: List[Branch[Expr]] := Nil, p: Pat, g: Option[Expr], b: Expr
 
@@ -877,20 +877,8 @@ procedure parse_expr_cases(in sc: Scope, out cs: List[Branch[Expr]], ref ts: Lis
     assign rev := [Branch(p, g, b); rev]
   end
 
-  if at_keyword(ts, "else")
-    call   advance(ref ts)
-    call   parse_expr(in sc, out b, ref ts)
-    assign rev := [Branch(PWild, None, b); rev]
-    call   last_case(ref ts)
-  end
-
   call   keyword(in "end", ref ts)
   assign cs := reverse(rev)
-
-procedure last_case(ref ts: List[Token * Int]) :=
-  if at_keyword(ts, "case")
-    raise ParseError("else must be the last case", head_offset(ts))
-  end
 
 // patterns, where operators are constructors
 
@@ -900,7 +888,7 @@ function pat_op1(op: Id, p: Pat): Pat :=
 function pat_prefix(op: Id, p: Pat): Pat :=
   match p
     case PLit(VInt(n)) if op == "-" => PLit(VInt(0 - n))
-    else pat_op1(op, p)
+    case _ => pat_op1(op, p)
   end
 
 function pat_op2(op: Id, l: Pat, r: Pat): Pat :=
@@ -919,7 +907,7 @@ function starts_pattern(ns: Notations, t: Token): Bool :=
     case TStr(_) => true
     case TChar(_) => true
     case TPunct(c) => c == '(' or c == '['
-    else false
+    case _ => false
   end
 
 procedure parse_pattern(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
@@ -939,7 +927,7 @@ procedure pattern_items(in sc: Scope, out items: List[Item[Pat]], ref ts: List[T
       case None if next and starts_pattern(sc.notations, head_token(ts)) =>
         call   pattern_simple(in sc, out p, ref ts)
         assign rev := [Operand(p); rev], next := false
-      else
+      case _ =>
         assign go := false
     end
   end
@@ -947,7 +935,7 @@ procedure pattern_items(in sc: Scope, out items: List[Item[Pat]], ref ts: List[T
   match rev
     case Nil =>
       raise ParseError("pattern expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
-    else
+    case _ =>
       assign items := reverse(rev)
   end
 
@@ -1006,7 +994,7 @@ procedure pattern_simple(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
       match ps
         case [q] =>
           assign p := q
-        else
+        case _ =>
           assign p := PTuple(ps)
       end
 
@@ -1037,7 +1025,7 @@ procedure pattern_simple(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
         assign p := cons_pats(reverse(ps), rest)
       end
 
-    else
+    case _ =>
       call parse_plain(in sc, out n, ref ts)
 
       if at_punct(ts, '(')
@@ -1054,7 +1042,7 @@ procedure pattern_simple(in sc: Scope, out p: Pat, ref ts: List[Token * Int]) :=
 function starts_stmt(t: Token): Bool :=
   match t
     case TName(n) => contains(n, ["skip", "if", "while", "call", "match", "assert", "assign", "raise", "try"])
-    else false
+    case _ => false
   end
 
 function handlers(cs: List[Branch[Stmt]]): List[Handler] :=
@@ -1152,7 +1140,7 @@ procedure parse_stmt(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
       call   parse_stmt_cases(in sc, out cs, ref ts)
       assign s := STry(b, handlers(cs))
 
-    else
+    case _ =>
       raise ParseError("statement expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
   end
 
@@ -1207,13 +1195,6 @@ procedure parse_stmt_cases(in sc: Scope, out cs: List[Branch[Stmt]], ref ts: Lis
     call   expect(in TSym("=>"), ref ts)
     call   parse_body(in sc, out b, ref ts)
     assign rev := [Branch(p, g, b); rev]
-  end
-
-  if at_keyword(ts, "else")
-    call   advance(ref ts)
-    call   parse_body(in sc, out b, ref ts)
-    assign rev := [Branch(PWild, None, b); rev]
-    call   last_case(ref ts)
   end
 
   call   keyword(in "end", ref ts)
@@ -1338,7 +1319,7 @@ function notations_of(cs: List[Cmd]): List[Cmd] :=
 function is_notation(c: Cmd): Bool :=
   match c
     case CNotation(_, _, _) => true
-    else false
+    case _ => false
   end
 
 // the notations so far, the modules loaded so far with their own notations, the modules being parsed, which cannot be imported,
@@ -1357,7 +1338,7 @@ function with_module(cx: Context, c: Cmd): Context :=
 function modules_of(c: Cmd): List[Id * List[Cmd]] :=
   match c
     case CModule(n, cs) => [(n, notations_of(cs)); concat([modules_of(d) for d in cs])]
-    else Nil
+    case _ => Nil
   end
 
 function own_notations(cx: Context, n: Id): List[Cmd] :=
@@ -1394,7 +1375,7 @@ procedure parse_notation(out c: Cmd, ref ts: List[Token * Int]) :=
       assign f := FPrefix
     case TName("postfix") =>
       assign f := FPostfix
-    else
+    case _ =>
       match second_token(ts)
         case TName("left") =>
           assign f := FLeft
@@ -1402,7 +1383,7 @@ procedure parse_notation(out c: Cmd, ref ts: List[Token * Int]) :=
         case TName("right") =>
           assign f := FRight
           call   advance(ref ts)
-        else
+        case _ =>
           skip
       end
   end
@@ -1412,7 +1393,7 @@ procedure parse_notation(out c: Cmd, ref ts: List[Token * Int]) :=
     case TNum(n) =>
       assign p := n
       call   advance(ref ts)
-    else
+    case _ =>
       raise ParseError("precedence expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
   end
   assign ops := Nil, go := true
@@ -1425,7 +1406,7 @@ procedure parse_notation(out c: Cmd, ref ts: List[Token * Int]) :=
       case TName(n) if not is_keyword(n) =>
         assign ops := [n; ops]
         call   advance(ref ts)
-      else
+      case _ =>
         assign go := false
     end
   end
@@ -1433,7 +1414,7 @@ procedure parse_notation(out c: Cmd, ref ts: List[Token * Int]) :=
   match ops
     case Nil =>
       raise ParseError("operator expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
-    else
+    case _ =>
       assign c := CNotation(f, p, reverse(ops))
   end
 
@@ -1477,7 +1458,7 @@ procedure field(in sc: Scope, out f: Option[Id], t: Type, ref ts: List[Token * I
       call   advance(ref ts)
       call   advance(ref ts)
       assign f := Some(n)
-    else
+    case _ =>
       assign f := None
   end
 
@@ -1572,7 +1553,7 @@ function accessor(t: Id, ps: List[Id], f: Id, es: List[Id * (Name * Int * Int * 
 function field_type(es: List[Id * (Name * Int * Int * Type)]): Type :=
   match es
     case [(_, (_, _, _, t)); _] => t
-    else THole
+    case _ => THole
   end
 
 // case C(_, y, _) => y, where y is the field at its position
@@ -1697,7 +1678,7 @@ procedure parse_command(in cx: Context, out cs: List[Cmd], ref ts: List[Token * 
       call   parse_body(in Scope(Nil, ns), out b, ref ts)
       assign cs := [CTest(n, b)]
 
-    else
+    case _ =>
       raise ParseError("declaration expected but " ^ describe(head_token(ts)) ^ " found", head_offset(ts))
   end
 
@@ -1822,7 +1803,7 @@ function last_part(xs: List[Str]): Str :=
   match xs
     case [x] => x
     case [_; more] => last_part(more)
-    else ""
+    case _ => ""
   end
 
 // the name of a file without its directory and .u
@@ -1852,7 +1833,7 @@ procedure same_commands(in path: Str, cs: List[Cmd], ds: List[Cmd]) :=
     case ([c; more], [d; rest]) =>
       assert (path, c) == (path, d)
       call   same_commands(in path, more, rest)
-    else
+    case _ =>
       assert (path, length(cs)) == (path, length(ds))
   end
 
@@ -2024,7 +2005,7 @@ test parse_error_files :=
     "../tests/errors/unknown-variable.u",
     "../tests/errors/unreachable-after-wildcard.u",
     "../tests/errors/unreachable-covered.u",
-    "../tests/errors/unreachable-else.u",
+    "../tests/errors/unreachable-wildcard.u",
     "../tests/errors/unreachable-literal.u",
     "../tests/errors/unreachable-repeated.u",
     "../tests/errors/wrapper.u"
@@ -2033,7 +2014,6 @@ test parse_error_files :=
     "../tests/errors/argument-list.u",
     "../tests/errors/broken.u",
     "../tests/errors/cycle.u",
-    "../tests/errors/else-not-last.u",
     "../tests/errors/field-types.u",
     "../tests/errors/import-error.u",
     "../tests/errors/keyword-name.u",

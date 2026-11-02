@@ -16,7 +16,7 @@ function show_value(v: Value): Str :=
     case Obj(n, vs) => n.base ^ "(" ^ show_values(vs) ^ ")"
     case Proc(_) => "<procedure>"
     case ProcClos(_, _, _, _, _) => "<procedure>"
-    else "<function>"
+    case _ => "<function>"
   end
 
 function show_values(vs: List[Value]): Str :=
@@ -35,7 +35,7 @@ function escape_char(c: Char): Str :=
     case '\t' => "\\t"
     case '\r' => "\\r"
     case '\'' => "\\'"
-    else string([c])
+    case _ => string([c])
   end
 
 // types as Check.scala shows them, without numbering the unknowns anew
@@ -64,7 +64,7 @@ function type_section(mode: Str, ts: List[Type]): List[Str] :=
 function type_operand(t: Type): Str :=
   match t
     case TFun(_, _) => "(" ^ show_type(t) ^ ")"
-    else show_type(t)
+    case _ => show_type(t)
   end
 
 // a component of a tuple, in parentheses if it is a function or a tuple
@@ -72,7 +72,7 @@ function type_component(t: Type): Str :=
   match t
     case TFun(_, _) => "(" ^ show_type(t) ^ ")"
     case TTuple([_, _; _]) => "(" ^ show_type(t) ^ ")"
-    else show_type(t)
+    case _ => show_type(t)
   end
 
 // patterns as Printer.scala shows them
@@ -105,7 +105,7 @@ function pat_operand(a: Str): Str :=
 function text_of(v: Value): Str :=
   match v
     case Lit(VStr(s)) => s
-    else show_value(v)
+    case _ => show_value(v)
   end
 
 test printing :=

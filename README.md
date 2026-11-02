@@ -17,7 +17,7 @@ function size[A](t: Tree[A]): Int :=
 function smallest(t: Tree[Int]): Int :=
   match t.left
     case Leaf => t.key
-    else smallest(t.left)
+    case _ => smallest(t.left)
   end
 
 procedure count(in t: Tree[Int], out n: Int) :=
@@ -71,5 +71,5 @@ cc -I self/runtime file.c self/runtime/ulang.c -lgmp -lgc
 - `self/` is the implementation in ulang: lexer, parser, checker, interpreter, and the compiler to C, with its runtime in `self/runtime/`.
 - `bootstrap/ulang.c` is the C of the last compiler that compiled itself to the same C, from which `make ulang.bin` builds it without the JVM.
   `make selfcompile` rebuilds the compiler with itself, and `make bootstrap` with the interpreter.
-- `tests/` are the tests, also of expected errors in `tests/errors/`, and `selftests/` those of features that only the compiler knows so far.
+- `tests/` are the tests, also of expected errors in `tests/errors/`.
 - `vscode/` is an extension for VS Code and VSCodium, installed by `make install`.

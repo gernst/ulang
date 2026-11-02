@@ -28,5 +28,5 @@ function list_elements(v: Value): Option[List[Value]] :=
         case Some(us) => Some([w; us])
         case None => None
       end
-    else None
+    case _ => None
   end

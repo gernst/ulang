@@ -81,7 +81,7 @@ function qualify(m: Id, c: Cmd): Cmd :=
     case CData(n, ps, ks) => CData(in_module(m, n), ps, [qualify_constr(m, k) for k in ks])
     case CFun(n, ps, xss, r, b) => CFun(in_module(m, n), ps, xss, r, b)
     case CProc(n, ps, ins, outs, refs, b) => CProc(in_module(m, n), ps, ins, outs, refs, b)
-    else c
+    case _ => c
   end
 
 function qualify_constr(m: Id, k: Constr): Constr :=
@@ -144,7 +144,7 @@ function params(ps: List[Id]): List[Type] :=
 function basic(n: Name): Bool :=
   match n
     case Name(None, b) => contains(b, ["Bool", "Int", "Str", "Char"])
-    else false
+    case _ => false
   end
 
 function literal(v: Val): Type :=
@@ -169,7 +169,7 @@ function logic(): List[Type] * Type :=
 function builtin(n: Name): List[List[Type] * Type] :=
   match n
     case Name(None, b) => builtin_scheme(b)
-    else Nil
+    case _ => Nil
   end
 
 function builtin_scheme(b: Id): List[List[Type] * Type] :=
@@ -203,13 +203,13 @@ function builtin_scheme(b: Id): List[List[Type] * Type] :=
       case "is_digit" => [(Nil, fun([tchar()], tbool()))]
       case "is_letter" => [(Nil, fun([tchar()], tbool()))]
       case "is_space" => [(Nil, fun([tchar()], tbool()))]
-      else Nil
+      case _ => Nil
     end
 
 function is_meta(t: Type): Bool :=
   match t
     case TMeta(_) => true
-    else false
+    case _ => false
   end
 
 // the Params and Metas in t
@@ -231,7 +231,7 @@ function holes(t: Type): Bool :=
     case TFun(args, r) => exists(args, holes) or holes(r)
     case TProc(is, os, rs) => exists(is ++ os ++ rs, holes)
     case TTuple(ts) => exists(ts, holes)
-    else false
+    case _ => false
   end
 
 function subst(t: Type, m: List[Type * Type]): Type :=
@@ -240,7 +240,7 @@ function subst(t: Type, m: List[Type * Type]): Type :=
     case TFun(args, r) => TFun([subst(a, m) for a in args], subst(r, m))
     case TProc(is, os, rs) => TProc([subst(a, m) for a in is], [subst(a, m) for a in os], [subst(a, m) for a in rs])
     case TTuple(ts) => TTuple([subst(a, m) for a in ts])
-    else
+    case _ =>
       match lookup(t, m)
         case Some(u) => u
         case None => t
@@ -254,7 +254,7 @@ function resolve(su: Subst, t: Type): Type :=
         case Some(u) => resolve(su, u)
         case None => t
       end
-    else t
+    case _ => t
   end
 
 function occurs(su: Subst, i: Int, t: Type): Bool :=
@@ -264,7 +264,7 @@ function occurs(su: Subst, i: Int, t: Type): Bool :=
     case TFun(args, r) => exists(args, lambda a => occurs(su, i, a)) or occurs(su, i, r)
     case TProc(is, os, rs) => exists(is ++ os ++ rs, lambda a => occurs(su, i, a))
     case TTuple(ts) => exists(ts, lambda a => occurs(su, i, a))
-    else false
+    case _ => false
   end
 
 function constructor_scheme(k: List[Type] * List[Type] * Type): List[Type] * Type :=
@@ -382,7 +382,7 @@ function zonk_pat(su: Subst, p: Pat): Pat :=
     case PVar(x) => PVar(zonk_var(su, x))
     case PApp(n, args) => PApp(n, [zonk_pat(su, a) for a in args])
     case PTuple(ps) => PTuple([zonk_pat(su, q) for q in ps])
-    else p
+    case _ => p
   end
 
 function zonk_stmt(su: Subst, x: Stmt): Stmt :=
@@ -414,7 +414,7 @@ function zonk_cmd(su: Subst, c: Cmd): Cmd :=
     case CFun(n, ps, xss, r, b) => CFun(n, ps, [zonk_vars(su, xs) for xs in xss], zonk_type(su, r), zonk_expr(su, b))
     case CProc(n, ps, ins, outs, refs, b) => CProc(n, ps, zonk_vars(su, ins), zonk_vars(su, outs), zonk_vars(su, refs), zonk_stmt(su, b))
     case CTest(n, b) => CTest(n, zonk_stmt(su, b))
-    else c
+    case _ => c
   end
 
 // exceptions are told apart by their types at runtime, which must therefore be known after checking
@@ -433,7 +433,7 @@ function unknown_in(x: Stmt): Option[Type] :=
     case SAssert(c) => unknown_in_expr(c)
     case SRaise(a, t) => or_else(unknown_type(t), unknown_in_expr(a))
     case STry(b, hs) => or_else(unknown_in(b), unknown_in_handlers(hs))
-    else None
+    case _ => None
   end
 
 function unknown_in_expr(e: Expr): Option[Type] :=
@@ -447,7 +447,7 @@ function unknown_in_expr(e: Expr): Option[Type] :=
     case EMatch(a, bs) => unknown_in_exprs([a; concat([branch_exprs(b) for b in bs])])
     case EComp(r, _, ls, c) => unknown_in_exprs([r, c; ls])
     case ETuple(es) => unknown_in_exprs(es)
-    else None
+    case _ => None
   end
 
 function unknown_in_exprs(es: List[Expr]): Option[Type] :=
@@ -488,7 +488,7 @@ function unknown_in_cmd(c: Cmd): Option[Type] :=
     case CFun(_, _, _, _, b) => unknown_in_expr(b)
     case CProc(_, _, _, _, _, b) => unknown_in(b)
     case CTest(_, b) => unknown_in(b)
-    else None
+    case _ => None
   end
 
 function head_of(p: Pat): Option[Head * List[Pat]] :=
@@ -496,7 +496,7 @@ function head_of(p: Pat): Option[Head * List[Pat]] :=
     case PApp(n, args) => Some((HCon(n), args))
     case PTuple(ps) => Some((HCon(tuple_name()), ps))
     case PLit(v) => Some((HLit(v), Nil))
-    else None
+    case _ => None
   end
 
 // the constructors in the first column
@@ -528,7 +528,7 @@ function constructors_of(c: Ctx, su: Subst, t: Type): Option[List[Head * List[Ty
         case Some(ks) => Some([(HCon(k), field_types(c, k, args)) for k in ks])
         case None => None
       end
-    else None
+    case _ => None
   end
 
 function fields_of(c: Ctx, su: Subst, t: Type, h: Head): List[Type] :=
@@ -702,7 +702,7 @@ procedure unify(in t1: Type, t2: Type, ref s: State) :=
         raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
-    else
+    case _ =>
       raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
   end
 
@@ -713,7 +713,7 @@ procedure unifies(in xs: List[Type], ys: List[Type], ref s: State) :=
       call   unifies(in xs1, ys1, ref s)
     case (Nil, Nil) =>
       skip
-    else
+    case _ =>
       raise CountMismatch(length(xs), length(ys))
   end
 
@@ -1024,7 +1024,7 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
         call   apply(in env, u, args, out args1, t, ref s)
         assign e1 := EApp(f1, args1)
       end
-    else
+    case _ =>
       call   infer(in env, f, out f1, u, ref s)
       call   apply(in env, u, args, out args1, t, ref s)
       assign e1 := EApp(f1, args1)
@@ -1049,7 +1049,7 @@ procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Ex
       match schemes_of(s.ctx, acc)
         case [sc] =>
           call use(in acc, a, sc, out x, ref s)
-        else
+        case _ =>
           raise UnknownField(acc)
       end
 
@@ -1057,7 +1057,7 @@ procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Ex
       call   fresh(out t, ref s)
       call   unify(in x.typ, fun([u; us], t), ref s)
       assign e1 := EApp(EVar(x), [arg1; rest1])
-    else
+    case _ =>
       raise CountMismatch(1, length(args))
   end
 
@@ -1084,7 +1084,7 @@ procedure checks(in env: Env, es: List[Expr], ts: List[Type], out es1: List[Expr
       assign es1 := [e1; rest]
     case (Nil, Nil) =>
       assign es1 := Nil
-    else
+    case _ =>
       raise CountMismatch(length(ts), length(es))
   end
 
@@ -1109,7 +1109,7 @@ procedure generators(in env: Env, xs: List[Var], lists: List[Expr], out lists1: 
       call   check(in env, e, tlist(x.typ), out l, ref s)
       call   generators(in bind([x]) ++ env, ys, es, out rest, ref s)
       assign lists1 := [l; rest]
-    else
+    case _ =>
       assign lists1 := Nil
   end
 
@@ -1144,7 +1144,7 @@ procedure coverage(in s: State, t: Type, cs: List[Pat * Bool]) :=
   match missing(s.ctx, s.sub, [[p] for p in unguarded(cs)], [t])
     case Some([w; _]) =>
       raise NotExhaustive(w)
-    else
+    case _ =>
       skip
   end
 
@@ -1232,7 +1232,7 @@ procedure binder_list(in ps: List[Pat], ts: List[Type], out qs: List[Pat], xs: L
       assign qs := [q; rest], xs := ys ++ zs
     case (Nil, Nil) =>
       assign qs := Nil, xs := Nil
-    else
+    case _ =>
       raise CountMismatch(length(ts), length(ps))
   end
 
@@ -1326,7 +1326,7 @@ procedure statement(in env: Env, assignable: List[Name], x: Stmt, out y: Stmt, r
 function initialized(xs: List[Stmt]): List[Name] :=
   match xs
     case [SAssign([(x, _)]); rest] => [x.name; initialized(rest)]
-    else Nil
+    case _ => Nil
   end
 
 // the locals without a type are initialized
@@ -1375,7 +1375,7 @@ function syntax_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type]
   match [d for d in names_of(c, "Program") if is_data(c, d)]
     case [d; _] =>
       [(unqualified("read"), (Nil, [tstr()], [TSort(d, Nil)], Nil)), (unqualified("library"), (Nil, [tstr()], [TSort(d, Nil)], Nil))]
-    else Nil
+    case _ => Nil
   end
 
 // the procedures of the program hide the builtin ones
@@ -1629,7 +1629,7 @@ procedure command(in c: Cmd, out c1: Cmd, ref s: State) :=
       call   statement(in Nil, Nil, body, out y, ref s)
       assign c1 := CTest(n, y)
 
-    else
+    case _ =>
       assign c1 := c
   end
 
@@ -1754,7 +1754,7 @@ function own_decls(m: Id, cs: List[Cmd]): List[Id * Cmd] :=
 function is_module(c: Cmd): Bool :=
   match c
     case CModule(_, _) => true
-    else false
+    case _ => false
   end
 
 // the type of e without a program
@@ -1836,7 +1836,7 @@ test elaboration :=
       // the constructor Nil is elaborated to a pattern of a constructor
       assert p == PApp(nil_name(), Nil)
       assert t == fun([tlist(tint())], tint())
-    else
+    case _ =>
       assert false
   end
 

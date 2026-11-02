@@ -155,7 +155,7 @@ function types(xs: List[Var]): List[Type] :=
 function arity(t: Type): Int :=
   match t
     case TFun(args, _) => length(args)
-    else -1
+    case _ => -1
   end
 
 // f(x) + 1, as the parser would produce it
