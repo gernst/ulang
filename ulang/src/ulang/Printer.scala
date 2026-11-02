@@ -9,6 +9,8 @@ object Printer:
         "'" + escape(c, '\'') + "'"
       case _: Function1[?, ?] =>
         "<function>"
+      case _: Proc =>
+        "<procedure>"
       case Obj(Names.tuple, vs) =>
         vs.map(show).mkString("(", ", ", ")")
       case Obj(Names.cons, _) if items(v).nonEmpty =>

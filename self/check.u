@@ -214,6 +214,7 @@ function free(t: Type): List[Type] :=
     case THole => Nil
     case TSort(_, args) => distinct(concat([free(a) for a in args]))
     case TFun(args, r) => distinct(concat([free(a) for a in args ++ [r]]))
+    case TProc(is, os, rs) => distinct(concat([free(a) for a in is ++ os ++ rs]))
     case TTuple(ts) => distinct(concat([free(a) for a in ts]))
   end
 
@@ -222,6 +223,7 @@ function holes(t: Type): Bool :=
     case THole => true
     case TSort(_, args) => contains(true, [holes(a) for a in args])
     case TFun(args, r) => contains(true, [holes(a) for a in args ++ [r]])
+    case TProc(is, os, rs) => exists(is ++ os ++ rs, holes)
     case TTuple(ts) => contains(true, [holes(a) for a in ts])
     else false
   end
@@ -230,6 +232,7 @@ function subst(t: Type, m: List[Type * Type]): Type :=
   match t
     case TSort(n, args) => TSort(n, [subst(a, m) for a in args])
     case TFun(args, r) => TFun([subst(a, m) for a in args], subst(r, m))
+    case TProc(is, os, rs) => TProc([subst(a, m) for a in is], [subst(a, m) for a in os], [subst(a, m) for a in rs])
     case TTuple(ts) => TTuple([subst(a, m) for a in ts])
     else
       match lookup(t, m)
@@ -253,6 +256,7 @@ function occurs(su: Subst, i: Int, t: Type): Bool :=
     case TMeta(j) => i == j
     case TSort(_, args) => exists(args, lambda a => occurs(su, i, a))
     case TFun(args, r) => exists(args, lambda a => occurs(su, i, a)) or occurs(su, i, r)
+    case TProc(is, os, rs) => exists(is ++ os ++ rs, lambda a => occurs(su, i, a))
     case TTuple(ts) => exists(ts, lambda a => occurs(su, i, a))
     else false
   end
@@ -275,7 +279,15 @@ function candidates(s: State, env: Env, n: Name): List[Name * (List[Type] * Type
     case None =>
       concat([[(f, sc) for sc in schemes_of(s.ctx, f)] for f in visible_names(s, n, lambda f => is_fun(s.ctx, f))]) ++
         [(k, constructor_of(s.ctx, k)) for k in visible_names(s, n, lambda k => is_constr(s.ctx, k))] ++
+        [(p, proc_scheme(s.ctx, p)) for p in visible_names(s, n, lambda p => is_proc(s.ctx, p))] ++
         [(n, sc) for sc in builtin(n)]
+  end
+
+// a procedure is a value of its type (in A, out B, ref C)
+function proc_scheme(c: Ctx, p: Name): List[Type] * Type :=
+  match proc_of(c, p)
+    case Some((ps, is, os, rs)) => (ps, TProc(is, os, rs))
+    case None => (Nil, THole)
   end
 
 function with_arity(cs: List[Name * (List[Type] * Type)], k: Int): List[Name * (List[Type] * Type)] :=
@@ -323,6 +335,7 @@ function zonk_type(su: Subst, t: Type): Type :=
   match resolve(su, t)
     case TSort(n, args) => TSort(n, [zonk_type(su, a) for a in args])
     case TFun(args, r) => TFun([zonk_type(su, a) for a in args], zonk_type(su, r))
+    case TProc(is, os, rs) => TProc([zonk_type(su, a) for a in is], [zonk_type(su, a) for a in os], [zonk_type(su, a) for a in rs])
     case TTuple(ts) => TTuple([zonk_type(su, a) for a in ts])
     case u => u
   end
@@ -339,6 +352,7 @@ function zonk_expr(su: Subst, e: Expr): Expr :=
     case EVar(x) => EVar(zonk_var(su, x))
     case EApp(f, args) => EApp(zonk_expr(su, f), [zonk_expr(su, a) for a in args])
     case ELam(xs, b) => ELam(zonk_vars(su, xs), zonk_expr(su, b))
+    case EProc(is, os, rs, b) => EProc(zonk_vars(su, is), zonk_vars(su, os), zonk_vars(su, rs), zonk_stmt(su, b))
     case ELet(ps, b) => ELet([zonk_binding(su, p) for p in ps], zonk_expr(su, b))
     case EIte(c, l, r) => EIte(zonk_expr(su, c), zonk_expr(su, l), zonk_expr(su, r))
     case EMatch(a, bs) => EMatch(zonk_expr(su, a), [zonk_expr_branch(su, b) for b in bs])
@@ -423,6 +437,7 @@ function unknown_in_expr(e: Expr): Option[Type] :=
     case ERaise(a, t) => or_else(unknown_type(t), unknown_in_expr(a))
     case EApp(f, args) => unknown_in_exprs([f; args])
     case ELam(_, b) => unknown_in_expr(b)
+    case EProc(_, _, _, b) => unknown_in(b)
     case ELet(ps, b) => unknown_in_exprs(seconds(ps) ++ [b])
     case EIte(c, l, r) => unknown_in_exprs([c, l, r])
     case EMatch(a, bs) => unknown_in_exprs([a; concat([branch_exprs(b) for b in bs])])
@@ -678,6 +693,13 @@ procedure unify(in t1: Type, t2: Type, ref s: State) :=
         raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
+    case (TProc(xs, ys, zs), TProc(us, vs, ws)) =>
+      if length(xs) == length(us) and length(ys) == length(vs) and length(zs) == length(ws)
+        call unifies(in xs ++ ys ++ zs, us ++ vs ++ ws, ref s)
+      else
+        raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
+      end
+
     else
       raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
   end
@@ -786,6 +808,10 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
     case TTuple(ts) =>
       call   normalizes(in ts, out us, ref s)
       assign u := TTuple(us)
+
+    case TProc(is, os, rs) =>
+      call   normalizes(in is ++ os ++ rs, out us, ref s)
+      assign u := TProc(take(length(is), us), take(length(os), drop(length(is), us)), drop(length(is) + length(os), us))
 
     case TSort(n, args) =>
       if basic(n)
@@ -918,7 +944,8 @@ procedure use(in n: Name, a: Type, sc: List[Type] * Type, out x: Var, ref s: Sta
   assign x := Var(n, u)
 
 procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
-  local sc: List[Type] * Type, m: Name, x: Var, xs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, w: Type, es: List[Expr], ts: List[Type], bs: List[Branch[Expr]]
+  local sc: List[Type] * Type, m: Name, x: Var, xs: List[Var], ys: List[Var], zs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, w: Type,
+    es: List[Expr], ts: List[Type], bs: List[Branch[Expr]], y: Stmt
 
   match e
     case ELit(v) =>
@@ -936,6 +963,15 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
       call   formals(in bound, out xs, ref s)
       call   infer(in bind(xs) ++ env, body, out b, u, ref s)
       assign e1 := ELam(xs, b), t := fun(types(xs), u)
+
+    // the body sees the variables around it, but assigns only the outs and refs of the lambda
+    case EProc(is, os, rs, body) =>
+      call   unique(in names(is ++ os ++ rs))
+      call   formals(in is, out xs, ref s)
+      call   formals(in os, out ys, ref s)
+      call   formals(in rs, out zs, ref s)
+      call   statement(in bind(xs ++ ys ++ zs) ++ env, names(ys ++ zs), body, out y, ref s)
+      assign e1 := EProc(xs, ys, zs, y), t := TProc(types(xs), types(ys), types(zs))
 
     case ELet(bound, body) =>
       call   formals(in firsts(bound), out xs, ref s)
@@ -1347,7 +1383,31 @@ function syntax_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type]
   end
 
 // the procedures of the program hide the builtin ones
+// a variable of a procedure type hides the procedures of that name
 procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
+  match lookup(p, env)
+    case Some(sc) =>
+      call call_variable(in env, assignable, p, sc, ins, outs, refs, out y, ref s)
+    case None =>
+      call call_declared(in env, assignable, p, ins, outs, refs, out y, ref s)
+  end
+
+procedure call_variable(in env: Env, assignable: List[Name], p: Name, sc: List[Type] * Type, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
+  local x: Var, is: List[Type], os: List[Type], rs: List[Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var]
+
+  call   use(in p, THole, sc, out x, ref s)
+  call   fresh_list(in ins, out is, ref s)
+  call   fresh_list(in outs, out os, ref s)
+  call   fresh_list(in refs, out rs, ref s)
+  call   unify(in x.typ, TProc(is, os, rs), ref s)
+  call   unique(in names(outs ++ refs))
+  call   checks(in env, ins, is, out ins1, ref s)
+  call   variables(in env, assignable, outs, out outs1, ref s)
+  call   variables(in env, assignable, refs, out refs1, ref s)
+  call   unifies(in types(outs1 ++ refs1), os ++ rs, ref s)
+  assign y := SCall(p, ins1, outs1, refs1)
+
+procedure call_declared(in env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
   local m: List[Type * Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var], q: Name
 
   match visible_names(s, p, lambda q => is_proc(s.ctx, q))

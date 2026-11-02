@@ -4,6 +4,9 @@ case class Obj(name: Name, args: List[Any])
 
 class Cell(get: Option[Any]) extends Ref[Option[Any]](get)
 
+// a procedure as a value, which takes the values of its ins and the cells of its refs, and gives the values of its outs
+class Proc(val call: (List[Any], List[Cell], Pos) => List[Any])
+
 // an exception of type typ raised at pos, which try catches
 class Raised(val value: Any, val typ: Type, val pos: Pos) extends Exception with scala.util.control.NoStackTrace
 
@@ -26,6 +29,8 @@ object Run:
     (a, b) match
       case (_: Function1[?, ?], _) | (_, _: Function1[?, ?]) =>
         error("runtime", "cannot compare functions")
+      case (_: Proc, _) | (_, _: Proc) =>
+        error("runtime", "cannot compare procedures")
       case (Obj(c, as), Obj(d, bs)) =>
         c == d && equal(as, bs)
       case _ =>
@@ -182,6 +187,8 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
     (a, b) match
       case (_: Function1[?, ?], _) | (_, _: Function1[?, ?]) =>
         error("runtime", "cannot compare functions")
+      case (_: Proc, _) | (_, _: Proc) =>
+        error("runtime", "cannot compare procedures")
       case (x: BigInt, y: BigInt) =>
         x.compare(y).sign
       case (x: Boolean, y: Boolean) =>
@@ -220,6 +227,8 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
           fun(funs((name, Check.arity(typ))))
         case Expr.Var(name, _) if constrs.contains(name) =>
           constr(name)(constrs(name))
+        case Expr.Var(name, _) if procs.contains(name) =>
+          Proc(invoke(name, _, _, _))
         // compare needs the order of the constructors of the program
         case Expr.Var(Name(None, "compare"), _) =>
           (vs: List[Any]) =>
@@ -244,6 +253,14 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
 
         case Expr.Lam(bound, body) =>
           (vs: List[Any]) => eval(env ++ bind(bound, vs), body)
+
+        // the variables around the lambda are copied into cells, which the checker does not let it assign
+        case Expr.Proc(ins, outs, refs, body) =>
+          Proc: (vs, cells, pos) =>
+            val results = outs.map(_ => Cell(None))
+            exec(env.view.mapValues(cell).toMap ++ bind(ins, vs.map(cell)) ++ bind(outs, results) ++ bind(refs, cells), body)
+            for (x, r) <- outs.zip(results)
+            yield r.get.getOrElse(error("runtime", s"output ${x.name} of the lambda is not assigned"))
 
         // the variables are bound in parallel
         case Expr.Let(bound, body) =>
@@ -415,7 +432,12 @@ class Run(val program: Program, val dir: os.Path = os.pwd, val args: List[String
 
         case Stmt.Call(proc, ins, outs, refs) =>
           val env = values(store)
-          assign(store, outs, invoke(proc, ins.map(eval(env, _)), refs.map(x => store(x.name)), s.pos))
+          val (vs, cells) = (ins.map(eval(env, _)), refs.map(x => store(x.name)))
+          store.get(proc).flatMap(_.get) match
+            case Some(p: Proc) =>
+              assign(store, outs, p.call(vs, cells, s.pos))
+            case _ =>
+              assign(store, outs, invoke(proc, vs, cells, s.pos))
 
         case Stmt.Match(arg, cases) =>
           val (b, bs) = select(values(store), value(store, arg), cases)

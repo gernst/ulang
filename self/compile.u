@@ -14,7 +14,7 @@ data CompileError :=
 // the functions of a program by name and number of arguments, and its constructors with their numbers of fields,
 // as lists and as maps from the names to the numbers of arguments and fields
 data Globals :=
-  | Globals(funs: List[Name * Int], constrs: List[Name * Int], arities: Map[Name, List[Int]], fields: Map[Name, Int])
+  | Globals(funs: List[Name * Int], constrs: List[Name * Int], arities: Map[Name, List[Int]], fields: Map[Name, Int], procs: Map[Name, Int * Int])
 
 // the variables in scope with the C expressions they are accessed through, which are pointers for outs and refs
 type Vars :=
@@ -135,13 +135,21 @@ function type_key(t: Type): Str :=
     case TSort(n, []) => qualified(n)
     case TSort(n, args) => qualified(n) ^ "[" ^ str_join(", ", [type_key(a) for a in args]) ^ "]"
     case TFun(args, r) => "(" ^ str_join(", ", [type_key(a) for a in args]) ^ ") -> " ^ type_key(r)
+    case TProc(is, os, rs) => "(in " ^ str_join(", ", [type_key(a) for a in is]) ^ ", out " ^ str_join(", ", [type_key(a) for a in os]) ^ ", ref " ^ str_join(", ", [type_key(a) for a in rs]) ^ ")"
     case TTuple(ts) => "(" ^ str_join(" * ", [type_key(a) for a in ts]) ^ ")"
     else "?"
   end
 
 function globals(cs: List[Cmd]): Globals :=
   let fs := concat([fun_arities(c) for c in cs]), ks := concat([constr_arities(c) for c in cs]) in
-    Globals(fs, ks, arity_map(fs, empty()), put_all(ks, empty()))
+    Globals(fs, ks, arity_map(fs, empty()), put_all(ks, empty()), put_all(concat([proc_arities(c) for c in cs]), empty()))
+
+// the numbers of ins and of outs and refs of a procedure
+function proc_arities(c: Cmd): List[Name * (Int * Int)] :=
+  match c
+    case CProc(n, _, ins, outs, refs, _) => [(n, (length(ins), length(outs) + length(refs)))]
+    else []
+  end
 
 function arity_map(fs: List[Name * Int], m: Map[Name, List[Int]]): Map[Name, List[Int]] :=
   match fs
@@ -156,7 +164,7 @@ function arity_map(fs: List[Name * Int], m: Map[Name, List[Int]]): Map[Name, Lis
 // a function n with k arguments
 function is_global_fun(gl: Globals, n: Name, k: Int): Bool :=
   match gl
-    case Globals(_, _, fm, _) =>
+    case Globals(_, _, fm, _, _) =>
       match get(n, fm)
         case Some(ks) => contains(k, ks)
         case None => false
@@ -166,7 +174,7 @@ function is_global_fun(gl: Globals, n: Name, k: Int): Bool :=
 // the number of fields of constructor n
 function fields_count(gl: Globals, n: Name): Option[Int] :=
   match gl
-    case Globals(_, _, _, km) => get(n, km)
+    case Globals(_, _, _, km, _) => get(n, km)
   end
 
 function fun_arities(c: Cmd): List[Name * Int] :=
@@ -262,6 +270,7 @@ function free_vars(e: Expr, bound: List[Name]): List[Name] :=
     case EVar(Var(n, _)) => if contains(n, bound) then [] else [n]
     case EApp(f, args) => free_vars(f, bound) ++ concat([free_vars(a, bound) for a in args])
     case ELam(xs, b) => free_vars(b, names(xs) ++ bound)
+    case EProc(is, os, rs, b) => free_in_stmt(b, names(is ++ os ++ rs) ++ bound)
     case ELet(bs, b) => concat([free_vars(a, bound) for a in seconds(bs)]) ++ free_vars(b, names(firsts(bs)) ++ bound)
     case EIte(c, l, r) => free_vars(c, bound) ++ free_vars(l, bound) ++ free_vars(r, bound)
     case EMatch(a, cs) => free_vars(a, bound) ++ concat([free_in_branch(b, bound) for b in cs])
@@ -269,6 +278,32 @@ function free_vars(e: Expr, bound: List[Name]): List[Name] :=
     case ETuple(es) => concat([free_vars(a, bound) for a in es])
     case ERaise(a, _) => free_vars(a, bound)
   end
+
+// the variables of x that bound does not bind, including procedures called through variables
+function free_in_stmt(x: Stmt, bound: List[Name]): List[Name] :=
+  match x
+    case SSkip => []
+    case SAssign(ps) => [y for y in names(firsts(ps)) if not contains(y, bound)] ++ concat([free_vars(a, bound) for a in seconds(ps)])
+    case SBlock(xs, ys) => concat([free_in_stmt(y, names(xs) ++ bound) for y in ys])
+    case SIf(c, l, r) => free_vars(c, bound) ++ free_in_stmt(l, bound) ++ free_in_stmt(r, bound)
+    case SWhile(c, b) => free_vars(c, bound) ++ free_in_stmt(b, bound)
+    case SCall(p, ins, outs, refs) =>
+      [y for y in [p; names(outs ++ refs)] if not contains(y, bound)] ++ concat([free_vars(a, bound) for a in ins])
+    case SMatch(a, bs) => free_vars(a, bound) ++ concat([free_in_stmt_branch(b, bound) for b in bs])
+    case SAssert(c) => free_vars(c, bound)
+    case SRaise(a, _) => free_vars(a, bound)
+    case STry(b, hs) => free_in_stmt(b, bound) ++ concat([free_in_handler(h, bound) for h in hs])
+  end
+
+function free_in_stmt_branch(b: Branch[Stmt], bound: List[Name]): List[Name] :=
+  match b
+    case Branch(p, Some(g), y) => free_vars(g, pattern_names(p) ++ bound) ++ free_in_stmt(y, pattern_names(p) ++ bound)
+    case Branch(p, None, y) => free_in_stmt(y, pattern_names(p) ++ bound)
+  end
+
+function free_in_handler(h: Handler, bound: List[Name]): List[Name] :=
+  let inner := pattern_names(h.pat) ++ bound in
+    free_in_stmt(h.body, inner) ++ (match h.guard case Some(g) => free_vars(g, inner) case None => [] end)
 
 function free_in_branch(b: Branch[Expr], bound: List[Name]): List[Name] :=
   match b
@@ -303,6 +338,8 @@ procedure global_value(in gl: Globals, n: Name, t: Type, out r: CExpr) :=
         match get(n, builtin_functions())
           case Some((f, _)) =>
             assign r := c_call("u_mk_closure", [CeVar("w" ^ f), CeNum(0)])
+          case None if has(n, gl.procs) =>
+            assign r := c_call("u_mk_proc", [CeVar("wp_" ^ mangle(n)), CeNum(0)])
           case None =>
             raise Unsupported("the variable " ^ qualified(n))
         end
@@ -341,6 +378,9 @@ procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], 
 
     case ELam(xs, b) =>
       call compile_lambda(in gl, env, xs, b, out ss, r, ref g)
+
+    case EProc(is, os, rs, b) =>
+      call compile_proc_lambda(in gl, env, is, os ++ rs, b, out ss, r, ref g)
 
     case ELet(binds, b) =>
       call   compile_exprs(in gl, env, seconds(binds), out as, rs, ref g)
@@ -461,6 +501,26 @@ procedure compile_lambda(in gl: Globals, env: Vars, xs: List[Var], b: Expr, out 
   call   lift(in CdFunction(value_type(), f, [(value_ptr(), "env"), (value_ptr(), "args")], decls ++ bs ++ [CsReturn(Some(rb))]), ref g)
   assign ss := Nil, r := c_call("u_mk_closure", [CeVar(f), CeNum(length(caps))] ++ [var_expr(env, x) for x in caps])
 
+// a lambda in x, out y, ref z => body end is a lifted function of the captured values, the ins, and pointers to the outs and refs
+procedure compile_proc_lambda(in gl: Globals, env: Vars, ins: List[Var], outs: List[Var], b: Stmt, out ss: List[CStmt], r: CExpr, ref g: Gen) :=
+  local  caps := [x for x in distinct(free_in_stmt(b, names(ins ++ outs))) if contains(x, keys(env))]
+  local  f: Str, bs: List[CStmt], decls: List[CStmt]
+
+  call   gen_name(in "proc", out f, ref g)
+  call   compile_stmt(in gl, in_scope(caps ++ names(ins)) ++ [pointer(x) for x in names(outs)], b, out bs, ref g)
+  assign decls := unpack(numbered(caps, 0), "env") ++ unpack(numbered(names(ins), 0), "ins") ++ unpack_pointers(numbered(names(outs), 0))
+  call   lift(in CdFunction(CtVoid, f, proc_params(), decls ++ bs), ref g)
+  assign ss := Nil, r := c_call("u_mk_proc", [CeVar(f), CeNum(length(caps))] ++ [var_expr(env, x) for x in caps])
+
+function proc_params(): List[CType * Str] :=
+  [(value_ptr(), "env"), (value_ptr(), "ins"), (CtPtr(value_ptr()), "outs")]
+
+function unpack_pointers(xs: List[Name * Int]): List[CStmt] :=
+  match xs
+    case [] => []
+    case [(x, i); rest] => [CsDecl(value_ptr(), ref_name(x), Some(index("outs", i))); unpack_pointers(rest)]
+  end
+
 // declarations of the variables xs with the values in the array a
 function unpack(xs: List[Name * Int], a: Str): List[CStmt] :=
   match xs
@@ -538,9 +598,15 @@ procedure compile_stmt(in gl: Globals, env: Vars, s: Stmt, out ss: List[CStmt], 
       call   compile_expr(in gl, env, c, out as, ra, ref g)
       assign ss := cs ++ [CsDecl(value_type(), t, Some(rc)), CsWhile(truth(CeVar(t)), bs ++ as ++ [CsAssign(CeVar(t), ra)])]
 
+    // a variable of a procedure type hides the procedures of that name
     case SCall(p, ins, outs, refs) =>
-      call   compile_exprs(in gl, env, ins, out as, rs, ref g)
-      assign ss := as ++ [CsExpr(c_call(proc_name(p), rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
+      call compile_exprs(in gl, env, ins, out as, rs, ref g)
+
+      if has_key(p, env)
+        assign ss := as ++ [CsExpr(c_call("u_call_proc", [var_expr(env, p), CeNum(length(ins)), CeNum(length(outs ++ refs))] ++ rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
+      else
+        assign ss := as ++ [CsExpr(c_call(proc_name(p), rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
+      end
 
     case SMatch(arg, cases) =>
       call   compile_expr(in gl, env, arg, out as, ra, ref g)
@@ -722,7 +788,14 @@ function cached(n: Str, bs: List[CStmt], r: CExpr): List[CStmt] :=
 // closures of functions, constructors, and builtins, which take their arguments from an array
 function wrappers(gl: Globals): List[CDecl] :=
   [fun_wrapper(p) for p in gl.funs] ++ concat([constr_wrapper(p) for p in gl.constrs]) ++
-  [builtin_wrapper(p) for p in seconds(entries(builtin_functions()))]
+  [builtin_wrapper(p) for p in seconds(entries(builtin_functions()))] ++ [proc_wrapper(p) for p in entries(gl.procs)]
+
+// procedures as values call the procedure with the values of the array ins and the pointers of the array outs
+function proc_wrapper(p: Name * (Int * Int)): CDecl :=
+  match p
+    case (n, (k, m)) =>
+      CdFunction(CtVoid, "wp_" ^ mangle(n), proc_params(), [CsExpr(c_call(proc_name(n), [index("ins", i) for i in range_to(k)] ++ [index("outs", i) for i in range_to(m)]))])
+  end
 
 function fun_wrapper(p: Name * Int): CDecl :=
   match p

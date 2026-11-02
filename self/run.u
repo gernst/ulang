@@ -16,6 +16,9 @@ data Value :=
   | Fn(Name, Int)
   | Con(Name)
   | Prim(Name)
+  // procedures as values, declared ones by their names, and lambdas with the values of the variables around them
+  | Proc(Name)
+  | ProcClos(List[Name * Value], List[Var], List[Var], List[Var], Stmt)
 
 type Bindings :=
   List[Name * Value]
@@ -47,6 +50,7 @@ data RuntimeError :=
   | AssertionUnequal(Value, Value)
   | UnassignedOutput(Name, Name)
   | UnknownProc(Name)
+  | NotProc(Value)
 
 // an exception of the program with its type
 data Thrown :=
@@ -303,6 +307,9 @@ procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value) :=
 
     case ELam(xs, body) =>
       assign v := Clos(env, xs, body)
+
+    case EProc(xs, ys, zs, body) =>
+      assign v := ProcClos(env, xs, ys, zs, body)
     // the variables are bound in parallel
 
     case ELet(bound, body) =>
@@ -370,6 +377,8 @@ procedure variable_value(in p: Prog, env: Bindings, n: Name, t: Type, out v: Val
               else
                 assign v := Con(n)
               end
+            case None if has_key(n, p.procs) =>
+              assign v := Proc(n)
             case None =>
               if is_builtin(n)
                 assign v := Prim(n)
@@ -718,10 +727,18 @@ procedure exec(in p: Prog, store: Store, x: Stmt, ref h: Heap) :=
         call   evaluate(in p, values_of(store, h), cond, out v)
       end
 
+    // a variable of a procedure type hides the procedures of that name
     case SCall(n, ins, outs, refs) =>
-      call   evaluate_all(in p, values_of(store, h), ins, out vs)
-      call   invoke(in p, n, vs, [address_of(store, y.name) for y in refs], out vs, ref h)
-      call   write_vars(in store, outs, vs, ref h)
+      call evaluate_all(in p, values_of(store, h), ins, out vs)
+
+      match lookup(n, values_of(store, h))
+        case Some(f) =>
+          call invoke_value(in p, f, vs, [address_of(store, y.name) for y in refs], out vs, ref h)
+        case None =>
+          call invoke(in p, n, vs, [address_of(store, y.name) for y in refs], out vs, ref h)
+      end
+
+      call write_vars(in store, outs, vs, ref h)
 
     case SMatch(arg, cases) =>
       call   evaluate(in p, values_of(store, h), arg, out v)
@@ -848,6 +865,23 @@ procedure invoke(in p: Prog, n: Name, ins: List[Value], refs: List[Int], out out
       call   read_outs(in n, out_cells, h, out outs)
     case None =>
       call os_proc(in n, ins, out outs)
+  end
+
+// the variables around a lambda get cells of their own, which the checker does not let it assign
+procedure invoke_value(in p: Prog, f: Value, ins: List[Value], refs: List[Int], out outs: List[Value], ref h: Heap) :=
+  local around: Store, in_cells: Store, out_cells: Store
+
+  match f
+    case Proc(n) =>
+      call invoke(in p, n, ins, refs, out outs, ref h)
+    case ProcClos(env, xs, ys, zs, body) =>
+      call   alloc_bindings(in env, out around, ref h)
+      call   alloc_bindings(in bind_values(xs, ins), out in_cells, ref h)
+      call   alloc_vars(in ys, out out_cells, ref h)
+      call   exec(in p, in_cells ++ out_cells ++ zip(names(zs), refs) ++ around, body, ref h)
+      call   read_outs(in unqualified("lambda"), out_cells, h, out outs)
+    else
+      raise NotProc(f)
   end
 
 // the procedures of the library os are those of the interpreter of this program, whose OsError the program can catch
@@ -1017,6 +1051,36 @@ test procedures :=
       )
     ], out os)
   assert os == [Ran([(unqualified("s"), int(10))]), Ran([(unqualified("k"), int(2)), (unqualified("m"), int(2))])]
+
+// a declared procedure and a lambda that captures k, called through variables
+test procedure_values :=
+  local os: List[Output]
+
+  call check_and_run(in procedures() ++
+    [
+      CRun(
+        "values",
+        SBlock(
+          [Var(unqualified("s"), tint()), Var(unqualified("t"), tint())],
+          [
+            SBlock(
+              [hole_var("f"), hole_var("k"), hole_var("g")],
+              [
+                SAssign([(hole_var("f"), ev("sum"))]),
+                SAssign([(hole_var("k"), num(10))]),
+                SAssign([(hole_var("g"), EProc([hole_var("n")], [hole_var("r")], Nil, SBlock(Nil, [SAssign([(hole_var("r"), ap("+", [ev("n"), ev("k")]))])])))]),
+                SCall(unqualified("f"), [num(4)], [hole_var("s")], Nil),
+                SCall(unqualified("g"), [num(4)], [hole_var("t")], Nil)
+              ]
+            )
+          ]
+        )
+      )
+    ], out os)
+  assert os == [Ran([(unqualified("s"), int(10)), (unqualified("t"), int(14))])]
+
+function hole_var(n: Id): Var :=
+  Var(unqualified(n), THole)
 
 test errors :=
   local os: List[Output]

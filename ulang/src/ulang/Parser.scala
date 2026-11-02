@@ -231,13 +231,15 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
       _ => "tuple types are written A * B"
     )
 
-  // a type, a type in parentheses, the arguments (A, B) of a function, or ()
+  // a type, a type in parentheses, the arguments (A, B) of a function, (), or a procedure (in A, out B, ref C)
   def basic(s: Scope): Parser[List[Type]] =
     plain(s) ~ opt("[" ~> rep1sep(typ(s), ",") <~ "]") ^^ {
       case n ~ None if s.params(n) =>
         List(Type.Param(n))
       case n ~ args =>
         List(Type.Sort(Name(n), args.getOrElse(Nil)))
+    } | parens(sections(typ(s), typ(s))) ^? { case (ins, outs, refs) if ins.nonEmpty || outs.nonEmpty || refs.nonEmpty =>
+      List(Type.Proc(ins, outs, refs))
     } | parens(list(typ(s)))
 
   val typarams: Parser[List[Id]] = opt("[" ~> names <~ "]") ^^ (_.getOrElse(Nil))
@@ -327,12 +329,19 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
           Expr.Ite(c, l, r)(pos)
         }
 
+  // lambda x, y => e is a function, and lambda in x, out y, ref z => body end a procedure, told apart by the modes
   def lam(s: Scope): Parser[Expr] =
     located: pos =>
-      (kw("lambda") ~> repsep(untyped(s), ",")) ~
-        ("=>" ~> expr(s)) ^^ { case xs ~ b =>
-          Expr.Lam(xs, b)(pos)
-        }
+      kw("lambda") ~> (
+        (sections(formal(s), formal(s)) ^? { case (ins, outs, refs) if ins.nonEmpty || outs.nonEmpty || refs.nonEmpty =>
+          (ins, outs, refs)
+        }) ~ ("=>" ~> body(s) <~ kw("end")) ^^ { case (ins, outs, refs) ~ b =>
+          Expr.Proc(ins, outs, refs, b)(pos)
+        } |
+          repsep(untyped(s), ",") ~ ("=>" ~> expr(s)) ^^ { case xs ~ b =>
+            Expr.Lam(xs, b)(pos)
+          }
+      )
 
   // case p if g => b, where else b is the last case _ => b
   def cases[A](s: Scope, body: => Parser[A]): Parser[List[Case[A]]] =

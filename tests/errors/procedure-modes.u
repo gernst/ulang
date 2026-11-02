@@ -1,0 +1,7 @@
+// type error: cannot unify (in Int, out Int) and (in ?1, ref ?2) at 7.3
+procedure double(in x: Int, out y: Int) :=
+  assign y := 2 * x
+
+test modes :=
+  local  p := double, z := 0
+  call p(in 1, ref z)

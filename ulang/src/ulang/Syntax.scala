@@ -44,6 +44,8 @@ enum Type:
   case Sort(name: Name, args: List[Type])
   // functions take a fixed number of arguments, since there is no currying
   case Fun(args: List[Type], res: Type)
+  // procedures as values, (in A, out B, ref C), whose parameters have modes as in declarations
+  case Proc(ins: List[Type], outs: List[Type], refs: List[Type])
   // () is the empty tuple, i.e., the unit type
   case Tuple(items: List[Type])
 
@@ -54,6 +56,8 @@ enum Expr:
   case Var(name: Name, typ: Type)(val pos: Pos = nowhere)
   case App(fun: Expr, args: List[Expr])(val pos: Pos = nowhere)
   case Lam(bound: List[Pat.Var], body: Expr)(val pos: Pos = nowhere)
+  // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
+  case Proc(ins: List[Pat.Var], outs: List[Pat.Var], refs: List[Pat.Var], body: Stmt)(val pos: Pos = nowhere)
   case Let(bound: List[(Pat.Var, Expr)], body: Expr)(val pos: Pos = nowhere)
   case Ite(test: Expr, left: Expr, right: Expr)(val pos: Pos = nowhere)
   case Match(arg: Expr, cases: List[Case[Expr]])(val pos: Pos = nowhere)

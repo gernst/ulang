@@ -100,6 +100,11 @@ object Check:
         s"${operand(a)} -> ${show(r)}"
       case Type.Fun(args, r) =>
         args.map(show(_)).mkString("(", ", ", ") -> ") + show(r)
+      case Type.Proc(ins, outs, refs) =>
+        val sections =
+          for (mode, ts) <- List(("in", ins), ("out", outs), ("ref", refs)) if ts.nonEmpty
+          yield s"$mode " + ts.map(show(_)).mkString(", ")
+        sections.mkString("(", ", ", ")")
       case Type.Tuple(Nil) =>
         "()"
       case Type.Tuple(ts) =>
@@ -136,6 +141,8 @@ object Check:
         args.flatMap(free).distinct
       case Type.Fun(args, r) =>
         (args :+ r).flatMap(free).distinct
+      case Type.Proc(ins, outs, refs) =>
+        (ins ++ outs ++ refs).flatMap(free).distinct
       case Type.Tuple(ts) =>
         ts.flatMap(free).distinct
 
@@ -147,6 +154,8 @@ object Check:
         args.exists(holes)
       case Type.Fun(args, r) =>
         (args :+ r).exists(holes)
+      case Type.Proc(ins, outs, refs) =>
+        (ins ++ outs ++ refs).exists(holes)
       case Type.Tuple(ts) =>
         ts.exists(holes)
       case _ =>
@@ -158,6 +167,8 @@ object Check:
         Type.Sort(name, args.map(subst(_, su)))
       case Type.Fun(args, r) =>
         Type.Fun(args.map(subst(_, su)), subst(r, su))
+      case Type.Proc(ins, outs, refs) =>
+        Type.Proc(ins.map(subst(_, su)), outs.map(subst(_, su)), refs.map(subst(_, su)))
       case Type.Tuple(ts) =>
         Type.Tuple(ts.map(subst(_, su)))
       case _ =>
@@ -295,6 +306,8 @@ class Check(program: Program, main: Id):
         t
       case Type.Fun(args, r) =>
         Type.Fun(args.map(normalize), normalize(r))
+      case Type.Proc(ins, outs, refs) =>
+        Type.Proc(ins.map(normalize), outs.map(normalize), refs.map(normalize))
       case Type.Tuple(ts) =>
         Type.Tuple(ts.map(normalize))
       case Type.Sort(name, args) if isBasic(name) =>
@@ -338,6 +351,8 @@ class Check(program: Program, main: Id):
         Type.Sort(name, args.map(zonk(_)))
       case Type.Fun(args, r) =>
         Type.Fun(args.map(zonk(_)), zonk(r))
+      case Type.Proc(ins, outs, refs) =>
+        Type.Proc(ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)))
       case Type.Tuple(ts) =>
         Type.Tuple(ts.map(zonk(_)))
       case t =>
@@ -359,6 +374,8 @@ class Check(program: Program, main: Id):
         Expr.App(zonk(fun), args.map(zonk(_)))(e.pos)
       case Expr.Lam(bound, body) =>
         Expr.Lam(bound.map(zonk(_)), zonk(body))(e.pos)
+      case Expr.Proc(ins, outs, refs, body) =>
+        Expr.Proc(ins.map(zonk(_)), outs.map(zonk(_)), refs.map(zonk(_)), zonk(body))(e.pos)
       case Expr.Let(bound, body) =>
         Expr.Let(bound.map((x, a) => (zonk(x), zonk(a))), zonk(body))(e.pos)
       case Expr.Ite(test, left, right) =>
@@ -444,6 +461,8 @@ class Check(program: Program, main: Id):
         args.exists(occurs(i, _))
       case Type.Fun(args, r) =>
         (args :+ r).exists(occurs(i, _))
+      case Type.Proc(ins, outs, refs) =>
+        (ins ++ outs ++ refs).exists(occurs(i, _))
       case Type.Tuple(ts) =>
         ts.exists(occurs(i, _))
       case _ =>
@@ -463,6 +482,8 @@ class Check(program: Program, main: Id):
         unify(as, bs)
       case (Type.Fun(as, r), Type.Fun(bs, s)) if as.length == bs.length =>
         unify(as :+ r, bs :+ s)
+      case (Type.Proc(as, bs, cs), Type.Proc(ds, es, fs)) if as.length == ds.length && bs.length == es.length && cs.length == fs.length =>
+        unify(as ++ bs ++ cs, ds ++ es ++ fs)
       case (Type.Tuple(as), Type.Tuple(bs)) if as.length == bs.length =>
         unify(as, bs)
       case _ =>
@@ -512,12 +533,18 @@ class Check(program: Program, main: Id):
       val ks =
         for n <- candidates(x, constrs.contains)
         yield n -> scheme(constrs(n))
+      // a procedure is a value of its type (in A, out B, ref C)
+      val ps =
+        for n <- candidates(x, procs.contains)
+        yield
+          val (params, ins, outs, refs) = procs(n)
+          n -> (params, Type.Proc(ins, outs, refs))
       val bs =
         for
           s <- builtins.get(x.base).toList
           if x.module.isEmpty
         yield x -> s
-      fs ++ ks ++ bs
+      fs ++ ks ++ ps ++ bs
 
   // the meaning of x applied to n arguments, or n < 0 if x is not applied
   def resolve(env: Map[Name, (List[Type], Type)], x: Name, n: Int): (Name, (List[Type], Type)) =
@@ -610,6 +637,13 @@ class Check(program: Program, main: Id):
           val xs = formals(bound)
           val (body1, t) = infer(env ++ bind(xs), body)
           (Expr.Lam(xs, body1)(e.pos), fun(xs.types, t))
+
+        // the body sees the variables around it, but assigns only the outs and refs of the lambda
+        case Expr.Proc(ins, outs, refs, body) =>
+          distinct((ins ++ outs ++ refs).names, "variable")
+          val (ins1, outs1, refs1) = (formals(ins), formals(outs), formals(refs))
+          val body1 = stmt(env ++ bind(ins1 ++ outs1 ++ refs1), (outs1 ++ refs1).names.toSet, body)
+          (Expr.Proc(ins1, outs1, refs1, body1)(e.pos), Type.Proc(ins1.types, outs1.types, refs1.types))
 
         case Expr.Let(bound, body) =>
           val (vars, args) = bound.unzip
@@ -918,6 +952,17 @@ class Check(program: Program, main: Id):
 
         case Stmt.While(test, body) =>
           Stmt.While(check(env, test, Bool), stmt(env, assignable, body))(s.pos)
+
+        // a variable of a procedure type hides the procedures of that name
+        case Stmt.Call(proc, ins, outs, refs) if env.contains(proc) =>
+          val (is, os, rs) = (ins.map(_ => fresh()), outs.map(_ => fresh()), refs.map(_ => fresh()))
+          unify(instantiate(env(proc)), Type.Proc(is, os, rs))
+          distinct((outs ++ refs).names, s"argument to $proc")
+          val ins1 = check(env, ins, is)
+          val outs1 = outs.map(variable(env, assignable, _))
+          val refs1 = refs.map(variable(env, assignable, _))
+          unify((outs1 ++ refs1).types, os ++ rs)
+          Stmt.Call(proc, ins1, outs1, refs1)(s.pos)
 
         case Stmt.Call(proc, ins, outs, refs) =>
           val (p, (params, is, os, rs)) = procedure(proc).getOrElse(error("type", s"unknown procedure $proc"))

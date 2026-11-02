@@ -35,6 +35,7 @@ test sizes :=
 ## Language
 
 - Functions are pure expressions, procedures are statements with `in`, `out`, and `ref` parameters.
+- Functions and procedures are values: `lambda x => e`, and `lambda in x, out y => statements end` of a type `(in A, out B)`, which sees the variables around it but assigns only its outs and refs.
 - Datatypes with pattern matching, guards, and checks that matches are exhaustive and cases reachable.
 - Named fields of constructors, read as `e.field` and updated as `e with field := a, other := b`, which are resolved by the type of `e`, and raise `MissingField` for a constructor without that field.
 - Type inference with let-polymorphism, where top-level declarations carry their types.

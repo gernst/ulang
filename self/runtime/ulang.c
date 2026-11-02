@@ -234,6 +234,15 @@ u_value u_mk_closure(code fun, int size, ...) {
   return v;
 }
 
+u_value u_mk_proc(proc_code proc, int size, ...) {
+  va_list args;
+  va_start(args, size);
+  u_value v = fill(compound(PROC, size), args);
+  v->proc = proc;
+  va_end(args);
+  return v;
+}
+
 static int sign(long long d) {
   return (d > 0) - (d < 0);
 }
@@ -241,6 +250,7 @@ static int sign(long long d) {
 // -1, 0, or 1 for values of the same type, where constructors are ordered by their declaration and then by their fields
 static int compare(u_value a, u_value b) {
   if (a->kind == CLOSURE || b->kind == CLOSURE) u_fail("cannot compare functions");
+  if (a->kind == PROC || b->kind == PROC) u_fail("cannot compare procedures");
   if (a == b) return 0;
   switch (a->kind) {
   case INT:
@@ -285,6 +295,18 @@ u_value u_apply(u_value f, int n, ...) {
   for (int i = 0; i < n; i++) xs[i] = va_arg(args, u_value);
   va_end(args);
   return f->fun(f->items, xs);
+}
+
+// calls a procedure value with the values of its ins, followed by the pointers to its outs and refs
+void u_call_proc(u_value p, int ins, int outs, ...) {
+  va_list args;
+  va_start(args, outs);
+  u_value xs[ins > 0 ? ins : 1];
+  u_value *ys[outs > 0 ? outs : 1];
+  for (int i = 0; i < ins; i++) xs[i] = va_arg(args, u_value);
+  for (int i = 0; i < outs; i++) ys[i] = va_arg(args, u_value *);
+  va_end(args);
+  p->proc(p->items, xs, ys);
 }
 
 u_value u_add(u_value a, u_value b) {
@@ -547,6 +569,9 @@ void u_fprint_value(FILE *out, u_value v) {
     break;
   case CLOSURE:
     fprintf(out, "<function>");
+    break;
+  case PROC:
+    fprintf(out, "<procedure>");
     break;
   }
 }

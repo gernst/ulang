@@ -96,3 +96,39 @@ test locals_in_cases :=
       local  t := s
       assert t == "x"
   end
+
+// procedures as values of the types (in A, out B, ref C), named or as lambdas
+procedure double(in x: Int, out y: Int) :=
+  assign y := 2 * x
+
+procedure twice(in p: (in Int, out Int), x: Int, out z: Int) :=
+  local y: Int
+
+  call p(in x, out y)
+  call p(in y, out z)
+
+procedure each[A](in p: (in A, ref Int), xs: List[A], ref n: Int) :=
+  match xs
+    case [] =>
+      skip
+    case [x; rest] =>
+      call p(in x, ref n)
+      call each(in p, rest, ref n)
+  end
+
+function step(by_two: Bool): (in Int, out Int) :=
+  if by_two then double else lambda in x, out y => assign y := x + 1 end
+
+test procedure_values :=
+  local  z: Int, n := 0, k := 10, p := step(false)
+
+  call   twice(in double, 3, out z)
+  assert z == 12
+  call   twice(in lambda in x, out y => assign y := x + k end, 1, out z)
+  assert z == 21
+  call   each(in lambda in s, ref m => assign m := m + str_size(s) end, ["a", "bc"], ref n)
+  assert n == 3
+  call   p(in 1, out z)
+  assert z == 2
+  call   twice(in step(true), 1, out z)
+  assert z == 4

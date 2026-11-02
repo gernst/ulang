@@ -45,6 +45,8 @@ class Quote(syntax: Id):
         obj("TSort", named(name), list(args)(quote))
       case Type.Fun(args, res) =>
         obj("TFun", list(args)(quote), quote(res))
+      case Type.Proc(ins, outs, refs) =>
+        obj("TProc", list(ins)(quote), list(outs)(quote), list(refs)(quote))
       case Type.Tuple(items) =>
         obj("TTuple", list(items)(quote))
 
@@ -86,6 +88,8 @@ class Quote(syntax: Id):
         obj("ERaise", quote(arg), quote(typ))
       case Expr.Lam(bound, body) =>
         obj("ELam", binders(bound), quote(body))
+      case Expr.Proc(ins, outs, refs, body) =>
+        obj("EProc", binders(ins), binders(outs), binders(refs), quote(body))
       case Expr.Let(bound, body) =>
         obj("ELet", list(bound)((x, a) => tuple(variable(x.name, x.typ), quote(a))), quote(body))
       case Expr.Ite(test, left, right) =>
@@ -213,6 +217,8 @@ class Quote(syntax: Id):
         Type.Param(name(n))
       case K("TFun", List(args, res)) =>
         Type.Fun(items(args)(typ), typ(res))
+      case K("TProc", List(ins, outs, refs)) =>
+        Type.Proc(items(ins)(typ), items(outs)(typ), items(refs)(typ))
       case K("TTuple", List(ts)) =>
         Type.Tuple(items(ts)(typ))
       case K("TSort", List(n, args)) =>
@@ -289,6 +295,8 @@ class Quote(syntax: Id):
         Expr.App(expr(fun), items(args)(expr))()
       case K("ELam", List(bound, body)) =>
         Expr.Lam(items(bound)(binder), expr(body))()
+      case K("EProc", List(ins, outs, refs, body)) =>
+        Expr.Proc(items(ins)(binder), items(outs)(binder), items(refs)(binder), stmt(body))()
       case K("ELet", List(bound, body)) =>
         Expr.Let(items(bound)(pair(binder, expr)), expr(body))()
       case K("EIte", List(test, left, right)) =>

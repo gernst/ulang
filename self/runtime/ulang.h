@@ -27,8 +27,11 @@ extern const struct u_name n_prelude_46_DivisionByZero, n_prelude_46_NoIndex, n_
 // the code of a closure, with its captured values and its arguments
 typedef u_value (*code)(u_value *env, u_value *args);
 
+// the code of a procedure as a value, with its captured values, its ins, and pointers to its outs and refs
+typedef void (*proc_code)(u_value *env, u_value *ins, u_value **outs);
+
 // integers that fit into a long long are INT with num, and others are BIG with an mpz_t, such that each value has one kind
-enum kind { INT, BIG, BOOL, CHAR, STR, CON, TUPLE, CLOSURE };
+enum kind { INT, BIG, BOOL, CHAR, STR, CON, TUPLE, CLOSURE, PROC };
 
 // the fields of the kind of an object, where constructors, tuples, and closures have items
 struct u_object {
@@ -45,6 +48,7 @@ struct u_object {
       union {
         const struct u_name *name;
         code fun;
+        proc_code proc;
       };
       int size;
       u_value *items;
@@ -71,6 +75,7 @@ u_value u_mk_con(const struct u_name *name, int size, ...);
 u_value u_mk_con_array(const struct u_name *name, int size, u_value *items);
 u_value u_mk_tuple(int size, ...);
 u_value u_mk_closure(code fun, int size, ...);
+u_value u_mk_proc(proc_code proc, int size, ...);
 
 // the booleans and the empty list, which exist once
 extern struct u_object u_true, u_false, u_nil;
@@ -89,6 +94,7 @@ static inline u_value u_field(u_value v, int i) {
 int u_equals(u_value a, u_value b);
 u_value u_compare(u_value a, u_value b);
 u_value u_apply(u_value f, int n, ...);
+void u_call_proc(u_value p, int ins, int outs, ...);
 
 u_value u_add(u_value a, u_value b);
 u_value u_sub(u_value a, u_value b);

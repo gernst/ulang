@@ -338,9 +338,14 @@ procedure type_items(in sc: Scope, out items: List[Item[List[Type]]], ref ts: Li
 
 // a type, a type in parentheses, the arguments (A, B) of a function, or ()
 procedure type_basic(in sc: Scope, out r: List[Type], ref ts: List[Token * Int]) :=
-  local n: Id, args: List[Type]
+  local n: Id, args: List[Type], ins: List[Type], outs: List[Type], refs: List[Type]
 
-  if at_punct(ts, '(')
+  if at_punct(ts, '(') and contains(second_token(ts), [TName("in"), TName("out"), TName("ref")])
+    call   advance(ref ts)
+    call   sections(in parse_type, parse_type, sc, out ins, outs, refs, ref ts)
+    call   expect(in TPunct(')'), ref ts)
+    assign r := [TProc(ins, outs, refs)]
+  else if at_punct(ts, '(')
     call advance(ref ts)
     call type_list(in sc, ')', out r, ref ts)
   else
@@ -630,11 +635,27 @@ procedure parse_let(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
       assign e := EMatch(ETuple(es), [Branch(PTuple(ps), None, b)])
   end
 
+// lambda x, y => e is a function, and lambda in x, out y, ref z => body end a procedure, told apart by the modes
 procedure parse_lambda(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
-  local x: Id, xs: List[Var], b: Expr
+  local ins: List[Var], outs: List[Var], refs: List[Var], body: Stmt
 
-  call   advance(ref ts)
-  assign xs := Nil
+  call advance(ref ts)
+
+  if at_section(ts)
+    call   sections(in parse_formal, parse_formal, sc, out ins, outs, refs, ref ts)
+    call   expect(in TSym("=>"), ref ts)
+    call   parse_body(in sc, out body, ref ts)
+    call   keyword(in "end", ref ts)
+    assign e := EProc(ins, outs, refs, body)
+  else
+    call lambda_function(in sc, out e, ref ts)
+  end
+
+function at_section(ts: List[Token * Int]): Bool :=
+  at_keyword(ts, "in") or at_keyword(ts, "out") or at_keyword(ts, "ref")
+
+procedure lambda_function(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
+  local x: Id, xs: List[Var] := Nil, b: Expr
 
   if head_token(ts) != TSym("=>")
     call   parse_plain(in sc, out x, ref ts)
@@ -651,7 +672,6 @@ procedure parse_lambda(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
   call   parse_expr(in sc, out b, ref ts)
   assign e := ELam(reverse(xs), b)
 
-// [a, b] is a :: b :: Nil, [a, b; c] is a :: b :: c, and [result for x in xs, y in ys if test], where if test is optional
 // {a, b} is the set from_list([a, b]) and {k => v, l => w} the map put_all([(k, v), (l, w)], empty()),
 // by the functions of the modules set and map, and {e for x in s if c} and {k => v for k1 => v1 in m if c} their comprehensions
 procedure parse_braces(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
@@ -776,6 +796,7 @@ function unpack(gs: List[Id * Id * Id], e: Expr): Expr :=
       EMatch(EVar(Var(unqualified(h), THole)), [Branch(PTuple([PVar(Var(unqualified(k), THole)), PVar(Var(unqualified(v), THole))]), None, unpack(rest, e))])
   end
 
+// [a, b] is a :: b :: Nil, [a, b; c] is a :: b :: c, and [result for x in xs, y in ys if test], where if test is optional
 procedure parse_brackets(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
   local first: Expr, es: List[Expr], rest: Expr, x: Id, xs: List[Var], l: Expr, lists: List[Expr], c: Expr
 
@@ -1206,40 +1227,61 @@ function section_at(ts: List[Token * Int], w: Str, first: Bool): Bool :=
 function item_follows(ts: List[Token * Int]): Bool :=
   at_punct(ts, ',') and second_token(ts) != TName("out") and second_token(ts) != TName("ref")
 
-// call p(in ins, out outs, ref refs), where each section starts with its keyword, and empty sections are omitted
+// call p(in ins, out outs, ref refs)
 procedure parse_call(in sc: Scope, out s: Stmt, ref ts: List[Token * Int]) :=
-  local p: Id, e: Expr, ins: List[Expr], outs: List[Var], refs: List[Var], first: Bool
+  local p: Id, ins: List[Expr], outs: List[Var], refs: List[Var]
 
   call   advance(ref ts)
   call   parse_name(out p, ref ts)
   call   expect(in TPunct('('), ref ts)
-  assign ins := Nil, outs := Nil, refs := Nil, first := true
+  call   sections(in parse_expr, parse_variable, sc, out ins, outs, refs, ref ts)
+  call   expect(in TPunct(')'), ref ts)
+  assign s := SCall(unqualified(p), ins, outs, refs)
+
+// in ins, out outs, ref refs of calls, declarations, lambdas, and types, where each section starts with its keyword,
+// and empty sections are omitted
+procedure sections[A, B](
+  in item_in: (in Scope, out A, ref List[Token * Int]),
+    item: (in Scope, out B, ref List[Token * Int]),
+    sc: Scope,
+  out ins: List[A], outs: List[B], refs: List[B],
+  ref ts: List[Token * Int]
+) :=
+  local first := true
+
+  assign ins := Nil, outs := Nil, refs := Nil
 
   if at_keyword(ts, "in")
     call   advance(ref ts)
-    call   parse_expr(in sc, out e, ref ts)
-    assign ins := [e], first := false
-
-    while item_follows(ts)
-      call   advance(ref ts)
-      call   parse_expr(in sc, out e, ref ts)
-      assign ins := [e; ins]
-    end
+    call   section_items(in item_in, sc, out ins, ref ts)
+    assign first := false
   end
 
   if section_at(ts, "out", first)
     call   skip_comma(in first, ref ts)
-    call   parse_variables(in sc, out outs, ref ts)
+    call   section_items(in item, sc, out outs, ref ts)
     assign first := false
   end
 
   if section_at(ts, "ref", first)
     call skip_comma(in first, ref ts)
-    call parse_variables(in sc, out refs, ref ts)
+    call section_items(in item, sc, out refs, ref ts)
   end
 
-  call   expect(in TPunct(')'), ref ts)
-  assign s := SCall(unqualified(p), reverse(ins), outs, refs)
+// items separated by commas, at least one, up to the keyword of the next section
+procedure section_items[A](in item: (in Scope, out A, ref List[Token * Int]), sc: Scope, out xs: List[A], ref ts: List[Token * Int]) :=
+  local x: A, rev: List[A]
+
+  call   item(in sc, out x, ref ts)
+  assign rev := [x]
+
+  while item_follows(ts)
+    call   advance(ref ts)
+    call   item(in sc, out x, ref ts)
+    assign rev := [x; rev]
+  end
+
+  assign xs := reverse(rev)
 
 // the comma before a section unless it is the first, and the keyword of the section
 procedure skip_comma(in first: Bool, ref ts: List[Token * Int]) :=
@@ -1249,19 +1291,11 @@ procedure skip_comma(in first: Bool, ref ts: List[Token * Int]) :=
 
   call advance(ref ts)
 
-procedure parse_variables(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
-  local x: Id, rev: List[Var]
+procedure parse_variable(in sc: Scope, out x: Var, ref ts: List[Token * Int]) :=
+  local n: Id
 
-  call   parse_plain(in sc, out x, ref ts)
-  assign rev := [Var(unqualified(x), THole)]
-
-  while item_follows(ts)
-    call   advance(ref ts)
-    call   parse_plain(in sc, out x, ref ts)
-    assign rev := [Var(unqualified(x), THole); rev]
-  end
-
-  assign xs := reverse(rev)
+  call   parse_plain(in sc, out n, ref ts)
+  assign x := Var(unqualified(n), THole)
 
 // only parameters and locals have type annotations
 procedure parse_formal(in sc: Scope, out x: Var, ref ts: List[Token * Int]) :=
@@ -1277,21 +1311,6 @@ procedure parse_formal(in sc: Scope, out x: Var, ref ts: List[Token * Int]) :=
 
   assign x := Var(unqualified(n), t)
 
-// formals separated by commas, at least one, up to the keyword of the next section
-procedure parse_formals1(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
-  local x: Var, rev: List[Var]
-
-  call   parse_formal(in sc, out x, ref ts)
-  assign rev := [x]
-
-  while item_follows(ts)
-    call   advance(ref ts)
-    call   parse_formal(in sc, out x, ref ts)
-    assign rev := [x; rev]
-  end
-
-  assign xs := reverse(rev)
-
 // formals in parentheses, which may be empty
 procedure parse_formals(in sc: Scope, out xs: List[Var], ref ts: List[Token * Int]) :=
   call expect(in TPunct('('), ref ts)
@@ -1299,7 +1318,7 @@ procedure parse_formals(in sc: Scope, out xs: List[Var], ref ts: List[Token * In
   if at_punct(ts, ')')
     assign xs := Nil
   else
-    call parse_formals1(in sc, out xs, ref ts)
+    call section_items(in parse_formal, sc, out xs, ref ts)
   end
 
   call expect(in TPunct(')'), ref ts)
@@ -1621,31 +1640,13 @@ procedure parse_function(in ns: Notations, out c: Cmd, ref ts: List[Token * Int]
   assign c := CFun(unqualified(n), ps, reverse(xss), r, b)
 
 procedure parse_procedure(in ns: Notations, out c: Cmd, ref ts: List[Token * Int]) :=
-  local n: Id, ps: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], first: Bool, b: Stmt
+  local n: Id, ps: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], b: Stmt
 
   call   advance(ref ts)
   call   parse_name(out n, ref ts)
   call   type_params(out ps, ref ts)
   call   expect(in TPunct('('), ref ts)
-  assign ins := Nil, outs := Nil, refs := Nil, first := true
-
-  if at_keyword(ts, "in")
-    call   advance(ref ts)
-    call   parse_formals1(in Scope(ps, ns), out ins, ref ts)
-    assign first := false
-  end
-
-  if section_at(ts, "out", first)
-    call   skip_comma(in first, ref ts)
-    call   parse_formals1(in Scope(ps, ns), out outs, ref ts)
-    assign first := false
-  end
-
-  if section_at(ts, "ref", first)
-    call skip_comma(in first, ref ts)
-    call parse_formals1(in Scope(ps, ns), out refs, ref ts)
-  end
-
+  call   sections(in parse_formal, parse_formal, Scope(ps, ns), out ins, outs, refs, ref ts)
   call   expect(in TPunct(')'), ref ts)
   call   expect(in TSym(":="), ref ts)
   call   parse_body(in Scope(ps, ns), out b, ref ts)
@@ -1954,6 +1955,7 @@ test parse_error_files :=
     "../tests/errors/ambiguous-name.u",
     "../tests/errors/alias-arity.u",
     "../tests/errors/assertion.u",
+    "../tests/errors/assign-captured.u",
     "../tests/errors/assign-input.u",
     "../tests/errors/assign-pattern-variable.u",
     "../tests/errors/assign-twice.u",
@@ -2010,6 +2012,7 @@ test parse_error_files :=
     "../tests/errors/pattern-arity.u",
     "../tests/errors/pattern-duplicate.u",
     "../tests/errors/pattern-type.u",
+    "../tests/errors/procedure-modes.u",
     "../tests/errors/raise-type-parameter.u",
     "../tests/errors/raise-uncaught.u",
     "../tests/errors/raise-unknown-type.u",
