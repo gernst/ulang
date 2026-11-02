@@ -85,7 +85,11 @@ function builtin_functions(): Map[Name, Str * Int] :=
 function descriptor(n: Name): CExpr :=
   CeUnary("&", CeVar("n_" ^ mangle(n)))
 
-// the constructors whose descriptors the runtime defines, since its builtins create them
+// the shared value of constructor n without arguments
+function unit_value(n: Name): CExpr :=
+  CeUnary("&", CeVar("o_" ^ mangle(n)))
+
+// the constructors whose descriptors and values the runtime defines, since its builtins create them
 function runtime_constructors(): Set[Name] :=
   {nil_name(), cons_name(), none_name(), some_name(), os_error_name(), division_by_zero_name(), no_index_name(), no_character_name(), missing_field_name()}
 
@@ -96,19 +100,24 @@ function descriptor_decl(n: Name, i: Int): CDecl :=
     case Name(None, b) => CdGlobal(CtNamed("const struct u_name"), "n_" ^ mangle(n), Some(CeInit([CeVar("NULL"), CeStr(b), CeNum(i)])))
   end
 
-// the descriptors of the constructors of cs that the runtime does not define
+// the shared value of constructor n without arguments
+function unit_decl(n: Name): CDecl :=
+  CdGlobal(CtNamed("struct u_object"), "o_" ^ mangle(n), Some(c_call("U_UNIT", [CeVar("n_" ^ mangle(n))])))
+
+// the descriptors of the constructors of cs that the runtime does not define, and the values of those without arguments
 function descriptor_decls(cs: List[Cmd]): List[CDecl] :=
   match cs
     case Nil => Nil
-    case [CData(_, _, ks); rest] => constructor_decls([k.name for k in ks], 0) ++ descriptor_decls(rest)
+    case [CData(_, _, ks); rest] => constructor_decls(ks, 0) ++ descriptor_decls(rest)
     case [_; rest] => descriptor_decls(rest)
   end
 
-function constructor_decls(ks: List[Name], i: Int): List[CDecl] :=
+function constructor_decls(ks: List[Constr], i: Int): List[CDecl] :=
   match ks
     case Nil => Nil
-    case [k; rest] =>
-      if member(k, runtime_constructors()) then constructor_decls(rest, i + 1) else [descriptor_decl(k, i); constructor_decls(rest, i + 1)]
+    case [k; rest] if member(k.name, runtime_constructors()) => constructor_decls(rest, i + 1)
+    case [Constr(n, []); rest] => [descriptor_decl(n, i), unit_decl(n); constructor_decls(rest, i + 1)]
+    case [Constr(n, _); rest] => [descriptor_decl(n, i); constructor_decls(rest, i + 1)]
   end
 
 function in_scope(xs: List[Name]): Vars :=
@@ -331,7 +340,7 @@ function global_value(gl: Globals, n: Name, t: Type): CExpr :=
     c_call("u_mk_closure", [CeVar("w_" ^ fun_name(n, arity(t))), CeNum(0)])
   else
     match fields_count(gl, n)
-      case Some(0) => c_call("u_mk_con", [descriptor(n), CeNum(0)])
+      case Some(0) => unit_value(n)
       case Some(_) => c_call("u_mk_closure", [CeVar("wc_" ^ mangle(n)), CeNum(0)])
       case None =>
         match get(n, builtin_functions())
@@ -406,7 +415,7 @@ procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], 
       call   gen_name(in "t", out t, ref g)
       call   gen_name(in "e", out d, ref g)
       call   compile_loops(in gl, env, xs, lists, result, c, d, out bs, ref g)
-      assign ss := [CsDecl(value_type(), t, Some(c_call("u_mk_con", [descriptor(nil_name()), CeNum(0)]))), CsDecl(value_ptr(), d, Some(CeUnary("&", CeVar(t))))] ++ bs
+      assign ss := [CsDecl(value_type(), t, Some(unit_value(nil_name()))), CsDecl(value_ptr(), d, Some(CeUnary("&", CeVar(t))))] ++ bs
       assign r := CeVar(t)
 
     case ETuple(items) =>
@@ -471,6 +480,8 @@ procedure compile_named(in gl: Globals, env: Vars, n: Name, ty: Type, args: List
       call compile_exprs(in gl, env, args, out ss, rs, ref g)
       if is_global_fun(gl, n, length(args)) and arity(ty) == length(args)
         assign r := c_call(fun_name(n, length(args)), rs)
+      else if fields_count(gl, n) == Some(0) and args == []
+        assign r := unit_value(n)
       else if fields_count(gl, n) == Some(length(args))
         assign r := c_call("u_mk_con", [descriptor(n), CeNum(length(args))] ++ rs)
       else

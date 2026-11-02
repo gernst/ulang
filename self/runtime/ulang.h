@@ -78,7 +78,13 @@ u_value u_mk_closure(code fun, int size, ...);
 u_value u_mk_proc(proc_code proc, int size, ...);
 
 // the booleans and the empty list, which exist once
-extern struct u_object u_true, u_false, u_nil;
+extern struct u_object u_true, u_false;
+
+// the shared value of a constructor without arguments, with descriptor n
+#define U_UNIT(n) {.kind = CON, .name = &n, .size = 0, .items = NULL}
+
+// the values of the constructors without arguments that the builtins create
+extern struct u_object o_list_46_Nil, o_option_46_None, o_prelude_46_DivisionByZero;
 
 static inline int u_truth(u_value v) {
   return v->num != 0;

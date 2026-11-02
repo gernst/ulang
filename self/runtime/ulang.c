@@ -142,7 +142,6 @@ static long long index_of(u_value v) {
 
 struct u_object u_true = {.kind = BOOL, .num = 1};
 struct u_object u_false = {.kind = BOOL, .num = 0};
-struct u_object u_nil = {.kind = CON, .name = &n_list_46_Nil, .size = 0, .items = NULL};
 
 u_value u_mk_bool(int b) {
   return b ? &u_true : &u_false;
@@ -193,8 +192,12 @@ const struct u_name n_prelude_46_NoIndex = {"prelude", "NoIndex", 0};
 const struct u_name n_prelude_46_NoCharacter = {"prelude", "NoCharacter", 0};
 const struct u_name n_prelude_46_MissingField = {"prelude", "MissingField", 0};
 
+struct u_object o_list_46_Nil = U_UNIT(n_list_46_Nil);
+struct u_object o_option_46_None = U_UNIT(n_option_46_None);
+struct u_object o_prelude_46_DivisionByZero = U_UNIT(n_prelude_46_DivisionByZero);
+
 static void division_by_zero(void) {
-  u_raise(u_mk_con(&n_prelude_46_DivisionByZero, 0), "prelude.DivisionByZero");
+  u_raise(&o_prelude_46_DivisionByZero, "prelude.DivisionByZero");
 }
 
 static void no_index(u_value s, u_value i) {
@@ -354,7 +357,7 @@ u_value u_eq(u_value a, u_value b) {
 }
 
 u_value u_chars(u_value s) {
-  u_value cs = &u_nil;
+  u_value cs = &o_list_46_Nil;
   for (long i = (long)(size_t)s->length - 1; i >= 0; i--) cs = u_mk_con(&n_list_46_Cons, 2, u_mk_char((unsigned char)s->text[i]), cs);
   return cs;
 }
@@ -381,7 +384,7 @@ u_value u_chr(u_value n) {
 // a cell with x at the place end of a list being built, whose tail is the place of the next cell,
 // which changes the list only before it is visible to the program
 u_value *u_append(u_value *end, u_value x) {
-  *end = u_mk_con(&n_list_46_Cons, 2, x, &u_nil);
+  *end = u_mk_con(&n_list_46_Cons, 2, x, &o_list_46_Nil);
   return &(*end)->items[1];
 }
 
@@ -441,7 +444,7 @@ u_value u_str_slice(u_value s, u_value i, u_value j) {
 
 // the parts between the occurrences of c, including empty ones
 u_value u_str_split(u_value s, u_value c) {
-  u_value parts = &u_nil;
+  u_value parts = &o_list_46_Nil;
   const char *end = s->text + (size_t)s->length, *from = end;
   for (const char *p = end; p >= s->text; p--) {
     if (p == s->text || p[-1] == (char)c->num) {
@@ -488,9 +491,9 @@ u_value u_str_quote(u_value s) {
 
 u_value u_str_number(u_value s) {
   const char *p = s->text + (s->text[0] == '-');
-  if (!*p) return u_mk_con(&n_option_46_None, 0);
+  if (!*p) return &o_option_46_None;
   for (; *p; p++)
-    if (*p < '0' || *p > '9') return u_mk_con(&n_option_46_None, 0);
+    if (*p < '0' || *p > '9') return &o_option_46_None;
   return u_mk_con(&n_option_46_Some, 1, u_mk_int_str(s->text));
 }
 
@@ -682,7 +685,7 @@ static u_value read_file(const char *path) {
 static u_value args = NULL;
 
 void u_args(int argc, char **argv) {
-  args = &u_nil;
+  args = &o_list_46_Nil;
   for (int i = argc - 1; i >= 1; i--) args = u_mk_con(&n_list_46_Cons, 2, u_mk_str(argv[i]), args);
 }
 
