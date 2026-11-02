@@ -198,9 +198,9 @@ Matching the code, with the order as the fallback, is the candidate.
 
 Proofs of lemmas with contracts, while proofs of programs are open, see above. Proofs are always structured, simpler than in Isabelle, and read like expressions, with `match` and `if` chains as in functions.
 
-**Goals** consist of fixed variables (the parameters of the lemma, and those bound by cases and witnesses), named facts (the `requires`, case equations, `have`s, and induction hypotheses), and a conclusion. Facts may be named in the contract, `requires pos: n > 0`, where names are only needed to cite them.
+**Goals** consist of fixed variables (the parameters of the lemma, and those bound by cases and witnesses), named facts (the `requires`, case equations, `have`s, and induction hypotheses), and a conclusion. Facts may be named, see below, where names are only needed to cite them.
 
-**Simplification is implicit.** Every goal is simplified before the proof sees it, at the start of a lemma, in every case and branch, and after every `have`, `using`, `obtain`, and `choose`, see below. Goals that simplification closes need no proof: their cases are omitted, and a sequence may end without a closing form if its goal is closed.
+**Simplification is implicit.** Every goal is simplified before the proof sees it, at the start of a lemma, in every case and branch, and after every `have`, `using`, `obtain`, `choose`, `fix`, and `assume`, see below. Goals that simplification closes need no proof: their cases are omitted, and a sequence may end without a closing form if its goal is closed.
 
 **Forms:**
 
@@ -208,17 +208,52 @@ Proofs of lemmas with contracts, while proofs of programs are open, see above. P
 |---|---|
 | `using f, …` | adds facts, where `f` is a fact, a lemma, an instance `take_drop(n - 1, rest)`, or a function for its definition, which simplification then uses |
 | `l(args)` | closes the goal by the instance of a lemma, whose `requires` are simplified to `true` or remain as subgoals |
-| `have h: e`, `have h: e by p` | a named intermediate fact, proven by simplification or by `p`, available to everything after it |
-| `match e case pat => p … end` | cases on a value, where each case gets the fact `e == pat` and its variables |
+| `have h := e`, `have h := e by p` | a named intermediate fact, proven by simplification or by `p`, available to everything after it |
+| `match e case pat => p … end`, `match h := e …` | cases on a value, where each case gets the fact `e == pat` and its variables |
 | `induction x case pat => p … end` | structural induction on a parameter of a datatype, with cases as in `match` |
-| `if c then p else if d then p else p end` | a split on conditions, where each branch gets its condition and the negations of the earlier ones |
-| `subgoals case h: e => p … end` | named subgoals, each proven, from which the goal follows by simplification |
-| `obtain (q, r) := l(args)` | uses a lemma with outs: proves its `requires`, binds the witnesses, and adds its `ensures` |
-| `choose q := e, r := e` | gives the witnesses for the outs of the lemma being proven |
+| `if c then p else if d then p else p end`, `if h := c …` | a split on conditions, where each branch gets its condition and the negations of the earlier ones |
+| `subgoals have h := e … end` | subgoals, each a `have` that sees the earlier ones, from which the goal follows by simplification |
+| `obtain (q, r) := l(args)`, `obtain y := h` | uses a lemma with outs or an existential fact: proves the `requires`, binds the witnesses, and adds the `ensures` or the body of the quantifier |
+| `choose q := e, r := e` | gives the witnesses for the outs of the lemma being proven, or for the existential of the goal |
+| `fix y` | names the variable of a universal of the goal |
+| `assume k := a` | names the premise `a` of an implication `a ==> b` of the goal |
+| `h(args)` | instantiates a universal fact, wherever instances of lemmas go |
 
 **Omitted cases.** Cases of `match` and `induction`, branches of `if` (`if c then p end` leaves the case `not c` to simplification), and subgoals that simplification closes are omitted, and those that remain are written out or covered by `else`. A case that is not closed and not written is an error that shows its simplified goal. Writing a case that simplification closes is allowed, so that proofs survive when simplification gets stronger.
 
-**Sequences.** A proof is a sequence of `using`, `have`, `obtain`, and `choose`, optionally ending in `l(args)`, `match`, `induction`, `if`, or `subgoals`, and its goal must be closed at its end. The bodies of `case`, `then`, and `else` are such sequences, which end at the next `case`, `else`, or `end` like the bodies of statements, which is why the `if` of proofs has an `end`, unlike that of expressions. A `have` with a longer proof is `have h: e`, a sequence, and `end`, like `while`.
+**Sequences.** A proof is a sequence of `using`, `have`, `obtain`, `choose`, `fix`, and `assume`, optionally ending in `l(args)`, `match`, `induction`, `if`, or `subgoals`, and its goal must be closed at its end. The bodies of `case`, `then`, and `else` are such sequences, which end at the next `case`, `else`, or `end` like the bodies of statements, which is why the `if` of proofs has an `end`, unlike that of expressions. A `have` with a longer proof is `have h := e`, a sequence, and `end`, like `while`.
+
+**Facts** are named by `:=`, like variables, wherever they arise:
+
+| Where | Syntax | Fact |
+|---|---|---|
+| contract | `requires pos := n > 0` | the hypothesis |
+| intermediate fact | `have h := e`, `have h := e by p` | `e` once proven |
+| condition | `if h := c then p else if k := d then p else p end` | `c` in the `then`, `not c` in the `else` |
+| match | `match h := e case pat => … end` | `e == pat` in every case, only needed if `e` is not a variable, which is substituted |
+| subgoal | `subgoals have h := e … end` | `e`, for the later subgoals |
+| implication | `assume k := a` | the premise `a`, checked against the goal modulo simplification |
+| induction hypothesis | | the lemma itself, by its name, e.g. `take_drop(n - 1, rest)` |
+
+`obtain` binds variables, not facts, and its fact is named by a following `have k := P(y)`, which simplification proves at once and which restates the formula where the proof needs it.
+
+Facts are used:
+
+1. **implicitly** by simplification, all that are in scope, as rewrite rules if they are equations that the term order orients, and else as conditions, such that `pos` closes side conditions `n > 0`, which is why most facts are never cited, and `have` is the usual way to steer a proof, by stating a step from which the rest follows,
+2. **by instantiation** `h(a, b)` of universal facts, where instances of lemmas go, `using h(a, b)`, `have k := … by h(a, b)`, or as the closing form, where a universal is used implicitly only if it orients as a rewrite rule,
+3. **by obtaining** witnesses, `obtain y := h`, of existential facts,
+4. **as the closing form** `h`, which closes a goal that follows from `h` after simplification.
+
+A fact is visible in the rest of its sequence and in its nested cases and branches, while facts of cases and branches stay in them, and the proof of a `have` sees only the facts before it. Names of facts are local like variables, may shadow lemmas like locals shadow functions, and must be distinct in a scope like those of `let`.
+
+**Quantifiers** in goals and facts are handled like the parameters and outs of lemmas, which are a universal over the parameters and an existential over the outs:
+
+| | `forall x => P` | `exists x => P` |
+|---|---|---|
+| fact, used | instantiated: `h(e)` | witness obtained: `obtain y := h` |
+| goal, proven | variable fixed: `fix y` | witness given: `choose x := e` |
+
+Simplification fixes the outermost universals and implications of the goal, and the outermost existentials of facts, by itself, with the names of the binders, since this loses nothing and is always desirable, so that `fix`, `assume`, and `obtain y := h` are only needed for names, or where a name clashes, in which case the variable is inaccessible and its use an error that asks for it. Instantiating universal facts and giving witnesses for existential goals are choices, after which a goal may no longer be provable, and stay explicit. `choose` takes the names of the binders of the goal, which stay stable as long as the goal does.
 
 **Induction.** Its cases are the constructors of the type, with patterns as in `match`. The induction hypothesis is the lemma itself: in the case `[x; rest]` it may be used on `rest` with any values for its other parameters, e.g. `take_drop(n - 1, rest)`, so that these are generalized for free. The instance with the other arguments unchanged is a fact of the case, and other instances are added by `using`. Induction is only on parameters of datatypes, and the hypothesis only on variables of recursive arguments of constructors, the same structural check as for functions.
 
@@ -290,13 +325,15 @@ This is weaker than SMT, which is why the language makes the structure explicit 
 4. **More induction**: on `Int`, `induction n` for `n >= 0` with the cases `0` and `n + 1`, and computation induction `induction f(xs, ys)`, whose cases follow the `match` of `f`.
 5. **`calc` chains** `e1 == e2 by p == e3 by p` for equational proofs, which `have` covers for now.
 6. **Names**: `subgoals` or a shorter keyword, whether conjunctions give their parts as subgoals without restating them, and `rewrite lemma` or another marker.
-7. **Unfolding functions that are not recursive** always may break abstractions, e.g. `max`, which could be kept by a marker.
-8. **Refs in claims**: a ref of the procedure would be a parameter of the lemma for its initial value and an out for its final value, e.g. `lemma inc_correct(x: Int): (y: Int) := correct inc(ref x => y)`, which needs a syntax for the pair, and then needs no `old` in the lemma.
-9. **Contracts without a `correct` lemma**: tried by a default proof, or reported as unproven.
-10. **Several contracts per procedure**, e.g. as claims `correct p ensures …`, which calls would all assume.
-11. **Total correctness**, by `decreases` on loops and procedures, and claims about exceptions, e.g. `raises`.
-12. **`self/`** at first only parses specifications, lemmas, and proofs and drops them, since the tests of `parse.u` compare both parsers on `tests/`.
-13. **Runtime checks** of contracts in the interpreter, which make specifications useful in tests before they are proven.
+7. **Partial instantiation**: `h(a, _)`, which leaves `y` universal, or by name, `h(y := b)`, for facts and lemmas alike.
+8. **Facts kept from simplification**, e.g. `have h := e only`, used only when cited, if a fact rewrites goals into an unwanted form, left out until needed.
+9. **Unfolding functions that are not recursive** always may break abstractions, e.g. `max`, which could be kept by a marker.
+10. **Refs in claims**: a ref of the procedure would be a parameter of the lemma for its initial value and an out for its final value, e.g. `lemma inc_correct(x: Int): (y: Int) := correct inc(ref x => y)`, which needs a syntax for the pair, and then needs no `old` in the lemma.
+11. **Contracts without a `correct` lemma**: tried by a default proof, or reported as unproven.
+12. **Several contracts per procedure**, e.g. as claims `correct p ensures …`, which calls would all assume.
+13. **Total correctness**, by `decreases` on loops and procedures, and claims about exceptions, e.g. `raises`.
+14. **`self/`** at first only parses specifications, lemmas, and proofs and drops them, since the tests of `parse.u` compare both parsers on `tests/`.
+15. **Runtime checks** of contracts in the interpreter, which make specifications useful in tests before they are proven.
 
 ## Review
 
