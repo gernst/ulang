@@ -61,7 +61,7 @@ A module is a file, and modules see only what they import directly. This is done
 
 Points of a critique of the syntax, ordered by how much they cost when writing `self/check.u`, `self/run.u`, and `self/parse.u`.
 
-1. **Records.** Datatypes have only positional fields, so `Ctx` in `self/ctx.u` needs an accessor and an update function per component, each matching `Ctx(a, f, p, d, m, k)`. Named fields would replace them: `c.funs`, `c with funs := …`, `Ctx { funs := f }`.
+1. **Updates of fields.** Named fields have accessors `c.funs`, but no updates, so the `with_` functions of `self/ctx.u` still match `Ctx(a, f, p, d, m, k, bs)` and rebuild it with one component replaced. An update `c with funs := f, named := bs` would replace them, checked like accesses by the type of `c`, and raising `MissingField` for constructors without the field, e.g. as generated functions `T.with_name` next to the accessors `T.name`.
 2. **Locals.** Every result of a procedure call needs a local, declared with a type at the beginning of a block. Inferring the type from an initial value would help: `local x := e`.
 3. **No parsers as values.** Procedures are not values, and functions cannot fail, so `self/parse.u` repeats each loop of `repsep` and `rep1sep` per kind of item, and has the operator loop three times and `cases` twice, which makes it more than twice as long as `Parser.scala`.
 4. **Patterns are weaker than expressions.** There are no or-patterns `case TParam(_) | TMeta(_) =>`, or as-patterns, which forced `self/run.u` to rebuild values it had just taken apart.

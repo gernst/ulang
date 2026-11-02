@@ -43,21 +43,24 @@ function constr_of(c: Ctx, n: Name): Option[List[Type] * List[Type] * Type] :=
   get(n, c.constrs)
 
 function is_fun(c: Ctx, n: Name): Bool :=
-  schemes_of(c, n) != Nil
+  has(n, c.funs)
 
 function is_proc(c: Ctx, n: Name): Bool :=
-  proc_of(c, n) != None
+  has(n, c.procs)
 
 function is_data(c: Ctx, n: Name): Bool :=
-  data_of(c, n) != None
+  has(n, c.datas)
 
 function is_alias(c: Ctx, n: Name): Bool :=
-  alias_of(c, n) != None
+  has(n, c.aliases)
 
 function is_constr(c: Ctx, n: Name): Bool :=
-  constr_of(c, n) != None
+  has(n, c.constrs)
 
-// the declarations with base name b, of any kind and module
+function is_sort(c: Ctx, n: Name): Bool :=
+  is_data(c, n) or is_alias(c, n)
+
+// the declarations with base name b, of any kind and module, in the order of their declaration
 function names_of(c: Ctx, b: Id): List[Name] :=
   match get(b, c.named)
     case Some(ns) => ns
@@ -66,7 +69,7 @@ function names_of(c: Ctx, b: Id): List[Name] :=
 
 function with_named(bs: Map[Id, List[Name]], n: Name): Map[Id, List[Name]] :=
   match get(n.base, bs)
-    case Some(ns) => if contains(n, ns) then bs else put(n.base, [n; ns], bs)
+    case Some(ns) => if contains(n, ns) then bs else put(n.base, ns ++ [n], bs)
     case None => put(n.base, [n], bs)
   end
 

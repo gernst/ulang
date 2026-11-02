@@ -105,29 +105,20 @@ function visibility(ds: List[Id * Cmd], main: Id): List[Id * List[Id]] :=
   [(m, distinct([m] ++ imports_in(ds, m) ++ ["prelude"] ++ imports_in(ds, "prelude"))) for m in distinct([main] ++ firsts(ds))]
 
 // the declarations named n of a kind that the module sees, where its own declarations hide those of other modules
-// where declared are the declarations of that kind with the base name of n, of all modules
-function visible_names(s: State, n: Name, declared: List[Name]): List[Name] :=
-  match n
-    case Name(Some(_), _) => [d for d in [n] if contains(d, declared)]
-    case Name(None, b) =>
-      if contains(Name(Some(s.module), b), declared) then
-        [Name(Some(s.module), b)]
-      else
-        [d for d in [Name(Some(m), b) for m in drop(1, s.visible)] if contains(d, declared)]
+// and declared tells whether a name is a declaration of that kind
+function visible_names(s: State, n: Name, declared: Name -> Bool): List[Name] :=
+  let ds := [d for d in names_of(s.ctx, n.base) if declared(d)] in
+    match n
+      case Name(Some(_), _) => if contains(n, ds) then [n] else Nil
+      case Name(None, b) =>
+        if contains(Name(Some(s.module), b), ds) then [Name(Some(s.module), b)] else [d for d in ds if is_visible(s, d)]
+    end
+
+function is_visible(s: State, d: Name): Bool :=
+  match d.module
+    case Some(m) => contains(m, s.visible)
+    case None => false
   end
-
-// the declarations of a kind with the base name of n, of all modules
-function funs_named(c: Ctx, n: Name): List[Name] :=
-  [d for d in names_of(c, n.base) if is_fun(c, d)]
-
-function constrs_named(c: Ctx, n: Name): List[Name] :=
-  [d for d in names_of(c, n.base) if is_constr(c, d)]
-
-function procs_named(c: Ctx, n: Name): List[Name] :=
-  [d for d in names_of(c, n.base) if is_proc(c, d)]
-
-function sorts_named(c: Ctx, n: Name): List[Name] :=
-  [d for d in names_of(c, n.base) if is_data(c, d) or is_alias(c, d)]
 
 function tbool(): Type :=
   TSort(unqualified("Bool"), Nil)
@@ -266,9 +257,9 @@ function resolve(su: Subst, t: Type): Type :=
 function occurs(su: Subst, i: Int, t: Type): Bool :=
   match resolve(su, t)
     case TMeta(j) => i == j
-    case TSort(_, args) => contains(true, [occurs(su, i, a) for a in args])
-    case TFun(args, r) => contains(true, [occurs(su, i, a) for a in args ++ [r]])
-    case TTuple(ts) => contains(true, [occurs(su, i, a) for a in ts])
+    case TSort(_, args) => exists(args, lambda a => occurs(su, i, a))
+    case TFun(args, r) => exists(args, lambda a => occurs(su, i, a)) or occurs(su, i, r)
+    case TTuple(ts) => exists(ts, lambda a => occurs(su, i, a))
     else false
   end
 
@@ -288,8 +279,8 @@ function candidates(s: State, env: Env, n: Name): List[Name * (List[Type] * Type
   match lookup(n, env)
     case Some(sc) => [(n, sc)]
     case None =>
-      concat([[(f, sc) for sc in schemes_of(s.ctx, f)] for f in visible_names(s, n, funs_named(s.ctx, n))]) ++
-        [(k, constructor_of(s.ctx, k)) for k in visible_names(s, n, constrs_named(s.ctx, n))] ++
+      concat([[(f, sc) for sc in schemes_of(s.ctx, f)] for f in visible_names(s, n, lambda f => is_fun(s.ctx, f))]) ++
+        [(k, constructor_of(s.ctx, k)) for k in visible_names(s, n, lambda k => is_constr(s.ctx, k))] ++
         [(n, sc) for sc in builtin(n)]
   end
 
@@ -814,7 +805,7 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
         call   arguments(in n, 0, args)
         assign u := t
       else
-        match visible_names(s, n, sorts_named(s.ctx, n))
+        match visible_names(s, n, lambda t => is_sort(s.ctx, t))
           case [m] =>
             call normalize_sort(in m, args, out u, ref s)
           case Nil =>
@@ -1178,7 +1169,7 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
       assign p1 := p, xs := Nil
 
     case PVar(Var(n, a)) =>
-      if visible_names(s, n, constrs_named(s.ctx, n)) != Nil
+      if visible_names(s, n, lambda k => is_constr(s.ctx, k)) != Nil
         call binders(in PApp(n, Nil), t, out p1, xs, ref s)
       else
         call   normalize(in a, out u, ref s)
@@ -1187,7 +1178,7 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
       end
 
     case PApp(n, args) =>
-      match visible_names(s, n, constrs_named(s.ctx, n))
+      match visible_names(s, n, lambda k => is_constr(s.ctx, k))
         case [k1] =>
           assign k := k1
         case Nil =>
@@ -1370,7 +1361,7 @@ function syntax_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type]
 procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
   local m: List[Type * Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var], q: Name
 
-  match visible_names(s, p, procs_named(s.ctx, p))
+  match visible_names(s, p, lambda q => is_proc(s.ctx, q))
     case [q1] =>
       assign q := q1
     case Nil =>

@@ -50,14 +50,21 @@ static void gc_free(void *p, size_t size) {
 #define SMALL_MIN (-16)
 #define SMALL_MAX 255
 static struct u_object small_ints[SMALL_MAX - SMALL_MIN + 1];
+static struct u_object small_chars[256];
 
 // the collector also manages the memory of GMP
 __attribute__((constructor)) static void init(void) {
   GC_INIT();
+  // a small heap collects often while it grows, which took half the time of the compiler
+  GC_expand_hp(128 << 20);
   mp_set_memory_functions(GC_malloc, gc_realloc, gc_free);
   for (int i = 0; i <= SMALL_MAX - SMALL_MIN; i++) {
     small_ints[i].kind = INT;
     small_ints[i].num = i + SMALL_MIN;
+  }
+  for (int i = 0; i < 256; i++) {
+    small_chars[i].kind = CHAR;
+    small_chars[i].num = i;
   }
 }
 
@@ -142,6 +149,7 @@ u_value u_mk_bool(int b) {
 }
 
 u_value u_mk_char(long long c) {
+  if (c >= 0 && c < 256) return &small_chars[c];
   u_value v = object(CHAR);
   v->num = c;
   return v;
@@ -160,10 +168,19 @@ u_value u_mk_str(const char *s) {
   return u_mk_str_n(s, (long long)u_strlen(s));
 }
 
-static u_value *items(int size, va_list args) {
-  u_value *xs = GC_MALLOC((size > 0 ? size : 1) * sizeof(u_value));
-  for (int i = 0; i < size; i++) xs[i] = va_arg(args, u_value);
-  return xs;
+// an object with its items after it, in one allocation
+static u_value compound(enum kind kind, int size) {
+  u_value v = GC_MALLOC(sizeof(struct u_object) + size * sizeof(u_value));
+  if (!v) u_fail("out of memory");
+  v->kind = kind;
+  v->size = size;
+  v->items = (u_value *)(v + 1);
+  return v;
+}
+
+static u_value fill(u_value v, va_list args) {
+  for (int i = 0; i < v->size; i++) v->items[i] = va_arg(args, u_value);
+  return v;
 }
 
 const struct u_name n_list_46_Nil = {"list", "Nil", 0};
@@ -187,19 +204,15 @@ static void no_index(u_value s, u_value i) {
 u_value u_mk_con(const struct u_name *name, int size, ...) {
   va_list args;
   va_start(args, size);
-  u_value v = object(CON);
+  u_value v = fill(compound(CON, size), args);
   v->name = name;
-  v->size = size;
-  v->items = items(size, args);
   va_end(args);
   return v;
 }
 
 u_value u_mk_con_array(const struct u_name *name, int size, u_value *xs) {
-  u_value v = object(CON);
+  u_value v = compound(CON, size);
   v->name = name;
-  v->size = size;
-  v->items = GC_MALLOC((size > 0 ? size : 1) * sizeof(u_value));
   for (int i = 0; i < size; i++) v->items[i] = xs[i];
   return v;
 }
@@ -207,9 +220,7 @@ u_value u_mk_con_array(const struct u_name *name, int size, u_value *xs) {
 u_value u_mk_tuple(int size, ...) {
   va_list args;
   va_start(args, size);
-  u_value v = object(TUPLE);
-  v->size = size;
-  v->items = items(size, args);
+  u_value v = fill(compound(TUPLE, size), args);
   va_end(args);
   return v;
 }
@@ -217,10 +228,8 @@ u_value u_mk_tuple(int size, ...) {
 u_value u_mk_closure(code fun, int size, ...) {
   va_list args;
   va_start(args, size);
-  u_value v = object(CLOSURE);
+  u_value v = fill(compound(CLOSURE, size), args);
   v->fun = fun;
-  v->size = size;
-  v->items = items(size, args);
   va_end(args);
   return v;
 }
@@ -271,7 +280,9 @@ u_value u_compare(u_value a, u_value b) {
 u_value u_apply(u_value f, int n, ...) {
   va_list args;
   va_start(args, n);
-  u_value *xs = items(n, args);
+  // on the stack, since closures copy their arguments
+  u_value xs[n > 0 ? n : 1];
+  for (int i = 0; i < n; i++) xs[i] = va_arg(args, u_value);
   va_end(args);
   return f->fun(f->items, xs);
 }
