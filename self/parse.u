@@ -22,7 +22,7 @@ function keywords(): List[Id] :=
   [
     "_", "assert", "assign", "call", "case", "catch", "data", "else", "end", "eval", "false", "for", "function", "if", "import",
     "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix", "procedure", "raise", "ref", "run", "skip",
-    "test", "then", "true", "type", "try", "while"
+    "test", "then", "true", "type", "try", "while", "with"
   ]
 
 function is_keyword(n: Id): Bool :=
@@ -410,6 +410,32 @@ procedure parse_expr(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
     assign e := ERaise(e, THole)
   else
     call operators(in sc, out e, ref ts)
+
+    if at_keyword(ts, "with")
+      call advance(ref ts)
+      call parse_update(in sc, ref e, ts)
+
+      while at_update(ts)
+        call advance(ref ts)
+        call parse_update(in sc, ref e, ts)
+      end
+    end
+  end
+
+// f := a in e with f := a, which applies the updater T.f:= to e and a, as the checker resolves it by the type of e
+procedure parse_update(in sc: Scope, ref e: Expr, ts: List[Token * Int]) :=
+  local f: Id, a: Expr
+
+  call   parse_name(out f, ref ts)
+  call   expect(in TSym(":="), ref ts)
+  call   operators(in sc, out a, ref ts)
+  assign e := EApp(EVar(Var(unqualified("." ^ f ^ ":="), THole)), [e, a])
+
+// a comma before another update
+function at_update(ts: List[Token * Int]): Bool :=
+  match ts
+    case [(TPunct(','), _), (TName(_), _), (TSym(":="), _); _] => true
+    else false
   end
 
 procedure operators(in sc: Scope, out e: Expr, ref ts: List[Token * Int]) :=
@@ -1165,10 +1191,10 @@ data Context :=
   | Context(notations: Notations, modules: List[Id * List[Cmd]], loading: List[Id], base: Option[Notations], dir: Option[Str])
 
 function with_commands(cx: Context, cs: List[Cmd]): Context :=
-  Context(with_notations(cx.notations, cs), cx.modules, cx.loading, cx.base, cx.dir)
+  cx with notations := with_notations(cx.notations, cs)
 
 function with_module(cx: Context, c: Cmd): Context :=
-  Context(cx.notations, modules_of(c) ++ cx.modules, cx.loading, cx.base, cx.dir)
+  cx with modules := modules_of(c) ++ cx.modules
 
 // module c and the modules it loads, with their own notations
 function modules_of(c: Cmd): List[Id * List[Cmd]] :=
@@ -1330,7 +1356,7 @@ procedure parse_data(in ns: Notations, out cs: List[Cmd], ref ts: List[Token * I
       skip
   end
 
-  assign cs := [CData(unqualified(n), ps, firsts(reverse(rev))); accessors(n, ps, reverse(rev))]
+  assign cs := [CData(unqualified(n), ps, firsts(reverse(rev))); accessors(n, ps, reverse(rev)) ++ updaters(n, ps, reverse(rev))]
 
 function field_names(fs: List[Option[Id]]): List[Id] :=
   match fs
@@ -1401,6 +1427,32 @@ function field_case(e: Id * (Name * Int * Int * Type)): Branch[Expr] :=
 
 function missing_field(t: Id, f: Id): Branch[Expr] :=
   Branch(PWild, None, ERaise(EApp(EVar(Var(unqualified("MissingField"), THole)), [ELit(VStr(t ^ "." ^ f))]), THole))
+
+// the updater T.f:= of each field f, where x with f := y is C(a0, y, a2) for x = C(a0, _, a2)
+function updaters(t: Id, ps: List[Id], ks: List[Constr * List[Option[Id]]]): List[Cmd] :=
+  let fs := fields_of(ks) in
+    [updater(t, ps, f, fields_named(f, fs), length(ks)) for f in distinct(firsts(fs))]
+
+function updater(t: Id, ps: List[Id], f: Id, es: List[Id * (Name * Int * Int * Type)], n: Int): Cmd :=
+  let x := Var(unqualified("x"), THole), owner := TSort(unqualified(t), [TParam(p) for p in ps]) in
+    CFun(
+      unqualified(t ^ "." ^ f ^ ":="),
+      ps,
+      [[Var(unqualified("x"), owner), Var(unqualified("y"), field_type(es))]],
+      owner,
+      EMatch(EVar(x), [update_case(e) for e in es] ++ (if length(es) == n then [] else [missing_field(t, f)]))
+    )
+
+// case C(a0, _, a2) => C(a0, y, a2), where y replaces the field at its position
+function update_case(e: Id * (Name * Int * Int * Type)): Branch[Expr] :=
+  match e
+    case (_, (k, i, n, _)) =>
+      Branch(
+        PApp(k, [if j == i then PWild else PVar(Var(unqualified("a" ^ str_show(j)), THole)) for j in positions(n)]),
+        None,
+        EApp(EVar(Var(k, THole)), [EVar(Var(unqualified(if j == i then "y" else "a" ^ str_show(j)), THole)) for j in positions(n)])
+      )
+  end
 
 function positions(n: Int): List[Int] :=
   positions_from(0, n)
@@ -1587,7 +1639,7 @@ procedure load_module(in n: Id, cx: Context, at: Int, out cs: List[Cmd]) :=
   end
 
   call   module_text(in n, cx.dir, at, out text)
-  assign mcx := Context(base_notations(cx), cx.modules, [n; cx.loading], cx.base, cx.dir)
+  assign mcx := cx with notations := base_notations(cx), loading := [n; cx.loading]
 
   try
     call lex(in text, out mts)
@@ -1624,7 +1676,7 @@ procedure module_after(in name: Id, pre: Program, dir: Option[Str], text: Str, o
   local cx := Context(no_notations(), Nil, Nil, None, None)
 
   call declare_all(in pre.cmds, ref cx)
-  call parse_text(in text, Context(cx.notations, cx.modules, [name], Some(cx.notations), dir), out p)
+  call parse_text(in text, cx with loading := [name], base := Some(cx.notations), dir := dir, out p)
 
 // the prelude, or another module of the library parsed after the prelude, as library gives them
 procedure parse_library(in n: Id, out p: Program) :=
@@ -1833,6 +1885,7 @@ test parse_error_files :=
     "../tests/errors/unit.u",
     "../tests/errors/unknown-constructor.u",
     "../tests/errors/unknown-field.u",
+    "../tests/errors/unknown-field-update.u",
     "../tests/errors/unknown-procedure.u",
     "../tests/errors/unknown-sort-generic.u",
     "../tests/errors/unknown-sort.u",

@@ -74,31 +74,19 @@ function with_named(bs: Map[Id, List[Name]], n: Name): Map[Id, List[Name]] :=
   end
 
 function with_alias(c: Ctx, n: Name, ps: List[Id], t: Type): Ctx :=
-  match c
-    case Ctx(a, f, p, d, m, k, bs) => Ctx(put(n, (ps, t), a), f, p, d, m, k, with_named(bs, n))
-  end
+  c with aliases := put(n, (ps, t), c.aliases), named := with_named(c.named, n)
 
 function with_fun(c: Ctx, n: Name, sc: List[Type] * Type): Ctx :=
-  match c
-    case Ctx(a, f, p, d, m, k, bs) => Ctx(a, put(n, schemes_of(c, n) ++ [sc], f), p, d, m, k, with_named(bs, n))
-  end
+  c with funs := put(n, schemes_of(c, n) ++ [sc], c.funs), named := with_named(c.named, n)
 
 function with_proc(c: Ctx, n: Name, g: List[Type] * List[Type] * List[Type] * List[Type]): Ctx :=
-  match c
-    case Ctx(a, f, p, d, m, k, bs) => Ctx(a, f, put(n, g, p), d, m, k, with_named(bs, n))
-  end
+  c with procs := put(n, g, c.procs), named := with_named(c.named, n)
 
 function with_data(c: Ctx, n: Name, arity: Int): Ctx :=
-  match c
-    case Ctx(a, f, p, d, m, k, bs) => Ctx(a, f, p, put(n, arity, d), m, k, with_named(bs, n))
-  end
+  c with datas := put(n, arity, c.datas), named := with_named(c.named, n)
 
 function with_members(c: Ctx, n: Name, cs: List[Name]): Ctx :=
-  match c
-    case Ctx(a, f, p, d, m, k, bs) => Ctx(a, f, p, d, put(n, cs, m), k, bs)
-  end
+  c with members := put(n, cs, c.members)
 
 function with_constr(c: Ctx, n: Name, kc: List[Type] * List[Type] * Type): Ctx :=
-  match c
-    case Ctx(a, f, p, d, m, k, bs) => Ctx(a, f, p, d, m, put(n, kc, k), with_named(bs, n))
-  end
+  c with constrs := put(n, kc, c.constrs), named := with_named(c.named, n)

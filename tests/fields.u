@@ -26,3 +26,18 @@ test fields :=
 test generic_fields :=
   local  q := Pair(1, "one")
   assert q.left == 1 and q.right == "one" and Pair(q, true).left.right == "one"
+
+test updates :=
+  local  p := Point(1, 2), c := Circle("c", Point(0, 0), 2), b := Box("b", Point(1, 1), Point(3, 4)), m := ""
+  assert (p with x := 3) == Point(3, 2) and (p with y := 0, x := p.y + 3) == Point(5, 0)
+  assert (c with radius := 3) == Circle("c", Point(0, 0), 3) and (b with label := "a", corner := p) == Box("a", p, Point(3, 4))
+  assert (c with center := (c.center with x := 1)).center == Point(1, 0)
+  assert (Pair(1, "one") with right := "two") == Pair(1, "two")
+
+  try
+    assign b := b with radius := 1
+  catch
+    case MissingField(f) =>
+      assign m := f
+  end
+  assert m == "Shape.radius"

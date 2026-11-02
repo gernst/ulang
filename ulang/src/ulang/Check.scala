@@ -573,25 +573,28 @@ class Check(program: Program, main: Id):
           val v = use(resolve(env, name, -1), typ, e.pos)
           (v, v.typ)
 
-        // e.f is the accessor T.f of the type T of e, of the module of T, which must be known here
-        case Expr.App(Expr.Var(Name(None, field), typ), List(arg)) if field.length > 1 && field.startsWith(".") =>
+        // e.f is the accessor T.f of the type T of e, of the module of T, which must be known here,
+        // and e with f := a the updater T.f:= applied to e and a
+        case Expr.App(Expr.Var(Name(None, field), typ), arg :: rest) if field.length > 1 && field.startsWith(".") =>
           val (arg1, u) = infer(env, arg)
+          val name = field.drop(1).stripSuffix(":=")
           val accessor =
             zonk(u) match
               case Type.Sort(Name(Some(m), t), _) =>
                 Name(Some(m), t + field)
               case v =>
-                error("type", s"the type ${shows(List(v)).head} of the value of $field is not known")
+                error("type", s"the type ${shows(List(v)).head} of the value of .$name is not known")
           val s =
             funs.getOrElse(accessor, Nil) match
               case List(s) =>
                 s
               case _ =>
-                error("type", s"unknown field ${field.drop(1)} of ${shows(List(u)).head}")
+                error("type", s"unknown field $name of ${shows(List(u)).head}")
           val v = use((accessor, s), typ, e.pos)
+          val (rest1, ts) = rest.map(infer(env, _)).unzip
           val r = fresh()
-          unify(v.typ, fun(List(u), r))
-          (Expr.App(v, List(arg1))(e.pos), r)
+          unify(v.typ, fun(u :: ts, r))
+          (Expr.App(v, arg1 :: rest1)(e.pos), r)
 
         case Expr.App(Expr.Var(name, typ), args) if lookup(env, name).length > 1 =>
           val v = use(resolve(env, name, args.length), typ, e.pos)

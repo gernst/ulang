@@ -1,0 +1,5 @@
+// type error: unknown field z of Point at 5.23
+data Point :=
+  | Point(x: Int, y: Int)
+
+eval Point(1, 2) with z := 3

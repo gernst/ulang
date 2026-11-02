@@ -48,16 +48,12 @@ data Head :=
   | HLit(Val)
 
 function with_ctx(s: State, c: Ctx): State :=
-  match s
-    case State(_, su, n, m, ms, vs) => State(c, su, n, m, ms, vs)
-  end
+  s with ctx := c
 
 // the state for checking a declaration of module m, where the substitution starts empty and unknowns are numbered
 // from 1 again, since unknowns do not outlive the command that introduces them
 function enter(s: State, m: Id): State :=
-  match s
-    case State(c, _, _, _, _, vs) => State(c, empty(), 0, m, sees(m, vs), vs)
-  end
+  s with sub := empty(), count := 0, module := m, visible := sees(m, s.table)
 
 function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
   match lookup(m, vs)
@@ -89,9 +85,7 @@ function qualify(m: Id, c: Cmd): Cmd :=
   end
 
 function qualify_constr(m: Id, k: Constr): Constr :=
-  match k
-    case Constr(n, ts) => Constr(in_module(m, n), ts)
-  end
+  k with name := in_module(m, k.name)
 
 function imports_in(ds: List[Id * Cmd], m: Id): List[Id] :=
   match ds
@@ -334,9 +328,7 @@ function zonk_type(su: Subst, t: Type): Type :=
   end
 
 function zonk_var(su: Subst, x: Var): Var :=
-  match x
-    case Var(n, t) => Var(n, zonk_type(su, t))
-  end
+  x with typ := zonk_type(su, x.typ)
 
 function zonk_vars(su: Subst, xs: List[Var]): List[Var] :=
   [zonk_var(su, x) for x in xs]
@@ -636,19 +628,14 @@ function first_uncovered(hs: List[Head], ks: List[Head * List[Type]]): Pat :=
   end
 
 procedure fresh(out t: Type, ref s: State) :=
-  match s
-    case State(c, su, n, m, ms, vs) =>
-      assign t := TMeta(n + 1), s := State(c, su, n + 1, m, ms, vs)
-  end
+  assign t := TMeta(s.count + 1), s := s with count := s.count + 1
 
 procedure bind_meta(in i: Int, t: Type, ref s: State) :=
   if occurs(s.sub, i, t)
     raise InfiniteType(TMeta(i), zonk_type(s.sub, t))
   end
-  match s
-    case State(c, su, n, m, ms, vs) =>
-      assign s := State(c, put(i, t, su), n, m, ms, vs)
-  end
+
+  assign s := s with sub := put(i, t, s.sub)
 
 procedure unify(in t1: Type, t2: Type, ref s: State) :=
   local a := resolve(s.sub, t1), b := resolve(s.sub, t2)
@@ -1015,12 +1002,13 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
       assign e1 := EApp(f1, args1)
   end
 
-// e.f, which is the accessor T.f of the type T of e, of the module of T, which must be known here
+// e.f, which is the accessor T.f of the type T of e, of the module of T, which must be known here,
+// and e with f := a, which is the updater T.f:= applied to e and a
 procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Expr, t: Type, ref s: State) :=
-  local arg1: Expr, u: Type, acc: Name, x: Var
+  local arg1: Expr, u: Type, rest1: List[Expr], us: List[Type], acc: Name, x: Var
 
   match args
-    case [arg] =>
+    case [arg; rest] =>
       call infer(in env, arg, out arg1, u, ref s)
 
       match zonk_type(s.sub, u)
@@ -1037,9 +1025,10 @@ procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Ex
           raise UnknownField(acc)
       end
 
+      call   infers(in env, rest, out rest1, us, ref s)
       call   fresh(out t, ref s)
-      call   unify(in x.typ, fun([u], t), ref s)
-      assign e1 := EApp(EVar(x), [arg1])
+      call   unify(in x.typ, fun([u; us], t), ref s)
+      assign e1 := EApp(EVar(x), [arg1; rest1])
     else
       raise CountMismatch(1, length(args))
   end

@@ -13,6 +13,9 @@
       "include": "#access"
     },
     {
+      "include": "#update"
+    },
+    {
       "include": "#declaration"
     },
     {
@@ -211,7 +214,7 @@
       "patterns": [
         {
           "name": "keyword.control.ulang",
-          "match": "\\b(if|then|else|while|match|case|end|let|in|lambda|for|call|assign|skip|assert|raise|try|catch|out|ref)\\b"
+          "match": "\\b(if|then|else|while|match|case|end|let|in|lambda|for|call|assign|skip|assert|raise|try|catch|out|ref|with)\\b"
         },
         {
           "name": "keyword.other.ulang",
@@ -328,6 +331,50 @@
           "name": "variable.other.member.ulang"
         }
       }
+    },
+    "update": {
+      "comment": "e with f := a, g := b, where the fields until the end of the line are members",
+      "begin": "\\b(with)\\b",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.ulang"
+        }
+      },
+      "end": "$",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#access"
+        },
+        {
+          "match": "\\b([a-z_][A-Za-z0-9_]*)\\s*(:=)",
+          "captures": {
+            "1": {
+              "name": "variable.other.member.ulang"
+            },
+            "2": {
+              "name": "keyword.operator.ulang"
+            }
+          }
+        },
+        {
+          "include": "#keyword"
+        },
+        {
+          "include": "#constant"
+        },
+        {
+          "include": "#constructor"
+        },
+        {
+          "include": "#operator"
+        }
+      ]
     }
   }
 }

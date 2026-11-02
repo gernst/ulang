@@ -21,7 +21,7 @@ type Vars :=
 
 // the number of fresh names so far, and the functions lifted from lambdas
 data Gen :=
-  | Gen(Int, List[CDecl])
+  | Gen(count: Int, lifted: List[CDecl])
 
 function value_type(): CType :=
   CtNamed("u_value")
@@ -283,16 +283,10 @@ function lambdas(xss: List[List[Var]], b: Expr): Expr :=
   end
 
 procedure gen_name(in stem: Str, out x: Str, ref g: Gen) :=
-  match g
-    case Gen(n, ds) =>
-      assign x := stem ^ str_show(n), g := Gen(n + 1, ds)
-  end
+  assign x := stem ^ str_show(g.count), g := g with count := g.count + 1
 
 procedure lift(in d: CDecl, ref g: Gen) :=
-  match g
-    case Gen(n, ds) =>
-      assign g := Gen(n, ds ++ [d])
-  end
+  assign g := g with lifted := g.lifted ++ [d]
 
 // a function, constructor, or builtin of name n with type t as a value, which is a closure of its wrapper
 procedure global_value(in gl: Globals, n: Name, t: Type, out r: CExpr) :=
@@ -762,11 +756,8 @@ function prototype(d: CDecl): List[CDecl] :=
 procedure compile_program(in q: Program, out f: CFile) :=
   local g := Gen(0, Nil), gl := globals(q.cmds), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl]
 
-  call compile_cmds(in gl, q.cmds, out ds, ms, ref g)
-  match g
-    case Gen(_, lifted) =>
-      assign fs := wrappers(gl) ++ ds ++ lifted
-  end
+  call   compile_cmds(in gl, q.cmds, out ds, ms, ref g)
+  assign fs := wrappers(gl) ++ ds ++ g.lifted
   assign f := CFile([CdInclude("ulang.h")] ++ descriptor_decls(q.cmds) ++ concat([prototype(d) for d in fs]) ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
 
 // checks the program of the file source after the prelude, which is its module, and writes its translation to C to target

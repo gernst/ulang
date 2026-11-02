@@ -81,7 +81,8 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
     "true",
     "type",
     "try",
-    "while"
+    "while",
+    "with"
   )
 
   // symbols with a fixed meaning, which cannot be operators
@@ -260,7 +261,18 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
 
   // raise e is a whole expression, not an operand, such that a statement raise after an expression starts a statement
   def expr(s: Scope): Parser[Expr] =
-    located(pos => kw("raise") ~> expr(s) ^^ (Expr.Raise(_, Type.Hole)(pos))) | operators(s)
+    located(pos => kw("raise") ~> expr(s) ^^ (Expr.Raise(_, Type.Hole)(pos))) | updates(s)
+
+  // e with f := a, g := b updates the fields f and g of e by the updaters T.f:= and T.g:=, which the checker resolves by the type of e
+  def updates(s: Scope): Parser[Expr] =
+    operators(s) ~ opt(kw("with") ~> rep1sep(located(pos => name ~ (":=" ~> operators(s)) ^^ (pos -> _)), ",")) ^^ {
+      case e ~ None =>
+        e
+      case e ~ Some(us) =>
+        us.foldLeft(e):
+          case (r, (pos, f ~ a)) =>
+            Expr.App(Expr.Var(Name("." + f + ":="), Type.Hole)(pos), List(r, a))(pos)
+    }
 
   def exprs(s: Scope): Parser[List[Expr]] =
     rep1sep(expr(s), ",")
@@ -543,17 +555,23 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
           val names = fs.flatten
           for f <- names.diff(names.distinct).headOption do
             error("parse", s"repeated field $f of ${k.name}")
-        Cmd.Data(Name(n), ps, ks.map(_._1))(pos) :: accessors(n, ps, ks, pos)
+        Cmd.Data(Name(n), ps, ks.map(_._1))(pos) :: accessors(n, ps, ks, pos) ++ updaters(n, ps, ks, pos)
       }
     }
 
+  // the fields f of the constructors with each constructor, the position of f, its number of arguments, and the type of f
+  def fieldsOf(ks: List[(Constr, List[Option[Id]])]): List[(Id, Name, Int, Int, Type)] =
+    for
+      (k, names) <- ks
+      case ((Some(f), a), i) <- names.zip(k.args).zipWithIndex
+    yield (f, k.name, i, k.args.length, a)
+
+  def missingField(t: Id, f: Id, pos: Pos): Case[Expr] =
+    Case(Pat.Wild()(pos), None, Expr.Raise(Expr.App(Expr.Var(Name("MissingField"), Type.Hole)(pos), List(Expr.Lit(s"$t.$f")(pos)))(pos), Type.Hole)(pos))
+
   // the accessor T.f of each field f, which raises MissingField if f is not a field of all constructors
   def accessors(t: Id, ps: List[Id], ks: List[(Constr, List[Option[Id]])], pos: Pos): List[Cmd] =
-    val fields =
-      for
-        (k, names) <- ks
-        case ((Some(f), a), i) <- names.zip(k.args).zipWithIndex
-      yield (f, k.name, i, k.args.length, a)
+    val fields = fieldsOf(ks)
     for f <- fields.map(_._1).distinct
     yield
       val es = fields.filter(_._1 == f)
@@ -563,12 +581,27 @@ object Parser extends scala.util.parsing.combinator.RegexParsers:
         yield
           val ps = List.tabulate(n)(j => if j == i then Pat.Var(Name("y"), Type.Hole)(pos) else Pat.Wild()(pos))
           Case(Pat.App(k, ps)(pos), None, Expr.Var(Name("y"), Type.Hole)(pos))
-      val missing =
-        if es.length == ks.length then Nil
-        else
-          List(Case(Pat.Wild()(pos), None, Expr.Raise(Expr.App(Expr.Var(Name("MissingField"), Type.Hole)(pos), List(Expr.Lit(s"$t.$f")(pos)))(pos), Type.Hole)(pos)))
+      val missing = if es.length == ks.length then Nil else List(missingField(t, f, pos))
       val x: Pat.Var = Pat.Var(Name("x"), Type.Sort(Name(t), ps.map(Type.Param(_))))(pos)
       Cmd.Fun(Name(s"$t.$f"), ps, List(List(x)), es.head._5, Expr.Match(Expr.Var(Name("x"), Type.Hole)(pos), cases ++ missing)(pos))(pos)
+
+  // the updater T.f:= of each field f, where x with f := y is C(a0, y, a2) for x = C(a0, _, a2)
+  def updaters(t: Id, ps: List[Id], ks: List[(Constr, List[Option[Id]])], pos: Pos): List[Cmd] =
+    val fields = fieldsOf(ks)
+    for f <- fields.map(_._1).distinct
+    yield
+      val es = fields.filter(_._1 == f)
+      val cases =
+        for (_, k, i, n, _) <- es
+        yield
+          val ps = List.tabulate(n)(j => if j == i then Pat.Wild()(pos) else Pat.Var(Name(s"a$j"), Type.Hole)(pos))
+          val args = List.tabulate(n)(j => Expr.Var(Name(if j == i then "y" else s"a$j"), Type.Hole)(pos))
+          Case(Pat.App(k, ps)(pos), None, Expr.App(Expr.Var(k, Type.Hole)(pos), args)(pos))
+      val missing = if es.length == ks.length then Nil else List(missingField(t, f, pos))
+      val owner = Type.Sort(Name(t), ps.map(Type.Param(_)))
+      val x: Pat.Var = Pat.Var(Name("x"), owner)(pos)
+      val y: Pat.Var = Pat.Var(Name("y"), es.head._5)(pos)
+      Cmd.Fun(Name(s"$t.$f:="), ps, List(List(x, y)), owner, Expr.Match(Expr.Var(Name("x"), Type.Hole)(pos), cases ++ missing)(pos))(pos)
 
   def fun(s: Scope, pos: Pos): Parser[Cmd] =
     generic("function", name | symbol): (n, ps, t) =>
