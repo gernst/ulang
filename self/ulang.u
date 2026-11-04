@@ -249,7 +249,7 @@ function type_message(e: TypeError): Str :=
     case CannotUnify(a, b) => "cannot unify " ^ show_type(a) ^ " and " ^ show_type(b)
     case InfiniteType(a, b) => "infinite type " ^ show_type(a) ^ " = " ^ show_type(b)
     case UnknownVariable(n) => "unknown variable " ^ n.base
-    case OverloadedUnapplied(n) => "overloaded " ^ n.base ^ " must be applied"
+    case NoOverload(n, t) => "no declaration of " ^ n.base ^ " has the type " ^ show_type(t)
     case WrongArity(n, k) => n.base ^ " does not take " ^ str_show(k) ^ " arguments"
     case AlreadyDefined(n) => n.base ^ " is already defined"
     case Duplicate(s) => "duplicate " ^ s
@@ -269,6 +269,7 @@ function type_message(e: TypeError): Str :=
 // the accessor T.f, or the updater T.f:=, of an unknown field f
 function field_message(parts: List[Str]): Str :=
   match parts
+    case ["", f] => "unknown field " ^ without_update(f)
     case [t, f] => "unknown field " ^ without_update(f) ^ " of " ^ t
     case _ => "unknown field " ^ str_join(".", parts)
   end
