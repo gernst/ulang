@@ -25,9 +25,9 @@ function is_punct(c: Char): Bool :=
 function is_name_char(c: Char): Bool :=
   is_letter(c) or is_digit(c) or c == '_'
 
-// the character at i, or the character 0 after the end of s
-function peek(s: Str, i: Int): Char :=
-  if i < str_size(s) then str_get(s, i) else chr(0)
+// the character at offset, or the character 0 after the end of text
+function peek(text: Str, offset: Int): Char :=
+  if offset < str_size(text) then str_get(text, offset) else chr(0)
 
 function unescape(c: Char): Option[Char] :=
   match c
@@ -40,18 +40,22 @@ function unescape(c: Char): Option[Char] :=
     case _ => None
   end
 
-// the end of the run of characters from i that satisfy p
-function scan(s: Str, i: Int, p: Char -> Bool): Int :=
-  if p(peek(s, i)) then scan(s, i + 1, p) else i
+// the run of characters from offset that satisfy p, where start is the offset before it, and offset ends after it
+procedure scan(in text: Str, p: Char -> Bool, out start: Int, ref offset: Int) :=
+  assign start := offset
 
-// the line and column of the offset i in s, counted from 1
-procedure position(in s: Str, i: Int, out line: Int, column: Int) :=
+  while p(peek(text, offset))
+    assign offset := offset + 1
+  end
+
+// the line and column of offset in text, counted from 1
+procedure position(in text: Str, offset: Int, out line: Int, column: Int) :=
   local j: Int
 
   assign j := 0, line := 1, column := 1
 
-  while j < i
-    if str_get(s, j) == '\n'
+  while j < offset
+    if str_get(text, j) == '\n'
       assign line := line + 1, column := 1
     else
       assign column := column + 1
@@ -60,120 +64,123 @@ procedure position(in s: Str, i: Int, out line: Int, column: Int) :=
     assign j := j + 1
   end
 
-// the contents of the literal delimited by q at i, with its escapes resolved, where i ends after the closing quote
-procedure lex_literal(in s: Str, q: Char, out text: Str, ref i: Int) :=
-  local start: Int, from: Int, parts: List[Str], c: Char
+// the contents of the literal delimited by q at offset, with its escapes resolved, where offset ends after the closing quote
+procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int) :=
+  local start := offset, from := offset + 1, parts: List[Str] := Nil, c: Char
 
-  assign start := i, i := i + 1, parts := Nil
-  assign from := i
+  assign offset := offset + 1
 
-  while peek(s, i) != q
-    assign c := peek(s, i)
+  while peek(text, offset) != q
+    assign c := peek(text, offset)
 
-    if c == '\n' or i >= str_size(s)
+    if c == '\n' or offset >= str_size(text)
       raise LexError("unterminated literal", start)
     end
 
     if c == '\\'
-      match unescape(peek(s, i + 1))
+      match unescape(peek(text, offset + 1))
         case Some(d) =>
-          assign parts := [string([d]), str_slice(s, from, i); parts], i := i + 2
-          assign from := i
+          assign parts := [string([d]), str_slice(text, from, offset); parts], offset := offset + 2
+          assign from := offset
         case None =>
-          raise LexError("invalid escape", i)
+          raise LexError("invalid escape", offset)
       end
     else
-      assign i := i + 1
+      assign offset := offset + 1
     end
   end
 
-  assign text := str_join("", reverse([str_slice(s, from, i); parts])), i := i + 1
+  assign contents := str_join("", reverse([str_slice(text, from, offset); parts])), offset := offset + 1
 
-procedure lex_name(in s: Str, out t: Token, ref i: Int) :=
-  local j := scan(s, i, is_name_char)
+procedure lex_name(in text: Str, out tok: Token, ref offset: Int) :=
+  local from: Int
 
-  assign t := TName(str_slice(s, i, j)), i := j
+  call   scan(in text, is_name_char, out from, ref offset)
+  assign tok := TName(str_slice(text, from, offset))
 
-procedure lex_number(in s: Str, out t: Token, ref i: Int) :=
-  local j := scan(s, i, is_digit)
+procedure lex_number(in text: Str, out tok: Token, ref offset: Int) :=
+  local from: Int
 
-  match str_number(str_slice(s, i, j))
+  call scan(in text, is_digit, out from, ref offset)
+
+  match str_number(str_slice(text, from, offset))
     case Some(n) =>
-      assign t := TNum(n), i := j
+      assign tok := TNum(n)
     case None =>
-      raise LexError("invalid number", i)
+      raise LexError("invalid number", from)
   end
 
-procedure lex_symbol(in s: Str, out t: Token, ref i: Int) :=
-  local j := scan(s, i, is_symbol)
+procedure lex_symbol(in text: Str, out tok: Token, ref offset: Int) :=
+  local from: Int
 
-  assign t := TSym(str_slice(s, i, j)), i := j
+  call   scan(in text, is_symbol, out from, ref offset)
+  assign tok := TSym(str_slice(text, from, offset))
 
-procedure lex_string(in s: Str, out t: Token, ref i: Int) :=
-  local text: Str
+procedure lex_string(in text: Str, out tok: Token, ref offset: Int) :=
+  local contents: Str
 
-  call   lex_literal(in s, '"', out text, ref i)
-  assign t := TStr(text)
+  call   lex_literal(in text, '"', out contents, ref offset)
+  assign tok := TStr(contents)
 
-procedure lex_char(in s: Str, out t: Token, ref i: Int) :=
-  local start := i, text: Str
+procedure lex_char(in text: Str, out tok: Token, ref offset: Int) :=
+  local start := offset, contents: Str
 
-  call lex_literal(in s, '\'', out text, ref i)
+  call lex_literal(in text, '\'', out contents, ref offset)
 
-  if str_size(text) != 1
+  if str_size(contents) != 1
     raise LexError("invalid character", start)
   end
 
-  assign t := TChar(str_get(text, 0))
+  assign tok := TChar(str_get(contents, 0))
 
-// the token at i, where i ends after it
-procedure lex_token(in s: Str, out t: Token, ref i: Int) :=
-  local c := str_get(s, i)
+// the token at offset, where offset ends after it
+procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
+  local c := str_get(text, offset)
 
   match c
     case _ if is_letter(c) or c == '_' =>
-      call lex_name(in s, out t, ref i)
+      call lex_name(in text, out tok, ref offset)
     case _ if is_digit(c) =>
-      call lex_number(in s, out t, ref i)
+      call lex_number(in text, out tok, ref offset)
     case _ if is_symbol(c) =>
-      call lex_symbol(in s, out t, ref i)
+      call lex_symbol(in text, out tok, ref offset)
     case '"' =>
-      call lex_string(in s, out t, ref i)
+      call lex_string(in text, out tok, ref offset)
     case '\'' =>
-      call lex_char(in s, out t, ref i)
+      call lex_char(in text, out tok, ref offset)
     case _ if is_punct(c) =>
-      assign t := TPunct(c), i := i + 1
+      assign tok := TPunct(c), offset := offset + 1
     case _ =>
-      raise LexError("unexpected character", i)
+      raise LexError("unexpected character", offset)
   end
 
-// the tokens of s with their offsets, which end with TEnd at the end of s
-procedure lex(in s: Str, out ts: List[Token * Int]) :=
-  local i := 0, rev: List[Token * Int] := Nil, start: Int, t: Token
+// the tokens of text with their offsets, which end with TEnd at the end of text
+procedure lex(in text: Str, out toks: List[Token * Int]) :=
+  local offset := 0, rev: List[Token * Int] := Nil, start: Int, tok: Token
 
-  while i < str_size(s)
-    assign start := i
+  while offset < str_size(text)
+    assign start := offset
 
-    if is_space(str_get(s, i))
-      assign i := i + 1
-    else if str_get(s, i) == '/' and peek(s, i + 1) == '/'
-      assign i := scan(s, i, lambda c => c != '\n')
+    if is_space(str_get(text, offset))
+      assign offset := offset + 1
+    else if str_get(text, offset) == '/' and peek(text, offset + 1) == '/'
+      call scan(in text, lambda c => c != '\n', out start, ref offset)
     else
-      call   lex_token(in s, out t, ref i)
-      assign rev := [(t, start); rev]
+      call   lex_token(in text, out tok, ref offset)
+      assign rev := [(tok, start); rev]
     end
   end
 
-  assign ts := reverse([(TEnd, i); rev])
+  assign toks := reverse([(TEnd, offset); rev])
 
-function tokens(ts: List[Token * Int]): List[Token] :=
-  firsts(ts)
+function tokens(toks: List[Token * Int]): List[Token] :=
+  firsts(toks)
 
 test lex_tokens() :=
-  local ts: List[Token * Int]
+  local toks: List[Token * Int]
 
-  call   lex(in "function f(x: Int): Int := x+-1 // one\n", out ts)
-  assert ts ==
+  call   lex(in "function f(x: Int): Int := x+-1 // one\n", out toks)
+  assert toks ==
     [
       (TName("function"), 0),
       (TName("f"), 9),
@@ -192,33 +199,33 @@ test lex_tokens() :=
     ]
 
 test lex_literals() :=
-  local ts: List[Token * Int]
+  local toks: List[Token * Int]
 
-  call   lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' [x; xs]", out ts)
-  assert tokens(ts) == [TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\''), TPunct('['), TName("x"), TPunct(';'), TName("xs"), TPunct(']'), TEnd]
+  call   lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' [x; xs]", out toks)
+  assert tokens(toks) == [TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\''), TPunct('['), TName("x"), TPunct(';'), TName("xs"), TPunct(']'), TEnd]
 
 test lex_errors() :=
-  local ts: List[Token * Int], e: LexError
+  local toks: List[Token * Int], e: LexError
 
   try
-    call lex(in "x := \"ab", out ts)
+    call lex(in "x := \"ab", out toks)
   catch
-    case LexError(m, i) =>
-      assign e := LexError(m, i)
+    case LexError(m, offset) =>
+      assign e := LexError(m, offset)
   end
   assert e == LexError("unterminated literal", 5)
   try
-    call lex(in "'\\q'", out ts)
+    call lex(in "'\\q'", out toks)
   catch
-    case LexError(m, i) =>
-      assign e := LexError(m, i)
+    case LexError(m, offset) =>
+      assign e := LexError(m, offset)
   end
   assert e == LexError("invalid escape", 1)
   try
-    call lex(in "'ab'", out ts)
+    call lex(in "'ab'", out toks)
   catch
-    case LexError(m, i) =>
-      assign e := LexError(m, i)
+    case LexError(m, offset) =>
+      assign e := LexError(m, offset)
   end
   assert e == LexError("invalid character", 0)
 
@@ -230,12 +237,12 @@ test lex_position() :=
 
 // all files of self lex without errors
 test lex_files() :=
-  local text: Str, ts: List[Token * Int]
+  local text: Str, toks: List[Token * Int]
 
   call   os_read(in "lex.u", out text)
-  call   lex(in text, out ts)
-  assert length(ts) > 1000
+  call   lex(in text, out toks)
+  assert length(toks) > 1000
   call   os_read(in "check.u", out text)
-  call   lex(in text, out ts)
+  call   lex(in text, out toks)
   call   os_read(in "compile.u", out text)
-  call   lex(in text, out ts)
+  call   lex(in text, out toks)

@@ -35,5 +35,6 @@ A file that is expected to fail states the error in its first line, e.g. `// typ
 
 ## Style
 
+- In the code, the parameters of functions, procedures, and lambdas are called formals, and params are type parameters.
 - Omit comments that are self-evident from the code, such as doc comments that restate the name of a declaration.
 - Use functions only for computations that terminate; code that may not terminate, such as the evaluator of `self/run.u`, which interprets any program, is written as procedures. The checker does not enforce this.
