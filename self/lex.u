@@ -13,6 +13,10 @@ data Token :=
   | TChar(Char)
   | TEnd
 
+// tokens with their offsets
+type Tokens :=
+  List[Token * Int]
+
 data LexError :=
   | LexError(Str, Int)
 
@@ -155,8 +159,8 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
   end
 
 // the tokens of text with their offsets, which end with TEnd at the end of text
-procedure lex(in text: Str, out toks: List[Token * Int]) :=
-  local offset := 0, rev: List[Token * Int] := Nil, start: Int, tok: Token
+procedure lex(in text: Str, out toks: Tokens) :=
+  local offset := 0, rev: Tokens := Nil, start: Int, tok: Token
 
   while offset < str_size(text)
     assign start := offset
@@ -173,11 +177,11 @@ procedure lex(in text: Str, out toks: List[Token * Int]) :=
 
   assign toks := reverse([(TEnd, offset); rev])
 
-function tokens(toks: List[Token * Int]): List[Token] :=
+function tokens(toks: Tokens): List[Token] :=
   firsts(toks)
 
 test lex_tokens() :=
-  local toks: List[Token * Int]
+  local toks: Tokens
 
   call   lex(in "function f(x: Int): Int := x+-1 // one\n", out toks)
   assert toks ==
@@ -199,13 +203,13 @@ test lex_tokens() :=
     ]
 
 test lex_literals() :=
-  local toks: List[Token * Int]
+  local toks: Tokens
 
   call   lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' [x; xs]", out toks)
   assert tokens(toks) == [TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\''), TPunct('['), TName("x"), TPunct(';'), TName("xs"), TPunct(']'), TEnd]
 
 test lex_errors() :=
-  local toks: List[Token * Int], e: LexError
+  local toks: Tokens, e: LexError
 
   try
     call lex(in "x := \"ab", out toks)
@@ -237,7 +241,7 @@ test lex_position() :=
 
 // all files of self lex without errors
 test lex_files() :=
-  local text: Str, toks: List[Token * Int]
+  local text: Str, toks: Tokens
 
   call   os_read(in "lex.u", out text)
   call   lex(in text, out toks)
