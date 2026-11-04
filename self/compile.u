@@ -115,7 +115,7 @@ function descriptor_decls(cs: List[Cmd]): List[CDecl] :=
 function constructor_decls(ks: List[Constr], i: Int): List[CDecl] :=
   match ks
     case Nil => Nil
-    case [k; rest] if member(k.name, runtime_constructors()) => constructor_decls(rest, i + 1)
+    case [k; rest] if contains(k.name, runtime_constructors()) => constructor_decls(rest, i + 1)
     case [Constr(n, []); rest] => [descriptor_decl(n, i), unit_decl(n); constructor_decls(rest, i + 1)]
     case [Constr(n, _); rest] => [descriptor_decl(n, i); constructor_decls(rest, i + 1)]
   end
@@ -127,7 +127,7 @@ function pointer(x: Name): Name * CExpr :=
   (x, CeUnary("*", CeVar(ref_name(x))))
 
 function var_expr(env: Vars, x: Name): CExpr :=
-  match lookup(x, env)
+  match get(x, env)
     case Some(c) => c
     case _ => CeVar(var_name(x))
   end
@@ -157,7 +157,7 @@ function globals(cs: List[Cmd]): Globals :=
 // the numbers of ins and of outs and refs of a procedure
 function proc_arities(c: Cmd): List[Name * (Int * Int)] :=
   match c
-    case CProc(n, _, ins, outs, refs, _) => [(n, (length(ins), length(outs) + length(refs)))]
+    case CProc(n, _, ins, outs, refs, _) => [(n, (size(ins), size(outs) + size(refs)))]
     case _ => []
   end
 
@@ -189,7 +189,7 @@ function fields_count(gl: Globals, n: Name): Option[Int] :=
 
 function fun_arities(c: Cmd): List[Name * Int] :=
   match c
-    case CFun(n, _, xss, _, _) => [(n, length(first_list(xss)))]
+    case CFun(n, _, xss, _, _) => [(n, size(first_list(xss)))]
     case _ => []
   end
 
@@ -201,7 +201,7 @@ function constr_arities(c: Cmd): List[Name * Int] :=
 
 function constr_arity(k: Constr): Name * Int :=
   match k
-    case Constr(n, ts) => (n, length(ts))
+    case Constr(n, ts) => (n, size(ts))
   end
 
 function numbered[A](xs: List[A], i: Int): List[A * Int] :=
@@ -345,7 +345,7 @@ function global_value(gl: Globals, n: Name, t: Type): CExpr :=
       case None =>
         match get(n, builtin_functions())
           case Some((f, _)) => c_call("u_mk_closure", [CeVar("w" ^ f), CeNum(0)])
-          case None if has(n, gl.procs) => c_call("u_mk_proc", [CeVar("wp_" ^ mangle(n)), CeNum(0)])
+          case None if contains(n, gl.procs) => c_call("u_mk_proc", [CeVar("wp_" ^ mangle(n)), CeNum(0)])
           case None => raise Unsupported("the variable " ^ qualified(n))
         end
     end
@@ -364,7 +364,7 @@ procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], 
       assign ss := Nil, r := literal_value(l)
 
     case EVar(Var(n, ty)) =>
-      match lookup(n, env)
+      match get(n, env)
         case Some(c) =>
           assign ss := Nil, r := c
         case None =>
@@ -377,7 +377,7 @@ procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], 
     case EApp(f, args) =>
       call   compile_expr(in gl, env, f, out as, ra, ref g)
       call   compile_exprs(in gl, env, args, out bs, rs, ref g)
-      assign ss := as ++ bs, r := c_call("u_apply", [ra, CeNum(length(args))] ++ rs)
+      assign ss := as ++ bs, r := c_call("u_apply", [ra, CeNum(size(args))] ++ rs)
 
     case ELam(xs, b) =>
       call compile_lambda(in gl, env, xs, b, out ss, r, ref g)
@@ -420,7 +420,7 @@ procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], 
 
     case ETuple(items) =>
       call   compile_exprs(in gl, env, items, out ss, rs, ref g)
-      assign r := c_call("u_mk_tuple", [CeNum(length(items))] ++ rs)
+      assign r := c_call("u_mk_tuple", [CeNum(size(items))] ++ rs)
 
     // the value of a raise is never used, since u_raise does not return
     case ERaise(arg, ty) =>
@@ -478,18 +478,18 @@ procedure compile_named(in gl: Globals, env: Vars, n: Name, ty: Type, args: List
       assign r := CeVar(t)
     case _ =>
       call compile_exprs(in gl, env, args, out ss, rs, ref g)
-      if is_global_fun(gl, n, length(args)) and arity(ty) == length(args)
-        assign r := c_call(fun_name(n, length(args)), rs)
+      if is_global_fun(gl, n, size(args)) and arity(ty) == size(args)
+        assign r := c_call(fun_name(n, size(args)), rs)
       else if fields_count(gl, n) == Some(0) and args == []
         assign r := unit_value(n)
-      else if fields_count(gl, n) == Some(length(args))
-        assign r := c_call("u_mk_con", [descriptor(n), CeNum(length(args))] ++ rs)
+      else if fields_count(gl, n) == Some(size(args))
+        assign r := c_call("u_mk_con", [descriptor(n), CeNum(size(args))] ++ rs)
       else
         match get(n, builtin_functions())
-          case Some((b, k)) if k == length(args) =>
+          case Some((b, k)) if k == size(args) =>
             assign r := c_call(b, rs)
           case _ =>
-            assign r := c_call("u_apply", [global_value(gl, n, ty), CeNum(length(args))] ++ rs)
+            assign r := c_call("u_apply", [global_value(gl, n, ty), CeNum(size(args))] ++ rs)
         end
       end
   end
@@ -503,7 +503,7 @@ procedure compile_lambda(in gl: Globals, env: Vars, xs: List[Var], b: Expr, out 
   call   compile_expr(in gl, in_scope(caps ++ names(xs)), b, out bs, rb, ref g)
   assign decls := unpack(numbered(caps, 0), "env") ++ unpack(numbered(names(xs), 0), "args")
   call   lift(in CdFunction(value_type(), f, [(value_ptr(), "env"), (value_ptr(), "args")], decls ++ bs ++ [CsReturn(Some(rb))]), ref g)
-  assign ss := Nil, r := c_call("u_mk_closure", [CeVar(f), CeNum(length(caps))] ++ [var_expr(env, x) for x in caps])
+  assign ss := Nil, r := c_call("u_mk_closure", [CeVar(f), CeNum(size(caps))] ++ [var_expr(env, x) for x in caps])
 
 // a lambda in x, out y, ref z => body end is a lifted function of the captured values, the ins, and pointers to the outs and refs
 procedure compile_proc_lambda(in gl: Globals, env: Vars, ins: List[Var], outs: List[Var], b: Stmt, out ss: List[CStmt], r: CExpr, ref g: Gen) :=
@@ -514,7 +514,7 @@ procedure compile_proc_lambda(in gl: Globals, env: Vars, ins: List[Var], outs: L
   call   compile_stmt(in gl, in_scope(caps ++ names(ins)) ++ [pointer(x) for x in names(outs)], b, out bs, ref g)
   assign decls := unpack(numbered(caps, 0), "env") ++ unpack(numbered(names(ins), 0), "ins") ++ unpack_pointers(numbered(names(outs), 0))
   call   lift(in CdFunction(CtVoid, f, proc_params(), decls ++ bs), ref g)
-  assign ss := Nil, r := c_call("u_mk_proc", [CeVar(f), CeNum(length(caps))] ++ [var_expr(env, x) for x in caps])
+  assign ss := Nil, r := c_call("u_mk_proc", [CeVar(f), CeNum(size(caps))] ++ [var_expr(env, x) for x in caps])
 
 function proc_params(): List[CType * Str] :=
   [(value_ptr(), "env"), (value_ptr(), "ins"), (CtPtr(value_ptr()), "outs")]
@@ -607,7 +607,7 @@ procedure compile_stmt(in gl: Globals, env: Vars, s: Stmt, out ss: List[CStmt], 
       call compile_exprs(in gl, env, ins, out as, rs, ref g)
 
       if has_key(p, env)
-        assign ss := as ++ [CsExpr(c_call("u_call_proc", [var_expr(env, p), CeNum(length(ins)), CeNum(length(outs ++ refs))] ++ rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
+        assign ss := as ++ [CsExpr(c_call("u_call_proc", [var_expr(env, p), CeNum(size(ins)), CeNum(size(outs ++ refs))] ++ rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
       else
         assign ss := as ++ [CsExpr(c_call(proc_name(p), rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
       end
@@ -728,7 +728,7 @@ procedure compile_cmd(in gl: Globals, entry: Id, c: Cmd, out ds: List[CDecl], ms
       else
         assign bs := bs ++ [CsReturn(Some(rb))]
       end
-      assign ds := [CdFunction(value_type(), fun_name(n, length(first_list(xss))), params, bs)], ms := Nil
+      assign ds := [CdFunction(value_type(), fun_name(n, size(first_list(xss))), params, bs)], ms := Nil
     // outs and refs are pointers to the variables of the caller, which keep their assignments also when an exception leaves
 
     case CProc(n, _, ins, outs, refs, body) =>

@@ -245,7 +245,7 @@ test lex_files() :=
 
   call   os_read(in "lex.u", out text)
   call   lex(in text, out toks)
-  assert length(toks) > 1000
+  assert size(toks) > 1000
   call   os_read(in "check.u", out text)
   call   lex(in text, out toks)
   call   os_read(in "compile.u", out text)

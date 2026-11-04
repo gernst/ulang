@@ -155,7 +155,7 @@ function types(xs: List[Var]): List[Type] :=
 // the number of arguments of a function type, functions are overloaded by it
 function arity(t: Type): Int :=
   match t
-    case TFun(args, _) => length(args)
+    case TFun(args, _) => size(args)
     case _ => -1
   end
 

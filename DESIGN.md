@@ -4,7 +4,7 @@
 
 What a language would ideally offer for writing code with an AI assistant, which types cheaply but makes mistakes it cannot see: implicit conversions, shadowed names, hidden effects, forgotten cases.
 
-1. **Everything that matters is visible where it happens**: effects and data flow in signatures, no implicit conversions or overloading by type, and failure in the type, with short propagation like Rust's `?`.
+1. **Everything that matters is visible where it happens**: effects and data flow in signatures, no implicit conversions, overloading only across modules and resolved statically by types, and failure in the type, with short propagation like Rust's `?`.
 2. **A strict, fast, and precise checker**: inference within functions, types at module boundaries, exhaustive matches, and errors with positions and expected types, since the checker is the feedback loop.
 3. **Small and uniform**: few concepts, one way to write each, no context-dependent syntax, and a canonical formatter.
 4. **Modules with explicit exports, and records with named fields**, since names are how code is navigated, and clashes and positions are where mistakes happen.
@@ -46,7 +46,7 @@ A design, not implemented yet: contracts on functions and procedures, lemmas abo
 
   ```
   lemma length_append[A](xs: List[A], ys: List[A]) :=
-    ensures length(xs ++ ys) == length(xs) + length(ys)
+    ensures size(xs ++ ys) == size(xs) + size(ys)
   proof
     ...
 
@@ -304,7 +304,7 @@ Congruence closure over terms, parameterized by Shostak theories, as in CC(X) of
 
 Simplification repeats these steps on a sequent until nothing changes:
 
-1. **Evaluation and unfolding**: closed terms are evaluated by the same unfolding and the builtins on literals, without `run.u`, recursive functions are unfolded where their `match` or `if` is decided, `length([x; xs])` to `1 + length(xs)`, but not `length(xs)`, which terminates since functions do, functions that are not recursive are unfolded always, as abbreviations, and beta reduction.
+1. **Evaluation and unfolding**: closed terms are evaluated by the same unfolding and the builtins on literals, without `run.u`, recursive functions are unfolded where their `match` or `if` is decided, `size([x; xs])` to `1 + size(xs)`, but not `size(xs)`, which terminates since functions do, functions that are not recursive are unfolded always, as abbreviations, and beta reduction.
 2. **Normalization** of the connectives into the sequent structure, see above.
 3. **Rewriting** to normal form with the rules of the context and the canonical forms of the state.
 4. **Deciding** atoms by the state of CC(X), and closing and dropping, see above.
@@ -325,7 +325,7 @@ Simplification repeats these steps on a sequent until nothing changes:
 
 `simp/` is tested on its own, with terms and sequents built by its tests, and the tests run with those of `tests/` and `self/`. `self/prove.u` imports modules of both directories, which needs imports across directories, see `TODO.md`.
 
-Until the parsers read lemmas, goals are `Bool` functions, whose parameters are the fixed variables, with tests of goals that must close and of goals with their expected open form, and a command `simp <file> [<name> …]` that prints `name proved` or the simplified goal. An induction step is then a goal with the hypothesis as an assumption, e.g. `length(xs ++ ys) == length(xs) + length(ys) ==> length([x; xs] ++ ys) == length([x; xs]) + length(ys)`.
+Until the parsers read lemmas, goals are `Bool` functions, whose parameters are the fixed variables, with tests of goals that must close and of goals with their expected open form, and a command `simp <file> [<name> …]` that prints `name proved` or the simplified goal. An induction step is then a goal with the hypothesis as an assumption, e.g. `size(xs ++ ys) == size(xs) + size(ys) ==> size([x; xs] ++ ys) == size([x; xs]) + size(ys)`.
 
 References: G. Nelson, D. Oppen, Simplification by Cooperating Decision Procedures, TOPLAS 1979; R. Shostak, Deciding Combinations of Theories, JACM 1984; H. Rueß, N. Shankar, Deconstructing Shostak, LICS 2001; S. Krstić, S. Conchon, Canonization for Disjoint Unions of Theories, Information and Computation 2005; S. Conchon, E. Contejean, J. Kanig, S. Lescuyer, CC(X): Semantic Combination of Congruence Closure with Solvable Theories, ENTCS 2008; D. Miller, A Logic Programming Language with Lambda-Abstraction, Function Variables, and Simple Unification, 1991; W. Pugh, The Omega Test, 1991; A. Kovács, elaboration-zoo, for indices in terms and levels in contexts.
 

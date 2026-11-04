@@ -75,7 +75,7 @@ function enter(s: State, m: Id): State :=
   s with sub := empty(), count := 0, module := m, visible := sees(m, s.table), pending := Nil, chosen := empty()
 
 function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
-  match lookup(m, vs)
+  match get(m, vs)
     case Some(ms) => ms
     case None => [m]
   end
@@ -118,7 +118,7 @@ function visibility(imports: List[Id * List[Id]], main: Id): List[Id * List[Id]]
   [(m, distinct([m] ++ imports_of(imports, m) ++ ["prelude"] ++ imports_of(imports, "prelude"))) for m in distinct([main] ++ firsts(imports))]
 
 function imports_of(imports: List[Id * List[Id]], m: Id): List[Id] :=
-  match lookup(m, imports)
+  match get(m, imports)
     case Some(ns) => ns
     case None => Nil
   end
@@ -268,7 +268,7 @@ function subst(t: Type, m: List[Type * Type]): Type :=
     case TProc(is, os, rs) => TProc([subst(a, m) for a in is], [subst(a, m) for a in os], [subst(a, m) for a in rs])
     case TTuple(ts) => TTuple([subst(a, m) for a in ts])
     case _ =>
-      match lookup(t, m)
+      match get(t, m)
         case Some(u) => u
         case None => t
       end
@@ -307,7 +307,7 @@ function constructor_of(c: Ctx, k: Name): List[Type] * Type :=
 
 // the meanings of n with their names, where local variables hide functions, constructors, and builtins
 function candidates(s: State, env: Env, n: Name): List[Name * (List[Type] * Type)] :=
-  match lookup(n, env)
+  match get(n, env)
     case Some(sc) => [(n, sc)]
     case None =>
       concat([[(f, sc) for sc in schemes_of(s.ctx, f)] for f in overloads(s, n, lambda f => is_fun(s.ctx, f))]) ++
@@ -585,7 +585,7 @@ function constructors_of(c: Ctx, su: Subst, t: Type): Option[List[Head * List[Ty
 function fields_of(c: Ctx, su: Subst, t: Type, h: Head): List[Type] :=
   match constructors_of(c, su, t)
     case Some(ks) =>
-      match lookup(h, ks)
+      match get(h, ks)
         case Some(ts) => ts
         case None => Nil
       end
@@ -627,7 +627,7 @@ function useful(c: Ctx, su: Subst, rows: List[List[Pat]], q: List[Pat], ts: List
     case (Nil, _) => rows == Nil
     case ([p; ps], [t; rest]) =>
       match head_of(p)
-        case Some((h, args)) => useful(c, su, specialize(rows, h, length(args)), args ++ ps, fields_of(c, su, t, h) ++ rest)
+        case Some((h, args)) => useful(c, su, specialize(rows, h, size(args)), args ++ ps, fields_of(c, su, t, h) ++ rest)
         case None =>
           match constructors_of(c, su, t)
             case Some(ks) =>
@@ -642,7 +642,7 @@ function useful_in(c: Ctx, su: Subst, rows: List[List[Pat]], ks: List[Head * Lis
   match ks
     case Nil => false
     case [(h, args); more] =>
-      useful(c, su, specialize(rows, h, length(args)), replicate(length(args), PWild) ++ ps, args ++ rest) or
+      useful(c, su, specialize(rows, h, size(args)), replicate(size(args), PWild) ++ ps, args ++ rest) or
       useful_in(c, su, rows, more, ps, rest)
   end
 
@@ -670,8 +670,8 @@ function first_missing(c: Ctx, su: Subst, rows: List[List[Pat]], ks: List[Head *
   match ks
     case Nil => None
     case [(h, args); more] =>
-      match missing(c, su, specialize(rows, h, length(args)), args ++ rest)
-        case Some(ws) => Some([witness(h, take(length(args), ws)); drop(length(args), ws)])
+      match missing(c, su, specialize(rows, h, size(args)), args ++ rest)
+        case Some(ws) => Some([witness(h, take(size(args), ws)); drop(size(args), ws)])
         case None => first_missing(c, su, rows, more, rest)
       end
   end
@@ -692,7 +692,7 @@ function uncovered(hs: List[Head], cs: Option[List[Head * List[Type]]]): Pat :=
 function first_uncovered(hs: List[Head], ks: List[Head * List[Type]]): Pat :=
   match ks
     case Nil => PWild
-    case [(h, args); rest] => if contains(h, hs) then first_uncovered(hs, rest) else witness(h, replicate(length(args), PWild))
+    case [(h, args); rest] => if contains(h, hs) then first_uncovered(hs, rest) else witness(h, replicate(size(args), PWild))
   end
 
 procedure fresh(out t: Type, ref s: State) :=
@@ -726,28 +726,28 @@ procedure unify(in t1: Type, t2: Type, ref s: State) :=
       end
 
     case (TSort(f, xs), TSort(g, ys)) =>
-      if f == g and length(xs) == length(ys)
+      if f == g and size(xs) == size(ys)
         call unifies(in xs, ys, ref s)
       else
         raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
     case (TFun(xs, r1), TFun(ys, r2)) =>
-      if length(xs) == length(ys)
+      if size(xs) == size(ys)
         call unifies(in xs ++ [r1], ys ++ [r2], ref s)
       else
         raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
     case (TTuple(xs), TTuple(ys)) =>
-      if length(xs) == length(ys)
+      if size(xs) == size(ys)
         call unifies(in xs, ys, ref s)
       else
         raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
     case (TProc(xs, ys, zs), TProc(us, vs, ws)) =>
-      if length(xs) == length(us) and length(ys) == length(vs) and length(zs) == length(ws)
+      if size(xs) == size(us) and size(ys) == size(vs) and size(zs) == size(ws)
         call unifies(in xs ++ ys ++ zs, us ++ vs ++ ws, ref s)
       else
         raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
@@ -765,7 +765,7 @@ procedure unifies(in xs: List[Type], ys: List[Type], ref s: State) :=
     case (Nil, Nil) =>
       skip
     case _ =>
-      raise CountMismatch(length(xs), length(ys))
+      raise CountMismatch(size(xs), size(ys))
   end
 
 // a fresh unknown for each of xs
@@ -825,8 +825,8 @@ procedure same_length(in m: Int, n: Int) :=
   end
 
 procedure arguments(in n: Name, k: Int, args: List[Type]) :=
-  if length(args) != k
-    raise SortArity(n, k, length(args))
+  if size(args) != k
+    raise SortArity(n, k, size(args))
   end
 
 // expands type definitions and replaces holes by fresh unknowns
@@ -854,7 +854,7 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
 
     case TProc(is, os, rs) =>
       call   normalizes(in is ++ os ++ rs, out us, ref s)
-      assign u := TProc(take(length(is), us), take(length(os), drop(length(is), us)), drop(length(is) + length(os), us))
+      assign u := TProc(take(size(is), us), take(size(os), drop(size(is), us)), drop(size(is) + size(os), us))
 
     case TSort(n, args) =>
       if basic(n)
@@ -883,7 +883,7 @@ procedure normalize_sort(in n: Name, args: List[Type], out u: Type, ref s: State
     case None =>
       match alias_of(s.ctx, n)
         case Some((ps, rhs)) =>
-          call   arguments(in n, length(ps), args)
+          call   arguments(in n, size(ps), args)
           call   normalizes(in args, out us, ref s)
           assign u := subst(rhs, zip(params(ps), us))
         case None =>
@@ -1048,7 +1048,7 @@ procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
           assign changed := true
         case _ =>
           assign s := s with pending := s.pending ++ [p with cands := firsts(ok)]
-          if length(ok) < length(p.cands)
+          if size(ok) < size(p.cands)
             assign changed := true
           end
       end
@@ -1129,7 +1129,7 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
 
     case EComp(result, bound, lists, cond) =>
       call   formals(in bound, out xs, ref s)
-      call   same_length(in length(xs), length(lists))
+      call   same_length(in size(xs), size(lists))
       call   generators(in env, xs, lists, out es, ref s)
       call   check(in bind(xs) ++ env, cond, tbool(), out c, ref s)
       call   infer(in bind(xs) ++ env, result, out b, u, ref s)
@@ -1167,16 +1167,16 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
 
     case EVar(Var(n, a)) =>
       assign cs := candidates(s, env, n)
-      if length(cs) > 1
+      if size(cs) > 1
         call   infers(in env, args, out args1, ts, ref s)
         call   fresh(out t, ref s)
         call   normalize(in a, out w, ref s)
         call   unify(in w, fun(ts, t), ref s)
-        if with_arity(cs, length(args)) == Nil
-          raise WrongArity(n, length(args))
+        if with_arity(cs, size(args)) == Nil
+          raise WrongArity(n, size(args))
         end
 
-        call   use_name(in n, with_arity(cs, length(args)), w, out x, ref s)
+        call   use_name(in n, with_arity(cs, size(args)), w, out x, ref s)
         assign e1 := EApp(EVar(x), args1)
       else
         call   infer(in env, f, out f1, u, ref s)
@@ -1224,7 +1224,7 @@ procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Ex
 
       assign e1 := EApp(EVar(x), [arg1; rest1])
     case _ =>
-      raise CountMismatch(1, length(args))
+      raise CountMismatch(1, size(args))
   end
 
 procedure apply(in env: Env, f: Type, args: List[Expr], out args1: List[Expr], r: Type, ref s: State) :=
@@ -1251,7 +1251,7 @@ procedure checks(in env: Env, es: List[Expr], ts: List[Type], out es1: List[Expr
     case (Nil, Nil) =>
       assign es1 := Nil
     case _ =>
-      raise CountMismatch(length(ts), length(es))
+      raise CountMismatch(size(ts), size(es))
   end
 
 procedure infers(in env: Env, es: List[Expr], out es1: List[Expr], ts: List[Type], ref s: State) :=
@@ -1367,12 +1367,12 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
         case Nil =>
           raise UnknownConstructor(n)
         case ks =>
-          call pattern_constructor(in n, ks, length(args), t, out k, ref s)
+          call pattern_constructor(in n, ks, size(args), t, out k, ref s)
       end
 
       match constr_of(s.ctx, k)
         case Some((ps, ks, r)) =>
-          call   same_length(in length(ks), length(args))
+          call   same_length(in size(ks), size(args))
           call   instance(in ps, out m, ref s)
           call   unify(in subst(r, m), t, ref s)
           call   binder_list(in args, [subst(kt, m) for kt in ks], out qs, xs, ref s)
@@ -1394,7 +1394,7 @@ procedure pattern_constructor(in n: Name, ks: List[Name], k: Int, t: Type, out c
   local ok: List[(Name * (List[Type] * Type)) * State]
 
   call trials(in results(s.ctx, ks, k), t, s, out ok)
-  if length(ok) > 1
+  if size(ok) > 1
     call solve(ref s)
     call trials(in results(s.ctx, ks, k), t, s, out ok)
   end
@@ -1416,7 +1416,7 @@ function results(c: Ctx, ks: List[Name], k: Int): List[Name * (List[Type] * Type
     case Nil => Nil
     case [n; rest] =>
       match constr_of(c, n)
-        case Some((ps, args, r)) => if length(args) == k then [(n, (ps, r)); results(c, rest, k)] else results(c, rest, k)
+        case Some((ps, args, r)) => if size(args) == k then [(n, (ps, r)); results(c, rest, k)] else results(c, rest, k)
         case None => results(c, rest, k)
       end
   end
@@ -1432,7 +1432,7 @@ procedure binder_list(in ps: List[Pat], ts: List[Type], out qs: List[Pat], xs: L
     case (Nil, Nil) =>
       assign qs := Nil, xs := Nil
     case _ =>
-      raise CountMismatch(length(ts), length(ps))
+      raise CountMismatch(size(ts), size(ps))
   end
 
 procedure variable(in env: Env, assignable: List[Name], x: Var, out y: Var, ref s: State) :=
@@ -1443,7 +1443,7 @@ procedure variable(in env: Env, assignable: List[Name], x: Var, out y: Var, ref 
       if not contains(n, assignable)
         raise NotAssignable(n)
       end
-      match lookup(n, env)
+      match get(n, env)
         case Some((_, t)) =>
           call   normalize(in a, out u, ref s)
           call   unify(in t, u, ref s)
@@ -1581,7 +1581,7 @@ function syntax_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type]
 // the procedures of the program hide the builtin ones
 // a variable of a procedure type hides the procedures of that name
 procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
-  match lookup(p, env)
+  match get(p, env)
     case Some(sc) =>
       call call_variable(in env, assignable, p, sc, ins, outs, refs, out y, ref s)
     case None =>
@@ -1628,12 +1628,12 @@ procedure overloaded_call(in env: Env, assignable: List[Name], p: Name, qs: List
 procedure declared_call(in env: Env, assignable: List[Name], p: Name, q: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
   local m: List[Type * Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var]
 
-  match or_else(proc_of(s.ctx, q), lookup(q, os_procs(s.ctx) ++ syntax_procs(s.ctx)))
+  match or_else(proc_of(s.ctx, q), get(q, os_procs(s.ctx) ++ syntax_procs(s.ctx)))
     case Some((ps, is, os, rs)) =>
       call   instance(in ps, out m, ref s)
-      call   same_length(in length(is), length(ins))
-      call   same_length(in length(os), length(outs))
-      call   same_length(in length(rs), length(refs))
+      call   same_length(in size(is), size(ins))
+      call   same_length(in size(os), size(outs))
+      call   same_length(in size(rs), size(refs))
       call   unique(in names(outs ++ refs))
       call   checks(in env, ins, [subst(t, m) for t in is], out ins1, ref s)
       call   variables(in env, assignable, outs, out outs1, ref s)
@@ -1704,7 +1704,7 @@ procedure declare_datas(in cs: List[Id * Cmd], ref s: State) :=
     case [(m, CData(n, ps, _)); rest] =>
       assign s := enter(s, m)
       call   declare_sort(in s.ctx, n)
-      assign s := with_ctx(s, with_data(s.ctx, n, length(ps)))
+      assign s := with_ctx(s, with_data(s.ctx, n, size(ps)))
       call   declare_datas(in rest, ref s)
     case [_; rest] =>
       call declare_datas(in rest, ref s)
@@ -1789,7 +1789,7 @@ procedure declare_funs(in cs: List[Id * Cmd], ref s: State) :=
       skip
     case [(m, CFun(n, ps, bound, res, _)); rest] =>
       assign s := enter(s, m)
-      call   overload(in s.ctx, n, length(first_list(bound)))
+      call   overload(in s.ctx, n, size(first_list(bound)))
       call   unique_ids(in ps)
       call   unique(in names(concat(bound)))
       call   signatures(in bound, out xss, ref s)
@@ -1814,7 +1814,7 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
       call   signature(in ins ++ outs ++ refs, out xs, ref s)
       assign ts := types(xs)
       call   closed(in n, ps, ts)
-      assign s := with_ctx(s, with_proc(s.ctx, n, (params(ps), take(length(ins), ts), take(length(outs), drop(length(ins), ts)), drop(length(ins) + length(outs), ts))))
+      assign s := with_ctx(s, with_proc(s.ctx, n, (params(ps), take(size(ins), ts), take(size(outs), drop(size(ins), ts)), drop(size(ins) + size(outs), ts))))
       call   declare_procs(in rest, ref s)
     case [_; rest] =>
       call declare_procs(in rest, ref s)
@@ -1915,7 +1915,7 @@ procedure check_units(in us: List[Id * List[Id * Cmd]], ref c: Ctx, imports: Lis
           assign i := k, checked := done
         case None =>
           call   check_unit(in ds, m, c, imports, out checked)
-          assign i := length(cache), cache := cache ++ [(key, checked)]
+          assign i := size(cache), cache := cache ++ [(key, checked)]
       end
 
       assign c := ctx_union(c, checked.ctx), imports := imports ++ checked.imports, cs := cs ++ checked.cmds
@@ -1927,7 +1927,7 @@ function positions_of(ms: List[Id], seen: List[Id * Int]): List[Int] :=
   match ms
     case Nil => Nil
     case [m; rest] =>
-      match lookup(m, seen)
+      match get(m, seen)
         case Some(i) => [i; positions_of(rest, seen)]
         case None => positions_of(rest, seen)
       end
@@ -2254,7 +2254,7 @@ test errors() :=
   catch
     case Ambiguous(n, ms) =>
       assert n == unq("size")
-      assert length(ms) == 2
+      assert size(ms) == 2
   end
   try
     call   body_of(in fun_cmd("f", Nil, tint(), ap("size", [num(1), num(2)])), out b)

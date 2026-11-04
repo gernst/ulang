@@ -2,16 +2,16 @@
 // differ by at most one, such that get and put take logarithmic time
 
 data Map[K, V] :=
-  | MLeaf
-  | MNode(Map[K, V], K, V, Map[K, V], Int)
+  | Leaf
+  | Node(Map[K, V], K, V, Map[K, V], Int)
 
 function empty[K, V](): Map[K, V] :=
-  MLeaf
+  Leaf
 
 function get[K, V](k: K, m: Map[K, V]): Option[V] :=
   match m
-    case MLeaf => None
-    case MNode(l, j, v, r, _) =>
+    case Leaf => None
+    case Node(l, j, v, r, _) =>
       match compare(k, j)
         case -1 => get(k, l)
         case 1 => get(k, r)
@@ -19,18 +19,18 @@ function get[K, V](k: K, m: Map[K, V]): Option[V] :=
       end
   end
 
-function has[K, V](k: K, m: Map[K, V]): Bool :=
+function contains[K, V](k: K, m: Map[K, V]): Bool :=
   get(k, m) != None
 
 // m where k has the value v
 function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V] :=
   match m
-    case MLeaf => MNode(MLeaf, k, v, MLeaf, 1)
-    case MNode(l, j, w, r, h) =>
+    case Leaf => Node(Leaf, k, v, Leaf, 1)
+    case Node(l, j, w, r, h) =>
       match compare(k, j)
         case -1 => balance(put(k, v, l), j, w, r)
         case 1 => balance(l, j, w, put(k, v, r))
-        case _ => MNode(l, k, v, r, h)
+        case _ => Node(l, k, v, r, h)
       end
   end
 
@@ -40,85 +40,85 @@ function entries[K, V](m: Map[K, V]): List[K * V] :=
 
 function entries_onto[K, V](m: Map[K, V], rest: List[K * V]): List[K * V] :=
   match m
-    case MLeaf => rest
-    case MNode(l, k, v, r, _) => entries_onto(l, [(k, v); entries_onto(r, rest)])
+    case Leaf => rest
+    case Node(l, k, v, r, _) => entries_onto(l, [(k, v); entries_onto(r, rest)])
   end
 
 function size[K, V](m: Map[K, V]): Int :=
   match m
-    case MLeaf => 0
-    case MNode(l, _, _, r, _) => size(l) + 1 + size(r)
+    case Leaf => 0
+    case Node(l, _, _, r, _) => size(l) + 1 + size(r)
   end
 
 function height[K, V](m: Map[K, V]): Int :=
   match m
-    case MLeaf => 0
-    case MNode(_, _, _, _, h) => h
+    case Leaf => 0
+    case Node(_, _, _, _, h) => h
   end
 
-function mnode[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
-  MNode(l, k, v, r, mnode_height(l, r))
+function node[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
+  Node(l, k, v, r, node_height(l, r))
 
 function rotate_left[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case MNode(a, j, v, MNode(b, k, w, c, _), _) => mnode(mnode(a, j, v, b), k, w, c)
+    case Node(a, j, v, Node(b, k, w, c, _), _) => node(node(a, j, v, b), k, w, c)
     case _ => m
   end
 
 function rotate_right[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case MNode(MNode(a, j, v, b, _), k, w, c, _) => mnode(a, j, v, mnode(b, k, w, c))
+    case Node(Node(a, j, v, b, _), k, w, c, _) => node(a, j, v, node(b, k, w, c))
     case _ => m
   end
 
 function left_of[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case MNode(l, _, _, _, _) => l
+    case Node(l, _, _, _, _) => l
     case _ => m
   end
 
 function right_of[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case MNode(_, _, _, r, _) => r
+    case Node(_, _, _, r, _) => r
     case _ => m
   end
 
 // the node of l, k, v, r, where the heights of l and r differ by at most two, rebalanced by one or two rotations
 function balance[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
   if height(l) > height(r) + 1 then
-    rotate_right(mnode(if height(left_of(l)) < height(right_of(l)) then rotate_left(l) else l, k, v, r))
+    rotate_right(node(if height(left_of(l)) < height(right_of(l)) then rotate_left(l) else l, k, v, r))
   else if height(r) > height(l) + 1 then
-    rotate_left(mnode(l, k, v, if height(right_of(r)) < height(left_of(r)) then rotate_right(r) else r))
+    rotate_left(node(l, k, v, if height(right_of(r)) < height(left_of(r)) then rotate_right(r) else r))
   else
-    mnode(l, k, v, r)
+    node(l, k, v, r)
 
 // the heights of the subtrees of each node differ by at most one, and its height is correct
 function balanced[K, V](m: Map[K, V]): Bool :=
   match m
-    case MLeaf => true
-    case MNode(l, _, _, r, h) =>
-      balanced(l) and balanced(r) and h == mnode_height(l, r) and height(l) <= height(r) + 1 and height(r) <= height(l) + 1
+    case Leaf => true
+    case Node(l, _, _, r, h) =>
+      balanced(l) and balanced(r) and h == node_height(l, r) and height(l) <= height(r) + 1 and height(r) <= height(l) + 1
   end
 
-function mnode_height[K, V](l: Map[K, V], r: Map[K, V]): Int :=
+function node_height[K, V](l: Map[K, V], r: Map[K, V]): Int :=
   1 + (if height(l) < height(r) then height(r) else height(l))
 
 // m without k
-function delete[K, V](k: K, m: Map[K, V]): Map[K, V] :=
+function remove[K, V](k: K, m: Map[K, V]): Map[K, V] :=
   match m
-    case MLeaf => MLeaf
-    case MNode(l, j, v, r, _) =>
+    case Leaf => Leaf
+    case Node(l, j, v, r, _) =>
       match compare(k, j)
-        case -1 => balance(delete(k, l), j, v, r)
-        case 1 => balance(l, j, v, delete(k, r))
+        case -1 => balance(remove(k, l), j, v, r)
+        case 1 => balance(l, j, v, remove(k, r))
         case _ => join(l, r)
       end
   end
 
-function delete_all[K, V](ks: List[K], m: Map[K, V]): Map[K, V] :=
+function remove_all[K, V](ks: List[K], m: Map[K, V]): Map[K, V] :=
   match ks
     case Nil => m
-    case [k; rest] => delete_all(rest, delete(k, m))
+    case [k; rest] => remove_all(rest, remove(k, m))
   end
 
 // the entries of l and then r, whose heights differ by at most one
@@ -130,16 +130,16 @@ function join[K, V](l: Map[K, V], r: Map[K, V]): Map[K, V] :=
 
 function first_entry[K, V](m: Map[K, V]): Option[K * V] :=
   match m
-    case MLeaf => None
-    case MNode(MLeaf, k, v, _, _) => Some((k, v))
-    case MNode(l, _, _, _, _) => first_entry(l)
+    case Leaf => None
+    case Node(Leaf, k, v, _, _) => Some((k, v))
+    case Node(l, _, _, _, _) => first_entry(l)
   end
 
 function remove_first[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case MLeaf => MLeaf
-    case MNode(MLeaf, _, _, r, _) => r
-    case MNode(l, k, v, r, _) => balance(remove_first(l), k, v, r)
+    case Leaf => Leaf
+    case Node(Leaf, _, _, r, _) => r
+    case Node(l, k, v, r, _) => balance(remove_first(l), k, v, r)
   end
 
 function put_all[K, V](ps: List[K * V], m: Map[K, V]): Map[K, V] :=
@@ -154,7 +154,7 @@ function numbers(n: Int): List[Int] :=
 test maps() :=
   local m := {"a" => 1, "b" => 2}
 
-  assert get("a", m) == Some(1) and get("c", m) == None and has("b", m) and not has("c", m)
+  assert get("a", m) == Some(1) and get("c", m) == None and contains("b", m) and not contains("c", m)
   assign m := put("a", 3, m)
   assert entries(m) == [("a", 3), ("b", 2)] and size(m) == 2 and entries({"b" => 2, "a" => 1, "a" => 3}) == entries(m)
 
@@ -165,5 +165,5 @@ test balance() :=
   assert balanced(m) and size(m) == 200 and height(m) <= 11
   assert get("1100", m) == Some(100) and get("1201", m) == None
   assert entries(m) == [(str_show(1000 + i), i) for i in numbers(200)]
-  assign m := delete_all([str_show(1000 + 2 * i) for i in numbers(100)] ++ ["none"], m)
+  assign m := remove_all([str_show(1000 + 2 * i) for i in numbers(100)] ++ ["none"], m)
   assert balanced(m) and size(m) == 100 and entries(m) == [(str_show(999 + 2 * i), 2 * i - 1) for i in numbers(100)]

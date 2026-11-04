@@ -99,19 +99,19 @@ function constr_of(c: Ctx, n: Name): Option[List[Type] * List[Type] * Type] :=
   get(n, c.constrs)
 
 function is_fun(c: Ctx, n: Name): Bool :=
-  has(n, c.funs)
+  contains(n, c.funs)
 
 function is_proc(c: Ctx, n: Name): Bool :=
-  has(n, c.procs)
+  contains(n, c.procs)
 
 function is_data(c: Ctx, n: Name): Bool :=
-  has(n, c.datas)
+  contains(n, c.datas)
 
 function is_alias(c: Ctx, n: Name): Bool :=
-  has(n, c.aliases)
+  contains(n, c.aliases)
 
 function is_constr(c: Ctx, n: Name): Bool :=
-  has(n, c.constrs)
+  contains(n, c.constrs)
 
 function is_sort(c: Ctx, n: Name): Bool :=
   is_data(c, n) or is_alias(c, n)

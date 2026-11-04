@@ -22,6 +22,6 @@ test initialized_locals() :=
   assert (a, b, c, s, t) == (1, 2, 4, "x", 7)
 
 test inferred_types() :=
-  local xs := [Some(1), None], m := lookup("a", [("a", true)])
+  local xs := [Some(1), None], m := get("a", [("a", true)])
 
-  assert length(xs) == 2 and m == Some(true)
+  assert size(xs) == 2 and m == Some(true)

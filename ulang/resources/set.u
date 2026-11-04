@@ -1,37 +1,37 @@
-// sets as AVL trees, ordered by compare, where the depths of the subtrees of each node differ by at most one,
-// such that insert and member take logarithmic time, with names that differ from those of the module map
+// sets as AVL trees, ordered by compare, where the heights of the subtrees of each node differ by at most one,
+// such that insert and contains take logarithmic time, with the names of the module map, which overload them
 
 data Set[A] :=
-  | SLeaf
-  | SNode(Set[A], A, Set[A], Int)
+  | Leaf
+  | Node(Set[A], A, Set[A], Int)
 
-function empty_set[A](): Set[A] :=
-  SLeaf
+function empty[A](): Set[A] :=
+  Leaf
 
-function member[A](x: A, s: Set[A]): Bool :=
+function contains[A](x: A, s: Set[A]): Bool :=
   match s
-    case SLeaf => false
-    case SNode(l, y, r, _) =>
+    case Leaf => false
+    case Node(l, y, r, _) =>
       match compare(x, y)
-        case -1 => member(x, l)
-        case 1 => member(x, r)
+        case -1 => contains(x, l)
+        case 1 => contains(x, r)
         case _ => true
       end
   end
 
 function insert[A](x: A, s: Set[A]): Set[A] :=
   match s
-    case SLeaf => SNode(SLeaf, x, SLeaf, 1)
-    case SNode(l, y, r, _) =>
+    case Leaf => Node(Leaf, x, Leaf, 1)
+    case Node(l, y, r, _) =>
       match compare(x, y)
-        case -1 => rebalance(insert(x, l), y, r)
-        case 1 => rebalance(l, y, insert(x, r))
+        case -1 => balance(insert(x, l), y, r)
+        case 1 => balance(l, y, insert(x, r))
         case _ => s
       end
   end
 
 function from_list[A](xs: List[A]): Set[A] :=
-  insert_all(xs, SLeaf)
+  insert_all(xs, Leaf)
 
 function insert_all[A](xs: List[A], s: Set[A]): Set[A] :=
   match xs
@@ -45,67 +45,67 @@ function elements[A](s: Set[A]): List[A] :=
 
 function elements_onto[A](s: Set[A], rest: List[A]): List[A] :=
   match s
-    case SLeaf => rest
-    case SNode(l, x, r, _) => elements_onto(l, [x; elements_onto(r, rest)])
+    case Leaf => rest
+    case Node(l, x, r, _) => elements_onto(l, [x; elements_onto(r, rest)])
   end
 
-function count[A](s: Set[A]): Int :=
+function size[A](s: Set[A]): Int :=
   match s
-    case SLeaf => 0
-    case SNode(l, _, r, _) => count(l) + 1 + count(r)
+    case Leaf => 0
+    case Node(l, _, r, _) => size(l) + 1 + size(r)
   end
 
-function depth[A](s: Set[A]): Int :=
+function height[A](s: Set[A]): Int :=
   match s
-    case SLeaf => 0
-    case SNode(_, _, _, d) => d
+    case Leaf => 0
+    case Node(_, _, _, d) => d
   end
 
-function snode_depth[A](l: Set[A], r: Set[A]): Int :=
-  1 + (if depth(l) < depth(r) then depth(r) else depth(l))
+function node_height[A](l: Set[A], r: Set[A]): Int :=
+  1 + (if height(l) < height(r) then height(r) else height(l))
 
-function snode[A](l: Set[A], x: A, r: Set[A]): Set[A] :=
-  SNode(l, x, r, snode_depth(l, r))
+function node[A](l: Set[A], x: A, r: Set[A]): Set[A] :=
+  Node(l, x, r, node_height(l, r))
 
-function turn_left[A](s: Set[A]): Set[A] :=
+function rotate_left[A](s: Set[A]): Set[A] :=
   match s
-    case SNode(a, x, SNode(b, y, c, _), _) => snode(snode(a, x, b), y, c)
+    case Node(a, x, Node(b, y, c, _), _) => node(node(a, x, b), y, c)
     case _ => s
   end
 
-function turn_right[A](s: Set[A]): Set[A] :=
+function rotate_right[A](s: Set[A]): Set[A] :=
   match s
-    case SNode(SNode(a, x, b, _), y, c, _) => snode(a, x, snode(b, y, c))
+    case Node(Node(a, x, b, _), y, c, _) => node(a, x, node(b, y, c))
     case _ => s
   end
 
-function smaller[A](s: Set[A]): Set[A] :=
+function left_of[A](s: Set[A]): Set[A] :=
   match s
-    case SNode(l, _, _, _) => l
+    case Node(l, _, _, _) => l
     case _ => s
   end
 
-function greater[A](s: Set[A]): Set[A] :=
+function right_of[A](s: Set[A]): Set[A] :=
   match s
-    case SNode(_, _, r, _) => r
+    case Node(_, _, r, _) => r
     case _ => s
   end
 
-// the node of l, x, r, where the depths of l and r differ by at most two, rebalanced by one or two rotations
-function rebalance[A](l: Set[A], x: A, r: Set[A]): Set[A] :=
-  if depth(l) > depth(r) + 1 then
-    turn_right(snode(if depth(smaller(l)) < depth(greater(l)) then turn_left(l) else l, x, r))
-  else if depth(r) > depth(l) + 1 then
-    turn_left(snode(l, x, if depth(greater(r)) < depth(smaller(r)) then turn_right(r) else r))
+// the node of l, x, r, where the heights of l and r differ by at most two, rebalanced by one or two rotations
+function balance[A](l: Set[A], x: A, r: Set[A]): Set[A] :=
+  if height(l) > height(r) + 1 then
+    rotate_right(node(if height(left_of(l)) < height(right_of(l)) then rotate_left(l) else l, x, r))
+  else if height(r) > height(l) + 1 then
+    rotate_left(node(l, x, if height(right_of(r)) < height(left_of(r)) then rotate_right(r) else r))
   else
-    snode(l, x, r)
+    node(l, x, r)
 
-// the depths of the subtrees of each node differ by at most one, and its depth is correct
-function well_formed[A](s: Set[A]): Bool :=
+// the heights of the subtrees of each node differ by at most one, and its height is correct
+function balanced[A](s: Set[A]): Bool :=
   match s
-    case SLeaf => true
-    case SNode(l, _, r, d) =>
-      well_formed(l) and well_formed(r) and d == snode_depth(l, r) and depth(l) <= depth(r) + 1 and depth(r) <= depth(l) + 1
+    case Leaf => true
+    case Node(l, _, r, d) =>
+      balanced(l) and balanced(r) and d == node_height(l, r) and height(l) <= height(r) + 1 and height(r) <= height(l) + 1
   end
 
 function upto(n: Int): List[Int] :=
@@ -114,9 +114,9 @@ function upto(n: Int): List[Int] :=
 test sets() :=
   local s := {"a", "b"}
 
-  assert member("a", s) and not member("c", s)
+  assert contains("a", s) and not contains("c", s)
   assign s := insert("a", s)
-  assert elements(s) == ["a", "b"] and count(s) == 2
+  assert elements(s) == ["a", "b"] and size(s) == 2
   assert elements(from_list([3, 1, 2, 1])) == [1, 2, 3] and elements({3, 1, 2, 1}) == [1, 2, 3]
   assert elements(from_list([(2, 'a'), (1, 'b'), (2, 'a')])) == [(1, 'b'), (2, 'a')]
   assert elements(from_list([Some(2), None, Some(1)])) == [None, Some(1), Some(2)]
@@ -125,5 +125,5 @@ test sets() :=
 test set_balance() :=
   local s := from_list(upto(200))
 
-  assert well_formed(s) and count(s) == 200 and depth(s) <= 11
-  assert member(100, s) and not member(201, s) and elements(s) == upto(200)
+  assert balanced(s) and size(s) == 200 and height(s) <= 11
+  assert contains(100, s) and not contains(201, s) and elements(s) == upto(200)

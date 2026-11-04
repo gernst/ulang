@@ -1,13 +1,12 @@
 # Overloading across modules
 
-A plan, not implemented yet. Several visible modules may declare the same name, e.g. `length` in `list`, `set`, and `map`. Each use resolves statically, by its type, to exactly one of these declarations, and the checked program records that declaration by its qualified name.
+Implemented in `self/check.u`, but not in `Check.scala`. Several visible modules may declare the same name, e.g. `size` in `list`, `set`, and `map`. Each use resolves statically, by its type, to exactly one of these declarations, and the checked program records that declaration by its qualified name.
 
 ## Scope
 
-- **Across modules only**: overloads are declarations of the same name in different modules, so their qualified names differ already (`list.length`, `set.length`). The interpreters and the compiler key functions by qualified name and arity, and need no change.
+- **Across modules only**: overloads are declarations of the same name in different modules, so their qualified names differ already (`list.size`, `set.size`). The interpreters and the compiler key functions by qualified name and arity, and need no change.
 - **Within a module**, overloading stays by arity only. Overloading by type there would need mangled names in `Run.scala`, `self/run.u`, and `self/compile.u`.
-- **No type classes**: a generic `function f[C](c: C) := length(c)` remains impossible, since declarations have explicit signatures and no constraint enters a type scheme. Neither does the plan change `==` and `compare` of sets and maps, which compare their trees, also inside generic code such as `map` keyed by sets. That needs canonical trees or a builtin that compares elements, independently of overloading.
-- **DESIGN.md**: principle 1 excludes overloading by type. Reword it to overloading across modules, resolved statically, so that every use still names one declaration.
+- **No type classes**: a generic `function f[C](c: C) := size(c)` remains impossible, since declarations have explicit signatures and no constraint enters a type scheme. Neither does the plan change `==` and `compare` of sets and maps, which compare their trees, also inside generic code such as `map` keyed by sets. That needs canonical trees or a builtin that compares elements, independently of overloading.
 
 ## Candidates
 
@@ -27,8 +26,12 @@ The same mechanism resolves accesses `e.f` and updates `e with f := a` (TODO, Fi
 
 ## Steps
 
-1. **Direct resolution** in `Check.scala` and `self/check.u` (`lookup`, `resolve`, `resolve_name`), with tests in `tests/` and the errors of no and several candidates in `tests/errors/`, then `make bootstrap`.
-2. **Deferral**: pending entries, the fixpoint, placeholders in `zonk`, and lets, in both checkers.
-3. **Fields** as pending entries, in both checkers.
-4. **The library**: one name per operation across `list`, `set`, and `map`, and their uses in `self/`: `length` for `list.length`, `set.count`, and `map.size`; `contains` for `list.contains` and `set.member`; `has_key` for `list.has_key` and `map.has`; `get` for `list.lookup` and `map.get`; `remove` for `list.remove` and `map.delete`; `empty` for `set.empty_set` and `map.empty`; `put` for `set.insert` and `map.put`. The helpers that are named apart against clashes, e.g. `snode` and `mnode` or `depth` and `height`, may then share names too. Then `{}` as an `empty()` resolved by the expected type, and the literals of sets and maps resolved through the imports of the module (TODO, Fields 3).
-5. **TODO.md and DESIGN.md**: remove Syntax 4 and Fields 1 and 3 from TODO.md as they are done, and reword principle 1 of DESIGN.md.
+Done in `self/check.u`, with its tests, bootstrapped through `self/run.u`:
+
+1. **Direct resolution**, **deferral**, and **fields** as pending entries.
+2. **The library**: `size` for `list.length`, `set.count`, and `map.size`; `contains` for `list.contains`, `set.member`, and `map.has`, where `list.has_key` stays for association lists, since `contains` of a list is about its elements; `get` and `put` for `list.lookup` and `list.update` of association lists and `map.get` and `map.put`; `remove` for `list.remove` and `map.delete`, and `remove_all`; `empty` for `set.empty_set` and `map.empty`, while `set.insert` stays. The helpers and constructors of `set` take the names of those of `map`: `Leaf`, `Node`, `height`, `node`, `balance`, `balanced`, and the rotations.
+
+Open:
+
+3. **`Check.scala`**, which still rejects names that several visible modules declare, so `./ulang.sh` and `./mill ulang.test` fail on programs that use the library's shared names.
+4. **`{}`** as an `empty()` resolved by the expected type, and the literals of sets and maps resolved through the imports of the module (TODO, Fields 3).

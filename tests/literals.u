@@ -8,7 +8,7 @@ function vowels(): Set[Char] :=
 
 test literals() :=
   local  m := {"one" => {1}, "two" => {1, 2}}, n := {1 + 1 => "two", 3 => "three"}
-  assert member('e', vowels()) and not member('b', vowels())
+  assert contains('e', vowels()) and not contains('b', vowels())
   assert [elements(s) for s in values(entries(m))] == [[1], [1, 2]] and get("three", m) == None
   assert entries(n) == [(2, "two"), (3, "three")]
 

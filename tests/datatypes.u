@@ -32,7 +32,7 @@ function unit(u: ()): Int :=
 
 test ranges() :=
   assert range(3) == [3, 2, 1]
-  assert length(range(3)) == 3
+  assert size(range(3)) == 3
   assert [x * x for x in range(3)] == [9, 4, 1]
   assert head(range(2)) == Some(2)
   assert head(Nil) == None
@@ -50,7 +50,7 @@ test list_notation() :=
   assert [] == Nil
   assert [[1], []] == Cons(Cons(1, Nil), Cons(Nil, Nil))
   assert [1] ++ [2, 3] ++ [] == [1, 2, 3]
-  assert length([1, 2] ++ [3]) == 3
+  assert size([1, 2] ++ [3]) == 3
 
 test comprehensions() :=
   assert [x * x for x in [1, 2, 3]] == [1, 4, 9]
@@ -62,15 +62,15 @@ test comprehensions() :=
 
 // association lists
 test association_lists() :=
-  local m := update("b", 2, update("a", 1, Nil))
+  local m := put("b", 2, put("a", 1, Nil))
 
   assert m == [("b", 2), ("a", 1)]
-  assert lookup("a", m) == Some(1)
-  assert lookup("c", m) == None
+  assert get("a", m) == Some(1)
+  assert get("c", m) == None
   // the pair of a key keeps its place
-  assign m := update("a", 3, m)
+  assign m := put("a", 3, m)
   assert m == [("b", 2), ("a", 3)]
-  assert lookup("a", [("a", 1), ("a", 2)]) == Some(1)
+  assert get("a", [("a", 1), ("a", 2)]) == Some(1)
   assert remove("a", [("a", 1), ("b", 2), ("a", 3)]) == [("b", 2)]
   assert keys(m) == ["b", "a"]
   assert values(m) == [2, 3]

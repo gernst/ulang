@@ -49,7 +49,7 @@ function infix_of(notations: Notations, op: Id): Option[Fixity * Int] :=
   get(op, notations.infix_ops)
 
 function is_operator(notations: Notations, op: Id): Bool :=
-  has(op, notations.prefix_ops) or has(op, notations.postfix_ops) or has(op, notations.infix_ops)
+  contains(op, notations.prefix_ops) or contains(op, notations.postfix_ops) or contains(op, notations.infix_ops)
 
 function empty_notations(): Notations :=
   Notations(empty(), empty(), empty())
@@ -178,7 +178,7 @@ function literal_at(toks: Tokens): Option[Val] :=
 // a name that may be declared as an operator, as a name and an operator are
 function operator_at(notations: Notations, toks: Tokens): Option[Id] :=
   match head_token(toks)
-    case TSym(s) if not member(s, reserved()) => Some(s)
+    case TSym(s) if not contains(s, reserved()) => Some(s)
     case TName(name) if is_operator(notations, name) => Some(name)
     case _ => None
   end
@@ -201,7 +201,7 @@ procedure expect(in tok: Token, ref toks: Tokens) :=
 // a name that is not a keyword
 procedure parse_name(out name: Id, ref toks: Tokens) :=
   match head_token(toks)
-    case TName(m) if not member(m, keywords()) =>
+    case TName(m) if not contains(m, keywords()) =>
       assign name := m
       call   advance(ref toks)
     case _ =>
@@ -220,7 +220,7 @@ procedure parse_plain_name(in notations: Notations, params: List[Id], out name: 
 // a name or a symbol that is not reserved
 procedure parse_name_or_symbol(out name: Id, ref toks: Tokens) :=
   match head_token(toks)
-    case TSym(s) if not member(s, reserved()) =>
+    case TSym(s) if not contains(s, reserved()) =>
       assign name := s
       call   advance(ref toks)
     case _ =>
@@ -476,7 +476,7 @@ function type_infix(op: Id, offset: Int, lhs: List[Type], rs: List[List[Type]]):
 
 function starts_type(notations: Notations, tok: Token): Bool :=
   match tok
-    case TName(name) => not member(name, keywords()) and not is_operator(notations, name)
+    case TName(name) => not contains(name, keywords()) and not is_operator(notations, name)
     case TPunct('(') => true
     case _ => false
   end
@@ -541,7 +541,7 @@ function expr_cons(a: Expr, b: Expr): Expr :=
 
 function starts_expr(notations: Notations, tok: Token): Bool :=
   match tok
-    case TName(name) => contains(name, ["let", "if", "lambda", "match", "true", "false"]) or not member(name, keywords()) and not is_operator(notations, name)
+    case TName(name) => contains(name, ["let", "if", "lambda", "match", "true", "false"]) or not contains(name, keywords()) and not is_operator(notations, name)
     case TNum(_) => true
     case TStr(_) => true
     case TChar(_) => true
@@ -646,7 +646,7 @@ procedure parse_expr_atom(in notations: Notations, params: List[Id], out e: Expr
     case (_, TPunct('{')) =>
       call parse_set_or_map(in notations, params, out e, ref toks)
 
-    case (_, TName(name)) if not member(name, keywords()) and not is_operator(notations, name) =>
+    case (_, TName(name)) if not contains(name, keywords()) and not is_operator(notations, name) =>
       call   advance(ref toks)
       assign e := EVar(Var(unqualified(name), THole))
 
@@ -926,7 +926,7 @@ function pat_nil(): Pat :=
 
 function starts_pattern(notations: Notations, tok: Token): Bool :=
   match tok
-    case TName(name) => contains(name, ["_", "true", "false"]) or not member(name, keywords()) and not is_operator(notations, name)
+    case TName(name) => contains(name, ["_", "true", "false"]) or not contains(name, keywords()) and not is_operator(notations, name)
     case TNum(_) => true
     case TStr(_) => true
     case TChar(_) => true
@@ -1234,7 +1234,7 @@ function modules_of(cmd: Cmd): List[Id * List[Cmd]] :=
   end
 
 function own_notations(ctx: Context, name: Id): List[Cmd] :=
-  match lookup(name, ctx.modules)
+  match get(name, ctx.modules)
     case Some(ns) => ns
     case None => Nil
   end
@@ -1288,8 +1288,8 @@ procedure parse_notation(in notations: Notations, out cmd: Cmd, ref toks: Tokens
 // a symbol that is not reserved, or a name that is not a keyword, as operators are declared
 function at_operator(toks: Tokens): Bool :=
   match head_token(toks)
-    case TSym(s) => not member(s, reserved())
-    case TName(name) => not member(name, keywords())
+    case TSym(s) => not contains(s, reserved())
+    case TName(name) => not contains(name, keywords())
     case _ => false
   end
 
@@ -1326,7 +1326,7 @@ procedure parse_field(in notations: Notations, params: List[Id], out arg: Option
   local f: Option[Id], typ: Type
 
   match (head_token(toks), second_token(toks))
-    case (TName(name), TSym(":")) if not member(name, keywords()) =>
+    case (TName(name), TSym(":")) if not contains(name, keywords()) =>
       call   advance(ref toks)
       call   advance(ref toks)
       assign f := Some(name)
@@ -1391,7 +1391,7 @@ function fields_named(f: Id, fields: List[Id * (Name * Int * Int * Type)]): List
 function fields_of(constrs: List[Constr * List[Option[Id]]]): List[Id * (Name * Int * Int * Type)] :=
   match constrs
     case Nil => Nil
-    case [(Constr(k, args), fs); rest] => named_fields(k, length(args), zip(fs, args), 0) ++ fields_of(rest)
+    case [(Constr(k, args), fs); rest] => named_fields(k, size(args), zip(fs, args), 0) ++ fields_of(rest)
   end
 
 function named_fields(k: Name, n: Int, fields: List[Option[Id] * Type], i: Int): List[Id * (Name * Int * Int * Type)] :=
@@ -1404,7 +1404,7 @@ function named_fields(k: Name, n: Int, fields: List[Option[Id] * Type], i: Int):
 // the accessor T.f of each field f, which is partial if f is not a field of all constructors
 function accessors(t: Id, params: List[Id], constrs: List[Constr * List[Option[Id]]]): List[Cmd] :=
   let fs := fields_of(constrs) in
-    [accessor(t, params, f, fields_named(f, fs), length(constrs)) for f in distinct(firsts(fs))]
+    [accessor(t, params, f, fields_named(f, fs), size(constrs)) for f in distinct(firsts(fs))]
 
 function accessor(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int * Int * Type)], n: Int): Cmd :=
   let x := Var(unqualified("x"), THole), owner := TSort(unqualified(t), [TParam(p) for p in params]) in
@@ -1413,7 +1413,7 @@ function accessor(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int 
       params,
       [[Var(unqualified("x"), owner)]],
       field_type(fields),
-      EMatch(EVar(x), [field_case(field) for field in fields] ++ (if length(fields) == n then [] else [missing_field(t, f)]))
+      EMatch(EVar(x), [field_case(field) for field in fields] ++ (if size(fields) == n then [] else [missing_field(t, f)]))
     )
 
 function field_type(fields: List[Id * (Name * Int * Int * Type)]): Type :=
@@ -1435,7 +1435,7 @@ function missing_field(t: Id, f: Id): Branch[Expr] :=
 // the updater T.f:= of each field f, where x with f := y is C(a0, y, a2) for x = C(a0, _, a2)
 function updaters(t: Id, params: List[Id], constrs: List[Constr * List[Option[Id]]]): List[Cmd] :=
   let fs := fields_of(constrs) in
-    [updater(t, params, f, fields_named(f, fs), length(constrs)) for f in distinct(firsts(fs))]
+    [updater(t, params, f, fields_named(f, fs), size(constrs)) for f in distinct(firsts(fs))]
 
 function updater(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int * Int * Type)], n: Int): Cmd :=
   let x := Var(unqualified("x"), THole), owner := TSort(unqualified(t), [TParam(p) for p in params]) in
@@ -1444,7 +1444,7 @@ function updater(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int *
       params,
       [[Var(unqualified("x"), owner), Var(unqualified("y"), field_type(fields))]],
       owner,
-      EMatch(EVar(x), [update_case(field) for field in fields] ++ (if length(fields) == n then [] else [missing_field(t, f)]))
+      EMatch(EVar(x), [update_case(field) for field in fields] ++ (if size(fields) == n then [] else [missing_field(t, f)]))
     )
 
 // case C(a0, _, a2) => C(a0, y, a2), where y replaces the field at its position
@@ -1678,7 +1678,7 @@ function base_name(path: Str): Str :=
     if str_size(f) >= 2 and str_slice(f, str_size(f) - 2, str_size(f)) == ".u" then str_slice(f, 0, str_size(f) - 2) else f
 
 function dir_name(path: Str): Str :=
-  let parts := str_split(path, '/') in if length(parts) == 1 then "." else str_join("/", take(length(parts) - 1, parts))
+  let parts := str_split(path, '/') in if size(parts) == 1 then "." else str_join("/", take(size(parts) - 1, parts))
 
 // a file after the prelude pre, as read gives it
 procedure parse_file_after(in path: Str, pre: Program, out program: Program) :=
@@ -1700,7 +1700,7 @@ procedure same_commands(in path: Str, cmds: List[Cmd], ds: List[Cmd]) :=
       assert (path, cmd) == (path, d)
       call   same_commands(in path, more, rest)
     case _ =>
-      assert (path, length(cmds)) == (path, length(ds))
+      assert (path, size(cmds)) == (path, size(ds))
   end
 
 // the files parse as read parses them

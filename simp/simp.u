@@ -58,7 +58,7 @@ function empty_ctx(): Ctx :=
   Ctx(Nil, Nil, Nil)
 
 function depth(ctx: Ctx): Int :=
-  length(ctx.vars)
+  size(ctx.vars)
 
 function enter(ctx: Ctx, xs: List[Var]): Ctx :=
   ctx with vars := reverse(xs) ++ ctx.vars
@@ -108,7 +108,7 @@ function simp_seq(ctx: Ctx, s: Seq): Seq :=
 // its binders are opened, its assumptions simplified as a conjunction, its conclusions in the context of all
 // assumptions, and the result closed again
 function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Concl]): Seq :=
-  let d := depth(ctx), k := length(xs) in
+  let d := depth(ctx), k := size(xs) in
   let conj := conjoin(enter(ctx, xs), [rebind_seq(Open(d, k), 0, a) for a in assms]) in
   match conj
     case Refuted =>
@@ -191,7 +191,7 @@ function disjoin(ctx: Ctx, cs: List[Concl]): Disj :=
 function simp_concl(ctx: Ctx, c: Concl): Option[Concl] :=
   match c
     case Concl(xs, body) =>
-      let d := depth(ctx), k := length(xs) in
+      let d := depth(ctx), k := size(xs) in
       let conj := conjoin(enter(ctx, xs), [rebind_seq(Open(d, k), 0, s) for s in body]) in
       match conj
         case Refuted =>
@@ -279,7 +279,7 @@ function rebind(op: Rebind, c: Int, e: Expr): Expr :=
       EApp(rebind(op, c, f), [rebind(op, c, a) for a in args])
 
     case ELam(xs, b) =>
-      ELam(xs, rebind(op, c + length(xs), b))
+      ELam(xs, rebind(op, c + size(xs), b))
 
     case EIte(a, b, d) =>
       EIte(rebind(op, c, a), rebind(op, c, b), rebind(op, c, d))
@@ -368,14 +368,14 @@ function rebind_seq(op: Rebind, c: Int, s: Seq): Seq :=
       Atom(rebind(op, c, e))
 
     case Seq(xs, assms, concls) =>
-      let inner := c + length(xs) in
+      let inner := c + size(xs) in
       Seq(xs, [rebind_seq(op, inner, a) for a in assms], [rebind_concl(op, inner, d) for d in concls])
   end
 
 function rebind_concl(op: Rebind, c: Int, d: Concl): Concl :=
   match d
     case Concl(xs, body) =>
-      Concl(xs, [rebind_seq(op, c + length(xs), s) for s in body])
+      Concl(xs, [rebind_seq(op, c + size(xs), s) for s in body])
   end
 
 // examples over p, q, r of type Int -> Bool and a constant a

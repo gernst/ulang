@@ -156,17 +156,17 @@ struct u_object o_lex_46_TEnd = U_UNIT(n_lex_46_TEnd);
 
 const struct u_name n_lex_46_LexError = {"lex", "LexError", 0};
 
-const struct u_name n_set_46_SLeaf = {"set", "SLeaf", 0};
+const struct u_name n_set_46_Leaf = {"set", "Leaf", 0};
 
-struct u_object o_set_46_SLeaf = U_UNIT(n_set_46_SLeaf);
+struct u_object o_set_46_Leaf = U_UNIT(n_set_46_Leaf);
 
-const struct u_name n_set_46_SNode = {"set", "SNode", 1};
+const struct u_name n_set_46_Node = {"set", "Node", 1};
 
-const struct u_name n_map_46_MLeaf = {"map", "MLeaf", 0};
+const struct u_name n_map_46_Leaf = {"map", "Leaf", 0};
 
-struct u_object o_map_46_MLeaf = U_UNIT(n_map_46_MLeaf);
+struct u_object o_map_46_Leaf = U_UNIT(n_map_46_Leaf);
 
-const struct u_name n_map_46_MNode = {"map", "MNode", 1};
+const struct u_name n_map_46_Node = {"map", "Node", 1};
 
 const struct u_name n_parse_46_ParseError = {"parse", "ParseError", 0};
 
@@ -368,11 +368,11 @@ u_value w_f_option_46_or_else_2(u_value *env, u_value *args);
 
 u_value w_f_list_46__43__43__2(u_value *env, u_value *args);
 
-u_value w_f_list_46_length_1(u_value *env, u_value *args);
+u_value w_f_list_46_size_1(u_value *env, u_value *args);
 
-u_value w_f_list_46_lookup_2(u_value *env, u_value *args);
+u_value w_f_list_46_get_2(u_value *env, u_value *args);
 
-u_value w_f_list_46_update_3(u_value *env, u_value *args);
+u_value w_f_list_46_put_3(u_value *env, u_value *args);
 
 u_value w_f_list_46_replaced_3(u_value *env, u_value *args);
 
@@ -516,9 +516,9 @@ u_value w_f_lex_46_unescape_1(u_value *env, u_value *args);
 
 u_value w_f_lex_46_tokens_1(u_value *env, u_value *args);
 
-u_value w_f_set_46_empty_set_0(u_value *env, u_value *args);
+u_value w_f_set_46_empty_0(u_value *env, u_value *args);
 
-u_value w_f_set_46_member_2(u_value *env, u_value *args);
+u_value w_f_set_46_contains_2(u_value *env, u_value *args);
 
 u_value w_f_set_46_insert_2(u_value *env, u_value *args);
 
@@ -530,25 +530,25 @@ u_value w_f_set_46_elements_1(u_value *env, u_value *args);
 
 u_value w_f_set_46_elements_onto_2(u_value *env, u_value *args);
 
-u_value w_f_set_46_count_1(u_value *env, u_value *args);
+u_value w_f_set_46_size_1(u_value *env, u_value *args);
 
-u_value w_f_set_46_depth_1(u_value *env, u_value *args);
+u_value w_f_set_46_height_1(u_value *env, u_value *args);
 
-u_value w_f_set_46_snode_depth_2(u_value *env, u_value *args);
+u_value w_f_set_46_node_height_2(u_value *env, u_value *args);
 
-u_value w_f_set_46_snode_3(u_value *env, u_value *args);
+u_value w_f_set_46_node_3(u_value *env, u_value *args);
 
-u_value w_f_set_46_turn_left_1(u_value *env, u_value *args);
+u_value w_f_set_46_rotate_left_1(u_value *env, u_value *args);
 
-u_value w_f_set_46_turn_right_1(u_value *env, u_value *args);
+u_value w_f_set_46_rotate_right_1(u_value *env, u_value *args);
 
-u_value w_f_set_46_smaller_1(u_value *env, u_value *args);
+u_value w_f_set_46_left_of_1(u_value *env, u_value *args);
 
-u_value w_f_set_46_greater_1(u_value *env, u_value *args);
+u_value w_f_set_46_right_of_1(u_value *env, u_value *args);
 
-u_value w_f_set_46_rebalance_3(u_value *env, u_value *args);
+u_value w_f_set_46_balance_3(u_value *env, u_value *args);
 
-u_value w_f_set_46_well_formed_1(u_value *env, u_value *args);
+u_value w_f_set_46_balanced_1(u_value *env, u_value *args);
 
 u_value w_f_set_46_upto_1(u_value *env, u_value *args);
 
@@ -556,7 +556,7 @@ u_value w_f_map_46_empty_0(u_value *env, u_value *args);
 
 u_value w_f_map_46_get_2(u_value *env, u_value *args);
 
-u_value w_f_map_46_has_2(u_value *env, u_value *args);
+u_value w_f_map_46_contains_2(u_value *env, u_value *args);
 
 u_value w_f_map_46_put_3(u_value *env, u_value *args);
 
@@ -568,7 +568,7 @@ u_value w_f_map_46_size_1(u_value *env, u_value *args);
 
 u_value w_f_map_46_height_1(u_value *env, u_value *args);
 
-u_value w_f_map_46_mnode_4(u_value *env, u_value *args);
+u_value w_f_map_46_node_4(u_value *env, u_value *args);
 
 u_value w_f_map_46_rotate_left_1(u_value *env, u_value *args);
 
@@ -582,11 +582,11 @@ u_value w_f_map_46_balance_4(u_value *env, u_value *args);
 
 u_value w_f_map_46_balanced_1(u_value *env, u_value *args);
 
-u_value w_f_map_46_mnode_height_2(u_value *env, u_value *args);
+u_value w_f_map_46_node_height_2(u_value *env, u_value *args);
 
-u_value w_f_map_46_delete_2(u_value *env, u_value *args);
+u_value w_f_map_46_remove_2(u_value *env, u_value *args);
 
-u_value w_f_map_46_delete_all_2(u_value *env, u_value *args);
+u_value w_f_map_46_remove_all_2(u_value *env, u_value *args);
 
 u_value w_f_map_46_join_2(u_value *env, u_value *args);
 
@@ -1636,9 +1636,9 @@ u_value wc_lex_46_TChar(u_value *env, u_value *args);
 
 u_value wc_lex_46_LexError(u_value *env, u_value *args);
 
-u_value wc_set_46_SNode(u_value *env, u_value *args);
+u_value wc_set_46_Node(u_value *env, u_value *args);
 
-u_value wc_map_46_MNode(u_value *env, u_value *args);
+u_value wc_map_46_Node(u_value *env, u_value *args);
 
 u_value wc_parse_46_ParseError(u_value *env, u_value *args);
 
@@ -2302,11 +2302,11 @@ u_value f_option_46_or_else_2(u_value v_a, u_value v_b);
 
 u_value f_list_46__43__43__2(u_value v_xs, u_value v_ys);
 
-u_value f_list_46_length_1(u_value v_xs);
+u_value f_list_46_size_1(u_value v_xs);
 
-u_value f_list_46_lookup_2(u_value v_k, u_value v_xs);
+u_value f_list_46_get_2(u_value v_k, u_value v_xs);
 
-u_value f_list_46_update_3(u_value v_k, u_value v_v, u_value v_xs);
+u_value f_list_46_put_3(u_value v_k, u_value v_v, u_value v_xs);
 
 u_value f_list_46_replaced_3(u_value v_k, u_value v_v, u_value v_xs);
 
@@ -2470,9 +2470,9 @@ void p_lex_46_lex(u_value v_text, u_value *r_toks);
 
 u_value f_lex_46_tokens_1(u_value v_toks);
 
-u_value f_set_46_empty_set_0(void);
+u_value f_set_46_empty_0(void);
 
-u_value f_set_46_member_2(u_value v_x, u_value v_s);
+u_value f_set_46_contains_2(u_value v_x, u_value v_s);
 
 u_value f_set_46_insert_2(u_value v_x, u_value v_s);
 
@@ -2484,25 +2484,25 @@ u_value f_set_46_elements_1(u_value v_s);
 
 u_value f_set_46_elements_onto_2(u_value v_s, u_value v_rest);
 
-u_value f_set_46_count_1(u_value v_s);
+u_value f_set_46_size_1(u_value v_s);
 
-u_value f_set_46_depth_1(u_value v_s);
+u_value f_set_46_height_1(u_value v_s);
 
-u_value f_set_46_snode_depth_2(u_value v_l, u_value v_r);
+u_value f_set_46_node_height_2(u_value v_l, u_value v_r);
 
-u_value f_set_46_snode_3(u_value v_l, u_value v_x, u_value v_r);
+u_value f_set_46_node_3(u_value v_l, u_value v_x, u_value v_r);
 
-u_value f_set_46_turn_left_1(u_value v_s);
+u_value f_set_46_rotate_left_1(u_value v_s);
 
-u_value f_set_46_turn_right_1(u_value v_s);
+u_value f_set_46_rotate_right_1(u_value v_s);
 
-u_value f_set_46_smaller_1(u_value v_s);
+u_value f_set_46_left_of_1(u_value v_s);
 
-u_value f_set_46_greater_1(u_value v_s);
+u_value f_set_46_right_of_1(u_value v_s);
 
-u_value f_set_46_rebalance_3(u_value v_l, u_value v_x, u_value v_r);
+u_value f_set_46_balance_3(u_value v_l, u_value v_x, u_value v_r);
 
-u_value f_set_46_well_formed_1(u_value v_s);
+u_value f_set_46_balanced_1(u_value v_s);
 
 u_value f_set_46_upto_1(u_value v_n);
 
@@ -2510,7 +2510,7 @@ u_value f_map_46_empty_0(void);
 
 u_value f_map_46_get_2(u_value v_k, u_value v_m);
 
-u_value f_map_46_has_2(u_value v_k, u_value v_m);
+u_value f_map_46_contains_2(u_value v_k, u_value v_m);
 
 u_value f_map_46_put_3(u_value v_k, u_value v_v, u_value v_m);
 
@@ -2522,7 +2522,7 @@ u_value f_map_46_size_1(u_value v_m);
 
 u_value f_map_46_height_1(u_value v_m);
 
-u_value f_map_46_mnode_4(u_value v_l, u_value v_k, u_value v_v, u_value v_r);
+u_value f_map_46_node_4(u_value v_l, u_value v_k, u_value v_v, u_value v_r);
 
 u_value f_map_46_rotate_left_1(u_value v_m);
 
@@ -2536,11 +2536,11 @@ u_value f_map_46_balance_4(u_value v_l, u_value v_k, u_value v_v, u_value v_r);
 
 u_value f_map_46_balanced_1(u_value v_m);
 
-u_value f_map_46_mnode_height_2(u_value v_l, u_value v_r);
+u_value f_map_46_node_height_2(u_value v_l, u_value v_r);
 
-u_value f_map_46_delete_2(u_value v_k, u_value v_m);
+u_value f_map_46_remove_2(u_value v_k, u_value v_m);
 
-u_value f_map_46_delete_all_2(u_value v_ks, u_value v_m);
+u_value f_map_46_remove_all_2(u_value v_ks, u_value v_m);
 
 u_value f_map_46_join_2(u_value v_l, u_value v_r);
 
@@ -3958,16 +3958,16 @@ u_value w_f_list_46__43__43__2(u_value *env, u_value *args) {
   return f_list_46__43__43__2(args[0], args[1]);
 }
 
-u_value w_f_list_46_length_1(u_value *env, u_value *args) {
-  return f_list_46_length_1(args[0]);
+u_value w_f_list_46_size_1(u_value *env, u_value *args) {
+  return f_list_46_size_1(args[0]);
 }
 
-u_value w_f_list_46_lookup_2(u_value *env, u_value *args) {
-  return f_list_46_lookup_2(args[0], args[1]);
+u_value w_f_list_46_get_2(u_value *env, u_value *args) {
+  return f_list_46_get_2(args[0], args[1]);
 }
 
-u_value w_f_list_46_update_3(u_value *env, u_value *args) {
-  return f_list_46_update_3(args[0], args[1], args[2]);
+u_value w_f_list_46_put_3(u_value *env, u_value *args) {
+  return f_list_46_put_3(args[0], args[1], args[2]);
 }
 
 u_value w_f_list_46_replaced_3(u_value *env, u_value *args) {
@@ -4254,12 +4254,12 @@ u_value w_f_lex_46_tokens_1(u_value *env, u_value *args) {
   return f_lex_46_tokens_1(args[0]);
 }
 
-u_value w_f_set_46_empty_set_0(u_value *env, u_value *args) {
-  return f_set_46_empty_set_0();
+u_value w_f_set_46_empty_0(u_value *env, u_value *args) {
+  return f_set_46_empty_0();
 }
 
-u_value w_f_set_46_member_2(u_value *env, u_value *args) {
-  return f_set_46_member_2(args[0], args[1]);
+u_value w_f_set_46_contains_2(u_value *env, u_value *args) {
+  return f_set_46_contains_2(args[0], args[1]);
 }
 
 u_value w_f_set_46_insert_2(u_value *env, u_value *args) {
@@ -4282,44 +4282,44 @@ u_value w_f_set_46_elements_onto_2(u_value *env, u_value *args) {
   return f_set_46_elements_onto_2(args[0], args[1]);
 }
 
-u_value w_f_set_46_count_1(u_value *env, u_value *args) {
-  return f_set_46_count_1(args[0]);
+u_value w_f_set_46_size_1(u_value *env, u_value *args) {
+  return f_set_46_size_1(args[0]);
 }
 
-u_value w_f_set_46_depth_1(u_value *env, u_value *args) {
-  return f_set_46_depth_1(args[0]);
+u_value w_f_set_46_height_1(u_value *env, u_value *args) {
+  return f_set_46_height_1(args[0]);
 }
 
-u_value w_f_set_46_snode_depth_2(u_value *env, u_value *args) {
-  return f_set_46_snode_depth_2(args[0], args[1]);
+u_value w_f_set_46_node_height_2(u_value *env, u_value *args) {
+  return f_set_46_node_height_2(args[0], args[1]);
 }
 
-u_value w_f_set_46_snode_3(u_value *env, u_value *args) {
-  return f_set_46_snode_3(args[0], args[1], args[2]);
+u_value w_f_set_46_node_3(u_value *env, u_value *args) {
+  return f_set_46_node_3(args[0], args[1], args[2]);
 }
 
-u_value w_f_set_46_turn_left_1(u_value *env, u_value *args) {
-  return f_set_46_turn_left_1(args[0]);
+u_value w_f_set_46_rotate_left_1(u_value *env, u_value *args) {
+  return f_set_46_rotate_left_1(args[0]);
 }
 
-u_value w_f_set_46_turn_right_1(u_value *env, u_value *args) {
-  return f_set_46_turn_right_1(args[0]);
+u_value w_f_set_46_rotate_right_1(u_value *env, u_value *args) {
+  return f_set_46_rotate_right_1(args[0]);
 }
 
-u_value w_f_set_46_smaller_1(u_value *env, u_value *args) {
-  return f_set_46_smaller_1(args[0]);
+u_value w_f_set_46_left_of_1(u_value *env, u_value *args) {
+  return f_set_46_left_of_1(args[0]);
 }
 
-u_value w_f_set_46_greater_1(u_value *env, u_value *args) {
-  return f_set_46_greater_1(args[0]);
+u_value w_f_set_46_right_of_1(u_value *env, u_value *args) {
+  return f_set_46_right_of_1(args[0]);
 }
 
-u_value w_f_set_46_rebalance_3(u_value *env, u_value *args) {
-  return f_set_46_rebalance_3(args[0], args[1], args[2]);
+u_value w_f_set_46_balance_3(u_value *env, u_value *args) {
+  return f_set_46_balance_3(args[0], args[1], args[2]);
 }
 
-u_value w_f_set_46_well_formed_1(u_value *env, u_value *args) {
-  return f_set_46_well_formed_1(args[0]);
+u_value w_f_set_46_balanced_1(u_value *env, u_value *args) {
+  return f_set_46_balanced_1(args[0]);
 }
 
 u_value w_f_set_46_upto_1(u_value *env, u_value *args) {
@@ -4334,8 +4334,8 @@ u_value w_f_map_46_get_2(u_value *env, u_value *args) {
   return f_map_46_get_2(args[0], args[1]);
 }
 
-u_value w_f_map_46_has_2(u_value *env, u_value *args) {
-  return f_map_46_has_2(args[0], args[1]);
+u_value w_f_map_46_contains_2(u_value *env, u_value *args) {
+  return f_map_46_contains_2(args[0], args[1]);
 }
 
 u_value w_f_map_46_put_3(u_value *env, u_value *args) {
@@ -4358,8 +4358,8 @@ u_value w_f_map_46_height_1(u_value *env, u_value *args) {
   return f_map_46_height_1(args[0]);
 }
 
-u_value w_f_map_46_mnode_4(u_value *env, u_value *args) {
-  return f_map_46_mnode_4(args[0], args[1], args[2], args[3]);
+u_value w_f_map_46_node_4(u_value *env, u_value *args) {
+  return f_map_46_node_4(args[0], args[1], args[2], args[3]);
 }
 
 u_value w_f_map_46_rotate_left_1(u_value *env, u_value *args) {
@@ -4386,16 +4386,16 @@ u_value w_f_map_46_balanced_1(u_value *env, u_value *args) {
   return f_map_46_balanced_1(args[0]);
 }
 
-u_value w_f_map_46_mnode_height_2(u_value *env, u_value *args) {
-  return f_map_46_mnode_height_2(args[0], args[1]);
+u_value w_f_map_46_node_height_2(u_value *env, u_value *args) {
+  return f_map_46_node_height_2(args[0], args[1]);
 }
 
-u_value w_f_map_46_delete_2(u_value *env, u_value *args) {
-  return f_map_46_delete_2(args[0], args[1]);
+u_value w_f_map_46_remove_2(u_value *env, u_value *args) {
+  return f_map_46_remove_2(args[0], args[1]);
 }
 
-u_value w_f_map_46_delete_all_2(u_value *env, u_value *args) {
-  return f_map_46_delete_all_2(args[0], args[1]);
+u_value w_f_map_46_remove_all_2(u_value *env, u_value *args) {
+  return f_map_46_remove_all_2(args[0], args[1]);
 }
 
 u_value w_f_map_46_join_2(u_value *env, u_value *args) {
@@ -6494,12 +6494,12 @@ u_value wc_lex_46_LexError(u_value *env, u_value *args) {
   return u_mk_con_array(&n_lex_46_LexError, 2, args);
 }
 
-u_value wc_set_46_SNode(u_value *env, u_value *args) {
-  return u_mk_con_array(&n_set_46_SNode, 4, args);
+u_value wc_set_46_Node(u_value *env, u_value *args) {
+  return u_mk_con_array(&n_set_46_Node, 4, args);
 }
 
-u_value wc_map_46_MNode(u_value *env, u_value *args) {
-  return u_mk_con_array(&n_map_46_MNode, 5, args);
+u_value wc_map_46_Node(u_value *env, u_value *args) {
+  return u_mk_con_array(&n_map_46_Node, 5, args);
 }
 
 u_value wc_parse_46_ParseError(u_value *env, u_value *args) {
@@ -7864,7 +7864,7 @@ u_value f_list_46__43__43__2(u_value v_xs, u_value v_ys) {
   return t6;
 }
 
-u_value f_list_46_length_1(u_value v_xs) {
+u_value f_list_46_size_1(u_value v_xs) {
   u_value s7 = v_xs;
   u_value t8 = NULL;
   if ((!t8) && u_is_con(s7, &n_list_46_Nil)) {
@@ -7872,7 +7872,7 @@ u_value f_list_46_length_1(u_value v_xs) {
   }
   if ((!t8) && u_is_con(s7, &n_list_46_Cons)) {
     u_value v_ys = u_field(s7, 1);
-    t8 = u_add(u_mk_int(1), f_list_46_length_1(v_ys));
+    t8 = u_add(u_mk_int(1), f_list_46_size_1(v_ys));
   }
   if (!t8) {
     u_no_case(s7);
@@ -7880,7 +7880,7 @@ u_value f_list_46_length_1(u_value v_xs) {
   return t8;
 }
 
-u_value f_list_46_lookup_2(u_value v_k, u_value v_xs) {
+u_value f_list_46_get_2(u_value v_k, u_value v_xs) {
   u_value s9 = v_xs;
   u_value t10 = NULL;
   if ((!t10) && u_is_con(s9, &n_list_46_Nil)) {
@@ -7895,7 +7895,7 @@ u_value f_list_46_lookup_2(u_value v_k, u_value v_xs) {
   }
   if ((!t10) && u_is_con(s9, &n_list_46_Cons)) {
     u_value v_ys = u_field(s9, 1);
-    t10 = f_list_46_lookup_2(v_k, v_ys);
+    t10 = f_list_46_get_2(v_k, v_ys);
   }
   if (!t10) {
     u_no_case(s9);
@@ -7903,7 +7903,7 @@ u_value f_list_46_lookup_2(u_value v_k, u_value v_xs) {
   return t10;
 }
 
-u_value f_list_46_update_3(u_value v_k, u_value v_v, u_value v_xs) {
+u_value f_list_46_put_3(u_value v_k, u_value v_v, u_value v_xs) {
   u_value s11 = f_list_46_replaced_3(v_k, v_v, v_xs);
   u_value t12 = NULL;
   if ((!t12) && u_is_con(s11, &n_option_46_Some)) {
@@ -9000,7 +9000,7 @@ u_value f_syntax_46_arity_1(u_value v_t) {
   u_value t152 = NULL;
   if ((!t152) && u_is_con(s151, &n_syntax_46_TFun)) {
     u_value v_args = u_field(s151, 0);
-    t152 = f_list_46_length_1(v_args);
+    t152 = f_list_46_size_1(v_args);
   }
   if (!t152) {
     t152 = u_mk_int(-1);
@@ -9386,10 +9386,10 @@ u_value f_lex_46_tokens_1(u_value v_toks) {
   return f_list_46_firsts_1(v_toks);
 }
 
-u_value f_set_46_empty_set_0(void) {
+u_value f_set_46_empty_0(void) {
   static u_value cache = NULL;
   if (cache == U_COMPUTING) {
-    u_fail("recursive initialization of set.empty_set");
+    u_fail("recursive initialization of set.empty");
   }
   if (cache) {
     return cache;
@@ -9402,27 +9402,27 @@ u_value f_set_46_empty_set_0(void) {
     u_reraise(handler);
   }
   u_pop(handler);
-  cache = &o_set_46_SLeaf;
+  cache = &o_set_46_Leaf;
   return cache;
 }
 
-u_value f_set_46_member_2(u_value v_x, u_value v_s) {
+u_value f_set_46_contains_2(u_value v_x, u_value v_s) {
   u_value s215 = v_s;
   u_value t216 = NULL;
-  if ((!t216) && u_is_con(s215, &n_set_46_SLeaf)) {
+  if ((!t216) && u_is_con(s215, &n_set_46_Leaf)) {
     t216 = u_mk_bool(0);
   }
-  if ((!t216) && u_is_con(s215, &n_set_46_SNode)) {
+  if ((!t216) && u_is_con(s215, &n_set_46_Node)) {
     u_value v_l = u_field(s215, 0);
     u_value v_y = u_field(s215, 1);
     u_value v_r = u_field(s215, 2);
     u_value s217 = u_compare(v_x, v_y);
     u_value t218 = NULL;
     if ((!t218) && u_equals(s217, u_mk_int(-1))) {
-      t218 = f_set_46_member_2(v_x, v_l);
+      t218 = f_set_46_contains_2(v_x, v_l);
     }
     if ((!t218) && u_equals(s217, u_mk_int(1))) {
-      t218 = f_set_46_member_2(v_x, v_r);
+      t218 = f_set_46_contains_2(v_x, v_r);
     }
     if (!t218) {
       t218 = u_mk_bool(1);
@@ -9441,20 +9441,20 @@ u_value f_set_46_member_2(u_value v_x, u_value v_s) {
 u_value f_set_46_insert_2(u_value v_x, u_value v_s) {
   u_value s219 = v_s;
   u_value t220 = NULL;
-  if ((!t220) && u_is_con(s219, &n_set_46_SLeaf)) {
-    t220 = u_mk_con(&n_set_46_SNode, 4, &o_set_46_SLeaf, v_x, &o_set_46_SLeaf, u_mk_int(1));
+  if ((!t220) && u_is_con(s219, &n_set_46_Leaf)) {
+    t220 = u_mk_con(&n_set_46_Node, 4, &o_set_46_Leaf, v_x, &o_set_46_Leaf, u_mk_int(1));
   }
-  if ((!t220) && u_is_con(s219, &n_set_46_SNode)) {
+  if ((!t220) && u_is_con(s219, &n_set_46_Node)) {
     u_value v_l = u_field(s219, 0);
     u_value v_y = u_field(s219, 1);
     u_value v_r = u_field(s219, 2);
     u_value s221 = u_compare(v_x, v_y);
     u_value t222 = NULL;
     if ((!t222) && u_equals(s221, u_mk_int(-1))) {
-      t222 = f_set_46_rebalance_3(f_set_46_insert_2(v_x, v_l), v_y, v_r);
+      t222 = f_set_46_balance_3(f_set_46_insert_2(v_x, v_l), v_y, v_r);
     }
     if ((!t222) && u_equals(s221, u_mk_int(1))) {
-      t222 = f_set_46_rebalance_3(v_l, v_y, f_set_46_insert_2(v_x, v_r));
+      t222 = f_set_46_balance_3(v_l, v_y, f_set_46_insert_2(v_x, v_r));
     }
     if (!t222) {
       t222 = v_s;
@@ -9471,7 +9471,7 @@ u_value f_set_46_insert_2(u_value v_x, u_value v_s) {
 }
 
 u_value f_set_46_from_list_1(u_value v_xs) {
-  return f_set_46_insert_all_2(v_xs, &o_set_46_SLeaf);
+  return f_set_46_insert_all_2(v_xs, &o_set_46_Leaf);
 }
 
 u_value f_set_46_insert_all_2(u_value v_xs, u_value v_s) {
@@ -9498,10 +9498,10 @@ u_value f_set_46_elements_1(u_value v_s) {
 u_value f_set_46_elements_onto_2(u_value v_s, u_value v_rest) {
   u_value s225 = v_s;
   u_value t226 = NULL;
-  if ((!t226) && u_is_con(s225, &n_set_46_SLeaf)) {
+  if ((!t226) && u_is_con(s225, &n_set_46_Leaf)) {
     t226 = v_rest;
   }
-  if ((!t226) && u_is_con(s225, &n_set_46_SNode)) {
+  if ((!t226) && u_is_con(s225, &n_set_46_Node)) {
     u_value v_l = u_field(s225, 0);
     u_value v_x = u_field(s225, 1);
     u_value v_r = u_field(s225, 2);
@@ -9513,16 +9513,16 @@ u_value f_set_46_elements_onto_2(u_value v_s, u_value v_rest) {
   return t226;
 }
 
-u_value f_set_46_count_1(u_value v_s) {
+u_value f_set_46_size_1(u_value v_s) {
   u_value s227 = v_s;
   u_value t228 = NULL;
-  if ((!t228) && u_is_con(s227, &n_set_46_SLeaf)) {
+  if ((!t228) && u_is_con(s227, &n_set_46_Leaf)) {
     t228 = u_mk_int(0);
   }
-  if ((!t228) && u_is_con(s227, &n_set_46_SNode)) {
+  if ((!t228) && u_is_con(s227, &n_set_46_Node)) {
     u_value v_l = u_field(s227, 0);
     u_value v_r = u_field(s227, 2);
-    t228 = u_add(u_add(f_set_46_count_1(v_l), u_mk_int(1)), f_set_46_count_1(v_r));
+    t228 = u_add(u_add(f_set_46_size_1(v_l), u_mk_int(1)), f_set_46_size_1(v_r));
   }
   if (!t228) {
     u_no_case(s227);
@@ -9530,13 +9530,13 @@ u_value f_set_46_count_1(u_value v_s) {
   return t228;
 }
 
-u_value f_set_46_depth_1(u_value v_s) {
+u_value f_set_46_height_1(u_value v_s) {
   u_value s229 = v_s;
   u_value t230 = NULL;
-  if ((!t230) && u_is_con(s229, &n_set_46_SLeaf)) {
+  if ((!t230) && u_is_con(s229, &n_set_46_Leaf)) {
     t230 = u_mk_int(0);
   }
-  if ((!t230) && u_is_con(s229, &n_set_46_SNode)) {
+  if ((!t230) && u_is_con(s229, &n_set_46_Node)) {
     u_value v_d = u_field(s229, 3);
     t230 = v_d;
   }
@@ -9546,30 +9546,30 @@ u_value f_set_46_depth_1(u_value v_s) {
   return t230;
 }
 
-u_value f_set_46_snode_depth_2(u_value v_l, u_value v_r) {
+u_value f_set_46_node_height_2(u_value v_l, u_value v_r) {
   u_value t231;
-  if (u_truth(u_lt(f_set_46_depth_1(v_l), f_set_46_depth_1(v_r)))) {
-    t231 = f_set_46_depth_1(v_r);
+  if (u_truth(u_lt(f_set_46_height_1(v_l), f_set_46_height_1(v_r)))) {
+    t231 = f_set_46_height_1(v_r);
   } else {
-    t231 = f_set_46_depth_1(v_l);
+    t231 = f_set_46_height_1(v_l);
   }
   return u_add(u_mk_int(1), t231);
 }
 
-u_value f_set_46_snode_3(u_value v_l, u_value v_x, u_value v_r) {
-  return u_mk_con(&n_set_46_SNode, 4, v_l, v_x, v_r, f_set_46_snode_depth_2(v_l, v_r));
+u_value f_set_46_node_3(u_value v_l, u_value v_x, u_value v_r) {
+  return u_mk_con(&n_set_46_Node, 4, v_l, v_x, v_r, f_set_46_node_height_2(v_l, v_r));
 }
 
-u_value f_set_46_turn_left_1(u_value v_s) {
+u_value f_set_46_rotate_left_1(u_value v_s) {
   u_value s232 = v_s;
   u_value t233 = NULL;
-  if ((!t233) && (u_is_con(s232, &n_set_46_SNode) && u_is_con(u_field(s232, 2), &n_set_46_SNode))) {
+  if ((!t233) && (u_is_con(s232, &n_set_46_Node) && u_is_con(u_field(s232, 2), &n_set_46_Node))) {
     u_value v_a = u_field(s232, 0);
     u_value v_x = u_field(s232, 1);
     u_value v_b = u_field(u_field(s232, 2), 0);
     u_value v_y = u_field(u_field(s232, 2), 1);
     u_value v_c = u_field(u_field(s232, 2), 2);
-    t233 = f_set_46_snode_3(f_set_46_snode_3(v_a, v_x, v_b), v_y, v_c);
+    t233 = f_set_46_node_3(f_set_46_node_3(v_a, v_x, v_b), v_y, v_c);
   }
   if (!t233) {
     t233 = v_s;
@@ -9580,16 +9580,16 @@ u_value f_set_46_turn_left_1(u_value v_s) {
   return t233;
 }
 
-u_value f_set_46_turn_right_1(u_value v_s) {
+u_value f_set_46_rotate_right_1(u_value v_s) {
   u_value s234 = v_s;
   u_value t235 = NULL;
-  if ((!t235) && (u_is_con(s234, &n_set_46_SNode) && u_is_con(u_field(s234, 0), &n_set_46_SNode))) {
+  if ((!t235) && (u_is_con(s234, &n_set_46_Node) && u_is_con(u_field(s234, 0), &n_set_46_Node))) {
     u_value v_a = u_field(u_field(s234, 0), 0);
     u_value v_x = u_field(u_field(s234, 0), 1);
     u_value v_b = u_field(u_field(s234, 0), 2);
     u_value v_y = u_field(s234, 1);
     u_value v_c = u_field(s234, 2);
-    t235 = f_set_46_snode_3(v_a, v_x, f_set_46_snode_3(v_b, v_y, v_c));
+    t235 = f_set_46_node_3(v_a, v_x, f_set_46_node_3(v_b, v_y, v_c));
   }
   if (!t235) {
     t235 = v_s;
@@ -9600,10 +9600,10 @@ u_value f_set_46_turn_right_1(u_value v_s) {
   return t235;
 }
 
-u_value f_set_46_smaller_1(u_value v_s) {
+u_value f_set_46_left_of_1(u_value v_s) {
   u_value s236 = v_s;
   u_value t237 = NULL;
-  if ((!t237) && u_is_con(s236, &n_set_46_SNode)) {
+  if ((!t237) && u_is_con(s236, &n_set_46_Node)) {
     u_value v_l = u_field(s236, 0);
     t237 = v_l;
   }
@@ -9616,10 +9616,10 @@ u_value f_set_46_smaller_1(u_value v_s) {
   return t237;
 }
 
-u_value f_set_46_greater_1(u_value v_s) {
+u_value f_set_46_right_of_1(u_value v_s) {
   u_value s238 = v_s;
   u_value t239 = NULL;
-  if ((!t239) && u_is_con(s238, &n_set_46_SNode)) {
+  if ((!t239) && u_is_con(s238, &n_set_46_Node)) {
     u_value v_r = u_field(s238, 2);
     t239 = v_r;
   }
@@ -9632,59 +9632,59 @@ u_value f_set_46_greater_1(u_value v_s) {
   return t239;
 }
 
-u_value f_set_46_rebalance_3(u_value v_l, u_value v_x, u_value v_r) {
+u_value f_set_46_balance_3(u_value v_l, u_value v_x, u_value v_r) {
   u_value t243;
-  if (u_truth(f_prelude_46__62__2(f_set_46_depth_1(v_l), u_add(f_set_46_depth_1(v_r), u_mk_int(1))))) {
+  if (u_truth(f_prelude_46__62__2(f_set_46_height_1(v_l), u_add(f_set_46_height_1(v_r), u_mk_int(1))))) {
     u_value t240;
-    if (u_truth(u_lt(f_set_46_depth_1(f_set_46_smaller_1(v_l)), f_set_46_depth_1(f_set_46_greater_1(v_l))))) {
-      t240 = f_set_46_turn_left_1(v_l);
+    if (u_truth(u_lt(f_set_46_height_1(f_set_46_left_of_1(v_l)), f_set_46_height_1(f_set_46_right_of_1(v_l))))) {
+      t240 = f_set_46_rotate_left_1(v_l);
     } else {
       t240 = v_l;
     }
-    t243 = f_set_46_turn_right_1(f_set_46_snode_3(t240, v_x, v_r));
+    t243 = f_set_46_rotate_right_1(f_set_46_node_3(t240, v_x, v_r));
   } else {
     u_value t242;
-    if (u_truth(f_prelude_46__62__2(f_set_46_depth_1(v_r), u_add(f_set_46_depth_1(v_l), u_mk_int(1))))) {
+    if (u_truth(f_prelude_46__62__2(f_set_46_height_1(v_r), u_add(f_set_46_height_1(v_l), u_mk_int(1))))) {
       u_value t241;
-      if (u_truth(u_lt(f_set_46_depth_1(f_set_46_greater_1(v_r)), f_set_46_depth_1(f_set_46_smaller_1(v_r))))) {
-        t241 = f_set_46_turn_right_1(v_r);
+      if (u_truth(u_lt(f_set_46_height_1(f_set_46_right_of_1(v_r)), f_set_46_height_1(f_set_46_left_of_1(v_r))))) {
+        t241 = f_set_46_rotate_right_1(v_r);
       } else {
         t241 = v_r;
       }
-      t242 = f_set_46_turn_left_1(f_set_46_snode_3(v_l, v_x, t241));
+      t242 = f_set_46_rotate_left_1(f_set_46_node_3(v_l, v_x, t241));
     } else {
-      t242 = f_set_46_snode_3(v_l, v_x, v_r);
+      t242 = f_set_46_node_3(v_l, v_x, v_r);
     }
     t243 = t242;
   }
   return t243;
 }
 
-u_value f_set_46_well_formed_1(u_value v_s) {
+u_value f_set_46_balanced_1(u_value v_s) {
   u_value s244 = v_s;
   u_value t245 = NULL;
-  if ((!t245) && u_is_con(s244, &n_set_46_SLeaf)) {
+  if ((!t245) && u_is_con(s244, &n_set_46_Leaf)) {
     t245 = u_mk_bool(1);
   }
-  if ((!t245) && u_is_con(s244, &n_set_46_SNode)) {
+  if ((!t245) && u_is_con(s244, &n_set_46_Node)) {
     u_value v_l = u_field(s244, 0);
     u_value v_r = u_field(s244, 2);
     u_value v_d = u_field(s244, 3);
-    u_value t246 = f_set_46_well_formed_1(v_l);
+    u_value t246 = f_set_46_balanced_1(v_l);
     if (u_truth(t246)) {
-      t246 = f_set_46_well_formed_1(v_r);
+      t246 = f_set_46_balanced_1(v_r);
     }
     u_value t247 = t246;
     if (u_truth(t247)) {
-      t247 = u_eq(v_d, f_set_46_snode_depth_2(v_l, v_r));
+      t247 = u_eq(v_d, f_set_46_node_height_2(v_l, v_r));
     }
     u_value t248 = t247;
     if (u_truth(t248)) {
-      t248 = f_prelude_46__60__61__2(f_set_46_depth_1(v_l), u_add(f_set_46_depth_1(v_r), u_mk_int(1)));
+      t248 = f_prelude_46__60__61__2(f_set_46_height_1(v_l), u_add(f_set_46_height_1(v_r), u_mk_int(1)));
     }
     u_value t249 = t248;
     if (u_truth(t249)) {
-      t249 = f_prelude_46__60__61__2(f_set_46_depth_1(v_r), u_add(f_set_46_depth_1(v_l), u_mk_int(1)));
+      t249 = f_prelude_46__60__61__2(f_set_46_height_1(v_r), u_add(f_set_46_height_1(v_l), u_mk_int(1)));
     }
     t245 = t249;
   }
@@ -9720,17 +9720,17 @@ u_value f_map_46_empty_0(void) {
     u_reraise(handler);
   }
   u_pop(handler);
-  cache = &o_map_46_MLeaf;
+  cache = &o_map_46_Leaf;
   return cache;
 }
 
 u_value f_map_46_get_2(u_value v_k, u_value v_m) {
   u_value s251 = v_m;
   u_value t252 = NULL;
-  if ((!t252) && u_is_con(s251, &n_map_46_MLeaf)) {
+  if ((!t252) && u_is_con(s251, &n_map_46_Leaf)) {
     t252 = &o_option_46_None;
   }
-  if ((!t252) && u_is_con(s251, &n_map_46_MNode)) {
+  if ((!t252) && u_is_con(s251, &n_map_46_Node)) {
     u_value v_l = u_field(s251, 0);
     u_value v_j = u_field(s251, 1);
     u_value v_v = u_field(s251, 2);
@@ -9757,17 +9757,17 @@ u_value f_map_46_get_2(u_value v_k, u_value v_m) {
   return t252;
 }
 
-u_value f_map_46_has_2(u_value v_k, u_value v_m) {
+u_value f_map_46_contains_2(u_value v_k, u_value v_m) {
   return f_prelude_46__33__61__2(f_map_46_get_2(v_k, v_m), &o_option_46_None);
 }
 
 u_value f_map_46_put_3(u_value v_k, u_value v_v, u_value v_m) {
   u_value s255 = v_m;
   u_value t256 = NULL;
-  if ((!t256) && u_is_con(s255, &n_map_46_MLeaf)) {
-    t256 = u_mk_con(&n_map_46_MNode, 5, &o_map_46_MLeaf, v_k, v_v, &o_map_46_MLeaf, u_mk_int(1));
+  if ((!t256) && u_is_con(s255, &n_map_46_Leaf)) {
+    t256 = u_mk_con(&n_map_46_Node, 5, &o_map_46_Leaf, v_k, v_v, &o_map_46_Leaf, u_mk_int(1));
   }
-  if ((!t256) && u_is_con(s255, &n_map_46_MNode)) {
+  if ((!t256) && u_is_con(s255, &n_map_46_Node)) {
     u_value v_l = u_field(s255, 0);
     u_value v_j = u_field(s255, 1);
     u_value v_w = u_field(s255, 2);
@@ -9782,7 +9782,7 @@ u_value f_map_46_put_3(u_value v_k, u_value v_v, u_value v_m) {
       t258 = f_map_46_balance_4(v_l, v_j, v_w, f_map_46_put_3(v_k, v_v, v_r));
     }
     if (!t258) {
-      t258 = u_mk_con(&n_map_46_MNode, 5, v_l, v_k, v_v, v_r, v_h);
+      t258 = u_mk_con(&n_map_46_Node, 5, v_l, v_k, v_v, v_r, v_h);
     }
     if (!t258) {
       u_no_case(s257);
@@ -9802,10 +9802,10 @@ u_value f_map_46_entries_1(u_value v_m) {
 u_value f_map_46_entries_onto_2(u_value v_m, u_value v_rest) {
   u_value s259 = v_m;
   u_value t260 = NULL;
-  if ((!t260) && u_is_con(s259, &n_map_46_MLeaf)) {
+  if ((!t260) && u_is_con(s259, &n_map_46_Leaf)) {
     t260 = v_rest;
   }
-  if ((!t260) && u_is_con(s259, &n_map_46_MNode)) {
+  if ((!t260) && u_is_con(s259, &n_map_46_Node)) {
     u_value v_l = u_field(s259, 0);
     u_value v_k = u_field(s259, 1);
     u_value v_v = u_field(s259, 2);
@@ -9821,10 +9821,10 @@ u_value f_map_46_entries_onto_2(u_value v_m, u_value v_rest) {
 u_value f_map_46_size_1(u_value v_m) {
   u_value s261 = v_m;
   u_value t262 = NULL;
-  if ((!t262) && u_is_con(s261, &n_map_46_MLeaf)) {
+  if ((!t262) && u_is_con(s261, &n_map_46_Leaf)) {
     t262 = u_mk_int(0);
   }
-  if ((!t262) && u_is_con(s261, &n_map_46_MNode)) {
+  if ((!t262) && u_is_con(s261, &n_map_46_Node)) {
     u_value v_l = u_field(s261, 0);
     u_value v_r = u_field(s261, 3);
     t262 = u_add(u_add(f_map_46_size_1(v_l), u_mk_int(1)), f_map_46_size_1(v_r));
@@ -9838,10 +9838,10 @@ u_value f_map_46_size_1(u_value v_m) {
 u_value f_map_46_height_1(u_value v_m) {
   u_value s263 = v_m;
   u_value t264 = NULL;
-  if ((!t264) && u_is_con(s263, &n_map_46_MLeaf)) {
+  if ((!t264) && u_is_con(s263, &n_map_46_Leaf)) {
     t264 = u_mk_int(0);
   }
-  if ((!t264) && u_is_con(s263, &n_map_46_MNode)) {
+  if ((!t264) && u_is_con(s263, &n_map_46_Node)) {
     u_value v_h = u_field(s263, 4);
     t264 = v_h;
   }
@@ -9851,14 +9851,14 @@ u_value f_map_46_height_1(u_value v_m) {
   return t264;
 }
 
-u_value f_map_46_mnode_4(u_value v_l, u_value v_k, u_value v_v, u_value v_r) {
-  return u_mk_con(&n_map_46_MNode, 5, v_l, v_k, v_v, v_r, f_map_46_mnode_height_2(v_l, v_r));
+u_value f_map_46_node_4(u_value v_l, u_value v_k, u_value v_v, u_value v_r) {
+  return u_mk_con(&n_map_46_Node, 5, v_l, v_k, v_v, v_r, f_map_46_node_height_2(v_l, v_r));
 }
 
 u_value f_map_46_rotate_left_1(u_value v_m) {
   u_value s265 = v_m;
   u_value t266 = NULL;
-  if ((!t266) && (u_is_con(s265, &n_map_46_MNode) && u_is_con(u_field(s265, 3), &n_map_46_MNode))) {
+  if ((!t266) && (u_is_con(s265, &n_map_46_Node) && u_is_con(u_field(s265, 3), &n_map_46_Node))) {
     u_value v_a = u_field(s265, 0);
     u_value v_j = u_field(s265, 1);
     u_value v_v = u_field(s265, 2);
@@ -9866,7 +9866,7 @@ u_value f_map_46_rotate_left_1(u_value v_m) {
     u_value v_k = u_field(u_field(s265, 3), 1);
     u_value v_w = u_field(u_field(s265, 3), 2);
     u_value v_c = u_field(u_field(s265, 3), 3);
-    t266 = f_map_46_mnode_4(f_map_46_mnode_4(v_a, v_j, v_v, v_b), v_k, v_w, v_c);
+    t266 = f_map_46_node_4(f_map_46_node_4(v_a, v_j, v_v, v_b), v_k, v_w, v_c);
   }
   if (!t266) {
     t266 = v_m;
@@ -9880,7 +9880,7 @@ u_value f_map_46_rotate_left_1(u_value v_m) {
 u_value f_map_46_rotate_right_1(u_value v_m) {
   u_value s267 = v_m;
   u_value t268 = NULL;
-  if ((!t268) && (u_is_con(s267, &n_map_46_MNode) && u_is_con(u_field(s267, 0), &n_map_46_MNode))) {
+  if ((!t268) && (u_is_con(s267, &n_map_46_Node) && u_is_con(u_field(s267, 0), &n_map_46_Node))) {
     u_value v_a = u_field(u_field(s267, 0), 0);
     u_value v_j = u_field(u_field(s267, 0), 1);
     u_value v_v = u_field(u_field(s267, 0), 2);
@@ -9888,7 +9888,7 @@ u_value f_map_46_rotate_right_1(u_value v_m) {
     u_value v_k = u_field(s267, 1);
     u_value v_w = u_field(s267, 2);
     u_value v_c = u_field(s267, 3);
-    t268 = f_map_46_mnode_4(v_a, v_j, v_v, f_map_46_mnode_4(v_b, v_k, v_w, v_c));
+    t268 = f_map_46_node_4(v_a, v_j, v_v, f_map_46_node_4(v_b, v_k, v_w, v_c));
   }
   if (!t268) {
     t268 = v_m;
@@ -9902,7 +9902,7 @@ u_value f_map_46_rotate_right_1(u_value v_m) {
 u_value f_map_46_left_of_1(u_value v_m) {
   u_value s269 = v_m;
   u_value t270 = NULL;
-  if ((!t270) && u_is_con(s269, &n_map_46_MNode)) {
+  if ((!t270) && u_is_con(s269, &n_map_46_Node)) {
     u_value v_l = u_field(s269, 0);
     t270 = v_l;
   }
@@ -9918,7 +9918,7 @@ u_value f_map_46_left_of_1(u_value v_m) {
 u_value f_map_46_right_of_1(u_value v_m) {
   u_value s271 = v_m;
   u_value t272 = NULL;
-  if ((!t272) && u_is_con(s271, &n_map_46_MNode)) {
+  if ((!t272) && u_is_con(s271, &n_map_46_Node)) {
     u_value v_r = u_field(s271, 3);
     t272 = v_r;
   }
@@ -9940,7 +9940,7 @@ u_value f_map_46_balance_4(u_value v_l, u_value v_k, u_value v_v, u_value v_r) {
     } else {
       t273 = v_l;
     }
-    t276 = f_map_46_rotate_right_1(f_map_46_mnode_4(t273, v_k, v_v, v_r));
+    t276 = f_map_46_rotate_right_1(f_map_46_node_4(t273, v_k, v_v, v_r));
   } else {
     u_value t275;
     if (u_truth(f_prelude_46__62__2(f_map_46_height_1(v_r), u_add(f_map_46_height_1(v_l), u_mk_int(1))))) {
@@ -9950,9 +9950,9 @@ u_value f_map_46_balance_4(u_value v_l, u_value v_k, u_value v_v, u_value v_r) {
       } else {
         t274 = v_r;
       }
-      t275 = f_map_46_rotate_left_1(f_map_46_mnode_4(v_l, v_k, v_v, t274));
+      t275 = f_map_46_rotate_left_1(f_map_46_node_4(v_l, v_k, v_v, t274));
     } else {
-      t275 = f_map_46_mnode_4(v_l, v_k, v_v, v_r);
+      t275 = f_map_46_node_4(v_l, v_k, v_v, v_r);
     }
     t276 = t275;
   }
@@ -9962,10 +9962,10 @@ u_value f_map_46_balance_4(u_value v_l, u_value v_k, u_value v_v, u_value v_r) {
 u_value f_map_46_balanced_1(u_value v_m) {
   u_value s277 = v_m;
   u_value t278 = NULL;
-  if ((!t278) && u_is_con(s277, &n_map_46_MLeaf)) {
+  if ((!t278) && u_is_con(s277, &n_map_46_Leaf)) {
     t278 = u_mk_bool(1);
   }
-  if ((!t278) && u_is_con(s277, &n_map_46_MNode)) {
+  if ((!t278) && u_is_con(s277, &n_map_46_Node)) {
     u_value v_l = u_field(s277, 0);
     u_value v_r = u_field(s277, 3);
     u_value v_h = u_field(s277, 4);
@@ -9975,7 +9975,7 @@ u_value f_map_46_balanced_1(u_value v_m) {
     }
     u_value t280 = t279;
     if (u_truth(t280)) {
-      t280 = u_eq(v_h, f_map_46_mnode_height_2(v_l, v_r));
+      t280 = u_eq(v_h, f_map_46_node_height_2(v_l, v_r));
     }
     u_value t281 = t280;
     if (u_truth(t281)) {
@@ -9993,7 +9993,7 @@ u_value f_map_46_balanced_1(u_value v_m) {
   return t278;
 }
 
-u_value f_map_46_mnode_height_2(u_value v_l, u_value v_r) {
+u_value f_map_46_node_height_2(u_value v_l, u_value v_r) {
   u_value t283;
   if (u_truth(u_lt(f_map_46_height_1(v_l), f_map_46_height_1(v_r)))) {
     t283 = f_map_46_height_1(v_r);
@@ -10003,13 +10003,13 @@ u_value f_map_46_mnode_height_2(u_value v_l, u_value v_r) {
   return u_add(u_mk_int(1), t283);
 }
 
-u_value f_map_46_delete_2(u_value v_k, u_value v_m) {
+u_value f_map_46_remove_2(u_value v_k, u_value v_m) {
   u_value s284 = v_m;
   u_value t285 = NULL;
-  if ((!t285) && u_is_con(s284, &n_map_46_MLeaf)) {
-    t285 = &o_map_46_MLeaf;
+  if ((!t285) && u_is_con(s284, &n_map_46_Leaf)) {
+    t285 = &o_map_46_Leaf;
   }
-  if ((!t285) && u_is_con(s284, &n_map_46_MNode)) {
+  if ((!t285) && u_is_con(s284, &n_map_46_Node)) {
     u_value v_l = u_field(s284, 0);
     u_value v_j = u_field(s284, 1);
     u_value v_v = u_field(s284, 2);
@@ -10017,10 +10017,10 @@ u_value f_map_46_delete_2(u_value v_k, u_value v_m) {
     u_value s286 = u_compare(v_k, v_j);
     u_value t287 = NULL;
     if ((!t287) && u_equals(s286, u_mk_int(-1))) {
-      t287 = f_map_46_balance_4(f_map_46_delete_2(v_k, v_l), v_j, v_v, v_r);
+      t287 = f_map_46_balance_4(f_map_46_remove_2(v_k, v_l), v_j, v_v, v_r);
     }
     if ((!t287) && u_equals(s286, u_mk_int(1))) {
-      t287 = f_map_46_balance_4(v_l, v_j, v_v, f_map_46_delete_2(v_k, v_r));
+      t287 = f_map_46_balance_4(v_l, v_j, v_v, f_map_46_remove_2(v_k, v_r));
     }
     if (!t287) {
       t287 = f_map_46_join_2(v_l, v_r);
@@ -10036,7 +10036,7 @@ u_value f_map_46_delete_2(u_value v_k, u_value v_m) {
   return t285;
 }
 
-u_value f_map_46_delete_all_2(u_value v_ks, u_value v_m) {
+u_value f_map_46_remove_all_2(u_value v_ks, u_value v_m) {
   u_value s288 = v_ks;
   u_value t289 = NULL;
   if ((!t289) && u_is_con(s288, &n_list_46_Nil)) {
@@ -10045,7 +10045,7 @@ u_value f_map_46_delete_all_2(u_value v_ks, u_value v_m) {
   if ((!t289) && u_is_con(s288, &n_list_46_Cons)) {
     u_value v_k = u_field(s288, 0);
     u_value v_rest = u_field(s288, 1);
-    t289 = f_map_46_delete_all_2(v_rest, f_map_46_delete_2(v_k, v_m));
+    t289 = f_map_46_remove_all_2(v_rest, f_map_46_remove_2(v_k, v_m));
   }
   if (!t289) {
     u_no_case(s288);
@@ -10073,15 +10073,15 @@ u_value f_map_46_join_2(u_value v_l, u_value v_r) {
 u_value f_map_46_first_entry_1(u_value v_m) {
   u_value s292 = v_m;
   u_value t293 = NULL;
-  if ((!t293) && u_is_con(s292, &n_map_46_MLeaf)) {
+  if ((!t293) && u_is_con(s292, &n_map_46_Leaf)) {
     t293 = &o_option_46_None;
   }
-  if ((!t293) && (u_is_con(s292, &n_map_46_MNode) && u_is_con(u_field(s292, 0), &n_map_46_MLeaf))) {
+  if ((!t293) && (u_is_con(s292, &n_map_46_Node) && u_is_con(u_field(s292, 0), &n_map_46_Leaf))) {
     u_value v_k = u_field(s292, 1);
     u_value v_v = u_field(s292, 2);
     t293 = u_mk_con(&n_option_46_Some, 1, u_mk_tuple(2, v_k, v_v));
   }
-  if ((!t293) && u_is_con(s292, &n_map_46_MNode)) {
+  if ((!t293) && u_is_con(s292, &n_map_46_Node)) {
     u_value v_l = u_field(s292, 0);
     t293 = f_map_46_first_entry_1(v_l);
   }
@@ -10094,14 +10094,14 @@ u_value f_map_46_first_entry_1(u_value v_m) {
 u_value f_map_46_remove_first_1(u_value v_m) {
   u_value s294 = v_m;
   u_value t295 = NULL;
-  if ((!t295) && u_is_con(s294, &n_map_46_MLeaf)) {
-    t295 = &o_map_46_MLeaf;
+  if ((!t295) && u_is_con(s294, &n_map_46_Leaf)) {
+    t295 = &o_map_46_Leaf;
   }
-  if ((!t295) && (u_is_con(s294, &n_map_46_MNode) && u_is_con(u_field(s294, 0), &n_map_46_MLeaf))) {
+  if ((!t295) && (u_is_con(s294, &n_map_46_Node) && u_is_con(u_field(s294, 0), &n_map_46_Leaf))) {
     u_value v_r = u_field(s294, 3);
     t295 = v_r;
   }
-  if ((!t295) && u_is_con(s294, &n_map_46_MNode)) {
+  if ((!t295) && u_is_con(s294, &n_map_46_Node)) {
     u_value v_l = u_field(s294, 0);
     u_value v_k = u_field(s294, 1);
     u_value v_v = u_field(s294, 2);
@@ -10378,13 +10378,13 @@ u_value f_parse_46_infix_of_2(u_value v_notations, u_value v_op) {
 }
 
 u_value f_parse_46_is_operator_2(u_value v_notations, u_value v_op) {
-  u_value t353 = f_map_46_has_2(v_op, f_parse_46_Notations_46_prefix_ops_1(v_notations));
+  u_value t353 = f_map_46_contains_2(v_op, f_parse_46_Notations_46_prefix_ops_1(v_notations));
   if (!u_truth(t353)) {
-    t353 = f_map_46_has_2(v_op, f_parse_46_Notations_46_postfix_ops_1(v_notations));
+    t353 = f_map_46_contains_2(v_op, f_parse_46_Notations_46_postfix_ops_1(v_notations));
   }
   u_value t354 = t353;
   if (!u_truth(t354)) {
-    t354 = f_map_46_has_2(v_op, f_parse_46_Notations_46_infix_ops_1(v_notations));
+    t354 = f_map_46_contains_2(v_op, f_parse_46_Notations_46_infix_ops_1(v_notations));
   }
   return t354;
 }
@@ -10760,7 +10760,7 @@ u_value f_parse_46_operator_at_2(u_value v_notations, u_value v_toks) {
   u_value t401 = NULL;
   if ((!t401) && u_is_con(s400, &n_lex_46_TSym)) {
     u_value v_s = u_field(s400, 0);
-    if (u_truth(f_prelude_46_not_1(f_set_46_member_2(v_s, f_parse_46_reserved_0())))) {
+    if (u_truth(f_prelude_46_not_1(f_set_46_contains_2(v_s, f_parse_46_reserved_0())))) {
       t401 = u_mk_con(&n_option_46_Some, 1, v_s);
     }
   }
@@ -10822,7 +10822,7 @@ void p_parse_46_parse_name(u_value *r_name, u_value *r_toks) {
     int d406 = 0;
     if ((!d406) && u_is_con(s405, &n_lex_46_TName)) {
       u_value v_m = u_field(s405, 0);
-      if (u_truth(f_prelude_46_not_1(f_set_46_member_2(v_m, f_parse_46_keywords_0())))) {
+      if (u_truth(f_prelude_46_not_1(f_set_46_contains_2(v_m, f_parse_46_keywords_0())))) {
         d406 = 1;
         {
           u_value t407 = v_m;
@@ -10877,7 +10877,7 @@ void p_parse_46_parse_name_or_symbol(u_value *r_name, u_value *r_toks) {
     int d414 = 0;
     if ((!d414) && u_is_con(s413, &n_lex_46_TSym)) {
       u_value v_s = u_field(s413, 0);
-      if (u_truth(f_prelude_46_not_1(f_set_46_member_2(v_s, f_parse_46_reserved_0())))) {
+      if (u_truth(f_prelude_46_not_1(f_set_46_contains_2(v_s, f_parse_46_reserved_0())))) {
         d414 = 1;
         {
           u_value t415 = v_s;
@@ -11442,7 +11442,7 @@ u_value f_parse_46_starts_type_2(u_value v_notations, u_value v_tok) {
   u_value t492 = NULL;
   if ((!t492) && u_is_con(s491, &n_lex_46_TName)) {
     u_value v_name = u_field(s491, 0);
-    u_value t493 = f_prelude_46_not_1(f_set_46_member_2(v_name, f_parse_46_keywords_0()));
+    u_value t493 = f_prelude_46_not_1(f_set_46_contains_2(v_name, f_parse_46_keywords_0()));
     if (u_truth(t493)) {
       t493 = f_prelude_46_not_1(f_parse_46_is_operator_2(v_notations, v_name));
     }
@@ -11601,7 +11601,7 @@ u_value f_parse_46_starts_expr_2(u_value v_notations, u_value v_tok) {
     static struct u_object l_false_518 = U_LIT("false");
     u_value t520 = f_list_46_contains_2(v_name, u_mk_con(&n_list_46_Cons, 2, &l_let_513, u_mk_con(&n_list_46_Cons, 2, &l_if_514, u_mk_con(&n_list_46_Cons, 2, &l_lambda_515, u_mk_con(&n_list_46_Cons, 2, &l_match_516, u_mk_con(&n_list_46_Cons, 2, &l_true_517, u_mk_con(&n_list_46_Cons, 2, &l_false_518, &o_list_46_Nil)))))));
     if (!u_truth(t520)) {
-      u_value t519 = f_prelude_46_not_1(f_set_46_member_2(v_name, f_parse_46_keywords_0()));
+      u_value t519 = f_prelude_46_not_1(f_set_46_contains_2(v_name, f_parse_46_keywords_0()));
       if (u_truth(t519)) {
         t519 = f_prelude_46_not_1(f_parse_46_is_operator_2(v_notations, v_name));
       }
@@ -11834,7 +11834,7 @@ void p_parse_46_parse_expr_atom(u_value v_notations, u_value v_params, u_value *
     }
     if ((!d540) && u_is_con(u_field(s539, 1), &n_lex_46_TName)) {
       u_value v_name = u_field(u_field(s539, 1), 0);
-      u_value t551 = f_prelude_46_not_1(f_set_46_member_2(v_name, f_parse_46_keywords_0()));
+      u_value t551 = f_prelude_46_not_1(f_set_46_contains_2(v_name, f_parse_46_keywords_0()));
       if (u_truth(t551)) {
         t551 = f_prelude_46_not_1(f_parse_46_is_operator_2(v_notations, v_name));
       }
@@ -12512,7 +12512,7 @@ u_value f_parse_46_starts_pattern_2(u_value v_notations, u_value v_tok) {
     static struct u_object l_false_663 = U_LIT("false");
     u_value t665 = f_list_46_contains_2(v_name, u_mk_con(&n_list_46_Cons, 2, &l___661, u_mk_con(&n_list_46_Cons, 2, &l_true_662, u_mk_con(&n_list_46_Cons, 2, &l_false_663, &o_list_46_Nil))));
     if (!u_truth(t665)) {
-      u_value t664 = f_prelude_46_not_1(f_set_46_member_2(v_name, f_parse_46_keywords_0()));
+      u_value t664 = f_prelude_46_not_1(f_set_46_contains_2(v_name, f_parse_46_keywords_0()));
       if (u_truth(t664)) {
         t664 = f_prelude_46_not_1(f_parse_46_is_operator_2(v_notations, v_name));
       }
@@ -13275,7 +13275,7 @@ u_value f_parse_46_modules_of_1(u_value v_cmd) {
 }
 
 u_value f_parse_46_own_notations_2(u_value v_ctx, u_value v_name) {
-  u_value s781 = f_list_46_lookup_2(v_name, f_parse_46_Context_46_modules_1(v_ctx));
+  u_value s781 = f_list_46_get_2(v_name, f_parse_46_Context_46_modules_1(v_ctx));
   u_value t782 = NULL;
   if ((!t782) && u_is_con(s781, &n_option_46_Some)) {
     u_value v_ns = u_field(s781, 0);
@@ -13403,11 +13403,11 @@ u_value f_parse_46_at_operator_1(u_value v_toks) {
   u_value t799 = NULL;
   if ((!t799) && u_is_con(s798, &n_lex_46_TSym)) {
     u_value v_s = u_field(s798, 0);
-    t799 = f_prelude_46_not_1(f_set_46_member_2(v_s, f_parse_46_reserved_0()));
+    t799 = f_prelude_46_not_1(f_set_46_contains_2(v_s, f_parse_46_reserved_0()));
   }
   if ((!t799) && u_is_con(s798, &n_lex_46_TName)) {
     u_value v_name = u_field(s798, 0);
-    t799 = f_prelude_46_not_1(f_set_46_member_2(v_name, f_parse_46_keywords_0()));
+    t799 = f_prelude_46_not_1(f_set_46_contains_2(v_name, f_parse_46_keywords_0()));
   }
   if (!t799) {
     t799 = u_mk_bool(0);
@@ -13480,7 +13480,7 @@ void p_parse_46_parse_field(u_value v_notations, u_value v_params, u_value *r_ar
     int d809 = 0;
     if ((!d809) && (u_is_con(u_field(s808, 0), &n_lex_46_TName) && (u_is_con(u_field(s808, 1), &n_lex_46_TSym) && u_equals(u_field(u_field(s808, 1), 0), u_mk_lit(":"))))) {
       u_value v_name = u_field(u_field(s808, 0), 0);
-      if (u_truth(f_prelude_46_not_1(f_set_46_member_2(v_name, f_parse_46_keywords_0())))) {
+      if (u_truth(f_prelude_46_not_1(f_set_46_contains_2(v_name, f_parse_46_keywords_0())))) {
         d809 = 1;
         {
           p_parse_46_advance(r_toks);
@@ -13641,7 +13641,7 @@ u_value f_parse_46_fields_of_1(u_value v_constrs) {
     u_value v_args = u_field(u_field(u_field(s832, 0), 0), 1);
     u_value v_fs = u_field(u_field(s832, 0), 1);
     u_value v_rest = u_field(s832, 1);
-    t833 = f_list_46__43__43__2(f_parse_46_named_fields_4(v_k, f_list_46_length_1(v_args), f_list_46_zip_2(v_fs, v_args), u_mk_int(0)), f_parse_46_fields_of_1(v_rest));
+    t833 = f_list_46__43__43__2(f_parse_46_named_fields_4(v_k, f_list_46_size_1(v_args), f_list_46_zip_2(v_fs, v_args), u_mk_int(0)), f_parse_46_fields_of_1(v_rest));
   }
   if (!t833) {
     u_no_case(s832);
@@ -13682,7 +13682,7 @@ u_value f_parse_46_accessors_3(u_value v_t, u_value v_params, u_value v_constrs)
     while (u_is_con(l838, &n_list_46_Cons)) {
       u_value v_f = u_field(l838, 0);
       if (u_truth(u_mk_bool(1))) {
-        e837 = u_append(e837, f_parse_46_accessor_5(v_t, v_params, v_f, f_parse_46_fields_named_2(v_f, v_fs), f_list_46_length_1(v_constrs)));
+        e837 = u_append(e837, f_parse_46_accessor_5(v_t, v_params, v_f, f_parse_46_fields_named_2(v_f, v_fs), f_list_46_size_1(v_constrs)));
       }
       l838 = u_field(l838, 1);
     }
@@ -13722,7 +13722,7 @@ u_value f_parse_46_accessor_5(u_value v_t, u_value v_params, u_value v_f, u_valu
       l849 = u_field(l849, 1);
     }
     u_value t850;
-    if (u_truth(u_eq(f_list_46_length_1(v_fields), v_n))) {
+    if (u_truth(u_eq(f_list_46_size_1(v_fields), v_n))) {
       t850 = &o_list_46_Nil;
     } else {
       t850 = u_mk_con(&n_list_46_Cons, 2, f_parse_46_missing_field_2(v_t, v_f), &o_list_46_Nil);
@@ -13798,7 +13798,7 @@ u_value f_parse_46_updaters_3(u_value v_t, u_value v_params, u_value v_constrs) 
     while (u_is_con(l868, &n_list_46_Cons)) {
       u_value v_f = u_field(l868, 0);
       if (u_truth(u_mk_bool(1))) {
-        e867 = u_append(e867, f_parse_46_updater_5(v_t, v_params, v_f, f_parse_46_fields_named_2(v_f, v_fs), f_list_46_length_1(v_constrs)));
+        e867 = u_append(e867, f_parse_46_updater_5(v_t, v_params, v_f, f_parse_46_fields_named_2(v_f, v_fs), f_list_46_size_1(v_constrs)));
       }
       l868 = u_field(l868, 1);
     }
@@ -13840,7 +13840,7 @@ u_value f_parse_46_updater_5(u_value v_t, u_value v_params, u_value v_f, u_value
       l881 = u_field(l881, 1);
     }
     u_value t882;
-    if (u_truth(u_eq(f_list_46_length_1(v_fields), v_n))) {
+    if (u_truth(u_eq(f_list_46_size_1(v_fields), v_n))) {
       t882 = &o_list_46_Nil;
     } else {
       t882 = u_mk_con(&n_list_46_Cons, 2, f_parse_46_missing_field_2(v_t, v_f), &o_list_46_Nil);
@@ -14414,12 +14414,12 @@ u_value f_parse_46_dir_name_1(u_value v_path) {
   {
     u_value v_parts = t973;
     u_value t971;
-    if (u_truth(u_eq(f_list_46_length_1(v_parts), u_mk_int(1)))) {
+    if (u_truth(u_eq(f_list_46_size_1(v_parts), u_mk_int(1)))) {
       static struct u_object l__46__969 = U_LIT(".");
       t971 = &l__46__969;
     } else {
       static struct u_object l__47__970 = U_LIT("/");
-      t971 = u_str_join(&l__47__970, f_list_46_take_2(u_sub(f_list_46_length_1(v_parts), u_mk_int(1)), v_parts));
+      t971 = u_str_join(&l__47__970, f_list_46_take_2(u_sub(f_list_46_size_1(v_parts), u_mk_int(1)), v_parts));
     }
     t972 = t971;
   }
@@ -14461,7 +14461,7 @@ void p_parse_46_same_commands(u_value v_path, u_value v_cmds, u_value v_ds) {
     if (!d976) {
       d976 = 1;
       {
-        u_assert_equal(u_mk_tuple(2, v_path, f_list_46_length_1(v_cmds)), u_mk_tuple(2, v_path, f_list_46_length_1(v_ds)));
+        u_assert_equal(u_mk_tuple(2, v_path, f_list_46_size_1(v_cmds)), u_mk_tuple(2, v_path, f_list_46_size_1(v_ds)));
       }
     }
     if (!d976) {
@@ -14944,23 +14944,23 @@ u_value f_ctx_46_constr_of_2(u_value v_c, u_value v_n) {
 }
 
 u_value f_ctx_46_is_fun_2(u_value v_c, u_value v_n) {
-  return f_map_46_has_2(v_n, f_ctx_46_Ctx_46_funs_1(v_c));
+  return f_map_46_contains_2(v_n, f_ctx_46_Ctx_46_funs_1(v_c));
 }
 
 u_value f_ctx_46_is_proc_2(u_value v_c, u_value v_n) {
-  return f_map_46_has_2(v_n, f_ctx_46_Ctx_46_procs_1(v_c));
+  return f_map_46_contains_2(v_n, f_ctx_46_Ctx_46_procs_1(v_c));
 }
 
 u_value f_ctx_46_is_data_2(u_value v_c, u_value v_n) {
-  return f_map_46_has_2(v_n, f_ctx_46_Ctx_46_datas_1(v_c));
+  return f_map_46_contains_2(v_n, f_ctx_46_Ctx_46_datas_1(v_c));
 }
 
 u_value f_ctx_46_is_alias_2(u_value v_c, u_value v_n) {
-  return f_map_46_has_2(v_n, f_ctx_46_Ctx_46_aliases_1(v_c));
+  return f_map_46_contains_2(v_n, f_ctx_46_Ctx_46_aliases_1(v_c));
 }
 
 u_value f_ctx_46_is_constr_2(u_value v_c, u_value v_n) {
-  return f_map_46_has_2(v_n, f_ctx_46_Ctx_46_constrs_1(v_c));
+  return f_map_46_contains_2(v_n, f_ctx_46_Ctx_46_constrs_1(v_c));
 }
 
 u_value f_ctx_46_is_sort_2(u_value v_c, u_value v_n) {
@@ -15410,7 +15410,7 @@ u_value f_check_46_enter_2(u_value v_s, u_value v_m) {
 }
 
 u_value f_check_46_sees_2(u_value v_m, u_value v_vs) {
-  u_value s1086 = f_list_46_lookup_2(v_m, v_vs);
+  u_value s1086 = f_list_46_get_2(v_m, v_vs);
   u_value t1087 = NULL;
   if ((!t1087) && u_is_con(s1086, &n_option_46_Some)) {
     u_value v_ms = u_field(s1086, 0);
@@ -15552,7 +15552,7 @@ u_value f_check_46_visibility_2(u_value v_imports, u_value v_main) {
 }
 
 u_value f_check_46_imports_of_2(u_value v_imports, u_value v_m) {
-  u_value s1102 = f_list_46_lookup_2(v_m, v_imports);
+  u_value s1102 = f_list_46_get_2(v_m, v_imports);
   u_value t1103 = NULL;
   if ((!t1103) && u_is_con(s1102, &n_option_46_Some)) {
     u_value v_ns = u_field(s1102, 0);
@@ -16223,7 +16223,7 @@ u_value f_check_46_subst_2(u_value v_t, u_value v_m) {
     t1170 = u_mk_con(&n_syntax_46_TTuple, 1, t1186);
   }
   if (!t1170) {
-    u_value s1189 = f_list_46_lookup_2(v_t, v_m);
+    u_value s1189 = f_list_46_get_2(v_t, v_m);
     u_value t1190 = NULL;
     if ((!t1190) && u_is_con(s1189, &n_option_46_Some)) {
       u_value v_u = u_field(s1189, 0);
@@ -16348,7 +16348,7 @@ u_value f_check_46_constructor_of_2(u_value v_c, u_value v_k) {
 }
 
 u_value f_check_46_candidates_3(u_value v_s, u_value v_env, u_value v_n) {
-  u_value s1207 = f_list_46_lookup_2(v_n, v_env);
+  u_value s1207 = f_list_46_get_2(v_n, v_env);
   u_value t1208 = NULL;
   if ((!t1208) && u_is_con(s1207, &n_option_46_Some)) {
     u_value v_sc = u_field(s1207, 0);
@@ -17549,7 +17549,7 @@ u_value f_check_46_fields_of_4(u_value v_c, u_value v_su, u_value v_t, u_value v
   u_value t1390 = NULL;
   if ((!t1390) && u_is_con(s1389, &n_option_46_Some)) {
     u_value v_ks = u_field(s1389, 0);
-    u_value s1391 = f_list_46_lookup_2(v_h, v_ks);
+    u_value s1391 = f_list_46_get_2(v_h, v_ks);
     u_value t1392 = NULL;
     if ((!t1392) && u_is_con(s1391, &n_option_46_Some)) {
       u_value v_ts = u_field(s1391, 0);
@@ -17683,7 +17683,7 @@ u_value f_check_46_useful_5(u_value v_c, u_value v_su, u_value v_rows, u_value v
     if ((!t1408) && u_is_con(s1407, &n_option_46_Some)) {
       u_value v_h = u_field(u_field(s1407, 0), 0);
       u_value v_args = u_field(u_field(s1407, 0), 1);
-      t1408 = f_check_46_useful_5(v_c, v_su, f_check_46_specialize_3(v_rows, v_h, f_list_46_length_1(v_args)), f_list_46__43__43__2(v_args, v_ps), f_list_46__43__43__2(f_check_46_fields_of_4(v_c, v_su, v_t, v_h), v_rest));
+      t1408 = f_check_46_useful_5(v_c, v_su, f_check_46_specialize_3(v_rows, v_h, f_list_46_size_1(v_args)), f_list_46__43__43__2(v_args, v_ps), f_list_46__43__43__2(f_check_46_fields_of_4(v_c, v_su, v_t, v_h), v_rest));
     }
     if ((!t1408) && u_is_con(s1407, &n_option_46_None)) {
       u_value s1409 = f_check_46_constructors_of_3(v_c, v_su, v_t);
@@ -17730,7 +17730,7 @@ u_value f_check_46_useful_in_6(u_value v_c, u_value v_su, u_value v_rows, u_valu
     u_value v_h = u_field(u_field(s1412, 0), 0);
     u_value v_args = u_field(u_field(s1412, 0), 1);
     u_value v_more = u_field(s1412, 1);
-    u_value t1414 = f_check_46_useful_5(v_c, v_su, f_check_46_specialize_3(v_rows, v_h, f_list_46_length_1(v_args)), f_list_46__43__43__2(f_list_46_replicate_2(f_list_46_length_1(v_args), &o_syntax_46_PWild), v_ps), f_list_46__43__43__2(v_args, v_rest));
+    u_value t1414 = f_check_46_useful_5(v_c, v_su, f_check_46_specialize_3(v_rows, v_h, f_list_46_size_1(v_args)), f_list_46__43__43__2(f_list_46_replicate_2(f_list_46_size_1(v_args), &o_syntax_46_PWild), v_ps), f_list_46__43__43__2(v_args, v_rest));
     if (!u_truth(t1414)) {
       t1414 = f_check_46_useful_in_6(v_c, v_su, v_rows, v_more, v_ps, v_rest);
     }
@@ -17820,11 +17820,11 @@ u_value f_check_46_first_missing_5(u_value v_c, u_value v_su, u_value v_rows, u_
     u_value v_h = u_field(u_field(s1424, 0), 0);
     u_value v_args = u_field(u_field(s1424, 0), 1);
     u_value v_more = u_field(s1424, 1);
-    u_value s1426 = f_check_46_missing_4(v_c, v_su, f_check_46_specialize_3(v_rows, v_h, f_list_46_length_1(v_args)), f_list_46__43__43__2(v_args, v_rest));
+    u_value s1426 = f_check_46_missing_4(v_c, v_su, f_check_46_specialize_3(v_rows, v_h, f_list_46_size_1(v_args)), f_list_46__43__43__2(v_args, v_rest));
     u_value t1427 = NULL;
     if ((!t1427) && u_is_con(s1426, &n_option_46_Some)) {
       u_value v_ws = u_field(s1426, 0);
-      t1427 = u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_list_46_Cons, 2, f_check_46_witness_2(v_h, f_list_46_take_2(f_list_46_length_1(v_args), v_ws)), f_list_46_drop_2(f_list_46_length_1(v_args), v_ws)));
+      t1427 = u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_list_46_Cons, 2, f_check_46_witness_2(v_h, f_list_46_take_2(f_list_46_size_1(v_args), v_ws)), f_list_46_drop_2(f_list_46_size_1(v_args), v_ws)));
     }
     if ((!t1427) && u_is_con(s1426, &n_option_46_None)) {
       t1427 = f_check_46_first_missing_5(v_c, v_su, v_rows, v_more, v_rest);
@@ -17892,7 +17892,7 @@ u_value f_check_46_first_uncovered_2(u_value v_hs, u_value v_ks) {
     if (u_truth(f_list_46_contains_2(v_h, v_hs))) {
       t1435 = f_check_46_first_uncovered_2(v_hs, v_rest);
     } else {
-      t1435 = f_check_46_witness_2(v_h, f_list_46_replicate_2(f_list_46_length_1(v_args), &o_syntax_46_PWild));
+      t1435 = f_check_46_witness_2(v_h, f_list_46_replicate_2(f_list_46_size_1(v_args), &o_syntax_46_PWild));
     }
     t1434 = t1435;
   }
@@ -17980,7 +17980,7 @@ void p_check_46_unify(u_value v_t1, u_value v_t2, u_value *r_s) {
       {
         u_value t1443 = u_eq(v_f, v_g);
         if (u_truth(t1443)) {
-          t1443 = u_eq(f_list_46_length_1(v_xs), f_list_46_length_1(v_ys));
+          t1443 = u_eq(f_list_46_size_1(v_xs), f_list_46_size_1(v_ys));
         }
         if (u_truth(t1443)) {
           {
@@ -18000,7 +18000,7 @@ void p_check_46_unify(u_value v_t1, u_value v_t2, u_value *r_s) {
       u_value v_r2 = u_field(u_field(s1441, 1), 1);
       d1442 = 1;
       {
-        if (u_truth(u_eq(f_list_46_length_1(v_xs), f_list_46_length_1(v_ys)))) {
+        if (u_truth(u_eq(f_list_46_size_1(v_xs), f_list_46_size_1(v_ys)))) {
           {
             p_check_46_unifies(f_list_46__43__43__2(v_xs, u_mk_con(&n_list_46_Cons, 2, v_r1, &o_list_46_Nil)), f_list_46__43__43__2(v_ys, u_mk_con(&n_list_46_Cons, 2, v_r2, &o_list_46_Nil)), r_s);
           }
@@ -18016,7 +18016,7 @@ void p_check_46_unify(u_value v_t1, u_value v_t2, u_value *r_s) {
       u_value v_ys = u_field(u_field(s1441, 1), 0);
       d1442 = 1;
       {
-        if (u_truth(u_eq(f_list_46_length_1(v_xs), f_list_46_length_1(v_ys)))) {
+        if (u_truth(u_eq(f_list_46_size_1(v_xs), f_list_46_size_1(v_ys)))) {
           {
             p_check_46_unifies(v_xs, v_ys, r_s);
           }
@@ -18036,13 +18036,13 @@ void p_check_46_unify(u_value v_t1, u_value v_t2, u_value *r_s) {
       u_value v_ws = u_field(u_field(s1441, 1), 2);
       d1442 = 1;
       {
-        u_value t1444 = u_eq(f_list_46_length_1(v_xs), f_list_46_length_1(v_us));
+        u_value t1444 = u_eq(f_list_46_size_1(v_xs), f_list_46_size_1(v_us));
         if (u_truth(t1444)) {
-          t1444 = u_eq(f_list_46_length_1(v_ys), f_list_46_length_1(v_vs));
+          t1444 = u_eq(f_list_46_size_1(v_ys), f_list_46_size_1(v_vs));
         }
         u_value t1445 = t1444;
         if (u_truth(t1445)) {
-          t1445 = u_eq(f_list_46_length_1(v_zs), f_list_46_length_1(v_ws));
+          t1445 = u_eq(f_list_46_size_1(v_zs), f_list_46_size_1(v_ws));
         }
         if (u_truth(t1445)) {
           {
@@ -18090,7 +18090,7 @@ void p_check_46_unifies(u_value v_xs, u_value v_ys, u_value *r_s) {
     if (!d1447) {
       d1447 = 1;
       {
-        u_raise(u_mk_con(&n_check_46_CountMismatch, 2, f_list_46_length_1(v_xs), f_list_46_length_1(v_ys)), "check.TypeError");
+        u_raise(u_mk_con(&n_check_46_CountMismatch, 2, f_list_46_size_1(v_xs), f_list_46_size_1(v_ys)), "check.TypeError");
       }
     }
     if (!d1447) {
@@ -18235,9 +18235,9 @@ void p_check_46_same_length(u_value v_m, u_value v_n) {
 
 void p_check_46_arguments(u_value v_n, u_value v_k, u_value v_args) {
   {
-    if (u_truth(f_prelude_46__33__61__2(f_list_46_length_1(v_args), v_k))) {
+    if (u_truth(f_prelude_46__33__61__2(f_list_46_size_1(v_args), v_k))) {
       {
-        u_raise(u_mk_con(&n_check_46_SortArity, 3, v_n, v_k, f_list_46_length_1(v_args)), "check.TypeError");
+        u_raise(u_mk_con(&n_check_46_SortArity, 3, v_n, v_k, f_list_46_size_1(v_args)), "check.TypeError");
       }
     }
   }
@@ -18296,7 +18296,7 @@ void p_check_46_normalize(u_value v_t, u_value *r_u, u_value *r_s) {
       d1464 = 1;
       {
         p_check_46_normalizes(f_list_46__43__43__2(v_is, f_list_46__43__43__2(v_os, v_rs)), &v_us, r_s);
-        u_value t1469 = u_mk_con(&n_syntax_46_TProc, 3, f_list_46_take_2(f_list_46_length_1(v_is), v_us), f_list_46_take_2(f_list_46_length_1(v_os), f_list_46_drop_2(f_list_46_length_1(v_is), v_us)), f_list_46_drop_2(u_add(f_list_46_length_1(v_is), f_list_46_length_1(v_os)), v_us));
+        u_value t1469 = u_mk_con(&n_syntax_46_TProc, 3, f_list_46_take_2(f_list_46_size_1(v_is), v_us), f_list_46_take_2(f_list_46_size_1(v_os), f_list_46_drop_2(f_list_46_size_1(v_is), v_us)), f_list_46_drop_2(u_add(f_list_46_size_1(v_is), f_list_46_size_1(v_os)), v_us));
         *r_u = t1469;
       }
     }
@@ -18373,7 +18373,7 @@ void p_check_46_normalize_sort(u_value v_n, u_value v_args, u_value *r_u, u_valu
           u_value v_rhs = u_field(u_field(s1477, 0), 1);
           d1478 = 1;
           {
-            p_check_46_arguments(v_n, f_list_46_length_1(v_ps), v_args);
+            p_check_46_arguments(v_n, f_list_46_size_1(v_ps), v_args);
             p_check_46_normalizes(v_args, &v_us, r_s);
             u_value t1479 = f_check_46_subst_2(v_rhs, f_list_46_zip_2(f_check_46_params_1(v_ps), v_us));
             *r_u = t1479;
@@ -18762,7 +18762,7 @@ void p_check_46_revisit(u_value v_ps, u_value *r_changed, u_value *r_s) {
           {
             u_value t1528 = f_check_46_State_46_pending_58__61__2(*r_s, f_list_46__43__43__2(f_check_46_State_46_pending_1(*r_s), u_mk_con(&n_list_46_Cons, 2, f_check_46_Pending_46_cands_58__61__2(v_p, f_list_46_firsts_1(v_ok)), &o_list_46_Nil)));
             *r_s = t1528;
-            if (u_truth(u_lt(f_list_46_length_1(v_ok), f_list_46_length_1(f_check_46_Pending_46_cands_1(v_p))))) {
+            if (u_truth(u_lt(f_list_46_size_1(v_ok), f_list_46_size_1(f_check_46_Pending_46_cands_1(v_p))))) {
               {
                 u_value t1529 = u_mk_bool(1);
                 *r_changed = t1529;
@@ -18977,7 +18977,7 @@ void p_check_46_infer(u_value v_env, u_value v_e, u_value *r_e1, u_value *r_t, u
       d1540 = 1;
       {
         p_check_46_formals(v_bound, &v_xs, r_s);
-        p_check_46_same_length(f_list_46_length_1(v_xs), f_list_46_length_1(v_lists));
+        p_check_46_same_length(f_list_46_size_1(v_xs), f_list_46_size_1(v_lists));
         p_check_46_generators(v_env, v_xs, v_lists, &v_es, r_s);
         p_check_46_check(f_list_46__43__43__2(f_check_46_bind_1(v_xs), v_env), v_cond, f_check_46_tbool_0(), &v_c, r_s);
         p_check_46_infer(f_list_46__43__43__2(f_check_46_bind_1(v_xs), v_env), v_result, &v_b, &v_u, r_s);
@@ -19073,18 +19073,18 @@ void p_check_46_application(u_value v_env, u_value v_f, u_value v_args, u_value 
       {
         u_value t1565 = f_check_46_candidates_3(*r_s, v_env, v_n);
         v_cs = t1565;
-        if (u_truth(f_prelude_46__62__2(f_list_46_length_1(v_cs), u_mk_int(1)))) {
+        if (u_truth(f_prelude_46__62__2(f_list_46_size_1(v_cs), u_mk_int(1)))) {
           {
             p_check_46_infers(v_env, v_args, &v_args1, &v_ts, r_s);
             p_check_46_fresh(r_t, r_s);
             p_check_46_normalize(v_a, &v_w, r_s);
             p_check_46_unify(v_w, f_check_46_fun_2(v_ts, *r_t), r_s);
-            if (u_truth(u_eq(f_check_46_with_arity_2(v_cs, f_list_46_length_1(v_args)), &o_list_46_Nil))) {
+            if (u_truth(u_eq(f_check_46_with_arity_2(v_cs, f_list_46_size_1(v_args)), &o_list_46_Nil))) {
               {
-                u_raise(u_mk_con(&n_check_46_WrongArity, 2, v_n, f_list_46_length_1(v_args)), "check.TypeError");
+                u_raise(u_mk_con(&n_check_46_WrongArity, 2, v_n, f_list_46_size_1(v_args)), "check.TypeError");
               }
             }
-            p_check_46_use_name(v_n, f_check_46_with_arity_2(v_cs, f_list_46_length_1(v_args)), v_w, &v_x, r_s);
+            p_check_46_use_name(v_n, f_check_46_with_arity_2(v_cs, f_list_46_size_1(v_args)), v_w, &v_x, r_s);
             u_value t1566 = u_mk_con(&n_syntax_46_EApp, 2, u_mk_con(&n_syntax_46_EVar, 1, v_x), v_args1);
             *r_e1 = t1566;
           }
@@ -19203,7 +19203,7 @@ void p_check_46_field_access(u_value v_env, u_value v_f, u_value v_a, u_value v_
     if (!d1570) {
       d1570 = 1;
       {
-        u_raise(u_mk_con(&n_check_46_CountMismatch, 2, u_mk_int(1), f_list_46_length_1(v_args)), "check.TypeError");
+        u_raise(u_mk_con(&n_check_46_CountMismatch, 2, u_mk_int(1), f_list_46_size_1(v_args)), "check.TypeError");
       }
     }
     if (!d1570) {
@@ -19258,7 +19258,7 @@ void p_check_46_checks(u_value v_env, u_value v_es, u_value v_ts, u_value *r_es1
     if (!d1580) {
       d1580 = 1;
       {
-        u_raise(u_mk_con(&n_check_46_CountMismatch, 2, f_list_46_length_1(v_ts), f_list_46_length_1(v_es)), "check.TypeError");
+        u_raise(u_mk_con(&n_check_46_CountMismatch, 2, f_list_46_size_1(v_ts), f_list_46_size_1(v_es)), "check.TypeError");
       }
     }
     if (!d1580) {
@@ -19582,7 +19582,7 @@ void p_check_46_binders(u_value v_p, u_value v_t, u_value *r_p1, u_value *r_xs, 
           u_value v_ks = s1623;
           d1624 = 1;
           {
-            p_check_46_pattern_constructor(v_n, v_ks, f_list_46_length_1(v_args), v_t, &v_k, r_s);
+            p_check_46_pattern_constructor(v_n, v_ks, f_list_46_size_1(v_args), v_t, &v_k, r_s);
           }
         }
         if (!d1624) {
@@ -19596,7 +19596,7 @@ void p_check_46_binders(u_value v_p, u_value v_t, u_value *r_p1, u_value *r_xs, 
           u_value v_r = u_field(u_field(s1626, 0), 2);
           d1627 = 1;
           {
-            p_check_46_same_length(f_list_46_length_1(v_ks), f_list_46_length_1(v_args));
+            p_check_46_same_length(f_list_46_size_1(v_ks), f_list_46_size_1(v_args));
             p_check_46_instance(v_ps, &v_m, r_s);
             p_check_46_unify(f_check_46_subst_2(v_r, v_m), v_t, r_s);
             u_value t1628 = &o_list_46_Nil;
@@ -19646,7 +19646,7 @@ void p_check_46_pattern_constructor(u_value v_n, u_value v_ks, u_value v_k, u_va
   {
     u_value v_ok = NULL;
     p_check_46_trials(f_check_46_results_3(f_check_46_State_46_ctx_1(*r_s), v_ks, v_k), v_t, *r_s, &v_ok);
-    if (u_truth(f_prelude_46__62__2(f_list_46_length_1(v_ok), u_mk_int(1)))) {
+    if (u_truth(f_prelude_46__62__2(f_list_46_size_1(v_ok), u_mk_int(1)))) {
       {
         p_check_46_solve(r_s);
         p_check_46_trials(f_check_46_results_3(f_check_46_State_46_ctx_1(*r_s), v_ks, v_k), v_t, *r_s, &v_ok);
@@ -19704,7 +19704,7 @@ u_value f_check_46_results_3(u_value v_c, u_value v_ks, u_value v_k) {
       u_value v_args = u_field(u_field(s1639, 0), 1);
       u_value v_r = u_field(u_field(s1639, 0), 2);
       u_value t1641;
-      if (u_truth(u_eq(f_list_46_length_1(v_args), v_k))) {
+      if (u_truth(u_eq(f_list_46_size_1(v_args), v_k))) {
         t1641 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, u_mk_tuple(2, v_ps, v_r)), f_check_46_results_3(v_c, v_rest, v_k));
       } else {
         t1641 = f_check_46_results_3(v_c, v_rest, v_k);
@@ -19760,7 +19760,7 @@ void p_check_46_binder_list(u_value v_ps, u_value v_ts, u_value *r_qs, u_value *
     if (!d1643) {
       d1643 = 1;
       {
-        u_raise(u_mk_con(&n_check_46_CountMismatch, 2, f_list_46_length_1(v_ts), f_list_46_length_1(v_ps)), "check.TypeError");
+        u_raise(u_mk_con(&n_check_46_CountMismatch, 2, f_list_46_size_1(v_ts), f_list_46_size_1(v_ps)), "check.TypeError");
       }
     }
     if (!d1643) {
@@ -19784,7 +19784,7 @@ void p_check_46_variable(u_value v_env, u_value v_assignable, u_value v_x, u_val
             u_raise(u_mk_con(&n_check_46_NotAssignable, 1, v_n), "check.TypeError");
           }
         }
-        u_value s1650 = f_list_46_lookup_2(v_n, v_env);
+        u_value s1650 = f_list_46_get_2(v_n, v_env);
         int d1651 = 0;
         if ((!d1651) && u_is_con(s1650, &n_option_46_Some)) {
           u_value v_t = u_field(u_field(s1650, 0), 1);
@@ -20113,7 +20113,7 @@ u_value f_check_46_syntax_procs_1(u_value v_c) {
 
 void p_check_46_call_proc(u_value v_env, u_value v_assignable, u_value v_p, u_value v_ins, u_value v_outs, u_value v_refs, u_value *r_y, u_value *r_s) {
   {
-    u_value s1699 = f_list_46_lookup_2(v_p, v_env);
+    u_value s1699 = f_list_46_get_2(v_p, v_env);
     int d1700 = 0;
     if ((!d1700) && u_is_con(s1699, &n_option_46_Some)) {
       u_value v_sc = u_field(s1699, 0);
@@ -20223,7 +20223,7 @@ void p_check_46_declared_call(u_value v_env, u_value v_assignable, u_value v_p, 
     u_value v_ins1 = NULL;
     u_value v_outs1 = NULL;
     u_value v_refs1 = NULL;
-    u_value s1709 = f_option_46_or_else_2(f_ctx_46_proc_of_2(f_check_46_State_46_ctx_1(*r_s), v_q), f_list_46_lookup_2(v_q, f_list_46__43__43__2(f_check_46_os_procs_1(f_check_46_State_46_ctx_1(*r_s)), f_check_46_syntax_procs_1(f_check_46_State_46_ctx_1(*r_s)))));
+    u_value s1709 = f_option_46_or_else_2(f_ctx_46_proc_of_2(f_check_46_State_46_ctx_1(*r_s), v_q), f_list_46_get_2(v_q, f_list_46__43__43__2(f_check_46_os_procs_1(f_check_46_State_46_ctx_1(*r_s)), f_check_46_syntax_procs_1(f_check_46_State_46_ctx_1(*r_s)))));
     int d1710 = 0;
     if ((!d1710) && u_is_con(s1709, &n_option_46_Some)) {
       u_value v_ps = u_field(u_field(s1709, 0), 0);
@@ -20233,9 +20233,9 @@ void p_check_46_declared_call(u_value v_env, u_value v_assignable, u_value v_p, 
       d1710 = 1;
       {
         p_check_46_instance(v_ps, &v_m, r_s);
-        p_check_46_same_length(f_list_46_length_1(v_is), f_list_46_length_1(v_ins));
-        p_check_46_same_length(f_list_46_length_1(v_os), f_list_46_length_1(v_outs));
-        p_check_46_same_length(f_list_46_length_1(v_rs), f_list_46_length_1(v_refs));
+        p_check_46_same_length(f_list_46_size_1(v_is), f_list_46_size_1(v_ins));
+        p_check_46_same_length(f_list_46_size_1(v_os), f_list_46_size_1(v_outs));
+        p_check_46_same_length(f_list_46_size_1(v_rs), f_list_46_size_1(v_refs));
         p_check_46_unique(f_syntax_46_names_1(f_list_46__43__43__2(v_outs, v_refs)));
         u_value t1711 = &o_list_46_Nil;
         u_value *e1712 = &t1711;
@@ -20459,7 +20459,7 @@ void p_check_46_declare_datas(u_value v_cs, u_value *r_s) {
         u_value t1744 = f_check_46_enter_2(*r_s, v_m);
         *r_s = t1744;
         p_check_46_declare_sort(f_check_46_State_46_ctx_1(*r_s), v_n);
-        u_value t1745 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_data_3(f_check_46_State_46_ctx_1(*r_s), v_n, f_list_46_length_1(v_ps)));
+        u_value t1745 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_data_3(f_check_46_State_46_ctx_1(*r_s), v_n, f_list_46_size_1(v_ps)));
         *r_s = t1745;
         p_check_46_declare_datas(v_rest, r_s);
       }
@@ -20683,7 +20683,7 @@ void p_check_46_declare_funs(u_value v_cs, u_value *r_s) {
       {
         u_value t1770 = f_check_46_enter_2(*r_s, v_m);
         *r_s = t1770;
-        p_check_46_overload(f_check_46_State_46_ctx_1(*r_s), v_n, f_list_46_length_1(f_check_46_first_list_1(v_bound)));
+        p_check_46_overload(f_check_46_State_46_ctx_1(*r_s), v_n, f_list_46_size_1(f_check_46_first_list_1(v_bound)));
         p_check_46_unique_ids(v_ps);
         p_check_46_unique(f_syntax_46_names_1(f_list_46_concat_1(v_bound)));
         p_check_46_signatures(v_bound, &v_xss, r_s);
@@ -20736,7 +20736,7 @@ void p_check_46_declare_procs(u_value v_cs, u_value *r_s) {
         u_value t1775 = f_syntax_46_types_1(v_xs);
         v_ts = t1775;
         p_check_46_closed(v_n, v_ps, v_ts);
-        u_value t1776 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_proc_3(f_check_46_State_46_ctx_1(*r_s), v_n, u_mk_tuple(4, f_check_46_params_1(v_ps), f_list_46_take_2(f_list_46_length_1(v_ins), v_ts), f_list_46_take_2(f_list_46_length_1(v_outs), f_list_46_drop_2(f_list_46_length_1(v_ins), v_ts)), f_list_46_drop_2(u_add(f_list_46_length_1(v_ins), f_list_46_length_1(v_outs)), v_ts))));
+        u_value t1776 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_proc_3(f_check_46_State_46_ctx_1(*r_s), v_n, u_mk_tuple(4, f_check_46_params_1(v_ps), f_list_46_take_2(f_list_46_size_1(v_ins), v_ts), f_list_46_take_2(f_list_46_size_1(v_outs), f_list_46_drop_2(f_list_46_size_1(v_ins), v_ts)), f_list_46_drop_2(u_add(f_list_46_size_1(v_ins), f_list_46_size_1(v_outs)), v_ts))));
         *r_s = t1776;
         p_check_46_declare_procs(v_rest, r_s);
       }
@@ -21053,7 +21053,7 @@ void p_check_46_check_units(u_value v_us, u_value *r_c, u_value *r_imports, u_va
           d1816 = 1;
           {
             p_check_46_check_unit(v_ds, v_m, *r_c, *r_imports, &v_checked);
-            u_value t1819 = f_list_46_length_1(*r_cache);
+            u_value t1819 = f_list_46_size_1(*r_cache);
             u_value t1820 = f_list_46__43__43__2(*r_cache, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_key, v_checked), &o_list_46_Nil));
             v_i = t1819;
             *r_cache = t1820;
@@ -21098,7 +21098,7 @@ u_value f_check_46_positions_of_2(u_value v_ms, u_value v_seen) {
   if ((!t1829) && u_is_con(s1828, &n_list_46_Cons)) {
     u_value v_m = u_field(s1828, 0);
     u_value v_rest = u_field(s1828, 1);
-    u_value s1830 = f_list_46_lookup_2(v_m, v_seen);
+    u_value s1830 = f_list_46_get_2(v_m, v_seen);
     u_value t1831 = NULL;
     if ((!t1831) && u_is_con(s1830, &n_option_46_Some)) {
       u_value v_i = u_field(s1830, 0);
@@ -22136,7 +22136,7 @@ u_value f_run_46_fun_defs_1(u_value v_cs) {
     u_value v_xss = u_field(u_field(s2058, 0), 2);
     u_value v_b = u_field(u_field(s2058, 0), 4);
     u_value v_rest = u_field(s2058, 1);
-    t2059 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_tuple(2, v_n, f_list_46_length_1(f_check_46_first_list_1(v_xss))), u_mk_tuple(2, v_xss, v_b)), f_run_46_fun_defs_1(v_rest));
+    t2059 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_tuple(2, v_n, f_list_46_size_1(f_check_46_first_list_1(v_xss))), u_mk_tuple(2, v_xss, v_b)), f_run_46_fun_defs_1(v_rest));
   }
   if ((!t2059) && u_is_con(s2058, &n_list_46_Cons)) {
     u_value v_rest = u_field(s2058, 1);
@@ -22192,7 +22192,7 @@ u_value f_run_46_constr_positions_1(u_value v_cs) {
       }
       l2066 = u_field(l2066, 1);
     }
-    t2063 = f_list_46__43__43__2(f_list_46_zip_2(t2064, f_run_46_numbers_from_2(u_mk_int(0), f_list_46_length_1(v_ks))), f_run_46_constr_positions_1(v_rest));
+    t2063 = f_list_46__43__43__2(f_list_46_zip_2(t2064, f_run_46_numbers_from_2(u_mk_int(0), f_list_46_size_1(v_ks))), f_run_46_constr_positions_1(v_rest));
   }
   if ((!t2063) && u_is_con(s2062, &n_list_46_Cons)) {
     u_value v_rest = u_field(s2062, 1);
@@ -22251,7 +22251,7 @@ u_value f_run_46_constr_arity_1(u_value v_k) {
   if ((!t2074) && u_is_con(s2073, &n_syntax_46_Constr)) {
     u_value v_n = u_field(s2073, 0);
     u_value v_ts = u_field(s2073, 1);
-    t2074 = u_mk_tuple(2, v_n, f_list_46_length_1(v_ts));
+    t2074 = u_mk_tuple(2, v_n, f_list_46_size_1(v_ts));
   }
   if (!t2074) {
     u_no_case(s2073);
@@ -22310,7 +22310,7 @@ u_value f_run_46_is_builtin_1(u_value v_n) {
   u_value t2102 = NULL;
   if ((!t2102) && (u_is_con(s2101, &n_syntax_46_Name) && u_is_con(u_field(s2101, 0), &n_option_46_None))) {
     u_value v_b = u_field(s2101, 1);
-    t2102 = f_set_46_member_2(v_b, f_run_46_builtin_names_0());
+    t2102 = f_set_46_contains_2(v_b, f_run_46_builtin_names_0());
   }
   if (!t2102) {
     t2102 = u_mk_bool(0);
@@ -22756,7 +22756,7 @@ u_value f_run_46_variable_value_4(u_value v_p, u_value v_env, u_value v_n, u_val
         t2149 = t2150;
       }
       if ((!t2149) && u_is_con(s2148, &n_option_46_None)) {
-        if (u_truth(f_map_46_has_2(v_n, f_run_46_Prog_46_procs_1(v_p)))) {
+        if (u_truth(f_map_46_contains_2(v_n, f_run_46_Prog_46_procs_1(v_p)))) {
           t2149 = u_mk_con(&n_value_46_Proc, 1, v_n);
         }
       }
@@ -23362,7 +23362,7 @@ void p_run_46_equal(u_value v_a, u_value v_b, u_value *r_r) {
       {
         u_value t2215 = u_eq(v_c, v_d);
         if (u_truth(t2215)) {
-          t2215 = u_eq(f_list_46_length_1(v_xs), f_list_46_length_1(v_ys));
+          t2215 = u_eq(f_list_46_size_1(v_xs), f_list_46_size_1(v_ys));
         }
         if (u_truth(t2215)) {
           {
@@ -23504,7 +23504,7 @@ void p_run_46_compare_all(u_value v_p, u_value v_xs, u_value v_ys, u_value *r_r)
     if (!d2230) {
       d2230 = 1;
       {
-        u_value t2231 = f_run_46_order_2(f_list_46_length_1(v_xs), f_list_46_length_1(v_ys));
+        u_value t2231 = f_run_46_order_2(f_list_46_size_1(v_xs), f_list_46_size_1(v_ys));
         *r_r = t2231;
       }
     }
@@ -23706,7 +23706,7 @@ void p_run_46_exec(u_value v_p, u_value v_x, u_value *r_env, u_value *r_cache) {
       u_value v_body = u_field(s2250, 1);
       d2251 = 1;
       {
-        p_run_46_scoped(v_p, f_syntax_46_names_1(v_locals), f_map_46_delete_all_2(f_syntax_46_names_1(v_locals), *r_env), v_body, r_env, r_cache);
+        p_run_46_scoped(v_p, f_syntax_46_names_1(v_locals), f_map_46_remove_all_2(f_syntax_46_names_1(v_locals), *r_env), v_body, r_env, r_cache);
       }
     }
     if ((!d2251) && u_is_con(s2250, &n_syntax_46_SIf)) {
@@ -23951,7 +23951,7 @@ u_value f_run_46_restored_3(u_value v_names, u_value v_outer, u_value v_env) {
       t2272 = f_run_46_restored_3(v_rest, v_outer, f_map_46_put_3(v_n, v_v, v_env));
     }
     if ((!t2272) && u_is_con(s2271, &n_option_46_None)) {
-      t2272 = f_run_46_restored_3(v_rest, v_outer, f_map_46_delete_2(v_n, v_env));
+      t2272 = f_run_46_restored_3(v_rest, v_outer, f_map_46_remove_2(v_n, v_env));
     }
     if (!t2272) {
       u_no_case(s2271);
@@ -24250,7 +24250,7 @@ void p_run_46_invoke_value(u_value v_p, u_value v_f, u_value v_ins, u_value v_re
 void p_run_46_run_body(u_value v_p, u_value v_n, u_value v_around, u_value v_xs, u_value v_ys, u_value v_zs, u_value v_body, u_value v_ins, u_value v_refs, u_value *r_outs, u_value *r_env, u_value *r_cache) {
   {
     u_value v_inner = NULL;
-    u_value t2308 = f_run_46_bind_all_3(v_xs, v_ins, f_map_46_put_all_2(f_run_46_values_in_2(f_list_46_zip_2(f_syntax_46_names_1(v_zs), v_refs), *r_env), f_map_46_delete_all_2(f_syntax_46_names_1(f_list_46__43__43__2(v_ys, v_zs)), v_around)));
+    u_value t2308 = f_run_46_bind_all_3(v_xs, v_ins, f_map_46_put_all_2(f_run_46_values_in_2(f_list_46_zip_2(f_syntax_46_names_1(v_zs), v_refs), *r_env), f_map_46_remove_all_2(f_syntax_46_names_1(f_list_46__43__43__2(v_ys, v_zs)), v_around)));
     v_inner = t2308;
     {
       struct u_handler *h2309 = u_push();
@@ -25450,7 +25450,7 @@ u_value f_compile_46_constructor_decls_2(u_value v_ks, u_value v_i) {
   if ((!t2580) && u_is_con(s2579, &n_list_46_Cons)) {
     u_value v_k = u_field(s2579, 0);
     u_value v_rest = u_field(s2579, 1);
-    if (u_truth(f_set_46_member_2(f_syntax_46_Constr_46_name_1(v_k), f_compile_46_runtime_constructors_0()))) {
+    if (u_truth(f_set_46_contains_2(f_syntax_46_Constr_46_name_1(v_k), f_compile_46_runtime_constructors_0()))) {
       t2580 = f_compile_46_constructor_decls_2(v_rest, u_add(v_i, u_mk_int(1)));
     }
   }
@@ -25490,7 +25490,7 @@ u_value f_compile_46_pointer_1(u_value v_x) {
 }
 
 u_value f_compile_46_var_expr_2(u_value v_env, u_value v_x) {
-  u_value s2585 = f_list_46_lookup_2(v_x, v_env);
+  u_value s2585 = f_list_46_get_2(v_x, v_env);
   u_value t2586 = NULL;
   if ((!t2586) && u_is_con(s2585, &n_option_46_Some)) {
     u_value v_c = u_field(s2585, 0);
@@ -25685,7 +25685,7 @@ u_value f_compile_46_proc_arities_1(u_value v_c) {
     u_value v_ins = u_field(s2639, 2);
     u_value v_outs = u_field(s2639, 3);
     u_value v_refs = u_field(s2639, 4);
-    t2640 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, u_mk_tuple(2, f_list_46_length_1(v_ins), u_add(f_list_46_length_1(v_outs), f_list_46_length_1(v_refs)))), &o_list_46_Nil);
+    t2640 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, u_mk_tuple(2, f_list_46_size_1(v_ins), u_add(f_list_46_size_1(v_outs), f_list_46_size_1(v_refs)))), &o_list_46_Nil);
   }
   if (!t2640) {
     t2640 = &o_list_46_Nil;
@@ -25770,7 +25770,7 @@ u_value f_compile_46_fun_arities_1(u_value v_c) {
   if ((!t2652) && u_is_con(s2651, &n_syntax_46_CFun)) {
     u_value v_n = u_field(s2651, 0);
     u_value v_xss = u_field(s2651, 2);
-    t2652 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, f_list_46_length_1(f_check_46_first_list_1(v_xss))), &o_list_46_Nil);
+    t2652 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, f_list_46_size_1(f_check_46_first_list_1(v_xss))), &o_list_46_Nil);
   }
   if (!t2652) {
     t2652 = &o_list_46_Nil;
@@ -25813,7 +25813,7 @@ u_value f_compile_46_constr_arity_1(u_value v_k) {
   if ((!t2659) && u_is_con(s2658, &n_syntax_46_Constr)) {
     u_value v_n = u_field(s2658, 0);
     u_value v_ts = u_field(s2658, 1);
-    t2659 = u_mk_tuple(2, v_n, f_list_46_length_1(v_ts));
+    t2659 = u_mk_tuple(2, v_n, f_list_46_size_1(v_ts));
   }
   if (!t2659) {
     u_no_case(s2658);
@@ -26424,7 +26424,7 @@ u_value f_compile_46_global_value_3(u_value v_gl, u_value v_n, u_value v_t) {
         t2757 = f_c_46_c_call_2(&l_u_mk_closure_2758, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_w_2759, v_f)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)), &o_list_46_Nil)));
       }
       if ((!t2757) && u_is_con(s2756, &n_option_46_None)) {
-        if (u_truth(f_map_46_has_2(v_n, f_compile_46_Globals_46_procs_1(v_gl)))) {
+        if (u_truth(f_map_46_contains_2(v_n, f_compile_46_Globals_46_procs_1(v_gl)))) {
           static struct u_object l_u_mk_proc_2760 = U_LIT("u_mk_proc");
           static struct u_object l_wp__2761 = U_LIT("wp_");
           t2757 = f_c_46_c_call_2(&l_u_mk_proc_2760, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_wp__2761, f_compile_46_mangle_1(v_n))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)), &o_list_46_Nil)));
@@ -26498,7 +26498,7 @@ void p_compile_46_compile_expr(u_value v_gl, u_value v_env, u_value v_e, u_value
       u_value v_ty = u_field(u_field(s2764, 0), 1);
       d2765 = 1;
       {
-        u_value s2776 = f_list_46_lookup_2(v_n, v_env);
+        u_value s2776 = f_list_46_get_2(v_n, v_env);
         int d2777 = 0;
         if ((!d2777) && u_is_con(s2776, &n_option_46_Some)) {
           u_value v_c = u_field(s2776, 0);
@@ -26544,7 +26544,7 @@ void p_compile_46_compile_expr(u_value v_gl, u_value v_env, u_value v_e, u_value
         p_compile_46_compile_exprs(v_gl, v_env, v_args, &v_bs, &v_rs, r_g);
         static struct u_object l_u_apply_2782 = U_LIT("u_apply");
         u_value t2783 = f_list_46__43__43__2(v_as, v_bs);
-        u_value t2784 = f_c_46_c_call_2(&l_u_apply_2782, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, v_ra, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_length_1(v_args)), &o_list_46_Nil)), v_rs));
+        u_value t2784 = f_c_46_c_call_2(&l_u_apply_2782, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, v_ra, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_args)), &o_list_46_Nil)), v_rs));
         *r_ss = t2783;
         *r_r = t2784;
       }
@@ -26647,7 +26647,7 @@ void p_compile_46_compile_expr(u_value v_gl, u_value v_env, u_value v_e, u_value
       {
         p_compile_46_compile_exprs(v_gl, v_env, v_items, r_ss, &v_rs, r_g);
         static struct u_object l_u_mk_tuple_2804 = U_LIT("u_mk_tuple");
-        u_value t2805 = f_c_46_c_call_2(&l_u_mk_tuple_2804, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_length_1(v_items)), &o_list_46_Nil), v_rs));
+        u_value t2805 = f_c_46_c_call_2(&l_u_mk_tuple_2804, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_items)), &o_list_46_Nil), v_rs));
         *r_r = t2805;
       }
     }
@@ -26805,13 +26805,13 @@ void p_compile_46_compile_named(u_value v_gl, u_value v_env, u_value v_n, u_valu
       d2824 = 1;
       {
         p_compile_46_compile_exprs(v_gl, v_env, v_args, r_ss, &v_rs, r_g);
-        u_value t2834 = f_compile_46_is_global_fun_3(v_gl, v_n, f_list_46_length_1(v_args));
+        u_value t2834 = f_compile_46_is_global_fun_3(v_gl, v_n, f_list_46_size_1(v_args));
         if (u_truth(t2834)) {
-          t2834 = u_eq(f_syntax_46_arity_1(v_ty), f_list_46_length_1(v_args));
+          t2834 = u_eq(f_syntax_46_arity_1(v_ty), f_list_46_size_1(v_args));
         }
         if (u_truth(t2834)) {
           {
-            u_value t2835 = f_c_46_c_call_2(f_compile_46_fun_name_2(v_n, f_list_46_length_1(v_args)), v_rs);
+            u_value t2835 = f_c_46_c_call_2(f_compile_46_fun_name_2(v_n, f_list_46_size_1(v_args)), v_rs);
             *r_r = t2835;
           }
         } else {
@@ -26825,10 +26825,10 @@ void p_compile_46_compile_named(u_value v_gl, u_value v_env, u_value v_n, u_valu
               *r_r = t2837;
             }
           } else {
-            if (u_truth(u_eq(f_compile_46_fields_count_2(v_gl, v_n), u_mk_con(&n_option_46_Some, 1, f_list_46_length_1(v_args))))) {
+            if (u_truth(u_eq(f_compile_46_fields_count_2(v_gl, v_n), u_mk_con(&n_option_46_Some, 1, f_list_46_size_1(v_args))))) {
               {
                 static struct u_object l_u_mk_con_2838 = U_LIT("u_mk_con");
-                u_value t2839 = f_c_46_c_call_2(&l_u_mk_con_2838, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_1(v_n), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_length_1(v_args)), &o_list_46_Nil)), v_rs));
+                u_value t2839 = f_c_46_c_call_2(&l_u_mk_con_2838, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_1(v_n), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_args)), &o_list_46_Nil)), v_rs));
                 *r_r = t2839;
               }
             } else {
@@ -26838,7 +26838,7 @@ void p_compile_46_compile_named(u_value v_gl, u_value v_env, u_value v_n, u_valu
                 if ((!d2841) && u_is_con(s2840, &n_option_46_Some)) {
                   u_value v_b = u_field(u_field(s2840, 0), 0);
                   u_value v_k = u_field(u_field(s2840, 0), 1);
-                  if (u_truth(u_eq(v_k, f_list_46_length_1(v_args)))) {
+                  if (u_truth(u_eq(v_k, f_list_46_size_1(v_args)))) {
                     d2841 = 1;
                     {
                       u_value t2842 = f_c_46_c_call_2(v_b, v_rs);
@@ -26850,7 +26850,7 @@ void p_compile_46_compile_named(u_value v_gl, u_value v_env, u_value v_n, u_valu
                   d2841 = 1;
                   {
                     static struct u_object l_u_apply_2843 = U_LIT("u_apply");
-                    u_value t2844 = f_c_46_c_call_2(&l_u_apply_2843, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_compile_46_global_value_3(v_gl, v_n, v_ty), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_length_1(v_args)), &o_list_46_Nil)), v_rs));
+                    u_value t2844 = f_c_46_c_call_2(&l_u_apply_2843, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_compile_46_global_value_3(v_gl, v_n, v_ty), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_args)), &o_list_46_Nil)), v_rs));
                     *r_r = t2844;
                   }
                 }
@@ -26910,7 +26910,7 @@ void p_compile_46_compile_lambda(u_value v_gl, u_value v_env, u_value v_xs, u_va
       l2858 = u_field(l2858, 1);
     }
     u_value t2859 = &o_list_46_Nil;
-    u_value t2860 = f_c_46_c_call_2(&l_u_mk_closure_2855, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_f), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_length_1(v_caps)), &o_list_46_Nil)), t2856));
+    u_value t2860 = f_c_46_c_call_2(&l_u_mk_closure_2855, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_f), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_caps)), &o_list_46_Nil)), t2856));
     *r_ss = t2859;
     *r_r = t2860;
   }
@@ -26964,7 +26964,7 @@ void p_compile_46_compile_proc_lambda(u_value v_gl, u_value v_env, u_value v_ins
       l2875 = u_field(l2875, 1);
     }
     u_value t2876 = &o_list_46_Nil;
-    u_value t2877 = f_c_46_c_call_2(&l_u_mk_proc_2872, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_f), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_length_1(v_caps)), &o_list_46_Nil)), t2873));
+    u_value t2877 = f_c_46_c_call_2(&l_u_mk_proc_2872, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_f), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_caps)), &o_list_46_Nil)), t2873));
     *r_ss = t2876;
     *r_r = t2877;
   }
@@ -27236,7 +27236,7 @@ void p_compile_46_compile_stmt(u_value v_gl, u_value v_env, u_value v_s, u_value
               }
               l2919 = u_field(l2919, 1);
             }
-            u_value t2920 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_call_proc_2916, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_compile_46_var_expr_2(v_env, v_p), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_length_1(v_ins)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_length_1(f_list_46__43__43__2(v_outs, v_refs))), &o_list_46_Nil))), f_list_46__43__43__2(v_rs, t2917)))), &o_list_46_Nil));
+            u_value t2920 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_call_proc_2916, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_compile_46_var_expr_2(v_env, v_p), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_ins)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(f_list_46__43__43__2(v_outs, v_refs))), &o_list_46_Nil))), f_list_46__43__43__2(v_rs, t2917)))), &o_list_46_Nil));
             *r_ss = t2920;
           }
         } else {
@@ -27573,7 +27573,7 @@ void p_compile_46_compile_cmd(u_value v_gl, u_value v_entry, u_value v_c, u_valu
             v_bs = t2990;
           }
         }
-        u_value t2991 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdFunction, 4, f_compile_46_value_type_0(), f_compile_46_fun_name_2(v_n, f_list_46_length_1(f_check_46_first_list_1(v_xss))), v_params, v_bs), &o_list_46_Nil);
+        u_value t2991 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdFunction, 4, f_compile_46_value_type_0(), f_compile_46_fun_name_2(v_n, f_list_46_size_1(f_check_46_first_list_1(v_xss))), v_params, v_bs), &o_list_46_Nil);
         u_value t2992 = &o_list_46_Nil;
         *r_ds = t2991;
         *r_ms = t2992;

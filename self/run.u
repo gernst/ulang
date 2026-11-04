@@ -67,7 +67,7 @@ function load(q: Program): Prog :=
 function fun_defs(cs: List[Cmd]): List[(Name * Int) * (List[List[Var]] * Expr)] :=
   match cs
     case Nil => Nil
-    case [CFun(n, _, xss, _, b); rest] => [((n, length(first_list(xss))), (xss, b)); fun_defs(rest)]
+    case [CFun(n, _, xss, _, b); rest] => [((n, size(first_list(xss))), (xss, b)); fun_defs(rest)]
     case [_; rest] => fun_defs(rest)
   end
 
@@ -81,7 +81,7 @@ function proc_defs(cs: List[Cmd]): List[Name * ProcDef] :=
 function constr_positions(cs: List[Cmd]): List[Name * Int] :=
   match cs
     case Nil => Nil
-    case [CData(_, _, ks); rest] => zip([k.name for k in ks], numbers_from(0, length(ks))) ++ constr_positions(rest)
+    case [CData(_, _, ks); rest] => zip([k.name for k in ks], numbers_from(0, size(ks))) ++ constr_positions(rest)
     case [_; rest] => constr_positions(rest)
   end
 
@@ -97,7 +97,7 @@ function constr_defs(cs: List[Cmd]): List[Name * Int] :=
 
 function constr_arity(k: Constr): Name * Int :=
   match k
-    case Constr(n, ts) => (n, length(ts))
+    case Constr(n, ts) => (n, size(ts))
   end
 
 function builtin_names(): Set[Id] :=
@@ -108,7 +108,7 @@ function builtin_names(): Set[Id] :=
 
 function is_builtin(n: Name): Bool :=
   match n
-    case Name(None, b) => member(b, builtin_names())
+    case Name(None, b) => contains(b, builtin_names())
     case _ => false
   end
 
@@ -259,7 +259,7 @@ function variable_value(p: Prog, env: Bindings, n: Name, t: Type): Value :=
         case None =>
           match get(n, p.constrs)
             case Some(k) => if k == 0 then Obj(n, Nil) else Con(n)
-            case None if has(n, p.procs) => Proc(n)
+            case None if contains(n, p.procs) => Proc(n)
             case None => raise Uninitialized(n)
           end
       end
@@ -477,7 +477,7 @@ procedure equal(in a: Value, b: Value, out r: Bool) :=
   end
   match (a, b)
     case (Obj(c, xs), Obj(d, ys)) =>
-      if c == d and length(xs) == length(ys)
+      if c == d and size(xs) == size(ys)
         call equal_all(in xs, ys, out r)
       else
         assign r := false
@@ -525,7 +525,7 @@ procedure compare_all(in p: Prog, xs: List[Value], ys: List[Value], out r: Int) 
         call compare_all(in p, xs1, ys1, out r)
       end
     case _ =>
-      assign r := order(length(xs), length(ys))
+      assign r := order(size(xs), size(ys))
   end
 
 function order(x: Int, y: Int): Int :=
@@ -602,7 +602,7 @@ procedure exec(in p: Prog, x: Stmt, ref env: Bindings, cache: Map[Name, Value]) 
       assign env := put_all(zip(names(firsts(pairs)), vs), env)
 
     case SBlock(locals, body) =>
-      call scoped(in p, names(locals), delete_all(names(locals), env), body, ref env, cache)
+      call scoped(in p, names(locals), remove_all(names(locals), env), body, ref env, cache)
 
     case SIf(cond, left, right) =>
       call evaluate(in p, env, cond, out v, ref cache)
@@ -704,7 +704,7 @@ function restored(names: List[Name], outer: Bindings, env: Bindings): Bindings :
     case [n; rest] =>
       match get(n, outer)
         case Some(v) => restored(rest, outer, put(n, v, env))
-        case None => restored(rest, outer, delete(n, env))
+        case None => restored(rest, outer, remove(n, env))
       end
   end
 
@@ -808,7 +808,7 @@ procedure run_body(
   out outs: List[Value],
   ref env: Bindings, cache: Map[Name, Value]
 ) :=
-  local inner := bind_all(xs, ins, put_all(values_in(zip(names(zs), refs), env), delete_all(names(ys ++ zs), around)))
+  local inner := bind_all(xs, ins, put_all(values_in(zip(names(zs), refs), env), remove_all(names(ys ++ zs), around)))
 
   try
     call exec(in p, body, ref inner, cache)
@@ -957,7 +957,7 @@ test expressions() :=
       asserting("p4", ap("and", [ELit(VBool(false)), ap("==", [ap("/", [num(1), num(0)]), num(0)])]), ELit(VBool(false)))
     ])
 
-// procedure sum(in n: Int, out s: Int) with a loop, and procedure count(ref k: Int) raising Fail after an increment
+// procedure sum(in n: Int, out s: Int) with a loop, and procedure size(ref k: Int) raising Fail after an increment
 function procedures(): List[Cmd] :=
   [
     CData(unqualified("Fail"), Nil, [Constr(unqualified("Fail"), [tint()])]),
