@@ -25,16 +25,16 @@ function keywords(): Set[Id] :=
 function reserved(): Set[Str] :=
   {"=", "=>", ":=", ":", "|"}
 
-// how types, expressions, and patterns apply operators
+// the operands of types, expressions, and patterns, and how operators apply to them
 
 function type_ops(): Ops[List[Type]] :=
-  Ops(type_prefix, type_prefix, type_infix)
+  Ops("type", starts_type, parse_type_atom, type_apply)
 
 function expr_ops(): Ops[Expr] :=
-  Ops(expr_prefix, expr_postfix, expr_infix)
+  Ops("expression", starts_expr, parse_app, expr_apply)
 
 function pat_ops(): Ops[Pat] :=
-  Ops(pat_prefix, pat_postfix, pat_infix)
+  Ops("pattern", starts_pattern, parse_pattern_atom, pat_apply)
 
 // notations
 
@@ -221,85 +221,110 @@ procedure parse_enclosed[A](
 
   call expect(in TPunct(close), ref toks)
 
-// precedence climbing as Resolve in ulang/src/ulang/Parser.scala, where prefix operators bind their operand with their own precedence
+// precedence climbing over the tokens, as Mixfix of easyparse in cuvee, where prefix operators bind their operand
+// with their own precedence, and a left associative operator is applied to all operands of a chain at once
 
-// operands and operators, which remember their offsets for errors
-data Item[A] :=
-  | Arg(A)
-  | Op(Id, Int)
-
-// how to apply prefix, postfix, and infix operators
+// what an operand is called in errors, where it starts, how it is parsed, and how operators apply to operands,
+// to the one of a prefix or postfix operator, and to the two or more of an infix operator
 data Ops[A] :=
-  | Ops(prefix_op: (Id, A) -> A, postfix_op: (Id, A) -> A, infix_op: (Id, A, A) -> A)
+  | Ops(
+    what: Str,
+    starts: (Notations, Token) -> Bool,
+    operand: (in Notations, List[Id], out A, ref List[Token * Int]),
+    apply: (Fixity, Id, Int, List[A]) -> A
+  )
 
-// the operand of all items, where end_offset is the offset after them
-procedure resolve_items[A](in notations: Notations, items: List[Item[A]], ops: Ops[A], end_offset: Int, out a: A) :=
-  local rest: List[Item[A]]
+// operands and operators, where an operator that cannot be applied is an error
+procedure parse_operators[A](in notations: Notations, params: List[Id], ops: Ops[A], out a: A, ref toks: List[Token * Int]) :=
+  call climb(in notations, params, ops, 0, out a, ref toks)
 
-  call climb(in notations, items, 0, ops, end_offset, out a, rest)
-  match rest
-    case Nil =>
+  match operator_at(notations, toks)
+    case Some(op) =>
+      raise ParseError("unexpected operator " ^ op, head_offset(toks))
+    case None =>
       skip
-    case [Op(op, i); _] =>
-      raise ParseError("unexpected operator " ^ op, i)
-    case _ =>
-      raise ParseError("missing operator", end_offset)
   end
 
-procedure climb[A](in notations: Notations, items: List[Item[A]], min: Int, ops: Ops[A], end_offset: Int, out a: A, rest: List[Item[A]]) :=
-  local lhs: A, more: List[Item[A]]
+// an operand and the operators after it of precedence min or above
+procedure climb[A](in notations: Notations, params: List[Id], ops: Ops[A], min: Int, out a: A, ref toks: List[Token * Int]) :=
+  local lhs: A
 
-  call   climb_operand(in notations, items, ops, end_offset, out lhs, more)
-  call   climb_rest(in notations, lhs, more, min, ops, end_offset, out a, rest)
+  call climb_operand(in notations, params, ops, out lhs, ref toks)
+  call climb_rest(in notations, params, ops, min, lhs, out a, ref toks)
 
-procedure climb_operand[A](in notations: Notations, items: List[Item[A]], ops: Ops[A], end_offset: Int, out a: A, rest: List[Item[A]]) :=
-  local b: A
+// an operand, or a prefix operator applied to an operand
+procedure climb_operand[A](in notations: Notations, params: List[Id], ops: Ops[A], out a: A, ref toks: List[Token * Int]) :=
+  local offset := head_offset(toks), operand := ops.operand, b: A
 
-  match items
-    case [Arg(x); more] =>
-      assign a := x, rest := more
-    case [Op(op, i); more] =>
+  match operator_at(notations, toks)
+    case Some(op) =>
       match prefix_prec(notations.cmds, op)
         case Some(prec) =>
-          call   climb(in notations, more, prec, ops, end_offset, out b, rest)
-          assign a := ops.prefix_op(op, b)
+          call   advance(ref toks)
+          call   climb(in notations, params, ops, prec, out b, ref toks)
+          assign a := ops.apply(FPrefix, op, offset, [b])
         case None if is_operator(notations, op) =>
-          raise ParseError(op ^ " is not a prefix operator", i)
+          raise ParseError(op ^ " is not a prefix operator", offset)
         case None =>
-          raise ParseError("undeclared operator " ^ op, i)
+          raise ParseError("undeclared operator " ^ op, offset)
       end
-    case Nil =>
-      raise ParseError("missing operand", end_offset)
+    case None if ops.starts(notations, head_token(toks)) =>
+      call operand(in notations, params, out a, ref toks)
+    case None =>
+      raise ParseError(ops.what ^ " expected but " ^ show_token(head_token(toks)) ^ " found", offset)
   end
 
-procedure climb_rest[A](in notations: Notations, lhs: A, items: List[Item[A]], min: Int, ops: Ops[A], end_offset: Int, out a: A, rest: List[Item[A]]) :=
-  local rhs: A, more: List[Item[A]]
+// lhs and the operators after it of precedence min or above
+procedure climb_rest[A](in notations: Notations, params: List[Id], ops: Ops[A], min: Int, lhs: A, out a: A, ref toks: List[Token * Int]) :=
+  local offset := head_offset(toks), args: List[A]
 
-  match items
-    case [Op(op, i); tail] =>
+  match operator_at(notations, toks)
+    case Some(op) =>
       match (postfix_prec(notations.cmds, op), infix_of(notations.cmds, op))
         case (Some(prec), _) if prec >= min =>
-          call climb_rest(in notations, ops.postfix_op(op, lhs), tail, min, ops, end_offset, out a, rest)
+          call advance(ref toks)
+          call climb_rest(in notations, params, ops, min, ops.apply(FPostfix, op, offset, [lhs]), out a, ref toks)
 
         case (_, Some((f, prec))) if prec >= min =>
-          call climb(in notations, tail, if f == FRight then prec else prec + 1, ops, end_offset, out rhs, more)
-          call check_associative(in notations, op, f, prec, more)
-          call climb_rest(in notations, ops.infix_op(op, lhs, rhs), more, min, ops, end_offset, out a, rest)
+          call advance(ref toks)
+          call climb_infix(in notations, params, ops, op, f, prec, out args, ref toks)
+          call climb_rest(in notations, params, ops, min, ops.apply(f, op, offset, [lhs; args]), out a, ref toks)
 
         case _ if not is_operator(notations, op) =>
-          raise ParseError("undeclared operator " ^ op, i)
+          raise ParseError("undeclared operator " ^ op, offset)
 
         case _ =>
-          assign a := lhs, rest := items
+          assign a := lhs
       end
-    case _ =>
-      assign a := lhs, rest := items
+    case None =>
+      assign a := lhs
   end
 
-procedure check_associative[A](in notations: Notations, op: Id, f: Fixity, prec: Int, rest: List[Item[A]]) :=
-  match rest
-    case [Op(next, i); _] if f == FInfix and is_prec(infix_of(notations.cmds, next), prec) =>
-      raise ParseError("operator " ^ op ^ " is not associative", i)
+// the operands after the infix operator op, where a right associative op takes the operators of its own precedence,
+// a left associative op takes further operands after more occurrences of op, and a non-associative op only one
+procedure climb_infix[A](
+  in  notations: Notations,
+      params: List[Id],
+      ops: Ops[A],
+      op: Id,
+      f: Fixity,
+      prec: Int,
+  out args: List[A],
+  ref toks: List[Token * Int]
+) :=
+  local next := if f == FRight then prec else prec + 1
+
+  call parse_separated(
+    in notations, params,
+      lambda in ns, ps, out b, ref ts => call climb(in ns, ps, ops, next, out b, ref ts) end,
+      lambda ts => f == FLeft and operator_at(notations, ts) == Some(op),
+    out args,
+    ref toks
+  )
+
+  match operator_at(notations, toks)
+    case Some(other) if f == FInfix and is_prec(infix_of(notations.cmds, other), prec) =>
+      raise ParseError("operator " ^ op ^ " is not associative", head_offset(toks))
     case _ =>
       skip
   end
@@ -310,81 +335,31 @@ function is_prec(fp: Option[Fixity * Int], prec: Int): Bool :=
     case _ => false
   end
 
-// operands and operators, applied as ops says, where an operand follows only an operator, and starts tells where one starts,
-// since let, if, and lambda extend as far to the right as possible
-procedure parse_operators[A](
-  in  notations: Notations,
-      params: List[Id],
-      what: Str,
-      starts: (Notations, Token) -> Bool,
-      operand: (in Notations, List[Id], out A, ref List[Token * Int]),
-      ops: Ops[A],
-  out a: A,
-  ref toks: List[Token * Int]
-) :=
-  local rev: List[Item[A]] := Nil, next := true, go := true, b: A
+// types, whose operands are lists of types, since the arguments of a function are written (A, B),
+// and where a chain A * B * C is one tuple type, while (A * B) * C stays nested
 
-  while go
-    match operator_at(notations, toks)
-      case Some(op) =>
-        assign rev := [Op(op, head_offset(toks)); rev], next := true
-        call   advance(ref toks)
-      case None if next and starts(notations, head_token(toks)) =>
-        call   operand(in notations, params, out b, ref toks)
-        assign rev := [Arg(b); rev], next := false
-      case _ =>
-        assign go := false
-    end
-  end
-
-  match rev
-    case Nil =>
-      raise ParseError(what ^ " expected but " ^ show_token(head_token(toks)) ^ " found", head_offset(toks))
-    case _ =>
-      call resolve_items(in notations, reverse(rev), ops, head_offset(toks), out a)
-  end
-
-// types, whose operands are lists, since only the arguments of a function are written (A, B),
-// and the components of a tuple type A * B * C are collected in TSort("(product)", _), such that (A * B) * C stays nested
-
-function type_one(types: List[Type]): Type :=
+// the type of an operand, which is a list of other than one type only as the arguments of a function
+function as_type(types: List[Type], offset: Int): Type :=
   match types
-    case [TSort(Name(None, "(product)"), cs)] => TTuple(cs)
     case [typ] => typ
     case Nil => TTuple(Nil)
-    case _ => TSort(unqualified("(invalid)"), types)
+    case _ => raise ParseError("tuple types are written A * B", offset)
   end
 
-function type_components(types: List[Type]): List[Type] :=
-  match types
-    case [TSort(Name(None, "(product)"), cs)] => cs
-    case _ => [type_one(types)]
+function type_apply(f: Fixity, op: Id, offset: Int, args: List[List[Type]]): List[Type] :=
+  match args
+    case [a] => [TSort(unqualified(op), [as_type(a, offset)])]
+    case _ if op == "*" => [TTuple([as_type(a, offset) for a in args])]
+    case [a; more] => type_infix(op, offset, a, more)
+    case Nil => Nil
   end
 
-function type_prefix(op: Id, types: List[Type]): List[Type] :=
-  [TSort(unqualified(op), [type_one(types)])]
-
-function type_infix(op: Id, l: List[Type], r: List[Type]): List[Type] :=
-  if op == "->" then
-    [TFun([type_one([typ]) for typ in l], type_one(r))]
-  else if op == "*" then
-    [TSort(unqualified("(product)"), type_components(l) ++ type_components(r))]
-  else
-    [TSort(unqualified(op), [type_one(l), type_one(r)])]
-
-function has_invalid(typ: Type): Bool :=
-  match typ
-    case TSort(Name(None, "(invalid)"), _) => true
-    case TSort(_, ts) => any_invalid(ts)
-    case TFun(ts, r) => any_invalid(ts) or has_invalid(r)
-    case TTuple(ts) => any_invalid(ts)
-    case _ => false
-  end
-
-function any_invalid(types: List[Type]): Bool :=
-  match types
-    case Nil => false
-    case [typ; more] => has_invalid(typ) or any_invalid(more)
+// lhs and the operands rs, applied from the left
+function type_infix(op: Id, offset: Int, lhs: List[Type], rs: List[List[Type]]): List[Type] :=
+  match rs
+    case Nil => lhs
+    case [r; more] if op == "->" => type_infix(op, offset, [TFun(lhs, as_type(r, offset))], more)
+    case [r; more] => type_infix(op, offset, [TSort(unqualified(op), [as_type(lhs, offset), as_type(r, offset)])], more)
   end
 
 function starts_type(notations: Notations, tok: Token): Bool :=
@@ -397,12 +372,8 @@ function starts_type(notations: Notations, tok: Token): Bool :=
 procedure parse_type(in notations: Notations, params: List[Id], out typ: Type, ref toks: List[Token * Int]) :=
   local start := head_offset(toks), r: List[Type]
 
-  call   parse_operators(in notations, params, "type", starts_type, parse_type_atom, type_ops(), out r, ref toks)
-  assign typ := type_one(r)
-
-  if has_invalid(typ)
-    raise ParseError("tuple types are written A * B", start)
-  end
+  call   parse_operators(in notations, params, type_ops(), out r, ref toks)
+  assign typ := as_type(r, start)
 
 // a type, a type in parentheses, the arguments (A, B) of a function, or (), where params are the type parameters in scope,
 // which distinguish TParam from TSort
@@ -434,23 +405,29 @@ procedure parse_type_atom(in notations: Notations, params: List[Id], out r: List
 
 // expressions
 
-function expr_postfix(op: Id, a: Expr): Expr :=
-  EApp(EVar(Var(unqualified(op), THole)), [a])
+function expr_call(op: Id, args: List[Expr]): Expr :=
+  EApp(EVar(Var(unqualified(op), THole)), args)
 
-// -n for a number n is the negative literal, in patterns and expressions, and otherwise a prefix operator is applied
-function expr_prefix(op: Id, a: Expr): Expr :=
-  match a
-    case ELit(VInt(n)) if op == "-" => ELit(VInt(0 - n))
-    case _ => expr_postfix(op, a)
+// -n for a number n is the negative literal, in patterns and expressions, and otherwise an operator is applied
+function expr_apply(f: Fixity, op: Id, offset: Int, args: List[Expr]): Expr :=
+  match args
+    case [ELit(VInt(n))] if f == FPrefix and op == "-" => ELit(VInt(0 - n))
+    case [a] => expr_call(op, [a])
+    case [a; more] => expr_infix(op, a, more)
+    case Nil => expr_call(op, Nil)
   end
 
-function expr_infix(op: Id, a: Expr, b: Expr): Expr :=
-  EApp(EVar(Var(unqualified(op), THole)), [a, b])
+// lhs and the operands rs, applied from the left
+function expr_infix(op: Id, lhs: Expr, rs: List[Expr]): Expr :=
+  match rs
+    case Nil => lhs
+    case [r; more] => expr_infix(op, expr_call(op, [lhs, r]), more)
+  end
 
 function cons_exprs(es: List[Expr], rest: Expr): Expr :=
   match es
     case Nil => rest
-    case [e; more] => expr_infix("Cons", e, cons_exprs(more, rest))
+    case [e; more] => expr_call("Cons", [e, cons_exprs(more, rest)])
   end
 
 function starts_expr(notations: Notations, tok: Token): Bool :=
@@ -472,7 +449,7 @@ procedure parse_expr(in notations: Notations, params: List[Id], out e: Expr, ref
     call   parse_expr(in notations, params, out e, ref toks)
     assign e := ERaise(e, THole)
   else
-    call parse_operators(in notations, params, "expression", starts_expr, parse_app, expr_ops(), out e, ref toks)
+    call parse_operators(in notations, params, expr_ops(), out e, ref toks)
 
     if at_keyword(toks, "with")
       call   advance(ref toks)
@@ -487,7 +464,7 @@ procedure parse_update(in notations: Notations, params: List[Id], out update: Id
 
   call   parse_name(out f, ref toks)
   call   expect(in TSym(":="), ref toks)
-  call   parse_operators(in notations, params, "expression", starts_expr, parse_app, expr_ops(), out a, ref toks)
+  call   parse_operators(in notations, params, expr_ops(), out a, ref toks)
   assign update := (f, a)
 
 // e with the updates in order, each of which applies the updater T.f:= to e and a, as the checker resolves it by the type of e
@@ -850,17 +827,20 @@ procedure parse_cases[B](
 
 // patterns, where operators are constructors
 
-function pat_postfix(op: Id, p: Pat): Pat :=
-  PApp(unqualified(op), [p])
-
-function pat_prefix(op: Id, p: Pat): Pat :=
-  match p
-    case PLit(VInt(n)) if op == "-" => PLit(VInt(0 - n))
-    case _ => pat_postfix(op, p)
+function pat_apply(f: Fixity, op: Id, offset: Int, args: List[Pat]): Pat :=
+  match args
+    case [PLit(VInt(n))] if f == FPrefix and op == "-" => PLit(VInt(0 - n))
+    case [p] => PApp(unqualified(op), [p])
+    case [p; more] => pat_infix(op, p, more)
+    case Nil => PApp(unqualified(op), Nil)
   end
 
-function pat_infix(op: Id, l: Pat, r: Pat): Pat :=
-  PApp(unqualified(op), [l, r])
+// lhs and the operands rs, applied from the left
+function pat_infix(op: Id, lhs: Pat, rs: List[Pat]): Pat :=
+  match rs
+    case Nil => lhs
+    case [r; more] => pat_infix(op, PApp(unqualified(op), [lhs, r]), more)
+  end
 
 function cons_pats(ps: List[Pat], rest: Pat): Pat :=
   match ps
@@ -879,7 +859,7 @@ function starts_pattern(notations: Notations, tok: Token): Bool :=
   end
 
 procedure parse_pattern(in notations: Notations, params: List[Id], out p: Pat, ref toks: List[Token * Int]) :=
-  call parse_operators(in notations, params, "pattern", starts_pattern, parse_pattern_atom, pat_ops(), out p, ref toks)
+  call parse_operators(in notations, params, pat_ops(), out p, ref toks)
 
 procedure parse_pattern_atom(in notations: Notations, params: List[Id], out p: Pat, ref toks: List[Token * Int]) :=
   local name: Id, ps: List[Pat], rest: Pat
