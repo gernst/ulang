@@ -1,0 +1,418 @@
+// contextual simplification of sequents, see Simplification in DESIGN.md
+//
+// Every part of a sequent is replaced by one that is equivalent to it in its context, for all values of the
+// variables bound around it. Hence simplifying never turns a provable goal into an unprovable one, and the same
+// steps apply to assumptions and conclusions alike: polarity only decides what true and false mean for the
+// sequent around them, which conjoin and disjoin handle, and which facts the context gains, by assume and refute.
+//
+// The traversal goes down the sequent and carries the context:
+// - the variables of the sequents above, as de Bruijn levels, onto which a sequent opens its own binders on entry,
+//   so that terms of outer sequents and the facts about them stay valid inside, and which it closes again on exit,
+// - facts: the assumptions before, the conjuncts before in a conclusion, and the negated conclusions before,
+//   where siblings only see those before them, since each seeing all others would simplify A and A to true and true.
+//
+// For now the context is a list of atoms and atoms are decided syntactically, until CC(X) takes over.
+
+import syntax
+
+// nested sequents, see Simplification in DESIGN.md:
+//   forall fixed. A1 and … and Ak ==> (exists vars1. C11 and … and C1m) or …
+// where the fixed variables bind in the assumptions and conclusions, and the variables of a conclusion in its body.
+// Normal forms have no connectives, quantifiers, or literals as atoms: false is Seq(Nil, Nil, Nil),
+// true is Seq(Nil, Nil, [Concl(Nil, Nil)]), and not A is Seq(Nil, [A], Nil).
+data Seq :=
+  | Atom(Expr)
+  | Seq(fixed: List[Var], assms: List[Seq], concls: List[Concl])
+
+data Concl :=
+  | Concl(vars: List[Var], body: List[Seq])
+
+// the variables of the opened sequents, the last one first, such that level l is at depth - 1 - l,
+// and the atoms known to be true and false, which will be the state of CC(X), stored per sequent
+data Ctx :=
+  | Ctx(vars: List[Var], facts: List[Expr], refuted: List[Expr])
+
+data Rebind :=
+  // the count outermost binders at depth become the levels from depth on
+  | Open(depth: Int, count: Int)
+  // the reverse of Open
+  | Close(depth: Int, count: Int)
+
+// a simplified conjunction with the context after it, or Refuted if a conjunct is false
+data Conj :=
+  | Conj(ctx: Ctx, seqs: List[Seq])
+  | Refuted
+
+// a simplified disjunction, or Proven if a disjunct is true
+data Disj :=
+  | Disj(concls: List[Concl])
+  | Proven
+
+function true_seq(): Seq :=
+  Seq(Nil, Nil, [Concl(Nil, Nil)])
+
+function false_seq(): Seq :=
+  Seq(Nil, Nil, Nil)
+
+function empty_ctx(): Ctx :=
+  Ctx(Nil, Nil, Nil)
+
+function depth(ctx: Ctx): Int :=
+  length(ctx.vars)
+
+function enter(ctx: Ctx, xs: List[Var]): Ctx :=
+  ctx with vars := reverse(xs) ++ ctx.vars
+
+// the context with s known to be true, of which only atoms and their negations are used for now,
+// while sequents with variables will be rules and other ground sequents clauses
+function assume(ctx: Ctx, s: Seq): Ctx :=
+  match s
+    case Atom(e) =>
+      ctx with facts := [e; ctx.facts]
+
+    case Seq(Nil, [Atom(e)], Nil) =>
+      ctx with refuted := [e; ctx.refuted]
+
+    case _ =>
+      ctx
+  end
+
+// the context with c known to be false, for the conclusions after it, since A ==> C1 or C2 is A and not C1 ==> C2,
+// where the negation of an existential is a universal, which would be a rule, not a fact
+function refute(ctx: Ctx, c: Concl): Ctx :=
+  match c
+    case Concl(Nil, [Atom(e)]) =>
+      ctx with refuted := [e; ctx.refuted]
+
+    case Concl(Nil, [Seq(Nil, [Atom(e)], Nil)]) =>
+      ctx with facts := [e; ctx.facts]
+
+    case _ =>
+      ctx
+  end
+
+function simplify(s: Seq): Seq :=
+  simp_seq(empty_ctx(), s)
+
+// a sequent equivalent to s in the context, where s has no free indices
+function simp_seq(ctx: Ctx, s: Seq): Seq :=
+  match s
+    case Atom(e) =>
+      let t := simp_expr(ctx, e) in
+      atom(ctx, t)
+
+    case Seq(xs, assms, concls) =>
+      simp_sequent(ctx, xs, assms, concls)
+  end
+
+// its binders are opened, its assumptions simplified as a conjunction, its conclusions in the context of all
+// assumptions, and the result closed again
+function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Concl]): Seq :=
+  let d := depth(ctx), k := length(xs) in
+  let conj := conjoin(enter(ctx, xs), [rebind_seq(Open(d, k), 0, a) for a in assms]) in
+  match conj
+    case Refuted =>
+      true_seq()
+
+    case Conj(after, as) =>
+      let disj := disjoin(after, [rebind_concl(Open(d, k), 0, c) for c in concls]) in
+      match disj
+        case Proven =>
+          true_seq()
+
+        case Disj(cs) =>
+          sequent(xs, [rebind_seq(Close(d, k), 0, a) for a in as], [rebind_concl(Close(d, k), 0, c) for c in cs])
+      end
+  end
+
+// a sequent that only wraps a single conjunct is that conjunct
+function sequent(xs: List[Var], assms: List[Seq], concls: List[Concl]): Seq :=
+  match (xs, assms, concls)
+    case (Nil, Nil, [Concl(Nil, [s])]) =>
+      s
+
+    case _ =>
+      Seq(xs, assms, concls)
+  end
+
+// each conjunct in the context of those before it, since A and B is A and (A ==> B), where true conjuncts are dropped,
+// for assumptions and the bodies of conclusions alike
+function conjoin(ctx: Ctx, ss: List[Seq]): Conj :=
+  match ss
+    case Nil =>
+      Conj(ctx, Nil)
+
+    case [s; rest] =>
+      let t := simp_seq(ctx, s) in
+      if t == false_seq() then
+        Refuted
+      else if t == true_seq() then
+        conjoin(ctx, rest)
+      else
+        let conj := conjoin(assume(ctx, t), rest) in
+        match conj
+          case Conj(after, ts) =>
+            Conj(after, [t; ts])
+
+          case Refuted =>
+            Refuted
+        end
+  end
+
+// each disjunct in the context of the negations of those before it, where false disjuncts are dropped
+function disjoin(ctx: Ctx, cs: List[Concl]): Disj :=
+  match cs
+    case Nil =>
+      Disj(Nil)
+
+    case [c; rest] =>
+      let r := simp_concl(ctx, c) in
+      match r
+        case None =>
+          disjoin(ctx, rest)
+
+        case Some(Concl(_, Nil)) =>
+          Proven
+
+        case Some(d) =>
+          let disj := disjoin(refute(ctx, d), rest) in
+          match disj
+            case Disj(ds) =>
+              Disj([d; ds])
+
+            case Proven =>
+              Proven
+          end
+      end
+  end
+
+// the conclusion, or None if it is false, whose existential variables are opened like fixed ones, which is sound
+// since simplification is an equivalence for all their values, but they are never instantiated here
+function simp_concl(ctx: Ctx, c: Concl): Option[Concl] :=
+  match c
+    case Concl(xs, body) =>
+      let d := depth(ctx), k := length(xs) in
+      let conj := conjoin(enter(ctx, xs), [rebind_seq(Open(d, k), 0, s) for s in body]) in
+      match conj
+        case Refuted =>
+          None
+
+        case Conj(_, ts) =>
+          Some(Concl(xs, [rebind_seq(Close(d, k), 0, t) for t in ts]))
+      end
+  end
+
+// the atom as a sequent, which is true or false if the context decides it
+function atom(ctx: Ctx, e: Expr): Seq :=
+  match decide(ctx, e)
+    case Some(true) =>
+      true_seq()
+
+    case Some(false) =>
+      false_seq()
+
+    case None =>
+      Atom(e)
+  end
+
+// syntactically for now, by literals, reflexivity, and the facts, which CC(X) will replace
+function decide(ctx: Ctx, e: Expr): Option[Bool] :=
+  match e
+    case EConst(VBool(b)) =>
+      Some(b)
+
+    case EApp(EFun(Name(None, "==")), [a, b]) if a == b =>
+      Some(true)
+
+    case _ =>
+      if contains(e, ctx.facts) then Some(true)
+      else if contains(e, ctx.refuted) then Some(false)
+      else None
+  end
+
+// a term equal to e in the context: the subterms are simplified here, the branches of an if under its condition
+// or its negation, and a function for each kind of term combines the results, where binders and sums are left alone
+// for now
+function simp_expr(ctx: Ctx, e: Expr): Expr :=
+  match e
+    case EApp(f, args) =>
+      let g := simp_expr(ctx, f), bs := [simp_expr(ctx, a) for a in args] in
+      simp_app(ctx, g, bs)
+
+    case EIte(c, a, b) =>
+      let t := simp_expr(ctx, c) in
+      let u := simp_expr(ctx with facts := [t; ctx.facts], a) in
+      let v := simp_expr(ctx with refuted := [t; ctx.refuted], b) in
+      simp_ite(ctx, t, u, v)
+
+    case _ =>
+      e
+  end
+
+function simp_app(ctx: Ctx, f: Expr, args: List[Expr]): Expr :=
+  EApp(f, args)
+
+function simp_ite(ctx: Ctx, c: Expr, a: Expr, b: Expr): Expr :=
+  match decide(ctx, c)
+    case Some(true) =>
+      a
+
+    case Some(false) =>
+      b
+
+    case None =>
+      EIte(c, a, b)
+  end
+
+// opening and closing below c binders of the term, which are the only places where indices and levels meet:
+// indices keep terms with binders closed and the same at every depth, levels keep terms of outer sequents valid inside
+
+function rebind(op: Rebind, c: Int, e: Expr): Expr :=
+  match e
+    case EBound(i) =>
+      rebind_bound(op, c, i)
+
+    case ELevel(l) =>
+      rebind_level(op, c, l)
+
+    case EApp(f, args) =>
+      EApp(rebind(op, c, f), [rebind(op, c, a) for a in args])
+
+    case ELam(xs, b) =>
+      ELam(xs, rebind(op, c + length(xs), b))
+
+    case EIte(a, b, d) =>
+      EIte(rebind(op, c, a), rebind(op, c, b), rebind(op, c, d))
+
+    case EMatch(a, bs) =>
+      EMatch(rebind(op, c, a), [rebind_branch(op, c, br) for br in bs])
+
+    // TODO: keep sums canonical, since opening and closing change the order of their atoms
+    case ESum(k, ts) =>
+      ESum(k, rebind_terms(op, c, ts))
+
+    case ERaise(a, t) =>
+      ERaise(rebind(op, c, a), t)
+
+    case _ =>
+      e
+  end
+
+function rebind_bound(op: Rebind, c: Int, i: Int): Expr :=
+  if i < c then
+    EBound(i)
+  else
+    match op
+      case Open(d, k) =>
+        if i - c < k then ELevel(d + k - 1 - (i - c)) else EBound(i - k)
+
+      case Close(_, k) =>
+        EBound(i + k)
+    end
+
+function rebind_level(op: Rebind, c: Int, l: Int): Expr :=
+  match op
+    case Close(d, k) if d <= l and l < d + k =>
+      EBound(c + d + k - 1 - l)
+
+    case _ =>
+      ELevel(l)
+  end
+
+function rebind_terms(op: Rebind, c: Int, ts: List[Expr * Int]): List[Expr * Int] :=
+  match ts
+    case Nil =>
+      Nil
+
+    case [(t, n); rest] =>
+      [(rebind(op, c, t), n); rebind_terms(op, c, rest)]
+  end
+
+function rebind_branch(op: Rebind, c: Int, br: Branch): Branch :=
+  match br
+    case Branch(p, g, b) =>
+      let inner := c + binders(p) in
+      match g
+        case Some(h) =>
+          Branch(p, Some(rebind(op, inner, h)), rebind(op, inner, b))
+
+        case None =>
+          Branch(p, None, rebind(op, inner, b))
+      end
+  end
+
+function binders(p: Pat): Int :=
+  match p
+    case PVar(_) =>
+      1
+
+    case PApp(_, ps) =>
+      binders_all(ps)
+
+    case _ =>
+      0
+  end
+
+function binders_all(ps: List[Pat]): Int :=
+  match ps
+    case Nil =>
+      0
+
+    case [p; rest] =>
+      binders(p) + binders_all(rest)
+  end
+
+function rebind_seq(op: Rebind, c: Int, s: Seq): Seq :=
+  match s
+    case Atom(e) =>
+      Atom(rebind(op, c, e))
+
+    case Seq(xs, assms, concls) =>
+      let inner := c + length(xs) in
+      Seq(xs, [rebind_seq(op, inner, a) for a in assms], [rebind_concl(op, inner, d) for d in concls])
+  end
+
+function rebind_concl(op: Rebind, c: Int, d: Concl): Concl :=
+  match d
+    case Concl(xs, body) =>
+      Concl(xs, [rebind_seq(op, c + length(xs), s) for s in body])
+  end
+
+// examples over p, q, r of type Int -> Bool and a constant a
+
+function int_type(): Type :=
+  TSort(Name(None, "Int"), Nil)
+
+function x(): Var :=
+  Var("x", int_type())
+
+function pred(f: Id, e: Expr): Expr :=
+  EApp(EFun(Name(None, f)), [e])
+
+function a(): Expr :=
+  EFun(Name(None, "a"))
+
+test assumption() :=
+  assert simplify(Seq([x()], [Atom(pred("p", EBound(0)))], [Concl(Nil, [Atom(pred("p", EBound(0)))])])) == true_seq()
+  assert simplify(Seq([x()], Nil, [Concl(Nil, [Atom(EApp(EFun(Name(None, "==")), [EBound(0), EBound(0)]))])])) == true_seq()
+
+test contradiction() :=
+  assert simplify(Seq(Nil, [Seq(Nil, [Atom(pred("p", a()))], Nil), Atom(pred("p", a()))], [Concl(Nil, [Atom(pred("q", a()))])])) == true_seq()
+
+test unchanged() :=
+  local s := Seq([x()], [Atom(pred("p", EBound(0)))], [Concl(Nil, [Atom(pred("q", EBound(0)))])])
+
+  assert simplify(s) == s
+
+test existential() :=
+  local y := Var("y", int_type())
+
+  assert simplify(Seq(Nil, [Atom(pred("p", a()))], [Concl([y], [Atom(pred("p", a())), Atom(pred("q", EBound(0)))])]))
+    == Seq(Nil, [Atom(pred("p", a()))], [Concl([y], [Atom(pred("q", EBound(0)))])])
+
+test conditional() :=
+  local e := EIte(pred("p", a()), pred("q", a()), pred("r", a()))
+
+  assert simplify(Seq(Nil, [Atom(pred("p", a()))], [Concl(Nil, [Atom(e)])])) == Seq(Nil, [Atom(pred("p", a()))], [Concl(Nil, [Atom(pred("q", a()))])])
+  assert simplify(Seq(Nil, Nil, [Concl(Nil, [Atom(pred("p", a()))]), Concl(Nil, [Atom(e)])]))
+    == Seq(Nil, Nil, [Concl(Nil, [Atom(pred("p", a()))]), Concl(Nil, [Atom(pred("r", a()))])])

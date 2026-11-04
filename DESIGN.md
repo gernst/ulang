@@ -245,41 +245,41 @@ whose assumptions `Ai` and conclusions `Cij` are again sequents or atoms, where 
 
 ```
 data Seq :=
-  | Atom(Term)
-  | Seq(fixed: List[Type], assms: List[Seq], concls: List[Concl])
+  | Atom(Expr)
+  | Seq(fixed: List[Var], assms: List[Seq], concls: List[Concl])
 
 data Concl :=
-  | Concl(vars: List[Type], body: List[Seq])
+  | Concl(vars: List[Var], body: List[Seq])
 ```
 
 - `false` is a sequent without conclusions, `not A` is `A ==> false`, and several goals, as of the cases of `match` and `induction` or of `subgoals`, are a conjunction in a single conclusion.
 - **A lemma is a sequent**: `lemma l(xs): (ys) := requires A1, …, Ak ensures C` is `Seq(xs, [A1, …, Ak], [Concl(ys, [C])])`. Proving it opens it as the goal, using it, by `using l`, `rewrite lemma`, or as the induction hypothesis, adds it unopened as an assumption, `h(a, b)` instantiates its outer binders, and `obtain` opens the existential of an assumption.
 - **Normalization** from `Expr` moves `and`, `or`, `==>`, `not`, the quantifiers, and `if` on `Bool` into this structure, again after unfolding, which brings back connectives. It makes the steps that preserve equivalence and lose nothing: existentials of assumptions become fixed, `(exists y. A) ==> C` to `forall y. A ==> C`, and the one-point rules `forall x. x == t ==> P(x)` to `P(t)` and `exists y. y == t and P(y)` to `P(t)`.
-- **Quantifiers are constants applied to lambdas**, `forall x: T => e` is `forall(lambda x: T => e)` of type `(T -> Bool) -> Bool`, and several variables are nested lambdas, so that lambdas are the only binders of formulas, the types of the variables come with them, and `forall` and `exists` cannot be computed, which the checker allows only in specifications.
+- **Quantifiers are constants applied to lambdas**, `forall x: T => e` is `forall(lambda x: T => e)`, i.e. `App(Symbol(forall), [Lam(…)])`, of type `(T -> Bool) -> Bool`, and several variables are nested lambdas, so that lambdas are the only binders of formulas, the types of the variables come with them, and `forall` and `exists` cannot be computed, which the checker allows only in specifications.
 
 #### Terms
 
-The prover works on its own terms, translated from checked `Expr`s, since it needs invariants that `Expr` does not guarantee, and nodes for the values of its decision procedures. It does not depend on the syntax of `self/`, so it lives in `simp/`, and the translations in `self/`:
+The prover works on its own terms, its own `Expr` in `simp/syntax.u`, translated from the checked `Expr`s of `self/syntax.u`, since it needs invariants that those do not guarantee, and nodes for the values of its decision procedures. It does not depend on the syntax of `self/`, so it lives in `simp/`, and the translations in `self/`:
 
 ```
-data Term :=
-  | Bound(Int)                       // de Bruijn index: a binder inside the term
-  | Var(Int)                         // de Bruijn level: a variable of the context
-  | Lit(Val)
-  | Con(Sym, List[Term])
-  | Fun(Sym, List[Term])             // declared functions and builtins
-  | Apply(Term, List[Term])          // application of a term that is not a symbol
-  | Lam(Hint, Type, Term)
-  | Ite(Term, Term, Term)
-  | Match(Term, List[Alt])           // the variables of the patterns are indices too
-  | Sum(Int, List[Term * Int])       // c + k1·t1 + …: canonical linear sums
+data Expr :=
+  | EBound(Int)                      // de Bruijn index: a binder inside the term
+  | ELevel(Int)                      // de Bruijn level: a variable of the context
+  | EConst(Val)
+  | EFun(Name)                       // functions, builtins, and constructors, applied or not
+  | EApp(Expr, List[Expr])           // of any head, first and higher order alike
+  | ELam(List[Var], Expr)
+  | EIte(Expr, Expr, Expr)
+  | EMatch(Expr, List[Branch])          // the variables of the patterns are indices too
+  | ESum(Int, List[Expr * Int])      // c + k1·t1 + …: canonical linear sums
+  | ERaise(Expr, Type)
 ```
 
-- **Indices for binders, levels for the context.** The binders of `Lam`, `Match`, `Seq`, and `Concl` are indices, so that terms with binders are closed and the same at every depth: definitions, lemmas, and rules are used anywhere unchanged, and terms that differ in the names of bound variables are equal. The variables of the opened sequents are levels, counted from the root, so that a term of an outer sequent is valid unchanged in the inner ones, and the state stored at a sequent is shared by those nested in it. Indices for everything would shift the stored states at every nesting, and levels for everything every closed term with binders that moves, e.g. a definition that is unfolded. Opening a binder, of a lambda or a sequent, pushes its variable onto the context and replaces its index by the level, and closing does the reverse, the only places where the two meet. The context keeps the types of the levels, and their hints for printing.
+- **Indices for binders, levels for the context.** The binders of `ELam`, `EMatch`, `Seq`, and `Concl` are indices, so that terms with binders are closed and the same at every depth: definitions, lemmas, and rules are used anywhere unchanged, and terms that differ in the names of bound variables are equal. The variables of the opened sequents are levels, counted from the root, so that a term of an outer sequent is valid unchanged in the inner ones, and the state stored at a sequent is shared by those nested in it. Indices for everything would shift the stored states at every nesting, and levels for everything every closed term with binders that moves, e.g. a definition that is unfolded. Opening a binder, of a lambda or a sequent, pushes its variable onto the context and replaces its index by the level, and closing does the reverse, the only places where the two meet. The context keeps the types of the levels, and their names for printing.
 - **No meta variables**: an assumption that is used as a rule, or a lemma, is closed, and its own binders are the variables that matching instantiates, where a pattern variable applied to distinct bound variables is matched as a higher-order pattern (Miller). Meta variables would only be needed for witnesses that are instantiated later by unification, which proofs give explicitly by `choose` instead. Type parameters of lemmas are matched the same way.
-- **Symbols are numbers**, so that terms compare as integers rather than as names, and a signature describes them, which the translation builds: the constructors of each datatype, the builtins, the definitions of functions as terms with whether they are recursive, the order of declarations for the term order, and the names for printing.
+- **Symbols are names**, `Name(module, base)` as in the compiler, described by the declarations of the program, which may come from the syntax of `self/` rather than declarations of `simp/`: the constructors of each datatype, the builtins, the definitions of functions with whether they are recursive, and their order, which gives the precedence of the term order.
 - **Sums are canonical**: sorted by `compare` on their atoms, without coefficients `0`, nested sums, or sums of a single atom with coefficient `1`, and a constant is a `Lit`, kept by a smart constructor, and as lists, since `==` on maps compares their trees. Products with constants are sums, products of variables are atoms.
-- **Translations**, in `self/`: `let` is substituted, comprehensions become `flat_map` over lambdas, function definitions are translated once to lambdas over their parameters, so that unfolding is beta reduction, and the prelude's `not`, `==>`, `!=`, `<=`, `>`, `>=`, and `-` are unfolded to the builtins, and folded back when printing. Open goals are printed by translating back to `Expr`, with the hints as names, and `simp/` prints terms itself for its tests.
+- **Translations**, in `self/`: `let` is substituted, comprehensions become `flat_map` over lambdas, function definitions are translated once to lambdas over their parameters, so that unfolding is beta reduction, and the prelude's `not`, `==>`, `!=`, `<=`, `>`, `>=`, and `-` are unfolded to the builtins, and folded back when printing. Open goals are printed by translating back to `Expr`, with the names of the variables, made distinct, and `simp/` prints terms itself for its tests.
 
 #### Contextual simplification
 
@@ -294,10 +294,10 @@ Each part of a sequent is replaced by one that is equivalent to it in its contex
 
 Congruence closure over terms, parameterized by Shostak theories, as in CC(X) of Alt-Ergo: each theory gives a canonizer, whose results are syntactically equal exactly when the terms are equal in the theory, and a solver, which turns an equation into a substitution or `false`, and treats the terms of other theories as atoms, its leaves. Solved equations are oriented substitutions, i.e. the rewriting with facts, and the canonical forms are what the proof sees in open goals.
 
-- **The core** is a union-find with use lists and a table of signatures, as maps keyed by terms, which costs a logarithm per operation instead of nearly constant time, but makes the states persistent. Lambdas, applications of variables, and comprehensions are uninterpreted terms, with applications as a symbol `@` of the function and its arguments.
+- **The core** is a union-find with use lists and a table of signatures, as maps keyed by terms, which costs a logarithm per operation instead of nearly constant time, but makes the states persistent. Lambdas, applications of variables, and comprehensions are uninterpreted terms, since applications are the same for symbols and other heads.
 - **Constructors**: the canonizer is the identity, and the solver is unification with an occurs check, such that constructors are injective, distinct, and acyclic, `xs == [x; xs]` being `false`.
-- **Linear integer arithmetic**: the canonizer gives `Sum`s, the solver solves an equation for an atom with coefficient `1` or `-1`, and otherwise introduces fresh variables, `2·x == 3·y` to `x == 3·k` and `y == 2·k`, as in the Omega test. Inequalities are not Shostak: Fourier–Motzkin with integer tightening decides them over the canonical sums, and gives the equalities it implies back to the core, as in Nelson–Oppen, where `m / n` and `m % n` come with `m == (m / n) * n + m % n` and their bounds.
-- **Other theories**, e.g. finite sets, add nodes to `Term` for their canonical forms in the same way.
+- **Linear integer arithmetic**: the canonizer gives `ESum`s, the solver solves an equation for an atom with coefficient `1` or `-1`, and otherwise introduces fresh variables, `2·x == 3·y` to `x == 3·k` and `y == 2·k`, as in the Omega test. Inequalities are not Shostak: Fourier–Motzkin with integer tightening decides them over the canonical sums, and gives the equalities it implies back to the core, as in Nelson–Oppen, where `m / n` and `m % n` come with `m == (m / n) * n + m % n` and their bounds.
+- **Other theories**, e.g. finite sets, add nodes to `Expr` for their canonical forms in the same way.
 - Nelson–Oppen alone would only decide validity and give no normal forms, and splits for theories that are not convex, as the integers, or finite types, which the internal splits cover here.
 
 #### Steps
@@ -316,13 +316,12 @@ Simplification repeats these steps on a sequent until nothing changes:
 
 | Module | Contents |
 |---|---|
-| `simp/term.u` | `Term`, the signature, opening and closing, substitution, matching, the term order, and printing |
-| `simp/seq.u` | `Seq`, normalization, and printing |
+| `simp/syntax.u` | `Expr`, opening and closing, substitution, matching, the term order, normalization, and printing |
 | `simp/cc.u` | the core of CC(X) and the interface of the theories |
 | `simp/constr.u` | constructors |
 | `simp/arith.u` | sums, solving, and Fourier–Motzkin |
-| `simp/simp.u` | contextual simplification with `Ctx` |
-| `self/prove.u` | the translations between `Expr` and `Term`, and the signature of a checked program |
+| `simp/simp.u` | `Seq`, and contextual simplification with `Ctx` |
+| `self/prove.u` | the translations between the `Expr`s of `self/` and `simp/`, and the symbols of a checked program |
 
 `simp/` is tested on its own, with terms and sequents built by its tests, and the tests run with those of `tests/` and `self/`. `self/prove.u` imports modules of both directories, which needs imports across directories, see `TODO.md`.
 

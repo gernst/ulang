@@ -2,6 +2,10 @@
 
 Open action items, each with the problem and the desired solution.
 
+## Look at
+- ad-hoc overloading
+- module imports and exports
+
 ## Testing
 
 1. **Comparisons by hand**: the test of `self/compile.u` only writes the C of some tests to `self/out/`, and nothing checks that the compiled programs, `./ulang.sh`, and `./ulang.bin` print the same. Solution: a make target that compiles `self/out/*.c` and compares their output with `./ulang.sh test`, and compares `./ulang.sh` with `./ulang.bin` on `tests/` with `test` and `check`.
