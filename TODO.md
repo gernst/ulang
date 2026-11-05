@@ -31,7 +31,7 @@ Open action items, each with the problem and the desired solution.
 ## Compiler
 
 1. **Runtime errors have no positions.** Solution: positions in the messages of the runtime.
-2. **Deep recursion.** Functions like `concat` and `str_join` over long lists recurse deeply, so compiled programs need `ulimit -s unlimited` for big inputs. Solution: loops in the runtime and library where possible, and a large stack for the main thread of compiled programs, as the interpreter has.
+2. **Deep recursion.** Functions like `concat` and `str_join` over long lists recurse deeply, so compiled programs need `ulimit -s unlimited` for big inputs. So does `foldr` of lists, where it is not one of the loops of comprehensions. Solution: loops in the runtime and library where possible, e.g. a native `foldr` of lists that applies its function from the last element to the first, and a large stack for the main thread of compiled programs, as the interpreter has.
 3. **Integers are boxed**: every integer outside -16 to 255 is an object on the heap, so arithmetic allocates, e.g. 63 million calls of `u_mk_int` when `run.u` interprets the compiler. Solution: integers that fit in a word tagged in the pointer, with a check before every access to `type` and `num`.
 4. **Programs need a C compiler**, and `cc -O2` takes most of the time of `make selfcompile`. Solution: a backend that writes assembly for x86-64, see `assembly.md`.
 
@@ -39,18 +39,21 @@ Open action items, each with the problem and the desired solution.
 
 1. **Patterns are weaker than expressions**: no or-patterns `case TParam(_) | TMeta(_) =>` and no as-patterns, which forced `self/run.u` to rebuild values it had just taken apart. Solution: or-patterns and as-patterns.
 2. **One namespace per module**: within a module, overloading only distinguishes arities, hence names like `zonk_type` and `zonk_expr`, or `UnknownProc` next to `UnknownProcedure`. Solution: qualified names for modules (`check.infer`) or constructors (`Expr.Var`).
-3. **`{}` cannot denote the empty set or map.** Solution: `{}` as `empty()`, resolved by the expected type among the overloads of `set` and `map`.
-4. **Partial accesses are not visible**: `e.f` of a field that only some constructors have may raise `MissingField`, but nothing at the access shows it. Candidate: `e!f` for such fields and `e.f` for the others, as decided by the declaration and enforced by the checker. Reservations: one more rule to learn, and it reserves `!`.
-5. **Constructors may have unnamed parameters**, so some fields have no accessors or updates, and their partiality is not known. Candidate: require names for all parameters of constructors, as in Scala's case classes, where patterns stay positional and tuples remain for anonymous products. Costs: more writing for small types, names that agree in their types across the constructors of `self/syntax.u`, and generated accessors and updaters, of which the compiler could drop the unused ones.
-6. **`assign` is redundant** before `x := e`. Solution: decide whether to drop it.
-7. **`[…]` is both type arguments and list literals.** Solution: decide whether to keep it.
-8. **`else` followed by `if` always continues a chain of statements**, so a nested `if` cannot directly follow `else`. Solution: decide on a syntax that tells them apart.
+3. **Partial accesses are not visible**: `e.f` of a field that only some constructors have may raise `MissingField`, but nothing at the access shows it. Candidate: `e!f` for such fields and `e.f` for the others, as decided by the declaration and enforced by the checker. Reservations: one more rule to learn, and it reserves `!`.
+4. **Constructors may have unnamed parameters**, so some fields have no accessors or updates, and their partiality is not known. Candidate: require names for all parameters of constructors, as in Scala's case classes, where patterns stay positional and tuples remain for anonymous products. Costs: more writing for small types, names that agree in their types across the constructors of `self/syntax.u`, and generated accessors and updaters, of which the compiler could drop the unused ones.
+5. **`assign` is redundant** before `x := e`. Solution: decide whether to drop it.
+6. **`[…]` is both type arguments and list literals.** Solution: decide whether to keep it.
+7. **`else` followed by `if` always continues a chain of statements**, so a nested `if` cannot directly follow `else`. Solution: decide on a syntax that tells them apart.
 
 ## Fields and literals
 
 1. **Accesses are applications of a variable `.f`** until the checker resolves them. Solution: a node `EField(e, f)` of the syntax.
-2. **Literals resolve to fixed modules**: `{a, b}` and `{k => v}` call `set.from_list` and `map.put_all` by qualified names, so a local `set.u` takes their place, and a module may use them without importing `set` or `map`. Solution: resolve them only through the module's own imports, or by overloading (Syntax 3).
+2. **Literals resolve to fixed modules**: `{a, b}` and `{k => v}` call `set.insert`, `set.empty`, `map.put`, and `map.empty` by qualified names, so a local `set.u` takes their place, and a module may use them without importing `set` or `map`. Solution: names of the module `*`, as for `{}` and the folds of comprehensions, which resolve through the imports of the module, now that `put` belongs to maps alone.
 3. **Negative literals take the position of the number**, not of the `-`. Solution: the position of the operator.
+
+## Library
+
+1. **Lists, sets, and maps share only part of an interface**: `size`, `contains`, `get`, `remove`, `foldr`, and `foldl` are common, and `set` and `map` have `empty` and `list`, but `set` has no `remove`, lists have no `empty`, `insert`, or `from_list`, and maps have `put_all` instead of `from_list`. Solution: the same names for all three, where the elements of maps are their entries, so that code reads alike for each container.
 
 ## Verification
 

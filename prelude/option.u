@@ -1,6 +1,15 @@
+// optional values, which the prelude imports
+
+export
+
 data Option[A] :=
   | None
   | Some(A)
+
+// a if it has a value, else b
+function or_else[A](a: Option[A], b: Option[A]): Option[A]
+
+implementation
 
 function or_else[A](a: Option[A], b: Option[A]): Option[A] :=
   match a

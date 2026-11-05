@@ -62,8 +62,10 @@ function >=[A](x: A, y: A): Bool :=
 function -(n: Int): Int :=
   0 - n
 
-import nat
-
 import option
 
 import list
+
+// strings are concatenated by ++, as lists are, and by ^
+function ++(a: Str, b: Str): Str :=
+  a ^ b

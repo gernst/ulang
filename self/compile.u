@@ -433,7 +433,7 @@ procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], 
     case EApp(EVar(Var(n, _)), [xs, init, ELam([x, acc], body)]) if n == list_foldr_name() and consing(body, acc.name) != None =>
       call compile_consing(in gl, env, xs, init, x, body, acc.name, out ss, r, ref g)
 
-    case EApp(EVar(Var(n, ty)), args) if not contains(n, keys(env)) =>
+    case EApp(EVar(Var(n, ty)), args) if get(n, env) == None =>
       call compile_named(in gl, env, n, ty, args, out ss, r, ref g)
 
     case EApp(f, args) =>
@@ -550,7 +550,7 @@ procedure compile_named(in gl: Globals, env: Vars, n: Name, ty: Type, args: List
 
 // a closure of a function lifted to the top level, which takes the captured values and the arguments
 procedure compile_lambda(in gl: Globals, env: Vars, xs: List[Var], b: Expr, out ss: List[CStmt], r: CExpr, ref g: Gen) :=
-  local  caps := [x for x in distinct(free_vars(b, names(xs))) if contains(x, keys(env))]
+  local  caps := [x for x in distinct(free_vars(b, names(xs))) if get(x, env) != None]
   local  f: Str, bs: List[CStmt], rb: CExpr, decls: List[CStmt]
 
   call   gen_name(in "lam", out f, ref g)
@@ -565,7 +565,7 @@ procedure compile_proc_lambda(
   out ss: List[CStmt], r: CExpr,
   ref g: Gen
 ) :=
-  local  caps := [x for x in distinct(free_in_stmt(b, names(ins ++ outs ++ refs))) if contains(x, keys(env))]
+  local  caps := [x for x in distinct(free_in_stmt(b, names(ins ++ outs ++ refs))) if get(x, env) != None]
   local  f: Str, bs: List[CStmt], decls: List[CStmt]
 
   call   gen_name(in "proc", out f, ref g)
@@ -694,7 +694,7 @@ procedure compile_stmt(in gl: Globals, env: Vars, s: Stmt, out ss: List[CStmt], 
     case SCall(p, ins, outs, refs) =>
       call compile_exprs(in gl, env, ins, out as, rs, ref g)
 
-      if has_key(p, env)
+      if get(p, env) != None
         assign ss := as ++ [CsExpr(c_call("u_call_proc", [var_expr(env, p), CeNum(size(ins)), CeNum(size(outs ++ refs))] ++ rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
       else
         assign ss := as ++ [CsExpr(c_call(proc_name(p), rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
@@ -730,7 +730,7 @@ procedure compile_stmt(in gl: Globals, env: Vars, s: Stmt, out ss: List[CStmt], 
       call   gen_name(in "h", out d, ref g)
       call   gen_name(in "d", out t, ref g)
       call   handler_cases(in gl, env, hs, d, t, out cs, ref g)
-      assign xs := [x for x in distinct(changed(body)) if has_key(x, env)]
+      assign xs := [x for x in distinct(changed(body)) if get(x, env) != None]
       assign as := [CsExpr(c_call("u_pop", [CeVar(d)]))] ++ [CsAssign(var_expr(env, x), CeVar(saved_name(x))) for x in xs] ++ [CsDecl(CtInt, t, Some(CeNum(0)))]
       assign as := as ++ cs ++ [CsIf(CeUnary("!", CeVar(t)), [CsExpr(c_call("u_reraise", [CeVar(d)]))], [])]
       assign ss := [CsDecl(value_type(), saved_name(x), Some(var_expr(env, x))) for x in xs] ++ [CsDecl(CtPtr(CtNamed("struct u_handler")), d, Some(c_call("u_push", [])))]
@@ -946,11 +946,11 @@ procedure compile_program(in q: Program, m: Id, entry: Id, out f: CFile) :=
 
 // checks the program of the file source after the prelude, which is its module, and writes its translation to C to target
 procedure compile_file(in source: Str, entry: Id, target: Str) :=
-  local pre: Program, p: Program, q: Program, f: CFile, cache: Cache := Nil
+  local pre: Program, p: Program, q: Program, f: CFile
 
   call   parse_library(in "prelude", out pre)
   call   parse_file_after(in source, pre, out p)
-  call   check_modules(in Program([CModule("prelude", pre.cmds); p.cmds]), base_name(source), out q, ref cache)
+  call   check_program(in Program([CModule("prelude", pre.cmds); p.cmds]), base_name(source), out q)
   call   compile_program(in q, base_name(source), entry, out f)
   call   os_write(in target, show_file(f))
 

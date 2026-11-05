@@ -51,16 +51,10 @@ data TypeError :=
 data Checked :=
   | Checked(cmds: List[Cmd], ctx: Ctx, imports: List[Id * List[Id]])
 
-// the checked modules by their names, their commands, and the positions in the cache of the modules they see,
-// since a module depends only on the prelude and its direct imports
-type Cache :=
-  List[(Id * List[Id * Cmd] * List[Int]) * Checked]
-
 function first_list(xss: List[List[Var]]): List[Var]
 function order_of(c: Cmd): Option[Id * Name]
 function ordered(cs: List[Cmd], op: Id): List[Name]
 procedure check_program(in p: Program, main: Id, out q: Program)
-procedure check_modules(in p: Program, main: Id, out q: Program, ref cache: Cache)
 
 implementation
 
@@ -1738,24 +1732,25 @@ procedure statements(in assignable: List[Name], xs: List[Stmt], out ys: List[Stm
   end
 
 // the procedures of the library os, which exist in programs that import it, which declares OsError
-function os_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * List[Type])] :=
-  if is_data(c, os_error_name()) then
-    [
-      (unqualified("os_args"), (Nil, Nil, [type_list(type_str())], Nil)),
-      (unqualified("os_read"), (Nil, [type_str()], [type_str()], Nil)),
-      (unqualified("os_write"), (Nil, [type_str(), type_str()], Nil, Nil)),
-      (unqualified("os_show"), ([TParam("A")], [TParam("A")], Nil, Nil)),
-      (unqualified("os_print"), (Nil, [type_str()], Nil, Nil)),
-      (unqualified("os_print_error"), (Nil, [type_str()], Nil, Nil)),
-      (unqualified("os_exit"), (Nil, [type_int()], Nil, Nil)),
-      (unqualified("os_library"), (Nil, [type_str()], [type_str()], Nil)),
-      (unqualified("os_list"), (Nil, [type_str()], [type_list(TTuple([type_str(), type_bool()]))], Nil)),
-      (unqualified("os_is_dir"), (Nil, [type_str()], [type_bool()], Nil)),
-      (unqualified("os_cwd"), (Nil, Nil, [type_str()], Nil)),
-      (unqualified("os_chdir"), (Nil, [type_str()], Nil, Nil))
-    ]
-  else
-    Nil
+function os_procs(c: Ctx): Map[Name, List[Type] * List[Type] * List[Type] * List[Type]] :=
+  if is_data(c, os_error_name()) then os_proc_types() else empty()
+
+// the type parameters, ins, outs, and refs of the procedures of the library os, computed once
+function os_proc_types(): Map[Name, List[Type] * List[Type] * List[Type] * List[Type]] :=
+  {
+    unqualified("os_args") => (Nil, Nil, [type_list(type_str())], Nil),
+    unqualified("os_read") => (Nil, [type_str()], [type_str()], Nil),
+    unqualified("os_write") => (Nil, [type_str(), type_str()], Nil, Nil),
+    unqualified("os_show") => ([TParam("A")], [TParam("A")], Nil, Nil),
+    unqualified("os_print") => (Nil, [type_str()], Nil, Nil),
+    unqualified("os_print_error") => (Nil, [type_str()], Nil, Nil),
+    unqualified("os_exit") => (Nil, [type_int()], Nil, Nil),
+    unqualified("os_library") => (Nil, [type_str()], [type_str()], Nil),
+    unqualified("os_list") => (Nil, [type_str()], [type_list(TTuple([type_str(), type_bool()]))], Nil),
+    unqualified("os_is_dir") => (Nil, [type_str()], [type_bool()], Nil),
+    unqualified("os_cwd") => (Nil, Nil, [type_str()], Nil),
+    unqualified("os_chdir") => (Nil, [type_str()], Nil, Nil)
+  }
 
 // the procedures of the program hide the builtin ones
 // a variable of a procedure type hides the procedures of that name
@@ -2404,57 +2399,25 @@ procedure check_sections(in ms: List[Id], ds: List[Id * Cmd], out hidden: Set[Na
       end
   end
 
-// the commands of p, which is the module main, flattened and with qualified names
+// the commands of p, which is the module main, flattened and with qualified names, where each imported module is checked once,
+// after the modules it imports, and the own commands of p last
 procedure check_program(in p: Program, main: Id, out q: Program) :=
-  local cache: Cache := Nil
+  local c: Ctx := empty(), imports: List[Id * List[Id]] := Nil, cs: List[Cmd] := Nil, own: Checked
 
-  call check_modules(in p, main, out q, ref cache)
-
-// each imported module is checked once, after the modules it imports, and the own commands of p last
-procedure check_modules(in p: Program, main: Id, out q: Program, ref cache: Cache) :=
-  local c: Ctx := empty(), imports: List[Id * List[Id]] := Nil, seen: List[Id * Int] := Nil, cs: List[Cmd] := Nil, own: Checked
-
-  call   check_units(in modules(p.cmds), ref c, imports, seen, cs, cache)
+  call   check_units(in modules(p.cmds), ref c, imports, cs)
   call   check_unit(in own_decls(main, p.cmds), main, c, imports, out own)
   assign q := Program(cs ++ own.cmds)
 
-procedure check_units(in us: List[Id * List[Id * Cmd]], ref c: Ctx, imports: List[Id * List[Id]], seen: List[Id * Int], cs: List[Cmd], cache: Cache) :=
-  local key: Id * List[Id * Cmd] * List[Int], checked: Checked, i: Int
+procedure check_units(in us: List[Id * List[Id * Cmd]], ref c: Ctx, imports: List[Id * List[Id]], cs: List[Cmd]) :=
+  local checked: Checked
 
   match us
     case Nil =>
       skip
     case [(m, ds); rest] =>
-      assign key := (m, ds, positions_of(["prelude"; imports_in(ds, m)], seen))
-
-      match position_in(key, cache, 0)
-        case Some((k, done)) =>
-          assign i := k, checked := done
-        case None =>
-          call   check_unit(in ds, m, c, imports, out checked)
-          assign i := size(cache), cache := cache ++ [(key, checked)]
-      end
-
+      call   check_unit(in ds, m, c, imports, out checked)
       assign c := union(c, checked.ctx), imports := imports ++ checked.imports, cs := cs ++ checked.cmds
-      assign seen := [(n, i) for n in firsts(checked.imports)] ++ seen
-      call   check_units(in rest, ref c, imports, seen, cs, cache)
-  end
-
-function positions_of(ms: List[Id], seen: List[Id * Int]): List[Int] :=
-  match ms
-    case Nil => Nil
-    case [m; rest] =>
-      match get(m, seen)
-        case Some(i) => [i; positions_of(rest, seen)]
-        case None => positions_of(rest, seen)
-      end
-  end
-
-// the position of key in the cache with its checked modules
-function position_in(key: Id * List[Id * Cmd] * List[Int], cache: Cache, i: Int): Option[Int * Checked] :=
-  match cache
-    case Nil => None
-    case [(k, checked); rest] => if k == key then Some((i, checked)) else position_in(key, rest, i + 1)
+      call   check_units(in rest, ref c, imports, cs)
   end
 
 // the declarations ds of module main, checked after the declarations before of the modules that imports lists

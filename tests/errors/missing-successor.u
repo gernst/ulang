@@ -1,4 +1,8 @@
 // type error: match is not exhaustive, missing Succ(_)
+data Nat :=
+  | Zero
+  | Succ(Nat)
+
 function f(n: Nat): Nat :=
   match n
     case Zero => Zero

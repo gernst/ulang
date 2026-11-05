@@ -1,0 +1,6 @@
+// type error: empty is ambiguous: set.empty, map.empty
+import set
+import map
+
+test unknown_type() :=
+  assert size({}) == 0

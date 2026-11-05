@@ -17,6 +17,9 @@ function size[A](s: Set[A]): Int
 function foldr[A, R](s: Set[A], acc: R, f: (A, R) -> R): R
 function foldl[A, R](s: Set[A], acc: R, f: (R, A) -> R): R
 
+// the elements of s in ascending order
+function list[A](s: Set[A]): List[A]
+
 // sets are ordered and equal by their elements, whatever the shapes of their trees, also as elements of other values
 // and in generic code
 function compare[A](a: Set[A], b: Set[A]): Int
@@ -89,6 +92,9 @@ function foldl[A, R](s: Set[A], acc: R, f: (R, A) -> R): R :=
     case Leaf => acc
     case Node(l, x, r, _) => foldl(r, f(foldl(l, acc, f), x), f)
   end
+
+function list[A](s: Set[A]): List[A] :=
+  foldr(s, Nil, Cons)
 
 function size[A](s: Set[A]): Int :=
   match s
@@ -168,6 +174,7 @@ test set_folds() :=
   assert foldr(s, Nil, Cons) == elements(s) and foldl(s, Nil, lambda xs, x => [x; xs]) == reverse(elements(s))
   assert foldr(s, empty(), insert) == s and foldl(s, 0, lambda n, x => n + x) == 1275
   assert foldr({1, 2, 3}, 0, lambda x, n => 10 * n + x) == 321 and foldl({1, 2, 3}, 0, lambda n, x => 10 * n + x) == 123
+  assert list({3, 1, 2}) == [1, 2, 3] and list(s) == elements(s)
 
 // sets of the same elements are equal, although their trees differ
 test set_equality() :=

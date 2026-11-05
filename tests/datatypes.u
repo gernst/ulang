@@ -60,20 +60,11 @@ test comprehensions() :=
   assert [x for x in []] == []
   assert [[y for y in range(x)] for x in [1, 2]] == [[1], [2, 1]]
 
-// association lists
+// association lists, where the first pair of a key counts
 test association_lists() :=
-  local m := put("b", 2, put("a", 1, Nil))
+  local m := [("b", 2), ("a", 1), ("a", 3)]
 
-  assert m == [("b", 2), ("a", 1)]
-  assert get("a", m) == Some(1)
-  assert get("c", m) == None
-  // the pair of a key keeps its place
-  assign m := put("a", 3, m)
-  assert m == [("b", 2), ("a", 3)]
-  assert get("a", [("a", 1), ("a", 2)]) == Some(1)
-  assert remove("a", [("a", 1), ("b", 2), ("a", 3)]) == [("b", 2)]
-  assert keys(m) == ["b", "a"]
-  assert values(m) == [2, 3]
+  assert get("a", m) == Some(1) and get("b", m) == Some(2) and get("c", m) == None
 
 // mutually recursive datatypes, and a type definition before the datatype it uses
 data Tree[A] :=
@@ -108,6 +99,11 @@ function swap[A](p: Pair[A]): Pair[A] :=
 test mutual_recursion() :=
   assert size(Node(1, Grow(Node(2, Leaf), Grow(Node(3, Leaf), Leaf)))) == 3
   assert swap(Tuple(1, 2)) == Tuple(2, 1)
+
+// the natural numbers of Peano
+data Nat :=
+  | Zero
+  | Succ(Nat)
 
 function add(m: Nat, n: Nat): Nat :=
   match m

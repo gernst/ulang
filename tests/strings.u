@@ -18,7 +18,7 @@ test char_patterns() :=
   assert vowel('a') and not vowel('b')
 
 test string_functions() :=
-  assert "ab" ^ "c" == "abc"
+  assert "ab" ^ "c" == "abc" and "ab" ++ "c" ++ "" == "abc" and [1] ++ [2] == [1, 2]
   assert str_size("hello") == 5
   assert str_join(", ", ["a", "b", "c"]) == "a, b, c"
   assert str_join(", ", []) == ""
