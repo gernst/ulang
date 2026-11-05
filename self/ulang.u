@@ -1,5 +1,6 @@
 // the driver of ulang, ./ulang.bin, with the commands run, test, and check with the interpreter of run.u,
-// and compile, which translates a file to C, whose main calls the procedure entry, or runs all tests for the entry test
+// compile, which translates a file to C, whose main calls the procedure entry, or runs all tests for the entry test,
+// and format, which prints a file as show_program of print.u does
 
 import syntax
 import lex
@@ -41,6 +42,8 @@ procedure main() :=
       call attempt(in file, lambda out r => call check_file(in file, out r) end, out ok)
     case ["compile", file, entry, target] =>
       call attempt(in file, lambda out r => call compile_to(in file, entry, target, out r) end, out ok)
+    case ["format", file] =>
+      call attempt(in file, lambda out r => call format_file(in file, out r) end, out ok)
     case _ =>
       call   os_print_error(in usage())
       assign ok := false
@@ -55,7 +58,8 @@ function usage(): Str :=
   "       ulang test <file> [<name> ...] [-- args]\n" ^
   "       ulang test <dir> [<path> ...]\n" ^
   "       ulang check <file>\n" ^
-  "       ulang compile <file> <entry> <target.c>"
+  "       ulang compile <file> <entry> <target.c>\n" ^
+  "       ulang format <file>"
 
 // the arguments of the driver, and those of the program after --
 function before_dashes(args: List[Str]): List[Str] :=
@@ -177,6 +181,32 @@ procedure check_file(in file: Str, out ok: Bool) :=
 procedure compile_to(in file: Str, entry: Str, target: Str, out ok: Bool) :=
   call   compile_file(in file, entry, target)
   assign ok := true
+
+// prints file as source, which must parse to the same commands as file, so that formatting tests the parser and the printer
+procedure format_file(in file: Str, out ok: Bool) :=
+  local pre := Program(Nil), p: Program, q: Program, text: Str, source: Str
+
+  if base_name(file) != "prelude"
+    call parse_library(in "prelude", out pre)
+  end
+
+  call   os_read(in file, out text)
+  call   parse_text_after(in file, pre, text, out p)
+  assign source := show_program(pre, p), ok := false
+
+  try
+    call parse_text_after(in file, pre, source, out q)
+
+    if p == q
+      call   os_print(in str_slice(source, 0, str_size(source) - 1))
+      assign ok := true
+    else
+      call os_print_error(in file ^ ": format error: the source parses differently")
+    end
+  catch
+    case ParseError(m, _) =>
+      call os_print_error(in file ^ ": format error: the source does not parse: " ^ m)
+  end
 
 // calls the procedure name of file, which takes no parameters, and prints as it runs
 procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=

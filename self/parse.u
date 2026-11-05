@@ -18,6 +18,7 @@ function last_part(xs: List[Str]): Str
 function base_name(path: Str): Str
 function dir_name(path: Str): Str
 procedure parse_file_after(in path: Str, pre: Program, out program: Program)
+procedure parse_text_after(in path: Str, pre: Program, text: Str, out program: Program)
 
 implementation
 
@@ -1771,8 +1772,16 @@ function dir_name(path: Str): Str :=
 procedure parse_file_after(in path: Str, pre: Program, out program: Program) :=
   local text: Str
 
-  call   os_read(in path, out text)
-  call   parse_module_after(in base_name(path), pre, Some(dir_name(path)), text, out program)
+  call os_read(in path, out text)
+  call parse_text_after(in path, pre, text, out program)
+
+// text as the file at path after the prelude pre, where the prelude itself comes after the empty program
+procedure parse_text_after(in path: Str, pre: Program, text: Str, out program: Program) :=
+  if pre.cmds == Nil
+    call parse_text(in text, empty_context() with loading := [base_name(path)], dir := Some(dir_name(path)), out program)
+  else
+    call parse_module_after(in base_name(path), pre, Some(dir_name(path)), text, out program)
+  end
 
 procedure parse_file(in path: Str, out program: Program) :=
   local pre: Program
