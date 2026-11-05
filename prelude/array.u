@@ -1,7 +1,7 @@
 // arrays of fixed size, whose elements are read by index in constant time, and which are changed by copying, with the names
 // that arrays share with the containers, in their order, where the builtin section declares the type and the functions
 // that the interpreter and the runtime define, which order arrays by their elements and then by their size, as lists, and
-// show them as array([...])
+// show them as #[a, b], where #[a, b] and #[e for x in c if q] are the arrays of the list or of the comprehension
 
 import option
 import list

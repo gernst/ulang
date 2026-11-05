@@ -132,6 +132,8 @@ function expr_doc(loader: Loader, indent: Str, expr: Expr): Doc :=
       Doc("[]", Atom)
     case EVar(x) =>
       Doc(x.name.base, Atom)
+    case EApp(EVar(Var(Name(Some("*"), "array"), _)), [a]) =>
+      Doc("#" ++ atom_text(expr_doc(loader, indent, a)), Atom)
     case EApp(EVar(Var(Name(Some("*"), f), _)), args) =>
       translation_doc(loader, indent, f, expr, args)
     case EApp(EVar(Var(Name(None, "Cons"), _)), [_, _]) =>

@@ -29,7 +29,7 @@ function show_value(v: Value): Str :=
     case Obj(n, Nil) if n == nil_name() => "[]"
     case Obj(n, Nil) => n.base
     case Obj(n, vs) => n.base ++ "(" ++ show_values(vs) ++ ")"
-    case Arr(a) => "array([" ++ show_values(list(a)) ++ "])"
+    case Arr(a) => "#[" ++ show_values(list(a)) ++ "]"
     case Proc(_) => "<procedure>"
     case ProcClos(_, _, _, _, _) => "<procedure>"
     case _ => "<function>"

@@ -48,7 +48,7 @@ function keywords(): Set[Id] :=
 
 // symbols with a fixed meaning, which cannot be operators
 function reserved(): Set[Str] :=
-  {"=", "=>", ":=", ":", "|"}
+  {"=", "=>", ":=", ":", "|", "#"}
 
 // the operands of types, expressions, and patterns, and how operators apply to them
 
@@ -548,6 +548,7 @@ function starts_expr(notations: Notations, tok: Token): Bool :=
     case TStr(_) => true
     case TChar(_) => true
     case TPunct(c) => c == '(' or c == '[' or c == '{'
+    case TSym(s) => s == "#"
     case _ => false
   end
 
@@ -644,6 +645,12 @@ procedure parse_expr_atom(in notations: Notations, params: List[Id], out expr: E
 
     case (_, TPunct('[')) =>
       call parse_list(in notations, params, out expr, ref toks)
+
+    // #[a, b] and #[e for x in c if q] are the arrays of the elements of the list or the comprehension
+    case (_, TSym("#")) if second_token(toks) == TPunct('[') =>
+      call   advance(ref toks)
+      call   parse_list(in notations, params, out a, ref toks)
+      assign expr := declared_app("array", [a])
 
     case (_, TPunct('{')) =>
       call parse_set_or_map(in notations, params, out expr, ref toks)

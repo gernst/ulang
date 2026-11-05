@@ -526,6 +526,42 @@ u_value u_number(u_value s) {
 
 // the functions of the builtin section of array.u
 
+// the array of n elements, of a literal #[a, b]
+u_value u_mk_array(int n, ...) {
+  va_list args;
+  va_start(args, n);
+  u_value a = fill(compound(&u_array_type, n), args);
+  va_end(args);
+  return a;
+}
+
+// the number of elements of a list or an array, the source of a comprehension
+int u_count(u_value c) {
+  if (c->type == &u_array_type) return c->size;
+  int n = 0;
+  for (; u_is_con(c, &n_list_46_Cons); c = c->items[1]) n++;
+  return n;
+}
+
+// an array for up to n elements of a comprehension, which u_array_push fills, and which has no elements yet
+u_value u_array_new(int n) {
+  u_value a = compound(&u_array_type, n);
+  a->size = 0;
+  return a;
+}
+
+void u_array_push(u_value a, u_value x) {
+  a->items[a->size++] = x;
+}
+
+// the array of the elements pushed into an array for up to n elements, shrunk if a condition left out some
+u_value u_array_done(u_value a, int n) {
+  if (a->size == n) return a;
+  u_value b = compound(&u_array_type, a->size);
+  u_memcpy(b->items, a->items, a->size * sizeof(u_value));
+  return b;
+}
+
 u_value u_array(u_value xs) {
   int n = 0;
   for (u_value c = xs; u_is_con(c, &n_list_46_Cons); c = c->items[1]) n++;
@@ -684,12 +720,12 @@ u_value u_con_show(u_value v) {
 
 static u_value show_array(u_value v) {
   struct u_text t = {NULL, 0, 0};
-  append(&t, "array([");
+  append(&t, "#[");
   for (int i = 0; i < v->size; i++) {
     if (i > 0) append(&t, ", ");
     append_shown(&t, v->items[i]);
   }
-  append(&t, "])");
+  append(&t, "]");
   return text_value(&t);
 }
 

@@ -417,6 +417,20 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
           assign ss := Nil, r := global_value(defs, n, ty)
       end
 
+    // #[e for x in c if q] over a list or an array, which fills an array for as many elements as c has, without a list
+    case EApp(EVar(Var(n, _)), [EApp(EVar(Var(f, _)), [xs, EVar(Var(k, _)), ELam([x, acc], body)])]) if n == array_name() and k == nil_name() and contains(f, [list_foldr_name(), array_foldr_name()]) and consing(body, acc.name) != None =>
+      call compile_filling(in defs, env, f, xs, x, body, acc.name, out ss, r, ref g)
+
+    // #[a, b], whose elements are the items of the array
+    case EApp(EVar(Var(n, _)), [l]) if n == array_name() and list_literal(l) != None =>
+      match list_literal(l)
+        case Some(es) =>
+          call   compile_exprs(in defs, env, es, out ss, rs, ref g)
+          assign r := c_call("u_mk_array", [CeNum(size(rs))] ++ rs)
+        case None =>
+          raise Unsupported("an array literal")
+      end
+
     // foldr(xs, init, lambda x, acc => if q then Cons(e, acc) else acc) of a list, into which comprehensions translate,
     // is a loop that builds the list in order, where acc is free in neither q nor e
     case EApp(EVar(Var(n, _)), [xs, init, ELam([x, acc], body)]) if n == list_foldr_name() and consing(body, acc.name) != None =>
@@ -629,6 +643,24 @@ procedure expr_cases(
 function list_foldr_name(): Name :=
   Name(Some("list"), "foldr")
 
+function array_name(): Name :=
+  Name(Some("array"), "array")
+
+function array_foldr_name(): Name :=
+  Name(Some("array"), "foldr")
+
+// the elements of a list literal, Cons(a, Cons(b, Nil))
+function list_literal(expr: Expr): Option[List[Expr]] :=
+  match expr
+    case EVar(Var(k, _)) if k == nil_name() => Some(Nil)
+    case EApp(EVar(Var(k, _)), [e, rest]) if k == cons_name() =>
+      match list_literal(rest)
+        case Some(es) => Some([e; es])
+        case None => None
+      end
+    case _ => None
+  end
+
 // the condition and the element of a function body that puts the element in front of the accumulator acc if the condition holds,
 // and returns acc otherwise
 function consing(body: Expr, acc: Name): Option[Option[Expr] * Expr] :=
@@ -681,6 +713,53 @@ procedure compile_consing(
   assign ss := ls ++ is ++ [CsDecl(value_type(), t, Some(unit_value(nil_name()))), CsDecl(value_ptr(), d, Some(CeUnary("&", CeVar(t)))), CsDecl(value_type(), l, Some(rl))]
   assign ss := ss ++ [CsWhile(c_call("u_is_con", [CeVar(l), descriptor(cons_name())]), [CsDecl(value_type(), var_name(x.name), Some(field(CeVar(l), 0)))] ++ add ++ [CsAssign(CeVar(l), field(CeVar(l), 1))])]
   assign ss := ss ++ [CsAssign(CeUnary("*", CeVar(d)), ri)], r := CeVar(t)
+
+// the array t of a comprehension over the list or array l by fold f, which has room for the n elements of l, and into which
+// the loop pushes the elements whose condition holds, where t is shrunk only if a condition may have left out some
+procedure compile_filling(
+  in  defs: Defs,
+      env: Vars,
+      f: Name,
+      xs: Expr,
+      x: Var,
+      body: Expr,
+      acc: Name,
+  out ss: List[CStmt],
+      r: CExpr,
+  ref g: Gen
+) :=
+  local ls: List[CStmt], rl: CExpr, cs: List[CStmt], rc: CExpr, es: List[CStmt], re: CExpr, t: Str, n: Str, l: Str, i: Str
+  local inner := in_scope([x.name]) ++ env, add: List[CStmt] := Nil, done: List[CStmt] := Nil, loop: List[CStmt]
+
+  call   compile_expr(in defs, env, xs, out ls, rl, ref g)
+  call   gen_name(in "t", out t, ref g)
+  call   gen_name(in "n", out n, ref g)
+  call   gen_name(in "l", out l, ref g)
+  call   gen_name(in "i", out i, ref g)
+
+  match consing(body, acc)
+    case Some((cond, e)) =>
+      call   compile_expr(in defs, inner, e, out es, re, ref g)
+      assign add := es ++ [CsExpr(c_call("u_array_push", [CeVar(t), re]))]
+      match cond
+        case Some(q) =>
+          call   compile_expr(in defs, inner, q, out cs, rc, ref g)
+          assign add := cs ++ [CsIf(truth(rc), add, [])], done := [CsAssign(CeVar(t), c_call("u_array_done", [CeVar(t), CeVar(n)]))]
+        case None =>
+          skip
+      end
+    case None =>
+      skip
+  end
+
+  if f == list_foldr_name()
+    assign loop := [CsWhile(c_call("u_is_con", [CeVar(l), descriptor(cons_name())]), [CsDecl(value_type(), var_name(x.name), Some(field(CeVar(l), 0)))] ++ add ++ [CsAssign(CeVar(l), field(CeVar(l), 1))])]
+  else
+    assign loop := [CsDecl(CtInt, i, Some(CeNum(0))), CsWhile(CeBinary("<", CeVar(i), CeVar(n)), [CsDecl(value_type(), var_name(x.name), Some(CeIndex(CeArrow(CeVar(l), "items"), CeVar(i))))] ++ add ++ [CsAssign(CeVar(i), CeBinary("+", CeVar(i), CeNum(1)))])]
+  end
+
+  assign ss := ls ++ [CsDecl(value_type(), l, Some(rl)), CsDecl(CtInt, n, Some(c_call("u_count", [CeVar(l)]))), CsDecl(value_type(), t, Some(c_call("u_array_new", [CeVar(n)])))]
+  assign ss := ss ++ loop ++ done, r := CeVar(t)
 
 // statements, whose variables are local variables of C, where procedures copy outs and refs back at their end
 procedure compile_stmt(in defs: Defs, env: Vars, s: Stmt, out ss: List[CStmt], ref g: Gen) :=
