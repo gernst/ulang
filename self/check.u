@@ -60,6 +60,7 @@ data TypeError :=
   | UnknownProcedure(Name)
   | UnknownException(Type)
   | TestParams(Id)
+  | EqualityWithoutOrder(Name)
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -979,9 +980,14 @@ procedure use_name(in n: Name, cs: List[Name * (List[Type] * Type)], w: Type, ou
 
 // the one of the candidates cs that fits w, or a placeholder for the use if several fit, which stays open
 procedure choose(in n: Name, cs: List[Name * (List[Type] * Type)], w: Type, out m: Name, ref s: State) :=
-  local ok: List[(Name * (List[Type] * Type)) * State]
+  local ok: List[(Name * (List[Type] * Type)) * State], best: List[(Name * (List[Type] * Type)) * State]
 
   call trials(in cs, w, s, out ok)
+  if size(ok) > 1 and known_type(s.sub, w)
+    call   decide(in ok, w, s, out best)
+    assign ok := best
+  end
+
   match ok
     case Nil =>
       raise NoOverload(n, zonk_type(s.sub, w))
@@ -1033,13 +1039,18 @@ procedure solve(ref s: State) :=
   end
 
 procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
-  local ok: List[(Name * (List[Type] * Type)) * State]
+  local ok: List[(Name * (List[Type] * Type)) * State], best: List[(Name * (List[Type] * Type)) * State]
 
   match ps
     case Nil =>
       skip
     case [p; rest] =>
       call trials(in p.cands, p.typ, s, out ok)
+      if size(ok) > 1 and known_type(s.sub, p.typ)
+        call   decide(in ok, p.typ, s, out best)
+        assign ok := best
+      end
+
       match ok
         case Nil =>
           raise NoOverload(p.name, zonk_type(s.sub, p.typ))
@@ -1056,17 +1067,17 @@ procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
       call revisit(in rest, ref changed, s)
   end
 
-// all uses decided at the end of a command, where the declaration of the module itself is taken among several
-// that fit, as when it hid those of other modules
+// all uses decided at the end of a command, by the preferences of decide among the candidates that fit
 procedure settle(ref s: State) :=
-  local ok: List[(Name * (List[Type] * Type)) * State]
+  local ok: List[(Name * (List[Type] * Type)) * State], best: List[(Name * (List[Type] * Type)) * State]
 
   call solve(ref s)
   while s.pending != Nil
     match s.pending
       case [p; rest] =>
-        call trials(in own(s, p.cands), p.typ, s, out ok)
-        match ok
+        call trials(in p.cands, p.typ, s, out ok)
+        call decide(in ok, p.typ, s, out best)
+        match best
           case [((m, _), s1)] =>
             assign s := s1 with pending := rest, chosen := put(p.id, m, s1.chosen)
             call   solve(ref s)
@@ -1077,6 +1088,97 @@ procedure settle(ref s: State) :=
         skip
     end
   end
+
+// the types of a use without unknowns, for which the candidates that fit stay the same
+function known_type(su: Subst, t: Type): Bool :=
+  [m for m in free(zonk_type(su, t)) if is_meta(m)] == Nil
+
+// among several candidates that fit w, the most specific, which is an instance of all others, if the type of the use
+// is known, and the most general otherwise, of which all others are instances, such that builtins like == serve
+// when no declaration for a type fits, and else the one declared by the module itself, or all if none of these is unique
+procedure decide(in ok: List[(Name * (List[Type] * Type)) * State], w: Type, s: State, out picked: List[(Name * (List[Type] * Type)) * State]) :=
+  local best: List[(Name * (List[Type] * Type)) * State]
+
+  call most(in ok, ok, known_type(s.sub, w), s, out best)
+  match (best, own_fits(s, ok))
+    case ([b], _) =>
+      assign picked := [b]
+    case (_, [o]) =>
+      assign picked := [o]
+    case _ =>
+      assign picked := ok
+  end
+
+function own_fits(s: State, ok: List[(Name * (List[Type] * Type)) * State]): List[(Name * (List[Type] * Type)) * State] :=
+  match ok
+    case Nil => Nil
+    case [((n, sc), u); rest] => if n.module == Some(s.module) then [((n, sc), u); own_fits(s, rest)] else own_fits(s, rest)
+  end
+
+// the candidates of cs that are instances of all of all, if specific, or of which all of all are instances
+procedure most(in cs: List[(Name * (List[Type] * Type)) * State], all: List[(Name * (List[Type] * Type)) * State], specific: Bool, s: State, out best: List[(Name * (List[Type] * Type)) * State]) :=
+  local rest: List[(Name * (List[Type] * Type)) * State], yes: Bool
+
+  match cs
+    case Nil =>
+      assign best := Nil
+    case [c; more] =>
+      call most(in more, all, specific, s, out rest)
+      call dominates(in fst_of(c), firsts(all), specific, s, out yes)
+      if yes
+        assign best := [c; rest]
+      else
+        assign best := rest
+      end
+  end
+
+function fst_of[A, B](p: A * B): A :=
+  match p
+    case (a, _) => a
+  end
+
+procedure dominates(in c: Name * (List[Type] * Type), ds: List[Name * (List[Type] * Type)], specific: Bool, s: State, out yes: Bool) :=
+  local related: Bool
+
+  match ds
+    case Nil =>
+      assign yes := true
+    case [d; rest] =>
+      if d == c
+        call dominates(in c, rest, specific, s, out yes)
+      else
+        call related_to(in c, d, specific, s, out related)
+        if related
+          call dominates(in c, rest, specific, s, out yes)
+        else
+          assign yes := false
+        end
+      end
+  end
+
+// c is an instance of d, if specific, or else d of c
+procedure related_to(in c: Name * (List[Type] * Type), d: Name * (List[Type] * Type), specific: Bool, s: State, out yes: Bool) :=
+  if specific
+    call instance_of(in c, d, s, out yes)
+  else
+    call instance_of(in d, c, s, out yes)
+  end
+
+// the type of c, with its parameters fixed, is an instance of the scheme of d
+procedure instance_of(in c: Name * (List[Type] * Type), d: Name * (List[Type] * Type), s: State, out yes: Bool) :=
+  local u := s, failed: Option[TypeError] := None
+
+  match (c, d)
+    case ((_, (_, t)), (_, sc)) =>
+      try
+        call trial(in sc, t, ref u)
+      catch
+        case e =>
+          assign failed := Some(e)
+      end
+  end
+
+  assign yes := failed == None
 
 function own[A](s: State, cs: List[Name * A]): List[Name * A] :=
   match cs
@@ -1678,9 +1780,9 @@ procedure declare_name(in c: Ctx, n: Name) :=
     raise AlreadyDefined(n)
   end
 
-// functions of the same name must differ in their number of arguments
+// functions of the same name must differ in their number of arguments, while they may overload builtins
 procedure overload(in c: Ctx, n: Name, k: Int) :=
-  if is_proc(c, n) or is_constr(c, n) or has_arity(schemes_of(c, n) ++ builtin(unqualified(n.base)), k)
+  if is_proc(c, n) or is_constr(c, n) or has_arity(schemes_of(c, n), k)
     raise AlreadyDefined(n)
   end
 
@@ -1878,6 +1980,52 @@ function block_names(cs: List[Id * Cmd]): List[Id] :=
     case [_; more] => block_names(more)
   end
 
+// the datatype whose order or equality c declares, with compare or ==, if c is compare or == of two values of a datatype
+// T[A, …] of its own module with distinct parameters, which the interpreter and the runtime then use for all values of T,
+// also in generic code, where the builtins compare structurally
+function order_of(c: Cmd): Option[Id * Name] :=
+  match c
+    case CFun(Name(Some(m), op), _, [[Var(_, TSort(Name(Some(k), b), args)), Var(_, u)]], r, _) =>
+      if k == m and u == TSort(Name(Some(k), b), args) and distinct_params(args) and order_result(op) == Some(r) then Some((op, Name(Some(k), b))) else None
+    case _ => None
+  end
+
+function order_result(op: Id): Option[Type] :=
+  match op
+    case "compare" => Some(tint())
+    case "==" => Some(tbool())
+    case _ => None
+  end
+
+function distinct_params(ts: List[Type]): Bool :=
+  [t for t in ts if is_param(t)] == ts and distinct(ts) == ts
+
+function is_param(t: Type): Bool :=
+  match t
+    case TParam(_) => true
+    case _ => false
+  end
+
+// the datatypes of cs ordered or equated by op
+function ordered(cs: List[Cmd], op: Id): List[Name] :=
+  match cs
+    case Nil => Nil
+    case [c; rest] =>
+      match order_of(c)
+        case Some((o, n)) => if o == op then [n; ordered(rest, op)] else ordered(rest, op)
+        case None => ordered(rest, op)
+      end
+  end
+
+// an equality of a datatype needs its order, with which it agrees, since maps and sets use the order
+procedure complete_orders(in cs: List[Cmd]) :=
+  match diff(ordered(cs, "=="), ordered(cs, "compare"))
+    case [n; _] =>
+      raise EqualityWithoutOrder(n)
+    case Nil =>
+      skip
+  end
+
 // checked modules: their commands with qualified names, their declarations, and the modules each imports
 data Checked :=
   | Checked(cmds: List[Cmd], ctx: Ctx, imports: List[Id * List[Id]])
@@ -1952,6 +2100,7 @@ procedure check_unit(in ds: List[Id * Cmd], main: Id, before: Ctx, imports: List
   call   declare_procs(in ds, ref s)
   call   unique_ids(in block_names(ds))
   call   commands(in ds, out cs, ref s)
+  call   complete_orders(in cs)
   assign checked := Checked(cs, ctx_of(s.ctx, distinct(firsts(ds))), [(m, imports_in(ds, m)) for m in distinct(firsts(ds))])
 
 // the modules of cs with their commands, after the modules they import, where the prelude and its imports
@@ -2122,6 +2271,8 @@ function bags(): List[Cmd] :=
       CData(unq("Bag"), Nil, [Constr(unq("Bag"), [tint()]), Constr(unq("Leaf"), [tint()])]),
       CData(unq("Pt"), Nil, [Constr(unq("Pt"), [tint()])]),
       fun_cmd("size", [var_of("b", tsort("Bag"))], tint(), num(1)),
+      fun_cmd("==", [var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))], tbool(), ELit(VBool(true))),
+      fun_cmd("compare", [var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))], tint(), num(0)),
       fun_cmd("Pt.x", [var_of("p", tsort("Pt"))], tint(), EMatch(ev("p"), [Branch(PApp(unq("Pt"), [pv("n")]), None, ev("n"))])),
       CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Bag"))], Nil, SAssign([(var_of("b", THole), ap("Bag", [num(0)]))]))
     ]),
@@ -2226,6 +2377,43 @@ test fields() :=
   match b
     case EApp(ELam(_, EApp(EVar(Var(m, _)), _)), _) =>
       assert m == in_bag("Pt.x")
+    case _ =>
+      assert false
+  end
+
+// == of bags is that of bag, while == of other types, also of type parameters, is the builtin
+test builtins() :=
+  local b: Expr
+
+  call body_of(in fun_cmd("f", Nil, tbool(), ap("==", [ap("Bag", [num(1)]), ap("Bag", [num(2)])])), out b)
+  match b
+    case EApp(EVar(Var(m, _)), _) =>
+      assert m == in_bag("==")
+    case _ =>
+      assert false
+  end
+
+  call body_of(in fun_cmd("g", Nil, tbool(), ap("==", [num(1), num(2)])), out b)
+  match b
+    case EApp(EVar(Var(m, _)), _) =>
+      assert m == unq("==")
+    case _ =>
+      assert false
+  end
+
+  call body_of(in CFun(unq("h"), ["A"], [[var_of("x", TParam("A"))]], tbool(), ap("==", [ev("x"), ev("x")])), out b)
+  match b
+    case EApp(EVar(Var(m, _)), _) =>
+      assert m == unq("==")
+    case _ =>
+      assert false
+  end
+
+  // lambda x => x == x, of a type that nothing decides, compares by the builtin
+  call body_of(in fun_cmd("k", Nil, tbool(), ELet([(var_of("e", THole), ELam([var_of("x", THole)], ap("==", [ev("x"), ev("x")])))], ELit(VBool(true)))), out b)
+  match b
+    case ELet([(_, ELam(_, EApp(EVar(Var(m, _)), _)))], _) =>
+      assert m == unq("==")
     case _ =>
       assert false
   end

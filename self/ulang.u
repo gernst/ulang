@@ -264,6 +264,7 @@ function type_message(e: TypeError): Str :=
     case UnknownProcedure(n) => "unknown procedure " ^ n.base
     case UnknownException(t) => "the type " ^ show_type(t) ^ " of an exception is not fully known"
     case TestParams(n) => "test " ^ n ^ " takes parameters"
+    case EqualityWithoutOrder(n) => qualified(n) ^ " declares == but not compare"
   end
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f

@@ -3,7 +3,6 @@
 Open action items, each with the problem and the desired solution.
 
 ## Look at
-- ad-hoc overloading
 - module imports and exports
 
 ## Testing
@@ -23,7 +22,9 @@ Open action items, each with the problem and the desired solution.
 4. **`read`, `library`, and `Quote`** remain only as the oracle of the tests of `parse.u`, and as stubs in the runtime. Solution: compare `parse.u` with the Scala parser without them, e.g. by printing both syntaxes to text, and then remove them.
 5. **Prefixes against clashes** in `lex.u` and `parse.u`, which predate modules. Solution: drop them where no module imports both modules of a clash.
 6. **`self/run.u` is slow on large programs**: interpreting the compiler on itself takes 121 seconds, three times as long as the Scala interpreter, although it is faster on small programs. On the compiler compiling `tests/datatypes.u` (3.9 seconds), gprof attributes a quarter of the time in ulang code to `compare`, mostly from `map.get` on the environments keyed by `Name`, with about 70 million calls plus as many recursive ones; the collector takes another quarter of the whole run, 36 collections of 25 ms. Solution: number the names of declarations and variables when a program is loaded, so that keys compare as integers, since hash consing was deemed not worthwhile.
-7. **No optimizations in the compiler.** Solution: passes between checking and translating to C, e.g. inlining small functions, folding constants, reading fields of single-constructor datatypes directly instead of calling their accessors, and avoiding the intermediate lists of comprehensions.
+7. **Ambiguities of overloads by arity list a name twice**: `local v := f` of two functions `f` of one module says `f is ambiguous: m.f, m.f`. Solution: the candidates with their types in the message.
+8. **The prelude does not check on its own**: `./ulang.bin check ulang/resources/prelude.u` fails with `operator -> is already declared` since `bcc4be4`, which rejects repeated notations, presumably because the notations of the prelude are read before the prelude itself. Solution: not read the prelude before itself.
+9. **No optimizations in the compiler.** Solution: passes between checking and translating to C, e.g. inlining small functions, folding constants, reading fields of single-constructor datatypes directly instead of calling their accessors, and avoiding the intermediate lists of comprehensions.
 
 ## Modules
 
@@ -42,14 +43,14 @@ Open action items, each with the problem and the desired solution.
 1. **Variables after a raise.** `try` uses `setjmp`, after which C leaves local variables that changed since then undefined unless they are `volatile`; outs and refs work in practice since their address is taken, but this is not guaranteed. Solution: declare the locals that a `try` assigns as `volatile`.
 2. **Runtime errors have no positions**, and an unassigned variable is a `NULL` pointer instead of an error. Solution: positions in the messages of the runtime, and a check of unassigned variables.
 3. **Deep recursion.** Functions like `concat` and `str_join` over long lists recurse deeply, so compiled programs need `ulimit -s unlimited` for big inputs. Solution: loops in the runtime and library where possible, and a large stack for the main thread of compiled programs, as the interpreter has.
-4. **Integers are boxed**: every integer outside -16 to 255 is an object on the heap, so arithmetic allocates, e.g. 63 million calls of `u_mk_int` when `run.u` interprets the compiler. Solution: integers that fit in a word tagged in the pointer, with a check before every access to `kind` and `num`.
+4. **Integers are boxed**: every integer outside -16 to 255 is an object on the heap, so arithmetic allocates, e.g. 63 million calls of `u_mk_int` when `run.u` interprets the compiler. Solution: integers that fit in a word tagged in the pointer, with a check before every access to `type` and `num`.
 
 ## Syntax
 
 1. **Repeated loops in `self/parse.u`**: the operator loop three times, `cases` twice, and the generators of comprehensions in `parse_brackets` and `set_comprehension`. Solution: write each once, taking the parser of an item as a procedure value, as `sections` does.
 2. **Patterns are weaker than expressions**: no or-patterns `case TParam(_) | TMeta(_) =>` and no as-patterns, which forced `self/run.u` to rebuild values it had just taken apart. Solution: or-patterns and as-patterns.
-3. **One global namespace**: overloading only distinguishes arities, hence names like `zonk_type` and `zonk_expr`, or `UnknownProc` next to `UnknownProcedure`. Solution: qualified names for modules (`check.infer`) or constructors (`Expr.Var`).
-4. **Overloading only in `self/check.u`**: `Check.scala` rejects the names that `list`, `set`, and `map` share (`size`, `contains`, `get`, `put`, `remove`, `empty`), `{}` cannot be the empty set or map, and `==` and `compare` of sets and maps compare the shapes of their trees, not their elements. Solution: the overloading of `overloading.md` in `Check.scala`, `{}` by the expected type, and canonical trees or a comparison of elements.
+3. **One namespace per module**: within a module, overloading only distinguishes arities, hence names like `zonk_type` and `zonk_expr`, or `UnknownProc` next to `UnknownProcedure`. Solution: qualified names for modules (`check.infer`) or constructors (`Expr.Var`).
+4. **Overloading only in `self/check.u`**: `Check.scala` rejects the names that `list`, `set`, and `map` share (`size`, `contains`, `get`, `put`, `remove`, `empty`), and accesses `e.f` whose type of `e` is not known yet, e.g. `lambda p => p.x`, `{}` cannot be the empty set or map, and `Run.scala` compares sets and maps by the shapes of their trees, not by the orders that `set` and `map` declare. Solution: the overloading of `overloading.md` in `Check.scala`, the declared orders of datatypes in `Run.scala`, and `{}` by the expected type.
 5. **Partial accesses are not visible**: `e.f` of a field that only some constructors have may raise `MissingField`, but nothing at the access shows it. Candidate: `e!f` for such fields and `e.f` for the others, as decided by the declaration and enforced by the checker. Reservations: one more rule to learn, and it reserves `!`.
 6. **Constructors may have unnamed parameters**, so some fields have no accessors or updates, and their partiality is not known. Candidate: require names for all parameters of constructors, as in Scala's case classes, where patterns stay positional and tuples remain for anonymous products. Costs: more writing for small types, names that agree in their types across the constructors of `self/syntax.u`, and generated accessors and updaters, of which the compiler could drop the unused ones.
 7. **`assign` is redundant** before `x := e`. Solution: decide whether to drop it.
@@ -58,14 +59,13 @@ Open action items, each with the problem and the desired solution.
 
 ## Fields and literals
 
-1. **Accessors need known types**: `e.f` needs the type of `e` when the access is inferred, so `lambda p => p.x` fails with an unknown type. Solution: resolve accesses at the end of the command, with a fresh type for the result in the meantime.
-2. **Accesses are applications of a variable `.f`** until the checker resolves them. Solution: a node `EField(e, f)` of the syntax, together with item 1.
-3. **Literals resolve to fixed modules**: `{a, b}` and `{k => v}` call `set.from_list` and `map.put_all` by qualified names, so a local `set.u` takes their place, and a module may use them without importing `set` or `map`. Solution: resolve them only through the module's own imports, or by overloading (Syntax 4).
-4. **Misleading errors after `for`**: in `Parser.scala`, a generator of a set or map comprehension that does not parse backtracks into the literal, which reports `} expected` at `for`, unlike `self/parse.u`. Solution: commit to the comprehension after `for`.
-5. **Matches in map comprehensions repeat** for the result, the condition, and the map of each later generator. Solution: patterns in generators, `for (k, v) in entries(m)`, which bind them once and remove the hidden variables.
-6. **Negative literals take the position of the number**, not of the `-`. Solution: the position of the operator.
-7. **`nil_expr()` in `self/parse.u`** is still written out where `parse_brackets` builds `Nil`. Solution: use it there.
-8. **`literal` and `comprehension` in `Parser.scala`** use a `match` of guards only and iterator chains. Solution: recursion and nested matches.
+1. **Accesses are applications of a variable `.f`** until the checker resolves them. Solution: a node `EField(e, f)` of the syntax.
+2. **Literals resolve to fixed modules**: `{a, b}` and `{k => v}` call `set.from_list` and `map.put_all` by qualified names, so a local `set.u` takes their place, and a module may use them without importing `set` or `map`. Solution: resolve them only through the module's own imports, or by overloading (Syntax 4).
+3. **Misleading errors after `for`**: in `Parser.scala`, a generator of a set or map comprehension that does not parse backtracks into the literal, which reports `} expected` at `for`, unlike `self/parse.u`. Solution: commit to the comprehension after `for`.
+4. **Matches in map comprehensions repeat** for the result, the condition, and the map of each later generator. Solution: patterns in generators, `for (k, v) in entries(m)`, which bind them once and remove the hidden variables.
+5. **Negative literals take the position of the number**, not of the `-`. Solution: the position of the operator.
+6. **`nil_expr()` in `self/parse.u`** is still written out where `parse_brackets` builds `Nil`. Solution: use it there.
+7. **`literal` and `comprehension` in `Parser.scala`** use a `match` of guards only and iterator chains. Solution: recursion and nested matches.
 
 ## Verification
 

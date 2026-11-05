@@ -59,36 +59,36 @@ __attribute__((constructor)) static void init(void) {
   GC_expand_hp(128 << 20);
   mp_set_memory_functions(GC_malloc, gc_realloc, gc_free);
   for (int i = 0; i <= SMALL_MAX - SMALL_MIN; i++) {
-    small_ints[i].kind = INT;
+    small_ints[i].type = &u_int_type;
     small_ints[i].num = i + SMALL_MIN;
   }
   for (int i = 0; i < 256; i++) {
-    small_chars[i].kind = CHAR;
+    small_chars[i].type = &u_char_type;
     small_chars[i].num = i;
   }
 }
 
-static u_value object(enum kind kind) {
+static u_value object(const struct u_type *type) {
   u_value v = GC_MALLOC(sizeof(struct u_object));
   if (!v) u_fail("out of memory");
-  v->kind = kind;
+  v->type = type;
   return v;
 }
 
 u_value u_mk_int(long long n) {
   if (n >= SMALL_MIN && n <= SMALL_MAX) return &small_ints[n - SMALL_MIN];
-  u_value v = object(INT);
+  u_value v = object(&u_int_type);
   v->num = n;
   return v;
 }
 
 static u_value big(void) {
-  u_value v = object(BIG);
+  u_value v = object(&u_big_type);
   mpz_init(v->big);
   return v;
 }
 
-// v as INT if it fits, which keeps one kind per value
+// v as a small integer if it fits, which keeps one representation per integer
 static u_value normalize(u_value v) {
   return mpz_fits_slong_p(v->big) ? u_mk_int(mpz_get_si(v->big)) : v;
 }
@@ -100,7 +100,7 @@ u_value u_mk_int_str(const char *digits) {
 }
 
 static void to_mpz(mpz_t z, u_value v) {
-  if (v->kind == INT) mpz_set_si(z, v->num);
+  if (v->type == &u_int_type) mpz_set_si(z, v->num);
   else mpz_set(z, v->big);
 }
 
@@ -119,16 +119,16 @@ static u_value slow(void (*op)(mpz_ptr, mpz_srcptr, mpz_srcptr), u_value a, u_va
 // -1, 0, or 1 as a is less than, equal to, or greater than b
 static int compare_ints(u_value a, u_value b) {
   int c;
-  if (a->kind == INT && b->kind == INT) return (a->num > b->num) - (a->num < b->num);
-  if (a->kind == INT) c = -mpz_cmp_si(b->big, a->num);
-  else if (b->kind == INT) c = mpz_cmp_si(a->big, b->num);
+  if (a->type == &u_int_type && b->type == &u_int_type) return (a->num > b->num) - (a->num < b->num);
+  if (a->type == &u_int_type) c = -mpz_cmp_si(b->big, a->num);
+  else if (b->type == &u_int_type) c = mpz_cmp_si(a->big, b->num);
   else c = mpz_cmp(a->big, b->big);
   return (c > 0) - (c < 0);
 }
 
 // the decimal digits of an integer
 static char *digits(u_value v) {
-  if (v->kind == BIG) return mpz_get_str(NULL, 10, v->big);
+  if (v->type == &u_big_type) return mpz_get_str(NULL, 10, v->big);
   char *s = GC_MALLOC_ATOMIC(24);
   snprintf(s, 24, "%lld", v->num);
   return s;
@@ -136,12 +136,12 @@ static char *digits(u_value v) {
 
 // an integer as an index of a string, where big integers are beyond any string
 static long long index_of(u_value v) {
-  if (v->kind == INT) return v->num;
+  if (v->type == &u_int_type) return v->num;
   return mpz_sgn(v->big) < 0 ? LLONG_MIN / 4 : LLONG_MAX / 4;
 }
 
-struct u_object u_true = {.kind = BOOL, .num = 1};
-struct u_object u_false = {.kind = BOOL, .num = 0};
+struct u_object u_true = {.type = &u_bool_type, .num = 1};
+struct u_object u_false = {.type = &u_bool_type, .num = 0};
 
 u_value u_mk_bool(int b) {
   return b ? &u_true : &u_false;
@@ -149,14 +149,14 @@ u_value u_mk_bool(int b) {
 
 u_value u_mk_char(long long c) {
   if (c >= 0 && c < 256) return &small_chars[c];
-  u_value v = object(CHAR);
+  u_value v = object(&u_char_type);
   v->num = c;
   return v;
 }
 
 // a string of n characters, which the runtime knows when it builds the string
 u_value u_mk_str_n(const char *s, long long n) {
-  u_value v = object(STR);
+  u_value v = object(&u_str_type);
   v->text = s;
   v->length = n;
   return v;
@@ -168,10 +168,10 @@ u_value u_mk_str(const char *s) {
 }
 
 // an object with its items after it, in one allocation
-static u_value compound(enum kind kind, int size) {
+static u_value compound(const struct u_type *type, int size) {
   u_value v = GC_MALLOC(sizeof(struct u_object) + size * sizeof(u_value));
   if (!v) u_fail("out of memory");
-  v->kind = kind;
+  v->type = type;
   v->size = size;
   v->items = (u_value *)(v + 1);
   return v;
@@ -182,19 +182,19 @@ static u_value fill(u_value v, va_list args) {
   return v;
 }
 
-const struct u_name n_list_46_Nil = {"list", "Nil", 0};
-const struct u_name n_list_46_Cons = {"list", "Cons", 1};
-const struct u_name n_option_46_None = {"option", "None", 0};
-const struct u_name n_option_46_Some = {"option", "Some", 1};
-const struct u_name n_os_46_OsError = {"os", "OsError", 0};
-const struct u_name n_prelude_46_DivisionByZero = {"prelude", "DivisionByZero", 0};
-const struct u_name n_prelude_46_NoIndex = {"prelude", "NoIndex", 0};
-const struct u_name n_prelude_46_NoCharacter = {"prelude", "NoCharacter", 0};
-const struct u_name n_prelude_46_MissingField = {"prelude", "MissingField", 0};
+const struct u_name n_list_46_Nil = {"list", "Nil", 0, &t_list_46_List};
+const struct u_name n_list_46_Cons = {"list", "Cons", 1, &t_list_46_List};
+const struct u_name n_option_46_None = {"option", "None", 0, &t_option_46_Option};
+const struct u_name n_option_46_Some = {"option", "Some", 1, &t_option_46_Option};
+const struct u_name n_os_46_OsError = {"os", "OsError", 0, &t_os_46_OsError};
+const struct u_name n_prelude_46_DivisionByZero = {"prelude", "DivisionByZero", 0, &t_prelude_46_DivisionByZero};
+const struct u_name n_prelude_46_NoIndex = {"prelude", "NoIndex", 0, &t_prelude_46_NoIndex};
+const struct u_name n_prelude_46_NoCharacter = {"prelude", "NoCharacter", 0, &t_prelude_46_NoCharacter};
+const struct u_name n_prelude_46_MissingField = {"prelude", "MissingField", 0, &t_prelude_46_MissingField};
 
-struct u_object o_list_46_Nil = U_UNIT(n_list_46_Nil);
-struct u_object o_option_46_None = U_UNIT(n_option_46_None);
-struct u_object o_prelude_46_DivisionByZero = U_UNIT(n_prelude_46_DivisionByZero);
+struct u_object o_list_46_Nil = U_UNIT(n_list_46_Nil, t_list_46_List);
+struct u_object o_option_46_None = U_UNIT(n_option_46_None, t_option_46_Option);
+struct u_object o_prelude_46_DivisionByZero = U_UNIT(n_prelude_46_DivisionByZero, t_prelude_46_DivisionByZero);
 
 static void division_by_zero(void) {
   u_raise(&o_prelude_46_DivisionByZero, "prelude.DivisionByZero");
@@ -207,14 +207,14 @@ static void no_index(u_value s, u_value i) {
 u_value u_mk_con(const struct u_name *name, int size, ...) {
   va_list args;
   va_start(args, size);
-  u_value v = fill(compound(CON, size), args);
+  u_value v = fill(compound(name->type, size), args);
   v->name = name;
   va_end(args);
   return v;
 }
 
 u_value u_mk_con_array(const struct u_name *name, int size, u_value *xs) {
-  u_value v = compound(CON, size);
+  u_value v = compound(name->type, size);
   v->name = name;
   for (int i = 0; i < size; i++) v->items[i] = xs[i];
   return v;
@@ -223,7 +223,7 @@ u_value u_mk_con_array(const struct u_name *name, int size, u_value *xs) {
 u_value u_mk_tuple(int size, ...) {
   va_list args;
   va_start(args, size);
-  u_value v = fill(compound(TUPLE, size), args);
+  u_value v = fill(compound(&u_tuple_type, size), args);
   va_end(args);
   return v;
 }
@@ -231,7 +231,7 @@ u_value u_mk_tuple(int size, ...) {
 u_value u_mk_closure(code fun, int size, ...) {
   va_list args;
   va_start(args, size);
-  u_value v = fill(compound(CLOSURE, size), args);
+  u_value v = fill(compound(&u_closure_type, size), args);
   v->fun = fun;
   va_end(args);
   return v;
@@ -240,7 +240,7 @@ u_value u_mk_closure(code fun, int size, ...) {
 u_value u_mk_proc(proc_code proc, int size, ...) {
   va_list args;
   va_start(args, size);
-  u_value v = fill(compound(PROC, size), args);
+  u_value v = fill(compound(&u_proc_type, size), args);
   v->proc = proc;
   va_end(args);
   return v;
@@ -250,40 +250,62 @@ static int sign(long long d) {
   return (d > 0) - (d < 0);
 }
 
-// -1, 0, or 1 for values of the same type, where constructors are ordered by their declaration and then by their fields
+// -1, 0, or 1 for values of the same type, by the order of their type
 static int compare(u_value a, u_value b) {
-  if (a->kind == CLOSURE || b->kind == CLOSURE) u_fail("cannot compare functions");
-  if (a->kind == PROC || b->kind == PROC) u_fail("cannot compare procedures");
-  if (a == b) return 0;
-  switch (a->kind) {
-  case INT:
-  case BIG:
-    return compare_ints(a, b);
-  case BOOL:
-  case CHAR:
-    return sign(a->num - b->num);
-  case STR:
-    return sign(u_strcmp(a->text, b->text));
-  case CON:
-    // descriptors of compilers before positions all have position 0, whose constructors still differ by name
-    if (a->name != b->name) {
-      int c = sign(a->name->index - b->name->index);
-      return c != 0 ? c : sign(u_strcmp(a->name->base, b->name->base));
-    }
-    /* fall through */
-  case TUPLE:
-    for (int i = 0; i < a->size && i < b->size; i++) {
-      int c = compare(a->items[i], b->items[i]);
-      if (c != 0) return c;
-    }
-    return sign(a->size - b->size);
-  default:
-    return 0;
-  }
+  return a->type->compare(a, b);
 }
 
 int u_equals(u_value a, u_value b) {
+  return a->type->equals(a, b);
+}
+
+int u_equals_by_compare(u_value a, u_value b) {
   return compare(a, b) == 0;
+}
+
+static int compare_nums(u_value a, u_value b) {
+  return sign(a->num - b->num);
+}
+
+static int compare_strs(u_value a, u_value b) {
+  return a == b ? 0 : sign(u_strcmp(a->text, b->text));
+}
+
+static int compare_items(u_value a, u_value b) {
+  for (int i = 0; i < a->size && i < b->size; i++) {
+    int c = compare(a->items[i], b->items[i]);
+    if (c != 0) return c;
+  }
+  return sign(a->size - b->size);
+}
+
+static int compare_tuples(u_value a, u_value b) {
+  return a == b ? 0 : compare_items(a, b);
+}
+
+// constructors are ordered by their position in their declaration and then by their fields, where descriptors of
+// compilers before positions all have position 0, whose constructors still differ by name
+int u_con_compare(u_value a, u_value b) {
+  if (a == b) return 0;
+  if (a->name != b->name) {
+    int c = sign(a->name->index - b->name->index);
+    return c != 0 ? c : sign(u_strcmp(a->name->base, b->name->base));
+  }
+  return compare_items(a, b);
+}
+
+static int compare_functions(u_value a, u_value b) {
+  (void)a;
+  (void)b;
+  u_fail("cannot compare functions");
+  return 0;
+}
+
+static int compare_procedures(u_value a, u_value b) {
+  (void)a;
+  (void)b;
+  u_fail("cannot compare procedures");
+  return 0;
 }
 
 u_value u_compare(u_value a, u_value b) {
@@ -314,36 +336,36 @@ void u_call_proc(u_value p, int ins, int outs, ...) {
 
 u_value u_add(u_value a, u_value b) {
   long long r;
-  if (a->kind == INT && b->kind == INT && !__builtin_add_overflow(a->num, b->num, &r)) return u_mk_int(r);
+  if (a->type == &u_int_type && b->type == &u_int_type && !__builtin_add_overflow(a->num, b->num, &r)) return u_mk_int(r);
   return slow(mpz_add, a, b);
 }
 
 u_value u_sub(u_value a, u_value b) {
   long long r;
-  if (a->kind == INT && b->kind == INT && !__builtin_sub_overflow(a->num, b->num, &r)) return u_mk_int(r);
+  if (a->type == &u_int_type && b->type == &u_int_type && !__builtin_sub_overflow(a->num, b->num, &r)) return u_mk_int(r);
   return slow(mpz_sub, a, b);
 }
 
 u_value u_mul(u_value a, u_value b) {
   long long r;
-  if (a->kind == INT && b->kind == INT && !__builtin_mul_overflow(a->num, b->num, &r)) return u_mk_int(r);
+  if (a->type == &u_int_type && b->type == &u_int_type && !__builtin_mul_overflow(a->num, b->num, &r)) return u_mk_int(r);
   return slow(mpz_mul, a, b);
 }
 
 // small integers that C divides, where the quotient of LLONG_MIN and -1 overflows
 static int divisible(u_value a, u_value b) {
-  return a->kind == INT && b->kind == INT && !(a->num == LLONG_MIN && b->num == -1);
+  return a->type == &u_int_type && b->type == &u_int_type && !(a->num == LLONG_MIN && b->num == -1);
 }
 
 // division truncates toward zero, as BigInt in Scala and C, and a big integer is never zero
 u_value u_div(u_value a, u_value b) {
-  if (b->kind == INT && b->num == 0) division_by_zero();
+  if (b->type == &u_int_type && b->num == 0) division_by_zero();
   if (divisible(a, b)) return u_mk_int(a->num / b->num);
   return slow(mpz_tdiv_q, a, b);
 }
 
 u_value u_mod(u_value a, u_value b) {
-  if (b->kind == INT && b->num == 0) division_by_zero();
+  if (b->type == &u_int_type && b->num == 0) division_by_zero();
   if (divisible(a, b)) return u_mk_int(a->num % b->num);
   return slow(mpz_tdiv_r, a, b);
 }
@@ -377,7 +399,7 @@ u_value u_ord(u_value c) {
 }
 
 u_value u_chr(u_value n) {
-  if (n->kind != INT || n->num < 0 || n->num > 65535) u_raise(u_mk_con(&n_prelude_46_NoCharacter, 1, n), "prelude.NoCharacter");
+  if (n->type != &u_int_type || n->num < 0 || n->num > 65535) u_raise(u_mk_con(&n_prelude_46_NoCharacter, 1, n), "prelude.NoCharacter");
   return u_mk_char(n->num);
 }
 
@@ -459,7 +481,7 @@ u_value u_str_split(u_value s, u_value c) {
 
 u_value u_str_get(u_value s, u_value i) {
   size_t n = (size_t)s->length;
-  if (i->kind != INT || i->num < 0 || (size_t)i->num >= n) no_index(s, i);
+  if (i->type != &u_int_type || i->num < 0 || (size_t)i->num >= n) no_index(s, i);
   return u_mk_char((unsigned char)s->text[i->num]);
 }
 
@@ -520,64 +542,86 @@ static int is_list(u_value v) {
   return u_is_con(v, &n_list_46_Nil);
 }
 
-// values as ulang/src/ulang/Printer.scala shows them
+// values as ulang/src/ulang/Printer.scala shows them, by their types
 void u_fprint_value(FILE *out, u_value v) {
-  switch (v->kind) {
-  case INT:
-    fprintf(out, "%lld", v->num);
-    break;
-  case BIG:
-    mpz_out_str(out, 10, v->big);
-    break;
-  case BOOL:
-    fprintf(out, v->num ? "true" : "false");
-    break;
-  case CHAR:
-    fputc('\'', out);
-    print_char(out, v->num, '\'');
-    fputc('\'', out);
-    break;
-  case STR:
-    fputc('"', out);
-    for (const char *s = v->text; *s; s++) print_char(out, (unsigned char)*s, '"');
-    fputc('"', out);
-    break;
-  case TUPLE:
-    fputc('(', out);
-    for (int i = 0; i < v->size; i++) {
-      if (i > 0) fprintf(out, ", ");
-      u_fprint_value(out, v->items[i]);
+  v->type->print(out, v);
+}
+
+static void print_int(FILE *out, u_value v) {
+  fprintf(out, "%lld", v->num);
+}
+
+static void print_big(FILE *out, u_value v) {
+  mpz_out_str(out, 10, v->big);
+}
+
+static void print_bool(FILE *out, u_value v) {
+  fprintf(out, v->num ? "true" : "false");
+}
+
+static void print_char_value(FILE *out, u_value v) {
+  fputc('\'', out);
+  print_char(out, v->num, '\'');
+  fputc('\'', out);
+}
+
+static void print_str(FILE *out, u_value v) {
+  fputc('"', out);
+  for (const char *s = v->text; *s; s++) print_char(out, (unsigned char)*s, '"');
+  fputc('"', out);
+}
+
+static void print_items(FILE *out, u_value v) {
+  fputc('(', out);
+  for (int i = 0; i < v->size; i++) {
+    if (i > 0) fprintf(out, ", ");
+    u_fprint_value(out, v->items[i]);
+  }
+  fputc(')', out);
+}
+
+// lists are shown as [a, b], unless their tail is not a list
+void u_con_print(FILE *out, u_value v) {
+  if (u_is_con(v, &n_list_46_Cons) && is_list(v)) {
+    fputc('[', out);
+    for (u_value x = v; u_is_con(x, &n_list_46_Cons); x = x->items[1]) {
+      if (x != v) fprintf(out, ", ");
+      u_fprint_value(out, x->items[0]);
     }
-    fputc(')', out);
-    break;
-  case CON:
-    if (u_is_con(v, &n_list_46_Cons) && is_list(v)) {
-      fputc('[', out);
-      for (u_value x = v; u_is_con(x, &n_list_46_Cons); x = x->items[1]) {
-        if (x != v) fprintf(out, ", ");
-        u_fprint_value(out, x->items[0]);
-      }
-      fputc(']', out);
-    } else {
-      fprintf(out, "%s", v->name->base);
-      if (v->size > 0) {
-        fputc('(', out);
-        for (int i = 0; i < v->size; i++) {
-          if (i > 0) fprintf(out, ", ");
-          u_fprint_value(out, v->items[i]);
-        }
-        fputc(')', out);
-      }
-    }
-    break;
-  case CLOSURE:
-    fprintf(out, "<function>");
-    break;
-  case PROC:
-    fprintf(out, "<procedure>");
-    break;
+    fputc(']', out);
+  } else {
+    fprintf(out, "%s", v->name->base);
+    if (v->size > 0) print_items(out, v);
   }
 }
+
+static void print_function(FILE *out, u_value v) {
+  (void)v;
+  fprintf(out, "<function>");
+}
+
+static void print_procedure(FILE *out, u_value v) {
+  (void)v;
+  fprintf(out, "<procedure>");
+}
+
+const struct u_type u_int_type = {"Int", compare_ints, u_equals_by_compare, print_int};
+const struct u_type u_big_type = {"Int", compare_ints, u_equals_by_compare, print_big};
+const struct u_type u_bool_type = {"Bool", compare_nums, u_equals_by_compare, print_bool};
+const struct u_type u_char_type = {"Char", compare_nums, u_equals_by_compare, print_char_value};
+const struct u_type u_str_type = {"Str", compare_strs, u_equals_by_compare, print_str};
+const struct u_type u_tuple_type = {"*", compare_tuples, u_equals_by_compare, print_items};
+const struct u_type u_closure_type = {"->", compare_functions, compare_functions, print_function};
+const struct u_type u_proc_type = {"proc", compare_procedures, compare_procedures, print_procedure};
+
+// the datatypes whose constructors the builtins create, which the library does not order otherwise
+const struct u_type t_list_46_List = {"list.List", u_con_compare, u_equals_by_compare, u_con_print};
+const struct u_type t_option_46_Option = {"option.Option", u_con_compare, u_equals_by_compare, u_con_print};
+const struct u_type t_os_46_OsError = {"os.OsError", u_con_compare, u_equals_by_compare, u_con_print};
+const struct u_type t_prelude_46_DivisionByZero = {"prelude.DivisionByZero", u_con_compare, u_equals_by_compare, u_con_print};
+const struct u_type t_prelude_46_NoIndex = {"prelude.NoIndex", u_con_compare, u_equals_by_compare, u_con_print};
+const struct u_type t_prelude_46_NoCharacter = {"prelude.NoCharacter", u_con_compare, u_equals_by_compare, u_con_print};
+const struct u_type t_prelude_46_MissingField = {"prelude.MissingField", u_con_compare, u_equals_by_compare, u_con_print};
 
 void u_print_value(u_value v) {
   u_fprint_value(stdout, v);
@@ -735,7 +779,7 @@ void p_os_print_error(u_value text) {
 
 void p_os_exit(u_value code) {
   fflush(stdout);
-  exit(code->kind == INT ? (int)code->num : 1);
+  exit(code->type == &u_int_type ? (int)code->num : 1);
 }
 
 void p_os_library(u_value name, u_value *result) {

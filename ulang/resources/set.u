@@ -39,6 +39,17 @@ function insert_all[A](xs: List[A], s: Set[A]): Set[A] :=
     case [x; rest] => insert_all(rest, insert(x, s))
   end
 
+// sets are ordered and equal by their elements, whatever the shapes of their trees, also as elements of other values
+// and in generic code, since they are the order and equality of Set
+function compare[A](a: Set[A], b: Set[A]): Int :=
+  compare(elements(a), elements(b))
+
+function ==[A](a: Set[A], b: Set[A]): Bool :=
+  elements(a) == elements(b)
+
+function !=[A](a: Set[A], b: Set[A]): Bool :=
+  not(a == b)
+
 // the elements of s in their order
 function elements[A](s: Set[A]): List[A] :=
   elements_onto(s, Nil)
@@ -120,6 +131,11 @@ test sets() :=
   assert elements(from_list([3, 1, 2, 1])) == [1, 2, 3] and elements({3, 1, 2, 1}) == [1, 2, 3]
   assert elements(from_list([(2, 'a'), (1, 'b'), (2, 'a')])) == [(1, 'b'), (2, 'a')]
   assert elements(from_list([Some(2), None, Some(1)])) == [None, Some(1), Some(2)]
+
+// sets of the same elements are equal, although their trees differ
+test set_equality() :=
+  assert from_list([1, 2]) == from_list([2, 1]) and from_list([1, 2]) != from_list([1, 3])
+  assert {1, 2, 3} == {3, 2, 1} and not ({1} != {1})
 
 // ascending elements would make a list of an unbalanced tree
 test set_balance() :=

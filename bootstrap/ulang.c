@@ -1,355 +1,5 @@
 #include "ulang.h"
 
-const struct u_name n_nat_46_Zero = {"nat", "Zero", 0};
-
-struct u_object o_nat_46_Zero = U_UNIT(n_nat_46_Zero);
-
-const struct u_name n_nat_46_Succ = {"nat", "Succ", 1};
-
-const struct u_name n_syntax_46_Name = {"syntax", "Name", 0};
-
-const struct u_name n_syntax_46_THole = {"syntax", "THole", 0};
-
-struct u_object o_syntax_46_THole = U_UNIT(n_syntax_46_THole);
-
-const struct u_name n_syntax_46_TMeta = {"syntax", "TMeta", 1};
-
-const struct u_name n_syntax_46_TParam = {"syntax", "TParam", 2};
-
-const struct u_name n_syntax_46_TSort = {"syntax", "TSort", 3};
-
-const struct u_name n_syntax_46_TFun = {"syntax", "TFun", 4};
-
-const struct u_name n_syntax_46_TProc = {"syntax", "TProc", 5};
-
-const struct u_name n_syntax_46_TTuple = {"syntax", "TTuple", 6};
-
-const struct u_name n_syntax_46_VUnit = {"syntax", "VUnit", 0};
-
-struct u_object o_syntax_46_VUnit = U_UNIT(n_syntax_46_VUnit);
-
-const struct u_name n_syntax_46_VBool = {"syntax", "VBool", 1};
-
-const struct u_name n_syntax_46_VInt = {"syntax", "VInt", 2};
-
-const struct u_name n_syntax_46_VStr = {"syntax", "VStr", 3};
-
-const struct u_name n_syntax_46_VChar = {"syntax", "VChar", 4};
-
-const struct u_name n_syntax_46_Var = {"syntax", "Var", 0};
-
-const struct u_name n_syntax_46_ELit = {"syntax", "ELit", 0};
-
-const struct u_name n_syntax_46_EVar = {"syntax", "EVar", 1};
-
-const struct u_name n_syntax_46_EApp = {"syntax", "EApp", 2};
-
-const struct u_name n_syntax_46_ELam = {"syntax", "ELam", 3};
-
-const struct u_name n_syntax_46_EProc = {"syntax", "EProc", 4};
-
-const struct u_name n_syntax_46_ELet = {"syntax", "ELet", 5};
-
-const struct u_name n_syntax_46_EIte = {"syntax", "EIte", 6};
-
-const struct u_name n_syntax_46_EMatch = {"syntax", "EMatch", 7};
-
-const struct u_name n_syntax_46_EComp = {"syntax", "EComp", 8};
-
-const struct u_name n_syntax_46_ETuple = {"syntax", "ETuple", 9};
-
-const struct u_name n_syntax_46_ERaise = {"syntax", "ERaise", 10};
-
-const struct u_name n_syntax_46_PWild = {"syntax", "PWild", 0};
-
-struct u_object o_syntax_46_PWild = U_UNIT(n_syntax_46_PWild);
-
-const struct u_name n_syntax_46_PLit = {"syntax", "PLit", 1};
-
-const struct u_name n_syntax_46_PVar = {"syntax", "PVar", 2};
-
-const struct u_name n_syntax_46_PApp = {"syntax", "PApp", 3};
-
-const struct u_name n_syntax_46_PTuple = {"syntax", "PTuple", 4};
-
-const struct u_name n_syntax_46_Branch = {"syntax", "Branch", 0};
-
-const struct u_name n_syntax_46_SSkip = {"syntax", "SSkip", 0};
-
-struct u_object o_syntax_46_SSkip = U_UNIT(n_syntax_46_SSkip);
-
-const struct u_name n_syntax_46_SAssign = {"syntax", "SAssign", 1};
-
-const struct u_name n_syntax_46_SBlock = {"syntax", "SBlock", 2};
-
-const struct u_name n_syntax_46_SIf = {"syntax", "SIf", 3};
-
-const struct u_name n_syntax_46_SWhile = {"syntax", "SWhile", 4};
-
-const struct u_name n_syntax_46_SCall = {"syntax", "SCall", 5};
-
-const struct u_name n_syntax_46_SMatch = {"syntax", "SMatch", 6};
-
-const struct u_name n_syntax_46_SAssert = {"syntax", "SAssert", 7};
-
-const struct u_name n_syntax_46_SRaise = {"syntax", "SRaise", 8};
-
-const struct u_name n_syntax_46_STry = {"syntax", "STry", 9};
-
-const struct u_name n_syntax_46_Handler = {"syntax", "Handler", 0};
-
-const struct u_name n_syntax_46_Constr = {"syntax", "Constr", 0};
-
-const struct u_name n_syntax_46_FPrefix = {"syntax", "FPrefix", 0};
-
-struct u_object o_syntax_46_FPrefix = U_UNIT(n_syntax_46_FPrefix);
-
-const struct u_name n_syntax_46_FPostfix = {"syntax", "FPostfix", 1};
-
-struct u_object o_syntax_46_FPostfix = U_UNIT(n_syntax_46_FPostfix);
-
-const struct u_name n_syntax_46_FInfix = {"syntax", "FInfix", 2};
-
-struct u_object o_syntax_46_FInfix = U_UNIT(n_syntax_46_FInfix);
-
-const struct u_name n_syntax_46_FLeft = {"syntax", "FLeft", 3};
-
-struct u_object o_syntax_46_FLeft = U_UNIT(n_syntax_46_FLeft);
-
-const struct u_name n_syntax_46_FRight = {"syntax", "FRight", 4};
-
-struct u_object o_syntax_46_FRight = U_UNIT(n_syntax_46_FRight);
-
-const struct u_name n_syntax_46_CSort = {"syntax", "CSort", 0};
-
-const struct u_name n_syntax_46_CData = {"syntax", "CData", 1};
-
-const struct u_name n_syntax_46_CFun = {"syntax", "CFun", 2};
-
-const struct u_name n_syntax_46_CProc = {"syntax", "CProc", 3};
-
-const struct u_name n_syntax_46_CModule = {"syntax", "CModule", 4};
-
-const struct u_name n_syntax_46_CImport = {"syntax", "CImport", 5};
-
-const struct u_name n_syntax_46_CNotation = {"syntax", "CNotation", 6};
-
-const struct u_name n_syntax_46_CTest = {"syntax", "CTest", 7};
-
-const struct u_name n_syntax_46_Program = {"syntax", "Program", 0};
-
-const struct u_name n_lex_46_TName = {"lex", "TName", 0};
-
-const struct u_name n_lex_46_TSym = {"lex", "TSym", 1};
-
-const struct u_name n_lex_46_TPunct = {"lex", "TPunct", 2};
-
-const struct u_name n_lex_46_TNum = {"lex", "TNum", 3};
-
-const struct u_name n_lex_46_TStr = {"lex", "TStr", 4};
-
-const struct u_name n_lex_46_TChar = {"lex", "TChar", 5};
-
-const struct u_name n_lex_46_TEnd = {"lex", "TEnd", 6};
-
-struct u_object o_lex_46_TEnd = U_UNIT(n_lex_46_TEnd);
-
-const struct u_name n_lex_46_LexError = {"lex", "LexError", 0};
-
-const struct u_name n_set_46_Leaf = {"set", "Leaf", 0};
-
-struct u_object o_set_46_Leaf = U_UNIT(n_set_46_Leaf);
-
-const struct u_name n_set_46_Node = {"set", "Node", 1};
-
-const struct u_name n_map_46_Leaf = {"map", "Leaf", 0};
-
-struct u_object o_map_46_Leaf = U_UNIT(n_map_46_Leaf);
-
-const struct u_name n_map_46_Node = {"map", "Node", 1};
-
-const struct u_name n_parse_46_ParseError = {"parse", "ParseError", 0};
-
-const struct u_name n_parse_46_Notations = {"parse", "Notations", 0};
-
-const struct u_name n_parse_46_Ops = {"parse", "Ops", 0};
-
-const struct u_name n_parse_46_Context = {"parse", "Context", 0};
-
-const struct u_name n_ctx_46_Ctx = {"ctx", "Ctx", 0};
-
-const struct u_name n_check_46_Pending = {"check", "Pending", 0};
-
-const struct u_name n_check_46_State = {"check", "State", 0};
-
-const struct u_name n_check_46_UnknownSort = {"check", "UnknownSort", 0};
-
-const struct u_name n_check_46_SortArity = {"check", "SortArity", 1};
-
-const struct u_name n_check_46_SortDefined = {"check", "SortDefined", 2};
-
-const struct u_name n_check_46_MissingType = {"check", "MissingType", 3};
-
-const struct u_name n_check_46_UndeclaredParams = {"check", "UndeclaredParams", 4};
-
-const struct u_name n_check_46_CannotUnify = {"check", "CannotUnify", 5};
-
-const struct u_name n_check_46_InfiniteType = {"check", "InfiniteType", 6};
-
-const struct u_name n_check_46_UnknownVariable = {"check", "UnknownVariable", 7};
-
-const struct u_name n_check_46_NoOverload = {"check", "NoOverload", 8};
-
-const struct u_name n_check_46_WrongArity = {"check", "WrongArity", 9};
-
-const struct u_name n_check_46_AlreadyDefined = {"check", "AlreadyDefined", 10};
-
-const struct u_name n_check_46_Duplicate = {"check", "Duplicate", 11};
-
-const struct u_name n_check_46_Ambiguous = {"check", "Ambiguous", 12};
-
-const struct u_name n_check_46_UnknownField = {"check", "UnknownField", 13};
-
-const struct u_name n_check_46_UnknownFieldType = {"check", "UnknownFieldType", 14};
-
-const struct u_name n_check_46_CountMismatch = {"check", "CountMismatch", 15};
-
-const struct u_name n_check_46_UnknownConstructor = {"check", "UnknownConstructor", 16};
-
-const struct u_name n_check_46_NotExhaustive = {"check", "NotExhaustive", 17};
-
-const struct u_name n_check_46_Unreachable = {"check", "Unreachable", 18};
-
-const struct u_name n_check_46_NotAssignable = {"check", "NotAssignable", 19};
-
-const struct u_name n_check_46_UnknownProcedure = {"check", "UnknownProcedure", 20};
-
-const struct u_name n_check_46_UnknownException = {"check", "UnknownException", 21};
-
-const struct u_name n_check_46_TestParams = {"check", "TestParams", 22};
-
-const struct u_name n_check_46_HCon = {"check", "HCon", 0};
-
-const struct u_name n_check_46_HLit = {"check", "HLit", 1};
-
-const struct u_name n_check_46_Checked = {"check", "Checked", 0};
-
-const struct u_name n_value_46_Lit = {"value", "Lit", 0};
-
-const struct u_name n_value_46_Obj = {"value", "Obj", 1};
-
-const struct u_name n_value_46_Clos = {"value", "Clos", 2};
-
-const struct u_name n_value_46_Fn = {"value", "Fn", 3};
-
-const struct u_name n_value_46_Con = {"value", "Con", 4};
-
-const struct u_name n_value_46_Prim = {"value", "Prim", 5};
-
-const struct u_name n_value_46_Proc = {"value", "Proc", 6};
-
-const struct u_name n_value_46_ProcClos = {"value", "ProcClos", 7};
-
-const struct u_name n_run_46_ProcDef = {"run", "ProcDef", 0};
-
-const struct u_name n_run_46_Prog = {"run", "Prog", 0};
-
-const struct u_name n_run_46_Uninitialized = {"run", "Uninitialized", 0};
-
-const struct u_name n_run_46_NotFunction = {"run", "NotFunction", 1};
-
-const struct u_name n_run_46_Unspecified = {"run", "Unspecified", 2};
-
-const struct u_name n_run_46_NoCase = {"run", "NoCase", 3};
-
-const struct u_name n_run_46_CompareFunctions = {"run", "CompareFunctions", 4};
-
-struct u_object o_run_46_CompareFunctions = U_UNIT(n_run_46_CompareFunctions);
-
-const struct u_name n_run_46_NotList = {"run", "NotList", 5};
-
-const struct u_name n_run_46_AssertionFailed = {"run", "AssertionFailed", 6};
-
-struct u_object o_run_46_AssertionFailed = U_UNIT(n_run_46_AssertionFailed);
-
-const struct u_name n_run_46_AssertionUnequal = {"run", "AssertionUnequal", 7};
-
-const struct u_name n_run_46_UnassignedOutput = {"run", "UnassignedOutput", 8};
-
-const struct u_name n_run_46_UnknownProc = {"run", "UnknownProc", 9};
-
-const struct u_name n_run_46_NotProc = {"run", "NotProc", 10};
-
-const struct u_name n_run_46_RecursiveInitialization = {"run", "RecursiveInitialization", 11};
-
-const struct u_name n_run_46_Thrown = {"run", "Thrown", 0};
-
-const struct u_name n_c_46_CtVoid = {"c", "CtVoid", 0};
-
-struct u_object o_c_46_CtVoid = U_UNIT(n_c_46_CtVoid);
-
-const struct u_name n_c_46_CtInt = {"c", "CtInt", 1};
-
-struct u_object o_c_46_CtInt = U_UNIT(n_c_46_CtInt);
-
-const struct u_name n_c_46_CtNamed = {"c", "CtNamed", 2};
-
-const struct u_name n_c_46_CtPtr = {"c", "CtPtr", 3};
-
-const struct u_name n_c_46_CeVar = {"c", "CeVar", 0};
-
-const struct u_name n_c_46_CeNum = {"c", "CeNum", 1};
-
-const struct u_name n_c_46_CeStr = {"c", "CeStr", 2};
-
-const struct u_name n_c_46_CeCall = {"c", "CeCall", 3};
-
-const struct u_name n_c_46_CeUnary = {"c", "CeUnary", 4};
-
-const struct u_name n_c_46_CeBinary = {"c", "CeBinary", 5};
-
-const struct u_name n_c_46_CeIndex = {"c", "CeIndex", 6};
-
-const struct u_name n_c_46_CeArrow = {"c", "CeArrow", 7};
-
-const struct u_name n_c_46_CeCast = {"c", "CeCast", 8};
-
-const struct u_name n_c_46_CeCond = {"c", "CeCond", 9};
-
-const struct u_name n_c_46_CeInit = {"c", "CeInit", 10};
-
-const struct u_name n_c_46_CsExpr = {"c", "CsExpr", 0};
-
-const struct u_name n_c_46_CsDecl = {"c", "CsDecl", 1};
-
-const struct u_name n_c_46_CsAssign = {"c", "CsAssign", 2};
-
-const struct u_name n_c_46_CsIf = {"c", "CsIf", 3};
-
-const struct u_name n_c_46_CsWhile = {"c", "CsWhile", 4};
-
-const struct u_name n_c_46_CsReturn = {"c", "CsReturn", 5};
-
-const struct u_name n_c_46_CsBlock = {"c", "CsBlock", 6};
-
-const struct u_name n_c_46_CdInclude = {"c", "CdInclude", 0};
-
-const struct u_name n_c_46_CdPrototype = {"c", "CdPrototype", 1};
-
-const struct u_name n_c_46_CdFunction = {"c", "CdFunction", 2};
-
-const struct u_name n_c_46_CdGlobal = {"c", "CdGlobal", 3};
-
-const struct u_name n_c_46_CFile = {"c", "CFile", 0};
-
-const struct u_name n_compile_46_Unsupported = {"compile", "Unsupported", 0};
-
-const struct u_name n_compile_46_UnknownEntry = {"compile", "UnknownEntry", 1};
-
-const struct u_name n_compile_46_Globals = {"compile", "Globals", 0};
-
-const struct u_name n_compile_46_Gen = {"compile", "Gen", 0};
-
 u_value w_f_prelude_46_not_1(u_value *env, u_value *args);
 
 u_value w_f_prelude_46__61__61__62__2(u_value *env, u_value *args);
@@ -526,6 +176,12 @@ u_value w_f_set_46_from_list_1(u_value *env, u_value *args);
 
 u_value w_f_set_46_insert_all_2(u_value *env, u_value *args);
 
+u_value w_f_set_46_compare_2(u_value *env, u_value *args);
+
+u_value w_f_set_46__61__61__2(u_value *env, u_value *args);
+
+u_value w_f_set_46__33__61__2(u_value *env, u_value *args);
+
 u_value w_f_set_46_elements_1(u_value *env, u_value *args);
 
 u_value w_f_set_46_elements_onto_2(u_value *env, u_value *args);
@@ -559,6 +215,12 @@ u_value w_f_map_46_get_2(u_value *env, u_value *args);
 u_value w_f_map_46_contains_2(u_value *env, u_value *args);
 
 u_value w_f_map_46_put_3(u_value *env, u_value *args);
+
+u_value w_f_map_46_compare_2(u_value *env, u_value *args);
+
+u_value w_f_map_46__61__61__2(u_value *env, u_value *args);
+
+u_value w_f_map_46__33__61__2(u_value *env, u_value *args);
 
 u_value w_f_map_46_entries_1(u_value *env, u_value *args);
 
@@ -1126,6 +788,12 @@ u_value w_f_check_46_uncovered_2(u_value *env, u_value *args);
 
 u_value w_f_check_46_first_uncovered_2(u_value *env, u_value *args);
 
+u_value w_f_check_46_known_type_2(u_value *env, u_value *args);
+
+u_value w_f_check_46_own_fits_2(u_value *env, u_value *args);
+
+u_value w_f_check_46_fst_of_1(u_value *env, u_value *args);
+
 u_value w_f_check_46_own_2(u_value *env, u_value *args);
 
 u_value w_f_check_46_unguarded_1(u_value *env, u_value *args);
@@ -1143,6 +811,16 @@ u_value w_f_check_46_curried_2(u_value *env, u_value *args);
 u_value w_f_check_46_first_list_1(u_value *env, u_value *args);
 
 u_value w_f_check_46_block_names_1(u_value *env, u_value *args);
+
+u_value w_f_check_46_order_of_1(u_value *env, u_value *args);
+
+u_value w_f_check_46_order_result_1(u_value *env, u_value *args);
+
+u_value w_f_check_46_distinct_params_1(u_value *env, u_value *args);
+
+u_value w_f_check_46_is_param_1(u_value *env, u_value *args);
+
+u_value w_f_check_46_ordered_2(u_value *env, u_value *args);
 
 u_value w_f_check_46_Checked_46_cmds_1(u_value *env, u_value *args);
 
@@ -1234,6 +912,10 @@ u_value w_f_run_46_Prog_46_constrs_1(u_value *env, u_value *args);
 
 u_value w_f_run_46_Prog_46_positions_1(u_value *env, u_value *args);
 
+u_value w_f_run_46_Prog_46_orders_1(u_value *env, u_value *args);
+
+u_value w_f_run_46_Prog_46_equalities_1(u_value *env, u_value *args);
+
 u_value w_f_run_46_Prog_46_computing_1(u_value *env, u_value *args);
 
 u_value w_f_run_46_Prog_46_args_1(u_value *env, u_value *args);
@@ -1246,6 +928,10 @@ u_value w_f_run_46_Prog_46_constrs_58__61__2(u_value *env, u_value *args);
 
 u_value w_f_run_46_Prog_46_positions_58__61__2(u_value *env, u_value *args);
 
+u_value w_f_run_46_Prog_46_orders_58__61__2(u_value *env, u_value *args);
+
+u_value w_f_run_46_Prog_46_equalities_58__61__2(u_value *env, u_value *args);
+
 u_value w_f_run_46_Prog_46_computing_58__61__2(u_value *env, u_value *args);
 
 u_value w_f_run_46_Prog_46_args_58__61__2(u_value *env, u_value *args);
@@ -1253,6 +939,10 @@ u_value w_f_run_46_Prog_46_args_58__61__2(u_value *env, u_value *args);
 u_value w_f_run_46_position_of_2(u_value *env, u_value *args);
 
 u_value w_f_run_46_load_1(u_value *env, u_value *args);
+
+u_value w_f_run_46_order_funs_2(u_value *env, u_value *args);
+
+u_value w_f_run_46_constr_orders_2(u_value *env, u_value *args);
 
 u_value w_f_run_46_fun_defs_1(u_value *env, u_value *args);
 
@@ -1386,13 +1076,27 @@ u_value w_f_compile_46_unit_value_1(u_value *env, u_value *args);
 
 u_value w_f_compile_46_runtime_constructors_0(u_value *env, u_value *args);
 
-u_value w_f_compile_46_descriptor_decl_2(u_value *env, u_value *args);
+u_value w_f_compile_46_runtime_types_0(u_value *env, u_value *args);
 
-u_value w_f_compile_46_unit_decl_1(u_value *env, u_value *args);
+u_value w_f_compile_46_type_name_1(u_value *env, u_value *args);
+
+u_value w_f_compile_46_descriptor_decl_3(u_value *env, u_value *args);
+
+u_value w_f_compile_46_unit_decl_2(u_value *env, u_value *args);
 
 u_value w_f_compile_46_descriptor_decls_1(u_value *env, u_value *args);
 
-u_value w_f_compile_46_constructor_decls_2(u_value *env, u_value *args);
+u_value w_f_compile_46_data_decls_3(u_value *env, u_value *args);
+
+u_value w_f_compile_46_type_decls_3(u_value *env, u_value *args);
+
+u_value w_f_compile_46_constructor_decls_3(u_value *env, u_value *args);
+
+u_value w_f_compile_46_order_wrapper_name_2(u_value *env, u_value *args);
+
+u_value w_f_compile_46_order_wrappers_1(u_value *env, u_value *args);
+
+u_value w_f_compile_46_order_wrapper_3(u_value *env, u_value *args);
 
 u_value w_f_compile_46_in_scope_1(u_value *env, u_value *args);
 
@@ -1700,6 +1404,8 @@ u_value wc_check_46_UnknownException(u_value *env, u_value *args);
 
 u_value wc_check_46_TestParams(u_value *env, u_value *args);
 
+u_value wc_check_46_EqualityWithoutOrder(u_value *env, u_value *args);
+
 u_value wc_check_46_HCon(u_value *env, u_value *args);
 
 u_value wc_check_46_HLit(u_value *env, u_value *args);
@@ -1898,7 +1604,11 @@ void wp_check_46_command(u_value *env, u_value *ins, u_value **outs);
 
 void wp_check_46_commands(u_value *env, u_value *ins, u_value **outs);
 
+void wp_check_46_complete_orders(u_value *env, u_value *ins, u_value **outs);
+
 void wp_check_46_coverage(u_value *env, u_value *ins, u_value **outs);
+
+void wp_check_46_decide(u_value *env, u_value *ins, u_value **outs);
 
 void wp_check_46_declare_constrs(u_value *env, u_value *ins, u_value **outs);
 
@@ -1917,6 +1627,8 @@ void wp_check_46_declare_sort(u_value *env, u_value *ins, u_value **outs);
 void wp_check_46_declare_sorts(u_value *env, u_value *ins, u_value **outs);
 
 void wp_check_46_declared_call(u_value *env, u_value *ins, u_value **outs);
+
+void wp_check_46_dominates(u_value *env, u_value *ins, u_value **outs);
 
 void wp_check_46_expr_branches(u_value *env, u_value *ins, u_value **outs);
 
@@ -1940,6 +1652,8 @@ void wp_check_46_infers(u_value *env, u_value *ins, u_value **outs);
 
 void wp_check_46_instance(u_value *env, u_value *ins, u_value **outs);
 
+void wp_check_46_instance_of(u_value *env, u_value *ins, u_value **outs);
+
 void wp_check_46_instantiate(u_value *env, u_value *ins, u_value **outs);
 
 void wp_check_46_known(u_value *env, u_value *ins, u_value **outs);
@@ -1947,6 +1661,8 @@ void wp_check_46_known(u_value *env, u_value *ins, u_value **outs);
 void wp_check_46_known_vars(u_value *env, u_value *ins, u_value **outs);
 
 void wp_check_46_knowns(u_value *env, u_value *ins, u_value **outs);
+
+void wp_check_46_most(u_value *env, u_value *ins, u_value **outs);
 
 void wp_check_46_normalize(u_value *env, u_value *ins, u_value **outs);
 
@@ -1965,6 +1681,8 @@ void wp_check_46_pattern(u_value *env, u_value *ins, u_value **outs);
 void wp_check_46_pattern_constructor(u_value *env, u_value *ins, u_value **outs);
 
 void wp_check_46_reachable(u_value *env, u_value *ins, u_value **outs);
+
+void wp_check_46_related_to(u_value *env, u_value *ins, u_value **outs);
 
 void wp_check_46_revisit(u_value *env, u_value *ins, u_value **outs);
 
@@ -2284,6 +2002,14 @@ void wp_ulang_46_run_tests(u_value *env, u_value *ins, u_value **outs);
 
 void wp_ulang_46_test_file(u_value *env, u_value *ins, u_value **outs);
 
+int oc_set_46_Set(u_value a, u_value b);
+
+int oe_set_46_Set(u_value a, u_value b);
+
+int oc_map_46_Map(u_value a, u_value b);
+
+int oe_map_46_Map(u_value a, u_value b);
+
 u_value f_prelude_46_not_1(u_value v_b);
 
 u_value f_prelude_46__61__61__62__2(u_value v_a, u_value v_b);
@@ -2480,6 +2206,12 @@ u_value f_set_46_from_list_1(u_value v_xs);
 
 u_value f_set_46_insert_all_2(u_value v_xs, u_value v_s);
 
+u_value f_set_46_compare_2(u_value v_a, u_value v_b);
+
+u_value f_set_46__61__61__2(u_value v_a, u_value v_b);
+
+u_value f_set_46__33__61__2(u_value v_a, u_value v_b);
+
 u_value f_set_46_elements_1(u_value v_s);
 
 u_value f_set_46_elements_onto_2(u_value v_s, u_value v_rest);
@@ -2513,6 +2245,12 @@ u_value f_map_46_get_2(u_value v_k, u_value v_m);
 u_value f_map_46_contains_2(u_value v_k, u_value v_m);
 
 u_value f_map_46_put_3(u_value v_k, u_value v_v, u_value v_m);
+
+u_value f_map_46_compare_2(u_value v_a, u_value v_b);
+
+u_value f_map_46__61__61__2(u_value v_a, u_value v_b);
+
+u_value f_map_46__33__61__2(u_value v_a, u_value v_b);
 
 u_value f_map_46_entries_1(u_value v_m);
 
@@ -3276,6 +3014,22 @@ void p_check_46_revisit(u_value v_ps, u_value *r_changed, u_value *r_s);
 
 void p_check_46_settle(u_value *r_s);
 
+u_value f_check_46_known_type_2(u_value v_su, u_value v_t);
+
+void p_check_46_decide(u_value v_ok, u_value v_w, u_value v_s, u_value *r_picked);
+
+u_value f_check_46_own_fits_2(u_value v_s, u_value v_ok);
+
+void p_check_46_most(u_value v_cs, u_value v_all, u_value v_specific, u_value v_s, u_value *r_best);
+
+u_value f_check_46_fst_of_1(u_value v_p);
+
+void p_check_46_dominates(u_value v_c, u_value v_ds, u_value v_specific, u_value v_s, u_value *r_yes);
+
+void p_check_46_related_to(u_value v_c, u_value v_d, u_value v_specific, u_value v_s, u_value *r_yes);
+
+void p_check_46_instance_of(u_value v_c, u_value v_d, u_value v_s, u_value *r_yes);
+
 u_value f_check_46_own_2(u_value v_s, u_value v_cs);
 
 void p_check_46_infer(u_value v_env, u_value v_e, u_value *r_e1, u_value *r_t, u_value *r_s);
@@ -3375,6 +3129,18 @@ void p_check_46_command(u_value v_c, u_value *r_c1, u_value *r_s);
 void p_check_46_commands(u_value v_cs, u_value *r_cs1, u_value *r_s);
 
 u_value f_check_46_block_names_1(u_value v_cs);
+
+u_value f_check_46_order_of_1(u_value v_c);
+
+u_value f_check_46_order_result_1(u_value v_op);
+
+u_value f_check_46_distinct_params_1(u_value v_ts);
+
+u_value f_check_46_is_param_1(u_value v_t);
+
+u_value f_check_46_ordered_2(u_value v_cs, u_value v_op);
+
+void p_check_46_complete_orders(u_value v_cs);
 
 u_value f_check_46_Checked_46_cmds_1(u_value v_x);
 
@@ -3478,6 +3244,10 @@ u_value f_run_46_Prog_46_constrs_1(u_value v_x);
 
 u_value f_run_46_Prog_46_positions_1(u_value v_x);
 
+u_value f_run_46_Prog_46_orders_1(u_value v_x);
+
+u_value f_run_46_Prog_46_equalities_1(u_value v_x);
+
 u_value f_run_46_Prog_46_computing_1(u_value v_x);
 
 u_value f_run_46_Prog_46_args_1(u_value v_x);
@@ -3490,6 +3260,10 @@ u_value f_run_46_Prog_46_constrs_58__61__2(u_value v_x, u_value v_y);
 
 u_value f_run_46_Prog_46_positions_58__61__2(u_value v_x, u_value v_y);
 
+u_value f_run_46_Prog_46_orders_58__61__2(u_value v_x, u_value v_y);
+
+u_value f_run_46_Prog_46_equalities_58__61__2(u_value v_x, u_value v_y);
+
 u_value f_run_46_Prog_46_computing_58__61__2(u_value v_x, u_value v_y);
 
 u_value f_run_46_Prog_46_args_58__61__2(u_value v_x, u_value v_y);
@@ -3497,6 +3271,10 @@ u_value f_run_46_Prog_46_args_58__61__2(u_value v_x, u_value v_y);
 u_value f_run_46_position_of_2(u_value v_p, u_value v_k);
 
 u_value f_run_46_load_1(u_value v_q);
+
+u_value f_run_46_order_funs_2(u_value v_cs, u_value v_op);
+
+u_value f_run_46_constr_orders_2(u_value v_cs, u_value v_fs);
 
 u_value f_run_46_fun_defs_1(u_value v_cs);
 
@@ -3548,15 +3326,15 @@ u_value f_run_46_failure_2(u_value v_n, u_value v_args);
 
 void p_run_46_primitive(u_value v_n, u_value v_vs, u_value *r_v);
 
-void p_run_46_equal(u_value v_a, u_value v_b, u_value *r_r);
+void p_run_46_equal(u_value v_p, u_value v_a, u_value v_b, u_value *r_r, u_value *r_cache);
 
-void p_run_46_compare_values(u_value v_p, u_value v_a, u_value v_b, u_value *r_r);
+void p_run_46_compare_values(u_value v_p, u_value v_a, u_value v_b, u_value *r_r, u_value *r_cache);
 
-void p_run_46_compare_all(u_value v_p, u_value v_xs, u_value v_ys, u_value *r_r);
+void p_run_46_compare_all(u_value v_p, u_value v_xs, u_value v_ys, u_value *r_r, u_value *r_cache);
 
 u_value f_run_46_order_2(u_value v_x, u_value v_y);
 
-void p_run_46_equal_all(u_value v_xs, u_value v_ys, u_value *r_r);
+void p_run_46_equal_all(u_value v_p, u_value v_xs, u_value v_ys, u_value *r_r, u_value *r_cache);
 
 void p_run_46_combinations(u_value v_p, u_value v_env, u_value v_xs, u_value v_lists, u_value *r_envs, u_value *r_cache);
 
@@ -3688,13 +3466,27 @@ u_value f_compile_46_unit_value_1(u_value v_n);
 
 u_value f_compile_46_runtime_constructors_0(void);
 
-u_value f_compile_46_descriptor_decl_2(u_value v_n, u_value v_i);
+u_value f_compile_46_runtime_types_0(void);
 
-u_value f_compile_46_unit_decl_1(u_value v_n);
+u_value f_compile_46_type_name_1(u_value v_t);
+
+u_value f_compile_46_descriptor_decl_3(u_value v_n, u_value v_i, u_value v_t);
+
+u_value f_compile_46_unit_decl_2(u_value v_n, u_value v_t);
 
 u_value f_compile_46_descriptor_decls_1(u_value v_cs);
 
-u_value f_compile_46_constructor_decls_2(u_value v_ks, u_value v_i);
+u_value f_compile_46_data_decls_3(u_value v_cs, u_value v_compares, u_value v_equalities);
+
+u_value f_compile_46_type_decls_3(u_value v_t, u_value v_compares, u_value v_equalities);
+
+u_value f_compile_46_constructor_decls_3(u_value v_t, u_value v_ks, u_value v_i);
+
+u_value f_compile_46_order_wrapper_name_2(u_value v_op, u_value v_t);
+
+u_value f_compile_46_order_wrappers_1(u_value v_cs);
+
+u_value f_compile_46_order_wrapper_3(u_value v_op, u_value v_t, u_value v_f);
 
 u_value f_compile_46_in_scope_1(u_value v_xs);
 
@@ -3900,27 +3692,461 @@ u_value lam1222(u_value *env, u_value *args);
 
 u_value lam1471(u_value *env, u_value *args);
 
-u_value lam1619(u_value *env, u_value *args);
+u_value lam1653(u_value *env, u_value *args);
 
-u_value lam1622(u_value *env, u_value *args);
+u_value lam1656(u_value *env, u_value *args);
 
-u_value lam1702(u_value *env, u_value *args);
+u_value lam1736(u_value *env, u_value *args);
 
-u_value lam3093(u_value *env, u_value *args);
+u_value lam3222(u_value *env, u_value *args);
 
-void proc3120(u_value *env, u_value *ins, u_value **outs);
+void proc3249(u_value *env, u_value *ins, u_value **outs);
 
-void proc3122(u_value *env, u_value *ins, u_value **outs);
+void proc3251(u_value *env, u_value *ins, u_value **outs);
 
-void proc3123(u_value *env, u_value *ins, u_value **outs);
+void proc3252(u_value *env, u_value *ins, u_value **outs);
 
-void proc3124(u_value *env, u_value *ins, u_value **outs);
+void proc3253(u_value *env, u_value *ins, u_value **outs);
 
-void proc3125(u_value *env, u_value *ins, u_value **outs);
+void proc3254(u_value *env, u_value *ins, u_value **outs);
 
-u_value lam3182(u_value *env, u_value *args);
+u_value lam3311(u_value *env, u_value *args);
 
-u_value lam3195(u_value *env, u_value *args);
+u_value lam3324(u_value *env, u_value *args);
+
+const struct u_type t_nat_46_Nat = {"nat.Nat", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_nat_46_Zero = {"nat", "Zero", 0, &t_nat_46_Nat};
+
+struct u_object o_nat_46_Zero = U_UNIT(n_nat_46_Zero, t_nat_46_Nat);
+
+const struct u_name n_nat_46_Succ = {"nat", "Succ", 1, &t_nat_46_Nat};
+
+const struct u_type t_syntax_46_Name = {"syntax.Name", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_Name = {"syntax", "Name", 0, &t_syntax_46_Name};
+
+const struct u_type t_syntax_46_Type = {"syntax.Type", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_THole = {"syntax", "THole", 0, &t_syntax_46_Type};
+
+struct u_object o_syntax_46_THole = U_UNIT(n_syntax_46_THole, t_syntax_46_Type);
+
+const struct u_name n_syntax_46_TMeta = {"syntax", "TMeta", 1, &t_syntax_46_Type};
+
+const struct u_name n_syntax_46_TParam = {"syntax", "TParam", 2, &t_syntax_46_Type};
+
+const struct u_name n_syntax_46_TSort = {"syntax", "TSort", 3, &t_syntax_46_Type};
+
+const struct u_name n_syntax_46_TFun = {"syntax", "TFun", 4, &t_syntax_46_Type};
+
+const struct u_name n_syntax_46_TProc = {"syntax", "TProc", 5, &t_syntax_46_Type};
+
+const struct u_name n_syntax_46_TTuple = {"syntax", "TTuple", 6, &t_syntax_46_Type};
+
+const struct u_type t_syntax_46_Val = {"syntax.Val", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_VUnit = {"syntax", "VUnit", 0, &t_syntax_46_Val};
+
+struct u_object o_syntax_46_VUnit = U_UNIT(n_syntax_46_VUnit, t_syntax_46_Val);
+
+const struct u_name n_syntax_46_VBool = {"syntax", "VBool", 1, &t_syntax_46_Val};
+
+const struct u_name n_syntax_46_VInt = {"syntax", "VInt", 2, &t_syntax_46_Val};
+
+const struct u_name n_syntax_46_VStr = {"syntax", "VStr", 3, &t_syntax_46_Val};
+
+const struct u_name n_syntax_46_VChar = {"syntax", "VChar", 4, &t_syntax_46_Val};
+
+const struct u_type t_syntax_46_Var = {"syntax.Var", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_Var = {"syntax", "Var", 0, &t_syntax_46_Var};
+
+const struct u_type t_syntax_46_Expr = {"syntax.Expr", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_ELit = {"syntax", "ELit", 0, &t_syntax_46_Expr};
+
+const struct u_name n_syntax_46_EVar = {"syntax", "EVar", 1, &t_syntax_46_Expr};
+
+const struct u_name n_syntax_46_EApp = {"syntax", "EApp", 2, &t_syntax_46_Expr};
+
+const struct u_name n_syntax_46_ELam = {"syntax", "ELam", 3, &t_syntax_46_Expr};
+
+const struct u_name n_syntax_46_EProc = {"syntax", "EProc", 4, &t_syntax_46_Expr};
+
+const struct u_name n_syntax_46_ELet = {"syntax", "ELet", 5, &t_syntax_46_Expr};
+
+const struct u_name n_syntax_46_EIte = {"syntax", "EIte", 6, &t_syntax_46_Expr};
+
+const struct u_name n_syntax_46_EMatch = {"syntax", "EMatch", 7, &t_syntax_46_Expr};
+
+const struct u_name n_syntax_46_EComp = {"syntax", "EComp", 8, &t_syntax_46_Expr};
+
+const struct u_name n_syntax_46_ETuple = {"syntax", "ETuple", 9, &t_syntax_46_Expr};
+
+const struct u_name n_syntax_46_ERaise = {"syntax", "ERaise", 10, &t_syntax_46_Expr};
+
+const struct u_type t_syntax_46_Pat = {"syntax.Pat", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_PWild = {"syntax", "PWild", 0, &t_syntax_46_Pat};
+
+struct u_object o_syntax_46_PWild = U_UNIT(n_syntax_46_PWild, t_syntax_46_Pat);
+
+const struct u_name n_syntax_46_PLit = {"syntax", "PLit", 1, &t_syntax_46_Pat};
+
+const struct u_name n_syntax_46_PVar = {"syntax", "PVar", 2, &t_syntax_46_Pat};
+
+const struct u_name n_syntax_46_PApp = {"syntax", "PApp", 3, &t_syntax_46_Pat};
+
+const struct u_name n_syntax_46_PTuple = {"syntax", "PTuple", 4, &t_syntax_46_Pat};
+
+const struct u_type t_syntax_46_Branch = {"syntax.Branch", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_Branch = {"syntax", "Branch", 0, &t_syntax_46_Branch};
+
+const struct u_type t_syntax_46_Stmt = {"syntax.Stmt", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_SSkip = {"syntax", "SSkip", 0, &t_syntax_46_Stmt};
+
+struct u_object o_syntax_46_SSkip = U_UNIT(n_syntax_46_SSkip, t_syntax_46_Stmt);
+
+const struct u_name n_syntax_46_SAssign = {"syntax", "SAssign", 1, &t_syntax_46_Stmt};
+
+const struct u_name n_syntax_46_SBlock = {"syntax", "SBlock", 2, &t_syntax_46_Stmt};
+
+const struct u_name n_syntax_46_SIf = {"syntax", "SIf", 3, &t_syntax_46_Stmt};
+
+const struct u_name n_syntax_46_SWhile = {"syntax", "SWhile", 4, &t_syntax_46_Stmt};
+
+const struct u_name n_syntax_46_SCall = {"syntax", "SCall", 5, &t_syntax_46_Stmt};
+
+const struct u_name n_syntax_46_SMatch = {"syntax", "SMatch", 6, &t_syntax_46_Stmt};
+
+const struct u_name n_syntax_46_SAssert = {"syntax", "SAssert", 7, &t_syntax_46_Stmt};
+
+const struct u_name n_syntax_46_SRaise = {"syntax", "SRaise", 8, &t_syntax_46_Stmt};
+
+const struct u_name n_syntax_46_STry = {"syntax", "STry", 9, &t_syntax_46_Stmt};
+
+const struct u_type t_syntax_46_Handler = {"syntax.Handler", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_Handler = {"syntax", "Handler", 0, &t_syntax_46_Handler};
+
+const struct u_type t_syntax_46_Constr = {"syntax.Constr", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_Constr = {"syntax", "Constr", 0, &t_syntax_46_Constr};
+
+const struct u_type t_syntax_46_Fixity = {"syntax.Fixity", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_FPrefix = {"syntax", "FPrefix", 0, &t_syntax_46_Fixity};
+
+struct u_object o_syntax_46_FPrefix = U_UNIT(n_syntax_46_FPrefix, t_syntax_46_Fixity);
+
+const struct u_name n_syntax_46_FPostfix = {"syntax", "FPostfix", 1, &t_syntax_46_Fixity};
+
+struct u_object o_syntax_46_FPostfix = U_UNIT(n_syntax_46_FPostfix, t_syntax_46_Fixity);
+
+const struct u_name n_syntax_46_FInfix = {"syntax", "FInfix", 2, &t_syntax_46_Fixity};
+
+struct u_object o_syntax_46_FInfix = U_UNIT(n_syntax_46_FInfix, t_syntax_46_Fixity);
+
+const struct u_name n_syntax_46_FLeft = {"syntax", "FLeft", 3, &t_syntax_46_Fixity};
+
+struct u_object o_syntax_46_FLeft = U_UNIT(n_syntax_46_FLeft, t_syntax_46_Fixity);
+
+const struct u_name n_syntax_46_FRight = {"syntax", "FRight", 4, &t_syntax_46_Fixity};
+
+struct u_object o_syntax_46_FRight = U_UNIT(n_syntax_46_FRight, t_syntax_46_Fixity);
+
+const struct u_type t_syntax_46_Cmd = {"syntax.Cmd", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_CSort = {"syntax", "CSort", 0, &t_syntax_46_Cmd};
+
+const struct u_name n_syntax_46_CData = {"syntax", "CData", 1, &t_syntax_46_Cmd};
+
+const struct u_name n_syntax_46_CFun = {"syntax", "CFun", 2, &t_syntax_46_Cmd};
+
+const struct u_name n_syntax_46_CProc = {"syntax", "CProc", 3, &t_syntax_46_Cmd};
+
+const struct u_name n_syntax_46_CModule = {"syntax", "CModule", 4, &t_syntax_46_Cmd};
+
+const struct u_name n_syntax_46_CImport = {"syntax", "CImport", 5, &t_syntax_46_Cmd};
+
+const struct u_name n_syntax_46_CNotation = {"syntax", "CNotation", 6, &t_syntax_46_Cmd};
+
+const struct u_name n_syntax_46_CTest = {"syntax", "CTest", 7, &t_syntax_46_Cmd};
+
+const struct u_type t_syntax_46_Program = {"syntax.Program", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_syntax_46_Program = {"syntax", "Program", 0, &t_syntax_46_Program};
+
+const struct u_type t_lex_46_Token = {"lex.Token", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_lex_46_TName = {"lex", "TName", 0, &t_lex_46_Token};
+
+const struct u_name n_lex_46_TSym = {"lex", "TSym", 1, &t_lex_46_Token};
+
+const struct u_name n_lex_46_TPunct = {"lex", "TPunct", 2, &t_lex_46_Token};
+
+const struct u_name n_lex_46_TNum = {"lex", "TNum", 3, &t_lex_46_Token};
+
+const struct u_name n_lex_46_TStr = {"lex", "TStr", 4, &t_lex_46_Token};
+
+const struct u_name n_lex_46_TChar = {"lex", "TChar", 5, &t_lex_46_Token};
+
+const struct u_name n_lex_46_TEnd = {"lex", "TEnd", 6, &t_lex_46_Token};
+
+struct u_object o_lex_46_TEnd = U_UNIT(n_lex_46_TEnd, t_lex_46_Token);
+
+const struct u_type t_lex_46_LexError = {"lex.LexError", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_lex_46_LexError = {"lex", "LexError", 0, &t_lex_46_LexError};
+
+const struct u_type t_set_46_Set = {"set.Set", oc_set_46_Set, oe_set_46_Set, u_con_print};
+
+const struct u_name n_set_46_Leaf = {"set", "Leaf", 0, &t_set_46_Set};
+
+struct u_object o_set_46_Leaf = U_UNIT(n_set_46_Leaf, t_set_46_Set);
+
+const struct u_name n_set_46_Node = {"set", "Node", 1, &t_set_46_Set};
+
+const struct u_type t_map_46_Map = {"map.Map", oc_map_46_Map, oe_map_46_Map, u_con_print};
+
+const struct u_name n_map_46_Leaf = {"map", "Leaf", 0, &t_map_46_Map};
+
+struct u_object o_map_46_Leaf = U_UNIT(n_map_46_Leaf, t_map_46_Map);
+
+const struct u_name n_map_46_Node = {"map", "Node", 1, &t_map_46_Map};
+
+const struct u_type t_parse_46_ParseError = {"parse.ParseError", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_parse_46_ParseError = {"parse", "ParseError", 0, &t_parse_46_ParseError};
+
+const struct u_type t_parse_46_Notations = {"parse.Notations", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_parse_46_Notations = {"parse", "Notations", 0, &t_parse_46_Notations};
+
+const struct u_type t_parse_46_Ops = {"parse.Ops", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_parse_46_Ops = {"parse", "Ops", 0, &t_parse_46_Ops};
+
+const struct u_type t_parse_46_Context = {"parse.Context", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_parse_46_Context = {"parse", "Context", 0, &t_parse_46_Context};
+
+const struct u_type t_ctx_46_Ctx = {"ctx.Ctx", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_ctx_46_Ctx = {"ctx", "Ctx", 0, &t_ctx_46_Ctx};
+
+const struct u_type t_check_46_Pending = {"check.Pending", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_check_46_Pending = {"check", "Pending", 0, &t_check_46_Pending};
+
+const struct u_type t_check_46_State = {"check.State", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_check_46_State = {"check", "State", 0, &t_check_46_State};
+
+const struct u_type t_check_46_TypeError = {"check.TypeError", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_check_46_UnknownSort = {"check", "UnknownSort", 0, &t_check_46_TypeError};
+
+const struct u_name n_check_46_SortArity = {"check", "SortArity", 1, &t_check_46_TypeError};
+
+const struct u_name n_check_46_SortDefined = {"check", "SortDefined", 2, &t_check_46_TypeError};
+
+const struct u_name n_check_46_MissingType = {"check", "MissingType", 3, &t_check_46_TypeError};
+
+const struct u_name n_check_46_UndeclaredParams = {"check", "UndeclaredParams", 4, &t_check_46_TypeError};
+
+const struct u_name n_check_46_CannotUnify = {"check", "CannotUnify", 5, &t_check_46_TypeError};
+
+const struct u_name n_check_46_InfiniteType = {"check", "InfiniteType", 6, &t_check_46_TypeError};
+
+const struct u_name n_check_46_UnknownVariable = {"check", "UnknownVariable", 7, &t_check_46_TypeError};
+
+const struct u_name n_check_46_NoOverload = {"check", "NoOverload", 8, &t_check_46_TypeError};
+
+const struct u_name n_check_46_WrongArity = {"check", "WrongArity", 9, &t_check_46_TypeError};
+
+const struct u_name n_check_46_AlreadyDefined = {"check", "AlreadyDefined", 10, &t_check_46_TypeError};
+
+const struct u_name n_check_46_Duplicate = {"check", "Duplicate", 11, &t_check_46_TypeError};
+
+const struct u_name n_check_46_Ambiguous = {"check", "Ambiguous", 12, &t_check_46_TypeError};
+
+const struct u_name n_check_46_UnknownField = {"check", "UnknownField", 13, &t_check_46_TypeError};
+
+const struct u_name n_check_46_UnknownFieldType = {"check", "UnknownFieldType", 14, &t_check_46_TypeError};
+
+const struct u_name n_check_46_CountMismatch = {"check", "CountMismatch", 15, &t_check_46_TypeError};
+
+const struct u_name n_check_46_UnknownConstructor = {"check", "UnknownConstructor", 16, &t_check_46_TypeError};
+
+const struct u_name n_check_46_NotExhaustive = {"check", "NotExhaustive", 17, &t_check_46_TypeError};
+
+const struct u_name n_check_46_Unreachable = {"check", "Unreachable", 18, &t_check_46_TypeError};
+
+const struct u_name n_check_46_NotAssignable = {"check", "NotAssignable", 19, &t_check_46_TypeError};
+
+const struct u_name n_check_46_UnknownProcedure = {"check", "UnknownProcedure", 20, &t_check_46_TypeError};
+
+const struct u_name n_check_46_UnknownException = {"check", "UnknownException", 21, &t_check_46_TypeError};
+
+const struct u_name n_check_46_TestParams = {"check", "TestParams", 22, &t_check_46_TypeError};
+
+const struct u_name n_check_46_EqualityWithoutOrder = {"check", "EqualityWithoutOrder", 23, &t_check_46_TypeError};
+
+const struct u_type t_check_46_Head = {"check.Head", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_check_46_HCon = {"check", "HCon", 0, &t_check_46_Head};
+
+const struct u_name n_check_46_HLit = {"check", "HLit", 1, &t_check_46_Head};
+
+const struct u_type t_check_46_Checked = {"check.Checked", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_check_46_Checked = {"check", "Checked", 0, &t_check_46_Checked};
+
+const struct u_type t_value_46_Value = {"value.Value", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_value_46_Lit = {"value", "Lit", 0, &t_value_46_Value};
+
+const struct u_name n_value_46_Obj = {"value", "Obj", 1, &t_value_46_Value};
+
+const struct u_name n_value_46_Clos = {"value", "Clos", 2, &t_value_46_Value};
+
+const struct u_name n_value_46_Fn = {"value", "Fn", 3, &t_value_46_Value};
+
+const struct u_name n_value_46_Con = {"value", "Con", 4, &t_value_46_Value};
+
+const struct u_name n_value_46_Prim = {"value", "Prim", 5, &t_value_46_Value};
+
+const struct u_name n_value_46_Proc = {"value", "Proc", 6, &t_value_46_Value};
+
+const struct u_name n_value_46_ProcClos = {"value", "ProcClos", 7, &t_value_46_Value};
+
+const struct u_type t_run_46_ProcDef = {"run.ProcDef", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_run_46_ProcDef = {"run", "ProcDef", 0, &t_run_46_ProcDef};
+
+const struct u_type t_run_46_Prog = {"run.Prog", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_run_46_Prog = {"run", "Prog", 0, &t_run_46_Prog};
+
+const struct u_type t_run_46_RuntimeError = {"run.RuntimeError", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_run_46_Uninitialized = {"run", "Uninitialized", 0, &t_run_46_RuntimeError};
+
+const struct u_name n_run_46_NotFunction = {"run", "NotFunction", 1, &t_run_46_RuntimeError};
+
+const struct u_name n_run_46_Unspecified = {"run", "Unspecified", 2, &t_run_46_RuntimeError};
+
+const struct u_name n_run_46_NoCase = {"run", "NoCase", 3, &t_run_46_RuntimeError};
+
+const struct u_name n_run_46_CompareFunctions = {"run", "CompareFunctions", 4, &t_run_46_RuntimeError};
+
+struct u_object o_run_46_CompareFunctions = U_UNIT(n_run_46_CompareFunctions, t_run_46_RuntimeError);
+
+const struct u_name n_run_46_NotList = {"run", "NotList", 5, &t_run_46_RuntimeError};
+
+const struct u_name n_run_46_AssertionFailed = {"run", "AssertionFailed", 6, &t_run_46_RuntimeError};
+
+struct u_object o_run_46_AssertionFailed = U_UNIT(n_run_46_AssertionFailed, t_run_46_RuntimeError);
+
+const struct u_name n_run_46_AssertionUnequal = {"run", "AssertionUnequal", 7, &t_run_46_RuntimeError};
+
+const struct u_name n_run_46_UnassignedOutput = {"run", "UnassignedOutput", 8, &t_run_46_RuntimeError};
+
+const struct u_name n_run_46_UnknownProc = {"run", "UnknownProc", 9, &t_run_46_RuntimeError};
+
+const struct u_name n_run_46_NotProc = {"run", "NotProc", 10, &t_run_46_RuntimeError};
+
+const struct u_name n_run_46_RecursiveInitialization = {"run", "RecursiveInitialization", 11, &t_run_46_RuntimeError};
+
+const struct u_type t_run_46_Thrown = {"run.Thrown", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_run_46_Thrown = {"run", "Thrown", 0, &t_run_46_Thrown};
+
+const struct u_type t_c_46_CType = {"c.CType", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_c_46_CtVoid = {"c", "CtVoid", 0, &t_c_46_CType};
+
+struct u_object o_c_46_CtVoid = U_UNIT(n_c_46_CtVoid, t_c_46_CType);
+
+const struct u_name n_c_46_CtInt = {"c", "CtInt", 1, &t_c_46_CType};
+
+struct u_object o_c_46_CtInt = U_UNIT(n_c_46_CtInt, t_c_46_CType);
+
+const struct u_name n_c_46_CtNamed = {"c", "CtNamed", 2, &t_c_46_CType};
+
+const struct u_name n_c_46_CtPtr = {"c", "CtPtr", 3, &t_c_46_CType};
+
+const struct u_type t_c_46_CExpr = {"c.CExpr", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_c_46_CeVar = {"c", "CeVar", 0, &t_c_46_CExpr};
+
+const struct u_name n_c_46_CeNum = {"c", "CeNum", 1, &t_c_46_CExpr};
+
+const struct u_name n_c_46_CeStr = {"c", "CeStr", 2, &t_c_46_CExpr};
+
+const struct u_name n_c_46_CeCall = {"c", "CeCall", 3, &t_c_46_CExpr};
+
+const struct u_name n_c_46_CeUnary = {"c", "CeUnary", 4, &t_c_46_CExpr};
+
+const struct u_name n_c_46_CeBinary = {"c", "CeBinary", 5, &t_c_46_CExpr};
+
+const struct u_name n_c_46_CeIndex = {"c", "CeIndex", 6, &t_c_46_CExpr};
+
+const struct u_name n_c_46_CeArrow = {"c", "CeArrow", 7, &t_c_46_CExpr};
+
+const struct u_name n_c_46_CeCast = {"c", "CeCast", 8, &t_c_46_CExpr};
+
+const struct u_name n_c_46_CeCond = {"c", "CeCond", 9, &t_c_46_CExpr};
+
+const struct u_name n_c_46_CeInit = {"c", "CeInit", 10, &t_c_46_CExpr};
+
+const struct u_type t_c_46_CStmt = {"c.CStmt", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_c_46_CsExpr = {"c", "CsExpr", 0, &t_c_46_CStmt};
+
+const struct u_name n_c_46_CsDecl = {"c", "CsDecl", 1, &t_c_46_CStmt};
+
+const struct u_name n_c_46_CsAssign = {"c", "CsAssign", 2, &t_c_46_CStmt};
+
+const struct u_name n_c_46_CsIf = {"c", "CsIf", 3, &t_c_46_CStmt};
+
+const struct u_name n_c_46_CsWhile = {"c", "CsWhile", 4, &t_c_46_CStmt};
+
+const struct u_name n_c_46_CsReturn = {"c", "CsReturn", 5, &t_c_46_CStmt};
+
+const struct u_name n_c_46_CsBlock = {"c", "CsBlock", 6, &t_c_46_CStmt};
+
+const struct u_type t_c_46_CDecl = {"c.CDecl", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_c_46_CdInclude = {"c", "CdInclude", 0, &t_c_46_CDecl};
+
+const struct u_name n_c_46_CdPrototype = {"c", "CdPrototype", 1, &t_c_46_CDecl};
+
+const struct u_name n_c_46_CdFunction = {"c", "CdFunction", 2, &t_c_46_CDecl};
+
+const struct u_name n_c_46_CdGlobal = {"c", "CdGlobal", 3, &t_c_46_CDecl};
+
+const struct u_type t_c_46_CFile = {"c.CFile", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_c_46_CFile = {"c", "CFile", 0, &t_c_46_CFile};
+
+const struct u_type t_compile_46_CompileError = {"compile.CompileError", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_compile_46_Unsupported = {"compile", "Unsupported", 0, &t_compile_46_CompileError};
+
+const struct u_name n_compile_46_UnknownEntry = {"compile", "UnknownEntry", 1, &t_compile_46_CompileError};
+
+const struct u_type t_compile_46_Globals = {"compile.Globals", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_compile_46_Globals = {"compile", "Globals", 0, &t_compile_46_Globals};
+
+const struct u_type t_compile_46_Gen = {"compile.Gen", u_con_compare, u_equals_by_compare, u_con_print};
+
+const struct u_name n_compile_46_Gen = {"compile", "Gen", 0, &t_compile_46_Gen};
 
 u_value w_f_prelude_46_not_1(u_value *env, u_value *args) {
   return f_prelude_46_not_1(args[0]);
@@ -4274,6 +4500,18 @@ u_value w_f_set_46_insert_all_2(u_value *env, u_value *args) {
   return f_set_46_insert_all_2(args[0], args[1]);
 }
 
+u_value w_f_set_46_compare_2(u_value *env, u_value *args) {
+  return f_set_46_compare_2(args[0], args[1]);
+}
+
+u_value w_f_set_46__61__61__2(u_value *env, u_value *args) {
+  return f_set_46__61__61__2(args[0], args[1]);
+}
+
+u_value w_f_set_46__33__61__2(u_value *env, u_value *args) {
+  return f_set_46__33__61__2(args[0], args[1]);
+}
+
 u_value w_f_set_46_elements_1(u_value *env, u_value *args) {
   return f_set_46_elements_1(args[0]);
 }
@@ -4340,6 +4578,18 @@ u_value w_f_map_46_contains_2(u_value *env, u_value *args) {
 
 u_value w_f_map_46_put_3(u_value *env, u_value *args) {
   return f_map_46_put_3(args[0], args[1], args[2]);
+}
+
+u_value w_f_map_46_compare_2(u_value *env, u_value *args) {
+  return f_map_46_compare_2(args[0], args[1]);
+}
+
+u_value w_f_map_46__61__61__2(u_value *env, u_value *args) {
+  return f_map_46__61__61__2(args[0], args[1]);
+}
+
+u_value w_f_map_46__33__61__2(u_value *env, u_value *args) {
+  return f_map_46__33__61__2(args[0], args[1]);
 }
 
 u_value w_f_map_46_entries_1(u_value *env, u_value *args) {
@@ -5474,6 +5724,18 @@ u_value w_f_check_46_first_uncovered_2(u_value *env, u_value *args) {
   return f_check_46_first_uncovered_2(args[0], args[1]);
 }
 
+u_value w_f_check_46_known_type_2(u_value *env, u_value *args) {
+  return f_check_46_known_type_2(args[0], args[1]);
+}
+
+u_value w_f_check_46_own_fits_2(u_value *env, u_value *args) {
+  return f_check_46_own_fits_2(args[0], args[1]);
+}
+
+u_value w_f_check_46_fst_of_1(u_value *env, u_value *args) {
+  return f_check_46_fst_of_1(args[0]);
+}
+
 u_value w_f_check_46_own_2(u_value *env, u_value *args) {
   return f_check_46_own_2(args[0], args[1]);
 }
@@ -5508,6 +5770,26 @@ u_value w_f_check_46_first_list_1(u_value *env, u_value *args) {
 
 u_value w_f_check_46_block_names_1(u_value *env, u_value *args) {
   return f_check_46_block_names_1(args[0]);
+}
+
+u_value w_f_check_46_order_of_1(u_value *env, u_value *args) {
+  return f_check_46_order_of_1(args[0]);
+}
+
+u_value w_f_check_46_order_result_1(u_value *env, u_value *args) {
+  return f_check_46_order_result_1(args[0]);
+}
+
+u_value w_f_check_46_distinct_params_1(u_value *env, u_value *args) {
+  return f_check_46_distinct_params_1(args[0]);
+}
+
+u_value w_f_check_46_is_param_1(u_value *env, u_value *args) {
+  return f_check_46_is_param_1(args[0]);
+}
+
+u_value w_f_check_46_ordered_2(u_value *env, u_value *args) {
+  return f_check_46_ordered_2(args[0], args[1]);
 }
 
 u_value w_f_check_46_Checked_46_cmds_1(u_value *env, u_value *args) {
@@ -5690,6 +5972,14 @@ u_value w_f_run_46_Prog_46_positions_1(u_value *env, u_value *args) {
   return f_run_46_Prog_46_positions_1(args[0]);
 }
 
+u_value w_f_run_46_Prog_46_orders_1(u_value *env, u_value *args) {
+  return f_run_46_Prog_46_orders_1(args[0]);
+}
+
+u_value w_f_run_46_Prog_46_equalities_1(u_value *env, u_value *args) {
+  return f_run_46_Prog_46_equalities_1(args[0]);
+}
+
 u_value w_f_run_46_Prog_46_computing_1(u_value *env, u_value *args) {
   return f_run_46_Prog_46_computing_1(args[0]);
 }
@@ -5714,6 +6004,14 @@ u_value w_f_run_46_Prog_46_positions_58__61__2(u_value *env, u_value *args) {
   return f_run_46_Prog_46_positions_58__61__2(args[0], args[1]);
 }
 
+u_value w_f_run_46_Prog_46_orders_58__61__2(u_value *env, u_value *args) {
+  return f_run_46_Prog_46_orders_58__61__2(args[0], args[1]);
+}
+
+u_value w_f_run_46_Prog_46_equalities_58__61__2(u_value *env, u_value *args) {
+  return f_run_46_Prog_46_equalities_58__61__2(args[0], args[1]);
+}
+
 u_value w_f_run_46_Prog_46_computing_58__61__2(u_value *env, u_value *args) {
   return f_run_46_Prog_46_computing_58__61__2(args[0], args[1]);
 }
@@ -5728,6 +6026,14 @@ u_value w_f_run_46_position_of_2(u_value *env, u_value *args) {
 
 u_value w_f_run_46_load_1(u_value *env, u_value *args) {
   return f_run_46_load_1(args[0]);
+}
+
+u_value w_f_run_46_order_funs_2(u_value *env, u_value *args) {
+  return f_run_46_order_funs_2(args[0], args[1]);
+}
+
+u_value w_f_run_46_constr_orders_2(u_value *env, u_value *args) {
+  return f_run_46_constr_orders_2(args[0], args[1]);
 }
 
 u_value w_f_run_46_fun_defs_1(u_value *env, u_value *args) {
@@ -5994,20 +6300,48 @@ u_value w_f_compile_46_runtime_constructors_0(u_value *env, u_value *args) {
   return f_compile_46_runtime_constructors_0();
 }
 
-u_value w_f_compile_46_descriptor_decl_2(u_value *env, u_value *args) {
-  return f_compile_46_descriptor_decl_2(args[0], args[1]);
+u_value w_f_compile_46_runtime_types_0(u_value *env, u_value *args) {
+  return f_compile_46_runtime_types_0();
 }
 
-u_value w_f_compile_46_unit_decl_1(u_value *env, u_value *args) {
-  return f_compile_46_unit_decl_1(args[0]);
+u_value w_f_compile_46_type_name_1(u_value *env, u_value *args) {
+  return f_compile_46_type_name_1(args[0]);
+}
+
+u_value w_f_compile_46_descriptor_decl_3(u_value *env, u_value *args) {
+  return f_compile_46_descriptor_decl_3(args[0], args[1], args[2]);
+}
+
+u_value w_f_compile_46_unit_decl_2(u_value *env, u_value *args) {
+  return f_compile_46_unit_decl_2(args[0], args[1]);
 }
 
 u_value w_f_compile_46_descriptor_decls_1(u_value *env, u_value *args) {
   return f_compile_46_descriptor_decls_1(args[0]);
 }
 
-u_value w_f_compile_46_constructor_decls_2(u_value *env, u_value *args) {
-  return f_compile_46_constructor_decls_2(args[0], args[1]);
+u_value w_f_compile_46_data_decls_3(u_value *env, u_value *args) {
+  return f_compile_46_data_decls_3(args[0], args[1], args[2]);
+}
+
+u_value w_f_compile_46_type_decls_3(u_value *env, u_value *args) {
+  return f_compile_46_type_decls_3(args[0], args[1], args[2]);
+}
+
+u_value w_f_compile_46_constructor_decls_3(u_value *env, u_value *args) {
+  return f_compile_46_constructor_decls_3(args[0], args[1], args[2]);
+}
+
+u_value w_f_compile_46_order_wrapper_name_2(u_value *env, u_value *args) {
+  return f_compile_46_order_wrapper_name_2(args[0], args[1]);
+}
+
+u_value w_f_compile_46_order_wrappers_1(u_value *env, u_value *args) {
+  return f_compile_46_order_wrappers_1(args[0]);
+}
+
+u_value w_f_compile_46_order_wrapper_3(u_value *env, u_value *args) {
+  return f_compile_46_order_wrapper_3(args[0], args[1], args[2]);
 }
 
 u_value w_f_compile_46_in_scope_1(u_value *env, u_value *args) {
@@ -6622,6 +6956,10 @@ u_value wc_check_46_TestParams(u_value *env, u_value *args) {
   return u_mk_con_array(&n_check_46_TestParams, 1, args);
 }
 
+u_value wc_check_46_EqualityWithoutOrder(u_value *env, u_value *args) {
+  return u_mk_con_array(&n_check_46_EqualityWithoutOrder, 1, args);
+}
+
 u_value wc_check_46_HCon(u_value *env, u_value *args) {
   return u_mk_con_array(&n_check_46_HCon, 1, args);
 }
@@ -6671,7 +7009,7 @@ u_value wc_run_46_ProcDef(u_value *env, u_value *args) {
 }
 
 u_value wc_run_46_Prog(u_value *env, u_value *args) {
-  return u_mk_con_array(&n_run_46_Prog, 6, args);
+  return u_mk_con_array(&n_run_46_Prog, 8, args);
 }
 
 u_value wc_run_46_Uninitialized(u_value *env, u_value *args) {
@@ -7018,8 +7356,16 @@ void wp_check_46_commands(u_value *env, u_value *ins, u_value **outs) {
   p_check_46_commands(ins[0], outs[0], outs[1]);
 }
 
+void wp_check_46_complete_orders(u_value *env, u_value *ins, u_value **outs) {
+  p_check_46_complete_orders(ins[0]);
+}
+
 void wp_check_46_coverage(u_value *env, u_value *ins, u_value **outs) {
   p_check_46_coverage(ins[0], ins[1], ins[2]);
+}
+
+void wp_check_46_decide(u_value *env, u_value *ins, u_value **outs) {
+  p_check_46_decide(ins[0], ins[1], ins[2], outs[0]);
 }
 
 void wp_check_46_declare_constrs(u_value *env, u_value *ins, u_value **outs) {
@@ -7056,6 +7402,10 @@ void wp_check_46_declare_sorts(u_value *env, u_value *ins, u_value **outs) {
 
 void wp_check_46_declared_call(u_value *env, u_value *ins, u_value **outs) {
   p_check_46_declared_call(ins[0], ins[1], ins[2], ins[3], ins[4], ins[5], ins[6], outs[0], outs[1]);
+}
+
+void wp_check_46_dominates(u_value *env, u_value *ins, u_value **outs) {
+  p_check_46_dominates(ins[0], ins[1], ins[2], ins[3], outs[0]);
 }
 
 void wp_check_46_expr_branches(u_value *env, u_value *ins, u_value **outs) {
@@ -7102,6 +7452,10 @@ void wp_check_46_instance(u_value *env, u_value *ins, u_value **outs) {
   p_check_46_instance(ins[0], outs[0], outs[1]);
 }
 
+void wp_check_46_instance_of(u_value *env, u_value *ins, u_value **outs) {
+  p_check_46_instance_of(ins[0], ins[1], ins[2], outs[0]);
+}
+
 void wp_check_46_instantiate(u_value *env, u_value *ins, u_value **outs) {
   p_check_46_instantiate(ins[0], outs[0], outs[1]);
 }
@@ -7116,6 +7470,10 @@ void wp_check_46_known_vars(u_value *env, u_value *ins, u_value **outs) {
 
 void wp_check_46_knowns(u_value *env, u_value *ins, u_value **outs) {
   p_check_46_knowns(ins[0], ins[1], outs[0], outs[1]);
+}
+
+void wp_check_46_most(u_value *env, u_value *ins, u_value **outs) {
+  p_check_46_most(ins[0], ins[1], ins[2], ins[3], outs[0]);
 }
 
 void wp_check_46_normalize(u_value *env, u_value *ins, u_value **outs) {
@@ -7152,6 +7510,10 @@ void wp_check_46_pattern_constructor(u_value *env, u_value *ins, u_value **outs)
 
 void wp_check_46_reachable(u_value *env, u_value *ins, u_value **outs) {
   p_check_46_reachable(ins[0], ins[1], ins[2], ins[3]);
+}
+
+void wp_check_46_related_to(u_value *env, u_value *ins, u_value **outs) {
+  p_check_46_related_to(ins[0], ins[1], ins[2], ins[3], outs[0]);
 }
 
 void wp_check_46_revisit(u_value *env, u_value *ins, u_value **outs) {
@@ -7655,11 +8017,11 @@ void wp_run_46_combinations(u_value *env, u_value *ins, u_value **outs) {
 }
 
 void wp_run_46_compare_all(u_value *env, u_value *ins, u_value **outs) {
-  p_run_46_compare_all(ins[0], ins[1], ins[2], outs[0]);
+  p_run_46_compare_all(ins[0], ins[1], ins[2], outs[0], outs[1]);
 }
 
 void wp_run_46_compare_values(u_value *env, u_value *ins, u_value **outs) {
-  p_run_46_compare_values(ins[0], ins[1], ins[2], outs[0]);
+  p_run_46_compare_values(ins[0], ins[1], ins[2], outs[0], outs[1]);
 }
 
 void wp_run_46_comprehension(u_value *env, u_value *ins, u_value **outs) {
@@ -7667,11 +8029,11 @@ void wp_run_46_comprehension(u_value *env, u_value *ins, u_value **outs) {
 }
 
 void wp_run_46_equal(u_value *env, u_value *ins, u_value **outs) {
-  p_run_46_equal(ins[0], ins[1], outs[0]);
+  p_run_46_equal(ins[0], ins[1], ins[2], outs[0], outs[1]);
 }
 
 void wp_run_46_equal_all(u_value *env, u_value *ins, u_value **outs) {
-  p_run_46_equal_all(ins[0], ins[1], outs[0]);
+  p_run_46_equal_all(ins[0], ins[1], ins[2], outs[0], outs[1]);
 }
 
 void wp_run_46_evaluate(u_value *env, u_value *ins, u_value **outs) {
@@ -7788,6 +8150,22 @@ void wp_ulang_46_run_tests(u_value *env, u_value *ins, u_value **outs) {
 
 void wp_ulang_46_test_file(u_value *env, u_value *ins, u_value **outs) {
   p_ulang_46_test_file(ins[0], ins[1], ins[2], outs[0]);
+}
+
+int oc_set_46_Set(u_value a, u_value b) {
+  return u_order(f_set_46_compare_2(a, b));
+}
+
+int oe_set_46_Set(u_value a, u_value b) {
+  return u_truth(f_set_46__61__61__2(a, b));
+}
+
+int oc_map_46_Map(u_value a, u_value b) {
+  return u_order(f_map_46_compare_2(a, b));
+}
+
+int oe_map_46_Map(u_value a, u_value b) {
+  return u_truth(f_map_46__61__61__2(a, b));
 }
 
 u_value f_prelude_46_not_1(u_value v_b) {
@@ -9491,6 +9869,18 @@ u_value f_set_46_insert_all_2(u_value v_xs, u_value v_s) {
   return t224;
 }
 
+u_value f_set_46_compare_2(u_value v_a, u_value v_b) {
+  return u_compare(f_set_46_elements_1(v_a), f_set_46_elements_1(v_b));
+}
+
+u_value f_set_46__61__61__2(u_value v_a, u_value v_b) {
+  return u_eq(f_set_46_elements_1(v_a), f_set_46_elements_1(v_b));
+}
+
+u_value f_set_46__33__61__2(u_value v_a, u_value v_b) {
+  return f_prelude_46_not_1(f_set_46__61__61__2(v_a, v_b));
+}
+
 u_value f_set_46_elements_1(u_value v_s) {
   return f_set_46_elements_onto_2(v_s, &o_list_46_Nil);
 }
@@ -9793,6 +10183,18 @@ u_value f_map_46_put_3(u_value v_k, u_value v_v, u_value v_m) {
     u_no_case(s255);
   }
   return t256;
+}
+
+u_value f_map_46_compare_2(u_value v_a, u_value v_b) {
+  return u_compare(f_map_46_entries_1(v_a), f_map_46_entries_1(v_b));
+}
+
+u_value f_map_46__61__61__2(u_value v_a, u_value v_b) {
+  return u_eq(f_map_46_entries_1(v_a), f_map_46_entries_1(v_b));
+}
+
+u_value f_map_46__33__61__2(u_value v_a, u_value v_b) {
+  return f_prelude_46_not_1(f_map_46__61__61__2(v_a, v_b));
 }
 
 u_value f_map_46_entries_1(u_value v_m) {
@@ -18589,38 +18991,50 @@ void p_check_46_use_name(u_value v_n, u_value v_cs, u_value v_w, u_value *r_x, u
 void p_check_46_choose(u_value v_n, u_value v_cs, u_value v_w, u_value *r_m, u_value *r_s) {
   {
     u_value v_ok = NULL;
+    u_value v_best = NULL;
     p_check_46_trials(v_cs, v_w, *r_s, &v_ok);
-    u_value s1500 = v_ok;
-    int d1501 = 0;
-    if ((!d1501) && u_is_con(s1500, &n_list_46_Nil)) {
-      d1501 = 1;
+    u_value t1500 = f_prelude_46__62__2(f_list_46_size_1(v_ok), u_mk_int(1));
+    if (u_truth(t1500)) {
+      t1500 = f_check_46_known_type_2(f_check_46_State_46_sub_1(*r_s), v_w);
+    }
+    if (u_truth(t1500)) {
+      {
+        p_check_46_decide(v_ok, v_w, *r_s, &v_best);
+        u_value t1501 = v_best;
+        v_ok = t1501;
+      }
+    }
+    u_value s1502 = v_ok;
+    int d1503 = 0;
+    if ((!d1503) && u_is_con(s1502, &n_list_46_Nil)) {
+      d1503 = 1;
       {
         u_raise(u_mk_con(&n_check_46_NoOverload, 2, v_n, f_check_46_zonk_type_2(f_check_46_State_46_sub_1(*r_s), v_w)), "check.TypeError");
       }
     }
-    if ((!d1501) && (u_is_con(s1500, &n_list_46_Cons) && u_is_con(u_field(s1500, 1), &n_list_46_Nil))) {
-      u_value v_m1 = u_field(u_field(u_field(s1500, 0), 0), 0);
-      u_value v_s1 = u_field(u_field(s1500, 0), 1);
-      d1501 = 1;
+    if ((!d1503) && (u_is_con(s1502, &n_list_46_Cons) && u_is_con(u_field(s1502, 1), &n_list_46_Nil))) {
+      u_value v_m1 = u_field(u_field(u_field(s1502, 0), 0), 0);
+      u_value v_s1 = u_field(u_field(s1502, 0), 1);
+      d1503 = 1;
       {
-        u_value t1502 = v_m1;
-        u_value t1503 = v_s1;
-        *r_m = t1502;
-        *r_s = t1503;
+        u_value t1504 = v_m1;
+        u_value t1505 = v_s1;
+        *r_m = t1504;
+        *r_s = t1505;
       }
     }
-    if (!d1501) {
-      d1501 = 1;
+    if (!d1503) {
+      d1503 = 1;
       {
-        static struct u_object l__63__1504 = U_LIT("?");
-        u_value t1505 = u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, &l__63__1504), u_str_show(u_add(f_check_46_State_46_count_1(*r_s), u_mk_int(1))));
-        *r_m = t1505;
-        u_value t1506 = f_check_46_State_46_pending_58__61__2(f_check_46_State_46_count_58__61__2(*r_s, u_add(f_check_46_State_46_count_1(*r_s), u_mk_int(1))), f_list_46__43__43__2(f_check_46_State_46_pending_1(*r_s), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_check_46_Pending, 4, *r_m, v_n, f_list_46_firsts_1(v_ok), v_w), &o_list_46_Nil)));
-        *r_s = t1506;
+        static struct u_object l__63__1506 = U_LIT("?");
+        u_value t1507 = u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, &l__63__1506), u_str_show(u_add(f_check_46_State_46_count_1(*r_s), u_mk_int(1))));
+        *r_m = t1507;
+        u_value t1508 = f_check_46_State_46_pending_58__61__2(f_check_46_State_46_count_58__61__2(*r_s, u_add(f_check_46_State_46_count_1(*r_s), u_mk_int(1))), f_list_46__43__43__2(f_check_46_State_46_pending_1(*r_s), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_check_46_Pending, 4, *r_m, v_n, f_list_46_firsts_1(v_ok), v_w), &o_list_46_Nil)));
+        *r_s = t1508;
       }
     }
-    if (!d1501) {
-      u_no_case(s1500);
+    if (!d1503) {
+      u_no_case(s1502);
     }
   }
 }
@@ -18630,64 +19044,64 @@ void p_check_46_trials(u_value v_cs, u_value v_w, u_value v_s, u_value *r_ok) {
     u_value v_rest = NULL;
     u_value v_u = NULL;
     u_value v_failed = NULL;
-    u_value s1507 = v_cs;
-    int d1508 = 0;
-    if ((!d1508) && u_is_con(s1507, &n_list_46_Nil)) {
-      d1508 = 1;
+    u_value s1509 = v_cs;
+    int d1510 = 0;
+    if ((!d1510) && u_is_con(s1509, &n_list_46_Nil)) {
+      d1510 = 1;
       {
-        u_value t1509 = &o_list_46_Nil;
-        *r_ok = t1509;
+        u_value t1511 = &o_list_46_Nil;
+        *r_ok = t1511;
       }
     }
-    if ((!d1508) && u_is_con(s1507, &n_list_46_Cons)) {
-      u_value v_m = u_field(u_field(s1507, 0), 0);
-      u_value v_sc = u_field(u_field(s1507, 0), 1);
-      u_value v_more = u_field(s1507, 1);
-      d1508 = 1;
+    if ((!d1510) && u_is_con(s1509, &n_list_46_Cons)) {
+      u_value v_m = u_field(u_field(s1509, 0), 0);
+      u_value v_sc = u_field(u_field(s1509, 0), 1);
+      u_value v_more = u_field(s1509, 1);
+      d1510 = 1;
       {
         p_check_46_trials(v_more, v_w, v_s, &v_rest);
-        u_value t1510 = v_s;
-        u_value t1511 = &o_option_46_None;
-        v_u = t1510;
-        v_failed = t1511;
+        u_value t1512 = v_s;
+        u_value t1513 = &o_option_46_None;
+        v_u = t1512;
+        v_failed = t1513;
         {
-          struct u_handler *h1512 = u_push();
-          if (setjmp(h1512->env) == 0) {
+          struct u_handler *h1514 = u_push();
+          if (setjmp(h1514->env) == 0) {
             {
               p_check_46_trial(v_sc, v_w, &v_u);
             }
-            u_pop(h1512);
+            u_pop(h1514);
           } else {
-            u_pop(h1512);
-            int d1513 = 0;
-            if ((!d1513) && u_has_type(h1512, "check.TypeError")) {
-              u_value v_e = u_caught(h1512);
-              d1513 = 1;
+            u_pop(h1514);
+            int d1515 = 0;
+            if ((!d1515) && u_has_type(h1514, "check.TypeError")) {
+              u_value v_e = u_caught(h1514);
+              d1515 = 1;
               {
-                u_value t1514 = u_mk_con(&n_option_46_Some, 1, v_e);
-                v_failed = t1514;
+                u_value t1516 = u_mk_con(&n_option_46_Some, 1, v_e);
+                v_failed = t1516;
               }
             }
-            if (!d1513) {
-              u_reraise(h1512);
+            if (!d1515) {
+              u_reraise(h1514);
             }
           }
         }
         if (u_truth(u_eq(v_failed, &o_option_46_None))) {
           {
-            u_value t1515 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_tuple(2, v_m, v_sc), v_u), v_rest);
-            *r_ok = t1515;
+            u_value t1517 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_tuple(2, v_m, v_sc), v_u), v_rest);
+            *r_ok = t1517;
           }
         } else {
           {
-            u_value t1516 = v_rest;
-            *r_ok = t1516;
+            u_value t1518 = v_rest;
+            *r_ok = t1518;
           }
         }
       }
     }
-    if (!d1508) {
-      u_no_case(s1507);
+    if (!d1510) {
+      u_no_case(s1509);
     }
   }
 }
@@ -18704,20 +19118,20 @@ void p_check_46_solve(u_value *r_s) {
   {
     u_value v_changed = NULL;
     u_value v_ps = NULL;
-    u_value t1517 = u_mk_bool(1);
-    v_changed = t1517;
-    u_value t1521 = v_changed;
-    while (u_truth(t1521)) {
+    u_value t1519 = u_mk_bool(1);
+    v_changed = t1519;
+    u_value t1523 = v_changed;
+    while (u_truth(t1523)) {
       {
-        u_value t1518 = f_check_46_State_46_pending_1(*r_s);
-        u_value t1519 = u_mk_bool(0);
-        v_ps = t1518;
-        v_changed = t1519;
-        u_value t1520 = f_check_46_State_46_pending_58__61__2(*r_s, &o_list_46_Nil);
-        *r_s = t1520;
+        u_value t1520 = f_check_46_State_46_pending_1(*r_s);
+        u_value t1521 = u_mk_bool(0);
+        v_ps = t1520;
+        v_changed = t1521;
+        u_value t1522 = f_check_46_State_46_pending_58__61__2(*r_s, &o_list_46_Nil);
+        *r_s = t1522;
         p_check_46_revisit(v_ps, &v_changed, r_s);
       }
-      t1521 = v_changed;
+      t1523 = v_changed;
     }
   }
 }
@@ -18725,59 +19139,71 @@ void p_check_46_solve(u_value *r_s) {
 void p_check_46_revisit(u_value v_ps, u_value *r_changed, u_value *r_s) {
   {
     u_value v_ok = NULL;
-    u_value s1522 = v_ps;
-    int d1523 = 0;
-    if ((!d1523) && u_is_con(s1522, &n_list_46_Nil)) {
-      d1523 = 1;
+    u_value v_best = NULL;
+    u_value s1524 = v_ps;
+    int d1525 = 0;
+    if ((!d1525) && u_is_con(s1524, &n_list_46_Nil)) {
+      d1525 = 1;
       {
       }
     }
-    if ((!d1523) && u_is_con(s1522, &n_list_46_Cons)) {
-      u_value v_p = u_field(s1522, 0);
-      u_value v_rest = u_field(s1522, 1);
-      d1523 = 1;
+    if ((!d1525) && u_is_con(s1524, &n_list_46_Cons)) {
+      u_value v_p = u_field(s1524, 0);
+      u_value v_rest = u_field(s1524, 1);
+      d1525 = 1;
       {
         p_check_46_trials(f_check_46_Pending_46_cands_1(v_p), f_check_46_Pending_46_typ_1(v_p), *r_s, &v_ok);
-        u_value s1524 = v_ok;
-        int d1525 = 0;
-        if ((!d1525) && u_is_con(s1524, &n_list_46_Nil)) {
-          d1525 = 1;
+        u_value t1526 = f_prelude_46__62__2(f_list_46_size_1(v_ok), u_mk_int(1));
+        if (u_truth(t1526)) {
+          t1526 = f_check_46_known_type_2(f_check_46_State_46_sub_1(*r_s), f_check_46_Pending_46_typ_1(v_p));
+        }
+        if (u_truth(t1526)) {
+          {
+            p_check_46_decide(v_ok, f_check_46_Pending_46_typ_1(v_p), *r_s, &v_best);
+            u_value t1527 = v_best;
+            v_ok = t1527;
+          }
+        }
+        u_value s1528 = v_ok;
+        int d1529 = 0;
+        if ((!d1529) && u_is_con(s1528, &n_list_46_Nil)) {
+          d1529 = 1;
           {
             u_raise(u_mk_con(&n_check_46_NoOverload, 2, f_check_46_Pending_46_name_1(v_p), f_check_46_zonk_type_2(f_check_46_State_46_sub_1(*r_s), f_check_46_Pending_46_typ_1(v_p))), "check.TypeError");
           }
         }
-        if ((!d1525) && (u_is_con(s1524, &n_list_46_Cons) && u_is_con(u_field(s1524, 1), &n_list_46_Nil))) {
-          u_value v_m = u_field(u_field(u_field(s1524, 0), 0), 0);
-          u_value v_s1 = u_field(u_field(s1524, 0), 1);
-          d1525 = 1;
+        if ((!d1529) && (u_is_con(s1528, &n_list_46_Cons) && u_is_con(u_field(s1528, 1), &n_list_46_Nil))) {
+          u_value v_m = u_field(u_field(u_field(s1528, 0), 0), 0);
+          u_value v_s1 = u_field(u_field(s1528, 0), 1);
+          d1529 = 1;
           {
-            u_value t1526 = f_check_46_State_46_chosen_58__61__2(v_s1, f_map_46_put_3(f_check_46_Pending_46_id_1(v_p), v_m, f_check_46_State_46_chosen_1(v_s1)));
-            *r_s = t1526;
-            u_value t1527 = u_mk_bool(1);
-            *r_changed = t1527;
+            u_value t1530 = f_check_46_State_46_chosen_58__61__2(v_s1, f_map_46_put_3(f_check_46_Pending_46_id_1(v_p), v_m, f_check_46_State_46_chosen_1(v_s1)));
+            *r_s = t1530;
+            u_value t1531 = u_mk_bool(1);
+            *r_changed = t1531;
           }
         }
-        if (!d1525) {
-          d1525 = 1;
+        if (!d1529) {
+          d1529 = 1;
           {
-            u_value t1528 = f_check_46_State_46_pending_58__61__2(*r_s, f_list_46__43__43__2(f_check_46_State_46_pending_1(*r_s), u_mk_con(&n_list_46_Cons, 2, f_check_46_Pending_46_cands_58__61__2(v_p, f_list_46_firsts_1(v_ok)), &o_list_46_Nil)));
-            *r_s = t1528;
+            u_value t1532 = f_check_46_State_46_pending_58__61__2(*r_s, f_list_46__43__43__2(f_check_46_State_46_pending_1(*r_s), u_mk_con(&n_list_46_Cons, 2, f_check_46_Pending_46_cands_58__61__2(v_p, f_list_46_firsts_1(v_ok)), &o_list_46_Nil)));
+            *r_s = t1532;
             if (u_truth(u_lt(f_list_46_size_1(v_ok), f_list_46_size_1(f_check_46_Pending_46_cands_1(v_p))))) {
               {
-                u_value t1529 = u_mk_bool(1);
-                *r_changed = t1529;
+                u_value t1533 = u_mk_bool(1);
+                *r_changed = t1533;
               }
             }
           }
         }
-        if (!d1525) {
-          u_no_case(s1524);
+        if (!d1529) {
+          u_no_case(s1528);
         }
         p_check_46_revisit(v_rest, r_changed, r_s);
       }
     }
-    if (!d1523) {
-      u_no_case(s1522);
+    if (!d1525) {
+      u_no_case(s1524);
     }
   }
 }
@@ -18785,77 +19211,311 @@ void p_check_46_revisit(u_value v_ps, u_value *r_changed, u_value *r_s) {
 void p_check_46_settle(u_value *r_s) {
   {
     u_value v_ok = NULL;
+    u_value v_best = NULL;
     p_check_46_solve(r_s);
-    u_value t1535 = f_prelude_46__33__61__2(f_check_46_State_46_pending_1(*r_s), &o_list_46_Nil);
-    while (u_truth(t1535)) {
+    u_value t1539 = f_prelude_46__33__61__2(f_check_46_State_46_pending_1(*r_s), &o_list_46_Nil);
+    while (u_truth(t1539)) {
       {
-        u_value s1530 = f_check_46_State_46_pending_1(*r_s);
-        int d1531 = 0;
-        if ((!d1531) && u_is_con(s1530, &n_list_46_Cons)) {
-          u_value v_p = u_field(s1530, 0);
-          u_value v_rest = u_field(s1530, 1);
-          d1531 = 1;
+        u_value s1534 = f_check_46_State_46_pending_1(*r_s);
+        int d1535 = 0;
+        if ((!d1535) && u_is_con(s1534, &n_list_46_Cons)) {
+          u_value v_p = u_field(s1534, 0);
+          u_value v_rest = u_field(s1534, 1);
+          d1535 = 1;
           {
-            p_check_46_trials(f_check_46_own_2(*r_s, f_check_46_Pending_46_cands_1(v_p)), f_check_46_Pending_46_typ_1(v_p), *r_s, &v_ok);
-            u_value s1532 = v_ok;
-            int d1533 = 0;
-            if ((!d1533) && (u_is_con(s1532, &n_list_46_Cons) && u_is_con(u_field(s1532, 1), &n_list_46_Nil))) {
-              u_value v_m = u_field(u_field(u_field(s1532, 0), 0), 0);
-              u_value v_s1 = u_field(u_field(s1532, 0), 1);
-              d1533 = 1;
+            p_check_46_trials(f_check_46_Pending_46_cands_1(v_p), f_check_46_Pending_46_typ_1(v_p), *r_s, &v_ok);
+            p_check_46_decide(v_ok, f_check_46_Pending_46_typ_1(v_p), *r_s, &v_best);
+            u_value s1536 = v_best;
+            int d1537 = 0;
+            if ((!d1537) && (u_is_con(s1536, &n_list_46_Cons) && u_is_con(u_field(s1536, 1), &n_list_46_Nil))) {
+              u_value v_m = u_field(u_field(u_field(s1536, 0), 0), 0);
+              u_value v_s1 = u_field(u_field(s1536, 0), 1);
+              d1537 = 1;
               {
-                u_value t1534 = f_check_46_State_46_chosen_58__61__2(f_check_46_State_46_pending_58__61__2(v_s1, v_rest), f_map_46_put_3(f_check_46_Pending_46_id_1(v_p), v_m, f_check_46_State_46_chosen_1(v_s1)));
-                *r_s = t1534;
+                u_value t1538 = f_check_46_State_46_chosen_58__61__2(f_check_46_State_46_pending_58__61__2(v_s1, v_rest), f_map_46_put_3(f_check_46_Pending_46_id_1(v_p), v_m, f_check_46_State_46_chosen_1(v_s1)));
+                *r_s = t1538;
                 p_check_46_solve(r_s);
               }
             }
-            if (!d1533) {
-              d1533 = 1;
+            if (!d1537) {
+              d1537 = 1;
               {
                 u_raise(u_mk_con(&n_check_46_Ambiguous, 2, f_check_46_Pending_46_name_1(v_p), f_list_46_firsts_1(f_check_46_Pending_46_cands_1(v_p))), "check.TypeError");
               }
             }
-            if (!d1533) {
-              u_no_case(s1532);
+            if (!d1537) {
+              u_no_case(s1536);
             }
           }
         }
-        if ((!d1531) && u_is_con(s1530, &n_list_46_Nil)) {
-          d1531 = 1;
+        if ((!d1535) && u_is_con(s1534, &n_list_46_Nil)) {
+          d1535 = 1;
           {
           }
         }
-        if (!d1531) {
-          u_no_case(s1530);
+        if (!d1535) {
+          u_no_case(s1534);
         }
       }
-      t1535 = f_prelude_46__33__61__2(f_check_46_State_46_pending_1(*r_s), &o_list_46_Nil);
+      t1539 = f_prelude_46__33__61__2(f_check_46_State_46_pending_1(*r_s), &o_list_46_Nil);
     }
   }
 }
 
-u_value f_check_46_own_2(u_value v_s, u_value v_cs) {
-  u_value s1536 = v_cs;
-  u_value t1537 = NULL;
-  if ((!t1537) && u_is_con(s1536, &n_list_46_Nil)) {
-    t1537 = &o_list_46_Nil;
-  }
-  if ((!t1537) && u_is_con(s1536, &n_list_46_Cons)) {
-    u_value v_n = u_field(u_field(s1536, 0), 0);
-    u_value v_a = u_field(u_field(s1536, 0), 1);
-    u_value v_rest = u_field(s1536, 1);
-    u_value t1538;
-    if (u_truth(u_eq(f_syntax_46_Name_46_module_1(v_n), u_mk_con(&n_option_46_Some, 1, f_check_46_State_46_module_1(v_s))))) {
-      t1538 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, v_a), f_check_46_own_2(v_s, v_rest));
-    } else {
-      t1538 = f_check_46_own_2(v_s, v_rest);
+u_value f_check_46_known_type_2(u_value v_su, u_value v_t) {
+  u_value t1540 = &o_list_46_Nil;
+  u_value *e1541 = &t1540;
+  u_value l1542 = f_check_46_free_1(f_check_46_zonk_type_2(v_su, v_t));
+  while (u_is_con(l1542, &n_list_46_Cons)) {
+    u_value v_m = u_field(l1542, 0);
+    if (u_truth(f_check_46_is_meta_1(v_m))) {
+      e1541 = u_append(e1541, v_m);
     }
-    t1537 = t1538;
+    l1542 = u_field(l1542, 1);
   }
-  if (!t1537) {
-    u_no_case(s1536);
+  return u_eq(t1540, &o_list_46_Nil);
+}
+
+void p_check_46_decide(u_value v_ok, u_value v_w, u_value v_s, u_value *r_picked) {
+  {
+    u_value v_best = NULL;
+    p_check_46_most(v_ok, v_ok, f_check_46_known_type_2(f_check_46_State_46_sub_1(v_s), v_w), v_s, &v_best);
+    u_value s1543 = u_mk_tuple(2, v_best, f_check_46_own_fits_2(v_s, v_ok));
+    int d1544 = 0;
+    if ((!d1544) && (u_is_con(u_field(s1543, 0), &n_list_46_Cons) && u_is_con(u_field(u_field(s1543, 0), 1), &n_list_46_Nil))) {
+      u_value v_b = u_field(u_field(s1543, 0), 0);
+      d1544 = 1;
+      {
+        u_value t1545 = u_mk_con(&n_list_46_Cons, 2, v_b, &o_list_46_Nil);
+        *r_picked = t1545;
+      }
+    }
+    if ((!d1544) && (u_is_con(u_field(s1543, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s1543, 1), 1), &n_list_46_Nil))) {
+      u_value v_o = u_field(u_field(s1543, 1), 0);
+      d1544 = 1;
+      {
+        u_value t1546 = u_mk_con(&n_list_46_Cons, 2, v_o, &o_list_46_Nil);
+        *r_picked = t1546;
+      }
+    }
+    if (!d1544) {
+      d1544 = 1;
+      {
+        u_value t1547 = v_ok;
+        *r_picked = t1547;
+      }
+    }
+    if (!d1544) {
+      u_no_case(s1543);
+    }
   }
-  return t1537;
+}
+
+u_value f_check_46_own_fits_2(u_value v_s, u_value v_ok) {
+  u_value s1548 = v_ok;
+  u_value t1549 = NULL;
+  if ((!t1549) && u_is_con(s1548, &n_list_46_Nil)) {
+    t1549 = &o_list_46_Nil;
+  }
+  if ((!t1549) && u_is_con(s1548, &n_list_46_Cons)) {
+    u_value v_n = u_field(u_field(u_field(s1548, 0), 0), 0);
+    u_value v_sc = u_field(u_field(u_field(s1548, 0), 0), 1);
+    u_value v_u = u_field(u_field(s1548, 0), 1);
+    u_value v_rest = u_field(s1548, 1);
+    u_value t1550;
+    if (u_truth(u_eq(f_syntax_46_Name_46_module_1(v_n), u_mk_con(&n_option_46_Some, 1, f_check_46_State_46_module_1(v_s))))) {
+      t1550 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_tuple(2, v_n, v_sc), v_u), f_check_46_own_fits_2(v_s, v_rest));
+    } else {
+      t1550 = f_check_46_own_fits_2(v_s, v_rest);
+    }
+    t1549 = t1550;
+  }
+  if (!t1549) {
+    u_no_case(s1548);
+  }
+  return t1549;
+}
+
+void p_check_46_most(u_value v_cs, u_value v_all, u_value v_specific, u_value v_s, u_value *r_best) {
+  {
+    u_value v_rest = NULL;
+    u_value v_yes = NULL;
+    u_value s1551 = v_cs;
+    int d1552 = 0;
+    if ((!d1552) && u_is_con(s1551, &n_list_46_Nil)) {
+      d1552 = 1;
+      {
+        u_value t1553 = &o_list_46_Nil;
+        *r_best = t1553;
+      }
+    }
+    if ((!d1552) && u_is_con(s1551, &n_list_46_Cons)) {
+      u_value v_c = u_field(s1551, 0);
+      u_value v_more = u_field(s1551, 1);
+      d1552 = 1;
+      {
+        p_check_46_most(v_more, v_all, v_specific, v_s, &v_rest);
+        p_check_46_dominates(f_check_46_fst_of_1(v_c), f_list_46_firsts_1(v_all), v_specific, v_s, &v_yes);
+        if (u_truth(v_yes)) {
+          {
+            u_value t1554 = u_mk_con(&n_list_46_Cons, 2, v_c, v_rest);
+            *r_best = t1554;
+          }
+        } else {
+          {
+            u_value t1555 = v_rest;
+            *r_best = t1555;
+          }
+        }
+      }
+    }
+    if (!d1552) {
+      u_no_case(s1551);
+    }
+  }
+}
+
+u_value f_check_46_fst_of_1(u_value v_p) {
+  u_value s1556 = v_p;
+  u_value t1557 = NULL;
+  if (!t1557) {
+    u_value v_a = u_field(s1556, 0);
+    t1557 = v_a;
+  }
+  if (!t1557) {
+    u_no_case(s1556);
+  }
+  return t1557;
+}
+
+void p_check_46_dominates(u_value v_c, u_value v_ds, u_value v_specific, u_value v_s, u_value *r_yes) {
+  {
+    u_value v_related = NULL;
+    u_value s1558 = v_ds;
+    int d1559 = 0;
+    if ((!d1559) && u_is_con(s1558, &n_list_46_Nil)) {
+      d1559 = 1;
+      {
+        u_value t1560 = u_mk_bool(1);
+        *r_yes = t1560;
+      }
+    }
+    if ((!d1559) && u_is_con(s1558, &n_list_46_Cons)) {
+      u_value v_d = u_field(s1558, 0);
+      u_value v_rest = u_field(s1558, 1);
+      d1559 = 1;
+      {
+        if (u_truth(u_eq(v_d, v_c))) {
+          {
+            p_check_46_dominates(v_c, v_rest, v_specific, v_s, r_yes);
+          }
+        } else {
+          {
+            p_check_46_related_to(v_c, v_d, v_specific, v_s, &v_related);
+            if (u_truth(v_related)) {
+              {
+                p_check_46_dominates(v_c, v_rest, v_specific, v_s, r_yes);
+              }
+            } else {
+              {
+                u_value t1561 = u_mk_bool(0);
+                *r_yes = t1561;
+              }
+            }
+          }
+        }
+      }
+    }
+    if (!d1559) {
+      u_no_case(s1558);
+    }
+  }
+}
+
+void p_check_46_related_to(u_value v_c, u_value v_d, u_value v_specific, u_value v_s, u_value *r_yes) {
+  {
+    if (u_truth(v_specific)) {
+      {
+        p_check_46_instance_of(v_c, v_d, v_s, r_yes);
+      }
+    } else {
+      {
+        p_check_46_instance_of(v_d, v_c, v_s, r_yes);
+      }
+    }
+  }
+}
+
+void p_check_46_instance_of(u_value v_c, u_value v_d, u_value v_s, u_value *r_yes) {
+  {
+    u_value v_u = NULL;
+    u_value v_failed = NULL;
+    u_value t1562 = v_s;
+    v_u = t1562;
+    u_value t1563 = &o_option_46_None;
+    v_failed = t1563;
+    u_value s1564 = u_mk_tuple(2, v_c, v_d);
+    int d1565 = 0;
+    if (!d1565) {
+      u_value v_t = u_field(u_field(u_field(s1564, 0), 1), 1);
+      u_value v_sc = u_field(u_field(s1564, 1), 1);
+      d1565 = 1;
+      {
+        {
+          struct u_handler *h1566 = u_push();
+          if (setjmp(h1566->env) == 0) {
+            {
+              p_check_46_trial(v_sc, v_t, &v_u);
+            }
+            u_pop(h1566);
+          } else {
+            u_pop(h1566);
+            int d1567 = 0;
+            if ((!d1567) && u_has_type(h1566, "check.TypeError")) {
+              u_value v_e = u_caught(h1566);
+              d1567 = 1;
+              {
+                u_value t1568 = u_mk_con(&n_option_46_Some, 1, v_e);
+                v_failed = t1568;
+              }
+            }
+            if (!d1567) {
+              u_reraise(h1566);
+            }
+          }
+        }
+      }
+    }
+    if (!d1565) {
+      u_no_case(s1564);
+    }
+    u_value t1569 = u_eq(v_failed, &o_option_46_None);
+    *r_yes = t1569;
+  }
+}
+
+u_value f_check_46_own_2(u_value v_s, u_value v_cs) {
+  u_value s1570 = v_cs;
+  u_value t1571 = NULL;
+  if ((!t1571) && u_is_con(s1570, &n_list_46_Nil)) {
+    t1571 = &o_list_46_Nil;
+  }
+  if ((!t1571) && u_is_con(s1570, &n_list_46_Cons)) {
+    u_value v_n = u_field(u_field(s1570, 0), 0);
+    u_value v_a = u_field(u_field(s1570, 0), 1);
+    u_value v_rest = u_field(s1570, 1);
+    u_value t1572;
+    if (u_truth(u_eq(f_syntax_46_Name_46_module_1(v_n), u_mk_con(&n_option_46_Some, 1, f_check_46_State_46_module_1(v_s))))) {
+      t1572 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, v_a), f_check_46_own_2(v_s, v_rest));
+    } else {
+      t1572 = f_check_46_own_2(v_s, v_rest);
+    }
+    t1571 = t1572;
+  }
+  if (!t1571) {
+    u_no_case(s1570);
+  }
+  return t1571;
 }
 
 void p_check_46_infer(u_value v_env, u_value v_e, u_value *r_e1, u_value *r_t, u_value *r_s) {
@@ -18875,168 +19535,168 @@ void p_check_46_infer(u_value v_env, u_value v_e, u_value *r_e1, u_value *r_t, u
     u_value v_ts = NULL;
     u_value v_bs = NULL;
     u_value v_y = NULL;
-    u_value s1539 = v_e;
-    int d1540 = 0;
-    if ((!d1540) && u_is_con(s1539, &n_syntax_46_ELit)) {
-      u_value v_v = u_field(s1539, 0);
-      d1540 = 1;
+    u_value s1573 = v_e;
+    int d1574 = 0;
+    if ((!d1574) && u_is_con(s1573, &n_syntax_46_ELit)) {
+      u_value v_v = u_field(s1573, 0);
+      d1574 = 1;
       {
-        u_value t1541 = v_e;
-        u_value t1542 = f_check_46_literal_1(v_v);
-        *r_e1 = t1541;
-        *r_t = t1542;
+        u_value t1575 = v_e;
+        u_value t1576 = f_check_46_literal_1(v_v);
+        *r_e1 = t1575;
+        *r_t = t1576;
       }
     }
-    if ((!d1540) && (u_is_con(s1539, &n_syntax_46_EVar) && u_is_con(u_field(s1539, 0), &n_syntax_46_Var))) {
-      u_value v_n = u_field(u_field(s1539, 0), 0);
-      u_value v_a = u_field(u_field(s1539, 0), 1);
-      d1540 = 1;
+    if ((!d1574) && (u_is_con(s1573, &n_syntax_46_EVar) && u_is_con(u_field(s1573, 0), &n_syntax_46_Var))) {
+      u_value v_n = u_field(u_field(s1573, 0), 0);
+      u_value v_a = u_field(u_field(s1573, 0), 1);
+      d1574 = 1;
       {
         p_check_46_normalize(v_a, &v_w, r_s);
         p_check_46_use_name(v_n, f_check_46_candidates_3(*r_s, v_env, v_n), v_w, &v_x, r_s);
-        u_value t1543 = u_mk_con(&n_syntax_46_EVar, 1, v_x);
-        u_value t1544 = f_syntax_46_Var_46_typ_1(v_x);
-        *r_e1 = t1543;
-        *r_t = t1544;
+        u_value t1577 = u_mk_con(&n_syntax_46_EVar, 1, v_x);
+        u_value t1578 = f_syntax_46_Var_46_typ_1(v_x);
+        *r_e1 = t1577;
+        *r_t = t1578;
       }
     }
-    if ((!d1540) && u_is_con(s1539, &n_syntax_46_EApp)) {
-      u_value v_f = u_field(s1539, 0);
-      u_value v_args = u_field(s1539, 1);
-      d1540 = 1;
+    if ((!d1574) && u_is_con(s1573, &n_syntax_46_EApp)) {
+      u_value v_f = u_field(s1573, 0);
+      u_value v_args = u_field(s1573, 1);
+      d1574 = 1;
       {
         p_check_46_application(v_env, v_f, v_args, r_e1, r_t, r_s);
       }
     }
-    if ((!d1540) && u_is_con(s1539, &n_syntax_46_ELam)) {
-      u_value v_bound = u_field(s1539, 0);
-      u_value v_body = u_field(s1539, 1);
-      d1540 = 1;
+    if ((!d1574) && u_is_con(s1573, &n_syntax_46_ELam)) {
+      u_value v_bound = u_field(s1573, 0);
+      u_value v_body = u_field(s1573, 1);
+      d1574 = 1;
       {
         p_check_46_formals(v_bound, &v_xs, r_s);
         p_check_46_infer(f_list_46__43__43__2(f_check_46_bind_1(v_xs), v_env), v_body, &v_b, &v_u, r_s);
-        u_value t1545 = u_mk_con(&n_syntax_46_ELam, 2, v_xs, v_b);
-        u_value t1546 = f_check_46_fun_2(f_syntax_46_types_1(v_xs), v_u);
-        *r_e1 = t1545;
-        *r_t = t1546;
+        u_value t1579 = u_mk_con(&n_syntax_46_ELam, 2, v_xs, v_b);
+        u_value t1580 = f_check_46_fun_2(f_syntax_46_types_1(v_xs), v_u);
+        *r_e1 = t1579;
+        *r_t = t1580;
       }
     }
-    if ((!d1540) && u_is_con(s1539, &n_syntax_46_EProc)) {
-      u_value v_is = u_field(s1539, 0);
-      u_value v_os = u_field(s1539, 1);
-      u_value v_rs = u_field(s1539, 2);
-      u_value v_body = u_field(s1539, 3);
-      d1540 = 1;
+    if ((!d1574) && u_is_con(s1573, &n_syntax_46_EProc)) {
+      u_value v_is = u_field(s1573, 0);
+      u_value v_os = u_field(s1573, 1);
+      u_value v_rs = u_field(s1573, 2);
+      u_value v_body = u_field(s1573, 3);
+      d1574 = 1;
       {
         p_check_46_unique(f_syntax_46_names_1(f_list_46__43__43__2(v_is, f_list_46__43__43__2(v_os, v_rs))));
         p_check_46_formals(v_is, &v_xs, r_s);
         p_check_46_formals(v_os, &v_ys, r_s);
         p_check_46_formals(v_rs, &v_zs, r_s);
         p_check_46_statement(f_list_46__43__43__2(f_check_46_bind_1(f_list_46__43__43__2(v_xs, f_list_46__43__43__2(v_ys, v_zs))), v_env), f_syntax_46_names_1(f_list_46__43__43__2(v_ys, v_zs)), v_body, &v_y, r_s);
-        u_value t1547 = u_mk_con(&n_syntax_46_EProc, 4, v_xs, v_ys, v_zs, v_y);
-        u_value t1548 = u_mk_con(&n_syntax_46_TProc, 3, f_syntax_46_types_1(v_xs), f_syntax_46_types_1(v_ys), f_syntax_46_types_1(v_zs));
-        *r_e1 = t1547;
-        *r_t = t1548;
+        u_value t1581 = u_mk_con(&n_syntax_46_EProc, 4, v_xs, v_ys, v_zs, v_y);
+        u_value t1582 = u_mk_con(&n_syntax_46_TProc, 3, f_syntax_46_types_1(v_xs), f_syntax_46_types_1(v_ys), f_syntax_46_types_1(v_zs));
+        *r_e1 = t1581;
+        *r_t = t1582;
       }
     }
-    if ((!d1540) && u_is_con(s1539, &n_syntax_46_ELet)) {
-      u_value v_bound = u_field(s1539, 0);
-      u_value v_body = u_field(s1539, 1);
-      d1540 = 1;
+    if ((!d1574) && u_is_con(s1573, &n_syntax_46_ELet)) {
+      u_value v_bound = u_field(s1573, 0);
+      u_value v_body = u_field(s1573, 1);
+      d1574 = 1;
       {
         p_check_46_formals(f_list_46_firsts_1(v_bound), &v_xs, r_s);
         p_check_46_checks(v_env, f_list_46_seconds_1(v_bound), f_syntax_46_types_1(v_xs), &v_es, r_s);
         p_check_46_solve(r_s);
         p_check_46_infer(f_list_46__43__43__2(f_check_46_generalized_3(*r_s, v_env, v_xs), v_env), v_body, &v_b, &v_u, r_s);
-        u_value t1549 = u_mk_con(&n_syntax_46_ELet, 2, f_list_46_zip_2(v_xs, v_es), v_b);
-        u_value t1550 = v_u;
-        *r_e1 = t1549;
-        *r_t = t1550;
+        u_value t1583 = u_mk_con(&n_syntax_46_ELet, 2, f_list_46_zip_2(v_xs, v_es), v_b);
+        u_value t1584 = v_u;
+        *r_e1 = t1583;
+        *r_t = t1584;
       }
     }
-    if ((!d1540) && u_is_con(s1539, &n_syntax_46_EIte)) {
-      u_value v_cond = u_field(s1539, 0);
-      u_value v_left = u_field(s1539, 1);
-      u_value v_right = u_field(s1539, 2);
-      d1540 = 1;
+    if ((!d1574) && u_is_con(s1573, &n_syntax_46_EIte)) {
+      u_value v_cond = u_field(s1573, 0);
+      u_value v_left = u_field(s1573, 1);
+      u_value v_right = u_field(s1573, 2);
+      d1574 = 1;
       {
         p_check_46_check(v_env, v_cond, f_check_46_tbool_0(), &v_c, r_s);
         p_check_46_infer(v_env, v_left, &v_l, &v_u, r_s);
         p_check_46_check(v_env, v_right, v_u, &v_b, r_s);
-        u_value t1551 = u_mk_con(&n_syntax_46_EIte, 3, v_c, v_l, v_b);
-        u_value t1552 = v_u;
-        *r_e1 = t1551;
-        *r_t = t1552;
+        u_value t1585 = u_mk_con(&n_syntax_46_EIte, 3, v_c, v_l, v_b);
+        u_value t1586 = v_u;
+        *r_e1 = t1585;
+        *r_t = t1586;
       }
     }
-    if ((!d1540) && u_is_con(s1539, &n_syntax_46_EComp)) {
-      u_value v_result = u_field(s1539, 0);
-      u_value v_bound = u_field(s1539, 1);
-      u_value v_lists = u_field(s1539, 2);
-      u_value v_cond = u_field(s1539, 3);
-      d1540 = 1;
+    if ((!d1574) && u_is_con(s1573, &n_syntax_46_EComp)) {
+      u_value v_result = u_field(s1573, 0);
+      u_value v_bound = u_field(s1573, 1);
+      u_value v_lists = u_field(s1573, 2);
+      u_value v_cond = u_field(s1573, 3);
+      d1574 = 1;
       {
         p_check_46_formals(v_bound, &v_xs, r_s);
         p_check_46_same_length(f_list_46_size_1(v_xs), f_list_46_size_1(v_lists));
         p_check_46_generators(v_env, v_xs, v_lists, &v_es, r_s);
         p_check_46_check(f_list_46__43__43__2(f_check_46_bind_1(v_xs), v_env), v_cond, f_check_46_tbool_0(), &v_c, r_s);
         p_check_46_infer(f_list_46__43__43__2(f_check_46_bind_1(v_xs), v_env), v_result, &v_b, &v_u, r_s);
-        u_value t1553 = u_mk_con(&n_syntax_46_EComp, 4, v_b, v_xs, v_es, v_c);
-        u_value t1554 = f_check_46_tlist_1(v_u);
-        *r_e1 = t1553;
-        *r_t = t1554;
+        u_value t1587 = u_mk_con(&n_syntax_46_EComp, 4, v_b, v_xs, v_es, v_c);
+        u_value t1588 = f_check_46_tlist_1(v_u);
+        *r_e1 = t1587;
+        *r_t = t1588;
       }
     }
-    if ((!d1540) && u_is_con(s1539, &n_syntax_46_ETuple)) {
-      u_value v_items = u_field(s1539, 0);
-      d1540 = 1;
+    if ((!d1574) && u_is_con(s1573, &n_syntax_46_ETuple)) {
+      u_value v_items = u_field(s1573, 0);
+      d1574 = 1;
       {
         p_check_46_infers(v_env, v_items, &v_es, &v_ts, r_s);
-        u_value t1555 = u_mk_con(&n_syntax_46_ETuple, 1, v_es);
-        u_value t1556 = u_mk_con(&n_syntax_46_TTuple, 1, v_ts);
-        *r_e1 = t1555;
-        *r_t = t1556;
+        u_value t1589 = u_mk_con(&n_syntax_46_ETuple, 1, v_es);
+        u_value t1590 = u_mk_con(&n_syntax_46_TTuple, 1, v_ts);
+        *r_e1 = t1589;
+        *r_t = t1590;
       }
     }
-    if ((!d1540) && u_is_con(s1539, &n_syntax_46_ERaise)) {
-      u_value v_arg = u_field(s1539, 0);
-      u_value v_a = u_field(s1539, 1);
-      d1540 = 1;
+    if ((!d1574) && u_is_con(s1573, &n_syntax_46_ERaise)) {
+      u_value v_arg = u_field(s1573, 0);
+      u_value v_a = u_field(s1573, 1);
+      d1574 = 1;
       {
         p_check_46_infer(v_env, v_arg, &v_c, &v_u, r_s);
         p_check_46_normalize(v_a, &v_w, r_s);
         p_check_46_unify(v_u, v_w, r_s);
         p_check_46_fresh(r_t, r_s);
-        u_value t1557 = u_mk_con(&n_syntax_46_ERaise, 2, v_c, v_u);
-        *r_e1 = t1557;
+        u_value t1591 = u_mk_con(&n_syntax_46_ERaise, 2, v_c, v_u);
+        *r_e1 = t1591;
       }
     }
-    if ((!d1540) && u_is_con(s1539, &n_syntax_46_EMatch)) {
-      u_value v_arg = u_field(s1539, 0);
-      u_value v_cases = u_field(s1539, 1);
-      d1540 = 1;
+    if ((!d1574) && u_is_con(s1573, &n_syntax_46_EMatch)) {
+      u_value v_arg = u_field(s1573, 0);
+      u_value v_cases = u_field(s1573, 1);
+      d1574 = 1;
       {
         p_check_46_fresh(r_t, r_s);
         p_check_46_infer(v_env, v_arg, &v_c, &v_u, r_s);
         p_check_46_expr_branches(v_env, v_cases, v_u, *r_t, &v_bs, r_s);
         p_check_46_solve(r_s);
-        u_value t1558 = &o_list_46_Nil;
-        u_value *e1559 = &t1558;
-        u_value l1560 = v_bs;
-        while (u_is_con(l1560, &n_list_46_Cons)) {
-          u_value v_br = u_field(l1560, 0);
+        u_value t1592 = &o_list_46_Nil;
+        u_value *e1593 = &t1592;
+        u_value l1594 = v_bs;
+        while (u_is_con(l1594, &n_list_46_Cons)) {
+          u_value v_br = u_field(l1594, 0);
           if (u_truth(u_mk_bool(1))) {
-            e1559 = u_append(e1559, f_check_46_case_of_1(v_br));
+            e1593 = u_append(e1593, f_check_46_case_of_1(v_br));
           }
-          l1560 = u_field(l1560, 1);
+          l1594 = u_field(l1594, 1);
         }
-        p_check_46_coverage(*r_s, v_u, t1558);
-        u_value t1561 = u_mk_con(&n_syntax_46_EMatch, 2, v_c, v_bs);
-        *r_e1 = t1561;
+        p_check_46_coverage(*r_s, v_u, t1592);
+        u_value t1595 = u_mk_con(&n_syntax_46_EMatch, 2, v_c, v_bs);
+        *r_e1 = t1595;
       }
     }
-    if (!d1540) {
-      u_no_case(s1539);
+    if (!d1574) {
+      u_no_case(s1573);
     }
   }
 }
@@ -19050,29 +19710,29 @@ void p_check_46_application(u_value v_env, u_value v_f, u_value v_args, u_value 
     u_value v_w = NULL;
     u_value v_args1 = NULL;
     u_value v_ts = NULL;
-    u_value s1562 = v_f;
-    int d1563 = 0;
-    if ((!d1563) && (u_is_con(s1562, &n_syntax_46_EVar) && (u_is_con(u_field(s1562, 0), &n_syntax_46_Var) && (u_is_con(u_field(u_field(s1562, 0), 0), &n_syntax_46_Name) && u_is_con(u_field(u_field(u_field(s1562, 0), 0), 0), &n_option_46_None))))) {
-      u_value v_b = u_field(u_field(u_field(s1562, 0), 0), 1);
-      u_value v_a = u_field(u_field(s1562, 0), 1);
-      u_value t1564 = f_prelude_46__62__2(u_str_size(v_b), u_mk_int(1));
-      if (u_truth(t1564)) {
-        t1564 = u_eq(u_str_get(v_b, u_mk_int(0)), u_mk_char(46));
+    u_value s1596 = v_f;
+    int d1597 = 0;
+    if ((!d1597) && (u_is_con(s1596, &n_syntax_46_EVar) && (u_is_con(u_field(s1596, 0), &n_syntax_46_Var) && (u_is_con(u_field(u_field(s1596, 0), 0), &n_syntax_46_Name) && u_is_con(u_field(u_field(u_field(s1596, 0), 0), 0), &n_option_46_None))))) {
+      u_value v_b = u_field(u_field(u_field(s1596, 0), 0), 1);
+      u_value v_a = u_field(u_field(s1596, 0), 1);
+      u_value t1598 = f_prelude_46__62__2(u_str_size(v_b), u_mk_int(1));
+      if (u_truth(t1598)) {
+        t1598 = u_eq(u_str_get(v_b, u_mk_int(0)), u_mk_char(46));
       }
-      if (u_truth(t1564)) {
-        d1563 = 1;
+      if (u_truth(t1598)) {
+        d1597 = 1;
         {
           p_check_46_field_access(v_env, v_b, v_a, v_args, r_e1, r_t, r_s);
         }
       }
     }
-    if ((!d1563) && (u_is_con(s1562, &n_syntax_46_EVar) && u_is_con(u_field(s1562, 0), &n_syntax_46_Var))) {
-      u_value v_n = u_field(u_field(s1562, 0), 0);
-      u_value v_a = u_field(u_field(s1562, 0), 1);
-      d1563 = 1;
+    if ((!d1597) && (u_is_con(s1596, &n_syntax_46_EVar) && u_is_con(u_field(s1596, 0), &n_syntax_46_Var))) {
+      u_value v_n = u_field(u_field(s1596, 0), 0);
+      u_value v_a = u_field(u_field(s1596, 0), 1);
+      d1597 = 1;
       {
-        u_value t1565 = f_check_46_candidates_3(*r_s, v_env, v_n);
-        v_cs = t1565;
+        u_value t1599 = f_check_46_candidates_3(*r_s, v_env, v_n);
+        v_cs = t1599;
         if (u_truth(f_prelude_46__62__2(f_list_46_size_1(v_cs), u_mk_int(1)))) {
           {
             p_check_46_infers(v_env, v_args, &v_args1, &v_ts, r_s);
@@ -19085,30 +19745,30 @@ void p_check_46_application(u_value v_env, u_value v_f, u_value v_args, u_value 
               }
             }
             p_check_46_use_name(v_n, f_check_46_with_arity_2(v_cs, f_list_46_size_1(v_args)), v_w, &v_x, r_s);
-            u_value t1566 = u_mk_con(&n_syntax_46_EApp, 2, u_mk_con(&n_syntax_46_EVar, 1, v_x), v_args1);
-            *r_e1 = t1566;
+            u_value t1600 = u_mk_con(&n_syntax_46_EApp, 2, u_mk_con(&n_syntax_46_EVar, 1, v_x), v_args1);
+            *r_e1 = t1600;
           }
         } else {
           {
             p_check_46_infer(v_env, v_f, &v_f1, &v_u, r_s);
             p_check_46_apply(v_env, v_u, v_args, &v_args1, r_t, r_s);
-            u_value t1567 = u_mk_con(&n_syntax_46_EApp, 2, v_f1, v_args1);
-            *r_e1 = t1567;
+            u_value t1601 = u_mk_con(&n_syntax_46_EApp, 2, v_f1, v_args1);
+            *r_e1 = t1601;
           }
         }
       }
     }
-    if (!d1563) {
-      d1563 = 1;
+    if (!d1597) {
+      d1597 = 1;
       {
         p_check_46_infer(v_env, v_f, &v_f1, &v_u, r_s);
         p_check_46_apply(v_env, v_u, v_args, &v_args1, r_t, r_s);
-        u_value t1568 = u_mk_con(&n_syntax_46_EApp, 2, v_f1, v_args1);
-        *r_e1 = t1568;
+        u_value t1602 = u_mk_con(&n_syntax_46_EApp, 2, v_f1, v_args1);
+        *r_e1 = t1602;
       }
     }
-    if (!d1563) {
-      u_no_case(s1562);
+    if (!d1597) {
+      u_no_case(s1596);
     }
   }
 }
@@ -19122,92 +19782,92 @@ void p_check_46_field_access(u_value v_env, u_value v_f, u_value v_a, u_value v_
     u_value v_us = NULL;
     u_value v_acc = NULL;
     u_value v_x = NULL;
-    u_value s1569 = v_args;
-    int d1570 = 0;
-    if ((!d1570) && u_is_con(s1569, &n_list_46_Cons)) {
-      u_value v_arg = u_field(s1569, 0);
-      u_value v_rest = u_field(s1569, 1);
-      d1570 = 1;
+    u_value s1603 = v_args;
+    int d1604 = 0;
+    if ((!d1604) && u_is_con(s1603, &n_list_46_Cons)) {
+      u_value v_arg = u_field(s1603, 0);
+      u_value v_rest = u_field(s1603, 1);
+      d1604 = 1;
       {
         p_check_46_infer(v_env, v_arg, &v_arg1, &v_u, r_s);
         p_check_46_infers(v_env, v_rest, &v_rest1, &v_us, r_s);
         p_check_46_fresh(r_t, r_s);
         p_check_46_normalize(v_a, &v_w, r_s);
         p_check_46_unify(v_w, f_check_46_fun_2(u_mk_con(&n_list_46_Cons, 2, v_u, v_us), *r_t), r_s);
-        u_value s1571 = f_check_46_zonk_type_2(f_check_46_State_46_sub_1(*r_s), v_u);
-        int d1572 = 0;
-        if ((!d1572) && (u_is_con(s1571, &n_syntax_46_TSort) && (u_is_con(u_field(s1571, 0), &n_syntax_46_Name) && u_is_con(u_field(u_field(s1571, 0), 0), &n_option_46_Some)))) {
-          u_value v_m = u_field(u_field(u_field(s1571, 0), 0), 0);
-          u_value v_tn = u_field(u_field(s1571, 0), 1);
-          d1572 = 1;
+        u_value s1605 = f_check_46_zonk_type_2(f_check_46_State_46_sub_1(*r_s), v_u);
+        int d1606 = 0;
+        if ((!d1606) && (u_is_con(s1605, &n_syntax_46_TSort) && (u_is_con(u_field(s1605, 0), &n_syntax_46_Name) && u_is_con(u_field(u_field(s1605, 0), 0), &n_option_46_Some)))) {
+          u_value v_m = u_field(u_field(u_field(s1605, 0), 0), 0);
+          u_value v_tn = u_field(u_field(s1605, 0), 1);
+          d1606 = 1;
           {
-            u_value t1573 = u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, v_m), u_concat(v_tn, v_f));
-            v_acc = t1573;
-            u_value s1574 = f_ctx_46_schemes_of_2(f_check_46_State_46_ctx_1(*r_s), v_acc);
-            int d1575 = 0;
-            if ((!d1575) && (u_is_con(s1574, &n_list_46_Cons) && u_is_con(u_field(s1574, 1), &n_list_46_Nil))) {
-              u_value v_sc = u_field(s1574, 0);
-              d1575 = 1;
+            u_value t1607 = u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, v_m), u_concat(v_tn, v_f));
+            v_acc = t1607;
+            u_value s1608 = f_ctx_46_schemes_of_2(f_check_46_State_46_ctx_1(*r_s), v_acc);
+            int d1609 = 0;
+            if ((!d1609) && (u_is_con(s1608, &n_list_46_Cons) && u_is_con(u_field(s1608, 1), &n_list_46_Nil))) {
+              u_value v_sc = u_field(s1608, 0);
+              d1609 = 1;
               {
                 p_check_46_use(v_acc, v_w, v_sc, &v_x, r_s);
               }
             }
-            if (!d1575) {
-              d1575 = 1;
+            if (!d1609) {
+              d1609 = 1;
               {
                 u_raise(u_mk_con(&n_check_46_UnknownField, 1, v_acc), "check.TypeError");
               }
             }
-            if (!d1575) {
-              u_no_case(s1574);
+            if (!d1609) {
+              u_no_case(s1608);
             }
           }
         }
-        if ((!d1572) && u_is_con(s1571, &n_syntax_46_TMeta)) {
-          d1572 = 1;
+        if ((!d1606) && u_is_con(s1605, &n_syntax_46_TMeta)) {
+          d1606 = 1;
           {
-            u_value s1576 = f_check_46_accessors_3(f_check_46_State_46_ctx_1(*r_s), v_f, f_map_46_entries_1(f_ctx_46_Ctx_46_named_1(f_check_46_State_46_ctx_1(*r_s))));
-            int d1577 = 0;
-            if ((!d1577) && u_is_con(s1576, &n_list_46_Nil)) {
-              d1577 = 1;
+            u_value s1610 = f_check_46_accessors_3(f_check_46_State_46_ctx_1(*r_s), v_f, f_map_46_entries_1(f_ctx_46_Ctx_46_named_1(f_check_46_State_46_ctx_1(*r_s))));
+            int d1611 = 0;
+            if ((!d1611) && u_is_con(s1610, &n_list_46_Nil)) {
+              d1611 = 1;
               {
                 u_raise(u_mk_con(&n_check_46_UnknownField, 1, f_syntax_46_unqualified_1(v_f)), "check.TypeError");
               }
             }
-            if (!d1577) {
-              u_value v_cs = s1576;
-              d1577 = 1;
+            if (!d1611) {
+              u_value v_cs = s1610;
+              d1611 = 1;
               {
                 p_check_46_use_name(f_syntax_46_unqualified_1(v_f), v_cs, v_w, &v_x, r_s);
               }
             }
-            if (!d1577) {
-              u_no_case(s1576);
+            if (!d1611) {
+              u_no_case(s1610);
             }
           }
         }
-        if (!d1572) {
-          u_value v_v = s1571;
-          d1572 = 1;
+        if (!d1606) {
+          u_value v_v = s1605;
+          d1606 = 1;
           {
             u_raise(u_mk_con(&n_check_46_UnknownFieldType, 2, v_f, v_v), "check.TypeError");
           }
         }
-        if (!d1572) {
-          u_no_case(s1571);
+        if (!d1606) {
+          u_no_case(s1605);
         }
-        u_value t1578 = u_mk_con(&n_syntax_46_EApp, 2, u_mk_con(&n_syntax_46_EVar, 1, v_x), u_mk_con(&n_list_46_Cons, 2, v_arg1, v_rest1));
-        *r_e1 = t1578;
+        u_value t1612 = u_mk_con(&n_syntax_46_EApp, 2, u_mk_con(&n_syntax_46_EVar, 1, v_x), u_mk_con(&n_list_46_Cons, 2, v_arg1, v_rest1));
+        *r_e1 = t1612;
       }
     }
-    if (!d1570) {
-      d1570 = 1;
+    if (!d1604) {
+      d1604 = 1;
       {
         u_raise(u_mk_con(&n_check_46_CountMismatch, 2, u_mk_int(1), f_list_46_size_1(v_args)), "check.TypeError");
       }
     }
-    if (!d1570) {
-      u_no_case(s1569);
+    if (!d1604) {
+      u_no_case(s1603);
     }
   }
 }
@@ -19233,36 +19893,36 @@ void p_check_46_checks(u_value v_env, u_value v_es, u_value v_ts, u_value *r_es1
   {
     u_value v_e1 = NULL;
     u_value v_rest = NULL;
-    u_value s1579 = u_mk_tuple(2, v_es, v_ts);
-    int d1580 = 0;
-    if ((!d1580) && (u_is_con(u_field(s1579, 0), &n_list_46_Cons) && u_is_con(u_field(s1579, 1), &n_list_46_Cons))) {
-      u_value v_e = u_field(u_field(s1579, 0), 0);
-      u_value v_more = u_field(u_field(s1579, 0), 1);
-      u_value v_t = u_field(u_field(s1579, 1), 0);
-      u_value v_ts1 = u_field(u_field(s1579, 1), 1);
-      d1580 = 1;
+    u_value s1613 = u_mk_tuple(2, v_es, v_ts);
+    int d1614 = 0;
+    if ((!d1614) && (u_is_con(u_field(s1613, 0), &n_list_46_Cons) && u_is_con(u_field(s1613, 1), &n_list_46_Cons))) {
+      u_value v_e = u_field(u_field(s1613, 0), 0);
+      u_value v_more = u_field(u_field(s1613, 0), 1);
+      u_value v_t = u_field(u_field(s1613, 1), 0);
+      u_value v_ts1 = u_field(u_field(s1613, 1), 1);
+      d1614 = 1;
       {
         p_check_46_check(v_env, v_e, v_t, &v_e1, r_s);
         p_check_46_checks(v_env, v_more, v_ts1, &v_rest, r_s);
-        u_value t1581 = u_mk_con(&n_list_46_Cons, 2, v_e1, v_rest);
-        *r_es1 = t1581;
+        u_value t1615 = u_mk_con(&n_list_46_Cons, 2, v_e1, v_rest);
+        *r_es1 = t1615;
       }
     }
-    if ((!d1580) && (u_is_con(u_field(s1579, 0), &n_list_46_Nil) && u_is_con(u_field(s1579, 1), &n_list_46_Nil))) {
-      d1580 = 1;
+    if ((!d1614) && (u_is_con(u_field(s1613, 0), &n_list_46_Nil) && u_is_con(u_field(s1613, 1), &n_list_46_Nil))) {
+      d1614 = 1;
       {
-        u_value t1582 = &o_list_46_Nil;
-        *r_es1 = t1582;
+        u_value t1616 = &o_list_46_Nil;
+        *r_es1 = t1616;
       }
     }
-    if (!d1580) {
-      d1580 = 1;
+    if (!d1614) {
+      d1614 = 1;
       {
         u_raise(u_mk_con(&n_check_46_CountMismatch, 2, f_list_46_size_1(v_ts), f_list_46_size_1(v_es)), "check.TypeError");
       }
     }
-    if (!d1580) {
-      u_no_case(s1579);
+    if (!d1614) {
+      u_no_case(s1613);
     }
   }
 }
@@ -19273,32 +19933,32 @@ void p_check_46_infers(u_value v_env, u_value v_es, u_value *r_es1, u_value *r_t
     u_value v_t = NULL;
     u_value v_rest = NULL;
     u_value v_us = NULL;
-    u_value s1583 = v_es;
-    int d1584 = 0;
-    if ((!d1584) && u_is_con(s1583, &n_list_46_Nil)) {
-      d1584 = 1;
+    u_value s1617 = v_es;
+    int d1618 = 0;
+    if ((!d1618) && u_is_con(s1617, &n_list_46_Nil)) {
+      d1618 = 1;
       {
-        u_value t1585 = &o_list_46_Nil;
-        u_value t1586 = &o_list_46_Nil;
-        *r_es1 = t1585;
-        *r_ts = t1586;
+        u_value t1619 = &o_list_46_Nil;
+        u_value t1620 = &o_list_46_Nil;
+        *r_es1 = t1619;
+        *r_ts = t1620;
       }
     }
-    if ((!d1584) && u_is_con(s1583, &n_list_46_Cons)) {
-      u_value v_e = u_field(s1583, 0);
-      u_value v_more = u_field(s1583, 1);
-      d1584 = 1;
+    if ((!d1618) && u_is_con(s1617, &n_list_46_Cons)) {
+      u_value v_e = u_field(s1617, 0);
+      u_value v_more = u_field(s1617, 1);
+      d1618 = 1;
       {
         p_check_46_infer(v_env, v_e, &v_e1, &v_t, r_s);
         p_check_46_infers(v_env, v_more, &v_rest, &v_us, r_s);
-        u_value t1587 = u_mk_con(&n_list_46_Cons, 2, v_e1, v_rest);
-        u_value t1588 = u_mk_con(&n_list_46_Cons, 2, v_t, v_us);
-        *r_es1 = t1587;
-        *r_ts = t1588;
+        u_value t1621 = u_mk_con(&n_list_46_Cons, 2, v_e1, v_rest);
+        u_value t1622 = u_mk_con(&n_list_46_Cons, 2, v_t, v_us);
+        *r_es1 = t1621;
+        *r_ts = t1622;
       }
     }
-    if (!d1584) {
-      u_no_case(s1583);
+    if (!d1618) {
+      u_no_case(s1617);
     }
   }
 }
@@ -19307,30 +19967,30 @@ void p_check_46_generators(u_value v_env, u_value v_xs, u_value v_lists, u_value
   {
     u_value v_l = NULL;
     u_value v_rest = NULL;
-    u_value s1589 = u_mk_tuple(2, v_xs, v_lists);
-    int d1590 = 0;
-    if ((!d1590) && (u_is_con(u_field(s1589, 0), &n_list_46_Cons) && u_is_con(u_field(s1589, 1), &n_list_46_Cons))) {
-      u_value v_x = u_field(u_field(s1589, 0), 0);
-      u_value v_ys = u_field(u_field(s1589, 0), 1);
-      u_value v_e = u_field(u_field(s1589, 1), 0);
-      u_value v_es = u_field(u_field(s1589, 1), 1);
-      d1590 = 1;
+    u_value s1623 = u_mk_tuple(2, v_xs, v_lists);
+    int d1624 = 0;
+    if ((!d1624) && (u_is_con(u_field(s1623, 0), &n_list_46_Cons) && u_is_con(u_field(s1623, 1), &n_list_46_Cons))) {
+      u_value v_x = u_field(u_field(s1623, 0), 0);
+      u_value v_ys = u_field(u_field(s1623, 0), 1);
+      u_value v_e = u_field(u_field(s1623, 1), 0);
+      u_value v_es = u_field(u_field(s1623, 1), 1);
+      d1624 = 1;
       {
         p_check_46_check(v_env, v_e, f_check_46_tlist_1(f_syntax_46_Var_46_typ_1(v_x)), &v_l, r_s);
         p_check_46_generators(f_list_46__43__43__2(f_check_46_bind_1(u_mk_con(&n_list_46_Cons, 2, v_x, &o_list_46_Nil)), v_env), v_ys, v_es, &v_rest, r_s);
-        u_value t1591 = u_mk_con(&n_list_46_Cons, 2, v_l, v_rest);
-        *r_lists1 = t1591;
+        u_value t1625 = u_mk_con(&n_list_46_Cons, 2, v_l, v_rest);
+        *r_lists1 = t1625;
       }
     }
-    if (!d1590) {
-      d1590 = 1;
+    if (!d1624) {
+      d1624 = 1;
       {
-        u_value t1592 = &o_list_46_Nil;
-        *r_lists1 = t1592;
+        u_value t1626 = &o_list_46_Nil;
+        *r_lists1 = t1626;
       }
     }
-    if (!d1590) {
-      u_no_case(s1589);
+    if (!d1624) {
+      u_no_case(s1623);
     }
   }
 }
@@ -19342,32 +20002,32 @@ void p_check_46_expr_branches(u_value v_env, u_value v_cases, u_value v_t, u_val
     u_value v_g1 = NULL;
     u_value v_b1 = NULL;
     u_value v_rest = NULL;
-    u_value s1593 = v_cases;
-    int d1594 = 0;
-    if ((!d1594) && u_is_con(s1593, &n_list_46_Nil)) {
-      d1594 = 1;
+    u_value s1627 = v_cases;
+    int d1628 = 0;
+    if ((!d1628) && u_is_con(s1627, &n_list_46_Nil)) {
+      d1628 = 1;
       {
-        u_value t1595 = &o_list_46_Nil;
-        *r_cases1 = t1595;
+        u_value t1629 = &o_list_46_Nil;
+        *r_cases1 = t1629;
       }
     }
-    if ((!d1594) && (u_is_con(s1593, &n_list_46_Cons) && u_is_con(u_field(s1593, 0), &n_syntax_46_Branch))) {
-      u_value v_p = u_field(u_field(s1593, 0), 0);
-      u_value v_g = u_field(u_field(s1593, 0), 1);
-      u_value v_b = u_field(u_field(s1593, 0), 2);
-      u_value v_more = u_field(s1593, 1);
-      d1594 = 1;
+    if ((!d1628) && (u_is_con(s1627, &n_list_46_Cons) && u_is_con(u_field(s1627, 0), &n_syntax_46_Branch))) {
+      u_value v_p = u_field(u_field(s1627, 0), 0);
+      u_value v_g = u_field(u_field(s1627, 0), 1);
+      u_value v_b = u_field(u_field(s1627, 0), 2);
+      u_value v_more = u_field(s1627, 1);
+      d1628 = 1;
       {
         p_check_46_pattern(v_p, v_t, &v_p1, &v_xs, r_s);
         p_check_46_guard(f_list_46__43__43__2(f_check_46_bind_1(v_xs), v_env), v_g, &v_g1, r_s);
         p_check_46_check(f_list_46__43__43__2(f_check_46_bind_1(v_xs), v_env), v_b, v_r, &v_b1, r_s);
         p_check_46_expr_branches(v_env, v_more, v_t, v_r, &v_rest, r_s);
-        u_value t1596 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 3, v_p1, v_g1, v_b1), v_rest);
-        *r_cases1 = t1596;
+        u_value t1630 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 3, v_p1, v_g1, v_b1), v_rest);
+        *r_cases1 = t1630;
       }
     }
-    if (!d1594) {
-      u_no_case(s1593);
+    if (!d1628) {
+      u_no_case(s1627);
     }
   }
 }
@@ -19375,26 +20035,26 @@ void p_check_46_expr_branches(u_value v_env, u_value v_cases, u_value v_t, u_val
 void p_check_46_guard(u_value v_env, u_value v_g, u_value *r_g1, u_value *r_s) {
   {
     u_value v_e1 = NULL;
-    u_value s1597 = v_g;
-    int d1598 = 0;
-    if ((!d1598) && u_is_con(s1597, &n_option_46_Some)) {
-      u_value v_e = u_field(s1597, 0);
-      d1598 = 1;
+    u_value s1631 = v_g;
+    int d1632 = 0;
+    if ((!d1632) && u_is_con(s1631, &n_option_46_Some)) {
+      u_value v_e = u_field(s1631, 0);
+      d1632 = 1;
       {
         p_check_46_check(v_env, v_e, f_check_46_tbool_0(), &v_e1, r_s);
-        u_value t1599 = u_mk_con(&n_option_46_Some, 1, v_e1);
-        *r_g1 = t1599;
+        u_value t1633 = u_mk_con(&n_option_46_Some, 1, v_e1);
+        *r_g1 = t1633;
       }
     }
-    if ((!d1598) && u_is_con(s1597, &n_option_46_None)) {
-      d1598 = 1;
+    if ((!d1632) && u_is_con(s1631, &n_option_46_None)) {
+      d1632 = 1;
       {
-        u_value t1600 = &o_option_46_None;
-        *r_g1 = t1600;
+        u_value t1634 = &o_option_46_None;
+        *r_g1 = t1634;
       }
     }
-    if (!d1598) {
-      u_no_case(s1597);
+    if (!d1632) {
+      u_no_case(s1631);
     }
   }
 }
@@ -19402,83 +20062,83 @@ void p_check_46_guard(u_value v_env, u_value v_g, u_value *r_g1, u_value *r_s) {
 void p_check_46_coverage(u_value v_s, u_value v_t, u_value v_cs) {
   {
     p_check_46_reachable(v_s, v_t, &o_list_46_Nil, v_cs);
-    u_value t1601 = &o_list_46_Nil;
-    u_value *e1602 = &t1601;
-    u_value l1603 = f_check_46_unguarded_1(v_cs);
-    while (u_is_con(l1603, &n_list_46_Cons)) {
-      u_value v_p = u_field(l1603, 0);
+    u_value t1635 = &o_list_46_Nil;
+    u_value *e1636 = &t1635;
+    u_value l1637 = f_check_46_unguarded_1(v_cs);
+    while (u_is_con(l1637, &n_list_46_Cons)) {
+      u_value v_p = u_field(l1637, 0);
       if (u_truth(u_mk_bool(1))) {
-        e1602 = u_append(e1602, u_mk_con(&n_list_46_Cons, 2, v_p, &o_list_46_Nil));
+        e1636 = u_append(e1636, u_mk_con(&n_list_46_Cons, 2, v_p, &o_list_46_Nil));
       }
-      l1603 = u_field(l1603, 1);
+      l1637 = u_field(l1637, 1);
     }
-    u_value s1604 = f_check_46_missing_4(f_check_46_State_46_ctx_1(v_s), f_check_46_State_46_sub_1(v_s), t1601, u_mk_con(&n_list_46_Cons, 2, v_t, &o_list_46_Nil));
-    int d1605 = 0;
-    if ((!d1605) && (u_is_con(s1604, &n_option_46_Some) && u_is_con(u_field(s1604, 0), &n_list_46_Cons))) {
-      u_value v_w = u_field(u_field(s1604, 0), 0);
-      d1605 = 1;
+    u_value s1638 = f_check_46_missing_4(f_check_46_State_46_ctx_1(v_s), f_check_46_State_46_sub_1(v_s), t1635, u_mk_con(&n_list_46_Cons, 2, v_t, &o_list_46_Nil));
+    int d1639 = 0;
+    if ((!d1639) && (u_is_con(s1638, &n_option_46_Some) && u_is_con(u_field(s1638, 0), &n_list_46_Cons))) {
+      u_value v_w = u_field(u_field(s1638, 0), 0);
+      d1639 = 1;
       {
         u_raise(u_mk_con(&n_check_46_NotExhaustive, 1, v_w), "check.TypeError");
       }
     }
-    if (!d1605) {
-      d1605 = 1;
+    if (!d1639) {
+      d1639 = 1;
       {
       }
     }
-    if (!d1605) {
-      u_no_case(s1604);
+    if (!d1639) {
+      u_no_case(s1638);
     }
   }
 }
 
 u_value f_check_46_unguarded_1(u_value v_cs) {
-  u_value s1606 = v_cs;
-  u_value t1607 = NULL;
-  if ((!t1607) && u_is_con(s1606, &n_list_46_Nil)) {
-    t1607 = &o_list_46_Nil;
+  u_value s1640 = v_cs;
+  u_value t1641 = NULL;
+  if ((!t1641) && u_is_con(s1640, &n_list_46_Nil)) {
+    t1641 = &o_list_46_Nil;
   }
-  if ((!t1607) && (u_is_con(s1606, &n_list_46_Cons) && u_equals(u_field(u_field(s1606, 0), 1), u_mk_bool(1)))) {
-    u_value v_p = u_field(u_field(s1606, 0), 0);
-    u_value v_rest = u_field(s1606, 1);
-    t1607 = u_mk_con(&n_list_46_Cons, 2, v_p, f_check_46_unguarded_1(v_rest));
+  if ((!t1641) && (u_is_con(s1640, &n_list_46_Cons) && u_equals(u_field(u_field(s1640, 0), 1), u_mk_bool(1)))) {
+    u_value v_p = u_field(u_field(s1640, 0), 0);
+    u_value v_rest = u_field(s1640, 1);
+    t1641 = u_mk_con(&n_list_46_Cons, 2, v_p, f_check_46_unguarded_1(v_rest));
   }
-  if ((!t1607) && (u_is_con(s1606, &n_list_46_Cons) && u_equals(u_field(u_field(s1606, 0), 1), u_mk_bool(0)))) {
-    u_value v_rest = u_field(s1606, 1);
-    t1607 = f_check_46_unguarded_1(v_rest);
+  if ((!t1641) && (u_is_con(s1640, &n_list_46_Cons) && u_equals(u_field(u_field(s1640, 0), 1), u_mk_bool(0)))) {
+    u_value v_rest = u_field(s1640, 1);
+    t1641 = f_check_46_unguarded_1(v_rest);
   }
-  if (!t1607) {
-    u_no_case(s1606);
+  if (!t1641) {
+    u_no_case(s1640);
   }
-  return t1607;
+  return t1641;
 }
 
 void p_check_46_reachable(u_value v_s, u_value v_t, u_value v_before, u_value v_cs) {
   {
-    u_value s1608 = v_cs;
-    int d1609 = 0;
-    if ((!d1609) && u_is_con(s1608, &n_list_46_Nil)) {
-      d1609 = 1;
+    u_value s1642 = v_cs;
+    int d1643 = 0;
+    if ((!d1643) && u_is_con(s1642, &n_list_46_Nil)) {
+      d1643 = 1;
       {
       }
     }
-    if ((!d1609) && u_is_con(s1608, &n_list_46_Cons)) {
-      u_value v_p = u_field(u_field(s1608, 0), 0);
-      u_value v_open = u_field(u_field(s1608, 0), 1);
-      u_value v_rest = u_field(s1608, 1);
-      d1609 = 1;
+    if ((!d1643) && u_is_con(s1642, &n_list_46_Cons)) {
+      u_value v_p = u_field(u_field(s1642, 0), 0);
+      u_value v_open = u_field(u_field(s1642, 0), 1);
+      u_value v_rest = u_field(s1642, 1);
+      d1643 = 1;
       {
-        u_value t1610 = &o_list_46_Nil;
-        u_value *e1611 = &t1610;
-        u_value l1612 = v_before;
-        while (u_is_con(l1612, &n_list_46_Cons)) {
-          u_value v_q = u_field(l1612, 0);
+        u_value t1644 = &o_list_46_Nil;
+        u_value *e1645 = &t1644;
+        u_value l1646 = v_before;
+        while (u_is_con(l1646, &n_list_46_Cons)) {
+          u_value v_q = u_field(l1646, 0);
           if (u_truth(u_mk_bool(1))) {
-            e1611 = u_append(e1611, u_mk_con(&n_list_46_Cons, 2, v_q, &o_list_46_Nil));
+            e1645 = u_append(e1645, u_mk_con(&n_list_46_Cons, 2, v_q, &o_list_46_Nil));
           }
-          l1612 = u_field(l1612, 1);
+          l1646 = u_field(l1646, 1);
         }
-        if (u_truth(f_prelude_46_not_1(f_check_46_useful_5(f_check_46_State_46_ctx_1(v_s), f_check_46_State_46_sub_1(v_s), t1610, u_mk_con(&n_list_46_Cons, 2, v_p, &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, v_t, &o_list_46_Nil))))) {
+        if (u_truth(f_prelude_46_not_1(f_check_46_useful_5(f_check_46_State_46_ctx_1(v_s), f_check_46_State_46_sub_1(v_s), t1644, u_mk_con(&n_list_46_Cons, 2, v_p, &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, v_t, &o_list_46_Nil))))) {
           {
             u_raise(u_mk_con(&n_check_46_Unreachable, 1, v_p), "check.TypeError");
           }
@@ -19494,8 +20154,8 @@ void p_check_46_reachable(u_value v_s, u_value v_t, u_value v_before, u_value v_
         }
       }
     }
-    if (!d1609) {
-      u_no_case(s1608);
+    if (!d1643) {
+      u_no_case(s1642);
     }
   }
 }
@@ -19514,34 +20174,34 @@ void p_check_46_binders(u_value v_p, u_value v_t, u_value *r_p1, u_value *r_xs, 
     u_value v_qs = NULL;
     u_value v_ts = NULL;
     u_value v_k = NULL;
-    u_value s1613 = v_p;
-    int d1614 = 0;
-    if ((!d1614) && u_is_con(s1613, &n_syntax_46_PWild)) {
-      d1614 = 1;
+    u_value s1647 = v_p;
+    int d1648 = 0;
+    if ((!d1648) && u_is_con(s1647, &n_syntax_46_PWild)) {
+      d1648 = 1;
       {
-        u_value t1615 = v_p;
-        u_value t1616 = &o_list_46_Nil;
-        *r_p1 = t1615;
-        *r_xs = t1616;
+        u_value t1649 = v_p;
+        u_value t1650 = &o_list_46_Nil;
+        *r_p1 = t1649;
+        *r_xs = t1650;
       }
     }
-    if ((!d1614) && u_is_con(s1613, &n_syntax_46_PLit)) {
-      u_value v_v = u_field(s1613, 0);
-      d1614 = 1;
+    if ((!d1648) && u_is_con(s1647, &n_syntax_46_PLit)) {
+      u_value v_v = u_field(s1647, 0);
+      d1648 = 1;
       {
         p_check_46_unify(f_check_46_literal_1(v_v), v_t, r_s);
-        u_value t1617 = v_p;
-        u_value t1618 = &o_list_46_Nil;
-        *r_p1 = t1617;
-        *r_xs = t1618;
+        u_value t1651 = v_p;
+        u_value t1652 = &o_list_46_Nil;
+        *r_p1 = t1651;
+        *r_xs = t1652;
       }
     }
-    if ((!d1614) && (u_is_con(s1613, &n_syntax_46_PVar) && u_is_con(u_field(s1613, 0), &n_syntax_46_Var))) {
-      u_value v_n = u_field(u_field(s1613, 0), 0);
-      u_value v_a = u_field(u_field(s1613, 0), 1);
-      d1614 = 1;
+    if ((!d1648) && (u_is_con(s1647, &n_syntax_46_PVar) && u_is_con(u_field(s1647, 0), &n_syntax_46_Var))) {
+      u_value v_n = u_field(u_field(s1647, 0), 0);
+      u_value v_a = u_field(u_field(s1647, 0), 1);
+      d1648 = 1;
       {
-        if (u_truth(f_prelude_46__33__61__2(f_check_46_overloads_3(*r_s, v_n, u_mk_closure(lam1619, 1, *r_s)), &o_list_46_Nil))) {
+        if (u_truth(f_prelude_46__33__61__2(f_check_46_overloads_3(*r_s, v_n, u_mk_closure(lam1653, 1, *r_s)), &o_list_46_Nil))) {
           {
             p_check_46_binders(u_mk_con(&n_syntax_46_PApp, 2, v_n, &o_list_46_Nil), v_t, r_p1, r_xs, r_s);
           }
@@ -19549,95 +20209,95 @@ void p_check_46_binders(u_value v_p, u_value v_t, u_value *r_p1, u_value *r_xs, 
           {
             p_check_46_normalize(v_a, &v_u, r_s);
             p_check_46_unify(v_u, v_t, r_s);
-            u_value t1620 = u_mk_con(&n_syntax_46_PVar, 1, u_mk_con(&n_syntax_46_Var, 2, v_n, v_u));
-            u_value t1621 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Var, 2, v_n, v_u), &o_list_46_Nil);
-            *r_p1 = t1620;
-            *r_xs = t1621;
+            u_value t1654 = u_mk_con(&n_syntax_46_PVar, 1, u_mk_con(&n_syntax_46_Var, 2, v_n, v_u));
+            u_value t1655 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Var, 2, v_n, v_u), &o_list_46_Nil);
+            *r_p1 = t1654;
+            *r_xs = t1655;
           }
         }
       }
     }
-    if ((!d1614) && u_is_con(s1613, &n_syntax_46_PApp)) {
-      u_value v_n = u_field(s1613, 0);
-      u_value v_args = u_field(s1613, 1);
-      d1614 = 1;
+    if ((!d1648) && u_is_con(s1647, &n_syntax_46_PApp)) {
+      u_value v_n = u_field(s1647, 0);
+      u_value v_args = u_field(s1647, 1);
+      d1648 = 1;
       {
-        u_value s1623 = f_check_46_overloads_3(*r_s, v_n, u_mk_closure(lam1622, 1, *r_s));
-        int d1624 = 0;
-        if ((!d1624) && (u_is_con(s1623, &n_list_46_Cons) && u_is_con(u_field(s1623, 1), &n_list_46_Nil))) {
-          u_value v_k1 = u_field(s1623, 0);
-          d1624 = 1;
+        u_value s1657 = f_check_46_overloads_3(*r_s, v_n, u_mk_closure(lam1656, 1, *r_s));
+        int d1658 = 0;
+        if ((!d1658) && (u_is_con(s1657, &n_list_46_Cons) && u_is_con(u_field(s1657, 1), &n_list_46_Nil))) {
+          u_value v_k1 = u_field(s1657, 0);
+          d1658 = 1;
           {
-            u_value t1625 = v_k1;
-            v_k = t1625;
+            u_value t1659 = v_k1;
+            v_k = t1659;
           }
         }
-        if ((!d1624) && u_is_con(s1623, &n_list_46_Nil)) {
-          d1624 = 1;
+        if ((!d1658) && u_is_con(s1657, &n_list_46_Nil)) {
+          d1658 = 1;
           {
             u_raise(u_mk_con(&n_check_46_UnknownConstructor, 1, v_n), "check.TypeError");
           }
         }
-        if (!d1624) {
-          u_value v_ks = s1623;
-          d1624 = 1;
+        if (!d1658) {
+          u_value v_ks = s1657;
+          d1658 = 1;
           {
             p_check_46_pattern_constructor(v_n, v_ks, f_list_46_size_1(v_args), v_t, &v_k, r_s);
           }
         }
-        if (!d1624) {
-          u_no_case(s1623);
+        if (!d1658) {
+          u_no_case(s1657);
         }
-        u_value s1626 = f_ctx_46_constr_of_2(f_check_46_State_46_ctx_1(*r_s), v_k);
-        int d1627 = 0;
-        if ((!d1627) && u_is_con(s1626, &n_option_46_Some)) {
-          u_value v_ps = u_field(u_field(s1626, 0), 0);
-          u_value v_ks = u_field(u_field(s1626, 0), 1);
-          u_value v_r = u_field(u_field(s1626, 0), 2);
-          d1627 = 1;
+        u_value s1660 = f_ctx_46_constr_of_2(f_check_46_State_46_ctx_1(*r_s), v_k);
+        int d1661 = 0;
+        if ((!d1661) && u_is_con(s1660, &n_option_46_Some)) {
+          u_value v_ps = u_field(u_field(s1660, 0), 0);
+          u_value v_ks = u_field(u_field(s1660, 0), 1);
+          u_value v_r = u_field(u_field(s1660, 0), 2);
+          d1661 = 1;
           {
             p_check_46_same_length(f_list_46_size_1(v_ks), f_list_46_size_1(v_args));
             p_check_46_instance(v_ps, &v_m, r_s);
             p_check_46_unify(f_check_46_subst_2(v_r, v_m), v_t, r_s);
-            u_value t1628 = &o_list_46_Nil;
-            u_value *e1629 = &t1628;
-            u_value l1630 = v_ks;
-            while (u_is_con(l1630, &n_list_46_Cons)) {
-              u_value v_kt = u_field(l1630, 0);
+            u_value t1662 = &o_list_46_Nil;
+            u_value *e1663 = &t1662;
+            u_value l1664 = v_ks;
+            while (u_is_con(l1664, &n_list_46_Cons)) {
+              u_value v_kt = u_field(l1664, 0);
               if (u_truth(u_mk_bool(1))) {
-                e1629 = u_append(e1629, f_check_46_subst_2(v_kt, v_m));
+                e1663 = u_append(e1663, f_check_46_subst_2(v_kt, v_m));
               }
-              l1630 = u_field(l1630, 1);
+              l1664 = u_field(l1664, 1);
             }
-            p_check_46_binder_list(v_args, t1628, &v_qs, r_xs, r_s);
-            u_value t1631 = u_mk_con(&n_syntax_46_PApp, 2, v_k, v_qs);
-            *r_p1 = t1631;
+            p_check_46_binder_list(v_args, t1662, &v_qs, r_xs, r_s);
+            u_value t1665 = u_mk_con(&n_syntax_46_PApp, 2, v_k, v_qs);
+            *r_p1 = t1665;
           }
         }
-        if ((!d1627) && u_is_con(s1626, &n_option_46_None)) {
-          d1627 = 1;
+        if ((!d1661) && u_is_con(s1660, &n_option_46_None)) {
+          d1661 = 1;
           {
             u_raise(u_mk_con(&n_check_46_UnknownConstructor, 1, v_n), "check.TypeError");
           }
         }
-        if (!d1627) {
-          u_no_case(s1626);
+        if (!d1661) {
+          u_no_case(s1660);
         }
       }
     }
-    if ((!d1614) && u_is_con(s1613, &n_syntax_46_PTuple)) {
-      u_value v_items = u_field(s1613, 0);
-      d1614 = 1;
+    if ((!d1648) && u_is_con(s1647, &n_syntax_46_PTuple)) {
+      u_value v_items = u_field(s1647, 0);
+      d1648 = 1;
       {
         p_check_46_fresh_list(v_items, &v_ts, r_s);
         p_check_46_unify(u_mk_con(&n_syntax_46_TTuple, 1, v_ts), v_t, r_s);
         p_check_46_binder_list(v_items, v_ts, &v_qs, r_xs, r_s);
-        u_value t1632 = u_mk_con(&n_syntax_46_PTuple, 1, v_qs);
-        *r_p1 = t1632;
+        u_value t1666 = u_mk_con(&n_syntax_46_PTuple, 1, v_qs);
+        *r_p1 = t1666;
       }
     }
-    if (!d1614) {
-      u_no_case(s1613);
+    if (!d1648) {
+      u_no_case(s1647);
     }
   }
 }
@@ -19652,77 +20312,77 @@ void p_check_46_pattern_constructor(u_value v_n, u_value v_ks, u_value v_k, u_va
         p_check_46_trials(f_check_46_results_3(f_check_46_State_46_ctx_1(*r_s), v_ks, v_k), v_t, *r_s, &v_ok);
       }
     }
-    u_value s1633 = u_mk_tuple(2, v_ok, f_check_46_own_2(*r_s, f_list_46_firsts_1(v_ok)));
-    int d1634 = 0;
-    if ((!d1634) && (u_is_con(u_field(s1633, 0), &n_list_46_Cons) && u_is_con(u_field(u_field(s1633, 0), 1), &n_list_46_Nil))) {
-      u_value v_c1 = u_field(u_field(u_field(u_field(s1633, 0), 0), 0), 0);
-      d1634 = 1;
+    u_value s1667 = u_mk_tuple(2, v_ok, f_check_46_own_2(*r_s, f_list_46_firsts_1(v_ok)));
+    int d1668 = 0;
+    if ((!d1668) && (u_is_con(u_field(s1667, 0), &n_list_46_Cons) && u_is_con(u_field(u_field(s1667, 0), 1), &n_list_46_Nil))) {
+      u_value v_c1 = u_field(u_field(u_field(u_field(s1667, 0), 0), 0), 0);
+      d1668 = 1;
       {
-        u_value t1635 = v_c1;
-        *r_c = t1635;
+        u_value t1669 = v_c1;
+        *r_c = t1669;
       }
     }
-    if ((!d1634) && u_is_con(u_field(s1633, 0), &n_list_46_Nil)) {
-      d1634 = 1;
+    if ((!d1668) && u_is_con(u_field(s1667, 0), &n_list_46_Nil)) {
+      d1668 = 1;
       {
         u_raise(u_mk_con(&n_check_46_NoOverload, 2, v_n, f_check_46_zonk_type_2(f_check_46_State_46_sub_1(*r_s), v_t)), "check.TypeError");
       }
     }
-    if ((!d1634) && (u_is_con(u_field(s1633, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s1633, 1), 1), &n_list_46_Nil))) {
-      u_value v_c1 = u_field(u_field(u_field(s1633, 1), 0), 0);
-      d1634 = 1;
+    if ((!d1668) && (u_is_con(u_field(s1667, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s1667, 1), 1), &n_list_46_Nil))) {
+      u_value v_c1 = u_field(u_field(u_field(s1667, 1), 0), 0);
+      d1668 = 1;
       {
-        u_value t1636 = v_c1;
-        *r_c = t1636;
+        u_value t1670 = v_c1;
+        *r_c = t1670;
       }
     }
-    if (!d1634) {
-      d1634 = 1;
+    if (!d1668) {
+      d1668 = 1;
       {
         u_raise(u_mk_con(&n_check_46_Ambiguous, 2, v_n, f_list_46_firsts_1(f_list_46_firsts_1(v_ok))), "check.TypeError");
       }
     }
-    if (!d1634) {
-      u_no_case(s1633);
+    if (!d1668) {
+      u_no_case(s1667);
     }
   }
 }
 
 u_value f_check_46_results_3(u_value v_c, u_value v_ks, u_value v_k) {
-  u_value s1637 = v_ks;
-  u_value t1638 = NULL;
-  if ((!t1638) && u_is_con(s1637, &n_list_46_Nil)) {
-    t1638 = &o_list_46_Nil;
+  u_value s1671 = v_ks;
+  u_value t1672 = NULL;
+  if ((!t1672) && u_is_con(s1671, &n_list_46_Nil)) {
+    t1672 = &o_list_46_Nil;
   }
-  if ((!t1638) && u_is_con(s1637, &n_list_46_Cons)) {
-    u_value v_n = u_field(s1637, 0);
-    u_value v_rest = u_field(s1637, 1);
-    u_value s1639 = f_ctx_46_constr_of_2(v_c, v_n);
-    u_value t1640 = NULL;
-    if ((!t1640) && u_is_con(s1639, &n_option_46_Some)) {
-      u_value v_ps = u_field(u_field(s1639, 0), 0);
-      u_value v_args = u_field(u_field(s1639, 0), 1);
-      u_value v_r = u_field(u_field(s1639, 0), 2);
-      u_value t1641;
+  if ((!t1672) && u_is_con(s1671, &n_list_46_Cons)) {
+    u_value v_n = u_field(s1671, 0);
+    u_value v_rest = u_field(s1671, 1);
+    u_value s1673 = f_ctx_46_constr_of_2(v_c, v_n);
+    u_value t1674 = NULL;
+    if ((!t1674) && u_is_con(s1673, &n_option_46_Some)) {
+      u_value v_ps = u_field(u_field(s1673, 0), 0);
+      u_value v_args = u_field(u_field(s1673, 0), 1);
+      u_value v_r = u_field(u_field(s1673, 0), 2);
+      u_value t1675;
       if (u_truth(u_eq(f_list_46_size_1(v_args), v_k))) {
-        t1641 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, u_mk_tuple(2, v_ps, v_r)), f_check_46_results_3(v_c, v_rest, v_k));
+        t1675 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, u_mk_tuple(2, v_ps, v_r)), f_check_46_results_3(v_c, v_rest, v_k));
       } else {
-        t1641 = f_check_46_results_3(v_c, v_rest, v_k);
+        t1675 = f_check_46_results_3(v_c, v_rest, v_k);
       }
-      t1640 = t1641;
+      t1674 = t1675;
     }
-    if ((!t1640) && u_is_con(s1639, &n_option_46_None)) {
-      t1640 = f_check_46_results_3(v_c, v_rest, v_k);
+    if ((!t1674) && u_is_con(s1673, &n_option_46_None)) {
+      t1674 = f_check_46_results_3(v_c, v_rest, v_k);
     }
-    if (!t1640) {
-      u_no_case(s1639);
+    if (!t1674) {
+      u_no_case(s1673);
     }
-    t1638 = t1640;
+    t1672 = t1674;
   }
-  if (!t1638) {
-    u_no_case(s1637);
+  if (!t1672) {
+    u_no_case(s1671);
   }
-  return t1638;
+  return t1672;
 }
 
 void p_check_46_binder_list(u_value v_ps, u_value v_ts, u_value *r_qs, u_value *r_xs, u_value *r_s) {
@@ -19731,40 +20391,40 @@ void p_check_46_binder_list(u_value v_ps, u_value v_ts, u_value *r_qs, u_value *
     u_value v_ys = NULL;
     u_value v_rest = NULL;
     u_value v_zs = NULL;
-    u_value s1642 = u_mk_tuple(2, v_ps, v_ts);
-    int d1643 = 0;
-    if ((!d1643) && (u_is_con(u_field(s1642, 0), &n_list_46_Cons) && u_is_con(u_field(s1642, 1), &n_list_46_Cons))) {
-      u_value v_p = u_field(u_field(s1642, 0), 0);
-      u_value v_more = u_field(u_field(s1642, 0), 1);
-      u_value v_t = u_field(u_field(s1642, 1), 0);
-      u_value v_ts1 = u_field(u_field(s1642, 1), 1);
-      d1643 = 1;
+    u_value s1676 = u_mk_tuple(2, v_ps, v_ts);
+    int d1677 = 0;
+    if ((!d1677) && (u_is_con(u_field(s1676, 0), &n_list_46_Cons) && u_is_con(u_field(s1676, 1), &n_list_46_Cons))) {
+      u_value v_p = u_field(u_field(s1676, 0), 0);
+      u_value v_more = u_field(u_field(s1676, 0), 1);
+      u_value v_t = u_field(u_field(s1676, 1), 0);
+      u_value v_ts1 = u_field(u_field(s1676, 1), 1);
+      d1677 = 1;
       {
         p_check_46_binders(v_p, v_t, &v_q, &v_ys, r_s);
         p_check_46_binder_list(v_more, v_ts1, &v_rest, &v_zs, r_s);
-        u_value t1644 = u_mk_con(&n_list_46_Cons, 2, v_q, v_rest);
-        u_value t1645 = f_list_46__43__43__2(v_ys, v_zs);
-        *r_qs = t1644;
-        *r_xs = t1645;
+        u_value t1678 = u_mk_con(&n_list_46_Cons, 2, v_q, v_rest);
+        u_value t1679 = f_list_46__43__43__2(v_ys, v_zs);
+        *r_qs = t1678;
+        *r_xs = t1679;
       }
     }
-    if ((!d1643) && (u_is_con(u_field(s1642, 0), &n_list_46_Nil) && u_is_con(u_field(s1642, 1), &n_list_46_Nil))) {
-      d1643 = 1;
+    if ((!d1677) && (u_is_con(u_field(s1676, 0), &n_list_46_Nil) && u_is_con(u_field(s1676, 1), &n_list_46_Nil))) {
+      d1677 = 1;
       {
-        u_value t1646 = &o_list_46_Nil;
-        u_value t1647 = &o_list_46_Nil;
-        *r_qs = t1646;
-        *r_xs = t1647;
+        u_value t1680 = &o_list_46_Nil;
+        u_value t1681 = &o_list_46_Nil;
+        *r_qs = t1680;
+        *r_xs = t1681;
       }
     }
-    if (!d1643) {
-      d1643 = 1;
+    if (!d1677) {
+      d1677 = 1;
       {
         u_raise(u_mk_con(&n_check_46_CountMismatch, 2, f_list_46_size_1(v_ts), f_list_46_size_1(v_ps)), "check.TypeError");
       }
     }
-    if (!d1643) {
-      u_no_case(s1642);
+    if (!d1677) {
+      u_no_case(s1676);
     }
   }
 }
@@ -19772,43 +20432,43 @@ void p_check_46_binder_list(u_value v_ps, u_value v_ts, u_value *r_qs, u_value *
 void p_check_46_variable(u_value v_env, u_value v_assignable, u_value v_x, u_value *r_y, u_value *r_s) {
   {
     u_value v_u = NULL;
-    u_value s1648 = v_x;
-    int d1649 = 0;
-    if ((!d1649) && u_is_con(s1648, &n_syntax_46_Var)) {
-      u_value v_n = u_field(s1648, 0);
-      u_value v_a = u_field(s1648, 1);
-      d1649 = 1;
+    u_value s1682 = v_x;
+    int d1683 = 0;
+    if ((!d1683) && u_is_con(s1682, &n_syntax_46_Var)) {
+      u_value v_n = u_field(s1682, 0);
+      u_value v_a = u_field(s1682, 1);
+      d1683 = 1;
       {
         if (u_truth(f_prelude_46_not_1(f_list_46_contains_2(v_n, v_assignable)))) {
           {
             u_raise(u_mk_con(&n_check_46_NotAssignable, 1, v_n), "check.TypeError");
           }
         }
-        u_value s1650 = f_list_46_get_2(v_n, v_env);
-        int d1651 = 0;
-        if ((!d1651) && u_is_con(s1650, &n_option_46_Some)) {
-          u_value v_t = u_field(u_field(s1650, 0), 1);
-          d1651 = 1;
+        u_value s1684 = f_list_46_get_2(v_n, v_env);
+        int d1685 = 0;
+        if ((!d1685) && u_is_con(s1684, &n_option_46_Some)) {
+          u_value v_t = u_field(u_field(s1684, 0), 1);
+          d1685 = 1;
           {
             p_check_46_normalize(v_a, &v_u, r_s);
             p_check_46_unify(v_t, v_u, r_s);
-            u_value t1652 = u_mk_con(&n_syntax_46_Var, 2, v_n, v_t);
-            *r_y = t1652;
+            u_value t1686 = u_mk_con(&n_syntax_46_Var, 2, v_n, v_t);
+            *r_y = t1686;
           }
         }
-        if ((!d1651) && u_is_con(s1650, &n_option_46_None)) {
-          d1651 = 1;
+        if ((!d1685) && u_is_con(s1684, &n_option_46_None)) {
+          d1685 = 1;
           {
             u_raise(u_mk_con(&n_check_46_UnknownVariable, 1, v_n), "check.TypeError");
           }
         }
-        if (!d1651) {
-          u_no_case(s1650);
+        if (!d1685) {
+          u_no_case(s1684);
         }
       }
     }
-    if (!d1649) {
-      u_no_case(s1648);
+    if (!d1683) {
+      u_no_case(s1682);
     }
   }
 }
@@ -19817,28 +20477,28 @@ void p_check_46_variables(u_value v_env, u_value v_assignable, u_value v_xs, u_v
   {
     u_value v_y = NULL;
     u_value v_rest = NULL;
-    u_value s1653 = v_xs;
-    int d1654 = 0;
-    if ((!d1654) && u_is_con(s1653, &n_list_46_Nil)) {
-      d1654 = 1;
+    u_value s1687 = v_xs;
+    int d1688 = 0;
+    if ((!d1688) && u_is_con(s1687, &n_list_46_Nil)) {
+      d1688 = 1;
       {
-        u_value t1655 = &o_list_46_Nil;
-        *r_ys = t1655;
+        u_value t1689 = &o_list_46_Nil;
+        *r_ys = t1689;
       }
     }
-    if ((!d1654) && u_is_con(s1653, &n_list_46_Cons)) {
-      u_value v_x = u_field(s1653, 0);
-      u_value v_more = u_field(s1653, 1);
-      d1654 = 1;
+    if ((!d1688) && u_is_con(s1687, &n_list_46_Cons)) {
+      u_value v_x = u_field(s1687, 0);
+      u_value v_more = u_field(s1687, 1);
+      d1688 = 1;
       {
         p_check_46_variable(v_env, v_assignable, v_x, &v_y, r_s);
         p_check_46_variables(v_env, v_assignable, v_more, &v_rest, r_s);
-        u_value t1656 = u_mk_con(&n_list_46_Cons, 2, v_y, v_rest);
-        *r_ys = t1656;
+        u_value t1690 = u_mk_con(&n_list_46_Cons, 2, v_y, v_rest);
+        *r_ys = t1690;
       }
     }
-    if (!d1654) {
-      u_no_case(s1653);
+    if (!d1688) {
+      u_no_case(s1687);
     }
   }
 }
@@ -19855,170 +20515,170 @@ void p_check_46_statement(u_value v_env, u_value v_assignable, u_value v_x, u_va
     u_value v_xs = NULL;
     u_value v_bs = NULL;
     u_value v_hs = NULL;
-    u_value s1657 = v_x;
-    int d1658 = 0;
-    if ((!d1658) && u_is_con(s1657, &n_syntax_46_SSkip)) {
-      d1658 = 1;
+    u_value s1691 = v_x;
+    int d1692 = 0;
+    if ((!d1692) && u_is_con(s1691, &n_syntax_46_SSkip)) {
+      d1692 = 1;
       {
-        u_value t1659 = v_x;
-        *r_y = t1659;
+        u_value t1693 = v_x;
+        *r_y = t1693;
       }
     }
-    if ((!d1658) && u_is_con(s1657, &n_syntax_46_SAssign)) {
-      u_value v_pairs = u_field(s1657, 0);
-      d1658 = 1;
+    if ((!d1692) && u_is_con(s1691, &n_syntax_46_SAssign)) {
+      u_value v_pairs = u_field(s1691, 0);
+      d1692 = 1;
       {
         p_check_46_unique(f_syntax_46_names_1(f_list_46_firsts_1(v_pairs)));
         p_check_46_variables(v_env, v_assignable, f_list_46_firsts_1(v_pairs), &v_ys, r_s);
         p_check_46_checks(v_env, f_list_46_seconds_1(v_pairs), f_syntax_46_types_1(v_ys), &v_es, r_s);
-        u_value t1660 = u_mk_con(&n_syntax_46_SAssign, 1, f_list_46_zip_2(v_ys, v_es));
-        *r_y = t1660;
+        u_value t1694 = u_mk_con(&n_syntax_46_SAssign, 1, f_list_46_zip_2(v_ys, v_es));
+        *r_y = t1694;
       }
     }
-    if ((!d1658) && u_is_con(s1657, &n_syntax_46_SBlock)) {
-      u_value v_locals = u_field(s1657, 0);
-      u_value v_body = u_field(s1657, 1);
-      d1658 = 1;
+    if ((!d1692) && u_is_con(s1691, &n_syntax_46_SBlock)) {
+      u_value v_locals = u_field(s1691, 0);
+      u_value v_body = u_field(s1691, 1);
+      d1692 = 1;
       {
         p_check_46_untyped(v_locals, f_check_46_initialized_1(v_body));
         p_check_46_formals(v_locals, &v_ys, r_s);
         p_check_46_statements(f_list_46__43__43__2(f_check_46_bind_1(v_ys), v_env), f_list_46__43__43__2(f_syntax_46_names_1(v_ys), v_assignable), v_body, &v_xs, r_s);
-        u_value t1661 = u_mk_con(&n_syntax_46_SBlock, 2, v_ys, v_xs);
-        *r_y = t1661;
+        u_value t1695 = u_mk_con(&n_syntax_46_SBlock, 2, v_ys, v_xs);
+        *r_y = t1695;
       }
     }
-    if ((!d1658) && u_is_con(s1657, &n_syntax_46_SIf)) {
-      u_value v_cond = u_field(s1657, 0);
-      u_value v_left = u_field(s1657, 1);
-      u_value v_right = u_field(s1657, 2);
-      d1658 = 1;
+    if ((!d1692) && u_is_con(s1691, &n_syntax_46_SIf)) {
+      u_value v_cond = u_field(s1691, 0);
+      u_value v_left = u_field(s1691, 1);
+      u_value v_right = u_field(s1691, 2);
+      d1692 = 1;
       {
         p_check_46_check(v_env, v_cond, f_check_46_tbool_0(), &v_c, r_s);
         p_check_46_statement(v_env, v_assignable, v_left, &v_l, r_s);
         p_check_46_statement(v_env, v_assignable, v_right, &v_r, r_s);
-        u_value t1662 = u_mk_con(&n_syntax_46_SIf, 3, v_c, v_l, v_r);
-        *r_y = t1662;
+        u_value t1696 = u_mk_con(&n_syntax_46_SIf, 3, v_c, v_l, v_r);
+        *r_y = t1696;
       }
     }
-    if ((!d1658) && u_is_con(s1657, &n_syntax_46_SWhile)) {
-      u_value v_cond = u_field(s1657, 0);
-      u_value v_body = u_field(s1657, 1);
-      d1658 = 1;
+    if ((!d1692) && u_is_con(s1691, &n_syntax_46_SWhile)) {
+      u_value v_cond = u_field(s1691, 0);
+      u_value v_body = u_field(s1691, 1);
+      d1692 = 1;
       {
         p_check_46_check(v_env, v_cond, f_check_46_tbool_0(), &v_c, r_s);
         p_check_46_statement(v_env, v_assignable, v_body, &v_l, r_s);
-        u_value t1663 = u_mk_con(&n_syntax_46_SWhile, 2, v_c, v_l);
-        *r_y = t1663;
+        u_value t1697 = u_mk_con(&n_syntax_46_SWhile, 2, v_c, v_l);
+        *r_y = t1697;
       }
     }
-    if ((!d1658) && u_is_con(s1657, &n_syntax_46_SCall)) {
-      u_value v_p = u_field(s1657, 0);
-      u_value v_ins = u_field(s1657, 1);
-      u_value v_outs = u_field(s1657, 2);
-      u_value v_refs = u_field(s1657, 3);
-      d1658 = 1;
+    if ((!d1692) && u_is_con(s1691, &n_syntax_46_SCall)) {
+      u_value v_p = u_field(s1691, 0);
+      u_value v_ins = u_field(s1691, 1);
+      u_value v_outs = u_field(s1691, 2);
+      u_value v_refs = u_field(s1691, 3);
+      d1692 = 1;
       {
         p_check_46_call_proc(v_env, v_assignable, v_p, v_ins, v_outs, v_refs, r_y, r_s);
       }
     }
-    if ((!d1658) && u_is_con(s1657, &n_syntax_46_SMatch)) {
-      u_value v_arg = u_field(s1657, 0);
-      u_value v_cases = u_field(s1657, 1);
-      d1658 = 1;
+    if ((!d1692) && u_is_con(s1691, &n_syntax_46_SMatch)) {
+      u_value v_arg = u_field(s1691, 0);
+      u_value v_cases = u_field(s1691, 1);
+      d1692 = 1;
       {
         p_check_46_infer(v_env, v_arg, &v_c, &v_t, r_s);
         p_check_46_stmt_branches(v_env, v_assignable, v_cases, v_t, &v_bs, r_s);
         p_check_46_solve(r_s);
-        u_value t1664 = &o_list_46_Nil;
-        u_value *e1665 = &t1664;
-        u_value l1666 = v_bs;
-        while (u_is_con(l1666, &n_list_46_Cons)) {
-          u_value v_br = u_field(l1666, 0);
+        u_value t1698 = &o_list_46_Nil;
+        u_value *e1699 = &t1698;
+        u_value l1700 = v_bs;
+        while (u_is_con(l1700, &n_list_46_Cons)) {
+          u_value v_br = u_field(l1700, 0);
           if (u_truth(u_mk_bool(1))) {
-            e1665 = u_append(e1665, f_check_46_case_of_1(v_br));
+            e1699 = u_append(e1699, f_check_46_case_of_1(v_br));
           }
-          l1666 = u_field(l1666, 1);
+          l1700 = u_field(l1700, 1);
         }
-        p_check_46_coverage(*r_s, v_t, t1664);
-        u_value t1667 = u_mk_con(&n_syntax_46_SMatch, 2, v_c, v_bs);
-        *r_y = t1667;
+        p_check_46_coverage(*r_s, v_t, t1698);
+        u_value t1701 = u_mk_con(&n_syntax_46_SMatch, 2, v_c, v_bs);
+        *r_y = t1701;
       }
     }
-    if ((!d1658) && u_is_con(s1657, &n_syntax_46_SAssert)) {
-      u_value v_cond = u_field(s1657, 0);
-      d1658 = 1;
+    if ((!d1692) && u_is_con(s1691, &n_syntax_46_SAssert)) {
+      u_value v_cond = u_field(s1691, 0);
+      d1692 = 1;
       {
         p_check_46_check(v_env, v_cond, f_check_46_tbool_0(), &v_c, r_s);
-        u_value t1668 = u_mk_con(&n_syntax_46_SAssert, 1, v_c);
-        *r_y = t1668;
+        u_value t1702 = u_mk_con(&n_syntax_46_SAssert, 1, v_c);
+        *r_y = t1702;
       }
     }
-    if ((!d1658) && u_is_con(s1657, &n_syntax_46_SRaise)) {
-      u_value v_arg = u_field(s1657, 0);
-      u_value v_a = u_field(s1657, 1);
-      d1658 = 1;
+    if ((!d1692) && u_is_con(s1691, &n_syntax_46_SRaise)) {
+      u_value v_arg = u_field(s1691, 0);
+      u_value v_a = u_field(s1691, 1);
+      d1692 = 1;
       {
         p_check_46_infer(v_env, v_arg, &v_c, &v_t, r_s);
         p_check_46_normalize(v_a, &v_u, r_s);
         p_check_46_unify(v_t, v_u, r_s);
-        u_value t1669 = u_mk_con(&n_syntax_46_SRaise, 2, v_c, v_t);
-        *r_y = t1669;
+        u_value t1703 = u_mk_con(&n_syntax_46_SRaise, 2, v_c, v_t);
+        *r_y = t1703;
       }
     }
-    if ((!d1658) && u_is_con(s1657, &n_syntax_46_STry)) {
-      u_value v_body = u_field(s1657, 0);
-      u_value v_handlers = u_field(s1657, 1);
-      d1658 = 1;
+    if ((!d1692) && u_is_con(s1691, &n_syntax_46_STry)) {
+      u_value v_body = u_field(s1691, 0);
+      u_value v_handlers = u_field(s1691, 1);
+      d1692 = 1;
       {
         p_check_46_statement(v_env, v_assignable, v_body, &v_l, r_s);
         p_check_46_handler_list(v_env, v_assignable, v_handlers, &v_hs, r_s);
-        u_value t1670 = u_mk_con(&n_syntax_46_STry, 2, v_l, v_hs);
-        *r_y = t1670;
+        u_value t1704 = u_mk_con(&n_syntax_46_STry, 2, v_l, v_hs);
+        *r_y = t1704;
       }
     }
-    if (!d1658) {
-      u_no_case(s1657);
+    if (!d1692) {
+      u_no_case(s1691);
     }
   }
 }
 
 u_value f_check_46_initialized_1(u_value v_xs) {
-  u_value s1671 = v_xs;
-  u_value t1672 = NULL;
-  if ((!t1672) && (u_is_con(s1671, &n_list_46_Cons) && (u_is_con(u_field(s1671, 0), &n_syntax_46_SAssign) && (u_is_con(u_field(u_field(s1671, 0), 0), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s1671, 0), 0), 1), &n_list_46_Nil))))) {
-    u_value v_x = u_field(u_field(u_field(u_field(s1671, 0), 0), 0), 0);
-    u_value v_rest = u_field(s1671, 1);
-    t1672 = u_mk_con(&n_list_46_Cons, 2, f_syntax_46_Var_46_name_1(v_x), f_check_46_initialized_1(v_rest));
+  u_value s1705 = v_xs;
+  u_value t1706 = NULL;
+  if ((!t1706) && (u_is_con(s1705, &n_list_46_Cons) && (u_is_con(u_field(s1705, 0), &n_syntax_46_SAssign) && (u_is_con(u_field(u_field(s1705, 0), 0), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s1705, 0), 0), 1), &n_list_46_Nil))))) {
+    u_value v_x = u_field(u_field(u_field(u_field(s1705, 0), 0), 0), 0);
+    u_value v_rest = u_field(s1705, 1);
+    t1706 = u_mk_con(&n_list_46_Cons, 2, f_syntax_46_Var_46_name_1(v_x), f_check_46_initialized_1(v_rest));
   }
-  if (!t1672) {
-    t1672 = &o_list_46_Nil;
+  if (!t1706) {
+    t1706 = &o_list_46_Nil;
   }
-  if (!t1672) {
-    u_no_case(s1671);
+  if (!t1706) {
+    u_no_case(s1705);
   }
-  return t1672;
+  return t1706;
 }
 
 void p_check_46_untyped(u_value v_xs, u_value v_inits) {
   {
-    u_value s1673 = v_xs;
-    int d1674 = 0;
-    if ((!d1674) && u_is_con(s1673, &n_list_46_Nil)) {
-      d1674 = 1;
+    u_value s1707 = v_xs;
+    int d1708 = 0;
+    if ((!d1708) && u_is_con(s1707, &n_list_46_Nil)) {
+      d1708 = 1;
       {
       }
     }
-    if ((!d1674) && (u_is_con(s1673, &n_list_46_Cons) && u_is_con(u_field(s1673, 0), &n_syntax_46_Var))) {
-      u_value v_n = u_field(u_field(s1673, 0), 0);
-      u_value v_t = u_field(u_field(s1673, 0), 1);
-      u_value v_rest = u_field(s1673, 1);
-      d1674 = 1;
+    if ((!d1708) && (u_is_con(s1707, &n_list_46_Cons) && u_is_con(u_field(s1707, 0), &n_syntax_46_Var))) {
+      u_value v_n = u_field(u_field(s1707, 0), 0);
+      u_value v_t = u_field(u_field(s1707, 0), 1);
+      u_value v_rest = u_field(s1707, 1);
+      d1708 = 1;
       {
-        u_value t1675 = f_check_46_holes_1(v_t);
-        if (u_truth(t1675)) {
-          t1675 = f_prelude_46_not_1(f_list_46_contains_2(v_n, v_inits));
+        u_value t1709 = f_check_46_holes_1(v_t);
+        if (u_truth(t1709)) {
+          t1709 = f_prelude_46_not_1(f_list_46_contains_2(v_n, v_inits));
         }
-        if (u_truth(t1675)) {
+        if (u_truth(t1709)) {
           {
             u_raise(u_mk_con(&n_check_46_MissingType, 1, v_n), "check.TypeError");
           }
@@ -20026,8 +20686,8 @@ void p_check_46_untyped(u_value v_xs, u_value v_inits) {
         p_check_46_untyped(v_rest, v_inits);
       }
     }
-    if (!d1674) {
-      u_no_case(s1673);
+    if (!d1708) {
+      u_no_case(s1707);
     }
   }
 }
@@ -20036,100 +20696,100 @@ void p_check_46_statements(u_value v_env, u_value v_assignable, u_value v_xs, u_
   {
     u_value v_y = NULL;
     u_value v_rest = NULL;
-    u_value s1676 = v_xs;
-    int d1677 = 0;
-    if ((!d1677) && u_is_con(s1676, &n_list_46_Nil)) {
-      d1677 = 1;
+    u_value s1710 = v_xs;
+    int d1711 = 0;
+    if ((!d1711) && u_is_con(s1710, &n_list_46_Nil)) {
+      d1711 = 1;
       {
-        u_value t1678 = &o_list_46_Nil;
-        *r_ys = t1678;
+        u_value t1712 = &o_list_46_Nil;
+        *r_ys = t1712;
       }
     }
-    if ((!d1677) && u_is_con(s1676, &n_list_46_Cons)) {
-      u_value v_x = u_field(s1676, 0);
-      u_value v_more = u_field(s1676, 1);
-      d1677 = 1;
+    if ((!d1711) && u_is_con(s1710, &n_list_46_Cons)) {
+      u_value v_x = u_field(s1710, 0);
+      u_value v_more = u_field(s1710, 1);
+      d1711 = 1;
       {
         p_check_46_statement(v_env, v_assignable, v_x, &v_y, r_s);
         p_check_46_statements(v_env, v_assignable, v_more, &v_rest, r_s);
-        u_value t1679 = u_mk_con(&n_list_46_Cons, 2, v_y, v_rest);
-        *r_ys = t1679;
+        u_value t1713 = u_mk_con(&n_list_46_Cons, 2, v_y, v_rest);
+        *r_ys = t1713;
       }
     }
-    if (!d1677) {
-      u_no_case(s1676);
+    if (!d1711) {
+      u_no_case(s1710);
     }
   }
 }
 
 u_value f_check_46_os_procs_1(u_value v_c) {
-  u_value t1690;
+  u_value t1724;
   if (u_truth(f_ctx_46_is_data_2(v_c, f_syntax_46_os_error_name_0()))) {
-    static struct u_object l_os_args_1680 = U_LIT("os_args");
-    static struct u_object l_os_read_1681 = U_LIT("os_read");
-    static struct u_object l_os_write_1682 = U_LIT("os_write");
-    static struct u_object l_os_show_1683 = U_LIT("os_show");
-    static struct u_object l_A_1684 = U_LIT("A");
-    static struct u_object l_A_1685 = U_LIT("A");
-    static struct u_object l_os_print_1686 = U_LIT("os_print");
-    static struct u_object l_os_print_error_1687 = U_LIT("os_print_error");
-    static struct u_object l_os_exit_1688 = U_LIT("os_exit");
-    static struct u_object l_os_library_1689 = U_LIT("os_library");
-    t1690 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_args_1680), u_mk_tuple(4, &o_list_46_Nil, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tlist_1(f_check_46_tstr_0()), &o_list_46_Nil), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_read_1681), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_write_1682), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil)), &o_list_46_Nil, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_show_1683), u_mk_tuple(4, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_TParam, 1, &l_A_1684), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_TParam, 1, &l_A_1685), &o_list_46_Nil), &o_list_46_Nil, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_print_1686), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), &o_list_46_Nil, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_print_error_1687), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), &o_list_46_Nil, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_exit_1688), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tint_0(), &o_list_46_Nil), &o_list_46_Nil, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_library_1689), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), &o_list_46_Nil)), &o_list_46_Nil))))))));
+    static struct u_object l_os_args_1714 = U_LIT("os_args");
+    static struct u_object l_os_read_1715 = U_LIT("os_read");
+    static struct u_object l_os_write_1716 = U_LIT("os_write");
+    static struct u_object l_os_show_1717 = U_LIT("os_show");
+    static struct u_object l_A_1718 = U_LIT("A");
+    static struct u_object l_A_1719 = U_LIT("A");
+    static struct u_object l_os_print_1720 = U_LIT("os_print");
+    static struct u_object l_os_print_error_1721 = U_LIT("os_print_error");
+    static struct u_object l_os_exit_1722 = U_LIT("os_exit");
+    static struct u_object l_os_library_1723 = U_LIT("os_library");
+    t1724 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_args_1714), u_mk_tuple(4, &o_list_46_Nil, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tlist_1(f_check_46_tstr_0()), &o_list_46_Nil), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_read_1715), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_write_1716), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil)), &o_list_46_Nil, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_show_1717), u_mk_tuple(4, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_TParam, 1, &l_A_1718), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_TParam, 1, &l_A_1719), &o_list_46_Nil), &o_list_46_Nil, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_print_1720), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), &o_list_46_Nil, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_print_error_1721), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), &o_list_46_Nil, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_exit_1722), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tint_0(), &o_list_46_Nil), &o_list_46_Nil, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_os_library_1723), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), &o_list_46_Nil)), &o_list_46_Nil))))))));
   } else {
-    t1690 = &o_list_46_Nil;
+    t1724 = &o_list_46_Nil;
   }
-  return t1690;
+  return t1724;
 }
 
 u_value f_check_46_syntax_procs_1(u_value v_c) {
-  u_value t1691 = &o_list_46_Nil;
-  u_value *e1692 = &t1691;
-  static struct u_object l_Program_1693 = U_LIT("Program");
-  u_value l1694 = f_ctx_46_names_of_2(v_c, &l_Program_1693);
-  while (u_is_con(l1694, &n_list_46_Cons)) {
-    u_value v_d = u_field(l1694, 0);
+  u_value t1725 = &o_list_46_Nil;
+  u_value *e1726 = &t1725;
+  static struct u_object l_Program_1727 = U_LIT("Program");
+  u_value l1728 = f_ctx_46_names_of_2(v_c, &l_Program_1727);
+  while (u_is_con(l1728, &n_list_46_Cons)) {
+    u_value v_d = u_field(l1728, 0);
     if (u_truth(f_ctx_46_is_data_2(v_c, v_d))) {
-      e1692 = u_append(e1692, v_d);
+      e1726 = u_append(e1726, v_d);
     }
-    l1694 = u_field(l1694, 1);
+    l1728 = u_field(l1728, 1);
   }
-  u_value s1695 = t1691;
-  u_value t1696 = NULL;
-  if ((!t1696) && u_is_con(s1695, &n_list_46_Cons)) {
-    u_value v_d = u_field(s1695, 0);
-    static struct u_object l_read_1697 = U_LIT("read");
-    static struct u_object l_library_1698 = U_LIT("library");
-    t1696 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_read_1697), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_TSort, 2, v_d, &o_list_46_Nil), &o_list_46_Nil), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_library_1698), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_TSort, 2, v_d, &o_list_46_Nil), &o_list_46_Nil), &o_list_46_Nil)), &o_list_46_Nil));
+  u_value s1729 = t1725;
+  u_value t1730 = NULL;
+  if ((!t1730) && u_is_con(s1729, &n_list_46_Cons)) {
+    u_value v_d = u_field(s1729, 0);
+    static struct u_object l_read_1731 = U_LIT("read");
+    static struct u_object l_library_1732 = U_LIT("library");
+    t1730 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_read_1731), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_TSort, 2, v_d, &o_list_46_Nil), &o_list_46_Nil), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_library_1732), u_mk_tuple(4, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_TSort, 2, v_d, &o_list_46_Nil), &o_list_46_Nil), &o_list_46_Nil)), &o_list_46_Nil));
   }
-  if (!t1696) {
-    t1696 = &o_list_46_Nil;
+  if (!t1730) {
+    t1730 = &o_list_46_Nil;
   }
-  if (!t1696) {
-    u_no_case(s1695);
+  if (!t1730) {
+    u_no_case(s1729);
   }
-  return t1696;
+  return t1730;
 }
 
 void p_check_46_call_proc(u_value v_env, u_value v_assignable, u_value v_p, u_value v_ins, u_value v_outs, u_value v_refs, u_value *r_y, u_value *r_s) {
   {
-    u_value s1699 = f_list_46_get_2(v_p, v_env);
-    int d1700 = 0;
-    if ((!d1700) && u_is_con(s1699, &n_option_46_Some)) {
-      u_value v_sc = u_field(s1699, 0);
-      d1700 = 1;
+    u_value s1733 = f_list_46_get_2(v_p, v_env);
+    int d1734 = 0;
+    if ((!d1734) && u_is_con(s1733, &n_option_46_Some)) {
+      u_value v_sc = u_field(s1733, 0);
+      d1734 = 1;
       {
         p_check_46_call_variable(v_env, v_assignable, v_p, v_sc, v_ins, v_outs, v_refs, r_y, r_s);
       }
     }
-    if ((!d1700) && u_is_con(s1699, &n_option_46_None)) {
-      d1700 = 1;
+    if ((!d1734) && u_is_con(s1733, &n_option_46_None)) {
+      d1734 = 1;
       {
         p_check_46_call_declared(v_env, v_assignable, v_p, v_ins, v_outs, v_refs, r_y, r_s);
       }
     }
-    if (!d1700) {
-      u_no_case(s1699);
+    if (!d1734) {
+      u_no_case(s1733);
     }
   }
 }
@@ -20155,37 +20815,37 @@ void p_check_46_call_variable(u_value v_env, u_value v_assignable, u_value v_p, 
     p_check_46_variables(v_env, v_assignable, v_outs, &v_outs1, r_s);
     p_check_46_variables(v_env, v_assignable, v_refs, &v_refs1, r_s);
     p_check_46_unifies(f_syntax_46_types_1(f_list_46__43__43__2(v_outs1, v_refs1)), f_list_46__43__43__2(v_os, v_rs), r_s);
-    u_value t1701 = u_mk_con(&n_syntax_46_SCall, 4, v_p, v_ins1, v_outs1, v_refs1);
-    *r_y = t1701;
+    u_value t1735 = u_mk_con(&n_syntax_46_SCall, 4, v_p, v_ins1, v_outs1, v_refs1);
+    *r_y = t1735;
   }
 }
 
 void p_check_46_call_declared(u_value v_env, u_value v_assignable, u_value v_p, u_value v_ins, u_value v_outs, u_value v_refs, u_value *r_y, u_value *r_s) {
   {
-    u_value s1703 = f_check_46_overloads_3(*r_s, v_p, u_mk_closure(lam1702, 1, *r_s));
-    int d1704 = 0;
-    if ((!d1704) && (u_is_con(s1703, &n_list_46_Cons) && u_is_con(u_field(s1703, 1), &n_list_46_Nil))) {
-      u_value v_q = u_field(s1703, 0);
-      d1704 = 1;
+    u_value s1737 = f_check_46_overloads_3(*r_s, v_p, u_mk_closure(lam1736, 1, *r_s));
+    int d1738 = 0;
+    if ((!d1738) && (u_is_con(s1737, &n_list_46_Cons) && u_is_con(u_field(s1737, 1), &n_list_46_Nil))) {
+      u_value v_q = u_field(s1737, 0);
+      d1738 = 1;
       {
         p_check_46_declared_call(v_env, v_assignable, v_p, v_q, v_ins, v_outs, v_refs, r_y, r_s);
       }
     }
-    if ((!d1704) && u_is_con(s1703, &n_list_46_Nil)) {
-      d1704 = 1;
+    if ((!d1738) && u_is_con(s1737, &n_list_46_Nil)) {
+      d1738 = 1;
       {
         p_check_46_declared_call(v_env, v_assignable, v_p, v_p, v_ins, v_outs, v_refs, r_y, r_s);
       }
     }
-    if (!d1704) {
-      u_value v_qs = s1703;
-      d1704 = 1;
+    if (!d1738) {
+      u_value v_qs = s1737;
+      d1738 = 1;
       {
         p_check_46_overloaded_call(v_env, v_assignable, v_p, v_qs, v_ins, v_outs, v_refs, r_y, r_s);
       }
     }
-    if (!d1704) {
-      u_no_case(s1703);
+    if (!d1738) {
+      u_no_case(s1737);
     }
   }
 }
@@ -20201,19 +20861,19 @@ void p_check_46_overloaded_call(u_value v_env, u_value v_assignable, u_value v_p
     p_check_46_infers(v_env, v_ins, &v_ins1, &v_is, r_s);
     p_check_46_variables(v_env, v_assignable, v_outs, &v_outs1, r_s);
     p_check_46_variables(v_env, v_assignable, v_refs, &v_refs1, r_s);
-    u_value t1705 = &o_list_46_Nil;
-    u_value *e1706 = &t1705;
-    u_value l1707 = v_qs;
-    while (u_is_con(l1707, &n_list_46_Cons)) {
-      u_value v_q = u_field(l1707, 0);
+    u_value t1739 = &o_list_46_Nil;
+    u_value *e1740 = &t1739;
+    u_value l1741 = v_qs;
+    while (u_is_con(l1741, &n_list_46_Cons)) {
+      u_value v_q = u_field(l1741, 0);
       if (u_truth(u_mk_bool(1))) {
-        e1706 = u_append(e1706, u_mk_tuple(2, v_q, f_check_46_proc_scheme_2(f_check_46_State_46_ctx_1(*r_s), v_q)));
+        e1740 = u_append(e1740, u_mk_tuple(2, v_q, f_check_46_proc_scheme_2(f_check_46_State_46_ctx_1(*r_s), v_q)));
       }
-      l1707 = u_field(l1707, 1);
+      l1741 = u_field(l1741, 1);
     }
-    p_check_46_choose(v_p, t1705, u_mk_con(&n_syntax_46_TProc, 3, v_is, f_syntax_46_types_1(v_outs1), f_syntax_46_types_1(v_refs1)), &v_m, r_s);
-    u_value t1708 = u_mk_con(&n_syntax_46_SCall, 4, v_m, v_ins1, v_outs1, v_refs1);
-    *r_y = t1708;
+    p_check_46_choose(v_p, t1739, u_mk_con(&n_syntax_46_TProc, 3, v_is, f_syntax_46_types_1(v_outs1), f_syntax_46_types_1(v_refs1)), &v_m, r_s);
+    u_value t1742 = u_mk_con(&n_syntax_46_SCall, 4, v_m, v_ins1, v_outs1, v_refs1);
+    *r_y = t1742;
   }
 }
 
@@ -20223,56 +20883,56 @@ void p_check_46_declared_call(u_value v_env, u_value v_assignable, u_value v_p, 
     u_value v_ins1 = NULL;
     u_value v_outs1 = NULL;
     u_value v_refs1 = NULL;
-    u_value s1709 = f_option_46_or_else_2(f_ctx_46_proc_of_2(f_check_46_State_46_ctx_1(*r_s), v_q), f_list_46_get_2(v_q, f_list_46__43__43__2(f_check_46_os_procs_1(f_check_46_State_46_ctx_1(*r_s)), f_check_46_syntax_procs_1(f_check_46_State_46_ctx_1(*r_s)))));
-    int d1710 = 0;
-    if ((!d1710) && u_is_con(s1709, &n_option_46_Some)) {
-      u_value v_ps = u_field(u_field(s1709, 0), 0);
-      u_value v_is = u_field(u_field(s1709, 0), 1);
-      u_value v_os = u_field(u_field(s1709, 0), 2);
-      u_value v_rs = u_field(u_field(s1709, 0), 3);
-      d1710 = 1;
+    u_value s1743 = f_option_46_or_else_2(f_ctx_46_proc_of_2(f_check_46_State_46_ctx_1(*r_s), v_q), f_list_46_get_2(v_q, f_list_46__43__43__2(f_check_46_os_procs_1(f_check_46_State_46_ctx_1(*r_s)), f_check_46_syntax_procs_1(f_check_46_State_46_ctx_1(*r_s)))));
+    int d1744 = 0;
+    if ((!d1744) && u_is_con(s1743, &n_option_46_Some)) {
+      u_value v_ps = u_field(u_field(s1743, 0), 0);
+      u_value v_is = u_field(u_field(s1743, 0), 1);
+      u_value v_os = u_field(u_field(s1743, 0), 2);
+      u_value v_rs = u_field(u_field(s1743, 0), 3);
+      d1744 = 1;
       {
         p_check_46_instance(v_ps, &v_m, r_s);
         p_check_46_same_length(f_list_46_size_1(v_is), f_list_46_size_1(v_ins));
         p_check_46_same_length(f_list_46_size_1(v_os), f_list_46_size_1(v_outs));
         p_check_46_same_length(f_list_46_size_1(v_rs), f_list_46_size_1(v_refs));
         p_check_46_unique(f_syntax_46_names_1(f_list_46__43__43__2(v_outs, v_refs)));
-        u_value t1711 = &o_list_46_Nil;
-        u_value *e1712 = &t1711;
-        u_value l1713 = v_is;
-        while (u_is_con(l1713, &n_list_46_Cons)) {
-          u_value v_t = u_field(l1713, 0);
+        u_value t1745 = &o_list_46_Nil;
+        u_value *e1746 = &t1745;
+        u_value l1747 = v_is;
+        while (u_is_con(l1747, &n_list_46_Cons)) {
+          u_value v_t = u_field(l1747, 0);
           if (u_truth(u_mk_bool(1))) {
-            e1712 = u_append(e1712, f_check_46_subst_2(v_t, v_m));
+            e1746 = u_append(e1746, f_check_46_subst_2(v_t, v_m));
           }
-          l1713 = u_field(l1713, 1);
+          l1747 = u_field(l1747, 1);
         }
-        p_check_46_checks(v_env, v_ins, t1711, &v_ins1, r_s);
+        p_check_46_checks(v_env, v_ins, t1745, &v_ins1, r_s);
         p_check_46_variables(v_env, v_assignable, v_outs, &v_outs1, r_s);
         p_check_46_variables(v_env, v_assignable, v_refs, &v_refs1, r_s);
-        u_value t1714 = &o_list_46_Nil;
-        u_value *e1715 = &t1714;
-        u_value l1716 = f_list_46__43__43__2(v_os, v_rs);
-        while (u_is_con(l1716, &n_list_46_Cons)) {
-          u_value v_t = u_field(l1716, 0);
+        u_value t1748 = &o_list_46_Nil;
+        u_value *e1749 = &t1748;
+        u_value l1750 = f_list_46__43__43__2(v_os, v_rs);
+        while (u_is_con(l1750, &n_list_46_Cons)) {
+          u_value v_t = u_field(l1750, 0);
           if (u_truth(u_mk_bool(1))) {
-            e1715 = u_append(e1715, f_check_46_subst_2(v_t, v_m));
+            e1749 = u_append(e1749, f_check_46_subst_2(v_t, v_m));
           }
-          l1716 = u_field(l1716, 1);
+          l1750 = u_field(l1750, 1);
         }
-        p_check_46_unifies(f_syntax_46_types_1(f_list_46__43__43__2(v_outs1, v_refs1)), t1714, r_s);
-        u_value t1717 = u_mk_con(&n_syntax_46_SCall, 4, v_q, v_ins1, v_outs1, v_refs1);
-        *r_y = t1717;
+        p_check_46_unifies(f_syntax_46_types_1(f_list_46__43__43__2(v_outs1, v_refs1)), t1748, r_s);
+        u_value t1751 = u_mk_con(&n_syntax_46_SCall, 4, v_q, v_ins1, v_outs1, v_refs1);
+        *r_y = t1751;
       }
     }
-    if ((!d1710) && u_is_con(s1709, &n_option_46_None)) {
-      d1710 = 1;
+    if ((!d1744) && u_is_con(s1743, &n_option_46_None)) {
+      d1744 = 1;
       {
         u_raise(u_mk_con(&n_check_46_UnknownProcedure, 1, v_p), "check.TypeError");
       }
     }
-    if (!d1710) {
-      u_no_case(s1709);
+    if (!d1744) {
+      u_no_case(s1743);
     }
   }
 }
@@ -20284,32 +20944,32 @@ void p_check_46_stmt_branches(u_value v_env, u_value v_assignable, u_value v_cas
     u_value v_g1 = NULL;
     u_value v_b1 = NULL;
     u_value v_rest = NULL;
-    u_value s1718 = v_cases;
-    int d1719 = 0;
-    if ((!d1719) && u_is_con(s1718, &n_list_46_Nil)) {
-      d1719 = 1;
+    u_value s1752 = v_cases;
+    int d1753 = 0;
+    if ((!d1753) && u_is_con(s1752, &n_list_46_Nil)) {
+      d1753 = 1;
       {
-        u_value t1720 = &o_list_46_Nil;
-        *r_cases1 = t1720;
+        u_value t1754 = &o_list_46_Nil;
+        *r_cases1 = t1754;
       }
     }
-    if ((!d1719) && (u_is_con(s1718, &n_list_46_Cons) && u_is_con(u_field(s1718, 0), &n_syntax_46_Branch))) {
-      u_value v_p = u_field(u_field(s1718, 0), 0);
-      u_value v_g = u_field(u_field(s1718, 0), 1);
-      u_value v_b = u_field(u_field(s1718, 0), 2);
-      u_value v_more = u_field(s1718, 1);
-      d1719 = 1;
+    if ((!d1753) && (u_is_con(s1752, &n_list_46_Cons) && u_is_con(u_field(s1752, 0), &n_syntax_46_Branch))) {
+      u_value v_p = u_field(u_field(s1752, 0), 0);
+      u_value v_g = u_field(u_field(s1752, 0), 1);
+      u_value v_b = u_field(u_field(s1752, 0), 2);
+      u_value v_more = u_field(s1752, 1);
+      d1753 = 1;
       {
         p_check_46_pattern(v_p, v_t, &v_p1, &v_xs, r_s);
         p_check_46_guard(f_list_46__43__43__2(f_check_46_bind_1(v_xs), v_env), v_g, &v_g1, r_s);
         p_check_46_statement(f_list_46__43__43__2(f_check_46_bind_1(v_xs), v_env), f_list_46_diff_2(v_assignable, f_syntax_46_names_1(v_xs)), v_b, &v_b1, r_s);
         p_check_46_stmt_branches(v_env, v_assignable, v_more, v_t, &v_rest, r_s);
-        u_value t1721 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 3, v_p1, v_g1, v_b1), v_rest);
-        *r_cases1 = t1721;
+        u_value t1755 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 3, v_p1, v_g1, v_b1), v_rest);
+        *r_cases1 = t1755;
       }
     }
-    if (!d1719) {
-      u_no_case(s1718);
+    if (!d1753) {
+      u_no_case(s1752);
     }
   }
 }
@@ -20322,53 +20982,53 @@ void p_check_46_handler_list(u_value v_env, u_value v_assignable, u_value v_hs, 
     u_value v_g1 = NULL;
     u_value v_b1 = NULL;
     u_value v_rest = NULL;
-    u_value s1722 = v_hs;
-    int d1723 = 0;
-    if ((!d1723) && u_is_con(s1722, &n_list_46_Nil)) {
-      d1723 = 1;
+    u_value s1756 = v_hs;
+    int d1757 = 0;
+    if ((!d1757) && u_is_con(s1756, &n_list_46_Nil)) {
+      d1757 = 1;
       {
-        u_value t1724 = &o_list_46_Nil;
-        *r_hs1 = t1724;
+        u_value t1758 = &o_list_46_Nil;
+        *r_hs1 = t1758;
       }
     }
-    if ((!d1723) && (u_is_con(s1722, &n_list_46_Cons) && u_is_con(u_field(s1722, 0), &n_syntax_46_Handler))) {
-      u_value v_a = u_field(u_field(s1722, 0), 0);
-      u_value v_p = u_field(u_field(s1722, 0), 1);
-      u_value v_g = u_field(u_field(s1722, 0), 2);
-      u_value v_b = u_field(u_field(s1722, 0), 3);
-      u_value v_more = u_field(s1722, 1);
-      d1723 = 1;
+    if ((!d1757) && (u_is_con(s1756, &n_list_46_Cons) && u_is_con(u_field(s1756, 0), &n_syntax_46_Handler))) {
+      u_value v_a = u_field(u_field(s1756, 0), 0);
+      u_value v_p = u_field(u_field(s1756, 0), 1);
+      u_value v_g = u_field(u_field(s1756, 0), 2);
+      u_value v_b = u_field(u_field(s1756, 0), 3);
+      u_value v_more = u_field(s1756, 1);
+      d1757 = 1;
       {
         p_check_46_normalize(v_a, &v_u, r_s);
         p_check_46_pattern(v_p, v_u, &v_p1, &v_xs, r_s);
         p_check_46_guard(f_list_46__43__43__2(f_check_46_bind_1(v_xs), v_env), v_g, &v_g1, r_s);
         p_check_46_statement(f_list_46__43__43__2(f_check_46_bind_1(v_xs), v_env), f_list_46_diff_2(v_assignable, f_syntax_46_names_1(v_xs)), v_b, &v_b1, r_s);
         p_check_46_handler_list(v_env, v_assignable, v_more, &v_rest, r_s);
-        u_value t1725 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Handler, 4, v_u, v_p1, v_g1, v_b1), v_rest);
-        *r_hs1 = t1725;
+        u_value t1759 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Handler, 4, v_u, v_p1, v_g1, v_b1), v_rest);
+        *r_hs1 = t1759;
       }
     }
-    if (!d1723) {
-      u_no_case(s1722);
+    if (!d1757) {
+      u_no_case(s1756);
     }
   }
 }
 
 void p_check_46_declare_name(u_value v_c, u_value v_n) {
   {
-    u_value t1726 = f_ctx_46_is_fun_2(v_c, v_n);
-    if (!u_truth(t1726)) {
-      t1726 = f_ctx_46_is_proc_2(v_c, v_n);
+    u_value t1760 = f_ctx_46_is_fun_2(v_c, v_n);
+    if (!u_truth(t1760)) {
+      t1760 = f_ctx_46_is_proc_2(v_c, v_n);
     }
-    u_value t1727 = t1726;
-    if (!u_truth(t1727)) {
-      t1727 = f_ctx_46_is_constr_2(v_c, v_n);
+    u_value t1761 = t1760;
+    if (!u_truth(t1761)) {
+      t1761 = f_ctx_46_is_constr_2(v_c, v_n);
     }
-    u_value t1728 = t1727;
-    if (!u_truth(t1728)) {
-      t1728 = f_prelude_46__33__61__2(f_check_46_builtin_1(f_syntax_46_unqualified_1(f_syntax_46_Name_46_base_1(v_n))), &o_list_46_Nil);
+    u_value t1762 = t1761;
+    if (!u_truth(t1762)) {
+      t1762 = f_prelude_46__33__61__2(f_check_46_builtin_1(f_syntax_46_unqualified_1(f_syntax_46_Name_46_base_1(v_n))), &o_list_46_Nil);
     }
-    if (u_truth(t1728)) {
+    if (u_truth(t1762)) {
       {
         u_raise(u_mk_con(&n_check_46_AlreadyDefined, 1, v_n), "check.TypeError");
       }
@@ -20378,15 +21038,15 @@ void p_check_46_declare_name(u_value v_c, u_value v_n) {
 
 void p_check_46_overload(u_value v_c, u_value v_n, u_value v_k) {
   {
-    u_value t1729 = f_ctx_46_is_proc_2(v_c, v_n);
-    if (!u_truth(t1729)) {
-      t1729 = f_ctx_46_is_constr_2(v_c, v_n);
+    u_value t1763 = f_ctx_46_is_proc_2(v_c, v_n);
+    if (!u_truth(t1763)) {
+      t1763 = f_ctx_46_is_constr_2(v_c, v_n);
     }
-    u_value t1730 = t1729;
-    if (!u_truth(t1730)) {
-      t1730 = f_check_46_has_arity_2(f_list_46__43__43__2(f_ctx_46_schemes_of_2(v_c, v_n), f_check_46_builtin_1(f_syntax_46_unqualified_1(f_syntax_46_Name_46_base_1(v_n)))), v_k);
+    u_value t1764 = t1763;
+    if (!u_truth(t1764)) {
+      t1764 = f_check_46_has_arity_2(f_ctx_46_schemes_of_2(v_c, v_n), v_k);
     }
-    if (u_truth(t1730)) {
+    if (u_truth(t1764)) {
       {
         u_raise(u_mk_con(&n_check_46_AlreadyDefined, 1, v_n), "check.TypeError");
       }
@@ -20396,20 +21056,20 @@ void p_check_46_overload(u_value v_c, u_value v_n, u_value v_k) {
 
 void p_check_46_declare_sort(u_value v_c, u_value v_n) {
   {
-    static struct u_object l_Bool_1731 = U_LIT("Bool");
-    static struct u_object l_Int_1732 = U_LIT("Int");
-    static struct u_object l_Str_1733 = U_LIT("Str");
-    static struct u_object l_Char_1734 = U_LIT("Char");
-    static struct u_object l__45__62__1735 = U_LIT("->");
-    u_value t1736 = f_list_46_contains_2(f_syntax_46_Name_46_base_1(v_n), u_mk_con(&n_list_46_Cons, 2, &l_Bool_1731, u_mk_con(&n_list_46_Cons, 2, &l_Int_1732, u_mk_con(&n_list_46_Cons, 2, &l_Str_1733, u_mk_con(&n_list_46_Cons, 2, &l_Char_1734, u_mk_con(&n_list_46_Cons, 2, &l__45__62__1735, &o_list_46_Nil))))));
-    if (!u_truth(t1736)) {
-      t1736 = f_ctx_46_is_alias_2(v_c, v_n);
+    static struct u_object l_Bool_1765 = U_LIT("Bool");
+    static struct u_object l_Int_1766 = U_LIT("Int");
+    static struct u_object l_Str_1767 = U_LIT("Str");
+    static struct u_object l_Char_1768 = U_LIT("Char");
+    static struct u_object l__45__62__1769 = U_LIT("->");
+    u_value t1770 = f_list_46_contains_2(f_syntax_46_Name_46_base_1(v_n), u_mk_con(&n_list_46_Cons, 2, &l_Bool_1765, u_mk_con(&n_list_46_Cons, 2, &l_Int_1766, u_mk_con(&n_list_46_Cons, 2, &l_Str_1767, u_mk_con(&n_list_46_Cons, 2, &l_Char_1768, u_mk_con(&n_list_46_Cons, 2, &l__45__62__1769, &o_list_46_Nil))))));
+    if (!u_truth(t1770)) {
+      t1770 = f_ctx_46_is_alias_2(v_c, v_n);
     }
-    u_value t1737 = t1736;
-    if (!u_truth(t1737)) {
-      t1737 = f_ctx_46_is_data_2(v_c, v_n);
+    u_value t1771 = t1770;
+    if (!u_truth(t1771)) {
+      t1771 = f_ctx_46_is_data_2(v_c, v_n);
     }
-    if (u_truth(t1737)) {
+    if (u_truth(t1771)) {
       {
         u_raise(u_mk_con(&n_check_46_SortDefined, 1, v_n), "check.TypeError");
       }
@@ -20420,18 +21080,18 @@ void p_check_46_declare_sort(u_value v_c, u_value v_n) {
 void p_check_46_closed(u_value v_n, u_value v_ps, u_value v_ts) {
   {
     u_value v_undeclared = NULL;
-    u_value t1738 = &o_list_46_Nil;
-    u_value *e1739 = &t1738;
-    u_value l1740 = v_ts;
-    while (u_is_con(l1740, &n_list_46_Cons)) {
-      u_value v_t = u_field(l1740, 0);
+    u_value t1772 = &o_list_46_Nil;
+    u_value *e1773 = &t1772;
+    u_value l1774 = v_ts;
+    while (u_is_con(l1774, &n_list_46_Cons)) {
+      u_value v_t = u_field(l1774, 0);
       if (u_truth(u_mk_bool(1))) {
-        e1739 = u_append(e1739, f_check_46_free_1(v_t));
+        e1773 = u_append(e1773, f_check_46_free_1(v_t));
       }
-      l1740 = u_field(l1740, 1);
+      l1774 = u_field(l1774, 1);
     }
-    u_value t1741 = f_list_46_diff_2(f_list_46_distinct_1(f_list_46_concat_1(t1738)), f_check_46_params_1(v_ps));
-    v_undeclared = t1741;
+    u_value t1775 = f_list_46_diff_2(f_list_46_distinct_1(f_list_46_concat_1(t1772)), f_check_46_params_1(v_ps));
+    v_undeclared = t1775;
     if (u_truth(f_prelude_46__33__61__2(v_undeclared, &o_list_46_Nil))) {
       {
         u_raise(u_mk_con(&n_check_46_UndeclaredParams, 2, v_n, v_undeclared), "check.TypeError");
@@ -20442,37 +21102,37 @@ void p_check_46_closed(u_value v_n, u_value v_ps, u_value v_ts) {
 
 void p_check_46_declare_datas(u_value v_cs, u_value *r_s) {
   {
-    u_value s1742 = v_cs;
-    int d1743 = 0;
-    if ((!d1743) && u_is_con(s1742, &n_list_46_Nil)) {
-      d1743 = 1;
+    u_value s1776 = v_cs;
+    int d1777 = 0;
+    if ((!d1777) && u_is_con(s1776, &n_list_46_Nil)) {
+      d1777 = 1;
       {
       }
     }
-    if ((!d1743) && (u_is_con(s1742, &n_list_46_Cons) && u_is_con(u_field(u_field(s1742, 0), 1), &n_syntax_46_CData))) {
-      u_value v_m = u_field(u_field(s1742, 0), 0);
-      u_value v_n = u_field(u_field(u_field(s1742, 0), 1), 0);
-      u_value v_ps = u_field(u_field(u_field(s1742, 0), 1), 1);
-      u_value v_rest = u_field(s1742, 1);
-      d1743 = 1;
+    if ((!d1777) && (u_is_con(s1776, &n_list_46_Cons) && u_is_con(u_field(u_field(s1776, 0), 1), &n_syntax_46_CData))) {
+      u_value v_m = u_field(u_field(s1776, 0), 0);
+      u_value v_n = u_field(u_field(u_field(s1776, 0), 1), 0);
+      u_value v_ps = u_field(u_field(u_field(s1776, 0), 1), 1);
+      u_value v_rest = u_field(s1776, 1);
+      d1777 = 1;
       {
-        u_value t1744 = f_check_46_enter_2(*r_s, v_m);
-        *r_s = t1744;
+        u_value t1778 = f_check_46_enter_2(*r_s, v_m);
+        *r_s = t1778;
         p_check_46_declare_sort(f_check_46_State_46_ctx_1(*r_s), v_n);
-        u_value t1745 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_data_3(f_check_46_State_46_ctx_1(*r_s), v_n, f_list_46_size_1(v_ps)));
-        *r_s = t1745;
+        u_value t1779 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_data_3(f_check_46_State_46_ctx_1(*r_s), v_n, f_list_46_size_1(v_ps)));
+        *r_s = t1779;
         p_check_46_declare_datas(v_rest, r_s);
       }
     }
-    if ((!d1743) && u_is_con(s1742, &n_list_46_Cons)) {
-      u_value v_rest = u_field(s1742, 1);
-      d1743 = 1;
+    if ((!d1777) && u_is_con(s1776, &n_list_46_Cons)) {
+      u_value v_rest = u_field(s1776, 1);
+      d1777 = 1;
       {
         p_check_46_declare_datas(v_rest, r_s);
       }
     }
-    if (!d1743) {
-      u_no_case(s1742);
+    if (!d1777) {
+      u_no_case(s1776);
     }
   }
 }
@@ -20480,90 +21140,90 @@ void p_check_46_declare_datas(u_value v_cs, u_value *r_s) {
 void p_check_46_declare_sorts(u_value v_cs, u_value *r_s) {
   {
     u_value v_u = NULL;
-    u_value s1746 = v_cs;
-    int d1747 = 0;
-    if ((!d1747) && u_is_con(s1746, &n_list_46_Nil)) {
-      d1747 = 1;
+    u_value s1780 = v_cs;
+    int d1781 = 0;
+    if ((!d1781) && u_is_con(s1780, &n_list_46_Nil)) {
+      d1781 = 1;
       {
       }
     }
-    if ((!d1747) && (u_is_con(s1746, &n_list_46_Cons) && u_is_con(u_field(u_field(s1746, 0), 1), &n_syntax_46_CSort))) {
-      u_value v_m = u_field(u_field(s1746, 0), 0);
-      u_value v_n = u_field(u_field(u_field(s1746, 0), 1), 0);
-      u_value v_ps = u_field(u_field(u_field(s1746, 0), 1), 1);
-      u_value v_t = u_field(u_field(u_field(s1746, 0), 1), 2);
-      u_value v_rest = u_field(s1746, 1);
-      d1747 = 1;
+    if ((!d1781) && (u_is_con(s1780, &n_list_46_Cons) && u_is_con(u_field(u_field(s1780, 0), 1), &n_syntax_46_CSort))) {
+      u_value v_m = u_field(u_field(s1780, 0), 0);
+      u_value v_n = u_field(u_field(u_field(s1780, 0), 1), 0);
+      u_value v_ps = u_field(u_field(u_field(s1780, 0), 1), 1);
+      u_value v_t = u_field(u_field(u_field(s1780, 0), 1), 2);
+      u_value v_rest = u_field(s1780, 1);
+      d1781 = 1;
       {
-        u_value t1748 = f_check_46_enter_2(*r_s, v_m);
-        *r_s = t1748;
+        u_value t1782 = f_check_46_enter_2(*r_s, v_m);
+        *r_s = t1782;
         p_check_46_declare_sort(f_check_46_State_46_ctx_1(*r_s), v_n);
         p_check_46_unique_ids(v_ps);
         p_check_46_known(v_t, v_n, &v_u, r_s);
         p_check_46_closed(v_n, v_ps, u_mk_con(&n_list_46_Cons, 2, v_u, &o_list_46_Nil));
-        u_value t1749 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_alias_4(f_check_46_State_46_ctx_1(*r_s), v_n, v_ps, v_u));
-        *r_s = t1749;
+        u_value t1783 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_alias_4(f_check_46_State_46_ctx_1(*r_s), v_n, v_ps, v_u));
+        *r_s = t1783;
         p_check_46_declare_sorts(v_rest, r_s);
       }
     }
-    if ((!d1747) && u_is_con(s1746, &n_list_46_Cons)) {
-      u_value v_rest = u_field(s1746, 1);
-      d1747 = 1;
+    if ((!d1781) && u_is_con(s1780, &n_list_46_Cons)) {
+      u_value v_rest = u_field(s1780, 1);
+      d1781 = 1;
       {
         p_check_46_declare_sorts(v_rest, r_s);
       }
     }
-    if (!d1747) {
-      u_no_case(s1746);
+    if (!d1781) {
+      u_no_case(s1780);
     }
   }
 }
 
 void p_check_46_declare_constrs(u_value v_cs, u_value *r_s) {
   {
-    u_value s1750 = v_cs;
-    int d1751 = 0;
-    if ((!d1751) && u_is_con(s1750, &n_list_46_Nil)) {
-      d1751 = 1;
+    u_value s1784 = v_cs;
+    int d1785 = 0;
+    if ((!d1785) && u_is_con(s1784, &n_list_46_Nil)) {
+      d1785 = 1;
       {
       }
     }
-    if ((!d1751) && (u_is_con(s1750, &n_list_46_Cons) && u_is_con(u_field(u_field(s1750, 0), 1), &n_syntax_46_CData))) {
-      u_value v_m = u_field(u_field(s1750, 0), 0);
-      u_value v_n = u_field(u_field(u_field(s1750, 0), 1), 0);
-      u_value v_ps = u_field(u_field(u_field(s1750, 0), 1), 1);
-      u_value v_ks = u_field(u_field(u_field(s1750, 0), 1), 2);
-      u_value v_rest = u_field(s1750, 1);
-      d1751 = 1;
+    if ((!d1785) && (u_is_con(s1784, &n_list_46_Cons) && u_is_con(u_field(u_field(s1784, 0), 1), &n_syntax_46_CData))) {
+      u_value v_m = u_field(u_field(s1784, 0), 0);
+      u_value v_n = u_field(u_field(u_field(s1784, 0), 1), 0);
+      u_value v_ps = u_field(u_field(u_field(s1784, 0), 1), 1);
+      u_value v_ks = u_field(u_field(u_field(s1784, 0), 1), 2);
+      u_value v_rest = u_field(s1784, 1);
+      d1785 = 1;
       {
-        u_value t1752 = f_check_46_enter_2(*r_s, v_m);
-        *r_s = t1752;
+        u_value t1786 = f_check_46_enter_2(*r_s, v_m);
+        *r_s = t1786;
         p_check_46_unique_ids(v_ps);
-        u_value t1753 = &o_list_46_Nil;
-        u_value *e1754 = &t1753;
-        u_value l1755 = v_ks;
-        while (u_is_con(l1755, &n_list_46_Cons)) {
-          u_value v_k = u_field(l1755, 0);
+        u_value t1787 = &o_list_46_Nil;
+        u_value *e1788 = &t1787;
+        u_value l1789 = v_ks;
+        while (u_is_con(l1789, &n_list_46_Cons)) {
+          u_value v_k = u_field(l1789, 0);
           if (u_truth(u_mk_bool(1))) {
-            e1754 = u_append(e1754, f_syntax_46_Constr_46_name_1(v_k));
+            e1788 = u_append(e1788, f_syntax_46_Constr_46_name_1(v_k));
           }
-          l1755 = u_field(l1755, 1);
+          l1789 = u_field(l1789, 1);
         }
-        u_value t1756 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_members_3(f_check_46_State_46_ctx_1(*r_s), v_n, t1753));
-        *r_s = t1756;
+        u_value t1790 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_members_3(f_check_46_State_46_ctx_1(*r_s), v_n, t1787));
+        *r_s = t1790;
         p_check_46_declare_constructors(v_n, v_ps, v_ks, r_s);
         p_check_46_declare_constrs(v_rest, r_s);
       }
     }
-    if ((!d1751) && u_is_con(s1750, &n_list_46_Cons)) {
-      u_value v_rest = u_field(s1750, 1);
-      d1751 = 1;
+    if ((!d1785) && u_is_con(s1784, &n_list_46_Cons)) {
+      u_value v_rest = u_field(s1784, 1);
+      d1785 = 1;
       {
         p_check_46_declare_constrs(v_rest, r_s);
       }
     }
-    if (!d1751) {
-      u_no_case(s1750);
+    if (!d1785) {
+      u_no_case(s1784);
     }
   }
 }
@@ -20571,92 +21231,92 @@ void p_check_46_declare_constrs(u_value v_cs, u_value *r_s) {
 void p_check_46_declare_constructors(u_value v_n, u_value v_ps, u_value v_ks, u_value *r_s) {
   {
     u_value v_ts = NULL;
-    u_value s1757 = v_ks;
-    int d1758 = 0;
-    if ((!d1758) && u_is_con(s1757, &n_list_46_Nil)) {
-      d1758 = 1;
+    u_value s1791 = v_ks;
+    int d1792 = 0;
+    if ((!d1792) && u_is_con(s1791, &n_list_46_Nil)) {
+      d1792 = 1;
       {
       }
     }
-    if ((!d1758) && (u_is_con(s1757, &n_list_46_Cons) && u_is_con(u_field(s1757, 0), &n_syntax_46_Constr))) {
-      u_value v_k = u_field(u_field(s1757, 0), 0);
-      u_value v_args = u_field(u_field(s1757, 0), 1);
-      u_value v_rest = u_field(s1757, 1);
-      d1758 = 1;
+    if ((!d1792) && (u_is_con(s1791, &n_list_46_Cons) && u_is_con(u_field(s1791, 0), &n_syntax_46_Constr))) {
+      u_value v_k = u_field(u_field(s1791, 0), 0);
+      u_value v_args = u_field(u_field(s1791, 0), 1);
+      u_value v_rest = u_field(s1791, 1);
+      d1792 = 1;
       {
         p_check_46_declare_name(f_check_46_State_46_ctx_1(*r_s), v_k);
         p_check_46_knowns(v_args, v_k, &v_ts, r_s);
         p_check_46_closed(v_n, v_ps, v_ts);
-        u_value t1759 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_constr_3(f_check_46_State_46_ctx_1(*r_s), v_k, u_mk_tuple(3, f_check_46_params_1(v_ps), v_ts, u_mk_con(&n_syntax_46_TSort, 2, v_n, f_check_46_params_1(v_ps)))));
-        *r_s = t1759;
+        u_value t1793 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_constr_3(f_check_46_State_46_ctx_1(*r_s), v_k, u_mk_tuple(3, f_check_46_params_1(v_ps), v_ts, u_mk_con(&n_syntax_46_TSort, 2, v_n, f_check_46_params_1(v_ps)))));
+        *r_s = t1793;
         p_check_46_declare_constructors(v_n, v_ps, v_rest, r_s);
       }
     }
-    if (!d1758) {
-      u_no_case(s1757);
+    if (!d1792) {
+      u_no_case(s1791);
     }
   }
 }
 
 u_value f_check_46_curried_2(u_value v_xss, u_value v_r) {
-  u_value s1760 = v_xss;
-  u_value t1761 = NULL;
-  if ((!t1761) && u_is_con(s1760, &n_list_46_Nil)) {
-    t1761 = v_r;
+  u_value s1794 = v_xss;
+  u_value t1795 = NULL;
+  if ((!t1795) && u_is_con(s1794, &n_list_46_Nil)) {
+    t1795 = v_r;
   }
-  if ((!t1761) && u_is_con(s1760, &n_list_46_Cons)) {
-    u_value v_xs = u_field(s1760, 0);
-    u_value v_rest = u_field(s1760, 1);
-    t1761 = f_check_46_fun_2(f_syntax_46_types_1(v_xs), f_check_46_curried_2(v_rest, v_r));
+  if ((!t1795) && u_is_con(s1794, &n_list_46_Cons)) {
+    u_value v_xs = u_field(s1794, 0);
+    u_value v_rest = u_field(s1794, 1);
+    t1795 = f_check_46_fun_2(f_syntax_46_types_1(v_xs), f_check_46_curried_2(v_rest, v_r));
   }
-  if (!t1761) {
-    u_no_case(s1760);
+  if (!t1795) {
+    u_no_case(s1794);
   }
-  return t1761;
+  return t1795;
 }
 
 u_value f_check_46_first_list_1(u_value v_xss) {
-  u_value s1762 = v_xss;
-  u_value t1763 = NULL;
-  if ((!t1763) && u_is_con(s1762, &n_list_46_Nil)) {
-    t1763 = &o_list_46_Nil;
+  u_value s1796 = v_xss;
+  u_value t1797 = NULL;
+  if ((!t1797) && u_is_con(s1796, &n_list_46_Nil)) {
+    t1797 = &o_list_46_Nil;
   }
-  if ((!t1763) && u_is_con(s1762, &n_list_46_Cons)) {
-    u_value v_xs = u_field(s1762, 0);
-    t1763 = v_xs;
+  if ((!t1797) && u_is_con(s1796, &n_list_46_Cons)) {
+    u_value v_xs = u_field(s1796, 0);
+    t1797 = v_xs;
   }
-  if (!t1763) {
-    u_no_case(s1762);
+  if (!t1797) {
+    u_no_case(s1796);
   }
-  return t1763;
+  return t1797;
 }
 
 void p_check_46_signatures(u_value v_xss, u_value *r_yss, u_value *r_s) {
   {
     u_value v_ys = NULL;
     u_value v_rest = NULL;
-    u_value s1764 = v_xss;
-    int d1765 = 0;
-    if ((!d1765) && u_is_con(s1764, &n_list_46_Nil)) {
-      d1765 = 1;
+    u_value s1798 = v_xss;
+    int d1799 = 0;
+    if ((!d1799) && u_is_con(s1798, &n_list_46_Nil)) {
+      d1799 = 1;
       {
-        u_value t1766 = &o_list_46_Nil;
-        *r_yss = t1766;
+        u_value t1800 = &o_list_46_Nil;
+        *r_yss = t1800;
       }
     }
-    if ((!d1765) && u_is_con(s1764, &n_list_46_Cons)) {
-      u_value v_xs = u_field(s1764, 0);
-      u_value v_more = u_field(s1764, 1);
-      d1765 = 1;
+    if ((!d1799) && u_is_con(s1798, &n_list_46_Cons)) {
+      u_value v_xs = u_field(s1798, 0);
+      u_value v_more = u_field(s1798, 1);
+      d1799 = 1;
       {
         p_check_46_signature(v_xs, &v_ys, r_s);
         p_check_46_signatures(v_more, &v_rest, r_s);
-        u_value t1767 = u_mk_con(&n_list_46_Cons, 2, v_ys, v_rest);
-        *r_yss = t1767;
+        u_value t1801 = u_mk_con(&n_list_46_Cons, 2, v_ys, v_rest);
+        *r_yss = t1801;
       }
     }
-    if (!d1765) {
-      u_no_case(s1764);
+    if (!d1799) {
+      u_no_case(s1798);
     }
   }
 }
@@ -20665,44 +21325,44 @@ void p_check_46_declare_funs(u_value v_cs, u_value *r_s) {
   {
     u_value v_xss = NULL;
     u_value v_r = NULL;
-    u_value s1768 = v_cs;
-    int d1769 = 0;
-    if ((!d1769) && u_is_con(s1768, &n_list_46_Nil)) {
-      d1769 = 1;
+    u_value s1802 = v_cs;
+    int d1803 = 0;
+    if ((!d1803) && u_is_con(s1802, &n_list_46_Nil)) {
+      d1803 = 1;
       {
       }
     }
-    if ((!d1769) && (u_is_con(s1768, &n_list_46_Cons) && u_is_con(u_field(u_field(s1768, 0), 1), &n_syntax_46_CFun))) {
-      u_value v_m = u_field(u_field(s1768, 0), 0);
-      u_value v_n = u_field(u_field(u_field(s1768, 0), 1), 0);
-      u_value v_ps = u_field(u_field(u_field(s1768, 0), 1), 1);
-      u_value v_bound = u_field(u_field(u_field(s1768, 0), 1), 2);
-      u_value v_res = u_field(u_field(u_field(s1768, 0), 1), 3);
-      u_value v_rest = u_field(s1768, 1);
-      d1769 = 1;
+    if ((!d1803) && (u_is_con(s1802, &n_list_46_Cons) && u_is_con(u_field(u_field(s1802, 0), 1), &n_syntax_46_CFun))) {
+      u_value v_m = u_field(u_field(s1802, 0), 0);
+      u_value v_n = u_field(u_field(u_field(s1802, 0), 1), 0);
+      u_value v_ps = u_field(u_field(u_field(s1802, 0), 1), 1);
+      u_value v_bound = u_field(u_field(u_field(s1802, 0), 1), 2);
+      u_value v_res = u_field(u_field(u_field(s1802, 0), 1), 3);
+      u_value v_rest = u_field(s1802, 1);
+      d1803 = 1;
       {
-        u_value t1770 = f_check_46_enter_2(*r_s, v_m);
-        *r_s = t1770;
+        u_value t1804 = f_check_46_enter_2(*r_s, v_m);
+        *r_s = t1804;
         p_check_46_overload(f_check_46_State_46_ctx_1(*r_s), v_n, f_list_46_size_1(f_check_46_first_list_1(v_bound)));
         p_check_46_unique_ids(v_ps);
         p_check_46_unique(f_syntax_46_names_1(f_list_46_concat_1(v_bound)));
         p_check_46_signatures(v_bound, &v_xss, r_s);
         p_check_46_known(v_res, v_n, &v_r, r_s);
         p_check_46_closed(v_n, v_ps, u_mk_con(&n_list_46_Cons, 2, f_check_46_curried_2(v_xss, v_r), &o_list_46_Nil));
-        u_value t1771 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_fun_3(f_check_46_State_46_ctx_1(*r_s), v_n, u_mk_tuple(2, f_check_46_params_1(v_ps), f_check_46_curried_2(v_xss, v_r))));
-        *r_s = t1771;
+        u_value t1805 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_fun_3(f_check_46_State_46_ctx_1(*r_s), v_n, u_mk_tuple(2, f_check_46_params_1(v_ps), f_check_46_curried_2(v_xss, v_r))));
+        *r_s = t1805;
         p_check_46_declare_funs(v_rest, r_s);
       }
     }
-    if ((!d1769) && u_is_con(s1768, &n_list_46_Cons)) {
-      u_value v_rest = u_field(s1768, 1);
-      d1769 = 1;
+    if ((!d1803) && u_is_con(s1802, &n_list_46_Cons)) {
+      u_value v_rest = u_field(s1802, 1);
+      d1803 = 1;
       {
         p_check_46_declare_funs(v_rest, r_s);
       }
     }
-    if (!d1769) {
-      u_no_case(s1768);
+    if (!d1803) {
+      u_no_case(s1802);
     }
   }
 }
@@ -20711,45 +21371,45 @@ void p_check_46_declare_procs(u_value v_cs, u_value *r_s) {
   {
     u_value v_xs = NULL;
     u_value v_ts = NULL;
-    u_value s1772 = v_cs;
-    int d1773 = 0;
-    if ((!d1773) && u_is_con(s1772, &n_list_46_Nil)) {
-      d1773 = 1;
+    u_value s1806 = v_cs;
+    int d1807 = 0;
+    if ((!d1807) && u_is_con(s1806, &n_list_46_Nil)) {
+      d1807 = 1;
       {
       }
     }
-    if ((!d1773) && (u_is_con(s1772, &n_list_46_Cons) && u_is_con(u_field(u_field(s1772, 0), 1), &n_syntax_46_CProc))) {
-      u_value v_m = u_field(u_field(s1772, 0), 0);
-      u_value v_n = u_field(u_field(u_field(s1772, 0), 1), 0);
-      u_value v_ps = u_field(u_field(u_field(s1772, 0), 1), 1);
-      u_value v_ins = u_field(u_field(u_field(s1772, 0), 1), 2);
-      u_value v_outs = u_field(u_field(u_field(s1772, 0), 1), 3);
-      u_value v_refs = u_field(u_field(u_field(s1772, 0), 1), 4);
-      u_value v_rest = u_field(s1772, 1);
-      d1773 = 1;
+    if ((!d1807) && (u_is_con(s1806, &n_list_46_Cons) && u_is_con(u_field(u_field(s1806, 0), 1), &n_syntax_46_CProc))) {
+      u_value v_m = u_field(u_field(s1806, 0), 0);
+      u_value v_n = u_field(u_field(u_field(s1806, 0), 1), 0);
+      u_value v_ps = u_field(u_field(u_field(s1806, 0), 1), 1);
+      u_value v_ins = u_field(u_field(u_field(s1806, 0), 1), 2);
+      u_value v_outs = u_field(u_field(u_field(s1806, 0), 1), 3);
+      u_value v_refs = u_field(u_field(u_field(s1806, 0), 1), 4);
+      u_value v_rest = u_field(s1806, 1);
+      d1807 = 1;
       {
-        u_value t1774 = f_check_46_enter_2(*r_s, v_m);
-        *r_s = t1774;
+        u_value t1808 = f_check_46_enter_2(*r_s, v_m);
+        *r_s = t1808;
         p_check_46_declare_name(f_check_46_State_46_ctx_1(*r_s), v_n);
         p_check_46_unique_ids(v_ps);
         p_check_46_signature(f_list_46__43__43__2(v_ins, f_list_46__43__43__2(v_outs, v_refs)), &v_xs, r_s);
-        u_value t1775 = f_syntax_46_types_1(v_xs);
-        v_ts = t1775;
+        u_value t1809 = f_syntax_46_types_1(v_xs);
+        v_ts = t1809;
         p_check_46_closed(v_n, v_ps, v_ts);
-        u_value t1776 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_proc_3(f_check_46_State_46_ctx_1(*r_s), v_n, u_mk_tuple(4, f_check_46_params_1(v_ps), f_list_46_take_2(f_list_46_size_1(v_ins), v_ts), f_list_46_take_2(f_list_46_size_1(v_outs), f_list_46_drop_2(f_list_46_size_1(v_ins), v_ts)), f_list_46_drop_2(u_add(f_list_46_size_1(v_ins), f_list_46_size_1(v_outs)), v_ts))));
-        *r_s = t1776;
+        u_value t1810 = f_check_46_with_ctx_2(*r_s, f_ctx_46_with_proc_3(f_check_46_State_46_ctx_1(*r_s), v_n, u_mk_tuple(4, f_check_46_params_1(v_ps), f_list_46_take_2(f_list_46_size_1(v_ins), v_ts), f_list_46_take_2(f_list_46_size_1(v_outs), f_list_46_drop_2(f_list_46_size_1(v_ins), v_ts)), f_list_46_drop_2(u_add(f_list_46_size_1(v_ins), f_list_46_size_1(v_outs)), v_ts))));
+        *r_s = t1810;
         p_check_46_declare_procs(v_rest, r_s);
       }
     }
-    if ((!d1773) && u_is_con(s1772, &n_list_46_Cons)) {
-      u_value v_rest = u_field(s1772, 1);
-      d1773 = 1;
+    if ((!d1807) && u_is_con(s1806, &n_list_46_Cons)) {
+      u_value v_rest = u_field(s1806, 1);
+      d1807 = 1;
       {
         p_check_46_declare_procs(v_rest, r_s);
       }
     }
-    if (!d1773) {
-      u_no_case(s1772);
+    if (!d1807) {
+      u_no_case(s1806);
     }
   }
 }
@@ -20764,66 +21424,66 @@ void p_check_46_command(u_value v_c, u_value *r_c1, u_value *r_s) {
     u_value v_os = NULL;
     u_value v_rs = NULL;
     u_value v_y = NULL;
-    u_value s1777 = v_c;
-    int d1778 = 0;
-    if ((!d1778) && u_is_con(s1777, &n_syntax_46_CFun)) {
-      u_value v_n = u_field(s1777, 0);
-      u_value v_ps = u_field(s1777, 1);
-      u_value v_bound = u_field(s1777, 2);
-      u_value v_res = u_field(s1777, 3);
-      u_value v_body = u_field(s1777, 4);
-      d1778 = 1;
+    u_value s1811 = v_c;
+    int d1812 = 0;
+    if ((!d1812) && u_is_con(s1811, &n_syntax_46_CFun)) {
+      u_value v_n = u_field(s1811, 0);
+      u_value v_ps = u_field(s1811, 1);
+      u_value v_bound = u_field(s1811, 2);
+      u_value v_res = u_field(s1811, 3);
+      u_value v_body = u_field(s1811, 4);
+      d1812 = 1;
       {
         p_check_46_signatures(v_bound, &v_xss, r_s);
         p_check_46_known(v_res, v_n, &v_r, r_s);
         p_check_46_check(f_check_46_bind_1(f_list_46_concat_1(v_xss)), v_body, v_r, &v_b, r_s);
-        u_value t1779 = u_mk_con(&n_syntax_46_CFun, 5, v_n, v_ps, v_xss, v_r, v_b);
-        *r_c1 = t1779;
+        u_value t1813 = u_mk_con(&n_syntax_46_CFun, 5, v_n, v_ps, v_xss, v_r, v_b);
+        *r_c1 = t1813;
       }
     }
-    if ((!d1778) && u_is_con(s1777, &n_syntax_46_CProc)) {
-      u_value v_n = u_field(s1777, 0);
-      u_value v_ps = u_field(s1777, 1);
-      u_value v_ins = u_field(s1777, 2);
-      u_value v_outs = u_field(s1777, 3);
-      u_value v_refs = u_field(s1777, 4);
-      u_value v_body = u_field(s1777, 5);
-      d1778 = 1;
+    if ((!d1812) && u_is_con(s1811, &n_syntax_46_CProc)) {
+      u_value v_n = u_field(s1811, 0);
+      u_value v_ps = u_field(s1811, 1);
+      u_value v_ins = u_field(s1811, 2);
+      u_value v_outs = u_field(s1811, 3);
+      u_value v_refs = u_field(s1811, 4);
+      u_value v_body = u_field(s1811, 5);
+      d1812 = 1;
       {
         p_check_46_signature(v_ins, &v_is, r_s);
         p_check_46_signature(v_outs, &v_os, r_s);
         p_check_46_signature(v_refs, &v_rs, r_s);
         p_check_46_statement(f_check_46_bind_1(f_list_46__43__43__2(v_is, f_list_46__43__43__2(v_os, v_rs))), f_syntax_46_names_1(f_list_46__43__43__2(v_os, v_rs)), v_body, &v_y, r_s);
-        u_value t1780 = u_mk_con(&n_syntax_46_CProc, 6, v_n, v_ps, v_is, v_os, v_rs, v_y);
-        *r_c1 = t1780;
+        u_value t1814 = u_mk_con(&n_syntax_46_CProc, 6, v_n, v_ps, v_is, v_os, v_rs, v_y);
+        *r_c1 = t1814;
       }
     }
-    if ((!d1778) && (u_is_con(s1777, &n_syntax_46_CTest) && u_is_con(u_field(s1777, 1), &n_list_46_Nil))) {
-      u_value v_n = u_field(s1777, 0);
-      u_value v_body = u_field(s1777, 2);
-      d1778 = 1;
+    if ((!d1812) && (u_is_con(s1811, &n_syntax_46_CTest) && u_is_con(u_field(s1811, 1), &n_list_46_Nil))) {
+      u_value v_n = u_field(s1811, 0);
+      u_value v_body = u_field(s1811, 2);
+      d1812 = 1;
       {
         p_check_46_statement(&o_list_46_Nil, &o_list_46_Nil, v_body, &v_y, r_s);
-        u_value t1781 = u_mk_con(&n_syntax_46_CTest, 3, v_n, &o_list_46_Nil, v_y);
-        *r_c1 = t1781;
+        u_value t1815 = u_mk_con(&n_syntax_46_CTest, 3, v_n, &o_list_46_Nil, v_y);
+        *r_c1 = t1815;
       }
     }
-    if ((!d1778) && u_is_con(s1777, &n_syntax_46_CTest)) {
-      u_value v_n = u_field(s1777, 0);
-      d1778 = 1;
+    if ((!d1812) && u_is_con(s1811, &n_syntax_46_CTest)) {
+      u_value v_n = u_field(s1811, 0);
+      d1812 = 1;
       {
         u_raise(u_mk_con(&n_check_46_TestParams, 1, v_n), "check.TypeError");
       }
     }
-    if (!d1778) {
-      d1778 = 1;
+    if (!d1812) {
+      d1812 = 1;
       {
-        u_value t1782 = v_c;
-        *r_c1 = t1782;
+        u_value t1816 = v_c;
+        *r_c1 = t1816;
       }
     }
-    if (!d1778) {
-      u_no_case(s1777);
+    if (!d1812) {
+      u_no_case(s1811);
     }
   }
 }
@@ -20833,162 +21493,313 @@ void p_check_46_commands(u_value v_cs, u_value *r_cs1, u_value *r_s) {
     u_value v_c1 = NULL;
     u_value v_c2 = NULL;
     u_value v_rest = NULL;
-    u_value s1783 = v_cs;
-    int d1784 = 0;
-    if ((!d1784) && u_is_con(s1783, &n_list_46_Nil)) {
-      d1784 = 1;
+    u_value s1817 = v_cs;
+    int d1818 = 0;
+    if ((!d1818) && u_is_con(s1817, &n_list_46_Nil)) {
+      d1818 = 1;
       {
-        u_value t1785 = &o_list_46_Nil;
-        *r_cs1 = t1785;
+        u_value t1819 = &o_list_46_Nil;
+        *r_cs1 = t1819;
       }
     }
-    if ((!d1784) && u_is_con(s1783, &n_list_46_Cons)) {
-      u_value v_m = u_field(u_field(s1783, 0), 0);
-      u_value v_c = u_field(u_field(s1783, 0), 1);
-      u_value v_more = u_field(s1783, 1);
-      d1784 = 1;
+    if ((!d1818) && u_is_con(s1817, &n_list_46_Cons)) {
+      u_value v_m = u_field(u_field(s1817, 0), 0);
+      u_value v_c = u_field(u_field(s1817, 0), 1);
+      u_value v_more = u_field(s1817, 1);
+      d1818 = 1;
       {
-        u_value t1786 = f_check_46_enter_2(*r_s, v_m);
-        *r_s = t1786;
+        u_value t1820 = f_check_46_enter_2(*r_s, v_m);
+        *r_s = t1820;
         p_check_46_command(v_c, &v_c1, r_s);
         p_check_46_settle(r_s);
-        u_value t1787 = f_check_46_zonk_cmd_2(*r_s, v_c1);
-        v_c2 = t1787;
-        u_value s1788 = f_check_46_unknown_in_cmd_1(v_c2);
-        int d1789 = 0;
-        if ((!d1789) && u_is_con(s1788, &n_option_46_Some)) {
-          u_value v_t = u_field(s1788, 0);
-          d1789 = 1;
+        u_value t1821 = f_check_46_zonk_cmd_2(*r_s, v_c1);
+        v_c2 = t1821;
+        u_value s1822 = f_check_46_unknown_in_cmd_1(v_c2);
+        int d1823 = 0;
+        if ((!d1823) && u_is_con(s1822, &n_option_46_Some)) {
+          u_value v_t = u_field(s1822, 0);
+          d1823 = 1;
           {
             u_raise(u_mk_con(&n_check_46_UnknownException, 1, v_t), "check.TypeError");
           }
         }
-        if ((!d1789) && u_is_con(s1788, &n_option_46_None)) {
-          d1789 = 1;
+        if ((!d1823) && u_is_con(s1822, &n_option_46_None)) {
+          d1823 = 1;
           {
           }
         }
-        if (!d1789) {
-          u_no_case(s1788);
+        if (!d1823) {
+          u_no_case(s1822);
         }
         p_check_46_commands(v_more, &v_rest, r_s);
-        u_value t1790 = u_mk_con(&n_list_46_Cons, 2, v_c2, v_rest);
-        *r_cs1 = t1790;
+        u_value t1824 = u_mk_con(&n_list_46_Cons, 2, v_c2, v_rest);
+        *r_cs1 = t1824;
       }
     }
-    if (!d1784) {
-      u_no_case(s1783);
+    if (!d1818) {
+      u_no_case(s1817);
     }
   }
 }
 
 u_value f_check_46_block_names_1(u_value v_cs) {
-  u_value s1791 = v_cs;
-  u_value t1792 = NULL;
-  if ((!t1792) && u_is_con(s1791, &n_list_46_Nil)) {
-    t1792 = &o_list_46_Nil;
+  u_value s1825 = v_cs;
+  u_value t1826 = NULL;
+  if ((!t1826) && u_is_con(s1825, &n_list_46_Nil)) {
+    t1826 = &o_list_46_Nil;
   }
-  if ((!t1792) && (u_is_con(s1791, &n_list_46_Cons) && u_is_con(u_field(u_field(s1791, 0), 1), &n_syntax_46_CTest))) {
-    u_value v_n = u_field(u_field(u_field(s1791, 0), 1), 0);
-    u_value v_more = u_field(s1791, 1);
-    t1792 = u_mk_con(&n_list_46_Cons, 2, v_n, f_check_46_block_names_1(v_more));
+  if ((!t1826) && (u_is_con(s1825, &n_list_46_Cons) && u_is_con(u_field(u_field(s1825, 0), 1), &n_syntax_46_CTest))) {
+    u_value v_n = u_field(u_field(u_field(s1825, 0), 1), 0);
+    u_value v_more = u_field(s1825, 1);
+    t1826 = u_mk_con(&n_list_46_Cons, 2, v_n, f_check_46_block_names_1(v_more));
   }
-  if ((!t1792) && u_is_con(s1791, &n_list_46_Cons)) {
-    u_value v_more = u_field(s1791, 1);
-    t1792 = f_check_46_block_names_1(v_more);
+  if ((!t1826) && u_is_con(s1825, &n_list_46_Cons)) {
+    u_value v_more = u_field(s1825, 1);
+    t1826 = f_check_46_block_names_1(v_more);
   }
-  if (!t1792) {
-    u_no_case(s1791);
+  if (!t1826) {
+    u_no_case(s1825);
   }
-  return t1792;
+  return t1826;
+}
+
+u_value f_check_46_order_of_1(u_value v_c) {
+  u_value s1827 = v_c;
+  u_value t1828 = NULL;
+  if ((!t1828) && (u_is_con(s1827, &n_syntax_46_CFun) && (u_is_con(u_field(s1827, 0), &n_syntax_46_Name) && (u_is_con(u_field(u_field(s1827, 0), 0), &n_option_46_Some) && (u_is_con(u_field(s1827, 2), &n_list_46_Cons) && (u_is_con(u_field(u_field(s1827, 2), 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s1827, 2), 0), 0), &n_syntax_46_Var) && (u_is_con(u_field(u_field(u_field(u_field(s1827, 2), 0), 0), 1), &n_syntax_46_TSort) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s1827, 2), 0), 0), 1), 0), &n_syntax_46_Name) && (u_is_con(u_field(u_field(u_field(u_field(u_field(u_field(s1827, 2), 0), 0), 1), 0), 0), &n_option_46_Some) && (u_is_con(u_field(u_field(u_field(s1827, 2), 0), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(u_field(s1827, 2), 0), 1), 0), &n_syntax_46_Var) && (u_is_con(u_field(u_field(u_field(u_field(s1827, 2), 0), 1), 1), &n_list_46_Nil) && u_is_con(u_field(u_field(s1827, 2), 1), &n_list_46_Nil)))))))))))))) {
+    u_value v_m = u_field(u_field(u_field(s1827, 0), 0), 0);
+    u_value v_op = u_field(u_field(s1827, 0), 1);
+    u_value v_k = u_field(u_field(u_field(u_field(u_field(u_field(u_field(s1827, 2), 0), 0), 1), 0), 0), 0);
+    u_value v_b = u_field(u_field(u_field(u_field(u_field(u_field(s1827, 2), 0), 0), 1), 0), 1);
+    u_value v_args = u_field(u_field(u_field(u_field(u_field(s1827, 2), 0), 0), 1), 1);
+    u_value v_u = u_field(u_field(u_field(u_field(u_field(s1827, 2), 0), 1), 0), 1);
+    u_value v_r = u_field(s1827, 3);
+    u_value t1829 = u_eq(v_k, v_m);
+    if (u_truth(t1829)) {
+      t1829 = u_eq(v_u, u_mk_con(&n_syntax_46_TSort, 2, u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, v_k), v_b), v_args));
+    }
+    u_value t1830 = t1829;
+    if (u_truth(t1830)) {
+      t1830 = f_check_46_distinct_params_1(v_args);
+    }
+    u_value t1831 = t1830;
+    if (u_truth(t1831)) {
+      t1831 = u_eq(f_check_46_order_result_1(v_op), u_mk_con(&n_option_46_Some, 1, v_r));
+    }
+    u_value t1832;
+    if (u_truth(t1831)) {
+      t1832 = u_mk_con(&n_option_46_Some, 1, u_mk_tuple(2, v_op, u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, v_k), v_b)));
+    } else {
+      t1832 = &o_option_46_None;
+    }
+    t1828 = t1832;
+  }
+  if (!t1828) {
+    t1828 = &o_option_46_None;
+  }
+  if (!t1828) {
+    u_no_case(s1827);
+  }
+  return t1828;
+}
+
+u_value f_check_46_order_result_1(u_value v_op) {
+  u_value s1833 = v_op;
+  u_value t1834 = NULL;
+  if ((!t1834) && u_equals(s1833, u_mk_lit("compare"))) {
+    t1834 = u_mk_con(&n_option_46_Some, 1, f_check_46_tint_0());
+  }
+  if ((!t1834) && u_equals(s1833, u_mk_lit("=="))) {
+    t1834 = u_mk_con(&n_option_46_Some, 1, f_check_46_tbool_0());
+  }
+  if (!t1834) {
+    t1834 = &o_option_46_None;
+  }
+  if (!t1834) {
+    u_no_case(s1833);
+  }
+  return t1834;
+}
+
+u_value f_check_46_distinct_params_1(u_value v_ts) {
+  u_value t1835 = &o_list_46_Nil;
+  u_value *e1836 = &t1835;
+  u_value l1837 = v_ts;
+  while (u_is_con(l1837, &n_list_46_Cons)) {
+    u_value v_t = u_field(l1837, 0);
+    if (u_truth(f_check_46_is_param_1(v_t))) {
+      e1836 = u_append(e1836, v_t);
+    }
+    l1837 = u_field(l1837, 1);
+  }
+  u_value t1838 = u_eq(t1835, v_ts);
+  if (u_truth(t1838)) {
+    t1838 = u_eq(f_list_46_distinct_1(v_ts), v_ts);
+  }
+  return t1838;
+}
+
+u_value f_check_46_is_param_1(u_value v_t) {
+  u_value s1839 = v_t;
+  u_value t1840 = NULL;
+  if ((!t1840) && u_is_con(s1839, &n_syntax_46_TParam)) {
+    t1840 = u_mk_bool(1);
+  }
+  if (!t1840) {
+    t1840 = u_mk_bool(0);
+  }
+  if (!t1840) {
+    u_no_case(s1839);
+  }
+  return t1840;
+}
+
+u_value f_check_46_ordered_2(u_value v_cs, u_value v_op) {
+  u_value s1841 = v_cs;
+  u_value t1842 = NULL;
+  if ((!t1842) && u_is_con(s1841, &n_list_46_Nil)) {
+    t1842 = &o_list_46_Nil;
+  }
+  if ((!t1842) && u_is_con(s1841, &n_list_46_Cons)) {
+    u_value v_c = u_field(s1841, 0);
+    u_value v_rest = u_field(s1841, 1);
+    u_value s1843 = f_check_46_order_of_1(v_c);
+    u_value t1844 = NULL;
+    if ((!t1844) && u_is_con(s1843, &n_option_46_Some)) {
+      u_value v_o = u_field(u_field(s1843, 0), 0);
+      u_value v_n = u_field(u_field(s1843, 0), 1);
+      u_value t1845;
+      if (u_truth(u_eq(v_o, v_op))) {
+        t1845 = u_mk_con(&n_list_46_Cons, 2, v_n, f_check_46_ordered_2(v_rest, v_op));
+      } else {
+        t1845 = f_check_46_ordered_2(v_rest, v_op);
+      }
+      t1844 = t1845;
+    }
+    if ((!t1844) && u_is_con(s1843, &n_option_46_None)) {
+      t1844 = f_check_46_ordered_2(v_rest, v_op);
+    }
+    if (!t1844) {
+      u_no_case(s1843);
+    }
+    t1842 = t1844;
+  }
+  if (!t1842) {
+    u_no_case(s1841);
+  }
+  return t1842;
+}
+
+void p_check_46_complete_orders(u_value v_cs) {
+  {
+    static struct u_object l__61__61__1846 = U_LIT("==");
+    static struct u_object l_compare_1847 = U_LIT("compare");
+    u_value s1848 = f_list_46_diff_2(f_check_46_ordered_2(v_cs, &l__61__61__1846), f_check_46_ordered_2(v_cs, &l_compare_1847));
+    int d1849 = 0;
+    if ((!d1849) && u_is_con(s1848, &n_list_46_Cons)) {
+      u_value v_n = u_field(s1848, 0);
+      d1849 = 1;
+      {
+        u_raise(u_mk_con(&n_check_46_EqualityWithoutOrder, 1, v_n), "check.TypeError");
+      }
+    }
+    if ((!d1849) && u_is_con(s1848, &n_list_46_Nil)) {
+      d1849 = 1;
+      {
+      }
+    }
+    if (!d1849) {
+      u_no_case(s1848);
+    }
+  }
 }
 
 u_value f_check_46_Checked_46_cmds_1(u_value v_x) {
-  u_value s1793 = v_x;
-  u_value t1794 = NULL;
-  if ((!t1794) && u_is_con(s1793, &n_check_46_Checked)) {
-    u_value v_y = u_field(s1793, 0);
-    t1794 = v_y;
+  u_value s1850 = v_x;
+  u_value t1851 = NULL;
+  if ((!t1851) && u_is_con(s1850, &n_check_46_Checked)) {
+    u_value v_y = u_field(s1850, 0);
+    t1851 = v_y;
   }
-  if (!t1794) {
-    u_no_case(s1793);
+  if (!t1851) {
+    u_no_case(s1850);
   }
-  return t1794;
+  return t1851;
 }
 
 u_value f_check_46_Checked_46_ctx_1(u_value v_x) {
-  u_value s1795 = v_x;
-  u_value t1796 = NULL;
-  if ((!t1796) && u_is_con(s1795, &n_check_46_Checked)) {
-    u_value v_y = u_field(s1795, 1);
-    t1796 = v_y;
+  u_value s1852 = v_x;
+  u_value t1853 = NULL;
+  if ((!t1853) && u_is_con(s1852, &n_check_46_Checked)) {
+    u_value v_y = u_field(s1852, 1);
+    t1853 = v_y;
   }
-  if (!t1796) {
-    u_no_case(s1795);
+  if (!t1853) {
+    u_no_case(s1852);
   }
-  return t1796;
+  return t1853;
 }
 
 u_value f_check_46_Checked_46_imports_1(u_value v_x) {
-  u_value s1797 = v_x;
-  u_value t1798 = NULL;
-  if ((!t1798) && u_is_con(s1797, &n_check_46_Checked)) {
-    u_value v_y = u_field(s1797, 2);
-    t1798 = v_y;
+  u_value s1854 = v_x;
+  u_value t1855 = NULL;
+  if ((!t1855) && u_is_con(s1854, &n_check_46_Checked)) {
+    u_value v_y = u_field(s1854, 2);
+    t1855 = v_y;
   }
-  if (!t1798) {
-    u_no_case(s1797);
+  if (!t1855) {
+    u_no_case(s1854);
   }
-  return t1798;
+  return t1855;
 }
 
 u_value f_check_46_Checked_46_cmds_58__61__2(u_value v_x, u_value v_y) {
-  u_value s1799 = v_x;
-  u_value t1800 = NULL;
-  if ((!t1800) && u_is_con(s1799, &n_check_46_Checked)) {
-    u_value v_a1 = u_field(s1799, 1);
-    u_value v_a2 = u_field(s1799, 2);
-    t1800 = u_mk_con(&n_check_46_Checked, 3, v_y, v_a1, v_a2);
+  u_value s1856 = v_x;
+  u_value t1857 = NULL;
+  if ((!t1857) && u_is_con(s1856, &n_check_46_Checked)) {
+    u_value v_a1 = u_field(s1856, 1);
+    u_value v_a2 = u_field(s1856, 2);
+    t1857 = u_mk_con(&n_check_46_Checked, 3, v_y, v_a1, v_a2);
   }
-  if (!t1800) {
-    u_no_case(s1799);
+  if (!t1857) {
+    u_no_case(s1856);
   }
-  return t1800;
+  return t1857;
 }
 
 u_value f_check_46_Checked_46_ctx_58__61__2(u_value v_x, u_value v_y) {
-  u_value s1801 = v_x;
-  u_value t1802 = NULL;
-  if ((!t1802) && u_is_con(s1801, &n_check_46_Checked)) {
-    u_value v_a0 = u_field(s1801, 0);
-    u_value v_a2 = u_field(s1801, 2);
-    t1802 = u_mk_con(&n_check_46_Checked, 3, v_a0, v_y, v_a2);
+  u_value s1858 = v_x;
+  u_value t1859 = NULL;
+  if ((!t1859) && u_is_con(s1858, &n_check_46_Checked)) {
+    u_value v_a0 = u_field(s1858, 0);
+    u_value v_a2 = u_field(s1858, 2);
+    t1859 = u_mk_con(&n_check_46_Checked, 3, v_a0, v_y, v_a2);
   }
-  if (!t1802) {
-    u_no_case(s1801);
+  if (!t1859) {
+    u_no_case(s1858);
   }
-  return t1802;
+  return t1859;
 }
 
 u_value f_check_46_Checked_46_imports_58__61__2(u_value v_x, u_value v_y) {
-  u_value s1803 = v_x;
-  u_value t1804 = NULL;
-  if ((!t1804) && u_is_con(s1803, &n_check_46_Checked)) {
-    u_value v_a0 = u_field(s1803, 0);
-    u_value v_a1 = u_field(s1803, 1);
-    t1804 = u_mk_con(&n_check_46_Checked, 3, v_a0, v_a1, v_y);
+  u_value s1860 = v_x;
+  u_value t1861 = NULL;
+  if ((!t1861) && u_is_con(s1860, &n_check_46_Checked)) {
+    u_value v_a0 = u_field(s1860, 0);
+    u_value v_a1 = u_field(s1860, 1);
+    t1861 = u_mk_con(&n_check_46_Checked, 3, v_a0, v_a1, v_y);
   }
-  if (!t1804) {
-    u_no_case(s1803);
+  if (!t1861) {
+    u_no_case(s1860);
   }
-  return t1804;
+  return t1861;
 }
 
 void p_check_46_check_program(u_value v_p, u_value v_main, u_value *r_q) {
   {
     u_value v_cache = NULL;
-    u_value t1805 = &o_list_46_Nil;
-    v_cache = t1805;
+    u_value t1862 = &o_list_46_Nil;
+    v_cache = t1862;
     p_check_46_check_modules(v_p, v_main, r_q, &v_cache);
   }
 }
@@ -21000,18 +21811,18 @@ void p_check_46_check_modules(u_value v_p, u_value v_main, u_value *r_q, u_value
     u_value v_seen = NULL;
     u_value v_cs = NULL;
     u_value v_own = NULL;
-    u_value t1806 = f_ctx_46_empty_ctx_0();
-    v_c = t1806;
-    u_value t1807 = &o_list_46_Nil;
-    v_imports = t1807;
-    u_value t1808 = &o_list_46_Nil;
-    v_seen = t1808;
-    u_value t1809 = &o_list_46_Nil;
-    v_cs = t1809;
+    u_value t1863 = f_ctx_46_empty_ctx_0();
+    v_c = t1863;
+    u_value t1864 = &o_list_46_Nil;
+    v_imports = t1864;
+    u_value t1865 = &o_list_46_Nil;
+    v_seen = t1865;
+    u_value t1866 = &o_list_46_Nil;
+    v_cs = t1866;
     p_check_46_check_units(f_check_46_modules_1(f_syntax_46_Program_46_cmds_1(v_p)), &v_c, &v_imports, &v_seen, &v_cs, r_cache);
     p_check_46_check_unit(f_check_46_own_decls_2(v_main, f_syntax_46_Program_46_cmds_1(v_p)), v_main, v_c, v_imports, &v_own);
-    u_value t1810 = u_mk_con(&n_syntax_46_Program, 1, f_list_46__43__43__2(v_cs, f_check_46_Checked_46_cmds_1(v_own)));
-    *r_q = t1810;
+    u_value t1867 = u_mk_con(&n_syntax_46_Program, 1, f_list_46__43__43__2(v_cs, f_check_46_Checked_46_cmds_1(v_own)));
+    *r_q = t1867;
   }
 }
 
@@ -21020,126 +21831,126 @@ void p_check_46_check_units(u_value v_us, u_value *r_c, u_value *r_imports, u_va
     u_value v_key = NULL;
     u_value v_checked = NULL;
     u_value v_i = NULL;
-    u_value s1811 = v_us;
-    int d1812 = 0;
-    if ((!d1812) && u_is_con(s1811, &n_list_46_Nil)) {
-      d1812 = 1;
+    u_value s1868 = v_us;
+    int d1869 = 0;
+    if ((!d1869) && u_is_con(s1868, &n_list_46_Nil)) {
+      d1869 = 1;
       {
       }
     }
-    if ((!d1812) && u_is_con(s1811, &n_list_46_Cons)) {
-      u_value v_m = u_field(u_field(s1811, 0), 0);
-      u_value v_ds = u_field(u_field(s1811, 0), 1);
-      u_value v_rest = u_field(s1811, 1);
-      d1812 = 1;
+    if ((!d1869) && u_is_con(s1868, &n_list_46_Cons)) {
+      u_value v_m = u_field(u_field(s1868, 0), 0);
+      u_value v_ds = u_field(u_field(s1868, 0), 1);
+      u_value v_rest = u_field(s1868, 1);
+      d1869 = 1;
       {
-        static struct u_object l_prelude_1813 = U_LIT("prelude");
-        u_value t1814 = u_mk_tuple(3, v_m, v_ds, f_check_46_positions_of_2(u_mk_con(&n_list_46_Cons, 2, &l_prelude_1813, f_check_46_imports_in_2(v_ds, v_m)), *r_seen));
-        v_key = t1814;
-        u_value s1815 = f_check_46_position_in_3(v_key, *r_cache, u_mk_int(0));
-        int d1816 = 0;
-        if ((!d1816) && u_is_con(s1815, &n_option_46_Some)) {
-          u_value v_k = u_field(u_field(s1815, 0), 0);
-          u_value v_done = u_field(u_field(s1815, 0), 1);
-          d1816 = 1;
+        static struct u_object l_prelude_1870 = U_LIT("prelude");
+        u_value t1871 = u_mk_tuple(3, v_m, v_ds, f_check_46_positions_of_2(u_mk_con(&n_list_46_Cons, 2, &l_prelude_1870, f_check_46_imports_in_2(v_ds, v_m)), *r_seen));
+        v_key = t1871;
+        u_value s1872 = f_check_46_position_in_3(v_key, *r_cache, u_mk_int(0));
+        int d1873 = 0;
+        if ((!d1873) && u_is_con(s1872, &n_option_46_Some)) {
+          u_value v_k = u_field(u_field(s1872, 0), 0);
+          u_value v_done = u_field(u_field(s1872, 0), 1);
+          d1873 = 1;
           {
-            u_value t1817 = v_k;
-            u_value t1818 = v_done;
-            v_i = t1817;
-            v_checked = t1818;
+            u_value t1874 = v_k;
+            u_value t1875 = v_done;
+            v_i = t1874;
+            v_checked = t1875;
           }
         }
-        if ((!d1816) && u_is_con(s1815, &n_option_46_None)) {
-          d1816 = 1;
+        if ((!d1873) && u_is_con(s1872, &n_option_46_None)) {
+          d1873 = 1;
           {
             p_check_46_check_unit(v_ds, v_m, *r_c, *r_imports, &v_checked);
-            u_value t1819 = f_list_46_size_1(*r_cache);
-            u_value t1820 = f_list_46__43__43__2(*r_cache, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_key, v_checked), &o_list_46_Nil));
-            v_i = t1819;
-            *r_cache = t1820;
+            u_value t1876 = f_list_46_size_1(*r_cache);
+            u_value t1877 = f_list_46__43__43__2(*r_cache, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_key, v_checked), &o_list_46_Nil));
+            v_i = t1876;
+            *r_cache = t1877;
           }
         }
-        if (!d1816) {
-          u_no_case(s1815);
+        if (!d1873) {
+          u_no_case(s1872);
         }
-        u_value t1821 = f_ctx_46_ctx_union_2(*r_c, f_check_46_Checked_46_ctx_1(v_checked));
-        u_value t1822 = f_list_46__43__43__2(*r_imports, f_check_46_Checked_46_imports_1(v_checked));
-        u_value t1823 = f_list_46__43__43__2(*r_cs, f_check_46_Checked_46_cmds_1(v_checked));
-        *r_c = t1821;
-        *r_imports = t1822;
-        *r_cs = t1823;
-        u_value t1824 = &o_list_46_Nil;
-        u_value *e1825 = &t1824;
-        u_value l1826 = f_list_46_firsts_1(f_check_46_Checked_46_imports_1(v_checked));
-        while (u_is_con(l1826, &n_list_46_Cons)) {
-          u_value v_n = u_field(l1826, 0);
+        u_value t1878 = f_ctx_46_ctx_union_2(*r_c, f_check_46_Checked_46_ctx_1(v_checked));
+        u_value t1879 = f_list_46__43__43__2(*r_imports, f_check_46_Checked_46_imports_1(v_checked));
+        u_value t1880 = f_list_46__43__43__2(*r_cs, f_check_46_Checked_46_cmds_1(v_checked));
+        *r_c = t1878;
+        *r_imports = t1879;
+        *r_cs = t1880;
+        u_value t1881 = &o_list_46_Nil;
+        u_value *e1882 = &t1881;
+        u_value l1883 = f_list_46_firsts_1(f_check_46_Checked_46_imports_1(v_checked));
+        while (u_is_con(l1883, &n_list_46_Cons)) {
+          u_value v_n = u_field(l1883, 0);
           if (u_truth(u_mk_bool(1))) {
-            e1825 = u_append(e1825, u_mk_tuple(2, v_n, v_i));
+            e1882 = u_append(e1882, u_mk_tuple(2, v_n, v_i));
           }
-          l1826 = u_field(l1826, 1);
+          l1883 = u_field(l1883, 1);
         }
-        u_value t1827 = f_list_46__43__43__2(t1824, *r_seen);
-        *r_seen = t1827;
+        u_value t1884 = f_list_46__43__43__2(t1881, *r_seen);
+        *r_seen = t1884;
         p_check_46_check_units(v_rest, r_c, r_imports, r_seen, r_cs, r_cache);
       }
     }
-    if (!d1812) {
-      u_no_case(s1811);
+    if (!d1869) {
+      u_no_case(s1868);
     }
   }
 }
 
 u_value f_check_46_positions_of_2(u_value v_ms, u_value v_seen) {
-  u_value s1828 = v_ms;
-  u_value t1829 = NULL;
-  if ((!t1829) && u_is_con(s1828, &n_list_46_Nil)) {
-    t1829 = &o_list_46_Nil;
+  u_value s1885 = v_ms;
+  u_value t1886 = NULL;
+  if ((!t1886) && u_is_con(s1885, &n_list_46_Nil)) {
+    t1886 = &o_list_46_Nil;
   }
-  if ((!t1829) && u_is_con(s1828, &n_list_46_Cons)) {
-    u_value v_m = u_field(s1828, 0);
-    u_value v_rest = u_field(s1828, 1);
-    u_value s1830 = f_list_46_get_2(v_m, v_seen);
-    u_value t1831 = NULL;
-    if ((!t1831) && u_is_con(s1830, &n_option_46_Some)) {
-      u_value v_i = u_field(s1830, 0);
-      t1831 = u_mk_con(&n_list_46_Cons, 2, v_i, f_check_46_positions_of_2(v_rest, v_seen));
+  if ((!t1886) && u_is_con(s1885, &n_list_46_Cons)) {
+    u_value v_m = u_field(s1885, 0);
+    u_value v_rest = u_field(s1885, 1);
+    u_value s1887 = f_list_46_get_2(v_m, v_seen);
+    u_value t1888 = NULL;
+    if ((!t1888) && u_is_con(s1887, &n_option_46_Some)) {
+      u_value v_i = u_field(s1887, 0);
+      t1888 = u_mk_con(&n_list_46_Cons, 2, v_i, f_check_46_positions_of_2(v_rest, v_seen));
     }
-    if ((!t1831) && u_is_con(s1830, &n_option_46_None)) {
-      t1831 = f_check_46_positions_of_2(v_rest, v_seen);
+    if ((!t1888) && u_is_con(s1887, &n_option_46_None)) {
+      t1888 = f_check_46_positions_of_2(v_rest, v_seen);
     }
-    if (!t1831) {
-      u_no_case(s1830);
+    if (!t1888) {
+      u_no_case(s1887);
     }
-    t1829 = t1831;
+    t1886 = t1888;
   }
-  if (!t1829) {
-    u_no_case(s1828);
+  if (!t1886) {
+    u_no_case(s1885);
   }
-  return t1829;
+  return t1886;
 }
 
 u_value f_check_46_position_in_3(u_value v_key, u_value v_cache, u_value v_i) {
-  u_value s1832 = v_cache;
-  u_value t1833 = NULL;
-  if ((!t1833) && u_is_con(s1832, &n_list_46_Nil)) {
-    t1833 = &o_option_46_None;
+  u_value s1889 = v_cache;
+  u_value t1890 = NULL;
+  if ((!t1890) && u_is_con(s1889, &n_list_46_Nil)) {
+    t1890 = &o_option_46_None;
   }
-  if ((!t1833) && u_is_con(s1832, &n_list_46_Cons)) {
-    u_value v_k = u_field(u_field(s1832, 0), 0);
-    u_value v_checked = u_field(u_field(s1832, 0), 1);
-    u_value v_rest = u_field(s1832, 1);
-    u_value t1834;
+  if ((!t1890) && u_is_con(s1889, &n_list_46_Cons)) {
+    u_value v_k = u_field(u_field(s1889, 0), 0);
+    u_value v_checked = u_field(u_field(s1889, 0), 1);
+    u_value v_rest = u_field(s1889, 1);
+    u_value t1891;
     if (u_truth(u_eq(v_k, v_key))) {
-      t1834 = u_mk_con(&n_option_46_Some, 1, u_mk_tuple(2, v_i, v_checked));
+      t1891 = u_mk_con(&n_option_46_Some, 1, u_mk_tuple(2, v_i, v_checked));
     } else {
-      t1834 = f_check_46_position_in_3(v_key, v_rest, u_add(v_i, u_mk_int(1)));
+      t1891 = f_check_46_position_in_3(v_key, v_rest, u_add(v_i, u_mk_int(1)));
     }
-    t1833 = t1834;
+    t1890 = t1891;
   }
-  if (!t1833) {
-    u_no_case(s1832);
+  if (!t1890) {
+    u_no_case(s1889);
   }
-  return t1833;
+  return t1890;
 }
 
 void p_check_46_check_unit(u_value v_ds, u_value v_main, u_value v_before, u_value v_imports, u_value *r_checked) {
@@ -21147,20 +21958,20 @@ void p_check_46_check_unit(u_value v_ds, u_value v_main, u_value v_before, u_val
     u_value v_own = NULL;
     u_value v_s = NULL;
     u_value v_cs = NULL;
-    u_value t1835 = &o_list_46_Nil;
-    u_value *e1836 = &t1835;
-    u_value l1837 = f_list_46_distinct_1(f_list_46_firsts_1(v_ds));
-    while (u_is_con(l1837, &n_list_46_Cons)) {
-      u_value v_m = u_field(l1837, 0);
+    u_value t1892 = &o_list_46_Nil;
+    u_value *e1893 = &t1892;
+    u_value l1894 = f_list_46_distinct_1(f_list_46_firsts_1(v_ds));
+    while (u_is_con(l1894, &n_list_46_Cons)) {
+      u_value v_m = u_field(l1894, 0);
       if (u_truth(u_mk_bool(1))) {
-        e1836 = u_append(e1836, u_mk_tuple(2, v_m, f_check_46_imports_in_2(v_ds, v_m)));
+        e1893 = u_append(e1893, u_mk_tuple(2, v_m, f_check_46_imports_in_2(v_ds, v_m)));
       }
-      l1837 = u_field(l1837, 1);
+      l1894 = u_field(l1894, 1);
     }
-    u_value t1838 = f_list_46__43__43__2(v_imports, t1835);
-    v_own = t1838;
-    u_value t1839 = u_mk_con(&n_check_46_State, 8, v_before, f_map_46_empty_0(), u_mk_int(0), v_main, &o_list_46_Nil, f_check_46_visibility_2(v_own, v_main), &o_list_46_Nil, f_map_46_empty_0());
-    v_s = t1839;
+    u_value t1895 = f_list_46__43__43__2(v_imports, t1892);
+    v_own = t1895;
+    u_value t1896 = u_mk_con(&n_check_46_State, 8, v_before, f_map_46_empty_0(), u_mk_int(0), v_main, &o_list_46_Nil, f_check_46_visibility_2(v_own, v_main), &o_list_46_Nil, f_map_46_empty_0());
+    v_s = t1896;
     p_check_46_declare_datas(v_ds, &v_s);
     p_check_46_declare_sorts(v_ds, &v_s);
     p_check_46_declare_constrs(v_ds, &v_s);
@@ -21168,77 +21979,78 @@ void p_check_46_check_unit(u_value v_ds, u_value v_main, u_value v_before, u_val
     p_check_46_declare_procs(v_ds, &v_s);
     p_check_46_unique_ids(f_check_46_block_names_1(v_ds));
     p_check_46_commands(v_ds, &v_cs, &v_s);
-    u_value t1840 = &o_list_46_Nil;
-    u_value *e1841 = &t1840;
-    u_value l1842 = f_list_46_distinct_1(f_list_46_firsts_1(v_ds));
-    while (u_is_con(l1842, &n_list_46_Cons)) {
-      u_value v_m = u_field(l1842, 0);
+    p_check_46_complete_orders(v_cs);
+    u_value t1897 = &o_list_46_Nil;
+    u_value *e1898 = &t1897;
+    u_value l1899 = f_list_46_distinct_1(f_list_46_firsts_1(v_ds));
+    while (u_is_con(l1899, &n_list_46_Cons)) {
+      u_value v_m = u_field(l1899, 0);
       if (u_truth(u_mk_bool(1))) {
-        e1841 = u_append(e1841, u_mk_tuple(2, v_m, f_check_46_imports_in_2(v_ds, v_m)));
+        e1898 = u_append(e1898, u_mk_tuple(2, v_m, f_check_46_imports_in_2(v_ds, v_m)));
       }
-      l1842 = u_field(l1842, 1);
+      l1899 = u_field(l1899, 1);
     }
-    u_value t1843 = u_mk_con(&n_check_46_Checked, 3, v_cs, f_ctx_46_ctx_of_2(f_check_46_State_46_ctx_1(v_s), f_list_46_distinct_1(f_list_46_firsts_1(v_ds))), t1840);
-    *r_checked = t1843;
+    u_value t1900 = u_mk_con(&n_check_46_Checked, 3, v_cs, f_ctx_46_ctx_of_2(f_check_46_State_46_ctx_1(v_s), f_list_46_distinct_1(f_list_46_firsts_1(v_ds))), t1897);
+    *r_checked = t1900;
   }
 }
 
 u_value f_check_46_modules_1(u_value v_cs) {
-  u_value s1844 = v_cs;
-  u_value t1845 = NULL;
-  if ((!t1845) && u_is_con(s1844, &n_list_46_Nil)) {
-    t1845 = &o_list_46_Nil;
+  u_value s1901 = v_cs;
+  u_value t1902 = NULL;
+  if ((!t1902) && u_is_con(s1901, &n_list_46_Nil)) {
+    t1902 = &o_list_46_Nil;
   }
-  if ((!t1845) && (u_is_con(s1844, &n_list_46_Cons) && (u_is_con(u_field(s1844, 0), &n_syntax_46_CModule) && u_equals(u_field(u_field(s1844, 0), 0), u_mk_lit("prelude"))))) {
-    u_value v_ds = u_field(u_field(s1844, 0), 1);
-    u_value v_rest = u_field(s1844, 1);
-    static struct u_object l_prelude_1846 = U_LIT("prelude");
-    static struct u_object l_prelude_1847 = U_LIT("prelude");
-    t1845 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, &l_prelude_1846, f_check_46_flatten_2(&l_prelude_1847, v_ds)), f_check_46_modules_1(v_rest));
+  if ((!t1902) && (u_is_con(s1901, &n_list_46_Cons) && (u_is_con(u_field(s1901, 0), &n_syntax_46_CModule) && u_equals(u_field(u_field(s1901, 0), 0), u_mk_lit("prelude"))))) {
+    u_value v_ds = u_field(u_field(s1901, 0), 1);
+    u_value v_rest = u_field(s1901, 1);
+    static struct u_object l_prelude_1903 = U_LIT("prelude");
+    static struct u_object l_prelude_1904 = U_LIT("prelude");
+    t1902 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, &l_prelude_1903, f_check_46_flatten_2(&l_prelude_1904, v_ds)), f_check_46_modules_1(v_rest));
   }
-  if ((!t1845) && (u_is_con(s1844, &n_list_46_Cons) && u_is_con(u_field(s1844, 0), &n_syntax_46_CModule))) {
-    u_value v_n = u_field(u_field(s1844, 0), 0);
-    u_value v_ds = u_field(u_field(s1844, 0), 1);
-    u_value v_rest = u_field(s1844, 1);
-    t1845 = f_list_46__43__43__2(f_check_46_modules_1(v_ds), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, f_check_46_own_decls_2(v_n, v_ds)), f_check_46_modules_1(v_rest)));
+  if ((!t1902) && (u_is_con(s1901, &n_list_46_Cons) && u_is_con(u_field(s1901, 0), &n_syntax_46_CModule))) {
+    u_value v_n = u_field(u_field(s1901, 0), 0);
+    u_value v_ds = u_field(u_field(s1901, 0), 1);
+    u_value v_rest = u_field(s1901, 1);
+    t1902 = f_list_46__43__43__2(f_check_46_modules_1(v_ds), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, f_check_46_own_decls_2(v_n, v_ds)), f_check_46_modules_1(v_rest)));
   }
-  if ((!t1845) && u_is_con(s1844, &n_list_46_Cons)) {
-    u_value v_rest = u_field(s1844, 1);
-    t1845 = f_check_46_modules_1(v_rest);
+  if ((!t1902) && u_is_con(s1901, &n_list_46_Cons)) {
+    u_value v_rest = u_field(s1901, 1);
+    t1902 = f_check_46_modules_1(v_rest);
   }
-  if (!t1845) {
-    u_no_case(s1844);
+  if (!t1902) {
+    u_no_case(s1901);
   }
-  return t1845;
+  return t1902;
 }
 
 u_value f_check_46_own_decls_2(u_value v_m, u_value v_cs) {
-  u_value t1848 = &o_list_46_Nil;
-  u_value *e1849 = &t1848;
-  u_value l1850 = v_cs;
-  while (u_is_con(l1850, &n_list_46_Cons)) {
-    u_value v_c = u_field(l1850, 0);
+  u_value t1905 = &o_list_46_Nil;
+  u_value *e1906 = &t1905;
+  u_value l1907 = v_cs;
+  while (u_is_con(l1907, &n_list_46_Cons)) {
+    u_value v_c = u_field(l1907, 0);
     if (u_truth(f_prelude_46_not_1(f_check_46_is_module_1(v_c)))) {
-      e1849 = u_append(e1849, u_mk_tuple(2, v_m, f_check_46_qualify_2(v_m, v_c)));
+      e1906 = u_append(e1906, u_mk_tuple(2, v_m, f_check_46_qualify_2(v_m, v_c)));
     }
-    l1850 = u_field(l1850, 1);
+    l1907 = u_field(l1907, 1);
   }
-  return t1848;
+  return t1905;
 }
 
 u_value f_check_46_is_module_1(u_value v_c) {
-  u_value s1851 = v_c;
-  u_value t1852 = NULL;
-  if ((!t1852) && u_is_con(s1851, &n_syntax_46_CModule)) {
-    t1852 = u_mk_bool(1);
+  u_value s1908 = v_c;
+  u_value t1909 = NULL;
+  if ((!t1909) && u_is_con(s1908, &n_syntax_46_CModule)) {
+    t1909 = u_mk_bool(1);
   }
-  if (!t1852) {
-    t1852 = u_mk_bool(0);
+  if (!t1909) {
+    t1909 = u_mk_bool(0);
   }
-  if (!t1852) {
-    u_no_case(s1851);
+  if (!t1909) {
+    u_no_case(s1908);
   }
-  return t1852;
+  return t1909;
 }
 
 void p_check_46_type_of(u_value v_e, u_value *r_t) {
@@ -21246,13 +22058,13 @@ void p_check_46_type_of(u_value v_e, u_value *r_t) {
     u_value v_s = NULL;
     u_value v_e1 = NULL;
     u_value v_u = NULL;
-    static struct u_object l_main_1853 = U_LIT("main");
-    u_value t1854 = f_check_46_start_2(&l_main_1853, &o_list_46_Nil);
-    v_s = t1854;
+    static struct u_object l_main_1910 = U_LIT("main");
+    u_value t1911 = f_check_46_start_2(&l_main_1910, &o_list_46_Nil);
+    v_s = t1911;
     p_check_46_infer(&o_list_46_Nil, v_e, &v_e1, &v_u, &v_s);
     p_check_46_settle(&v_s);
-    u_value t1855 = f_check_46_zonk_type_2(f_check_46_State_46_sub_1(v_s), v_u);
-    *r_t = t1855;
+    u_value t1912 = f_check_46_zonk_type_2(f_check_46_State_46_sub_1(v_s), v_u);
+    *r_t = t1912;
   }
 }
 
@@ -21273,8 +22085,8 @@ u_value f_check_46_ap_2(u_value v_f, u_value v_args) {
 }
 
 u_value f_check_46_tl_1(u_value v_t) {
-  static struct u_object l_List_1856 = U_LIT("List");
-  return u_mk_con(&n_syntax_46_TSort, 2, f_syntax_46_unqualified_1(&l_List_1856), u_mk_con(&n_list_46_Cons, 2, v_t, &o_list_46_Nil));
+  static struct u_object l_List_1913 = U_LIT("List");
+  return u_mk_con(&n_syntax_46_TSort, 2, f_syntax_46_unqualified_1(&l_List_1913), u_mk_con(&n_list_46_Cons, 2, v_t, &o_list_46_Nil));
 }
 
 u_value f_check_46_lists_0(void) {
@@ -21292,27 +22104,27 @@ u_value f_check_46_lists_0(void) {
     cache = NULL;
     u_reraise(handler);
   }
-  static struct u_object l_list_1857 = U_LIT("list");
-  static struct u_object l_List_1858 = U_LIT("List");
-  static struct u_object l_A_1859 = U_LIT("A");
-  static struct u_object l_Nil_1860 = U_LIT("Nil");
-  static struct u_object l_Cons_1861 = U_LIT("Cons");
-  static struct u_object l_A_1862 = U_LIT("A");
-  static struct u_object l_A_1863 = U_LIT("A");
-  static struct u_object l_list_1864 = U_LIT("list");
-  static struct u_object l_len_1865 = U_LIT("len");
-  static struct u_object l_A_1866 = U_LIT("A");
-  static struct u_object l_xs_1867 = U_LIT("xs");
-  static struct u_object l_A_1868 = U_LIT("A");
-  static struct u_object l_xs_1869 = U_LIT("xs");
-  static struct u_object l_Nil_1870 = U_LIT("Nil");
-  static struct u_object l_Cons_1871 = U_LIT("Cons");
-  static struct u_object l_ys_1872 = U_LIT("ys");
-  static struct u_object l__43__1873 = U_LIT("+");
-  static struct u_object l_len_1874 = U_LIT("len");
-  static struct u_object l_ys_1875 = U_LIT("ys");
+  static struct u_object l_list_1914 = U_LIT("list");
+  static struct u_object l_List_1915 = U_LIT("List");
+  static struct u_object l_A_1916 = U_LIT("A");
+  static struct u_object l_Nil_1917 = U_LIT("Nil");
+  static struct u_object l_Cons_1918 = U_LIT("Cons");
+  static struct u_object l_A_1919 = U_LIT("A");
+  static struct u_object l_A_1920 = U_LIT("A");
+  static struct u_object l_list_1921 = U_LIT("list");
+  static struct u_object l_len_1922 = U_LIT("len");
+  static struct u_object l_A_1923 = U_LIT("A");
+  static struct u_object l_xs_1924 = U_LIT("xs");
+  static struct u_object l_A_1925 = U_LIT("A");
+  static struct u_object l_xs_1926 = U_LIT("xs");
+  static struct u_object l_Nil_1927 = U_LIT("Nil");
+  static struct u_object l_Cons_1928 = U_LIT("Cons");
+  static struct u_object l_ys_1929 = U_LIT("ys");
+  static struct u_object l__43__1930 = U_LIT("+");
+  static struct u_object l_len_1931 = U_LIT("len");
+  static struct u_object l_ys_1932 = U_LIT("ys");
   u_pop(handler);
-  cache = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CModule, 2, &l_list_1857, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CData, 3, f_syntax_46_unqualified_1(&l_List_1858), u_mk_con(&n_list_46_Cons, 2, &l_A_1859, &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_syntax_46_unqualified_1(&l_Nil_1860), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_syntax_46_unqualified_1(&l_Cons_1861), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_TParam, 1, &l_A_1862), u_mk_con(&n_list_46_Cons, 2, f_check_46_tl_1(u_mk_con(&n_syntax_46_TParam, 1, &l_A_1863)), &o_list_46_Nil))), &o_list_46_Nil))), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CImport, 1, &l_list_1864), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CFun, 5, f_syntax_46_unqualified_1(&l_len_1865), u_mk_con(&n_list_46_Cons, 2, &l_A_1866, &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_xs_1867), f_check_46_tl_1(u_mk_con(&n_syntax_46_TParam, 1, &l_A_1868))), &o_list_46_Nil), &o_list_46_Nil), f_check_46_tint_0(), u_mk_con(&n_syntax_46_EMatch, 2, f_check_46_ev_1(&l_xs_1869), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 3, f_check_46_pv_1(&l_Nil_1870), &o_option_46_None, f_check_46_num_1(u_mk_int(0))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 3, u_mk_con(&n_syntax_46_PApp, 2, f_syntax_46_unqualified_1(&l_Cons_1871), u_mk_con(&n_list_46_Cons, 2, &o_syntax_46_PWild, u_mk_con(&n_list_46_Cons, 2, f_check_46_pv_1(&l_ys_1872), &o_list_46_Nil))), &o_option_46_None, f_check_46_ap_2(&l__43__1873, u_mk_con(&n_list_46_Cons, 2, f_check_46_num_1(u_mk_int(1)), u_mk_con(&n_list_46_Cons, 2, f_check_46_ap_2(&l_len_1874, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_ys_1875), &o_list_46_Nil)), &o_list_46_Nil)))), &o_list_46_Nil)))), &o_list_46_Nil)));
+  cache = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CModule, 2, &l_list_1914, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CData, 3, f_syntax_46_unqualified_1(&l_List_1915), u_mk_con(&n_list_46_Cons, 2, &l_A_1916, &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_syntax_46_unqualified_1(&l_Nil_1917), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_syntax_46_unqualified_1(&l_Cons_1918), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_TParam, 1, &l_A_1919), u_mk_con(&n_list_46_Cons, 2, f_check_46_tl_1(u_mk_con(&n_syntax_46_TParam, 1, &l_A_1920)), &o_list_46_Nil))), &o_list_46_Nil))), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CImport, 1, &l_list_1921), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CFun, 5, f_syntax_46_unqualified_1(&l_len_1922), u_mk_con(&n_list_46_Cons, 2, &l_A_1923, &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_xs_1924), f_check_46_tl_1(u_mk_con(&n_syntax_46_TParam, 1, &l_A_1925))), &o_list_46_Nil), &o_list_46_Nil), f_check_46_tint_0(), u_mk_con(&n_syntax_46_EMatch, 2, f_check_46_ev_1(&l_xs_1926), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 3, f_check_46_pv_1(&l_Nil_1927), &o_option_46_None, f_check_46_num_1(u_mk_int(0))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 3, u_mk_con(&n_syntax_46_PApp, 2, f_syntax_46_unqualified_1(&l_Cons_1928), u_mk_con(&n_list_46_Cons, 2, &o_syntax_46_PWild, u_mk_con(&n_list_46_Cons, 2, f_check_46_pv_1(&l_ys_1929), &o_list_46_Nil))), &o_option_46_None, f_check_46_ap_2(&l__43__1930, u_mk_con(&n_list_46_Cons, 2, f_check_46_num_1(u_mk_int(1)), u_mk_con(&n_list_46_Cons, 2, f_check_46_ap_2(&l_len_1931, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_ys_1932), &o_list_46_Nil)), &o_list_46_Nil)))), &o_list_46_Nil)))), &o_list_46_Nil)));
   return cache;
 }
 
@@ -21347,800 +22159,422 @@ u_value f_check_46_bags_0(void) {
     cache = NULL;
     u_reraise(handler);
   }
-  static struct u_object l_bag_1876 = U_LIT("bag");
-  static struct u_object l_Bag_1877 = U_LIT("Bag");
-  static struct u_object l_Bag_1878 = U_LIT("Bag");
-  static struct u_object l_Leaf_1879 = U_LIT("Leaf");
-  static struct u_object l_Pt_1880 = U_LIT("Pt");
-  static struct u_object l_Pt_1881 = U_LIT("Pt");
-  static struct u_object l_size_1882 = U_LIT("size");
-  static struct u_object l_b_1883 = U_LIT("b");
-  static struct u_object l_Bag_1884 = U_LIT("Bag");
-  static struct u_object l_Pt_46_x_1885 = U_LIT("Pt.x");
-  static struct u_object l_p_1886 = U_LIT("p");
-  static struct u_object l_Pt_1887 = U_LIT("Pt");
-  static struct u_object l_p_1888 = U_LIT("p");
-  static struct u_object l_Pt_1889 = U_LIT("Pt");
-  static struct u_object l_n_1890 = U_LIT("n");
-  static struct u_object l_n_1891 = U_LIT("n");
-  static struct u_object l_fill_1892 = U_LIT("fill");
-  static struct u_object l_b_1893 = U_LIT("b");
-  static struct u_object l_Bag_1894 = U_LIT("Bag");
-  static struct u_object l_b_1895 = U_LIT("b");
-  static struct u_object l_Bag_1896 = U_LIT("Bag");
-  static struct u_object l_bag_1897 = U_LIT("bag");
-  static struct u_object l_box_1898 = U_LIT("box");
-  static struct u_object l_Box_1899 = U_LIT("Box");
-  static struct u_object l_Box_1900 = U_LIT("Box");
-  static struct u_object l_Leaf_1901 = U_LIT("Leaf");
-  static struct u_object l_Qt_1902 = U_LIT("Qt");
-  static struct u_object l_Qt_1903 = U_LIT("Qt");
-  static struct u_object l_size_1904 = U_LIT("size");
-  static struct u_object l_b_1905 = U_LIT("b");
-  static struct u_object l_Box_1906 = U_LIT("Box");
-  static struct u_object l_Qt_46_x_1907 = U_LIT("Qt.x");
-  static struct u_object l_q_1908 = U_LIT("q");
-  static struct u_object l_Qt_1909 = U_LIT("Qt");
-  static struct u_object l_q_1910 = U_LIT("q");
-  static struct u_object l_Qt_1911 = U_LIT("Qt");
-  static struct u_object l_s_1912 = U_LIT("s");
-  static struct u_object l_s_1913 = U_LIT("s");
-  static struct u_object l_fill_1914 = U_LIT("fill");
-  static struct u_object l_b_1915 = U_LIT("b");
-  static struct u_object l_Box_1916 = U_LIT("Box");
-  static struct u_object l_b_1917 = U_LIT("b");
-  static struct u_object l_Box_1918 = U_LIT("Box");
-  static struct u_object l__1919 = U_LIT("");
-  static struct u_object l_box_1920 = U_LIT("box");
+  static struct u_object l_bag_1933 = U_LIT("bag");
+  static struct u_object l_Bag_1934 = U_LIT("Bag");
+  static struct u_object l_Bag_1935 = U_LIT("Bag");
+  static struct u_object l_Leaf_1936 = U_LIT("Leaf");
+  static struct u_object l_Pt_1937 = U_LIT("Pt");
+  static struct u_object l_Pt_1938 = U_LIT("Pt");
+  static struct u_object l_size_1939 = U_LIT("size");
+  static struct u_object l_b_1940 = U_LIT("b");
+  static struct u_object l_Bag_1941 = U_LIT("Bag");
+  static struct u_object l__61__61__1942 = U_LIT("==");
+  static struct u_object l_a_1943 = U_LIT("a");
+  static struct u_object l_Bag_1944 = U_LIT("Bag");
+  static struct u_object l_b_1945 = U_LIT("b");
+  static struct u_object l_Bag_1946 = U_LIT("Bag");
+  static struct u_object l_compare_1947 = U_LIT("compare");
+  static struct u_object l_a_1948 = U_LIT("a");
+  static struct u_object l_Bag_1949 = U_LIT("Bag");
+  static struct u_object l_b_1950 = U_LIT("b");
+  static struct u_object l_Bag_1951 = U_LIT("Bag");
+  static struct u_object l_Pt_46_x_1952 = U_LIT("Pt.x");
+  static struct u_object l_p_1953 = U_LIT("p");
+  static struct u_object l_Pt_1954 = U_LIT("Pt");
+  static struct u_object l_p_1955 = U_LIT("p");
+  static struct u_object l_Pt_1956 = U_LIT("Pt");
+  static struct u_object l_n_1957 = U_LIT("n");
+  static struct u_object l_n_1958 = U_LIT("n");
+  static struct u_object l_fill_1959 = U_LIT("fill");
+  static struct u_object l_b_1960 = U_LIT("b");
+  static struct u_object l_Bag_1961 = U_LIT("Bag");
+  static struct u_object l_b_1962 = U_LIT("b");
+  static struct u_object l_Bag_1963 = U_LIT("Bag");
+  static struct u_object l_bag_1964 = U_LIT("bag");
+  static struct u_object l_box_1965 = U_LIT("box");
+  static struct u_object l_Box_1966 = U_LIT("Box");
+  static struct u_object l_Box_1967 = U_LIT("Box");
+  static struct u_object l_Leaf_1968 = U_LIT("Leaf");
+  static struct u_object l_Qt_1969 = U_LIT("Qt");
+  static struct u_object l_Qt_1970 = U_LIT("Qt");
+  static struct u_object l_size_1971 = U_LIT("size");
+  static struct u_object l_b_1972 = U_LIT("b");
+  static struct u_object l_Box_1973 = U_LIT("Box");
+  static struct u_object l_Qt_46_x_1974 = U_LIT("Qt.x");
+  static struct u_object l_q_1975 = U_LIT("q");
+  static struct u_object l_Qt_1976 = U_LIT("Qt");
+  static struct u_object l_q_1977 = U_LIT("q");
+  static struct u_object l_Qt_1978 = U_LIT("Qt");
+  static struct u_object l_s_1979 = U_LIT("s");
+  static struct u_object l_s_1980 = U_LIT("s");
+  static struct u_object l_fill_1981 = U_LIT("fill");
+  static struct u_object l_b_1982 = U_LIT("b");
+  static struct u_object l_Box_1983 = U_LIT("Box");
+  static struct u_object l_b_1984 = U_LIT("b");
+  static struct u_object l_Box_1985 = U_LIT("Box");
+  static struct u_object l__1986 = U_LIT("");
+  static struct u_object l_box_1987 = U_LIT("box");
   u_pop(handler);
-  cache = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CModule, 2, &l_bag_1876, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CData, 3, f_check_46_unq_1(&l_Bag_1877), &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_check_46_unq_1(&l_Bag_1878), u_mk_con(&n_list_46_Cons, 2, f_check_46_tint_0(), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_check_46_unq_1(&l_Leaf_1879), u_mk_con(&n_list_46_Cons, 2, f_check_46_tint_0(), &o_list_46_Nil)), &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CData, 3, f_check_46_unq_1(&l_Pt_1880), &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_check_46_unq_1(&l_Pt_1881), u_mk_con(&n_list_46_Cons, 2, f_check_46_tint_0(), &o_list_46_Nil)), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, f_check_46_fun_cmd_4(&l_size_1882, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_b_1883, f_check_46_tsort_1(&l_Bag_1884)), &o_list_46_Nil), f_check_46_tint_0(), f_check_46_num_1(u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, f_check_46_fun_cmd_4(&l_Pt_46_x_1885, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_p_1886, f_check_46_tsort_1(&l_Pt_1887)), &o_list_46_Nil), f_check_46_tint_0(), u_mk_con(&n_syntax_46_EMatch, 2, f_check_46_ev_1(&l_p_1888), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 3, u_mk_con(&n_syntax_46_PApp, 2, f_check_46_unq_1(&l_Pt_1889), u_mk_con(&n_list_46_Cons, 2, f_check_46_pv_1(&l_n_1890), &o_list_46_Nil)), &o_option_46_None, f_check_46_ev_1(&l_n_1891)), &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CProc, 6, f_check_46_unq_1(&l_fill_1892), &o_list_46_Nil, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_b_1893, f_check_46_tsort_1(&l_Bag_1894)), &o_list_46_Nil), &o_list_46_Nil, u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_check_46_var_of_2(&l_b_1895, &o_syntax_46_THole), f_check_46_ap_2(&l_Bag_1896, u_mk_con(&n_list_46_Cons, 2, f_check_46_num_1(u_mk_int(0)), &o_list_46_Nil))), &o_list_46_Nil))), &o_list_46_Nil)))))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CImport, 1, &l_bag_1897), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CModule, 2, &l_box_1898, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CData, 3, f_check_46_unq_1(&l_Box_1899), &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_check_46_unq_1(&l_Box_1900), u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_check_46_unq_1(&l_Leaf_1901), u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil)), &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CData, 3, f_check_46_unq_1(&l_Qt_1902), &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_check_46_unq_1(&l_Qt_1903), u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil)), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, f_check_46_fun_cmd_4(&l_size_1904, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_b_1905, f_check_46_tsort_1(&l_Box_1906)), &o_list_46_Nil), f_check_46_tint_0(), f_check_46_num_1(u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, f_check_46_fun_cmd_4(&l_Qt_46_x_1907, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_q_1908, f_check_46_tsort_1(&l_Qt_1909)), &o_list_46_Nil), f_check_46_tstr_0(), u_mk_con(&n_syntax_46_EMatch, 2, f_check_46_ev_1(&l_q_1910), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 3, u_mk_con(&n_syntax_46_PApp, 2, f_check_46_unq_1(&l_Qt_1911), u_mk_con(&n_list_46_Cons, 2, f_check_46_pv_1(&l_s_1912), &o_list_46_Nil)), &o_option_46_None, f_check_46_ev_1(&l_s_1913)), &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CProc, 6, f_check_46_unq_1(&l_fill_1914), &o_list_46_Nil, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_b_1915, f_check_46_tsort_1(&l_Box_1916)), &o_list_46_Nil), &o_list_46_Nil, u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_check_46_var_of_2(&l_b_1917, &o_syntax_46_THole), f_check_46_ap_2(&l_Box_1918, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_ELit, 1, u_mk_con(&n_syntax_46_VStr, 1, &l__1919)), &o_list_46_Nil))), &o_list_46_Nil))), &o_list_46_Nil)))))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CImport, 1, &l_box_1920), &o_list_46_Nil))));
+  cache = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CModule, 2, &l_bag_1933, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CData, 3, f_check_46_unq_1(&l_Bag_1934), &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_check_46_unq_1(&l_Bag_1935), u_mk_con(&n_list_46_Cons, 2, f_check_46_tint_0(), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_check_46_unq_1(&l_Leaf_1936), u_mk_con(&n_list_46_Cons, 2, f_check_46_tint_0(), &o_list_46_Nil)), &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CData, 3, f_check_46_unq_1(&l_Pt_1937), &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_check_46_unq_1(&l_Pt_1938), u_mk_con(&n_list_46_Cons, 2, f_check_46_tint_0(), &o_list_46_Nil)), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, f_check_46_fun_cmd_4(&l_size_1939, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_b_1940, f_check_46_tsort_1(&l_Bag_1941)), &o_list_46_Nil), f_check_46_tint_0(), f_check_46_num_1(u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, f_check_46_fun_cmd_4(&l__61__61__1942, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_a_1943, f_check_46_tsort_1(&l_Bag_1944)), u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_b_1945, f_check_46_tsort_1(&l_Bag_1946)), &o_list_46_Nil)), f_check_46_tbool_0(), u_mk_con(&n_syntax_46_ELit, 1, u_mk_con(&n_syntax_46_VBool, 1, u_mk_bool(1)))), u_mk_con(&n_list_46_Cons, 2, f_check_46_fun_cmd_4(&l_compare_1947, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_a_1948, f_check_46_tsort_1(&l_Bag_1949)), u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_b_1950, f_check_46_tsort_1(&l_Bag_1951)), &o_list_46_Nil)), f_check_46_tint_0(), f_check_46_num_1(u_mk_int(0))), u_mk_con(&n_list_46_Cons, 2, f_check_46_fun_cmd_4(&l_Pt_46_x_1952, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_p_1953, f_check_46_tsort_1(&l_Pt_1954)), &o_list_46_Nil), f_check_46_tint_0(), u_mk_con(&n_syntax_46_EMatch, 2, f_check_46_ev_1(&l_p_1955), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 3, u_mk_con(&n_syntax_46_PApp, 2, f_check_46_unq_1(&l_Pt_1956), u_mk_con(&n_list_46_Cons, 2, f_check_46_pv_1(&l_n_1957), &o_list_46_Nil)), &o_option_46_None, f_check_46_ev_1(&l_n_1958)), &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CProc, 6, f_check_46_unq_1(&l_fill_1959), &o_list_46_Nil, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_b_1960, f_check_46_tsort_1(&l_Bag_1961)), &o_list_46_Nil), &o_list_46_Nil, u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_check_46_var_of_2(&l_b_1962, &o_syntax_46_THole), f_check_46_ap_2(&l_Bag_1963, u_mk_con(&n_list_46_Cons, 2, f_check_46_num_1(u_mk_int(0)), &o_list_46_Nil))), &o_list_46_Nil))), &o_list_46_Nil)))))))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CImport, 1, &l_bag_1964), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CModule, 2, &l_box_1965, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CData, 3, f_check_46_unq_1(&l_Box_1966), &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_check_46_unq_1(&l_Box_1967), u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_check_46_unq_1(&l_Leaf_1968), u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil)), &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CData, 3, f_check_46_unq_1(&l_Qt_1969), &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_check_46_unq_1(&l_Qt_1970), u_mk_con(&n_list_46_Cons, 2, f_check_46_tstr_0(), &o_list_46_Nil)), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, f_check_46_fun_cmd_4(&l_size_1971, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_b_1972, f_check_46_tsort_1(&l_Box_1973)), &o_list_46_Nil), f_check_46_tint_0(), f_check_46_num_1(u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, f_check_46_fun_cmd_4(&l_Qt_46_x_1974, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_q_1975, f_check_46_tsort_1(&l_Qt_1976)), &o_list_46_Nil), f_check_46_tstr_0(), u_mk_con(&n_syntax_46_EMatch, 2, f_check_46_ev_1(&l_q_1977), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 3, u_mk_con(&n_syntax_46_PApp, 2, f_check_46_unq_1(&l_Qt_1978), u_mk_con(&n_list_46_Cons, 2, f_check_46_pv_1(&l_s_1979), &o_list_46_Nil)), &o_option_46_None, f_check_46_ev_1(&l_s_1980)), &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CProc, 6, f_check_46_unq_1(&l_fill_1981), &o_list_46_Nil, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, f_check_46_var_of_2(&l_b_1982, f_check_46_tsort_1(&l_Box_1983)), &o_list_46_Nil), &o_list_46_Nil, u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_check_46_var_of_2(&l_b_1984, &o_syntax_46_THole), f_check_46_ap_2(&l_Box_1985, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_ELit, 1, u_mk_con(&n_syntax_46_VStr, 1, &l__1986)), &o_list_46_Nil))), &o_list_46_Nil))), &o_list_46_Nil)))))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CImport, 1, &l_box_1987), &o_list_46_Nil))));
   return cache;
 }
 
 u_value f_check_46_in_bag_1(u_value v_n) {
-  static struct u_object l_bag_1921 = U_LIT("bag");
-  return u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, &l_bag_1921), v_n);
+  static struct u_object l_bag_1988 = U_LIT("bag");
+  return u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, &l_bag_1988), v_n);
 }
 
 u_value f_check_46_in_box_1(u_value v_n) {
-  static struct u_object l_box_1922 = U_LIT("box");
-  return u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, &l_box_1922), v_n);
+  static struct u_object l_box_1989 = U_LIT("box");
+  return u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, &l_box_1989), v_n);
 }
 
 void p_check_46_body_of(u_value v_c, u_value *r_b) {
   {
     u_value v_q = NULL;
-    static struct u_object l_main_1923 = U_LIT("main");
-    p_check_46_check_program(u_mk_con(&n_syntax_46_Program, 1, f_list_46__43__43__2(f_check_46_bags_0(), u_mk_con(&n_list_46_Cons, 2, v_c, &o_list_46_Nil))), &l_main_1923, &v_q);
-    u_value s1924 = f_list_46_reverse_1(f_syntax_46_Program_46_cmds_1(v_q));
-    int d1925 = 0;
-    if ((!d1925) && (u_is_con(s1924, &n_list_46_Cons) && u_is_con(u_field(s1924, 0), &n_syntax_46_CFun))) {
-      u_value v_e = u_field(u_field(s1924, 0), 4);
-      d1925 = 1;
+    static struct u_object l_main_1990 = U_LIT("main");
+    p_check_46_check_program(u_mk_con(&n_syntax_46_Program, 1, f_list_46__43__43__2(f_check_46_bags_0(), u_mk_con(&n_list_46_Cons, 2, v_c, &o_list_46_Nil))), &l_main_1990, &v_q);
+    u_value s1991 = f_list_46_reverse_1(f_syntax_46_Program_46_cmds_1(v_q));
+    int d1992 = 0;
+    if ((!d1992) && (u_is_con(s1991, &n_list_46_Cons) && u_is_con(u_field(s1991, 0), &n_syntax_46_CFun))) {
+      u_value v_e = u_field(u_field(s1991, 0), 4);
+      d1992 = 1;
       {
-        u_value t1926 = v_e;
-        *r_b = t1926;
+        u_value t1993 = v_e;
+        *r_b = t1993;
       }
     }
-    if (!d1925) {
-      d1925 = 1;
+    if (!d1992) {
+      d1992 = 1;
       {
         u_assert_true(u_mk_bool(0));
       }
     }
-    if (!d1925) {
-      u_no_case(s1924);
+    if (!d1992) {
+      u_no_case(s1991);
     }
   }
 }
 
 u_value f_value_46_list_value_1(u_value v_vs) {
-  u_value s1927 = v_vs;
-  u_value t1928 = NULL;
-  if ((!t1928) && u_is_con(s1927, &n_list_46_Nil)) {
-    t1928 = u_mk_con(&n_value_46_Obj, 2, f_syntax_46_nil_name_0(), &o_list_46_Nil);
+  u_value s1994 = v_vs;
+  u_value t1995 = NULL;
+  if ((!t1995) && u_is_con(s1994, &n_list_46_Nil)) {
+    t1995 = u_mk_con(&n_value_46_Obj, 2, f_syntax_46_nil_name_0(), &o_list_46_Nil);
   }
-  if ((!t1928) && u_is_con(s1927, &n_list_46_Cons)) {
-    u_value v_v = u_field(s1927, 0);
-    u_value v_rest = u_field(s1927, 1);
-    t1928 = u_mk_con(&n_value_46_Obj, 2, f_syntax_46_cons_name_0(), u_mk_con(&n_list_46_Cons, 2, v_v, u_mk_con(&n_list_46_Cons, 2, f_value_46_list_value_1(v_rest), &o_list_46_Nil)));
+  if ((!t1995) && u_is_con(s1994, &n_list_46_Cons)) {
+    u_value v_v = u_field(s1994, 0);
+    u_value v_rest = u_field(s1994, 1);
+    t1995 = u_mk_con(&n_value_46_Obj, 2, f_syntax_46_cons_name_0(), u_mk_con(&n_list_46_Cons, 2, v_v, u_mk_con(&n_list_46_Cons, 2, f_value_46_list_value_1(v_rest), &o_list_46_Nil)));
   }
-  if (!t1928) {
-    u_no_case(s1927);
+  if (!t1995) {
+    u_no_case(s1994);
   }
-  return t1928;
+  return t1995;
 }
 
 u_value f_value_46_list_elements_1(u_value v_v) {
-  u_value s1929 = v_v;
-  u_value t1930 = NULL;
-  if ((!t1930) && (u_is_con(s1929, &n_value_46_Obj) && u_is_con(u_field(s1929, 1), &n_list_46_Nil))) {
-    u_value v_n = u_field(s1929, 0);
+  u_value s1996 = v_v;
+  u_value t1997 = NULL;
+  if ((!t1997) && (u_is_con(s1996, &n_value_46_Obj) && u_is_con(u_field(s1996, 1), &n_list_46_Nil))) {
+    u_value v_n = u_field(s1996, 0);
     if (u_truth(u_eq(v_n, f_syntax_46_nil_name_0()))) {
-      t1930 = u_mk_con(&n_option_46_Some, 1, &o_list_46_Nil);
+      t1997 = u_mk_con(&n_option_46_Some, 1, &o_list_46_Nil);
     }
   }
-  if ((!t1930) && (u_is_con(s1929, &n_value_46_Obj) && (u_is_con(u_field(s1929, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s1929, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s1929, 1), 1), 1), &n_list_46_Nil))))) {
-    u_value v_n = u_field(s1929, 0);
-    u_value v_w = u_field(u_field(s1929, 1), 0);
-    u_value v_ws = u_field(u_field(u_field(s1929, 1), 1), 0);
+  if ((!t1997) && (u_is_con(s1996, &n_value_46_Obj) && (u_is_con(u_field(s1996, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s1996, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s1996, 1), 1), 1), &n_list_46_Nil))))) {
+    u_value v_n = u_field(s1996, 0);
+    u_value v_w = u_field(u_field(s1996, 1), 0);
+    u_value v_ws = u_field(u_field(u_field(s1996, 1), 1), 0);
     if (u_truth(u_eq(v_n, f_syntax_46_cons_name_0()))) {
-      u_value s1931 = f_value_46_list_elements_1(v_ws);
-      u_value t1932 = NULL;
-      if ((!t1932) && u_is_con(s1931, &n_option_46_Some)) {
-        u_value v_us = u_field(s1931, 0);
-        t1932 = u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_list_46_Cons, 2, v_w, v_us));
+      u_value s1998 = f_value_46_list_elements_1(v_ws);
+      u_value t1999 = NULL;
+      if ((!t1999) && u_is_con(s1998, &n_option_46_Some)) {
+        u_value v_us = u_field(s1998, 0);
+        t1999 = u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_list_46_Cons, 2, v_w, v_us));
       }
-      if ((!t1932) && u_is_con(s1931, &n_option_46_None)) {
-        t1932 = &o_option_46_None;
+      if ((!t1999) && u_is_con(s1998, &n_option_46_None)) {
+        t1999 = &o_option_46_None;
       }
-      if (!t1932) {
-        u_no_case(s1931);
+      if (!t1999) {
+        u_no_case(s1998);
       }
-      t1930 = t1932;
+      t1997 = t1999;
     }
   }
-  if (!t1930) {
-    t1930 = &o_option_46_None;
+  if (!t1997) {
+    t1997 = &o_option_46_None;
   }
-  if (!t1930) {
-    u_no_case(s1929);
+  if (!t1997) {
+    u_no_case(s1996);
   }
-  return t1930;
+  return t1997;
 }
 
 u_value f_print_46_show_value_1(u_value v_v) {
-  u_value s1933 = v_v;
-  u_value t1934 = NULL;
-  if ((!t1934) && (u_is_con(s1933, &n_value_46_Lit) && u_is_con(u_field(s1933, 0), &n_syntax_46_VUnit))) {
-    static struct u_object l__40__41__1935 = U_LIT("()");
-    t1934 = &l__40__41__1935;
+  u_value s2000 = v_v;
+  u_value t2001 = NULL;
+  if ((!t2001) && (u_is_con(s2000, &n_value_46_Lit) && u_is_con(u_field(s2000, 0), &n_syntax_46_VUnit))) {
+    static struct u_object l__40__41__2002 = U_LIT("()");
+    t2001 = &l__40__41__2002;
   }
-  if ((!t1934) && (u_is_con(s1933, &n_value_46_Lit) && u_is_con(u_field(s1933, 0), &n_syntax_46_VBool))) {
-    u_value v_b = u_field(u_field(s1933, 0), 0);
-    u_value t1938;
+  if ((!t2001) && (u_is_con(s2000, &n_value_46_Lit) && u_is_con(u_field(s2000, 0), &n_syntax_46_VBool))) {
+    u_value v_b = u_field(u_field(s2000, 0), 0);
+    u_value t2005;
     if (u_truth(v_b)) {
-      static struct u_object l_true_1936 = U_LIT("true");
-      t1938 = &l_true_1936;
+      static struct u_object l_true_2003 = U_LIT("true");
+      t2005 = &l_true_2003;
     } else {
-      static struct u_object l_false_1937 = U_LIT("false");
-      t1938 = &l_false_1937;
+      static struct u_object l_false_2004 = U_LIT("false");
+      t2005 = &l_false_2004;
     }
-    t1934 = t1938;
+    t2001 = t2005;
   }
-  if ((!t1934) && (u_is_con(s1933, &n_value_46_Lit) && u_is_con(u_field(s1933, 0), &n_syntax_46_VInt))) {
-    u_value v_n = u_field(u_field(s1933, 0), 0);
-    t1934 = u_str_show(v_n);
+  if ((!t2001) && (u_is_con(s2000, &n_value_46_Lit) && u_is_con(u_field(s2000, 0), &n_syntax_46_VInt))) {
+    u_value v_n = u_field(u_field(s2000, 0), 0);
+    t2001 = u_str_show(v_n);
   }
-  if ((!t1934) && (u_is_con(s1933, &n_value_46_Lit) && u_is_con(u_field(s1933, 0), &n_syntax_46_VStr))) {
-    u_value v_s = u_field(u_field(s1933, 0), 0);
-    t1934 = u_str_quote(v_s);
+  if ((!t2001) && (u_is_con(s2000, &n_value_46_Lit) && u_is_con(u_field(s2000, 0), &n_syntax_46_VStr))) {
+    u_value v_s = u_field(u_field(s2000, 0), 0);
+    t2001 = u_str_quote(v_s);
   }
-  if ((!t1934) && (u_is_con(s1933, &n_value_46_Lit) && u_is_con(u_field(s1933, 0), &n_syntax_46_VChar))) {
-    u_value v_c = u_field(u_field(s1933, 0), 0);
-    static struct u_object l__39__1939 = U_LIT("'");
-    static struct u_object l__39__1940 = U_LIT("'");
-    t1934 = u_concat(&l__39__1939, u_concat(f_print_46_escape_char_1(v_c), &l__39__1940));
+  if ((!t2001) && (u_is_con(s2000, &n_value_46_Lit) && u_is_con(u_field(s2000, 0), &n_syntax_46_VChar))) {
+    u_value v_c = u_field(u_field(s2000, 0), 0);
+    static struct u_object l__39__2006 = U_LIT("'");
+    static struct u_object l__39__2007 = U_LIT("'");
+    t2001 = u_concat(&l__39__2006, u_concat(f_print_46_escape_char_1(v_c), &l__39__2007));
   }
-  if ((!t1934) && u_is_con(s1933, &n_value_46_Obj)) {
-    u_value v_n = u_field(s1933, 0);
-    u_value v_vs = u_field(s1933, 1);
+  if ((!t2001) && u_is_con(s2000, &n_value_46_Obj)) {
+    u_value v_n = u_field(s2000, 0);
+    u_value v_vs = u_field(s2000, 1);
     if (u_truth(u_eq(v_n, f_syntax_46_tuple_name_0()))) {
-      static struct u_object l__40__1941 = U_LIT("(");
-      static struct u_object l__41__1942 = U_LIT(")");
-      t1934 = u_concat(&l__40__1941, u_concat(f_print_46_show_values_1(v_vs), &l__41__1942));
+      static struct u_object l__40__2008 = U_LIT("(");
+      static struct u_object l__41__2009 = U_LIT(")");
+      t2001 = u_concat(&l__40__2008, u_concat(f_print_46_show_values_1(v_vs), &l__41__2009));
     }
   }
-  if ((!t1934) && u_is_con(s1933, &n_value_46_Obj)) {
-    u_value v_n = u_field(s1933, 0);
-    u_value t1945 = u_eq(v_n, f_syntax_46_cons_name_0());
-    if (u_truth(t1945)) {
-      t1945 = f_prelude_46__33__61__2(f_value_46_list_elements_1(v_v), &o_option_46_None);
+  if ((!t2001) && u_is_con(s2000, &n_value_46_Obj)) {
+    u_value v_n = u_field(s2000, 0);
+    u_value t2012 = u_eq(v_n, f_syntax_46_cons_name_0());
+    if (u_truth(t2012)) {
+      t2012 = f_prelude_46__33__61__2(f_value_46_list_elements_1(v_v), &o_option_46_None);
     }
-    if (u_truth(t1945)) {
-      static struct u_object l__91__1943 = U_LIT("[");
-      static struct u_object l__93__1944 = U_LIT("]");
-      t1934 = u_concat(&l__91__1943, u_concat(f_print_46_show_values_1(f_print_46_list_items_1(v_v)), &l__93__1944));
+    if (u_truth(t2012)) {
+      static struct u_object l__91__2010 = U_LIT("[");
+      static struct u_object l__93__2011 = U_LIT("]");
+      t2001 = u_concat(&l__91__2010, u_concat(f_print_46_show_values_1(f_print_46_list_items_1(v_v)), &l__93__2011));
     }
   }
-  if ((!t1934) && (u_is_con(s1933, &n_value_46_Obj) && u_is_con(u_field(s1933, 1), &n_list_46_Nil))) {
-    u_value v_n = u_field(s1933, 0);
-    t1934 = f_syntax_46_Name_46_base_1(v_n);
+  if ((!t2001) && (u_is_con(s2000, &n_value_46_Obj) && u_is_con(u_field(s2000, 1), &n_list_46_Nil))) {
+    u_value v_n = u_field(s2000, 0);
+    t2001 = f_syntax_46_Name_46_base_1(v_n);
   }
-  if ((!t1934) && u_is_con(s1933, &n_value_46_Obj)) {
-    u_value v_n = u_field(s1933, 0);
-    u_value v_vs = u_field(s1933, 1);
-    static struct u_object l__40__1946 = U_LIT("(");
-    static struct u_object l__41__1947 = U_LIT(")");
-    t1934 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__40__1946, u_concat(f_print_46_show_values_1(v_vs), &l__41__1947)));
+  if ((!t2001) && u_is_con(s2000, &n_value_46_Obj)) {
+    u_value v_n = u_field(s2000, 0);
+    u_value v_vs = u_field(s2000, 1);
+    static struct u_object l__40__2013 = U_LIT("(");
+    static struct u_object l__41__2014 = U_LIT(")");
+    t2001 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__40__2013, u_concat(f_print_46_show_values_1(v_vs), &l__41__2014)));
   }
-  if ((!t1934) && u_is_con(s1933, &n_value_46_Proc)) {
-    static struct u_object l__60_procedure_62__1948 = U_LIT("<procedure>");
-    t1934 = &l__60_procedure_62__1948;
+  if ((!t2001) && u_is_con(s2000, &n_value_46_Proc)) {
+    static struct u_object l__60_procedure_62__2015 = U_LIT("<procedure>");
+    t2001 = &l__60_procedure_62__2015;
   }
-  if ((!t1934) && u_is_con(s1933, &n_value_46_ProcClos)) {
-    static struct u_object l__60_procedure_62__1949 = U_LIT("<procedure>");
-    t1934 = &l__60_procedure_62__1949;
+  if ((!t2001) && u_is_con(s2000, &n_value_46_ProcClos)) {
+    static struct u_object l__60_procedure_62__2016 = U_LIT("<procedure>");
+    t2001 = &l__60_procedure_62__2016;
   }
-  if (!t1934) {
-    static struct u_object l__60_function_62__1950 = U_LIT("<function>");
-    t1934 = &l__60_function_62__1950;
+  if (!t2001) {
+    static struct u_object l__60_function_62__2017 = U_LIT("<function>");
+    t2001 = &l__60_function_62__2017;
   }
-  if (!t1934) {
-    u_no_case(s1933);
+  if (!t2001) {
+    u_no_case(s2000);
   }
-  return t1934;
+  return t2001;
 }
 
 u_value f_print_46_show_values_1(u_value v_vs) {
-  static struct u_object l__44__32__1951 = U_LIT(", ");
-  u_value t1952 = &o_list_46_Nil;
-  u_value *e1953 = &t1952;
-  u_value l1954 = v_vs;
-  while (u_is_con(l1954, &n_list_46_Cons)) {
-    u_value v_v = u_field(l1954, 0);
+  static struct u_object l__44__32__2018 = U_LIT(", ");
+  u_value t2019 = &o_list_46_Nil;
+  u_value *e2020 = &t2019;
+  u_value l2021 = v_vs;
+  while (u_is_con(l2021, &n_list_46_Cons)) {
+    u_value v_v = u_field(l2021, 0);
     if (u_truth(u_mk_bool(1))) {
-      e1953 = u_append(e1953, f_print_46_show_value_1(v_v));
+      e2020 = u_append(e2020, f_print_46_show_value_1(v_v));
     }
-    l1954 = u_field(l1954, 1);
+    l2021 = u_field(l2021, 1);
   }
-  return u_str_join(&l__44__32__1951, t1952);
+  return u_str_join(&l__44__32__2018, t2019);
 }
 
 u_value f_print_46_list_items_1(u_value v_v) {
-  u_value s1955 = f_value_46_list_elements_1(v_v);
-  u_value t1956 = NULL;
-  if ((!t1956) && u_is_con(s1955, &n_option_46_Some)) {
-    u_value v_vs = u_field(s1955, 0);
-    t1956 = v_vs;
+  u_value s2022 = f_value_46_list_elements_1(v_v);
+  u_value t2023 = NULL;
+  if ((!t2023) && u_is_con(s2022, &n_option_46_Some)) {
+    u_value v_vs = u_field(s2022, 0);
+    t2023 = v_vs;
   }
-  if ((!t1956) && u_is_con(s1955, &n_option_46_None)) {
-    t1956 = &o_list_46_Nil;
+  if ((!t2023) && u_is_con(s2022, &n_option_46_None)) {
+    t2023 = &o_list_46_Nil;
   }
-  if (!t1956) {
-    u_no_case(s1955);
+  if (!t2023) {
+    u_no_case(s2022);
   }
-  return t1956;
+  return t2023;
 }
 
 u_value f_print_46_escape_char_1(u_value v_c) {
-  u_value s1957 = v_c;
-  u_value t1958 = NULL;
-  if ((!t1958) && u_equals(s1957, u_mk_char(92))) {
-    static struct u_object l__92__92__1959 = U_LIT("\\\\");
-    t1958 = &l__92__92__1959;
+  u_value s2024 = v_c;
+  u_value t2025 = NULL;
+  if ((!t2025) && u_equals(s2024, u_mk_char(92))) {
+    static struct u_object l__92__92__2026 = U_LIT("\\\\");
+    t2025 = &l__92__92__2026;
   }
-  if ((!t1958) && u_equals(s1957, u_mk_char(10))) {
-    static struct u_object l__92_n_1960 = U_LIT("\\n");
-    t1958 = &l__92_n_1960;
+  if ((!t2025) && u_equals(s2024, u_mk_char(10))) {
+    static struct u_object l__92_n_2027 = U_LIT("\\n");
+    t2025 = &l__92_n_2027;
   }
-  if ((!t1958) && u_equals(s1957, u_mk_char(9))) {
-    static struct u_object l__92_t_1961 = U_LIT("\\t");
-    t1958 = &l__92_t_1961;
+  if ((!t2025) && u_equals(s2024, u_mk_char(9))) {
+    static struct u_object l__92_t_2028 = U_LIT("\\t");
+    t2025 = &l__92_t_2028;
   }
-  if ((!t1958) && u_equals(s1957, u_mk_char(13))) {
-    static struct u_object l__92_r_1962 = U_LIT("\\r");
-    t1958 = &l__92_r_1962;
+  if ((!t2025) && u_equals(s2024, u_mk_char(13))) {
+    static struct u_object l__92_r_2029 = U_LIT("\\r");
+    t2025 = &l__92_r_2029;
   }
-  if ((!t1958) && u_equals(s1957, u_mk_char(39))) {
-    static struct u_object l__92__39__1963 = U_LIT("\\'");
-    t1958 = &l__92__39__1963;
+  if ((!t2025) && u_equals(s2024, u_mk_char(39))) {
+    static struct u_object l__92__39__2030 = U_LIT("\\'");
+    t2025 = &l__92__39__2030;
   }
-  if (!t1958) {
-    t1958 = u_string(u_mk_con(&n_list_46_Cons, 2, v_c, &o_list_46_Nil));
+  if (!t2025) {
+    t2025 = u_string(u_mk_con(&n_list_46_Cons, 2, v_c, &o_list_46_Nil));
   }
-  if (!t1958) {
-    u_no_case(s1957);
+  if (!t2025) {
+    u_no_case(s2024);
   }
-  return t1958;
+  return t2025;
 }
 
 u_value f_print_46_show_type_1(u_value v_t) {
-  u_value s1964 = v_t;
-  u_value t1965 = NULL;
-  if ((!t1965) && u_is_con(s1964, &n_syntax_46_TParam)) {
-    u_value v_n = u_field(s1964, 0);
-    t1965 = v_n;
+  u_value s2031 = v_t;
+  u_value t2032 = NULL;
+  if ((!t2032) && u_is_con(s2031, &n_syntax_46_TParam)) {
+    u_value v_n = u_field(s2031, 0);
+    t2032 = v_n;
   }
-  if ((!t1965) && u_is_con(s1964, &n_syntax_46_THole)) {
-    static struct u_object l___1966 = U_LIT("_");
-    t1965 = &l___1966;
+  if ((!t2032) && u_is_con(s2031, &n_syntax_46_THole)) {
+    static struct u_object l___2033 = U_LIT("_");
+    t2032 = &l___2033;
   }
-  if ((!t1965) && u_is_con(s1964, &n_syntax_46_TMeta)) {
-    u_value v_i = u_field(s1964, 0);
-    static struct u_object l__63__1967 = U_LIT("?");
-    t1965 = u_concat(&l__63__1967, u_str_show(v_i));
+  if ((!t2032) && u_is_con(s2031, &n_syntax_46_TMeta)) {
+    u_value v_i = u_field(s2031, 0);
+    static struct u_object l__63__2034 = U_LIT("?");
+    t2032 = u_concat(&l__63__2034, u_str_show(v_i));
   }
-  if ((!t1965) && (u_is_con(s1964, &n_syntax_46_TFun) && (u_is_con(u_field(s1964, 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(s1964, 0), 0), &n_syntax_46_TTuple) && (u_is_con(u_field(u_field(u_field(s1964, 0), 0), 0), &n_list_46_Nil) && u_is_con(u_field(u_field(s1964, 0), 1), &n_list_46_Nil)))))) {
-    u_value v_r = u_field(s1964, 1);
-    static struct u_object l__40__40__41__41__32__45__62__32__1968 = U_LIT("(()) -> ");
-    t1965 = u_concat(&l__40__40__41__41__32__45__62__32__1968, f_print_46_show_type_1(v_r));
+  if ((!t2032) && (u_is_con(s2031, &n_syntax_46_TFun) && (u_is_con(u_field(s2031, 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2031, 0), 0), &n_syntax_46_TTuple) && (u_is_con(u_field(u_field(u_field(s2031, 0), 0), 0), &n_list_46_Nil) && u_is_con(u_field(u_field(s2031, 0), 1), &n_list_46_Nil)))))) {
+    u_value v_r = u_field(s2031, 1);
+    static struct u_object l__40__40__41__41__32__45__62__32__2035 = U_LIT("(()) -> ");
+    t2032 = u_concat(&l__40__40__41__41__32__45__62__32__2035, f_print_46_show_type_1(v_r));
   }
-  if ((!t1965) && (u_is_con(s1964, &n_syntax_46_TFun) && (u_is_con(u_field(s1964, 0), &n_list_46_Cons) && u_is_con(u_field(u_field(s1964, 0), 1), &n_list_46_Nil)))) {
-    u_value v_a = u_field(u_field(s1964, 0), 0);
-    u_value v_r = u_field(s1964, 1);
-    static struct u_object l__32__45__62__32__1969 = U_LIT(" -> ");
-    t1965 = u_concat(f_print_46_type_operand_1(v_a), u_concat(&l__32__45__62__32__1969, f_print_46_show_type_1(v_r)));
+  if ((!t2032) && (u_is_con(s2031, &n_syntax_46_TFun) && (u_is_con(u_field(s2031, 0), &n_list_46_Cons) && u_is_con(u_field(u_field(s2031, 0), 1), &n_list_46_Nil)))) {
+    u_value v_a = u_field(u_field(s2031, 0), 0);
+    u_value v_r = u_field(s2031, 1);
+    static struct u_object l__32__45__62__32__2036 = U_LIT(" -> ");
+    t2032 = u_concat(f_print_46_type_operand_1(v_a), u_concat(&l__32__45__62__32__2036, f_print_46_show_type_1(v_r)));
   }
-  if ((!t1965) && u_is_con(s1964, &n_syntax_46_TFun)) {
-    u_value v_args = u_field(s1964, 0);
-    u_value v_r = u_field(s1964, 1);
-    static struct u_object l__40__1970 = U_LIT("(");
-    static struct u_object l__41__32__45__62__32__1971 = U_LIT(") -> ");
-    t1965 = u_concat(&l__40__1970, u_concat(f_print_46_show_types_1(v_args), u_concat(&l__41__32__45__62__32__1971, f_print_46_show_type_1(v_r))));
+  if ((!t2032) && u_is_con(s2031, &n_syntax_46_TFun)) {
+    u_value v_args = u_field(s2031, 0);
+    u_value v_r = u_field(s2031, 1);
+    static struct u_object l__40__2037 = U_LIT("(");
+    static struct u_object l__41__32__45__62__32__2038 = U_LIT(") -> ");
+    t2032 = u_concat(&l__40__2037, u_concat(f_print_46_show_types_1(v_args), u_concat(&l__41__32__45__62__32__2038, f_print_46_show_type_1(v_r))));
   }
-  if ((!t1965) && u_is_con(s1964, &n_syntax_46_TProc)) {
-    u_value v_is = u_field(s1964, 0);
-    u_value v_os = u_field(s1964, 1);
-    u_value v_rs = u_field(s1964, 2);
-    static struct u_object l__40__1972 = U_LIT("(");
-    static struct u_object l__44__32__1973 = U_LIT(", ");
-    static struct u_object l_in_1974 = U_LIT("in");
-    static struct u_object l_out_1975 = U_LIT("out");
-    static struct u_object l_ref_1976 = U_LIT("ref");
-    static struct u_object l__41__1977 = U_LIT(")");
-    t1965 = u_concat(&l__40__1972, u_concat(u_str_join(&l__44__32__1973, f_list_46__43__43__2(f_print_46_type_section_2(&l_in_1974, v_is), f_list_46__43__43__2(f_print_46_type_section_2(&l_out_1975, v_os), f_print_46_type_section_2(&l_ref_1976, v_rs)))), &l__41__1977));
+  if ((!t2032) && u_is_con(s2031, &n_syntax_46_TProc)) {
+    u_value v_is = u_field(s2031, 0);
+    u_value v_os = u_field(s2031, 1);
+    u_value v_rs = u_field(s2031, 2);
+    static struct u_object l__40__2039 = U_LIT("(");
+    static struct u_object l__44__32__2040 = U_LIT(", ");
+    static struct u_object l_in_2041 = U_LIT("in");
+    static struct u_object l_out_2042 = U_LIT("out");
+    static struct u_object l_ref_2043 = U_LIT("ref");
+    static struct u_object l__41__2044 = U_LIT(")");
+    t2032 = u_concat(&l__40__2039, u_concat(u_str_join(&l__44__32__2040, f_list_46__43__43__2(f_print_46_type_section_2(&l_in_2041, v_is), f_list_46__43__43__2(f_print_46_type_section_2(&l_out_2042, v_os), f_print_46_type_section_2(&l_ref_2043, v_rs)))), &l__41__2044));
   }
-  if ((!t1965) && (u_is_con(s1964, &n_syntax_46_TTuple) && u_is_con(u_field(s1964, 0), &n_list_46_Nil))) {
-    static struct u_object l__40__41__1978 = U_LIT("()");
-    t1965 = &l__40__41__1978;
+  if ((!t2032) && (u_is_con(s2031, &n_syntax_46_TTuple) && u_is_con(u_field(s2031, 0), &n_list_46_Nil))) {
+    static struct u_object l__40__41__2045 = U_LIT("()");
+    t2032 = &l__40__41__2045;
   }
-  if ((!t1965) && u_is_con(s1964, &n_syntax_46_TTuple)) {
-    u_value v_ts = u_field(s1964, 0);
-    static struct u_object l__32__42__32__1979 = U_LIT(" * ");
-    u_value t1980 = &o_list_46_Nil;
-    u_value *e1981 = &t1980;
-    u_value l1982 = v_ts;
-    while (u_is_con(l1982, &n_list_46_Cons)) {
-      u_value v_a = u_field(l1982, 0);
+  if ((!t2032) && u_is_con(s2031, &n_syntax_46_TTuple)) {
+    u_value v_ts = u_field(s2031, 0);
+    static struct u_object l__32__42__32__2046 = U_LIT(" * ");
+    u_value t2047 = &o_list_46_Nil;
+    u_value *e2048 = &t2047;
+    u_value l2049 = v_ts;
+    while (u_is_con(l2049, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2049, 0);
       if (u_truth(u_mk_bool(1))) {
-        e1981 = u_append(e1981, f_print_46_type_component_1(v_a));
+        e2048 = u_append(e2048, f_print_46_type_component_1(v_a));
       }
-      l1982 = u_field(l1982, 1);
+      l2049 = u_field(l2049, 1);
     }
-    t1965 = u_str_join(&l__32__42__32__1979, t1980);
+    t2032 = u_str_join(&l__32__42__32__2046, t2047);
   }
-  if ((!t1965) && (u_is_con(s1964, &n_syntax_46_TSort) && u_is_con(u_field(s1964, 1), &n_list_46_Nil))) {
-    u_value v_n = u_field(s1964, 0);
-    t1965 = f_syntax_46_Name_46_base_1(v_n);
+  if ((!t2032) && (u_is_con(s2031, &n_syntax_46_TSort) && u_is_con(u_field(s2031, 1), &n_list_46_Nil))) {
+    u_value v_n = u_field(s2031, 0);
+    t2032 = f_syntax_46_Name_46_base_1(v_n);
   }
-  if ((!t1965) && u_is_con(s1964, &n_syntax_46_TSort)) {
-    u_value v_n = u_field(s1964, 0);
-    u_value v_args = u_field(s1964, 1);
-    static struct u_object l__91__1983 = U_LIT("[");
-    static struct u_object l__93__1984 = U_LIT("]");
-    t1965 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__91__1983, u_concat(f_print_46_show_types_1(v_args), &l__93__1984)));
+  if ((!t2032) && u_is_con(s2031, &n_syntax_46_TSort)) {
+    u_value v_n = u_field(s2031, 0);
+    u_value v_args = u_field(s2031, 1);
+    static struct u_object l__91__2050 = U_LIT("[");
+    static struct u_object l__93__2051 = U_LIT("]");
+    t2032 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__91__2050, u_concat(f_print_46_show_types_1(v_args), &l__93__2051)));
   }
-  if (!t1965) {
-    u_no_case(s1964);
+  if (!t2032) {
+    u_no_case(s2031);
   }
-  return t1965;
+  return t2032;
 }
 
 u_value f_print_46_show_types_1(u_value v_ts) {
-  static struct u_object l__44__32__1985 = U_LIT(", ");
-  u_value t1986 = &o_list_46_Nil;
-  u_value *e1987 = &t1986;
-  u_value l1988 = v_ts;
-  while (u_is_con(l1988, &n_list_46_Cons)) {
-    u_value v_t = u_field(l1988, 0);
+  static struct u_object l__44__32__2052 = U_LIT(", ");
+  u_value t2053 = &o_list_46_Nil;
+  u_value *e2054 = &t2053;
+  u_value l2055 = v_ts;
+  while (u_is_con(l2055, &n_list_46_Cons)) {
+    u_value v_t = u_field(l2055, 0);
     if (u_truth(u_mk_bool(1))) {
-      e1987 = u_append(e1987, f_print_46_show_type_1(v_t));
+      e2054 = u_append(e2054, f_print_46_show_type_1(v_t));
     }
-    l1988 = u_field(l1988, 1);
+    l2055 = u_field(l2055, 1);
   }
-  return u_str_join(&l__44__32__1985, t1986);
+  return u_str_join(&l__44__32__2052, t2053);
 }
 
 u_value f_print_46_type_section_2(u_value v_mode, u_value v_ts) {
-  u_value t1990;
+  u_value t2057;
   if (u_truth(u_eq(v_ts, &o_list_46_Nil))) {
-    t1990 = &o_list_46_Nil;
+    t2057 = &o_list_46_Nil;
   } else {
-    static struct u_object l__32__1989 = U_LIT(" ");
-    t1990 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_mode, u_concat(&l__32__1989, f_print_46_show_types_1(v_ts))), &o_list_46_Nil);
-  }
-  return t1990;
-}
-
-u_value f_print_46_type_operand_1(u_value v_t) {
-  u_value s1991 = v_t;
-  u_value t1992 = NULL;
-  if ((!t1992) && u_is_con(s1991, &n_syntax_46_TFun)) {
-    static struct u_object l__40__1993 = U_LIT("(");
-    static struct u_object l__41__1994 = U_LIT(")");
-    t1992 = u_concat(&l__40__1993, u_concat(f_print_46_show_type_1(v_t), &l__41__1994));
-  }
-  if (!t1992) {
-    t1992 = f_print_46_show_type_1(v_t);
-  }
-  if (!t1992) {
-    u_no_case(s1991);
-  }
-  return t1992;
-}
-
-u_value f_print_46_type_component_1(u_value v_t) {
-  u_value s1995 = v_t;
-  u_value t1996 = NULL;
-  if ((!t1996) && u_is_con(s1995, &n_syntax_46_TFun)) {
-    static struct u_object l__40__1997 = U_LIT("(");
-    static struct u_object l__41__1998 = U_LIT(")");
-    t1996 = u_concat(&l__40__1997, u_concat(f_print_46_show_type_1(v_t), &l__41__1998));
-  }
-  if ((!t1996) && (u_is_con(s1995, &n_syntax_46_TTuple) && (u_is_con(u_field(s1995, 0), &n_list_46_Cons) && u_is_con(u_field(u_field(s1995, 0), 1), &n_list_46_Cons)))) {
-    static struct u_object l__40__1999 = U_LIT("(");
-    static struct u_object l__41__2000 = U_LIT(")");
-    t1996 = u_concat(&l__40__1999, u_concat(f_print_46_show_type_1(v_t), &l__41__2000));
-  }
-  if (!t1996) {
-    t1996 = f_print_46_show_type_1(v_t);
-  }
-  if (!t1996) {
-    u_no_case(s1995);
-  }
-  return t1996;
-}
-
-u_value f_print_46_show_pat_1(u_value v_p) {
-  u_value s2001 = v_p;
-  u_value t2002 = NULL;
-  if ((!t2002) && u_is_con(s2001, &n_syntax_46_PWild)) {
-    static struct u_object l___2003 = U_LIT("_");
-    t2002 = &l___2003;
-  }
-  if ((!t2002) && u_is_con(s2001, &n_syntax_46_PLit)) {
-    u_value v_l = u_field(s2001, 0);
-    t2002 = f_print_46_show_value_1(u_mk_con(&n_value_46_Lit, 1, v_l));
-  }
-  if ((!t2002) && u_is_con(s2001, &n_syntax_46_PVar)) {
-    u_value v_x = u_field(s2001, 0);
-    t2002 = f_syntax_46_Name_46_base_1(f_syntax_46_Var_46_name_1(v_x));
-  }
-  if ((!t2002) && u_is_con(s2001, &n_syntax_46_PTuple)) {
-    u_value v_ps = u_field(s2001, 0);
-    static struct u_object l__40__2004 = U_LIT("(");
-    static struct u_object l__41__2005 = U_LIT(")");
-    t2002 = u_concat(&l__40__2004, u_concat(f_print_46_show_pats_1(v_ps), &l__41__2005));
-  }
-  if ((!t2002) && (u_is_con(s2001, &n_syntax_46_PApp) && (u_is_con(u_field(s2001, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2001, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2001, 1), 1), 1), &n_list_46_Nil))))) {
-    u_value v_n = u_field(s2001, 0);
-    u_value v_x = u_field(u_field(s2001, 1), 0);
-    u_value v_xs = u_field(u_field(u_field(s2001, 1), 1), 0);
-    u_value t2010 = u_eq(v_n, f_syntax_46_cons_name_0());
-    if (!u_truth(t2010)) {
-      static struct u_object l_Cons_2009 = U_LIT("Cons");
-      t2010 = u_eq(v_n, f_syntax_46_unqualified_1(&l_Cons_2009));
-    }
-    if (u_truth(t2010)) {
-      static struct u_object l__91__2006 = U_LIT("[");
-      static struct u_object l__59__32__2007 = U_LIT("; ");
-      static struct u_object l__93__2008 = U_LIT("]");
-      t2002 = u_concat(&l__91__2006, u_concat(f_print_46_show_pat_1(v_x), u_concat(&l__59__32__2007, u_concat(f_print_46_show_pat_1(v_xs), &l__93__2008))));
-    }
-  }
-  if ((!t2002) && (u_is_con(s2001, &n_syntax_46_PApp) && (u_is_con(u_field(s2001, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2001, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2001, 1), 1), 1), &n_list_46_Nil))))) {
-    u_value v_n = u_field(s2001, 0);
-    u_value v_l = u_field(u_field(s2001, 1), 0);
-    u_value v_r = u_field(u_field(u_field(s2001, 1), 1), 0);
-    if (u_truth(f_print_46_symbolic_1(f_syntax_46_Name_46_base_1(v_n)))) {
-      t2002 = f_print_46_infix_text_3(f_syntax_46_Name_46_base_1(v_n), f_print_46_show_pat_1(v_l), f_print_46_show_pat_1(v_r));
-    }
-  }
-  if ((!t2002) && (u_is_con(s2001, &n_syntax_46_PApp) && u_is_con(u_field(s2001, 1), &n_list_46_Nil))) {
-    u_value v_n = u_field(s2001, 0);
-    t2002 = f_syntax_46_Name_46_base_1(v_n);
-  }
-  if ((!t2002) && u_is_con(s2001, &n_syntax_46_PApp)) {
-    u_value v_n = u_field(s2001, 0);
-    u_value v_ps = u_field(s2001, 1);
-    static struct u_object l__40__2011 = U_LIT("(");
-    static struct u_object l__41__2012 = U_LIT(")");
-    t2002 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__40__2011, u_concat(f_print_46_show_pats_1(v_ps), &l__41__2012)));
-  }
-  if (!t2002) {
-    u_no_case(s2001);
-  }
-  return t2002;
-}
-
-u_value f_print_46_show_pats_1(u_value v_ps) {
-  static struct u_object l__44__32__2013 = U_LIT(", ");
-  u_value t2014 = &o_list_46_Nil;
-  u_value *e2015 = &t2014;
-  u_value l2016 = v_ps;
-  while (u_is_con(l2016, &n_list_46_Cons)) {
-    u_value v_p = u_field(l2016, 0);
-    if (u_truth(u_mk_bool(1))) {
-      e2015 = u_append(e2015, f_print_46_show_pat_1(v_p));
-    }
-    l2016 = u_field(l2016, 1);
-  }
-  return u_str_join(&l__44__32__2013, t2014);
-}
-
-u_value f_print_46_symbolic_1(u_value v_n) {
-  u_value t2021 = u_str_get(v_n, u_mk_int(0));
-  u_value t2020;
-  {
-    u_value v_c = t2021;
-    u_value t2017 = f_prelude_46_not_1(u_is_letter(v_c));
-    if (u_truth(t2017)) {
-      t2017 = f_prelude_46__33__61__2(v_c, u_mk_char(95));
-    }
-    u_value t2019 = t2017;
-    if (u_truth(t2019)) {
-      static struct u_object l__44__2018 = U_LIT(",");
-      t2019 = f_prelude_46__33__61__2(v_n, &l__44__2018);
-    }
-    t2020 = t2019;
-  }
-  return t2020;
-}
-
-u_value f_print_46_infix_text_3(u_value v_op, u_value v_l, u_value v_r) {
-  static struct u_object l__32__2022 = U_LIT(" ");
-  static struct u_object l__32__2023 = U_LIT(" ");
-  return u_concat(f_print_46_pat_operand_1(v_l), u_concat(&l__32__2022, u_concat(v_op, u_concat(&l__32__2023, f_print_46_pat_operand_1(v_r)))));
-}
-
-u_value f_print_46_pat_operand_1(u_value v_a) {
-  u_value t2024 = u_str_contains(v_a, u_mk_char(32));
-  if (u_truth(t2024)) {
-    t2024 = f_prelude_46__33__61__2(u_str_get(v_a, u_mk_int(0)), u_mk_char(40));
-  }
-  u_value t2027;
-  if (u_truth(t2024)) {
-    static struct u_object l__40__2025 = U_LIT("(");
-    static struct u_object l__41__2026 = U_LIT(")");
-    t2027 = u_concat(&l__40__2025, u_concat(v_a, &l__41__2026));
-  } else {
-    t2027 = v_a;
-  }
-  return t2027;
-}
-
-u_value f_print_46_text_of_1(u_value v_v) {
-  u_value s2028 = v_v;
-  u_value t2029 = NULL;
-  if ((!t2029) && (u_is_con(s2028, &n_value_46_Lit) && u_is_con(u_field(s2028, 0), &n_syntax_46_VStr))) {
-    u_value v_s = u_field(u_field(s2028, 0), 0);
-    t2029 = v_s;
-  }
-  if (!t2029) {
-    t2029 = f_print_46_show_value_1(v_v);
-  }
-  if (!t2029) {
-    u_no_case(s2028);
-  }
-  return t2029;
-}
-
-u_value f_run_46_Prog_46_funs_1(u_value v_x) {
-  u_value s2030 = v_x;
-  u_value t2031 = NULL;
-  if ((!t2031) && u_is_con(s2030, &n_run_46_Prog)) {
-    u_value v_y = u_field(s2030, 0);
-    t2031 = v_y;
-  }
-  if (!t2031) {
-    u_no_case(s2030);
-  }
-  return t2031;
-}
-
-u_value f_run_46_Prog_46_procs_1(u_value v_x) {
-  u_value s2032 = v_x;
-  u_value t2033 = NULL;
-  if ((!t2033) && u_is_con(s2032, &n_run_46_Prog)) {
-    u_value v_y = u_field(s2032, 1);
-    t2033 = v_y;
-  }
-  if (!t2033) {
-    u_no_case(s2032);
-  }
-  return t2033;
-}
-
-u_value f_run_46_Prog_46_constrs_1(u_value v_x) {
-  u_value s2034 = v_x;
-  u_value t2035 = NULL;
-  if ((!t2035) && u_is_con(s2034, &n_run_46_Prog)) {
-    u_value v_y = u_field(s2034, 2);
-    t2035 = v_y;
-  }
-  if (!t2035) {
-    u_no_case(s2034);
-  }
-  return t2035;
-}
-
-u_value f_run_46_Prog_46_positions_1(u_value v_x) {
-  u_value s2036 = v_x;
-  u_value t2037 = NULL;
-  if ((!t2037) && u_is_con(s2036, &n_run_46_Prog)) {
-    u_value v_y = u_field(s2036, 3);
-    t2037 = v_y;
-  }
-  if (!t2037) {
-    u_no_case(s2036);
-  }
-  return t2037;
-}
-
-u_value f_run_46_Prog_46_computing_1(u_value v_x) {
-  u_value s2038 = v_x;
-  u_value t2039 = NULL;
-  if ((!t2039) && u_is_con(s2038, &n_run_46_Prog)) {
-    u_value v_y = u_field(s2038, 4);
-    t2039 = v_y;
-  }
-  if (!t2039) {
-    u_no_case(s2038);
-  }
-  return t2039;
-}
-
-u_value f_run_46_Prog_46_args_1(u_value v_x) {
-  u_value s2040 = v_x;
-  u_value t2041 = NULL;
-  if ((!t2041) && u_is_con(s2040, &n_run_46_Prog)) {
-    u_value v_y = u_field(s2040, 5);
-    t2041 = v_y;
-  }
-  if (!t2041) {
-    u_no_case(s2040);
-  }
-  return t2041;
-}
-
-u_value f_run_46_Prog_46_funs_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2042 = v_x;
-  u_value t2043 = NULL;
-  if ((!t2043) && u_is_con(s2042, &n_run_46_Prog)) {
-    u_value v_a1 = u_field(s2042, 1);
-    u_value v_a2 = u_field(s2042, 2);
-    u_value v_a3 = u_field(s2042, 3);
-    u_value v_a4 = u_field(s2042, 4);
-    u_value v_a5 = u_field(s2042, 5);
-    t2043 = u_mk_con(&n_run_46_Prog, 6, v_y, v_a1, v_a2, v_a3, v_a4, v_a5);
-  }
-  if (!t2043) {
-    u_no_case(s2042);
-  }
-  return t2043;
-}
-
-u_value f_run_46_Prog_46_procs_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2044 = v_x;
-  u_value t2045 = NULL;
-  if ((!t2045) && u_is_con(s2044, &n_run_46_Prog)) {
-    u_value v_a0 = u_field(s2044, 0);
-    u_value v_a2 = u_field(s2044, 2);
-    u_value v_a3 = u_field(s2044, 3);
-    u_value v_a4 = u_field(s2044, 4);
-    u_value v_a5 = u_field(s2044, 5);
-    t2045 = u_mk_con(&n_run_46_Prog, 6, v_a0, v_y, v_a2, v_a3, v_a4, v_a5);
-  }
-  if (!t2045) {
-    u_no_case(s2044);
-  }
-  return t2045;
-}
-
-u_value f_run_46_Prog_46_constrs_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2046 = v_x;
-  u_value t2047 = NULL;
-  if ((!t2047) && u_is_con(s2046, &n_run_46_Prog)) {
-    u_value v_a0 = u_field(s2046, 0);
-    u_value v_a1 = u_field(s2046, 1);
-    u_value v_a3 = u_field(s2046, 3);
-    u_value v_a4 = u_field(s2046, 4);
-    u_value v_a5 = u_field(s2046, 5);
-    t2047 = u_mk_con(&n_run_46_Prog, 6, v_a0, v_a1, v_y, v_a3, v_a4, v_a5);
-  }
-  if (!t2047) {
-    u_no_case(s2046);
-  }
-  return t2047;
-}
-
-u_value f_run_46_Prog_46_positions_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2048 = v_x;
-  u_value t2049 = NULL;
-  if ((!t2049) && u_is_con(s2048, &n_run_46_Prog)) {
-    u_value v_a0 = u_field(s2048, 0);
-    u_value v_a1 = u_field(s2048, 1);
-    u_value v_a2 = u_field(s2048, 2);
-    u_value v_a4 = u_field(s2048, 4);
-    u_value v_a5 = u_field(s2048, 5);
-    t2049 = u_mk_con(&n_run_46_Prog, 6, v_a0, v_a1, v_a2, v_y, v_a4, v_a5);
-  }
-  if (!t2049) {
-    u_no_case(s2048);
-  }
-  return t2049;
-}
-
-u_value f_run_46_Prog_46_computing_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2050 = v_x;
-  u_value t2051 = NULL;
-  if ((!t2051) && u_is_con(s2050, &n_run_46_Prog)) {
-    u_value v_a0 = u_field(s2050, 0);
-    u_value v_a1 = u_field(s2050, 1);
-    u_value v_a2 = u_field(s2050, 2);
-    u_value v_a3 = u_field(s2050, 3);
-    u_value v_a5 = u_field(s2050, 5);
-    t2051 = u_mk_con(&n_run_46_Prog, 6, v_a0, v_a1, v_a2, v_a3, v_y, v_a5);
-  }
-  if (!t2051) {
-    u_no_case(s2050);
-  }
-  return t2051;
-}
-
-u_value f_run_46_Prog_46_args_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2052 = v_x;
-  u_value t2053 = NULL;
-  if ((!t2053) && u_is_con(s2052, &n_run_46_Prog)) {
-    u_value v_a0 = u_field(s2052, 0);
-    u_value v_a1 = u_field(s2052, 1);
-    u_value v_a2 = u_field(s2052, 2);
-    u_value v_a3 = u_field(s2052, 3);
-    u_value v_a4 = u_field(s2052, 4);
-    t2053 = u_mk_con(&n_run_46_Prog, 6, v_a0, v_a1, v_a2, v_a3, v_a4, v_y);
-  }
-  if (!t2053) {
-    u_no_case(s2052);
-  }
-  return t2053;
-}
-
-u_value f_run_46_position_of_2(u_value v_p, u_value v_k) {
-  u_value s2054 = f_map_46_get_2(v_k, f_run_46_Prog_46_positions_1(v_p));
-  u_value t2055 = NULL;
-  if ((!t2055) && u_is_con(s2054, &n_option_46_Some)) {
-    u_value v_i = u_field(s2054, 0);
-    t2055 = v_i;
-  }
-  if ((!t2055) && u_is_con(s2054, &n_option_46_None)) {
-    t2055 = u_mk_int(0);
-  }
-  if (!t2055) {
-    u_no_case(s2054);
-  }
-  return t2055;
-}
-
-u_value f_run_46_load_1(u_value v_q) {
-  u_value s2056 = v_q;
-  u_value t2057 = NULL;
-  if ((!t2057) && u_is_con(s2056, &n_syntax_46_Program)) {
-    u_value v_cs = u_field(s2056, 0);
-    t2057 = u_mk_con(&n_run_46_Prog, 6, f_map_46_put_all_2(f_run_46_fun_defs_1(v_cs), f_map_46_empty_0()), f_map_46_put_all_2(f_run_46_proc_defs_1(v_cs), f_map_46_empty_0()), f_map_46_put_all_2(f_run_46_constr_defs_1(v_cs), f_map_46_empty_0()), f_map_46_put_all_2(f_run_46_constr_positions_1(v_cs), f_map_46_empty_0()), &o_list_46_Nil, &o_list_46_Nil);
-  }
-  if (!t2057) {
-    u_no_case(s2056);
+    static struct u_object l__32__2056 = U_LIT(" ");
+    t2057 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_mode, u_concat(&l__32__2056, f_print_46_show_types_1(v_ts))), &o_list_46_Nil);
   }
   return t2057;
 }
 
-u_value f_run_46_fun_defs_1(u_value v_cs) {
-  u_value s2058 = v_cs;
+u_value f_print_46_type_operand_1(u_value v_t) {
+  u_value s2058 = v_t;
   u_value t2059 = NULL;
-  if ((!t2059) && u_is_con(s2058, &n_list_46_Nil)) {
-    t2059 = &o_list_46_Nil;
+  if ((!t2059) && u_is_con(s2058, &n_syntax_46_TFun)) {
+    static struct u_object l__40__2060 = U_LIT("(");
+    static struct u_object l__41__2061 = U_LIT(")");
+    t2059 = u_concat(&l__40__2060, u_concat(f_print_46_show_type_1(v_t), &l__41__2061));
   }
-  if ((!t2059) && (u_is_con(s2058, &n_list_46_Cons) && u_is_con(u_field(s2058, 0), &n_syntax_46_CFun))) {
-    u_value v_n = u_field(u_field(s2058, 0), 0);
-    u_value v_xss = u_field(u_field(s2058, 0), 2);
-    u_value v_b = u_field(u_field(s2058, 0), 4);
-    u_value v_rest = u_field(s2058, 1);
-    t2059 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_tuple(2, v_n, f_list_46_size_1(f_check_46_first_list_1(v_xss))), u_mk_tuple(2, v_xss, v_b)), f_run_46_fun_defs_1(v_rest));
-  }
-  if ((!t2059) && u_is_con(s2058, &n_list_46_Cons)) {
-    u_value v_rest = u_field(s2058, 1);
-    t2059 = f_run_46_fun_defs_1(v_rest);
+  if (!t2059) {
+    t2059 = f_print_46_show_type_1(v_t);
   }
   if (!t2059) {
     u_no_case(s2058);
@@ -22148,55 +22582,21 @@ u_value f_run_46_fun_defs_1(u_value v_cs) {
   return t2059;
 }
 
-u_value f_run_46_proc_defs_1(u_value v_cs) {
-  u_value s2060 = v_cs;
-  u_value t2061 = NULL;
-  if ((!t2061) && u_is_con(s2060, &n_list_46_Nil)) {
-    t2061 = &o_list_46_Nil;
-  }
-  if ((!t2061) && (u_is_con(s2060, &n_list_46_Cons) && u_is_con(u_field(s2060, 0), &n_syntax_46_CProc))) {
-    u_value v_n = u_field(u_field(s2060, 0), 0);
-    u_value v_ins = u_field(u_field(s2060, 0), 2);
-    u_value v_outs = u_field(u_field(s2060, 0), 3);
-    u_value v_refs = u_field(u_field(s2060, 0), 4);
-    u_value v_b = u_field(u_field(s2060, 0), 5);
-    u_value v_rest = u_field(s2060, 1);
-    t2061 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, u_mk_con(&n_run_46_ProcDef, 4, v_ins, v_outs, v_refs, v_b)), f_run_46_proc_defs_1(v_rest));
-  }
-  if ((!t2061) && u_is_con(s2060, &n_list_46_Cons)) {
-    u_value v_rest = u_field(s2060, 1);
-    t2061 = f_run_46_proc_defs_1(v_rest);
-  }
-  if (!t2061) {
-    u_no_case(s2060);
-  }
-  return t2061;
-}
-
-u_value f_run_46_constr_positions_1(u_value v_cs) {
-  u_value s2062 = v_cs;
+u_value f_print_46_type_component_1(u_value v_t) {
+  u_value s2062 = v_t;
   u_value t2063 = NULL;
-  if ((!t2063) && u_is_con(s2062, &n_list_46_Nil)) {
-    t2063 = &o_list_46_Nil;
+  if ((!t2063) && u_is_con(s2062, &n_syntax_46_TFun)) {
+    static struct u_object l__40__2064 = U_LIT("(");
+    static struct u_object l__41__2065 = U_LIT(")");
+    t2063 = u_concat(&l__40__2064, u_concat(f_print_46_show_type_1(v_t), &l__41__2065));
   }
-  if ((!t2063) && (u_is_con(s2062, &n_list_46_Cons) && u_is_con(u_field(s2062, 0), &n_syntax_46_CData))) {
-    u_value v_ks = u_field(u_field(s2062, 0), 2);
-    u_value v_rest = u_field(s2062, 1);
-    u_value t2064 = &o_list_46_Nil;
-    u_value *e2065 = &t2064;
-    u_value l2066 = v_ks;
-    while (u_is_con(l2066, &n_list_46_Cons)) {
-      u_value v_k = u_field(l2066, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2065 = u_append(e2065, f_syntax_46_Constr_46_name_1(v_k));
-      }
-      l2066 = u_field(l2066, 1);
-    }
-    t2063 = f_list_46__43__43__2(f_list_46_zip_2(t2064, f_run_46_numbers_from_2(u_mk_int(0), f_list_46_size_1(v_ks))), f_run_46_constr_positions_1(v_rest));
+  if ((!t2063) && (u_is_con(s2062, &n_syntax_46_TTuple) && (u_is_con(u_field(s2062, 0), &n_list_46_Cons) && u_is_con(u_field(u_field(s2062, 0), 1), &n_list_46_Cons)))) {
+    static struct u_object l__40__2066 = U_LIT("(");
+    static struct u_object l__41__2067 = U_LIT(")");
+    t2063 = u_concat(&l__40__2066, u_concat(f_print_46_show_type_1(v_t), &l__41__2067));
   }
-  if ((!t2063) && u_is_con(s2062, &n_list_46_Cons)) {
-    u_value v_rest = u_field(s2062, 1);
-    t2063 = f_run_46_constr_positions_1(v_rest);
+  if (!t2063) {
+    t2063 = f_print_46_show_type_1(v_t);
   }
   if (!t2063) {
     u_no_case(s2062);
@@ -22204,40 +22604,61 @@ u_value f_run_46_constr_positions_1(u_value v_cs) {
   return t2063;
 }
 
-u_value f_run_46_numbers_from_2(u_value v_i, u_value v_n) {
-  u_value t2067;
-  if (u_truth(u_eq(v_n, u_mk_int(0)))) {
-    t2067 = &o_list_46_Nil;
-  } else {
-    t2067 = u_mk_con(&n_list_46_Cons, 2, v_i, f_run_46_numbers_from_2(u_add(v_i, u_mk_int(1)), u_sub(v_n, u_mk_int(1))));
-  }
-  return t2067;
-}
-
-u_value f_run_46_constr_defs_1(u_value v_cs) {
-  u_value s2068 = v_cs;
+u_value f_print_46_show_pat_1(u_value v_p) {
+  u_value s2068 = v_p;
   u_value t2069 = NULL;
-  if ((!t2069) && u_is_con(s2068, &n_list_46_Nil)) {
-    t2069 = &o_list_46_Nil;
+  if ((!t2069) && u_is_con(s2068, &n_syntax_46_PWild)) {
+    static struct u_object l___2070 = U_LIT("_");
+    t2069 = &l___2070;
   }
-  if ((!t2069) && (u_is_con(s2068, &n_list_46_Cons) && u_is_con(u_field(s2068, 0), &n_syntax_46_CData))) {
-    u_value v_ks = u_field(u_field(s2068, 0), 2);
-    u_value v_rest = u_field(s2068, 1);
-    u_value t2070 = &o_list_46_Nil;
-    u_value *e2071 = &t2070;
-    u_value l2072 = v_ks;
-    while (u_is_con(l2072, &n_list_46_Cons)) {
-      u_value v_k = u_field(l2072, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2071 = u_append(e2071, f_run_46_constr_arity_1(v_k));
-      }
-      l2072 = u_field(l2072, 1);
+  if ((!t2069) && u_is_con(s2068, &n_syntax_46_PLit)) {
+    u_value v_l = u_field(s2068, 0);
+    t2069 = f_print_46_show_value_1(u_mk_con(&n_value_46_Lit, 1, v_l));
+  }
+  if ((!t2069) && u_is_con(s2068, &n_syntax_46_PVar)) {
+    u_value v_x = u_field(s2068, 0);
+    t2069 = f_syntax_46_Name_46_base_1(f_syntax_46_Var_46_name_1(v_x));
+  }
+  if ((!t2069) && u_is_con(s2068, &n_syntax_46_PTuple)) {
+    u_value v_ps = u_field(s2068, 0);
+    static struct u_object l__40__2071 = U_LIT("(");
+    static struct u_object l__41__2072 = U_LIT(")");
+    t2069 = u_concat(&l__40__2071, u_concat(f_print_46_show_pats_1(v_ps), &l__41__2072));
+  }
+  if ((!t2069) && (u_is_con(s2068, &n_syntax_46_PApp) && (u_is_con(u_field(s2068, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2068, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2068, 1), 1), 1), &n_list_46_Nil))))) {
+    u_value v_n = u_field(s2068, 0);
+    u_value v_x = u_field(u_field(s2068, 1), 0);
+    u_value v_xs = u_field(u_field(u_field(s2068, 1), 1), 0);
+    u_value t2077 = u_eq(v_n, f_syntax_46_cons_name_0());
+    if (!u_truth(t2077)) {
+      static struct u_object l_Cons_2076 = U_LIT("Cons");
+      t2077 = u_eq(v_n, f_syntax_46_unqualified_1(&l_Cons_2076));
     }
-    t2069 = f_list_46__43__43__2(t2070, f_run_46_constr_defs_1(v_rest));
+    if (u_truth(t2077)) {
+      static struct u_object l__91__2073 = U_LIT("[");
+      static struct u_object l__59__32__2074 = U_LIT("; ");
+      static struct u_object l__93__2075 = U_LIT("]");
+      t2069 = u_concat(&l__91__2073, u_concat(f_print_46_show_pat_1(v_x), u_concat(&l__59__32__2074, u_concat(f_print_46_show_pat_1(v_xs), &l__93__2075))));
+    }
   }
-  if ((!t2069) && u_is_con(s2068, &n_list_46_Cons)) {
-    u_value v_rest = u_field(s2068, 1);
-    t2069 = f_run_46_constr_defs_1(v_rest);
+  if ((!t2069) && (u_is_con(s2068, &n_syntax_46_PApp) && (u_is_con(u_field(s2068, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2068, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2068, 1), 1), 1), &n_list_46_Nil))))) {
+    u_value v_n = u_field(s2068, 0);
+    u_value v_l = u_field(u_field(s2068, 1), 0);
+    u_value v_r = u_field(u_field(u_field(s2068, 1), 1), 0);
+    if (u_truth(f_print_46_symbolic_1(f_syntax_46_Name_46_base_1(v_n)))) {
+      t2069 = f_print_46_infix_text_3(f_syntax_46_Name_46_base_1(v_n), f_print_46_show_pat_1(v_l), f_print_46_show_pat_1(v_r));
+    }
+  }
+  if ((!t2069) && (u_is_con(s2068, &n_syntax_46_PApp) && u_is_con(u_field(s2068, 1), &n_list_46_Nil))) {
+    u_value v_n = u_field(s2068, 0);
+    t2069 = f_syntax_46_Name_46_base_1(v_n);
+  }
+  if ((!t2069) && u_is_con(s2068, &n_syntax_46_PApp)) {
+    u_value v_n = u_field(s2068, 0);
+    u_value v_ps = u_field(s2068, 1);
+    static struct u_object l__40__2078 = U_LIT("(");
+    static struct u_object l__41__2079 = U_LIT(")");
+    t2069 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__40__2078, u_concat(f_print_46_show_pats_1(v_ps), &l__41__2079)));
   }
   if (!t2069) {
     u_no_case(s2068);
@@ -22245,18 +22666,578 @@ u_value f_run_46_constr_defs_1(u_value v_cs) {
   return t2069;
 }
 
+u_value f_print_46_show_pats_1(u_value v_ps) {
+  static struct u_object l__44__32__2080 = U_LIT(", ");
+  u_value t2081 = &o_list_46_Nil;
+  u_value *e2082 = &t2081;
+  u_value l2083 = v_ps;
+  while (u_is_con(l2083, &n_list_46_Cons)) {
+    u_value v_p = u_field(l2083, 0);
+    if (u_truth(u_mk_bool(1))) {
+      e2082 = u_append(e2082, f_print_46_show_pat_1(v_p));
+    }
+    l2083 = u_field(l2083, 1);
+  }
+  return u_str_join(&l__44__32__2080, t2081);
+}
+
+u_value f_print_46_symbolic_1(u_value v_n) {
+  u_value t2088 = u_str_get(v_n, u_mk_int(0));
+  u_value t2087;
+  {
+    u_value v_c = t2088;
+    u_value t2084 = f_prelude_46_not_1(u_is_letter(v_c));
+    if (u_truth(t2084)) {
+      t2084 = f_prelude_46__33__61__2(v_c, u_mk_char(95));
+    }
+    u_value t2086 = t2084;
+    if (u_truth(t2086)) {
+      static struct u_object l__44__2085 = U_LIT(",");
+      t2086 = f_prelude_46__33__61__2(v_n, &l__44__2085);
+    }
+    t2087 = t2086;
+  }
+  return t2087;
+}
+
+u_value f_print_46_infix_text_3(u_value v_op, u_value v_l, u_value v_r) {
+  static struct u_object l__32__2089 = U_LIT(" ");
+  static struct u_object l__32__2090 = U_LIT(" ");
+  return u_concat(f_print_46_pat_operand_1(v_l), u_concat(&l__32__2089, u_concat(v_op, u_concat(&l__32__2090, f_print_46_pat_operand_1(v_r)))));
+}
+
+u_value f_print_46_pat_operand_1(u_value v_a) {
+  u_value t2091 = u_str_contains(v_a, u_mk_char(32));
+  if (u_truth(t2091)) {
+    t2091 = f_prelude_46__33__61__2(u_str_get(v_a, u_mk_int(0)), u_mk_char(40));
+  }
+  u_value t2094;
+  if (u_truth(t2091)) {
+    static struct u_object l__40__2092 = U_LIT("(");
+    static struct u_object l__41__2093 = U_LIT(")");
+    t2094 = u_concat(&l__40__2092, u_concat(v_a, &l__41__2093));
+  } else {
+    t2094 = v_a;
+  }
+  return t2094;
+}
+
+u_value f_print_46_text_of_1(u_value v_v) {
+  u_value s2095 = v_v;
+  u_value t2096 = NULL;
+  if ((!t2096) && (u_is_con(s2095, &n_value_46_Lit) && u_is_con(u_field(s2095, 0), &n_syntax_46_VStr))) {
+    u_value v_s = u_field(u_field(s2095, 0), 0);
+    t2096 = v_s;
+  }
+  if (!t2096) {
+    t2096 = f_print_46_show_value_1(v_v);
+  }
+  if (!t2096) {
+    u_no_case(s2095);
+  }
+  return t2096;
+}
+
+u_value f_run_46_Prog_46_funs_1(u_value v_x) {
+  u_value s2097 = v_x;
+  u_value t2098 = NULL;
+  if ((!t2098) && u_is_con(s2097, &n_run_46_Prog)) {
+    u_value v_y = u_field(s2097, 0);
+    t2098 = v_y;
+  }
+  if (!t2098) {
+    u_no_case(s2097);
+  }
+  return t2098;
+}
+
+u_value f_run_46_Prog_46_procs_1(u_value v_x) {
+  u_value s2099 = v_x;
+  u_value t2100 = NULL;
+  if ((!t2100) && u_is_con(s2099, &n_run_46_Prog)) {
+    u_value v_y = u_field(s2099, 1);
+    t2100 = v_y;
+  }
+  if (!t2100) {
+    u_no_case(s2099);
+  }
+  return t2100;
+}
+
+u_value f_run_46_Prog_46_constrs_1(u_value v_x) {
+  u_value s2101 = v_x;
+  u_value t2102 = NULL;
+  if ((!t2102) && u_is_con(s2101, &n_run_46_Prog)) {
+    u_value v_y = u_field(s2101, 2);
+    t2102 = v_y;
+  }
+  if (!t2102) {
+    u_no_case(s2101);
+  }
+  return t2102;
+}
+
+u_value f_run_46_Prog_46_positions_1(u_value v_x) {
+  u_value s2103 = v_x;
+  u_value t2104 = NULL;
+  if ((!t2104) && u_is_con(s2103, &n_run_46_Prog)) {
+    u_value v_y = u_field(s2103, 3);
+    t2104 = v_y;
+  }
+  if (!t2104) {
+    u_no_case(s2103);
+  }
+  return t2104;
+}
+
+u_value f_run_46_Prog_46_orders_1(u_value v_x) {
+  u_value s2105 = v_x;
+  u_value t2106 = NULL;
+  if ((!t2106) && u_is_con(s2105, &n_run_46_Prog)) {
+    u_value v_y = u_field(s2105, 4);
+    t2106 = v_y;
+  }
+  if (!t2106) {
+    u_no_case(s2105);
+  }
+  return t2106;
+}
+
+u_value f_run_46_Prog_46_equalities_1(u_value v_x) {
+  u_value s2107 = v_x;
+  u_value t2108 = NULL;
+  if ((!t2108) && u_is_con(s2107, &n_run_46_Prog)) {
+    u_value v_y = u_field(s2107, 5);
+    t2108 = v_y;
+  }
+  if (!t2108) {
+    u_no_case(s2107);
+  }
+  return t2108;
+}
+
+u_value f_run_46_Prog_46_computing_1(u_value v_x) {
+  u_value s2109 = v_x;
+  u_value t2110 = NULL;
+  if ((!t2110) && u_is_con(s2109, &n_run_46_Prog)) {
+    u_value v_y = u_field(s2109, 6);
+    t2110 = v_y;
+  }
+  if (!t2110) {
+    u_no_case(s2109);
+  }
+  return t2110;
+}
+
+u_value f_run_46_Prog_46_args_1(u_value v_x) {
+  u_value s2111 = v_x;
+  u_value t2112 = NULL;
+  if ((!t2112) && u_is_con(s2111, &n_run_46_Prog)) {
+    u_value v_y = u_field(s2111, 7);
+    t2112 = v_y;
+  }
+  if (!t2112) {
+    u_no_case(s2111);
+  }
+  return t2112;
+}
+
+u_value f_run_46_Prog_46_funs_58__61__2(u_value v_x, u_value v_y) {
+  u_value s2113 = v_x;
+  u_value t2114 = NULL;
+  if ((!t2114) && u_is_con(s2113, &n_run_46_Prog)) {
+    u_value v_a1 = u_field(s2113, 1);
+    u_value v_a2 = u_field(s2113, 2);
+    u_value v_a3 = u_field(s2113, 3);
+    u_value v_a4 = u_field(s2113, 4);
+    u_value v_a5 = u_field(s2113, 5);
+    u_value v_a6 = u_field(s2113, 6);
+    u_value v_a7 = u_field(s2113, 7);
+    t2114 = u_mk_con(&n_run_46_Prog, 8, v_y, v_a1, v_a2, v_a3, v_a4, v_a5, v_a6, v_a7);
+  }
+  if (!t2114) {
+    u_no_case(s2113);
+  }
+  return t2114;
+}
+
+u_value f_run_46_Prog_46_procs_58__61__2(u_value v_x, u_value v_y) {
+  u_value s2115 = v_x;
+  u_value t2116 = NULL;
+  if ((!t2116) && u_is_con(s2115, &n_run_46_Prog)) {
+    u_value v_a0 = u_field(s2115, 0);
+    u_value v_a2 = u_field(s2115, 2);
+    u_value v_a3 = u_field(s2115, 3);
+    u_value v_a4 = u_field(s2115, 4);
+    u_value v_a5 = u_field(s2115, 5);
+    u_value v_a6 = u_field(s2115, 6);
+    u_value v_a7 = u_field(s2115, 7);
+    t2116 = u_mk_con(&n_run_46_Prog, 8, v_a0, v_y, v_a2, v_a3, v_a4, v_a5, v_a6, v_a7);
+  }
+  if (!t2116) {
+    u_no_case(s2115);
+  }
+  return t2116;
+}
+
+u_value f_run_46_Prog_46_constrs_58__61__2(u_value v_x, u_value v_y) {
+  u_value s2117 = v_x;
+  u_value t2118 = NULL;
+  if ((!t2118) && u_is_con(s2117, &n_run_46_Prog)) {
+    u_value v_a0 = u_field(s2117, 0);
+    u_value v_a1 = u_field(s2117, 1);
+    u_value v_a3 = u_field(s2117, 3);
+    u_value v_a4 = u_field(s2117, 4);
+    u_value v_a5 = u_field(s2117, 5);
+    u_value v_a6 = u_field(s2117, 6);
+    u_value v_a7 = u_field(s2117, 7);
+    t2118 = u_mk_con(&n_run_46_Prog, 8, v_a0, v_a1, v_y, v_a3, v_a4, v_a5, v_a6, v_a7);
+  }
+  if (!t2118) {
+    u_no_case(s2117);
+  }
+  return t2118;
+}
+
+u_value f_run_46_Prog_46_positions_58__61__2(u_value v_x, u_value v_y) {
+  u_value s2119 = v_x;
+  u_value t2120 = NULL;
+  if ((!t2120) && u_is_con(s2119, &n_run_46_Prog)) {
+    u_value v_a0 = u_field(s2119, 0);
+    u_value v_a1 = u_field(s2119, 1);
+    u_value v_a2 = u_field(s2119, 2);
+    u_value v_a4 = u_field(s2119, 4);
+    u_value v_a5 = u_field(s2119, 5);
+    u_value v_a6 = u_field(s2119, 6);
+    u_value v_a7 = u_field(s2119, 7);
+    t2120 = u_mk_con(&n_run_46_Prog, 8, v_a0, v_a1, v_a2, v_y, v_a4, v_a5, v_a6, v_a7);
+  }
+  if (!t2120) {
+    u_no_case(s2119);
+  }
+  return t2120;
+}
+
+u_value f_run_46_Prog_46_orders_58__61__2(u_value v_x, u_value v_y) {
+  u_value s2121 = v_x;
+  u_value t2122 = NULL;
+  if ((!t2122) && u_is_con(s2121, &n_run_46_Prog)) {
+    u_value v_a0 = u_field(s2121, 0);
+    u_value v_a1 = u_field(s2121, 1);
+    u_value v_a2 = u_field(s2121, 2);
+    u_value v_a3 = u_field(s2121, 3);
+    u_value v_a5 = u_field(s2121, 5);
+    u_value v_a6 = u_field(s2121, 6);
+    u_value v_a7 = u_field(s2121, 7);
+    t2122 = u_mk_con(&n_run_46_Prog, 8, v_a0, v_a1, v_a2, v_a3, v_y, v_a5, v_a6, v_a7);
+  }
+  if (!t2122) {
+    u_no_case(s2121);
+  }
+  return t2122;
+}
+
+u_value f_run_46_Prog_46_equalities_58__61__2(u_value v_x, u_value v_y) {
+  u_value s2123 = v_x;
+  u_value t2124 = NULL;
+  if ((!t2124) && u_is_con(s2123, &n_run_46_Prog)) {
+    u_value v_a0 = u_field(s2123, 0);
+    u_value v_a1 = u_field(s2123, 1);
+    u_value v_a2 = u_field(s2123, 2);
+    u_value v_a3 = u_field(s2123, 3);
+    u_value v_a4 = u_field(s2123, 4);
+    u_value v_a6 = u_field(s2123, 6);
+    u_value v_a7 = u_field(s2123, 7);
+    t2124 = u_mk_con(&n_run_46_Prog, 8, v_a0, v_a1, v_a2, v_a3, v_a4, v_y, v_a6, v_a7);
+  }
+  if (!t2124) {
+    u_no_case(s2123);
+  }
+  return t2124;
+}
+
+u_value f_run_46_Prog_46_computing_58__61__2(u_value v_x, u_value v_y) {
+  u_value s2125 = v_x;
+  u_value t2126 = NULL;
+  if ((!t2126) && u_is_con(s2125, &n_run_46_Prog)) {
+    u_value v_a0 = u_field(s2125, 0);
+    u_value v_a1 = u_field(s2125, 1);
+    u_value v_a2 = u_field(s2125, 2);
+    u_value v_a3 = u_field(s2125, 3);
+    u_value v_a4 = u_field(s2125, 4);
+    u_value v_a5 = u_field(s2125, 5);
+    u_value v_a7 = u_field(s2125, 7);
+    t2126 = u_mk_con(&n_run_46_Prog, 8, v_a0, v_a1, v_a2, v_a3, v_a4, v_a5, v_y, v_a7);
+  }
+  if (!t2126) {
+    u_no_case(s2125);
+  }
+  return t2126;
+}
+
+u_value f_run_46_Prog_46_args_58__61__2(u_value v_x, u_value v_y) {
+  u_value s2127 = v_x;
+  u_value t2128 = NULL;
+  if ((!t2128) && u_is_con(s2127, &n_run_46_Prog)) {
+    u_value v_a0 = u_field(s2127, 0);
+    u_value v_a1 = u_field(s2127, 1);
+    u_value v_a2 = u_field(s2127, 2);
+    u_value v_a3 = u_field(s2127, 3);
+    u_value v_a4 = u_field(s2127, 4);
+    u_value v_a5 = u_field(s2127, 5);
+    u_value v_a6 = u_field(s2127, 6);
+    t2128 = u_mk_con(&n_run_46_Prog, 8, v_a0, v_a1, v_a2, v_a3, v_a4, v_a5, v_a6, v_y);
+  }
+  if (!t2128) {
+    u_no_case(s2127);
+  }
+  return t2128;
+}
+
+u_value f_run_46_position_of_2(u_value v_p, u_value v_k) {
+  u_value s2129 = f_map_46_get_2(v_k, f_run_46_Prog_46_positions_1(v_p));
+  u_value t2130 = NULL;
+  if ((!t2130) && u_is_con(s2129, &n_option_46_Some)) {
+    u_value v_i = u_field(s2129, 0);
+    t2130 = v_i;
+  }
+  if ((!t2130) && u_is_con(s2129, &n_option_46_None)) {
+    t2130 = u_mk_int(0);
+  }
+  if (!t2130) {
+    u_no_case(s2129);
+  }
+  return t2130;
+}
+
+u_value f_run_46_load_1(u_value v_q) {
+  u_value s2131 = v_q;
+  u_value t2132 = NULL;
+  if ((!t2132) && u_is_con(s2131, &n_syntax_46_Program)) {
+    u_value v_cs = u_field(s2131, 0);
+    static struct u_object l_compare_2133 = U_LIT("compare");
+    static struct u_object l__61__61__2134 = U_LIT("==");
+    t2132 = u_mk_con(&n_run_46_Prog, 8, f_map_46_put_all_2(f_run_46_fun_defs_1(v_cs), f_map_46_empty_0()), f_map_46_put_all_2(f_run_46_proc_defs_1(v_cs), f_map_46_empty_0()), f_map_46_put_all_2(f_run_46_constr_defs_1(v_cs), f_map_46_empty_0()), f_map_46_put_all_2(f_run_46_constr_positions_1(v_cs), f_map_46_empty_0()), f_map_46_put_all_2(f_run_46_constr_orders_2(v_cs, f_run_46_order_funs_2(v_cs, &l_compare_2133)), f_map_46_empty_0()), f_map_46_put_all_2(f_run_46_constr_orders_2(v_cs, f_run_46_order_funs_2(v_cs, &l__61__61__2134)), f_map_46_empty_0()), &o_list_46_Nil, &o_list_46_Nil);
+  }
+  if (!t2132) {
+    u_no_case(s2131);
+  }
+  return t2132;
+}
+
+u_value f_run_46_order_funs_2(u_value v_cs, u_value v_op) {
+  u_value s2135 = v_cs;
+  u_value t2136 = NULL;
+  if ((!t2136) && u_is_con(s2135, &n_list_46_Nil)) {
+    t2136 = &o_list_46_Nil;
+  }
+  if ((!t2136) && u_is_con(s2135, &n_list_46_Cons)) {
+    u_value v_c = u_field(s2135, 0);
+    u_value v_rest = u_field(s2135, 1);
+    u_value s2137 = u_mk_tuple(2, v_c, f_check_46_order_of_1(v_c));
+    u_value t2138 = NULL;
+    if ((!t2138) && (u_is_con(u_field(s2137, 0), &n_syntax_46_CFun) && u_is_con(u_field(s2137, 1), &n_option_46_Some))) {
+      u_value v_f = u_field(u_field(s2137, 0), 0);
+      u_value v_o = u_field(u_field(u_field(s2137, 1), 0), 0);
+      u_value v_t = u_field(u_field(u_field(s2137, 1), 0), 1);
+      u_value t2139;
+      if (u_truth(u_eq(v_o, v_op))) {
+        t2139 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_t, v_f), f_run_46_order_funs_2(v_rest, v_op));
+      } else {
+        t2139 = f_run_46_order_funs_2(v_rest, v_op);
+      }
+      t2138 = t2139;
+    }
+    if (!t2138) {
+      t2138 = f_run_46_order_funs_2(v_rest, v_op);
+    }
+    if (!t2138) {
+      u_no_case(s2137);
+    }
+    t2136 = t2138;
+  }
+  if (!t2136) {
+    u_no_case(s2135);
+  }
+  return t2136;
+}
+
+u_value f_run_46_constr_orders_2(u_value v_cs, u_value v_fs) {
+  u_value s2140 = v_cs;
+  u_value t2141 = NULL;
+  if ((!t2141) && u_is_con(s2140, &n_list_46_Nil)) {
+    t2141 = &o_list_46_Nil;
+  }
+  if ((!t2141) && (u_is_con(s2140, &n_list_46_Cons) && u_is_con(u_field(s2140, 0), &n_syntax_46_CData))) {
+    u_value v_t = u_field(u_field(s2140, 0), 0);
+    u_value v_ks = u_field(u_field(s2140, 0), 2);
+    u_value v_rest = u_field(s2140, 1);
+    u_value s2142 = f_list_46_get_2(v_t, v_fs);
+    u_value t2143 = NULL;
+    if ((!t2143) && u_is_con(s2142, &n_option_46_Some)) {
+      u_value v_f = u_field(s2142, 0);
+      u_value t2144 = &o_list_46_Nil;
+      u_value *e2145 = &t2144;
+      u_value l2146 = v_ks;
+      while (u_is_con(l2146, &n_list_46_Cons)) {
+        u_value v_k = u_field(l2146, 0);
+        if (u_truth(u_mk_bool(1))) {
+          e2145 = u_append(e2145, u_mk_tuple(2, f_syntax_46_Constr_46_name_1(v_k), v_f));
+        }
+        l2146 = u_field(l2146, 1);
+      }
+      t2143 = f_list_46__43__43__2(t2144, f_run_46_constr_orders_2(v_rest, v_fs));
+    }
+    if ((!t2143) && u_is_con(s2142, &n_option_46_None)) {
+      t2143 = f_run_46_constr_orders_2(v_rest, v_fs);
+    }
+    if (!t2143) {
+      u_no_case(s2142);
+    }
+    t2141 = t2143;
+  }
+  if ((!t2141) && u_is_con(s2140, &n_list_46_Cons)) {
+    u_value v_rest = u_field(s2140, 1);
+    t2141 = f_run_46_constr_orders_2(v_rest, v_fs);
+  }
+  if (!t2141) {
+    u_no_case(s2140);
+  }
+  return t2141;
+}
+
+u_value f_run_46_fun_defs_1(u_value v_cs) {
+  u_value s2147 = v_cs;
+  u_value t2148 = NULL;
+  if ((!t2148) && u_is_con(s2147, &n_list_46_Nil)) {
+    t2148 = &o_list_46_Nil;
+  }
+  if ((!t2148) && (u_is_con(s2147, &n_list_46_Cons) && u_is_con(u_field(s2147, 0), &n_syntax_46_CFun))) {
+    u_value v_n = u_field(u_field(s2147, 0), 0);
+    u_value v_xss = u_field(u_field(s2147, 0), 2);
+    u_value v_b = u_field(u_field(s2147, 0), 4);
+    u_value v_rest = u_field(s2147, 1);
+    t2148 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_tuple(2, v_n, f_list_46_size_1(f_check_46_first_list_1(v_xss))), u_mk_tuple(2, v_xss, v_b)), f_run_46_fun_defs_1(v_rest));
+  }
+  if ((!t2148) && u_is_con(s2147, &n_list_46_Cons)) {
+    u_value v_rest = u_field(s2147, 1);
+    t2148 = f_run_46_fun_defs_1(v_rest);
+  }
+  if (!t2148) {
+    u_no_case(s2147);
+  }
+  return t2148;
+}
+
+u_value f_run_46_proc_defs_1(u_value v_cs) {
+  u_value s2149 = v_cs;
+  u_value t2150 = NULL;
+  if ((!t2150) && u_is_con(s2149, &n_list_46_Nil)) {
+    t2150 = &o_list_46_Nil;
+  }
+  if ((!t2150) && (u_is_con(s2149, &n_list_46_Cons) && u_is_con(u_field(s2149, 0), &n_syntax_46_CProc))) {
+    u_value v_n = u_field(u_field(s2149, 0), 0);
+    u_value v_ins = u_field(u_field(s2149, 0), 2);
+    u_value v_outs = u_field(u_field(s2149, 0), 3);
+    u_value v_refs = u_field(u_field(s2149, 0), 4);
+    u_value v_b = u_field(u_field(s2149, 0), 5);
+    u_value v_rest = u_field(s2149, 1);
+    t2150 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, u_mk_con(&n_run_46_ProcDef, 4, v_ins, v_outs, v_refs, v_b)), f_run_46_proc_defs_1(v_rest));
+  }
+  if ((!t2150) && u_is_con(s2149, &n_list_46_Cons)) {
+    u_value v_rest = u_field(s2149, 1);
+    t2150 = f_run_46_proc_defs_1(v_rest);
+  }
+  if (!t2150) {
+    u_no_case(s2149);
+  }
+  return t2150;
+}
+
+u_value f_run_46_constr_positions_1(u_value v_cs) {
+  u_value s2151 = v_cs;
+  u_value t2152 = NULL;
+  if ((!t2152) && u_is_con(s2151, &n_list_46_Nil)) {
+    t2152 = &o_list_46_Nil;
+  }
+  if ((!t2152) && (u_is_con(s2151, &n_list_46_Cons) && u_is_con(u_field(s2151, 0), &n_syntax_46_CData))) {
+    u_value v_ks = u_field(u_field(s2151, 0), 2);
+    u_value v_rest = u_field(s2151, 1);
+    u_value t2153 = &o_list_46_Nil;
+    u_value *e2154 = &t2153;
+    u_value l2155 = v_ks;
+    while (u_is_con(l2155, &n_list_46_Cons)) {
+      u_value v_k = u_field(l2155, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2154 = u_append(e2154, f_syntax_46_Constr_46_name_1(v_k));
+      }
+      l2155 = u_field(l2155, 1);
+    }
+    t2152 = f_list_46__43__43__2(f_list_46_zip_2(t2153, f_run_46_numbers_from_2(u_mk_int(0), f_list_46_size_1(v_ks))), f_run_46_constr_positions_1(v_rest));
+  }
+  if ((!t2152) && u_is_con(s2151, &n_list_46_Cons)) {
+    u_value v_rest = u_field(s2151, 1);
+    t2152 = f_run_46_constr_positions_1(v_rest);
+  }
+  if (!t2152) {
+    u_no_case(s2151);
+  }
+  return t2152;
+}
+
+u_value f_run_46_numbers_from_2(u_value v_i, u_value v_n) {
+  u_value t2156;
+  if (u_truth(u_eq(v_n, u_mk_int(0)))) {
+    t2156 = &o_list_46_Nil;
+  } else {
+    t2156 = u_mk_con(&n_list_46_Cons, 2, v_i, f_run_46_numbers_from_2(u_add(v_i, u_mk_int(1)), u_sub(v_n, u_mk_int(1))));
+  }
+  return t2156;
+}
+
+u_value f_run_46_constr_defs_1(u_value v_cs) {
+  u_value s2157 = v_cs;
+  u_value t2158 = NULL;
+  if ((!t2158) && u_is_con(s2157, &n_list_46_Nil)) {
+    t2158 = &o_list_46_Nil;
+  }
+  if ((!t2158) && (u_is_con(s2157, &n_list_46_Cons) && u_is_con(u_field(s2157, 0), &n_syntax_46_CData))) {
+    u_value v_ks = u_field(u_field(s2157, 0), 2);
+    u_value v_rest = u_field(s2157, 1);
+    u_value t2159 = &o_list_46_Nil;
+    u_value *e2160 = &t2159;
+    u_value l2161 = v_ks;
+    while (u_is_con(l2161, &n_list_46_Cons)) {
+      u_value v_k = u_field(l2161, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2160 = u_append(e2160, f_run_46_constr_arity_1(v_k));
+      }
+      l2161 = u_field(l2161, 1);
+    }
+    t2158 = f_list_46__43__43__2(t2159, f_run_46_constr_defs_1(v_rest));
+  }
+  if ((!t2158) && u_is_con(s2157, &n_list_46_Cons)) {
+    u_value v_rest = u_field(s2157, 1);
+    t2158 = f_run_46_constr_defs_1(v_rest);
+  }
+  if (!t2158) {
+    u_no_case(s2157);
+  }
+  return t2158;
+}
+
 u_value f_run_46_constr_arity_1(u_value v_k) {
-  u_value s2073 = v_k;
-  u_value t2074 = NULL;
-  if ((!t2074) && u_is_con(s2073, &n_syntax_46_Constr)) {
-    u_value v_n = u_field(s2073, 0);
-    u_value v_ts = u_field(s2073, 1);
-    t2074 = u_mk_tuple(2, v_n, f_list_46_size_1(v_ts));
+  u_value s2162 = v_k;
+  u_value t2163 = NULL;
+  if ((!t2163) && u_is_con(s2162, &n_syntax_46_Constr)) {
+    u_value v_n = u_field(s2162, 0);
+    u_value v_ts = u_field(s2162, 1);
+    t2163 = u_mk_tuple(2, v_n, f_list_46_size_1(v_ts));
   }
-  if (!t2074) {
-    u_no_case(s2073);
+  if (!t2163) {
+    u_no_case(s2162);
   }
-  return t2074;
+  return t2163;
 }
 
 u_value f_run_46_builtin_names_0(void) {
@@ -22274,69 +23255,69 @@ u_value f_run_46_builtin_names_0(void) {
     cache = NULL;
     u_reraise(handler);
   }
-  static struct u_object l__43__2075 = U_LIT("+");
-  static struct u_object l__45__2076 = U_LIT("-");
-  static struct u_object l__42__2077 = U_LIT("*");
-  static struct u_object l__47__2078 = U_LIT("/");
-  static struct u_object l__37__2079 = U_LIT("%");
-  static struct u_object l__60__2080 = U_LIT("<");
-  static struct u_object l__61__61__2081 = U_LIT("==");
-  static struct u_object l_chars_2082 = U_LIT("chars");
-  static struct u_object l_string_2083 = U_LIT("string");
-  static struct u_object l_ord_2084 = U_LIT("ord");
-  static struct u_object l_chr_2085 = U_LIT("chr");
-  static struct u_object l__94__2086 = U_LIT("^");
-  static struct u_object l_str_size_2087 = U_LIT("str_size");
-  static struct u_object l_str_join_2088 = U_LIT("str_join");
-  static struct u_object l_str_slice_2089 = U_LIT("str_slice");
-  static struct u_object l_str_split_2090 = U_LIT("str_split");
-  static struct u_object l_compare_2091 = U_LIT("compare");
-  static struct u_object l_str_get_2092 = U_LIT("str_get");
-  static struct u_object l_str_contains_2093 = U_LIT("str_contains");
-  static struct u_object l_str_compare_2094 = U_LIT("str_compare");
-  static struct u_object l_str_show_2095 = U_LIT("str_show");
-  static struct u_object l_str_quote_2096 = U_LIT("str_quote");
-  static struct u_object l_str_number_2097 = U_LIT("str_number");
-  static struct u_object l_is_digit_2098 = U_LIT("is_digit");
-  static struct u_object l_is_letter_2099 = U_LIT("is_letter");
-  static struct u_object l_is_space_2100 = U_LIT("is_space");
+  static struct u_object l__43__2164 = U_LIT("+");
+  static struct u_object l__45__2165 = U_LIT("-");
+  static struct u_object l__42__2166 = U_LIT("*");
+  static struct u_object l__47__2167 = U_LIT("/");
+  static struct u_object l__37__2168 = U_LIT("%");
+  static struct u_object l__60__2169 = U_LIT("<");
+  static struct u_object l__61__61__2170 = U_LIT("==");
+  static struct u_object l_chars_2171 = U_LIT("chars");
+  static struct u_object l_string_2172 = U_LIT("string");
+  static struct u_object l_ord_2173 = U_LIT("ord");
+  static struct u_object l_chr_2174 = U_LIT("chr");
+  static struct u_object l__94__2175 = U_LIT("^");
+  static struct u_object l_str_size_2176 = U_LIT("str_size");
+  static struct u_object l_str_join_2177 = U_LIT("str_join");
+  static struct u_object l_str_slice_2178 = U_LIT("str_slice");
+  static struct u_object l_str_split_2179 = U_LIT("str_split");
+  static struct u_object l_compare_2180 = U_LIT("compare");
+  static struct u_object l_str_get_2181 = U_LIT("str_get");
+  static struct u_object l_str_contains_2182 = U_LIT("str_contains");
+  static struct u_object l_str_compare_2183 = U_LIT("str_compare");
+  static struct u_object l_str_show_2184 = U_LIT("str_show");
+  static struct u_object l_str_quote_2185 = U_LIT("str_quote");
+  static struct u_object l_str_number_2186 = U_LIT("str_number");
+  static struct u_object l_is_digit_2187 = U_LIT("is_digit");
+  static struct u_object l_is_letter_2188 = U_LIT("is_letter");
+  static struct u_object l_is_space_2189 = U_LIT("is_space");
   u_pop(handler);
-  cache = f_set_46_from_list_1(u_mk_con(&n_list_46_Cons, 2, &l__43__2075, u_mk_con(&n_list_46_Cons, 2, &l__45__2076, u_mk_con(&n_list_46_Cons, 2, &l__42__2077, u_mk_con(&n_list_46_Cons, 2, &l__47__2078, u_mk_con(&n_list_46_Cons, 2, &l__37__2079, u_mk_con(&n_list_46_Cons, 2, &l__60__2080, u_mk_con(&n_list_46_Cons, 2, &l__61__61__2081, u_mk_con(&n_list_46_Cons, 2, &l_chars_2082, u_mk_con(&n_list_46_Cons, 2, &l_string_2083, u_mk_con(&n_list_46_Cons, 2, &l_ord_2084, u_mk_con(&n_list_46_Cons, 2, &l_chr_2085, u_mk_con(&n_list_46_Cons, 2, &l__94__2086, u_mk_con(&n_list_46_Cons, 2, &l_str_size_2087, u_mk_con(&n_list_46_Cons, 2, &l_str_join_2088, u_mk_con(&n_list_46_Cons, 2, &l_str_slice_2089, u_mk_con(&n_list_46_Cons, 2, &l_str_split_2090, u_mk_con(&n_list_46_Cons, 2, &l_compare_2091, u_mk_con(&n_list_46_Cons, 2, &l_str_get_2092, u_mk_con(&n_list_46_Cons, 2, &l_str_contains_2093, u_mk_con(&n_list_46_Cons, 2, &l_str_compare_2094, u_mk_con(&n_list_46_Cons, 2, &l_str_show_2095, u_mk_con(&n_list_46_Cons, 2, &l_str_quote_2096, u_mk_con(&n_list_46_Cons, 2, &l_str_number_2097, u_mk_con(&n_list_46_Cons, 2, &l_is_digit_2098, u_mk_con(&n_list_46_Cons, 2, &l_is_letter_2099, u_mk_con(&n_list_46_Cons, 2, &l_is_space_2100, &o_list_46_Nil)))))))))))))))))))))))))));
+  cache = f_set_46_from_list_1(u_mk_con(&n_list_46_Cons, 2, &l__43__2164, u_mk_con(&n_list_46_Cons, 2, &l__45__2165, u_mk_con(&n_list_46_Cons, 2, &l__42__2166, u_mk_con(&n_list_46_Cons, 2, &l__47__2167, u_mk_con(&n_list_46_Cons, 2, &l__37__2168, u_mk_con(&n_list_46_Cons, 2, &l__60__2169, u_mk_con(&n_list_46_Cons, 2, &l__61__61__2170, u_mk_con(&n_list_46_Cons, 2, &l_chars_2171, u_mk_con(&n_list_46_Cons, 2, &l_string_2172, u_mk_con(&n_list_46_Cons, 2, &l_ord_2173, u_mk_con(&n_list_46_Cons, 2, &l_chr_2174, u_mk_con(&n_list_46_Cons, 2, &l__94__2175, u_mk_con(&n_list_46_Cons, 2, &l_str_size_2176, u_mk_con(&n_list_46_Cons, 2, &l_str_join_2177, u_mk_con(&n_list_46_Cons, 2, &l_str_slice_2178, u_mk_con(&n_list_46_Cons, 2, &l_str_split_2179, u_mk_con(&n_list_46_Cons, 2, &l_compare_2180, u_mk_con(&n_list_46_Cons, 2, &l_str_get_2181, u_mk_con(&n_list_46_Cons, 2, &l_str_contains_2182, u_mk_con(&n_list_46_Cons, 2, &l_str_compare_2183, u_mk_con(&n_list_46_Cons, 2, &l_str_show_2184, u_mk_con(&n_list_46_Cons, 2, &l_str_quote_2185, u_mk_con(&n_list_46_Cons, 2, &l_str_number_2186, u_mk_con(&n_list_46_Cons, 2, &l_is_digit_2187, u_mk_con(&n_list_46_Cons, 2, &l_is_letter_2188, u_mk_con(&n_list_46_Cons, 2, &l_is_space_2189, &o_list_46_Nil)))))))))))))))))))))))))));
   return cache;
 }
 
 u_value f_run_46_is_builtin_1(u_value v_n) {
-  u_value s2101 = v_n;
-  u_value t2102 = NULL;
-  if ((!t2102) && (u_is_con(s2101, &n_syntax_46_Name) && u_is_con(u_field(s2101, 0), &n_option_46_None))) {
-    u_value v_b = u_field(s2101, 1);
-    t2102 = f_set_46_contains_2(v_b, f_run_46_builtin_names_0());
+  u_value s2190 = v_n;
+  u_value t2191 = NULL;
+  if ((!t2191) && (u_is_con(s2190, &n_syntax_46_Name) && u_is_con(u_field(s2190, 0), &n_option_46_None))) {
+    u_value v_b = u_field(s2190, 1);
+    t2191 = f_set_46_contains_2(v_b, f_run_46_builtin_names_0());
   }
-  if (!t2102) {
-    t2102 = u_mk_bool(0);
+  if (!t2191) {
+    t2191 = u_mk_bool(0);
   }
-  if (!t2102) {
-    u_no_case(s2101);
+  if (!t2191) {
+    u_no_case(s2190);
   }
-  return t2102;
+  return t2191;
 }
 
 u_value f_run_46_is_function_1(u_value v_v) {
-  u_value s2103 = v_v;
-  u_value t2104 = NULL;
-  if ((!t2104) && u_is_con(s2103, &n_value_46_Lit)) {
-    t2104 = u_mk_bool(0);
+  u_value s2192 = v_v;
+  u_value t2193 = NULL;
+  if ((!t2193) && u_is_con(s2192, &n_value_46_Lit)) {
+    t2193 = u_mk_bool(0);
   }
-  if ((!t2104) && u_is_con(s2103, &n_value_46_Obj)) {
-    t2104 = u_mk_bool(0);
+  if ((!t2193) && u_is_con(s2192, &n_value_46_Obj)) {
+    t2193 = u_mk_bool(0);
   }
-  if (!t2104) {
-    t2104 = u_mk_bool(1);
+  if (!t2193) {
+    t2193 = u_mk_bool(1);
   }
-  if (!t2104) {
-    u_no_case(s2103);
+  if (!t2193) {
+    u_no_case(s2192);
   }
-  return t2104;
+  return t2193;
 }
 
 u_value f_run_46_truth_1(u_value v_v) {
@@ -22344,204 +23325,204 @@ u_value f_run_46_truth_1(u_value v_v) {
 }
 
 u_value f_run_46_lambdas_2(u_value v_xss, u_value v_b) {
-  u_value s2105 = v_xss;
-  u_value t2106 = NULL;
-  if ((!t2106) && u_is_con(s2105, &n_list_46_Nil)) {
-    t2106 = v_b;
+  u_value s2194 = v_xss;
+  u_value t2195 = NULL;
+  if ((!t2195) && u_is_con(s2194, &n_list_46_Nil)) {
+    t2195 = v_b;
   }
-  if ((!t2106) && u_is_con(s2105, &n_list_46_Cons)) {
-    u_value v_xs = u_field(s2105, 0);
-    u_value v_rest = u_field(s2105, 1);
-    t2106 = u_mk_con(&n_syntax_46_ELam, 2, v_xs, f_run_46_lambdas_2(v_rest, v_b));
+  if ((!t2195) && u_is_con(s2194, &n_list_46_Cons)) {
+    u_value v_xs = u_field(s2194, 0);
+    u_value v_rest = u_field(s2194, 1);
+    t2195 = u_mk_con(&n_syntax_46_ELam, 2, v_xs, f_run_46_lambdas_2(v_rest, v_b));
   }
-  if (!t2106) {
-    u_no_case(s2105);
+  if (!t2195) {
+    u_no_case(s2194);
   }
-  return t2106;
+  return t2195;
 }
 
 u_value f_run_46_str_values_1(u_value v_vs) {
-  u_value s2107 = v_vs;
-  u_value t2108 = NULL;
-  if ((!t2108) && (u_is_con(s2107, &n_list_46_Cons) && (u_is_con(u_field(s2107, 0), &n_value_46_Lit) && u_is_con(u_field(u_field(s2107, 0), 0), &n_syntax_46_VStr)))) {
-    u_value v_s = u_field(u_field(u_field(s2107, 0), 0), 0);
-    u_value v_rest = u_field(s2107, 1);
-    t2108 = u_mk_con(&n_list_46_Cons, 2, v_s, f_run_46_str_values_1(v_rest));
+  u_value s2196 = v_vs;
+  u_value t2197 = NULL;
+  if ((!t2197) && (u_is_con(s2196, &n_list_46_Cons) && (u_is_con(u_field(s2196, 0), &n_value_46_Lit) && u_is_con(u_field(u_field(s2196, 0), 0), &n_syntax_46_VStr)))) {
+    u_value v_s = u_field(u_field(u_field(s2196, 0), 0), 0);
+    u_value v_rest = u_field(s2196, 1);
+    t2197 = u_mk_con(&n_list_46_Cons, 2, v_s, f_run_46_str_values_1(v_rest));
   }
-  if (!t2108) {
-    t2108 = &o_list_46_Nil;
+  if (!t2197) {
+    t2197 = &o_list_46_Nil;
   }
-  if (!t2108) {
-    u_no_case(s2107);
+  if (!t2197) {
+    u_no_case(s2196);
   }
-  return t2108;
+  return t2197;
 }
 
 u_value f_run_46_char_values_1(u_value v_vs) {
-  u_value s2109 = v_vs;
-  u_value t2110 = NULL;
-  if ((!t2110) && (u_is_con(s2109, &n_list_46_Cons) && (u_is_con(u_field(s2109, 0), &n_value_46_Lit) && u_is_con(u_field(u_field(s2109, 0), 0), &n_syntax_46_VChar)))) {
-    u_value v_c = u_field(u_field(u_field(s2109, 0), 0), 0);
-    u_value v_rest = u_field(s2109, 1);
-    t2110 = u_mk_con(&n_list_46_Cons, 2, v_c, f_run_46_char_values_1(v_rest));
+  u_value s2198 = v_vs;
+  u_value t2199 = NULL;
+  if ((!t2199) && (u_is_con(s2198, &n_list_46_Cons) && (u_is_con(u_field(s2198, 0), &n_value_46_Lit) && u_is_con(u_field(u_field(s2198, 0), 0), &n_syntax_46_VChar)))) {
+    u_value v_c = u_field(u_field(u_field(s2198, 0), 0), 0);
+    u_value v_rest = u_field(s2198, 1);
+    t2199 = u_mk_con(&n_list_46_Cons, 2, v_c, f_run_46_char_values_1(v_rest));
   }
-  if (!t2110) {
-    t2110 = &o_list_46_Nil;
+  if (!t2199) {
+    t2199 = &o_list_46_Nil;
   }
-  if (!t2110) {
-    u_no_case(s2109);
+  if (!t2199) {
+    u_no_case(s2198);
   }
-  return t2110;
+  return t2199;
 }
 
 u_value f_run_46_bind_all_3(u_value v_xs, u_value v_vs, u_value v_env) {
-  u_value s2111 = u_mk_tuple(2, v_xs, v_vs);
-  u_value t2112 = NULL;
-  if ((!t2112) && (u_is_con(u_field(s2111, 0), &n_list_46_Cons) && u_is_con(u_field(s2111, 1), &n_list_46_Cons))) {
-    u_value v_x = u_field(u_field(s2111, 0), 0);
-    u_value v_xs1 = u_field(u_field(s2111, 0), 1);
-    u_value v_v = u_field(u_field(s2111, 1), 0);
-    u_value v_vs1 = u_field(u_field(s2111, 1), 1);
-    t2112 = f_run_46_bind_all_3(v_xs1, v_vs1, f_map_46_put_3(f_syntax_46_Var_46_name_1(v_x), v_v, v_env));
+  u_value s2200 = u_mk_tuple(2, v_xs, v_vs);
+  u_value t2201 = NULL;
+  if ((!t2201) && (u_is_con(u_field(s2200, 0), &n_list_46_Cons) && u_is_con(u_field(s2200, 1), &n_list_46_Cons))) {
+    u_value v_x = u_field(u_field(s2200, 0), 0);
+    u_value v_xs1 = u_field(u_field(s2200, 0), 1);
+    u_value v_v = u_field(u_field(s2200, 1), 0);
+    u_value v_vs1 = u_field(u_field(s2200, 1), 1);
+    t2201 = f_run_46_bind_all_3(v_xs1, v_vs1, f_map_46_put_3(f_syntax_46_Var_46_name_1(v_x), v_v, v_env));
   }
-  if (!t2112) {
-    t2112 = v_env;
+  if (!t2201) {
+    t2201 = v_env;
   }
-  if (!t2112) {
-    u_no_case(s2111);
+  if (!t2201) {
+    u_no_case(s2200);
   }
-  return t2112;
+  return t2201;
 }
 
 u_value f_run_46_match_into_3(u_value v_p, u_value v_v, u_value v_env) {
-  u_value s2113 = u_mk_tuple(2, v_p, v_v);
-  u_value t2114 = NULL;
-  if ((!t2114) && u_is_con(u_field(s2113, 0), &n_syntax_46_PWild)) {
-    t2114 = u_mk_con(&n_option_46_Some, 1, v_env);
+  u_value s2202 = u_mk_tuple(2, v_p, v_v);
+  u_value t2203 = NULL;
+  if ((!t2203) && u_is_con(u_field(s2202, 0), &n_syntax_46_PWild)) {
+    t2203 = u_mk_con(&n_option_46_Some, 1, v_env);
   }
-  if ((!t2114) && u_is_con(u_field(s2113, 0), &n_syntax_46_PLit)) {
-    u_value v_l = u_field(u_field(s2113, 0), 0);
-    u_value t2115;
+  if ((!t2203) && u_is_con(u_field(s2202, 0), &n_syntax_46_PLit)) {
+    u_value v_l = u_field(u_field(s2202, 0), 0);
+    u_value t2204;
     if (u_truth(u_eq(v_v, u_mk_con(&n_value_46_Lit, 1, v_l)))) {
-      t2115 = u_mk_con(&n_option_46_Some, 1, v_env);
+      t2204 = u_mk_con(&n_option_46_Some, 1, v_env);
     } else {
-      t2115 = &o_option_46_None;
+      t2204 = &o_option_46_None;
     }
-    t2114 = t2115;
+    t2203 = t2204;
   }
-  if ((!t2114) && (u_is_con(u_field(s2113, 0), &n_syntax_46_PVar) && u_is_con(u_field(u_field(s2113, 0), 0), &n_syntax_46_Var))) {
-    u_value v_n = u_field(u_field(u_field(s2113, 0), 0), 0);
-    t2114 = u_mk_con(&n_option_46_Some, 1, f_map_46_put_3(v_n, v_v, v_env));
+  if ((!t2203) && (u_is_con(u_field(s2202, 0), &n_syntax_46_PVar) && u_is_con(u_field(u_field(s2202, 0), 0), &n_syntax_46_Var))) {
+    u_value v_n = u_field(u_field(u_field(s2202, 0), 0), 0);
+    t2203 = u_mk_con(&n_option_46_Some, 1, f_map_46_put_3(v_n, v_v, v_env));
   }
-  if ((!t2114) && (u_is_con(u_field(s2113, 0), &n_syntax_46_PApp) && u_is_con(u_field(s2113, 1), &n_value_46_Obj))) {
-    u_value v_c = u_field(u_field(s2113, 0), 0);
-    u_value v_ps = u_field(u_field(s2113, 0), 1);
-    u_value v_d = u_field(u_field(s2113, 1), 0);
-    u_value v_vs = u_field(u_field(s2113, 1), 1);
-    u_value t2116;
+  if ((!t2203) && (u_is_con(u_field(s2202, 0), &n_syntax_46_PApp) && u_is_con(u_field(s2202, 1), &n_value_46_Obj))) {
+    u_value v_c = u_field(u_field(s2202, 0), 0);
+    u_value v_ps = u_field(u_field(s2202, 0), 1);
+    u_value v_d = u_field(u_field(s2202, 1), 0);
+    u_value v_vs = u_field(u_field(s2202, 1), 1);
+    u_value t2205;
     if (u_truth(u_eq(v_c, v_d))) {
-      t2116 = f_run_46_match_all_into_3(v_ps, v_vs, v_env);
+      t2205 = f_run_46_match_all_into_3(v_ps, v_vs, v_env);
     } else {
-      t2116 = &o_option_46_None;
+      t2205 = &o_option_46_None;
     }
-    t2114 = t2116;
+    t2203 = t2205;
   }
-  if ((!t2114) && u_is_con(u_field(s2113, 0), &n_syntax_46_PApp)) {
-    t2114 = &o_option_46_None;
+  if ((!t2203) && u_is_con(u_field(s2202, 0), &n_syntax_46_PApp)) {
+    t2203 = &o_option_46_None;
   }
-  if ((!t2114) && (u_is_con(u_field(s2113, 0), &n_syntax_46_PTuple) && u_is_con(u_field(s2113, 1), &n_value_46_Obj))) {
-    u_value v_ps = u_field(u_field(s2113, 0), 0);
-    u_value v_n = u_field(u_field(s2113, 1), 0);
-    u_value v_vs = u_field(u_field(s2113, 1), 1);
+  if ((!t2203) && (u_is_con(u_field(s2202, 0), &n_syntax_46_PTuple) && u_is_con(u_field(s2202, 1), &n_value_46_Obj))) {
+    u_value v_ps = u_field(u_field(s2202, 0), 0);
+    u_value v_n = u_field(u_field(s2202, 1), 0);
+    u_value v_vs = u_field(u_field(s2202, 1), 1);
     if (u_truth(u_eq(v_n, f_syntax_46_tuple_name_0()))) {
-      t2114 = f_run_46_match_all_into_3(v_ps, v_vs, v_env);
+      t2203 = f_run_46_match_all_into_3(v_ps, v_vs, v_env);
     }
   }
-  if ((!t2114) && u_is_con(u_field(s2113, 0), &n_syntax_46_PTuple)) {
-    t2114 = &o_option_46_None;
+  if ((!t2203) && u_is_con(u_field(s2202, 0), &n_syntax_46_PTuple)) {
+    t2203 = &o_option_46_None;
   }
-  if (!t2114) {
-    u_no_case(s2113);
+  if (!t2203) {
+    u_no_case(s2202);
   }
-  return t2114;
+  return t2203;
 }
 
 u_value f_run_46_match_all_into_3(u_value v_ps, u_value v_vs, u_value v_env) {
-  u_value s2117 = u_mk_tuple(2, v_ps, v_vs);
-  u_value t2118 = NULL;
-  if ((!t2118) && (u_is_con(u_field(s2117, 0), &n_list_46_Nil) && u_is_con(u_field(s2117, 1), &n_list_46_Nil))) {
-    t2118 = u_mk_con(&n_option_46_Some, 1, v_env);
+  u_value s2206 = u_mk_tuple(2, v_ps, v_vs);
+  u_value t2207 = NULL;
+  if ((!t2207) && (u_is_con(u_field(s2206, 0), &n_list_46_Nil) && u_is_con(u_field(s2206, 1), &n_list_46_Nil))) {
+    t2207 = u_mk_con(&n_option_46_Some, 1, v_env);
   }
-  if ((!t2118) && (u_is_con(u_field(s2117, 0), &n_list_46_Cons) && u_is_con(u_field(s2117, 1), &n_list_46_Cons))) {
-    u_value v_p = u_field(u_field(s2117, 0), 0);
-    u_value v_ps1 = u_field(u_field(s2117, 0), 1);
-    u_value v_v = u_field(u_field(s2117, 1), 0);
-    u_value v_vs1 = u_field(u_field(s2117, 1), 1);
-    u_value s2119 = f_run_46_match_into_3(v_p, v_v, v_env);
-    u_value t2120 = NULL;
-    if ((!t2120) && u_is_con(s2119, &n_option_46_Some)) {
-      u_value v_inner = u_field(s2119, 0);
-      t2120 = f_run_46_match_all_into_3(v_ps1, v_vs1, v_inner);
+  if ((!t2207) && (u_is_con(u_field(s2206, 0), &n_list_46_Cons) && u_is_con(u_field(s2206, 1), &n_list_46_Cons))) {
+    u_value v_p = u_field(u_field(s2206, 0), 0);
+    u_value v_ps1 = u_field(u_field(s2206, 0), 1);
+    u_value v_v = u_field(u_field(s2206, 1), 0);
+    u_value v_vs1 = u_field(u_field(s2206, 1), 1);
+    u_value s2208 = f_run_46_match_into_3(v_p, v_v, v_env);
+    u_value t2209 = NULL;
+    if ((!t2209) && u_is_con(s2208, &n_option_46_Some)) {
+      u_value v_inner = u_field(s2208, 0);
+      t2209 = f_run_46_match_all_into_3(v_ps1, v_vs1, v_inner);
     }
-    if ((!t2120) && u_is_con(s2119, &n_option_46_None)) {
-      t2120 = &o_option_46_None;
+    if ((!t2209) && u_is_con(s2208, &n_option_46_None)) {
+      t2209 = &o_option_46_None;
     }
-    if (!t2120) {
-      u_no_case(s2119);
+    if (!t2209) {
+      u_no_case(s2208);
     }
-    t2118 = t2120;
+    t2207 = t2209;
   }
-  if (!t2118) {
-    t2118 = &o_option_46_None;
+  if (!t2207) {
+    t2207 = &o_option_46_None;
   }
-  if (!t2118) {
-    u_no_case(s2117);
+  if (!t2207) {
+    u_no_case(s2206);
   }
-  return t2118;
+  return t2207;
 }
 
 u_value f_run_46_pattern_vars_1(u_value v_p) {
-  u_value s2121 = v_p;
-  u_value t2122 = NULL;
-  if ((!t2122) && (u_is_con(s2121, &n_syntax_46_PVar) && u_is_con(u_field(s2121, 0), &n_syntax_46_Var))) {
-    u_value v_n = u_field(u_field(s2121, 0), 0);
-    t2122 = u_mk_con(&n_list_46_Cons, 2, v_n, &o_list_46_Nil);
+  u_value s2210 = v_p;
+  u_value t2211 = NULL;
+  if ((!t2211) && (u_is_con(s2210, &n_syntax_46_PVar) && u_is_con(u_field(s2210, 0), &n_syntax_46_Var))) {
+    u_value v_n = u_field(u_field(s2210, 0), 0);
+    t2211 = u_mk_con(&n_list_46_Cons, 2, v_n, &o_list_46_Nil);
   }
-  if ((!t2122) && u_is_con(s2121, &n_syntax_46_PApp)) {
-    u_value v_ps = u_field(s2121, 1);
-    u_value t2123 = &o_list_46_Nil;
-    u_value *e2124 = &t2123;
-    u_value l2125 = v_ps;
-    while (u_is_con(l2125, &n_list_46_Cons)) {
-      u_value v_q = u_field(l2125, 0);
+  if ((!t2211) && u_is_con(s2210, &n_syntax_46_PApp)) {
+    u_value v_ps = u_field(s2210, 1);
+    u_value t2212 = &o_list_46_Nil;
+    u_value *e2213 = &t2212;
+    u_value l2214 = v_ps;
+    while (u_is_con(l2214, &n_list_46_Cons)) {
+      u_value v_q = u_field(l2214, 0);
       if (u_truth(u_mk_bool(1))) {
-        e2124 = u_append(e2124, f_run_46_pattern_vars_1(v_q));
+        e2213 = u_append(e2213, f_run_46_pattern_vars_1(v_q));
       }
-      l2125 = u_field(l2125, 1);
+      l2214 = u_field(l2214, 1);
     }
-    t2122 = f_list_46_concat_1(t2123);
+    t2211 = f_list_46_concat_1(t2212);
   }
-  if ((!t2122) && u_is_con(s2121, &n_syntax_46_PTuple)) {
-    u_value v_ps = u_field(s2121, 0);
-    u_value t2126 = &o_list_46_Nil;
-    u_value *e2127 = &t2126;
-    u_value l2128 = v_ps;
-    while (u_is_con(l2128, &n_list_46_Cons)) {
-      u_value v_q = u_field(l2128, 0);
+  if ((!t2211) && u_is_con(s2210, &n_syntax_46_PTuple)) {
+    u_value v_ps = u_field(s2210, 0);
+    u_value t2215 = &o_list_46_Nil;
+    u_value *e2216 = &t2215;
+    u_value l2217 = v_ps;
+    while (u_is_con(l2217, &n_list_46_Cons)) {
+      u_value v_q = u_field(l2217, 0);
       if (u_truth(u_mk_bool(1))) {
-        e2127 = u_append(e2127, f_run_46_pattern_vars_1(v_q));
+        e2216 = u_append(e2216, f_run_46_pattern_vars_1(v_q));
       }
-      l2128 = u_field(l2128, 1);
+      l2217 = u_field(l2217, 1);
     }
-    t2122 = f_list_46_concat_1(t2126);
+    t2211 = f_list_46_concat_1(t2215);
   }
-  if (!t2122) {
-    t2122 = &o_list_46_Nil;
+  if (!t2211) {
+    t2211 = &o_list_46_Nil;
   }
-  if (!t2122) {
-    u_no_case(s2121);
+  if (!t2211) {
+    u_no_case(s2210);
   }
-  return t2122;
+  return t2211;
 }
 
 void p_run_46_evaluate(u_value v_p, u_value v_env, u_value v_e, u_value *r_v, u_value *r_cache) {
@@ -22550,67 +23531,67 @@ void p_run_46_evaluate(u_value v_p, u_value v_env, u_value v_e, u_value *r_v, u_
     u_value v_vs = NULL;
     u_value v_envs = NULL;
     u_value v_sel = NULL;
-    u_value s2129 = v_e;
-    int d2130 = 0;
-    if ((!d2130) && u_is_con(s2129, &n_syntax_46_ELit)) {
-      u_value v_l = u_field(s2129, 0);
-      d2130 = 1;
+    u_value s2218 = v_e;
+    int d2219 = 0;
+    if ((!d2219) && u_is_con(s2218, &n_syntax_46_ELit)) {
+      u_value v_l = u_field(s2218, 0);
+      d2219 = 1;
       {
-        u_value t2131 = u_mk_con(&n_value_46_Lit, 1, v_l);
-        *r_v = t2131;
+        u_value t2220 = u_mk_con(&n_value_46_Lit, 1, v_l);
+        *r_v = t2220;
       }
     }
-    if ((!d2130) && (u_is_con(s2129, &n_syntax_46_EVar) && u_is_con(u_field(s2129, 0), &n_syntax_46_Var))) {
-      u_value v_n = u_field(u_field(s2129, 0), 0);
-      u_value v_t = u_field(u_field(s2129, 0), 1);
-      d2130 = 1;
+    if ((!d2219) && (u_is_con(s2218, &n_syntax_46_EVar) && u_is_con(u_field(s2218, 0), &n_syntax_46_Var))) {
+      u_value v_n = u_field(u_field(s2218, 0), 0);
+      u_value v_t = u_field(u_field(s2218, 0), 1);
+      d2219 = 1;
       {
-        u_value t2132 = f_run_46_variable_value_4(v_p, v_env, v_n, v_t);
-        *r_v = t2132;
+        u_value t2221 = f_run_46_variable_value_4(v_p, v_env, v_n, v_t);
+        *r_v = t2221;
       }
     }
-    if ((!d2130) && u_is_con(s2129, &n_syntax_46_EApp)) {
-      u_value v_f = u_field(s2129, 0);
-      u_value v_args = u_field(s2129, 1);
-      d2130 = 1;
+    if ((!d2219) && u_is_con(s2218, &n_syntax_46_EApp)) {
+      u_value v_f = u_field(s2218, 0);
+      u_value v_args = u_field(s2218, 1);
+      d2219 = 1;
       {
         p_run_46_apply_expr(v_p, v_env, v_f, v_args, r_v, r_cache);
       }
     }
-    if ((!d2130) && u_is_con(s2129, &n_syntax_46_ELam)) {
-      u_value v_xs = u_field(s2129, 0);
-      u_value v_body = u_field(s2129, 1);
-      d2130 = 1;
+    if ((!d2219) && u_is_con(s2218, &n_syntax_46_ELam)) {
+      u_value v_xs = u_field(s2218, 0);
+      u_value v_body = u_field(s2218, 1);
+      d2219 = 1;
       {
-        u_value t2133 = u_mk_con(&n_value_46_Clos, 3, v_env, v_xs, v_body);
-        *r_v = t2133;
+        u_value t2222 = u_mk_con(&n_value_46_Clos, 3, v_env, v_xs, v_body);
+        *r_v = t2222;
       }
     }
-    if ((!d2130) && u_is_con(s2129, &n_syntax_46_EProc)) {
-      u_value v_xs = u_field(s2129, 0);
-      u_value v_ys = u_field(s2129, 1);
-      u_value v_zs = u_field(s2129, 2);
-      u_value v_body = u_field(s2129, 3);
-      d2130 = 1;
+    if ((!d2219) && u_is_con(s2218, &n_syntax_46_EProc)) {
+      u_value v_xs = u_field(s2218, 0);
+      u_value v_ys = u_field(s2218, 1);
+      u_value v_zs = u_field(s2218, 2);
+      u_value v_body = u_field(s2218, 3);
+      d2219 = 1;
       {
-        u_value t2134 = u_mk_con(&n_value_46_ProcClos, 5, v_env, v_xs, v_ys, v_zs, v_body);
-        *r_v = t2134;
+        u_value t2223 = u_mk_con(&n_value_46_ProcClos, 5, v_env, v_xs, v_ys, v_zs, v_body);
+        *r_v = t2223;
       }
     }
-    if ((!d2130) && u_is_con(s2129, &n_syntax_46_ELet)) {
-      u_value v_bound = u_field(s2129, 0);
-      u_value v_body = u_field(s2129, 1);
-      d2130 = 1;
+    if ((!d2219) && u_is_con(s2218, &n_syntax_46_ELet)) {
+      u_value v_bound = u_field(s2218, 0);
+      u_value v_body = u_field(s2218, 1);
+      d2219 = 1;
       {
         p_run_46_evaluate_all(v_p, v_env, f_list_46_seconds_1(v_bound), &v_vs, r_cache);
         p_run_46_evaluate(v_p, f_run_46_bind_all_3(f_list_46_firsts_1(v_bound), v_vs, v_env), v_body, r_v, r_cache);
       }
     }
-    if ((!d2130) && u_is_con(s2129, &n_syntax_46_EIte)) {
-      u_value v_cond = u_field(s2129, 0);
-      u_value v_left = u_field(s2129, 1);
-      u_value v_right = u_field(s2129, 2);
-      d2130 = 1;
+    if ((!d2219) && u_is_con(s2218, &n_syntax_46_EIte)) {
+      u_value v_cond = u_field(s2218, 0);
+      u_value v_left = u_field(s2218, 1);
+      u_value v_right = u_field(s2218, 2);
+      d2219 = 1;
       {
         p_run_46_evaluate(v_p, v_env, v_cond, &v_w, r_cache);
         if (u_truth(f_run_46_truth_1(v_w))) {
@@ -22624,67 +23605,67 @@ void p_run_46_evaluate(u_value v_p, u_value v_env, u_value v_e, u_value *r_v, u_
         }
       }
     }
-    if ((!d2130) && u_is_con(s2129, &n_syntax_46_EMatch)) {
-      u_value v_arg = u_field(s2129, 0);
-      u_value v_cases = u_field(s2129, 1);
-      d2130 = 1;
+    if ((!d2219) && u_is_con(s2218, &n_syntax_46_EMatch)) {
+      u_value v_arg = u_field(s2218, 0);
+      u_value v_cases = u_field(s2218, 1);
+      d2219 = 1;
       {
         p_run_46_evaluate(v_p, v_env, v_arg, &v_w, r_cache);
         p_run_46_select(v_p, v_env, v_w, v_cases, &v_sel, r_cache);
-        u_value s2135 = v_sel;
-        int d2136 = 0;
-        if ((!d2136) && u_is_con(s2135, &n_option_46_Some)) {
-          u_value v_body = u_field(u_field(s2135, 0), 0);
-          u_value v_inner = u_field(u_field(s2135, 0), 1);
-          d2136 = 1;
+        u_value s2224 = v_sel;
+        int d2225 = 0;
+        if ((!d2225) && u_is_con(s2224, &n_option_46_Some)) {
+          u_value v_body = u_field(u_field(s2224, 0), 0);
+          u_value v_inner = u_field(u_field(s2224, 0), 1);
+          d2225 = 1;
           {
             p_run_46_evaluate(v_p, v_inner, v_body, r_v, r_cache);
           }
         }
-        if ((!d2136) && u_is_con(s2135, &n_option_46_None)) {
-          d2136 = 1;
+        if ((!d2225) && u_is_con(s2224, &n_option_46_None)) {
+          d2225 = 1;
           {
             u_raise(u_mk_con(&n_run_46_NoCase, 1, v_w), "run.RuntimeError");
           }
         }
-        if (!d2136) {
-          u_no_case(s2135);
+        if (!d2225) {
+          u_no_case(s2224);
         }
       }
     }
-    if ((!d2130) && u_is_con(s2129, &n_syntax_46_EComp)) {
-      u_value v_result = u_field(s2129, 0);
-      u_value v_xs = u_field(s2129, 1);
-      u_value v_lists = u_field(s2129, 2);
-      u_value v_cond = u_field(s2129, 3);
-      d2130 = 1;
+    if ((!d2219) && u_is_con(s2218, &n_syntax_46_EComp)) {
+      u_value v_result = u_field(s2218, 0);
+      u_value v_xs = u_field(s2218, 1);
+      u_value v_lists = u_field(s2218, 2);
+      u_value v_cond = u_field(s2218, 3);
+      d2219 = 1;
       {
         p_run_46_combinations(v_p, v_env, v_xs, v_lists, &v_envs, r_cache);
         p_run_46_comprehension(v_p, v_envs, v_result, v_cond, &v_vs, r_cache);
-        u_value t2137 = f_value_46_list_value_1(v_vs);
-        *r_v = t2137;
+        u_value t2226 = f_value_46_list_value_1(v_vs);
+        *r_v = t2226;
       }
     }
-    if ((!d2130) && u_is_con(s2129, &n_syntax_46_ETuple)) {
-      u_value v_items = u_field(s2129, 0);
-      d2130 = 1;
+    if ((!d2219) && u_is_con(s2218, &n_syntax_46_ETuple)) {
+      u_value v_items = u_field(s2218, 0);
+      d2219 = 1;
       {
         p_run_46_evaluate_all(v_p, v_env, v_items, &v_vs, r_cache);
-        u_value t2138 = u_mk_con(&n_value_46_Obj, 2, f_syntax_46_tuple_name_0(), v_vs);
-        *r_v = t2138;
+        u_value t2227 = u_mk_con(&n_value_46_Obj, 2, f_syntax_46_tuple_name_0(), v_vs);
+        *r_v = t2227;
       }
     }
-    if ((!d2130) && u_is_con(s2129, &n_syntax_46_ERaise)) {
-      u_value v_arg = u_field(s2129, 0);
-      u_value v_t = u_field(s2129, 1);
-      d2130 = 1;
+    if ((!d2219) && u_is_con(s2218, &n_syntax_46_ERaise)) {
+      u_value v_arg = u_field(s2218, 0);
+      u_value v_t = u_field(s2218, 1);
+      d2219 = 1;
       {
         p_run_46_evaluate(v_p, v_env, v_arg, r_v, r_cache);
         u_raise(u_mk_con(&n_run_46_Thrown, 2, *r_v, v_t), "run.Thrown");
       }
     }
-    if (!d2130) {
-      u_no_case(s2129);
+    if (!d2219) {
+      u_no_case(s2218);
     }
   }
 }
@@ -22693,91 +23674,91 @@ void p_run_46_evaluate_all(u_value v_p, u_value v_env, u_value v_es, u_value *r_
   {
     u_value v_v = NULL;
     u_value v_rest = NULL;
-    u_value s2139 = v_es;
-    int d2140 = 0;
-    if ((!d2140) && u_is_con(s2139, &n_list_46_Nil)) {
-      d2140 = 1;
+    u_value s2228 = v_es;
+    int d2229 = 0;
+    if ((!d2229) && u_is_con(s2228, &n_list_46_Nil)) {
+      d2229 = 1;
       {
-        u_value t2141 = &o_list_46_Nil;
-        *r_vs = t2141;
+        u_value t2230 = &o_list_46_Nil;
+        *r_vs = t2230;
       }
     }
-    if ((!d2140) && u_is_con(s2139, &n_list_46_Cons)) {
-      u_value v_e = u_field(s2139, 0);
-      u_value v_more = u_field(s2139, 1);
-      d2140 = 1;
+    if ((!d2229) && u_is_con(s2228, &n_list_46_Cons)) {
+      u_value v_e = u_field(s2228, 0);
+      u_value v_more = u_field(s2228, 1);
+      d2229 = 1;
       {
         p_run_46_evaluate(v_p, v_env, v_e, &v_v, r_cache);
         p_run_46_evaluate_all(v_p, v_env, v_more, &v_rest, r_cache);
-        u_value t2142 = u_mk_con(&n_list_46_Cons, 2, v_v, v_rest);
-        *r_vs = t2142;
+        u_value t2231 = u_mk_con(&n_list_46_Cons, 2, v_v, v_rest);
+        *r_vs = t2231;
       }
     }
-    if (!d2140) {
-      u_no_case(s2139);
+    if (!d2229) {
+      u_no_case(s2228);
     }
   }
 }
 
 u_value f_run_46_variable_value_4(u_value v_p, u_value v_env, u_value v_n, u_value v_t) {
-  u_value s2143 = u_mk_tuple(2, f_map_46_get_2(v_n, v_env), f_syntax_46_Name_46_module_1(v_n));
-  u_value t2144 = NULL;
-  if ((!t2144) && u_is_con(u_field(s2143, 0), &n_option_46_Some)) {
-    u_value v_w = u_field(u_field(s2143, 0), 0);
-    t2144 = v_w;
+  u_value s2232 = u_mk_tuple(2, f_map_46_get_2(v_n, v_env), f_syntax_46_Name_46_module_1(v_n));
+  u_value t2233 = NULL;
+  if ((!t2233) && u_is_con(u_field(s2232, 0), &n_option_46_Some)) {
+    u_value v_w = u_field(u_field(s2232, 0), 0);
+    t2233 = v_w;
   }
-  if ((!t2144) && (u_is_con(u_field(s2143, 0), &n_option_46_None) && u_is_con(u_field(s2143, 1), &n_option_46_None))) {
-    u_value t2145;
+  if ((!t2233) && (u_is_con(u_field(s2232, 0), &n_option_46_None) && u_is_con(u_field(s2232, 1), &n_option_46_None))) {
+    u_value t2234;
     if (u_truth(f_run_46_is_builtin_1(v_n))) {
-      t2145 = u_mk_con(&n_value_46_Prim, 1, v_n);
+      t2234 = u_mk_con(&n_value_46_Prim, 1, v_n);
     } else {
       u_raise(u_mk_con(&n_run_46_Uninitialized, 1, v_n), "run.RuntimeError");
-      t2145 = NULL;
+      t2234 = NULL;
     }
-    t2144 = t2145;
+    t2233 = t2234;
   }
-  if ((!t2144) && (u_is_con(u_field(s2143, 0), &n_option_46_None) && u_is_con(u_field(s2143, 1), &n_option_46_Some))) {
-    u_value s2146 = f_map_46_get_2(u_mk_tuple(2, v_n, f_syntax_46_arity_1(v_t)), f_run_46_Prog_46_funs_1(v_p));
-    u_value t2147 = NULL;
-    if ((!t2147) && u_is_con(s2146, &n_option_46_Some)) {
-      t2147 = u_mk_con(&n_value_46_Fn, 2, v_n, f_syntax_46_arity_1(v_t));
+  if ((!t2233) && (u_is_con(u_field(s2232, 0), &n_option_46_None) && u_is_con(u_field(s2232, 1), &n_option_46_Some))) {
+    u_value s2235 = f_map_46_get_2(u_mk_tuple(2, v_n, f_syntax_46_arity_1(v_t)), f_run_46_Prog_46_funs_1(v_p));
+    u_value t2236 = NULL;
+    if ((!t2236) && u_is_con(s2235, &n_option_46_Some)) {
+      t2236 = u_mk_con(&n_value_46_Fn, 2, v_n, f_syntax_46_arity_1(v_t));
     }
-    if ((!t2147) && u_is_con(s2146, &n_option_46_None)) {
-      u_value s2148 = f_map_46_get_2(v_n, f_run_46_Prog_46_constrs_1(v_p));
-      u_value t2149 = NULL;
-      if ((!t2149) && u_is_con(s2148, &n_option_46_Some)) {
-        u_value v_k = u_field(s2148, 0);
-        u_value t2150;
+    if ((!t2236) && u_is_con(s2235, &n_option_46_None)) {
+      u_value s2237 = f_map_46_get_2(v_n, f_run_46_Prog_46_constrs_1(v_p));
+      u_value t2238 = NULL;
+      if ((!t2238) && u_is_con(s2237, &n_option_46_Some)) {
+        u_value v_k = u_field(s2237, 0);
+        u_value t2239;
         if (u_truth(u_eq(v_k, u_mk_int(0)))) {
-          t2150 = u_mk_con(&n_value_46_Obj, 2, v_n, &o_list_46_Nil);
+          t2239 = u_mk_con(&n_value_46_Obj, 2, v_n, &o_list_46_Nil);
         } else {
-          t2150 = u_mk_con(&n_value_46_Con, 1, v_n);
+          t2239 = u_mk_con(&n_value_46_Con, 1, v_n);
         }
-        t2149 = t2150;
+        t2238 = t2239;
       }
-      if ((!t2149) && u_is_con(s2148, &n_option_46_None)) {
+      if ((!t2238) && u_is_con(s2237, &n_option_46_None)) {
         if (u_truth(f_map_46_contains_2(v_n, f_run_46_Prog_46_procs_1(v_p)))) {
-          t2149 = u_mk_con(&n_value_46_Proc, 1, v_n);
+          t2238 = u_mk_con(&n_value_46_Proc, 1, v_n);
         }
       }
-      if ((!t2149) && u_is_con(s2148, &n_option_46_None)) {
+      if ((!t2238) && u_is_con(s2237, &n_option_46_None)) {
         u_raise(u_mk_con(&n_run_46_Uninitialized, 1, v_n), "run.RuntimeError");
-        t2149 = NULL;
+        t2238 = NULL;
       }
-      if (!t2149) {
-        u_no_case(s2148);
+      if (!t2238) {
+        u_no_case(s2237);
       }
-      t2147 = t2149;
+      t2236 = t2238;
     }
-    if (!t2147) {
-      u_no_case(s2146);
+    if (!t2236) {
+      u_no_case(s2235);
     }
-    t2144 = t2147;
+    t2233 = t2236;
   }
-  if (!t2144) {
-    u_no_case(s2143);
+  if (!t2233) {
+    u_no_case(s2232);
   }
-  return t2144;
+  return t2233;
 }
 
 void p_run_46_apply_expr(u_value v_p, u_value v_env, u_value v_f, u_value v_args, u_value *r_v, u_value *r_cache) {
@@ -22785,12 +23766,12 @@ void p_run_46_apply_expr(u_value v_p, u_value v_env, u_value v_f, u_value v_args
     u_value v_a = NULL;
     u_value v_g = NULL;
     u_value v_vs = NULL;
-    u_value s2151 = u_mk_tuple(2, v_f, v_args);
-    int d2152 = 0;
-    if ((!d2152) && (u_is_con(u_field(s2151, 0), &n_syntax_46_EVar) && (u_is_con(u_field(u_field(s2151, 0), 0), &n_syntax_46_Var) && (u_is_con(u_field(u_field(u_field(s2151, 0), 0), 0), &n_syntax_46_Name) && (u_is_con(u_field(u_field(u_field(u_field(s2151, 0), 0), 0), 0), &n_option_46_None) && (u_equals(u_field(u_field(u_field(u_field(s2151, 0), 0), 0), 1), u_mk_lit("and")) && (u_is_con(u_field(s2151, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2151, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2151, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_l = u_field(u_field(s2151, 1), 0);
-      u_value v_r = u_field(u_field(u_field(s2151, 1), 1), 0);
-      d2152 = 1;
+    u_value s2240 = u_mk_tuple(2, v_f, v_args);
+    int d2241 = 0;
+    if ((!d2241) && (u_is_con(u_field(s2240, 0), &n_syntax_46_EVar) && (u_is_con(u_field(u_field(s2240, 0), 0), &n_syntax_46_Var) && (u_is_con(u_field(u_field(u_field(s2240, 0), 0), 0), &n_syntax_46_Name) && (u_is_con(u_field(u_field(u_field(u_field(s2240, 0), 0), 0), 0), &n_option_46_None) && (u_equals(u_field(u_field(u_field(u_field(s2240, 0), 0), 0), 1), u_mk_lit("and")) && (u_is_con(u_field(s2240, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2240, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2240, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_l = u_field(u_field(s2240, 1), 0);
+      u_value v_r = u_field(u_field(u_field(s2240, 1), 1), 0);
+      d2241 = 1;
       {
         p_run_46_evaluate(v_p, v_env, v_l, &v_a, r_cache);
         if (u_truth(f_run_46_truth_1(v_a))) {
@@ -22799,22 +23780,22 @@ void p_run_46_apply_expr(u_value v_p, u_value v_env, u_value v_f, u_value v_args
           }
         } else {
           {
-            u_value t2153 = v_a;
-            *r_v = t2153;
+            u_value t2242 = v_a;
+            *r_v = t2242;
           }
         }
       }
     }
-    if ((!d2152) && (u_is_con(u_field(s2151, 0), &n_syntax_46_EVar) && (u_is_con(u_field(u_field(s2151, 0), 0), &n_syntax_46_Var) && (u_is_con(u_field(u_field(u_field(s2151, 0), 0), 0), &n_syntax_46_Name) && (u_is_con(u_field(u_field(u_field(u_field(s2151, 0), 0), 0), 0), &n_option_46_None) && (u_equals(u_field(u_field(u_field(u_field(s2151, 0), 0), 0), 1), u_mk_lit("or")) && (u_is_con(u_field(s2151, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2151, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2151, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_l = u_field(u_field(s2151, 1), 0);
-      u_value v_r = u_field(u_field(u_field(s2151, 1), 1), 0);
-      d2152 = 1;
+    if ((!d2241) && (u_is_con(u_field(s2240, 0), &n_syntax_46_EVar) && (u_is_con(u_field(u_field(s2240, 0), 0), &n_syntax_46_Var) && (u_is_con(u_field(u_field(u_field(s2240, 0), 0), 0), &n_syntax_46_Name) && (u_is_con(u_field(u_field(u_field(u_field(s2240, 0), 0), 0), 0), &n_option_46_None) && (u_equals(u_field(u_field(u_field(u_field(s2240, 0), 0), 0), 1), u_mk_lit("or")) && (u_is_con(u_field(s2240, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2240, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2240, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_l = u_field(u_field(s2240, 1), 0);
+      u_value v_r = u_field(u_field(u_field(s2240, 1), 1), 0);
+      d2241 = 1;
       {
         p_run_46_evaluate(v_p, v_env, v_l, &v_a, r_cache);
         if (u_truth(f_run_46_truth_1(v_a))) {
           {
-            u_value t2154 = v_a;
-            *r_v = t2154;
+            u_value t2243 = v_a;
+            *r_v = t2243;
           }
         } else {
           {
@@ -22823,16 +23804,16 @@ void p_run_46_apply_expr(u_value v_p, u_value v_env, u_value v_f, u_value v_args
         }
       }
     }
-    if (!d2152) {
-      d2152 = 1;
+    if (!d2241) {
+      d2241 = 1;
       {
         p_run_46_evaluate(v_p, v_env, v_f, &v_g, r_cache);
         p_run_46_evaluate_all(v_p, v_env, v_args, &v_vs, r_cache);
         p_run_46_apply_value(v_p, v_g, v_vs, r_v, r_cache);
       }
     }
-    if (!d2152) {
-      u_no_case(s2151);
+    if (!d2241) {
+      u_no_case(s2240);
     }
   }
 }
@@ -22840,144 +23821,155 @@ void p_run_46_apply_expr(u_value v_p, u_value v_env, u_value v_f, u_value v_args
 void p_run_46_apply_value(u_value v_p, u_value v_f, u_value v_vs, u_value *r_v, u_value *r_cache) {
   {
     u_value v_k = NULL;
-    u_value s2155 = v_f;
-    int d2156 = 0;
-    if ((!d2156) && u_is_con(s2155, &n_value_46_Clos)) {
-      u_value v_env = u_field(s2155, 0);
-      u_value v_xs = u_field(s2155, 1);
-      u_value v_body = u_field(s2155, 2);
-      d2156 = 1;
+    u_value v_r = NULL;
+    u_value s2244 = v_f;
+    int d2245 = 0;
+    if ((!d2245) && u_is_con(s2244, &n_value_46_Clos)) {
+      u_value v_env = u_field(s2244, 0);
+      u_value v_xs = u_field(s2244, 1);
+      u_value v_body = u_field(s2244, 2);
+      d2245 = 1;
       {
         p_run_46_evaluate(v_p, f_run_46_bind_all_3(v_xs, v_vs, v_env), v_body, r_v, r_cache);
       }
     }
-    if ((!d2156) && u_is_con(s2155, &n_value_46_Fn)) {
-      u_value v_n = u_field(s2155, 0);
-      u_value v_k = u_field(s2155, 1);
-      d2156 = 1;
+    if ((!d2245) && u_is_con(s2244, &n_value_46_Fn)) {
+      u_value v_n = u_field(s2244, 0);
+      u_value v_k = u_field(s2244, 1);
+      d2245 = 1;
       {
-        u_value s2157 = f_map_46_get_2(u_mk_tuple(2, v_n, v_k), f_run_46_Prog_46_funs_1(v_p));
-        int d2158 = 0;
-        if ((!d2158) && (u_is_con(s2157, &n_option_46_Some) && (u_is_con(u_field(u_field(s2157, 0), 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2157, 0), 0), 0), &n_list_46_Nil) && u_is_con(u_field(u_field(u_field(s2157, 0), 0), 1), &n_list_46_Nil))))) {
-          u_value v_body = u_field(u_field(s2157, 0), 1);
-          d2158 = 1;
+        u_value s2246 = f_map_46_get_2(u_mk_tuple(2, v_n, v_k), f_run_46_Prog_46_funs_1(v_p));
+        int d2247 = 0;
+        if ((!d2247) && (u_is_con(s2246, &n_option_46_Some) && (u_is_con(u_field(u_field(s2246, 0), 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2246, 0), 0), 0), &n_list_46_Nil) && u_is_con(u_field(u_field(u_field(s2246, 0), 0), 1), &n_list_46_Nil))))) {
+          u_value v_body = u_field(u_field(s2246, 0), 1);
+          d2247 = 1;
           {
             p_run_46_cached(v_p, v_n, v_body, r_v, r_cache);
           }
         }
-        if ((!d2158) && (u_is_con(s2157, &n_option_46_Some) && (u_is_con(u_field(u_field(s2157, 0), 0), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2157, 0), 0), 1), &n_list_46_Nil)))) {
-          u_value v_xs = u_field(u_field(u_field(s2157, 0), 0), 0);
-          u_value v_body = u_field(u_field(s2157, 0), 1);
-          d2158 = 1;
+        if ((!d2247) && (u_is_con(s2246, &n_option_46_Some) && (u_is_con(u_field(u_field(s2246, 0), 0), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2246, 0), 0), 1), &n_list_46_Nil)))) {
+          u_value v_xs = u_field(u_field(u_field(s2246, 0), 0), 0);
+          u_value v_body = u_field(u_field(s2246, 0), 1);
+          d2247 = 1;
           {
             p_run_46_evaluate(v_p, f_run_46_bind_all_3(v_xs, v_vs, f_map_46_empty_0()), v_body, r_v, r_cache);
           }
         }
-        if ((!d2158) && (u_is_con(s2157, &n_option_46_Some) && (u_is_con(u_field(u_field(s2157, 0), 0), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2157, 0), 0), 1), &n_list_46_Cons)))) {
-          u_value v_xs = u_field(u_field(u_field(s2157, 0), 0), 0);
-          u_value v_ys = u_field(u_field(u_field(u_field(s2157, 0), 0), 1), 0);
-          u_value v_rest = u_field(u_field(u_field(u_field(s2157, 0), 0), 1), 1);
-          u_value v_body = u_field(u_field(s2157, 0), 1);
-          d2158 = 1;
+        if ((!d2247) && (u_is_con(s2246, &n_option_46_Some) && (u_is_con(u_field(u_field(s2246, 0), 0), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2246, 0), 0), 1), &n_list_46_Cons)))) {
+          u_value v_xs = u_field(u_field(u_field(s2246, 0), 0), 0);
+          u_value v_ys = u_field(u_field(u_field(u_field(s2246, 0), 0), 1), 0);
+          u_value v_rest = u_field(u_field(u_field(u_field(s2246, 0), 0), 1), 1);
+          u_value v_body = u_field(u_field(s2246, 0), 1);
+          d2247 = 1;
           {
-            u_value t2159 = u_mk_con(&n_value_46_Clos, 3, f_run_46_bind_all_3(v_xs, v_vs, f_map_46_empty_0()), v_ys, f_run_46_lambdas_2(v_rest, v_body));
-            *r_v = t2159;
+            u_value t2248 = u_mk_con(&n_value_46_Clos, 3, f_run_46_bind_all_3(v_xs, v_vs, f_map_46_empty_0()), v_ys, f_run_46_lambdas_2(v_rest, v_body));
+            *r_v = t2248;
           }
         }
-        if ((!d2158) && (u_is_con(s2157, &n_option_46_Some) && u_is_con(u_field(u_field(s2157, 0), 0), &n_list_46_Nil))) {
-          d2158 = 1;
-          {
-            u_raise(u_mk_con(&n_run_46_Uninitialized, 1, v_n), "run.RuntimeError");
-          }
-        }
-        if ((!d2158) && u_is_con(s2157, &n_option_46_None)) {
-          d2158 = 1;
+        if ((!d2247) && (u_is_con(s2246, &n_option_46_Some) && u_is_con(u_field(u_field(s2246, 0), 0), &n_list_46_Nil))) {
+          d2247 = 1;
           {
             u_raise(u_mk_con(&n_run_46_Uninitialized, 1, v_n), "run.RuntimeError");
           }
         }
-        if (!d2158) {
-          u_no_case(s2157);
-        }
-      }
-    }
-    if ((!d2156) && u_is_con(s2155, &n_value_46_Con)) {
-      u_value v_n = u_field(s2155, 0);
-      d2156 = 1;
-      {
-        u_value t2160 = u_mk_con(&n_value_46_Obj, 2, v_n, v_vs);
-        *r_v = t2160;
-      }
-    }
-    if ((!d2156) && u_is_con(s2155, &n_value_46_Prim)) {
-      u_value v_n = u_field(s2155, 0);
-      d2156 = 1;
-      {
-        u_value s2161 = u_mk_tuple(2, f_syntax_46_Name_46_base_1(v_n), v_vs);
-        int d2162 = 0;
-        if ((!d2162) && (u_equals(u_field(s2161, 0), u_mk_lit("compare")) && (u_is_con(u_field(s2161, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2161, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2161, 1), 1), 1), &n_list_46_Nil))))) {
-          u_value v_a = u_field(u_field(s2161, 1), 0);
-          u_value v_b = u_field(u_field(u_field(s2161, 1), 1), 0);
-          d2162 = 1;
+        if ((!d2247) && u_is_con(s2246, &n_option_46_None)) {
+          d2247 = 1;
           {
-            p_run_46_compare_values(v_p, v_a, v_b, &v_k);
-            u_value t2163 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, v_k));
-            *r_v = t2163;
+            u_raise(u_mk_con(&n_run_46_Uninitialized, 1, v_n), "run.RuntimeError");
           }
         }
-        if (!d2162) {
-          d2162 = 1;
+        if (!d2247) {
+          u_no_case(s2246);
+        }
+      }
+    }
+    if ((!d2245) && u_is_con(s2244, &n_value_46_Con)) {
+      u_value v_n = u_field(s2244, 0);
+      d2245 = 1;
+      {
+        u_value t2249 = u_mk_con(&n_value_46_Obj, 2, v_n, v_vs);
+        *r_v = t2249;
+      }
+    }
+    if ((!d2245) && u_is_con(s2244, &n_value_46_Prim)) {
+      u_value v_n = u_field(s2244, 0);
+      d2245 = 1;
+      {
+        u_value s2250 = u_mk_tuple(2, f_syntax_46_Name_46_base_1(v_n), v_vs);
+        int d2251 = 0;
+        if ((!d2251) && (u_equals(u_field(s2250, 0), u_mk_lit("compare")) && (u_is_con(u_field(s2250, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2250, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2250, 1), 1), 1), &n_list_46_Nil))))) {
+          u_value v_a = u_field(u_field(s2250, 1), 0);
+          u_value v_b = u_field(u_field(u_field(s2250, 1), 1), 0);
+          d2251 = 1;
+          {
+            p_run_46_compare_values(v_p, v_a, v_b, &v_k, r_cache);
+            u_value t2252 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, v_k));
+            *r_v = t2252;
+          }
+        }
+        if ((!d2251) && (u_equals(u_field(s2250, 0), u_mk_lit("==")) && (u_is_con(u_field(s2250, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2250, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2250, 1), 1), 1), &n_list_46_Nil))))) {
+          u_value v_a = u_field(u_field(s2250, 1), 0);
+          u_value v_b = u_field(u_field(u_field(s2250, 1), 1), 0);
+          d2251 = 1;
+          {
+            p_run_46_equal(v_p, v_a, v_b, &v_r, r_cache);
+            u_value t2253 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VBool, 1, v_r));
+            *r_v = t2253;
+          }
+        }
+        if (!d2251) {
+          d2251 = 1;
           {
             p_run_46_primitive(v_n, v_vs, r_v);
           }
         }
-        if (!d2162) {
-          u_no_case(s2161);
+        if (!d2251) {
+          u_no_case(s2250);
         }
       }
     }
-    if (!d2156) {
-      d2156 = 1;
+    if (!d2245) {
+      d2245 = 1;
       {
         u_raise(u_mk_con(&n_run_46_NotFunction, 1, v_f), "run.RuntimeError");
       }
     }
-    if (!d2156) {
-      u_no_case(s2155);
+    if (!d2245) {
+      u_no_case(s2244);
     }
   }
 }
 
 void p_run_46_cached(u_value v_p, u_value v_n, u_value v_body, u_value *r_v, u_value *r_cache) {
   {
-    u_value s2164 = f_map_46_get_2(v_n, *r_cache);
-    int d2165 = 0;
-    if ((!d2165) && u_is_con(s2164, &n_option_46_Some)) {
-      u_value v_w = u_field(s2164, 0);
-      d2165 = 1;
+    u_value s2254 = f_map_46_get_2(v_n, *r_cache);
+    int d2255 = 0;
+    if ((!d2255) && u_is_con(s2254, &n_option_46_Some)) {
+      u_value v_w = u_field(s2254, 0);
+      d2255 = 1;
       {
-        u_value t2166 = v_w;
-        *r_v = t2166;
+        u_value t2256 = v_w;
+        *r_v = t2256;
       }
     }
-    if ((!d2165) && u_is_con(s2164, &n_option_46_None)) {
+    if ((!d2255) && u_is_con(s2254, &n_option_46_None)) {
       if (u_truth(f_list_46_contains_2(v_n, f_run_46_Prog_46_computing_1(v_p)))) {
-        d2165 = 1;
+        d2255 = 1;
         {
           u_raise(u_mk_con(&n_run_46_RecursiveInitialization, 1, v_n), "run.RuntimeError");
         }
       }
     }
-    if ((!d2165) && u_is_con(s2164, &n_option_46_None)) {
-      d2165 = 1;
+    if ((!d2255) && u_is_con(s2254, &n_option_46_None)) {
+      d2255 = 1;
       {
         p_run_46_evaluate(f_run_46_Prog_46_computing_58__61__2(v_p, u_mk_con(&n_list_46_Cons, 2, v_n, f_run_46_Prog_46_computing_1(v_p))), f_map_46_empty_0(), v_body, r_v, r_cache);
-        u_value t2167 = f_map_46_put_3(v_n, *r_v, *r_cache);
-        *r_cache = t2167;
+        u_value t2257 = f_map_46_put_3(v_n, *r_v, *r_cache);
+        *r_cache = t2257;
       }
     }
-    if (!d2165) {
-      u_no_case(s2164);
+    if (!d2255) {
+      u_no_case(s2254);
     }
   }
 }
@@ -22989,210 +23981,200 @@ u_value f_run_46_failure_2(u_value v_n, u_value v_args) {
 void p_run_46_primitive(u_value v_n, u_value v_vs, u_value *r_v) {
   {
     u_value v_r = NULL;
-    u_value s2168 = u_mk_tuple(2, f_syntax_46_Name_46_base_1(v_n), v_vs);
-    int d2169 = 0;
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("+")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_a = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_b = u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0);
-      d2169 = 1;
+    u_value s2258 = u_mk_tuple(2, f_syntax_46_Name_46_base_1(v_n), v_vs);
+    int d2259 = 0;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("+")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_a = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_b = u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2170 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_add(v_a, v_b)));
-        *r_v = t2170;
+        u_value t2260 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_add(v_a, v_b)));
+        *r_v = t2260;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("-")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_a = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_b = u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("-")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_a = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_b = u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2171 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_sub(v_a, v_b)));
-        *r_v = t2171;
+        u_value t2261 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_sub(v_a, v_b)));
+        *r_v = t2261;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("*")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_a = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_b = u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("*")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_a = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_b = u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2172 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_mul(v_a, v_b)));
-        *r_v = t2172;
+        u_value t2262 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_mul(v_a, v_b)));
+        *r_v = t2262;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("/")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VInt) && (u_equals(u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0), u_mk_int(0)) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil)))))))))) {
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("/")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VInt) && (u_equals(u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0), u_mk_int(0)) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil)))))))))) {
+      d2259 = 1;
       {
         u_raise(f_run_46_failure_2(f_syntax_46_division_by_zero_name_0(), &o_list_46_Nil), "run.Thrown");
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("/")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_a = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_b = u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("/")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_a = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_b = u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2173 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_div(v_a, v_b)));
-        *r_v = t2173;
+        u_value t2263 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_div(v_a, v_b)));
+        *r_v = t2263;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("%")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VInt) && (u_equals(u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0), u_mk_int(0)) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil)))))))))) {
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("%")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VInt) && (u_equals(u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0), u_mk_int(0)) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil)))))))))) {
+      d2259 = 1;
       {
         u_raise(f_run_46_failure_2(f_syntax_46_division_by_zero_name_0(), &o_list_46_Nil), "run.Thrown");
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("%")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_a = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_b = u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("%")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_a = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_b = u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2174 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_mod(v_a, v_b)));
-        *r_v = t2174;
+        u_value t2264 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_mod(v_a, v_b)));
+        *r_v = t2264;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("<")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_a = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_b = u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("<")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_a = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_b = u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2175 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VBool, 1, u_lt(v_a, v_b)));
-        *r_v = t2175;
+        u_value t2265 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VBool, 1, u_lt(v_a, v_b)));
+        *r_v = t2265;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("==")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))) {
-      u_value v_a = u_field(u_field(s2168, 1), 0);
-      u_value v_b = u_field(u_field(u_field(s2168, 1), 1), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("chars")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Nil)))))) {
+      u_value v_s = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      d2259 = 1;
       {
-        p_run_46_equal(v_a, v_b, &v_r);
-        u_value t2176 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VBool, 1, v_r));
-        *r_v = t2176;
-      }
-    }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("chars")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Nil)))))) {
-      u_value v_s = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      d2169 = 1;
-      {
-        u_value t2177 = &o_list_46_Nil;
-        u_value *e2178 = &t2177;
-        u_value l2179 = u_chars(v_s);
-        while (u_is_con(l2179, &n_list_46_Cons)) {
-          u_value v_c = u_field(l2179, 0);
+        u_value t2266 = &o_list_46_Nil;
+        u_value *e2267 = &t2266;
+        u_value l2268 = u_chars(v_s);
+        while (u_is_con(l2268, &n_list_46_Cons)) {
+          u_value v_c = u_field(l2268, 0);
           if (u_truth(u_mk_bool(1))) {
-            e2178 = u_append(e2178, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VChar, 1, v_c)));
+            e2267 = u_append(e2267, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VChar, 1, v_c)));
           }
-          l2179 = u_field(l2179, 1);
+          l2268 = u_field(l2268, 1);
         }
-        u_value t2180 = f_value_46_list_value_1(t2177);
-        *r_v = t2180;
+        u_value t2269 = f_value_46_list_value_1(t2266);
+        *r_v = t2269;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("string")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Nil)))) {
-      u_value v_w = u_field(u_field(s2168, 1), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("string")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Nil)))) {
+      u_value v_w = u_field(u_field(s2258, 1), 0);
+      d2259 = 1;
       {
-        u_value s2181 = f_value_46_list_elements_1(v_w);
-        int d2182 = 0;
-        if ((!d2182) && u_is_con(s2181, &n_option_46_Some)) {
-          u_value v_ws = u_field(s2181, 0);
-          d2182 = 1;
+        u_value s2270 = f_value_46_list_elements_1(v_w);
+        int d2271 = 0;
+        if ((!d2271) && u_is_con(s2270, &n_option_46_Some)) {
+          u_value v_ws = u_field(s2270, 0);
+          d2271 = 1;
           {
-            u_value t2183 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, u_string(f_run_46_char_values_1(v_ws))));
-            *r_v = t2183;
+            u_value t2272 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, u_string(f_run_46_char_values_1(v_ws))));
+            *r_v = t2272;
           }
         }
-        if (!d2182) {
-          d2182 = 1;
+        if (!d2271) {
+          d2271 = 1;
           {
             u_raise(u_mk_con(&n_run_46_NotList, 1, v_w), "run.RuntimeError");
           }
         }
-        if (!d2182) {
-          u_no_case(s2181);
+        if (!d2271) {
+          u_no_case(s2270);
         }
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("ord")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VChar) && u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Nil)))))) {
-      u_value v_c = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("ord")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VChar) && u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Nil)))))) {
+      u_value v_c = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2184 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_ord(v_c)));
-        *r_v = t2184;
+        u_value t2273 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_ord(v_c)));
+        *r_v = t2273;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("chr")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Nil)))))) {
-      u_value v_k = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("chr")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Nil)))))) {
+      u_value v_k = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2185 = u_lt(v_k, u_mk_int(0));
-        if (!u_truth(t2185)) {
-          t2185 = f_prelude_46__62__2(v_k, u_mk_int(65535));
+        u_value t2274 = u_lt(v_k, u_mk_int(0));
+        if (!u_truth(t2274)) {
+          t2274 = f_prelude_46__62__2(v_k, u_mk_int(65535));
         }
-        if (u_truth(t2185)) {
+        if (u_truth(t2274)) {
           {
             u_raise(f_run_46_failure_2(f_syntax_46_no_character_name_0(), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, v_k)), &o_list_46_Nil)), "run.Thrown");
           }
         }
-        u_value t2186 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VChar, 1, u_chr(v_k)));
-        *r_v = t2186;
+        u_value t2275 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VChar, 1, u_chr(v_k)));
+        *r_v = t2275;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("^")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_s = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_t = u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("^")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_s = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_t = u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2187 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, u_concat(v_s, v_t)));
-        *r_v = t2187;
+        u_value t2276 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, u_concat(v_s, v_t)));
+        *r_v = t2276;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("str_size")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Nil)))))) {
-      u_value v_s = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("str_size")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Nil)))))) {
+      u_value v_s = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2188 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_str_size(v_s)));
-        *r_v = t2188;
+        u_value t2277 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_str_size(v_s)));
+        *r_v = t2277;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("str_join")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))))) {
-      u_value v_sep = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_w = u_field(u_field(u_field(s2168, 1), 1), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("str_join")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil))))))) {
+      u_value v_sep = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_w = u_field(u_field(u_field(s2258, 1), 1), 0);
+      d2259 = 1;
       {
-        u_value s2189 = f_value_46_list_elements_1(v_w);
-        int d2190 = 0;
-        if ((!d2190) && u_is_con(s2189, &n_option_46_Some)) {
-          u_value v_ws = u_field(s2189, 0);
-          d2190 = 1;
+        u_value s2278 = f_value_46_list_elements_1(v_w);
+        int d2279 = 0;
+        if ((!d2279) && u_is_con(s2278, &n_option_46_Some)) {
+          u_value v_ws = u_field(s2278, 0);
+          d2279 = 1;
           {
-            u_value t2191 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, u_str_join(v_sep, f_run_46_str_values_1(v_ws))));
-            *r_v = t2191;
+            u_value t2280 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, u_str_join(v_sep, f_run_46_str_values_1(v_ws))));
+            *r_v = t2280;
           }
         }
-        if (!d2190) {
-          d2190 = 1;
+        if (!d2279) {
+          d2279 = 1;
           {
             u_raise(u_mk_con(&n_run_46_NotList, 1, v_w), "run.RuntimeError");
           }
         }
-        if (!d2190) {
-          u_no_case(s2189);
+        if (!d2279) {
+          u_no_case(s2278);
         }
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("str_slice")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 1), 1), &n_list_46_Nil)))))))))))) {
-      u_value v_s = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_i = u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0);
-      u_value v_j = u_field(u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("str_slice")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 1), 1), &n_list_46_Nil)))))))))))) {
+      u_value v_s = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_i = u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0);
+      u_value v_j = u_field(u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2192 = u_lt(v_i, u_mk_int(0));
-        if (!u_truth(t2192)) {
-          t2192 = f_prelude_46__62__2(v_i, u_str_size(v_s));
+        u_value t2281 = u_lt(v_i, u_mk_int(0));
+        if (!u_truth(t2281)) {
+          t2281 = f_prelude_46__62__2(v_i, u_str_size(v_s));
         }
-        u_value t2193 = t2192;
-        if (!u_truth(t2193)) {
-          t2193 = f_prelude_46__62__2(v_i, v_j);
+        u_value t2282 = t2281;
+        if (!u_truth(t2282)) {
+          t2282 = f_prelude_46__62__2(v_i, v_j);
         }
-        if (u_truth(t2193)) {
+        if (u_truth(t2282)) {
           {
             u_raise(f_run_46_failure_2(f_syntax_46_no_index_name_0(), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, v_s)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, v_i)), &o_list_46_Nil))), "run.Thrown");
           }
@@ -23203,361 +24185,427 @@ void p_run_46_primitive(u_value v_n, u_value v_vs, u_value *r_v) {
             }
           }
         }
-        u_value t2194 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, u_str_slice(v_s, v_i, v_j)));
-        *r_v = t2194;
+        u_value t2283 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, u_str_slice(v_s, v_i, v_j)));
+        *r_v = t2283;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("str_split")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VChar) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_s = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_c = u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("str_split")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VChar) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_s = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_c = u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2195 = &o_list_46_Nil;
-        u_value *e2196 = &t2195;
-        u_value l2197 = u_str_split(v_s, v_c);
-        while (u_is_con(l2197, &n_list_46_Cons)) {
-          u_value v_part = u_field(l2197, 0);
+        u_value t2284 = &o_list_46_Nil;
+        u_value *e2285 = &t2284;
+        u_value l2286 = u_str_split(v_s, v_c);
+        while (u_is_con(l2286, &n_list_46_Cons)) {
+          u_value v_part = u_field(l2286, 0);
           if (u_truth(u_mk_bool(1))) {
-            e2196 = u_append(e2196, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, v_part)));
+            e2285 = u_append(e2285, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, v_part)));
           }
-          l2197 = u_field(l2197, 1);
+          l2286 = u_field(l2286, 1);
         }
-        u_value t2198 = f_value_46_list_value_1(t2195);
-        *r_v = t2198;
+        u_value t2287 = f_value_46_list_value_1(t2284);
+        *r_v = t2287;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("str_get")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_s = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_i = u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("str_get")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_s = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_i = u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2199 = u_lt(v_i, u_mk_int(0));
-        if (!u_truth(t2199)) {
-          t2199 = f_prelude_46__62__61__2(v_i, u_str_size(v_s));
+        u_value t2288 = u_lt(v_i, u_mk_int(0));
+        if (!u_truth(t2288)) {
+          t2288 = f_prelude_46__62__61__2(v_i, u_str_size(v_s));
         }
-        if (u_truth(t2199)) {
+        if (u_truth(t2288)) {
           {
             u_raise(f_run_46_failure_2(f_syntax_46_no_index_name_0(), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, v_s)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, v_i)), &o_list_46_Nil))), "run.Thrown");
           }
         }
-        u_value t2200 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VChar, 1, u_str_get(v_s, v_i)));
-        *r_v = t2200;
+        u_value t2289 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VChar, 1, u_str_get(v_s, v_i)));
+        *r_v = t2289;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("str_contains")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VChar) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_s = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_c = u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("str_contains")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VChar) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_s = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_c = u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2201 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VBool, 1, u_str_contains(v_s, v_c)));
-        *r_v = t2201;
+        u_value t2290 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VBool, 1, u_str_contains(v_s, v_c)));
+        *r_v = t2290;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("str_compare")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2168, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(u_field(s2168, 1), 1), 1), &n_list_46_Nil))))))))) {
-      u_value v_s = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      u_value v_t = u_field(u_field(u_field(u_field(u_field(s2168, 1), 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("str_compare")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2258, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(u_field(s2258, 1), 1), 1), &n_list_46_Nil))))))))) {
+      u_value v_s = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      u_value v_t = u_field(u_field(u_field(u_field(u_field(s2258, 1), 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2202 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_str_compare(v_s, v_t)));
-        *r_v = t2202;
+        u_value t2291 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, u_str_compare(v_s, v_t)));
+        *r_v = t2291;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("str_show")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Nil)))))) {
-      u_value v_k = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("str_show")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Nil)))))) {
+      u_value v_k = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2203 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, u_str_show(v_k)));
-        *r_v = t2203;
+        u_value t2292 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, u_str_show(v_k)));
+        *r_v = t2292;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("str_quote")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Nil)))))) {
-      u_value v_s = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("str_quote")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Nil)))))) {
+      u_value v_s = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2204 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, u_str_quote(v_s)));
-        *r_v = t2204;
+        u_value t2293 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, u_str_quote(v_s)));
+        *r_v = t2293;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("str_number")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Nil)))))) {
-      u_value v_s = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("str_number")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Nil)))))) {
+      u_value v_s = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value s2205 = u_str_number(v_s);
-        int d2206 = 0;
-        if ((!d2206) && u_is_con(s2205, &n_option_46_Some)) {
-          u_value v_k = u_field(s2205, 0);
-          d2206 = 1;
+        u_value s2294 = u_str_number(v_s);
+        int d2295 = 0;
+        if ((!d2295) && u_is_con(s2294, &n_option_46_Some)) {
+          u_value v_k = u_field(s2294, 0);
+          d2295 = 1;
           {
-            u_value t2207 = u_mk_con(&n_value_46_Obj, 2, f_syntax_46_some_name_0(), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, v_k)), &o_list_46_Nil));
-            *r_v = t2207;
+            u_value t2296 = u_mk_con(&n_value_46_Obj, 2, f_syntax_46_some_name_0(), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VInt, 1, v_k)), &o_list_46_Nil));
+            *r_v = t2296;
           }
         }
-        if ((!d2206) && u_is_con(s2205, &n_option_46_None)) {
-          d2206 = 1;
+        if ((!d2295) && u_is_con(s2294, &n_option_46_None)) {
+          d2295 = 1;
           {
-            u_value t2208 = u_mk_con(&n_value_46_Obj, 2, f_syntax_46_none_name_0(), &o_list_46_Nil);
-            *r_v = t2208;
+            u_value t2297 = u_mk_con(&n_value_46_Obj, 2, f_syntax_46_none_name_0(), &o_list_46_Nil);
+            *r_v = t2297;
           }
         }
-        if (!d2206) {
-          u_no_case(s2205);
+        if (!d2295) {
+          u_no_case(s2294);
         }
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("is_digit")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VChar) && u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Nil)))))) {
-      u_value v_c = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("is_digit")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VChar) && u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Nil)))))) {
+      u_value v_c = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2209 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VBool, 1, u_is_digit(v_c)));
-        *r_v = t2209;
+        u_value t2298 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VBool, 1, u_is_digit(v_c)));
+        *r_v = t2298;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("is_letter")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VChar) && u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Nil)))))) {
-      u_value v_c = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("is_letter")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VChar) && u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Nil)))))) {
+      u_value v_c = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2210 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VBool, 1, u_is_letter(v_c)));
-        *r_v = t2210;
+        u_value t2299 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VBool, 1, u_is_letter(v_c)));
+        *r_v = t2299;
       }
     }
-    if ((!d2169) && (u_equals(u_field(s2168, 0), u_mk_lit("is_space")) && (u_is_con(u_field(s2168, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2168, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2168, 1), 0), 0), &n_syntax_46_VChar) && u_is_con(u_field(u_field(s2168, 1), 1), &n_list_46_Nil)))))) {
-      u_value v_c = u_field(u_field(u_field(u_field(s2168, 1), 0), 0), 0);
-      d2169 = 1;
+    if ((!d2259) && (u_equals(u_field(s2258, 0), u_mk_lit("is_space")) && (u_is_con(u_field(s2258, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2258, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2258, 1), 0), 0), &n_syntax_46_VChar) && u_is_con(u_field(u_field(s2258, 1), 1), &n_list_46_Nil)))))) {
+      u_value v_c = u_field(u_field(u_field(u_field(s2258, 1), 0), 0), 0);
+      d2259 = 1;
       {
-        u_value t2211 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VBool, 1, u_is_space(v_c)));
-        *r_v = t2211;
+        u_value t2300 = u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VBool, 1, u_is_space(v_c)));
+        *r_v = t2300;
       }
     }
-    if (!d2169) {
-      d2169 = 1;
+    if (!d2259) {
+      d2259 = 1;
       {
         u_raise(u_mk_con(&n_run_46_Unspecified, 2, v_n, v_vs), "run.RuntimeError");
       }
     }
-    if (!d2169) {
-      u_no_case(s2168);
+    if (!d2259) {
+      u_no_case(s2258);
     }
   }
 }
 
-void p_run_46_equal(u_value v_a, u_value v_b, u_value *r_r) {
+void p_run_46_equal(u_value v_p, u_value v_a, u_value v_b, u_value *r_r, u_value *r_cache) {
   {
-    u_value t2212 = f_run_46_is_function_1(v_a);
-    if (!u_truth(t2212)) {
-      t2212 = f_run_46_is_function_1(v_b);
+    u_value v_v = NULL;
+    u_value v_k = NULL;
+    u_value t2301 = f_run_46_is_function_1(v_a);
+    if (!u_truth(t2301)) {
+      t2301 = f_run_46_is_function_1(v_b);
     }
-    if (u_truth(t2212)) {
+    if (u_truth(t2301)) {
       {
         u_raise(&o_run_46_CompareFunctions, "run.RuntimeError");
       }
     }
-    u_value s2213 = u_mk_tuple(2, v_a, v_b);
-    int d2214 = 0;
-    if ((!d2214) && (u_is_con(u_field(s2213, 0), &n_value_46_Obj) && u_is_con(u_field(s2213, 1), &n_value_46_Obj))) {
-      u_value v_c = u_field(u_field(s2213, 0), 0);
-      u_value v_xs = u_field(u_field(s2213, 0), 1);
-      u_value v_d = u_field(u_field(s2213, 1), 0);
-      u_value v_ys = u_field(u_field(s2213, 1), 1);
-      d2214 = 1;
+    u_value s2302 = u_mk_tuple(2, v_a, v_b);
+    int d2303 = 0;
+    if ((!d2303) && (u_is_con(u_field(s2302, 0), &n_value_46_Obj) && u_is_con(u_field(s2302, 1), &n_value_46_Obj))) {
+      u_value v_c = u_field(u_field(s2302, 0), 0);
+      u_value v_xs = u_field(u_field(s2302, 0), 1);
+      u_value v_d = u_field(u_field(s2302, 1), 0);
+      u_value v_ys = u_field(u_field(s2302, 1), 1);
+      d2303 = 1;
       {
-        u_value t2215 = u_eq(v_c, v_d);
-        if (u_truth(t2215)) {
-          t2215 = u_eq(f_list_46_size_1(v_xs), f_list_46_size_1(v_ys));
+        u_value s2304 = u_mk_tuple(2, f_map_46_get_2(v_c, f_run_46_Prog_46_equalities_1(v_p)), f_map_46_get_2(v_c, f_run_46_Prog_46_orders_1(v_p)));
+        int d2305 = 0;
+        if ((!d2305) && u_is_con(u_field(s2304, 0), &n_option_46_Some)) {
+          u_value v_f = u_field(u_field(s2304, 0), 0);
+          d2305 = 1;
+          {
+            p_run_46_apply_value(v_p, u_mk_con(&n_value_46_Fn, 2, v_f, u_mk_int(2)), u_mk_con(&n_list_46_Cons, 2, v_a, u_mk_con(&n_list_46_Cons, 2, v_b, &o_list_46_Nil)), &v_v, r_cache);
+            u_value t2306 = f_run_46_truth_1(v_v);
+            *r_r = t2306;
+          }
         }
-        if (u_truth(t2215)) {
+        if ((!d2305) && (u_is_con(u_field(s2304, 0), &n_option_46_None) && u_is_con(u_field(s2304, 1), &n_option_46_Some))) {
+          d2305 = 1;
           {
-            p_run_46_equal_all(v_xs, v_ys, r_r);
+            p_run_46_compare_values(v_p, v_a, v_b, &v_k, r_cache);
+            u_value t2307 = u_eq(v_k, u_mk_int(0));
+            *r_r = t2307;
           }
-        } else {
+        }
+        if ((!d2305) && (u_is_con(u_field(s2304, 0), &n_option_46_None) && u_is_con(u_field(s2304, 1), &n_option_46_None))) {
+          d2305 = 1;
           {
-            u_value t2216 = u_mk_bool(0);
-            *r_r = t2216;
+            u_value t2308 = u_eq(v_c, v_d);
+            if (u_truth(t2308)) {
+              t2308 = u_eq(f_list_46_size_1(v_xs), f_list_46_size_1(v_ys));
+            }
+            if (u_truth(t2308)) {
+              {
+                p_run_46_equal_all(v_p, v_xs, v_ys, r_r, r_cache);
+              }
+            } else {
+              {
+                u_value t2309 = u_mk_bool(0);
+                *r_r = t2309;
+              }
+            }
           }
+        }
+        if (!d2305) {
+          u_no_case(s2304);
         }
       }
     }
-    if (!d2214) {
-      d2214 = 1;
+    if (!d2303) {
+      d2303 = 1;
       {
-        u_value t2217 = u_eq(v_a, v_b);
-        *r_r = t2217;
+        u_value t2310 = u_eq(v_a, v_b);
+        *r_r = t2310;
       }
     }
-    if (!d2214) {
-      u_no_case(s2213);
+    if (!d2303) {
+      u_no_case(s2302);
     }
   }
 }
 
-void p_run_46_compare_values(u_value v_p, u_value v_a, u_value v_b, u_value *r_r) {
+void p_run_46_compare_values(u_value v_p, u_value v_a, u_value v_b, u_value *r_r, u_value *r_cache) {
   {
-    u_value t2218 = f_run_46_is_function_1(v_a);
-    if (!u_truth(t2218)) {
-      t2218 = f_run_46_is_function_1(v_b);
+    u_value v_v = NULL;
+    u_value t2311 = f_run_46_is_function_1(v_a);
+    if (!u_truth(t2311)) {
+      t2311 = f_run_46_is_function_1(v_b);
     }
-    if (u_truth(t2218)) {
+    if (u_truth(t2311)) {
       {
         u_raise(&o_run_46_CompareFunctions, "run.RuntimeError");
       }
     }
-    u_value s2219 = u_mk_tuple(2, v_a, v_b);
-    int d2220 = 0;
-    if ((!d2220) && (u_is_con(u_field(s2219, 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(s2219, 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(s2219, 1), &n_value_46_Lit) && u_is_con(u_field(u_field(s2219, 1), 0), &n_syntax_46_VInt))))) {
-      u_value v_x = u_field(u_field(u_field(s2219, 0), 0), 0);
-      u_value v_y = u_field(u_field(u_field(s2219, 1), 0), 0);
-      d2220 = 1;
+    u_value s2312 = u_mk_tuple(2, v_a, v_b);
+    int d2313 = 0;
+    if ((!d2313) && (u_is_con(u_field(s2312, 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(s2312, 0), 0), &n_syntax_46_VInt) && (u_is_con(u_field(s2312, 1), &n_value_46_Lit) && u_is_con(u_field(u_field(s2312, 1), 0), &n_syntax_46_VInt))))) {
+      u_value v_x = u_field(u_field(u_field(s2312, 0), 0), 0);
+      u_value v_y = u_field(u_field(u_field(s2312, 1), 0), 0);
+      d2313 = 1;
       {
-        u_value t2221 = f_run_46_order_2(v_x, v_y);
-        *r_r = t2221;
+        u_value t2314 = f_run_46_order_2(v_x, v_y);
+        *r_r = t2314;
       }
     }
-    if ((!d2220) && (u_is_con(u_field(s2219, 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(s2219, 0), 0), &n_syntax_46_VChar) && (u_is_con(u_field(s2219, 1), &n_value_46_Lit) && u_is_con(u_field(u_field(s2219, 1), 0), &n_syntax_46_VChar))))) {
-      u_value v_x = u_field(u_field(u_field(s2219, 0), 0), 0);
-      u_value v_y = u_field(u_field(u_field(s2219, 1), 0), 0);
-      d2220 = 1;
+    if ((!d2313) && (u_is_con(u_field(s2312, 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(s2312, 0), 0), &n_syntax_46_VChar) && (u_is_con(u_field(s2312, 1), &n_value_46_Lit) && u_is_con(u_field(u_field(s2312, 1), 0), &n_syntax_46_VChar))))) {
+      u_value v_x = u_field(u_field(u_field(s2312, 0), 0), 0);
+      u_value v_y = u_field(u_field(u_field(s2312, 1), 0), 0);
+      d2313 = 1;
       {
-        u_value t2222 = f_run_46_order_2(u_ord(v_x), u_ord(v_y));
-        *r_r = t2222;
+        u_value t2315 = f_run_46_order_2(u_ord(v_x), u_ord(v_y));
+        *r_r = t2315;
       }
     }
-    if ((!d2220) && (u_is_con(u_field(s2219, 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(s2219, 0), 0), &n_syntax_46_VBool) && (u_is_con(u_field(s2219, 1), &n_value_46_Lit) && u_is_con(u_field(u_field(s2219, 1), 0), &n_syntax_46_VBool))))) {
-      u_value v_x = u_field(u_field(u_field(s2219, 0), 0), 0);
-      u_value v_y = u_field(u_field(u_field(s2219, 1), 0), 0);
-      d2220 = 1;
+    if ((!d2313) && (u_is_con(u_field(s2312, 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(s2312, 0), 0), &n_syntax_46_VBool) && (u_is_con(u_field(s2312, 1), &n_value_46_Lit) && u_is_con(u_field(u_field(s2312, 1), 0), &n_syntax_46_VBool))))) {
+      u_value v_x = u_field(u_field(u_field(s2312, 0), 0), 0);
+      u_value v_y = u_field(u_field(u_field(s2312, 1), 0), 0);
+      d2313 = 1;
       {
-        u_value t2223;
+        u_value t2316;
         if (u_truth(v_x)) {
-          t2223 = u_mk_int(1);
+          t2316 = u_mk_int(1);
         } else {
-          t2223 = u_mk_int(0);
+          t2316 = u_mk_int(0);
         }
-        u_value t2224;
+        u_value t2317;
         if (u_truth(v_y)) {
-          t2224 = u_mk_int(1);
+          t2317 = u_mk_int(1);
         } else {
-          t2224 = u_mk_int(0);
+          t2317 = u_mk_int(0);
         }
-        u_value t2225 = f_run_46_order_2(t2223, t2224);
-        *r_r = t2225;
+        u_value t2318 = f_run_46_order_2(t2316, t2317);
+        *r_r = t2318;
       }
     }
-    if ((!d2220) && (u_is_con(u_field(s2219, 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(s2219, 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(s2219, 1), &n_value_46_Lit) && u_is_con(u_field(u_field(s2219, 1), 0), &n_syntax_46_VStr))))) {
-      u_value v_x = u_field(u_field(u_field(s2219, 0), 0), 0);
-      u_value v_y = u_field(u_field(u_field(s2219, 1), 0), 0);
-      d2220 = 1;
+    if ((!d2313) && (u_is_con(u_field(s2312, 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(s2312, 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(s2312, 1), &n_value_46_Lit) && u_is_con(u_field(u_field(s2312, 1), 0), &n_syntax_46_VStr))))) {
+      u_value v_x = u_field(u_field(u_field(s2312, 0), 0), 0);
+      u_value v_y = u_field(u_field(u_field(s2312, 1), 0), 0);
+      d2313 = 1;
       {
-        u_value t2226 = u_str_compare(v_x, v_y);
-        *r_r = t2226;
+        u_value t2319 = u_str_compare(v_x, v_y);
+        *r_r = t2319;
       }
     }
-    if ((!d2220) && (u_is_con(u_field(s2219, 0), &n_value_46_Obj) && u_is_con(u_field(s2219, 1), &n_value_46_Obj))) {
-      u_value v_c = u_field(u_field(s2219, 0), 0);
-      u_value v_xs = u_field(u_field(s2219, 0), 1);
-      u_value v_d = u_field(u_field(s2219, 1), 0);
-      u_value v_ys = u_field(u_field(s2219, 1), 1);
-      d2220 = 1;
+    if ((!d2313) && (u_is_con(u_field(s2312, 0), &n_value_46_Obj) && u_is_con(u_field(s2312, 1), &n_value_46_Obj))) {
+      u_value v_c = u_field(u_field(s2312, 0), 0);
+      u_value v_xs = u_field(u_field(s2312, 0), 1);
+      u_value v_d = u_field(u_field(s2312, 1), 0);
+      u_value v_ys = u_field(u_field(s2312, 1), 1);
+      d2313 = 1;
       {
-        if (u_truth(u_eq(v_c, v_d))) {
+        u_value s2320 = f_map_46_get_2(v_c, f_run_46_Prog_46_orders_1(v_p));
+        int d2321 = 0;
+        if ((!d2321) && u_is_con(s2320, &n_option_46_Some)) {
+          u_value v_f = u_field(s2320, 0);
+          d2321 = 1;
           {
-            p_run_46_compare_all(v_p, v_xs, v_ys, r_r);
+            p_run_46_apply_value(v_p, u_mk_con(&n_value_46_Fn, 2, v_f, u_mk_int(2)), u_mk_con(&n_list_46_Cons, 2, v_a, u_mk_con(&n_list_46_Cons, 2, v_b, &o_list_46_Nil)), &v_v, r_cache);
+            u_value s2322 = v_v;
+            int d2323 = 0;
+            if ((!d2323) && (u_is_con(s2322, &n_value_46_Lit) && u_is_con(u_field(s2322, 0), &n_syntax_46_VInt))) {
+              u_value v_k = u_field(u_field(s2322, 0), 0);
+              d2323 = 1;
+              {
+                u_value t2324 = v_k;
+                *r_r = t2324;
+              }
+            }
+            if (!d2323) {
+              d2323 = 1;
+              {
+                u_raise(u_mk_con(&n_run_46_NotFunction, 1, v_v), "run.RuntimeError");
+              }
+            }
+            if (!d2323) {
+              u_no_case(s2322);
+            }
           }
-        } else {
+        }
+        if ((!d2321) && u_is_con(s2320, &n_option_46_None)) {
+          d2321 = 1;
           {
-            u_value t2227 = f_run_46_order_2(f_run_46_position_of_2(v_p, v_c), f_run_46_position_of_2(v_p, v_d));
-            *r_r = t2227;
+            if (u_truth(u_eq(v_c, v_d))) {
+              {
+                p_run_46_compare_all(v_p, v_xs, v_ys, r_r, r_cache);
+              }
+            } else {
+              {
+                u_value t2325 = f_run_46_order_2(f_run_46_position_of_2(v_p, v_c), f_run_46_position_of_2(v_p, v_d));
+                *r_r = t2325;
+              }
+            }
           }
+        }
+        if (!d2321) {
+          u_no_case(s2320);
         }
       }
     }
-    if (!d2220) {
-      d2220 = 1;
+    if (!d2313) {
+      d2313 = 1;
       {
-        u_value t2228 = u_mk_int(0);
-        *r_r = t2228;
+        u_value t2326 = u_mk_int(0);
+        *r_r = t2326;
       }
     }
-    if (!d2220) {
-      u_no_case(s2219);
+    if (!d2313) {
+      u_no_case(s2312);
     }
   }
 }
 
-void p_run_46_compare_all(u_value v_p, u_value v_xs, u_value v_ys, u_value *r_r) {
+void p_run_46_compare_all(u_value v_p, u_value v_xs, u_value v_ys, u_value *r_r, u_value *r_cache) {
   {
-    u_value s2229 = u_mk_tuple(2, v_xs, v_ys);
-    int d2230 = 0;
-    if ((!d2230) && (u_is_con(u_field(s2229, 0), &n_list_46_Cons) && u_is_con(u_field(s2229, 1), &n_list_46_Cons))) {
-      u_value v_x = u_field(u_field(s2229, 0), 0);
-      u_value v_xs1 = u_field(u_field(s2229, 0), 1);
-      u_value v_y = u_field(u_field(s2229, 1), 0);
-      u_value v_ys1 = u_field(u_field(s2229, 1), 1);
-      d2230 = 1;
+    u_value s2327 = u_mk_tuple(2, v_xs, v_ys);
+    int d2328 = 0;
+    if ((!d2328) && (u_is_con(u_field(s2327, 0), &n_list_46_Cons) && u_is_con(u_field(s2327, 1), &n_list_46_Cons))) {
+      u_value v_x = u_field(u_field(s2327, 0), 0);
+      u_value v_xs1 = u_field(u_field(s2327, 0), 1);
+      u_value v_y = u_field(u_field(s2327, 1), 0);
+      u_value v_ys1 = u_field(u_field(s2327, 1), 1);
+      d2328 = 1;
       {
-        p_run_46_compare_values(v_p, v_x, v_y, r_r);
+        p_run_46_compare_values(v_p, v_x, v_y, r_r, r_cache);
         if (u_truth(u_eq(*r_r, u_mk_int(0)))) {
           {
-            p_run_46_compare_all(v_p, v_xs1, v_ys1, r_r);
+            p_run_46_compare_all(v_p, v_xs1, v_ys1, r_r, r_cache);
           }
         }
       }
     }
-    if (!d2230) {
-      d2230 = 1;
+    if (!d2328) {
+      d2328 = 1;
       {
-        u_value t2231 = f_run_46_order_2(f_list_46_size_1(v_xs), f_list_46_size_1(v_ys));
-        *r_r = t2231;
+        u_value t2329 = f_run_46_order_2(f_list_46_size_1(v_xs), f_list_46_size_1(v_ys));
+        *r_r = t2329;
       }
     }
-    if (!d2230) {
-      u_no_case(s2229);
+    if (!d2328) {
+      u_no_case(s2327);
     }
   }
 }
 
 u_value f_run_46_order_2(u_value v_x, u_value v_y) {
-  u_value t2233;
+  u_value t2331;
   if (u_truth(u_lt(v_x, v_y))) {
-    t2233 = u_mk_int(-1);
+    t2331 = u_mk_int(-1);
   } else {
-    u_value t2232;
+    u_value t2330;
     if (u_truth(u_lt(v_y, v_x))) {
-      t2232 = u_mk_int(1);
+      t2330 = u_mk_int(1);
     } else {
-      t2232 = u_mk_int(0);
+      t2330 = u_mk_int(0);
     }
-    t2233 = t2232;
+    t2331 = t2330;
   }
-  return t2233;
+  return t2331;
 }
 
-void p_run_46_equal_all(u_value v_xs, u_value v_ys, u_value *r_r) {
+void p_run_46_equal_all(u_value v_p, u_value v_xs, u_value v_ys, u_value *r_r, u_value *r_cache) {
   {
-    u_value s2234 = u_mk_tuple(2, v_xs, v_ys);
-    int d2235 = 0;
-    if ((!d2235) && (u_is_con(u_field(s2234, 0), &n_list_46_Cons) && u_is_con(u_field(s2234, 1), &n_list_46_Cons))) {
-      u_value v_x = u_field(u_field(s2234, 0), 0);
-      u_value v_xs1 = u_field(u_field(s2234, 0), 1);
-      u_value v_y = u_field(u_field(s2234, 1), 0);
-      u_value v_ys1 = u_field(u_field(s2234, 1), 1);
-      d2235 = 1;
+    u_value s2332 = u_mk_tuple(2, v_xs, v_ys);
+    int d2333 = 0;
+    if ((!d2333) && (u_is_con(u_field(s2332, 0), &n_list_46_Cons) && u_is_con(u_field(s2332, 1), &n_list_46_Cons))) {
+      u_value v_x = u_field(u_field(s2332, 0), 0);
+      u_value v_xs1 = u_field(u_field(s2332, 0), 1);
+      u_value v_y = u_field(u_field(s2332, 1), 0);
+      u_value v_ys1 = u_field(u_field(s2332, 1), 1);
+      d2333 = 1;
       {
-        p_run_46_equal(v_x, v_y, r_r);
+        p_run_46_equal(v_p, v_x, v_y, r_r, r_cache);
         if (u_truth(*r_r)) {
           {
-            p_run_46_equal_all(v_xs1, v_ys1, r_r);
+            p_run_46_equal_all(v_p, v_xs1, v_ys1, r_r, r_cache);
           }
         }
       }
     }
-    if (!d2235) {
-      d2235 = 1;
+    if (!d2333) {
+      d2333 = 1;
       {
-        u_value t2236 = u_mk_bool(1);
-        *r_r = t2236;
+        u_value t2334 = u_mk_bool(1);
+        *r_r = t2334;
       }
     }
-    if (!d2235) {
-      u_no_case(s2234);
+    if (!d2333) {
+      u_no_case(s2332);
     }
   }
 }
@@ -23565,45 +24613,45 @@ void p_run_46_equal_all(u_value v_xs, u_value v_ys, u_value *r_r) {
 void p_run_46_combinations(u_value v_p, u_value v_env, u_value v_xs, u_value v_lists, u_value *r_envs, u_value *r_cache) {
   {
     u_value v_l = NULL;
-    u_value s2237 = u_mk_tuple(2, v_xs, v_lists);
-    int d2238 = 0;
-    if ((!d2238) && (u_is_con(u_field(s2237, 0), &n_list_46_Cons) && u_is_con(u_field(s2237, 1), &n_list_46_Cons))) {
-      u_value v_x = u_field(u_field(s2237, 0), 0);
-      u_value v_ys = u_field(u_field(s2237, 0), 1);
-      u_value v_e = u_field(u_field(s2237, 1), 0);
-      u_value v_more = u_field(u_field(s2237, 1), 1);
-      d2238 = 1;
+    u_value s2335 = u_mk_tuple(2, v_xs, v_lists);
+    int d2336 = 0;
+    if ((!d2336) && (u_is_con(u_field(s2335, 0), &n_list_46_Cons) && u_is_con(u_field(s2335, 1), &n_list_46_Cons))) {
+      u_value v_x = u_field(u_field(s2335, 0), 0);
+      u_value v_ys = u_field(u_field(s2335, 0), 1);
+      u_value v_e = u_field(u_field(s2335, 1), 0);
+      u_value v_more = u_field(u_field(s2335, 1), 1);
+      d2336 = 1;
       {
         p_run_46_evaluate(v_p, v_env, v_e, &v_l, r_cache);
-        u_value s2239 = f_value_46_list_elements_1(v_l);
-        int d2240 = 0;
-        if ((!d2240) && u_is_con(s2239, &n_option_46_Some)) {
-          u_value v_vs = u_field(s2239, 0);
-          d2240 = 1;
+        u_value s2337 = f_value_46_list_elements_1(v_l);
+        int d2338 = 0;
+        if ((!d2338) && u_is_con(s2337, &n_option_46_Some)) {
+          u_value v_vs = u_field(s2337, 0);
+          d2338 = 1;
           {
             p_run_46_extend(v_p, v_env, v_x, v_vs, v_ys, v_more, r_envs, r_cache);
           }
         }
-        if ((!d2240) && u_is_con(s2239, &n_option_46_None)) {
-          d2240 = 1;
+        if ((!d2338) && u_is_con(s2337, &n_option_46_None)) {
+          d2338 = 1;
           {
             u_raise(u_mk_con(&n_run_46_NotList, 1, v_l), "run.RuntimeError");
           }
         }
-        if (!d2240) {
-          u_no_case(s2239);
+        if (!d2338) {
+          u_no_case(s2337);
         }
       }
     }
-    if (!d2238) {
-      d2238 = 1;
+    if (!d2336) {
+      d2336 = 1;
       {
-        u_value t2241 = u_mk_con(&n_list_46_Cons, 2, v_env, &o_list_46_Nil);
-        *r_envs = t2241;
+        u_value t2339 = u_mk_con(&n_list_46_Cons, 2, v_env, &o_list_46_Nil);
+        *r_envs = t2339;
       }
     }
-    if (!d2238) {
-      u_no_case(s2237);
+    if (!d2336) {
+      u_no_case(s2335);
     }
   }
 }
@@ -23612,28 +24660,28 @@ void p_run_46_extend(u_value v_p, u_value v_env, u_value v_x, u_value v_vs, u_va
   {
     u_value v_first = NULL;
     u_value v_rest = NULL;
-    u_value s2242 = v_vs;
-    int d2243 = 0;
-    if ((!d2243) && u_is_con(s2242, &n_list_46_Nil)) {
-      d2243 = 1;
+    u_value s2340 = v_vs;
+    int d2341 = 0;
+    if ((!d2341) && u_is_con(s2340, &n_list_46_Nil)) {
+      d2341 = 1;
       {
-        u_value t2244 = &o_list_46_Nil;
-        *r_envs = t2244;
+        u_value t2342 = &o_list_46_Nil;
+        *r_envs = t2342;
       }
     }
-    if ((!d2243) && u_is_con(s2242, &n_list_46_Cons)) {
-      u_value v_v = u_field(s2242, 0);
-      u_value v_more = u_field(s2242, 1);
-      d2243 = 1;
+    if ((!d2341) && u_is_con(s2340, &n_list_46_Cons)) {
+      u_value v_v = u_field(s2340, 0);
+      u_value v_more = u_field(s2340, 1);
+      d2341 = 1;
       {
         p_run_46_combinations(v_p, f_map_46_put_3(f_syntax_46_Var_46_name_1(v_x), v_v, v_env), v_ys, v_lists, &v_first, r_cache);
         p_run_46_extend(v_p, v_env, v_x, v_more, v_ys, v_lists, &v_rest, r_cache);
-        u_value t2245 = f_list_46__43__43__2(v_first, v_rest);
-        *r_envs = t2245;
+        u_value t2343 = f_list_46__43__43__2(v_first, v_rest);
+        *r_envs = t2343;
       }
     }
-    if (!d2243) {
-      u_no_case(s2242);
+    if (!d2341) {
+      u_no_case(s2340);
     }
   }
 }
@@ -23643,27 +24691,27 @@ void p_run_46_comprehension(u_value v_p, u_value v_envs, u_value v_result, u_val
     u_value v_b = NULL;
     u_value v_r = NULL;
     u_value v_rest = NULL;
-    u_value s2246 = v_envs;
-    int d2247 = 0;
-    if ((!d2247) && u_is_con(s2246, &n_list_46_Nil)) {
-      d2247 = 1;
+    u_value s2344 = v_envs;
+    int d2345 = 0;
+    if ((!d2345) && u_is_con(s2344, &n_list_46_Nil)) {
+      d2345 = 1;
       {
-        u_value t2248 = &o_list_46_Nil;
-        *r_vs = t2248;
+        u_value t2346 = &o_list_46_Nil;
+        *r_vs = t2346;
       }
     }
-    if ((!d2247) && u_is_con(s2246, &n_list_46_Cons)) {
-      u_value v_env = u_field(s2246, 0);
-      u_value v_more = u_field(s2246, 1);
-      d2247 = 1;
+    if ((!d2345) && u_is_con(s2344, &n_list_46_Cons)) {
+      u_value v_env = u_field(s2344, 0);
+      u_value v_more = u_field(s2344, 1);
+      d2345 = 1;
       {
         p_run_46_evaluate(v_p, v_env, v_cond, &v_b, r_cache);
         if (u_truth(f_run_46_truth_1(v_b))) {
           {
             p_run_46_evaluate(v_p, v_env, v_result, &v_r, r_cache);
             p_run_46_comprehension(v_p, v_more, v_result, v_cond, &v_rest, r_cache);
-            u_value t2249 = u_mk_con(&n_list_46_Cons, 2, v_r, v_rest);
-            *r_vs = t2249;
+            u_value t2347 = u_mk_con(&n_list_46_Cons, 2, v_r, v_rest);
+            *r_vs = t2347;
           }
         } else {
           {
@@ -23672,8 +24720,8 @@ void p_run_46_comprehension(u_value v_p, u_value v_envs, u_value v_result, u_val
         }
       }
     }
-    if (!d2247) {
-      u_no_case(s2246);
+    if (!d2345) {
+      u_no_case(s2344);
     }
   }
 }
@@ -23685,35 +24733,35 @@ void p_run_46_exec(u_value v_p, u_value v_x, u_value *r_env, u_value *r_cache) {
     u_value v_vs = NULL;
     u_value v_r = NULL;
     u_value v_sel = NULL;
-    u_value s2250 = v_x;
-    int d2251 = 0;
-    if ((!d2251) && u_is_con(s2250, &n_syntax_46_SSkip)) {
-      d2251 = 1;
+    u_value s2348 = v_x;
+    int d2349 = 0;
+    if ((!d2349) && u_is_con(s2348, &n_syntax_46_SSkip)) {
+      d2349 = 1;
       {
       }
     }
-    if ((!d2251) && u_is_con(s2250, &n_syntax_46_SAssign)) {
-      u_value v_pairs = u_field(s2250, 0);
-      d2251 = 1;
+    if ((!d2349) && u_is_con(s2348, &n_syntax_46_SAssign)) {
+      u_value v_pairs = u_field(s2348, 0);
+      d2349 = 1;
       {
         p_run_46_evaluate_all(v_p, *r_env, f_list_46_seconds_1(v_pairs), &v_vs, r_cache);
-        u_value t2252 = f_map_46_put_all_2(f_list_46_zip_2(f_syntax_46_names_1(f_list_46_firsts_1(v_pairs)), v_vs), *r_env);
-        *r_env = t2252;
+        u_value t2350 = f_map_46_put_all_2(f_list_46_zip_2(f_syntax_46_names_1(f_list_46_firsts_1(v_pairs)), v_vs), *r_env);
+        *r_env = t2350;
       }
     }
-    if ((!d2251) && u_is_con(s2250, &n_syntax_46_SBlock)) {
-      u_value v_locals = u_field(s2250, 0);
-      u_value v_body = u_field(s2250, 1);
-      d2251 = 1;
+    if ((!d2349) && u_is_con(s2348, &n_syntax_46_SBlock)) {
+      u_value v_locals = u_field(s2348, 0);
+      u_value v_body = u_field(s2348, 1);
+      d2349 = 1;
       {
         p_run_46_scoped(v_p, f_syntax_46_names_1(v_locals), f_map_46_remove_all_2(f_syntax_46_names_1(v_locals), *r_env), v_body, r_env, r_cache);
       }
     }
-    if ((!d2251) && u_is_con(s2250, &n_syntax_46_SIf)) {
-      u_value v_cond = u_field(s2250, 0);
-      u_value v_left = u_field(s2250, 1);
-      u_value v_right = u_field(s2250, 2);
-      d2251 = 1;
+    if ((!d2349) && u_is_con(s2348, &n_syntax_46_SIf)) {
+      u_value v_cond = u_field(s2348, 0);
+      u_value v_left = u_field(s2348, 1);
+      u_value v_right = u_field(s2348, 2);
+      d2349 = 1;
       {
         p_run_46_evaluate(v_p, *r_env, v_cond, &v_v, r_cache);
         if (u_truth(f_run_46_truth_1(v_v))) {
@@ -23727,89 +24775,89 @@ void p_run_46_exec(u_value v_p, u_value v_x, u_value *r_env, u_value *r_cache) {
         }
       }
     }
-    if ((!d2251) && u_is_con(s2250, &n_syntax_46_SWhile)) {
-      u_value v_cond = u_field(s2250, 0);
-      u_value v_body = u_field(s2250, 1);
-      d2251 = 1;
+    if ((!d2349) && u_is_con(s2348, &n_syntax_46_SWhile)) {
+      u_value v_cond = u_field(s2348, 0);
+      u_value v_body = u_field(s2348, 1);
+      d2349 = 1;
       {
         p_run_46_evaluate(v_p, *r_env, v_cond, &v_v, r_cache);
-        u_value t2253 = f_run_46_truth_1(v_v);
-        while (u_truth(t2253)) {
+        u_value t2351 = f_run_46_truth_1(v_v);
+        while (u_truth(t2351)) {
           {
             p_run_46_exec(v_p, v_body, r_env, r_cache);
             p_run_46_evaluate(v_p, *r_env, v_cond, &v_v, r_cache);
           }
-          t2253 = f_run_46_truth_1(v_v);
+          t2351 = f_run_46_truth_1(v_v);
         }
       }
     }
-    if ((!d2251) && u_is_con(s2250, &n_syntax_46_SCall)) {
-      u_value v_n = u_field(s2250, 0);
-      u_value v_ins = u_field(s2250, 1);
-      u_value v_outs = u_field(s2250, 2);
-      u_value v_refs = u_field(s2250, 3);
-      d2251 = 1;
+    if ((!d2349) && u_is_con(s2348, &n_syntax_46_SCall)) {
+      u_value v_n = u_field(s2348, 0);
+      u_value v_ins = u_field(s2348, 1);
+      u_value v_outs = u_field(s2348, 2);
+      u_value v_refs = u_field(s2348, 3);
+      d2349 = 1;
       {
         p_run_46_evaluate_all(v_p, *r_env, v_ins, &v_vs, r_cache);
-        u_value s2254 = f_map_46_get_2(v_n, *r_env);
-        int d2255 = 0;
-        if ((!d2255) && u_is_con(s2254, &n_option_46_Some)) {
-          u_value v_f = u_field(s2254, 0);
-          d2255 = 1;
+        u_value s2352 = f_map_46_get_2(v_n, *r_env);
+        int d2353 = 0;
+        if ((!d2353) && u_is_con(s2352, &n_option_46_Some)) {
+          u_value v_f = u_field(s2352, 0);
+          d2353 = 1;
           {
             p_run_46_invoke_value(v_p, v_f, v_vs, f_syntax_46_names_1(v_refs), &v_vs, r_env, r_cache);
           }
         }
-        if ((!d2255) && u_is_con(s2254, &n_option_46_None)) {
-          d2255 = 1;
+        if ((!d2353) && u_is_con(s2352, &n_option_46_None)) {
+          d2353 = 1;
           {
             p_run_46_invoke(v_p, v_n, v_vs, f_syntax_46_names_1(v_refs), &v_vs, r_env, r_cache);
           }
         }
-        if (!d2255) {
-          u_no_case(s2254);
+        if (!d2353) {
+          u_no_case(s2352);
         }
-        u_value t2256 = f_map_46_put_all_2(f_list_46_zip_2(f_syntax_46_names_1(v_outs), v_vs), *r_env);
-        *r_env = t2256;
+        u_value t2354 = f_map_46_put_all_2(f_list_46_zip_2(f_syntax_46_names_1(v_outs), v_vs), *r_env);
+        *r_env = t2354;
       }
     }
-    if ((!d2251) && u_is_con(s2250, &n_syntax_46_SMatch)) {
-      u_value v_arg = u_field(s2250, 0);
-      u_value v_cases = u_field(s2250, 1);
-      d2251 = 1;
+    if ((!d2349) && u_is_con(s2348, &n_syntax_46_SMatch)) {
+      u_value v_arg = u_field(s2348, 0);
+      u_value v_cases = u_field(s2348, 1);
+      d2349 = 1;
       {
         p_run_46_evaluate(v_p, *r_env, v_arg, &v_v, r_cache);
         p_run_46_select(v_p, *r_env, v_v, v_cases, &v_sel, r_cache);
-        u_value s2257 = v_sel;
-        int d2258 = 0;
-        if ((!d2258) && u_is_con(s2257, &n_option_46_Some)) {
-          u_value v_body = u_field(u_field(s2257, 0), 0);
-          u_value v_inner = u_field(u_field(s2257, 0), 1);
-          u_value v_ns = u_field(u_field(s2257, 0), 2);
-          d2258 = 1;
+        u_value s2355 = v_sel;
+        int d2356 = 0;
+        if ((!d2356) && u_is_con(s2355, &n_option_46_Some)) {
+          u_value v_body = u_field(u_field(s2355, 0), 0);
+          u_value v_inner = u_field(u_field(s2355, 0), 1);
+          u_value v_ns = u_field(u_field(s2355, 0), 2);
+          d2356 = 1;
           {
             p_run_46_scoped(v_p, v_ns, v_inner, u_mk_con(&n_list_46_Cons, 2, v_body, &o_list_46_Nil), r_env, r_cache);
           }
         }
-        if ((!d2258) && u_is_con(s2257, &n_option_46_None)) {
-          d2258 = 1;
+        if ((!d2356) && u_is_con(s2355, &n_option_46_None)) {
+          d2356 = 1;
           {
             u_raise(u_mk_con(&n_run_46_NoCase, 1, v_v), "run.RuntimeError");
           }
         }
-        if (!d2258) {
-          u_no_case(s2257);
+        if (!d2356) {
+          u_no_case(s2355);
         }
       }
     }
-    if ((!d2251) && (u_is_con(s2250, &n_syntax_46_SAssert) && (u_is_con(u_field(s2250, 0), &n_syntax_46_EApp) && (u_is_con(u_field(u_field(s2250, 0), 0), &n_syntax_46_EVar) && (u_is_con(u_field(u_field(u_field(s2250, 0), 0), 0), &n_syntax_46_Var) && (u_is_con(u_field(u_field(u_field(u_field(s2250, 0), 0), 0), 0), &n_syntax_46_Name) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s2250, 0), 0), 0), 0), 0), &n_option_46_None) && (u_equals(u_field(u_field(u_field(u_field(u_field(s2250, 0), 0), 0), 0), 1), u_mk_lit("==")) && (u_is_con(u_field(u_field(s2250, 0), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2250, 0), 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(u_field(s2250, 0), 1), 1), 1), &n_list_46_Nil))))))))))) {
-      u_value v_lhs = u_field(u_field(u_field(s2250, 0), 1), 0);
-      u_value v_rhs = u_field(u_field(u_field(u_field(s2250, 0), 1), 1), 0);
-      d2251 = 1;
+    if ((!d2349) && (u_is_con(s2348, &n_syntax_46_SAssert) && (u_is_con(u_field(s2348, 0), &n_syntax_46_EApp) && (u_is_con(u_field(u_field(s2348, 0), 0), &n_syntax_46_EVar) && (u_is_con(u_field(u_field(u_field(s2348, 0), 0), 0), &n_syntax_46_Var) && (u_is_con(u_field(u_field(u_field(u_field(s2348, 0), 0), 0), 0), &n_syntax_46_Name) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s2348, 0), 0), 0), 0), 0), &n_option_46_None) && (u_equals(u_field(u_field(u_field(u_field(u_field(s2348, 0), 0), 0), 0), 1), u_mk_lit("==")) && (u_is_con(u_field(u_field(s2348, 0), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2348, 0), 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(u_field(s2348, 0), 1), 1), 1), &n_list_46_Nil))))))))))) {
+      u_value v_lhs = u_field(u_field(u_field(s2348, 0), 1), 0);
+      u_value v_rhs = u_field(u_field(u_field(u_field(s2348, 0), 1), 1), 0);
+      d2349 = 1;
       {
         p_run_46_evaluate(v_p, *r_env, v_lhs, &v_v, r_cache);
         p_run_46_evaluate(v_p, *r_env, v_rhs, &v_w, r_cache);
-        p_run_46_equal(v_v, v_w, &v_r);
+        p_run_46_equal(v_p, v_v, v_w, &v_r, r_cache);
         if (u_truth(f_prelude_46_not_1(v_r))) {
           {
             u_raise(u_mk_con(&n_run_46_AssertionUnequal, 2, v_v, v_w), "run.RuntimeError");
@@ -23817,9 +24865,9 @@ void p_run_46_exec(u_value v_p, u_value v_x, u_value *r_env, u_value *r_cache) {
         }
       }
     }
-    if ((!d2251) && u_is_con(s2250, &n_syntax_46_SAssert)) {
-      u_value v_cond = u_field(s2250, 0);
-      d2251 = 1;
+    if ((!d2349) && u_is_con(s2348, &n_syntax_46_SAssert)) {
+      u_value v_cond = u_field(s2348, 0);
+      d2349 = 1;
       {
         p_run_46_evaluate(v_p, *r_env, v_cond, &v_v, r_cache);
         if (u_truth(f_prelude_46_not_1(f_run_46_truth_1(v_v)))) {
@@ -23829,71 +24877,71 @@ void p_run_46_exec(u_value v_p, u_value v_x, u_value *r_env, u_value *r_cache) {
         }
       }
     }
-    if ((!d2251) && u_is_con(s2250, &n_syntax_46_SRaise)) {
-      u_value v_arg = u_field(s2250, 0);
-      u_value v_t = u_field(s2250, 1);
-      d2251 = 1;
+    if ((!d2349) && u_is_con(s2348, &n_syntax_46_SRaise)) {
+      u_value v_arg = u_field(s2348, 0);
+      u_value v_t = u_field(s2348, 1);
+      d2349 = 1;
       {
         p_run_46_evaluate(v_p, *r_env, v_arg, &v_v, r_cache);
         u_raise(u_mk_con(&n_run_46_Thrown, 2, v_v, v_t), "run.Thrown");
       }
     }
-    if ((!d2251) && u_is_con(s2250, &n_syntax_46_STry)) {
-      u_value v_body = u_field(s2250, 0);
-      u_value v_handlers = u_field(s2250, 1);
-      d2251 = 1;
+    if ((!d2349) && u_is_con(s2348, &n_syntax_46_STry)) {
+      u_value v_body = u_field(s2348, 0);
+      u_value v_handlers = u_field(s2348, 1);
+      d2349 = 1;
       {
         {
-          struct u_handler *h2259 = u_push();
-          if (setjmp(h2259->env) == 0) {
+          struct u_handler *h2357 = u_push();
+          if (setjmp(h2357->env) == 0) {
             {
               p_run_46_exec(v_p, v_body, r_env, r_cache);
             }
-            u_pop(h2259);
+            u_pop(h2357);
           } else {
-            u_pop(h2259);
-            int d2260 = 0;
-            if ((!d2260) && (u_has_type(h2259, "run.Thrown") && u_is_con(u_caught(h2259), &n_run_46_Thrown))) {
-              u_value v_u = u_field(u_caught(h2259), 0);
-              u_value v_t = u_field(u_caught(h2259), 1);
-              d2260 = 1;
+            u_pop(h2357);
+            int d2358 = 0;
+            if ((!d2358) && (u_has_type(h2357, "run.Thrown") && u_is_con(u_caught(h2357), &n_run_46_Thrown))) {
+              u_value v_u = u_field(u_caught(h2357), 0);
+              u_value v_t = u_field(u_caught(h2357), 1);
+              d2358 = 1;
               {
                 p_run_46_handle(v_p, v_handlers, v_u, v_t, r_env, r_cache);
               }
             }
-            if (!d2260) {
-              u_reraise(h2259);
+            if (!d2358) {
+              u_reraise(h2357);
             }
           }
         }
       }
     }
-    if (!d2251) {
-      u_no_case(s2250);
+    if (!d2349) {
+      u_no_case(s2348);
     }
   }
 }
 
 void p_run_46_exec_all(u_value v_p, u_value v_xs, u_value *r_env, u_value *r_cache) {
   {
-    u_value s2261 = v_xs;
-    int d2262 = 0;
-    if ((!d2262) && u_is_con(s2261, &n_list_46_Nil)) {
-      d2262 = 1;
+    u_value s2359 = v_xs;
+    int d2360 = 0;
+    if ((!d2360) && u_is_con(s2359, &n_list_46_Nil)) {
+      d2360 = 1;
       {
       }
     }
-    if ((!d2262) && u_is_con(s2261, &n_list_46_Cons)) {
-      u_value v_x = u_field(s2261, 0);
-      u_value v_more = u_field(s2261, 1);
-      d2262 = 1;
+    if ((!d2360) && u_is_con(s2359, &n_list_46_Cons)) {
+      u_value v_x = u_field(s2359, 0);
+      u_value v_more = u_field(s2359, 1);
+      d2360 = 1;
       {
         p_run_46_exec(v_p, v_x, r_env, r_cache);
         p_run_46_exec_all(v_p, v_more, r_env, r_cache);
       }
     }
-    if (!d2262) {
-      u_no_case(s2261);
+    if (!d2360) {
+      u_no_case(s2359);
     }
   }
 }
@@ -23901,99 +24949,99 @@ void p_run_46_exec_all(u_value v_p, u_value v_xs, u_value *r_env, u_value *r_cac
 void p_run_46_scoped(u_value v_p, u_value v_names, u_value v_inner, u_value v_xs, u_value *r_env, u_value *r_cache) {
   {
     u_value v_outer = NULL;
-    u_value t2263 = *r_env;
-    v_outer = t2263;
-    u_value t2264 = v_inner;
-    *r_env = t2264;
+    u_value t2361 = *r_env;
+    v_outer = t2361;
+    u_value t2362 = v_inner;
+    *r_env = t2362;
     {
-      struct u_handler *h2265 = u_push();
-      if (setjmp(h2265->env) == 0) {
+      struct u_handler *h2363 = u_push();
+      if (setjmp(h2363->env) == 0) {
         {
           p_run_46_exec_all(v_p, v_xs, r_env, r_cache);
         }
-        u_pop(h2265);
+        u_pop(h2363);
       } else {
-        u_pop(h2265);
-        int d2266 = 0;
-        if ((!d2266) && (u_has_type(h2265, "run.Thrown") && u_is_con(u_caught(h2265), &n_run_46_Thrown))) {
-          u_value v_v = u_field(u_caught(h2265), 0);
-          u_value v_t = u_field(u_caught(h2265), 1);
-          d2266 = 1;
+        u_pop(h2363);
+        int d2364 = 0;
+        if ((!d2364) && (u_has_type(h2363, "run.Thrown") && u_is_con(u_caught(h2363), &n_run_46_Thrown))) {
+          u_value v_v = u_field(u_caught(h2363), 0);
+          u_value v_t = u_field(u_caught(h2363), 1);
+          d2364 = 1;
           {
-            u_value t2267 = f_run_46_restored_3(v_names, v_outer, *r_env);
-            *r_env = t2267;
+            u_value t2365 = f_run_46_restored_3(v_names, v_outer, *r_env);
+            *r_env = t2365;
             u_raise(u_mk_con(&n_run_46_Thrown, 2, v_v, v_t), "run.Thrown");
           }
         }
-        if (!d2266) {
-          u_reraise(h2265);
+        if (!d2364) {
+          u_reraise(h2363);
         }
       }
     }
-    u_value t2268 = f_run_46_restored_3(v_names, v_outer, *r_env);
-    *r_env = t2268;
+    u_value t2366 = f_run_46_restored_3(v_names, v_outer, *r_env);
+    *r_env = t2366;
   }
 }
 
 u_value f_run_46_restored_3(u_value v_names, u_value v_outer, u_value v_env) {
-  u_value s2269 = v_names;
-  u_value t2270 = NULL;
-  if ((!t2270) && u_is_con(s2269, &n_list_46_Nil)) {
-    t2270 = v_env;
+  u_value s2367 = v_names;
+  u_value t2368 = NULL;
+  if ((!t2368) && u_is_con(s2367, &n_list_46_Nil)) {
+    t2368 = v_env;
   }
-  if ((!t2270) && u_is_con(s2269, &n_list_46_Cons)) {
-    u_value v_n = u_field(s2269, 0);
-    u_value v_rest = u_field(s2269, 1);
-    u_value s2271 = f_map_46_get_2(v_n, v_outer);
-    u_value t2272 = NULL;
-    if ((!t2272) && u_is_con(s2271, &n_option_46_Some)) {
-      u_value v_v = u_field(s2271, 0);
-      t2272 = f_run_46_restored_3(v_rest, v_outer, f_map_46_put_3(v_n, v_v, v_env));
+  if ((!t2368) && u_is_con(s2367, &n_list_46_Cons)) {
+    u_value v_n = u_field(s2367, 0);
+    u_value v_rest = u_field(s2367, 1);
+    u_value s2369 = f_map_46_get_2(v_n, v_outer);
+    u_value t2370 = NULL;
+    if ((!t2370) && u_is_con(s2369, &n_option_46_Some)) {
+      u_value v_v = u_field(s2369, 0);
+      t2370 = f_run_46_restored_3(v_rest, v_outer, f_map_46_put_3(v_n, v_v, v_env));
     }
-    if ((!t2272) && u_is_con(s2271, &n_option_46_None)) {
-      t2272 = f_run_46_restored_3(v_rest, v_outer, f_map_46_remove_2(v_n, v_env));
+    if ((!t2370) && u_is_con(s2369, &n_option_46_None)) {
+      t2370 = f_run_46_restored_3(v_rest, v_outer, f_map_46_remove_2(v_n, v_env));
     }
-    if (!t2272) {
-      u_no_case(s2271);
+    if (!t2370) {
+      u_no_case(s2369);
     }
-    t2270 = t2272;
+    t2368 = t2370;
   }
-  if (!t2270) {
-    u_no_case(s2269);
+  if (!t2368) {
+    u_no_case(s2367);
   }
-  return t2270;
+  return t2368;
 }
 
 void p_run_46_select(u_value v_p, u_value v_env, u_value v_v, u_value v_cases, u_value *r_sel, u_value *r_cache) {
   {
     u_value v_ok = NULL;
-    u_value s2273 = v_cases;
-    int d2274 = 0;
-    if ((!d2274) && u_is_con(s2273, &n_list_46_Nil)) {
-      d2274 = 1;
+    u_value s2371 = v_cases;
+    int d2372 = 0;
+    if ((!d2372) && u_is_con(s2371, &n_list_46_Nil)) {
+      d2372 = 1;
       {
-        u_value t2275 = &o_option_46_None;
-        *r_sel = t2275;
+        u_value t2373 = &o_option_46_None;
+        *r_sel = t2373;
       }
     }
-    if ((!d2274) && (u_is_con(s2273, &n_list_46_Cons) && u_is_con(u_field(s2273, 0), &n_syntax_46_Branch))) {
-      u_value v_q = u_field(u_field(s2273, 0), 0);
-      u_value v_g = u_field(u_field(s2273, 0), 1);
-      u_value v_b = u_field(u_field(s2273, 0), 2);
-      u_value v_rest = u_field(s2273, 1);
-      d2274 = 1;
+    if ((!d2372) && (u_is_con(s2371, &n_list_46_Cons) && u_is_con(u_field(s2371, 0), &n_syntax_46_Branch))) {
+      u_value v_q = u_field(u_field(s2371, 0), 0);
+      u_value v_g = u_field(u_field(s2371, 0), 1);
+      u_value v_b = u_field(u_field(s2371, 0), 2);
+      u_value v_rest = u_field(s2371, 1);
+      d2372 = 1;
       {
-        u_value s2276 = f_run_46_match_into_3(v_q, v_v, v_env);
-        int d2277 = 0;
-        if ((!d2277) && u_is_con(s2276, &n_option_46_Some)) {
-          u_value v_inner = u_field(s2276, 0);
-          d2277 = 1;
+        u_value s2374 = f_run_46_match_into_3(v_q, v_v, v_env);
+        int d2375 = 0;
+        if ((!d2375) && u_is_con(s2374, &n_option_46_Some)) {
+          u_value v_inner = u_field(s2374, 0);
+          d2375 = 1;
           {
             p_run_46_holds(v_p, v_inner, v_g, &v_ok, r_cache);
             if (u_truth(v_ok)) {
               {
-                u_value t2278 = u_mk_con(&n_option_46_Some, 1, u_mk_tuple(3, v_b, v_inner, f_run_46_pattern_vars_1(v_q)));
-                *r_sel = t2278;
+                u_value t2376 = u_mk_con(&n_option_46_Some, 1, u_mk_tuple(3, v_b, v_inner, f_run_46_pattern_vars_1(v_q)));
+                *r_sel = t2376;
               }
             } else {
               {
@@ -24002,19 +25050,19 @@ void p_run_46_select(u_value v_p, u_value v_env, u_value v_v, u_value v_cases, u
             }
           }
         }
-        if ((!d2277) && u_is_con(s2276, &n_option_46_None)) {
-          d2277 = 1;
+        if ((!d2375) && u_is_con(s2374, &n_option_46_None)) {
+          d2375 = 1;
           {
             p_run_46_select(v_p, v_env, v_v, v_rest, r_sel, r_cache);
           }
         }
-        if (!d2277) {
-          u_no_case(s2276);
+        if (!d2375) {
+          u_no_case(s2374);
         }
       }
     }
-    if (!d2274) {
-      u_no_case(s2273);
+    if (!d2372) {
+      u_no_case(s2371);
     }
   }
 }
@@ -24022,26 +25070,26 @@ void p_run_46_select(u_value v_p, u_value v_env, u_value v_v, u_value v_cases, u
 void p_run_46_holds(u_value v_p, u_value v_env, u_value v_g, u_value *r_ok, u_value *r_cache) {
   {
     u_value v_w = NULL;
-    u_value s2279 = v_g;
-    int d2280 = 0;
-    if ((!d2280) && u_is_con(s2279, &n_option_46_Some)) {
-      u_value v_e = u_field(s2279, 0);
-      d2280 = 1;
+    u_value s2377 = v_g;
+    int d2378 = 0;
+    if ((!d2378) && u_is_con(s2377, &n_option_46_Some)) {
+      u_value v_e = u_field(s2377, 0);
+      d2378 = 1;
       {
         p_run_46_evaluate(v_p, v_env, v_e, &v_w, r_cache);
-        u_value t2281 = f_run_46_truth_1(v_w);
-        *r_ok = t2281;
+        u_value t2379 = f_run_46_truth_1(v_w);
+        *r_ok = t2379;
       }
     }
-    if ((!d2280) && u_is_con(s2279, &n_option_46_None)) {
-      d2280 = 1;
+    if ((!d2378) && u_is_con(s2377, &n_option_46_None)) {
+      d2378 = 1;
       {
-        u_value t2282 = u_mk_bool(1);
-        *r_ok = t2282;
+        u_value t2380 = u_mk_bool(1);
+        *r_ok = t2380;
       }
     }
-    if (!d2280) {
-      u_no_case(s2279);
+    if (!d2378) {
+      u_no_case(s2377);
     }
   }
 }
@@ -24049,19 +25097,19 @@ void p_run_46_holds(u_value v_p, u_value v_env, u_value v_g, u_value *r_ok, u_va
 void p_run_46_handle(u_value v_p, u_value v_hs, u_value v_v, u_value v_t, u_value *r_env, u_value *r_cache) {
   {
     u_value v_ok = NULL;
-    u_value s2283 = v_hs;
-    int d2284 = 0;
-    if ((!d2284) && u_is_con(s2283, &n_list_46_Nil)) {
-      d2284 = 1;
+    u_value s2381 = v_hs;
+    int d2382 = 0;
+    if ((!d2382) && u_is_con(s2381, &n_list_46_Nil)) {
+      d2382 = 1;
       {
         u_raise(u_mk_con(&n_run_46_Thrown, 2, v_v, v_t), "run.Thrown");
       }
     }
-    if ((!d2284) && (u_is_con(s2283, &n_list_46_Cons) && (u_is_con(u_field(s2283, 0), &n_syntax_46_Handler) && u_is_con(u_field(u_field(s2283, 0), 1), &n_syntax_46_PWild)))) {
-      u_value v_g = u_field(u_field(s2283, 0), 2);
-      u_value v_body = u_field(u_field(s2283, 0), 3);
-      u_value v_rest = u_field(s2283, 1);
-      d2284 = 1;
+    if ((!d2382) && (u_is_con(s2381, &n_list_46_Cons) && (u_is_con(u_field(s2381, 0), &n_syntax_46_Handler) && u_is_con(u_field(u_field(s2381, 0), 1), &n_syntax_46_PWild)))) {
+      u_value v_g = u_field(u_field(s2381, 0), 2);
+      u_value v_body = u_field(u_field(s2381, 0), 3);
+      u_value v_rest = u_field(s2381, 1);
+      d2382 = 1;
       {
         p_run_46_holds(v_p, *r_env, v_g, &v_ok, r_cache);
         if (u_truth(v_ok)) {
@@ -24075,23 +25123,23 @@ void p_run_46_handle(u_value v_p, u_value v_hs, u_value v_v, u_value v_t, u_valu
         }
       }
     }
-    if ((!d2284) && (u_is_con(s2283, &n_list_46_Cons) && u_is_con(u_field(s2283, 0), &n_syntax_46_Handler))) {
-      u_value v_u = u_field(u_field(s2283, 0), 0);
-      u_value v_q = u_field(u_field(s2283, 0), 1);
-      u_value v_g = u_field(u_field(s2283, 0), 2);
-      u_value v_body = u_field(u_field(s2283, 0), 3);
-      u_value v_rest = u_field(s2283, 1);
-      d2284 = 1;
+    if ((!d2382) && (u_is_con(s2381, &n_list_46_Cons) && u_is_con(u_field(s2381, 0), &n_syntax_46_Handler))) {
+      u_value v_u = u_field(u_field(s2381, 0), 0);
+      u_value v_q = u_field(u_field(s2381, 0), 1);
+      u_value v_g = u_field(u_field(s2381, 0), 2);
+      u_value v_body = u_field(u_field(s2381, 0), 3);
+      u_value v_rest = u_field(s2381, 1);
+      d2382 = 1;
       {
-        u_value t2285 = u_mk_bool(0);
-        v_ok = t2285;
+        u_value t2383 = u_mk_bool(0);
+        v_ok = t2383;
         if (u_truth(u_eq(v_u, v_t))) {
           {
-            u_value s2286 = f_run_46_match_into_3(v_q, v_v, *r_env);
-            int d2287 = 0;
-            if ((!d2287) && u_is_con(s2286, &n_option_46_Some)) {
-              u_value v_inner = u_field(s2286, 0);
-              d2287 = 1;
+            u_value s2384 = f_run_46_match_into_3(v_q, v_v, *r_env);
+            int d2385 = 0;
+            if ((!d2385) && u_is_con(s2384, &n_option_46_Some)) {
+              u_value v_inner = u_field(s2384, 0);
+              d2385 = 1;
               {
                 p_run_46_holds(v_p, v_inner, v_g, &v_ok, r_cache);
                 if (u_truth(v_ok)) {
@@ -24101,13 +25149,13 @@ void p_run_46_handle(u_value v_p, u_value v_hs, u_value v_v, u_value v_t, u_valu
                 }
               }
             }
-            if (!d2287) {
-              d2287 = 1;
+            if (!d2385) {
+              d2385 = 1;
               {
               }
             }
-            if (!d2287) {
-              u_no_case(s2286);
+            if (!d2385) {
+              u_no_case(s2384);
             }
           }
         }
@@ -24118,131 +25166,131 @@ void p_run_46_handle(u_value v_p, u_value v_hs, u_value v_v, u_value v_t, u_valu
         }
       }
     }
-    if (!d2284) {
-      u_no_case(s2283);
+    if (!d2382) {
+      u_no_case(s2381);
     }
   }
 }
 
 void p_run_46_invoke(u_value v_p, u_value v_n, u_value v_ins, u_value v_refs, u_value *r_outs, u_value *r_env, u_value *r_cache) {
   {
-    u_value s2288 = f_map_46_get_2(v_n, f_run_46_Prog_46_procs_1(v_p));
-    int d2289 = 0;
-    if ((!d2289) && (u_is_con(s2288, &n_option_46_Some) && u_is_con(u_field(s2288, 0), &n_run_46_ProcDef))) {
-      u_value v_xs = u_field(u_field(s2288, 0), 0);
-      u_value v_ys = u_field(u_field(s2288, 0), 1);
-      u_value v_zs = u_field(u_field(s2288, 0), 2);
-      u_value v_body = u_field(u_field(s2288, 0), 3);
-      d2289 = 1;
+    u_value s2386 = f_map_46_get_2(v_n, f_run_46_Prog_46_procs_1(v_p));
+    int d2387 = 0;
+    if ((!d2387) && (u_is_con(s2386, &n_option_46_Some) && u_is_con(u_field(s2386, 0), &n_run_46_ProcDef))) {
+      u_value v_xs = u_field(u_field(s2386, 0), 0);
+      u_value v_ys = u_field(u_field(s2386, 0), 1);
+      u_value v_zs = u_field(u_field(s2386, 0), 2);
+      u_value v_body = u_field(u_field(s2386, 0), 3);
+      d2387 = 1;
       {
         p_run_46_run_body(v_p, v_n, f_map_46_empty_0(), v_xs, v_ys, v_zs, v_body, v_ins, v_refs, r_outs, r_env, r_cache);
       }
     }
-    if ((!d2289) && u_is_con(s2288, &n_option_46_None)) {
-      static struct u_object l_os_show_2294 = U_LIT("os_show");
-      if (u_truth(u_eq(f_syntax_46_Name_46_base_1(v_n), &l_os_show_2294))) {
-        d2289 = 1;
+    if ((!d2387) && u_is_con(s2386, &n_option_46_None)) {
+      static struct u_object l_os_show_2392 = U_LIT("os_show");
+      if (u_truth(u_eq(f_syntax_46_Name_46_base_1(v_n), &l_os_show_2392))) {
+        d2387 = 1;
         {
-          u_value t2290 = &o_list_46_Nil;
-          *r_outs = t2290;
-          u_value t2291 = &o_list_46_Nil;
-          u_value *e2292 = &t2291;
-          u_value l2293 = v_ins;
-          while (u_is_con(l2293, &n_list_46_Cons)) {
-            u_value v_v = u_field(l2293, 0);
+          u_value t2388 = &o_list_46_Nil;
+          *r_outs = t2388;
+          u_value t2389 = &o_list_46_Nil;
+          u_value *e2390 = &t2389;
+          u_value l2391 = v_ins;
+          while (u_is_con(l2391, &n_list_46_Cons)) {
+            u_value v_v = u_field(l2391, 0);
             if (u_truth(u_mk_bool(1))) {
-              e2292 = u_append(e2292, f_print_46_show_value_1(v_v));
+              e2390 = u_append(e2390, f_print_46_show_value_1(v_v));
             }
-            l2293 = u_field(l2293, 1);
+            l2391 = u_field(l2391, 1);
           }
-          p_run_46_print_all(t2291);
+          p_run_46_print_all(t2389);
         }
       }
     }
-    if ((!d2289) && u_is_con(s2288, &n_option_46_None)) {
-      static struct u_object l_os_print_2299 = U_LIT("os_print");
-      if (u_truth(u_eq(f_syntax_46_Name_46_base_1(v_n), &l_os_print_2299))) {
-        d2289 = 1;
+    if ((!d2387) && u_is_con(s2386, &n_option_46_None)) {
+      static struct u_object l_os_print_2397 = U_LIT("os_print");
+      if (u_truth(u_eq(f_syntax_46_Name_46_base_1(v_n), &l_os_print_2397))) {
+        d2387 = 1;
         {
-          u_value t2295 = &o_list_46_Nil;
-          *r_outs = t2295;
-          u_value t2296 = &o_list_46_Nil;
-          u_value *e2297 = &t2296;
-          u_value l2298 = v_ins;
-          while (u_is_con(l2298, &n_list_46_Cons)) {
-            u_value v_v = u_field(l2298, 0);
+          u_value t2393 = &o_list_46_Nil;
+          *r_outs = t2393;
+          u_value t2394 = &o_list_46_Nil;
+          u_value *e2395 = &t2394;
+          u_value l2396 = v_ins;
+          while (u_is_con(l2396, &n_list_46_Cons)) {
+            u_value v_v = u_field(l2396, 0);
             if (u_truth(u_mk_bool(1))) {
-              e2297 = u_append(e2297, f_print_46_text_of_1(v_v));
+              e2395 = u_append(e2395, f_print_46_text_of_1(v_v));
             }
-            l2298 = u_field(l2298, 1);
+            l2396 = u_field(l2396, 1);
           }
-          p_run_46_print_all(t2296);
+          p_run_46_print_all(t2394);
         }
       }
     }
-    if ((!d2289) && u_is_con(s2288, &n_option_46_None)) {
-      static struct u_object l_os_args_2304 = U_LIT("os_args");
-      if (u_truth(u_eq(f_syntax_46_Name_46_base_1(v_n), &l_os_args_2304))) {
-        d2289 = 1;
+    if ((!d2387) && u_is_con(s2386, &n_option_46_None)) {
+      static struct u_object l_os_args_2402 = U_LIT("os_args");
+      if (u_truth(u_eq(f_syntax_46_Name_46_base_1(v_n), &l_os_args_2402))) {
+        d2387 = 1;
         {
-          u_value t2300 = &o_list_46_Nil;
-          u_value *e2301 = &t2300;
-          u_value l2302 = f_run_46_Prog_46_args_1(v_p);
-          while (u_is_con(l2302, &n_list_46_Cons)) {
-            u_value v_a = u_field(l2302, 0);
+          u_value t2398 = &o_list_46_Nil;
+          u_value *e2399 = &t2398;
+          u_value l2400 = f_run_46_Prog_46_args_1(v_p);
+          while (u_is_con(l2400, &n_list_46_Cons)) {
+            u_value v_a = u_field(l2400, 0);
             if (u_truth(u_mk_bool(1))) {
-              e2301 = u_append(e2301, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, v_a)));
+              e2399 = u_append(e2399, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, v_a)));
             }
-            l2302 = u_field(l2302, 1);
+            l2400 = u_field(l2400, 1);
           }
-          u_value t2303 = u_mk_con(&n_list_46_Cons, 2, f_value_46_list_value_1(t2300), &o_list_46_Nil);
-          *r_outs = t2303;
+          u_value t2401 = u_mk_con(&n_list_46_Cons, 2, f_value_46_list_value_1(t2398), &o_list_46_Nil);
+          *r_outs = t2401;
         }
       }
     }
-    if ((!d2289) && u_is_con(s2288, &n_option_46_None)) {
-      d2289 = 1;
+    if ((!d2387) && u_is_con(s2386, &n_option_46_None)) {
+      d2387 = 1;
       {
         p_run_46_os_proc(v_n, v_ins, r_outs);
       }
     }
-    if (!d2289) {
-      u_no_case(s2288);
+    if (!d2387) {
+      u_no_case(s2386);
     }
   }
 }
 
 void p_run_46_invoke_value(u_value v_p, u_value v_f, u_value v_ins, u_value v_refs, u_value *r_outs, u_value *r_env, u_value *r_cache) {
   {
-    u_value s2305 = v_f;
-    int d2306 = 0;
-    if ((!d2306) && u_is_con(s2305, &n_value_46_Proc)) {
-      u_value v_n = u_field(s2305, 0);
-      d2306 = 1;
+    u_value s2403 = v_f;
+    int d2404 = 0;
+    if ((!d2404) && u_is_con(s2403, &n_value_46_Proc)) {
+      u_value v_n = u_field(s2403, 0);
+      d2404 = 1;
       {
         p_run_46_invoke(v_p, v_n, v_ins, v_refs, r_outs, r_env, r_cache);
       }
     }
-    if ((!d2306) && u_is_con(s2305, &n_value_46_ProcClos)) {
-      u_value v_around = u_field(s2305, 0);
-      u_value v_xs = u_field(s2305, 1);
-      u_value v_ys = u_field(s2305, 2);
-      u_value v_zs = u_field(s2305, 3);
-      u_value v_body = u_field(s2305, 4);
-      d2306 = 1;
+    if ((!d2404) && u_is_con(s2403, &n_value_46_ProcClos)) {
+      u_value v_around = u_field(s2403, 0);
+      u_value v_xs = u_field(s2403, 1);
+      u_value v_ys = u_field(s2403, 2);
+      u_value v_zs = u_field(s2403, 3);
+      u_value v_body = u_field(s2403, 4);
+      d2404 = 1;
       {
-        static struct u_object l_lambda_2307 = U_LIT("lambda");
-        p_run_46_run_body(v_p, f_syntax_46_unqualified_1(&l_lambda_2307), v_around, v_xs, v_ys, v_zs, v_body, v_ins, v_refs, r_outs, r_env, r_cache);
+        static struct u_object l_lambda_2405 = U_LIT("lambda");
+        p_run_46_run_body(v_p, f_syntax_46_unqualified_1(&l_lambda_2405), v_around, v_xs, v_ys, v_zs, v_body, v_ins, v_refs, r_outs, r_env, r_cache);
       }
     }
-    if (!d2306) {
-      d2306 = 1;
+    if (!d2404) {
+      d2404 = 1;
       {
         u_raise(u_mk_con(&n_run_46_NotProc, 1, v_f), "run.RuntimeError");
       }
     }
-    if (!d2306) {
-      u_no_case(s2305);
+    if (!d2404) {
+      u_no_case(s2403);
     }
   }
 }
@@ -24250,120 +25298,120 @@ void p_run_46_invoke_value(u_value v_p, u_value v_f, u_value v_ins, u_value v_re
 void p_run_46_run_body(u_value v_p, u_value v_n, u_value v_around, u_value v_xs, u_value v_ys, u_value v_zs, u_value v_body, u_value v_ins, u_value v_refs, u_value *r_outs, u_value *r_env, u_value *r_cache) {
   {
     u_value v_inner = NULL;
-    u_value t2308 = f_run_46_bind_all_3(v_xs, v_ins, f_map_46_put_all_2(f_run_46_values_in_2(f_list_46_zip_2(f_syntax_46_names_1(v_zs), v_refs), *r_env), f_map_46_remove_all_2(f_syntax_46_names_1(f_list_46__43__43__2(v_ys, v_zs)), v_around)));
-    v_inner = t2308;
+    u_value t2406 = f_run_46_bind_all_3(v_xs, v_ins, f_map_46_put_all_2(f_run_46_values_in_2(f_list_46_zip_2(f_syntax_46_names_1(v_zs), v_refs), *r_env), f_map_46_remove_all_2(f_syntax_46_names_1(f_list_46__43__43__2(v_ys, v_zs)), v_around)));
+    v_inner = t2406;
     {
-      struct u_handler *h2309 = u_push();
-      if (setjmp(h2309->env) == 0) {
+      struct u_handler *h2407 = u_push();
+      if (setjmp(h2407->env) == 0) {
         {
           p_run_46_exec(v_p, v_body, &v_inner, r_cache);
         }
-        u_pop(h2309);
+        u_pop(h2407);
       } else {
-        u_pop(h2309);
-        int d2310 = 0;
-        if ((!d2310) && (u_has_type(h2309, "run.Thrown") && u_is_con(u_caught(h2309), &n_run_46_Thrown))) {
-          u_value v_v = u_field(u_caught(h2309), 0);
-          u_value v_t = u_field(u_caught(h2309), 1);
-          d2310 = 1;
+        u_pop(h2407);
+        int d2408 = 0;
+        if ((!d2408) && (u_has_type(h2407, "run.Thrown") && u_is_con(u_caught(h2407), &n_run_46_Thrown))) {
+          u_value v_v = u_field(u_caught(h2407), 0);
+          u_value v_t = u_field(u_caught(h2407), 1);
+          d2408 = 1;
           {
-            u_value t2311 = f_map_46_put_all_2(f_run_46_values_in_2(f_list_46_zip_2(v_refs, f_syntax_46_names_1(v_zs)), v_inner), *r_env);
-            *r_env = t2311;
+            u_value t2409 = f_map_46_put_all_2(f_run_46_values_in_2(f_list_46_zip_2(v_refs, f_syntax_46_names_1(v_zs)), v_inner), *r_env);
+            *r_env = t2409;
             u_raise(u_mk_con(&n_run_46_Thrown, 2, v_v, v_t), "run.Thrown");
           }
         }
-        if (!d2310) {
-          u_reraise(h2309);
+        if (!d2408) {
+          u_reraise(h2407);
         }
       }
     }
-    u_value t2312 = f_run_46_read_outs_3(v_n, f_syntax_46_names_1(v_ys), v_inner);
-    *r_outs = t2312;
-    u_value t2313 = f_map_46_put_all_2(f_run_46_values_in_2(f_list_46_zip_2(v_refs, f_syntax_46_names_1(v_zs)), v_inner), *r_env);
-    *r_env = t2313;
+    u_value t2410 = f_run_46_read_outs_3(v_n, f_syntax_46_names_1(v_ys), v_inner);
+    *r_outs = t2410;
+    u_value t2411 = f_map_46_put_all_2(f_run_46_values_in_2(f_list_46_zip_2(v_refs, f_syntax_46_names_1(v_zs)), v_inner), *r_env);
+    *r_env = t2411;
   }
 }
 
 u_value f_run_46_values_in_2(u_value v_ps, u_value v_env) {
-  u_value s2314 = v_ps;
-  u_value t2315 = NULL;
-  if ((!t2315) && u_is_con(s2314, &n_list_46_Nil)) {
-    t2315 = &o_list_46_Nil;
+  u_value s2412 = v_ps;
+  u_value t2413 = NULL;
+  if ((!t2413) && u_is_con(s2412, &n_list_46_Nil)) {
+    t2413 = &o_list_46_Nil;
   }
-  if ((!t2315) && u_is_con(s2314, &n_list_46_Cons)) {
-    u_value v_a = u_field(u_field(s2314, 0), 0);
-    u_value v_b = u_field(u_field(s2314, 0), 1);
-    u_value v_rest = u_field(s2314, 1);
-    u_value s2316 = f_map_46_get_2(v_b, v_env);
-    u_value t2317 = NULL;
-    if ((!t2317) && u_is_con(s2316, &n_option_46_Some)) {
-      u_value v_v = u_field(s2316, 0);
-      t2317 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_a, v_v), f_run_46_values_in_2(v_rest, v_env));
+  if ((!t2413) && u_is_con(s2412, &n_list_46_Cons)) {
+    u_value v_a = u_field(u_field(s2412, 0), 0);
+    u_value v_b = u_field(u_field(s2412, 0), 1);
+    u_value v_rest = u_field(s2412, 1);
+    u_value s2414 = f_map_46_get_2(v_b, v_env);
+    u_value t2415 = NULL;
+    if ((!t2415) && u_is_con(s2414, &n_option_46_Some)) {
+      u_value v_v = u_field(s2414, 0);
+      t2415 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_a, v_v), f_run_46_values_in_2(v_rest, v_env));
     }
-    if ((!t2317) && u_is_con(s2316, &n_option_46_None)) {
-      t2317 = f_run_46_values_in_2(v_rest, v_env);
+    if ((!t2415) && u_is_con(s2414, &n_option_46_None)) {
+      t2415 = f_run_46_values_in_2(v_rest, v_env);
     }
-    if (!t2317) {
-      u_no_case(s2316);
+    if (!t2415) {
+      u_no_case(s2414);
     }
-    t2315 = t2317;
+    t2413 = t2415;
   }
-  if (!t2315) {
-    u_no_case(s2314);
+  if (!t2413) {
+    u_no_case(s2412);
   }
-  return t2315;
+  return t2413;
 }
 
 u_value f_run_46_read_outs_3(u_value v_p, u_value v_ys, u_value v_env) {
-  u_value s2318 = v_ys;
-  u_value t2319 = NULL;
-  if ((!t2319) && u_is_con(s2318, &n_list_46_Nil)) {
-    t2319 = &o_list_46_Nil;
+  u_value s2416 = v_ys;
+  u_value t2417 = NULL;
+  if ((!t2417) && u_is_con(s2416, &n_list_46_Nil)) {
+    t2417 = &o_list_46_Nil;
   }
-  if ((!t2319) && u_is_con(s2318, &n_list_46_Cons)) {
-    u_value v_y = u_field(s2318, 0);
-    u_value v_rest = u_field(s2318, 1);
-    u_value s2320 = f_map_46_get_2(v_y, v_env);
-    u_value t2321 = NULL;
-    if ((!t2321) && u_is_con(s2320, &n_option_46_Some)) {
-      u_value v_v = u_field(s2320, 0);
-      t2321 = u_mk_con(&n_list_46_Cons, 2, v_v, f_run_46_read_outs_3(v_p, v_rest, v_env));
+  if ((!t2417) && u_is_con(s2416, &n_list_46_Cons)) {
+    u_value v_y = u_field(s2416, 0);
+    u_value v_rest = u_field(s2416, 1);
+    u_value s2418 = f_map_46_get_2(v_y, v_env);
+    u_value t2419 = NULL;
+    if ((!t2419) && u_is_con(s2418, &n_option_46_Some)) {
+      u_value v_v = u_field(s2418, 0);
+      t2419 = u_mk_con(&n_list_46_Cons, 2, v_v, f_run_46_read_outs_3(v_p, v_rest, v_env));
     }
-    if ((!t2321) && u_is_con(s2320, &n_option_46_None)) {
+    if ((!t2419) && u_is_con(s2418, &n_option_46_None)) {
       u_raise(u_mk_con(&n_run_46_UnassignedOutput, 2, v_y, v_p), "run.RuntimeError");
-      t2321 = NULL;
+      t2419 = NULL;
     }
-    if (!t2321) {
-      u_no_case(s2320);
+    if (!t2419) {
+      u_no_case(s2418);
     }
-    t2319 = t2321;
+    t2417 = t2419;
   }
-  if (!t2319) {
-    u_no_case(s2318);
+  if (!t2417) {
+    u_no_case(s2416);
   }
-  return t2319;
+  return t2417;
 }
 
 void p_run_46_print_all(u_value v_lines) {
   {
-    u_value s2322 = v_lines;
-    int d2323 = 0;
-    if ((!d2323) && u_is_con(s2322, &n_list_46_Nil)) {
-      d2323 = 1;
+    u_value s2420 = v_lines;
+    int d2421 = 0;
+    if ((!d2421) && u_is_con(s2420, &n_list_46_Nil)) {
+      d2421 = 1;
       {
       }
     }
-    if ((!d2323) && u_is_con(s2322, &n_list_46_Cons)) {
-      u_value v_line = u_field(s2322, 0);
-      u_value v_rest = u_field(s2322, 1);
-      d2323 = 1;
+    if ((!d2421) && u_is_con(s2420, &n_list_46_Cons)) {
+      u_value v_line = u_field(s2420, 0);
+      u_value v_rest = u_field(s2420, 1);
+      d2421 = 1;
       {
         p_os_print(v_line);
         p_run_46_print_all(v_rest);
       }
     }
-    if (!d2323) {
-      u_no_case(s2322);
+    if (!d2421) {
+      u_no_case(s2420);
     }
   }
 }
@@ -24372,78 +25420,78 @@ void p_run_46_os_proc(u_value v_n, u_value v_ins, u_value *r_outs) {
   {
     u_value v_text = NULL;
     {
-      struct u_handler *h2330 = u_push();
-      if (setjmp(h2330->env) == 0) {
+      struct u_handler *h2428 = u_push();
+      if (setjmp(h2428->env) == 0) {
         {
-          u_value s2324 = u_mk_tuple(2, f_syntax_46_Name_46_base_1(v_n), v_ins);
-          int d2325 = 0;
-          if ((!d2325) && (u_equals(u_field(s2324, 0), u_mk_lit("os_read")) && (u_is_con(u_field(s2324, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2324, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2324, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2324, 1), 1), &n_list_46_Nil)))))) {
-            u_value v_path = u_field(u_field(u_field(u_field(s2324, 1), 0), 0), 0);
-            d2325 = 1;
+          u_value s2422 = u_mk_tuple(2, f_syntax_46_Name_46_base_1(v_n), v_ins);
+          int d2423 = 0;
+          if ((!d2423) && (u_equals(u_field(s2422, 0), u_mk_lit("os_read")) && (u_is_con(u_field(s2422, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2422, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2422, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2422, 1), 1), &n_list_46_Nil)))))) {
+            u_value v_path = u_field(u_field(u_field(u_field(s2422, 1), 0), 0), 0);
+            d2423 = 1;
             {
               p_os_read(v_path, &v_text);
-              u_value t2326 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, v_text)), &o_list_46_Nil);
-              *r_outs = t2326;
+              u_value t2424 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, v_text)), &o_list_46_Nil);
+              *r_outs = t2424;
             }
           }
-          if ((!d2325) && (u_equals(u_field(s2324, 0), u_mk_lit("os_write")) && (u_is_con(u_field(s2324, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2324, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2324, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2324, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2324, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2324, 1), 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(u_field(s2324, 1), 1), 1), &n_list_46_Nil))))))))) {
-            u_value v_path = u_field(u_field(u_field(u_field(s2324, 1), 0), 0), 0);
-            u_value v_t = u_field(u_field(u_field(u_field(u_field(s2324, 1), 1), 0), 0), 0);
-            d2325 = 1;
+          if ((!d2423) && (u_equals(u_field(s2422, 0), u_mk_lit("os_write")) && (u_is_con(u_field(s2422, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2422, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2422, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2422, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2422, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2422, 1), 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(u_field(s2422, 1), 1), 1), &n_list_46_Nil))))))))) {
+            u_value v_path = u_field(u_field(u_field(u_field(s2422, 1), 0), 0), 0);
+            u_value v_t = u_field(u_field(u_field(u_field(u_field(s2422, 1), 1), 0), 0), 0);
+            d2423 = 1;
             {
               p_os_write(v_path, v_t);
-              u_value t2327 = &o_list_46_Nil;
-              *r_outs = t2327;
+              u_value t2425 = &o_list_46_Nil;
+              *r_outs = t2425;
             }
           }
-          if ((!d2325) && (u_equals(u_field(s2324, 0), u_mk_lit("os_library")) && (u_is_con(u_field(s2324, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2324, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2324, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2324, 1), 1), &n_list_46_Nil)))))) {
-            u_value v_name = u_field(u_field(u_field(u_field(s2324, 1), 0), 0), 0);
-            d2325 = 1;
+          if ((!d2423) && (u_equals(u_field(s2422, 0), u_mk_lit("os_library")) && (u_is_con(u_field(s2422, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2422, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2422, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2422, 1), 1), &n_list_46_Nil)))))) {
+            u_value v_name = u_field(u_field(u_field(u_field(s2422, 1), 0), 0), 0);
+            d2423 = 1;
             {
               p_os_library(v_name, &v_text);
-              u_value t2328 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, v_text)), &o_list_46_Nil);
-              *r_outs = t2328;
+              u_value t2426 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, v_text)), &o_list_46_Nil);
+              *r_outs = t2426;
             }
           }
-          if ((!d2325) && (u_equals(u_field(s2324, 0), u_mk_lit("os_print_error")) && (u_is_con(u_field(s2324, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2324, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2324, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2324, 1), 1), &n_list_46_Nil)))))) {
-            u_value v_t = u_field(u_field(u_field(u_field(s2324, 1), 0), 0), 0);
-            d2325 = 1;
+          if ((!d2423) && (u_equals(u_field(s2422, 0), u_mk_lit("os_print_error")) && (u_is_con(u_field(s2422, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2422, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2422, 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(s2422, 1), 1), &n_list_46_Nil)))))) {
+            u_value v_t = u_field(u_field(u_field(u_field(s2422, 1), 0), 0), 0);
+            d2423 = 1;
             {
               p_os_print_error(v_t);
-              u_value t2329 = &o_list_46_Nil;
-              *r_outs = t2329;
+              u_value t2427 = &o_list_46_Nil;
+              *r_outs = t2427;
             }
           }
-          if ((!d2325) && (u_equals(u_field(s2324, 0), u_mk_lit("os_exit")) && (u_is_con(u_field(s2324, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2324, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2324, 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(s2324, 1), 1), &n_list_46_Nil)))))) {
-            u_value v_k = u_field(u_field(u_field(u_field(s2324, 1), 0), 0), 0);
-            d2325 = 1;
+          if ((!d2423) && (u_equals(u_field(s2422, 0), u_mk_lit("os_exit")) && (u_is_con(u_field(s2422, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2422, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2422, 1), 0), 0), &n_syntax_46_VInt) && u_is_con(u_field(u_field(s2422, 1), 1), &n_list_46_Nil)))))) {
+            u_value v_k = u_field(u_field(u_field(u_field(s2422, 1), 0), 0), 0);
+            d2423 = 1;
             {
               p_os_exit(v_k);
             }
           }
-          if (!d2325) {
-            d2325 = 1;
+          if (!d2423) {
+            d2423 = 1;
             {
               u_raise(u_mk_con(&n_run_46_UnknownProc, 1, v_n), "run.RuntimeError");
             }
           }
-          if (!d2325) {
-            u_no_case(s2324);
+          if (!d2423) {
+            u_no_case(s2422);
           }
         }
-        u_pop(h2330);
+        u_pop(h2428);
       } else {
-        u_pop(h2330);
-        int d2331 = 0;
-        if ((!d2331) && (u_has_type(h2330, "os.OsError") && u_is_con(u_caught(h2330), &n_os_46_OsError))) {
-          u_value v_m = u_field(u_caught(h2330), 0);
-          d2331 = 1;
+        u_pop(h2428);
+        int d2429 = 0;
+        if ((!d2429) && (u_has_type(h2428, "os.OsError") && u_is_con(u_caught(h2428), &n_os_46_OsError))) {
+          u_value v_m = u_field(u_caught(h2428), 0);
+          d2429 = 1;
           {
             u_raise(u_mk_con(&n_run_46_Thrown, 2, u_mk_con(&n_value_46_Obj, 2, f_syntax_46_os_error_name_0(), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_value_46_Lit, 1, u_mk_con(&n_syntax_46_VStr, 1, v_m)), &o_list_46_Nil)), u_mk_con(&n_syntax_46_TSort, 2, f_syntax_46_os_error_name_0(), &o_list_46_Nil)), "run.Thrown");
           }
         }
-        if (!d2331) {
-          u_reraise(h2330);
+        if (!d2429) {
+          u_reraise(h2428);
         }
       }
     }
@@ -24454,8 +25502,8 @@ void p_run_46_run_proc(u_value v_p, u_value v_n, u_value *r_cache) {
   {
     u_value v_env = NULL;
     u_value v_outs = NULL;
-    u_value t2332 = f_map_46_empty_0();
-    v_env = t2332;
+    u_value t2430 = f_map_46_empty_0();
+    v_env = t2430;
     p_run_46_invoke(v_p, v_n, &o_list_46_Nil, &o_list_46_Nil, &v_outs, &v_env, r_cache);
   }
 }
@@ -24463,48 +25511,48 @@ void p_run_46_run_proc(u_value v_p, u_value v_n, u_value *r_cache) {
 void p_run_46_run_cmd(u_value v_p, u_value v_c, u_value *r_cache) {
   {
     u_value v_env = NULL;
-    u_value t2333 = f_map_46_empty_0();
-    v_env = t2333;
-    u_value s2334 = v_c;
-    int d2335 = 0;
-    if ((!d2335) && u_is_con(s2334, &n_syntax_46_CTest)) {
-      u_value v_body = u_field(s2334, 2);
-      d2335 = 1;
+    u_value t2431 = f_map_46_empty_0();
+    v_env = t2431;
+    u_value s2432 = v_c;
+    int d2433 = 0;
+    if ((!d2433) && u_is_con(s2432, &n_syntax_46_CTest)) {
+      u_value v_body = u_field(s2432, 2);
+      d2433 = 1;
       {
         p_run_46_exec(v_p, v_body, &v_env, r_cache);
       }
     }
-    if (!d2335) {
-      d2335 = 1;
+    if (!d2433) {
+      d2433 = 1;
       {
       }
     }
-    if (!d2335) {
-      u_no_case(s2334);
+    if (!d2433) {
+      u_no_case(s2432);
     }
   }
 }
 
 void p_run_46_run_all(u_value v_p, u_value v_cs, u_value *r_cache) {
   {
-    u_value s2336 = v_cs;
-    int d2337 = 0;
-    if ((!d2337) && u_is_con(s2336, &n_list_46_Nil)) {
-      d2337 = 1;
+    u_value s2434 = v_cs;
+    int d2435 = 0;
+    if ((!d2435) && u_is_con(s2434, &n_list_46_Nil)) {
+      d2435 = 1;
       {
       }
     }
-    if ((!d2337) && u_is_con(s2336, &n_list_46_Cons)) {
-      u_value v_c = u_field(s2336, 0);
-      u_value v_more = u_field(s2336, 1);
-      d2337 = 1;
+    if ((!d2435) && u_is_con(s2434, &n_list_46_Cons)) {
+      u_value v_c = u_field(s2434, 0);
+      u_value v_more = u_field(s2434, 1);
+      d2435 = 1;
       {
         p_run_46_run_cmd(v_p, v_c, r_cache);
         p_run_46_run_all(v_p, v_more, r_cache);
       }
     }
-    if (!d2337) {
-      u_no_case(s2336);
+    if (!d2435) {
+      u_no_case(s2434);
     }
   }
 }
@@ -24512,8 +25560,8 @@ void p_run_46_run_all(u_value v_p, u_value v_cs, u_value *r_cache) {
 void p_run_46_run_program(u_value v_q) {
   {
     u_value v_cache = NULL;
-    u_value t2338 = f_map_46_empty_0();
-    v_cache = t2338;
+    u_value t2436 = f_map_46_empty_0();
+    v_cache = t2436;
     p_run_46_run_all(f_run_46_load_1(v_q), f_syntax_46_Program_46_cmds_1(v_q), &v_cache);
   }
 }
@@ -24521,22 +25569,22 @@ void p_run_46_run_program(u_value v_q) {
 void p_run_46_check_and_run(u_value v_cs) {
   {
     u_value v_q = NULL;
-    static struct u_object l_main_2339 = U_LIT("main");
-    p_check_46_check_program(u_mk_con(&n_syntax_46_Program, 1, v_cs), &l_main_2339, &v_q);
+    static struct u_object l_main_2437 = U_LIT("main");
+    p_check_46_check_program(u_mk_con(&n_syntax_46_Program, 1, v_cs), &l_main_2437, &v_q);
     p_run_46_run_program(v_q);
   }
 }
 
 u_value f_run_46_asserting_3(u_value v_n, u_value v_e, u_value v_expected) {
-  static struct u_object l__61__61__2340 = U_LIT("==");
-  return u_mk_con(&n_syntax_46_CTest, 3, v_n, &o_list_46_Nil, u_mk_con(&n_syntax_46_SBlock, 2, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SAssert, 1, f_check_46_ap_2(&l__61__61__2340, u_mk_con(&n_list_46_Cons, 2, v_e, u_mk_con(&n_list_46_Cons, 2, v_expected, &o_list_46_Nil)))), &o_list_46_Nil)));
+  static struct u_object l__61__61__2438 = U_LIT("==");
+  return u_mk_con(&n_syntax_46_CTest, 3, v_n, &o_list_46_Nil, u_mk_con(&n_syntax_46_SBlock, 2, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SAssert, 1, f_check_46_ap_2(&l__61__61__2438, u_mk_con(&n_list_46_Cons, 2, v_e, u_mk_con(&n_list_46_Cons, 2, v_expected, &o_list_46_Nil)))), &o_list_46_Nil)));
 }
 
 u_value f_run_46_assigning_1(u_value v_e) {
-  static struct u_object l_a_2341 = U_LIT("a");
-  static struct u_object l_v_2342 = U_LIT("v");
-  static struct u_object l_v_2343 = U_LIT("v");
-  return u_mk_con(&n_syntax_46_CTest, 3, &l_a_2341, &o_list_46_Nil, u_mk_con(&n_syntax_46_SBlock, 2, u_mk_con(&n_list_46_Cons, 2, f_run_46_hole_var_1(&l_v_2342), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_run_46_hole_var_1(&l_v_2343), v_e), &o_list_46_Nil)), &o_list_46_Nil)));
+  static struct u_object l_a_2439 = U_LIT("a");
+  static struct u_object l_v_2440 = U_LIT("v");
+  static struct u_object l_v_2441 = U_LIT("v");
+  return u_mk_con(&n_syntax_46_CTest, 3, &l_a_2439, &o_list_46_Nil, u_mk_con(&n_syntax_46_SBlock, 2, u_mk_con(&n_list_46_Cons, 2, f_run_46_hole_var_1(&l_v_2440), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_run_46_hole_var_1(&l_v_2441), v_e), &o_list_46_Nil)), &o_list_46_Nil)));
 }
 
 u_value f_run_46_int_1(u_value v_n) {
@@ -24558,34 +25606,34 @@ u_value f_run_46_procedures_0(void) {
     cache = NULL;
     u_reraise(handler);
   }
-  static struct u_object l_Fail_2344 = U_LIT("Fail");
-  static struct u_object l_Fail_2345 = U_LIT("Fail");
-  static struct u_object l_sum_2346 = U_LIT("sum");
-  static struct u_object l_n_2347 = U_LIT("n");
-  static struct u_object l_s_2348 = U_LIT("s");
-  static struct u_object l_i_2349 = U_LIT("i");
-  static struct u_object l_s_2350 = U_LIT("s");
-  static struct u_object l_i_2351 = U_LIT("i");
-  static struct u_object l__60__2352 = U_LIT("<");
-  static struct u_object l_i_2353 = U_LIT("i");
-  static struct u_object l_n_2354 = U_LIT("n");
-  static struct u_object l_i_2355 = U_LIT("i");
-  static struct u_object l__43__2356 = U_LIT("+");
-  static struct u_object l_i_2357 = U_LIT("i");
-  static struct u_object l_s_2358 = U_LIT("s");
-  static struct u_object l__43__2359 = U_LIT("+");
-  static struct u_object l_s_2360 = U_LIT("s");
-  static struct u_object l__43__2361 = U_LIT("+");
-  static struct u_object l_i_2362 = U_LIT("i");
-  static struct u_object l_count_2363 = U_LIT("count");
-  static struct u_object l_k_2364 = U_LIT("k");
-  static struct u_object l_k_2365 = U_LIT("k");
-  static struct u_object l__43__2366 = U_LIT("+");
-  static struct u_object l_k_2367 = U_LIT("k");
-  static struct u_object l_Fail_2368 = U_LIT("Fail");
-  static struct u_object l_k_2369 = U_LIT("k");
+  static struct u_object l_Fail_2442 = U_LIT("Fail");
+  static struct u_object l_Fail_2443 = U_LIT("Fail");
+  static struct u_object l_sum_2444 = U_LIT("sum");
+  static struct u_object l_n_2445 = U_LIT("n");
+  static struct u_object l_s_2446 = U_LIT("s");
+  static struct u_object l_i_2447 = U_LIT("i");
+  static struct u_object l_s_2448 = U_LIT("s");
+  static struct u_object l_i_2449 = U_LIT("i");
+  static struct u_object l__60__2450 = U_LIT("<");
+  static struct u_object l_i_2451 = U_LIT("i");
+  static struct u_object l_n_2452 = U_LIT("n");
+  static struct u_object l_i_2453 = U_LIT("i");
+  static struct u_object l__43__2454 = U_LIT("+");
+  static struct u_object l_i_2455 = U_LIT("i");
+  static struct u_object l_s_2456 = U_LIT("s");
+  static struct u_object l__43__2457 = U_LIT("+");
+  static struct u_object l_s_2458 = U_LIT("s");
+  static struct u_object l__43__2459 = U_LIT("+");
+  static struct u_object l_i_2460 = U_LIT("i");
+  static struct u_object l_count_2461 = U_LIT("count");
+  static struct u_object l_k_2462 = U_LIT("k");
+  static struct u_object l_k_2463 = U_LIT("k");
+  static struct u_object l__43__2464 = U_LIT("+");
+  static struct u_object l_k_2465 = U_LIT("k");
+  static struct u_object l_Fail_2466 = U_LIT("Fail");
+  static struct u_object l_k_2467 = U_LIT("k");
   u_pop(handler);
-  cache = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CData, 3, f_syntax_46_unqualified_1(&l_Fail_2344), &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_syntax_46_unqualified_1(&l_Fail_2345), u_mk_con(&n_list_46_Cons, 2, f_check_46_tint_0(), &o_list_46_Nil)), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CProc, 6, f_syntax_46_unqualified_1(&l_sum_2346), &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_n_2347), f_check_46_tint_0()), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_s_2348), f_check_46_tint_0()), &o_list_46_Nil), &o_list_46_Nil, u_mk_con(&n_syntax_46_SBlock, 2, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_i_2349), f_check_46_tint_0()), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_s_2350), &o_syntax_46_THole), f_check_46_num_1(u_mk_int(0))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_i_2351), &o_syntax_46_THole), f_check_46_num_1(u_mk_int(0))), &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SWhile, 2, f_check_46_ap_2(&l__60__2352, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_i_2353), u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_n_2354), &o_list_46_Nil))), u_mk_con(&n_syntax_46_SBlock, 2, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_i_2355), &o_syntax_46_THole), f_check_46_ap_2(&l__43__2356, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_i_2357), u_mk_con(&n_list_46_Cons, 2, f_check_46_num_1(u_mk_int(1)), &o_list_46_Nil)))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_s_2358), &o_syntax_46_THole), f_check_46_ap_2(&l__43__2359, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_s_2360), u_mk_con(&n_list_46_Cons, 2, f_check_46_ap_2(&l__43__2361, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_i_2362), u_mk_con(&n_list_46_Cons, 2, f_check_46_num_1(u_mk_int(1)), &o_list_46_Nil))), &o_list_46_Nil)))), &o_list_46_Nil))), &o_list_46_Nil))), &o_list_46_Nil)))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CProc, 6, f_syntax_46_unqualified_1(&l_count_2363), &o_list_46_Nil, &o_list_46_Nil, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_k_2364), f_check_46_tint_0()), &o_list_46_Nil), u_mk_con(&n_syntax_46_SBlock, 2, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_k_2365), &o_syntax_46_THole), f_check_46_ap_2(&l__43__2366, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_k_2367), u_mk_con(&n_list_46_Cons, 2, f_check_46_num_1(u_mk_int(1)), &o_list_46_Nil)))), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SRaise, 2, f_check_46_ap_2(&l_Fail_2368, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_k_2369), &o_list_46_Nil)), &o_syntax_46_THole), &o_list_46_Nil)))), &o_list_46_Nil)));
+  cache = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CData, 3, f_syntax_46_unqualified_1(&l_Fail_2442), &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Constr, 2, f_syntax_46_unqualified_1(&l_Fail_2443), u_mk_con(&n_list_46_Cons, 2, f_check_46_tint_0(), &o_list_46_Nil)), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CProc, 6, f_syntax_46_unqualified_1(&l_sum_2444), &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_n_2445), f_check_46_tint_0()), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_s_2446), f_check_46_tint_0()), &o_list_46_Nil), &o_list_46_Nil, u_mk_con(&n_syntax_46_SBlock, 2, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_i_2447), f_check_46_tint_0()), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_s_2448), &o_syntax_46_THole), f_check_46_num_1(u_mk_int(0))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_i_2449), &o_syntax_46_THole), f_check_46_num_1(u_mk_int(0))), &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SWhile, 2, f_check_46_ap_2(&l__60__2450, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_i_2451), u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_n_2452), &o_list_46_Nil))), u_mk_con(&n_syntax_46_SBlock, 2, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_i_2453), &o_syntax_46_THole), f_check_46_ap_2(&l__43__2454, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_i_2455), u_mk_con(&n_list_46_Cons, 2, f_check_46_num_1(u_mk_int(1)), &o_list_46_Nil)))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_s_2456), &o_syntax_46_THole), f_check_46_ap_2(&l__43__2457, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_s_2458), u_mk_con(&n_list_46_Cons, 2, f_check_46_ap_2(&l__43__2459, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_i_2460), u_mk_con(&n_list_46_Cons, 2, f_check_46_num_1(u_mk_int(1)), &o_list_46_Nil))), &o_list_46_Nil)))), &o_list_46_Nil))), &o_list_46_Nil))), &o_list_46_Nil)))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CProc, 6, f_syntax_46_unqualified_1(&l_count_2461), &o_list_46_Nil, &o_list_46_Nil, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_k_2462), f_check_46_tint_0()), &o_list_46_Nil), u_mk_con(&n_syntax_46_SBlock, 2, &o_list_46_Nil, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_syntax_46_Var, 2, f_syntax_46_unqualified_1(&l_k_2463), &o_syntax_46_THole), f_check_46_ap_2(&l__43__2464, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_k_2465), u_mk_con(&n_list_46_Cons, 2, f_check_46_num_1(u_mk_int(1)), &o_list_46_Nil)))), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_SRaise, 2, f_check_46_ap_2(&l_Fail_2466, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(&l_k_2467), &o_list_46_Nil)), &o_syntax_46_THole), &o_list_46_Nil)))), &o_list_46_Nil)));
   return cache;
 }
 
@@ -24594,422 +25642,34 @@ u_value f_run_46_hole_var_1(u_value v_n) {
 }
 
 u_value f_run_46_equals_2(u_value v_n, u_value v_k) {
-  static struct u_object l__61__61__2370 = U_LIT("==");
-  return u_mk_con(&n_syntax_46_SAssert, 1, f_check_46_ap_2(&l__61__61__2370, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(v_n), u_mk_con(&n_list_46_Cons, 2, f_check_46_num_1(v_k), &o_list_46_Nil))));
+  static struct u_object l__61__61__2468 = U_LIT("==");
+  return u_mk_con(&n_syntax_46_SAssert, 1, f_check_46_ap_2(&l__61__61__2468, u_mk_con(&n_list_46_Cons, 2, f_check_46_ev_1(v_n), u_mk_con(&n_list_46_Cons, 2, f_check_46_num_1(v_k), &o_list_46_Nil))));
 }
 
 u_value f_c_46_c_type_1(u_value v_t) {
-  u_value s2371 = v_t;
-  u_value t2372 = NULL;
-  if ((!t2372) && u_is_con(s2371, &n_c_46_CtVoid)) {
-    static struct u_object l_void_2373 = U_LIT("void");
-    t2372 = &l_void_2373;
-  }
-  if ((!t2372) && u_is_con(s2371, &n_c_46_CtInt)) {
-    static struct u_object l_int_2374 = U_LIT("int");
-    t2372 = &l_int_2374;
-  }
-  if ((!t2372) && u_is_con(s2371, &n_c_46_CtNamed)) {
-    u_value v_n = u_field(s2371, 0);
-    t2372 = v_n;
-  }
-  if ((!t2372) && (u_is_con(s2371, &n_c_46_CtPtr) && u_is_con(u_field(s2371, 0), &n_c_46_CtPtr))) {
-    u_value v_u = u_field(u_field(s2371, 0), 0);
-    static struct u_object l__42__2375 = U_LIT("*");
-    t2372 = u_concat(f_c_46_c_type_1(u_mk_con(&n_c_46_CtPtr, 1, v_u)), &l__42__2375);
-  }
-  if ((!t2372) && u_is_con(s2371, &n_c_46_CtPtr)) {
-    u_value v_u = u_field(s2371, 0);
-    static struct u_object l__32__42__2376 = U_LIT(" *");
-    t2372 = u_concat(f_c_46_c_type_1(v_u), &l__32__42__2376);
-  }
-  if (!t2372) {
-    u_no_case(s2371);
-  }
-  return t2372;
-}
-
-u_value f_c_46_c_declare_2(u_value v_t, u_value v_x) {
-  u_value s2377 = v_t;
-  u_value t2378 = NULL;
-  if ((!t2378) && u_is_con(s2377, &n_c_46_CtPtr)) {
-    t2378 = u_concat(f_c_46_c_type_1(v_t), v_x);
-  }
-  if (!t2378) {
-    static struct u_object l__32__2379 = U_LIT(" ");
-    t2378 = u_concat(f_c_46_c_type_1(v_t), u_concat(&l__32__2379, v_x));
-  }
-  if (!t2378) {
-    u_no_case(s2377);
-  }
-  return t2378;
-}
-
-u_value f_c_46_c_expr_1(u_value v_e) {
-  u_value s2380 = v_e;
-  u_value t2381 = NULL;
-  if ((!t2381) && u_is_con(s2380, &n_c_46_CeVar)) {
-    u_value v_x = u_field(s2380, 0);
-    t2381 = v_x;
-  }
-  if ((!t2381) && u_is_con(s2380, &n_c_46_CeNum)) {
-    u_value v_n = u_field(s2380, 0);
-    t2381 = u_str_show(v_n);
-  }
-  if ((!t2381) && u_is_con(s2380, &n_c_46_CeStr)) {
-    u_value v_s = u_field(s2380, 0);
-    t2381 = u_str_quote(v_s);
-  }
-  if ((!t2381) && u_is_con(s2380, &n_c_46_CeCall)) {
-    u_value v_f = u_field(s2380, 0);
-    u_value v_args = u_field(s2380, 1);
-    static struct u_object l__40__2382 = U_LIT("(");
-    static struct u_object l__44__32__2383 = U_LIT(", ");
-    u_value t2384 = &o_list_46_Nil;
-    u_value *e2385 = &t2384;
-    u_value l2386 = v_args;
-    while (u_is_con(l2386, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2386, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2385 = u_append(e2385, f_c_46_c_expr_1(v_a));
-      }
-      l2386 = u_field(l2386, 1);
-    }
-    static struct u_object l__41__2387 = U_LIT(")");
-    t2381 = u_concat(f_c_46_c_operand_1(v_f), u_concat(&l__40__2382, u_concat(u_str_join(&l__44__32__2383, t2384), &l__41__2387)));
-  }
-  if ((!t2381) && u_is_con(s2380, &n_c_46_CeUnary)) {
-    u_value v_o = u_field(s2380, 0);
-    u_value v_a = u_field(s2380, 1);
-    t2381 = u_concat(v_o, f_c_46_c_operand_1(v_a));
-  }
-  if ((!t2381) && u_is_con(s2380, &n_c_46_CeBinary)) {
-    u_value v_o = u_field(s2380, 0);
-    u_value v_a = u_field(s2380, 1);
-    u_value v_b = u_field(s2380, 2);
-    static struct u_object l__32__2388 = U_LIT(" ");
-    static struct u_object l__32__2389 = U_LIT(" ");
-    t2381 = u_concat(f_c_46_c_operand_1(v_a), u_concat(&l__32__2388, u_concat(v_o, u_concat(&l__32__2389, f_c_46_c_operand_1(v_b)))));
-  }
-  if ((!t2381) && u_is_con(s2380, &n_c_46_CeIndex)) {
-    u_value v_a = u_field(s2380, 0);
-    u_value v_i = u_field(s2380, 1);
-    static struct u_object l__91__2390 = U_LIT("[");
-    static struct u_object l__93__2391 = U_LIT("]");
-    t2381 = u_concat(f_c_46_c_operand_1(v_a), u_concat(&l__91__2390, u_concat(f_c_46_c_expr_1(v_i), &l__93__2391)));
-  }
-  if ((!t2381) && u_is_con(s2380, &n_c_46_CeArrow)) {
-    u_value v_a = u_field(s2380, 0);
-    u_value v_f = u_field(s2380, 1);
-    static struct u_object l__45__62__2392 = U_LIT("->");
-    t2381 = u_concat(f_c_46_c_operand_1(v_a), u_concat(&l__45__62__2392, v_f));
-  }
-  if ((!t2381) && u_is_con(s2380, &n_c_46_CeCast)) {
-    u_value v_t = u_field(s2380, 0);
-    u_value v_a = u_field(s2380, 1);
-    static struct u_object l__40__2393 = U_LIT("(");
-    static struct u_object l__41__2394 = U_LIT(")");
-    t2381 = u_concat(&l__40__2393, u_concat(f_c_46_c_type_1(v_t), u_concat(&l__41__2394, f_c_46_c_operand_1(v_a))));
-  }
-  if ((!t2381) && u_is_con(s2380, &n_c_46_CeCond)) {
-    u_value v_c = u_field(s2380, 0);
-    u_value v_a = u_field(s2380, 1);
-    u_value v_b = u_field(s2380, 2);
-    static struct u_object l__32__63__32__2395 = U_LIT(" ? ");
-    static struct u_object l__32__58__32__2396 = U_LIT(" : ");
-    t2381 = u_concat(f_c_46_c_operand_1(v_c), u_concat(&l__32__63__32__2395, u_concat(f_c_46_c_operand_1(v_a), u_concat(&l__32__58__32__2396, f_c_46_c_operand_1(v_b)))));
-  }
-  if ((!t2381) && u_is_con(s2380, &n_c_46_CeInit)) {
-    u_value v_es = u_field(s2380, 0);
-    static struct u_object l__123__2397 = U_LIT("{");
-    static struct u_object l__44__32__2398 = U_LIT(", ");
-    u_value t2399 = &o_list_46_Nil;
-    u_value *e2400 = &t2399;
-    u_value l2401 = v_es;
-    while (u_is_con(l2401, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2401, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2400 = u_append(e2400, f_c_46_c_expr_1(v_a));
-      }
-      l2401 = u_field(l2401, 1);
-    }
-    static struct u_object l__125__2402 = U_LIT("}");
-    t2381 = u_concat(&l__123__2397, u_concat(u_str_join(&l__44__32__2398, t2399), &l__125__2402));
-  }
-  if (!t2381) {
-    u_no_case(s2380);
-  }
-  return t2381;
-}
-
-u_value f_c_46_c_operand_1(u_value v_e) {
-  u_value s2403 = v_e;
-  u_value t2404 = NULL;
-  if ((!t2404) && u_is_con(s2403, &n_c_46_CeVar)) {
-    t2404 = f_c_46_c_expr_1(v_e);
-  }
-  if ((!t2404) && u_is_con(s2403, &n_c_46_CeNum)) {
-    u_value v_n = u_field(s2403, 0);
-    if (u_truth(f_prelude_46__62__61__2(v_n, u_mk_int(0)))) {
-      t2404 = f_c_46_c_expr_1(v_e);
-    }
-  }
-  if ((!t2404) && u_is_con(s2403, &n_c_46_CeStr)) {
-    t2404 = f_c_46_c_expr_1(v_e);
-  }
-  if ((!t2404) && u_is_con(s2403, &n_c_46_CeCall)) {
-    t2404 = f_c_46_c_expr_1(v_e);
-  }
-  if ((!t2404) && u_is_con(s2403, &n_c_46_CeIndex)) {
-    t2404 = f_c_46_c_expr_1(v_e);
-  }
-  if ((!t2404) && u_is_con(s2403, &n_c_46_CeArrow)) {
-    t2404 = f_c_46_c_expr_1(v_e);
-  }
-  if (!t2404) {
-    static struct u_object l__40__2405 = U_LIT("(");
-    static struct u_object l__41__2406 = U_LIT(")");
-    t2404 = u_concat(&l__40__2405, u_concat(f_c_46_c_expr_1(v_e), &l__41__2406));
-  }
-  if (!t2404) {
-    u_no_case(s2403);
-  }
-  return t2404;
-}
-
-u_value f_c_46_c_stmt_2(u_value v_ind, u_value v_s) {
-  u_value s2407 = v_s;
-  u_value t2408 = NULL;
-  if ((!t2408) && u_is_con(s2407, &n_c_46_CsExpr)) {
-    u_value v_e = u_field(s2407, 0);
-    static struct u_object l__59__2409 = U_LIT(";");
-    t2408 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(f_c_46_c_expr_1(v_e), &l__59__2409)), &o_list_46_Nil);
-  }
-  if ((!t2408) && (u_is_con(s2407, &n_c_46_CsDecl) && u_is_con(u_field(s2407, 2), &n_option_46_None))) {
-    u_value v_t = u_field(s2407, 0);
-    u_value v_x = u_field(s2407, 1);
-    static struct u_object l__59__2410 = U_LIT(";");
-    t2408 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(f_c_46_c_declare_2(v_t, v_x), &l__59__2410)), &o_list_46_Nil);
-  }
-  if ((!t2408) && (u_is_con(s2407, &n_c_46_CsDecl) && u_is_con(u_field(s2407, 2), &n_option_46_Some))) {
-    u_value v_t = u_field(s2407, 0);
-    u_value v_x = u_field(s2407, 1);
-    u_value v_e = u_field(u_field(s2407, 2), 0);
-    static struct u_object l__32__61__32__2411 = U_LIT(" = ");
-    static struct u_object l__59__2412 = U_LIT(";");
-    t2408 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(f_c_46_c_declare_2(v_t, v_x), u_concat(&l__32__61__32__2411, u_concat(f_c_46_c_expr_1(v_e), &l__59__2412)))), &o_list_46_Nil);
-  }
-  if ((!t2408) && u_is_con(s2407, &n_c_46_CsAssign)) {
-    u_value v_a = u_field(s2407, 0);
-    u_value v_e = u_field(s2407, 1);
-    static struct u_object l__32__61__32__2413 = U_LIT(" = ");
-    static struct u_object l__59__2414 = U_LIT(";");
-    t2408 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(f_c_46_c_expr_1(v_a), u_concat(&l__32__61__32__2413, u_concat(f_c_46_c_expr_1(v_e), &l__59__2414)))), &o_list_46_Nil);
-  }
-  if ((!t2408) && (u_is_con(s2407, &n_c_46_CsIf) && u_is_con(u_field(s2407, 2), &n_list_46_Nil))) {
-    u_value v_c = u_field(s2407, 0);
-    u_value v_l = u_field(s2407, 1);
-    static struct u_object l_if_32__40__2415 = U_LIT("if (");
-    static struct u_object l__41__32__123__2416 = U_LIT(") {");
-    static struct u_object l__32__32__2417 = U_LIT("  ");
-    static struct u_object l__125__2418 = U_LIT("}");
-    t2408 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(&l_if_32__40__2415, u_concat(f_c_46_c_expr_1(v_c), &l__41__32__123__2416))), &o_list_46_Nil), f_list_46__43__43__2(f_c_46_c_stmts_2(u_concat(v_ind, &l__32__32__2417), v_l), u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l__125__2418), &o_list_46_Nil)));
-  }
-  if ((!t2408) && u_is_con(s2407, &n_c_46_CsIf)) {
-    u_value v_c = u_field(s2407, 0);
-    u_value v_l = u_field(s2407, 1);
-    u_value v_r = u_field(s2407, 2);
-    static struct u_object l_if_32__40__2419 = U_LIT("if (");
-    static struct u_object l__41__32__123__2420 = U_LIT(") {");
-    static struct u_object l__32__32__2421 = U_LIT("  ");
-    static struct u_object l__125__32_else_32__123__2422 = U_LIT("} else {");
-    static struct u_object l__32__32__2423 = U_LIT("  ");
-    static struct u_object l__125__2424 = U_LIT("}");
-    t2408 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(&l_if_32__40__2419, u_concat(f_c_46_c_expr_1(v_c), &l__41__32__123__2420))), &o_list_46_Nil), f_list_46__43__43__2(f_c_46_c_stmts_2(u_concat(v_ind, &l__32__32__2421), v_l), f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l__125__32_else_32__123__2422), &o_list_46_Nil), f_list_46__43__43__2(f_c_46_c_stmts_2(u_concat(v_ind, &l__32__32__2423), v_r), u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l__125__2424), &o_list_46_Nil)))));
-  }
-  if ((!t2408) && u_is_con(s2407, &n_c_46_CsWhile)) {
-    u_value v_c = u_field(s2407, 0);
-    u_value v_b = u_field(s2407, 1);
-    static struct u_object l_while_32__40__2425 = U_LIT("while (");
-    static struct u_object l__41__32__123__2426 = U_LIT(") {");
-    static struct u_object l__32__32__2427 = U_LIT("  ");
-    static struct u_object l__125__2428 = U_LIT("}");
-    t2408 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(&l_while_32__40__2425, u_concat(f_c_46_c_expr_1(v_c), &l__41__32__123__2426))), &o_list_46_Nil), f_list_46__43__43__2(f_c_46_c_stmts_2(u_concat(v_ind, &l__32__32__2427), v_b), u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l__125__2428), &o_list_46_Nil)));
-  }
-  if ((!t2408) && (u_is_con(s2407, &n_c_46_CsReturn) && u_is_con(u_field(s2407, 0), &n_option_46_None))) {
-    static struct u_object l_return_59__2429 = U_LIT("return;");
-    t2408 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l_return_59__2429), &o_list_46_Nil);
-  }
-  if ((!t2408) && (u_is_con(s2407, &n_c_46_CsReturn) && u_is_con(u_field(s2407, 0), &n_option_46_Some))) {
-    u_value v_e = u_field(u_field(s2407, 0), 0);
-    static struct u_object l_return_32__2430 = U_LIT("return ");
-    static struct u_object l__59__2431 = U_LIT(";");
-    t2408 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(&l_return_32__2430, u_concat(f_c_46_c_expr_1(v_e), &l__59__2431))), &o_list_46_Nil);
-  }
-  if ((!t2408) && u_is_con(s2407, &n_c_46_CsBlock)) {
-    u_value v_b = u_field(s2407, 0);
-    static struct u_object l__123__2432 = U_LIT("{");
-    static struct u_object l__32__32__2433 = U_LIT("  ");
-    static struct u_object l__125__2434 = U_LIT("}");
-    t2408 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l__123__2432), &o_list_46_Nil), f_list_46__43__43__2(f_c_46_c_stmts_2(u_concat(v_ind, &l__32__32__2433), v_b), u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l__125__2434), &o_list_46_Nil)));
-  }
-  if (!t2408) {
-    u_no_case(s2407);
-  }
-  return t2408;
-}
-
-u_value f_c_46_c_stmts_2(u_value v_ind, u_value v_ss) {
-  u_value t2435 = &o_list_46_Nil;
-  u_value *e2436 = &t2435;
-  u_value l2437 = v_ss;
-  while (u_is_con(l2437, &n_list_46_Cons)) {
-    u_value v_s = u_field(l2437, 0);
-    if (u_truth(u_mk_bool(1))) {
-      e2436 = u_append(e2436, f_c_46_c_stmt_2(v_ind, v_s));
-    }
-    l2437 = u_field(l2437, 1);
-  }
-  return f_list_46_concat_1(t2435);
-}
-
-u_value f_c_46_c_params_1(u_value v_ps) {
-  u_value s2438 = v_ps;
-  u_value t2439 = NULL;
-  if ((!t2439) && u_is_con(s2438, &n_list_46_Nil)) {
-    static struct u_object l_void_2440 = U_LIT("void");
-    t2439 = &l_void_2440;
-  }
-  if (!t2439) {
-    static struct u_object l__44__32__2441 = U_LIT(", ");
-    u_value t2442 = &o_list_46_Nil;
-    u_value *e2443 = &t2442;
-    u_value l2444 = v_ps;
-    while (u_is_con(l2444, &n_list_46_Cons)) {
-      u_value v_p = u_field(l2444, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2443 = u_append(e2443, f_c_46_c_param_1(v_p));
-      }
-      l2444 = u_field(l2444, 1);
-    }
-    t2439 = u_str_join(&l__44__32__2441, t2442);
-  }
-  if (!t2439) {
-    u_no_case(s2438);
-  }
-  return t2439;
-}
-
-u_value f_c_46_c_param_1(u_value v_p) {
-  u_value s2445 = v_p;
-  u_value t2446 = NULL;
-  if (!t2446) {
-    u_value v_t = u_field(s2445, 0);
-    u_value v_x = u_field(s2445, 1);
-    t2446 = f_c_46_c_declare_2(v_t, v_x);
-  }
-  if (!t2446) {
-    u_no_case(s2445);
-  }
-  return t2446;
-}
-
-u_value f_c_46_c_decl_1(u_value v_d) {
-  u_value s2447 = v_d;
-  u_value t2448 = NULL;
-  if ((!t2448) && u_is_con(s2447, &n_c_46_CdInclude)) {
-    u_value v_h = u_field(s2447, 0);
-    static struct u_object l__35_include_32__2449 = U_LIT("#include ");
-    t2448 = u_mk_con(&n_list_46_Cons, 2, u_concat(&l__35_include_32__2449, u_str_quote(v_h)), &o_list_46_Nil);
-  }
-  if ((!t2448) && u_is_con(s2447, &n_c_46_CdPrototype)) {
-    u_value v_t = u_field(s2447, 0);
-    u_value v_f = u_field(s2447, 1);
-    u_value v_ps = u_field(s2447, 2);
-    static struct u_object l__40__2450 = U_LIT("(");
-    static struct u_object l__41__59__2451 = U_LIT(");");
-    t2448 = u_mk_con(&n_list_46_Cons, 2, u_concat(f_c_46_c_declare_2(v_t, v_f), u_concat(&l__40__2450, u_concat(f_c_46_c_params_1(v_ps), &l__41__59__2451))), &o_list_46_Nil);
-  }
-  if ((!t2448) && u_is_con(s2447, &n_c_46_CdFunction)) {
-    u_value v_t = u_field(s2447, 0);
-    u_value v_f = u_field(s2447, 1);
-    u_value v_ps = u_field(s2447, 2);
-    u_value v_b = u_field(s2447, 3);
-    static struct u_object l__40__2452 = U_LIT("(");
-    static struct u_object l__41__32__123__2453 = U_LIT(") {");
-    static struct u_object l__32__32__2454 = U_LIT("  ");
-    static struct u_object l__125__2455 = U_LIT("}");
-    t2448 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_concat(f_c_46_c_declare_2(v_t, v_f), u_concat(&l__40__2452, u_concat(f_c_46_c_params_1(v_ps), &l__41__32__123__2453))), &o_list_46_Nil), f_list_46__43__43__2(f_c_46_c_stmts_2(&l__32__32__2454, v_b), u_mk_con(&n_list_46_Cons, 2, &l__125__2455, &o_list_46_Nil)));
-  }
-  if ((!t2448) && (u_is_con(s2447, &n_c_46_CdGlobal) && u_is_con(u_field(s2447, 2), &n_option_46_None))) {
-    u_value v_t = u_field(s2447, 0);
-    u_value v_x = u_field(s2447, 1);
-    static struct u_object l__59__2456 = U_LIT(";");
-    t2448 = u_mk_con(&n_list_46_Cons, 2, u_concat(f_c_46_c_declare_2(v_t, v_x), &l__59__2456), &o_list_46_Nil);
-  }
-  if ((!t2448) && (u_is_con(s2447, &n_c_46_CdGlobal) && u_is_con(u_field(s2447, 2), &n_option_46_Some))) {
-    u_value v_t = u_field(s2447, 0);
-    u_value v_x = u_field(s2447, 1);
-    u_value v_e = u_field(u_field(s2447, 2), 0);
-    static struct u_object l__32__61__32__2457 = U_LIT(" = ");
-    static struct u_object l__59__2458 = U_LIT(";");
-    t2448 = u_mk_con(&n_list_46_Cons, 2, u_concat(f_c_46_c_declare_2(v_t, v_x), u_concat(&l__32__61__32__2457, u_concat(f_c_46_c_expr_1(v_e), &l__59__2458))), &o_list_46_Nil);
-  }
-  if (!t2448) {
-    u_no_case(s2447);
-  }
-  return t2448;
-}
-
-u_value f_c_46_c_file_1(u_value v_f) {
-  u_value s2459 = v_f;
-  u_value t2460 = NULL;
-  if ((!t2460) && u_is_con(s2459, &n_c_46_CFile)) {
-    u_value v_ds = u_field(s2459, 0);
-    static struct u_object l__10__10__2461 = U_LIT("\n\n");
-    u_value t2462 = &o_list_46_Nil;
-    u_value *e2463 = &t2462;
-    u_value l2464 = v_ds;
-    while (u_is_con(l2464, &n_list_46_Cons)) {
-      u_value v_d = u_field(l2464, 0);
-      if (u_truth(u_mk_bool(1))) {
-        static struct u_object l__10__2465 = U_LIT("\n");
-        e2463 = u_append(e2463, u_str_join(&l__10__2465, f_c_46_c_decl_1(v_d)));
-      }
-      l2464 = u_field(l2464, 1);
-    }
-    static struct u_object l__10__2466 = U_LIT("\n");
-    t2460 = u_concat(u_str_join(&l__10__10__2461, t2462), &l__10__2466);
-  }
-  if (!t2460) {
-    u_no_case(s2459);
-  }
-  return t2460;
-}
-
-u_value f_c_46_c_call_2(u_value v_f, u_value v_args) {
-  return u_mk_con(&n_c_46_CeCall, 2, u_mk_con(&n_c_46_CeVar, 1, v_f), v_args);
-}
-
-u_value f_compile_46_Globals_46_funs_1(u_value v_x) {
-  u_value s2467 = v_x;
-  u_value t2468 = NULL;
-  if ((!t2468) && u_is_con(s2467, &n_compile_46_Globals)) {
-    u_value v_y = u_field(s2467, 0);
-    t2468 = v_y;
-  }
-  if (!t2468) {
-    u_no_case(s2467);
-  }
-  return t2468;
-}
-
-u_value f_compile_46_Globals_46_constrs_1(u_value v_x) {
-  u_value s2469 = v_x;
+  u_value s2469 = v_t;
   u_value t2470 = NULL;
-  if ((!t2470) && u_is_con(s2469, &n_compile_46_Globals)) {
-    u_value v_y = u_field(s2469, 1);
-    t2470 = v_y;
+  if ((!t2470) && u_is_con(s2469, &n_c_46_CtVoid)) {
+    static struct u_object l_void_2471 = U_LIT("void");
+    t2470 = &l_void_2471;
+  }
+  if ((!t2470) && u_is_con(s2469, &n_c_46_CtInt)) {
+    static struct u_object l_int_2472 = U_LIT("int");
+    t2470 = &l_int_2472;
+  }
+  if ((!t2470) && u_is_con(s2469, &n_c_46_CtNamed)) {
+    u_value v_n = u_field(s2469, 0);
+    t2470 = v_n;
+  }
+  if ((!t2470) && (u_is_con(s2469, &n_c_46_CtPtr) && u_is_con(u_field(s2469, 0), &n_c_46_CtPtr))) {
+    u_value v_u = u_field(u_field(s2469, 0), 0);
+    static struct u_object l__42__2473 = U_LIT("*");
+    t2470 = u_concat(f_c_46_c_type_1(u_mk_con(&n_c_46_CtPtr, 1, v_u)), &l__42__2473);
+  }
+  if ((!t2470) && u_is_con(s2469, &n_c_46_CtPtr)) {
+    u_value v_u = u_field(s2469, 0);
+    static struct u_object l__32__42__2474 = U_LIT(" *");
+    t2470 = u_concat(f_c_46_c_type_1(v_u), &l__32__42__2474);
   }
   if (!t2470) {
     u_no_case(s2469);
@@ -25017,38 +25677,15 @@ u_value f_compile_46_Globals_46_constrs_1(u_value v_x) {
   return t2470;
 }
 
-u_value f_compile_46_Globals_46_arities_1(u_value v_x) {
-  u_value s2471 = v_x;
-  u_value t2472 = NULL;
-  if ((!t2472) && u_is_con(s2471, &n_compile_46_Globals)) {
-    u_value v_y = u_field(s2471, 2);
-    t2472 = v_y;
-  }
-  if (!t2472) {
-    u_no_case(s2471);
-  }
-  return t2472;
-}
-
-u_value f_compile_46_Globals_46_fields_1(u_value v_x) {
-  u_value s2473 = v_x;
-  u_value t2474 = NULL;
-  if ((!t2474) && u_is_con(s2473, &n_compile_46_Globals)) {
-    u_value v_y = u_field(s2473, 3);
-    t2474 = v_y;
-  }
-  if (!t2474) {
-    u_no_case(s2473);
-  }
-  return t2474;
-}
-
-u_value f_compile_46_Globals_46_procs_1(u_value v_x) {
-  u_value s2475 = v_x;
+u_value f_c_46_c_declare_2(u_value v_t, u_value v_x) {
+  u_value s2475 = v_t;
   u_value t2476 = NULL;
-  if ((!t2476) && u_is_con(s2475, &n_compile_46_Globals)) {
-    u_value v_y = u_field(s2475, 4);
-    t2476 = v_y;
+  if ((!t2476) && u_is_con(s2475, &n_c_46_CtPtr)) {
+    t2476 = u_concat(f_c_46_c_type_1(v_t), v_x);
+  }
+  if (!t2476) {
+    static struct u_object l__32__2477 = U_LIT(" ");
+    t2476 = u_concat(f_c_46_c_type_1(v_t), u_concat(&l__32__2477, v_x));
   }
   if (!t2476) {
     u_no_case(s2475);
@@ -25056,136 +25693,547 @@ u_value f_compile_46_Globals_46_procs_1(u_value v_x) {
   return t2476;
 }
 
+u_value f_c_46_c_expr_1(u_value v_e) {
+  u_value s2478 = v_e;
+  u_value t2479 = NULL;
+  if ((!t2479) && u_is_con(s2478, &n_c_46_CeVar)) {
+    u_value v_x = u_field(s2478, 0);
+    t2479 = v_x;
+  }
+  if ((!t2479) && u_is_con(s2478, &n_c_46_CeNum)) {
+    u_value v_n = u_field(s2478, 0);
+    t2479 = u_str_show(v_n);
+  }
+  if ((!t2479) && u_is_con(s2478, &n_c_46_CeStr)) {
+    u_value v_s = u_field(s2478, 0);
+    t2479 = u_str_quote(v_s);
+  }
+  if ((!t2479) && u_is_con(s2478, &n_c_46_CeCall)) {
+    u_value v_f = u_field(s2478, 0);
+    u_value v_args = u_field(s2478, 1);
+    static struct u_object l__40__2480 = U_LIT("(");
+    static struct u_object l__44__32__2481 = U_LIT(", ");
+    u_value t2482 = &o_list_46_Nil;
+    u_value *e2483 = &t2482;
+    u_value l2484 = v_args;
+    while (u_is_con(l2484, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2484, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2483 = u_append(e2483, f_c_46_c_expr_1(v_a));
+      }
+      l2484 = u_field(l2484, 1);
+    }
+    static struct u_object l__41__2485 = U_LIT(")");
+    t2479 = u_concat(f_c_46_c_operand_1(v_f), u_concat(&l__40__2480, u_concat(u_str_join(&l__44__32__2481, t2482), &l__41__2485)));
+  }
+  if ((!t2479) && u_is_con(s2478, &n_c_46_CeUnary)) {
+    u_value v_o = u_field(s2478, 0);
+    u_value v_a = u_field(s2478, 1);
+    t2479 = u_concat(v_o, f_c_46_c_operand_1(v_a));
+  }
+  if ((!t2479) && u_is_con(s2478, &n_c_46_CeBinary)) {
+    u_value v_o = u_field(s2478, 0);
+    u_value v_a = u_field(s2478, 1);
+    u_value v_b = u_field(s2478, 2);
+    static struct u_object l__32__2486 = U_LIT(" ");
+    static struct u_object l__32__2487 = U_LIT(" ");
+    t2479 = u_concat(f_c_46_c_operand_1(v_a), u_concat(&l__32__2486, u_concat(v_o, u_concat(&l__32__2487, f_c_46_c_operand_1(v_b)))));
+  }
+  if ((!t2479) && u_is_con(s2478, &n_c_46_CeIndex)) {
+    u_value v_a = u_field(s2478, 0);
+    u_value v_i = u_field(s2478, 1);
+    static struct u_object l__91__2488 = U_LIT("[");
+    static struct u_object l__93__2489 = U_LIT("]");
+    t2479 = u_concat(f_c_46_c_operand_1(v_a), u_concat(&l__91__2488, u_concat(f_c_46_c_expr_1(v_i), &l__93__2489)));
+  }
+  if ((!t2479) && u_is_con(s2478, &n_c_46_CeArrow)) {
+    u_value v_a = u_field(s2478, 0);
+    u_value v_f = u_field(s2478, 1);
+    static struct u_object l__45__62__2490 = U_LIT("->");
+    t2479 = u_concat(f_c_46_c_operand_1(v_a), u_concat(&l__45__62__2490, v_f));
+  }
+  if ((!t2479) && u_is_con(s2478, &n_c_46_CeCast)) {
+    u_value v_t = u_field(s2478, 0);
+    u_value v_a = u_field(s2478, 1);
+    static struct u_object l__40__2491 = U_LIT("(");
+    static struct u_object l__41__2492 = U_LIT(")");
+    t2479 = u_concat(&l__40__2491, u_concat(f_c_46_c_type_1(v_t), u_concat(&l__41__2492, f_c_46_c_operand_1(v_a))));
+  }
+  if ((!t2479) && u_is_con(s2478, &n_c_46_CeCond)) {
+    u_value v_c = u_field(s2478, 0);
+    u_value v_a = u_field(s2478, 1);
+    u_value v_b = u_field(s2478, 2);
+    static struct u_object l__32__63__32__2493 = U_LIT(" ? ");
+    static struct u_object l__32__58__32__2494 = U_LIT(" : ");
+    t2479 = u_concat(f_c_46_c_operand_1(v_c), u_concat(&l__32__63__32__2493, u_concat(f_c_46_c_operand_1(v_a), u_concat(&l__32__58__32__2494, f_c_46_c_operand_1(v_b)))));
+  }
+  if ((!t2479) && u_is_con(s2478, &n_c_46_CeInit)) {
+    u_value v_es = u_field(s2478, 0);
+    static struct u_object l__123__2495 = U_LIT("{");
+    static struct u_object l__44__32__2496 = U_LIT(", ");
+    u_value t2497 = &o_list_46_Nil;
+    u_value *e2498 = &t2497;
+    u_value l2499 = v_es;
+    while (u_is_con(l2499, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2499, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2498 = u_append(e2498, f_c_46_c_expr_1(v_a));
+      }
+      l2499 = u_field(l2499, 1);
+    }
+    static struct u_object l__125__2500 = U_LIT("}");
+    t2479 = u_concat(&l__123__2495, u_concat(u_str_join(&l__44__32__2496, t2497), &l__125__2500));
+  }
+  if (!t2479) {
+    u_no_case(s2478);
+  }
+  return t2479;
+}
+
+u_value f_c_46_c_operand_1(u_value v_e) {
+  u_value s2501 = v_e;
+  u_value t2502 = NULL;
+  if ((!t2502) && u_is_con(s2501, &n_c_46_CeVar)) {
+    t2502 = f_c_46_c_expr_1(v_e);
+  }
+  if ((!t2502) && u_is_con(s2501, &n_c_46_CeNum)) {
+    u_value v_n = u_field(s2501, 0);
+    if (u_truth(f_prelude_46__62__61__2(v_n, u_mk_int(0)))) {
+      t2502 = f_c_46_c_expr_1(v_e);
+    }
+  }
+  if ((!t2502) && u_is_con(s2501, &n_c_46_CeStr)) {
+    t2502 = f_c_46_c_expr_1(v_e);
+  }
+  if ((!t2502) && u_is_con(s2501, &n_c_46_CeCall)) {
+    t2502 = f_c_46_c_expr_1(v_e);
+  }
+  if ((!t2502) && u_is_con(s2501, &n_c_46_CeIndex)) {
+    t2502 = f_c_46_c_expr_1(v_e);
+  }
+  if ((!t2502) && u_is_con(s2501, &n_c_46_CeArrow)) {
+    t2502 = f_c_46_c_expr_1(v_e);
+  }
+  if (!t2502) {
+    static struct u_object l__40__2503 = U_LIT("(");
+    static struct u_object l__41__2504 = U_LIT(")");
+    t2502 = u_concat(&l__40__2503, u_concat(f_c_46_c_expr_1(v_e), &l__41__2504));
+  }
+  if (!t2502) {
+    u_no_case(s2501);
+  }
+  return t2502;
+}
+
+u_value f_c_46_c_stmt_2(u_value v_ind, u_value v_s) {
+  u_value s2505 = v_s;
+  u_value t2506 = NULL;
+  if ((!t2506) && u_is_con(s2505, &n_c_46_CsExpr)) {
+    u_value v_e = u_field(s2505, 0);
+    static struct u_object l__59__2507 = U_LIT(";");
+    t2506 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(f_c_46_c_expr_1(v_e), &l__59__2507)), &o_list_46_Nil);
+  }
+  if ((!t2506) && (u_is_con(s2505, &n_c_46_CsDecl) && u_is_con(u_field(s2505, 2), &n_option_46_None))) {
+    u_value v_t = u_field(s2505, 0);
+    u_value v_x = u_field(s2505, 1);
+    static struct u_object l__59__2508 = U_LIT(";");
+    t2506 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(f_c_46_c_declare_2(v_t, v_x), &l__59__2508)), &o_list_46_Nil);
+  }
+  if ((!t2506) && (u_is_con(s2505, &n_c_46_CsDecl) && u_is_con(u_field(s2505, 2), &n_option_46_Some))) {
+    u_value v_t = u_field(s2505, 0);
+    u_value v_x = u_field(s2505, 1);
+    u_value v_e = u_field(u_field(s2505, 2), 0);
+    static struct u_object l__32__61__32__2509 = U_LIT(" = ");
+    static struct u_object l__59__2510 = U_LIT(";");
+    t2506 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(f_c_46_c_declare_2(v_t, v_x), u_concat(&l__32__61__32__2509, u_concat(f_c_46_c_expr_1(v_e), &l__59__2510)))), &o_list_46_Nil);
+  }
+  if ((!t2506) && u_is_con(s2505, &n_c_46_CsAssign)) {
+    u_value v_a = u_field(s2505, 0);
+    u_value v_e = u_field(s2505, 1);
+    static struct u_object l__32__61__32__2511 = U_LIT(" = ");
+    static struct u_object l__59__2512 = U_LIT(";");
+    t2506 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(f_c_46_c_expr_1(v_a), u_concat(&l__32__61__32__2511, u_concat(f_c_46_c_expr_1(v_e), &l__59__2512)))), &o_list_46_Nil);
+  }
+  if ((!t2506) && (u_is_con(s2505, &n_c_46_CsIf) && u_is_con(u_field(s2505, 2), &n_list_46_Nil))) {
+    u_value v_c = u_field(s2505, 0);
+    u_value v_l = u_field(s2505, 1);
+    static struct u_object l_if_32__40__2513 = U_LIT("if (");
+    static struct u_object l__41__32__123__2514 = U_LIT(") {");
+    static struct u_object l__32__32__2515 = U_LIT("  ");
+    static struct u_object l__125__2516 = U_LIT("}");
+    t2506 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(&l_if_32__40__2513, u_concat(f_c_46_c_expr_1(v_c), &l__41__32__123__2514))), &o_list_46_Nil), f_list_46__43__43__2(f_c_46_c_stmts_2(u_concat(v_ind, &l__32__32__2515), v_l), u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l__125__2516), &o_list_46_Nil)));
+  }
+  if ((!t2506) && u_is_con(s2505, &n_c_46_CsIf)) {
+    u_value v_c = u_field(s2505, 0);
+    u_value v_l = u_field(s2505, 1);
+    u_value v_r = u_field(s2505, 2);
+    static struct u_object l_if_32__40__2517 = U_LIT("if (");
+    static struct u_object l__41__32__123__2518 = U_LIT(") {");
+    static struct u_object l__32__32__2519 = U_LIT("  ");
+    static struct u_object l__125__32_else_32__123__2520 = U_LIT("} else {");
+    static struct u_object l__32__32__2521 = U_LIT("  ");
+    static struct u_object l__125__2522 = U_LIT("}");
+    t2506 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(&l_if_32__40__2517, u_concat(f_c_46_c_expr_1(v_c), &l__41__32__123__2518))), &o_list_46_Nil), f_list_46__43__43__2(f_c_46_c_stmts_2(u_concat(v_ind, &l__32__32__2519), v_l), f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l__125__32_else_32__123__2520), &o_list_46_Nil), f_list_46__43__43__2(f_c_46_c_stmts_2(u_concat(v_ind, &l__32__32__2521), v_r), u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l__125__2522), &o_list_46_Nil)))));
+  }
+  if ((!t2506) && u_is_con(s2505, &n_c_46_CsWhile)) {
+    u_value v_c = u_field(s2505, 0);
+    u_value v_b = u_field(s2505, 1);
+    static struct u_object l_while_32__40__2523 = U_LIT("while (");
+    static struct u_object l__41__32__123__2524 = U_LIT(") {");
+    static struct u_object l__32__32__2525 = U_LIT("  ");
+    static struct u_object l__125__2526 = U_LIT("}");
+    t2506 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(&l_while_32__40__2523, u_concat(f_c_46_c_expr_1(v_c), &l__41__32__123__2524))), &o_list_46_Nil), f_list_46__43__43__2(f_c_46_c_stmts_2(u_concat(v_ind, &l__32__32__2525), v_b), u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l__125__2526), &o_list_46_Nil)));
+  }
+  if ((!t2506) && (u_is_con(s2505, &n_c_46_CsReturn) && u_is_con(u_field(s2505, 0), &n_option_46_None))) {
+    static struct u_object l_return_59__2527 = U_LIT("return;");
+    t2506 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l_return_59__2527), &o_list_46_Nil);
+  }
+  if ((!t2506) && (u_is_con(s2505, &n_c_46_CsReturn) && u_is_con(u_field(s2505, 0), &n_option_46_Some))) {
+    u_value v_e = u_field(u_field(s2505, 0), 0);
+    static struct u_object l_return_32__2528 = U_LIT("return ");
+    static struct u_object l__59__2529 = U_LIT(";");
+    t2506 = u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, u_concat(&l_return_32__2528, u_concat(f_c_46_c_expr_1(v_e), &l__59__2529))), &o_list_46_Nil);
+  }
+  if ((!t2506) && u_is_con(s2505, &n_c_46_CsBlock)) {
+    u_value v_b = u_field(s2505, 0);
+    static struct u_object l__123__2530 = U_LIT("{");
+    static struct u_object l__32__32__2531 = U_LIT("  ");
+    static struct u_object l__125__2532 = U_LIT("}");
+    t2506 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l__123__2530), &o_list_46_Nil), f_list_46__43__43__2(f_c_46_c_stmts_2(u_concat(v_ind, &l__32__32__2531), v_b), u_mk_con(&n_list_46_Cons, 2, u_concat(v_ind, &l__125__2532), &o_list_46_Nil)));
+  }
+  if (!t2506) {
+    u_no_case(s2505);
+  }
+  return t2506;
+}
+
+u_value f_c_46_c_stmts_2(u_value v_ind, u_value v_ss) {
+  u_value t2533 = &o_list_46_Nil;
+  u_value *e2534 = &t2533;
+  u_value l2535 = v_ss;
+  while (u_is_con(l2535, &n_list_46_Cons)) {
+    u_value v_s = u_field(l2535, 0);
+    if (u_truth(u_mk_bool(1))) {
+      e2534 = u_append(e2534, f_c_46_c_stmt_2(v_ind, v_s));
+    }
+    l2535 = u_field(l2535, 1);
+  }
+  return f_list_46_concat_1(t2533);
+}
+
+u_value f_c_46_c_params_1(u_value v_ps) {
+  u_value s2536 = v_ps;
+  u_value t2537 = NULL;
+  if ((!t2537) && u_is_con(s2536, &n_list_46_Nil)) {
+    static struct u_object l_void_2538 = U_LIT("void");
+    t2537 = &l_void_2538;
+  }
+  if (!t2537) {
+    static struct u_object l__44__32__2539 = U_LIT(", ");
+    u_value t2540 = &o_list_46_Nil;
+    u_value *e2541 = &t2540;
+    u_value l2542 = v_ps;
+    while (u_is_con(l2542, &n_list_46_Cons)) {
+      u_value v_p = u_field(l2542, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2541 = u_append(e2541, f_c_46_c_param_1(v_p));
+      }
+      l2542 = u_field(l2542, 1);
+    }
+    t2537 = u_str_join(&l__44__32__2539, t2540);
+  }
+  if (!t2537) {
+    u_no_case(s2536);
+  }
+  return t2537;
+}
+
+u_value f_c_46_c_param_1(u_value v_p) {
+  u_value s2543 = v_p;
+  u_value t2544 = NULL;
+  if (!t2544) {
+    u_value v_t = u_field(s2543, 0);
+    u_value v_x = u_field(s2543, 1);
+    t2544 = f_c_46_c_declare_2(v_t, v_x);
+  }
+  if (!t2544) {
+    u_no_case(s2543);
+  }
+  return t2544;
+}
+
+u_value f_c_46_c_decl_1(u_value v_d) {
+  u_value s2545 = v_d;
+  u_value t2546 = NULL;
+  if ((!t2546) && u_is_con(s2545, &n_c_46_CdInclude)) {
+    u_value v_h = u_field(s2545, 0);
+    static struct u_object l__35_include_32__2547 = U_LIT("#include ");
+    t2546 = u_mk_con(&n_list_46_Cons, 2, u_concat(&l__35_include_32__2547, u_str_quote(v_h)), &o_list_46_Nil);
+  }
+  if ((!t2546) && u_is_con(s2545, &n_c_46_CdPrototype)) {
+    u_value v_t = u_field(s2545, 0);
+    u_value v_f = u_field(s2545, 1);
+    u_value v_ps = u_field(s2545, 2);
+    static struct u_object l__40__2548 = U_LIT("(");
+    static struct u_object l__41__59__2549 = U_LIT(");");
+    t2546 = u_mk_con(&n_list_46_Cons, 2, u_concat(f_c_46_c_declare_2(v_t, v_f), u_concat(&l__40__2548, u_concat(f_c_46_c_params_1(v_ps), &l__41__59__2549))), &o_list_46_Nil);
+  }
+  if ((!t2546) && u_is_con(s2545, &n_c_46_CdFunction)) {
+    u_value v_t = u_field(s2545, 0);
+    u_value v_f = u_field(s2545, 1);
+    u_value v_ps = u_field(s2545, 2);
+    u_value v_b = u_field(s2545, 3);
+    static struct u_object l__40__2550 = U_LIT("(");
+    static struct u_object l__41__32__123__2551 = U_LIT(") {");
+    static struct u_object l__32__32__2552 = U_LIT("  ");
+    static struct u_object l__125__2553 = U_LIT("}");
+    t2546 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_concat(f_c_46_c_declare_2(v_t, v_f), u_concat(&l__40__2550, u_concat(f_c_46_c_params_1(v_ps), &l__41__32__123__2551))), &o_list_46_Nil), f_list_46__43__43__2(f_c_46_c_stmts_2(&l__32__32__2552, v_b), u_mk_con(&n_list_46_Cons, 2, &l__125__2553, &o_list_46_Nil)));
+  }
+  if ((!t2546) && (u_is_con(s2545, &n_c_46_CdGlobal) && u_is_con(u_field(s2545, 2), &n_option_46_None))) {
+    u_value v_t = u_field(s2545, 0);
+    u_value v_x = u_field(s2545, 1);
+    static struct u_object l__59__2554 = U_LIT(";");
+    t2546 = u_mk_con(&n_list_46_Cons, 2, u_concat(f_c_46_c_declare_2(v_t, v_x), &l__59__2554), &o_list_46_Nil);
+  }
+  if ((!t2546) && (u_is_con(s2545, &n_c_46_CdGlobal) && u_is_con(u_field(s2545, 2), &n_option_46_Some))) {
+    u_value v_t = u_field(s2545, 0);
+    u_value v_x = u_field(s2545, 1);
+    u_value v_e = u_field(u_field(s2545, 2), 0);
+    static struct u_object l__32__61__32__2555 = U_LIT(" = ");
+    static struct u_object l__59__2556 = U_LIT(";");
+    t2546 = u_mk_con(&n_list_46_Cons, 2, u_concat(f_c_46_c_declare_2(v_t, v_x), u_concat(&l__32__61__32__2555, u_concat(f_c_46_c_expr_1(v_e), &l__59__2556))), &o_list_46_Nil);
+  }
+  if (!t2546) {
+    u_no_case(s2545);
+  }
+  return t2546;
+}
+
+u_value f_c_46_c_file_1(u_value v_f) {
+  u_value s2557 = v_f;
+  u_value t2558 = NULL;
+  if ((!t2558) && u_is_con(s2557, &n_c_46_CFile)) {
+    u_value v_ds = u_field(s2557, 0);
+    static struct u_object l__10__10__2559 = U_LIT("\n\n");
+    u_value t2560 = &o_list_46_Nil;
+    u_value *e2561 = &t2560;
+    u_value l2562 = v_ds;
+    while (u_is_con(l2562, &n_list_46_Cons)) {
+      u_value v_d = u_field(l2562, 0);
+      if (u_truth(u_mk_bool(1))) {
+        static struct u_object l__10__2563 = U_LIT("\n");
+        e2561 = u_append(e2561, u_str_join(&l__10__2563, f_c_46_c_decl_1(v_d)));
+      }
+      l2562 = u_field(l2562, 1);
+    }
+    static struct u_object l__10__2564 = U_LIT("\n");
+    t2558 = u_concat(u_str_join(&l__10__10__2559, t2560), &l__10__2564);
+  }
+  if (!t2558) {
+    u_no_case(s2557);
+  }
+  return t2558;
+}
+
+u_value f_c_46_c_call_2(u_value v_f, u_value v_args) {
+  return u_mk_con(&n_c_46_CeCall, 2, u_mk_con(&n_c_46_CeVar, 1, v_f), v_args);
+}
+
+u_value f_compile_46_Globals_46_funs_1(u_value v_x) {
+  u_value s2565 = v_x;
+  u_value t2566 = NULL;
+  if ((!t2566) && u_is_con(s2565, &n_compile_46_Globals)) {
+    u_value v_y = u_field(s2565, 0);
+    t2566 = v_y;
+  }
+  if (!t2566) {
+    u_no_case(s2565);
+  }
+  return t2566;
+}
+
+u_value f_compile_46_Globals_46_constrs_1(u_value v_x) {
+  u_value s2567 = v_x;
+  u_value t2568 = NULL;
+  if ((!t2568) && u_is_con(s2567, &n_compile_46_Globals)) {
+    u_value v_y = u_field(s2567, 1);
+    t2568 = v_y;
+  }
+  if (!t2568) {
+    u_no_case(s2567);
+  }
+  return t2568;
+}
+
+u_value f_compile_46_Globals_46_arities_1(u_value v_x) {
+  u_value s2569 = v_x;
+  u_value t2570 = NULL;
+  if ((!t2570) && u_is_con(s2569, &n_compile_46_Globals)) {
+    u_value v_y = u_field(s2569, 2);
+    t2570 = v_y;
+  }
+  if (!t2570) {
+    u_no_case(s2569);
+  }
+  return t2570;
+}
+
+u_value f_compile_46_Globals_46_fields_1(u_value v_x) {
+  u_value s2571 = v_x;
+  u_value t2572 = NULL;
+  if ((!t2572) && u_is_con(s2571, &n_compile_46_Globals)) {
+    u_value v_y = u_field(s2571, 3);
+    t2572 = v_y;
+  }
+  if (!t2572) {
+    u_no_case(s2571);
+  }
+  return t2572;
+}
+
+u_value f_compile_46_Globals_46_procs_1(u_value v_x) {
+  u_value s2573 = v_x;
+  u_value t2574 = NULL;
+  if ((!t2574) && u_is_con(s2573, &n_compile_46_Globals)) {
+    u_value v_y = u_field(s2573, 4);
+    t2574 = v_y;
+  }
+  if (!t2574) {
+    u_no_case(s2573);
+  }
+  return t2574;
+}
+
 u_value f_compile_46_Globals_46_funs_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2477 = v_x;
-  u_value t2478 = NULL;
-  if ((!t2478) && u_is_con(s2477, &n_compile_46_Globals)) {
-    u_value v_a1 = u_field(s2477, 1);
-    u_value v_a2 = u_field(s2477, 2);
-    u_value v_a3 = u_field(s2477, 3);
-    u_value v_a4 = u_field(s2477, 4);
-    t2478 = u_mk_con(&n_compile_46_Globals, 5, v_y, v_a1, v_a2, v_a3, v_a4);
+  u_value s2575 = v_x;
+  u_value t2576 = NULL;
+  if ((!t2576) && u_is_con(s2575, &n_compile_46_Globals)) {
+    u_value v_a1 = u_field(s2575, 1);
+    u_value v_a2 = u_field(s2575, 2);
+    u_value v_a3 = u_field(s2575, 3);
+    u_value v_a4 = u_field(s2575, 4);
+    t2576 = u_mk_con(&n_compile_46_Globals, 5, v_y, v_a1, v_a2, v_a3, v_a4);
   }
-  if (!t2478) {
-    u_no_case(s2477);
+  if (!t2576) {
+    u_no_case(s2575);
   }
-  return t2478;
+  return t2576;
 }
 
 u_value f_compile_46_Globals_46_constrs_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2479 = v_x;
-  u_value t2480 = NULL;
-  if ((!t2480) && u_is_con(s2479, &n_compile_46_Globals)) {
-    u_value v_a0 = u_field(s2479, 0);
-    u_value v_a2 = u_field(s2479, 2);
-    u_value v_a3 = u_field(s2479, 3);
-    u_value v_a4 = u_field(s2479, 4);
-    t2480 = u_mk_con(&n_compile_46_Globals, 5, v_a0, v_y, v_a2, v_a3, v_a4);
+  u_value s2577 = v_x;
+  u_value t2578 = NULL;
+  if ((!t2578) && u_is_con(s2577, &n_compile_46_Globals)) {
+    u_value v_a0 = u_field(s2577, 0);
+    u_value v_a2 = u_field(s2577, 2);
+    u_value v_a3 = u_field(s2577, 3);
+    u_value v_a4 = u_field(s2577, 4);
+    t2578 = u_mk_con(&n_compile_46_Globals, 5, v_a0, v_y, v_a2, v_a3, v_a4);
   }
-  if (!t2480) {
-    u_no_case(s2479);
+  if (!t2578) {
+    u_no_case(s2577);
   }
-  return t2480;
+  return t2578;
 }
 
 u_value f_compile_46_Globals_46_arities_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2481 = v_x;
-  u_value t2482 = NULL;
-  if ((!t2482) && u_is_con(s2481, &n_compile_46_Globals)) {
-    u_value v_a0 = u_field(s2481, 0);
-    u_value v_a1 = u_field(s2481, 1);
-    u_value v_a3 = u_field(s2481, 3);
-    u_value v_a4 = u_field(s2481, 4);
-    t2482 = u_mk_con(&n_compile_46_Globals, 5, v_a0, v_a1, v_y, v_a3, v_a4);
+  u_value s2579 = v_x;
+  u_value t2580 = NULL;
+  if ((!t2580) && u_is_con(s2579, &n_compile_46_Globals)) {
+    u_value v_a0 = u_field(s2579, 0);
+    u_value v_a1 = u_field(s2579, 1);
+    u_value v_a3 = u_field(s2579, 3);
+    u_value v_a4 = u_field(s2579, 4);
+    t2580 = u_mk_con(&n_compile_46_Globals, 5, v_a0, v_a1, v_y, v_a3, v_a4);
   }
-  if (!t2482) {
-    u_no_case(s2481);
+  if (!t2580) {
+    u_no_case(s2579);
   }
-  return t2482;
+  return t2580;
 }
 
 u_value f_compile_46_Globals_46_fields_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2483 = v_x;
-  u_value t2484 = NULL;
-  if ((!t2484) && u_is_con(s2483, &n_compile_46_Globals)) {
-    u_value v_a0 = u_field(s2483, 0);
-    u_value v_a1 = u_field(s2483, 1);
-    u_value v_a2 = u_field(s2483, 2);
-    u_value v_a4 = u_field(s2483, 4);
-    t2484 = u_mk_con(&n_compile_46_Globals, 5, v_a0, v_a1, v_a2, v_y, v_a4);
+  u_value s2581 = v_x;
+  u_value t2582 = NULL;
+  if ((!t2582) && u_is_con(s2581, &n_compile_46_Globals)) {
+    u_value v_a0 = u_field(s2581, 0);
+    u_value v_a1 = u_field(s2581, 1);
+    u_value v_a2 = u_field(s2581, 2);
+    u_value v_a4 = u_field(s2581, 4);
+    t2582 = u_mk_con(&n_compile_46_Globals, 5, v_a0, v_a1, v_a2, v_y, v_a4);
   }
-  if (!t2484) {
-    u_no_case(s2483);
+  if (!t2582) {
+    u_no_case(s2581);
   }
-  return t2484;
+  return t2582;
 }
 
 u_value f_compile_46_Globals_46_procs_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2485 = v_x;
-  u_value t2486 = NULL;
-  if ((!t2486) && u_is_con(s2485, &n_compile_46_Globals)) {
-    u_value v_a0 = u_field(s2485, 0);
-    u_value v_a1 = u_field(s2485, 1);
-    u_value v_a2 = u_field(s2485, 2);
-    u_value v_a3 = u_field(s2485, 3);
-    t2486 = u_mk_con(&n_compile_46_Globals, 5, v_a0, v_a1, v_a2, v_a3, v_y);
+  u_value s2583 = v_x;
+  u_value t2584 = NULL;
+  if ((!t2584) && u_is_con(s2583, &n_compile_46_Globals)) {
+    u_value v_a0 = u_field(s2583, 0);
+    u_value v_a1 = u_field(s2583, 1);
+    u_value v_a2 = u_field(s2583, 2);
+    u_value v_a3 = u_field(s2583, 3);
+    t2584 = u_mk_con(&n_compile_46_Globals, 5, v_a0, v_a1, v_a2, v_a3, v_y);
   }
-  if (!t2486) {
-    u_no_case(s2485);
+  if (!t2584) {
+    u_no_case(s2583);
   }
-  return t2486;
+  return t2584;
 }
 
 u_value f_compile_46_Gen_46_count_1(u_value v_x) {
-  u_value s2487 = v_x;
-  u_value t2488 = NULL;
-  if ((!t2488) && u_is_con(s2487, &n_compile_46_Gen)) {
-    u_value v_y = u_field(s2487, 0);
-    t2488 = v_y;
+  u_value s2585 = v_x;
+  u_value t2586 = NULL;
+  if ((!t2586) && u_is_con(s2585, &n_compile_46_Gen)) {
+    u_value v_y = u_field(s2585, 0);
+    t2586 = v_y;
   }
-  if (!t2488) {
-    u_no_case(s2487);
+  if (!t2586) {
+    u_no_case(s2585);
   }
-  return t2488;
+  return t2586;
 }
 
 u_value f_compile_46_Gen_46_lifted_1(u_value v_x) {
-  u_value s2489 = v_x;
-  u_value t2490 = NULL;
-  if ((!t2490) && u_is_con(s2489, &n_compile_46_Gen)) {
-    u_value v_y = u_field(s2489, 1);
-    t2490 = v_y;
+  u_value s2587 = v_x;
+  u_value t2588 = NULL;
+  if ((!t2588) && u_is_con(s2587, &n_compile_46_Gen)) {
+    u_value v_y = u_field(s2587, 1);
+    t2588 = v_y;
   }
-  if (!t2490) {
-    u_no_case(s2489);
+  if (!t2588) {
+    u_no_case(s2587);
   }
-  return t2490;
+  return t2588;
 }
 
 u_value f_compile_46_Gen_46_count_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2491 = v_x;
-  u_value t2492 = NULL;
-  if ((!t2492) && u_is_con(s2491, &n_compile_46_Gen)) {
-    u_value v_a1 = u_field(s2491, 1);
-    t2492 = u_mk_con(&n_compile_46_Gen, 2, v_y, v_a1);
+  u_value s2589 = v_x;
+  u_value t2590 = NULL;
+  if ((!t2590) && u_is_con(s2589, &n_compile_46_Gen)) {
+    u_value v_a1 = u_field(s2589, 1);
+    t2590 = u_mk_con(&n_compile_46_Gen, 2, v_y, v_a1);
   }
-  if (!t2492) {
-    u_no_case(s2491);
+  if (!t2590) {
+    u_no_case(s2589);
   }
-  return t2492;
+  return t2590;
 }
 
 u_value f_compile_46_Gen_46_lifted_58__61__2(u_value v_x, u_value v_y) {
-  u_value s2493 = v_x;
-  u_value t2494 = NULL;
-  if ((!t2494) && u_is_con(s2493, &n_compile_46_Gen)) {
-    u_value v_a0 = u_field(s2493, 0);
-    t2494 = u_mk_con(&n_compile_46_Gen, 2, v_a0, v_y);
+  u_value s2591 = v_x;
+  u_value t2592 = NULL;
+  if ((!t2592) && u_is_con(s2591, &n_compile_46_Gen)) {
+    u_value v_a0 = u_field(s2591, 0);
+    t2592 = u_mk_con(&n_compile_46_Gen, 2, v_a0, v_y);
   }
-  if (!t2494) {
-    u_no_case(s2493);
+  if (!t2592) {
+    u_no_case(s2591);
   }
-  return t2494;
+  return t2592;
 }
 
 u_value f_compile_46_value_type_0(void) {
@@ -25203,9 +26251,9 @@ u_value f_compile_46_value_type_0(void) {
     cache = NULL;
     u_reraise(handler);
   }
-  static struct u_object l_u_value_2495 = U_LIT("u_value");
+  static struct u_object l_u_value_2593 = U_LIT("u_value");
   u_pop(handler);
-  cache = u_mk_con(&n_c_46_CtNamed, 1, &l_u_value_2495);
+  cache = u_mk_con(&n_c_46_CtNamed, 1, &l_u_value_2593);
   return cache;
 }
 
@@ -25224,65 +26272,65 @@ u_value f_compile_46_value_ptr_0(void) {
     cache = NULL;
     u_reraise(handler);
   }
-  static struct u_object l_u_value_2496 = U_LIT("u_value");
+  static struct u_object l_u_value_2594 = U_LIT("u_value");
   u_pop(handler);
-  cache = u_mk_con(&n_c_46_CtPtr, 1, u_mk_con(&n_c_46_CtNamed, 1, &l_u_value_2496));
+  cache = u_mk_con(&n_c_46_CtPtr, 1, u_mk_con(&n_c_46_CtNamed, 1, &l_u_value_2594));
   return cache;
 }
 
 u_value f_compile_46_mangle_1(u_value v_n) {
-  u_value t2497 = &o_list_46_Nil;
-  u_value *e2498 = &t2497;
-  u_value l2499 = u_chars(f_syntax_46_qualified_1(v_n));
-  while (u_is_con(l2499, &n_list_46_Cons)) {
-    u_value v_c = u_field(l2499, 0);
+  u_value t2595 = &o_list_46_Nil;
+  u_value *e2596 = &t2595;
+  u_value l2597 = u_chars(f_syntax_46_qualified_1(v_n));
+  while (u_is_con(l2597, &n_list_46_Cons)) {
+    u_value v_c = u_field(l2597, 0);
     if (u_truth(u_mk_bool(1))) {
-      e2498 = u_append(e2498, f_compile_46_mangle_char_1(v_c));
+      e2596 = u_append(e2596, f_compile_46_mangle_char_1(v_c));
     }
-    l2499 = u_field(l2499, 1);
+    l2597 = u_field(l2597, 1);
   }
-  return u_string(f_list_46_concat_1(t2497));
+  return u_string(f_list_46_concat_1(t2595));
 }
 
 u_value f_compile_46_mangle_char_1(u_value v_c) {
-  u_value t2500 = u_is_letter(v_c);
-  if (!u_truth(t2500)) {
-    t2500 = u_is_digit(v_c);
+  u_value t2598 = u_is_letter(v_c);
+  if (!u_truth(t2598)) {
+    t2598 = u_is_digit(v_c);
   }
-  u_value t2501 = t2500;
-  if (!u_truth(t2501)) {
-    t2501 = u_eq(v_c, u_mk_char(95));
+  u_value t2599 = t2598;
+  if (!u_truth(t2599)) {
+    t2599 = u_eq(v_c, u_mk_char(95));
   }
-  u_value t2504;
-  if (u_truth(t2501)) {
-    t2504 = u_mk_con(&n_list_46_Cons, 2, v_c, &o_list_46_Nil);
+  u_value t2602;
+  if (u_truth(t2599)) {
+    t2602 = u_mk_con(&n_list_46_Cons, 2, v_c, &o_list_46_Nil);
   } else {
-    static struct u_object l___2502 = U_LIT("_");
-    static struct u_object l___2503 = U_LIT("_");
-    t2504 = u_chars(u_concat(&l___2502, u_concat(u_str_show(u_ord(v_c)), &l___2503)));
+    static struct u_object l___2600 = U_LIT("_");
+    static struct u_object l___2601 = U_LIT("_");
+    t2602 = u_chars(u_concat(&l___2600, u_concat(u_str_show(u_ord(v_c)), &l___2601)));
   }
-  return t2504;
+  return t2602;
 }
 
 u_value f_compile_46_fun_name_2(u_value v_n, u_value v_k) {
-  static struct u_object l_f__2505 = U_LIT("f_");
-  static struct u_object l___2506 = U_LIT("_");
-  return u_concat(&l_f__2505, u_concat(f_compile_46_mangle_1(v_n), u_concat(&l___2506, u_str_show(v_k))));
+  static struct u_object l_f__2603 = U_LIT("f_");
+  static struct u_object l___2604 = U_LIT("_");
+  return u_concat(&l_f__2603, u_concat(f_compile_46_mangle_1(v_n), u_concat(&l___2604, u_str_show(v_k))));
 }
 
 u_value f_compile_46_proc_name_1(u_value v_n) {
-  static struct u_object l_p__2507 = U_LIT("p_");
-  return u_concat(&l_p__2507, f_compile_46_mangle_1(v_n));
+  static struct u_object l_p__2605 = U_LIT("p_");
+  return u_concat(&l_p__2605, f_compile_46_mangle_1(v_n));
 }
 
 u_value f_compile_46_var_name_1(u_value v_n) {
-  static struct u_object l_v__2508 = U_LIT("v_");
-  return u_concat(&l_v__2508, f_compile_46_mangle_1(v_n));
+  static struct u_object l_v__2606 = U_LIT("v_");
+  return u_concat(&l_v__2606, f_compile_46_mangle_1(v_n));
 }
 
 u_value f_compile_46_ref_name_1(u_value v_n) {
-  static struct u_object l_r__2509 = U_LIT("r_");
-  return u_concat(&l_r__2509, f_compile_46_mangle_1(v_n));
+  static struct u_object l_r__2607 = U_LIT("r_");
+  return u_concat(&l_r__2607, f_compile_46_mangle_1(v_n));
 }
 
 u_value f_compile_46_builtin_functions_0(void) {
@@ -25300,73 +26348,73 @@ u_value f_compile_46_builtin_functions_0(void) {
     cache = NULL;
     u_reraise(handler);
   }
-  static struct u_object l__43__2510 = U_LIT("+");
-  static struct u_object l_u_add_2511 = U_LIT("u_add");
-  static struct u_object l__45__2512 = U_LIT("-");
-  static struct u_object l_u_sub_2513 = U_LIT("u_sub");
-  static struct u_object l__42__2514 = U_LIT("*");
-  static struct u_object l_u_mul_2515 = U_LIT("u_mul");
-  static struct u_object l__47__2516 = U_LIT("/");
-  static struct u_object l_u_div_2517 = U_LIT("u_div");
-  static struct u_object l__37__2518 = U_LIT("%");
-  static struct u_object l_u_mod_2519 = U_LIT("u_mod");
-  static struct u_object l__60__2520 = U_LIT("<");
-  static struct u_object l_u_lt_2521 = U_LIT("u_lt");
-  static struct u_object l__61__61__2522 = U_LIT("==");
-  static struct u_object l_u_eq_2523 = U_LIT("u_eq");
-  static struct u_object l_compare_2524 = U_LIT("compare");
-  static struct u_object l_u_compare_2525 = U_LIT("u_compare");
-  static struct u_object l_chars_2526 = U_LIT("chars");
-  static struct u_object l_u_chars_2527 = U_LIT("u_chars");
-  static struct u_object l_string_2528 = U_LIT("string");
-  static struct u_object l_u_string_2529 = U_LIT("u_string");
-  static struct u_object l_ord_2530 = U_LIT("ord");
-  static struct u_object l_u_ord_2531 = U_LIT("u_ord");
-  static struct u_object l_chr_2532 = U_LIT("chr");
-  static struct u_object l_u_chr_2533 = U_LIT("u_chr");
-  static struct u_object l__94__2534 = U_LIT("^");
-  static struct u_object l_u_concat_2535 = U_LIT("u_concat");
-  static struct u_object l_str_size_2536 = U_LIT("str_size");
-  static struct u_object l_u_str_size_2537 = U_LIT("u_str_size");
-  static struct u_object l_str_join_2538 = U_LIT("str_join");
-  static struct u_object l_u_str_join_2539 = U_LIT("u_str_join");
-  static struct u_object l_str_slice_2540 = U_LIT("str_slice");
-  static struct u_object l_u_str_slice_2541 = U_LIT("u_str_slice");
-  static struct u_object l_str_split_2542 = U_LIT("str_split");
-  static struct u_object l_u_str_split_2543 = U_LIT("u_str_split");
-  static struct u_object l_str_get_2544 = U_LIT("str_get");
-  static struct u_object l_u_str_get_2545 = U_LIT("u_str_get");
-  static struct u_object l_str_contains_2546 = U_LIT("str_contains");
-  static struct u_object l_u_str_contains_2547 = U_LIT("u_str_contains");
-  static struct u_object l_str_compare_2548 = U_LIT("str_compare");
-  static struct u_object l_u_str_compare_2549 = U_LIT("u_str_compare");
-  static struct u_object l_str_show_2550 = U_LIT("str_show");
-  static struct u_object l_u_str_show_2551 = U_LIT("u_str_show");
-  static struct u_object l_str_quote_2552 = U_LIT("str_quote");
-  static struct u_object l_u_str_quote_2553 = U_LIT("u_str_quote");
-  static struct u_object l_str_number_2554 = U_LIT("str_number");
-  static struct u_object l_u_str_number_2555 = U_LIT("u_str_number");
-  static struct u_object l_is_digit_2556 = U_LIT("is_digit");
-  static struct u_object l_u_is_digit_2557 = U_LIT("u_is_digit");
-  static struct u_object l_is_letter_2558 = U_LIT("is_letter");
-  static struct u_object l_u_is_letter_2559 = U_LIT("u_is_letter");
-  static struct u_object l_is_space_2560 = U_LIT("is_space");
-  static struct u_object l_u_is_space_2561 = U_LIT("u_is_space");
+  static struct u_object l__43__2608 = U_LIT("+");
+  static struct u_object l_u_add_2609 = U_LIT("u_add");
+  static struct u_object l__45__2610 = U_LIT("-");
+  static struct u_object l_u_sub_2611 = U_LIT("u_sub");
+  static struct u_object l__42__2612 = U_LIT("*");
+  static struct u_object l_u_mul_2613 = U_LIT("u_mul");
+  static struct u_object l__47__2614 = U_LIT("/");
+  static struct u_object l_u_div_2615 = U_LIT("u_div");
+  static struct u_object l__37__2616 = U_LIT("%");
+  static struct u_object l_u_mod_2617 = U_LIT("u_mod");
+  static struct u_object l__60__2618 = U_LIT("<");
+  static struct u_object l_u_lt_2619 = U_LIT("u_lt");
+  static struct u_object l__61__61__2620 = U_LIT("==");
+  static struct u_object l_u_eq_2621 = U_LIT("u_eq");
+  static struct u_object l_compare_2622 = U_LIT("compare");
+  static struct u_object l_u_compare_2623 = U_LIT("u_compare");
+  static struct u_object l_chars_2624 = U_LIT("chars");
+  static struct u_object l_u_chars_2625 = U_LIT("u_chars");
+  static struct u_object l_string_2626 = U_LIT("string");
+  static struct u_object l_u_string_2627 = U_LIT("u_string");
+  static struct u_object l_ord_2628 = U_LIT("ord");
+  static struct u_object l_u_ord_2629 = U_LIT("u_ord");
+  static struct u_object l_chr_2630 = U_LIT("chr");
+  static struct u_object l_u_chr_2631 = U_LIT("u_chr");
+  static struct u_object l__94__2632 = U_LIT("^");
+  static struct u_object l_u_concat_2633 = U_LIT("u_concat");
+  static struct u_object l_str_size_2634 = U_LIT("str_size");
+  static struct u_object l_u_str_size_2635 = U_LIT("u_str_size");
+  static struct u_object l_str_join_2636 = U_LIT("str_join");
+  static struct u_object l_u_str_join_2637 = U_LIT("u_str_join");
+  static struct u_object l_str_slice_2638 = U_LIT("str_slice");
+  static struct u_object l_u_str_slice_2639 = U_LIT("u_str_slice");
+  static struct u_object l_str_split_2640 = U_LIT("str_split");
+  static struct u_object l_u_str_split_2641 = U_LIT("u_str_split");
+  static struct u_object l_str_get_2642 = U_LIT("str_get");
+  static struct u_object l_u_str_get_2643 = U_LIT("u_str_get");
+  static struct u_object l_str_contains_2644 = U_LIT("str_contains");
+  static struct u_object l_u_str_contains_2645 = U_LIT("u_str_contains");
+  static struct u_object l_str_compare_2646 = U_LIT("str_compare");
+  static struct u_object l_u_str_compare_2647 = U_LIT("u_str_compare");
+  static struct u_object l_str_show_2648 = U_LIT("str_show");
+  static struct u_object l_u_str_show_2649 = U_LIT("u_str_show");
+  static struct u_object l_str_quote_2650 = U_LIT("str_quote");
+  static struct u_object l_u_str_quote_2651 = U_LIT("u_str_quote");
+  static struct u_object l_str_number_2652 = U_LIT("str_number");
+  static struct u_object l_u_str_number_2653 = U_LIT("u_str_number");
+  static struct u_object l_is_digit_2654 = U_LIT("is_digit");
+  static struct u_object l_u_is_digit_2655 = U_LIT("u_is_digit");
+  static struct u_object l_is_letter_2656 = U_LIT("is_letter");
+  static struct u_object l_u_is_letter_2657 = U_LIT("u_is_letter");
+  static struct u_object l_is_space_2658 = U_LIT("is_space");
+  static struct u_object l_u_is_space_2659 = U_LIT("u_is_space");
   u_pop(handler);
-  cache = f_map_46_put_all_2(u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__43__2510), u_mk_tuple(2, &l_u_add_2511, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__45__2512), u_mk_tuple(2, &l_u_sub_2513, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__42__2514), u_mk_tuple(2, &l_u_mul_2515, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__47__2516), u_mk_tuple(2, &l_u_div_2517, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__37__2518), u_mk_tuple(2, &l_u_mod_2519, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__60__2520), u_mk_tuple(2, &l_u_lt_2521, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__61__61__2522), u_mk_tuple(2, &l_u_eq_2523, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_compare_2524), u_mk_tuple(2, &l_u_compare_2525, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_chars_2526), u_mk_tuple(2, &l_u_chars_2527, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_string_2528), u_mk_tuple(2, &l_u_string_2529, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_ord_2530), u_mk_tuple(2, &l_u_ord_2531, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_chr_2532), u_mk_tuple(2, &l_u_chr_2533, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__94__2534), u_mk_tuple(2, &l_u_concat_2535, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_size_2536), u_mk_tuple(2, &l_u_str_size_2537, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_join_2538), u_mk_tuple(2, &l_u_str_join_2539, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_slice_2540), u_mk_tuple(2, &l_u_str_slice_2541, u_mk_int(3))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_split_2542), u_mk_tuple(2, &l_u_str_split_2543, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_get_2544), u_mk_tuple(2, &l_u_str_get_2545, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_contains_2546), u_mk_tuple(2, &l_u_str_contains_2547, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_compare_2548), u_mk_tuple(2, &l_u_str_compare_2549, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_show_2550), u_mk_tuple(2, &l_u_str_show_2551, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_quote_2552), u_mk_tuple(2, &l_u_str_quote_2553, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_number_2554), u_mk_tuple(2, &l_u_str_number_2555, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_is_digit_2556), u_mk_tuple(2, &l_u_is_digit_2557, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_is_letter_2558), u_mk_tuple(2, &l_u_is_letter_2559, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_is_space_2560), u_mk_tuple(2, &l_u_is_space_2561, u_mk_int(1))), &o_list_46_Nil)))))))))))))))))))))))))), f_map_46_empty_0());
+  cache = f_map_46_put_all_2(u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__43__2608), u_mk_tuple(2, &l_u_add_2609, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__45__2610), u_mk_tuple(2, &l_u_sub_2611, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__42__2612), u_mk_tuple(2, &l_u_mul_2613, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__47__2614), u_mk_tuple(2, &l_u_div_2615, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__37__2616), u_mk_tuple(2, &l_u_mod_2617, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__60__2618), u_mk_tuple(2, &l_u_lt_2619, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__61__61__2620), u_mk_tuple(2, &l_u_eq_2621, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_compare_2622), u_mk_tuple(2, &l_u_compare_2623, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_chars_2624), u_mk_tuple(2, &l_u_chars_2625, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_string_2626), u_mk_tuple(2, &l_u_string_2627, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_ord_2628), u_mk_tuple(2, &l_u_ord_2629, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_chr_2630), u_mk_tuple(2, &l_u_chr_2631, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l__94__2632), u_mk_tuple(2, &l_u_concat_2633, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_size_2634), u_mk_tuple(2, &l_u_str_size_2635, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_join_2636), u_mk_tuple(2, &l_u_str_join_2637, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_slice_2638), u_mk_tuple(2, &l_u_str_slice_2639, u_mk_int(3))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_split_2640), u_mk_tuple(2, &l_u_str_split_2641, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_get_2642), u_mk_tuple(2, &l_u_str_get_2643, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_contains_2644), u_mk_tuple(2, &l_u_str_contains_2645, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_compare_2646), u_mk_tuple(2, &l_u_str_compare_2647, u_mk_int(2))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_show_2648), u_mk_tuple(2, &l_u_str_show_2649, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_quote_2650), u_mk_tuple(2, &l_u_str_quote_2651, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_str_number_2652), u_mk_tuple(2, &l_u_str_number_2653, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_is_digit_2654), u_mk_tuple(2, &l_u_is_digit_2655, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_is_letter_2656), u_mk_tuple(2, &l_u_is_letter_2657, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_syntax_46_unqualified_1(&l_is_space_2658), u_mk_tuple(2, &l_u_is_space_2659, u_mk_int(1))), &o_list_46_Nil)))))))))))))))))))))))))), f_map_46_empty_0());
   return cache;
 }
 
 u_value f_compile_46_descriptor_1(u_value v_n) {
-  static struct u_object l__38__2562 = U_LIT("&");
-  static struct u_object l_n__2563 = U_LIT("n_");
-  return u_mk_con(&n_c_46_CeUnary, 2, &l__38__2562, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_n__2563, f_compile_46_mangle_1(v_n))));
+  static struct u_object l__38__2660 = U_LIT("&");
+  static struct u_object l_n__2661 = U_LIT("n_");
+  return u_mk_con(&n_c_46_CeUnary, 2, &l__38__2660, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_n__2661, f_compile_46_mangle_1(v_n))));
 }
 
 u_value f_compile_46_unit_value_1(u_value v_n) {
-  static struct u_object l__38__2564 = U_LIT("&");
-  static struct u_object l_o__2565 = U_LIT("o_");
-  return u_mk_con(&n_c_46_CeUnary, 2, &l__38__2564, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_o__2565, f_compile_46_mangle_1(v_n))));
+  static struct u_object l__38__2662 = U_LIT("&");
+  static struct u_object l_o__2663 = U_LIT("o_");
+  return u_mk_con(&n_c_46_CeUnary, 2, &l__38__2662, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_o__2663, f_compile_46_mangle_1(v_n))));
 }
 
 u_value f_compile_46_runtime_constructors_0(void) {
@@ -25389,912 +26437,244 @@ u_value f_compile_46_runtime_constructors_0(void) {
   return cache;
 }
 
-u_value f_compile_46_descriptor_decl_2(u_value v_n, u_value v_i) {
-  u_value s2566 = v_n;
-  u_value t2567 = NULL;
-  if ((!t2567) && (u_is_con(s2566, &n_syntax_46_Name) && u_is_con(u_field(s2566, 0), &n_option_46_Some))) {
-    u_value v_m = u_field(u_field(s2566, 0), 0);
-    u_value v_b = u_field(s2566, 1);
-    static struct u_object l_const_32_struct_32_u_n_2568 = U_LIT("const struct u_name");
-    static struct u_object l_n__2569 = U_LIT("n_");
-    t2567 = u_mk_con(&n_c_46_CdGlobal, 3, u_mk_con(&n_c_46_CtNamed, 1, &l_const_32_struct_32_u_n_2568), u_concat(&l_n__2569, f_compile_46_mangle_1(v_n)), u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeInit, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, v_m), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, v_b), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, v_i), &o_list_46_Nil))))));
+u_value f_compile_46_runtime_types_0(void) {
+  static u_value cache = NULL;
+  if (cache == U_COMPUTING) {
+    u_fail("recursive initialization of compile.runtime_types");
   }
-  if ((!t2567) && (u_is_con(s2566, &n_syntax_46_Name) && u_is_con(u_field(s2566, 0), &n_option_46_None))) {
-    u_value v_b = u_field(s2566, 1);
-    static struct u_object l_const_32_struct_32_u_n_2570 = U_LIT("const struct u_name");
-    static struct u_object l_n__2571 = U_LIT("n_");
-    static struct u_object l_NULL_2572 = U_LIT("NULL");
-    t2567 = u_mk_con(&n_c_46_CdGlobal, 3, u_mk_con(&n_c_46_CtNamed, 1, &l_const_32_struct_32_u_n_2570), u_concat(&l_n__2571, f_compile_46_mangle_1(v_n)), u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeInit, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, &l_NULL_2572), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, v_b), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, v_i), &o_list_46_Nil))))));
+  if (cache) {
+    return cache;
   }
-  if (!t2567) {
-    u_no_case(s2566);
+  cache = U_COMPUTING;
+  struct u_handler *handler = u_push();
+  if (setjmp(handler->env) != 0) {
+    u_pop(handler);
+    cache = NULL;
+    u_reraise(handler);
   }
-  return t2567;
+  u_pop(handler);
+  cache = f_set_46_from_list_1(u_mk_con(&n_list_46_Cons, 2, f_syntax_46_list_name_0(), u_mk_con(&n_list_46_Cons, 2, f_syntax_46_option_name_0(), u_mk_con(&n_list_46_Cons, 2, f_syntax_46_os_error_name_0(), u_mk_con(&n_list_46_Cons, 2, f_syntax_46_division_by_zero_name_0(), u_mk_con(&n_list_46_Cons, 2, f_syntax_46_no_index_name_0(), u_mk_con(&n_list_46_Cons, 2, f_syntax_46_no_character_name_0(), u_mk_con(&n_list_46_Cons, 2, f_syntax_46_missing_field_name_0(), &o_list_46_Nil))))))));
+  return cache;
 }
 
-u_value f_compile_46_unit_decl_1(u_value v_n) {
-  static struct u_object l_struct_32_u_object_2573 = U_LIT("struct u_object");
-  static struct u_object l_o__2574 = U_LIT("o_");
-  static struct u_object l_U_UNIT_2575 = U_LIT("U_UNIT");
-  static struct u_object l_n__2576 = U_LIT("n_");
-  return u_mk_con(&n_c_46_CdGlobal, 3, u_mk_con(&n_c_46_CtNamed, 1, &l_struct_32_u_object_2573), u_concat(&l_o__2574, f_compile_46_mangle_1(v_n)), u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(&l_U_UNIT_2575, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_n__2576, f_compile_46_mangle_1(v_n))), &o_list_46_Nil))));
+u_value f_compile_46_type_name_1(u_value v_t) {
+  static struct u_object l_t__2664 = U_LIT("t_");
+  return u_concat(&l_t__2664, f_compile_46_mangle_1(v_t));
+}
+
+u_value f_compile_46_descriptor_decl_3(u_value v_n, u_value v_i, u_value v_t) {
+  u_value s2665 = v_n;
+  u_value t2666 = NULL;
+  if ((!t2666) && (u_is_con(s2665, &n_syntax_46_Name) && u_is_con(u_field(s2665, 0), &n_option_46_Some))) {
+    u_value v_m = u_field(u_field(s2665, 0), 0);
+    u_value v_b = u_field(s2665, 1);
+    static struct u_object l_const_32_struct_32_u_n_2667 = U_LIT("const struct u_name");
+    static struct u_object l_n__2668 = U_LIT("n_");
+    static struct u_object l__38__2669 = U_LIT("&");
+    t2666 = u_mk_con(&n_c_46_CdGlobal, 3, u_mk_con(&n_c_46_CtNamed, 1, &l_const_32_struct_32_u_n_2667), u_concat(&l_n__2668, f_compile_46_mangle_1(v_n)), u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeInit, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, v_m), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, v_b), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, v_i), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeUnary, 2, &l__38__2669, u_mk_con(&n_c_46_CeVar, 1, f_compile_46_type_name_1(v_t))), &o_list_46_Nil)))))));
+  }
+  if ((!t2666) && (u_is_con(s2665, &n_syntax_46_Name) && u_is_con(u_field(s2665, 0), &n_option_46_None))) {
+    u_value v_b = u_field(s2665, 1);
+    static struct u_object l_const_32_struct_32_u_n_2670 = U_LIT("const struct u_name");
+    static struct u_object l_n__2671 = U_LIT("n_");
+    static struct u_object l_NULL_2672 = U_LIT("NULL");
+    static struct u_object l__38__2673 = U_LIT("&");
+    t2666 = u_mk_con(&n_c_46_CdGlobal, 3, u_mk_con(&n_c_46_CtNamed, 1, &l_const_32_struct_32_u_n_2670), u_concat(&l_n__2671, f_compile_46_mangle_1(v_n)), u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeInit, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, &l_NULL_2672), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, v_b), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, v_i), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeUnary, 2, &l__38__2673, u_mk_con(&n_c_46_CeVar, 1, f_compile_46_type_name_1(v_t))), &o_list_46_Nil)))))));
+  }
+  if (!t2666) {
+    u_no_case(s2665);
+  }
+  return t2666;
+}
+
+u_value f_compile_46_unit_decl_2(u_value v_n, u_value v_t) {
+  static struct u_object l_struct_32_u_object_2674 = U_LIT("struct u_object");
+  static struct u_object l_o__2675 = U_LIT("o_");
+  static struct u_object l_U_UNIT_2676 = U_LIT("U_UNIT");
+  static struct u_object l_n__2677 = U_LIT("n_");
+  return u_mk_con(&n_c_46_CdGlobal, 3, u_mk_con(&n_c_46_CtNamed, 1, &l_struct_32_u_object_2674), u_concat(&l_o__2675, f_compile_46_mangle_1(v_n)), u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(&l_U_UNIT_2676, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_n__2677, f_compile_46_mangle_1(v_n))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, f_compile_46_type_name_1(v_t)), &o_list_46_Nil)))));
 }
 
 u_value f_compile_46_descriptor_decls_1(u_value v_cs) {
-  u_value s2577 = v_cs;
-  u_value t2578 = NULL;
-  if ((!t2578) && u_is_con(s2577, &n_list_46_Nil)) {
-    t2578 = &o_list_46_Nil;
-  }
-  if ((!t2578) && (u_is_con(s2577, &n_list_46_Cons) && u_is_con(u_field(s2577, 0), &n_syntax_46_CData))) {
-    u_value v_ks = u_field(u_field(s2577, 0), 2);
-    u_value v_rest = u_field(s2577, 1);
-    t2578 = f_list_46__43__43__2(f_compile_46_constructor_decls_2(v_ks, u_mk_int(0)), f_compile_46_descriptor_decls_1(v_rest));
-  }
-  if ((!t2578) && u_is_con(s2577, &n_list_46_Cons)) {
-    u_value v_rest = u_field(s2577, 1);
-    t2578 = f_compile_46_descriptor_decls_1(v_rest);
-  }
-  if (!t2578) {
-    u_no_case(s2577);
-  }
-  return t2578;
+  static struct u_object l_compare_2678 = U_LIT("compare");
+  static struct u_object l__61__61__2679 = U_LIT("==");
+  return f_compile_46_data_decls_3(v_cs, f_check_46_ordered_2(v_cs, &l_compare_2678), f_check_46_ordered_2(v_cs, &l__61__61__2679));
 }
 
-u_value f_compile_46_constructor_decls_2(u_value v_ks, u_value v_i) {
-  u_value s2579 = v_ks;
-  u_value t2580 = NULL;
-  if ((!t2580) && u_is_con(s2579, &n_list_46_Nil)) {
-    t2580 = &o_list_46_Nil;
+u_value f_compile_46_data_decls_3(u_value v_cs, u_value v_compares, u_value v_equalities) {
+  u_value s2680 = v_cs;
+  u_value t2681 = NULL;
+  if ((!t2681) && u_is_con(s2680, &n_list_46_Nil)) {
+    t2681 = &o_list_46_Nil;
   }
-  if ((!t2580) && u_is_con(s2579, &n_list_46_Cons)) {
-    u_value v_k = u_field(s2579, 0);
-    u_value v_rest = u_field(s2579, 1);
+  if ((!t2681) && (u_is_con(s2680, &n_list_46_Cons) && u_is_con(u_field(s2680, 0), &n_syntax_46_CData))) {
+    u_value v_t = u_field(u_field(s2680, 0), 0);
+    u_value v_ks = u_field(u_field(s2680, 0), 2);
+    u_value v_rest = u_field(s2680, 1);
+    t2681 = f_list_46__43__43__2(f_compile_46_type_decls_3(v_t, v_compares, v_equalities), f_list_46__43__43__2(f_compile_46_constructor_decls_3(v_t, v_ks, u_mk_int(0)), f_compile_46_data_decls_3(v_rest, v_compares, v_equalities)));
+  }
+  if ((!t2681) && u_is_con(s2680, &n_list_46_Cons)) {
+    u_value v_rest = u_field(s2680, 1);
+    t2681 = f_compile_46_data_decls_3(v_rest, v_compares, v_equalities);
+  }
+  if (!t2681) {
+    u_no_case(s2680);
+  }
+  return t2681;
+}
+
+u_value f_compile_46_type_decls_3(u_value v_t, u_value v_compares, u_value v_equalities) {
+  u_value t2690;
+  if (u_truth(f_set_46_contains_2(v_t, f_compile_46_runtime_types_0()))) {
+    t2690 = &o_list_46_Nil;
+  } else {
+    static struct u_object l_const_32_struct_32_u_t_2682 = U_LIT("const struct u_type");
+    u_value t2685;
+    if (u_truth(f_list_46_contains_2(v_t, v_compares))) {
+      static struct u_object l_compare_2683 = U_LIT("compare");
+      t2685 = f_compile_46_order_wrapper_name_2(&l_compare_2683, v_t);
+    } else {
+      static struct u_object l_u_con_compare_2684 = U_LIT("u_con_compare");
+      t2685 = &l_u_con_compare_2684;
+    }
+    u_value t2688;
+    if (u_truth(f_list_46_contains_2(v_t, v_equalities))) {
+      static struct u_object l__61__61__2686 = U_LIT("==");
+      t2688 = f_compile_46_order_wrapper_name_2(&l__61__61__2686, v_t);
+    } else {
+      static struct u_object l_u_equals_by_comp_2687 = U_LIT("u_equals_by_compare");
+      t2688 = &l_u_equals_by_comp_2687;
+    }
+    static struct u_object l_u_con_print_2689 = U_LIT("u_con_print");
+    t2690 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdGlobal, 3, u_mk_con(&n_c_46_CtNamed, 1, &l_const_32_struct_32_u_t_2682), f_compile_46_type_name_1(v_t), u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeInit, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, f_syntax_46_qualified_1(v_t)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, t2685), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, t2688), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, &l_u_con_print_2689), &o_list_46_Nil))))))), &o_list_46_Nil);
+  }
+  return t2690;
+}
+
+u_value f_compile_46_constructor_decls_3(u_value v_t, u_value v_ks, u_value v_i) {
+  u_value s2691 = v_ks;
+  u_value t2692 = NULL;
+  if ((!t2692) && u_is_con(s2691, &n_list_46_Nil)) {
+    t2692 = &o_list_46_Nil;
+  }
+  if ((!t2692) && u_is_con(s2691, &n_list_46_Cons)) {
+    u_value v_k = u_field(s2691, 0);
+    u_value v_rest = u_field(s2691, 1);
     if (u_truth(f_set_46_contains_2(f_syntax_46_Constr_46_name_1(v_k), f_compile_46_runtime_constructors_0()))) {
-      t2580 = f_compile_46_constructor_decls_2(v_rest, u_add(v_i, u_mk_int(1)));
+      t2692 = f_compile_46_constructor_decls_3(v_t, v_rest, u_add(v_i, u_mk_int(1)));
     }
   }
-  if ((!t2580) && (u_is_con(s2579, &n_list_46_Cons) && (u_is_con(u_field(s2579, 0), &n_syntax_46_Constr) && u_is_con(u_field(u_field(s2579, 0), 1), &n_list_46_Nil)))) {
-    u_value v_n = u_field(u_field(s2579, 0), 0);
-    u_value v_rest = u_field(s2579, 1);
-    t2580 = u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_decl_2(v_n, v_i), u_mk_con(&n_list_46_Cons, 2, f_compile_46_unit_decl_1(v_n), f_compile_46_constructor_decls_2(v_rest, u_add(v_i, u_mk_int(1)))));
+  if ((!t2692) && (u_is_con(s2691, &n_list_46_Cons) && (u_is_con(u_field(s2691, 0), &n_syntax_46_Constr) && u_is_con(u_field(u_field(s2691, 0), 1), &n_list_46_Nil)))) {
+    u_value v_n = u_field(u_field(s2691, 0), 0);
+    u_value v_rest = u_field(s2691, 1);
+    t2692 = u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_decl_3(v_n, v_i, v_t), u_mk_con(&n_list_46_Cons, 2, f_compile_46_unit_decl_2(v_n, v_t), f_compile_46_constructor_decls_3(v_t, v_rest, u_add(v_i, u_mk_int(1)))));
   }
-  if ((!t2580) && (u_is_con(s2579, &n_list_46_Cons) && u_is_con(u_field(s2579, 0), &n_syntax_46_Constr))) {
-    u_value v_n = u_field(u_field(s2579, 0), 0);
-    u_value v_rest = u_field(s2579, 1);
-    t2580 = u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_decl_2(v_n, v_i), f_compile_46_constructor_decls_2(v_rest, u_add(v_i, u_mk_int(1))));
+  if ((!t2692) && (u_is_con(s2691, &n_list_46_Cons) && u_is_con(u_field(s2691, 0), &n_syntax_46_Constr))) {
+    u_value v_n = u_field(u_field(s2691, 0), 0);
+    u_value v_rest = u_field(s2691, 1);
+    t2692 = u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_decl_3(v_n, v_i, v_t), f_compile_46_constructor_decls_3(v_t, v_rest, u_add(v_i, u_mk_int(1))));
   }
-  if (!t2580) {
-    u_no_case(s2579);
+  if (!t2692) {
+    u_no_case(s2691);
   }
-  return t2580;
+  return t2692;
+}
+
+u_value f_compile_46_order_wrapper_name_2(u_value v_op, u_value v_t) {
+  static struct u_object l_compare_2693 = U_LIT("compare");
+  u_value t2696;
+  if (u_truth(u_eq(v_op, &l_compare_2693))) {
+    static struct u_object l_oc__2694 = U_LIT("oc_");
+    t2696 = &l_oc__2694;
+  } else {
+    static struct u_object l_oe__2695 = U_LIT("oe_");
+    t2696 = &l_oe__2695;
+  }
+  return u_concat(t2696, f_compile_46_mangle_1(v_t));
+}
+
+u_value f_compile_46_order_wrappers_1(u_value v_cs) {
+  u_value s2697 = v_cs;
+  u_value t2698 = NULL;
+  if ((!t2698) && u_is_con(s2697, &n_list_46_Nil)) {
+    t2698 = &o_list_46_Nil;
+  }
+  if ((!t2698) && u_is_con(s2697, &n_list_46_Cons)) {
+    u_value v_c = u_field(s2697, 0);
+    u_value v_rest = u_field(s2697, 1);
+    u_value s2699 = u_mk_tuple(2, v_c, f_check_46_order_of_1(v_c));
+    u_value t2700 = NULL;
+    if ((!t2700) && (u_is_con(u_field(s2699, 0), &n_syntax_46_CFun) && u_is_con(u_field(s2699, 1), &n_option_46_Some))) {
+      u_value v_f = u_field(u_field(s2699, 0), 0);
+      u_value v_op = u_field(u_field(u_field(s2699, 1), 0), 0);
+      u_value v_t = u_field(u_field(u_field(s2699, 1), 0), 1);
+      u_value t2701;
+      if (u_truth(f_set_46_contains_2(v_t, f_compile_46_runtime_types_0()))) {
+        t2701 = f_compile_46_order_wrappers_1(v_rest);
+      } else {
+        t2701 = u_mk_con(&n_list_46_Cons, 2, f_compile_46_order_wrapper_3(v_op, v_t, v_f), f_compile_46_order_wrappers_1(v_rest));
+      }
+      t2700 = t2701;
+    }
+    if (!t2700) {
+      t2700 = f_compile_46_order_wrappers_1(v_rest);
+    }
+    if (!t2700) {
+      u_no_case(s2699);
+    }
+    t2698 = t2700;
+  }
+  if (!t2698) {
+    u_no_case(s2697);
+  }
+  return t2698;
+}
+
+u_value f_compile_46_order_wrapper_3(u_value v_op, u_value v_t, u_value v_f) {
+  static struct u_object l_a_2702 = U_LIT("a");
+  static struct u_object l_b_2703 = U_LIT("b");
+  static struct u_object l_compare_2704 = U_LIT("compare");
+  u_value t2707;
+  if (u_truth(u_eq(v_op, &l_compare_2704))) {
+    static struct u_object l_u_order_2705 = U_LIT("u_order");
+    t2707 = &l_u_order_2705;
+  } else {
+    static struct u_object l_u_truth_2706 = U_LIT("u_truth");
+    t2707 = &l_u_truth_2706;
+  }
+  static struct u_object l_a_2708 = U_LIT("a");
+  static struct u_object l_b_2709 = U_LIT("b");
+  return u_mk_con(&n_c_46_CdFunction, 4, &o_c_46_CtInt, f_compile_46_order_wrapper_name_2(v_op, v_t), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_type_0(), &l_a_2702), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_type_0(), &l_b_2703), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(t2707, u_mk_con(&n_list_46_Cons, 2, f_c_46_c_call_2(f_compile_46_fun_name_2(v_f, u_mk_int(2)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, &l_a_2708), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, &l_b_2709), &o_list_46_Nil))), &o_list_46_Nil)))), &o_list_46_Nil));
 }
 
 u_value f_compile_46_in_scope_1(u_value v_xs) {
-  u_value t2581 = &o_list_46_Nil;
-  u_value *e2582 = &t2581;
-  u_value l2583 = v_xs;
-  while (u_is_con(l2583, &n_list_46_Cons)) {
-    u_value v_x = u_field(l2583, 0);
+  u_value t2710 = &o_list_46_Nil;
+  u_value *e2711 = &t2710;
+  u_value l2712 = v_xs;
+  while (u_is_con(l2712, &n_list_46_Cons)) {
+    u_value v_x = u_field(l2712, 0);
     if (u_truth(u_mk_bool(1))) {
-      e2582 = u_append(e2582, u_mk_tuple(2, v_x, u_mk_con(&n_c_46_CeVar, 1, f_compile_46_var_name_1(v_x))));
+      e2711 = u_append(e2711, u_mk_tuple(2, v_x, u_mk_con(&n_c_46_CeVar, 1, f_compile_46_var_name_1(v_x))));
     }
-    l2583 = u_field(l2583, 1);
+    l2712 = u_field(l2712, 1);
   }
-  return t2581;
+  return t2710;
 }
 
 u_value f_compile_46_pointer_1(u_value v_x) {
-  static struct u_object l__42__2584 = U_LIT("*");
-  return u_mk_tuple(2, v_x, u_mk_con(&n_c_46_CeUnary, 2, &l__42__2584, u_mk_con(&n_c_46_CeVar, 1, f_compile_46_ref_name_1(v_x))));
+  static struct u_object l__42__2713 = U_LIT("*");
+  return u_mk_tuple(2, v_x, u_mk_con(&n_c_46_CeUnary, 2, &l__42__2713, u_mk_con(&n_c_46_CeVar, 1, f_compile_46_ref_name_1(v_x))));
 }
 
 u_value f_compile_46_var_expr_2(u_value v_env, u_value v_x) {
-  u_value s2585 = f_list_46_get_2(v_x, v_env);
-  u_value t2586 = NULL;
-  if ((!t2586) && u_is_con(s2585, &n_option_46_Some)) {
-    u_value v_c = u_field(s2585, 0);
-    t2586 = v_c;
-  }
-  if (!t2586) {
-    t2586 = u_mk_con(&n_c_46_CeVar, 1, f_compile_46_var_name_1(v_x));
-  }
-  if (!t2586) {
-    u_no_case(s2585);
-  }
-  return t2586;
-}
-
-u_value f_compile_46_address_1(u_value v_c) {
-  u_value s2587 = v_c;
-  u_value t2588 = NULL;
-  if ((!t2588) && (u_is_con(s2587, &n_c_46_CeUnary) && u_equals(u_field(s2587, 0), u_mk_lit("*")))) {
-    u_value v_p = u_field(s2587, 1);
-    t2588 = v_p;
-  }
-  if (!t2588) {
-    static struct u_object l__38__2589 = U_LIT("&");
-    t2588 = u_mk_con(&n_c_46_CeUnary, 2, &l__38__2589, v_c);
-  }
-  if (!t2588) {
-    u_no_case(s2587);
-  }
-  return t2588;
-}
-
-u_value f_compile_46_type_key_1(u_value v_t) {
-  u_value s2590 = v_t;
-  u_value t2591 = NULL;
-  if ((!t2591) && (u_is_con(s2590, &n_syntax_46_TSort) && u_is_con(u_field(s2590, 1), &n_list_46_Nil))) {
-    u_value v_n = u_field(s2590, 0);
-    t2591 = f_syntax_46_qualified_1(v_n);
-  }
-  if ((!t2591) && u_is_con(s2590, &n_syntax_46_TSort)) {
-    u_value v_n = u_field(s2590, 0);
-    u_value v_args = u_field(s2590, 1);
-    static struct u_object l__91__2592 = U_LIT("[");
-    static struct u_object l__44__32__2593 = U_LIT(", ");
-    u_value t2594 = &o_list_46_Nil;
-    u_value *e2595 = &t2594;
-    u_value l2596 = v_args;
-    while (u_is_con(l2596, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2596, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2595 = u_append(e2595, f_compile_46_type_key_1(v_a));
-      }
-      l2596 = u_field(l2596, 1);
-    }
-    static struct u_object l__93__2597 = U_LIT("]");
-    t2591 = u_concat(f_syntax_46_qualified_1(v_n), u_concat(&l__91__2592, u_concat(u_str_join(&l__44__32__2593, t2594), &l__93__2597)));
-  }
-  if ((!t2591) && u_is_con(s2590, &n_syntax_46_TFun)) {
-    u_value v_args = u_field(s2590, 0);
-    u_value v_r = u_field(s2590, 1);
-    static struct u_object l__40__2598 = U_LIT("(");
-    static struct u_object l__44__32__2599 = U_LIT(", ");
-    u_value t2600 = &o_list_46_Nil;
-    u_value *e2601 = &t2600;
-    u_value l2602 = v_args;
-    while (u_is_con(l2602, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2602, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2601 = u_append(e2601, f_compile_46_type_key_1(v_a));
-      }
-      l2602 = u_field(l2602, 1);
-    }
-    static struct u_object l__41__32__45__62__32__2603 = U_LIT(") -> ");
-    t2591 = u_concat(&l__40__2598, u_concat(u_str_join(&l__44__32__2599, t2600), u_concat(&l__41__32__45__62__32__2603, f_compile_46_type_key_1(v_r))));
-  }
-  if ((!t2591) && u_is_con(s2590, &n_syntax_46_TProc)) {
-    u_value v_is = u_field(s2590, 0);
-    u_value v_os = u_field(s2590, 1);
-    u_value v_rs = u_field(s2590, 2);
-    static struct u_object l__40_in_32__2604 = U_LIT("(in ");
-    static struct u_object l__44__32__2605 = U_LIT(", ");
-    u_value t2606 = &o_list_46_Nil;
-    u_value *e2607 = &t2606;
-    u_value l2608 = v_is;
-    while (u_is_con(l2608, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2608, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2607 = u_append(e2607, f_compile_46_type_key_1(v_a));
-      }
-      l2608 = u_field(l2608, 1);
-    }
-    static struct u_object l__44__32_out_32__2609 = U_LIT(", out ");
-    static struct u_object l__44__32__2610 = U_LIT(", ");
-    u_value t2611 = &o_list_46_Nil;
-    u_value *e2612 = &t2611;
-    u_value l2613 = v_os;
-    while (u_is_con(l2613, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2613, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2612 = u_append(e2612, f_compile_46_type_key_1(v_a));
-      }
-      l2613 = u_field(l2613, 1);
-    }
-    static struct u_object l__44__32_ref_32__2614 = U_LIT(", ref ");
-    static struct u_object l__44__32__2615 = U_LIT(", ");
-    u_value t2616 = &o_list_46_Nil;
-    u_value *e2617 = &t2616;
-    u_value l2618 = v_rs;
-    while (u_is_con(l2618, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2618, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2617 = u_append(e2617, f_compile_46_type_key_1(v_a));
-      }
-      l2618 = u_field(l2618, 1);
-    }
-    static struct u_object l__41__2619 = U_LIT(")");
-    t2591 = u_concat(&l__40_in_32__2604, u_concat(u_str_join(&l__44__32__2605, t2606), u_concat(&l__44__32_out_32__2609, u_concat(u_str_join(&l__44__32__2610, t2611), u_concat(&l__44__32_ref_32__2614, u_concat(u_str_join(&l__44__32__2615, t2616), &l__41__2619))))));
-  }
-  if ((!t2591) && u_is_con(s2590, &n_syntax_46_TTuple)) {
-    u_value v_ts = u_field(s2590, 0);
-    static struct u_object l__40__2620 = U_LIT("(");
-    static struct u_object l__32__42__32__2621 = U_LIT(" * ");
-    u_value t2622 = &o_list_46_Nil;
-    u_value *e2623 = &t2622;
-    u_value l2624 = v_ts;
-    while (u_is_con(l2624, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2624, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2623 = u_append(e2623, f_compile_46_type_key_1(v_a));
-      }
-      l2624 = u_field(l2624, 1);
-    }
-    static struct u_object l__41__2625 = U_LIT(")");
-    t2591 = u_concat(&l__40__2620, u_concat(u_str_join(&l__32__42__32__2621, t2622), &l__41__2625));
-  }
-  if (!t2591) {
-    static struct u_object l__63__2626 = U_LIT("?");
-    t2591 = &l__63__2626;
-  }
-  if (!t2591) {
-    u_no_case(s2590);
-  }
-  return t2591;
-}
-
-u_value f_compile_46_globals_1(u_value v_cs) {
-  u_value t2627 = &o_list_46_Nil;
-  u_value *e2628 = &t2627;
-  u_value l2629 = v_cs;
-  while (u_is_con(l2629, &n_list_46_Cons)) {
-    u_value v_c = u_field(l2629, 0);
-    if (u_truth(u_mk_bool(1))) {
-      e2628 = u_append(e2628, f_compile_46_fun_arities_1(v_c));
-    }
-    l2629 = u_field(l2629, 1);
-  }
-  u_value t2630 = &o_list_46_Nil;
-  u_value *e2631 = &t2630;
-  u_value l2632 = v_cs;
-  while (u_is_con(l2632, &n_list_46_Cons)) {
-    u_value v_c = u_field(l2632, 0);
-    if (u_truth(u_mk_bool(1))) {
-      e2631 = u_append(e2631, f_compile_46_constr_arities_1(v_c));
-    }
-    l2632 = u_field(l2632, 1);
-  }
-  u_value t2637 = f_list_46_concat_1(t2627);
-  u_value t2638 = f_list_46_concat_1(t2630);
-  u_value t2636;
-  {
-    u_value v_fs = t2637;
-    u_value v_ks = t2638;
-    u_value t2633 = &o_list_46_Nil;
-    u_value *e2634 = &t2633;
-    u_value l2635 = v_cs;
-    while (u_is_con(l2635, &n_list_46_Cons)) {
-      u_value v_c = u_field(l2635, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2634 = u_append(e2634, f_compile_46_proc_arities_1(v_c));
-      }
-      l2635 = u_field(l2635, 1);
-    }
-    t2636 = u_mk_con(&n_compile_46_Globals, 5, v_fs, v_ks, f_compile_46_arity_map_2(v_fs, f_map_46_empty_0()), f_map_46_put_all_2(v_ks, f_map_46_empty_0()), f_map_46_put_all_2(f_list_46_concat_1(t2633), f_map_46_empty_0()));
-  }
-  return t2636;
-}
-
-u_value f_compile_46_proc_arities_1(u_value v_c) {
-  u_value s2639 = v_c;
-  u_value t2640 = NULL;
-  if ((!t2640) && u_is_con(s2639, &n_syntax_46_CProc)) {
-    u_value v_n = u_field(s2639, 0);
-    u_value v_ins = u_field(s2639, 2);
-    u_value v_outs = u_field(s2639, 3);
-    u_value v_refs = u_field(s2639, 4);
-    t2640 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, u_mk_tuple(2, f_list_46_size_1(v_ins), u_add(f_list_46_size_1(v_outs), f_list_46_size_1(v_refs)))), &o_list_46_Nil);
-  }
-  if (!t2640) {
-    t2640 = &o_list_46_Nil;
-  }
-  if (!t2640) {
-    u_no_case(s2639);
-  }
-  return t2640;
-}
-
-u_value f_compile_46_arity_map_2(u_value v_fs, u_value v_m) {
-  u_value s2641 = v_fs;
-  u_value t2642 = NULL;
-  if ((!t2642) && u_is_con(s2641, &n_list_46_Nil)) {
-    t2642 = v_m;
-  }
-  if ((!t2642) && u_is_con(s2641, &n_list_46_Cons)) {
-    u_value v_f = u_field(u_field(s2641, 0), 0);
-    u_value v_k = u_field(u_field(s2641, 0), 1);
-    u_value v_rest = u_field(s2641, 1);
-    u_value s2643 = f_map_46_get_2(v_f, v_m);
-    u_value t2644 = NULL;
-    if ((!t2644) && u_is_con(s2643, &n_option_46_Some)) {
-      u_value v_ks = u_field(s2643, 0);
-      t2644 = f_compile_46_arity_map_2(v_rest, f_map_46_put_3(v_f, u_mk_con(&n_list_46_Cons, 2, v_k, v_ks), v_m));
-    }
-    if ((!t2644) && u_is_con(s2643, &n_option_46_None)) {
-      t2644 = f_compile_46_arity_map_2(v_rest, f_map_46_put_3(v_f, u_mk_con(&n_list_46_Cons, 2, v_k, &o_list_46_Nil), v_m));
-    }
-    if (!t2644) {
-      u_no_case(s2643);
-    }
-    t2642 = t2644;
-  }
-  if (!t2642) {
-    u_no_case(s2641);
-  }
-  return t2642;
-}
-
-u_value f_compile_46_is_global_fun_3(u_value v_gl, u_value v_n, u_value v_k) {
-  u_value s2645 = v_gl;
-  u_value t2646 = NULL;
-  if ((!t2646) && u_is_con(s2645, &n_compile_46_Globals)) {
-    u_value v_fm = u_field(s2645, 2);
-    u_value s2647 = f_map_46_get_2(v_n, v_fm);
-    u_value t2648 = NULL;
-    if ((!t2648) && u_is_con(s2647, &n_option_46_Some)) {
-      u_value v_ks = u_field(s2647, 0);
-      t2648 = f_list_46_contains_2(v_k, v_ks);
-    }
-    if ((!t2648) && u_is_con(s2647, &n_option_46_None)) {
-      t2648 = u_mk_bool(0);
-    }
-    if (!t2648) {
-      u_no_case(s2647);
-    }
-    t2646 = t2648;
-  }
-  if (!t2646) {
-    u_no_case(s2645);
-  }
-  return t2646;
-}
-
-u_value f_compile_46_fields_count_2(u_value v_gl, u_value v_n) {
-  u_value s2649 = v_gl;
-  u_value t2650 = NULL;
-  if ((!t2650) && u_is_con(s2649, &n_compile_46_Globals)) {
-    u_value v_km = u_field(s2649, 3);
-    t2650 = f_map_46_get_2(v_n, v_km);
-  }
-  if (!t2650) {
-    u_no_case(s2649);
-  }
-  return t2650;
-}
-
-u_value f_compile_46_fun_arities_1(u_value v_c) {
-  u_value s2651 = v_c;
-  u_value t2652 = NULL;
-  if ((!t2652) && u_is_con(s2651, &n_syntax_46_CFun)) {
-    u_value v_n = u_field(s2651, 0);
-    u_value v_xss = u_field(s2651, 2);
-    t2652 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, f_list_46_size_1(f_check_46_first_list_1(v_xss))), &o_list_46_Nil);
-  }
-  if (!t2652) {
-    t2652 = &o_list_46_Nil;
-  }
-  if (!t2652) {
-    u_no_case(s2651);
-  }
-  return t2652;
-}
-
-u_value f_compile_46_constr_arities_1(u_value v_c) {
-  u_value s2653 = v_c;
-  u_value t2654 = NULL;
-  if ((!t2654) && u_is_con(s2653, &n_syntax_46_CData)) {
-    u_value v_ks = u_field(s2653, 2);
-    u_value t2655 = &o_list_46_Nil;
-    u_value *e2656 = &t2655;
-    u_value l2657 = v_ks;
-    while (u_is_con(l2657, &n_list_46_Cons)) {
-      u_value v_k = u_field(l2657, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2656 = u_append(e2656, f_compile_46_constr_arity_1(v_k));
-      }
-      l2657 = u_field(l2657, 1);
-    }
-    t2654 = t2655;
-  }
-  if (!t2654) {
-    t2654 = &o_list_46_Nil;
-  }
-  if (!t2654) {
-    u_no_case(s2653);
-  }
-  return t2654;
-}
-
-u_value f_compile_46_constr_arity_1(u_value v_k) {
-  u_value s2658 = v_k;
-  u_value t2659 = NULL;
-  if ((!t2659) && u_is_con(s2658, &n_syntax_46_Constr)) {
-    u_value v_n = u_field(s2658, 0);
-    u_value v_ts = u_field(s2658, 1);
-    t2659 = u_mk_tuple(2, v_n, f_list_46_size_1(v_ts));
-  }
-  if (!t2659) {
-    u_no_case(s2658);
-  }
-  return t2659;
-}
-
-u_value f_compile_46_numbered_2(u_value v_xs, u_value v_i) {
-  u_value s2660 = v_xs;
-  u_value t2661 = NULL;
-  if ((!t2661) && u_is_con(s2660, &n_list_46_Nil)) {
-    t2661 = &o_list_46_Nil;
-  }
-  if ((!t2661) && u_is_con(s2660, &n_list_46_Cons)) {
-    u_value v_x = u_field(s2660, 0);
-    u_value v_rest = u_field(s2660, 1);
-    t2661 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_x, v_i), f_compile_46_numbered_2(v_rest, u_add(v_i, u_mk_int(1))));
-  }
-  if (!t2661) {
-    u_no_case(s2660);
-  }
-  return t2661;
-}
-
-u_value f_compile_46_index_2(u_value v_a, u_value v_i) {
-  return u_mk_con(&n_c_46_CeIndex, 2, u_mk_con(&n_c_46_CeVar, 1, v_a), u_mk_con(&n_c_46_CeNum, 1, v_i));
-}
-
-u_value f_compile_46_field_2(u_value v_v, u_value v_i) {
-  static struct u_object l_u_field_2662 = U_LIT("u_field");
-  return f_c_46_c_call_2(&l_u_field_2662, u_mk_con(&n_list_46_Cons, 2, v_v, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, v_i), &o_list_46_Nil)));
-}
-
-u_value f_compile_46_truth_1(u_value v_v) {
-  static struct u_object l_u_truth_2663 = U_LIT("u_truth");
-  return f_c_46_c_call_2(&l_u_truth_2663, u_mk_con(&n_list_46_Cons, 2, v_v, &o_list_46_Nil));
-}
-
-u_value f_compile_46_conjunction_1(u_value v_cs) {
-  u_value s2664 = v_cs;
-  u_value t2665 = NULL;
-  if ((!t2665) && u_is_con(s2664, &n_list_46_Nil)) {
-    t2665 = u_mk_con(&n_c_46_CeNum, 1, u_mk_int(1));
-  }
-  if ((!t2665) && (u_is_con(s2664, &n_list_46_Cons) && u_is_con(u_field(s2664, 1), &n_list_46_Nil))) {
-    u_value v_d = u_field(s2664, 0);
-    t2665 = v_d;
-  }
-  if ((!t2665) && u_is_con(s2664, &n_list_46_Cons)) {
-    u_value v_d = u_field(s2664, 0);
-    u_value v_rest = u_field(s2664, 1);
-    static struct u_object l__38__38__2666 = U_LIT("&&");
-    t2665 = u_mk_con(&n_c_46_CeBinary, 3, &l__38__38__2666, v_d, f_compile_46_conjunction_1(v_rest));
-  }
-  if (!t2665) {
-    u_no_case(s2664);
-  }
-  return t2665;
-}
-
-u_value f_compile_46_literal_value_1(u_value v_l) {
-  u_value s2667 = v_l;
-  u_value t2668 = NULL;
-  if ((!t2668) && u_is_con(s2667, &n_syntax_46_VUnit)) {
-    static struct u_object l_u_mk_tuple_2669 = U_LIT("u_mk_tuple");
-    t2668 = f_c_46_c_call_2(&l_u_mk_tuple_2669, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)), &o_list_46_Nil));
-  }
-  if ((!t2668) && u_is_con(s2667, &n_syntax_46_VBool)) {
-    u_value v_b = u_field(s2667, 0);
-    static struct u_object l_u_mk_bool_2670 = U_LIT("u_mk_bool");
-    u_value t2671;
-    if (u_truth(v_b)) {
-      t2671 = u_mk_int(1);
-    } else {
-      t2671 = u_mk_int(0);
-    }
-    t2668 = f_c_46_c_call_2(&l_u_mk_bool_2670, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, t2671), &o_list_46_Nil));
-  }
-  if ((!t2668) && u_is_con(s2667, &n_syntax_46_VInt)) {
-    u_value v_n = u_field(s2667, 0);
-    u_value t2672 = u_lt(u_mk_int_str("-1000000000000000000"), v_n);
-    if (u_truth(t2672)) {
-      t2672 = u_lt(v_n, u_mk_int_str("1000000000000000000"));
-    }
-    u_value t2675;
-    if (u_truth(t2672)) {
-      static struct u_object l_u_mk_int_2673 = U_LIT("u_mk_int");
-      t2675 = f_c_46_c_call_2(&l_u_mk_int_2673, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, v_n), &o_list_46_Nil));
-    } else {
-      static struct u_object l_u_mk_int_str_2674 = U_LIT("u_mk_int_str");
-      t2675 = f_c_46_c_call_2(&l_u_mk_int_str_2674, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, u_str_show(v_n)), &o_list_46_Nil));
-    }
-    t2668 = t2675;
-  }
-  if ((!t2668) && u_is_con(s2667, &n_syntax_46_VStr)) {
-    u_value v_s = u_field(s2667, 0);
-    static struct u_object l_u_mk_lit_2676 = U_LIT("u_mk_lit");
-    t2668 = f_c_46_c_call_2(&l_u_mk_lit_2676, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, v_s), &o_list_46_Nil));
-  }
-  if ((!t2668) && u_is_con(s2667, &n_syntax_46_VChar)) {
-    u_value v_c = u_field(s2667, 0);
-    static struct u_object l_u_mk_char_2677 = U_LIT("u_mk_char");
-    t2668 = f_c_46_c_call_2(&l_u_mk_char_2677, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_ord(v_c)), &o_list_46_Nil));
-  }
-  if (!t2668) {
-    u_no_case(s2667);
-  }
-  return t2668;
-}
-
-u_value f_compile_46_pattern_tests_2(u_value v_p, u_value v_v) {
-  u_value s2678 = v_p;
-  u_value t2679 = NULL;
-  if ((!t2679) && u_is_con(s2678, &n_syntax_46_PLit)) {
-    u_value v_l = u_field(s2678, 0);
-    static struct u_object l_u_equals_2680 = U_LIT("u_equals");
-    t2679 = u_mk_con(&n_list_46_Cons, 2, f_c_46_c_call_2(&l_u_equals_2680, u_mk_con(&n_list_46_Cons, 2, v_v, u_mk_con(&n_list_46_Cons, 2, f_compile_46_literal_value_1(v_l), &o_list_46_Nil))), &o_list_46_Nil);
-  }
-  if ((!t2679) && u_is_con(s2678, &n_syntax_46_PApp)) {
-    u_value v_n = u_field(s2678, 0);
-    u_value v_ps = u_field(s2678, 1);
-    static struct u_object l_u_is_con_2681 = U_LIT("u_is_con");
-    t2679 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_c_46_c_call_2(&l_u_is_con_2681, u_mk_con(&n_list_46_Cons, 2, v_v, u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_1(v_n), &o_list_46_Nil))), &o_list_46_Nil), f_compile_46_field_tests_2(f_compile_46_numbered_2(v_ps, u_mk_int(0)), v_v));
-  }
-  if ((!t2679) && u_is_con(s2678, &n_syntax_46_PTuple)) {
-    u_value v_ps = u_field(s2678, 0);
-    t2679 = f_compile_46_field_tests_2(f_compile_46_numbered_2(v_ps, u_mk_int(0)), v_v);
-  }
-  if (!t2679) {
-    t2679 = &o_list_46_Nil;
-  }
-  if (!t2679) {
-    u_no_case(s2678);
-  }
-  return t2679;
-}
-
-u_value f_compile_46_field_tests_2(u_value v_ps, u_value v_v) {
-  u_value s2682 = v_ps;
-  u_value t2683 = NULL;
-  if ((!t2683) && u_is_con(s2682, &n_list_46_Nil)) {
-    t2683 = &o_list_46_Nil;
-  }
-  if ((!t2683) && u_is_con(s2682, &n_list_46_Cons)) {
-    u_value v_p = u_field(u_field(s2682, 0), 0);
-    u_value v_i = u_field(u_field(s2682, 0), 1);
-    u_value v_rest = u_field(s2682, 1);
-    t2683 = f_list_46__43__43__2(f_compile_46_pattern_tests_2(v_p, f_compile_46_field_2(v_v, v_i)), f_compile_46_field_tests_2(v_rest, v_v));
-  }
-  if (!t2683) {
-    u_no_case(s2682);
-  }
-  return t2683;
-}
-
-u_value f_compile_46_pattern_binds_2(u_value v_p, u_value v_v) {
-  u_value s2684 = v_p;
-  u_value t2685 = NULL;
-  if ((!t2685) && (u_is_con(s2684, &n_syntax_46_PVar) && u_is_con(u_field(s2684, 0), &n_syntax_46_Var))) {
-    u_value v_n = u_field(u_field(s2684, 0), 0);
-    t2685 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), f_compile_46_var_name_1(v_n), u_mk_con(&n_option_46_Some, 1, v_v)), &o_list_46_Nil);
-  }
-  if ((!t2685) && u_is_con(s2684, &n_syntax_46_PApp)) {
-    u_value v_ps = u_field(s2684, 1);
-    t2685 = f_compile_46_field_binds_2(f_compile_46_numbered_2(v_ps, u_mk_int(0)), v_v);
-  }
-  if ((!t2685) && u_is_con(s2684, &n_syntax_46_PTuple)) {
-    u_value v_ps = u_field(s2684, 0);
-    t2685 = f_compile_46_field_binds_2(f_compile_46_numbered_2(v_ps, u_mk_int(0)), v_v);
-  }
-  if (!t2685) {
-    t2685 = &o_list_46_Nil;
-  }
-  if (!t2685) {
-    u_no_case(s2684);
-  }
-  return t2685;
-}
-
-u_value f_compile_46_field_binds_2(u_value v_ps, u_value v_v) {
-  u_value s2686 = v_ps;
-  u_value t2687 = NULL;
-  if ((!t2687) && u_is_con(s2686, &n_list_46_Nil)) {
-    t2687 = &o_list_46_Nil;
-  }
-  if ((!t2687) && u_is_con(s2686, &n_list_46_Cons)) {
-    u_value v_p = u_field(u_field(s2686, 0), 0);
-    u_value v_i = u_field(u_field(s2686, 0), 1);
-    u_value v_rest = u_field(s2686, 1);
-    t2687 = f_list_46__43__43__2(f_compile_46_pattern_binds_2(v_p, f_compile_46_field_2(v_v, v_i)), f_compile_46_field_binds_2(v_rest, v_v));
-  }
-  if (!t2687) {
-    u_no_case(s2686);
-  }
-  return t2687;
-}
-
-u_value f_compile_46_pattern_names_1(u_value v_p) {
-  u_value s2688 = v_p;
-  u_value t2689 = NULL;
-  if ((!t2689) && (u_is_con(s2688, &n_syntax_46_PVar) && u_is_con(u_field(s2688, 0), &n_syntax_46_Var))) {
-    u_value v_n = u_field(u_field(s2688, 0), 0);
-    t2689 = u_mk_con(&n_list_46_Cons, 2, v_n, &o_list_46_Nil);
-  }
-  if ((!t2689) && u_is_con(s2688, &n_syntax_46_PApp)) {
-    u_value v_ps = u_field(s2688, 1);
-    u_value t2690 = &o_list_46_Nil;
-    u_value *e2691 = &t2690;
-    u_value l2692 = v_ps;
-    while (u_is_con(l2692, &n_list_46_Cons)) {
-      u_value v_q = u_field(l2692, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2691 = u_append(e2691, f_compile_46_pattern_names_1(v_q));
-      }
-      l2692 = u_field(l2692, 1);
-    }
-    t2689 = f_list_46_concat_1(t2690);
-  }
-  if ((!t2689) && u_is_con(s2688, &n_syntax_46_PTuple)) {
-    u_value v_ps = u_field(s2688, 0);
-    u_value t2693 = &o_list_46_Nil;
-    u_value *e2694 = &t2693;
-    u_value l2695 = v_ps;
-    while (u_is_con(l2695, &n_list_46_Cons)) {
-      u_value v_q = u_field(l2695, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2694 = u_append(e2694, f_compile_46_pattern_names_1(v_q));
-      }
-      l2695 = u_field(l2695, 1);
-    }
-    t2689 = f_list_46_concat_1(t2693);
-  }
-  if (!t2689) {
-    t2689 = &o_list_46_Nil;
-  }
-  if (!t2689) {
-    u_no_case(s2688);
-  }
-  return t2689;
-}
-
-u_value f_compile_46_free_vars_2(u_value v_e, u_value v_bound) {
-  u_value s2696 = v_e;
-  u_value t2697 = NULL;
-  if ((!t2697) && u_is_con(s2696, &n_syntax_46_ELit)) {
-    t2697 = &o_list_46_Nil;
-  }
-  if ((!t2697) && (u_is_con(s2696, &n_syntax_46_EVar) && u_is_con(u_field(s2696, 0), &n_syntax_46_Var))) {
-    u_value v_n = u_field(u_field(s2696, 0), 0);
-    u_value t2698;
-    if (u_truth(f_list_46_contains_2(v_n, v_bound))) {
-      t2698 = &o_list_46_Nil;
-    } else {
-      t2698 = u_mk_con(&n_list_46_Cons, 2, v_n, &o_list_46_Nil);
-    }
-    t2697 = t2698;
-  }
-  if ((!t2697) && u_is_con(s2696, &n_syntax_46_EApp)) {
-    u_value v_f = u_field(s2696, 0);
-    u_value v_args = u_field(s2696, 1);
-    u_value t2699 = &o_list_46_Nil;
-    u_value *e2700 = &t2699;
-    u_value l2701 = v_args;
-    while (u_is_con(l2701, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2701, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2700 = u_append(e2700, f_compile_46_free_vars_2(v_a, v_bound));
-      }
-      l2701 = u_field(l2701, 1);
-    }
-    t2697 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_f, v_bound), f_list_46_concat_1(t2699));
-  }
-  if ((!t2697) && u_is_con(s2696, &n_syntax_46_ELam)) {
-    u_value v_xs = u_field(s2696, 0);
-    u_value v_b = u_field(s2696, 1);
-    t2697 = f_compile_46_free_vars_2(v_b, f_list_46__43__43__2(f_syntax_46_names_1(v_xs), v_bound));
-  }
-  if ((!t2697) && u_is_con(s2696, &n_syntax_46_EProc)) {
-    u_value v_is = u_field(s2696, 0);
-    u_value v_os = u_field(s2696, 1);
-    u_value v_rs = u_field(s2696, 2);
-    u_value v_b = u_field(s2696, 3);
-    t2697 = f_compile_46_free_in_stmt_2(v_b, f_list_46__43__43__2(f_syntax_46_names_1(f_list_46__43__43__2(v_is, f_list_46__43__43__2(v_os, v_rs))), v_bound));
-  }
-  if ((!t2697) && u_is_con(s2696, &n_syntax_46_ELet)) {
-    u_value v_bs = u_field(s2696, 0);
-    u_value v_b = u_field(s2696, 1);
-    u_value t2702 = &o_list_46_Nil;
-    u_value *e2703 = &t2702;
-    u_value l2704 = f_list_46_seconds_1(v_bs);
-    while (u_is_con(l2704, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2704, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2703 = u_append(e2703, f_compile_46_free_vars_2(v_a, v_bound));
-      }
-      l2704 = u_field(l2704, 1);
-    }
-    t2697 = f_list_46__43__43__2(f_list_46_concat_1(t2702), f_compile_46_free_vars_2(v_b, f_list_46__43__43__2(f_syntax_46_names_1(f_list_46_firsts_1(v_bs)), v_bound)));
-  }
-  if ((!t2697) && u_is_con(s2696, &n_syntax_46_EIte)) {
-    u_value v_c = u_field(s2696, 0);
-    u_value v_l = u_field(s2696, 1);
-    u_value v_r = u_field(s2696, 2);
-    t2697 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_c, v_bound), f_list_46__43__43__2(f_compile_46_free_vars_2(v_l, v_bound), f_compile_46_free_vars_2(v_r, v_bound)));
-  }
-  if ((!t2697) && u_is_con(s2696, &n_syntax_46_EMatch)) {
-    u_value v_a = u_field(s2696, 0);
-    u_value v_cs = u_field(s2696, 1);
-    u_value t2705 = &o_list_46_Nil;
-    u_value *e2706 = &t2705;
-    u_value l2707 = v_cs;
-    while (u_is_con(l2707, &n_list_46_Cons)) {
-      u_value v_b = u_field(l2707, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2706 = u_append(e2706, f_compile_46_free_in_branch_2(v_b, v_bound));
-      }
-      l2707 = u_field(l2707, 1);
-    }
-    t2697 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_a, v_bound), f_list_46_concat_1(t2705));
-  }
-  if ((!t2697) && u_is_con(s2696, &n_syntax_46_EComp)) {
-    u_value v_r = u_field(s2696, 0);
-    u_value v_xs = u_field(s2696, 1);
-    u_value v_ls = u_field(s2696, 2);
-    u_value v_c = u_field(s2696, 3);
-    u_value t2708 = &o_list_46_Nil;
-    u_value *e2709 = &t2708;
-    u_value l2710 = v_ls;
-    while (u_is_con(l2710, &n_list_46_Cons)) {
-      u_value v_l = u_field(l2710, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2709 = u_append(e2709, f_compile_46_free_vars_2(v_l, f_list_46__43__43__2(f_syntax_46_names_1(v_xs), v_bound)));
-      }
-      l2710 = u_field(l2710, 1);
-    }
-    t2697 = f_list_46__43__43__2(f_list_46_concat_1(t2708), f_list_46__43__43__2(f_compile_46_free_vars_2(v_r, f_list_46__43__43__2(f_syntax_46_names_1(v_xs), v_bound)), f_compile_46_free_vars_2(v_c, f_list_46__43__43__2(f_syntax_46_names_1(v_xs), v_bound))));
-  }
-  if ((!t2697) && u_is_con(s2696, &n_syntax_46_ETuple)) {
-    u_value v_es = u_field(s2696, 0);
-    u_value t2711 = &o_list_46_Nil;
-    u_value *e2712 = &t2711;
-    u_value l2713 = v_es;
-    while (u_is_con(l2713, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2713, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2712 = u_append(e2712, f_compile_46_free_vars_2(v_a, v_bound));
-      }
-      l2713 = u_field(l2713, 1);
-    }
-    t2697 = f_list_46_concat_1(t2711);
-  }
-  if ((!t2697) && u_is_con(s2696, &n_syntax_46_ERaise)) {
-    u_value v_a = u_field(s2696, 0);
-    t2697 = f_compile_46_free_vars_2(v_a, v_bound);
-  }
-  if (!t2697) {
-    u_no_case(s2696);
-  }
-  return t2697;
-}
-
-u_value f_compile_46_free_in_stmt_2(u_value v_x, u_value v_bound) {
-  u_value s2714 = v_x;
+  u_value s2714 = f_list_46_get_2(v_x, v_env);
   u_value t2715 = NULL;
-  if ((!t2715) && u_is_con(s2714, &n_syntax_46_SSkip)) {
-    t2715 = &o_list_46_Nil;
-  }
-  if ((!t2715) && u_is_con(s2714, &n_syntax_46_SAssign)) {
-    u_value v_ps = u_field(s2714, 0);
-    u_value t2716 = &o_list_46_Nil;
-    u_value *e2717 = &t2716;
-    u_value l2718 = f_syntax_46_names_1(f_list_46_firsts_1(v_ps));
-    while (u_is_con(l2718, &n_list_46_Cons)) {
-      u_value v_y = u_field(l2718, 0);
-      if (u_truth(f_prelude_46_not_1(f_list_46_contains_2(v_y, v_bound)))) {
-        e2717 = u_append(e2717, v_y);
-      }
-      l2718 = u_field(l2718, 1);
-    }
-    u_value t2719 = &o_list_46_Nil;
-    u_value *e2720 = &t2719;
-    u_value l2721 = f_list_46_seconds_1(v_ps);
-    while (u_is_con(l2721, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2721, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2720 = u_append(e2720, f_compile_46_free_vars_2(v_a, v_bound));
-      }
-      l2721 = u_field(l2721, 1);
-    }
-    t2715 = f_list_46__43__43__2(t2716, f_list_46_concat_1(t2719));
-  }
-  if ((!t2715) && u_is_con(s2714, &n_syntax_46_SBlock)) {
-    u_value v_xs = u_field(s2714, 0);
-    u_value v_ys = u_field(s2714, 1);
-    u_value t2722 = &o_list_46_Nil;
-    u_value *e2723 = &t2722;
-    u_value l2724 = v_ys;
-    while (u_is_con(l2724, &n_list_46_Cons)) {
-      u_value v_y = u_field(l2724, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2723 = u_append(e2723, f_compile_46_free_in_stmt_2(v_y, f_list_46__43__43__2(f_syntax_46_names_1(v_xs), v_bound)));
-      }
-      l2724 = u_field(l2724, 1);
-    }
-    t2715 = f_list_46_concat_1(t2722);
-  }
-  if ((!t2715) && u_is_con(s2714, &n_syntax_46_SIf)) {
+  if ((!t2715) && u_is_con(s2714, &n_option_46_Some)) {
     u_value v_c = u_field(s2714, 0);
-    u_value v_l = u_field(s2714, 1);
-    u_value v_r = u_field(s2714, 2);
-    t2715 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_c, v_bound), f_list_46__43__43__2(f_compile_46_free_in_stmt_2(v_l, v_bound), f_compile_46_free_in_stmt_2(v_r, v_bound)));
+    t2715 = v_c;
   }
-  if ((!t2715) && u_is_con(s2714, &n_syntax_46_SWhile)) {
-    u_value v_c = u_field(s2714, 0);
-    u_value v_b = u_field(s2714, 1);
-    t2715 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_c, v_bound), f_compile_46_free_in_stmt_2(v_b, v_bound));
-  }
-  if ((!t2715) && u_is_con(s2714, &n_syntax_46_SCall)) {
-    u_value v_p = u_field(s2714, 0);
-    u_value v_ins = u_field(s2714, 1);
-    u_value v_outs = u_field(s2714, 2);
-    u_value v_refs = u_field(s2714, 3);
-    u_value t2725 = &o_list_46_Nil;
-    u_value *e2726 = &t2725;
-    u_value l2727 = u_mk_con(&n_list_46_Cons, 2, v_p, f_syntax_46_names_1(f_list_46__43__43__2(v_outs, v_refs)));
-    while (u_is_con(l2727, &n_list_46_Cons)) {
-      u_value v_y = u_field(l2727, 0);
-      if (u_truth(f_prelude_46_not_1(f_list_46_contains_2(v_y, v_bound)))) {
-        e2726 = u_append(e2726, v_y);
-      }
-      l2727 = u_field(l2727, 1);
-    }
-    u_value t2728 = &o_list_46_Nil;
-    u_value *e2729 = &t2728;
-    u_value l2730 = v_ins;
-    while (u_is_con(l2730, &n_list_46_Cons)) {
-      u_value v_a = u_field(l2730, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2729 = u_append(e2729, f_compile_46_free_vars_2(v_a, v_bound));
-      }
-      l2730 = u_field(l2730, 1);
-    }
-    t2715 = f_list_46__43__43__2(t2725, f_list_46_concat_1(t2728));
-  }
-  if ((!t2715) && u_is_con(s2714, &n_syntax_46_SMatch)) {
-    u_value v_a = u_field(s2714, 0);
-    u_value v_bs = u_field(s2714, 1);
-    u_value t2731 = &o_list_46_Nil;
-    u_value *e2732 = &t2731;
-    u_value l2733 = v_bs;
-    while (u_is_con(l2733, &n_list_46_Cons)) {
-      u_value v_b = u_field(l2733, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2732 = u_append(e2732, f_compile_46_free_in_stmt_branch_2(v_b, v_bound));
-      }
-      l2733 = u_field(l2733, 1);
-    }
-    t2715 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_a, v_bound), f_list_46_concat_1(t2731));
-  }
-  if ((!t2715) && u_is_con(s2714, &n_syntax_46_SAssert)) {
-    u_value v_c = u_field(s2714, 0);
-    t2715 = f_compile_46_free_vars_2(v_c, v_bound);
-  }
-  if ((!t2715) && u_is_con(s2714, &n_syntax_46_SRaise)) {
-    u_value v_a = u_field(s2714, 0);
-    t2715 = f_compile_46_free_vars_2(v_a, v_bound);
-  }
-  if ((!t2715) && u_is_con(s2714, &n_syntax_46_STry)) {
-    u_value v_b = u_field(s2714, 0);
-    u_value v_hs = u_field(s2714, 1);
-    u_value t2734 = &o_list_46_Nil;
-    u_value *e2735 = &t2734;
-    u_value l2736 = v_hs;
-    while (u_is_con(l2736, &n_list_46_Cons)) {
-      u_value v_h = u_field(l2736, 0);
-      if (u_truth(u_mk_bool(1))) {
-        e2735 = u_append(e2735, f_compile_46_free_in_handler_2(v_h, v_bound));
-      }
-      l2736 = u_field(l2736, 1);
-    }
-    t2715 = f_list_46__43__43__2(f_compile_46_free_in_stmt_2(v_b, v_bound), f_list_46_concat_1(t2734));
+  if (!t2715) {
+    t2715 = u_mk_con(&n_c_46_CeVar, 1, f_compile_46_var_name_1(v_x));
   }
   if (!t2715) {
     u_no_case(s2714);
@@ -26302,150 +26682,947 @@ u_value f_compile_46_free_in_stmt_2(u_value v_x, u_value v_bound) {
   return t2715;
 }
 
+u_value f_compile_46_address_1(u_value v_c) {
+  u_value s2716 = v_c;
+  u_value t2717 = NULL;
+  if ((!t2717) && (u_is_con(s2716, &n_c_46_CeUnary) && u_equals(u_field(s2716, 0), u_mk_lit("*")))) {
+    u_value v_p = u_field(s2716, 1);
+    t2717 = v_p;
+  }
+  if (!t2717) {
+    static struct u_object l__38__2718 = U_LIT("&");
+    t2717 = u_mk_con(&n_c_46_CeUnary, 2, &l__38__2718, v_c);
+  }
+  if (!t2717) {
+    u_no_case(s2716);
+  }
+  return t2717;
+}
+
+u_value f_compile_46_type_key_1(u_value v_t) {
+  u_value s2719 = v_t;
+  u_value t2720 = NULL;
+  if ((!t2720) && (u_is_con(s2719, &n_syntax_46_TSort) && u_is_con(u_field(s2719, 1), &n_list_46_Nil))) {
+    u_value v_n = u_field(s2719, 0);
+    t2720 = f_syntax_46_qualified_1(v_n);
+  }
+  if ((!t2720) && u_is_con(s2719, &n_syntax_46_TSort)) {
+    u_value v_n = u_field(s2719, 0);
+    u_value v_args = u_field(s2719, 1);
+    static struct u_object l__91__2721 = U_LIT("[");
+    static struct u_object l__44__32__2722 = U_LIT(", ");
+    u_value t2723 = &o_list_46_Nil;
+    u_value *e2724 = &t2723;
+    u_value l2725 = v_args;
+    while (u_is_con(l2725, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2725, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2724 = u_append(e2724, f_compile_46_type_key_1(v_a));
+      }
+      l2725 = u_field(l2725, 1);
+    }
+    static struct u_object l__93__2726 = U_LIT("]");
+    t2720 = u_concat(f_syntax_46_qualified_1(v_n), u_concat(&l__91__2721, u_concat(u_str_join(&l__44__32__2722, t2723), &l__93__2726)));
+  }
+  if ((!t2720) && u_is_con(s2719, &n_syntax_46_TFun)) {
+    u_value v_args = u_field(s2719, 0);
+    u_value v_r = u_field(s2719, 1);
+    static struct u_object l__40__2727 = U_LIT("(");
+    static struct u_object l__44__32__2728 = U_LIT(", ");
+    u_value t2729 = &o_list_46_Nil;
+    u_value *e2730 = &t2729;
+    u_value l2731 = v_args;
+    while (u_is_con(l2731, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2731, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2730 = u_append(e2730, f_compile_46_type_key_1(v_a));
+      }
+      l2731 = u_field(l2731, 1);
+    }
+    static struct u_object l__41__32__45__62__32__2732 = U_LIT(") -> ");
+    t2720 = u_concat(&l__40__2727, u_concat(u_str_join(&l__44__32__2728, t2729), u_concat(&l__41__32__45__62__32__2732, f_compile_46_type_key_1(v_r))));
+  }
+  if ((!t2720) && u_is_con(s2719, &n_syntax_46_TProc)) {
+    u_value v_is = u_field(s2719, 0);
+    u_value v_os = u_field(s2719, 1);
+    u_value v_rs = u_field(s2719, 2);
+    static struct u_object l__40_in_32__2733 = U_LIT("(in ");
+    static struct u_object l__44__32__2734 = U_LIT(", ");
+    u_value t2735 = &o_list_46_Nil;
+    u_value *e2736 = &t2735;
+    u_value l2737 = v_is;
+    while (u_is_con(l2737, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2737, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2736 = u_append(e2736, f_compile_46_type_key_1(v_a));
+      }
+      l2737 = u_field(l2737, 1);
+    }
+    static struct u_object l__44__32_out_32__2738 = U_LIT(", out ");
+    static struct u_object l__44__32__2739 = U_LIT(", ");
+    u_value t2740 = &o_list_46_Nil;
+    u_value *e2741 = &t2740;
+    u_value l2742 = v_os;
+    while (u_is_con(l2742, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2742, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2741 = u_append(e2741, f_compile_46_type_key_1(v_a));
+      }
+      l2742 = u_field(l2742, 1);
+    }
+    static struct u_object l__44__32_ref_32__2743 = U_LIT(", ref ");
+    static struct u_object l__44__32__2744 = U_LIT(", ");
+    u_value t2745 = &o_list_46_Nil;
+    u_value *e2746 = &t2745;
+    u_value l2747 = v_rs;
+    while (u_is_con(l2747, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2747, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2746 = u_append(e2746, f_compile_46_type_key_1(v_a));
+      }
+      l2747 = u_field(l2747, 1);
+    }
+    static struct u_object l__41__2748 = U_LIT(")");
+    t2720 = u_concat(&l__40_in_32__2733, u_concat(u_str_join(&l__44__32__2734, t2735), u_concat(&l__44__32_out_32__2738, u_concat(u_str_join(&l__44__32__2739, t2740), u_concat(&l__44__32_ref_32__2743, u_concat(u_str_join(&l__44__32__2744, t2745), &l__41__2748))))));
+  }
+  if ((!t2720) && u_is_con(s2719, &n_syntax_46_TTuple)) {
+    u_value v_ts = u_field(s2719, 0);
+    static struct u_object l__40__2749 = U_LIT("(");
+    static struct u_object l__32__42__32__2750 = U_LIT(" * ");
+    u_value t2751 = &o_list_46_Nil;
+    u_value *e2752 = &t2751;
+    u_value l2753 = v_ts;
+    while (u_is_con(l2753, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2753, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2752 = u_append(e2752, f_compile_46_type_key_1(v_a));
+      }
+      l2753 = u_field(l2753, 1);
+    }
+    static struct u_object l__41__2754 = U_LIT(")");
+    t2720 = u_concat(&l__40__2749, u_concat(u_str_join(&l__32__42__32__2750, t2751), &l__41__2754));
+  }
+  if (!t2720) {
+    static struct u_object l__63__2755 = U_LIT("?");
+    t2720 = &l__63__2755;
+  }
+  if (!t2720) {
+    u_no_case(s2719);
+  }
+  return t2720;
+}
+
+u_value f_compile_46_globals_1(u_value v_cs) {
+  u_value t2756 = &o_list_46_Nil;
+  u_value *e2757 = &t2756;
+  u_value l2758 = v_cs;
+  while (u_is_con(l2758, &n_list_46_Cons)) {
+    u_value v_c = u_field(l2758, 0);
+    if (u_truth(u_mk_bool(1))) {
+      e2757 = u_append(e2757, f_compile_46_fun_arities_1(v_c));
+    }
+    l2758 = u_field(l2758, 1);
+  }
+  u_value t2759 = &o_list_46_Nil;
+  u_value *e2760 = &t2759;
+  u_value l2761 = v_cs;
+  while (u_is_con(l2761, &n_list_46_Cons)) {
+    u_value v_c = u_field(l2761, 0);
+    if (u_truth(u_mk_bool(1))) {
+      e2760 = u_append(e2760, f_compile_46_constr_arities_1(v_c));
+    }
+    l2761 = u_field(l2761, 1);
+  }
+  u_value t2766 = f_list_46_concat_1(t2756);
+  u_value t2767 = f_list_46_concat_1(t2759);
+  u_value t2765;
+  {
+    u_value v_fs = t2766;
+    u_value v_ks = t2767;
+    u_value t2762 = &o_list_46_Nil;
+    u_value *e2763 = &t2762;
+    u_value l2764 = v_cs;
+    while (u_is_con(l2764, &n_list_46_Cons)) {
+      u_value v_c = u_field(l2764, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2763 = u_append(e2763, f_compile_46_proc_arities_1(v_c));
+      }
+      l2764 = u_field(l2764, 1);
+    }
+    t2765 = u_mk_con(&n_compile_46_Globals, 5, v_fs, v_ks, f_compile_46_arity_map_2(v_fs, f_map_46_empty_0()), f_map_46_put_all_2(v_ks, f_map_46_empty_0()), f_map_46_put_all_2(f_list_46_concat_1(t2762), f_map_46_empty_0()));
+  }
+  return t2765;
+}
+
+u_value f_compile_46_proc_arities_1(u_value v_c) {
+  u_value s2768 = v_c;
+  u_value t2769 = NULL;
+  if ((!t2769) && u_is_con(s2768, &n_syntax_46_CProc)) {
+    u_value v_n = u_field(s2768, 0);
+    u_value v_ins = u_field(s2768, 2);
+    u_value v_outs = u_field(s2768, 3);
+    u_value v_refs = u_field(s2768, 4);
+    t2769 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, u_mk_tuple(2, f_list_46_size_1(v_ins), u_add(f_list_46_size_1(v_outs), f_list_46_size_1(v_refs)))), &o_list_46_Nil);
+  }
+  if (!t2769) {
+    t2769 = &o_list_46_Nil;
+  }
+  if (!t2769) {
+    u_no_case(s2768);
+  }
+  return t2769;
+}
+
+u_value f_compile_46_arity_map_2(u_value v_fs, u_value v_m) {
+  u_value s2770 = v_fs;
+  u_value t2771 = NULL;
+  if ((!t2771) && u_is_con(s2770, &n_list_46_Nil)) {
+    t2771 = v_m;
+  }
+  if ((!t2771) && u_is_con(s2770, &n_list_46_Cons)) {
+    u_value v_f = u_field(u_field(s2770, 0), 0);
+    u_value v_k = u_field(u_field(s2770, 0), 1);
+    u_value v_rest = u_field(s2770, 1);
+    u_value s2772 = f_map_46_get_2(v_f, v_m);
+    u_value t2773 = NULL;
+    if ((!t2773) && u_is_con(s2772, &n_option_46_Some)) {
+      u_value v_ks = u_field(s2772, 0);
+      t2773 = f_compile_46_arity_map_2(v_rest, f_map_46_put_3(v_f, u_mk_con(&n_list_46_Cons, 2, v_k, v_ks), v_m));
+    }
+    if ((!t2773) && u_is_con(s2772, &n_option_46_None)) {
+      t2773 = f_compile_46_arity_map_2(v_rest, f_map_46_put_3(v_f, u_mk_con(&n_list_46_Cons, 2, v_k, &o_list_46_Nil), v_m));
+    }
+    if (!t2773) {
+      u_no_case(s2772);
+    }
+    t2771 = t2773;
+  }
+  if (!t2771) {
+    u_no_case(s2770);
+  }
+  return t2771;
+}
+
+u_value f_compile_46_is_global_fun_3(u_value v_gl, u_value v_n, u_value v_k) {
+  u_value s2774 = v_gl;
+  u_value t2775 = NULL;
+  if ((!t2775) && u_is_con(s2774, &n_compile_46_Globals)) {
+    u_value v_fm = u_field(s2774, 2);
+    u_value s2776 = f_map_46_get_2(v_n, v_fm);
+    u_value t2777 = NULL;
+    if ((!t2777) && u_is_con(s2776, &n_option_46_Some)) {
+      u_value v_ks = u_field(s2776, 0);
+      t2777 = f_list_46_contains_2(v_k, v_ks);
+    }
+    if ((!t2777) && u_is_con(s2776, &n_option_46_None)) {
+      t2777 = u_mk_bool(0);
+    }
+    if (!t2777) {
+      u_no_case(s2776);
+    }
+    t2775 = t2777;
+  }
+  if (!t2775) {
+    u_no_case(s2774);
+  }
+  return t2775;
+}
+
+u_value f_compile_46_fields_count_2(u_value v_gl, u_value v_n) {
+  u_value s2778 = v_gl;
+  u_value t2779 = NULL;
+  if ((!t2779) && u_is_con(s2778, &n_compile_46_Globals)) {
+    u_value v_km = u_field(s2778, 3);
+    t2779 = f_map_46_get_2(v_n, v_km);
+  }
+  if (!t2779) {
+    u_no_case(s2778);
+  }
+  return t2779;
+}
+
+u_value f_compile_46_fun_arities_1(u_value v_c) {
+  u_value s2780 = v_c;
+  u_value t2781 = NULL;
+  if ((!t2781) && u_is_con(s2780, &n_syntax_46_CFun)) {
+    u_value v_n = u_field(s2780, 0);
+    u_value v_xss = u_field(s2780, 2);
+    t2781 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, f_list_46_size_1(f_check_46_first_list_1(v_xss))), &o_list_46_Nil);
+  }
+  if (!t2781) {
+    t2781 = &o_list_46_Nil;
+  }
+  if (!t2781) {
+    u_no_case(s2780);
+  }
+  return t2781;
+}
+
+u_value f_compile_46_constr_arities_1(u_value v_c) {
+  u_value s2782 = v_c;
+  u_value t2783 = NULL;
+  if ((!t2783) && u_is_con(s2782, &n_syntax_46_CData)) {
+    u_value v_ks = u_field(s2782, 2);
+    u_value t2784 = &o_list_46_Nil;
+    u_value *e2785 = &t2784;
+    u_value l2786 = v_ks;
+    while (u_is_con(l2786, &n_list_46_Cons)) {
+      u_value v_k = u_field(l2786, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2785 = u_append(e2785, f_compile_46_constr_arity_1(v_k));
+      }
+      l2786 = u_field(l2786, 1);
+    }
+    t2783 = t2784;
+  }
+  if (!t2783) {
+    t2783 = &o_list_46_Nil;
+  }
+  if (!t2783) {
+    u_no_case(s2782);
+  }
+  return t2783;
+}
+
+u_value f_compile_46_constr_arity_1(u_value v_k) {
+  u_value s2787 = v_k;
+  u_value t2788 = NULL;
+  if ((!t2788) && u_is_con(s2787, &n_syntax_46_Constr)) {
+    u_value v_n = u_field(s2787, 0);
+    u_value v_ts = u_field(s2787, 1);
+    t2788 = u_mk_tuple(2, v_n, f_list_46_size_1(v_ts));
+  }
+  if (!t2788) {
+    u_no_case(s2787);
+  }
+  return t2788;
+}
+
+u_value f_compile_46_numbered_2(u_value v_xs, u_value v_i) {
+  u_value s2789 = v_xs;
+  u_value t2790 = NULL;
+  if ((!t2790) && u_is_con(s2789, &n_list_46_Nil)) {
+    t2790 = &o_list_46_Nil;
+  }
+  if ((!t2790) && u_is_con(s2789, &n_list_46_Cons)) {
+    u_value v_x = u_field(s2789, 0);
+    u_value v_rest = u_field(s2789, 1);
+    t2790 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_x, v_i), f_compile_46_numbered_2(v_rest, u_add(v_i, u_mk_int(1))));
+  }
+  if (!t2790) {
+    u_no_case(s2789);
+  }
+  return t2790;
+}
+
+u_value f_compile_46_index_2(u_value v_a, u_value v_i) {
+  return u_mk_con(&n_c_46_CeIndex, 2, u_mk_con(&n_c_46_CeVar, 1, v_a), u_mk_con(&n_c_46_CeNum, 1, v_i));
+}
+
+u_value f_compile_46_field_2(u_value v_v, u_value v_i) {
+  static struct u_object l_u_field_2791 = U_LIT("u_field");
+  return f_c_46_c_call_2(&l_u_field_2791, u_mk_con(&n_list_46_Cons, 2, v_v, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, v_i), &o_list_46_Nil)));
+}
+
+u_value f_compile_46_truth_1(u_value v_v) {
+  static struct u_object l_u_truth_2792 = U_LIT("u_truth");
+  return f_c_46_c_call_2(&l_u_truth_2792, u_mk_con(&n_list_46_Cons, 2, v_v, &o_list_46_Nil));
+}
+
+u_value f_compile_46_conjunction_1(u_value v_cs) {
+  u_value s2793 = v_cs;
+  u_value t2794 = NULL;
+  if ((!t2794) && u_is_con(s2793, &n_list_46_Nil)) {
+    t2794 = u_mk_con(&n_c_46_CeNum, 1, u_mk_int(1));
+  }
+  if ((!t2794) && (u_is_con(s2793, &n_list_46_Cons) && u_is_con(u_field(s2793, 1), &n_list_46_Nil))) {
+    u_value v_d = u_field(s2793, 0);
+    t2794 = v_d;
+  }
+  if ((!t2794) && u_is_con(s2793, &n_list_46_Cons)) {
+    u_value v_d = u_field(s2793, 0);
+    u_value v_rest = u_field(s2793, 1);
+    static struct u_object l__38__38__2795 = U_LIT("&&");
+    t2794 = u_mk_con(&n_c_46_CeBinary, 3, &l__38__38__2795, v_d, f_compile_46_conjunction_1(v_rest));
+  }
+  if (!t2794) {
+    u_no_case(s2793);
+  }
+  return t2794;
+}
+
+u_value f_compile_46_literal_value_1(u_value v_l) {
+  u_value s2796 = v_l;
+  u_value t2797 = NULL;
+  if ((!t2797) && u_is_con(s2796, &n_syntax_46_VUnit)) {
+    static struct u_object l_u_mk_tuple_2798 = U_LIT("u_mk_tuple");
+    t2797 = f_c_46_c_call_2(&l_u_mk_tuple_2798, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)), &o_list_46_Nil));
+  }
+  if ((!t2797) && u_is_con(s2796, &n_syntax_46_VBool)) {
+    u_value v_b = u_field(s2796, 0);
+    static struct u_object l_u_mk_bool_2799 = U_LIT("u_mk_bool");
+    u_value t2800;
+    if (u_truth(v_b)) {
+      t2800 = u_mk_int(1);
+    } else {
+      t2800 = u_mk_int(0);
+    }
+    t2797 = f_c_46_c_call_2(&l_u_mk_bool_2799, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, t2800), &o_list_46_Nil));
+  }
+  if ((!t2797) && u_is_con(s2796, &n_syntax_46_VInt)) {
+    u_value v_n = u_field(s2796, 0);
+    u_value t2801 = u_lt(u_mk_int_str("-1000000000000000000"), v_n);
+    if (u_truth(t2801)) {
+      t2801 = u_lt(v_n, u_mk_int_str("1000000000000000000"));
+    }
+    u_value t2804;
+    if (u_truth(t2801)) {
+      static struct u_object l_u_mk_int_2802 = U_LIT("u_mk_int");
+      t2804 = f_c_46_c_call_2(&l_u_mk_int_2802, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, v_n), &o_list_46_Nil));
+    } else {
+      static struct u_object l_u_mk_int_str_2803 = U_LIT("u_mk_int_str");
+      t2804 = f_c_46_c_call_2(&l_u_mk_int_str_2803, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, u_str_show(v_n)), &o_list_46_Nil));
+    }
+    t2797 = t2804;
+  }
+  if ((!t2797) && u_is_con(s2796, &n_syntax_46_VStr)) {
+    u_value v_s = u_field(s2796, 0);
+    static struct u_object l_u_mk_lit_2805 = U_LIT("u_mk_lit");
+    t2797 = f_c_46_c_call_2(&l_u_mk_lit_2805, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, v_s), &o_list_46_Nil));
+  }
+  if ((!t2797) && u_is_con(s2796, &n_syntax_46_VChar)) {
+    u_value v_c = u_field(s2796, 0);
+    static struct u_object l_u_mk_char_2806 = U_LIT("u_mk_char");
+    t2797 = f_c_46_c_call_2(&l_u_mk_char_2806, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_ord(v_c)), &o_list_46_Nil));
+  }
+  if (!t2797) {
+    u_no_case(s2796);
+  }
+  return t2797;
+}
+
+u_value f_compile_46_pattern_tests_2(u_value v_p, u_value v_v) {
+  u_value s2807 = v_p;
+  u_value t2808 = NULL;
+  if ((!t2808) && u_is_con(s2807, &n_syntax_46_PLit)) {
+    u_value v_l = u_field(s2807, 0);
+    static struct u_object l_u_equals_2809 = U_LIT("u_equals");
+    t2808 = u_mk_con(&n_list_46_Cons, 2, f_c_46_c_call_2(&l_u_equals_2809, u_mk_con(&n_list_46_Cons, 2, v_v, u_mk_con(&n_list_46_Cons, 2, f_compile_46_literal_value_1(v_l), &o_list_46_Nil))), &o_list_46_Nil);
+  }
+  if ((!t2808) && u_is_con(s2807, &n_syntax_46_PApp)) {
+    u_value v_n = u_field(s2807, 0);
+    u_value v_ps = u_field(s2807, 1);
+    static struct u_object l_u_is_con_2810 = U_LIT("u_is_con");
+    t2808 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_c_46_c_call_2(&l_u_is_con_2810, u_mk_con(&n_list_46_Cons, 2, v_v, u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_1(v_n), &o_list_46_Nil))), &o_list_46_Nil), f_compile_46_field_tests_2(f_compile_46_numbered_2(v_ps, u_mk_int(0)), v_v));
+  }
+  if ((!t2808) && u_is_con(s2807, &n_syntax_46_PTuple)) {
+    u_value v_ps = u_field(s2807, 0);
+    t2808 = f_compile_46_field_tests_2(f_compile_46_numbered_2(v_ps, u_mk_int(0)), v_v);
+  }
+  if (!t2808) {
+    t2808 = &o_list_46_Nil;
+  }
+  if (!t2808) {
+    u_no_case(s2807);
+  }
+  return t2808;
+}
+
+u_value f_compile_46_field_tests_2(u_value v_ps, u_value v_v) {
+  u_value s2811 = v_ps;
+  u_value t2812 = NULL;
+  if ((!t2812) && u_is_con(s2811, &n_list_46_Nil)) {
+    t2812 = &o_list_46_Nil;
+  }
+  if ((!t2812) && u_is_con(s2811, &n_list_46_Cons)) {
+    u_value v_p = u_field(u_field(s2811, 0), 0);
+    u_value v_i = u_field(u_field(s2811, 0), 1);
+    u_value v_rest = u_field(s2811, 1);
+    t2812 = f_list_46__43__43__2(f_compile_46_pattern_tests_2(v_p, f_compile_46_field_2(v_v, v_i)), f_compile_46_field_tests_2(v_rest, v_v));
+  }
+  if (!t2812) {
+    u_no_case(s2811);
+  }
+  return t2812;
+}
+
+u_value f_compile_46_pattern_binds_2(u_value v_p, u_value v_v) {
+  u_value s2813 = v_p;
+  u_value t2814 = NULL;
+  if ((!t2814) && (u_is_con(s2813, &n_syntax_46_PVar) && u_is_con(u_field(s2813, 0), &n_syntax_46_Var))) {
+    u_value v_n = u_field(u_field(s2813, 0), 0);
+    t2814 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), f_compile_46_var_name_1(v_n), u_mk_con(&n_option_46_Some, 1, v_v)), &o_list_46_Nil);
+  }
+  if ((!t2814) && u_is_con(s2813, &n_syntax_46_PApp)) {
+    u_value v_ps = u_field(s2813, 1);
+    t2814 = f_compile_46_field_binds_2(f_compile_46_numbered_2(v_ps, u_mk_int(0)), v_v);
+  }
+  if ((!t2814) && u_is_con(s2813, &n_syntax_46_PTuple)) {
+    u_value v_ps = u_field(s2813, 0);
+    t2814 = f_compile_46_field_binds_2(f_compile_46_numbered_2(v_ps, u_mk_int(0)), v_v);
+  }
+  if (!t2814) {
+    t2814 = &o_list_46_Nil;
+  }
+  if (!t2814) {
+    u_no_case(s2813);
+  }
+  return t2814;
+}
+
+u_value f_compile_46_field_binds_2(u_value v_ps, u_value v_v) {
+  u_value s2815 = v_ps;
+  u_value t2816 = NULL;
+  if ((!t2816) && u_is_con(s2815, &n_list_46_Nil)) {
+    t2816 = &o_list_46_Nil;
+  }
+  if ((!t2816) && u_is_con(s2815, &n_list_46_Cons)) {
+    u_value v_p = u_field(u_field(s2815, 0), 0);
+    u_value v_i = u_field(u_field(s2815, 0), 1);
+    u_value v_rest = u_field(s2815, 1);
+    t2816 = f_list_46__43__43__2(f_compile_46_pattern_binds_2(v_p, f_compile_46_field_2(v_v, v_i)), f_compile_46_field_binds_2(v_rest, v_v));
+  }
+  if (!t2816) {
+    u_no_case(s2815);
+  }
+  return t2816;
+}
+
+u_value f_compile_46_pattern_names_1(u_value v_p) {
+  u_value s2817 = v_p;
+  u_value t2818 = NULL;
+  if ((!t2818) && (u_is_con(s2817, &n_syntax_46_PVar) && u_is_con(u_field(s2817, 0), &n_syntax_46_Var))) {
+    u_value v_n = u_field(u_field(s2817, 0), 0);
+    t2818 = u_mk_con(&n_list_46_Cons, 2, v_n, &o_list_46_Nil);
+  }
+  if ((!t2818) && u_is_con(s2817, &n_syntax_46_PApp)) {
+    u_value v_ps = u_field(s2817, 1);
+    u_value t2819 = &o_list_46_Nil;
+    u_value *e2820 = &t2819;
+    u_value l2821 = v_ps;
+    while (u_is_con(l2821, &n_list_46_Cons)) {
+      u_value v_q = u_field(l2821, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2820 = u_append(e2820, f_compile_46_pattern_names_1(v_q));
+      }
+      l2821 = u_field(l2821, 1);
+    }
+    t2818 = f_list_46_concat_1(t2819);
+  }
+  if ((!t2818) && u_is_con(s2817, &n_syntax_46_PTuple)) {
+    u_value v_ps = u_field(s2817, 0);
+    u_value t2822 = &o_list_46_Nil;
+    u_value *e2823 = &t2822;
+    u_value l2824 = v_ps;
+    while (u_is_con(l2824, &n_list_46_Cons)) {
+      u_value v_q = u_field(l2824, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2823 = u_append(e2823, f_compile_46_pattern_names_1(v_q));
+      }
+      l2824 = u_field(l2824, 1);
+    }
+    t2818 = f_list_46_concat_1(t2822);
+  }
+  if (!t2818) {
+    t2818 = &o_list_46_Nil;
+  }
+  if (!t2818) {
+    u_no_case(s2817);
+  }
+  return t2818;
+}
+
+u_value f_compile_46_free_vars_2(u_value v_e, u_value v_bound) {
+  u_value s2825 = v_e;
+  u_value t2826 = NULL;
+  if ((!t2826) && u_is_con(s2825, &n_syntax_46_ELit)) {
+    t2826 = &o_list_46_Nil;
+  }
+  if ((!t2826) && (u_is_con(s2825, &n_syntax_46_EVar) && u_is_con(u_field(s2825, 0), &n_syntax_46_Var))) {
+    u_value v_n = u_field(u_field(s2825, 0), 0);
+    u_value t2827;
+    if (u_truth(f_list_46_contains_2(v_n, v_bound))) {
+      t2827 = &o_list_46_Nil;
+    } else {
+      t2827 = u_mk_con(&n_list_46_Cons, 2, v_n, &o_list_46_Nil);
+    }
+    t2826 = t2827;
+  }
+  if ((!t2826) && u_is_con(s2825, &n_syntax_46_EApp)) {
+    u_value v_f = u_field(s2825, 0);
+    u_value v_args = u_field(s2825, 1);
+    u_value t2828 = &o_list_46_Nil;
+    u_value *e2829 = &t2828;
+    u_value l2830 = v_args;
+    while (u_is_con(l2830, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2830, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2829 = u_append(e2829, f_compile_46_free_vars_2(v_a, v_bound));
+      }
+      l2830 = u_field(l2830, 1);
+    }
+    t2826 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_f, v_bound), f_list_46_concat_1(t2828));
+  }
+  if ((!t2826) && u_is_con(s2825, &n_syntax_46_ELam)) {
+    u_value v_xs = u_field(s2825, 0);
+    u_value v_b = u_field(s2825, 1);
+    t2826 = f_compile_46_free_vars_2(v_b, f_list_46__43__43__2(f_syntax_46_names_1(v_xs), v_bound));
+  }
+  if ((!t2826) && u_is_con(s2825, &n_syntax_46_EProc)) {
+    u_value v_is = u_field(s2825, 0);
+    u_value v_os = u_field(s2825, 1);
+    u_value v_rs = u_field(s2825, 2);
+    u_value v_b = u_field(s2825, 3);
+    t2826 = f_compile_46_free_in_stmt_2(v_b, f_list_46__43__43__2(f_syntax_46_names_1(f_list_46__43__43__2(v_is, f_list_46__43__43__2(v_os, v_rs))), v_bound));
+  }
+  if ((!t2826) && u_is_con(s2825, &n_syntax_46_ELet)) {
+    u_value v_bs = u_field(s2825, 0);
+    u_value v_b = u_field(s2825, 1);
+    u_value t2831 = &o_list_46_Nil;
+    u_value *e2832 = &t2831;
+    u_value l2833 = f_list_46_seconds_1(v_bs);
+    while (u_is_con(l2833, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2833, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2832 = u_append(e2832, f_compile_46_free_vars_2(v_a, v_bound));
+      }
+      l2833 = u_field(l2833, 1);
+    }
+    t2826 = f_list_46__43__43__2(f_list_46_concat_1(t2831), f_compile_46_free_vars_2(v_b, f_list_46__43__43__2(f_syntax_46_names_1(f_list_46_firsts_1(v_bs)), v_bound)));
+  }
+  if ((!t2826) && u_is_con(s2825, &n_syntax_46_EIte)) {
+    u_value v_c = u_field(s2825, 0);
+    u_value v_l = u_field(s2825, 1);
+    u_value v_r = u_field(s2825, 2);
+    t2826 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_c, v_bound), f_list_46__43__43__2(f_compile_46_free_vars_2(v_l, v_bound), f_compile_46_free_vars_2(v_r, v_bound)));
+  }
+  if ((!t2826) && u_is_con(s2825, &n_syntax_46_EMatch)) {
+    u_value v_a = u_field(s2825, 0);
+    u_value v_cs = u_field(s2825, 1);
+    u_value t2834 = &o_list_46_Nil;
+    u_value *e2835 = &t2834;
+    u_value l2836 = v_cs;
+    while (u_is_con(l2836, &n_list_46_Cons)) {
+      u_value v_b = u_field(l2836, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2835 = u_append(e2835, f_compile_46_free_in_branch_2(v_b, v_bound));
+      }
+      l2836 = u_field(l2836, 1);
+    }
+    t2826 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_a, v_bound), f_list_46_concat_1(t2834));
+  }
+  if ((!t2826) && u_is_con(s2825, &n_syntax_46_EComp)) {
+    u_value v_r = u_field(s2825, 0);
+    u_value v_xs = u_field(s2825, 1);
+    u_value v_ls = u_field(s2825, 2);
+    u_value v_c = u_field(s2825, 3);
+    u_value t2837 = &o_list_46_Nil;
+    u_value *e2838 = &t2837;
+    u_value l2839 = v_ls;
+    while (u_is_con(l2839, &n_list_46_Cons)) {
+      u_value v_l = u_field(l2839, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2838 = u_append(e2838, f_compile_46_free_vars_2(v_l, f_list_46__43__43__2(f_syntax_46_names_1(v_xs), v_bound)));
+      }
+      l2839 = u_field(l2839, 1);
+    }
+    t2826 = f_list_46__43__43__2(f_list_46_concat_1(t2837), f_list_46__43__43__2(f_compile_46_free_vars_2(v_r, f_list_46__43__43__2(f_syntax_46_names_1(v_xs), v_bound)), f_compile_46_free_vars_2(v_c, f_list_46__43__43__2(f_syntax_46_names_1(v_xs), v_bound))));
+  }
+  if ((!t2826) && u_is_con(s2825, &n_syntax_46_ETuple)) {
+    u_value v_es = u_field(s2825, 0);
+    u_value t2840 = &o_list_46_Nil;
+    u_value *e2841 = &t2840;
+    u_value l2842 = v_es;
+    while (u_is_con(l2842, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2842, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2841 = u_append(e2841, f_compile_46_free_vars_2(v_a, v_bound));
+      }
+      l2842 = u_field(l2842, 1);
+    }
+    t2826 = f_list_46_concat_1(t2840);
+  }
+  if ((!t2826) && u_is_con(s2825, &n_syntax_46_ERaise)) {
+    u_value v_a = u_field(s2825, 0);
+    t2826 = f_compile_46_free_vars_2(v_a, v_bound);
+  }
+  if (!t2826) {
+    u_no_case(s2825);
+  }
+  return t2826;
+}
+
+u_value f_compile_46_free_in_stmt_2(u_value v_x, u_value v_bound) {
+  u_value s2843 = v_x;
+  u_value t2844 = NULL;
+  if ((!t2844) && u_is_con(s2843, &n_syntax_46_SSkip)) {
+    t2844 = &o_list_46_Nil;
+  }
+  if ((!t2844) && u_is_con(s2843, &n_syntax_46_SAssign)) {
+    u_value v_ps = u_field(s2843, 0);
+    u_value t2845 = &o_list_46_Nil;
+    u_value *e2846 = &t2845;
+    u_value l2847 = f_syntax_46_names_1(f_list_46_firsts_1(v_ps));
+    while (u_is_con(l2847, &n_list_46_Cons)) {
+      u_value v_y = u_field(l2847, 0);
+      if (u_truth(f_prelude_46_not_1(f_list_46_contains_2(v_y, v_bound)))) {
+        e2846 = u_append(e2846, v_y);
+      }
+      l2847 = u_field(l2847, 1);
+    }
+    u_value t2848 = &o_list_46_Nil;
+    u_value *e2849 = &t2848;
+    u_value l2850 = f_list_46_seconds_1(v_ps);
+    while (u_is_con(l2850, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2850, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2849 = u_append(e2849, f_compile_46_free_vars_2(v_a, v_bound));
+      }
+      l2850 = u_field(l2850, 1);
+    }
+    t2844 = f_list_46__43__43__2(t2845, f_list_46_concat_1(t2848));
+  }
+  if ((!t2844) && u_is_con(s2843, &n_syntax_46_SBlock)) {
+    u_value v_xs = u_field(s2843, 0);
+    u_value v_ys = u_field(s2843, 1);
+    u_value t2851 = &o_list_46_Nil;
+    u_value *e2852 = &t2851;
+    u_value l2853 = v_ys;
+    while (u_is_con(l2853, &n_list_46_Cons)) {
+      u_value v_y = u_field(l2853, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2852 = u_append(e2852, f_compile_46_free_in_stmt_2(v_y, f_list_46__43__43__2(f_syntax_46_names_1(v_xs), v_bound)));
+      }
+      l2853 = u_field(l2853, 1);
+    }
+    t2844 = f_list_46_concat_1(t2851);
+  }
+  if ((!t2844) && u_is_con(s2843, &n_syntax_46_SIf)) {
+    u_value v_c = u_field(s2843, 0);
+    u_value v_l = u_field(s2843, 1);
+    u_value v_r = u_field(s2843, 2);
+    t2844 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_c, v_bound), f_list_46__43__43__2(f_compile_46_free_in_stmt_2(v_l, v_bound), f_compile_46_free_in_stmt_2(v_r, v_bound)));
+  }
+  if ((!t2844) && u_is_con(s2843, &n_syntax_46_SWhile)) {
+    u_value v_c = u_field(s2843, 0);
+    u_value v_b = u_field(s2843, 1);
+    t2844 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_c, v_bound), f_compile_46_free_in_stmt_2(v_b, v_bound));
+  }
+  if ((!t2844) && u_is_con(s2843, &n_syntax_46_SCall)) {
+    u_value v_p = u_field(s2843, 0);
+    u_value v_ins = u_field(s2843, 1);
+    u_value v_outs = u_field(s2843, 2);
+    u_value v_refs = u_field(s2843, 3);
+    u_value t2854 = &o_list_46_Nil;
+    u_value *e2855 = &t2854;
+    u_value l2856 = u_mk_con(&n_list_46_Cons, 2, v_p, f_syntax_46_names_1(f_list_46__43__43__2(v_outs, v_refs)));
+    while (u_is_con(l2856, &n_list_46_Cons)) {
+      u_value v_y = u_field(l2856, 0);
+      if (u_truth(f_prelude_46_not_1(f_list_46_contains_2(v_y, v_bound)))) {
+        e2855 = u_append(e2855, v_y);
+      }
+      l2856 = u_field(l2856, 1);
+    }
+    u_value t2857 = &o_list_46_Nil;
+    u_value *e2858 = &t2857;
+    u_value l2859 = v_ins;
+    while (u_is_con(l2859, &n_list_46_Cons)) {
+      u_value v_a = u_field(l2859, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2858 = u_append(e2858, f_compile_46_free_vars_2(v_a, v_bound));
+      }
+      l2859 = u_field(l2859, 1);
+    }
+    t2844 = f_list_46__43__43__2(t2854, f_list_46_concat_1(t2857));
+  }
+  if ((!t2844) && u_is_con(s2843, &n_syntax_46_SMatch)) {
+    u_value v_a = u_field(s2843, 0);
+    u_value v_bs = u_field(s2843, 1);
+    u_value t2860 = &o_list_46_Nil;
+    u_value *e2861 = &t2860;
+    u_value l2862 = v_bs;
+    while (u_is_con(l2862, &n_list_46_Cons)) {
+      u_value v_b = u_field(l2862, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2861 = u_append(e2861, f_compile_46_free_in_stmt_branch_2(v_b, v_bound));
+      }
+      l2862 = u_field(l2862, 1);
+    }
+    t2844 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_a, v_bound), f_list_46_concat_1(t2860));
+  }
+  if ((!t2844) && u_is_con(s2843, &n_syntax_46_SAssert)) {
+    u_value v_c = u_field(s2843, 0);
+    t2844 = f_compile_46_free_vars_2(v_c, v_bound);
+  }
+  if ((!t2844) && u_is_con(s2843, &n_syntax_46_SRaise)) {
+    u_value v_a = u_field(s2843, 0);
+    t2844 = f_compile_46_free_vars_2(v_a, v_bound);
+  }
+  if ((!t2844) && u_is_con(s2843, &n_syntax_46_STry)) {
+    u_value v_b = u_field(s2843, 0);
+    u_value v_hs = u_field(s2843, 1);
+    u_value t2863 = &o_list_46_Nil;
+    u_value *e2864 = &t2863;
+    u_value l2865 = v_hs;
+    while (u_is_con(l2865, &n_list_46_Cons)) {
+      u_value v_h = u_field(l2865, 0);
+      if (u_truth(u_mk_bool(1))) {
+        e2864 = u_append(e2864, f_compile_46_free_in_handler_2(v_h, v_bound));
+      }
+      l2865 = u_field(l2865, 1);
+    }
+    t2844 = f_list_46__43__43__2(f_compile_46_free_in_stmt_2(v_b, v_bound), f_list_46_concat_1(t2863));
+  }
+  if (!t2844) {
+    u_no_case(s2843);
+  }
+  return t2844;
+}
+
 u_value f_compile_46_free_in_stmt_branch_2(u_value v_b, u_value v_bound) {
-  u_value s2737 = v_b;
-  u_value t2738 = NULL;
-  if ((!t2738) && (u_is_con(s2737, &n_syntax_46_Branch) && u_is_con(u_field(s2737, 1), &n_option_46_Some))) {
-    u_value v_p = u_field(s2737, 0);
-    u_value v_g = u_field(u_field(s2737, 1), 0);
-    u_value v_y = u_field(s2737, 2);
-    t2738 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_g, f_list_46__43__43__2(f_compile_46_pattern_names_1(v_p), v_bound)), f_compile_46_free_in_stmt_2(v_y, f_list_46__43__43__2(f_compile_46_pattern_names_1(v_p), v_bound)));
+  u_value s2866 = v_b;
+  u_value t2867 = NULL;
+  if ((!t2867) && (u_is_con(s2866, &n_syntax_46_Branch) && u_is_con(u_field(s2866, 1), &n_option_46_Some))) {
+    u_value v_p = u_field(s2866, 0);
+    u_value v_g = u_field(u_field(s2866, 1), 0);
+    u_value v_y = u_field(s2866, 2);
+    t2867 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_g, f_list_46__43__43__2(f_compile_46_pattern_names_1(v_p), v_bound)), f_compile_46_free_in_stmt_2(v_y, f_list_46__43__43__2(f_compile_46_pattern_names_1(v_p), v_bound)));
   }
-  if ((!t2738) && (u_is_con(s2737, &n_syntax_46_Branch) && u_is_con(u_field(s2737, 1), &n_option_46_None))) {
-    u_value v_p = u_field(s2737, 0);
-    u_value v_y = u_field(s2737, 2);
-    t2738 = f_compile_46_free_in_stmt_2(v_y, f_list_46__43__43__2(f_compile_46_pattern_names_1(v_p), v_bound));
+  if ((!t2867) && (u_is_con(s2866, &n_syntax_46_Branch) && u_is_con(u_field(s2866, 1), &n_option_46_None))) {
+    u_value v_p = u_field(s2866, 0);
+    u_value v_y = u_field(s2866, 2);
+    t2867 = f_compile_46_free_in_stmt_2(v_y, f_list_46__43__43__2(f_compile_46_pattern_names_1(v_p), v_bound));
   }
-  if (!t2738) {
-    u_no_case(s2737);
+  if (!t2867) {
+    u_no_case(s2866);
   }
-  return t2738;
+  return t2867;
 }
 
 u_value f_compile_46_free_in_handler_2(u_value v_h, u_value v_bound) {
-  u_value t2742 = f_list_46__43__43__2(f_compile_46_pattern_names_1(f_syntax_46_Handler_46_pat_1(v_h)), v_bound);
-  u_value t2741;
+  u_value t2871 = f_list_46__43__43__2(f_compile_46_pattern_names_1(f_syntax_46_Handler_46_pat_1(v_h)), v_bound);
+  u_value t2870;
   {
-    u_value v_inner = t2742;
-    u_value s2739 = f_syntax_46_Handler_46_guard_1(v_h);
-    u_value t2740 = NULL;
-    if ((!t2740) && u_is_con(s2739, &n_option_46_Some)) {
-      u_value v_g = u_field(s2739, 0);
-      t2740 = f_compile_46_free_vars_2(v_g, v_inner);
+    u_value v_inner = t2871;
+    u_value s2868 = f_syntax_46_Handler_46_guard_1(v_h);
+    u_value t2869 = NULL;
+    if ((!t2869) && u_is_con(s2868, &n_option_46_Some)) {
+      u_value v_g = u_field(s2868, 0);
+      t2869 = f_compile_46_free_vars_2(v_g, v_inner);
     }
-    if ((!t2740) && u_is_con(s2739, &n_option_46_None)) {
-      t2740 = &o_list_46_Nil;
+    if ((!t2869) && u_is_con(s2868, &n_option_46_None)) {
+      t2869 = &o_list_46_Nil;
     }
-    if (!t2740) {
-      u_no_case(s2739);
+    if (!t2869) {
+      u_no_case(s2868);
     }
-    t2741 = f_list_46__43__43__2(f_compile_46_free_in_stmt_2(f_syntax_46_Handler_46_body_1(v_h), v_inner), t2740);
+    t2870 = f_list_46__43__43__2(f_compile_46_free_in_stmt_2(f_syntax_46_Handler_46_body_1(v_h), v_inner), t2869);
   }
-  return t2741;
+  return t2870;
 }
 
 u_value f_compile_46_free_in_branch_2(u_value v_b, u_value v_bound) {
-  u_value s2743 = v_b;
-  u_value t2744 = NULL;
-  if ((!t2744) && (u_is_con(s2743, &n_syntax_46_Branch) && u_is_con(u_field(s2743, 1), &n_option_46_Some))) {
-    u_value v_p = u_field(s2743, 0);
-    u_value v_g = u_field(u_field(s2743, 1), 0);
-    u_value v_e = u_field(s2743, 2);
-    t2744 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_g, f_list_46__43__43__2(f_compile_46_pattern_names_1(v_p), v_bound)), f_compile_46_free_vars_2(v_e, f_list_46__43__43__2(f_compile_46_pattern_names_1(v_p), v_bound)));
+  u_value s2872 = v_b;
+  u_value t2873 = NULL;
+  if ((!t2873) && (u_is_con(s2872, &n_syntax_46_Branch) && u_is_con(u_field(s2872, 1), &n_option_46_Some))) {
+    u_value v_p = u_field(s2872, 0);
+    u_value v_g = u_field(u_field(s2872, 1), 0);
+    u_value v_e = u_field(s2872, 2);
+    t2873 = f_list_46__43__43__2(f_compile_46_free_vars_2(v_g, f_list_46__43__43__2(f_compile_46_pattern_names_1(v_p), v_bound)), f_compile_46_free_vars_2(v_e, f_list_46__43__43__2(f_compile_46_pattern_names_1(v_p), v_bound)));
   }
-  if ((!t2744) && (u_is_con(s2743, &n_syntax_46_Branch) && u_is_con(u_field(s2743, 1), &n_option_46_None))) {
-    u_value v_p = u_field(s2743, 0);
-    u_value v_e = u_field(s2743, 2);
-    t2744 = f_compile_46_free_vars_2(v_e, f_list_46__43__43__2(f_compile_46_pattern_names_1(v_p), v_bound));
+  if ((!t2873) && (u_is_con(s2872, &n_syntax_46_Branch) && u_is_con(u_field(s2872, 1), &n_option_46_None))) {
+    u_value v_p = u_field(s2872, 0);
+    u_value v_e = u_field(s2872, 2);
+    t2873 = f_compile_46_free_vars_2(v_e, f_list_46__43__43__2(f_compile_46_pattern_names_1(v_p), v_bound));
   }
-  if (!t2744) {
-    u_no_case(s2743);
+  if (!t2873) {
+    u_no_case(s2872);
   }
-  return t2744;
+  return t2873;
 }
 
 u_value f_compile_46_lambdas_2(u_value v_xss, u_value v_b) {
-  u_value s2745 = v_xss;
-  u_value t2746 = NULL;
-  if ((!t2746) && u_is_con(s2745, &n_list_46_Nil)) {
-    t2746 = v_b;
+  u_value s2874 = v_xss;
+  u_value t2875 = NULL;
+  if ((!t2875) && u_is_con(s2874, &n_list_46_Nil)) {
+    t2875 = v_b;
   }
-  if ((!t2746) && u_is_con(s2745, &n_list_46_Cons)) {
-    u_value v_xs = u_field(s2745, 0);
-    u_value v_rest = u_field(s2745, 1);
-    t2746 = u_mk_con(&n_syntax_46_ELam, 2, v_xs, f_compile_46_lambdas_2(v_rest, v_b));
+  if ((!t2875) && u_is_con(s2874, &n_list_46_Cons)) {
+    u_value v_xs = u_field(s2874, 0);
+    u_value v_rest = u_field(s2874, 1);
+    t2875 = u_mk_con(&n_syntax_46_ELam, 2, v_xs, f_compile_46_lambdas_2(v_rest, v_b));
   }
-  if (!t2746) {
-    u_no_case(s2745);
+  if (!t2875) {
+    u_no_case(s2874);
   }
-  return t2746;
+  return t2875;
 }
 
 void p_compile_46_gen_name(u_value v_stem, u_value *r_x, u_value *r_g) {
   {
-    u_value t2747 = u_concat(v_stem, u_str_show(f_compile_46_Gen_46_count_1(*r_g)));
-    u_value t2748 = f_compile_46_Gen_46_count_58__61__2(*r_g, u_add(f_compile_46_Gen_46_count_1(*r_g), u_mk_int(1)));
-    *r_x = t2747;
-    *r_g = t2748;
+    u_value t2876 = u_concat(v_stem, u_str_show(f_compile_46_Gen_46_count_1(*r_g)));
+    u_value t2877 = f_compile_46_Gen_46_count_58__61__2(*r_g, u_add(f_compile_46_Gen_46_count_1(*r_g), u_mk_int(1)));
+    *r_x = t2876;
+    *r_g = t2877;
   }
 }
 
 void p_compile_46_lift(u_value v_d, u_value *r_g) {
   {
-    u_value t2749 = f_compile_46_Gen_46_lifted_58__61__2(*r_g, f_list_46__43__43__2(f_compile_46_Gen_46_lifted_1(*r_g), u_mk_con(&n_list_46_Cons, 2, v_d, &o_list_46_Nil)));
-    *r_g = t2749;
+    u_value t2878 = f_compile_46_Gen_46_lifted_58__61__2(*r_g, f_list_46__43__43__2(f_compile_46_Gen_46_lifted_1(*r_g), u_mk_con(&n_list_46_Cons, 2, v_d, &o_list_46_Nil)));
+    *r_g = t2878;
   }
 }
 
 u_value f_compile_46_global_value_3(u_value v_gl, u_value v_n, u_value v_t) {
-  u_value t2763;
+  u_value t2892;
   if (u_truth(f_compile_46_is_global_fun_3(v_gl, v_n, f_syntax_46_arity_1(v_t)))) {
-    static struct u_object l_u_mk_closure_2750 = U_LIT("u_mk_closure");
-    static struct u_object l_w__2751 = U_LIT("w_");
-    t2763 = f_c_46_c_call_2(&l_u_mk_closure_2750, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_w__2751, f_compile_46_fun_name_2(v_n, f_syntax_46_arity_1(v_t)))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)), &o_list_46_Nil)));
+    static struct u_object l_u_mk_closure_2879 = U_LIT("u_mk_closure");
+    static struct u_object l_w__2880 = U_LIT("w_");
+    t2892 = f_c_46_c_call_2(&l_u_mk_closure_2879, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_w__2880, f_compile_46_fun_name_2(v_n, f_syntax_46_arity_1(v_t)))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)), &o_list_46_Nil)));
   } else {
-    u_value s2752 = f_compile_46_fields_count_2(v_gl, v_n);
-    u_value t2753 = NULL;
-    if ((!t2753) && (u_is_con(s2752, &n_option_46_Some) && u_equals(u_field(s2752, 0), u_mk_int(0)))) {
-      t2753 = f_compile_46_unit_value_1(v_n);
+    u_value s2881 = f_compile_46_fields_count_2(v_gl, v_n);
+    u_value t2882 = NULL;
+    if ((!t2882) && (u_is_con(s2881, &n_option_46_Some) && u_equals(u_field(s2881, 0), u_mk_int(0)))) {
+      t2882 = f_compile_46_unit_value_1(v_n);
     }
-    if ((!t2753) && u_is_con(s2752, &n_option_46_Some)) {
-      static struct u_object l_u_mk_closure_2754 = U_LIT("u_mk_closure");
-      static struct u_object l_wc__2755 = U_LIT("wc_");
-      t2753 = f_c_46_c_call_2(&l_u_mk_closure_2754, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_wc__2755, f_compile_46_mangle_1(v_n))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)), &o_list_46_Nil)));
+    if ((!t2882) && u_is_con(s2881, &n_option_46_Some)) {
+      static struct u_object l_u_mk_closure_2883 = U_LIT("u_mk_closure");
+      static struct u_object l_wc__2884 = U_LIT("wc_");
+      t2882 = f_c_46_c_call_2(&l_u_mk_closure_2883, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_wc__2884, f_compile_46_mangle_1(v_n))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)), &o_list_46_Nil)));
     }
-    if ((!t2753) && u_is_con(s2752, &n_option_46_None)) {
-      u_value s2756 = f_map_46_get_2(v_n, f_compile_46_builtin_functions_0());
-      u_value t2757 = NULL;
-      if ((!t2757) && u_is_con(s2756, &n_option_46_Some)) {
-        u_value v_f = u_field(u_field(s2756, 0), 0);
-        static struct u_object l_u_mk_closure_2758 = U_LIT("u_mk_closure");
-        static struct u_object l_w_2759 = U_LIT("w");
-        t2757 = f_c_46_c_call_2(&l_u_mk_closure_2758, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_w_2759, v_f)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)), &o_list_46_Nil)));
+    if ((!t2882) && u_is_con(s2881, &n_option_46_None)) {
+      u_value s2885 = f_map_46_get_2(v_n, f_compile_46_builtin_functions_0());
+      u_value t2886 = NULL;
+      if ((!t2886) && u_is_con(s2885, &n_option_46_Some)) {
+        u_value v_f = u_field(u_field(s2885, 0), 0);
+        static struct u_object l_u_mk_closure_2887 = U_LIT("u_mk_closure");
+        static struct u_object l_w_2888 = U_LIT("w");
+        t2886 = f_c_46_c_call_2(&l_u_mk_closure_2887, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_w_2888, v_f)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)), &o_list_46_Nil)));
       }
-      if ((!t2757) && u_is_con(s2756, &n_option_46_None)) {
+      if ((!t2886) && u_is_con(s2885, &n_option_46_None)) {
         if (u_truth(f_map_46_contains_2(v_n, f_compile_46_Globals_46_procs_1(v_gl)))) {
-          static struct u_object l_u_mk_proc_2760 = U_LIT("u_mk_proc");
-          static struct u_object l_wp__2761 = U_LIT("wp_");
-          t2757 = f_c_46_c_call_2(&l_u_mk_proc_2760, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_wp__2761, f_compile_46_mangle_1(v_n))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)), &o_list_46_Nil)));
+          static struct u_object l_u_mk_proc_2889 = U_LIT("u_mk_proc");
+          static struct u_object l_wp__2890 = U_LIT("wp_");
+          t2886 = f_c_46_c_call_2(&l_u_mk_proc_2889, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, u_concat(&l_wp__2890, f_compile_46_mangle_1(v_n))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)), &o_list_46_Nil)));
         }
       }
-      if ((!t2757) && u_is_con(s2756, &n_option_46_None)) {
-        static struct u_object l_the_32_variable_32__2762 = U_LIT("the variable ");
-        u_raise(u_mk_con(&n_compile_46_Unsupported, 1, u_concat(&l_the_32_variable_32__2762, f_syntax_46_qualified_1(v_n))), "compile.CompileError");
-        t2757 = NULL;
+      if ((!t2886) && u_is_con(s2885, &n_option_46_None)) {
+        static struct u_object l_the_32_variable_32__2891 = U_LIT("the variable ");
+        u_raise(u_mk_con(&n_compile_46_Unsupported, 1, u_concat(&l_the_32_variable_32__2891, f_syntax_46_qualified_1(v_n))), "compile.CompileError");
+        t2886 = NULL;
       }
-      if (!t2757) {
-        u_no_case(s2756);
+      if (!t2886) {
+        u_no_case(s2885);
       }
-      t2753 = t2757;
+      t2882 = t2886;
     }
-    if (!t2753) {
-      u_no_case(s2752);
+    if (!t2882) {
+      u_no_case(s2881);
     }
-    t2763 = t2753;
+    t2892 = t2882;
   }
-  return t2763;
+  return t2892;
 }
 
 void p_compile_46_compile_expr(u_value v_gl, u_value v_env, u_value v_e, u_value *r_ss, u_value *r_r, u_value *r_g) {
@@ -26459,214 +27636,214 @@ void p_compile_46_compile_expr(u_value v_gl, u_value v_env, u_value v_e, u_value
     u_value v_rs = NULL;
     u_value v_t = NULL;
     u_value v_d = NULL;
-    u_value s2764 = v_e;
-    int d2765 = 0;
-    if ((!d2765) && (u_is_con(s2764, &n_syntax_46_ELit) && u_is_con(u_field(s2764, 0), &n_syntax_46_VStr))) {
-      u_value v_s = u_field(u_field(s2764, 0), 0);
-      d2765 = 1;
+    u_value s2893 = v_e;
+    int d2894 = 0;
+    if ((!d2894) && (u_is_con(s2893, &n_syntax_46_ELit) && u_is_con(u_field(s2893, 0), &n_syntax_46_VStr))) {
+      u_value v_s = u_field(u_field(s2893, 0), 0);
+      d2894 = 1;
       {
-        static struct u_object l_l__2766 = U_LIT("l_");
-        u_value t2767;
+        static struct u_object l_l__2895 = U_LIT("l_");
+        u_value t2896;
         if (u_truth(u_lt(u_str_size(v_s), u_mk_int(16)))) {
-          t2767 = u_str_size(v_s);
+          t2896 = u_str_size(v_s);
         } else {
-          t2767 = u_mk_int(16);
+          t2896 = u_mk_int(16);
         }
-        static struct u_object l___2768 = U_LIT("_");
-        p_compile_46_gen_name(u_concat(&l_l__2766, u_concat(f_compile_46_mangle_1(f_syntax_46_unqualified_1(u_str_slice(v_s, u_mk_int(0), t2767))), &l___2768)), &v_t, r_g);
-        static struct u_object l_static_32_struct_32_u__2769 = U_LIT("static struct u_object");
-        static struct u_object l_U_LIT_2770 = U_LIT("U_LIT");
-        static struct u_object l__38__2771 = U_LIT("&");
-        u_value t2772 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, u_mk_con(&n_c_46_CtNamed, 1, &l_static_32_struct_32_u__2769), v_t, u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(&l_U_LIT_2770, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, v_s), &o_list_46_Nil)))), &o_list_46_Nil);
-        u_value t2773 = u_mk_con(&n_c_46_CeUnary, 2, &l__38__2771, u_mk_con(&n_c_46_CeVar, 1, v_t));
-        *r_ss = t2772;
-        *r_r = t2773;
+        static struct u_object l___2897 = U_LIT("_");
+        p_compile_46_gen_name(u_concat(&l_l__2895, u_concat(f_compile_46_mangle_1(f_syntax_46_unqualified_1(u_str_slice(v_s, u_mk_int(0), t2896))), &l___2897)), &v_t, r_g);
+        static struct u_object l_static_32_struct_32_u__2898 = U_LIT("static struct u_object");
+        static struct u_object l_U_LIT_2899 = U_LIT("U_LIT");
+        static struct u_object l__38__2900 = U_LIT("&");
+        u_value t2901 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, u_mk_con(&n_c_46_CtNamed, 1, &l_static_32_struct_32_u__2898), v_t, u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(&l_U_LIT_2899, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, v_s), &o_list_46_Nil)))), &o_list_46_Nil);
+        u_value t2902 = u_mk_con(&n_c_46_CeUnary, 2, &l__38__2900, u_mk_con(&n_c_46_CeVar, 1, v_t));
+        *r_ss = t2901;
+        *r_r = t2902;
       }
     }
-    if ((!d2765) && u_is_con(s2764, &n_syntax_46_ELit)) {
-      u_value v_l = u_field(s2764, 0);
-      d2765 = 1;
+    if ((!d2894) && u_is_con(s2893, &n_syntax_46_ELit)) {
+      u_value v_l = u_field(s2893, 0);
+      d2894 = 1;
       {
-        u_value t2774 = &o_list_46_Nil;
-        u_value t2775 = f_compile_46_literal_value_1(v_l);
-        *r_ss = t2774;
-        *r_r = t2775;
+        u_value t2903 = &o_list_46_Nil;
+        u_value t2904 = f_compile_46_literal_value_1(v_l);
+        *r_ss = t2903;
+        *r_r = t2904;
       }
     }
-    if ((!d2765) && (u_is_con(s2764, &n_syntax_46_EVar) && u_is_con(u_field(s2764, 0), &n_syntax_46_Var))) {
-      u_value v_n = u_field(u_field(s2764, 0), 0);
-      u_value v_ty = u_field(u_field(s2764, 0), 1);
-      d2765 = 1;
+    if ((!d2894) && (u_is_con(s2893, &n_syntax_46_EVar) && u_is_con(u_field(s2893, 0), &n_syntax_46_Var))) {
+      u_value v_n = u_field(u_field(s2893, 0), 0);
+      u_value v_ty = u_field(u_field(s2893, 0), 1);
+      d2894 = 1;
       {
-        u_value s2776 = f_list_46_get_2(v_n, v_env);
-        int d2777 = 0;
-        if ((!d2777) && u_is_con(s2776, &n_option_46_Some)) {
-          u_value v_c = u_field(s2776, 0);
-          d2777 = 1;
+        u_value s2905 = f_list_46_get_2(v_n, v_env);
+        int d2906 = 0;
+        if ((!d2906) && u_is_con(s2905, &n_option_46_Some)) {
+          u_value v_c = u_field(s2905, 0);
+          d2906 = 1;
           {
-            u_value t2778 = &o_list_46_Nil;
-            u_value t2779 = v_c;
-            *r_ss = t2778;
-            *r_r = t2779;
+            u_value t2907 = &o_list_46_Nil;
+            u_value t2908 = v_c;
+            *r_ss = t2907;
+            *r_r = t2908;
           }
         }
-        if ((!d2777) && u_is_con(s2776, &n_option_46_None)) {
-          d2777 = 1;
+        if ((!d2906) && u_is_con(s2905, &n_option_46_None)) {
+          d2906 = 1;
           {
-            u_value t2780 = &o_list_46_Nil;
-            u_value t2781 = f_compile_46_global_value_3(v_gl, v_n, v_ty);
-            *r_ss = t2780;
-            *r_r = t2781;
+            u_value t2909 = &o_list_46_Nil;
+            u_value t2910 = f_compile_46_global_value_3(v_gl, v_n, v_ty);
+            *r_ss = t2909;
+            *r_r = t2910;
           }
         }
-        if (!d2777) {
-          u_no_case(s2776);
+        if (!d2906) {
+          u_no_case(s2905);
         }
       }
     }
-    if ((!d2765) && (u_is_con(s2764, &n_syntax_46_EApp) && (u_is_con(u_field(s2764, 0), &n_syntax_46_EVar) && u_is_con(u_field(u_field(s2764, 0), 0), &n_syntax_46_Var)))) {
-      u_value v_n = u_field(u_field(u_field(s2764, 0), 0), 0);
-      u_value v_ty = u_field(u_field(u_field(s2764, 0), 0), 1);
-      u_value v_args = u_field(s2764, 1);
+    if ((!d2894) && (u_is_con(s2893, &n_syntax_46_EApp) && (u_is_con(u_field(s2893, 0), &n_syntax_46_EVar) && u_is_con(u_field(u_field(s2893, 0), 0), &n_syntax_46_Var)))) {
+      u_value v_n = u_field(u_field(u_field(s2893, 0), 0), 0);
+      u_value v_ty = u_field(u_field(u_field(s2893, 0), 0), 1);
+      u_value v_args = u_field(s2893, 1);
       if (u_truth(f_prelude_46_not_1(f_list_46_contains_2(v_n, f_list_46_keys_1(v_env))))) {
-        d2765 = 1;
+        d2894 = 1;
         {
           p_compile_46_compile_named(v_gl, v_env, v_n, v_ty, v_args, r_ss, r_r, r_g);
         }
       }
     }
-    if ((!d2765) && u_is_con(s2764, &n_syntax_46_EApp)) {
-      u_value v_f = u_field(s2764, 0);
-      u_value v_args = u_field(s2764, 1);
-      d2765 = 1;
+    if ((!d2894) && u_is_con(s2893, &n_syntax_46_EApp)) {
+      u_value v_f = u_field(s2893, 0);
+      u_value v_args = u_field(s2893, 1);
+      d2894 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_f, &v_as, &v_ra, r_g);
         p_compile_46_compile_exprs(v_gl, v_env, v_args, &v_bs, &v_rs, r_g);
-        static struct u_object l_u_apply_2782 = U_LIT("u_apply");
-        u_value t2783 = f_list_46__43__43__2(v_as, v_bs);
-        u_value t2784 = f_c_46_c_call_2(&l_u_apply_2782, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, v_ra, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_args)), &o_list_46_Nil)), v_rs));
-        *r_ss = t2783;
-        *r_r = t2784;
+        static struct u_object l_u_apply_2911 = U_LIT("u_apply");
+        u_value t2912 = f_list_46__43__43__2(v_as, v_bs);
+        u_value t2913 = f_c_46_c_call_2(&l_u_apply_2911, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, v_ra, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_args)), &o_list_46_Nil)), v_rs));
+        *r_ss = t2912;
+        *r_r = t2913;
       }
     }
-    if ((!d2765) && u_is_con(s2764, &n_syntax_46_ELam)) {
-      u_value v_xs = u_field(s2764, 0);
-      u_value v_b = u_field(s2764, 1);
-      d2765 = 1;
+    if ((!d2894) && u_is_con(s2893, &n_syntax_46_ELam)) {
+      u_value v_xs = u_field(s2893, 0);
+      u_value v_b = u_field(s2893, 1);
+      d2894 = 1;
       {
         p_compile_46_compile_lambda(v_gl, v_env, v_xs, v_b, r_ss, r_r, r_g);
       }
     }
-    if ((!d2765) && u_is_con(s2764, &n_syntax_46_EProc)) {
-      u_value v_is = u_field(s2764, 0);
-      u_value v_os = u_field(s2764, 1);
-      u_value v_rs = u_field(s2764, 2);
-      u_value v_b = u_field(s2764, 3);
-      d2765 = 1;
+    if ((!d2894) && u_is_con(s2893, &n_syntax_46_EProc)) {
+      u_value v_is = u_field(s2893, 0);
+      u_value v_os = u_field(s2893, 1);
+      u_value v_rs = u_field(s2893, 2);
+      u_value v_b = u_field(s2893, 3);
+      d2894 = 1;
       {
         p_compile_46_compile_proc_lambda(v_gl, v_env, v_is, f_list_46__43__43__2(v_os, v_rs), v_b, r_ss, r_r, r_g);
       }
     }
-    if ((!d2765) && u_is_con(s2764, &n_syntax_46_ELet)) {
-      u_value v_binds = u_field(s2764, 0);
-      u_value v_b = u_field(s2764, 1);
-      d2765 = 1;
+    if ((!d2894) && u_is_con(s2893, &n_syntax_46_ELet)) {
+      u_value v_binds = u_field(s2893, 0);
+      u_value v_b = u_field(s2893, 1);
+      d2894 = 1;
       {
         p_compile_46_compile_exprs(v_gl, v_env, f_list_46_seconds_1(v_binds), &v_as, &v_rs, r_g);
         p_compile_46_compile_expr(v_gl, f_list_46__43__43__2(f_compile_46_in_scope_1(f_syntax_46_names_1(f_list_46_firsts_1(v_binds))), v_env), v_b, &v_bs, &v_rb, r_g);
-        static struct u_object l_t_2785 = U_LIT("t");
-        p_compile_46_gen_name(&l_t_2785, &v_t, r_g);
+        static struct u_object l_t_2914 = U_LIT("t");
+        p_compile_46_gen_name(&l_t_2914, &v_t, r_g);
         p_compile_46_temps(v_rs, &v_cs, r_g);
-        u_value t2786 = f_list_46__43__43__2(v_as, f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, &o_option_46_None), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsBlock, 1, f_list_46__43__43__2(f_compile_46_rebind_2(f_syntax_46_names_1(f_list_46_firsts_1(v_binds)), v_cs), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_rb), &o_list_46_Nil)))), &o_list_46_Nil))));
-        *r_ss = t2786;
-        u_value t2787 = u_mk_con(&n_c_46_CeVar, 1, v_t);
-        *r_r = t2787;
+        u_value t2915 = f_list_46__43__43__2(v_as, f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, &o_option_46_None), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsBlock, 1, f_list_46__43__43__2(f_compile_46_rebind_2(f_syntax_46_names_1(f_list_46_firsts_1(v_binds)), v_cs), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_rb), &o_list_46_Nil)))), &o_list_46_Nil))));
+        *r_ss = t2915;
+        u_value t2916 = u_mk_con(&n_c_46_CeVar, 1, v_t);
+        *r_r = t2916;
       }
     }
-    if ((!d2765) && u_is_con(s2764, &n_syntax_46_EIte)) {
-      u_value v_c = u_field(s2764, 0);
-      u_value v_l = u_field(s2764, 1);
-      u_value v_rr = u_field(s2764, 2);
-      d2765 = 1;
+    if ((!d2894) && u_is_con(s2893, &n_syntax_46_EIte)) {
+      u_value v_c = u_field(s2893, 0);
+      u_value v_l = u_field(s2893, 1);
+      u_value v_rr = u_field(s2893, 2);
+      d2894 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_c, &v_cs, &v_rc, r_g);
         p_compile_46_compile_expr(v_gl, v_env, v_l, &v_as, &v_ra, r_g);
         p_compile_46_compile_expr(v_gl, v_env, v_rr, &v_bs, &v_rb, r_g);
-        static struct u_object l_t_2788 = U_LIT("t");
-        p_compile_46_gen_name(&l_t_2788, &v_t, r_g);
-        u_value t2789 = f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, &o_option_46_None), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(v_rc), f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_ra), &o_list_46_Nil)), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_rb), &o_list_46_Nil))), &o_list_46_Nil)));
-        *r_ss = t2789;
-        u_value t2790 = u_mk_con(&n_c_46_CeVar, 1, v_t);
-        *r_r = t2790;
+        static struct u_object l_t_2917 = U_LIT("t");
+        p_compile_46_gen_name(&l_t_2917, &v_t, r_g);
+        u_value t2918 = f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, &o_option_46_None), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(v_rc), f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_ra), &o_list_46_Nil)), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_rb), &o_list_46_Nil))), &o_list_46_Nil)));
+        *r_ss = t2918;
+        u_value t2919 = u_mk_con(&n_c_46_CeVar, 1, v_t);
+        *r_r = t2919;
       }
     }
-    if ((!d2765) && u_is_con(s2764, &n_syntax_46_EMatch)) {
-      u_value v_arg = u_field(s2764, 0);
-      u_value v_cases = u_field(s2764, 1);
-      d2765 = 1;
+    if ((!d2894) && u_is_con(s2893, &n_syntax_46_EMatch)) {
+      u_value v_arg = u_field(s2893, 0);
+      u_value v_cases = u_field(s2893, 1);
+      d2894 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_arg, &v_as, &v_ra, r_g);
-        static struct u_object l_s_2791 = U_LIT("s");
-        p_compile_46_gen_name(&l_s_2791, &v_d, r_g);
-        static struct u_object l_t_2792 = U_LIT("t");
-        p_compile_46_gen_name(&l_t_2792, &v_t, r_g);
+        static struct u_object l_s_2920 = U_LIT("s");
+        p_compile_46_gen_name(&l_s_2920, &v_d, r_g);
+        static struct u_object l_t_2921 = U_LIT("t");
+        p_compile_46_gen_name(&l_t_2921, &v_t, r_g);
         p_compile_46_expr_cases(v_gl, v_env, v_cases, u_mk_con(&n_c_46_CeVar, 1, v_d), v_t, &v_bs, r_g);
-        static struct u_object l_NULL_2793 = U_LIT("NULL");
-        u_value t2794 = f_list_46__43__43__2(v_as, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_d, u_mk_con(&n_option_46_Some, 1, v_ra)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeVar, 1, &l_NULL_2793))), &o_list_46_Nil)), v_bs));
-        *r_ss = t2794;
-        static struct u_object l__33__2795 = U_LIT("!");
-        static struct u_object l_u_no_case_2796 = U_LIT("u_no_case");
-        u_value t2797 = f_list_46__43__43__2(*r_ss, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeUnary, 2, &l__33__2795, u_mk_con(&n_c_46_CeVar, 1, v_t)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_no_case_2796, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), &o_list_46_Nil))), &o_list_46_Nil), &o_list_46_Nil), &o_list_46_Nil));
-        *r_ss = t2797;
-        u_value t2798 = u_mk_con(&n_c_46_CeVar, 1, v_t);
-        *r_r = t2798;
+        static struct u_object l_NULL_2922 = U_LIT("NULL");
+        u_value t2923 = f_list_46__43__43__2(v_as, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_d, u_mk_con(&n_option_46_Some, 1, v_ra)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeVar, 1, &l_NULL_2922))), &o_list_46_Nil)), v_bs));
+        *r_ss = t2923;
+        static struct u_object l__33__2924 = U_LIT("!");
+        static struct u_object l_u_no_case_2925 = U_LIT("u_no_case");
+        u_value t2926 = f_list_46__43__43__2(*r_ss, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeUnary, 2, &l__33__2924, u_mk_con(&n_c_46_CeVar, 1, v_t)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_no_case_2925, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), &o_list_46_Nil))), &o_list_46_Nil), &o_list_46_Nil), &o_list_46_Nil));
+        *r_ss = t2926;
+        u_value t2927 = u_mk_con(&n_c_46_CeVar, 1, v_t);
+        *r_r = t2927;
       }
     }
-    if ((!d2765) && u_is_con(s2764, &n_syntax_46_EComp)) {
-      u_value v_result = u_field(s2764, 0);
-      u_value v_xs = u_field(s2764, 1);
-      u_value v_lists = u_field(s2764, 2);
-      u_value v_c = u_field(s2764, 3);
-      d2765 = 1;
+    if ((!d2894) && u_is_con(s2893, &n_syntax_46_EComp)) {
+      u_value v_result = u_field(s2893, 0);
+      u_value v_xs = u_field(s2893, 1);
+      u_value v_lists = u_field(s2893, 2);
+      u_value v_c = u_field(s2893, 3);
+      d2894 = 1;
       {
-        static struct u_object l_t_2799 = U_LIT("t");
-        p_compile_46_gen_name(&l_t_2799, &v_t, r_g);
-        static struct u_object l_e_2800 = U_LIT("e");
-        p_compile_46_gen_name(&l_e_2800, &v_d, r_g);
+        static struct u_object l_t_2928 = U_LIT("t");
+        p_compile_46_gen_name(&l_t_2928, &v_t, r_g);
+        static struct u_object l_e_2929 = U_LIT("e");
+        p_compile_46_gen_name(&l_e_2929, &v_d, r_g);
         p_compile_46_compile_loops(v_gl, v_env, v_xs, v_lists, v_result, v_c, v_d, &v_bs, r_g);
-        static struct u_object l__38__2801 = U_LIT("&");
-        u_value t2802 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, u_mk_con(&n_option_46_Some, 1, f_compile_46_unit_value_1(f_syntax_46_nil_name_0()))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_ptr_0(), v_d, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeUnary, 2, &l__38__2801, u_mk_con(&n_c_46_CeVar, 1, v_t)))), &o_list_46_Nil)), v_bs);
-        *r_ss = t2802;
-        u_value t2803 = u_mk_con(&n_c_46_CeVar, 1, v_t);
-        *r_r = t2803;
+        static struct u_object l__38__2930 = U_LIT("&");
+        u_value t2931 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, u_mk_con(&n_option_46_Some, 1, f_compile_46_unit_value_1(f_syntax_46_nil_name_0()))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_ptr_0(), v_d, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeUnary, 2, &l__38__2930, u_mk_con(&n_c_46_CeVar, 1, v_t)))), &o_list_46_Nil)), v_bs);
+        *r_ss = t2931;
+        u_value t2932 = u_mk_con(&n_c_46_CeVar, 1, v_t);
+        *r_r = t2932;
       }
     }
-    if ((!d2765) && u_is_con(s2764, &n_syntax_46_ETuple)) {
-      u_value v_items = u_field(s2764, 0);
-      d2765 = 1;
+    if ((!d2894) && u_is_con(s2893, &n_syntax_46_ETuple)) {
+      u_value v_items = u_field(s2893, 0);
+      d2894 = 1;
       {
         p_compile_46_compile_exprs(v_gl, v_env, v_items, r_ss, &v_rs, r_g);
-        static struct u_object l_u_mk_tuple_2804 = U_LIT("u_mk_tuple");
-        u_value t2805 = f_c_46_c_call_2(&l_u_mk_tuple_2804, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_items)), &o_list_46_Nil), v_rs));
-        *r_r = t2805;
+        static struct u_object l_u_mk_tuple_2933 = U_LIT("u_mk_tuple");
+        u_value t2934 = f_c_46_c_call_2(&l_u_mk_tuple_2933, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_items)), &o_list_46_Nil), v_rs));
+        *r_r = t2934;
       }
     }
-    if ((!d2765) && u_is_con(s2764, &n_syntax_46_ERaise)) {
-      u_value v_arg = u_field(s2764, 0);
-      u_value v_ty = u_field(s2764, 1);
-      d2765 = 1;
+    if ((!d2894) && u_is_con(s2893, &n_syntax_46_ERaise)) {
+      u_value v_arg = u_field(s2893, 0);
+      u_value v_ty = u_field(s2893, 1);
+      d2894 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_arg, &v_as, &v_ra, r_g);
-        static struct u_object l_u_raise_2806 = U_LIT("u_raise");
-        static struct u_object l_NULL_2807 = U_LIT("NULL");
-        u_value t2808 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_raise_2806, u_mk_con(&n_list_46_Cons, 2, v_ra, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, f_compile_46_type_key_1(v_ty)), &o_list_46_Nil)))), &o_list_46_Nil));
-        u_value t2809 = u_mk_con(&n_c_46_CeVar, 1, &l_NULL_2807);
-        *r_ss = t2808;
-        *r_r = t2809;
+        static struct u_object l_u_raise_2935 = U_LIT("u_raise");
+        static struct u_object l_NULL_2936 = U_LIT("NULL");
+        u_value t2937 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_raise_2935, u_mk_con(&n_list_46_Cons, 2, v_ra, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, f_compile_46_type_key_1(v_ty)), &o_list_46_Nil)))), &o_list_46_Nil));
+        u_value t2938 = u_mk_con(&n_c_46_CeVar, 1, &l_NULL_2936);
+        *r_ss = t2937;
+        *r_r = t2938;
       }
     }
-    if (!d2765) {
-      u_no_case(s2764);
+    if (!d2894) {
+      u_no_case(s2893);
     }
   }
 }
@@ -26677,32 +27854,32 @@ void p_compile_46_compile_exprs(u_value v_gl, u_value v_env, u_value v_es, u_val
     u_value v_r = NULL;
     u_value v_bs = NULL;
     u_value v_more = NULL;
-    u_value s2810 = v_es;
-    int d2811 = 0;
-    if ((!d2811) && u_is_con(s2810, &n_list_46_Nil)) {
-      d2811 = 1;
+    u_value s2939 = v_es;
+    int d2940 = 0;
+    if ((!d2940) && u_is_con(s2939, &n_list_46_Nil)) {
+      d2940 = 1;
       {
-        u_value t2812 = &o_list_46_Nil;
-        u_value t2813 = &o_list_46_Nil;
-        *r_ss = t2812;
-        *r_rs = t2813;
+        u_value t2941 = &o_list_46_Nil;
+        u_value t2942 = &o_list_46_Nil;
+        *r_ss = t2941;
+        *r_rs = t2942;
       }
     }
-    if ((!d2811) && u_is_con(s2810, &n_list_46_Cons)) {
-      u_value v_e = u_field(s2810, 0);
-      u_value v_rest = u_field(s2810, 1);
-      d2811 = 1;
+    if ((!d2940) && u_is_con(s2939, &n_list_46_Cons)) {
+      u_value v_e = u_field(s2939, 0);
+      u_value v_rest = u_field(s2939, 1);
+      d2940 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_e, &v_as, &v_r, r_g);
         p_compile_46_compile_exprs(v_gl, v_env, v_rest, &v_bs, &v_more, r_g);
-        u_value t2814 = f_list_46__43__43__2(v_as, v_bs);
-        u_value t2815 = u_mk_con(&n_list_46_Cons, 2, v_r, v_more);
-        *r_ss = t2814;
-        *r_rs = t2815;
+        u_value t2943 = f_list_46__43__43__2(v_as, v_bs);
+        u_value t2944 = u_mk_con(&n_list_46_Cons, 2, v_r, v_more);
+        *r_ss = t2943;
+        *r_rs = t2944;
       }
     }
-    if (!d2811) {
-      u_no_case(s2810);
+    if (!d2940) {
+      u_no_case(s2939);
     }
   }
 }
@@ -26711,50 +27888,50 @@ void p_compile_46_temps(u_value v_rs, u_value *r_ss, u_value *r_g) {
   {
     u_value v_t = NULL;
     u_value v_more = NULL;
-    u_value s2816 = v_rs;
-    int d2817 = 0;
-    if ((!d2817) && u_is_con(s2816, &n_list_46_Nil)) {
-      d2817 = 1;
+    u_value s2945 = v_rs;
+    int d2946 = 0;
+    if ((!d2946) && u_is_con(s2945, &n_list_46_Nil)) {
+      d2946 = 1;
       {
-        u_value t2818 = &o_list_46_Nil;
-        *r_ss = t2818;
+        u_value t2947 = &o_list_46_Nil;
+        *r_ss = t2947;
       }
     }
-    if ((!d2817) && u_is_con(s2816, &n_list_46_Cons)) {
-      u_value v_r = u_field(s2816, 0);
-      u_value v_rest = u_field(s2816, 1);
-      d2817 = 1;
+    if ((!d2946) && u_is_con(s2945, &n_list_46_Cons)) {
+      u_value v_r = u_field(s2945, 0);
+      u_value v_rest = u_field(s2945, 1);
+      d2946 = 1;
       {
-        static struct u_object l_t_2819 = U_LIT("t");
-        p_compile_46_gen_name(&l_t_2819, &v_t, r_g);
+        static struct u_object l_t_2948 = U_LIT("t");
+        p_compile_46_gen_name(&l_t_2948, &v_t, r_g);
         p_compile_46_temps(v_rest, &v_more, r_g);
-        u_value t2820 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, u_mk_con(&n_option_46_Some, 1, v_r)), v_more);
-        *r_ss = t2820;
+        u_value t2949 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, u_mk_con(&n_option_46_Some, 1, v_r)), v_more);
+        *r_ss = t2949;
       }
     }
-    if (!d2817) {
-      u_no_case(s2816);
+    if (!d2946) {
+      u_no_case(s2945);
     }
   }
 }
 
 u_value f_compile_46_rebind_2(u_value v_xs, u_value v_ts) {
-  u_value s2821 = u_mk_tuple(2, v_xs, v_ts);
-  u_value t2822 = NULL;
-  if ((!t2822) && (u_is_con(u_field(s2821, 0), &n_list_46_Cons) && (u_is_con(u_field(s2821, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s2821, 1), 0), &n_c_46_CsDecl)))) {
-    u_value v_x = u_field(u_field(s2821, 0), 0);
-    u_value v_more = u_field(u_field(s2821, 0), 1);
-    u_value v_t = u_field(u_field(u_field(s2821, 1), 0), 1);
-    u_value v_rest = u_field(u_field(s2821, 1), 1);
-    t2822 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), f_compile_46_var_name_1(v_x), u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeVar, 1, v_t))), f_compile_46_rebind_2(v_more, v_rest));
+  u_value s2950 = u_mk_tuple(2, v_xs, v_ts);
+  u_value t2951 = NULL;
+  if ((!t2951) && (u_is_con(u_field(s2950, 0), &n_list_46_Cons) && (u_is_con(u_field(s2950, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s2950, 1), 0), &n_c_46_CsDecl)))) {
+    u_value v_x = u_field(u_field(s2950, 0), 0);
+    u_value v_more = u_field(u_field(s2950, 0), 1);
+    u_value v_t = u_field(u_field(u_field(s2950, 1), 0), 1);
+    u_value v_rest = u_field(u_field(s2950, 1), 1);
+    t2951 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), f_compile_46_var_name_1(v_x), u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeVar, 1, v_t))), f_compile_46_rebind_2(v_more, v_rest));
   }
-  if (!t2822) {
-    t2822 = &o_list_46_Nil;
+  if (!t2951) {
+    t2951 = &o_list_46_Nil;
   }
-  if (!t2822) {
-    u_no_case(s2821);
+  if (!t2951) {
+    u_no_case(s2950);
   }
-  return t2822;
+  return t2951;
 }
 
 void p_compile_46_compile_named(u_value v_gl, u_value v_env, u_value v_n, u_value v_ty, u_value v_args, u_value *r_ss, u_value *r_r, u_value *r_g) {
@@ -26765,97 +27942,97 @@ void p_compile_46_compile_named(u_value v_gl, u_value v_env, u_value v_n, u_valu
     u_value v_rb = NULL;
     u_value v_rs = NULL;
     u_value v_t = NULL;
-    u_value s2823 = v_args;
-    int d2824 = 0;
-    if ((!d2824) && (u_is_con(s2823, &n_list_46_Cons) && (u_is_con(u_field(s2823, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s2823, 1), 1), &n_list_46_Nil)))) {
-      u_value v_a = u_field(s2823, 0);
-      u_value v_b = u_field(u_field(s2823, 1), 0);
-      static struct u_object l_and_2831 = U_LIT("and");
-      u_value t2833 = u_eq(v_n, f_syntax_46_unqualified_1(&l_and_2831));
-      if (!u_truth(t2833)) {
-        static struct u_object l_or_2832 = U_LIT("or");
-        t2833 = u_eq(v_n, f_syntax_46_unqualified_1(&l_or_2832));
+    u_value s2952 = v_args;
+    int d2953 = 0;
+    if ((!d2953) && (u_is_con(s2952, &n_list_46_Cons) && (u_is_con(u_field(s2952, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s2952, 1), 1), &n_list_46_Nil)))) {
+      u_value v_a = u_field(s2952, 0);
+      u_value v_b = u_field(u_field(s2952, 1), 0);
+      static struct u_object l_and_2960 = U_LIT("and");
+      u_value t2962 = u_eq(v_n, f_syntax_46_unqualified_1(&l_and_2960));
+      if (!u_truth(t2962)) {
+        static struct u_object l_or_2961 = U_LIT("or");
+        t2962 = u_eq(v_n, f_syntax_46_unqualified_1(&l_or_2961));
       }
-      if (u_truth(t2833)) {
-        d2824 = 1;
+      if (u_truth(t2962)) {
+        d2953 = 1;
         {
           p_compile_46_compile_expr(v_gl, v_env, v_a, &v_as, &v_ra, r_g);
           p_compile_46_compile_expr(v_gl, v_env, v_b, &v_bs, &v_rb, r_g);
-          static struct u_object l_t_2825 = U_LIT("t");
-          p_compile_46_gen_name(&l_t_2825, &v_t, r_g);
-          static struct u_object l_and_2826 = U_LIT("and");
-          if (u_truth(u_eq(v_n, f_syntax_46_unqualified_1(&l_and_2826)))) {
+          static struct u_object l_t_2954 = U_LIT("t");
+          p_compile_46_gen_name(&l_t_2954, &v_t, r_g);
+          static struct u_object l_and_2955 = U_LIT("and");
+          if (u_truth(u_eq(v_n, f_syntax_46_unqualified_1(&l_and_2955)))) {
             {
-              u_value t2827 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, u_mk_con(&n_option_46_Some, 1, v_ra)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(u_mk_con(&n_c_46_CeVar, 1, v_t)), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_rb), &o_list_46_Nil)), &o_list_46_Nil), &o_list_46_Nil)));
-              *r_ss = t2827;
+              u_value t2956 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, u_mk_con(&n_option_46_Some, 1, v_ra)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(u_mk_con(&n_c_46_CeVar, 1, v_t)), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_rb), &o_list_46_Nil)), &o_list_46_Nil), &o_list_46_Nil)));
+              *r_ss = t2956;
             }
           } else {
             {
-              static struct u_object l__33__2828 = U_LIT("!");
-              u_value t2829 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, u_mk_con(&n_option_46_Some, 1, v_ra)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeUnary, 2, &l__33__2828, f_compile_46_truth_1(u_mk_con(&n_c_46_CeVar, 1, v_t))), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_rb), &o_list_46_Nil)), &o_list_46_Nil), &o_list_46_Nil)));
-              *r_ss = t2829;
+              static struct u_object l__33__2957 = U_LIT("!");
+              u_value t2958 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, u_mk_con(&n_option_46_Some, 1, v_ra)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeUnary, 2, &l__33__2957, f_compile_46_truth_1(u_mk_con(&n_c_46_CeVar, 1, v_t))), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_rb), &o_list_46_Nil)), &o_list_46_Nil), &o_list_46_Nil)));
+              *r_ss = t2958;
             }
           }
-          u_value t2830 = u_mk_con(&n_c_46_CeVar, 1, v_t);
-          *r_r = t2830;
+          u_value t2959 = u_mk_con(&n_c_46_CeVar, 1, v_t);
+          *r_r = t2959;
         }
       }
     }
-    if (!d2824) {
-      d2824 = 1;
+    if (!d2953) {
+      d2953 = 1;
       {
         p_compile_46_compile_exprs(v_gl, v_env, v_args, r_ss, &v_rs, r_g);
-        u_value t2834 = f_compile_46_is_global_fun_3(v_gl, v_n, f_list_46_size_1(v_args));
-        if (u_truth(t2834)) {
-          t2834 = u_eq(f_syntax_46_arity_1(v_ty), f_list_46_size_1(v_args));
+        u_value t2963 = f_compile_46_is_global_fun_3(v_gl, v_n, f_list_46_size_1(v_args));
+        if (u_truth(t2963)) {
+          t2963 = u_eq(f_syntax_46_arity_1(v_ty), f_list_46_size_1(v_args));
         }
-        if (u_truth(t2834)) {
+        if (u_truth(t2963)) {
           {
-            u_value t2835 = f_c_46_c_call_2(f_compile_46_fun_name_2(v_n, f_list_46_size_1(v_args)), v_rs);
-            *r_r = t2835;
+            u_value t2964 = f_c_46_c_call_2(f_compile_46_fun_name_2(v_n, f_list_46_size_1(v_args)), v_rs);
+            *r_r = t2964;
           }
         } else {
-          u_value t2836 = u_eq(f_compile_46_fields_count_2(v_gl, v_n), u_mk_con(&n_option_46_Some, 1, u_mk_int(0)));
-          if (u_truth(t2836)) {
-            t2836 = u_eq(v_args, &o_list_46_Nil);
+          u_value t2965 = u_eq(f_compile_46_fields_count_2(v_gl, v_n), u_mk_con(&n_option_46_Some, 1, u_mk_int(0)));
+          if (u_truth(t2965)) {
+            t2965 = u_eq(v_args, &o_list_46_Nil);
           }
-          if (u_truth(t2836)) {
+          if (u_truth(t2965)) {
             {
-              u_value t2837 = f_compile_46_unit_value_1(v_n);
-              *r_r = t2837;
+              u_value t2966 = f_compile_46_unit_value_1(v_n);
+              *r_r = t2966;
             }
           } else {
             if (u_truth(u_eq(f_compile_46_fields_count_2(v_gl, v_n), u_mk_con(&n_option_46_Some, 1, f_list_46_size_1(v_args))))) {
               {
-                static struct u_object l_u_mk_con_2838 = U_LIT("u_mk_con");
-                u_value t2839 = f_c_46_c_call_2(&l_u_mk_con_2838, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_1(v_n), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_args)), &o_list_46_Nil)), v_rs));
-                *r_r = t2839;
+                static struct u_object l_u_mk_con_2967 = U_LIT("u_mk_con");
+                u_value t2968 = f_c_46_c_call_2(&l_u_mk_con_2967, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_1(v_n), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_args)), &o_list_46_Nil)), v_rs));
+                *r_r = t2968;
               }
             } else {
               {
-                u_value s2840 = f_map_46_get_2(v_n, f_compile_46_builtin_functions_0());
-                int d2841 = 0;
-                if ((!d2841) && u_is_con(s2840, &n_option_46_Some)) {
-                  u_value v_b = u_field(u_field(s2840, 0), 0);
-                  u_value v_k = u_field(u_field(s2840, 0), 1);
+                u_value s2969 = f_map_46_get_2(v_n, f_compile_46_builtin_functions_0());
+                int d2970 = 0;
+                if ((!d2970) && u_is_con(s2969, &n_option_46_Some)) {
+                  u_value v_b = u_field(u_field(s2969, 0), 0);
+                  u_value v_k = u_field(u_field(s2969, 0), 1);
                   if (u_truth(u_eq(v_k, f_list_46_size_1(v_args)))) {
-                    d2841 = 1;
+                    d2970 = 1;
                     {
-                      u_value t2842 = f_c_46_c_call_2(v_b, v_rs);
-                      *r_r = t2842;
+                      u_value t2971 = f_c_46_c_call_2(v_b, v_rs);
+                      *r_r = t2971;
                     }
                   }
                 }
-                if (!d2841) {
-                  d2841 = 1;
+                if (!d2970) {
+                  d2970 = 1;
                   {
-                    static struct u_object l_u_apply_2843 = U_LIT("u_apply");
-                    u_value t2844 = f_c_46_c_call_2(&l_u_apply_2843, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_compile_46_global_value_3(v_gl, v_n, v_ty), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_args)), &o_list_46_Nil)), v_rs));
-                    *r_r = t2844;
+                    static struct u_object l_u_apply_2972 = U_LIT("u_apply");
+                    u_value t2973 = f_c_46_c_call_2(&l_u_apply_2972, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_compile_46_global_value_3(v_gl, v_n, v_ty), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_args)), &o_list_46_Nil)), v_rs));
+                    *r_r = t2973;
                   }
                 }
-                if (!d2841) {
-                  u_no_case(s2840);
+                if (!d2970) {
+                  u_no_case(s2969);
                 }
               }
             }
@@ -26863,8 +28040,8 @@ void p_compile_46_compile_named(u_value v_gl, u_value v_env, u_value v_n, u_valu
         }
       }
     }
-    if (!d2824) {
-      u_no_case(s2823);
+    if (!d2953) {
+      u_no_case(s2952);
     }
   }
 }
@@ -26876,43 +28053,43 @@ void p_compile_46_compile_lambda(u_value v_gl, u_value v_env, u_value v_xs, u_va
     u_value v_bs = NULL;
     u_value v_rb = NULL;
     u_value v_decls = NULL;
-    u_value t2845 = &o_list_46_Nil;
-    u_value *e2846 = &t2845;
-    u_value l2847 = f_list_46_distinct_1(f_compile_46_free_vars_2(v_b, f_syntax_46_names_1(v_xs)));
-    while (u_is_con(l2847, &n_list_46_Cons)) {
-      u_value v_x = u_field(l2847, 0);
+    u_value t2974 = &o_list_46_Nil;
+    u_value *e2975 = &t2974;
+    u_value l2976 = f_list_46_distinct_1(f_compile_46_free_vars_2(v_b, f_syntax_46_names_1(v_xs)));
+    while (u_is_con(l2976, &n_list_46_Cons)) {
+      u_value v_x = u_field(l2976, 0);
       if (u_truth(f_list_46_contains_2(v_x, f_list_46_keys_1(v_env)))) {
-        e2846 = u_append(e2846, v_x);
+        e2975 = u_append(e2975, v_x);
       }
-      l2847 = u_field(l2847, 1);
+      l2976 = u_field(l2976, 1);
     }
-    u_value t2848 = t2845;
-    v_caps = t2848;
-    static struct u_object l_lam_2849 = U_LIT("lam");
-    p_compile_46_gen_name(&l_lam_2849, &v_f, r_g);
+    u_value t2977 = t2974;
+    v_caps = t2977;
+    static struct u_object l_lam_2978 = U_LIT("lam");
+    p_compile_46_gen_name(&l_lam_2978, &v_f, r_g);
     p_compile_46_compile_expr(v_gl, f_compile_46_in_scope_1(f_list_46__43__43__2(v_caps, f_syntax_46_names_1(v_xs))), v_b, &v_bs, &v_rb, r_g);
-    static struct u_object l_env_2850 = U_LIT("env");
-    static struct u_object l_args_2851 = U_LIT("args");
-    u_value t2852 = f_list_46__43__43__2(f_compile_46_unpack_2(f_compile_46_numbered_2(v_caps, u_mk_int(0)), &l_env_2850), f_compile_46_unpack_2(f_compile_46_numbered_2(f_syntax_46_names_1(v_xs), u_mk_int(0)), &l_args_2851));
-    v_decls = t2852;
-    static struct u_object l_env_2853 = U_LIT("env");
-    static struct u_object l_args_2854 = U_LIT("args");
-    p_compile_46_lift(u_mk_con(&n_c_46_CdFunction, 4, f_compile_46_value_type_0(), v_f, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_env_2853), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_args_2854), &o_list_46_Nil)), f_list_46__43__43__2(v_decls, f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, v_rb)), &o_list_46_Nil)))), r_g);
-    static struct u_object l_u_mk_closure_2855 = U_LIT("u_mk_closure");
-    u_value t2856 = &o_list_46_Nil;
-    u_value *e2857 = &t2856;
-    u_value l2858 = v_caps;
-    while (u_is_con(l2858, &n_list_46_Cons)) {
-      u_value v_x = u_field(l2858, 0);
+    static struct u_object l_env_2979 = U_LIT("env");
+    static struct u_object l_args_2980 = U_LIT("args");
+    u_value t2981 = f_list_46__43__43__2(f_compile_46_unpack_2(f_compile_46_numbered_2(v_caps, u_mk_int(0)), &l_env_2979), f_compile_46_unpack_2(f_compile_46_numbered_2(f_syntax_46_names_1(v_xs), u_mk_int(0)), &l_args_2980));
+    v_decls = t2981;
+    static struct u_object l_env_2982 = U_LIT("env");
+    static struct u_object l_args_2983 = U_LIT("args");
+    p_compile_46_lift(u_mk_con(&n_c_46_CdFunction, 4, f_compile_46_value_type_0(), v_f, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_env_2982), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_args_2983), &o_list_46_Nil)), f_list_46__43__43__2(v_decls, f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, v_rb)), &o_list_46_Nil)))), r_g);
+    static struct u_object l_u_mk_closure_2984 = U_LIT("u_mk_closure");
+    u_value t2985 = &o_list_46_Nil;
+    u_value *e2986 = &t2985;
+    u_value l2987 = v_caps;
+    while (u_is_con(l2987, &n_list_46_Cons)) {
+      u_value v_x = u_field(l2987, 0);
       if (u_truth(u_mk_bool(1))) {
-        e2857 = u_append(e2857, f_compile_46_var_expr_2(v_env, v_x));
+        e2986 = u_append(e2986, f_compile_46_var_expr_2(v_env, v_x));
       }
-      l2858 = u_field(l2858, 1);
+      l2987 = u_field(l2987, 1);
     }
-    u_value t2859 = &o_list_46_Nil;
-    u_value t2860 = f_c_46_c_call_2(&l_u_mk_closure_2855, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_f), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_caps)), &o_list_46_Nil)), t2856));
-    *r_ss = t2859;
-    *r_r = t2860;
+    u_value t2988 = &o_list_46_Nil;
+    u_value t2989 = f_c_46_c_call_2(&l_u_mk_closure_2984, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_f), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_caps)), &o_list_46_Nil)), t2985));
+    *r_ss = t2988;
+    *r_r = t2989;
   }
 }
 
@@ -26922,51 +28099,51 @@ void p_compile_46_compile_proc_lambda(u_value v_gl, u_value v_env, u_value v_ins
     u_value v_f = NULL;
     u_value v_bs = NULL;
     u_value v_decls = NULL;
-    u_value t2861 = &o_list_46_Nil;
-    u_value *e2862 = &t2861;
-    u_value l2863 = f_list_46_distinct_1(f_compile_46_free_in_stmt_2(v_b, f_syntax_46_names_1(f_list_46__43__43__2(v_ins, v_outs))));
-    while (u_is_con(l2863, &n_list_46_Cons)) {
-      u_value v_x = u_field(l2863, 0);
+    u_value t2990 = &o_list_46_Nil;
+    u_value *e2991 = &t2990;
+    u_value l2992 = f_list_46_distinct_1(f_compile_46_free_in_stmt_2(v_b, f_syntax_46_names_1(f_list_46__43__43__2(v_ins, v_outs))));
+    while (u_is_con(l2992, &n_list_46_Cons)) {
+      u_value v_x = u_field(l2992, 0);
       if (u_truth(f_list_46_contains_2(v_x, f_list_46_keys_1(v_env)))) {
-        e2862 = u_append(e2862, v_x);
+        e2991 = u_append(e2991, v_x);
       }
-      l2863 = u_field(l2863, 1);
+      l2992 = u_field(l2992, 1);
     }
-    u_value t2864 = t2861;
-    v_caps = t2864;
-    static struct u_object l_proc_2865 = U_LIT("proc");
-    p_compile_46_gen_name(&l_proc_2865, &v_f, r_g);
-    u_value t2866 = &o_list_46_Nil;
-    u_value *e2867 = &t2866;
-    u_value l2868 = f_syntax_46_names_1(v_outs);
-    while (u_is_con(l2868, &n_list_46_Cons)) {
-      u_value v_x = u_field(l2868, 0);
+    u_value t2993 = t2990;
+    v_caps = t2993;
+    static struct u_object l_proc_2994 = U_LIT("proc");
+    p_compile_46_gen_name(&l_proc_2994, &v_f, r_g);
+    u_value t2995 = &o_list_46_Nil;
+    u_value *e2996 = &t2995;
+    u_value l2997 = f_syntax_46_names_1(v_outs);
+    while (u_is_con(l2997, &n_list_46_Cons)) {
+      u_value v_x = u_field(l2997, 0);
       if (u_truth(u_mk_bool(1))) {
-        e2867 = u_append(e2867, f_compile_46_pointer_1(v_x));
+        e2996 = u_append(e2996, f_compile_46_pointer_1(v_x));
       }
-      l2868 = u_field(l2868, 1);
+      l2997 = u_field(l2997, 1);
     }
-    p_compile_46_compile_stmt(v_gl, f_list_46__43__43__2(f_compile_46_in_scope_1(f_list_46__43__43__2(v_caps, f_syntax_46_names_1(v_ins))), t2866), v_b, &v_bs, r_g);
-    static struct u_object l_env_2869 = U_LIT("env");
-    static struct u_object l_ins_2870 = U_LIT("ins");
-    u_value t2871 = f_list_46__43__43__2(f_compile_46_unpack_2(f_compile_46_numbered_2(v_caps, u_mk_int(0)), &l_env_2869), f_list_46__43__43__2(f_compile_46_unpack_2(f_compile_46_numbered_2(f_syntax_46_names_1(v_ins), u_mk_int(0)), &l_ins_2870), f_compile_46_unpack_pointers_1(f_compile_46_numbered_2(f_syntax_46_names_1(v_outs), u_mk_int(0)))));
-    v_decls = t2871;
+    p_compile_46_compile_stmt(v_gl, f_list_46__43__43__2(f_compile_46_in_scope_1(f_list_46__43__43__2(v_caps, f_syntax_46_names_1(v_ins))), t2995), v_b, &v_bs, r_g);
+    static struct u_object l_env_2998 = U_LIT("env");
+    static struct u_object l_ins_2999 = U_LIT("ins");
+    u_value t3000 = f_list_46__43__43__2(f_compile_46_unpack_2(f_compile_46_numbered_2(v_caps, u_mk_int(0)), &l_env_2998), f_list_46__43__43__2(f_compile_46_unpack_2(f_compile_46_numbered_2(f_syntax_46_names_1(v_ins), u_mk_int(0)), &l_ins_2999), f_compile_46_unpack_pointers_1(f_compile_46_numbered_2(f_syntax_46_names_1(v_outs), u_mk_int(0)))));
+    v_decls = t3000;
     p_compile_46_lift(u_mk_con(&n_c_46_CdFunction, 4, &o_c_46_CtVoid, v_f, f_compile_46_proc_params_0(), f_list_46__43__43__2(v_decls, v_bs)), r_g);
-    static struct u_object l_u_mk_proc_2872 = U_LIT("u_mk_proc");
-    u_value t2873 = &o_list_46_Nil;
-    u_value *e2874 = &t2873;
-    u_value l2875 = v_caps;
-    while (u_is_con(l2875, &n_list_46_Cons)) {
-      u_value v_x = u_field(l2875, 0);
+    static struct u_object l_u_mk_proc_3001 = U_LIT("u_mk_proc");
+    u_value t3002 = &o_list_46_Nil;
+    u_value *e3003 = &t3002;
+    u_value l3004 = v_caps;
+    while (u_is_con(l3004, &n_list_46_Cons)) {
+      u_value v_x = u_field(l3004, 0);
       if (u_truth(u_mk_bool(1))) {
-        e2874 = u_append(e2874, f_compile_46_var_expr_2(v_env, v_x));
+        e3003 = u_append(e3003, f_compile_46_var_expr_2(v_env, v_x));
       }
-      l2875 = u_field(l2875, 1);
+      l3004 = u_field(l3004, 1);
     }
-    u_value t2876 = &o_list_46_Nil;
-    u_value t2877 = f_c_46_c_call_2(&l_u_mk_proc_2872, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_f), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_caps)), &o_list_46_Nil)), t2873));
-    *r_ss = t2876;
-    *r_r = t2877;
+    u_value t3005 = &o_list_46_Nil;
+    u_value t3006 = f_c_46_c_call_2(&l_u_mk_proc_3001, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_f), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_caps)), &o_list_46_Nil)), t3002));
+    *r_ss = t3005;
+    *r_r = t3006;
   }
 }
 
@@ -26985,49 +28162,49 @@ u_value f_compile_46_proc_params_0(void) {
     cache = NULL;
     u_reraise(handler);
   }
-  static struct u_object l_env_2878 = U_LIT("env");
-  static struct u_object l_ins_2879 = U_LIT("ins");
-  static struct u_object l_outs_2880 = U_LIT("outs");
+  static struct u_object l_env_3007 = U_LIT("env");
+  static struct u_object l_ins_3008 = U_LIT("ins");
+  static struct u_object l_outs_3009 = U_LIT("outs");
   u_pop(handler);
-  cache = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_env_2878), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_ins_2879), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_c_46_CtPtr, 1, f_compile_46_value_ptr_0()), &l_outs_2880), &o_list_46_Nil)));
+  cache = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_env_3007), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_ins_3008), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_c_46_CtPtr, 1, f_compile_46_value_ptr_0()), &l_outs_3009), &o_list_46_Nil)));
   return cache;
 }
 
 u_value f_compile_46_unpack_pointers_1(u_value v_xs) {
-  u_value s2881 = v_xs;
-  u_value t2882 = NULL;
-  if ((!t2882) && u_is_con(s2881, &n_list_46_Nil)) {
-    t2882 = &o_list_46_Nil;
+  u_value s3010 = v_xs;
+  u_value t3011 = NULL;
+  if ((!t3011) && u_is_con(s3010, &n_list_46_Nil)) {
+    t3011 = &o_list_46_Nil;
   }
-  if ((!t2882) && u_is_con(s2881, &n_list_46_Cons)) {
-    u_value v_x = u_field(u_field(s2881, 0), 0);
-    u_value v_i = u_field(u_field(s2881, 0), 1);
-    u_value v_rest = u_field(s2881, 1);
-    static struct u_object l_outs_2883 = U_LIT("outs");
-    t2882 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_ptr_0(), f_compile_46_ref_name_1(v_x), u_mk_con(&n_option_46_Some, 1, f_compile_46_index_2(&l_outs_2883, v_i))), f_compile_46_unpack_pointers_1(v_rest));
+  if ((!t3011) && u_is_con(s3010, &n_list_46_Cons)) {
+    u_value v_x = u_field(u_field(s3010, 0), 0);
+    u_value v_i = u_field(u_field(s3010, 0), 1);
+    u_value v_rest = u_field(s3010, 1);
+    static struct u_object l_outs_3012 = U_LIT("outs");
+    t3011 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_ptr_0(), f_compile_46_ref_name_1(v_x), u_mk_con(&n_option_46_Some, 1, f_compile_46_index_2(&l_outs_3012, v_i))), f_compile_46_unpack_pointers_1(v_rest));
   }
-  if (!t2882) {
-    u_no_case(s2881);
+  if (!t3011) {
+    u_no_case(s3010);
   }
-  return t2882;
+  return t3011;
 }
 
 u_value f_compile_46_unpack_2(u_value v_xs, u_value v_a) {
-  u_value s2884 = v_xs;
-  u_value t2885 = NULL;
-  if ((!t2885) && u_is_con(s2884, &n_list_46_Nil)) {
-    t2885 = &o_list_46_Nil;
+  u_value s3013 = v_xs;
+  u_value t3014 = NULL;
+  if ((!t3014) && u_is_con(s3013, &n_list_46_Nil)) {
+    t3014 = &o_list_46_Nil;
   }
-  if ((!t2885) && u_is_con(s2884, &n_list_46_Cons)) {
-    u_value v_x = u_field(u_field(s2884, 0), 0);
-    u_value v_i = u_field(u_field(s2884, 0), 1);
-    u_value v_rest = u_field(s2884, 1);
-    t2885 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), f_compile_46_var_name_1(v_x), u_mk_con(&n_option_46_Some, 1, f_compile_46_index_2(v_a, v_i))), f_compile_46_unpack_2(v_rest, v_a));
+  if ((!t3014) && u_is_con(s3013, &n_list_46_Cons)) {
+    u_value v_x = u_field(u_field(s3013, 0), 0);
+    u_value v_i = u_field(u_field(s3013, 0), 1);
+    u_value v_rest = u_field(s3013, 1);
+    t3014 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), f_compile_46_var_name_1(v_x), u_mk_con(&n_option_46_Some, 1, f_compile_46_index_2(v_a, v_i))), f_compile_46_unpack_2(v_rest, v_a));
   }
-  if (!t2885) {
-    u_no_case(s2884);
+  if (!t3014) {
+    u_no_case(s3013);
   }
-  return t2885;
+  return t3014;
 }
 
 void p_compile_46_expr_cases(u_value v_gl, u_value v_env, u_value v_cases, u_value v_v, u_value v_t, u_value *r_ss, u_value *r_g) {
@@ -27039,54 +28216,54 @@ void p_compile_46_expr_cases(u_value v_gl, u_value v_env, u_value v_cases, u_val
     u_value v_body = NULL;
     u_value v_rest = NULL;
     u_value v_env1 = NULL;
-    u_value s2886 = v_cases;
-    int d2887 = 0;
-    if ((!d2887) && u_is_con(s2886, &n_list_46_Nil)) {
-      d2887 = 1;
+    u_value s3015 = v_cases;
+    int d3016 = 0;
+    if ((!d3016) && u_is_con(s3015, &n_list_46_Nil)) {
+      d3016 = 1;
       {
-        u_value t2888 = &o_list_46_Nil;
-        *r_ss = t2888;
+        u_value t3017 = &o_list_46_Nil;
+        *r_ss = t3017;
       }
     }
-    if ((!d2887) && (u_is_con(s2886, &n_list_46_Cons) && u_is_con(u_field(s2886, 0), &n_syntax_46_Branch))) {
-      u_value v_p = u_field(u_field(s2886, 0), 0);
-      u_value v_guard = u_field(u_field(s2886, 0), 1);
-      u_value v_e = u_field(u_field(s2886, 0), 2);
-      u_value v_more = u_field(s2886, 1);
-      d2887 = 1;
+    if ((!d3016) && (u_is_con(s3015, &n_list_46_Cons) && u_is_con(u_field(s3015, 0), &n_syntax_46_Branch))) {
+      u_value v_p = u_field(u_field(s3015, 0), 0);
+      u_value v_guard = u_field(u_field(s3015, 0), 1);
+      u_value v_e = u_field(u_field(s3015, 0), 2);
+      u_value v_more = u_field(s3015, 1);
+      d3016 = 1;
       {
-        u_value t2889 = f_list_46__43__43__2(f_compile_46_in_scope_1(f_compile_46_pattern_names_1(v_p)), v_env);
-        v_env1 = t2889;
+        u_value t3018 = f_list_46__43__43__2(f_compile_46_in_scope_1(f_compile_46_pattern_names_1(v_p)), v_env);
+        v_env1 = t3018;
         p_compile_46_compile_expr(v_gl, v_env1, v_e, &v_bs, &v_rb, r_g);
-        u_value t2890 = f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_rb), &o_list_46_Nil));
-        v_body = t2890;
-        u_value s2891 = v_guard;
-        int d2892 = 0;
-        if ((!d2892) && u_is_con(s2891, &n_option_46_Some)) {
-          u_value v_c = u_field(s2891, 0);
-          d2892 = 1;
+        u_value t3019 = f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_rb), &o_list_46_Nil));
+        v_body = t3019;
+        u_value s3020 = v_guard;
+        int d3021 = 0;
+        if ((!d3021) && u_is_con(s3020, &n_option_46_Some)) {
+          u_value v_c = u_field(s3020, 0);
+          d3021 = 1;
           {
             p_compile_46_compile_expr(v_gl, v_env1, v_c, &v_gs, &v_rg, r_g);
-            u_value t2893 = f_list_46__43__43__2(v_gs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(v_rg), v_body, &o_list_46_Nil), &o_list_46_Nil));
-            v_body = t2893;
+            u_value t3022 = f_list_46__43__43__2(v_gs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(v_rg), v_body, &o_list_46_Nil), &o_list_46_Nil));
+            v_body = t3022;
           }
         }
-        if ((!d2892) && u_is_con(s2891, &n_option_46_None)) {
-          d2892 = 1;
+        if ((!d3021) && u_is_con(s3020, &n_option_46_None)) {
+          d3021 = 1;
           {
           }
         }
-        if (!d2892) {
-          u_no_case(s2891);
+        if (!d3021) {
+          u_no_case(s3020);
         }
         p_compile_46_expr_cases(v_gl, v_env, v_more, v_v, v_t, &v_rest, r_g);
-        static struct u_object l__33__2894 = U_LIT("!");
-        u_value t2895 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_conjunction_1(f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeUnary, 2, &l__33__2894, u_mk_con(&n_c_46_CeVar, 1, v_t)), &o_list_46_Nil), f_compile_46_pattern_tests_2(v_p, v_v))), f_list_46__43__43__2(f_compile_46_pattern_binds_2(v_p, v_v), v_body), &o_list_46_Nil), &o_list_46_Nil), v_rest);
-        *r_ss = t2895;
+        static struct u_object l__33__3023 = U_LIT("!");
+        u_value t3024 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_conjunction_1(f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeUnary, 2, &l__33__3023, u_mk_con(&n_c_46_CeVar, 1, v_t)), &o_list_46_Nil), f_compile_46_pattern_tests_2(v_p, v_v))), f_list_46__43__43__2(f_compile_46_pattern_binds_2(v_p, v_v), v_body), &o_list_46_Nil), &o_list_46_Nil), v_rest);
+        *r_ss = t3024;
       }
     }
-    if (!d2887) {
-      u_no_case(s2886);
+    if (!d3016) {
+      u_no_case(s3015);
     }
   }
 }
@@ -27101,38 +28278,38 @@ void p_compile_46_compile_loops(u_value v_gl, u_value v_env, u_value v_xs, u_val
     u_value v_rl = NULL;
     u_value v_l = NULL;
     u_value v_inner = NULL;
-    u_value s2896 = u_mk_tuple(2, v_xs, v_lists);
-    int d2897 = 0;
-    if ((!d2897) && (u_is_con(u_field(s2896, 0), &n_list_46_Cons) && u_is_con(u_field(s2896, 1), &n_list_46_Cons))) {
-      u_value v_x = u_field(u_field(s2896, 0), 0);
-      u_value v_more = u_field(u_field(s2896, 0), 1);
-      u_value v_list = u_field(u_field(s2896, 1), 0);
-      u_value v_others = u_field(u_field(s2896, 1), 1);
-      d2897 = 1;
+    u_value s3025 = u_mk_tuple(2, v_xs, v_lists);
+    int d3026 = 0;
+    if ((!d3026) && (u_is_con(u_field(s3025, 0), &n_list_46_Cons) && u_is_con(u_field(s3025, 1), &n_list_46_Cons))) {
+      u_value v_x = u_field(u_field(s3025, 0), 0);
+      u_value v_more = u_field(u_field(s3025, 0), 1);
+      u_value v_list = u_field(u_field(s3025, 1), 0);
+      u_value v_others = u_field(u_field(s3025, 1), 1);
+      d3026 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_list, &v_ls, &v_rl, r_g);
-        static struct u_object l_l_2898 = U_LIT("l");
-        p_compile_46_gen_name(&l_l_2898, &v_l, r_g);
+        static struct u_object l_l_3027 = U_LIT("l");
+        p_compile_46_gen_name(&l_l_3027, &v_l, r_g);
         p_compile_46_compile_loops(v_gl, f_list_46__43__43__2(f_compile_46_in_scope_1(u_mk_con(&n_list_46_Cons, 2, f_syntax_46_Var_46_name_1(v_x), &o_list_46_Nil)), v_env), v_more, v_others, v_result, v_c, v_t, &v_inner, r_g);
-        u_value t2899 = f_list_46__43__43__2(v_ls, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_l, u_mk_con(&n_option_46_Some, 1, v_rl)), &o_list_46_Nil));
-        *r_ss = t2899;
-        static struct u_object l_u_is_con_2900 = U_LIT("u_is_con");
-        u_value t2901 = f_list_46__43__43__2(*r_ss, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsWhile, 2, f_c_46_c_call_2(&l_u_is_con_2900, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_l), u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_1(f_syntax_46_cons_name_0()), &o_list_46_Nil))), f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), f_compile_46_var_name_1(f_syntax_46_Var_46_name_1(v_x)), u_mk_con(&n_option_46_Some, 1, f_compile_46_field_2(u_mk_con(&n_c_46_CeVar, 1, v_l), u_mk_int(0)))), &o_list_46_Nil), f_list_46__43__43__2(v_inner, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_l), f_compile_46_field_2(u_mk_con(&n_c_46_CeVar, 1, v_l), u_mk_int(1))), &o_list_46_Nil)))), &o_list_46_Nil));
-        *r_ss = t2901;
+        u_value t3028 = f_list_46__43__43__2(v_ls, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_l, u_mk_con(&n_option_46_Some, 1, v_rl)), &o_list_46_Nil));
+        *r_ss = t3028;
+        static struct u_object l_u_is_con_3029 = U_LIT("u_is_con");
+        u_value t3030 = f_list_46__43__43__2(*r_ss, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsWhile, 2, f_c_46_c_call_2(&l_u_is_con_3029, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_l), u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_1(f_syntax_46_cons_name_0()), &o_list_46_Nil))), f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), f_compile_46_var_name_1(f_syntax_46_Var_46_name_1(v_x)), u_mk_con(&n_option_46_Some, 1, f_compile_46_field_2(u_mk_con(&n_c_46_CeVar, 1, v_l), u_mk_int(0)))), &o_list_46_Nil), f_list_46__43__43__2(v_inner, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_l), f_compile_46_field_2(u_mk_con(&n_c_46_CeVar, 1, v_l), u_mk_int(1))), &o_list_46_Nil)))), &o_list_46_Nil));
+        *r_ss = t3030;
       }
     }
-    if (!d2897) {
-      d2897 = 1;
+    if (!d3026) {
+      d3026 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_c, &v_cs, &v_rc, r_g);
         p_compile_46_compile_expr(v_gl, v_env, v_result, &v_bs, &v_rb, r_g);
-        static struct u_object l_u_append_2902 = U_LIT("u_append");
-        u_value t2903 = f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(v_rc), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), f_c_46_c_call_2(&l_u_append_2902, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), u_mk_con(&n_list_46_Cons, 2, v_rb, &o_list_46_Nil)))), &o_list_46_Nil)), &o_list_46_Nil), &o_list_46_Nil));
-        *r_ss = t2903;
+        static struct u_object l_u_append_3031 = U_LIT("u_append");
+        u_value t3032 = f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(v_rc), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), f_c_46_c_call_2(&l_u_append_3031, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), u_mk_con(&n_list_46_Cons, 2, v_rb, &o_list_46_Nil)))), &o_list_46_Nil)), &o_list_46_Nil), &o_list_46_Nil));
+        *r_ss = t3032;
       }
     }
-    if (!d2897) {
-      u_no_case(s2896);
+    if (!d3026) {
+      u_no_case(s3025);
     }
   }
 }
@@ -27148,195 +28325,195 @@ void p_compile_46_compile_stmt(u_value v_gl, u_value v_env, u_value v_s, u_value
     u_value v_rs = NULL;
     u_value v_t = NULL;
     u_value v_d = NULL;
-    u_value s2904 = v_s;
-    int d2905 = 0;
-    if ((!d2905) && u_is_con(s2904, &n_syntax_46_SSkip)) {
-      d2905 = 1;
+    u_value s3033 = v_s;
+    int d3034 = 0;
+    if ((!d3034) && u_is_con(s3033, &n_syntax_46_SSkip)) {
+      d3034 = 1;
       {
-        u_value t2906 = &o_list_46_Nil;
-        *r_ss = t2906;
+        u_value t3035 = &o_list_46_Nil;
+        *r_ss = t3035;
       }
     }
-    if ((!d2905) && u_is_con(s2904, &n_syntax_46_SAssign)) {
-      u_value v_pairs = u_field(s2904, 0);
-      d2905 = 1;
+    if ((!d3034) && u_is_con(s3033, &n_syntax_46_SAssign)) {
+      u_value v_pairs = u_field(s3033, 0);
+      d3034 = 1;
       {
         p_compile_46_compile_exprs(v_gl, v_env, f_list_46_seconds_1(v_pairs), &v_as, &v_rs, r_g);
         p_compile_46_temps(v_rs, &v_cs, r_g);
-        u_value t2907 = f_list_46__43__43__2(v_as, f_list_46__43__43__2(v_cs, f_compile_46_reassign_3(v_env, f_syntax_46_names_1(f_list_46_firsts_1(v_pairs)), v_cs)));
-        *r_ss = t2907;
+        u_value t3036 = f_list_46__43__43__2(v_as, f_list_46__43__43__2(v_cs, f_compile_46_reassign_3(v_env, f_syntax_46_names_1(f_list_46_firsts_1(v_pairs)), v_cs)));
+        *r_ss = t3036;
       }
     }
-    if ((!d2905) && u_is_con(s2904, &n_syntax_46_SBlock)) {
-      u_value v_xs = u_field(s2904, 0);
-      u_value v_body = u_field(s2904, 1);
-      d2905 = 1;
+    if ((!d3034) && u_is_con(s3033, &n_syntax_46_SBlock)) {
+      u_value v_xs = u_field(s3033, 0);
+      u_value v_body = u_field(s3033, 1);
+      d3034 = 1;
       {
         p_compile_46_compile_stmts(v_gl, f_list_46__43__43__2(f_compile_46_in_scope_1(f_syntax_46_names_1(v_xs)), v_env), v_body, &v_bs, r_g);
-        u_value t2908 = &o_list_46_Nil;
-        u_value *e2909 = &t2908;
-        u_value l2910 = f_syntax_46_names_1(v_xs);
-        while (u_is_con(l2910, &n_list_46_Cons)) {
-          u_value v_x = u_field(l2910, 0);
+        u_value t3037 = &o_list_46_Nil;
+        u_value *e3038 = &t3037;
+        u_value l3039 = f_syntax_46_names_1(v_xs);
+        while (u_is_con(l3039, &n_list_46_Cons)) {
+          u_value v_x = u_field(l3039, 0);
           if (u_truth(u_mk_bool(1))) {
-            static struct u_object l_NULL_2911 = U_LIT("NULL");
-            e2909 = u_append(e2909, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), f_compile_46_var_name_1(v_x), u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeVar, 1, &l_NULL_2911))));
+            static struct u_object l_NULL_3040 = U_LIT("NULL");
+            e3038 = u_append(e3038, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), f_compile_46_var_name_1(v_x), u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeVar, 1, &l_NULL_3040))));
           }
-          l2910 = u_field(l2910, 1);
+          l3039 = u_field(l3039, 1);
         }
-        u_value t2912 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsBlock, 1, f_list_46__43__43__2(t2908, v_bs)), &o_list_46_Nil);
-        *r_ss = t2912;
+        u_value t3041 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsBlock, 1, f_list_46__43__43__2(t3037, v_bs)), &o_list_46_Nil);
+        *r_ss = t3041;
       }
     }
-    if ((!d2905) && u_is_con(s2904, &n_syntax_46_SIf)) {
-      u_value v_c = u_field(s2904, 0);
-      u_value v_l = u_field(s2904, 1);
-      u_value v_r = u_field(s2904, 2);
-      d2905 = 1;
+    if ((!d3034) && u_is_con(s3033, &n_syntax_46_SIf)) {
+      u_value v_c = u_field(s3033, 0);
+      u_value v_l = u_field(s3033, 1);
+      u_value v_r = u_field(s3033, 2);
+      d3034 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_c, &v_cs, &v_rc, r_g);
         p_compile_46_compile_stmt(v_gl, v_env, v_l, &v_as, r_g);
         p_compile_46_compile_stmt(v_gl, v_env, v_r, &v_bs, r_g);
-        u_value t2913 = f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(v_rc), v_as, v_bs), &o_list_46_Nil));
-        *r_ss = t2913;
+        u_value t3042 = f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(v_rc), v_as, v_bs), &o_list_46_Nil));
+        *r_ss = t3042;
       }
     }
-    if ((!d2905) && u_is_con(s2904, &n_syntax_46_SWhile)) {
-      u_value v_c = u_field(s2904, 0);
-      u_value v_b = u_field(s2904, 1);
-      d2905 = 1;
+    if ((!d3034) && u_is_con(s3033, &n_syntax_46_SWhile)) {
+      u_value v_c = u_field(s3033, 0);
+      u_value v_b = u_field(s3033, 1);
+      d3034 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_c, &v_cs, &v_rc, r_g);
         p_compile_46_compile_stmt(v_gl, v_env, v_b, &v_bs, r_g);
-        static struct u_object l_t_2914 = U_LIT("t");
-        p_compile_46_gen_name(&l_t_2914, &v_t, r_g);
+        static struct u_object l_t_3043 = U_LIT("t");
+        p_compile_46_gen_name(&l_t_3043, &v_t, r_g);
         p_compile_46_compile_expr(v_gl, v_env, v_c, &v_as, &v_ra, r_g);
-        u_value t2915 = f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, u_mk_con(&n_option_46_Some, 1, v_rc)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsWhile, 2, f_compile_46_truth_1(u_mk_con(&n_c_46_CeVar, 1, v_t)), f_list_46__43__43__2(v_bs, f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_ra), &o_list_46_Nil)))), &o_list_46_Nil)));
-        *r_ss = t2915;
+        u_value t3044 = f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_t, u_mk_con(&n_option_46_Some, 1, v_rc)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsWhile, 2, f_compile_46_truth_1(u_mk_con(&n_c_46_CeVar, 1, v_t)), f_list_46__43__43__2(v_bs, f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_t), v_ra), &o_list_46_Nil)))), &o_list_46_Nil)));
+        *r_ss = t3044;
       }
     }
-    if ((!d2905) && u_is_con(s2904, &n_syntax_46_SCall)) {
-      u_value v_p = u_field(s2904, 0);
-      u_value v_ins = u_field(s2904, 1);
-      u_value v_outs = u_field(s2904, 2);
-      u_value v_refs = u_field(s2904, 3);
-      d2905 = 1;
+    if ((!d3034) && u_is_con(s3033, &n_syntax_46_SCall)) {
+      u_value v_p = u_field(s3033, 0);
+      u_value v_ins = u_field(s3033, 1);
+      u_value v_outs = u_field(s3033, 2);
+      u_value v_refs = u_field(s3033, 3);
+      d3034 = 1;
       {
         p_compile_46_compile_exprs(v_gl, v_env, v_ins, &v_as, &v_rs, r_g);
         if (u_truth(f_list_46_has_key_2(v_p, v_env))) {
           {
-            static struct u_object l_u_call_proc_2916 = U_LIT("u_call_proc");
-            u_value t2917 = &o_list_46_Nil;
-            u_value *e2918 = &t2917;
-            u_value l2919 = f_syntax_46_names_1(f_list_46__43__43__2(v_outs, v_refs));
-            while (u_is_con(l2919, &n_list_46_Cons)) {
-              u_value v_x = u_field(l2919, 0);
+            static struct u_object l_u_call_proc_3045 = U_LIT("u_call_proc");
+            u_value t3046 = &o_list_46_Nil;
+            u_value *e3047 = &t3046;
+            u_value l3048 = f_syntax_46_names_1(f_list_46__43__43__2(v_outs, v_refs));
+            while (u_is_con(l3048, &n_list_46_Cons)) {
+              u_value v_x = u_field(l3048, 0);
               if (u_truth(u_mk_bool(1))) {
-                e2918 = u_append(e2918, f_compile_46_address_1(f_compile_46_var_expr_2(v_env, v_x)));
+                e3047 = u_append(e3047, f_compile_46_address_1(f_compile_46_var_expr_2(v_env, v_x)));
               }
-              l2919 = u_field(l2919, 1);
+              l3048 = u_field(l3048, 1);
             }
-            u_value t2920 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_call_proc_2916, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_compile_46_var_expr_2(v_env, v_p), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_ins)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(f_list_46__43__43__2(v_outs, v_refs))), &o_list_46_Nil))), f_list_46__43__43__2(v_rs, t2917)))), &o_list_46_Nil));
-            *r_ss = t2920;
+            u_value t3049 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_call_proc_3045, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_compile_46_var_expr_2(v_env, v_p), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(v_ins)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, f_list_46_size_1(f_list_46__43__43__2(v_outs, v_refs))), &o_list_46_Nil))), f_list_46__43__43__2(v_rs, t3046)))), &o_list_46_Nil));
+            *r_ss = t3049;
           }
         } else {
           {
-            u_value t2921 = &o_list_46_Nil;
-            u_value *e2922 = &t2921;
-            u_value l2923 = f_syntax_46_names_1(f_list_46__43__43__2(v_outs, v_refs));
-            while (u_is_con(l2923, &n_list_46_Cons)) {
-              u_value v_x = u_field(l2923, 0);
+            u_value t3050 = &o_list_46_Nil;
+            u_value *e3051 = &t3050;
+            u_value l3052 = f_syntax_46_names_1(f_list_46__43__43__2(v_outs, v_refs));
+            while (u_is_con(l3052, &n_list_46_Cons)) {
+              u_value v_x = u_field(l3052, 0);
               if (u_truth(u_mk_bool(1))) {
-                e2922 = u_append(e2922, f_compile_46_address_1(f_compile_46_var_expr_2(v_env, v_x)));
+                e3051 = u_append(e3051, f_compile_46_address_1(f_compile_46_var_expr_2(v_env, v_x)));
               }
-              l2923 = u_field(l2923, 1);
+              l3052 = u_field(l3052, 1);
             }
-            u_value t2924 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(f_compile_46_proc_name_1(v_p), f_list_46__43__43__2(v_rs, t2921))), &o_list_46_Nil));
-            *r_ss = t2924;
+            u_value t3053 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(f_compile_46_proc_name_1(v_p), f_list_46__43__43__2(v_rs, t3050))), &o_list_46_Nil));
+            *r_ss = t3053;
           }
         }
       }
     }
-    if ((!d2905) && u_is_con(s2904, &n_syntax_46_SMatch)) {
-      u_value v_arg = u_field(s2904, 0);
-      u_value v_cases = u_field(s2904, 1);
-      d2905 = 1;
+    if ((!d3034) && u_is_con(s3033, &n_syntax_46_SMatch)) {
+      u_value v_arg = u_field(s3033, 0);
+      u_value v_cases = u_field(s3033, 1);
+      d3034 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_arg, &v_as, &v_ra, r_g);
-        static struct u_object l_s_2925 = U_LIT("s");
-        p_compile_46_gen_name(&l_s_2925, &v_d, r_g);
-        static struct u_object l_d_2926 = U_LIT("d");
-        p_compile_46_gen_name(&l_d_2926, &v_t, r_g);
+        static struct u_object l_s_3054 = U_LIT("s");
+        p_compile_46_gen_name(&l_s_3054, &v_d, r_g);
+        static struct u_object l_d_3055 = U_LIT("d");
+        p_compile_46_gen_name(&l_d_3055, &v_t, r_g);
         p_compile_46_stmt_cases(v_gl, v_env, v_cases, u_mk_con(&n_c_46_CeVar, 1, v_d), v_t, &v_bs, r_g);
-        u_value t2927 = f_list_46__43__43__2(v_as, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_d, u_mk_con(&n_option_46_Some, 1, v_ra)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, &o_c_46_CtInt, v_t, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)))), &o_list_46_Nil)), v_bs));
-        *r_ss = t2927;
-        static struct u_object l__33__2928 = U_LIT("!");
-        static struct u_object l_u_no_case_2929 = U_LIT("u_no_case");
-        u_value t2930 = f_list_46__43__43__2(*r_ss, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeUnary, 2, &l__33__2928, u_mk_con(&n_c_46_CeVar, 1, v_t)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_no_case_2929, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), &o_list_46_Nil))), &o_list_46_Nil), &o_list_46_Nil), &o_list_46_Nil));
-        *r_ss = t2930;
+        u_value t3056 = f_list_46__43__43__2(v_as, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, f_compile_46_value_type_0(), v_d, u_mk_con(&n_option_46_Some, 1, v_ra)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, &o_c_46_CtInt, v_t, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)))), &o_list_46_Nil)), v_bs));
+        *r_ss = t3056;
+        static struct u_object l__33__3057 = U_LIT("!");
+        static struct u_object l_u_no_case_3058 = U_LIT("u_no_case");
+        u_value t3059 = f_list_46__43__43__2(*r_ss, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeUnary, 2, &l__33__3057, u_mk_con(&n_c_46_CeVar, 1, v_t)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_no_case_3058, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), &o_list_46_Nil))), &o_list_46_Nil), &o_list_46_Nil), &o_list_46_Nil));
+        *r_ss = t3059;
       }
     }
-    if ((!d2905) && (u_is_con(s2904, &n_syntax_46_SAssert) && (u_is_con(u_field(s2904, 0), &n_syntax_46_EApp) && (u_is_con(u_field(u_field(s2904, 0), 0), &n_syntax_46_EVar) && (u_is_con(u_field(u_field(u_field(s2904, 0), 0), 0), &n_syntax_46_Var) && (u_is_con(u_field(u_field(u_field(u_field(s2904, 0), 0), 0), 0), &n_syntax_46_Name) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s2904, 0), 0), 0), 0), 0), &n_option_46_None) && (u_equals(u_field(u_field(u_field(u_field(u_field(s2904, 0), 0), 0), 0), 1), u_mk_lit("==")) && (u_is_con(u_field(u_field(s2904, 0), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2904, 0), 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(u_field(s2904, 0), 1), 1), 1), &n_list_46_Nil))))))))))) {
-      u_value v_a = u_field(u_field(u_field(s2904, 0), 1), 0);
-      u_value v_b = u_field(u_field(u_field(u_field(s2904, 0), 1), 1), 0);
-      d2905 = 1;
+    if ((!d3034) && (u_is_con(s3033, &n_syntax_46_SAssert) && (u_is_con(u_field(s3033, 0), &n_syntax_46_EApp) && (u_is_con(u_field(u_field(s3033, 0), 0), &n_syntax_46_EVar) && (u_is_con(u_field(u_field(u_field(s3033, 0), 0), 0), &n_syntax_46_Var) && (u_is_con(u_field(u_field(u_field(u_field(s3033, 0), 0), 0), 0), &n_syntax_46_Name) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s3033, 0), 0), 0), 0), 0), &n_option_46_None) && (u_equals(u_field(u_field(u_field(u_field(u_field(s3033, 0), 0), 0), 0), 1), u_mk_lit("==")) && (u_is_con(u_field(u_field(s3033, 0), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s3033, 0), 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(u_field(s3033, 0), 1), 1), 1), &n_list_46_Nil))))))))))) {
+      u_value v_a = u_field(u_field(u_field(s3033, 0), 1), 0);
+      u_value v_b = u_field(u_field(u_field(u_field(s3033, 0), 1), 1), 0);
+      d3034 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_a, &v_as, &v_ra, r_g);
         p_compile_46_compile_expr(v_gl, v_env, v_b, &v_bs, &v_rb, r_g);
-        static struct u_object l_u_assert_equal_2931 = U_LIT("u_assert_equal");
-        u_value t2932 = f_list_46__43__43__2(v_as, f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_assert_equal_2931, u_mk_con(&n_list_46_Cons, 2, v_ra, u_mk_con(&n_list_46_Cons, 2, v_rb, &o_list_46_Nil)))), &o_list_46_Nil)));
-        *r_ss = t2932;
+        static struct u_object l_u_assert_equal_3060 = U_LIT("u_assert_equal");
+        u_value t3061 = f_list_46__43__43__2(v_as, f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_assert_equal_3060, u_mk_con(&n_list_46_Cons, 2, v_ra, u_mk_con(&n_list_46_Cons, 2, v_rb, &o_list_46_Nil)))), &o_list_46_Nil)));
+        *r_ss = t3061;
       }
     }
-    if ((!d2905) && u_is_con(s2904, &n_syntax_46_SAssert)) {
-      u_value v_c = u_field(s2904, 0);
-      d2905 = 1;
+    if ((!d3034) && u_is_con(s3033, &n_syntax_46_SAssert)) {
+      u_value v_c = u_field(s3033, 0);
+      d3034 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_c, &v_cs, &v_rc, r_g);
-        static struct u_object l_u_assert_true_2933 = U_LIT("u_assert_true");
-        u_value t2934 = f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_assert_true_2933, u_mk_con(&n_list_46_Cons, 2, v_rc, &o_list_46_Nil))), &o_list_46_Nil));
-        *r_ss = t2934;
+        static struct u_object l_u_assert_true_3062 = U_LIT("u_assert_true");
+        u_value t3063 = f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_assert_true_3062, u_mk_con(&n_list_46_Cons, 2, v_rc, &o_list_46_Nil))), &o_list_46_Nil));
+        *r_ss = t3063;
       }
     }
-    if ((!d2905) && u_is_con(s2904, &n_syntax_46_SRaise)) {
-      u_value v_arg = u_field(s2904, 0);
-      u_value v_ty = u_field(s2904, 1);
-      d2905 = 1;
+    if ((!d3034) && u_is_con(s3033, &n_syntax_46_SRaise)) {
+      u_value v_arg = u_field(s3033, 0);
+      u_value v_ty = u_field(s3033, 1);
+      d3034 = 1;
       {
         p_compile_46_compile_expr(v_gl, v_env, v_arg, &v_as, &v_ra, r_g);
-        static struct u_object l_u_raise_2935 = U_LIT("u_raise");
-        u_value t2936 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_raise_2935, u_mk_con(&n_list_46_Cons, 2, v_ra, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, f_compile_46_type_key_1(v_ty)), &o_list_46_Nil)))), &o_list_46_Nil));
-        *r_ss = t2936;
+        static struct u_object l_u_raise_3064 = U_LIT("u_raise");
+        u_value t3065 = f_list_46__43__43__2(v_as, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_raise_3064, u_mk_con(&n_list_46_Cons, 2, v_ra, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, f_compile_46_type_key_1(v_ty)), &o_list_46_Nil)))), &o_list_46_Nil));
+        *r_ss = t3065;
       }
     }
-    if ((!d2905) && u_is_con(s2904, &n_syntax_46_STry)) {
-      u_value v_body = u_field(s2904, 0);
-      u_value v_hs = u_field(s2904, 1);
-      d2905 = 1;
+    if ((!d3034) && u_is_con(s3033, &n_syntax_46_STry)) {
+      u_value v_body = u_field(s3033, 0);
+      u_value v_hs = u_field(s3033, 1);
+      d3034 = 1;
       {
         p_compile_46_compile_stmt(v_gl, v_env, v_body, &v_bs, r_g);
-        static struct u_object l_h_2937 = U_LIT("h");
-        p_compile_46_gen_name(&l_h_2937, &v_d, r_g);
-        static struct u_object l_d_2938 = U_LIT("d");
-        p_compile_46_gen_name(&l_d_2938, &v_t, r_g);
+        static struct u_object l_h_3066 = U_LIT("h");
+        p_compile_46_gen_name(&l_h_3066, &v_d, r_g);
+        static struct u_object l_d_3067 = U_LIT("d");
+        p_compile_46_gen_name(&l_d_3067, &v_t, r_g);
         p_compile_46_handler_cases(v_gl, v_env, v_hs, v_d, v_t, &v_cs, r_g);
-        static struct u_object l_u_pop_2939 = U_LIT("u_pop");
-        static struct u_object l__33__2940 = U_LIT("!");
-        static struct u_object l_u_reraise_2941 = U_LIT("u_reraise");
-        u_value t2942 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_pop_2939, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, &o_c_46_CtInt, v_t, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)))), &o_list_46_Nil)), f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeUnary, 2, &l__33__2940, u_mk_con(&n_c_46_CeVar, 1, v_t)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_reraise_2941, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), &o_list_46_Nil))), &o_list_46_Nil), &o_list_46_Nil), &o_list_46_Nil)));
-        v_as = t2942;
-        static struct u_object l_struct_32_u_handler_2943 = U_LIT("struct u_handler");
-        static struct u_object l_u_push_2944 = U_LIT("u_push");
-        static struct u_object l__61__61__2945 = U_LIT("==");
-        static struct u_object l_setjmp_2946 = U_LIT("setjmp");
-        static struct u_object l_env_2947 = U_LIT("env");
-        static struct u_object l_u_pop_2948 = U_LIT("u_pop");
-        u_value t2949 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsBlock, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, u_mk_con(&n_c_46_CtPtr, 1, u_mk_con(&n_c_46_CtNamed, 1, &l_struct_32_u_handler_2943)), v_d, u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(&l_u_push_2944, &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeBinary, 3, &l__61__61__2945, f_c_46_c_call_2(&l_setjmp_2946, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeArrow, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), &l_env_2947), &o_list_46_Nil)), u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0))), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_pop_2948, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), &o_list_46_Nil))), &o_list_46_Nil)), v_as), &o_list_46_Nil))), &o_list_46_Nil);
-        *r_ss = t2949;
+        static struct u_object l_u_pop_3068 = U_LIT("u_pop");
+        static struct u_object l__33__3069 = U_LIT("!");
+        static struct u_object l_u_reraise_3070 = U_LIT("u_reraise");
+        u_value t3071 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_pop_3068, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, &o_c_46_CtInt, v_t, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)))), &o_list_46_Nil)), f_list_46__43__43__2(v_cs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeUnary, 2, &l__33__3069, u_mk_con(&n_c_46_CeVar, 1, v_t)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_reraise_3070, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), &o_list_46_Nil))), &o_list_46_Nil), &o_list_46_Nil), &o_list_46_Nil)));
+        v_as = t3071;
+        static struct u_object l_struct_32_u_handler_3072 = U_LIT("struct u_handler");
+        static struct u_object l_u_push_3073 = U_LIT("u_push");
+        static struct u_object l__61__61__3074 = U_LIT("==");
+        static struct u_object l_setjmp_3075 = U_LIT("setjmp");
+        static struct u_object l_env_3076 = U_LIT("env");
+        static struct u_object l_u_pop_3077 = U_LIT("u_pop");
+        u_value t3078 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsBlock, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, u_mk_con(&n_c_46_CtPtr, 1, u_mk_con(&n_c_46_CtNamed, 1, &l_struct_32_u_handler_3072)), v_d, u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(&l_u_push_3073, &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeBinary, 3, &l__61__61__3074, f_c_46_c_call_2(&l_setjmp_3075, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeArrow, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), &l_env_3076), &o_list_46_Nil)), u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0))), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_pop_3077, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), &o_list_46_Nil))), &o_list_46_Nil)), v_as), &o_list_46_Nil))), &o_list_46_Nil);
+        *r_ss = t3078;
       }
     }
-    if (!d2905) {
-      u_no_case(s2904);
+    if (!d3034) {
+      u_no_case(s3033);
     }
   }
 }
@@ -27345,49 +28522,49 @@ void p_compile_46_compile_stmts(u_value v_gl, u_value v_env, u_value v_xs, u_val
   {
     u_value v_as = NULL;
     u_value v_bs = NULL;
-    u_value s2950 = v_xs;
-    int d2951 = 0;
-    if ((!d2951) && u_is_con(s2950, &n_list_46_Nil)) {
-      d2951 = 1;
+    u_value s3079 = v_xs;
+    int d3080 = 0;
+    if ((!d3080) && u_is_con(s3079, &n_list_46_Nil)) {
+      d3080 = 1;
       {
-        u_value t2952 = &o_list_46_Nil;
-        *r_ss = t2952;
+        u_value t3081 = &o_list_46_Nil;
+        *r_ss = t3081;
       }
     }
-    if ((!d2951) && u_is_con(s2950, &n_list_46_Cons)) {
-      u_value v_x = u_field(s2950, 0);
-      u_value v_rest = u_field(s2950, 1);
-      d2951 = 1;
+    if ((!d3080) && u_is_con(s3079, &n_list_46_Cons)) {
+      u_value v_x = u_field(s3079, 0);
+      u_value v_rest = u_field(s3079, 1);
+      d3080 = 1;
       {
         p_compile_46_compile_stmt(v_gl, v_env, v_x, &v_as, r_g);
         p_compile_46_compile_stmts(v_gl, v_env, v_rest, &v_bs, r_g);
-        u_value t2953 = f_list_46__43__43__2(v_as, v_bs);
-        *r_ss = t2953;
+        u_value t3082 = f_list_46__43__43__2(v_as, v_bs);
+        *r_ss = t3082;
       }
     }
-    if (!d2951) {
-      u_no_case(s2950);
+    if (!d3080) {
+      u_no_case(s3079);
     }
   }
 }
 
 u_value f_compile_46_reassign_3(u_value v_env, u_value v_xs, u_value v_ts) {
-  u_value s2954 = u_mk_tuple(2, v_xs, v_ts);
-  u_value t2955 = NULL;
-  if ((!t2955) && (u_is_con(u_field(s2954, 0), &n_list_46_Cons) && (u_is_con(u_field(s2954, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s2954, 1), 0), &n_c_46_CsDecl)))) {
-    u_value v_x = u_field(u_field(s2954, 0), 0);
-    u_value v_more = u_field(u_field(s2954, 0), 1);
-    u_value v_t = u_field(u_field(u_field(s2954, 1), 0), 1);
-    u_value v_rest = u_field(u_field(s2954, 1), 1);
-    t2955 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, f_compile_46_var_expr_2(v_env, v_x), u_mk_con(&n_c_46_CeVar, 1, v_t)), f_compile_46_reassign_3(v_env, v_more, v_rest));
+  u_value s3083 = u_mk_tuple(2, v_xs, v_ts);
+  u_value t3084 = NULL;
+  if ((!t3084) && (u_is_con(u_field(s3083, 0), &n_list_46_Cons) && (u_is_con(u_field(s3083, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s3083, 1), 0), &n_c_46_CsDecl)))) {
+    u_value v_x = u_field(u_field(s3083, 0), 0);
+    u_value v_more = u_field(u_field(s3083, 0), 1);
+    u_value v_t = u_field(u_field(u_field(s3083, 1), 0), 1);
+    u_value v_rest = u_field(u_field(s3083, 1), 1);
+    t3084 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, f_compile_46_var_expr_2(v_env, v_x), u_mk_con(&n_c_46_CeVar, 1, v_t)), f_compile_46_reassign_3(v_env, v_more, v_rest));
   }
-  if (!t2955) {
-    t2955 = &o_list_46_Nil;
+  if (!t3084) {
+    t3084 = &o_list_46_Nil;
   }
-  if (!t2955) {
-    u_no_case(s2954);
+  if (!t3084) {
+    u_no_case(s3083);
   }
-  return t2955;
+  return t3084;
 }
 
 void p_compile_46_handler_cases(u_value v_gl, u_value v_env, u_value v_hs, u_value v_h, u_value v_d, u_value *r_ss, u_value *r_g) {
@@ -27400,78 +28577,78 @@ void p_compile_46_handler_cases(u_value v_gl, u_value v_env, u_value v_hs, u_val
     u_value v_rest = NULL;
     u_value v_env1 = NULL;
     u_value v_tests = NULL;
-    static struct u_object l_u_caught_2956 = U_LIT("u_caught");
-    u_value t2957 = f_c_46_c_call_2(&l_u_caught_2956, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_h), &o_list_46_Nil));
-    v_v = t2957;
-    u_value s2958 = v_hs;
-    int d2959 = 0;
-    if ((!d2959) && u_is_con(s2958, &n_list_46_Nil)) {
-      d2959 = 1;
+    static struct u_object l_u_caught_3085 = U_LIT("u_caught");
+    u_value t3086 = f_c_46_c_call_2(&l_u_caught_3085, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_h), &o_list_46_Nil));
+    v_v = t3086;
+    u_value s3087 = v_hs;
+    int d3088 = 0;
+    if ((!d3088) && u_is_con(s3087, &n_list_46_Nil)) {
+      d3088 = 1;
       {
-        u_value t2960 = &o_list_46_Nil;
-        *r_ss = t2960;
+        u_value t3089 = &o_list_46_Nil;
+        *r_ss = t3089;
       }
     }
-    if ((!d2959) && (u_is_con(s2958, &n_list_46_Cons) && u_is_con(u_field(s2958, 0), &n_syntax_46_Handler))) {
-      u_value v_ty = u_field(u_field(s2958, 0), 0);
-      u_value v_p = u_field(u_field(s2958, 0), 1);
-      u_value v_guard = u_field(u_field(s2958, 0), 2);
-      u_value v_s = u_field(u_field(s2958, 0), 3);
-      u_value v_more = u_field(s2958, 1);
-      d2959 = 1;
+    if ((!d3088) && (u_is_con(s3087, &n_list_46_Cons) && u_is_con(u_field(s3087, 0), &n_syntax_46_Handler))) {
+      u_value v_ty = u_field(u_field(s3087, 0), 0);
+      u_value v_p = u_field(u_field(s3087, 0), 1);
+      u_value v_guard = u_field(u_field(s3087, 0), 2);
+      u_value v_s = u_field(u_field(s3087, 0), 3);
+      u_value v_more = u_field(s3087, 1);
+      d3088 = 1;
       {
-        u_value t2961 = f_list_46__43__43__2(f_compile_46_in_scope_1(f_compile_46_pattern_names_1(v_p)), v_env);
-        v_env1 = t2961;
+        u_value t3090 = f_list_46__43__43__2(f_compile_46_in_scope_1(f_compile_46_pattern_names_1(v_p)), v_env);
+        v_env1 = t3090;
         p_compile_46_compile_stmt(v_gl, v_env1, v_s, &v_bs, r_g);
-        u_value t2962 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), u_mk_con(&n_c_46_CeNum, 1, u_mk_int(1))), &o_list_46_Nil), v_bs);
-        v_body = t2962;
-        u_value s2963 = v_guard;
-        int d2964 = 0;
-        if ((!d2964) && u_is_con(s2963, &n_option_46_Some)) {
-          u_value v_c = u_field(s2963, 0);
-          d2964 = 1;
+        u_value t3091 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), u_mk_con(&n_c_46_CeNum, 1, u_mk_int(1))), &o_list_46_Nil), v_bs);
+        v_body = t3091;
+        u_value s3092 = v_guard;
+        int d3093 = 0;
+        if ((!d3093) && u_is_con(s3092, &n_option_46_Some)) {
+          u_value v_c = u_field(s3092, 0);
+          d3093 = 1;
           {
             p_compile_46_compile_expr(v_gl, v_env1, v_c, &v_gs, &v_rg, r_g);
-            u_value t2965 = f_list_46__43__43__2(v_gs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(v_rg), v_body, &o_list_46_Nil), &o_list_46_Nil));
-            v_body = t2965;
+            u_value t3094 = f_list_46__43__43__2(v_gs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(v_rg), v_body, &o_list_46_Nil), &o_list_46_Nil));
+            v_body = t3094;
           }
         }
-        if ((!d2964) && u_is_con(s2963, &n_option_46_None)) {
-          d2964 = 1;
+        if ((!d3093) && u_is_con(s3092, &n_option_46_None)) {
+          d3093 = 1;
           {
           }
         }
-        if (!d2964) {
-          u_no_case(s2963);
+        if (!d3093) {
+          u_no_case(s3092);
         }
-        u_value s2966 = v_p;
-        int d2967 = 0;
-        if ((!d2967) && u_is_con(s2966, &n_syntax_46_PWild)) {
-          d2967 = 1;
+        u_value s3095 = v_p;
+        int d3096 = 0;
+        if ((!d3096) && u_is_con(s3095, &n_syntax_46_PWild)) {
+          d3096 = 1;
           {
-            u_value t2968 = &o_list_46_Nil;
-            v_tests = t2968;
+            u_value t3097 = &o_list_46_Nil;
+            v_tests = t3097;
           }
         }
-        if (!d2967) {
-          d2967 = 1;
+        if (!d3096) {
+          d3096 = 1;
           {
-            static struct u_object l_u_has_type_2969 = U_LIT("u_has_type");
-            u_value t2970 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_c_46_c_call_2(&l_u_has_type_2969, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_h), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, f_compile_46_type_key_1(v_ty)), &o_list_46_Nil))), &o_list_46_Nil), f_compile_46_pattern_tests_2(v_p, v_v));
-            v_tests = t2970;
+            static struct u_object l_u_has_type_3098 = U_LIT("u_has_type");
+            u_value t3099 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, f_c_46_c_call_2(&l_u_has_type_3098, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, v_h), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, f_compile_46_type_key_1(v_ty)), &o_list_46_Nil))), &o_list_46_Nil), f_compile_46_pattern_tests_2(v_p, v_v));
+            v_tests = t3099;
           }
         }
-        if (!d2967) {
-          u_no_case(s2966);
+        if (!d3096) {
+          u_no_case(s3095);
         }
         p_compile_46_handler_cases(v_gl, v_env, v_more, v_h, v_d, &v_rest, r_g);
-        static struct u_object l__33__2971 = U_LIT("!");
-        u_value t2972 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_conjunction_1(f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeUnary, 2, &l__33__2971, u_mk_con(&n_c_46_CeVar, 1, v_d)), &o_list_46_Nil), v_tests)), f_list_46__43__43__2(f_compile_46_pattern_binds_2(v_p, v_v), v_body), &o_list_46_Nil), &o_list_46_Nil), v_rest);
-        *r_ss = t2972;
+        static struct u_object l__33__3100 = U_LIT("!");
+        u_value t3101 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_conjunction_1(f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeUnary, 2, &l__33__3100, u_mk_con(&n_c_46_CeVar, 1, v_d)), &o_list_46_Nil), v_tests)), f_list_46__43__43__2(f_compile_46_pattern_binds_2(v_p, v_v), v_body), &o_list_46_Nil), &o_list_46_Nil), v_rest);
+        *r_ss = t3101;
       }
     }
-    if (!d2959) {
-      u_no_case(s2958);
+    if (!d3088) {
+      u_no_case(s3087);
     }
   }
 }
@@ -27484,54 +28661,54 @@ void p_compile_46_stmt_cases(u_value v_gl, u_value v_env, u_value v_cases, u_val
     u_value v_body = NULL;
     u_value v_rest = NULL;
     u_value v_env1 = NULL;
-    u_value s2973 = v_cases;
-    int d2974 = 0;
-    if ((!d2974) && u_is_con(s2973, &n_list_46_Nil)) {
-      d2974 = 1;
+    u_value s3102 = v_cases;
+    int d3103 = 0;
+    if ((!d3103) && u_is_con(s3102, &n_list_46_Nil)) {
+      d3103 = 1;
       {
-        u_value t2975 = &o_list_46_Nil;
-        *r_ss = t2975;
+        u_value t3104 = &o_list_46_Nil;
+        *r_ss = t3104;
       }
     }
-    if ((!d2974) && (u_is_con(s2973, &n_list_46_Cons) && u_is_con(u_field(s2973, 0), &n_syntax_46_Branch))) {
-      u_value v_p = u_field(u_field(s2973, 0), 0);
-      u_value v_guard = u_field(u_field(s2973, 0), 1);
-      u_value v_s = u_field(u_field(s2973, 0), 2);
-      u_value v_more = u_field(s2973, 1);
-      d2974 = 1;
+    if ((!d3103) && (u_is_con(s3102, &n_list_46_Cons) && u_is_con(u_field(s3102, 0), &n_syntax_46_Branch))) {
+      u_value v_p = u_field(u_field(s3102, 0), 0);
+      u_value v_guard = u_field(u_field(s3102, 0), 1);
+      u_value v_s = u_field(u_field(s3102, 0), 2);
+      u_value v_more = u_field(s3102, 1);
+      d3103 = 1;
       {
-        u_value t2976 = f_list_46__43__43__2(f_compile_46_in_scope_1(f_compile_46_pattern_names_1(v_p)), v_env);
-        v_env1 = t2976;
+        u_value t3105 = f_list_46__43__43__2(f_compile_46_in_scope_1(f_compile_46_pattern_names_1(v_p)), v_env);
+        v_env1 = t3105;
         p_compile_46_compile_stmt(v_gl, v_env1, v_s, &v_bs, r_g);
-        u_value t2977 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), u_mk_con(&n_c_46_CeNum, 1, u_mk_int(1))), &o_list_46_Nil), v_bs);
-        v_body = t2977;
-        u_value s2978 = v_guard;
-        int d2979 = 0;
-        if ((!d2979) && u_is_con(s2978, &n_option_46_Some)) {
-          u_value v_c = u_field(s2978, 0);
-          d2979 = 1;
+        u_value t3106 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, v_d), u_mk_con(&n_c_46_CeNum, 1, u_mk_int(1))), &o_list_46_Nil), v_bs);
+        v_body = t3106;
+        u_value s3107 = v_guard;
+        int d3108 = 0;
+        if ((!d3108) && u_is_con(s3107, &n_option_46_Some)) {
+          u_value v_c = u_field(s3107, 0);
+          d3108 = 1;
           {
             p_compile_46_compile_expr(v_gl, v_env1, v_c, &v_gs, &v_rg, r_g);
-            u_value t2980 = f_list_46__43__43__2(v_gs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(v_rg), v_body, &o_list_46_Nil), &o_list_46_Nil));
-            v_body = t2980;
+            u_value t3109 = f_list_46__43__43__2(v_gs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_truth_1(v_rg), v_body, &o_list_46_Nil), &o_list_46_Nil));
+            v_body = t3109;
           }
         }
-        if ((!d2979) && u_is_con(s2978, &n_option_46_None)) {
-          d2979 = 1;
+        if ((!d3108) && u_is_con(s3107, &n_option_46_None)) {
+          d3108 = 1;
           {
           }
         }
-        if (!d2979) {
-          u_no_case(s2978);
+        if (!d3108) {
+          u_no_case(s3107);
         }
         p_compile_46_stmt_cases(v_gl, v_env, v_more, v_v, v_d, &v_rest, r_g);
-        static struct u_object l__33__2981 = U_LIT("!");
-        u_value t2982 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_conjunction_1(f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeUnary, 2, &l__33__2981, u_mk_con(&n_c_46_CeVar, 1, v_d)), &o_list_46_Nil), f_compile_46_pattern_tests_2(v_p, v_v))), f_list_46__43__43__2(f_compile_46_pattern_binds_2(v_p, v_v), v_body), &o_list_46_Nil), &o_list_46_Nil), v_rest);
-        *r_ss = t2982;
+        static struct u_object l__33__3110 = U_LIT("!");
+        u_value t3111 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, f_compile_46_conjunction_1(f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeUnary, 2, &l__33__3110, u_mk_con(&n_c_46_CeVar, 1, v_d)), &o_list_46_Nil), f_compile_46_pattern_tests_2(v_p, v_v))), f_list_46__43__43__2(f_compile_46_pattern_binds_2(v_p, v_v), v_body), &o_list_46_Nil), &o_list_46_Nil), v_rest);
+        *r_ss = t3111;
       }
     }
-    if (!d2974) {
-      u_no_case(s2973);
+    if (!d3103) {
+      u_no_case(s3102);
     }
   }
 }
@@ -27541,118 +28718,118 @@ void p_compile_46_compile_cmd(u_value v_gl, u_value v_entry, u_value v_c, u_valu
     u_value v_bs = NULL;
     u_value v_rb = NULL;
     u_value v_params = NULL;
-    u_value s2983 = v_c;
-    int d2984 = 0;
-    if ((!d2984) && u_is_con(s2983, &n_syntax_46_CFun)) {
-      u_value v_n = u_field(s2983, 0);
-      u_value v_xss = u_field(s2983, 2);
-      u_value v_b = u_field(s2983, 4);
-      d2984 = 1;
+    u_value s3112 = v_c;
+    int d3113 = 0;
+    if ((!d3113) && u_is_con(s3112, &n_syntax_46_CFun)) {
+      u_value v_n = u_field(s3112, 0);
+      u_value v_xss = u_field(s3112, 2);
+      u_value v_b = u_field(s3112, 4);
+      d3113 = 1;
       {
         p_compile_46_compile_expr(v_gl, f_compile_46_in_scope_1(f_syntax_46_names_1(f_check_46_first_list_1(v_xss))), f_compile_46_lambdas_2(f_list_46_drop_2(u_mk_int(1), v_xss), v_b), &v_bs, &v_rb, r_g);
-        u_value t2985 = &o_list_46_Nil;
-        u_value *e2986 = &t2985;
-        u_value l2987 = f_syntax_46_names_1(f_check_46_first_list_1(v_xss));
-        while (u_is_con(l2987, &n_list_46_Cons)) {
-          u_value v_x = u_field(l2987, 0);
+        u_value t3114 = &o_list_46_Nil;
+        u_value *e3115 = &t3114;
+        u_value l3116 = f_syntax_46_names_1(f_check_46_first_list_1(v_xss));
+        while (u_is_con(l3116, &n_list_46_Cons)) {
+          u_value v_x = u_field(l3116, 0);
           if (u_truth(u_mk_bool(1))) {
-            e2986 = u_append(e2986, u_mk_tuple(2, f_compile_46_value_type_0(), f_compile_46_var_name_1(v_x)));
+            e3115 = u_append(e3115, u_mk_tuple(2, f_compile_46_value_type_0(), f_compile_46_var_name_1(v_x)));
           }
-          l2987 = u_field(l2987, 1);
+          l3116 = u_field(l3116, 1);
         }
-        u_value t2988 = t2985;
-        v_params = t2988;
+        u_value t3117 = t3114;
+        v_params = t3117;
         if (u_truth(u_eq(f_check_46_first_list_1(v_xss), &o_list_46_Nil))) {
           {
-            u_value t2989 = f_compile_46_cached_3(f_syntax_46_qualified_1(v_n), v_bs, v_rb);
-            v_bs = t2989;
+            u_value t3118 = f_compile_46_cached_3(f_syntax_46_qualified_1(v_n), v_bs, v_rb);
+            v_bs = t3118;
           }
         } else {
           {
-            u_value t2990 = f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, v_rb)), &o_list_46_Nil));
-            v_bs = t2990;
+            u_value t3119 = f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, v_rb)), &o_list_46_Nil));
+            v_bs = t3119;
           }
         }
-        u_value t2991 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdFunction, 4, f_compile_46_value_type_0(), f_compile_46_fun_name_2(v_n, f_list_46_size_1(f_check_46_first_list_1(v_xss))), v_params, v_bs), &o_list_46_Nil);
-        u_value t2992 = &o_list_46_Nil;
-        *r_ds = t2991;
-        *r_ms = t2992;
+        u_value t3120 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdFunction, 4, f_compile_46_value_type_0(), f_compile_46_fun_name_2(v_n, f_list_46_size_1(f_check_46_first_list_1(v_xss))), v_params, v_bs), &o_list_46_Nil);
+        u_value t3121 = &o_list_46_Nil;
+        *r_ds = t3120;
+        *r_ms = t3121;
       }
     }
-    if ((!d2984) && u_is_con(s2983, &n_syntax_46_CProc)) {
-      u_value v_n = u_field(s2983, 0);
-      u_value v_ins = u_field(s2983, 2);
-      u_value v_outs = u_field(s2983, 3);
-      u_value v_refs = u_field(s2983, 4);
-      u_value v_body = u_field(s2983, 5);
-      d2984 = 1;
+    if ((!d3113) && u_is_con(s3112, &n_syntax_46_CProc)) {
+      u_value v_n = u_field(s3112, 0);
+      u_value v_ins = u_field(s3112, 2);
+      u_value v_outs = u_field(s3112, 3);
+      u_value v_refs = u_field(s3112, 4);
+      u_value v_body = u_field(s3112, 5);
+      d3113 = 1;
       {
-        u_value t2993 = &o_list_46_Nil;
-        u_value *e2994 = &t2993;
-        u_value l2995 = f_syntax_46_names_1(f_list_46__43__43__2(v_outs, v_refs));
-        while (u_is_con(l2995, &n_list_46_Cons)) {
-          u_value v_x = u_field(l2995, 0);
+        u_value t3122 = &o_list_46_Nil;
+        u_value *e3123 = &t3122;
+        u_value l3124 = f_syntax_46_names_1(f_list_46__43__43__2(v_outs, v_refs));
+        while (u_is_con(l3124, &n_list_46_Cons)) {
+          u_value v_x = u_field(l3124, 0);
           if (u_truth(u_mk_bool(1))) {
-            e2994 = u_append(e2994, f_compile_46_pointer_1(v_x));
+            e3123 = u_append(e3123, f_compile_46_pointer_1(v_x));
           }
-          l2995 = u_field(l2995, 1);
+          l3124 = u_field(l3124, 1);
         }
-        p_compile_46_compile_stmt(v_gl, f_list_46__43__43__2(f_compile_46_in_scope_1(f_syntax_46_names_1(v_ins)), t2993), v_body, &v_bs, r_g);
-        u_value t2996 = &o_list_46_Nil;
-        u_value *e2997 = &t2996;
-        u_value l2998 = f_syntax_46_names_1(v_ins);
-        while (u_is_con(l2998, &n_list_46_Cons)) {
-          u_value v_x = u_field(l2998, 0);
+        p_compile_46_compile_stmt(v_gl, f_list_46__43__43__2(f_compile_46_in_scope_1(f_syntax_46_names_1(v_ins)), t3122), v_body, &v_bs, r_g);
+        u_value t3125 = &o_list_46_Nil;
+        u_value *e3126 = &t3125;
+        u_value l3127 = f_syntax_46_names_1(v_ins);
+        while (u_is_con(l3127, &n_list_46_Cons)) {
+          u_value v_x = u_field(l3127, 0);
           if (u_truth(u_mk_bool(1))) {
-            e2997 = u_append(e2997, u_mk_tuple(2, f_compile_46_value_type_0(), f_compile_46_var_name_1(v_x)));
+            e3126 = u_append(e3126, u_mk_tuple(2, f_compile_46_value_type_0(), f_compile_46_var_name_1(v_x)));
           }
-          l2998 = u_field(l2998, 1);
+          l3127 = u_field(l3127, 1);
         }
-        u_value t2999 = &o_list_46_Nil;
-        u_value *e3000 = &t2999;
-        u_value l3001 = f_syntax_46_names_1(f_list_46__43__43__2(v_outs, v_refs));
-        while (u_is_con(l3001, &n_list_46_Cons)) {
-          u_value v_x = u_field(l3001, 0);
+        u_value t3128 = &o_list_46_Nil;
+        u_value *e3129 = &t3128;
+        u_value l3130 = f_syntax_46_names_1(f_list_46__43__43__2(v_outs, v_refs));
+        while (u_is_con(l3130, &n_list_46_Cons)) {
+          u_value v_x = u_field(l3130, 0);
           if (u_truth(u_mk_bool(1))) {
-            e3000 = u_append(e3000, u_mk_tuple(2, f_compile_46_value_ptr_0(), f_compile_46_ref_name_1(v_x)));
+            e3129 = u_append(e3129, u_mk_tuple(2, f_compile_46_value_ptr_0(), f_compile_46_ref_name_1(v_x)));
           }
-          l3001 = u_field(l3001, 1);
+          l3130 = u_field(l3130, 1);
         }
-        u_value t3002 = f_list_46__43__43__2(t2996, t2999);
-        v_params = t3002;
-        u_value t3003 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdFunction, 4, &o_c_46_CtVoid, f_compile_46_proc_name_1(v_n), v_params, v_bs), &o_list_46_Nil);
-        u_value t3004 = &o_list_46_Nil;
-        *r_ds = t3003;
-        *r_ms = t3004;
+        u_value t3131 = f_list_46__43__43__2(t3125, t3128);
+        v_params = t3131;
+        u_value t3132 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdFunction, 4, &o_c_46_CtVoid, f_compile_46_proc_name_1(v_n), v_params, v_bs), &o_list_46_Nil);
+        u_value t3133 = &o_list_46_Nil;
+        *r_ds = t3132;
+        *r_ms = t3133;
       }
     }
-    if ((!d2984) && u_is_con(s2983, &n_syntax_46_CTest)) {
-      u_value v_n = u_field(s2983, 0);
-      u_value v_body = u_field(s2983, 2);
-      static struct u_object l_test_3008 = U_LIT("test");
-      if (u_truth(u_eq(v_entry, &l_test_3008))) {
-        d2984 = 1;
+    if ((!d3113) && u_is_con(s3112, &n_syntax_46_CTest)) {
+      u_value v_n = u_field(s3112, 0);
+      u_value v_body = u_field(s3112, 2);
+      static struct u_object l_test_3137 = U_LIT("test");
+      if (u_truth(u_eq(v_entry, &l_test_3137))) {
+        d3113 = 1;
         {
           p_compile_46_compile_stmt(v_gl, &o_list_46_Nil, v_body, &v_bs, r_g);
-          static struct u_object l_u_passed_3005 = U_LIT("u_passed");
-          u_value t3006 = &o_list_46_Nil;
-          u_value t3007 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsBlock, 1, f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_passed_3005, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, v_n), &o_list_46_Nil))), &o_list_46_Nil))), &o_list_46_Nil);
-          *r_ds = t3006;
-          *r_ms = t3007;
+          static struct u_object l_u_passed_3134 = U_LIT("u_passed");
+          u_value t3135 = &o_list_46_Nil;
+          u_value t3136 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsBlock, 1, f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_passed_3134, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, v_n), &o_list_46_Nil))), &o_list_46_Nil))), &o_list_46_Nil);
+          *r_ds = t3135;
+          *r_ms = t3136;
         }
       }
     }
-    if (!d2984) {
-      d2984 = 1;
+    if (!d3113) {
+      d3113 = 1;
       {
-        u_value t3009 = &o_list_46_Nil;
-        u_value t3010 = &o_list_46_Nil;
-        *r_ds = t3009;
-        *r_ms = t3010;
+        u_value t3138 = &o_list_46_Nil;
+        u_value t3139 = &o_list_46_Nil;
+        *r_ds = t3138;
+        *r_ms = t3139;
       }
     }
-    if (!d2984) {
-      u_no_case(s2983);
+    if (!d3113) {
+      u_no_case(s3112);
     }
   }
 }
@@ -27663,249 +28840,249 @@ void p_compile_46_compile_cmds(u_value v_gl, u_value v_entry, u_value v_cs, u_va
     u_value v_m1 = NULL;
     u_value v_d2 = NULL;
     u_value v_m2 = NULL;
-    u_value s3011 = v_cs;
-    int d3012 = 0;
-    if ((!d3012) && u_is_con(s3011, &n_list_46_Nil)) {
-      d3012 = 1;
+    u_value s3140 = v_cs;
+    int d3141 = 0;
+    if ((!d3141) && u_is_con(s3140, &n_list_46_Nil)) {
+      d3141 = 1;
       {
-        u_value t3013 = &o_list_46_Nil;
-        u_value t3014 = &o_list_46_Nil;
-        *r_ds = t3013;
-        *r_ms = t3014;
+        u_value t3142 = &o_list_46_Nil;
+        u_value t3143 = &o_list_46_Nil;
+        *r_ds = t3142;
+        *r_ms = t3143;
       }
     }
-    if ((!d3012) && u_is_con(s3011, &n_list_46_Cons)) {
-      u_value v_c = u_field(s3011, 0);
-      u_value v_rest = u_field(s3011, 1);
-      d3012 = 1;
+    if ((!d3141) && u_is_con(s3140, &n_list_46_Cons)) {
+      u_value v_c = u_field(s3140, 0);
+      u_value v_rest = u_field(s3140, 1);
+      d3141 = 1;
       {
         p_compile_46_compile_cmd(v_gl, v_entry, v_c, &v_d1, &v_m1, r_g);
         p_compile_46_compile_cmds(v_gl, v_entry, v_rest, &v_d2, &v_m2, r_g);
-        u_value t3015 = f_list_46__43__43__2(v_d1, v_d2);
-        u_value t3016 = f_list_46__43__43__2(v_m1, v_m2);
-        *r_ds = t3015;
-        *r_ms = t3016;
+        u_value t3144 = f_list_46__43__43__2(v_d1, v_d2);
+        u_value t3145 = f_list_46__43__43__2(v_m1, v_m2);
+        *r_ds = t3144;
+        *r_ms = t3145;
       }
     }
-    if (!d3012) {
-      u_no_case(s3011);
+    if (!d3141) {
+      u_no_case(s3140);
     }
   }
 }
 
 u_value f_compile_46_cached_3(u_value v_n, u_value v_bs, u_value v_r) {
-  static struct u_object l_handler_3017 = U_LIT("handler");
-  u_value t3044 = u_mk_con(&n_c_46_CeVar, 1, &l_handler_3017);
-  u_value t3043;
+  static struct u_object l_handler_3146 = U_LIT("handler");
+  u_value t3173 = u_mk_con(&n_c_46_CeVar, 1, &l_handler_3146);
+  u_value t3172;
   {
-    u_value v_h = t3044;
-    static struct u_object l_static_32_u_value_3018 = U_LIT("static u_value");
-    static struct u_object l_cache_3019 = U_LIT("cache");
-    static struct u_object l_NULL_3020 = U_LIT("NULL");
-    static struct u_object l__61__61__3021 = U_LIT("==");
-    static struct u_object l_cache_3022 = U_LIT("cache");
-    static struct u_object l_U_COMPUTING_3023 = U_LIT("U_COMPUTING");
-    static struct u_object l_u_fail_3024 = U_LIT("u_fail");
-    static struct u_object l_recursive_32_initia_3025 = U_LIT("recursive initialization of ");
-    static struct u_object l_cache_3026 = U_LIT("cache");
-    static struct u_object l_cache_3027 = U_LIT("cache");
-    static struct u_object l_cache_3028 = U_LIT("cache");
-    static struct u_object l_U_COMPUTING_3029 = U_LIT("U_COMPUTING");
-    static struct u_object l_struct_32_u_handler_3030 = U_LIT("struct u_handler");
-    static struct u_object l_handler_3031 = U_LIT("handler");
-    static struct u_object l_u_push_3032 = U_LIT("u_push");
-    static struct u_object l__33__61__3033 = U_LIT("!=");
-    static struct u_object l_setjmp_3034 = U_LIT("setjmp");
-    static struct u_object l_env_3035 = U_LIT("env");
-    static struct u_object l_u_pop_3036 = U_LIT("u_pop");
-    static struct u_object l_cache_3037 = U_LIT("cache");
-    static struct u_object l_NULL_3038 = U_LIT("NULL");
-    static struct u_object l_u_reraise_3039 = U_LIT("u_reraise");
-    static struct u_object l_u_pop_3040 = U_LIT("u_pop");
-    static struct u_object l_cache_3041 = U_LIT("cache");
-    static struct u_object l_cache_3042 = U_LIT("cache");
-    t3043 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, u_mk_con(&n_c_46_CtNamed, 1, &l_static_32_u_value_3018), &l_cache_3019, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeVar, 1, &l_NULL_3020))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeBinary, 3, &l__61__61__3021, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3022), u_mk_con(&n_c_46_CeVar, 1, &l_U_COMPUTING_3023)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_fail_3024, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, u_concat(&l_recursive_32_initia_3025, v_n)), &o_list_46_Nil))), &o_list_46_Nil), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3026), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3027))), &o_list_46_Nil), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3028), u_mk_con(&n_c_46_CeVar, 1, &l_U_COMPUTING_3029)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, u_mk_con(&n_c_46_CtPtr, 1, u_mk_con(&n_c_46_CtNamed, 1, &l_struct_32_u_handler_3030)), &l_handler_3031, u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(&l_u_push_3032, &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeBinary, 3, &l__33__61__3033, f_c_46_c_call_2(&l_setjmp_3034, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeArrow, 2, v_h, &l_env_3035), &o_list_46_Nil)), u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_pop_3036, u_mk_con(&n_list_46_Cons, 2, v_h, &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3037), u_mk_con(&n_c_46_CeVar, 1, &l_NULL_3038)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_reraise_3039, u_mk_con(&n_list_46_Cons, 2, v_h, &o_list_46_Nil))), &o_list_46_Nil))), &o_list_46_Nil), &o_list_46_Nil)))))), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_pop_3040, u_mk_con(&n_list_46_Cons, 2, v_h, &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3041), v_r), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3042))), &o_list_46_Nil)))));
+    u_value v_h = t3173;
+    static struct u_object l_static_32_u_value_3147 = U_LIT("static u_value");
+    static struct u_object l_cache_3148 = U_LIT("cache");
+    static struct u_object l_NULL_3149 = U_LIT("NULL");
+    static struct u_object l__61__61__3150 = U_LIT("==");
+    static struct u_object l_cache_3151 = U_LIT("cache");
+    static struct u_object l_U_COMPUTING_3152 = U_LIT("U_COMPUTING");
+    static struct u_object l_u_fail_3153 = U_LIT("u_fail");
+    static struct u_object l_recursive_32_initia_3154 = U_LIT("recursive initialization of ");
+    static struct u_object l_cache_3155 = U_LIT("cache");
+    static struct u_object l_cache_3156 = U_LIT("cache");
+    static struct u_object l_cache_3157 = U_LIT("cache");
+    static struct u_object l_U_COMPUTING_3158 = U_LIT("U_COMPUTING");
+    static struct u_object l_struct_32_u_handler_3159 = U_LIT("struct u_handler");
+    static struct u_object l_handler_3160 = U_LIT("handler");
+    static struct u_object l_u_push_3161 = U_LIT("u_push");
+    static struct u_object l__33__61__3162 = U_LIT("!=");
+    static struct u_object l_setjmp_3163 = U_LIT("setjmp");
+    static struct u_object l_env_3164 = U_LIT("env");
+    static struct u_object l_u_pop_3165 = U_LIT("u_pop");
+    static struct u_object l_cache_3166 = U_LIT("cache");
+    static struct u_object l_NULL_3167 = U_LIT("NULL");
+    static struct u_object l_u_reraise_3168 = U_LIT("u_reraise");
+    static struct u_object l_u_pop_3169 = U_LIT("u_pop");
+    static struct u_object l_cache_3170 = U_LIT("cache");
+    static struct u_object l_cache_3171 = U_LIT("cache");
+    t3172 = f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, u_mk_con(&n_c_46_CtNamed, 1, &l_static_32_u_value_3147), &l_cache_3148, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeVar, 1, &l_NULL_3149))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeBinary, 3, &l__61__61__3150, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3151), u_mk_con(&n_c_46_CeVar, 1, &l_U_COMPUTING_3152)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_fail_3153, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeStr, 1, u_concat(&l_recursive_32_initia_3154, v_n)), &o_list_46_Nil))), &o_list_46_Nil), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3155), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3156))), &o_list_46_Nil), &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3157), u_mk_con(&n_c_46_CeVar, 1, &l_U_COMPUTING_3158)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsDecl, 3, u_mk_con(&n_c_46_CtPtr, 1, u_mk_con(&n_c_46_CtNamed, 1, &l_struct_32_u_handler_3159)), &l_handler_3160, u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(&l_u_push_3161, &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsIf, 3, u_mk_con(&n_c_46_CeBinary, 3, &l__33__61__3162, f_c_46_c_call_2(&l_setjmp_3163, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeArrow, 2, v_h, &l_env_3164), &o_list_46_Nil)), u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_pop_3165, u_mk_con(&n_list_46_Cons, 2, v_h, &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3166), u_mk_con(&n_c_46_CeVar, 1, &l_NULL_3167)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_reraise_3168, u_mk_con(&n_list_46_Cons, 2, v_h, &o_list_46_Nil))), &o_list_46_Nil))), &o_list_46_Nil), &o_list_46_Nil)))))), f_list_46__43__43__2(v_bs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_pop_3169, u_mk_con(&n_list_46_Cons, 2, v_h, &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsAssign, 2, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3170), v_r), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeVar, 1, &l_cache_3171))), &o_list_46_Nil)))));
   }
-  return t3043;
+  return t3172;
 }
 
 u_value f_compile_46_wrappers_1(u_value v_gl) {
-  u_value t3045 = &o_list_46_Nil;
-  u_value *e3046 = &t3045;
-  u_value l3047 = f_compile_46_Globals_46_funs_1(v_gl);
-  while (u_is_con(l3047, &n_list_46_Cons)) {
-    u_value v_p = u_field(l3047, 0);
+  u_value t3174 = &o_list_46_Nil;
+  u_value *e3175 = &t3174;
+  u_value l3176 = f_compile_46_Globals_46_funs_1(v_gl);
+  while (u_is_con(l3176, &n_list_46_Cons)) {
+    u_value v_p = u_field(l3176, 0);
     if (u_truth(u_mk_bool(1))) {
-      e3046 = u_append(e3046, f_compile_46_fun_wrapper_1(v_p));
+      e3175 = u_append(e3175, f_compile_46_fun_wrapper_1(v_p));
     }
-    l3047 = u_field(l3047, 1);
+    l3176 = u_field(l3176, 1);
   }
-  u_value t3048 = &o_list_46_Nil;
-  u_value *e3049 = &t3048;
-  u_value l3050 = f_compile_46_Globals_46_constrs_1(v_gl);
-  while (u_is_con(l3050, &n_list_46_Cons)) {
-    u_value v_p = u_field(l3050, 0);
+  u_value t3177 = &o_list_46_Nil;
+  u_value *e3178 = &t3177;
+  u_value l3179 = f_compile_46_Globals_46_constrs_1(v_gl);
+  while (u_is_con(l3179, &n_list_46_Cons)) {
+    u_value v_p = u_field(l3179, 0);
     if (u_truth(u_mk_bool(1))) {
-      e3049 = u_append(e3049, f_compile_46_constr_wrapper_1(v_p));
+      e3178 = u_append(e3178, f_compile_46_constr_wrapper_1(v_p));
     }
-    l3050 = u_field(l3050, 1);
+    l3179 = u_field(l3179, 1);
   }
-  u_value t3051 = &o_list_46_Nil;
-  u_value *e3052 = &t3051;
-  u_value l3053 = f_list_46_seconds_1(f_map_46_entries_1(f_compile_46_builtin_functions_0()));
-  while (u_is_con(l3053, &n_list_46_Cons)) {
-    u_value v_p = u_field(l3053, 0);
+  u_value t3180 = &o_list_46_Nil;
+  u_value *e3181 = &t3180;
+  u_value l3182 = f_list_46_seconds_1(f_map_46_entries_1(f_compile_46_builtin_functions_0()));
+  while (u_is_con(l3182, &n_list_46_Cons)) {
+    u_value v_p = u_field(l3182, 0);
     if (u_truth(u_mk_bool(1))) {
-      e3052 = u_append(e3052, f_compile_46_builtin_wrapper_1(v_p));
+      e3181 = u_append(e3181, f_compile_46_builtin_wrapper_1(v_p));
     }
-    l3053 = u_field(l3053, 1);
+    l3182 = u_field(l3182, 1);
   }
-  u_value t3054 = &o_list_46_Nil;
-  u_value *e3055 = &t3054;
-  u_value l3056 = f_map_46_entries_1(f_compile_46_Globals_46_procs_1(v_gl));
-  while (u_is_con(l3056, &n_list_46_Cons)) {
-    u_value v_p = u_field(l3056, 0);
+  u_value t3183 = &o_list_46_Nil;
+  u_value *e3184 = &t3183;
+  u_value l3185 = f_map_46_entries_1(f_compile_46_Globals_46_procs_1(v_gl));
+  while (u_is_con(l3185, &n_list_46_Cons)) {
+    u_value v_p = u_field(l3185, 0);
     if (u_truth(u_mk_bool(1))) {
-      e3055 = u_append(e3055, f_compile_46_proc_wrapper_1(v_p));
+      e3184 = u_append(e3184, f_compile_46_proc_wrapper_1(v_p));
     }
-    l3056 = u_field(l3056, 1);
+    l3185 = u_field(l3185, 1);
   }
-  return f_list_46__43__43__2(t3045, f_list_46__43__43__2(f_list_46_concat_1(t3048), f_list_46__43__43__2(t3051, t3054)));
+  return f_list_46__43__43__2(t3174, f_list_46__43__43__2(f_list_46_concat_1(t3177), f_list_46__43__43__2(t3180, t3183)));
 }
 
 u_value f_compile_46_proc_wrapper_1(u_value v_p) {
-  u_value s3057 = v_p;
-  u_value t3058 = NULL;
-  if (!t3058) {
-    u_value v_n = u_field(s3057, 0);
-    u_value v_k = u_field(u_field(s3057, 1), 0);
-    u_value v_m = u_field(u_field(s3057, 1), 1);
-    static struct u_object l_wp__3059 = U_LIT("wp_");
-    u_value t3060 = &o_list_46_Nil;
-    u_value *e3061 = &t3060;
-    u_value l3062 = f_compile_46_range_to_1(v_k);
-    while (u_is_con(l3062, &n_list_46_Cons)) {
-      u_value v_i = u_field(l3062, 0);
+  u_value s3186 = v_p;
+  u_value t3187 = NULL;
+  if (!t3187) {
+    u_value v_n = u_field(s3186, 0);
+    u_value v_k = u_field(u_field(s3186, 1), 0);
+    u_value v_m = u_field(u_field(s3186, 1), 1);
+    static struct u_object l_wp__3188 = U_LIT("wp_");
+    u_value t3189 = &o_list_46_Nil;
+    u_value *e3190 = &t3189;
+    u_value l3191 = f_compile_46_range_to_1(v_k);
+    while (u_is_con(l3191, &n_list_46_Cons)) {
+      u_value v_i = u_field(l3191, 0);
       if (u_truth(u_mk_bool(1))) {
-        static struct u_object l_ins_3063 = U_LIT("ins");
-        e3061 = u_append(e3061, f_compile_46_index_2(&l_ins_3063, v_i));
+        static struct u_object l_ins_3192 = U_LIT("ins");
+        e3190 = u_append(e3190, f_compile_46_index_2(&l_ins_3192, v_i));
       }
-      l3062 = u_field(l3062, 1);
+      l3191 = u_field(l3191, 1);
     }
-    u_value t3064 = &o_list_46_Nil;
-    u_value *e3065 = &t3064;
-    u_value l3066 = f_compile_46_range_to_1(v_m);
-    while (u_is_con(l3066, &n_list_46_Cons)) {
-      u_value v_i = u_field(l3066, 0);
+    u_value t3193 = &o_list_46_Nil;
+    u_value *e3194 = &t3193;
+    u_value l3195 = f_compile_46_range_to_1(v_m);
+    while (u_is_con(l3195, &n_list_46_Cons)) {
+      u_value v_i = u_field(l3195, 0);
       if (u_truth(u_mk_bool(1))) {
-        static struct u_object l_outs_3067 = U_LIT("outs");
-        e3065 = u_append(e3065, f_compile_46_index_2(&l_outs_3067, v_i));
+        static struct u_object l_outs_3196 = U_LIT("outs");
+        e3194 = u_append(e3194, f_compile_46_index_2(&l_outs_3196, v_i));
       }
-      l3066 = u_field(l3066, 1);
+      l3195 = u_field(l3195, 1);
     }
-    t3058 = u_mk_con(&n_c_46_CdFunction, 4, &o_c_46_CtVoid, u_concat(&l_wp__3059, f_compile_46_mangle_1(v_n)), f_compile_46_proc_params_0(), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(f_compile_46_proc_name_1(v_n), f_list_46__43__43__2(t3060, t3064))), &o_list_46_Nil));
+    t3187 = u_mk_con(&n_c_46_CdFunction, 4, &o_c_46_CtVoid, u_concat(&l_wp__3188, f_compile_46_mangle_1(v_n)), f_compile_46_proc_params_0(), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(f_compile_46_proc_name_1(v_n), f_list_46__43__43__2(t3189, t3193))), &o_list_46_Nil));
   }
-  if (!t3058) {
-    u_no_case(s3057);
+  if (!t3187) {
+    u_no_case(s3186);
   }
-  return t3058;
+  return t3187;
 }
 
 u_value f_compile_46_fun_wrapper_1(u_value v_p) {
-  u_value s3068 = v_p;
-  u_value t3069 = NULL;
-  if (!t3069) {
-    u_value v_n = u_field(s3068, 0);
-    u_value v_k = u_field(s3068, 1);
-    static struct u_object l_w__3070 = U_LIT("w_");
-    t3069 = f_compile_46_wrapper_3(u_concat(&l_w__3070, f_compile_46_fun_name_2(v_n, v_k)), f_compile_46_fun_name_2(v_n, v_k), v_k);
+  u_value s3197 = v_p;
+  u_value t3198 = NULL;
+  if (!t3198) {
+    u_value v_n = u_field(s3197, 0);
+    u_value v_k = u_field(s3197, 1);
+    static struct u_object l_w__3199 = U_LIT("w_");
+    t3198 = f_compile_46_wrapper_3(u_concat(&l_w__3199, f_compile_46_fun_name_2(v_n, v_k)), f_compile_46_fun_name_2(v_n, v_k), v_k);
   }
-  if (!t3069) {
-    u_no_case(s3068);
+  if (!t3198) {
+    u_no_case(s3197);
   }
-  return t3069;
+  return t3198;
 }
 
 u_value f_compile_46_builtin_wrapper_1(u_value v_p) {
-  u_value s3071 = v_p;
-  u_value t3072 = NULL;
-  if (!t3072) {
-    u_value v_f = u_field(s3071, 0);
-    u_value v_k = u_field(s3071, 1);
-    static struct u_object l_w_3073 = U_LIT("w");
-    t3072 = f_compile_46_wrapper_3(u_concat(&l_w_3073, v_f), v_f, v_k);
+  u_value s3200 = v_p;
+  u_value t3201 = NULL;
+  if (!t3201) {
+    u_value v_f = u_field(s3200, 0);
+    u_value v_k = u_field(s3200, 1);
+    static struct u_object l_w_3202 = U_LIT("w");
+    t3201 = f_compile_46_wrapper_3(u_concat(&l_w_3202, v_f), v_f, v_k);
   }
-  if (!t3072) {
-    u_no_case(s3071);
+  if (!t3201) {
+    u_no_case(s3200);
   }
-  return t3072;
+  return t3201;
 }
 
 u_value f_compile_46_wrapper_3(u_value v_w, u_value v_f, u_value v_k) {
-  static struct u_object l_env_3074 = U_LIT("env");
-  static struct u_object l_args_3075 = U_LIT("args");
-  u_value t3076 = &o_list_46_Nil;
-  u_value *e3077 = &t3076;
-  u_value l3078 = f_compile_46_range_to_1(v_k);
-  while (u_is_con(l3078, &n_list_46_Cons)) {
-    u_value v_i = u_field(l3078, 0);
+  static struct u_object l_env_3203 = U_LIT("env");
+  static struct u_object l_args_3204 = U_LIT("args");
+  u_value t3205 = &o_list_46_Nil;
+  u_value *e3206 = &t3205;
+  u_value l3207 = f_compile_46_range_to_1(v_k);
+  while (u_is_con(l3207, &n_list_46_Cons)) {
+    u_value v_i = u_field(l3207, 0);
     if (u_truth(u_mk_bool(1))) {
-      static struct u_object l_args_3079 = U_LIT("args");
-      e3077 = u_append(e3077, f_compile_46_index_2(&l_args_3079, v_i));
+      static struct u_object l_args_3208 = U_LIT("args");
+      e3206 = u_append(e3206, f_compile_46_index_2(&l_args_3208, v_i));
     }
-    l3078 = u_field(l3078, 1);
+    l3207 = u_field(l3207, 1);
   }
-  return u_mk_con(&n_c_46_CdFunction, 4, f_compile_46_value_type_0(), v_w, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_env_3074), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_args_3075), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(v_f, t3076))), &o_list_46_Nil));
+  return u_mk_con(&n_c_46_CdFunction, 4, f_compile_46_value_type_0(), v_w, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_env_3203), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_args_3204), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(v_f, t3205))), &o_list_46_Nil));
 }
 
 u_value f_compile_46_constr_wrapper_1(u_value v_p) {
-  u_value s3080 = v_p;
-  u_value t3081 = NULL;
-  if ((!t3081) && u_equals(u_field(s3080, 1), u_mk_int(0))) {
-    t3081 = &o_list_46_Nil;
+  u_value s3209 = v_p;
+  u_value t3210 = NULL;
+  if ((!t3210) && u_equals(u_field(s3209, 1), u_mk_int(0))) {
+    t3210 = &o_list_46_Nil;
   }
-  if (!t3081) {
-    u_value v_n = u_field(s3080, 0);
-    u_value v_k = u_field(s3080, 1);
-    static struct u_object l_wc__3082 = U_LIT("wc_");
-    static struct u_object l_env_3083 = U_LIT("env");
-    static struct u_object l_args_3084 = U_LIT("args");
-    static struct u_object l_u_mk_con_array_3085 = U_LIT("u_mk_con_array");
-    static struct u_object l_args_3086 = U_LIT("args");
-    t3081 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdFunction, 4, f_compile_46_value_type_0(), u_concat(&l_wc__3082, f_compile_46_mangle_1(v_n)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_env_3083), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_args_3084), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(&l_u_mk_con_array_3085, u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_1(v_n), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, v_k), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, &l_args_3086), &o_list_46_Nil)))))), &o_list_46_Nil)), &o_list_46_Nil);
+  if (!t3210) {
+    u_value v_n = u_field(s3209, 0);
+    u_value v_k = u_field(s3209, 1);
+    static struct u_object l_wc__3211 = U_LIT("wc_");
+    static struct u_object l_env_3212 = U_LIT("env");
+    static struct u_object l_args_3213 = U_LIT("args");
+    static struct u_object l_u_mk_con_array_3214 = U_LIT("u_mk_con_array");
+    static struct u_object l_args_3215 = U_LIT("args");
+    t3210 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdFunction, 4, f_compile_46_value_type_0(), u_concat(&l_wc__3211, f_compile_46_mangle_1(v_n)), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_env_3212), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, f_compile_46_value_ptr_0(), &l_args_3213), &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, f_c_46_c_call_2(&l_u_mk_con_array_3214, u_mk_con(&n_list_46_Cons, 2, f_compile_46_descriptor_1(v_n), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeNum, 1, v_k), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, &l_args_3215), &o_list_46_Nil)))))), &o_list_46_Nil)), &o_list_46_Nil);
   }
-  if (!t3081) {
-    u_no_case(s3080);
+  if (!t3210) {
+    u_no_case(s3209);
   }
-  return t3081;
+  return t3210;
 }
 
 u_value f_compile_46_range_to_1(u_value v_k) {
-  u_value t3087;
+  u_value t3216;
   if (u_truth(u_eq(v_k, u_mk_int(0)))) {
-    t3087 = &o_list_46_Nil;
+    t3216 = &o_list_46_Nil;
   } else {
-    t3087 = f_list_46__43__43__2(f_compile_46_range_to_1(u_sub(v_k, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_sub(v_k, u_mk_int(1)), &o_list_46_Nil));
+    t3216 = f_list_46__43__43__2(f_compile_46_range_to_1(u_sub(v_k, u_mk_int(1))), u_mk_con(&n_list_46_Cons, 2, u_sub(v_k, u_mk_int(1)), &o_list_46_Nil));
   }
-  return t3087;
+  return t3216;
 }
 
 u_value f_compile_46_prototype_1(u_value v_d) {
-  u_value s3088 = v_d;
-  u_value t3089 = NULL;
-  if ((!t3089) && u_is_con(s3088, &n_c_46_CdFunction)) {
-    u_value v_t = u_field(s3088, 0);
-    u_value v_f = u_field(s3088, 1);
-    u_value v_ps = u_field(s3088, 2);
-    t3089 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdPrototype, 3, v_t, v_f, v_ps), &o_list_46_Nil);
+  u_value s3217 = v_d;
+  u_value t3218 = NULL;
+  if ((!t3218) && u_is_con(s3217, &n_c_46_CdFunction)) {
+    u_value v_t = u_field(s3217, 0);
+    u_value v_f = u_field(s3217, 1);
+    u_value v_ps = u_field(s3217, 2);
+    t3218 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdPrototype, 3, v_t, v_f, v_ps), &o_list_46_Nil);
   }
-  if (!t3089) {
-    t3089 = &o_list_46_Nil;
+  if (!t3218) {
+    t3218 = &o_list_46_Nil;
   }
-  if (!t3089) {
-    u_no_case(s3088);
+  if (!t3218) {
+    u_no_case(s3217);
   }
-  return t3089;
+  return t3218;
 }
 
 void p_compile_46_compile_program(u_value v_q, u_value v_m, u_value v_entry, u_value *r_f) {
@@ -27915,76 +29092,76 @@ void p_compile_46_compile_program(u_value v_q, u_value v_m, u_value v_entry, u_v
     u_value v_ds = NULL;
     u_value v_ms = NULL;
     u_value v_fs = NULL;
-    u_value t3090 = u_mk_con(&n_compile_46_Gen, 2, u_mk_int(0), &o_list_46_Nil);
-    v_g = t3090;
-    u_value t3091 = f_compile_46_globals_1(f_syntax_46_Program_46_cmds_1(v_q));
-    v_gl = t3091;
-    static struct u_object l_test_3092 = U_LIT("test");
-    u_value t3094 = f_prelude_46__33__61__2(v_entry, &l_test_3092);
-    if (u_truth(t3094)) {
-      t3094 = f_prelude_46_not_1(f_list_46_exists_2(f_syntax_46_Program_46_cmds_1(v_q), u_mk_closure(lam3093, 2, v_m, v_entry)));
+    u_value t3219 = u_mk_con(&n_compile_46_Gen, 2, u_mk_int(0), &o_list_46_Nil);
+    v_g = t3219;
+    u_value t3220 = f_compile_46_globals_1(f_syntax_46_Program_46_cmds_1(v_q));
+    v_gl = t3220;
+    static struct u_object l_test_3221 = U_LIT("test");
+    u_value t3223 = f_prelude_46__33__61__2(v_entry, &l_test_3221);
+    if (u_truth(t3223)) {
+      t3223 = f_prelude_46_not_1(f_list_46_exists_2(f_syntax_46_Program_46_cmds_1(v_q), u_mk_closure(lam3222, 2, v_m, v_entry)));
     }
-    if (u_truth(t3094)) {
+    if (u_truth(t3223)) {
       {
         u_raise(u_mk_con(&n_compile_46_UnknownEntry, 1, u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, v_m), v_entry)), "compile.CompileError");
       }
     }
     p_compile_46_compile_cmds(v_gl, v_entry, f_syntax_46_Program_46_cmds_1(v_q), &v_ds, &v_ms, &v_g);
-    static struct u_object l_test_3095 = U_LIT("test");
-    if (u_truth(f_prelude_46__33__61__2(v_entry, &l_test_3095))) {
+    static struct u_object l_test_3224 = U_LIT("test");
+    if (u_truth(f_prelude_46__33__61__2(v_entry, &l_test_3224))) {
       {
-        u_value t3096 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(f_compile_46_proc_name_1(u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, v_m), v_entry)), &o_list_46_Nil)), &o_list_46_Nil);
-        v_ms = t3096;
+        u_value t3225 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(f_compile_46_proc_name_1(u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, v_m), v_entry)), &o_list_46_Nil)), &o_list_46_Nil);
+        v_ms = t3225;
       }
     }
-    u_value t3097 = f_list_46__43__43__2(f_compile_46_wrappers_1(v_gl), f_list_46__43__43__2(v_ds, f_compile_46_Gen_46_lifted_1(v_g)));
-    v_fs = t3097;
-    static struct u_object l_ulang_46_h_3098 = U_LIT("ulang.h");
-    u_value t3099 = &o_list_46_Nil;
-    u_value *e3100 = &t3099;
-    u_value l3101 = v_fs;
-    while (u_is_con(l3101, &n_list_46_Cons)) {
-      u_value v_d = u_field(l3101, 0);
+    u_value t3226 = f_list_46__43__43__2(f_compile_46_wrappers_1(v_gl), f_list_46__43__43__2(f_compile_46_order_wrappers_1(f_syntax_46_Program_46_cmds_1(v_q)), f_list_46__43__43__2(v_ds, f_compile_46_Gen_46_lifted_1(v_g))));
+    v_fs = t3226;
+    static struct u_object l_ulang_46_h_3227 = U_LIT("ulang.h");
+    u_value t3228 = &o_list_46_Nil;
+    u_value *e3229 = &t3228;
+    u_value l3230 = v_fs;
+    while (u_is_con(l3230, &n_list_46_Cons)) {
+      u_value v_d = u_field(l3230, 0);
       if (u_truth(u_mk_bool(1))) {
-        e3100 = u_append(e3100, f_compile_46_prototype_1(v_d));
+        e3229 = u_append(e3229, f_compile_46_prototype_1(v_d));
       }
-      l3101 = u_field(l3101, 1);
+      l3230 = u_field(l3230, 1);
     }
-    static struct u_object l_main_3102 = U_LIT("main");
-    static struct u_object l_argc_3103 = U_LIT("argc");
-    static struct u_object l_char_3104 = U_LIT("char");
-    static struct u_object l_argv_3105 = U_LIT("argv");
-    static struct u_object l_u_args_3106 = U_LIT("u_args");
-    static struct u_object l_argc_3107 = U_LIT("argc");
-    static struct u_object l_argv_3108 = U_LIT("argv");
-    u_value t3109 = u_mk_con(&n_c_46_CFile, 1, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdInclude, 1, &l_ulang_46_h_3098), &o_list_46_Nil), f_list_46__43__43__2(f_compile_46_descriptor_decls_1(f_syntax_46_Program_46_cmds_1(v_q)), f_list_46__43__43__2(f_list_46_concat_1(t3099), f_list_46__43__43__2(v_fs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdFunction, 4, &o_c_46_CtInt, &l_main_3102, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, &o_c_46_CtInt, &l_argc_3103), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_c_46_CtPtr, 1, u_mk_con(&n_c_46_CtPtr, 1, u_mk_con(&n_c_46_CtNamed, 1, &l_char_3104))), &l_argv_3105), &o_list_46_Nil)), f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_args_3106, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, &l_argc_3107), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, &l_argv_3108), &o_list_46_Nil)))), &o_list_46_Nil), f_list_46__43__43__2(v_ms, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)))), &o_list_46_Nil)))), &o_list_46_Nil))))));
-    *r_f = t3109;
+    static struct u_object l_main_3231 = U_LIT("main");
+    static struct u_object l_argc_3232 = U_LIT("argc");
+    static struct u_object l_char_3233 = U_LIT("char");
+    static struct u_object l_argv_3234 = U_LIT("argv");
+    static struct u_object l_u_args_3235 = U_LIT("u_args");
+    static struct u_object l_argc_3236 = U_LIT("argc");
+    static struct u_object l_argv_3237 = U_LIT("argv");
+    u_value t3238 = u_mk_con(&n_c_46_CFile, 1, f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdInclude, 1, &l_ulang_46_h_3227), &o_list_46_Nil), f_list_46__43__43__2(f_list_46_concat_1(t3228), f_list_46__43__43__2(f_compile_46_descriptor_decls_1(f_syntax_46_Program_46_cmds_1(v_q)), f_list_46__43__43__2(v_fs, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CdFunction, 4, &o_c_46_CtInt, &l_main_3231, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, &o_c_46_CtInt, &l_argc_3232), u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_con(&n_c_46_CtPtr, 1, u_mk_con(&n_c_46_CtPtr, 1, u_mk_con(&n_c_46_CtNamed, 1, &l_char_3233))), &l_argv_3234), &o_list_46_Nil)), f_list_46__43__43__2(u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsExpr, 1, f_c_46_c_call_2(&l_u_args_3235, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, &l_argc_3236), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CeVar, 1, &l_argv_3237), &o_list_46_Nil)))), &o_list_46_Nil), f_list_46__43__43__2(v_ms, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_c_46_CsReturn, 1, u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_c_46_CeNum, 1, u_mk_int(0)))), &o_list_46_Nil)))), &o_list_46_Nil))))));
+    *r_f = t3238;
   }
 }
 
 void p_compile_46_compile_file(u_value v_source, u_value v_entry, u_value v_target) {
   {
     u_value v_cache = NULL;
-    u_value t3110 = &o_list_46_Nil;
-    v_cache = t3110;
+    u_value t3239 = &o_list_46_Nil;
+    v_cache = t3239;
     p_compile_46_compile_with(v_source, v_entry, v_target, &v_cache);
   }
 }
 
 u_value f_compile_46_is_entry_2(u_value v_c, u_value v_n) {
-  u_value s3111 = v_c;
-  u_value t3112 = NULL;
-  if ((!t3112) && (u_is_con(s3111, &n_syntax_46_CProc) && (u_is_con(u_field(s3111, 2), &n_list_46_Nil) && (u_is_con(u_field(s3111, 3), &n_list_46_Nil) && u_is_con(u_field(s3111, 4), &n_list_46_Nil))))) {
-    u_value v_k = u_field(s3111, 0);
-    t3112 = u_eq(v_k, v_n);
+  u_value s3240 = v_c;
+  u_value t3241 = NULL;
+  if ((!t3241) && (u_is_con(s3240, &n_syntax_46_CProc) && (u_is_con(u_field(s3240, 2), &n_list_46_Nil) && (u_is_con(u_field(s3240, 3), &n_list_46_Nil) && u_is_con(u_field(s3240, 4), &n_list_46_Nil))))) {
+    u_value v_k = u_field(s3240, 0);
+    t3241 = u_eq(v_k, v_n);
   }
-  if (!t3112) {
-    t3112 = u_mk_bool(0);
+  if (!t3241) {
+    t3241 = u_mk_bool(0);
   }
-  if (!t3112) {
-    u_no_case(s3111);
+  if (!t3241) {
+    u_no_case(s3240);
   }
-  return t3112;
+  return t3241;
 }
 
 void p_compile_46_compile_with(u_value v_source, u_value v_entry, u_value v_target, u_value *r_cache) {
@@ -27993,11 +29170,11 @@ void p_compile_46_compile_with(u_value v_source, u_value v_entry, u_value v_targ
     u_value v_p = NULL;
     u_value v_q = NULL;
     u_value v_f = NULL;
-    static struct u_object l_prelude_3113 = U_LIT("prelude");
-    p_parse_46_parse_library(&l_prelude_3113, &v_pre);
+    static struct u_object l_prelude_3242 = U_LIT("prelude");
+    p_parse_46_parse_library(&l_prelude_3242, &v_pre);
     p_parse_46_parse_file_after(v_source, v_pre, &v_p);
-    static struct u_object l_prelude_3114 = U_LIT("prelude");
-    p_check_46_check_modules(u_mk_con(&n_syntax_46_Program, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CModule, 2, &l_prelude_3114, f_syntax_46_Program_46_cmds_1(v_pre)), f_syntax_46_Program_46_cmds_1(v_p))), f_parse_46_base_name_1(v_source), &v_q, r_cache);
+    static struct u_object l_prelude_3243 = U_LIT("prelude");
+    p_check_46_check_modules(u_mk_con(&n_syntax_46_Program, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CModule, 2, &l_prelude_3243, f_syntax_46_Program_46_cmds_1(v_pre)), f_syntax_46_Program_46_cmds_1(v_p))), f_parse_46_base_name_1(v_source), &v_q, r_cache);
     p_compile_46_compile_program(v_q, f_parse_46_base_name_1(v_source), v_entry, &v_f);
     p_os_write(v_target, f_c_46_c_file_1(v_f));
   }
@@ -28009,69 +29186,69 @@ void p_ulang_46_main(void) {
     u_value v_command = NULL;
     u_value v_rest = NULL;
     u_value v_ok = NULL;
-    u_value t3115 = u_mk_bool(1);
-    v_ok = t3115;
+    u_value t3244 = u_mk_bool(1);
+    v_ok = t3244;
     p_os_args(&v_args);
-    u_value t3116 = f_ulang_46_before_dashes_1(v_args);
-    u_value t3117 = f_ulang_46_after_dashes_1(v_args);
-    v_command = t3116;
-    v_rest = t3117;
-    u_value s3118 = v_command;
-    int d3119 = 0;
-    if ((!d3119) && u_is_con(s3118, &n_list_46_Nil)) {
-      d3119 = 1;
+    u_value t3245 = f_ulang_46_before_dashes_1(v_args);
+    u_value t3246 = f_ulang_46_after_dashes_1(v_args);
+    v_command = t3245;
+    v_rest = t3246;
+    u_value s3247 = v_command;
+    int d3248 = 0;
+    if ((!d3248) && u_is_con(s3247, &n_list_46_Nil)) {
+      d3248 = 1;
       {
       }
     }
-    if ((!d3119) && (u_is_con(s3118, &n_list_46_Cons) && (u_equals(u_field(s3118, 0), u_mk_lit("run")) && (u_is_con(u_field(s3118, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s3118, 1), 1), &n_list_46_Nil))))) {
-      u_value v_file = u_field(u_field(s3118, 1), 0);
-      d3119 = 1;
+    if ((!d3248) && (u_is_con(s3247, &n_list_46_Cons) && (u_equals(u_field(s3247, 0), u_mk_lit("run")) && (u_is_con(u_field(s3247, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s3247, 1), 1), &n_list_46_Nil))))) {
+      u_value v_file = u_field(u_field(s3247, 1), 0);
+      d3248 = 1;
       {
-        p_ulang_46_attempt(v_file, u_mk_proc(proc3120, 2, v_file, v_rest), &v_ok);
+        p_ulang_46_attempt(v_file, u_mk_proc(proc3249, 2, v_file, v_rest), &v_ok);
       }
     }
-    if ((!d3119) && (u_is_con(s3118, &n_list_46_Cons) && (u_equals(u_field(s3118, 0), u_mk_lit("run")) && (u_is_con(u_field(s3118, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s3118, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s3118, 1), 1), 1), &n_list_46_Nil)))))) {
-      u_value v_file = u_field(u_field(s3118, 1), 0);
-      u_value v_name = u_field(u_field(u_field(s3118, 1), 1), 0);
-      d3119 = 1;
+    if ((!d3248) && (u_is_con(s3247, &n_list_46_Cons) && (u_equals(u_field(s3247, 0), u_mk_lit("run")) && (u_is_con(u_field(s3247, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s3247, 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(s3247, 1), 1), 1), &n_list_46_Nil)))))) {
+      u_value v_file = u_field(u_field(s3247, 1), 0);
+      u_value v_name = u_field(u_field(u_field(s3247, 1), 1), 0);
+      d3248 = 1;
       {
-        p_ulang_46_attempt(v_file, u_mk_proc(proc3122, 3, v_file, v_name, v_rest), &v_ok);
+        p_ulang_46_attempt(v_file, u_mk_proc(proc3251, 3, v_file, v_name, v_rest), &v_ok);
       }
     }
-    if ((!d3119) && (u_is_con(s3118, &n_list_46_Cons) && (u_equals(u_field(s3118, 0), u_mk_lit("test")) && u_is_con(u_field(s3118, 1), &n_list_46_Cons)))) {
-      u_value v_file = u_field(u_field(s3118, 1), 0);
-      u_value v_names = u_field(u_field(s3118, 1), 1);
-      d3119 = 1;
+    if ((!d3248) && (u_is_con(s3247, &n_list_46_Cons) && (u_equals(u_field(s3247, 0), u_mk_lit("test")) && u_is_con(u_field(s3247, 1), &n_list_46_Cons)))) {
+      u_value v_file = u_field(u_field(s3247, 1), 0);
+      u_value v_names = u_field(u_field(s3247, 1), 1);
+      d3248 = 1;
       {
-        p_ulang_46_attempt(v_file, u_mk_proc(proc3123, 3, v_file, v_names, v_rest), &v_ok);
+        p_ulang_46_attempt(v_file, u_mk_proc(proc3252, 3, v_file, v_names, v_rest), &v_ok);
       }
     }
-    if ((!d3119) && (u_is_con(s3118, &n_list_46_Cons) && (u_equals(u_field(s3118, 0), u_mk_lit("check")) && (u_is_con(u_field(s3118, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s3118, 1), 1), &n_list_46_Nil))))) {
-      u_value v_file = u_field(u_field(s3118, 1), 0);
-      d3119 = 1;
+    if ((!d3248) && (u_is_con(s3247, &n_list_46_Cons) && (u_equals(u_field(s3247, 0), u_mk_lit("check")) && (u_is_con(u_field(s3247, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s3247, 1), 1), &n_list_46_Nil))))) {
+      u_value v_file = u_field(u_field(s3247, 1), 0);
+      d3248 = 1;
       {
-        p_ulang_46_attempt(v_file, u_mk_proc(proc3124, 1, v_file), &v_ok);
+        p_ulang_46_attempt(v_file, u_mk_proc(proc3253, 1, v_file), &v_ok);
       }
     }
-    if ((!d3119) && (u_is_con(s3118, &n_list_46_Cons) && (u_equals(u_field(s3118, 0), u_mk_lit("compile")) && (u_is_con(u_field(s3118, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s3118, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s3118, 1), 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(u_field(s3118, 1), 1), 1), 1), &n_list_46_Nil))))))) {
-      u_value v_file = u_field(u_field(s3118, 1), 0);
-      u_value v_entry = u_field(u_field(u_field(s3118, 1), 1), 0);
-      u_value v_target = u_field(u_field(u_field(u_field(s3118, 1), 1), 1), 0);
-      d3119 = 1;
+    if ((!d3248) && (u_is_con(s3247, &n_list_46_Cons) && (u_equals(u_field(s3247, 0), u_mk_lit("compile")) && (u_is_con(u_field(s3247, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s3247, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s3247, 1), 1), 1), &n_list_46_Cons) && u_is_con(u_field(u_field(u_field(u_field(s3247, 1), 1), 1), 1), &n_list_46_Nil))))))) {
+      u_value v_file = u_field(u_field(s3247, 1), 0);
+      u_value v_entry = u_field(u_field(u_field(s3247, 1), 1), 0);
+      u_value v_target = u_field(u_field(u_field(u_field(s3247, 1), 1), 1), 0);
+      d3248 = 1;
       {
-        p_ulang_46_attempt(v_file, u_mk_proc(proc3125, 3, v_file, v_entry, v_target), &v_ok);
+        p_ulang_46_attempt(v_file, u_mk_proc(proc3254, 3, v_file, v_entry, v_target), &v_ok);
       }
     }
-    if (!d3119) {
-      d3119 = 1;
+    if (!d3248) {
+      d3248 = 1;
       {
         p_os_print_error(f_ulang_46_usage_0());
-        u_value t3126 = u_mk_bool(0);
-        v_ok = t3126;
+        u_value t3255 = u_mk_bool(0);
+        v_ok = t3255;
       }
     }
-    if (!d3119) {
-      u_no_case(s3118);
+    if (!d3248) {
+      u_no_case(s3247);
     }
     if (u_truth(f_prelude_46_not_1(v_ok))) {
       {
@@ -28096,154 +29273,154 @@ u_value f_ulang_46_usage_0(void) {
     cache = NULL;
     u_reraise(handler);
   }
-  static struct u_object l_usage_58__32_ulang_32_run_3127 = U_LIT("usage: ulang run <file> [<procedure>] [-- args]\n");
-  static struct u_object l__32__32__32__32__32__32__32_ulang_32_tes_3128 = U_LIT("       ulang test <file> [<name> ...] [-- args]\n");
-  static struct u_object l__32__32__32__32__32__32__32_ulang_32_che_3129 = U_LIT("       ulang check <file>\n");
-  static struct u_object l__32__32__32__32__32__32__32_ulang_32_com_3130 = U_LIT("       ulang compile <file> <entry> <target.c>");
+  static struct u_object l_usage_58__32_ulang_32_run_3256 = U_LIT("usage: ulang run <file> [<procedure>] [-- args]\n");
+  static struct u_object l__32__32__32__32__32__32__32_ulang_32_tes_3257 = U_LIT("       ulang test <file> [<name> ...] [-- args]\n");
+  static struct u_object l__32__32__32__32__32__32__32_ulang_32_che_3258 = U_LIT("       ulang check <file>\n");
+  static struct u_object l__32__32__32__32__32__32__32_ulang_32_com_3259 = U_LIT("       ulang compile <file> <entry> <target.c>");
   u_pop(handler);
-  cache = u_concat(&l_usage_58__32_ulang_32_run_3127, u_concat(&l__32__32__32__32__32__32__32_ulang_32_tes_3128, u_concat(&l__32__32__32__32__32__32__32_ulang_32_che_3129, &l__32__32__32__32__32__32__32_ulang_32_com_3130)));
+  cache = u_concat(&l_usage_58__32_ulang_32_run_3256, u_concat(&l__32__32__32__32__32__32__32_ulang_32_tes_3257, u_concat(&l__32__32__32__32__32__32__32_ulang_32_che_3258, &l__32__32__32__32__32__32__32_ulang_32_com_3259)));
   return cache;
 }
 
 u_value f_ulang_46_before_dashes_1(u_value v_args) {
-  u_value s3131 = v_args;
-  u_value t3132 = NULL;
-  if ((!t3132) && u_is_con(s3131, &n_list_46_Nil)) {
-    t3132 = &o_list_46_Nil;
+  u_value s3260 = v_args;
+  u_value t3261 = NULL;
+  if ((!t3261) && u_is_con(s3260, &n_list_46_Nil)) {
+    t3261 = &o_list_46_Nil;
   }
-  if ((!t3132) && (u_is_con(s3131, &n_list_46_Cons) && u_equals(u_field(s3131, 0), u_mk_lit("--")))) {
-    t3132 = &o_list_46_Nil;
+  if ((!t3261) && (u_is_con(s3260, &n_list_46_Cons) && u_equals(u_field(s3260, 0), u_mk_lit("--")))) {
+    t3261 = &o_list_46_Nil;
   }
-  if ((!t3132) && u_is_con(s3131, &n_list_46_Cons)) {
-    u_value v_a = u_field(s3131, 0);
-    u_value v_more = u_field(s3131, 1);
-    t3132 = u_mk_con(&n_list_46_Cons, 2, v_a, f_ulang_46_before_dashes_1(v_more));
+  if ((!t3261) && u_is_con(s3260, &n_list_46_Cons)) {
+    u_value v_a = u_field(s3260, 0);
+    u_value v_more = u_field(s3260, 1);
+    t3261 = u_mk_con(&n_list_46_Cons, 2, v_a, f_ulang_46_before_dashes_1(v_more));
   }
-  if (!t3132) {
-    u_no_case(s3131);
+  if (!t3261) {
+    u_no_case(s3260);
   }
-  return t3132;
+  return t3261;
 }
 
 u_value f_ulang_46_after_dashes_1(u_value v_args) {
-  u_value s3133 = v_args;
-  u_value t3134 = NULL;
-  if ((!t3134) && u_is_con(s3133, &n_list_46_Nil)) {
-    t3134 = &o_list_46_Nil;
+  u_value s3262 = v_args;
+  u_value t3263 = NULL;
+  if ((!t3263) && u_is_con(s3262, &n_list_46_Nil)) {
+    t3263 = &o_list_46_Nil;
   }
-  if ((!t3134) && (u_is_con(s3133, &n_list_46_Cons) && u_equals(u_field(s3133, 0), u_mk_lit("--")))) {
-    u_value v_more = u_field(s3133, 1);
-    t3134 = v_more;
+  if ((!t3263) && (u_is_con(s3262, &n_list_46_Cons) && u_equals(u_field(s3262, 0), u_mk_lit("--")))) {
+    u_value v_more = u_field(s3262, 1);
+    t3263 = v_more;
   }
-  if ((!t3134) && u_is_con(s3133, &n_list_46_Cons)) {
-    u_value v_more = u_field(s3133, 1);
-    t3134 = f_ulang_46_after_dashes_1(v_more);
+  if ((!t3263) && u_is_con(s3262, &n_list_46_Cons)) {
+    u_value v_more = u_field(s3262, 1);
+    t3263 = f_ulang_46_after_dashes_1(v_more);
   }
-  if (!t3134) {
-    u_no_case(s3133);
+  if (!t3263) {
+    u_no_case(s3262);
   }
-  return t3134;
+  return t3263;
 }
 
 void p_ulang_46_attempt(u_value v_file, u_value v_command, u_value *r_ok) {
   {
     u_value v_message = NULL;
-    static struct u_object l__3135 = U_LIT("");
-    u_value t3136 = &l__3135;
-    v_message = t3136;
+    static struct u_object l__3264 = U_LIT("");
+    u_value t3265 = &l__3264;
+    v_message = t3265;
     {
-      struct u_handler *h3137 = u_push();
-      if (setjmp(h3137->env) == 0) {
+      struct u_handler *h3266 = u_push();
+      if (setjmp(h3266->env) == 0) {
         {
           u_call_proc(v_command, 0, 1, r_ok);
         }
-        u_pop(h3137);
+        u_pop(h3266);
       } else {
-        u_pop(h3137);
-        int d3138 = 0;
-        if ((!d3138) && (u_has_type(h3137, "lex.LexError") && u_is_con(u_caught(h3137), &n_lex_46_LexError))) {
-          u_value v_m = u_field(u_caught(h3137), 0);
-          u_value v_i = u_field(u_caught(h3137), 1);
-          d3138 = 1;
+        u_pop(h3266);
+        int d3267 = 0;
+        if ((!d3267) && (u_has_type(h3266, "lex.LexError") && u_is_con(u_caught(h3266), &n_lex_46_LexError))) {
+          u_value v_m = u_field(u_caught(h3266), 0);
+          u_value v_i = u_field(u_caught(h3266), 1);
+          d3267 = 1;
           {
             p_ulang_46_located(v_file, v_m, v_i, &v_message);
           }
         }
-        if ((!d3138) && (u_has_type(h3137, "parse.ParseError") && u_is_con(u_caught(h3137), &n_parse_46_ParseError))) {
-          u_value v_m = u_field(u_caught(h3137), 0);
-          u_value v_i = u_field(u_caught(h3137), 1);
-          d3138 = 1;
+        if ((!d3267) && (u_has_type(h3266, "parse.ParseError") && u_is_con(u_caught(h3266), &n_parse_46_ParseError))) {
+          u_value v_m = u_field(u_caught(h3266), 0);
+          u_value v_i = u_field(u_caught(h3266), 1);
+          d3267 = 1;
           {
             p_ulang_46_located(v_file, v_m, v_i, &v_message);
           }
         }
-        if ((!d3138) && (u_has_type(h3137, "os.OsError") && u_is_con(u_caught(h3137), &n_os_46_OsError))) {
-          u_value v_m = u_field(u_caught(h3137), 0);
-          d3138 = 1;
+        if ((!d3267) && (u_has_type(h3266, "os.OsError") && u_is_con(u_caught(h3266), &n_os_46_OsError))) {
+          u_value v_m = u_field(u_caught(h3266), 0);
+          d3267 = 1;
           {
-            static struct u_object l_runtime_32_error_58__32__3139 = U_LIT("runtime error: ");
-            u_value t3140 = u_concat(&l_runtime_32_error_58__32__3139, v_m);
-            v_message = t3140;
+            static struct u_object l_runtime_32_error_58__32__3268 = U_LIT("runtime error: ");
+            u_value t3269 = u_concat(&l_runtime_32_error_58__32__3268, v_m);
+            v_message = t3269;
           }
         }
-        if ((!d3138) && (u_has_type(h3137, "run.Thrown") && u_is_con(u_caught(h3137), &n_run_46_Thrown))) {
-          u_value v_v = u_field(u_caught(h3137), 0);
-          d3138 = 1;
+        if ((!d3267) && (u_has_type(h3266, "run.Thrown") && u_is_con(u_caught(h3266), &n_run_46_Thrown))) {
+          u_value v_v = u_field(u_caught(h3266), 0);
+          d3267 = 1;
           {
-            static struct u_object l_runtime_32_error_58__32_u_3141 = U_LIT("runtime error: uncaught exception ");
-            u_value t3142 = u_concat(&l_runtime_32_error_58__32_u_3141, f_print_46_show_value_1(v_v));
-            v_message = t3142;
+            static struct u_object l_runtime_32_error_58__32_u_3270 = U_LIT("runtime error: uncaught exception ");
+            u_value t3271 = u_concat(&l_runtime_32_error_58__32_u_3270, f_print_46_show_value_1(v_v));
+            v_message = t3271;
           }
         }
-        if ((!d3138) && (u_has_type(h3137, "compile.CompileError") && u_is_con(u_caught(h3137), &n_compile_46_Unsupported))) {
-          u_value v_m = u_field(u_caught(h3137), 0);
-          d3138 = 1;
+        if ((!d3267) && (u_has_type(h3266, "compile.CompileError") && u_is_con(u_caught(h3266), &n_compile_46_Unsupported))) {
+          u_value v_m = u_field(u_caught(h3266), 0);
+          d3267 = 1;
           {
-            static struct u_object l_compile_32_error_58__32__3143 = U_LIT("compile error: ");
-            u_value t3144 = u_concat(&l_compile_32_error_58__32__3143, v_m);
-            v_message = t3144;
+            static struct u_object l_compile_32_error_58__32__3272 = U_LIT("compile error: ");
+            u_value t3273 = u_concat(&l_compile_32_error_58__32__3272, v_m);
+            v_message = t3273;
           }
         }
-        if ((!d3138) && (u_has_type(h3137, "compile.CompileError") && u_is_con(u_caught(h3137), &n_compile_46_UnknownEntry))) {
-          u_value v_n = u_field(u_caught(h3137), 0);
-          d3138 = 1;
+        if ((!d3267) && (u_has_type(h3266, "compile.CompileError") && u_is_con(u_caught(h3266), &n_compile_46_UnknownEntry))) {
+          u_value v_n = u_field(u_caught(h3266), 0);
+          d3267 = 1;
           {
-            static struct u_object l_compile_32_error_58__32_t_3145 = U_LIT("compile error: there is no procedure ");
-            static struct u_object l__32_without_32_paramet_3146 = U_LIT(" without parameters");
-            u_value t3147 = u_concat(&l_compile_32_error_58__32_t_3145, u_concat(f_syntax_46_Name_46_base_1(v_n), &l__32_without_32_paramet_3146));
-            v_message = t3147;
+            static struct u_object l_compile_32_error_58__32_t_3274 = U_LIT("compile error: there is no procedure ");
+            static struct u_object l__32_without_32_paramet_3275 = U_LIT(" without parameters");
+            u_value t3276 = u_concat(&l_compile_32_error_58__32_t_3274, u_concat(f_syntax_46_Name_46_base_1(v_n), &l__32_without_32_paramet_3275));
+            v_message = t3276;
           }
         }
-        if ((!d3138) && u_has_type(h3137, "check.TypeError")) {
-          u_value v_e = u_caught(h3137);
-          d3138 = 1;
+        if ((!d3267) && u_has_type(h3266, "check.TypeError")) {
+          u_value v_e = u_caught(h3266);
+          d3267 = 1;
           {
-            static struct u_object l_type_32_error_58__32__3148 = U_LIT("type error: ");
-            u_value t3149 = u_concat(&l_type_32_error_58__32__3148, f_ulang_46_type_message_1(v_e));
-            v_message = t3149;
+            static struct u_object l_type_32_error_58__32__3277 = U_LIT("type error: ");
+            u_value t3278 = u_concat(&l_type_32_error_58__32__3277, f_ulang_46_type_message_1(v_e));
+            v_message = t3278;
           }
         }
-        if ((!d3138) && u_has_type(h3137, "run.RuntimeError")) {
-          u_value v_e = u_caught(h3137);
-          d3138 = 1;
+        if ((!d3267) && u_has_type(h3266, "run.RuntimeError")) {
+          u_value v_e = u_caught(h3266);
+          d3267 = 1;
           {
-            static struct u_object l_runtime_32_error_58__32__3150 = U_LIT("runtime error: ");
-            u_value t3151 = u_concat(&l_runtime_32_error_58__32__3150, f_ulang_46_runtime_message_1(v_e));
-            v_message = t3151;
+            static struct u_object l_runtime_32_error_58__32__3279 = U_LIT("runtime error: ");
+            u_value t3280 = u_concat(&l_runtime_32_error_58__32__3279, f_ulang_46_runtime_message_1(v_e));
+            v_message = t3280;
           }
         }
-        if (!d3138) {
-          u_reraise(h3137);
+        if (!d3267) {
+          u_reraise(h3266);
         }
       }
     }
-    static struct u_object l__3152 = U_LIT("");
-    if (u_truth(f_prelude_46__33__61__2(v_message, &l__3152))) {
+    static struct u_object l__3281 = U_LIT("");
+    if (u_truth(f_prelude_46__33__61__2(v_message, &l__3281))) {
       {
-        static struct u_object l__58__32__3153 = U_LIT(": ");
-        p_os_print_error(u_concat(v_file, u_concat(&l__58__32__3153, v_message)));
-        u_value t3154 = u_mk_bool(0);
-        *r_ok = t3154;
+        static struct u_object l__58__32__3282 = U_LIT(": ");
+        p_os_print_error(u_concat(v_file, u_concat(&l__58__32__3282, v_message)));
+        u_value t3283 = u_mk_bool(0);
+        *r_ok = t3283;
       }
     }
   }
@@ -28256,43 +29433,43 @@ void p_ulang_46_located(u_value v_file, u_value v_m, u_value v_i, u_value *r_mes
     u_value v_column = NULL;
     if (u_truth(f_ulang_46_in_module_1(u_str_split(v_m, u_mk_char(32))))) {
       {
-        static struct u_object l_parse_32_error_58__32__3155 = U_LIT("parse error: ");
-        u_value t3156 = u_concat(&l_parse_32_error_58__32__3155, v_m);
-        *r_message = t3156;
+        static struct u_object l_parse_32_error_58__32__3284 = U_LIT("parse error: ");
+        u_value t3285 = u_concat(&l_parse_32_error_58__32__3284, v_m);
+        *r_message = t3285;
       }
     } else {
       {
         p_os_read(v_file, &v_text);
         p_lex_46_position(v_text, v_i, &v_line, &v_column);
-        static struct u_object l_parse_32_error_58__32__3157 = U_LIT("parse error: ");
-        static struct u_object l__32_at_32__3158 = U_LIT(" at ");
-        static struct u_object l__46__3159 = U_LIT(".");
-        u_value t3160 = u_concat(&l_parse_32_error_58__32__3157, u_concat(v_m, u_concat(&l__32_at_32__3158, u_concat(u_str_show(v_line), u_concat(&l__46__3159, u_str_show(v_column))))));
-        *r_message = t3160;
+        static struct u_object l_parse_32_error_58__32__3286 = U_LIT("parse error: ");
+        static struct u_object l__32_at_32__3287 = U_LIT(" at ");
+        static struct u_object l__46__3288 = U_LIT(".");
+        u_value t3289 = u_concat(&l_parse_32_error_58__32__3286, u_concat(v_m, u_concat(&l__32_at_32__3287, u_concat(u_str_show(v_line), u_concat(&l__46__3288, u_str_show(v_column))))));
+        *r_message = t3289;
       }
     }
   }
 }
 
 u_value f_ulang_46_in_module_1(u_value v_words) {
-  u_value s3161 = v_words;
-  u_value t3162 = NULL;
-  if ((!t3162) && (u_is_con(s3161, &n_list_46_Cons) && (u_is_con(u_field(s3161, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s3161, 1), 1), &n_list_46_Nil)))) {
-    u_value v_w = u_field(s3161, 0);
-    static struct u_object l_in_3163 = U_LIT("in");
-    t3162 = u_eq(v_w, &l_in_3163);
+  u_value s3290 = v_words;
+  u_value t3291 = NULL;
+  if ((!t3291) && (u_is_con(s3290, &n_list_46_Cons) && (u_is_con(u_field(s3290, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s3290, 1), 1), &n_list_46_Nil)))) {
+    u_value v_w = u_field(s3290, 0);
+    static struct u_object l_in_3292 = U_LIT("in");
+    t3291 = u_eq(v_w, &l_in_3292);
   }
-  if ((!t3162) && u_is_con(s3161, &n_list_46_Cons)) {
-    u_value v_more = u_field(s3161, 1);
-    t3162 = f_ulang_46_in_module_1(v_more);
+  if ((!t3291) && u_is_con(s3290, &n_list_46_Cons)) {
+    u_value v_more = u_field(s3290, 1);
+    t3291 = f_ulang_46_in_module_1(v_more);
   }
-  if (!t3162) {
-    t3162 = u_mk_bool(0);
+  if (!t3291) {
+    t3291 = u_mk_bool(0);
   }
-  if (!t3162) {
-    u_no_case(s3161);
+  if (!t3291) {
+    u_no_case(s3290);
   }
-  return t3162;
+  return t3291;
 }
 
 void p_ulang_46_load_file(u_value v_file, u_value *r_q) {
@@ -28303,91 +29480,91 @@ void p_ulang_46_load_file(u_value v_file, u_value *r_q) {
     u_value v_text = NULL;
     u_value v_library = NULL;
     u_value v_own = NULL;
-    u_value t3164 = f_parse_46_base_name_1(v_file);
-    v_name = t3164;
-    static struct u_object l_prelude_3165 = U_LIT("prelude");
-    p_parse_46_parse_library(&l_prelude_3165, &v_pre);
+    u_value t3293 = f_parse_46_base_name_1(v_file);
+    v_name = t3293;
+    static struct u_object l_prelude_3294 = U_LIT("prelude");
+    p_parse_46_parse_library(&l_prelude_3294, &v_pre);
     p_parse_46_parse_file_after(v_file, v_pre, &v_p);
-    u_value t3166 = f_syntax_46_Program_46_cmds_1(v_p);
-    v_own = t3166;
-    static struct u_object l_prelude_3167 = U_LIT("prelude");
-    if (u_truth(f_list_46_contains_2(v_name, u_mk_con(&n_list_46_Cons, 2, &l_prelude_3167, f_ulang_46_module_names_1(f_syntax_46_Program_46_cmds_1(v_pre)))))) {
+    u_value t3295 = f_syntax_46_Program_46_cmds_1(v_p);
+    v_own = t3295;
+    static struct u_object l_prelude_3296 = U_LIT("prelude");
+    if (u_truth(f_list_46_contains_2(v_name, u_mk_con(&n_list_46_Cons, 2, &l_prelude_3296, f_ulang_46_module_names_1(f_syntax_46_Program_46_cmds_1(v_pre)))))) {
       {
         p_os_read(v_file, &v_text);
         p_os_library(v_name, &v_library);
         if (u_truth(u_eq(v_text, v_library))) {
           {
-            u_value t3168 = &o_list_46_Nil;
-            u_value *e3169 = &t3168;
-            u_value l3170 = f_syntax_46_Program_46_cmds_1(v_p);
-            while (u_is_con(l3170, &n_list_46_Cons)) {
-              u_value v_c = u_field(l3170, 0);
+            u_value t3297 = &o_list_46_Nil;
+            u_value *e3298 = &t3297;
+            u_value l3299 = f_syntax_46_Program_46_cmds_1(v_p);
+            while (u_is_con(l3299, &n_list_46_Cons)) {
+              u_value v_c = u_field(l3299, 0);
               if (u_truth(f_ulang_46_is_any_test_1(v_c))) {
-                e3169 = u_append(e3169, v_c);
+                e3298 = u_append(e3298, v_c);
               }
-              l3170 = u_field(l3170, 1);
+              l3299 = u_field(l3299, 1);
             }
-            u_value t3171 = t3168;
-            v_own = t3171;
+            u_value t3300 = t3297;
+            v_own = t3300;
           }
         }
       }
     }
-    static struct u_object l_prelude_3172 = U_LIT("prelude");
-    p_check_46_check_program(u_mk_con(&n_syntax_46_Program, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CModule, 2, &l_prelude_3172, f_syntax_46_Program_46_cmds_1(v_pre)), v_own)), v_name, r_q);
+    static struct u_object l_prelude_3301 = U_LIT("prelude");
+    p_check_46_check_program(u_mk_con(&n_syntax_46_Program, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CModule, 2, &l_prelude_3301, f_syntax_46_Program_46_cmds_1(v_pre)), v_own)), v_name, r_q);
   }
 }
 
 u_value f_ulang_46_module_names_1(u_value v_cs) {
-  u_value s3173 = v_cs;
-  u_value t3174 = NULL;
-  if ((!t3174) && u_is_con(s3173, &n_list_46_Nil)) {
-    t3174 = &o_list_46_Nil;
+  u_value s3302 = v_cs;
+  u_value t3303 = NULL;
+  if ((!t3303) && u_is_con(s3302, &n_list_46_Nil)) {
+    t3303 = &o_list_46_Nil;
   }
-  if ((!t3174) && (u_is_con(s3173, &n_list_46_Cons) && u_is_con(u_field(s3173, 0), &n_syntax_46_CModule))) {
-    u_value v_n = u_field(u_field(s3173, 0), 0);
-    u_value v_rest = u_field(s3173, 1);
-    t3174 = u_mk_con(&n_list_46_Cons, 2, v_n, f_ulang_46_module_names_1(v_rest));
+  if ((!t3303) && (u_is_con(s3302, &n_list_46_Cons) && u_is_con(u_field(s3302, 0), &n_syntax_46_CModule))) {
+    u_value v_n = u_field(u_field(s3302, 0), 0);
+    u_value v_rest = u_field(s3302, 1);
+    t3303 = u_mk_con(&n_list_46_Cons, 2, v_n, f_ulang_46_module_names_1(v_rest));
   }
-  if ((!t3174) && u_is_con(s3173, &n_list_46_Cons)) {
-    u_value v_rest = u_field(s3173, 1);
-    t3174 = f_ulang_46_module_names_1(v_rest);
+  if ((!t3303) && u_is_con(s3302, &n_list_46_Cons)) {
+    u_value v_rest = u_field(s3302, 1);
+    t3303 = f_ulang_46_module_names_1(v_rest);
   }
-  if (!t3174) {
-    u_no_case(s3173);
+  if (!t3303) {
+    u_no_case(s3302);
   }
-  return t3174;
+  return t3303;
 }
 
 u_value f_ulang_46_is_any_test_1(u_value v_c) {
-  u_value s3175 = v_c;
-  u_value t3176 = NULL;
-  if ((!t3176) && u_is_con(s3175, &n_syntax_46_CTest)) {
-    t3176 = u_mk_bool(1);
+  u_value s3304 = v_c;
+  u_value t3305 = NULL;
+  if ((!t3305) && u_is_con(s3304, &n_syntax_46_CTest)) {
+    t3305 = u_mk_bool(1);
   }
-  if (!t3176) {
-    t3176 = u_mk_bool(0);
+  if (!t3305) {
+    t3305 = u_mk_bool(0);
   }
-  if (!t3176) {
-    u_no_case(s3175);
+  if (!t3305) {
+    u_no_case(s3304);
   }
-  return t3176;
+  return t3305;
 }
 
 void p_ulang_46_check_file(u_value v_file, u_value *r_ok) {
   {
     u_value v_q = NULL;
     p_ulang_46_load_file(v_file, &v_q);
-    u_value t3177 = u_mk_bool(1);
-    *r_ok = t3177;
+    u_value t3306 = u_mk_bool(1);
+    *r_ok = t3306;
   }
 }
 
 void p_ulang_46_compile_to(u_value v_file, u_value v_entry, u_value v_target, u_value *r_ok) {
   {
     p_compile_46_compile_file(v_file, v_entry, v_target);
-    u_value t3178 = u_mk_bool(1);
-    *r_ok = t3178;
+    u_value t3307 = u_mk_bool(1);
+    *r_ok = t3307;
   }
 }
 
@@ -28397,26 +29574,26 @@ void p_ulang_46_run_file(u_value v_file, u_value v_name, u_value v_args, u_value
     u_value v_p = NULL;
     u_value v_cache = NULL;
     u_value v_n = NULL;
-    u_value t3179 = f_map_46_empty_0();
-    v_cache = t3179;
-    u_value t3180 = u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, f_parse_46_base_name_1(v_file)), v_name);
-    v_n = t3180;
+    u_value t3308 = f_map_46_empty_0();
+    v_cache = t3308;
+    u_value t3309 = u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, f_parse_46_base_name_1(v_file)), v_name);
+    v_n = t3309;
     p_ulang_46_load_file(v_file, &v_q);
-    u_value t3181 = f_run_46_Prog_46_args_58__61__2(f_run_46_load_1(v_q), v_args);
-    v_p = t3181;
-    if (u_truth(f_list_46_exists_2(f_syntax_46_Program_46_cmds_1(v_q), u_mk_closure(lam3182, 1, v_n)))) {
+    u_value t3310 = f_run_46_Prog_46_args_58__61__2(f_run_46_load_1(v_q), v_args);
+    v_p = t3310;
+    if (u_truth(f_list_46_exists_2(f_syntax_46_Program_46_cmds_1(v_q), u_mk_closure(lam3311, 1, v_n)))) {
       {
         p_run_46_run_proc(v_p, v_n, &v_cache);
-        u_value t3183 = u_mk_bool(1);
-        *r_ok = t3183;
+        u_value t3312 = u_mk_bool(1);
+        *r_ok = t3312;
       }
     } else {
       {
-        static struct u_object l__58__32_runtime_32_error_58__3184 = U_LIT(": runtime error: there is no procedure ");
-        static struct u_object l__32_without_32_paramet_3185 = U_LIT(" without parameters");
-        p_os_print_error(u_concat(v_file, u_concat(&l__58__32_runtime_32_error_58__3184, u_concat(v_name, &l__32_without_32_paramet_3185))));
-        u_value t3186 = u_mk_bool(0);
-        *r_ok = t3186;
+        static struct u_object l__58__32_runtime_32_error_58__3313 = U_LIT(": runtime error: there is no procedure ");
+        static struct u_object l__32_without_32_paramet_3314 = U_LIT(" without parameters");
+        p_os_print_error(u_concat(v_file, u_concat(&l__58__32_runtime_32_error_58__3313, u_concat(v_name, &l__32_without_32_paramet_3314))));
+        u_value t3315 = u_mk_bool(0);
+        *r_ok = t3315;
       }
     }
   }
@@ -28429,52 +29606,52 @@ void p_ulang_46_test_file(u_value v_file, u_value v_names, u_value v_args, u_val
     u_value v_tests = NULL;
     u_value v_missing = NULL;
     p_ulang_46_load_file(v_file, &v_q);
-    u_value t3187 = f_run_46_Prog_46_args_58__61__2(f_run_46_load_1(v_q), v_args);
-    v_p = t3187;
-    u_value t3188 = &o_list_46_Nil;
-    u_value *e3189 = &t3188;
-    u_value l3190 = f_syntax_46_Program_46_cmds_1(v_q);
-    while (u_is_con(l3190, &n_list_46_Cons)) {
-      u_value v_c = u_field(l3190, 0);
+    u_value t3316 = f_run_46_Prog_46_args_58__61__2(f_run_46_load_1(v_q), v_args);
+    v_p = t3316;
+    u_value t3317 = &o_list_46_Nil;
+    u_value *e3318 = &t3317;
+    u_value l3319 = f_syntax_46_Program_46_cmds_1(v_q);
+    while (u_is_con(l3319, &n_list_46_Cons)) {
+      u_value v_c = u_field(l3319, 0);
       if (u_truth(f_ulang_46_is_selected_test_2(v_c, v_names))) {
-        e3189 = u_append(e3189, v_c);
+        e3318 = u_append(e3318, v_c);
       }
-      l3190 = u_field(l3190, 1);
+      l3319 = u_field(l3319, 1);
     }
-    u_value t3191 = t3188;
-    v_tests = t3191;
-    u_value t3192 = &o_list_46_Nil;
-    u_value *e3193 = &t3192;
-    u_value l3194 = v_names;
-    while (u_is_con(l3194, &n_list_46_Cons)) {
-      u_value v_n = u_field(l3194, 0);
-      if (u_truth(f_prelude_46_not_1(f_list_46_exists_2(v_tests, u_mk_closure(lam3195, 1, v_n))))) {
-        e3193 = u_append(e3193, v_n);
+    u_value t3320 = t3317;
+    v_tests = t3320;
+    u_value t3321 = &o_list_46_Nil;
+    u_value *e3322 = &t3321;
+    u_value l3323 = v_names;
+    while (u_is_con(l3323, &n_list_46_Cons)) {
+      u_value v_n = u_field(l3323, 0);
+      if (u_truth(f_prelude_46_not_1(f_list_46_exists_2(v_tests, u_mk_closure(lam3324, 1, v_n))))) {
+        e3322 = u_append(e3322, v_n);
       }
-      l3194 = u_field(l3194, 1);
+      l3323 = u_field(l3323, 1);
     }
-    u_value t3196 = t3192;
-    v_missing = t3196;
-    u_value s3197 = v_missing;
-    int d3198 = 0;
-    if ((!d3198) && u_is_con(s3197, &n_list_46_Cons)) {
-      u_value v_n = u_field(s3197, 0);
-      d3198 = 1;
+    u_value t3325 = t3321;
+    v_missing = t3325;
+    u_value s3326 = v_missing;
+    int d3327 = 0;
+    if ((!d3327) && u_is_con(s3326, &n_list_46_Cons)) {
+      u_value v_n = u_field(s3326, 0);
+      d3327 = 1;
       {
-        static struct u_object l__58__32_runtime_32_error_58__3199 = U_LIT(": runtime error: there is no test ");
-        p_os_print_error(u_concat(v_file, u_concat(&l__58__32_runtime_32_error_58__3199, v_n)));
-        u_value t3200 = u_mk_bool(0);
-        *r_ok = t3200;
+        static struct u_object l__58__32_runtime_32_error_58__3328 = U_LIT(": runtime error: there is no test ");
+        p_os_print_error(u_concat(v_file, u_concat(&l__58__32_runtime_32_error_58__3328, v_n)));
+        u_value t3329 = u_mk_bool(0);
+        *r_ok = t3329;
       }
     }
-    if (!d3198) {
-      d3198 = 1;
+    if (!d3327) {
+      d3327 = 1;
       {
         p_ulang_46_run_tests(v_p, v_tests, r_ok);
       }
     }
-    if (!d3198) {
-      u_no_case(s3197);
+    if (!d3327) {
+      u_no_case(s3326);
     }
   }
 }
@@ -28483,32 +29660,32 @@ void p_ulang_46_run_tests(u_value v_p, u_value v_tests, u_value *r_ok) {
   {
     u_value v_passed = NULL;
     u_value v_rest = NULL;
-    u_value s3201 = v_tests;
-    int d3202 = 0;
-    if ((!d3202) && u_is_con(s3201, &n_list_46_Nil)) {
-      d3202 = 1;
+    u_value s3330 = v_tests;
+    int d3331 = 0;
+    if ((!d3331) && u_is_con(s3330, &n_list_46_Nil)) {
+      d3331 = 1;
       {
-        u_value t3203 = u_mk_bool(1);
-        *r_ok = t3203;
+        u_value t3332 = u_mk_bool(1);
+        *r_ok = t3332;
       }
     }
-    if ((!d3202) && u_is_con(s3201, &n_list_46_Cons)) {
-      u_value v_c = u_field(s3201, 0);
-      u_value v_more = u_field(s3201, 1);
-      d3202 = 1;
+    if ((!d3331) && u_is_con(s3330, &n_list_46_Cons)) {
+      u_value v_c = u_field(s3330, 0);
+      u_value v_more = u_field(s3330, 1);
+      d3331 = 1;
       {
         p_ulang_46_run_test(v_p, v_c, &v_passed);
         p_ulang_46_run_tests(v_p, v_more, &v_rest);
-        u_value t3204 = v_passed;
-        if (u_truth(t3204)) {
-          t3204 = v_rest;
+        u_value t3333 = v_passed;
+        if (u_truth(t3333)) {
+          t3333 = v_rest;
         }
-        u_value t3205 = t3204;
-        *r_ok = t3205;
+        u_value t3334 = t3333;
+        *r_ok = t3334;
       }
     }
-    if (!d3202) {
-      u_no_case(s3201);
+    if (!d3331) {
+      u_no_case(s3330);
     }
   }
 }
@@ -28517,403 +29694,408 @@ void p_ulang_46_run_test(u_value v_p, u_value v_c, u_value *r_passed) {
   {
     u_value v_cache = NULL;
     u_value v_message = NULL;
-    u_value t3206 = f_map_46_empty_0();
-    v_cache = t3206;
-    static struct u_object l__3207 = U_LIT("");
-    u_value t3208 = &l__3207;
-    v_message = t3208;
+    u_value t3335 = f_map_46_empty_0();
+    v_cache = t3335;
+    static struct u_object l__3336 = U_LIT("");
+    u_value t3337 = &l__3336;
+    v_message = t3337;
     {
-      struct u_handler *h3209 = u_push();
-      if (setjmp(h3209->env) == 0) {
+      struct u_handler *h3338 = u_push();
+      if (setjmp(h3338->env) == 0) {
         {
           p_run_46_run_cmd(v_p, v_c, &v_cache);
         }
-        u_pop(h3209);
+        u_pop(h3338);
       } else {
-        u_pop(h3209);
-        int d3210 = 0;
-        if ((!d3210) && (u_has_type(h3209, "run.Thrown") && u_is_con(u_caught(h3209), &n_run_46_Thrown))) {
-          u_value v_v = u_field(u_caught(h3209), 0);
-          d3210 = 1;
+        u_pop(h3338);
+        int d3339 = 0;
+        if ((!d3339) && (u_has_type(h3338, "run.Thrown") && u_is_con(u_caught(h3338), &n_run_46_Thrown))) {
+          u_value v_v = u_field(u_caught(h3338), 0);
+          d3339 = 1;
           {
-            static struct u_object l_runtime_32_error_58__32_u_3211 = U_LIT("runtime error: uncaught exception ");
-            u_value t3212 = u_concat(&l_runtime_32_error_58__32_u_3211, f_print_46_show_value_1(v_v));
-            v_message = t3212;
+            static struct u_object l_runtime_32_error_58__32_u_3340 = U_LIT("runtime error: uncaught exception ");
+            u_value t3341 = u_concat(&l_runtime_32_error_58__32_u_3340, f_print_46_show_value_1(v_v));
+            v_message = t3341;
           }
         }
-        if ((!d3210) && u_has_type(h3209, "run.RuntimeError")) {
-          u_value v_e = u_caught(h3209);
-          d3210 = 1;
+        if ((!d3339) && u_has_type(h3338, "run.RuntimeError")) {
+          u_value v_e = u_caught(h3338);
+          d3339 = 1;
           {
-            static struct u_object l_runtime_32_error_58__32__3213 = U_LIT("runtime error: ");
-            u_value t3214 = u_concat(&l_runtime_32_error_58__32__3213, f_ulang_46_runtime_message_1(v_e));
-            v_message = t3214;
+            static struct u_object l_runtime_32_error_58__32__3342 = U_LIT("runtime error: ");
+            u_value t3343 = u_concat(&l_runtime_32_error_58__32__3342, f_ulang_46_runtime_message_1(v_e));
+            v_message = t3343;
           }
         }
-        if (!d3210) {
-          u_reraise(h3209);
+        if (!d3339) {
+          u_reraise(h3338);
         }
       }
     }
-    static struct u_object l__3215 = U_LIT("");
-    if (u_truth(u_eq(v_message, &l__3215))) {
+    static struct u_object l__3344 = U_LIT("");
+    if (u_truth(u_eq(v_message, &l__3344))) {
       {
-        static struct u_object l_test_32__3216 = U_LIT("test ");
-        static struct u_object l__32_passed_3217 = U_LIT(" passed");
-        p_os_print(u_concat(&l_test_32__3216, u_concat(f_ulang_46_cmd_name_1(v_c), &l__32_passed_3217)));
-        u_value t3218 = u_mk_bool(1);
-        *r_passed = t3218;
+        static struct u_object l_test_32__3345 = U_LIT("test ");
+        static struct u_object l__32_passed_3346 = U_LIT(" passed");
+        p_os_print(u_concat(&l_test_32__3345, u_concat(f_ulang_46_cmd_name_1(v_c), &l__32_passed_3346)));
+        u_value t3347 = u_mk_bool(1);
+        *r_passed = t3347;
       }
     } else {
       {
-        static struct u_object l_test_32__3219 = U_LIT("test ");
-        static struct u_object l__32_failed_58__32__3220 = U_LIT(" failed: ");
-        p_os_print(u_concat(&l_test_32__3219, u_concat(f_ulang_46_cmd_name_1(v_c), u_concat(&l__32_failed_58__32__3220, v_message))));
-        u_value t3221 = u_mk_bool(0);
-        *r_passed = t3221;
+        static struct u_object l_test_32__3348 = U_LIT("test ");
+        static struct u_object l__32_failed_58__32__3349 = U_LIT(" failed: ");
+        p_os_print(u_concat(&l_test_32__3348, u_concat(f_ulang_46_cmd_name_1(v_c), u_concat(&l__32_failed_58__32__3349, v_message))));
+        u_value t3350 = u_mk_bool(0);
+        *r_passed = t3350;
       }
     }
   }
 }
 
 u_value f_ulang_46_is_selected_test_2(u_value v_c, u_value v_names) {
-  u_value s3222 = v_c;
-  u_value t3223 = NULL;
-  if ((!t3223) && u_is_con(s3222, &n_syntax_46_CTest)) {
-    u_value v_n = u_field(s3222, 0);
-    u_value t3224 = u_eq(v_names, &o_list_46_Nil);
-    if (!u_truth(t3224)) {
-      t3224 = f_list_46_contains_2(v_n, v_names);
+  u_value s3351 = v_c;
+  u_value t3352 = NULL;
+  if ((!t3352) && u_is_con(s3351, &n_syntax_46_CTest)) {
+    u_value v_n = u_field(s3351, 0);
+    u_value t3353 = u_eq(v_names, &o_list_46_Nil);
+    if (!u_truth(t3353)) {
+      t3353 = f_list_46_contains_2(v_n, v_names);
     }
-    t3223 = t3224;
+    t3352 = t3353;
   }
-  if (!t3223) {
-    t3223 = u_mk_bool(0);
+  if (!t3352) {
+    t3352 = u_mk_bool(0);
   }
-  if (!t3223) {
-    u_no_case(s3222);
+  if (!t3352) {
+    u_no_case(s3351);
   }
-  return t3223;
+  return t3352;
 }
 
 u_value f_ulang_46_is_test_2(u_value v_c, u_value v_n) {
-  u_value s3225 = v_c;
-  u_value t3226 = NULL;
-  if ((!t3226) && u_is_con(s3225, &n_syntax_46_CTest)) {
-    u_value v_m = u_field(s3225, 0);
-    t3226 = u_eq(v_m, v_n);
+  u_value s3354 = v_c;
+  u_value t3355 = NULL;
+  if ((!t3355) && u_is_con(s3354, &n_syntax_46_CTest)) {
+    u_value v_m = u_field(s3354, 0);
+    t3355 = u_eq(v_m, v_n);
   }
-  if (!t3226) {
-    t3226 = u_mk_bool(0);
+  if (!t3355) {
+    t3355 = u_mk_bool(0);
   }
-  if (!t3226) {
-    u_no_case(s3225);
+  if (!t3355) {
+    u_no_case(s3354);
   }
-  return t3226;
+  return t3355;
 }
 
 u_value f_ulang_46_cmd_name_1(u_value v_c) {
-  u_value s3227 = v_c;
-  u_value t3228 = NULL;
-  if ((!t3228) && u_is_con(s3227, &n_syntax_46_CTest)) {
-    u_value v_n = u_field(s3227, 0);
-    t3228 = v_n;
+  u_value s3356 = v_c;
+  u_value t3357 = NULL;
+  if ((!t3357) && u_is_con(s3356, &n_syntax_46_CTest)) {
+    u_value v_n = u_field(s3356, 0);
+    t3357 = v_n;
   }
-  if (!t3228) {
-    static struct u_object l__3229 = U_LIT("");
-    t3228 = &l__3229;
+  if (!t3357) {
+    static struct u_object l__3358 = U_LIT("");
+    t3357 = &l__3358;
   }
-  if (!t3228) {
-    u_no_case(s3227);
+  if (!t3357) {
+    u_no_case(s3356);
   }
-  return t3228;
+  return t3357;
 }
 
 u_value f_ulang_46_type_message_1(u_value v_e) {
-  u_value s3230 = v_e;
-  u_value t3231 = NULL;
-  if ((!t3231) && u_is_con(s3230, &n_check_46_UnknownSort)) {
-    u_value v_n = u_field(s3230, 0);
-    static struct u_object l_unknown_32_sort_32__3232 = U_LIT("unknown sort ");
-    t3231 = u_concat(&l_unknown_32_sort_32__3232, f_syntax_46_Name_46_base_1(v_n));
+  u_value s3359 = v_e;
+  u_value t3360 = NULL;
+  if ((!t3360) && u_is_con(s3359, &n_check_46_UnknownSort)) {
+    u_value v_n = u_field(s3359, 0);
+    static struct u_object l_unknown_32_sort_32__3361 = U_LIT("unknown sort ");
+    t3360 = u_concat(&l_unknown_32_sort_32__3361, f_syntax_46_Name_46_base_1(v_n));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_SortArity)) {
-    u_value v_n = u_field(s3230, 0);
-    u_value v_k = u_field(s3230, 1);
-    u_value v_m = u_field(s3230, 2);
-    static struct u_object l_sort_32__3233 = U_LIT("sort ");
-    static struct u_object l__32_expects_32__3234 = U_LIT(" expects ");
-    static struct u_object l__32_arguments_44__32_got_32__3235 = U_LIT(" arguments, got ");
-    t3231 = u_concat(&l_sort_32__3233, u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__32_expects_32__3234, u_concat(u_str_show(v_k), u_concat(&l__32_arguments_44__32_got_32__3235, u_str_show(v_m))))));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_SortArity)) {
+    u_value v_n = u_field(s3359, 0);
+    u_value v_k = u_field(s3359, 1);
+    u_value v_m = u_field(s3359, 2);
+    static struct u_object l_sort_32__3362 = U_LIT("sort ");
+    static struct u_object l__32_expects_32__3363 = U_LIT(" expects ");
+    static struct u_object l__32_arguments_44__32_got_32__3364 = U_LIT(" arguments, got ");
+    t3360 = u_concat(&l_sort_32__3362, u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__32_expects_32__3363, u_concat(u_str_show(v_k), u_concat(&l__32_arguments_44__32_got_32__3364, u_str_show(v_m))))));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_SortDefined)) {
-    u_value v_n = u_field(s3230, 0);
-    static struct u_object l_sort_32__3236 = U_LIT("sort ");
-    static struct u_object l__32_is_32_already_32_defi_3237 = U_LIT(" is already defined");
-    t3231 = u_concat(&l_sort_32__3236, u_concat(f_syntax_46_Name_46_base_1(v_n), &l__32_is_32_already_32_defi_3237));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_SortDefined)) {
+    u_value v_n = u_field(s3359, 0);
+    static struct u_object l_sort_32__3365 = U_LIT("sort ");
+    static struct u_object l__32_is_32_already_32_defi_3366 = U_LIT(" is already defined");
+    t3360 = u_concat(&l_sort_32__3365, u_concat(f_syntax_46_Name_46_base_1(v_n), &l__32_is_32_already_32_defi_3366));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_MissingType)) {
-    u_value v_n = u_field(s3230, 0);
-    static struct u_object l_missing_32_type_32_for_3238 = U_LIT("missing type for ");
-    t3231 = u_concat(&l_missing_32_type_32_for_3238, f_syntax_46_Name_46_base_1(v_n));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_MissingType)) {
+    u_value v_n = u_field(s3359, 0);
+    static struct u_object l_missing_32_type_32_for_3367 = U_LIT("missing type for ");
+    t3360 = u_concat(&l_missing_32_type_32_for_3367, f_syntax_46_Name_46_base_1(v_n));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_UndeclaredParams)) {
-    u_value v_n = u_field(s3230, 0);
-    u_value v_ts = u_field(s3230, 1);
-    static struct u_object l__32_has_32_undeclared_32__3239 = U_LIT(" has undeclared type parameters ");
-    t3231 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__32_has_32_undeclared_32__3239, f_print_46_show_types_1(v_ts)));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_UndeclaredParams)) {
+    u_value v_n = u_field(s3359, 0);
+    u_value v_ts = u_field(s3359, 1);
+    static struct u_object l__32_has_32_undeclared_32__3368 = U_LIT(" has undeclared type parameters ");
+    t3360 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__32_has_32_undeclared_32__3368, f_print_46_show_types_1(v_ts)));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_CannotUnify)) {
-    u_value v_a = u_field(s3230, 0);
-    u_value v_b = u_field(s3230, 1);
-    static struct u_object l_cannot_32_unify_32__3240 = U_LIT("cannot unify ");
-    static struct u_object l__32_and_32__3241 = U_LIT(" and ");
-    t3231 = u_concat(&l_cannot_32_unify_32__3240, u_concat(f_print_46_show_type_1(v_a), u_concat(&l__32_and_32__3241, f_print_46_show_type_1(v_b))));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_CannotUnify)) {
+    u_value v_a = u_field(s3359, 0);
+    u_value v_b = u_field(s3359, 1);
+    static struct u_object l_cannot_32_unify_32__3369 = U_LIT("cannot unify ");
+    static struct u_object l__32_and_32__3370 = U_LIT(" and ");
+    t3360 = u_concat(&l_cannot_32_unify_32__3369, u_concat(f_print_46_show_type_1(v_a), u_concat(&l__32_and_32__3370, f_print_46_show_type_1(v_b))));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_InfiniteType)) {
-    u_value v_a = u_field(s3230, 0);
-    u_value v_b = u_field(s3230, 1);
-    static struct u_object l_infinite_32_type_32__3242 = U_LIT("infinite type ");
-    static struct u_object l__32__61__32__3243 = U_LIT(" = ");
-    t3231 = u_concat(&l_infinite_32_type_32__3242, u_concat(f_print_46_show_type_1(v_a), u_concat(&l__32__61__32__3243, f_print_46_show_type_1(v_b))));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_InfiniteType)) {
+    u_value v_a = u_field(s3359, 0);
+    u_value v_b = u_field(s3359, 1);
+    static struct u_object l_infinite_32_type_32__3371 = U_LIT("infinite type ");
+    static struct u_object l__32__61__32__3372 = U_LIT(" = ");
+    t3360 = u_concat(&l_infinite_32_type_32__3371, u_concat(f_print_46_show_type_1(v_a), u_concat(&l__32__61__32__3372, f_print_46_show_type_1(v_b))));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_UnknownVariable)) {
-    u_value v_n = u_field(s3230, 0);
-    static struct u_object l_unknown_32_variable_3244 = U_LIT("unknown variable ");
-    t3231 = u_concat(&l_unknown_32_variable_3244, f_syntax_46_Name_46_base_1(v_n));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_UnknownVariable)) {
+    u_value v_n = u_field(s3359, 0);
+    static struct u_object l_unknown_32_variable_3373 = U_LIT("unknown variable ");
+    t3360 = u_concat(&l_unknown_32_variable_3373, f_syntax_46_Name_46_base_1(v_n));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_NoOverload)) {
-    u_value v_n = u_field(s3230, 0);
-    u_value v_t = u_field(s3230, 1);
-    static struct u_object l_no_32_declaration_32_o_3245 = U_LIT("no declaration of ");
-    static struct u_object l__32_has_32_the_32_type_32__3246 = U_LIT(" has the type ");
-    t3231 = u_concat(&l_no_32_declaration_32_o_3245, u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__32_has_32_the_32_type_32__3246, f_print_46_show_type_1(v_t))));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_NoOverload)) {
+    u_value v_n = u_field(s3359, 0);
+    u_value v_t = u_field(s3359, 1);
+    static struct u_object l_no_32_declaration_32_o_3374 = U_LIT("no declaration of ");
+    static struct u_object l__32_has_32_the_32_type_32__3375 = U_LIT(" has the type ");
+    t3360 = u_concat(&l_no_32_declaration_32_o_3374, u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__32_has_32_the_32_type_32__3375, f_print_46_show_type_1(v_t))));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_WrongArity)) {
-    u_value v_n = u_field(s3230, 0);
-    u_value v_k = u_field(s3230, 1);
-    static struct u_object l__32_does_32_not_32_take_32__3247 = U_LIT(" does not take ");
-    static struct u_object l__32_arguments_3248 = U_LIT(" arguments");
-    t3231 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__32_does_32_not_32_take_32__3247, u_concat(u_str_show(v_k), &l__32_arguments_3248)));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_WrongArity)) {
+    u_value v_n = u_field(s3359, 0);
+    u_value v_k = u_field(s3359, 1);
+    static struct u_object l__32_does_32_not_32_take_32__3376 = U_LIT(" does not take ");
+    static struct u_object l__32_arguments_3377 = U_LIT(" arguments");
+    t3360 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__32_does_32_not_32_take_32__3376, u_concat(u_str_show(v_k), &l__32_arguments_3377)));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_AlreadyDefined)) {
-    u_value v_n = u_field(s3230, 0);
-    static struct u_object l__32_is_32_already_32_defi_3249 = U_LIT(" is already defined");
-    t3231 = u_concat(f_syntax_46_Name_46_base_1(v_n), &l__32_is_32_already_32_defi_3249);
+  if ((!t3360) && u_is_con(s3359, &n_check_46_AlreadyDefined)) {
+    u_value v_n = u_field(s3359, 0);
+    static struct u_object l__32_is_32_already_32_defi_3378 = U_LIT(" is already defined");
+    t3360 = u_concat(f_syntax_46_Name_46_base_1(v_n), &l__32_is_32_already_32_defi_3378);
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_Duplicate)) {
-    u_value v_s = u_field(s3230, 0);
-    static struct u_object l_duplicate_32__3250 = U_LIT("duplicate ");
-    t3231 = u_concat(&l_duplicate_32__3250, v_s);
+  if ((!t3360) && u_is_con(s3359, &n_check_46_Duplicate)) {
+    u_value v_s = u_field(s3359, 0);
+    static struct u_object l_duplicate_32__3379 = U_LIT("duplicate ");
+    t3360 = u_concat(&l_duplicate_32__3379, v_s);
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_Ambiguous)) {
-    u_value v_n = u_field(s3230, 0);
-    u_value v_ns = u_field(s3230, 1);
-    static struct u_object l__32_is_32_ambiguous_58__32__3251 = U_LIT(" is ambiguous: ");
-    static struct u_object l__44__32__3252 = U_LIT(", ");
-    u_value t3253 = &o_list_46_Nil;
-    u_value *e3254 = &t3253;
-    u_value l3255 = v_ns;
-    while (u_is_con(l3255, &n_list_46_Cons)) {
-      u_value v_m = u_field(l3255, 0);
+  if ((!t3360) && u_is_con(s3359, &n_check_46_Ambiguous)) {
+    u_value v_n = u_field(s3359, 0);
+    u_value v_ns = u_field(s3359, 1);
+    static struct u_object l__32_is_32_ambiguous_58__32__3380 = U_LIT(" is ambiguous: ");
+    static struct u_object l__44__32__3381 = U_LIT(", ");
+    u_value t3382 = &o_list_46_Nil;
+    u_value *e3383 = &t3382;
+    u_value l3384 = v_ns;
+    while (u_is_con(l3384, &n_list_46_Cons)) {
+      u_value v_m = u_field(l3384, 0);
       if (u_truth(u_mk_bool(1))) {
-        e3254 = u_append(e3254, f_syntax_46_qualified_1(v_m));
+        e3383 = u_append(e3383, f_syntax_46_qualified_1(v_m));
       }
-      l3255 = u_field(l3255, 1);
+      l3384 = u_field(l3384, 1);
     }
-    t3231 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__32_is_32_ambiguous_58__32__3251, u_str_join(&l__44__32__3252, t3253)));
+    t3360 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__32_is_32_ambiguous_58__32__3380, u_str_join(&l__44__32__3381, t3382)));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_UnknownField)) {
-    u_value v_n = u_field(s3230, 0);
-    t3231 = f_ulang_46_field_message_1(u_str_split(f_syntax_46_Name_46_base_1(v_n), u_mk_char(46)));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_UnknownField)) {
+    u_value v_n = u_field(s3359, 0);
+    t3360 = f_ulang_46_field_message_1(u_str_split(f_syntax_46_Name_46_base_1(v_n), u_mk_char(46)));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_UnknownFieldType)) {
-    u_value v_f = u_field(s3230, 0);
-    u_value v_t = u_field(s3230, 1);
-    static struct u_object l_the_32_type_32__3256 = U_LIT("the type ");
-    static struct u_object l__32_of_32_the_32_value_32_of_3257 = U_LIT(" of the value of ");
-    static struct u_object l__32_is_32_not_32_known_3258 = U_LIT(" is not known");
-    t3231 = u_concat(&l_the_32_type_32__3256, u_concat(f_print_46_show_type_1(v_t), u_concat(&l__32_of_32_the_32_value_32_of_3257, u_concat(v_f, &l__32_is_32_not_32_known_3258))));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_UnknownFieldType)) {
+    u_value v_f = u_field(s3359, 0);
+    u_value v_t = u_field(s3359, 1);
+    static struct u_object l_the_32_type_32__3385 = U_LIT("the type ");
+    static struct u_object l__32_of_32_the_32_value_32_of_3386 = U_LIT(" of the value of ");
+    static struct u_object l__32_is_32_not_32_known_3387 = U_LIT(" is not known");
+    t3360 = u_concat(&l_the_32_type_32__3385, u_concat(f_print_46_show_type_1(v_t), u_concat(&l__32_of_32_the_32_value_32_of_3386, u_concat(v_f, &l__32_is_32_not_32_known_3387))));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_CountMismatch)) {
-    u_value v_k = u_field(s3230, 0);
-    u_value v_m = u_field(s3230, 1);
-    static struct u_object l_expected_32__3259 = U_LIT("expected ");
-    static struct u_object l__32_values_44__32_got_32__3260 = U_LIT(" values, got ");
-    t3231 = u_concat(&l_expected_32__3259, u_concat(u_str_show(v_k), u_concat(&l__32_values_44__32_got_32__3260, u_str_show(v_m))));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_CountMismatch)) {
+    u_value v_k = u_field(s3359, 0);
+    u_value v_m = u_field(s3359, 1);
+    static struct u_object l_expected_32__3388 = U_LIT("expected ");
+    static struct u_object l__32_values_44__32_got_32__3389 = U_LIT(" values, got ");
+    t3360 = u_concat(&l_expected_32__3388, u_concat(u_str_show(v_k), u_concat(&l__32_values_44__32_got_32__3389, u_str_show(v_m))));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_UnknownConstructor)) {
-    u_value v_n = u_field(s3230, 0);
-    static struct u_object l_unknown_32_construc_3261 = U_LIT("unknown constructor ");
-    t3231 = u_concat(&l_unknown_32_construc_3261, f_syntax_46_Name_46_base_1(v_n));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_UnknownConstructor)) {
+    u_value v_n = u_field(s3359, 0);
+    static struct u_object l_unknown_32_construc_3390 = U_LIT("unknown constructor ");
+    t3360 = u_concat(&l_unknown_32_construc_3390, f_syntax_46_Name_46_base_1(v_n));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_NotExhaustive)) {
-    u_value v_p = u_field(s3230, 0);
-    static struct u_object l_match_32_is_32_not_32_exh_3262 = U_LIT("match is not exhaustive, missing ");
-    t3231 = u_concat(&l_match_32_is_32_not_32_exh_3262, f_print_46_show_pat_1(v_p));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_NotExhaustive)) {
+    u_value v_p = u_field(s3359, 0);
+    static struct u_object l_match_32_is_32_not_32_exh_3391 = U_LIT("match is not exhaustive, missing ");
+    t3360 = u_concat(&l_match_32_is_32_not_32_exh_3391, f_print_46_show_pat_1(v_p));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_Unreachable)) {
-    u_value v_p = u_field(s3230, 0);
-    static struct u_object l_unreachable_32_case_3263 = U_LIT("unreachable case ");
-    t3231 = u_concat(&l_unreachable_32_case_3263, f_print_46_show_pat_1(v_p));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_Unreachable)) {
+    u_value v_p = u_field(s3359, 0);
+    static struct u_object l_unreachable_32_case_3392 = U_LIT("unreachable case ");
+    t3360 = u_concat(&l_unreachable_32_case_3392, f_print_46_show_pat_1(v_p));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_NotAssignable)) {
-    u_value v_n = u_field(s3230, 0);
-    static struct u_object l__32_is_32_not_32_assignab_3264 = U_LIT(" is not assignable");
-    t3231 = u_concat(f_syntax_46_Name_46_base_1(v_n), &l__32_is_32_not_32_assignab_3264);
+  if ((!t3360) && u_is_con(s3359, &n_check_46_NotAssignable)) {
+    u_value v_n = u_field(s3359, 0);
+    static struct u_object l__32_is_32_not_32_assignab_3393 = U_LIT(" is not assignable");
+    t3360 = u_concat(f_syntax_46_Name_46_base_1(v_n), &l__32_is_32_not_32_assignab_3393);
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_UnknownProcedure)) {
-    u_value v_n = u_field(s3230, 0);
-    static struct u_object l_unknown_32_procedur_3265 = U_LIT("unknown procedure ");
-    t3231 = u_concat(&l_unknown_32_procedur_3265, f_syntax_46_Name_46_base_1(v_n));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_UnknownProcedure)) {
+    u_value v_n = u_field(s3359, 0);
+    static struct u_object l_unknown_32_procedur_3394 = U_LIT("unknown procedure ");
+    t3360 = u_concat(&l_unknown_32_procedur_3394, f_syntax_46_Name_46_base_1(v_n));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_UnknownException)) {
-    u_value v_t = u_field(s3230, 0);
-    static struct u_object l_the_32_type_32__3266 = U_LIT("the type ");
-    static struct u_object l__32_of_32_an_32_exception_3267 = U_LIT(" of an exception is not fully known");
-    t3231 = u_concat(&l_the_32_type_32__3266, u_concat(f_print_46_show_type_1(v_t), &l__32_of_32_an_32_exception_3267));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_UnknownException)) {
+    u_value v_t = u_field(s3359, 0);
+    static struct u_object l_the_32_type_32__3395 = U_LIT("the type ");
+    static struct u_object l__32_of_32_an_32_exception_3396 = U_LIT(" of an exception is not fully known");
+    t3360 = u_concat(&l_the_32_type_32__3395, u_concat(f_print_46_show_type_1(v_t), &l__32_of_32_an_32_exception_3396));
   }
-  if ((!t3231) && u_is_con(s3230, &n_check_46_TestParams)) {
-    u_value v_n = u_field(s3230, 0);
-    static struct u_object l_test_32__3268 = U_LIT("test ");
-    static struct u_object l__32_takes_32_parameter_3269 = U_LIT(" takes parameters");
-    t3231 = u_concat(&l_test_32__3268, u_concat(v_n, &l__32_takes_32_parameter_3269));
+  if ((!t3360) && u_is_con(s3359, &n_check_46_TestParams)) {
+    u_value v_n = u_field(s3359, 0);
+    static struct u_object l_test_32__3397 = U_LIT("test ");
+    static struct u_object l__32_takes_32_parameter_3398 = U_LIT(" takes parameters");
+    t3360 = u_concat(&l_test_32__3397, u_concat(v_n, &l__32_takes_32_parameter_3398));
   }
-  if (!t3231) {
-    u_no_case(s3230);
+  if ((!t3360) && u_is_con(s3359, &n_check_46_EqualityWithoutOrder)) {
+    u_value v_n = u_field(s3359, 0);
+    static struct u_object l__32_declares_32__61__61__32_but_3399 = U_LIT(" declares == but not compare");
+    t3360 = u_concat(f_syntax_46_qualified_1(v_n), &l__32_declares_32__61__61__32_but_3399);
   }
-  return t3231;
+  if (!t3360) {
+    u_no_case(s3359);
+  }
+  return t3360;
 }
 
 u_value f_ulang_46_field_message_1(u_value v_parts) {
-  u_value s3270 = v_parts;
-  u_value t3271 = NULL;
-  if ((!t3271) && (u_is_con(s3270, &n_list_46_Cons) && (u_equals(u_field(s3270, 0), u_mk_lit("")) && (u_is_con(u_field(s3270, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s3270, 1), 1), &n_list_46_Nil))))) {
-    u_value v_f = u_field(u_field(s3270, 1), 0);
-    static struct u_object l_unknown_32_field_32__3272 = U_LIT("unknown field ");
-    t3271 = u_concat(&l_unknown_32_field_32__3272, f_ulang_46_without_update_1(v_f));
+  u_value s3400 = v_parts;
+  u_value t3401 = NULL;
+  if ((!t3401) && (u_is_con(s3400, &n_list_46_Cons) && (u_equals(u_field(s3400, 0), u_mk_lit("")) && (u_is_con(u_field(s3400, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s3400, 1), 1), &n_list_46_Nil))))) {
+    u_value v_f = u_field(u_field(s3400, 1), 0);
+    static struct u_object l_unknown_32_field_32__3402 = U_LIT("unknown field ");
+    t3401 = u_concat(&l_unknown_32_field_32__3402, f_ulang_46_without_update_1(v_f));
   }
-  if ((!t3271) && (u_is_con(s3270, &n_list_46_Cons) && (u_is_con(u_field(s3270, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s3270, 1), 1), &n_list_46_Nil)))) {
-    u_value v_t = u_field(s3270, 0);
-    u_value v_f = u_field(u_field(s3270, 1), 0);
-    static struct u_object l_unknown_32_field_32__3273 = U_LIT("unknown field ");
-    static struct u_object l__32_of_32__3274 = U_LIT(" of ");
-    t3271 = u_concat(&l_unknown_32_field_32__3273, u_concat(f_ulang_46_without_update_1(v_f), u_concat(&l__32_of_32__3274, v_t)));
+  if ((!t3401) && (u_is_con(s3400, &n_list_46_Cons) && (u_is_con(u_field(s3400, 1), &n_list_46_Cons) && u_is_con(u_field(u_field(s3400, 1), 1), &n_list_46_Nil)))) {
+    u_value v_t = u_field(s3400, 0);
+    u_value v_f = u_field(u_field(s3400, 1), 0);
+    static struct u_object l_unknown_32_field_32__3403 = U_LIT("unknown field ");
+    static struct u_object l__32_of_32__3404 = U_LIT(" of ");
+    t3401 = u_concat(&l_unknown_32_field_32__3403, u_concat(f_ulang_46_without_update_1(v_f), u_concat(&l__32_of_32__3404, v_t)));
   }
-  if (!t3271) {
-    static struct u_object l_unknown_32_field_32__3275 = U_LIT("unknown field ");
-    static struct u_object l__46__3276 = U_LIT(".");
-    t3271 = u_concat(&l_unknown_32_field_32__3275, u_str_join(&l__46__3276, v_parts));
+  if (!t3401) {
+    static struct u_object l_unknown_32_field_32__3405 = U_LIT("unknown field ");
+    static struct u_object l__46__3406 = U_LIT(".");
+    t3401 = u_concat(&l_unknown_32_field_32__3405, u_str_join(&l__46__3406, v_parts));
   }
-  if (!t3271) {
-    u_no_case(s3270);
+  if (!t3401) {
+    u_no_case(s3400);
   }
-  return t3271;
+  return t3401;
 }
 
 u_value f_ulang_46_without_update_1(u_value v_f) {
-  u_value t3281 = u_str_size(v_f);
-  u_value t3280;
+  u_value t3411 = u_str_size(v_f);
+  u_value t3410;
   {
-    u_value v_n = t3281;
-    u_value t3278 = f_prelude_46__62__2(v_n, u_mk_int(2));
-    if (u_truth(t3278)) {
-      static struct u_object l__58__61__3277 = U_LIT(":=");
-      t3278 = u_eq(u_str_slice(v_f, u_sub(v_n, u_mk_int(2)), v_n), &l__58__61__3277);
+    u_value v_n = t3411;
+    u_value t3408 = f_prelude_46__62__2(v_n, u_mk_int(2));
+    if (u_truth(t3408)) {
+      static struct u_object l__58__61__3407 = U_LIT(":=");
+      t3408 = u_eq(u_str_slice(v_f, u_sub(v_n, u_mk_int(2)), v_n), &l__58__61__3407);
     }
-    u_value t3279;
-    if (u_truth(t3278)) {
-      t3279 = u_str_slice(v_f, u_mk_int(0), u_sub(v_n, u_mk_int(2)));
+    u_value t3409;
+    if (u_truth(t3408)) {
+      t3409 = u_str_slice(v_f, u_mk_int(0), u_sub(v_n, u_mk_int(2)));
     } else {
-      t3279 = v_f;
+      t3409 = v_f;
     }
-    t3280 = t3279;
+    t3410 = t3409;
   }
-  return t3280;
+  return t3410;
 }
 
 u_value f_ulang_46_runtime_message_1(u_value v_e) {
-  u_value s3282 = v_e;
-  u_value t3283 = NULL;
-  if ((!t3283) && u_is_con(s3282, &n_run_46_Uninitialized)) {
-    u_value v_n = u_field(s3282, 0);
-    static struct u_object l__32_is_32_not_32_initiali_3284 = U_LIT(" is not initialized");
-    t3283 = u_concat(f_syntax_46_Name_46_base_1(v_n), &l__32_is_32_not_32_initiali_3284);
+  u_value s3412 = v_e;
+  u_value t3413 = NULL;
+  if ((!t3413) && u_is_con(s3412, &n_run_46_Uninitialized)) {
+    u_value v_n = u_field(s3412, 0);
+    static struct u_object l__32_is_32_not_32_initiali_3414 = U_LIT(" is not initialized");
+    t3413 = u_concat(f_syntax_46_Name_46_base_1(v_n), &l__32_is_32_not_32_initiali_3414);
   }
-  if ((!t3283) && u_is_con(s3282, &n_run_46_NotFunction)) {
-    u_value v_v = u_field(s3282, 0);
-    static struct u_object l_cannot_32_apply_32__3285 = U_LIT("cannot apply ");
-    t3283 = u_concat(&l_cannot_32_apply_32__3285, f_print_46_show_value_1(v_v));
+  if ((!t3413) && u_is_con(s3412, &n_run_46_NotFunction)) {
+    u_value v_v = u_field(s3412, 0);
+    static struct u_object l_cannot_32_apply_32__3415 = U_LIT("cannot apply ");
+    t3413 = u_concat(&l_cannot_32_apply_32__3415, f_print_46_show_value_1(v_v));
   }
-  if ((!t3283) && u_is_con(s3282, &n_run_46_Unspecified)) {
-    u_value v_n = u_field(s3282, 0);
-    u_value v_vs = u_field(s3282, 1);
-    static struct u_object l__32_is_32_not_32_specifie_3286 = U_LIT(" is not specified for ");
-    static struct u_object l__44__32__3287 = U_LIT(", ");
-    u_value t3288 = &o_list_46_Nil;
-    u_value *e3289 = &t3288;
-    u_value l3290 = v_vs;
-    while (u_is_con(l3290, &n_list_46_Cons)) {
-      u_value v_v = u_field(l3290, 0);
+  if ((!t3413) && u_is_con(s3412, &n_run_46_Unspecified)) {
+    u_value v_n = u_field(s3412, 0);
+    u_value v_vs = u_field(s3412, 1);
+    static struct u_object l__32_is_32_not_32_specifie_3416 = U_LIT(" is not specified for ");
+    static struct u_object l__44__32__3417 = U_LIT(", ");
+    u_value t3418 = &o_list_46_Nil;
+    u_value *e3419 = &t3418;
+    u_value l3420 = v_vs;
+    while (u_is_con(l3420, &n_list_46_Cons)) {
+      u_value v_v = u_field(l3420, 0);
       if (u_truth(u_mk_bool(1))) {
-        e3289 = u_append(e3289, f_print_46_show_value_1(v_v));
+        e3419 = u_append(e3419, f_print_46_show_value_1(v_v));
       }
-      l3290 = u_field(l3290, 1);
+      l3420 = u_field(l3420, 1);
     }
-    t3283 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__32_is_32_not_32_specifie_3286, u_str_join(&l__44__32__3287, t3288)));
+    t3413 = u_concat(f_syntax_46_Name_46_base_1(v_n), u_concat(&l__32_is_32_not_32_specifie_3416, u_str_join(&l__44__32__3417, t3418)));
   }
-  if ((!t3283) && u_is_con(s3282, &n_run_46_NoCase)) {
-    u_value v_v = u_field(s3282, 0);
-    static struct u_object l_no_32_case_32_matches_32__3291 = U_LIT("no case matches ");
-    t3283 = u_concat(&l_no_32_case_32_matches_32__3291, f_print_46_show_value_1(v_v));
+  if ((!t3413) && u_is_con(s3412, &n_run_46_NoCase)) {
+    u_value v_v = u_field(s3412, 0);
+    static struct u_object l_no_32_case_32_matches_32__3421 = U_LIT("no case matches ");
+    t3413 = u_concat(&l_no_32_case_32_matches_32__3421, f_print_46_show_value_1(v_v));
   }
-  if ((!t3283) && u_is_con(s3282, &n_run_46_CompareFunctions)) {
-    static struct u_object l_cannot_32_compare_32_f_3292 = U_LIT("cannot compare functions");
-    t3283 = &l_cannot_32_compare_32_f_3292;
+  if ((!t3413) && u_is_con(s3412, &n_run_46_CompareFunctions)) {
+    static struct u_object l_cannot_32_compare_32_f_3422 = U_LIT("cannot compare functions");
+    t3413 = &l_cannot_32_compare_32_f_3422;
   }
-  if ((!t3283) && u_is_con(s3282, &n_run_46_NotList)) {
-    u_value v_v = u_field(s3282, 0);
-    static struct u_object l_expected_32_a_32_list_44__3293 = U_LIT("expected a list, got ");
-    t3283 = u_concat(&l_expected_32_a_32_list_44__3293, f_print_46_show_value_1(v_v));
+  if ((!t3413) && u_is_con(s3412, &n_run_46_NotList)) {
+    u_value v_v = u_field(s3412, 0);
+    static struct u_object l_expected_32_a_32_list_44__3423 = U_LIT("expected a list, got ");
+    t3413 = u_concat(&l_expected_32_a_32_list_44__3423, f_print_46_show_value_1(v_v));
   }
-  if ((!t3283) && u_is_con(s3282, &n_run_46_AssertionFailed)) {
-    static struct u_object l_assertion_32_failed_3294 = U_LIT("assertion failed");
-    t3283 = &l_assertion_32_failed_3294;
+  if ((!t3413) && u_is_con(s3412, &n_run_46_AssertionFailed)) {
+    static struct u_object l_assertion_32_failed_3424 = U_LIT("assertion failed");
+    t3413 = &l_assertion_32_failed_3424;
   }
-  if ((!t3283) && u_is_con(s3282, &n_run_46_AssertionUnequal)) {
-    u_value v_a = u_field(s3282, 0);
-    u_value v_b = u_field(s3282, 1);
-    static struct u_object l_assertion_32_failed_3295 = U_LIT("assertion failed: ");
-    static struct u_object l__32__33__61__32__3296 = U_LIT(" != ");
-    t3283 = u_concat(&l_assertion_32_failed_3295, u_concat(f_print_46_show_value_1(v_a), u_concat(&l__32__33__61__32__3296, f_print_46_show_value_1(v_b))));
+  if ((!t3413) && u_is_con(s3412, &n_run_46_AssertionUnequal)) {
+    u_value v_a = u_field(s3412, 0);
+    u_value v_b = u_field(s3412, 1);
+    static struct u_object l_assertion_32_failed_3425 = U_LIT("assertion failed: ");
+    static struct u_object l__32__33__61__32__3426 = U_LIT(" != ");
+    t3413 = u_concat(&l_assertion_32_failed_3425, u_concat(f_print_46_show_value_1(v_a), u_concat(&l__32__33__61__32__3426, f_print_46_show_value_1(v_b))));
   }
-  if ((!t3283) && u_is_con(s3282, &n_run_46_UnassignedOutput)) {
-    u_value v_x = u_field(s3282, 0);
-    u_value v_p = u_field(s3282, 1);
-    static struct u_object l_output_32__3297 = U_LIT("output ");
-    static struct u_object l__32_of_32__3298 = U_LIT(" of ");
-    static struct u_object l__32_is_32_not_32_assigned_3299 = U_LIT(" is not assigned");
-    t3283 = u_concat(&l_output_32__3297, u_concat(f_syntax_46_Name_46_base_1(v_x), u_concat(&l__32_of_32__3298, u_concat(f_syntax_46_Name_46_base_1(v_p), &l__32_is_32_not_32_assigned_3299))));
+  if ((!t3413) && u_is_con(s3412, &n_run_46_UnassignedOutput)) {
+    u_value v_x = u_field(s3412, 0);
+    u_value v_p = u_field(s3412, 1);
+    static struct u_object l_output_32__3427 = U_LIT("output ");
+    static struct u_object l__32_of_32__3428 = U_LIT(" of ");
+    static struct u_object l__32_is_32_not_32_assigned_3429 = U_LIT(" is not assigned");
+    t3413 = u_concat(&l_output_32__3427, u_concat(f_syntax_46_Name_46_base_1(v_x), u_concat(&l__32_of_32__3428, u_concat(f_syntax_46_Name_46_base_1(v_p), &l__32_is_32_not_32_assigned_3429))));
   }
-  if ((!t3283) && u_is_con(s3282, &n_run_46_UnknownProc)) {
-    u_value v_n = u_field(s3282, 0);
-    static struct u_object l_unknown_32_procedur_3300 = U_LIT("unknown procedure ");
-    t3283 = u_concat(&l_unknown_32_procedur_3300, f_syntax_46_Name_46_base_1(v_n));
+  if ((!t3413) && u_is_con(s3412, &n_run_46_UnknownProc)) {
+    u_value v_n = u_field(s3412, 0);
+    static struct u_object l_unknown_32_procedur_3430 = U_LIT("unknown procedure ");
+    t3413 = u_concat(&l_unknown_32_procedur_3430, f_syntax_46_Name_46_base_1(v_n));
   }
-  if ((!t3283) && u_is_con(s3282, &n_run_46_NotProc)) {
-    u_value v_v = u_field(s3282, 0);
-    static struct u_object l_cannot_32_call_32__3301 = U_LIT("cannot call ");
-    t3283 = u_concat(&l_cannot_32_call_32__3301, f_print_46_show_value_1(v_v));
+  if ((!t3413) && u_is_con(s3412, &n_run_46_NotProc)) {
+    u_value v_v = u_field(s3412, 0);
+    static struct u_object l_cannot_32_call_32__3431 = U_LIT("cannot call ");
+    t3413 = u_concat(&l_cannot_32_call_32__3431, f_print_46_show_value_1(v_v));
   }
-  if ((!t3283) && u_is_con(s3282, &n_run_46_RecursiveInitialization)) {
-    u_value v_n = u_field(s3282, 0);
-    static struct u_object l_recursive_32_initia_3302 = U_LIT("recursive initialization of ");
-    t3283 = u_concat(&l_recursive_32_initia_3302, f_syntax_46_Name_46_base_1(v_n));
+  if ((!t3413) && u_is_con(s3412, &n_run_46_RecursiveInitialization)) {
+    u_value v_n = u_field(s3412, 0);
+    static struct u_object l_recursive_32_initia_3432 = U_LIT("recursive initialization of ");
+    t3413 = u_concat(&l_recursive_32_initia_3432, f_syntax_46_Name_46_base_1(v_n));
   }
-  if (!t3283) {
-    u_no_case(s3282);
+  if (!t3413) {
+    u_no_case(s3412);
   }
-  return t3283;
+  return t3413;
 }
 
 u_value lam211(u_value *env, u_value *args) {
@@ -29014,42 +30196,42 @@ u_value lam1471(u_value *env, u_value *args) {
   return f_ctx_46_is_sort_2(f_check_46_State_46_ctx_1(v_s), v_t);
 }
 
-u_value lam1619(u_value *env, u_value *args) {
+u_value lam1653(u_value *env, u_value *args) {
   u_value v_s = env[0];
   u_value v_k = args[0];
   return f_ctx_46_is_constr_2(f_check_46_State_46_ctx_1(v_s), v_k);
 }
 
-u_value lam1622(u_value *env, u_value *args) {
+u_value lam1656(u_value *env, u_value *args) {
   u_value v_s = env[0];
   u_value v_k = args[0];
   return f_ctx_46_is_constr_2(f_check_46_State_46_ctx_1(v_s), v_k);
 }
 
-u_value lam1702(u_value *env, u_value *args) {
+u_value lam1736(u_value *env, u_value *args) {
   u_value v_s = env[0];
   u_value v_q = args[0];
   return f_ctx_46_is_proc_2(f_check_46_State_46_ctx_1(v_s), v_q);
 }
 
-u_value lam3093(u_value *env, u_value *args) {
+u_value lam3222(u_value *env, u_value *args) {
   u_value v_m = env[0];
   u_value v_entry = env[1];
   u_value v_c = args[0];
   return f_compile_46_is_entry_2(v_c, u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, v_m), v_entry));
 }
 
-void proc3120(u_value *env, u_value *ins, u_value **outs) {
+void proc3249(u_value *env, u_value *ins, u_value **outs) {
   u_value v_file = env[0];
   u_value v_rest = env[1];
   u_value *r_r = outs[0];
   {
-    static struct u_object l_main_3121 = U_LIT("main");
-    p_ulang_46_run_file(v_file, &l_main_3121, v_rest, r_r);
+    static struct u_object l_main_3250 = U_LIT("main");
+    p_ulang_46_run_file(v_file, &l_main_3250, v_rest, r_r);
   }
 }
 
-void proc3122(u_value *env, u_value *ins, u_value **outs) {
+void proc3251(u_value *env, u_value *ins, u_value **outs) {
   u_value v_file = env[0];
   u_value v_name = env[1];
   u_value v_rest = env[2];
@@ -29059,7 +30241,7 @@ void proc3122(u_value *env, u_value *ins, u_value **outs) {
   }
 }
 
-void proc3123(u_value *env, u_value *ins, u_value **outs) {
+void proc3252(u_value *env, u_value *ins, u_value **outs) {
   u_value v_file = env[0];
   u_value v_names = env[1];
   u_value v_rest = env[2];
@@ -29069,7 +30251,7 @@ void proc3123(u_value *env, u_value *ins, u_value **outs) {
   }
 }
 
-void proc3124(u_value *env, u_value *ins, u_value **outs) {
+void proc3253(u_value *env, u_value *ins, u_value **outs) {
   u_value v_file = env[0];
   u_value *r_r = outs[0];
   {
@@ -29077,7 +30259,7 @@ void proc3124(u_value *env, u_value *ins, u_value **outs) {
   }
 }
 
-void proc3125(u_value *env, u_value *ins, u_value **outs) {
+void proc3254(u_value *env, u_value *ins, u_value **outs) {
   u_value v_file = env[0];
   u_value v_entry = env[1];
   u_value v_target = env[2];
@@ -29087,13 +30269,13 @@ void proc3125(u_value *env, u_value *ins, u_value **outs) {
   }
 }
 
-u_value lam3182(u_value *env, u_value *args) {
+u_value lam3311(u_value *env, u_value *args) {
   u_value v_n = env[0];
   u_value v_c = args[0];
   return f_compile_46_is_entry_2(v_c, v_n);
 }
 
-u_value lam3195(u_value *env, u_value *args) {
+u_value lam3324(u_value *env, u_value *args) {
   u_value v_n = env[0];
   u_value v_c = args[0];
   return f_ulang_46_is_test_2(v_c, v_n);

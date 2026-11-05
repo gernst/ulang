@@ -6,11 +6,11 @@ Implemented in `self/check.u`, but not in `Check.scala`. Several visible modules
 
 - **Across modules only**: overloads are declarations of the same name in different modules, so their qualified names differ already (`list.size`, `set.size`). The interpreters and the compiler key functions by qualified name and arity, and need no change.
 - **Within a module**, overloading stays by arity only. Overloading by type there would need mangled names in `Run.scala`, `self/run.u`, and `self/compile.u`.
-- **No type classes**: a generic `function f[C](c: C) := size(c)` remains impossible, since declarations have explicit signatures and no constraint enters a type scheme. Neither does the plan change `==` and `compare` of sets and maps, which compare their trees, also inside generic code such as `map` keyed by sets. That needs canonical trees or a builtin that compares elements, independently of overloading.
+- **No type classes**: a generic `function f[C](c: C) := size(c)` remains impossible, since declarations have explicit signatures and no constraint enters a type scheme. `==` and `compare` are the exception: a module may declare them for its datatypes, which the builtins then use at run time for all their values, also in generic code, see `order_of` in `self/check.u` and the type descriptors of the runtime.
 
 ## Candidates
 
-`candidates` in `Check.scala` takes a declaration of the current module alone and otherwise those of the visible modules, and `ambiguous` rejects more than one. Instead, the candidates are the declarations of the current module and of all visible modules together, functions, constructors, procedures, and builtins as in `lookup`, and the types decide among them. If several still fit at the end of the command, a single one of the current module is taken, as when it hid the others, e.g. the own `helper` of `tests/modules.u` next to those of its imports. Local variables still hide all of them. A qualified name `set.length` has only the one candidate, as now.
+`candidates` in `Check.scala` takes a declaration of the current module alone and otherwise those of the visible modules, and `ambiguous` rejects more than one. Instead, the candidates are the declarations of the current module and of all visible modules together, functions, constructors, procedures, and builtins as in `lookup`, and the types decide among them. Declarations may overload builtins, e.g. `==`. Among several that fit a use whose type is known, the most specific is taken, which is an instance of all others, and at the end of the command, for a type that is still unknown, the most general, of which all others are instances, so the builtin `==` serves where no declaration fits. Failing both, a single one of the current module is taken, as when it hid the others, e.g. the own `helper` of `tests/modules.u` next to those of its imports. Local variables still hide all of them. A qualified name `set.length` has only the one candidate, as now.
 
 ## Resolution
 
@@ -22,7 +22,7 @@ Implemented in `self/check.u`, but not in `Check.scala`. Several visible modules
 
 ## Fields
 
-The same mechanism resolves accesses `e.f` and updates `e with f := a` (TODO, Fields 1): an access whose type of `e` is not known yet becomes a pending entry, whose candidates are the accessors `T.f` of the visible datatypes, so that `lambda p => p.x` is checked once `p` is used. This also removes the error that the type of the value of `.f` is not known.
+The same mechanism resolves accesses `e.f` and updates `e with f := a`: an access whose type of `e` is not known yet becomes a pending entry, whose candidates are the accessors `T.f` of the visible datatypes, so that `lambda p => p.x` is checked once `p` is used. This also removes the error that the type of the value of `.f` is not known.
 
 ## Steps
 
@@ -34,4 +34,4 @@ Done in `self/check.u`, with its tests, bootstrapped through `self/run.u`:
 Open:
 
 3. **`Check.scala`**, which still rejects names that several visible modules declare, so `./ulang.sh` and `./mill ulang.test` fail on programs that use the library's shared names.
-4. **`{}`** as an `empty()` resolved by the expected type, and the literals of sets and maps resolved through the imports of the module (TODO, Fields 3).
+4. **`{}`** as an `empty()` resolved by the expected type, and the literals of sets and maps resolved through the imports of the module (TODO, Fields and literals 2).

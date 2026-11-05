@@ -34,6 +34,17 @@ function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V] :=
       end
   end
 
+// maps are ordered and equal by their entries, whatever the shapes of their trees, also as elements of other values
+// and in generic code, since they are the order and equality of Map
+function compare[K, V](a: Map[K, V], b: Map[K, V]): Int :=
+  compare(entries(a), entries(b))
+
+function ==[K, V](a: Map[K, V], b: Map[K, V]): Bool :=
+  entries(a) == entries(b)
+
+function !=[K, V](a: Map[K, V], b: Map[K, V]): Bool :=
+  not(a == b)
+
 // the pairs of m in the order of their keys
 function entries[K, V](m: Map[K, V]): List[K * V] :=
   entries_onto(m, Nil)
@@ -157,6 +168,10 @@ test maps() :=
   assert get("a", m) == Some(1) and get("c", m) == None and contains("b", m) and not contains("c", m)
   assign m := put("a", 3, m)
   assert entries(m) == [("a", 3), ("b", 2)] and size(m) == 2 and entries({"b" => 2, "a" => 1, "a" => 3}) == entries(m)
+
+// maps of the same entries are equal, although their trees differ
+test map_equality() :=
+  assert {1 => "a", 2 => "b"} == {2 => "b", 1 => "a"} and {1 => "a"} != {1 => "b"}
 
 // ascending keys would make a list of an unbalanced tree
 test balance() :=

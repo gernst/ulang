@@ -93,32 +93,81 @@ function unit_value(n: Name): CExpr :=
 function runtime_constructors(): Set[Name] :=
   {nil_name(), cons_name(), none_name(), some_name(), os_error_name(), division_by_zero_name(), no_index_name(), no_character_name(), missing_field_name()}
 
-// the descriptor of constructor n at position i of its declaration
-function descriptor_decl(n: Name, i: Int): CDecl :=
+// the datatypes whose descriptors the runtime defines, those of its constructors
+function runtime_types(): Set[Name] :=
+  {list_name(), option_name(), os_error_name(), division_by_zero_name(), no_index_name(), no_character_name(), missing_field_name()}
+
+function type_name(t: Name): Str :=
+  "t_" ^ mangle(t)
+
+// the descriptor of constructor n at position i of its declaration, of datatype t
+function descriptor_decl(n: Name, i: Int, t: Name): CDecl :=
   match n
-    case Name(Some(m), b) => CdGlobal(CtNamed("const struct u_name"), "n_" ^ mangle(n), Some(CeInit([CeStr(m), CeStr(b), CeNum(i)])))
-    case Name(None, b) => CdGlobal(CtNamed("const struct u_name"), "n_" ^ mangle(n), Some(CeInit([CeVar("NULL"), CeStr(b), CeNum(i)])))
+    case Name(Some(m), b) => CdGlobal(CtNamed("const struct u_name"), "n_" ^ mangle(n), Some(CeInit([CeStr(m), CeStr(b), CeNum(i), CeUnary("&", CeVar(type_name(t)))])))
+    case Name(None, b) => CdGlobal(CtNamed("const struct u_name"), "n_" ^ mangle(n), Some(CeInit([CeVar("NULL"), CeStr(b), CeNum(i), CeUnary("&", CeVar(type_name(t)))])))
   end
 
-// the shared value of constructor n without arguments
-function unit_decl(n: Name): CDecl :=
-  CdGlobal(CtNamed("struct u_object"), "o_" ^ mangle(n), Some(c_call("U_UNIT", [CeVar("n_" ^ mangle(n))])))
+// the shared value of constructor n without arguments, of datatype t
+function unit_decl(n: Name, t: Name): CDecl :=
+  CdGlobal(CtNamed("struct u_object"), "o_" ^ mangle(n), Some(c_call("U_UNIT", [CeVar("n_" ^ mangle(n)), CeVar(type_name(t))])))
 
-// the descriptors of the constructors of cs that the runtime does not define, and the values of those without arguments
+// the descriptors of the datatypes of cs and their constructors that the runtime does not define, and the values of
+// the constructors without arguments, where the datatypes ordered by compare or == of their modules use them
 function descriptor_decls(cs: List[Cmd]): List[CDecl] :=
+  data_decls(cs, ordered(cs, "compare"), ordered(cs, "=="))
+
+function data_decls(cs: List[Cmd], compares: List[Name], equalities: List[Name]): List[CDecl] :=
   match cs
     case Nil => Nil
-    case [CData(_, _, ks); rest] => constructor_decls(ks, 0) ++ descriptor_decls(rest)
-    case [_; rest] => descriptor_decls(rest)
+    case [CData(t, _, ks); rest] => type_decls(t, compares, equalities) ++ constructor_decls(t, ks, 0) ++ data_decls(rest, compares, equalities)
+    case [_; rest] => data_decls(rest, compares, equalities)
   end
 
-function constructor_decls(ks: List[Constr], i: Int): List[CDecl] :=
+function type_decls(t: Name, compares: List[Name], equalities: List[Name]): List[CDecl] :=
+  if contains(t, runtime_types()) then
+    []
+  else
+    [
+      CdGlobal(
+        CtNamed("const struct u_type"),
+        type_name(t),
+        Some(CeInit([CeStr(qualified(t)), CeVar(if contains(t, compares) then order_wrapper_name("compare", t) else "u_con_compare"), CeVar(if contains(t, equalities) then order_wrapper_name("==", t) else "u_equals_by_compare"), CeVar("u_con_print")]))
+      )
+    ]
+
+function constructor_decls(t: Name, ks: List[Constr], i: Int): List[CDecl] :=
   match ks
     case Nil => Nil
-    case [k; rest] if contains(k.name, runtime_constructors()) => constructor_decls(rest, i + 1)
-    case [Constr(n, []); rest] => [descriptor_decl(n, i), unit_decl(n); constructor_decls(rest, i + 1)]
-    case [Constr(n, _); rest] => [descriptor_decl(n, i); constructor_decls(rest, i + 1)]
+    case [k; rest] if contains(k.name, runtime_constructors()) => constructor_decls(t, rest, i + 1)
+    case [Constr(n, []); rest] => [descriptor_decl(n, i, t), unit_decl(n, t); constructor_decls(t, rest, i + 1)]
+    case [Constr(n, _); rest] => [descriptor_decl(n, i, t); constructor_decls(t, rest, i + 1)]
   end
+
+function order_wrapper_name(op: Id, t: Name): Str :=
+  (if op == "compare" then "oc_" else "oe_") ^ mangle(t)
+
+// the declared orders and equalities of datatypes as functions of C on two values, which their descriptors point to
+function order_wrappers(cs: List[Cmd]): List[CDecl] :=
+  match cs
+    case Nil => Nil
+    case [c; rest] =>
+      match (c, order_of(c))
+        case (CFun(f, _, _, _, _), Some((op, t))) =>
+          if contains(t, runtime_types()) then
+            order_wrappers(rest)
+          else
+            [order_wrapper(op, t, f); order_wrappers(rest)]
+        case _ => order_wrappers(rest)
+      end
+  end
+
+function order_wrapper(op: Id, t: Name, f: Name): CDecl :=
+  CdFunction(
+    CtInt,
+    order_wrapper_name(op, t),
+    [(value_type(), "a"), (value_type(), "b")],
+    [CsReturn(Some(c_call(if op == "compare" then "u_order" else "u_truth", [c_call(fun_name(f, 2), [CeVar("a"), CeVar("b")])])))]
+  )
 
 function in_scope(xs: List[Name]): Vars :=
   [(x, CeVar(var_name(x))) for x in xs]
@@ -832,8 +881,8 @@ procedure compile_program(in q: Program, m: Id, entry: Id, out f: CFile) :=
     assign ms := [CsExpr(c_call(proc_name(Name(Some(m), entry)), []))]
   end
 
-  assign fs := wrappers(gl) ++ ds ++ g.lifted
-  assign f := CFile([CdInclude("ulang.h")] ++ descriptor_decls(q.cmds) ++ concat([prototype(d) for d in fs]) ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
+  assign fs := wrappers(gl) ++ order_wrappers(q.cmds) ++ ds ++ g.lifted
+  assign f := CFile([CdInclude("ulang.h")] ++ concat([prototype(d) for d in fs]) ++ descriptor_decls(q.cmds) ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
 
 // checks the program of the file source after the prelude, which is its module, and writes its translation to C to target
 procedure compile_file(in source: Str, entry: Id, target: Str) :=

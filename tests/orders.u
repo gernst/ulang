@@ -1,0 +1,46 @@
+// the order and equality that the module of a datatype declares with compare and ==, which builtins use for its values
+// everywhere, also inside other values and in generic code
+
+import set
+import map
+
+// fractions, equal if their cross products are, where Half(n) is n / 2
+data Fraction :=
+  | Fraction(Int, Int)
+  | Half(Int)
+
+function value(f: Fraction): Int * Int :=
+  match f
+    case Fraction(n, d) => (n, d)
+    case Half(n) => (n, 2)
+  end
+
+function compare(a: Fraction, b: Fraction): Int :=
+  match (value(a), value(b))
+    case ((n, d), (m, e)) => compare(n * e, m * d)
+  end
+
+// sets of the same elements, built in different orders, which have different trees
+function ab(): Set[Int] :=
+  from_list([1, 2])
+
+function ba(): Set[Int] :=
+  from_list([2, 1])
+
+// a map whose key is a set
+function keyed(): Map[Set[Int], Str] :=
+  put(ab(), "x", empty())
+
+test sets_in_values() :=
+  assert [ab()] == [ba()] and (ab(), 1) == (ba(), 1) and Some(ab()) == Some(ba())
+  assert compare([ab()], [ba()]) == 0 and compare(ab(), from_list([1, 3])) == -1
+
+test generic_code() :=
+  assert contains(ba(), [ab()]) and get(ba(), [(ab(), "x")]) == Some("x")
+  assert size(from_list([ab(), ba()])) == 1
+  assert get(ba(), keyed()) == Some("x") and contains(ba(), keyed())
+
+test declared_order() :=
+  assert Fraction(1, 2) == Half(1) and Half(2) != Fraction(3, 2)
+  assert compare(Half(1), Fraction(2, 3)) == -1 and contains(Fraction(2, 4), [Half(3), Half(1)])
+  assert elements(from_list([Fraction(1, 2), Half(1), Fraction(2, 2)])) == [Fraction(1, 2), Fraction(2, 2)]

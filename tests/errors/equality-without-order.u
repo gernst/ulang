@@ -1,0 +1,6 @@
+// type error: equality-without-order.Pair declares == but not compare
+data Pair :=
+  | Pair(Int, Int)
+
+function ==(a: Pair, b: Pair): Bool :=
+  true

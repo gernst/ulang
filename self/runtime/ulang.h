@@ -7,16 +7,41 @@
 #include <gmp.h>
 #include <setjmp.h>
 #include <stddef.h>
+#include <stdio.h>
 
 typedef struct u_object *u_value;
 
-// the name of a constructor with its module and its position in its declaration, which orders values,
+// the type of a value, with its order, its equality, which agrees with the order, and how it is printed,
+// where each type exists once, the built-in ones in the runtime and each datatype in the compiled program
+struct u_type {
+  const char *name;
+  int (*compare)(u_value a, u_value b);
+  int (*equals)(u_value a, u_value b);
+  void (*print)(FILE *out, u_value v);
+};
+
+// the name of a constructor with its module, its position in its declaration, which orders values, and its datatype,
 // where each name exists once and is compared by its address
 struct u_name {
   const char *module;
   const char *base;
   int index;
+  const struct u_type *type;
 };
+
+// the built-in types, where integers that fit into a long long are of u_int_type with num, and others of u_big_type
+// with an mpz_t, such that each integer has one representation
+extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type;
+
+// the datatypes whose constructors the builtins create
+extern const struct u_type t_list_46_List, t_option_46_Option, t_os_46_OsError;
+extern const struct u_type t_prelude_46_DivisionByZero, t_prelude_46_NoIndex, t_prelude_46_NoCharacter, t_prelude_46_MissingField;
+
+// the order, equality, and printing of datatypes by their constructors and then their fields, which the descriptors
+// of datatypes use unless their module declares compare or ==, and the equality of an order
+int u_con_compare(u_value a, u_value b);
+int u_equals_by_compare(u_value a, u_value b);
+void u_con_print(FILE *out, u_value v);
 
 // the constructors that the builtins create, of the modules list, option, and os of the library
 extern const struct u_name n_list_46_Nil, n_list_46_Cons, n_option_46_None, n_option_46_Some, n_os_46_OsError;
@@ -30,12 +55,9 @@ typedef u_value (*code)(u_value *env, u_value *args);
 // the code of a procedure as a value, with its captured values, its ins, and pointers to its outs and refs
 typedef void (*proc_code)(u_value *env, u_value *ins, u_value **outs);
 
-// integers that fit into a long long are INT with num, and others are BIG with an mpz_t, such that each value has one kind
-enum kind { INT, BIG, BOOL, CHAR, STR, CON, TUPLE, CLOSURE, PROC };
-
-// the fields of the kind of an object, where constructors, tuples, and closures have items
+// the fields of the type of an object, where constructors, tuples, and closures have items
 struct u_object {
-  enum kind kind;
+  const struct u_type *type;
   union {
     mpz_t big;
     long long num;
@@ -70,7 +92,7 @@ u_value u_mk_str_n(const char *s, long long n);
 #define U_COMPUTING ((u_value)-1)
 
 // the initializer of a static object of a string literal, which needs no allocation
-#define U_LIT(s) {.kind = STR, .text = s, .length = sizeof(s) - 1}
+#define U_LIT(s) {.type = &u_str_type, .text = s, .length = sizeof(s) - 1}
 u_value u_mk_con(const struct u_name *name, int size, ...);
 u_value u_mk_con_array(const struct u_name *name, int size, u_value *items);
 u_value u_mk_tuple(int size, ...);
@@ -80,8 +102,9 @@ u_value u_mk_proc(proc_code proc, int size, ...);
 // the booleans and the empty list, which exist once
 extern struct u_object u_true, u_false;
 
-// the shared value of a constructor without arguments, with descriptor n
-#define U_UNIT(n) {.kind = CON, .name = &n, .size = 0, .items = NULL}
+// the shared value of a constructor without arguments, with descriptor n of datatype t, where C needs t, since a static
+// initializer cannot read it from n
+#define U_UNIT(n, t) {.type = &t, .name = &n, .size = 0, .items = NULL}
 
 // the values of the constructors without arguments that the builtins create
 extern struct u_object o_list_46_Nil, o_option_46_None, o_prelude_46_DivisionByZero;
@@ -90,12 +113,18 @@ static inline int u_truth(u_value v) {
   return v->num != 0;
 }
 
+// v is a value of the datatype of name, which the checker guarantees
 static inline int u_is_con(u_value v, const struct u_name *name) {
-  return v->kind == CON && v->name == name;
+  return v->name == name;
 }
 
 static inline u_value u_field(u_value v, int i) {
   return v->items[i];
+}
+
+// the result of a declared compare as an int of C
+static inline int u_order(u_value v) {
+  return (int)v->num;
 }
 int u_equals(u_value a, u_value b);
 u_value u_compare(u_value a, u_value b);

@@ -20,14 +20,17 @@ data ProcDef :=
   | ProcDef(List[Var], List[Var], List[Var], Stmt)
 
 // the functions by name and number of arguments, the procedures, the constructors with their numbers of arguments,
-// the constructors with their positions in their declarations, which order values, the functions without parameters
-// whose values are being computed, and the arguments of the program
+// the constructors with their positions in their declarations, which order values, the constructors of datatypes
+// with their declared orders and equalities, see order_of, the functions without parameters whose values are being
+// computed, and the arguments of the program
 data Prog :=
   | Prog(
     funs: Map[Name * Int, List[List[Var]] * Expr],
     procs: Map[Name, ProcDef],
     constrs: Map[Name, Int],
     positions: Map[Name, Int],
+    orders: Map[Name, Name],
+    equalities: Map[Name, Name],
     computing: List[Name],
     args: List[Str]
   )
@@ -60,7 +63,39 @@ function position_of(p: Prog, k: Name): Int :=
 function load(q: Program): Prog :=
   match q
     case Program(cs) =>
-      Prog(put_all(fun_defs(cs), empty()), put_all(proc_defs(cs), empty()), put_all(constr_defs(cs), empty()), put_all(constr_positions(cs), empty()), Nil, Nil)
+      Prog(
+        put_all(fun_defs(cs), empty()),
+        put_all(proc_defs(cs), empty()),
+        put_all(constr_defs(cs), empty()),
+        put_all(constr_positions(cs), empty()),
+        put_all(constr_orders(cs, order_funs(cs, "compare")), empty()),
+        put_all(constr_orders(cs, order_funs(cs, "==")), empty()),
+        Nil,
+        Nil
+      )
+  end
+
+// the datatypes ordered or equated by op with the functions that do it
+function order_funs(cs: List[Cmd], op: Id): List[Name * Name] :=
+  match cs
+    case Nil => Nil
+    case [c; rest] =>
+      match (c, order_of(c))
+        case (CFun(f, _, _, _, _), Some((o, t))) => if o == op then [(t, f); order_funs(rest, op)] else order_funs(rest, op)
+        case _ => order_funs(rest, op)
+      end
+  end
+
+// the constructors of the datatypes of fs with the functions of their datatypes
+function constr_orders(cs: List[Cmd], fs: List[Name * Name]): List[Name * Name] :=
+  match cs
+    case Nil => Nil
+    case [CData(t, _, ks); rest] =>
+      match get(t, fs)
+        case Some(f) => [(k.name, f) for k in ks] ++ constr_orders(rest, fs)
+        case None => constr_orders(rest, fs)
+      end
+    case [_; rest] => constr_orders(rest, fs)
   end
 
 // functions are overloaded by the number of arguments of their first list of parameters
@@ -291,7 +326,7 @@ procedure apply_expr(in p: Prog, env: Bindings, f: Expr, args: List[Expr], out v
   end
 
 procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value, ref cache: Map[Name, Value]) :=
-  local k: Int
+  local k: Int, r: Bool
 
   match f
     case Clos(env, xs, body) =>
@@ -322,8 +357,11 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value, ref c
     case Prim(n) =>
       match (n.base, vs)
         case ("compare", [a, b]) =>
-          call   compare_values(in p, a, b, out k)
+          call   compare_values(in p, a, b, out k, ref cache)
           assign v := Lit(VInt(k))
+        case ("==", [a, b]) =>
+          call   equal(in p, a, b, out r, ref cache)
+          assign v := Lit(VBool(r))
         case _ =>
           call primitive(in n, vs, out v)
       end
@@ -378,9 +416,6 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
     case ("<", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VBool(a < b))
 
-    case ("==", [a, b]) =>
-      call   equal(in a, b, out r)
-      assign v := Lit(VBool(r))
     // strings are converted with the builtins of the interpreter of this program
 
     case ("chars", [Lit(VStr(s))]) =>
@@ -471,23 +506,38 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       raise Unspecified(n, vs)
   end
 
-procedure equal(in a: Value, b: Value, out r: Bool) :=
+// values of datatypes with declared equalities or orders are compared by them, and others structurally
+procedure equal(in p: Prog, a: Value, b: Value, out r: Bool, ref cache: Map[Name, Value]) :=
+  local v: Value, k: Int
+
   if is_function(a) or is_function(b)
     raise CompareFunctions
   end
   match (a, b)
     case (Obj(c, xs), Obj(d, ys)) =>
-      if c == d and size(xs) == size(ys)
-        call equal_all(in xs, ys, out r)
-      else
-        assign r := false
+      match (get(c, p.equalities), get(c, p.orders))
+        case (Some(f), _) =>
+          call   apply_value(in p, Fn(f, 2), [a, b], out v, ref cache)
+          assign r := truth(v)
+        case (None, Some(_)) =>
+          call   compare_values(in p, a, b, out k, ref cache)
+          assign r := k == 0
+        case (None, None) =>
+          if c == d and size(xs) == size(ys)
+            call equal_all(in p, xs, ys, out r, ref cache)
+          else
+            assign r := false
+          end
       end
     case _ =>
       assign r := a == b
   end
 
-// -1, 0, or 1 for values of the same type, where constructors are ordered by their declaration and then by their fields
-procedure compare_values(in p: Prog, a: Value, b: Value, out r: Int) :=
+// -1, 0, or 1 for values of the same type, by the declared orders of datatypes, or else structurally, where
+// constructors are ordered by their declaration and then by their fields
+procedure compare_values(in p: Prog, a: Value, b: Value, out r: Int, ref cache: Map[Name, Value]) :=
+  local v: Value
+
   if is_function(a) or is_function(b)
     raise CompareFunctions
   end
@@ -506,23 +556,34 @@ procedure compare_values(in p: Prog, a: Value, b: Value, out r: Int) :=
       assign r := str_compare(x, y)
 
     case (Obj(c, xs), Obj(d, ys)) =>
-      if c == d
-        call compare_all(in p, xs, ys, out r)
-      else
-        assign r := order(position_of(p, c), position_of(p, d))
+      match get(c, p.orders)
+        case Some(f) =>
+          call apply_value(in p, Fn(f, 2), [a, b], out v, ref cache)
+          match v
+            case Lit(VInt(k)) =>
+              assign r := k
+            case _ =>
+              raise NotFunction(v)
+          end
+        case None =>
+          if c == d
+            call compare_all(in p, xs, ys, out r, ref cache)
+          else
+            assign r := order(position_of(p, c), position_of(p, d))
+          end
       end
 
     case _ =>
       assign r := 0
   end
 
-procedure compare_all(in p: Prog, xs: List[Value], ys: List[Value], out r: Int) :=
+procedure compare_all(in p: Prog, xs: List[Value], ys: List[Value], out r: Int, ref cache: Map[Name, Value]) :=
   match (xs, ys)
     case ([x; xs1], [y; ys1]) =>
-      call compare_values(in p, x, y, out r)
+      call compare_values(in p, x, y, out r, ref cache)
 
       if r == 0
-        call compare_all(in p, xs1, ys1, out r)
+        call compare_all(in p, xs1, ys1, out r, ref cache)
       end
     case _ =>
       assign r := order(size(xs), size(ys))
@@ -531,12 +592,12 @@ procedure compare_all(in p: Prog, xs: List[Value], ys: List[Value], out r: Int) 
 function order(x: Int, y: Int): Int :=
   if x < y then -1 else if y < x then 1 else 0
 
-procedure equal_all(in xs: List[Value], ys: List[Value], out r: Bool) :=
+procedure equal_all(in p: Prog, xs: List[Value], ys: List[Value], out r: Bool, ref cache: Map[Name, Value]) :=
   match (xs, ys)
     case ([x; xs1], [y; ys1]) =>
-      call equal(in x, y, out r)
+      call equal(in p, x, y, out r, ref cache)
       if r
-        call equal_all(in xs1, ys1, out r)
+        call equal_all(in p, xs1, ys1, out r, ref cache)
       end
     case _ =>
       assign r := true
@@ -647,7 +708,7 @@ procedure exec(in p: Prog, x: Stmt, ref env: Bindings, cache: Map[Name, Value]) 
     case SAssert(EApp(EVar(Var(Name(None, "=="), _)), [lhs, rhs])) =>
       call   evaluate(in p, env, lhs, out v, ref cache)
       call   evaluate(in p, env, rhs, out w, ref cache)
-      call   equal(in v, w, out r)
+      call   equal(in p, v, w, out r, ref cache)
       if not r
         raise AssertionUnequal(v, w)
       end
