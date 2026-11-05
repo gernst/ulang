@@ -318,7 +318,7 @@ procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
 
 // file, run in its directory, fails as its first line states, or else succeeds, where home is the directory to return to
 procedure verdict(in file: Str, home: Str, out good: Bool) :=
-  local text: Str, expected: Str, got: Str, ok: Bool, name := last_part(split(file, '/'))
+  local text: Str, expected: Str, got: Str, ok: Bool, name := last_of(split(file, '/'))
 
   call   os_read(in file, out text)
   assign expected := expected_error(text)

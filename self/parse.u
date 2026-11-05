@@ -15,7 +15,7 @@ data ParseError :=
   | ParseError(Str, Int)
 
 procedure parse_library(in name: Id, out program: Program)
-function last_part(xs: List[Str]): Str
+function last_of(xs: List[Str]): Str
 function base_name(path: Str): Str
 function dir_name(path: Str): Str
 procedure parse_file_after(in path: Str, pre: Program, out program: Program)
@@ -28,7 +28,7 @@ procedure parse_text(in text: Str, loader: Loader, out program: Program)
 // which cannot be imported, the notations of the prelude, which modules are parsed with, or None while parsing the prelude,
 // whose modules are parsed with its notations so far, and the directory of the parsed file, whose modules hide the library
 data Loader :=
-  | Loader(notations: Notations, sigs: Map[Id, Sig], loading: List[Id], base: Option[Notations], dir: Option[Str])
+  | Loader(notations: Notations, sigs: Map[Id, Sig], loading: List[Id], prelude: Option[Notations], dir: Option[Str])
 
 function empty_loader(): Loader
 function declare_commands(loader: Loader, cmds: List[Cmd]): Loader
@@ -380,7 +380,15 @@ procedure climb_operand[A](in notations: Notations, params: List[Id], ops: Ops[A
   end
 
 // lhs and the operators after it of precedence min or above
-procedure climb_rest[A](in notations: Notations, params: List[Id], ops: Ops[A], min: Int, lhs: A, out a: A, ref toks: Tokens) :=
+procedure climb_rest[A](
+  in  notations: Notations,
+      params: List[Id],
+      ops: Ops[A],
+      min: Int,
+      lhs: A,
+  out a: A,
+  ref toks: Tokens
+) :=
   local offset := head_offset(toks), args: List[A]
 
   match operator_at(notations, toks)
@@ -510,27 +518,24 @@ procedure parse_type_atom(in notations: Notations, params: List[Id], out r: List
 
 // expressions
 
-function expr_call(op: Id, args: List[Expr]): Expr :=
-  EApp(EVar(Var(unqualified(op), THole)), args)
-
 // -n for a number n is the negative literal, in patterns and expressions, and otherwise an operator is applied
 function expr_apply(f: Fixity, op: Id, offset: Int, args: List[Expr]): Expr :=
   match args
     case [ELit(VInt(n))] if f == FPrefix and op == "-" => ELit(VInt(0 - n))
-    case [a] => expr_call(op, [a])
+    case [a] => expr_app(op, [a])
     case [a; more] => expr_infix(op, a, more)
-    case Nil => expr_call(op, Nil)
+    case Nil => expr_app(op, Nil)
   end
 
 // lhs and the operands rs, applied from the left
 function expr_infix(op: Id, lhs: Expr, rs: List[Expr]): Expr :=
   match rs
     case Nil => lhs
-    case [r; more] => expr_infix(op, expr_call(op, [lhs, r]), more)
+    case [r; more] => expr_infix(op, expr_app(op, [lhs, r]), more)
   end
 
 function expr_cons(a: Expr, b: Expr): Expr :=
-  expr_call("Cons", [a, b])
+  expr_app("Cons", [a, b])
 
 function starts_expr(notations: Notations, tok: Token): Bool :=
   match tok
@@ -573,7 +578,7 @@ procedure parse_update(in notations: Notations, params: List[Id], out update: Id
 function apply_updates(expr: Expr, updates: List[Id * Expr]): Expr :=
   match updates
     case Nil => expr
-    case [(f, a); more] => apply_updates(EApp(EVar(Var(unqualified("." ++ f ++ ":="), THole)), [expr, a]), more)
+    case [(f, a); more] => apply_updates(expr_app("." ++ f ++ ":=", [expr, a]), more)
   end
 
 // f(x) and e.f, which reads the field f of e, as the checker resolves it by the type of e
@@ -590,7 +595,7 @@ procedure parse_app(in notations: Notations, params: List[Id], out expr: Expr, r
     else
       call   advance(ref toks)
       call   parse_name(out f, ref toks)
-      assign expr := EApp(EVar(Var(unqualified("." ++ f), THole)), [expr])
+      assign expr := expr_app("." ++ f, [expr])
     end
   end
 
@@ -641,7 +646,7 @@ procedure parse_expr_atom(in notations: Notations, params: List[Id], out expr: E
 
     case (_, TName(name)) if not contains(name, keywords()) and not is_operator(notations, name) =>
       call   advance(ref toks)
-      assign expr := EVar(Var(unqualified(name), THole))
+      assign expr := expr_var(name)
 
     case _ =>
       raise expected("expression", toks)
@@ -728,7 +733,13 @@ procedure parse_set_or_map(in notations: Notations, params: List[Id], out expr: 
   call expect(in TPunct('}'), ref toks)
 
 // the elements or entries of a literal, or its comprehension, after {
-procedure parse_set_or_map_elements(in notations: Notations, params: List[Id], offset: Int, out expr: Expr, ref toks: Tokens) :=
+procedure parse_set_or_map_elements(
+  in  notations: Notations,
+      params: List[Id],
+      offset: Int,
+  out expr: Expr,
+  ref toks: Tokens
+) :=
   local elements: List[Expr * Option[Expr]], rest: Option[Expr * Option[Expr]]
 
   call   parse_display(in notations, params, parse_element, out elements, rest, ref toks)
@@ -738,12 +749,20 @@ procedure parse_set_or_map_elements(in notations: Notations, params: List[Id], o
       raise ParseError("a literal {...} has no rest after ;", offset)
 
     case [(k, Some(v))] if at_keyword(toks, "for") =>
-      call advance(ref toks)
-      call parse_map_comprehension(in notations, params, k, v, out expr, ref toks)
+      call parse_comprehension(
+        in notations, params,
+          "foldl", declared_app("empty", []), declared_app("put", [k, v, EVar(acc_var())]),
+        out expr,
+        ref toks
+      )
 
     case [(k, None)] if at_keyword(toks, "for") =>
-      call advance(ref toks)
-      call parse_set_comprehension(in notations, params, k, out expr, ref toks)
+      call parse_comprehension(
+        in notations, params,
+          "foldr", declared_app("empty", []), declared_app("insert", [k, EVar(acc_var())]),
+        out expr,
+        ref toks
+      )
 
     case _ =>
       match split_elements(elements)
@@ -757,7 +776,12 @@ procedure parse_set_or_map_elements(in notations: Notations, params: List[Id], o
   end
 
 // an element a, or an entry k => v
-procedure parse_element(in notations: Notations, params: List[Id], out element: Expr * Option[Expr], ref toks: Tokens) :=
+procedure parse_element(
+  in  notations: Notations,
+      params: List[Id],
+  out element: Expr * Option[Expr],
+  ref toks: Tokens
+) :=
   local k: Expr, v: Option[Expr]
 
   call   parse_expr(in notations, params, out k, ref toks)
@@ -786,7 +810,7 @@ function put_entry(m: Expr, pair: Expr * Expr): Expr :=
   end
 
 function nil_expr(): Expr :=
-  EVar(Var(unqualified("Nil"), THole))
+  expr_var("Nil")
 
 // comprehensions are folds over the containers of their generators, by the foldr or foldl of the module of each container,
 // whose functions put the result into the accumulator, nested for several generators, where each generator sees the variables
@@ -806,7 +830,13 @@ function acc_var(): Var :=
 
 // the folds of the generators, each the variables it binds and its container, into init, where add puts the result into the
 // accumulator if the condition holds, by foldr, whose functions take the accumulator last, or foldl, which takes it first
-function comprehension_folds(fold: Id, generators: List[List[Var] * Expr], init: Expr, add: Expr, cond: Option[Expr]): Expr :=
+function comprehension_folds(
+  fold: Id,
+  generators: List[List[Var] * Expr],
+  init: Expr,
+  add: Expr,
+  cond: Option[Expr]
+): Expr :=
   match generators
     case Nil =>
       match cond
@@ -818,16 +848,32 @@ function comprehension_folds(fold: Id, generators: List[List[Var] * Expr], init:
         EApp(declared(fold), [c, init, ELam(if fold == "foldr" then xs ++ [acc_var()] else [acc_var(); xs], inner)])
   end
 
-// a set by insert, in any order
-procedure parse_set_comprehension(in notations: Notations, params: List[Id], r: Expr, out expr: Expr, ref toks: Tokens) :=
+// the generators and the condition after for, as folds by fold into init, where add puts the result into the accumulator:
+// a list by foldr and Cons, a set by foldr and insert, in any order, and a map by foldl and put in the order of the
+// generators, so that the last entry of a key counts, as in a literal
+procedure parse_comprehension(
+  in  notations: Notations,
+      params: List[Id],
+      fold: Id,
+      init: Expr,
+      add: Expr,
+  out expr: Expr,
+  ref toks: Tokens
+) :=
   local generators: List[List[Var] * Expr], cond: Option[Expr]
 
+  call   advance(ref toks)
   call   parse_separated(in notations, params, parse_generator, at_comma, out generators, ref toks)
   call   parse_optional(in notations, params, TName("if"), parse_expr, out cond, ref toks)
-  assign expr := comprehension_folds("foldr", generators, declared_app("empty", []), declared_app("insert", [r, EVar(acc_var())]), cond)
+  assign expr := comprehension_folds(fold, generators, init, add, cond)
 
 // x in c over a list or set, or k => v in m over a map, whose fold takes the key and value as two arguments
-procedure parse_generator(in notations: Notations, params: List[Id], out generator: List[Var] * Expr, ref toks: Tokens) :=
+procedure parse_generator(
+  in  notations: Notations,
+      params: List[Id],
+  out generator: List[Var] * Expr,
+  ref toks: Tokens
+) :=
   local x: Var, y: Option[Var], c: Expr
 
   call   parse_variable(in notations, params, out x, ref toks)
@@ -842,17 +888,9 @@ function option_list[A](o: Option[A]): List[A] :=
     case None => Nil
   end
 
-// a map by put in the order of the generators, by foldl, so that the last entry of a key counts, as in a literal
-procedure parse_map_comprehension(in notations: Notations, params: List[Id], k: Expr, v: Expr, out expr: Expr, ref toks: Tokens) :=
-  local generators: List[List[Var] * Expr], cond: Option[Expr]
-
-  call   parse_separated(in notations, params, parse_generator, at_comma, out generators, ref toks)
-  call   parse_optional(in notations, params, TName("if"), parse_expr, out cond, ref toks)
-  assign expr := comprehension_folds("foldl", generators, declared_app("empty", []), declared_app("put", [k, v, EVar(acc_var())]), cond)
-
 // [a, b] is a :: b :: Nil, [a, b; c] is a :: b :: c, and [result for x in xs, y in ys if test], where if test is optional
 procedure parse_list(in notations: Notations, params: List[Id], out expr: Expr, ref toks: Tokens) :=
-  local exprs: List[Expr], rest: Option[Expr], generators: List[List[Var] * Expr], cond: Option[Expr]
+  local exprs: List[Expr], rest: Option[Expr]
 
   call advance(ref toks)
 
@@ -863,10 +901,7 @@ procedure parse_list(in notations: Notations, params: List[Id], out expr: Expr, 
 
     match (exprs, rest)
       case ([first], None) if at_keyword(toks, "for") =>
-        call   advance(ref toks)
-        call   parse_separated(in notations, params, parse_generator, at_comma, out generators, ref toks)
-        call   parse_optional(in notations, params, TName("if"), parse_expr, out cond, ref toks)
-        assign expr := comprehension_folds("foldr", generators, nil_expr(), expr_cons(first, EVar(acc_var())), cond)
+        call parse_comprehension(in notations, params, "foldr", nil_expr(), expr_cons(first, EVar(acc_var())), out expr, ref toks)
 
       case _ =>
         assign expr := cons_all(expr_cons, exprs, or_default(rest, nil_expr()))
@@ -975,7 +1010,7 @@ procedure parse_pattern_atom(in notations: Notations, params: List[Id], out pat:
         call   parse_enclosed(in notations, params, parse_pattern, ')', out pats, ref toks)
         assign pat := PApp(unqualified(name), pats)
       else
-        assign pat := PVar(Var(unqualified(name), THole))
+        assign pat := pat_var(name)
       end
   end
 
@@ -1195,11 +1230,11 @@ procedure parse_formals(in notations: Notations, params: List[Id], out xs: List[
 
 // commands
 
-function declarations(cmds: List[Cmd]): List[Cmd] :=
+function without_tests(cmds: List[Cmd]): List[Cmd] :=
   match cmds
     case Nil => Nil
-    case [CTest(_, _, _); more] => declarations(more)
-    case [cmd; more] => [cmd; declarations(more)]
+    case [CTest(_, _, _); more] => without_tests(more)
+    case [cmd; more] => [cmd; without_tests(more)]
   end
 
 function empty_loader(): Loader :=
@@ -1288,7 +1323,12 @@ procedure parse_operator(in notations: Notations, params: List[Id], out op: Id, 
   end
 
 // C or C(T, U), where the arguments may be named fields, as in C(name: T, rest: U)
-procedure parse_constr(in notations: Notations, params: List[Id], out constr: Constr * List[Option[Id]], ref toks: Tokens) :=
+procedure parse_constr(
+  in  notations: Notations,
+      params: List[Id],
+  out constr: Constr * List[Option[Id]],
+  ref toks: Tokens
+) :=
   local name: Id, args: List[Option[Id] * Type] := Nil
 
   call parse_name_or_symbol(out name, ref toks)
@@ -1324,7 +1364,7 @@ procedure parse_field(in notations: Notations, params: List[Id], out arg: Option
   assign arg := (f, typ)
 
 // data T[A] := | C(A) | D, where the first | is optional
-// with the accessors T.f of its named fields f
+// with the accessors T.f and the updaters T.f:= of its named fields f
 procedure parse_data(in notations: Notations, out cmds: List[Cmd], ref toks: Tokens) :=
   local name: Id, params: List[Id], constrs: List[Constr * List[Option[Id]]]
 
@@ -1339,14 +1379,14 @@ procedure parse_data(in notations: Notations, out cmds: List[Cmd], ref toks: Tok
 
   call parse_separated(in notations, params, parse_constr, at_bar, out constrs, ref toks)
 
-  match differing(fields_of(constrs))
+  match differing_field(fields_of(constrs))
     case Some(f) =>
       raise ParseError("field " ++ f ++ " of " ++ name ++ " has different types", head_offset(toks))
     case None =>
       skip
   end
 
-  assign cmds := [CData(unqualified(name), params, firsts(constrs)); accessors(name, params, constrs) ++ updaters(name, params, constrs)]
+  assign cmds := [CData(unqualified(name), params, firsts(constrs)); field_functions(name, params, constrs)]
 
 function field_names(fields: List[Option[Id]]): List[Id] :=
   match fields
@@ -1356,10 +1396,10 @@ function field_names(fields: List[Option[Id]]): List[Id] :=
   end
 
 // a field with different types in different constructors, if any
-function differing(fields: List[Id * (Name * Int * Int * Type)]): Option[Id] :=
+function differing_field(fields: List[Id * (Name * Int * Int * Type)]): Option[Id] :=
   match fields
     case Nil => None
-    case [(f, (_, _, _, t)); rest] => if exists(fields_named(f, rest), lambda e => type_of_field(e) != t) then Some(f) else differing(rest)
+    case [(f, (_, _, _, t)); rest] => if exists(fields_named(f, rest), lambda e => type_of_field(e) != t) then Some(f) else differing_field(rest)
   end
 
 function type_of_field(field: Id * (Name * Int * Int * Type)): Type :=
@@ -1387,60 +1427,62 @@ function named_fields(k: Name, n: Int, fields: List[Option[Id] * Type], i: Int):
     case [(None, _); rest] => named_fields(k, n, rest, i + 1)
   end
 
-// the accessor T.f of each field f, which is partial if f is not a field of all constructors
-function accessors(t: Id, params: List[Id], constrs: List[Constr * List[Option[Id]]]): List[Cmd] :=
-  let fs := fields_of(constrs) in
-    [accessor(t, params, f, fields_named(f, fs), size(constrs)) for f in distinct(firsts(fs))]
+// the accessor T.f and the updater T.f:= of each field f, which are partial if f is not a field of all constructors
+function field_functions(t: Id, params: List[Id], constrs: List[Constr * List[Option[Id]]]): List[Cmd] :=
+  let fs := fields_of(constrs), n := size(constrs) in
+    let names := distinct(firsts(fs)) in
+      [accessor(t, params, f, fields_named(f, fs), n) for f in names] ++ [updater(t, params, f, fields_named(f, fs), n) for f in names]
 
 function accessor(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int * Int * Type)], n: Int): Cmd :=
-  let x := Var(unqualified("x"), THole), owner := TSort(unqualified(t), [TParam(p) for p in params]) in
-    CFun(
-      unqualified(t ++ "." ++ f),
-      params,
-      [[Var(unqualified("x"), owner)]],
-      field_type(fields),
-      EMatch(EVar(x), [field_case(field) for field in fields] ++ (if size(fields) == n then [] else [missing_field(t, f)]))
-    )
+  CFun(
+    unqualified(t ++ "." ++ f),
+    params,
+    [[Var(unqualified("x"), owner_type(t, params))]],
+    field_type(fields),
+    field_match(t, f, [field_case(field) for field in fields], n)
+  )
+
+// x with f := y is C(a0, y, a2) for x = C(a0, _, a2)
+function updater(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int * Int * Type)], n: Int): Cmd :=
+  CFun(
+    unqualified(t ++ "." ++ f ++ ":="),
+    params,
+    [[Var(unqualified("x"), owner_type(t, params)), Var(unqualified("y"), field_type(fields))]],
+    owner_type(t, params),
+    field_match(t, f, [update_case(field) for field in fields], n)
+  )
+
+function owner_type(t: Id, params: List[Id]): Type :=
+  TSort(unqualified(t), [TParam(p) for p in params])
+
+// the match of x by the cases of the constructors with the field f, and MissingField for the others of the n constructors
+function field_match(t: Id, f: Id, cases: List[Branch[Expr]], n: Int): Expr :=
+  EMatch(expr_var("x"), if size(cases) == n then cases else cases ++ [missing_field(t, f)])
 
 function field_type(fields: List[Id * (Name * Int * Int * Type)]): Type :=
   match fields
-    case [(_, (_, _, _, t)); _] => t
-    case _ => THole
+    case [field; _] => type_of_field(field)
+    case Nil => THole
   end
 
 // case C(_, y, _) => y, where y is the field at its position
 function field_case(field: Id * (Name * Int * Int * Type)): Branch[Expr] :=
   match field
     case (_, (k, i, n, _)) =>
-      Branch(PApp(k, [if j == i then PVar(Var(unqualified("y"), THole)) else PWild for j in positions(n)]), None, EVar(Var(unqualified("y"), THole)))
+      Branch(PApp(k, [if j == i then pat_var("y") else PWild for j in positions(n)]), None, expr_var("y"))
   end
 
 function missing_field(t: Id, f: Id): Branch[Expr] :=
-  Branch(PWild, None, ERaise(EApp(EVar(Var(unqualified("MissingField"), THole)), [ELit(VStr(t ++ "." ++ f))]), THole))
-
-// the updater T.f:= of each field f, where x with f := y is C(a0, y, a2) for x = C(a0, _, a2)
-function updaters(t: Id, params: List[Id], constrs: List[Constr * List[Option[Id]]]): List[Cmd] :=
-  let fs := fields_of(constrs) in
-    [updater(t, params, f, fields_named(f, fs), size(constrs)) for f in distinct(firsts(fs))]
-
-function updater(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int * Int * Type)], n: Int): Cmd :=
-  let x := Var(unqualified("x"), THole), owner := TSort(unqualified(t), [TParam(p) for p in params]) in
-    CFun(
-      unqualified(t ++ "." ++ f ++ ":="),
-      params,
-      [[Var(unqualified("x"), owner), Var(unqualified("y"), field_type(fields))]],
-      owner,
-      EMatch(EVar(x), [update_case(field) for field in fields] ++ (if size(fields) == n then [] else [missing_field(t, f)]))
-    )
+  Branch(PWild, None, ERaise(expr_app("MissingField", [ELit(VStr(t ++ "." ++ f))]), THole))
 
 // case C(a0, _, a2) => C(a0, y, a2), where y replaces the field at its position
 function update_case(field: Id * (Name * Int * Int * Type)): Branch[Expr] :=
   match field
     case (_, (k, i, n, _)) =>
       Branch(
-        PApp(k, [if j == i then PWild else PVar(Var(unqualified("a" ++ show(j)), THole)) for j in positions(n)]),
+        PApp(k, [if j == i then PWild else pat_var("a" ++ show(j)) for j in positions(n)]),
         None,
-        EApp(EVar(Var(k, THole)), [EVar(Var(unqualified(if j == i then "y" else "a" ++ show(j)), THole)) for j in positions(n)])
+        EApp(EVar(Var(k, THole)), [expr_var(if j == i then "y" else "a" ++ show(j)) for j in positions(n)])
       )
   end
 
@@ -1504,7 +1546,7 @@ procedure parse_command(in loader: Loader, out cmds: List[Cmd], ref toks: Tokens
       else
         call   load_module(in name, loader, offset, out cmds)
         call   check_imported(in notations, exported_notations(with_module(loader, CModule(name, cmds)), name), offset)
-        assign cmds := [CModule(name, declarations(cmds)), CImport(name)]
+        assign cmds := [CModule(name, without_tests(cmds)), CImport(name)]
       end
 
     case TName(w) if contains(w, ["prefix", "postfix", "infix"]) =>
@@ -1685,7 +1727,7 @@ procedure load_module(in name: Id, loader: Loader, offset: Int, out cmds: List[C
   end
 
   call   module_text(in name, loader.dir, offset, out text)
-  assign module_loader := loader with notations := base_notations(loader), loading := [name; loader.loading]
+  assign module_loader := loader with notations := prelude_notations(loader), loading := [name; loader.loading]
 
   try
     call lex(in text, out module_toks)
@@ -1697,8 +1739,8 @@ procedure load_module(in name: Id, loader: Loader, offset: Int, out cmds: List[C
       raise ParseError(m ++ " in " ++ name, i)
   end
 
-function base_notations(loader: Loader): Notations :=
-  match loader.base
+function prelude_notations(loader: Loader): Notations :=
+  match loader.prelude
     case Some(b) => b
     case None => loader.notations
   end
@@ -1722,7 +1764,7 @@ procedure parse_text(in text: Str, loader: Loader, out program: Program) :=
 procedure parse_module_after(in name: Id, pre: Program, dir: Option[Str], text: Str, out program: Program) :=
   local loader := declare_commands(empty_loader(), [cmd for cmd in pre.cmds if cmd != CImport(name)])
 
-  call parse_text(in text, loader with loading := [name], base := Some(loader.notations), dir := dir, out program)
+  call parse_text(in text, loader with loading := [name], prelude := Some(loader.notations), dir := dir, out program)
 
 // the prelude, or another module of the library parsed after the prelude, as library gives them
 procedure parse_library(in name: Id, out program: Program) :=
@@ -1737,16 +1779,16 @@ procedure parse_library(in name: Id, out program: Program) :=
     call parse_module_after(in name, pre, None, text, out program)
   end
 
-function last_part(xs: List[Str]): Str :=
+function last_of(xs: List[Str]): Str :=
   match xs
     case [x] => x
-    case [_; more] => last_part(more)
+    case [_; more] => last_of(more)
     case _ => ""
   end
 
 // the name of a file without its directory and .u
 function base_name(path: Str): Str :=
-  let f := last_part(split(path, '/')) in
+  let f := last_of(split(path, '/')) in
     if size(f) >= 2 and slice(f, size(f) - 2, size(f)) == ".u" then slice(f, 0, size(f) - 2) else f
 
 function dir_name(path: Str): Str :=

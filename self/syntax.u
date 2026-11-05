@@ -234,7 +234,7 @@ function first_list(xss: List[List[Var]]): List[Var] :=
     case [xs; _] => xs
   end
 
-// abbreviations for the syntax in tests
+// abbreviations for the syntax, of the parser and of tests
 
 // the lists of the tests, before checking
 function type_plain_list(t: Type): Type :=
