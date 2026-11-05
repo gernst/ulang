@@ -455,7 +455,7 @@ function settled(s: State, n: Name): Name :=
   end
 
 function zonk_var(s: State, x: Var): Var :=
-  Var(builtin_name(s.sig, settled(s, x.name)), zonk_type(s.sub, x.typ))
+  Var(settled(s, x.name), zonk_type(s.sub, x.typ))
 
 function zonk_vars(s: State, xs: List[Var]): List[Var] :=
   [zonk_var(s, x) for x in xs]
@@ -499,7 +499,7 @@ function zonk_stmt(s: State, x: Stmt): Stmt :=
     case SBlock(xs, ys) => SBlock(zonk_vars(s, xs), [zonk_stmt(s, y) for y in ys])
     case SIf(c, l, r) => SIf(zonk_expr(s, c), zonk_stmt(s, l), zonk_stmt(s, r))
     case SWhile(c, b) => SWhile(zonk_expr(s, c), zonk_stmt(s, b))
-    case SCall(p, ins, outs, refs) => SCall(builtin_name(s.sig, settled(s, p)), [zonk_expr(s, e) for e in ins], zonk_vars(s, outs), zonk_vars(s, refs))
+    case SCall(p, ins, outs, refs) => SCall(settled(s, p), [zonk_expr(s, e) for e in ins], zonk_vars(s, outs), zonk_vars(s, refs))
     case SMatch(a, bs) => SMatch(zonk_expr(s, a), [zonk_stmt_branch(s, b) for b in bs])
     case SAssert(c) => SAssert(zonk_expr(s, c))
     case SRaise(a, t) => SRaise(zonk_expr(s, a), zonk_type(s.sub, t))
@@ -1705,10 +1705,6 @@ procedure statements(in assignable: List[Name], xs: List[Stmt], out ys: List[Stm
       assign ys := [y; rest]
   end
 
-// a use of a function or procedure of a builtin section names it without its module, as the interpreter and the runtime know it
-function builtin_name(sig: Sig, n: Name): Name :=
-  if is_native(sig, n) then unqualified(n.base) else n
-
 // the procedures of the program hide the builtin ones
 // a variable of a procedure type hides the procedures of that name
 procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
@@ -1770,7 +1766,7 @@ procedure declared_call(in env: Env, assignable: List[Name], p: Name, q: Name, i
       call   variables(in env, assignable, outs, out outs1, ref s)
       call   variables(in env, assignable, refs, out refs1, ref s)
       call   unifies(in types(outs1 ++ refs1), [subst(t, m) for t in os ++ rs], ref s)
-      assign y := SCall(builtin_name(s.sig, q), ins1, outs1, refs1)
+      assign y := SCall(q, ins1, outs1, refs1)
     case None =>
       raise UnknownProcedure(p)
   end
@@ -2078,13 +2074,6 @@ function natives(ds: List[Id * Cmd], m: Option[Id]): List[Id * Cmd] :=
     case [_; rest] => natives(rest, None)
   end
 
-function declared_name(d: Id * Cmd): Name :=
-  match d
-    case (_, CFun(n, _, _, _, _)) => n
-    case (_, CProc(n, _, _, _, _, _)) => n
-    case _ => unqualified("")
-  end
-
 function qualified_name(c: Cmd): Name :=
   match c
     case CFun(n, _, _, _, _) => n
@@ -2365,7 +2354,6 @@ procedure check_unit(in ds: List[Id * Cmd], main: Id, before: Sig, imports: List
   call   declare_procs(in ds, ref s)
   call   declare_funs(in natives(ds, None), ref s)
   call   declare_procs(in natives(ds, None), ref s)
-  assign s := with_sig(s, foldl(natives(ds, None), s.sig, lambda sig, d => with_native(sig, declared_name(d))))
   call   check_sections(in distinct(firsts(ds)), ds, out hidden, hidden_sorts)
   call   unique_ids(in block_names(ds))
   call   commands(in definitions(ds), out cs, ref s)

@@ -45,8 +45,13 @@ function mangle_char(c: Char): List[Char] :=
 function fun_name(n: Name, k: Int): Str :=
   "f_" ++ mangle(n) ++ "_" ++ show(k)
 
+// the C function of procedure n, which the runtime defines for those of the builtin section of os
 function proc_name(n: Name): Str :=
-  "p_" ++ mangle(n)
+  if n.module == Some("os") and contains(n.base, native_procs()) then "p_" ++ n.base else "p_" ++ mangle(n)
+
+// the procedures of the builtin section of os
+function native_procs(): Set[Id] :=
+  {"os_args", "os_read", "os_write", "os_library", "os_print", "os_print_error", "os_exit", "os_list", "os_is_dir", "os_cwd", "os_chdir"}
 
 function var_name(n: Name): Str :=
   "v_" ++ mangle(n)
@@ -54,8 +59,8 @@ function var_name(n: Name): Str :=
 function ref_name(n: Name): Str :=
   "r_" ++ mangle(n)
 
-// the functions of the runtime for the builtins with their numbers of arguments, of the prelude and of the builtin section of
-// str.u, whose uses the checker names without their module
+// the functions of the runtime for the builtins with their numbers of arguments, without a module, and of the builtin
+// section of str.u by their qualified names
 function builtin_functions(): Map[Name, Str * Int] :=
   {
     unqualified("+") => ("u_add", 2),
@@ -67,22 +72,22 @@ function builtin_functions(): Map[Name, Str * Int] :=
     unqualified("==") => ("u_eq", 2),
     unqualified("compare") => ("u_compare", 2),
     unqualified("show") => ("u_show", 1),
-    unqualified("chars") => ("u_chars", 1),
-    unqualified("string") => ("u_string", 1),
-    unqualified("ord") => ("u_ord", 1),
-    unqualified("chr") => ("u_chr", 1),
+    Name(Some("str"), "chars") => ("u_chars", 1),
+    Name(Some("str"), "string") => ("u_string", 1),
+    Name(Some("str"), "ord") => ("u_ord", 1),
+    Name(Some("str"), "chr") => ("u_chr", 1),
     unqualified("++") => ("u_concat", 2),
-    unqualified("is_digit") => ("u_is_digit", 1),
-    unqualified("is_letter") => ("u_is_letter", 1),
-    unqualified("is_space") => ("u_is_space", 1),
-    unqualified("size") => ("u_size", 1),
-    unqualified("at") => ("u_at", 2),
-    unqualified("contains") => ("u_contains", 2),
-    unqualified("slice") => ("u_slice", 3),
-    unqualified("join") => ("u_join", 2),
-    unqualified("split") => ("u_split", 2),
-    unqualified("quote") => ("u_quote", 1),
-    unqualified("number") => ("u_number", 1)
+    Name(Some("str"), "is_digit") => ("u_is_digit", 1),
+    Name(Some("str"), "is_letter") => ("u_is_letter", 1),
+    Name(Some("str"), "is_space") => ("u_is_space", 1),
+    Name(Some("str"), "size") => ("u_size", 1),
+    Name(Some("str"), "at") => ("u_at", 2),
+    Name(Some("str"), "contains") => ("u_contains", 2),
+    Name(Some("str"), "slice") => ("u_slice", 3),
+    Name(Some("str"), "join") => ("u_join", 2),
+    Name(Some("str"), "split") => ("u_split", 2),
+    Name(Some("str"), "quote") => ("u_quote", 1),
+    Name(Some("str"), "number") => ("u_number", 1)
   }
 
 // the descriptor of constructor n, which the runtime compares by its address

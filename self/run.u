@@ -67,17 +67,15 @@ function declared_for(run: Run, k: Name, fs: Map[Name, Name]): Option[Name] :=
 function load(q: Prog): Run :=
   Run(defs_of(q), Nil, Nil)
 
-function builtin_names(): Set[Id] :=
-  {
-    "+", "-", "*", "/", "%", "<", "==", "++", "compare", "show", "chars", "string", "ord", "chr", "is_digit", "is_letter",
-    "is_space", "size", "at", "contains", "slice", "join", "split", "quote", "number"
-  }
+// the builtins without a module, and the functions of the builtin section of str
+function builtin_names(): Set[Name] :=
+  from_list(
+    [unqualified(b) for b in ["+", "-", "*", "/", "%", "<", "==", "++", "compare", "show"]] ++
+    [Name(Some("str"), b) for b in ["chars", "string", "ord", "chr", "is_digit", "is_letter", "is_space", "size", "at", "contains", "slice", "join", "split", "quote", "number"]]
+  )
 
 function is_builtin(n: Name): Bool :=
-  match n
-    case Name(None, b) => contains(b, builtin_names())
-    case _ => false
-  end
+  contains(n, builtin_names())
 
 function is_function(v: Value): Bool :=
   match v
@@ -211,7 +209,7 @@ procedure evaluate_all(in run: Run, env: Bindings, es: List[Expr], out vs: List[
       assign vs := [v; rest]
   end
 
-// unqualified names are local variables or builtins, since the checker qualifies the names of declarations
+// unqualified names are local variables or builtins without a module, since the checker qualifies the names of declarations
 function variable_value(run: Run, env: Bindings, n: Name, t: Type): Value :=
   match (get(n, env), n.module)
     case (Some(w), _) => w
@@ -223,6 +221,7 @@ function variable_value(run: Run, env: Bindings, n: Name, t: Type): Value :=
           match get(n, run.defs.constrs)
             case Some((k, _, _)) => if k == 0 then Obj(n, Nil) else Con(n)
             case None if contains(n, run.defs.procs) => Proc(n)
+            case None if is_builtin(n) => Prim(n)
             case None => raise Uninitialized(n)
           end
       end
@@ -283,7 +282,7 @@ procedure apply_value(in run: Run, f: Value, vs: List[Value], out v: Value, ref 
       assign v := Obj(n, vs)
 
     case Prim(n) =>
-      match (n.base, vs)
+      match (qualified(n), vs)
         case ("compare", [a, b]) =>
           call   compare_values(in run, a, b, out k, ref cache)
           assign v := Lit(VInt(k))
@@ -328,7 +327,7 @@ function failure(n: Name, args: List[Value]): Thrown :=
 procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
   local r: Bool
 
-  match (n.base, vs)
+  match (qualified(n), vs)
     case ("+", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a + b))
 
@@ -352,10 +351,10 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
 
     // strings are converted with the builtins of the interpreter of this program
 
-    case ("chars", [Lit(VStr(s))]) =>
+    case ("str.chars", [Lit(VStr(s))]) =>
       assign v := list_value([Lit(VChar(c)) for c in chars(s)])
 
-    case ("string", [w]) =>
+    case ("str.string", [w]) =>
       match list_elements(w)
         case Some(ws) =>
           assign v := Lit(VStr(string(char_values(ws))))
@@ -363,10 +362,10 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
           raise NotList(w)
       end
 
-    case ("ord", [Lit(VChar(c))]) =>
+    case ("str.ord", [Lit(VChar(c))]) =>
       assign v := Lit(VInt(ord(c)))
 
-    case ("chr", [Lit(VInt(k))]) =>
+    case ("str.chr", [Lit(VInt(k))]) =>
       if k < 0 or k > 65535
         raise failure(no_character_name(), [Lit(VInt(k))])
       end
@@ -378,10 +377,10 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
 
     // the functions of the builtin section of str.u
 
-    case ("size", [Lit(VStr(s))]) =>
+    case ("str.size", [Lit(VStr(s))]) =>
       assign v := Lit(VInt(size(s)))
 
-    case ("join", [Lit(VStr(sep)), w]) =>
+    case ("str.join", [Lit(VStr(sep)), w]) =>
       match list_elements(w)
         case Some(ws) =>
           assign v := Lit(VStr(join(sep, str_values(ws))))
@@ -390,7 +389,7 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       end
 
     // from i up to but excluding j, where i <= j are indices of s or its end
-    case ("slice", [Lit(VStr(s)), Lit(VInt(i)), Lit(VInt(j))]) =>
+    case ("str.slice", [Lit(VStr(s)), Lit(VInt(i)), Lit(VInt(j))]) =>
       if i < 0 or i > size(s) or i > j
         raise failure(no_index_name(), [Lit(VStr(s)), Lit(VInt(i))])
       else if j > size(s)
@@ -399,23 +398,23 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
 
       assign v := Lit(VStr(slice(s, i, j)))
 
-    case ("split", [Lit(VStr(s)), Lit(VChar(c))]) =>
+    case ("str.split", [Lit(VStr(s)), Lit(VChar(c))]) =>
       assign v := list_value([Lit(VStr(part)) for part in split(s, c)])
 
-    case ("at", [Lit(VInt(i)), Lit(VStr(s))]) =>
+    case ("str.at", [Lit(VInt(i)), Lit(VStr(s))]) =>
       if i < 0 or i >= size(s)
         raise failure(no_index_name(), [Lit(VStr(s)), Lit(VInt(i))])
       end
 
       assign v := Lit(VChar(at(i, s)))
 
-    case ("contains", [Lit(VChar(c)), Lit(VStr(s))]) =>
+    case ("str.contains", [Lit(VChar(c)), Lit(VStr(s))]) =>
       assign v := Lit(VBool(contains(c, s)))
 
-    case ("quote", [Lit(VStr(s))]) =>
+    case ("str.quote", [Lit(VStr(s))]) =>
       assign v := Lit(VStr(quote(s)))
 
-    case ("number", [Lit(VStr(s))]) =>
+    case ("str.number", [Lit(VStr(s))]) =>
       match number(s)
         case Some(k) =>
           assign v := Obj(some_name(), [Lit(VInt(k))])
@@ -423,13 +422,13 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
           assign v := Obj(none_name(), Nil)
       end
 
-    case ("is_digit", [Lit(VChar(c))]) =>
+    case ("str.is_digit", [Lit(VChar(c))]) =>
       assign v := Lit(VBool(is_digit(c)))
 
-    case ("is_letter", [Lit(VChar(c))]) =>
+    case ("str.is_letter", [Lit(VChar(c))]) =>
       assign v := Lit(VBool(is_letter(c)))
 
-    case ("is_space", [Lit(VChar(c))]) =>
+    case ("str.is_space", [Lit(VChar(c))]) =>
       assign v := Lit(VBool(is_space(c)))
 
     case _ =>
@@ -765,10 +764,10 @@ procedure invoke(in run: Run, n: Name, ins: List[Value], refs: List[Name], out o
   match get(n, run.defs.procs)
     case Some((xs, ys, zs, body)) =>
       call run_body(in run, n, empty(), xs, ys, zs, body, ins, refs, out outs, ref env, cache)
-    case None if n.base == "os_print" =>
+    case None if qualified(n) == "os.os_print" =>
       assign outs := Nil
       call   print_all(in [text_of(v) for v in ins])
-    case None if n.base == "os_args" =>
+    case None if qualified(n) == "os.os_args" =>
       assign outs := [list_value([Lit(VStr(a)) for a in run.args])]
     case None =>
       call os_proc(in n, ins, out outs)
@@ -835,41 +834,41 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
   local text: Str, entries: List[Str * Bool], yes: Bool
 
   try
-    match (n.base, ins)
-      case ("os_read", [Lit(VStr(path))]) =>
+    match (qualified(n), ins)
+      case ("os.os_read", [Lit(VStr(path))]) =>
         call   os_read(in path, out text)
         assign outs := [Lit(VStr(text))]
 
-      case ("os_write", [Lit(VStr(path)), Lit(VStr(t))]) =>
+      case ("os.os_write", [Lit(VStr(path)), Lit(VStr(t))]) =>
         call   os_write(in path, t)
         assign outs := Nil
 
-      case ("os_library", [Lit(VStr(name))]) =>
+      case ("os.os_library", [Lit(VStr(name))]) =>
         call   os_library(in name, out text)
         assign outs := [Lit(VStr(text))]
 
-      case ("os_list", [Lit(VStr(dir))]) =>
+      case ("os.os_list", [Lit(VStr(dir))]) =>
         call   os_list(in dir, out entries)
         assign outs := [list_value(entry_values(entries))]
 
-      case ("os_is_dir", [Lit(VStr(path))]) =>
+      case ("os.os_is_dir", [Lit(VStr(path))]) =>
         call   os_is_dir(in path, out yes)
         assign outs := [Lit(VBool(yes))]
 
-      case ("os_cwd", []) =>
+      case ("os.os_cwd", []) =>
         call   os_cwd(out text)
         assign outs := [Lit(VStr(text))]
 
-      case ("os_chdir", [Lit(VStr(dir))]) =>
+      case ("os.os_chdir", [Lit(VStr(dir))]) =>
         call   os_chdir(in dir)
         assign outs := Nil
 
-      case ("os_print_error", [Lit(VStr(t))]) =>
+      case ("os.os_print_error", [Lit(VStr(t))]) =>
         call   os_print_error(in t)
         assign outs := Nil
 
       // os_exit does not return
-      case ("os_exit", [Lit(VInt(k))]) =>
+      case ("os.os_exit", [Lit(VInt(k))]) =>
         call   os_exit(in k)
         assign outs := Nil
 

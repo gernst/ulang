@@ -26,8 +26,7 @@ data Sig :=
     members: Map[Name, List[Name]],
     constrs: Map[Name, List[Type] * List[Type] * Type],
     named: Map[Id, List[Name]],
-    notations: Notations,
-    natives: Set[Name]
+    notations: Notations
   )
 
 function empty_notations(): Notations
@@ -62,13 +61,11 @@ function with_proc(sig: Sig, n: Name, g: List[Type] * List[Type] * List[Type] * 
 function with_data(sig: Sig, n: Name, arity: Int): Sig
 function with_members(sig: Sig, n: Name, cs: List[Name]): Sig
 function with_constr(sig: Sig, n: Name, kc: List[Type] * List[Type] * Type): Sig
-function with_native(sig: Sig, n: Name): Sig
-function is_native(sig: Sig, n: Name): Bool
 
 implementation
 
 function empty(): Sig :=
-  Sig(empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty_notations(), empty())
+  Sig(empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty_notations())
 
 // the declarations of the modules ms
 function restrict(sig: Sig, ms: List[Id]): Sig :=
@@ -80,8 +77,7 @@ function restrict(sig: Sig, ms: List[Id]): Sig :=
     owned_map(sig.members, ms),
     owned_map(sig.constrs, ms),
     put_all(owned_named(entries(sig.named), ms), empty()),
-    sig.notations,
-    from_list([n for n in list(sig.natives) if in_modules(n, ms)])
+    sig.notations
   )
 
 function owned_map[V](m: Map[Name, V], ms: List[Id]): Map[Name, V] :=
@@ -116,8 +112,7 @@ function union(a: Sig, b: Sig): Sig :=
     put_all(entries(b.members), a.members),
     put_all(entries(b.constrs), a.constrs),
     union_named(entries(b.named), a.named),
-    union_notations(a.notations, b.notations),
-    insert_all(list(b.natives), a.natives)
+    union_notations(a.notations, b.notations)
   )
 
 // the signature without the private functions, procedures, and constructors, values, and without the private sorts, each kind
@@ -132,8 +127,7 @@ function exported(sig: Sig, values: Set[Name], sorts: Set[Name]): Sig :=
       put_all([e for e in entries(without(sig.members, sorts)) if not exists(value_of(e), lambda k => contains(k, values))], empty()),
       without(sig.constrs, values),
       empty(),
-      sig.notations,
-      sig.natives
+      sig.notations
     ) in
     kept with named := put_all([(key_of(e), [n for n in value_of(e) if declares(kept, n)]) for e in entries(sig.named)], empty())
 
@@ -234,11 +228,6 @@ function with_members(sig: Sig, n: Name, cs: List[Name]): Sig :=
 function with_constr(sig: Sig, n: Name, kc: List[Type] * List[Type] * Type): Sig :=
   sig with constrs := put(n, kc, sig.constrs), named := with_named(sig.named, n)
 
-function with_native(sig: Sig, n: Name): Sig :=
-  sig with natives := insert(n, sig.natives)
-
-function is_native(sig: Sig, n: Name): Bool :=
-  contains(n, sig.natives)
 
 // notations
 
