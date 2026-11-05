@@ -4,10 +4,7 @@ Open action items, each with the problem and the desired solution.
 
 ## Testing
 
-1. **Compiled programs are tested by hand**: `make test` runs the interpreter only, and nothing checks that the compiled tests succeed or fail as the first lines of their files state, although all files of `tests/` print the same compiled as interpreted now. Solution:
-   - `ulang.bin compile <file> <entry> <target>` writes a binary for a target without `.c`, by `cc` with a runtime that `make` precompiles to `self/runtime/ulang.o`, whose path `ulang.bin` knows as it knows `ULANG_LIB`, through a builtin `os_run(in args: List[Str], out status: Int, output: Str)` that runs a program without a shell and captures its output (in the three places of Builtins 1, with a staged `selfcompile`),
-   - a target `make testc` that compiles every `.u` file of `tests`, `self`, `simp`, and `prelude` with the entry `test`, runs it in its directory, and compares its outcome with the error that the first line of the file states, as `ulang.bin test` does for directories, with a rule per file so that `make -j` compiles in parallel, replacing `make selftest`,
-   - tests as C functions that `main()` runs all of, or those named in `argv`, so that `./binary name` runs one test.
+1. **The modules of the prelude cannot be compiled on their own**: `ulang.bin compile prelude/list.u test` fails with `sort List is already defined`, since every program has the prelude already, so `make testc` skips `prelude.u`, `option.u`, and `list.u`, whose tests run with the interpreter only, where `load_file` of `self/ulang.u` keeps only their tests. Solution: the same in `compile_file` of `self/compile.u`.
 
 ## Builtins
 
@@ -56,4 +53,4 @@ Open action items, each with the problem and the desired solution.
 ## Verification
 
 1. **Contracts, lemmas, and proofs** are designed in `DESIGN.md`, but not implemented. Solution: implement them, starting with parsing specifications, and decide the open points listed there.
-2. **No simplifier**: the proofs of `DESIGN.md` rest on contextual simplification of nested sequents with CC(X), designed there under Simplification. Solution: implement it in `simp/`, in the order `term.u`, `seq.u`, `cc.u` with `constr.u`, `arith.u`, and `simp.u`, with its tests run by `./mill ulang.test` and `make selftest`, and then `self/prove.u` with goals as `Bool` functions and a command `simp`.
+2. **No simplifier**: the proofs of `DESIGN.md` rest on contextual simplification of nested sequents with CC(X), designed there under Simplification. Solution: implement it in `simp/`, in the order `term.u`, `seq.u`, `cc.u` with `constr.u`, `arith.u`, and `simp.u`, with its tests run by `make test` and `make testc`, and then `self/prove.u` with goals as `Bool` functions and a command `simp`.

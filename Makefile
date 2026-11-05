@@ -69,14 +69,14 @@ selfcompile: ulang.bin
 test: ulang.bin
 	$(COMPILE) ./ulang.bin test tests self simp prelude
 
-# the tests of the modules of self/, compiled by ulang.bin and run in self/
-SELFTESTS = syntax ctx check run print lex c
+# the same files, each compiled by ulang.bin and cc with the runtime object, and run in its directory, by testc.sh in parallel,
+# except for the modules of the prelude, which cannot be compiled on their own
+TESTC = out/testc
 
-.PHONY: selftest
-selftest: ulang.bin
-	mkdir -p $(STAGE)
-	for n in $(SELFTESTS); do \
-	  ($(COMPILE) ./ulang.bin compile self/$$n.u test $(STAGE)/$$n.c > /dev/null) && \
-	  cc $(CFLAGS) $(STAGE)/$$n.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/$$n && \
-	  (cd self && $(COMPILE) ../$(STAGE)/$$n > /dev/null) && echo "self/$$n.u passed" || exit 1; \
-	done
+$(TESTC)/ulang.o: self/runtime/ulang.c self/runtime/ulang.h Makefile
+	mkdir -p $(TESTC)
+	cc $(CFLAGS) -c self/runtime/ulang.c -o $@
+
+.PHONY: testc
+testc: ulang.bin $(TESTC)/ulang.o
+	./testc.sh $(TESTC) $(TESTC)/ulang.o tests self simp prelude
