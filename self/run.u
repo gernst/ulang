@@ -362,6 +362,12 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value, ref c
         case ("==", [a, b]) =>
           call   equal(in p, a, b, out r, ref cache)
           assign v := Lit(VBool(r))
+        // integers directly, and other values by their order
+        case ("<", [Lit(VInt(a)), Lit(VInt(b))]) =>
+          assign v := Lit(VBool(a < b))
+        case ("<", [a, b]) =>
+          call   compare_values(in p, a, b, out k, ref cache)
+          assign v := Lit(VBool(k < 0))
         case _ =>
           call primitive(in n, vs, out v)
       end
@@ -412,9 +418,6 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
 
     case ("%", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a % b))
-
-    case ("<", [Lit(VInt(a)), Lit(VInt(b))]) =>
-      assign v := Lit(VBool(a < b))
 
     // strings are converted with the builtins of the interpreter of this program
 

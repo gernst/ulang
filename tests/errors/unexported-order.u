@@ -1,0 +1,17 @@
+// type error: unexported-order.compare of the exported type unexported-order.T is not exported
+export
+
+type T
+
+function make(): T
+
+implementation
+
+data T :=
+  | T(Int)
+
+function make(): T :=
+  T(1)
+
+function compare(a: T, b: T): Int :=
+  0

@@ -93,6 +93,13 @@ data Cmd :=
   | CNotation(Fixity, Int, List[Id])
   // tests take no parameters, which the checker enforces
   | CTest(Id, List[Var], Stmt)
+  // the export section of a module, with the signatures of functions and procedures, as CFun and CProc without their
+  // bodies, and abstract types, which its implementation section defines by data
+  | CExport
+  | CImplementation
+  | CFunSig(Name, List[Id], List[List[Var]], Type)
+  | CProcSig(Name, List[Id], List[Var], List[Var], List[Var])
+  | CAbstract(Name, List[Id])
 
 data Program :=
   | Program(cmds: List[Cmd])

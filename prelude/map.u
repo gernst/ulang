@@ -1,6 +1,29 @@
 // maps from keys to values as AVL trees, ordered by compare, where the heights of the subtrees of each node
 // differ by at most one, such that get and put take logarithmic time
 
+export
+
+type Map[K, V]
+
+function empty[K, V](): Map[K, V]
+function get[K, V](k: K, m: Map[K, V]): Option[V]
+function contains[K, V](k: K, m: Map[K, V]): Bool
+function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V]
+function put_all[K, V](ps: List[K * V], m: Map[K, V]): Map[K, V]
+function remove[K, V](k: K, m: Map[K, V]): Map[K, V]
+function remove_all[K, V](ks: List[K], m: Map[K, V]): Map[K, V]
+
+// the pairs of m in the order of their keys
+function entries[K, V](m: Map[K, V]): List[K * V]
+function size[K, V](m: Map[K, V]): Int
+
+// maps are ordered and equal by their entries, whatever the shapes of their trees, also as elements of other values
+// and in generic code
+function compare[K, V](a: Map[K, V], b: Map[K, V]): Int
+function ==[K, V](a: Map[K, V], b: Map[K, V]): Bool
+
+implementation
+
 data Map[K, V] :=
   | Leaf
   | Node(Map[K, V], K, V, Map[K, V], Int)
@@ -34,18 +57,12 @@ function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V] :=
       end
   end
 
-// maps are ordered and equal by their entries, whatever the shapes of their trees, also as elements of other values
-// and in generic code, since they are the order and equality of Map
 function compare[K, V](a: Map[K, V], b: Map[K, V]): Int :=
   compare(entries(a), entries(b))
 
 function ==[K, V](a: Map[K, V], b: Map[K, V]): Bool :=
   entries(a) == entries(b)
 
-function !=[K, V](a: Map[K, V], b: Map[K, V]): Bool :=
-  not(a == b)
-
-// the pairs of m in the order of their keys
 function entries[K, V](m: Map[K, V]): List[K * V] :=
   entries_onto(m, Nil)
 

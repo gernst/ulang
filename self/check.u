@@ -8,6 +8,7 @@ import syntax
 
 import ctx
 import map
+import set
 
 // the types of unknowns by their index
 type Subst :=
@@ -64,9 +65,16 @@ data TypeError :=
   | UnknownProcedure(Name)
   | UnknownException(Type)
   | TestParams(Id)
-  | EqualityWithoutOrder(Name)
   | Unassigned(Name)
   | OutputUnassigned(Name, Name)
+  // the errors of export sections
+  | PrivateName(Name)
+  | MissingDefinition(Name)
+  | SignatureMismatch(Name)
+  | PartlyExported(Name)
+  | PrivateType(Name, Name)
+  | VisibleEquality(Name)
+  | UnexportedOrder(Name, Name)
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -107,6 +115,9 @@ function qualify(m: Id, c: Cmd): Cmd :=
     case CData(n, ps, ks) => CData(in_module(m, n), ps, [qualify_constr(m, k) for k in ks])
     case CFun(n, ps, xss, r, b) => CFun(in_module(m, n), ps, xss, r, b)
     case CProc(n, ps, ins, outs, refs, b) => CProc(in_module(m, n), ps, ins, outs, refs, b)
+    case CFunSig(n, ps, xss, r) => CFunSig(in_module(m, n), ps, xss, r)
+    case CProcSig(n, ps, ins, outs, refs) => CProcSig(in_module(m, n), ps, ins, outs, refs)
+    case CAbstract(n, ps) => CAbstract(in_module(m, n), ps)
     case _ => c
   end
 
@@ -152,6 +163,13 @@ function is_visible(s: State, d: Name): Bool :=
   match d.module
     case Some(m) => contains(m, s.visible)
     case None => false
+  end
+
+// the error e about n, of which no declaration is known, or that n names only declarations that their modules keep private
+function unknown_error(s: State, n: Name, e: TypeError): TypeError :=
+  match [d for d in hidden_named(s.ctx, n.base) if d.module != Some(s.module) and (d == n or (n.module == None and is_visible(s, d)))]
+    case [d; _] => PrivateName(d)
+    case Nil => e
   end
 
 function tbool(): Type :=
@@ -214,7 +232,7 @@ function builtin_scheme(b: Id): List[List[Type] * Type] :=
       case "*" => [arith()]
       case "/" => [arith()]
       case "%" => [arith()]
-      case "<" => [(Nil, fun([tint(), tint()], tbool()))]
+      case "<" => [([a], fun([a, a], tbool()))]
       case "==" => [([a], fun([a, a], tbool()))]
       case "compare" => [([a], fun([a, a], tint()))]
       case "and" => [logic()]
@@ -930,7 +948,7 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
           case [m] =>
             call normalize_sort(in m, args, out u, ref s)
           case Nil =>
-            raise UnknownSort(n)
+            raise unknown_error(s, n, UnknownSort(n))
           case ms =>
             raise Ambiguous(n, ms)
         end
@@ -1034,7 +1052,7 @@ procedure use_name(in n: Name, cs: List[Name * (List[Type] * Type)], w: Type, ou
 
   match cs
     case Nil =>
-      raise UnknownVariable(n)
+      raise unknown_error(s, n, UnknownVariable(n))
     case [(m1, sc)] =>
       call use(in m1, w, sc, out x, ref s)
     case _ =>
@@ -1534,7 +1552,7 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
         case [k1] =>
           assign k := k1
         case Nil =>
-          raise UnknownConstructor(n)
+          raise unknown_error(s, n, UnknownConstructor(n))
         case ks =>
           call pattern_constructor(in n, ks, size(args), t, out k, ref s)
       end
@@ -1820,7 +1838,7 @@ procedure declared_call(in env: Env, assignable: List[Name], p: Name, q: Name, i
       call   unifies(in types(outs1 ++ refs1), [subst(t, m) for t in os ++ rs], ref s)
       assign y := SCall(q, ins1, outs1, refs1)
     case None =>
-      raise UnknownProcedure(p)
+      raise unknown_error(s, p, UnknownProcedure(p))
   end
 
 // env joins what the cases assign, where a match that no case fits raises
@@ -2067,12 +2085,17 @@ function block_names(cs: List[Id * Cmd]): List[Id] :=
 // the datatype whose order or equality c declares, with compare or ==, if c is compare or == of two values of a datatype
 // T[A, …] of its own module with distinct parameters, which the interpreter and the runtime then use for all values of T,
 // also in generic code, where the builtins compare structurally
+// with the functions T.compare and T.== that the checker synthesizes for an abstract type T
 function order_of(c: Cmd): Option[Id * Name] :=
   match c
-    case CFun(Name(Some(m), op), _, [[Var(_, TSort(Name(Some(k), b), args)), Var(_, u)]], r, _) =>
-      if k == m and u == TSort(Name(Some(k), b), args) and distinct_params(args) and order_result(op) == Some(r) then Some((op, Name(Some(k), b))) else None
+    case CFun(Name(Some(m), f), _, [[Var(_, TSort(Name(Some(k), b), args)), Var(_, u)]], r, _) =>
+      let op := order_op(f, b) in
+        if k == m and u == TSort(Name(Some(k), b), args) and distinct_params(args) and order_result(op) == Some(r) then Some((op, Name(Some(k), b))) else None
     case _ => None
   end
+
+function order_op(f: Id, b: Id): Id :=
+  if f == b ^ ".compare" then "compare" else if f == b ^ ".==" then "==" else f
 
 function order_result(op: Id): Option[Type] :=
   match op
@@ -2101,13 +2124,302 @@ function ordered(cs: List[Cmd], op: Id): List[Name] :=
       end
   end
 
-// an equality of a datatype needs its order, with which it agrees, since maps and sets use the order
-procedure complete_orders(in cs: List[Cmd]) :=
-  match diff(ordered(cs, "=="), ordered(cs, "compare"))
-    case [n; _] =>
-      raise EqualityWithoutOrder(n)
+// only abstract types declare equalities, since matching tells the values of other datatypes apart by their constructors,
+// and the orders and equalities of exported datatypes are exported, since they change what the builtins do for importers
+procedure check_orders(in cs: List[Cmd], abstract: List[Name], hidden: Set[Name], hidden_sorts: List[Name]) :=
+  match cs
     case Nil =>
       skip
+    case [c; rest] =>
+      match (c, order_of(c))
+        case (_, Some(("==", t))) if not contains(t, abstract) =>
+          raise VisibleEquality(t)
+        case (CFun(f, _, _, _, _), Some((_, t))) if contains(f, hidden) and not contains(t, hidden_sorts) =>
+          raise UnexportedOrder(f, t)
+        case _ =>
+          call check_orders(in rest, abstract, hidden, hidden_sorts)
+      end
+  end
+
+// the order and equality of the abstract types of ds that their modules do not declare, which raise Unordered for a type
+// with an equality, and Incomparable for a type without, since the structure of an abstract type is no order
+function synthesized(ds: List[Id * Cmd], cs: List[Cmd]): List[Id * Cmd] :=
+  concat([synthesized_for(c, ordered(cs, "compare"), ordered(cs, "==")) for c in ds])
+
+function synthesized_for(d: Id * Cmd, compares: List[Name], equalities: List[Name]): List[Id * Cmd] :=
+  match d
+    case (m, CAbstract(t, ps)) =>
+      if contains(t, compares) then
+        Nil
+      else if contains(t, equalities) then
+        [(m, failing(t, ps, "compare", tint(), "Unordered"))]
+      else
+        [(m, failing(t, ps, "compare", tint(), "Incomparable")), (m, failing(t, ps, "==", tbool(), "Incomparable"))]
+    case _ => Nil
+  end
+
+function failing(t: Name, ps: List[Id], op: Id, r: Type, e: Id): Cmd :=
+  let a := TSort(t, params(ps)) in
+    CFun(
+      Name(t.module, t.base ^ "." ^ op),
+      ps,
+      [[Var(unqualified("a"), a), Var(unqualified("b"), a)]],
+      r,
+      ERaise(EApp(EVar(Var(Name(Some("prelude"), e), THole)), [ELit(VStr(qualified(t)))]), THole)
+    )
+
+// the commands of ds without markers, signatures, and abstract types, which only the checks of sections need
+function definitions(ds: List[Id * Cmd]): List[Id * Cmd] :=
+  match ds
+    case Nil => Nil
+    case [(_, CExport); rest] => definitions(rest)
+    case [(_, CImplementation); rest] => definitions(rest)
+    case [(_, CFunSig(_, _, _, _)); rest] => definitions(rest)
+    case [(_, CProcSig(_, _, _, _, _)); rest] => definitions(rest)
+    case [(_, CAbstract(_, _)); rest] => definitions(rest)
+    case [d; rest] => [d; definitions(rest)]
+  end
+
+function qualified_name(c: Cmd): Name :=
+  match c
+    case CFun(n, _, _, _, _) => n
+    case _ => unqualified("")
+  end
+
+function abstract_types(ds: List[Id * Cmd]): List[Name] :=
+  match ds
+    case Nil => Nil
+    case [(_, CAbstract(t, _)); rest] => [t; abstract_types(rest)]
+    case [_; rest] => abstract_types(rest)
+  end
+
+function own_cmds(ds: List[Id * Cmd], m: Id): List[Cmd] :=
+  match ds
+    case Nil => Nil
+    case [(k, c); rest] => if k == m then [c; own_cmds(rest, m)] else own_cmds(rest, m)
+  end
+
+function sections_of(cs: List[Cmd]): List[Cmd] * List[Cmd] :=
+  match cs
+    case Nil => (Nil, Nil)
+    case [CExport; rest] => (export_part(rest), implementation_part(rest))
+    case [_; rest] => sections_of(rest)
+  end
+
+function export_part(cs: List[Cmd]): List[Cmd] :=
+  match cs
+    case Nil => Nil
+    case [CImplementation; _] => Nil
+    case [c; rest] => [c; export_part(rest)]
+  end
+
+function implementation_part(cs: List[Cmd]): List[Cmd] :=
+  match cs
+    case Nil => Nil
+    case [CImplementation; rest] => rest
+    case [_; rest] => implementation_part(rest)
+  end
+
+// the declarations of an implementation section that the export section does not export, with the constructors and fields
+// of abstract types
+function private_names(ex: List[Cmd], im: List[Cmd]): List[Name] :=
+  concat([private_in(c, ex) for c in im])
+
+function private_in(c: Cmd, ex: List[Cmd]): List[Name] :=
+  match c
+    case CFun(n, _, _, _, _) => if exists(ex, lambda e => signs(e, n)) then Nil else [n]
+    case CProc(n, _, _, _, _, _) => if exists(ex, lambda e => signs(e, n)) then Nil else [n]
+    case CData(t, _, ks) => if exists(ex, lambda e => abstracts(e, t)) then [k.name for k in ks] else [t; [k.name for k in ks]]
+    case CSort(t, _, _) => [t]
+    case _ => Nil
+  end
+
+// the sorts of an implementation section that the export section does not export, not even as abstract types
+function private_sorts(ex: List[Cmd], im: List[Cmd]): List[Name] :=
+  concat([private_sort(c, ex) for c in im])
+
+function private_sort(c: Cmd, ex: List[Cmd]): List[Name] :=
+  match c
+    case CData(t, _, _) => if exists(ex, lambda e => abstracts(e, t)) then Nil else [t]
+    case CSort(t, _, _) => [t]
+    case _ => Nil
+  end
+
+function signs(e: Cmd, n: Name): Bool :=
+  match e
+    case CFunSig(m, _, _, _) => m == n
+    case CProcSig(m, _, _, _, _) => m == n
+    case _ => false
+  end
+
+function abstracts(e: Cmd, t: Name): Bool :=
+  match e
+    case CAbstract(u, _) => u == t
+    case _ => false
+  end
+
+// the function n of k arguments, the procedure n, and the datatype n
+function defines_fun(c: Cmd, n: Name, k: Int): Bool :=
+  match c
+    case CFun(m, _, xss, _, _) => m == n and size(first_list(xss)) == k
+    case _ => false
+  end
+
+function defines_proc(c: Cmd, n: Name): Bool :=
+  match c
+    case CProc(m, _, _, _, _, _) => m == n
+    case _ => false
+  end
+
+function defines_data(c: Cmd, n: Name): Bool :=
+  match c
+    case CData(m, _, _) => m == n
+    case _ => false
+  end
+
+function signs_fun(c: Cmd, n: Name, k: Int): Bool :=
+  match c
+    case CFunSig(m, _, xss, _) => m == n and size(first_list(xss)) == k
+    case _ => false
+  end
+
+// the signatures of ex, each of which the implementation section im defines once and exactly as written
+procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
+  match ex
+    case Nil =>
+      skip
+
+    case [CFunSig(n, ps, xss, r); rest] =>
+      if exists(rest, lambda e => signs_fun(e, n, size(first_list(xss))))
+        raise AlreadyDefined(n)
+      end
+
+      match [c for c in im if defines_fun(c, n, size(first_list(xss)))]
+        case [CFun(_, ps1, xss1, r1, _)] =>
+          if ps1 != ps or xss1 != xss or r1 != r
+            raise SignatureMismatch(n)
+          end
+        case _ =>
+          raise MissingDefinition(n)
+      end
+
+      call check_signatures(in rest, im)
+
+    case [CProcSig(n, ps, ins, outs, refs); rest] =>
+      if exists(rest, lambda e => signs(e, n))
+        raise AlreadyDefined(n)
+      end
+
+      match [c for c in im if defines_proc(c, n)]
+        case [CProc(_, ps1, ins1, outs1, refs1, _)] =>
+          if ps1 != ps or ins1 != ins or outs1 != outs or refs1 != refs
+            raise SignatureMismatch(n)
+          end
+        case _ =>
+          raise MissingDefinition(n)
+      end
+
+      call check_signatures(in rest, im)
+
+    case [CAbstract(t, ps); rest] =>
+      match [c for c in im if defines_data(c, t)]
+        case [CData(_, ps1, _)] =>
+          if ps1 != ps
+            raise SignatureMismatch(t)
+          end
+        case _ =>
+          raise MissingDefinition(t)
+      end
+
+      call check_signatures(in rest, im)
+
+    case [_; rest] =>
+      call check_signatures(in rest, im)
+  end
+
+// a function of the implementation section that is exported is exported with each of its numbers of arguments
+procedure check_arities(in im: List[Cmd], ex: List[Cmd]) :=
+  match im
+    case Nil =>
+      skip
+    case [CFun(n, _, xss, _, _); rest] =>
+      if exists(ex, lambda e => signs(e, n)) and not exists(ex, lambda e => signs_fun(e, n, size(first_list(xss))))
+        raise PartlyExported(n)
+      end
+      call check_arities(in rest, ex)
+    case [_; rest] =>
+      call check_arities(in rest, ex)
+  end
+
+// the types of the export section name only sorts that importers can name, not the private sorts of the module
+procedure check_exposed(in m: Id, ex: List[Cmd], hidden_sorts: List[Name]) :=
+  local found: List[Name]
+
+  match ex
+    case Nil =>
+      skip
+    case [c; rest] =>
+      match exposed(c)
+        case Some((n, ts)) =>
+          assign found := [own_name(m, t) for t in concat([sorts_in(u) for u in ts]) if contains(own_name(m, t), hidden_sorts)]
+          match found
+            case [t; _] =>
+              raise PrivateType(n, t)
+            case Nil =>
+              skip
+          end
+        case None =>
+          skip
+      end
+      call check_exposed(in m, rest, hidden_sorts)
+  end
+
+// a name as written in module m, where an unqualified name of a sort of m is one of its own
+function own_name(m: Id, n: Name): Name :=
+  if n.module == None then in_module(m, n) else n
+
+// the declaration of an export section with the types that it shows to importers
+function exposed(c: Cmd): Option[Name * List[Type]] :=
+  match c
+    case CFunSig(n, _, xss, r) => Some((n, types(concat(xss)) ++ [r]))
+    case CProcSig(n, _, ins, outs, refs) => Some((n, types(ins ++ outs ++ refs)))
+    case CData(n, _, ks) => Some((n, concat([k.args for k in ks])))
+    case CSort(n, _, t) => Some((n, [t]))
+    case _ => None
+  end
+
+// the sorts that t names, as written, unqualified or qualified
+function sorts_in(t: Type): List[Name] :=
+  match t
+    case TSort(n, args) => [n; concat([sorts_in(a) for a in args])]
+    case TFun(args, r) => concat([sorts_in(a) for a in args ++ [r]])
+    case TProc(is, os, rs) => concat([sorts_in(a) for a in is ++ os ++ rs])
+    case TTuple(ts) => concat([sorts_in(a) for a in ts])
+    case _ => Nil
+  end
+
+// the sections of the modules ms of ds, with the declarations and sorts that the modules keep private
+procedure check_sections(in ms: List[Id], ds: List[Id * Cmd], out hidden: Set[Name], hidden_sorts: List[Name]) :=
+  local ex: List[Cmd], im: List[Cmd], more: Set[Name], sorts: List[Name]
+
+  match ms
+    case Nil =>
+      assign hidden := empty(), hidden_sorts := Nil
+    case [m; rest] =>
+      call check_sections(in rest, ds, out more, sorts)
+
+      if contains(CExport, own_cmds(ds, m))
+        match sections_of(own_cmds(ds, m))
+          case (e, i) =>
+            assign ex := e, im := i
+        end
+        call   check_signatures(in ex, im)
+        call   check_arities(in im, ex)
+        call   check_exposed(in m, ex, private_sorts(ex, im))
+        assign hidden := insert_all(private_names(ex, im), more), hidden_sorts := private_sorts(ex, im) ++ sorts
+      else
+        assign hidden := more, hidden_sorts := sorts
+      end
   end
 
 // checked modules: their commands with qualified names, their declarations, and the modules each imports
@@ -2173,19 +2485,27 @@ function position_in(key: Id * List[Id * Cmd] * List[Int], cache: Cache, i: Int)
   end
 
 // the declarations ds of module main, checked after the declarations before of the modules that imports lists
+// where the declarations that other modules keep private are unknown
 procedure check_unit(in ds: List[Id * Cmd], main: Id, before: Ctx, imports: List[Id * List[Id]], out checked: Checked) :=
-  local own := imports ++ [(m, imports_in(ds, m)) for m in distinct(firsts(ds))], s: State, cs: List[Cmd]
+  local own := imports ++ [(m, imports_in(ds, m)) for m in distinct(firsts(ds))], s: State, cs: List[Cmd], hidden: Set[Name], hidden_sorts: List[Name],
+    extra: List[Id * Cmd], more: List[Cmd]
 
-  assign s := State(before, empty(), 0, main, Nil, visibility(own, main), Nil, empty())
+  assign s := State(public_ctx(before), empty(), 0, main, Nil, visibility(own, main), Nil, empty())
   call   declare_datas(in ds, ref s)
   call   declare_sorts(in ds, ref s)
   call   declare_constrs(in ds, ref s)
   call   declare_funs(in ds, ref s)
   call   declare_procs(in ds, ref s)
+  call   check_sections(in distinct(firsts(ds)), ds, out hidden, hidden_sorts)
   call   unique_ids(in block_names(ds))
-  call   commands(in ds, out cs, ref s)
-  call   complete_orders(in cs)
-  assign checked := Checked(cs, ctx_of(s.ctx, distinct(firsts(ds))), [(m, imports_in(ds, m)) for m in distinct(firsts(ds))])
+  call   commands(in definitions(ds), out cs, ref s)
+  call   check_orders(in cs, abstract_types(ds), hidden, hidden_sorts)
+  assign extra := synthesized(ds, cs)
+  call   declare_funs(in extra, ref s)
+  call   commands(in extra, out more, ref s)
+  assign hidden := insert_all([qualified_name(c) for c in more], hidden)
+  assign s := with_ctx(s, s.ctx with hidden := insert_all(elements(hidden), s.ctx.hidden))
+  assign checked := Checked(cs ++ more, ctx_of(s.ctx, distinct(firsts(ds))), [(m, imports_in(ds, m)) for m in distinct(firsts(ds))])
 
 // the modules of cs with their commands, after the modules they import, where the prelude and its imports
 // are one, since every module sees the prelude
@@ -2355,7 +2675,6 @@ function bags(): List[Cmd] :=
       CData(unq("Bag"), Nil, [Constr(unq("Bag"), [tint()]), Constr(unq("Leaf"), [tint()])]),
       CData(unq("Pt"), Nil, [Constr(unq("Pt"), [tint()])]),
       fun_cmd("size", [var_of("b", tsort("Bag"))], tint(), num(1)),
-      fun_cmd("==", [var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))], tbool(), ELit(VBool(true))),
       fun_cmd("compare", [var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))], tint(), num(0)),
       fun_cmd("Pt.x", [var_of("p", tsort("Pt"))], tint(), EMatch(ev("p"), [Branch(PApp(unq("Pt"), [pv("n")]), None, ev("n"))])),
       CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Bag"))], Nil, SAssign([(var_of("b", THole), ap("Bag", [num(0)]))]))
@@ -2465,14 +2784,14 @@ test fields() :=
       assert false
   end
 
-// == of bags is that of bag, while == of other types, also of type parameters, is the builtin
+// compare of bags is that of bag, while == and compare of other types, also of type parameters, are the builtins
 test builtins() :=
   local b: Expr
 
-  call body_of(in fun_cmd("f", Nil, tbool(), ap("==", [ap("Bag", [num(1)]), ap("Bag", [num(2)])])), out b)
+  call body_of(in fun_cmd("f", Nil, tint(), ap("compare", [ap("Bag", [num(1)]), ap("Bag", [num(2)])])), out b)
   match b
     case EApp(EVar(Var(m, _)), _) =>
-      assert m == in_bag("==")
+      assert m == in_bag("compare")
     case _ =>
       assert false
   end

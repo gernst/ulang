@@ -1,0 +1,5 @@
+// type error: Full is private to module hiding
+import hiding
+
+test t() :=
+  local b := Full(1)

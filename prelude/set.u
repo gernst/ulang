@@ -1,6 +1,25 @@
 // sets as AVL trees, ordered by compare, where the heights of the subtrees of each node differ by at most one,
 // such that insert and contains take logarithmic time, with the names of the module map, which overload them
 
+export
+
+type Set[A]
+
+function empty[A](): Set[A]
+function contains[A](x: A, s: Set[A]): Bool
+function insert[A](x: A, s: Set[A]): Set[A]
+function from_list[A](xs: List[A]): Set[A]
+function insert_all[A](xs: List[A], s: Set[A]): Set[A]
+function elements[A](s: Set[A]): List[A]
+function size[A](s: Set[A]): Int
+
+// sets are ordered and equal by their elements, whatever the shapes of their trees, also as elements of other values
+// and in generic code
+function compare[A](a: Set[A], b: Set[A]): Int
+function ==[A](a: Set[A], b: Set[A]): Bool
+
+implementation
+
 data Set[A] :=
   | Leaf
   | Node(Set[A], A, Set[A], Int)
@@ -39,16 +58,11 @@ function insert_all[A](xs: List[A], s: Set[A]): Set[A] :=
     case [x; rest] => insert_all(rest, insert(x, s))
   end
 
-// sets are ordered and equal by their elements, whatever the shapes of their trees, also as elements of other values
-// and in generic code, since they are the order and equality of Set
 function compare[A](a: Set[A], b: Set[A]): Int :=
   compare(elements(a), elements(b))
 
 function ==[A](a: Set[A], b: Set[A]): Bool :=
   elements(a) == elements(b)
-
-function !=[A](a: Set[A], b: Set[A]): Bool :=
-  not(a == b)
 
 // the elements of s in their order
 function elements[A](s: Set[A]): List[A] :=

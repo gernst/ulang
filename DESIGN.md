@@ -14,7 +14,7 @@ What a language would ideally offer for writing code with an AI assistant, which
 ### Compared to ulang
 
 - **Already there**: explicit data flow with `in`, `out`, and `ref`, pure expressions with effects only in statements, exhaustive matches and inference, a small language without implicit behavior, exceptions as values of a type, named tests with `assert` showing both sides, and procedures as values, which abstract over effectful code such as the parsing of sections in `self/parse.u`.
-- **Missing**: modules with exports, positions in the errors of the self-hosted checker and compiler, failure in the types, and contracts, while records exist in part, as named fields with accessors and updates. These are extensions, not redesigns, see `TODO.md`.
+- **Missing**: positions in the errors of the self-hosted checker and compiler, failure in the types, and contracts, while records exist in part, as named fields with accessors and updates. These are extensions, not redesigns, see `TODO.md`.
 - **Questionable**: user-defined notations make the syntax depend on declarations, e.g. whether `and` is an operator or a name, for tools and for writing code alike.
 
 ## Verification

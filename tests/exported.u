@@ -1,0 +1,81 @@
+// a module for tests/exports.u with an export section, whose private helper has the name and type of the public helper
+// of tests/counter.u, and abstract types without an order, with and without an equality
+
+export
+
+infix right 11 **
+
+data Color :=
+  | Red
+  | Green(level: Int)
+
+type Level :=
+  Int
+
+function level(c: Color): Level
+
+// counters, which have neither an order nor an equality
+type Counter
+
+function start(): Counter
+function count(c: Counter): Int
+function next(c: Counter): Counter
+procedure bump(ref c: Counter)
+function **(n: Int, k: Int): Int
+
+// tallies, equal by their totals, which have no order
+type Tally
+
+function tally(ns: List[Int]): Tally
+function ==(a: Tally, b: Tally): Bool
+
+implementation
+
+data Counter :=
+  | Counter(value: Int)
+
+data Tally :=
+  | Tally(List[Int])
+
+function level(c: Color): Level :=
+  match c
+    case Red => 0
+    case Green(n) => n
+  end
+
+function start(): Counter :=
+  Counter(0)
+
+function count(c: Counter): Int :=
+  c.value
+
+function next(c: Counter): Counter :=
+  Counter(c.value + helper(0))
+
+procedure bump(ref c: Counter) :=
+  assign c := next(c)
+
+function helper(n: Int): Int :=
+  n + 1
+
+function **(n: Int, k: Int): Int :=
+  if k == 0 then 1 else n * n ** (k - 1)
+
+function tally(ns: List[Int]): Tally :=
+  Tally(ns)
+
+function total(ns: List[Int]): Int :=
+  match ns
+    case Nil => 0
+    case [n; rest] => n + total(rest)
+  end
+
+function ==(a: Tally, b: Tally): Bool :=
+  match (a, b)
+    case (Tally(xs), Tally(ys)) => total(xs) == total(ys)
+  end
+
+// the module sees its private declarations, and the constructors and fields of its abstract types
+test inside() :=
+  assert count(next(next(start()))) == 2 and helper(1) == 2 and Counter(3).value == 3
+  assert Tally([1, 2]) == Tally([3])

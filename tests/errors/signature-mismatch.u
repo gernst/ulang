@@ -1,0 +1,9 @@
+// type error: the definition of signature-mismatch.f differs from its signature
+export
+
+function f(n: Int): Int
+
+implementation
+
+function f(m: Int): Int :=
+  m

@@ -1,0 +1,9 @@
+// type error: abstract-undefined.T is exported but not defined
+export
+
+type T
+
+implementation
+
+type T :=
+  Int

@@ -1,0 +1,4 @@
+// parse error: a module has one export section at 4.1
+export
+
+export

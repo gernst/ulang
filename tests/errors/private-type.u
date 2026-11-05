@@ -1,0 +1,12 @@
+// type error: the signature of private-type.f names the private type private-type.Hidden
+export
+
+function f(): Hidden
+
+implementation
+
+data Hidden :=
+  | Hidden
+
+function f(): Hidden :=
+  Hidden

@@ -13,6 +13,13 @@ data NoCharacter :=
 data MissingField :=
   | MissingField(Str)
 
+// the order of an abstract type that declares == but not compare, and both of one that declares neither, with the name of the type
+data Unordered :=
+  | Unordered(Str)
+
+data Incomparable :=
+  | Incomparable(Str)
+
 infix right 1 ->
 
 infix right 2 ==>
@@ -42,14 +49,15 @@ function ==>(a: Bool, b: Bool): Bool :=
 function !=[A](x: A, y: A): Bool :=
   not (x == y)
 
-function <=(m: Int, n: Int): Bool :=
-  m < n or m == n
+// the comparisons by one < each, which follows compare, a total order
+function <=[A](x: A, y: A): Bool :=
+  not (y < x)
 
-function >(m: Int, n: Int): Bool :=
-  n < m
+function >[A](x: A, y: A): Bool :=
+  y < x
 
-function >=(m: Int, n: Int): Bool :=
-  n <= m
+function >=[A](x: A, y: A): Bool :=
+  not (x < y)
 
 function -(n: Int): Int :=
   0 - n

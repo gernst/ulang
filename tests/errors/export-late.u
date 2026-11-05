@@ -1,0 +1,5 @@
+// parse error: export comes first, after the imports at 5.1
+function f(): Int :=
+  1
+
+export

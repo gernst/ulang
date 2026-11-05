@@ -1,0 +1,18 @@
+// a module for tests/errors/private-name.u, private-constructor.u, private-pattern.u, private-field.u, and incomparable.u,
+// with an abstract type without an order
+export
+
+type Box
+
+function box(n: Int): Box
+
+implementation
+
+data Box :=
+  | Full(contents: Int)
+
+function box(n: Int): Box :=
+  Full(secret(n))
+
+function secret(n: Int): Int :=
+  n

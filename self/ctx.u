@@ -2,11 +2,13 @@
 
 import syntax
 import map
+import set
 
 // type definitions with their parameters, the type schemes of functions with their parameters, the signatures of procedures
 // with parameters, ins, outs, and refs, datatypes with their numbers of parameters, their constructors,
 // constructors with the parameters of their datatype, their argument types, and their datatype,
-// and the declarations of each base name, of any kind and module
+// the declarations of each base name, of any kind and module, and the declarations that are private to their modules,
+// which include the constructors and fields of abstract types
 data Ctx :=
   | Ctx(
     aliases: Map[Name, List[Id] * Type],
@@ -15,11 +17,12 @@ data Ctx :=
     datas: Map[Name, Int],
     members: Map[Name, List[Name]],
     constrs: Map[Name, List[Type] * List[Type] * Type],
-    named: Map[Id, List[Name]]
+    named: Map[Id, List[Name]],
+    hidden: Set[Name]
   )
 
 function empty_ctx(): Ctx :=
-  Ctx(empty(), empty(), empty(), empty(), empty(), empty(), empty())
+  Ctx(empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
 // the declarations of the modules ms
 function ctx_of(c: Ctx, ms: List[Id]): Ctx :=
@@ -30,7 +33,8 @@ function ctx_of(c: Ctx, ms: List[Id]): Ctx :=
     owned_map(c.datas, ms),
     owned_map(c.members, ms),
     owned_map(c.constrs, ms),
-    put_all(owned_named(entries(c.named), ms), empty())
+    put_all(owned_named(entries(c.named), ms), empty()),
+    from_list([n for n in elements(c.hidden) if in_modules(n, ms)])
   )
 
 function owned_map[V](m: Map[Name, V], ms: List[Id]): Map[Name, V] :=
@@ -64,8 +68,43 @@ function ctx_union(a: Ctx, b: Ctx): Ctx :=
     put_all(entries(b.datas), a.datas),
     put_all(entries(b.members), a.members),
     put_all(entries(b.constrs), a.constrs),
-    union_named(entries(b.named), a.named)
+    union_named(entries(b.named), a.named),
+    insert_all(elements(b.hidden), a.hidden)
   )
+
+// the declarations as other modules see them, without the hidden ones, where datatypes whose constructors are hidden
+// are abstract, without members
+function public_ctx(c: Ctx): Ctx :=
+  if size(c.hidden) == 0 then
+    c
+  else
+    Ctx(
+      unhidden(c.aliases, c.hidden),
+      unhidden(c.funs, c.hidden),
+      unhidden(c.procs, c.hidden),
+      unhidden(c.datas, c.hidden),
+      put_all([e for e in entries(unhidden(c.members, c.hidden)) if not exists(value_of(e), lambda k => contains(k, c.hidden))], empty()),
+      unhidden(c.constrs, c.hidden),
+      put_all([(key_of(e), [n for n in value_of(e) if not contains(n, c.hidden)]) for e in entries(c.named)], empty()),
+      c.hidden
+    )
+
+function unhidden[V](m: Map[Name, V], hidden: Set[Name]): Map[Name, V] :=
+  put_all([e for e in entries(m) if not contains(key_of(e), hidden)], empty())
+
+function key_of[K, V](e: K * V): K :=
+  match e
+    case (k, _) => k
+  end
+
+function value_of[K, V](e: K * V): V :=
+  match e
+    case (_, v) => v
+  end
+
+// hidden declarations named like n, which other modules do not see
+function hidden_named(c: Ctx, b: Id): List[Name] :=
+  [n for n in elements(c.hidden) if n.base == b]
 
 function union_named(es: List[Id * List[Name]], bs: Map[Id, List[Name]]): Map[Id, List[Name]] :=
   match es

@@ -1,0 +1,5 @@
+// runtime error: uncaught exception Incomparable("hiding.Box")
+import hiding
+
+test t() :=
+  assert box(1) == box(1)

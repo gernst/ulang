@@ -17,8 +17,8 @@ data Notations :=
 
 function keywords(): Set[Id] :=
   {
-    "_", "assert", "assign", "call", "case", "catch", "data", "else", "end", "false", "for", "function", "if", "import",
-    "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix", "procedure", "raise", "ref", "skip",
+    "_", "assert", "assign", "call", "case", "catch", "data", "else", "end", "export", "false", "for", "function", "if",
+    "implementation", "import", "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix", "procedure", "raise", "ref", "skip",
     "test", "then", "true", "type", "try", "while", "with"
   }
 
@@ -1476,9 +1476,15 @@ procedure parse_function(in notations: Notations, out cmd: Cmd, ref toks: Tokens
 
   call   expect(in TSym(":"), ref toks)
   call   parse_type(in notations, params, out r, ref toks)
-  call   expect(in TSym(":="), ref toks)
-  call   parse_expr(in notations, params, out body, ref toks)
-  assign cmd := CFun(unqualified(name), params, xss, r, body)
+
+  // a signature in an export section has no body
+  if head_token(toks) == TSym(":=")
+    call   advance(ref toks)
+    call   parse_expr(in notations, params, out body, ref toks)
+    assign cmd := CFun(unqualified(name), params, xss, r, body)
+  else
+    assign cmd := CFunSig(unqualified(name), params, xss, r)
+  end
 
 procedure parse_procedure(in notations: Notations, out cmd: Cmd, ref toks: Tokens) :=
   local name: Id, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], body: Stmt
@@ -1489,9 +1495,14 @@ procedure parse_procedure(in notations: Notations, out cmd: Cmd, ref toks: Token
   call   expect(in TPunct('('), ref toks)
   call   parse_sections(in notations, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
   call   expect(in TPunct(')'), ref toks)
-  call   expect(in TSym(":="), ref toks)
-  call   parse_body(in notations, params, out body, ref toks)
-  assign cmd := CProc(unqualified(name), params, ins, outs, refs, body)
+
+  if head_token(toks) == TSym(":=")
+    call   advance(ref toks)
+    call   parse_body(in notations, params, out body, ref toks)
+    assign cmd := CProc(unqualified(name), params, ins, outs, refs, body)
+  else
+    assign cmd := CProcSig(unqualified(name), params, ins, outs, refs)
+  end
 
 // the commands of one declaration, where an import is the marker CImport(n), preceded by module n at its first import
 procedure parse_command(in ctx: Context, out cmds: List[Cmd], ref toks: Tokens) :=
@@ -1522,9 +1533,15 @@ procedure parse_command(in ctx: Context, out cmds: List[Cmd], ref toks: Tokens) 
       call   advance(ref toks)
       call   parse_name(out name, ref toks)
       call   parse_params(in notations, out params, ref toks)
-      call   expect(in TSym(":="), ref toks)
-      call   parse_type(in notations, params, out typ, ref toks)
-      assign cmds := [CSort(unqualified(name), params, typ)]
+
+      // an abstract type in an export section has no definition
+      if head_token(toks) == TSym(":=")
+        call   advance(ref toks)
+        call   parse_type(in notations, params, out typ, ref toks)
+        assign cmds := [CSort(unqualified(name), params, typ)]
+      else
+        assign cmds := [CAbstract(unqualified(name), params)]
+      end
 
     case TName("data") =>
       call parse_data(in notations, out cmds, ref toks)
@@ -1571,17 +1588,80 @@ procedure declare_all(in cmds: List[Cmd], ref ctx: Context) :=
       call declare_all(in more, ref ctx)
   end
 
+// where a module is: at its imports, which come first, in its export section or its implementation section, or in a module
+// without sections, whose declarations are all exported
+data Section :=
+  | Opening
+  | InExport
+  | InImplementation
+  | NoSections
+
 // notations apply to the commands after them
 procedure parse_commands(out cmds: List[Cmd], ref ctx: Context, toks: Tokens) :=
-  local rev: List[Cmd] := Nil, more: List[Cmd]
+  local rev: List[Cmd] := Nil, more: List[Cmd], section := Opening, offset: Int
 
   while head_token(toks) != TEnd
-    call   parse_command(in ctx, out more, ref toks)
+    assign offset := head_offset(toks)
+
+    match head_token(toks)
+      case TName("export") =>
+        if section == InExport or section == InImplementation
+          raise ParseError("a module has one export section", offset)
+        else if section != Opening
+          raise ParseError("export comes first, after the imports", offset)
+        end
+
+        call   advance(ref toks)
+        assign more := [CExport], section := InExport
+
+      case TName("implementation") =>
+        if section != InExport
+          raise ParseError("implementation follows export", offset)
+        end
+
+        call   advance(ref toks)
+        assign more := [CImplementation], section := InImplementation
+
+      case TName("import") if section == InExport or section == InImplementation =>
+        raise ParseError("imports come before export", offset)
+
+      case _ =>
+        call   parse_command(in ctx, out more, ref toks)
+        call   enter_section(in more, offset, ref section)
+    end
+
     call   declare_all(in more, ref ctx)
     assign rev := reverse_onto(more, rev)
   end
 
   assign cmds := reverse(rev)
+
+// the section after the commands of one declaration, which must belong to the section
+procedure enter_section(in cmds: List[Cmd], offset: Int, ref section: Section) :=
+  match (cmds, section)
+    case ([CNotation(_, _, _); _], InImplementation) =>
+      raise ParseError("notations belong to the export section", offset)
+    case ([CFunSig(_, _, _, _); _], s) if s != InExport =>
+      raise ParseError("signatures belong to the export section", offset)
+    case ([CProcSig(_, _, _, _, _); _], s) if s != InExport =>
+      raise ParseError("signatures belong to the export section", offset)
+    case ([CAbstract(_, _); _], s) if s != InExport =>
+      raise ParseError("types without a definition belong to the export section", offset)
+    case ([CFun(_, _, _, _, _); _], InExport) =>
+      raise ParseError("definitions belong to the implementation section", offset)
+    case ([CProc(_, _, _, _, _, _); _], InExport) =>
+      raise ParseError("definitions belong to the implementation section", offset)
+    case ([CTest(_, _, _); _], InExport) =>
+      raise ParseError("tests belong to the implementation section", offset)
+    case ([CModule(_, _); _], _) =>
+      skip
+    case ([CImport(_); _], _) =>
+      skip
+    case (_, Opening) =>
+      assign section := NoSections
+    case _ =>
+      skip
+  end
 
 // modules are files in the directory of the parsed file, or in the library
 procedure module_text(in name: Id, dir: Option[Str], offset: Int, out text: Str) :=

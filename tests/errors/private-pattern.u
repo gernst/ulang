@@ -1,0 +1,7 @@
+// type error: Full is private to module hiding
+import hiding
+
+function f(b: Box): Int :=
+  match b
+    case Full(n) => n
+  end

@@ -173,6 +173,14 @@
           ]
         },
         {
+          "match": "^(export|implementation)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.import.ulang"
+            }
+          }
+        },
+        {
           "match": "\\b(import)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {

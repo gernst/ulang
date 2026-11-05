@@ -2,9 +2,6 @@
 
 Open action items, each with the problem and the desired solution.
 
-## Look at
-- module imports and exports
-
 ## Testing
 
 1. **Compiled programs are tested by hand**: `make test` runs the interpreter only, and nothing checks that the compiled tests succeed or fail as the first lines of their files state, although all files of `tests/` print the same compiled as interpreted now. Solution:
@@ -31,7 +28,8 @@ Open action items, each with the problem and the desired solution.
 
 1. **Type errors in imported modules have no file**: they show a position without the module. Solution: add the module to the messages, as parse errors do.
 2. **Imports are resolved against the directory of the parsed file**, not of the importing module, and loaded modules are known by name. Solution: resolve against the importing file, with modules known by their location, which makes nested imports and library modules consistent. Also imports from other directories, e.g. of `simp/` by `self/prove.u`, by relative paths or a search path.
-3. **All declarations are exported**, so helpers of different modules only coexist if no module imports both. Solution: explicit exports.
+3. **The modules of `self/` have no export sections**, so all their declarations are exported, and their helpers meet as overloads in the modules that import them. Solution: export sections, see `exports.md`, and then drop the prefixes against clashes (Self-hosted toolchain 3).
+4. **Importers are checked again when an implementation changes**, since the cache of `check_modules` keys a module by all commands of its imports. Solution: key it by their export sections, which `CExport` and `CImplementation` mark.
 
 ## Compiler
 

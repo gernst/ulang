@@ -392,9 +392,21 @@ function type_message(e: TypeError): Str :=
     case UnknownProcedure(n) => "unknown procedure " ^ n.base
     case UnknownException(t) => "the type " ^ show_type(t) ^ " of an exception is not fully known"
     case TestParams(n) => "test " ^ n ^ " takes parameters"
-    case EqualityWithoutOrder(n) => qualified(n) ^ " declares == but not compare"
     case Unassigned(n) => n.base ^ " is not assigned on every path"
     case OutputUnassigned(x, p) => "output " ^ x.base ^ " of " ^ p.base ^ " is not assigned on every path"
+    case PrivateName(n) => n.base ^ " is private to module " ^ module_of(n)
+    case MissingDefinition(n) => qualified(n) ^ " is exported but not defined"
+    case SignatureMismatch(n) => "the definition of " ^ qualified(n) ^ " differs from its signature"
+    case PartlyExported(n) => qualified(n) ^ " is exported, but not with each of its numbers of arguments"
+    case PrivateType(n, t) => "the signature of " ^ qualified(n) ^ " names the private type " ^ qualified(t)
+    case VisibleEquality(t) => qualified(t) ^ " declares ==, which only abstract types may"
+    case UnexportedOrder(f, t) => qualified(f) ^ " of the exported type " ^ qualified(t) ^ " is not exported"
+  end
+
+function module_of(n: Name): Str :=
+  match n.module
+    case Some(m) => m
+    case None => ""
   end
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f

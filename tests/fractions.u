@@ -1,0 +1,36 @@
+// a module for tests/orders.u: fractions as an abstract type, ordered and equal by their values, where half(n) is n / 2,
+// and an equality that compare implies
+
+export
+
+type Fraction
+
+function fraction(n: Int, d: Int): Fraction
+function half(n: Int): Fraction
+function compare(a: Fraction, b: Fraction): Int
+
+implementation
+
+data Fraction :=
+  | Fraction(Int, Int)
+  | Half(Int)
+
+function fraction(n: Int, d: Int): Fraction :=
+  Fraction(n, d)
+
+function half(n: Int): Fraction :=
+  Half(n)
+
+function value(f: Fraction): Int * Int :=
+  match f
+    case Fraction(n, d) => (n, d)
+    case Half(n) => (n, 2)
+  end
+
+function compare(a: Fraction, b: Fraction): Int :=
+  match (value(a), value(b))
+    case ((n, d), (m, e)) => compare(n * e, m * d)
+  end
+
+test values() :=
+  assert Fraction(1, 2) == Half(1) and compare(Half(1), Fraction(1, 1)) == -1

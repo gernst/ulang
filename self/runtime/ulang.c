@@ -372,8 +372,10 @@ u_value u_mod(u_value a, u_value b) {
   return slow(mpz_tdiv_r, a, b);
 }
 
+// small integers directly, and other values by the order of their type
 u_value u_lt(u_value a, u_value b) {
-  return u_mk_bool(compare_ints(a, b) < 0);
+  if (a->type == &u_int_type && b->type == &u_int_type) return u_mk_bool(a->num < b->num);
+  return u_mk_bool(compare(a, b) < 0);
 }
 
 u_value u_eq(u_value a, u_value b) {

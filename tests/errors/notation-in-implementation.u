@@ -1,0 +1,6 @@
+// parse error: notations belong to the export section at 6.1
+export
+
+implementation
+
+infix 6 <=>

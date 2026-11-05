@@ -1,0 +1,5 @@
+// type error: secret is private to module hiding
+import hiding
+
+test t() :=
+  assert secret(1) == 1
