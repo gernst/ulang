@@ -1,6 +1,12 @@
-// a module for tests/errors/imported-notation.u
+// a module for tests/errors/imported-notation.u, which exports a notation that the importer declares differently
+
+export
 
 infix left 8 <+>
+
+function <+>(a: Int, b: Int): Int
+
+implementation
 
 function <+>(a: Int, b: Int): Int :=
   a + b

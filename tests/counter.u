@@ -1,4 +1,11 @@
-// a module for tests/modules.u, with a helper of the same name as in tests/doubler.u
+// a module for tests/modules.u and tests/exports.u, which exports a helper whose name those modules declare too
+
+export
+
+function helper(n: Int): Int
+function next(n: Int): Int
+
+implementation
 
 function helper(n: Int): Int :=
   n + 1

@@ -1,6 +1,14 @@
-// a module for tests/errors/transitive-name.u and tests/errors/transitive-notation.u
+// a module for tests/errors/transitive-name.u and tests/errors/transitive-notation.u, whose exports wrapper.u sees, but not
+// the modules that import wrapper.u
+
+export
 
 infix left 5 <+>
+
+function <+>(m: Int, n: Int): Int
+function twice(n: Int): Int
+
+implementation
 
 function <+>(m: Int, n: Int): Int :=
   m + n

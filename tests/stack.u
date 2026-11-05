@@ -1,9 +1,20 @@
 // a module, which modules.u imports
+
+export
+
 infix right 7 <+
 
 data Stack[A] :=
   | Empty
   | Push(A, Stack[A])
+
+function <+[A](x: A, s: Stack[A]): Stack[A]
+function top[A](s: Stack[A]): Option[A]
+
+// the top of s, or else x
+function peek[A](s: Stack[A], x: A): A
+
+implementation
 
 function <+[A](x: A, s: Stack[A]): Stack[A] :=
   Push(x, s)

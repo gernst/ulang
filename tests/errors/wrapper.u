@@ -1,6 +1,13 @@
 // a module for tests/errors/transitive-name.u and tests/errors/transitive-notation.u, which imports tests/errors/inner.u
+// and exports only its own function
 
 import inner
+
+export
+
+function quad(n: Int): Int
+
+implementation
 
 function quad(n: Int): Int :=
   twice(twice(n))

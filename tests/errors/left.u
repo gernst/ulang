@@ -1,4 +1,10 @@
-// a module for tests/errors/ambiguous-name.u
+// a module for tests/errors/ambiguous-name.u, which exports a helper of the same name and type as the other one
+
+export
+
+function helper(n: Int): Int
+
+implementation
 
 function helper(n: Int): Int :=
   n + 1

@@ -1,7 +1,6 @@
 // show gives the text of a value, with strings in quotes, where a datatype may declare its own show, which the builtin
-// then uses for its values, also inside other values and in generic code, and those of imported modules
+// then uses for its values, also inside other values and in generic code, as for the shows of the library
 
-import pairs
 import set
 import map
 
@@ -9,11 +8,14 @@ data Color :=
   | Red
   | Green
 
-data Money :=
-  | Money(cents: Int)
+data Pair[A, B] :=
+  | Pair(A, B)
 
-function show(m: Money): Str :=
-  show(m.cents / 100) ++ "." ++ (if m.cents % 100 < 10 then "0" else "") ++ show(m.cents % 100) ++ " EUR"
+// a show of a generic datatype, which shows its components by the builtin
+function show[A, B](p: Pair[A, B]): Str :=
+  match p
+    case Pair(a, b) => "<" ++ show(a) ++ " | " ++ show(b) ++ ">"
+  end
 
 function texts[A](xs: List[A]): List[Str] :=
   [show(x) for x in xs]
@@ -25,11 +27,11 @@ test builtin_show() :=
   assert show(Nil) == "[]" and show([Green; Nil]) == "[Green]"
 
 test declared_show() :=
-  assert show(Money(1205)) == "12.05 EUR"
-  assert show([Money(100), Money(2)]) == "[1.00 EUR, 0.02 EUR]"
-  assert show((Some(Money(1)), Red)) == "(Some(0.01 EUR), Red)"
-  assert texts([Money(350)]) == ["3.50 EUR"]
-  assert show(Pair(Money(100), [Pair(1, 'x')])) == "<1.00 EUR | [<1 | 'x'>]>"
+  assert show(Pair(1, "a")) == "<1 | \"a\">"
+  assert show([Pair(1, Red), Pair(2, Green)]) == "[<1 | Red>, <2 | Green>]"
+  assert show((Some(Pair('x', Nil)), Red)) == "(Some(<'x' | []>), Red)"
+  assert texts([Pair(true, false)]) == ["<true | false>"]
+  assert show(Pair(Pair(1, 2), [Pair(3, 'x')])) == "<<1 | 2> | [<3 | 'x'>]>"
 
 test library_shows() :=
   local s := {3, 1, 2}, m := {"b" => [1], "a" => []}, e: Set[Int] := {}
