@@ -1,0 +1,4 @@
+// parse error: unexpected operator not at 4.5
+
+function f(a: Bool, b: Bool): Bool :=
+  a not b

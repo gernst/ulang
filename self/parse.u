@@ -20,6 +20,9 @@ function dir_name(path: Str): Str
 procedure parse_file_after(in path: Str, pre: Program, out program: Program)
 procedure parse_text_after(in path: Str, pre: Program, text: Str, out program: Program)
 
+// the commands of text in the context ctx, which reads no files unless text imports modules
+procedure parse_text(in text: Str, ctx: Context, out program: Program)
+
 // the precedences of the prefix and postfix operators declared so far, and the fixities and precedences of the infix ones
 data Notations :=
   | Notations(prefix_ops: Map[Id, Int], postfix_ops: Map[Id, Int], infix_ops: Map[Id, Fixity * Int])

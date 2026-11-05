@@ -767,3 +767,82 @@ test bodies() :=
 
   assert show_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y\n  skip\nelse if x\nend"
   assert show_cmd(test_operators(), CNotation(FLeft, 8, ["+", "-"]), Nil) == Some("infix left 8 + -")
+
+// the parser, tested by the trees of single constructs, parsed with their own notations from the empty context, which reads no
+// files, and by printing a program in the layout of the printer back as it is
+
+function test_notations(): Str :=
+  "infix right 7 ++\ninfix 6 ==\ninfix left 8 + -\ninfix left 9 *\nprefix 5 not\nprefix 10 -\n"
+
+// the body of a function that is e
+procedure parsed(in e: Str, out body: Expr) :=
+  local p: Program
+
+  call   parse_text(in test_notations() ++ "function f(): Int :=\n  " ++ e, empty_context(), out p)
+  assign body := ELit(VUnit)
+
+  match reverse(p.cmds)
+    case [CFun(_, _, _, _, b); _] =>
+      assign body := b
+    case _ =>
+      skip
+  end
+
+function declared_app(f: Id, args: List[Expr]): Expr :=
+  EApp(EVar(Var(declared_name(f), THole)), args)
+
+function acc_var(): Var :=
+  Var(unqualified("(acc)"), THole)
+
+test parsed_operators() :=
+  local e: Expr, a := expr_var("a"), b := expr_var("b"), c := expr_var("c")
+
+  call   parsed(in "a - b - c", out e)
+  assert e == expr_app("-", [expr_app("-", [a, b]), c])
+  call   parsed(in "a ++ b ++ c", out e)
+  assert e == expr_app("++", [a, expr_app("++", [b, c])])
+  call   parsed(in "a + b * c - a", out e)
+  assert e == expr_app("-", [expr_app("+", [a, expr_app("*", [b, c])]), a])
+  call   parsed(in "not a == b", out e)
+  assert e == expr_app("not", [expr_app("==", [a, b])])
+  call   parsed(in "-a * b", out e)
+  assert e == expr_app("*", [expr_app("-", [a]), b])
+  call   parsed(in "a - -1", out e)
+  assert e == expr_app("-", [a, expr_int(-1)])
+  call   parsed(in "- -a", out e)
+  assert e == expr_app("-", [expr_app("-", [a])])
+  call   parsed(in "-a.f", out e)
+  assert e == expr_app("-", [expr_app(".f", [a])])
+  call   parsed(in "a with f := 1, g := b.f", out e)
+  assert e == expr_app(".g:=", [expr_app(".f:=", [a, expr_int(1)]), expr_app(".f", [b])])
+
+test parsed_displays() :=
+  local e: Expr, a := expr_var("a"), b := expr_var("b"), c := expr_var("c")
+
+  call   parsed(in "[a, b; c]", out e)
+  assert e == expr_app("Cons", [a, expr_app("Cons", [b, c])])
+  call   parsed(in "match a case [x, -1; _] => x end", out e)
+  assert e == EMatch(a, [Branch(PApp(unqualified("Cons"), [pat_var("x"), PApp(unqualified("Cons"), [PLit(VInt(-1)), PWild])]), None, expr_var("x"))])
+  call   parsed(in "{a, b}", out e)
+  assert e == declared_app("insert", [a, declared_app("insert", [b, declared_app("empty", [])])])
+  call   parsed(in "{a => b, a => c}", out e)
+  assert e == declared_app("put", [a, c, declared_app("put", [a, b, declared_app("empty", [])])])
+  call   parsed(in "{}", out e)
+  assert e == declared_app("empty", [])
+
+// the folds of comprehensions, with the accumulator last for foldr and first for foldl, nested for several generators
+test parsed_comprehensions() :=
+  local e: Expr, x := Var(unqualified("x"), THole), y := Var(unqualified("y"), THole), acc := EVar(acc_var())
+  local cons := expr_app("Cons", [expr_app("*", [EVar(x), EVar(y)]), acc])
+
+  call   parsed(in "[x * y for x in a, y in b if x]", out e)
+  assert e == declared_app("foldr", [expr_var("a"), expr_var("Nil"), ELam([x, acc_var()], declared_app("foldr", [expr_var("b"), acc, ELam([y, acc_var()], EIte(EVar(x), cons, acc))]))])
+  call   parsed(in "{y => x for x => y in a}", out e)
+  assert e == declared_app("foldl", [expr_var("a"), declared_app("empty", []), ELam([acc_var(), x, y], declared_app("put", [EVar(y), EVar(x), acc]))])
+
+// a program in the layout of the printer, with the translations of locals, else if, fields, and updates, is printed back
+test printed_back() :=
+  local p: Program, text := "infix left 8 +\n\ndata R :=\n  | R(f: Int, g: Int)\n\nprocedure p(in r: R, out n: Int) :=\n  local s := (r with f := 1), k: Int\n  if s.f + r.g\n    assign n := 1\n  else if r.f\n    assign k := 2, n := k\n  else\n    skip\n  end\n"
+
+  call   parse_text(in text, empty_context(), out p)
+  assert show_program(Program(Nil), p) == text

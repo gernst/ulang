@@ -1,0 +1,3 @@
+// parse error: precedence expected but ++ found at 3.12
+
+infix left ++

@@ -1,0 +1,6 @@
+// parse error: a literal {...} has no rest after ; at 6.3
+
+import set
+
+function f(xs: Set[Int]): Set[Int] :=
+  {1, 2; xs}
