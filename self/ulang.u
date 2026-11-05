@@ -1,12 +1,13 @@
 // the driver of ulang, ./ulang.bin, with the commands run, test, and check with the interpreter of run.u,
 // compile, which translates a file to C, whose main calls the procedure entry, or runs all tests for the entry test,
-// and format, which prints a file as show_program of print.u does
+// and format, which prints a file as show_program of format.u does
 
 import syntax
 import lex
 import parse
 import check
 import print
+import format
 import value
 import run
 import compile
@@ -424,7 +425,7 @@ function type_message(e: TypeError): Str :=
     case WrongArity(n, k) => n.base ++ " does not take " ++ show(k) ++ " arguments"
     case AlreadyDefined(n) => n.base ++ " is already defined"
     case Duplicate(s) => "duplicate " ++ s
-    case Ambiguous(n, ns) => n.base ++ " is ambiguous: " ++ join(", ", [qualified(m) for m in ns])
+    case Ambiguous(n, ns) => n.base ++ " is ambiguous: " ++ join(", ", [show_name(m) for m in ns])
     case UnknownField(n) => field_message(split(n.base, '.'))
     case UnknownFieldType(f, t) => "the type " ++ show_type(t) ++ " of the value of " ++ f ++ " is not known"
     case CountMismatch(k, m) => "expected " ++ show(k) ++ " values, got " ++ show(m)

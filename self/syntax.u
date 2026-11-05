@@ -121,7 +121,6 @@ data Source :=
   | Source(mods: List[Mod], main: Id)
 
 function unqualified(x: Id): Name
-function qualified(n: Name): Str
 function tuple_name(): Name
 
 function list_name(): Name
@@ -168,13 +167,6 @@ implementation
 // a name without a module, of a local or a builtin, or before checking
 function unqualified(x: Id): Name :=
   Name(None, x)
-
-// the name with its module, to tell names apart
-function qualified(n: Name): Str :=
-  match n
-    case Name(Some(m), b) => m ++ "." ++ b
-    case Name(None, b) => b
-  end
 
 function tuple_name(): Name :=
   unqualified(",")
@@ -321,4 +313,3 @@ test syntax() :=
   assign f := Var(unqualified("f"), THole), x := Var(unqualified("x"), THole)
   assert names([f, x]) == [unqualified("f"), unqualified("x")]
   assert types([f]) == [THole]
-  assert qualified(cons_name()) == "list.Cons" and cons_name().base == "Cons"

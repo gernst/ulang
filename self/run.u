@@ -282,7 +282,7 @@ procedure apply_value(in run: Run, f: Value, vs: List[Value], out v: Value, ref 
       assign v := Obj(n, vs)
 
     case Prim(n) =>
-      match (qualified(n), vs)
+      match (show_name(n), vs)
         case ("compare", [a, b]) =>
           call   compare_values(in run, a, b, out k, ref cache)
           assign v := Lit(VInt(k))
@@ -327,7 +327,7 @@ function failure(n: Name, args: List[Value]): Thrown :=
 procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
   local r: Bool
 
-  match (qualified(n), vs)
+  match (show_name(n), vs)
     case ("+", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a + b))
 
@@ -764,10 +764,10 @@ procedure invoke(in run: Run, n: Name, ins: List[Value], refs: List[Name], out o
   match get(n, run.defs.procs)
     case Some((xs, ys, zs, body)) =>
       call run_body(in run, n, empty(), xs, ys, zs, body, ins, refs, out outs, ref env, cache)
-    case None if qualified(n) == "os.os_print" =>
+    case None if show_name(n) == "os.os_print" =>
       assign outs := Nil
       call   print_all(in [text_of(v) for v in ins])
-    case None if qualified(n) == "os.os_args" =>
+    case None if show_name(n) == "os.os_args" =>
       assign outs := [list_value([Lit(VStr(a)) for a in run.args])]
     case None =>
       call os_proc(in n, ins, out outs)
@@ -834,7 +834,7 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
   local text: Str, entries: List[Str * Bool], yes: Bool
 
   try
-    match (qualified(n), ins)
+    match (show_name(n), ins)
       case ("os.os_read", [Lit(VStr(path))]) =>
         call   os_read(in path, out text)
         assign outs := [Lit(VStr(text))]
