@@ -3,6 +3,16 @@
 import syntax
 import value
 
+export
+
+function show_value(v: Value): Str
+function show_type(t: Type): Str
+function show_types(ts: List[Type]): Str
+function show_pat(p: Pat): Str
+function text_of(v: Value): Str
+
+implementation
+
 function show_value(v: Value): Str :=
   match v
     case Lit(VUnit) => "()"

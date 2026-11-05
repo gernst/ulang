@@ -8,9 +8,16 @@ import parse
 import map
 import set
 
+export
+
 data CompileError :=
   | Unsupported(Str)
   | UnknownEntry(Name)
+
+procedure compile_file(in source: Str, entry: Id, target: Str)
+function is_entry(c: Cmd, n: Name): Bool
+
+implementation
 
 // the functions of a program by name and number of arguments, and its constructors with their numbers of fields,
 // as lists and as maps from the names to the numbers of arguments and fields

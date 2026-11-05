@@ -176,7 +176,7 @@
           "match": "^(export|implementation)\\b",
           "captures": {
             "1": {
-              "name": "keyword.control.import.ulang"
+              "name": "keyword.control.section.ulang"
             }
           }
         },

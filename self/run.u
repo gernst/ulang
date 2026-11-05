@@ -12,9 +12,7 @@ import os
 import set
 import map
 
-// the values of the variables in scope, where a variable without a value is not in the map
-type Bindings :=
-  Map[Name, Value]
+export
 
 data ProcDef :=
   | ProcDef(List[Var], List[Var], List[Var], Stmt)
@@ -52,6 +50,16 @@ data RuntimeError :=
 // an exception of the program with its type
 data Thrown :=
   | Thrown(Value, Type)
+
+function load(q: Program): Prog
+procedure run_proc(in p: Prog, n: Name, ref cache: Map[Name, Value])
+procedure run_cmd(in p: Prog, c: Cmd, ref cache: Map[Name, Value])
+
+implementation
+
+// the values of the variables in scope, where a variable without a value is not in the map
+type Bindings :=
+  Map[Name, Value]
 
 // the values of evals and the assigned variables of runs
 function position_of(p: Prog, k: Name): Int :=
@@ -212,7 +220,6 @@ function pattern_vars(p: Pat): List[Name] :=
     case PTuple(ps) => concat([pattern_vars(q) for q in ps])
     case _ => []
   end
-
 
 procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value, ref cache: Map[Name, Value]) :=
   local w: Value, vs: List[Value], envs: List[Bindings], sel: Option[Expr * Bindings * List[Name]]

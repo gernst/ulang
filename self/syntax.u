@@ -1,5 +1,5 @@
-// the core syntax of ulang, without positions,
-// where constructors are prefixed by their type, since they share one namespace
+
+export
 
 // identifiers that never refer to declarations of modules: type parameters, modules, notations, runs, and tests
 type Id :=
@@ -103,6 +103,29 @@ data Cmd :=
 
 data Program :=
   | Program(cmds: List[Cmd])
+
+function unqualified(x: Id): Name
+function qualified(n: Name): Str
+function list_name(): Name
+function nil_name(): Name
+function cons_name(): Name
+function option_name(): Name
+function none_name(): Name
+function some_name(): Name
+function os_error_name(): Name
+function division_by_zero_name(): Name
+function no_index_name(): Name
+function no_character_name(): Name
+function missing_field_name(): Name
+function tuple_name(): Name
+function names(xs: List[Var]): List[Name]
+function types(xs: List[Var]): List[Type]
+function arity(t: Type): Int
+
+implementation
+
+// the core syntax of ulang, without positions,
+// where constructors are prefixed by their type, since they share one namespace
 
 // a name without a module, of a local or a builtin, or before checking
 function unqualified(x: Id): Name :=

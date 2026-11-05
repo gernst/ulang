@@ -8,8 +8,18 @@ import os
 import set
 import map
 
+export
+
 data ParseError :=
   | ParseError(Str, Int)
+
+procedure parse_library(in name: Id, out program: Program)
+function last_part(xs: List[Str]): Str
+function base_name(path: Str): Str
+function dir_name(path: Str): Str
+procedure parse_file_after(in path: Str, pre: Program, out program: Program)
+
+implementation
 
 // the precedences of the prefix and postfix operators declared so far, and the fixities and precedences of the infix ones
 data Notations :=
@@ -18,8 +28,8 @@ data Notations :=
 function keywords(): Set[Id] :=
   {
     "_", "assert", "assign", "call", "case", "catch", "data", "else", "end", "export", "false", "for", "function", "if",
-    "implementation", "import", "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix", "procedure", "raise", "ref", "skip",
-    "test", "then", "true", "type", "try", "while", "with"
+    "implementation", "import", "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix",
+    "procedure", "raise", "ref", "skip", "test", "then", "true", "type", "try", "while", "with"
   }
 
 // symbols with a fixed meaning, which cannot be operators

@@ -49,7 +49,47 @@ function blocks(document) {
   return result;
 }
 
+// import, export, and implementation stand out in bold in the color of modules, whatever the theme, and export and
+// implementation have a rule above them, since they divide a module into its interface and its implementation
+function decorateSections(context) {
+  const keyword = vscode.window.createTextEditorDecorationType({
+    fontWeight: "bold",
+    color: new vscode.ThemeColor("symbolIcon.moduleForeground"),
+  });
+  const section = vscode.window.createTextEditorDecorationType({
+    isWholeLine: true,
+    borderWidth: "1px 0 0 0",
+    borderStyle: "solid",
+    borderColor: new vscode.ThemeColor("editorRuler.foreground"),
+  });
+
+  function decorate(editor) {
+    if (!editor || editor.document.languageId !== "ulang") return;
+    const keywords = [];
+    const sections = [];
+    for (let line = 0; line < editor.document.lineCount; line++) {
+      const match = /^(import|export|implementation)\b/.exec(editor.document.lineAt(line).text);
+      if (!match) continue;
+      keywords.push(new vscode.Range(line, 0, line, match[1].length));
+      if (match[1] !== "import") sections.push(new vscode.Range(line, 0, line, 0));
+    }
+    editor.setDecorations(keyword, keywords);
+    editor.setDecorations(section, sections);
+  }
+
+  context.subscriptions.push(
+    keyword,
+    section,
+    vscode.window.onDidChangeVisibleTextEditors((editors) => editors.forEach(decorate)),
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      for (const editor of vscode.window.visibleTextEditors) if (editor.document === event.document) decorate(editor);
+    })
+  );
+  vscode.window.visibleTextEditors.forEach(decorate);
+}
+
 function activate(context) {
+  decorateSections(context);
   const output = vscode.window.createOutputChannel("ulang");
   const diagnostics = vscode.languages.createDiagnosticCollection("ulang");
   context.subscriptions.push(output, diagnostics);

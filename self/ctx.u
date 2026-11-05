@@ -4,6 +4,8 @@ import syntax
 import map
 import set
 
+export
+
 // type definitions with their parameters, the type schemes of functions with their parameters, the signatures of procedures
 // with parameters, ins, outs, and refs, datatypes with their numbers of parameters, their constructors,
 // constructors with the parameters of their datatype, their argument types, and their datatype,
@@ -20,6 +22,33 @@ data Ctx :=
     named: Map[Id, List[Name]],
     hidden: Set[Name]
   )
+
+function empty_ctx(): Ctx
+function ctx_of(c: Ctx, ms: List[Id]): Ctx
+function ctx_union(a: Ctx, b: Ctx): Ctx
+function public_ctx(c: Ctx): Ctx
+function hidden_named(c: Ctx, b: Id): List[Name]
+function alias_of(c: Ctx, n: Name): Option[List[Id] * Type]
+function schemes_of(c: Ctx, n: Name): List[List[Type] * Type]
+function proc_of(c: Ctx, n: Name): Option[List[Type] * List[Type] * List[Type] * List[Type]]
+function data_of(c: Ctx, n: Name): Option[Int]
+function members_of(c: Ctx, n: Name): Option[List[Name]]
+function constr_of(c: Ctx, n: Name): Option[List[Type] * List[Type] * Type]
+function is_fun(c: Ctx, n: Name): Bool
+function is_proc(c: Ctx, n: Name): Bool
+function is_data(c: Ctx, n: Name): Bool
+function is_alias(c: Ctx, n: Name): Bool
+function is_constr(c: Ctx, n: Name): Bool
+function is_sort(c: Ctx, n: Name): Bool
+function names_of(c: Ctx, b: Id): List[Name]
+function with_alias(c: Ctx, n: Name, ps: List[Id], t: Type): Ctx
+function with_fun(c: Ctx, n: Name, sc: List[Type] * Type): Ctx
+function with_proc(c: Ctx, n: Name, g: List[Type] * List[Type] * List[Type] * List[Type]): Ctx
+function with_data(c: Ctx, n: Name, arity: Int): Ctx
+function with_members(c: Ctx, n: Name, cs: List[Name]): Ctx
+function with_constr(c: Ctx, n: Name, kc: List[Type] * List[Type] * Type): Ctx
+
+implementation
 
 function empty_ctx(): Ctx :=
   Ctx(empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty())

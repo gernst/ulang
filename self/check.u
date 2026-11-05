@@ -10,36 +10,7 @@ import ctx
 import map
 import set
 
-// the types of unknowns by their index
-type Subst :=
-  Map[Int, Type]
-
-type Env :=
-  List[Name * Local]
-
-// a variable with its type scheme, and whether it is assigned on every path to the current statement
-data Local :=
-  | Local(scheme: List[Type] * Type, assigned: Bool)
-
-// a use of an overloaded name that more than one candidate fits, by the placeholder that stands for it,
-// with the candidates that fit so far, and the type of the use
-data Pending :=
-  | Pending(id: Name, name: Name, cands: List[Name * (List[Type] * Type)], typ: Type)
-
-// the context, the substitution, the number of unknowns so far, the module whose declarations are checked
-// with the modules it sees, the modules that each module sees, itself first, the open uses of overloaded names,
-// and the declarations chosen for the placeholders of uses that were open
-data State :=
-  | State(
-    ctx: Ctx,
-    sub: Subst,
-    count: Int,
-    module: Id,
-    visible: List[Id],
-    table: List[Id * List[Id]],
-    pending: List[Pending],
-    chosen: Map[Name, Name]
-  )
+export
 
 data TypeError :=
   | UnknownSort(Name)
@@ -75,6 +46,60 @@ data TypeError :=
   | PrivateType(Name, Name)
   | VisibleEquality(Name)
   | UnexportedOrder(Name, Name)
+
+// checked modules: their commands with qualified names, their declarations, and the modules each imports
+data Checked :=
+  | Checked(cmds: List[Cmd], ctx: Ctx, imports: List[Id * List[Id]])
+
+// the checked modules by their names, their commands, and the positions in the cache of the modules they see,
+// since a module depends only on the prelude and its direct imports
+type Cache :=
+  List[(Id * List[Id * Cmd] * List[Int]) * Checked]
+
+function tint(): Type
+function first_list(xss: List[List[Var]]): List[Var]
+function order_of(c: Cmd): Option[Id * Name]
+function ordered(cs: List[Cmd], op: Id): List[Name]
+procedure check_program(in p: Program, main: Id, out q: Program)
+procedure check_modules(in p: Program, main: Id, out q: Program, ref cache: Cache)
+function ev(n: Id): Expr
+function pv(n: Id): Pat
+function num(n: Int): Expr
+function ap(f: Id, args: List[Expr]): Expr
+function lists(): List[Cmd]
+
+implementation
+
+// the types of unknowns by their index
+type Subst :=
+  Map[Int, Type]
+
+type Env :=
+  List[Name * Local]
+
+// a variable with its type scheme, and whether it is assigned on every path to the current statement
+data Local :=
+  | Local(scheme: List[Type] * Type, assigned: Bool)
+
+// a use of an overloaded name that more than one candidate fits, by the placeholder that stands for it,
+// with the candidates that fit so far, and the type of the use
+data Pending :=
+  | Pending(id: Name, name: Name, cands: List[Name * (List[Type] * Type)], typ: Type)
+
+// the context, the substitution, the number of unknowns so far, the module whose declarations are checked
+// with the modules it sees, the modules that each module sees, itself first, the open uses of overloaded names,
+// and the declarations chosen for the placeholders of uses that were open
+data State :=
+  | State(
+    ctx: Ctx,
+    sub: Subst,
+    count: Int,
+    module: Id,
+    visible: List[Id],
+    table: List[Id * List[Id]],
+    pending: List[Pending],
+    chosen: Map[Name, Name]
+  )
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -1774,7 +1799,6 @@ function os_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * L
   else
     Nil
 
-
 // the procedures of the program hide the builtin ones
 // a variable of a procedure type hides the procedures of that name
 procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
@@ -2421,15 +2445,6 @@ procedure check_sections(in ms: List[Id], ds: List[Id * Cmd], out hidden: Set[Na
         assign hidden := more, hidden_sorts := sorts
       end
   end
-
-// checked modules: their commands with qualified names, their declarations, and the modules each imports
-data Checked :=
-  | Checked(cmds: List[Cmd], ctx: Ctx, imports: List[Id * List[Id]])
-
-// the checked modules by their names, their commands, and the positions in the cache of the modules they see,
-// since a module depends only on the prelude and its direct imports
-type Cache :=
-  List[(Id * List[Id * Cmd] * List[Int]) * Checked]
 
 // the commands of p, which is the module main, flattened and with qualified names
 procedure check_program(in p: Program, main: Id, out q: Program) :=

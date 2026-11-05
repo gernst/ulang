@@ -3,6 +3,8 @@
 
 import os
 
+export
+
 // names include keywords and operators that are names, which only the parser tells apart
 data Token :=
   | TName(Str)
@@ -19,6 +21,11 @@ type Tokens :=
 
 data LexError :=
   | LexError(Str, Int)
+
+procedure position(in text: Str, offset: Int, out line: Int, column: Int)
+procedure lex(in text: Str, out toks: Tokens)
+
+implementation
 
 function is_symbol(c: Char): Bool :=
   str_contains("-+*/%<>=!&|:^~?@#$", c)

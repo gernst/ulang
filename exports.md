@@ -1,6 +1,6 @@
 # Exports
 
-Implemented in `self/`, with `set` and `map` as abstract types, except for export sections of the modules of `self/` and the cache by export sections (TODO, Modules 3 and 4), on top of the overloading across modules of `overloading.md`, which `self/check.u` implements. A module consists of an export section and an implementation section. The export section lists the signatures that importers see, and the implementation section defines them along with private helpers and tests, so the top of a file is the interface of the module.
+Implemented in `self/`, with `set` and `map` as abstract types and export sections for the modules of `self/`, except for the cache by export sections (TODO, Modules 3), on top of the overloading across modules of `overloading.md`, which `self/check.u` implements. A module consists of an export section and an implementation section. The export section lists the signatures that importers see, and the implementation section defines them along with private helpers and tests, so the top of a file is the interface of the module.
 
 ## Layout
 
