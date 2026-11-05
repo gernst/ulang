@@ -302,13 +302,19 @@ function candidates(s: State, env: Env, n: Name): List[Name * (List[Type] * Type
         [(n, sc) for sc in builtin_schemes(n)]
   end
 
-// the accessors or updaters T.f of all datatypes T for the field f, which is .name or .name:=, of all modules,
-// since the type of a value need not be visible where its fields are used
+// the accessors or updaters T.f of all datatypes T for the field f, which is .name or .name:=, of all modules, of which
+// visible_accessors keeps those of the modules that the module sees, since fields are visible as other names are
 function accessors(sig: Sig, f: Id, es: List[Id * List[Name]]): List[Name * (List[Type] * Type)] :=
   match es
     case Nil => Nil
     case [(b, ds); rest] =>
       if ends_with(b, f) then concat([[(d, sc) for sc in schemes_of(sig, d)] for d in ds]) ++ accessors(sig, f, rest) else accessors(sig, f, rest)
+  end
+
+function visible_accessors(s: State, cs: List[Name * (List[Type] * Type)]): List[Name * (List[Type] * Type)] :=
+  match cs
+    case Nil => Nil
+    case [(d, sc); rest] => if is_visible(s, d) then [(d, sc); visible_accessors(s, rest)] else visible_accessors(s, rest)
   end
 
 function ends_with(b: Id, f: Id): Bool :=
@@ -1344,13 +1350,13 @@ procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Ex
         case TSort(Name(Some(m), tn), _) =>
           assign acc := Name(Some(m), tn ++ f)
           match schemes_of(s.sig, acc)
-            case [sc] =>
+            case [sc] if is_visible(s, acc) =>
               call use(in acc, w, sc, out x, ref s)
             case _ =>
               raise UnknownField(acc)
           end
         case TMeta(_) =>
-          match accessors(s.sig, f, entries(s.sig.named))
+          match visible_accessors(s, accessors(s.sig, f, entries(s.sig.named)))
             case Nil =>
               raise UnknownField(unqualified(f))
             case cs =>
