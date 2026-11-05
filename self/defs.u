@@ -20,9 +20,9 @@ data Defs :=
   )
 
 function defs_of(q: Prog): Defs
-function order_of(c: Cmd): Option[Id * Name]
-function ordered(cs: List[Cmd], op: Id): List[Name]
-function ordered_by(cs: List[Cmd], op: Id): List[Name * Name]
+function order_of(cmd: Cmd): Option[Id * Name]
+function ordered(cmds: List[Cmd], op: Id): List[Name]
+function ordered_by(cmds: List[Cmd], op: Id): List[Name * Name]
 
 implementation
 
@@ -37,22 +37,22 @@ function defs_of(q: Prog): Defs :=
   )
 
 // functions are overloaded by the number of arguments of their first list of formals
-function fun_defs(cs: List[Cmd]): List[(Name * Int) * (List[List[Var]] * Expr)] :=
-  match cs
+function fun_defs(cmds: List[Cmd]): List[(Name * Int) * (List[List[Var]] * Expr)] :=
+  match cmds
     case Nil => Nil
     case [CFun(n, _, xss, _, b); rest] => [((n, size(first_list(xss))), (xss, b)); fun_defs(rest)]
     case [_; rest] => fun_defs(rest)
   end
 
-function proc_defs(cs: List[Cmd]): List[Name * (List[Var] * List[Var] * List[Var] * Stmt)] :=
-  match cs
+function proc_defs(cmds: List[Cmd]): List[Name * (List[Var] * List[Var] * List[Var] * Stmt)] :=
+  match cmds
     case Nil => Nil
     case [CProc(n, _, ins, outs, refs, b); rest] => [(n, (ins, outs, refs, b)); proc_defs(rest)]
     case [_; rest] => proc_defs(rest)
   end
 
-function constr_defs(cs: List[Cmd]): List[Name * (Int * Int * Name)] :=
-  match cs
+function constr_defs(cmds: List[Cmd]): List[Name * (Int * Int * Name)] :=
+  match cmds
     case Nil => Nil
     case [CData(t, _, ks); rest] => constrs_from(t, ks, 0) ++ constr_defs(rest)
     case [_; rest] => constr_defs(rest)
@@ -70,8 +70,8 @@ function constrs_from(t: Name, ks: List[Constr], i: Int): List[Name * (Int * Int
 // also in generic code, where the builtins compare structurally
 // with the functions T.compare and T.== that the checker synthesizes for an abstract type T,
 // and similarly the text of the values of T if c is show of one value of T with the result Str
-function order_of(c: Cmd): Option[Id * Name] :=
-  match c
+function order_of(cmd: Cmd): Option[Id * Name] :=
+  match cmd
     case CFun(Name(Some(m), "show"), _, [[Var(_, TSort(Name(Some(k), b), args))]], r, _) =>
       if k == m and distinct_params(args) and r == type_str() then Some(("show", Name(Some(k), b))) else None
     case CFun(Name(Some(m), f), _, [[Var(_, TSort(Name(Some(k), b), args)), Var(_, u)]], r, _) =>
@@ -100,12 +100,12 @@ function is_param(t: Type): Bool :=
   end
 
 // the datatypes of cs ordered, equated, or shown by op
-function ordered(cs: List[Cmd], op: Id): List[Name] :=
-  firsts(ordered_by(cs, op))
+function ordered(cmds: List[Cmd], op: Id): List[Name] :=
+  firsts(ordered_by(cmds, op))
 
 // the datatypes of cs ordered, equated, or shown by op, with the functions that do it
-function ordered_by(cs: List[Cmd], op: Id): List[Name * Name] :=
-  match cs
+function ordered_by(cmds: List[Cmd], op: Id): List[Name * Name] :=
+  match cmds
     case Nil => Nil
     case [c; rest] =>
       match (c, order_of(c))

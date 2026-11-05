@@ -162,6 +162,8 @@ function commands_of(sections: Sections): List[Cmd]
 function placed_of(sections: Sections): List[Pos * Cmd]
 function unplaced(cmds: List[Cmd]): List[Pos * Cmd]
 function without_positions(d: Mod): Mod
+function last_mod(mods: List[Mod]): Mod
+function but_last(mods: List[Mod]): List[Mod]
 
 implementation
 
@@ -312,6 +314,22 @@ function placed_of(sections: Sections): List[Pos * Cmd] :=
 // commands without positions, as programs that are not parsed have them
 function unplaced(cmds: List[Cmd]): List[Pos * Cmd] :=
   [(Pos(0, 0), c) for c in cmds]
+
+// the last of the modules, the main module of a source
+function last_mod(mods: List[Mod]): Mod :=
+  match mods
+    case [d] => d
+    case [_; rest] => last_mod(rest)
+    case Nil => Mod("", Nil, Unsectioned(Nil))
+  end
+
+// the modules before the last
+function but_last(mods: List[Mod]): List[Mod] :=
+  match mods
+    case [_] => Nil
+    case [d; rest] => [d; but_last(rest)]
+    case Nil => Nil
+  end
 
 // module d with the positions of its commands forgotten, to compare its commands
 function without_positions(d: Mod): Mod :=

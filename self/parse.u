@@ -36,7 +36,6 @@ function prelude_imports(): List[Id]
 function pre_loader(pre: List[Mod], name: Id): Loader
 function with_mods(loader: Loader, mods: List[Mod]): Loader
 function exported_notations(loader: Loader, name: Id): Notations
-function last_mod(mods: List[Mod]): Mod
 
 implementation
 
@@ -1806,13 +1805,6 @@ procedure parse_text(in text: Str, loader: Loader, out prog: Prog) :=
 
   call   parse_source(in "main", text, out mods, ref after)
   assign prog := Prog(commands_of(last_mod(mods).sections))
-
-function last_mod(mods: List[Mod]): Mod :=
-  match mods
-    case [d] => d
-    case [_; rest] => last_mod(rest)
-    case Nil => Mod("", Nil, Unsectioned(Nil))
-  end
 
 // the loader after the prelude pre with its notations and the modules it loads, for the module name, where a module that
 // the prelude imports declares its own notations again

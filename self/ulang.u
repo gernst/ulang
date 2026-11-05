@@ -168,15 +168,8 @@ function placed_tests(cmds: List[Pos * Cmd]): List[Pos * Cmd] :=
     case [(p, c); rest] => if is_any_test(c) then [(p, c); placed_tests(rest)] else placed_tests(rest)
   end
 
-function but_last(mods: List[Mod]): List[Mod] :=
-  match mods
-    case [_] => Nil
-    case [d; rest] => [d; but_last(rest)]
-    case Nil => Nil
-  end
-
-function is_any_test(c: Cmd): Bool :=
-  match c
+function is_any_test(cmd: Cmd): Bool :=
+  match cmd
     case CTest(_, _, _) => true
     case _ => false
   end
@@ -261,26 +254,26 @@ procedure run_tests(in run: Run, tests: List[Cmd], out ok: Bool) :=
       assign ok := passed and rest
   end
 
-procedure run_test(in run: Run, c: Cmd, out passed: Bool) :=
+procedure run_test(in run: Run, cmd: Cmd, out passed: Bool) :=
   local message: Str
 
-  call test_message(in run, c, out message)
+  call test_message(in run, cmd, out message)
   if message == ""
-    call   os_print(in "test " ++ cmd_name(c) ++ " passed")
+    call   os_print(in "test " ++ cmd_name(cmd) ++ " passed")
     assign passed := true
   else
-    call   os_print(in "test " ++ cmd_name(c) ++ " failed: " ++ message)
+    call   os_print(in "test " ++ cmd_name(cmd) ++ " failed: " ++ message)
     assign passed := false
   end
 
 // the error of the test c, or else ""
-procedure test_message(in run: Run, c: Cmd, out message: Str) :=
+procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
   local cache: Map[Name, Value] := empty()
 
   assign message := ""
 
   try
-    call run_cmd(in run, c, ref cache)
+    call run_cmd(in run, cmd, ref cache)
   catch
     case e =>
       assign message := "runtime error: " ++ runtime_message(e)
@@ -384,20 +377,20 @@ procedure first_failure(in run: Run, tests: List[Cmd], out message: Str) :=
       end
   end
 
-function is_selected_test(c: Cmd, names: List[Str]): Bool :=
-  match c
+function is_selected_test(cmd: Cmd, names: List[Str]): Bool :=
+  match cmd
     case CTest(n, _, _) => names == [] or contains(n, names)
     case _ => false
   end
 
-function is_test(c: Cmd, n: Str): Bool :=
-  match c
+function is_test(cmd: Cmd, n: Str): Bool :=
+  match cmd
     case CTest(m, _, _) => m == n
     case _ => false
   end
 
-function cmd_name(c: Cmd): Str :=
-  match c
+function cmd_name(cmd: Cmd): Str :=
+  match cmd
     case CTest(n, _, _) => n
     case _ => ""
   end

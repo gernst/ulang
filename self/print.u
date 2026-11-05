@@ -9,7 +9,7 @@ export
 function show_value(v: Value): Str
 function show_type(t: Type): Str
 function show_types(ts: List[Type]): Str
-function show_pat(p: Pat): Str
+function show_pat(pat: Pat): Str
 function text_of(v: Value): Str
 function show_name(n: Name): Str
 function symbolic(n: Id): Bool
@@ -90,8 +90,8 @@ function type_component(t: Type): Str :=
   end
 
 // patterns as the messages of the checker show them
-function show_pat(p: Pat): Str :=
-  match p
+function show_pat(pat: Pat): Str :=
+  match pat
     case PWild => "_"
     case PLit(l) => show_value(Lit(l))
     case PVar(x) => x.name.base
@@ -102,8 +102,8 @@ function show_pat(p: Pat): Str :=
     case PApp(n, ps) => n.base ++ "(" ++ show_pats(ps) ++ ")"
   end
 
-function show_pats(ps: List[Pat]): Str :=
-  join(", ", [show_pat(p) for p in ps])
+function show_pats(pats: List[Pat]): Str :=
+  join(", ", [show_pat(p) for p in pats])
 
 // constructors named by operators are shown infix
 function symbolic(n: Id): Bool :=
