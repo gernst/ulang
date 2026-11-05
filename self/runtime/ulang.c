@@ -703,7 +703,7 @@ void u_reraise(struct u_handler *h) {
 
 // the directory of the modules of the library, which the build of a program can set with -DULANG_LIB=path
 #ifndef ULANG_LIB
-#define ULANG_LIB "ulang/resources"
+#define ULANG_LIB "prelude"
 #endif
 
 static void os_error(const char *message, const char *arg) {

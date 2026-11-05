@@ -19,14 +19,15 @@ install: ulang.vsix
 
 # the compiler of self/ as a program, ./ulang.bin compile <file> <entry> <target.c>, built from bootstrap/ulang.c, the C of the last
 # working compiler, which is versioned as its backups are, with the runtime in self/runtime, GMP, and the Boehm collector
-CFLAGS = -O2 -std=c11 -Wall -Wno-unused-variable -Wno-unused-function -I self/runtime -DULANG_LIB='"$(CURDIR)/ulang/resources"'
+CFLAGS = -O2 -std=c11 -Wall -Wno-unused-variable -Wno-unused-function -I self/runtime -DULANG_LIB='"$(CURDIR)/prelude"'
 LIBS = -lgmp -lgc
 STAGE = bootstrap/stage
 
 # the compiler needs a large stack, as the interpreter does
 COMPILE = ulimit -s unlimited &&
 
-ulang.bin: bootstrap/ulang.c self/runtime/ulang.c self/runtime/ulang.h
+# also when the Makefile changes, e.g. CFLAGS with the directory of the library
+ulang.bin: bootstrap/ulang.c self/runtime/ulang.c self/runtime/ulang.h Makefile
 	cc $(CFLAGS) bootstrap/ulang.c self/runtime/ulang.c $(LIBS) -o $@
 
 # keeps the compiler so far in bootstrap/ with a time stamp, and installs the compiler of the C file $(1) and the binary $(2)
@@ -67,7 +68,7 @@ selfcompile: ulang.bin
 .PHONY: test
 test: ulang.bin
 	@failed=0; total=0; \
-	for f in $$(find tests self simp ulang/resources -name '*.u' | sort); do \
+	for f in $$(find tests self simp prelude -name '*.u' | sort); do \
 	  total=$$((total + 1)); \
 	  expected=$$(head -1 $$f | sed -nE 's#^// ((parse|type|runtime) error: .*)$$#\1#p'); \
 	  out=$$(cd $$(dirname $$f) && $(COMPILE) $(CURDIR)/ulang.bin test $$(basename $$f) 2>&1); status=$$?; \

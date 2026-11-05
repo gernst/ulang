@@ -70,7 +70,7 @@ test sorting() :=
 - Modules: `import name` makes the declarations of a file available, but not transitively.
 - Named tests `test name() := …`, whose parameters are reserved for later and must be empty, while programs start at a procedure without parameters, like `procedure main() := …`.
 
-The library in `ulang/resources/` contains the prelude with natural numbers, options, and lists, as well as maps, sets, and access to files.
+The library in `prelude/` contains the prelude with natural numbers, options, and lists, as well as maps, sets, and access to files.
 
 ## Usage
 
@@ -91,7 +91,7 @@ make test                                 # runs all tests
 - `self/` is the implementation in ulang: lexer, parser, checker, interpreter, and the compiler to C, with its runtime in `self/runtime/`, and the driver `self/ulang.u`.
 - `bootstrap/ulang.c` is the C of the last compiler that compiled itself to the same C, from which `make` builds `ulang.bin`.
   `make selfcompile` rebuilds the compiler with itself, and `make bootstrap` with the interpreter.
-- `ulang/resources/` is the library.
+- `prelude/` is the library.
 - `tests/` are the tests, also of expected errors in `tests/errors/`.
 - `vscode/` is an extension for VS Code and VSCodium, installed by `make install`.
 - `TODO.md` lists the open work, and `DESIGN.md` the design notes and the design of verification.

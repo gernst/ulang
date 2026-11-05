@@ -921,5 +921,5 @@ test compile_programs() :=
   call compile_with(in "../tests/files.u", "test", "out/files.c", ref cache)
   call compile_with(in "../tests/fields.u", "test", "out/fields.c", ref cache)
   call compile_with(in "../tests/locals.u", "test", "out/locals.c", ref cache)
-  call compile_with(in "../ulang/resources/map.u", "test", "out/map.c", ref cache)
-  call compile_with(in "../ulang/resources/set.u", "test", "out/set.c", ref cache)
+  call compile_with(in "../prelude/map.u", "test", "out/map.c", ref cache)
+  call compile_with(in "../prelude/set.u", "test", "out/set.c", ref cache)
