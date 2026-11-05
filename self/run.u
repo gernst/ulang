@@ -38,11 +38,13 @@ data RuntimeError :=
   | Uninitialized(Name)
   | NotFunction(Value)
   | Unspecified(Name, List[Value])
-  | NoCase(Value)
+  // the errors that compiled code reports as well, with the values as show gives them
+  | NoCase(Str)
   | CompareFunctions
   | NotList(Value)
   | AssertionFailed
-  | AssertionUnequal(Value, Value)
+  | AssertionUnequal(Str, Str)
+  | Uncaught(Str)
   | UnassignedOutput(Name, Name)
   | UnknownProc(Name)
   | NotProc(Value)
@@ -137,7 +139,7 @@ function constr_arity(k: Constr): Name * Int :=
 function builtin_names(): Set[Id] :=
   {
     "+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "compare", "show",
-    "str_get", "str_contains", "str_compare", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"
+    "str_get", "str_contains", "str_compare", "str_quote", "str_number", "is_digit", "is_letter", "is_space"
   }
 
 function is_builtin(n: Name): Bool :=
@@ -213,7 +215,7 @@ function pattern_vars(p: Pat): List[Name] :=
   end
 
 procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value, ref cache: Map[Name, Value]) :=
-  local w: Value, vs: List[Value], sel: Option[Expr * Bindings * List[Name]]
+  local w: Value, vs: List[Value], sel: Option[Expr * Bindings * List[Name]], s: Str
 
   match e
     case ELit(l) =>
@@ -251,7 +253,8 @@ procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value, ref cache: 
         case Some((body, inner, _)) =>
           call evaluate(in p, inner, body, out v, ref cache)
         case None =>
-          raise NoCase(w)
+          call  show_in(in p, w, out s, ref cache)
+          raise NoCase(s)
       end
 
     // tuples are objects of the constructor ,
@@ -479,9 +482,6 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
     case ("str_compare", [Lit(VStr(s)), Lit(VStr(t))]) =>
       assign v := Lit(VInt(str_compare(s, t)))
 
-    case ("str_show", [Lit(VInt(k))]) =>
-      assign v := Lit(VStr(str_show(k)))
-
     case ("str_quote", [Lit(VStr(s))]) =>
       assign v := Lit(VStr(str_quote(s)))
 
@@ -643,7 +643,7 @@ procedure equal_all(in p: Prog, xs: List[Value], ys: List[Value], out r: Bool, r
 
 // x updates the values of the variables in scope
 procedure exec(in p: Prog, x: Stmt, ref env: Bindings, cache: Map[Name, Value]) :=
-  local v: Value, w: Value, vs: List[Value], r: Bool, sel: Option[Stmt * Bindings * List[Name]]
+  local v: Value, w: Value, vs: List[Value], r: Bool, sel: Option[Stmt * Bindings * List[Name]], s: Str, t: Str
 
   match x
     case SSkip =>
@@ -693,7 +693,8 @@ procedure exec(in p: Prog, x: Stmt, ref env: Bindings, cache: Map[Name, Value]) 
         case Some((body, inner, ns)) =>
           call scoped(in p, ns, inner, [body], ref env, cache)
         case None =>
-          raise NoCase(v)
+          call  show_in(in p, v, out s, ref cache)
+          raise NoCase(s)
       end
     // assertions of equations show both sides when they fail
 
@@ -702,7 +703,9 @@ procedure exec(in p: Prog, x: Stmt, ref env: Bindings, cache: Map[Name, Value]) 
       call   evaluate(in p, env, rhs, out w, ref cache)
       call   equal(in p, v, w, out r, ref cache)
       if not r
-        raise AssertionUnequal(v, w)
+        call  show_in(in p, v, out s, ref cache)
+        call  show_in(in p, w, out t, ref cache)
+        raise AssertionUnequal(s, t)
       end
 
     case SAssert(cond) =>
@@ -965,18 +968,35 @@ function entry_values(entries: List[Str * Bool]): List[Value] :=
 procedure run_proc(in p: Prog, n: Name, ref cache: Map[Name, Value]) :=
   local env: Bindings := empty(), outs: List[Value]
 
-  call invoke(in p, n, Nil, Nil, out outs, ref env, cache)
+  try
+    call invoke(in p, n, Nil, Nil, out outs, ref env, cache)
+  catch
+    case Thrown(v, _) =>
+      call uncaught(in p, v, ref cache)
+  end
 
 // runs the test c
 procedure run_cmd(in p: Prog, c: Cmd, ref cache: Map[Name, Value]) :=
   local env: Bindings := empty()
 
-  match c
-    case CTest(_, _, body) =>
-      call exec(in p, body, ref env, cache)
-    case _ =>
-      skip
+  try
+    match c
+      case CTest(_, _, body) =>
+        call exec(in p, body, ref env, cache)
+      case _ =>
+        skip
+    end
+  catch
+    case Thrown(v, _) =>
+      call uncaught(in p, v, ref cache)
   end
+
+// an exception of the program that no handler catches, as the error with its text
+procedure uncaught(in p: Prog, v: Value, ref cache: Map[Name, Value]) :=
+  local s: Str
+
+  call  show_in(in p, v, out s, ref cache)
+  raise Uncaught(s)
 
 // runs the tests of cs
 procedure run_all(in p: Prog, cs: List[Cmd], ref cache: Map[Name, Value]) :=
@@ -1115,23 +1135,22 @@ test errors() :=
     call   check_and_run(in procedures() ++ [CTest("t", Nil, SBlock(Nil, [SRaise(expr_app("Fail", [expr_int(1)]), THole)]))])
     assert false
   catch
-    case Thrown(v, t) =>
-      assert v == Obj(Name(Some("main"), "Fail"), [int(1)])
-      assert t == TSort(Name(Some("main"), "Fail"), Nil)
+    case Uncaught(s) =>
+      assert s == "Fail(1)"
   end
   try
     call   check_and_run(in [CTest("t", Nil, SBlock(Nil, [SAssert(expr_app("==", [expr_int(1), expr_int(2)]))]))])
     assert false
   catch
     case AssertionUnequal(a, b) =>
-      assert (a, b) == (int(1), int(2))
+      assert (a, b) == ("1", "2")
   end
   try
     call   check_and_run(in [assigning(expr_app("/", [expr_int(1), expr_int(0)]))])
     assert false
   catch
-    case Thrown(Obj(n, _), _) if n == division_by_zero_name() =>
-      skip
+    case Uncaught(s) =>
+      assert s == "DivisionByZero"
   end
   // loop() := loop() + 1 needs its own value
   try
@@ -1161,6 +1180,6 @@ test handler_types() :=
     call   check_and_run(in [CTest("t", Nil, STry(SRaise(ELit(VStr("x")), THole), [Handler(THole, pat_var("k"), Some(expr_app("<", [expr_var("k"), expr_int(2)])), SSkip)]))])
     assert false
   catch
-    case Thrown(v, _) =>
-      assert v == Lit(VStr("x"))
+    case Uncaught(s) =>
+      assert s == "\"x\""
   end

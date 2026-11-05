@@ -67,7 +67,7 @@ function show_typed(t: CType, x: Str): Str :=
 function show_expr(e: CExpr): Str :=
   match e
     case CeVar(x) => x
-    case CeNum(n) => str_show(n)
+    case CeNum(n) => show(n)
     // the escapes of C strings are those of ulang
     case CeStr(s) => str_quote(s)
     case CeCall(f, args) => show_operand(f) ^ "(" ^ str_join(", ", [show_expr(a) for a in args]) ^ ")"

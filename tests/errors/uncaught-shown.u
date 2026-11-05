@@ -1,0 +1,12 @@
+// runtime error: uncaught exception Some(1 EUR)
+
+data Money :=
+  | Money(Int)
+
+function show(m: Money): Str :=
+  match m
+    case Money(n) => show(n) ^ " EUR"
+  end
+
+test shown() :=
+  raise Some(Money(1))

@@ -27,7 +27,7 @@ test string_functions() :=
   assert str_get("abc", 0) == 'a' and str_get("abc", 2) == 'c'
   assert str_contains("abc", 'b') and not str_contains("abc", 'd')
   assert str_compare("ab", "b") == -1 and str_compare("b", "ab") == 1 and str_compare("a", "a") == 0 and str_compare("", "a") == -1
-  assert str_show(42) == "42" and str_show(-7) == "-7" and str_show(0) == "0"
+  assert show(42) == "42" and show(-7) == "-7" and show(0) == "0"
   assert str_quote("a\"b\\c\n") == "\"a\\\"b\\\\c\\n\"" and str_quote("it's") == "\"it's\""
   assert str_number("123") == Some(123) and str_number("-5") == Some(-5)
   assert str_number("1a") == None and str_number("") == None

@@ -251,7 +251,6 @@ function builtin_scheme(b: Id): List[List[Type] * Type] :=
       case "str_get" => [(Nil, type_fun([type_str(), type_int()], type_char()))]
       case "str_contains" => [(Nil, type_fun([type_str(), type_char()], type_bool()))]
       case "str_compare" => [(Nil, type_fun([type_str(), type_str()], type_int()))]
-      case "str_show" => [(Nil, type_fun([type_int()], type_str()))]
       case "str_quote" => [(Nil, type_fun([type_str()], type_str()))]
       case "str_number" => [(Nil, type_fun([type_str()], TSort(option_name(), [type_int()])))]
       case "is_digit" => [(Nil, type_fun([type_char()], type_bool()))]
@@ -1076,7 +1075,7 @@ procedure choose(in n: Name, cs: List[Name * (List[Type] * Type)], w: Type, out 
     case [((m1, _), s1)] =>
       assign m := m1, s := s1
     case _ =>
-      assign m := Name(Some("?"), str_show(s.count + 1))
+      assign m := Name(Some("?"), show(s.count + 1))
       assign s := s with count := s.count + 1, pending := s.pending ++ [Pending(m, n, firsts(ok), w)]
   end
 

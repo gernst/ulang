@@ -150,7 +150,6 @@ u_value u_str_split(u_value s, u_value c);
 u_value u_str_get(u_value s, u_value i);
 u_value u_str_contains(u_value s, u_value c);
 u_value u_str_compare(u_value s, u_value t);
-u_value u_str_show(u_value n);
 u_value u_str_quote(u_value s);
 u_value u_str_number(u_value s);
 u_value u_is_digit(u_value c);

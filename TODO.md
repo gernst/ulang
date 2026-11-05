@@ -9,7 +9,6 @@ Open action items, each with the problem and the desired solution.
 ## Builtins
 
 1. **Builtin functions are registered in three places**: their types in `builtin` of `self/check.u`, and their implementations in `self/run.u` and in the runtime with `builtin_functions` of `self/compile.u`, while the builtin procedures of `os` are declared by signatures without definitions in `prelude/os.u` and come with its import (`is_builtin_proc` in `self/check.u`). Solution: declare the functions the same way in library modules, e.g. `function str_get(s: Str, i: Int): Char` in a module of strings, so that only the implementations remain, and a builtin exists once its module is imported.
-2. **Declared shows reach the messages of compiled code but not of the interpreter**: `assertion failed: a != b`, `uncaught exception`, and `no case matches` print values by the descriptors in the runtime, which use the shows that datatypes declare, while `self/ulang.u` prints the values of `AssertionUnequal`, `Thrown`, and `NoCase` by `show_value` of `self/print.u`. Solution: `self/run.u` turns the values into text by `show_in` when it raises these errors. Also `show_value` still shows the empty list as `Nil`, where `show` of `list.u` gives `[]`. Then `str_show` replaced by `show`.
 
 ## Self-hosted toolchain
 

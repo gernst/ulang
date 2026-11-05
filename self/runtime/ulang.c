@@ -497,10 +497,6 @@ u_value u_str_compare(u_value s, u_value t) {
   return u_mk_int(c < 0 ? -1 : c > 0);
 }
 
-u_value u_str_show(u_value n) {
-  return u_mk_str(digits(n));
-}
-
 u_value u_str_quote(u_value s) {
   char *r = text(2 * (size_t)s->length + 2), *p = r;
   *p++ = '"';
@@ -582,13 +578,7 @@ void u_fprint_value(FILE *out, u_value v) {
 }
 
 static u_value show_int(u_value v) {
-  char *s = GC_MALLOC_ATOMIC(24);
-  snprintf(s, 24, "%lld", v->num);
-  return u_mk_str(s);
-}
-
-static u_value show_big(u_value v) {
-  return u_mk_str(mpz_get_str(NULL, 10, v->big));
+  return u_mk_str(digits(v));
 }
 
 static u_value show_bool(u_value v) {
@@ -641,7 +631,7 @@ static u_value show_procedure(u_value v) {
 }
 
 const struct u_type u_int_type = {"Int", compare_ints, u_equals_by_compare, show_int};
-const struct u_type u_big_type = {"Int", compare_ints, u_equals_by_compare, show_big};
+const struct u_type u_big_type = {"Int", compare_ints, u_equals_by_compare, show_int};
 const struct u_type u_bool_type = {"Bool", compare_nums, u_equals_by_compare, show_bool};
 const struct u_type u_char_type = {"Char", compare_nums, u_equals_by_compare, show_char};
 const struct u_type u_str_type = {"Str", compare_strs, u_equals_by_compare, show_str};

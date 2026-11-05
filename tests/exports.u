@@ -39,7 +39,7 @@ test equality_without_order() :=
   assert tally([1, 2]) == tally([3]) and tally([1]) != tally([2]) and contains(tally([4]), [tally([1, 3])])
 
   try
-    assign r := str_show(compare(tally([1]), tally([2])))
+    assign r := show(compare(tally([1]), tally([2])))
   catch
     case Unordered(t) =>
       assign r := t

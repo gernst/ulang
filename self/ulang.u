@@ -100,8 +100,6 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
       call located(in file, m, i, out message)
     case OsError(m) =>
       assign message := "runtime error: " ^ m
-    case Thrown(v, _) =>
-      assign message := "runtime error: uncaught exception " ^ show_value(v)
     case Unsupported(m) =>
       assign message := "compile error: " ^ m
     case UnknownEntry(n) =>
@@ -126,7 +124,7 @@ procedure located(in file: Str, m: Str, i: Int, out message: Str) :=
   else
     call   os_read(in file, out text)
     call   position(in text, i, out line, column)
-    assign message := "parse error: " ^ m ^ " at " ^ str_show(line) ^ "." ^ str_show(column)
+    assign message := "parse error: " ^ m ^ " at " ^ show(line) ^ "." ^ show(column)
   end
 
 function in_module(words: List[Str]): Bool :=
@@ -273,8 +271,6 @@ procedure test_message(in p: Prog, c: Cmd, out message: Str) :=
   try
     call run_cmd(in p, c, ref cache)
   catch
-    case Thrown(v, _) =>
-      assign message := "runtime error: uncaught exception " ^ show_value(v)
     case e =>
       assign message := "runtime error: " ^ runtime_message(e)
   end
@@ -289,7 +285,7 @@ procedure test_paths(in paths: List[Str], out ok: Bool) :=
   assign files := [f for f in found if is_source(f)]
   call   os_cwd(out home)
   call   test_suite(in files, home, out failed)
-  call   os_print(in str_show(size(files) - failed) ^ " of " ^ str_show(size(files)) ^ " files passed")
+  call   os_print(in show(size(files) - failed) ^ " of " ^ show(size(files)) ^ " files passed")
   assign ok := failed == 0
 
 procedure walk_all(in paths: List[Str], out files: List[Str]) :=
@@ -400,7 +396,7 @@ function cmd_name(c: Cmd): Str :=
 function type_message(e: TypeError): Str :=
   match e
     case UnknownSort(n) => "unknown sort " ^ n.base
-    case SortArity(n, k, m) => "sort " ^ n.base ^ " expects " ^ str_show(k) ^ " arguments, got " ^ str_show(m)
+    case SortArity(n, k, m) => "sort " ^ n.base ^ " expects " ^ show(k) ^ " arguments, got " ^ show(m)
     case SortDefined(n) => "sort " ^ n.base ^ " is already defined"
     case MissingType(n) => "missing type for " ^ n.base
     case UndeclaredParams(n, ts) => n.base ^ " has undeclared type parameters " ^ show_types(ts)
@@ -408,13 +404,13 @@ function type_message(e: TypeError): Str :=
     case InfiniteType(a, b) => "infinite type " ^ show_type(a) ^ " = " ^ show_type(b)
     case UnknownVariable(n) => "unknown variable " ^ n.base
     case NoOverload(n, t) => "no declaration of " ^ n.base ^ " has the type " ^ show_type(t)
-    case WrongArity(n, k) => n.base ^ " does not take " ^ str_show(k) ^ " arguments"
+    case WrongArity(n, k) => n.base ^ " does not take " ^ show(k) ^ " arguments"
     case AlreadyDefined(n) => n.base ^ " is already defined"
     case Duplicate(s) => "duplicate " ^ s
     case Ambiguous(n, ns) => n.base ^ " is ambiguous: " ^ str_join(", ", [qualified(m) for m in ns])
     case UnknownField(n) => field_message(str_split(n.base, '.'))
     case UnknownFieldType(f, t) => "the type " ^ show_type(t) ^ " of the value of " ^ f ^ " is not known"
-    case CountMismatch(k, m) => "expected " ^ str_show(k) ^ " values, got " ^ str_show(m)
+    case CountMismatch(k, m) => "expected " ^ show(k) ^ " values, got " ^ show(m)
     case UnknownConstructor(n) => "unknown constructor " ^ n.base
     case NotExhaustive(p) => "match is not exhaustive, missing " ^ show_pat(p)
     case Unreachable(p) => "unreachable case " ^ show_pat(p)
@@ -455,11 +451,12 @@ function runtime_message(e: RuntimeError): Str :=
     case Uninitialized(n) => n.base ^ " is not initialized"
     case NotFunction(v) => "cannot apply " ^ show_value(v)
     case Unspecified(n, vs) => n.base ^ " is not specified for " ^ str_join(", ", [show_value(v) for v in vs])
-    case NoCase(v) => "no case matches " ^ show_value(v)
+    case NoCase(s) => "no case matches " ^ s
     case CompareFunctions => "cannot compare functions"
     case NotList(v) => "expected a list, got " ^ show_value(v)
     case AssertionFailed => "assertion failed"
-    case AssertionUnequal(a, b) => "assertion failed: " ^ show_value(a) ^ " != " ^ show_value(b)
+    case AssertionUnequal(a, b) => "assertion failed: " ^ a ^ " != " ^ b
+    case Uncaught(s) => "uncaught exception " ^ s
     case UnassignedOutput(x, p) => "output " ^ x.base ^ " of " ^ p.base ^ " is not assigned"
     case UnknownProc(n) => "unknown procedure " ^ n.base
     case NotProc(v) => "cannot call " ^ show_value(v)

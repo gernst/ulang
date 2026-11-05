@@ -19,11 +19,12 @@ function show_value(v: Value): Str :=
   match v
     case Lit(VUnit) => "()"
     case Lit(VBool(b)) => if b then "true" else "false"
-    case Lit(VInt(n)) => str_show(n)
+    case Lit(VInt(n)) => show(n)
     case Lit(VStr(s)) => str_quote(s)
     case Lit(VChar(c)) => "'" ^ escape_char(c) ^ "'"
     case Obj(n, vs) if n == tuple_name() => "(" ^ show_values(vs) ^ ")"
     case Obj(n, _) if n == cons_name() and list_elements(v) != None => "[" ^ show_values(list_items(v)) ^ "]"
+    case Obj(n, Nil) if n == nil_name() => "[]"
     case Obj(n, Nil) => n.base
     case Obj(n, vs) => n.base ^ "(" ^ show_values(vs) ^ ")"
     case Proc(_) => "<procedure>"
@@ -55,7 +56,7 @@ function show_type(t: Type): Str :=
   match t
     case TParam(n) => n
     case THole => "_"
-    case TMeta(i) => "?" ^ str_show(i)
+    case TMeta(i) => "?" ^ show(i)
     case TFun([TTuple([])], r) => "(()) -> " ^ show_type(r)
     case TFun([a], r) => type_operand(a) ^ " -> " ^ show_type(r)
     case TFun(args, r) => "(" ^ show_types(args) ^ ") -> " ^ show_type(r)
@@ -125,7 +126,7 @@ test printing() :=
   assert show_type(TProc([TParam("A")], [], [TSort(unqualified("Int"), [])])) == "(in A, ref Int)"
   assert show_pat(PApp(cons_name(), [PVar(Var(unqualified("x"), THole)), PApp(unqualified("Some"), [PWild])])) == "[x; Some(_)]"
   assert show_value(list_value([Lit(VInt(1)), Lit(VStr("a\"b"))])) == "[1, \"a\\\"b\"]"
-  assert show_value(Obj(tuple_name(), [Lit(VChar('\'')), Obj(nil_name(), Nil), Obj(unqualified("Some"), [Lit(VBool(true))])])) == "('\\'', Nil, Some(true))"
+  assert show_value(Obj(tuple_name(), [Lit(VChar('\'')), Obj(nil_name(), Nil), Obj(unqualified("Some"), [Lit(VBool(true))])])) == "('\\'', [], Some(true))"
 
 // programs as source, where the notations of the prelude, of the program, and of its imports decide where operators need
 // parentheses, and the translations of the parser are printed as what they translate, so that the source parses to the
@@ -219,7 +220,7 @@ function show_exprs(ctx: Context, indent: Str, es: List[Expr]): Str :=
 function expr_doc(ctx: Context, indent: Str, e: Expr): Doc :=
   match e
     case ELit(VInt(n)) if n < 0 =>
-      Doc(str_show(n), Negative)
+      Doc(show(n), Negative)
     case ELit(v) =>
       Doc(show_value(Lit(v)), Atom)
     case EVar(Var(Name(None, "Nil"), _)) =>
@@ -480,7 +481,7 @@ function pattern_doc(ctx: Context, p: Pat): Doc :=
     case PWild =>
       Doc("_", Atom)
     case PLit(VInt(n)) if n < 0 =>
-      Doc(str_show(n), Negative)
+      Doc(show(n), Negative)
     case PLit(v) =>
       Doc(show_value(Lit(v)), Atom)
     case PVar(x) =>
@@ -637,7 +638,7 @@ function show_cmd(ctx: Context, cmd: Cmd, more: List[Cmd]): Option[Str] :=
     case CImport(n) =>
       Some("import " ^ n)
     case CNotation(f, prec, names) =>
-      Some(fixity_text(f) ^ " " ^ str_show(prec) ^ " " ^ str_join(" ", names))
+      Some(fixity_text(f) ^ " " ^ show(prec) ^ " " ^ str_join(" ", names))
     case CTest(name, xs, body) =>
       Some("test " ^ name ^ "(" ^ str_join(", ", [formal_text(x) for x in xs]) ^ ") :=" ^ show_body(ctx, "  ", body))
     case CExport =>

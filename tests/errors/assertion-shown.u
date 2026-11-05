@@ -1,0 +1,12 @@
+// runtime error: assertion failed: ([], 1 EUR) != ([], 2 EUR)
+
+data Money :=
+  | Money(Int)
+
+function show(m: Money): Str :=
+  match m
+    case Money(n) => show(n) ^ " EUR"
+  end
+
+test shown() :=
+  assert (Nil, Money(1)) == ([], Money(2))

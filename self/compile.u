@@ -44,10 +44,10 @@ function mangle(n: Name): Str :=
   string(concat([mangle_char(c) for c in chars(qualified(n))]))
 
 function mangle_char(c: Char): List[Char] :=
-  if is_letter(c) or is_digit(c) or c == '_' then [c] else chars("_" ^ str_show(ord(c)) ^ "_")
+  if is_letter(c) or is_digit(c) or c == '_' then [c] else chars("_" ^ show(ord(c)) ^ "_")
 
 function fun_name(n: Name, k: Int): Str :=
-  "f_" ^ mangle(n) ^ "_" ^ str_show(k)
+  "f_" ^ mangle(n) ^ "_" ^ show(k)
 
 function proc_name(n: Name): Str :=
   "p_" ^ mangle(n)
@@ -82,7 +82,6 @@ function builtin_functions(): Map[Name, Str * Int] :=
     unqualified("str_get") => ("u_str_get", 2),
     unqualified("str_contains") => ("u_str_contains", 2),
     unqualified("str_compare") => ("u_str_compare", 2),
-    unqualified("str_show") => ("u_str_show", 1),
     unqualified("str_quote") => ("u_str_quote", 1),
     unqualified("str_number") => ("u_str_number", 1),
     unqualified("is_digit") => ("u_is_digit", 1),
@@ -284,7 +283,7 @@ function literal_value(l: Val): CExpr :=
   match l
     case VUnit => c_call("u_mk_tuple", [CeNum(0)])
     case VBool(b) => c_call("u_mk_bool", [CeNum(if b then 1 else 0)])
-    case VInt(n) => if -1000000000000000000 < n and n < 1000000000000000000 then c_call("u_mk_int", [CeNum(n)]) else c_call("u_mk_int_str", [CeStr(str_show(n))])
+    case VInt(n) => if -1000000000000000000 < n and n < 1000000000000000000 then c_call("u_mk_int", [CeNum(n)]) else c_call("u_mk_int_str", [CeStr(show(n))])
     case VStr(s) => c_call("u_mk_lit", [CeStr(s)])
     case VChar(c) => c_call("u_mk_char", [CeNum(ord(c))])
   end
@@ -382,7 +381,7 @@ function lambdas(xss: List[List[Var]], b: Expr): Expr :=
   end
 
 procedure gen_name(in stem: Str, out x: Str, ref g: Gen) :=
-  assign x := stem ^ str_show(g.count), g := g with count := g.count + 1
+  assign x := stem ^ show(g.count), g := g with count := g.count + 1
 
 procedure lift(in d: CDecl, ref g: Gen) :=
   assign g := g with lifted := g.lifted ++ [d]

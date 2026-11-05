@@ -258,15 +258,15 @@ procedure failure(in k: Int, out m: Str) :=
     case DivisionByZero =>
       assign m := "division"
     case NoIndex(s, i) =>
-      assign m := s ^ str_show(i)
+      assign m := s ^ show(i)
     case NoCharacter(n) =>
-      assign m := str_show(n)
+      assign m := show(n)
     case MissingField(f) =>
       assign m := f
   end
 
   if m == "none"
-    assign m := str_show(x)
+    assign m := show(x)
   end
 
 test builtin_exceptions() :=

@@ -13,7 +13,7 @@ data Money :=
   | Money(cents: Int)
 
 function show(m: Money): Str :=
-  str_show(m.cents / 100) ^ "." ^ (if m.cents % 100 < 10 then "0" else "") ^ str_show(m.cents % 100) ^ " EUR"
+  show(m.cents / 100) ^ "." ^ (if m.cents % 100 < 10 then "0" else "") ^ show(m.cents % 100) ^ " EUR"
 
 function texts[A](xs: List[A]): List[Str] :=
   [show(x) for x in xs]

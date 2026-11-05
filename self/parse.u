@@ -177,7 +177,7 @@ function show_token(tok: Token): Str :=
     case TName(name) => name
     case TSym(s) => s
     case TPunct(c) => string([c])
-    case TNum(n) => str_show(n)
+    case TNum(n) => show(n)
     case TStr(s) => str_quote(s)
     case TChar(c) => "'" ^ string([c]) ^ "'"
     case TEnd => "end of input"
@@ -1475,9 +1475,9 @@ function update_case(field: Id * (Name * Int * Int * Type)): Branch[Expr] :=
   match field
     case (_, (k, i, n, _)) =>
       Branch(
-        PApp(k, [if j == i then PWild else PVar(Var(unqualified("a" ^ str_show(j)), THole)) for j in positions(n)]),
+        PApp(k, [if j == i then PWild else PVar(Var(unqualified("a" ^ show(j)), THole)) for j in positions(n)]),
         None,
-        EApp(EVar(Var(k, THole)), [EVar(Var(unqualified(if j == i then "y" else "a" ^ str_show(j)), THole)) for j in positions(n)])
+        EApp(EVar(Var(k, THole)), [EVar(Var(unqualified(if j == i then "y" else "a" ^ show(j)), THole)) for j in positions(n)])
       )
   end
 
