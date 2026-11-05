@@ -22,7 +22,7 @@ function show_value(v: Value): Str :=
     case Lit(VUnit) => "()"
     case Lit(VBool(b)) => if b then "true" else "false"
     case Lit(VInt(n)) => show(n)
-    case Lit(VStr(s)) => str_quote(s)
+    case Lit(VStr(s)) => quote(s)
     case Lit(VChar(c)) => "'" ++ escape_char(c) ++ "'"
     case Obj(n, vs) if n == tuple_name() => "(" ++ show_values(vs) ++ ")"
     case Obj(n, _) if n == cons_name() and list_elements(v) != None => "[" ++ show_values(list_items(v)) ++ "]"
@@ -35,7 +35,7 @@ function show_value(v: Value): Str :=
   end
 
 function show_values(vs: List[Value]): Str :=
-  str_join(", ", [show_value(v) for v in vs])
+  join(", ", [show_value(v) for v in vs])
 
 function list_items(v: Value): List[Value] :=
   match list_elements(v)
@@ -62,15 +62,15 @@ function show_type(t: Type): Str :=
     case TFun([TTuple([])], r) => "(()) -> " ++ show_type(r)
     case TFun([a], r) => type_operand(a) ++ " -> " ++ show_type(r)
     case TFun(args, r) => "(" ++ show_types(args) ++ ") -> " ++ show_type(r)
-    case TProc(is, os, rs) => "(" ++ str_join(", ", type_section("in", is) ++ type_section("out", os) ++ type_section("ref", rs)) ++ ")"
+    case TProc(is, os, rs) => "(" ++ join(", ", type_section("in", is) ++ type_section("out", os) ++ type_section("ref", rs)) ++ ")"
     case TTuple([]) => "()"
-    case TTuple(ts) => str_join(" * ", [type_component(a) for a in ts])
+    case TTuple(ts) => join(" * ", [type_component(a) for a in ts])
     case TSort(n, []) => n.base
     case TSort(n, args) => n.base ++ "[" ++ show_types(args) ++ "]"
   end
 
 function show_types(ts: List[Type]): Str :=
-  str_join(", ", [show_type(t) for t in ts])
+  join(", ", [show_type(t) for t in ts])
 
 function type_section(mode: Str, ts: List[Type]): List[Str] :=
   if ts == [] then [] else [mode ++ " " ++ show_types(ts)]
@@ -104,17 +104,17 @@ function show_pat(p: Pat): Str :=
   end
 
 function show_pats(ps: List[Pat]): Str :=
-  str_join(", ", [show_pat(p) for p in ps])
+  join(", ", [show_pat(p) for p in ps])
 
 // constructors named by operators are shown infix
 function symbolic(n: Id): Bool :=
-  let c := str_get(n, 0) in not is_letter(c) and c != '_' and n != ","
+  let c := at(0, n) in not is_letter(c) and c != '_' and n != ","
 
 function infix_text(op: Id, l: Str, r: Str): Str :=
   pat_operand(l) ++ " " ++ op ++ " " ++ pat_operand(r)
 
 function pat_operand(a: Str): Str :=
-  if str_contains(a, ' ') and str_get(a, 0) != '(' then "(" ++ a ++ ")" else a
+  if contains(' ', a) and at(0, a) != '(' then "(" ++ a ++ ")" else a
 
 // the text of a string, for os_print
 function text_of(v: Value): Str :=
@@ -148,7 +148,7 @@ data Shape :=
 
 // the program p, parsed after the prelude pre, as source
 function show_program(pre: Program, p: Program): Str :=
-  str_join("\n\n", show_cmds(declare_commands(empty_loader(), pre.cmds), p.cmds)) ++ "\n"
+  join("\n\n", show_cmds(declare_commands(empty_loader(), pre.cmds), p.cmds)) ++ "\n"
 
 // operators and parentheses
 
@@ -198,10 +198,10 @@ function postfix_operand(d: Doc): Str :=
 
 // a name is separated from its operand, and a symbol only from an operand that starts with a symbol, as in - -x
 function prefix_text(op: Id, a: Str): Str :=
-  if not symbolic(op) or is_symbol(str_get(a, 0)) then op ++ " " ++ a else op ++ a
+  if not symbolic(op) or is_symbol(at(0, a)) then op ++ " " ++ a else op ++ a
 
 function is_symbol(c: Char): Bool :=
-  str_contains("-+*/%<>=!&|:^~?@#$", c)
+  contains(c, "-+*/%<>=!&|:^~?@#$")
 
 // the function of an application, and the record of an access
 function atom_text(d: Doc): Str :=
@@ -217,7 +217,7 @@ function show_expr(loader: Loader, indent: Str, e: Expr): Str :=
   expr_doc(loader, indent, e).text
 
 function show_exprs(loader: Loader, indent: Str, es: List[Expr]): Str :=
-  str_join(", ", [show_expr(loader, indent, e) for e in es])
+  join(", ", [show_expr(loader, indent, e) for e in es])
 
 function expr_doc(loader: Loader, indent: Str, e: Expr): Doc :=
   match e
@@ -242,7 +242,7 @@ function expr_doc(loader: Loader, indent: Str, e: Expr): Doc :=
     case ELam(Nil, body) =>
       Doc("lambda => " ++ show_expr(loader, indent, body), Open)
     case ELam(xs, body) =>
-      Doc("lambda " ++ str_join(", ", [formal_text(x) for x in xs]) ++ " => " ++ show_expr(loader, indent, body), Open)
+      Doc("lambda " ++ join(", ", [formal_text(x) for x in xs]) ++ " => " ++ show_expr(loader, indent, body), Open)
     case EProc(ins, outs, refs, body) =>
       Doc("lambda " ++ formal_sections(ins, outs, refs) ++ " =>" ++ show_body(loader, deeper(indent), body) ++ "\n" ++ indent ++ "end", Atom)
     case ELet(bindings, body) =>
@@ -270,13 +270,13 @@ function app_doc(loader: Loader, indent: Str, f: Expr, args: List[Expr]): Doc :=
     end
 
 function texts(docs: List[Doc]): Str :=
-  str_join(", ", [d.text for d in docs])
+  join(", ", [d.text for d in docs])
 
 function is_access(f: Id): Bool :=
-  str_get(f, 0) == '.' and not is_update(f)
+  at(0, f) == '.' and not is_update(f)
 
 function is_update(f: Id): Bool :=
-  let n := str_size(f) in str_get(f, 0) == '.' and n > 3 and str_slice(f, n - 2, n) == ":="
+  let n := size(f) in at(0, f) == '.' and n > 3 and slice(f, n - 2, n) == ":="
 
 // [a, b] for a list that ends in Nil, and [a, b; c] for one that ends in c
 function list_text(loader: Loader, indent: Str, e: Expr): Str :=
@@ -301,7 +301,7 @@ function cons_rest(e: Expr): Expr :=
 function updates_doc(loader: Loader, indent: Str, e: Expr): Doc :=
   match updates_of(e)
     case (r, updates) =>
-      Doc(closed_text(expr_doc(loader, indent, r)) ++ " with " ++ str_join(", ", [update_text(loader, indent, u) for u in updates]), Open)
+      Doc(closed_text(expr_doc(loader, indent, r)) ++ " with " ++ join(", ", [update_text(loader, indent, u) for u in updates]), Open)
   end
 
 function update_text(loader: Loader, indent: Str, update: Id * Expr): Str :=
@@ -313,7 +313,7 @@ function updates_of(e: Expr): Expr * List[Id * Expr] :=
   match e
     case EApp(EVar(Var(Name(None, f), _)), [r, a]) if is_update(f) =>
       match updates_of(r)
-        case (s, updates) => (s, updates ++ [(str_slice(f, 1, str_size(f) - 2), a)])
+        case (s, updates) => (s, updates ++ [(slice(f, 1, size(f) - 2), a)])
       end
     case _ =>
       (e, Nil)
@@ -328,7 +328,7 @@ function assignments_text(loader: Loader, indent: Str, pairs: List[Var * Expr]):
   end
 
 function expr_cases(loader: Loader, indent: Str, branches: List[Branch[Expr]]): Str :=
-  str_join("", ["\n" ++ indent ++ case_head(loader, indent, b.pat, b.guard) ++ " " ++ show_expr(loader, indent, b.body) for b in branches])
+  join("", ["\n" ++ indent ++ case_head(loader, indent, b.pat, b.guard) ++ " " ++ show_expr(loader, indent, b.body) for b in branches])
 
 function case_head(loader: Loader, indent: Str, p: Pat, guard: Option[Expr]): Str :=
   match guard
@@ -348,7 +348,7 @@ function translation_doc(loader: Loader, indent: Str, f: Id, e: Expr, args: List
     case (_, Some(es), _) =>
       Doc("{" ++ show_exprs(loader, indent, es) ++ "}", Atom)
     case (_, _, Some(entries)) =>
-      Doc("{" ++ str_join(", ", [entry_text(loader, indent, entry) for entry in entries]) ++ "}", Atom)
+      Doc("{" ++ join(", ", [entry_text(loader, indent, entry) for entry in entries]) ++ "}", Atom)
     case _ =>
       Doc(f ++ "(" ++ show_exprs(loader, indent, args) ++ ")", Atom)
   end
@@ -408,7 +408,7 @@ function comprehension_of(
 ): Option[Str] :=
   match inner_generators(fold, inner)
     case (generators, body) =>
-      let gs := " for " ++ str_join(", ", [generator_text(loader, indent, g) for g in [generator; generators]]) in
+      let gs := " for " ++ join(", ", [generator_text(loader, indent, g) for g in [generator; generators]]) in
         match (fold, condition_of(body))
           case ("foldr", (q, EApp(EVar(Var(Name(None, "Cons"), _)), [a, acc]))) if init == EVar(Var(unqualified("Nil"), THole)) and acc == acc_expr() =>
             Some("[" ++ show_expr(loader, indent, a) ++ gs ++ condition_text(loader, indent, q) ++ "]")
@@ -467,7 +467,7 @@ function condition_text(loader: Loader, indent: Str, q: Option[Expr]): Str :=
 function generator_text(loader: Loader, indent: Str, generator: List[Var] * Expr): Str :=
   match generator
     case ([k, v], c) => k.name.base ++ " => " ++ v.name.base ++ " in " ++ show_expr(loader, indent, c)
-    case (xs, c) => str_join(", ", [x.name.base for x in xs]) ++ " in " ++ show_expr(loader, indent, c)
+    case (xs, c) => join(", ", [x.name.base for x in xs]) ++ " in " ++ show_expr(loader, indent, c)
   end
 
 // patterns
@@ -476,7 +476,7 @@ function show_pattern(loader: Loader, p: Pat): Str :=
   pattern_doc(loader, p).text
 
 function show_patterns(loader: Loader, ps: List[Pat]): Str :=
-  str_join(", ", [show_pattern(loader, p) for p in ps])
+  join(", ", [show_pattern(loader, p) for p in ps])
 
 function pattern_doc(loader: Loader, p: Pat): Doc :=
   match p
@@ -555,7 +555,7 @@ function else_text(loader: Loader, indent: Str, r: Stmt): Str :=
   end
 
 function stmt_cases(loader: Loader, indent: Str, branches: List[Branch[Stmt]]): Str :=
-  str_join("", ["\n" ++ indent ++ case_head(loader, indent, b.pat, b.guard) ++ show_body(loader, deeper(indent), b.body) for b in branches])
+  join("", ["\n" ++ indent ++ case_head(loader, indent, b.pat, b.guard) ++ show_body(loader, deeper(indent), b.body) for b in branches])
 
 // the lines of a body, each after a newline, where local x := e is x with the assignment that starts the block
 function show_body(loader: Loader, indent: Str, body: Stmt): Str :=
@@ -564,14 +564,14 @@ function show_body(loader: Loader, indent: Str, body: Stmt): Str :=
       show_stmts(loader, indent, ss)
     case SBlock(xs, ss) =>
       match local_decls(loader, indent, xs, ss)
-        case (decls, rest) => "\n" ++ indent ++ "local " ++ str_join(", ", decls) ++ show_stmts(loader, indent, rest)
+        case (decls, rest) => "\n" ++ indent ++ "local " ++ join(", ", decls) ++ show_stmts(loader, indent, rest)
       end
     case _ =>
       show_stmts(loader, indent, [body])
   end
 
 function show_stmts(loader: Loader, indent: Str, ss: List[Stmt]): Str :=
-  str_join("", ["\n" ++ indent ++ show_stmt(loader, indent, s) for s in ss])
+  join("", ["\n" ++ indent ++ show_stmt(loader, indent, s) for s in ss])
 
 // the declarations of the locals xs, with the assignments at the start of ss that initialize them, and the statements after
 function local_decls(loader: Loader, indent: Str, xs: List[Var], ss: List[Stmt]): List[Str] * List[Stmt] :=
@@ -590,10 +590,10 @@ function local_decls(loader: Loader, indent: Str, xs: List[Var], ss: List[Stmt])
 
 // in a, b, out c, ref d, without the empty sections
 function sections_text(ins: List[Str], outs: List[Str], refs: List[Str]): Str :=
-  str_join(", ", section("in", ins) ++ section("out", outs) ++ section("ref", refs))
+  join(", ", section("in", ins) ++ section("out", outs) ++ section("ref", refs))
 
 function section(mode: Str, items: List[Str]): List[Str] :=
-  if items == [] then [] else [mode ++ " " ++ str_join(", ", items)]
+  if items == [] then [] else [mode ++ " " ++ join(", ", items)]
 
 function formal_sections(ins: List[Var], outs: List[Var], refs: List[Var]): Str :=
   sections_text([formal_text(x) for x in ins], [formal_text(x) for x in outs], [formal_text(x) for x in refs])
@@ -624,8 +624,8 @@ function show_cmd(loader: Loader, cmd: Cmd, more: List[Cmd]): Option[Str] :=
       Some("type " ++ n.base ++ params_text(params))
     case CData(n, params, constrs) =>
       let fields := field_names(n.base, more) in
-        Some("data " ++ n.base ++ params_text(params) ++ " :=" ++ str_join("", ["\n  | " ++ constr_text(c, fields) for c in constrs]))
-    case CFun(n, _, _, _, _) if str_contains(n.base, '.') =>
+        Some("data " ++ n.base ++ params_text(params) ++ " :=" ++ join("", ["\n  | " ++ constr_text(c, fields) for c in constrs]))
+    case CFun(n, _, _, _, _) if contains('.', n.base) =>
       None
     case CFun(n, params, xss, r, body) =>
       Some(function_head(n, params, xss, r) ++ " :=\n  " ++ show_expr(loader, "  ", body))
@@ -640,20 +640,22 @@ function show_cmd(loader: Loader, cmd: Cmd, more: List[Cmd]): Option[Str] :=
     case CImport(n) =>
       Some("import " ++ n)
     case CNotation(f, prec, names) =>
-      Some(fixity_text(f) ++ " " ++ show(prec) ++ " " ++ str_join(" ", names))
+      Some(fixity_text(f) ++ " " ++ show(prec) ++ " " ++ join(" ", names))
     case CTest(name, xs, body) =>
-      Some("test " ++ name ++ "(" ++ str_join(", ", [formal_text(x) for x in xs]) ++ ") :=" ++ show_body(loader, "  ", body))
+      Some("test " ++ name ++ "(" ++ join(", ", [formal_text(x) for x in xs]) ++ ") :=" ++ show_body(loader, "  ", body))
     case CExport =>
       Some("export")
+    case CBuiltin =>
+      Some("builtin")
     case CImplementation =>
       Some("implementation")
   end
 
 function params_text(params: List[Id]): Str :=
-  if params == [] then "" else "[" ++ str_join(", ", params) ++ "]"
+  if params == [] then "" else "[" ++ join(", ", params) ++ "]"
 
 function function_head(n: Name, params: List[Id], xss: List[List[Var]], r: Type): Str :=
-  "function " ++ n.base ++ params_text(params) ++ str_join("", ["(" ++ str_join(", ", [formal_text(x) for x in xs]) ++ ")" for xs in xss]) ++ ": " ++ show_type(r)
+  "function " ++ n.base ++ params_text(params) ++ join("", ["(" ++ join(", ", [formal_text(x) for x in xs]) ++ ")" for xs in xss]) ++ ": " ++ show_type(r)
 
 function fixity_text(f: Fixity): Str :=
   match f
@@ -668,7 +670,7 @@ function fixity_text(f: Fixity): Str :=
 function constr_text(c: Constr, fields: List[(Id * Int) * Id]): Str :=
   match c
     case Constr(k, Nil) => k.base
-    case Constr(k, args) => k.base ++ "(" ++ str_join(", ", constr_args(k.base, args, 0, fields)) ++ ")"
+    case Constr(k, args) => k.base ++ "(" ++ join(", ", constr_args(k.base, args, 0, fields)) ++ ")"
   end
 
 function constr_args(k: Id, args: List[Type], i: Int, fields: List[(Id * Int) * Id]): List[Str] :=
@@ -684,15 +686,15 @@ function constr_args(k: Id, args: List[Type], i: Int, fields: List[(Id * Int) * 
 function field_names(t: Id, cmds: List[Cmd]): List[(Id * Int) * Id] :=
   match cmds
     case [CFun(n, _, _, _, EMatch(_, branches)); more] if is_accessor(t, n.base) =>
-      [(position, str_slice(n.base, str_size(t) + 1, str_size(n.base))) for position in branch_positions(branches)] ++ field_names(t, more)
-    case [CFun(n, _, _, _, _); more] if str_contains(n.base, '.') =>
+      [(position, slice(n.base, size(t) + 1, size(n.base))) for position in branch_positions(branches)] ++ field_names(t, more)
+    case [CFun(n, _, _, _, _); more] if contains('.', n.base) =>
       field_names(t, more)
     case _ =>
       Nil
   end
 
 function is_accessor(t: Id, f: Id): Bool :=
-  let n := str_size(t) in str_size(f) > n + 1 and str_slice(f, 0, n + 1) == t ++ "." and not is_update(str_slice(f, n, str_size(f)))
+  let n := size(t) in size(f) > n + 1 and slice(f, 0, n + 1) == t ++ "." and not is_update(slice(f, n, size(f)))
 
 function branch_positions(branches: List[Branch[Expr]]): List[Id * Int] :=
   match branches

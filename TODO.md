@@ -6,10 +6,6 @@ Open action items, each with the problem and the desired solution.
 
 1. **The modules of the prelude cannot be compiled on their own**: `ulang.bin compile prelude/list.u test` fails with `sort List is already defined`, since every program has the prelude already, so `make testc` skips `prelude.u`, `option.u`, and `list.u`, whose tests run with the interpreter only, where `load_file` of `self/ulang.u` keeps only their tests. Solution: the same in `compile_file` of `self/compile.u`.
 
-## Builtins
-
-1. **Builtin functions are registered in three places**: their types in `builtin` of `self/check.u`, and their implementations in `self/run.u` and in the runtime with `builtin_functions` of `self/compile.u`, while the builtin procedures of `os` are declared by signatures without definitions in `prelude/os.u` and come with its import (`is_builtin_proc` in `self/check.u`). Solution: declare the functions the same way in library modules, e.g. `function str_get(s: Str, i: Int): Char` in a module of strings, so that only the implementations remain, and a builtin exists once its module is imported.
-
 ## Self-hosted toolchain
 
 1. **No positions in `self/syntax.u`**, so `check.u` and `compile.u` cannot say where an error is, although the parser knows offsets. Solution: a position per command, and later per statement and expression.
@@ -26,7 +22,7 @@ Open action items, each with the problem and the desired solution.
 ## Compiler
 
 1. **Runtime errors have no positions.** Solution: positions in the messages of the runtime.
-2. **Deep recursion.** Functions like `concat` and `str_join` over long lists recurse deeply, so compiled programs need `ulimit -s unlimited` for big inputs. So does `foldr` of lists, where it is not one of the loops of comprehensions. Solution: loops in the runtime and library where possible, e.g. a native `foldr` of lists that applies its function from the last element to the first, and a large stack for the main thread of compiled programs, as the interpreter has.
+2. **Deep recursion.** Functions like `concat` over long lists recurse deeply, as do `list_elements` and `str_values` in the interpreter, which convert the arguments of builtins such as `join`, so compiled programs need `ulimit -s unlimited` for big inputs. So does `foldr` of lists, where it is not one of the loops of comprehensions. Solution: loops in the runtime and library where possible, e.g. a native `foldr` of lists that applies its function from the last element to the first, and a large stack for the main thread of compiled programs, as the interpreter has.
 3. **Integers are boxed**: every integer outside -16 to 255 is an object on the heap, so arithmetic allocates, e.g. 63 million calls of `u_mk_int` when `run.u` interprets the compiler. Solution: integers that fit in a word tagged in the pointer, with a check before every access to `type` and `num`.
 4. **Programs need a C compiler**, and `cc -O2` takes most of the time of `make selfcompile`. Solution: a backend that writes assembly for x86-64, see `assembly.md`.
 

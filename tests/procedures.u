@@ -127,7 +127,7 @@ test procedure_values() :=
   assert z == 12
   call   twice(in lambda in x, out y => assign y := x + k end, 1, out z)
   assert z == 21
-  call   each(in lambda in s, ref m => assign m := m + str_size(s) end, ["a", "bc"], ref n)
+  call   each(in lambda in s, ref m => assign m := m + size(s) end, ["a", "bc"], ref n)
   assert n == 3
   call   p(in 1, out z)
   assert z == 2

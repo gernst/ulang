@@ -206,7 +206,7 @@ function numbers(n: Int): List[Int] :=
   if n == 0 then Nil else numbers(n - 1) ++ [n]
 
 function show[K, V](m: Map[K, V]): Str :=
-  "{" ++ str_join(", ", [show(k) ++ " => " ++ show(v) for k => v in m]) ++ "}"
+  "{" ++ join(", ", [show(k) ++ " => " ++ show(v) for k => v in m]) ++ "}"
 
 test maps() :=
   local m := {"a" => 1, "b" => 2}

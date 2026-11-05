@@ -208,7 +208,7 @@ function logic(): List[Type] * Type :=
   (Nil, type_fun([type_bool(), type_bool()], type_bool()))
 
 // only what cannot be defined in the prelude, which are names without a module
-function builtin(n: Name): List[List[Type] * Type] :=
+function builtin_schemes(n: Name): List[List[Type] * Type] :=
   match n
     case Name(None, b) => builtin_scheme(b)
     case _ => Nil
@@ -228,23 +228,7 @@ function builtin_scheme(b: Id): List[List[Type] * Type] :=
       case "show" => [([a], type_fun([a], type_str()))]
       case "and" => [logic()]
       case "or" => [logic()]
-      case "chars" => [(Nil, type_fun([type_str()], type_list(type_char())))]
-      case "string" => [(Nil, type_fun([type_list(type_char())], type_str()))]
-      case "ord" => [(Nil, type_fun([type_char()], type_int()))]
-      case "chr" => [(Nil, type_fun([type_int()], type_char()))]
       case "++" => [(Nil, type_fun([type_str(), type_str()], type_str()))]
-      case "str_size" => [(Nil, type_fun([type_str()], type_int()))]
-      case "str_join" => [(Nil, type_fun([type_str(), type_list(type_str())], type_str()))]
-      case "str_slice" => [(Nil, type_fun([type_str(), type_int(), type_int()], type_str()))]
-      case "str_split" => [(Nil, type_fun([type_str(), type_char()], type_list(type_str())))]
-      case "str_get" => [(Nil, type_fun([type_str(), type_int()], type_char()))]
-      case "str_contains" => [(Nil, type_fun([type_str(), type_char()], type_bool()))]
-      case "str_compare" => [(Nil, type_fun([type_str(), type_str()], type_int()))]
-      case "str_quote" => [(Nil, type_fun([type_str()], type_str()))]
-      case "str_number" => [(Nil, type_fun([type_str()], TSort(option_name(), [type_int()])))]
-      case "is_digit" => [(Nil, type_fun([type_char()], type_bool()))]
-      case "is_letter" => [(Nil, type_fun([type_char()], type_bool()))]
-      case "is_space" => [(Nil, type_fun([type_char()], type_bool()))]
       case _ => Nil
     end
 
@@ -328,7 +312,7 @@ function candidates(s: State, env: Env, n: Name): List[Name * (List[Type] * Type
       concat([[(f, sc) for sc in schemes_of(s.sig, f)] for f in overloads(s, n, lambda f => is_fun(s.sig, f))]) ++
         [(k, constructor_of(s.sig, k)) for k in overloads(s, n, lambda k => is_constr(s.sig, k))] ++
         [(p, proc_scheme(s.sig, p)) for p in overloads(s, n, lambda p => is_proc(s.sig, p))] ++
-        [(n, sc) for sc in builtin(n)]
+        [(n, sc) for sc in builtin_schemes(n)]
   end
 
 // the accessors or updaters T.f of all datatypes T for the field f, which is .name or .name:=, of all modules,
@@ -341,7 +325,7 @@ function accessors(sig: Sig, f: Id, es: List[Id * List[Name]]): List[Name * (Lis
   end
 
 function ends_with(b: Id, f: Id): Bool :=
-  if str_size(b) > str_size(f) then str_slice(b, str_size(b) - str_size(f), str_size(b)) == f else false
+  if size(b) > size(f) then slice(b, size(b) - size(f), size(b)) == f else false
 
 // a procedure is a value of its type (in A, out B, ref C)
 function proc_scheme(sig: Sig, p: Name): List[Type] * Type :=
@@ -471,7 +455,7 @@ function settled(s: State, n: Name): Name :=
   end
 
 function zonk_var(s: State, x: Var): Var :=
-  Var(settled(s, x.name), zonk_type(s.sub, x.typ))
+  Var(builtin_name(s.sig, settled(s, x.name)), zonk_type(s.sub, x.typ))
 
 function zonk_vars(s: State, xs: List[Var]): List[Var] :=
   [zonk_var(s, x) for x in xs]
@@ -515,7 +499,7 @@ function zonk_stmt(s: State, x: Stmt): Stmt :=
     case SBlock(xs, ys) => SBlock(zonk_vars(s, xs), [zonk_stmt(s, y) for y in ys])
     case SIf(c, l, r) => SIf(zonk_expr(s, c), zonk_stmt(s, l), zonk_stmt(s, r))
     case SWhile(c, b) => SWhile(zonk_expr(s, c), zonk_stmt(s, b))
-    case SCall(p, ins, outs, refs) => SCall(builtin_name(settled(s, p)), [zonk_expr(s, e) for e in ins], zonk_vars(s, outs), zonk_vars(s, refs))
+    case SCall(p, ins, outs, refs) => SCall(builtin_name(s.sig, settled(s, p)), [zonk_expr(s, e) for e in ins], zonk_vars(s, outs), zonk_vars(s, refs))
     case SMatch(a, bs) => SMatch(zonk_expr(s, a), [zonk_stmt_branch(s, b) for b in bs])
     case SAssert(c) => SAssert(zonk_expr(s, c))
     case SRaise(a, t) => SRaise(zonk_expr(s, a), zonk_type(s.sub, t))
@@ -1329,7 +1313,7 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
   local cs: List[Name * (List[Type] * Type)], x: Var, f1: Expr, u: Type, w: Type, args1: List[Expr], ts: List[Type]
 
   match f
-    case EVar(Var(Name(None, b), a)) if str_size(b) > 1 and str_get(b, 0) == '.' =>
+    case EVar(Var(Name(None, b), a)) if size(b) > 1 and at(0, b) == '.' =>
       call field_access(in env, b, a, args, out e1, t, ref s)
 
     case EVar(Var(n, a)) =>
@@ -1721,20 +1705,9 @@ procedure statements(in assignable: List[Name], xs: List[Stmt], out ys: List[Stm
       assign ys := [y; rest]
   end
 
-// the procedures of the module os without definitions, which the interpreter and the runtime implement, and whose signatures
-// os declares, so that they come with its import
-function builtin_procs(): Set[Id] :=
-  {
-    "os_args", "os_read", "os_write", "os_print", "os_print_error", "os_exit", "os_library", "os_list", "os_is_dir", "os_cwd",
-    "os_chdir"
-  }
-
-function is_builtin_proc(n: Name): Bool :=
-  n.module == Some("os") and contains(n.base, builtin_procs())
-
-// a call of a builtin procedure names it without its module, as the interpreter and the runtime know it
-function builtin_name(n: Name): Name :=
-  if is_builtin_proc(n) then unqualified(n.base) else n
+// a use of a function or procedure of a builtin section names it without its module, as the interpreter and the runtime know it
+function builtin_name(sig: Sig, n: Name): Name :=
+  if is_native(sig, n) then unqualified(n.base) else n
 
 // the procedures of the program hide the builtin ones
 // a variable of a procedure type hides the procedures of that name
@@ -1797,7 +1770,7 @@ procedure declared_call(in env: Env, assignable: List[Name], p: Name, q: Name, i
       call   variables(in env, assignable, outs, out outs1, ref s)
       call   variables(in env, assignable, refs, out refs1, ref s)
       call   unifies(in types(outs1 ++ refs1), [subst(t, m) for t in os ++ rs], ref s)
-      assign y := SCall(builtin_name(q), ins1, outs1, refs1)
+      assign y := SCall(builtin_name(s.sig, q), ins1, outs1, refs1)
     case None =>
       raise UnknownProcedure(p)
   end
@@ -1836,7 +1809,7 @@ procedure handler_list(in assignable: List[Name], hs: List[Handler], out hs1: Li
   end
 
 procedure declare_name(in sig: Sig, n: Name) :=
-  if is_fun(sig, n) or is_proc(sig, n) or is_constr(sig, n) or builtin(unqualified(n.base)) != Nil
+  if is_fun(sig, n) or is_proc(sig, n) or is_constr(sig, n) or builtin_schemes(unqualified(n.base)) != Nil
     raise AlreadyDefined(n)
   end
 
@@ -1963,8 +1936,6 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
   match cs
     case Nil =>
       skip
-    case [(m, CProcSig(n, ps, ins, outs, refs)); rest] if is_builtin_proc(n) =>
-      call declare_procs(in [(m, CProc(n, ps, ins, outs, refs, SSkip)); rest], ref s)
     case [(m, CProc(n, ps, ins, outs, refs, _)); rest] =>
       assign s := enter(s, m)
       call   declare_name(in s.sig, n)
@@ -2088,11 +2059,30 @@ function definitions(ds: List[Id * Cmd]): List[Id * Cmd] :=
   match ds
     case Nil => Nil
     case [(_, CExport); rest] => definitions(rest)
+    case [(_, CBuiltin); rest] => definitions(rest)
     case [(_, CImplementation); rest] => definitions(rest)
     case [(_, CFunSig(_, _, _, _)); rest] => definitions(rest)
     case [(_, CProcSig(_, _, _, _, _)); rest] => definitions(rest)
     case [(_, CAbstract(_, _)); rest] => definitions(rest)
     case [d; rest] => [d; definitions(rest)]
+  end
+
+// the signatures of the builtin sections of ds, after CBuiltin of module m, until its implementation section, as definitions
+// to declare, whose definitions the interpreter and the runtime give
+function natives(ds: List[Id * Cmd], m: Option[Id]): List[Id * Cmd] :=
+  match ds
+    case Nil => Nil
+    case [(k, CBuiltin); rest] => natives(rest, Some(k))
+    case [(k, CFunSig(n, ps, xss, r)); rest] if m == Some(k) => [(k, CFun(n, ps, xss, r, ELit(VUnit))); natives(rest, m)]
+    case [(k, CProcSig(n, ps, ins, outs, refs)); rest] if m == Some(k) => [(k, CProc(n, ps, ins, outs, refs, SSkip)); natives(rest, m)]
+    case [_; rest] => natives(rest, None)
+  end
+
+function declared_name(d: Id * Cmd): Name :=
+  match d
+    case (_, CFun(n, _, _, _, _)) => n
+    case (_, CProc(n, _, _, _, _, _)) => n
+    case _ => unqualified("")
   end
 
 function qualified_name(c: Cmd): Name :=
@@ -2121,9 +2111,11 @@ function sections_of(cs: List[Cmd]): List[Cmd] * List[Cmd] :=
     case [_; rest] => sections_of(rest)
   end
 
+// the export section without the builtin section, whose signatures need no definitions
 function export_part(cs: List[Cmd]): List[Cmd] :=
   match cs
     case Nil => Nil
+    case [CBuiltin; _] => Nil
     case [CImplementation; _] => Nil
     case [c; rest] => [c; export_part(rest)]
   end
@@ -2230,8 +2222,6 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
           if ps1 != ps or ins1 != ins or outs1 != outs or refs1 != refs
             raise SignatureMismatch(n)
           end
-        case [] if is_builtin_proc(n) =>
-          skip
         case _ =>
           raise MissingDefinition(n)
       end
@@ -2375,6 +2365,9 @@ procedure check_unit(in ds: List[Id * Cmd], main: Id, before: Sig, imports: List
   call   declare_constrs(in ds, ref s)
   call   declare_funs(in ds, ref s)
   call   declare_procs(in ds, ref s)
+  call   declare_funs(in natives(ds, None), ref s)
+  call   declare_procs(in natives(ds, None), ref s)
+  assign s := with_sig(s, foldl(natives(ds, None), s.sig, lambda sig, d => with_native(sig, declared_name(d))))
   call   check_sections(in distinct(firsts(ds)), ds, out hidden, hidden_sorts)
   call   unique_ids(in block_names(ds))
   call   commands(in definitions(ds), out cs, ref s)

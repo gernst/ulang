@@ -1,0 +1,15 @@
+// parse error: builtin sections have signatures only at 9.1
+
+export
+
+function g(): Int
+
+builtin
+
+data T :=
+  | T
+
+implementation
+
+function g(): Int :=
+  1

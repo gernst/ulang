@@ -14,7 +14,7 @@ test library() :=
   local t: Str
 
   call   os_library(in "option", out t)
-  assert str_slice(t, 0, 16) == "// optional valu"
+  assert slice(t, 0, 16) == "// optional valu"
 
 test failures() :=
   local t: Str, m := ""

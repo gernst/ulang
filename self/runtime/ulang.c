@@ -437,11 +437,13 @@ u_value u_concat(u_value s, u_value t) {
   return u_mk_str_n(r, (long long)(m + n));
 }
 
-u_value u_str_size(u_value s) {
+// the functions of the builtin section of str.u
+
+u_value u_size(u_value s) {
   return u_mk_int(s->length);
 }
 
-u_value u_str_join(u_value sep, u_value ss) {
+u_value u_join(u_value sep, u_value ss) {
   size_t n = 0, k = (size_t)sep->length;
   for (u_value c = ss; u_is_con(c, &n_list_46_Cons); c = c->items[1]) n += (size_t)c->items[0]->length + (c != ss ? k : 0);
   char *r = text(n), *p = r;
@@ -457,8 +459,8 @@ u_value u_str_join(u_value sep, u_value ss) {
   return u_mk_str_n(r, (long long)n);
 }
 
-// from i up to but excluding j, as drop(i) and take(j - i) of the module list, which ignore indices outside of s
-u_value u_str_slice(u_value s, u_value i, u_value j) {
+// from i up to but excluding j, where 0 <= i <= j <= the size of s, or else NoIndex
+u_value u_slice(u_value s, u_value i, u_value j) {
   long long n = s->length, a = index_of(i), b = index_of(j);
   if (a < 0 || a > n || a > b) no_index(s, i);
   if (b > n) no_index(s, j);
@@ -468,7 +470,7 @@ u_value u_str_slice(u_value s, u_value i, u_value j) {
 }
 
 // the parts between the occurrences of c, including empty ones
-u_value u_str_split(u_value s, u_value c) {
+u_value u_split(u_value s, u_value c) {
   u_value parts = &o_list_46_Nil;
   const char *end = s->text + (size_t)s->length, *from = end;
   for (const char *p = end; p >= s->text; p--) {
@@ -482,22 +484,17 @@ u_value u_str_split(u_value s, u_value c) {
   return parts;
 }
 
-u_value u_str_get(u_value s, u_value i) {
+u_value u_at(u_value i, u_value s) {
   size_t n = (size_t)s->length;
   if (i->type != &u_int_type || i->num < 0 || (size_t)i->num >= n) no_index(s, i);
   return u_mk_char((unsigned char)s->text[i->num]);
 }
 
-u_value u_str_contains(u_value s, u_value c) {
+u_value u_contains(u_value c, u_value s) {
   return u_mk_bool(c->num != 0 && strchr(s->text, (int)c->num) != NULL);
 }
 
-u_value u_str_compare(u_value s, u_value t) {
-  int c = u_strcmp(s->text, t->text);
-  return u_mk_int(c < 0 ? -1 : c > 0);
-}
-
-u_value u_str_quote(u_value s) {
+u_value u_quote(u_value s) {
   char *r = text(2 * (size_t)s->length + 2), *p = r;
   *p++ = '"';
   for (const char *c = s->text; *c; c++) {
@@ -510,7 +507,7 @@ u_value u_str_quote(u_value s) {
   return u_mk_str_n(r, p - r);
 }
 
-u_value u_str_number(u_value s) {
+u_value u_number(u_value s) {
   const char *p = s->text + (s->text[0] == '-');
   if (!*p) return &o_option_46_None;
   for (; *p; p++)
@@ -594,7 +591,7 @@ static u_value show_char(u_value v) {
 }
 
 static u_value show_str(u_value v) {
-  return u_str_quote(v);
+  return u_quote(v);
 }
 
 static void append_items(struct u_text *t, u_value v) {

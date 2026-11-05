@@ -69,8 +69,8 @@ function load(q: Program): Prog :=
 
 function builtin_names(): Set[Id] :=
   {
-    "+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "++", "str_size", "str_join", "str_slice", "str_split", "compare", "show",
-    "str_get", "str_contains", "str_compare", "str_quote", "str_number", "is_digit", "is_letter", "is_space"
+    "+", "-", "*", "/", "%", "<", "==", "++", "compare", "show", "chars", "string", "ord", "chr", "is_digit", "is_letter",
+    "is_space", "size", "at", "contains", "slice", "join", "split", "quote", "number"
   }
 
 function is_builtin(n: Name): Bool :=
@@ -376,48 +376,47 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
     case ("++", [Lit(VStr(s)), Lit(VStr(t))]) =>
       assign v := Lit(VStr(s ++ t))
 
-    case ("str_size", [Lit(VStr(s))]) =>
-      assign v := Lit(VInt(str_size(s)))
+    // the functions of the builtin section of str.u
 
-    case ("str_join", [Lit(VStr(sep)), w]) =>
+    case ("size", [Lit(VStr(s))]) =>
+      assign v := Lit(VInt(size(s)))
+
+    case ("join", [Lit(VStr(sep)), w]) =>
       match list_elements(w)
         case Some(ws) =>
-          assign v := Lit(VStr(str_join(sep, str_values(ws))))
+          assign v := Lit(VStr(join(sep, str_values(ws))))
         case _ =>
           raise NotList(w)
       end
 
     // from i up to but excluding j, where i <= j are indices of s or its end
-    case ("str_slice", [Lit(VStr(s)), Lit(VInt(i)), Lit(VInt(j))]) =>
-      if i < 0 or i > str_size(s) or i > j
+    case ("slice", [Lit(VStr(s)), Lit(VInt(i)), Lit(VInt(j))]) =>
+      if i < 0 or i > size(s) or i > j
         raise failure(no_index_name(), [Lit(VStr(s)), Lit(VInt(i))])
-      else if j > str_size(s)
+      else if j > size(s)
         raise failure(no_index_name(), [Lit(VStr(s)), Lit(VInt(j))])
       end
 
-      assign v := Lit(VStr(str_slice(s, i, j)))
+      assign v := Lit(VStr(slice(s, i, j)))
 
-    case ("str_split", [Lit(VStr(s)), Lit(VChar(c))]) =>
-      assign v := list_value([Lit(VStr(part)) for part in str_split(s, c)])
+    case ("split", [Lit(VStr(s)), Lit(VChar(c))]) =>
+      assign v := list_value([Lit(VStr(part)) for part in split(s, c)])
 
-    case ("str_get", [Lit(VStr(s)), Lit(VInt(i))]) =>
-      if i < 0 or i >= str_size(s)
+    case ("at", [Lit(VInt(i)), Lit(VStr(s))]) =>
+      if i < 0 or i >= size(s)
         raise failure(no_index_name(), [Lit(VStr(s)), Lit(VInt(i))])
       end
 
-      assign v := Lit(VChar(str_get(s, i)))
+      assign v := Lit(VChar(at(i, s)))
 
-    case ("str_contains", [Lit(VStr(s)), Lit(VChar(c))]) =>
-      assign v := Lit(VBool(str_contains(s, c)))
+    case ("contains", [Lit(VChar(c)), Lit(VStr(s))]) =>
+      assign v := Lit(VBool(contains(c, s)))
 
-    case ("str_compare", [Lit(VStr(s)), Lit(VStr(t))]) =>
-      assign v := Lit(VInt(str_compare(s, t)))
+    case ("quote", [Lit(VStr(s))]) =>
+      assign v := Lit(VStr(quote(s)))
 
-    case ("str_quote", [Lit(VStr(s))]) =>
-      assign v := Lit(VStr(str_quote(s)))
-
-    case ("str_number", [Lit(VStr(s))]) =>
-      match str_number(s)
+    case ("number", [Lit(VStr(s))]) =>
+      match number(s)
         case Some(k) =>
           assign v := Obj(some_name(), [Lit(VInt(k))])
         case None =>
@@ -484,7 +483,7 @@ procedure compare_values(in p: Prog, a: Value, b: Value, out r: Int, ref cache: 
       assign r := order(if x then 1 else 0, if y then 1 else 0)
 
     case (Lit(VStr(x)), Lit(VStr(y))) =>
-      assign r := str_compare(x, y)
+      assign r := compare(x, y)
 
     case (Obj(c, xs), Obj(d, ys)) =>
       match declared_for(p, c, p.defs.orders)
@@ -536,12 +535,12 @@ procedure show_in(in p: Prog, v: Value, out s: Str, ref cache: Map[Name, Value])
       end
     case Obj(n, vs) if n == tuple_name() =>
       call   show_all(in p, vs, out texts, ref cache)
-      assign s := "(" ++ str_join(", ", texts) ++ ")"
+      assign s := "(" ++ join(", ", texts) ++ ")"
     case Obj(n, Nil) =>
       assign s := n.base
     case Obj(n, vs) =>
       call   show_all(in p, vs, out texts, ref cache)
-      assign s := n.base ++ "(" ++ str_join(", ", texts) ++ ")"
+      assign s := n.base ++ "(" ++ join(", ", texts) ++ ")"
     case _ =>
       assign s := show_value(v)
   end

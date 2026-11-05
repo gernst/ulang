@@ -69,15 +69,15 @@ function show_expr(e: CExpr): Str :=
     case CeVar(x) => x
     case CeNum(n) => show(n)
     // the escapes of C strings are those of ulang
-    case CeStr(s) => str_quote(s)
-    case CeCall(f, args) => show_operand(f) ++ "(" ++ str_join(", ", [show_expr(a) for a in args]) ++ ")"
+    case CeStr(s) => quote(s)
+    case CeCall(f, args) => show_operand(f) ++ "(" ++ join(", ", [show_expr(a) for a in args]) ++ ")"
     case CeUnary(o, a) => o ++ show_operand(a)
     case CeBinary(o, a, b) => show_operand(a) ++ " " ++ o ++ " " ++ show_operand(b)
     case CeIndex(a, i) => show_operand(a) ++ "[" ++ show_expr(i) ++ "]"
     case CeArrow(a, f) => show_operand(a) ++ "->" ++ f
     case CeCast(t, a) => "(" ++ show_type(t) ++ ")" ++ show_operand(a)
     case CeCond(c, a, b) => show_operand(c) ++ " ? " ++ show_operand(a) ++ " : " ++ show_operand(b)
-    case CeInit(es) => "{" ++ str_join(", ", [show_expr(a) for a in es]) ++ "}"
+    case CeInit(es) => "{" ++ join(", ", [show_expr(a) for a in es]) ++ "}"
   end
 
 function show_operand(e: CExpr): Str :=
@@ -113,7 +113,7 @@ function show_stmts(ind: Str, ss: List[CStmt]): List[Str] :=
 function show_params(ps: List[CType * Str]): Str :=
   match ps
     case [] => "void"
-    case _ => str_join(", ", [show_param(p) for p in ps])
+    case _ => join(", ", [show_param(p) for p in ps])
   end
 
 function show_param(p: CType * Str): Str :=
@@ -123,7 +123,7 @@ function show_param(p: CType * Str): Str :=
 
 function show_decl(d: CDecl): List[Str] :=
   match d
-    case CdInclude(h) => ["#include " ++ str_quote(h)]
+    case CdInclude(h) => ["#include " ++ quote(h)]
     case CdPrototype(t, f, ps) => [show_typed(t, f) ++ "(" ++ show_params(ps) ++ ");"]
     case CdFunction(t, f, ps, b) => [show_typed(t, f) ++ "(" ++ show_params(ps) ++ ") {"] ++ show_stmts("  ", b) ++ ["}"]
     case CdGlobal(t, x, None) => [show_typed(t, x) ++ ";"]
@@ -133,7 +133,7 @@ function show_decl(d: CDecl): List[Str] :=
 // the source code of a file, with an empty line between declarations
 function show_file(f: CFile): Str :=
   match f
-    case CFile(ds) => str_join("\n\n", [str_join("\n", show_decl(d)) for d in ds]) ++ "\n"
+    case CFile(ds) => join("\n\n", [join("\n", show_decl(d)) for d in ds]) ++ "\n"
   end
 
 // a function of the runtime, which compiled code calls

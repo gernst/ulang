@@ -1,0 +1,5 @@
+// parse error: builtin follows export at 3.1
+
+builtin
+
+function f(): Int

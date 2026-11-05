@@ -54,7 +54,8 @@ function var_name(n: Name): Str :=
 function ref_name(n: Name): Str :=
   "r_" ++ mangle(n)
 
-// the functions of the runtime for the builtins with their numbers of arguments
+// the functions of the runtime for the builtins with their numbers of arguments, of the prelude and of the builtin section of
+// str.u, whose uses the checker names without their module
 function builtin_functions(): Map[Name, Str * Int] :=
   {
     unqualified("+") => ("u_add", 2),
@@ -71,18 +72,17 @@ function builtin_functions(): Map[Name, Str * Int] :=
     unqualified("ord") => ("u_ord", 1),
     unqualified("chr") => ("u_chr", 1),
     unqualified("++") => ("u_concat", 2),
-    unqualified("str_size") => ("u_str_size", 1),
-    unqualified("str_join") => ("u_str_join", 2),
-    unqualified("str_slice") => ("u_str_slice", 3),
-    unqualified("str_split") => ("u_str_split", 2),
-    unqualified("str_get") => ("u_str_get", 2),
-    unqualified("str_contains") => ("u_str_contains", 2),
-    unqualified("str_compare") => ("u_str_compare", 2),
-    unqualified("str_quote") => ("u_str_quote", 1),
-    unqualified("str_number") => ("u_str_number", 1),
     unqualified("is_digit") => ("u_is_digit", 1),
     unqualified("is_letter") => ("u_is_letter", 1),
-    unqualified("is_space") => ("u_is_space", 1)
+    unqualified("is_space") => ("u_is_space", 1),
+    unqualified("size") => ("u_size", 1),
+    unqualified("at") => ("u_at", 2),
+    unqualified("contains") => ("u_contains", 2),
+    unqualified("slice") => ("u_slice", 3),
+    unqualified("join") => ("u_join", 2),
+    unqualified("split") => ("u_split", 2),
+    unqualified("quote") => ("u_quote", 1),
+    unqualified("number") => ("u_number", 1)
   }
 
 // the descriptor of constructor n, which the runtime compares by its address
@@ -192,10 +192,10 @@ function copy_out(xs: List[Name]): List[CStmt] :=
 function type_key(t: Type): Str :=
   match t
     case TSort(n, []) => qualified(n)
-    case TSort(n, args) => qualified(n) ++ "[" ++ str_join(", ", [type_key(a) for a in args]) ++ "]"
-    case TFun(args, r) => "(" ++ str_join(", ", [type_key(a) for a in args]) ++ ") -> " ++ type_key(r)
-    case TProc(is, os, rs) => "(in " ++ str_join(", ", [type_key(a) for a in is]) ++ ", out " ++ str_join(", ", [type_key(a) for a in os]) ++ ", ref " ++ str_join(", ", [type_key(a) for a in rs]) ++ ")"
-    case TTuple(ts) => "(" ++ str_join(" * ", [type_key(a) for a in ts]) ++ ")"
+    case TSort(n, args) => qualified(n) ++ "[" ++ join(", ", [type_key(a) for a in args]) ++ "]"
+    case TFun(args, r) => "(" ++ join(", ", [type_key(a) for a in args]) ++ ") -> " ++ type_key(r)
+    case TProc(is, os, rs) => "(in " ++ join(", ", [type_key(a) for a in is]) ++ ", out " ++ join(", ", [type_key(a) for a in os]) ++ ", ref " ++ join(", ", [type_key(a) for a in rs]) ++ ")"
+    case TTuple(ts) => "(" ++ join(" * ", [type_key(a) for a in ts]) ++ ")"
     case _ => "?"
   end
 
@@ -379,7 +379,7 @@ procedure compile_expr(in defs: Defs, env: Vars, e: Expr, out ss: List[CStmt], r
   match e
     // a string literal is a static object, which is created once, named after its text
     case ELit(VStr(s)) =>
-      call   gen_name(in "l_" ++ mangle(unqualified(str_slice(s, 0, if str_size(s) < 16 then str_size(s) else 16))) ++ "_", out t, ref g)
+      call   gen_name(in "l_" ++ mangle(unqualified(slice(s, 0, if size(s) < 16 then size(s) else 16))) ++ "_", out t, ref g)
       assign ss := [CsDecl(CtNamed("static struct u_object"), t, Some(c_call("U_LIT", [CeStr(s)])))], r := CeUnary("&", CeVar(t))
 
     case ELit(l) =>

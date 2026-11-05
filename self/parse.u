@@ -37,8 +37,8 @@ implementation
 
 function keywords(): Set[Id] :=
   {
-    "_", "assert", "assign", "call", "case", "catch", "data", "else", "end", "export", "false", "for", "function", "if",
-    "implementation", "import", "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix",
+    "_", "assert", "assign", "builtin", "call", "case", "catch", "data", "else", "end", "export", "false", "for", "function",
+    "if", "implementation", "import", "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix",
     "procedure", "raise", "ref", "skip", "test", "then", "true", "type", "try", "while", "with"
   }
 
@@ -148,7 +148,7 @@ function show_token(tok: Token): Str :=
     case TSym(s) => s
     case TPunct(c) => string([c])
     case TNum(n) => show(n)
-    case TStr(s) => str_quote(s)
+    case TStr(s) => quote(s)
     case TChar(c) => "'" ++ string([c]) ++ "'"
     case TEnd => "end of input"
   end
@@ -1565,11 +1565,12 @@ function declare_commands(loader: Loader, cmds: List[Cmd]): Loader :=
       declare_commands(loader, more)
   end
 
-// where a module is: at its imports, which come first, in its export section or its implementation section, or in a module
-// without sections, whose declarations are all exported
+// where a module is: at its imports, which come first, in its export section, its builtin section, or its implementation
+// section, or in a module without sections
 data Section :=
   | Opening
   | InExport
+  | InBuiltin
   | InImplementation
   | NoSections
 
@@ -1582,7 +1583,7 @@ procedure parse_commands(out cmds: List[Cmd], ref loader: Loader, toks: Tokens) 
 
     match head_token(toks)
       case TName("export") =>
-        if section == InExport or section == InImplementation
+        if section == InExport or section == InBuiltin or section == InImplementation
           raise ParseError("a module has one export section", offset)
         else if section != Opening
           raise ParseError("export comes first, after the imports", offset)
@@ -1591,15 +1592,23 @@ procedure parse_commands(out cmds: List[Cmd], ref loader: Loader, toks: Tokens) 
         call   advance(ref toks)
         assign more := [CExport], section := InExport
 
-      case TName("implementation") =>
+      case TName("builtin") =>
         if section != InExport
+          raise ParseError("builtin follows export", offset)
+        end
+
+        call   advance(ref toks)
+        assign more := [CBuiltin], section := InBuiltin
+
+      case TName("implementation") =>
+        if section != InExport and section != InBuiltin
           raise ParseError("implementation follows export", offset)
         end
 
         call   advance(ref toks)
         assign more := [CImplementation], section := InImplementation
 
-      case TName("import") if section == InExport or section == InImplementation =>
+      case TName("import") if section == InExport or section == InBuiltin or section == InImplementation =>
         raise ParseError("imports come before export", offset)
 
       case _ =>
@@ -1615,6 +1624,12 @@ procedure parse_commands(out cmds: List[Cmd], ref loader: Loader, toks: Tokens) 
 // the section after the commands of one declaration, which must belong to the section
 procedure enter_section(in cmds: List[Cmd], offset: Int, ref section: Section) :=
   match (cmds, section)
+    case ([CFunSig(_, _, _, _); _], InBuiltin) =>
+      skip
+    case ([CProcSig(_, _, _, _, _); _], InBuiltin) =>
+      skip
+    case (_, InBuiltin) =>
+      raise ParseError("builtin sections have signatures only", offset)
     case ([CNotation(_, _, _); _], InImplementation) =>
       raise ParseError("notations belong to the export section", offset)
     case ([CFunSig(_, _, _, _); _], s) if s != InExport =>
@@ -1731,11 +1746,11 @@ function last_part(xs: List[Str]): Str :=
 
 // the name of a file without its directory and .u
 function base_name(path: Str): Str :=
-  let f := last_part(str_split(path, '/')) in
-    if str_size(f) >= 2 and str_slice(f, str_size(f) - 2, str_size(f)) == ".u" then str_slice(f, 0, str_size(f) - 2) else f
+  let f := last_part(split(path, '/')) in
+    if size(f) >= 2 and slice(f, size(f) - 2, size(f)) == ".u" then slice(f, 0, size(f) - 2) else f
 
 function dir_name(path: Str): Str :=
-  let parts := str_split(path, '/') in if size(parts) == 1 then "." else str_join("/", take(size(parts) - 1, parts))
+  let parts := split(path, '/') in if size(parts) == 1 then "." else join("/", take(size(parts) - 1, parts))
 
 // a file after the prelude pre, as read gives it
 procedure parse_file_after(in path: Str, pre: Program, out program: Program) :=

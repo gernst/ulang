@@ -119,7 +119,7 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
 procedure located(in file: Str, m: Str, i: Int, out message: Str) :=
   local text: Str, line: Int, column: Int
 
-  if in_module(str_split(m, ' '))
+  if in_module(split(m, ' '))
     assign message := "parse error: " ++ m
   else
     call   os_read(in file, out text)
@@ -196,7 +196,7 @@ procedure format_file(in file: Str, out ok: Bool) :=
     call parse_text_after(in file, pre, source, out q)
 
     if p == q
-      call   os_print(in str_slice(source, 0, str_size(source) - 1))
+      call   os_print(in slice(source, 0, size(source) - 1))
       assign ok := true
     else
       call os_print_error(in file ++ ": format error: the source parses differently")
@@ -301,7 +301,7 @@ procedure walk_all(in paths: List[Str], out files: List[Str]) :=
   end
 
 function is_source(path: Str): Bool :=
-  if str_size(path) > 2 then str_slice(path, str_size(path) - 2, str_size(path)) == ".u" else false
+  if size(path) > 2 then slice(path, size(path) - 2, size(path)) == ".u" else false
 
 // the number of files that failed
 procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
@@ -318,7 +318,7 @@ procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
 
 // file, run in its directory, fails as its first line states, or else succeeds, where home is the directory to return to
 procedure verdict(in file: Str, home: Str, out good: Bool) :=
-  local text: Str, expected: Str, got: Str, ok: Bool, name := last_part(str_split(file, '/'))
+  local text: Str, expected: Str, got: Str, ok: Bool, name := last_part(split(file, '/'))
 
   call   os_read(in file, out text)
   assign expected := expected_error(text)
@@ -336,17 +336,17 @@ function outcome(message: Str): Str :=
 
 // the error that the first line of a file states, or else ""
 function expected_error(text: Str): Str :=
-  match str_split(text, '\n')
+  match split(text, '\n')
     case [line; _] =>
       if starts_with(line, "// parse error: ") or starts_with(line, "// type error: ") or starts_with(line, "// runtime error: ") then
-        str_slice(line, 3, str_size(line))
+        slice(line, 3, size(line))
       else
         ""
     case _ => ""
   end
 
 function starts_with(s: Str, start: Str): Bool :=
-  if str_size(s) >= str_size(start) then str_slice(s, 0, str_size(start)) == start else false
+  if size(s) >= size(start) then slice(s, 0, size(start)) == start else false
 
 // runs all tests of file, quietly, and raises the first failure
 procedure test_all(in file: Str, out ok: Bool) :=
@@ -407,8 +407,8 @@ function type_message(e: TypeError): Str :=
     case WrongArity(n, k) => n.base ++ " does not take " ++ show(k) ++ " arguments"
     case AlreadyDefined(n) => n.base ++ " is already defined"
     case Duplicate(s) => "duplicate " ++ s
-    case Ambiguous(n, ns) => n.base ++ " is ambiguous: " ++ str_join(", ", [qualified(m) for m in ns])
-    case UnknownField(n) => field_message(str_split(n.base, '.'))
+    case Ambiguous(n, ns) => n.base ++ " is ambiguous: " ++ join(", ", [qualified(m) for m in ns])
+    case UnknownField(n) => field_message(split(n.base, '.'))
     case UnknownFieldType(f, t) => "the type " ++ show_type(t) ++ " of the value of " ++ f ++ " is not known"
     case CountMismatch(k, m) => "expected " ++ show(k) ++ " values, got " ++ show(m)
     case UnknownConstructor(n) => "unknown constructor " ++ n.base
@@ -433,17 +433,17 @@ function field_message(parts: List[Str]): Str :=
   match parts
     case ["", f] => "unknown field " ++ without_update(f)
     case [t, f] => "unknown field " ++ without_update(f) ++ " of " ++ t
-    case _ => "unknown field " ++ str_join(".", parts)
+    case _ => "unknown field " ++ join(".", parts)
   end
 
 function without_update(f: Str): Str :=
-  let n := str_size(f) in if n > 2 and str_slice(f, n - 2, n) == ":=" then str_slice(f, 0, n - 2) else f
+  let n := size(f) in if n > 2 and slice(f, n - 2, n) == ":=" then slice(f, 0, n - 2) else f
 
 function runtime_message(e: RuntimeError): Str :=
   match e
     case Uninitialized(n) => n.base ++ " is not initialized"
     case NotFunction(v) => "cannot apply " ++ show_value(v)
-    case Unspecified(n, vs) => n.base ++ " is not specified for " ++ str_join(", ", [show_value(v) for v in vs])
+    case Unspecified(n, vs) => n.base ++ " is not specified for " ++ join(", ", [show_value(v) for v in vs])
     case NoCase(s) => "no case matches " ++ s
     case CompareFunctions => "cannot compare functions"
     case NotList(v) => "expected a list, got " ++ show_value(v)

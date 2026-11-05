@@ -143,15 +143,16 @@ u_value u_ord(u_value c);
 u_value u_chr(u_value n);
 u_value *u_append(u_value *end, u_value x);
 u_value u_concat(u_value s, u_value t);
-u_value u_str_size(u_value s);
-u_value u_str_join(u_value sep, u_value ss);
-u_value u_str_slice(u_value s, u_value i, u_value j);
-u_value u_str_split(u_value s, u_value c);
-u_value u_str_get(u_value s, u_value i);
-u_value u_str_contains(u_value s, u_value c);
-u_value u_str_compare(u_value s, u_value t);
-u_value u_str_quote(u_value s);
-u_value u_str_number(u_value s);
+// the functions of the builtin section of str.u
+u_value u_size(u_value s);
+u_value u_at(u_value i, u_value s);
+u_value u_contains(u_value c, u_value s);
+u_value u_slice(u_value s, u_value i, u_value j);
+u_value u_join(u_value sep, u_value ss);
+u_value u_split(u_value s, u_value c);
+u_value u_quote(u_value s);
+u_value u_number(u_value s);
+
 u_value u_is_digit(u_value c);
 u_value u_is_letter(u_value c);
 u_value u_is_space(u_value c);

@@ -1,15 +1,18 @@
-// strings and characters, by the functions that the interpreter and the runtime implement, declared without definitions,
-// with the names that strings share with the containers, in their order and with their results, where a string is a map
+// strings and characters, by the functions that the interpreter and the runtime implement, with the names that strings share with the containers, in their order and with their results, where a string is a map
 // from indices to characters, concatenated by ++ of the prelude, compared by compare, and shown by show
 //
-// a plan, not yet in the library: as prelude/str.u, which the prelude imports after list, so that list.u cannot use it, the
-// checker declares the functions without definitions from their signatures, as the builtin procedures of os, and names their
-// uses without the module, as the interpreter and the runtime know them, while slice of lists comes to list.u
+// which the prelude imports after list, so that list.u cannot use it, where the builtin section declares the functions that the
+// interpreter and the runtime define
 
 import option
 import list
 
 export
+
+// the character as an option, which is None out of range
+function get(i: Int, s: Str): Option[Char]
+
+builtin
 
 // the characters of a string, and the string of characters
 function chars(s: Str): List[Char]
@@ -26,9 +29,8 @@ function is_space(c: Char): Bool
 // the number of characters
 function size(s: Str): Int
 
-// the character at index i, from 0, or else NoIndex, and the character as an option, which is None out of range
+// the character at index i, from 0, or else NoIndex
 function at(i: Int, s: Str): Char
-function get(i: Int, s: Str): Option[Char]
 
 function contains(c: Char, s: Str): Bool
 

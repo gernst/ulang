@@ -1,9 +1,19 @@
-// files, directories, the arguments of the program, and printing, where the procedures without definitions are builtins
+// files, directories, the arguments of the program, and printing, where the procedures of the builtin section are those that
+// the interpreter and the runtime define
 
 export
 
 data OsError :=
   | OsError(Str)
+
+// the paths of the files below path, depth-first in the order of names, or path itself if it is no directory,
+// where each path is that of its directory, /, and its name
+procedure os_walk(in path: Str, out files: List[Str])
+
+// the path of name in dir, which may end with /
+function os_join(dir: Str, name: Str): Str
+
+builtin
 
 // the arguments of the program, after -- for the interpreter
 procedure os_args(out args: List[Str])
@@ -30,13 +40,6 @@ procedure os_is_dir(in path: Str, out yes: Bool)
 // the working directory, which relative paths start from, and its change
 procedure os_cwd(out dir: Str)
 procedure os_chdir(in dir: Str)
-
-// the paths of the files below path, depth-first in the order of names, or path itself if it is no directory,
-// where each path is that of its directory, /, and its name
-procedure os_walk(in path: Str, out files: List[Str])
-
-// the path of name in dir, which may end with /
-function os_join(dir: Str, name: Str): Str
 
 implementation
 
@@ -72,4 +75,4 @@ procedure os_walk_entries(in dir: Str, entries: List[Str * Bool], out files: Lis
   end
 
 function os_join(dir: Str, name: Str): Str :=
-  if str_size(dir) > 0 and str_get(dir, str_size(dir) - 1) == '/' then dir ++ name else dir ++ "/" ++ name
+  if size(dir) > 0 and at(size(dir) - 1, dir) == '/' then dir ++ name else dir ++ "/" ++ name
