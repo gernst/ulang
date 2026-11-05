@@ -2329,11 +2329,32 @@ function last_mod(ds: List[Mod]): Id :=
   end
 
 // the units of the modules, in load order: the prelude with the modules imported after it, which every module sees, and
-// each other module on its own
+// each other module on its own, where the last module, the main one, is a unit of its own, also when it is a module of the
+// library, whose tests the driver checks
 function units(ds: List[Mod]): List[List[Mod]] :=
+  match ds
+    case Nil => Nil
+    case _ => prelude_units(but_last_mod(ds)) ++ [[final_mod(ds)]]
+  end
+
+function prelude_units(ds: List[Mod]): List[List[Mod]] :=
   let pre := closure(ds, ["prelude"], Nil) in
     let unit := [d for d in ds if contains(d.name, pre)] in
       (if unit == Nil then Nil else [unit]) ++ [[d] for d in ds if not contains(d.name, pre)]
+
+function but_last_mod(ds: List[Mod]): List[Mod] :=
+  match ds
+    case [_] => Nil
+    case [d; rest] => [d; but_last_mod(rest)]
+    case Nil => Nil
+  end
+
+function final_mod(ds: List[Mod]): Mod :=
+  match ds
+    case [d] => d
+    case [_; rest] => final_mod(rest)
+    case Nil => Mod("", Nil, Unsectioned(Nil))
+  end
 
 // the modules that names import, directly or not, with names
 function closure(ds: List[Mod], names: List[Id], seen: List[Id]): List[Id] :=
@@ -2387,7 +2408,7 @@ test inference() :=
 test elaboration() :=
   local q: Prog
 
-  call check_program(in source_of(Prog(lists() ++ [CTest("r", Nil, SBlock([Var(unqualified("n"), THole)], [SAssign([(Var(unqualified("n"), THole), expr_app("len", [expr_app("Cons", [expr_int(1), expr_var("Nil")])]))])]))]), "main"), out q)
+  call check_program(in with_lists([CTest("r", Nil, SBlock([Var(unqualified("n"), THole)], [SAssign([(Var(unqualified("n"), THole), expr_app("len", [expr_app("Cons", [expr_int(1), expr_var("Nil")])]))])]))]), out q)
   match q
     case Prog([_, CFun(_, _, _, _, EMatch(_, [Branch(p, _, _); _])), CTest(_, Nil, SBlock(_, [SAssign([(_, EApp(EVar(Var(_, t)), _))])]))]) =>
       // the constructor Nil is elaborated to a pattern of a constructor
@@ -2401,14 +2422,14 @@ test coverage() :=
   local q: Prog
 
   try
-    call   check_program(in source_of(Prog(lists() ++ [CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), type_plain_list(type_int()))]], type_int(), EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0))]))]), "main"), out q)
+    call   check_program(in with_lists([CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), type_plain_list(type_int()))]], type_int(), EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0))]))]), out q)
     assert false
   catch
     case NotExhaustive(w) =>
       assert w == PApp(cons_name(), [PWild, PWild])
   end
   try
-    call   check_program(in source_of(Prog(lists() ++ [CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), type_plain_list(type_int()))]], type_int(), EMatch(expr_var("xs"), [Branch(PWild, None, expr_int(0)), Branch(pat_var("Nil"), None, expr_int(1))]))]), "main"), out q)
+    call   check_program(in with_lists([CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), type_plain_list(type_int()))]], type_int(), EMatch(expr_var("xs"), [Branch(PWild, None, expr_int(0)), Branch(pat_var("Nil"), None, expr_int(1))]))]), out q)
     assert false
   catch
     case Unreachable(p) =>
@@ -2420,19 +2441,19 @@ test statements() :=
 
   // procedure inc(ref k: Int) := assign k := k + 1, called with an input
   try
-    call check_program(in source_of(Prog(
+    call check_program(in program_of(
         [
           CProc(unqualified("inc"), Nil, Nil, Nil, [Var(unqualified("k"), type_int())], SBlock(Nil, [SAssign([(Var(unqualified("k"), THole), expr_app("+", [expr_var("k"), expr_int(1)]))])])),
           CProc(unqualified("p"), Nil, [Var(unqualified("n"), type_int())], Nil, Nil, SBlock(Nil, [SCall(unqualified("inc"), Nil, Nil, [Var(unqualified("n"), THole)])]))
         ]
-      ), "main"), out q)
+      ), out q)
     assert false
   catch
     case NotAssignable(n) =>
       assert n == unqualified("n")
   end
   try
-    call   check_program(in source_of(Prog(lists() ++ [CTest("t", Nil, SBlock(Nil, [SRaise(expr_var("Nil"), THole)]))]), "main"), out q)
+    call   check_program(in with_lists([CTest("t", Nil, SBlock(Nil, [SRaise(expr_var("Nil"), THole)]))]), out q)
     assert false
   catch
     case UnknownException(TSort(Name(Some("list"), "List"), _)) =>
@@ -2455,28 +2476,28 @@ function fun_cmd(n: Id, xs: List[Var], r: Type, b: Expr): Cmd :=
 
 // the modules bag and box, which both export a function size, a constructor Leaf, a procedure fill, and a field x,
 // and that the program imports
-function bags(): List[Cmd] :=
+function bags(): List[Mod] :=
   [
-    CModule("bag", [
-      CExport,
+    Mod("bag", Nil, Sectioned([
       CData(unq("Bag"), Nil, [Constr(unq("Bag"), [type_int()]), Constr(unq("Leaf"), [type_int()])]),
       CData(unq("Pt"), Nil, [Constr(unq("Pt"), [type_int()])]),
       fun_cmd("size", [var_of("b", tsort("Bag"))], type_int(), expr_int(1)),
       fun_cmd("compare", [var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))], type_int(), expr_int(0)),
       fun_cmd("Pt.x", [var_of("p", tsort("Pt"))], type_int(), EMatch(expr_var("p"), [Branch(PApp(unq("Pt"), [pat_var("n")]), None, expr_var("n"))])),
       CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Bag"))], Nil, SAssign([(var_of("b", THole), expr_app("Bag", [expr_int(0)]))]))
-    ]),
-    CImport("bag"),
-    CModule("box", [
-      CExport,
+    ], Nil, Nil)),
+    Mod("box", Nil, Sectioned([
       CData(unq("Box"), Nil, [Constr(unq("Box"), [type_str()]), Constr(unq("Leaf"), [type_str()])]),
       CData(unq("Qt"), Nil, [Constr(unq("Qt"), [type_str()])]),
       fun_cmd("size", [var_of("b", tsort("Box"))], type_int(), expr_int(2)),
       fun_cmd("Qt.x", [var_of("q", tsort("Qt"))], type_str(), EMatch(expr_var("q"), [Branch(PApp(unq("Qt"), [pat_var("s")]), None, expr_var("s"))])),
       CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Box"))], Nil, SAssign([(var_of("b", THole), expr_app("Box", [ELit(VStr(""))]))]))
-    ]),
-    CImport("box")
+    ], Nil, Nil))
   ]
+
+// the program of the commands cmds of the module main, which imports bag and box
+function with_bags(cmds: List[Cmd]): Source :=
+  Source(bags() ++ [Mod("main", ["bag", "box"], Unsectioned(cmds))], "main")
 
 function in_bag(n: Id): Name :=
   Name(Some("bag"), n)
@@ -2484,11 +2505,11 @@ function in_bag(n: Id): Name :=
 function in_box(n: Id): Name :=
   Name(Some("box"), n)
 
-// the body of the last function of the checked program bags() ++ [c]
+// the body of the last function of the checked program with_bags([c])
 procedure body_of(in c: Cmd, out b: Expr) :=
   local q: Prog
 
-  call check_program(in source_of(Prog(bags() ++ [c]), "main"), out q)
+  call check_program(in with_bags([c]), out q)
   match reverse(q.cmds)
     case [CFun(_, _, _, _, e); _] =>
       assign b := e
@@ -2552,7 +2573,7 @@ test constructors() :=
 test procedures() :=
   local q: Prog
 
-  call check_program(in source_of(Prog(bags() ++ [CProc(unq("p"), Nil, Nil, Nil, Nil, SBlock([var_of("b", tsort("Box"))], [SCall(unq("fill"), Nil, [var_of("b", THole)], Nil)]))]), "main"), out q)
+  call check_program(in with_bags([CProc(unq("p"), Nil, Nil, Nil, Nil, SBlock([var_of("b", tsort("Box"))], [SCall(unq("fill"), Nil, [var_of("b", THole)], Nil)]))]), out q)
   match reverse(q.cmds)
     case [CProc(_, _, _, _, _, SBlock(_, [SCall(p, _, _, _)])); _] =>
       assert p == in_box("fill")

@@ -13,7 +13,7 @@ function show_type(t: Type): Str
 function show_types(ts: List[Type]): Str
 function show_pat(p: Pat): Str
 function text_of(v: Value): Str
-function show_program(pre: Prog, p: Prog): Str
+function show_program(pre: List[Mod], mods: List[Mod]): Str
 
 implementation
 
@@ -146,16 +146,29 @@ data Shape :=
   | Negative
   | Operator(Fixity, Int)
 
-// the program p, parsed after the prelude pre, as source
-// where the prelude itself, after the empty program, is shown without the imports that the parser adds after it
-function show_program(pre: Prog, p: Prog): Str :=
-  let cmds := if pre.cmds == Nil then [c for c in p.cmds if not is_prelude_import(c)] else p.cmds in
-    join("\n\n", show_cmds(declare_commands(empty_loader(), pre.cmds), cmds)) ++ "\n"
+// the last of the modules mods, parsed after the prelude pre, as source, where the prelude itself, after no modules, is shown
+// without the imports that the parser adds after it
+function show_program(pre: List[Mod], mods: List[Mod]): Str :=
+  let d := last_mod(mods), loader := with_mods(if pre == Nil then empty_loader() else pre_loader(pre, ""), mods) in
+    join("\n\n", show_mod(loader, if pre == Nil then d with imports := Nil else d)) ++ "\n"
 
-function is_prelude_import(c: Cmd): Bool :=
-  match c
-    case CImport(n) => contains(n, prelude_imports())
-    case _ => false
+// the imports of module d and its sections, where an import brings the notations of its module
+function show_mod(loader: Loader, d: Mod): List[Str] :=
+  let after := with_all(loader, d.imports) in
+    ["import " ++ n for n in d.imports] ++
+      match d.sections
+        case Unsectioned(cmds) =>
+          show_cmds(after, cmds)
+        case Sectioned(e, b, i) =>
+          let inner := declare_commands(after, e) in
+            ["export"; show_cmds(after, e)] ++ (if b == Nil then [] else ["builtin"; show_cmds(inner, b)]) ++
+              (if i == Nil then [] else ["implementation"; show_cmds(inner, i)])
+      end
+
+function with_all(loader: Loader, names: List[Id]): Loader :=
+  match names
+    case Nil => loader
+    case [n; rest] => with_all(loader with notations := union_notations(loader.notations, exported_notations(loader, n)), rest)
   end
 
 // operators and parentheses
@@ -609,7 +622,7 @@ function formal_sections(ins: List[Var], outs: List[Var], refs: List[Var]): Str 
 function formal_text(x: Var): Str :=
   if x.typ == THole then x.name.base else x.name.base ++ ": " ++ show_type(x.typ)
 
-// commands, where the notations of a command apply to those after it, modules are printed as their imports, and the
+// commands, where the notations of a command apply to those after it, and the
 // accessors and updaters of the fields of a data declaration as the names of its fields
 
 function show_cmds(loader: Loader, cmds: List[Cmd]): List[Str] :=
@@ -643,20 +656,10 @@ function show_cmd(loader: Loader, cmd: Cmd, more: List[Cmd]): Option[Str] :=
       Some("procedure " ++ n.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ") :=" ++ show_body(loader, "  ", body))
     case CProcSig(n, params, ins, outs, refs) =>
       Some("procedure " ++ n.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")")
-    case CModule(_, _) =>
-      None
-    case CImport(n) =>
-      Some("import " ++ n)
     case CNotation(f, prec, names) =>
       Some(fixity_text(f) ++ " " ++ show(prec) ++ " " ++ join(" ", names))
     case CTest(name, xs, body) =>
       Some("test " ++ name ++ "(" ++ join(", ", [formal_text(x) for x in xs]) ++ ") :=" ++ show_body(loader, "  ", body))
-    case CExport =>
-      Some("export")
-    case CBuiltin =>
-      Some("builtin")
-    case CImplementation =>
-      Some("implementation")
   end
 
 function params_text(params: List[Id]): Str :=
@@ -856,4 +859,4 @@ test printed_back() :=
   local p: Prog, text := "infix left 8 +\n\ndata R :=\n  | R(f: Int, g: Int)\n\nprocedure p(in r: R, out n: Int) :=\n  local s := (r with f := 1), k: Int\n  if s.f + r.g\n    assign n := 1\n  else if r.f\n    assign k := 2, n := k\n  else\n    skip\n  end\n"
 
   call   parse_text(in text, empty_loader(), out p)
-  assert show_program(Prog(Nil), p) == text
+  assert show_program(Nil, [Mod("main", Nil, Unsectioned(p.cmds))]) == text

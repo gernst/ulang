@@ -14,12 +14,12 @@ export
 data ParseError :=
   | ParseError(Str, Int)
 
-procedure parse_library(in name: Id, out prog: Prog)
+procedure parse_library(in name: Id, out mods: List[Mod])
 function last_of(xs: List[Str]): Str
 function base_name(path: Str): Str
 function dir_name(path: Str): Str
-procedure parse_file_after(in path: Str, pre: Prog, out prog: Prog)
-procedure parse_text_after(in path: Str, pre: Prog, text: Str, out prog: Prog)
+procedure parse_file_after(in path: Str, pre: List[Mod], out mods: List[Mod])
+procedure parse_text_after(in path: Str, pre: List[Mod], text: Str, out mods: List[Mod])
 
 // the commands of text after the loader, which reads no files unless text imports modules
 procedure parse_text(in text: Str, loader: Loader, out prog: Prog)
@@ -33,6 +33,10 @@ data Loader :=
 function empty_loader(): Loader
 function declare_commands(loader: Loader, cmds: List[Cmd]): Loader
 function prelude_imports(): List[Id]
+function pre_loader(pre: List[Mod], name: Id): Loader
+function with_mods(loader: Loader, mods: List[Mod]): Loader
+function exported_notations(loader: Loader, name: Id): Notations
+function last_mod(mods: List[Mod]): Mod
 
 implementation
 
@@ -1241,18 +1245,26 @@ function without_tests(cmds: List[Cmd]): List[Cmd] :=
 function empty_loader(): Loader :=
   Loader(empty_notations(), empty(), Nil, None, None)
 
-function with_module(loader: Loader, cmd: Cmd): Loader :=
-  loader with sigs := put_all(sigs_of(cmd), loader.sigs)
-
-// the signatures of module cmd and of the modules it loads, with their own notations, which a module without an export
-// section keeps private
-function sigs_of(cmd: Cmd): List[Id * Sig] :=
-  match cmd
-    case CModule(name, cmds) =>
-      let own := if contains(CExport, cmds) then with_notations(empty_notations(), cmds) else empty_notations() in
-        [(name, empty() with notations := own); concat([sigs_of(d) for d in cmds])]
-    case _ => Nil
+// the module d without its tests, as an import loads it
+function without_tests_of(d: Mod): Mod :=
+  match d.sections
+    case Unsectioned(cmds) => d with sections := Unsectioned(without_tests(cmds))
+    case Sectioned(e, b, i) => d with sections := Sectioned(e, b, without_tests(i))
   end
+
+function with_mods(loader: Loader, mods: List[Mod]): Loader :=
+  loader with sigs := put_all([(d.name, sig_of(d)) for d in mods], loader.sigs)
+
+// the signature of module d with its own notations, which a module without an export section keeps private
+function sig_of(d: Mod): Sig :=
+  match d.sections
+    case Sectioned(e, _, _) => empty() with notations := with_notations(empty_notations(), e)
+    case Unsectioned(_) => empty()
+  end
+
+// the loader with the notations that module name exports
+function with_imported(loader: Loader, name: Id): Loader :=
+  loader with notations := union_notations(loader.notations, exported_notations(loader, name))
 
 // the notations that module name exports
 function exported_notations(loader: Loader, name: Id): Notations :=
@@ -1531,18 +1543,11 @@ procedure parse_procedure(in notations: Notations, out cmd: Cmd, ref toks: Token
     assign cmd := CProcSig(unqualified(name), params, ins, outs, refs)
   end
 
-// the commands of one declaration, where an import is the marker CImport(n), preceded by module n at its first import
+// the commands of one declaration
 procedure parse_command(in loader: Loader, out cmds: List[Cmd], ref toks: Tokens) :=
   local notations := loader.notations, name: Id, params: List[Id], typ: Type, cmd: Cmd, body: Stmt, xs: List[Var], offset: Int
 
   match head_token(toks)
-    case TName("import") =>
-      assign offset := head_offset(toks)
-      call   advance(ref toks)
-      call   parse_name(out name, ref toks)
-
-      call   import_module(in name, loader, offset, out cmds)
-
     case TName(w) if contains(w, ["prefix", "postfix", "infix"]) =>
       assign offset := head_offset(toks)
       call   parse_notation(in notations, out cmd, ref toks)
@@ -1586,28 +1591,24 @@ procedure parse_command(in loader: Loader, out cmds: List[Cmd], ref toks: Tokens
       raise expected("declaration", toks)
   end
 
-// the commands of an import of module name at offset, the marker CImport(name), preceded by the module at its first import
-procedure import_module(in name: Id, loader: Loader, offset: Int, out cmds: List[Cmd]) :=
+// the modules that an import of module name at offset loads, which are none if it is loaded already, and else the module
+// after those that it loads
+procedure import_module(in name: Id, loader: Loader, offset: Int, out mods: List[Mod]) :=
   if contains(name, loader.sigs)
     call   check_imported(in loader.notations, exported_notations(loader, name), offset)
-    assign cmds := [CImport(name)]
+    assign mods := Nil
   else
-    call   load_module(in name, loader, offset, out cmds)
-    call   check_imported(in loader.notations, exported_notations(with_module(loader, CModule(name, cmds)), name), offset)
-    assign cmds := [CModule(name, without_tests(cmds)), CImport(name)]
+    call   load_module(in name, loader, offset, out mods)
+    call   check_imported(in loader.notations, exported_notations(with_mods(loader, mods), name), offset)
   end
 
-// the loader after the commands cmds, where an import brings the own notations of the module
+// the loader after the commands cmds, with their notations
 function declare_commands(loader: Loader, cmds: List[Cmd]): Loader :=
   match cmds
     case Nil =>
       loader
     case [CNotation(f, prec, ops); more] =>
       declare_commands(loader with notations := with_operators(loader.notations, f, prec, ops), more)
-    case [CModule(n, ds); more] =>
-      declare_commands(with_module(loader, CModule(n, ds)), more)
-    case [CImport(n); more] =>
-      declare_commands(loader with notations := union_notations(loader.notations, exported_notations(loader, n)), more)
     case [_; more] =>
       declare_commands(loader, more)
   end
@@ -1621,12 +1622,14 @@ data Section :=
   | InImplementation
   | NoSections
 
-// notations apply to the commands after them
-procedure parse_commands(out cmds: List[Cmd], ref loader: Loader, toks: Tokens) :=
-  local rev: List[Cmd] := Nil, more: List[Cmd], section := Opening, offset: Int
+// the module name with the modules that its imports load before it, where notations apply to the commands after them, and
+// imports come first
+procedure parse_mod(in name: Id, out mods: List[Mod], ref loader: Loader, toks: Tokens) :=
+  local imports: List[Id] := Nil, loaded: List[Mod] := Nil, new: List[Mod], plain: List[Cmd] := Nil, exported: List[Cmd] := Nil,
+    builtins: List[Cmd] := Nil, implemented: List[Cmd] := Nil, more: List[Cmd], section := Opening, offset: Int, imported: Id
 
   while head_token(toks) != TEnd
-    assign offset := head_offset(toks)
+    assign offset := head_offset(toks), more := Nil
 
     match head_token(toks)
       case TName("export") =>
@@ -1637,7 +1640,7 @@ procedure parse_commands(out cmds: List[Cmd], ref loader: Loader, toks: Tokens) 
         end
 
         call   advance(ref toks)
-        assign more := [CExport], section := InExport
+        assign section := InExport
 
       case TName("builtin") =>
         if section != InExport
@@ -1645,7 +1648,7 @@ procedure parse_commands(out cmds: List[Cmd], ref loader: Loader, toks: Tokens) 
         end
 
         call   advance(ref toks)
-        assign more := [CBuiltin], section := InBuiltin
+        assign section := InBuiltin
 
       case TName("implementation") =>
         if section != InExport and section != InBuiltin
@@ -1653,20 +1656,43 @@ procedure parse_commands(out cmds: List[Cmd], ref loader: Loader, toks: Tokens) 
         end
 
         call   advance(ref toks)
-        assign more := [CImplementation], section := InImplementation
+        assign section := InImplementation
 
-      case TName("import") if section == InExport or section == InBuiltin or section == InImplementation =>
+      case TName("import") if section == NoSections =>
+        raise ParseError("imports come first", offset)
+
+      case TName("import") if section != Opening =>
         raise ParseError("imports come before export", offset)
+
+      case TName("import") =>
+        call   advance(ref toks)
+        call   parse_name(out imported, ref toks)
+        call   import_module(in imported, loader, offset, out new)
+        assign loader := with_imported(with_mods(loader, new), imported), loaded := loaded ++ new, imports := imports ++ [imported]
 
       case _ =>
         call   parse_command(in loader, out more, ref toks)
         call   enter_section(in more, offset, ref section)
+        assign loader := declare_commands(loader, more)
     end
 
-    assign loader := declare_commands(loader, more), rev := reverse_onto(more, rev)
+    match section
+      case InExport =>
+        assign exported := reverse_onto(more, exported)
+      case InBuiltin =>
+        assign builtins := reverse_onto(more, builtins)
+      case InImplementation =>
+        assign implemented := reverse_onto(more, implemented)
+      case _ =>
+        assign plain := reverse_onto(more, plain)
+    end
   end
 
-  assign cmds := reverse(rev)
+  if section == Opening or section == NoSections
+    assign mods := loaded ++ [Mod(name, imports, Unsectioned(reverse(plain)))]
+  else
+    assign mods := loaded ++ [Mod(name, imports, Sectioned(reverse(exported), reverse(builtins), reverse(implemented)))]
+  end
 
 // the section after the commands of one declaration, which must belong to the section
 procedure enter_section(in cmds: List[Cmd], offset: Int, ref section: Section) :=
@@ -1691,10 +1717,6 @@ procedure enter_section(in cmds: List[Cmd], offset: Int, ref section: Section) :
       raise ParseError("definitions belong to the implementation section", offset)
     case ([CTest(_, _, _); _], InExport) =>
       raise ParseError("tests belong to the implementation section", offset)
-    case ([CModule(_, _); _], _) =>
-      skip
-    case ([CImport(_); _], _) =>
-      skip
     case (_, Opening) =>
       assign section := NoSections
     case _ =>
@@ -1723,8 +1745,9 @@ procedure library_text(in name: Id, offset: Int, out text: Str) :=
       raise ParseError("unknown module " ++ name, offset)
   end
 
-// the commands of module n, parsed with the notations of the prelude and of its own imports, since imports are not transitive
-procedure load_module(in name: Id, loader: Loader, offset: Int, out cmds: List[Cmd]) :=
+// module name without its tests after the modules it loads, parsed with the notations of the prelude and of its own imports,
+// since imports are not transitive
+procedure load_module(in name: Id, loader: Loader, offset: Int, out mods: List[Mod]) :=
   local text: Str, module_toks: Tokens, module_loader: Loader
 
   if contains(name, loader.loading)
@@ -1736,12 +1759,21 @@ procedure load_module(in name: Id, loader: Loader, offset: Int, out cmds: List[C
 
   try
     call lex(in text, out module_toks)
-    call parse_commands(out cmds, ref module_loader, module_toks)
+    call parse_mod(in name, out mods, ref module_loader, module_toks)
   catch
     case LexError(m, i) =>
       raise ParseError(m ++ " in " ++ name, i)
     case ParseError(m, i) =>
       raise ParseError(m ++ " in " ++ name, i)
+  end
+
+  assign mods := without_tests_last(mods)
+
+function without_tests_last(mods: List[Mod]): List[Mod] :=
+  match mods
+    case Nil => Nil
+    case [d] => [without_tests_of(d)]
+    case [d; rest] => [d; without_tests_last(rest)]
   end
 
 function prelude_notations(loader: Loader): Notations :=
@@ -1750,9 +1782,9 @@ function prelude_notations(loader: Loader): Notations :=
     case None => loader.notations
   end
 
-// the program text after the loader, e.g., after the prelude
-procedure parse_text(in text: Str, loader: Loader, out prog: Prog) :=
-  local toks: Tokens, cmds: List[Cmd], after := loader
+// the modules of text as module name after the loader, which are those that it loads and itself
+procedure parse_source(in name: Id, text: Str, out mods: List[Mod], ref loader: Loader) :=
+  local toks: Tokens
 
   try
     call lex(in text, out toks)
@@ -1761,60 +1793,79 @@ procedure parse_text(in text: Str, loader: Loader, out prog: Prog) :=
       raise ParseError(m, i)
   end
 
-  call   parse_commands(out cmds, ref after, toks)
-  assign prog := Prog(cmds)
+  call parse_mod(in name, out mods, ref loader, toks)
 
-// the module of name, which is parsed after the prelude pre with its notations and modules, and reads modules from dir, or else the library,
-// where a module that the prelude imports declares its own notations again
-procedure parse_module_after(in name: Id, pre: Prog, dir: Option[Str], text: Str, out prog: Prog) :=
-  local loader := declare_commands(empty_loader(), [cmd for cmd in pre.cmds if cmd != CImport(name)])
+// the commands of text after the loader, as those of its module
+procedure parse_text(in text: Str, loader: Loader, out prog: Prog) :=
+  local mods: List[Mod], after := loader
 
-  call parse_text(in text, loader with loading := [name], prelude := Some(loader.notations), dir := dir, out prog)
+  call   parse_source(in "main", text, out mods, ref after)
+  assign prog := Prog(commands_of(last_mod(mods).sections))
+
+function last_mod(mods: List[Mod]): Mod :=
+  match mods
+    case [d] => d
+    case [_; rest] => last_mod(rest)
+    case Nil => Mod("", Nil, Unsectioned(Nil))
+  end
+
+// the loader after the prelude pre with its notations and the modules it loads, for the module name, where a module that
+// the prelude imports declares its own notations again
+function pre_loader(pre: List[Mod], name: Id): Loader :=
+  with_all_imported(with_mods(empty_loader(), pre), [m for m in ["prelude"] ++ prelude_imports() if m != name])
+
+function with_all_imported(loader: Loader, names: List[Id]): Loader :=
+  match names
+    case Nil => loader
+    case [n; rest] => with_all_imported(with_imported(loader, n), rest)
+  end
+
+// the modules of name, which is parsed after the prelude pre with its notations and modules, and reads modules from dir, or
+// else the library
+procedure parse_module_after(in name: Id, pre: List[Mod], dir: Option[Str], text: Str, out mods: List[Mod]) :=
+  local before := pre_loader(pre, name), loader: Loader
+
+  assign loader := before with loading := [name], prelude := Some(before.notations), dir := dir
+  call   parse_source(in name, text, out mods, ref loader)
 
 // the modules that the parser imports after the prelude, which every module sees with it
 function prelude_imports(): List[Id] :=
   ["option", "list", "str"]
 
 // the prelude, the text of the module name, after which the modules of prelude_imports are imported, which the prelude does
-// not import itself, since they are parsed with all its notations
-procedure parse_prelude(in name: Id, text: Str, dir: Option[Str], out prog: Prog) :=
-  local toks: Tokens, cmds: List[Cmd], loader := empty_loader() with loading := [name], dir := dir
+// not import itself, since they are parsed with all its notations, and which it lists as its imports
+procedure parse_prelude(in name: Id, text: Str, dir: Option[Str], out mods: List[Mod]) :=
+  local own: List[Mod], loaded: List[Mod], loader := empty_loader() with loading := [name], dir := dir
 
-  try
-    call lex(in text, out toks)
-  catch
-    case LexError(m, i) =>
-      raise ParseError(m, i)
-  end
+  call   parse_source(in name, text, out own, ref loader)
+  call   import_all(in prelude_imports(), out loaded, ref loader)
+  assign mods := loaded ++ [last_mod(own) with imports := prelude_imports()]
 
-  call   parse_commands(out cmds, ref loader, toks)
-  call   import_all(in prelude_imports(), ref loader, cmds)
-  assign prog := Prog(cmds)
-
-// the commands cmds with the imports of the modules names after them
-procedure import_all(in names: List[Id], ref loader: Loader, cmds: List[Cmd]) :=
-  local more: List[Cmd]
+// the modules that the imports of names load
+procedure import_all(in names: List[Id], out loaded: List[Mod], ref loader: Loader) :=
+  local new: List[Mod], more: List[Mod]
 
   match names
     case Nil =>
-      skip
+      assign loaded := Nil
     case [name; rest] =>
-      call   import_module(in name, loader, 0, out more)
-      assign loader := declare_commands(loader, more), cmds := cmds ++ more
-      call   import_all(in rest, ref loader, cmds)
+      call   import_module(in name, loader, 0, out new)
+      assign loader := with_imported(with_mods(loader, new), name)
+      call   import_all(in rest, out more, ref loader)
+      assign loaded := new ++ more
   end
 
 // the prelude, or another module of the library parsed after the prelude, as library gives them
-procedure parse_library(in name: Id, out prog: Prog) :=
-  local text: Str, pre: Prog
+procedure parse_library(in name: Id, out mods: List[Mod]) :=
+  local text: Str, pre: List[Mod]
 
   call library_text(in name, 0, out text)
 
   if name == "prelude"
-    call parse_prelude(in name, text, None, out prog)
+    call parse_prelude(in name, text, None, out mods)
   else
     call parse_library(in "prelude", out pre)
-    call parse_module_after(in name, pre, None, text, out prog)
+    call parse_module_after(in name, pre, None, text, out mods)
   end
 
 function last_of(xs: List[Str]): Str :=
@@ -1832,23 +1883,17 @@ function base_name(path: Str): Str :=
 function dir_name(path: Str): Str :=
   let parts := split(path, '/') in if size(parts) == 1 then "." else join("/", take(size(parts) - 1, parts))
 
-// a file after the prelude pre, as read gives it
-procedure parse_file_after(in path: Str, pre: Prog, out prog: Prog) :=
+// the modules of a file after the prelude pre, as read gives it, which are those that it loads and its own
+procedure parse_file_after(in path: Str, pre: List[Mod], out mods: List[Mod]) :=
   local text: Str
 
   call os_read(in path, out text)
-  call parse_text_after(in path, pre, text, out prog)
+  call parse_text_after(in path, pre, text, out mods)
 
-// text as the file at path after the prelude pre, where the prelude itself comes after the empty program
-procedure parse_text_after(in path: Str, pre: Prog, text: Str, out prog: Prog) :=
-  if pre.cmds == Nil
-    call parse_prelude(in base_name(path), text, Some(dir_name(path)), out prog)
+// text as the file at path after the prelude pre, where the prelude itself comes after no modules
+procedure parse_text_after(in path: Str, pre: List[Mod], text: Str, out mods: List[Mod]) :=
+  if pre == Nil
+    call parse_prelude(in base_name(path), text, Some(dir_name(path)), out mods)
   else
-    call parse_module_after(in base_name(path), pre, Some(dir_name(path)), text, out prog)
+    call parse_module_after(in base_name(path), pre, Some(dir_name(path)), text, out mods)
   end
-
-procedure parse_file(in path: Str, out prog: Prog) :=
-  local pre: Prog
-
-  call   parse_library(in "prelude", out pre)
-  call   parse_file_after(in path, pre, out prog)

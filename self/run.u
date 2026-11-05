@@ -937,11 +937,11 @@ procedure run_program(in q: Prog) :=
 
   call run_all(in load(q), q.cmds, ref cache)
 
-// checks the commands and runs their tests
+// checks the commands, after len of a module that imports lists, and runs their tests
 procedure check_and_run(in cs: List[Cmd]) :=
   local q: Prog
 
-  call check_program(in source_of(Prog(cs), "main"), out q)
+  call check_program(in with_lists(cs), out q)
   call run_program(in q)
 
 // the test n that asserts that e equals expected
@@ -956,14 +956,15 @@ function int(n: Int): Value :=
   Lit(VInt(n))
 
 test expressions() :=
-  call check_and_run(in lists() ++
-    [
+  call check_and_run(
+    in [
       asserting("p1", expr_app("len", [expr_app("Cons", [expr_int(1), expr_app("Cons", [expr_int(2), expr_var("Nil")])])]), expr_int(2)),
       // let f = lambda x => x * x in f(3) + f(4)
       asserting("p2", ELet([(Var(unqualified("f"), THole), ELam([Var(unqualified("x"), THole)], expr_app("*", [expr_var("x"), expr_var("x")])))], expr_app("+", [expr_app("f", [expr_int(3)]), expr_app("f", [expr_int(4)])])), expr_int(25)),
       // false and 1 / 0 == 0
       asserting("p4", expr_app("and", [ELit(VBool(false)), expr_app("==", [expr_app("/", [expr_int(1), expr_int(0)]), expr_int(0)])]), ELit(VBool(false)))
-    ])
+    ]
+  )
 
 // procedure sum(in n: Int, out s: Int) with a loop, and procedure size(ref k: Int) raising Fail after an increment
 function procedures(): List[Cmd] :=

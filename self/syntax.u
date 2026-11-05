@@ -89,17 +89,12 @@ data Cmd :=
   | CFun(Name, List[Id], List[List[Var]], Type, Expr)
   | CProc(Name, List[Id], List[Var], List[Var], List[Var], Stmt)
   // the first import of a module comes with the module itself, whose commands are those it declares
-  | CModule(Id, List[Cmd])
-  | CImport(Id)
   | CNotation(Fixity, Int, List[Id])
   // tests take no parameters, which the checker enforces
   | CTest(Id, List[Var], Stmt)
   // the export section of a module, with the signatures of functions and procedures, as CFun and CProc without their
   // bodies, and abstract types, which its implementation section defines by data, and its builtin section, with the
   // signatures of exported functions and procedures that the interpreter and the runtime define
-  | CExport
-  | CBuiltin
-  | CImplementation
   | CFunSig(Name, List[Id], List[List[Var]], Type)
   | CProcSig(Name, List[Id], List[Var], List[Var], List[Var])
   | CAbstract(Name, List[Id])
@@ -156,8 +151,9 @@ function expr_var(n: Id): Expr
 function expr_int(n: Int): Expr
 function expr_app(f: Id, args: List[Expr]): Expr
 function pat_var(n: Id): Pat
-function lists(): List[Cmd]
-function source_of(prog: Prog, main: Id): Source
+function lists(): List[Mod]
+function with_lists(cmds: List[Cmd]): Source
+function program_of(cmds: List[Cmd]): Source
 function commands_of(sections: Sections): List[Cmd]
 
 implementation
@@ -269,68 +265,25 @@ function pat_var(n: Id): Pat :=
   PVar(Var(unqualified(n), THole))
 
 // lists with constructors Nil and Cons, exported by the module list as in the library, and their length
-function lists(): List[Cmd] :=
-  [
-    CModule("list", [CExport, CData(unqualified("List"), ["A"], [Constr(unqualified("Nil"), Nil), Constr(unqualified("Cons"), [TParam("A"), type_plain_list(TParam("A"))])])]),
-    CImport("list"),
-    CFun(
-      unqualified("len"),
-      ["A"],
-      [[Var(unqualified("xs"), type_plain_list(TParam("A")))]],
-      type_int(),
-      EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0)), Branch(PApp(unqualified("Cons"), [PWild, pat_var("ys")]), None, expr_app("+", [expr_int(1), expr_app("len", [expr_var("ys")])]))])
-    )
-  ]
+function lists(): List[Mod] :=
+  [Mod("list", Nil, Sectioned([CData(unqualified("List"), ["A"], [Constr(unqualified("Nil"), Nil), Constr(unqualified("Cons"), [TParam("A"), type_plain_list(TParam("A"))])])], Nil, Nil))]
 
-// the source of prog, the commands of module main with the modules that they load, CModule(n, cmds) at the first import of
-// n, and the markers of imports and sections
-function source_of(prog: Prog, main: Id): Source :=
-  Source(mods_of(main, prog.cmds), main)
+// the program of the commands cmds after len of the module main, which imports lists
+function with_lists(cmds: List[Cmd]): Source :=
+  Source(lists() ++ [Mod("main", ["list"], Unsectioned([len_fun(); cmds]))], "main")
 
-function mods_of(m: Id, cmds: List[Cmd]): List[Mod] :=
-  concat([nested_mods(c) for c in cmds]) ++ [Mod(m, imported(cmds), sections_from([c for c in cmds if is_declaration(c)]))]
+function len_fun(): Cmd :=
+  CFun(
+    unqualified("len"),
+    ["A"],
+    [[Var(unqualified("xs"), type_plain_list(TParam("A")))]],
+    type_int(),
+    EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0)), Branch(PApp(unqualified("Cons"), [PWild, pat_var("ys")]), None, expr_app("+", [expr_int(1), expr_app("len", [expr_var("ys")])]))])
+  )
 
-function nested_mods(c: Cmd): List[Mod] :=
-  match c
-    case CModule(n, cmds) => mods_of(n, cmds)
-    case _ => Nil
-  end
-
-function imported(cmds: List[Cmd]): List[Id] :=
-  match cmds
-    case Nil => Nil
-    case [CImport(n); rest] => [n; imported(rest)]
-    case [_; rest] => imported(rest)
-  end
-
-function is_declaration(c: Cmd): Bool :=
-  match c
-    case CModule(_, _) => false
-    case CImport(_) => false
-    case _ => true
-  end
-
-function sections_from(cmds: List[Cmd]): Sections :=
-  match cmds
-    case [CExport; rest] => Sectioned(section_until(rest), section_after(CBuiltin, rest), section_after(CImplementation, rest))
-    case _ => Unsectioned(cmds)
-  end
-
-// the commands up to the next marker of a section
-function section_until(cmds: List[Cmd]): List[Cmd] :=
-  match cmds
-    case Nil => Nil
-    case [CBuiltin; _] => Nil
-    case [CImplementation; _] => Nil
-    case [c; rest] => [c; section_until(rest)]
-  end
-
-// the commands after the marker of a section up to the next one
-function section_after(marker: Cmd, cmds: List[Cmd]): List[Cmd] :=
-  match cmds
-    case Nil => Nil
-    case [c; rest] => if c == marker then section_until(rest) else section_after(marker, rest)
-  end
+// the program of the commands cmds of the module main
+function program_of(cmds: List[Cmd]): Source :=
+  Source([Mod("main", Nil, Unsectioned(cmds))], "main")
 
 // the commands of all sections, in order
 function commands_of(sections: Sections): List[Cmd] :=

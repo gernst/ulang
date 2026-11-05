@@ -138,30 +138,34 @@ function in_module(words: List[Str]): Bool :=
 // where a module of the library that the prelude imports keeps only its tests, since the prelude declares the rest,
 // and the prelude itself is not parsed again, which would declare its notations twice
 procedure load_file(in file: Str, out q: Prog) :=
-  local name := base_name(file), pre: Prog, p: Prog, text: Str, library: Str, own: List[Cmd], of_library := false
+  local name := base_name(file), pre: List[Mod], mods: List[Mod] := Nil, text: Str, library: Str, own: Mod, of_library := false
 
   call   parse_library(in "prelude", out pre)
 
-  if contains(name, ["prelude"; module_names(pre.cmds)])
+  if contains(name, [d.name for d in pre])
     call   os_read(in file, out text)
     call   os_library(in name, out library)
     assign of_library := text == library
   end
 
   if of_library and name == "prelude"
-    assign own := [c for c in pre.cmds if is_any_test(c)]
+    assign own := tests_of(name, [d for d in pre if d.name == name])
   else
-    call   parse_file_after(in file, pre, out p)
-    assign own := if of_library then [c for c in p.cmds if is_any_test(c)] else p.cmds
+    call   parse_file_after(in file, pre, out mods)
+    assign own := if of_library then tests_of(name, mods) else last_mod(mods), mods := if of_library then Nil else but_last(mods)
   end
 
-  call check_program(in source_of(Prog([CModule("prelude", pre.cmds); own]), name), out q)
+  call check_program(in Source(pre ++ mods ++ [own], name), out q)
 
-function module_names(cs: List[Cmd]): List[Id] :=
-  match cs
+// the module name with only the tests of the last of mods
+function tests_of(name: Id, mods: List[Mod]): Mod :=
+  Mod(name, Nil, Unsectioned([c for c in commands_of(last_mod(mods).sections) if is_any_test(c)]))
+
+function but_last(mods: List[Mod]): List[Mod] :=
+  match mods
+    case [_] => Nil
+    case [d; rest] => [d; but_last(rest)]
     case Nil => Nil
-    case [CModule(n, _); rest] => [n; module_names(rest)]
-    case [_; rest] => module_names(rest)
   end
 
 function is_any_test(c: Cmd): Bool :=
@@ -182,7 +186,7 @@ procedure compile_to(in file: Str, entry: Str, target: Str, out ok: Bool) :=
 
 // prints file as source, which must parse to the same commands as file, so that formatting tests the parser and the printer
 procedure format_file(in file: Str, out ok: Bool) :=
-  local pre := Prog(Nil), p: Prog, q: Prog, text: Str, source: Str
+  local pre: List[Mod] := Nil, p: List[Mod], q: List[Mod], text: Str, source: Str
 
   if base_name(file) != "prelude"
     call parse_library(in "prelude", out pre)

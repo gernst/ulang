@@ -916,11 +916,11 @@ procedure compile_program(in q: Prog, m: Id, entry: Id, out f: CFile) :=
 
 // checks the program of the file source after the prelude, which is its module, and writes its translation to C to target
 procedure compile_file(in source: Str, entry: Id, target: Str) :=
-  local pre: Prog, p: Prog, q: Prog, f: CFile
+  local pre: List[Mod], mods: List[Mod], q: Prog, f: CFile
 
   call   parse_library(in "prelude", out pre)
-  call   parse_file_after(in source, pre, out p)
-  call   check_program(in source_of(Prog([CModule("prelude", pre.cmds); p.cmds]), base_name(source)), out q)
+  call   parse_file_after(in source, pre, out mods)
+  call   check_program(in Source(pre ++ mods, base_name(source)), out q)
   call   compile_program(in q, base_name(source), entry, out f)
   call   os_write(in target, show_file(f))
 

@@ -1,0 +1,12 @@
+// a module for tests/errors/imported-notation.u, which exports the notation of tests/errors/notation.u differently
+
+export
+
+infix right 8 <+>
+
+function <+>(a: Int, b: Int): Int
+
+implementation
+
+function <+>(a: Int, b: Int): Int :=
+  a - b
