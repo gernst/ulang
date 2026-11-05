@@ -97,6 +97,22 @@ test parse_errors() :=
   end
   assert k == 1
 
+// variables keep what the body of a try assigned before the raise, also when compiled with optimizations
+test assigned_before_raise() :=
+  local k := 0, n := 0
+
+  try
+    assign k := 1
+    while n < 3
+      assign n := n + 1
+    end
+    call   count(ref k)
+  catch
+    case Fail =>
+      assign k := k + 10
+  end
+  assert (k, n) == (12, 3)
+
 // an exception that no case matches is raised further
 test unmatched_raised_further() :=
   local e: Str

@@ -99,6 +99,7 @@ u_value u_mk_con_array(const struct u_name *name, int size, u_value *items);
 u_value u_mk_tuple(int size, ...);
 u_value u_mk_closure(code fun, int size, ...);
 u_value u_mk_proc(proc_code proc, int size, ...);
+u_value *u_cell(void);
 
 // the booleans and the empty list, which exist once
 extern struct u_object u_true, u_false;

@@ -7,7 +7,7 @@ Open action items, each with the problem and the desired solution.
 
 ## Testing
 
-1. **Compiled and interpreted programs are compared by hand**: `make test` runs the interpreter only, and nothing checks that the compiled tests print what `./ulang.bin test` prints, where they differ for `tests/exceptions.u` (Compiler 1). Solution: a make target that compiles each file of `tests/` with the entry `test` and compares its output with `./ulang.bin test`.
+1. **Compiled and interpreted programs are compared by hand**: `make test` runs the interpreter only, and nothing checks that the compiled tests print what `./ulang.bin test` prints, although they agree for all files of `tests/` now. Solution: a make target that compiles each file of `tests/` with the entry `test` and compares its output with `./ulang.bin test`.
 
 ## Builtins
 
@@ -32,10 +32,9 @@ Open action items, each with the problem and the desired solution.
 
 ## Compiler
 
-1. **Variables after a raise.** `try` uses `setjmp`, after which C leaves local variables that changed since then undefined unless they are `volatile`; outs and refs work in practice since their address is taken, but this is not guaranteed. Solution: declare the locals that a `try` assigns as `volatile`.
-2. **Runtime errors have no positions**, and an unassigned variable is a `NULL` pointer instead of an error. Solution: positions in the messages of the runtime, and a check of unassigned variables.
-3. **Deep recursion.** Functions like `concat` and `str_join` over long lists recurse deeply, so compiled programs need `ulimit -s unlimited` for big inputs. Solution: loops in the runtime and library where possible, and a large stack for the main thread of compiled programs, as the interpreter has.
-4. **Integers are boxed**: every integer outside -16 to 255 is an object on the heap, so arithmetic allocates, e.g. 63 million calls of `u_mk_int` when `run.u` interprets the compiler. Solution: integers that fit in a word tagged in the pointer, with a check before every access to `type` and `num`.
+1. **Runtime errors have no positions**, and an unassigned variable is a `NULL` pointer instead of an error. Solution: positions in the messages of the runtime, and a check of unassigned variables.
+2. **Deep recursion.** Functions like `concat` and `str_join` over long lists recurse deeply, so compiled programs need `ulimit -s unlimited` for big inputs. Solution: loops in the runtime and library where possible, and a large stack for the main thread of compiled programs, as the interpreter has.
+3. **Integers are boxed**: every integer outside -16 to 255 is an object on the heap, so arithmetic allocates, e.g. 63 million calls of `u_mk_int` when `run.u` interprets the compiler. Solution: integers that fit in a word tagged in the pointer, with a check before every access to `type` and `num`.
 
 ## Syntax
 

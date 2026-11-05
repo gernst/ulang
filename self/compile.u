@@ -633,9 +633,11 @@ procedure compile_stmt(in gl: Globals, env: Vars, s: Stmt, out ss: List[CStmt], 
       call   temps(in rs, out cs, ref g)
       assign ss := as ++ cs ++ reassign(env, names(firsts(pairs)), cs)
 
+    // variables that a try changes are cells on the heap, accessed as outs and refs are
     case SBlock(xs, body) =>
-      call   compile_stmts(in gl, in_scope(names(xs)) ++ env, body, out bs, ref g)
-      assign ss := [CsBlock([CsDecl(value_type(), var_name(x), Some(CeVar("NULL"))) for x in names(xs)] ++ bs)]
+      local  cells := changed_in_try(s)
+      call   compile_stmts(in gl, [local_var(x, cells) for x in names(xs)] ++ env, body, out bs, ref g)
+      assign ss := [CsBlock([local_decl(x, cells) for x in names(xs)] ++ bs)]
 
     case SIf(c, l, r) =>
       call   compile_expr(in gl, env, c, out cs, rc, ref g)
@@ -692,6 +694,38 @@ procedure compile_stmt(in gl: Globals, env: Vars, s: Stmt, out ss: List[CStmt], 
       call   handler_cases(in gl, env, hs, d, t, out cs, ref g)
       assign as := [CsExpr(c_call("u_pop", [CeVar(d)])), CsDecl(CtInt, t, Some(CeNum(0)))] ++ cs ++ [CsIf(CeUnary("!", CeVar(t)), [CsExpr(c_call("u_reraise", [CeVar(d)]))], [])]
       assign ss := [CsBlock([CsDecl(CtPtr(CtNamed("struct u_handler")), d, Some(c_call("u_push", []))), CsIf(CeBinary("==", c_call("setjmp", [CeArrow(CeVar(d), "env")]), CeNum(0)), bs ++ [CsExpr(c_call("u_pop", [CeVar(d)]))], as)])]
+  end
+
+function local_var(x: Name, cells: List[Name]): Name * CExpr :=
+  if contains(x, cells) then pointer(x) else (x, CeVar(var_name(x)))
+
+function local_decl(x: Name, cells: List[Name]): CStmt :=
+  if contains(x, cells)
+  then CsDecl(value_ptr(), ref_name(x), Some(c_call("u_cell", [])))
+  else CsDecl(value_type(), var_name(x), Some(CeVar("NULL")))
+
+// the variables that the bodies of the trys in s change, which C leaves undefined after a raise jumps back to the setjmp
+function changed_in_try(s: Stmt): List[Name] :=
+  match s
+    case SBlock(_, ys) => concat([changed_in_try(y) for y in ys])
+    case SIf(_, l, r) => changed_in_try(l) ++ changed_in_try(r)
+    case SWhile(_, b) => changed_in_try(b)
+    case SMatch(_, bs) => concat([changed_in_try(b.body) for b in bs])
+    case STry(b, hs) => changed(b) ++ concat([changed_in_try(h.body) for h in hs])
+    case _ => []
+  end
+
+// the variables that s assigns, directly or as outs and refs
+function changed(s: Stmt): List[Name] :=
+  match s
+    case SAssign(ps) => names(firsts(ps))
+    case SBlock(_, ys) => concat([changed(y) for y in ys])
+    case SIf(_, l, r) => changed(l) ++ changed(r)
+    case SWhile(_, b) => changed(b)
+    case SCall(_, _, outs, refs) => names(outs ++ refs)
+    case SMatch(_, bs) => concat([changed(b.body) for b in bs])
+    case STry(b, hs) => changed(b) ++ concat([changed(h.body) for h in hs])
+    case _ => []
   end
 
 procedure compile_stmts(in gl: Globals, env: Vars, xs: List[Stmt], out ss: List[CStmt], ref g: Gen) :=
