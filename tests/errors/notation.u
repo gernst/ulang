@@ -1,0 +1,6 @@
+// a module for tests/errors/imported-notation.u
+
+infix left 8 <+>
+
+function <+>(a: Int, b: Int): Int :=
+  a + b

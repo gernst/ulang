@@ -1,0 +1,4 @@
+// parse error: imported operator <+> is declared differently at 4.1
+infix right 8 <+>
+
+import notation
