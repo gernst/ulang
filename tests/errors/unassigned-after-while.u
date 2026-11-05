@@ -1,0 +1,8 @@
+// type error: x is not assigned on every path
+test unassigned_after_while() :=
+  local x: Int, n := 0
+
+  while n < 3
+    assign x := n, n := n + 1
+  end
+  assert x == 2

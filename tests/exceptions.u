@@ -59,7 +59,7 @@ procedure value(in ts: List[Token], out n: Int) :=
 data Fail :=
   | Fail
 
-// the cells of refs keep their assignments before the exception
+// the assignment to k does not reach the caller, which gets refs and outs only when a procedure returns
 procedure count(ref k: Int) :=
   assign k := k + 1
   raise  Fail
@@ -95,10 +95,10 @@ test parse_errors() :=
     case Fail =>
       skip
   end
-  assert k == 1
+  assert k == 0
 
-// variables keep what the body of a try assigned before the raise, also when compiled with optimizations
-test assigned_before_raise() :=
+// handlers see the variables as they were before the try, also when compiled with optimizations
+test restored_by_raise() :=
   local k := 0, n := 0
 
   try
@@ -111,7 +111,32 @@ test assigned_before_raise() :=
     case Fail =>
       assign k := k + 10
   end
-  assert (k, n) == (12, 3)
+  assert (k, n) == (10, 0)
+
+procedure half(out r: Int) :=
+  assign r := 1
+  raise  Fail
+
+procedure through(ref z: Int) :=
+  call half(out z)
+
+// outs and refs assigned before an exception do not reach the caller
+test atomic_outs_and_refs() :=
+  local x := 0, y := 5
+
+  try
+    call through(ref x)
+  catch
+    case Fail =>
+      skip
+  end
+  try
+    call half(out y)
+  catch
+    case Fail =>
+      skip
+  end
+  assert (x, y) == (0, 5)
 
 // an exception that no case matches is raised further
 test unmatched_raised_further() :=

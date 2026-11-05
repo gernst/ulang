@@ -1,5 +1,5 @@
 // type error: y is not assignable
-procedure p(out x: Int) :=
+procedure p(in x: Int) :=
   if x > 0
     local  y: Int
     assign y := x

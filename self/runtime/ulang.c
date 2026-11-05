@@ -239,11 +239,6 @@ u_value u_mk_closure(code fun, int size, ...) {
   return v;
 }
 
-// a variable that a try changes, which lives on the heap, since setjmp leaves changed locals undefined after longjmp
-u_value *u_cell(void) {
-  return GC_malloc(sizeof(u_value));
-}
-
 u_value u_mk_proc(proc_code proc, int size, ...) {
   va_list args;
   va_start(args, size);

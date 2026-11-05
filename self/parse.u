@@ -696,24 +696,23 @@ procedure parse_binding(in notations: Notations, params: List[Id], out binding: 
 
 // lambda x, y => e is a function, and lambda in x, out y, ref z => body end a procedure, told apart by the modes
 procedure parse_lambda(in notations: Notations, params: List[Id], out e: Expr, ref toks: Tokens) :=
-  local is_proc: Bool, ins: List[Var], outs: List[Var], refs: List[Var], body: Stmt, xs: List[Var] := Nil, b: Expr
+  local ins: List[Var], outs: List[Var], refs: List[Var], body: Stmt, xs: List[Var], b: Expr
 
-  call   advance(ref toks)
-  assign is_proc := at_mode(toks)
+  call advance(ref toks)
 
-  if is_proc
-    call parse_sections(in notations, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
-  else if head_token(toks) != TSym("=>")
-    call parse_separated(in notations, params, parse_variable, at_comma, out xs, ref toks)
-  end
-
-  call expect(in TSym("=>"), ref toks)
-
-  if is_proc
+  if at_mode(toks)
+    call   parse_sections(in notations, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
+    call   expect(in TSym("=>"), ref toks)
     call   parse_body(in notations, params, out body, ref toks)
     call   expect(in TName("end"), ref toks)
     assign e := EProc(ins, outs, refs, body)
+  else if head_token(toks) == TSym("=>")
+    call   expect(in TSym("=>"), ref toks)
+    call   parse_expr(in notations, params, out b, ref toks)
+    assign e := ELam(Nil, b)
   else
+    call   parse_separated(in notations, params, parse_variable, at_comma, out xs, ref toks)
+    call   expect(in TSym("=>"), ref toks)
     call   parse_expr(in notations, params, out b, ref toks)
     assign e := ELam(xs, b)
   end

@@ -1,6 +1,6 @@
 // type error: cannot unify Bool and Int
 procedure p(in x: Int, out y: Int) :=
-  skip
+  assign y := x
 
 procedure q(out z: Bool) :=
   call p(in 1, out z)

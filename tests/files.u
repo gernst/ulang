@@ -17,7 +17,7 @@ test library() :=
   assert str_slice(t, 0, 16) == "data Option[A] :"
 
 test failures() :=
-  local t: Str, m: Str
+  local t: Str, m := ""
 
   try
     call os_read(in "out/files/missing.txt", out t)
@@ -36,7 +36,7 @@ test failures() :=
 
 // a tree of files, which os_list and os_walk see in the order of their names
 test walking() :=
-  local entries: List[Str * Bool], files: List[Str], dir: Bool, m: Str
+  local entries: List[Str * Bool], files: List[Str], dir: Bool, m := ""
 
   call   os_write(in "out/walk/z.txt", "z")
   call   os_write(in "out/walk/a.txt", "a")
@@ -64,7 +64,7 @@ test walking() :=
 
 // relative paths start from the directory that os_chdir sets
 test changing_directory() :=
-  local t: Str, m: Str
+  local t: Str, m := ""
 
   call   os_write(in "out/here/here.txt", "here")
   call   os_chdir(in "out/here")

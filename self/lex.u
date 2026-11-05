@@ -209,7 +209,7 @@ test lex_literals() :=
   assert tokens(toks) == [TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\''), TPunct('['), TName("x"), TPunct(';'), TName("xs"), TPunct(']'), TEnd]
 
 test lex_errors() :=
-  local toks: Tokens, e: LexError
+  local toks: Tokens, e := LexError("none", -1)
 
   try
     call lex(in "x := \"ab", out toks)

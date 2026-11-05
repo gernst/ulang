@@ -393,6 +393,8 @@ function type_message(e: TypeError): Str :=
     case UnknownException(t) => "the type " ^ show_type(t) ^ " of an exception is not fully known"
     case TestParams(n) => "test " ^ n ^ " takes parameters"
     case EqualityWithoutOrder(n) => qualified(n) ^ " declares == but not compare"
+    case Unassigned(n) => n.base ^ " is not assigned on every path"
+    case OutputUnassigned(x, p) => "output " ^ x.base ^ " of " ^ p.base ^ " is not assigned on every path"
   end
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f

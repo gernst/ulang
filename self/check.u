@@ -14,7 +14,11 @@ type Subst :=
   Map[Int, Type]
 
 type Env :=
-  List[Name * (List[Type] * Type)]
+  List[Name * Local]
+
+// a variable with its type scheme, and whether it is assigned on every path to the current statement
+data Local :=
+  | Local(scheme: List[Type] * Type, assigned: Bool)
 
 // a use of an overloaded name that more than one candidate fits, by the placeholder that stands for it,
 // with the candidates that fit so far, and the type of the use
@@ -61,6 +65,8 @@ data TypeError :=
   | UnknownException(Type)
   | TestParams(Id)
   | EqualityWithoutOrder(Name)
+  | Unassigned(Name)
+  | OutputUnassigned(Name, Name)
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -309,7 +315,7 @@ function constructor_of(c: Ctx, k: Name): List[Type] * Type :=
 // the meanings of n with their names, where local variables hide functions, constructors, and builtins
 function candidates(s: State, env: Env, n: Name): List[Name * (List[Type] * Type)] :=
   match get(n, env)
-    case Some(sc) => [(n, sc)]
+    case Some(l) => [(n, l.scheme)]
     case None =>
       concat([[(f, sc) for sc in schemes_of(s.ctx, f)] for f in overloads(s, n, lambda f => is_fun(s.ctx, f))]) ++
         [(k, constructor_of(s.ctx, k)) for k in overloads(s, n, lambda k => is_constr(s.ctx, k))] ++
@@ -349,13 +355,71 @@ function has_arity(scs: List[List[Type] * Type], k: Int): Bool :=
   end
 
 function bind(xs: List[Var]): Env :=
-  [(x.name, (Nil, x.typ)) for x in xs]
+  [(x.name, Local((Nil, x.typ), true)) for x in xs]
+
+function unassigned(xs: List[Var]): Env :=
+  [(x.name, Local((Nil, x.typ), false)) for x in xs]
+
+// env after assignments to xs, which are the innermost variables of their names
+function assigned(env: Env, xs: List[Name]): Env :=
+  match (env, xs)
+    case (_, Nil) => env
+    case (Nil, _) => Nil
+    case ([(n, l); rest], _) =>
+      if contains(n, xs) then [(n, l with assigned := true); assigned(rest, diff(xs, [n]))] else [(n, l); assigned(rest, xs)]
+  end
+
+// the variables that both paths assign, where env and other have the same variables
+function joined(env: Env, other: Env): Env :=
+  match (env, other)
+    case ([(n, l); rest], [(_, k); more]) => [(n, l with assigned := l.assigned and k.assigned); joined(rest, more)]
+    case _ => Nil
+  end
+
+// the variables after a raise, where no path continues, which joins with others as if it assigned all of them
+function unreachable(env: Env): Env :=
+  match env
+    case Nil => Nil
+    case [(n, l); rest] => [(n, l with assigned := true); unreachable(rest)]
+  end
+
+procedure readable(in env: Env, n: Name) :=
+  match get(n, env)
+    case Some(Local(_, false)) =>
+      raise Unassigned(n)
+    case _ =>
+      skip
+  end
+
+procedure readables(in env: Env, ns: List[Name]) :=
+  match ns
+    case Nil =>
+      skip
+    case [n; more] =>
+      call readable(in env, n)
+      call readables(in env, more)
+  end
+
+// the outs os of procedure p must be assigned at the end of its body
+procedure outputs(in p: Name, os: List[Var], env: Env) :=
+  match os
+    case Nil =>
+      skip
+    case [o; more] =>
+      match get(o.name, env)
+        case Some(Local(_, false)) =>
+          raise OutputUnassigned(o.name, p)
+        case _ =>
+          skip
+      end
+      call outputs(in p, more, env)
+  end
 
 // the unknowns of the types of env, which a let cannot generalize
 function fixed(su: Subst, env: Env): List[Type] :=
   match env
     case Nil => Nil
-    case [(_, (ps, t)); rest] => diff(free(zonk_type(su, t)), ps) ++ fixed(su, rest)
+    case [(_, Local((ps, t), _)); rest] => diff(free(zonk_type(su, t)), ps) ++ fixed(su, rest)
   end
 
 function generalize(su: Subst, env: Env, t: Type): List[Type] * Type :=
@@ -364,7 +428,7 @@ function generalize(su: Subst, env: Env, t: Type): List[Type] * Type :=
 
 // the unknowns of open uses of overloaded names stay fixed, too, since their declarations are not chosen yet
 function generalized(s: State, env: Env, xs: List[Var]): Env :=
-  let waiting := [(p.id, (Nil, p.typ)) for p in s.pending] in [(x.name, generalize(s.sub, waiting ++ env, x.typ)) for x in xs]
+  let waiting := [(p.id, Local((Nil, p.typ), true)) for p in s.pending] in [(x.name, Local(generalize(s.sub, waiting ++ env, x.typ), true)) for x in xs]
 
 // the pattern of a case, and whether it has no guard, such that it may cover values
 function case_of[A](b: Branch[A]): Pat * Bool :=
@@ -1188,7 +1252,7 @@ function own[A](s: State, cs: List[Name * A]): List[Name * A] :=
 
 procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
   local sc: List[Type] * Type, m: Name, x: Var, xs: List[Var], ys: List[Var], zs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, w: Type,
-    es: List[Expr], ts: List[Type], bs: List[Branch[Expr]], y: Stmt
+    es: List[Expr], ts: List[Type], bs: List[Branch[Expr]], y: Stmt, inner: Env
 
   match e
     case ELit(v) =>
@@ -1197,6 +1261,7 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
     case EVar(Var(n, a)) =>
       call   normalize(in a, out w, ref s)
       call   use_name(in n, candidates(s, env, n), w, out x, ref s)
+      call   readable(in env, n)
       assign e1 := EVar(x), t := x.typ
 
     case EApp(f, args) =>
@@ -1213,7 +1278,9 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
       call   formals(in is, out xs, ref s)
       call   formals(in os, out ys, ref s)
       call   formals(in rs, out zs, ref s)
-      call   statement(in bind(xs ++ ys ++ zs) ++ env, names(ys ++ zs), body, out y, ref s)
+      assign inner := bind(xs) ++ unassigned(ys) ++ bind(zs) ++ env
+      call   statement(in names(ys ++ zs), body, out y, ref inner, s)
+      call   outputs(in unqualified("lambda"), ys, inner)
       assign e1 := EProc(xs, ys, zs, y), t := TProc(types(xs), types(ys), types(zs))
 
     case ELet(bound, body) =>
@@ -1546,7 +1613,7 @@ procedure variable(in env: Env, assignable: List[Name], x: Var, out y: Var, ref 
         raise NotAssignable(n)
       end
       match get(n, env)
-        case Some((_, t)) =>
+        case Some(Local((_, t), _)) =>
           call   normalize(in a, out u, ref s)
           call   unify(in t, u, ref s)
           assign y := Var(n, t)
@@ -1567,8 +1634,10 @@ procedure variables(in env: Env, assignable: List[Name], xs: List[Var], out ys: 
       assign ys := [y; rest]
   end
 
-procedure statement(in env: Env, assignable: List[Name], x: Stmt, out y: Stmt, ref s: State) :=
-  local ys: List[Var], es: List[Expr], c: Expr, t: Type, u: Type, l: Stmt, r: Stmt, xs: List[Stmt], bs: List[Branch[Stmt]], hs: List[Handler]
+// env tells which variables are assigned on every path to x, and after it
+procedure statement(in assignable: List[Name], x: Stmt, out y: Stmt, ref env: Env, s: State) :=
+  local ys: List[Var], es: List[Expr], c: Expr, t: Type, u: Type, l: Stmt, r: Stmt, xs: List[Stmt], bs: List[Branch[Stmt]], hs: List[Handler],
+    inner: Env, other: Env
 
   match x
     case SSkip =>
@@ -1578,32 +1647,38 @@ procedure statement(in env: Env, assignable: List[Name], x: Stmt, out y: Stmt, r
       call   unique(in names(firsts(pairs)))
       call   variables(in env, assignable, firsts(pairs), out ys, ref s)
       call   checks(in env, seconds(pairs), types(ys), out es, ref s)
-      assign y := SAssign(zip(ys, es))
+      assign y := SAssign(zip(ys, es)), env := assigned(env, names(ys))
     // the types of locals that are initialized at the start of the block may be inferred
 
     case SBlock(locals, body) =>
       call   untyped(in locals, initialized(body))
       call   formals(in locals, out ys, ref s)
-      call   statements(in bind(ys) ++ env, names(ys) ++ assignable, body, out xs, ref s)
-      assign y := SBlock(ys, xs)
+      assign inner := unassigned(ys) ++ env
+      call   statements(in names(ys) ++ assignable, body, out xs, ref inner, s)
+      assign y := SBlock(ys, xs), env := drop(size(ys), inner)
 
     case SIf(cond, left, right) =>
       call   check(in env, cond, tbool(), out c, ref s)
-      call   statement(in env, assignable, left, out l, ref s)
-      call   statement(in env, assignable, right, out r, ref s)
-      assign y := SIf(c, l, r)
+      assign other := env
+      call   statement(in assignable, left, out l, ref env, s)
+      call   statement(in assignable, right, out r, ref other, s)
+      assign y := SIf(c, l, r), env := joined(env, other)
 
     case SWhile(cond, body) =>
       call   check(in env, cond, tbool(), out c, ref s)
-      call   statement(in env, assignable, body, out l, ref s)
+      assign inner := env
+      call   statement(in assignable, body, out l, ref inner, s)
       assign y := SWhile(c, l)
 
+    // a procedure that a variable holds and the refs are read
     case SCall(p, ins, outs, refs) =>
-      call call_proc(in env, assignable, p, ins, outs, refs, out y, ref s)
+      call   call_proc(in env, assignable, p, ins, outs, refs, out y, ref s)
+      call   readables(in env, [p; names(refs)])
+      assign env := assigned(env, names(outs ++ refs))
 
     case SMatch(arg, cases) =>
       call   infer(in env, arg, out c, t, ref s)
-      call   stmt_branches(in env, assignable, cases, t, out bs, ref s)
+      call   stmt_branches(in assignable, cases, t, out bs, ref env, s)
       call   solve(ref s)
       call   coverage(in s, t, [case_of(br) for br in bs])
       assign y := SMatch(c, bs)
@@ -1612,16 +1687,21 @@ procedure statement(in env: Env, assignable: List[Name], x: Stmt, out y: Stmt, r
       call   check(in env, cond, tbool(), out c, ref s)
       assign y := SAssert(c)
 
+      if c == ELit(VBool(false))
+        assign env := unreachable(env)
+      end
+
     case SRaise(arg, a) =>
       call   infer(in env, arg, out c, t, ref s)
       call   normalize(in a, out u, ref s)
       call   unify(in t, u, ref s)
-      assign y := SRaise(c, t)
+      assign y := SRaise(c, t), env := unreachable(env)
 
     case STry(body, handlers) =>
-      call   statement(in env, assignable, body, out l, ref s)
-      call   handler_list(in env, assignable, handlers, out hs, ref s)
-      assign y := STry(l, hs)
+      assign other := env
+      call   statement(in assignable, body, out l, ref env, s)
+      call   handler_list(in assignable, handlers, out hs, ref other, s)
+      assign y := STry(l, hs), env := joined(env, other)
   end
 
 // the variables that the leading assignments of a block assign one at a time, as local x := e does
@@ -1644,15 +1724,15 @@ procedure untyped(in xs: List[Var], inits: List[Name]) :=
       call untyped(in rest, inits)
   end
 
-procedure statements(in env: Env, assignable: List[Name], xs: List[Stmt], out ys: List[Stmt], ref s: State) :=
+procedure statements(in assignable: List[Name], xs: List[Stmt], out ys: List[Stmt], ref env: Env, s: State) :=
   local y: Stmt, rest: List[Stmt]
 
   match xs
     case Nil =>
       assign ys := Nil
     case [x; more] =>
-      call   statement(in env, assignable, x, out y, ref s)
-      call   statements(in env, assignable, more, out rest, ref s)
+      call   statement(in assignable, x, out y, ref env, s)
+      call   statements(in assignable, more, out rest, ref env, s)
       assign ys := [y; rest]
   end
 
@@ -1681,8 +1761,8 @@ function os_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * L
 // a variable of a procedure type hides the procedures of that name
 procedure call_proc(in env: Env, assignable: List[Name], p: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
   match get(p, env)
-    case Some(sc) =>
-      call call_variable(in env, assignable, p, sc, ins, outs, refs, out y, ref s)
+    case Some(l) =>
+      call call_variable(in env, assignable, p, l.scheme, ins, outs, refs, out y, ref s)
     case None =>
       call call_declared(in env, assignable, p, ins, outs, refs, out y, ref s)
   end
@@ -1743,33 +1823,37 @@ procedure declared_call(in env: Env, assignable: List[Name], p: Name, q: Name, i
       raise UnknownProcedure(p)
   end
 
-procedure stmt_branches(in env: Env, assignable: List[Name], cases: List[Branch[Stmt]], t: Type, out cases1: List[Branch[Stmt]], ref s: State) :=
-  local p1: Pat, xs: List[Var], g1: Option[Expr], b1: Stmt, rest: List[Branch[Stmt]]
+// env joins what the cases assign, where a match that no case fits raises
+procedure stmt_branches(in assignable: List[Name], cases: List[Branch[Stmt]], t: Type, out cases1: List[Branch[Stmt]], ref env: Env, s: State) :=
+  local p1: Pat, xs: List[Var], g1: Option[Expr], b1: Stmt, rest: List[Branch[Stmt]], inner: Env
 
   match cases
     case Nil =>
-      assign cases1 := Nil
+      assign cases1 := Nil, env := unreachable(env)
     case [Branch(p, g, b); more] =>
       call   pattern(in p, t, out p1, xs, ref s)
-      call   guard(in bind(xs) ++ env, g, out g1, ref s)
-      call   statement(in bind(xs) ++ env, diff(assignable, names(xs)), b, out b1, ref s)
-      call   stmt_branches(in env, assignable, more, t, out rest, ref s)
-      assign cases1 := [Branch(p1, g1, b1); rest]
+      assign inner := bind(xs) ++ env
+      call   guard(in inner, g, out g1, ref s)
+      call   statement(in diff(assignable, names(xs)), b, out b1, ref inner, s)
+      call   stmt_branches(in assignable, more, t, out rest, ref env, s)
+      assign cases1 := [Branch(p1, g1, b1); rest], env := joined(drop(size(xs), inner), env)
   end
 
-procedure handler_list(in env: Env, assignable: List[Name], hs: List[Handler], out hs1: List[Handler], ref s: State) :=
-  local u: Type, p1: Pat, xs: List[Var], g1: Option[Expr], b1: Stmt, rest: List[Handler]
+// handlers start from the variables before the try, which an exception restores
+procedure handler_list(in assignable: List[Name], hs: List[Handler], out hs1: List[Handler], ref env: Env, s: State) :=
+  local u: Type, p1: Pat, xs: List[Var], g1: Option[Expr], b1: Stmt, rest: List[Handler], inner: Env
 
   match hs
     case Nil =>
-      assign hs1 := Nil
+      assign hs1 := Nil, env := unreachable(env)
     case [Handler(a, p, g, b); more] =>
       call   normalize(in a, out u, ref s)
       call   pattern(in p, u, out p1, xs, ref s)
-      call   guard(in bind(xs) ++ env, g, out g1, ref s)
-      call   statement(in bind(xs) ++ env, diff(assignable, names(xs)), b, out b1, ref s)
-      call   handler_list(in env, assignable, more, out rest, ref s)
-      assign hs1 := [Handler(u, p1, g1, b1); rest]
+      assign inner := bind(xs) ++ env
+      call   guard(in inner, g, out g1, ref s)
+      call   statement(in diff(assignable, names(xs)), b, out b1, ref inner, s)
+      call   handler_list(in assignable, more, out rest, ref env, s)
+      assign hs1 := [Handler(u, p1, g1, b1); rest], env := joined(drop(size(xs), inner), env)
   end
 
 procedure declare_name(in c: Ctx, n: Name) :=
@@ -1921,7 +2005,7 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
 
 // the elaborated command c
 procedure command(in c: Cmd, out c1: Cmd, ref s: State) :=
-  local xss: List[List[Var]], r: Type, b: Expr, t: Type, is: List[Var], os: List[Var], rs: List[Var], y: Stmt
+  local xss: List[List[Var]], r: Type, b: Expr, t: Type, is: List[Var], os: List[Var], rs: List[Var], y: Stmt, env: Env
 
   match c
     case CFun(n, ps, bound, res, body) =>
@@ -1934,11 +2018,14 @@ procedure command(in c: Cmd, out c1: Cmd, ref s: State) :=
       call   signature(in ins, out is, ref s)
       call   signature(in outs, out os, ref s)
       call   signature(in refs, out rs, ref s)
-      call   statement(in bind(is ++ os ++ rs), names(os ++ rs), body, out y, ref s)
+      assign env := bind(is) ++ unassigned(os) ++ bind(rs)
+      call   statement(in names(os ++ rs), body, out y, ref env, s)
+      call   outputs(in n, os, env)
       assign c1 := CProc(n, ps, is, os, rs, y)
 
     case CTest(n, [], body) =>
-      call   statement(in Nil, Nil, body, out y, ref s)
+      assign env := Nil
+      call   statement(in Nil, body, out y, ref env, s)
       assign c1 := CTest(n, Nil, y)
 
     case CTest(n, _, _) =>

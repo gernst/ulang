@@ -32,7 +32,7 @@ Open action items, each with the problem and the desired solution.
 
 ## Compiler
 
-1. **Runtime errors have no positions**, and an unassigned variable is a `NULL` pointer instead of an error. Solution: positions in the messages of the runtime, and a check of unassigned variables.
+1. **Runtime errors have no positions.** Solution: positions in the messages of the runtime.
 2. **Deep recursion.** Functions like `concat` and `str_join` over long lists recurse deeply, so compiled programs need `ulimit -s unlimited` for big inputs. Solution: loops in the runtime and library where possible, and a large stack for the main thread of compiled programs, as the interpreter has.
 3. **Integers are boxed**: every integer outside -16 to 255 is an object on the heap, so arithmetic allocates, e.g. 63 million calls of `u_mk_int` when `run.u` interprets the compiler. Solution: integers that fit in a word tagged in the pointer, with a check before every access to `type` and `num`.
 

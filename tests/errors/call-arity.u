@@ -1,6 +1,6 @@
 // type error: expected 1 values, got 2
 procedure p(in x: Int, out y: Int) :=
-  skip
+  assign y := x
 
 procedure q(out z: Int) :=
   call p(in 1, 2, out z)

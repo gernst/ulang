@@ -1,4 +1,4 @@
-// runtime error: x is not initialized
+// type error: x is not assigned on every path
 test uninitialized() :=
   local  x: Int, y: Int
   assign y := x
