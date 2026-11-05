@@ -12,8 +12,12 @@ import compile
 import os
 import map
 
+// the first failure of a test of a file that runs in a directory
+data TestFailed :=
+  | TestFailed(Str)
+
 procedure main() :=
-  local args: List[Str], command: List[Str], rest: List[Str], ok := true
+  local args: List[Str], command: List[Str], rest: List[Str], ok := true, dir: Bool
 
   call   os_args(out args)
   assign command := before_dashes(args), rest := after_dashes(args)
@@ -26,8 +30,13 @@ procedure main() :=
       call attempt(in file, lambda out r => call run_file(in file, "main", rest, out r) end, out ok)
     case ["run", file, name] =>
       call attempt(in file, lambda out r => call run_file(in file, name, rest, out r) end, out ok)
-    case ["test", file; names] =>
-      call attempt(in file, lambda out r => call test_file(in file, names, rest, out r) end, out ok)
+    case ["test", first; more] =>
+      call os_is_dir(in first, out dir)
+      if dir
+        call test_paths(in [first; more], out ok)
+      else
+        call attempt(in first, lambda out r => call test_file(in first, more, rest, out r) end, out ok)
+      end
     case ["check", file] =>
       call attempt(in file, lambda out r => call check_file(in file, out r) end, out ok)
     case ["compile", file, entry, target] =>
@@ -44,6 +53,7 @@ procedure main() :=
 function usage(): Str :=
   "usage: ulang run <file> [<procedure>] [-- args]\n" ^
   "       ulang test <file> [<name> ...] [-- args]\n" ^
+  "       ulang test <dir> [<path> ...]\n" ^
   "       ulang check <file>\n" ^
   "       ulang compile <file> <entry> <target.c>"
 
@@ -62,13 +72,24 @@ function after_dashes(args: List[Str]): List[Str] :=
     case [_; more] => after_dashes(more)
   end
 
-// runs a command for file, which reports the errors of file as Main.attempt does, and whether it succeeded
+// runs a command for file, which reports the errors of file, and whether it succeeded
 procedure attempt(in file: Str, command: (out Bool), out ok: Bool) :=
-  local message := ""
+  local message: Str
+
+  call guarded(in file, command, out ok, message)
+  if message != ""
+    call os_print_error(in file ^ ": " ^ message)
+  end
+
+// runs a command for file, with whether it succeeded and the message of its error, or else ""
+procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str) :=
+  assign ok := false, message := ""
 
   try
     call command(out ok)
   catch
+    case TestFailed(m) =>
+      assign message := m
     case LexError(m, i) =>
       call located(in file, m, i, out message)
     case ParseError(m, i) =>
@@ -88,7 +109,6 @@ procedure attempt(in file: Str, command: (out Bool), out ok: Bool) :=
   end
 
   if message != ""
-    call   os_print_error(in file ^ ": " ^ message)
     assign ok := false
   end
 
@@ -203,7 +223,22 @@ procedure run_tests(in p: Prog, tests: List[Cmd], out ok: Bool) :=
   end
 
 procedure run_test(in p: Prog, c: Cmd, out passed: Bool) :=
-  local cache: Map[Name, Value] := empty(), message := ""
+  local message: Str
+
+  call test_message(in p, c, out message)
+  if message == ""
+    call   os_print(in "test " ^ cmd_name(c) ^ " passed")
+    assign passed := true
+  else
+    call   os_print(in "test " ^ cmd_name(c) ^ " failed: " ^ message)
+    assign passed := false
+  end
+
+// the error of the test c, or else ""
+procedure test_message(in p: Prog, c: Cmd, out message: Str) :=
+  local cache: Map[Name, Value] := empty()
+
+  assign message := ""
 
   try
     call run_cmd(in p, c, ref cache)
@@ -214,12 +249,102 @@ procedure run_test(in p: Prog, c: Cmd, out passed: Bool) :=
       assign message := "runtime error: " ^ runtime_message(e)
   end
 
-  if message == ""
-    call   os_print(in "test " ^ cmd_name(c) ^ " passed")
-    assign passed := true
-  else
-    call   os_print(in "test " ^ cmd_name(c) ^ " failed: " ^ message)
-    assign passed := false
+// the .u files of the paths, where directories are walked, each run in its directory with all its tests, which must
+// succeed, or fail with the error that its first line states, e.g. // type error: unknown variable x, where the files
+// that do not are printed with the difference, and how many files passed
+procedure test_paths(in paths: List[Str], out ok: Bool) :=
+  local found: List[Str], files: List[Str], home: Str, failed: Int
+
+  call   walk_all(in paths, out found)
+  assign files := [f for f in found if is_source(f)]
+  call   os_cwd(out home)
+  call   test_suite(in files, home, out failed)
+  call   os_print(in str_show(size(files) - failed) ^ " of " ^ str_show(size(files)) ^ " files passed")
+  assign ok := failed == 0
+
+procedure walk_all(in paths: List[Str], out files: List[Str]) :=
+  local here: List[Str], rest: List[Str]
+
+  match paths
+    case Nil =>
+      assign files := Nil
+    case [path; more] =>
+      call   os_walk(in path, out here)
+      call   walk_all(in more, out rest)
+      assign files := here ++ rest
+  end
+
+function is_source(path: Str): Bool :=
+  if str_size(path) > 2 then str_slice(path, str_size(path) - 2, str_size(path)) == ".u" else false
+
+// the number of files that failed
+procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
+  local good: Bool, rest: Int
+
+  match files
+    case Nil =>
+      assign failed := 0
+    case [file; more] =>
+      call   verdict(in file, home, out good)
+      call   test_suite(in more, home, out rest)
+      assign failed := if good then rest else rest + 1
+  end
+
+// file, run in its directory, fails as its first line states, or else succeeds, where home is the directory to return to
+procedure verdict(in file: Str, home: Str, out good: Bool) :=
+  local text: Str, expected: Str, got: Str, ok: Bool, name := last_part(str_split(file, '/'))
+
+  call   os_read(in file, out text)
+  assign expected := expected_error(text)
+  call   os_chdir(in dir_name(file))
+  call   guarded(in name, lambda out r => call test_all(in name, out r) end, out ok, got)
+  call   os_chdir(in home)
+  assign good := got == expected
+
+  if not good
+    call os_print(in file ^ ": expected " ^ outcome(expected) ^ ", got " ^ outcome(got))
+  end
+
+function outcome(message: Str): Str :=
+  if message == "" then "success" else message
+
+// the error that the first line of a file states, or else ""
+function expected_error(text: Str): Str :=
+  match str_split(text, '\n')
+    case [line; _] =>
+      if starts_with(line, "// parse error: ") or starts_with(line, "// type error: ") or starts_with(line, "// runtime error: ") then
+        str_slice(line, 3, str_size(line))
+      else
+        ""
+    case _ => ""
+  end
+
+function starts_with(s: Str, start: Str): Bool :=
+  if str_size(s) >= str_size(start) then str_slice(s, 0, str_size(start)) == start else false
+
+// runs all tests of file, quietly, and raises the first failure
+procedure test_all(in file: Str, out ok: Bool) :=
+  local q: Program, p: Prog, message: Str
+
+  call   load_file(in file, out q)
+  assign p := load(q)
+  call   first_failure(in p, [c for c in q.cmds if is_any_test(c)], out message)
+
+  if message != ""
+    raise TestFailed(message)
+  end
+
+  assign ok := true
+
+procedure first_failure(in p: Prog, tests: List[Cmd], out message: Str) :=
+  match tests
+    case Nil =>
+      assign message := ""
+    case [c; more] =>
+      call test_message(in p, c, out message)
+      if message == ""
+        call first_failure(in p, more, out message)
+      end
   end
 
 function is_selected_test(c: Cmd, names: List[Str]): Bool :=

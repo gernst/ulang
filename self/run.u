@@ -915,7 +915,7 @@ procedure print_all(in lines: List[Str]) :=
 
 // the procedures of the library os are those of the interpreter of this program, whose OsError the program can catch
 procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
-  local text: Str
+  local text: Str, entries: List[Str * Bool], yes: Bool
 
   try
     match (n.base, ins)
@@ -931,6 +931,22 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
         call   os_library(in name, out text)
         assign outs := [Lit(VStr(text))]
 
+      case ("os_list", [Lit(VStr(dir))]) =>
+        call   os_list(in dir, out entries)
+        assign outs := [list_value(entry_values(entries))]
+
+      case ("os_is_dir", [Lit(VStr(path))]) =>
+        call   os_is_dir(in path, out yes)
+        assign outs := [Lit(VBool(yes))]
+
+      case ("os_cwd", []) =>
+        call   os_cwd(out text)
+        assign outs := [Lit(VStr(text))]
+
+      case ("os_chdir", [Lit(VStr(dir))]) =>
+        call   os_chdir(in dir)
+        assign outs := Nil
+
       case ("os_print_error", [Lit(VStr(t))]) =>
         call   os_print_error(in t)
         assign outs := Nil
@@ -944,6 +960,13 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
   catch
     case OsError(m) =>
       raise Thrown(Obj(os_error_name(), [Lit(VStr(m))]), TSort(os_error_name(), Nil))
+  end
+
+// the entries of a directory as values of the program
+function entry_values(entries: List[Str * Bool]): List[Value] :=
+  match entries
+    case Nil => Nil
+    case [(name, dir); rest] => [Obj(tuple_name(), [Lit(VStr(name)), Lit(VBool(dir))]); entry_values(rest)]
   end
 
 // calls the procedure n without parameters

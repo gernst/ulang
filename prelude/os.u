@@ -2,7 +2,47 @@
 // os_library(in name, out text) gives the source of a module of the library, where failures raise OsError,
 // os_args(out args) gives the arguments of the program, after -- for the interpreter,
 // os_print(in text) prints a string as it is, and os_show(in x) any value as the interpreter shows values, strings with quotes,
-// os_print_error(in text) prints a string to the error output, and os_exit(in code) ends the program with the status code
+// os_print_error(in text) prints a string to the error output, and os_exit(in code) ends the program with the status code,
+// os_list(in dir, out entries) gives the names in a directory, sorted, each with whether it is a directory, without
+// following links, os_is_dir(in path, out yes) tells whether path is a directory, also through a link,
+// and os_cwd(out dir) and os_chdir(in dir) give and change the directory that relative paths start from
 
 data OsError :=
   | OsError(Str)
+
+// the paths of the files below path, depth-first in the order of names, or path itself if it is no directory,
+// where each path is that of its directory, /, and its name
+procedure os_walk(in path: Str, out files: List[Str]) :=
+  local dir: Bool
+
+  call os_is_dir(in path, out dir)
+  if dir
+    call os_walk_dir(in path, out files)
+  else
+    assign files := [path]
+  end
+
+procedure os_walk_dir(in dir: Str, out files: List[Str]) :=
+  local entries: List[Str * Bool]
+
+  call os_list(in dir, out entries)
+  call os_walk_entries(in dir, entries, out files)
+
+procedure os_walk_entries(in dir: Str, entries: List[Str * Bool], out files: List[Str]) :=
+  local below: List[Str], rest: List[Str]
+
+  match entries
+    case Nil =>
+      assign files := Nil
+    case [(name, true); more] =>
+      call   os_walk_dir(in os_join(dir, name), out below)
+      call   os_walk_entries(in dir, more, out rest)
+      assign files := below ++ rest
+    case [(name, false); more] =>
+      call   os_walk_entries(in dir, more, out rest)
+      assign files := [os_join(dir, name); rest]
+  end
+
+// the path of name in dir, which may end with /
+function os_join(dir: Str, name: Str): Str :=
+  if str_size(dir) > 0 and str_get(dir, str_size(dir) - 1) == '/' then dir ^ name else dir ^ "/" ^ name

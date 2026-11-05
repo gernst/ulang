@@ -67,16 +67,7 @@ selfcompile: ulang.bin
 # or fail with the error that its first line states, e.g. // type error: unknown variable x
 .PHONY: test
 test: ulang.bin
-	@failed=0; total=0; \
-	for f in $$(find tests self simp prelude -name '*.u' | sort); do \
-	  total=$$((total + 1)); \
-	  expected=$$(head -1 $$f | sed -nE 's#^// ((parse|type|runtime) error: .*)$$#\1#p'); \
-	  out=$$(cd $$(dirname $$f) && $(COMPILE) $(CURDIR)/ulang.bin test $$(basename $$f) 2>&1); status=$$?; \
-	  got=$$(printf '%s\n' "$$out" | sed -nE 's#^(test [^ ]+ failed: |[^ ]+: )((parse|type|runtime) error: .*)$$#\2#p' | head -1); \
-	  if [ -n "$$expected" ]; then [ "$$got" = "$$expected" ]; else [ $$status = 0 ]; fi || \
-	    { failed=$$((failed + 1)); echo "$$f: expected $${expected:-success}, got $${got:-$$out}"; }; \
-	done; \
-	echo "$$((total - failed)) of $$total files passed"; [ $$failed = 0 ]
+	$(COMPILE) ./ulang.bin test tests self simp prelude
 
 # the tests of the modules of self/, compiled by ulang.bin and run in self/
 SELFTESTS = syntax ctx check run print lex parse c compile

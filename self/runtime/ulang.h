@@ -183,6 +183,10 @@ void p_os_print_error(u_value text);
 void p_os_exit(u_value code);
 void u_passed(const char *name);
 void p_os_write(u_value path, u_value text);
+void p_os_list(u_value dir, u_value *entries);
+void p_os_is_dir(u_value path, u_value *yes);
+void p_os_cwd(u_value *dir);
+void p_os_chdir(u_value dir);
 void p_os_library(u_value name, u_value *text);
 
 

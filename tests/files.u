@@ -34,6 +34,51 @@ test failures() :=
   end
   assert m == "unknown module missing"
 
+// a tree of files, which os_list and os_walk see in the order of their names
+test walking() :=
+  local entries: List[Str * Bool], files: List[Str], dir: Bool, m: Str
+
+  call   os_write(in "out/walk/z.txt", "z")
+  call   os_write(in "out/walk/a.txt", "a")
+  call   os_write(in "out/walk/sub/deep/c.txt", "c")
+  call   os_write(in "out/walk/sub/b.txt", "b")
+  call   os_list(in "out/walk", out entries)
+  assert entries == [("a.txt", false), ("sub", true), ("z.txt", false)]
+  call   os_walk(in "out/walk", out files)
+  assert files == ["out/walk/a.txt", "out/walk/sub/b.txt", "out/walk/sub/deep/c.txt", "out/walk/z.txt"]
+  call   os_walk(in "out/walk/sub/", out files)
+  assert files == ["out/walk/sub/b.txt", "out/walk/sub/deep/c.txt"]
+  call   os_walk(in "out/walk/a.txt", out files)
+  assert files == ["out/walk/a.txt"]
+  call   os_is_dir(in "out/walk/sub", out dir)
+  assert dir
+  call   os_is_dir(in "out/walk/a.txt", out dir)
+  assert not dir
+  try
+    call os_list(in "out/walk/missing", out entries)
+  catch
+    case OsError(e) =>
+      assign m := e
+  end
+  assert m == "cannot list out/walk/missing"
+
+// relative paths start from the directory that os_chdir sets
+test changing_directory() :=
+  local t: Str, m: Str
+
+  call   os_write(in "out/here/here.txt", "here")
+  call   os_chdir(in "out/here")
+  call   os_read(in "here.txt", out t)
+  call   os_chdir(in "../..")
+  assert t == "here"
+  try
+    call os_chdir(in "out/missing")
+  catch
+    case OsError(e) =>
+      assign m := e
+  end
+  assert m == "cannot change to out/missing"
+
 // the tests run without arguments
 test arguments() :=
   local args: List[Str]

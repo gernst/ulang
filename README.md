@@ -80,6 +80,7 @@ Requires a C compiler, GMP, and the Boehm garbage collector. The interpreter rec
 make                                      # builds ./ulang.bin from bootstrap/ulang.c
 ./ulang.bin run file.u -- args            # checks a program and calls its procedure main
 ./ulang.bin test file.u                   # runs its tests one by one
+./ulang.bin test dir                      # runs the files below dir, which must pass or fail as their first lines state
 ./ulang.bin check file.u                  # only checks it
 ./ulang.bin compile file.u main file.c    # compiles a program to C, whose main calls the procedure main
 cc -I self/runtime file.c self/runtime/ulang.c -lgmp -lgc

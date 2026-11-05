@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
+#include <dirent.h>
 #include <gc.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -7,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "ulang.h"
 
@@ -756,6 +758,52 @@ void p_os_write(u_value path, u_value contents) {
   size_t n = (size_t)contents->length;
   int ok = fwrite(contents->text, 1, n, f) == n;
   if (fclose(f) || !ok) os_error("cannot write ", path->text);
+}
+
+static int compare_names(const void *a, const void *b) {
+  return u_strcmp(*(char *const *)a, *(char *const *)b);
+}
+
+// the entries of dir without . and .., sorted by name, each with whether it is a directory, where links are not
+// followed, such that a walk cannot loop
+void p_os_list(u_value dir, u_value *result) {
+  DIR *d = opendir(dir->text);
+  if (!d) os_error("cannot list ", dir->text);
+  size_t n = 0, cap = 16;
+  char **names = GC_MALLOC(cap * sizeof(char *));
+  for (struct dirent *e = readdir(d); e; e = readdir(d)) {
+    if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+    if (n == cap) names = GC_REALLOC(names, (cap *= 2) * sizeof(char *));
+    names[n++] = strcpy(text(u_strlen(e->d_name)), e->d_name);
+  }
+  closedir(d);
+  qsort(names, n, sizeof(char *), compare_names);
+  u_value list = &o_list_46_Nil;
+  for (size_t i = n; i-- > 0;) {
+    char *path = text((size_t)dir->length + 1 + u_strlen(names[i]));
+    sprintf(path, "%s/%s", dir->text, names[i]);
+    struct stat st;
+    int is_dir = !lstat(path, &st) && S_ISDIR(st.st_mode);
+    list = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_str(names[i]), u_mk_bool(is_dir)), list);
+  }
+  *result = list;
+}
+
+// path is a directory, also through a link
+void p_os_is_dir(u_value path, u_value *result) {
+  struct stat st;
+  *result = u_mk_bool(!stat(path->text, &st) && S_ISDIR(st.st_mode));
+}
+
+void p_os_cwd(u_value *result) {
+  char *dir = getcwd(NULL, 0);
+  if (!dir) os_error("cannot tell the working directory", "");
+  *result = u_mk_str(strcpy(text(u_strlen(dir)), dir));
+  free(dir);
+}
+
+void p_os_chdir(u_value dir) {
+  if (chdir(dir->text)) os_error("cannot change to ", dir->text);
 }
 
 void u_passed(const char *name) {

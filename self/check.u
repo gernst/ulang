@@ -1667,7 +1667,11 @@ function os_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * L
       (unqualified("os_print"), (Nil, [tstr()], Nil, Nil)),
       (unqualified("os_print_error"), (Nil, [tstr()], Nil, Nil)),
       (unqualified("os_exit"), (Nil, [tint()], Nil, Nil)),
-      (unqualified("os_library"), (Nil, [tstr()], [tstr()], Nil))
+      (unqualified("os_library"), (Nil, [tstr()], [tstr()], Nil)),
+      (unqualified("os_list"), (Nil, [tstr()], [tlist(TTuple([tstr(), tbool()]))], Nil)),
+      (unqualified("os_is_dir"), (Nil, [tstr()], [tbool()], Nil)),
+      (unqualified("os_cwd"), (Nil, Nil, [tstr()], Nil)),
+      (unqualified("os_chdir"), (Nil, [tstr()], Nil, Nil))
     ]
   else
     Nil
