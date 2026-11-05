@@ -133,6 +133,7 @@ function arity(t: Type): Int
 
 function names(xs: List[Var]): List[Name]
 function types(xs: List[Var]): List[Type]
+function first_list(xss: List[List[Var]]): List[Var]
 
 function type_plain_list(t: Type): Type
 function expr_var(n: Id): Expr
@@ -223,6 +224,13 @@ function names(xs: List[Var]): List[Name] :=
 
 function types(xs: List[Var]): List[Type] :=
   [x.typ for x in xs]
+
+// the first list of formals of a function, by whose length functions are overloaded
+function first_list(xss: List[List[Var]]): List[Var] :=
+  match xss
+    case Nil => Nil
+    case [xs; _] => xs
+  end
 
 // abbreviations for the syntax in tests
 

@@ -7,6 +7,7 @@
 import syntax
 
 import ctx
+import defs
 import map
 import set
 
@@ -51,10 +52,6 @@ data TypeError :=
 data Checked :=
   | Checked(cmds: List[Cmd], ctx: Ctx, imports: List[Id * List[Id]])
 
-function first_list(xss: List[List[Var]]): List[Var]
-function order_of(c: Cmd): Option[Id * Name]
-function ordered(cs: List[Cmd], op: Id): List[Name]
-function ordered_by(cs: List[Cmd], op: Id): List[Name * Name]
 procedure check_program(in p: Program, main: Id, out q: Program)
 
 implementation
@@ -1936,12 +1933,6 @@ function curried(xss: List[List[Var]], r: Type): Type :=
     case [xs; rest] => type_fun(types(xs), curried(rest, r))
   end
 
-function first_list(xss: List[List[Var]]): List[Var] :=
-  match xss
-    case Nil => Nil
-    case [xs; _] => xs
-  end
-
 procedure signatures(in xss: List[List[Var]], out yss: List[List[Var]], ref s: State) :=
   local ys: List[Var], rest: List[List[Var]]
 
@@ -2054,55 +2045,6 @@ function block_names(cs: List[Id * Cmd]): List[Id] :=
     case Nil => Nil
     case [(_, CTest(n, _, _)); more] => [n; block_names(more)]
     case [_; more] => block_names(more)
-  end
-
-// the datatype whose order or equality c declares, with compare or ==, if c is compare or == of two values of a datatype
-// T[A, …] of its own module with distinct parameters, which the interpreter and the runtime then use for all values of T,
-// also in generic code, where the builtins compare structurally
-// with the functions T.compare and T.== that the checker synthesizes for an abstract type T,
-// and similarly the text of the values of T if c is show of one value of T with the result Str
-function order_of(c: Cmd): Option[Id * Name] :=
-  match c
-    case CFun(Name(Some(m), "show"), _, [[Var(_, TSort(Name(Some(k), b), args))]], r, _) =>
-      if k == m and distinct_params(args) and r == type_str() then Some(("show", Name(Some(k), b))) else None
-    case CFun(Name(Some(m), f), _, [[Var(_, TSort(Name(Some(k), b), args)), Var(_, u)]], r, _) =>
-      let op := order_op(f, b) in
-        if k == m and u == TSort(Name(Some(k), b), args) and distinct_params(args) and order_result(op) == Some(r) then Some((op, Name(Some(k), b))) else None
-    case _ => None
-  end
-
-function order_op(f: Id, b: Id): Id :=
-  if f == b ++ ".compare" then "compare" else if f == b ++ ".==" then "==" else f
-
-function order_result(op: Id): Option[Type] :=
-  match op
-    case "compare" => Some(type_int())
-    case "==" => Some(type_bool())
-    case _ => None
-  end
-
-function distinct_params(ts: List[Type]): Bool :=
-  [t for t in ts if is_param(t)] == ts and distinct(ts) == ts
-
-function is_param(t: Type): Bool :=
-  match t
-    case TParam(_) => true
-    case _ => false
-  end
-
-// the datatypes of cs ordered, equated, or shown by op
-function ordered(cs: List[Cmd], op: Id): List[Name] :=
-  firsts(ordered_by(cs, op))
-
-// the datatypes of cs ordered, equated, or shown by op, with the functions that do it
-function ordered_by(cs: List[Cmd], op: Id): List[Name * Name] :=
-  match cs
-    case Nil => Nil
-    case [c; rest] =>
-      match (c, order_of(c))
-        case (CFun(f, _, _, _, _), Some((o, t))) => if o == op then [(t, f); ordered_by(rest, op)] else ordered_by(rest, op)
-        case _ => ordered_by(rest, op)
-      end
   end
 
 // only abstract types declare equalities, since matching tells the values of other datatypes apart by their constructors,

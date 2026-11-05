@@ -1,0 +1,115 @@
+// the definitions of a program that self/check.u has checked, as the interpreter of self/run.u and the compiler of
+// self/compile.u look them up, with the declared orders, equalities, and shows of its datatypes
+
+import syntax
+import map
+
+export
+
+// the functions by name and number of arguments with their formals and body, the procedures with their ins, outs,
+// refs, and body, the constructors with their number of arguments, their position in their declaration, which orders
+// values, and their datatype, and the datatypes with the functions that order, equate, or show their values, see order_of
+data Defs :=
+  | Defs(
+    funs: Map[Name * Int, List[List[Var]] * Expr],
+    procs: Map[Name, List[Var] * List[Var] * List[Var] * Stmt],
+    constrs: Map[Name, Int * Int * Name],
+    orders: Map[Name, Name],
+    equalities: Map[Name, Name],
+    shows: Map[Name, Name]
+  )
+
+function defs_of(q: Program): Defs
+function order_of(c: Cmd): Option[Id * Name]
+function ordered(cs: List[Cmd], op: Id): List[Name]
+function ordered_by(cs: List[Cmd], op: Id): List[Name * Name]
+
+implementation
+
+function defs_of(q: Program): Defs :=
+  Defs(
+    put_all(fun_defs(q.cmds), empty()),
+    put_all(proc_defs(q.cmds), empty()),
+    put_all(constr_defs(q.cmds), empty()),
+    put_all(ordered_by(q.cmds, "compare"), empty()),
+    put_all(ordered_by(q.cmds, "=="), empty()),
+    put_all(ordered_by(q.cmds, "show"), empty())
+  )
+
+// functions are overloaded by the number of arguments of their first list of formals
+function fun_defs(cs: List[Cmd]): List[(Name * Int) * (List[List[Var]] * Expr)] :=
+  match cs
+    case Nil => Nil
+    case [CFun(n, _, xss, _, b); rest] => [((n, size(first_list(xss))), (xss, b)); fun_defs(rest)]
+    case [_; rest] => fun_defs(rest)
+  end
+
+function proc_defs(cs: List[Cmd]): List[Name * (List[Var] * List[Var] * List[Var] * Stmt)] :=
+  match cs
+    case Nil => Nil
+    case [CProc(n, _, ins, outs, refs, b); rest] => [(n, (ins, outs, refs, b)); proc_defs(rest)]
+    case [_; rest] => proc_defs(rest)
+  end
+
+function constr_defs(cs: List[Cmd]): List[Name * (Int * Int * Name)] :=
+  match cs
+    case Nil => Nil
+    case [CData(t, _, ks); rest] => constrs_from(t, ks, 0) ++ constr_defs(rest)
+    case [_; rest] => constr_defs(rest)
+  end
+
+// the constructors ks of datatype t from position i
+function constrs_from(t: Name, ks: List[Constr], i: Int): List[Name * (Int * Int * Name)] :=
+  match ks
+    case Nil => Nil
+    case [Constr(k, args); rest] => [(k, (size(args), i, t)); constrs_from(t, rest, i + 1)]
+  end
+
+// the datatype whose order or equality c declares, with compare or ==, if c is compare or == of two values of a datatype
+// T[A, …] of its own module with distinct parameters, which the interpreter and the runtime then use for all values of T,
+// also in generic code, where the builtins compare structurally
+// with the functions T.compare and T.== that the checker synthesizes for an abstract type T,
+// and similarly the text of the values of T if c is show of one value of T with the result Str
+function order_of(c: Cmd): Option[Id * Name] :=
+  match c
+    case CFun(Name(Some(m), "show"), _, [[Var(_, TSort(Name(Some(k), b), args))]], r, _) =>
+      if k == m and distinct_params(args) and r == type_str() then Some(("show", Name(Some(k), b))) else None
+    case CFun(Name(Some(m), f), _, [[Var(_, TSort(Name(Some(k), b), args)), Var(_, u)]], r, _) =>
+      let op := order_op(f, b) in
+        if k == m and u == TSort(Name(Some(k), b), args) and distinct_params(args) and order_result(op) == Some(r) then Some((op, Name(Some(k), b))) else None
+    case _ => None
+  end
+
+function order_op(f: Id, b: Id): Id :=
+  if f == b ++ ".compare" then "compare" else if f == b ++ ".==" then "==" else f
+
+function order_result(op: Id): Option[Type] :=
+  match op
+    case "compare" => Some(type_int())
+    case "==" => Some(type_bool())
+    case _ => None
+  end
+
+function distinct_params(ts: List[Type]): Bool :=
+  [t for t in ts if is_param(t)] == ts and distinct(ts) == ts
+
+function is_param(t: Type): Bool :=
+  match t
+    case TParam(_) => true
+    case _ => false
+  end
+
+// the datatypes of cs ordered, equated, or shown by op
+function ordered(cs: List[Cmd], op: Id): List[Name] :=
+  firsts(ordered_by(cs, op))
+
+// the datatypes of cs ordered, equated, or shown by op, with the functions that do it
+function ordered_by(cs: List[Cmd], op: Id): List[Name * Name] :=
+  match cs
+    case Nil => Nil
+    case [c; rest] =>
+      match (c, order_of(c))
+        case (CFun(f, _, _, _, _), Some((o, t))) => if o == op then [(t, f); ordered_by(rest, op)] else ordered_by(rest, op)
+        case _ => ordered_by(rest, op)
+      end
+  end

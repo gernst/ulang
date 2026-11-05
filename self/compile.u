@@ -3,6 +3,7 @@
 
 import syntax
 import check
+import defs
 import c
 import parse
 import os
@@ -19,11 +20,6 @@ procedure compile_file(in source: Str, entry: Id, target: Str)
 function is_entry(c: Cmd, n: Name): Bool
 
 implementation
-
-// the functions of a program by name and number of arguments, and its constructors with their numbers of fields,
-// as lists and as maps from the names to the numbers of arguments and fields
-data Globals :=
-  | Globals(funs: List[Name * Int], constrs: List[Name * Int], arities: Map[Name, List[Int]], fields: Map[Name, Int], procs: Map[Name, Int * Int])
 
 // the variables in scope with the C expressions they are accessed through
 type Vars :=
@@ -122,10 +118,10 @@ function unit_decl(n: Name, t: Name): CDecl :=
 // the descriptors of the datatypes of cs and their constructors that the runtime does not define, and the values of
 // the constructors without arguments, where the descriptor of a datatype points to the functions compare, ==, and show
 // that its module declares, and otherwise to the structural ones of the runtime
-function descriptor_decls(cs: List[Cmd]): List[CDecl] :=
-  data_decls(cs, ordered_by(cs, "compare"), ordered_by(cs, "=="), ordered_by(cs, "show"))
+function descriptor_decls(defs: Defs, cs: List[Cmd]): List[CDecl] :=
+  data_decls(cs, defs.orders, defs.equalities, defs.shows)
 
-function data_decls(cs: List[Cmd], compares: List[Name * Name], equalities: List[Name * Name], shows: List[Name * Name]): List[CDecl] :=
+function data_decls(cs: List[Cmd], compares: Map[Name, Name], equalities: Map[Name, Name], shows: Map[Name, Name]): List[CDecl] :=
   match cs
     case Nil =>
       Nil
@@ -135,7 +131,7 @@ function data_decls(cs: List[Cmd], compares: List[Name * Name], equalities: List
       data_decls(rest, compares, equalities, shows)
   end
 
-function type_decls(t: Name, compares: List[Name * Name], equalities: List[Name * Name], shows: List[Name * Name]): List[CDecl] :=
+function type_decls(t: Name, compares: Map[Name, Name], equalities: Map[Name, Name], shows: Map[Name, Name]): List[CDecl] :=
   if contains(t, runtime_types()) then
     []
   else
@@ -203,58 +199,32 @@ function type_key(t: Type): Str :=
     case _ => "?"
   end
 
-function globals(cs: List[Cmd]): Globals :=
-  let fs := concat([fun_arities(c) for c in cs]), ks := concat([constr_arities(c) for c in cs]) in
-    Globals(fs, ks, arity_map(fs, empty()), put_all(ks, empty()), put_all(concat([proc_arities(c) for c in cs]), empty()))
-
-// the numbers of ins and of outs and refs of a procedure
-function proc_arities(c: Cmd): List[Name * (Int * Int)] :=
-  match c
-    case CProc(n, _, ins, outs, refs, _) => [(n, (size(ins), size(outs) + size(refs)))]
-    case _ => []
-  end
-
-function arity_map(fs: List[Name * Int], m: Map[Name, List[Int]]): Map[Name, List[Int]] :=
-  match fs
-    case Nil => m
-    case [(f, k); rest] =>
-      match get(f, m)
-        case Some(ks) => arity_map(rest, put(f, [k; ks], m))
-        case None => arity_map(rest, put(f, [k], m))
-      end
-  end
-
 // a function n with k arguments
-function is_global_fun(gl: Globals, n: Name, k: Int): Bool :=
-  match gl
-    case Globals(_, _, fm, _, _) =>
-      match get(n, fm)
-        case Some(ks) => contains(k, ks)
-        case None => false
-      end
-  end
+function is_global_fun(defs: Defs, n: Name, k: Int): Bool :=
+  contains((n, k), defs.funs)
 
 // the number of fields of constructor n
-function fields_count(gl: Globals, n: Name): Option[Int] :=
-  match gl
-    case Globals(_, _, _, km, _) => get(n, km)
+function fields_count(defs: Defs, n: Name): Option[Int] :=
+  match get(n, defs.constrs)
+    case Some((k, _, _)) => Some(k)
+    case None => None
   end
 
-function fun_arities(c: Cmd): List[Name * Int] :=
-  match c
-    case CFun(n, _, xss, _, _) => [(n, size(first_list(xss)))]
-    case _ => []
+// the procedures with their numbers of ins and of outs and refs
+function proc_arities(defs: Defs): List[Name * (Int * Int)] :=
+  [(n, proc_arity(d)) for n => d in defs.procs]
+
+function proc_arity(d: List[Var] * List[Var] * List[Var] * Stmt): Int * Int :=
+  match d
+    case (ins, outs, refs, _) => (size(ins), size(outs) + size(refs))
   end
 
-function constr_arities(c: Cmd): List[Name * Int] :=
-  match c
-    case CData(_, _, ks) => [constr_arity(k) for k in ks]
-    case _ => []
-  end
+function constr_arities(defs: Defs): List[Name * Int] :=
+  [(n, constr_arity(d)) for n => d in defs.constrs]
 
-function constr_arity(k: Constr): Name * Int :=
-  match k
-    case Constr(n, ts) => (n, size(ts))
+function constr_arity(d: Int * Int * Name): Int :=
+  match d
+    case (k, _, _) => k
   end
 
 function numbered[A](xs: List[A], i: Int): List[A * Int] :=
@@ -387,23 +357,23 @@ procedure lift(in d: CDecl, ref g: Gen) :=
   assign g := g with lifted := g.lifted ++ [d]
 
 // a function, constructor, or builtin of name n with type t as a value, which is a closure of its wrapper
-function global_value(gl: Globals, n: Name, t: Type): CExpr :=
-  if is_global_fun(gl, n, arity(t)) then
+function global_value(defs: Defs, n: Name, t: Type): CExpr :=
+  if is_global_fun(defs, n, arity(t)) then
     c_call("u_mk_closure", [CeVar("w_" ++ fun_name(n, arity(t))), CeNum(0)])
   else
-    match fields_count(gl, n)
+    match fields_count(defs, n)
       case Some(0) => unit_value(n)
       case Some(_) => c_call("u_mk_closure", [CeVar("wc_" ++ mangle(n)), CeNum(0)])
       case None =>
         match get(n, builtin_functions())
           case Some((f, _)) => c_call("u_mk_closure", [CeVar("w" ++ f), CeNum(0)])
-          case None if contains(n, gl.procs) => c_call("u_mk_proc", [CeVar("wp_" ++ mangle(n)), CeNum(0)])
+          case None if contains(n, defs.procs) => c_call("u_mk_proc", [CeVar("wp_" ++ mangle(n)), CeNum(0)])
           case None => raise Unsupported("the variable " ++ n.base)
         end
     end
 
 // the statements that compute e in a scope with the local variables env, and its value r
-procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], r: CExpr, ref g: Gen) :=
+procedure compile_expr(in defs: Defs, env: Vars, e: Expr, out ss: List[CStmt], r: CExpr, ref g: Gen) :=
   local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], ra: CExpr, rb: CExpr, rc: CExpr, rs: List[CExpr], t: Str, d: Str
 
   match e
@@ -420,72 +390,72 @@ procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], 
         case Some(c) =>
           assign ss := Nil, r := c
         case None =>
-          assign ss := Nil, r := global_value(gl, n, ty)
+          assign ss := Nil, r := global_value(defs, n, ty)
       end
 
     // foldr(xs, init, lambda x, acc => if q then Cons(e, acc) else acc) of a list, into which comprehensions translate,
     // is a loop that builds the list in order, where acc is free in neither q nor e
     case EApp(EVar(Var(n, _)), [xs, init, ELam([x, acc], body)]) if n == list_foldr_name() and consing(body, acc.name) != None =>
-      call compile_consing(in gl, env, xs, init, x, body, acc.name, out ss, r, ref g)
+      call compile_consing(in defs, env, xs, init, x, body, acc.name, out ss, r, ref g)
 
     case EApp(EVar(Var(n, ty)), args) if get(n, env) == None =>
-      call compile_named(in gl, env, n, ty, args, out ss, r, ref g)
+      call compile_named(in defs, env, n, ty, args, out ss, r, ref g)
 
     case EApp(f, args) =>
-      call   compile_expr(in gl, env, f, out as, ra, ref g)
-      call   compile_exprs(in gl, env, args, out bs, rs, ref g)
+      call   compile_expr(in defs, env, f, out as, ra, ref g)
+      call   compile_exprs(in defs, env, args, out bs, rs, ref g)
       assign ss := as ++ bs, r := c_call("u_apply", [ra, CeNum(size(args))] ++ rs)
 
     case ELam(xs, b) =>
-      call compile_lambda(in gl, env, xs, b, out ss, r, ref g)
+      call compile_lambda(in defs, env, xs, b, out ss, r, ref g)
 
     case EProc(is, os, rs, b) =>
-      call compile_proc_lambda(in gl, env, is, os, rs, b, out ss, r, ref g)
+      call compile_proc_lambda(in defs, env, is, os, rs, b, out ss, r, ref g)
 
     case ELet(binds, b) =>
-      call   compile_exprs(in gl, env, seconds(binds), out as, rs, ref g)
-      call   compile_expr(in gl, in_scope(names(firsts(binds))) ++ env, b, out bs, rb, ref g)
+      call   compile_exprs(in defs, env, seconds(binds), out as, rs, ref g)
+      call   compile_expr(in defs, in_scope(names(firsts(binds))) ++ env, b, out bs, rb, ref g)
       call   gen_name(in "t", out t, ref g)
       call   temps(in rs, out cs, ref g)
       assign ss := as ++ cs ++ [CsDecl(value_type(), t, None), CsBlock(rebind(names(firsts(binds)), cs) ++ bs ++ [CsAssign(CeVar(t), rb)])]
       assign r := CeVar(t)
 
     case EIte(c, l, rr) =>
-      call   compile_expr(in gl, env, c, out cs, rc, ref g)
-      call   compile_expr(in gl, env, l, out as, ra, ref g)
-      call   compile_expr(in gl, env, rr, out bs, rb, ref g)
+      call   compile_expr(in defs, env, c, out cs, rc, ref g)
+      call   compile_expr(in defs, env, l, out as, ra, ref g)
+      call   compile_expr(in defs, env, rr, out bs, rb, ref g)
       call   gen_name(in "t", out t, ref g)
       assign ss := cs ++ [CsDecl(value_type(), t, None), CsIf(truth(rc), as ++ [CsAssign(CeVar(t), ra)], bs ++ [CsAssign(CeVar(t), rb)])]
       assign r := CeVar(t)
 
     case EMatch(arg, cases) =>
-      call   compile_expr(in gl, env, arg, out as, ra, ref g)
+      call   compile_expr(in defs, env, arg, out as, ra, ref g)
       call   gen_name(in "s", out d, ref g)
       call   gen_name(in "t", out t, ref g)
-      call   expr_cases(in gl, env, cases, CeVar(d), t, out bs, ref g)
+      call   expr_cases(in defs, env, cases, CeVar(d), t, out bs, ref g)
       assign ss := as ++ [CsDecl(value_type(), d, Some(ra)), CsDecl(value_type(), t, Some(CeVar("NULL")))] ++ bs
       assign ss := ss ++ [CsIf(CeUnary("!", CeVar(t)), [CsExpr(c_call("u_no_case", [CeVar(d)]))], [])]
       assign r := CeVar(t)
 
     case ETuple(items) =>
-      call   compile_exprs(in gl, env, items, out ss, rs, ref g)
+      call   compile_exprs(in defs, env, items, out ss, rs, ref g)
       assign r := c_call("u_mk_tuple", [CeNum(size(items))] ++ rs)
 
     // the value of a raise is never used, since u_raise does not return
     case ERaise(arg, ty) =>
-      call   compile_expr(in gl, env, arg, out as, ra, ref g)
+      call   compile_expr(in defs, env, arg, out as, ra, ref g)
       assign ss := as ++ [CsExpr(c_call("u_raise", [ra, CeStr(type_key(ty))]))], r := CeVar("NULL")
   end
 
-procedure compile_exprs(in gl: Globals, env: Vars, es: List[Expr], out ss: List[CStmt], rs: List[CExpr], ref g: Gen) :=
+procedure compile_exprs(in defs: Defs, env: Vars, es: List[Expr], out ss: List[CStmt], rs: List[CExpr], ref g: Gen) :=
   local as: List[CStmt], r: CExpr, bs: List[CStmt], more: List[CExpr]
 
   match es
     case [] =>
       assign ss := Nil, rs := Nil
     case [e; rest] =>
-      call   compile_expr(in gl, env, e, out as, r, ref g)
-      call   compile_exprs(in gl, env, rest, out bs, more, ref g)
+      call   compile_expr(in defs, env, e, out as, r, ref g)
+      call   compile_exprs(in defs, env, rest, out bs, more, ref g)
       assign ss := as ++ bs, rs := [r; more]
   end
 
@@ -510,14 +480,14 @@ function rebind(xs: List[Name], ts: List[CStmt]): List[CStmt] :=
   end
 
 // applications of functions, constructors, and builtins of their arities are direct calls
-procedure compile_named(in gl: Globals, env: Vars, n: Name, ty: Type, args: List[Expr], out ss: List[CStmt], r: CExpr, ref g: Gen) :=
+procedure compile_named(in defs: Defs, env: Vars, n: Name, ty: Type, args: List[Expr], out ss: List[CStmt], r: CExpr, ref g: Gen) :=
   local as: List[CStmt], bs: List[CStmt], ra: CExpr, rb: CExpr, rs: List[CExpr], t: Str
 
   match args
     // and, or are not strict
     case [a, b] if n == unqualified("and") or n == unqualified("or") =>
-      call   compile_expr(in gl, env, a, out as, ra, ref g)
-      call   compile_expr(in gl, env, b, out bs, rb, ref g)
+      call   compile_expr(in defs, env, a, out as, ra, ref g)
+      call   compile_expr(in defs, env, b, out bs, rb, ref g)
       call   gen_name(in "t", out t, ref g)
       if n == unqualified("and")
         assign ss := as ++ [CsDecl(value_type(), t, Some(ra)), CsIf(truth(CeVar(t)), bs ++ [CsAssign(CeVar(t), rb)], [])]
@@ -526,37 +496,37 @@ procedure compile_named(in gl: Globals, env: Vars, n: Name, ty: Type, args: List
       end
       assign r := CeVar(t)
     case _ =>
-      call compile_exprs(in gl, env, args, out ss, rs, ref g)
-      if is_global_fun(gl, n, size(args)) and arity(ty) == size(args)
+      call compile_exprs(in defs, env, args, out ss, rs, ref g)
+      if is_global_fun(defs, n, size(args)) and arity(ty) == size(args)
         assign r := c_call(fun_name(n, size(args)), rs)
-      else if fields_count(gl, n) == Some(0) and args == []
+      else if fields_count(defs, n) == Some(0) and args == []
         assign r := unit_value(n)
-      else if fields_count(gl, n) == Some(size(args))
+      else if fields_count(defs, n) == Some(size(args))
         assign r := c_call("u_mk_con", [descriptor(n), CeNum(size(args))] ++ rs)
       else
         match get(n, builtin_functions())
           case Some((b, k)) if k == size(args) =>
             assign r := c_call(b, rs)
           case _ =>
-            assign r := c_call("u_apply", [global_value(gl, n, ty), CeNum(size(args))] ++ rs)
+            assign r := c_call("u_apply", [global_value(defs, n, ty), CeNum(size(args))] ++ rs)
         end
       end
   end
 
 // a closure of a function lifted to the top level, which takes the captured values and the arguments
-procedure compile_lambda(in gl: Globals, env: Vars, xs: List[Var], b: Expr, out ss: List[CStmt], r: CExpr, ref g: Gen) :=
+procedure compile_lambda(in defs: Defs, env: Vars, xs: List[Var], b: Expr, out ss: List[CStmt], r: CExpr, ref g: Gen) :=
   local  caps := [x for x in distinct(free_vars(b, names(xs))) if get(x, env) != None]
   local  f: Str, bs: List[CStmt], rb: CExpr, decls: List[CStmt]
 
   call   gen_name(in "lam", out f, ref g)
-  call   compile_expr(in gl, in_scope(caps ++ names(xs)), b, out bs, rb, ref g)
+  call   compile_expr(in defs, in_scope(caps ++ names(xs)), b, out bs, rb, ref g)
   assign decls := unpack(numbered(caps, 0), "env") ++ unpack(numbered(names(xs), 0), "args")
   call   lift(in CdFunction(value_type(), f, [(value_ptr(), "env"), (value_ptr(), "args")], decls ++ bs ++ [CsReturn(Some(rb))]), ref g)
   assign ss := Nil, r := c_call("u_mk_closure", [CeVar(f), CeNum(size(caps))] ++ [var_expr(env, x) for x in caps])
 
 // a lambda in x, out y, ref z => body end is a lifted function of the captured values, the ins, and pointers to the outs and refs
 procedure compile_proc_lambda(
-  in gl: Globals, env: Vars, ins: List[Var], outs: List[Var], refs: List[Var], b: Stmt,
+  in defs: Defs, env: Vars, ins: List[Var], outs: List[Var], refs: List[Var], b: Stmt,
   out ss: List[CStmt], r: CExpr,
   ref g: Gen
 ) :=
@@ -564,7 +534,7 @@ procedure compile_proc_lambda(
   local  f: Str, bs: List[CStmt], decls: List[CStmt]
 
   call   gen_name(in "proc", out f, ref g)
-  call   compile_stmt(in gl, in_scope(caps ++ names(ins ++ outs ++ refs)), b, out bs, ref g)
+  call   compile_stmt(in defs, in_scope(caps ++ names(ins ++ outs ++ refs)), b, out bs, ref g)
   assign decls := unpack(numbered(caps, 0), "env") ++ unpack(numbered(names(ins), 0), "ins") ++ unpack_pointers(numbered(names(outs ++ refs), 0))
   assign decls := decls ++ copy_in(names(outs), names(refs))
   call   lift(in CdFunction(CtVoid, f, proc_params(), decls ++ bs ++ copy_out(names(outs ++ refs))), ref g)
@@ -587,7 +557,7 @@ function unpack(xs: List[Name * Int], a: Str): List[CStmt] :=
   end
 
 // the cases of a match of the value v, which assign the result to t, where t stays NULL if no case applies
-procedure expr_cases(in gl: Globals, env: Vars, cases: List[Branch[Expr]], v: CExpr, t: Str, out ss: List[CStmt], ref g: Gen) :=
+procedure expr_cases(in defs: Defs, env: Vars, cases: List[Branch[Expr]], v: CExpr, t: Str, out ss: List[CStmt], ref g: Gen) :=
   local bs: List[CStmt], rb: CExpr, gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env1: Vars
 
   match cases
@@ -595,16 +565,16 @@ procedure expr_cases(in gl: Globals, env: Vars, cases: List[Branch[Expr]], v: CE
       assign ss := Nil
     case [Branch(p, guard, e); more] =>
       assign env1 := in_scope(pattern_names(p)) ++ env
-      call   compile_expr(in gl, env1, e, out bs, rb, ref g)
+      call   compile_expr(in defs, env1, e, out bs, rb, ref g)
       assign body := bs ++ [CsAssign(CeVar(t), rb)]
       match guard
         case Some(c) =>
-          call   compile_expr(in gl, env1, c, out gs, rg, ref g)
+          call   compile_expr(in defs, env1, c, out gs, rg, ref g)
           assign body := gs ++ [CsIf(truth(rg), body, [])]
         case None =>
           skip
       end
-      call   expr_cases(in gl, env, more, v, t, out rest, ref g)
+      call   expr_cases(in defs, env, more, v, t, out rest, ref g)
       assign ss := [CsIf(conjunction([CeUnary("!", CeVar(t))] ++ pattern_tests(p, v)), pattern_binds(p, v) ++ body, [])] ++ rest
   end
 
@@ -625,23 +595,23 @@ function consing(body: Expr, acc: Name): Option[Option[Expr] * Expr] :=
 
 // the list is built in order, where d points to the place of the next cell, first t and then the tail of the last cell,
 // which is init at the end
-procedure compile_consing(in gl: Globals, env: Vars, xs: Expr, init: Expr, x: Var, body: Expr, acc: Name, out ss: List[CStmt], r: CExpr, ref g: Gen) :=
+procedure compile_consing(in defs: Defs, env: Vars, xs: Expr, init: Expr, x: Var, body: Expr, acc: Name, out ss: List[CStmt], r: CExpr, ref g: Gen) :=
   local ls: List[CStmt], rl: CExpr, is: List[CStmt], ri: CExpr, cs: List[CStmt], rc: CExpr, es: List[CStmt], re: CExpr, t: Str, d: Str, l: Str
   local inner := in_scope([x.name]) ++ env, add: List[CStmt]
 
-  call   compile_expr(in gl, env, xs, out ls, rl, ref g)
-  call   compile_expr(in gl, env, init, out is, ri, ref g)
+  call   compile_expr(in defs, env, xs, out ls, rl, ref g)
+  call   compile_expr(in defs, env, init, out is, ri, ref g)
   call   gen_name(in "t", out t, ref g)
   call   gen_name(in "e", out d, ref g)
   call   gen_name(in "l", out l, ref g)
 
   match consing(body, acc)
     case Some((cond, e)) =>
-      call   compile_expr(in gl, inner, e, out es, re, ref g)
+      call   compile_expr(in defs, inner, e, out es, re, ref g)
       assign add := es ++ [CsAssign(CeVar(d), c_call("u_append", [CeVar(d), re]))]
       match cond
         case Some(q) =>
-          call   compile_expr(in gl, inner, q, out cs, rc, ref g)
+          call   compile_expr(in defs, inner, q, out cs, rc, ref g)
           assign add := cs ++ [CsIf(truth(rc), add, [])]
         case None =>
           skip
@@ -655,7 +625,7 @@ procedure compile_consing(in gl: Globals, env: Vars, xs: Expr, init: Expr, x: Va
   assign ss := ss ++ [CsAssign(CeUnary("*", CeVar(d)), ri)], r := CeVar(t)
 
 // statements, whose variables are local variables of C, where procedures copy outs and refs back at their end
-procedure compile_stmt(in gl: Globals, env: Vars, s: Stmt, out ss: List[CStmt], ref g: Gen) :=
+procedure compile_stmt(in defs: Defs, env: Vars, s: Stmt, out ss: List[CStmt], ref g: Gen) :=
   local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], ra: CExpr, rb: CExpr, rc: CExpr, rs: List[CExpr], t: Str, d: Str, xs: List[Name]
 
   match s
@@ -663,31 +633,31 @@ procedure compile_stmt(in gl: Globals, env: Vars, s: Stmt, out ss: List[CStmt], 
       assign ss := Nil
 
     case SAssign(pairs) =>
-      call   compile_exprs(in gl, env, seconds(pairs), out as, rs, ref g)
+      call   compile_exprs(in defs, env, seconds(pairs), out as, rs, ref g)
       call   temps(in rs, out cs, ref g)
       assign ss := as ++ cs ++ reassign(env, names(firsts(pairs)), cs)
 
     case SBlock(locals, body) =>
-      call   compile_stmts(in gl, in_scope(names(locals)) ++ env, body, out bs, ref g)
+      call   compile_stmts(in defs, in_scope(names(locals)) ++ env, body, out bs, ref g)
       assign ss := [CsBlock([CsDecl(value_type(), var_name(x), Some(CeVar("NULL"))) for x in names(locals)] ++ bs)]
 
     case SIf(c, l, r) =>
-      call   compile_expr(in gl, env, c, out cs, rc, ref g)
-      call   compile_stmt(in gl, env, l, out as, ref g)
-      call   compile_stmt(in gl, env, r, out bs, ref g)
+      call   compile_expr(in defs, env, c, out cs, rc, ref g)
+      call   compile_stmt(in defs, env, l, out as, ref g)
+      call   compile_stmt(in defs, env, r, out bs, ref g)
       assign ss := cs ++ [CsIf(truth(rc), as, bs)]
     // the condition is computed before the loop and again at the end of each iteration
 
     case SWhile(c, b) =>
-      call   compile_expr(in gl, env, c, out cs, rc, ref g)
-      call   compile_stmt(in gl, env, b, out bs, ref g)
+      call   compile_expr(in defs, env, c, out cs, rc, ref g)
+      call   compile_stmt(in defs, env, b, out bs, ref g)
       call   gen_name(in "t", out t, ref g)
-      call   compile_expr(in gl, env, c, out as, ra, ref g)
+      call   compile_expr(in defs, env, c, out as, ra, ref g)
       assign ss := cs ++ [CsDecl(value_type(), t, Some(rc)), CsWhile(truth(CeVar(t)), bs ++ as ++ [CsAssign(CeVar(t), ra)])]
 
     // a variable of a procedure type hides the procedures of that name
     case SCall(p, ins, outs, refs) =>
-      call compile_exprs(in gl, env, ins, out as, rs, ref g)
+      call compile_exprs(in defs, env, ins, out as, rs, ref g)
 
       if get(p, env) != None
         assign ss := as ++ [CsExpr(c_call("u_call_proc", [var_expr(env, p), CeNum(size(ins)), CeNum(size(outs ++ refs))] ++ rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
@@ -696,35 +666,35 @@ procedure compile_stmt(in gl: Globals, env: Vars, s: Stmt, out ss: List[CStmt], 
       end
 
     case SMatch(arg, cases) =>
-      call   compile_expr(in gl, env, arg, out as, ra, ref g)
+      call   compile_expr(in defs, env, arg, out as, ra, ref g)
       call   gen_name(in "s", out d, ref g)
       call   gen_name(in "d", out t, ref g)
-      call   stmt_cases(in gl, env, cases, CeVar(d), t, out bs, ref g)
+      call   stmt_cases(in defs, env, cases, CeVar(d), t, out bs, ref g)
       assign ss := as ++ [CsDecl(value_type(), d, Some(ra)), CsDecl(CtInt, t, Some(CeNum(0)))] ++ bs
       assign ss := ss ++ [CsIf(CeUnary("!", CeVar(t)), [CsExpr(c_call("u_no_case", [CeVar(d)]))], [])]
     // assertions of equations show both sides when they fail
 
     case SAssert(EApp(EVar(Var(Name(None, "=="), _)), [a, b])) =>
-      call   compile_expr(in gl, env, a, out as, ra, ref g)
-      call   compile_expr(in gl, env, b, out bs, rb, ref g)
+      call   compile_expr(in defs, env, a, out as, ra, ref g)
+      call   compile_expr(in defs, env, b, out bs, rb, ref g)
       assign ss := as ++ bs ++ [CsExpr(c_call("u_assert_equal", [ra, rb]))]
 
     case SAssert(c) =>
-      call   compile_expr(in gl, env, c, out cs, rc, ref g)
+      call   compile_expr(in defs, env, c, out cs, rc, ref g)
       assign ss := cs ++ [CsExpr(c_call("u_assert_true", [rc]))]
     // exceptions carry their type, which handlers compare
 
     case SRaise(arg, ty) =>
-      call   compile_expr(in gl, env, arg, out as, ra, ref g)
+      call   compile_expr(in defs, env, arg, out as, ra, ref g)
       assign ss := as ++ [CsExpr(c_call("u_raise", [ra, CeStr(type_key(ty))]))]
     // the body runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if none applies,
     // where the handlers start from the variables before the try, which their copies, unchanged since setjmp, restore
 
     case STry(body, hs) =>
-      call   compile_stmt(in gl, env, body, out bs, ref g)
+      call   compile_stmt(in defs, env, body, out bs, ref g)
       call   gen_name(in "h", out d, ref g)
       call   gen_name(in "d", out t, ref g)
-      call   handler_cases(in gl, env, hs, d, t, out cs, ref g)
+      call   handler_cases(in defs, env, hs, d, t, out cs, ref g)
       assign xs := [x for x in distinct(changed(body)) if get(x, env) != None]
       assign as := [CsExpr(c_call("u_pop", [CeVar(d)]))] ++ [CsAssign(var_expr(env, x), CeVar(saved_name(x))) for x in xs] ++ [CsDecl(CtInt, t, Some(CeNum(0)))]
       assign as := as ++ cs ++ [CsIf(CeUnary("!", CeVar(t)), [CsExpr(c_call("u_reraise", [CeVar(d)]))], [])]
@@ -748,15 +718,15 @@ function changed(s: Stmt): List[Name] :=
     case _ => []
   end
 
-procedure compile_stmts(in gl: Globals, env: Vars, xs: List[Stmt], out ss: List[CStmt], ref g: Gen) :=
+procedure compile_stmts(in defs: Defs, env: Vars, xs: List[Stmt], out ss: List[CStmt], ref g: Gen) :=
   local as: List[CStmt], bs: List[CStmt]
 
   match xs
     case [] =>
       assign ss := Nil
     case [x; rest] =>
-      call   compile_stmt(in gl, env, x, out as, ref g)
-      call   compile_stmts(in gl, env, rest, out bs, ref g)
+      call   compile_stmt(in defs, env, x, out as, ref g)
+      call   compile_stmts(in defs, env, rest, out bs, ref g)
       assign ss := as ++ bs
   end
 
@@ -767,7 +737,7 @@ function reassign(env: Vars, xs: List[Name], ts: List[CStmt]): List[CStmt] :=
   end
 
 // the handlers of an exception caught by h, which set the flag d when one applies, where _ handles all types
-procedure handler_cases(in gl: Globals, env: Vars, hs: List[Handler], h: Str, d: Str, out ss: List[CStmt], ref g: Gen) :=
+procedure handler_cases(in defs: Defs, env: Vars, hs: List[Handler], h: Str, d: Str, out ss: List[CStmt], ref g: Gen) :=
   local  v := c_call("u_caught", [CeVar(h)])
   local  bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env1: Vars, tests: List[CExpr]
 
@@ -776,11 +746,11 @@ procedure handler_cases(in gl: Globals, env: Vars, hs: List[Handler], h: Str, d:
       assign ss := Nil
     case [Handler(ty, p, guard, s); more] =>
       assign env1 := in_scope(pattern_names(p)) ++ env
-      call   compile_stmt(in gl, env1, s, out bs, ref g)
+      call   compile_stmt(in defs, env1, s, out bs, ref g)
       assign body := [CsAssign(CeVar(d), CeNum(1))] ++ bs
       match guard
         case Some(c) =>
-          call   compile_expr(in gl, env1, c, out gs, rg, ref g)
+          call   compile_expr(in defs, env1, c, out gs, rg, ref g)
           assign body := gs ++ [CsIf(truth(rg), body, [])]
         case None =>
           skip
@@ -791,12 +761,12 @@ procedure handler_cases(in gl: Globals, env: Vars, hs: List[Handler], h: Str, d:
         case _ =>
           assign tests := [c_call("u_has_type", [CeVar(h), CeStr(type_key(ty))])] ++ pattern_tests(p, v)
       end
-      call   handler_cases(in gl, env, more, h, d, out rest, ref g)
+      call   handler_cases(in defs, env, more, h, d, out rest, ref g)
       assign ss := [CsIf(conjunction([CeUnary("!", CeVar(d))] ++ tests), pattern_binds(p, v) ++ body, [])] ++ rest
   end
 
 // the cases of a match statement, which set the flag d when one applies
-procedure stmt_cases(in gl: Globals, env: Vars, cases: List[Branch[Stmt]], v: CExpr, d: Str, out ss: List[CStmt], ref g: Gen) :=
+procedure stmt_cases(in defs: Defs, env: Vars, cases: List[Branch[Stmt]], v: CExpr, d: Str, out ss: List[CStmt], ref g: Gen) :=
   local bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env1: Vars
 
   match cases
@@ -804,26 +774,26 @@ procedure stmt_cases(in gl: Globals, env: Vars, cases: List[Branch[Stmt]], v: CE
       assign ss := Nil
     case [Branch(p, guard, s); more] =>
       assign env1 := in_scope(pattern_names(p)) ++ env
-      call   compile_stmt(in gl, env1, s, out bs, ref g)
+      call   compile_stmt(in defs, env1, s, out bs, ref g)
       assign body := [CsAssign(CeVar(d), CeNum(1))] ++ bs
       match guard
         case Some(c) =>
-          call   compile_expr(in gl, env1, c, out gs, rg, ref g)
+          call   compile_expr(in defs, env1, c, out gs, rg, ref g)
           assign body := gs ++ [CsIf(truth(rg), body, [])]
         case None =>
           skip
       end
-      call   stmt_cases(in gl, env, more, v, d, out rest, ref g)
+      call   stmt_cases(in defs, env, more, v, d, out rest, ref g)
       assign ss := [CsIf(conjunction([CeUnary("!", CeVar(d))] ++ pattern_tests(p, v)), pattern_binds(p, v) ++ body, [])] ++ rest
   end
 
 // the C functions of a command, and the statements of main for runs and tests
-procedure compile_cmd(in gl: Globals, entry: Id, c: Cmd, out ds: List[CDecl], ms: List[CStmt], ref g: Gen) :=
+procedure compile_cmd(in defs: Defs, entry: Id, c: Cmd, out ds: List[CDecl], ms: List[CStmt], ref g: Gen) :=
   local bs: List[CStmt], rb: CExpr, params: List[CType * Str]
 
   match c
     case CFun(n, _, xss, _, b) =>
-      call   compile_expr(in gl, in_scope(names(first_list(xss))), lambdas(drop(1, xss), b), out bs, rb, ref g)
+      call   compile_expr(in defs, in_scope(names(first_list(xss))), lambdas(drop(1, xss), b), out bs, rb, ref g)
       assign params := [(value_type(), var_name(x)) for x in names(first_list(xss))]
 
       if first_list(xss) == Nil
@@ -835,7 +805,7 @@ procedure compile_cmd(in gl: Globals, entry: Id, c: Cmd, out ds: List[CDecl], ms
     // outs and refs are pointers to the variables of the caller, which the procedure assigns when it returns
 
     case CProc(n, _, ins, outs, refs, body) =>
-      call   compile_stmt(in gl, in_scope(names(ins ++ outs ++ refs)), body, out bs, ref g)
+      call   compile_stmt(in defs, in_scope(names(ins ++ outs ++ refs)), body, out bs, ref g)
       assign params := [(value_type(), var_name(x)) for x in names(ins)] ++ [(value_ptr(), ref_name(x)) for x in names(outs ++ refs)]
       assign bs := copy_in(names(outs), names(refs)) ++ bs ++ copy_out(names(outs ++ refs))
       assign ds := [CdFunction(CtVoid, proc_name(n), params, bs)], ms := Nil
@@ -843,22 +813,22 @@ procedure compile_cmd(in gl: Globals, entry: Id, c: Cmd, out ds: List[CDecl], ms
     // main runs all tests for the entry test, which report that they passed
 
     case CTest(n, _, body) if entry == "test" =>
-      call   compile_stmt(in gl, Nil, body, out bs, ref g)
+      call   compile_stmt(in defs, Nil, body, out bs, ref g)
       assign ds := Nil, ms := [CsBlock(bs ++ [CsExpr(c_call("u_passed", [CeStr(n)]))])]
 
     case _ =>
       assign ds := Nil, ms := Nil
   end
 
-procedure compile_cmds(in gl: Globals, entry: Id, cs: List[Cmd], out ds: List[CDecl], ms: List[CStmt], ref g: Gen) :=
+procedure compile_cmds(in defs: Defs, entry: Id, cs: List[Cmd], out ds: List[CDecl], ms: List[CStmt], ref g: Gen) :=
   local d1: List[CDecl], m1: List[CStmt], d2: List[CDecl], m2: List[CStmt]
 
   match cs
     case [] =>
       assign ds := Nil, ms := Nil
     case [c; rest] =>
-      call   compile_cmd(in gl, entry, c, out d1, m1, ref g)
-      call   compile_cmds(in gl, entry, rest, out d2, m2, ref g)
+      call   compile_cmd(in defs, entry, c, out d1, m1, ref g)
+      call   compile_cmds(in defs, entry, rest, out d2, m2, ref g)
       assign ds := d1 ++ d2, ms := m1 ++ m2
   end
 
@@ -881,9 +851,9 @@ function cached(n: Str, bs: List[CStmt], r: CExpr): List[CStmt] :=
     ] ++ bs ++ [CsExpr(c_call("u_pop", [h])), CsAssign(CeVar("cache"), r), CsReturn(Some(CeVar("cache")))]
 
 // closures of functions, constructors, and builtins, which take their arguments from an array
-function wrappers(gl: Globals): List[CDecl] :=
-  [fun_wrapper(p) for p in gl.funs] ++ concat([constr_wrapper(p) for p in gl.constrs]) ++
-  [builtin_wrapper(p) for p in seconds(entries(builtin_functions()))] ++ [proc_wrapper(p) for p in entries(gl.procs)]
+function wrappers(defs: Defs): List[CDecl] :=
+  [fun_wrapper(p) for p in firsts(list(defs.funs))] ++ concat([constr_wrapper(p) for p in constr_arities(defs)]) ++
+  [builtin_wrapper(p) for p in seconds(entries(builtin_functions()))] ++ [proc_wrapper(p) for p in proc_arities(defs)]
 
 // procedures as values call the procedure with the values of the array ins and the pointers of the array outs
 function proc_wrapper(p: Name * (Int * Int)): CDecl :=
@@ -924,20 +894,20 @@ function prototype(d: CDecl): List[CDecl] :=
 
 // the C of q of module m, whose main calls the procedure entry without parameters, or runs all tests for the entry test
 procedure compile_program(in q: Program, m: Id, entry: Id, out f: CFile) :=
-  local g := Gen(0, Nil), gl := globals(q.cmds), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl]
+  local g := Gen(0, Nil), defs := defs_of(q), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl]
 
   if entry != "test" and not exists(q.cmds, lambda c => is_entry(c, Name(Some(m), entry)))
     raise UnknownEntry(Name(Some(m), entry))
   end
 
-  call   compile_cmds(in gl, entry, q.cmds, out ds, ms, ref g)
+  call   compile_cmds(in defs, entry, q.cmds, out ds, ms, ref g)
 
   if entry != "test"
     assign ms := [CsExpr(c_call(proc_name(Name(Some(m), entry)), []))]
   end
 
-  assign fs := wrappers(gl) ++ ds ++ g.lifted
-  assign f := CFile([CdInclude("ulang.h")] ++ concat([prototype(d) for d in fs]) ++ descriptor_decls(q.cmds) ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
+  assign fs := wrappers(defs) ++ ds ++ g.lifted
+  assign f := CFile([CdInclude("ulang.h")] ++ concat([prototype(d) for d in fs]) ++ descriptor_decls(defs, q.cmds) ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
 
 // checks the program of the file source after the prelude, which is its module, and writes its translation to C to target
 procedure compile_file(in source: Str, entry: Id, target: Str) :=

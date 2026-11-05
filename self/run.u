@@ -7,6 +7,7 @@ import value
 import print
 
 import check
+import defs
 
 import os
 import set
@@ -14,25 +15,10 @@ import map
 
 export
 
-data ProcDef :=
-  | ProcDef(List[Var], List[Var], List[Var], Stmt)
-
-// the functions by name and number of arguments, the procedures, the constructors with their numbers of arguments,
-// the constructors with their positions in their declarations, which order values, the constructors of datatypes
-// with their declared orders, equalities, and shows, see order_of, the functions without parameters whose values are
-// being computed, and the arguments of the program
+// the definitions of the program, the functions without parameters whose values are being computed, and the arguments
+// of the program
 data Prog :=
-  | Prog(
-    funs: Map[Name * Int, List[List[Var]] * Expr],
-    procs: Map[Name, ProcDef],
-    constrs: Map[Name, Int],
-    positions: Map[Name, Int],
-    orders: Map[Name, Name],
-    equalities: Map[Name, Name],
-    shows: Map[Name, Name],
-    computing: List[Name],
-    args: List[Str]
-  )
+  | Prog(defs: Defs, computing: List[Name], args: List[Str])
 
 data RuntimeError :=
   | Uninitialized(Name)
@@ -64,77 +50,22 @@ implementation
 type Bindings :=
   Map[Name, Value]
 
-// the values of evals and the assigned variables of runs
+// the position of constructor k in its declaration, which orders values of different constructors
 function position_of(p: Prog, k: Name): Int :=
-  match get(k, p.positions)
-    case Some(i) => i
+  match get(k, p.defs.constrs)
+    case Some((_, i, _)) => i
     case None => 0
   end
 
+// the function of the map fs, by datatype, that orders, equates, or shows the values of the datatype of constructor k
+function declared_for(p: Prog, k: Name, fs: Map[Name, Name]): Option[Name] :=
+  match get(k, p.defs.constrs)
+    case Some((_, _, t)) => get(t, fs)
+    case None => None
+  end
+
 function load(q: Program): Prog :=
-  match q
-    case Program(cs) =>
-      Prog(
-        put_all(fun_defs(cs), empty()),
-        put_all(proc_defs(cs), empty()),
-        put_all(constr_defs(cs), empty()),
-        put_all(constr_positions(cs), empty()),
-        put_all(constr_orders(cs, ordered_by(cs, "compare")), empty()),
-        put_all(constr_orders(cs, ordered_by(cs, "==")), empty()),
-        put_all(constr_orders(cs, ordered_by(cs, "show")), empty()),
-        Nil,
-        Nil
-      )
-  end
-
-// the constructors of the datatypes of fs with the functions of their datatypes
-function constr_orders(cs: List[Cmd], fs: List[Name * Name]): List[Name * Name] :=
-  match cs
-    case Nil => Nil
-    case [CData(t, _, ks); rest] =>
-      match get(t, fs)
-        case Some(f) => [(k.name, f) for k in ks] ++ constr_orders(rest, fs)
-        case None => constr_orders(rest, fs)
-      end
-    case [_; rest] => constr_orders(rest, fs)
-  end
-
-// functions are overloaded by the number of arguments of their first list of parameters
-function fun_defs(cs: List[Cmd]): List[(Name * Int) * (List[List[Var]] * Expr)] :=
-  match cs
-    case Nil => Nil
-    case [CFun(n, _, xss, _, b); rest] => [((n, size(first_list(xss))), (xss, b)); fun_defs(rest)]
-    case [_; rest] => fun_defs(rest)
-  end
-
-function proc_defs(cs: List[Cmd]): List[Name * ProcDef] :=
-  match cs
-    case Nil => Nil
-    case [CProc(n, _, ins, outs, refs, b); rest] => [(n, ProcDef(ins, outs, refs, b)); proc_defs(rest)]
-    case [_; rest] => proc_defs(rest)
-  end
-
-function constr_positions(cs: List[Cmd]): List[Name * Int] :=
-  match cs
-    case Nil => Nil
-    case [CData(_, _, ks); rest] => zip([k.name for k in ks], numbers_from(0, size(ks))) ++ constr_positions(rest)
-    case [_; rest] => constr_positions(rest)
-  end
-
-function numbers_from(i: Int, n: Int): List[Int] :=
-  if n == 0 then Nil else [i; numbers_from(i + 1, n - 1)]
-
-function constr_defs(cs: List[Cmd]): List[Name * Int] :=
-  match cs
-    case Nil => Nil
-    case [CData(_, _, ks); rest] => [constr_arity(k) for k in ks] ++ constr_defs(rest)
-    case [_; rest] => constr_defs(rest)
-  end
-
-function constr_arity(k: Constr): Name * Int :=
-  match k
-    case Constr(n, ts) => (n, size(ts))
-  end
+  Prog(defs_of(q), Nil, Nil)
 
 function builtin_names(): Set[Id] :=
   {
@@ -286,12 +217,12 @@ function variable_value(p: Prog, env: Bindings, n: Name, t: Type): Value :=
     case (Some(w), _) => w
     case (None, None) => if is_builtin(n) then Prim(n) else raise Uninitialized(n)
     case (None, Some(_)) =>
-      match get((n, arity(t)), p.funs)
+      match get((n, arity(t)), p.defs.funs)
         case Some(_) => Fn(n, arity(t))
         case None =>
-          match get(n, p.constrs)
-            case Some(k) => if k == 0 then Obj(n, Nil) else Con(n)
-            case None if contains(n, p.procs) => Proc(n)
+          match get(n, p.defs.constrs)
+            case Some((k, _, _)) => if k == 0 then Obj(n, Nil) else Con(n)
+            case None if contains(n, p.defs.procs) => Proc(n)
             case None => raise Uninitialized(n)
           end
       end
@@ -330,7 +261,7 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value, ref c
       call evaluate(in p, bind_all(xs, vs, env), body, out v, ref cache)
 
     case Fn(n, k) =>
-      match get((n, k), p.funs)
+      match get((n, k), p.defs.funs)
         case Some(([Nil], body)) =>
           call cached(in p, n, body, out v, ref cache)
 
@@ -515,7 +446,7 @@ procedure equal(in p: Prog, a: Value, b: Value, out r: Bool, ref cache: Map[Name
   end
   match (a, b)
     case (Obj(c, xs), Obj(d, ys)) =>
-      match (get(c, p.equalities), get(c, p.orders))
+      match (declared_for(p, c, p.defs.equalities), declared_for(p, c, p.defs.orders))
         case (Some(f), _) =>
           call   apply_value(in p, Fn(f, 2), [a, b], out v, ref cache)
           assign r := truth(v)
@@ -556,7 +487,7 @@ procedure compare_values(in p: Prog, a: Value, b: Value, out r: Int, ref cache: 
       assign r := str_compare(x, y)
 
     case (Obj(c, xs), Obj(d, ys)) =>
-      match get(c, p.orders)
+      match declared_for(p, c, p.defs.orders)
         case Some(f) =>
           call apply_value(in p, Fn(f, 2), [a, b], out v, ref cache)
           match v
@@ -595,8 +526,8 @@ procedure show_in(in p: Prog, v: Value, out s: Str, ref cache: Map[Name, Value])
   local w: Value, texts: List[Str]
 
   match v
-    case Obj(c, _) if contains(c, p.shows) =>
-      match get(c, p.shows)
+    case Obj(c, _) if declared_for(p, c, p.defs.shows) != None =>
+      match declared_for(p, c, p.defs.shows)
         case Some(f) =>
           call apply_value(in p, Fn(f, 1), [v], out w, ref cache)
           assign s := text_of(w)
@@ -832,8 +763,8 @@ procedure handle(in p: Prog, hs: List[Handler], v: Value, t: Type, ref env: Bind
 // calls the procedure n with the values ins of its ins, where the variables refs of the caller in env are its refs,
 // which get their values back when it returns, and the values outs of its outs
 procedure invoke(in p: Prog, n: Name, ins: List[Value], refs: List[Name], out outs: List[Value], ref env: Bindings, cache: Map[Name, Value]) :=
-  match get(n, p.procs)
-    case Some(ProcDef(xs, ys, zs, body)) =>
+  match get(n, p.defs.procs)
+    case Some((xs, ys, zs, body)) =>
       call run_body(in p, n, empty(), xs, ys, zs, body, ins, refs, out outs, ref env, cache)
     case None if n.base == "os_print" =>
       assign outs := Nil
