@@ -222,7 +222,7 @@ function pattern_vars(p: Pat): List[Name] :=
   end
 
 procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value, ref cache: Map[Name, Value]) :=
-  local w: Value, vs: List[Value], envs: List[Bindings], sel: Option[Expr * Bindings * List[Name]]
+  local w: Value, vs: List[Value], sel: Option[Expr * Bindings * List[Name]]
 
   match e
     case ELit(l) =>
@@ -263,10 +263,6 @@ procedure evaluate(in p: Prog, env: Bindings, e: Expr, out v: Value, ref cache: 
           raise NoCase(w)
       end
 
-    case EComp(result, xs, lists, cond) =>
-      call   combinations(in p, env, xs, lists, out envs, ref cache)
-      call   comprehension(in p, envs, result, cond, out vs, ref cache)
-      assign v := list_value(vs)
     // tuples are objects of the constructor ,
 
     case ETuple(items) =>
@@ -611,52 +607,6 @@ procedure equal_all(in p: Prog, xs: List[Value], ys: List[Value], out r: Bool, r
       end
     case _ =>
       assign r := true
-  end
-
-// env extended by all combinations of elements of lists
-procedure combinations(in p: Prog, env: Bindings, xs: List[Var], lists: List[Expr], out envs: List[Bindings], ref cache: Map[Name, Value]) :=
-  local l: Value
-
-  match (xs, lists)
-    case ([x; ys], [e; more]) =>
-      call evaluate(in p, env, e, out l, ref cache)
-      match list_elements(l)
-        case Some(vs) =>
-          call extend(in p, env, x, vs, ys, more, out envs, ref cache)
-        case None =>
-          raise NotList(l)
-      end
-    case _ =>
-      assign envs := [env]
-  end
-
-procedure extend(in p: Prog, env: Bindings, x: Var, vs: List[Value], ys: List[Var], lists: List[Expr], out envs: List[Bindings], ref cache: Map[Name, Value]) :=
-  local first: List[Bindings], rest: List[Bindings]
-
-  match vs
-    case Nil =>
-      assign envs := Nil
-    case [v; more] =>
-      call   combinations(in p, put(x.name, v, env), ys, lists, out first, ref cache)
-      call   extend(in p, env, x, more, ys, lists, out rest, ref cache)
-      assign envs := first ++ rest
-  end
-
-procedure comprehension(in p: Prog, envs: List[Bindings], result: Expr, cond: Expr, out vs: List[Value], ref cache: Map[Name, Value]) :=
-  local b: Value, r: Value, rest: List[Value]
-
-  match envs
-    case Nil =>
-      assign vs := Nil
-    case [env; more] =>
-      call evaluate(in p, env, cond, out b, ref cache)
-      if truth(b)
-        call   evaluate(in p, env, result, out r, ref cache)
-        call   comprehension(in p, more, result, cond, out rest, ref cache)
-        assign vs := [r; rest]
-      else
-        call comprehension(in p, more, result, cond, out vs, ref cache)
-      end
   end
 
 // x updates the values of the variables in scope
@@ -1033,17 +983,6 @@ test expressions() :=
       asserting("p1", expr_app("len", [expr_app("Cons", [expr_int(1), expr_app("Cons", [expr_int(2), expr_var("Nil")])])]), expr_int(2)),
       // let f = lambda x => x * x in f(3) + f(4)
       asserting("p2", ELet([(Var(unqualified("f"), THole), ELam([Var(unqualified("x"), THole)], expr_app("*", [expr_var("x"), expr_var("x")])))], expr_app("+", [expr_app("f", [expr_int(3)]), expr_app("f", [expr_int(4)])])), expr_int(25)),
-      // [x * y for x in [1, 2], y in [x, 3] if x < y]
-      asserting(
-        "p3",
-        EComp(
-          expr_app("*", [expr_var("x"), expr_var("y")]),
-          [Var(unqualified("x"), THole), Var(unqualified("y"), THole)],
-          [expr_app("Cons", [expr_int(1), expr_app("Cons", [expr_int(2), expr_var("Nil")])]), expr_app("Cons", [expr_var("x"), expr_app("Cons", [expr_int(3), expr_var("Nil")])])],
-          expr_app("<", [expr_var("x"), expr_var("y")])
-        ),
-        expr_app("Cons", [expr_int(3), expr_app("Cons", [expr_int(6), expr_var("Nil")])])
-      ),
       // false and 1 / 0 == 0
       asserting("p4", expr_app("and", [ELit(VBool(false)), expr_app("==", [expr_app("/", [expr_int(1), expr_int(0)]), expr_int(0)])]), ELit(VBool(false)))
     ])

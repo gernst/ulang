@@ -2,11 +2,51 @@
 
 import option
 
+export
+
 infix right 7 ++
 
 data List[A] :=
   | Nil
   | Cons(A, List[A])
+
+function ++[A](xs: List[A], ys: List[A]): List[A]
+function size[A](xs: List[A]): Int
+function contains[A](x: A, xs: List[A]): Bool
+function exists[A](xs: List[A], p: A -> Bool): Bool
+function forall[A](xs: List[A], p: A -> Bool): Bool
+
+// f(x1, f(x2, ... f(xn, acc))), which recurses as deep as xs is long, and f(... f(f(acc, x1), x2) ..., xn)
+function foldr[A, R](xs: List[A], acc: R, f: (A, R) -> R): R
+function foldl[A, R](xs: List[A], acc: R, f: (R, A) -> R): R
+
+// association lists of keys and values, where the first pair of a key counts, and put replaces it, sharing the pairs after it,
+// or puts (k, v) in front if k has none
+function get[K, V](k: K, xs: List[K * V]): Option[V]
+function put[K, V](k: K, v: V, xs: List[K * V]): List[K * V]
+function remove[K, V](k: K, xs: List[K * V]): List[K * V]
+function has_key[K, V](k: K, xs: List[K * V]): Bool
+function keys[K, V](xs: List[K * V]): List[K]
+function values[K, V](xs: List[K * V]): List[V]
+
+function distinct[A](xs: List[A]): List[A]
+
+// an element that occurs twice
+function repeated[A](xs: List[A]): Option[A]
+function diff[A](xs: List[A], ys: List[A]): List[A]
+function concat[A](xss: List[List[A]]): List[A]
+
+// the elements of xs in reverse order, before ys
+function reverse_onto[A](xs: List[A], ys: List[A]): List[A]
+function reverse[A](xs: List[A]): List[A]
+function zip[A, B](xs: List[A], ys: List[B]): List[A * B]
+function take[A](n: Int, xs: List[A]): List[A]
+function drop[A](n: Int, xs: List[A]): List[A]
+function replicate[A](n: Int, x: A): List[A]
+function firsts[A, B](ps: List[A * B]): List[A]
+function seconds[A, B](ps: List[A * B]): List[B]
+
+implementation
 
 function ++[A](xs: List[A], ys: List[A]): List[A] :=
   match xs
@@ -20,8 +60,6 @@ function size[A](xs: List[A]): Int :=
     case [_; ys] => 1 + size(ys)
   end
 
-// association lists of keys and values, where the first pair of a key counts
-
 function get[K, V](k: K, xs: List[K * V]): Option[V] :=
   match xs
     case Nil => None
@@ -29,7 +67,6 @@ function get[K, V](k: K, xs: List[K * V]): Option[V] :=
     case [_; ys] => get(k, ys)
   end
 
-// xs where the first pair of k has the value v, sharing the pairs after it, or with (k, v) in front if k has none
 function put[K, V](k: K, v: V, xs: List[K * V]): List[K * V] :=
   match replaced(k, v, xs)
     case Some(ys) => ys
@@ -90,13 +127,24 @@ function forall[A](xs: List[A], p: A -> Bool): Bool :=
     case [y; ys] => p(y) and forall(ys, p)
   end
 
+function foldr[A, R](xs: List[A], acc: R, f: (A, R) -> R): R :=
+  match xs
+    case Nil => acc
+    case [y; ys] => f(y, foldr(ys, acc, f))
+  end
+
+function foldl[A, R](xs: List[A], acc: R, f: (R, A) -> R): R :=
+  match xs
+    case Nil => acc
+    case [y; ys] => foldl(ys, f(acc, y), f)
+  end
+
 function distinct[A](xs: List[A]): List[A] :=
   match xs
     case Nil => Nil
     case [y; ys] => [y; distinct([z for z in ys if z != y])]
   end
 
-// an element that occurs twice
 function repeated[A](xs: List[A]): Option[A] :=
   match xs
     case Nil => None
@@ -112,7 +160,6 @@ function concat[A](xss: List[List[A]]): List[A] :=
     case [xs; yss] => xs ++ concat(yss)
   end
 
-// the elements of xs in reverse order, before ys
 function reverse_onto[A](xs: List[A], ys: List[A]): List[A] :=
   match xs
     case Nil => ys
@@ -165,6 +212,8 @@ test lists() :=
   assert contains(2, [1, 2]) and not contains(3, [1, 2])
   assert exists([1, 2], lambda x => x > 1) and not exists([1, 2], lambda x => x > 2) and not exists([], lambda x => x > 0)
   assert forall([1, 2], lambda x => x > 0) and not forall([1, 2], lambda x => x > 1) and forall([], lambda x => x > 0)
+  assert foldr([1, 2, 3], Nil, Cons) == [1, 2, 3] and foldr([1, 2, 3], 0, lambda x, n => 10 * n + x) == 321
+  assert foldl([1, 2, 3], Nil, lambda xs, x => [x; xs]) == [3, 2, 1] and foldl([1, 2, 3], 0, lambda n, x => 10 * n + x) == 123
   assert distinct([1, 2, 1, 3, 2]) == [1, 2, 3]
   assert repeated([1, 2, 1]) == Some(1)
   assert diff([1, 2, 3], [2]) == [1, 3]

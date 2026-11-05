@@ -17,6 +17,11 @@ function remove_all[K, V](ks: List[K], m: Map[K, V]): Map[K, V]
 function entries[K, V](m: Map[K, V]): List[K * V]
 function size[K, V](m: Map[K, V]): Int
 
+// f(k1, v1, f(k2, v2, ... f(kn, vn, acc))) and f(... f(f(acc, k1, v1), k2, v2) ..., kn, vn) of the entries in the order of
+// their keys
+function foldr[K, V, R](m: Map[K, V], acc: R, f: (K, V, R) -> R): R
+function foldl[K, V, R](m: Map[K, V], acc: R, f: (R, K, V) -> R): R
+
 // maps are ordered and equal by their entries, whatever the shapes of their trees, also as elements of other values
 // and in generic code
 function compare[K, V](a: Map[K, V], b: Map[K, V]): Int
@@ -70,6 +75,18 @@ function entries_onto[K, V](m: Map[K, V], rest: List[K * V]): List[K * V] :=
   match m
     case Leaf => rest
     case Node(l, k, v, r, _) => entries_onto(l, [(k, v); entries_onto(r, rest)])
+  end
+
+function foldr[K, V, R](m: Map[K, V], acc: R, f: (K, V, R) -> R): R :=
+  match m
+    case Leaf => acc
+    case Node(l, k, v, r, _) => foldr(l, f(k, v, foldr(r, acc, f)), f)
+  end
+
+function foldl[K, V, R](m: Map[K, V], acc: R, f: (R, K, V) -> R): R :=
+  match m
+    case Leaf => acc
+    case Node(l, k, v, r, _) => foldl(r, f(foldl(l, acc, f), k, v), f)
   end
 
 function size[K, V](m: Map[K, V]): Int :=
@@ -185,6 +202,13 @@ test maps() :=
   assert get("a", m) == Some(1) and get("c", m) == None and contains("b", m) and not contains("c", m)
   assign m := put("a", 3, m)
   assert entries(m) == [("a", 3), ("b", 2)] and size(m) == 2 and entries({"b" => 2, "a" => 1, "a" => 3}) == entries(m)
+
+test map_folds() :=
+  local m := put_all([(i, str_show(i)) for i in numbers(50)], empty())
+
+  assert foldr(m, Nil, lambda k, v, ps => [(k, v); ps]) == entries(m) and foldr(m, empty(), put) == m
+  assert foldl(m, Nil, lambda ps, k, v => [(k, v); ps]) == reverse(entries(m)) and foldl(m, 0, lambda n, k, v => n + k) == 1275
+  assert foldr({1 => "a", 2 => "b"}, "", lambda k, v, t => v ^ t) == "ab" and foldl({1 => "a", 2 => "b"}, "", lambda t, k, v => t ^ v) == "ab"
 
 // maps of the same entries are equal, although their trees differ
 test map_equality() :=

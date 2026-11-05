@@ -13,6 +13,10 @@ function insert_all[A](xs: List[A], s: Set[A]): Set[A]
 function elements[A](s: Set[A]): List[A]
 function size[A](s: Set[A]): Int
 
+// f(x1, f(x2, ... f(xn, acc))) and f(... f(f(acc, x1), x2) ..., xn) of the elements in ascending order
+function foldr[A, R](s: Set[A], acc: R, f: (A, R) -> R): R
+function foldl[A, R](s: Set[A], acc: R, f: (R, A) -> R): R
+
 // sets are ordered and equal by their elements, whatever the shapes of their trees, also as elements of other values
 // and in generic code
 function compare[A](a: Set[A], b: Set[A]): Int
@@ -72,6 +76,18 @@ function elements_onto[A](s: Set[A], rest: List[A]): List[A] :=
   match s
     case Leaf => rest
     case Node(l, x, r, _) => elements_onto(l, [x; elements_onto(r, rest)])
+  end
+
+function foldr[A, R](s: Set[A], acc: R, f: (A, R) -> R): R :=
+  match s
+    case Leaf => acc
+    case Node(l, x, r, _) => foldr(l, f(x, foldr(r, acc, f)), f)
+  end
+
+function foldl[A, R](s: Set[A], acc: R, f: (R, A) -> R): R :=
+  match s
+    case Leaf => acc
+    case Node(l, x, r, _) => foldl(r, f(foldl(l, acc, f), x), f)
   end
 
 function size[A](s: Set[A]): Int :=
@@ -145,6 +161,13 @@ test sets() :=
   assert elements(from_list([3, 1, 2, 1])) == [1, 2, 3] and elements({3, 1, 2, 1}) == [1, 2, 3]
   assert elements(from_list([(2, 'a'), (1, 'b'), (2, 'a')])) == [(1, 'b'), (2, 'a')]
   assert elements(from_list([Some(2), None, Some(1)])) == [None, Some(1), Some(2)]
+
+test set_folds() :=
+  local s := from_list(upto(50))
+
+  assert foldr(s, Nil, Cons) == elements(s) and foldl(s, Nil, lambda xs, x => [x; xs]) == reverse(elements(s))
+  assert foldr(s, empty(), insert) == s and foldl(s, 0, lambda n, x => n + x) == 1275
+  assert foldr({1, 2, 3}, 0, lambda x, n => 10 * n + x) == 321 and foldl({1, 2, 3}, 0, lambda n, x => 10 * n + x) == 123
 
 // sets of the same elements are equal, although their trees differ
 test set_equality() :=

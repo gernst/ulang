@@ -23,10 +23,10 @@ data Ctx :=
     hidden: Set[Name]
   )
 
-function empty_ctx(): Ctx
-function ctx_of(c: Ctx, ms: List[Id]): Ctx
-function ctx_union(a: Ctx, b: Ctx): Ctx
-function public_ctx(c: Ctx): Ctx
+function empty(): Ctx
+function restrict(c: Ctx, ms: List[Id]): Ctx
+function union(a: Ctx, b: Ctx): Ctx
+function public(c: Ctx): Ctx
 function hidden_named(c: Ctx, b: Id): List[Name]
 function alias_of(c: Ctx, n: Name): Option[List[Id] * Type]
 function schemes_of(c: Ctx, n: Name): List[List[Type] * Type]
@@ -50,11 +50,11 @@ function with_constr(c: Ctx, n: Name, kc: List[Type] * List[Type] * Type): Ctx
 
 implementation
 
-function empty_ctx(): Ctx :=
+function empty(): Ctx :=
   Ctx(empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
 // the declarations of the modules ms
-function ctx_of(c: Ctx, ms: List[Id]): Ctx :=
+function restrict(c: Ctx, ms: List[Id]): Ctx :=
   Ctx(
     owned_map(c.aliases, ms),
     owned_map(c.funs, ms),
@@ -89,7 +89,7 @@ function in_modules(n: Name, ms: List[Id]): Bool :=
   end
 
 // the declarations of both, whose names differ since they are qualified by their modules
-function ctx_union(a: Ctx, b: Ctx): Ctx :=
+function union(a: Ctx, b: Ctx): Ctx :=
   Ctx(
     put_all(entries(b.aliases), a.aliases),
     put_all(entries(b.funs), a.funs),
@@ -103,7 +103,7 @@ function ctx_union(a: Ctx, b: Ctx): Ctx :=
 
 // the declarations as other modules see them, without the hidden ones, where datatypes whose constructors are hidden
 // are abstract, without members
-function public_ctx(c: Ctx): Ctx :=
+function public(c: Ctx): Ctx :=
   if size(c.hidden) == 0 then
     c
   else

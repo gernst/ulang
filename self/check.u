@@ -172,10 +172,12 @@ function visible_names(s: State, n: Name, declared: Name -> Bool): List[Name] :=
 
 // the declarations named n of a kind in all modules that the module sees, its own included, whose types decide
 // among them
+// a name of the module * stands for the declarations of all visible modules, as an unqualified name does, but locals never
+// hide it, since the parser introduces such names in translations, where users cannot write them
 function overloads(s: State, n: Name, declared: Name -> Bool): List[Name] :=
   match n
-    case Name(Some(_), _) => [d for d in names_of(s.ctx, n.base) if declared(d) and d == n]
-    case Name(None, _) => [d for d in names_of(s.ctx, n.base) if declared(d) and is_visible(s, d)]
+    case Name(Some(m), _) if m != "*" => [d for d in names_of(s.ctx, n.base) if declared(d) and d == n]
+    case _ => [d for d in names_of(s.ctx, n.base) if declared(d) and is_visible(s, d)]
   end
 
 function is_visible(s: State, d: Name): Bool :=
@@ -186,7 +188,7 @@ function is_visible(s: State, d: Name): Bool :=
 
 // the error e about n, of which no declaration is known, or that n names only declarations that their modules keep private
 function unknown_error(s: State, n: Name, e: TypeError): TypeError :=
-  match [d for d in hidden_named(s.ctx, n.base) if d.module != Some(s.module) and (d == n or (n.module == None and is_visible(s, d)))]
+  match [d for d in hidden_named(s.ctx, n.base) if d.module != Some(s.module) and (d == n or (n.module == None or n.module == Some("*")) and is_visible(s, d))]
     case [d; _] => PrivateName(d)
     case Nil => e
   end
@@ -213,7 +215,7 @@ function literal(v: Val): Type :=
   end
 
 function initial(): Ctx :=
-  empty_ctx()
+  empty()
 
 function arith(): List[Type] * Type :=
   (Nil, type_fun([type_int(), type_int()], type_int()))
@@ -500,7 +502,6 @@ function zonk_expr(s: State, e: Expr): Expr :=
     case ELet(ps, b) => ELet([zonk_binding(s, p) for p in ps], zonk_expr(s, b))
     case EIte(c, l, r) => EIte(zonk_expr(s, c), zonk_expr(s, l), zonk_expr(s, r))
     case EMatch(a, bs) => EMatch(zonk_expr(s, a), [zonk_expr_branch(s, b) for b in bs])
-    case EComp(r, xs, ls, c) => EComp(zonk_expr(s, r), zonk_vars(s, xs), [zonk_expr(s, l) for l in ls], zonk_expr(s, c))
     case ETuple(es) => ETuple([zonk_expr(s, e) for e in es])
     case ERaise(a, t) => ERaise(zonk_expr(s, a), zonk_type(s.sub, t))
   end
@@ -583,7 +584,6 @@ function unknown_in_expr(e: Expr): Option[Type] :=
     case ELet(ps, b) => unknown_in_exprs(seconds(ps) ++ [b])
     case EIte(c, l, r) => unknown_in_exprs([c, l, r])
     case EMatch(a, bs) => unknown_in_exprs([a; concat([branch_exprs(b) for b in bs])])
-    case EComp(r, _, ls, c) => unknown_in_exprs([r, c; ls])
     case ETuple(es) => unknown_in_exprs(es)
     case _ => None
   end
@@ -1008,7 +1008,7 @@ procedure knowns(in ts: List[Type], what: Name, out us: List[Type], ref s: State
       assign us := [u; rest]
   end
 
-// the variables of a lambda, let, or comprehension
+// the variables of a lambda or let
 procedure formals(in xs: List[Var], out ys: List[Var], ref s: State) :=
   call   unique(in names(xs))
   call   normalize_vars(in xs, out ys, ref s)
@@ -1318,14 +1318,6 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
       call   check(in env, right, u, out b, ref s)
       assign e1 := EIte(c, l, b), t := u
 
-    case EComp(result, bound, lists, cond) =>
-      call   formals(in bound, out xs, ref s)
-      call   same_length(in size(xs), size(lists))
-      call   generators(in env, xs, lists, out es, ref s)
-      call   check(in bind(xs) ++ env, cond, type_bool(), out c, ref s)
-      call   infer(in bind(xs) ++ env, result, out b, u, ref s)
-      assign e1 := EComp(b, xs, es, c), t := type_list(u)
-
     case ETuple(items) =>
       call   infers(in env, items, out es, ts, ref s)
       assign e1 := ETuple(es), t := TTuple(ts)
@@ -1455,19 +1447,6 @@ procedure infers(in env: Env, es: List[Expr], out es1: List[Expr], ts: List[Type
       call   infer(in env, e, out e1, t, ref s)
       call   infers(in env, more, out rest, us, ref s)
       assign es1 := [e1; rest], ts := [t; us]
-  end
-
-// each list may refer to the variables bound before it
-procedure generators(in env: Env, xs: List[Var], lists: List[Expr], out lists1: List[Expr], ref s: State) :=
-  local l: Expr, rest: List[Expr]
-
-  match (xs, lists)
-    case ([x; ys], [e; es]) =>
-      call   check(in env, e, type_list(x.typ), out l, ref s)
-      call   generators(in bind([x]) ++ env, ys, es, out rest, ref s)
-      assign lists1 := [l; rest]
-    case _ =>
-      assign lists1 := Nil
   end
 
 procedure expr_branches(in env: Env, cases: List[Branch[Expr]], t: Type, r: Type, out cases1: List[Branch[Expr]], ref s: State) :=
@@ -2433,7 +2412,7 @@ procedure check_program(in p: Program, main: Id, out q: Program) :=
 
 // each imported module is checked once, after the modules it imports, and the own commands of p last
 procedure check_modules(in p: Program, main: Id, out q: Program, ref cache: Cache) :=
-  local c := empty_ctx(), imports: List[Id * List[Id]] := Nil, seen: List[Id * Int] := Nil, cs: List[Cmd] := Nil, own: Checked
+  local c: Ctx := empty(), imports: List[Id * List[Id]] := Nil, seen: List[Id * Int] := Nil, cs: List[Cmd] := Nil, own: Checked
 
   call   check_units(in modules(p.cmds), ref c, imports, seen, cs, cache)
   call   check_unit(in own_decls(main, p.cmds), main, c, imports, out own)
@@ -2456,7 +2435,7 @@ procedure check_units(in us: List[Id * List[Id * Cmd]], ref c: Ctx, imports: Lis
           assign i := size(cache), cache := cache ++ [(key, checked)]
       end
 
-      assign c := ctx_union(c, checked.ctx), imports := imports ++ checked.imports, cs := cs ++ checked.cmds
+      assign c := union(c, checked.ctx), imports := imports ++ checked.imports, cs := cs ++ checked.cmds
       assign seen := [(n, i) for n in firsts(checked.imports)] ++ seen
       call   check_units(in rest, ref c, imports, seen, cs, cache)
   end
@@ -2484,7 +2463,7 @@ procedure check_unit(in ds: List[Id * Cmd], main: Id, before: Ctx, imports: List
   local own := imports ++ [(m, imports_in(ds, m)) for m in distinct(firsts(ds))], s: State, cs: List[Cmd], hidden: Set[Name], hidden_sorts: List[Name],
     extra: List[Id * Cmd], more: List[Cmd]
 
-  assign s := State(public_ctx(before), empty(), 0, main, Nil, visibility(own, main), Nil, empty())
+  assign s := State(public(before), empty(), 0, main, Nil, visibility(own, main), Nil, empty())
   call   declare_datas(in ds, ref s)
   call   declare_sorts(in ds, ref s)
   call   declare_constrs(in ds, ref s)
@@ -2499,7 +2478,7 @@ procedure check_unit(in ds: List[Id * Cmd], main: Id, before: Ctx, imports: List
   call   commands(in extra, out more, ref s)
   assign hidden := insert_all([qualified_name(c) for c in more], hidden)
   assign s := with_ctx(s, s.ctx with hidden := insert_all(elements(hidden), s.ctx.hidden))
-  assign checked := Checked(cs ++ more, ctx_of(s.ctx, distinct(firsts(ds))), [(m, imports_in(ds, m)) for m in distinct(firsts(ds))])
+  assign checked := Checked(cs ++ more, restrict(s.ctx, distinct(firsts(ds))), [(m, imports_in(ds, m)) for m in distinct(firsts(ds))])
 
 // the modules of cs with their commands, after the modules they import, where the prelude and its imports
 // are one, since every module sees the prelude

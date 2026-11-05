@@ -1,0 +1,27 @@
+// comprehensions are folds over the containers of their generators, x in c over lists and sets, and k => v in m over maps
+
+import set
+import map
+
+test kinds() :=
+  local xs := [3, 1, 2, 1], s := {3, 1, 2}, m := {1 => "a", 2 => "b"}
+
+  assert [x * 10 for x in xs if x > 1] == [30, 20] and [x for x in s] == [1, 2, 3]
+  assert {x for x in xs} == s and size({x for x in xs if x != 3}) == 2
+  assert {v => k for k => v in m} == {"a" => 1, "b" => 2} and [k for k => v in m] == [1, 2] and {v for k => v in m} == {"a", "b"}
+
+// each generator sees the variables of those before it, and the condition all of them
+test nested() :=
+  assert [(x, y) for x in [1, 2, 3], y in [x, 3] if x < y] == [(1, 3), (2, 3)]
+  assert {x + y for x in {1, 2}, y in [10, 20]} == {11, 12, 21, 22}
+  assert {k => v + w for k => v in {1 => 10, 2 => 20}, j => w in {1 => 1} if j == k} == {1 => 11}
+
+// the last entry of a key counts, as in a literal
+test map_order() :=
+  assert {x % 2 => x for x in [1, 2, 3, 4]} == {0 => 4, 1 => 3}
+
+// the folds of the translation are those of the containers, which a local foldr does not hide
+test locals() :=
+  local foldr := 0, foldl := 1, acc := 5
+
+  assert [x + acc + foldr for x in [1, 2]] == [6, 7] and {k => v + foldl for k => v in {1 => 1}} == {1 => 2}

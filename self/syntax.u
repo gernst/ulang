@@ -42,7 +42,6 @@ data Expr :=
   | ELet(List[Var * Expr], Expr)
   | EIte(Expr, Expr, Expr)
   | EMatch(Expr, List[Branch[Expr]])
-  | EComp(Expr, List[Var], List[Expr], Expr)
   | ETuple(List[Expr])
   // an exception, as an expression of any type
   | ERaise(Expr, Type)

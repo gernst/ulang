@@ -21,7 +21,7 @@ Open action items, each with the problem and the desired solution.
 3. **`self/run.u` is slow on large programs**: interpreting the compiler on itself takes 121 seconds, three times as long as the Scala interpreter took, although it was faster on small programs. On the compiler compiling `tests/datatypes.u` (3.9 seconds), gprof attributes a quarter of the time in ulang code to `compare`, mostly from `map.get` on the environments keyed by `Name`, with about 70 million calls plus as many recursive ones; the collector takes another quarter of the whole run, 36 collections of 25 ms. Solution: number the names of declarations and variables when a program is loaded, so that keys compare as integers, since hash consing was deemed not worthwhile.
 4. **Ambiguities of overloads by arity list a name twice**: `local v := f` of two functions `f` of one module says `f is ambiguous: m.f, m.f`. Solution: the candidates with their types in the message.
 5. **Messages of `self/check.u` are less specific than they were in Scala**, e.g. `duplicate x` for `duplicate assignment to x`, `expected 1 values, got 2` without the constructor or procedure, and parse errors such as `pattern expected but then found` for `keyword then is not a name`, see the first lines of `tests/errors/`. Solution: say what is duplicated or miscounted, and name keywords.
-6. **No optimizations in the compiler.** Solution: passes between checking and translating to C, e.g. inlining small functions, folding constants, reading fields of single-constructor datatypes directly instead of calling their accessors, and avoiding the intermediate lists of comprehensions.
+6. **No optimizations in the compiler.** Solution: passes between checking and translating to C, e.g. inlining small functions, folding constants, reading fields of single-constructor datatypes directly instead of calling their accessors, and loops for folds of comprehensions beyond `list.foldr` into lists, such as those of sets and maps and of several generators.
 
 ## Modules
 
@@ -50,8 +50,7 @@ Open action items, each with the problem and the desired solution.
 
 1. **Accesses are applications of a variable `.f`** until the checker resolves them. Solution: a node `EField(e, f)` of the syntax.
 2. **Literals resolve to fixed modules**: `{a, b}` and `{k => v}` call `set.from_list` and `map.put_all` by qualified names, so a local `set.u` takes their place, and a module may use them without importing `set` or `map`. Solution: resolve them only through the module's own imports, or by overloading (Syntax 3).
-3. **Matches in map comprehensions repeat** for the result, the condition, and the map of each later generator. Solution: patterns in generators, `for (k, v) in entries(m)`, which bind them once and remove the hidden variables.
-4. **Negative literals take the position of the number**, not of the `-`. Solution: the position of the operator.
+3. **Negative literals take the position of the number**, not of the `-`. Solution: the position of the operator.
 
 ## Verification
 
