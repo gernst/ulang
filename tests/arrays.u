@@ -1,0 +1,41 @@
+// arrays of array.u: built from lists, read by index, changed by copying, folded, and comprehended through their folds,
+// ordered and shown as lists of their elements
+
+import array
+import set
+
+data Color :=
+  | Red
+  | Green
+
+function squares(a: Array[Int]): List[Int] :=
+  [x * x for x in a if x > 1]
+
+test building() :=
+  local a := array([1, 2, 3]), e: Array[Int] := array([])
+
+  assert size(a) == 3 and size(e) == 0 and list(a) == [1, 2, 3] and list(e) == []
+  assert at(0, a) == 1 and at(2, a) == 3 and get(1, a) == Some(2) and get(3, a) == None and get(-1, a) == None
+  assert contains(2, a) and not contains(4, a) and not contains(1, e)
+
+test copying() :=
+  local a := array(['a', 'b', 'c'])
+
+  assert list(put(1, 'x', a)) == ['a', 'x', 'c'] and list(a) == ['a', 'b', 'c']
+  assert list(slice(a, 1, 3)) == ['b', 'c'] and list(slice(a, 0, 0)) == [] and slice(a, 0, 3) == a
+
+test folding() :=
+  local a := array([1, 2, 3])
+
+  assert foldr(a, Nil, Cons) == [1, 2, 3] and foldl(a, Nil, lambda xs, x => [x; xs]) == [3, 2, 1]
+  assert foldl(a, 0, lambda n, x => 10 * n + x) == 123 and foldr(a, 0, lambda x, n => 10 * n + x) == 321
+  assert squares(a) == [4, 9] and {x % 2 for x in a} == {0, 1}
+
+test ordering() :=
+  assert array([1, 2]) == array([1, 2]) and array([1, 2]) != array([1, 3]) and array([1]) != array([1, 2])
+  assert array([1, 2]) < array([1, 3]) and array([1]) < array([1, 2]) and array([2]) > array([1, 5])
+  assert array([{1, 2}]) == array([{2, 1}]) and compare(array([Green]), array([Red])) == 1
+
+test showing() :=
+  assert show(array([1, 2])) == "array([1, 2])" and show(array([Some(Red)])) == "array([Some(Red)])"
+  assert show(array([{2, 1}])) == "array([{1, 2}])" and show([array(["a"])]) == "[array([\"a\"])]"

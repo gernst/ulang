@@ -1,0 +1,53 @@
+// arrays of fixed size, whose elements are read by index in constant time, and which are changed by copying, with the names
+// that arrays share with the containers, in their order, where the builtin section declares the type and the functions
+// that the interpreter and the runtime define, which order arrays by their elements and then by their size, as lists, and
+// show them as array([...])
+
+import option
+import list
+
+export
+
+// the element as an option, which is None out of range, and whether x is an element
+function get[A](i: Int, a: Array[A]): Option[A]
+function contains[A](x: A, a: Array[A]): Bool
+
+builtin
+
+type Array[A]
+
+// the array of the elements of xs, and the list of the elements of a
+function array[A](xs: List[A]): Array[A]
+function list[A](a: Array[A]): List[A]
+
+function size[A](a: Array[A]): Int
+
+// the element at index i, from 0, or else OutOfBounds
+function at[A](i: Int, a: Array[A]): A
+
+// a copy of a with x at index i, or else OutOfBounds
+function put[A](i: Int, x: A, a: Array[A]): Array[A]
+
+// the elements from index i up to j, exclusively, where 0 <= i <= j <= size(a), or else OutOfBounds
+function slice[A](a: Array[A], i: Int, j: Int): Array[A]
+
+// f(x1, f(x2, ... f(xn, acc))) and f(... f(f(acc, x1), x2) ..., xn), both by loops
+function foldr[A, R](a: Array[A], acc: R, f: (A, R) -> R): R
+function foldl[A, R](a: Array[A], acc: R, f: (R, A) -> R): R
+
+implementation
+
+function get[A](i: Int, a: Array[A]): Option[A] :=
+  if 0 <= i and i < size(a) then Some(at(i, a)) else None
+
+function contains[A](x: A, a: Array[A]): Bool :=
+  foldl(a, false, lambda found, y => found or x == y)
+
+test arrays() :=
+  local a := array([1, 2, 3])
+
+  assert size(a) == 3 and at(0, a) == 1 and at(2, a) == 3 and get(1, a) == Some(2) and get(3, a) == None and get(-1, a) == None
+  assert list(a) == [1, 2, 3] and list(array([])) == [] and contains(2, a) and not contains(4, a)
+  assert list(put(1, 5, a)) == [1, 5, 3] and list(a) == [1, 2, 3]
+  assert list(slice(a, 1, 3)) == [2, 3] and size(slice(a, 1, 1)) == 0
+  assert foldr(a, Nil, Cons) == [1, 2, 3] and foldl(a, 0, lambda n, x => 10 * n + x) == 123

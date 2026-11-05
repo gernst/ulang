@@ -2130,8 +2130,8 @@ procedure check_orders(in cmds: List[Cmd], abstract: List[Name], hidden: Set[Nam
 
 // the order and equality of the abstract types of ds that their modules do not declare, which raise Unordered for a type
 // with an equality, and Incomparable for a type without, since the structure of an abstract type is no order
-function synthesized(ds: List[Id * Cmd], cmds: List[Cmd]): List[Id * Cmd] :=
-  concat([synthesized_for(c, ordered(cmds, "compare"), ordered(cmds, "==")) for c in ds])
+function synthesized(ds: List[Id * Cmd], cmds: List[Cmd], natives: List[Name]): List[Id * Cmd] :=
+  concat([synthesized_for(c, ordered(cmds, "compare") ++ natives, ordered(cmds, "==")) for c in ds])
 
 function synthesized_for(d: Id * Cmd, compares: List[Name], equalities: List[Name]): List[Id * Cmd] :=
   match d
@@ -2165,7 +2165,8 @@ function definitions(ds: List[Id * Cmd]): List[Id * Cmd] :=
     case [d; rest] => [d; definitions(rest)]
   end
 
-// the signatures of the builtin section of d as definitions to declare, whose definitions the interpreter and the runtime give
+// the signatures and types of the builtin section of d as definitions to declare, whose definitions the interpreter and the
+// runtime give, where a type is a datatype without constructors, whose values the interpreter and the runtime make
 function natives(d: Mod): List[Id * Cmd] :=
   match d.sections
     case Sectioned(_, b, _) => [(d.name, native(qualify(d.name, c))) for c in seconds(b)]
@@ -2176,7 +2177,16 @@ function native(cmd: Cmd): Cmd :=
   match cmd
     case CFunSig(n, ps, xss, r) => CFun(n, ps, xss, r, ELit(VUnit))
     case CProcSig(n, ps, ins, outs, refs) => CProc(n, ps, ins, outs, refs, SSkip)
+    case CAbstract(t, ps) => CData(t, ps, Nil)
     case _ => cmd
+  end
+
+// the types of the builtin sections of ds, which the interpreter and the runtime order, equate, and show
+function native_types(ds: List[Id * Cmd]): List[Name] :=
+  match ds
+    case Nil => Nil
+    case [(_, CData(t, _, _)); rest] => [t; native_types(rest)]
+    case [_; rest] => native_types(rest)
   end
 
 function qualified_name(cmd: Cmd): Name :=
@@ -2417,21 +2427,23 @@ procedure check_units(in us: List[List[Mod]], ref sig: Sig, imports: List[Id * L
 // declarations that other modules keep private are unknown, since before has only their signatures
 procedure check_unit(in ds: List[Mod], before: Sig, imports: List[Id * List[Id]], out checked: Checked) :=
   local own := [(d.name, d.imports) for d in ds], main := last_mod(ds).name, placed := concat([decls_of(d) for d in ds]), s: State,
-    decls: List[Id * Cmd], cmds: List[Cmd], hidden: Set[Name], hidden_sorts: List[Name], extra: List[Id * Cmd], more: List[Cmd]
+    decls: List[Id * Cmd], cmds: List[Cmd], hidden: Set[Name], hidden_sorts: List[Name], extra: List[Id * Cmd], more: List[Cmd],
+    builtins := concat([natives(d) for d in ds])
 
   assign s := State(before, empty(), 0, main, Nil, visibility(imports ++ own, main), Nil, empty()), decls := seconds(placed)
   call   each_placed(in declare_datas, placed, ref s)
+  call   declare_datas(in builtins, ref s)
   call   each_placed(in declare_sorts, placed, ref s)
   call   each_placed(in declare_constrs, placed, ref s)
   call   each_placed(in declare_funs, placed, ref s)
   call   each_placed(in declare_procs, placed, ref s)
-  call   declare_funs(in concat([natives(d) for d in ds]), ref s)
-  call   declare_procs(in concat([natives(d) for d in ds]), ref s)
+  call   declare_funs(in builtins, ref s)
+  call   declare_procs(in builtins, ref s)
   call   check_sections(in ds, out hidden, hidden_sorts)
   call   unique_ids(in block_names(decls))
   call   placed_commands(in placed_definitions(placed), out cmds, ref s)
   call   check_orders(in cmds, abstract_types(decls), hidden, hidden_sorts)
-  assign extra := synthesized(decls, cmds)
+  assign extra := synthesized(decls, cmds, native_types(builtins))
   call   declare_funs(in extra, ref s)
   call   commands(in extra, out more, ref s)
   assign hidden := insert_all([qualified_name(c) for c in more], hidden)

@@ -1,4 +1,4 @@
-// parse error: builtin sections have signatures only at 9.1
+// parse error: builtin sections have signatures and types without a definition only at 9.1
 
 export
 

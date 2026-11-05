@@ -33,12 +33,14 @@ struct u_name {
 
 // the built-in types, where integers that fit into a long long are of u_int_type with num, and others of u_big_type
 // with an mpz_t, such that each integer has one representation
-extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type;
+extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type,
+  u_array_type;
 
 // the datatypes whose constructors the builtins create, where the compiled program defines the descriptors of those of
 // the prelude and its modules, which every program has, and the runtime that of OsError, which programs need not import
 extern const struct u_type t_list_46_List, t_option_46_Option, t_os_46_OsError;
-extern const struct u_type t_prelude_46_DivisionByZero, t_prelude_46_NoIndex, t_prelude_46_NoCharacter, t_prelude_46_MissingField;
+extern const struct u_type t_prelude_46_DivisionByZero, t_prelude_46_NoIndex, t_prelude_46_OutOfBounds, t_prelude_46_NoCharacter,
+  t_prelude_46_MissingField;
 
 // the order, equality, and text of datatypes by their constructors and then their fields, which the descriptors
 // of datatypes use unless their module declares compare, ==, or show, and the equality of an order
@@ -50,7 +52,8 @@ u_value u_con_show(u_value v);
 extern const struct u_name n_list_46_Nil, n_list_46_Cons, n_option_46_None, n_option_46_Some, n_os_46_OsError;
 
 // the exceptions of the builtins and of accessors of fields, which the prelude declares
-extern const struct u_name n_prelude_46_DivisionByZero, n_prelude_46_NoIndex, n_prelude_46_NoCharacter, n_prelude_46_MissingField;
+extern const struct u_name n_prelude_46_DivisionByZero, n_prelude_46_NoIndex, n_prelude_46_OutOfBounds, n_prelude_46_NoCharacter,
+  n_prelude_46_MissingField;
 
 // the code of a closure, with its captured values and its arguments
 typedef u_value (*code)(u_value *env, u_value *args);
@@ -58,7 +61,7 @@ typedef u_value (*code)(u_value *env, u_value *args);
 // the code of a procedure as a value, with its captured values, its ins, and pointers to its outs and refs
 typedef void (*proc_code)(u_value *env, u_value *ins, u_value **outs);
 
-// the fields of the type of an object, where constructors, tuples, and closures have items
+// the fields of the type of an object, where constructors, tuples, closures, and arrays have items
 struct u_object {
   const struct u_type *type;
   union {
@@ -152,6 +155,16 @@ u_value u_join(u_value sep, u_value ss);
 u_value u_split(u_value s, u_value c);
 u_value u_quote(u_value s);
 u_value u_number(u_value s);
+
+// the functions of the builtin section of array.u, where arrays are objects of u_array_type with their elements as items
+u_value u_array(u_value xs);
+u_value u_array_list(u_value a);
+u_value u_array_size(u_value a);
+u_value u_array_at(u_value i, u_value a);
+u_value u_array_put(u_value i, u_value x, u_value a);
+u_value u_array_slice(u_value a, u_value i, u_value j);
+u_value u_array_foldr(u_value a, u_value acc, u_value f);
+u_value u_array_foldl(u_value a, u_value acc, u_value f);
 
 u_value u_is_digit(u_value c);
 u_value u_is_letter(u_value c);

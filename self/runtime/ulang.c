@@ -196,6 +196,10 @@ static void no_index(u_value s, u_value i) {
   u_raise(u_mk_con(&n_prelude_46_NoIndex, 2, s, i), "prelude.NoIndex");
 }
 
+static void out_of_bounds(u_value i, long long n) {
+  u_raise(u_mk_con(&n_prelude_46_OutOfBounds, 2, i, u_mk_int(n)), "prelude.OutOfBounds");
+}
+
 u_value u_mk_con(const struct u_name *name, int size, ...) {
   va_list args;
   va_start(args, size);
@@ -293,6 +297,11 @@ u_value u_con_compare(u_value a, u_value b) {
     return ordering(c != 0 ? c : sign(u_strcmp(a->name->base, b->name->base)));
   }
   return ordering(compare_items(a, b));
+}
+
+// arrays by their elements and then by their size, as lists
+static u_value compare_arrays(u_value a, u_value b) {
+  return ordering(a == b ? 0 : compare_items(a, b));
 }
 
 static u_value compare_functions(u_value a, u_value b) {
@@ -515,6 +524,62 @@ u_value u_number(u_value s) {
   return u_mk_con(&n_option_46_Some, 1, u_mk_int_str(s->text));
 }
 
+// the functions of the builtin section of array.u
+
+u_value u_array(u_value xs) {
+  int n = 0;
+  for (u_value c = xs; u_is_con(c, &n_list_46_Cons); c = c->items[1]) n++;
+  u_value a = compound(&u_array_type, n);
+  int i = 0;
+  for (u_value c = xs; u_is_con(c, &n_list_46_Cons); c = c->items[1]) a->items[i++] = c->items[0];
+  return a;
+}
+
+u_value u_array_list(u_value a) {
+  u_value xs = &o_list_46_Nil;
+  for (int i = a->size - 1; i >= 0; i--) xs = u_mk_con(&n_list_46_Cons, 2, a->items[i], xs);
+  return xs;
+}
+
+u_value u_array_size(u_value a) {
+  return u_mk_int(a->size);
+}
+
+u_value u_array_at(u_value i, u_value a) {
+  long long k = index_of(i);
+  if (k < 0 || k >= a->size) out_of_bounds(i, a->size);
+  return a->items[k];
+}
+
+u_value u_array_put(u_value i, u_value x, u_value a) {
+  long long k = index_of(i);
+  if (k < 0 || k >= a->size) out_of_bounds(i, a->size);
+  u_value b = compound(&u_array_type, a->size);
+  u_memcpy(b->items, a->items, a->size * sizeof(u_value));
+  b->items[k] = x;
+  return b;
+}
+
+// from i up to but excluding j, where 0 <= i <= j <= the size of a, or else OutOfBounds
+u_value u_array_slice(u_value a, u_value i, u_value j) {
+  long long n = a->size, k = index_of(i), l = index_of(j);
+  if (k < 0 || k > n || k > l) out_of_bounds(i, n);
+  if (l > n) out_of_bounds(j, n);
+  u_value b = compound(&u_array_type, (int)(l - k));
+  u_memcpy(b->items, a->items + k, (l - k) * sizeof(u_value));
+  return b;
+}
+
+u_value u_array_foldr(u_value a, u_value acc, u_value f) {
+  for (int i = a->size - 1; i >= 0; i--) acc = u_apply(f, 2, a->items[i], acc);
+  return acc;
+}
+
+u_value u_array_foldl(u_value a, u_value acc, u_value f) {
+  for (int i = 0; i < a->size; i++) acc = u_apply(f, 2, acc, a->items[i]);
+  return acc;
+}
+
 u_value u_is_digit(u_value c) {
   return u_mk_bool('0' <= c->num && c->num <= '9');
 }
@@ -617,6 +682,17 @@ u_value u_con_show(u_value v) {
   return text_value(&t);
 }
 
+static u_value show_array(u_value v) {
+  struct u_text t = {NULL, 0, 0};
+  append(&t, "array([");
+  for (int i = 0; i < v->size; i++) {
+    if (i > 0) append(&t, ", ");
+    append_shown(&t, v->items[i]);
+  }
+  append(&t, "])");
+  return text_value(&t);
+}
+
 static u_value show_function(u_value v) {
   (void)v;
   return u_mk_lit("<function>");
@@ -633,6 +709,7 @@ const struct u_type u_bool_type = {"Bool", compare_nums, u_equals_by_compare, sh
 const struct u_type u_char_type = {"Char", compare_nums, u_equals_by_compare, show_char};
 const struct u_type u_str_type = {"Str", compare_strs, u_equals_by_compare, show_str};
 const struct u_type u_tuple_type = {"*", compare_tuples, u_equals_by_compare, show_tuple};
+const struct u_type u_array_type = {"array.Array", compare_arrays, u_equals_by_compare, show_array};
 const struct u_type u_closure_type = {"->", compare_functions, compare_functions, show_function};
 const struct u_type u_proc_type = {"proc", compare_procedures, compare_procedures, show_procedure};
 

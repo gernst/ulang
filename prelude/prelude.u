@@ -10,6 +10,10 @@ data DivisionByZero :=
 data NoIndex :=
   | NoIndex(Str, Int)
 
+// an index of an array with the size of the array
+data OutOfBounds :=
+  | OutOfBounds(Int, Int)
+
 data NoCharacter :=
   | NoCharacter(Int)
 

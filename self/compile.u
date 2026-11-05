@@ -61,7 +61,7 @@ function ref_name(n: Name): Str :=
   "r_" ++ mangle(n)
 
 // the functions of the runtime for the builtins with their numbers of arguments, without a module, and of the builtin
-// section of str.u by their qualified names
+// sections of the prelude, str.u, and array.u by their qualified names
 function builtin_functions(): Map[Name, Str * Int] :=
   {
     Name(Some("prelude"), "+") => ("u_add", 2),
@@ -88,7 +88,15 @@ function builtin_functions(): Map[Name, Str * Int] :=
     Name(Some("str"), "join") => ("u_join", 2),
     Name(Some("str"), "split") => ("u_split", 2),
     Name(Some("str"), "quote") => ("u_quote", 1),
-    Name(Some("str"), "number") => ("u_number", 1)
+    Name(Some("str"), "number") => ("u_number", 1),
+    Name(Some("array"), "array") => ("u_array", 1),
+    Name(Some("array"), "list") => ("u_array_list", 1),
+    Name(Some("array"), "size") => ("u_array_size", 1),
+    Name(Some("array"), "at") => ("u_array_at", 2),
+    Name(Some("array"), "put") => ("u_array_put", 3),
+    Name(Some("array"), "slice") => ("u_array_slice", 3),
+    Name(Some("array"), "foldr") => ("u_array_foldr", 3),
+    Name(Some("array"), "foldl") => ("u_array_foldl", 3)
   }
 
 // the descriptor of constructor n, which the runtime compares by its address

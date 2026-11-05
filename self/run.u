@@ -12,6 +12,7 @@ import defs
 import os
 import set
 import map
+import array
 
 export
 
@@ -67,12 +68,13 @@ function declared_for(run: Run, k: Name, fs: Map[Name, Name]): Option[Name] :=
 function load(q: Prog): Run :=
   Run(defs_of(q), Nil, Nil)
 
-// the builtins without a module, and the functions of the builtin sections of the prelude and of str
+// the builtins without a module, and the functions of the builtin sections of the prelude, str, and array
 function builtin_names(): Set[Name] :=
   from_list(
     [unqualified(b) for b in ["<", "==", "compare", "show"]] ++
     [Name(Some("prelude"), b) for b in ["+", "-", "*", "/", "%", "++"]] ++
-    [Name(Some("str"), b) for b in ["chars", "string", "ord", "chr", "is_digit", "is_letter", "is_space", "size", "at", "contains", "slice", "join", "split", "quote", "number"]]
+    [Name(Some("str"), b) for b in ["chars", "string", "ord", "chr", "is_digit", "is_letter", "is_space", "size", "at", "contains", "slice", "join", "split", "quote", "number"]] ++
+    [Name(Some("array"), b) for b in ["array", "list", "size", "at", "put", "slice", "foldr", "foldl"]]
   )
 
 function is_builtin(n: Name): Bool :=
@@ -82,6 +84,7 @@ function is_function(v: Value): Bool :=
   match v
     case Lit(_) => false
     case Obj(_, _) => false
+    case Arr(_) => false
     case _ => true
   end
 
@@ -306,6 +309,19 @@ procedure apply_value(in run: Run, f: Value, vs: List[Value], out v: Value, ref 
         case ("<", [a, b]) =>
           call   compare_values(in run, a, b, out k, ref cache)
           assign v := Lit(VBool(k < 0))
+        // the folds of arrays call f, from the last element and from the first
+        case ("array.foldr", [Arr(a), acc, g]) =>
+          assign k := size(a), v := acc
+          while k > 0
+            assign k := k - 1
+            call   apply_value(in run, g, [at(k, a), v], out v, ref cache)
+          end
+        case ("array.foldl", [Arr(a), acc, g]) =>
+          assign k := 0, v := acc
+          while k < size(a)
+            call   apply_value(in run, g, [v, at(k, a)], out v, ref cache)
+            assign k := k + 1
+          end
         case _ =>
           call primitive(in n, vs, out v)
       end
@@ -439,6 +455,45 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
     case ("str.is_space", [Lit(VChar(c))]) =>
       assign v := Lit(VBool(is_space(c)))
 
+    // the functions of the builtin section of array.u, by arrays of the interpreter of this program
+
+    case ("array.array", [w]) =>
+      match list_elements(w)
+        case Some(ws) =>
+          assign v := Arr(array(ws))
+        case _ =>
+          raise NotList(w)
+      end
+
+    case ("array.list", [Arr(a)]) =>
+      assign v := list_value(list(a))
+
+    case ("array.size", [Arr(a)]) =>
+      assign v := Lit(VInt(size(a)))
+
+    case ("array.at", [Lit(VInt(i)), Arr(a)]) =>
+      if i < 0 or i >= size(a)
+        raise failure(out_of_bounds_name(), [Lit(VInt(i)), Lit(VInt(size(a)))])
+      end
+
+      assign v := at(i, a)
+
+    case ("array.put", [Lit(VInt(i)), x, Arr(a)]) =>
+      if i < 0 or i >= size(a)
+        raise failure(out_of_bounds_name(), [Lit(VInt(i)), Lit(VInt(size(a)))])
+      end
+
+      assign v := Arr(put(i, x, a))
+
+    case ("array.slice", [Arr(a), Lit(VInt(i)), Lit(VInt(j))]) =>
+      if i < 0 or i > size(a) or i > j
+        raise failure(out_of_bounds_name(), [Lit(VInt(i)), Lit(VInt(size(a)))])
+      else if j > size(a)
+        raise failure(out_of_bounds_name(), [Lit(VInt(j)), Lit(VInt(size(a)))])
+      end
+
+      assign v := Arr(slice(a, i, j))
+
     case _ =>
       raise Unspecified(n, vs)
   end
@@ -465,6 +520,12 @@ procedure equal(in run: Run, a: Value, b: Value, out r: Bool, ref cache: Map[Nam
           else
             assign r := false
           end
+      end
+    case (Arr(xs), Arr(ys)) =>
+      if size(xs) == size(ys)
+        call equal_all(in run, list(xs), list(ys), out r, ref cache)
+      else
+        assign r := false
       end
     case _ =>
       assign r := a == b
@@ -510,6 +571,10 @@ procedure compare_values(in run: Run, a: Value, b: Value, out r: Int, ref cache:
           end
       end
 
+    // arrays by their elements and then by their size, as lists
+    case (Arr(xs), Arr(ys)) =>
+      call compare_all(in run, list(xs), list(ys), out r, ref cache)
+
     case _ =>
       assign r := 0
   end
@@ -548,6 +613,9 @@ procedure show_in(in run: Run, v: Value, out s: Str, ref cache: Map[Name, Value]
     case Obj(n, vs) =>
       call   show_all(in run, vs, out texts, ref cache)
       assign s := n.base ++ "(" ++ join(", ", texts) ++ ")"
+    case Arr(a) =>
+      call   show_all(in run, list(a), out texts, ref cache)
+      assign s := "array([" ++ join(", ", texts) ++ "])"
     case _ =>
       assign s := show_value(v)
   end

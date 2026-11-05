@@ -1705,8 +1705,10 @@ procedure enter_section(in cmds: List[Cmd], offset: Int, ref section: Section) :
       skip
     case ([CProcSig(_, _, _, _, _); _], InBuiltin) =>
       skip
+    case ([CAbstract(_, _); _], InBuiltin) =>
+      skip
     case (_, InBuiltin) =>
-      raise ParseError("builtin sections have signatures only", offset)
+      raise ParseError("builtin sections have signatures and types without a definition only", offset)
     case ([CNotation(_, _, _); _], InImplementation) =>
       raise ParseError("notations belong to the export section", offset)
     case ([CFunSig(_, _, _, _); _], s) if s != InExport =>
@@ -1714,7 +1716,7 @@ procedure enter_section(in cmds: List[Cmd], offset: Int, ref section: Section) :
     case ([CProcSig(_, _, _, _, _); _], s) if s != InExport =>
       raise ParseError("signatures belong to the export section", offset)
     case ([CAbstract(_, _); _], s) if s != InExport =>
-      raise ParseError("types without a definition belong to the export section", offset)
+      raise ParseError("types without a definition belong to the export or builtin section", offset)
     case ([CFun(_, _, _, _, _); _], InExport) =>
       raise ParseError("definitions belong to the implementation section", offset)
     case ([CProc(_, _, _, _, _, _); _], InExport) =>

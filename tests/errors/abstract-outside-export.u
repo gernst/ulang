@@ -1,4 +1,4 @@
-// parse error: types without a definition belong to the export section at 6.1
+// parse error: types without a definition belong to the export or builtin section at 6.1
 export
 
 implementation

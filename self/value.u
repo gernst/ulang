@@ -2,12 +2,15 @@
 
 import syntax
 import map
+import array
 
 export
 
 data Value :=
   | Lit(Val)
   | Obj(Name, List[Value])
+  // arrays of array.u by arrays of the interpreter of this program
+  | Arr(Array[Value])
   | Clos(Map[Name, Value], List[Var], Expr)
   | Fn(Name, Int)
   | Con(Name)
