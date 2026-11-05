@@ -138,7 +138,7 @@ function constr_arity(k: Constr): Name * Int :=
 
 function builtin_names(): Set[Id] :=
   {
-    "+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "compare", "show",
+    "+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "++", "str_size", "str_join", "str_slice", "str_split", "compare", "show",
     "str_get", "str_contains", "str_compare", "str_quote", "str_number", "is_digit", "is_letter", "is_space"
   }
 
@@ -442,8 +442,8 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
 
       assign v := Lit(VChar(chr(k)))
 
-    case ("^", [Lit(VStr(s)), Lit(VStr(t))]) =>
-      assign v := Lit(VStr(s ^ t))
+    case ("++", [Lit(VStr(s)), Lit(VStr(t))]) =>
+      assign v := Lit(VStr(s ++ t))
 
     case ("str_size", [Lit(VStr(s))]) =>
       assign v := Lit(VInt(str_size(s)))
@@ -605,12 +605,12 @@ procedure show_in(in p: Prog, v: Value, out s: Str, ref cache: Map[Name, Value])
       end
     case Obj(n, vs) if n == tuple_name() =>
       call   show_all(in p, vs, out texts, ref cache)
-      assign s := "(" ^ str_join(", ", texts) ^ ")"
+      assign s := "(" ++ str_join(", ", texts) ++ ")"
     case Obj(n, Nil) =>
       assign s := n.base
     case Obj(n, vs) =>
       call   show_all(in p, vs, out texts, ref cache)
-      assign s := n.base ^ "(" ^ str_join(", ", texts) ^ ")"
+      assign s := n.base ++ "(" ++ str_join(", ", texts) ++ ")"
     case _ =>
       assign s := show_value(v)
   end

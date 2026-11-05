@@ -123,9 +123,9 @@ function is_duplicate(notations: Notations, f: Fixity, prec: Int, op: Id, import
 procedure check_duplicates(in notations: Notations, cmds: List[Cmd], imported: Bool, offset: Int) :=
   match duplicate(notations, cmds, imported)
     case Some(op) if imported =>
-      raise ParseError("imported operator " ^ op ^ " is declared differently", offset)
+      raise ParseError("imported operator " ++ op ++ " is declared differently", offset)
     case Some(op) =>
-      raise ParseError("operator " ^ op ^ " is already declared", offset)
+      raise ParseError("operator " ++ op ++ " is already declared", offset)
     case None =>
       skip
   end
@@ -179,13 +179,13 @@ function show_token(tok: Token): Str :=
     case TPunct(c) => string([c])
     case TNum(n) => show(n)
     case TStr(s) => str_quote(s)
-    case TChar(c) => "'" ^ string([c]) ^ "'"
+    case TChar(c) => "'" ++ string([c]) ++ "'"
     case TEnd => "end of input"
   end
 
 // the error that what is expected but the next token is found
 function expected(what: Str, toks: Tokens): ParseError :=
-  ParseError(what ^ " expected but " ^ show_token(head_token(toks)) ^ " found", head_offset(toks))
+  ParseError(what ++ " expected but " ++ show_token(head_token(toks)) ++ " found", head_offset(toks))
 
 // the value of a literal token
 function literal_at(toks: Tokens): Option[Val] :=
@@ -235,7 +235,7 @@ procedure parse_name(out name: Id, ref toks: Tokens) :=
 procedure parse_plain_name(in notations: Notations, params: List[Id], out name: Id, ref toks: Tokens) :=
   match head_token(toks)
     case TName(m) if is_operator(notations, m) =>
-      raise ParseError("operator " ^ m ^ " is not a name", head_offset(toks))
+      raise ParseError("operator " ++ m ++ " is not a name", head_offset(toks))
     case _ =>
       call parse_name(out name, ref toks)
   end
@@ -375,7 +375,7 @@ procedure parse_operators[A](in notations: Notations, params: List[Id], ops: Ops
 
   match operator_at(notations, toks)
     case Some(op) =>
-      raise ParseError("unexpected operator " ^ op, head_offset(toks))
+      raise ParseError("unexpected operator " ++ op, head_offset(toks))
     case None =>
       skip
   end
@@ -399,9 +399,9 @@ procedure climb_operand[A](in notations: Notations, params: List[Id], ops: Ops[A
           call   climb(in notations, params, ops, prec, out b, ref toks)
           assign a := ops.apply(FPrefix, op, offset, [b])
         case None if is_operator(notations, op) =>
-          raise ParseError(op ^ " is not a prefix operator", offset)
+          raise ParseError(op ++ " is not a prefix operator", offset)
         case None =>
-          raise ParseError("undeclared operator " ^ op, offset)
+          raise ParseError("undeclared operator " ++ op, offset)
       end
     case None if ops.starts(notations, head_token(toks)) =>
       call operand(in notations, params, out a, ref toks)
@@ -426,7 +426,7 @@ procedure climb_rest[A](in notations: Notations, params: List[Id], ops: Ops[A], 
           call climb_rest(in notations, params, ops, min, ops.apply(f, op, offset, [lhs; args]), out a, ref toks)
 
         case _ if not is_operator(notations, op) =>
-          raise ParseError("undeclared operator " ^ op, offset)
+          raise ParseError("undeclared operator " ++ op, offset)
 
         case _ =>
           assign a := lhs
@@ -459,7 +459,7 @@ procedure climb_infix[A](
 
   match operator_at(notations, toks)
     case Some(other) if f == FInfix and is_prec(infix_of(notations, other), prec) =>
-      raise ParseError("operator " ^ op ^ " is not associative", head_offset(toks))
+      raise ParseError("operator " ++ op ++ " is not associative", head_offset(toks))
     case _ =>
       skip
   end
@@ -603,7 +603,7 @@ procedure parse_update(in notations: Notations, params: List[Id], out update: Id
 function apply_updates(expr: Expr, updates: List[Id * Expr]): Expr :=
   match updates
     case Nil => expr
-    case [(f, a); more] => apply_updates(EApp(EVar(Var(unqualified("." ^ f ^ ":="), THole)), [expr, a]), more)
+    case [(f, a); more] => apply_updates(EApp(EVar(Var(unqualified("." ++ f ++ ":="), THole)), [expr, a]), more)
   end
 
 // f(x) and e.f, which reads the field f of e, as the checker resolves it by the type of e
@@ -620,7 +620,7 @@ procedure parse_app(in notations: Notations, params: List[Id], out expr: Expr, r
     else
       call   advance(ref toks)
       call   parse_name(out f, ref toks)
-      assign expr := EApp(EVar(Var(unqualified("." ^ f), THole)), [expr])
+      assign expr := EApp(EVar(Var(unqualified("." ++ f), THole)), [expr])
     end
   end
 
@@ -1339,7 +1339,7 @@ procedure parse_constr(in notations: Notations, params: List[Id], out constr: Co
 
   match repeated(field_names(firsts(args)))
     case Some(f) =>
-      raise ParseError("repeated field " ^ f ^ " of " ^ name, head_offset(toks))
+      raise ParseError("repeated field " ++ f ++ " of " ++ name, head_offset(toks))
     case None =>
       skip
   end
@@ -1378,7 +1378,7 @@ procedure parse_data(in notations: Notations, out cmds: List[Cmd], ref toks: Tok
 
   match differing(fields_of(constrs))
     case Some(f) =>
-      raise ParseError("field " ^ f ^ " of " ^ name ^ " has different types", head_offset(toks))
+      raise ParseError("field " ++ f ++ " of " ++ name ++ " has different types", head_offset(toks))
     case None =>
       skip
   end
@@ -1432,7 +1432,7 @@ function accessors(t: Id, params: List[Id], constrs: List[Constr * List[Option[I
 function accessor(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int * Int * Type)], n: Int): Cmd :=
   let x := Var(unqualified("x"), THole), owner := TSort(unqualified(t), [TParam(p) for p in params]) in
     CFun(
-      unqualified(t ^ "." ^ f),
+      unqualified(t ++ "." ++ f),
       params,
       [[Var(unqualified("x"), owner)]],
       field_type(fields),
@@ -1453,7 +1453,7 @@ function field_case(field: Id * (Name * Int * Int * Type)): Branch[Expr] :=
   end
 
 function missing_field(t: Id, f: Id): Branch[Expr] :=
-  Branch(PWild, None, ERaise(EApp(EVar(Var(unqualified("MissingField"), THole)), [ELit(VStr(t ^ "." ^ f))]), THole))
+  Branch(PWild, None, ERaise(EApp(EVar(Var(unqualified("MissingField"), THole)), [ELit(VStr(t ++ "." ++ f))]), THole))
 
 // the updater T.f:= of each field f, where x with f := y is C(a0, y, a2) for x = C(a0, _, a2)
 function updaters(t: Id, params: List[Id], constrs: List[Constr * List[Option[Id]]]): List[Cmd] :=
@@ -1463,7 +1463,7 @@ function updaters(t: Id, params: List[Id], constrs: List[Constr * List[Option[Id
 function updater(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int * Int * Type)], n: Int): Cmd :=
   let x := Var(unqualified("x"), THole), owner := TSort(unqualified(t), [TParam(p) for p in params]) in
     CFun(
-      unqualified(t ^ "." ^ f ^ ":="),
+      unqualified(t ++ "." ++ f ++ ":="),
       params,
       [[Var(unqualified("x"), owner), Var(unqualified("y"), field_type(fields))]],
       owner,
@@ -1475,9 +1475,9 @@ function update_case(field: Id * (Name * Int * Int * Type)): Branch[Expr] :=
   match field
     case (_, (k, i, n, _)) =>
       Branch(
-        PApp(k, [if j == i then PWild else PVar(Var(unqualified("a" ^ show(j)), THole)) for j in positions(n)]),
+        PApp(k, [if j == i then PWild else PVar(Var(unqualified("a" ++ show(j)), THole)) for j in positions(n)]),
         None,
-        EApp(EVar(Var(k, THole)), [EVar(Var(unqualified(if j == i then "y" else "a" ^ show(j)), THole)) for j in positions(n)])
+        EApp(EVar(Var(k, THole)), [EVar(Var(unqualified(if j == i then "y" else "a" ++ show(j)), THole)) for j in positions(n)])
       )
   end
 
@@ -1681,7 +1681,7 @@ procedure module_text(in name: Id, dir: Option[Str], offset: Int, out text: Str)
   match dir
     case Some(d) =>
       try
-        call os_read(in d ^ "/" ^ name ^ ".u", out text)
+        call os_read(in d ++ "/" ++ name ++ ".u", out text)
       catch
         case OsError(_) =>
           call library_text(in name, offset, out text)
@@ -1695,7 +1695,7 @@ procedure library_text(in name: Id, offset: Int, out text: Str) :=
     call os_library(in name, out text)
   catch
     case OsError(_) =>
-      raise ParseError("unknown module " ^ name, offset)
+      raise ParseError("unknown module " ++ name, offset)
   end
 
 // the commands of module n, parsed with the notations of the prelude and of its own imports, since imports are not transitive
@@ -1703,7 +1703,7 @@ procedure load_module(in name: Id, ctx: Context, offset: Int, out cmds: List[Cmd
   local text: Str, module_toks: Tokens, module_ctx: Context
 
   if contains(name, ctx.loading)
-    raise ParseError("cyclic import of " ^ name, offset)
+    raise ParseError("cyclic import of " ++ name, offset)
   end
 
   call   module_text(in name, ctx.dir, offset, out text)
@@ -1714,9 +1714,9 @@ procedure load_module(in name: Id, ctx: Context, offset: Int, out cmds: List[Cmd
     call parse_commands(out cmds, ref module_ctx, module_toks)
   catch
     case LexError(m, i) =>
-      raise ParseError(m ^ " in " ^ name, i)
+      raise ParseError(m ++ " in " ++ name, i)
     case ParseError(m, i) =>
-      raise ParseError(m ^ " in " ^ name, i)
+      raise ParseError(m ++ " in " ++ name, i)
   end
 
 function base_notations(ctx: Context): Notations :=

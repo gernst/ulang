@@ -4,8 +4,6 @@ import option
 
 export
 
-infix right 7 ++
-
 data List[A] :=
   | Nil
   | Cons(A, List[A])
@@ -167,7 +165,7 @@ function seconds[A, B](ps: List[A * B]): List[B] :=
   end
 
 function show[A](xs: List[A]): Str :=
-  "[" ^ str_join(", ", [show(x) for x in xs]) ^ "]"
+  "[" ++ str_join(", ", [show(x) for x in xs]) ++ "]"
 
 test lists() :=
   assert [1, 2] ++ [3] == [1, 2, 3] and size([1, 2, 3]) == 3

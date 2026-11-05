@@ -150,7 +150,7 @@ function unqualified(x: Id): Name :=
 // the name with its module, to tell names apart
 function qualified(n: Name): Str :=
   match n
-    case Name(Some(m), b) => m ^ "." ^ b
+    case Name(Some(m), b) => m ++ "." ++ b
     case Name(None, b) => b
   end
 

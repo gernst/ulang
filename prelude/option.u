@@ -23,7 +23,7 @@ function or_else[A](a: Option[A], b: Option[A]): Option[A] :=
 function show[A](o: Option[A]): Str :=
   match o
     case None => "None"
-    case Some(a) => "Some(" ^ show(a) ^ ")"
+    case Some(a) => "Some(" ++ show(a) ++ ")"
   end
 
 test options() :=

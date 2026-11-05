@@ -44,19 +44,19 @@ function mangle(n: Name): Str :=
   string(concat([mangle_char(c) for c in chars(qualified(n))]))
 
 function mangle_char(c: Char): List[Char] :=
-  if is_letter(c) or is_digit(c) or c == '_' then [c] else chars("_" ^ show(ord(c)) ^ "_")
+  if is_letter(c) or is_digit(c) or c == '_' then [c] else chars("_" ++ show(ord(c)) ++ "_")
 
 function fun_name(n: Name, k: Int): Str :=
-  "f_" ^ mangle(n) ^ "_" ^ show(k)
+  "f_" ++ mangle(n) ++ "_" ++ show(k)
 
 function proc_name(n: Name): Str :=
-  "p_" ^ mangle(n)
+  "p_" ++ mangle(n)
 
 function var_name(n: Name): Str :=
-  "v_" ^ mangle(n)
+  "v_" ++ mangle(n)
 
 function ref_name(n: Name): Str :=
-  "r_" ^ mangle(n)
+  "r_" ++ mangle(n)
 
 // the functions of the runtime for the builtins with their numbers of arguments
 function builtin_functions(): Map[Name, Str * Int] :=
@@ -74,7 +74,7 @@ function builtin_functions(): Map[Name, Str * Int] :=
     unqualified("string") => ("u_string", 1),
     unqualified("ord") => ("u_ord", 1),
     unqualified("chr") => ("u_chr", 1),
-    unqualified("^") => ("u_concat", 2),
+    unqualified("++") => ("u_concat", 2),
     unqualified("str_size") => ("u_str_size", 1),
     unqualified("str_join") => ("u_str_join", 2),
     unqualified("str_slice") => ("u_str_slice", 3),
@@ -91,11 +91,11 @@ function builtin_functions(): Map[Name, Str * Int] :=
 
 // the descriptor of constructor n, which the runtime compares by its address
 function descriptor(n: Name): CExpr :=
-  CeUnary("&", CeVar("n_" ^ mangle(n)))
+  CeUnary("&", CeVar("n_" ++ mangle(n)))
 
 // the shared value of constructor n without arguments
 function unit_value(n: Name): CExpr :=
-  CeUnary("&", CeVar("o_" ^ mangle(n)))
+  CeUnary("&", CeVar("o_" ++ mangle(n)))
 
 // the datatypes and constructors whose descriptors the runtime defines, of OsError, which its builtins create also in
 // programs that do not import os, while each program defines those of the prelude and its modules, which it always has
@@ -106,18 +106,18 @@ function runtime_types(): Set[Name] :=
   {os_error_name()}
 
 function type_name(t: Name): Str :=
-  "t_" ^ mangle(t)
+  "t_" ++ mangle(t)
 
 // the descriptor of constructor n at position i of its declaration, of datatype t
 function descriptor_decl(n: Name, i: Int, t: Name): CDecl :=
   match n
-    case Name(Some(m), b) => CdGlobal(CtNamed("const struct u_name"), "n_" ^ mangle(n), Some(CeInit([CeStr(m), CeStr(b), CeNum(i), CeUnary("&", CeVar(type_name(t)))])))
-    case Name(None, b) => CdGlobal(CtNamed("const struct u_name"), "n_" ^ mangle(n), Some(CeInit([CeVar("NULL"), CeStr(b), CeNum(i), CeUnary("&", CeVar(type_name(t)))])))
+    case Name(Some(m), b) => CdGlobal(CtNamed("const struct u_name"), "n_" ++ mangle(n), Some(CeInit([CeStr(m), CeStr(b), CeNum(i), CeUnary("&", CeVar(type_name(t)))])))
+    case Name(None, b) => CdGlobal(CtNamed("const struct u_name"), "n_" ++ mangle(n), Some(CeInit([CeVar("NULL"), CeStr(b), CeNum(i), CeUnary("&", CeVar(type_name(t)))])))
   end
 
 // the shared value of constructor n without arguments, of datatype t
 function unit_decl(n: Name, t: Name): CDecl :=
-  CdGlobal(CtNamed("struct u_object"), "o_" ^ mangle(n), Some(c_call("U_UNIT", [CeVar("n_" ^ mangle(n)), CeVar(type_name(t))])))
+  CdGlobal(CtNamed("struct u_object"), "o_" ++ mangle(n), Some(c_call("U_UNIT", [CeVar("n_" ++ mangle(n)), CeVar(type_name(t))])))
 
 // the descriptors of the datatypes of cs and their constructors that the runtime does not define, and the values of
 // the constructors without arguments, where the descriptor of a datatype points to the functions compare, ==, and show
@@ -196,10 +196,10 @@ function copy_out(xs: List[Name]): List[CStmt] :=
 function type_key(t: Type): Str :=
   match t
     case TSort(n, []) => qualified(n)
-    case TSort(n, args) => qualified(n) ^ "[" ^ str_join(", ", [type_key(a) for a in args]) ^ "]"
-    case TFun(args, r) => "(" ^ str_join(", ", [type_key(a) for a in args]) ^ ") -> " ^ type_key(r)
-    case TProc(is, os, rs) => "(in " ^ str_join(", ", [type_key(a) for a in is]) ^ ", out " ^ str_join(", ", [type_key(a) for a in os]) ^ ", ref " ^ str_join(", ", [type_key(a) for a in rs]) ^ ")"
-    case TTuple(ts) => "(" ^ str_join(" * ", [type_key(a) for a in ts]) ^ ")"
+    case TSort(n, args) => qualified(n) ++ "[" ++ str_join(", ", [type_key(a) for a in args]) ++ "]"
+    case TFun(args, r) => "(" ++ str_join(", ", [type_key(a) for a in args]) ++ ") -> " ++ type_key(r)
+    case TProc(is, os, rs) => "(in " ++ str_join(", ", [type_key(a) for a in is]) ++ ", out " ++ str_join(", ", [type_key(a) for a in os]) ++ ", ref " ++ str_join(", ", [type_key(a) for a in rs]) ++ ")"
+    case TTuple(ts) => "(" ++ str_join(" * ", [type_key(a) for a in ts]) ++ ")"
     case _ => "?"
   end
 
@@ -381,7 +381,7 @@ function lambdas(xss: List[List[Var]], b: Expr): Expr :=
   end
 
 procedure gen_name(in stem: Str, out x: Str, ref g: Gen) :=
-  assign x := stem ^ show(g.count), g := g with count := g.count + 1
+  assign x := stem ++ show(g.count), g := g with count := g.count + 1
 
 procedure lift(in d: CDecl, ref g: Gen) :=
   assign g := g with lifted := g.lifted ++ [d]
@@ -389,16 +389,16 @@ procedure lift(in d: CDecl, ref g: Gen) :=
 // a function, constructor, or builtin of name n with type t as a value, which is a closure of its wrapper
 function global_value(gl: Globals, n: Name, t: Type): CExpr :=
   if is_global_fun(gl, n, arity(t)) then
-    c_call("u_mk_closure", [CeVar("w_" ^ fun_name(n, arity(t))), CeNum(0)])
+    c_call("u_mk_closure", [CeVar("w_" ++ fun_name(n, arity(t))), CeNum(0)])
   else
     match fields_count(gl, n)
       case Some(0) => unit_value(n)
-      case Some(_) => c_call("u_mk_closure", [CeVar("wc_" ^ mangle(n)), CeNum(0)])
+      case Some(_) => c_call("u_mk_closure", [CeVar("wc_" ++ mangle(n)), CeNum(0)])
       case None =>
         match get(n, builtin_functions())
-          case Some((f, _)) => c_call("u_mk_closure", [CeVar("w" ^ f), CeNum(0)])
-          case None if contains(n, gl.procs) => c_call("u_mk_proc", [CeVar("wp_" ^ mangle(n)), CeNum(0)])
-          case None => raise Unsupported("the variable " ^ n.base)
+          case Some((f, _)) => c_call("u_mk_closure", [CeVar("w" ++ f), CeNum(0)])
+          case None if contains(n, gl.procs) => c_call("u_mk_proc", [CeVar("wp_" ++ mangle(n)), CeNum(0)])
+          case None => raise Unsupported("the variable " ++ n.base)
         end
     end
 
@@ -409,7 +409,7 @@ procedure compile_expr(in gl: Globals, env: Vars, e: Expr, out ss: List[CStmt], 
   match e
     // a string literal is a static object, which is created once, named after its text
     case ELit(VStr(s)) =>
-      call   gen_name(in "l_" ^ mangle(unqualified(str_slice(s, 0, if str_size(s) < 16 then str_size(s) else 16))) ^ "_", out t, ref g)
+      call   gen_name(in "l_" ++ mangle(unqualified(str_slice(s, 0, if str_size(s) < 16 then str_size(s) else 16))) ++ "_", out t, ref g)
       assign ss := [CsDecl(CtNamed("static struct u_object"), t, Some(c_call("U_LIT", [CeStr(s)])))], r := CeUnary("&", CeVar(t))
 
     case ELit(l) =>
@@ -733,7 +733,7 @@ procedure compile_stmt(in gl: Globals, env: Vars, s: Stmt, out ss: List[CStmt], 
   end
 
 function saved_name(x: Name): Str :=
-  "was_" ^ var_name(x)
+  "was_" ++ var_name(x)
 
 // the variables that s assigns, directly or as outs and refs
 function changed(s: Stmt): List[Name] :=
@@ -869,7 +869,7 @@ function cached(n: Str, bs: List[CStmt], r: CExpr): List[CStmt] :=
   let h := CeVar("handler") in
     [
       CsDecl(CtNamed("static u_value"), "cache", Some(CeVar("NULL"))),
-      CsIf(CeBinary("==", CeVar("cache"), CeVar("U_COMPUTING")), [CsExpr(c_call("u_fail", [CeStr("recursive initialization of " ^ n)]))], []),
+      CsIf(CeBinary("==", CeVar("cache"), CeVar("U_COMPUTING")), [CsExpr(c_call("u_fail", [CeStr("recursive initialization of " ++ n)]))], []),
       CsIf(CeVar("cache"), [CsReturn(Some(CeVar("cache")))], []),
       CsAssign(CeVar("cache"), CeVar("U_COMPUTING")),
       CsDecl(CtPtr(CtNamed("struct u_handler")), "handler", Some(c_call("u_push", []))),
@@ -889,17 +889,17 @@ function wrappers(gl: Globals): List[CDecl] :=
 function proc_wrapper(p: Name * (Int * Int)): CDecl :=
   match p
     case (n, (k, m)) =>
-      CdFunction(CtVoid, "wp_" ^ mangle(n), proc_params(), [CsExpr(c_call(proc_name(n), [index("ins", i) for i in range_to(k)] ++ [index("outs", i) for i in range_to(m)]))])
+      CdFunction(CtVoid, "wp_" ++ mangle(n), proc_params(), [CsExpr(c_call(proc_name(n), [index("ins", i) for i in range_to(k)] ++ [index("outs", i) for i in range_to(m)]))])
   end
 
 function fun_wrapper(p: Name * Int): CDecl :=
   match p
-    case (n, k) => wrapper("w_" ^ fun_name(n, k), fun_name(n, k), k)
+    case (n, k) => wrapper("w_" ++ fun_name(n, k), fun_name(n, k), k)
   end
 
 function builtin_wrapper(p: Str * Int): CDecl :=
   match p
-    case (f, k) => wrapper("w" ^ f, f, k)
+    case (f, k) => wrapper("w" ++ f, f, k)
   end
 
 function wrapper(w: Str, f: Str, k: Int): CDecl :=
@@ -910,7 +910,7 @@ function constr_wrapper(p: Name * Int): List[CDecl] :=
   match p
     case (_, 0) => []
     case (n, k) =>
-      [CdFunction(value_type(), "wc_" ^ mangle(n), [(value_ptr(), "env"), (value_ptr(), "args")], [CsReturn(Some(c_call("u_mk_con_array", [descriptor(n), CeNum(k), CeVar("args")])))])]
+      [CdFunction(value_type(), "wc_" ++ mangle(n), [(value_ptr(), "env"), (value_ptr(), "args")], [CsReturn(Some(c_call("u_mk_con_array", [descriptor(n), CeNum(k), CeVar("args")])))])]
   end
 
 function range_to(k: Int): List[Int] :=

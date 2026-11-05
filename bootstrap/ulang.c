@@ -62,8 +62,6 @@ u_value w_f_list_46_seconds_1(u_value *env, u_value *args);
 
 u_value w_f_list_46_show_1(u_value *env, u_value *args);
 
-u_value w_f_prelude_46__43__43__2(u_value *env, u_value *args);
-
 u_value w_f_syntax_46_Name_46_module_1(u_value *env, u_value *args);
 
 u_value w_f_syntax_46_Name_46_base_1(u_value *env, u_value *args);
@@ -1816,6 +1814,8 @@ u_value wu_mul(u_value *env, u_value *args);
 
 u_value wu_add(u_value *env, u_value *args);
 
+u_value wu_concat(u_value *env, u_value *args);
+
 u_value wu_sub(u_value *env, u_value *args);
 
 u_value wu_div(u_value *env, u_value *args);
@@ -1823,8 +1823,6 @@ u_value wu_div(u_value *env, u_value *args);
 u_value wu_lt(u_value *env, u_value *args);
 
 u_value wu_eq(u_value *env, u_value *args);
-
-u_value wu_concat(u_value *env, u_value *args);
 
 u_value wu_chars(u_value *env, u_value *args);
 
@@ -2389,8 +2387,6 @@ u_value f_list_46_firsts_1(u_value v_ps);
 u_value f_list_46_seconds_1(u_value v_ps);
 
 u_value f_list_46_show_1(u_value v_xs);
-
-u_value f_prelude_46__43__43__2(u_value v_a, u_value v_b);
 
 u_value f_syntax_46_Name_46_module_1(u_value v_x);
 
@@ -5018,10 +5014,6 @@ u_value w_f_list_46_seconds_1(u_value *env, u_value *args) {
 
 u_value w_f_list_46_show_1(u_value *env, u_value *args) {
   return f_list_46_show_1(args[0]);
-}
-
-u_value w_f_prelude_46__43__43__2(u_value *env, u_value *args) {
-  return f_prelude_46__43__43__2(args[0], args[1]);
 }
 
 u_value w_f_syntax_46_Name_46_module_1(u_value *env, u_value *args) {
@@ -8528,6 +8520,10 @@ u_value wu_add(u_value *env, u_value *args) {
   return u_add(args[0], args[1]);
 }
 
+u_value wu_concat(u_value *env, u_value *args) {
+  return u_concat(args[0], args[1]);
+}
+
 u_value wu_sub(u_value *env, u_value *args) {
   return u_sub(args[0], args[1]);
 }
@@ -8542,10 +8538,6 @@ u_value wu_lt(u_value *env, u_value *args) {
 
 u_value wu_eq(u_value *env, u_value *args) {
   return u_eq(args[0], args[1]);
-}
-
-u_value wu_concat(u_value *env, u_value *args) {
-  return u_concat(args[0], args[1]);
 }
 
 u_value wu_chars(u_value *env, u_value *args) {
@@ -10026,10 +10018,6 @@ u_value f_list_46_show_1(u_value v_xs) {
   *e62 = &o_list_46_Nil;
   static struct u_object l__93__64 = U_LIT("]");
   return u_concat(&l__91__59, u_concat(u_str_join(&l__44__32__60, t61), &l__93__64));
-}
-
-u_value f_prelude_46__43__43__2(u_value v_a, u_value v_b) {
-  return u_concat(v_a, v_b);
 }
 
 u_value f_syntax_46_Name_46_module_1(u_value v_x) {
@@ -18687,7 +18675,7 @@ u_value f_check_46_builtin_scheme_1(u_value v_b) {
     if ((!t1269) && u_equals(s1268, u_mk_lit("chr"))) {
       t1269 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, &o_list_46_Nil, f_syntax_46_type_fun_2(u_mk_con(&n_list_46_Cons, 2, f_syntax_46_type_int_0(), &o_list_46_Nil), f_syntax_46_type_char_0())), &o_list_46_Nil);
     }
-    if ((!t1269) && u_equals(s1268, u_mk_lit("^"))) {
+    if ((!t1269) && u_equals(s1268, u_mk_lit("++"))) {
       t1269 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, &o_list_46_Nil, f_syntax_46_type_fun_2(u_mk_con(&n_list_46_Cons, 2, f_syntax_46_type_str_0(), u_mk_con(&n_list_46_Cons, 2, f_syntax_46_type_str_0(), &o_list_46_Nil)), f_syntax_46_type_str_0())), &o_list_46_Nil);
     }
     if ((!t1269) && u_equals(s1268, u_mk_lit("str_size"))) {
@@ -28769,7 +28757,7 @@ u_value f_run_46_builtin_names_0(void) {
   static struct u_object l_string_2862 = U_LIT("string");
   static struct u_object l_ord_2863 = U_LIT("ord");
   static struct u_object l_chr_2864 = U_LIT("chr");
-  static struct u_object l__94__2865 = U_LIT("^");
+  static struct u_object l__43__43__2865 = U_LIT("++");
   static struct u_object l_str_size_2866 = U_LIT("str_size");
   static struct u_object l_str_join_2867 = U_LIT("str_join");
   static struct u_object l_str_slice_2868 = U_LIT("str_slice");
@@ -28785,7 +28773,7 @@ u_value f_run_46_builtin_names_0(void) {
   static struct u_object l_is_letter_2878 = U_LIT("is_letter");
   static struct u_object l_is_space_2879 = U_LIT("is_space");
   u_pop(handler);
-  cache = f_set_46_insert_2(&l__43__2854, f_set_46_insert_2(&l__45__2855, f_set_46_insert_2(&l__42__2856, f_set_46_insert_2(&l__47__2857, f_set_46_insert_2(&l__37__2858, f_set_46_insert_2(&l__60__2859, f_set_46_insert_2(&l__61__61__2860, f_set_46_insert_2(&l_chars_2861, f_set_46_insert_2(&l_string_2862, f_set_46_insert_2(&l_ord_2863, f_set_46_insert_2(&l_chr_2864, f_set_46_insert_2(&l__94__2865, f_set_46_insert_2(&l_str_size_2866, f_set_46_insert_2(&l_str_join_2867, f_set_46_insert_2(&l_str_slice_2868, f_set_46_insert_2(&l_str_split_2869, f_set_46_insert_2(&l_compare_2870, f_set_46_insert_2(&l_show_2871, f_set_46_insert_2(&l_str_get_2872, f_set_46_insert_2(&l_str_contains_2873, f_set_46_insert_2(&l_str_compare_2874, f_set_46_insert_2(&l_str_quote_2875, f_set_46_insert_2(&l_str_number_2876, f_set_46_insert_2(&l_is_digit_2877, f_set_46_insert_2(&l_is_letter_2878, f_set_46_insert_2(&l_is_space_2879, f_set_46_empty_0()))))))))))))))))))))))))));
+  cache = f_set_46_insert_2(&l__43__2854, f_set_46_insert_2(&l__45__2855, f_set_46_insert_2(&l__42__2856, f_set_46_insert_2(&l__47__2857, f_set_46_insert_2(&l__37__2858, f_set_46_insert_2(&l__60__2859, f_set_46_insert_2(&l__61__61__2860, f_set_46_insert_2(&l_chars_2861, f_set_46_insert_2(&l_string_2862, f_set_46_insert_2(&l_ord_2863, f_set_46_insert_2(&l_chr_2864, f_set_46_insert_2(&l__43__43__2865, f_set_46_insert_2(&l_str_size_2866, f_set_46_insert_2(&l_str_join_2867, f_set_46_insert_2(&l_str_slice_2868, f_set_46_insert_2(&l_str_split_2869, f_set_46_insert_2(&l_compare_2870, f_set_46_insert_2(&l_show_2871, f_set_46_insert_2(&l_str_get_2872, f_set_46_insert_2(&l_str_contains_2873, f_set_46_insert_2(&l_str_compare_2874, f_set_46_insert_2(&l_str_quote_2875, f_set_46_insert_2(&l_str_number_2876, f_set_46_insert_2(&l_is_digit_2877, f_set_46_insert_2(&l_is_letter_2878, f_set_46_insert_2(&l_is_space_2879, f_set_46_empty_0()))))))))))))))))))))))))));
   return cache;
 }
 
@@ -29646,7 +29634,7 @@ void p_run_46_primitive(u_value v_n, u_value v_vs, u_value *r_v) {
         v_v = t2966;
       }
     }
-    if ((!d2951) && (u_equals(u_field(s2950, 0), u_mk_lit("^")) && (u_is_con(u_field(s2950, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2950, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2950, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2950, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2950, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2950, 1), 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(u_field(s2950, 1), 1), 1), &n_list_46_Nil))))))))) {
+    if ((!d2951) && (u_equals(u_field(s2950, 0), u_mk_lit("++")) && (u_is_con(u_field(s2950, 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(s2950, 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(s2950, 1), 0), 0), &n_syntax_46_VStr) && (u_is_con(u_field(u_field(s2950, 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s2950, 1), 1), 0), &n_value_46_Lit) && (u_is_con(u_field(u_field(u_field(u_field(s2950, 1), 1), 0), 0), &n_syntax_46_VStr) && u_is_con(u_field(u_field(u_field(s2950, 1), 1), 1), &n_list_46_Nil))))))))) {
       u_value v_s = u_field(u_field(u_field(u_field(s2950, 1), 0), 0), 0);
       u_value v_t = u_field(u_field(u_field(u_field(u_field(s2950, 1), 1), 0), 0), 0);
       d2951 = 1;
@@ -32052,7 +32040,7 @@ u_value f_compile_46_builtin_functions_0(void) {
   static struct u_object l_u_str_join_3329 = U_LIT("u_str_join");
   static struct u_object l_str_size_3330 = U_LIT("str_size");
   static struct u_object l_u_str_size_3331 = U_LIT("u_str_size");
-  static struct u_object l__94__3332 = U_LIT("^");
+  static struct u_object l__43__43__3332 = U_LIT("++");
   static struct u_object l_u_concat_3333 = U_LIT("u_concat");
   static struct u_object l_chr_3334 = U_LIT("chr");
   static struct u_object l_u_chr_3335 = U_LIT("u_chr");
@@ -32081,7 +32069,7 @@ u_value f_compile_46_builtin_functions_0(void) {
   static struct u_object l__43__3358 = U_LIT("+");
   static struct u_object l_u_add_3359 = U_LIT("u_add");
   u_pop(handler);
-  cache = f_map_46_put_3(f_syntax_46_unqualified_1(&l_is_space_3308), u_mk_tuple(2, &l_u_is_space_3309, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_is_letter_3310), u_mk_tuple(2, &l_u_is_letter_3311, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_is_digit_3312), u_mk_tuple(2, &l_u_is_digit_3313, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_number_3314), u_mk_tuple(2, &l_u_str_number_3315, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_quote_3316), u_mk_tuple(2, &l_u_str_quote_3317, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_compare_3318), u_mk_tuple(2, &l_u_str_compare_3319, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_contains_3320), u_mk_tuple(2, &l_u_str_contains_3321, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_get_3322), u_mk_tuple(2, &l_u_str_get_3323, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_split_3324), u_mk_tuple(2, &l_u_str_split_3325, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_slice_3326), u_mk_tuple(2, &l_u_str_slice_3327, u_mk_int(3)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_join_3328), u_mk_tuple(2, &l_u_str_join_3329, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_size_3330), u_mk_tuple(2, &l_u_str_size_3331, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__94__3332), u_mk_tuple(2, &l_u_concat_3333, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_chr_3334), u_mk_tuple(2, &l_u_chr_3335, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_ord_3336), u_mk_tuple(2, &l_u_ord_3337, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_string_3338), u_mk_tuple(2, &l_u_string_3339, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_chars_3340), u_mk_tuple(2, &l_u_chars_3341, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_show_3342), u_mk_tuple(2, &l_u_show_3343, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_compare_3344), u_mk_tuple(2, &l_u_compare_3345, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__61__61__3346), u_mk_tuple(2, &l_u_eq_3347, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__60__3348), u_mk_tuple(2, &l_u_lt_3349, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__37__3350), u_mk_tuple(2, &l_u_mod_3351, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__47__3352), u_mk_tuple(2, &l_u_div_3353, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__42__3354), u_mk_tuple(2, &l_u_mul_3355, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__45__3356), u_mk_tuple(2, &l_u_sub_3357, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__43__3358), u_mk_tuple(2, &l_u_add_3359, u_mk_int(2)), f_map_46_empty_0()))))))))))))))))))))))))));
+  cache = f_map_46_put_3(f_syntax_46_unqualified_1(&l_is_space_3308), u_mk_tuple(2, &l_u_is_space_3309, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_is_letter_3310), u_mk_tuple(2, &l_u_is_letter_3311, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_is_digit_3312), u_mk_tuple(2, &l_u_is_digit_3313, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_number_3314), u_mk_tuple(2, &l_u_str_number_3315, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_quote_3316), u_mk_tuple(2, &l_u_str_quote_3317, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_compare_3318), u_mk_tuple(2, &l_u_str_compare_3319, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_contains_3320), u_mk_tuple(2, &l_u_str_contains_3321, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_get_3322), u_mk_tuple(2, &l_u_str_get_3323, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_split_3324), u_mk_tuple(2, &l_u_str_split_3325, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_slice_3326), u_mk_tuple(2, &l_u_str_slice_3327, u_mk_int(3)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_join_3328), u_mk_tuple(2, &l_u_str_join_3329, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_str_size_3330), u_mk_tuple(2, &l_u_str_size_3331, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__43__43__3332), u_mk_tuple(2, &l_u_concat_3333, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_chr_3334), u_mk_tuple(2, &l_u_chr_3335, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_ord_3336), u_mk_tuple(2, &l_u_ord_3337, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_string_3338), u_mk_tuple(2, &l_u_string_3339, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_chars_3340), u_mk_tuple(2, &l_u_chars_3341, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_show_3342), u_mk_tuple(2, &l_u_show_3343, u_mk_int(1)), f_map_46_put_3(f_syntax_46_unqualified_1(&l_compare_3344), u_mk_tuple(2, &l_u_compare_3345, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__61__61__3346), u_mk_tuple(2, &l_u_eq_3347, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__60__3348), u_mk_tuple(2, &l_u_lt_3349, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__37__3350), u_mk_tuple(2, &l_u_mod_3351, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__47__3352), u_mk_tuple(2, &l_u_div_3353, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__42__3354), u_mk_tuple(2, &l_u_mul_3355, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__45__3356), u_mk_tuple(2, &l_u_sub_3357, u_mk_int(2)), f_map_46_put_3(f_syntax_46_unqualified_1(&l__43__3358), u_mk_tuple(2, &l_u_add_3359, u_mk_int(2)), f_map_46_empty_0()))))))))))))))))))))))))));
   return cache;
 }
 

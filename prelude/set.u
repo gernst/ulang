@@ -162,7 +162,7 @@ function upto(n: Int): List[Int] :=
   if n == 0 then Nil else upto(n - 1) ++ [n]
 
 function show[A](s: Set[A]): Str :=
-  "{" ^ str_join(", ", [show(x) for x in list(s)]) ^ "}"
+  "{" ++ str_join(", ", [show(x) for x in list(s)]) ++ "}"
 
 test sets() :=
   local s := {"a", "b"}

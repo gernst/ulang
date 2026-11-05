@@ -72,4 +72,4 @@ procedure os_walk_entries(in dir: Str, entries: List[Str * Bool], out files: Lis
   end
 
 function os_join(dir: Str, name: Str): Str :=
-  if str_size(dir) > 0 and str_get(dir, str_size(dir) - 1) == '/' then dir ^ name else dir ^ "/" ^ name
+  if str_size(dir) > 0 and str_get(dir, str_size(dir) - 1) == '/' then dir ++ name else dir ++ "/" ++ name

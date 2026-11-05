@@ -29,5 +29,5 @@ test empty_literal() :=
 test comprehensions() :=
   local  s := {1, 2, 3}, m := {"a" => 1, "b" => 2}
   assert elements({x * x for x in s if x != 2}) == [1, 9] and elements({x + y for x in s, y in {10, 20}}) == [11, 12, 13, 21, 22, 23]
-  assert entries({k ^ "!" => v + 1 for k => v in m}) == [("a!", 2), ("b!", 3)] and entries({k => v for k => v in m if v > 1}) == [("b", 2)]
-  assert entries({k ^ l => v * w for k => v in m, l => w in {k => v}}) == [("aa", 1), ("bb", 4)]
+  assert entries({k ++ "!" => v + 1 for k => v in m}) == [("a!", 2), ("b!", 3)] and entries({k => v for k => v in m if v > 1}) == [("b", 2)]
+  assert entries({k ++ l => v * w for k => v in m, l => w in {k => v}}) == [("aa", 1), ("bb", 4)]

@@ -243,7 +243,7 @@ function builtin_scheme(b: Id): List[List[Type] * Type] :=
       case "string" => [(Nil, type_fun([type_list(type_char())], type_str()))]
       case "ord" => [(Nil, type_fun([type_char()], type_int()))]
       case "chr" => [(Nil, type_fun([type_int()], type_char()))]
-      case "^" => [(Nil, type_fun([type_str(), type_str()], type_str()))]
+      case "++" => [(Nil, type_fun([type_str(), type_str()], type_str()))]
       case "str_size" => [(Nil, type_fun([type_str()], type_int()))]
       case "str_join" => [(Nil, type_fun([type_str(), type_list(type_str())], type_str()))]
       case "str_slice" => [(Nil, type_fun([type_str(), type_int(), type_int()], type_str()))]
@@ -1382,7 +1382,7 @@ procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Ex
 
       match zonk_type(s.sub, u)
         case TSort(Name(Some(m), tn), _) =>
-          assign acc := Name(Some(m), tn ^ f)
+          assign acc := Name(Some(m), tn ++ f)
           match schemes_of(s.ctx, acc)
             case [sc] =>
               call use(in acc, w, sc, out x, ref s)
@@ -2072,7 +2072,7 @@ function order_of(c: Cmd): Option[Id * Name] :=
   end
 
 function order_op(f: Id, b: Id): Id :=
-  if f == b ^ ".compare" then "compare" else if f == b ^ ".==" then "==" else f
+  if f == b ++ ".compare" then "compare" else if f == b ++ ".==" then "==" else f
 
 function order_result(op: Id): Option[Type] :=
   match op
@@ -2142,7 +2142,7 @@ function synthesized_for(d: Id * Cmd, compares: List[Name], equalities: List[Nam
 function failing(t: Name, ps: List[Id], op: Id, r: Type, e: Id): Cmd :=
   let a := TSort(t, params(ps)) in
     CFun(
-      Name(t.module, t.base ^ "." ^ op),
+      Name(t.module, t.base ++ "." ++ op),
       ps,
       [[Var(unqualified("a"), a), Var(unqualified("b"), a)]],
       r,

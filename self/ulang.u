@@ -54,11 +54,11 @@ procedure main() :=
   end
 
 function usage(): Str :=
-  "usage: ulang run <file> [<procedure>] [-- args]\n" ^
-  "       ulang test <file> [<name> ...] [-- args]\n" ^
-  "       ulang test <dir> [<path> ...]\n" ^
-  "       ulang check <file>\n" ^
-  "       ulang compile <file> <entry> <target.c>\n" ^
+  "usage: ulang run <file> [<procedure>] [-- args]\n" ++
+  "       ulang test <file> [<name> ...] [-- args]\n" ++
+  "       ulang test <dir> [<path> ...]\n" ++
+  "       ulang check <file>\n" ++
+  "       ulang compile <file> <entry> <target.c>\n" ++
   "       ulang format <file>"
 
 // the arguments of the driver, and those of the program after --
@@ -82,7 +82,7 @@ procedure attempt(in file: Str, command: (out Bool), out ok: Bool) :=
 
   call guarded(in file, command, out ok, message)
   if message != ""
-    call os_print_error(in file ^ ": " ^ message)
+    call os_print_error(in file ++ ": " ++ message)
   end
 
 // runs a command for file, with whether it succeeded and the message of its error, or else ""
@@ -99,15 +99,15 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
     case ParseError(m, i) =>
       call located(in file, m, i, out message)
     case OsError(m) =>
-      assign message := "runtime error: " ^ m
+      assign message := "runtime error: " ++ m
     case Unsupported(m) =>
-      assign message := "compile error: " ^ m
+      assign message := "compile error: " ++ m
     case UnknownEntry(n) =>
-      assign message := "compile error: there is no procedure " ^ n.base ^ " without parameters"
+      assign message := "compile error: there is no procedure " ++ n.base ++ " without parameters"
     case e =>
-      assign message := "type error: " ^ type_message(e)
+      assign message := "type error: " ++ type_message(e)
     case e =>
-      assign message := "runtime error: " ^ runtime_message(e)
+      assign message := "runtime error: " ++ runtime_message(e)
   end
 
   if message != ""
@@ -120,11 +120,11 @@ procedure located(in file: Str, m: Str, i: Int, out message: Str) :=
   local text: Str, line: Int, column: Int
 
   if in_module(str_split(m, ' '))
-    assign message := "parse error: " ^ m
+    assign message := "parse error: " ++ m
   else
     call   os_read(in file, out text)
     call   position(in text, i, out line, column)
-    assign message := "parse error: " ^ m ^ " at " ^ show(line) ^ "." ^ show(column)
+    assign message := "parse error: " ++ m ++ " at " ++ show(line) ++ "." ++ show(column)
   end
 
 function in_module(words: List[Str]): Bool :=
@@ -199,11 +199,11 @@ procedure format_file(in file: Str, out ok: Bool) :=
       call   os_print(in str_slice(source, 0, str_size(source) - 1))
       assign ok := true
     else
-      call os_print_error(in file ^ ": format error: the source parses differently")
+      call os_print_error(in file ++ ": format error: the source parses differently")
     end
   catch
     case ParseError(m, _) =>
-      call os_print_error(in file ^ ": format error: the source does not parse: " ^ m)
+      call os_print_error(in file ++ ": format error: the source does not parse: " ++ m)
   end
 
 // calls the procedure name of file, which takes no parameters, and prints as it runs
@@ -217,7 +217,7 @@ procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
     call   run_proc(in p, n, ref cache)
     assign ok := true
   else
-    call   os_print_error(in file ^ ": runtime error: there is no procedure " ^ name ^ " without parameters")
+    call   os_print_error(in file ++ ": runtime error: there is no procedure " ++ name ++ " without parameters")
     assign ok := false
   end
 
@@ -232,7 +232,7 @@ procedure test_file(in file: Str, names: List[Str], args: List[Str], out ok: Boo
 
   match missing
     case [n; _] =>
-      call   os_print_error(in file ^ ": runtime error: there is no test " ^ n)
+      call   os_print_error(in file ++ ": runtime error: there is no test " ++ n)
       assign ok := false
     case _ =>
       call run_tests(in p, tests, out ok)
@@ -255,10 +255,10 @@ procedure run_test(in p: Prog, c: Cmd, out passed: Bool) :=
 
   call test_message(in p, c, out message)
   if message == ""
-    call   os_print(in "test " ^ cmd_name(c) ^ " passed")
+    call   os_print(in "test " ++ cmd_name(c) ++ " passed")
     assign passed := true
   else
-    call   os_print(in "test " ^ cmd_name(c) ^ " failed: " ^ message)
+    call   os_print(in "test " ++ cmd_name(c) ++ " failed: " ++ message)
     assign passed := false
   end
 
@@ -272,7 +272,7 @@ procedure test_message(in p: Prog, c: Cmd, out message: Str) :=
     call run_cmd(in p, c, ref cache)
   catch
     case e =>
-      assign message := "runtime error: " ^ runtime_message(e)
+      assign message := "runtime error: " ++ runtime_message(e)
   end
 
 // the .u files of the paths, where directories are walked, each run in its directory with all its tests, which must
@@ -285,7 +285,7 @@ procedure test_paths(in paths: List[Str], out ok: Bool) :=
   assign files := [f for f in found if is_source(f)]
   call   os_cwd(out home)
   call   test_suite(in files, home, out failed)
-  call   os_print(in show(size(files) - failed) ^ " of " ^ show(size(files)) ^ " files passed")
+  call   os_print(in show(size(files) - failed) ++ " of " ++ show(size(files)) ++ " files passed")
   assign ok := failed == 0
 
 procedure walk_all(in paths: List[Str], out files: List[Str]) :=
@@ -328,7 +328,7 @@ procedure verdict(in file: Str, home: Str, out good: Bool) :=
   assign good := got == expected
 
   if not good
-    call os_print(in file ^ ": expected " ^ outcome(expected) ^ ", got " ^ outcome(got))
+    call os_print(in file ++ ": expected " ++ outcome(expected) ++ ", got " ++ outcome(got))
   end
 
 function outcome(message: Str): Str :=
@@ -395,38 +395,38 @@ function cmd_name(c: Cmd): Str :=
 
 function type_message(e: TypeError): Str :=
   match e
-    case UnknownSort(n) => "unknown sort " ^ n.base
-    case SortArity(n, k, m) => "sort " ^ n.base ^ " expects " ^ show(k) ^ " arguments, got " ^ show(m)
-    case SortDefined(n) => "sort " ^ n.base ^ " is already defined"
-    case MissingType(n) => "missing type for " ^ n.base
-    case UndeclaredParams(n, ts) => n.base ^ " has undeclared type parameters " ^ show_types(ts)
-    case CannotUnify(a, b) => "cannot unify " ^ show_type(a) ^ " and " ^ show_type(b)
-    case InfiniteType(a, b) => "infinite type " ^ show_type(a) ^ " = " ^ show_type(b)
-    case UnknownVariable(n) => "unknown variable " ^ n.base
-    case NoOverload(n, t) => "no declaration of " ^ n.base ^ " has the type " ^ show_type(t)
-    case WrongArity(n, k) => n.base ^ " does not take " ^ show(k) ^ " arguments"
-    case AlreadyDefined(n) => n.base ^ " is already defined"
-    case Duplicate(s) => "duplicate " ^ s
-    case Ambiguous(n, ns) => n.base ^ " is ambiguous: " ^ str_join(", ", [qualified(m) for m in ns])
+    case UnknownSort(n) => "unknown sort " ++ n.base
+    case SortArity(n, k, m) => "sort " ++ n.base ++ " expects " ++ show(k) ++ " arguments, got " ++ show(m)
+    case SortDefined(n) => "sort " ++ n.base ++ " is already defined"
+    case MissingType(n) => "missing type for " ++ n.base
+    case UndeclaredParams(n, ts) => n.base ++ " has undeclared type parameters " ++ show_types(ts)
+    case CannotUnify(a, b) => "cannot unify " ++ show_type(a) ++ " and " ++ show_type(b)
+    case InfiniteType(a, b) => "infinite type " ++ show_type(a) ++ " = " ++ show_type(b)
+    case UnknownVariable(n) => "unknown variable " ++ n.base
+    case NoOverload(n, t) => "no declaration of " ++ n.base ++ " has the type " ++ show_type(t)
+    case WrongArity(n, k) => n.base ++ " does not take " ++ show(k) ++ " arguments"
+    case AlreadyDefined(n) => n.base ++ " is already defined"
+    case Duplicate(s) => "duplicate " ++ s
+    case Ambiguous(n, ns) => n.base ++ " is ambiguous: " ++ str_join(", ", [qualified(m) for m in ns])
     case UnknownField(n) => field_message(str_split(n.base, '.'))
-    case UnknownFieldType(f, t) => "the type " ^ show_type(t) ^ " of the value of " ^ f ^ " is not known"
-    case CountMismatch(k, m) => "expected " ^ show(k) ^ " values, got " ^ show(m)
-    case UnknownConstructor(n) => "unknown constructor " ^ n.base
-    case NotExhaustive(p) => "match is not exhaustive, missing " ^ show_pat(p)
-    case Unreachable(p) => "unreachable case " ^ show_pat(p)
-    case NotAssignable(n) => n.base ^ " is not assignable"
-    case UnknownProcedure(n) => "unknown procedure " ^ n.base
-    case UnknownException(t) => "the type " ^ show_type(t) ^ " of an exception is not fully known"
-    case TestParams(n) => "test " ^ n ^ " takes parameters"
-    case Unassigned(n) => n.base ^ " is not assigned on every path"
-    case OutputUnassigned(x, p) => "output " ^ x.base ^ " of " ^ p.base ^ " is not assigned on every path"
-    case PrivateName(n) => n.base ^ " is private to module " ^ module_of(n)
-    case MissingDefinition(n) => n.base ^ " is exported but not defined"
-    case SignatureMismatch(n) => "the definition of " ^ n.base ^ " differs from its signature"
-    case PartlyExported(n) => n.base ^ " is exported, but not with each of its numbers of arguments"
-    case PrivateType(n, t) => "the signature of " ^ n.base ^ " names the private type " ^ t.base
-    case VisibleEquality(t) => t.base ^ " declares ==, which only abstract types may"
-    case UnexportedOrder(f, t) => f.base ^ " of the exported type " ^ t.base ^ " is not exported"
+    case UnknownFieldType(f, t) => "the type " ++ show_type(t) ++ " of the value of " ++ f ++ " is not known"
+    case CountMismatch(k, m) => "expected " ++ show(k) ++ " values, got " ++ show(m)
+    case UnknownConstructor(n) => "unknown constructor " ++ n.base
+    case NotExhaustive(p) => "match is not exhaustive, missing " ++ show_pat(p)
+    case Unreachable(p) => "unreachable case " ++ show_pat(p)
+    case NotAssignable(n) => n.base ++ " is not assignable"
+    case UnknownProcedure(n) => "unknown procedure " ++ n.base
+    case UnknownException(t) => "the type " ++ show_type(t) ++ " of an exception is not fully known"
+    case TestParams(n) => "test " ++ n ++ " takes parameters"
+    case Unassigned(n) => n.base ++ " is not assigned on every path"
+    case OutputUnassigned(x, p) => "output " ++ x.base ++ " of " ++ p.base ++ " is not assigned on every path"
+    case PrivateName(n) => n.base ++ " is private to module " ++ module_of(n)
+    case MissingDefinition(n) => n.base ++ " is exported but not defined"
+    case SignatureMismatch(n) => "the definition of " ++ n.base ++ " differs from its signature"
+    case PartlyExported(n) => n.base ++ " is exported, but not with each of its numbers of arguments"
+    case PrivateType(n, t) => "the signature of " ++ n.base ++ " names the private type " ++ t.base
+    case VisibleEquality(t) => t.base ++ " declares ==, which only abstract types may"
+    case UnexportedOrder(f, t) => f.base ++ " of the exported type " ++ t.base ++ " is not exported"
   end
 
 function module_of(n: Name): Str :=
@@ -438,9 +438,9 @@ function module_of(n: Name): Str :=
 // the accessor T.f, or the updater T.f:=, of an unknown field f
 function field_message(parts: List[Str]): Str :=
   match parts
-    case ["", f] => "unknown field " ^ without_update(f)
-    case [t, f] => "unknown field " ^ without_update(f) ^ " of " ^ t
-    case _ => "unknown field " ^ str_join(".", parts)
+    case ["", f] => "unknown field " ++ without_update(f)
+    case [t, f] => "unknown field " ++ without_update(f) ++ " of " ++ t
+    case _ => "unknown field " ++ str_join(".", parts)
   end
 
 function without_update(f: Str): Str :=
@@ -448,17 +448,17 @@ function without_update(f: Str): Str :=
 
 function runtime_message(e: RuntimeError): Str :=
   match e
-    case Uninitialized(n) => n.base ^ " is not initialized"
-    case NotFunction(v) => "cannot apply " ^ show_value(v)
-    case Unspecified(n, vs) => n.base ^ " is not specified for " ^ str_join(", ", [show_value(v) for v in vs])
-    case NoCase(s) => "no case matches " ^ s
+    case Uninitialized(n) => n.base ++ " is not initialized"
+    case NotFunction(v) => "cannot apply " ++ show_value(v)
+    case Unspecified(n, vs) => n.base ++ " is not specified for " ++ str_join(", ", [show_value(v) for v in vs])
+    case NoCase(s) => "no case matches " ++ s
     case CompareFunctions => "cannot compare functions"
-    case NotList(v) => "expected a list, got " ^ show_value(v)
+    case NotList(v) => "expected a list, got " ++ show_value(v)
     case AssertionFailed => "assertion failed"
-    case AssertionUnequal(a, b) => "assertion failed: " ^ a ^ " != " ^ b
-    case Uncaught(s) => "uncaught exception " ^ s
-    case UnassignedOutput(x, p) => "output " ^ x.base ^ " of " ^ p.base ^ " is not assigned"
-    case UnknownProc(n) => "unknown procedure " ^ n.base
-    case NotProc(v) => "cannot call " ^ show_value(v)
-    case RecursiveInitialization(n) => "recursive initialization of " ^ n.base
+    case AssertionUnequal(a, b) => "assertion failed: " ++ a ++ " != " ++ b
+    case Uncaught(s) => "uncaught exception " ++ s
+    case UnassignedOutput(x, p) => "output " ++ x.base ++ " of " ++ p.base ++ " is not assigned"
+    case UnknownProc(n) => "unknown procedure " ++ n.base
+    case NotProc(v) => "cannot call " ++ show_value(v)
+    case RecursiveInitialization(n) => "recursive initialization of " ++ n.base
   end

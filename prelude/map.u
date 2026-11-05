@@ -206,7 +206,7 @@ function numbers(n: Int): List[Int] :=
   if n == 0 then Nil else numbers(n - 1) ++ [n]
 
 function show[K, V](m: Map[K, V]): Str :=
-  "{" ^ str_join(", ", [show(k) ^ " => " ^ show(v) for k => v in m]) ^ "}"
+  "{" ++ str_join(", ", [show(k) ++ " => " ++ show(v) for k => v in m]) ++ "}"
 
 test maps() :=
   local m := {"a" => 1, "b" => 2}
@@ -220,7 +220,7 @@ test map_folds() :=
 
   assert foldr(m, Nil, lambda k, v, ps => [(k, v); ps]) == entries(m) and foldr(m, empty(), put) == m
   assert foldl(m, Nil, lambda ps, k, v => [(k, v); ps]) == reverse(entries(m)) and foldl(m, 0, lambda n, k, v => n + k) == 1275
-  assert foldr({1 => "a", 2 => "b"}, "", lambda k, v, t => v ^ t) == "ab" and foldl({1 => "a", 2 => "b"}, "", lambda t, k, v => t ^ v) == "ab"
+  assert foldr({1 => "a", 2 => "b"}, "", lambda k, v, t => v ++ t) == "ab" and foldl({1 => "a", 2 => "b"}, "", lambda t, k, v => t ++ v) == "ab"
   assert list({2 => "b", 1 => "a"}) == [(1, "a"), (2, "b")] and list(m) == entries(m)
 
 // maps of the same entries are equal, although their trees differ
