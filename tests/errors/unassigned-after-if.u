@@ -1,4 +1,4 @@
-// type error: x is not assigned on every path
+// type error: x is not assigned on every path at 2.1
 test unassigned_after_if() :=
   local x: Int, y := 1
 

@@ -105,7 +105,7 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
     case UnknownEntry(n) =>
       assign message := "compile error: there is no procedure " ++ n.base ++ " without parameters"
     case e =>
-      assign message := "type error: " ++ type_message(e)
+      assign message := "type error: " ++ located_message(base_name(file), e)
     case e =>
       assign message := "runtime error: " ++ runtime_message(e)
   end
@@ -159,7 +159,13 @@ procedure load_file(in file: Str, out q: Prog) :=
 
 // the module name with only the tests of the last of mods
 function tests_of(name: Id, mods: List[Mod]): Mod :=
-  Mod(name, Nil, Unsectioned([c for c in commands_of(last_mod(mods).sections) if is_any_test(c)]))
+  Mod(name, Nil, Unsectioned(placed_tests(placed_of(last_mod(mods).sections))))
+
+function placed_tests(cmds: List[Pos * Cmd]): List[Pos * Cmd] :=
+  match cmds
+    case Nil => Nil
+    case [(p, c); rest] => if is_any_test(c) then [(p, c); placed_tests(rest)] else placed_tests(rest)
+  end
 
 function but_last(mods: List[Mod]): List[Mod] :=
   match mods
@@ -199,7 +205,7 @@ procedure format_file(in file: Str, out ok: Bool) :=
   try
     call parse_text_after(in file, pre, source, out q)
 
-    if p == q
+    if [without_positions(d) for d in p] == [without_positions(d) for d in q]
       call   os_print(in slice(source, 0, size(source) - 1))
       assign ok := true
     else
@@ -397,6 +403,13 @@ function cmd_name(c: Cmd): Str :=
 
 // the messages of errors, without positions
 
+// the message of e, with the position of the command that raised it, and the module if it is not main
+function located_message(main: Id, e: TypeError): Str :=
+  match e
+    case Located(m, p, inner) => type_message(inner) ++ (if m == main then "" else " in " ++ m) ++ " at " ++ show(p.line) ++ "." ++ show(p.col)
+    case _ => type_message(e)
+  end
+
 function type_message(e: TypeError): Str :=
   match e
     case UnknownSort(n) => "unknown sort " ++ n.base
@@ -430,6 +443,7 @@ function type_message(e: TypeError): Str :=
     case PrivateType(n, t) => "the signature of " ++ n.base ++ " names the private type " ++ t.base
     case VisibleEquality(t) => t.base ++ " declares ==, which only abstract types may"
     case UnexportedOrder(f, t) => f.base ++ " of the exported type " ++ t.base ++ " is not exported"
+    case Located(_, _, inner) => type_message(inner)
   end
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f

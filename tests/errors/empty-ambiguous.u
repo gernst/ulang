@@ -1,4 +1,4 @@
-// type error: empty is ambiguous: set.empty, map.empty
+// type error: empty is ambiguous: set.empty, map.empty at 5.1
 import set
 import map
 

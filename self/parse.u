@@ -1235,21 +1235,21 @@ procedure parse_formals(in notations: Notations, params: List[Id], out xs: List[
 
 // commands
 
-function without_tests(cmds: List[Cmd]): List[Cmd] :=
-  match cmds
-    case Nil => Nil
-    case [CTest(_, _, _); more] => without_tests(more)
-    case [cmd; more] => [cmd; without_tests(more)]
-  end
-
 function empty_loader(): Loader :=
   Loader(empty_notations(), empty(), Nil, None, None)
 
 // the module d without its tests, as an import loads it
 function without_tests_of(d: Mod): Mod :=
   match d.sections
-    case Unsectioned(cmds) => d with sections := Unsectioned(without_tests(cmds))
-    case Sectioned(e, b, i) => d with sections := Sectioned(e, b, without_tests(i))
+    case Unsectioned(cmds) => d with sections := Unsectioned(untested(cmds))
+    case Sectioned(e, b, i) => d with sections := Sectioned(e, b, untested(i))
+  end
+
+function untested(cmds: List[Pos * Cmd]): List[Pos * Cmd] :=
+  match cmds
+    case Nil => Nil
+    case [(_, CTest(_, _, _)); more] => untested(more)
+    case [c; more] => [c; untested(more)]
   end
 
 function with_mods(loader: Loader, mods: List[Mod]): Loader :=
@@ -1258,7 +1258,7 @@ function with_mods(loader: Loader, mods: List[Mod]): Loader :=
 // the signature of module d with its own notations, which a module without an export section keeps private
 function sig_of(d: Mod): Sig :=
   match d.sections
-    case Sectioned(e, _, _) => empty() with notations := with_notations(empty_notations(), e)
+    case Sectioned(e, _, _) => empty() with notations := with_notations(empty_notations(), seconds(e))
     case Unsectioned(_) => empty()
   end
 
@@ -1622,14 +1622,17 @@ data Section :=
   | InImplementation
   | NoSections
 
-// the module name with the modules that its imports load before it, where notations apply to the commands after them, and
-// imports come first
-procedure parse_mod(in name: Id, out mods: List[Mod], ref loader: Loader, toks: Tokens) :=
-  local imports: List[Id] := Nil, loaded: List[Mod] := Nil, new: List[Mod], plain: List[Cmd] := Nil, exported: List[Cmd] := Nil,
-    builtins: List[Cmd] := Nil, implemented: List[Cmd] := Nil, more: List[Cmd], section := Opening, offset: Int, imported: Id
+// the module name of text with the modules that its imports load before it, where notations apply to the commands after
+// them, imports come first, and each command has the position where it starts
+procedure parse_mod(in name: Id, text: Str, out mods: List[Mod], ref loader: Loader, toks: Tokens) :=
+  local imports: List[Id] := Nil, loaded: List[Mod] := Nil, new: List[Mod], plain: List[Pos * Cmd] := Nil,
+    exported: List[Pos * Cmd] := Nil, builtins: List[Pos * Cmd] := Nil, implemented: List[Pos * Cmd] := Nil, more: List[Cmd],
+    section := Opening, offset: Int, imported: Id, last := 0, line := 1, column := 1, placed: List[Pos * Cmd]
 
   while head_token(toks) != TEnd
     assign offset := head_offset(toks), more := Nil
+    call   move_position(in text, last, offset, ref line, column)
+    assign last := offset
 
     match head_token(toks)
       case TName("export") =>
@@ -1676,15 +1679,17 @@ procedure parse_mod(in name: Id, out mods: List[Mod], ref loader: Loader, toks: 
         assign loader := declare_commands(loader, more)
     end
 
+    assign placed := [(Pos(line, column), c) for c in more]
+
     match section
       case InExport =>
-        assign exported := reverse_onto(more, exported)
+        assign exported := reverse_onto(placed, exported)
       case InBuiltin =>
-        assign builtins := reverse_onto(more, builtins)
+        assign builtins := reverse_onto(placed, builtins)
       case InImplementation =>
-        assign implemented := reverse_onto(more, implemented)
+        assign implemented := reverse_onto(placed, implemented)
       case _ =>
-        assign plain := reverse_onto(more, plain)
+        assign plain := reverse_onto(placed, plain)
     end
   end
 
@@ -1759,7 +1764,7 @@ procedure load_module(in name: Id, loader: Loader, offset: Int, out mods: List[M
 
   try
     call lex(in text, out module_toks)
-    call parse_mod(in name, out mods, ref module_loader, module_toks)
+    call parse_mod(in name, text, out mods, ref module_loader, module_toks)
   catch
     case LexError(m, i) =>
       raise ParseError(m ++ " in " ++ name, i)
@@ -1793,7 +1798,7 @@ procedure parse_source(in name: Id, text: Str, out mods: List[Mod], ref loader: 
       raise ParseError(m, i)
   end
 
-  call parse_mod(in name, out mods, ref loader, toks)
+  call parse_mod(in name, text, out mods, ref loader, toks)
 
 // the commands of text after the loader, as those of its module
 procedure parse_text(in text: Str, loader: Loader, out prog: Prog) :=

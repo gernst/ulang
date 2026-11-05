@@ -1,4 +1,4 @@
-// type error: unreachable case (true, true)
+// type error: unreachable case (true, true) at 2.1
 function f(p: Bool * Bool): Int :=
   match p
     case (true, _) => 0

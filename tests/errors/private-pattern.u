@@ -1,4 +1,4 @@
-// type error: unknown constructor Full
+// type error: unknown constructor Full at 4.1
 import hiding
 
 function f(b: Box): Int :=

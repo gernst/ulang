@@ -1,3 +1,3 @@
-// type error: cannot unify Int and Bool
+// type error: cannot unify Int and Bool at 2.1
 test list_type() :=
   assert [1, true] == []

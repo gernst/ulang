@@ -1,3 +1,3 @@
-// type error: x is not assignable
+// type error: x is not assignable at 2.1
 procedure p(in x: Int) :=
   assign x := 1

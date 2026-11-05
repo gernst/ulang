@@ -1,4 +1,4 @@
-// type error: unknown variable Full
+// type error: unknown variable Full at 4.1
 import hiding
 
 test t() :=

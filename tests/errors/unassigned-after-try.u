@@ -1,4 +1,4 @@
-// type error: x is not assigned on every path
+// type error: x is not assigned on every path at 5.1
 data Fail :=
   | Fail
 

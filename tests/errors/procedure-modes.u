@@ -1,4 +1,4 @@
-// type error: cannot unify (in Int, out Int) and (in ?7, ref ?8)
+// type error: cannot unify (in Int, out Int) and (in ?7, ref ?8) at 5.1
 procedure double(in x: Int, out y: Int) :=
   assign y := 2 * x
 

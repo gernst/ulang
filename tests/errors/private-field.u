@@ -1,4 +1,4 @@
-// type error: unknown field contents of Box
+// type error: unknown field contents of Box at 4.1
 import hiding
 
 test t() :=

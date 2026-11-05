@@ -158,11 +158,11 @@ function show_mod(loader: Loader, d: Mod): List[Str] :=
     ["import " ++ n for n in d.imports] ++
       match d.sections
         case Unsectioned(cmds) =>
-          show_cmds(after, cmds)
+          show_cmds(after, seconds(cmds))
         case Sectioned(e, b, i) =>
-          let inner := declare_commands(after, e) in
-            ["export"; show_cmds(after, e)] ++ (if b == Nil then [] else ["builtin"; show_cmds(inner, b)]) ++
-              (if i == Nil then [] else ["implementation"; show_cmds(inner, i)])
+          let inner := declare_commands(after, seconds(e)) in
+            ["export"; show_cmds(after, seconds(e))] ++ (if b == Nil then [] else ["builtin"; show_cmds(inner, seconds(b))]) ++
+              (if i == Nil then [] else ["implementation"; show_cmds(inner, seconds(i))])
       end
 
 function with_all(loader: Loader, names: List[Id]): Loader :=
@@ -859,4 +859,4 @@ test printed_back() :=
   local p: Prog, text := "infix left 8 +\n\ndata R :=\n  | R(f: Int, g: Int)\n\nprocedure p(in r: R, out n: Int) :=\n  local s := (r with f := 1), k: Int\n  if s.f + r.g\n    assign n := 1\n  else if r.f\n    assign k := 2, n := k\n  else\n    skip\n  end\n"
 
   call   parse_text(in text, empty_loader(), out p)
-  assert show_program(Nil, [Mod("main", Nil, Unsectioned(p.cmds))]) == text
+  assert show_program(Nil, [Mod("main", Nil, Unsectioned(unplaced(p.cmds)))]) == text

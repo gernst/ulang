@@ -46,6 +46,8 @@ data TypeError :=
   | PrivateType(Name, Name)
   | VisibleEquality(Name)
   | UnexportedOrder(Name, Name)
+  // an error of the command at the position of module
+  | Located(Id, Pos, TypeError)
 
 // checked modules: their commands with qualified names, their declarations, and the modules each imports
 data Checked :=
@@ -2048,7 +2050,7 @@ function definitions(ds: List[Id * Cmd]): List[Id * Cmd] :=
 // the signatures of the builtin section of d as definitions to declare, whose definitions the interpreter and the runtime give
 function natives(d: Mod): List[Id * Cmd] :=
   match d.sections
-    case Sectioned(_, b, _) => [(d.name, native(qualify(d.name, c))) for c in b]
+    case Sectioned(_, b, _) => [(d.name, native(qualify(d.name, c))) for c in seconds(b)]
     case Unsectioned(_) => Nil
   end
 
@@ -2263,13 +2265,13 @@ procedure check_sections(in ds: List[Mod], out hidden: Set[Name], hidden_sorts: 
 
       match d.sections
         case Sectioned(e, _, i) =>
-          assign ex := [qualify(d.name, c) for c in e], im := [qualify(d.name, c) for c in i]
+          assign ex := [qualify(d.name, c) for c in seconds(e)], im := [qualify(d.name, c) for c in seconds(i)]
           call   check_signatures(in ex, im)
           call   check_arities(in im, ex)
           call   check_exposed(in d.name, ex, private_sorts(ex, im))
           assign hidden := insert_all(private_names(ex, im), more), hidden_sorts := private_sorts(ex, im) ++ sorts
         case Unsectioned(cs) =>
-          assign im := [qualify(d.name, c) for c in cs]
+          assign im := [qualify(d.name, c) for c in seconds(cs)]
           assign hidden := insert_all(private_names(Nil, im), more), hidden_sorts := private_sorts(Nil, im) ++ sorts
       end
   end
@@ -2296,20 +2298,20 @@ procedure check_units(in us: List[List[Mod]], ref sig: Sig, imports: List[Id * L
 // the modules ds, checked after the declarations before of the modules that imports lists, as the last of them, where the
 // declarations that other modules keep private are unknown, since before has only their signatures
 procedure check_unit(in ds: List[Mod], before: Sig, imports: List[Id * List[Id]], out checked: Checked) :=
-  local own := [(d.name, d.imports) for d in ds], main := last_mod(ds), decls := concat([decls_of(d) for d in ds]), s: State,
-    cs: List[Cmd], hidden: Set[Name], hidden_sorts: List[Name], extra: List[Id * Cmd], more: List[Cmd]
+  local own := [(d.name, d.imports) for d in ds], main := last_mod(ds), placed := concat([decls_of(d) for d in ds]), s: State,
+    decls: List[Id * Cmd], cs: List[Cmd], hidden: Set[Name], hidden_sorts: List[Name], extra: List[Id * Cmd], more: List[Cmd]
 
-  assign s := State(before, empty(), 0, main, Nil, visibility(imports ++ own, main), Nil, empty())
-  call   declare_datas(in decls, ref s)
-  call   declare_sorts(in decls, ref s)
-  call   declare_constrs(in decls, ref s)
-  call   declare_funs(in decls, ref s)
-  call   declare_procs(in decls, ref s)
+  assign s := State(before, empty(), 0, main, Nil, visibility(imports ++ own, main), Nil, empty()), decls := seconds(placed)
+  call   each_placed(in declare_datas, placed, ref s)
+  call   each_placed(in declare_sorts, placed, ref s)
+  call   each_placed(in declare_constrs, placed, ref s)
+  call   each_placed(in declare_funs, placed, ref s)
+  call   each_placed(in declare_procs, placed, ref s)
   call   declare_funs(in concat([natives(d) for d in ds]), ref s)
   call   declare_procs(in concat([natives(d) for d in ds]), ref s)
   call   check_sections(in ds, out hidden, hidden_sorts)
   call   unique_ids(in block_names(decls))
-  call   commands(in definitions(decls), out cs, ref s)
+  call   placed_commands(in placed_definitions(placed), out cs, ref s)
   call   check_orders(in cs, abstract_types(decls), hidden, hidden_sorts)
   assign extra := synthesized(decls, cs)
   call   declare_funs(in extra, ref s)
@@ -2317,9 +2319,66 @@ procedure check_unit(in ds: List[Mod], before: Sig, imports: List[Id * List[Id]]
   assign hidden := insert_all([qualified_name(c) for c in more], hidden)
   assign checked := Checked(cs ++ more, exported(restrict(s.sig, firsts(own)), hidden, from_list(hidden_sorts)), own)
 
-// the commands of module d with qualified names, with the module of each
-function decls_of(d: Mod): List[Id * Cmd] :=
-  [(d.name, qualify(d.name, c)) for c in commands_of(d.sections)]
+// the commands of module d with qualified names, with the module of each, and their positions
+function decls_of(d: Mod): List[Pos * (Id * Cmd)] :=
+  [(position_of(pc), (d.name, qualify(d.name, command_of(pc)))) for pc in placed_of(d.sections)]
+
+function position_of(pc: Pos * Cmd): Pos :=
+  match pc
+    case (p, _) => p
+  end
+
+function command_of(pc: Pos * Cmd): Cmd :=
+  match pc
+    case (_, c) => c
+  end
+
+function placed_definitions(placed: List[Pos * (Id * Cmd)]): List[Pos * (Id * Cmd)] :=
+  match placed
+    case Nil => Nil
+    case [(p, d); rest] => if definitions([d]) == Nil then placed_definitions(rest) else [(p, d); placed_definitions(rest)]
+  end
+
+// the declarations of a phase, one by one, where an error is located at the declaration that raises it
+procedure each_placed(in phase: (in List[Id * Cmd], ref State), placed: List[Pos * (Id * Cmd)], ref s: State) :=
+  match placed
+    case Nil =>
+      skip
+    case [(p, d); rest] =>
+      try
+        call phase(in [d], ref s)
+      catch
+        case e =>
+          raise located(d, p, e)
+      end
+
+      call each_placed(in phase, rest, ref s)
+  end
+
+// the commands of the definitions, checked one by one, where an error is located at the definition that raises it
+procedure placed_commands(in placed: List[Pos * (Id * Cmd)], out cs: List[Cmd], ref s: State) :=
+  local one: List[Cmd], rest: List[Cmd]
+
+  match placed
+    case Nil =>
+      assign cs := Nil
+    case [(p, d); more] =>
+      try
+        call commands(in [d], out one, ref s)
+      catch
+        case e =>
+          raise located(d, p, e)
+      end
+
+      call   placed_commands(in more, out rest, ref s)
+      assign cs := one ++ rest
+  end
+
+// the error e of declaration d of a module at position p, if the parser read it
+function located(d: Id * Cmd, p: Pos, e: TypeError): TypeError :=
+  match d
+    case (m, _) => if p == Pos(0, 0) then e else Located(m, p, e)
+  end
 
 function last_mod(ds: List[Mod]): Id :=
   match ds
@@ -2478,26 +2537,26 @@ function fun_cmd(n: Id, xs: List[Var], r: Type, b: Expr): Cmd :=
 // and that the program imports
 function bags(): List[Mod] :=
   [
-    Mod("bag", Nil, Sectioned([
+    Mod("bag", Nil, Sectioned(unplaced([
       CData(unq("Bag"), Nil, [Constr(unq("Bag"), [type_int()]), Constr(unq("Leaf"), [type_int()])]),
       CData(unq("Pt"), Nil, [Constr(unq("Pt"), [type_int()])]),
       fun_cmd("size", [var_of("b", tsort("Bag"))], type_int(), expr_int(1)),
       fun_cmd("compare", [var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))], type_int(), expr_int(0)),
       fun_cmd("Pt.x", [var_of("p", tsort("Pt"))], type_int(), EMatch(expr_var("p"), [Branch(PApp(unq("Pt"), [pat_var("n")]), None, expr_var("n"))])),
       CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Bag"))], Nil, SAssign([(var_of("b", THole), expr_app("Bag", [expr_int(0)]))]))
-    ], Nil, Nil)),
-    Mod("box", Nil, Sectioned([
+    ]), Nil, Nil)),
+    Mod("box", Nil, Sectioned(unplaced([
       CData(unq("Box"), Nil, [Constr(unq("Box"), [type_str()]), Constr(unq("Leaf"), [type_str()])]),
       CData(unq("Qt"), Nil, [Constr(unq("Qt"), [type_str()])]),
       fun_cmd("size", [var_of("b", tsort("Box"))], type_int(), expr_int(2)),
       fun_cmd("Qt.x", [var_of("q", tsort("Qt"))], type_str(), EMatch(expr_var("q"), [Branch(PApp(unq("Qt"), [pat_var("s")]), None, expr_var("s"))])),
       CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Box"))], Nil, SAssign([(var_of("b", THole), expr_app("Box", [ELit(VStr(""))]))]))
-    ], Nil, Nil))
+    ]), Nil, Nil))
   ]
 
 // the program of the commands cmds of the module main, which imports bag and box
 function with_bags(cmds: List[Cmd]): Source :=
-  Source(bags() ++ [Mod("main", ["bag", "box"], Unsectioned(cmds))], "main")
+  Source(bags() ++ [Mod("main", ["bag", "box"], Unsectioned(unplaced(cmds)))], "main")
 
 function in_bag(n: Id): Name :=
   Name(Some("bag"), n)

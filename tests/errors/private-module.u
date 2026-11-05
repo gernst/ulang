@@ -1,4 +1,4 @@
-// type error: unknown variable plain_helper
+// type error: unknown variable plain_helper at 4.1
 import plain
 
 test t() :=

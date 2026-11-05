@@ -1,4 +1,4 @@
-// type error: duplicate z
+// type error: duplicate z at 5.1
 procedure p(ref x: Int, y: Int) :=
   skip
 

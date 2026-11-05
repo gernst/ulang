@@ -1,4 +1,4 @@
-// type error: match is not exhaustive, missing Succ(_)
+// type error: match is not exhaustive, missing Succ(_) at 6.1
 data Nat :=
   | Zero
   | Succ(Nat)

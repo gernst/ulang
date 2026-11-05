@@ -102,15 +102,19 @@ data Cmd :=
 data Prog :=
   | Prog(cmds: List[Cmd])
 
+// the line and column of a command in its file, counted from 1, or 0 for commands that the parser did not read
+data Pos :=
+  | Pos(line: Int, col: Int)
+
 // a module by its name, the modules it imports, and its sections
 data Mod :=
   | Mod(name: Id, imports: List[Id], sections: Sections)
 
 // the commands of a module without sections, or its export section, its builtin section of signatures that the interpreter
-// and the runtime define, and its implementation section
+// and the runtime define, and its implementation section, each command with the position where it starts
 data Sections :=
-  | Unsectioned(cmds: List[Cmd])
-  | Sectioned(exported: List[Cmd], builtins: List[Cmd], implemented: List[Cmd])
+  | Unsectioned(cmds: List[Pos * Cmd])
+  | Sectioned(exported: List[Pos * Cmd], builtins: List[Pos * Cmd], implemented: List[Pos * Cmd])
 
 // a program by its modules in load order, each after the modules it imports, where the module main comes last
 data Source :=
@@ -155,6 +159,9 @@ function lists(): List[Mod]
 function with_lists(cmds: List[Cmd]): Source
 function program_of(cmds: List[Cmd]): Source
 function commands_of(sections: Sections): List[Cmd]
+function placed_of(sections: Sections): List[Pos * Cmd]
+function unplaced(cmds: List[Cmd]): List[Pos * Cmd]
+function without_positions(d: Mod): Mod
 
 implementation
 
@@ -266,11 +273,11 @@ function pat_var(n: Id): Pat :=
 
 // lists with constructors Nil and Cons, exported by the module list as in the library, and their length
 function lists(): List[Mod] :=
-  [Mod("list", Nil, Sectioned([CData(unqualified("List"), ["A"], [Constr(unqualified("Nil"), Nil), Constr(unqualified("Cons"), [TParam("A"), type_plain_list(TParam("A"))])])], Nil, Nil))]
+  [Mod("list", Nil, Sectioned(unplaced([CData(unqualified("List"), ["A"], [Constr(unqualified("Nil"), Nil), Constr(unqualified("Cons"), [TParam("A"), type_plain_list(TParam("A"))])])]), Nil, Nil))]
 
 // the program of the commands cmds after len of the module main, which imports lists
 function with_lists(cmds: List[Cmd]): Source :=
-  Source(lists() ++ [Mod("main", ["list"], Unsectioned([len_fun(); cmds]))], "main")
+  Source(lists() ++ [Mod("main", ["list"], Unsectioned(unplaced([len_fun(); cmds])))], "main")
 
 function len_fun(): Cmd :=
   CFun(
@@ -283,13 +290,28 @@ function len_fun(): Cmd :=
 
 // the program of the commands cmds of the module main
 function program_of(cmds: List[Cmd]): Source :=
-  Source([Mod("main", Nil, Unsectioned(cmds))], "main")
+  Source([Mod("main", Nil, Unsectioned(unplaced(cmds)))], "main")
 
 // the commands of all sections, in order
 function commands_of(sections: Sections): List[Cmd] :=
+  seconds(placed_of(sections))
+
+// the commands of all sections with their positions, in order
+function placed_of(sections: Sections): List[Pos * Cmd] :=
   match sections
     case Unsectioned(cmds) => cmds
     case Sectioned(e, b, i) => e ++ b ++ i
+  end
+
+// commands without positions, as programs that are not parsed have them
+function unplaced(cmds: List[Cmd]): List[Pos * Cmd] :=
+  [(Pos(0, 0), c) for c in cmds]
+
+// module d with the positions of its commands forgotten, to compare its commands
+function without_positions(d: Mod): Mod :=
+  match d.sections
+    case Unsectioned(cmds) => d with sections := Unsectioned(unplaced(seconds(cmds)))
+    case Sectioned(e, b, i) => d with sections := Sectioned(unplaced(seconds(e)), unplaced(seconds(b)), unplaced(seconds(i)))
   end
 
 // f(x) + 1, as the parser would produce it

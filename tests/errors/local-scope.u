@@ -1,4 +1,4 @@
-// type error: y is not assignable
+// type error: y is not assignable at 2.1
 procedure p(in x: Int) :=
   if x > 0
     local  y: Int

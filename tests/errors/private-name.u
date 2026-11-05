@@ -1,4 +1,4 @@
-// type error: unknown variable secret
+// type error: unknown variable secret at 4.1
 import hiding
 
 test t() :=

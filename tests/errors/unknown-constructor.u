@@ -1,4 +1,4 @@
-// type error: unknown constructor f
+// type error: unknown constructor f at 2.1
 function f(): Int :=
   match Nil
     case f(x) => 0

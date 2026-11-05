@@ -1,4 +1,4 @@
-// type error: k is not assignable
+// type error: k is not assignable at 2.1
 test capture() :=
   local  k := 0, p := lambda in x => assign k := x end
 

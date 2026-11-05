@@ -8,7 +8,7 @@ Open action items, each with the problem and the desired solution.
 
 ## Self-hosted toolchain
 
-1. **No positions in `self/syntax.u`**, so `check.u` and `compile.u` cannot say where an error is, although the parser knows offsets. Solution: a position per command, and later per statement and expression.
+1. **Positions only per command**: a type error names the position where its declaration starts, which is coarse for long functions, and compile errors have none. Solution: positions of statements and expressions, paired with them as the commands of `Mod` are with theirs.
 3. **`self/run.u` is slow on large programs**: interpreting the compiler on itself takes 121 seconds, three times as long as the Scala interpreter took, although it was faster on small programs. On the compiler compiling `tests/datatypes.u` (3.9 seconds), gprof attributes a quarter of the time in ulang code to `compare`, mostly from `map.get` on the environments keyed by `Name`, with about 70 million calls plus as many recursive ones; the collector takes another quarter of the whole run, 36 collections of 25 ms. Solution: number the names of declarations and variables when a program is loaded, so that keys compare as integers, since hash consing was deemed not worthwhile.
 4. **Ambiguities of overloads by arity list a name twice**: `local v := f` of two functions `f` of one module says `f is ambiguous: m.f, m.f`. Solution: the candidates with their types in the message.
 5. **Messages of `self/check.u` are less specific than they were in Scala**, e.g. `duplicate x` for `duplicate assignment to x`, `expected 1 values, got 2` without the constructor or procedure, and parse errors such as `pattern expected but then found` for `keyword then is not a name`, see the first lines of `tests/errors/`. Solution: say what is duplicated or miscounted, and name keywords.
@@ -16,8 +16,7 @@ Open action items, each with the problem and the desired solution.
 
 ## Modules
 
-1. **Type errors in imported modules have no file**: they show a position without the module. Solution: add the module to the messages, as parse errors do.
-2. **Imports are resolved against the directory of the parsed file**, not of the importing module, and loaded modules are known by name. Solution: resolve against the importing file, with modules known by their location, which makes nested imports and library modules consistent. Also imports from other directories, e.g. of `prove/` by `self/prove.u`, by relative paths or a search path.
+1. **Imports are resolved against the directory of the parsed file**, not of the importing module, and loaded modules are known by name. Solution: resolve against the importing file, with modules known by their location, which makes nested imports and library modules consistent. Also imports from other directories, e.g. of `prove/` by `self/prove.u`, by relative paths or a search path.
 
 ## Compiler
 

@@ -1,4 +1,4 @@
-// type error: unreachable case 0
+// type error: unreachable case 0 at 2.1
 function f(n: Int): Int :=
   match n
     case 0 => 0

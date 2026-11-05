@@ -1,4 +1,4 @@
-// type error: expected 1 values, got 2
+// type error: expected 1 values, got 2 at 5.1
 procedure p(in x: Int, out y: Int) :=
   assign y := x
 

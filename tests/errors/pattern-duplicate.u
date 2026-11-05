@@ -1,4 +1,4 @@
-// type error: duplicate x
+// type error: duplicate x at 2.1
 function f(): Int :=
   match Nil
     case [x; x] => 0

@@ -1,4 +1,4 @@
-// type error: expected 1 values, got 2
+// type error: expected 1 values, got 2 at 2.1
 function f(): Int :=
   match None
     case Some(x, y) => 0

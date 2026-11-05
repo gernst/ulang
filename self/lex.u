@@ -23,6 +23,7 @@ data LexError :=
   | LexError(Str, Int)
 
 procedure position(in text: Str, offset: Int, out line: Int, column: Int)
+procedure move_position(in text: Str, from: Int, to: Int, ref line: Int, column: Int)
 procedure lex(in text: Str, out toks: Tokens)
 
 implementation
@@ -61,11 +62,14 @@ procedure scan(in text: Str, p: Char -> Bool, out start: Int, ref offset: Int) :
 
 // the line and column of offset in text, counted from 1
 procedure position(in text: Str, offset: Int, out line: Int, column: Int) :=
-  local j: Int
+  assign line := 1, column := 1
+  call   move_position(in text, 0, offset, ref line, column)
 
-  assign j := 0, line := 1, column := 1
+// the line and column of offset to in text, from those of offset from
+procedure move_position(in text: Str, from: Int, to: Int, ref line: Int, column: Int) :=
+  local j := from
 
-  while j < offset
+  while j < to
     if at(j, text) == '\n'
       assign line := line + 1, column := 1
     else

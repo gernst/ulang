@@ -1,3 +1,3 @@
-// type error: unknown variable x
+// type error: unknown variable x at 2.1
 function f(): Int :=
   x

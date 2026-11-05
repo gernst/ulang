@@ -1,3 +1,3 @@
-// type error: unknown procedure r
+// type error: unknown procedure r at 2.1
 procedure q(in x: Int) :=
   call r(in x)

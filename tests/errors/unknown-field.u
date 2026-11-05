@@ -1,4 +1,4 @@
-// type error: unknown field z of Point
+// type error: unknown field z of Point at 5.1
 data Point :=
   | Point(x: Int, y: Int)
 
