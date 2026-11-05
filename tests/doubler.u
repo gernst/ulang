@@ -1,7 +1,0 @@
-// a module for tests/modules.u, with a helper of the same name as in tests/counter.u
-
-function helper(n: Int): Int :=
-  n * 2
-
-function double(n: Int): Int :=
-  helper(n)

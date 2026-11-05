@@ -15,3 +15,6 @@ ulang.vsix
 ulang.bin
 /bootstrap/stage/
 /bootstrap/*/ulang.bin
+
+# notes on refactorings, not versioned
+refactor.md
