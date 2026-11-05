@@ -155,7 +155,7 @@ procedure load_file(in file: Str, out q: Prog) :=
     assign own := if of_library then [c for c in p.cmds if is_any_test(c)] else p.cmds
   end
 
-  call check_program(in Prog([CModule("prelude", pre.cmds); own]), name, out q)
+  call check_program(in source_of(Prog([CModule("prelude", pre.cmds); own]), name), out q)
 
 function module_names(cs: List[Cmd]): List[Id] :=
   match cs

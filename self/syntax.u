@@ -107,6 +107,20 @@ data Cmd :=
 data Prog :=
   | Prog(cmds: List[Cmd])
 
+// a module by its name, the modules it imports, and its sections
+data Mod :=
+  | Mod(name: Id, imports: List[Id], sections: Sections)
+
+// the commands of a module without sections, or its export section, its builtin section of signatures that the interpreter
+// and the runtime define, and its implementation section
+data Sections :=
+  | Unsectioned(cmds: List[Cmd])
+  | Sectioned(exported: List[Cmd], builtins: List[Cmd], implemented: List[Cmd])
+
+// a program by its modules in load order, each after the modules it imports, where the module main comes last
+data Source :=
+  | Source(mods: List[Mod], main: Id)
+
 function unqualified(x: Id): Name
 function qualified(n: Name): Str
 function tuple_name(): Name
@@ -143,6 +157,8 @@ function expr_int(n: Int): Expr
 function expr_app(f: Id, args: List[Expr]): Expr
 function pat_var(n: Id): Pat
 function lists(): List[Cmd]
+function source_of(prog: Prog, main: Id): Source
+function commands_of(sections: Sections): List[Cmd]
 
 implementation
 
@@ -265,6 +281,63 @@ function lists(): List[Cmd] :=
       EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0)), Branch(PApp(unqualified("Cons"), [PWild, pat_var("ys")]), None, expr_app("+", [expr_int(1), expr_app("len", [expr_var("ys")])]))])
     )
   ]
+
+// the source of prog, the commands of module main with the modules that they load, CModule(n, cmds) at the first import of
+// n, and the markers of imports and sections
+function source_of(prog: Prog, main: Id): Source :=
+  Source(mods_of(main, prog.cmds), main)
+
+function mods_of(m: Id, cmds: List[Cmd]): List[Mod] :=
+  concat([nested_mods(c) for c in cmds]) ++ [Mod(m, imported(cmds), sections_from([c for c in cmds if is_declaration(c)]))]
+
+function nested_mods(c: Cmd): List[Mod] :=
+  match c
+    case CModule(n, cmds) => mods_of(n, cmds)
+    case _ => Nil
+  end
+
+function imported(cmds: List[Cmd]): List[Id] :=
+  match cmds
+    case Nil => Nil
+    case [CImport(n); rest] => [n; imported(rest)]
+    case [_; rest] => imported(rest)
+  end
+
+function is_declaration(c: Cmd): Bool :=
+  match c
+    case CModule(_, _) => false
+    case CImport(_) => false
+    case _ => true
+  end
+
+function sections_from(cmds: List[Cmd]): Sections :=
+  match cmds
+    case [CExport; rest] => Sectioned(section_until(rest), section_after(CBuiltin, rest), section_after(CImplementation, rest))
+    case _ => Unsectioned(cmds)
+  end
+
+// the commands up to the next marker of a section
+function section_until(cmds: List[Cmd]): List[Cmd] :=
+  match cmds
+    case Nil => Nil
+    case [CBuiltin; _] => Nil
+    case [CImplementation; _] => Nil
+    case [c; rest] => [c; section_until(rest)]
+  end
+
+// the commands after the marker of a section up to the next one
+function section_after(marker: Cmd, cmds: List[Cmd]): List[Cmd] :=
+  match cmds
+    case Nil => Nil
+    case [c; rest] => if c == marker then section_until(rest) else section_after(marker, rest)
+  end
+
+// the commands of all sections, in order
+function commands_of(sections: Sections): List[Cmd] :=
+  match sections
+    case Unsectioned(cmds) => cmds
+    case Sectioned(e, b, i) => e ++ b ++ i
+  end
 
 // f(x) + 1, as the parser would produce it
 test syntax() :=

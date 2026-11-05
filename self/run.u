@@ -941,7 +941,7 @@ procedure run_program(in q: Prog) :=
 procedure check_and_run(in cs: List[Cmd]) :=
   local q: Prog
 
-  call check_program(in Prog(cs), "main", out q)
+  call check_program(in source_of(Prog(cs), "main"), out q)
   call run_program(in q)
 
 // the test n that asserts that e equals expected
