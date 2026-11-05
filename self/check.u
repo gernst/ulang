@@ -51,7 +51,7 @@ data TypeError :=
 data Checked :=
   | Checked(cmds: List[Cmd], sig: Sig, imports: List[Id * List[Id]])
 
-procedure check_program(in p: Program, main: Id, out q: Program)
+procedure check_program(in p: Prog, main: Id, out q: Prog)
 
 implementation
 
@@ -2334,12 +2334,12 @@ procedure check_sections(in ms: List[Id], ds: List[Id * Cmd], out hidden: Set[Na
 
 // the commands of p, which is the module main, flattened and with qualified names, where each imported module is checked once,
 // after the modules it imports, and the own commands of p last
-procedure check_program(in p: Program, main: Id, out q: Program) :=
+procedure check_program(in p: Prog, main: Id, out q: Prog) :=
   local sig: Sig := empty(), imports: List[Id * List[Id]] := Nil, cs: List[Cmd] := Nil, own: Checked
 
   call   check_units(in modules(p.cmds), ref sig, imports, cs)
   call   check_unit(in own_decls(main, p.cmds), main, sig, imports, out own)
-  assign q := Program(cs ++ own.cmds)
+  assign q := Prog(cs ++ own.cmds)
 
 procedure check_units(in us: List[Id * List[Id * Cmd]], ref sig: Sig, imports: List[Id * List[Id]], cs: List[Cmd]) :=
   local checked: Checked
@@ -2442,11 +2442,11 @@ test inference() :=
   end
 
 test elaboration() :=
-  local q: Program
+  local q: Prog
 
-  call check_program(in Program(lists() ++ [CTest("r", Nil, SBlock([Var(unqualified("n"), THole)], [SAssign([(Var(unqualified("n"), THole), expr_app("len", [expr_app("Cons", [expr_int(1), expr_var("Nil")])]))])]))]), "main", out q)
+  call check_program(in Prog(lists() ++ [CTest("r", Nil, SBlock([Var(unqualified("n"), THole)], [SAssign([(Var(unqualified("n"), THole), expr_app("len", [expr_app("Cons", [expr_int(1), expr_var("Nil")])]))])]))]), "main", out q)
   match q
-    case Program([_, _, CFun(_, _, _, _, EMatch(_, [Branch(p, _, _); _])), CTest(_, Nil, SBlock(_, [SAssign([(_, EApp(EVar(Var(_, t)), _))])]))]) =>
+    case Prog([_, _, CFun(_, _, _, _, EMatch(_, [Branch(p, _, _); _])), CTest(_, Nil, SBlock(_, [SAssign([(_, EApp(EVar(Var(_, t)), _))])]))]) =>
       // the constructor Nil is elaborated to a pattern of a constructor
       assert p == PApp(nil_name(), Nil)
       assert t == type_fun([type_list(type_int())], type_int())
@@ -2455,17 +2455,17 @@ test elaboration() :=
   end
 
 test coverage() :=
-  local q: Program
+  local q: Prog
 
   try
-    call   check_program(in Program(lists() ++ [CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), type_plain_list(type_int()))]], type_int(), EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0))]))]), "main", out q)
+    call   check_program(in Prog(lists() ++ [CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), type_plain_list(type_int()))]], type_int(), EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0))]))]), "main", out q)
     assert false
   catch
     case NotExhaustive(w) =>
       assert w == PApp(cons_name(), [PWild, PWild])
   end
   try
-    call   check_program(in Program(lists() ++ [CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), type_plain_list(type_int()))]], type_int(), EMatch(expr_var("xs"), [Branch(PWild, None, expr_int(0)), Branch(pat_var("Nil"), None, expr_int(1))]))]), "main", out q)
+    call   check_program(in Prog(lists() ++ [CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), type_plain_list(type_int()))]], type_int(), EMatch(expr_var("xs"), [Branch(PWild, None, expr_int(0)), Branch(pat_var("Nil"), None, expr_int(1))]))]), "main", out q)
     assert false
   catch
     case Unreachable(p) =>
@@ -2473,11 +2473,11 @@ test coverage() :=
   end
 
 test statements() :=
-  local q: Program
+  local q: Prog
 
   // procedure inc(ref k: Int) := assign k := k + 1, called with an input
   try
-    call check_program(in Program(
+    call check_program(in Prog(
         [
           CProc(unqualified("inc"), Nil, Nil, Nil, [Var(unqualified("k"), type_int())], SBlock(Nil, [SAssign([(Var(unqualified("k"), THole), expr_app("+", [expr_var("k"), expr_int(1)]))])])),
           CProc(unqualified("p"), Nil, [Var(unqualified("n"), type_int())], Nil, Nil, SBlock(Nil, [SCall(unqualified("inc"), Nil, Nil, [Var(unqualified("n"), THole)])]))
@@ -2489,7 +2489,7 @@ test statements() :=
       assert n == unqualified("n")
   end
   try
-    call   check_program(in Program(lists() ++ [CTest("t", Nil, SBlock(Nil, [SRaise(expr_var("Nil"), THole)]))]), "main", out q)
+    call   check_program(in Prog(lists() ++ [CTest("t", Nil, SBlock(Nil, [SRaise(expr_var("Nil"), THole)]))]), "main", out q)
     assert false
   catch
     case UnknownException(TSort(Name(Some("list"), "List"), _)) =>
@@ -2543,9 +2543,9 @@ function in_box(n: Id): Name :=
 
 // the body of the last function of the checked program bags() ++ [c]
 procedure body_of(in c: Cmd, out b: Expr) :=
-  local q: Program
+  local q: Prog
 
-  call check_program(in Program(bags() ++ [c]), "main", out q)
+  call check_program(in Prog(bags() ++ [c]), "main", out q)
   match reverse(q.cmds)
     case [CFun(_, _, _, _, e); _] =>
       assign b := e
@@ -2607,9 +2607,9 @@ test constructors() :=
 
 // call fill(out b) for a local b: Box
 test procedures() :=
-  local q: Program
+  local q: Prog
 
-  call check_program(in Program(bags() ++ [CProc(unq("p"), Nil, Nil, Nil, Nil, SBlock([var_of("b", tsort("Box"))], [SCall(unq("fill"), Nil, [var_of("b", THole)], Nil)]))]), "main", out q)
+  call check_program(in Prog(bags() ++ [CProc(unq("p"), Nil, Nil, Nil, Nil, SBlock([var_of("b", tsort("Box"))], [SCall(unq("fill"), Nil, [var_of("b", THole)], Nil)]))]), "main", out q)
   match reverse(q.cmds)
     case [CProc(_, _, _, _, _, SBlock(_, [SCall(p, _, _, _)])); _] =>
       assert p == in_box("fill")

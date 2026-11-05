@@ -137,8 +137,8 @@ function in_module(words: List[Str]): Bool :=
 // the checked program of file after the prelude, which is the module of its base name
 // where a module of the library that the prelude imports keeps only its tests, since the prelude declares the rest,
 // and the prelude itself is not parsed again, which would declare its notations twice
-procedure load_file(in file: Str, out q: Program) :=
-  local name := base_name(file), pre: Program, p: Program, text: Str, library: Str, own: List[Cmd], of_library := false
+procedure load_file(in file: Str, out q: Prog) :=
+  local name := base_name(file), pre: Prog, p: Prog, text: Str, library: Str, own: List[Cmd], of_library := false
 
   call   parse_library(in "prelude", out pre)
 
@@ -155,7 +155,7 @@ procedure load_file(in file: Str, out q: Program) :=
     assign own := if of_library then [c for c in p.cmds if is_any_test(c)] else p.cmds
   end
 
-  call check_program(in Program([CModule("prelude", pre.cmds); own]), name, out q)
+  call check_program(in Prog([CModule("prelude", pre.cmds); own]), name, out q)
 
 function module_names(cs: List[Cmd]): List[Id] :=
   match cs
@@ -171,7 +171,7 @@ function is_any_test(c: Cmd): Bool :=
   end
 
 procedure check_file(in file: Str, out ok: Bool) :=
-  local q: Program
+  local q: Prog
 
   call   load_file(in file, out q)
   assign ok := true
@@ -182,7 +182,7 @@ procedure compile_to(in file: Str, entry: Str, target: Str, out ok: Bool) :=
 
 // prints file as source, which must parse to the same commands as file, so that formatting tests the parser and the printer
 procedure format_file(in file: Str, out ok: Bool) :=
-  local pre := Program(Nil), p: Program, q: Program, text: Str, source: Str
+  local pre := Prog(Nil), p: Prog, q: Prog, text: Str, source: Str
 
   if base_name(file) != "prelude"
     call parse_library(in "prelude", out pre)
@@ -208,13 +208,13 @@ procedure format_file(in file: Str, out ok: Bool) :=
 
 // calls the procedure name of file, which takes no parameters, and prints as it runs
 procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
-  local q: Program, p: Prog, cache: Map[Name, Value] := empty(), n := Name(Some(base_name(file)), name)
+  local q: Prog, run: Run, cache: Map[Name, Value] := empty(), n := Name(Some(base_name(file)), name)
 
   call   load_file(in file, out q)
-  assign p := load(q) with args := args
+  assign run := load(q) with args := args
 
   if exists(q.cmds, lambda c => is_entry(c, n))
-    call   run_proc(in p, n, ref cache)
+    call   run_proc(in run, n, ref cache)
     assign ok := true
   else
     call   os_print_error(in file ++ ": runtime error: there is no procedure " ++ name ++ " without parameters")
@@ -223,10 +223,10 @@ procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
 
 // runs the tests of file, all or the named ones, each on its own, also after a failed one, printing whether it passed
 procedure test_file(in file: Str, names: List[Str], args: List[Str], out ok: Bool) :=
-  local q: Program, p: Prog, tests: List[Cmd], missing: List[Str]
+  local q: Prog, run: Run, tests: List[Cmd], missing: List[Str]
 
   call   load_file(in file, out q)
-  assign p := load(q) with args := args
+  assign run := load(q) with args := args
   assign tests := [c for c in q.cmds if is_selected_test(c, names)]
   assign missing := [n for n in names if not exists(tests, lambda c => is_test(c, n))]
 
@@ -235,25 +235,25 @@ procedure test_file(in file: Str, names: List[Str], args: List[Str], out ok: Boo
       call   os_print_error(in file ++ ": runtime error: there is no test " ++ n)
       assign ok := false
     case _ =>
-      call run_tests(in p, tests, out ok)
+      call run_tests(in run, tests, out ok)
   end
 
-procedure run_tests(in p: Prog, tests: List[Cmd], out ok: Bool) :=
+procedure run_tests(in run: Run, tests: List[Cmd], out ok: Bool) :=
   local passed: Bool, rest: Bool
 
   match tests
     case Nil =>
       assign ok := true
     case [c; more] =>
-      call   run_test(in p, c, out passed)
-      call   run_tests(in p, more, out rest)
+      call   run_test(in run, c, out passed)
+      call   run_tests(in run, more, out rest)
       assign ok := passed and rest
   end
 
-procedure run_test(in p: Prog, c: Cmd, out passed: Bool) :=
+procedure run_test(in run: Run, c: Cmd, out passed: Bool) :=
   local message: Str
 
-  call test_message(in p, c, out message)
+  call test_message(in run, c, out message)
   if message == ""
     call   os_print(in "test " ++ cmd_name(c) ++ " passed")
     assign passed := true
@@ -263,13 +263,13 @@ procedure run_test(in p: Prog, c: Cmd, out passed: Bool) :=
   end
 
 // the error of the test c, or else ""
-procedure test_message(in p: Prog, c: Cmd, out message: Str) :=
+procedure test_message(in run: Run, c: Cmd, out message: Str) :=
   local cache: Map[Name, Value] := empty()
 
   assign message := ""
 
   try
-    call run_cmd(in p, c, ref cache)
+    call run_cmd(in run, c, ref cache)
   catch
     case e =>
       assign message := "runtime error: " ++ runtime_message(e)
@@ -350,11 +350,11 @@ function starts_with(s: Str, start: Str): Bool :=
 
 // runs all tests of file, quietly, and raises the first failure
 procedure test_all(in file: Str, out ok: Bool) :=
-  local q: Program, p: Prog, message: Str
+  local q: Prog, run: Run, message: Str
 
   call   load_file(in file, out q)
-  assign p := load(q)
-  call   first_failure(in p, [c for c in q.cmds if is_any_test(c)], out message)
+  assign run := load(q)
+  call   first_failure(in run, [c for c in q.cmds if is_any_test(c)], out message)
 
   if message != ""
     raise TestFailed(message)
@@ -362,14 +362,14 @@ procedure test_all(in file: Str, out ok: Bool) :=
 
   assign ok := true
 
-procedure first_failure(in p: Prog, tests: List[Cmd], out message: Str) :=
+procedure first_failure(in run: Run, tests: List[Cmd], out message: Str) :=
   match tests
     case Nil =>
       assign message := ""
     case [c; more] =>
-      call test_message(in p, c, out message)
+      call test_message(in run, c, out message)
       if message == ""
-        call first_failure(in p, more, out message)
+        call first_failure(in run, more, out message)
       end
   end
 

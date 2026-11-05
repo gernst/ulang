@@ -893,7 +893,7 @@ function prototype(d: CDecl): List[CDecl] :=
   end
 
 // the C of q of module m, whose main calls the procedure entry without parameters, or runs all tests for the entry test
-procedure compile_program(in q: Program, m: Id, entry: Id, out f: CFile) :=
+procedure compile_program(in q: Prog, m: Id, entry: Id, out f: CFile) :=
   local g := Gen(0, Nil), defs := defs_of(q), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl]
 
   if entry != "test" and not exists(q.cmds, lambda c => is_entry(c, Name(Some(m), entry)))
@@ -911,11 +911,11 @@ procedure compile_program(in q: Program, m: Id, entry: Id, out f: CFile) :=
 
 // checks the program of the file source after the prelude, which is its module, and writes its translation to C to target
 procedure compile_file(in source: Str, entry: Id, target: Str) :=
-  local pre: Program, p: Program, q: Program, f: CFile
+  local pre: Prog, p: Prog, q: Prog, f: CFile
 
   call   parse_library(in "prelude", out pre)
   call   parse_file_after(in source, pre, out p)
-  call   check_program(in Program([CModule("prelude", pre.cmds); p.cmds]), base_name(source), out q)
+  call   check_program(in Prog([CModule("prelude", pre.cmds); p.cmds]), base_name(source), out q)
   call   compile_program(in q, base_name(source), entry, out f)
   call   os_write(in target, show_file(f))
 

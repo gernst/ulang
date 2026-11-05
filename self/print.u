@@ -13,7 +13,7 @@ function show_type(t: Type): Str
 function show_types(ts: List[Type]): Str
 function show_pat(p: Pat): Str
 function text_of(v: Value): Str
-function show_program(pre: Program, p: Program): Str
+function show_program(pre: Prog, p: Prog): Str
 
 implementation
 
@@ -147,7 +147,7 @@ data Shape :=
   | Operator(Fixity, Int)
 
 // the program p, parsed after the prelude pre, as source
-function show_program(pre: Program, p: Program): Str :=
+function show_program(pre: Prog, p: Prog): Str :=
   join("\n\n", show_cmds(declare_commands(empty_loader(), pre.cmds), p.cmds)) ++ "\n"
 
 // operators and parentheses
@@ -779,7 +779,7 @@ function test_notations(): Str :=
 
 // the body of a function that is e
 procedure parsed(in e: Str, out body: Expr) :=
-  local p: Program
+  local p: Prog
 
   call   parse_text(in test_notations() ++ "function f(): Int :=\n  " ++ e, empty_loader(), out p)
   assign body := ELit(VUnit)
@@ -845,7 +845,7 @@ test parsed_comprehensions() :=
 
 // a program in the layout of the printer, with the translations of locals, else if, fields, and updates, is printed back
 test printed_back() :=
-  local p: Program, text := "infix left 8 +\n\ndata R :=\n  | R(f: Int, g: Int)\n\nprocedure p(in r: R, out n: Int) :=\n  local s := (r with f := 1), k: Int\n  if s.f + r.g\n    assign n := 1\n  else if r.f\n    assign k := 2, n := k\n  else\n    skip\n  end\n"
+  local p: Prog, text := "infix left 8 +\n\ndata R :=\n  | R(f: Int, g: Int)\n\nprocedure p(in r: R, out n: Int) :=\n  local s := (r with f := 1), k: Int\n  if s.f + r.g\n    assign n := 1\n  else if r.f\n    assign k := 2, n := k\n  else\n    skip\n  end\n"
 
   call   parse_text(in text, empty_loader(), out p)
-  assert show_program(Program(Nil), p) == text
+  assert show_program(Prog(Nil), p) == text

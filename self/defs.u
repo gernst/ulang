@@ -19,14 +19,14 @@ data Defs :=
     shows: Map[Name, Name]
   )
 
-function defs_of(q: Program): Defs
+function defs_of(q: Prog): Defs
 function order_of(c: Cmd): Option[Id * Name]
 function ordered(cs: List[Cmd], op: Id): List[Name]
 function ordered_by(cs: List[Cmd], op: Id): List[Name * Name]
 
 implementation
 
-function defs_of(q: Program): Defs :=
+function defs_of(q: Prog): Defs :=
   Defs(
     put_all(fun_defs(q.cmds), empty()),
     put_all(proc_defs(q.cmds), empty()),

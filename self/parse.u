@@ -14,15 +14,15 @@ export
 data ParseError :=
   | ParseError(Str, Int)
 
-procedure parse_library(in name: Id, out program: Program)
+procedure parse_library(in name: Id, out prog: Prog)
 function last_of(xs: List[Str]): Str
 function base_name(path: Str): Str
 function dir_name(path: Str): Str
-procedure parse_file_after(in path: Str, pre: Program, out program: Program)
-procedure parse_text_after(in path: Str, pre: Program, text: Str, out program: Program)
+procedure parse_file_after(in path: Str, pre: Prog, out prog: Prog)
+procedure parse_text_after(in path: Str, pre: Prog, text: Str, out prog: Prog)
 
 // the commands of text after the loader, which reads no files unless text imports modules
-procedure parse_text(in text: Str, loader: Loader, out program: Program)
+procedure parse_text(in text: Str, loader: Loader, out prog: Prog)
 
 // the notations so far, the signatures of the modules loaded so far with their own notations, the modules being parsed,
 // which cannot be imported, the notations of the prelude, which modules are parsed with, or None while parsing the prelude,
@@ -1746,7 +1746,7 @@ function prelude_notations(loader: Loader): Notations :=
   end
 
 // the program text after the loader, e.g., after the prelude
-procedure parse_text(in text: Str, loader: Loader, out program: Program) :=
+procedure parse_text(in text: Str, loader: Loader, out prog: Prog) :=
   local toks: Tokens, cmds: List[Cmd], after := loader
 
   try
@@ -1757,26 +1757,26 @@ procedure parse_text(in text: Str, loader: Loader, out program: Program) :=
   end
 
   call   parse_commands(out cmds, ref after, toks)
-  assign program := Program(cmds)
+  assign prog := Prog(cmds)
 
 // the module of name, which is parsed after the prelude pre with its notations and modules, and reads modules from dir, or else the library,
 // where a module that the prelude imports declares its own notations again
-procedure parse_module_after(in name: Id, pre: Program, dir: Option[Str], text: Str, out program: Program) :=
+procedure parse_module_after(in name: Id, pre: Prog, dir: Option[Str], text: Str, out prog: Prog) :=
   local loader := declare_commands(empty_loader(), [cmd for cmd in pre.cmds if cmd != CImport(name)])
 
-  call parse_text(in text, loader with loading := [name], prelude := Some(loader.notations), dir := dir, out program)
+  call parse_text(in text, loader with loading := [name], prelude := Some(loader.notations), dir := dir, out prog)
 
 // the prelude, or another module of the library parsed after the prelude, as library gives them
-procedure parse_library(in name: Id, out program: Program) :=
-  local text: Str, pre: Program
+procedure parse_library(in name: Id, out prog: Prog) :=
+  local text: Str, pre: Prog
 
   call library_text(in name, 0, out text)
 
   if name == "prelude"
-    call parse_text(in text, empty_loader() with loading := ["prelude"], out program)
+    call parse_text(in text, empty_loader() with loading := ["prelude"], out prog)
   else
     call parse_library(in "prelude", out pre)
-    call parse_module_after(in name, pre, None, text, out program)
+    call parse_module_after(in name, pre, None, text, out prog)
   end
 
 function last_of(xs: List[Str]): Str :=
@@ -1795,22 +1795,22 @@ function dir_name(path: Str): Str :=
   let parts := split(path, '/') in if size(parts) == 1 then "." else join("/", take(size(parts) - 1, parts))
 
 // a file after the prelude pre, as read gives it
-procedure parse_file_after(in path: Str, pre: Program, out program: Program) :=
+procedure parse_file_after(in path: Str, pre: Prog, out prog: Prog) :=
   local text: Str
 
   call os_read(in path, out text)
-  call parse_text_after(in path, pre, text, out program)
+  call parse_text_after(in path, pre, text, out prog)
 
 // text as the file at path after the prelude pre, where the prelude itself comes after the empty program
-procedure parse_text_after(in path: Str, pre: Program, text: Str, out program: Program) :=
+procedure parse_text_after(in path: Str, pre: Prog, text: Str, out prog: Prog) :=
   if pre.cmds == Nil
-    call parse_text(in text, empty_loader() with loading := [base_name(path)], dir := Some(dir_name(path)), out program)
+    call parse_text(in text, empty_loader() with loading := [base_name(path)], dir := Some(dir_name(path)), out prog)
   else
-    call parse_module_after(in base_name(path), pre, Some(dir_name(path)), text, out program)
+    call parse_module_after(in base_name(path), pre, Some(dir_name(path)), text, out prog)
   end
 
-procedure parse_file(in path: Str, out program: Program) :=
-  local pre: Program
+procedure parse_file(in path: Str, out prog: Prog) :=
+  local pre: Prog
 
   call   parse_library(in "prelude", out pre)
-  call   parse_file_after(in path, pre, out program)
+  call   parse_file_after(in path, pre, out prog)

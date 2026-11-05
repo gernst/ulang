@@ -104,8 +104,8 @@ data Cmd :=
   | CProcSig(Name, List[Id], List[Var], List[Var], List[Var])
   | CAbstract(Name, List[Id])
 
-data Program :=
-  | Program(cmds: List[Cmd])
+data Prog :=
+  | Prog(cmds: List[Cmd])
 
 function unqualified(x: Id): Name
 function qualified(n: Name): Str
