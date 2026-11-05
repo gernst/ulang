@@ -404,7 +404,7 @@ function global_value(gl: Globals, n: Name, t: Type): CExpr :=
         match get(n, builtin_functions())
           case Some((f, _)) => c_call("u_mk_closure", [CeVar("w" ^ f), CeNum(0)])
           case None if contains(n, gl.procs) => c_call("u_mk_proc", [CeVar("wp_" ^ mangle(n)), CeNum(0)])
-          case None => raise Unsupported("the variable " ^ qualified(n))
+          case None => raise Unsupported("the variable " ^ n.base)
         end
     end
 

@@ -56,17 +56,11 @@ data Checked :=
 type Cache :=
   List[(Id * List[Id * Cmd] * List[Int]) * Checked]
 
-function tint(): Type
 function first_list(xss: List[List[Var]]): List[Var]
 function order_of(c: Cmd): Option[Id * Name]
 function ordered(cs: List[Cmd], op: Id): List[Name]
 procedure check_program(in p: Program, main: Id, out q: Program)
 procedure check_modules(in p: Program, main: Id, out q: Program, ref cache: Cache)
-function ev(n: Id): Expr
-function pv(n: Id): Pat
-function num(n: Int): Expr
-function ap(f: Id, args: List[Expr]): Expr
-function lists(): List[Cmd]
 
 implementation
 
@@ -197,50 +191,35 @@ function unknown_error(s: State, n: Name, e: TypeError): TypeError :=
     case Nil => e
   end
 
-function tbool(): Type :=
-  TSort(unqualified("Bool"), Nil)
-
-function tint(): Type :=
-  TSort(unqualified("Int"), Nil)
-
-function tstr(): Type :=
-  TSort(unqualified("Str"), Nil)
-
-function tchar(): Type :=
-  TSort(unqualified("Char"), Nil)
-
-function tlist(t: Type): Type :=
-  TSort(list_name(), [t])
-
-function fun(args: List[Type], res: Type): Type :=
-  TFun(args, res)
-
 function params(ps: List[Id]): List[Type] :=
   [TParam(p) for p in ps]
 
+function builtin_sorts(): Set[Id] :=
+  {"Bool", "Int", "Str", "Char"}
+
 function basic(n: Name): Bool :=
   match n
-    case Name(None, b) => contains(b, ["Bool", "Int", "Str", "Char"])
+    case Name(None, b) => contains(b, builtin_sorts())
     case _ => false
   end
 
 function literal(v: Val): Type :=
   match v
     case VUnit => TTuple(Nil)
-    case VBool(_) => tbool()
-    case VInt(_) => tint()
-    case VStr(_) => tstr()
-    case VChar(_) => tchar()
+    case VBool(_) => type_bool()
+    case VInt(_) => type_int()
+    case VStr(_) => type_str()
+    case VChar(_) => type_char()
   end
 
 function initial(): Ctx :=
   empty_ctx()
 
 function arith(): List[Type] * Type :=
-  (Nil, fun([tint(), tint()], tint()))
+  (Nil, type_fun([type_int(), type_int()], type_int()))
 
 function logic(): List[Type] * Type :=
-  (Nil, fun([tbool(), tbool()], tbool()))
+  (Nil, type_fun([type_bool(), type_bool()], type_bool()))
 
 // only what cannot be defined in the prelude, which are names without a module
 function builtin(n: Name): List[List[Type] * Type] :=
@@ -257,29 +236,29 @@ function builtin_scheme(b: Id): List[List[Type] * Type] :=
       case "*" => [arith()]
       case "/" => [arith()]
       case "%" => [arith()]
-      case "<" => [([a], fun([a, a], tbool()))]
-      case "==" => [([a], fun([a, a], tbool()))]
-      case "compare" => [([a], fun([a, a], tint()))]
+      case "<" => [([a], type_fun([a, a], type_bool()))]
+      case "==" => [([a], type_fun([a, a], type_bool()))]
+      case "compare" => [([a], type_fun([a, a], type_int()))]
       case "and" => [logic()]
       case "or" => [logic()]
-      case "chars" => [(Nil, fun([tstr()], tlist(tchar())))]
-      case "string" => [(Nil, fun([tlist(tchar())], tstr()))]
-      case "ord" => [(Nil, fun([tchar()], tint()))]
-      case "chr" => [(Nil, fun([tint()], tchar()))]
-      case "^" => [(Nil, fun([tstr(), tstr()], tstr()))]
-      case "str_size" => [(Nil, fun([tstr()], tint()))]
-      case "str_join" => [(Nil, fun([tstr(), tlist(tstr())], tstr()))]
-      case "str_slice" => [(Nil, fun([tstr(), tint(), tint()], tstr()))]
-      case "str_split" => [(Nil, fun([tstr(), tchar()], tlist(tstr())))]
-      case "str_get" => [(Nil, fun([tstr(), tint()], tchar()))]
-      case "str_contains" => [(Nil, fun([tstr(), tchar()], tbool()))]
-      case "str_compare" => [(Nil, fun([tstr(), tstr()], tint()))]
-      case "str_show" => [(Nil, fun([tint()], tstr()))]
-      case "str_quote" => [(Nil, fun([tstr()], tstr()))]
-      case "str_number" => [(Nil, fun([tstr()], TSort(option_name(), [tint()])))]
-      case "is_digit" => [(Nil, fun([tchar()], tbool()))]
-      case "is_letter" => [(Nil, fun([tchar()], tbool()))]
-      case "is_space" => [(Nil, fun([tchar()], tbool()))]
+      case "chars" => [(Nil, type_fun([type_str()], type_list(type_char())))]
+      case "string" => [(Nil, type_fun([type_list(type_char())], type_str()))]
+      case "ord" => [(Nil, type_fun([type_char()], type_int()))]
+      case "chr" => [(Nil, type_fun([type_int()], type_char()))]
+      case "^" => [(Nil, type_fun([type_str(), type_str()], type_str()))]
+      case "str_size" => [(Nil, type_fun([type_str()], type_int()))]
+      case "str_join" => [(Nil, type_fun([type_str(), type_list(type_str())], type_str()))]
+      case "str_slice" => [(Nil, type_fun([type_str(), type_int(), type_int()], type_str()))]
+      case "str_split" => [(Nil, type_fun([type_str(), type_char()], type_list(type_str())))]
+      case "str_get" => [(Nil, type_fun([type_str(), type_int()], type_char()))]
+      case "str_contains" => [(Nil, type_fun([type_str(), type_char()], type_bool()))]
+      case "str_compare" => [(Nil, type_fun([type_str(), type_str()], type_int()))]
+      case "str_show" => [(Nil, type_fun([type_int()], type_str()))]
+      case "str_quote" => [(Nil, type_fun([type_str()], type_str()))]
+      case "str_number" => [(Nil, type_fun([type_str()], TSort(option_name(), [type_int()])))]
+      case "is_digit" => [(Nil, type_fun([type_char()], type_bool()))]
+      case "is_letter" => [(Nil, type_fun([type_char()], type_bool()))]
+      case "is_space" => [(Nil, type_fun([type_char()], type_bool()))]
       case _ => Nil
     end
 
@@ -346,7 +325,7 @@ function occurs(su: Subst, i: Int, t: Type): Bool :=
 
 function constructor_scheme(k: List[Type] * List[Type] * Type): List[Type] * Type :=
   match k
-    case (ps, ks, r) => (ps, if ks == Nil then r else fun(ks, r))
+    case (ps, ks, r) => (ps, if ks == Nil then r else type_fun(ks, r))
   end
 
 function constructor_of(c: Ctx, k: Name): List[Type] * Type :=
@@ -913,7 +892,7 @@ procedure instantiate(in sc: List[Type] * Type, out t: Type, ref s: State) :=
 procedure unique(in ns: List[Name]) :=
   match repeated(ns)
     case Some(n) =>
-      raise Duplicate(qualified(n))
+      raise Duplicate(n.base)
     case None =>
       skip
   end
@@ -1313,7 +1292,7 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
     case ELam(bound, body) =>
       call   formals(in bound, out xs, ref s)
       call   infer(in bind(xs) ++ env, body, out b, u, ref s)
-      assign e1 := ELam(xs, b), t := fun(types(xs), u)
+      assign e1 := ELam(xs, b), t := type_fun(types(xs), u)
 
     // the body sees the variables around it, but assigns only the outs and refs of the lambda
     case EProc(is, os, rs, body) =>
@@ -1334,7 +1313,7 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
       assign e1 := ELet(zip(xs, es), b), t := u
 
     case EIte(cond, left, right) =>
-      call   check(in env, cond, tbool(), out c, ref s)
+      call   check(in env, cond, type_bool(), out c, ref s)
       call   infer(in env, left, out l, u, ref s)
       call   check(in env, right, u, out b, ref s)
       assign e1 := EIte(c, l, b), t := u
@@ -1343,9 +1322,9 @@ procedure infer(in env: Env, e: Expr, out e1: Expr, t: Type, ref s: State) :=
       call   formals(in bound, out xs, ref s)
       call   same_length(in size(xs), size(lists))
       call   generators(in env, xs, lists, out es, ref s)
-      call   check(in bind(xs) ++ env, cond, tbool(), out c, ref s)
+      call   check(in bind(xs) ++ env, cond, type_bool(), out c, ref s)
       call   infer(in bind(xs) ++ env, result, out b, u, ref s)
-      assign e1 := EComp(b, xs, es, c), t := tlist(u)
+      assign e1 := EComp(b, xs, es, c), t := type_list(u)
 
     case ETuple(items) =>
       call   infers(in env, items, out es, ts, ref s)
@@ -1383,7 +1362,7 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
         call   infers(in env, args, out args1, ts, ref s)
         call   fresh(out t, ref s)
         call   normalize(in a, out w, ref s)
-        call   unify(in w, fun(ts, t), ref s)
+        call   unify(in w, type_fun(ts, t), ref s)
         if with_arity(cs, size(args)) == Nil
           raise WrongArity(n, size(args))
         end
@@ -1412,7 +1391,7 @@ procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Ex
       call   infers(in env, rest, out rest1, us, ref s)
       call   fresh(out t, ref s)
       call   normalize(in a, out w, ref s)
-      call   unify(in w, fun([u; us], t), ref s)
+      call   unify(in w, type_fun([u; us], t), ref s)
 
       match zonk_type(s.sub, u)
         case TSort(Name(Some(m), tn), _) =>
@@ -1444,7 +1423,7 @@ procedure apply(in env: Env, f: Type, args: List[Expr], out args1: List[Expr], r
 
   call   fresh(out r, ref s)
   call   infers(in env, args, out args1, ts, ref s)
-  call   unify(in f, fun(ts, r), ref s)
+  call   unify(in f, type_fun(ts, r), ref s)
 
 procedure check(in env: Env, e: Expr, t: Type, out e1: Expr, ref s: State) :=
   local u: Type
@@ -1484,7 +1463,7 @@ procedure generators(in env: Env, xs: List[Var], lists: List[Expr], out lists1: 
 
   match (xs, lists)
     case ([x; ys], [e; es]) =>
-      call   check(in env, e, tlist(x.typ), out l, ref s)
+      call   check(in env, e, type_list(x.typ), out l, ref s)
       call   generators(in bind([x]) ++ env, ys, es, out rest, ref s)
       assign lists1 := [l; rest]
     case _ =>
@@ -1510,7 +1489,7 @@ procedure guard(in env: Env, g: Option[Expr], out g1: Option[Expr], ref s: State
 
   match g
     case Some(e) =>
-      call   check(in env, e, tbool(), out e1, ref s)
+      call   check(in env, e, type_bool(), out e1, ref s)
       assign g1 := Some(e1)
     case None =>
       assign g1 := None
@@ -1701,14 +1680,14 @@ procedure statement(in assignable: List[Name], x: Stmt, out y: Stmt, ref env: En
       assign y := SBlock(ys, xs), env := drop(size(ys), inner)
 
     case SIf(cond, left, right) =>
-      call   check(in env, cond, tbool(), out c, ref s)
+      call   check(in env, cond, type_bool(), out c, ref s)
       assign other := env
       call   statement(in assignable, left, out l, ref env, s)
       call   statement(in assignable, right, out r, ref other, s)
       assign y := SIf(c, l, r), env := joined(env, other)
 
     case SWhile(cond, body) =>
-      call   check(in env, cond, tbool(), out c, ref s)
+      call   check(in env, cond, type_bool(), out c, ref s)
       assign inner := env
       call   statement(in assignable, body, out l, ref inner, s)
       assign y := SWhile(c, l)
@@ -1727,7 +1706,7 @@ procedure statement(in assignable: List[Name], x: Stmt, out y: Stmt, ref env: En
       assign y := SMatch(c, bs)
 
     case SAssert(cond) =>
-      call   check(in env, cond, tbool(), out c, ref s)
+      call   check(in env, cond, type_bool(), out c, ref s)
       assign y := SAssert(c)
 
       if c == ELit(VBool(false))
@@ -1783,18 +1762,18 @@ procedure statements(in assignable: List[Name], xs: List[Stmt], out ys: List[Stm
 function os_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * List[Type])] :=
   if is_data(c, os_error_name()) then
     [
-      (unqualified("os_args"), (Nil, Nil, [tlist(tstr())], Nil)),
-      (unqualified("os_read"), (Nil, [tstr()], [tstr()], Nil)),
-      (unqualified("os_write"), (Nil, [tstr(), tstr()], Nil, Nil)),
+      (unqualified("os_args"), (Nil, Nil, [type_list(type_str())], Nil)),
+      (unqualified("os_read"), (Nil, [type_str()], [type_str()], Nil)),
+      (unqualified("os_write"), (Nil, [type_str(), type_str()], Nil, Nil)),
       (unqualified("os_show"), ([TParam("A")], [TParam("A")], Nil, Nil)),
-      (unqualified("os_print"), (Nil, [tstr()], Nil, Nil)),
-      (unqualified("os_print_error"), (Nil, [tstr()], Nil, Nil)),
-      (unqualified("os_exit"), (Nil, [tint()], Nil, Nil)),
-      (unqualified("os_library"), (Nil, [tstr()], [tstr()], Nil)),
-      (unqualified("os_list"), (Nil, [tstr()], [tlist(TTuple([tstr(), tbool()]))], Nil)),
-      (unqualified("os_is_dir"), (Nil, [tstr()], [tbool()], Nil)),
-      (unqualified("os_cwd"), (Nil, Nil, [tstr()], Nil)),
-      (unqualified("os_chdir"), (Nil, [tstr()], Nil, Nil))
+      (unqualified("os_print"), (Nil, [type_str()], Nil, Nil)),
+      (unqualified("os_print_error"), (Nil, [type_str()], Nil, Nil)),
+      (unqualified("os_exit"), (Nil, [type_int()], Nil, Nil)),
+      (unqualified("os_library"), (Nil, [type_str()], [type_str()], Nil)),
+      (unqualified("os_list"), (Nil, [type_str()], [type_list(TTuple([type_str(), type_bool()]))], Nil)),
+      (unqualified("os_is_dir"), (Nil, [type_str()], [type_bool()], Nil)),
+      (unqualified("os_cwd"), (Nil, Nil, [type_str()], Nil)),
+      (unqualified("os_chdir"), (Nil, [type_str()], Nil, Nil))
     ]
   else
     Nil
@@ -1910,7 +1889,7 @@ procedure overload(in c: Ctx, n: Name, k: Int) :=
   end
 
 procedure declare_sort(in c: Ctx, n: Name) :=
-  if contains(n.base, ["Bool", "Int", "Str", "Char", "->"]) or is_alias(c, n) or is_data(c, n)
+  if contains(n.base, builtin_sorts()) or n.base == "->" or is_alias(c, n) or is_data(c, n)
     raise SortDefined(n)
   end
 
@@ -1985,7 +1964,7 @@ procedure declare_constructors(in n: Name, ps: List[Id], ks: List[Constr], ref s
 function curried(xss: List[List[Var]], r: Type): Type :=
   match xss
     case Nil => r
-    case [xs; rest] => fun(types(xs), curried(rest, r))
+    case [xs; rest] => type_fun(types(xs), curried(rest, r))
   end
 
 function first_list(xss: List[List[Var]]): List[Var] :=
@@ -2123,8 +2102,8 @@ function order_op(f: Id, b: Id): Id :=
 
 function order_result(op: Id): Option[Type] :=
   match op
-    case "compare" => Some(tint())
-    case "==" => Some(tbool())
+    case "compare" => Some(type_int())
+    case "==" => Some(type_bool())
     case _ => None
   end
 
@@ -2176,9 +2155,9 @@ function synthesized_for(d: Id * Cmd, compares: List[Name], equalities: List[Nam
       if contains(t, compares) then
         Nil
       else if contains(t, equalities) then
-        [(m, failing(t, ps, "compare", tint(), "Unordered"))]
+        [(m, failing(t, ps, "compare", type_int(), "Unordered"))]
       else
-        [(m, failing(t, ps, "compare", tint(), "Incomparable")), (m, failing(t, ps, "==", tbool(), "Incomparable"))]
+        [(m, failing(t, ps, "compare", type_int(), "Incomparable")), (m, failing(t, ps, "==", type_bool(), "Incomparable"))]
     case _ => Nil
   end
 
@@ -2550,63 +2529,31 @@ procedure type_of(in e: Expr, out t: Type) :=
   call   settle(ref s)
   assign t := zonk_type(s.sub, u)
 
-// abbreviations for the syntax in tests
-
-function ev(n: Id): Expr :=
-  EVar(Var(unqualified(n), THole))
-
-function pv(n: Id): Pat :=
-  PVar(Var(unqualified(n), THole))
-
-function num(n: Int): Expr :=
-  ELit(VInt(n))
-
-function ap(f: Id, args: List[Expr]): Expr :=
-  EApp(ev(f), args)
-
-// the lists of the tests, before checking
-function tl(t: Type): Type :=
-  TSort(unqualified("List"), [t])
-
-// lists with constructors Nil and Cons, in the module list as in the library, and their length
-function lists(): List[Cmd] :=
-  [
-    CModule("list", [CData(unqualified("List"), ["A"], [Constr(unqualified("Nil"), Nil), Constr(unqualified("Cons"), [TParam("A"), tl(TParam("A"))])])]),
-    CImport("list"),
-    CFun(
-      unqualified("len"),
-      ["A"],
-      [[Var(unqualified("xs"), tl(TParam("A")))]],
-      tint(),
-      EMatch(ev("xs"), [Branch(pv("Nil"), None, num(0)), Branch(PApp(unqualified("Cons"), [PWild, pv("ys")]), None, ap("+", [num(1), ap("len", [ev("ys")])]))])
-    )
-  ]
-
 test inference() :=
   local t: Type
 
-  call   type_of(in ap("+", [num(1), num(2)]), out t)
-  assert t == tint()
+  call   type_of(in expr_app("+", [expr_int(1), expr_int(2)]), out t)
+  assert t == type_int()
   // let id = lambda x => x in (id(1), id(true))
-  call   type_of(in ELet([(Var(unqualified("id"), THole), ELam([Var(unqualified("x"), THole)], ev("x")))], ETuple([ap("id", [num(1)]), ap("id", [ELit(VBool(true))])])), out t)
-  assert t == TTuple([tint(), tbool()])
+  call   type_of(in ELet([(Var(unqualified("id"), THole), ELam([Var(unqualified("x"), THole)], expr_var("x")))], ETuple([expr_app("id", [expr_int(1)]), expr_app("id", [ELit(VBool(true))])])), out t)
+  assert t == TTuple([type_int(), type_bool()])
   // lambda f => f(f)
   try
-    call   type_of(in ELam([Var(unqualified("f"), THole)], ap("f", [ev("f")])), out t)
+    call   type_of(in ELam([Var(unqualified("f"), THole)], expr_app("f", [expr_var("f")])), out t)
     assert false
   catch
     case InfiniteType(_, _) =>
       skip
   end
   try
-    call   type_of(in ap("+", [num(1), ELit(VBool(true))]), out t)
+    call   type_of(in expr_app("+", [expr_int(1), ELit(VBool(true))]), out t)
     assert false
   catch
     case CannotUnify(a, b) =>
-      assert (a, b) == (tint(), tbool())
+      assert (a, b) == (type_int(), type_bool())
   end
   try
-    call   type_of(in ap("x", Nil), out t)
+    call   type_of(in expr_app("x", Nil), out t)
     assert false
   catch
     case UnknownVariable(x) =>
@@ -2616,12 +2563,12 @@ test inference() :=
 test elaboration() :=
   local q: Program
 
-  call check_program(in Program(lists() ++ [CTest("r", Nil, SBlock([Var(unqualified("n"), THole)], [SAssign([(Var(unqualified("n"), THole), ap("len", [ap("Cons", [num(1), ev("Nil")])]))])]))]), "main", out q)
+  call check_program(in Program(lists() ++ [CTest("r", Nil, SBlock([Var(unqualified("n"), THole)], [SAssign([(Var(unqualified("n"), THole), expr_app("len", [expr_app("Cons", [expr_int(1), expr_var("Nil")])]))])]))]), "main", out q)
   match q
     case Program([_, _, CFun(_, _, _, _, EMatch(_, [Branch(p, _, _); _])), CTest(_, Nil, SBlock(_, [SAssign([(_, EApp(EVar(Var(_, t)), _))])]))]) =>
       // the constructor Nil is elaborated to a pattern of a constructor
       assert p == PApp(nil_name(), Nil)
-      assert t == fun([tlist(tint())], tint())
+      assert t == type_fun([type_list(type_int())], type_int())
     case _ =>
       assert false
   end
@@ -2630,14 +2577,14 @@ test coverage() :=
   local q: Program
 
   try
-    call   check_program(in Program(lists() ++ [CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), tl(tint()))]], tint(), EMatch(ev("xs"), [Branch(pv("Nil"), None, num(0))]))]), "main", out q)
+    call   check_program(in Program(lists() ++ [CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), type_plain_list(type_int()))]], type_int(), EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0))]))]), "main", out q)
     assert false
   catch
     case NotExhaustive(w) =>
       assert w == PApp(cons_name(), [PWild, PWild])
   end
   try
-    call   check_program(in Program(lists() ++ [CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), tl(tint()))]], tint(), EMatch(ev("xs"), [Branch(PWild, None, num(0)), Branch(pv("Nil"), None, num(1))]))]), "main", out q)
+    call   check_program(in Program(lists() ++ [CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), type_plain_list(type_int()))]], type_int(), EMatch(expr_var("xs"), [Branch(PWild, None, expr_int(0)), Branch(pat_var("Nil"), None, expr_int(1))]))]), "main", out q)
     assert false
   catch
     case Unreachable(p) =>
@@ -2651,8 +2598,8 @@ test statements() :=
   try
     call check_program(in Program(
         [
-          CProc(unqualified("inc"), Nil, Nil, Nil, [Var(unqualified("k"), tint())], SBlock(Nil, [SAssign([(Var(unqualified("k"), THole), ap("+", [ev("k"), num(1)]))])])),
-          CProc(unqualified("p"), Nil, [Var(unqualified("n"), tint())], Nil, Nil, SBlock(Nil, [SCall(unqualified("inc"), Nil, Nil, [Var(unqualified("n"), THole)])]))
+          CProc(unqualified("inc"), Nil, Nil, Nil, [Var(unqualified("k"), type_int())], SBlock(Nil, [SAssign([(Var(unqualified("k"), THole), expr_app("+", [expr_var("k"), expr_int(1)]))])])),
+          CProc(unqualified("p"), Nil, [Var(unqualified("n"), type_int())], Nil, Nil, SBlock(Nil, [SCall(unqualified("inc"), Nil, Nil, [Var(unqualified("n"), THole)])]))
         ]
       ), "main", out q)
     assert false
@@ -2661,7 +2608,7 @@ test statements() :=
       assert n == unqualified("n")
   end
   try
-    call   check_program(in Program(lists() ++ [CTest("t", Nil, SBlock(Nil, [SRaise(ev("Nil"), THole)]))]), "main", out q)
+    call   check_program(in Program(lists() ++ [CTest("t", Nil, SBlock(Nil, [SRaise(expr_var("Nil"), THole)]))]), "main", out q)
     assert false
   catch
     case UnknownException(TSort(Name(Some("list"), "List"), _)) =>
@@ -2687,20 +2634,20 @@ function fun_cmd(n: Id, xs: List[Var], r: Type, b: Expr): Cmd :=
 function bags(): List[Cmd] :=
   [
     CModule("bag", [
-      CData(unq("Bag"), Nil, [Constr(unq("Bag"), [tint()]), Constr(unq("Leaf"), [tint()])]),
-      CData(unq("Pt"), Nil, [Constr(unq("Pt"), [tint()])]),
-      fun_cmd("size", [var_of("b", tsort("Bag"))], tint(), num(1)),
-      fun_cmd("compare", [var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))], tint(), num(0)),
-      fun_cmd("Pt.x", [var_of("p", tsort("Pt"))], tint(), EMatch(ev("p"), [Branch(PApp(unq("Pt"), [pv("n")]), None, ev("n"))])),
-      CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Bag"))], Nil, SAssign([(var_of("b", THole), ap("Bag", [num(0)]))]))
+      CData(unq("Bag"), Nil, [Constr(unq("Bag"), [type_int()]), Constr(unq("Leaf"), [type_int()])]),
+      CData(unq("Pt"), Nil, [Constr(unq("Pt"), [type_int()])]),
+      fun_cmd("size", [var_of("b", tsort("Bag"))], type_int(), expr_int(1)),
+      fun_cmd("compare", [var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))], type_int(), expr_int(0)),
+      fun_cmd("Pt.x", [var_of("p", tsort("Pt"))], type_int(), EMatch(expr_var("p"), [Branch(PApp(unq("Pt"), [pat_var("n")]), None, expr_var("n"))])),
+      CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Bag"))], Nil, SAssign([(var_of("b", THole), expr_app("Bag", [expr_int(0)]))]))
     ]),
     CImport("bag"),
     CModule("box", [
-      CData(unq("Box"), Nil, [Constr(unq("Box"), [tstr()]), Constr(unq("Leaf"), [tstr()])]),
-      CData(unq("Qt"), Nil, [Constr(unq("Qt"), [tstr()])]),
-      fun_cmd("size", [var_of("b", tsort("Box"))], tint(), num(2)),
-      fun_cmd("Qt.x", [var_of("q", tsort("Qt"))], tstr(), EMatch(ev("q"), [Branch(PApp(unq("Qt"), [pv("s")]), None, ev("s"))])),
-      CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Box"))], Nil, SAssign([(var_of("b", THole), ap("Box", [ELit(VStr(""))]))]))
+      CData(unq("Box"), Nil, [Constr(unq("Box"), [type_str()]), Constr(unq("Leaf"), [type_str()])]),
+      CData(unq("Qt"), Nil, [Constr(unq("Qt"), [type_str()])]),
+      fun_cmd("size", [var_of("b", tsort("Box"))], type_int(), expr_int(2)),
+      fun_cmd("Qt.x", [var_of("q", tsort("Qt"))], type_str(), EMatch(expr_var("q"), [Branch(PApp(unq("Qt"), [pat_var("s")]), None, expr_var("s"))])),
+      CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Box"))], Nil, SAssign([(var_of("b", THole), expr_app("Box", [ELit(VStr(""))]))]))
     ]),
     CImport("box")
   ]
@@ -2727,7 +2674,7 @@ procedure body_of(in c: Cmd, out b: Expr) :=
 test by_arguments() :=
   local b: Expr
 
-  call body_of(in fun_cmd("f", Nil, tint(), ap("+", [ap("size", [ap("Bag", [num(1)])]), ap("size", [ap("Box", [ELit(VStr("x"))])])])), out b)
+  call body_of(in fun_cmd("f", Nil, type_int(), expr_app("+", [expr_app("size", [expr_app("Bag", [expr_int(1)])]), expr_app("size", [expr_app("Box", [ELit(VStr("x"))])])])), out b)
   match b
     case EApp(_, [EApp(EVar(Var(m, _)), _), EApp(EVar(Var(n, _)), _)]) =>
       assert (m, n) == (in_bag("size"), in_box("size"))
@@ -2739,11 +2686,11 @@ test by_arguments() :=
 test deferred() :=
   local b: Expr
 
-  call body_of(in fun_cmd("f", Nil, tint(), EApp(ELam([var_of("x", THole)], ap("size", [ev("x")])), [ap("Box", [ELit(VStr("x"))])])), out b)
+  call body_of(in fun_cmd("f", Nil, type_int(), EApp(ELam([var_of("x", THole)], expr_app("size", [expr_var("x")])), [expr_app("Box", [ELit(VStr("x"))])])), out b)
   match b
     case EApp(ELam(_, EApp(EVar(Var(m, t)), _)), _) =>
       assert m == in_box("size")
-      assert t == fun([TSort(in_box("Box"), Nil)], tint())
+      assert t == type_fun([TSort(in_box("Box"), Nil)], type_int())
     case _ =>
       assert false
   end
@@ -2752,14 +2699,14 @@ test deferred() :=
 test by_result() :=
   local b: Expr
 
-  call body_of(in fun_cmd("f", Nil, fun([tsort("Box")], tint()), ev("size")), out b)
-  assert b == EVar(Var(in_box("size"), fun([TSort(in_box("Box"), Nil)], tint())))
+  call body_of(in fun_cmd("f", Nil, type_fun([tsort("Box")], type_int()), expr_var("size")), out b)
+  assert b == EVar(Var(in_box("size"), type_fun([TSort(in_box("Box"), Nil)], type_int())))
 
 // Leaf("s") constructs a Box, and the case Leaf(n) of a Bag is of bag
 test constructors() :=
   local b: Expr
 
-  call body_of(in fun_cmd("f", Nil, tsort("Box"), ap("Leaf", [ELit(VStr("s"))])), out b)
+  call body_of(in fun_cmd("f", Nil, tsort("Box"), expr_app("Leaf", [ELit(VStr("s"))])), out b)
   match b
     case EApp(EVar(Var(k, _)), _) =>
       assert k == in_box("Leaf")
@@ -2767,7 +2714,7 @@ test constructors() :=
       assert false
   end
 
-  call body_of(in fun_cmd("g", [var_of("b", tsort("Bag"))], tint(), EMatch(ev("b"), [Branch(PApp(unq("Leaf"), [pv("n")]), None, ev("n")), Branch(PApp(unq("Bag"), [pv("n")]), None, ev("n"))])), out b)
+  call body_of(in fun_cmd("g", [var_of("b", tsort("Bag"))], type_int(), EMatch(expr_var("b"), [Branch(PApp(unq("Leaf"), [pat_var("n")]), None, expr_var("n")), Branch(PApp(unq("Bag"), [pat_var("n")]), None, expr_var("n"))])), out b)
   match b
     case EMatch(_, [Branch(PApp(k, _), _, _); _]) =>
       assert k == in_bag("Leaf")
@@ -2791,7 +2738,7 @@ test procedures() :=
 test fields() :=
   local b: Expr
 
-  call body_of(in fun_cmd("f", Nil, tint(), EApp(ELam([var_of("p", THole)], ap(".x", [ev("p")])), [ap("Pt", [num(3)])])), out b)
+  call body_of(in fun_cmd("f", Nil, type_int(), EApp(ELam([var_of("p", THole)], expr_app(".x", [expr_var("p")])), [expr_app("Pt", [expr_int(3)])])), out b)
   match b
     case EApp(ELam(_, EApp(EVar(Var(m, _)), _)), _) =>
       assert m == in_bag("Pt.x")
@@ -2803,7 +2750,7 @@ test fields() :=
 test builtins() :=
   local b: Expr
 
-  call body_of(in fun_cmd("f", Nil, tint(), ap("compare", [ap("Bag", [num(1)]), ap("Bag", [num(2)])])), out b)
+  call body_of(in fun_cmd("f", Nil, type_int(), expr_app("compare", [expr_app("Bag", [expr_int(1)]), expr_app("Bag", [expr_int(2)])])), out b)
   match b
     case EApp(EVar(Var(m, _)), _) =>
       assert m == in_bag("compare")
@@ -2811,7 +2758,7 @@ test builtins() :=
       assert false
   end
 
-  call body_of(in fun_cmd("g", Nil, tbool(), ap("==", [num(1), num(2)])), out b)
+  call body_of(in fun_cmd("g", Nil, type_bool(), expr_app("==", [expr_int(1), expr_int(2)])), out b)
   match b
     case EApp(EVar(Var(m, _)), _) =>
       assert m == unq("==")
@@ -2819,7 +2766,7 @@ test builtins() :=
       assert false
   end
 
-  call body_of(in CFun(unq("h"), ["A"], [[var_of("x", TParam("A"))]], tbool(), ap("==", [ev("x"), ev("x")])), out b)
+  call body_of(in CFun(unq("h"), ["A"], [[var_of("x", TParam("A"))]], type_bool(), expr_app("==", [expr_var("x"), expr_var("x")])), out b)
   match b
     case EApp(EVar(Var(m, _)), _) =>
       assert m == unq("==")
@@ -2828,7 +2775,7 @@ test builtins() :=
   end
 
   // lambda x => x == x, of a type that nothing decides, compares by the builtin
-  call body_of(in fun_cmd("k", Nil, tbool(), ELet([(var_of("e", THole), ELam([var_of("x", THole)], ap("==", [ev("x"), ev("x")])))], ELit(VBool(true)))), out b)
+  call body_of(in fun_cmd("k", Nil, type_bool(), ELet([(var_of("e", THole), ELam([var_of("x", THole)], expr_app("==", [expr_var("x"), expr_var("x")])))], ELit(VBool(true)))), out b)
   match b
     case ELet([(_, ELam(_, EApp(EVar(Var(m, _)), _)))], _) =>
       assert m == unq("==")
@@ -2840,14 +2787,14 @@ test builtins() :=
 test locals() :=
   local b: Expr
 
-  call body_of(in fun_cmd("f", [var_of("size", tint())], tint(), ev("size")), out b)
-  assert b == EVar(Var(unq("size"), tint()))
+  call body_of(in fun_cmd("f", [var_of("size", type_int())], type_int(), expr_var("size")), out b)
+  assert b == EVar(Var(unq("size"), type_int()))
 
 test errors() :=
   local b: Expr
 
   try
-    call   body_of(in fun_cmd("f", Nil, tint(), ap("size", [num(1)])), out b)
+    call   body_of(in fun_cmd("f", Nil, type_int(), expr_app("size", [expr_int(1)])), out b)
     assert false
   catch
     case NoOverload(n, _) =>
@@ -2855,7 +2802,7 @@ test errors() :=
   end
   // let h := lambda x => size(x) in true, where nothing decides size
   try
-    call   body_of(in fun_cmd("f", Nil, tbool(), ELet([(var_of("h", THole), ELam([var_of("x", THole)], ap("size", [ev("x")])))], ELit(VBool(true)))), out b)
+    call   body_of(in fun_cmd("f", Nil, type_bool(), ELet([(var_of("h", THole), ELam([var_of("x", THole)], expr_app("size", [expr_var("x")])))], ELit(VBool(true)))), out b)
     assert false
   catch
     case Ambiguous(n, ms) =>
@@ -2863,7 +2810,7 @@ test errors() :=
       assert size(ms) == 2
   end
   try
-    call   body_of(in fun_cmd("f", Nil, tint(), ap("size", [num(1), num(2)])), out b)
+    call   body_of(in fun_cmd("f", Nil, type_int(), expr_app("size", [expr_int(1), expr_int(2)])), out b)
     assert false
   catch
     case WrongArity(n, k) =>

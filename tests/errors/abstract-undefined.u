@@ -1,4 +1,4 @@
-// type error: abstract-undefined.T is exported but not defined
+// type error: T is exported but not defined
 export
 
 type T

@@ -1018,7 +1018,7 @@ procedure check_and_run(in cs: List[Cmd]) :=
 
 // the test n that asserts that e equals expected
 function asserting(n: Id, e: Expr, expected: Expr): Cmd :=
-  CTest(n, Nil, SBlock(Nil, [SAssert(ap("==", [e, expected]))]))
+  CTest(n, Nil, SBlock(Nil, [SAssert(expr_app("==", [e, expected]))]))
 
 // a test that assigns e to a local variable
 function assigning(e: Expr): Cmd :=
@@ -1030,41 +1030,41 @@ function int(n: Int): Value :=
 test expressions() :=
   call check_and_run(in lists() ++
     [
-      asserting("p1", ap("len", [ap("Cons", [num(1), ap("Cons", [num(2), ev("Nil")])])]), num(2)),
+      asserting("p1", expr_app("len", [expr_app("Cons", [expr_int(1), expr_app("Cons", [expr_int(2), expr_var("Nil")])])]), expr_int(2)),
       // let f = lambda x => x * x in f(3) + f(4)
-      asserting("p2", ELet([(Var(unqualified("f"), THole), ELam([Var(unqualified("x"), THole)], ap("*", [ev("x"), ev("x")])))], ap("+", [ap("f", [num(3)]), ap("f", [num(4)])])), num(25)),
+      asserting("p2", ELet([(Var(unqualified("f"), THole), ELam([Var(unqualified("x"), THole)], expr_app("*", [expr_var("x"), expr_var("x")])))], expr_app("+", [expr_app("f", [expr_int(3)]), expr_app("f", [expr_int(4)])])), expr_int(25)),
       // [x * y for x in [1, 2], y in [x, 3] if x < y]
       asserting(
         "p3",
         EComp(
-          ap("*", [ev("x"), ev("y")]),
+          expr_app("*", [expr_var("x"), expr_var("y")]),
           [Var(unqualified("x"), THole), Var(unqualified("y"), THole)],
-          [ap("Cons", [num(1), ap("Cons", [num(2), ev("Nil")])]), ap("Cons", [ev("x"), ap("Cons", [num(3), ev("Nil")])])],
-          ap("<", [ev("x"), ev("y")])
+          [expr_app("Cons", [expr_int(1), expr_app("Cons", [expr_int(2), expr_var("Nil")])]), expr_app("Cons", [expr_var("x"), expr_app("Cons", [expr_int(3), expr_var("Nil")])])],
+          expr_app("<", [expr_var("x"), expr_var("y")])
         ),
-        ap("Cons", [num(3), ap("Cons", [num(6), ev("Nil")])])
+        expr_app("Cons", [expr_int(3), expr_app("Cons", [expr_int(6), expr_var("Nil")])])
       ),
       // false and 1 / 0 == 0
-      asserting("p4", ap("and", [ELit(VBool(false)), ap("==", [ap("/", [num(1), num(0)]), num(0)])]), ELit(VBool(false)))
+      asserting("p4", expr_app("and", [ELit(VBool(false)), expr_app("==", [expr_app("/", [expr_int(1), expr_int(0)]), expr_int(0)])]), ELit(VBool(false)))
     ])
 
 // procedure sum(in n: Int, out s: Int) with a loop, and procedure size(ref k: Int) raising Fail after an increment
 function procedures(): List[Cmd] :=
   [
-    CData(unqualified("Fail"), Nil, [Constr(unqualified("Fail"), [tint()])]),
+    CData(unqualified("Fail"), Nil, [Constr(unqualified("Fail"), [type_int()])]),
     CProc(
       unqualified("sum"),
       Nil,
-      [Var(unqualified("n"), tint())],
-      [Var(unqualified("s"), tint())],
+      [Var(unqualified("n"), type_int())],
+      [Var(unqualified("s"), type_int())],
       Nil,
       SBlock(
-        [Var(unqualified("i"), tint())],
+        [Var(unqualified("i"), type_int())],
         [
-          SAssign([(Var(unqualified("s"), THole), num(0)), (Var(unqualified("i"), THole), num(0))]),
+          SAssign([(Var(unqualified("s"), THole), expr_int(0)), (Var(unqualified("i"), THole), expr_int(0))]),
           SWhile(
-            ap("<", [ev("i"), ev("n")]),
-            SBlock(Nil, [SAssign([(Var(unqualified("i"), THole), ap("+", [ev("i"), num(1)])), (Var(unqualified("s"), THole), ap("+", [ev("s"), ap("+", [ev("i"), num(1)])]))])])
+            expr_app("<", [expr_var("i"), expr_var("n")]),
+            SBlock(Nil, [SAssign([(Var(unqualified("i"), THole), expr_app("+", [expr_var("i"), expr_int(1)])), (Var(unqualified("s"), THole), expr_app("+", [expr_var("s"), expr_app("+", [expr_var("i"), expr_int(1)])]))])])
           )
         ]
       )
@@ -1074,26 +1074,26 @@ function procedures(): List[Cmd] :=
       Nil,
       Nil,
       Nil,
-      [Var(unqualified("k"), tint())],
-      SBlock(Nil, [SAssign([(Var(unqualified("k"), THole), ap("+", [ev("k"), num(1)]))]), SRaise(ap("Fail", [ev("k")]), THole)])
+      [Var(unqualified("k"), type_int())],
+      SBlock(Nil, [SAssign([(Var(unqualified("k"), THole), expr_app("+", [expr_var("k"), expr_int(1)]))]), SRaise(expr_app("Fail", [expr_var("k")]), THole)])
     )
   ]
 
 test procedures() :=
   call check_and_run(in procedures() ++
     [
-      CTest("sum", Nil, SBlock([Var(unqualified("s"), tint())], [SCall(unqualified("sum"), [num(4)], [Var(unqualified("s"), THole)], Nil), equals("s", 10)])),
+      CTest("sum", Nil, SBlock([Var(unqualified("s"), type_int())], [SCall(unqualified("sum"), [expr_int(4)], [Var(unqualified("s"), THole)], Nil), equals("s", 10)])),
       // the assignment to k does not reach the caller, since count raises, and the handler for Fail binds its argument
       CTest(
         "count",
         Nil,
         SBlock(
-          [Var(unqualified("k"), tint()), Var(unqualified("m"), tint())],
+          [Var(unqualified("k"), type_int()), Var(unqualified("m"), type_int())],
           [
-            SAssign([(Var(unqualified("k"), THole), num(1)), (Var(unqualified("m"), THole), num(0))]),
+            SAssign([(Var(unqualified("k"), THole), expr_int(1)), (Var(unqualified("m"), THole), expr_int(0))]),
             STry(
               SBlock(Nil, [SCall(unqualified("count"), Nil, Nil, [Var(unqualified("k"), THole)])]),
-              [Handler(THole, PApp(unqualified("Fail"), [pv("j")]), None, SBlock(Nil, [SAssign([(Var(unqualified("m"), THole), ev("j"))])]))]
+              [Handler(THole, PApp(unqualified("Fail"), [pat_var("j")]), None, SBlock(Nil, [SAssign([(Var(unqualified("m"), THole), expr_var("j"))])]))]
             ),
             equals("k", 1),
             equals("m", 2)
@@ -1110,16 +1110,16 @@ test procedure_values() :=
         "values",
         Nil,
         SBlock(
-          [Var(unqualified("s"), tint()), Var(unqualified("t"), tint())],
+          [Var(unqualified("s"), type_int()), Var(unqualified("t"), type_int())],
           [
             SBlock(
               [hole_var("f"), hole_var("k"), hole_var("g")],
               [
-                SAssign([(hole_var("f"), ev("sum"))]),
-                SAssign([(hole_var("k"), num(10))]),
-                SAssign([(hole_var("g"), EProc([hole_var("n")], [hole_var("r")], Nil, SBlock(Nil, [SAssign([(hole_var("r"), ap("+", [ev("n"), ev("k")]))])])))]),
-                SCall(unqualified("f"), [num(4)], [hole_var("s")], Nil),
-                SCall(unqualified("g"), [num(4)], [hole_var("t")], Nil)
+                SAssign([(hole_var("f"), expr_var("sum"))]),
+                SAssign([(hole_var("k"), expr_int(10))]),
+                SAssign([(hole_var("g"), EProc([hole_var("n")], [hole_var("r")], Nil, SBlock(Nil, [SAssign([(hole_var("r"), expr_app("+", [expr_var("n"), expr_var("k")]))])])))]),
+                SCall(unqualified("f"), [expr_int(4)], [hole_var("s")], Nil),
+                SCall(unqualified("g"), [expr_int(4)], [hole_var("t")], Nil)
               ]
             ),
             equals("s", 10),
@@ -1134,11 +1134,11 @@ function hole_var(n: Id): Var :=
 
 // the assertion that the variable n equals k
 function equals(n: Id, k: Int): Stmt :=
-  SAssert(ap("==", [ev(n), num(k)]))
+  SAssert(expr_app("==", [expr_var(n), expr_int(k)]))
 
 test errors() :=
   try
-    call   check_and_run(in procedures() ++ [CTest("t", Nil, SBlock(Nil, [SRaise(ap("Fail", [num(1)]), THole)]))])
+    call   check_and_run(in procedures() ++ [CTest("t", Nil, SBlock(Nil, [SRaise(expr_app("Fail", [expr_int(1)]), THole)]))])
     assert false
   catch
     case Thrown(v, t) =>
@@ -1146,14 +1146,14 @@ test errors() :=
       assert t == TSort(Name(Some("main"), "Fail"), Nil)
   end
   try
-    call   check_and_run(in [CTest("t", Nil, SBlock(Nil, [SAssert(ap("==", [num(1), num(2)]))]))])
+    call   check_and_run(in [CTest("t", Nil, SBlock(Nil, [SAssert(expr_app("==", [expr_int(1), expr_int(2)]))]))])
     assert false
   catch
     case AssertionUnequal(a, b) =>
       assert (a, b) == (int(1), int(2))
   end
   try
-    call   check_and_run(in [assigning(ap("/", [num(1), num(0)]))])
+    call   check_and_run(in [assigning(expr_app("/", [expr_int(1), expr_int(0)]))])
     assert false
   catch
     case Thrown(Obj(n, _), _) if n == division_by_zero_name() =>
@@ -1161,7 +1161,7 @@ test errors() :=
   end
   // loop() := loop() + 1 needs its own value
   try
-    call   check_and_run(in [CFun(unqualified("loop"), Nil, [Nil], tint(), ap("+", [ap("loop", []), num(1)])), assigning(ap("loop", []))])
+    call   check_and_run(in [CFun(unqualified("loop"), Nil, [Nil], type_int(), expr_app("+", [expr_app("loop", []), expr_int(1)])), assigning(expr_app("loop", []))])
     assert false
   catch
     case RecursiveInitialization(n) =>
@@ -1172,19 +1172,19 @@ test errors() :=
 test curried() :=
   call check_and_run(
     in [
-      CFun(unqualified("add"), Nil, [[Var(unqualified("a"), tint())], [Var(unqualified("b"), tint())]], tint(), ap("+", [ev("a"), ev("b")])),
-      asserting("p", EApp(ap("add", [num(1)]), [num(2)]), num(3))
+      CFun(unqualified("add"), Nil, [[Var(unqualified("a"), type_int())], [Var(unqualified("b"), type_int())]], type_int(), expr_app("+", [expr_var("a"), expr_var("b")])),
+      asserting("p", EApp(expr_app("add", [expr_int(1)]), [expr_int(2)]), expr_int(3))
     ]
   )
 
 // match (1, true, 3) case (_, _, z) => z end, a flat tuple
 test tuples() :=
-  call check_and_run(in [asserting("p", EMatch(ETuple([num(1), ELit(VBool(true)), num(3)]), [Branch(PTuple([PWild, PWild, pv("z")]), None, ev("z"))]), num(3))])
+  call check_and_run(in [asserting("p", EMatch(ETuple([expr_int(1), ELit(VBool(true)), expr_int(3)]), [Branch(PTuple([PWild, PWild, pat_var("z")]), None, expr_var("z"))]), expr_int(3))])
 
 // a handler for integers skips a string without evaluating its guard, so the string is raised further
 test handler_types() :=
   try
-    call   check_and_run(in [CTest("t", Nil, STry(SRaise(ELit(VStr("x")), THole), [Handler(THole, pv("k"), Some(ap("<", [ev("k"), num(2)])), SSkip)]))])
+    call   check_and_run(in [CTest("t", Nil, STry(SRaise(ELit(VStr("x")), THole), [Handler(THole, pat_var("k"), Some(expr_app("<", [expr_var("k"), expr_int(2)])), SSkip)]))])
     assert false
   catch
     case Thrown(v, _) =>

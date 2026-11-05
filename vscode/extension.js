@@ -63,27 +63,45 @@ function decorateSections(context) {
     borderColor: new vscode.ThemeColor("editorRuler.foreground"),
   });
 
+  // clears the decorations of editors that do not show ulang, e.g. after a change of the language mode
   function decorate(editor) {
-    if (!editor || editor.document.languageId !== "ulang") return;
+    if (!editor) return;
     const keywords = [];
     const sections = [];
-    for (let line = 0; line < editor.document.lineCount; line++) {
-      const match = /^(import|export|implementation)\b/.exec(editor.document.lineAt(line).text);
-      if (!match) continue;
-      keywords.push(new vscode.Range(line, 0, line, match[1].length));
-      if (match[1] !== "import") sections.push(new vscode.Range(line, 0, line, 0));
+    if (editor.document.languageId === "ulang") {
+      for (let line = 0; line < editor.document.lineCount; line++) {
+        const match = /^(import|export|implementation)\b/.exec(editor.document.lineAt(line).text);
+        if (!match) continue;
+        keywords.push(new vscode.Range(line, 0, line, match[1].length));
+        if (match[1] !== "import") sections.push(new vscode.Range(line, 0, line, 0));
+      }
     }
     editor.setDecorations(keyword, keywords);
     editor.setDecorations(section, sections);
+  }
+
+  function decorateDocument(document) {
+    for (const editor of vscode.window.visibleTextEditors) if (editor.document.uri.toString() === document.uri.toString()) decorate(editor);
+  }
+
+  // edits decorate their document once typing pauses, rather than at every keystroke
+  const pending = new Map();
+  function decorateLater(document) {
+    clearTimeout(pending.get(document));
+    pending.set(document, setTimeout(() => {
+      pending.delete(document);
+      decorateDocument(document);
+    }, 100));
   }
 
   context.subscriptions.push(
     keyword,
     section,
     vscode.window.onDidChangeVisibleTextEditors((editors) => editors.forEach(decorate)),
-    vscode.workspace.onDidChangeTextDocument((event) => {
-      for (const editor of vscode.window.visibleTextEditors) if (editor.document === event.document) decorate(editor);
-    })
+    // a change of the language mode closes the document and opens it again with the new language
+    vscode.workspace.onDidOpenTextDocument(decorateDocument),
+    vscode.workspace.onDidChangeTextDocument((event) => decorateLater(event.document)),
+    { dispose: () => pending.forEach(clearTimeout) }
   );
   vscode.window.visibleTextEditors.forEach(decorate);
 }

@@ -1,4 +1,4 @@
-// type error: the definition of abstract-arity.T differs from its signature
+// type error: the definition of T differs from its signature
 export
 
 type T[A]

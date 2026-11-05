@@ -1,3 +1,5 @@
+// the part of C that compiled ulang programs need, as datatypes, and a printer to C source code,
+// where the runtime defines the type u_value of all ulang values in a header, which is not part of the syntax
 
 export
 
@@ -44,9 +46,6 @@ function c_file(f: CFile): Str
 function c_call(f: Str, args: List[CExpr]): CExpr
 
 implementation
-
-// the part of C that compiled ulang programs need, as datatypes, and a printer to C source code,
-// where the runtime defines the type u_value of all ulang values in a header, which is not part of the syntax
 
 function c_type(t: CType): Str :=
   match t

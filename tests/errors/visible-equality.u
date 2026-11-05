@@ -1,4 +1,4 @@
-// type error: visible-equality.Pair declares ==, which only abstract types may
+// type error: Pair declares ==, which only abstract types may
 data Pair :=
   | Pair(Int, Int)
 

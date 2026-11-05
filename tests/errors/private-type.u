@@ -1,4 +1,4 @@
-// type error: the signature of private-type.f names the private type private-type.Hidden
+// type error: the signature of f names the private type Hidden
 export
 
 function f(): Hidden

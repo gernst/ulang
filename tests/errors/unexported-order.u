@@ -1,4 +1,4 @@
-// type error: unexported-order.compare of the exported type unexported-order.T is not exported
+// type error: compare of the exported type T is not exported
 export
 
 type T
