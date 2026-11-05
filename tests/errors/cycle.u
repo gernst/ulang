@@ -1,2 +1,2 @@
-// parse error: cyclic import of cycle
+// parse error: cyclic import of cycle at 2.1
 import cycle

@@ -1,4 +1,4 @@
-// type error: unreachable case _ at 6.10
+// type error: unreachable case _
 function f(b: Bool): Int :=
   match b
     case true => 0

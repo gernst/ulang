@@ -1,4 +1,4 @@
-// type error: duplicate pattern variable x at 3.3
+// type error: duplicate x
 function f(): Int :=
   match Nil
     case [x; x] => 0

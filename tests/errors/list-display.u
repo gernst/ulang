@@ -1,3 +1,3 @@
-// runtime error: assertion failed: [1, 2] != [2, 1] at 3.3
+// runtime error: assertion failed: [1, 2] != [2, 1]
 test list_display() :=
   assert [1, 2] == [2, 1]

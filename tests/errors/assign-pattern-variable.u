@@ -1,4 +1,4 @@
-// type error: x is not assignable at 4.27
+// type error: x is not assignable
 procedure p(out r: Int) :=
   match [1]
     case [x; _] => assign x := 1

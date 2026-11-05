@@ -1,4 +1,4 @@
-// type error: cannot unify Bool and Int at 6.3
+// type error: cannot unify Bool and Int
 procedure p(in x: Int, out y: Int) :=
   skip
 

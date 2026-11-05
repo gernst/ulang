@@ -1,2 +1,2 @@
-// parse error: keyword then is not a name at 3.11 in broken
+// parse error: pattern expected but then found in broken
 import broken

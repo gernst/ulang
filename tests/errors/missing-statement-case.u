@@ -1,4 +1,4 @@
-// type error: match is not exhaustive, missing false at 3.3
+// type error: match is not exhaustive, missing false
 procedure p(in x: Bool, out r: Int) :=
   match x
     case true => assign r := 0

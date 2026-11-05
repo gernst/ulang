@@ -1,4 +1,4 @@
-// type error: overloaded f must be applied at 9.14
+// type error: f is ambiguous: overload-unapplied.f, overload-unapplied.f
 function f(x: Int): Int :=
   x
 

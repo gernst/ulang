@@ -1,4 +1,4 @@
-// type error: the type ?1 of an exception is not fully known at 6.10
+// type error: the type ?2 of an exception is not fully known
 test catch_unknown_type() :=
   try
     raise 1

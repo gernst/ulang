@@ -4,10 +4,11 @@
 #ifndef ULANG_H
 #define ULANG_H
 
+// stdio.h before gmp.h, which declares its functions on files only after it
+#include <stdio.h>
 #include <gmp.h>
 #include <setjmp.h>
 #include <stddef.h>
-#include <stdio.h>
 
 typedef struct u_object *u_value;
 
@@ -183,10 +184,6 @@ void p_os_exit(u_value code);
 void u_passed(const char *name);
 void p_os_write(u_value path, u_value text);
 void p_os_library(u_value name, u_value *text);
-
-// read and library of the interpreter, which give the syntax of a program, are not available in compiled programs
-void p_read(u_value path, u_value *program);
-void p_library(u_value name, u_value *program);
 
 
 struct u_handler *u_push(void);

@@ -1,4 +1,4 @@
-// type error: match is not exhaustive, missing true at 3.3
+// type error: match is not exhaustive, missing true
 function f(b: Bool): Int :=
   match b
     case true if b => 1

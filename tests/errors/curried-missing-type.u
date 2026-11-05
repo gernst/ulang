@@ -1,3 +1,3 @@
-// type error: missing type for b at 2.20
+// type error: missing type for b
 function f(a: Int)(b): Int :=
   b

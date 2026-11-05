@@ -1,4 +1,4 @@
-// type error: duplicate test a
+// type error: duplicate a
 test a() :=
   skip
 

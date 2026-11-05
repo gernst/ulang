@@ -1,4 +1,4 @@
-// type error: cannot unify Int -> Int and (Int, Int) -> ?1 at 6.3
+// type error: cannot unify Int -> Int and (Int, Int) -> ?2
 function g(x: Int): Int :=
   x
 

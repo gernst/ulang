@@ -1672,13 +1672,6 @@ function os_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * L
   else
     Nil
 
-// read and library give the syntax of self/syntax.u, so they exist only in programs that declare its Program
-function syntax_procs(c: Ctx): List[Name * (List[Type] * List[Type] * List[Type] * List[Type])] :=
-  match [d for d in names_of(c, "Program") if is_data(c, d)]
-    case [d; _] =>
-      [(unqualified("read"), (Nil, [tstr()], [TSort(d, Nil)], Nil)), (unqualified("library"), (Nil, [tstr()], [TSort(d, Nil)], Nil))]
-    case _ => Nil
-  end
 
 // the procedures of the program hide the builtin ones
 // a variable of a procedure type hides the procedures of that name
@@ -1730,7 +1723,7 @@ procedure overloaded_call(in env: Env, assignable: List[Name], p: Name, qs: List
 procedure declared_call(in env: Env, assignable: List[Name], p: Name, q: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
   local m: List[Type * Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var]
 
-  match or_else(proc_of(s.ctx, q), get(q, os_procs(s.ctx) ++ syntax_procs(s.ctx)))
+  match or_else(proc_of(s.ctx, q), get(q, os_procs(s.ctx)))
     case Some((ps, is, os, rs)) =>
       call   instance(in ps, out m, ref s)
       call   same_length(in size(is), size(ins))

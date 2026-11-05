@@ -1,3 +1,3 @@
-// runtime error: uncaught exception DivisionByZero at 3.10
+// runtime error: uncaught exception DivisionByZero
 test division_by_zero() :=
   assert 1 / 0 == 0

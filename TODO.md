@@ -12,18 +12,18 @@ Open action items, each with the problem and the desired solution.
 ## Builtins
 
 1. **Builtins are registered in five places**: their types in `Check.scala` and `self/check.u`, and their implementations in `Run.scala`, `self/run.u`, and the runtime with `builtin_functions` of `self/compile.u`. Solution: declare their signatures in library modules, e.g. `builtin function str_get(s: Str, i: Int): Char`, so that only the implementations remain, and a builtin exists once its module is imported.
-2. **Builtins are enabled by datatype names**: `read` and `library` by any datatype named `Program`, so a program with its own `data Program := Foo(Int)` type-checks `call read(…)` and fails at run time, and the `os_` procedures by `OsError`. They are also special-cased by name in `Check.procedure` and `Run.invoke`. Solution: enable them by the import of their module, e.g. with `syntax.u` in the library, as part of item 1.
+2. **Builtins are enabled by datatype names**: the `os_` procedures by any datatype `OsError`, and they are special-cased by name in `Check.procedure` and `Run.invoke`. Solution: enable them by the import of their module, as part of item 1.
 
 ## Self-hosted toolchain
 
 1. **No positions in `self/syntax.u`**, so `check.u` and `compile.u` cannot say where an error is, although the parser knows offsets. Solution: a position per command, and later per statement and expression.
 2. **Paths read at run time** are relative to the program in the interpreter, but to the working directory in compiled programs, so the same program reads different files. Solution: resolve them relative to the working directory in both, and run each test file from its directory, as `make selftest` does.
 3. **The file lists in the tests of `parse.u`** are written out, so new test files must be added by hand. Solution: a builtin `os_list` that lists a directory.
-4. **`read`, `library`, and `Quote`** remain only as the oracle of the tests of `parse.u`, and as stubs in the runtime. Solution: compare `parse.u` with the Scala parser without them, e.g. by printing both syntaxes to text, and then remove them.
+4. **The tests of `parse.u` only check that files parse**, since its oracle, the Scala parser through `read`, is gone. Solution: a round trip, parsing each file, printing its syntax with `self/print.u`, and parsing that again to the same syntax.
 5. **Prefixes against clashes** in `lex.u` and `parse.u`, which predate modules. Solution: drop them where no module imports both modules of a clash.
 6. **`self/run.u` is slow on large programs**: interpreting the compiler on itself takes 121 seconds, three times as long as the Scala interpreter, although it is faster on small programs. On the compiler compiling `tests/datatypes.u` (3.9 seconds), gprof attributes a quarter of the time in ulang code to `compare`, mostly from `map.get` on the environments keyed by `Name`, with about 70 million calls plus as many recursive ones; the collector takes another quarter of the whole run, 36 collections of 25 ms. Solution: number the names of declarations and variables when a program is loaded, so that keys compare as integers, since hash consing was deemed not worthwhile.
 7. **Ambiguities of overloads by arity list a name twice**: `local v := f` of two functions `f` of one module says `f is ambiguous: m.f, m.f`. Solution: the candidates with their types in the message.
-8. **The prelude does not check on its own**: `./ulang.bin check ulang/resources/prelude.u` fails with `operator -> is already declared` since `bcc4be4`, which rejects repeated notations, presumably because the notations of the prelude are read before the prelude itself. Solution: not read the prelude before itself.
+8. **Messages of `self/check.u` are less specific than they were in Scala**, e.g. `duplicate x` for `duplicate assignment to x`, `expected 1 values, got 2` without the constructor or procedure, and parse errors such as `pattern expected but then found` for `keyword then is not a name`, see the first lines of `tests/errors/`. Solution: say what is duplicated or miscounted, and name keywords.
 9. **No optimizations in the compiler.** Solution: passes between checking and translating to C, e.g. inlining small functions, folding constants, reading fields of single-constructor datatypes directly instead of calling their accessors, and avoiding the intermediate lists of comprehensions.
 
 ## Modules
@@ -31,12 +31,6 @@ Open action items, each with the problem and the desired solution.
 1. **Type errors in imported modules have no file**: they show a position without the module. Solution: add the module to the messages, as parse errors do.
 2. **Imports are resolved against the directory of the parsed file**, not of the importing module, in both parsers, and loaded modules are known by name. Solution: resolve against the importing file, with modules known by their location, which makes nested imports and library modules consistent. Also imports from other directories, e.g. of `simp/` by `self/prove.u`, by relative paths or a search path.
 3. **All declarations are exported**, so helpers of different modules only coexist if no module imports both. Solution: explicit exports.
-
-## The read procedure
-
-1. **Only missing files are `OsError`s.** Other I/O failures, e.g. permissions or a path that `os.Path` rejects, throw Java exceptions that `Main` and `FileTest` do not catch. Solution: raise `OsError` for every I/O failure.
-2. **Parse errors in the read file** are reported against the reading program, without the read file or the call site, and cannot be caught by `try`. Solution: raise them as an exception with the file and position.
-3. **Wrong arguments to `read`** fall through to the message "unknown procedure read". Solution: a message about the arguments.
 
 ## Compiler
 

@@ -1,3 +1,3 @@
-// type error: cannot unify Int and Bool at 3.21
+// type error: cannot unify Int and Bool
 function f(xs: List[Int]): List[Int] :=
   [x for x in xs if x]

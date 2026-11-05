@@ -1,4 +1,4 @@
-// runtime error: uncaught exception Fail(2) at 10.7
+// runtime error: uncaught exception Fail(2)
 data Fail :=
   | Fail(Int)
 

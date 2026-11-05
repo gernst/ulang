@@ -789,11 +789,3 @@ void p_os_library(u_value name, u_value *result) {
   if (!t) os_error("unknown module ", name->text);
   *result = t;
 }
-
-void p_read(u_value path, u_value *program) {
-  u_fail("read is not available in compiled programs");
-}
-
-void p_library(u_value name, u_value *program) {
-  u_fail("library is not available in compiled programs");
-}

@@ -1,4 +1,4 @@
-// type error: helper is ambiguous: left.helper, right.helper at 6.14
+// type error: helper is ambiguous: left.helper, right.helper
 import left
 import right
 

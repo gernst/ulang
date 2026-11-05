@@ -1,4 +1,4 @@
-// type error: match is not exhaustive, missing Succ(Zero) at 3.3
+// type error: match is not exhaustive, missing Succ(Zero)
 function f(n: Nat): Nat :=
   match n
     case Zero => Zero

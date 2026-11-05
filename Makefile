@@ -46,10 +46,11 @@ endef
 
 .PHONY: bootstrap selfcompile
 
-# the interpreter compiles the compiler, which must compile itself to the same C, and replaces ulang.bin
-bootstrap: ulang.jar
+# the interpreter self/run.u in ulang.bin runs the compiler on itself, whose C, compiled, must compile itself to the same C,
+# and replaces ulang.bin
+bootstrap: ulang.bin
 	mkdir -p $(STAGE)
-	./ulang.sh compile self/ulang.u main $(STAGE)/ulang1.c
+	$(COMPILE) ./ulang.bin run self/ulang.u main -- compile self/ulang.u main $(STAGE)/ulang1.c
 	cc $(CFLAGS) $(STAGE)/ulang1.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/ulang1.bin
 	$(COMPILE) $(STAGE)/ulang1.bin compile self/ulang.u main $(STAGE)/ulang2.c
 	cmp $(STAGE)/ulang1.c $(STAGE)/ulang2.c
@@ -67,8 +68,23 @@ selfcompile: ulang.bin
 	cmp $(STAGE)/ulang2.c $(STAGE)/ulang3.c
 	$(call install,$(STAGE)/ulang2.c,$(STAGE)/ulang2.bin)
 
-# the tests of the modules of self/, compiled by ulang.bin and run in self/, except those that need read of the interpreter
-SELFTESTS = syntax ctx check run print lex c compile
+# every .u file of tests/, self/, simp/, and the library, run by ulang.bin with all its tests in its directory, must succeed,
+# or fail with the error that its first line states, e.g. // type error: unknown variable x
+.PHONY: test
+test: ulang.bin
+	@failed=0; total=0; \
+	for f in $$(find tests self simp ulang/resources -name '*.u' | sort); do \
+	  total=$$((total + 1)); \
+	  expected=$$(head -1 $$f | sed -nE 's#^// ((parse|type|runtime) error: .*)$$#\1#p'); \
+	  out=$$(cd $$(dirname $$f) && $(COMPILE) $(CURDIR)/ulang.bin test $$(basename $$f) 2>&1); status=$$?; \
+	  got=$$(printf '%s\n' "$$out" | sed -nE 's#^(test [^ ]+ failed: |[^ ]+: )((parse|type|runtime) error: .*)$$#\2#p' | head -1); \
+	  if [ -n "$$expected" ]; then [ "$$got" = "$$expected" ]; else [ $$status = 0 ]; fi || \
+	    { failed=$$((failed + 1)); echo "$$f: expected $${expected:-success}, got $${got:-$$out}"; }; \
+	done; \
+	echo "$$((total - failed)) of $$total files passed"; [ $$failed = 0 ]
+
+# the tests of the modules of self/, compiled by ulang.bin and run in self/
+SELFTESTS = syntax ctx check run print lex parse c compile
 
 .PHONY: selftest
 selftest: ulang.bin

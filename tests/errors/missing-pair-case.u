@@ -1,4 +1,4 @@
-// type error: match is not exhaustive, missing (false, true) at 3.3
+// type error: match is not exhaustive, missing (false, true)
 function f(p: Bool * Bool): Int :=
   match p
     case (true, _) => 0

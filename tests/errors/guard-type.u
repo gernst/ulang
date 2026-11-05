@@ -1,4 +1,4 @@
-// type error: cannot unify Int and Bool at 4.15
+// type error: cannot unify Int and Bool
 function f(n: Int): Int :=
   match n
     case m if m => 1

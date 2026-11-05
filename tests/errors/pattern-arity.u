@@ -1,4 +1,4 @@
-// type error: constructor Some expects 1 values, got 2 at 4.10
+// type error: expected 1 values, got 2
 function f(): Int :=
   match None
     case Some(x, y) => 0

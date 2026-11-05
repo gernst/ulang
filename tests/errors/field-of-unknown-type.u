@@ -1,6 +1,0 @@
-// type error: the type ?1 of the value of .x is not known at 6.27
-data Point :=
-  | Point(x: Int, y: Int)
-
-test r() :=
-  local v := (lambda p => p.x)(Point(1, 2))

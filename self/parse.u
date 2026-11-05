@@ -1693,28 +1693,24 @@ procedure parse_file(in path: Str, out program: Program) :=
   call   parse_library(in "prelude", out pre)
   call   parse_file_after(in path, pre, out program)
 
-// the commands agree one by one, shown with path if they do not
-procedure same_commands(in path: Str, cmds: List[Cmd], ds: List[Cmd]) :=
-  match (cmds, ds)
-    case ([cmd; more], [d; rest]) =>
-      assert (path, cmd) == (path, d)
-      call   same_commands(in path, more, rest)
-    case _ =>
-      assert (path, size(cmds)) == (path, size(ds))
-  end
-
-// the files parse as read parses them
-procedure same_parses(in paths: List[Str], pre: Program) :=
-  local expected: Program, actual: Program
+// the files parse, shown with their paths if they do not
+procedure parses(in paths: List[Str], pre: Program) :=
+  local program: Program, failed: Bool
 
   match paths
     case Nil =>
       skip
     case [path; more] =>
-      call read(in path, out expected)
-      call parse_file_after(in path, pre, out actual)
-      call same_commands(in path, expected.cmds, actual.cmds)
-      call same_parses(in more, pre)
+      assign failed := false
+
+      try
+        call parse_file_after(in path, pre, out program)
+      catch
+        case ParseError(_, _) =>
+          assign failed := true
+      end
+      assert (path, failed) == (path, false)
+      call   parses(in more, pre)
   end
 
 procedure parse_failures(in paths: List[Str], pre: Program) :=
@@ -1737,23 +1733,18 @@ procedure parse_failures(in paths: List[Str], pre: Program) :=
   end
 
 test parse_library_modules() :=
-  local expected: Program, actual: Program
+  local program: Program
 
-  call   library(in "prelude", out expected)
-  call   parse_library(in "prelude", out actual)
-  call   same_commands(in "prelude", expected.cmds, actual.cmds)
-  call   library(in "list", out expected)
-  call   parse_library(in "list", out actual)
-  call   same_commands(in "list", expected.cmds, actual.cmds)
-  call   library(in "os", out expected)
-  call   parse_library(in "os", out actual)
-  call   same_commands(in "os", expected.cmds, actual.cmds)
+  call   parse_library(in "prelude", out program)
+  assert program.cmds != Nil
+  call   parse_library(in "set", out program)
+  assert program.cmds != Nil
 
 test parse_files() :=
   local pre: Program
 
   call   parse_library(in "prelude", out pre)
-  call   same_parses(in [
+  call   parses(in [
     "../tests/counter.u",
     "../tests/datatypes.u",
     "../tests/doubler.u",
@@ -1775,7 +1766,6 @@ test parse_files() :=
     "lex.u",
     "parse.u",
     "print.u",
-    "read.u",
     "run.u",
     "syntax.u",
     "value.u"
@@ -1785,7 +1775,7 @@ test parse_error_files() :=
   local pre: Program
 
   call   parse_library(in "prelude", out pre)
-  call   same_parses(in [
+  call   parses(in [
     "../tests/errors/add-bool.u",
     "../tests/errors/ambiguous-name.u",
     "../tests/errors/alias-arity.u",
@@ -1814,7 +1804,6 @@ test parse_error_files() :=
     "../tests/errors/duplicate-type-parameter.u",
     "../tests/errors/empty-match.u",
     "../tests/errors/empty-tuple-argument.u",
-    "../tests/errors/field-of-unknown-type.u",
     "../tests/errors/guard-not-exhaustive.u",
     "../tests/errors/guard-type.u",
     "../tests/errors/if-condition.u",

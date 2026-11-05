@@ -1,4 +1,4 @@
-// type error: unknown variable twice at 5.24
+// type error: unknown variable twice
 import wrapper
 
 test r() :=

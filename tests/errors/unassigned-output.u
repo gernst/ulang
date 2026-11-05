@@ -1,4 +1,4 @@
-// runtime error: output r of p is not assigned at 7.3
+// runtime error: output r of p is not assigned
 procedure p(out r: Int) :=
   skip
 

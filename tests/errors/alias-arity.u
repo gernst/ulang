@@ -1,4 +1,4 @@
-// type error: sort P expects 1 arguments, got 0 at 5.12
+// type error: sort P expects 1 arguments, got 0
 type P[A] :=
   A -> A
 

@@ -1,4 +1,4 @@
-// type error: f does not take 3 arguments at 9.14
+// type error: f does not take 3 arguments
 function f(x: Int): Int :=
   x
 

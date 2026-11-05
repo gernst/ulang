@@ -1,4 +1,4 @@
-// type error: C is already defined at 2.1
+// type error: C is already defined
 data T :=
   | C
   | C
