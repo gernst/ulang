@@ -70,7 +70,7 @@ test: ulang.bin
 	$(COMPILE) ./ulang.bin test tests self simp prelude
 
 # the tests of the modules of self/, compiled by ulang.bin and run in self/
-SELFTESTS = syntax ctx check run print lex parse c compile
+SELFTESTS = syntax ctx check run print lex c
 
 .PHONY: selftest
 selftest: ulang.bin

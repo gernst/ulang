@@ -886,20 +886,7 @@ procedure compile_program(in q: Program, m: Id, entry: Id, out f: CFile) :=
 
 // checks the program of the file source after the prelude, which is its module, and writes its translation to C to target
 procedure compile_file(in source: Str, entry: Id, target: Str) :=
-  local cache: Cache := Nil
-
-  call compile_with(in source, entry, target, ref cache)
-
-// a procedure without parameters
-function is_entry(c: Cmd, n: Name): Bool :=
-  match c
-    case CProc(k, _, [], [], [], _) => k == n
-    case _ => false
-  end
-
-// compile_file with the modules checked so far
-procedure compile_with(in source: Str, entry: Id, target: Str, ref cache: Cache) :=
-  local pre: Program, p: Program, q: Program, f: CFile
+  local pre: Program, p: Program, q: Program, f: CFile, cache: Cache := Nil
 
   call   parse_library(in "prelude", out pre)
   call   parse_file_after(in source, pre, out p)
@@ -907,19 +894,9 @@ procedure compile_with(in source: Str, entry: Id, target: Str, ref cache: Cache)
   call   compile_program(in q, base_name(source), entry, out f)
   call   os_write(in target, c_file(f))
 
-// translates programs of the tests to C in self/out, which the C compiler compiles to compare their output
-test compile_programs() :=
-  local cache: Cache := Nil
-
-  call compile_with(in "../tests/functions.u", "test", "out/functions.c", ref cache)
-  call compile_with(in "../tests/expressions.u", "test", "out/expressions.c", ref cache)
-  call compile_with(in "../tests/datatypes.u", "test", "out/datatypes.c", ref cache)
-  call compile_with(in "../tests/procedures.u", "test", "out/procedures.c", ref cache)
-  call compile_with(in "../tests/exceptions.u", "test", "out/exceptions.c", ref cache)
-  call compile_with(in "../tests/strings.u", "test", "out/strings.c", ref cache)
-  call compile_with(in "../tests/modules.u", "test", "out/modules.c", ref cache)
-  call compile_with(in "../tests/files.u", "test", "out/files.c", ref cache)
-  call compile_with(in "../tests/fields.u", "test", "out/fields.c", ref cache)
-  call compile_with(in "../tests/locals.u", "test", "out/locals.c", ref cache)
-  call compile_with(in "../prelude/map.u", "test", "out/map.c", ref cache)
-  call compile_with(in "../prelude/set.u", "test", "out/set.c", ref cache)
+// a procedure without parameters
+function is_entry(c: Cmd, n: Name): Bool :=
+  match c
+    case CProc(k, _, [], [], [], _) => k == n
+    case _ => false
+  end

@@ -12,9 +12,8 @@ A minimal programming language with pure functional expressions, imperative stat
   - `./ulang.bin compile <file> <entry> <target.c>` translates the file to C, where `main()` calls the procedure named entry, which takes no parameters, or runs all tests for the entry `test`, which then print `test name passed`, and `cc -DULANG_LIB='"'$PWD/prelude'"' -I self/runtime target.c self/runtime/ulang.c -lgmp -lgc` compiles it
   - errors are printed without positions, except those of parsing
 - `make selfcompile` compiles the compiler with `ulang.bin`, and `make bootstrap` with the interpreter `self/run.u` in `ulang.bin` (`ulang.bin run self/ulang.u main -- compile …`), and both replace `bootstrap/ulang.c` and `ulang.bin` only if the new compiler compiles itself to the same C, after keeping the previous ones in `bootstrap/` with a time stamp, where the C files are versioned and the binaries are not
-- `make test` is `ulang.bin test tests self simp prelude`, where the tests of `self/parse.u` and `self/compile.u` in the interpreter take most of its 97 seconds
+- `make test` is `ulang.bin test tests self simp prelude`, which takes 3 seconds
 - `make selftest` compiles the tests of the modules of `self/` with `ulang.bin` and the entry `test`, and runs them
-- the test of `self/compile.u` writes the translations of some tests with the entry `test` to `self/out/`
 - named fields of constructors, `C(name: T, …)`, give accessors `e.name` and updates `e with name := a, other := b`, which the checker resolves by the type of `e` to the generated functions `T.name` and `T.name:=`, which raise `MissingField("T.name")` for constructors without the field; a comma followed by `name :=` continues the updates, also in `assign` and `local`
 - `make install` packages the VS Code extension in `vscode/` as `ulang.vsix` and installs it into VSCodium (`codium`): syntax highlighting, a run button, `▶ Run` links above procedures without parameters and tests, errors in the Problems view, and the tests in the Testing view, all by running `ulang.bin` with `run`, `test`, and `check`, the one of the workspace or that of the setting `ulang.binary`
 

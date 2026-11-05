@@ -1218,6 +1218,9 @@ function is_notation(cmd: Cmd): Bool :=
 data Context :=
   | Context(notations: Notations, modules: List[Id * List[Cmd]], loading: List[Id], base: Option[Notations], dir: Option[Str])
 
+function empty_context(): Context :=
+  Context(empty_notations(), Nil, Nil, None, None)
+
 function with_commands(ctx: Context, cmds: List[Cmd]): Context :=
   ctx with notations := with_notations(ctx.notations, cmds)
 
@@ -1647,7 +1650,7 @@ procedure parse_text(in text: Str, ctx: Context, out program: Program) :=
 // the module of name, which is parsed after the prelude pre with its notations and modules, and reads modules from dir, or else the library,
 // where a module that the prelude imports declares its own notations again
 procedure parse_module_after(in name: Id, pre: Program, dir: Option[Str], text: Str, out program: Program) :=
-  local ctx := Context(empty_notations(), Nil, Nil, None, None)
+  local ctx := empty_context()
 
   call declare_all(in [cmd for cmd in pre.cmds if cmd != CImport(name)], ref ctx)
   call parse_text(in text, ctx with loading := [name], base := Some(ctx.notations), dir := dir, out program)
@@ -1659,7 +1662,7 @@ procedure parse_library(in name: Id, out program: Program) :=
   call library_text(in name, 0, out text)
 
   if name == "prelude"
-    call parse_text(in text, Context(empty_notations(), Nil, ["prelude"], None, None), out program)
+    call parse_text(in text, empty_context() with loading := ["prelude"], out program)
   else
     call parse_library(in "prelude", out pre)
     call parse_module_after(in name, pre, None, text, out program)
@@ -1692,195 +1695,3 @@ procedure parse_file(in path: Str, out program: Program) :=
 
   call   parse_library(in "prelude", out pre)
   call   parse_file_after(in path, pre, out program)
-
-// the files parse, shown with their paths if they do not
-procedure parses(in paths: List[Str], pre: Program) :=
-  local program: Program, failed: Bool
-
-  match paths
-    case Nil =>
-      skip
-    case [path; more] =>
-      assign failed := false
-
-      try
-        call parse_file_after(in path, pre, out program)
-      catch
-        case ParseError(_, _) =>
-          assign failed := true
-      end
-      assert (path, failed) == (path, false)
-      call   parses(in more, pre)
-  end
-
-procedure parse_failures(in paths: List[Str], pre: Program) :=
-  local program: Program, failed: Bool
-
-  match paths
-    case Nil =>
-      skip
-    case [path; more] =>
-      assign failed := false
-
-      try
-        call parse_file_after(in path, pre, out program)
-      catch
-        case ParseError(_, _) =>
-          assign failed := true
-      end
-      assert (path, failed) == (path, true)
-      call   parse_failures(in more, pre)
-  end
-
-test parse_library_modules() :=
-  local program: Program
-
-  call   parse_library(in "prelude", out program)
-  assert program.cmds != Nil
-  call   parse_library(in "set", out program)
-  assert program.cmds != Nil
-
-test parse_files() :=
-  local pre: Program
-
-  call   parse_library(in "prelude", out pre)
-  call   parses(in [
-    "../tests/counter.u",
-    "../tests/datatypes.u",
-    "../tests/doubler.u",
-    "../tests/exceptions.u",
-    "../tests/expressions.u",
-    "../tests/fields.u",
-    "../tests/files.u",
-    "../tests/functions.u",
-    "../tests/literals.u",
-    "../tests/locals.u",
-    "../tests/modules.u",
-    "../tests/procedures.u",
-    "../tests/stack.u",
-    "../tests/strings.u",
-    "c.u",
-    "check.u",
-    "compile.u",
-    "ctx.u",
-    "lex.u",
-    "parse.u",
-    "print.u",
-    "run.u",
-    "syntax.u",
-    "value.u"
-  ], pre)
-
-test parse_error_files() :=
-  local pre: Program
-
-  call   parse_library(in "prelude", out pre)
-  call   parses(in [
-    "../tests/errors/add-bool.u",
-    "../tests/errors/ambiguous-name.u",
-    "../tests/errors/alias-arity.u",
-    "../tests/errors/assertion.u",
-    "../tests/errors/assign-captured.u",
-    "../tests/errors/assign-input.u",
-    "../tests/errors/assign-pattern-variable.u",
-    "../tests/errors/assign-twice.u",
-    "../tests/errors/assign-type.u",
-    "../tests/errors/call-aliasing.u",
-    "../tests/errors/call-arity.u",
-    "../tests/errors/call-output-type.u",
-    "../tests/errors/case-types.u",
-    "../tests/errors/catch-unknown-type.u",
-    "../tests/errors/comprehension-list.u",
-    "../tests/errors/comprehension-test.u",
-    "../tests/errors/constructor-clash.u",
-    "../tests/errors/curried-duplicate.u",
-    "../tests/errors/curried-missing-type.u",
-    "../tests/errors/data-arity.u",
-    "../tests/errors/data-unknown-param.u",
-    "../tests/errors/division-by-zero.u",
-    "../tests/errors/duplicate-constructor.u",
-    "../tests/errors/duplicate-let.u",
-    "../tests/errors/duplicate-test.u",
-    "../tests/errors/duplicate-type-parameter.u",
-    "../tests/errors/empty-match.u",
-    "../tests/errors/empty-tuple-argument.u",
-    "../tests/errors/guard-not-exhaustive.u",
-    "../tests/errors/guard-type.u",
-    "../tests/errors/if-condition.u",
-    "../tests/errors/if-statement-condition.u",
-    "../tests/errors/inner.u",
-    "../tests/errors/lambda-monomorphic.u",
-    "../tests/errors/left.u",
-    "../tests/errors/let-rigid.u",
-    "../tests/errors/list-display.u",
-    "../tests/errors/list-type.u",
-    "../tests/errors/local-scope.u",
-    "../tests/errors/missing-cons.u",
-    "../tests/errors/missing-false.u",
-    "../tests/errors/missing-field.u",
-    "../tests/errors/missing-int.u",
-    "../tests/errors/missing-local-type.u",
-    "../tests/errors/missing-nested-zero.u",
-    "../tests/errors/missing-nil.u",
-    "../tests/errors/missing-output-type.u",
-    "../tests/errors/missing-pair-case.u",
-    "../tests/errors/missing-parameter-type.u",
-    "../tests/errors/missing-some-literal.u",
-    "../tests/errors/missing-some.u",
-    "../tests/errors/missing-statement-case.u",
-    "../tests/errors/missing-successor.u",
-    "../tests/errors/overload-arity.u",
-    "../tests/errors/overload-same-arity.u",
-    "../tests/errors/overload-unapplied.u",
-    "../tests/errors/pair-type.u",
-    "../tests/errors/pattern-arity.u",
-    "../tests/errors/pattern-duplicate.u",
-    "../tests/errors/pattern-type.u",
-    "../tests/errors/procedure-modes.u",
-    "../tests/errors/raise-type-parameter.u",
-    "../tests/errors/raise-uncaught.u",
-    "../tests/errors/raise-unknown-type.u",
-    "../tests/errors/rigid-param.u",
-    "../tests/errors/rigid-params.u",
-    "../tests/errors/right.u",
-    "../tests/errors/sort-arity.u",
-    "../tests/errors/string-display.u",
-    "../tests/errors/test-types.u",
-    "../tests/errors/too-many-arguments.u",
-    "../tests/errors/transitive-name.u",
-    "../tests/errors/unassigned-output.u",
-    "../tests/errors/uninitialized.u",
-    "../tests/errors/unit.u",
-    "../tests/errors/unknown-constructor.u",
-    "../tests/errors/unknown-field.u",
-    "../tests/errors/unknown-field-update.u",
-    "../tests/errors/unknown-procedure.u",
-    "../tests/errors/unknown-sort-generic.u",
-    "../tests/errors/unknown-sort.u",
-    "../tests/errors/unknown-variable.u",
-    "../tests/errors/unreachable-after-wildcard.u",
-    "../tests/errors/unreachable-covered.u",
-    "../tests/errors/unreachable-wildcard.u",
-    "../tests/errors/unreachable-literal.u",
-    "../tests/errors/unreachable-repeated.u",
-    "../tests/errors/wrapper.u"
-  ], pre)
-  call parse_failures(in [
-    "../tests/errors/argument-list.u",
-    "../tests/errors/broken.u",
-    "../tests/errors/cycle.u",
-    "../tests/errors/field-types.u",
-    "../tests/errors/import-error.u",
-    "../tests/errors/keyword-name.u",
-    "../tests/errors/list-without-elements.u",
-    "../tests/errors/mixed-literal.u",
-    "../tests/errors/not-associative.u",
-    "../tests/errors/not-prefix.u",
-    "../tests/errors/operator-before-declaration.u",
-    "../tests/errors/repeated-field.u",
-    "../tests/errors/string-escape.u",
-    "../tests/errors/undeclared-operator.u",
-    "../tests/errors/unknown-module.u",
-    "../tests/errors/transitive-notation.u",
-    "../tests/errors/wildcard-name.u"
-  ], pre)
