@@ -3,6 +3,7 @@
 // read from the directory of the parsed file, or else from the library
 
 import syntax
+import sig
 import lex
 import os
 import set
@@ -20,24 +21,17 @@ function dir_name(path: Str): Str
 procedure parse_file_after(in path: Str, pre: Program, out program: Program)
 procedure parse_text_after(in path: Str, pre: Program, text: Str, out program: Program)
 
-// the commands of text in the context ctx, which reads no files unless text imports modules
-procedure parse_text(in text: Str, ctx: Context, out program: Program)
+// the commands of text after the loader, which reads no files unless text imports modules
+procedure parse_text(in text: Str, loader: Loader, out program: Program)
 
-// the precedences of the prefix and postfix operators declared so far, and the fixities and precedences of the infix ones
-data Notations :=
-  | Notations(prefix_ops: Map[Id, Int], postfix_ops: Map[Id, Int], infix_ops: Map[Id, Fixity * Int])
-
-// the notations so far, the modules loaded so far with their own notations, the modules being parsed, which cannot be imported,
-// the notations of the prelude, which modules are parsed with, or None while parsing the prelude,
+// the notations so far, the signatures of the modules loaded so far with their own notations, the modules being parsed,
+// which cannot be imported, the notations of the prelude, which modules are parsed with, or None while parsing the prelude,
 // whose modules are parsed with its notations so far, and the directory of the parsed file, whose modules hide the library
-data Context :=
-  | Context(notations: Notations, modules: Map[Id, List[Cmd]], loading: List[Id], base: Option[Notations], dir: Option[Str])
+data Loader :=
+  | Loader(notations: Notations, sigs: Map[Id, Sig], loading: List[Id], base: Option[Notations], dir: Option[Str])
 
-function empty_context(): Context
-function declare_commands(ctx: Context, cmds: List[Cmd]): Context
-function prefix_prec(notations: Notations, op: Id): Option[Int]
-function postfix_prec(notations: Notations, op: Id): Option[Int]
-function infix_of(notations: Notations, op: Id): Option[Fixity * Int]
+function empty_loader(): Loader
+function declare_commands(loader: Loader, cmds: List[Cmd]): Loader
 
 implementation
 
@@ -65,70 +59,43 @@ function pat_ops(): Ops[Pat] :=
 
 // notations
 
-function prefix_prec(notations: Notations, op: Id): Option[Int] :=
-  get(op, notations.prefix_ops)
-
-function postfix_prec(notations: Notations, op: Id): Option[Int] :=
-  get(op, notations.postfix_ops)
-
-function infix_of(notations: Notations, op: Id): Option[Fixity * Int] :=
-  get(op, notations.infix_ops)
-
-function is_operator(notations: Notations, op: Id): Bool :=
-  contains(op, notations.prefix_ops) or contains(op, notations.postfix_ops) or contains(op, notations.infix_ops)
-
-function empty_notations(): Notations :=
-  Notations(empty(), empty(), empty())
-
-function with_notations(notations: Notations, cmds: List[Cmd]): Notations :=
-  match cmds
-    case Nil => notations
-    case [CNotation(f, prec, ops); more] => with_notations(with_operators(notations, f, prec, ops), more)
-    case [_; more] => with_notations(notations, more)
-  end
-
-function with_operators(notations: Notations, f: Fixity, prec: Int, ops: List[Id]): Notations :=
-  match (f, ops)
-    case (_, Nil) => notations
-    case (FPrefix, [op; more]) => with_operators(notations with prefix_ops := put(op, prec, notations.prefix_ops), f, prec, more)
-    case (FPostfix, [op; more]) => with_operators(notations with postfix_ops := put(op, prec, notations.postfix_ops), f, prec, more)
-    case (_, [op; more]) => with_operators(notations with infix_ops := put(op, (f, prec), notations.infix_ops), f, prec, more)
-  end
-
-// the notation of op of the kind of f, if any
-function notation_of(notations: Notations, f: Fixity, op: Id): Option[Fixity * Int] :=
-  match (f, prefix_prec(notations, op), postfix_prec(notations, op))
-    case (FPrefix, Some(prec), _) => Some((FPrefix, prec))
-    case (FPrefix, None, _) => None
-    case (FPostfix, _, Some(prec)) => Some((FPostfix, prec))
-    case (FPostfix, _, None) => None
-    case _ => infix_of(notations, op)
-  end
-
-// an operator of the notations cmds that already has a notation of the same kind, where imports may repeat it as it is
-function duplicate(notations: Notations, cmds: List[Cmd], imported: Bool): Option[Id] :=
+// an operator of the notations cmds that already has a notation of the same kind
+function duplicate(notations: Notations, cmds: List[Cmd]): Option[Id] :=
   match cmds
     case Nil => None
-    case [CNotation(f, prec, ops); more] =>
-      match [op for op in ops if is_duplicate(notations, f, prec, op, imported)]
+    case [CNotation(f, _, ops); more] =>
+      match [op for op in ops if notation_of(notations, f, op) != None]
         case [op; _] => Some(op)
-        case Nil => duplicate(notations, more, imported)
+        case Nil => duplicate(notations, more)
       end
-    case [_; more] => duplicate(notations, more, imported)
+    case [_; more] => duplicate(notations, more)
   end
 
-function is_duplicate(notations: Notations, f: Fixity, prec: Int, op: Id, imported: Bool): Bool :=
-  match notation_of(notations, f, op)
-    case Some(old) => not imported or old != (f, prec)
-    case None => false
+// an operator of the notations of an imported module with another notation of the same kind, where imports may repeat a
+// notation as it is
+function redeclared(notations: Notations, imported: Notations): Option[Id] :=
+  match [op for op => prec in imported.prefix_ops if differs(prefix_prec(notations, op), prec)] ++
+      [op for op => prec in imported.postfix_ops if differs(postfix_prec(notations, op), prec)] ++
+      [op for op => fp in imported.infix_ops if differs(infix_of(notations, op), fp)]
+    case [op; _] => Some(op)
+    case Nil => None
   end
 
-procedure check_duplicates(in notations: Notations, cmds: List[Cmd], imported: Bool, offset: Int) :=
-  match duplicate(notations, cmds, imported)
-    case Some(op) if imported =>
-      raise ParseError("imported operator " ++ op ++ " is declared differently", offset)
+function differs[A](old: Option[A], a: A): Bool :=
+  old != None and old != Some(a)
+
+procedure check_duplicates(in notations: Notations, cmds: List[Cmd], offset: Int) :=
+  match duplicate(notations, cmds)
     case Some(op) =>
       raise ParseError("operator " ++ op ++ " is already declared", offset)
+    case None =>
+      skip
+  end
+
+procedure check_imported(in notations: Notations, imported: Notations, offset: Int) :=
+  match redeclared(notations, imported)
+    case Some(op) =>
+      raise ParseError("imported operator " ++ op ++ " is declared differently", offset)
     case None =>
       skip
   end
@@ -1235,34 +1202,27 @@ function declarations(cmds: List[Cmd]): List[Cmd] :=
     case [cmd; more] => [cmd; declarations(more)]
   end
 
-function is_notation(cmd: Cmd): Bool :=
-  match cmd
-    case CNotation(_, _, _) => true
-    case _ => false
-  end
+function empty_loader(): Loader :=
+  Loader(empty_notations(), empty(), Nil, None, None)
 
-function empty_context(): Context :=
-  Context(empty_notations(), empty(), Nil, None, None)
+function with_module(loader: Loader, cmd: Cmd): Loader :=
+  loader with sigs := put_all(sigs_of(cmd), loader.sigs)
 
-function with_commands(ctx: Context, cmds: List[Cmd]): Context :=
-  ctx with notations := with_notations(ctx.notations, cmds)
-
-function with_module(ctx: Context, cmd: Cmd): Context :=
-  ctx with modules := put_all(modules_of(cmd), ctx.modules)
-
-// module cmd and the modules it loads, with their own notations, which a module without an export section keeps private
-function modules_of(cmd: Cmd): List[Id * List[Cmd]] :=
+// the signatures of module cmd and of the modules it loads, with their own notations, which a module without an export
+// section keeps private
+function sigs_of(cmd: Cmd): List[Id * Sig] :=
   match cmd
     case CModule(name, cmds) =>
-      let own := if contains(CExport, cmds) then [d for d in cmds if is_notation(d)] else Nil in
-        [(name, own); concat([modules_of(d) for d in cmds])]
+      let own := if contains(CExport, cmds) then with_notations(empty_notations(), cmds) else empty_notations() in
+        [(name, empty() with notations := own); concat([sigs_of(d) for d in cmds])]
     case _ => Nil
   end
 
-function own_notations(ctx: Context, name: Id): List[Cmd] :=
-  match get(name, ctx.modules)
-    case Some(ns) => ns
-    case None => Nil
+// the notations that module name exports
+function exported_notations(loader: Loader, name: Id): Notations :=
+  match get(name, loader.sigs)
+    case Some(sig) => sig.notations
+    case None => empty_notations()
   end
 
 // the type parameters [A, B] of a declaration, if any
@@ -1529,8 +1489,8 @@ procedure parse_procedure(in notations: Notations, out cmd: Cmd, ref toks: Token
   end
 
 // the commands of one declaration, where an import is the marker CImport(n), preceded by module n at its first import
-procedure parse_command(in ctx: Context, out cmds: List[Cmd], ref toks: Tokens) :=
-  local notations := ctx.notations, name: Id, params: List[Id], typ: Type, cmd: Cmd, body: Stmt, xs: List[Var], offset: Int
+procedure parse_command(in loader: Loader, out cmds: List[Cmd], ref toks: Tokens) :=
+  local notations := loader.notations, name: Id, params: List[Id], typ: Type, cmd: Cmd, body: Stmt, xs: List[Var], offset: Int
 
   match head_token(toks)
     case TName("import") =>
@@ -1538,19 +1498,19 @@ procedure parse_command(in ctx: Context, out cmds: List[Cmd], ref toks: Tokens) 
       call   advance(ref toks)
       call   parse_name(out name, ref toks)
 
-      if contains(name, ctx.modules)
-        call   check_duplicates(in notations, own_notations(ctx, name), true, offset)
+      if contains(name, loader.sigs)
+        call   check_imported(in notations, exported_notations(loader, name), offset)
         assign cmds := [CImport(name)]
       else
-        call   load_module(in name, ctx, offset, out cmds)
-        call   check_duplicates(in notations, cmds, true, offset)
+        call   load_module(in name, loader, offset, out cmds)
+        call   check_imported(in notations, exported_notations(with_module(loader, CModule(name, cmds)), name), offset)
         assign cmds := [CModule(name, declarations(cmds)), CImport(name)]
       end
 
     case TName(w) if contains(w, ["prefix", "postfix", "infix"]) =>
       assign offset := head_offset(toks)
       call   parse_notation(in notations, out cmd, ref toks)
-      call   check_duplicates(in notations, [cmd], false, offset)
+      call   check_duplicates(in notations, [cmd], offset)
       assign cmds := [cmd]
 
     case TName("type") =>
@@ -1591,18 +1551,18 @@ procedure parse_command(in ctx: Context, out cmds: List[Cmd], ref toks: Tokens) 
   end
 
 // the context after the commands cmds, where an import brings the own notations of the module
-function declare_commands(ctx: Context, cmds: List[Cmd]): Context :=
+function declare_commands(loader: Loader, cmds: List[Cmd]): Loader :=
   match cmds
     case Nil =>
-      ctx
+      loader
     case [CNotation(f, prec, ops); more] =>
-      declare_commands(with_commands(ctx, [CNotation(f, prec, ops)]), more)
+      declare_commands(loader with notations := with_operators(loader.notations, f, prec, ops), more)
     case [CModule(n, ds); more] =>
-      declare_commands(with_module(ctx, CModule(n, ds)), more)
+      declare_commands(with_module(loader, CModule(n, ds)), more)
     case [CImport(n); more] =>
-      declare_commands(with_commands(ctx, own_notations(ctx, n)), more)
+      declare_commands(loader with notations := union_notations(loader.notations, exported_notations(loader, n)), more)
     case [_; more] =>
-      declare_commands(ctx, more)
+      declare_commands(loader, more)
   end
 
 // where a module is: at its imports, which come first, in its export section or its implementation section, or in a module
@@ -1614,7 +1574,7 @@ data Section :=
   | NoSections
 
 // notations apply to the commands after them
-procedure parse_commands(out cmds: List[Cmd], ref ctx: Context, toks: Tokens) :=
+procedure parse_commands(out cmds: List[Cmd], ref loader: Loader, toks: Tokens) :=
   local rev: List[Cmd] := Nil, more: List[Cmd], section := Opening, offset: Int
 
   while head_token(toks) != TEnd
@@ -1643,11 +1603,11 @@ procedure parse_commands(out cmds: List[Cmd], ref ctx: Context, toks: Tokens) :=
         raise ParseError("imports come before export", offset)
 
       case _ =>
-        call   parse_command(in ctx, out more, ref toks)
+        call   parse_command(in loader, out more, ref toks)
         call   enter_section(in more, offset, ref section)
     end
 
-    assign ctx := declare_commands(ctx, more), rev := reverse_onto(more, rev)
+    assign loader := declare_commands(loader, more), rev := reverse_onto(more, rev)
   end
 
   assign cmds := reverse(rev)
@@ -1702,19 +1662,19 @@ procedure library_text(in name: Id, offset: Int, out text: Str) :=
   end
 
 // the commands of module n, parsed with the notations of the prelude and of its own imports, since imports are not transitive
-procedure load_module(in name: Id, ctx: Context, offset: Int, out cmds: List[Cmd]) :=
-  local text: Str, module_toks: Tokens, module_ctx: Context
+procedure load_module(in name: Id, loader: Loader, offset: Int, out cmds: List[Cmd]) :=
+  local text: Str, module_toks: Tokens, module_loader: Loader
 
-  if contains(name, ctx.loading)
+  if contains(name, loader.loading)
     raise ParseError("cyclic import of " ++ name, offset)
   end
 
-  call   module_text(in name, ctx.dir, offset, out text)
-  assign module_ctx := ctx with notations := base_notations(ctx), loading := [name; ctx.loading]
+  call   module_text(in name, loader.dir, offset, out text)
+  assign module_loader := loader with notations := base_notations(loader), loading := [name; loader.loading]
 
   try
     call lex(in text, out module_toks)
-    call parse_commands(out cmds, ref module_ctx, module_toks)
+    call parse_commands(out cmds, ref module_loader, module_toks)
   catch
     case LexError(m, i) =>
       raise ParseError(m ++ " in " ++ name, i)
@@ -1722,15 +1682,15 @@ procedure load_module(in name: Id, ctx: Context, offset: Int, out cmds: List[Cmd
       raise ParseError(m ++ " in " ++ name, i)
   end
 
-function base_notations(ctx: Context): Notations :=
-  match ctx.base
+function base_notations(loader: Loader): Notations :=
+  match loader.base
     case Some(b) => b
-    case None => ctx.notations
+    case None => loader.notations
   end
 
-// the program text in the context ctx, e.g., after the prelude
-procedure parse_text(in text: Str, ctx: Context, out program: Program) :=
-  local toks: Tokens, cmds: List[Cmd], after := ctx
+// the program text after the loader, e.g., after the prelude
+procedure parse_text(in text: Str, loader: Loader, out program: Program) :=
+  local toks: Tokens, cmds: List[Cmd], after := loader
 
   try
     call lex(in text, out toks)
@@ -1745,9 +1705,9 @@ procedure parse_text(in text: Str, ctx: Context, out program: Program) :=
 // the module of name, which is parsed after the prelude pre with its notations and modules, and reads modules from dir, or else the library,
 // where a module that the prelude imports declares its own notations again
 procedure parse_module_after(in name: Id, pre: Program, dir: Option[Str], text: Str, out program: Program) :=
-  local ctx := declare_commands(empty_context(), [cmd for cmd in pre.cmds if cmd != CImport(name)])
+  local loader := declare_commands(empty_loader(), [cmd for cmd in pre.cmds if cmd != CImport(name)])
 
-  call parse_text(in text, ctx with loading := [name], base := Some(ctx.notations), dir := dir, out program)
+  call parse_text(in text, loader with loading := [name], base := Some(loader.notations), dir := dir, out program)
 
 // the prelude, or another module of the library parsed after the prelude, as library gives them
 procedure parse_library(in name: Id, out program: Program) :=
@@ -1756,7 +1716,7 @@ procedure parse_library(in name: Id, out program: Program) :=
   call library_text(in name, 0, out text)
 
   if name == "prelude"
-    call parse_text(in text, empty_context() with loading := ["prelude"], out program)
+    call parse_text(in text, empty_loader() with loading := ["prelude"], out program)
   else
     call parse_library(in "prelude", out pre)
     call parse_module_after(in name, pre, None, text, out program)
@@ -1787,7 +1747,7 @@ procedure parse_file_after(in path: Str, pre: Program, out program: Program) :=
 // text as the file at path after the prelude pre, where the prelude itself comes after the empty program
 procedure parse_text_after(in path: Str, pre: Program, text: Str, out program: Program) :=
   if pre.cmds == Nil
-    call parse_text(in text, empty_context() with loading := [base_name(path)], dir := Some(dir_name(path)), out program)
+    call parse_text(in text, empty_loader() with loading := [base_name(path)], dir := Some(dir_name(path)), out program)
   else
     call parse_module_after(in base_name(path), pre, Some(dir_name(path)), text, out program)
   end

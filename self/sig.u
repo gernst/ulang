@@ -1,4 +1,5 @@
-// the signatures of modules for the checker, the types of their declarations by name, made of the signatures of the declarations
+// the signatures of modules, the types of their declarations by name, made of the signatures of the declarations, and
+// their notations, where the parser fills the notations and the checker the declarations
 
 import syntax
 import map
@@ -6,11 +7,15 @@ import set
 
 export
 
+// the precedences of prefix and postfix operators, and the fixities and precedences of infix ones
+data Notations :=
+  | Notations(prefix_ops: Map[Id, Int], postfix_ops: Map[Id, Int], infix_ops: Map[Id, Fixity * Int])
+
 // type definitions with their parameters, the type schemes of functions with their parameters, the signatures of procedures
 // with parameters, ins, outs, and refs, datatypes with their numbers of parameters, their constructors,
 // constructors with the parameters of their datatype, their argument types, and their datatype,
-// and the declarations of each base name, of any kind and module, where the signature that a module shows to its importers
-// has only its exported declarations
+// the declarations of each base name, of any kind and module, and the notations, where the signature that a module shows to
+// its importers has only its exported declarations and notations
 data Sig :=
   | Sig(
     aliases: Map[Name, List[Id] * Type],
@@ -19,9 +24,19 @@ data Sig :=
     datas: Map[Name, Int],
     members: Map[Name, List[Name]],
     constrs: Map[Name, List[Type] * List[Type] * Type],
-    named: Map[Id, List[Name]]
+    named: Map[Id, List[Name]],
+    notations: Notations
   )
 
+function empty_notations(): Notations
+function prefix_prec(notations: Notations, op: Id): Option[Int]
+function postfix_prec(notations: Notations, op: Id): Option[Int]
+function infix_of(notations: Notations, op: Id): Option[Fixity * Int]
+function notation_of(notations: Notations, f: Fixity, op: Id): Option[Fixity * Int]
+function is_operator(notations: Notations, op: Id): Bool
+function with_notations(notations: Notations, cmds: List[Cmd]): Notations
+function with_operators(notations: Notations, f: Fixity, prec: Int, ops: List[Id]): Notations
+function union_notations(a: Notations, b: Notations): Notations
 function empty(): Sig
 function restrict(sig: Sig, ms: List[Id]): Sig
 function union(a: Sig, b: Sig): Sig
@@ -49,7 +64,7 @@ function with_constr(sig: Sig, n: Name, kc: List[Type] * List[Type] * Type): Sig
 implementation
 
 function empty(): Sig :=
-  Sig(empty(), empty(), empty(), empty(), empty(), empty(), empty())
+  Sig(empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty_notations())
 
 // the declarations of the modules ms
 function restrict(sig: Sig, ms: List[Id]): Sig :=
@@ -60,7 +75,8 @@ function restrict(sig: Sig, ms: List[Id]): Sig :=
     owned_map(sig.datas, ms),
     owned_map(sig.members, ms),
     owned_map(sig.constrs, ms),
-    put_all(owned_named(entries(sig.named), ms), empty())
+    put_all(owned_named(entries(sig.named), ms), empty()),
+    sig.notations
   )
 
 function owned_map[V](m: Map[Name, V], ms: List[Id]): Map[Name, V] :=
@@ -94,7 +110,8 @@ function union(a: Sig, b: Sig): Sig :=
     put_all(entries(b.datas), a.datas),
     put_all(entries(b.members), a.members),
     put_all(entries(b.constrs), a.constrs),
-    union_named(entries(b.named), a.named)
+    union_named(entries(b.named), a.named),
+    union_notations(a.notations, b.notations)
   )
 
 // the signature without the private functions, procedures, and constructors, values, and without the private sorts, each kind
@@ -108,7 +125,8 @@ function exported(sig: Sig, values: Set[Name], sorts: Set[Name]): Sig :=
       without(sig.datas, sorts),
       put_all([e for e in entries(without(sig.members, sorts)) if not exists(value_of(e), lambda k => contains(k, values))], empty()),
       without(sig.constrs, values),
-      empty()
+      empty(),
+      sig.notations
     ) in
     kept with named := put_all([(key_of(e), [n for n in value_of(e) if declares(kept, n)]) for e in entries(sig.named)], empty())
 
@@ -208,3 +226,54 @@ function with_members(sig: Sig, n: Name, cs: List[Name]): Sig :=
 
 function with_constr(sig: Sig, n: Name, kc: List[Type] * List[Type] * Type): Sig :=
   sig with constrs := put(n, kc, sig.constrs), named := with_named(sig.named, n)
+
+// notations
+
+function empty_notations(): Notations :=
+  Notations(empty(), empty(), empty())
+
+function prefix_prec(notations: Notations, op: Id): Option[Int] :=
+  get(op, notations.prefix_ops)
+
+function postfix_prec(notations: Notations, op: Id): Option[Int] :=
+  get(op, notations.postfix_ops)
+
+function infix_of(notations: Notations, op: Id): Option[Fixity * Int] :=
+  get(op, notations.infix_ops)
+
+// the notation of op of the kind of f, if any
+function notation_of(notations: Notations, f: Fixity, op: Id): Option[Fixity * Int] :=
+  match (f, prefix_prec(notations, op), postfix_prec(notations, op))
+    case (FPrefix, Some(prec), _) => Some((FPrefix, prec))
+    case (FPrefix, None, _) => None
+    case (FPostfix, _, Some(prec)) => Some((FPostfix, prec))
+    case (FPostfix, _, None) => None
+    case _ => infix_of(notations, op)
+  end
+
+function is_operator(notations: Notations, op: Id): Bool :=
+  contains(op, notations.prefix_ops) or contains(op, notations.postfix_ops) or contains(op, notations.infix_ops)
+
+// the notations with those of the commands cmds
+function with_notations(notations: Notations, cmds: List[Cmd]): Notations :=
+  match cmds
+    case Nil => notations
+    case [CNotation(f, prec, ops); more] => with_notations(with_operators(notations, f, prec, ops), more)
+    case [_; more] => with_notations(notations, more)
+  end
+
+function with_operators(notations: Notations, f: Fixity, prec: Int, ops: List[Id]): Notations :=
+  match (f, ops)
+    case (_, Nil) => notations
+    case (FPrefix, [op; more]) => with_operators(notations with prefix_ops := put(op, prec, notations.prefix_ops), f, prec, more)
+    case (FPostfix, [op; more]) => with_operators(notations with postfix_ops := put(op, prec, notations.postfix_ops), f, prec, more)
+    case (_, [op; more]) => with_operators(notations with infix_ops := put(op, (f, prec), notations.infix_ops), f, prec, more)
+  end
+
+// the notations of both, where those of b count
+function union_notations(a: Notations, b: Notations): Notations :=
+  Notations(
+    put_all(entries(b.prefix_ops), a.prefix_ops),
+    put_all(entries(b.postfix_ops), a.postfix_ops),
+    put_all(entries(b.infix_ops), a.infix_ops)
+  )
