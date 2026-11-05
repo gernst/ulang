@@ -728,16 +728,16 @@ procedure parse_lambda(in notations: Notations, params: List[Id], out e: Expr, r
   end
 
 // a literal is the fold of its elements unrolled, {a, b} the set insert(a, insert(b, empty())) and {k => v, l => w} the map
-// put(l, w, put(k, v, empty())), where the last entry of a key counts, by the functions of the modules set and map,
-// and {e for x in c if q} and {k => v for k1 => v1 in m if q} are their comprehensions, while {} is empty() of the module
-// that its type determines
+// put(l, w, put(k, v, empty())), where the last entry of a key counts, by insert, put, and empty of the imported modules,
+// which are set and map, and {e for x in c if q} and {k => v for k1 => v1 in m if q} are their comprehensions, while {} is
+// empty() of the module that its type determines
 procedure parse_set_or_map(in notations: Notations, params: List[Id], out e: Expr, ref toks: Tokens) :=
   local offset := head_offset(toks)
 
   call advance(ref toks)
 
   if at_punct(toks, '}')
-    assign e := EApp(declared("empty"), [])
+    assign e := declared_app("empty", [])
   else
     call parse_set_or_map_elements(in notations, params, offset, out e, ref toks)
   end
@@ -766,10 +766,10 @@ procedure parse_set_or_map_elements(in notations: Notations, params: List[Id], o
       raise ParseError("a literal {...} has either elements a or entries k => v", offset)
 
     case [first; _] if is_entry(first) =>
-      assign e := foldl(elements, library_call("map", "empty", []), put_entry)
+      assign e := foldl(elements, declared_app("empty", []), put_entry)
 
     case _ =>
-      assign e := foldr(firsts(elements), library_call("set", "empty", []), lambda a, s => library_call("set", "insert", [a, s]))
+      assign e := foldr(firsts(elements), declared_app("empty", []), lambda a, s => declared_app("insert", [a, s]))
   end
 
 // an element a, or an entry k => v
@@ -789,23 +789,24 @@ function is_entry(element: Expr * Option[Expr]): Bool :=
 // m with the entry k => v put into it, where parse_set_or_map has checked that all elements are entries
 function put_entry(m: Expr, element: Expr * Option[Expr]): Expr :=
   match element
-    case (k, Some(v)) => library_call("map", "put", [k, v, m])
+    case (k, Some(v)) => declared_app("put", [k, v, m])
     case (_, None) => raise ParseError("an entry k => v expected", 0)
   end
 
 function nil_expr(): Expr :=
   EVar(Var(unqualified("Nil"), THole))
 
-function library_call(m: Id, fun: Id, args: List[Expr]): Expr :=
-  EApp(EVar(Var(Name(Some(m), fun), THole)), args)
-
 // comprehensions are folds over the containers of their generators, by the foldr or foldl of the module of each container,
 // whose functions put the result into the accumulator, nested for several generators, where each generator sees the variables
 // of those before it
 
-// a name of a declaration that a translation introduces, which locals do not hide, see overloads of self/check.u
+// a name of a declaration that a translation introduces, which locals do not hide, see overloads of self/check.u,
+// and which resolves through the imports of the module
 function declared(f: Id): Expr :=
   EVar(Var(Name(Some("*"), f), THole))
+
+function declared_app(f: Id, args: List[Expr]): Expr :=
+  EApp(declared(f), args)
 
 // the accumulator of the folds of comprehensions, which users cannot name
 function acc_var(): Var :=
@@ -831,7 +832,7 @@ procedure parse_set_comprehension(in notations: Notations, params: List[Id], r: 
 
   call   parse_separated(in notations, params, parse_generator, at_comma, out generators, ref toks)
   call   parse_optional(in notations, params, TName("if"), parse_expr, out cond, ref toks)
-  assign e := comprehension_folds("foldr", generators, library_call("set", "empty", []), library_call("set", "insert", [r, EVar(acc_var())]), cond)
+  assign e := comprehension_folds("foldr", generators, declared_app("empty", []), declared_app("insert", [r, EVar(acc_var())]), cond)
 
 // x in c over a list or set, or k => v in m over a map, whose fold takes the key and value as two arguments
 procedure parse_generator(in notations: Notations, params: List[Id], out generator: List[Var] * Expr, ref toks: Tokens) :=
@@ -855,7 +856,7 @@ procedure parse_map_comprehension(in notations: Notations, params: List[Id], k: 
 
   call   parse_separated(in notations, params, parse_generator, at_comma, out generators, ref toks)
   call   parse_optional(in notations, params, TName("if"), parse_expr, out cond, ref toks)
-  assign e := comprehension_folds("foldl", generators, library_call("map", "empty", []), library_call("map", "put", [k, v, EVar(acc_var())]), cond)
+  assign e := comprehension_folds("foldl", generators, declared_app("empty", []), declared_app("put", [k, v, EVar(acc_var())]), cond)
 
 // [a, b] is a :: b :: Nil, [a, b; c] is a :: b :: c, and [result for x in xs, y in ys if test], where if test is optional
 procedure parse_list(in notations: Notations, params: List[Id], out e: Expr, ref toks: Tokens) :=

@@ -30,7 +30,4 @@ Done in `self/check.u`, with its tests, bootstrapped through `self/run.u`:
 
 1. **Direct resolution**, **deferral**, and **fields** as pending entries.
 2. **The library**: `size` for `list.length`, `set.count`, and `map.size`; `contains` for `list.contains`, `set.member`, and `map.has`, where `list.has_key` stays for association lists, since `contains` of a list is about its elements; `get` and `put` for `list.lookup` and `list.update` of association lists and `map.get` and `map.put`; `remove` for `list.remove` and `map.delete`, and `remove_all`; `empty` for `set.empty_set` and `map.empty`, while `set.insert` stays. The helpers and constructors of `set` take the names of those of `map`: `Leaf`, `Node`, `height`, `node`, `balance`, `balanced`, and the rotations.
-
-Open:
-
-3. **`{}`** as an `empty()` resolved by the expected type, and the literals of sets and maps resolved through the imports of the module (TODO, Fields and literals 2).
+3. **Translations**: literals, `{}`, and comprehensions call `insert`, `put`, `empty`, `foldr`, and `foldl` by names of the module `*`, which resolve like unqualified names through the imports of the module, by type, but which locals never hide.

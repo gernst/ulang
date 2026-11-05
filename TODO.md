@@ -11,8 +11,7 @@ Open action items, each with the problem and the desired solution.
 
 ## Builtins
 
-1. **Builtins are registered in three places**: their types in `self/check.u`, and their implementations in `self/run.u` and in the runtime with `builtin_functions` of `self/compile.u`. Solution: declare their signatures in library modules, e.g. `builtin function str_get(s: Str, i: Int): Char`, so that only the implementations remain, and a builtin exists once its module is imported.
-2. **Builtins are enabled by datatype names**: the `os_` procedures by any datatype `OsError`, and they are special-cased by name in `call_declared` of `self/check.u` and in `self/run.u`. Solution: enable them by the import of their module, as part of item 1.
+1. **Builtin functions are registered in three places**: their types in `builtin` of `self/check.u`, and their implementations in `self/run.u` and in the runtime with `builtin_functions` of `self/compile.u`, while the builtin procedures of `os` are declared by signatures without definitions in `prelude/os.u` and come with its import (`is_builtin_proc` in `self/check.u`). Solution: declare the functions the same way in library modules, e.g. `function str_get(s: Str, i: Int): Char` in a module of strings, so that only the implementations remain, and a builtin exists once its module is imported.
 
 ## Self-hosted toolchain
 
@@ -48,8 +47,7 @@ Open action items, each with the problem and the desired solution.
 ## Fields and literals
 
 1. **Accesses are applications of a variable `.f`** until the checker resolves them. Solution: a node `EField(e, f)` of the syntax.
-2. **Literals resolve to fixed modules**: `{a, b}` and `{k => v}` call `set.insert`, `set.empty`, `map.put`, and `map.empty` by qualified names, so a local `set.u` takes their place, and a module may use them without importing `set` or `map`. Solution: names of the module `*`, as for `{}` and the folds of comprehensions, which resolve through the imports of the module, now that `put` belongs to maps alone.
-3. **Negative literals take the position of the number**, not of the `-`. Solution: the position of the operator.
+2. **Negative literals take the position of the number**, not of the `-`. Solution: the position of the operator.
 
 ## Library
 

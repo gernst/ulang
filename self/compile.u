@@ -5,6 +5,7 @@ import syntax
 import check
 import c
 import parse
+import os
 import map
 import set
 

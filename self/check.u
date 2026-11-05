@@ -525,7 +525,7 @@ function zonk_stmt(s: State, x: Stmt): Stmt :=
     case SBlock(xs, ys) => SBlock(zonk_vars(s, xs), [zonk_stmt(s, y) for y in ys])
     case SIf(c, l, r) => SIf(zonk_expr(s, c), zonk_stmt(s, l), zonk_stmt(s, r))
     case SWhile(c, b) => SWhile(zonk_expr(s, c), zonk_stmt(s, b))
-    case SCall(p, ins, outs, refs) => SCall(settled(s, p), [zonk_expr(s, e) for e in ins], zonk_vars(s, outs), zonk_vars(s, refs))
+    case SCall(p, ins, outs, refs) => SCall(builtin_name(settled(s, p)), [zonk_expr(s, e) for e in ins], zonk_vars(s, outs), zonk_vars(s, refs))
     case SMatch(a, bs) => SMatch(zonk_expr(s, a), [zonk_stmt_branch(s, b) for b in bs])
     case SAssert(c) => SAssert(zonk_expr(s, c))
     case SRaise(a, t) => SRaise(zonk_expr(s, a), zonk_type(s.sub, t))
@@ -1731,26 +1731,20 @@ procedure statements(in assignable: List[Name], xs: List[Stmt], out ys: List[Stm
       assign ys := [y; rest]
   end
 
-// the procedures of the library os, which exist in programs that import it, which declares OsError
-function os_procs(c: Ctx): Map[Name, List[Type] * List[Type] * List[Type] * List[Type]] :=
-  if is_data(c, os_error_name()) then os_proc_types() else empty()
-
-// the type parameters, ins, outs, and refs of the procedures of the library os, computed once
-function os_proc_types(): Map[Name, List[Type] * List[Type] * List[Type] * List[Type]] :=
+// the procedures of the module os without definitions, which the interpreter and the runtime implement, and whose signatures
+// os declares, so that they come with its import
+function builtin_procs(): Set[Id] :=
   {
-    unqualified("os_args") => (Nil, Nil, [type_list(type_str())], Nil),
-    unqualified("os_read") => (Nil, [type_str()], [type_str()], Nil),
-    unqualified("os_write") => (Nil, [type_str(), type_str()], Nil, Nil),
-    unqualified("os_show") => ([TParam("A")], [TParam("A")], Nil, Nil),
-    unqualified("os_print") => (Nil, [type_str()], Nil, Nil),
-    unqualified("os_print_error") => (Nil, [type_str()], Nil, Nil),
-    unqualified("os_exit") => (Nil, [type_int()], Nil, Nil),
-    unqualified("os_library") => (Nil, [type_str()], [type_str()], Nil),
-    unqualified("os_list") => (Nil, [type_str()], [type_list(TTuple([type_str(), type_bool()]))], Nil),
-    unqualified("os_is_dir") => (Nil, [type_str()], [type_bool()], Nil),
-    unqualified("os_cwd") => (Nil, Nil, [type_str()], Nil),
-    unqualified("os_chdir") => (Nil, [type_str()], Nil, Nil)
+    "os_args", "os_read", "os_write", "os_show", "os_print", "os_print_error", "os_exit", "os_library", "os_list", "os_is_dir", "os_cwd",
+    "os_chdir"
   }
+
+function is_builtin_proc(n: Name): Bool :=
+  n.module == Some("os") and contains(n.base, builtin_procs())
+
+// a call of a builtin procedure names it without its module, as the interpreter and the runtime know it
+function builtin_name(n: Name): Name :=
+  if is_builtin_proc(n) then unqualified(n.base) else n
 
 // the procedures of the program hide the builtin ones
 // a variable of a procedure type hides the procedures of that name
@@ -1802,7 +1796,7 @@ procedure overloaded_call(in env: Env, assignable: List[Name], p: Name, qs: List
 procedure declared_call(in env: Env, assignable: List[Name], p: Name, q: Name, ins: List[Expr], outs: List[Var], refs: List[Var], out y: Stmt, ref s: State) :=
   local m: List[Type * Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var]
 
-  match or_else(proc_of(s.ctx, q), get(q, os_procs(s.ctx)))
+  match proc_of(s.ctx, q)
     case Some((ps, is, os, rs)) =>
       call   instance(in ps, out m, ref s)
       call   same_length(in size(is), size(ins))
@@ -1813,7 +1807,7 @@ procedure declared_call(in env: Env, assignable: List[Name], p: Name, q: Name, i
       call   variables(in env, assignable, outs, out outs1, ref s)
       call   variables(in env, assignable, refs, out refs1, ref s)
       call   unifies(in types(outs1 ++ refs1), [subst(t, m) for t in os ++ rs], ref s)
-      assign y := SCall(q, ins1, outs1, refs1)
+      assign y := SCall(builtin_name(q), ins1, outs1, refs1)
     case None =>
       raise unknown_error(s, p, UnknownProcedure(p))
   end
@@ -1985,6 +1979,8 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
   match cs
     case Nil =>
       skip
+    case [(m, CProcSig(n, ps, ins, outs, refs)); rest] if is_builtin_proc(n) =>
+      call declare_procs(in [(m, CProc(n, ps, ins, outs, refs, SSkip)); rest], ref s)
     case [(m, CProc(n, ps, ins, outs, refs, _)); rest] =>
       assign s := enter(s, m)
       call   declare_name(in s.ctx, n)
@@ -2292,6 +2288,8 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
           if ps1 != ps or ins1 != ins or outs1 != outs or refs1 != refs
             raise SignatureMismatch(n)
           end
+        case [] if is_builtin_proc(n) =>
+          skip
         case _ =>
           raise MissingDefinition(n)
       end

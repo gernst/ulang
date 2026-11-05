@@ -1,16 +1,36 @@
-// call os_read(in path, out text) and os_write(in path, text) read and write files, relative to the program,
-// os_library(in name, out text) gives the source of a module of the library, where failures raise OsError,
-// os_args(out args) gives the arguments of the program, after -- for the interpreter,
-// os_print(in text) prints a string as it is, and os_show(in x) any value as the interpreter shows values, strings with quotes,
-// os_print_error(in text) prints a string to the error output, and os_exit(in code) ends the program with the status code,
-// os_list(in dir, out entries) gives the names in a directory, sorted, each with whether it is a directory, without
-// following links, os_is_dir(in path, out yes) tells whether path is a directory, also through a link,
-// and os_cwd(out dir) and os_chdir(in dir) give and change the directory that relative paths start from
+// files, directories, the arguments of the program, and printing, where the procedures without definitions are builtins
 
 export
 
 data OsError :=
   | OsError(Str)
+
+// the arguments of the program, after -- for the interpreter
+procedure os_args(out args: List[Str])
+
+// read and write files, where relative paths start from the working directory, and failures raise OsError
+procedure os_read(in path: Str, out text: Str)
+procedure os_write(in path: Str, text: Str)
+
+// the source of a module of the library
+procedure os_library(in name: Str, out text: Str)
+
+// print a string as it is, a value as the interpreter shows values, strings with quotes, and a string to the error output
+procedure os_print(in text: Str)
+procedure os_show[A](in x: A)
+procedure os_print_error(in text: Str)
+
+// end the program with the status code
+procedure os_exit(in code: Int)
+
+// the names in a directory, sorted, each with whether it is a directory, without following links, and whether path is a directory,
+// also through a link
+procedure os_list(in dir: Str, out entries: List[Str * Bool])
+procedure os_is_dir(in path: Str, out yes: Bool)
+
+// the working directory, which relative paths start from, and its change
+procedure os_cwd(out dir: Str)
+procedure os_chdir(in dir: Str)
 
 // the paths of the files below path, depth-first in the order of names, or path itself if it is no directory,
 // where each path is that of its directory, /, and its name
