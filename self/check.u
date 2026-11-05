@@ -189,9 +189,6 @@ function literal(v: Val): Type :=
 function initial(): Sig :=
   empty()
 
-function arith(): List[Type] * Type :=
-  (Nil, type_fun([type_int(), type_int()], type_int()))
-
 function logic(): List[Type] * Type :=
   (Nil, type_fun([type_bool(), type_bool()], type_bool()))
 
@@ -205,18 +202,12 @@ function builtin_schemes(n: Name): List[List[Type] * Type] :=
 function builtin_scheme(b: Id): List[List[Type] * Type] :=
   let a := TParam("A") in
     match b
-      case "+" => [arith()]
-      case "-" => [arith()]
-      case "*" => [arith()]
-      case "/" => [arith()]
-      case "%" => [arith()]
       case "<" => [([a], type_fun([a, a], type_bool()))]
       case "==" => [([a], type_fun([a, a], type_bool()))]
       case "compare" => [([a], type_fun([a, a], type_int()))]
       case "show" => [([a], type_fun([a], type_str()))]
       case "and" => [logic()]
       case "or" => [logic()]
-      case "++" => [(Nil, type_fun([type_str(), type_str()], type_str()))]
       case _ => Nil
     end
 
@@ -2443,8 +2434,8 @@ procedure type_of(in e: Expr, out t: Type) :=
 test inference() :=
   local t: Type
 
-  call   type_of(in expr_app("+", [expr_int(1), expr_int(2)]), out t)
-  assert t == type_int()
+  call   type_of(in expr_app("<", [expr_int(1), expr_int(2)]), out t)
+  assert t == type_bool()
   // let id = lambda x => x in (id(1), id(true))
   call   type_of(in ELet([(Var(unqualified("id"), THole), ELam([Var(unqualified("x"), THole)], expr_var("x")))], ETuple([expr_app("id", [expr_int(1)]), expr_app("id", [ELit(VBool(true))])])), out t)
   assert t == TTuple([type_int(), type_bool()])
@@ -2457,7 +2448,7 @@ test inference() :=
       skip
   end
   try
-    call   type_of(in expr_app("+", [expr_int(1), ELit(VBool(true))]), out t)
+    call   type_of(in expr_app("<", [expr_int(1), ELit(VBool(true))]), out t)
     assert false
   catch
     case CannotUnify(a, b) =>
@@ -2563,7 +2554,7 @@ function bags(): List[Mod] :=
 
 // the program of the commands cmds of the module main, which imports bag and box
 function with_bags(cmds: List[Cmd]): Source :=
-  Source(bags() ++ [Mod("main", ["bag", "box"], Unsectioned(unplaced(cmds)))], "main")
+  Source([natives_prelude(); bags()] ++ [Mod("main", ["bag", "box"], Unsectioned(unplaced(cmds)))], "main")
 
 function in_bag(n: Id): Name :=
   Name(Some("bag"), n)

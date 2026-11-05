@@ -157,6 +157,7 @@ function pat_var(n: Id): Pat
 function lists(): List[Mod]
 function with_lists(cmds: List[Cmd]): Source
 function program_of(cmds: List[Cmd]): Source
+function natives_prelude(): Mod
 function commands_of(sections: Sections): List[Cmd]
 function placed_of(sections: Sections): List[Pos * Cmd]
 function unplaced(cmds: List[Cmd]): List[Pos * Cmd]
@@ -269,7 +270,7 @@ function lists(): List[Mod] :=
 
 // the program of the commands cmds after len of the module main, which imports lists
 function with_lists(cmds: List[Cmd]): Source :=
-  Source(lists() ++ [Mod("main", ["list"], Unsectioned(unplaced([len_fun(); cmds])))], "main")
+  Source([natives_prelude(); lists()] ++ [Mod("main", ["list"], Unsectioned(unplaced([len_fun(); cmds])))], "main")
 
 function len_fun(): Cmd :=
   CFun(
@@ -280,9 +281,22 @@ function len_fun(): Cmd :=
     EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0)), Branch(PApp(unqualified("Cons"), [PWild, pat_var("ys")]), None, expr_app("+", [expr_int(1), expr_app("len", [expr_var("ys")])]))])
   )
 
+// a prelude of the builtin functions of prelude/prelude.u only, for programs that are not parsed
+function natives_prelude(): Mod :=
+  let int_op := lambda op => CFunSig(unqualified(op), Nil, [[Var(unqualified("a"), type_int()), Var(unqualified("b"), type_int())]], type_int()) in
+    Mod(
+      "prelude",
+      Nil,
+      Sectioned(
+        Nil,
+        unplaced([int_op(op) for op in ["+", "-", "*", "/", "%"]] ++ [CFunSig(unqualified("++"), Nil, [[Var(unqualified("a"), type_str()), Var(unqualified("b"), type_str())]], type_str())]),
+        Nil
+      )
+    )
+
 // the program of the commands cmds of the module main
 function program_of(cmds: List[Cmd]): Source :=
-  Source([Mod("main", Nil, Unsectioned(unplaced(cmds)))], "main")
+  Source([natives_prelude(), Mod("main", Nil, Unsectioned(unplaced(cmds)))], "main")
 
 // the commands of all sections, in order
 function commands_of(sections: Sections): List[Cmd] :=

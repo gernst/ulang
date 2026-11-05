@@ -54,6 +54,16 @@ function >=[A](x: A, y: A): Bool
 
 function -(n: Int): Int
 
+// the arithmetic of integers and the concatenation of strings, which the interpreter and the runtime define
+builtin
+
+function +(a: Int, b: Int): Int
+function -(a: Int, b: Int): Int
+function *(a: Int, b: Int): Int
+function /(a: Int, b: Int): Int
+function %(a: Int, b: Int): Int
+function ++(a: Str, b: Str): Str
+
 implementation
 
 function not(b: Bool): Bool :=

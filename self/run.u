@@ -67,10 +67,11 @@ function declared_for(run: Run, k: Name, fs: Map[Name, Name]): Option[Name] :=
 function load(q: Prog): Run :=
   Run(defs_of(q), Nil, Nil)
 
-// the builtins without a module, and the functions of the builtin section of str
+// the builtins without a module, and the functions of the builtin sections of the prelude and of str
 function builtin_names(): Set[Name] :=
   from_list(
-    [unqualified(b) for b in ["+", "-", "*", "/", "%", "<", "==", "++", "compare", "show"]] ++
+    [unqualified(b) for b in ["<", "==", "compare", "show"]] ++
+    [Name(Some("prelude"), b) for b in ["+", "-", "*", "/", "%", "++"]] ++
     [Name(Some("str"), b) for b in ["chars", "string", "ord", "chr", "is_digit", "is_letter", "is_space", "size", "at", "contains", "slice", "join", "split", "quote", "number"]]
   )
 
@@ -328,25 +329,25 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
   local r: Bool
 
   match (show_name(n), vs)
-    case ("+", [Lit(VInt(a)), Lit(VInt(b))]) =>
+    case ("prelude.+", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a + b))
 
-    case ("-", [Lit(VInt(a)), Lit(VInt(b))]) =>
+    case ("prelude.-", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a - b))
 
-    case ("*", [Lit(VInt(a)), Lit(VInt(b))]) =>
+    case ("prelude.*", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a * b))
 
-    case ("/", [Lit(VInt(_)), Lit(VInt(0))]) =>
+    case ("prelude./", [Lit(VInt(_)), Lit(VInt(0))]) =>
       raise failure(division_by_zero_name(), Nil)
 
-    case ("/", [Lit(VInt(a)), Lit(VInt(b))]) =>
+    case ("prelude./", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a / b))
 
-    case ("%", [Lit(VInt(_)), Lit(VInt(0))]) =>
+    case ("prelude.%", [Lit(VInt(_)), Lit(VInt(0))]) =>
       raise failure(division_by_zero_name(), Nil)
 
-    case ("%", [Lit(VInt(a)), Lit(VInt(b))]) =>
+    case ("prelude.%", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a % b))
 
     // strings are converted with the builtins of the interpreter of this program
@@ -372,7 +373,7 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
 
       assign v := Lit(VChar(chr(k)))
 
-    case ("++", [Lit(VStr(s)), Lit(VStr(t))]) =>
+    case ("prelude.++", [Lit(VStr(s)), Lit(VStr(t))]) =>
       assign v := Lit(VStr(s ++ t))
 
     // the functions of the builtin section of str.u
