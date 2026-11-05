@@ -1,4 +1,4 @@
-// values as text, as Printer.scala shows them, which os_show prints
+// values as text, as os_show prints them
 
 import syntax
 import value
@@ -38,7 +38,7 @@ function escape_char(c: Char): Str :=
     case _ => string([c])
   end
 
-// types as Check.scala shows them, without numbering the unknowns anew
+// types as the messages of the checker show them, without numbering the unknowns anew
 function show_type(t: Type): Str :=
   match t
     case TParam(n) => n
@@ -75,7 +75,7 @@ function type_component(t: Type): Str :=
     case _ => show_type(t)
   end
 
-// patterns as Printer.scala shows them
+// patterns as the messages of the checker show them
 function show_pat(p: Pat): Str :=
   match p
     case PWild => "_"

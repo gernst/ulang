@@ -1,5 +1,5 @@
-// the lexer of ulang, which splits source code into tokens with their offsets, as the regular expressions of
-// ulang/src/ulang/Parser.scala read them, except that a symbol is always the longest run of symbol characters
+// the lexer of ulang, which splits source code into tokens with their offsets, where a symbol is always the longest run
+// of symbol characters
 
 import os
 

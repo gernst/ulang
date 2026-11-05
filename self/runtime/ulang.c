@@ -357,7 +357,7 @@ static int divisible(u_value a, u_value b) {
   return a->type == &u_int_type && b->type == &u_int_type && !(a->num == LLONG_MIN && b->num == -1);
 }
 
-// division truncates toward zero, as BigInt in Scala and C, and a big integer is never zero
+// division truncates toward zero, as in C, and a big integer is never zero
 u_value u_div(u_value a, u_value b) {
   if (b->type == &u_int_type && b->num == 0) division_by_zero();
   if (divisible(a, b)) return u_mk_int(a->num / b->num);
@@ -454,7 +454,7 @@ u_value u_str_join(u_value sep, u_value ss) {
   return u_mk_str_n(r, (long long)n);
 }
 
-// from i up to but excluding j, as drop(i) and take(j - i) in Scala, which ignore indices outside of s
+// from i up to but excluding j, as drop(i) and take(j - i) of the module list, which ignore indices outside of s
 u_value u_str_slice(u_value s, u_value i, u_value j) {
   long long n = s->length, a = index_of(i), b = index_of(j);
   if (a < 0 || a > n || a > b) no_index(s, i);
@@ -542,7 +542,7 @@ static int is_list(u_value v) {
   return u_is_con(v, &n_list_46_Nil);
 }
 
-// values as ulang/src/ulang/Printer.scala shows them, by their types
+// values as self/print.u shows them, by their types
 void u_fprint_value(FILE *out, u_value v) {
   v->type->print(out, v);
 }

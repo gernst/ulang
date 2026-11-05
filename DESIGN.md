@@ -344,10 +344,9 @@ References: G. Nelson, D. Oppen, Simplification by Cooperating Decision Procedur
 11. **Contracts without a `correct` lemma**: tried by a default proof, or reported as unproven.
 12. **Several contracts per procedure**, e.g. as claims `correct p ensures …`, which calls would all assume.
 13. **Total correctness**, by `decreases` on loops and procedures, and claims about exceptions, e.g. `raises`.
-14. **Scala** only parses specifications, lemmas, and proofs and drops them, since the tests of `parse.u` compare both parsers on `tests/`, while the verifier is in `simp/` and `self/`.
-15. **Runtime checks** of contracts in the interpreter, which make specifications useful in tests before they are proven.
-16. **Quantifiers and the functions `exists` and `forall`** of `list.u` share their names, so `forall x => e` in specifications would clash with `forall(xs, p)`, unless the quantifiers are keywords only in specifications, or the functions are renamed, e.g. to `any` and `all`, or the quantifiers as constants of one argument coexist with them by arity, which may not work across modules.
-17. **Splitting on ground clauses** among the assumptions, or only unit propagation, where splits are a search, but finite and safe.
-18. **Theories as values or tags**: a datatype of functions per theory, or a tag dispatched by `match`, which is simpler and faster for two theories.
-19. **Equations between functions** among the assumptions, e.g. `f == lambda x => x + 1`, which need extensionality and congruence through `@`, left out at first.
-20. **Speed**: union-find on maps costs a logarithm per operation, and terms compare structurally, where interning terms to numbers in the core is an option, while hash consing of all values in the runtime was deemed not worthwhile.
+14. **Runtime checks** of contracts in the interpreter, which make specifications useful in tests before they are proven.
+15. **Quantifiers and the functions `exists` and `forall`** of `list.u` share their names, so `forall x => e` in specifications would clash with `forall(xs, p)`, unless the quantifiers are keywords only in specifications, or the functions are renamed, e.g. to `any` and `all`, or the quantifiers as constants of one argument coexist with them by arity, which may not work across modules.
+16. **Splitting on ground clauses** among the assumptions, or only unit propagation, where splits are a search, but finite and safe.
+17. **Theories as values or tags**: a datatype of functions per theory, or a tag dispatched by `match`, which is simpler and faster for two theories.
+18. **Equations between functions** among the assumptions, e.g. `f == lambda x => x + 1`, which need extensionality and congruence through `@`, left out at first.
+19. **Speed**: union-find on maps costs a logarithm per operation, and terms compare structurally, where interning terms to numbers in the core is an option, while hash consing of all values in the runtime was deemed not worthwhile.

@@ -1,14 +1,8 @@
-# ulang.jar, which ulang.sh runs
+# ulang.bin, the self-hosted driver of ulang, compiled from bootstrap/ulang.c
 
-all: ulang.jar
+all: ulang.bin
 
 .PHONY: install
-
-# mill decides what to rebuild, hence always called
-.PHONY: ulang.jar
-ulang.jar:
-	./mill -i ulang.assembly < /dev/null
-	cp out/ulang/assembly.dest/out.jar ulang.jar
 
 # the VS Code extension, packaged by hand since vsce is not installed, see vscode/vsix
 EXTENSION = vscode/package.json vscode/language-configuration.json vscode/extension.js vscode/syntaxes/ulang.tmLanguage.json

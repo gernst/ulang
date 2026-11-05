@@ -65,15 +65,10 @@
     "configuration": {
       "title": "ulang",
       "properties": {
-        "ulang.jar": {
+        "ulang.binary": {
           "type": "string",
           "default": "",
-          "description": "The path to ulang.jar, by default ulang.jar in the workspace folder"
-        },
-        "ulang.java": {
-          "type": "string",
-          "default": "java",
-          "description": "The command to run Java"
+          "description": "The path to ulang.bin, by default ulang.bin in the workspace folder"
         },
         "ulang.checkOnSave": {
           "type": "boolean",

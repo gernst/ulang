@@ -1,4 +1,4 @@
-// the core syntax, mirroring ulang/src/ulang/Syntax.scala without positions,
+// the core syntax of ulang, without positions,
 // where constructors are prefixed by their type, since they share one namespace
 
 // identifiers that never refer to declarations of modules: type parameters, modules, notations, runs, and tests
@@ -26,7 +26,7 @@ data Val :=
   | VStr(Str)
   | VChar(Char)
 
-// variable uses, binders, and pattern variables, which Syntax.scala distinguishes as Expr.Var and Pat.Var
+// variable uses, binders, and pattern variables
 data Var :=
   | Var(name: Name, typ: Type)
 
@@ -52,7 +52,7 @@ data Pat :=
   | PApp(Name, List[Pat])
   | PTuple(List[Pat])
 
-// a case of a match with an optional guard, which is Case in Syntax.scala
+// a case of a match with an optional guard
 data Branch[A] :=
   | Branch(pat: Pat, guard: Option[Expr], body: A)
 

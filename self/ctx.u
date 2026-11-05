@@ -1,4 +1,4 @@
-// the context of the checker, mirroring ulang/src/ulang/Ctx.scala, with maps from the names of declarations
+// the context of the checker, with maps from the names of declarations
 
 import syntax
 import map

@@ -1,7 +1,8 @@
 # ulang
 
 A small programming language with pure functional expressions, imperative statements, algebraic datatypes, and Hindley-Milner type inference.
-It comes with an interpreter in Scala 3, and with an interpreter and a compiler to C that are written in ulang itself, where the compiler compiles itself.
+It is implemented in itself: an interpreter and a compiler to C written in ulang, where the compiler compiles itself.
+The first implementation, an interpreter in Scala 3, is on the branch `scala-baseline`.
 
 This program sorts numbers by inserting them into a search tree:
 
@@ -73,28 +74,24 @@ The library in `ulang/resources/` contains the prelude with natural numbers, opt
 
 ## Usage
 
-Requires a JVM and [Mill](https://mill-build.org) (included as `./mill`), and for the compiler GMP and the Boehm garbage collector.
+Requires a C compiler, GMP, and the Boehm garbage collector. The interpreter recurses as deeply as the programs it runs, so `ulimit -s unlimited` is advisable.
 
 ```
-make                                      # builds ulang.jar
-./ulang.sh run file.u -- args             # checks a program and calls its procedure main
-./ulang.sh test file.u                    # runs its tests one by one
-./ulang.sh check file.u                   # only checks it
-./mill ulang.test                         # runs all tests
-
-make ulang.bin                            # builds the self-hosted driver from bootstrap/ulang.c
+make                                      # builds ./ulang.bin from bootstrap/ulang.c
+./ulang.bin run file.u -- args            # checks a program and calls its procedure main
+./ulang.bin test file.u                   # runs its tests one by one
+./ulang.bin check file.u                  # only checks it
 ./ulang.bin compile file.u main file.c    # compiles a program to C, whose main calls the procedure main
 cc -I self/runtime file.c self/runtime/ulang.c -lgmp -lgc
+make test                                 # runs all tests
 ```
-
-`./ulang.bin` takes the same commands `run`, `test`, and `check` as `./ulang.sh`, where it interprets programs with the interpreter written in ulang, and `./ulang.sh compile` compiles with the compiler in the Scala interpreter.
 
 ## Layout
 
-- `ulang/src/` is the interpreter in Scala: parser, type checker, and evaluator.
 - `self/` is the implementation in ulang: lexer, parser, checker, interpreter, and the compiler to C, with its runtime in `self/runtime/`, and the driver `self/ulang.u`.
-- `bootstrap/ulang.c` is the C of the last compiler that compiled itself to the same C, from which `make ulang.bin` builds it without the JVM.
+- `bootstrap/ulang.c` is the C of the last compiler that compiled itself to the same C, from which `make` builds `ulang.bin`.
   `make selfcompile` rebuilds the compiler with itself, and `make bootstrap` with the interpreter.
+- `ulang/resources/` is the library.
 - `tests/` are the tests, also of expected errors in `tests/errors/`.
 - `vscode/` is an extension for VS Code and VSCodium, installed by `make install`.
 - `TODO.md` lists the open work, and `DESIGN.md` the design notes and the design of verification.

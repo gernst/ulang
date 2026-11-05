@@ -1,4 +1,4 @@
-// the driver of ulang, with the commands of ./ulang.sh: run, test, and check with the interpreter of run.u,
+// the driver of ulang, ./ulang.bin, with the commands run, test, and check with the interpreter of run.u,
 // and compile, which translates a file to C, whose main calls the procedure entry, or runs all tests for the entry test
 
 import syntax
@@ -240,7 +240,7 @@ function cmd_name(c: Cmd): Str :=
     case _ => ""
   end
 
-// the messages of errors, as Check.scala and Run.scala say them, without positions
+// the messages of errors, without positions
 
 function type_message(e: TypeError): Str :=
   match e

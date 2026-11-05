@@ -1,17 +1,16 @@
 # build output
 out/
 
-# IDE and build server state
+# IDE state, also of the Scala implementation before
+.vscode/
 .bsp/
 .bloop/
 .metals/
-.vscode/
 
 # editor backups
 *~
 
 # built by make, where the C files of the compiler in bootstrap/ are versioned, also the backups, but not the binaries and stages
-ulang.jar
 ulang.vsix
 ulang.bin
 /bootstrap/stage/

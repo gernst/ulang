@@ -9,30 +9,28 @@ const path = require("path");
 const errorLine = /^(.*?): ((?:parse|type|runtime) error: .*?)(?: at (\d+)\.(\d+))?( in \w+)?$/;
 const testLine = /^test (\S+) (passed|failed: (.*))$/;
 
-function jar() {
-  const configured = vscode.workspace.getConfiguration("ulang").get("jar");
+function binary() {
+  const configured = vscode.workspace.getConfiguration("ulang").get("binary");
   if (configured) return configured;
   for (const folder of vscode.workspace.workspaceFolders || []) {
-    const candidate = path.join(folder.uri.fsPath, "ulang.jar");
+    const candidate = path.join(folder.uri.fsPath, "ulang.bin");
     if (fs.existsSync(candidate)) return candidate;
   }
   return undefined;
 }
 
-// runs ulang.jar with args in the directory of file, resolving to its exit code, output, and errors
+// runs ulang.bin with args in the directory of file, resolving to its exit code, output, and errors,
+// with a stack as large as the system allows, since the interpreter recurses as deeply as the programs it runs
 function ulang(args, file) {
   return new Promise((resolve) => {
-    const path_ = jar();
-    if (!path_) {
-      vscode.window.showErrorMessage("ulang: no ulang.jar found, set ulang.jar in the settings");
+    const bin = binary();
+    if (!bin) {
+      vscode.window.showErrorMessage("ulang: no ulang.bin found, set ulang.binary in the settings");
       resolve(undefined);
       return;
     }
-    const java = vscode.workspace.getConfiguration("ulang").get("java") || "java";
-    // the library next to ulang.jar, as ulang.sh reads it, or else the one in the jar
-    const lib = path.join(path.dirname(path_), "ulang", "resources");
-    const props = fs.existsSync(lib) ? ["-Dulang.lib=" + lib] : [];
-    cp.execFile(java, [...props, "-jar", path_, ...args], { cwd: path.dirname(file) }, (error, stdout, stderr) => {
+    const script = 'ulimit -s unlimited 2>/dev/null; exec "$0" "$@"';
+    cp.execFile("sh", ["-c", script, bin, ...args], { cwd: path.dirname(file) }, (error, stdout, stderr) => {
       resolve({ code: error ? error.code || 1 : 0, stdout, stderr });
     });
   });
