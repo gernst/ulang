@@ -17,6 +17,5 @@ ulang.bin
 /bootstrap/*/ulang.bin
 
 # notes on refactorings and plans, not versioned
-refactor.md
 arrays.md
 prove.md
