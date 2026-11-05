@@ -1,4 +1,4 @@
-// type error: Full is private to module hiding
+// type error: unknown constructor Full
 import hiding
 
 function f(b: Box): Int :=

@@ -30,6 +30,15 @@ test exported_declarations() :=
 test private_names() :=
   assert helper(1) == 2 and next(1) == 2
 
+// annotations by imported abstract types, whose constructors have the names of their types
+function counted(c: Counter): Int :=
+  count(c)
+
+test abstract_annotations() :=
+  local t: Tally := tally([1, 2])
+
+  assert counted(next(start())) == 1 and t == tally([3])
+
 test exported_fields() :=
   assert Green(3).level == 3 and (Green(3) with level := 4) == Green(4)
 

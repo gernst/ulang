@@ -9,8 +9,8 @@ export
 // type definitions with their parameters, the type schemes of functions with their parameters, the signatures of procedures
 // with parameters, ins, outs, and refs, datatypes with their numbers of parameters, their constructors,
 // constructors with the parameters of their datatype, their argument types, and their datatype,
-// the declarations of each base name, of any kind and module, and the declarations that are private to their modules,
-// which include the constructors and fields of abstract types
+// and the declarations of each base name, of any kind and module, where the signature that a module shows to its importers
+// has only its exported declarations
 data Sig :=
   | Sig(
     aliases: Map[Name, List[Id] * Type],
@@ -19,15 +19,13 @@ data Sig :=
     datas: Map[Name, Int],
     members: Map[Name, List[Name]],
     constrs: Map[Name, List[Type] * List[Type] * Type],
-    named: Map[Id, List[Name]],
-    hidden: Set[Name]
+    named: Map[Id, List[Name]]
   )
 
 function empty(): Sig
 function restrict(sig: Sig, ms: List[Id]): Sig
 function union(a: Sig, b: Sig): Sig
-function public(sig: Sig): Sig
-function hidden_named(sig: Sig, b: Id): List[Name]
+function exported(sig: Sig, values: Set[Name], sorts: Set[Name]): Sig
 function alias_of(sig: Sig, n: Name): Option[List[Id] * Type]
 function schemes_of(sig: Sig, n: Name): List[List[Type] * Type]
 function proc_of(sig: Sig, n: Name): Option[List[Type] * List[Type] * List[Type] * List[Type]]
@@ -51,7 +49,7 @@ function with_constr(sig: Sig, n: Name, kc: List[Type] * List[Type] * Type): Sig
 implementation
 
 function empty(): Sig :=
-  Sig(empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty())
+  Sig(empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
 // the declarations of the modules ms
 function restrict(sig: Sig, ms: List[Id]): Sig :=
@@ -62,8 +60,7 @@ function restrict(sig: Sig, ms: List[Id]): Sig :=
     owned_map(sig.datas, ms),
     owned_map(sig.members, ms),
     owned_map(sig.constrs, ms),
-    put_all(owned_named(entries(sig.named), ms), empty()),
-    from_list([n for n in elements(sig.hidden) if in_modules(n, ms)])
+    put_all(owned_named(entries(sig.named), ms), empty())
   )
 
 function owned_map[V](m: Map[Name, V], ms: List[Id]): Map[Name, V] :=
@@ -97,29 +94,30 @@ function union(a: Sig, b: Sig): Sig :=
     put_all(entries(b.datas), a.datas),
     put_all(entries(b.members), a.members),
     put_all(entries(b.constrs), a.constrs),
-    union_named(entries(b.named), a.named),
-    insert_all(elements(b.hidden), a.hidden)
+    union_named(entries(b.named), a.named)
   )
 
-// the declarations as other modules see them, without the hidden ones, where datatypes whose constructors are hidden
-// are abstract, without members
-function public(sig: Sig): Sig :=
-  if size(sig.hidden) == 0 then
-    sig
-  else
-    Sig(
-      unhidden(sig.aliases, sig.hidden),
-      unhidden(sig.funs, sig.hidden),
-      unhidden(sig.procs, sig.hidden),
-      unhidden(sig.datas, sig.hidden),
-      put_all([e for e in entries(unhidden(sig.members, sig.hidden)) if not exists(value_of(e), lambda k => contains(k, sig.hidden))], empty()),
-      unhidden(sig.constrs, sig.hidden),
-      put_all([(key_of(e), [n for n in value_of(e) if not contains(n, sig.hidden)]) for e in entries(sig.named)], empty()),
-      sig.hidden
-    )
+// the signature without the private functions, procedures, and constructors, values, and without the private sorts, each kind
+// of declaration filtered by its own names, since a datatype and its constructor may share a name, where an abstract type,
+// whose constructors are private, has no members
+function exported(sig: Sig, values: Set[Name], sorts: Set[Name]): Sig :=
+  let kept := Sig(
+      without(sig.aliases, sorts),
+      without(sig.funs, values),
+      without(sig.procs, values),
+      without(sig.datas, sorts),
+      put_all([e for e in entries(without(sig.members, sorts)) if not exists(value_of(e), lambda k => contains(k, values))], empty()),
+      without(sig.constrs, values),
+      empty()
+    ) in
+    kept with named := put_all([(key_of(e), [n for n in value_of(e) if declares(kept, n)]) for e in entries(sig.named)], empty())
 
-function unhidden[V](m: Map[Name, V], hidden: Set[Name]): Map[Name, V] :=
-  put_all([e for e in entries(m) if not contains(key_of(e), hidden)], empty())
+function without[V](m: Map[Name, V], names: Set[Name]): Map[Name, V] :=
+  put_all([e for e in entries(m) if not contains(key_of(e), names)], empty())
+
+// a declaration of any kind named n
+function declares(sig: Sig, n: Name): Bool :=
+  is_alias(sig, n) or is_fun(sig, n) or is_proc(sig, n) or is_data(sig, n) or is_constr(sig, n)
 
 function key_of[K, V](e: K * V): K :=
   match e
@@ -130,10 +128,6 @@ function value_of[K, V](e: K * V): V :=
   match e
     case (_, v) => v
   end
-
-// hidden declarations named like n, which other modules do not see
-function hidden_named(sig: Sig, b: Id): List[Name] :=
-  [n for n in elements(sig.hidden) if n.base == b]
 
 function union_named(es: List[Id * List[Name]], bs: Map[Id, List[Name]]): Map[Id, List[Name]] :=
   match es

@@ -22,7 +22,6 @@ Open action items, each with the problem and the desired solution.
 
 1. **Type errors in imported modules have no file**: they show a position without the module. Solution: add the module to the messages, as parse errors do.
 2. **Imports are resolved against the directory of the parsed file**, not of the importing module, and loaded modules are known by name. Solution: resolve against the importing file, with modules known by their location, which makes nested imports and library modules consistent. Also imports from other directories, e.g. of `simp/` by `self/prove.u`, by relative paths or a search path.
-3. **An abstract type is private to other modules if a constructor has its name**: `function f(c: Counter): Int := count(c)` after `import exported` of `tests/exported.u` fails with `Counter is private to module exported`, as does `Tally`, since `public` of `self/sig.u` removes all declarations whose names are in the one set `hidden`, where the hidden constructor `exported.Counter` (`private_in` of `self/check.u`) is the same name as the type, which it removes from `datas` too, while `Set` and `Map` escape by their constructors `Leaf` and `Node`. This is why `self/parse.u` exports `Notations` and `Context` as datatypes. Solution: hidden constructors apart from hidden types, so that an abstract type stays visible, with a test that annotates by an imported abstract type.
 
 ## Compiler
 

@@ -1,0 +1,5 @@
+// type error: unknown variable plain_helper
+import plain
+
+test t() :=
+  assert plain_helper(1) == 2

@@ -1,4 +1,4 @@
-// type error: Full is private to module hiding
+// type error: unknown variable Full
 import hiding
 
 test t() :=

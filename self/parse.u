@@ -1250,11 +1250,11 @@ function with_commands(ctx: Context, cmds: List[Cmd]): Context :=
 function with_module(ctx: Context, cmd: Cmd): Context :=
   ctx with modules := put_all(modules_of(cmd), ctx.modules)
 
-// module cmd and the modules it loads, with their own notations
+// module cmd and the modules it loads, with their own notations, which a module without an export section keeps private
 function modules_of(cmd: Cmd): List[Id * List[Cmd]] :=
   match cmd
     case CModule(name, cmds) =>
-      let own := [d for d in cmds if is_notation(d)] in
+      let own := if contains(CExport, cmds) then [d for d in cmds if is_notation(d)] else Nil in
         [(name, own); concat([modules_of(d) for d in cmds])]
     case _ => Nil
   end

@@ -40,7 +40,6 @@ data TypeError :=
   | Unassigned(Name)
   | OutputUnassigned(Name, Name)
   // the errors of export sections
-  | PrivateName(Name)
   | MissingDefinition(Name)
   | SignatureMismatch(Name)
   | PartlyExported(Name)
@@ -176,13 +175,6 @@ function is_visible(s: State, d: Name): Bool :=
   match d.module
     case Some(m) => contains(m, s.visible)
     case None => false
-  end
-
-// the error e about n, of which no declaration is known, or that n names only declarations that their modules keep private
-function unknown_error(s: State, n: Name, e: TypeError): TypeError :=
-  match [d for d in hidden_named(s.sig, n.base) if d.module != Some(s.module) and (d == n or (n.module == None or n.module == Some("*")) and is_visible(s, d))]
-    case [d; _] => PrivateName(d)
-    case Nil => e
   end
 
 function params(ps: List[Id]): List[Type] :=
@@ -944,7 +936,7 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
           case [m] =>
             call normalize_sort(in m, args, out u, ref s)
           case Nil =>
-            raise unknown_error(s, n, UnknownSort(n))
+            raise UnknownSort(n)
           case ms =>
             raise Ambiguous(n, ms)
         end
@@ -1048,7 +1040,7 @@ procedure use_name(in n: Name, cs: List[Name * (List[Type] * Type)], w: Type, ou
 
   match cs
     case Nil =>
-      raise unknown_error(s, n, UnknownVariable(n))
+      raise UnknownVariable(n)
     case [(m1, sc)] =>
       call use(in m1, w, sc, out x, ref s)
     case _ =>
@@ -1527,7 +1519,7 @@ procedure binders(in p: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) 
         case [k1] =>
           assign k := k1
         case Nil =>
-          raise unknown_error(s, n, UnknownConstructor(n))
+          raise UnknownConstructor(n)
         case ks =>
           call pattern_constructor(in n, ks, size(args), t, out k, ref s)
       end
@@ -1807,7 +1799,7 @@ procedure declared_call(in env: Env, assignable: List[Name], p: Name, q: Name, i
       call   unifies(in types(outs1 ++ refs1), [subst(t, m) for t in os ++ rs], ref s)
       assign y := SCall(builtin_name(q), ins1, outs1, refs1)
     case None =>
-      raise unknown_error(s, p, UnknownProcedure(p))
+      raise UnknownProcedure(p)
   end
 
 // env joins what the cases assign, where a match that no case fits raises
@@ -2323,7 +2315,8 @@ function sorts_in(t: Type): List[Name] :=
     case _ => Nil
   end
 
-// the sections of the modules ms of ds, with the declarations and sorts that the modules keep private
+// the sections of the modules ms of ds, with the declarations and sorts that the modules keep private, which are all of a
+// module without an export section, except of the prelude, which has no sections yet
 procedure check_sections(in ms: List[Id], ds: List[Id * Cmd], out hidden: Set[Name], hidden_sorts: List[Name]) :=
   local ex: List[Cmd], im: List[Cmd], more: Set[Name], sorts: List[Name]
 
@@ -2342,8 +2335,10 @@ procedure check_sections(in ms: List[Id], ds: List[Id * Cmd], out hidden: Set[Na
         call   check_arities(in im, ex)
         call   check_exposed(in m, ex, private_sorts(ex, im))
         assign hidden := insert_all(private_names(ex, im), more), hidden_sorts := private_sorts(ex, im) ++ sorts
-      else
+      else if m == "prelude"
         assign hidden := more, hidden_sorts := sorts
+      else
+        assign hidden := insert_all(private_names(Nil, own_cmds(ds, m)), more), hidden_sorts := private_sorts(Nil, own_cmds(ds, m)) ++ sorts
       end
   end
 
@@ -2369,12 +2364,12 @@ procedure check_units(in us: List[Id * List[Id * Cmd]], ref sig: Sig, imports: L
   end
 
 // the declarations ds of module main, checked after the declarations before of the modules that imports lists
-// where the declarations that other modules keep private are unknown
+// where the declarations that other modules keep private are unknown, since before has only their signatures
 procedure check_unit(in ds: List[Id * Cmd], main: Id, before: Sig, imports: List[Id * List[Id]], out checked: Checked) :=
   local own := imports ++ [(m, imports_in(ds, m)) for m in distinct(firsts(ds))], s: State, cs: List[Cmd], hidden: Set[Name], hidden_sorts: List[Name],
     extra: List[Id * Cmd], more: List[Cmd]
 
-  assign s := State(public(before), empty(), 0, main, Nil, visibility(own, main), Nil, empty())
+  assign s := State(before, empty(), 0, main, Nil, visibility(own, main), Nil, empty())
   call   declare_datas(in ds, ref s)
   call   declare_sorts(in ds, ref s)
   call   declare_constrs(in ds, ref s)
@@ -2388,8 +2383,11 @@ procedure check_unit(in ds: List[Id * Cmd], main: Id, before: Sig, imports: List
   call   declare_funs(in extra, ref s)
   call   commands(in extra, out more, ref s)
   assign hidden := insert_all([qualified_name(c) for c in more], hidden)
-  assign s := with_sig(s, s.sig with hidden := insert_all(elements(hidden), s.sig.hidden))
-  assign checked := Checked(cs ++ more, restrict(s.sig, distinct(firsts(ds))), [(m, imports_in(ds, m)) for m in distinct(firsts(ds))])
+  assign checked := Checked(
+      cs ++ more,
+      exported(restrict(s.sig, distinct(firsts(ds))), hidden, from_list(hidden_sorts)),
+      [(m, imports_in(ds, m)) for m in distinct(firsts(ds))]
+    )
 
 // the modules of cs with their commands, after the modules they import, where the prelude and its imports
 // are one, since every module sees the prelude
@@ -2519,11 +2517,12 @@ function var_of(n: Id, t: Type): Var :=
 function fun_cmd(n: Id, xs: List[Var], r: Type, b: Expr): Cmd :=
   CFun(unqualified(n), Nil, [xs], r, b)
 
-// the modules bag and box, which both declare a function size, a constructor Leaf, a procedure fill, and a field x,
+// the modules bag and box, which both export a function size, a constructor Leaf, a procedure fill, and a field x,
 // and that the program imports
 function bags(): List[Cmd] :=
   [
     CModule("bag", [
+      CExport,
       CData(unq("Bag"), Nil, [Constr(unq("Bag"), [type_int()]), Constr(unq("Leaf"), [type_int()])]),
       CData(unq("Pt"), Nil, [Constr(unq("Pt"), [type_int()])]),
       fun_cmd("size", [var_of("b", tsort("Bag"))], type_int(), expr_int(1)),
@@ -2533,6 +2532,7 @@ function bags(): List[Cmd] :=
     ]),
     CImport("bag"),
     CModule("box", [
+      CExport,
       CData(unq("Box"), Nil, [Constr(unq("Box"), [type_str()]), Constr(unq("Leaf"), [type_str()])]),
       CData(unq("Qt"), Nil, [Constr(unq("Qt"), [type_str()])]),
       fun_cmd("size", [var_of("b", tsort("Box"))], type_int(), expr_int(2)),

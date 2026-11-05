@@ -420,19 +420,12 @@ function type_message(e: TypeError): Str :=
     case TestParams(n) => "test " ++ n ++ " takes parameters"
     case Unassigned(n) => n.base ++ " is not assigned on every path"
     case OutputUnassigned(x, p) => "output " ++ x.base ++ " of " ++ p.base ++ " is not assigned on every path"
-    case PrivateName(n) => n.base ++ " is private to module " ++ module_of(n)
     case MissingDefinition(n) => n.base ++ " is exported but not defined"
     case SignatureMismatch(n) => "the definition of " ++ n.base ++ " differs from its signature"
     case PartlyExported(n) => n.base ++ " is exported, but not with each of its numbers of arguments"
     case PrivateType(n, t) => "the signature of " ++ n.base ++ " names the private type " ++ t.base
     case VisibleEquality(t) => t.base ++ " declares ==, which only abstract types may"
     case UnexportedOrder(f, t) => f.base ++ " of the exported type " ++ t.base ++ " is not exported"
-  end
-
-function module_of(n: Name): Str :=
-  match n.module
-    case Some(m) => m
-    case None => ""
   end
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f

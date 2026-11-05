@@ -1,4 +1,4 @@
-// type error: secret is private to module hiding
+// type error: unknown variable secret
 import hiding
 
 test t() :=
