@@ -168,15 +168,6 @@ function is_visible(s: State, d: Name): Bool :=
 function params(ps: List[Id]): List[Type] :=
   [TParam(p) for p in ps]
 
-function builtin_sorts(): Set[Id] :=
-  {"Bool", "Int", "Str", "Char"}
-
-function basic(n: Name): Bool :=
-  match n
-    case Name(None, b) => contains(b, builtin_sorts())
-    case _ => false
-  end
-
 function literal(v: Val): Type :=
   match v
     case VUnit => TTuple(Nil)
@@ -612,7 +603,7 @@ function field_types(sig: Sig, k: Name, args: List[Type]): List[Type] :=
 // all constructors of t with their argument types, if there are finitely many
 function constructors_of(sig: Sig, su: Subst, t: Type): Option[List[Head * List[Type]]] :=
   match zonk_type(su, t)
-    case TSort(Name(None, "Bool"), Nil) => Some([(HLit(VBool(true)), Nil), (HLit(VBool(false)), Nil)])
+    case TSort(n, Nil) if TSort(n, Nil) == type_bool() => Some([(HLit(VBool(true)), Nil), (HLit(VBool(false)), Nil)])
     case TTuple(ts) => Some([(HCon(tuple_name()), ts)])
     case TSort(n, args) =>
       match members_of(sig, n)
@@ -924,18 +915,13 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
       assign u := TProc(take(size(is), us), take(size(os), drop(size(is), us)), drop(size(is) + size(os), us))
 
     case TSort(n, args) =>
-      if basic(n)
-        call   arguments(in n, 0, args)
-        assign u := t
-      else
-        match visible_names(s, n, lambda t => is_sort(s.sig, t))
-          case [m] =>
-            call normalize_sort(in m, args, out u, ref s)
-          case Nil =>
-            raise UnknownSort(n)
-          case ms =>
-            raise Ambiguous(n, ms)
-        end
+      match visible_names(s, n, lambda t => is_sort(s.sig, t))
+        case [m] =>
+          call normalize_sort(in m, args, out u, ref s)
+        case Nil =>
+          raise UnknownSort(n)
+        case ms =>
+          raise Ambiguous(n, ms)
       end
   end
 
@@ -1921,7 +1907,7 @@ procedure overload(in sig: Sig, n: Name, k: Int) :=
   end
 
 procedure declare_sort(in sig: Sig, n: Name) :=
-  if contains(n.base, builtin_sorts()) or n.base == "->" or is_alias(sig, n) or is_data(sig, n)
+  if n.base == "->" or is_alias(sig, n) or is_data(sig, n)
     raise SortDefined(n)
   end
 

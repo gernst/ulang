@@ -6,10 +6,6 @@ Open action items, each with the problem and the desired solution.
 
 1. **The modules of the prelude cannot be compiled on their own**: `ulang.bin compile prelude/list.u test` fails with `sort List is already defined`, since every program has the prelude already, so `make testc` skips `prelude.u`, `option.u`, and `list.u`, whose tests run with the interpreter only, where `load_file` of `self/ulang.u` keeps only their tests. Solution: the same in `compile_file` of `self/compile.u`.
 
-## Builtins
-
-1. **The prelude cannot declare the builtin types `Bool`, `Int`, `Str`, and `Char`**, which `builtin_sorts` and `basic` of `self/check.u` know by their unqualified names, for three reasons: a builtin section takes only signatures of functions and procedures (`enter_section` of `self/parse.u`), while `type T` without a definition is an abstract type, which the implementation section must define by `data`; the types of literals, conditions, and builtins are `type_int()` and its siblings of `self/syntax.u`, the unqualified `Int` and the like in about 75 places, which a declared type would name `prelude.Int`; and the programs that the tests of `self/check.u` and `self/run.u` build have no prelude but `natives_prelude` of `self/syntax.u`. Solution: `type T` in a builtin section as a builtin type, which the checker declares as a sort without constructors, `type_int()` and its siblings naming `prelude.Int` and the like, and `natives_prelude` declaring the types as well, so that `builtin_sorts` and `basic` go.
-
 ## Self-hosted toolchain
 
 1. **Positions only per command**: a type error names the position where its declaration starts, which is coarse for long functions, and compile errors have none. Solution: positions of statements and expressions, paired with them as the commands of `Mod` are with theirs.

@@ -58,8 +58,14 @@ function >=[A](x: A, y: A): Bool
 
 function -(n: Int): Int
 
-// the arithmetic of integers and the concatenation of strings, which the interpreter and the runtime define
+// the types of literals, the arithmetic of integers, and the concatenation of strings, which the interpreter and the runtime
+// define
 builtin
+
+type Bool
+type Int
+type Str
+type Char
 
 function +(a: Int, b: Int): Int
 function -(a: Int, b: Int): Int

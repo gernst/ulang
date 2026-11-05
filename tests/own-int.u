@@ -1,0 +1,15 @@
+// a module may declare a type named like a builtin type, which its own uses of the name then mean, while literals and
+// the arithmetic keep the builtin types of the prelude
+
+data Int :=
+  | Zero
+  | Succ(Int)
+
+function name_of(n: Int): Str :=
+  match n
+    case Zero => "zero"
+    case Succ(_) => "more"
+  end
+
+test own_int() :=
+  assert name_of(Succ(Zero)) == "more" and 1 + 1 == 2

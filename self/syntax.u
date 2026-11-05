@@ -215,16 +215,16 @@ function missing_field_name(): Name :=
 
 // the types of the builtins
 function type_bool(): Type :=
-  TSort(unqualified("Bool"), Nil)
+  TSort(Name(Some("prelude"), "Bool"), Nil)
 
 function type_int(): Type :=
-  TSort(unqualified("Int"), Nil)
+  TSort(Name(Some("prelude"), "Int"), Nil)
 
 function type_str(): Type :=
-  TSort(unqualified("Str"), Nil)
+  TSort(Name(Some("prelude"), "Str"), Nil)
 
 function type_char(): Type :=
-  TSort(unqualified("Char"), Nil)
+  TSort(Name(Some("prelude"), "Char"), Nil)
 
 function type_list(t: Type): Type :=
   TSort(list_name(), [t])
@@ -287,7 +287,7 @@ function len_fun(): Cmd :=
     EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0)), Branch(PApp(unqualified("Cons"), [PWild, pat_var("ys")]), None, expr_app("+", [expr_int(1), expr_app("len", [expr_var("ys")])]))])
   )
 
-// a prelude of the builtin functions of prelude/prelude.u only, for programs that are not parsed
+// a prelude of the builtin types and functions of prelude/prelude.u only, for programs that are not parsed
 function natives_prelude(): Mod :=
   let int_op := lambda op => CFunSig(unqualified(op), Nil, [[Var(unqualified("a"), type_int()), Var(unqualified("b"), type_int())]], type_int()) in
     Mod(
@@ -295,7 +295,7 @@ function natives_prelude(): Mod :=
       Nil,
       Sectioned(
         Nil,
-        unplaced([int_op(op) for op in ["+", "-", "*", "/", "%"]] ++ [CFunSig(unqualified("++"), Nil, [[Var(unqualified("a"), type_str()), Var(unqualified("b"), type_str())]], type_str())]),
+        unplaced([CAbstract(unqualified(t), Nil) for t in ["Bool", "Int", "Str", "Char"]] ++ [int_op(op) for op in ["+", "-", "*", "/", "%"]] ++ [CFunSig(unqualified("++"), Nil, [[Var(unqualified("a"), type_str()), Var(unqualified("b"), type_str())]], type_str())]),
         Nil
       )
     )
