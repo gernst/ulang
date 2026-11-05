@@ -7,7 +7,10 @@ Open action items, each with the problem and the desired solution.
 
 ## Testing
 
-1. **Compiled and interpreted programs are compared by hand**: `make test` runs the interpreter only, and nothing checks that the compiled tests print what `./ulang.bin test` prints, although they agree for all files of `tests/` now. Solution: a make target that compiles each file of `tests/` with the entry `test` and compares its output with `./ulang.bin test`.
+1. **Compiled programs are tested by hand**: `make test` runs the interpreter only, and nothing checks that the compiled tests succeed or fail as the first lines of their files state, although all files of `tests/` print the same compiled as interpreted now. Solution:
+   - `ulang.bin compile <file> <entry> <target>` writes a binary for a target without `.c`, by `cc` with a runtime that `make` precompiles to `self/runtime/ulang.o`, whose path `ulang.bin` knows as it knows `ULANG_LIB`, through a builtin `os_run(in args: List[Str], out status: Int, output: Str)` that runs a program without a shell and captures its output (in the three places of Builtins 1, with a staged `selfcompile`),
+   - a target `make testc` that compiles every `.u` file of `tests`, `self`, `simp`, and `prelude` with the entry `test`, runs it in its directory, and compares its outcome with the error that the first line of the file states, as `ulang.bin test` does for directories, with a rule per file so that `make -j` compiles in parallel, replacing `make selftest`,
+   - tests as C functions that `main()` runs all of, or those named in `argv`, so that `./binary name` runs one test.
 
 ## Builtins
 
