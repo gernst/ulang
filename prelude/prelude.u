@@ -1,4 +1,7 @@
-// loaded before every program, whose notations apply to it
+// loaded before every program, whose notations apply to it, and after which the parser imports option, list, and str,
+// which every module sees with the prelude, and which are parsed with all its notations
+
+export
 
 // the exceptions of the builtins and of accessors of fields, which every module sees
 data DivisionByZero :=
@@ -40,6 +43,19 @@ infix left 9 * / %
 
 prefix 10 -
 
+function not(b: Bool): Bool
+function ==>(a: Bool, b: Bool): Bool
+function !=[A](x: A, y: A): Bool
+
+// the comparisons by one < each, which follows compare, a total order
+function <=[A](x: A, y: A): Bool
+function >[A](x: A, y: A): Bool
+function >=[A](x: A, y: A): Bool
+
+function -(n: Int): Int
+
+implementation
+
 function not(b: Bool): Bool :=
   if b then false else true
 
@@ -49,7 +65,6 @@ function ==>(a: Bool, b: Bool): Bool :=
 function !=[A](x: A, y: A): Bool :=
   not (x == y)
 
-// the comparisons by one < each, which follows compare, a total order
 function <=[A](x: A, y: A): Bool :=
   not (y < x)
 
@@ -61,9 +76,3 @@ function >=[A](x: A, y: A): Bool :=
 
 function -(n: Int): Int :=
   0 - n
-
-import option
-
-import list
-
-import str

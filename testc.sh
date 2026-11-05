@@ -6,7 +6,7 @@
 # usage: testc.sh <out> <runtime.o> <path> ...
 # where out is a directory for the C files, binaries, and results, and the environment may set CC, LIBS, and JOBS
 #
-# the modules of the prelude, prelude.u and those that it imports, cannot be compiled on their own, since every program
+# the modules of the prelude, prelude.u and those that the parser imports after it (prelude_imports of self/parse.u), cannot be compiled on their own, since every program
 # has them already, so they are skipped, and their tests run with the interpreter only
 
 set -u
@@ -50,7 +50,7 @@ shift 2
 mkdir -p "$out"
 rm -f "$out"/*.result
 
-skipped="prelude/prelude.u $(sed -n 's|^import \([a-z_]*\)$|prelude/\1.u|p' prelude/prelude.u | tr '\n' ' ')"
+skipped="prelude/prelude.u $(sed -n '/^function prelude_imports/{n;p}' self/parse.u | grep -o '"[a-z_]*"' | tr -d '"' | sed 's|.*|prelude/&.u|' | tr '\n' ' ')"
 files=$(find "$@" -name '*.u' | sort | while read -r f; do
   case " $skipped " in *" $f "*) ;; *) echo "$f" ;; esac
 done)

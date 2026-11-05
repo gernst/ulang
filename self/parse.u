@@ -32,6 +32,7 @@ data Loader :=
 
 function empty_loader(): Loader
 function declare_commands(loader: Loader, cmds: List[Cmd]): Loader
+function prelude_imports(): List[Id]
 
 implementation
 
@@ -1540,14 +1541,7 @@ procedure parse_command(in loader: Loader, out cmds: List[Cmd], ref toks: Tokens
       call   advance(ref toks)
       call   parse_name(out name, ref toks)
 
-      if contains(name, loader.sigs)
-        call   check_imported(in notations, exported_notations(loader, name), offset)
-        assign cmds := [CImport(name)]
-      else
-        call   load_module(in name, loader, offset, out cmds)
-        call   check_imported(in notations, exported_notations(with_module(loader, CModule(name, cmds)), name), offset)
-        assign cmds := [CModule(name, without_tests(cmds)), CImport(name)]
-      end
+      call   import_module(in name, loader, offset, out cmds)
 
     case TName(w) if contains(w, ["prefix", "postfix", "infix"]) =>
       assign offset := head_offset(toks)
@@ -1592,7 +1586,18 @@ procedure parse_command(in loader: Loader, out cmds: List[Cmd], ref toks: Tokens
       raise expected("declaration", toks)
   end
 
-// the context after the commands cmds, where an import brings the own notations of the module
+// the commands of an import of module name at offset, the marker CImport(name), preceded by the module at its first import
+procedure import_module(in name: Id, loader: Loader, offset: Int, out cmds: List[Cmd]) :=
+  if contains(name, loader.sigs)
+    call   check_imported(in loader.notations, exported_notations(loader, name), offset)
+    assign cmds := [CImport(name)]
+  else
+    call   load_module(in name, loader, offset, out cmds)
+    call   check_imported(in loader.notations, exported_notations(with_module(loader, CModule(name, cmds)), name), offset)
+    assign cmds := [CModule(name, without_tests(cmds)), CImport(name)]
+  end
+
+// the loader after the commands cmds, where an import brings the own notations of the module
 function declare_commands(loader: Loader, cmds: List[Cmd]): Loader :=
   match cmds
     case Nil =>
@@ -1766,6 +1771,39 @@ procedure parse_module_after(in name: Id, pre: Prog, dir: Option[Str], text: Str
 
   call parse_text(in text, loader with loading := [name], prelude := Some(loader.notations), dir := dir, out prog)
 
+// the modules that the parser imports after the prelude, which every module sees with it
+function prelude_imports(): List[Id] :=
+  ["option", "list", "str"]
+
+// the prelude, the text of the module name, after which the modules of prelude_imports are imported, which the prelude does
+// not import itself, since they are parsed with all its notations
+procedure parse_prelude(in name: Id, text: Str, dir: Option[Str], out prog: Prog) :=
+  local toks: Tokens, cmds: List[Cmd], loader := empty_loader() with loading := [name], dir := dir
+
+  try
+    call lex(in text, out toks)
+  catch
+    case LexError(m, i) =>
+      raise ParseError(m, i)
+  end
+
+  call   parse_commands(out cmds, ref loader, toks)
+  call   import_all(in prelude_imports(), ref loader, cmds)
+  assign prog := Prog(cmds)
+
+// the commands cmds with the imports of the modules names after them
+procedure import_all(in names: List[Id], ref loader: Loader, cmds: List[Cmd]) :=
+  local more: List[Cmd]
+
+  match names
+    case Nil =>
+      skip
+    case [name; rest] =>
+      call   import_module(in name, loader, 0, out more)
+      assign loader := declare_commands(loader, more), cmds := cmds ++ more
+      call   import_all(in rest, ref loader, cmds)
+  end
+
 // the prelude, or another module of the library parsed after the prelude, as library gives them
 procedure parse_library(in name: Id, out prog: Prog) :=
   local text: Str, pre: Prog
@@ -1773,7 +1811,7 @@ procedure parse_library(in name: Id, out prog: Prog) :=
   call library_text(in name, 0, out text)
 
   if name == "prelude"
-    call parse_text(in text, empty_loader() with loading := ["prelude"], out prog)
+    call parse_prelude(in name, text, None, out prog)
   else
     call parse_library(in "prelude", out pre)
     call parse_module_after(in name, pre, None, text, out prog)
@@ -1804,7 +1842,7 @@ procedure parse_file_after(in path: Str, pre: Prog, out prog: Prog) :=
 // text as the file at path after the prelude pre, where the prelude itself comes after the empty program
 procedure parse_text_after(in path: Str, pre: Prog, text: Str, out prog: Prog) :=
   if pre.cmds == Nil
-    call parse_text(in text, empty_loader() with loading := [base_name(path)], dir := Some(dir_name(path)), out prog)
+    call parse_prelude(in base_name(path), text, Some(dir_name(path)), out prog)
   else
     call parse_module_after(in base_name(path), pre, Some(dir_name(path)), text, out prog)
   end

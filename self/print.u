@@ -147,8 +147,16 @@ data Shape :=
   | Operator(Fixity, Int)
 
 // the program p, parsed after the prelude pre, as source
+// where the prelude itself, after the empty program, is shown without the imports that the parser adds after it
 function show_program(pre: Prog, p: Prog): Str :=
-  join("\n\n", show_cmds(declare_commands(empty_loader(), pre.cmds), p.cmds)) ++ "\n"
+  let cmds := if pre.cmds == Nil then [c for c in p.cmds if not is_prelude_import(c)] else p.cmds in
+    join("\n\n", show_cmds(declare_commands(empty_loader(), pre.cmds), cmds)) ++ "\n"
+
+function is_prelude_import(c: Cmd): Bool :=
+  match c
+    case CImport(n) => contains(n, prelude_imports())
+    case _ => false
+  end
 
 // operators and parentheses
 

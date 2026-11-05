@@ -2306,7 +2306,7 @@ function sorts_in(t: Type): List[Name] :=
   end
 
 // the sections of the modules ms of ds, with the declarations and sorts that the modules keep private, which are all of a
-// module without an export section, except of the prelude, which has no sections yet
+// module without an export section
 procedure check_sections(in ms: List[Id], ds: List[Id * Cmd], out hidden: Set[Name], hidden_sorts: List[Name]) :=
   local ex: List[Cmd], im: List[Cmd], more: Set[Name], sorts: List[Name]
 
@@ -2325,8 +2325,6 @@ procedure check_sections(in ms: List[Id], ds: List[Id * Cmd], out hidden: Set[Na
         call   check_arities(in im, ex)
         call   check_exposed(in m, ex, private_sorts(ex, im))
         assign hidden := insert_all(private_names(ex, im), more), hidden_sorts := private_sorts(ex, im) ++ sorts
-      else if m == "prelude"
-        assign hidden := more, hidden_sorts := sorts
       else
         assign hidden := insert_all(private_names(Nil, own_cmds(ds, m)), more), hidden_sorts := private_sorts(Nil, own_cmds(ds, m)) ++ sorts
       end
