@@ -1,0 +1,38 @@
+// show gives the text of a value as os_show prints it, where a datatype may declare its own show, which the builtin
+// then uses for its values, also inside other values and in generic code, and those of imported modules
+
+import pairs
+import set
+import map
+
+data Color :=
+  | Red
+  | Green
+
+data Money :=
+  | Money(cents: Int)
+
+function show(m: Money): Str :=
+  str_show(m.cents / 100) ^ "." ^ (if m.cents % 100 < 10 then "0" else "") ^ str_show(m.cents % 100) ^ " EUR"
+
+function texts[A](xs: List[A]): List[Str] :=
+  [show(x) for x in xs]
+
+test builtin_show() :=
+  assert show(1) == "1" and show(-12) == "-12" and show(true) == "true"
+  assert show("a\"b") == "\"a\\\"b\"" and show('c') == "'c'"
+  assert show([1, 2]) == "[1, 2]" and show((1, "x")) == "(1, \"x\")" and show(Some(Red)) == "Some(Red)"
+  assert show(Nil) == "[]" and show([Green; Nil]) == "[Green]"
+
+test declared_show() :=
+  assert show(Money(1205)) == "12.05 EUR"
+  assert show([Money(100), Money(2)]) == "[1.00 EUR, 0.02 EUR]"
+  assert show((Some(Money(1)), Red)) == "(Some(0.01 EUR), Red)"
+  assert texts([Money(350)]) == ["3.50 EUR"]
+  assert show(Pair(Money(100), [Pair(1, 'x')])) == "<1.00 EUR | [<1 | 'x'>]>"
+
+test library_shows() :=
+  local s := {3, 1, 2}, m := {"b" => [1], "a" => []}, e: Set[Int] := {}
+
+  assert show(s) == "{1, 2, 3}" and show(e) == "{}" and show(m) == "{\"a\" => [], \"b\" => [1]}"
+  assert show([Some(s)]) == "[Some({1, 2, 3})]" and show(Pair(m, e)) == "<{\"a\" => [], \"b\" => [1]} | {}>"

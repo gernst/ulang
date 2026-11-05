@@ -25,6 +25,9 @@ function list[A](s: Set[A]): List[A]
 function compare[A](a: Set[A], b: Set[A]): Int
 function ==[A](a: Set[A], b: Set[A]): Bool
 
+// the elements in ascending order as the literal {a, b}, also inside other values
+function show[A](s: Set[A]): Str
+
 implementation
 
 data Set[A] :=
@@ -157,6 +160,9 @@ function balanced[A](s: Set[A]): Bool :=
 
 function upto(n: Int): List[Int] :=
   if n == 0 then Nil else upto(n - 1) ++ [n]
+
+function show[A](s: Set[A]): Str :=
+  "{" ^ str_join(", ", [show(x) for x in list(s)]) ^ "}"
 
 test sets() :=
   local s := {"a", "b"}

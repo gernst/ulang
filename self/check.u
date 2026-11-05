@@ -54,6 +54,7 @@ data Checked :=
 function first_list(xss: List[List[Var]]): List[Var]
 function order_of(c: Cmd): Option[Id * Name]
 function ordered(cs: List[Cmd], op: Id): List[Name]
+function ordered_by(cs: List[Cmd], op: Id): List[Name * Name]
 procedure check_program(in p: Program, main: Id, out q: Program)
 
 implementation
@@ -235,6 +236,7 @@ function builtin_scheme(b: Id): List[List[Type] * Type] :=
       case "<" => [([a], type_fun([a, a], type_bool()))]
       case "==" => [([a], type_fun([a, a], type_bool()))]
       case "compare" => [([a], type_fun([a, a], type_int()))]
+      case "show" => [([a], type_fun([a], type_str()))]
       case "and" => [logic()]
       case "or" => [logic()]
       case "chars" => [(Nil, type_fun([type_str()], type_list(type_char())))]
@@ -2058,9 +2060,12 @@ function block_names(cs: List[Id * Cmd]): List[Id] :=
 // the datatype whose order or equality c declares, with compare or ==, if c is compare or == of two values of a datatype
 // T[A, …] of its own module with distinct parameters, which the interpreter and the runtime then use for all values of T,
 // also in generic code, where the builtins compare structurally
-// with the functions T.compare and T.== that the checker synthesizes for an abstract type T
+// with the functions T.compare and T.== that the checker synthesizes for an abstract type T,
+// and similarly the text of the values of T if c is show of one value of T with the result Str
 function order_of(c: Cmd): Option[Id * Name] :=
   match c
+    case CFun(Name(Some(m), "show"), _, [[Var(_, TSort(Name(Some(k), b), args))]], r, _) =>
+      if k == m and distinct_params(args) and r == type_str() then Some(("show", Name(Some(k), b))) else None
     case CFun(Name(Some(m), f), _, [[Var(_, TSort(Name(Some(k), b), args)), Var(_, u)]], r, _) =>
       let op := order_op(f, b) in
         if k == m and u == TSort(Name(Some(k), b), args) and distinct_params(args) and order_result(op) == Some(r) then Some((op, Name(Some(k), b))) else None
@@ -2086,14 +2091,18 @@ function is_param(t: Type): Bool :=
     case _ => false
   end
 
-// the datatypes of cs ordered or equated by op
+// the datatypes of cs ordered, equated, or shown by op
 function ordered(cs: List[Cmd], op: Id): List[Name] :=
+  firsts(ordered_by(cs, op))
+
+// the datatypes of cs ordered, equated, or shown by op, with the functions that do it
+function ordered_by(cs: List[Cmd], op: Id): List[Name * Name] :=
   match cs
     case Nil => Nil
     case [c; rest] =>
-      match order_of(c)
-        case Some((o, n)) => if o == op then [n; ordered(rest, op)] else ordered(rest, op)
-        case None => ordered(rest, op)
+      match (c, order_of(c))
+        case (CFun(f, _, _, _, _), Some((o, t))) => if o == op then [(t, f); ordered_by(rest, op)] else ordered_by(rest, op)
+        case _ => ordered_by(rest, op)
       end
   end
 

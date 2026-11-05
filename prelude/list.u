@@ -43,6 +43,9 @@ function replicate[A](n: Int, x: A): List[A]
 function firsts[A, B](ps: List[A * B]): List[A]
 function seconds[A, B](ps: List[A * B]): List[B]
 
+// the elements as [a, b], also inside other values
+function show[A](xs: List[A]): Str
+
 implementation
 
 function ++[A](xs: List[A], ys: List[A]): List[A] :=
@@ -162,6 +165,9 @@ function seconds[A, B](ps: List[A * B]): List[B] :=
     case Nil => Nil
     case [(_, b); rest] => [b; seconds(rest)]
   end
+
+function show[A](xs: List[A]): Str :=
+  "[" ^ str_join(", ", [show(x) for x in xs]) ^ "]"
 
 test lists() :=
   assert [1, 2] ++ [3] == [1, 2, 3] and size([1, 2, 3]) == 3

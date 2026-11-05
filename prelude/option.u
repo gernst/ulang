@@ -9,6 +9,9 @@ data Option[A] :=
 // a if it has a value, else b
 function or_else[A](a: Option[A], b: Option[A]): Option[A]
 
+// None or Some(a), also inside other values
+function show[A](o: Option[A]): Str
+
 implementation
 
 function or_else[A](a: Option[A], b: Option[A]): Option[A] :=
@@ -17,5 +20,12 @@ function or_else[A](a: Option[A], b: Option[A]): Option[A] :=
     case None => b
   end
 
+function show[A](o: Option[A]): Str :=
+  match o
+    case None => "None"
+    case Some(a) => "Some(" ^ show(a) ^ ")"
+  end
+
 test options() :=
   assert or_else(Some(1), Some(2)) == Some(1) and or_else(None, Some(2)) == Some(2)
+  assert show(Some(Some(1))) == "Some(Some(1))" and show([None, Some("a")]) == "[None, Some(\"a\")]"

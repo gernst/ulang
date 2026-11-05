@@ -119,7 +119,7 @@ static u_value slow(void (*op)(mpz_ptr, mpz_srcptr, mpz_srcptr), u_value a, u_va
 }
 
 // -1, 0, or 1 as a is less than, equal to, or greater than b
-static int compare_ints(u_value a, u_value b) {
+static int int_order(u_value a, u_value b) {
   int c;
   if (a->type == &u_int_type && b->type == &u_int_type) return (a->num > b->num) - (a->num < b->num);
   if (a->type == &u_int_type) c = -mpz_cmp_si(b->big, a->num);
@@ -184,19 +184,9 @@ static u_value fill(u_value v, va_list args) {
   return v;
 }
 
-const struct u_name n_list_46_Nil = {"list", "Nil", 0, &t_list_46_List};
-const struct u_name n_list_46_Cons = {"list", "Cons", 1, &t_list_46_List};
-const struct u_name n_option_46_None = {"option", "None", 0, &t_option_46_Option};
-const struct u_name n_option_46_Some = {"option", "Some", 1, &t_option_46_Option};
+// the error of the builtins on files, which programs need not import, whose descriptors are therefore defined here,
+// while every program defines those of the datatypes of the prelude and its modules
 const struct u_name n_os_46_OsError = {"os", "OsError", 0, &t_os_46_OsError};
-const struct u_name n_prelude_46_DivisionByZero = {"prelude", "DivisionByZero", 0, &t_prelude_46_DivisionByZero};
-const struct u_name n_prelude_46_NoIndex = {"prelude", "NoIndex", 0, &t_prelude_46_NoIndex};
-const struct u_name n_prelude_46_NoCharacter = {"prelude", "NoCharacter", 0, &t_prelude_46_NoCharacter};
-const struct u_name n_prelude_46_MissingField = {"prelude", "MissingField", 0, &t_prelude_46_MissingField};
-
-struct u_object o_list_46_Nil = U_UNIT(n_list_46_Nil, t_list_46_List);
-struct u_object o_option_46_None = U_UNIT(n_option_46_None, t_option_46_Option);
-struct u_object o_prelude_46_DivisionByZero = U_UNIT(n_prelude_46_DivisionByZero, t_prelude_46_DivisionByZero);
 
 static void division_by_zero(void) {
   u_raise(&o_prelude_46_DivisionByZero, "prelude.DivisionByZero");
@@ -252,25 +242,34 @@ static int sign(long long d) {
   return (d > 0) - (d < 0);
 }
 
+// -1, 0, or 1 as a value, which are shared
+static u_value ordering(int c) {
+  return &small_ints[c - SMALL_MIN];
+}
+
 // -1, 0, or 1 for values of the same type, by the order of their type
 static int compare(u_value a, u_value b) {
-  return a->type->compare(a, b);
+  return (int)a->type->compare(a, b)->num;
 }
 
 int u_equals(u_value a, u_value b) {
-  return a->type->equals(a, b);
+  return u_truth(a->type->equals(a, b));
 }
 
-int u_equals_by_compare(u_value a, u_value b) {
-  return compare(a, b) == 0;
+u_value u_equals_by_compare(u_value a, u_value b) {
+  return u_mk_bool(compare(a, b) == 0);
 }
 
-static int compare_nums(u_value a, u_value b) {
-  return sign(a->num - b->num);
+static u_value compare_ints(u_value a, u_value b) {
+  return ordering(int_order(a, b));
 }
 
-static int compare_strs(u_value a, u_value b) {
-  return a == b ? 0 : sign(u_strcmp(a->text, b->text));
+static u_value compare_nums(u_value a, u_value b) {
+  return ordering(sign(a->num - b->num));
+}
+
+static u_value compare_strs(u_value a, u_value b) {
+  return ordering(a == b ? 0 : sign(u_strcmp(a->text, b->text)));
 }
 
 static int compare_items(u_value a, u_value b) {
@@ -281,37 +280,37 @@ static int compare_items(u_value a, u_value b) {
   return sign(a->size - b->size);
 }
 
-static int compare_tuples(u_value a, u_value b) {
-  return a == b ? 0 : compare_items(a, b);
+static u_value compare_tuples(u_value a, u_value b) {
+  return ordering(a == b ? 0 : compare_items(a, b));
 }
 
 // constructors are ordered by their position in their declaration and then by their fields, where descriptors of
 // compilers before positions all have position 0, whose constructors still differ by name
-int u_con_compare(u_value a, u_value b) {
-  if (a == b) return 0;
+u_value u_con_compare(u_value a, u_value b) {
+  if (a == b) return ordering(0);
   if (a->name != b->name) {
     int c = sign(a->name->index - b->name->index);
-    return c != 0 ? c : sign(u_strcmp(a->name->base, b->name->base));
+    return ordering(c != 0 ? c : sign(u_strcmp(a->name->base, b->name->base)));
   }
-  return compare_items(a, b);
+  return ordering(compare_items(a, b));
 }
 
-static int compare_functions(u_value a, u_value b) {
+static u_value compare_functions(u_value a, u_value b) {
   (void)a;
   (void)b;
   u_fail("cannot compare functions");
-  return 0;
+  return NULL;
 }
 
-static int compare_procedures(u_value a, u_value b) {
+static u_value compare_procedures(u_value a, u_value b) {
   (void)a;
   (void)b;
   u_fail("cannot compare procedures");
-  return 0;
+  return NULL;
 }
 
 u_value u_compare(u_value a, u_value b) {
-  return u_mk_int(compare(a, b));
+  return a->type->compare(a, b);
 }
 
 u_value u_apply(u_value f, int n, ...) {
@@ -379,7 +378,7 @@ u_value u_lt(u_value a, u_value b) {
 }
 
 u_value u_eq(u_value a, u_value b) {
-  return u_mk_bool(u_equals(a, b));
+  return a->type->equals(a, b);
 }
 
 u_value u_chars(u_value s) {
@@ -535,97 +534,123 @@ u_value u_is_space(u_value c) {
   return u_mk_bool(c->num == ' ' || c->num == '\n' || c->num == '\t' || c->num == '\r');
 }
 
-static void print_char(FILE *out, long long c, char quote) {
-  const char *e = escape(c, quote);
-  if (e) fputs(e, out);
-  else fputc((int)c, out);
+// a text that grows by appending, for the shows of values
+struct u_text {
+  char *chars;
+  size_t length, capacity;
+};
+
+static void append_n(struct u_text *t, const char *s, size_t n) {
+  if (t->length + n + 1 > t->capacity) {
+    t->capacity = 2 * (t->length + n + 1);
+    t->chars = GC_REALLOC(t->chars, t->capacity);
+    if (!t->chars) u_fail("out of memory");
+  }
+  memcpy(t->chars + t->length, s, n);
+  t->length += n;
+  t->chars[t->length] = 0;
 }
 
-static int is_list(u_value v) {
-  for (; u_is_con(v, &n_list_46_Cons); v = v->items[1]);
-  return u_is_con(v, &n_list_46_Nil);
+static void append(struct u_text *t, const char *s) {
+  append_n(t, s, strlen(s));
+}
+
+// the text of a value, shown by its type, appended
+static void append_shown(struct u_text *t, u_value v) {
+  u_value s = u_show(v);
+  append_n(t, s->text, (size_t)s->length);
+}
+
+static u_value text_value(struct u_text *t) {
+  return t->chars ? u_mk_str_n(t->chars, (long long)t->length) : u_mk_lit("");
+}
+
+static void append_char(struct u_text *t, long long c, char quote) {
+  const char *e = escape(c, quote);
+  char s[2] = {(char)c, 0};
+  append(t, e ? e : s);
 }
 
 // values as self/print.u shows them, by their types
+u_value u_show(u_value v) {
+  return v->type->show(v);
+}
+
 void u_fprint_value(FILE *out, u_value v) {
-  v->type->print(out, v);
+  u_value s = u_show(v);
+  fwrite(s->text, 1, (size_t)s->length, out);
 }
 
-static void print_int(FILE *out, u_value v) {
-  fprintf(out, "%lld", v->num);
+static u_value show_int(u_value v) {
+  char *s = GC_MALLOC_ATOMIC(24);
+  snprintf(s, 24, "%lld", v->num);
+  return u_mk_str(s);
 }
 
-static void print_big(FILE *out, u_value v) {
-  mpz_out_str(out, 10, v->big);
+static u_value show_big(u_value v) {
+  return u_mk_str(mpz_get_str(NULL, 10, v->big));
 }
 
-static void print_bool(FILE *out, u_value v) {
-  fprintf(out, v->num ? "true" : "false");
+static u_value show_bool(u_value v) {
+  return v->num ? u_mk_lit("true") : u_mk_lit("false");
 }
 
-static void print_char_value(FILE *out, u_value v) {
-  fputc('\'', out);
-  print_char(out, v->num, '\'');
-  fputc('\'', out);
+static u_value show_char(u_value v) {
+  struct u_text t = {NULL, 0, 0};
+  append(&t, "'");
+  append_char(&t, v->num, '\'');
+  append(&t, "'");
+  return text_value(&t);
 }
 
-static void print_str(FILE *out, u_value v) {
-  fputc('"', out);
-  for (const char *s = v->text; *s; s++) print_char(out, (unsigned char)*s, '"');
-  fputc('"', out);
+static u_value show_str(u_value v) {
+  return u_str_quote(v);
 }
 
-static void print_items(FILE *out, u_value v) {
-  fputc('(', out);
+static void append_items(struct u_text *t, u_value v) {
+  append(t, "(");
   for (int i = 0; i < v->size; i++) {
-    if (i > 0) fprintf(out, ", ");
-    u_fprint_value(out, v->items[i]);
+    if (i > 0) append(t, ", ");
+    append_shown(t, v->items[i]);
   }
-  fputc(')', out);
+  append(t, ")");
 }
 
-// lists are shown as [a, b], unless their tail is not a list
-void u_con_print(FILE *out, u_value v) {
-  if (u_is_con(v, &n_list_46_Cons) && is_list(v)) {
-    fputc('[', out);
-    for (u_value x = v; u_is_con(x, &n_list_46_Cons); x = x->items[1]) {
-      if (x != v) fprintf(out, ", ");
-      u_fprint_value(out, x->items[0]);
-    }
-    fputc(']', out);
-  } else {
-    fprintf(out, "%s", v->name->base);
-    if (v->size > 0) print_items(out, v);
-  }
+static u_value show_tuple(u_value v) {
+  struct u_text t = {NULL, 0, 0};
+  append_items(&t, v);
+  return text_value(&t);
 }
 
-static void print_function(FILE *out, u_value v) {
+// constructors with their fields, where the library declares the shows of lists, options, sets, and maps
+u_value u_con_show(u_value v) {
+  struct u_text t = {NULL, 0, 0};
+  append(&t, v->name->base);
+  if (v->size > 0) append_items(&t, v);
+  return text_value(&t);
+}
+
+static u_value show_function(u_value v) {
   (void)v;
-  fprintf(out, "<function>");
+  return u_mk_lit("<function>");
 }
 
-static void print_procedure(FILE *out, u_value v) {
+static u_value show_procedure(u_value v) {
   (void)v;
-  fprintf(out, "<procedure>");
+  return u_mk_lit("<procedure>");
 }
 
-const struct u_type u_int_type = {"Int", compare_ints, u_equals_by_compare, print_int};
-const struct u_type u_big_type = {"Int", compare_ints, u_equals_by_compare, print_big};
-const struct u_type u_bool_type = {"Bool", compare_nums, u_equals_by_compare, print_bool};
-const struct u_type u_char_type = {"Char", compare_nums, u_equals_by_compare, print_char_value};
-const struct u_type u_str_type = {"Str", compare_strs, u_equals_by_compare, print_str};
-const struct u_type u_tuple_type = {"*", compare_tuples, u_equals_by_compare, print_items};
-const struct u_type u_closure_type = {"->", compare_functions, compare_functions, print_function};
-const struct u_type u_proc_type = {"proc", compare_procedures, compare_procedures, print_procedure};
+const struct u_type u_int_type = {"Int", compare_ints, u_equals_by_compare, show_int};
+const struct u_type u_big_type = {"Int", compare_ints, u_equals_by_compare, show_big};
+const struct u_type u_bool_type = {"Bool", compare_nums, u_equals_by_compare, show_bool};
+const struct u_type u_char_type = {"Char", compare_nums, u_equals_by_compare, show_char};
+const struct u_type u_str_type = {"Str", compare_strs, u_equals_by_compare, show_str};
+const struct u_type u_tuple_type = {"*", compare_tuples, u_equals_by_compare, show_tuple};
+const struct u_type u_closure_type = {"->", compare_functions, compare_functions, show_function};
+const struct u_type u_proc_type = {"proc", compare_procedures, compare_procedures, show_procedure};
 
 // the datatypes whose constructors the builtins create, which the library does not order otherwise
-const struct u_type t_list_46_List = {"list.List", u_con_compare, u_equals_by_compare, u_con_print};
-const struct u_type t_option_46_Option = {"option.Option", u_con_compare, u_equals_by_compare, u_con_print};
-const struct u_type t_os_46_OsError = {"os.OsError", u_con_compare, u_equals_by_compare, u_con_print};
-const struct u_type t_prelude_46_DivisionByZero = {"prelude.DivisionByZero", u_con_compare, u_equals_by_compare, u_con_print};
-const struct u_type t_prelude_46_NoIndex = {"prelude.NoIndex", u_con_compare, u_equals_by_compare, u_con_print};
-const struct u_type t_prelude_46_NoCharacter = {"prelude.NoCharacter", u_con_compare, u_equals_by_compare, u_con_print};
-const struct u_type t_prelude_46_MissingField = {"prelude.MissingField", u_con_compare, u_equals_by_compare, u_con_print};
+const struct u_type t_os_46_OsError = {"os.OsError", u_con_compare, u_equals_by_compare, u_con_show};
 
 void u_print_value(u_value v) {
   u_fprint_value(stdout, v);

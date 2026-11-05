@@ -30,6 +30,9 @@ function list[K, V](m: Map[K, V]): List[K * V]
 function compare[K, V](a: Map[K, V], b: Map[K, V]): Int
 function ==[K, V](a: Map[K, V], b: Map[K, V]): Bool
 
+// the entries in the order of their keys as the literal {k => v, l => w}, also inside other values
+function show[K, V](m: Map[K, V]): Str
+
 implementation
 
 data Map[K, V] :=
@@ -201,6 +204,9 @@ function put_all[K, V](ps: List[K * V], m: Map[K, V]): Map[K, V] :=
 
 function numbers(n: Int): List[Int] :=
   if n == 0 then Nil else numbers(n - 1) ++ [n]
+
+function show[K, V](m: Map[K, V]): Str :=
+  "{" ^ str_join(", ", [show(k) ^ " => " ^ show(v) for k => v in m]) ^ "}"
 
 test maps() :=
   local m := {"a" => 1, "b" => 2}

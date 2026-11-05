@@ -1,0 +1,9 @@
+// a generic datatype with a show, which shows its components by the builtin, for tests/show.u
+
+data Pair[A, B] :=
+  | Pair(A, B)
+
+function show[A, B](p: Pair[A, B]): Str :=
+  match p
+    case Pair(a, b) => "<" ^ show(a) ^ " | " ^ show(b) ^ ">"
+  end

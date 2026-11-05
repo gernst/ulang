@@ -12,13 +12,14 @@
 
 typedef struct u_object *u_value;
 
-// the type of a value, with its order, its equality, which agrees with the order, and how it is printed,
-// where each type exists once, the built-in ones in the runtime and each datatype in the compiled program
+// the type of a value, with its order, which gives -1, 0, or 1, its equality, which agrees with the order, and its text,
+// where each type exists once, the built-in ones in the runtime and each datatype in the compiled program, whose
+// descriptor points to the functions compare, ==, and show that its module declares, which have the same signatures
 struct u_type {
   const char *name;
-  int (*compare)(u_value a, u_value b);
-  int (*equals)(u_value a, u_value b);
-  void (*print)(FILE *out, u_value v);
+  u_value (*compare)(u_value a, u_value b);
+  u_value (*equals)(u_value a, u_value b);
+  u_value (*show)(u_value v);
 };
 
 // the name of a constructor with its module, its position in its declaration, which orders values, and its datatype,
@@ -34,15 +35,16 @@ struct u_name {
 // with an mpz_t, such that each integer has one representation
 extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type;
 
-// the datatypes whose constructors the builtins create
+// the datatypes whose constructors the builtins create, where the compiled program defines the descriptors of those of
+// the prelude and its modules, which every program has, and the runtime that of OsError, which programs need not import
 extern const struct u_type t_list_46_List, t_option_46_Option, t_os_46_OsError;
 extern const struct u_type t_prelude_46_DivisionByZero, t_prelude_46_NoIndex, t_prelude_46_NoCharacter, t_prelude_46_MissingField;
 
-// the order, equality, and printing of datatypes by their constructors and then their fields, which the descriptors
-// of datatypes use unless their module declares compare or ==, and the equality of an order
-int u_con_compare(u_value a, u_value b);
-int u_equals_by_compare(u_value a, u_value b);
-void u_con_print(FILE *out, u_value v);
+// the order, equality, and text of datatypes by their constructors and then their fields, which the descriptors
+// of datatypes use unless their module declares compare, ==, or show, and the equality of an order
+u_value u_con_compare(u_value a, u_value b);
+u_value u_equals_by_compare(u_value a, u_value b);
+u_value u_con_show(u_value v);
 
 // the constructors that the builtins create, of the modules list, option, and os of the library
 extern const struct u_name n_list_46_Nil, n_list_46_Cons, n_option_46_None, n_option_46_Some, n_os_46_OsError;
@@ -123,10 +125,6 @@ static inline u_value u_field(u_value v, int i) {
   return v->items[i];
 }
 
-// the result of a declared compare as an int of C
-static inline int u_order(u_value v) {
-  return (int)v->num;
-}
 int u_equals(u_value a, u_value b);
 u_value u_compare(u_value a, u_value b);
 u_value u_apply(u_value f, int n, ...);
@@ -158,6 +156,9 @@ u_value u_str_number(u_value s);
 u_value u_is_digit(u_value c);
 u_value u_is_letter(u_value c);
 u_value u_is_space(u_value c);
+
+// the text of a value as it is printed, by the descriptors of its objects, which use the shows that datatypes declare
+u_value u_show(u_value v);
 
 void u_print_value(u_value v);
 void u_print_line(u_value v);

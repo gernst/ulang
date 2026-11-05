@@ -19,8 +19,8 @@ data ProcDef :=
 
 // the functions by name and number of arguments, the procedures, the constructors with their numbers of arguments,
 // the constructors with their positions in their declarations, which order values, the constructors of datatypes
-// with their declared orders and equalities, see order_of, the functions without parameters whose values are being
-// computed, and the arguments of the program
+// with their declared orders, equalities, and shows, see order_of, the functions without parameters whose values are
+// being computed, and the arguments of the program
 data Prog :=
   | Prog(
     funs: Map[Name * Int, List[List[Var]] * Expr],
@@ -29,6 +29,7 @@ data Prog :=
     positions: Map[Name, Int],
     orders: Map[Name, Name],
     equalities: Map[Name, Name],
+    shows: Map[Name, Name],
     computing: List[Name],
     args: List[Str]
   )
@@ -76,22 +77,12 @@ function load(q: Program): Prog :=
         put_all(proc_defs(cs), empty()),
         put_all(constr_defs(cs), empty()),
         put_all(constr_positions(cs), empty()),
-        put_all(constr_orders(cs, order_funs(cs, "compare")), empty()),
-        put_all(constr_orders(cs, order_funs(cs, "==")), empty()),
+        put_all(constr_orders(cs, ordered_by(cs, "compare")), empty()),
+        put_all(constr_orders(cs, ordered_by(cs, "==")), empty()),
+        put_all(constr_orders(cs, ordered_by(cs, "show")), empty()),
         Nil,
         Nil
       )
-  end
-
-// the datatypes ordered or equated by op with the functions that do it
-function order_funs(cs: List[Cmd], op: Id): List[Name * Name] :=
-  match cs
-    case Nil => Nil
-    case [c; rest] =>
-      match (c, order_of(c))
-        case (CFun(f, _, _, _, _), Some((o, t))) => if o == op then [(t, f); order_funs(rest, op)] else order_funs(rest, op)
-        case _ => order_funs(rest, op)
-      end
   end
 
 // the constructors of the datatypes of fs with the functions of their datatypes
@@ -145,7 +136,7 @@ function constr_arity(k: Constr): Name * Int :=
 
 function builtin_names(): Set[Id] :=
   {
-    "+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "compare",
+    "+", "-", "*", "/", "%", "<", "==", "chars", "string", "ord", "chr", "^", "str_size", "str_join", "str_slice", "str_split", "compare", "show",
     "str_get", "str_contains", "str_compare", "str_show", "str_quote", "str_number", "is_digit", "is_letter", "is_space"
   }
 
@@ -329,7 +320,7 @@ procedure apply_expr(in p: Prog, env: Bindings, f: Expr, args: List[Expr], out v
   end
 
 procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value, ref cache: Map[Name, Value]) :=
-  local k: Int, r: Bool
+  local k: Int, r: Bool, s: Str
 
   match f
     case Clos(env, xs, body) =>
@@ -365,6 +356,9 @@ procedure apply_value(in p: Prog, f: Value, vs: List[Value], out v: Value, ref c
         case ("==", [a, b]) =>
           call   equal(in p, a, b, out r, ref cache)
           assign v := Lit(VBool(r))
+        case ("show", [a]) =>
+          call   show_in(in p, a, out s, ref cache)
+          assign v := Lit(VStr(s))
         // integers directly, and other values by their order
         case ("<", [Lit(VInt(a)), Lit(VInt(b))]) =>
           assign v := Lit(VBool(a < b))
@@ -595,6 +589,44 @@ procedure compare_all(in p: Prog, xs: List[Value], ys: List[Value], out r: Int, 
       assign r := order(size(xs), size(ys))
   end
 
+// the text of a value as show_value of print.u gives it, where the values of datatypes with declared shows are shown by them,
+// also inside other values, as lists, options, sets, and maps of the library are
+procedure show_in(in p: Prog, v: Value, out s: Str, ref cache: Map[Name, Value]) :=
+  local w: Value, texts: List[Str]
+
+  match v
+    case Obj(c, _) if contains(c, p.shows) =>
+      match get(c, p.shows)
+        case Some(f) =>
+          call apply_value(in p, Fn(f, 1), [v], out w, ref cache)
+          assign s := text_of(w)
+        case None =>
+          assign s := show_value(v)
+      end
+    case Obj(n, vs) if n == tuple_name() =>
+      call   show_all(in p, vs, out texts, ref cache)
+      assign s := "(" ^ str_join(", ", texts) ^ ")"
+    case Obj(n, Nil) =>
+      assign s := n.base
+    case Obj(n, vs) =>
+      call   show_all(in p, vs, out texts, ref cache)
+      assign s := n.base ^ "(" ^ str_join(", ", texts) ^ ")"
+    case _ =>
+      assign s := show_value(v)
+  end
+
+procedure show_all(in p: Prog, vs: List[Value], out texts: List[Str], ref cache: Map[Name, Value]) :=
+  local s: Str, rest: List[Str]
+
+  match vs
+    case Nil =>
+      assign texts := Nil
+    case [v; more] =>
+      call   show_in(in p, v, out s, ref cache)
+      call   show_all(in p, more, out rest, ref cache)
+      assign texts := [s; rest]
+  end
+
 function order(x: Int, y: Int): Int :=
   if x < y then -1 else if y < x then 1 else 0
 
@@ -797,12 +829,15 @@ procedure handle(in p: Prog, hs: List[Handler], v: Value, t: Type, ref env: Bind
 // calls the procedure n with the values ins of its ins, where the variables refs of the caller in env are its refs,
 // which get their values back when it returns, and the values outs of its outs
 procedure invoke(in p: Prog, n: Name, ins: List[Value], refs: List[Name], out outs: List[Value], ref env: Bindings, cache: Map[Name, Value]) :=
+  local texts: List[Str]
+
   match get(n, p.procs)
     case Some(ProcDef(xs, ys, zs, body)) =>
       call run_body(in p, n, empty(), xs, ys, zs, body, ins, refs, out outs, ref env, cache)
     case None if n.base == "os_show" =>
       assign outs := Nil
-      call   print_all(in [show_value(v) for v in ins])
+      call   show_all(in p, ins, out texts, ref cache)
+      call   print_all(in texts)
     case None if n.base == "os_print" =>
       assign outs := Nil
       call   print_all(in [text_of(v) for v in ins])
