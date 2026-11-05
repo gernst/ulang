@@ -26,13 +26,13 @@ u_value w_f_check_46_Checked_46_cmds_1(u_value *env, u_value *args);
 
 u_value w_f_check_46_Checked_46_cmds_58__61__2(u_value *env, u_value *args);
 
-u_value w_f_check_46_Checked_46_ctx_1(u_value *env, u_value *args);
-
-u_value w_f_check_46_Checked_46_ctx_58__61__2(u_value *env, u_value *args);
-
 u_value w_f_check_46_Checked_46_imports_1(u_value *env, u_value *args);
 
 u_value w_f_check_46_Checked_46_imports_58__61__2(u_value *env, u_value *args);
+
+u_value w_f_check_46_Checked_46_sig_1(u_value *env, u_value *args);
+
+u_value w_f_check_46_Checked_46_sig_58__61__2(u_value *env, u_value *args);
 
 u_value w_f_check_46_Local_46_assigned_1(u_value *env, u_value *args);
 
@@ -66,10 +66,6 @@ u_value w_f_check_46_State_46_count_1(u_value *env, u_value *args);
 
 u_value w_f_check_46_State_46_count_58__61__2(u_value *env, u_value *args);
 
-u_value w_f_check_46_State_46_ctx_1(u_value *env, u_value *args);
-
-u_value w_f_check_46_State_46_ctx_58__61__2(u_value *env, u_value *args);
-
 u_value w_f_check_46_State_46_module_1(u_value *env, u_value *args);
 
 u_value w_f_check_46_State_46_module_58__61__2(u_value *env, u_value *args);
@@ -77,6 +73,10 @@ u_value w_f_check_46_State_46_module_58__61__2(u_value *env, u_value *args);
 u_value w_f_check_46_State_46_pending_1(u_value *env, u_value *args);
 
 u_value w_f_check_46_State_46_pending_58__61__2(u_value *env, u_value *args);
+
+u_value w_f_check_46_State_46_sig_1(u_value *env, u_value *args);
+
+u_value w_f_check_46_State_46_sig_58__61__2(u_value *env, u_value *args);
 
 u_value w_f_check_46_State_46_sub_1(u_value *env, u_value *args);
 
@@ -324,7 +324,7 @@ u_value w_f_check_46_visible_names_3(u_value *env, u_value *args);
 
 u_value w_f_check_46_with_arity_2(u_value *env, u_value *args);
 
-u_value w_f_check_46_with_ctx_2(u_value *env, u_value *args);
+u_value w_f_check_46_with_sig_2(u_value *env, u_value *args);
 
 u_value w_f_check_46_witness_2(u_value *env, u_value *args);
 
@@ -499,104 +499,6 @@ u_value w_f_compile_46_var_name_1(u_value *env, u_value *args);
 u_value w_f_compile_46_wrapper_3(u_value *env, u_value *args);
 
 u_value w_f_compile_46_wrappers_1(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_aliases_1(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_aliases_58__61__2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_constrs_1(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_constrs_58__61__2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_datas_1(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_datas_58__61__2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_funs_1(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_funs_58__61__2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_hidden_1(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_hidden_58__61__2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_members_1(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_members_58__61__2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_named_1(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_named_58__61__2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_procs_1(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_Ctx_46_procs_58__61__2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_alias_of_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_constr_of_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_data_of_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_empty_0(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_hidden_named_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_in_modules_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_is_alias_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_is_constr_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_is_data_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_is_fun_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_is_proc_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_is_sort_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_key_of_1(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_members_of_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_names_of_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_owned_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_owned_map_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_owned_named_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_proc_of_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_public_1(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_restrict_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_schemes_of_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_unhidden_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_union_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_union_named_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_value_of_1(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_with_alias_4(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_with_constr_3(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_with_data_3(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_with_fun_3(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_with_members_3(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_with_named_2(u_value *env, u_value *args);
-
-u_value w_f_ctx_46_with_proc_3(u_value *env, u_value *args);
 
 u_value w_f_defs_46_Defs_46_constrs_1(u_value *env, u_value *args);
 
@@ -1304,6 +1206,104 @@ u_value w_f_set_46_size_1(u_value *env, u_value *args);
 
 u_value w_f_set_46_upto_1(u_value *env, u_value *args);
 
+u_value w_f_sig_46_Sig_46_aliases_1(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_aliases_58__61__2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_constrs_1(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_constrs_58__61__2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_datas_1(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_datas_58__61__2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_funs_1(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_funs_58__61__2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_hidden_1(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_hidden_58__61__2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_members_1(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_members_58__61__2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_named_1(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_named_58__61__2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_procs_1(u_value *env, u_value *args);
+
+u_value w_f_sig_46_Sig_46_procs_58__61__2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_alias_of_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_constr_of_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_data_of_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_empty_0(u_value *env, u_value *args);
+
+u_value w_f_sig_46_hidden_named_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_in_modules_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_is_alias_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_is_constr_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_is_data_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_is_fun_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_is_proc_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_is_sort_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_key_of_1(u_value *env, u_value *args);
+
+u_value w_f_sig_46_members_of_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_names_of_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_owned_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_owned_map_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_owned_named_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_proc_of_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_public_1(u_value *env, u_value *args);
+
+u_value w_f_sig_46_restrict_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_schemes_of_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_unhidden_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_union_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_union_named_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_value_of_1(u_value *env, u_value *args);
+
+u_value w_f_sig_46_with_alias_4(u_value *env, u_value *args);
+
+u_value w_f_sig_46_with_constr_3(u_value *env, u_value *args);
+
+u_value w_f_sig_46_with_data_3(u_value *env, u_value *args);
+
+u_value w_f_sig_46_with_fun_3(u_value *env, u_value *args);
+
+u_value w_f_sig_46_with_members_3(u_value *env, u_value *args);
+
+u_value w_f_sig_46_with_named_2(u_value *env, u_value *args);
+
+u_value w_f_sig_46_with_proc_3(u_value *env, u_value *args);
+
 u_value w_f_syntax_46_Branch_46_body_1(u_value *env, u_value *args);
 
 u_value w_f_syntax_46_Branch_46_body_58__61__2(u_value *env, u_value *args);
@@ -1592,8 +1592,6 @@ u_value wc_compile_46_UnknownEntry(u_value *env, u_value *args);
 
 u_value wc_compile_46_Unsupported(u_value *env, u_value *args);
 
-u_value wc_ctx_46_Ctx(u_value *env, u_value *args);
-
 u_value wc_defs_46_Defs(u_value *env, u_value *args);
 
 u_value wc_lex_46_LexError(u_value *env, u_value *args);
@@ -1667,6 +1665,8 @@ u_value wc_run_46_UnknownProc(u_value *env, u_value *args);
 u_value wc_run_46_Unspecified(u_value *env, u_value *args);
 
 u_value wc_set_46_Node(u_value *env, u_value *args);
+
+u_value wc_sig_46_Sig(u_value *env, u_value *args);
 
 u_value wc_syntax_46_Branch(u_value *env, u_value *args);
 
@@ -2990,103 +2990,103 @@ void p_parse_46_parse_text_after(u_value v_path, u_value v_pre, u_value v_text, 
 
 void p_parse_46_parse_file(u_value v_path, u_value *r_program);
 
-u_value f_ctx_46_Ctx_46_aliases_1(u_value v_x);
+u_value f_sig_46_Sig_46_aliases_1(u_value v_x);
 
-u_value f_ctx_46_Ctx_46_funs_1(u_value v_x);
+u_value f_sig_46_Sig_46_funs_1(u_value v_x);
 
-u_value f_ctx_46_Ctx_46_procs_1(u_value v_x);
+u_value f_sig_46_Sig_46_procs_1(u_value v_x);
 
-u_value f_ctx_46_Ctx_46_datas_1(u_value v_x);
+u_value f_sig_46_Sig_46_datas_1(u_value v_x);
 
-u_value f_ctx_46_Ctx_46_members_1(u_value v_x);
+u_value f_sig_46_Sig_46_members_1(u_value v_x);
 
-u_value f_ctx_46_Ctx_46_constrs_1(u_value v_x);
+u_value f_sig_46_Sig_46_constrs_1(u_value v_x);
 
-u_value f_ctx_46_Ctx_46_named_1(u_value v_x);
+u_value f_sig_46_Sig_46_named_1(u_value v_x);
 
-u_value f_ctx_46_Ctx_46_hidden_1(u_value v_x);
+u_value f_sig_46_Sig_46_hidden_1(u_value v_x);
 
-u_value f_ctx_46_Ctx_46_aliases_58__61__2(u_value v_x, u_value v_y);
+u_value f_sig_46_Sig_46_aliases_58__61__2(u_value v_x, u_value v_y);
 
-u_value f_ctx_46_Ctx_46_funs_58__61__2(u_value v_x, u_value v_y);
+u_value f_sig_46_Sig_46_funs_58__61__2(u_value v_x, u_value v_y);
 
-u_value f_ctx_46_Ctx_46_procs_58__61__2(u_value v_x, u_value v_y);
+u_value f_sig_46_Sig_46_procs_58__61__2(u_value v_x, u_value v_y);
 
-u_value f_ctx_46_Ctx_46_datas_58__61__2(u_value v_x, u_value v_y);
+u_value f_sig_46_Sig_46_datas_58__61__2(u_value v_x, u_value v_y);
 
-u_value f_ctx_46_Ctx_46_members_58__61__2(u_value v_x, u_value v_y);
+u_value f_sig_46_Sig_46_members_58__61__2(u_value v_x, u_value v_y);
 
-u_value f_ctx_46_Ctx_46_constrs_58__61__2(u_value v_x, u_value v_y);
+u_value f_sig_46_Sig_46_constrs_58__61__2(u_value v_x, u_value v_y);
 
-u_value f_ctx_46_Ctx_46_named_58__61__2(u_value v_x, u_value v_y);
+u_value f_sig_46_Sig_46_named_58__61__2(u_value v_x, u_value v_y);
 
-u_value f_ctx_46_Ctx_46_hidden_58__61__2(u_value v_x, u_value v_y);
+u_value f_sig_46_Sig_46_hidden_58__61__2(u_value v_x, u_value v_y);
 
-u_value f_ctx_46_empty_0(void);
+u_value f_sig_46_empty_0(void);
 
-u_value f_ctx_46_restrict_2(u_value v_c, u_value v_ms);
+u_value f_sig_46_restrict_2(u_value v_sig, u_value v_ms);
 
-u_value f_ctx_46_owned_map_2(u_value v_m, u_value v_ms);
+u_value f_sig_46_owned_map_2(u_value v_m, u_value v_ms);
 
-u_value f_ctx_46_owned_2(u_value v_es, u_value v_ms);
+u_value f_sig_46_owned_2(u_value v_es, u_value v_ms);
 
-u_value f_ctx_46_owned_named_2(u_value v_es, u_value v_ms);
+u_value f_sig_46_owned_named_2(u_value v_es, u_value v_ms);
 
-u_value f_ctx_46_in_modules_2(u_value v_n, u_value v_ms);
+u_value f_sig_46_in_modules_2(u_value v_n, u_value v_ms);
 
-u_value f_ctx_46_union_2(u_value v_a, u_value v_b);
+u_value f_sig_46_union_2(u_value v_a, u_value v_b);
 
-u_value f_ctx_46_public_1(u_value v_c);
+u_value f_sig_46_public_1(u_value v_sig);
 
-u_value f_ctx_46_unhidden_2(u_value v_m, u_value v_hidden);
+u_value f_sig_46_unhidden_2(u_value v_m, u_value v_hidden);
 
-u_value f_ctx_46_key_of_1(u_value v_e);
+u_value f_sig_46_key_of_1(u_value v_e);
 
-u_value f_ctx_46_value_of_1(u_value v_e);
+u_value f_sig_46_value_of_1(u_value v_e);
 
-u_value f_ctx_46_hidden_named_2(u_value v_c, u_value v_b);
+u_value f_sig_46_hidden_named_2(u_value v_sig, u_value v_b);
 
-u_value f_ctx_46_union_named_2(u_value v_es, u_value v_bs);
+u_value f_sig_46_union_named_2(u_value v_es, u_value v_bs);
 
-u_value f_ctx_46_alias_of_2(u_value v_c, u_value v_n);
+u_value f_sig_46_alias_of_2(u_value v_sig, u_value v_n);
 
-u_value f_ctx_46_schemes_of_2(u_value v_c, u_value v_n);
+u_value f_sig_46_schemes_of_2(u_value v_sig, u_value v_n);
 
-u_value f_ctx_46_proc_of_2(u_value v_c, u_value v_n);
+u_value f_sig_46_proc_of_2(u_value v_sig, u_value v_n);
 
-u_value f_ctx_46_data_of_2(u_value v_c, u_value v_n);
+u_value f_sig_46_data_of_2(u_value v_sig, u_value v_n);
 
-u_value f_ctx_46_members_of_2(u_value v_c, u_value v_n);
+u_value f_sig_46_members_of_2(u_value v_sig, u_value v_n);
 
-u_value f_ctx_46_constr_of_2(u_value v_c, u_value v_n);
+u_value f_sig_46_constr_of_2(u_value v_sig, u_value v_n);
 
-u_value f_ctx_46_is_fun_2(u_value v_c, u_value v_n);
+u_value f_sig_46_is_fun_2(u_value v_sig, u_value v_n);
 
-u_value f_ctx_46_is_proc_2(u_value v_c, u_value v_n);
+u_value f_sig_46_is_proc_2(u_value v_sig, u_value v_n);
 
-u_value f_ctx_46_is_data_2(u_value v_c, u_value v_n);
+u_value f_sig_46_is_data_2(u_value v_sig, u_value v_n);
 
-u_value f_ctx_46_is_alias_2(u_value v_c, u_value v_n);
+u_value f_sig_46_is_alias_2(u_value v_sig, u_value v_n);
 
-u_value f_ctx_46_is_constr_2(u_value v_c, u_value v_n);
+u_value f_sig_46_is_constr_2(u_value v_sig, u_value v_n);
 
-u_value f_ctx_46_is_sort_2(u_value v_c, u_value v_n);
+u_value f_sig_46_is_sort_2(u_value v_sig, u_value v_n);
 
-u_value f_ctx_46_names_of_2(u_value v_c, u_value v_b);
+u_value f_sig_46_names_of_2(u_value v_sig, u_value v_b);
 
-u_value f_ctx_46_with_named_2(u_value v_bs, u_value v_n);
+u_value f_sig_46_with_named_2(u_value v_bs, u_value v_n);
 
-u_value f_ctx_46_with_alias_4(u_value v_c, u_value v_n, u_value v_ps, u_value v_t);
+u_value f_sig_46_with_alias_4(u_value v_sig, u_value v_n, u_value v_ps, u_value v_t);
 
-u_value f_ctx_46_with_fun_3(u_value v_c, u_value v_n, u_value v_sc);
+u_value f_sig_46_with_fun_3(u_value v_sig, u_value v_n, u_value v_sc);
 
-u_value f_ctx_46_with_proc_3(u_value v_c, u_value v_n, u_value v_g);
+u_value f_sig_46_with_proc_3(u_value v_sig, u_value v_n, u_value v_g);
 
-u_value f_ctx_46_with_data_3(u_value v_c, u_value v_n, u_value v_arity);
+u_value f_sig_46_with_data_3(u_value v_sig, u_value v_n, u_value v_arity);
 
-u_value f_ctx_46_with_members_3(u_value v_c, u_value v_n, u_value v_cs);
+u_value f_sig_46_with_members_3(u_value v_sig, u_value v_n, u_value v_cs);
 
-u_value f_ctx_46_with_constr_3(u_value v_c, u_value v_n, u_value v_kc);
+u_value f_sig_46_with_constr_3(u_value v_sig, u_value v_n, u_value v_kc);
 
 u_value f_defs_46_Defs_46_funs_1(u_value v_x);
 
@@ -3138,13 +3138,13 @@ u_value f_defs_46_ordered_by_2(u_value v_cs, u_value v_op);
 
 u_value f_check_46_Checked_46_cmds_1(u_value v_x);
 
-u_value f_check_46_Checked_46_ctx_1(u_value v_x);
+u_value f_check_46_Checked_46_sig_1(u_value v_x);
 
 u_value f_check_46_Checked_46_imports_1(u_value v_x);
 
 u_value f_check_46_Checked_46_cmds_58__61__2(u_value v_x, u_value v_y);
 
-u_value f_check_46_Checked_46_ctx_58__61__2(u_value v_x, u_value v_y);
+u_value f_check_46_Checked_46_sig_58__61__2(u_value v_x, u_value v_y);
 
 u_value f_check_46_Checked_46_imports_58__61__2(u_value v_x, u_value v_y);
 
@@ -3172,7 +3172,7 @@ u_value f_check_46_Pending_46_cands_58__61__2(u_value v_x, u_value v_y);
 
 u_value f_check_46_Pending_46_typ_58__61__2(u_value v_x, u_value v_y);
 
-u_value f_check_46_State_46_ctx_1(u_value v_x);
+u_value f_check_46_State_46_sig_1(u_value v_x);
 
 u_value f_check_46_State_46_sub_1(u_value v_x);
 
@@ -3188,7 +3188,7 @@ u_value f_check_46_State_46_pending_1(u_value v_x);
 
 u_value f_check_46_State_46_chosen_1(u_value v_x);
 
-u_value f_check_46_State_46_ctx_58__61__2(u_value v_x, u_value v_y);
+u_value f_check_46_State_46_sig_58__61__2(u_value v_x, u_value v_y);
 
 u_value f_check_46_State_46_sub_58__61__2(u_value v_x, u_value v_y);
 
@@ -3204,7 +3204,7 @@ u_value f_check_46_State_46_pending_58__61__2(u_value v_x, u_value v_y);
 
 u_value f_check_46_State_46_chosen_58__61__2(u_value v_x, u_value v_y);
 
-u_value f_check_46_with_ctx_2(u_value v_s, u_value v_c);
+u_value f_check_46_with_sig_2(u_value v_s, u_value v_sig);
 
 u_value f_check_46_enter_2(u_value v_s, u_value v_m);
 
@@ -3266,15 +3266,15 @@ u_value f_check_46_occurs_3(u_value v_su, u_value v_i, u_value v_t);
 
 u_value f_check_46_constructor_scheme_1(u_value v_k);
 
-u_value f_check_46_constructor_of_2(u_value v_c, u_value v_k);
+u_value f_check_46_constructor_of_2(u_value v_sig, u_value v_k);
 
 u_value f_check_46_candidates_3(u_value v_s, u_value v_env, u_value v_n);
 
-u_value f_check_46_accessors_3(u_value v_c, u_value v_f, u_value v_es);
+u_value f_check_46_accessors_3(u_value v_sig, u_value v_f, u_value v_es);
 
 u_value f_check_46_ends_with_2(u_value v_b, u_value v_f);
 
-u_value f_check_46_proc_scheme_2(u_value v_c, u_value v_p);
+u_value f_check_46_proc_scheme_2(u_value v_sig, u_value v_p);
 
 u_value f_check_46_with_arity_2(u_value v_cs, u_value v_k);
 
@@ -3352,11 +3352,11 @@ u_value f_check_46_head_of_1(u_value v_p);
 
 u_value f_check_46_heads_1(u_value v_rows);
 
-u_value f_check_46_field_types_3(u_value v_c, u_value v_k, u_value v_args);
+u_value f_check_46_field_types_3(u_value v_sig, u_value v_k, u_value v_args);
 
-u_value f_check_46_constructors_of_3(u_value v_c, u_value v_su, u_value v_t);
+u_value f_check_46_constructors_of_3(u_value v_sig, u_value v_su, u_value v_t);
 
-u_value f_check_46_fields_of_4(u_value v_c, u_value v_su, u_value v_t, u_value v_h);
+u_value f_check_46_fields_of_4(u_value v_sig, u_value v_su, u_value v_t, u_value v_h);
 
 u_value f_check_46_covers_2(u_value v_hs, u_value v_ks);
 
@@ -3364,19 +3364,19 @@ u_value f_check_46_defaults_1(u_value v_rows);
 
 u_value f_check_46_specialize_3(u_value v_rows, u_value v_h, u_value v_n);
 
-u_value f_check_46_useful_5(u_value v_c, u_value v_su, u_value v_rows, u_value v_q, u_value v_ts);
+u_value f_check_46_useful_5(u_value v_sig, u_value v_su, u_value v_rows, u_value v_q, u_value v_ts);
 
-u_value f_check_46_useful_in_6(u_value v_c, u_value v_su, u_value v_rows, u_value v_ks, u_value v_ps, u_value v_rest);
+u_value f_check_46_useful_in_6(u_value v_sig, u_value v_su, u_value v_rows, u_value v_ks, u_value v_ps, u_value v_rest);
 
 u_value f_check_46_witness_2(u_value v_h, u_value v_args);
 
-u_value f_check_46_missing_4(u_value v_c, u_value v_su, u_value v_rows, u_value v_ts);
+u_value f_check_46_missing_4(u_value v_sig, u_value v_su, u_value v_rows, u_value v_ts);
 
-u_value f_check_46_missing_in_6(u_value v_c, u_value v_su, u_value v_rows, u_value v_hs, u_value v_cs, u_value v_rest);
+u_value f_check_46_missing_in_6(u_value v_sig, u_value v_su, u_value v_rows, u_value v_hs, u_value v_cs, u_value v_rest);
 
-u_value f_check_46_first_missing_5(u_value v_c, u_value v_su, u_value v_rows, u_value v_ks, u_value v_rest);
+u_value f_check_46_first_missing_5(u_value v_sig, u_value v_su, u_value v_rows, u_value v_ks, u_value v_rest);
 
-u_value f_check_46_other_missing_6(u_value v_c, u_value v_su, u_value v_rows, u_value v_hs, u_value v_cs, u_value v_rest);
+u_value f_check_46_other_missing_6(u_value v_sig, u_value v_su, u_value v_rows, u_value v_hs, u_value v_cs, u_value v_rest);
 
 u_value f_check_46_uncovered_2(u_value v_hs, u_value v_cs);
 
@@ -3486,7 +3486,7 @@ void p_check_46_binders(u_value v_p, u_value v_t, u_value *r_p1, u_value *r_xs, 
 
 void p_check_46_pattern_constructor(u_value v_n, u_value v_ks, u_value v_k, u_value v_t, u_value *r_c, u_value *r_s);
 
-u_value f_check_46_results_3(u_value v_c, u_value v_ks, u_value v_k);
+u_value f_check_46_results_3(u_value v_sig, u_value v_ks, u_value v_k);
 
 void p_check_46_binder_list(u_value v_ps, u_value v_ts, u_value *r_qs, u_value *r_xs, u_value *r_s);
 
@@ -3522,11 +3522,11 @@ void p_check_46_stmt_branches(u_value v_assignable, u_value v_cases, u_value v_t
 
 void p_check_46_handler_list(u_value v_assignable, u_value v_hs, u_value *r_hs1, u_value *r_env, u_value *r_s);
 
-void p_check_46_declare_name(u_value v_c, u_value v_n);
+void p_check_46_declare_name(u_value v_sig, u_value v_n);
 
-void p_check_46_overload(u_value v_c, u_value v_n, u_value v_k);
+void p_check_46_overload(u_value v_sig, u_value v_n, u_value v_k);
 
-void p_check_46_declare_sort(u_value v_c, u_value v_n);
+void p_check_46_declare_sort(u_value v_sig, u_value v_n);
 
 void p_check_46_closed(u_value v_n, u_value v_ps, u_value v_ts);
 
@@ -3610,7 +3610,7 @@ void p_check_46_check_sections(u_value v_ms, u_value v_ds, u_value *r_hidden, u_
 
 void p_check_46_check_program(u_value v_p, u_value v_main, u_value *r_q);
 
-void p_check_46_check_units(u_value v_us, u_value *r_c, u_value *r_imports, u_value *r_cs);
+void p_check_46_check_units(u_value v_us, u_value *r_sig, u_value *r_imports, u_value *r_cs);
 
 void p_check_46_check_unit(u_value v_ds, u_value v_main, u_value v_before, u_value v_imports, u_value *r_checked);
 
@@ -4598,9 +4598,9 @@ const struct u_name n_parse_46_NoSections = {"parse", "NoSections", 3, &t_parse_
 
 struct u_object o_parse_46_NoSections = U_UNIT(n_parse_46_NoSections, t_parse_46_Section);
 
-const struct u_type t_ctx_46_Ctx = {"ctx.Ctx", u_con_compare, u_equals_by_compare, u_con_show};
+const struct u_type t_sig_46_Sig = {"sig.Sig", u_con_compare, u_equals_by_compare, u_con_show};
 
-const struct u_name n_ctx_46_Ctx = {"ctx", "Ctx", 0, &t_ctx_46_Ctx};
+const struct u_name n_sig_46_Sig = {"sig", "Sig", 0, &t_sig_46_Sig};
 
 const struct u_type t_defs_46_Defs = {"defs.Defs", u_con_compare, u_equals_by_compare, u_con_show};
 
@@ -4906,20 +4906,20 @@ u_value w_f_check_46_Checked_46_cmds_58__61__2(u_value *env, u_value *args) {
   return f_check_46_Checked_46_cmds_58__61__2(args[0], args[1]);
 }
 
-u_value w_f_check_46_Checked_46_ctx_1(u_value *env, u_value *args) {
-  return f_check_46_Checked_46_ctx_1(args[0]);
-}
-
-u_value w_f_check_46_Checked_46_ctx_58__61__2(u_value *env, u_value *args) {
-  return f_check_46_Checked_46_ctx_58__61__2(args[0], args[1]);
-}
-
 u_value w_f_check_46_Checked_46_imports_1(u_value *env, u_value *args) {
   return f_check_46_Checked_46_imports_1(args[0]);
 }
 
 u_value w_f_check_46_Checked_46_imports_58__61__2(u_value *env, u_value *args) {
   return f_check_46_Checked_46_imports_58__61__2(args[0], args[1]);
+}
+
+u_value w_f_check_46_Checked_46_sig_1(u_value *env, u_value *args) {
+  return f_check_46_Checked_46_sig_1(args[0]);
+}
+
+u_value w_f_check_46_Checked_46_sig_58__61__2(u_value *env, u_value *args) {
+  return f_check_46_Checked_46_sig_58__61__2(args[0], args[1]);
 }
 
 u_value w_f_check_46_Local_46_assigned_1(u_value *env, u_value *args) {
@@ -4986,14 +4986,6 @@ u_value w_f_check_46_State_46_count_58__61__2(u_value *env, u_value *args) {
   return f_check_46_State_46_count_58__61__2(args[0], args[1]);
 }
 
-u_value w_f_check_46_State_46_ctx_1(u_value *env, u_value *args) {
-  return f_check_46_State_46_ctx_1(args[0]);
-}
-
-u_value w_f_check_46_State_46_ctx_58__61__2(u_value *env, u_value *args) {
-  return f_check_46_State_46_ctx_58__61__2(args[0], args[1]);
-}
-
 u_value w_f_check_46_State_46_module_1(u_value *env, u_value *args) {
   return f_check_46_State_46_module_1(args[0]);
 }
@@ -5008,6 +5000,14 @@ u_value w_f_check_46_State_46_pending_1(u_value *env, u_value *args) {
 
 u_value w_f_check_46_State_46_pending_58__61__2(u_value *env, u_value *args) {
   return f_check_46_State_46_pending_58__61__2(args[0], args[1]);
+}
+
+u_value w_f_check_46_State_46_sig_1(u_value *env, u_value *args) {
+  return f_check_46_State_46_sig_1(args[0]);
+}
+
+u_value w_f_check_46_State_46_sig_58__61__2(u_value *env, u_value *args) {
+  return f_check_46_State_46_sig_58__61__2(args[0], args[1]);
 }
 
 u_value w_f_check_46_State_46_sub_1(u_value *env, u_value *args) {
@@ -5502,8 +5502,8 @@ u_value w_f_check_46_with_arity_2(u_value *env, u_value *args) {
   return f_check_46_with_arity_2(args[0], args[1]);
 }
 
-u_value w_f_check_46_with_ctx_2(u_value *env, u_value *args) {
-  return f_check_46_with_ctx_2(args[0], args[1]);
+u_value w_f_check_46_with_sig_2(u_value *env, u_value *args) {
+  return f_check_46_with_sig_2(args[0], args[1]);
 }
 
 u_value w_f_check_46_witness_2(u_value *env, u_value *args) {
@@ -5852,202 +5852,6 @@ u_value w_f_compile_46_wrapper_3(u_value *env, u_value *args) {
 
 u_value w_f_compile_46_wrappers_1(u_value *env, u_value *args) {
   return f_compile_46_wrappers_1(args[0]);
-}
-
-u_value w_f_ctx_46_Ctx_46_aliases_1(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_aliases_1(args[0]);
-}
-
-u_value w_f_ctx_46_Ctx_46_aliases_58__61__2(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_aliases_58__61__2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_Ctx_46_constrs_1(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_constrs_1(args[0]);
-}
-
-u_value w_f_ctx_46_Ctx_46_constrs_58__61__2(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_constrs_58__61__2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_Ctx_46_datas_1(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_datas_1(args[0]);
-}
-
-u_value w_f_ctx_46_Ctx_46_datas_58__61__2(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_datas_58__61__2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_Ctx_46_funs_1(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_funs_1(args[0]);
-}
-
-u_value w_f_ctx_46_Ctx_46_funs_58__61__2(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_funs_58__61__2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_Ctx_46_hidden_1(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_hidden_1(args[0]);
-}
-
-u_value w_f_ctx_46_Ctx_46_hidden_58__61__2(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_hidden_58__61__2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_Ctx_46_members_1(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_members_1(args[0]);
-}
-
-u_value w_f_ctx_46_Ctx_46_members_58__61__2(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_members_58__61__2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_Ctx_46_named_1(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_named_1(args[0]);
-}
-
-u_value w_f_ctx_46_Ctx_46_named_58__61__2(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_named_58__61__2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_Ctx_46_procs_1(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_procs_1(args[0]);
-}
-
-u_value w_f_ctx_46_Ctx_46_procs_58__61__2(u_value *env, u_value *args) {
-  return f_ctx_46_Ctx_46_procs_58__61__2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_alias_of_2(u_value *env, u_value *args) {
-  return f_ctx_46_alias_of_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_constr_of_2(u_value *env, u_value *args) {
-  return f_ctx_46_constr_of_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_data_of_2(u_value *env, u_value *args) {
-  return f_ctx_46_data_of_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_empty_0(u_value *env, u_value *args) {
-  return f_ctx_46_empty_0();
-}
-
-u_value w_f_ctx_46_hidden_named_2(u_value *env, u_value *args) {
-  return f_ctx_46_hidden_named_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_in_modules_2(u_value *env, u_value *args) {
-  return f_ctx_46_in_modules_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_is_alias_2(u_value *env, u_value *args) {
-  return f_ctx_46_is_alias_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_is_constr_2(u_value *env, u_value *args) {
-  return f_ctx_46_is_constr_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_is_data_2(u_value *env, u_value *args) {
-  return f_ctx_46_is_data_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_is_fun_2(u_value *env, u_value *args) {
-  return f_ctx_46_is_fun_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_is_proc_2(u_value *env, u_value *args) {
-  return f_ctx_46_is_proc_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_is_sort_2(u_value *env, u_value *args) {
-  return f_ctx_46_is_sort_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_key_of_1(u_value *env, u_value *args) {
-  return f_ctx_46_key_of_1(args[0]);
-}
-
-u_value w_f_ctx_46_members_of_2(u_value *env, u_value *args) {
-  return f_ctx_46_members_of_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_names_of_2(u_value *env, u_value *args) {
-  return f_ctx_46_names_of_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_owned_2(u_value *env, u_value *args) {
-  return f_ctx_46_owned_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_owned_map_2(u_value *env, u_value *args) {
-  return f_ctx_46_owned_map_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_owned_named_2(u_value *env, u_value *args) {
-  return f_ctx_46_owned_named_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_proc_of_2(u_value *env, u_value *args) {
-  return f_ctx_46_proc_of_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_public_1(u_value *env, u_value *args) {
-  return f_ctx_46_public_1(args[0]);
-}
-
-u_value w_f_ctx_46_restrict_2(u_value *env, u_value *args) {
-  return f_ctx_46_restrict_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_schemes_of_2(u_value *env, u_value *args) {
-  return f_ctx_46_schemes_of_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_unhidden_2(u_value *env, u_value *args) {
-  return f_ctx_46_unhidden_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_union_2(u_value *env, u_value *args) {
-  return f_ctx_46_union_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_union_named_2(u_value *env, u_value *args) {
-  return f_ctx_46_union_named_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_value_of_1(u_value *env, u_value *args) {
-  return f_ctx_46_value_of_1(args[0]);
-}
-
-u_value w_f_ctx_46_with_alias_4(u_value *env, u_value *args) {
-  return f_ctx_46_with_alias_4(args[0], args[1], args[2], args[3]);
-}
-
-u_value w_f_ctx_46_with_constr_3(u_value *env, u_value *args) {
-  return f_ctx_46_with_constr_3(args[0], args[1], args[2]);
-}
-
-u_value w_f_ctx_46_with_data_3(u_value *env, u_value *args) {
-  return f_ctx_46_with_data_3(args[0], args[1], args[2]);
-}
-
-u_value w_f_ctx_46_with_fun_3(u_value *env, u_value *args) {
-  return f_ctx_46_with_fun_3(args[0], args[1], args[2]);
-}
-
-u_value w_f_ctx_46_with_members_3(u_value *env, u_value *args) {
-  return f_ctx_46_with_members_3(args[0], args[1], args[2]);
-}
-
-u_value w_f_ctx_46_with_named_2(u_value *env, u_value *args) {
-  return f_ctx_46_with_named_2(args[0], args[1]);
-}
-
-u_value w_f_ctx_46_with_proc_3(u_value *env, u_value *args) {
-  return f_ctx_46_with_proc_3(args[0], args[1], args[2]);
 }
 
 u_value w_f_defs_46_Defs_46_constrs_1(u_value *env, u_value *args) {
@@ -7462,6 +7266,202 @@ u_value w_f_set_46_upto_1(u_value *env, u_value *args) {
   return f_set_46_upto_1(args[0]);
 }
 
+u_value w_f_sig_46_Sig_46_aliases_1(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_aliases_1(args[0]);
+}
+
+u_value w_f_sig_46_Sig_46_aliases_58__61__2(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_aliases_58__61__2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_Sig_46_constrs_1(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_constrs_1(args[0]);
+}
+
+u_value w_f_sig_46_Sig_46_constrs_58__61__2(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_constrs_58__61__2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_Sig_46_datas_1(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_datas_1(args[0]);
+}
+
+u_value w_f_sig_46_Sig_46_datas_58__61__2(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_datas_58__61__2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_Sig_46_funs_1(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_funs_1(args[0]);
+}
+
+u_value w_f_sig_46_Sig_46_funs_58__61__2(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_funs_58__61__2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_Sig_46_hidden_1(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_hidden_1(args[0]);
+}
+
+u_value w_f_sig_46_Sig_46_hidden_58__61__2(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_hidden_58__61__2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_Sig_46_members_1(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_members_1(args[0]);
+}
+
+u_value w_f_sig_46_Sig_46_members_58__61__2(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_members_58__61__2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_Sig_46_named_1(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_named_1(args[0]);
+}
+
+u_value w_f_sig_46_Sig_46_named_58__61__2(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_named_58__61__2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_Sig_46_procs_1(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_procs_1(args[0]);
+}
+
+u_value w_f_sig_46_Sig_46_procs_58__61__2(u_value *env, u_value *args) {
+  return f_sig_46_Sig_46_procs_58__61__2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_alias_of_2(u_value *env, u_value *args) {
+  return f_sig_46_alias_of_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_constr_of_2(u_value *env, u_value *args) {
+  return f_sig_46_constr_of_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_data_of_2(u_value *env, u_value *args) {
+  return f_sig_46_data_of_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_empty_0(u_value *env, u_value *args) {
+  return f_sig_46_empty_0();
+}
+
+u_value w_f_sig_46_hidden_named_2(u_value *env, u_value *args) {
+  return f_sig_46_hidden_named_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_in_modules_2(u_value *env, u_value *args) {
+  return f_sig_46_in_modules_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_is_alias_2(u_value *env, u_value *args) {
+  return f_sig_46_is_alias_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_is_constr_2(u_value *env, u_value *args) {
+  return f_sig_46_is_constr_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_is_data_2(u_value *env, u_value *args) {
+  return f_sig_46_is_data_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_is_fun_2(u_value *env, u_value *args) {
+  return f_sig_46_is_fun_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_is_proc_2(u_value *env, u_value *args) {
+  return f_sig_46_is_proc_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_is_sort_2(u_value *env, u_value *args) {
+  return f_sig_46_is_sort_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_key_of_1(u_value *env, u_value *args) {
+  return f_sig_46_key_of_1(args[0]);
+}
+
+u_value w_f_sig_46_members_of_2(u_value *env, u_value *args) {
+  return f_sig_46_members_of_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_names_of_2(u_value *env, u_value *args) {
+  return f_sig_46_names_of_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_owned_2(u_value *env, u_value *args) {
+  return f_sig_46_owned_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_owned_map_2(u_value *env, u_value *args) {
+  return f_sig_46_owned_map_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_owned_named_2(u_value *env, u_value *args) {
+  return f_sig_46_owned_named_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_proc_of_2(u_value *env, u_value *args) {
+  return f_sig_46_proc_of_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_public_1(u_value *env, u_value *args) {
+  return f_sig_46_public_1(args[0]);
+}
+
+u_value w_f_sig_46_restrict_2(u_value *env, u_value *args) {
+  return f_sig_46_restrict_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_schemes_of_2(u_value *env, u_value *args) {
+  return f_sig_46_schemes_of_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_unhidden_2(u_value *env, u_value *args) {
+  return f_sig_46_unhidden_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_union_2(u_value *env, u_value *args) {
+  return f_sig_46_union_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_union_named_2(u_value *env, u_value *args) {
+  return f_sig_46_union_named_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_value_of_1(u_value *env, u_value *args) {
+  return f_sig_46_value_of_1(args[0]);
+}
+
+u_value w_f_sig_46_with_alias_4(u_value *env, u_value *args) {
+  return f_sig_46_with_alias_4(args[0], args[1], args[2], args[3]);
+}
+
+u_value w_f_sig_46_with_constr_3(u_value *env, u_value *args) {
+  return f_sig_46_with_constr_3(args[0], args[1], args[2]);
+}
+
+u_value w_f_sig_46_with_data_3(u_value *env, u_value *args) {
+  return f_sig_46_with_data_3(args[0], args[1], args[2]);
+}
+
+u_value w_f_sig_46_with_fun_3(u_value *env, u_value *args) {
+  return f_sig_46_with_fun_3(args[0], args[1], args[2]);
+}
+
+u_value w_f_sig_46_with_members_3(u_value *env, u_value *args) {
+  return f_sig_46_with_members_3(args[0], args[1], args[2]);
+}
+
+u_value w_f_sig_46_with_named_2(u_value *env, u_value *args) {
+  return f_sig_46_with_named_2(args[0], args[1]);
+}
+
+u_value w_f_sig_46_with_proc_3(u_value *env, u_value *args) {
+  return f_sig_46_with_proc_3(args[0], args[1], args[2]);
+}
+
 u_value w_f_syntax_46_Branch_46_body_1(u_value *env, u_value *args) {
   return f_syntax_46_Branch_46_body_1(args[0]);
 }
@@ -8038,10 +8038,6 @@ u_value wc_compile_46_Unsupported(u_value *env, u_value *args) {
   return u_mk_con_array(&n_compile_46_Unsupported, 1, args);
 }
 
-u_value wc_ctx_46_Ctx(u_value *env, u_value *args) {
-  return u_mk_con_array(&n_ctx_46_Ctx, 8, args);
-}
-
 u_value wc_defs_46_Defs(u_value *env, u_value *args) {
   return u_mk_con_array(&n_defs_46_Defs, 6, args);
 }
@@ -8188,6 +8184,10 @@ u_value wc_run_46_Unspecified(u_value *env, u_value *args) {
 
 u_value wc_set_46_Node(u_value *env, u_value *args) {
   return u_mk_con_array(&n_set_46_Node, 4, args);
+}
+
+u_value wc_sig_46_Sig(u_value *env, u_value *args) {
+  return u_mk_con_array(&n_sig_46_Sig, 8, args);
 }
 
 u_value wc_syntax_46_Branch(u_value *env, u_value *args) {
@@ -16924,10 +16924,10 @@ void p_parse_46_parse_file(u_value v_path, u_value *r_program) {
   *r_program = v_program;
 }
 
-u_value f_ctx_46_Ctx_46_aliases_1(u_value v_x) {
+u_value f_sig_46_Sig_46_aliases_1(u_value v_x) {
   u_value s1054 = v_x;
   u_value t1055 = NULL;
-  if ((!t1055) && u_is_con(s1054, &n_ctx_46_Ctx)) {
+  if ((!t1055) && u_is_con(s1054, &n_sig_46_Sig)) {
     u_value v_y = u_field(s1054, 0);
     t1055 = v_y;
   }
@@ -16937,10 +16937,10 @@ u_value f_ctx_46_Ctx_46_aliases_1(u_value v_x) {
   return t1055;
 }
 
-u_value f_ctx_46_Ctx_46_funs_1(u_value v_x) {
+u_value f_sig_46_Sig_46_funs_1(u_value v_x) {
   u_value s1056 = v_x;
   u_value t1057 = NULL;
-  if ((!t1057) && u_is_con(s1056, &n_ctx_46_Ctx)) {
+  if ((!t1057) && u_is_con(s1056, &n_sig_46_Sig)) {
     u_value v_y = u_field(s1056, 1);
     t1057 = v_y;
   }
@@ -16950,10 +16950,10 @@ u_value f_ctx_46_Ctx_46_funs_1(u_value v_x) {
   return t1057;
 }
 
-u_value f_ctx_46_Ctx_46_procs_1(u_value v_x) {
+u_value f_sig_46_Sig_46_procs_1(u_value v_x) {
   u_value s1058 = v_x;
   u_value t1059 = NULL;
-  if ((!t1059) && u_is_con(s1058, &n_ctx_46_Ctx)) {
+  if ((!t1059) && u_is_con(s1058, &n_sig_46_Sig)) {
     u_value v_y = u_field(s1058, 2);
     t1059 = v_y;
   }
@@ -16963,10 +16963,10 @@ u_value f_ctx_46_Ctx_46_procs_1(u_value v_x) {
   return t1059;
 }
 
-u_value f_ctx_46_Ctx_46_datas_1(u_value v_x) {
+u_value f_sig_46_Sig_46_datas_1(u_value v_x) {
   u_value s1060 = v_x;
   u_value t1061 = NULL;
-  if ((!t1061) && u_is_con(s1060, &n_ctx_46_Ctx)) {
+  if ((!t1061) && u_is_con(s1060, &n_sig_46_Sig)) {
     u_value v_y = u_field(s1060, 3);
     t1061 = v_y;
   }
@@ -16976,10 +16976,10 @@ u_value f_ctx_46_Ctx_46_datas_1(u_value v_x) {
   return t1061;
 }
 
-u_value f_ctx_46_Ctx_46_members_1(u_value v_x) {
+u_value f_sig_46_Sig_46_members_1(u_value v_x) {
   u_value s1062 = v_x;
   u_value t1063 = NULL;
-  if ((!t1063) && u_is_con(s1062, &n_ctx_46_Ctx)) {
+  if ((!t1063) && u_is_con(s1062, &n_sig_46_Sig)) {
     u_value v_y = u_field(s1062, 4);
     t1063 = v_y;
   }
@@ -16989,10 +16989,10 @@ u_value f_ctx_46_Ctx_46_members_1(u_value v_x) {
   return t1063;
 }
 
-u_value f_ctx_46_Ctx_46_constrs_1(u_value v_x) {
+u_value f_sig_46_Sig_46_constrs_1(u_value v_x) {
   u_value s1064 = v_x;
   u_value t1065 = NULL;
-  if ((!t1065) && u_is_con(s1064, &n_ctx_46_Ctx)) {
+  if ((!t1065) && u_is_con(s1064, &n_sig_46_Sig)) {
     u_value v_y = u_field(s1064, 5);
     t1065 = v_y;
   }
@@ -17002,10 +17002,10 @@ u_value f_ctx_46_Ctx_46_constrs_1(u_value v_x) {
   return t1065;
 }
 
-u_value f_ctx_46_Ctx_46_named_1(u_value v_x) {
+u_value f_sig_46_Sig_46_named_1(u_value v_x) {
   u_value s1066 = v_x;
   u_value t1067 = NULL;
-  if ((!t1067) && u_is_con(s1066, &n_ctx_46_Ctx)) {
+  if ((!t1067) && u_is_con(s1066, &n_sig_46_Sig)) {
     u_value v_y = u_field(s1066, 6);
     t1067 = v_y;
   }
@@ -17015,10 +17015,10 @@ u_value f_ctx_46_Ctx_46_named_1(u_value v_x) {
   return t1067;
 }
 
-u_value f_ctx_46_Ctx_46_hidden_1(u_value v_x) {
+u_value f_sig_46_Sig_46_hidden_1(u_value v_x) {
   u_value s1068 = v_x;
   u_value t1069 = NULL;
-  if ((!t1069) && u_is_con(s1068, &n_ctx_46_Ctx)) {
+  if ((!t1069) && u_is_con(s1068, &n_sig_46_Sig)) {
     u_value v_y = u_field(s1068, 7);
     t1069 = v_y;
   }
@@ -17028,10 +17028,10 @@ u_value f_ctx_46_Ctx_46_hidden_1(u_value v_x) {
   return t1069;
 }
 
-u_value f_ctx_46_Ctx_46_aliases_58__61__2(u_value v_x, u_value v_y) {
+u_value f_sig_46_Sig_46_aliases_58__61__2(u_value v_x, u_value v_y) {
   u_value s1070 = v_x;
   u_value t1071 = NULL;
-  if ((!t1071) && u_is_con(s1070, &n_ctx_46_Ctx)) {
+  if ((!t1071) && u_is_con(s1070, &n_sig_46_Sig)) {
     u_value v_a1 = u_field(s1070, 1);
     u_value v_a2 = u_field(s1070, 2);
     u_value v_a3 = u_field(s1070, 3);
@@ -17039,7 +17039,7 @@ u_value f_ctx_46_Ctx_46_aliases_58__61__2(u_value v_x, u_value v_y) {
     u_value v_a5 = u_field(s1070, 5);
     u_value v_a6 = u_field(s1070, 6);
     u_value v_a7 = u_field(s1070, 7);
-    t1071 = u_mk_con(&n_ctx_46_Ctx, 8, v_y, v_a1, v_a2, v_a3, v_a4, v_a5, v_a6, v_a7);
+    t1071 = u_mk_con(&n_sig_46_Sig, 8, v_y, v_a1, v_a2, v_a3, v_a4, v_a5, v_a6, v_a7);
   }
   if (!t1071) {
     u_no_case(s1070);
@@ -17047,10 +17047,10 @@ u_value f_ctx_46_Ctx_46_aliases_58__61__2(u_value v_x, u_value v_y) {
   return t1071;
 }
 
-u_value f_ctx_46_Ctx_46_funs_58__61__2(u_value v_x, u_value v_y) {
+u_value f_sig_46_Sig_46_funs_58__61__2(u_value v_x, u_value v_y) {
   u_value s1072 = v_x;
   u_value t1073 = NULL;
-  if ((!t1073) && u_is_con(s1072, &n_ctx_46_Ctx)) {
+  if ((!t1073) && u_is_con(s1072, &n_sig_46_Sig)) {
     u_value v_a0 = u_field(s1072, 0);
     u_value v_a2 = u_field(s1072, 2);
     u_value v_a3 = u_field(s1072, 3);
@@ -17058,7 +17058,7 @@ u_value f_ctx_46_Ctx_46_funs_58__61__2(u_value v_x, u_value v_y) {
     u_value v_a5 = u_field(s1072, 5);
     u_value v_a6 = u_field(s1072, 6);
     u_value v_a7 = u_field(s1072, 7);
-    t1073 = u_mk_con(&n_ctx_46_Ctx, 8, v_a0, v_y, v_a2, v_a3, v_a4, v_a5, v_a6, v_a7);
+    t1073 = u_mk_con(&n_sig_46_Sig, 8, v_a0, v_y, v_a2, v_a3, v_a4, v_a5, v_a6, v_a7);
   }
   if (!t1073) {
     u_no_case(s1072);
@@ -17066,10 +17066,10 @@ u_value f_ctx_46_Ctx_46_funs_58__61__2(u_value v_x, u_value v_y) {
   return t1073;
 }
 
-u_value f_ctx_46_Ctx_46_procs_58__61__2(u_value v_x, u_value v_y) {
+u_value f_sig_46_Sig_46_procs_58__61__2(u_value v_x, u_value v_y) {
   u_value s1074 = v_x;
   u_value t1075 = NULL;
-  if ((!t1075) && u_is_con(s1074, &n_ctx_46_Ctx)) {
+  if ((!t1075) && u_is_con(s1074, &n_sig_46_Sig)) {
     u_value v_a0 = u_field(s1074, 0);
     u_value v_a1 = u_field(s1074, 1);
     u_value v_a3 = u_field(s1074, 3);
@@ -17077,7 +17077,7 @@ u_value f_ctx_46_Ctx_46_procs_58__61__2(u_value v_x, u_value v_y) {
     u_value v_a5 = u_field(s1074, 5);
     u_value v_a6 = u_field(s1074, 6);
     u_value v_a7 = u_field(s1074, 7);
-    t1075 = u_mk_con(&n_ctx_46_Ctx, 8, v_a0, v_a1, v_y, v_a3, v_a4, v_a5, v_a6, v_a7);
+    t1075 = u_mk_con(&n_sig_46_Sig, 8, v_a0, v_a1, v_y, v_a3, v_a4, v_a5, v_a6, v_a7);
   }
   if (!t1075) {
     u_no_case(s1074);
@@ -17085,10 +17085,10 @@ u_value f_ctx_46_Ctx_46_procs_58__61__2(u_value v_x, u_value v_y) {
   return t1075;
 }
 
-u_value f_ctx_46_Ctx_46_datas_58__61__2(u_value v_x, u_value v_y) {
+u_value f_sig_46_Sig_46_datas_58__61__2(u_value v_x, u_value v_y) {
   u_value s1076 = v_x;
   u_value t1077 = NULL;
-  if ((!t1077) && u_is_con(s1076, &n_ctx_46_Ctx)) {
+  if ((!t1077) && u_is_con(s1076, &n_sig_46_Sig)) {
     u_value v_a0 = u_field(s1076, 0);
     u_value v_a1 = u_field(s1076, 1);
     u_value v_a2 = u_field(s1076, 2);
@@ -17096,7 +17096,7 @@ u_value f_ctx_46_Ctx_46_datas_58__61__2(u_value v_x, u_value v_y) {
     u_value v_a5 = u_field(s1076, 5);
     u_value v_a6 = u_field(s1076, 6);
     u_value v_a7 = u_field(s1076, 7);
-    t1077 = u_mk_con(&n_ctx_46_Ctx, 8, v_a0, v_a1, v_a2, v_y, v_a4, v_a5, v_a6, v_a7);
+    t1077 = u_mk_con(&n_sig_46_Sig, 8, v_a0, v_a1, v_a2, v_y, v_a4, v_a5, v_a6, v_a7);
   }
   if (!t1077) {
     u_no_case(s1076);
@@ -17104,10 +17104,10 @@ u_value f_ctx_46_Ctx_46_datas_58__61__2(u_value v_x, u_value v_y) {
   return t1077;
 }
 
-u_value f_ctx_46_Ctx_46_members_58__61__2(u_value v_x, u_value v_y) {
+u_value f_sig_46_Sig_46_members_58__61__2(u_value v_x, u_value v_y) {
   u_value s1078 = v_x;
   u_value t1079 = NULL;
-  if ((!t1079) && u_is_con(s1078, &n_ctx_46_Ctx)) {
+  if ((!t1079) && u_is_con(s1078, &n_sig_46_Sig)) {
     u_value v_a0 = u_field(s1078, 0);
     u_value v_a1 = u_field(s1078, 1);
     u_value v_a2 = u_field(s1078, 2);
@@ -17115,7 +17115,7 @@ u_value f_ctx_46_Ctx_46_members_58__61__2(u_value v_x, u_value v_y) {
     u_value v_a5 = u_field(s1078, 5);
     u_value v_a6 = u_field(s1078, 6);
     u_value v_a7 = u_field(s1078, 7);
-    t1079 = u_mk_con(&n_ctx_46_Ctx, 8, v_a0, v_a1, v_a2, v_a3, v_y, v_a5, v_a6, v_a7);
+    t1079 = u_mk_con(&n_sig_46_Sig, 8, v_a0, v_a1, v_a2, v_a3, v_y, v_a5, v_a6, v_a7);
   }
   if (!t1079) {
     u_no_case(s1078);
@@ -17123,10 +17123,10 @@ u_value f_ctx_46_Ctx_46_members_58__61__2(u_value v_x, u_value v_y) {
   return t1079;
 }
 
-u_value f_ctx_46_Ctx_46_constrs_58__61__2(u_value v_x, u_value v_y) {
+u_value f_sig_46_Sig_46_constrs_58__61__2(u_value v_x, u_value v_y) {
   u_value s1080 = v_x;
   u_value t1081 = NULL;
-  if ((!t1081) && u_is_con(s1080, &n_ctx_46_Ctx)) {
+  if ((!t1081) && u_is_con(s1080, &n_sig_46_Sig)) {
     u_value v_a0 = u_field(s1080, 0);
     u_value v_a1 = u_field(s1080, 1);
     u_value v_a2 = u_field(s1080, 2);
@@ -17134,7 +17134,7 @@ u_value f_ctx_46_Ctx_46_constrs_58__61__2(u_value v_x, u_value v_y) {
     u_value v_a4 = u_field(s1080, 4);
     u_value v_a6 = u_field(s1080, 6);
     u_value v_a7 = u_field(s1080, 7);
-    t1081 = u_mk_con(&n_ctx_46_Ctx, 8, v_a0, v_a1, v_a2, v_a3, v_a4, v_y, v_a6, v_a7);
+    t1081 = u_mk_con(&n_sig_46_Sig, 8, v_a0, v_a1, v_a2, v_a3, v_a4, v_y, v_a6, v_a7);
   }
   if (!t1081) {
     u_no_case(s1080);
@@ -17142,10 +17142,10 @@ u_value f_ctx_46_Ctx_46_constrs_58__61__2(u_value v_x, u_value v_y) {
   return t1081;
 }
 
-u_value f_ctx_46_Ctx_46_named_58__61__2(u_value v_x, u_value v_y) {
+u_value f_sig_46_Sig_46_named_58__61__2(u_value v_x, u_value v_y) {
   u_value s1082 = v_x;
   u_value t1083 = NULL;
-  if ((!t1083) && u_is_con(s1082, &n_ctx_46_Ctx)) {
+  if ((!t1083) && u_is_con(s1082, &n_sig_46_Sig)) {
     u_value v_a0 = u_field(s1082, 0);
     u_value v_a1 = u_field(s1082, 1);
     u_value v_a2 = u_field(s1082, 2);
@@ -17153,7 +17153,7 @@ u_value f_ctx_46_Ctx_46_named_58__61__2(u_value v_x, u_value v_y) {
     u_value v_a4 = u_field(s1082, 4);
     u_value v_a5 = u_field(s1082, 5);
     u_value v_a7 = u_field(s1082, 7);
-    t1083 = u_mk_con(&n_ctx_46_Ctx, 8, v_a0, v_a1, v_a2, v_a3, v_a4, v_a5, v_y, v_a7);
+    t1083 = u_mk_con(&n_sig_46_Sig, 8, v_a0, v_a1, v_a2, v_a3, v_a4, v_a5, v_y, v_a7);
   }
   if (!t1083) {
     u_no_case(s1082);
@@ -17161,10 +17161,10 @@ u_value f_ctx_46_Ctx_46_named_58__61__2(u_value v_x, u_value v_y) {
   return t1083;
 }
 
-u_value f_ctx_46_Ctx_46_hidden_58__61__2(u_value v_x, u_value v_y) {
+u_value f_sig_46_Sig_46_hidden_58__61__2(u_value v_x, u_value v_y) {
   u_value s1084 = v_x;
   u_value t1085 = NULL;
-  if ((!t1085) && u_is_con(s1084, &n_ctx_46_Ctx)) {
+  if ((!t1085) && u_is_con(s1084, &n_sig_46_Sig)) {
     u_value v_a0 = u_field(s1084, 0);
     u_value v_a1 = u_field(s1084, 1);
     u_value v_a2 = u_field(s1084, 2);
@@ -17172,7 +17172,7 @@ u_value f_ctx_46_Ctx_46_hidden_58__61__2(u_value v_x, u_value v_y) {
     u_value v_a4 = u_field(s1084, 4);
     u_value v_a5 = u_field(s1084, 5);
     u_value v_a6 = u_field(s1084, 6);
-    t1085 = u_mk_con(&n_ctx_46_Ctx, 8, v_a0, v_a1, v_a2, v_a3, v_a4, v_a5, v_a6, v_y);
+    t1085 = u_mk_con(&n_sig_46_Sig, 8, v_a0, v_a1, v_a2, v_a3, v_a4, v_a5, v_a6, v_y);
   }
   if (!t1085) {
     u_no_case(s1084);
@@ -17180,10 +17180,10 @@ u_value f_ctx_46_Ctx_46_hidden_58__61__2(u_value v_x, u_value v_y) {
   return t1085;
 }
 
-u_value f_ctx_46_empty_0(void) {
+u_value f_sig_46_empty_0(void) {
   static u_value cache = NULL;
   if (cache == U_COMPUTING) {
-    u_fail("recursive initialization of ctx.empty");
+    u_fail("recursive initialization of sig.empty");
   }
   if (cache) {
     return cache;
@@ -17196,30 +17196,30 @@ u_value f_ctx_46_empty_0(void) {
     u_reraise(handler);
   }
   u_pop(handler);
-  cache = u_mk_con(&n_ctx_46_Ctx, 8, f_map_46_empty_0(), f_map_46_empty_0(), f_map_46_empty_0(), f_map_46_empty_0(), f_map_46_empty_0(), f_map_46_empty_0(), f_map_46_empty_0(), f_set_46_empty_0());
+  cache = u_mk_con(&n_sig_46_Sig, 8, f_map_46_empty_0(), f_map_46_empty_0(), f_map_46_empty_0(), f_map_46_empty_0(), f_map_46_empty_0(), f_map_46_empty_0(), f_map_46_empty_0(), f_set_46_empty_0());
   return cache;
 }
 
-u_value f_ctx_46_restrict_2(u_value v_c, u_value v_ms) {
+u_value f_sig_46_restrict_2(u_value v_sig, u_value v_ms) {
   u_value t1086 = &o_list_46_Nil;
   u_value *e1087 = &t1086;
-  u_value l1088 = f_set_46_elements_1(f_ctx_46_Ctx_46_hidden_1(v_c));
+  u_value l1088 = f_set_46_elements_1(f_sig_46_Sig_46_hidden_1(v_sig));
   while (u_is_con(l1088, &n_list_46_Cons)) {
     u_value v_n = u_field(l1088, 0);
-    if (u_truth(f_ctx_46_in_modules_2(v_n, v_ms))) {
+    if (u_truth(f_sig_46_in_modules_2(v_n, v_ms))) {
       e1087 = u_append(e1087, v_n);
     }
     l1088 = u_field(l1088, 1);
   }
   *e1087 = &o_list_46_Nil;
-  return u_mk_con(&n_ctx_46_Ctx, 8, f_ctx_46_owned_map_2(f_ctx_46_Ctx_46_aliases_1(v_c), v_ms), f_ctx_46_owned_map_2(f_ctx_46_Ctx_46_funs_1(v_c), v_ms), f_ctx_46_owned_map_2(f_ctx_46_Ctx_46_procs_1(v_c), v_ms), f_ctx_46_owned_map_2(f_ctx_46_Ctx_46_datas_1(v_c), v_ms), f_ctx_46_owned_map_2(f_ctx_46_Ctx_46_members_1(v_c), v_ms), f_ctx_46_owned_map_2(f_ctx_46_Ctx_46_constrs_1(v_c), v_ms), f_map_46_put_all_2(f_ctx_46_owned_named_2(f_map_46_entries_1(f_ctx_46_Ctx_46_named_1(v_c)), v_ms), f_map_46_empty_0()), f_set_46_from_list_1(t1086));
+  return u_mk_con(&n_sig_46_Sig, 8, f_sig_46_owned_map_2(f_sig_46_Sig_46_aliases_1(v_sig), v_ms), f_sig_46_owned_map_2(f_sig_46_Sig_46_funs_1(v_sig), v_ms), f_sig_46_owned_map_2(f_sig_46_Sig_46_procs_1(v_sig), v_ms), f_sig_46_owned_map_2(f_sig_46_Sig_46_datas_1(v_sig), v_ms), f_sig_46_owned_map_2(f_sig_46_Sig_46_members_1(v_sig), v_ms), f_sig_46_owned_map_2(f_sig_46_Sig_46_constrs_1(v_sig), v_ms), f_map_46_put_all_2(f_sig_46_owned_named_2(f_map_46_entries_1(f_sig_46_Sig_46_named_1(v_sig)), v_ms), f_map_46_empty_0()), f_set_46_from_list_1(t1086));
 }
 
-u_value f_ctx_46_owned_map_2(u_value v_m, u_value v_ms) {
-  return f_map_46_put_all_2(f_ctx_46_owned_2(f_map_46_entries_1(v_m), v_ms), f_map_46_empty_0());
+u_value f_sig_46_owned_map_2(u_value v_m, u_value v_ms) {
+  return f_map_46_put_all_2(f_sig_46_owned_2(f_map_46_entries_1(v_m), v_ms), f_map_46_empty_0());
 }
 
-u_value f_ctx_46_owned_2(u_value v_es, u_value v_ms) {
+u_value f_sig_46_owned_2(u_value v_es, u_value v_ms) {
   u_value s1089 = v_es;
   u_value t1090 = NULL;
   if ((!t1090) && u_is_con(s1089, &n_list_46_Nil)) {
@@ -17230,10 +17230,10 @@ u_value f_ctx_46_owned_2(u_value v_es, u_value v_ms) {
     u_value v_v = u_field(u_field(s1089, 0), 1);
     u_value v_rest = u_field(s1089, 1);
     u_value t1091;
-    if (u_truth(f_ctx_46_in_modules_2(v_n, v_ms))) {
-      t1091 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, v_v), f_ctx_46_owned_2(v_rest, v_ms));
+    if (u_truth(f_sig_46_in_modules_2(v_n, v_ms))) {
+      t1091 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, v_v), f_sig_46_owned_2(v_rest, v_ms));
     } else {
-      t1091 = f_ctx_46_owned_2(v_rest, v_ms);
+      t1091 = f_sig_46_owned_2(v_rest, v_ms);
     }
     t1090 = t1091;
   }
@@ -17243,7 +17243,7 @@ u_value f_ctx_46_owned_2(u_value v_es, u_value v_ms) {
   return t1090;
 }
 
-u_value f_ctx_46_owned_named_2(u_value v_es, u_value v_ms) {
+u_value f_sig_46_owned_named_2(u_value v_es, u_value v_ms) {
   u_value s1092 = v_es;
   u_value t1093 = NULL;
   if ((!t1093) && u_is_con(s1092, &n_list_46_Nil)) {
@@ -17258,7 +17258,7 @@ u_value f_ctx_46_owned_named_2(u_value v_es, u_value v_ms) {
     u_value l1096 = v_ns;
     while (u_is_con(l1096, &n_list_46_Cons)) {
       u_value v_n = u_field(l1096, 0);
-      if (u_truth(f_ctx_46_in_modules_2(v_n, v_ms))) {
+      if (u_truth(f_sig_46_in_modules_2(v_n, v_ms))) {
         e1095 = u_append(e1095, v_n);
       }
       l1096 = u_field(l1096, 1);
@@ -17270,9 +17270,9 @@ u_value f_ctx_46_owned_named_2(u_value v_es, u_value v_ms) {
       u_value v_ks = t1099;
       u_value t1097;
       if (u_truth(u_eq(v_ks, &o_list_46_Nil))) {
-        t1097 = f_ctx_46_owned_named_2(v_rest, v_ms);
+        t1097 = f_sig_46_owned_named_2(v_rest, v_ms);
       } else {
-        t1097 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_b, v_ks), f_ctx_46_owned_named_2(v_rest, v_ms));
+        t1097 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_b, v_ks), f_sig_46_owned_named_2(v_rest, v_ms));
       }
       t1098 = t1097;
     }
@@ -17284,7 +17284,7 @@ u_value f_ctx_46_owned_named_2(u_value v_es, u_value v_ms) {
   return t1093;
 }
 
-u_value f_ctx_46_in_modules_2(u_value v_n, u_value v_ms) {
+u_value f_sig_46_in_modules_2(u_value v_n, u_value v_ms) {
   u_value s1100 = f_syntax_46_Name_46_module_1(v_n);
   u_value t1101 = NULL;
   if ((!t1101) && u_is_con(s1100, &n_option_46_Some)) {
@@ -17300,21 +17300,21 @@ u_value f_ctx_46_in_modules_2(u_value v_n, u_value v_ms) {
   return t1101;
 }
 
-u_value f_ctx_46_union_2(u_value v_a, u_value v_b) {
-  return u_mk_con(&n_ctx_46_Ctx, 8, f_map_46_put_all_2(f_map_46_entries_1(f_ctx_46_Ctx_46_aliases_1(v_b)), f_ctx_46_Ctx_46_aliases_1(v_a)), f_map_46_put_all_2(f_map_46_entries_1(f_ctx_46_Ctx_46_funs_1(v_b)), f_ctx_46_Ctx_46_funs_1(v_a)), f_map_46_put_all_2(f_map_46_entries_1(f_ctx_46_Ctx_46_procs_1(v_b)), f_ctx_46_Ctx_46_procs_1(v_a)), f_map_46_put_all_2(f_map_46_entries_1(f_ctx_46_Ctx_46_datas_1(v_b)), f_ctx_46_Ctx_46_datas_1(v_a)), f_map_46_put_all_2(f_map_46_entries_1(f_ctx_46_Ctx_46_members_1(v_b)), f_ctx_46_Ctx_46_members_1(v_a)), f_map_46_put_all_2(f_map_46_entries_1(f_ctx_46_Ctx_46_constrs_1(v_b)), f_ctx_46_Ctx_46_constrs_1(v_a)), f_ctx_46_union_named_2(f_map_46_entries_1(f_ctx_46_Ctx_46_named_1(v_b)), f_ctx_46_Ctx_46_named_1(v_a)), f_set_46_insert_all_2(f_set_46_elements_1(f_ctx_46_Ctx_46_hidden_1(v_b)), f_ctx_46_Ctx_46_hidden_1(v_a)));
+u_value f_sig_46_union_2(u_value v_a, u_value v_b) {
+  return u_mk_con(&n_sig_46_Sig, 8, f_map_46_put_all_2(f_map_46_entries_1(f_sig_46_Sig_46_aliases_1(v_b)), f_sig_46_Sig_46_aliases_1(v_a)), f_map_46_put_all_2(f_map_46_entries_1(f_sig_46_Sig_46_funs_1(v_b)), f_sig_46_Sig_46_funs_1(v_a)), f_map_46_put_all_2(f_map_46_entries_1(f_sig_46_Sig_46_procs_1(v_b)), f_sig_46_Sig_46_procs_1(v_a)), f_map_46_put_all_2(f_map_46_entries_1(f_sig_46_Sig_46_datas_1(v_b)), f_sig_46_Sig_46_datas_1(v_a)), f_map_46_put_all_2(f_map_46_entries_1(f_sig_46_Sig_46_members_1(v_b)), f_sig_46_Sig_46_members_1(v_a)), f_map_46_put_all_2(f_map_46_entries_1(f_sig_46_Sig_46_constrs_1(v_b)), f_sig_46_Sig_46_constrs_1(v_a)), f_sig_46_union_named_2(f_map_46_entries_1(f_sig_46_Sig_46_named_1(v_b)), f_sig_46_Sig_46_named_1(v_a)), f_set_46_insert_all_2(f_set_46_elements_1(f_sig_46_Sig_46_hidden_1(v_b)), f_sig_46_Sig_46_hidden_1(v_a)));
 }
 
-u_value f_ctx_46_public_1(u_value v_c) {
+u_value f_sig_46_public_1(u_value v_sig) {
   u_value t1112;
-  if (u_truth(u_eq(f_set_46_size_1(f_ctx_46_Ctx_46_hidden_1(v_c)), u_mk_int(0)))) {
-    t1112 = v_c;
+  if (u_truth(u_eq(f_set_46_size_1(f_sig_46_Sig_46_hidden_1(v_sig)), u_mk_int(0)))) {
+    t1112 = v_sig;
   } else {
     u_value t1102 = &o_list_46_Nil;
     u_value *e1103 = &t1102;
-    u_value l1104 = f_map_46_entries_1(f_ctx_46_unhidden_2(f_ctx_46_Ctx_46_members_1(v_c), f_ctx_46_Ctx_46_hidden_1(v_c)));
+    u_value l1104 = f_map_46_entries_1(f_sig_46_unhidden_2(f_sig_46_Sig_46_members_1(v_sig), f_sig_46_Sig_46_hidden_1(v_sig)));
     while (u_is_con(l1104, &n_list_46_Cons)) {
       u_value v_e = u_field(l1104, 0);
-      if (u_truth(f_prelude_46_not_1(f_list_46_exists_2(f_ctx_46_value_of_1(v_e), u_mk_closure(lam1105, 1, v_c))))) {
+      if (u_truth(f_prelude_46_not_1(f_list_46_exists_2(f_sig_46_value_of_1(v_e), u_mk_closure(lam1105, 1, v_sig))))) {
         e1103 = u_append(e1103, v_e);
       }
       l1104 = u_field(l1104, 1);
@@ -17322,36 +17322,36 @@ u_value f_ctx_46_public_1(u_value v_c) {
     *e1103 = &o_list_46_Nil;
     u_value t1106 = &o_list_46_Nil;
     u_value *e1107 = &t1106;
-    u_value l1108 = f_map_46_entries_1(f_ctx_46_Ctx_46_named_1(v_c));
+    u_value l1108 = f_map_46_entries_1(f_sig_46_Sig_46_named_1(v_sig));
     while (u_is_con(l1108, &n_list_46_Cons)) {
       u_value v_e = u_field(l1108, 0);
       u_value t1109 = &o_list_46_Nil;
       u_value *e1110 = &t1109;
-      u_value l1111 = f_ctx_46_value_of_1(v_e);
+      u_value l1111 = f_sig_46_value_of_1(v_e);
       while (u_is_con(l1111, &n_list_46_Cons)) {
         u_value v_n = u_field(l1111, 0);
-        if (u_truth(f_prelude_46_not_1(f_set_46_contains_2(v_n, f_ctx_46_Ctx_46_hidden_1(v_c))))) {
+        if (u_truth(f_prelude_46_not_1(f_set_46_contains_2(v_n, f_sig_46_Sig_46_hidden_1(v_sig))))) {
           e1110 = u_append(e1110, v_n);
         }
         l1111 = u_field(l1111, 1);
       }
       *e1110 = &o_list_46_Nil;
-      e1107 = u_append(e1107, u_mk_tuple(2, f_ctx_46_key_of_1(v_e), t1109));
+      e1107 = u_append(e1107, u_mk_tuple(2, f_sig_46_key_of_1(v_e), t1109));
       l1108 = u_field(l1108, 1);
     }
     *e1107 = &o_list_46_Nil;
-    t1112 = u_mk_con(&n_ctx_46_Ctx, 8, f_ctx_46_unhidden_2(f_ctx_46_Ctx_46_aliases_1(v_c), f_ctx_46_Ctx_46_hidden_1(v_c)), f_ctx_46_unhidden_2(f_ctx_46_Ctx_46_funs_1(v_c), f_ctx_46_Ctx_46_hidden_1(v_c)), f_ctx_46_unhidden_2(f_ctx_46_Ctx_46_procs_1(v_c), f_ctx_46_Ctx_46_hidden_1(v_c)), f_ctx_46_unhidden_2(f_ctx_46_Ctx_46_datas_1(v_c), f_ctx_46_Ctx_46_hidden_1(v_c)), f_map_46_put_all_2(t1102, f_map_46_empty_0()), f_ctx_46_unhidden_2(f_ctx_46_Ctx_46_constrs_1(v_c), f_ctx_46_Ctx_46_hidden_1(v_c)), f_map_46_put_all_2(t1106, f_map_46_empty_0()), f_ctx_46_Ctx_46_hidden_1(v_c));
+    t1112 = u_mk_con(&n_sig_46_Sig, 8, f_sig_46_unhidden_2(f_sig_46_Sig_46_aliases_1(v_sig), f_sig_46_Sig_46_hidden_1(v_sig)), f_sig_46_unhidden_2(f_sig_46_Sig_46_funs_1(v_sig), f_sig_46_Sig_46_hidden_1(v_sig)), f_sig_46_unhidden_2(f_sig_46_Sig_46_procs_1(v_sig), f_sig_46_Sig_46_hidden_1(v_sig)), f_sig_46_unhidden_2(f_sig_46_Sig_46_datas_1(v_sig), f_sig_46_Sig_46_hidden_1(v_sig)), f_map_46_put_all_2(t1102, f_map_46_empty_0()), f_sig_46_unhidden_2(f_sig_46_Sig_46_constrs_1(v_sig), f_sig_46_Sig_46_hidden_1(v_sig)), f_map_46_put_all_2(t1106, f_map_46_empty_0()), f_sig_46_Sig_46_hidden_1(v_sig));
   }
   return t1112;
 }
 
-u_value f_ctx_46_unhidden_2(u_value v_m, u_value v_hidden) {
+u_value f_sig_46_unhidden_2(u_value v_m, u_value v_hidden) {
   u_value t1113 = &o_list_46_Nil;
   u_value *e1114 = &t1113;
   u_value l1115 = f_map_46_entries_1(v_m);
   while (u_is_con(l1115, &n_list_46_Cons)) {
     u_value v_e = u_field(l1115, 0);
-    if (u_truth(f_prelude_46_not_1(f_set_46_contains_2(f_ctx_46_key_of_1(v_e), v_hidden)))) {
+    if (u_truth(f_prelude_46_not_1(f_set_46_contains_2(f_sig_46_key_of_1(v_e), v_hidden)))) {
       e1114 = u_append(e1114, v_e);
     }
     l1115 = u_field(l1115, 1);
@@ -17360,7 +17360,7 @@ u_value f_ctx_46_unhidden_2(u_value v_m, u_value v_hidden) {
   return f_map_46_put_all_2(t1113, f_map_46_empty_0());
 }
 
-u_value f_ctx_46_key_of_1(u_value v_e) {
+u_value f_sig_46_key_of_1(u_value v_e) {
   u_value s1116 = v_e;
   u_value t1117 = NULL;
   if (!t1117) {
@@ -17373,7 +17373,7 @@ u_value f_ctx_46_key_of_1(u_value v_e) {
   return t1117;
 }
 
-u_value f_ctx_46_value_of_1(u_value v_e) {
+u_value f_sig_46_value_of_1(u_value v_e) {
   u_value s1118 = v_e;
   u_value t1119 = NULL;
   if (!t1119) {
@@ -17386,10 +17386,10 @@ u_value f_ctx_46_value_of_1(u_value v_e) {
   return t1119;
 }
 
-u_value f_ctx_46_hidden_named_2(u_value v_c, u_value v_b) {
+u_value f_sig_46_hidden_named_2(u_value v_sig, u_value v_b) {
   u_value t1120 = &o_list_46_Nil;
   u_value *e1121 = &t1120;
-  u_value l1122 = f_set_46_elements_1(f_ctx_46_Ctx_46_hidden_1(v_c));
+  u_value l1122 = f_set_46_elements_1(f_sig_46_Sig_46_hidden_1(v_sig));
   while (u_is_con(l1122, &n_list_46_Cons)) {
     u_value v_n = u_field(l1122, 0);
     if (u_truth(u_eq(f_syntax_46_Name_46_base_1(v_n), v_b))) {
@@ -17401,7 +17401,7 @@ u_value f_ctx_46_hidden_named_2(u_value v_c, u_value v_b) {
   return t1120;
 }
 
-u_value f_ctx_46_union_named_2(u_value v_es, u_value v_bs) {
+u_value f_sig_46_union_named_2(u_value v_es, u_value v_bs) {
   u_value s1123 = v_es;
   u_value t1124 = NULL;
   if ((!t1124) && u_is_con(s1123, &n_list_46_Nil)) {
@@ -17415,10 +17415,10 @@ u_value f_ctx_46_union_named_2(u_value v_es, u_value v_bs) {
     u_value t1126 = NULL;
     if ((!t1126) && u_is_con(s1125, &n_option_46_Some)) {
       u_value v_ms = u_field(s1125, 0);
-      t1126 = f_ctx_46_union_named_2(v_rest, f_map_46_put_3(v_k, f_list_46__43__43__2(v_ms, v_ns), v_bs));
+      t1126 = f_sig_46_union_named_2(v_rest, f_map_46_put_3(v_k, f_list_46__43__43__2(v_ms, v_ns), v_bs));
     }
     if ((!t1126) && u_is_con(s1125, &n_option_46_None)) {
-      t1126 = f_ctx_46_union_named_2(v_rest, f_map_46_put_3(v_k, v_ns, v_bs));
+      t1126 = f_sig_46_union_named_2(v_rest, f_map_46_put_3(v_k, v_ns, v_bs));
     }
     if (!t1126) {
       u_no_case(s1125);
@@ -17431,12 +17431,12 @@ u_value f_ctx_46_union_named_2(u_value v_es, u_value v_bs) {
   return t1124;
 }
 
-u_value f_ctx_46_alias_of_2(u_value v_c, u_value v_n) {
-  return f_map_46_get_2(v_n, f_ctx_46_Ctx_46_aliases_1(v_c));
+u_value f_sig_46_alias_of_2(u_value v_sig, u_value v_n) {
+  return f_map_46_get_2(v_n, f_sig_46_Sig_46_aliases_1(v_sig));
 }
 
-u_value f_ctx_46_schemes_of_2(u_value v_c, u_value v_n) {
-  u_value s1127 = f_map_46_get_2(v_n, f_ctx_46_Ctx_46_funs_1(v_c));
+u_value f_sig_46_schemes_of_2(u_value v_sig, u_value v_n) {
+  u_value s1127 = f_map_46_get_2(v_n, f_sig_46_Sig_46_funs_1(v_sig));
   u_value t1128 = NULL;
   if ((!t1128) && u_is_con(s1127, &n_option_46_Some)) {
     u_value v_ss = u_field(s1127, 0);
@@ -17451,52 +17451,52 @@ u_value f_ctx_46_schemes_of_2(u_value v_c, u_value v_n) {
   return t1128;
 }
 
-u_value f_ctx_46_proc_of_2(u_value v_c, u_value v_n) {
-  return f_map_46_get_2(v_n, f_ctx_46_Ctx_46_procs_1(v_c));
+u_value f_sig_46_proc_of_2(u_value v_sig, u_value v_n) {
+  return f_map_46_get_2(v_n, f_sig_46_Sig_46_procs_1(v_sig));
 }
 
-u_value f_ctx_46_data_of_2(u_value v_c, u_value v_n) {
-  return f_map_46_get_2(v_n, f_ctx_46_Ctx_46_datas_1(v_c));
+u_value f_sig_46_data_of_2(u_value v_sig, u_value v_n) {
+  return f_map_46_get_2(v_n, f_sig_46_Sig_46_datas_1(v_sig));
 }
 
-u_value f_ctx_46_members_of_2(u_value v_c, u_value v_n) {
-  return f_map_46_get_2(v_n, f_ctx_46_Ctx_46_members_1(v_c));
+u_value f_sig_46_members_of_2(u_value v_sig, u_value v_n) {
+  return f_map_46_get_2(v_n, f_sig_46_Sig_46_members_1(v_sig));
 }
 
-u_value f_ctx_46_constr_of_2(u_value v_c, u_value v_n) {
-  return f_map_46_get_2(v_n, f_ctx_46_Ctx_46_constrs_1(v_c));
+u_value f_sig_46_constr_of_2(u_value v_sig, u_value v_n) {
+  return f_map_46_get_2(v_n, f_sig_46_Sig_46_constrs_1(v_sig));
 }
 
-u_value f_ctx_46_is_fun_2(u_value v_c, u_value v_n) {
-  return f_map_46_contains_2(v_n, f_ctx_46_Ctx_46_funs_1(v_c));
+u_value f_sig_46_is_fun_2(u_value v_sig, u_value v_n) {
+  return f_map_46_contains_2(v_n, f_sig_46_Sig_46_funs_1(v_sig));
 }
 
-u_value f_ctx_46_is_proc_2(u_value v_c, u_value v_n) {
-  return f_map_46_contains_2(v_n, f_ctx_46_Ctx_46_procs_1(v_c));
+u_value f_sig_46_is_proc_2(u_value v_sig, u_value v_n) {
+  return f_map_46_contains_2(v_n, f_sig_46_Sig_46_procs_1(v_sig));
 }
 
-u_value f_ctx_46_is_data_2(u_value v_c, u_value v_n) {
-  return f_map_46_contains_2(v_n, f_ctx_46_Ctx_46_datas_1(v_c));
+u_value f_sig_46_is_data_2(u_value v_sig, u_value v_n) {
+  return f_map_46_contains_2(v_n, f_sig_46_Sig_46_datas_1(v_sig));
 }
 
-u_value f_ctx_46_is_alias_2(u_value v_c, u_value v_n) {
-  return f_map_46_contains_2(v_n, f_ctx_46_Ctx_46_aliases_1(v_c));
+u_value f_sig_46_is_alias_2(u_value v_sig, u_value v_n) {
+  return f_map_46_contains_2(v_n, f_sig_46_Sig_46_aliases_1(v_sig));
 }
 
-u_value f_ctx_46_is_constr_2(u_value v_c, u_value v_n) {
-  return f_map_46_contains_2(v_n, f_ctx_46_Ctx_46_constrs_1(v_c));
+u_value f_sig_46_is_constr_2(u_value v_sig, u_value v_n) {
+  return f_map_46_contains_2(v_n, f_sig_46_Sig_46_constrs_1(v_sig));
 }
 
-u_value f_ctx_46_is_sort_2(u_value v_c, u_value v_n) {
-  u_value t1129 = f_ctx_46_is_data_2(v_c, v_n);
+u_value f_sig_46_is_sort_2(u_value v_sig, u_value v_n) {
+  u_value t1129 = f_sig_46_is_data_2(v_sig, v_n);
   if (!u_truth(t1129)) {
-    t1129 = f_ctx_46_is_alias_2(v_c, v_n);
+    t1129 = f_sig_46_is_alias_2(v_sig, v_n);
   }
   return t1129;
 }
 
-u_value f_ctx_46_names_of_2(u_value v_c, u_value v_b) {
-  u_value s1130 = f_map_46_get_2(v_b, f_ctx_46_Ctx_46_named_1(v_c));
+u_value f_sig_46_names_of_2(u_value v_sig, u_value v_b) {
+  u_value s1130 = f_map_46_get_2(v_b, f_sig_46_Sig_46_named_1(v_sig));
   u_value t1131 = NULL;
   if ((!t1131) && u_is_con(s1130, &n_option_46_Some)) {
     u_value v_ns = u_field(s1130, 0);
@@ -17511,7 +17511,7 @@ u_value f_ctx_46_names_of_2(u_value v_c, u_value v_b) {
   return t1131;
 }
 
-u_value f_ctx_46_with_named_2(u_value v_bs, u_value v_n) {
+u_value f_sig_46_with_named_2(u_value v_bs, u_value v_n) {
   u_value s1132 = f_map_46_get_2(f_syntax_46_Name_46_base_1(v_n), v_bs);
   u_value t1133 = NULL;
   if ((!t1133) && u_is_con(s1132, &n_option_46_Some)) {
@@ -17533,28 +17533,28 @@ u_value f_ctx_46_with_named_2(u_value v_bs, u_value v_n) {
   return t1133;
 }
 
-u_value f_ctx_46_with_alias_4(u_value v_c, u_value v_n, u_value v_ps, u_value v_t) {
-  return f_ctx_46_Ctx_46_named_58__61__2(f_ctx_46_Ctx_46_aliases_58__61__2(v_c, f_map_46_put_3(v_n, u_mk_tuple(2, v_ps, v_t), f_ctx_46_Ctx_46_aliases_1(v_c))), f_ctx_46_with_named_2(f_ctx_46_Ctx_46_named_1(v_c), v_n));
+u_value f_sig_46_with_alias_4(u_value v_sig, u_value v_n, u_value v_ps, u_value v_t) {
+  return f_sig_46_Sig_46_named_58__61__2(f_sig_46_Sig_46_aliases_58__61__2(v_sig, f_map_46_put_3(v_n, u_mk_tuple(2, v_ps, v_t), f_sig_46_Sig_46_aliases_1(v_sig))), f_sig_46_with_named_2(f_sig_46_Sig_46_named_1(v_sig), v_n));
 }
 
-u_value f_ctx_46_with_fun_3(u_value v_c, u_value v_n, u_value v_sc) {
-  return f_ctx_46_Ctx_46_named_58__61__2(f_ctx_46_Ctx_46_funs_58__61__2(v_c, f_map_46_put_3(v_n, f_list_46__43__43__2(f_ctx_46_schemes_of_2(v_c, v_n), u_mk_con(&n_list_46_Cons, 2, v_sc, &o_list_46_Nil)), f_ctx_46_Ctx_46_funs_1(v_c))), f_ctx_46_with_named_2(f_ctx_46_Ctx_46_named_1(v_c), v_n));
+u_value f_sig_46_with_fun_3(u_value v_sig, u_value v_n, u_value v_sc) {
+  return f_sig_46_Sig_46_named_58__61__2(f_sig_46_Sig_46_funs_58__61__2(v_sig, f_map_46_put_3(v_n, f_list_46__43__43__2(f_sig_46_schemes_of_2(v_sig, v_n), u_mk_con(&n_list_46_Cons, 2, v_sc, &o_list_46_Nil)), f_sig_46_Sig_46_funs_1(v_sig))), f_sig_46_with_named_2(f_sig_46_Sig_46_named_1(v_sig), v_n));
 }
 
-u_value f_ctx_46_with_proc_3(u_value v_c, u_value v_n, u_value v_g) {
-  return f_ctx_46_Ctx_46_named_58__61__2(f_ctx_46_Ctx_46_procs_58__61__2(v_c, f_map_46_put_3(v_n, v_g, f_ctx_46_Ctx_46_procs_1(v_c))), f_ctx_46_with_named_2(f_ctx_46_Ctx_46_named_1(v_c), v_n));
+u_value f_sig_46_with_proc_3(u_value v_sig, u_value v_n, u_value v_g) {
+  return f_sig_46_Sig_46_named_58__61__2(f_sig_46_Sig_46_procs_58__61__2(v_sig, f_map_46_put_3(v_n, v_g, f_sig_46_Sig_46_procs_1(v_sig))), f_sig_46_with_named_2(f_sig_46_Sig_46_named_1(v_sig), v_n));
 }
 
-u_value f_ctx_46_with_data_3(u_value v_c, u_value v_n, u_value v_arity) {
-  return f_ctx_46_Ctx_46_named_58__61__2(f_ctx_46_Ctx_46_datas_58__61__2(v_c, f_map_46_put_3(v_n, v_arity, f_ctx_46_Ctx_46_datas_1(v_c))), f_ctx_46_with_named_2(f_ctx_46_Ctx_46_named_1(v_c), v_n));
+u_value f_sig_46_with_data_3(u_value v_sig, u_value v_n, u_value v_arity) {
+  return f_sig_46_Sig_46_named_58__61__2(f_sig_46_Sig_46_datas_58__61__2(v_sig, f_map_46_put_3(v_n, v_arity, f_sig_46_Sig_46_datas_1(v_sig))), f_sig_46_with_named_2(f_sig_46_Sig_46_named_1(v_sig), v_n));
 }
 
-u_value f_ctx_46_with_members_3(u_value v_c, u_value v_n, u_value v_cs) {
-  return f_ctx_46_Ctx_46_members_58__61__2(v_c, f_map_46_put_3(v_n, v_cs, f_ctx_46_Ctx_46_members_1(v_c)));
+u_value f_sig_46_with_members_3(u_value v_sig, u_value v_n, u_value v_cs) {
+  return f_sig_46_Sig_46_members_58__61__2(v_sig, f_map_46_put_3(v_n, v_cs, f_sig_46_Sig_46_members_1(v_sig)));
 }
 
-u_value f_ctx_46_with_constr_3(u_value v_c, u_value v_n, u_value v_kc) {
-  return f_ctx_46_Ctx_46_named_58__61__2(f_ctx_46_Ctx_46_constrs_58__61__2(v_c, f_map_46_put_3(v_n, v_kc, f_ctx_46_Ctx_46_constrs_1(v_c))), f_ctx_46_with_named_2(f_ctx_46_Ctx_46_named_1(v_c), v_n));
+u_value f_sig_46_with_constr_3(u_value v_sig, u_value v_n, u_value v_kc) {
+  return f_sig_46_Sig_46_named_58__61__2(f_sig_46_Sig_46_constrs_58__61__2(v_sig, f_map_46_put_3(v_n, v_kc, f_sig_46_Sig_46_constrs_1(v_sig))), f_sig_46_with_named_2(f_sig_46_Sig_46_named_1(v_sig), v_n));
 }
 
 u_value f_defs_46_Defs_46_funs_1(u_value v_x) {
@@ -18027,7 +18027,7 @@ u_value f_check_46_Checked_46_cmds_1(u_value v_x) {
   return t1202;
 }
 
-u_value f_check_46_Checked_46_ctx_1(u_value v_x) {
+u_value f_check_46_Checked_46_sig_1(u_value v_x) {
   u_value s1203 = v_x;
   u_value t1204 = NULL;
   if ((!t1204) && u_is_con(s1203, &n_check_46_Checked)) {
@@ -18067,7 +18067,7 @@ u_value f_check_46_Checked_46_cmds_58__61__2(u_value v_x, u_value v_y) {
   return t1208;
 }
 
-u_value f_check_46_Checked_46_ctx_58__61__2(u_value v_x, u_value v_y) {
+u_value f_check_46_Checked_46_sig_58__61__2(u_value v_x, u_value v_y) {
   u_value s1209 = v_x;
   u_value t1210 = NULL;
   if ((!t1210) && u_is_con(s1209, &n_check_46_Checked)) {
@@ -18259,7 +18259,7 @@ u_value f_check_46_Pending_46_typ_58__61__2(u_value v_x, u_value v_y) {
   return t1236;
 }
 
-u_value f_check_46_State_46_ctx_1(u_value v_x) {
+u_value f_check_46_State_46_sig_1(u_value v_x) {
   u_value s1237 = v_x;
   u_value t1238 = NULL;
   if ((!t1238) && u_is_con(s1237, &n_check_46_State)) {
@@ -18363,7 +18363,7 @@ u_value f_check_46_State_46_chosen_1(u_value v_x) {
   return t1252;
 }
 
-u_value f_check_46_State_46_ctx_58__61__2(u_value v_x, u_value v_y) {
+u_value f_check_46_State_46_sig_58__61__2(u_value v_x, u_value v_y) {
   u_value s1253 = v_x;
   u_value t1254 = NULL;
   if ((!t1254) && u_is_con(s1253, &n_check_46_State)) {
@@ -18515,8 +18515,8 @@ u_value f_check_46_State_46_chosen_58__61__2(u_value v_x, u_value v_y) {
   return t1268;
 }
 
-u_value f_check_46_with_ctx_2(u_value v_s, u_value v_c) {
-  return f_check_46_State_46_ctx_58__61__2(v_s, v_c);
+u_value f_check_46_with_sig_2(u_value v_s, u_value v_sig) {
+  return f_check_46_State_46_sig_58__61__2(v_s, v_sig);
 }
 
 u_value f_check_46_enter_2(u_value v_s, u_value v_m) {
@@ -18702,7 +18702,7 @@ u_value f_check_46_imports_of_2(u_value v_imports, u_value v_m) {
 u_value f_check_46_visible_names_3(u_value v_s, u_value v_n, u_value v_declared) {
   u_value t1287 = &o_list_46_Nil;
   u_value *e1288 = &t1287;
-  u_value l1289 = f_ctx_46_names_of_2(f_check_46_State_46_ctx_1(v_s), f_syntax_46_Name_46_base_1(v_n));
+  u_value l1289 = f_sig_46_names_of_2(f_check_46_State_46_sig_1(v_s), f_syntax_46_Name_46_base_1(v_n));
   while (u_is_con(l1289, &n_list_46_Cons)) {
     u_value v_d = u_field(l1289, 0);
     if (u_truth(u_apply(v_declared, 1, v_d))) {
@@ -18764,7 +18764,7 @@ u_value f_check_46_overloads_3(u_value v_s, u_value v_n, u_value v_declared) {
     if (u_truth(f_prelude_46__33__61__2(v_m, &l__42__1305))) {
       u_value t1301 = &o_list_46_Nil;
       u_value *e1302 = &t1301;
-      u_value l1303 = f_ctx_46_names_of_2(f_check_46_State_46_ctx_1(v_s), f_syntax_46_Name_46_base_1(v_n));
+      u_value l1303 = f_sig_46_names_of_2(f_check_46_State_46_sig_1(v_s), f_syntax_46_Name_46_base_1(v_n));
       while (u_is_con(l1303, &n_list_46_Cons)) {
         u_value v_d = u_field(l1303, 0);
         u_value t1304 = u_apply(v_declared, 1, v_d);
@@ -18783,7 +18783,7 @@ u_value f_check_46_overloads_3(u_value v_s, u_value v_n, u_value v_declared) {
   if (!t1300) {
     u_value t1306 = &o_list_46_Nil;
     u_value *e1307 = &t1306;
-    u_value l1308 = f_ctx_46_names_of_2(f_check_46_State_46_ctx_1(v_s), f_syntax_46_Name_46_base_1(v_n));
+    u_value l1308 = f_sig_46_names_of_2(f_check_46_State_46_sig_1(v_s), f_syntax_46_Name_46_base_1(v_n));
     while (u_is_con(l1308, &n_list_46_Cons)) {
       u_value v_d = u_field(l1308, 0);
       u_value t1309 = u_apply(v_declared, 1, v_d);
@@ -18823,7 +18823,7 @@ u_value f_check_46_is_visible_2(u_value v_s, u_value v_d) {
 u_value f_check_46_unknown_error_3(u_value v_s, u_value v_n, u_value v_e) {
   u_value t1312 = &o_list_46_Nil;
   u_value *e1313 = &t1312;
-  u_value l1314 = f_ctx_46_hidden_named_2(f_check_46_State_46_ctx_1(v_s), f_syntax_46_Name_46_base_1(v_n));
+  u_value l1314 = f_sig_46_hidden_named_2(f_check_46_State_46_sig_1(v_s), f_syntax_46_Name_46_base_1(v_n));
   while (u_is_con(l1314, &n_list_46_Cons)) {
     u_value v_d = u_field(l1314, 0);
     u_value t1319 = f_prelude_46__33__61__2(f_syntax_46_Name_46_module_1(v_d), u_mk_con(&n_option_46_Some, 1, f_check_46_State_46_module_1(v_s)));
@@ -18957,7 +18957,7 @@ u_value f_check_46_initial_0(void) {
     u_reraise(handler);
   }
   u_pop(handler);
-  cache = f_ctx_46_empty_0();
+  cache = f_sig_46_empty_0();
   return cache;
 }
 
@@ -19432,8 +19432,8 @@ u_value f_check_46_constructor_scheme_1(u_value v_k) {
   return t1393;
 }
 
-u_value f_check_46_constructor_of_2(u_value v_c, u_value v_k) {
-  u_value s1395 = f_ctx_46_constr_of_2(v_c, v_k);
+u_value f_check_46_constructor_of_2(u_value v_sig, u_value v_k) {
+  u_value s1395 = f_sig_46_constr_of_2(v_sig, v_k);
   u_value t1396 = NULL;
   if ((!t1396) && u_is_con(s1395, &n_option_46_Some)) {
     u_value v_kc = u_field(s1395, 0);
@@ -19463,7 +19463,7 @@ u_value f_check_46_candidates_3(u_value v_s, u_value v_env, u_value v_n) {
       u_value v_f = u_field(l1402, 0);
       u_value t1403 = &o_list_46_Nil;
       u_value *e1404 = &t1403;
-      u_value l1405 = f_ctx_46_schemes_of_2(f_check_46_State_46_ctx_1(v_s), v_f);
+      u_value l1405 = f_sig_46_schemes_of_2(f_check_46_State_46_sig_1(v_s), v_f);
       while (u_is_con(l1405, &n_list_46_Cons)) {
         u_value v_sc = u_field(l1405, 0);
         e1404 = u_append(e1404, u_mk_tuple(2, v_f, v_sc));
@@ -19479,7 +19479,7 @@ u_value f_check_46_candidates_3(u_value v_s, u_value v_env, u_value v_n) {
     u_value l1409 = f_check_46_overloads_3(v_s, v_n, u_mk_closure(lam1406, 1, v_s));
     while (u_is_con(l1409, &n_list_46_Cons)) {
       u_value v_k = u_field(l1409, 0);
-      e1408 = u_append(e1408, u_mk_tuple(2, v_k, f_check_46_constructor_of_2(f_check_46_State_46_ctx_1(v_s), v_k)));
+      e1408 = u_append(e1408, u_mk_tuple(2, v_k, f_check_46_constructor_of_2(f_check_46_State_46_sig_1(v_s), v_k)));
       l1409 = u_field(l1409, 1);
     }
     *e1408 = &o_list_46_Nil;
@@ -19488,7 +19488,7 @@ u_value f_check_46_candidates_3(u_value v_s, u_value v_env, u_value v_n) {
     u_value l1413 = f_check_46_overloads_3(v_s, v_n, u_mk_closure(lam1410, 1, v_s));
     while (u_is_con(l1413, &n_list_46_Cons)) {
       u_value v_p = u_field(l1413, 0);
-      e1412 = u_append(e1412, u_mk_tuple(2, v_p, f_check_46_proc_scheme_2(f_check_46_State_46_ctx_1(v_s), v_p)));
+      e1412 = u_append(e1412, u_mk_tuple(2, v_p, f_check_46_proc_scheme_2(f_check_46_State_46_sig_1(v_s), v_p)));
       l1413 = u_field(l1413, 1);
     }
     *e1412 = &o_list_46_Nil;
@@ -19509,7 +19509,7 @@ u_value f_check_46_candidates_3(u_value v_s, u_value v_env, u_value v_n) {
   return t1398;
 }
 
-u_value f_check_46_accessors_3(u_value v_c, u_value v_f, u_value v_es) {
+u_value f_check_46_accessors_3(u_value v_sig, u_value v_f, u_value v_es) {
   u_value s1417 = v_es;
   u_value t1418 = NULL;
   if ((!t1418) && u_is_con(s1417, &n_list_46_Nil)) {
@@ -19528,7 +19528,7 @@ u_value f_check_46_accessors_3(u_value v_c, u_value v_f, u_value v_es) {
         u_value v_d = u_field(l1421, 0);
         u_value t1422 = &o_list_46_Nil;
         u_value *e1423 = &t1422;
-        u_value l1424 = f_ctx_46_schemes_of_2(v_c, v_d);
+        u_value l1424 = f_sig_46_schemes_of_2(v_sig, v_d);
         while (u_is_con(l1424, &n_list_46_Cons)) {
           u_value v_sc = u_field(l1424, 0);
           e1423 = u_append(e1423, u_mk_tuple(2, v_d, v_sc));
@@ -19539,9 +19539,9 @@ u_value f_check_46_accessors_3(u_value v_c, u_value v_f, u_value v_es) {
         l1421 = u_field(l1421, 1);
       }
       *e1420 = &o_list_46_Nil;
-      t1425 = f_list_46__43__43__2(f_list_46_concat_1(t1419), f_check_46_accessors_3(v_c, v_f, v_rest));
+      t1425 = f_list_46__43__43__2(f_list_46_concat_1(t1419), f_check_46_accessors_3(v_sig, v_f, v_rest));
     } else {
-      t1425 = f_check_46_accessors_3(v_c, v_f, v_rest);
+      t1425 = f_check_46_accessors_3(v_sig, v_f, v_rest);
     }
     t1418 = t1425;
   }
@@ -19561,8 +19561,8 @@ u_value f_check_46_ends_with_2(u_value v_b, u_value v_f) {
   return t1426;
 }
 
-u_value f_check_46_proc_scheme_2(u_value v_c, u_value v_p) {
-  u_value s1427 = f_ctx_46_proc_of_2(v_c, v_p);
+u_value f_check_46_proc_scheme_2(u_value v_sig, u_value v_p) {
+  u_value s1427 = f_sig_46_proc_of_2(v_sig, v_p);
   u_value t1428 = NULL;
   if ((!t1428) && u_is_con(s1427, &n_option_46_Some)) {
     u_value v_ps = u_field(u_field(s1427, 0), 0);
@@ -20686,8 +20686,8 @@ u_value f_check_46_heads_1(u_value v_rows) {
   return t1580;
 }
 
-u_value f_check_46_field_types_3(u_value v_c, u_value v_k, u_value v_args) {
-  u_value s1583 = f_ctx_46_constr_of_2(v_c, v_k);
+u_value f_check_46_field_types_3(u_value v_sig, u_value v_k, u_value v_args) {
+  u_value s1583 = f_sig_46_constr_of_2(v_sig, v_k);
   u_value t1584 = NULL;
   if ((!t1584) && u_is_con(s1583, &n_option_46_Some)) {
     u_value v_ps = u_field(u_field(s1583, 0), 0);
@@ -20712,7 +20712,7 @@ u_value f_check_46_field_types_3(u_value v_c, u_value v_k, u_value v_args) {
   return t1584;
 }
 
-u_value f_check_46_constructors_of_3(u_value v_c, u_value v_su, u_value v_t) {
+u_value f_check_46_constructors_of_3(u_value v_sig, u_value v_su, u_value v_t) {
   u_value s1588 = f_check_46_zonk_type_2(v_su, v_t);
   u_value t1589 = NULL;
   if ((!t1589) && (u_is_con(s1588, &n_syntax_46_TSort) && (u_is_con(u_field(s1588, 0), &n_syntax_46_Name) && (u_is_con(u_field(u_field(s1588, 0), 0), &n_option_46_None) && (u_equals(u_field(u_field(s1588, 0), 1), u_mk_lit("Bool")) && u_is_con(u_field(s1588, 1), &n_list_46_Nil)))))) {
@@ -20725,7 +20725,7 @@ u_value f_check_46_constructors_of_3(u_value v_c, u_value v_su, u_value v_t) {
   if ((!t1589) && u_is_con(s1588, &n_syntax_46_TSort)) {
     u_value v_n = u_field(s1588, 0);
     u_value v_args = u_field(s1588, 1);
-    u_value s1590 = f_ctx_46_members_of_2(v_c, v_n);
+    u_value s1590 = f_sig_46_members_of_2(v_sig, v_n);
     u_value t1591 = NULL;
     if ((!t1591) && u_is_con(s1590, &n_option_46_Some)) {
       u_value v_ks = u_field(s1590, 0);
@@ -20734,7 +20734,7 @@ u_value f_check_46_constructors_of_3(u_value v_c, u_value v_su, u_value v_t) {
       u_value l1594 = v_ks;
       while (u_is_con(l1594, &n_list_46_Cons)) {
         u_value v_k = u_field(l1594, 0);
-        e1593 = u_append(e1593, u_mk_tuple(2, u_mk_con(&n_check_46_HCon, 1, v_k), f_check_46_field_types_3(v_c, v_k, v_args)));
+        e1593 = u_append(e1593, u_mk_tuple(2, u_mk_con(&n_check_46_HCon, 1, v_k), f_check_46_field_types_3(v_sig, v_k, v_args)));
         l1594 = u_field(l1594, 1);
       }
       *e1593 = &o_list_46_Nil;
@@ -20757,8 +20757,8 @@ u_value f_check_46_constructors_of_3(u_value v_c, u_value v_su, u_value v_t) {
   return t1589;
 }
 
-u_value f_check_46_fields_of_4(u_value v_c, u_value v_su, u_value v_t, u_value v_h) {
-  u_value s1595 = f_check_46_constructors_of_3(v_c, v_su, v_t);
+u_value f_check_46_fields_of_4(u_value v_sig, u_value v_su, u_value v_t, u_value v_h) {
+  u_value s1595 = f_check_46_constructors_of_3(v_sig, v_su, v_t);
   u_value t1596 = NULL;
   if ((!t1596) && u_is_con(s1595, &n_option_46_Some)) {
     u_value v_ks = u_field(s1595, 0);
@@ -20880,7 +20880,7 @@ u_value f_check_46_specialize_3(u_value v_rows, u_value v_h, u_value v_n) {
   return t1607;
 }
 
-u_value f_check_46_useful_5(u_value v_c, u_value v_su, u_value v_rows, u_value v_q, u_value v_ts) {
+u_value f_check_46_useful_5(u_value v_sig, u_value v_su, u_value v_rows, u_value v_q, u_value v_ts) {
   u_value s1611 = u_mk_tuple(2, v_q, v_ts);
   u_value t1612 = NULL;
   if ((!t1612) && u_is_con(u_field(s1611, 0), &n_list_46_Nil)) {
@@ -20896,23 +20896,23 @@ u_value f_check_46_useful_5(u_value v_c, u_value v_su, u_value v_rows, u_value v
     if ((!t1614) && u_is_con(s1613, &n_option_46_Some)) {
       u_value v_h = u_field(u_field(s1613, 0), 0);
       u_value v_args = u_field(u_field(s1613, 0), 1);
-      t1614 = f_check_46_useful_5(v_c, v_su, f_check_46_specialize_3(v_rows, v_h, f_list_46_size_1(v_args)), f_list_46__43__43__2(v_args, v_ps), f_list_46__43__43__2(f_check_46_fields_of_4(v_c, v_su, v_t, v_h), v_rest));
+      t1614 = f_check_46_useful_5(v_sig, v_su, f_check_46_specialize_3(v_rows, v_h, f_list_46_size_1(v_args)), f_list_46__43__43__2(v_args, v_ps), f_list_46__43__43__2(f_check_46_fields_of_4(v_sig, v_su, v_t, v_h), v_rest));
     }
     if ((!t1614) && u_is_con(s1613, &n_option_46_None)) {
-      u_value s1615 = f_check_46_constructors_of_3(v_c, v_su, v_t);
+      u_value s1615 = f_check_46_constructors_of_3(v_sig, v_su, v_t);
       u_value t1616 = NULL;
       if ((!t1616) && u_is_con(s1615, &n_option_46_Some)) {
         u_value v_ks = u_field(s1615, 0);
         u_value t1617;
         if (u_truth(f_check_46_covers_2(f_check_46_heads_1(v_rows), v_ks))) {
-          t1617 = f_check_46_useful_in_6(v_c, v_su, v_rows, v_ks, v_ps, v_rest);
+          t1617 = f_check_46_useful_in_6(v_sig, v_su, v_rows, v_ks, v_ps, v_rest);
         } else {
-          t1617 = f_check_46_useful_5(v_c, v_su, f_check_46_defaults_1(v_rows), v_ps, v_rest);
+          t1617 = f_check_46_useful_5(v_sig, v_su, f_check_46_defaults_1(v_rows), v_ps, v_rest);
         }
         t1616 = t1617;
       }
       if ((!t1616) && u_is_con(s1615, &n_option_46_None)) {
-        t1616 = f_check_46_useful_5(v_c, v_su, f_check_46_defaults_1(v_rows), v_ps, v_rest);
+        t1616 = f_check_46_useful_5(v_sig, v_su, f_check_46_defaults_1(v_rows), v_ps, v_rest);
       }
       if (!t1616) {
         u_no_case(s1615);
@@ -20933,7 +20933,7 @@ u_value f_check_46_useful_5(u_value v_c, u_value v_su, u_value v_rows, u_value v
   return t1612;
 }
 
-u_value f_check_46_useful_in_6(u_value v_c, u_value v_su, u_value v_rows, u_value v_ks, u_value v_ps, u_value v_rest) {
+u_value f_check_46_useful_in_6(u_value v_sig, u_value v_su, u_value v_rows, u_value v_ks, u_value v_ps, u_value v_rest) {
   u_value s1618 = v_ks;
   u_value t1619 = NULL;
   if ((!t1619) && u_is_con(s1618, &n_list_46_Nil)) {
@@ -20943,9 +20943,9 @@ u_value f_check_46_useful_in_6(u_value v_c, u_value v_su, u_value v_rows, u_valu
     u_value v_h = u_field(u_field(s1618, 0), 0);
     u_value v_args = u_field(u_field(s1618, 0), 1);
     u_value v_more = u_field(s1618, 1);
-    u_value t1620 = f_check_46_useful_5(v_c, v_su, f_check_46_specialize_3(v_rows, v_h, f_list_46_size_1(v_args)), f_list_46__43__43__2(f_list_46_replicate_2(f_list_46_size_1(v_args), &o_syntax_46_PWild), v_ps), f_list_46__43__43__2(v_args, v_rest));
+    u_value t1620 = f_check_46_useful_5(v_sig, v_su, f_check_46_specialize_3(v_rows, v_h, f_list_46_size_1(v_args)), f_list_46__43__43__2(f_list_46_replicate_2(f_list_46_size_1(v_args), &o_syntax_46_PWild), v_ps), f_list_46__43__43__2(v_args, v_rest));
     if (!u_truth(t1620)) {
-      t1620 = f_check_46_useful_in_6(v_c, v_su, v_rows, v_more, v_ps, v_rest);
+      t1620 = f_check_46_useful_in_6(v_sig, v_su, v_rows, v_more, v_ps, v_rest);
     }
     t1619 = t1620;
   }
@@ -20978,7 +20978,7 @@ u_value f_check_46_witness_2(u_value v_h, u_value v_args) {
   return t1622;
 }
 
-u_value f_check_46_missing_4(u_value v_c, u_value v_su, u_value v_rows, u_value v_ts) {
+u_value f_check_46_missing_4(u_value v_sig, u_value v_su, u_value v_rows, u_value v_ts) {
   u_value s1624 = v_ts;
   u_value t1625 = NULL;
   if ((!t1625) && u_is_con(s1624, &n_list_46_Nil)) {
@@ -20993,7 +20993,7 @@ u_value f_check_46_missing_4(u_value v_c, u_value v_su, u_value v_rows, u_value 
   if ((!t1625) && u_is_con(s1624, &n_list_46_Cons)) {
     u_value v_t = u_field(s1624, 0);
     u_value v_rest = u_field(s1624, 1);
-    t1625 = f_check_46_missing_in_6(v_c, v_su, v_rows, f_check_46_heads_1(v_rows), f_check_46_constructors_of_3(v_c, v_su, v_t), v_rest);
+    t1625 = f_check_46_missing_in_6(v_sig, v_su, v_rows, f_check_46_heads_1(v_rows), f_check_46_constructors_of_3(v_sig, v_su, v_t), v_rest);
   }
   if (!t1625) {
     u_no_case(s1624);
@@ -21001,21 +21001,21 @@ u_value f_check_46_missing_4(u_value v_c, u_value v_su, u_value v_rows, u_value 
   return t1625;
 }
 
-u_value f_check_46_missing_in_6(u_value v_c, u_value v_su, u_value v_rows, u_value v_hs, u_value v_cs, u_value v_rest) {
+u_value f_check_46_missing_in_6(u_value v_sig, u_value v_su, u_value v_rows, u_value v_hs, u_value v_cs, u_value v_rest) {
   u_value s1627 = v_cs;
   u_value t1628 = NULL;
   if ((!t1628) && u_is_con(s1627, &n_option_46_Some)) {
     u_value v_ks = u_field(s1627, 0);
     u_value t1629;
     if (u_truth(f_check_46_covers_2(v_hs, v_ks))) {
-      t1629 = f_check_46_first_missing_5(v_c, v_su, v_rows, v_ks, v_rest);
+      t1629 = f_check_46_first_missing_5(v_sig, v_su, v_rows, v_ks, v_rest);
     } else {
-      t1629 = f_check_46_other_missing_6(v_c, v_su, v_rows, v_hs, v_cs, v_rest);
+      t1629 = f_check_46_other_missing_6(v_sig, v_su, v_rows, v_hs, v_cs, v_rest);
     }
     t1628 = t1629;
   }
   if ((!t1628) && u_is_con(s1627, &n_option_46_None)) {
-    t1628 = f_check_46_other_missing_6(v_c, v_su, v_rows, v_hs, v_cs, v_rest);
+    t1628 = f_check_46_other_missing_6(v_sig, v_su, v_rows, v_hs, v_cs, v_rest);
   }
   if (!t1628) {
     u_no_case(s1627);
@@ -21023,7 +21023,7 @@ u_value f_check_46_missing_in_6(u_value v_c, u_value v_su, u_value v_rows, u_val
   return t1628;
 }
 
-u_value f_check_46_first_missing_5(u_value v_c, u_value v_su, u_value v_rows, u_value v_ks, u_value v_rest) {
+u_value f_check_46_first_missing_5(u_value v_sig, u_value v_su, u_value v_rows, u_value v_ks, u_value v_rest) {
   u_value s1630 = v_ks;
   u_value t1631 = NULL;
   if ((!t1631) && u_is_con(s1630, &n_list_46_Nil)) {
@@ -21033,14 +21033,14 @@ u_value f_check_46_first_missing_5(u_value v_c, u_value v_su, u_value v_rows, u_
     u_value v_h = u_field(u_field(s1630, 0), 0);
     u_value v_args = u_field(u_field(s1630, 0), 1);
     u_value v_more = u_field(s1630, 1);
-    u_value s1632 = f_check_46_missing_4(v_c, v_su, f_check_46_specialize_3(v_rows, v_h, f_list_46_size_1(v_args)), f_list_46__43__43__2(v_args, v_rest));
+    u_value s1632 = f_check_46_missing_4(v_sig, v_su, f_check_46_specialize_3(v_rows, v_h, f_list_46_size_1(v_args)), f_list_46__43__43__2(v_args, v_rest));
     u_value t1633 = NULL;
     if ((!t1633) && u_is_con(s1632, &n_option_46_Some)) {
       u_value v_ws = u_field(s1632, 0);
       t1633 = u_mk_con(&n_option_46_Some, 1, u_mk_con(&n_list_46_Cons, 2, f_check_46_witness_2(v_h, f_list_46_take_2(f_list_46_size_1(v_args), v_ws)), f_list_46_drop_2(f_list_46_size_1(v_args), v_ws)));
     }
     if ((!t1633) && u_is_con(s1632, &n_option_46_None)) {
-      t1633 = f_check_46_first_missing_5(v_c, v_su, v_rows, v_more, v_rest);
+      t1633 = f_check_46_first_missing_5(v_sig, v_su, v_rows, v_more, v_rest);
     }
     if (!t1633) {
       u_no_case(s1632);
@@ -21053,8 +21053,8 @@ u_value f_check_46_first_missing_5(u_value v_c, u_value v_su, u_value v_rows, u_
   return t1631;
 }
 
-u_value f_check_46_other_missing_6(u_value v_c, u_value v_su, u_value v_rows, u_value v_hs, u_value v_cs, u_value v_rest) {
-  u_value s1634 = f_check_46_missing_4(v_c, v_su, f_check_46_defaults_1(v_rows), v_rest);
+u_value f_check_46_other_missing_6(u_value v_sig, u_value v_su, u_value v_rows, u_value v_hs, u_value v_cs, u_value v_rest) {
+  u_value s1634 = f_check_46_missing_4(v_sig, v_su, f_check_46_defaults_1(v_rows), v_rest);
   u_value t1635 = NULL;
   if ((!t1635) && u_is_con(s1634, &n_option_46_Some)) {
     u_value v_ws = u_field(s1634, 0);
@@ -21592,7 +21592,7 @@ void p_check_46_normalize_sort(u_value v_n, u_value v_args, u_value *r_u, u_valu
   u_value v_s = *r_s;
   {
     u_value v_us = NULL;
-    u_value s1680 = f_ctx_46_data_of_2(f_check_46_State_46_ctx_1(v_s), v_n);
+    u_value s1680 = f_sig_46_data_of_2(f_check_46_State_46_sig_1(v_s), v_n);
     int d1681 = 0;
     if ((!d1681) && u_is_con(s1680, &n_option_46_Some)) {
       u_value v_k = u_field(s1680, 0);
@@ -21607,7 +21607,7 @@ void p_check_46_normalize_sort(u_value v_n, u_value v_args, u_value *r_u, u_valu
     if ((!d1681) && u_is_con(s1680, &n_option_46_None)) {
       d1681 = 1;
       {
-        u_value s1683 = f_ctx_46_alias_of_2(f_check_46_State_46_ctx_1(v_s), v_n);
+        u_value s1683 = f_sig_46_alias_of_2(f_check_46_State_46_sig_1(v_s), v_n);
         int d1684 = 0;
         if ((!d1684) && u_is_con(s1683, &n_option_46_Some)) {
           u_value v_ps = u_field(u_field(s1683, 0), 0);
@@ -22713,7 +22713,7 @@ void p_check_46_field_access(u_value v_env, u_value v_f, u_value v_a, u_value v_
           {
             u_value t1813 = u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, v_m), u_concat(v_tn, v_f));
             v_acc = t1813;
-            u_value s1814 = f_ctx_46_schemes_of_2(f_check_46_State_46_ctx_1(v_s), v_acc);
+            u_value s1814 = f_sig_46_schemes_of_2(f_check_46_State_46_sig_1(v_s), v_acc);
             int d1815 = 0;
             if ((!d1815) && (u_is_con(s1814, &n_list_46_Cons) && u_is_con(u_field(s1814, 1), &n_list_46_Nil))) {
               u_value v_sc = u_field(s1814, 0);
@@ -22736,7 +22736,7 @@ void p_check_46_field_access(u_value v_env, u_value v_f, u_value v_a, u_value v_
         if ((!d1812) && u_is_con(s1811, &n_syntax_46_TMeta)) {
           d1812 = 1;
           {
-            u_value s1816 = f_check_46_accessors_3(f_check_46_State_46_ctx_1(v_s), v_f, f_map_46_entries_1(f_ctx_46_Ctx_46_named_1(f_check_46_State_46_ctx_1(v_s))));
+            u_value s1816 = f_check_46_accessors_3(f_check_46_State_46_sig_1(v_s), v_f, f_map_46_entries_1(f_sig_46_Sig_46_named_1(f_check_46_State_46_sig_1(v_s))));
             int d1817 = 0;
             if ((!d1817) && u_is_con(s1816, &n_list_46_Nil)) {
               d1817 = 1;
@@ -22980,7 +22980,7 @@ void p_check_46_coverage(u_value v_s, u_value v_t, u_value v_cs) {
       l1839 = u_field(l1839, 1);
     }
     *e1838 = &o_list_46_Nil;
-    u_value s1840 = f_check_46_missing_4(f_check_46_State_46_ctx_1(v_s), f_check_46_State_46_sub_1(v_s), t1837, u_mk_con(&n_list_46_Cons, 2, v_t, &o_list_46_Nil));
+    u_value s1840 = f_check_46_missing_4(f_check_46_State_46_sig_1(v_s), f_check_46_State_46_sub_1(v_s), t1837, u_mk_con(&n_list_46_Cons, 2, v_t, &o_list_46_Nil));
     int d1841 = 0;
     if ((!d1841) && (u_is_con(s1840, &n_option_46_Some) && u_is_con(u_field(s1840, 0), &n_list_46_Cons))) {
       u_value v_w = u_field(u_field(s1840, 0), 0);
@@ -23045,7 +23045,7 @@ void p_check_46_reachable(u_value v_s, u_value v_t, u_value v_before, u_value v_
           l1848 = u_field(l1848, 1);
         }
         *e1847 = &o_list_46_Nil;
-        if (u_truth(f_prelude_46_not_1(f_check_46_useful_5(f_check_46_State_46_ctx_1(v_s), f_check_46_State_46_sub_1(v_s), t1846, u_mk_con(&n_list_46_Cons, 2, v_p, &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, v_t, &o_list_46_Nil))))) {
+        if (u_truth(f_prelude_46_not_1(f_check_46_useful_5(f_check_46_State_46_sig_1(v_s), f_check_46_State_46_sub_1(v_s), t1846, u_mk_con(&n_list_46_Cons, 2, v_p, &o_list_46_Nil), u_mk_con(&n_list_46_Cons, 2, v_t, &o_list_46_Nil))))) {
           {
             u_raise(u_mk_con(&n_check_46_Unreachable, 1, v_p), "check.TypeError");
           }
@@ -23164,7 +23164,7 @@ void p_check_46_binders(u_value v_p, u_value v_t, u_value *r_p1, u_value *r_xs, 
         if (!d1860) {
           u_no_case(s1859);
         }
-        u_value s1862 = f_ctx_46_constr_of_2(f_check_46_State_46_ctx_1(v_s), v_k);
+        u_value s1862 = f_sig_46_constr_of_2(f_check_46_State_46_sig_1(v_s), v_k);
         int d1863 = 0;
         if ((!d1863) && u_is_con(s1862, &n_option_46_Some)) {
           u_value v_ps = u_field(u_field(s1862, 0), 0);
@@ -23225,11 +23225,11 @@ void p_check_46_pattern_constructor(u_value v_n, u_value v_ks, u_value v_k, u_va
   u_value v_s = *r_s;
   {
     u_value v_ok = NULL;
-    p_check_46_trials(f_check_46_results_3(f_check_46_State_46_ctx_1(v_s), v_ks, v_k), v_t, v_s, &v_ok);
+    p_check_46_trials(f_check_46_results_3(f_check_46_State_46_sig_1(v_s), v_ks, v_k), v_t, v_s, &v_ok);
     if (u_truth(f_prelude_46__62__2(f_list_46_size_1(v_ok), u_mk_int(1)))) {
       {
         p_check_46_solve(&v_s);
-        p_check_46_trials(f_check_46_results_3(f_check_46_State_46_ctx_1(v_s), v_ks, v_k), v_t, v_s, &v_ok);
+        p_check_46_trials(f_check_46_results_3(f_check_46_State_46_sig_1(v_s), v_ks, v_k), v_t, v_s, &v_ok);
       }
     }
     u_value s1869 = u_mk_tuple(2, v_ok, f_check_46_own_2(v_s, f_list_46_firsts_1(v_ok)));
@@ -23270,7 +23270,7 @@ void p_check_46_pattern_constructor(u_value v_n, u_value v_ks, u_value v_k, u_va
   *r_s = v_s;
 }
 
-u_value f_check_46_results_3(u_value v_c, u_value v_ks, u_value v_k) {
+u_value f_check_46_results_3(u_value v_sig, u_value v_ks, u_value v_k) {
   u_value s1873 = v_ks;
   u_value t1874 = NULL;
   if ((!t1874) && u_is_con(s1873, &n_list_46_Nil)) {
@@ -23279,7 +23279,7 @@ u_value f_check_46_results_3(u_value v_c, u_value v_ks, u_value v_k) {
   if ((!t1874) && u_is_con(s1873, &n_list_46_Cons)) {
     u_value v_n = u_field(s1873, 0);
     u_value v_rest = u_field(s1873, 1);
-    u_value s1875 = f_ctx_46_constr_of_2(v_c, v_n);
+    u_value s1875 = f_sig_46_constr_of_2(v_sig, v_n);
     u_value t1876 = NULL;
     if ((!t1876) && u_is_con(s1875, &n_option_46_Some)) {
       u_value v_ps = u_field(u_field(s1875, 0), 0);
@@ -23287,14 +23287,14 @@ u_value f_check_46_results_3(u_value v_c, u_value v_ks, u_value v_k) {
       u_value v_r = u_field(u_field(s1875, 0), 2);
       u_value t1877;
       if (u_truth(u_eq(f_list_46_size_1(v_args), v_k))) {
-        t1877 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, u_mk_tuple(2, v_ps, v_r)), f_check_46_results_3(v_c, v_rest, v_k));
+        t1877 = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_n, u_mk_tuple(2, v_ps, v_r)), f_check_46_results_3(v_sig, v_rest, v_k));
       } else {
-        t1877 = f_check_46_results_3(v_c, v_rest, v_k);
+        t1877 = f_check_46_results_3(v_sig, v_rest, v_k);
       }
       t1876 = t1877;
     }
     if ((!t1876) && u_is_con(s1875, &n_option_46_None)) {
-      t1876 = f_check_46_results_3(v_c, v_rest, v_k);
+      t1876 = f_check_46_results_3(v_sig, v_rest, v_k);
     }
     if (!t1876) {
       u_no_case(s1875);
@@ -23857,7 +23857,7 @@ void p_check_46_overloaded_call(u_value v_env, u_value v_assignable, u_value v_p
     u_value l1949 = v_qs;
     while (u_is_con(l1949, &n_list_46_Cons)) {
       u_value v_q = u_field(l1949, 0);
-      e1948 = u_append(e1948, u_mk_tuple(2, v_q, f_check_46_proc_scheme_2(f_check_46_State_46_ctx_1(v_s), v_q)));
+      e1948 = u_append(e1948, u_mk_tuple(2, v_q, f_check_46_proc_scheme_2(f_check_46_State_46_sig_1(v_s), v_q)));
       l1949 = u_field(l1949, 1);
     }
     *e1948 = &o_list_46_Nil;
@@ -23877,7 +23877,7 @@ void p_check_46_declared_call(u_value v_env, u_value v_assignable, u_value v_p, 
     u_value v_ins1 = NULL;
     u_value v_outs1 = NULL;
     u_value v_refs1 = NULL;
-    u_value s1951 = f_ctx_46_proc_of_2(f_check_46_State_46_ctx_1(v_s), v_q);
+    u_value s1951 = f_sig_46_proc_of_2(f_check_46_State_46_sig_1(v_s), v_q);
     int d1952 = 0;
     if ((!d1952) && u_is_con(s1951, &n_option_46_Some)) {
       u_value v_ps = u_field(u_field(s1951, 0), 0);
@@ -24034,15 +24034,15 @@ void p_check_46_handler_list(u_value v_assignable, u_value v_hs, u_value *r_hs1,
   *r_s = v_s;
 }
 
-void p_check_46_declare_name(u_value v_c, u_value v_n) {
+void p_check_46_declare_name(u_value v_sig, u_value v_n) {
   {
-    u_value t1974 = f_ctx_46_is_fun_2(v_c, v_n);
+    u_value t1974 = f_sig_46_is_fun_2(v_sig, v_n);
     if (!u_truth(t1974)) {
-      t1974 = f_ctx_46_is_proc_2(v_c, v_n);
+      t1974 = f_sig_46_is_proc_2(v_sig, v_n);
     }
     u_value t1975 = t1974;
     if (!u_truth(t1975)) {
-      t1975 = f_ctx_46_is_constr_2(v_c, v_n);
+      t1975 = f_sig_46_is_constr_2(v_sig, v_n);
     }
     u_value t1976 = t1975;
     if (!u_truth(t1976)) {
@@ -24056,15 +24056,15 @@ void p_check_46_declare_name(u_value v_c, u_value v_n) {
   }
 }
 
-void p_check_46_overload(u_value v_c, u_value v_n, u_value v_k) {
+void p_check_46_overload(u_value v_sig, u_value v_n, u_value v_k) {
   {
-    u_value t1977 = f_ctx_46_is_proc_2(v_c, v_n);
+    u_value t1977 = f_sig_46_is_proc_2(v_sig, v_n);
     if (!u_truth(t1977)) {
-      t1977 = f_ctx_46_is_constr_2(v_c, v_n);
+      t1977 = f_sig_46_is_constr_2(v_sig, v_n);
     }
     u_value t1978 = t1977;
     if (!u_truth(t1978)) {
-      t1978 = f_check_46_has_arity_2(f_ctx_46_schemes_of_2(v_c, v_n), v_k);
+      t1978 = f_check_46_has_arity_2(f_sig_46_schemes_of_2(v_sig, v_n), v_k);
     }
     if (u_truth(t1978)) {
       {
@@ -24074,7 +24074,7 @@ void p_check_46_overload(u_value v_c, u_value v_n, u_value v_k) {
   }
 }
 
-void p_check_46_declare_sort(u_value v_c, u_value v_n) {
+void p_check_46_declare_sort(u_value v_sig, u_value v_n) {
   {
     u_value t1980 = f_set_46_contains_2(f_syntax_46_Name_46_base_1(v_n), f_check_46_builtin_sorts_0());
     if (!u_truth(t1980)) {
@@ -24083,11 +24083,11 @@ void p_check_46_declare_sort(u_value v_c, u_value v_n) {
     }
     u_value t1981 = t1980;
     if (!u_truth(t1981)) {
-      t1981 = f_ctx_46_is_alias_2(v_c, v_n);
+      t1981 = f_sig_46_is_alias_2(v_sig, v_n);
     }
     u_value t1982 = t1981;
     if (!u_truth(t1982)) {
-      t1982 = f_ctx_46_is_data_2(v_c, v_n);
+      t1982 = f_sig_46_is_data_2(v_sig, v_n);
     }
     if (u_truth(t1982)) {
       {
@@ -24138,8 +24138,8 @@ void p_check_46_declare_datas(u_value v_cs, u_value *r_s) {
       {
         u_value t1989 = f_check_46_enter_2(v_s, v_m);
         v_s = t1989;
-        p_check_46_declare_sort(f_check_46_State_46_ctx_1(v_s), v_n);
-        u_value t1990 = f_check_46_with_ctx_2(v_s, f_ctx_46_with_data_3(f_check_46_State_46_ctx_1(v_s), v_n, f_list_46_size_1(v_ps)));
+        p_check_46_declare_sort(f_check_46_State_46_sig_1(v_s), v_n);
+        u_value t1990 = f_check_46_with_sig_2(v_s, f_sig_46_with_data_3(f_check_46_State_46_sig_1(v_s), v_n, f_list_46_size_1(v_ps)));
         v_s = t1990;
         p_check_46_declare_datas(v_rest, &v_s);
       }
@@ -24179,11 +24179,11 @@ void p_check_46_declare_sorts(u_value v_cs, u_value *r_s) {
       {
         u_value t1993 = f_check_46_enter_2(v_s, v_m);
         v_s = t1993;
-        p_check_46_declare_sort(f_check_46_State_46_ctx_1(v_s), v_n);
+        p_check_46_declare_sort(f_check_46_State_46_sig_1(v_s), v_n);
         p_check_46_unique_ids(v_ps);
         p_check_46_known(v_t, v_n, &v_u, &v_s);
         p_check_46_closed(v_n, v_ps, u_mk_con(&n_list_46_Cons, 2, v_u, &o_list_46_Nil));
-        u_value t1994 = f_check_46_with_ctx_2(v_s, f_ctx_46_with_alias_4(f_check_46_State_46_ctx_1(v_s), v_n, v_ps, v_u));
+        u_value t1994 = f_check_46_with_sig_2(v_s, f_sig_46_with_alias_4(f_check_46_State_46_sig_1(v_s), v_n, v_ps, v_u));
         v_s = t1994;
         p_check_46_declare_sorts(v_rest, &v_s);
       }
@@ -24232,7 +24232,7 @@ void p_check_46_declare_constrs(u_value v_cs, u_value *r_s) {
           l2000 = u_field(l2000, 1);
         }
         *e1999 = &o_list_46_Nil;
-        u_value t2001 = f_check_46_with_ctx_2(v_s, f_ctx_46_with_members_3(f_check_46_State_46_ctx_1(v_s), v_n, t1998));
+        u_value t2001 = f_check_46_with_sig_2(v_s, f_sig_46_with_members_3(f_check_46_State_46_sig_1(v_s), v_n, t1998));
         v_s = t2001;
         p_check_46_declare_constructors(v_n, v_ps, v_ks, &v_s);
         p_check_46_declare_constrs(v_rest, &v_s);
@@ -24269,10 +24269,10 @@ void p_check_46_declare_constructors(u_value v_n, u_value v_ps, u_value v_ks, u_
       u_value v_rest = u_field(s2002, 1);
       d2003 = 1;
       {
-        p_check_46_declare_name(f_check_46_State_46_ctx_1(v_s), v_k);
+        p_check_46_declare_name(f_check_46_State_46_sig_1(v_s), v_k);
         p_check_46_knowns(v_args, v_k, &v_ts, &v_s);
         p_check_46_closed(v_n, v_ps, v_ts);
-        u_value t2004 = f_check_46_with_ctx_2(v_s, f_ctx_46_with_constr_3(f_check_46_State_46_ctx_1(v_s), v_k, u_mk_tuple(3, f_check_46_params_1(v_ps), v_ts, u_mk_con(&n_syntax_46_TSort, 2, v_n, f_check_46_params_1(v_ps)))));
+        u_value t2004 = f_check_46_with_sig_2(v_s, f_sig_46_with_constr_3(f_check_46_State_46_sig_1(v_s), v_k, u_mk_tuple(3, f_check_46_params_1(v_ps), v_ts, u_mk_con(&n_syntax_46_TSort, 2, v_n, f_check_46_params_1(v_ps)))));
         v_s = t2004;
         p_check_46_declare_constructors(v_n, v_ps, v_rest, &v_s);
       }
@@ -24358,13 +24358,13 @@ void p_check_46_declare_funs(u_value v_cs, u_value *r_s) {
       {
         u_value t2013 = f_check_46_enter_2(v_s, v_m);
         v_s = t2013;
-        p_check_46_overload(f_check_46_State_46_ctx_1(v_s), v_n, f_list_46_size_1(f_syntax_46_first_list_1(v_bound)));
+        p_check_46_overload(f_check_46_State_46_sig_1(v_s), v_n, f_list_46_size_1(f_syntax_46_first_list_1(v_bound)));
         p_check_46_unique_ids(v_ps);
         p_check_46_unique(f_syntax_46_names_1(f_list_46_concat_1(v_bound)));
         p_check_46_signatures(v_bound, &v_xss, &v_s);
         p_check_46_known(v_res, v_n, &v_r, &v_s);
         p_check_46_closed(v_n, v_ps, u_mk_con(&n_list_46_Cons, 2, f_check_46_curried_2(v_xss, v_r), &o_list_46_Nil));
-        u_value t2014 = f_check_46_with_ctx_2(v_s, f_ctx_46_with_fun_3(f_check_46_State_46_ctx_1(v_s), v_n, u_mk_tuple(2, f_check_46_params_1(v_ps), f_check_46_curried_2(v_xss, v_r))));
+        u_value t2014 = f_check_46_with_sig_2(v_s, f_sig_46_with_fun_3(f_check_46_State_46_sig_1(v_s), v_n, u_mk_tuple(2, f_check_46_params_1(v_ps), f_check_46_curried_2(v_xss, v_r))));
         v_s = t2014;
         p_check_46_declare_funs(v_rest, &v_s);
       }
@@ -24422,13 +24422,13 @@ void p_check_46_declare_procs(u_value v_cs, u_value *r_s) {
       {
         u_value t2017 = f_check_46_enter_2(v_s, v_m);
         v_s = t2017;
-        p_check_46_declare_name(f_check_46_State_46_ctx_1(v_s), v_n);
+        p_check_46_declare_name(f_check_46_State_46_sig_1(v_s), v_n);
         p_check_46_unique_ids(v_ps);
         p_check_46_signature(f_list_46__43__43__2(v_ins, f_list_46__43__43__2(v_outs, v_refs)), &v_xs, &v_s);
         u_value t2018 = f_syntax_46_types_1(v_xs);
         v_ts = t2018;
         p_check_46_closed(v_n, v_ps, v_ts);
-        u_value t2019 = f_check_46_with_ctx_2(v_s, f_ctx_46_with_proc_3(f_check_46_State_46_ctx_1(v_s), v_n, u_mk_tuple(4, f_check_46_params_1(v_ps), f_list_46_take_2(f_list_46_size_1(v_ins), v_ts), f_list_46_take_2(f_list_46_size_1(v_outs), f_list_46_drop_2(f_list_46_size_1(v_ins), v_ts)), f_list_46_drop_2(u_add(f_list_46_size_1(v_ins), f_list_46_size_1(v_outs)), v_ts))));
+        u_value t2019 = f_check_46_with_sig_2(v_s, f_sig_46_with_proc_3(f_check_46_State_46_sig_1(v_s), v_n, u_mk_tuple(4, f_check_46_params_1(v_ps), f_list_46_take_2(f_list_46_size_1(v_ins), v_ts), f_list_46_take_2(f_list_46_size_1(v_outs), f_list_46_drop_2(f_list_46_size_1(v_ins), v_ts)), f_list_46_drop_2(u_add(f_list_46_size_1(v_ins), f_list_46_size_1(v_outs)), v_ts))));
         v_s = t2019;
         p_check_46_declare_procs(v_rest, &v_s);
       }
@@ -25626,26 +25626,26 @@ void p_check_46_check_sections(u_value v_ms, u_value v_ds, u_value *r_hidden, u_
 void p_check_46_check_program(u_value v_p, u_value v_main, u_value *r_q) {
   u_value v_q = NULL;
   {
-    u_value v_c = NULL;
+    u_value v_sig = NULL;
     u_value v_imports = NULL;
     u_value v_cs = NULL;
     u_value v_own = NULL;
-    u_value t2192 = f_ctx_46_empty_0();
-    v_c = t2192;
+    u_value t2192 = f_sig_46_empty_0();
+    v_sig = t2192;
     u_value t2193 = &o_list_46_Nil;
     v_imports = t2193;
     u_value t2194 = &o_list_46_Nil;
     v_cs = t2194;
-    p_check_46_check_units(f_check_46_modules_1(f_syntax_46_Program_46_cmds_1(v_p)), &v_c, &v_imports, &v_cs);
-    p_check_46_check_unit(f_check_46_own_decls_2(v_main, f_syntax_46_Program_46_cmds_1(v_p)), v_main, v_c, v_imports, &v_own);
+    p_check_46_check_units(f_check_46_modules_1(f_syntax_46_Program_46_cmds_1(v_p)), &v_sig, &v_imports, &v_cs);
+    p_check_46_check_unit(f_check_46_own_decls_2(v_main, f_syntax_46_Program_46_cmds_1(v_p)), v_main, v_sig, v_imports, &v_own);
     u_value t2195 = u_mk_con(&n_syntax_46_Program, 1, f_list_46__43__43__2(v_cs, f_check_46_Checked_46_cmds_1(v_own)));
     v_q = t2195;
   }
   *r_q = v_q;
 }
 
-void p_check_46_check_units(u_value v_us, u_value *r_c, u_value *r_imports, u_value *r_cs) {
-  u_value v_c = *r_c;
+void p_check_46_check_units(u_value v_us, u_value *r_sig, u_value *r_imports, u_value *r_cs) {
+  u_value v_sig = *r_sig;
   u_value v_imports = *r_imports;
   u_value v_cs = *r_cs;
   {
@@ -25663,21 +25663,21 @@ void p_check_46_check_units(u_value v_us, u_value *r_c, u_value *r_imports, u_va
       u_value v_rest = u_field(s2196, 1);
       d2197 = 1;
       {
-        p_check_46_check_unit(v_ds, v_m, v_c, v_imports, &v_checked);
-        u_value t2198 = f_ctx_46_union_2(v_c, f_check_46_Checked_46_ctx_1(v_checked));
+        p_check_46_check_unit(v_ds, v_m, v_sig, v_imports, &v_checked);
+        u_value t2198 = f_sig_46_union_2(v_sig, f_check_46_Checked_46_sig_1(v_checked));
         u_value t2199 = f_list_46__43__43__2(v_imports, f_check_46_Checked_46_imports_1(v_checked));
         u_value t2200 = f_list_46__43__43__2(v_cs, f_check_46_Checked_46_cmds_1(v_checked));
-        v_c = t2198;
+        v_sig = t2198;
         v_imports = t2199;
         v_cs = t2200;
-        p_check_46_check_units(v_rest, &v_c, &v_imports, &v_cs);
+        p_check_46_check_units(v_rest, &v_sig, &v_imports, &v_cs);
       }
     }
     if (!d2197) {
       u_no_case(s2196);
     }
   }
-  *r_c = v_c;
+  *r_sig = v_sig;
   *r_imports = v_imports;
   *r_cs = v_cs;
 }
@@ -25703,7 +25703,7 @@ void p_check_46_check_unit(u_value v_ds, u_value v_main, u_value v_before, u_val
     *e2202 = &o_list_46_Nil;
     u_value t2204 = f_list_46__43__43__2(v_imports, t2201);
     v_own = t2204;
-    u_value t2205 = u_mk_con(&n_check_46_State, 8, f_ctx_46_public_1(v_before), f_map_46_empty_0(), u_mk_int(0), v_main, &o_list_46_Nil, f_check_46_visibility_2(v_own, v_main), &o_list_46_Nil, f_map_46_empty_0());
+    u_value t2205 = u_mk_con(&n_check_46_State, 8, f_sig_46_public_1(v_before), f_map_46_empty_0(), u_mk_int(0), v_main, &o_list_46_Nil, f_check_46_visibility_2(v_own, v_main), &o_list_46_Nil, f_map_46_empty_0());
     v_s = t2205;
     p_check_46_declare_datas(v_ds, &v_s);
     p_check_46_declare_sorts(v_ds, &v_s);
@@ -25729,7 +25729,7 @@ void p_check_46_check_unit(u_value v_ds, u_value v_main, u_value v_before, u_val
     *e2208 = &o_list_46_Nil;
     u_value t2210 = f_set_46_insert_all_2(t2207, v_hidden);
     v_hidden = t2210;
-    u_value t2211 = f_check_46_with_ctx_2(v_s, f_ctx_46_Ctx_46_hidden_58__61__2(f_check_46_State_46_ctx_1(v_s), f_set_46_insert_all_2(f_set_46_elements_1(v_hidden), f_ctx_46_Ctx_46_hidden_1(f_check_46_State_46_ctx_1(v_s)))));
+    u_value t2211 = f_check_46_with_sig_2(v_s, f_sig_46_Sig_46_hidden_58__61__2(f_check_46_State_46_sig_1(v_s), f_set_46_insert_all_2(f_set_46_elements_1(v_hidden), f_sig_46_Sig_46_hidden_1(f_check_46_State_46_sig_1(v_s)))));
     v_s = t2211;
     u_value t2212 = &o_list_46_Nil;
     u_value *e2213 = &t2212;
@@ -25740,7 +25740,7 @@ void p_check_46_check_unit(u_value v_ds, u_value v_main, u_value v_before, u_val
       l2214 = u_field(l2214, 1);
     }
     *e2213 = &o_list_46_Nil;
-    u_value t2215 = u_mk_con(&n_check_46_Checked, 3, f_list_46__43__43__2(v_cs, v_more), f_ctx_46_restrict_2(f_check_46_State_46_ctx_1(v_s), f_list_46_distinct_1(f_list_46_firsts_1(v_ds))), t2212);
+    u_value t2215 = u_mk_con(&n_check_46_Checked, 3, f_list_46__43__43__2(v_cs, v_more), f_sig_46_restrict_2(f_check_46_State_46_sig_1(v_s), f_list_46_distinct_1(f_list_46_firsts_1(v_ds))), t2212);
     v_checked = t2215;
   }
   *r_checked = v_checked;
@@ -36116,9 +36116,9 @@ u_value lam954(u_value *env, u_value *args) {
 }
 
 u_value lam1105(u_value *env, u_value *args) {
-  u_value v_c = env[0];
+  u_value v_sig = env[0];
   u_value v_k = args[0];
-  return f_set_46_contains_2(v_k, f_ctx_46_Ctx_46_hidden_1(v_c));
+  return f_set_46_contains_2(v_k, f_sig_46_Sig_46_hidden_1(v_sig));
 }
 
 u_value lam1387(u_value *env, u_value *args) {
@@ -36152,43 +36152,43 @@ u_value lam1391(u_value *env, u_value *args) {
 u_value lam1399(u_value *env, u_value *args) {
   u_value v_s = env[0];
   u_value v_f = args[0];
-  return f_ctx_46_is_fun_2(f_check_46_State_46_ctx_1(v_s), v_f);
+  return f_sig_46_is_fun_2(f_check_46_State_46_sig_1(v_s), v_f);
 }
 
 u_value lam1406(u_value *env, u_value *args) {
   u_value v_s = env[0];
   u_value v_k = args[0];
-  return f_ctx_46_is_constr_2(f_check_46_State_46_ctx_1(v_s), v_k);
+  return f_sig_46_is_constr_2(f_check_46_State_46_sig_1(v_s), v_k);
 }
 
 u_value lam1410(u_value *env, u_value *args) {
   u_value v_s = env[0];
   u_value v_p = args[0];
-  return f_ctx_46_is_proc_2(f_check_46_State_46_ctx_1(v_s), v_p);
+  return f_sig_46_is_proc_2(f_check_46_State_46_sig_1(v_s), v_p);
 }
 
 u_value lam1677(u_value *env, u_value *args) {
   u_value v_s = env[0];
   u_value v_t = args[0];
-  return f_ctx_46_is_sort_2(f_check_46_State_46_ctx_1(v_s), v_t);
+  return f_sig_46_is_sort_2(f_check_46_State_46_sig_1(v_s), v_t);
 }
 
 u_value lam1855(u_value *env, u_value *args) {
   u_value v_s = env[0];
   u_value v_k = args[0];
-  return f_ctx_46_is_constr_2(f_check_46_State_46_ctx_1(v_s), v_k);
+  return f_sig_46_is_constr_2(f_check_46_State_46_sig_1(v_s), v_k);
 }
 
 u_value lam1858(u_value *env, u_value *args) {
   u_value v_s = env[0];
   u_value v_k = args[0];
-  return f_ctx_46_is_constr_2(f_check_46_State_46_ctx_1(v_s), v_k);
+  return f_sig_46_is_constr_2(f_check_46_State_46_sig_1(v_s), v_k);
 }
 
 u_value lam1944(u_value *env, u_value *args) {
   u_value v_s = env[0];
   u_value v_q = args[0];
-  return f_ctx_46_is_proc_2(f_check_46_State_46_ctx_1(v_s), v_q);
+  return f_sig_46_is_proc_2(f_check_46_State_46_sig_1(v_s), v_q);
 }
 
 u_value lam2085(u_value *env, u_value *args) {
