@@ -1,0 +1,1408 @@
+// contextual simplification of sequents, see Simplification in prove.md, which is not versioned
+//
+// Every part of a sequent is replaced by one that is equivalent to it in its context, for all values of the
+// variables bound around it. Hence simplifying never turns a provable goal into an unprovable one, and the same
+// steps apply to assumptions and conclusions alike: polarity only decides what true and false mean for the
+// sequent around them, which conjoin and disjoin handle, and which facts the context gains, by assume and refute.
+//
+// The traversal goes down the sequent and carries the context:
+// - the variables of the sequents above, as de Bruijn levels, onto which a sequent opens its own binders on entry,
+//   so that terms of outer sequents and the facts about them stay valid inside, and which it closes again on exit,
+// - facts: the assumptions before, the conjuncts before in a conclusion, and the negated conclusions before,
+//   where siblings only see those before them, since each seeing all others would simplify A and A to true and true.
+//
+// Ground facts are equations solved into a substitution of atoms, where constructors are injective, distinct, and
+// acyclic, and linear sums are solved for an atom, and inequalities over sums, decided by Fourier–Motzkin, which stand
+// for the CC(X) of the plan until it is a union-find. Facts with variables are rewrite rules.
+
+import syntax
+import map
+
+export
+
+// nested sequents:
+//   forall fixed. A1 and … and Ak ==> (exists vars1. C11 and … and C1m) or …
+// where the fixed variables bind in the assumptions and conclusions, and the variables of a conclusion in its body.
+// Normal forms have no connectives, quantifiers, or literals as atoms: false is Seq(Nil, Nil, Nil),
+// true is Seq(Nil, Nil, [Concl(Nil, Nil)]), and not A is Seq(Nil, [A], Nil).
+data Seq :=
+  | Atom(Expr)
+  | Seq(fixed: List[Var], assms: List[Seq], concls: List[Concl])
+
+data Concl :=
+  | Concl(vars: List[Var], body: List[Seq])
+
+function true_seq(): Seq
+function false_seq(): Seq
+function simplify(decls: Decls, s: Seq): Seq
+
+// the cases of structural induction on the fixed variable at position p of the goal s, each with the hypotheses for
+// the recursive fields of its constructor, which are the goal for them, for all values of the other fixed variables
+function induction(decls: Decls, s: Seq, p: Int): Seq
+
+function print_seq(s: Seq): Str
+
+implementation
+
+// a fact with variables, which rewrites instances of lhs to rhs if the instances of the conditions simplify to true
+data Rule :=
+  | Rule(vars: List[Var], conds: List[Seq], lhs: Expr, rhs: Expr)
+
+// the variables of the opened sequents, the last one first, such that level l is at depth - 1 - l, the solved
+// equations from atoms to their values, the inequalities t >= 0, the rules, whether the facts are inconsistent, and
+// the limits of internal splits, of nested unfolding and rewriting, and of trial merges that decide equations
+data Ctx :=
+  | Ctx(decls: Decls, vars: List[Var], eqs: Map[Expr, Expr], ineqs: List[Lin], rules: List[Rule], inconsistent: Bool,
+        splits: Int, unfolds: Int, probes: Int)
+
+// a simplified conjunction with the context after it, or Refuted if a conjunct is false
+data Conj :=
+  | Conj(ctx: Ctx, seqs: List[Seq])
+  | Refuted
+
+// a simplified disjunction, or Proven if a disjunct is true
+data Disj :=
+  | Disj(concls: List[Concl])
+  | Proven
+
+data PatMatch :=
+  | Matched(List[Expr])
+  | Failed
+  | Stuck
+
+data Split :=
+  | SplitIf(Expr)
+  | SplitMatch(Expr, Name)
+
+function true_seq(): Seq :=
+  Seq(Nil, Nil, [Concl(Nil, Nil)])
+
+function false_seq(): Seq :=
+  Seq(Nil, Nil, Nil)
+
+function new_ctx(decls: Decls): Ctx :=
+  Ctx(decls, Nil, empty(), Nil, Nil, false, 3, 0, 2)
+
+function max_unfolds(): Int :=
+  64
+
+function depth(ctx: Ctx): Int :=
+  size(ctx.vars)
+
+function enter(ctx: Ctx, xs: List[Var]): Ctx :=
+  ctx with vars := reverse(xs) ++ ctx.vars
+
+// the variables of the levels from d on
+function vars_from(ctx: Ctx, d: Int): List[Var] :=
+  reverse(take(depth(ctx) - d, ctx.vars))
+
+function contradiction(ctx: Ctx): Ctx :=
+  ctx with inconsistent := true
+
+function simplify(decls: Decls, s: Seq): Seq :=
+  simp_seq(new_ctx(decls), s)
+
+// opening, closing, and substitution of sequents, as of terms
+
+function rebind_seq(op: Rebind, c: Int, s: Seq): Seq :=
+  match s
+    case Atom(e) =>
+      Atom(rebind(op, c, e))
+
+    case Seq(xs, assms, concls) =>
+      let inner := c + size(xs) in
+      Seq(xs, [rebind_seq(op, inner, a) for a in assms], [rebind_concl(op, inner, d) for d in concls])
+  end
+
+function rebind_concl(op: Rebind, c: Int, d: Concl): Concl :=
+  match d
+    case Concl(xs, body) =>
+      Concl(xs, [rebind_seq(op, c + size(xs), s) for s in body])
+  end
+
+function replace_seq(a: Expr, b: Expr, s: Seq): Seq :=
+  match s
+    case Atom(e) =>
+      Atom(replace(a, b, e))
+
+    case Seq(xs, assms, concls) =>
+      Seq(xs, [replace_seq(a, b, x) for x in assms], [replace_concl(a, b, d) for d in concls])
+  end
+
+function replace_concl(a: Expr, b: Expr, d: Concl): Concl :=
+  match d
+    case Concl(xs, body) =>
+      Concl(xs, [replace_seq(a, b, s) for s in body])
+  end
+
+function subst_seq(c: Int, t: Expr, s: Seq): Seq :=
+  match s
+    case Atom(e) =>
+      Atom(subst(c, t, e))
+
+    case Seq(xs, assms, concls) =>
+      let inner := c + size(xs) in
+      Seq(xs, [subst_seq(inner, t, a) for a in assms], [subst_concl(inner, t, d) for d in concls])
+  end
+
+function subst_concl(c: Int, t: Expr, d: Concl): Concl :=
+  match d
+    case Concl(xs, body) =>
+      Concl(xs, [subst_seq(c + size(xs), t, s) for s in body])
+  end
+
+function beta_seq(args: List[Expr], s: Seq): Seq :=
+  match reverse(args)
+    case Nil =>
+      s
+
+    case [a; rest] =>
+      beta_seq(reverse(rest), subst_seq(0, shift(size(rest), a), s))
+  end
+
+function loose_seq(c: Int, s: Seq): List[Int] :=
+  match s
+    case Atom(e) =>
+      loose(c, e)
+
+    case Seq(xs, assms, concls) =>
+      let inner := c + size(xs) in
+      concat([loose_seq(inner, a) for a in assms]) ++ concat([loose_concl(inner, d) for d in concls])
+  end
+
+function loose_concl(c: Int, d: Concl): List[Int] :=
+  match d
+    case Concl(xs, body) =>
+      concat([loose_seq(c + size(xs), s) for s in body])
+  end
+
+// normalization of the connectives and quantifiers of a formula into the structure of sequents
+
+function to_seq(e: Expr): Seq :=
+  match e
+    case EConst(VBool(true)) =>
+      true_seq()
+
+    case EConst(VBool(false)) =>
+      false_seq()
+
+    case EApp(EFun(Name(None, "not")), [a]) =>
+      Seq(Nil, [to_seq(a)], Nil)
+
+    case EApp(EFun(Name(None, "and")), [a, b]) =>
+      Seq(Nil, Nil, [Concl(Nil, [to_seq(a), to_seq(b)])])
+
+    case EApp(EFun(Name(None, "or")), [a, b]) =>
+      Seq(Nil, Nil, [Concl(Nil, [to_seq(a)]), Concl(Nil, [to_seq(b)])])
+
+    case EApp(EFun(Name(None, "==>")), [a, b]) =>
+      Seq(Nil, [to_seq(a)], [Concl(Nil, [to_seq(b)])])
+
+    case EApp(EFun(Name(None, "forall")), [ELam(xs, b)]) =>
+      Seq(xs, Nil, [Concl(Nil, [to_seq(b)])])
+
+    case EApp(EFun(Name(None, "exists")), [ELam(xs, b)]) =>
+      Seq(Nil, Nil, [Concl(xs, [to_seq(b)])])
+
+    case EIte(c, a, b) =>
+      let t := to_seq(c) in
+      Seq(Nil, Nil, [Concl(Nil, [Seq(Nil, [t], [Concl(Nil, [to_seq(a)])]), Seq(Nil, [Seq(Nil, [t], Nil)], [Concl(Nil, [to_seq(b)])])])])
+
+    case _ =>
+      Atom(e)
+  end
+
+// a sequent equivalent to s in the context, where s has no free indices
+function simp_seq(ctx: Ctx, s: Seq): Seq :=
+  match s
+    case Atom(e) =>
+      let t := simp_expr(ctx, e) in
+      let n := to_seq(t) in
+      match n
+        case Atom(_) =>
+          n
+
+        case _ =>
+          simp_seq(ctx, n)
+      end
+
+    case Seq(xs, assms, concls) =>
+      simp_sequent(ctx, xs, assms, concls)
+  end
+
+// its binders are opened, its assumptions simplified as a conjunction, which may add binders, its conclusions in the
+// context of all assumptions, and the result closed again, or else split on a condition if all cases are closed
+function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Concl]): Seq :=
+  let d := depth(ctx), k := size(xs) in
+  let cs := [rebind_concl(Open(d, k), 0, c) for c in concls] in
+  match conjoin(enter(ctx, xs), [rebind_seq(Open(d, k), 0, a) for a in assms])
+    case Refuted =>
+      true_seq()
+
+    case Conj(after, bs) =>
+      match one_point(d, bs)
+        case Some((l, t, rest)) =>
+          let levels := [m for m in range(d, depth(after)) if m != l] in
+          simp_seq(ctx, Seq([nth(m - d, vars_from(after, d)) for m in levels],
+                            [rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, b)) for b in rest],
+                            [rebind_concl(Close(levels), 0, replace_concl(ELevel(l), t, c)) for c in cs]))
+
+        case None =>
+          match disjoin(after, cs)
+            case Proven =>
+              true_seq()
+
+            case Disj(ds) =>
+              let levels := range(d, depth(after)), ys := vars_from(after, d) in
+              let closed := [rebind_seq(Close(levels), 0, b) for b in bs], ends := [rebind_concl(Close(levels), 0, c) for c in ds] in
+              let result := sequent(ys, closed, ends) in
+              split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, bs, ds), result)
+          end
+      end
+  end
+
+// a sequent that only wraps a single conjunct is that conjunct, not not A is A, and a single conclusion that is a sequent without
+// existential variables is merged, since A ==> (forall y. B ==> C) is forall y. A and B ==> C
+function sequent(xs: List[Var], assms: List[Seq], concls: List[Concl]): Seq :=
+  match (xs, assms, concls)
+    case (Nil, Nil, [Concl(Nil, [s])]) =>
+      s
+
+    case (Nil, [Seq(Nil, [s], Nil)], Nil) =>
+      s
+
+    case (_, _, [Concl(Nil, [Seq(ys, bs, ds)])]) =>
+      Seq(xs ++ ys, [rebind_seq(Shift(size(ys)), 0, a) for a in assms] ++ bs, ds)
+
+    case _ =>
+      Seq(xs, assms, concls)
+  end
+
+// an equation of a variable of the levels from d on with a term without it, by which it is eliminated
+function one_point(d: Int, ss: List[Seq]): Option[Int * Expr * List[Seq]] :=
+  match ss
+    case Nil =>
+      None
+
+    case [s; rest] =>
+      match equation_of(d, s)
+        case Some((l, t)) =>
+          Some((l, t, rest))
+
+        case None =>
+          match one_point(d, rest)
+            case Some((l, t, more)) =>
+              Some((l, t, [s; more]))
+
+            case None =>
+              None
+          end
+      end
+  end
+
+function equation_of(d: Int, s: Seq): Option[Int * Expr] :=
+  match s
+    case Atom(EApp(EFun(Name(None, "==")), [ELevel(l), t])) if l >= d and not occurs(ELevel(l), t) =>
+      Some((l, t))
+
+    case Atom(EApp(EFun(Name(None, "==")), [t, ELevel(l)])) if l >= d and not occurs(ELevel(l), t) =>
+      Some((l, t))
+
+    case _ =>
+      None
+  end
+
+// each conjunct in the context of those before it, since A and B is A and (A ==> B), where true conjuncts are dropped,
+// for assumptions and the bodies of conclusions alike, and conjunctions and existentials among them are spliced in,
+// whose variables become levels after those of the context
+function conjoin(ctx: Ctx, ss: List[Seq]): Conj :=
+  match ss
+    case Nil =>
+      Conj(ctx, Nil)
+
+    case [s; rest] =>
+      let t := simp_seq(ctx, s) in
+      match t
+        case Seq(Nil, Nil, [Concl(Nil, Nil)]) =>
+          conjoin(ctx, rest)
+
+        case Seq(Nil, Nil, Nil) =>
+          Refuted
+
+        case Seq(Nil, Nil, [Concl(ys, body)]) =>
+          let d := depth(ctx) in
+          conjoin(enter(ctx, ys), [rebind_seq(Open(d, size(ys)), 0, b) for b in body] ++ rest)
+
+        case _ =>
+          let next := assume(ctx, t) in
+          if next.inconsistent then
+            Refuted
+          else
+            match conjoin(next, rest)
+              case Conj(after, ts) =>
+                Conj(after, [t; ts])
+
+              case Refuted =>
+                Refuted
+            end
+      end
+  end
+
+// each disjunct in the context of the negations of those before it, where false disjuncts are dropped
+function disjoin(ctx: Ctx, cs: List[Concl]): Disj :=
+  match cs
+    case Nil =>
+      Disj(Nil)
+
+    case [c; rest] =>
+      match simp_concl(ctx, c)
+        case None =>
+          disjoin(ctx, rest)
+
+        case Some(Concl(_, Nil)) =>
+          Proven
+
+        case Some(Concl(Nil, [Seq(Nil, Nil, ds)])) =>
+          disjoin(ctx, ds ++ rest)
+
+        case Some(d) =>
+          let next := refute(ctx, d) in
+          if next.inconsistent then
+            Proven
+          else
+            match disjoin(next, rest)
+              case Disj(ds) =>
+                Disj([d; ds])
+
+              case Proven =>
+                Proven
+            end
+      end
+  end
+
+// the conclusion, or None if it is false, whose existential variables are opened like fixed ones, which is sound
+// since simplification is an equivalence for all their values, but they are never instantiated here, except by
+// the one-point rule
+function simp_concl(ctx: Ctx, c: Concl): Option[Concl] :=
+  match c
+    case Concl(xs, body) =>
+      let d := depth(ctx), k := size(xs) in
+      match conjoin(enter(ctx, xs), [rebind_seq(Open(d, k), 0, s) for s in body])
+        case Refuted =>
+          None
+
+        case Conj(after, ts) =>
+          match one_point(d, ts)
+            case Some((l, t, rest)) =>
+              let levels := [m for m in range(d, depth(after)) if m != l] in
+              simp_concl(ctx, Concl([nth(m - d, vars_from(after, d)) for m in levels],
+                                    [rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, s)) for s in rest]))
+
+            case None =>
+              let levels := range(d, depth(after)) in
+              Some(Concl(vars_from(after, d), [rebind_seq(Close(levels), 0, t) for t in ts]))
+          end
+      end
+  end
+
+// the context with s known to be true: atoms and their negations are facts, and sequents with a single atomic
+// conclusion rules, while other ground sequents, which would be clauses, are not used yet
+function assume(ctx: Ctx, s: Seq): Ctx :=
+  match s
+    case Atom(e) =>
+      assume_expr(ctx, e, true)
+
+    case Seq(Nil, [Atom(e)], Nil) =>
+      assume_expr(ctx, e, false)
+
+    case Seq(xs, conds, [Concl(Nil, [Atom(e)])]) =>
+      add_rule(ctx, xs, conds, e, true)
+
+    case Seq(xs, conds, [Concl(Nil, [Seq(Nil, [Atom(e)], Nil)])]) =>
+      add_rule(ctx, xs, conds, e, false)
+
+    // forall xs. A1 and … and Ak ==> false, as the rule Ak == false under the others
+    case Seq(xs, [a; more], Nil) =>
+      match reverse([a; more])
+        case [Atom(e); conds] =>
+          add_rule(ctx, xs, reverse(conds), e, false)
+
+        case _ =>
+          ctx
+      end
+
+    case _ =>
+      ctx
+  end
+
+// the context with c known to be false, for the conclusions after it, since A ==> C1 or C2 is A and not C1 ==> C2,
+// where the negation of an existential is a rule
+function refute(ctx: Ctx, c: Concl): Ctx :=
+  match c
+    case Concl(Nil, [Atom(e)]) =>
+      assume_expr(ctx, e, false)
+
+    case Concl(Nil, [Seq(Nil, [Atom(e)], Nil)]) =>
+      assume_expr(ctx, e, true)
+
+    case Concl(xs, [Atom(e)]) =>
+      add_rule(ctx, xs, Nil, e, false)
+
+    case _ =>
+      ctx
+  end
+
+function add_rule(ctx: Ctx, xs: List[Var], conds: List[Seq], e: Expr, b: Bool): Ctx :=
+  let rule := match e
+      case EApp(EFun(Name(None, "==")), [l, r]) if b =>
+        if greater(ctx.decls, l, r) then Rule(xs, conds, l, r)
+        else if greater(ctx.decls, r, l) then Rule(xs, conds, r, l)
+        else Rule(xs, conds, e, bool_expr(true))
+
+      case _ =>
+        Rule(xs, conds, e, bool_expr(b))
+    end in
+  if valid_rule(rule) then ctx with rules := [rule; ctx.rules] else ctx
+
+// the variables of the right side and of the conditions occur in the left side, which is not a variable
+function valid_rule(r: Rule): Bool :=
+  match r.lhs
+    case EBound(_) =>
+      false
+
+    case EConst(_) =>
+      false
+
+    case _ =>
+      let bound := loose(0, r.lhs) in
+      forall(loose(0, r.rhs) ++ concat([loose_seq(0, c) for c in r.conds]), lambda i => contains(i, bound))
+  end
+
+// facts about atoms
+
+function assume_expr(ctx: Ctx, e: Expr, b: Bool): Ctx :=
+  if ctx.inconsistent then
+    ctx
+  else
+    match e
+      case EConst(VBool(c)) =>
+        if c == b then ctx else contradiction(ctx)
+
+      case EApp(EFun(Name(None, "not")), [a]) =>
+        assume_expr(ctx, a, not b)
+
+      case EApp(EFun(Name(None, "and")), [x, y]) if b =>
+        assume_expr(assume_expr(ctx, x, true), y, true)
+
+      case EApp(EFun(Name(None, "or")), [x, y]) if not b =>
+        assume_expr(assume_expr(ctx, x, false), y, false)
+
+      case EApp(EFun(Name(None, "==")), [x, y]) if b =>
+        merge(ctx, x, y, 20)
+
+      case EApp(EFun(Name(None, "<")), [x, y]) =>
+        if b then add_ineq(ctx, lin_add(lin_sub(lin_of(y), lin_of(x)), Lin(-1, Nil)))
+        else add_ineq(ctx, lin_sub(lin_of(x), lin_of(y)))
+
+      case _ =>
+        merge(ctx, e, bool_expr(b), 20)
+    end
+
+function is_value(decls: Decls, e: Expr): Bool :=
+  match e
+    case EConst(_) =>
+      true
+
+    case _ =>
+      ctor_head(decls, e) != None
+  end
+
+function is_sum(e: Expr): Bool :=
+  match e
+    case ESum(_, _) =>
+      true
+
+    case _ =>
+      false
+  end
+
+// whether a occurs in v below constructors only, such that a == v has no solution
+function occurs_ctor(decls: Decls, a: Expr, v: Expr): Bool :=
+  if a == v then
+    true
+  else
+    match ctor_head(decls, v)
+      case Some((_, args)) =>
+        exists(args, lambda x => occurs_ctor(decls, a, x))
+
+      case None =>
+        false
+    end
+
+// the context with a == b for canonical a and b, solved by the theories into equations of atoms with their values
+function merge(ctx: Ctx, a: Expr, b: Expr, fuel: Int): Ctx :=
+  if fuel <= 0 or ctx.inconsistent or a == b then
+    ctx
+  else if is_sum(a) or is_sum(b) then
+    merge_lin(ctx, lin_sub(lin_of(a), lin_of(b)), fuel)
+  else
+    match (ctor_head(ctx.decls, a), ctor_head(ctx.decls, b))
+      case (Some((f, xs)), Some((g, ys))) =>
+        if f == g and size(xs) == size(ys) then merge_all(ctx, xs, ys, fuel) else contradiction(ctx)
+
+      case _ =>
+        if is_value(ctx.decls, a) and is_value(ctx.decls, b) then
+          contradiction(ctx)
+        else if is_value(ctx.decls, b) then
+          if occurs_ctor(ctx.decls, a, b) then contradiction(ctx) else add_pair(ctx, a, b, fuel)
+        else if is_value(ctx.decls, a) then
+          if occurs_ctor(ctx.decls, b, a) then contradiction(ctx) else add_pair(ctx, b, a, fuel)
+        else if greater(ctx.decls, a, b) then
+          add_pair(ctx, a, b, fuel)
+        else if greater(ctx.decls, b, a) then
+          add_pair(ctx, b, a, fuel)
+        else if compare(a, b) > 0 then
+          add_pair(ctx, a, b, fuel)
+        else
+          add_pair(ctx, b, a, fuel)
+    end
+
+function merge_all(ctx: Ctx, xs: List[Expr], ys: List[Expr], fuel: Int): Ctx :=
+  match (xs, ys)
+    case ([x; xs1], [y; ys1]) =>
+      merge_all(merge(ctx, simp_expr(ctx, x), simp_expr(ctx, y), fuel - 1), xs1, ys1, fuel)
+
+    case _ =>
+      ctx
+  end
+
+// the context with d == 0, solved for its greatest atom with a coefficient 1 or -1, or else kept as the equation
+// of its atoms, divided by their greatest common divisor, with the constant
+function merge_lin(ctx: Ctx, d: Lin, fuel: Int): Ctx :=
+  match d
+    case Lin(k, Nil) =>
+      if k == 0 then ctx else contradiction(ctx)
+
+    case Lin(k, ts) =>
+      match greatest_unit(ctx.decls, ts, None)
+        case Some((t, n)) =>
+          let rest := lin_sub(d, Lin(0, [(t, n)])) in
+          add_pair(ctx, t, sum_expr(if n == 1 then lin_scale(-1, rest) else rest), fuel)
+
+        case None =>
+          let g := gcd_all(ts) in
+          if k % g != 0 then contradiction(ctx)
+          else add_pair(ctx, sum_expr(Lin(0, [(first(p), second(p) / g) for p in ts])), int_expr(0 - k / g), fuel)
+      end
+  end
+
+function greatest_unit(decls: Decls, ts: List[Expr * Int], best: Option[Expr * Int]): Option[Expr * Int] :=
+  match ts
+    case Nil =>
+      best
+
+    case [(t, n); rest] =>
+      if n != 1 and n != -1 then
+        greatest_unit(decls, rest, best)
+      else
+        match best
+          case Some((u, _)) if not greater(decls, t, u) =>
+            greatest_unit(decls, rest, best)
+
+          case _ =>
+            greatest_unit(decls, rest, Some((t, n)))
+        end
+  end
+
+function gcd(a: Int, b: Int): Int :=
+  if b == 0 then abs(a) else gcd(b, a % b)
+
+function abs(a: Int): Int :=
+  if a < 0 then 0 - a else a
+
+function gcd_all(ts: List[Expr * Int]): Int :=
+  match ts
+    case Nil =>
+      0
+
+    case [(_, n); rest] =>
+      gcd(n, gcd_all(rest))
+  end
+
+// the context with the atom l solved to r, where the equations and inequalities that mention l are solved again
+function add_pair(ctx: Ctx, l: Expr, r: Expr, fuel: Int): Ctx :=
+  let old := list(ctx.eqs) in
+  let changed := [p for p in old if occurs(l, first(p)) or occurs(l, second(p))] in
+  let eqs := remove_keys(changed, ctx.eqs) in
+  let base := ctx with eqs := put(l, r, eqs), ineqs := Nil in
+  let next := remerge(base, [(replace(l, r, first(p)), replace(l, r, second(p))) for p in changed], fuel - 1) in
+  readd_ineqs(next, ctx.ineqs)
+
+function remove_keys(ps: List[Expr * Expr], eqs: Map[Expr, Expr]): Map[Expr, Expr] :=
+  match ps
+    case Nil =>
+      eqs
+
+    case [(k, _); rest] =>
+      remove_keys(rest, remove(k, eqs))
+  end
+
+function remerge(ctx: Ctx, ps: List[Expr * Expr], fuel: Int): Ctx :=
+  match ps
+    case Nil =>
+      ctx
+
+    case [(a, b); rest] =>
+      remerge(merge(ctx, simp_expr(ctx, a), simp_expr(ctx, b), fuel), rest, fuel)
+  end
+
+function readd_ineqs(ctx: Ctx, ls: List[Lin]): Ctx :=
+  match ls
+    case Nil =>
+      ctx
+
+    case [l; rest] =>
+      readd_ineqs(add_ineq(ctx, lin_of(simp_expr(ctx, sum_expr(l)))), rest)
+  end
+
+// inequalities t >= 0 over the integers
+
+function floor_div(a: Int, b: Int): Int :=
+  if a >= 0 then a / b else 0 - (0 - a + b - 1) / b
+
+function tighten(t: Lin): Lin :=
+  let g := gcd_all(t.terms) in
+  if g <= 1 then t else Lin(floor_div(t.k, g), [(first(p), second(p) / g) for p in t.terms])
+
+// t < 0, that is -t - 1 >= 0
+function negated(t: Lin): Lin :=
+  lin_add(lin_scale(-1, t), Lin(-1, Nil))
+
+function coefficient(x: Expr, t: Lin): Int :=
+  match [second(p) for p in t.terms if first(p) == x]
+    case [n; _] =>
+      n
+
+    case Nil =>
+      0
+  end
+
+// whether the inequalities have no integer solution, by Fourier–Motzkin with tightening, which may miss some
+function fm_unsat(cs: List[Lin], fuel: Int): Bool :=
+  if exists(cs, lambda c => c.terms == Nil and c.k < 0) then
+    true
+  else
+    match [c for c in cs if c.terms != Nil]
+      case Nil =>
+        false
+
+      case [c; more] =>
+        if fuel <= 0 or size(more) > 60 then
+          false
+        else
+          let rest := [c; more], x := first(nth(0, c.terms)) in
+          let pos := [t for t in rest if coefficient(x, t) > 0], neg := [t for t in rest if coefficient(x, t) < 0] in
+          let none := [t for t in rest if coefficient(x, t) == 0] in
+          fm_unsat(none ++ concat([[combine(x, p, n) for n in neg] for p in pos]), fuel - 1)
+    end
+
+function combine(x: Expr, p: Lin, n: Lin): Lin :=
+  tighten(lin_add(lin_scale(0 - coefficient(x, n), p), lin_scale(coefficient(x, p), n)))
+
+function entailed(ctx: Ctx, t: Lin): Bool :=
+  ctx.inconsistent or fm_unsat([tighten(negated(t)); ctx.ineqs ++ bounds(ctx, t)], 20)
+
+// the instances of rules p < q without conditions, for the atoms of t and of the inequalities, with a single atom
+// p - q that binds all variables of the rule
+function bounds(ctx: Ctx, t: Lin): List[Lin] :=
+  let atoms := [first(p) for p in t.terms] ++ concat([[first(p) for p in l.terms] for l in ctx.ineqs]) in
+  concat([concat([bound_of(r, a) for r in ctx.rules]) for a in atoms])
+
+function bound_of(r: Rule, a: Expr): List[Lin] :=
+  match (r.conds, r.lhs, r.rhs)
+    case (Nil, EApp(EFun(Name(None, "<")), [p, q]), EConst(VBool(b))) =>
+      match lin_sub(lin_of(p), lin_of(q))
+        case Lin(_, [(atom, _)]) =>
+          match match_term(size(r.vars), atom, a, empty())
+            case Some(sub) =>
+              let n := size(r.vars) in
+              let args := [lookup_index(n - 1 - i, sub) for i in range(0, n)] in
+              let d := lin_sub(lin_of(beta(args, q)), lin_of(beta(args, p))) in
+              if b then [lin_add(d, Lin(-1, Nil))] else [lin_scale(-1, d)]
+
+            case None =>
+              Nil
+          end
+
+        case _ =>
+          Nil
+      end
+
+    case _ =>
+      Nil
+  end
+
+function add_ineq(ctx: Ctx, d: Lin): Ctx :=
+  if ctx.inconsistent then
+    ctx
+  else
+    let t := tighten(d) in
+    match t
+      case Lin(k, Nil) =>
+        if k >= 0 then ctx else contradiction(ctx)
+
+      case _ =>
+        if entailed(ctx, t) then
+          ctx
+        else if fm_unsat([t; ctx.ineqs], 20) then
+          contradiction(ctx)
+        else
+          let next := ctx with ineqs := [t; ctx.ineqs] in
+          if entailed(next, lin_scale(-1, t)) then merge_lin(next, t, 10) else next
+    end
+
+// terms
+
+// a term equal to e in the context, in normal form: the subterms are simplified here, the branches of an if under its
+// condition and its negation, and a function for each kind of term combines the results, where binders are left alone
+function simp_expr(ctx: Ctx, e: Expr): Expr :=
+  match e
+    case EApp(f, args) =>
+      let g := simp_expr(ctx, f), bs := [simp_expr(ctx, a) for a in args] in
+      simp_app(ctx, g, bs)
+
+    case EIte(c, a, b) =>
+      let t := simp_expr(ctx, c) in
+      match t
+        case EConst(VBool(true)) =>
+          simp_expr(ctx, a)
+
+        case EConst(VBool(false)) =>
+          simp_expr(ctx, b)
+
+        case _ =>
+          let u := simp_expr(assume_expr(ctx, t, true), a), v := simp_expr(assume_expr(ctx, t, false), b) in
+          simp_ite(t, u, v)
+      end
+
+    case EMatch(s, bs) =>
+      let t := simp_expr(ctx, s) in
+      match select(ctx, t, bs)
+        case Some(b) =>
+          simp_expr(ctx, b)
+
+        case None =>
+          EMatch(t, bs)
+      end
+
+    case ESum(k, ts) =>
+      rewrite(ctx, sum_expr(simp_terms(ctx, ts, Lin(k, Nil))))
+
+    case EFun(f) =>
+      match get(f, ctx.decls.defs)
+        case Some(d) =>
+          unfold(ctx, e, d, Nil)
+
+        case None =>
+          rewrite(ctx, e)
+      end
+
+    case ELevel(_) =>
+      rewrite(ctx, e)
+
+    case ERaise(a, t) =>
+      ERaise(simp_expr(ctx, a), t)
+
+    case _ =>
+      e
+  end
+
+function simp_terms(ctx: Ctx, ts: List[Expr * Int], acc: Lin): Lin :=
+  match ts
+    case Nil =>
+      acc
+
+    case [(t, n); rest] =>
+      simp_terms(ctx, rest, lin_add(acc, lin_scale(n, lin_of(simp_expr(ctx, t)))))
+  end
+
+function simp_ite(c: Expr, a: Expr, b: Expr): Expr :=
+  if a == b then
+    a
+  else
+    match (a, b)
+      case (EConst(VBool(true)), EConst(VBool(false))) =>
+        c
+
+      case (EConst(VBool(false)), EConst(VBool(true))) =>
+        app("not", [c])
+
+      case _ =>
+        EIte(c, a, b)
+    end
+
+function builtins(): List[Id] :=
+  ["+", "-", "*", "/", "%", "==", "<", "not", "and", "or", "==>"]
+
+function simp_app(ctx: Ctx, f: Expr, args: List[Expr]): Expr :=
+  match f
+    case ELam(xs, b) if size(xs) == size(args) =>
+      simp_expr(ctx, beta(args, b))
+
+    case EFun(Name(None, op)) if contains(op, builtins()) =>
+      simp_builtin(ctx, op, args)
+
+    case EFun(name) =>
+      match get(name, ctx.decls.defs)
+        case Some(d) =>
+          unfold(ctx, EApp(f, args), d, args)
+
+        case None =>
+          rewrite(ctx, EApp(f, args))
+      end
+
+    case _ =>
+      rewrite(ctx, EApp(f, args))
+  end
+
+function simp_builtin(ctx: Ctx, op: Id, args: List[Expr]): Expr :=
+  match (op, args)
+    case ("+", [a, b]) =>
+      rewrite(ctx, sum_expr(lin_add(lin_of(a), lin_of(b))))
+
+    case ("-", [a, b]) =>
+      rewrite(ctx, sum_expr(lin_sub(lin_of(a), lin_of(b))))
+
+    case ("*", [EConst(VInt(m)), b]) =>
+      rewrite(ctx, sum_expr(lin_scale(m, lin_of(b))))
+
+    case ("*", [a, EConst(VInt(n))]) =>
+      rewrite(ctx, sum_expr(lin_scale(n, lin_of(a))))
+
+    case ("*", [a, b]) =>
+      rewrite(ctx, app("*", ordered(a, b)))
+
+    case ("/", [EConst(VInt(m)), EConst(VInt(n))]) if n != 0 =>
+      int_expr(m / n)
+
+    case ("%", [EConst(VInt(m)), EConst(VInt(n))]) if n != 0 =>
+      int_expr(m % n)
+
+    case ("==", [a, b]) =>
+      simp_eq(ctx, a, b)
+
+    case ("<", [a, b]) =>
+      simp_less(ctx, a, b)
+
+    case ("not", [EConst(VBool(b))]) =>
+      bool_expr(not b)
+
+    case ("not", [EApp(EFun(Name(None, "not")), [a])]) =>
+      a
+
+    case ("and", [a, b]) =>
+      if a == bool_expr(false) or b == bool_expr(false) then bool_expr(false)
+      else if a == bool_expr(true) or a == b then b
+      else if b == bool_expr(true) then a
+      else rewrite(ctx, app("and", [a, b]))
+
+    case ("or", [a, b]) =>
+      if a == bool_expr(true) or b == bool_expr(true) then bool_expr(true)
+      else if a == bool_expr(false) or a == b then b
+      else if b == bool_expr(false) then a
+      else rewrite(ctx, app("or", [a, b]))
+
+    case ("==>", [a, b]) =>
+      if a == bool_expr(false) or b == bool_expr(true) or a == b then bool_expr(true)
+      else if a == bool_expr(true) then b
+      else if b == bool_expr(false) then simp_builtin(ctx, "not", [a])
+      else rewrite(ctx, app("==>", [a, b]))
+
+    case _ =>
+      rewrite(ctx, app(op, args))
+  end
+
+// the sides of an equation, the greater in the term order first
+function oriented(decls: Decls, a: Expr, b: Expr): List[Expr] :=
+  if greater(decls, b, a) then [b, a]
+  else if greater(decls, a, b) then [a, b]
+  else ordered(a, b)
+
+function ordered(a: Expr, b: Expr): List[Expr] :=
+  if compare(a, b) > 0 then [b, a] else [a, b]
+
+// true if equal in normal form, false if assuming it is inconsistent, as for distinct constructors
+function simp_eq(ctx: Ctx, a: Expr, b: Expr): Expr :=
+  if a == b then
+    bool_expr(true)
+  else if ctx.probes > 0 and merge(ctx with probes := ctx.probes - 1, a, b, 5).inconsistent then
+    bool_expr(false)
+  else
+    rewrite(ctx, app("==", oriented(ctx.decls, a, b)))
+
+function simp_less(ctx: Ctx, a: Expr, b: Expr): Expr :=
+  let d := lin_sub(lin_of(b), lin_of(a)) in
+  match d
+    case Lin(k, Nil) =>
+      bool_expr(k >= 1)
+
+    case _ =>
+      if entailed(ctx, lin_add(d, Lin(-1, Nil))) then bool_expr(true)
+      else if entailed(ctx, lin_scale(-1, d)) then bool_expr(false)
+      else rewrite(ctx, app("<", [a, b]))
+  end
+
+// the application of a function to its arguments, unfolded always if it is not recursive, and else where the match or
+// if of its body is decided, which terminates since functions do
+function unfold(ctx: Ctx, t: Expr, d: Def, args: List[Expr]): Expr :=
+  if size(d.formals) != size(args) or ctx.unfolds > max_unfolds() then
+    rewrite(ctx, t)
+  else
+    let body := beta(args, d.body), inner := ctx with unfolds := ctx.unfolds + 1 in
+    if not d.recursive then
+      simp_expr(inner, body)
+    else
+      match body
+        case EMatch(s, bs) =>
+          match select(inner, simp_expr(inner, s), bs)
+            case Some(b) =>
+              simp_expr(inner, b)
+
+            case None =>
+              rewrite(ctx, t)
+          end
+
+        case EIte(c, a, b) =>
+          match simp_expr(inner, c)
+            case EConst(VBool(true)) =>
+              simp_expr(inner, a)
+
+            case EConst(VBool(false)) =>
+              simp_expr(inner, b)
+
+            case _ =>
+              rewrite(ctx, t)
+          end
+
+        case _ =>
+          rewrite(ctx, t)
+      end
+
+// the body of the first branch that matches t, with the values of its variables, or None if that is not decided
+function select(ctx: Ctx, t: Expr, bs: List[Branch]): Option[Expr] :=
+  match bs
+    case Nil =>
+      None
+
+    case [Branch(p, g, b); rest] =>
+      match match_pat(ctx.decls, p, t)
+        case Failed =>
+          select(ctx, t, rest)
+
+        case Stuck =>
+          None
+
+        case Matched(vs) =>
+          match g
+            case None =>
+              Some(beta(vs, b))
+
+            case Some(h) =>
+              match simp_expr(ctx, beta(vs, h))
+                case EConst(VBool(true)) =>
+                  Some(beta(vs, b))
+
+                case EConst(VBool(false)) =>
+                  select(ctx, t, rest)
+
+                case _ =>
+                  None
+              end
+          end
+      end
+  end
+
+function match_pat(decls: Decls, p: Pat, t: Expr): PatMatch :=
+  match p
+    case PWild =>
+      Matched(Nil)
+
+    case PVar(_) =>
+      Matched([t])
+
+    case PLit(v) =>
+      match t
+        case EConst(w) =>
+          if v == w then Matched(Nil) else Failed
+
+        case _ =>
+          Stuck
+      end
+
+    case PApp(c, ps) =>
+      match ctor_head(decls, t)
+        case Some((f, args)) =>
+          if f == c and size(ps) == size(args) then match_pats(decls, ps, args) else Failed
+
+        case None =>
+          Stuck
+      end
+  end
+
+function match_pats(decls: Decls, ps: List[Pat], ts: List[Expr]): PatMatch :=
+  match (ps, ts)
+    case ([p; ps1], [t; ts1]) =>
+      match (match_pat(decls, p, t), match_pats(decls, ps1, ts1))
+        case (Failed, _) =>
+          Failed
+
+        case (_, Failed) =>
+          Failed
+
+        case (Matched(xs), Matched(ys)) =>
+          Matched(xs ++ ys)
+
+        case _ =>
+          Stuck
+      end
+
+    case _ =>
+      Matched(Nil)
+  end
+
+// the value of a canonical atom by the equations, or else by the first rule that applies
+function rewrite(ctx: Ctx, t: Expr): Expr :=
+  match get(t, ctx.eqs)
+    case Some(v) =>
+      v
+
+    case None =>
+      if ctx.unfolds > max_unfolds() then t else apply_rules(ctx, ctx.rules, t)
+  end
+
+function apply_rules(ctx: Ctx, rules: List[Rule], t: Expr): Expr :=
+  match rules
+    case Nil =>
+      t
+
+    case [r; rest] =>
+      match instance(ctx, r, t)
+        case Some(u) =>
+          u
+
+        case None =>
+          apply_rules(ctx, rest, t)
+      end
+  end
+
+function instance(ctx: Ctx, r: Rule, t: Expr): Option[Expr] :=
+  let n := size(r.vars) in
+  match match_term(n, r.lhs, t, empty())
+    case Some(sub) =>
+      let args := [lookup_index(n - 1 - i, sub) for i in range(0, n)], inner := ctx with unfolds := ctx.unfolds + 1 in
+      if forall(r.conds, lambda c => simp_seq(inner, beta_seq(args, c)) == true_seq()) then
+        Some(simp_expr(inner, beta(args, r.rhs)))
+      else
+        None
+
+    case None =>
+      None
+  end
+
+function lookup_index(i: Int, sub: Map[Int, Expr]): Expr :=
+  match get(i, sub)
+    case Some(e) =>
+      e
+
+    case None =>
+      EBound(i)
+  end
+
+// the values of the variables below n of the pattern p such that it is t, first order
+function match_term(n: Int, p: Expr, t: Expr, sub: Map[Int, Expr]): Option[Map[Int, Expr]] :=
+  match (p, t)
+    case (EBound(i), _) if i < n =>
+      match get(i, sub)
+        case Some(u) =>
+          if u == t then Some(sub) else None
+
+        case None =>
+          Some(put(i, t, sub))
+      end
+
+    case (EApp(f, ps), EApp(g, ts)) if size(ps) == size(ts) =>
+      match_terms(n, [f; ps], [g; ts], sub)
+
+    case (ESum(k, ps), ESum(m, ts)) if k == m and size(ps) == size(ts) =>
+      if [second(q) for q in ps] == [second(q) for q in ts] then match_terms(n, [first(q) for q in ps], [first(q) for q in ts], sub)
+      else None
+
+    case _ =>
+      if p == t then Some(sub) else None
+  end
+
+function match_terms(n: Int, ps: List[Expr], ts: List[Expr], sub: Map[Int, Expr]): Option[Map[Int, Expr]] :=
+  match (ps, ts)
+    case ([p; ps1], [t; ts1]) =>
+      match match_term(n, p, t, sub)
+        case Some(next) =>
+          match_terms(n, ps1, ts1, next)
+
+        case None =>
+          None
+      end
+
+    case _ =>
+      Some(sub)
+  end
+
+// internal splits on a condition or the value of a match that is not decided, kept only if all cases are closed
+
+function split_on(ctx: Ctx, levels: List[Int], ys: List[Var], assms: List[Seq], concls: List[Concl], cand: Option[Split], result: Seq): Seq :=
+  if ctx.splits <= 0 then
+    result
+  else
+    match cand
+      case None =>
+        result
+
+      case Some(SplitIf(c)) =>
+        let t := Atom(rebind(Close(levels), 0, c)), inner := ctx with splits := ctx.splits - 1 in
+        if simp_seq(inner, Seq(ys, [t; assms], concls)) == true_seq()
+            and simp_seq(inner, Seq(ys, [Seq(Nil, [t], Nil); assms], concls)) == true_seq() then
+          true_seq()
+        else
+          result
+
+      case Some(SplitMatch(s, datatype)) =>
+        let t := rebind(Close(levels), 0, s), inner := ctx with splits := ctx.splits - 1 in
+        match get(datatype, ctx.decls.datatypes)
+          case Some(cs) =>
+            if forall(cs, lambda c => simp_seq(inner, split_case(ctx.decls, ys, assms, concls, t, c)) == true_seq()) then
+              true_seq()
+            else
+              result
+
+          case None =>
+            result
+        end
+    end
+
+// the case of the constructor c for the value t, with the fields of c as fixed variables outside the others
+function split_case(decls: Decls, ys: List[Var], assms: List[Seq], concls: List[Concl], t: Expr, c: Name): Seq :=
+  match get(c, decls.ctors)
+    case Some(Ctor(_, fs)) =>
+      let k := size(ys), n := size(fs) in
+      let value := if n == 0 then EFun(c) else EApp(EFun(c), [EBound(k + n - 1 - i) for i in range(0, n)]) in
+      Seq(fs ++ ys, [Atom(app("==", [t, value])); assms], concls)
+
+    case None =>
+      Seq(ys, assms, concls)
+  end
+
+function split_candidate(decls: Decls, ss: List[Seq], cs: List[Concl]): Option[Split] :=
+  or_else(first_of([candidate_seq(decls, s) for s in ss]), first_of([candidate_concl(decls, c) for c in cs]))
+
+function first_of(os: List[Option[Split]]): Option[Split] :=
+  match os
+    case Nil =>
+      None
+
+    case [Some(s); _] =>
+      Some(s)
+
+    case [None; rest] =>
+      first_of(rest)
+  end
+
+function candidate_seq(decls: Decls, s: Seq): Option[Split] :=
+  match s
+    case Atom(e) =>
+      candidate(decls, e)
+
+    case Seq(_, assms, concls) =>
+      split_candidate(decls, assms, concls)
+  end
+
+function candidate_concl(decls: Decls, c: Concl): Option[Split] :=
+  first_of([candidate_seq(decls, s) for s in c.body])
+
+function candidate(decls: Decls, e: Expr): Option[Split] :=
+  match e
+    case EIte(c, a, b) =>
+      or_else(candidate(decls, c), if loose(0, c) == Nil then Some(SplitIf(positive(c))) else or_else(candidate(decls, a), candidate(decls, b)))
+
+    case EMatch(s, bs) =>
+      match (loose(0, s), datatype_of(decls, bs))
+        case (Nil, Some(t)) =>
+          or_else(candidate(decls, s), Some(SplitMatch(s, t)))
+
+        case _ =>
+          candidate(decls, s)
+      end
+
+    case EApp(f, args) =>
+      first_of([candidate(decls, a) for a in [f; args]])
+
+    case ESum(_, ts) =>
+      first_of([candidate(decls, first(p)) for p in ts])
+
+    case _ =>
+      None
+  end
+
+function positive(c: Expr): Expr :=
+  match c
+    case EApp(EFun(Name(None, "not")), [a]) =>
+      positive(a)
+
+    case _ =>
+      c
+  end
+
+function datatype_of(decls: Decls, bs: List[Branch]): Option[Name] :=
+  match bs
+    case Nil =>
+      None
+
+    case [Branch(PApp(c, _), _, _); rest] =>
+      match get(c, decls.ctors)
+        case Some(ctor) =>
+          Some(ctor.datatype)
+
+        case None =>
+          datatype_of(decls, rest)
+      end
+
+    case [_; rest] =>
+      datatype_of(decls, rest)
+  end
+
+// induction
+
+function induction(decls: Decls, s: Seq, p: Int): Seq :=
+  match normal(s)
+    case Seq(xs, assms, concls) if p < size(xs) =>
+      match nth(p, xs).typ
+        case TSort(t, _) =>
+          match get(t, decls.datatypes)
+            case Some(cs) =>
+              let k := size(xs) in
+              let as0 := [rebind_seq(Open(0, k), 0, a) for a in assms], cs0 := [rebind_concl(Open(0, k), 0, c) for c in concls] in
+              Seq(Nil, Nil, [Concl(Nil, [induction_case(decls, t, xs, p, as0, cs0, c) for c in cs])])
+
+            case None =>
+              s
+          end
+
+        case _ =>
+          s
+      end
+
+    case _ =>
+      s
+  end
+
+// formulas as sequents, at the top only
+function normal(s: Seq): Seq :=
+  match s
+    case Atom(e) =>
+      to_seq(e)
+
+    case _ =>
+      s
+  end
+
+function induction_case(decls: Decls, t: Name, xs: List[Var], p: Int, as0: List[Seq], cs0: List[Concl], c: Name): Seq :=
+  match get(c, decls.ctors)
+    case Some(Ctor(_, fs)) =>
+      let k := size(xs), n := size(fs) in
+      let fields := [ELevel(k + i) for i in range(0, n)] in
+      let value := if n == 0 then EFun(c) else EApp(EFun(c), fields) in
+      let v := ELevel(p), others := [l for l in range(0, k) if l != p] in
+      let vars := [nth(l, xs) for l in others] in
+      let ihs := [hypothesis(vars, others, v, ELevel(k + i), as0, cs0) for i in range(0, n) if is_recursive(t, nth(i, fs))] in
+      let levels := others ++ range(k, k + n) in
+      Seq(vars ++ fs, [rebind_seq(Close(levels), 0, h) for h in ihs ++ [replace_seq(v, value, a) for a in as0]],
+          [rebind_concl(Close(levels), 0, replace_concl(v, value, d)) for d in cs0])
+
+    case None =>
+      false_seq()
+  end
+
+function is_recursive(t: Name, field: Var): Bool :=
+  match field.typ
+    case TSort(u, _) =>
+      u == t
+
+    case _ =>
+      false
+  end
+
+function hypothesis(vars: List[Var], others: List[Int], v: Expr, y: Expr, as0: List[Seq], cs0: List[Concl]): Seq :=
+  Seq(vars, [rebind_seq(Close(others), 0, replace_seq(v, y, a)) for a in as0],
+      [rebind_concl(Close(others), 0, replace_concl(v, y, d)) for d in cs0])
+
+// printing, where the binders are opened with names distinct from those around them
+
+function print_seq(s: Seq): Str :=
+  print_open(Nil, s)
+
+function fresh(names: List[Id], x: Id): Id :=
+  if contains(x, names) then fresh(names, x ++ "'") else x
+
+function fresh_all(names: List[Id], xs: List[Var]): List[Id] :=
+  match xs
+    case Nil =>
+      Nil
+
+    case [x; rest] =>
+      let y := fresh(names, x.name) in
+      [y; fresh_all(names ++ [y], rest)]
+  end
+
+function print_open(names: List[Id], s: Seq): Str :=
+  match s
+    case Atom(e) =>
+      print_expr(names, e)
+
+    case Seq(Nil, Nil, [Concl(Nil, Nil)]) =>
+      "true"
+
+    case Seq(Nil, Nil, Nil) =>
+      "false"
+
+    case Seq(Nil, [a], Nil) =>
+      "not " ++ print_part(names, a)
+
+    case Seq(xs, assms, concls) =>
+      let ys := fresh_all(names, xs), d := size(names), k := size(xs) in
+      let inner := names ++ ys in
+      let binder := if xs == Nil then "" else "forall " ++ join(", ", ys) ++ " => " in
+      let premises := join(" and ", [print_part(inner, rebind_seq(Open(d, k), 0, a)) for a in assms]) in
+      let ends := if concls == Nil then "false"
+          else join(" or ", [print_concl(inner, size(concls) > 1, rebind_concl(Open(d, k), 0, c)) for c in concls]) in
+      binder ++ (if assms == Nil then ends else premises ++ " ==> " ++ ends)
+  end
+
+function print_part(names: List[Id], s: Seq): Str :=
+  match s
+    case Atom(_) =>
+      print_open(names, s)
+
+    case _ =>
+      "(" ++ print_open(names, s) ++ ")"
+  end
+
+function print_concl(names: List[Id], several: Bool, c: Concl): Str :=
+  match c
+    case Concl(xs, body) =>
+      let ys := fresh_all(names, xs), d := size(names), k := size(xs) in
+      let inner := names ++ ys in
+      let parts := [rebind_seq(Open(d, k), 0, s) for s in body] in
+      let text := if parts == Nil then "true"
+          else if size(parts) == 1 and xs == Nil and not several then print_open(inner, nth(0, parts))
+          else join(" and ", [print_part(inner, t) for t in parts]) in
+      if xs == Nil then (if several and size(parts) > 1 then "(" ++ text ++ ")" else text)
+      else "(exists " ++ join(", ", ys) ++ " => " ++ text ++ ")"
+  end

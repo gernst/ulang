@@ -13,7 +13,7 @@ A minimal programming language with pure functional expressions, imperative stat
   - `./ulang.bin format <file>` prints the file as source, by `show_program` of `self/print.u`, and fails if that source does not parse to the same commands
   - errors are printed without positions, except those of parsing
 - `make selfcompile` compiles the compiler with `ulang.bin`, and `make bootstrap` with the interpreter `self/run.u` in `ulang.bin` (`ulang.bin run self/ulang.u main -- compile …`), and both replace `bootstrap/ulang.c` and `ulang.bin` only if the new compiler compiles itself to the same C, after keeping the previous ones in `bootstrap/` with a time stamp, where the C files are versioned and the binaries are not
-- `make test` is `ulang.bin test tests self simp prelude`, which takes 3 seconds
+- `make test` is `ulang.bin test tests self prove prelude`, which takes 3 seconds
 - `make testformat` formats every file that parses, which tests the parser and the printer by their round trip
 - `make testc` runs the same files compiled, by `testc.sh`: each compiled by `ulang.bin compile` with the entry `test` and by `cc -O2` with the runtime object `out/testc/ulang.o`, run in its directory, in parallel, where a file must succeed, or fail with the error of its first line, except for the modules of the prelude, which cannot be compiled on their own, in about 20 seconds
 - named fields of constructors, `C(name: T, …)`, give accessors `e.name` and updates `e with name := a, other := b`, which the checker resolves by the type of `e` to the generated functions `T.name` and `T.name:=`, which raise `MissingField("T.name")` for constructors without the field; a comma followed by `name :=` continues the updates, also in `assign` and `local`

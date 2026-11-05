@@ -63,11 +63,11 @@ selfcompile: ulang.bin
 	cmp $(STAGE)/ulang2.c $(STAGE)/ulang3.c
 	$(call install,$(STAGE)/ulang2.c,$(STAGE)/ulang2.bin)
 
-# every .u file of tests/, self/, simp/, and the library, run by ulang.bin with all its tests in its directory, must succeed,
+# every .u file of tests/, self/, prove/, and the library, run by ulang.bin with all its tests in its directory, must succeed,
 # or fail with the error that its first line states, e.g. // type error: unknown variable x
 .PHONY: test
 test: ulang.bin
-	$(COMPILE) ./ulang.bin test tests self simp prelude
+	$(COMPILE) ./ulang.bin test tests self prove prelude
 
 # the same files, each compiled by ulang.bin and cc with the runtime object, and run in its directory, by testc.sh in parallel,
 # except for the modules of the prelude, which cannot be compiled on their own
@@ -80,11 +80,11 @@ $(TESTC)/ulang.o: self/runtime/ulang.c self/runtime/ulang.h Makefile
 # every file that parses, formatted by ulang.bin, which fails if the source does not parse to the same commands
 .PHONY: testformat
 testformat: ulang.bin
-	@n=0; for f in $$(find tests self simp prelude -name '*.u' | sort); do \
+	@n=0; for f in $$(find tests self prove prelude -name '*.u' | sort); do \
 	  head -n 1 $$f | grep -q '^// parse error' && continue; \
 	  ./ulang.bin format $$f > /dev/null || exit 1; n=$$((n + 1)); \
 	done; echo "$$n files formatted"
 
 .PHONY: testc
 testc: ulang.bin $(TESTC)/ulang.o
-	./testc.sh $(TESTC) $(TESTC)/ulang.o tests self simp prelude
+	./testc.sh $(TESTC) $(TESTC)/ulang.o tests self prove prelude

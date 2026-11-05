@@ -1,0 +1,663 @@
+// a reader of terms and declarations in the syntax of ulang, for the tests of the prover until self/prove.u translates
+// checked programs: definitions of functions and datatypes, and formulas with quantifiers, where the connectives and
+// comparisons of the prelude are read as the builtins of the prover, a != b as not (a == b) and a <= b as not (b < a)
+
+import syntax
+import map
+
+export
+
+data ReadError :=
+  | ReadError(Str)
+
+procedure read_expr(in text: Str, out e: Expr)
+
+// the declarations of text after those of decls
+procedure read_decls(in decls: Decls, text: Str, out result: Decls)
+
+implementation
+
+data Tok :=
+  | TInt(Int)
+  | TName(Str)
+  | TSym(Str)
+  | TPunct(Char)
+  | TEnd
+
+// lexing
+
+function is_symbol(c: Char): Bool :=
+  contains(c, "=<>!+-*/%:|&^~.")
+
+function is_name_char(c: Char): Bool :=
+  is_letter(c) or is_digit(c) or c == '_' or c == '\''
+
+function scan_end(text: Str, i: Int, p: Char -> Bool): Int :=
+  if i < size(text) and p(at(i, text)) then scan_end(text, i + 1, p) else i
+
+procedure lex(in text: Str, out toks: List[Tok]) :=
+  local i := 0, j := 0, c := ' ', rev: List[Tok] := Nil
+
+  while i < size(text)
+    assign c := at(i, text)
+
+    if is_space(c)
+      assign i := i + 1
+    else if is_digit(c)
+      assign j := scan_end(text, i, is_digit)
+
+      match number(slice(text, i, j))
+        case Some(n) =>
+          assign rev := [TInt(n); rev]
+
+        case None =>
+          raise ReadError("invalid number")
+      end
+
+      assign i := j
+    else if is_letter(c) or c == '_'
+      assign j := scan_end(text, i, is_name_char)
+      assign rev := [TName(slice(text, i, j)); rev], i := j
+    else if is_symbol(c)
+      assign j := scan_end(text, i, is_symbol)
+      assign rev := [TSym(slice(text, i, j)); rev], i := j
+    else if contains(c, "()[],;")
+      assign rev := [TPunct(c); rev], i := i + 1
+    else
+      raise ReadError("unexpected character " ++ show(c))
+    end
+  end
+
+  assign toks := reverse(rev)
+
+// tokens
+
+function head_tok(toks: List[Tok]): Tok :=
+  match toks
+    case [t; _] =>
+      t
+
+    case Nil =>
+      TEnd
+  end
+
+function second_tok(toks: List[Tok]): Tok :=
+  match toks
+    case [_, t; _] =>
+      t
+
+    case _ =>
+      TEnd
+  end
+
+procedure advance(ref toks: List[Tok]) :=
+  match toks
+    case [_; rest] =>
+      assign toks := rest
+
+    case Nil =>
+      skip
+  end
+
+procedure expect(in t: Tok, ref toks: List[Tok]) :=
+  if head_tok(toks) == t
+    call advance(ref toks)
+  else
+    raise ReadError(show(t) ++ " expected but " ++ show(head_tok(toks)) ++ " found")
+  end
+
+procedure parse_name(out x: Id, ref toks: List[Tok]) :=
+  match head_tok(toks)
+    case TName(y) =>
+      assign x := y
+      call   advance(ref toks)
+
+    case t =>
+      raise ReadError("name expected but " ++ show(t) ++ " found")
+  end
+
+function is_upper(x: Id): Bool :=
+  let c := at(0, x) in
+  ord(c) >= 65 and ord(c) <= 90
+
+function unknown_type(): Type :=
+  TSort(Name(None, "?"), Nil)
+
+// expressions, where env holds the names of the binders around them, the innermost first
+
+function infix_prec(t: Tok): Int :=
+  match t
+    case TSym("==>") =>
+      1
+
+    case TName("or") =>
+      2
+
+    case TName("and") =>
+      3
+
+    case TSym(op) if contains(op, ["==", "!=", "<", "<=", ">", ">="]) =>
+      5
+
+    case TSym("++") =>
+      6
+
+    case TSym(op) if op == "+" or op == "-" =>
+      7
+
+    case TSym(op) if op == "*" or op == "/" or op == "%" =>
+      8
+
+    case _ =>
+      0
+  end
+
+function op_name(t: Tok): Id :=
+  match t
+    case TSym(op) =>
+      op
+
+    case TName(op) =>
+      op
+
+    case _ =>
+      ""
+  end
+
+function binop(op: Id, a: Expr, b: Expr): Expr :=
+  match op
+    case "!=" =>
+      app("not", [app("==", [a, b])])
+
+    case "<=" =>
+      app("not", [app("<", [b, a])])
+
+    case ">" =>
+      app("<", [b, a])
+
+    case ">=" =>
+      app("not", [app("<", [a, b])])
+
+    case _ =>
+      app(op, [a, b])
+  end
+
+function negate(a: Expr): Expr :=
+  match a
+    case EConst(VInt(n)) =>
+      int_expr(0 - n)
+
+    case _ =>
+      app("-", [int_expr(0), a])
+  end
+
+procedure parse_expr(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
+  call parse_binary(in env, 1, out e, ref toks)
+
+// operators of at least the precedence min, where ==> and ++ are right associative
+procedure parse_binary(in env: List[Id], min: Int, out e: Expr, ref toks: List[Tok]) :=
+  local op := "", prec := 0, rhs: Expr
+
+  call parse_prefix(in env, out e, ref toks)
+
+  while infix_prec(head_tok(toks)) >= min and infix_prec(head_tok(toks)) > 0
+    assign op := op_name(head_tok(toks)), prec := infix_prec(head_tok(toks))
+    call   advance(ref toks)
+    call   parse_binary(in env, if op == "==>" or op == "++" then prec else prec + 1, out rhs, ref toks)
+    assign e := binop(op, e, rhs)
+  end
+
+procedure parse_prefix(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
+  local a: Expr
+
+  match head_tok(toks)
+    case TName("not") =>
+      call   advance(ref toks)
+      call   parse_binary(in env, 5, out a, ref toks)
+      assign e := app("not", [a])
+
+    case TSym("-") =>
+      call   advance(ref toks)
+      call   parse_binary(in env, 9, out a, ref toks)
+      assign e := negate(a)
+
+    case _ =>
+      call parse_app(in env, out e, ref toks)
+  end
+
+procedure parse_app(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
+  local args: List[Expr]
+
+  call parse_atom(in env, out e, ref toks)
+
+  while head_tok(toks) == TPunct('(')
+    call   advance(ref toks)
+    call   parse_exprs(in env, ')', out args, ref toks)
+    assign e := EApp(e, args)
+  end
+
+// expressions separated by commas up to the closing character
+procedure parse_exprs(in env: List[Id], close: Char, out es: List[Expr], ref toks: List[Tok]) :=
+  local e: Expr, rev: List[Expr] := Nil
+
+  if head_tok(toks) != TPunct(close)
+    call   parse_expr(in env, out e, ref toks)
+    assign rev := [e]
+
+    while head_tok(toks) == TPunct(',')
+      call   advance(ref toks)
+      call   parse_expr(in env, out e, ref toks)
+      assign rev := [e; rev]
+    end
+  end
+
+  call   expect(in TPunct(close), ref toks)
+  assign es := reverse(rev)
+
+procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
+  local a: Expr, b: Expr, c: Expr, x := "", xs: List[Var], es: List[Expr], bs: List[Branch]
+
+  match head_tok(toks)
+    case TInt(n) =>
+      call   advance(ref toks)
+      assign e := int_expr(n)
+
+    case TName("true") =>
+      call   advance(ref toks)
+      assign e := bool_expr(true)
+
+    case TName("false") =>
+      call   advance(ref toks)
+      assign e := bool_expr(false)
+
+    case TName("if") =>
+      call   advance(ref toks)
+      call   parse_expr(in env, out c, ref toks)
+      call   expect(in TName("then"), ref toks)
+      call   parse_expr(in env, out a, ref toks)
+      call   expect(in TName("else"), ref toks)
+      call   parse_expr(in env, out b, ref toks)
+      assign e := EIte(c, a, b)
+
+    case TName("let") =>
+      call   advance(ref toks)
+      call   parse_name(out x, ref toks)
+      call   expect(in TSym(":="), ref toks)
+      call   parse_expr(in env, out a, ref toks)
+      call   expect(in TName("in"), ref toks)
+      call   parse_expr(in [x; env], out b, ref toks)
+      assign e := subst(0, a, b)
+
+    case TName("match") =>
+      call   advance(ref toks)
+      call   parse_expr(in env, out a, ref toks)
+      call   parse_cases(in env, out bs, ref toks)
+      assign e := EMatch(a, bs)
+
+    case TName(q) if q == "forall" or q == "exists" or q == "lambda" =>
+      call   advance(ref toks)
+      call   parse_binders(out xs, ref toks)
+      call   expect(in TSym("=>"), ref toks)
+      call   parse_expr(in reverse([y.name for y in xs]) ++ env, out b, ref toks)
+      assign e := if q == "lambda" then ELam(xs, b) else app(q, [ELam(xs, b)])
+
+    case TName(y) =>
+      call   advance(ref toks)
+      assign e := lookup(y, env, 0)
+
+    case TPunct('(') =>
+      call advance(ref toks)
+      call parse_expr(in env, out e, ref toks)
+      call expect(in TPunct(')'), ref toks)
+
+    case TPunct('[') =>
+      call advance(ref toks)
+
+      if head_tok(toks) == TPunct(']')
+        call   advance(ref toks)
+        assign e := sym("Nil")
+      else
+        call parse_expr(in env, out a, ref toks)
+
+        if head_tok(toks) == TPunct(';')
+          call   advance(ref toks)
+          call   parse_expr(in env, out b, ref toks)
+          call   expect(in TPunct(']'), ref toks)
+          assign e := app("Cons", [a, b])
+        else if head_tok(toks) == TPunct(',')
+          call   advance(ref toks)
+          call   parse_exprs(in env, ']', out es, ref toks)
+          assign e := list_expr([a; es])
+        else
+          call   expect(in TPunct(']'), ref toks)
+          assign e := app("Cons", [a, sym("Nil")])
+        end
+      end
+
+    case t =>
+      raise ReadError("expression expected but " ++ show(t) ++ " found")
+  end
+
+function lookup(x: Id, env: List[Id], i: Int): Expr :=
+  match env
+    case Nil =>
+      sym(x)
+
+    case [y; rest] =>
+      if x == y then EBound(i) else lookup(x, rest, i + 1)
+  end
+
+function list_expr(es: List[Expr]): Expr :=
+  match es
+    case Nil =>
+      sym("Nil")
+
+    case [e; rest] =>
+      app("Cons", [e, list_expr(rest)])
+  end
+
+// names with optional types, separated by commas
+procedure parse_binders(out xs: List[Var], ref toks: List[Tok]) :=
+  local x := "", t: Type, rev: List[Var] := Nil
+
+  call parse_binder(out x, t, ref toks)
+  assign rev := [Var(x, t)]
+
+  while head_tok(toks) == TPunct(',')
+    call   advance(ref toks)
+    call   parse_binder(out x, t, ref toks)
+    assign rev := [Var(x, t); rev]
+  end
+
+  assign xs := reverse(rev)
+
+procedure parse_binder(out x: Id, t: Type, ref toks: List[Tok]) :=
+  call parse_name(out x, ref toks)
+
+  if head_tok(toks) == TSym(":")
+    call advance(ref toks)
+    call parse_type(out t, ref toks)
+  else
+    assign t := unknown_type()
+  end
+
+// a type, where single capitals are type parameters
+procedure parse_type(out t: Type, ref toks: List[Tok]) :=
+  local x := "", ts: List[Type] := Nil, u: Type
+
+  call parse_name(out x, ref toks)
+
+  if head_tok(toks) == TPunct('[')
+    call   advance(ref toks)
+    call   parse_type(out u, ref toks)
+    assign ts := [u]
+
+    while head_tok(toks) == TPunct(',')
+      call   advance(ref toks)
+      call   parse_type(out u, ref toks)
+      assign ts := ts ++ [u]
+    end
+
+    call expect(in TPunct(']'), ref toks)
+  end
+
+  if size(x) == 1 and is_upper(x)
+    assign t := TParam(ord(at(0, x)) - 65)
+  else
+    assign t := TSort(Name(None, x), ts)
+  end
+
+procedure parse_cases(in env: List[Id], out bs: List[Branch], ref toks: List[Tok]) :=
+  local p: Pat, g: Option[Expr], h: Expr, b: Expr, inner: List[Id], rev: List[Branch] := Nil
+
+  while head_tok(toks) == TName("case")
+    call   advance(ref toks)
+    call   parse_pattern(out p, ref toks)
+    assign inner := reverse([x.name for x in pattern_vars(p)]) ++ env, g := None
+
+    if head_tok(toks) == TName("if")
+      call   advance(ref toks)
+      call   parse_expr(in inner, out h, ref toks)
+      assign g := Some(h)
+    end
+
+    call   expect(in TSym("=>"), ref toks)
+    call   parse_expr(in inner, out b, ref toks)
+    assign rev := [Branch(p, g, b); rev]
+  end
+
+  call   expect(in TName("end"), ref toks)
+  assign bs := reverse(rev)
+
+procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
+  local x := "", ps: List[Pat], q: Pat, r: Pat
+
+  match head_tok(toks)
+    case TName("_") =>
+      call   advance(ref toks)
+      assign p := PWild
+
+    case TInt(n) =>
+      call   advance(ref toks)
+      assign p := PLit(VInt(n))
+
+    case TSym("-") =>
+      call advance(ref toks)
+
+      match head_tok(toks)
+        case TInt(n) =>
+          call   advance(ref toks)
+          assign p := PLit(VInt(0 - n))
+
+        case t =>
+          raise ReadError("number expected but " ++ show(t) ++ " found")
+      end
+
+    case TName("true") =>
+      call   advance(ref toks)
+      assign p := PLit(VBool(true))
+
+    case TName("false") =>
+      call   advance(ref toks)
+      assign p := PLit(VBool(false))
+
+    case TName(y) =>
+      call advance(ref toks)
+
+      if not is_upper(y)
+        assign p := PVar(Var(y, unknown_type()))
+      else if head_tok(toks) == TPunct('(')
+        call   advance(ref toks)
+        call   parse_patterns(in ')', out ps, ref toks)
+        assign p := PApp(Name(None, y), ps)
+      else
+        assign p := PApp(Name(None, y), Nil)
+      end
+
+    case TPunct('[') =>
+      call advance(ref toks)
+
+      if head_tok(toks) == TPunct(']')
+        call   advance(ref toks)
+        assign p := PApp(Name(None, "Nil"), Nil)
+      else
+        call parse_pattern(out q, ref toks)
+
+        if head_tok(toks) == TPunct(';')
+          call   advance(ref toks)
+          call   parse_pattern(out r, ref toks)
+          call   expect(in TPunct(']'), ref toks)
+          assign p := PApp(Name(None, "Cons"), [q, r])
+        else if head_tok(toks) == TPunct(',')
+          call   advance(ref toks)
+          call   parse_patterns(in ']', out ps, ref toks)
+          assign p := list_pattern([q; ps])
+        else
+          call   expect(in TPunct(']'), ref toks)
+          assign p := list_pattern([q])
+        end
+      end
+
+    case t =>
+      raise ReadError("pattern expected but " ++ show(t) ++ " found")
+  end
+
+procedure parse_patterns(in close: Char, out ps: List[Pat], ref toks: List[Tok]) :=
+  local p: Pat, rev: List[Pat] := Nil
+
+  if head_tok(toks) != TPunct(close)
+    call   parse_pattern(out p, ref toks)
+    assign rev := [p]
+
+    while head_tok(toks) == TPunct(',')
+      call   advance(ref toks)
+      call   parse_pattern(out p, ref toks)
+      assign rev := [p; rev]
+    end
+  end
+
+  call   expect(in TPunct(close), ref toks)
+  assign ps := reverse(rev)
+
+function list_pattern(ps: List[Pat]): Pat :=
+  match ps
+    case Nil =>
+      PApp(Name(None, "Nil"), Nil)
+
+    case [p; rest] =>
+      PApp(Name(None, "Cons"), [p, list_pattern(rest)])
+  end
+
+procedure read_expr(in text: Str, out e: Expr) :=
+  local toks: List[Tok]
+
+  call lex(in text, out toks)
+  call parse_expr(in Nil, out e, ref toks)
+
+  if toks != Nil
+    raise ReadError("unexpected " ++ show(head_tok(toks)))
+  end
+
+// declarations: function f(x: T, y) := e and data T[A] := | C | D(A, name: T[A]), whose ranks follow their order
+
+procedure read_decls(in decls: Decls, text: Str, out result: Decls) :=
+  local toks: List[Tok]
+
+  call   lex(in text, out toks)
+  assign result := decls
+
+  while toks != Nil
+    match head_tok(toks)
+      case TName("function") =>
+        call advance(ref toks)
+        call parse_function(ref result, toks)
+
+      case TName("data") =>
+        call advance(ref toks)
+        call parse_data(ref result, toks)
+
+      case t =>
+        raise ReadError("declaration expected but " ++ show(t) ++ " found")
+    end
+  end
+
+procedure parse_function(ref decls: Decls, toks: List[Tok]) :=
+  local f := "", xs: List[Var] := Nil, t: Type, body: Expr, name: Name
+
+  match head_tok(toks)
+    case TSym(op) =>
+      assign f := op
+      call   advance(ref toks)
+
+    case _ =>
+      call parse_name(out f, ref toks)
+  end
+  call expect(in TPunct('('), ref toks)
+
+  if head_tok(toks) != TPunct(')')
+    call parse_binders(out xs, ref toks)
+  end
+
+  call expect(in TPunct(')'), ref toks)
+
+  if head_tok(toks) == TSym(":")
+    call advance(ref toks)
+    call parse_type(out t, ref toks)
+  end
+
+  call   expect(in TSym(":="), ref toks)
+  call   parse_expr(in reverse([x.name for x in xs]), out body, ref toks)
+  assign name := Name(None, f)
+  assign decls := decls with defs := put(name, Def(occurs(EFun(name), body), xs, body), decls.defs),
+                            ranks := put(name, size(decls.ranks), decls.ranks)
+
+procedure parse_data(ref decls: Decls, toks: List[Tok]) :=
+  local d := "", c := "", u: Type, fields: List[Var], cs: List[Name] := Nil, name: Name, rank := 0
+
+  call parse_name(out d, ref toks)
+
+  if head_tok(toks) == TPunct('[')
+    call advance(ref toks)
+
+    while head_tok(toks) != TPunct(']')
+      call advance(ref toks)
+    end
+
+    call advance(ref toks)
+  end
+
+  call   expect(in TSym(":="), ref toks)
+  assign name := Name(None, d), rank := size(decls.ranks)
+
+  while head_tok(toks) == TSym("|")
+    call   advance(ref toks)
+    call   parse_name(out c, ref toks)
+    assign fields := Nil
+
+    if head_tok(toks) == TPunct('(')
+      call advance(ref toks)
+      call parse_fields(in name, out fields, ref toks)
+    end
+
+    assign cs := cs ++ [Name(None, c)]
+    assign decls := decls with ctors := put(Name(None, c), Ctor(name, fields), decls.ctors),
+                              ranks := put(Name(None, c), rank, decls.ranks)
+  end
+
+  assign decls := decls with datatypes := put(name, cs, decls.datatypes)
+
+// fields name: T or T, where those without a name are named by their types, x for parameters and xs for the datatype
+procedure parse_fields(in datatype: Name, out fields: List[Var], ref toks: List[Tok]) :=
+  local x := "", t: Type, rev: List[Var] := Nil
+
+  while head_tok(toks) != TPunct(')')
+    if second_tok(toks) == TSym(":")
+      call parse_name(out x, ref toks)
+      call advance(ref toks)
+      call parse_type(out t, ref toks)
+    else
+      call   parse_type(out t, ref toks)
+      assign x := field_name(datatype, t)
+    end
+
+    assign rev := [Var(x, t); rev]
+
+    if head_tok(toks) == TPunct(',')
+      call advance(ref toks)
+    end
+  end
+
+  call   advance(ref toks)
+  assign fields := reverse(rev)
+
+function field_name(datatype: Name, t: Type): Id :=
+  match t
+    case TSort(d, _) if d == datatype =>
+      "xs"
+
+    case TSort(Name(_, d), _) =>
+      string([chr(ord(at(0, d)) + 32)])
+
+    case _ =>
+      "x"
+  end

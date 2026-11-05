@@ -95,4 +95,5 @@ make test                                 # runs all tests
 - `prelude/` is the library.
 - `tests/` are the tests, also of expected errors in `tests/errors/`.
 - `vscode/` is an extension for VS Code and VSCodium, installed by `make install`.
-- `TODO.md` lists the open work, and `DESIGN.md` the design notes and the design of verification.
+- `TODO.md` lists the open work, and `DESIGN.md` the design notes.
+- `prove/` is a prover by contextual simplification, with its tests, on terms of its own.

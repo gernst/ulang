@@ -17,7 +17,7 @@ Open action items, each with the problem and the desired solution.
 ## Modules
 
 1. **Type errors in imported modules have no file**: they show a position without the module. Solution: add the module to the messages, as parse errors do.
-2. **Imports are resolved against the directory of the parsed file**, not of the importing module, and loaded modules are known by name. Solution: resolve against the importing file, with modules known by their location, which makes nested imports and library modules consistent. Also imports from other directories, e.g. of `simp/` by `self/prove.u`, by relative paths or a search path.
+2. **Imports are resolved against the directory of the parsed file**, not of the importing module, and loaded modules are known by name. Solution: resolve against the importing file, with modules known by their location, which makes nested imports and library modules consistent. Also imports from other directories, e.g. of `prove/` by `self/prove.u`, by relative paths or a search path.
 
 ## Compiler
 
@@ -47,5 +47,5 @@ Open action items, each with the problem and the desired solution.
 
 ## Verification
 
-1. **Contracts, lemmas, and proofs** are designed in `DESIGN.md`, but not implemented. Solution: implement them, starting with parsing specifications, and decide the open points listed there.
-2. **No simplifier**: the proofs of `DESIGN.md` rest on contextual simplification of nested sequents with CC(X), designed there under Simplification. Solution: implement it in `simp/`, in the order `term.u`, `seq.u`, `cc.u` with `constr.u`, `arith.u`, and `simp.u`, with its tests run by `make test` and `make testc`, and then `self/prove.u` with goals as `Bool` functions and a command `simp`.
+1. **Contracts, lemmas, and proofs** are not implemented. Solution: parse specifications, lemmas, and proofs, and prove them with the simplifier of `prove/`.
+2. **The simplifier of `prove/` reads its own syntax**, by `prove/read.u`, and does not see checked programs. Solution: a translation `self/prove.u` from the programs checked by `self/check.u`, with goals as `Bool` functions whose formals are the fixed variables, a default proof by simplification and induction on each formal of a datatype, where goals proven earlier are rules for later ones, and a command `ulang.bin prove <file>`, which needs the prover in `self/` or imports across directories.

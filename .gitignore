@@ -16,5 +16,7 @@ ulang.bin
 /bootstrap/stage/
 /bootstrap/*/ulang.bin
 
-# notes on refactorings, not versioned
+# notes on refactorings and plans, not versioned
 refactor.md
+arrays.md
+prove.md

@@ -1,0 +1,136 @@
+// simple proofs by simplification and induction, with goals and definitions read from text
+
+import syntax
+import read
+import simp
+
+function list_decls(): Str :=
+  join(" ", [
+    "data List[A] := | Nil | Cons(A, List[A])",
+    "function ++(xs: List[A], ys: List[A]): List[A] := match xs case [] => ys case [x; zs] => [x; zs ++ ys] end",
+    "function size(xs: List[A]): Int := match xs case [] => 0 case [_; ys] => 1 + size(ys) end",
+    "function reverse_onto(xs: List[A], ys: List[A]): List[A] := match xs case [] => ys case [x; rest] => reverse_onto(rest, [x; ys]) end",
+    "function reverse(xs: List[A]): List[A] := reverse_onto(xs, [])",
+    "function take(n: Int, xs: List[A]): List[A] := match xs case [] => [] case [y; ys] => if n <= 0 then [] else [y; take(n - 1, ys)] end",
+    "function drop(n: Int, xs: List[A]): List[A] := match xs case [] => [] case [_; ys] => if n <= 0 then xs else drop(n - 1, ys) end",
+    "function max(a: Int, b: Int): Int := if a < b then b else a"
+  ])
+
+procedure decls_of(out d: Decls) :=
+  call read_decls(in empty_decls(), list_decls(), out d)
+
+// the goal simplified
+procedure simp_text(in goal: Str, out result: Str) :=
+  local d: Decls, e: Expr
+
+  call   decls_of(out d)
+  call   read_expr(in goal, out e)
+  assign result := print_seq(simplify(d, Atom(e)))
+
+// the cases of induction on the fixed variable at position p, simplified
+procedure induct_text(in goal: Str, p: Int, out result: Str) :=
+  local d: Decls, e: Expr
+
+  call   decls_of(out d)
+  call   read_expr(in goal, out e)
+  assign result := print_seq(simplify(d, induction(d, Atom(e), p)))
+
+test evaluation() :=
+  local r := ""
+
+  call   simp_text(in "size([1, 2, 3] ++ [4]) == 4 and reverse([1, 2, 3]) == [3, 2, 1]", out r)
+  assert r == "true"
+  call   simp_text(in "take(2, [1, 2, 3]) ++ drop(2, [1, 2, 3]) == [1, 2, 3]", out r)
+  assert r == "true"
+
+test unfolding() :=
+  local r := ""
+
+  call   simp_text(in "forall x, xs => size([x; xs]) == 1 + size(xs)", out r)
+  assert r == "true"
+  call   simp_text(in "forall xs => size(xs) == 0", out r)
+  assert r == "forall xs => size(xs) == 0"
+
+test constructors() :=
+  local r := ""
+
+  call   simp_text(in "forall x, y, xs, ys => [x; xs] == [y; ys] ==> x == y and xs == ys", out r)
+  assert r == "true"
+  call   simp_text(in "forall x, xs => [x; xs] != xs", out r)
+  assert r == "true"
+  call   simp_text(in "forall x, xs => [x; xs] != []", out r)
+  assert r == "true"
+
+test arithmetic() :=
+  local r := ""
+
+  call   simp_text(in "forall a, b => a < b ==> a + 1 <= b", out r)
+  assert r == "true"
+  call   simp_text(in "forall a, b, c => a < b and b < c ==> a + 2 <= c", out r)
+  assert r == "true"
+  call   simp_text(in "forall a, b => 2 * a + b == b + a + a", out r)
+  assert r == "true"
+  call   simp_text(in "forall a, b => a <= b and b <= a ==> a == b", out r)
+  assert r == "true"
+
+test splits() :=
+  local r := ""
+
+  call   simp_text(in "forall a, b => max(a, b) >= a and max(a, b) >= b", out r)
+  assert r == "true"
+
+test quantifiers() :=
+  local r := ""
+
+  call   simp_text(in "forall x => (exists y => y == x + 1 and y > x)", out r)
+  assert r == "true"
+  call   simp_text(in "forall xs => (forall ys => ys == xs ==> size(ys) == size(xs))", out r)
+  assert r == "true"
+
+test append_nil() :=
+  local r := ""
+
+  call   induct_text(in "forall xs: List[A] => xs ++ [] == xs", 0, out r)
+  assert r == "true"
+
+test append_assoc() :=
+  local r := ""
+
+  call   induct_text(in "forall xs: List[A], ys: List[A], zs: List[A] => (xs ++ ys) ++ zs == xs ++ (ys ++ zs)", 0, out r)
+  assert r == "true"
+
+test size_append() :=
+  local r := ""
+
+  call   induct_text(in "forall xs: List[A], ys: List[A] => size(xs ++ ys) == size(xs) + size(ys)", 0, out r)
+  assert r == "true"
+
+test reverse_onto_size() :=
+  local r := ""
+
+  call   induct_text(in "forall xs: List[A], ys: List[A] => size(reverse_onto(xs, ys)) == size(xs) + size(ys)", 0, out r)
+  assert r == "true"
+
+test take_drop() :=
+  local r := ""
+
+  call   induct_text(in "forall n: Int, xs: List[A] => take(n, xs) ++ drop(n, xs) == xs", 1, out r)
+  assert r == "true"
+
+test lemmas_as_premises() :=
+  local r := ""
+
+  call   simp_text(in "(forall xs, ys => size(xs ++ ys) == size(xs) + size(ys)) ==> (forall xs => size(xs ++ xs) == 2 * size(xs))", out r)
+  assert r == "true"
+  call   simp_text(in "(forall xs => 0 <= size(xs)) ==> (forall x, xs => 0 < size([x; xs]))", out r)
+  assert r == "true"
+
+test open_goals() :=
+  local r := ""
+
+  call   induct_text(in "forall xs: List[A], ys: List[A] => xs ++ ys == ys ++ xs", 0, out r)
+  assert r == "(forall ys => (ys ++ []) == ys) and (forall ys, x, xs => (forall ys' => (ys' ++ xs) == (xs ++ ys')) ==> [x; xs ++ ys] == (ys ++ [x; xs]))"
+  call   simp_text(in "forall a, b => a < b ==> b < a + 2", out r)
+  assert r == "forall a, b => a < b ==> b < (a + 2)"
+  call   simp_text(in "forall a => a < a", out r)
+  assert r == "forall a => false"
