@@ -832,15 +832,9 @@ procedure handle(in p: Prog, hs: List[Handler], v: Value, t: Type, ref env: Bind
 // calls the procedure n with the values ins of its ins, where the variables refs of the caller in env are its refs,
 // which get their values back when it returns, and the values outs of its outs
 procedure invoke(in p: Prog, n: Name, ins: List[Value], refs: List[Name], out outs: List[Value], ref env: Bindings, cache: Map[Name, Value]) :=
-  local texts: List[Str]
-
   match get(n, p.procs)
     case Some(ProcDef(xs, ys, zs, body)) =>
       call run_body(in p, n, empty(), xs, ys, zs, body, ins, refs, out outs, ref env, cache)
-    case None if n.base == "os_show" =>
-      assign outs := Nil
-      call   show_all(in p, ins, out texts, ref cache)
-      call   print_all(in texts)
     case None if n.base == "os_print" =>
       assign outs := Nil
       call   print_all(in [text_of(v) for v in ins])

@@ -1,4 +1,5 @@
-// values as text, as os_show prints them, and programs as source, which parses to the same commands
+// values as text by their structure, for the messages of the checker and the interpreter, where show of the program uses
+// the shows that datatypes declare, see show_in of self/run.u, and programs as source, which parses to the same commands
 
 import syntax
 import value

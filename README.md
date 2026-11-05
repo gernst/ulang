@@ -45,7 +45,7 @@ procedure main() :=
   local t := Leaf
 
   call insert_all(in [3, 1, 2, 1], ref t)
-  call os_show(in keys(t))
+  call os_print(in show(keys(t)))
 
 test sorting() :=
   local t := Node(Leaf, 2, Leaf)
@@ -64,8 +64,8 @@ test sorting() :=
 - Exceptions of any type, raised by `raise e` in statements and expressions, and caught by `try`, which leave the variables as they were: outs and refs reach the caller only when a procedure returns, and handlers see the variables as they were before the `try`.
   Builtins raise `DivisionByZero`, `NoIndex`, and `NoCharacter`, whereas a failed `assert` ends the program.
 - Unbounded integers, characters, and strings.
-- Programs read their arguments with `os_args`, files with `os_read` and `os_write`, and print strings with `os_print` and any value with `os_show`, all of the module `os`.
-- Literals and comprehensions of lists `[x * x for x in xs if x > 0]`, sets `{a, b}` and `{f(x) for x in c}`, and maps `{k => v}` and `{k => f(v) for k => v in m}`, where the generators range over lists, sets, or maps by their folds, and sets and maps need `import set` and `import map`, and `==` compares the shapes of their trees, not only their elements.
+- Programs read their arguments with `os_args`, files with `os_read` and `os_write`, and print strings with `os_print`, all of the module `os`, where the builtin `show` gives the text of any value, which a datatype may declare for itself by a function `show`.
+- Literals and comprehensions of lists `[x * x for x in xs if x > 0]`, sets `{a, b}` and `{f(x) for x in c}`, and maps `{k => v}` and `{k => f(v) for k => v in m}`, where the generators range over lists, sets, or maps by their folds, and sets and maps need `import set` and `import map`, and `==` compares their elements and entries.
 - User-defined operators by `infix`, `prefix`, and `postfix` notations.
 - Modules: `import name` makes the declarations of a file available, but not transitively.
 - Named tests `test name() := …`, whose parameters are reserved for later and must be empty, while programs start at a procedure without parameters, like `procedure main() := …`.

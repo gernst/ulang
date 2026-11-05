@@ -1736,7 +1736,7 @@ procedure statements(in assignable: List[Name], xs: List[Stmt], out ys: List[Stm
 // os declares, so that they come with its import
 function builtin_procs(): Set[Id] :=
   {
-    "os_args", "os_read", "os_write", "os_show", "os_print", "os_print_error", "os_exit", "os_library", "os_list", "os_is_dir", "os_cwd",
+    "os_args", "os_read", "os_write", "os_print", "os_print_error", "os_exit", "os_library", "os_list", "os_is_dir", "os_cwd",
     "os_chdir"
   }
 

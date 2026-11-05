@@ -15,9 +15,8 @@ procedure os_write(in path: Str, text: Str)
 // the source of a module of the library
 procedure os_library(in name: Str, out text: Str)
 
-// print a string as it is, a value as the interpreter shows values, strings with quotes, and a string to the error output
+// print a string as it is, to the output and to the error output, where show gives the text of any value
 procedure os_print(in text: Str)
-procedure os_show[A](in x: A)
 procedure os_print_error(in text: Str)
 
 // end the program with the status code

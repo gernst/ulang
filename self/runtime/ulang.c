@@ -639,17 +639,8 @@ const struct u_type u_tuple_type = {"*", compare_tuples, u_equals_by_compare, sh
 const struct u_type u_closure_type = {"->", compare_functions, compare_functions, show_function};
 const struct u_type u_proc_type = {"proc", compare_procedures, compare_procedures, show_procedure};
 
-// the datatypes whose constructors the builtins create, which the library does not order otherwise
+// the error of the builtins on files, whose descriptor the runtime defines, since programs need not import os
 const struct u_type t_os_46_OsError = {"os.OsError", u_con_compare, u_equals_by_compare, u_con_show};
-
-void u_print_value(u_value v) {
-  u_fprint_value(stdout, v);
-}
-
-void u_print_line(u_value v) {
-  u_print_value(v);
-  putchar('\n');
-}
 
 void u_fail(const char *msg) {
   fflush(stdout);
@@ -825,10 +816,6 @@ void p_os_chdir(u_value dir) {
 
 void u_passed(const char *name) {
   printf("test %s passed\n", name);
-}
-
-void p_os_show(u_value v) {
-  u_print_line(v);
 }
 
 void p_os_print(u_value text) {

@@ -159,8 +159,6 @@ u_value u_is_space(u_value c);
 // the text of a value as it is printed, by the descriptors of its objects, which use the shows that datatypes declare
 u_value u_show(u_value v);
 
-void u_print_value(u_value v);
-void u_print_line(u_value v);
 void u_no_case(u_value v);
 void u_assert_true(u_value v);
 void u_assert_equal(u_value a, u_value b);
@@ -177,7 +175,6 @@ struct u_handler {
 void u_args(int argc, char **argv);
 void p_os_args(u_value *args);
 void p_os_read(u_value path, u_value *text);
-void p_os_show(u_value v);
 void p_os_print(u_value text);
 void p_os_print_error(u_value text);
 void p_os_exit(u_value code);

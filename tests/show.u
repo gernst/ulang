@@ -1,4 +1,4 @@
-// show gives the text of a value as os_show prints it, where a datatype may declare its own show, which the builtin
+// show gives the text of a value, with strings in quotes, where a datatype may declare its own show, which the builtin
 // then uses for its values, also inside other values and in generic code, and those of imported modules
 
 import pairs
