@@ -28,12 +28,12 @@ implementation
 
 function defs_of(q: Prog): Defs :=
   Defs(
-    put_all(fun_defs(q.cmds), empty()),
-    put_all(proc_defs(q.cmds), empty()),
-    put_all(constr_defs(q.cmds), empty()),
-    put_all(ordered_by(q.cmds, "compare"), empty()),
-    put_all(ordered_by(q.cmds, "=="), empty()),
-    put_all(ordered_by(q.cmds, "show"), empty())
+    map(fun_defs(q.cmds)),
+    map(proc_defs(q.cmds)),
+    map(constr_defs(q.cmds)),
+    map(ordered_by(q.cmds, "compare")),
+    map(ordered_by(q.cmds, "==")),
+    map(ordered_by(q.cmds, "show"))
   )
 
 // functions are overloaded by the number of arguments of their first list of formals

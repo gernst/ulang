@@ -256,12 +256,19 @@ function translation_doc(loader: Loader, indent: Str, f: Id, expr: Expr, args: L
   match (comprehension_text(loader, indent, expr), set_elements(expr), map_entries(expr))
     case (Some(text), _, _) =>
       Doc(text, Atom)
-    case (_, Some(es), _) =>
-      Doc("{" ++ show_exprs(loader, indent, es) ++ "}", Atom)
-    case (_, _, Some(entries)) =>
-      Doc("{" ++ join(", ", [entry_text(loader, indent, entry) for entry in entries]) ++ "}", Atom)
+    case (_, Some((es, rest)), _) =>
+      Doc("{" ++ show_exprs(loader, indent, es) ++ rest_text(loader, indent, rest) ++ "}", Atom)
+    case (_, _, Some((entries, rest))) =>
+      Doc("{" ++ join(", ", [entry_text(loader, indent, entry) for entry in entries]) ++ rest_text(loader, indent, rest) ++ "}", Atom)
     case _ =>
       Doc(f ++ "(" ++ show_exprs(loader, indent, args) ++ ")", Atom)
+  end
+
+// the set or map after ; that a literal adds to, if it is not empty
+function rest_text(loader: Loader, indent: Str, rest: Option[Expr]): Str :=
+  match rest
+    case Some(r) => "; " ++ show_expr(loader, indent, r)
+    case None => ""
   end
 
 function entry_text(loader: Loader, indent: Str, entry: Expr * Expr): Str :=
@@ -278,26 +285,36 @@ function empty_expr(): Expr :=
 function acc_expr(): Expr :=
   EVar(Var(unqualified("(acc)"), THole))
 
-// {a, b} is insert(a, insert(b, empty()))
-function set_elements(expr: Expr): Option[List[Expr]] :=
+// {a, b} is insert(a, insert(b, empty())), and {a, b; s} is insert(a, insert(b, s)), with the elements and the rest
+function set_elements(expr: Expr): Option[List[Expr] * Option[Expr]] :=
   match expr
-    case EApp(EVar(Var(n, _)), [a, s]) if n == declared_name("insert") =>
-      match set_elements(s)
-        case Some(es) => Some([a; es])
-        case None => None
-      end
-    case _ => if expr == empty_expr() then Some(Nil) else None
+    case EApp(EVar(Var(n, _)), [_, _]) if n == declared_name("insert") => Some(set_chain(expr))
+    case _ => if expr == empty_expr() then Some((Nil, None)) else None
   end
 
-// {k => v, l => w} is put(l, w, put(k, v, empty()))
-function map_entries(expr: Expr): Option[List[Expr * Expr]] :=
+function set_chain(expr: Expr): List[Expr] * Option[Expr] :=
+  match expr
+    case EApp(EVar(Var(n, _)), [a, s]) if n == declared_name("insert") =>
+      match set_chain(s)
+        case (es, rest) => ([a; es], rest)
+      end
+    case _ => if expr == empty_expr() then (Nil, None) else (Nil, Some(expr))
+  end
+
+// {k => v, l => w} is put(l, w, put(k, v, empty())), and {k => v; m} is put(k, v, m), with the entries and the rest
+function map_entries(expr: Expr): Option[List[Expr * Expr] * Option[Expr]] :=
+  match expr
+    case EApp(EVar(Var(n, _)), [_, _, _]) if n == declared_name("put") => Some(map_chain(expr))
+    case _ => if expr == empty_expr() then Some((Nil, None)) else None
+  end
+
+function map_chain(expr: Expr): List[Expr * Expr] * Option[Expr] :=
   match expr
     case EApp(EVar(Var(n, _)), [k, v, m]) if n == declared_name("put") =>
-      match map_entries(m)
-        case Some(entries) => Some(entries ++ [(k, v)])
-        case None => None
+      match map_chain(m)
+        case (entries, rest) => (entries ++ [(k, v)], rest)
       end
-    case _ => if expr == empty_expr() then Some(Nil) else None
+    case _ => if expr == empty_expr() then (Nil, None) else (Nil, Some(expr))
   end
 
 // [a for x in c, y in d if q], {a for x in c if q}, or {k => v for x in c if q}, as nested folds whose functions take the

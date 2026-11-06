@@ -38,10 +38,10 @@ function value_ptr(): CType :=
 
 // names of ulang with their modules as names of C, where other characters than letters, digits, and _ are their codes
 function mangle(n: Name): Str :=
-  string([d for c in chars(show_name(n)), d in mangle_char(c)])
+  str([d for c in list(show_name(n)), d in mangle_char(c)])
 
 function mangle_char(c: Char): List[Char] :=
-  if is_letter(c) or is_digit(c) or c == '_' then [c] else chars("_" ++ show(ord(c)) ++ "_")
+  if is_letter(c) or is_digit(c) or c == '_' then [c] else list("_" ++ show(ord(c)) ++ "_")
 
 function fun_name(n: Name, k: Int): Str :=
   "f_" ++ mangle(n) ++ "_" ++ show(k)
@@ -73,8 +73,8 @@ function builtin_functions(): Map[Name, Str * Int] :=
     unqualified("==") => ("u_eq", 2),
     unqualified("compare") => ("u_compare", 2),
     unqualified("show") => ("u_show", 1),
-    Name(Some("str"), "chars") => ("u_chars", 1),
-    Name(Some("str"), "string") => ("u_string", 1),
+    Name(Some("str"), "list") => ("u_chars", 1),
+    Name(Some("str"), "str") => ("u_string", 1),
     Name(Some("str"), "ord") => ("u_ord", 1),
     Name(Some("str"), "chr") => ("u_chr", 1),
     Name(Some("prelude"), "++") => ("u_concat", 2),
@@ -93,7 +93,6 @@ function builtin_functions(): Map[Name, Str * Int] :=
     Name(Some("array"), "list") => ("u_array_list", 1),
     Name(Some("array"), "size") => ("u_array_size", 1),
     Name(Some("array"), "at") => ("u_array_at", 2),
-    Name(Some("array"), "put") => ("u_array_put", 3),
     Name(Some("array"), "slice") => ("u_array_slice", 3),
     Name(Some("array"), "foldr") => ("u_array_foldr", 3),
     Name(Some("array"), "foldl") => ("u_array_foldl", 3)
@@ -1040,7 +1039,7 @@ function cached(n: Str, bs: List[CStmt], r: CExpr): List[CStmt] :=
 // closures of functions, constructors, and builtins, which take their arguments from an array
 function wrappers(defs: Defs): List[CDecl] :=
   [fun_wrapper(p) for p in firsts(list(defs.funs))] ++ [w for p in constr_arities(defs), w in constr_wrapper(p)] ++
-  [builtin_wrapper(p) for p in seconds(entries(builtin_functions()))] ++ [proc_wrapper(p) for p in proc_arities(defs)]
+  [builtin_wrapper(p) for p in distinct(seconds(list(builtin_functions())))] ++ [proc_wrapper(p) for p in proc_arities(defs)]
 
 // procedures as values call the procedure with the values of the array ins and the pointers of the array outs
 function proc_wrapper(p: Name * (Int * Int)): CDecl :=

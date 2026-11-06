@@ -39,6 +39,8 @@ prefix 5 not
 
 infix 6 == != < <= > >=
 
+infix left 7 --
+
 infix right 8 ++
 
 infix left 9 + -

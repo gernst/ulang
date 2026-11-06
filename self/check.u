@@ -334,7 +334,7 @@ function assigned(env: Env, xs: List[Name]): Env :=
     case (_, Nil) => env
     case (Nil, _) => Nil
     case ([(n, l); rest], _) =>
-      if contains(n, xs) then [(n, l with assigned := true); assigned(rest, diff(xs, [n]))] else [(n, l); assigned(rest, xs)]
+      if contains(n, xs) then [(n, l with assigned := true); assigned(rest, xs -- [n])] else [(n, l); assigned(rest, xs)]
   end
 
 // the variables that both paths assign, where env and other have the same variables
@@ -387,7 +387,7 @@ procedure outputs(in p: Name, os: List[Var], env: Env) :=
 function fixed(su: Subst, env: Env): List[Type] :=
   match env
     case Nil => Nil
-    case [(_, Local((ps, t), _)); rest] => diff(free(zonk_type(su, t)), ps) ++ fixed(su, rest)
+    case [(_, Local((ps, t), _)); rest] => (free(zonk_type(su, t)) -- ps) ++ fixed(su, rest)
   end
 
 function generalize(su: Subst, env: Env, t: Type): List[Type] * Type :=
@@ -1424,7 +1424,7 @@ procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Ex
               raise UnknownField(acc)
           end
         case TMeta(_) =>
-          match visible_accessors(s, accessors(s.sig, f, entries(s.sig.named)))
+          match visible_accessors(s, accessors(s.sig, f, list(s.sig.named)))
             case Nil =>
               raise UnknownField(unqualified(f))
             case cs =>
@@ -1906,7 +1906,7 @@ procedure stmt_branches(
       call   pattern(in p, t, out p1, xs, ref s)
       assign inner := bind(xs) ++ env
       call   guard(in inner, g, out g1, ref s)
-      call   statement(in diff(assignable, names(xs)), b, out b1, ref inner, s)
+      call   statement(in assignable -- names(xs), b, out b1, ref inner, s)
       call   stmt_branches(in assignable, more, t, out rest, ref env, s)
       assign cases1 := [Branch(p1, g1, b1); rest], env := joined(drop(size(xs), inner), env)
   end
@@ -1923,7 +1923,7 @@ procedure handler_list(in assignable: List[Name], hs: List[Handler], out hs1: Li
       call   pattern(in p, u, out p1, xs, ref s)
       assign inner := bind(xs) ++ env
       call   guard(in inner, g, out g1, ref s)
-      call   statement(in diff(assignable, names(xs)), b, out b1, ref inner, s)
+      call   statement(in assignable -- names(xs), b, out b1, ref inner, s)
       call   handler_list(in assignable, more, out rest, ref env, s)
       assign hs1 := [Handler(u, p1, g1, b1); rest], env := joined(drop(size(xs), inner), env)
   end
@@ -1945,7 +1945,7 @@ procedure declare_sort(in sig: Sig, n: Name) :=
   end
 
 procedure closed(in n: Name, ps: List[Id], ts: List[Type]) :=
-  local undeclared := diff(distinct([v for t in ts, v in free(t)]), params(ps))
+  local undeclared := distinct([v for t in ts, v in free(t)]) -- params(ps)
 
   if undeclared != Nil
     raise UndeclaredParams(n, undeclared)
@@ -2416,10 +2416,10 @@ procedure check_sections(in ds: List[Mod], out hidden: Set[Name], hidden_sorts: 
           call   check_signatures(in ex, im)
           call   check_arities(in im, ex)
           call   check_exposed(in d.name, ex, private_sorts(ex, im))
-          assign hidden := insert_all(private_names(ex, im), more), hidden_sorts := private_sorts(ex, im) ++ sorts
+          assign hidden := more ++ set(private_names(ex, im)), hidden_sorts := private_sorts(ex, im) ++ sorts
         case Unsectioned(cs) =>
           assign im := [qualify(d.name, c) for c in seconds(cs)]
-          assign hidden := insert_all(private_names(Nil, im), more), hidden_sorts := private_sorts(Nil, im) ++ sorts
+          assign hidden := more ++ set(private_names(Nil, im)), hidden_sorts := private_sorts(Nil, im) ++ sorts
       end
   end
 
@@ -2465,8 +2465,8 @@ procedure check_unit(in ds: List[Mod], before: Sig, imports: List[Id * List[Id]]
   assign extra := synthesized(decls, cmds, native_types(builtins))
   call   declare_funs(in extra, ref s)
   call   commands(in extra, out more, ref s)
-  assign hidden := insert_all([qualified_name(c) for c in more], hidden)
-  assign checked := Checked(cmds ++ more, exported(restrict(s.sig, firsts(own)), hidden, from_list(hidden_sorts)), own)
+  assign hidden := hidden ++ set([qualified_name(c) for c in more])
+  assign checked := Checked(cmds ++ more, exported(restrict(s.sig, firsts(own)), hidden, set(hidden_sorts)), own)
 
 // the commands of module d with qualified names, with the module of each, and their positions
 function decls_of(d: Mod): List[Pos * (Id * Cmd)] :=

@@ -2,9 +2,9 @@
 test characters() :=
   assert ord('a') == 97
   assert chr(98) == 'b'
-  assert chars("ab") == ['a', 'b']
-  assert string(['h', 'i']) == "hi"
-  assert chars("\"\\\n\t") == ['"', '\\', '\n', '\t']
+  assert list("ab") == ['a', 'b']
+  assert str(['h', 'i']) == "hi"
+  assert list("\"\\\n\t") == ['"', '\\', '\n', '\t']
   assert '\'' != '"'
 
 function vowel(c: Char): Bool :=

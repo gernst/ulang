@@ -76,12 +76,12 @@ function restrict(sig: Sig, ms: List[Id]): Sig :=
     owned_map(sig.datas, ms),
     owned_map(sig.members, ms),
     owned_map(sig.constrs, ms),
-    put_all(owned_named(entries(sig.named), ms), empty()),
+    map(owned_named(list(sig.named), ms)),
     sig.notations
   )
 
 function owned_map[V](m: Map[Name, V], ms: List[Id]): Map[Name, V] :=
-  put_all(owned(entries(m), ms), empty())
+  map(owned(list(m), ms))
 
 function owned[V](es: List[Name * V], ms: List[Id]): List[Name * V] :=
   match es
@@ -105,13 +105,13 @@ function in_modules(n: Name, ms: List[Id]): Bool :=
 // the declarations of both, whose names differ since they are qualified by their modules
 function union(a: Sig, b: Sig): Sig :=
   Sig(
-    put_all(entries(b.aliases), a.aliases),
-    put_all(entries(b.funs), a.funs),
-    put_all(entries(b.procs), a.procs),
-    put_all(entries(b.datas), a.datas),
-    put_all(entries(b.members), a.members),
-    put_all(entries(b.constrs), a.constrs),
-    union_named(entries(b.named), a.named),
+    a.aliases ++ b.aliases,
+    a.funs ++ b.funs,
+    a.procs ++ b.procs,
+    a.datas ++ b.datas,
+    a.members ++ b.members,
+    a.constrs ++ b.constrs,
+    union_named(list(b.named), a.named),
     union_notations(a.notations, b.notations)
   )
 
@@ -124,15 +124,15 @@ function exported(sig: Sig, values: Set[Name], sorts: Set[Name]): Sig :=
       without(sig.funs, values),
       without(sig.procs, values),
       without(sig.datas, sorts),
-      put_all([e for e in entries(without(sig.members, sorts)) if not exists(value_of(e), lambda k => contains(k, values))], empty()),
+      map([e for e in list(without(sig.members, sorts)) if not exists(value_of(e), lambda k => contains(k, values))]),
       without(sig.constrs, values),
       empty(),
       sig.notations
     ) in
-    kept with named := put_all([(key_of(e), [n for n in value_of(e) if declares(kept, n)]) for e in entries(sig.named)], empty())
+    kept with named := map([(key_of(e), [n for n in value_of(e) if declares(kept, n)]) for e in list(sig.named)])
 
 function without[V](m: Map[Name, V], names: Set[Name]): Map[Name, V] :=
-  put_all([e for e in entries(m) if not contains(key_of(e), names)], empty())
+  map([e for e in list(m) if not contains(key_of(e), names)])
 
 // a declaration of any kind named n
 function declares(sig: Sig, n: Name): Bool :=
@@ -275,7 +275,7 @@ function with_operators(notations: Notations, f: Fixity, prec: Int, ops: List[Id
 // the notations of both, where those of b count
 function union_notations(a: Notations, b: Notations): Notations :=
   Notations(
-    put_all(entries(b.prefix_ops), a.prefix_ops),
-    put_all(entries(b.postfix_ops), a.postfix_ops),
-    put_all(entries(b.infix_ops), a.infix_ops)
+    a.prefix_ops ++ b.prefix_ops,
+    a.postfix_ops ++ b.postfix_ops,
+    a.infix_ops ++ b.infix_ops
   )

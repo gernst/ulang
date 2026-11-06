@@ -12,6 +12,10 @@ export
 function get[A](i: Int, a: Array[A]): Option[A]
 function contains[A](x: A, a: Array[A]): Bool
 
+// whether p holds for some element, or for all
+function exists[A](a: Array[A], p: A -> Bool): Bool
+function forall[A](a: Array[A], p: A -> Bool): Bool
+
 builtin
 
 type Array[A]
@@ -25,9 +29,6 @@ function size[A](a: Array[A]): Int
 // the element at index i, from 0, or else OutOfBounds
 function at[A](i: Int, a: Array[A]): A
 
-// a copy of a with x at index i, or else OutOfBounds
-function put[A](i: Int, x: A, a: Array[A]): Array[A]
-
 // the elements from index i up to j, exclusively, where 0 <= i <= j <= size(a), or else OutOfBounds
 function slice[A](a: Array[A], i: Int, j: Int): Array[A]
 
@@ -36,6 +37,12 @@ function foldr[A, R](a: Array[A], acc: R, f: (A, R) -> R): R
 function foldl[A, R](a: Array[A], acc: R, f: (R, A) -> R): R
 
 implementation
+
+function exists[A](a: Array[A], p: A -> Bool): Bool :=
+  foldl(a, false, lambda found, x => found or p(x))
+
+function forall[A](a: Array[A], p: A -> Bool): Bool :=
+  foldl(a, true, lambda all, x => all and p(x))
 
 function get[A](i: Int, a: Array[A]): Option[A] :=
   if 0 <= i and i < size(a) then Some(at(i, a)) else None
@@ -48,6 +55,6 @@ test arrays() :=
 
   assert size(a) == 3 and at(0, a) == 1 and at(2, a) == 3 and get(1, a) == Some(2) and get(3, a) == None and get(-1, a) == None
   assert list(a) == [1, 2, 3] and list(array([])) == [] and contains(2, a) and not contains(4, a)
-  assert list(put(1, 5, a)) == [1, 5, 3] and list(a) == [1, 2, 3]
+  assert list(a) == [1, 2, 3]
   assert list(slice(a, 1, 3)) == [2, 3] and size(slice(a, 1, 1)) == 0
   assert foldr(a, Nil, Cons) == [1, 2, 3] and foldl(a, 0, lambda n, x => 10 * n + x) == 123

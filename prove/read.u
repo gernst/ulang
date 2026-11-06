@@ -656,7 +656,7 @@ function field_name(datatype: Name, t: Type): Id :=
       "xs"
 
     case TSort(Name(_, d), _) =>
-      string([chr(ord(at(0, d)) + 32)])
+      str([chr(ord(at(0, d)) + 32)])
 
     case _ =>
       "x"

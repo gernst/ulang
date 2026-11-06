@@ -70,11 +70,11 @@ function load(q: Prog): Run :=
 
 // the builtins without a module, and the functions of the builtin sections of the prelude, str, and array
 function builtin_names(): Set[Name] :=
-  from_list(
+  set(
     [unqualified(b) for b in ["<", "==", "compare", "show"]] ++
     [Name(Some("prelude"), b) for b in ["+", "-", "*", "/", "%", "++"]] ++
-    [Name(Some("str"), b) for b in ["chars", "string", "ord", "chr", "is_digit", "is_letter", "is_space", "size", "at", "contains", "slice", "join", "split", "quote", "number"]] ++
-    [Name(Some("array"), b) for b in ["array", "list", "size", "at", "put", "slice", "foldr", "foldl"]]
+    [Name(Some("str"), b) for b in ["list", "str", "ord", "chr", "is_digit", "is_letter", "is_space", "size", "at", "contains", "slice", "join", "split", "quote", "number"]] ++
+    [Name(Some("array"), b) for b in ["array", "list", "size", "at", "slice", "foldr", "foldl"]]
   )
 
 function is_builtin(n: Name): Bool :=
@@ -375,13 +375,13 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
 
     // strings are converted with the builtins of the interpreter of this program
 
-    case ("str.chars", [Lit(VStr(s))]) =>
-      assign v := list_value([Lit(VChar(c)) for c in chars(s)])
+    case ("str.list", [Lit(VStr(s))]) =>
+      assign v := list_value([Lit(VChar(c)) for c in list(s)])
 
-    case ("str.string", [w]) =>
+    case ("str.str", [w]) =>
       match list_elements(w)
         case Some(ws) =>
-          assign v := Lit(VStr(string(char_values(ws))))
+          assign v := Lit(VStr(str(char_values(ws))))
         case _ =>
           raise NotList(w)
       end
@@ -477,13 +477,6 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       end
 
       assign v := at(i, a)
-
-    case ("array.put", [Lit(VInt(i)), x, Arr(a)]) =>
-      if i < 0 or i >= size(a)
-        raise failure(out_of_bounds_name(), [Lit(VInt(i)), Lit(VInt(size(a)))])
-      end
-
-      assign v := Arr(put(i, x, a))
 
     case ("array.slice", [Arr(a), Lit(VInt(i)), Lit(VInt(j))]) =>
       if i < 0 or i > size(a) or i > j
@@ -657,10 +650,10 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
 
     case SAssign(pairs) =>
       call   evaluate_all(in run, env, seconds(pairs), out vs, ref cache)
-      assign env := put_all(zip(names(firsts(pairs)), vs), env)
+      assign env := env ++ map(zip(names(firsts(pairs)), vs))
 
     case SBlock(locals, body) =>
-      call scoped(in run, names(locals), remove_all(names(locals), env), body, ref env, cache)
+      call scoped(in run, names(locals), env -- set(names(locals)), body, ref env, cache)
 
     case SIf(cond, left, right) =>
       call evaluate(in run, env, cond, out v, ref cache)
@@ -689,7 +682,7 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
           call invoke(in run, n, vs, names(refs), out vs, ref env, cache)
       end
 
-      assign env := put_all(zip(names(outs), vs), env)
+      assign env := env ++ map(zip(names(outs), vs))
 
     case SMatch(arg, cases) =>
       call   evaluate(in run, env, arg, out v, ref cache)
@@ -906,12 +899,12 @@ procedure run_body(
   ref env: Bindings,
       cache: Map[Name, Value]
 ) :=
-  local inner := bind_all(xs, ins, put_all(values_in(zip(names(zs), refs), env), remove_all(names(ys ++ zs), around)))
+  local inner := bind_all(xs, ins, (around -- set(names(ys ++ zs))) ++ map(values_in(zip(names(zs), refs), env)))
 
   call exec(in run, body, ref inner, cache)
 
   assign outs := read_outs(n, names(ys), inner)
-  assign env := put_all(values_in(zip(refs, names(zs)), inner), env)
+  assign env := env ++ map(values_in(zip(refs, names(zs)), inner))
 
 // the pairs of the names a and the values of the names b in env, for those that have values
 function values_in(ps: List[Name * Name], env: Bindings): List[Name * Value] :=

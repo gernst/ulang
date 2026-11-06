@@ -96,7 +96,7 @@ procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int)
     if c == '\\'
       match unescape(peek(text, offset + 1))
         case Some(d) =>
-          assign parts := [string([d]), slice(text, from, offset); parts], offset := offset + 2
+          assign parts := [str([d]), slice(text, from, offset); parts], offset := offset + 2
           assign from := offset
         case None =>
           raise LexError("invalid escape", offset)

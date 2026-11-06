@@ -1,6 +1,6 @@
-// parse error: a literal {...} has no rest after ; at 6.3
+// parse error: the rest of a literal {...} after ; is a set or a map, not an entry at 6.3
 
-import set
+import map
 
-function f(xs: Set[Int]): Set[Int] :=
-  {1, 2; xs}
+function f(m: Map[Int, Int]): Map[Int, Int] :=
+  {1 => 2; 3 => 4}

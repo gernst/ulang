@@ -150,10 +150,10 @@ function show_token(tok: Token): Str :=
   match tok
     case TName(name) => name
     case TSym(s) => s
-    case TPunct(c) => string([c])
+    case TPunct(c) => str([c])
     case TNum(n) => show(n)
     case TStr(s) => quote(s)
-    case TChar(c) => "'" ++ string([c]) ++ "'"
+    case TChar(c) => "'" ++ str([c]) ++ "'"
     case TEnd => "end of input"
   end
 
@@ -747,7 +747,8 @@ procedure parse_set_or_map(in notations: Notations, params: List[Id], out expr: 
 
   call expect(in TPunct('}'), ref toks)
 
-// the elements or entries of a literal, or its comprehension, after {
+// the elements or entries of a literal, or its comprehension, after {, where {a, b; s} adds a and b to s, and
+// {k => v; m} puts k => v into m
 procedure parse_set_or_map_elements(
   in  notations: Notations,
       params: List[Id],
@@ -759,11 +760,11 @@ procedure parse_set_or_map_elements(
 
   call   parse_display(in notations, params, parse_element, out elements, rest, ref toks)
 
-  match elements
-    case _ if rest != None =>
-      raise ParseError("a literal {...} has no rest after ;", offset)
+  match (elements, rest)
+    case (_, Some((_, Some(_)))) =>
+      raise ParseError("the rest of a literal {...} after ; is a set or a map, not an entry", offset)
 
-    case [(k, Some(v))] if at_keyword(toks, "for") =>
+    case ([(k, Some(v))], None) if at_keyword(toks, "for") =>
       call parse_comprehension(
         in notations, params,
           "foldl", declared_app("empty", []), declared_app("put", [k, v, EVar(acc_var())]),
@@ -771,7 +772,7 @@ procedure parse_set_or_map_elements(
         ref toks
       )
 
-    case [(k, None)] if at_keyword(toks, "for") =>
+    case ([(k, None)], None) if at_keyword(toks, "for") =>
       call parse_comprehension(
         in notations, params,
           "foldr", declared_app("empty", []), declared_app("insert", [k, EVar(acc_var())]),
@@ -784,10 +785,17 @@ procedure parse_set_or_map_elements(
         case ([_; _], [_; _]) =>
           raise ParseError("a literal {...} has either elements a or entries k => v", offset)
         case (Nil, pairs) =>
-          assign expr := foldl(pairs, declared_app("empty", []), put_entry)
+          assign expr := foldl(pairs, rest_of(rest), put_entry)
         case (xs, _) =>
-          assign expr := foldr(xs, declared_app("empty", []), lambda a, s => declared_app("insert", [a, s]))
+          assign expr := foldr(xs, rest_of(rest), lambda a, s => declared_app("insert", [a, s]))
       end
+  end
+
+// the set or map after ; that the elements or entries are added to, or else the empty one
+function rest_of(rest: Option[Expr * Option[Expr]]): Expr :=
+  match rest
+    case Some((r, _)) => r
+    case None => declared_app("empty", [])
   end
 
 // an element a, or an entry k => v
@@ -1272,7 +1280,7 @@ function untested(cmds: List[Pos * Cmd]): List[Pos * Cmd] :=
   end
 
 function with_mods(loader: Loader, mods: List[Mod]): Loader :=
-  loader with sigs := put_all([(d.name, sig_of(d)) for d in mods], loader.sigs)
+  loader with sigs := loader.sigs ++ map([(d.name, sig_of(d)) for d in mods])
 
 // the signature of module d with its own notations, which a module without an export section keeps private
 function sig_of(d: Mod): Sig :=

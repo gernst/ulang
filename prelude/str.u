@@ -15,8 +15,8 @@ function get(i: Int, s: Str): Option[Char]
 builtin
 
 // the characters of a string, and the string of characters
-function chars(s: Str): List[Char]
-function string(cs: List[Char]): Str
+function list(s: Str): List[Char]
+function str(cs: List[Char]): Str
 
 // the code of a character, and the character of a code from 0 to 65535, or else NoCharacter
 function ord(c: Char): Int
