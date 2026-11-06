@@ -1,5 +1,6 @@
 // the order and equality that the module of an abstract type declares with compare and ==, which builtins use for its
-// values everywhere, also inside other values and in generic code, and the order of a datatype with visible constructors
+// values everywhere, also inside other values and in generic code, the order of a datatype with visible constructors,
+// and the shows that datatypes declare
 
 import set
 import map
@@ -46,3 +47,41 @@ data Version :=
 
 function compare(a: Version, b: Version): Int :=
   compare((b.major, b.minor), (a.major, a.minor))
+
+// show gives the text of a value, with strings in quotes, where a datatype may declare its own show, which the builtin
+// then uses for its values, also inside other values and in generic code, as for the shows of the library
+
+data Color :=
+  | Red
+  | Green
+
+data Pair[A, B] :=
+  | Pair(A, B)
+
+// a show of a generic datatype, which shows its components by the builtin
+function show[A, B](p: Pair[A, B]): Str :=
+  match p
+    case Pair(a, b) => "<" ++ show(a) ++ " | " ++ show(b) ++ ">"
+  end
+
+function texts[A](xs: List[A]): List[Str] :=
+  [show(x) for x in xs]
+
+test builtin_show() :=
+  assert show(1) == "1" and show(-12) == "-12" and show(true) == "true"
+  assert show("a\"b") == "\"a\\\"b\"" and show('c') == "'c'"
+  assert show([1, 2]) == "[1, 2]" and show((1, "x")) == "(1, \"x\")" and show(Some(Red)) == "Some(Red)"
+  assert show(Nil) == "[]" and show([Green; Nil]) == "[Green]"
+
+test declared_show() :=
+  assert show(Pair(1, "a")) == "<1 | \"a\">"
+  assert show([Pair(1, Red), Pair(2, Green)]) == "[<1 | Red>, <2 | Green>]"
+  assert show((Some(Pair('x', Nil)), Red)) == "(Some(<'x' | []>), Red)"
+  assert texts([Pair(true, false)]) == ["<true | false>"]
+  assert show(Pair(Pair(1, 2), [Pair(3, 'x')])) == "<<1 | 2> | [<3 | 'x'>]>"
+
+test library_shows() :=
+  local s := {3, 1, 2}, m := {"b" => [1], "a" => []}, e: Set[Int] := {}
+
+  assert show(s) == "{1, 2, 3}" and show(e) == "{}" and show(m) == "{\"a\" => [], \"b\" => [1]}"
+  assert show([Some(s)]) == "[Some({1, 2, 3})]" and show(Pair(m, e)) == "<{\"a\" => [], \"b\" => [1]} | {}>"

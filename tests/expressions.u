@@ -130,3 +130,79 @@ test negative_literals() :=
 
   assert -2 + 5 == 3 and 2 * -3 == -6 and - x == -3 and -(1 + 2) == -3
   assert [sign_name(-5), sign_name(0), sign_name(7)] == ["negative", "zero", "positive"]
+
+// functions
+
+function fact(n: Int): Int :=
+  if n == 0 then 1 else n * fact(n - 1)
+
+function id[A](x: A): A :=
+  x
+
+function twice[A](f: A -> A, x: A): A :=
+  f(f(x))
+
+// let generalizes its bindings
+function poly(): Bool :=
+  let f := id in f(1) == twice(f, 1) and f(true)
+
+function generic(): Bool :=
+  let g := lambda y => y in g(1) == 1 and g(true)
+
+type Pred[A] :=
+  A -> Bool
+
+function pos(): Pred[Int] :=
+  lambda x => x > 0
+
+test functions() :=
+  assert fact(5) == 120
+  assert twice(lambda x => x * 3, 1) == 9
+  assert poly()
+  assert generic()
+  assert pos()(1)
+  assert pos()(0) == false
+
+// further parameter lists return functions, which may be applied partially
+function plus(a: Int)(b: Int): Int :=
+  a + b
+
+function sum3(a: Int)(b: Int, c: Int)(): Int :=
+  a + b + c
+
+test curried() :=
+  assert plus(1)(2) == 3
+  assert twice(plus(3), 1) == 7
+  assert sum3(1)(2, 3)() == 6
+  assert (let f := plus in f(1)(2)) == 3
+
+// operators are declared before their use, and defined as functions
+infix left 11 **
+
+function **(m: Int, n: Int): Int :=
+  if n == 0 then 1 else m * m ** (n - 1)
+
+// types use the same operators, -> associates to the right
+function curry(f: (Int, Int) -> Int): Int -> Int -> Int :=
+  lambda x => lambda y => f(x, y)
+
+// functions are overloaded by their number of arguments
+function size(xs: List[Int]): Int :=
+  match xs
+    case Nil => 0
+    case [_; ys] => 1 + size(ys)
+  end
+
+function size(xs: List[Int], ys: List[Int]): Int :=
+  size(xs) + size(ys)
+
+test notations() :=
+  assert [1; [2] ++ [3]] ==  [1, 2, 3]
+  assert 2 ** 3 + 1 == 9
+  assert 2 * 3 ** 2 == 18
+  assert -2 * -3 == 6
+  assert curry(lambda a, b => a - b)(5)(3) == 2
+  assert false ==> false
+  assert not (true ==> false)
+  assert size([1, 2]) == 2
+  assert size([1], [2, 3]) == 3

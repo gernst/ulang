@@ -1,4 +1,0 @@
-// a module for tests/errors/private-module.u without an export section, whose declarations are all private
-
-function plain_helper(n: Int): Int :=
-  n + 1

@@ -1,0 +1,17 @@
+// a module for tests/errors/modules/transitive-name.u, transitive-notation.u, and transitive-field.u, which imports
+// tests/errors/modules/inner.u and exports only its own functions, one with a result of a type of inner.u
+
+import inner
+
+export
+
+function quad(n: Int): Int
+function cell(n: Int): Cell
+
+implementation
+
+function quad(n: Int): Int :=
+  twice(twice(n))
+
+function cell(n: Int): Cell :=
+  Cell(n)
