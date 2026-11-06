@@ -39,13 +39,13 @@ prefix 5 not
 
 infix 6 == != < <= > >=
 
-infix right 7 ++
+infix right 8 ++
 
-infix left 8 + -
+infix left 9 + -
 
-infix left 9 * / %
+infix left 10 * / %
 
-prefix 10 -
+prefix 11 -
 
 function not(b: Bool): Bool
 function ==>(a: Bool, b: Bool): Bool

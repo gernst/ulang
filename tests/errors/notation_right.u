@@ -2,7 +2,7 @@
 
 export
 
-infix right 8 <+>
+infix right 9 <+>
 
 function <+>(a: Int, b: Int): Int
 

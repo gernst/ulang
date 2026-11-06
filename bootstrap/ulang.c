@@ -30275,7 +30275,7 @@ u_value f_format_46_test_operators_0(void) {
   static struct u_object l_not_3096 = U_LIT("not");
   static struct u_object l__45__3097 = U_LIT("-");
   u_pop(handler);
-  cache = f_parse_46_declare_commands_2(f_parse_46_empty_loader_0(), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CNotation, 3, &o_syntax_46_FInfix, u_mk_int(6), u_mk_con(&n_list_46_Cons, 2, &l__61__61__3091, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CNotation, 3, &o_syntax_46_FRight, u_mk_int(7), u_mk_con(&n_list_46_Cons, 2, &l__94__3092, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CNotation, 3, &o_syntax_46_FLeft, u_mk_int(8), u_mk_con(&n_list_46_Cons, 2, &l__43__3093, u_mk_con(&n_list_46_Cons, 2, &l__45__3094, &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CNotation, 3, &o_syntax_46_FLeft, u_mk_int(9), u_mk_con(&n_list_46_Cons, 2, &l__42__3095, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CNotation, 3, &o_syntax_46_FPrefix, u_mk_int(5), u_mk_con(&n_list_46_Cons, 2, &l_not_3096, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CNotation, 3, &o_syntax_46_FPrefix, u_mk_int(10), u_mk_con(&n_list_46_Cons, 2, &l__45__3097, &o_list_46_Nil)), &o_list_46_Nil)))))));
+  cache = f_parse_46_declare_commands_2(f_parse_46_empty_loader_0(), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CNotation, 3, &o_syntax_46_FInfix, u_mk_int(6), u_mk_con(&n_list_46_Cons, 2, &l__61__61__3091, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CNotation, 3, &o_syntax_46_FRight, u_mk_int(8), u_mk_con(&n_list_46_Cons, 2, &l__94__3092, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CNotation, 3, &o_syntax_46_FLeft, u_mk_int(9), u_mk_con(&n_list_46_Cons, 2, &l__43__3093, u_mk_con(&n_list_46_Cons, 2, &l__45__3094, &o_list_46_Nil))), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CNotation, 3, &o_syntax_46_FLeft, u_mk_int(10), u_mk_con(&n_list_46_Cons, 2, &l__42__3095, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CNotation, 3, &o_syntax_46_FPrefix, u_mk_int(5), u_mk_con(&n_list_46_Cons, 2, &l_not_3096, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_CNotation, 3, &o_syntax_46_FPrefix, u_mk_int(11), u_mk_con(&n_list_46_Cons, 2, &l__45__3097, &o_list_46_Nil)), &o_list_46_Nil)))))));
   return cache;
 }
 
@@ -30299,9 +30299,9 @@ u_value f_format_46_test_notations_0(void) {
     cache = NULL;
     u_reraise(handler);
   }
-  static struct u_object l_infix_32_right_32_7_32__43__43__3099 = U_LIT("infix right 7 ++\ninfix 6 ==\ninfix left 8 + -\ninfix left 9 *\nprefix 5 not\nprefix 10 -\n");
+  static struct u_object l_infix_32_right_32_8_32__43__43__3099 = U_LIT("infix right 8 ++\ninfix 6 ==\ninfix left 9 + -\ninfix left 10 *\nprefix 5 not\nprefix 11 -\n");
   u_pop(handler);
-  cache = &l_infix_32_right_32_7_32__43__43__3099;
+  cache = &l_infix_32_right_32_8_32__43__43__3099;
   return cache;
 }
 

@@ -42,7 +42,7 @@ test curried() :=
   assert (let f := add in f(1)(2)) == 3
 
 // operators are declared before their use, and defined as functions
-infix left 10 **
+infix left 11 **
 
 function **(m: Int, n: Int): Int :=
   if n == 0 then 1 else m * m ** (n - 1)

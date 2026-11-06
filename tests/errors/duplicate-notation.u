@@ -1,2 +1,2 @@
 // parse error: operator + is already declared at 2.1
-infix left 8 +
+infix left 9 +

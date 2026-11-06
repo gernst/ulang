@@ -2,7 +2,7 @@
 test operator_before_declaration() :=
   assert [1] +++ [2] == [1, 2]
 
-infix right 7 +++
+infix right 8 +++
 
 function +++[A](xs: List[A], ys: List[A]): List[A] :=
   xs ++ ys

@@ -616,11 +616,11 @@ function test_operators(): Loader :=
     empty_loader(),
     [
       CNotation(FInfix, 6, ["=="]),
-      CNotation(FRight, 7, ["^"]),
-      CNotation(FLeft, 8, ["+", "-"]),
-      CNotation(FLeft, 9, ["*"]),
+      CNotation(FRight, 8, ["^"]),
+      CNotation(FLeft, 9, ["+", "-"]),
+      CNotation(FLeft, 10, ["*"]),
       CNotation(FPrefix, 5, ["not"]),
-      CNotation(FPrefix, 10, ["-"])
+      CNotation(FPrefix, 11, ["-"])
     ]
   )
 
@@ -670,13 +670,13 @@ test bodies() :=
   local body := SBlock([x, y], [SAssign([(Var(x.name, THole), expr_int(1))]), SIf(EVar(y), SBlock(Nil, [SSkip]), SIf(EVar(x), SBlock(Nil, Nil), SSkip))])
 
   assert show_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y\n  skip\nelse if x\nend"
-  assert show_cmd(test_operators(), CNotation(FLeft, 8, ["+", "-"]), Nil) == Some("infix left 8 + -")
+  assert show_cmd(test_operators(), CNotation(FLeft, 9, ["+", "-"]), Nil) == Some("infix left 9 + -")
 
 // the parser, tested by the trees of single constructs, parsed with their own notations from the empty context, which reads no
 // files, and by printing a program in the layout of the printer back as it is
 
 function test_notations(): Str :=
-  "infix right 7 ++\ninfix 6 ==\ninfix left 8 + -\ninfix left 9 *\nprefix 5 not\nprefix 10 -\n"
+  "infix right 8 ++\ninfix 6 ==\ninfix left 9 + -\ninfix left 10 *\nprefix 5 not\nprefix 11 -\n"
 
 // the body of a function that is e
 procedure parsed(in e: Str, out body: Expr) :=
@@ -746,7 +746,7 @@ test parsed_comprehensions() :=
 
 // a program in the layout of the printer, with the translations of locals, else if, fields, and updates, is printed back
 test printed_back() :=
-  local p: Prog, text := "infix left 8 +\n\ndata R :=\n  | R(f: Int, g: Int)\n\nprocedure p(in r: R, out n: Int) :=\n  local s := (r with f := 1), k: Int\n  if s.f + r.g\n    assign n := 1\n  else if r.f\n    assign k := 2, n := k\n  else\n    skip\n  end\n"
+  local p: Prog, text := "infix left 9 +\n\ndata R :=\n  | R(f: Int, g: Int)\n\nprocedure p(in r: R, out n: Int) :=\n  local s := (r with f := 1), k: Int\n  if s.f + r.g\n    assign n := 1\n  else if r.f\n    assign k := 2, n := k\n  else\n    skip\n  end\n"
 
   call   parse_text(in text, empty_loader(), out p)
   assert show_program(Nil, [Mod("main", Nil, Unsectioned(unplaced(p.cmds)))]) == text

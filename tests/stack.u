@@ -2,7 +2,7 @@
 
 export
 
-infix right 7 <+
+infix right 8 <+
 
 data Stack[A] :=
   | Empty
