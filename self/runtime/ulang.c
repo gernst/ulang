@@ -526,7 +526,7 @@ u_value u_number(u_value s) {
 
 // the functions of the builtin section of array.u
 
-// the array of n elements, of a literal #[a, b]
+// the array of n elements, of a literal |a, b|
 u_value u_mk_array(int n, ...) {
   va_list args;
   va_start(args, n);
@@ -720,12 +720,17 @@ u_value u_con_show(u_value v) {
 
 static u_value show_array(u_value v) {
   struct u_text t = {NULL, 0, 0};
-  append(&t, "#[");
+  append(&t, "|");
   for (int i = 0; i < v->size; i++) {
+    u_value s = u_show(v->items[i]);
+    // a first element that starts with || in parentheses, since the parser reads ||| as an empty array before a |
+    int enclose = i == 0 && s->length >= 2 && s->text[0] == '|' && s->text[1] == '|';
     if (i > 0) append(&t, ", ");
-    append_shown(&t, v->items[i]);
+    if (enclose) append(&t, "(");
+    append_n(&t, s->text, (size_t)s->length);
+    if (enclose) append(&t, ")");
   }
-  append(&t, "]");
+  append(&t, "|");
   return text_value(&t);
 }
 

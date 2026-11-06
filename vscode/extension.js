@@ -49,8 +49,8 @@ function blocks(document) {
   return result;
 }
 
-// import, export, and implementation stand out in bold in the color of modules, whatever the theme, and export and
-// implementation have a rule above them, since they divide a module into its interface and its implementation
+// import, export, builtin, and implementation stand out in bold in the color of modules, whatever the theme, and the
+// sections have a rule above them, since they divide a module into its interface, its builtins, and its implementation
 function decorateSections(context) {
   const keyword = vscode.window.createTextEditorDecorationType({
     fontWeight: "bold",
@@ -70,7 +70,7 @@ function decorateSections(context) {
     const sections = [];
     if (editor.document.languageId === "ulang") {
       for (let line = 0; line < editor.document.lineCount; line++) {
-        const match = /^(import|export|implementation)\b/.exec(editor.document.lineAt(line).text);
+        const match = /^(import|export|builtin|implementation)\b/.exec(editor.document.lineAt(line).text);
         if (!match) continue;
         keywords.push(new vscode.Range(line, 0, line, match[1].length));
         if (match[1] !== "import") sections.push(new vscode.Range(line, 0, line, 0));

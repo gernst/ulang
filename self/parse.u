@@ -48,7 +48,7 @@ function keywords(): Set[Id] :=
 
 // symbols with a fixed meaning, which cannot be operators
 function reserved(): Set[Str] :=
-  {"=", "=>", ":=", ":", "|", "#"}
+  {"=", "=>", ":=", ":"}
 
 // the operands of types, expressions, and patterns, and how operators apply to them
 
@@ -134,7 +134,7 @@ function at_comma(toks: Tokens): Bool :=
   at_punct(toks, ',')
 
 function at_bar(toks: Tokens): Bool :=
-  head_token(toks) == TSym("|")
+  head_token(toks) == TPunct('|')
 
 function at_mode(toks: Tokens): Bool :=
   at_keyword(toks, "in") or at_keyword(toks, "out") or at_keyword(toks, "ref")
@@ -157,9 +157,14 @@ function show_token(tok: Token): Str :=
     case TEnd => "end of input"
   end
 
-// the error that what is expected but the next token is found
+// the error that what is expected but the next token is found, where a keyword is not a name
 function expected(what: Str, toks: Tokens): ParseError :=
-  ParseError(what ++ " expected but " ++ show_token(head_token(toks)) ++ " found", head_offset(toks))
+  match head_token(toks)
+    case TName(w) if contains(w, keywords()) and (what == "name" or what == "pattern") =>
+      ParseError("keyword " ++ w ++ " is not a name", head_offset(toks))
+    case tok =>
+      ParseError(what ++ " expected but " ++ show_token(tok) ++ " found", head_offset(toks))
+  end
 
 // the value of a literal token
 function literal_at(toks: Tokens): Option[Val] :=
@@ -547,8 +552,7 @@ function starts_expr(notations: Notations, tok: Token): Bool :=
     case TNum(_) => true
     case TStr(_) => true
     case TChar(_) => true
-    case TPunct(c) => c == '(' or c == '[' or c == '{'
-    case TSym(s) => s == "#"
+    case TPunct(c) => c == '(' or c == '[' or c == '{' or c == '|'
     case _ => false
   end
 
@@ -644,12 +648,12 @@ procedure parse_expr_atom(in notations: Notations, params: List[Id], out expr: E
       end
 
     case (_, TPunct('[')) =>
-      call parse_list(in notations, params, out expr, ref toks)
+      call parse_list(in notations, params, ']', out expr, ref toks)
 
-    // #[a, b] and #[e for x in c if q] are the arrays of the elements of the list or the comprehension
-    case (_, TSym("#")) if second_token(toks) == TPunct('[') =>
-      call   advance(ref toks)
-      call   parse_list(in notations, params, out a, ref toks)
+    // |a, b| and |e for x in c if q| are the arrays of the elements of the list or the comprehension, where a | that starts
+    // an operand opens an array and a | after an operand closes it, | |1|, |2| |
+    case (_, TPunct('|')) =>
+      call   parse_list(in notations, params, '|', out a, ref toks)
       assign expr := declared_app("array", [a])
 
     case (_, TPunct('{')) =>
@@ -899,13 +903,19 @@ function option_list[A](o: Option[A]): List[A] :=
     case None => Nil
   end
 
-// [a, b] is a :: b :: Nil, [a, b; c] is a :: b :: c, and [result for x in xs, y in ys if test], where if test is optional
-procedure parse_list(in notations: Notations, params: List[Id], out expr: Expr, ref toks: Tokens) :=
+// the | after the | that opens an array opens an element, ||1|, |2||, if an operand other than | starts after it, and else
+// closes an empty array, ||, so that an array whose first element starts with | needs parentheses, |(||)|
+function opens_inner(notations: Notations, toks: Tokens): Bool :=
+  second_token(toks) != TPunct('|') and starts_expr(notations, second_token(toks))
+
+// [a, b] is a :: b :: Nil, [a, b; c] is a :: b :: c, and [result for x in xs, y in ys if test], where if test is optional,
+// up to close, which is ] of a list and | of an array, which has no rest
+procedure parse_list(in notations: Notations, params: List[Id], close: Char, out expr: Expr, ref toks: Tokens) :=
   local exprs: List[Expr], rest: Option[Expr]
 
   call advance(ref toks)
 
-  if at_punct(toks, ']')
+  if at_punct(toks, close) and not (close == '|' and opens_inner(notations, toks))
     assign expr := nil_expr()
   else
     call parse_display(in notations, params, parse_expr, out exprs, rest, ref toks)
@@ -914,12 +924,15 @@ procedure parse_list(in notations: Notations, params: List[Id], out expr: Expr, 
       case ([first], None) if at_keyword(toks, "for") =>
         call parse_comprehension(in notations, params, "foldr", nil_expr(), expr_cons(first, EVar(acc_var())), out expr, ref toks)
 
+      case (_, Some(_)) if close == '|' =>
+        raise ParseError("arrays have no rest", head_offset(toks))
+
       case _ =>
         assign expr := cons_all(expr_cons, exprs, or_default(rest, nil_expr()))
     end
   end
 
-  call expect(in TPunct(']'), ref toks)
+  call expect(in TPunct(close), ref toks)
 
 // case p if g => b, up to end
 procedure parse_cases[B](
@@ -1392,7 +1405,7 @@ procedure parse_data(in notations: Notations, out cmds: List[Cmd], ref toks: Tok
   call   parse_params(in notations, out params, ref toks)
   call   expect(in TSym(":="), ref toks)
 
-  if head_token(toks) == TSym("|")
+  if at_bar(toks)
     call advance(ref toks)
   end
 

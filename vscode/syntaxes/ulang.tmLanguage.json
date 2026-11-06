@@ -173,7 +173,7 @@
           ]
         },
         {
-          "match": "^(export|implementation)\\b",
+          "match": "^(export|builtin|implementation)\\b",
           "captures": {
             "1": {
               "name": "keyword.control.section.ulang"

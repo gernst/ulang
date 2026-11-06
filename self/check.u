@@ -26,11 +26,11 @@ data TypeError :=
   | NoOverload(Name, Type)
   | WrongArity(Name, Int)
   | AlreadyDefined(Name)
-  | Duplicate(Str)
-  | Ambiguous(Name, List[Name])
+  | Duplicate(Str, Str)
+  | Ambiguous(Name, List[Name * (List[Type] * Type)])
   | UnknownField(Name)
   | UnknownFieldType(Id, Type)
-  | CountMismatch(Int, Int)
+  | CountMismatch(Str, Str, Int, Int)
   | UnknownConstructor(Name)
   | NotExhaustive(Pat)
   | Unreachable(Pat)
@@ -823,7 +823,7 @@ procedure unifies(in xs: List[Type], ys: List[Type], ref s: State) :=
     case (Nil, Nil) =>
       skip
     case _ =>
-      raise CountMismatch(size(xs), size(ys))
+      raise CountMismatch("", "values", size(xs), size(ys))
   end
 
 // a fresh unknown for each of xs
@@ -860,26 +860,28 @@ procedure instantiate(in sc: List[Type] * Type, out t: Type, ref s: State) :=
       assign t := subst(zonk_type(s.sub, u), m)
   end
 
-procedure unique(in ns: List[Name]) :=
+// the names ns, which must be distinct, of what they are, e.g. formals
+procedure unique(in what: Str, ns: List[Name]) :=
   match repeated(ns)
     case Some(n) =>
-      raise Duplicate(n.base)
+      raise Duplicate(what, n.base)
     case None =>
       skip
   end
 
-procedure unique_ids(in ns: List[Id]) :=
+procedure unique_ids(in what: Str, ns: List[Id]) :=
   match repeated(ns)
     case Some(n) =>
-      raise Duplicate(n)
+      raise Duplicate(what, n)
     case None =>
       skip
   end
 
 // the one of the names ns that n refers to
-procedure same_length(in m: Int, n: Int) :=
+// the number n of the units of owner, which expects m of them, e.g. the arguments of a constructor
+procedure same_length(in owner: Str, unit: Str, m: Int, n: Int) :=
   if m != n
-    raise CountMismatch(m, n)
+    raise CountMismatch(owner, unit, m, n)
   end
 
 procedure arguments(in n: Name, k: Int, args: List[Type]) :=
@@ -921,7 +923,7 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
         case Nil =>
           raise UnknownSort(n)
         case ms =>
-          raise Ambiguous(n, ms)
+          raise Ambiguous(n, [(m, (Nil, THole)) for m in ms])
       end
   end
 
@@ -974,9 +976,9 @@ procedure knowns(in ts: List[Type], what: Name, out us: List[Type], ref s: State
       assign us := [u; rest]
   end
 
-// the variables of a lambda or let
-procedure formals(in xs: List[Var], out ys: List[Var], ref s: State) :=
-  call   unique(in names(xs))
+// the variables of a lambda, a let, or locals, which are what, e.g. formals
+procedure formals(in what: Str, xs: List[Var], out ys: List[Var], ref s: State) :=
+  call   unique(in what, names(xs))
   call   normalize_vars(in xs, out ys, ref s)
 
 procedure normalize_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
@@ -993,7 +995,7 @@ procedure normalize_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
 
 // the parameters and locals, which have types
 procedure signature(in xs: List[Var], out ys: List[Var], ref s: State) :=
-  call   unique(in names(xs))
+  call   unique(in "formal", names(xs))
   call   known_vars(in xs, out ys, ref s)
 
 procedure known_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
@@ -1139,7 +1141,7 @@ procedure settle(ref s: State) :=
             assign s := s1 with pending := rest, chosen := put(p.id, m, s1.chosen)
             call   solve(ref s)
           case _ =>
-            raise Ambiguous(p.name, firsts(p.cands))
+            raise Ambiguous(p.name, p.cands)
         end
       case Nil =>
         skip
@@ -1287,24 +1289,24 @@ procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
       call application(in env, f, args, out e1, t, ref s)
 
     case ELam(bound, body) =>
-      call   formals(in bound, out xs, ref s)
+      call   formals(in "formal", bound, out xs, ref s)
       call   infer(in bind(xs) ++ env, body, out b, u, ref s)
       assign e1 := ELam(xs, b), t := type_fun(types(xs), u)
 
     // the body sees the variables around it, but assigns only the outs and refs of the lambda
     case EProc(is, os, rs, body) =>
-      call   unique(in names(is ++ os ++ rs))
-      call   formals(in is, out xs, ref s)
-      call   formals(in os, out ys, ref s)
-      call   formals(in rs, out zs, ref s)
+      call   unique(in "formal", names(is ++ os ++ rs))
+      call   formals(in "formal", is, out xs, ref s)
+      call   formals(in "formal", os, out ys, ref s)
+      call   formals(in "formal", rs, out zs, ref s)
       assign inner := bind(xs) ++ unassigned(ys) ++ bind(zs) ++ env
       call   statement(in names(ys ++ zs), body, out y, ref inner, s)
       call   outputs(in unqualified("lambda"), ys, inner)
       assign e1 := EProc(xs, ys, zs, y), t := TProc(types(xs), types(ys), types(zs))
 
     case ELet(bound, body) =>
-      call   formals(in firsts(bound), out xs, ref s)
-      call   checks(in env, seconds(bound), types(xs), out exprs, ref s)
+      call   formals(in "binding", firsts(bound), out xs, ref s)
+      call   checks(in env, "the bindings", seconds(bound), types(xs), out exprs, ref s)
       call   solve(ref s)
       call   infer(in generalized(s, env, xs) ++ env, body, out b, u, ref s)
       assign e1 := ELet(zip(xs, exprs), b), t := u
@@ -1404,7 +1406,7 @@ procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Ex
 
       assign e1 := EApp(EVar(x), [arg1; rest1])
     case _ =>
-      raise CountMismatch(1, size(args))
+      raise CountMismatch("the access ." ++ f, "arguments", 1, size(args))
   end
 
 procedure apply(in env: Env, f: Type, args: List[Expr], out args1: List[Expr], r: Type, ref s: State) :=
@@ -1420,18 +1422,19 @@ procedure check(in env: Env, expr: Expr, t: Type, out e1: Expr, ref s: State) :=
   call   infer(in env, expr, out e1, u, ref s)
   call   unify(in u, t, ref s)
 
-procedure checks(in env: Env, exprs: List[Expr], ts: List[Type], out es1: List[Expr], ref s: State) :=
+// the expressions of what, checked against the types ts, as many
+procedure checks(in env: Env, what: Str, exprs: List[Expr], ts: List[Type], out es1: List[Expr], ref s: State) :=
   local e1: Expr, rest: List[Expr]
 
   match (exprs, ts)
     case ([e; more], [t; ts1]) =>
       call   check(in env, e, t, out e1, ref s)
-      call   checks(in env, more, ts1, out rest, ref s)
+      call   checks(in env, what, more, ts1, out rest, ref s)
       assign es1 := [e1; rest]
     case (Nil, Nil) =>
       assign es1 := Nil
     case _ =>
-      raise CountMismatch(size(ts), size(exprs))
+      raise CountMismatch(what, "values", size(ts), size(exprs))
   end
 
 procedure infers(in env: Env, exprs: List[Expr], out es1: List[Expr], ts: List[Type], ref s: State) :=
@@ -1512,7 +1515,7 @@ procedure reachable(in s: State, t: Type, before: List[Pat], cs: List[Pat * Bool
 
 procedure pattern(in pat: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) :=
   call   binders(in pat, t, out p1, xs, ref s)
-  call   unique(in names(xs))
+  call   unique(in "pattern variable", names(xs))
 
 procedure binders(in pat: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State) :=
   local u: Type, m: List[Type * Type], qs: List[Pat], ts: List[Type], k: Name
@@ -1546,7 +1549,7 @@ procedure binders(in pat: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State
 
       match constr_of(s.sig, k)
         case Some((ps, ks, r)) =>
-          call   same_length(in size(ks), size(args))
+          call   same_length(in "constructor " ++ k.base, "arguments", size(ks), size(args))
           call   instance(in ps, out m, ref s)
           call   unify(in subst(r, m), t, ref s)
           call   binder_list(in args, [subst(kt, m) for kt in ks], out qs, xs, ref s)
@@ -1581,7 +1584,7 @@ procedure pattern_constructor(in n: Name, ks: List[Name], k: Int, t: Type, out c
     case (_, [(c1, _)]) =>
       assign c := c1
     case _ =>
-      raise Ambiguous(n, firsts(firsts(ok)))
+      raise Ambiguous(n, firsts(ok))
   end
 
 // the constructors of ks with k arguments, each with the scheme of its datatype
@@ -1606,7 +1609,7 @@ procedure binder_list(in pats: List[Pat], ts: List[Type], out qs: List[Pat], xs:
     case (Nil, Nil) =>
       assign qs := Nil, xs := Nil
     case _ =>
-      raise CountMismatch(size(ts), size(pats))
+      raise CountMismatch("the pattern", "components", size(ts), size(pats))
   end
 
 procedure variable(in env: Env, assignable: List[Name], x: Var, out y: Var, ref s: State) :=
@@ -1649,15 +1652,15 @@ procedure statement(in assignable: List[Name], x: Stmt, out y: Stmt, ref env: En
       assign y := x
 
     case SAssign(pairs) =>
-      call   unique(in names(firsts(pairs)))
+      call   unique(in "assignment to", names(firsts(pairs)))
       call   variables(in env, assignable, firsts(pairs), out ys, ref s)
-      call   checks(in env, seconds(pairs), types(ys), out exprs, ref s)
+      call   checks(in env, "the assignment", seconds(pairs), types(ys), out exprs, ref s)
       assign y := SAssign(zip(ys, exprs)), env := assigned(env, names(ys))
     // the types of locals that are initialized at the start of the block may be inferred
 
     case SBlock(locals, body) =>
       call   untyped(in locals, initialized(body))
-      call   formals(in locals, out ys, ref s)
+      call   formals(in "local", locals, out ys, ref s)
       assign inner := unassigned(ys) ++ env
       call   statements(in names(ys) ++ assignable, body, out xs, ref inner, s)
       assign y := SBlock(ys, xs), env := drop(size(ys), inner)
@@ -1779,8 +1782,8 @@ procedure call_variable(
   call   fresh_list(in outs, out os, ref s)
   call   fresh_list(in refs, out rs, ref s)
   call   unify(in x.typ, TProc(is, os, rs), ref s)
-  call   unique(in names(outs ++ refs))
-  call   checks(in env, ins, is, out ins1, ref s)
+  call   unique(in "out or ref", names(outs ++ refs))
+  call   checks(in env, "procedure " ++ p.base, ins, is, out ins1, ref s)
   call   variables(in env, assignable, outs, out outs1, ref s)
   call   variables(in env, assignable, refs, out refs1, ref s)
   call   unifies(in types(outs1 ++ refs1), os ++ rs, ref s)
@@ -1819,7 +1822,7 @@ procedure overloaded_call(
 ) :=
   local ins1: List[Expr], is: List[Type], outs1: List[Var], refs1: List[Var], m: Name
 
-  call   unique(in names(outs ++ refs))
+  call   unique(in "out or ref", names(outs ++ refs))
   call   infers(in env, ins, out ins1, is, ref s)
   call   variables(in env, assignable, outs, out outs1, ref s)
   call   variables(in env, assignable, refs, out refs1, ref s)
@@ -1842,11 +1845,11 @@ procedure declared_call(
   match proc_of(s.sig, q)
     case Some((ps, is, os, rs)) =>
       call   instance(in ps, out m, ref s)
-      call   same_length(in size(is), size(ins))
-      call   same_length(in size(os), size(outs))
-      call   same_length(in size(rs), size(refs))
-      call   unique(in names(outs ++ refs))
-      call   checks(in env, ins, [subst(t, m) for t in is], out ins1, ref s)
+      call   same_length(in "procedure " ++ q.base, "ins", size(is), size(ins))
+      call   same_length(in "procedure " ++ q.base, "outs", size(os), size(outs))
+      call   same_length(in "procedure " ++ q.base, "refs", size(rs), size(refs))
+      call   unique(in "out or ref", names(outs ++ refs))
+      call   checks(in env, "procedure " ++ q.base, ins, [subst(t, m) for t in is], out ins1, ref s)
       call   variables(in env, assignable, outs, out outs1, ref s)
       call   variables(in env, assignable, refs, out refs1, ref s)
       call   unifies(in types(outs1 ++ refs1), [subst(t, m) for t in os ++ rs], ref s)
@@ -1941,7 +1944,7 @@ procedure declare_sorts(in cs: List[Id * Cmd], ref s: State) :=
     case [(m, CSort(n, ps, t)); rest] =>
       assign s := enter(s, m)
       call   declare_sort(in s.sig, n)
-      call   unique_ids(in ps)
+      call   unique_ids(in "type parameter", ps)
       call   known(in t, n, out u, ref s)
       call   closed(in n, ps, [u])
       assign s := with_sig(s, with_alias(s.sig, n, ps, u))
@@ -1956,7 +1959,7 @@ procedure declare_constrs(in cs: List[Id * Cmd], ref s: State) :=
       skip
     case [(m, CData(n, ps, ks)); rest] =>
       assign s := enter(s, m)
-      call   unique_ids(in ps)
+      call   unique_ids(in "type parameter", ps)
       assign s := with_sig(s, with_members(s.sig, n, [k.name for k in ks]))
       call   declare_constructors(in n, ps, ks, ref s)
       call   declare_constrs(in rest, ref s)
@@ -2006,8 +2009,8 @@ procedure declare_funs(in cs: List[Id * Cmd], ref s: State) :=
     case [(m, CFun(n, ps, bound, res, _)); rest] =>
       assign s := enter(s, m)
       call   overload(in s.sig, n, size(first_list(bound)))
-      call   unique_ids(in ps)
-      call   unique(in names(concat(bound)))
+      call   unique_ids(in "type parameter", ps)
+      call   unique(in "formal", names(concat(bound)))
       call   signatures(in bound, out xss, ref s)
       call   known(in res, n, out r, ref s)
       call   closed(in n, ps, [curried(xss, r)])
@@ -2026,7 +2029,7 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
     case [(m, CProc(n, ps, ins, outs, refs, _)); rest] =>
       assign s := enter(s, m)
       call   declare_name(in s.sig, n)
-      call   unique_ids(in ps)
+      call   unique_ids(in "type parameter", ps)
       call   signature(in ins ++ outs ++ refs, out xs, ref s)
       assign ts := types(xs)
       call   closed(in n, ps, ts)
@@ -2426,7 +2429,7 @@ procedure check_unit(in ds: List[Mod], before: Sig, imports: List[Id * List[Id]]
   call   declare_funs(in builtins, ref s)
   call   declare_procs(in builtins, ref s)
   call   check_sections(in ds, out hidden, hidden_sorts)
-  call   unique_ids(in block_names(decls))
+  call   unique_ids(in "declaration", block_names(decls))
   call   placed_commands(in placed_definitions(placed), out cmds, ref s)
   call   check_orders(in cmds, abstract_types(decls), hidden, hidden_sorts)
   assign extra := synthesized(decls, cmds, native_types(builtins))

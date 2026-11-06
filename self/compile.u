@@ -417,11 +417,11 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
           assign ss := Nil, r := global_value(defs, n, ty)
       end
 
-    // #[e for x in c if q] over a list or an array, which fills an array for as many elements as c has, without a list
+    // |e for x in c if q| over a list or an array, which fills an array for as many elements as c has, without a list
     case EApp(EVar(Var(n, _)), [EApp(EVar(Var(f, _)), [xs, EVar(Var(k, _)), ELam([x, acc], body)])]) if n == array_name() and k == nil_name() and contains(f, [list_foldr_name(), array_foldr_name()]) and consing(body, acc.name) != None =>
       call compile_filling(in defs, env, f, xs, x, body, acc.name, out ss, r, ref g)
 
-    // #[a, b], whose elements are the items of the array
+    // |a, b|, whose elements are the items of the array
     case EApp(EVar(Var(n, _)), [l]) if n == array_name() and list_literal(l) != None =>
       match list_literal(l)
         case Some(es) =>

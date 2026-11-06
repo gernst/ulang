@@ -12,6 +12,7 @@ function show_type(t: Type): Str
 function show_types(ts: List[Type]): Str
 function show_pat(pat: Pat): Str
 function text_of(v: Value): Str
+function array_text(texts: List[Str]): Str
 function show_name(n: Name): Str
 function symbolic(n: Id): Bool
 
@@ -29,10 +30,18 @@ function show_value(v: Value): Str :=
     case Obj(n, Nil) if n == nil_name() => "[]"
     case Obj(n, Nil) => n.base
     case Obj(n, vs) => n.base ++ "(" ++ show_values(vs) ++ ")"
-    case Arr(a) => "#[" ++ show_values(list(a)) ++ "]"
+    case Arr(a) => array_text([show_value(w) for w in list(a)])
     case Proc(_) => "<procedure>"
     case ProcClos(_, _, _, _, _) => "<procedure>"
     case _ => "<function>"
+  end
+
+// the array of the texts of its elements, |a, b|, where a first element that starts with || is in parentheses, |(||), a|,
+// since the parser reads ||| as an empty array before a |
+function array_text(texts: List[Str]): Str :=
+  match texts
+    case [t; rest] if size(t) >= 2 and slice(t, 0, 2) == "||" => "|" ++ join(", ", ["(" ++ t ++ ")"; rest]) ++ "|"
+    case _ => "|" ++ join(", ", texts) ++ "|"
   end
 
 function show_values(vs: List[Value]): Str :=

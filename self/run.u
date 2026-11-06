@@ -615,7 +615,7 @@ procedure show_in(in run: Run, v: Value, out s: Str, ref cache: Map[Name, Value]
       assign s := n.base ++ "(" ++ join(", ", texts) ++ ")"
     case Arr(a) =>
       call   show_all(in run, list(a), out texts, ref cache)
-      assign s := "#[" ++ join(", ", texts) ++ "]"
+      assign s := array_text(texts)
     case _ =>
       assign s := show_value(v)
   end

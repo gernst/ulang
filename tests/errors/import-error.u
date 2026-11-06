@@ -1,2 +1,2 @@
-// parse error: pattern expected but then found in broken
+// parse error: keyword then is not a name in broken
 import broken

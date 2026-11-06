@@ -1,3 +1,3 @@
-// parse error: pattern expected but then found at 3.7
+// parse error: keyword then is not a name at 3.7
 function f(): Int :=
   let then := 1 in then

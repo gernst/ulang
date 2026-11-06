@@ -404,6 +404,13 @@ function located_message(main: Id, e: TypeError): Str :=
     case _ => type_message(e)
   end
 
+// a candidate of an ambiguous name with its type, if known, which tells overloads of one module apart
+function candidate_text(c: Name * (List[Type] * Type)): Str :=
+  match c
+    case (m, (_, THole)) => show_name(m)
+    case (m, (_, t)) => show_name(m) ++ ": " ++ show_type(t)
+  end
+
 function type_message(e: TypeError): Str :=
   match e
     case UnknownSort(n) => "unknown sort " ++ n.base
@@ -417,11 +424,11 @@ function type_message(e: TypeError): Str :=
     case NoOverload(n, t) => "no declaration of " ++ n.base ++ " has the type " ++ show_type(t)
     case WrongArity(n, k) => n.base ++ " does not take " ++ show(k) ++ " arguments"
     case AlreadyDefined(n) => n.base ++ " is already defined"
-    case Duplicate(s) => "duplicate " ++ s
-    case Ambiguous(n, ns) => n.base ++ " is ambiguous: " ++ join(", ", [show_name(m) for m in ns])
+    case Duplicate(what, x) => "duplicate " ++ what ++ " " ++ x
+    case Ambiguous(n, cs) => n.base ++ " is ambiguous: " ++ join(", ", [candidate_text(c) for c in cs])
     case UnknownField(n) => field_message(split(n.base, '.'))
     case UnknownFieldType(f, t) => "the type " ++ show_type(t) ++ " of the value of " ++ f ++ " is not known"
-    case CountMismatch(k, m) => "expected " ++ show(k) ++ " values, got " ++ show(m)
+    case CountMismatch(owner, unit, k, m) => (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(m)
     case UnknownConstructor(n) => "unknown constructor " ++ n.base
     case NotExhaustive(p) => "match is not exhaustive, missing " ++ show_pat(p)
     case Unreachable(p) => "unreachable case " ++ show_pat(p)

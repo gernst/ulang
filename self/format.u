@@ -104,7 +104,7 @@ function prefix_text(op: Id, a: Str): Str :=
   if not symbolic(op) or is_symbol(at(0, a)) then op ++ " " ++ a else op ++ a
 
 function is_symbol(c: Char): Bool :=
-  contains(c, "-+*/%<>=!&|:^~?@#$")
+  contains(c, "-+*/%<>=!&:^~?@#$")
 
 // the function of an application, and the record of an access
 function atom_text(d: Doc): Str :=
@@ -132,8 +132,10 @@ function expr_doc(loader: Loader, indent: Str, expr: Expr): Doc :=
       Doc("[]", Atom)
     case EVar(x) =>
       Doc(x.name.base, Atom)
+    case EApp(EVar(Var(Name(Some("*"), "array"), _)), [a]) if cons_rest(a) == EVar(Var(unqualified("Nil"), THole)) =>
+      Doc(array_text([show_expr(loader, indent, e) for e in cons_items(a)]), Atom)
     case EApp(EVar(Var(Name(Some("*"), "array"), _)), [a]) =>
-      Doc("#" ++ atom_text(expr_doc(loader, indent, a)), Atom)
+      Doc(bars(atom_text(expr_doc(loader, indent, a))), Atom)
     case EApp(EVar(Var(Name(Some("*"), f), _)), args) =>
       translation_doc(loader, indent, f, expr, args)
     case EApp(EVar(Var(Name(None, "Cons"), _)), [_, _]) =>
@@ -240,6 +242,10 @@ function case_head(loader: Loader, indent: Str, pat: Pat, guard: Option[Expr]): 
     case Some(g) => "case " ++ show_pattern(loader, pat) ++ " if " ++ show_expr(loader, indent, g) ++ " =>"
     case None => "case " ++ show_pattern(loader, pat) ++ " =>"
   end
+
+// |a, b| of the text [a, b] of a list or a list comprehension
+function bars(text: Str): Str :=
+  "|" ++ slice(text, 1, size(text) - 1) ++ "|"
 
 function deeper(indent: Str): Str :=
   indent ++ "  "

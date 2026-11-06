@@ -29,10 +29,11 @@ procedure lex(in text: Str, out toks: Tokens)
 implementation
 
 function is_symbol(c: Char): Bool :=
-  contains(c, "-+*/%<>=!&|:^~?@#$")
+  contains(c, "-+*/%<>=!&:^~?@#$")
 
+// | always stands alone, between the constructors of a datatype and around arrays, which may start with a symbol, |-1|
 function is_punct(c: Char): Bool :=
-  contains(c, "()[]{},;.")
+  contains(c, "()[]{},;.|")
 
 function is_name_char(c: Char): Bool :=
   is_letter(c) or is_digit(c) or c == '_'
