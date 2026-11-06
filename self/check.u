@@ -214,10 +214,10 @@ function free(t: Type): List[Type] :=
     case TParam(_) => [t]
     case TMeta(_) => [t]
     case THole => Nil
-    case TSort(_, args) => distinct(concat([free(a) for a in args]))
-    case TFun(args, r) => distinct(concat([free(a) for a in args ++ [r]]))
-    case TProc(is, os, rs) => distinct(concat([free(a) for a in is ++ os ++ rs]))
-    case TTuple(ts) => distinct(concat([free(a) for a in ts]))
+    case TSort(_, args) => distinct([v for a in args, v in free(a)])
+    case TFun(args, r) => distinct([v for a in args ++ [r], v in free(a)])
+    case TProc(is, os, rs) => distinct([v for a in is ++ os ++ rs, v in free(a)])
+    case TTuple(ts) => distinct([v for a in ts, v in free(a)])
   end
 
 function holes(t: Type): Bool :=
@@ -279,7 +279,7 @@ function candidates(s: State, env: Env, n: Name): List[Name * (List[Type] * Type
   match get(n, env)
     case Some(l) => [(n, l.scheme)]
     case None =>
-      concat([[(f, sc) for sc in schemes_of(s.sig, f)] for f in overloads(s, n, lambda f => is_fun(s.sig, f))]) ++
+      [(f, sc) for f in overloads(s, n, lambda f => is_fun(s.sig, f)), sc in schemes_of(s.sig, f)] ++
         [(k, constructor_of(s.sig, k)) for k in overloads(s, n, lambda k => is_constr(s.sig, k))] ++
         [(p, proc_scheme(s.sig, p)) for p in overloads(s, n, lambda p => is_proc(s.sig, p))] ++
         [(n, sc) for sc in builtin_schemes(n)]
@@ -291,7 +291,7 @@ function accessors(sig: Sig, f: Id, es: List[Id * List[Name]]): List[Name * (Lis
   match es
     case Nil => Nil
     case [(b, ds); rest] =>
-      if ends_with(b, f) then concat([[(d, sc) for sc in schemes_of(sig, d)] for d in ds]) ++ accessors(sig, f, rest) else accessors(sig, f, rest)
+      if ends_with(b, f) then [(d, sc) for d in ds, sc in schemes_of(sig, d)] ++ accessors(sig, f, rest) else accessors(sig, f, rest)
   end
 
 function visible_accessors(s: State, cs: List[Name * (List[Type] * Type)]): List[Name * (List[Type] * Type)] :=
@@ -527,7 +527,7 @@ function unknown_in_expr(expr: Expr): Option[Type] :=
     case EProc(_, _, _, b) => unknown_in(b)
     case ELet(ps, b) => unknown_in_exprs(seconds(ps) ++ [b])
     case EIte(c, l, r) => unknown_in_exprs([c, l, r])
-    case EMatch(a, bs) => unknown_in_exprs([a; concat([branch_exprs(b) for b in bs])])
+    case EMatch(a, bs) => unknown_in_exprs([a; [e for b in bs, e in branch_exprs(b)]])
     case ETuple(es) => unknown_in_exprs(es)
     case _ => None
   end
@@ -1126,9 +1126,11 @@ procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
       call revisit(in rest, ref changed, s)
   end
 
-// all uses decided at the end of a command, by the preferences of decide among the candidates that fit
+// all uses decided at the end of a command, by the preferences of decide among the candidates that fit, and else by the one
+// candidate after which the other open uses can still be decided, e.g. empty and put of map literals {k => v} when set and
+// array are imported as well, where only the empty and the put of map fit together
 procedure settle(ref s: State) :=
-  local ok: List[(Name * (List[Type] * Type)) * State], best: List[(Name * (List[Type] * Type)) * State]
+  local ok: List[(Name * (List[Type] * Type)) * State], best: List[(Name * (List[Type] * Type)) * State], states: List[State]
 
   call solve(ref s)
   while s.pending != Nil
@@ -1141,11 +1143,39 @@ procedure settle(ref s: State) :=
             assign s := s1 with pending := rest, chosen := put(p.id, m, s1.chosen)
             call   solve(ref s)
           case _ =>
-            raise Ambiguous(p.name, p.cands)
+            call viable(in best, p, rest, out states)
+            match states
+              case [s2] =>
+                assign s := s2
+              case _ =>
+                raise Ambiguous(p.name, p.cands)
+            end
         end
       case Nil =>
         skip
     end
+  end
+
+// the states after choosing each candidate of the use p, of those after which every open use of rest has a candidate that fits
+procedure viable(in cands: List[(Name * (List[Type] * Type)) * State], p: Pending, rest: List[Pending], out states: List[State]) :=
+  local t: State, failed := false
+
+  match cands
+    case Nil =>
+      assign states := Nil
+    case [((m, _), s1); more] =>
+      call   viable(in more, p, rest, out states)
+      assign t := s1 with pending := rest, chosen := put(p.id, m, s1.chosen)
+      try
+        call solve(ref t)
+      catch
+        case NoOverload(_, _) =>
+          assign failed := true
+      end
+
+      if not failed
+        assign states := [t; states]
+      end
   end
 
 // the types of a use without unknowns, for which the candidates that fit stay the same
@@ -1915,7 +1945,7 @@ procedure declare_sort(in sig: Sig, n: Name) :=
   end
 
 procedure closed(in n: Name, ps: List[Id], ts: List[Type]) :=
-  local undeclared := diff(distinct(concat([free(t) for t in ts])), params(ps))
+  local undeclared := diff(distinct([v for t in ts, v in free(t)]), params(ps))
 
   if undeclared != Nil
     raise UndeclaredParams(n, undeclared)
@@ -2120,7 +2150,7 @@ procedure check_orders(in cmds: List[Cmd], abstract: List[Name], hidden: Set[Nam
 // the order and equality of the abstract types of ds that their modules do not declare, which raise Unordered for a type
 // with an equality, and Incomparable for a type without, since the structure of an abstract type is no order
 function synthesized(ds: List[Id * Cmd], cmds: List[Cmd], natives: List[Name]): List[Id * Cmd] :=
-  concat([synthesized_for(c, ordered(cmds, "compare") ++ natives, ordered(cmds, "==")) for c in ds])
+  [e for c in ds, e in synthesized_for(c, ordered(cmds, "compare") ++ natives, ordered(cmds, "=="))]
 
 function synthesized_for(d: Id * Cmd, compares: List[Name], equalities: List[Name]): List[Id * Cmd] :=
   match d
@@ -2194,7 +2224,7 @@ function abstract_types(ds: List[Id * Cmd]): List[Name] :=
 // the declarations of an implementation section that the export section does not export, with the constructors and fields
 // of abstract types
 function private_names(ex: List[Cmd], im: List[Cmd]): List[Name] :=
-  concat([private_in(c, ex) for c in im])
+  [n for c in im, n in private_in(c, ex)]
 
 function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
   match cmd
@@ -2207,7 +2237,7 @@ function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
 
 // the sorts of an implementation section that the export section does not export, not even as abstract types
 function private_sorts(ex: List[Cmd], im: List[Cmd]): List[Name] :=
-  concat([private_sort(c, ex) for c in im])
+  [n for c in im, n in private_sort(c, ex)]
 
 function private_sort(cmd: Cmd, ex: List[Cmd]): List[Name] :=
   match cmd
@@ -2332,7 +2362,7 @@ procedure check_exposed(in m: Id, ex: List[Cmd], hidden_sorts: List[Name]) :=
     case [c; rest] =>
       match exposed(c)
         case Some((n, ts)) =>
-          assign found := [own_name(m, t) for t in concat([sorts_in(u) for u in ts]) if contains(own_name(m, t), hidden_sorts)]
+          assign found := [own_name(m, t) for u in ts, t in sorts_in(u) if contains(own_name(m, t), hidden_sorts)]
           match found
             case [t; _] =>
               raise PrivateType(n, t)
@@ -2354,7 +2384,7 @@ function exposed(cmd: Cmd): Option[Name * List[Type]] :=
   match cmd
     case CFunSig(n, _, xss, r) => Some((n, types(concat(xss)) ++ [r]))
     case CProcSig(n, _, ins, outs, refs) => Some((n, types(ins ++ outs ++ refs)))
-    case CData(n, _, ks) => Some((n, concat([k.args for k in ks])))
+    case CData(n, _, ks) => Some((n, [t for k in ks, t in k.args]))
     case CSort(n, _, t) => Some((n, [t]))
     case _ => None
   end
@@ -2362,10 +2392,10 @@ function exposed(cmd: Cmd): Option[Name * List[Type]] :=
 // the sorts that t names, as written, unqualified or qualified
 function sorts_in(t: Type): List[Name] :=
   match t
-    case TSort(n, args) => [n; concat([sorts_in(a) for a in args])]
-    case TFun(args, r) => concat([sorts_in(a) for a in args ++ [r]])
-    case TProc(is, os, rs) => concat([sorts_in(a) for a in is ++ os ++ rs])
-    case TTuple(ts) => concat([sorts_in(a) for a in ts])
+    case TSort(n, args) => [n; [u for a in args, u in sorts_in(a)]]
+    case TFun(args, r) => [u for a in args ++ [r], u in sorts_in(a)]
+    case TProc(is, os, rs) => [u for a in is ++ os ++ rs, u in sorts_in(a)]
+    case TTuple(ts) => [u for a in ts, u in sorts_in(a)]
     case _ => Nil
   end
 
@@ -2415,9 +2445,9 @@ procedure check_units(in us: List[List[Mod]], ref sig: Sig, imports: List[Id * L
 // the modules ds, checked after the declarations before of the modules that imports lists, as the last of them, where the
 // declarations that other modules keep private are unknown, since before has only their signatures
 procedure check_unit(in ds: List[Mod], before: Sig, imports: List[Id * List[Id]], out checked: Checked) :=
-  local own := [(d.name, d.imports) for d in ds], main := last_mod(ds).name, placed := concat([decls_of(d) for d in ds]), s: State,
+  local own := [(d.name, d.imports) for d in ds], main := last_mod(ds).name, placed := [p for d in ds, p in decls_of(d)], s: State,
     decls: List[Id * Cmd], cmds: List[Cmd], hidden: Set[Name], hidden_sorts: List[Name], extra: List[Id * Cmd], more: List[Cmd],
-    builtins := concat([natives(d) for d in ds])
+    builtins := [b for d in ds, b in natives(d)]
 
   assign s := State(before, empty(), 0, main, Nil, visibility(imports ++ own, main), Nil, empty()), decls := seconds(placed)
   call   each_placed(in declare_datas, placed, ref s)
@@ -2521,7 +2551,7 @@ function closure(ds: List[Mod], names: List[Id], seen: List[Id]): List[Id] :=
   end
 
 function imports_of_mod(ds: List[Mod], n: Id): List[Id] :=
-  concat([d.imports for d in ds if d.name == n])
+  [i for d in ds, i in d.imports if d.name == n]
 
 // the type of e without a program
 procedure type_of(in expr: Expr, out t: Type) :=

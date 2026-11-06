@@ -167,13 +167,13 @@ function loose_seq(c: Int, s: Seq): List[Int] :=
 
     case Seq(xs, assms, concls) =>
       let inner := c + size(xs) in
-      concat([loose_seq(inner, a) for a in assms]) ++ concat([loose_concl(inner, d) for d in concls])
+      [i for a in assms, i in loose_seq(inner, a)] ++ [i for d in concls, i in loose_concl(inner, d)]
   end
 
 function loose_concl(c: Int, d: Concl): List[Int] :=
   match d
     case Concl(xs, body) =>
-      concat([loose_seq(c + size(xs), s) for s in body])
+      [i for s in body, i in loose_seq(c + size(xs), s)]
   end
 
 // normalization of the connectives and quantifiers of a formula into the structure of sequents
@@ -475,7 +475,7 @@ function valid_rule(r: Rule): Bool :=
 
     case _ =>
       let bound := loose(0, r.lhs) in
-      forall(loose(0, r.rhs) ++ concat([loose_seq(0, c) for c in r.conds]), lambda i => contains(i, bound))
+      forall(loose(0, r.rhs) ++ [k for c in r.conds, k in loose_seq(0, c)], lambda i => contains(i, bound))
   end
 
 // facts about atoms
@@ -703,7 +703,7 @@ function fm_unsat(cs: List[Lin], fuel: Int): Bool :=
           let rest := [c; more], x := first(nth(0, c.terms)) in
           let pos := [t for t in rest if coefficient(x, t) > 0], neg := [t for t in rest if coefficient(x, t) < 0] in
           let none := [t for t in rest if coefficient(x, t) == 0] in
-          fm_unsat(none ++ concat([[combine(x, p, n) for n in neg] for p in pos]), fuel - 1)
+          fm_unsat(none ++ [combine(x, p, n) for p in pos, n in neg], fuel - 1)
     end
 
 function combine(x: Expr, p: Lin, n: Lin): Lin :=
@@ -715,8 +715,8 @@ function entailed(ctx: Ctx, t: Lin): Bool :=
 // the instances of rules p < q without conditions, for the atoms of t and of the inequalities, with a single atom
 // p - q that binds all variables of the rule
 function bounds(ctx: Ctx, t: Lin): List[Lin] :=
-  let atoms := [first(p) for p in t.terms] ++ concat([[first(p) for p in l.terms] for l in ctx.ineqs]) in
-  concat([concat([bound_of(r, a) for r in ctx.rules]) for a in atoms])
+  let atoms := [first(p) for p in t.terms] ++ [first(p) for l in ctx.ineqs, p in l.terms] in
+  [b for a in atoms, r in ctx.rules, b in bound_of(r, a)]
 
 function bound_of(r: Rule, a: Expr): List[Lin] :=
   match (r.conds, r.lhs, r.rhs)

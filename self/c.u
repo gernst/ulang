@@ -108,7 +108,7 @@ function show_stmt(ind: Str, s: CStmt): List[Str] :=
   end
 
 function show_stmts(ind: Str, ss: List[CStmt]): List[Str] :=
-  concat([show_stmt(ind, s) for s in ss])
+  [l for s in ss, l in show_stmt(ind, s)]
 
 function show_params(ps: List[CType * Str]): Str :=
   match ps

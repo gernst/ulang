@@ -261,7 +261,7 @@ function pattern_vars(p: Pat): List[Var] :=
       [x]
 
     case PApp(_, ps) =>
-      concat([pattern_vars(q) for q in ps])
+      [x for q in ps, x in pattern_vars(q)]
 
     case _ =>
       Nil
@@ -421,7 +421,7 @@ function loose(c: Int, e: Expr): List[Int] :=
       if i >= c then [i - c] else Nil
 
     case EApp(f, args) =>
-      loose(c, f) ++ concat([loose(c, a) for a in args])
+      loose(c, f) ++ [i for a in args, i in loose(c, a)]
 
     case ELam(xs, b) =>
       loose(c + size(xs), b)
@@ -430,10 +430,10 @@ function loose(c: Int, e: Expr): List[Int] :=
       loose(c, a) ++ loose(c, b) ++ loose(c, d)
 
     case EMatch(a, bs) =>
-      loose(c, a) ++ concat([loose_branch(c, br) for br in bs])
+      loose(c, a) ++ [i for br in bs, i in loose_branch(c, br)]
 
     case ESum(_, ts) =>
-      concat([loose(c, first(p)) for p in ts])
+      [i for p in ts, i in loose(c, first(p))]
 
     case ERaise(a, _) =>
       loose(c, a)

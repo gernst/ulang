@@ -543,18 +543,29 @@ int u_count(u_value c) {
   return n;
 }
 
-// an array for up to n elements of a comprehension, which u_array_push fills, and which has no elements yet
+// an array with room for n elements of a comprehension, which u_array_push fills, and which has no elements yet
 u_value u_array_new(int n) {
   u_value a = compound(&u_array_type, n);
   a->size = 0;
   return a;
 }
 
-void u_array_push(u_value a, u_value x) {
+// a with x after its elements, which is a itself while the allocation of a has room, as the collector knows it, and else a
+// copy with twice the room
+u_value u_array_push(u_value a, u_value x) {
+  size_t room = (GC_size(a) - sizeof(struct u_object)) / sizeof(u_value);
+  if ((size_t)a->size == room) {
+    u_value b = compound(&u_array_type, (int)(2 * room + 8));
+    u_memcpy(b->items, a->items, a->size * sizeof(u_value));
+    b->size = a->size;
+    a = b;
+  }
   a->items[a->size++] = x;
+  return a;
 }
 
-// the array of the elements pushed into an array for up to n elements, shrunk if a condition left out some
+// the array of the elements pushed into an array with room for n elements, which is a copy unless it has n elements, where n
+// is -1 if the number of elements is unknown
 u_value u_array_done(u_value a, int n) {
   if (a->size == n) return a;
   u_value b = compound(&u_array_type, a->size);

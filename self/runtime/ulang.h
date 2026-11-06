@@ -161,7 +161,7 @@ u_value u_array(u_value xs);
 u_value u_mk_array(int n, ...);
 int u_count(u_value c);
 u_value u_array_new(int n);
-void u_array_push(u_value a, u_value x);
+u_value u_array_push(u_value a, u_value x);
 u_value u_array_done(u_value a, int n);
 u_value u_array_list(u_value a);
 u_value u_array_size(u_value a);

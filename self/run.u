@@ -142,8 +142,8 @@ function match_all_into(pats: List[Pat], vs: List[Value], env: Bindings): Option
 function pattern_vars(pat: Pat): List[Name] :=
   match pat
     case PVar(Var(n, _)) => [n]
-    case PApp(_, ps) => concat([pattern_vars(q) for q in ps])
-    case PTuple(ps) => concat([pattern_vars(q) for q in ps])
+    case PApp(_, ps) => [x for q in ps, x in pattern_vars(q)]
+    case PTuple(ps) => [x for q in ps, x in pattern_vars(q)]
     case _ => []
   end
 
