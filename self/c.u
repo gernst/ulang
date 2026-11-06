@@ -42,125 +42,123 @@ data CDecl :=
 data CFile :=
   | CFile(List[CDecl])
 
-function show_file(f: CFile): Str
-function c_call(f: Str, args: List[CExpr]): CExpr
+// the C source code of a file, which is formatted rather than shown, since show gives ulang values as they are written
+function format_file(file: CFile): Str
+function c_call(fun: Str, args: List[CExpr]): CExpr
 
 implementation
 
-function show_type(t: CType): Str :=
-  match t
+function format_type(typ: CType): Str :=
+  match typ
     case CtVoid => "void"
     case CtInt => "int"
-    case CtNamed(n) => n
-    case CtPtr(CtPtr(u)) => show_type(CtPtr(u)) ++ "*"
-    case CtPtr(u) => show_type(u) ++ " *"
+    case CtNamed(name) => name
+    case CtPtr(CtPtr(pointee)) => format_type(CtPtr(pointee)) ++ "*"
+    case CtPtr(pointee) => format_type(pointee) ++ " *"
   end
 
-// a declaration of x with type t, without a space after a pointer
-function show_typed(t: CType, x: Str): Str :=
-  match t
-    case CtPtr(_) => show_type(t) ++ x
-    case _ => show_type(t) ++ " " ++ x
+// a declaration of name with type typ, without a space after a pointer
+function format_typed(typ: CType, name: Str): Str :=
+  match typ
+    case CtPtr(_) => format_type(typ) ++ name
+    case _ => format_type(typ) ++ " " ++ name
   end
 
 // subexpressions are in parentheses unless they are atomic, which avoids the precedences of C
-function show_expr(e: CExpr): Str :=
-  match e
-    case CeVar(x) => x
-    case CeNum(n) => show(n)
+function format_expr(expr: CExpr): Str :=
+  match expr
+    case CeVar(name) => name
+    case CeNum(num) => show(num)
     // the escapes of C strings are those of ulang
-    case CeStr(s) => quote(s)
-    case CeCall(f, args) => show_operand(f) ++ "(" ++ join(", ", [show_expr(a) for a in args]) ++ ")"
-    case CeUnary(o, a) => o ++ show_operand(a)
-    case CeBinary(o, a, b) => show_operand(a) ++ " " ++ o ++ " " ++ show_operand(b)
-    case CeIndex(a, i) => show_operand(a) ++ "[" ++ show_expr(i) ++ "]"
-    case CeArrow(a, f) => show_operand(a) ++ "->" ++ f
-    case CeCast(t, a) => "(" ++ show_type(t) ++ ")" ++ show_operand(a)
-    case CeCond(c, a, b) => show_operand(c) ++ " ? " ++ show_operand(a) ++ " : " ++ show_operand(b)
-    case CeInit(es) => "{" ++ join(", ", [show_expr(a) for a in es]) ++ "}"
+    case CeStr(text) => quote(text)
+    case CeCall(fun, args) => format_operand(fun) ++ "(" ++ join(", ", [format_expr(arg) for arg in args]) ++ ")"
+    case CeUnary(op, operand) => op ++ format_operand(operand)
+    case CeBinary(op, left, right) => format_operand(left) ++ " " ++ op ++ " " ++ format_operand(right)
+    case CeIndex(base, index) => format_operand(base) ++ "[" ++ format_expr(index) ++ "]"
+    case CeArrow(base, field) => format_operand(base) ++ "->" ++ field
+    case CeCast(typ, operand) => "(" ++ format_type(typ) ++ ")" ++ format_operand(operand)
+    case CeCond(cond, then_expr, else_expr) => format_operand(cond) ++ " ? " ++ format_operand(then_expr) ++ " : " ++ format_operand(else_expr)
+    case CeInit(items) => "{" ++ join(", ", [format_expr(item) for item in items]) ++ "}"
   end
 
-function show_operand(e: CExpr): Str :=
-  match e
-    case CeVar(_) => show_expr(e)
-    case CeNum(n) if n >= 0 => show_expr(e)
-    case CeStr(_) => show_expr(e)
-    case CeCall(_, _) => show_expr(e)
-    case CeIndex(_, _) => show_expr(e)
-    case CeArrow(_, _) => show_expr(e)
-    case _ => "(" ++ show_expr(e) ++ ")"
+function format_operand(expr: CExpr): Str :=
+  match expr
+    case CeVar(_) => format_expr(expr)
+    case CeNum(num) if num >= 0 => format_expr(expr)
+    case CeStr(_) => format_expr(expr)
+    case CeCall(_, _) => format_expr(expr)
+    case CeIndex(_, _) => format_expr(expr)
+    case CeArrow(_, _) => format_expr(expr)
+    case _ => "(" ++ format_expr(expr) ++ ")"
   end
 
-// the lines of a statement, indented by ind
-function show_stmt(ind: Str, s: CStmt): List[Str] :=
-  match s
-    case CsExpr(e) => [ind ++ show_expr(e) ++ ";"]
-    case CsDecl(t, x, None) => [ind ++ show_typed(t, x) ++ ";"]
-    case CsDecl(t, x, Some(e)) => [ind ++ show_typed(t, x) ++ " = " ++ show_expr(e) ++ ";"]
-    case CsAssign(a, e) => [ind ++ show_expr(a) ++ " = " ++ show_expr(e) ++ ";"]
-    case CsIf(c, l, []) => [ind ++ "if (" ++ show_expr(c) ++ ") {"] ++ show_stmts(ind ++ "  ", l) ++ [ind ++ "}"]
-    case CsIf(c, l, r) =>
-      [ind ++ "if (" ++ show_expr(c) ++ ") {"] ++ show_stmts(ind ++ "  ", l) ++ [ind ++ "} else {"] ++ show_stmts(ind ++ "  ", r) ++ [ind ++ "}"]
-    case CsWhile(c, b) => [ind ++ "while (" ++ show_expr(c) ++ ") {"] ++ show_stmts(ind ++ "  ", b) ++ [ind ++ "}"]
-    case CsReturn(None) => [ind ++ "return;"]
-    case CsReturn(Some(e)) => [ind ++ "return " ++ show_expr(e) ++ ";"]
-    case CsBlock(b) => [ind ++ "{"] ++ show_stmts(ind ++ "  ", b) ++ [ind ++ "}"]
-  end
+// the lines of a statement, indented by indent
+function format_stmt(indent: Str, stmt: CStmt): List[Str] :=
+  let deeper := indent ++ "  " in
+    match stmt
+      case CsExpr(expr) => [indent ++ format_expr(expr) ++ ";"]
+      case CsDecl(typ, name, None) => [indent ++ format_typed(typ, name) ++ ";"]
+      case CsDecl(typ, name, Some(expr)) => [indent ++ format_typed(typ, name) ++ " = " ++ format_expr(expr) ++ ";"]
+      case CsAssign(target, expr) => [indent ++ format_expr(target) ++ " = " ++ format_expr(expr) ++ ";"]
+      case CsIf(cond, then_stmts, []) => [indent ++ "if (" ++ format_expr(cond) ++ ") {"] ++ format_stmts(deeper, then_stmts) ++ [indent ++ "}"]
+      case CsIf(cond, then_stmts, else_stmts) =>
+        [indent ++ "if (" ++ format_expr(cond) ++ ") {"] ++ format_stmts(deeper, then_stmts) ++ [indent ++ "} else {"] ++ format_stmts(deeper, else_stmts) ++ [indent ++ "}"]
+      case CsWhile(cond, body) => [indent ++ "while (" ++ format_expr(cond) ++ ") {"] ++ format_stmts(deeper, body) ++ [indent ++ "}"]
+      case CsReturn(None) => [indent ++ "return;"]
+      case CsReturn(Some(expr)) => [indent ++ "return " ++ format_expr(expr) ++ ";"]
+      case CsBlock(body) => [indent ++ "{"] ++ format_stmts(deeper, body) ++ [indent ++ "}"]
+    end
 
-function show_stmts(ind: Str, ss: List[CStmt]): List[Str] :=
-  [l for s in ss, l in show_stmt(ind, s)]
+function format_stmts(indent: Str, stmts: List[CStmt]): List[Str] :=
+  [line for stmt in stmts, line in format_stmt(indent, stmt)]
 
-function show_params(ps: List[CType * Str]): Str :=
-  match ps
+// the formals of a function, which are void if there are none
+function format_formals(formals: List[CType * Str]): Str :=
+  match formals
     case [] => "void"
-    case _ => join(", ", [show_param(p) for p in ps])
+    case _ => join(", ", [format_formal(formal) for formal in formals])
   end
 
-function show_param(p: CType * Str): Str :=
-  match p
-    case (t, x) => show_typed(t, x)
+function format_formal(formal: CType * Str): Str :=
+  match formal
+    case (typ, name) => format_typed(typ, name)
   end
 
-function show_decl(d: CDecl): List[Str] :=
-  match d
-    case CdInclude(h) => ["#include " ++ quote(h)]
-    case CdPrototype(t, f, ps) => [show_typed(t, f) ++ "(" ++ show_params(ps) ++ ");"]
-    case CdFunction(t, f, ps, b) => [show_typed(t, f) ++ "(" ++ show_params(ps) ++ ") {"] ++ show_stmts("  ", b) ++ ["}"]
-    case CdGlobal(t, x, None) => [show_typed(t, x) ++ ";"]
-    case CdGlobal(t, x, Some(e)) => [show_typed(t, x) ++ " = " ++ show_expr(e) ++ ";"]
+function format_decl(decl: CDecl): List[Str] :=
+  match decl
+    case CdInclude(header) => ["#include " ++ quote(header)]
+    case CdPrototype(typ, fun, formals) => [format_typed(typ, fun) ++ "(" ++ format_formals(formals) ++ ");"]
+    case CdFunction(typ, fun, formals, body) => [format_typed(typ, fun) ++ "(" ++ format_formals(formals) ++ ") {"] ++ format_stmts("  ", body) ++ ["}"]
+    case CdGlobal(typ, name, None) => [format_typed(typ, name) ++ ";"]
+    case CdGlobal(typ, name, Some(expr)) => [format_typed(typ, name) ++ " = " ++ format_expr(expr) ++ ";"]
   end
 
 // the source code of a file, with an empty line between declarations
-function show_file(f: CFile): Str :=
-  match f
-    case CFile(ds) => join("\n\n", [join("\n", show_decl(d)) for d in ds]) ++ "\n"
+function format_file(file: CFile): Str :=
+  match file
+    case CFile(decls) => join("\n\n", [join("\n", format_decl(decl)) for decl in decls]) ++ "\n"
   end
 
 // a function of the runtime, which compiled code calls
-function c_call(f: Str, args: List[CExpr]): CExpr :=
-  CeCall(CeVar(f), args)
+function c_call(fun: Str, args: List[CExpr]): CExpr :=
+  CeCall(CeVar(fun), args)
 
-test print_c() :=
-  local v := CtNamed("value"), f := 
+test format_c() :=
+  local value := CtNamed("value"), one := c_call("make_int", [CeNum(1)])
+  local fact := CdFunction(
+    value,
+    "fact",
+    [(value, "n")],
+    [
+      CsIf(c_call("is_zero", [CeVar("n")]), [CsReturn(Some(one))], []),
+      CsDecl(value, "m", Some(c_call("fact", [c_call("sub", [CeVar("n"), one])]))),
+      CsReturn(Some(c_call("mul", [CeVar("n"), CeVar("m")])))
+    ]
+  )
+  local main := CdFunction(CtInt, "main", [], [CsExpr(c_call("print", [c_call("fact", [c_call("make_int", [CeNum(5)])])])), CsReturn(Some(CeNum(0)))])
 
-    CFile(
-      [
-        CdInclude("ulang.h"),
-        CdFunction(
-          v,
-          "fact",
-          [(v, "n")],
-          [
-            CsIf(c_call("is_zero", [CeVar("n")]), [CsReturn(Some(c_call("make_int", [CeNum(1)])))], []),
-            CsDecl(v, "m", Some(c_call("fact", [c_call("sub", [CeVar("n"), c_call("make_int", [CeNum(1)])])]))),
-            CsReturn(Some(c_call("mul", [CeVar("n"), CeVar("m")])))
-          ]
-        ),
-        CdFunction(CtInt, "main", [], [CsExpr(c_call("print", [c_call("fact", [c_call("make_int", [CeNum(5)])])])), CsReturn(Some(CeNum(0)))])
-      ]
-    )
-  assert show_file(f) ==
+  assert format_file(CFile([CdInclude("ulang.h"), fact, main])) ==
     "#include \"ulang.h\"\n\nvalue fact(value n) {\n  if (is_zero(n)) {\n    return make_int(1);\n  }\n  value m = fact(sub(n, make_int(1)));\n  return mul(n, m);\n}\n\nint main(void) {\n  print(fact(make_int(5)));\n  return 0;\n}\n"
-  assert show_expr(CeBinary("+", CeBinary("*", CeVar("a"), CeNum(2)), CeUnary("-", CeVar("b")))) == "(a * 2) + (-b)"
-  assert show_expr(CeStr("a\"b\n")) == "\"a\\\"b\\n\""
-  assert show_stmt("", CsIf(CeVar("c"), [CsReturn(None)], [CsExpr(c_call("f", []))])) == ["if (c) {", "  return;", "} else {", "  f();", "}"]
+  assert format_expr(CeBinary("+", CeBinary("*", CeVar("a"), CeNum(2)), CeUnary("-", CeVar("b")))) == "(a * 2) + (-b)"
+  assert format_expr(CeStr("a\"b\n")) == "\"a\\\"b\\n\""
+  assert format_stmt("", CsIf(CeVar("c"), [CsReturn(None)], [CsExpr(c_call("f", []))])) == ["if (c) {", "  return;", "} else {", "  f();", "}"]

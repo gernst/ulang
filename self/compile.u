@@ -1103,7 +1103,7 @@ procedure compile_file(in source: Str, entry: Id, target: Str) :=
   call   parse_file_after(in source, pre, out mods)
   call   check_program(in Source(pre ++ mods, base_name(source)), out q)
   call   compile_program(in q, base_name(source), entry, out f)
-  call   os_write(in target, show_file(f))
+  call   os_write(in target, format_file(f))
 
 // a procedure without parameters
 function is_entry(cmd: Cmd, n: Name): Bool :=
