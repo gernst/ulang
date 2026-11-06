@@ -1,12 +1,11 @@
 // the driver of ulang, ./ulang.bin, with the commands run, test, and check with the interpreter of run.u,
 // compile, which translates a file to C, whose main calls the procedure entry, or runs all tests for the entry test,
-// and format, which prints a file as show_program of format.u does
+// and format, which prints a file as format_program of format.u does
 
 import syntax
 import lex
 import parse
 import check
-import print
 import format
 import value
 import run
@@ -164,7 +163,7 @@ procedure format_file(in file: Str, out ok: Bool) :=
 
   call   os_read(in file, out text)
   call   parse_file_text(in file, text, out p)
-  assign source := show_program(p), ok := false
+  assign source := format_program(p), ok := false
 
   try
     call parse_file_text(in file, source, out q)
@@ -377,8 +376,8 @@ function located_message(main: Id, e: TypeError): Str :=
 // a candidate of an ambiguous name with its type, if known, which tells overloads of one module apart
 function candidate_text(c: Name * (List[Type] * Type)): Str :=
   match c
-    case (m, (_, THole)) => show_name(m)
-    case (m, (_, t)) => show_name(m) ++ ": " ++ show_type(t)
+    case (m, (_, THole)) => format_name(m)
+    case (m, (_, t)) => format_name(m) ++ ": " ++ format_type(t)
   end
 
 function type_message(e: TypeError): Str :=
@@ -387,24 +386,24 @@ function type_message(e: TypeError): Str :=
     case SortArity(n, k, m) => "sort " ++ n.base ++ " expects " ++ show(k) ++ " arguments, got " ++ show(m)
     case SortDefined(n) => "sort " ++ n.base ++ " is already defined"
     case MissingType(n) => "missing type for " ++ n.base
-    case UndeclaredParams(n, ts) => n.base ++ " has undeclared type parameters " ++ show_types(ts)
-    case CannotUnify(a, b) => "cannot unify " ++ show_type(a) ++ " and " ++ show_type(b)
-    case InfiniteType(a, b) => "infinite type " ++ show_type(a) ++ " = " ++ show_type(b)
+    case UndeclaredParams(n, ts) => n.base ++ " has undeclared type parameters " ++ format_types(ts)
+    case CannotUnify(a, b) => "cannot unify " ++ format_type(a) ++ " and " ++ format_type(b)
+    case InfiniteType(a, b) => "infinite type " ++ format_type(a) ++ " = " ++ format_type(b)
     case UnknownVariable(n) => "unknown variable " ++ n.base
-    case NoOverload(n, t) => "no declaration of " ++ n.base ++ " has the type " ++ show_type(t)
+    case NoOverload(n, t) => "no declaration of " ++ n.base ++ " has the type " ++ format_type(t)
     case WrongArity(n, k) => n.base ++ " does not take " ++ show(k) ++ " arguments"
     case AlreadyDefined(n) => n.base ++ " is already defined"
     case Duplicate(what, x) => "duplicate " ++ what ++ " " ++ x
     case Ambiguous(n, cs) => n.base ++ " is ambiguous: " ++ join(", ", [candidate_text(c) for c in cs])
     case UnknownField(n) => field_message(split(n.base, '.'))
-    case UnknownFieldType(f, t) => "the type " ++ show_type(t) ++ " of the value of " ++ f ++ " is not known"
+    case UnknownFieldType(f, t) => "the type " ++ format_type(t) ++ " of the value of " ++ f ++ " is not known"
     case CountMismatch(owner, unit, k, m) => (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(m)
     case UnknownConstructor(n) => "unknown constructor " ++ n.base
-    case NotExhaustive(p) => "match is not exhaustive, missing " ++ show_pat(p)
-    case Unreachable(p) => "unreachable case " ++ show_pat(p)
+    case NotExhaustive(p) => "match is not exhaustive, missing " ++ format_pat(p)
+    case Unreachable(p) => "unreachable case " ++ format_pat(p)
     case NotAssignable(n) => n.base ++ " is not assignable"
     case UnknownProcedure(n) => "unknown procedure " ++ n.base
-    case UnknownException(t) => "the type " ++ show_type(t) ++ " of an exception is not fully known"
+    case UnknownException(t) => "the type " ++ format_type(t) ++ " of an exception is not fully known"
     case TestParams(n) => "test " ++ n ++ " takes parameters"
     case Unassigned(n) => n.base ++ " is not assigned on every path"
     case OutputUnassigned(x, p) => "output " ++ x.base ++ " of " ++ p.base ++ " is not assigned on every path"
@@ -431,16 +430,16 @@ function without_update(f: Str): Str :=
 function runtime_message(e: RuntimeError): Str :=
   match e
     case Uninitialized(n) => n.base ++ " is not initialized"
-    case NotFunction(v) => "cannot apply " ++ show_value(v)
-    case Unspecified(n, vs) => n.base ++ " is not specified for " ++ join(", ", [show_value(v) for v in vs])
+    case NotFunction(v) => "cannot apply " ++ format_value(v)
+    case Unspecified(n, vs) => n.base ++ " is not specified for " ++ join(", ", [format_value(v) for v in vs])
     case NoCase(s) => "no case matches " ++ s
     case CompareFunctions => "cannot compare functions"
-    case NotList(v) => "expected a list, got " ++ show_value(v)
+    case NotList(v) => "expected a list, got " ++ format_value(v)
     case AssertionFailed => "assertion failed"
     case AssertionUnequal(a, b) => "assertion failed: " ++ a ++ " != " ++ b
     case Uncaught(s) => "uncaught exception " ++ s
     case UnassignedOutput(x, p) => "output " ++ x.base ++ " of " ++ p.base ++ " is not assigned"
     case UnknownProc(n) => "unknown procedure " ++ n.base
-    case NotProc(v) => "cannot call " ++ show_value(v)
+    case NotProc(v) => "cannot call " ++ format_value(v)
     case RecursiveInitialization(n) => "recursive initialization of " ++ n.base
   end

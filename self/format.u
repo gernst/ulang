@@ -1,13 +1,23 @@
-// programs as source, as ulang.bin format prints them, which parses to the same commands
+// the tool's values, types, patterns, names, and programs as ulang source, where values, types, patterns, and names are
+// formatted by their structure, for the messages of the checker and the interpreter, while show of the program uses the shows
+// that datatypes declare, see show_in of self/run.u, and programs are formatted with the notation in effect, as ulang.bin
+// format prints them, which parses to the same commands
 
 import syntax
 import value
-import parse
-import print
+import array
 
 export
 
-function show_program(mods: List[Mod]): Str
+function format_program(mods: List[Mod]): Str
+function format_value(v: Value): Str
+function format_type(t: Type): Str
+function format_types(ts: List[Type]): Str
+function format_pat(pat: Pat): Str
+function text_of(v: Value): Str
+function array_text(texts: List[Str]): Str
+function format_name(n: Name): Str
+function symbolic(n: Id): Bool
 
 implementation
 
@@ -29,9 +39,9 @@ data Shape :=
 
 // the last of the modules mods as source, after the modules before it, whose notation it starts with as far as it imports them,
 // implicitly or not
-function show_program(mods: List[Mod]): Str :=
+function format_program(mods: List[Mod]): Str :=
   let d := last_mod(mods) in
-    join("\n\n", show_mod(imported_notation(mods, all_imports(d)), d)) ++ "\n"
+    join("\n\n", format_mod(imported_notation(mods, all_imports(d)), d)) ++ "\n"
 
 // the notation that the modules names of mods export, in order
 function imported_notation(mods: List[Mod], names: List[Id]): Notation :=
@@ -39,14 +49,14 @@ function imported_notation(mods: List[Mod], names: List[Id]): Notation :=
 
 // the imports of module d and its sections, where its export section declares the notation of the sections after it, and a
 // module that exports nothing has no sections
-function show_mod(notation: Notation, d: Mod): List[Str] :=
+function format_mod(notation: Notation, d: Mod): List[Str] :=
   ["import " ++ n for n in d.imports] ++
     if d.exported == Nil and d.builtins == Nil then
-      show_cmds(notation, seconds(d.implemented))
+      format_cmds(notation, seconds(d.implemented))
     else
       let inner := with_notation(notation, seconds(d.exported)) in
-        ["export"; show_cmds(notation, seconds(d.exported))] ++ (if d.builtins == Nil then [] else ["builtin"; show_cmds(inner, seconds(d.builtins))]) ++
-          (if d.implemented == Nil then [] else ["implementation"; show_cmds(inner, seconds(d.implemented))])
+        ["export"; format_cmds(notation, seconds(d.exported))] ++ (if d.builtins == Nil then [] else ["builtin"; format_cmds(inner, seconds(d.builtins))]) ++
+          (if d.implemented == Nil then [] else ["implementation"; format_cmds(inner, seconds(d.implemented))])
 
 // operators and parentheses
 
@@ -110,24 +120,24 @@ function closed_text(d: Doc): Str :=
 
 // expressions, at the indentation of the line they start on
 
-function show_expr(notation: Notation, indent: Str, expr: Expr): Str :=
+function format_expr(notation: Notation, indent: Str, expr: Expr): Str :=
   expr_doc(notation, indent, expr).text
 
-function show_exprs(notation: Notation, indent: Str, exprs: List[Expr]): Str :=
-  join(", ", [show_expr(notation, indent, e) for e in exprs])
+function format_exprs(notation: Notation, indent: Str, exprs: List[Expr]): Str :=
+  join(", ", [format_expr(notation, indent, e) for e in exprs])
 
 function expr_doc(notation: Notation, indent: Str, expr: Expr): Doc :=
   match expr
     case ELit(VInt(n)) if n < 0 =>
       Doc(show(n), Negative)
     case ELit(v) =>
-      Doc(show_value(Lit(v)), Atom)
+      Doc(format_value(Lit(v)), Atom)
     case EVar(Var(Name(None, "Nil"), _)) =>
       Doc("[]", Atom)
     case EVar(x) =>
       Doc(x.name.base, Atom)
     case EApp(EVar(Var(Name(Some("*"), "array"), _)), [a]) if cons_rest(a) == EVar(Var(unqualified("Nil"), THole)) =>
-      Doc(array_text([show_expr(notation, indent, e) for e in cons_items(a)]), Atom)
+      Doc(array_text([format_expr(notation, indent, e) for e in cons_items(a)]), Atom)
     case EApp(EVar(Var(Name(Some("*"), "array"), _)), [a]) =>
       Doc(bars(atom_text(expr_doc(notation, indent, a))), Atom)
     case EApp(EVar(Var(Name(Some("*"), f), _)), args) =>
@@ -141,21 +151,21 @@ function expr_doc(notation: Notation, indent: Str, expr: Expr): Doc :=
     case EApp(f, args) =>
       app_doc(notation, indent, f, args)
     case ELam(Nil, body) =>
-      Doc("lambda => " ++ show_expr(notation, indent, body), Open)
+      Doc("lambda => " ++ format_expr(notation, indent, body), Open)
     case ELam(xs, body) =>
-      Doc("lambda " ++ join(", ", [formal_text(x) for x in xs]) ++ " => " ++ show_expr(notation, indent, body), Open)
+      Doc("lambda " ++ join(", ", [formal_text(x) for x in xs]) ++ " => " ++ format_expr(notation, indent, body), Open)
     case EProc(ins, outs, refs, body) =>
-      Doc("lambda " ++ formal_sections(ins, outs, refs) ++ " =>" ++ show_body(notation, deeper(indent), body) ++ "\n" ++ indent ++ "end", Atom)
+      Doc("lambda " ++ formal_sections(ins, outs, refs) ++ " =>" ++ format_body(notation, deeper(indent), body) ++ "\n" ++ indent ++ "end", Atom)
     case ELet(bindings, body) =>
-      Doc("let " ++ assignments_text(notation, indent, bindings) ++ " in " ++ show_expr(notation, indent, body), Open)
+      Doc("let " ++ assignments_text(notation, indent, bindings) ++ " in " ++ format_expr(notation, indent, body), Open)
     case EIte(c, a, b) =>
-      Doc("if " ++ show_expr(notation, indent, c) ++ " then " ++ show_expr(notation, indent, a) ++ " else " ++ show_expr(notation, indent, b), Open)
+      Doc("if " ++ format_expr(notation, indent, c) ++ " then " ++ format_expr(notation, indent, a) ++ " else " ++ format_expr(notation, indent, b), Open)
     case EMatch(a, branches) =>
-      Doc("match " ++ show_expr(notation, indent, a) ++ expr_cases(notation, deeper(indent), branches) ++ "\n" ++ indent ++ "end", Atom)
+      Doc("match " ++ format_expr(notation, indent, a) ++ expr_cases(notation, deeper(indent), branches) ++ "\n" ++ indent ++ "end", Atom)
     case ETuple(es) =>
-      Doc("(" ++ show_exprs(notation, indent, es) ++ ")", Atom)
+      Doc("(" ++ format_exprs(notation, indent, es) ++ ")", Atom)
     case ERaise(a, _) =>
-      Doc("raise " ++ show_expr(notation, indent, a), Open)
+      Doc("raise " ++ format_expr(notation, indent, a), Open)
   end
 
 function app_doc(notation: Notation, indent: Str, f: Expr, args: List[Expr]): Doc :=
@@ -182,8 +192,8 @@ function is_update(f: Id): Bool :=
 // [a, b] for a list that ends in Nil, and [a, b; c] for one that ends in c
 function list_text(notation: Notation, indent: Str, expr: Expr): Str :=
   match cons_rest(expr)
-    case EVar(Var(Name(None, "Nil"), _)) => "[" ++ show_exprs(notation, indent, cons_items(expr)) ++ "]"
-    case rest => "[" ++ show_exprs(notation, indent, cons_items(expr)) ++ "; " ++ show_expr(notation, indent, rest) ++ "]"
+    case EVar(Var(Name(None, "Nil"), _)) => "[" ++ format_exprs(notation, indent, cons_items(expr)) ++ "]"
+    case rest => "[" ++ format_exprs(notation, indent, cons_items(expr)) ++ "; " ++ format_expr(notation, indent, rest) ++ "]"
   end
 
 function cons_items(expr: Expr): List[Expr] :=
@@ -224,17 +234,17 @@ function updates_of(expr: Expr): Expr * List[Id * Expr] :=
 function assignments_text(notation: Notation, indent: Str, pairs: List[Var * Expr]): Str :=
   match pairs
     case Nil => ""
-    case [(x, a)] => x.name.base ++ " := " ++ show_expr(notation, indent, a)
+    case [(x, a)] => x.name.base ++ " := " ++ format_expr(notation, indent, a)
     case [(x, a); more] => x.name.base ++ " := " ++ closed_text(expr_doc(notation, indent, a)) ++ ", " ++ assignments_text(notation, indent, more)
   end
 
 function expr_cases(notation: Notation, indent: Str, branches: List[Branch[Expr]]): Str :=
-  join("", ["\n" ++ indent ++ case_head(notation, indent, b.pat, b.guard) ++ " " ++ show_expr(notation, indent, b.body) for b in branches])
+  join("", ["\n" ++ indent ++ case_head(notation, indent, b.pat, b.guard) ++ " " ++ format_expr(notation, indent, b.body) for b in branches])
 
 function case_head(notation: Notation, indent: Str, pat: Pat, guard: Option[Expr]): Str :=
   match guard
-    case Some(g) => "case " ++ show_pattern(notation, pat) ++ " if " ++ show_expr(notation, indent, g) ++ " =>"
-    case None => "case " ++ show_pattern(notation, pat) ++ " =>"
+    case Some(g) => "case " ++ format_pattern(notation, pat) ++ " if " ++ format_expr(notation, indent, g) ++ " =>"
+    case None => "case " ++ format_pattern(notation, pat) ++ " =>"
   end
 
 // |a, b| of the text [a, b] of a list or a list comprehension
@@ -251,23 +261,23 @@ function translation_doc(notation: Notation, indent: Str, f: Id, expr: Expr, arg
     case (Some(text), _, _) =>
       Doc(text, Atom)
     case (_, Some((es, rest)), _) =>
-      Doc("{" ++ show_exprs(notation, indent, es) ++ rest_text(notation, indent, rest) ++ "}", Atom)
+      Doc("{" ++ format_exprs(notation, indent, es) ++ rest_text(notation, indent, rest) ++ "}", Atom)
     case (_, _, Some((entries, rest))) =>
       Doc("{" ++ join(", ", [entry_text(notation, indent, entry) for entry in entries]) ++ rest_text(notation, indent, rest) ++ "}", Atom)
     case _ =>
-      Doc(f ++ "(" ++ show_exprs(notation, indent, args) ++ ")", Atom)
+      Doc(f ++ "(" ++ format_exprs(notation, indent, args) ++ ")", Atom)
   end
 
 // the set or map after ; that a literal adds to, if it is not empty
 function rest_text(notation: Notation, indent: Str, rest: Option[Expr]): Str :=
   match rest
-    case Some(r) => "; " ++ show_expr(notation, indent, r)
+    case Some(r) => "; " ++ format_expr(notation, indent, r)
     case None => ""
   end
 
 function entry_text(notation: Notation, indent: Str, entry: Expr * Expr): Str :=
   match entry
-    case (k, v) => show_expr(notation, indent, k) ++ " => " ++ show_expr(notation, indent, v)
+    case (k, v) => format_expr(notation, indent, k) ++ " => " ++ format_expr(notation, indent, v)
   end
 
 function declared_name(f: Id): Name :=
@@ -333,11 +343,11 @@ function comprehension_of(
       let gs := " for " ++ join(", ", [generator_text(notation, indent, g) for g in [generator; generators]]) in
         match (fold, condition_of(body))
           case ("foldr", (q, EApp(EVar(Var(Name(None, "Cons"), _)), [a, acc]))) if init == EVar(Var(unqualified("Nil"), THole)) and acc == acc_expr() =>
-            Some("[" ++ show_expr(notation, indent, a) ++ gs ++ condition_text(notation, indent, q) ++ "]")
+            Some("[" ++ format_expr(notation, indent, a) ++ gs ++ condition_text(notation, indent, q) ++ "]")
           case ("foldr", (q, EApp(EVar(Var(n, _)), [a, acc]))) if n == declared_name("insert") and init == empty_expr() and acc == acc_expr() =>
-            Some("{" ++ show_expr(notation, indent, a) ++ gs ++ condition_text(notation, indent, q) ++ "}")
+            Some("{" ++ format_expr(notation, indent, a) ++ gs ++ condition_text(notation, indent, q) ++ "}")
           case ("foldl", (q, EApp(EVar(Var(n, _)), [k, v, acc]))) if n == declared_name("put") and init == empty_expr() and acc == acc_expr() =>
-            Some("{" ++ show_expr(notation, indent, k) ++ " => " ++ show_expr(notation, indent, v) ++ gs ++ condition_text(notation, indent, q) ++ "}")
+            Some("{" ++ format_expr(notation, indent, k) ++ " => " ++ format_expr(notation, indent, v) ++ gs ++ condition_text(notation, indent, q) ++ "}")
           case _ =>
             None
         end
@@ -381,24 +391,24 @@ function condition_of(body: Expr): Option[Expr] * Expr :=
 
 function condition_text(notation: Notation, indent: Str, q: Option[Expr]): Str :=
   match q
-    case Some(c) => " if " ++ show_expr(notation, indent, c)
+    case Some(c) => " if " ++ format_expr(notation, indent, c)
     case None => ""
   end
 
 // x in c, or k => v in m
 function generator_text(notation: Notation, indent: Str, generator: List[Var] * Expr): Str :=
   match generator
-    case ([k, v], c) => k.name.base ++ " => " ++ v.name.base ++ " in " ++ show_expr(notation, indent, c)
-    case (xs, c) => join(", ", [x.name.base for x in xs]) ++ " in " ++ show_expr(notation, indent, c)
+    case ([k, v], c) => k.name.base ++ " => " ++ v.name.base ++ " in " ++ format_expr(notation, indent, c)
+    case (xs, c) => join(", ", [x.name.base for x in xs]) ++ " in " ++ format_expr(notation, indent, c)
   end
 
 // patterns
 
-function show_pattern(notation: Notation, pat: Pat): Str :=
+function format_pattern(notation: Notation, pat: Pat): Str :=
   pattern_doc(notation, pat).text
 
-function show_patterns(notation: Notation, pats: List[Pat]): Str :=
-  join(", ", [show_pattern(notation, p) for p in pats])
+function format_patterns(notation: Notation, pats: List[Pat]): Str :=
+  join(", ", [format_pattern(notation, p) for p in pats])
 
 function pattern_doc(notation: Notation, pat: Pat): Doc :=
   match pat
@@ -407,11 +417,11 @@ function pattern_doc(notation: Notation, pat: Pat): Doc :=
     case PLit(VInt(n)) if n < 0 =>
       Doc(show(n), Negative)
     case PLit(v) =>
-      Doc(show_value(Lit(v)), Atom)
+      Doc(format_value(Lit(v)), Atom)
     case PVar(x) =>
       Doc(x.name.base, Atom)
     case PTuple(ps) =>
-      Doc("(" ++ show_patterns(notation, ps) ++ ")", Atom)
+      Doc("(" ++ format_patterns(notation, ps) ++ ")", Atom)
     case PApp(Name(None, "Nil"), Nil) =>
       Doc("[]", Atom)
     case PApp(Name(None, "Cons"), [_, _]) =>
@@ -426,8 +436,8 @@ function pattern_doc(notation: Notation, pat: Pat): Doc :=
 
 function list_pattern_text(notation: Notation, pat: Pat): Str :=
   match cons_pattern_rest(pat)
-    case PApp(Name(None, "Nil"), Nil) => "[" ++ show_patterns(notation, cons_pattern_items(pat)) ++ "]"
-    case rest => "[" ++ show_patterns(notation, cons_pattern_items(pat)) ++ "; " ++ show_pattern(notation, rest) ++ "]"
+    case PApp(Name(None, "Nil"), Nil) => "[" ++ format_patterns(notation, cons_pattern_items(pat)) ++ "]"
+    case rest => "[" ++ format_patterns(notation, cons_pattern_items(pat)) ++ "; " ++ format_pattern(notation, rest) ++ "]"
   end
 
 function cons_pattern_items(pat: Pat): List[Pat] :=
@@ -444,56 +454,56 @@ function cons_pattern_rest(pat: Pat): Pat :=
 
 // statements, each on a line of its own at indent
 
-function show_stmt(notation: Notation, indent: Str, s: Stmt): Str :=
+function format_stmt(notation: Notation, indent: Str, s: Stmt): Str :=
   match s
     case SSkip =>
       "skip"
     case SAssign(pairs) =>
       "assign " ++ assignments_text(notation, indent, pairs)
     case SIf(c, l, r) =>
-      "if " ++ show_expr(notation, indent, c) ++ show_body(notation, deeper(indent), l) ++ else_text(notation, indent, r)
+      "if " ++ format_expr(notation, indent, c) ++ format_body(notation, deeper(indent), l) ++ else_text(notation, indent, r)
     case SWhile(c, body) =>
-      "while " ++ show_expr(notation, indent, c) ++ show_body(notation, deeper(indent), body) ++ "\n" ++ indent ++ "end"
+      "while " ++ format_expr(notation, indent, c) ++ format_body(notation, deeper(indent), body) ++ "\n" ++ indent ++ "end"
     case SCall(p, ins, outs, refs) =>
-      "call " ++ p.base ++ "(" ++ sections_text([show_expr(notation, indent, a) for a in ins], [x.name.base for x in outs], [x.name.base for x in refs]) ++ ")"
+      "call " ++ p.base ++ "(" ++ sections_text([format_expr(notation, indent, a) for a in ins], [x.name.base for x in outs], [x.name.base for x in refs]) ++ ")"
     case SMatch(a, branches) =>
-      "match " ++ show_expr(notation, indent, a) ++ stmt_cases(notation, deeper(indent), branches) ++ "\n" ++ indent ++ "end"
+      "match " ++ format_expr(notation, indent, a) ++ stmt_cases(notation, deeper(indent), branches) ++ "\n" ++ indent ++ "end"
     case SAssert(a) =>
-      "assert " ++ show_expr(notation, indent, a)
+      "assert " ++ format_expr(notation, indent, a)
     case SRaise(a, _) =>
-      "raise " ++ show_expr(notation, indent, a)
+      "raise " ++ format_expr(notation, indent, a)
     case STry(body, handlers) =>
-      "try" ++ show_body(notation, deeper(indent), body) ++ "\n" ++ indent ++ "catch" ++ stmt_cases(notation, deeper(indent), [Branch(h.pat, h.guard, h.body) for h in handlers]) ++ "\n" ++ indent ++ "end"
+      "try" ++ format_body(notation, deeper(indent), body) ++ "\n" ++ indent ++ "catch" ++ stmt_cases(notation, deeper(indent), [Branch(h.pat, h.guard, h.body) for h in handlers]) ++ "\n" ++ indent ++ "end"
     case SBlock(_, _) =>
-      "skip" ++ show_body(notation, indent, s)
+      "skip" ++ format_body(notation, indent, s)
   end
 
 // the else of an if, where an if after else continues the chain, which ends with one end
 function else_text(notation: Notation, indent: Str, r: Stmt): Str :=
   match r
     case SSkip => "\n" ++ indent ++ "end"
-    case SIf(_, _, _) => "\n" ++ indent ++ "else " ++ show_stmt(notation, indent, r)
-    case _ => "\n" ++ indent ++ "else" ++ show_body(notation, deeper(indent), r) ++ "\n" ++ indent ++ "end"
+    case SIf(_, _, _) => "\n" ++ indent ++ "else " ++ format_stmt(notation, indent, r)
+    case _ => "\n" ++ indent ++ "else" ++ format_body(notation, deeper(indent), r) ++ "\n" ++ indent ++ "end"
   end
 
 function stmt_cases(notation: Notation, indent: Str, branches: List[Branch[Stmt]]): Str :=
-  join("", ["\n" ++ indent ++ case_head(notation, indent, b.pat, b.guard) ++ show_body(notation, deeper(indent), b.body) for b in branches])
+  join("", ["\n" ++ indent ++ case_head(notation, indent, b.pat, b.guard) ++ format_body(notation, deeper(indent), b.body) for b in branches])
 
 // the lines of a body, each after a newline, where local x := e is x with the assignment that starts the block
-function show_body(notation: Notation, indent: Str, body: Stmt): Str :=
+function format_body(notation: Notation, indent: Str, body: Stmt): Str :=
   match body
     case SBlock(Nil, ss) =>
-      show_stmts(notation, indent, ss)
+      format_stmts(notation, indent, ss)
     case SBlock(xs, ss) =>
       match local_decls(notation, indent, xs, ss)
-        case (decls, rest) => "\n" ++ indent ++ "local " ++ join(", ", decls) ++ show_stmts(notation, indent, rest)
+        case (decls, rest) => "\n" ++ indent ++ "local " ++ join(", ", decls) ++ format_stmts(notation, indent, rest)
       end
     case _ =>
-      show_stmts(notation, indent, [body])
+      format_stmts(notation, indent, [body])
   end
 
-function show_stmts(notation: Notation, indent: Str, ss: List[Stmt]): Str :=
-  join("", ["\n" ++ indent ++ show_stmt(notation, indent, s) for s in ss])
+function format_stmts(notation: Notation, indent: Str, ss: List[Stmt]): Str :=
+  join("", ["\n" ++ indent ++ format_stmt(notation, indent, s) for s in ss])
 
 // the declarations of the locals xs, with the assignments at the start of ss that initialize them, and the statements after
 function local_decls(notation: Notation, indent: Str, xs: List[Var], ss: List[Stmt]): List[Str] * List[Stmt] :=
@@ -521,27 +531,27 @@ function formal_sections(ins: List[Var], outs: List[Var], refs: List[Var]): Str 
   sections_text([formal_text(x) for x in ins], [formal_text(x) for x in outs], [formal_text(x) for x in refs])
 
 function formal_text(x: Var): Str :=
-  if x.typ == THole then x.name.base else x.name.base ++ ": " ++ show_type(x.typ)
+  if x.typ == THole then x.name.base else x.name.base ++ ": " ++ format_type(x.typ)
 
 // commands, where the notation of a command apply to those after it, and the
 // accessors and updaters of the fields of a data declaration as the names of its fields
 
-function show_cmds(notation: Notation, cmds: List[Cmd]): List[Str] :=
+function format_cmds(notation: Notation, cmds: List[Cmd]): List[Str] :=
   match cmds
     case Nil =>
       Nil
     case [cmd; more] =>
       let after := with_notation(notation, [cmd]) in
-        match show_cmd(notation, cmd, more)
-          case Some(text) => [text; show_cmds(after, more)]
-          case None => show_cmds(after, more)
+        match format_cmd(notation, cmd, more)
+          case Some(text) => [text; format_cmds(after, more)]
+          case None => format_cmds(after, more)
         end
   end
 
-function show_cmd(notation: Notation, cmd: Cmd, more: List[Cmd]): Option[Str] :=
+function format_cmd(notation: Notation, cmd: Cmd, more: List[Cmd]): Option[Str] :=
   match cmd
     case CSort(n, params, t) =>
-      Some("type " ++ n.base ++ params_text(params) ++ " :=\n  " ++ show_type(t))
+      Some("type " ++ n.base ++ params_text(params) ++ " :=\n  " ++ format_type(t))
     case CAbstract(n, params) =>
       Some("type " ++ n.base ++ params_text(params))
     case CData(n, params, constrs) =>
@@ -550,24 +560,24 @@ function show_cmd(notation: Notation, cmd: Cmd, more: List[Cmd]): Option[Str] :=
     case CFun(n, _, _, _, _) if contains('.', n.base) =>
       None
     case CFun(n, params, xss, r, body) =>
-      Some(function_head(n, params, xss, r) ++ " :=\n  " ++ show_expr(notation, "  ", body))
+      Some(function_head(n, params, xss, r) ++ " :=\n  " ++ format_expr(notation, "  ", body))
     case CFunSig(n, params, xss, r) =>
       Some(function_head(n, params, xss, r))
     case CProc(n, params, ins, outs, refs, body) =>
-      Some("procedure " ++ n.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ") :=" ++ show_body(notation, "  ", body))
+      Some("procedure " ++ n.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ") :=" ++ format_body(notation, "  ", body))
     case CProcSig(n, params, ins, outs, refs) =>
       Some("procedure " ++ n.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")")
     case CNotation(f, prec, names) =>
       Some(fixity_text(f) ++ " " ++ show(prec) ++ " " ++ join(" ", names))
     case CTest(name, xs, body) =>
-      Some("test " ++ name ++ "(" ++ join(", ", [formal_text(x) for x in xs]) ++ ") :=" ++ show_body(notation, "  ", body))
+      Some("test " ++ name ++ "(" ++ join(", ", [formal_text(x) for x in xs]) ++ ") :=" ++ format_body(notation, "  ", body))
   end
 
 function params_text(params: List[Id]): Str :=
   if params == [] then "" else "[" ++ join(", ", params) ++ "]"
 
 function function_head(n: Name, params: List[Id], xss: List[List[Var]], r: Type): Str :=
-  "function " ++ n.base ++ params_text(params) ++ join("", ["(" ++ join(", ", [formal_text(x) for x in xs]) ++ ")" for xs in xss]) ++ ": " ++ show_type(r)
+  "function " ++ n.base ++ params_text(params) ++ join("", ["(" ++ join(", ", [formal_text(x) for x in xs]) ++ ")" for xs in xss]) ++ ": " ++ format_type(r)
 
 function fixity_text(f: Fixity): Str :=
   match f
@@ -590,7 +600,7 @@ function constr_args(k: Id, args: List[Type], i: Int, fields: List[(Id * Int) * 
     case Nil =>
       Nil
     case [t; more] =>
-      let arg := match get((k, i), fields) case Some(f) => f ++ ": " ++ show_type(t) case None => show_type(t) end in
+      let arg := match get((k, i), fields) case Some(f) => f ++ ": " ++ format_type(t) case None => format_type(t) end in
         [arg; constr_args(k, more, i + 1, fields)]
   end
 
@@ -636,7 +646,7 @@ function test_operators(): Notation :=
   )
 
 function source(expr: Expr): Str :=
-  show_expr(test_operators(), "", expr)
+  format_expr(test_operators(), "", expr)
 
 test operators_parenthesized() :=
   local a := expr_var("a"), b := expr_var("b"), c := expr_var("c")
@@ -662,7 +672,7 @@ test updates_closed() :=
   local r := expr_app(".g:=", [expr_app(".f:=", [expr_var("r"), expr_int(1)]), EIte(expr_var("c"), expr_int(2), expr_int(3))])
 
   assert source(r) == "r with f := 1, g := (if c then 2 else 3)"
-  assert show_stmt(test_operators(), "", SAssign([(Var(unqualified("x"), THole), r), (Var(unqualified("y"), THole), expr_int(2))])) == "assign x := (" ++ source(r) ++ "), y := 2"
+  assert format_stmt(test_operators(), "", SAssign([(Var(unqualified("x"), THole), r), (Var(unqualified("y"), THole), expr_int(2))])) == "assign x := (" ++ source(r) ++ "), y := 2"
   assert source(expr_app("+", [expr_app(".f", [expr_app("+", [expr_var("a"), expr_var("b")])]), r])) == "(a + b).f + (" ++ source(r) ++ ")"
 
 test translations() :=
@@ -680,84 +690,137 @@ test bodies() :=
   local x := Var(unqualified("x"), type_int()), y := Var(unqualified("y"), THole)
   local body := SBlock([x, y], [SAssign([(Var(x.name, THole), expr_int(1))]), SIf(EVar(y), SBlock(Nil, [SSkip]), SIf(EVar(x), SBlock(Nil, Nil), SSkip))])
 
-  assert show_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y\n  skip\nelse if x\nend"
-  assert show_cmd(test_operators(), CNotation(FLeft, 9, ["+", "-"]), Nil) == Some("infix left 9 + -")
+  assert format_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y\n  skip\nelse if x\nend"
+  assert format_cmd(test_operators(), CNotation(FLeft, 9, ["+", "-"]), Nil) == Some("infix left 9 + -")
 
-// the parser, tested by the trees of single constructs, parsed with their own notation from the empty context, which reads no
-// files, and by printing a program in the layout of the printer back as it is
+// values, types, patterns, and names by their structure, in a fixed notation
 
-function test_notation(): Str :=
-  "infix right 8 ++\ninfix 6 ==\ninfix left 9 + -\ninfix left 10 *\nprefix 5 not\nprefix 11 -\n"
-
-// the body of a function that is e
-procedure parsed(in e: Str, out body: Expr) :=
-  local d: Mod
-
-  call   parse_text(in test_notation() ++ "function f(): Int :=\n  " ++ e, out d)
-  assign body := ELit(VUnit)
-
-  match reverse(commands_of(d))
-    case [CFun(_, _, _, _, b); _] =>
-      assign body := b
-    case _ =>
-      skip
+function format_value(v: Value): Str :=
+  match v
+    case Lit(VUnit) => "()"
+    case Lit(VBool(b)) => if b then "true" else "false"
+    case Lit(VInt(n)) => show(n)
+    case Lit(VStr(s)) => quote(s)
+    case Lit(VChar(c)) => "'" ++ escape_char(c) ++ "'"
+    case Obj(n, vs) if n == tuple_name() => "(" ++ format_values(vs) ++ ")"
+    case Obj(n, _) if n == cons_name() and list_elements(v) != None => "[" ++ format_values(list_items(v)) ++ "]"
+    case Obj(n, Nil) if n == nil_name() => "[]"
+    case Obj(n, Nil) => n.base
+    case Obj(n, vs) => n.base ++ "(" ++ format_values(vs) ++ ")"
+    case Arr(a) => array_text([format_value(w) for w in list(a)])
+    case Proc(_) => "<procedure>"
+    case ProcClos(_, _, _, _, _) => "<procedure>"
+    case _ => "<function>"
   end
 
-function declared_app(f: Id, args: List[Expr]): Expr :=
-  EApp(EVar(Var(declared_name(f), THole)), args)
+// the array of the texts of its elements, |a, b|, where a first element that starts with || is in parentheses, |(||), a|,
+// since the parser reads ||| as an empty array before a |
+function array_text(texts: List[Str]): Str :=
+  match texts
+    case [t; rest] if size(t) >= 2 and slice(t, 0, 2) == "||" => "|" ++ join(", ", ["(" ++ t ++ ")"; rest]) ++ "|"
+    case _ => "|" ++ join(", ", texts) ++ "|"
+  end
 
-function acc_var(): Var :=
-  Var(unqualified("(acc)"), THole)
+function format_values(vs: List[Value]): Str :=
+  join(", ", [format_value(v) for v in vs])
 
-test parsed_operators() :=
-  local expr: Expr, a := expr_var("a"), b := expr_var("b"), c := expr_var("c")
+function list_items(v: Value): List[Value] :=
+  match list_elements(v)
+    case Some(vs) => vs
+    case None => Nil
+  end
 
-  call   parsed(in "a - b - c", out expr)
-  assert expr == expr_app("-", [expr_app("-", [a, b]), c])
-  call   parsed(in "a ++ b ++ c", out expr)
-  assert expr == expr_app("++", [a, expr_app("++", [b, c])])
-  call   parsed(in "a + b * c - a", out expr)
-  assert expr == expr_app("-", [expr_app("+", [a, expr_app("*", [b, c])]), a])
-  call   parsed(in "not a == b", out expr)
-  assert expr == expr_app("not", [expr_app("==", [a, b])])
-  call   parsed(in "-a * b", out expr)
-  assert expr == expr_app("*", [expr_app("-", [a]), b])
-  call   parsed(in "a - -1", out expr)
-  assert expr == expr_app("-", [a, expr_int(-1)])
-  call   parsed(in "- -a", out expr)
-  assert expr == expr_app("-", [expr_app("-", [a])])
-  call   parsed(in "-a.f", out expr)
-  assert expr == expr_app("-", [expr_app(".f", [a])])
-  call   parsed(in "a with f := 1, g := b.f", out expr)
-  assert expr == expr_app(".g:=", [expr_app(".f:=", [a, expr_int(1)]), expr_app(".f", [b])])
+function escape_char(c: Char): Str :=
+  match c
+    case '\\' => "\\\\"
+    case '\n' => "\\n"
+    case '\t' => "\\t"
+    case '\r' => "\\r"
+    case '\'' => "\\'"
+    case _ => str([c])
+  end
 
-test parsed_displays() :=
-  local expr: Expr, a := expr_var("a"), b := expr_var("b"), c := expr_var("c")
+// types as the messages of the checker show them, without numbering the unknowns anew
+function format_type(t: Type): Str :=
+  match t
+    case TParam(n) => n
+    case THole => "_"
+    case TMeta(i) => "?" ++ show(i)
+    case TFun([TTuple([])], r) => "(()) -> " ++ format_type(r)
+    case TFun([a], r) => type_operand(a) ++ " -> " ++ format_type(r)
+    case TFun(args, r) => "(" ++ format_types(args) ++ ") -> " ++ format_type(r)
+    case TProc(is, os, rs) => "(" ++ join(", ", type_section("in", is) ++ type_section("out", os) ++ type_section("ref", rs)) ++ ")"
+    case TTuple([]) => "()"
+    case TTuple(ts) => join(" * ", [type_component(a) for a in ts])
+    case TSort(n, []) => n.base
+    case TSort(n, args) => n.base ++ "[" ++ format_types(args) ++ "]"
+  end
 
-  call   parsed(in "[a, b; c]", out expr)
-  assert expr == expr_app("Cons", [a, expr_app("Cons", [b, c])])
-  call   parsed(in "match a case [x, -1; _] => x end", out expr)
-  assert expr == EMatch(a, [Branch(PApp(unqualified("Cons"), [pat_var("x"), PApp(unqualified("Cons"), [PLit(VInt(-1)), PWild])]), None, expr_var("x"))])
-  call   parsed(in "{a, b}", out expr)
-  assert expr == declared_app("insert", [a, declared_app("insert", [b, declared_app("empty", [])])])
-  call   parsed(in "{a => b, a => c}", out expr)
-  assert expr == declared_app("put", [a, c, declared_app("put", [a, b, declared_app("empty", [])])])
-  call   parsed(in "{}", out expr)
-  assert expr == declared_app("empty", [])
+function format_types(ts: List[Type]): Str :=
+  join(", ", [format_type(t) for t in ts])
 
-// the folds of comprehensions, with the accumulator last for foldr and first for foldl, nested for several generators
-test parsed_comprehensions() :=
-  local expr: Expr, x := Var(unqualified("x"), THole), y := Var(unqualified("y"), THole), acc := EVar(acc_var())
-  local cons := expr_app("Cons", [expr_app("*", [EVar(x), EVar(y)]), acc])
+function type_section(mode: Str, ts: List[Type]): List[Str] :=
+  if ts == [] then [] else [mode ++ " " ++ format_types(ts)]
 
-  call   parsed(in "[x * y for x in a, y in b if x]", out expr)
-  assert expr == declared_app("foldr", [expr_var("a"), expr_var("Nil"), ELam([x, acc_var()], declared_app("foldr", [expr_var("b"), acc, ELam([y, acc_var()], EIte(EVar(x), cons, acc))]))])
-  call   parsed(in "{y => x for x => y in a}", out expr)
-  assert expr == declared_app("foldl", [expr_var("a"), declared_app("empty", []), ELam([acc_var(), x, y], declared_app("put", [EVar(y), EVar(x), acc]))])
+// the argument of a function, in parentheses if it is a function
+function type_operand(t: Type): Str :=
+  match t
+    case TFun(_, _) => "(" ++ format_type(t) ++ ")"
+    case _ => format_type(t)
+  end
 
-// a program in the layout of the printer, with the translations of locals, else if, fields, and updates, is printed back
-test printed_back() :=
-  local d: Mod, text := "infix left 9 +\n\ndata R :=\n  | R(f: Int, g: Int)\n\nprocedure p(in r: R, out n: Int) :=\n  local s := (r with f := 1), k: Int\n  if s.f + r.g\n    assign n := 1\n  else if r.f\n    assign k := 2, n := k\n  else\n    skip\n  end\n"
+// a component of a tuple, in parentheses if it is a function or a tuple
+function type_component(t: Type): Str :=
+  match t
+    case TFun(_, _) => "(" ++ format_type(t) ++ ")"
+    case TTuple([_, _; _]) => "(" ++ format_type(t) ++ ")"
+    case _ => format_type(t)
+  end
 
-  call   parse_text(in text, out d)
-  assert show_program([d]) == text
+// patterns as the messages of the checker show them
+function format_pat(pat: Pat): Str :=
+  match pat
+    case PWild => "_"
+    case PLit(l) => format_value(Lit(l))
+    case PVar(x) => x.name.base
+    case PTuple(ps) => "(" ++ format_pats(ps) ++ ")"
+    case PApp(n, [x, xs]) if n == cons_name() or n == unqualified("Cons") => "[" ++ format_pat(x) ++ "; " ++ format_pat(xs) ++ "]"
+    case PApp(n, [l, r]) if symbolic(n.base) => infix_text(n.base, format_pat(l), format_pat(r))
+    case PApp(n, []) => n.base
+    case PApp(n, ps) => n.base ++ "(" ++ format_pats(ps) ++ ")"
+  end
+
+function format_pats(pats: List[Pat]): Str :=
+  join(", ", [format_pat(p) for p in pats])
+
+// constructors named by operators are shown infix
+function symbolic(n: Id): Bool :=
+  let c := at(0, n) in not is_letter(c) and c != '_' and n != ","
+
+function infix_text(op: Id, l: Str, r: Str): Str :=
+  pat_operand(l) ++ " " ++ op ++ " " ++ pat_operand(r)
+
+function pat_operand(a: Str): Str :=
+  if contains(' ', a) and at(0, a) != '(' then "(" ++ a ++ ")" else a
+
+// the text of a string, for os_print
+function text_of(v: Value): Str :=
+  match v
+    case Lit(VStr(s)) => s
+    case _ => format_value(v)
+  end
+
+// the name with its module, to tell names apart
+function format_name(n: Name): Str :=
+  match n
+    case Name(Some(m), b) => m ++ "." ++ b
+    case Name(None, b) => b
+  end
+
+test printing() :=
+  assert format_type(TFun([TFun([TParam("A")], TParam("B")), TTuple([TSort(unqualified("Int"), []), TSort(unqualified("Str"), [])])], TSort(unqualified("List"), [TParam("A")]))) == "(A -> B, Int * Str) -> List[A]"
+  assert format_type(TProc([TParam("A")], [], [TSort(unqualified("Int"), [])])) == "(in A, ref Int)"
+  assert format_pat(PApp(cons_name(), [PVar(Var(unqualified("x"), THole)), PApp(unqualified("Some"), [PWild])])) == "[x; Some(_)]"
+  assert format_value(list_value([Lit(VInt(1)), Lit(VStr("a\"b"))])) == "[1, \"a\\\"b\"]"
+  assert format_value(Obj(tuple_name(), [Lit(VChar('\'')), Obj(nil_name(), Nil), Obj(unqualified("Some"), [Lit(VBool(true))])])) == "('\\'', [], Some(true))"
+  assert format_name(cons_name()) == "list.Cons" and cons_name().base == "Cons"

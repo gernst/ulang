@@ -4,6 +4,7 @@
 
 import syntax
 import lex
+import format
 import os
 import set
 import map
@@ -134,7 +135,7 @@ function at_update(toks: Tokens): Bool :=
     case _ => false
   end
 
-function show_token(tok: Token): Str :=
+function format_token(tok: Token): Str :=
   match tok
     case TName(name) => name
     case TSym(s) => s
@@ -151,7 +152,7 @@ function expected(what: Str, toks: Tokens): ParseError :=
     case TName(w) if contains(w, keywords()) and (what == "name" or what == "pattern") =>
       ParseError("keyword " ++ w ++ " is not a name", head_offset(toks))
     case tok =>
-      ParseError(what ++ " expected but " ++ show_token(tok) ++ " found", head_offset(toks))
+      ParseError(what ++ " expected but " ++ format_token(tok) ++ " found", head_offset(toks))
   end
 
 // the value of a literal token
@@ -185,7 +186,7 @@ procedure expect(in tok: Token, ref toks: Tokens) :=
   if head_token(toks) == tok
     call advance(ref toks)
   else
-    raise expected(show_token(tok), toks)
+    raise expected(format_token(tok), toks)
   end
 
 // a name that is not a keyword
@@ -1317,7 +1318,7 @@ function at_operator(toks: Tokens): Bool :=
 
 procedure parse_operator(in notation: Notation, params: List[Id], out op: Id, ref toks: Tokens) :=
   if at_operator(toks)
-    assign op := show_token(head_token(toks))
+    assign op := format_token(head_token(toks))
     call   advance(ref toks)
   else
     raise expected("operator", toks)
@@ -1836,3 +1837,76 @@ function base_name(path: Str): Str :=
 
 function dir_name(path: Str): Str :=
   let parts := split(path, '/') in if size(parts) == 1 then "." else join("/", take(size(parts) - 1, parts))
+
+// the parser, tested by the trees of single constructs, parsed with their own notation from the empty context, which reads no
+// files, and by printing a program in the layout of the printer back as it is
+
+function test_notation(): Str :=
+  "infix right 8 ++\ninfix 6 ==\ninfix left 9 + -\ninfix left 10 *\nprefix 5 not\nprefix 11 -\n"
+
+// the body of a function that is e
+procedure parsed(in e: Str, out body: Expr) :=
+  local d: Mod
+
+  call   parse_text(in test_notation() ++ "function f(): Int :=\n  " ++ e, out d)
+  assign body := ELit(VUnit)
+
+  match reverse(commands_of(d))
+    case [CFun(_, _, _, _, b); _] =>
+      assign body := b
+    case _ =>
+      skip
+  end
+
+test parsed_operators() :=
+  local expr: Expr, a := expr_var("a"), b := expr_var("b"), c := expr_var("c")
+
+  call   parsed(in "a - b - c", out expr)
+  assert expr == expr_app("-", [expr_app("-", [a, b]), c])
+  call   parsed(in "a ++ b ++ c", out expr)
+  assert expr == expr_app("++", [a, expr_app("++", [b, c])])
+  call   parsed(in "a + b * c - a", out expr)
+  assert expr == expr_app("-", [expr_app("+", [a, expr_app("*", [b, c])]), a])
+  call   parsed(in "not a == b", out expr)
+  assert expr == expr_app("not", [expr_app("==", [a, b])])
+  call   parsed(in "-a * b", out expr)
+  assert expr == expr_app("*", [expr_app("-", [a]), b])
+  call   parsed(in "a - -1", out expr)
+  assert expr == expr_app("-", [a, expr_int(-1)])
+  call   parsed(in "- -a", out expr)
+  assert expr == expr_app("-", [expr_app("-", [a])])
+  call   parsed(in "-a.f", out expr)
+  assert expr == expr_app("-", [expr_app(".f", [a])])
+  call   parsed(in "a with f := 1, g := b.f", out expr)
+  assert expr == expr_app(".g:=", [expr_app(".f:=", [a, expr_int(1)]), expr_app(".f", [b])])
+
+test parsed_displays() :=
+  local expr: Expr, a := expr_var("a"), b := expr_var("b"), c := expr_var("c")
+
+  call   parsed(in "[a, b; c]", out expr)
+  assert expr == expr_app("Cons", [a, expr_app("Cons", [b, c])])
+  call   parsed(in "match a case [x, -1; _] => x end", out expr)
+  assert expr == EMatch(a, [Branch(PApp(unqualified("Cons"), [pat_var("x"), PApp(unqualified("Cons"), [PLit(VInt(-1)), PWild])]), None, expr_var("x"))])
+  call   parsed(in "{a, b}", out expr)
+  assert expr == declared_app("insert", [a, declared_app("insert", [b, declared_app("empty", [])])])
+  call   parsed(in "{a => b, a => c}", out expr)
+  assert expr == declared_app("put", [a, c, declared_app("put", [a, b, declared_app("empty", [])])])
+  call   parsed(in "{}", out expr)
+  assert expr == declared_app("empty", [])
+
+// the folds of comprehensions, with the accumulator last for foldr and first for foldl, nested for several generators
+test parsed_comprehensions() :=
+  local expr: Expr, x := Var(unqualified("x"), THole), y := Var(unqualified("y"), THole), acc := EVar(acc_var())
+  local cons := expr_app("Cons", [expr_app("*", [EVar(x), EVar(y)]), acc])
+
+  call   parsed(in "[x * y for x in a, y in b if x]", out expr)
+  assert expr == declared_app("foldr", [expr_var("a"), expr_var("Nil"), ELam([x, acc_var()], declared_app("foldr", [expr_var("b"), acc, ELam([y, acc_var()], EIte(EVar(x), cons, acc))]))])
+  call   parsed(in "{y => x for x => y in a}", out expr)
+  assert expr == declared_app("foldl", [expr_var("a"), declared_app("empty", []), ELam([acc_var(), x, y], declared_app("put", [EVar(y), EVar(x), acc]))])
+
+// a program in the layout of the printer, with the translations of locals, else if, fields, and updates, is printed back
+test printed_back() :=
+  local d: Mod, text := "infix left 9 +\n\ndata R :=\n  | R(f: Int, g: Int)\n\nprocedure p(in r: R, out n: Int) :=\n  local s := (r with f := 1), k: Int\n  if s.f + r.g\n    assign n := 1\n  else if r.f\n    assign k := 2, n := k\n  else\n    skip\n  end\n"
+
+  call   parse_text(in text, out d)
+  assert format_program([d]) == text

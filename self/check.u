@@ -8,7 +8,7 @@ import syntax
 
 import sig
 import defs
-import print
+import format
 import map
 import set
 
@@ -2171,7 +2171,7 @@ function failing(t: Name, ps: List[Id], op: Id, r: Type, e: Id): Cmd :=
       ps,
       [[Var(unqualified("a"), a), Var(unqualified("b"), a)]],
       r,
-      ERaise(EApp(EVar(Var(Name(Some("prelude"), e), THole)), [ELit(VStr(show_name(t)))]), THole)
+      ERaise(EApp(EVar(Var(Name(Some("prelude"), e), THole)), [ELit(VStr(format_name(t)))]), THole)
     )
 
 // the commands of ds without signatures and abstract types, which only the checks of sections need

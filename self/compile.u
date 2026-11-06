@@ -4,7 +4,7 @@
 import syntax
 import check
 import defs
-import print
+import format
 import c
 import parse
 import os
@@ -38,7 +38,7 @@ function value_ptr(): CType :=
 
 // names of ulang with their modules as names of C, where other characters than letters, digits, and _ are their codes
 function mangle(n: Name): Str :=
-  str([d for c in list(show_name(n)), d in mangle_char(c)])
+  str([d for c in list(format_name(n)), d in mangle_char(c)])
 
 function mangle_char(c: Char): List[Char] :=
   if is_letter(c) or is_digit(c) or c == '_' then [c] else list("_" ++ show(ord(c)) ++ "_")
@@ -165,7 +165,7 @@ function type_decls(
         Some(
           CeInit(
             [
-              CeStr(show_name(t)),
+              CeStr(format_name(t)),
               CeVar(declared_or(get(t, compares), 2, "u_con_compare")),
               CeVar(declared_or(get(t, equalities), 2, "u_equals_by_compare")),
               CeVar(declared_or(get(t, shows), 1, "u_con_show"))
@@ -214,8 +214,8 @@ function copy_out(xs: List[Name]): List[CStmt] :=
 // types as names of exceptions, which handlers compare
 function type_key(t: Type): Str :=
   match t
-    case TSort(n, []) => show_name(n)
-    case TSort(n, args) => show_name(n) ++ "[" ++ join(", ", [type_key(a) for a in args]) ++ "]"
+    case TSort(n, []) => format_name(n)
+    case TSort(n, args) => format_name(n) ++ "[" ++ join(", ", [type_key(a) for a in args]) ++ "]"
     case TFun(args, r) => "(" ++ join(", ", [type_key(a) for a in args]) ++ ") -> " ++ type_key(r)
     case TProc(is, os, rs) => "(in " ++ join(", ", [type_key(a) for a in is]) ++ ", out " ++ join(", ", [type_key(a) for a in os]) ++ ", ref " ++ join(", ", [type_key(a) for a in rs]) ++ ")"
     case TTuple(ts) => "(" ++ join(" * ", [type_key(a) for a in ts]) ++ ")"
@@ -983,7 +983,7 @@ procedure compile_cmd(in defs: Defs, entry: Id, cmd: Cmd, out ds: List[CDecl], m
       assign params := [(value_type(), var_name(x)) for x in names(first_list(xss))]
 
       if first_list(xss) == Nil
-        assign bs := cached(show_name(n), bs, rb)
+        assign bs := cached(format_name(n), bs, rb)
       else
         assign bs := bs ++ [CsReturn(Some(rb))]
       end

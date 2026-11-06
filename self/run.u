@@ -4,7 +4,7 @@
 
 import syntax
 import value
-import print
+import format
 
 import check
 import defs
@@ -293,7 +293,7 @@ procedure apply_value(in run: Run, f: Value, vs: List[Value], out v: Value, ref 
       assign v := Obj(n, vs)
 
     case Prim(n) =>
-      match (show_name(n), vs)
+      match (format_name(n), vs)
         case ("compare", [a, b]) =>
           call   compare_values(in run, a, b, out k, ref cache)
           assign v := Lit(VInt(k))
@@ -351,7 +351,7 @@ function failure(n: Name, args: List[Value]): Thrown :=
 procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
   local r: Bool
 
-  match (show_name(n), vs)
+  match (format_name(n), vs)
     case ("prelude.+", [Lit(VInt(a)), Lit(VInt(b))]) =>
       assign v := Lit(VInt(a + b))
 
@@ -584,7 +584,7 @@ procedure compare_all(in run: Run, xs: List[Value], ys: List[Value], out r: Int,
       assign r := order(size(xs), size(ys))
   end
 
-// the text of a value as show_value of print.u gives it, where the values of datatypes with declared shows are shown by them,
+// the text of a value as format_value of format.u gives it, where the values of datatypes with declared shows are shown by them,
 // also inside other values, as lists, options, sets, and maps of the library are
 procedure show_in(in run: Run, v: Value, out s: Str, ref cache: Map[Name, Value]) :=
   local w: Value, texts: List[Str]
@@ -596,7 +596,7 @@ procedure show_in(in run: Run, v: Value, out s: Str, ref cache: Map[Name, Value]
           call apply_value(in run, Fn(f, 1), [v], out w, ref cache)
           assign s := text_of(w)
         case None =>
-          assign s := show_value(v)
+          assign s := format_value(v)
       end
     case Obj(n, vs) if n == tuple_name() =>
       call   show_all(in run, vs, out texts, ref cache)
@@ -610,7 +610,7 @@ procedure show_in(in run: Run, v: Value, out s: Str, ref cache: Map[Name, Value]
       call   show_all(in run, list(a), out texts, ref cache)
       assign s := array_text(texts)
     case _ =>
-      assign s := show_value(v)
+      assign s := format_value(v)
   end
 
 procedure show_all(in run: Run, vs: List[Value], out texts: List[Str], ref cache: Map[Name, Value]) :=
@@ -855,10 +855,10 @@ procedure invoke(
   match get(n, run.defs.procs)
     case Some((xs, ys, zs, body)) =>
       call run_body(in run, n, empty(), xs, ys, zs, body, ins, refs, out outs, ref env, cache)
-    case None if show_name(n) == "os.os_print" =>
+    case None if format_name(n) == "os.os_print" =>
       assign outs := Nil
       call   print_all(in [text_of(v) for v in ins])
-    case None if show_name(n) == "os.os_args" =>
+    case None if format_name(n) == "os.os_args" =>
       assign outs := [list_value([Lit(VStr(a)) for a in run.args])]
     case None =>
       call os_proc(in n, ins, out outs)
@@ -942,7 +942,7 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
   local text: Str, entries: List[Str * Bool], yes: Bool
 
   try
-    match (show_name(n), ins)
+    match (format_name(n), ins)
       case ("os.os_read", [Lit(VStr(path))]) =>
         call   os_read(in path, out text)
         assign outs := [Lit(VStr(text))]
