@@ -1,5 +1,5 @@
-// loaded before every program, whose notations apply to it, and after which the parser imports option, list, and str,
-// which every module sees with the prelude, and which are parsed with all its notations
+// which every module imports implicitly, before option, list, and str, which every module imports implicitly as well, each
+// module of these those before it
 
 export
 

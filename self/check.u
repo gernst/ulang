@@ -129,9 +129,9 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
 function qualify_constr(m: Id, k: Constr): Constr :=
   k with name := in_module(m, k.name)
 
-// each module sees itself, its direct imports, and the prelude with its imports, for the imports of each module
+// each module sees itself and its direct imports, which include the implicit ones, for the imports of each module
 function visibility(imports: List[Id * List[Id]], main: Id): List[Id * List[Id]] :=
-  [(m, distinct([m] ++ imports_of(imports, m) ++ ["prelude"] ++ imports_of(imports, "prelude"))) for m in distinct([main] ++ firsts(imports))]
+  [(m, distinct([m] ++ imports_of(imports, m))) for m in distinct([main] ++ firsts(imports))]
 
 function imports_of(imports: List[Id * List[Id]], m: Id): List[Id] :=
   match get(m, imports)
@@ -2187,10 +2187,7 @@ function definitions(ds: List[Id * Cmd]): List[Id * Cmd] :=
 // the signatures and types of the builtin section of d as definitions to declare, whose definitions the interpreter and the
 // runtime give, where a type is a datatype without constructors, whose values the interpreter and the runtime make
 function natives(d: Mod): List[Id * Cmd] :=
-  match d.sections
-    case Sectioned(_, b, _) => [(d.name, native(qualify(d.name, c))) for c in seconds(b)]
-    case Unsectioned(_) => Nil
-  end
+  [(d.name, native(qualify(d.name, c))) for c in seconds(d.builtins)]
 
 function native(cmd: Cmd): Cmd :=
   match cmd
@@ -2410,17 +2407,11 @@ procedure check_sections(in ds: List[Mod], out hidden: Set[Name], hidden_sorts: 
     case [d; rest] =>
       call check_sections(in rest, out more, sorts)
 
-      match d.sections
-        case Sectioned(e, _, i) =>
-          assign ex := [qualify(d.name, c) for c in seconds(e)], im := [qualify(d.name, c) for c in seconds(i)]
-          call   check_signatures(in ex, im)
-          call   check_arities(in im, ex)
-          call   check_exposed(in d.name, ex, private_sorts(ex, im))
-          assign hidden := more ++ set(private_names(ex, im)), hidden_sorts := private_sorts(ex, im) ++ sorts
-        case Unsectioned(cs) =>
-          assign im := [qualify(d.name, c) for c in seconds(cs)]
-          assign hidden := more ++ set(private_names(Nil, im)), hidden_sorts := private_sorts(Nil, im) ++ sorts
-      end
+      assign ex := [qualify(d.name, c) for c in seconds(d.exported)], im := [qualify(d.name, c) for c in seconds(d.implemented)]
+      call   check_signatures(in ex, im)
+      call   check_arities(in im, ex)
+      call   check_exposed(in d.name, ex, private_sorts(ex, im))
+      assign hidden := more ++ set(private_names(ex, im)), hidden_sorts := private_sorts(ex, im) ++ sorts
   end
 
 // the commands of the program with qualified names, where each module is checked once, after the modules it imports
@@ -2445,7 +2436,7 @@ procedure check_units(in us: List[List[Mod]], ref sig: Sig, imports: List[Id * L
 // the modules ds, checked after the declarations before of the modules that imports lists, as the last of them, where the
 // declarations that other modules keep private are unknown, since before has only their signatures
 procedure check_unit(in ds: List[Mod], before: Sig, imports: List[Id * List[Id]], out checked: Checked) :=
-  local own := [(d.name, d.imports) for d in ds], main := last_mod(ds).name, placed := [p for d in ds, p in decls_of(d)], s: State,
+  local own := [(d.name, all_imports(d)) for d in ds], main := last_mod(ds).name, placed := [p for d in ds, p in decls_of(d)], s: State,
     decls: List[Id * Cmd], cmds: List[Cmd], hidden: Set[Name], hidden_sorts: List[Name], extra: List[Id * Cmd], more: List[Cmd],
     builtins := [b for d in ds, b in natives(d)]
 
@@ -2470,7 +2461,7 @@ procedure check_unit(in ds: List[Mod], before: Sig, imports: List[Id * List[Id]]
 
 // the commands of module d with qualified names, with the module of each, and their positions
 function decls_of(d: Mod): List[Pos * (Id * Cmd)] :=
-  [(position_of(pc), (d.name, qualify(d.name, command_of(pc)))) for pc in placed_of(d.sections)]
+  [(position_of(pc), (d.name, qualify(d.name, command_of(pc)))) for pc in placed_of(d)]
 
 function position_of(pc: Pos * Cmd): Pos :=
   match pc
@@ -2529,29 +2520,9 @@ function located(d: Id * Cmd, p: Pos, e: TypeError): TypeError :=
     case (m, _) => if p == Pos(0, 0) then e else Located(m, p, e)
   end
 
-// the units of the modules, in load order: the prelude with the modules imported after it, which every module sees, and
-// each other module on its own, where the last module, the main one, is a unit of its own, also when it is a module of the
-// library, whose tests the driver checks
+// the units of the modules, in load order, each module on its own
 function units(ds: List[Mod]): List[List[Mod]] :=
-  match ds
-    case Nil => Nil
-    case _ => prelude_units(but_last(ds)) ++ [[last_mod(ds)]]
-  end
-
-function prelude_units(ds: List[Mod]): List[List[Mod]] :=
-  let pre := closure(ds, ["prelude"], Nil) in
-    let unit := [d for d in ds if contains(d.name, pre)] in
-      (if unit == Nil then Nil else [unit]) ++ [[d] for d in ds if not contains(d.name, pre)]
-
-// the modules that names import, directly or not, with names
-function closure(ds: List[Mod], names: List[Id], seen: List[Id]): List[Id] :=
-  match names
-    case Nil => seen
-    case [n; rest] => if contains(n, seen) then closure(ds, rest, seen) else closure(ds, rest ++ imports_of_mod(ds, n), [n; seen])
-  end
-
-function imports_of_mod(ds: List[Mod], n: Id): List[Id] :=
-  [i for d in ds, i in d.imports if d.name == n]
+  [[d] for d in ds]
 
 // the type of e without a program
 procedure type_of(in expr: Expr, out t: Type) :=
@@ -2665,26 +2636,26 @@ function fun_cmd(n: Id, xs: List[Var], r: Type, b: Expr): Cmd :=
 // and that the program imports
 function bags(): List[Mod] :=
   [
-    Mod("bag", Nil, Sectioned(unplaced([
+    Mod("bag", Nil, unplaced([
       CData(unq("Bag"), Nil, [Constr(unq("Bag"), [type_int()]), Constr(unq("Leaf"), [type_int()])]),
       CData(unq("Pt"), Nil, [Constr(unq("Pt"), [type_int()])]),
       fun_cmd("size", [var_of("b", tsort("Bag"))], type_int(), expr_int(1)),
       fun_cmd("compare", [var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))], type_int(), expr_int(0)),
       fun_cmd("Pt.x", [var_of("p", tsort("Pt"))], type_int(), EMatch(expr_var("p"), [Branch(PApp(unq("Pt"), [pat_var("n")]), None, expr_var("n"))])),
       CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Bag"))], Nil, SAssign([(var_of("b", THole), expr_app("Bag", [expr_int(0)]))]))
-    ]), Nil, Nil)),
-    Mod("box", Nil, Sectioned(unplaced([
+    ]), Nil, Nil),
+    Mod("box", Nil, unplaced([
       CData(unq("Box"), Nil, [Constr(unq("Box"), [type_str()]), Constr(unq("Leaf"), [type_str()])]),
       CData(unq("Qt"), Nil, [Constr(unq("Qt"), [type_str()])]),
       fun_cmd("size", [var_of("b", tsort("Box"))], type_int(), expr_int(2)),
       fun_cmd("Qt.x", [var_of("q", tsort("Qt"))], type_str(), EMatch(expr_var("q"), [Branch(PApp(unq("Qt"), [pat_var("s")]), None, expr_var("s"))])),
       CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Box"))], Nil, SAssign([(var_of("b", THole), expr_app("Box", [ELit(VStr(""))]))]))
-    ]), Nil, Nil))
+    ]), Nil, Nil)
   ]
 
 // the program of the commands cmds of the module main, which imports bag and box
 function with_bags(cmds: List[Cmd]): Source :=
-  Source([natives_prelude(); bags()] ++ [Mod("main", ["bag", "box"], Unsectioned(unplaced(cmds)))], "main")
+  Source([natives_prelude(); bags()] ++ [Mod("main", ["bag", "box"], Nil, Nil, unplaced(cmds))], "main")
 
 function in_bag(n: Id): Name :=
   Name(Some("bag"), n)

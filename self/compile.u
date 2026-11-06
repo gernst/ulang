@@ -1095,13 +1095,12 @@ procedure compile_program(in q: Prog, m: Id, entry: Id, out f: CFile) :=
   assign fs := wrappers(defs) ++ ds ++ g.lifted
   assign f := CFile([CdInclude("ulang.h")] ++ [p for d in fs, p in prototype(d)] ++ descriptor_decls(defs, q.cmds) ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
 
-// checks the program of the file source after the prelude, which is its module, and writes its translation to C to target
+// checks the program of the file source, which is its module, and writes its translation to C to target
 procedure compile_file(in source: Str, entry: Id, target: Str) :=
-  local pre: List[Mod], mods: List[Mod], q: Prog, f: CFile
+  local mods: List[Mod], q: Prog, f: CFile
 
-  call   parse_library(in "prelude", out pre)
-  call   parse_file_after(in source, pre, out mods)
-  call   check_program(in Source(pre ++ mods, base_name(source)), out q)
+  call   parse_file(in source, out mods)
+  call   check_program(in Source(mods, base_name(source)), out q)
   call   compile_program(in q, base_name(source), entry, out f)
   call   os_write(in target, format_file(f))
 

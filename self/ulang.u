@@ -135,38 +135,12 @@ function in_module(words: List[Str]): Bool :=
     case _ => false
   end
 
-// the checked program of file after the prelude, which is the module of its base name
-// where a module of the library that the prelude imports keeps only its tests, since the prelude declares the rest,
-// and the prelude itself is not parsed again, which would declare its notations twice
+// the checked program of file, which is the module of its base name, after the modules it imports
 procedure load_file(in file: Str, out q: Prog) :=
-  local name := base_name(file), pre: List[Mod], mods: List[Mod] := Nil, text: Str, library: Str, own: Mod, of_library := false
+  local mods: List[Mod]
 
-  call   parse_library(in "prelude", out pre)
-
-  if contains(name, [d.name for d in pre])
-    call   os_read(in file, out text)
-    call   os_library(in name, out library)
-    assign of_library := text == library
-  end
-
-  if of_library and name == "prelude"
-    assign own := tests_of(name, [d for d in pre if d.name == name])
-  else
-    call   parse_file_after(in file, pre, out mods)
-    assign own := if of_library then tests_of(name, mods) else last_mod(mods), mods := if of_library then Nil else but_last(mods)
-  end
-
-  call check_program(in Source(pre ++ mods ++ [own], name), out q)
-
-// the module name with only the tests of the last of mods
-function tests_of(name: Id, mods: List[Mod]): Mod :=
-  Mod(name, Nil, Unsectioned(placed_tests(placed_of(last_mod(mods).sections))))
-
-function placed_tests(cmds: List[Pos * Cmd]): List[Pos * Cmd] :=
-  match cmds
-    case Nil => Nil
-    case [(p, c); rest] => if is_any_test(c) then [(p, c); placed_tests(rest)] else placed_tests(rest)
-  end
+  call parse_file(in file, out mods)
+  call check_program(in Source(mods, base_name(file)), out q)
 
 function is_any_test(cmd: Cmd): Bool :=
   match cmd
@@ -186,18 +160,14 @@ procedure compile_to(in file: Str, entry: Str, target: Str, out ok: Bool) :=
 
 // prints file as source, which must parse to the same commands as file, so that formatting tests the parser and the printer
 procedure format_file(in file: Str, out ok: Bool) :=
-  local pre: List[Mod] := Nil, p: List[Mod], q: List[Mod], text: Str, source: Str
-
-  if base_name(file) != "prelude"
-    call parse_library(in "prelude", out pre)
-  end
+  local p: List[Mod], q: List[Mod], text: Str, source: Str
 
   call   os_read(in file, out text)
-  call   parse_text_after(in file, pre, text, out p)
-  assign source := show_program(pre, p), ok := false
+  call   parse_file_text(in file, text, out p)
+  assign source := show_program(p), ok := false
 
   try
-    call parse_text_after(in file, pre, source, out q)
+    call parse_file_text(in file, source, out q)
 
     if [without_positions(d) for d in p] == [without_positions(d) for d in q]
       call   os_print(in slice(source, 0, size(source) - 1))

@@ -70,7 +70,7 @@ test: ulang.bin
 	$(COMPILE) ./ulang.bin test tests self prove prelude
 
 # the same files, each compiled by ulang.bin and cc with the runtime object, and run in its directory, by testc.sh in parallel,
-# except for the modules of the prelude, which cannot be compiled on their own
+# except for prelude.u and option.u, which cannot be compiled on their own, since the runtime needs the lists of list.u
 TESTC = out/testc
 
 $(TESTC)/ulang.o: self/runtime/ulang.c self/runtime/ulang.h Makefile

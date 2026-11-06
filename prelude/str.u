@@ -1,8 +1,8 @@
 // strings and characters, by the functions that the interpreter and the runtime implement, with the names that strings share with the containers, in their order and with their results, where a string is a map
 // from indices to characters, concatenated by ++ of the prelude, compared by compare, and shown by show
 //
-// which the prelude imports after list, so that list.u cannot use it, where the builtin section declares the functions that the
-// interpreter and the runtime define
+// which every module imports implicitly after list, so that list.u cannot use it, where the builtin section declares the
+// functions that the interpreter and the runtime define
 
 import option
 import list

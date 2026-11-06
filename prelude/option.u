@@ -1,4 +1,4 @@
-// optional values, which the prelude imports
+// optional values, which every module imports implicitly, after the prelude
 
 export
 
@@ -28,4 +28,4 @@ function show[A](o: Option[A]): Str :=
 
 test options() :=
   assert or_else(Some(1), Some(2)) == Some(1) and or_else(None, Some(2)) == Some(2)
-  assert show(Some(Some(1))) == "Some(Some(1))" and show([None, Some("a")]) == "[None, Some(\"a\")]"
+  assert show(Some(Some(1))) == "Some(Some(1))" and show((None, Some("a"))) == "(None, Some(\"a\"))"
