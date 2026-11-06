@@ -14,9 +14,7 @@ export
 data ParseError :=
   | ParseError(Str, Int)
 
-function last_of(xs: List[Str]): Str
-function base_name(path: Str): Str
-function dir_name(path: Str): Str
+function module_name(path: Str): Str
 
 // the modules of the file at path, in load order, each after the modules it imports, with the module of the file last,
 // where imports are read from the directory of the file, or else from the library, and implicit ones from the library
@@ -1755,7 +1753,7 @@ procedure module_text(in name: Id, dir: Option[Str], offset: Int, out text: Str)
   match dir
     case Some(d) =>
       try
-        call os_read(in d ++ "/" ++ name ++ ".u", out text)
+        call os_read(in os_join(d, name ++ ".u"), out text)
       catch
         case OsError(_) =>
           call library_text(in name, offset, out text)
@@ -1804,11 +1802,11 @@ procedure lex_text(in text: Str, out toks: Tokens) :=
   end
 
 procedure parse_file_text(in path: Str, text: Str, out mods: List[Mod]) :=
-  local toks: Tokens, own: Mod, name := base_name(path)
+  local toks: Tokens, own: Mod, name := module_name(path)
 
   call   lex_text(in text, out toks)
   assign mods := Nil
-  call   parse_mod(in name, text, implicit_imports(name), Some(dir_name(path)), [name], out own, ref mods, toks)
+  call   parse_mod(in name, text, implicit_imports(name), Some(os_dirname(path)), [name], out own, ref mods, toks)
   assign mods := mods ++ [own]
 
 procedure parse_file(in path: Str, out mods: List[Mod]) :=
@@ -1823,20 +1821,10 @@ procedure parse_text(in text: Str, out own: Mod) :=
   call lex_text(in text, out toks)
   call parse_mod(in "main", text, Nil, None, ["main"], out own, ref mods, toks)
 
-function last_of(xs: List[Str]): Str :=
-  match xs
-    case [x] => x
-    case [_; more] => last_of(more)
-    case _ => ""
-  end
-
-// the name of a file without its directory and .u
-function base_name(path: Str): Str :=
-  let f := last_of(split(path, '/')) in
+// the module of the file at path, its name without its directory and .u
+function module_name(path: Str): Str :=
+  let f := os_basename(path) in
     if size(f) >= 2 and slice(f, size(f) - 2, size(f)) == ".u" then slice(f, 0, size(f) - 2) else f
-
-function dir_name(path: Str): Str :=
-  let parts := split(path, '/') in if size(parts) == 1 then "." else join("/", take(size(parts) - 1, parts))
 
 // the parser, tested by the trees of single constructs, parsed with their own notation from the empty context, which reads no
 // files, and by printing a program in the layout of the printer back as it is

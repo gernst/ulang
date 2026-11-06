@@ -13,6 +13,10 @@ procedure os_walk(in path: Str, out files: List[Str])
 // the path of name in dir, which may end with /
 function os_join(dir: Str, name: Str): Str
 
+// the last part of a path, after its last /, and the part before, which is . for a path without /
+function os_basename(path: Str): Str
+function os_dirname(path: Str): Str
+
 builtin
 
 // the arguments of the program, after -- for the interpreter
@@ -76,3 +80,16 @@ procedure os_walk_entries(in dir: Str, entries: List[Str * Bool], out files: Lis
 
 function os_join(dir: Str, name: Str): Str :=
   if size(dir) > 0 and at(size(dir) - 1, dir) == '/' then dir ++ name else dir ++ "/" ++ name
+
+function os_basename(path: Str): Str :=
+  match last(split(path, '/'))
+    case Some(name) => name
+    case None => path
+  end
+
+function os_dirname(path: Str): Str :=
+  let parts := split(path, '/') in if size(parts) == 1 then "." else join("/", take(size(parts) - 1, parts))
+
+test paths() :=
+  assert os_basename("a/b.u") == "b.u" and os_basename("b.u") == "b.u" and os_dirname("a/b/c.u") == "a/b" and os_dirname("c.u") == "."
+  assert os_join("a", "b") == "a/b" and os_join("a/", "b") == "a/b"

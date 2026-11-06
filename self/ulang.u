@@ -105,7 +105,7 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
     case UnknownEntry(n) =>
       assign message := "compile error: there is no procedure " ++ n.base ++ " without parameters"
     case e =>
-      assign message := "type error: " ++ located_message(base_name(file), e)
+      assign message := "type error: " ++ located_message(module_name(file), e)
     case e =>
       assign message := "runtime error: " ++ runtime_message(e)
   end
@@ -139,7 +139,7 @@ procedure load_file(in file: Str, out q: Prog) :=
   local mods: List[Mod]
 
   call parse_file(in file, out mods)
-  call check_program(in Source(mods, base_name(file)), out q)
+  call check_program(in Source(mods, module_name(file)), out q)
 
 function is_any_test(cmd: Cmd): Bool :=
   match cmd
@@ -181,7 +181,7 @@ procedure format_file(in file: Str, out ok: Bool) :=
 
 // calls the procedure name of file, which takes no parameters, and prints as it runs
 procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
-  local q: Prog, run: Run, cache: Map[Name, Value] := empty(), n := Name(Some(base_name(file)), name)
+  local q: Prog, run: Run, cache: Map[Name, Value] := empty(), n := Name(Some(module_name(file)), name)
 
   call   load_file(in file, out q)
   assign run := load(q) with args := args
@@ -291,11 +291,11 @@ procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
 
 // file, run in its directory, fails as its first line states, or else succeeds, where home is the directory to return to
 procedure verdict(in file: Str, home: Str, out good: Bool) :=
-  local text: Str, expected: Str, got: Str, ok: Bool, name := last_of(split(file, '/'))
+  local text: Str, expected: Str, got: Str, ok: Bool, name := os_basename(file)
 
   call   os_read(in file, out text)
   assign expected := expected_error(text)
-  call   os_chdir(in dir_name(file))
+  call   os_chdir(in os_dirname(file))
   call   guarded(in name, lambda out r => call test_all(in name, out r) end, out ok, got)
   call   os_chdir(in home)
   assign good := got == expected
