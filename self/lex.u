@@ -1,6 +1,7 @@
 // the lexer of ulang, which splits source code into tokens with their offsets, where a symbol is always the longest run
 // of symbol characters
 
+import syntax
 import os
 
 export
@@ -15,15 +16,13 @@ data Token :=
   | TChar(Char)
   | TEnd
 
-// tokens with their offsets
+// tokens with their positions
 type Tokens :=
-  List[Token * Int]
+  List[Pos * Token]
 
 data LexError :=
-  | LexError(Str, Int)
+  | LexError(Str, Pos)
 
-procedure position(in text: Str, offset: Int, out line: Int, column: Int)
-procedure move_position(in text: Str, from: Int, to: Int, ref line: Int, column: Int)
 procedure lex(in text: Str, out toks: Tokens)
 
 implementation
@@ -61,13 +60,8 @@ procedure scan(in text: Str, p: Char -> Bool, out start: Int, ref offset: Int) :
     assign offset := offset + 1
   end
 
-// the line and column of offset in text, counted from 1
-procedure position(in text: Str, offset: Int, out line: Int, column: Int) :=
-  assign line := 1, column := 1
-  call   move_position(in text, 0, offset, ref line, column)
-
 // the line and column of offset to in text, from those of offset from
-procedure move_position(in text: Str, from: Int, to: Int, ref line: Int, column: Int) :=
+procedure lex_move_position(in text: Str, from: Int, to: Int, ref line: Int, column: Int) :=
   local j := from
 
   while j < to
@@ -80,6 +74,14 @@ procedure move_position(in text: Str, from: Int, to: Int, ref line: Int, column:
     assign j := j + 1
   end
 
+// the position of offset in text, for errors
+function position_of(text: Str, offset: Int): Pos :=
+  let lines := split(slice(text, 0, offset), '\n') in
+    match last(lines)
+      case Some(line) => Pos(size(lines), size(line) + 1)
+      case None => Pos(1, 1)
+    end
+
 // the contents of the literal delimited by q at offset, with its escapes resolved, where offset ends after the closing quote
 procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int) :=
   local start := offset, from := offset + 1, parts: List[Str] := Nil, c: Char
@@ -90,7 +92,7 @@ procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int)
     assign c := peek(text, offset)
 
     if c == '\n' or offset >= size(text)
-      raise LexError("unterminated literal", start)
+      raise LexError("unterminated literal", position_of(text, start))
     end
 
     if c == '\\'
@@ -99,7 +101,7 @@ procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int)
           assign parts := [str([d]), slice(text, from, offset); parts], offset := offset + 2
           assign from := offset
         case None =>
-          raise LexError("invalid escape", offset)
+          raise LexError("invalid escape", position_of(text, offset))
       end
     else
       assign offset := offset + 1
@@ -123,7 +125,7 @@ procedure lex_number(in text: Str, out tok: Token, ref offset: Int) :=
     case Some(n) =>
       assign tok := TNum(n)
     case None =>
-      raise LexError("invalid number", from)
+      raise LexError("invalid number", position_of(text, from))
   end
 
 procedure lex_symbol(in text: Str, out tok: Token, ref offset: Int) :=
@@ -144,7 +146,7 @@ procedure lex_char(in text: Str, out tok: Token, ref offset: Int) :=
   call lex_literal(in text, '\'', out contents, ref offset)
 
   if size(contents) != 1
-    raise LexError("invalid character", start)
+    raise LexError("invalid character", position_of(text, start))
   end
 
   assign tok := TChar(at(0, contents))
@@ -167,12 +169,13 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
     case _ if is_punct(c) =>
       assign tok := TPunct(c), offset := offset + 1
     case _ =>
-      raise LexError("unexpected character", offset)
+      raise LexError("unexpected character", position_of(text, offset))
   end
 
-// the tokens of text with their offsets, which end with TEnd at the end of text
+// the tokens of text with their positions, which end with TEnd at the end of text, where line and column are those of
+// offset last
 procedure lex(in text: Str, out toks: Tokens) :=
-  local offset := 0, rev: Tokens := Nil, start: Int, tok: Token
+  local offset := 0, rev: Tokens := Nil, start: Int, tok: Token, last := 0, line := 1, column := 1
 
   while offset < size(text)
     assign start := offset
@@ -183,35 +186,38 @@ procedure lex(in text: Str, out toks: Tokens) :=
       call scan(in text, lambda c => c != '\n', out start, ref offset)
     else
       call   lex_token(in text, out tok, ref offset)
-      assign rev := [(tok, start); rev]
+      call   lex_move_position(in text, last, start, ref line, column)
+      assign rev := [(Pos(line, column), tok); rev], last := start
     end
   end
 
-  assign toks := reverse([(TEnd, offset); rev])
+  call   lex_move_position(in text, last, offset, ref line, column)
+  assign toks := reverse([(Pos(line, column), TEnd); rev])
 
 function tokens(toks: Tokens): List[Token] :=
-  firsts(toks)
+  seconds(toks)
 
 test lex_tokens() :=
   local toks: Tokens
 
-  call   lex(in "function f(x: Int): Int := x+-1 // one\n", out toks)
+  call   lex(in "function f(x: Int): Int := x+-1 // one\n  y", out toks)
   assert toks ==
     [
-      (TName("function"), 0),
-      (TName("f"), 9),
-      (TPunct('('), 10),
-      (TName("x"), 11),
-      (TSym(":"), 12),
-      (TName("Int"), 14),
-      (TPunct(')'), 17),
-      (TSym(":"), 18),
-      (TName("Int"), 20),
-      (TSym(":="), 24),
-      (TName("x"), 27),
-      (TSym("+-"), 28),
-      (TNum(1), 30),
-      (TEnd, 39)
+      (Pos(1, 1), TName("function")),
+      (Pos(1, 10), TName("f")),
+      (Pos(1, 11), TPunct('(')),
+      (Pos(1, 12), TName("x")),
+      (Pos(1, 13), TSym(":")),
+      (Pos(1, 15), TName("Int")),
+      (Pos(1, 18), TPunct(')')),
+      (Pos(1, 19), TSym(":")),
+      (Pos(1, 21), TName("Int")),
+      (Pos(1, 25), TSym(":=")),
+      (Pos(1, 28), TName("x")),
+      (Pos(1, 29), TSym("+-")),
+      (Pos(1, 31), TNum(1)),
+      (Pos(2, 3), TName("y")),
+      (Pos(2, 4), TEnd)
     ]
 
 test lex_literals() :=
@@ -221,32 +227,31 @@ test lex_literals() :=
   assert tokens(toks) == [TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\''), TPunct('['), TName("x"), TPunct(';'), TName("xs"), TPunct(']'), TEnd]
 
 test lex_errors() :=
-  local toks: Tokens, e := LexError("none", -1)
+  local toks: Tokens, e := LexError("none", Pos(0, 0))
 
   try
     call lex(in "x := \"ab", out toks)
   catch
-    case LexError(m, offset) =>
-      assign e := LexError(m, offset)
+    case LexError(m, p) =>
+      assign e := LexError(m, p)
   end
-  assert e == LexError("unterminated literal", 5)
+  assert e == LexError("unterminated literal", Pos(1, 6))
   try
     call lex(in "'\\q'", out toks)
   catch
-    case LexError(m, offset) =>
-      assign e := LexError(m, offset)
+    case LexError(m, p) =>
+      assign e := LexError(m, p)
   end
-  assert e == LexError("invalid escape", 1)
+  assert e == LexError("invalid escape", Pos(1, 2))
   try
     call lex(in "'ab'", out toks)
   catch
-    case LexError(m, offset) =>
-      assign e := LexError(m, offset)
+    case LexError(m, p) =>
+      assign e := LexError(m, p)
   end
-  assert e == LexError("invalid character", 0)
+  assert e == LexError("invalid character", Pos(1, 1))
 
 test lex_position() :=
-  local line: Int, column: Int
-
-  call   position(in "ab\ncd", 4, out line, column)
-  assert (line, column) == (2, 2)
+  assert position_of("ab\ncd", 4) == Pos(2, 2)
+  assert position_of("ab\n", 3) == Pos(2, 1)
+  assert position_of("", 0) == Pos(1, 1)

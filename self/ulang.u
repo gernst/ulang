@@ -3,7 +3,6 @@
 // and format, which prints a file as format_program of format.u does
 
 import syntax
-import lex
 import parse
 import check
 import format
@@ -94,10 +93,10 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
   catch
     case TestFailed(m) =>
       assign message := m
-    case LexError(m, i) =>
-      call located(in file, m, i, out message)
-    case ParseError(m, i) =>
-      call located(in file, m, i, out message)
+    case ParseError(m, p) =>
+      assign message := "parse error: " ++ m ++ at_pos(p)
+    case ImportError(d, m, p) =>
+      assign message := "parse error: " ++ m ++ " in " ++ d ++ at_pos(p)
     case OsError(m) =>
       assign message := "runtime error: " ++ m
     case Unsupported(m) =>
@@ -114,25 +113,8 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
     assign ok := false
   end
 
-// a parse error at offset i of file, or in a module that file imports, which the message names,
-// whose offset is in the text of that module
-procedure located(in file: Str, m: Str, i: Int, out message: Str) :=
-  local text: Str, line: Int, column: Int
-
-  if in_module(split(m, ' '))
-    assign message := "parse error: " ++ m
-  else
-    call   os_read(in file, out text)
-    call   position(in text, i, out line, column)
-    assign message := "parse error: " ++ m ++ " at " ++ show(line) ++ "." ++ show(column)
-  end
-
-function in_module(words: List[Str]): Bool :=
-  match words
-    case [w, _] => w == "in"
-    case [_; more] => in_module(more)
-    case _ => false
-  end
+function at_pos(p: Pos): Str :=
+  " at " ++ show(p.line) ++ "." ++ show(p.col)
 
 // the checked program of file, which is the module of its base name, after the modules it imports
 procedure load_file(in file: Str, out q: Prog) :=
@@ -369,7 +351,7 @@ function cmd_name(cmd: Cmd): Str :=
 // the message of e, with the position of the command that raised it, and the module if it is not main
 function located_message(main: Id, e: TypeError): Str :=
   match e
-    case Located(m, p, inner) => type_message(inner) ++ (if m == main then "" else " in " ++ m) ++ " at " ++ show(p.line) ++ "." ++ show(p.col)
+    case Located(m, p, inner) => type_message(inner) ++ (if m == main then "" else " in " ++ m) ++ at_pos(p)
     case _ => type_message(e)
   end
 
