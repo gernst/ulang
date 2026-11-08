@@ -4,6 +4,8 @@
 // format prints them, which parses to the same commands
 
 import syntax
+import builtins
+import notation
 import value
 import lex
 import array
@@ -40,8 +42,10 @@ data Shape :=
 // the last of the modules mods as source, after the modules before it, whose notation it starts with as far as it imports them,
 // implicitly or not
 function format_program(mods: List[Mod]): Str :=
-  let d := last_mod(mods) in
-    join("\n\n", format_mod(imported_notation(mods, all_imports(d)), d)) ++ "\n"
+  match last(mods)
+    case Some(d) => join("\n\n", format_mod(imported_notation(mods, all_imports(d)), d)) ++ "\n"
+    case None => ""
+  end
 
 // the notation that the modules names of mods export, in order
 function imported_notation(mods: List[Mod], names: List[Id]): Notation :=
@@ -573,8 +577,8 @@ function format_cmd(notation: Notation, cmd: Cmd, more: List[Cmd]): Option[Str] 
 function params_text(params: List[Id]): Str :=
   if params == [] then "" else "[" ++ join(", ", params) ++ "]"
 
-function function_head(n: Name, params: List[Id], xss: List[List[Var]], r: Type): Str :=
-  "function " ++ n.base ++ params_text(params) ++ join("", ["(" ++ join(", ", [formal_text(x) for x in xs]) ++ ")" for xs in xss]) ++ ": " ++ format_type(r)
+function function_head(n: Name, params: List[Id], xs: List[Var], r: Type): Str :=
+  "function " ++ n.base ++ params_text(params) ++ "(" ++ join(", ", [formal_text(x) for x in xs]) ++ "): " ++ format_type(r)
 
 function fixity_text(f: Fixity): Str :=
   match f

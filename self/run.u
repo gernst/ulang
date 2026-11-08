@@ -3,6 +3,7 @@
 // and errors are values of RuntimeError, while the exceptions of the program are values of Thrown
 
 import syntax
+import builtins
 import value
 import format
 
@@ -94,12 +95,6 @@ function is_function(v: Value): Bool :=
 
 function truth(v: Value): Bool :=
   v == Lit(VBool(true))
-
-function lambdas(xss: List[List[Var]], b: Expr): Expr :=
-  match xss
-    case Nil => b
-    case [xs; rest] => ELam(xs, lambdas(rest, b))
-  end
 
 function str_values(vs: List[Value]): List[Str] :=
   match vs
@@ -276,18 +271,11 @@ procedure apply_value(in run: Run, f: Value, vs: List[Value], out v: Value, ref 
 
     case Fn(name, arity) =>
       match get((name, arity), run.defs.funs)
-        case Some(([Nil], body)) =>
+        case Some((Nil, body)) =>
           call cached(in run, name, body, out v, ref cache)
 
-        case Some(([xs], body)) =>
-          call evaluate(in run, bind_all(xs, vs, empty()), body, out v, ref cache)
-        // further lists of parameters are closures over the arguments so far
-
-        case Some(([xs, ys; rest], body)) =>
-          assign v := Clos(bind_all(xs, vs, empty()), ys, lambdas(rest, body))
-
-        case Some((Nil, _)) =>
-          raise Uninitialized(name)
+        case Some((formals, body)) =>
+          call evaluate(in run, bind_all(formals, vs, empty()), body, out v, ref cache)
 
         case None =>
           raise Uninitialized(name)
@@ -654,10 +642,10 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
 
     case SAssign(assignments) =>
       call   evaluate_all(in run, env, seconds(assignments), out vs, ref cache)
-      assign env := env ++ map(zip(names(firsts(assignments)), vs))
+      assign env := env ++ map(zip([x.name for x in firsts(assignments)], vs))
 
     case SBlock(locals, stmts) =>
-      call scoped(in run, names(locals), env -- set(names(locals)), stmts, ref env, cache)
+      call scoped(in run, [x.name for x in locals], env -- set([x.name for x in locals]), stmts, ref env, cache)
 
     case SIf(cond, then_stmt, else_stmt) =>
       call evaluate(in run, env, cond, out v, ref cache)
@@ -681,12 +669,12 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
 
       match get(proc, env)
         case Some(f) =>
-          call invoke_value(in run, f, vs, names(refs), out vs, ref env, cache)
+          call invoke_value(in run, f, vs, [x.name for x in refs], out vs, ref env, cache)
         case None =>
-          call invoke(in run, proc, vs, names(refs), out vs, ref env, cache)
+          call invoke(in run, proc, vs, [x.name for x in refs], out vs, ref env, cache)
       end
 
-      assign env := env ++ map(zip(names(outs), vs))
+      assign env := env ++ map(zip([x.name for x in outs], vs))
 
     case SMatch(expr, cases) =>
       call   evaluate(in run, env, expr, out v, ref cache)
@@ -903,12 +891,12 @@ procedure run_body(
   ref env: Bindings,
       cache: Map[Name, Value]
 ) :=
-  local inner := bind_all(xs, ins, (around -- set(names(ys ++ zs))) ++ map(values_in(zip(names(zs), refs), env)))
+  local inner := bind_all(xs, ins, (around -- set([x.name for x in ys ++ zs])) ++ map(values_in(zip([x.name for x in zs], refs), env)))
 
   call exec(in run, body, ref inner, cache)
 
-  assign outs := read_outs(n, names(ys), inner)
-  assign env := env ++ map(values_in(zip(refs, names(zs)), inner))
+  assign outs := read_outs(n, [x.name for x in ys], inner)
+  assign env := env ++ map(values_in(zip(refs, [x.name for x in zs]), inner))
 
 // the pairs of the names a and the values of the names b in env, for those that have values
 function values_in(ps: List[Name * Name], env: Bindings): List[Name * Value] :=
@@ -1190,21 +1178,12 @@ test errors() :=
   end
   // loop() := loop() + 1 needs its own value
   try
-    call   check_and_run(in [CFun(unqualified("loop"), Nil, [Nil], type_int(), expr_app("+", [expr_app("loop", []), expr_int(1)])), assigning(expr_app("loop", []))])
+    call   check_and_run(in [CFun(unqualified("loop"), Nil, Nil, type_int(), expr_app("+", [expr_app("loop", []), expr_int(1)])), assigning(expr_app("loop", []))])
     assert false
   catch
     case RecursiveInitialization(name) =>
       assert name.base == "loop"
   end
-
-// add(a: Int)(b: Int): Int := a + b, applied partially
-test curried() :=
-  call check_and_run(
-    in [
-      CFun(unqualified("add"), Nil, [[Var(unqualified("a"), type_int())], [Var(unqualified("b"), type_int())]], type_int(), expr_app("+", [expr_var("a"), expr_var("b")])),
-      asserting("p", EApp(expr_app("add", [expr_int(1)]), [expr_int(2)]), expr_int(3))
-    ]
-  )
 
 // match (1, true, 3) case (_, _, z) => z end, a flat tuple
 test tuples() :=

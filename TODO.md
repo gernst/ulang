@@ -33,7 +33,6 @@ Open action items, each with the problem and the desired solution.
 
 1. **`else` followed by `if` always continues a chain of statements**, so a nested `if` cannot directly follow `else`. Solution: decide on a syntax that tells them apart.
 2. **Accesses are applications of a variable `.f`** until the checker resolves them. Solution: a node `EField(e, f)` of the syntax.
-3. **Curried functions**: functions may have several lists of formals, `function plus(a: Int)(b: Int): Int`, hence `formals: List[List[Var]]` in `CFun` and `CFunSig` of `self/syntax.u`, overloading by the length of the first list, and cases in the checker, the interpreter, the compiler, and the translation to the prover. Solution: one list of formals per function, where partial application is written as a lambda, and the tests `tests/errors/types/curried-*.u` and those of `tests/expressions.u` go.
 
 ## Library
 

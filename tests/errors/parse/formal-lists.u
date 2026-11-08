@@ -1,0 +1,3 @@
+// parse error: a function has one list of formals at 2.19
+function f(a: Int)(b: Int): Int :=
+  a + b

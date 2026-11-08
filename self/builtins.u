@@ -1,0 +1,137 @@
+// the names of the builtin types, constructors, and exceptions, which the interpreter, the runtime, and the compiler
+// create and refer to, of the modules of the library
+
+import syntax
+
+export
+
+function tuple_name(): Name
+function list_name(): Name
+function nil_name(): Name
+function cons_name(): Name
+function option_name(): Name
+function none_name(): Name
+function some_name(): Name
+function os_error_name(): Name
+function division_by_zero_name(): Name
+function no_index_name(): Name
+function out_of_bounds_name(): Name
+function no_character_name(): Name
+function missing_field_name(): Name
+function list_foldr_name(): Name
+function array_name(): Name
+function array_foldr_name(): Name
+
+function type_bool(): Type
+function type_int(): Type
+function type_str(): Type
+function type_char(): Type
+
+// programs of the tests, which are not parsed
+function type_plain_list(t: Type): Type
+function lists(): List[Mod]
+function with_lists(cmds: List[Cmd]): Source
+function program_of(cmds: List[Cmd]): Source
+function natives_prelude(): Mod
+
+implementation
+
+// tuples, which have no module
+function tuple_name(): Name :=
+  unqualified(",")
+
+function list_name(): Name :=
+  Name(Some("list"), "List")
+
+function nil_name(): Name :=
+  Name(Some("list"), "Nil")
+
+function cons_name(): Name :=
+  Name(Some("list"), "Cons")
+
+function option_name(): Name :=
+  Name(Some("option"), "Option")
+
+function none_name(): Name :=
+  Name(Some("option"), "None")
+
+function some_name(): Name :=
+  Name(Some("option"), "Some")
+
+function os_error_name(): Name :=
+  Name(Some("os"), "OsError")
+
+// the exceptions of the builtins and of accessors of fields, which the prelude declares
+function division_by_zero_name(): Name :=
+  Name(Some("prelude"), "DivisionByZero")
+
+function no_index_name(): Name :=
+  Name(Some("prelude"), "NoIndex")
+
+function out_of_bounds_name(): Name :=
+  Name(Some("prelude"), "OutOfBounds")
+
+function no_character_name(): Name :=
+  Name(Some("prelude"), "NoCharacter")
+
+function missing_field_name(): Name :=
+  Name(Some("prelude"), "MissingField")
+
+// the builtins of lists and arrays that comprehensions use
+function list_foldr_name(): Name :=
+  Name(Some("list"), "foldr")
+
+function array_name(): Name :=
+  Name(Some("array"), "array")
+
+function array_foldr_name(): Name :=
+  Name(Some("array"), "foldr")
+
+// the types of the builtins
+function type_bool(): Type :=
+  TSort(Name(Some("prelude"), "Bool"), Nil)
+
+function type_int(): Type :=
+  TSort(Name(Some("prelude"), "Int"), Nil)
+
+function type_str(): Type :=
+  TSort(Name(Some("prelude"), "Str"), Nil)
+
+function type_char(): Type :=
+  TSort(Name(Some("prelude"), "Char"), Nil)
+
+// the lists of the tests, before checking
+function type_plain_list(t: Type): Type :=
+  TSort(unqualified("List"), [t])
+
+// lists with constructors Nil and Cons, exported by the module list as in the library, and their length
+function lists(): List[Mod] :=
+  [Mod("list", Nil, unplaced([CData(unqualified("List"), ["A"], [Constr(unqualified("Nil"), Nil), Constr(unqualified("Cons"), [TParam("A"), type_plain_list(TParam("A"))])])]), Nil, Nil)]
+
+// the program of the commands cmds after len of the module main, which imports lists
+function with_lists(cmds: List[Cmd]): Source :=
+  Source([natives_prelude(); lists()] ++ [Mod("main", ["list"], Nil, Nil, unplaced([len_fun(); cmds]))], "main")
+
+function len_fun(): Cmd :=
+  CFun(
+    unqualified("len"),
+    ["A"],
+    [Var(unqualified("xs"), type_plain_list(TParam("A")))],
+    type_int(),
+    EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0)), Branch(PApp(unqualified("Cons"), [PWild, pat_var("ys")]), None, expr_app("+", [expr_int(1), expr_app("len", [expr_var("ys")])]))])
+  )
+
+// a prelude of the builtin types and functions of prelude/prelude.u only, for programs that are not parsed
+function natives_prelude(): Mod :=
+  let int_op := lambda op => CFunSig(unqualified(op), Nil, [Var(unqualified("a"), type_int()), Var(unqualified("b"), type_int())], type_int()) in
+    Mod(
+      "prelude",
+      Nil,
+      Nil,
+      unplaced([CAbstract(unqualified(t), Nil) for t in ["Bool", "Int", "Str", "Char"]] ++ [int_op(op) for op in ["+", "-", "*", "/", "%"]] ++ [CFunSig(unqualified("++"), Nil, [Var(unqualified("a"), type_str()), Var(unqualified("b"), type_str())], type_str())]),
+      Nil
+    )
+
+// the program of the commands cmds of the module main
+function program_of(cmds: List[Cmd]): Source :=
+  Source([natives_prelude(), Mod("main", Nil, Nil, Nil, unplaced(cmds))], "main")

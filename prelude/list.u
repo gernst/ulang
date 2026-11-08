@@ -29,6 +29,9 @@ function distinct[A](xs: List[A]): List[A]
 // the last element, if any
 function last[A](xs: List[A]): Option[A]
 
+// all elements but the last
+function but_last[A](xs: List[A]): List[A]
+
 // an element that occurs twice
 function repeated[A](xs: List[A]): Option[A]
 
@@ -123,6 +126,13 @@ function last[A](xs: List[A]): Option[A] :=
     case [_; rest] => last(rest)
   end
 
+function but_last[A](xs: List[A]): List[A] :=
+  match xs
+    case Nil => Nil
+    case [_] => Nil
+    case [x; rest] => [x; but_last(rest)]
+  end
+
 function repeated[A](xs: List[A]): Option[A] :=
   match xs
     case Nil => None
@@ -213,6 +223,7 @@ test lists() :=
   assert foldl([1, 2, 3], Nil, lambda xs, x => [x; xs]) == [3, 2, 1] and foldl([1, 2, 3], 0, lambda n, x => 10 * n + x) == 123
   assert distinct([1, 2, 1, 3, 2]) == [1, 2, 3]
   assert repeated([1, 2, 1]) == Some(1) and last([1, 2]) == Some(2) and last([]) == None
+  assert but_last([1, 2, 3]) == [1, 2] and but_last([1]) == [] and but_last([]) == []
   assert ([1, 2, 3] -- [2]) == [1, 3]
   assert concat([[1], [], [2, 3]]) == [1, 2, 3]
   assert zip([1, 2, 3], [true, false]) == [(1, true), (2, false)]

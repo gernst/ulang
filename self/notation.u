@@ -1,0 +1,75 @@
+// the notation of operators: the precedences of prefix and postfix operators, and the fixities and precedences of infix
+// ones, by the notation commands in effect
+
+import syntax
+import map
+
+export
+
+data Notation :=
+  | Notation(prefix_ops: Map[Id, Int], postfix_ops: Map[Id, Int], infix_ops: Map[Id, Fixity * Int])
+
+function empty_notation(): Notation
+function prefix_prec(notation: Notation, op: Id): Option[Int]
+function postfix_prec(notation: Notation, op: Id): Option[Int]
+function infix_of(notation: Notation, op: Id): Option[Fixity * Int]
+function notation_of(notation: Notation, f: Fixity, op: Id): Option[Fixity * Int]
+function is_operator(notation: Notation, op: Id): Bool
+function with_notation(notation: Notation, cmds: List[Cmd]): Notation
+function ++(a: Notation, b: Notation): Notation
+function exported_notation(d: Mod): Notation
+
+implementation
+
+function empty_notation(): Notation :=
+  Notation(empty(), empty(), empty())
+
+function prefix_prec(notation: Notation, op: Id): Option[Int] :=
+  get(op, notation.prefix_ops)
+
+function postfix_prec(notation: Notation, op: Id): Option[Int] :=
+  get(op, notation.postfix_ops)
+
+function infix_of(notation: Notation, op: Id): Option[Fixity * Int] :=
+  get(op, notation.infix_ops)
+
+// the notation of op of the kind of f, if any
+function notation_of(notation: Notation, f: Fixity, op: Id): Option[Fixity * Int] :=
+  match (f, prefix_prec(notation, op), postfix_prec(notation, op))
+    case (FPrefix, Some(prec), _) => Some((FPrefix, prec))
+    case (FPrefix, None, _) => None
+    case (FPostfix, _, Some(prec)) => Some((FPostfix, prec))
+    case (FPostfix, _, None) => None
+    case _ => infix_of(notation, op)
+  end
+
+function is_operator(notation: Notation, op: Id): Bool :=
+  contains(op, notation.prefix_ops) or contains(op, notation.postfix_ops) or contains(op, notation.infix_ops)
+
+// the notation with those of the commands cmds
+function with_notation(notation: Notation, cmds: List[Cmd]): Notation :=
+  match cmds
+    case Nil => notation
+    case [CNotation(fixity, prec, ops); more] => with_notation(with_operators(notation, fixity, prec, ops), more)
+    case [_; more] => with_notation(notation, more)
+  end
+
+function with_operators(notation: Notation, f: Fixity, prec: Int, ops: List[Id]): Notation :=
+  match (f, ops)
+    case (_, Nil) => notation
+    case (FPrefix, [op; more]) => with_operators(notation with prefix_ops := put(op, prec, notation.prefix_ops), f, prec, more)
+    case (FPostfix, [op; more]) => with_operators(notation with postfix_ops := put(op, prec, notation.postfix_ops), f, prec, more)
+    case (_, [op; more]) => with_operators(notation with infix_ops := put(op, (f, prec), notation.infix_ops), f, prec, more)
+  end
+
+// the notation of both, where those of b count
+function ++(a: Notation, b: Notation): Notation :=
+  Notation(
+    a.prefix_ops ++ b.prefix_ops,
+    a.postfix_ops ++ b.postfix_ops,
+    a.infix_ops ++ b.infix_ops
+  )
+
+// the notation that module d exports to its importers, of the notation commands of its export section
+function exported_notation(d: Mod): Notation :=
+  with_notation(empty_notation(), seconds(d.exported))

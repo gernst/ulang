@@ -30,9 +30,19 @@ test let_parallel() :=
 test conditionals() :=
   assert (if not 1 < 2 then 0 else 1) == 1
 
+// a function has one list of formals, and returns a lambda to be applied partially
+function plus(a: Int): Int -> Int :=
+  lambda b => a + b
+
+function sum3(a: Int): (Int, Int) -> () -> Int :=
+  lambda b, c => lambda => a + b + c
+
 test lambdas() :=
   assert (lambda f => f(f(1)))(lambda x => x * 2) == 4
   assert (lambda f, x => f(x))(lambda y => y + 1, 1) == 2
+  assert plus(1)(2) == 3 and twice(plus(3), 1) == 7
+  assert sum3(1)(2, 3)() == 6
+  assert (let f := plus in f(1)(2)) == 3
 
 test literals() :=
   assert "a" == "a"
@@ -162,19 +172,6 @@ test functions() :=
   assert generic()
   assert pos()(1)
   assert pos()(0) == false
-
-// further parameter lists return functions, which may be applied partially
-function plus(a: Int)(b: Int): Int :=
-  a + b
-
-function sum3(a: Int)(b: Int, c: Int)(): Int :=
-  a + b + c
-
-test curried() :=
-  assert plus(1)(2) == 3
-  assert twice(plus(3), 1) == 7
-  assert sum3(1)(2, 3)() == 6
-  assert (let f := plus in f(1)(2)) == 3
 
 // operators are declared before their use, and defined as functions
 infix left 11 **

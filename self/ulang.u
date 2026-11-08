@@ -161,6 +161,9 @@ procedure format_file(in file: Str, out ok: Bool) :=
       call os_print_error(in file ++ ": format error: the source does not parse: " ++ message)
   end
 
+function without_positions(d: Mod): Mod :=
+  d with exported := unplaced(seconds(d.exported)), builtins := unplaced(seconds(d.builtins)), implemented := unplaced(seconds(d.implemented))
+
 // calls the procedure name of file, which takes no parameters, and prints as it runs
 procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
   local main: Id, q: Prog, run: Run, cache: Map[Name, Value] := empty(), n: Name

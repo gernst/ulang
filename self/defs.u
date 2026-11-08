@@ -2,6 +2,7 @@
 // self/compile.u look them up, with the declared orders, equalities, and shows of its datatypes
 
 import syntax
+import builtins
 import map
 
 export
@@ -10,7 +11,7 @@ export
 // datatype, see order_of
 data Defs :=
   | Defs(
-    funs: Map[Name * Int, List[List[Var]] * Expr],
+    funs: Map[Name * Int, List[Var] * Expr],
     procs: Map[Name, List[Var] * List[Var] * List[Var] * Stmt],
     constrs: Map[Name, Int * Int * Name],
     orders: Map[Name, Name],
@@ -36,10 +37,10 @@ function defs_of(q: Prog): Defs :=
   )
 
 // functions are overloaded by the number of arguments of their first list of formals
-function fun_defs(cmds: List[Cmd]): List[(Name * Int) * (List[List[Var]] * Expr)] :=
+function fun_defs(cmds: List[Cmd]): List[(Name * Int) * (List[Var] * Expr)] :=
   match cmds
     case Nil => Nil
-    case [CFun(name, _, formals, _, body); rest] => [((name, size(first_list(formals))), (formals, body)); fun_defs(rest)]
+    case [CFun(name, _, formals, _, body); rest] => [((name, size(formals)), (formals, body)); fun_defs(rest)]
     case [_; rest] => fun_defs(rest)
   end
 
@@ -71,9 +72,9 @@ function constrs_from(t: Name, ks: List[Constr], i: Int): List[Name * (Int * Int
 // and similarly the text of the values of T if c is show of one value of T with the result Str
 function order_of(cmd: Cmd): Option[Id * Name] :=
   match cmd
-    case CFun(Name(Some(m), "show"), _, [[Var(_, TSort(Name(Some(k), base), args))]], typ, _) =>
+    case CFun(Name(Some(m), "show"), _, [Var(_, TSort(Name(Some(k), base), args))], typ, _) =>
       if k == m and distinct_params(args) and typ == type_str() then Some(("show", Name(Some(k), base))) else None
-    case CFun(Name(Some(m), f), _, [[Var(_, TSort(Name(Some(k), b), args)), Var(_, u)]], r, _) =>
+    case CFun(Name(Some(m), f), _, [Var(_, TSort(Name(Some(k), b), args)), Var(_, u)], r, _) =>
       let op := order_op(f, b) in
         if k == m and u == TSort(Name(Some(k), b), args) and distinct_params(args) and order_result(op) == Some(r) then Some((op, Name(Some(k), b))) else None
     case _ => None

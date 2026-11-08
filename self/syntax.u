@@ -1,8 +1,6 @@
 // the core syntax of ulang, without positions,
 // where constructors are prefixed by their type, since they share one namespace
 
-import map
-
 export
 
 // identifiers that never refer to declarations of modules: type parameters, modules, notation, runs, and tests
@@ -86,7 +84,7 @@ data Fixity :=
 data Cmd :=
   | CSort(name: Name, params: List[Id], typ: Type)
   | CData(name: Name, params: List[Id], constrs: List[Constr])
-  | CFun(name: Name, params: List[Id], formals: List[List[Var]], typ: Type, body: Expr)
+  | CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, body: Expr)
   | CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
   // the first import of a module comes with the module itself, whose commands are those it declares
   | CNotation(fixity: Fixity, prec: Int, ops: List[Id])
@@ -95,7 +93,7 @@ data Cmd :=
   // the export section of a module, with the signatures of functions and procedures, as CFun and CProc without their
   // bodies, and abstract types, which its implementation section defines by data, and its builtin section, with the
   // signatures of exported functions and procedures that the interpreter and the runtime define
-  | CFunSig(name: Name, params: List[Id], formals: List[List[Var]], typ: Type)
+  | CFunSig(name: Name, params: List[Id], formals: List[Var], typ: Type)
   | CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var])
   | CAbstract(name: Name, params: List[Id])
 
@@ -114,132 +112,23 @@ data Source :=
   | Source(mods: List[Mod], main: Id)
 
 function unqualified(x: Id): Name
-function tuple_name(): Name
-
-function list_name(): Name
-function nil_name(): Name
-function cons_name(): Name
-function option_name(): Name
-function none_name(): Name
-function some_name(): Name
-function os_error_name(): Name
-
-function division_by_zero_name(): Name
-function no_index_name(): Name
-function out_of_bounds_name(): Name
-function no_character_name(): Name
-function missing_field_name(): Name
-
-function type_bool(): Type
-function type_int(): Type
-function type_str(): Type
-function type_char(): Type
-function type_list(t: Type): Type
-function type_fun(args: List[Type], res: Type): Type
 
 function arity(t: Type): Int
 
-function names(xs: List[Var]): List[Name]
-function types(xs: List[Var]): List[Type]
-function first_list(xss: List[List[Var]]): List[Var]
-
-function type_plain_list(t: Type): Type
 function expr_var(n: Id): Expr
 function expr_int(n: Int): Expr
 function expr_app(f: Id, args: List[Expr]): Expr
 function pat_var(n: Id): Pat
-function lists(): List[Mod]
-function with_lists(cmds: List[Cmd]): Source
-function program_of(cmds: List[Cmd]): Source
-function natives_prelude(): Mod
-function commands_of(d: Mod): List[Cmd]
 function placed_of(d: Mod): List[Pos * Cmd]
-function exported_notation(d: Mod): Notation
 function implicit_imports(name: Id): List[Id]
 function all_imports(d: Mod): List[Id]
 function unplaced(cmds: List[Cmd]): List[Pos * Cmd]
-function without_positions(d: Mod): Mod
-function last_mod(mods: List[Mod]): Mod
-function but_last(mods: List[Mod]): List[Mod]
-
-data Notation :=
-  | Notation(prefix_ops: Map[Id, Int], postfix_ops: Map[Id, Int], infix_ops: Map[Id, Fixity * Int])
-
-function empty_notation(): Notation
-function prefix_prec(notation: Notation, op: Id): Option[Int]
-function postfix_prec(notation: Notation, op: Id): Option[Int]
-function infix_of(notation: Notation, op: Id): Option[Fixity * Int]
-function notation_of(notation: Notation, f: Fixity, op: Id): Option[Fixity * Int]
-function is_operator(notation: Notation, op: Id): Bool
-function with_notation(notation: Notation, cmds: List[Cmd]): Notation
-function with_operators(notation: Notation, f: Fixity, prec: Int, ops: List[Id]): Notation
-function union_notation(a: Notation, b: Notation): Notation
 
 implementation
 
 // a name without a module, of a local or a builtin, or before checking
 function unqualified(x: Id): Name :=
   Name(None, x)
-
-function tuple_name(): Name :=
-  unqualified(",")
-
-// names that builtins and the runtime create, of the modules of the library
-function list_name(): Name :=
-  Name(Some("list"), "List")
-
-function nil_name(): Name :=
-  Name(Some("list"), "Nil")
-
-function cons_name(): Name :=
-  Name(Some("list"), "Cons")
-
-function option_name(): Name :=
-  Name(Some("option"), "Option")
-
-function none_name(): Name :=
-  Name(Some("option"), "None")
-
-function some_name(): Name :=
-  Name(Some("option"), "Some")
-
-function os_error_name(): Name :=
-  Name(Some("os"), "OsError")
-
-// the exceptions of the builtins and of accessors of fields, which the prelude declares
-function division_by_zero_name(): Name :=
-  Name(Some("prelude"), "DivisionByZero")
-
-function no_index_name(): Name :=
-  Name(Some("prelude"), "NoIndex")
-
-function out_of_bounds_name(): Name :=
-  Name(Some("prelude"), "OutOfBounds")
-
-function no_character_name(): Name :=
-  Name(Some("prelude"), "NoCharacter")
-
-function missing_field_name(): Name :=
-  Name(Some("prelude"), "MissingField")
-
-// the types of the builtins
-function type_bool(): Type :=
-  TSort(Name(Some("prelude"), "Bool"), Nil)
-
-function type_int(): Type :=
-  TSort(Name(Some("prelude"), "Int"), Nil)
-
-function type_str(): Type :=
-  TSort(Name(Some("prelude"), "Str"), Nil)
-
-function type_char(): Type :=
-  TSort(Name(Some("prelude"), "Char"), Nil)
-
-function type_list(t: Type): Type :=
-  TSort(list_name(), [t])
-
-function type_fun(args: List[Type], res: Type): Type :=
-  TFun(args, res)
 
 // the number of arguments of a function type, functions are overloaded by it
 function arity(t: Type): Int :=
@@ -248,25 +137,7 @@ function arity(t: Type): Int :=
     case _ => -1
   end
 
-function names(xs: List[Var]): List[Name] :=
-  [x.name for x in xs]
-
-function types(xs: List[Var]): List[Type] :=
-  [x.typ for x in xs]
-
-// the first list of formals of a function, by whose length functions are overloaded
-function first_list(xss: List[List[Var]]): List[Var] :=
-  match xss
-    case Nil => Nil
-    case [xs; _] => xs
-  end
-
 // abbreviations for the syntax, of the parser and of tests
-
-// the lists of the tests, before checking
-function type_plain_list(t: Type): Type :=
-  TSort(unqualified("List"), [t])
-
 function expr_var(n: Id): Expr :=
   EVar(Var(unqualified(n), THole))
 
@@ -279,49 +150,9 @@ function expr_app(f: Id, args: List[Expr]): Expr :=
 function pat_var(n: Id): Pat :=
   PVar(Var(unqualified(n), THole))
 
-// lists with constructors Nil and Cons, exported by the module list as in the library, and their length
-function lists(): List[Mod] :=
-  [Mod("list", Nil, unplaced([CData(unqualified("List"), ["A"], [Constr(unqualified("Nil"), Nil), Constr(unqualified("Cons"), [TParam("A"), type_plain_list(TParam("A"))])])]), Nil, Nil)]
-
-// the program of the commands cmds after len of the module main, which imports lists
-function with_lists(cmds: List[Cmd]): Source :=
-  Source([natives_prelude(); lists()] ++ [Mod("main", ["list"], Nil, Nil, unplaced([len_fun(); cmds]))], "main")
-
-function len_fun(): Cmd :=
-  CFun(
-    unqualified("len"),
-    ["A"],
-    [[Var(unqualified("xs"), type_plain_list(TParam("A")))]],
-    type_int(),
-    EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0)), Branch(PApp(unqualified("Cons"), [PWild, pat_var("ys")]), None, expr_app("+", [expr_int(1), expr_app("len", [expr_var("ys")])]))])
-  )
-
-// a prelude of the builtin types and functions of prelude/prelude.u only, for programs that are not parsed
-function natives_prelude(): Mod :=
-  let int_op := lambda op => CFunSig(unqualified(op), Nil, [[Var(unqualified("a"), type_int()), Var(unqualified("b"), type_int())]], type_int()) in
-    Mod(
-      "prelude",
-      Nil,
-      Nil,
-      unplaced([CAbstract(unqualified(t), Nil) for t in ["Bool", "Int", "Str", "Char"]] ++ [int_op(op) for op in ["+", "-", "*", "/", "%"]] ++ [CFunSig(unqualified("++"), Nil, [[Var(unqualified("a"), type_str()), Var(unqualified("b"), type_str())]], type_str())]),
-      Nil
-    )
-
-// the program of the commands cmds of the module main
-function program_of(cmds: List[Cmd]): Source :=
-  Source([natives_prelude(), Mod("main", Nil, Nil, Nil, unplaced(cmds))], "main")
-
-// the commands of all sections, in order
-function commands_of(d: Mod): List[Cmd] :=
-  seconds(placed_of(d))
-
 // the commands of all sections with their positions, in order
 function placed_of(d: Mod): List[Pos * Cmd] :=
   d.exported ++ d.builtins ++ d.implemented
-
-// the notation that module d exports to its importers, of the notation commands of its export section
-function exported_notation(d: Mod): Notation :=
-  with_notation(empty_notation(), seconds(d.exported))
 
 // the modules that module name imports without saying so, from the library: the prelude and the modules that every module
 // sees with it, where each of these imports those before it
@@ -341,82 +172,3 @@ function all_imports(d: Mod): List[Id] :=
 // commands without positions, as programs that are not parsed have them
 function unplaced(cmds: List[Cmd]): List[Pos * Cmd] :=
   [(Pos(0, 0), c) for c in cmds]
-
-// the last of the modules, the main module of a source
-function last_mod(mods: List[Mod]): Mod :=
-  match mods
-    case [d] => d
-    case [_; rest] => last_mod(rest)
-    case Nil => Mod("", Nil, Nil, Nil, Nil)
-  end
-
-// the modules before the last
-function but_last(mods: List[Mod]): List[Mod] :=
-  match mods
-    case [_] => Nil
-    case [d; rest] => [d; but_last(rest)]
-    case Nil => Nil
-  end
-
-// module d with the positions of its commands forgotten, to compare its commands
-function without_positions(d: Mod): Mod :=
-  d with exported := unplaced(seconds(d.exported)), builtins := unplaced(seconds(d.builtins)), implemented := unplaced(seconds(d.implemented))
-
-// f(x) + 1, as the parser would produce it
-test syntax() :=
-  local f: Var, x: Var
-
-  assign f := Var(unqualified("f"), THole), x := Var(unqualified("x"), THole)
-  assert names([f, x]) == [unqualified("f"), unqualified("x")]
-  assert types([f]) == [THole]
-
-// notation
-
-function empty_notation(): Notation :=
-  Notation(empty(), empty(), empty())
-
-function prefix_prec(notation: Notation, op: Id): Option[Int] :=
-  get(op, notation.prefix_ops)
-
-function postfix_prec(notation: Notation, op: Id): Option[Int] :=
-  get(op, notation.postfix_ops)
-
-function infix_of(notation: Notation, op: Id): Option[Fixity * Int] :=
-  get(op, notation.infix_ops)
-
-// the notation of op of the kind of f, if any
-function notation_of(notation: Notation, f: Fixity, op: Id): Option[Fixity * Int] :=
-  match (f, prefix_prec(notation, op), postfix_prec(notation, op))
-    case (FPrefix, Some(prec), _) => Some((FPrefix, prec))
-    case (FPrefix, None, _) => None
-    case (FPostfix, _, Some(prec)) => Some((FPostfix, prec))
-    case (FPostfix, _, None) => None
-    case _ => infix_of(notation, op)
-  end
-
-function is_operator(notation: Notation, op: Id): Bool :=
-  contains(op, notation.prefix_ops) or contains(op, notation.postfix_ops) or contains(op, notation.infix_ops)
-
-// the notation with those of the commands cmds
-function with_notation(notation: Notation, cmds: List[Cmd]): Notation :=
-  match cmds
-    case Nil => notation
-    case [CNotation(fixity, prec, ops); more] => with_notation(with_operators(notation, fixity, prec, ops), more)
-    case [_; more] => with_notation(notation, more)
-  end
-
-function with_operators(notation: Notation, f: Fixity, prec: Int, ops: List[Id]): Notation :=
-  match (f, ops)
-    case (_, Nil) => notation
-    case (FPrefix, [op; more]) => with_operators(notation with prefix_ops := put(op, prec, notation.prefix_ops), f, prec, more)
-    case (FPostfix, [op; more]) => with_operators(notation with postfix_ops := put(op, prec, notation.postfix_ops), f, prec, more)
-    case (_, [op; more]) => with_operators(notation with infix_ops := put(op, (f, prec), notation.infix_ops), f, prec, more)
-  end
-
-// the notation of both, where those of b count
-function union_notation(a: Notation, b: Notation): Notation :=
-  Notation(
-    a.prefix_ops ++ b.prefix_ops,
-    a.postfix_ops ++ b.postfix_ops,
-    a.infix_ops ++ b.infix_ops
-  )

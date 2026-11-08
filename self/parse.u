@@ -3,6 +3,7 @@
 // read from the directory of the parsed file, or else from the library
 
 import syntax
+import notation
 import lex
 import os
 import set
@@ -1409,7 +1410,7 @@ function accessor(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int 
   CFun(
     unqualified(t ++ "." ++ f),
     params,
-    [[Var(unqualified("x"), owner_type(t, params))]],
+    [Var(unqualified("x"), owner_type(t, params))],
     field_type(fields),
     field_match(t, f, [field_case(field) for field in fields], n)
   )
@@ -1419,7 +1420,7 @@ function updater(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int *
   CFun(
     unqualified(t ++ "." ++ f ++ ":="),
     params,
-    [[Var(unqualified("x"), owner_type(t, params)), Var(unqualified("y"), field_type(fields))]],
+    [Var(unqualified("x"), owner_type(t, params)), Var(unqualified("y"), field_type(fields))],
     owner_type(t, params),
     field_match(t, f, [update_case(field) for field in fields], n)
   )
@@ -1465,12 +1466,16 @@ function positions_from(i: Int, n: Int): List[Int] :=
   if i == n then Nil else [i; positions_from(i + 1, n)]
 
 procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
-  local name: Id, params: List[Id], xss: List[List[Var]], r: Type, body: Expr
+  local name: Id, params: List[Id], xs: List[Var], r: Type, body: Expr
 
   call   advance(ref toks)
   call   parse_name_or_op(out name, ref toks)
   call   parse_params(in notation, out params, ref toks)
-  call   parse_repeated(in notation, params, parse_formals, lambda ts => at_kw(ts, "("), out xss, ref toks)
+  call   parse_formals(in notation, params, out xs, ref toks)
+
+  if at_kw(toks, "(")
+    raise ParseError("a function has one list of formals", head_pos(toks))
+  end
 
   call   expect(in TKw(":"), ref toks)
   call   parse_type(in notation, params, out r, ref toks)
@@ -1479,9 +1484,9 @@ procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) 
   if head_token(toks) == TKw(":=")
     call   advance(ref toks)
     call   parse_expr(in notation, params, out body, ref toks)
-    assign cmd := CFun(unqualified(name), params, xss, r, body)
+    assign cmd := CFun(unqualified(name), params, xs, r, body)
   else
-    assign cmd := CFunSig(unqualified(name), params, xss, r)
+    assign cmd := CFunSig(unqualified(name), params, xs, r)
   end
 
 procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
@@ -1562,7 +1567,7 @@ procedure import_notation(in name: Id, mods: List[Mod], pos: Pos, ref notation: 
   match loaded_mod(name, mods)
     case Some(d) =>
       call   check_imported(in notation, exported_notation(d), pos)
-      assign notation := union_notation(notation, exported_notation(d))
+      assign notation := notation ++ exported_notation(d)
     case None =>
       skip
   end
@@ -1805,7 +1810,7 @@ procedure parsed(in e: Str, out body: Expr) :=
   call   parse_text(in test_notation() ++ "function f(): Int :=\n  " ++ e, out d)
   assign body := ELit(VUnit)
 
-  match reverse(commands_of(d))
+  match reverse(seconds(placed_of(d)))
     case [CFun(_, _, _, _, b); _] =>
       assign body := b
     case _ =>
