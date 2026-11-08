@@ -7,11 +7,8 @@ import set
 
 export
 
-// type definitions with their parameters, the type schemes of functions with their parameters, the signatures of procedures
-// with parameters, ins, outs, and refs, datatypes with their numbers of parameters, their constructors,
-// constructors with the parameters of their datatype, their argument types, and their datatype,
-// and the declarations of each base name, of any kind and module, where the signature that a module shows to its importers
-// has only its exported declarations
+// procs have parameters, ins, outs, and refs, constrs the parameters of their datatype, their argument types, and their
+// datatype, and named the declarations of each base name, of any kind and module
 data Sig :=
   | Sig(
     aliases: Map[Name, List[Id] * Type],

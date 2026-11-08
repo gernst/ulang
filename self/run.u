@@ -16,8 +16,6 @@ import array
 
 export
 
-// the state of a run: the definitions of the program, the functions without parameters whose values are being computed,
-// and the arguments of the program
 data Run :=
   | Run(defs: Defs, computing: List[Name], args: List[Str])
 
@@ -37,7 +35,6 @@ data RuntimeError :=
   | NotProc(value: Value)
   | RecursiveInitialization(name: Name)
 
-// an exception of the program with its type
 data Thrown :=
   | Thrown(value: Value, typ: Type)
 

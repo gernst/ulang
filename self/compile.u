@@ -26,7 +26,6 @@ implementation
 type Vars :=
   List[Name * CExpr]
 
-// the number of fresh names so far, and the functions lifted from lambdas
 data Gen :=
   | Gen(count: Int, lifted: List[CDecl])
 

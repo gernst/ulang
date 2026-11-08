@@ -9,7 +9,7 @@ export
 type Id :=
   Str
 
-// a name with the module that declares it, which is None for locals, builtins, and names before checking
+// module is None for locals, builtins, and names before checking
 data Name :=
   | Name(module: Option[Id], base: Id)
 
@@ -30,7 +30,6 @@ data Val :=
   | VStr(text: Str)
   | VChar(char: Char)
 
-// variable uses, binders, and pattern variables
 data Var :=
   | Var(name: Name, typ: Type)
 
@@ -55,7 +54,6 @@ data Pat :=
   | PApp(constr: Name, pats: List[Pat])
   | PTuple(pats: List[Pat])
 
-// a case of a match with an optional guard
 data Branch[A] :=
   | Branch(pat: Pat, guard: Option[Expr], body: A)
 
@@ -71,7 +69,7 @@ data Stmt :=
   | SRaise(expr: Expr, typ: Type)
   | STry(body: Stmt, handlers: List[Handler])
 
-// handles exceptions of the type that match the pattern, or of any type if the pattern is PWild
+// with the pattern PWild, a handler handles exceptions of any type
 data Handler :=
   | Handler(typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
 
@@ -104,17 +102,14 @@ data Cmd :=
 data Prog :=
   | Prog(cmds: List[Cmd])
 
-// the line and column of a command in its file, counted from 1, or 0 for commands that the parser did not read
 data Pos :=
   | Pos(line: Int, col: Int)
 
-// a module by its name, the modules it imports, its export section, its builtin section of signatures that the interpreter
-// and the runtime define, and its implementation section, each command with the position where it starts, where a module
-// without sections has all its commands implemented and exports nothing
+// a module without sections has all its commands implemented and exports nothing
 data Mod :=
   | Mod(name: Id, imports: List[Id], exported: List[Pos * Cmd], builtins: List[Pos * Cmd], implemented: List[Pos * Cmd])
 
-// a program by its modules in load order, each after the modules it imports, where the module main comes last
+// the modules in load order, each after the modules it imports, with main last
 data Source :=
   | Source(mods: List[Mod], main: Id)
 
@@ -167,7 +162,6 @@ function without_positions(d: Mod): Mod
 function last_mod(mods: List[Mod]): Mod
 function but_last(mods: List[Mod]): List[Mod]
 
-// the precedences of prefix and postfix operators, and the fixities and precedences of infix ones
 data Notation :=
   | Notation(prefix_ops: Map[Id, Int], postfix_ops: Map[Id, Int], infix_ops: Map[Id, Fixity * Int])
 

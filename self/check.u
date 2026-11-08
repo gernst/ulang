@@ -50,7 +50,6 @@ data TypeError :=
   // an error of the command at the position of an imported module, or of the main module for None
   | Located(module: Option[Id], pos: Pos, error: TypeError)
 
-// checked modules: their commands with qualified names, their declarations, and the modules each imports
 data Checked :=
   | Checked(cmds: List[Cmd], sig: Sig, imports: List[Id * List[Id]])
 
@@ -65,18 +64,13 @@ type Subst :=
 type Env :=
   List[Name * Local]
 
-// a variable with its type scheme, and whether it is assigned on every path to the current statement
 data Local :=
   | Local(scheme: List[Type] * Type, assigned: Bool)
 
-// a use of an overloaded name that more than one candidate fits, by the placeholder that stands for it,
-// with the candidates that fit so far, and the type of the use
+// a use of an overloaded name that more than one candidate fits, by the placeholder id that stands for it
 data Pending :=
   | Pending(id: Name, name: Name, cands: List[Name * (List[Type] * Type)], typ: Type)
 
-// the context, the substitution, the number of unknowns so far, the module whose declarations are checked
-// with the modules it sees, the modules that each module sees, itself first, the open uses of overloaded names,
-// and the declarations chosen for the placeholders of uses that were open
 data State :=
   | State(
     sig: Sig,

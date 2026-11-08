@@ -310,8 +310,6 @@ function cons_all[A](cons: (A, A) -> A, items: List[A], rest: A): A :=
 // precedence climbing over the tokens, as Mixfix of easyparse in cuvee, where prefix operators bind their operand
 // with their own precedence, and a left associative operator is applied to all operands of a chain at once
 
-// what an operand is called in errors, where it starts, how it is parsed, and how operators apply to operands,
-// to the one of a prefix or postfix operator, and to the two or more of an infix operator
 data Ops[A] :=
   | Ops(
     what: Str,
@@ -1594,8 +1592,6 @@ procedure import_notations(in names: List[Id], mods: List[Mod], ref notation: No
       call import_notations(in rest, mods, ref notation)
   end
 
-// where a module is: at its imports, which come first, in its export section, its builtin section, or its implementation
-// section, or in a module without sections
 data Section :=
   | Opening
   | InExport

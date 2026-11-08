@@ -12,7 +12,6 @@ import compile
 import os
 import map
 
-// the first failure of a test of a file that runs in a directory
 data TestFailed :=
   | TestFailed(message: Str)
 

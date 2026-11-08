@@ -26,7 +26,6 @@ implementation
 // parentheses, and the translations of the parser are printed as what they translate, so that the source parses to the
 // same commands
 
-// the text of an expression or pattern with how it binds, which decides whether it needs parentheses where it occurs
 data Doc :=
   | Doc(text: Str, shape: Shape)
 

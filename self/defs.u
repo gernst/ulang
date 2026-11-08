@@ -6,9 +6,8 @@ import map
 
 export
 
-// the functions by name and number of arguments with their formals and body, the procedures with their ins, outs,
-// refs, and body, the constructors with their number of arguments, their position in their declaration, which orders
-// values, and their datatype, and the datatypes with the functions that order, equate, or show their values, see order_of
+// constrs has the number of arguments of a constructor, its position in its declaration, which orders values, and its
+// datatype, see order_of
 data Defs :=
   | Defs(
     funs: Map[Name * Int, List[List[Var]] * Expr],
