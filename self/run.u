@@ -45,6 +45,8 @@ data RuntimeError :=
   | UnknownProc(name: Name)
   | NotProc(value: Value)
   | RecursiveInitialization(name: Name)
+  // an access or update of a field, which the checker resolves to an accessor or updater
+  | UnresolvedField(field: Id)
 
 data Thrown :=
   | Thrown(value: Value, typ: Type)
@@ -209,6 +211,12 @@ procedure evaluate(in run: Run, env: Bindings, expr: Expr, out v: Value, ref cac
 
     case EApp(fun, args) =>
       call apply_expr(in run, env, fun, args, out v, ref cache)
+
+    case EField(_, field) =>
+      raise UnresolvedField(field)
+
+    case EUpdate(_, field, _) =>
+      raise UnresolvedField(field)
 
     case ELam(formals, body) =>
       assign v := VFunClos(env, formals, body)

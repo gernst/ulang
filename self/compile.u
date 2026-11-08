@@ -323,6 +323,8 @@ function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
     case ELit(_) => []
     case EVar(Var(name, _)) => if contains(name, bound) then [] else [name]
     case EApp(fun, args) => free_vars(fun, bound) ++ [n for a in args, n in free_vars(a, bound)]
+    case EField(expr, _) => free_vars(expr, bound)
+    case EUpdate(expr, _, value) => free_vars(expr, bound) ++ free_vars(value, bound)
     case ELam(formals, body) => free_vars(body, [x.name for x in formals] ++ bound)
     case EProc(ins, outs, refs, stmt) => free_in_stmt(stmt, [x.name for x in ins ++ outs ++ refs] ++ bound)
     case ELet(bindings, body) => [n for a in seconds(bindings), n in free_vars(a, bound)] ++ free_vars(body, [x.name for x in firsts(bindings)] ++ bound)
@@ -438,6 +440,12 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
 
     case EApp(EVar(Var(name, typ)), args) if get(name, env) == None =>
       call compile_named(in defs, env, name, typ, args, out ss, r, ref g)
+
+    case EField(_, field) =>
+      raise Unsupported("the unresolved field " ++ field)
+
+    case EUpdate(_, field, _) =>
+      raise Unsupported("the unresolved field " ++ field)
 
     case EApp(fun, args) =>
       call   compile_expr(in defs, env, fun, out as, ra, ref g)

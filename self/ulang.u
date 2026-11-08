@@ -427,4 +427,5 @@ function runtime_message(e: RuntimeError): Str :=
     case UnknownProc(name) => "unknown procedure " ++ name.base
     case NotProc(value) => "cannot call " ++ format_value(value)
     case RecursiveInitialization(name) => "recursive initialization of " ++ name.base
+    case UnresolvedField(field) => "the field " ++ field ++ " is not resolved"
   end

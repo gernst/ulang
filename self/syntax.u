@@ -35,6 +35,9 @@ data Expr :=
   | ELit(lit: Lit)
   | EVar(var: Var)
   | EApp(fun: Expr, args: List[Expr])
+  // e.f and e with f := a, which the checker resolves by the type of e to the accessor T.f and the updater T.f:=
+  | EField(expr: Expr, field: Id)
+  | EUpdate(expr: Expr, field: Id, value: Expr)
   | ELam(formals: List[Var], body: Expr)
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
   | EProc(ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)

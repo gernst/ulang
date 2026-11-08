@@ -144,12 +144,12 @@ function expr_doc(notation: Notation, indent: Str, expr: Expr): Doc :=
       translation_doc(notation, indent, base, expr, args)
     case EApp(EVar(Var(Name(None, "Cons"), _)), [_, _]) =>
       Doc(list_text(notation, indent, expr), Atom)
-    case EApp(EVar(Var(Name(None, base), _)), [a]) if is_access(base) =>
-      Doc(atom_text(expr_doc(notation, indent, a)) ++ base, Atom)
-    case EApp(EVar(Var(Name(None, base), _)), [_, _]) if is_update(base) =>
-      updates_doc(notation, indent, expr)
     case EApp(fun, args) =>
       app_doc(notation, indent, fun, args)
+    case EField(e, field) =>
+      Doc(atom_text(expr_doc(notation, indent, e)) ++ "." ++ field, Atom)
+    case EUpdate(_, _, _) =>
+      updates_doc(notation, indent, expr)
     case ELam(Nil, body) =>
       Doc("lambda => " ++ format_expr(notation, indent, body), Open)
     case ELam(formals, body) =>
@@ -182,12 +182,6 @@ function app_doc(notation: Notation, indent: Str, f: Expr, args: List[Expr]): Do
 
 function texts(docs: List[Doc]): Str :=
   join(", ", [d.text for d in docs])
-
-function is_access(f: Id): Bool :=
-  at(0, f) == '.' and not is_update(f)
-
-function is_update(f: Id): Bool :=
-  let n := size(f) in at(0, f) == '.' and n > 3 and slice(f, n - 2, n) == ":="
 
 // [a, b] for a list that ends in Nil, and [a, b; c] for one that ends in c
 function list_text(notation: Notation, indent: Str, expr: Expr): Str :=
@@ -222,9 +216,9 @@ function update_text(notation: Notation, indent: Str, update: Id * Expr): Str :=
 
 function updates_of(expr: Expr): Expr * List[Id * Expr] :=
   match expr
-    case EApp(EVar(Var(Name(None, base), _)), [r, a]) if is_update(base) =>
+    case EUpdate(r, field, a) =>
       match updates_of(r)
-        case (s, updates) => (s, updates ++ [(slice(base, 1, size(base) - 2), a)])
+        case (s, updates) => (s, updates ++ [(field, a)])
       end
     case _ =>
       (expr, Nil)
@@ -616,7 +610,7 @@ function field_names(t: Id, cmds: List[Cmd]): List[(Id * Int) * Id] :=
   end
 
 function is_accessor(t: Id, f: Id): Bool :=
-  let n := size(t) in size(f) > n + 1 and slice(f, 0, n + 1) == t ++ "." and not is_update(slice(f, n, size(f)))
+  let n := size(t), m := size(f) in m > n + 1 and slice(f, 0, n + 1) == t ++ "." and slice(f, m - 2, m) != ":="
 
 function branch_positions(branches: List[Branch[Expr]]): List[Id * Int] :=
   match branches
@@ -665,15 +659,15 @@ test operators_parenthesized() :=
   assert source(expr_app("-", [expr_app("not", [a])])) == "-(not a)"
   assert source(expr_app("*", [a, expr_app("not", [b])])) == "a * (not b)"
   assert source(expr_app("-", [a, expr_int(-1)])) == "a - (-1)"
-  assert source(expr_app(".f", [expr_int(-1)])) == "(-1).f"
+  assert source(EField(expr_int(-1), "f")) == "(-1).f"
   assert source(expr_app("+", [EIte(a, b, c), expr_int(1)])) == "(if a then b else c) + 1"
 
 test updates_closed() :=
-  local r := expr_app(".g:=", [expr_app(".f:=", [expr_var("r"), expr_int(1)]), EIte(expr_var("c"), expr_int(2), expr_int(3))])
+  local r := EUpdate(EUpdate(expr_var("r"), "f", expr_int(1)), "g", EIte(expr_var("c"), expr_int(2), expr_int(3)))
 
   assert source(r) == "r with f := 1, g := (if c then 2 else 3)"
   assert format_stmt(test_operators(), "", SAssign([(Var(unqualified("x"), THole), r), (Var(unqualified("y"), THole), expr_int(2))])) == "assign x := (" ++ source(r) ++ "), y := 2"
-  assert source(expr_app("+", [expr_app(".f", [expr_app("+", [expr_var("a"), expr_var("b")])]), r])) == "(a + b).f + (" ++ source(r) ++ ")"
+  assert source(expr_app("+", [EField(expr_app("+", [expr_var("a"), expr_var("b")]), "f"), r])) == "(a + b).f + (" ++ source(r) ++ ")"
 
 test translations() :=
   local x := Var(unqualified("x"), THole), acc := Var(unqualified("(acc)"), THole), xs := expr_var("xs")

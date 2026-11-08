@@ -549,14 +549,14 @@ procedure parse_update(in notation: Notation, params: List[Id], out update: Id *
   call   parse_operators(in notation, params, expr_ops(), out a, ref toks)
   assign update := (f, a)
 
-// e with the updates in order, each of which applies the updater T.f:= to e and a, as the checker resolves it by the type of e
+// e with the updates in order, from the left
 function apply_updates(expr: Expr, updates: List[Id * Expr]): Expr :=
   match updates
     case Nil => expr
-    case [(f, a); more] => apply_updates(expr_app("." ++ f ++ ":=", [expr, a]), more)
+    case [(f, a); more] => apply_updates(EUpdate(expr, f, a), more)
   end
 
-// f(x) and e.f, which reads the field f of e, as the checker resolves it by the type of e
+// f(x) and e.f
 procedure parse_app(in notation: Notation, params: List[Id], out expr: Expr, ref toks: Tokens) :=
   local args: List[Expr], f: Id
 
@@ -570,7 +570,7 @@ procedure parse_app(in notation: Notation, params: List[Id], out expr: Expr, ref
     else
       call   advance(ref toks)
       call   parse_name(out f, ref toks)
-      assign expr := expr_app("." ++ f, [expr])
+      assign expr := EField(expr, f)
     end
   end
 
@@ -1831,9 +1831,9 @@ test parsed_operators() :=
   call   parsed(in "- -a", out expr)
   assert expr == expr_app("-", [expr_app("-", [a])])
   call   parsed(in "-a.f", out expr)
-  assert expr == expr_app("-", [expr_app(".f", [a])])
+  assert expr == expr_app("-", [EField(a, "f")])
   call   parsed(in "a with f := 1, g := b.f", out expr)
-  assert expr == expr_app(".g:=", [expr_app(".f:=", [a, expr_int(1)]), expr_app(".f", [b])])
+  assert expr == EUpdate(EUpdate(a, "f", expr_int(1)), "g", EField(b, "f"))
 
 test parsed_displays() :=
   local expr: Expr, a := expr_var("a"), b := expr_var("b"), c := expr_var("c")

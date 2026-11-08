@@ -433,6 +433,8 @@ function zonk_expr(s: State, expr: Expr): Expr :=
     case ELit(_) => expr
     case EVar(var) => EVar(zonk_var(s, var))
     case EApp(fun, args) => EApp(zonk_expr(s, fun), [zonk_expr(s, a) for a in args])
+    case EField(expr, field) => EField(zonk_expr(s, expr), field)
+    case EUpdate(expr, field, value) => EUpdate(zonk_expr(s, expr), field, zonk_expr(s, value))
     case ELam(formals, body) => ELam(zonk_vars(s, formals), zonk_expr(s, body))
     case EProc(ins, outs, refs, stmt) => EProc(zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), zonk_stmt(s, stmt))
     case ELet(bindings, body) => ELet([zonk_binding(s, p) for p in bindings], zonk_expr(s, body))
@@ -515,6 +517,8 @@ function unknown_in_expr(expr: Expr): Option[Type] :=
   match expr
     case ERaise(expr, typ) => or_else(unknown_type(typ), unknown_in_expr(expr))
     case EApp(fun, args) => unknown_in_exprs([fun; args])
+    case EField(expr, _) => unknown_in_expr(expr)
+    case EUpdate(expr, _, value) => unknown_in_exprs([expr, value])
     case ELam(_, body) => unknown_in_expr(body)
     case EProc(_, _, _, stmt) => unknown_in(stmt)
     case ELet(bindings, body) => unknown_in_exprs(seconds(bindings) ++ [body])
@@ -1308,6 +1312,12 @@ procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
     case EApp(fun, args) =>
       call application(in env, fun, args, out e1, t, ref s)
 
+    case EField(expr, field) =>
+      call field_access(in env, "." ++ field, expr, Nil, out e1, t, ref s)
+
+    case EUpdate(expr, field, value) =>
+      call field_access(in env, "." ++ field ++ ":=", expr, [value], out e1, t, ref s)
+
     case ELam(bound, body) =>
       call   formals(in "formal", bound, out xs, ref s)
       call   infer(in bind(xs) ++ env, body, out b, u, ref s)
@@ -1364,9 +1374,6 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
   local cs: List[Name * (List[Type] * Type)], x: Var, f1: Expr, u: Type, w: Type, args1: List[Expr], ts: List[Type]
 
   match f
-    case EVar(Var(Name(None, base), typ)) if size(base) > 1 and at(0, base) == '.' =>
-      call field_access(in env, base, typ, args, out e1, t, ref s)
-
     case EVar(Var(name, typ)) =>
       assign cs := candidates(s, env, name)
       if size(cs) > 1
@@ -1391,43 +1398,38 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
       assign e1 := EApp(f1, args1)
   end
 
-// e.f, which is the accessor T.f of the type T of e, of the module of T, and e with f := a, which is the updater T.f:=
-// applied to e and a, where the accessors of all datatypes with the field are the candidates while T is not known
-procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Expr, t: Type, ref s: State) :=
-  local arg1: Expr, u: Type, w: Type, rest1: List[Expr], us: List[Type], acc: Name, x: Var
+// the accessor T.f, or for the suffix .f:= the updater T.f:=, applied to e and the further arguments, of the type T of e,
+// of the module of T, where the accessors of all datatypes with the field are the candidates while T is not known
+procedure field_access(in env: Env, suffix: Id, expr: Expr, rest: List[Expr], out e1: Expr, t: Type, ref s: State) :=
+  local c: Expr, u: Type, w: Type, rest1: List[Expr], us: List[Type], acc: Name, x: Var
 
-  match args
-    case [arg; rest] =>
-      call   infer(in env, arg, out arg1, u, ref s)
-      call   infers(in env, rest, out rest1, us, ref s)
-      call   fresh(out t, ref s)
-      call   normalize(in a, out w, ref s)
-      call   unify(in w, TFun([u; us], t), ref s)
+  call   infer(in env, expr, out c, u, ref s)
+  call   infers(in env, rest, out rest1, us, ref s)
+  call   fresh(out t, ref s)
+  call   fresh(out w, ref s)
+  call   unify(in w, TFun([u; us], t), ref s)
 
-      match zonk_type(s.sub, u)
-        case TSort(Name(Some(m), base), _) =>
-          assign acc := Name(Some(m), base ++ f)
-          match schemes_of(s.sig, acc)
-            case [sc] if is_visible(s, acc) =>
-              call use(in acc, w, sc, out x, ref s)
-            case _ =>
-              raise UnknownField(acc)
-          end
-        case TMeta(_) =>
-          match visible_accessors(s, accessors(s.sig, f, list(s.sig.named)))
-            case Nil =>
-              raise UnknownField(unqualified(f))
-            case cs =>
-              call use_name(in unqualified(f), cs, w, out x, ref s)
-          end
-        case v =>
-          raise UnknownFieldType(f, v)
+  match zonk_type(s.sub, u)
+    case TSort(Name(Some(m), base), _) =>
+      assign acc := Name(Some(m), base ++ suffix)
+      match schemes_of(s.sig, acc)
+        case [sc] if is_visible(s, acc) =>
+          call use(in acc, w, sc, out x, ref s)
+        case _ =>
+          raise UnknownField(acc)
       end
-
-      assign e1 := EApp(EVar(x), [arg1; rest1])
-    case _ =>
-      raise CountMismatch("the access ." ++ f, "arguments", 1, size(args))
+    case TMeta(_) =>
+      match visible_accessors(s, accessors(s.sig, suffix, list(s.sig.named)))
+        case Nil =>
+          raise UnknownField(unqualified(suffix))
+        case cs =>
+          call use_name(in unqualified(suffix), cs, w, out x, ref s)
+      end
+    case v =>
+      raise UnknownFieldType(suffix, v)
   end
+
+  assign e1 := EApp(EVar(x), [c; rest1])
 
 procedure apply(in env: Env, f: Type, args: List[Expr], out args1: List[Expr], r: Type, ref s: State) :=
   local ts: List[Type]
@@ -2706,7 +2708,7 @@ test procedures() :=
 test fields() :=
   local b: Expr
 
-  call body_of(in fun_cmd("f", Nil, type_int(), EApp(ELam([var_of("p", THole)], expr_app(".x", [expr_var("p")])), [expr_app("Pt", [expr_int(3)])])), out b)
+  call body_of(in fun_cmd("f", Nil, type_int(), EApp(ELam([var_of("p", THole)], EField(expr_var("p"), "x")), [expr_app("Pt", [expr_int(3)])])), out b)
   match b
     case EApp(ELam(_, EApp(EVar(Var(name, _)), _)), _) =>
       assert name == in_bag("Pt.x")

@@ -32,7 +32,6 @@ Open action items, each with the problem and the desired solution.
 ## Syntax
 
 1. **`else` followed by `if` always continues a chain of statements**, so a nested `if` cannot directly follow `else`. Solution: decide on a syntax that tells them apart.
-2. **Accesses are applications of a variable `.f`** until the checker resolves them. Solution: a node `EField(e, f)` of the syntax.
 
 ## Library
 
