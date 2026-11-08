@@ -1,6 +1,6 @@
 // type error: Pair declares ==, which only abstract types may
 data Pair :=
-  | Pair(Int, Int)
+  | Pair(first: Int, second: Int)
 
 function ==(a: Pair, b: Pair): Bool :=
   true

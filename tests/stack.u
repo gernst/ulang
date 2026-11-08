@@ -6,7 +6,7 @@ infix right 8 <+
 
 data Stack[A] :=
   | Empty
-  | Push(A, Stack[A])
+  | Push(top: A, rest: Stack[A])
 
 function <+[A](x: A, s: Stack[A]): Stack[A]
 function top[A](s: Stack[A]): Option[A]
@@ -22,7 +22,7 @@ function <+[A](x: A, s: Stack[A]): Stack[A] :=
 function top[A](s: Stack[A]): Option[A] :=
   match s
     case Empty => None
-    case Push(x, _) => Some(x)
+    case Push(top, _) => Some(top)
   end
 
 function peek[A](s: Stack[A], x: A): A :=

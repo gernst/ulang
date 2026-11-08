@@ -14,8 +14,8 @@ import set
 export
 
 data CompileError :=
-  | Unsupported(Str)
-  | UnknownEntry(Name)
+  | Unsupported(what: Str)
+  | UnknownEntry(name: Name)
 
 procedure compile_file(in source: Str, entry: Id, target: Str)
 function is_entry(cmd: Cmd, n: Name): Bool
@@ -120,8 +120,8 @@ function type_name(t: Name): Str :=
 // the descriptor of constructor n at position i of its declaration, of datatype t
 function descriptor_decl(n: Name, i: Int, t: Name): CDecl :=
   match n
-    case Name(Some(m), b) => CdGlobal(CtNamed("const struct u_name"), "n_" ++ mangle(n), Some(CeInit([CeStr(m), CeStr(b), CeNum(i), CeUnary("&", CeVar(type_name(t)))])))
-    case Name(None, b) => CdGlobal(CtNamed("const struct u_name"), "n_" ++ mangle(n), Some(CeInit([CeVar("NULL"), CeStr(b), CeNum(i), CeUnary("&", CeVar(type_name(t)))])))
+    case Name(Some(m), base) => CdGlobal(CtNamed("const struct u_name"), "n_" ++ mangle(n), Some(CeInit([CeStr(m), CeStr(base), CeNum(i), CeUnary("&", CeVar(type_name(t)))])))
+    case Name(None, base) => CdGlobal(CtNamed("const struct u_name"), "n_" ++ mangle(n), Some(CeInit([CeVar("NULL"), CeStr(base), CeNum(i), CeUnary("&", CeVar(type_name(t)))])))
   end
 
 // the shared value of constructor n without arguments, of datatype t
@@ -143,8 +143,8 @@ function data_decls(
   match cmds
     case Nil =>
       Nil
-    case [CData(t, _, ks); rest] =>
-      type_decls(t, compares, equalities, shows) ++ constructor_decls(t, ks, 0) ++ data_decls(rest, compares, equalities, shows)
+    case [CData(name, _, constrs); rest] =>
+      type_decls(name, compares, equalities, shows) ++ constructor_decls(name, constrs, 0) ++ data_decls(rest, compares, equalities, shows)
     case [_; rest] =>
       data_decls(rest, compares, equalities, shows)
   end
@@ -186,8 +186,8 @@ function constructor_decls(t: Name, ks: List[Constr], i: Int): List[CDecl] :=
   match ks
     case Nil => Nil
     case [k; rest] if contains(k.name, runtime_constructors()) => constructor_decls(t, rest, i + 1)
-    case [Constr(n, []); rest] => [descriptor_decl(n, i, t), unit_decl(n, t); constructor_decls(t, rest, i + 1)]
-    case [Constr(n, _); rest] => [descriptor_decl(n, i, t); constructor_decls(t, rest, i + 1)]
+    case [Constr(name, []); rest] => [descriptor_decl(name, i, t), unit_decl(name, t); constructor_decls(t, rest, i + 1)]
+    case [Constr(name, _); rest] => [descriptor_decl(name, i, t); constructor_decls(t, rest, i + 1)]
   end
 
 function in_scope(xs: List[Name]): Vars :=
@@ -214,11 +214,11 @@ function copy_out(xs: List[Name]): List[CStmt] :=
 // types as names of exceptions, which handlers compare
 function type_key(t: Type): Str :=
   match t
-    case TSort(n, []) => format_name(n)
-    case TSort(n, args) => format_name(n) ++ "[" ++ join(", ", [type_key(a) for a in args]) ++ "]"
-    case TFun(args, r) => "(" ++ join(", ", [type_key(a) for a in args]) ++ ") -> " ++ type_key(r)
-    case TProc(is, os, rs) => "(in " ++ join(", ", [type_key(a) for a in is]) ++ ", out " ++ join(", ", [type_key(a) for a in os]) ++ ", ref " ++ join(", ", [type_key(a) for a in rs]) ++ ")"
-    case TTuple(ts) => "(" ++ join(" * ", [type_key(a) for a in ts]) ++ ")"
+    case TSort(name, []) => format_name(name)
+    case TSort(name, args) => format_name(name) ++ "[" ++ join(", ", [type_key(a) for a in args]) ++ "]"
+    case TFun(args, res) => "(" ++ join(", ", [type_key(a) for a in args]) ++ ") -> " ++ type_key(res)
+    case TProc(ins, outs, refs) => "(in " ++ join(", ", [type_key(a) for a in ins]) ++ ", out " ++ join(", ", [type_key(a) for a in outs]) ++ ", ref " ++ join(", ", [type_key(a) for a in refs]) ++ ")"
+    case TTuple(types) => "(" ++ join(" * ", [type_key(a) for a in types]) ++ ")"
     case _ => "?"
   end
 
@@ -275,18 +275,18 @@ function conjunction(cs: List[CExpr]): CExpr :=
 function literal_value(l: Val): CExpr :=
   match l
     case VUnit => c_call("u_mk_tuple", [CeNum(0)])
-    case VBool(b) => c_call("u_mk_bool", [CeNum(if b then 1 else 0)])
-    case VInt(n) => if -1000000000000000000 < n and n < 1000000000000000000 then c_call("u_mk_int", [CeNum(n)]) else c_call("u_mk_int_str", [CeStr(show(n))])
-    case VStr(s) => c_call("u_mk_lit", [CeStr(s)])
-    case VChar(c) => c_call("u_mk_char", [CeNum(ord(c))])
+    case VBool(bool) => c_call("u_mk_bool", [CeNum(if bool then 1 else 0)])
+    case VInt(num) => if -1000000000000000000 < num and num < 1000000000000000000 then c_call("u_mk_int", [CeNum(num)]) else c_call("u_mk_int_str", [CeStr(show(num))])
+    case VStr(text) => c_call("u_mk_lit", [CeStr(text)])
+    case VChar(char) => c_call("u_mk_char", [CeNum(ord(char))])
   end
 
 // the tests that v matches p, in an order that checks a constructor before its fields
 function pattern_tests(pat: Pat, v: CExpr): List[CExpr] :=
   match pat
-    case PLit(l) => [c_call("u_equals", [v, literal_value(l)])]
-    case PApp(n, ps) => [c_call("u_is_con", [v, descriptor(n)])] ++ field_tests(numbered(ps, 0), v)
-    case PTuple(ps) => field_tests(numbered(ps, 0), v)
+    case PLit(lit) => [c_call("u_equals", [v, literal_value(lit)])]
+    case PApp(constr, pats) => [c_call("u_is_con", [v, descriptor(constr)])] ++ field_tests(numbered(pats, 0), v)
+    case PTuple(pats) => field_tests(numbered(pats, 0), v)
     case _ => []
   end
 
@@ -299,9 +299,9 @@ function field_tests(ps: List[Pat * Int], v: CExpr): List[CExpr] :=
 // the declarations of the variables of p, where v matches p
 function pattern_binds(pat: Pat, v: CExpr): List[CStmt] :=
   match pat
-    case PVar(Var(n, _)) => [CsDecl(value_type(), var_name(n), Some(v))]
-    case PApp(_, ps) => field_binds(numbered(ps, 0), v)
-    case PTuple(ps) => field_binds(numbered(ps, 0), v)
+    case PVar(Var(name, _)) => [CsDecl(value_type(), var_name(name), Some(v))]
+    case PApp(_, pats) => field_binds(numbered(pats, 0), v)
+    case PTuple(pats) => field_binds(numbered(pats, 0), v)
     case _ => []
   end
 
@@ -313,9 +313,9 @@ function field_binds(ps: List[Pat * Int], v: CExpr): List[CStmt] :=
 
 function pattern_names(pat: Pat): List[Name] :=
   match pat
-    case PVar(Var(n, _)) => [n]
-    case PApp(_, ps) => [x for q in ps, x in pattern_names(q)]
-    case PTuple(ps) => [x for q in ps, x in pattern_names(q)]
+    case PVar(Var(name, _)) => [name]
+    case PApp(_, pats) => [x for q in pats, x in pattern_names(q)]
+    case PTuple(pats) => [x for q in pats, x in pattern_names(q)]
     case _ => []
   end
 
@@ -323,37 +323,37 @@ function pattern_names(pat: Pat): List[Name] :=
 function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
   match expr
     case ELit(_) => []
-    case EVar(Var(n, _)) => if contains(n, bound) then [] else [n]
-    case EApp(f, args) => free_vars(f, bound) ++ [n for a in args, n in free_vars(a, bound)]
-    case ELam(xs, b) => free_vars(b, names(xs) ++ bound)
-    case EProc(is, os, rs, b) => free_in_stmt(b, names(is ++ os ++ rs) ++ bound)
-    case ELet(bs, b) => [n for a in seconds(bs), n in free_vars(a, bound)] ++ free_vars(b, names(firsts(bs)) ++ bound)
-    case EIte(c, l, r) => free_vars(c, bound) ++ free_vars(l, bound) ++ free_vars(r, bound)
-    case EMatch(a, cs) => free_vars(a, bound) ++ [n for b in cs, n in free_in_branch(b, bound)]
-    case ETuple(es) => [n for a in es, n in free_vars(a, bound)]
-    case ERaise(a, _) => free_vars(a, bound)
+    case EVar(Var(name, _)) => if contains(name, bound) then [] else [name]
+    case EApp(fun, args) => free_vars(fun, bound) ++ [n for a in args, n in free_vars(a, bound)]
+    case ELam(formals, body) => free_vars(body, names(formals) ++ bound)
+    case EProc(ins, outs, refs, stmt) => free_in_stmt(stmt, names(ins ++ outs ++ refs) ++ bound)
+    case ELet(bindings, body) => [n for a in seconds(bindings), n in free_vars(a, bound)] ++ free_vars(body, names(firsts(bindings)) ++ bound)
+    case EIte(cond, then_expr, else_expr) => free_vars(cond, bound) ++ free_vars(then_expr, bound) ++ free_vars(else_expr, bound)
+    case EMatch(expr, cases) => free_vars(expr, bound) ++ [n for b in cases, n in free_in_branch(b, bound)]
+    case ETuple(exprs) => [n for a in exprs, n in free_vars(a, bound)]
+    case ERaise(expr, _) => free_vars(expr, bound)
   end
 
 // the variables of x that bound does not bind, including procedures called through variables
 function free_in_stmt(x: Stmt, bound: List[Name]): List[Name] :=
   match x
     case SSkip => []
-    case SAssign(ps) => [y for y in names(firsts(ps)) if not contains(y, bound)] ++ [n for a in seconds(ps), n in free_vars(a, bound)]
-    case SBlock(xs, ys) => [n for y in ys, n in free_in_stmt(y, names(xs) ++ bound)]
-    case SIf(c, l, r) => free_vars(c, bound) ++ free_in_stmt(l, bound) ++ free_in_stmt(r, bound)
-    case SWhile(c, b) => free_vars(c, bound) ++ free_in_stmt(b, bound)
-    case SCall(p, ins, outs, refs) =>
-      [y for y in [p; names(outs ++ refs)] if not contains(y, bound)] ++ [n for a in ins, n in free_vars(a, bound)]
-    case SMatch(a, bs) => free_vars(a, bound) ++ [n for b in bs, n in free_in_stmt_branch(b, bound)]
-    case SAssert(c) => free_vars(c, bound)
-    case SRaise(a, _) => free_vars(a, bound)
-    case STry(b, hs) => free_in_stmt(b, bound) ++ [n for h in hs, n in free_in_handler(h, bound)]
+    case SAssign(assignments) => [y for y in names(firsts(assignments)) if not contains(y, bound)] ++ [n for a in seconds(assignments), n in free_vars(a, bound)]
+    case SBlock(locals, stmts) => [n for y in stmts, n in free_in_stmt(y, names(locals) ++ bound)]
+    case SIf(cond, then_stmt, else_stmt) => free_vars(cond, bound) ++ free_in_stmt(then_stmt, bound) ++ free_in_stmt(else_stmt, bound)
+    case SWhile(cond, body) => free_vars(cond, bound) ++ free_in_stmt(body, bound)
+    case SCall(proc, ins, outs, refs) =>
+      [y for y in [proc; names(outs ++ refs)] if not contains(y, bound)] ++ [n for a in ins, n in free_vars(a, bound)]
+    case SMatch(expr, cases) => free_vars(expr, bound) ++ [n for b in cases, n in free_in_stmt_branch(b, bound)]
+    case SAssert(cond) => free_vars(cond, bound)
+    case SRaise(expr, _) => free_vars(expr, bound)
+    case STry(body, handlers) => free_in_stmt(body, bound) ++ [n for h in handlers, n in free_in_handler(h, bound)]
   end
 
 function free_in_stmt_branch(b: Branch[Stmt], bound: List[Name]): List[Name] :=
   match b
-    case Branch(p, Some(g), y) => free_vars(g, pattern_names(p) ++ bound) ++ free_in_stmt(y, pattern_names(p) ++ bound)
-    case Branch(p, None, y) => free_in_stmt(y, pattern_names(p) ++ bound)
+    case Branch(pat, Some(g), body) => free_vars(g, pattern_names(pat) ++ bound) ++ free_in_stmt(body, pattern_names(pat) ++ bound)
+    case Branch(pat, None, body) => free_in_stmt(body, pattern_names(pat) ++ bound)
   end
 
 function free_in_handler(h: Handler, bound: List[Name]): List[Name] :=
@@ -362,8 +362,8 @@ function free_in_handler(h: Handler, bound: List[Name]): List[Name] :=
 
 function free_in_branch(b: Branch[Expr], bound: List[Name]): List[Name] :=
   match b
-    case Branch(p, Some(g), e) => free_vars(g, pattern_names(p) ++ bound) ++ free_vars(e, pattern_names(p) ++ bound)
-    case Branch(p, None, e) => free_vars(e, pattern_names(p) ++ bound)
+    case Branch(pat, Some(g), body) => free_vars(g, pattern_names(pat) ++ bound) ++ free_vars(body, pattern_names(pat) ++ bound)
+    case Branch(pat, None, body) => free_vars(body, pattern_names(pat) ++ bound)
   end
 
 // the lambdas of the lists of parameters after the first of a function
@@ -401,19 +401,19 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
 
   match expr
     // a string literal is a static object, which is created once, named after its text
-    case ELit(VStr(s)) =>
-      call   gen_name(in "l_" ++ mangle(unqualified(slice(s, 0, if size(s) < 16 then size(s) else 16))) ++ "_", out t, ref g)
-      assign ss := [CsDecl(CtNamed("static struct u_object"), t, Some(c_call("U_LIT", [CeStr(s)])))], r := CeUnary("&", CeVar(t))
+    case ELit(VStr(text)) =>
+      call   gen_name(in "l_" ++ mangle(unqualified(slice(text, 0, if size(text) < 16 then size(text) else 16))) ++ "_", out t, ref g)
+      assign ss := [CsDecl(CtNamed("static struct u_object"), t, Some(c_call("U_LIT", [CeStr(text)])))], r := CeUnary("&", CeVar(t))
 
-    case ELit(l) =>
-      assign ss := Nil, r := literal_value(l)
+    case ELit(lit) =>
+      assign ss := Nil, r := literal_value(lit)
 
-    case EVar(Var(n, ty)) =>
-      match get(n, env)
+    case EVar(Var(name, typ)) =>
+      match get(name, env)
         case Some(c) =>
           assign ss := Nil, r := c
         case None =>
-          assign ss := Nil, r := global_value(defs, n, ty)
+          assign ss := Nil, r := global_value(defs, name, typ)
       end
 
     // |e for x in c, y in d if q| over lists and arrays, which fills an array without a list
@@ -426,7 +426,7 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
       end
 
     // |a, b|, whose elements are the items of the array
-    case EApp(EVar(Var(n, _)), [l]) if n == array_name() and list_literal(l) != None =>
+    case EApp(EVar(Var(name, _)), [l]) if name == array_name() and list_literal(l) != None =>
       match list_literal(l)
         case Some(es) =>
           call   compile_exprs(in defs, env, es, out ss, rs, ref g)
@@ -445,38 +445,38 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
           raise Unsupported("a list comprehension")
       end
 
-    case EApp(EVar(Var(n, ty)), args) if get(n, env) == None =>
-      call compile_named(in defs, env, n, ty, args, out ss, r, ref g)
+    case EApp(EVar(Var(name, typ)), args) if get(name, env) == None =>
+      call compile_named(in defs, env, name, typ, args, out ss, r, ref g)
 
-    case EApp(f, args) =>
-      call   compile_expr(in defs, env, f, out as, ra, ref g)
+    case EApp(fun, args) =>
+      call   compile_expr(in defs, env, fun, out as, ra, ref g)
       call   compile_exprs(in defs, env, args, out bs, rs, ref g)
       assign ss := as ++ bs, r := c_call("u_apply", [ra, CeNum(size(args))] ++ rs)
 
-    case ELam(xs, b) =>
-      call compile_lambda(in defs, env, xs, b, out ss, r, ref g)
+    case ELam(formals, body) =>
+      call compile_lambda(in defs, env, formals, body, out ss, r, ref g)
 
-    case EProc(is, os, rs, b) =>
-      call compile_proc_lambda(in defs, env, is, os, rs, b, out ss, r, ref g)
+    case EProc(ins, outs, refs, stmt) =>
+      call compile_proc_lambda(in defs, env, ins, outs, refs, stmt, out ss, r, ref g)
 
-    case ELet(binds, b) =>
-      call   compile_exprs(in defs, env, seconds(binds), out as, rs, ref g)
-      call   compile_expr(in defs, in_scope(names(firsts(binds))) ++ env, b, out bs, rb, ref g)
+    case ELet(bindings, body) =>
+      call   compile_exprs(in defs, env, seconds(bindings), out as, rs, ref g)
+      call   compile_expr(in defs, in_scope(names(firsts(bindings))) ++ env, body, out bs, rb, ref g)
       call   gen_name(in "t", out t, ref g)
       call   temps(in rs, out cs, ref g)
-      assign ss := as ++ cs ++ [CsDecl(value_type(), t, None), CsBlock(rebind(names(firsts(binds)), cs) ++ bs ++ [CsAssign(CeVar(t), rb)])]
+      assign ss := as ++ cs ++ [CsDecl(value_type(), t, None), CsBlock(rebind(names(firsts(bindings)), cs) ++ bs ++ [CsAssign(CeVar(t), rb)])]
       assign r := CeVar(t)
 
-    case EIte(c, l, rr) =>
-      call   compile_expr(in defs, env, c, out cs, rc, ref g)
-      call   compile_expr(in defs, env, l, out as, ra, ref g)
-      call   compile_expr(in defs, env, rr, out bs, rb, ref g)
+    case EIte(cond, then_expr, else_expr) =>
+      call   compile_expr(in defs, env, cond, out cs, rc, ref g)
+      call   compile_expr(in defs, env, then_expr, out as, ra, ref g)
+      call   compile_expr(in defs, env, else_expr, out bs, rb, ref g)
       call   gen_name(in "t", out t, ref g)
       assign ss := cs ++ [CsDecl(value_type(), t, None), CsIf(truth(rc), as ++ [CsAssign(CeVar(t), ra)], bs ++ [CsAssign(CeVar(t), rb)])]
       assign r := CeVar(t)
 
-    case EMatch(arg, cases) =>
-      call   compile_expr(in defs, env, arg, out as, ra, ref g)
+    case EMatch(expr, cases) =>
+      call   compile_expr(in defs, env, expr, out as, ra, ref g)
       call   gen_name(in "s", out d, ref g)
       call   gen_name(in "t", out t, ref g)
       call   expr_cases(in defs, env, cases, CeVar(d), t, out bs, ref g)
@@ -484,14 +484,14 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
       assign ss := ss ++ [CsIf(CeUnary("!", CeVar(t)), [CsExpr(c_call("u_no_case", [CeVar(d)]))], [])]
       assign r := CeVar(t)
 
-    case ETuple(items) =>
-      call   compile_exprs(in defs, env, items, out ss, rs, ref g)
-      assign r := c_call("u_mk_tuple", [CeNum(size(items))] ++ rs)
+    case ETuple(exprs) =>
+      call   compile_exprs(in defs, env, exprs, out ss, rs, ref g)
+      assign r := c_call("u_mk_tuple", [CeNum(size(exprs))] ++ rs)
 
     // the value of a raise is never used, since u_raise does not return
-    case ERaise(arg, ty) =>
-      call   compile_expr(in defs, env, arg, out as, ra, ref g)
-      assign ss := as ++ [CsExpr(c_call("u_raise", [ra, CeStr(type_key(ty))]))], r := CeVar("NULL")
+    case ERaise(expr, typ) =>
+      call   compile_expr(in defs, env, expr, out as, ra, ref g)
+      assign ss := as ++ [CsExpr(c_call("u_raise", [ra, CeStr(type_key(typ))]))], r := CeVar("NULL")
   end
 
 procedure compile_exprs(in defs: Defs, env: Vars, exprs: List[Expr], out ss: List[CStmt], rs: List[CExpr], ref g: Gen) :=
@@ -522,7 +522,7 @@ procedure temps(in rs: List[CExpr], out ss: List[CStmt], ref g: Gen) :=
 // the variables xs as the temporaries declared by ts
 function rebind(xs: List[Name], ts: List[CStmt]): List[CStmt] :=
   match (xs, ts)
-    case ([x; more], [CsDecl(_, t, _); rest]) => [CsDecl(value_type(), var_name(x), Some(CeVar(t))); rebind(more, rest)]
+    case ([x; more], [CsDecl(_, name, _); rest]) => [CsDecl(value_type(), var_name(x), Some(CeVar(name))); rebind(more, rest)]
     case _ => []
   end
 
@@ -633,8 +633,8 @@ procedure expr_cases(
   match cases
     case [] =>
       assign ss := Nil
-    case [Branch(p, guard, e); more] =>
-      assign env1 := in_scope(pattern_names(p)) ++ env
+    case [Branch(pat, guard, e); more] =>
+      assign env1 := in_scope(pattern_names(pat)) ++ env
       call   compile_expr(in defs, env1, e, out bs, rb, ref g)
       assign body := bs ++ [CsAssign(CeVar(t), rb)]
       match guard
@@ -645,7 +645,7 @@ procedure expr_cases(
           skip
       end
       call   expr_cases(in defs, env, more, v, t, out rest, ref g)
-      assign ss := [CsIf(conjunction([CeUnary("!", CeVar(t))] ++ pattern_tests(p, v)), pattern_binds(p, v) ++ body, [])] ++ rest
+      assign ss := [CsIf(conjunction([CeUnary("!", CeVar(t))] ++ pattern_tests(pat, v)), pattern_binds(pat, v) ++ body, [])] ++ rest
   end
 
 function list_foldr_name(): Name :=
@@ -660,8 +660,8 @@ function array_foldr_name(): Name :=
 // the elements of a list literal, Cons(a, Cons(b, Nil))
 function list_literal(expr: Expr): Option[List[Expr]] :=
   match expr
-    case EVar(Var(k, _)) if k == nil_name() => Some(Nil)
-    case EApp(EVar(Var(k, _)), [e, rest]) if k == cons_name() =>
+    case EVar(Var(name, _)) if name == nil_name() => Some(Nil)
+    case EApp(EVar(Var(name, _)), [e, rest]) if name == cons_name() =>
       match list_literal(rest)
         case Some(es) => Some([e; es])
         case None => None
@@ -673,8 +673,8 @@ function list_literal(expr: Expr): Option[List[Expr]] :=
 // and returns acc otherwise
 function consing(body: Expr, acc: Name): Option[Option[Expr] * Expr] :=
   match body
-    case EIte(q, EApp(EVar(Var(k, _)), [e, EVar(Var(a, _))]), EVar(Var(b, _))) if k == cons_name() and a == acc and b == acc =>
-      if contains(acc, free_vars(q, Nil) ++ free_vars(e, Nil)) then None else Some((Some(q), e))
+    case EIte(cond, EApp(EVar(Var(k, _)), [e, EVar(Var(a, _))]), EVar(Var(b, _))) if k == cons_name() and a == acc and b == acc =>
+      if contains(acc, free_vars(cond, Nil) ++ free_vars(e, Nil)) then None else Some((Some(cond), e))
     case EApp(EVar(Var(k, _)), [e, EVar(Var(a, _))]) if k == cons_name() and a == acc =>
       if contains(acc, free_vars(e, Nil)) then None else Some((None, e))
     case _ => None
@@ -694,8 +694,8 @@ function fused(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[List[Nam
 
 function fused_inner(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[List[Name * Expr * Var] * Option[Expr] * Expr] :=
   match body
-    case EApp(EVar(Var(f1, _)), [c1, EVar(Var(a, _)), ELam([x1, acc1], inner)]) if a == acc and not contains(acc, free_vars(c1, Nil) ++ free_vars(ELam([x1, acc1], inner), Nil)) =>
-      match fused(f1, c1, x1, inner, acc1.name)
+    case EApp(EVar(Var(f1, _)), [c1, EVar(Var(a, _)), ELam([x1, acc1], body)]) if a == acc and not contains(acc, free_vars(c1, Nil) ++ free_vars(ELam([x1, acc1], body), Nil)) =>
+      match fused(f1, c1, x1, body, acc1.name)
         case Some((gs, q, e)) => Some(([(f, c, x); gs], q, e))
         case None => None
       end
@@ -810,41 +810,41 @@ procedure compile_stmt(in defs: Defs, env: Vars, s: Stmt, out ss: List[CStmt], r
     case SSkip =>
       assign ss := Nil
 
-    case SAssign(pairs) =>
-      call   compile_exprs(in defs, env, seconds(pairs), out as, rs, ref g)
+    case SAssign(assignments) =>
+      call   compile_exprs(in defs, env, seconds(assignments), out as, rs, ref g)
       call   temps(in rs, out cs, ref g)
-      assign ss := as ++ cs ++ reassign(env, names(firsts(pairs)), cs)
+      assign ss := as ++ cs ++ reassign(env, names(firsts(assignments)), cs)
 
-    case SBlock(locals, body) =>
-      call   compile_stmts(in defs, in_scope(names(locals)) ++ env, body, out bs, ref g)
+    case SBlock(locals, stmts) =>
+      call   compile_stmts(in defs, in_scope(names(locals)) ++ env, stmts, out bs, ref g)
       assign ss := [CsBlock([CsDecl(value_type(), var_name(x), Some(CeVar("NULL"))) for x in names(locals)] ++ bs)]
 
-    case SIf(c, l, r) =>
-      call   compile_expr(in defs, env, c, out cs, rc, ref g)
-      call   compile_stmt(in defs, env, l, out as, ref g)
-      call   compile_stmt(in defs, env, r, out bs, ref g)
+    case SIf(cond, then_stmt, else_stmt) =>
+      call   compile_expr(in defs, env, cond, out cs, rc, ref g)
+      call   compile_stmt(in defs, env, then_stmt, out as, ref g)
+      call   compile_stmt(in defs, env, else_stmt, out bs, ref g)
       assign ss := cs ++ [CsIf(truth(rc), as, bs)]
     // the condition is computed before the loop and again at the end of each iteration
 
-    case SWhile(c, b) =>
-      call   compile_expr(in defs, env, c, out cs, rc, ref g)
-      call   compile_stmt(in defs, env, b, out bs, ref g)
+    case SWhile(cond, body) =>
+      call   compile_expr(in defs, env, cond, out cs, rc, ref g)
+      call   compile_stmt(in defs, env, body, out bs, ref g)
       call   gen_name(in "t", out t, ref g)
-      call   compile_expr(in defs, env, c, out as, ra, ref g)
+      call   compile_expr(in defs, env, cond, out as, ra, ref g)
       assign ss := cs ++ [CsDecl(value_type(), t, Some(rc)), CsWhile(truth(CeVar(t)), bs ++ as ++ [CsAssign(CeVar(t), ra)])]
 
     // a variable of a procedure type hides the procedures of that name
-    case SCall(p, ins, outs, refs) =>
+    case SCall(proc, ins, outs, refs) =>
       call compile_exprs(in defs, env, ins, out as, rs, ref g)
 
-      if get(p, env) != None
-        assign ss := as ++ [CsExpr(c_call("u_call_proc", [var_expr(env, p), CeNum(size(ins)), CeNum(size(outs ++ refs))] ++ rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
+      if get(proc, env) != None
+        assign ss := as ++ [CsExpr(c_call("u_call_proc", [var_expr(env, proc), CeNum(size(ins)), CeNum(size(outs ++ refs))] ++ rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
       else
-        assign ss := as ++ [CsExpr(c_call(proc_name(p), rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
+        assign ss := as ++ [CsExpr(c_call(proc_name(proc), rs ++ [address(var_expr(env, x)) for x in names(outs ++ refs)]))]
       end
 
-    case SMatch(arg, cases) =>
-      call   compile_expr(in defs, env, arg, out as, ra, ref g)
+    case SMatch(expr, cases) =>
+      call   compile_expr(in defs, env, expr, out as, ra, ref g)
       call   gen_name(in "s", out d, ref g)
       call   gen_name(in "d", out t, ref g)
       call   stmt_cases(in defs, env, cases, CeVar(d), t, out bs, ref g)
@@ -857,22 +857,22 @@ procedure compile_stmt(in defs: Defs, env: Vars, s: Stmt, out ss: List[CStmt], r
       call   compile_expr(in defs, env, b, out bs, rb, ref g)
       assign ss := as ++ bs ++ [CsExpr(c_call("u_assert_equal", [ra, rb]))]
 
-    case SAssert(c) =>
-      call   compile_expr(in defs, env, c, out cs, rc, ref g)
+    case SAssert(cond) =>
+      call   compile_expr(in defs, env, cond, out cs, rc, ref g)
       assign ss := cs ++ [CsExpr(c_call("u_assert_true", [rc]))]
     // exceptions carry their type, which handlers compare
 
-    case SRaise(arg, ty) =>
-      call   compile_expr(in defs, env, arg, out as, ra, ref g)
-      assign ss := as ++ [CsExpr(c_call("u_raise", [ra, CeStr(type_key(ty))]))]
+    case SRaise(expr, typ) =>
+      call   compile_expr(in defs, env, expr, out as, ra, ref g)
+      assign ss := as ++ [CsExpr(c_call("u_raise", [ra, CeStr(type_key(typ))]))]
     // the body runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if none applies,
     // where the handlers start from the variables before the try, which their copies, unchanged since setjmp, restore
 
-    case STry(body, hs) =>
+    case STry(body, handlers) =>
       call   compile_stmt(in defs, env, body, out bs, ref g)
       call   gen_name(in "h", out d, ref g)
       call   gen_name(in "d", out t, ref g)
-      call   handler_cases(in defs, env, hs, d, t, out cs, ref g)
+      call   handler_cases(in defs, env, handlers, d, t, out cs, ref g)
       assign xs := [x for x in distinct(changed(body)) if get(x, env) != None]
       assign as := [CsExpr(c_call("u_pop", [CeVar(d)]))] ++ [CsAssign(var_expr(env, x), CeVar(saved_name(x))) for x in xs] ++ [CsDecl(CtInt, t, Some(CeNum(0)))]
       assign as := as ++ cs ++ [CsIf(CeUnary("!", CeVar(t)), [CsExpr(c_call("u_reraise", [CeVar(d)]))], [])]
@@ -886,13 +886,13 @@ function saved_name(x: Name): Str :=
 // the variables that s assigns, directly or as outs and refs
 function changed(s: Stmt): List[Name] :=
   match s
-    case SAssign(ps) => names(firsts(ps))
-    case SBlock(_, ys) => [n for y in ys, n in changed(y)]
-    case SIf(_, l, r) => changed(l) ++ changed(r)
-    case SWhile(_, b) => changed(b)
+    case SAssign(assignments) => names(firsts(assignments))
+    case SBlock(_, stmts) => [n for y in stmts, n in changed(y)]
+    case SIf(_, then_stmt, else_stmt) => changed(then_stmt) ++ changed(else_stmt)
+    case SWhile(_, body) => changed(body)
     case SCall(_, _, outs, refs) => names(outs ++ refs)
-    case SMatch(_, bs) => [n for b in bs, n in changed(b.body)]
-    case STry(b, hs) => changed(b) ++ [n for h in hs, n in changed(h.body)]
+    case SMatch(_, cases) => [n for b in cases, n in changed(b.body)]
+    case STry(b, handlers) => changed(b) ++ [n for h in handlers, n in changed(h.body)]
     case _ => []
   end
 
@@ -910,7 +910,7 @@ procedure compile_stmts(in defs: Defs, env: Vars, xs: List[Stmt], out ss: List[C
 
 function reassign(env: Vars, xs: List[Name], ts: List[CStmt]): List[CStmt] :=
   match (xs, ts)
-    case ([x; more], [CsDecl(_, t, _); rest]) => [CsAssign(var_expr(env, x), CeVar(t)); reassign(env, more, rest)]
+    case ([x; more], [CsDecl(_, name, _); rest]) => [CsAssign(var_expr(env, x), CeVar(name)); reassign(env, more, rest)]
     case _ => []
   end
 
@@ -922,8 +922,8 @@ procedure handler_cases(in defs: Defs, env: Vars, hs: List[Handler], h: Str, d: 
   match hs
     case [] =>
       assign ss := Nil
-    case [Handler(ty, p, guard, s); more] =>
-      assign env1 := in_scope(pattern_names(p)) ++ env
+    case [Handler(typ, pat, guard, s); more] =>
+      assign env1 := in_scope(pattern_names(pat)) ++ env
       call   compile_stmt(in defs, env1, s, out bs, ref g)
       assign body := [CsAssign(CeVar(d), CeNum(1))] ++ bs
       match guard
@@ -933,14 +933,14 @@ procedure handler_cases(in defs: Defs, env: Vars, hs: List[Handler], h: Str, d: 
         case None =>
           skip
       end
-      match p
+      match pat
         case PWild =>
           assign tests := Nil
         case _ =>
-          assign tests := [c_call("u_has_type", [CeVar(h), CeStr(type_key(ty))])] ++ pattern_tests(p, v)
+          assign tests := [c_call("u_has_type", [CeVar(h), CeStr(type_key(typ))])] ++ pattern_tests(pat, v)
       end
       call   handler_cases(in defs, env, more, h, d, out rest, ref g)
-      assign ss := [CsIf(conjunction([CeUnary("!", CeVar(d))] ++ tests), pattern_binds(p, v) ++ body, [])] ++ rest
+      assign ss := [CsIf(conjunction([CeUnary("!", CeVar(d))] ++ tests), pattern_binds(pat, v) ++ body, [])] ++ rest
   end
 
 // the cases of a match statement, which set the flag d when one applies
@@ -958,8 +958,8 @@ procedure stmt_cases(
   match cases
     case [] =>
       assign ss := Nil
-    case [Branch(p, guard, s); more] =>
-      assign env1 := in_scope(pattern_names(p)) ++ env
+    case [Branch(pat, guard, s); more] =>
+      assign env1 := in_scope(pattern_names(pat)) ++ env
       call   compile_stmt(in defs, env1, s, out bs, ref g)
       assign body := [CsAssign(CeVar(d), CeNum(1))] ++ bs
       match guard
@@ -970,7 +970,7 @@ procedure stmt_cases(
           skip
       end
       call   stmt_cases(in defs, env, more, v, d, out rest, ref g)
-      assign ss := [CsIf(conjunction([CeUnary("!", CeVar(d))] ++ pattern_tests(p, v)), pattern_binds(p, v) ++ body, [])] ++ rest
+      assign ss := [CsIf(conjunction([CeUnary("!", CeVar(d))] ++ pattern_tests(pat, v)), pattern_binds(pat, v) ++ body, [])] ++ rest
   end
 
 // the C functions of a command, and the statements of main for runs and tests
@@ -978,29 +978,29 @@ procedure compile_cmd(in defs: Defs, entry: Id, cmd: Cmd, out ds: List[CDecl], m
   local bs: List[CStmt], rb: CExpr, params: List[CType * Str]
 
   match cmd
-    case CFun(n, _, xss, _, b) =>
-      call   compile_expr(in defs, in_scope(names(first_list(xss))), lambdas(drop(1, xss), b), out bs, rb, ref g)
-      assign params := [(value_type(), var_name(x)) for x in names(first_list(xss))]
+    case CFun(name, _, formals, _, body) =>
+      call   compile_expr(in defs, in_scope(names(first_list(formals))), lambdas(drop(1, formals), body), out bs, rb, ref g)
+      assign params := [(value_type(), var_name(x)) for x in names(first_list(formals))]
 
-      if first_list(xss) == Nil
-        assign bs := cached(format_name(n), bs, rb)
+      if first_list(formals) == Nil
+        assign bs := cached(format_name(name), bs, rb)
       else
         assign bs := bs ++ [CsReturn(Some(rb))]
       end
-      assign ds := [CdFunction(value_type(), fun_name(n, size(first_list(xss))), params, bs)], ms := Nil
+      assign ds := [CdFunction(value_type(), fun_name(name, size(first_list(formals))), params, bs)], ms := Nil
     // outs and refs are pointers to the variables of the caller, which the procedure assigns when it returns
 
-    case CProc(n, _, ins, outs, refs, body) =>
-      call   compile_stmt(in defs, in_scope(names(ins ++ outs ++ refs)), body, out bs, ref g)
+    case CProc(name, _, ins, outs, refs, stmt) =>
+      call   compile_stmt(in defs, in_scope(names(ins ++ outs ++ refs)), stmt, out bs, ref g)
       assign params := [(value_type(), var_name(x)) for x in names(ins)] ++ [(value_ptr(), ref_name(x)) for x in names(outs ++ refs)]
       assign bs := copy_in(names(outs), names(refs)) ++ bs ++ copy_out(names(outs ++ refs))
-      assign ds := [CdFunction(CtVoid, proc_name(n), params, bs)], ms := Nil
+      assign ds := [CdFunction(CtVoid, proc_name(name), params, bs)], ms := Nil
 
     // main runs all tests for the entry test, which report that they passed
 
-    case CTest(n, _, body) if entry == "test" =>
-      call   compile_stmt(in defs, Nil, body, out bs, ref g)
-      assign ds := Nil, ms := [CsBlock(bs ++ [CsExpr(c_call("u_passed", [CeStr(n)]))])]
+    case CTest(test_name, _, stmt) if entry == "test" =>
+      call   compile_stmt(in defs, Nil, stmt, out bs, ref g)
+      assign ds := Nil, ms := [CsBlock(bs ++ [CsExpr(c_call("u_passed", [CeStr(test_name)]))])]
 
     case _ =>
       assign ds := Nil, ms := Nil
@@ -1074,7 +1074,7 @@ function range_to(k: Int): List[Int] :=
 
 function prototype(d: CDecl): List[CDecl] :=
   match d
-    case CdFunction(t, f, ps, _) => [CdPrototype(t, f, ps)]
+    case CdFunction(typ, fun, formals, _) => [CdPrototype(typ, fun, formals)]
     case _ => []
   end
 
@@ -1107,6 +1107,6 @@ procedure compile_file(in source: Str, entry: Id, target: Str) :=
 // a procedure without parameters
 function is_entry(cmd: Cmd, n: Name): Bool :=
   match cmd
-    case CProc(k, _, [], [], [], _) => k == n
+    case CProc(name, _, [], [], [], _) => name == n
     case _ => false
   end

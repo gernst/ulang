@@ -6,7 +6,7 @@ export
 
 data List[A] :=
   | Nil
-  | Cons(A, List[A])
+  | Cons(head: A, tail: List[A])
 
 function ++[A](xs: List[A], ys: List[A]): List[A]
 function size[A](xs: List[A]): Int

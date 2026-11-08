@@ -8,7 +8,7 @@ import map
 export
 
 data ReadError :=
-  | ReadError(Str)
+  | ReadError(message: Str)
 
 procedure read_expr(in text: Str, out e: Expr)
 
@@ -18,10 +18,10 @@ procedure read_decls(in decls: Decls, text: Str, out result: Decls)
 implementation
 
 data Tok :=
-  | TInt(Int)
-  | TName(Str)
-  | TSym(Str)
-  | TPunct(Char)
+  | TInt(num: Int)
+  | TName(name: Str)
+  | TSym(op: Str)
+  | TPunct(char: Char)
   | TEnd
 
 // lexing
@@ -108,8 +108,8 @@ procedure expect(in t: Tok, ref toks: List[Tok]) :=
 
 procedure parse_name(out x: Id, ref toks: List[Tok]) :=
   match head_tok(toks)
-    case TName(y) =>
-      assign x := y
+    case TName(name) =>
+      assign x := name
       call   advance(ref toks)
 
     case t =>
@@ -157,8 +157,8 @@ function op_name(t: Tok): Id :=
     case TSym(op) =>
       op
 
-    case TName(op) =>
-      op
+    case TName(name) =>
+      name
 
     case _ =>
       ""
@@ -184,8 +184,8 @@ function binop(op: Id, a: Expr, b: Expr): Expr :=
 
 function negate(a: Expr): Expr :=
   match a
-    case EConst(VInt(n)) =>
-      int_expr(0 - n)
+    case EConst(VInt(num)) =>
+      int_expr(0 - num)
 
     case _ =>
       app("-", [int_expr(0), a])
@@ -258,9 +258,9 @@ procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
   local a: Expr, b: Expr, c: Expr, x := "", xs: List[Var], es: List[Expr], bs: List[Branch]
 
   match head_tok(toks)
-    case TInt(n) =>
+    case TInt(num) =>
       call   advance(ref toks)
-      assign e := int_expr(n)
+      assign e := int_expr(num)
 
     case TName("true") =>
       call   advance(ref toks)
@@ -301,9 +301,9 @@ procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
       call   parse_expr(in reverse([y.name for y in xs]) ++ env, out b, ref toks)
       assign e := if q == "lambda" then ELam(xs, b) else app(q, [ELam(xs, b)])
 
-    case TName(y) =>
+    case TName(name) =>
       call   advance(ref toks)
-      assign e := lookup(y, env, 0)
+      assign e := lookup(name, env, 0)
 
     case TPunct('(') =>
       call advance(ref toks)
@@ -437,17 +437,17 @@ procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
       call   advance(ref toks)
       assign p := PWild
 
-    case TInt(n) =>
+    case TInt(num) =>
       call   advance(ref toks)
-      assign p := PLit(VInt(n))
+      assign p := PLit(VInt(num))
 
     case TSym("-") =>
       call advance(ref toks)
 
       match head_tok(toks)
-        case TInt(n) =>
+        case TInt(num) =>
           call   advance(ref toks)
-          assign p := PLit(VInt(0 - n))
+          assign p := PLit(VInt(0 - num))
 
         case t =>
           raise ReadError("number expected but " ++ show(t) ++ " found")
@@ -461,17 +461,17 @@ procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
       call   advance(ref toks)
       assign p := PLit(VBool(false))
 
-    case TName(y) =>
+    case TName(name) =>
       call advance(ref toks)
 
-      if not is_upper(y)
-        assign p := PVar(Var(y, unknown_type()))
+      if not is_upper(name)
+        assign p := PVar(Var(name, unknown_type()))
       else if head_tok(toks) == TPunct('(')
         call   advance(ref toks)
         call   parse_patterns(in ')', out ps, ref toks)
-        assign p := PApp(Name(None, y), ps)
+        assign p := PApp(Name(None, name), ps)
       else
-        assign p := PApp(Name(None, y), Nil)
+        assign p := PApp(Name(None, name), Nil)
       end
 
     case TPunct('[') =>
@@ -652,11 +652,11 @@ procedure parse_fields(in datatype: Name, out fields: List[Var], ref toks: List[
 
 function field_name(datatype: Name, t: Type): Id :=
   match t
-    case TSort(d, _) if d == datatype =>
+    case TSort(name, _) if name == datatype =>
       "xs"
 
-    case TSort(Name(_, d), _) =>
-      str([chr(ord(at(0, d)) + 32)])
+    case TSort(Name(_, base), _) =>
+      str([chr(ord(at(0, base)) + 32)])
 
     case _ =>
       "x"

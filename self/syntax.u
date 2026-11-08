@@ -15,45 +15,45 @@ data Name :=
 
 data Type :=
   | THole
-  | TMeta(Int)
-  | TParam(Id)
-  | TSort(Name, List[Type])
-  | TFun(List[Type], Type)
+  | TMeta(meta: Int)
+  | TParam(param: Id)
+  | TSort(name: Name, args: List[Type])
+  | TFun(args: List[Type], res: Type)
   // procedures as values, (in A, out B, ref C), whose parameters have modes as in declarations
-  | TProc(List[Type], List[Type], List[Type])
-  | TTuple(List[Type])
+  | TProc(ins: List[Type], outs: List[Type], refs: List[Type])
+  | TTuple(types: List[Type])
 
 data Val :=
   | VUnit
-  | VBool(Bool)
-  | VInt(Int)
-  | VStr(Str)
-  | VChar(Char)
+  | VBool(bool: Bool)
+  | VInt(num: Int)
+  | VStr(text: Str)
+  | VChar(char: Char)
 
 // variable uses, binders, and pattern variables
 data Var :=
   | Var(name: Name, typ: Type)
 
 data Expr :=
-  | ELit(Val)
-  | EVar(Var)
-  | EApp(Expr, List[Expr])
-  | ELam(List[Var], Expr)
+  | ELit(lit: Val)
+  | EVar(var: Var)
+  | EApp(fun: Expr, args: List[Expr])
+  | ELam(formals: List[Var], body: Expr)
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
-  | EProc(List[Var], List[Var], List[Var], Stmt)
-  | ELet(List[Var * Expr], Expr)
-  | EIte(Expr, Expr, Expr)
-  | EMatch(Expr, List[Branch[Expr]])
-  | ETuple(List[Expr])
+  | EProc(ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
+  | ELet(bindings: List[Var * Expr], body: Expr)
+  | EIte(cond: Expr, then_expr: Expr, else_expr: Expr)
+  | EMatch(expr: Expr, cases: List[Branch[Expr]])
+  | ETuple(exprs: List[Expr])
   // an exception, as an expression of any type
-  | ERaise(Expr, Type)
+  | ERaise(expr: Expr, typ: Type)
 
 data Pat :=
   | PWild
-  | PLit(Val)
-  | PVar(Var)
-  | PApp(Name, List[Pat])
-  | PTuple(List[Pat])
+  | PLit(lit: Val)
+  | PVar(var: Var)
+  | PApp(constr: Name, pats: List[Pat])
+  | PTuple(pats: List[Pat])
 
 // a case of a match with an optional guard
 data Branch[A] :=
@@ -61,15 +61,15 @@ data Branch[A] :=
 
 data Stmt :=
   | SSkip
-  | SAssign(List[Var * Expr])
-  | SBlock(List[Var], List[Stmt])
-  | SIf(Expr, Stmt, Stmt)
-  | SWhile(Expr, Stmt)
-  | SCall(Name, List[Expr], List[Var], List[Var])
-  | SMatch(Expr, List[Branch[Stmt]])
-  | SAssert(Expr)
-  | SRaise(Expr, Type)
-  | STry(Stmt, List[Handler])
+  | SAssign(assignments: List[Var * Expr])
+  | SBlock(locals: List[Var], stmts: List[Stmt])
+  | SIf(cond: Expr, then_stmt: Stmt, else_stmt: Stmt)
+  | SWhile(cond: Expr, body: Stmt)
+  | SCall(proc: Name, ins: List[Expr], outs: List[Var], refs: List[Var])
+  | SMatch(expr: Expr, cases: List[Branch[Stmt]])
+  | SAssert(cond: Expr)
+  | SRaise(expr: Expr, typ: Type)
+  | STry(body: Stmt, handlers: List[Handler])
 
 // handles exceptions of the type that match the pattern, or of any type if the pattern is PWild
 data Handler :=
@@ -86,20 +86,20 @@ data Fixity :=
   | FRight
 
 data Cmd :=
-  | CSort(Name, List[Id], Type)
-  | CData(Name, List[Id], List[Constr])
-  | CFun(Name, List[Id], List[List[Var]], Type, Expr)
-  | CProc(Name, List[Id], List[Var], List[Var], List[Var], Stmt)
+  | CSort(name: Name, params: List[Id], typ: Type)
+  | CData(name: Name, params: List[Id], constrs: List[Constr])
+  | CFun(name: Name, params: List[Id], formals: List[List[Var]], typ: Type, body: Expr)
+  | CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
   // the first import of a module comes with the module itself, whose commands are those it declares
-  | CNotation(Fixity, Int, List[Id])
+  | CNotation(fixity: Fixity, prec: Int, ops: List[Id])
   // tests take no parameters, which the checker enforces
-  | CTest(Id, List[Var], Stmt)
+  | CTest(test_name: Id, vars: List[Var], stmt: Stmt)
   // the export section of a module, with the signatures of functions and procedures, as CFun and CProc without their
   // bodies, and abstract types, which its implementation section defines by data, and its builtin section, with the
   // signatures of exported functions and procedures that the interpreter and the runtime define
-  | CFunSig(Name, List[Id], List[List[Var]], Type)
-  | CProcSig(Name, List[Id], List[Var], List[Var], List[Var])
-  | CAbstract(Name, List[Id])
+  | CFunSig(name: Name, params: List[Id], formals: List[List[Var]], typ: Type)
+  | CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var])
+  | CAbstract(name: Name, params: List[Id])
 
 data Prog :=
   | Prog(cmds: List[Cmd])
@@ -407,7 +407,7 @@ function is_operator(notation: Notation, op: Id): Bool :=
 function with_notation(notation: Notation, cmds: List[Cmd]): Notation :=
   match cmds
     case Nil => notation
-    case [CNotation(f, prec, ops); more] => with_notation(with_operators(notation, f, prec, ops), more)
+    case [CNotation(fixity, prec, ops); more] => with_notation(with_operators(notation, fixity, prec, ops), more)
     case [_; more] => with_notation(notation, more)
   end
 

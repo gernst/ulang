@@ -1,15 +1,15 @@
 data Token :=
-  | Num(Int)
-  | Sym(Str)
+  | Num(num: Int)
+  | Sym(op: Str)
 
 data ParseError :=
-  | Expected(Str)
-  | Trailing(List[Token])
+  | Expected(what: Str)
+  | Trailing(toks: List[Token])
 
 procedure accept(in s: Str, ref ts: List[Token]) :=
   match ts
-    case [Sym(t); us] =>
-      if t == s
+    case [Sym(op); us] =>
+      if op == s
         assign ts := us
       else
         raise Expected(s)
@@ -20,8 +20,8 @@ procedure accept(in s: Str, ref ts: List[Token]) :=
 
 procedure number(out n: Int, ref ts: List[Token]) :=
   match ts
-    case [Num(m); us] =>
-      assign n := m, ts := us
+    case [Num(num); us] =>
+      assign n := num, ts := us
     case _ =>
       raise Expected("number")
   end
@@ -73,8 +73,8 @@ test parse_errors() :=
     call   parse(in [Sym("("), Num(3)], out n)
     assert false
   catch
-    case Expected(s) =>
-      assign e := s
+    case Expected(what) =>
+      assign e := what
     case Trailing(_) =>
       assert false
   end
@@ -83,8 +83,8 @@ test parse_errors() :=
     call   parse(in [Num(1), Num(2)], out n)
     assert false
   catch
-    case Trailing(ts) =>
-      assert ts == [Num(2)]
+    case Trailing(toks) =>
+      assert toks == [Num(2)]
   end
   call   value(in [Sym(")")], out n)
   assert n == 0
@@ -150,8 +150,8 @@ test unmatched_raised_further() :=
         assign e := "y"
     end
   catch
-    case Expected(s) =>
-      assign e := s
+    case Expected(what) =>
+      assign e := what
   end
   assert e == "x"
 
@@ -202,7 +202,7 @@ test guarded_handlers() :=
 
 // raise is also an expression of any type, such that functions can raise exceptions, which statements catch
 data NotDigit :=
-  | NotDigit(Char)
+  | NotDigit(char: Char)
 
 function digit(c: Char): Int :=
   if is_digit(c) then ord(c) - ord('0') else raise NotDigit(c)
@@ -221,8 +221,8 @@ test raise_in_functions() :=
   try
     assign n := digits(['1', 'x'])
   catch
-    case NotDigit(c) =>
-      assign bad := c
+    case NotDigit(char) =>
+      assign bad := char
   end
 
   assert n == 21 and bad == 'x'
@@ -257,12 +257,12 @@ procedure failure(in k: Int, out m: Str) :=
   catch
     case DivisionByZero =>
       assign m := "division"
-    case NoIndex(s, i) =>
-      assign m := s ++ show(i)
-    case NoCharacter(n) =>
-      assign m := show(n)
-    case MissingField(f) =>
-      assign m := f
+    case NoIndex(text, index) =>
+      assign m := text ++ show(index)
+    case NoCharacter(code) =>
+      assign m := show(code)
+    case MissingField(field) =>
+      assign m := field
   end
 
   if m == "none"

@@ -1,11 +1,11 @@
 // runtime error: uncaught exception Some(1 EUR)
 
 data Money :=
-  | Money(Int)
+  | Money(amount: Int)
 
 function show(m: Money): Str :=
   match m
-    case Money(n) => show(n) ++ " EUR"
+    case Money(amount) => show(amount) ++ " EUR"
   end
 
 test shown() :=

@@ -40,7 +40,7 @@ implementation
 
 data Set[A] :=
   | Leaf
-  | Node(Set[A], A, Set[A], Int)
+  | Node(left: Set[A], elem: A, right: Set[A], height: Int)
 
 function empty[A](): Set[A] :=
   Leaf
@@ -48,10 +48,10 @@ function empty[A](): Set[A] :=
 function contains[A](x: A, s: Set[A]): Bool :=
   match s
     case Leaf => false
-    case Node(l, y, r, _) =>
-      match compare(x, y)
-        case -1 => contains(x, l)
-        case 1 => contains(x, r)
+    case Node(left, elem, right, _) =>
+      match compare(x, elem)
+        case -1 => contains(x, left)
+        case 1 => contains(x, right)
         case _ => true
       end
   end
@@ -59,10 +59,10 @@ function contains[A](x: A, s: Set[A]): Bool :=
 function insert[A](x: A, s: Set[A]): Set[A] :=
   match s
     case Leaf => Node(Leaf, x, Leaf, 1)
-    case Node(l, y, r, _) =>
-      match compare(x, y)
-        case -1 => balance(insert(x, l), y, r)
-        case 1 => balance(l, y, insert(x, r))
+    case Node(left, elem, right, _) =>
+      match compare(x, elem)
+        case -1 => balance(insert(x, left), elem, right)
+        case 1 => balance(left, elem, insert(x, right))
         case _ => s
       end
   end
@@ -71,11 +71,11 @@ function insert[A](x: A, s: Set[A]): Set[A] :=
 function remove[A](x: A, s: Set[A]): Set[A] :=
   match s
     case Leaf => Leaf
-    case Node(l, y, r, _) =>
-      match compare(x, y)
-        case -1 => balance(remove(x, l), y, r)
-        case 1 => balance(l, y, remove(x, r))
-        case _ => joined(l, r)
+    case Node(left, elem, right, _) =>
+      match compare(x, elem)
+        case -1 => balance(remove(x, left), elem, right)
+        case 1 => balance(left, elem, remove(x, right))
+        case _ => joined(left, right)
       end
   end
 
@@ -89,15 +89,15 @@ function joined[A](l: Set[A], r: Set[A]): Set[A] :=
 function first_of[A](s: Set[A]): Option[A] :=
   match s
     case Leaf => None
-    case Node(Leaf, x, _, _) => Some(x)
-    case Node(l, _, _, _) => first_of(l)
+    case Node(Leaf, elem, _, _) => Some(elem)
+    case Node(left, _, _, _) => first_of(left)
   end
 
 function without_first[A](s: Set[A]): Set[A] :=
   match s
     case Leaf => Leaf
-    case Node(Leaf, _, r, _) => r
-    case Node(l, x, r, _) => balance(without_first(l), x, r)
+    case Node(Leaf, _, right, _) => right
+    case Node(left, elem, right, _) => balance(without_first(left), elem, right)
   end
 
 function ++[A](a: Set[A], b: Set[A]): Set[A] :=
@@ -135,19 +135,19 @@ function ==[A](a: Set[A], b: Set[A]): Bool :=
 function elements_onto[A](s: Set[A], rest: List[A]): List[A] :=
   match s
     case Leaf => rest
-    case Node(l, x, r, _) => elements_onto(l, [x; elements_onto(r, rest)])
+    case Node(left, elem, right, _) => elements_onto(left, [elem; elements_onto(right, rest)])
   end
 
 function foldr[A, R](s: Set[A], acc: R, f: (A, R) -> R): R :=
   match s
     case Leaf => acc
-    case Node(l, x, r, _) => foldr(l, f(x, foldr(r, acc, f)), f)
+    case Node(left, elem, right, _) => foldr(left, f(elem, foldr(right, acc, f)), f)
   end
 
 function foldl[A, R](s: Set[A], acc: R, f: (R, A) -> R): R :=
   match s
     case Leaf => acc
-    case Node(l, x, r, _) => foldl(r, f(foldl(l, acc, f), x), f)
+    case Node(left, elem, right, _) => foldl(right, f(foldl(left, acc, f), elem), f)
   end
 
 function list[A](s: Set[A]): List[A] :=
@@ -156,13 +156,13 @@ function list[A](s: Set[A]): List[A] :=
 function size[A](s: Set[A]): Int :=
   match s
     case Leaf => 0
-    case Node(l, _, r, _) => size(l) + 1 + size(r)
+    case Node(left, _, right, _) => size(left) + 1 + size(right)
   end
 
 function height[A](s: Set[A]): Int :=
   match s
     case Leaf => 0
-    case Node(_, _, _, d) => d
+    case Node(_, _, _, height) => height
   end
 
 function node_height[A](l: Set[A], r: Set[A]): Int :=
@@ -173,25 +173,25 @@ function node[A](l: Set[A], x: A, r: Set[A]): Set[A] :=
 
 function rotate_left[A](s: Set[A]): Set[A] :=
   match s
-    case Node(a, x, Node(b, y, c, _), _) => node(node(a, x, b), y, c)
+    case Node(a, x, Node(b, y, right, _), _) => node(node(a, x, b), y, right)
     case _ => s
   end
 
 function rotate_right[A](s: Set[A]): Set[A] :=
   match s
-    case Node(Node(a, x, b, _), y, c, _) => node(a, x, node(b, y, c))
+    case Node(Node(left, x, b, _), y, c, _) => node(left, x, node(b, y, c))
     case _ => s
   end
 
 function left_of[A](s: Set[A]): Set[A] :=
   match s
-    case Node(l, _, _, _) => l
+    case Node(left, _, _, _) => left
     case _ => s
   end
 
 function right_of[A](s: Set[A]): Set[A] :=
   match s
-    case Node(_, _, r, _) => r
+    case Node(_, _, right, _) => right
     case _ => s
   end
 
@@ -208,8 +208,8 @@ function balance[A](l: Set[A], x: A, r: Set[A]): Set[A] :=
 function balanced[A](s: Set[A]): Bool :=
   match s
     case Leaf => true
-    case Node(l, _, r, d) =>
-      balanced(l) and balanced(r) and d == node_height(l, r) and height(l) <= height(r) + 1 and height(r) <= height(l) + 1
+    case Node(left, _, right, d) =>
+      balanced(left) and balanced(right) and d == node_height(left, right) and height(left) <= height(right) + 1 and height(right) <= height(left) + 1
   end
 
 function upto(n: Int): List[Int] :=

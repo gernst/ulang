@@ -12,8 +12,8 @@ function compare(a: Fraction, b: Fraction): Int
 implementation
 
 data Fraction :=
-  | Fraction(Int, Int)
-  | Half(Int)
+  | Fraction(num: Int, den: Int)
+  | Half(num: Int)
 
 function fraction(n: Int, d: Int): Fraction :=
   Fraction(n, d)
@@ -23,8 +23,8 @@ function half(n: Int): Fraction :=
 
 function value(f: Fraction): Int * Int :=
   match f
-    case Fraction(n, d) => (n, d)
-    case Half(n) => (n, 2)
+    case Fraction(num, den) => (num, den)
+    case Half(num) => (num, 2)
   end
 
 function compare(a: Fraction, b: Fraction): Int :=

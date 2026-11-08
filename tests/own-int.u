@@ -3,7 +3,7 @@
 
 data Int :=
   | Zero
-  | Succ(Int)
+  | Succ(pred: Int)
 
 function name_of(n: Int): Str :=
   match n

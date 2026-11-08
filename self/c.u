@@ -6,41 +6,41 @@ export
 data CType :=
   | CtVoid
   | CtInt
-  | CtNamed(Str)
-  | CtPtr(CType)
+  | CtNamed(name: Str)
+  | CtPtr(pointee: CType)
 
 // operators are their C symbols, e.g. "+" or "==", and unary ones include "!", "-", "*", and "&"
 data CExpr :=
-  | CeVar(Str)
-  | CeNum(Int)
-  | CeStr(Str)
-  | CeCall(CExpr, List[CExpr])
-  | CeUnary(Str, CExpr)
-  | CeBinary(Str, CExpr, CExpr)
-  | CeIndex(CExpr, CExpr)
-  | CeArrow(CExpr, Str)
-  | CeCast(CType, CExpr)
-  | CeCond(CExpr, CExpr, CExpr)
+  | CeVar(name: Str)
+  | CeNum(num: Int)
+  | CeStr(text: Str)
+  | CeCall(fun: CExpr, args: List[CExpr])
+  | CeUnary(op: Str, operand: CExpr)
+  | CeBinary(op: Str, left: CExpr, right: CExpr)
+  | CeIndex(base: CExpr, index: CExpr)
+  | CeArrow(base: CExpr, field: Str)
+  | CeCast(typ: CType, operand: CExpr)
+  | CeCond(cond: CExpr, then_expr: CExpr, else_expr: CExpr)
   // the initializer {a, b} of a struct
-  | CeInit(List[CExpr])
+  | CeInit(items: List[CExpr])
 
 data CStmt :=
-  | CsExpr(CExpr)
-  | CsDecl(CType, Str, Option[CExpr])
-  | CsAssign(CExpr, CExpr)
-  | CsIf(CExpr, List[CStmt], List[CStmt])
-  | CsWhile(CExpr, List[CStmt])
-  | CsReturn(Option[CExpr])
-  | CsBlock(List[CStmt])
+  | CsExpr(expr: CExpr)
+  | CsDecl(typ: CType, name: Str, init: Option[CExpr])
+  | CsAssign(target: CExpr, expr: CExpr)
+  | CsIf(cond: CExpr, then_stmts: List[CStmt], else_stmts: List[CStmt])
+  | CsWhile(cond: CExpr, body: List[CStmt])
+  | CsReturn(result: Option[CExpr])
+  | CsBlock(body: List[CStmt])
 
 data CDecl :=
-  | CdInclude(Str)
-  | CdPrototype(CType, Str, List[CType * Str])
-  | CdFunction(CType, Str, List[CType * Str], List[CStmt])
-  | CdGlobal(CType, Str, Option[CExpr])
+  | CdInclude(header: Str)
+  | CdPrototype(typ: CType, fun: Str, formals: List[CType * Str])
+  | CdFunction(typ: CType, fun: Str, formals: List[CType * Str], body: List[CStmt])
+  | CdGlobal(typ: CType, name: Str, init: Option[CExpr])
 
 data CFile :=
-  | CFile(List[CDecl])
+  | CFile(decls: List[CDecl])
 
 // the C source code of a file, which is formatted rather than shown, since show gives ulang values as they are written
 function format_file(file: CFile): Str

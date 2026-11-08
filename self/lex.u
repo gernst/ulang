@@ -9,14 +9,14 @@ export
 
 data Token :=
   // names that are not keywords, which are operators only if the notation in effect declares them
-  | TName(Str)
+  | TName(name: Str)
   // runs of symbol characters that are not keywords, which are always operators
-  | TOp(Str)
+  | TOp(op: Str)
   // names and symbols with a fixed meaning, and punctuation
-  | TKw(Str)
-  | TNum(Int)
-  | TStr(Str)
-  | TChar(Char)
+  | TKw(kw: Str)
+  | TNum(num: Int)
+  | TStr(text: Str)
+  | TChar(char: Char)
   | TEnd
 
 // tokens with their positions
@@ -24,7 +24,7 @@ type Tokens :=
   List[Pos * Token]
 
 data LexError :=
-  | LexError(Str, Pos)
+  | LexError(message: Str, pos: Pos)
 
 function is_symbol(c: Char): Bool
 function is_keyword(w: Str): Bool
@@ -251,22 +251,22 @@ test lex_errors() :=
   try
     call lex(in "x := \"ab", out toks)
   catch
-    case LexError(m, p) =>
-      assign e := LexError(m, p)
+    case LexError(message, pos) =>
+      assign e := LexError(message, pos)
   end
   assert e == LexError("unterminated literal", Pos(1, 6))
   try
     call lex(in "'\\q'", out toks)
   catch
-    case LexError(m, p) =>
-      assign e := LexError(m, p)
+    case LexError(message, pos) =>
+      assign e := LexError(message, pos)
   end
   assert e == LexError("invalid escape", Pos(1, 2))
   try
     call lex(in "'ab'", out toks)
   catch
-    case LexError(m, p) =>
-      assign e := LexError(m, p)
+    case LexError(message, pos) =>
+      assign e := LexError(message, pos)
   end
   assert e == LexError("invalid character", Pos(1, 1))
 

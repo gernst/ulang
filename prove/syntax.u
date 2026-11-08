@@ -17,35 +17,35 @@ data Name :=
 
 data Val :=
   | VUnit
-  | VBool(Bool)
-  | VInt(Int)
-  | VStr(Str)
-  | VChar(Char)
+  | VBool(bool: Bool)
+  | VInt(num: Int)
+  | VStr(text: Str)
+  | VChar(char: Char)
 
 // TParam indexes the type parameters of the enclosing function or lemma
 data Type :=
-  | TParam(Int)
-  | TSort(Name, List[Type])
-  | TFun(List[Type], Type)
+  | TParam(index: Int)
+  | TSort(name: Name, args: List[Type])
+  | TFun(args: List[Type], res: Type)
 
 // bound variables, whose names are only for printing
 data Var :=
   | Var(name: Id, typ: Type)
 
 data Expr :=
-  | EBound(Int)
-  | ELevel(Int)
-  | EConst(Val)
-  | EFun(Name)
+  | EBound(index: Int)
+  | ELevel(level: Int)
+  | EConst(lit: Val)
+  | EFun(name: Name)
   // of any head, a symbol, a variable, or a lambda, where tuples are constructors as well
-  | EApp(Expr, List[Expr])
-  | ELam(List[Var], Expr)
-  | EIte(Expr, Expr, Expr)
-  | EMatch(Expr, List[Branch])
+  | EApp(fun: Expr, args: List[Expr])
+  | ELam(formals: List[Var], body: Expr)
+  | EIte(cond: Expr, then_expr: Expr, else_expr: Expr)
+  | EMatch(expr: Expr, cases: List[Branch])
   // c + k1·t1 + … + kn·tn, canonical: the ti sorted by compare and distinct, no ki == 0, no ti a Sum or a Const,
   // and neither c alone (a Const) nor 0 + 1·t (just t)
-  | ESum(Int, List[Expr * Int])
-  | ERaise(Expr, Type)
+  | ESum(constant: Int, terms: List[Expr * Int])
+  | ERaise(expr: Expr, typ: Type)
 
 // the variables of the pattern bind in the guard and the body, from left to right
 data Branch :=
@@ -54,9 +54,9 @@ data Branch :=
 // tuples are constructors, as in Expr
 data Pat :=
   | PWild
-  | PLit(Val)
-  | PVar(Var)
-  | PApp(Name, List[Pat])
+  | PLit(lit: Val)
+  | PVar(var: Var)
+  | PApp(constr: Name, pats: List[Pat])
 
 // a linear sum k + k1·t1 + … as it is computed with, which sum_expr makes canonical
 data Lin :=
@@ -135,11 +135,11 @@ function is_ctor(decls: Decls, f: Name): Bool :=
 // the constructor and the arguments of a constructor term
 function ctor_head(decls: Decls, e: Expr): Option[Name * List[Expr]] :=
   match e
-    case EFun(f) if is_ctor(decls, f) =>
-      Some((f, Nil))
+    case EFun(name) if is_ctor(decls, name) =>
+      Some((name, Nil))
 
-    case EApp(EFun(f), args) if is_ctor(decls, f) =>
-      Some((f, args))
+    case EApp(EFun(name), args) if is_ctor(decls, name) =>
+      Some((name, args))
 
     case _ =>
       None
@@ -171,30 +171,30 @@ function index_of(x: Int, xs: List[Int], i: Int): Option[Int] :=
 
 function rebind(op: Rebind, c: Int, e: Expr): Expr :=
   match e
-    case EBound(i) =>
-      rebind_bound(op, c, i)
+    case EBound(index) =>
+      rebind_bound(op, c, index)
 
-    case ELevel(l) =>
-      rebind_level(op, c, l)
+    case ELevel(level) =>
+      rebind_level(op, c, level)
 
-    case EApp(f, args) =>
-      EApp(rebind(op, c, f), [rebind(op, c, a) for a in args])
+    case EApp(fun, args) =>
+      EApp(rebind(op, c, fun), [rebind(op, c, a) for a in args])
 
-    case ELam(xs, b) =>
-      ELam(xs, rebind(op, c + size(xs), b))
+    case ELam(formals, body) =>
+      ELam(formals, rebind(op, c + size(formals), body))
 
-    case EIte(a, b, d) =>
-      EIte(rebind(op, c, a), rebind(op, c, b), rebind(op, c, d))
+    case EIte(cond, then_expr, else_expr) =>
+      EIte(rebind(op, c, cond), rebind(op, c, then_expr), rebind(op, c, else_expr))
 
-    case EMatch(a, bs) =>
-      EMatch(rebind(op, c, a), [rebind_branch(op, c, br) for br in bs])
+    case EMatch(expr, cases) =>
+      EMatch(rebind(op, c, expr), [rebind_branch(op, c, br) for br in cases])
 
     // rebuilt, since opening and closing change the order of the atoms
-    case ESum(k, ts) =>
-      sum_expr(rebind_terms(op, c, ts, Lin(k, Nil)))
+    case ESum(constant, terms) =>
+      sum_expr(rebind_terms(op, c, terms, Lin(constant, Nil)))
 
-    case ERaise(a, t) =>
-      ERaise(rebind(op, c, a), t)
+    case ERaise(expr, typ) =>
+      ERaise(rebind(op, c, expr), typ)
 
     case _ =>
       e
@@ -205,11 +205,11 @@ function rebind_bound(op: Rebind, c: Int, i: Int): Expr :=
     EBound(i)
   else
     match op
-      case Open(d, k) =>
-        if i - c < k then ELevel(d + k - 1 - (i - c)) else EBound(i - k)
+      case Open(depth, count) =>
+        if i - c < count then ELevel(depth + count - 1 - (i - c)) else EBound(i - count)
 
-      case Close(ls) =>
-        EBound(i + size(ls))
+      case Close(levels) =>
+        EBound(i + size(levels))
 
       case Shift(n) =>
         EBound(i + n)
@@ -217,10 +217,10 @@ function rebind_bound(op: Rebind, c: Int, i: Int): Expr :=
 
 function rebind_level(op: Rebind, c: Int, l: Int): Expr :=
   match op
-    case Close(ls) =>
-      match index_of(l, ls, 0)
+    case Close(levels) =>
+      match index_of(l, levels, 0)
         case Some(j) =>
-          EBound(c + size(ls) - 1 - j)
+          EBound(c + size(levels) - 1 - j)
 
         case None =>
           ELevel(l)
@@ -241,14 +241,14 @@ function rebind_terms(op: Rebind, c: Int, ts: List[Expr * Int], acc: Lin): Lin :
 
 function rebind_branch(op: Rebind, c: Int, br: Branch): Branch :=
   match br
-    case Branch(p, g, b) =>
-      let inner := c + binders(p) in
-      match g
+    case Branch(pat, guard, body) =>
+      let inner := c + binders(pat) in
+      match guard
         case Some(h) =>
-          Branch(p, Some(rebind(op, inner, h)), rebind(op, inner, b))
+          Branch(pat, Some(rebind(op, inner, h)), rebind(op, inner, body))
 
         case None =>
-          Branch(p, None, rebind(op, inner, b))
+          Branch(pat, None, rebind(op, inner, body))
       end
   end
 
@@ -257,11 +257,11 @@ function binders(p: Pat): Int :=
 
 function pattern_vars(p: Pat): List[Var] :=
   match p
-    case PVar(x) =>
-      [x]
+    case PVar(var) =>
+      [var]
 
-    case PApp(_, ps) =>
-      [x for q in ps, x in pattern_vars(q)]
+    case PApp(_, pats) =>
+      [x for q in pats, x in pattern_vars(q)]
 
     case _ =>
       Nil
@@ -273,28 +273,28 @@ function shift(n: Int, e: Expr): Expr :=
 // e with the binder c replaced by t, whose own free indices are those around e, and the binders above c moved down
 function subst(c: Int, t: Expr, e: Expr): Expr :=
   match e
-    case EBound(i) =>
-      if i == c then shift(c, t)
-      else if i > c then EBound(i - 1)
+    case EBound(index) =>
+      if index == c then shift(c, t)
+      else if index > c then EBound(index - 1)
       else e
 
-    case EApp(f, args) =>
-      EApp(subst(c, t, f), [subst(c, t, a) for a in args])
+    case EApp(fun, args) =>
+      EApp(subst(c, t, fun), [subst(c, t, a) for a in args])
 
-    case ELam(xs, b) =>
-      ELam(xs, subst(c + size(xs), t, b))
+    case ELam(formals, body) =>
+      ELam(formals, subst(c + size(formals), t, body))
 
-    case EIte(a, b, d) =>
-      EIte(subst(c, t, a), subst(c, t, b), subst(c, t, d))
+    case EIte(cond, then_expr, else_expr) =>
+      EIte(subst(c, t, cond), subst(c, t, then_expr), subst(c, t, else_expr))
 
-    case EMatch(a, bs) =>
-      EMatch(subst(c, t, a), [subst_branch(c, t, br) for br in bs])
+    case EMatch(expr, cases) =>
+      EMatch(subst(c, t, expr), [subst_branch(c, t, br) for br in cases])
 
-    case ESum(k, ts) =>
-      sum_expr(subst_terms(c, t, ts, Lin(k, Nil)))
+    case ESum(constant, terms) =>
+      sum_expr(subst_terms(c, t, terms, Lin(constant, Nil)))
 
-    case ERaise(a, ty) =>
-      ERaise(subst(c, t, a), ty)
+    case ERaise(expr, typ) =>
+      ERaise(subst(c, t, expr), typ)
 
     case _ =>
       e
@@ -311,14 +311,14 @@ function subst_terms(c: Int, t: Expr, ts: List[Expr * Int], acc: Lin): Lin :=
 
 function subst_branch(c: Int, t: Expr, br: Branch): Branch :=
   match br
-    case Branch(p, g, b) =>
-      let inner := c + binders(p) in
-      match g
+    case Branch(pat, guard, body) =>
+      let inner := c + binders(pat) in
+      match guard
         case Some(h) =>
-          Branch(p, Some(subst(inner, t, h)), subst(inner, t, b))
+          Branch(pat, Some(subst(inner, t, h)), subst(inner, t, body))
 
         case None =>
-          Branch(p, None, subst(inner, t, b))
+          Branch(pat, None, subst(inner, t, body))
       end
   end
 
@@ -338,23 +338,23 @@ function replace(a: Expr, b: Expr, e: Expr): Expr :=
     b
   else
     match e
-      case EApp(f, args) =>
-        EApp(replace(a, b, f), [replace(a, b, x) for x in args])
+      case EApp(fun, args) =>
+        EApp(replace(a, b, fun), [replace(a, b, x) for x in args])
 
-      case ELam(xs, body) =>
-        ELam(xs, replace(a, b, body))
+      case ELam(formals, body) =>
+        ELam(formals, replace(a, b, body))
 
-      case EIte(c, x, y) =>
-        EIte(replace(a, b, c), replace(a, b, x), replace(a, b, y))
+      case EIte(cond, then_expr, else_expr) =>
+        EIte(replace(a, b, cond), replace(a, b, then_expr), replace(a, b, else_expr))
 
-      case EMatch(s, bs) =>
-        EMatch(replace(a, b, s), [replace_branch(a, b, br) for br in bs])
+      case EMatch(expr, cases) =>
+        EMatch(replace(a, b, expr), [replace_branch(a, b, br) for br in cases])
 
-      case ESum(k, ts) =>
-        sum_expr(replace_terms(a, b, ts, Lin(k, Nil)))
+      case ESum(constant, terms) =>
+        sum_expr(replace_terms(a, b, terms, Lin(constant, Nil)))
 
-      case ERaise(x, t) =>
-        ERaise(replace(a, b, x), t)
+      case ERaise(expr, typ) =>
+        ERaise(replace(a, b, expr), typ)
 
       case _ =>
         e
@@ -371,13 +371,13 @@ function replace_terms(a: Expr, b: Expr, ts: List[Expr * Int], acc: Lin): Lin :=
 
 function replace_branch(a: Expr, b: Expr, br: Branch): Branch :=
   match br
-    case Branch(p, g, body) =>
-      match g
+    case Branch(pat, guard, body) =>
+      match guard
         case Some(h) =>
-          Branch(p, Some(replace(a, b, h)), replace(a, b, body))
+          Branch(pat, Some(replace(a, b, h)), replace(a, b, body))
 
         case None =>
-          Branch(p, None, replace(a, b, body))
+          Branch(pat, None, replace(a, b, body))
       end
   end
 
@@ -386,23 +386,23 @@ function occurs(a: Expr, e: Expr): Bool :=
     true
   else
     match e
-      case EApp(f, args) =>
-        occurs(a, f) or exists(args, lambda x => occurs(a, x))
+      case EApp(fun, args) =>
+        occurs(a, fun) or exists(args, lambda x => occurs(a, x))
 
       case ELam(_, body) =>
         occurs(a, body)
 
-      case EIte(c, x, y) =>
-        occurs(a, c) or occurs(a, x) or occurs(a, y)
+      case EIte(cond, then_expr, else_expr) =>
+        occurs(a, cond) or occurs(a, then_expr) or occurs(a, else_expr)
 
-      case EMatch(s, bs) =>
-        occurs(a, s) or exists(bs, lambda br => occurs(a, br.body))
+      case EMatch(expr, cases) =>
+        occurs(a, expr) or exists(cases, lambda br => occurs(a, br.body))
 
-      case ESum(_, ts) =>
-        exists(ts, lambda p => occurs(a, first(p)))
+      case ESum(_, terms) =>
+        exists(terms, lambda p => occurs(a, first(p)))
 
-      case ERaise(x, _) =>
-        occurs(a, x)
+      case ERaise(expr, _) =>
+        occurs(a, expr)
 
       case _ =>
         false
@@ -417,26 +417,26 @@ function first[A, B](p: A * B): A :=
 // the free indices of e below c binders, relative to them
 function loose(c: Int, e: Expr): List[Int] :=
   match e
-    case EBound(i) =>
-      if i >= c then [i - c] else Nil
+    case EBound(index) =>
+      if index >= c then [index - c] else Nil
 
-    case EApp(f, args) =>
-      loose(c, f) ++ [i for a in args, i in loose(c, a)]
+    case EApp(fun, args) =>
+      loose(c, fun) ++ [i for a in args, i in loose(c, a)]
 
-    case ELam(xs, b) =>
-      loose(c + size(xs), b)
+    case ELam(formals, body) =>
+      loose(c + size(formals), body)
 
-    case EIte(a, b, d) =>
-      loose(c, a) ++ loose(c, b) ++ loose(c, d)
+    case EIte(cond, then_expr, else_expr) =>
+      loose(c, cond) ++ loose(c, then_expr) ++ loose(c, else_expr)
 
-    case EMatch(a, bs) =>
-      loose(c, a) ++ [i for br in bs, i in loose_branch(c, br)]
+    case EMatch(expr, cases) =>
+      loose(c, expr) ++ [i for br in cases, i in loose_branch(c, br)]
 
-    case ESum(_, ts) =>
-      [i for p in ts, i in loose(c, first(p))]
+    case ESum(_, terms) =>
+      [i for p in terms, i in loose(c, first(p))]
 
-    case ERaise(a, _) =>
-      loose(c, a)
+    case ERaise(expr, _) =>
+      loose(c, expr)
 
     case _ =>
       Nil
@@ -444,14 +444,14 @@ function loose(c: Int, e: Expr): List[Int] :=
 
 function loose_branch(c: Int, br: Branch): List[Int] :=
   match br
-    case Branch(p, g, b) =>
-      let inner := c + binders(p) in
-      match g
+    case Branch(pat, guard, body) =>
+      let inner := c + binders(pat) in
+      match guard
         case Some(h) =>
-          loose(inner, h) ++ loose(inner, b)
+          loose(inner, h) ++ loose(inner, body)
 
         case None =>
-          loose(inner, b)
+          loose(inner, body)
       end
   end
 
@@ -459,11 +459,11 @@ function loose_branch(c: Int, br: Branch): List[Int] :=
 
 function lin_of(e: Expr): Lin :=
   match e
-    case ESum(k, ts) =>
-      Lin(k, ts)
+    case ESum(constant, terms) =>
+      Lin(constant, terms)
 
-    case EConst(VInt(n)) =>
-      Lin(n, Nil)
+    case EConst(VInt(num)) =>
+      Lin(num, Nil)
 
     case _ =>
       Lin(0, [(e, 1)])
@@ -507,8 +507,8 @@ function sum_expr(a: Lin): Expr :=
     case Lin(0, [(t, 1)]) =>
       t
 
-    case Lin(k, ts) =>
-      ESum(k, ts)
+    case Lin(k, terms) =>
+      ESum(k, terms)
   end
 
 // the term order, a lexicographic path order, where indices are the variables of rules, levels the constants of the
@@ -555,17 +555,17 @@ function head_key(decls: Decls, e: Expr): Int * Int :=
     case EConst(_) =>
       (0, 0)
 
-    case ELevel(l) =>
-      (1, l)
+    case ELevel(level) =>
+      (1, level)
 
     case ESum(_, _) =>
       (2, 0)
 
-    case EFun(f) =>
-      (3, rank(decls, f))
+    case EFun(name) =>
+      (3, rank(decls, name))
 
-    case EApp(EFun(f), _) =>
-      (3, rank(decls, f))
+    case EApp(EFun(name), _) =>
+      (3, rank(decls, name))
 
     case EApp(_, _) =>
       (4, 0)
@@ -594,20 +594,20 @@ function args_of(e: Expr): List[Expr] :=
     case EApp(EFun(_), args) =>
       args
 
-    case EApp(f, args) =>
-      [f; args]
+    case EApp(fun, args) =>
+      [fun; args]
 
-    case ESum(_, ts) =>
-      [first(p) for p in ts]
+    case ESum(_, terms) =>
+      [first(p) for p in terms]
 
-    case EIte(a, b, c) =>
-      [a, b, c]
+    case EIte(cond, then_expr, else_expr) =>
+      [cond, then_expr, else_expr]
 
-    case EMatch(a, _) =>
-      [a]
+    case EMatch(expr, _) =>
+      [expr]
 
-    case ERaise(a, _) =>
-      [a]
+    case ERaise(expr, _) =>
+      [expr]
 
     case _ =>
       Nil
@@ -623,20 +623,20 @@ function print_expr(names: List[Id], e: Expr): Str :=
 
 function print_in(names: List[Id], bound: List[Id], e: Expr): Str :=
   match e
-    case EBound(i) =>
-      if i < size(bound) then nth(i, bound) else "#" ++ show(i)
+    case EBound(index) =>
+      if index < size(bound) then nth(index, bound) else "#" ++ show(index)
 
-    case ELevel(l) =>
-      if l < size(names) then nth(l, names) else "@" ++ show(l)
+    case ELevel(level) =>
+      if level < size(names) then nth(level, names) else "@" ++ show(level)
 
-    case EConst(v) =>
-      print_val(v)
+    case EConst(lit) =>
+      print_val(lit)
 
     case EFun(Name(_, "Nil")) =>
       "[]"
 
-    case EFun(Name(_, f)) =>
-      f
+    case EFun(Name(_, base)) =>
+      base
 
     case EApp(EFun(Name(_, "Cons")), [a, b]) =>
       "[" ++ print_in(names, bound, a) ++ "; " ++ print_in(names, bound, b) ++ "]"
@@ -644,32 +644,32 @@ function print_in(names: List[Id], bound: List[Id], e: Expr): Str :=
     case EApp(EFun(Name(_, "not")), [a]) =>
       "not " ++ print_arg(names, bound, a)
 
-    case EApp(EFun(Name(_, "forall")), [ELam(xs, b)]) =>
-      "forall " ++ print_binders(xs) ++ " => " ++ print_in(names, bound_names(xs, bound), b)
+    case EApp(EFun(Name(_, "forall")), [ELam(formals, body)]) =>
+      "forall " ++ print_binders(formals) ++ " => " ++ print_in(names, bound_names(formals, bound), body)
 
-    case EApp(EFun(Name(_, "exists")), [ELam(xs, b)]) =>
-      "exists " ++ print_binders(xs) ++ " => " ++ print_in(names, bound_names(xs, bound), b)
+    case EApp(EFun(Name(_, "exists")), [ELam(formals, body)]) =>
+      "exists " ++ print_binders(formals) ++ " => " ++ print_in(names, bound_names(formals, bound), body)
 
-    case EApp(EFun(Name(_, op)), [a, b]) if contains(op, infix_ops()) =>
-      print_arg(names, bound, a) ++ " " ++ op ++ " " ++ print_arg(names, bound, b)
+    case EApp(EFun(Name(_, base)), [a, b]) if contains(base, infix_ops()) =>
+      print_arg(names, bound, a) ++ " " ++ base ++ " " ++ print_arg(names, bound, b)
 
-    case EApp(f, args) =>
-      print_arg(names, bound, f) ++ "(" ++ join(", ", [print_in(names, bound, a) for a in args]) ++ ")"
+    case EApp(fun, args) =>
+      print_arg(names, bound, fun) ++ "(" ++ join(", ", [print_in(names, bound, a) for a in args]) ++ ")"
 
-    case ELam(xs, b) =>
-      "lambda " ++ print_binders(xs) ++ " => " ++ print_in(names, bound_names(xs, bound), b)
+    case ELam(formals, body) =>
+      "lambda " ++ print_binders(formals) ++ " => " ++ print_in(names, bound_names(formals, bound), body)
 
-    case EIte(c, a, b) =>
-      "if " ++ print_in(names, bound, c) ++ " then " ++ print_in(names, bound, a) ++ " else " ++ print_in(names, bound, b)
+    case EIte(cond, then_expr, else_expr) =>
+      "if " ++ print_in(names, bound, cond) ++ " then " ++ print_in(names, bound, then_expr) ++ " else " ++ print_in(names, bound, else_expr)
 
-    case EMatch(a, bs) =>
-      "match " ++ print_in(names, bound, a) ++ join("", [print_branch(names, bound, br) for br in bs]) ++ " end"
+    case EMatch(expr, cases) =>
+      "match " ++ print_in(names, bound, expr) ++ join("", [print_branch(names, bound, br) for br in cases]) ++ " end"
 
-    case ESum(k, ts) =>
-      print_sum(names, bound, k, ts)
+    case ESum(constant, terms) =>
+      print_sum(names, bound, constant, terms)
 
-    case ERaise(a, _) =>
-      "raise " ++ print_arg(names, bound, a)
+    case ERaise(expr, _) =>
+      "raise " ++ print_arg(names, bound, expr)
   end
 
 function bound_names(xs: List[Var], bound: List[Id]): List[Id] :=
@@ -680,10 +680,10 @@ function print_binders(xs: List[Var]): Str :=
 
 function print_arg(names: List[Id], bound: List[Id], e: Expr): Str :=
   match e
-    case EApp(EFun(Name(_, op)), [_, _]) if contains(op, infix_ops()) =>
+    case EApp(EFun(Name(_, base)), [_, _]) if contains(base, infix_ops()) =>
       "(" ++ print_in(names, bound, e) ++ ")"
 
-    case EApp(EFun(Name(_, f)), [_]) if f == "not" or f == "forall" or f == "exists" =>
+    case EApp(EFun(Name(_, base)), [_]) if base == "not" or base == "forall" or base == "exists" =>
       "(" ++ print_in(names, bound, e) ++ ")"
 
     case ESum(_, _) =>
@@ -695,8 +695,8 @@ function print_arg(names: List[Id], bound: List[Id], e: Expr): Str :=
     case ELam(_, _) =>
       "(" ++ print_in(names, bound, e) ++ ")"
 
-    case EConst(VInt(n)) if n < 0 =>
-      "(" ++ show(n) ++ ")"
+    case EConst(VInt(num)) if num < 0 =>
+      "(" ++ show(num) ++ ")"
 
     case _ =>
       print_in(names, bound, e)
@@ -704,8 +704,8 @@ function print_arg(names: List[Id], bound: List[Id], e: Expr): Str :=
 
 function print_branch(names: List[Id], bound: List[Id], br: Branch): Str :=
   match br
-    case Branch(p, g, b) =>
-      let inner := bound_names(pattern_vars(p), bound) in
+    case Branch(pat, g, body) =>
+      let inner := bound_names(pattern_vars(pat), bound) in
       let guard := match g
           case Some(h) =>
             " if " ++ print_in(names, inner, h)
@@ -713,7 +713,7 @@ function print_branch(names: List[Id], bound: List[Id], br: Branch): Str :=
           case None =>
             ""
         end in
-      " case " ++ print_pat(p) ++ guard ++ " => " ++ print_in(names, inner, b)
+      " case " ++ print_pat(pat) ++ guard ++ " => " ++ print_in(names, inner, body)
   end
 
 function print_pat(p: Pat): Str :=
@@ -721,11 +721,11 @@ function print_pat(p: Pat): Str :=
     case PWild =>
       "_"
 
-    case PLit(v) =>
-      print_val(v)
+    case PLit(lit) =>
+      print_val(lit)
 
-    case PVar(x) =>
-      x.name
+    case PVar(var) =>
+      var.name
 
     case PApp(Name(_, "Nil"), Nil) =>
       "[]"
@@ -733,11 +733,11 @@ function print_pat(p: Pat): Str :=
     case PApp(Name(_, "Cons"), [a, b]) =>
       "[" ++ print_pat(a) ++ "; " ++ print_pat(b) ++ "]"
 
-    case PApp(Name(_, c), Nil) =>
-      c
+    case PApp(Name(_, base), Nil) =>
+      base
 
-    case PApp(Name(_, c), ps) =>
-      c ++ "(" ++ join(", ", [print_pat(q) for q in ps]) ++ ")"
+    case PApp(Name(_, base), pats) =>
+      base ++ "(" ++ join(", ", [print_pat(q) for q in pats]) ++ ")"
   end
 
 // the atoms first, as written, then the constant
@@ -772,32 +772,32 @@ function print_val(v: Val): Str :=
     case VUnit =>
       "()"
 
-    case VBool(b) =>
-      show(b)
+    case VBool(bool) =>
+      show(bool)
 
-    case VInt(n) =>
-      show(n)
+    case VInt(num) =>
+      show(num)
 
-    case VStr(s) =>
-      quote(s)
+    case VStr(text) =>
+      quote(text)
 
-    case VChar(c) =>
-      show(c)
+    case VChar(char) =>
+      show(char)
   end
 
 function print_type(t: Type): Str :=
   match t
-    case TParam(i) =>
-      str([chr(65 + i)])
+    case TParam(index) =>
+      str([chr(65 + index)])
 
-    case TSort(Name(_, n), Nil) =>
-      n
+    case TSort(Name(_, base), Nil) =>
+      base
 
-    case TSort(Name(_, n), ts) =>
-      n ++ "[" ++ join(", ", [print_type(u) for u in ts]) ++ "]"
+    case TSort(Name(_, base), args) =>
+      base ++ "[" ++ join(", ", [print_type(u) for u in args]) ++ "]"
 
-    case TFun(ts, r) =>
-      "(" ++ join(", ", [print_type(u) for u in ts]) ++ ") -> " ++ print_type(r)
+    case TFun(args, res) =>
+      "(" ++ join(", ", [print_type(u) for u in args]) ++ ") -> " ++ print_type(res)
   end
 
 function second[A, B](p: A * B): B :=

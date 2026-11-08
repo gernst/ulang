@@ -3,5 +3,5 @@ import hiding
 
 function f(b: Box): Int :=
   match b
-    case Full(n) => n
+    case Full(contents) => contents
   end

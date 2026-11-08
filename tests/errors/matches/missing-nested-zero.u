@@ -1,10 +1,10 @@
 // type error: match is not exhaustive, missing Succ(Zero) at 6.1
 data Nat :=
   | Zero
-  | Succ(Nat)
+  | Succ(pred: Nat)
 
 function f(n: Nat): Nat :=
   match n
     case Zero => Zero
-    case Succ(Succ(m)) => m
+    case Succ(Succ(pred)) => pred
   end

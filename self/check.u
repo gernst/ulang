@@ -15,40 +15,40 @@ import set
 export
 
 data TypeError :=
-  | UnknownSort(Name)
-  | SortArity(Name, Int, Int)
-  | SortDefined(Name)
-  | MissingType(Name)
-  | UndeclaredParams(Name, List[Type])
-  | CannotUnify(Type, Type)
-  | InfiniteType(Type, Type)
-  | UnknownVariable(Name)
-  | NoOverload(Name, Type)
-  | WrongArity(Name, Int)
-  | AlreadyDefined(Name)
-  | Duplicate(Str, Str)
-  | Ambiguous(Name, List[Name * (List[Type] * Type)])
-  | UnknownField(Name)
-  | UnknownFieldType(Id, Type)
-  | CountMismatch(Str, Str, Int, Int)
-  | UnknownConstructor(Name)
-  | NotExhaustive(Pat)
-  | Unreachable(Pat)
-  | NotAssignable(Name)
-  | UnknownProcedure(Name)
-  | UnknownException(Type)
-  | TestParams(Id)
-  | Unassigned(Name)
-  | OutputUnassigned(Name, Name)
+  | UnknownSort(name: Name)
+  | SortArity(name: Name, expected: Int, actual: Int)
+  | SortDefined(name: Name)
+  | MissingType(name: Name)
+  | UndeclaredParams(name: Name, types: List[Type])
+  | CannotUnify(left: Type, right: Type)
+  | InfiniteType(meta: Type, typ: Type)
+  | UnknownVariable(name: Name)
+  | NoOverload(name: Name, typ: Type)
+  | WrongArity(name: Name, arity: Int)
+  | AlreadyDefined(name: Name)
+  | Duplicate(what: Str, item: Str)
+  | Ambiguous(name: Name, candidates: List[Name * (List[Type] * Type)])
+  | UnknownField(name: Name)
+  | UnknownFieldType(field: Id, typ: Type)
+  | CountMismatch(owner: Str, unit: Str, expected: Int, actual: Int)
+  | UnknownConstructor(name: Name)
+  | NotExhaustive(pat: Pat)
+  | Unreachable(pat: Pat)
+  | NotAssignable(name: Name)
+  | UnknownProcedure(name: Name)
+  | UnknownException(typ: Type)
+  | TestParams(test_name: Id)
+  | Unassigned(name: Name)
+  | OutputUnassigned(output: Name, proc: Name)
   // the errors of export sections
-  | MissingDefinition(Name)
-  | SignatureMismatch(Name)
-  | PartlyExported(Name)
-  | PrivateType(Name, Name)
-  | VisibleEquality(Name)
-  | UnexportedOrder(Name, Name)
+  | MissingDefinition(name: Name)
+  | SignatureMismatch(name: Name)
+  | PartlyExported(name: Name)
+  | PrivateType(name: Name, sort: Name)
+  | VisibleEquality(sort: Name)
+  | UnexportedOrder(fun: Name, sort: Name)
   // an error of the command at the position of an imported module, or of the main module for None
-  | Located(Option[Id], Pos, TypeError)
+  | Located(module: Option[Id], pos: Pos, error: TypeError)
 
 // checked modules: their commands with qualified names, their declarations, and the modules each imports
 data Checked :=
@@ -91,8 +91,8 @@ data State :=
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
-  | HCon(Name)
-  | HLit(Val)
+  | HCon(constr: Name)
+  | HLit(lit: Val)
 
 function with_sig(s: State, sig: Sig): State :=
   s with sig := sig
@@ -116,13 +116,13 @@ function in_module(m: Id, n: Name): Name :=
 
 function qualify(m: Id, cmd: Cmd): Cmd :=
   match cmd
-    case CSort(n, ps, t) => CSort(in_module(m, n), ps, t)
-    case CData(n, ps, ks) => CData(in_module(m, n), ps, [qualify_constr(m, k) for k in ks])
-    case CFun(n, ps, xss, r, b) => CFun(in_module(m, n), ps, xss, r, b)
-    case CProc(n, ps, ins, outs, refs, b) => CProc(in_module(m, n), ps, ins, outs, refs, b)
-    case CFunSig(n, ps, xss, r) => CFunSig(in_module(m, n), ps, xss, r)
-    case CProcSig(n, ps, ins, outs, refs) => CProcSig(in_module(m, n), ps, ins, outs, refs)
-    case CAbstract(n, ps) => CAbstract(in_module(m, n), ps)
+    case CSort(name, params, typ) => CSort(in_module(m, name), params, typ)
+    case CData(name, params, constrs) => CData(in_module(m, name), params, [qualify_constr(m, k) for k in constrs])
+    case CFun(name, params, formals, typ, body) => CFun(in_module(m, name), params, formals, typ, body)
+    case CProc(name, params, ins, outs, refs, stmt) => CProc(in_module(m, name), params, ins, outs, refs, stmt)
+    case CFunSig(name, params, formals, typ) => CFunSig(in_module(m, name), params, formals, typ)
+    case CProcSig(name, params, ins, outs, refs) => CProcSig(in_module(m, name), params, ins, outs, refs)
+    case CAbstract(name, params) => CAbstract(in_module(m, name), params)
     case _ => cmd
   end
 
@@ -145,8 +145,8 @@ function visible_names(s: State, n: Name, declared: Name -> Bool): List[Name] :=
   let ds := [d for d in names_of(s.sig, n.base) if declared(d)] in
     match n
       case Name(Some(_), _) => if contains(n, ds) then [n] else Nil
-      case Name(None, b) =>
-        if contains(Name(Some(s.module), b), ds) then [Name(Some(s.module), b)] else [d for d in ds if is_visible(s, d)]
+      case Name(None, base) =>
+        if contains(Name(Some(s.module), base), ds) then [Name(Some(s.module), base)] else [d for d in ds if is_visible(s, d)]
     end
 
 // the declarations named n of a kind in all modules that the module sees, its own included, whose types decide
@@ -186,7 +186,7 @@ function logic(): List[Type] * Type :=
 // only what cannot be defined in the prelude, which are names without a module
 function builtin_schemes(n: Name): List[List[Type] * Type] :=
   match n
-    case Name(None, b) => builtin_scheme(b)
+    case Name(None, base) => builtin_scheme(base)
     case _ => Nil
   end
 
@@ -215,27 +215,27 @@ function free(t: Type): List[Type] :=
     case TMeta(_) => [t]
     case THole => Nil
     case TSort(_, args) => distinct([v for a in args, v in free(a)])
-    case TFun(args, r) => distinct([v for a in args ++ [r], v in free(a)])
-    case TProc(is, os, rs) => distinct([v for a in is ++ os ++ rs, v in free(a)])
-    case TTuple(ts) => distinct([v for a in ts, v in free(a)])
+    case TFun(args, res) => distinct([v for a in args ++ [res], v in free(a)])
+    case TProc(ins, outs, refs) => distinct([v for a in ins ++ outs ++ refs, v in free(a)])
+    case TTuple(types) => distinct([v for a in types, v in free(a)])
   end
 
 function holes(t: Type): Bool :=
   match t
     case THole => true
     case TSort(_, args) => exists(args, holes)
-    case TFun(args, r) => exists(args, holes) or holes(r)
-    case TProc(is, os, rs) => exists(is ++ os ++ rs, holes)
-    case TTuple(ts) => exists(ts, holes)
+    case TFun(args, res) => exists(args, holes) or holes(res)
+    case TProc(ins, outs, refs) => exists(ins ++ outs ++ refs, holes)
+    case TTuple(types) => exists(types, holes)
     case _ => false
   end
 
 function subst(t: Type, m: List[Type * Type]): Type :=
   match t
-    case TSort(n, args) => TSort(n, [subst(a, m) for a in args])
-    case TFun(args, r) => TFun([subst(a, m) for a in args], subst(r, m))
-    case TProc(is, os, rs) => TProc([subst(a, m) for a in is], [subst(a, m) for a in os], [subst(a, m) for a in rs])
-    case TTuple(ts) => TTuple([subst(a, m) for a in ts])
+    case TSort(name, args) => TSort(name, [subst(a, m) for a in args])
+    case TFun(args, res) => TFun([subst(a, m) for a in args], subst(res, m))
+    case TProc(ins, outs, refs) => TProc([subst(a, m) for a in ins], [subst(a, m) for a in outs], [subst(a, m) for a in refs])
+    case TTuple(types) => TTuple([subst(a, m) for a in types])
     case _ =>
       match get(t, m)
         case Some(u) => u
@@ -245,8 +245,8 @@ function subst(t: Type, m: List[Type * Type]): Type :=
 
 function resolve(su: Subst, t: Type): Type :=
   match t
-    case TMeta(i) =>
-      match get(i, su)
+    case TMeta(meta) =>
+      match get(meta, su)
         case Some(u) => resolve(su, u)
         case None => t
       end
@@ -255,11 +255,11 @@ function resolve(su: Subst, t: Type): Type :=
 
 function occurs(su: Subst, i: Int, t: Type): Bool :=
   match resolve(su, t)
-    case TMeta(j) => i == j
+    case TMeta(meta) => i == meta
     case TSort(_, args) => exists(args, lambda a => occurs(su, i, a))
-    case TFun(args, r) => exists(args, lambda a => occurs(su, i, a)) or occurs(su, i, r)
-    case TProc(is, os, rs) => exists(is ++ os ++ rs, lambda a => occurs(su, i, a))
-    case TTuple(ts) => exists(ts, lambda a => occurs(su, i, a))
+    case TFun(args, res) => exists(args, lambda a => occurs(su, i, a)) or occurs(su, i, res)
+    case TProc(ins, outs, refs) => exists(ins ++ outs ++ refs, lambda a => occurs(su, i, a))
+    case TTuple(types) => exists(types, lambda a => occurs(su, i, a))
     case _ => false
   end
 
@@ -401,7 +401,7 @@ function generalized(s: State, env: Env, xs: List[Var]): Env :=
 // the pattern of a case, and whether it has no guard, such that it may cover values
 function case_of[A](b: Branch[A]): Pat * Bool :=
   match b
-    case Branch(p, g, _) => (p, g == None)
+    case Branch(pat, guard, _) => (pat, guard == None)
   end
 
 function zonk_guard(s: State, g: Option[Expr]): Option[Expr] :=
@@ -412,10 +412,10 @@ function zonk_guard(s: State, g: Option[Expr]): Option[Expr] :=
 
 function zonk_type(su: Subst, t: Type): Type :=
   match resolve(su, t)
-    case TSort(n, args) => TSort(n, [zonk_type(su, a) for a in args])
-    case TFun(args, r) => TFun([zonk_type(su, a) for a in args], zonk_type(su, r))
-    case TProc(is, os, rs) => TProc([zonk_type(su, a) for a in is], [zonk_type(su, a) for a in os], [zonk_type(su, a) for a in rs])
-    case TTuple(ts) => TTuple([zonk_type(su, a) for a in ts])
+    case TSort(name, args) => TSort(name, [zonk_type(su, a) for a in args])
+    case TFun(args, res) => TFun([zonk_type(su, a) for a in args], zonk_type(su, res))
+    case TProc(ins, outs, refs) => TProc([zonk_type(su, a) for a in ins], [zonk_type(su, a) for a in outs], [zonk_type(su, a) for a in refs])
+    case TTuple(types) => TTuple([zonk_type(su, a) for a in types])
     case u => u
   end
 
@@ -439,15 +439,15 @@ function zonk_vars(s: State, xs: List[Var]): List[Var] :=
 function zonk_expr(s: State, expr: Expr): Expr :=
   match expr
     case ELit(_) => expr
-    case EVar(x) => EVar(zonk_var(s, x))
-    case EApp(f, args) => EApp(zonk_expr(s, f), [zonk_expr(s, a) for a in args])
-    case ELam(xs, b) => ELam(zonk_vars(s, xs), zonk_expr(s, b))
-    case EProc(is, os, rs, b) => EProc(zonk_vars(s, is), zonk_vars(s, os), zonk_vars(s, rs), zonk_stmt(s, b))
-    case ELet(ps, b) => ELet([zonk_binding(s, p) for p in ps], zonk_expr(s, b))
-    case EIte(c, l, r) => EIte(zonk_expr(s, c), zonk_expr(s, l), zonk_expr(s, r))
-    case EMatch(a, bs) => EMatch(zonk_expr(s, a), [zonk_expr_branch(s, b) for b in bs])
-    case ETuple(es) => ETuple([zonk_expr(s, expr) for expr in es])
-    case ERaise(a, t) => ERaise(zonk_expr(s, a), zonk_type(s.sub, t))
+    case EVar(var) => EVar(zonk_var(s, var))
+    case EApp(fun, args) => EApp(zonk_expr(s, fun), [zonk_expr(s, a) for a in args])
+    case ELam(formals, body) => ELam(zonk_vars(s, formals), zonk_expr(s, body))
+    case EProc(ins, outs, refs, stmt) => EProc(zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), zonk_stmt(s, stmt))
+    case ELet(bindings, body) => ELet([zonk_binding(s, p) for p in bindings], zonk_expr(s, body))
+    case EIte(cond, then_expr, else_expr) => EIte(zonk_expr(s, cond), zonk_expr(s, then_expr), zonk_expr(s, else_expr))
+    case EMatch(expr, cases) => EMatch(zonk_expr(s, expr), [zonk_expr_branch(s, b) for b in cases])
+    case ETuple(exprs) => ETuple([zonk_expr(s, expr) for expr in exprs])
+    case ERaise(expr, typ) => ERaise(zonk_expr(s, expr), zonk_type(s.sub, typ))
   end
 
 function zonk_binding(s: State, p: Var * Expr): Var * Expr :=
@@ -457,46 +457,46 @@ function zonk_binding(s: State, p: Var * Expr): Var * Expr :=
 
 function zonk_expr_branch(s: State, b: Branch[Expr]): Branch[Expr] :=
   match b
-    case Branch(p, g, e) => Branch(zonk_pat(s, p), zonk_guard(s, g), zonk_expr(s, e))
+    case Branch(pat, guard, body) => Branch(zonk_pat(s, pat), zonk_guard(s, guard), zonk_expr(s, body))
   end
 
 function zonk_pat(s: State, pat: Pat): Pat :=
   match pat
-    case PVar(x) => PVar(zonk_var(s, x))
-    case PApp(n, args) => PApp(n, [zonk_pat(s, a) for a in args])
-    case PTuple(ps) => PTuple([zonk_pat(s, q) for q in ps])
+    case PVar(var) => PVar(zonk_var(s, var))
+    case PApp(constr, pats) => PApp(constr, [zonk_pat(s, a) for a in pats])
+    case PTuple(pats) => PTuple([zonk_pat(s, q) for q in pats])
     case _ => pat
   end
 
 function zonk_stmt(s: State, x: Stmt): Stmt :=
   match x
     case SSkip => x
-    case SAssign(ps) => SAssign([zonk_binding(s, p) for p in ps])
-    case SBlock(xs, ys) => SBlock(zonk_vars(s, xs), [zonk_stmt(s, y) for y in ys])
-    case SIf(c, l, r) => SIf(zonk_expr(s, c), zonk_stmt(s, l), zonk_stmt(s, r))
-    case SWhile(c, b) => SWhile(zonk_expr(s, c), zonk_stmt(s, b))
-    case SCall(p, ins, outs, refs) => SCall(settled(s, p), [zonk_expr(s, e) for e in ins], zonk_vars(s, outs), zonk_vars(s, refs))
-    case SMatch(a, bs) => SMatch(zonk_expr(s, a), [zonk_stmt_branch(s, b) for b in bs])
-    case SAssert(c) => SAssert(zonk_expr(s, c))
-    case SRaise(a, t) => SRaise(zonk_expr(s, a), zonk_type(s.sub, t))
-    case STry(b, hs) => STry(zonk_stmt(s, b), [zonk_handler(s, h) for h in hs])
+    case SAssign(assignments) => SAssign([zonk_binding(s, p) for p in assignments])
+    case SBlock(locals, stmts) => SBlock(zonk_vars(s, locals), [zonk_stmt(s, y) for y in stmts])
+    case SIf(cond, then_stmt, else_stmt) => SIf(zonk_expr(s, cond), zonk_stmt(s, then_stmt), zonk_stmt(s, else_stmt))
+    case SWhile(cond, body) => SWhile(zonk_expr(s, cond), zonk_stmt(s, body))
+    case SCall(proc, ins, outs, refs) => SCall(settled(s, proc), [zonk_expr(s, e) for e in ins], zonk_vars(s, outs), zonk_vars(s, refs))
+    case SMatch(expr, cases) => SMatch(zonk_expr(s, expr), [zonk_stmt_branch(s, b) for b in cases])
+    case SAssert(cond) => SAssert(zonk_expr(s, cond))
+    case SRaise(expr, typ) => SRaise(zonk_expr(s, expr), zonk_type(s.sub, typ))
+    case STry(body, handlers) => STry(zonk_stmt(s, body), [zonk_handler(s, h) for h in handlers])
   end
 
 function zonk_stmt_branch(s: State, b: Branch[Stmt]): Branch[Stmt] :=
   match b
-    case Branch(p, g, y) => Branch(zonk_pat(s, p), zonk_guard(s, g), zonk_stmt(s, y))
+    case Branch(pat, guard, body) => Branch(zonk_pat(s, pat), zonk_guard(s, guard), zonk_stmt(s, body))
   end
 
 function zonk_handler(s: State, h: Handler): Handler :=
   match h
-    case Handler(t, p, g, b) => Handler(zonk_type(s.sub, t), zonk_pat(s, p), zonk_guard(s, g), zonk_stmt(s, b))
+    case Handler(typ, pat, guard, body) => Handler(zonk_type(s.sub, typ), zonk_pat(s, pat), zonk_guard(s, guard), zonk_stmt(s, body))
   end
 
 function zonk_cmd(s: State, cmd: Cmd): Cmd :=
   match cmd
-    case CFun(n, ps, xss, r, b) => CFun(n, ps, [zonk_vars(s, xs) for xs in xss], zonk_type(s.sub, r), zonk_expr(s, b))
-    case CProc(n, ps, ins, outs, refs, b) => CProc(n, ps, zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), zonk_stmt(s, b))
-    case CTest(n, xs, b) => CTest(n, xs, zonk_stmt(s, b))
+    case CFun(name, params, formals, typ, body) => CFun(name, params, [zonk_vars(s, xs) for xs in formals], zonk_type(s.sub, typ), zonk_expr(s, body))
+    case CProc(name, params, ins, outs, refs, stmt) => CProc(name, params, zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), zonk_stmt(s, stmt))
+    case CTest(test_name, vars, stmt) => CTest(test_name, vars, zonk_stmt(s, stmt))
     case _ => cmd
   end
 
@@ -507,28 +507,28 @@ function unknown_type(t: Type): Option[Type] :=
 // the type of an exception that is not known, also of those raised in expressions
 function unknown_in(x: Stmt): Option[Type] :=
   match x
-    case SAssign(ps) => unknown_in_exprs(seconds(ps))
-    case SBlock(_, ys) => unknown_in_all(ys)
-    case SIf(c, l, r) => or_else(unknown_in_expr(c), or_else(unknown_in(l), unknown_in(r)))
-    case SWhile(c, b) => or_else(unknown_in_expr(c), unknown_in(b))
+    case SAssign(assignments) => unknown_in_exprs(seconds(assignments))
+    case SBlock(_, stmts) => unknown_in_all(stmts)
+    case SIf(cond, then_stmt, else_stmt) => or_else(unknown_in_expr(cond), or_else(unknown_in(then_stmt), unknown_in(else_stmt)))
+    case SWhile(cond, body) => or_else(unknown_in_expr(cond), unknown_in(body))
     case SCall(_, ins, _, _) => unknown_in_exprs(ins)
-    case SMatch(a, bs) => or_else(unknown_in_expr(a), unknown_in_branches(bs))
-    case SAssert(c) => unknown_in_expr(c)
-    case SRaise(a, t) => or_else(unknown_type(t), unknown_in_expr(a))
-    case STry(b, hs) => or_else(unknown_in(b), unknown_in_handlers(hs))
+    case SMatch(expr, cases) => or_else(unknown_in_expr(expr), unknown_in_branches(cases))
+    case SAssert(cond) => unknown_in_expr(cond)
+    case SRaise(expr, typ) => or_else(unknown_type(typ), unknown_in_expr(expr))
+    case STry(body, handlers) => or_else(unknown_in(body), unknown_in_handlers(handlers))
     case _ => None
   end
 
 function unknown_in_expr(expr: Expr): Option[Type] :=
   match expr
-    case ERaise(a, t) => or_else(unknown_type(t), unknown_in_expr(a))
-    case EApp(f, args) => unknown_in_exprs([f; args])
-    case ELam(_, b) => unknown_in_expr(b)
-    case EProc(_, _, _, b) => unknown_in(b)
-    case ELet(ps, b) => unknown_in_exprs(seconds(ps) ++ [b])
-    case EIte(c, l, r) => unknown_in_exprs([c, l, r])
-    case EMatch(a, bs) => unknown_in_exprs([a; [e for b in bs, e in branch_exprs(b)]])
-    case ETuple(es) => unknown_in_exprs(es)
+    case ERaise(expr, typ) => or_else(unknown_type(typ), unknown_in_expr(expr))
+    case EApp(fun, args) => unknown_in_exprs([fun; args])
+    case ELam(_, body) => unknown_in_expr(body)
+    case EProc(_, _, _, stmt) => unknown_in(stmt)
+    case ELet(bindings, body) => unknown_in_exprs(seconds(bindings) ++ [body])
+    case EIte(cond, then_expr, else_expr) => unknown_in_exprs([cond, then_expr, else_expr])
+    case EMatch(expr, cases) => unknown_in_exprs([expr; [e for b in cases, e in branch_exprs(b)]])
+    case ETuple(exprs) => unknown_in_exprs(exprs)
     case _ => None
   end
 
@@ -540,8 +540,8 @@ function unknown_in_exprs(exprs: List[Expr]): Option[Type] :=
 
 function branch_exprs(b: Branch[Expr]): List[Expr] :=
   match b
-    case Branch(_, Some(g), e) => [g, e]
-    case Branch(_, None, e) => [e]
+    case Branch(_, Some(g), body) => [g, body]
+    case Branch(_, None, body) => [body]
   end
 
 function unknown_in_all(xs: List[Stmt]): Option[Type] :=
@@ -553,31 +553,31 @@ function unknown_in_all(xs: List[Stmt]): Option[Type] :=
 function unknown_in_branches(bs: List[Branch[Stmt]]): Option[Type] :=
   match bs
     case Nil => None
-    case [Branch(_, Some(g), y); rest] => or_else(unknown_in_expr(g), or_else(unknown_in(y), unknown_in_branches(rest)))
-    case [Branch(_, None, y); rest] => or_else(unknown_in(y), unknown_in_branches(rest))
+    case [Branch(_, Some(g), body); rest] => or_else(unknown_in_expr(g), or_else(unknown_in(body), unknown_in_branches(rest)))
+    case [Branch(_, None, body); rest] => or_else(unknown_in(body), unknown_in_branches(rest))
   end
 
 // handlers of _ catch exceptions of any type
 function unknown_in_handlers(hs: List[Handler]): Option[Type] :=
   match hs
     case Nil => None
-    case [Handler(_, PWild, _, b); rest] => or_else(unknown_in(b), unknown_in_handlers(rest))
-    case [Handler(t, _, _, b); rest] => or_else(unknown_type(t), or_else(unknown_in(b), unknown_in_handlers(rest)))
+    case [Handler(_, PWild, _, body); rest] => or_else(unknown_in(body), unknown_in_handlers(rest))
+    case [Handler(typ, _, _, body); rest] => or_else(unknown_type(typ), or_else(unknown_in(body), unknown_in_handlers(rest)))
   end
 
 function unknown_in_cmd(cmd: Cmd): Option[Type] :=
   match cmd
-    case CFun(_, _, _, _, b) => unknown_in_expr(b)
-    case CProc(_, _, _, _, _, b) => unknown_in(b)
-    case CTest(_, _, b) => unknown_in(b)
+    case CFun(_, _, _, _, body) => unknown_in_expr(body)
+    case CProc(_, _, _, _, _, stmt) => unknown_in(stmt)
+    case CTest(_, _, stmt) => unknown_in(stmt)
     case _ => None
   end
 
 function head_of(pat: Pat): Option[Head * List[Pat]] :=
   match pat
-    case PApp(n, args) => Some((HCon(n), args))
-    case PTuple(ps) => Some((HCon(tuple_name()), ps))
-    case PLit(v) => Some((HLit(v), Nil))
+    case PApp(constr, pats) => Some((HCon(constr), pats))
+    case PTuple(pats) => Some((HCon(tuple_name()), pats))
+    case PLit(lit) => Some((HLit(lit), Nil))
     case _ => None
   end
 
@@ -603,10 +603,10 @@ function field_types(sig: Sig, k: Name, args: List[Type]): List[Type] :=
 // all constructors of t with their argument types, if there are finitely many
 function constructors_of(sig: Sig, su: Subst, t: Type): Option[List[Head * List[Type]]] :=
   match zonk_type(su, t)
-    case TSort(n, Nil) if TSort(n, Nil) == type_bool() => Some([(HLit(VBool(true)), Nil), (HLit(VBool(false)), Nil)])
-    case TTuple(ts) => Some([(HCon(tuple_name()), ts)])
-    case TSort(n, args) =>
-      match members_of(sig, n)
+    case TSort(name, Nil) if TSort(name, Nil) == type_bool() => Some([(HLit(VBool(true)), Nil), (HLit(VBool(false)), Nil)])
+    case TTuple(types) => Some([(HCon(tuple_name()), types)])
+    case TSort(name, args) =>
+      match members_of(sig, name)
         case Some(ks) => Some([(HCon(k), field_types(sig, k, args)) for k in ks])
         case None => None
       end
@@ -686,8 +686,8 @@ function useful_in(
 
 function witness(h: Head, args: List[Pat]): Pat :=
   match h
-    case HCon(n) => if n == tuple_name() then PTuple(args) else PApp(n, args)
-    case HLit(v) => PLit(v)
+    case HCon(constr) => if constr == tuple_name() then PTuple(args) else PApp(constr, args)
+    case HLit(lit) => PLit(lit)
   end
 
 // values of types ts, as patterns, that no row matches
@@ -772,11 +772,11 @@ procedure unify(in t1: Type, t2: Type, ref s: State) :=
         call bind_meta(in i, b, ref s)
       end
 
-    case (TMeta(i), _) =>
-      call bind_meta(in i, b, ref s)
+    case (TMeta(meta), _) =>
+      call bind_meta(in meta, b, ref s)
 
-    case (_, TMeta(j)) =>
-      call bind_meta(in j, a, ref s)
+    case (_, TMeta(meta)) =>
+      call bind_meta(in meta, a, ref s)
 
     case (TParam(x), TParam(y)) =>
       if x != y
@@ -903,27 +903,27 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
     case TMeta(_) =>
       assign u := t
 
-    case TFun(args, r) =>
+    case TFun(args, res) =>
       call   normalizes(in args, out us, ref s)
-      call   normalize(in r, out v, ref s)
+      call   normalize(in res, out v, ref s)
       assign u := TFun(us, v)
 
-    case TTuple(ts) =>
-      call   normalizes(in ts, out us, ref s)
+    case TTuple(types) =>
+      call   normalizes(in types, out us, ref s)
       assign u := TTuple(us)
 
-    case TProc(is, os, rs) =>
-      call   normalizes(in is ++ os ++ rs, out us, ref s)
-      assign u := TProc(take(size(is), us), take(size(os), drop(size(is), us)), drop(size(is) + size(os), us))
+    case TProc(ins, outs, refs) =>
+      call   normalizes(in ins ++ outs ++ refs, out us, ref s)
+      assign u := TProc(take(size(ins), us), take(size(outs), drop(size(ins), us)), drop(size(ins) + size(outs), us))
 
-    case TSort(n, args) =>
-      match visible_names(s, n, lambda t => is_sort(s.sig, t))
+    case TSort(name, args) =>
+      match visible_names(s, name, lambda t => is_sort(s.sig, t))
         case [m] =>
           call normalize_sort(in m, args, out u, ref s)
         case Nil =>
-          raise UnknownSort(n)
+          raise UnknownSort(name)
         case ms =>
-          raise Ambiguous(n, [(m, (Nil, THole)) for m in ms])
+          raise Ambiguous(name, [(m, (Nil, THole)) for m in ms])
       end
   end
 
@@ -987,10 +987,10 @@ procedure normalize_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
   match xs
     case Nil =>
       assign ys := Nil
-    case [Var(n, t); more] =>
-      call   normalize(in t, out u, ref s)
+    case [Var(name, typ); more] =>
+      call   normalize(in typ, out u, ref s)
       call   normalize_vars(in more, out rest, ref s)
-      assign ys := [Var(n, u); rest]
+      assign ys := [Var(name, u); rest]
   end
 
 // the parameters and locals, which have types
@@ -1004,10 +1004,10 @@ procedure known_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
   match xs
     case Nil =>
       assign ys := Nil
-    case [Var(n, t); more] =>
-      call   known(in t, n, out u, ref s)
+    case [Var(name, typ); more] =>
+      call   known(in typ, name, out u, ref s)
       call   known_vars(in more, out rest, ref s)
-      assign ys := [Var(n, u); rest]
+      assign ys := [Var(name, u); rest]
   end
 
 // a use of n elaborated with an instance of sc, where w is normalized
@@ -1306,17 +1306,17 @@ procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
     exprs: List[Expr], ts: List[Type], bs: List[Branch[Expr]], y: Stmt, inner: Env
 
   match expr
-    case ELit(v) =>
-      assign e1 := expr, t := literal(v)
+    case ELit(lit) =>
+      assign e1 := expr, t := literal(lit)
 
-    case EVar(Var(n, a)) =>
+    case EVar(Var(name, a)) =>
       call   normalize(in a, out w, ref s)
-      call   use_name(in n, candidates(s, env, n), w, out x, ref s)
-      call   readable(in env, n)
+      call   use_name(in name, candidates(s, env, name), w, out x, ref s)
+      call   readable(in env, name)
       assign e1 := EVar(x), t := x.typ
 
-    case EApp(f, args) =>
-      call application(in env, f, args, out e1, t, ref s)
+    case EApp(fun, args) =>
+      call application(in env, fun, args, out e1, t, ref s)
 
     case ELam(bound, body) =>
       call   formals(in "formal", bound, out xs, ref s)
@@ -1324,13 +1324,13 @@ procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
       assign e1 := ELam(xs, b), t := type_fun(types(xs), u)
 
     // the body sees the variables around it, but assigns only the outs and refs of the lambda
-    case EProc(is, os, rs, body) =>
-      call   unique(in "formal", names(is ++ os ++ rs))
-      call   formals(in "formal", is, out xs, ref s)
-      call   formals(in "formal", os, out ys, ref s)
-      call   formals(in "formal", rs, out zs, ref s)
+    case EProc(ins, outs, refs, stmt) =>
+      call   unique(in "formal", names(ins ++ outs ++ refs))
+      call   formals(in "formal", ins, out xs, ref s)
+      call   formals(in "formal", outs, out ys, ref s)
+      call   formals(in "formal", refs, out zs, ref s)
       assign inner := bind(xs) ++ unassigned(ys) ++ bind(zs) ++ env
-      call   statement(in names(ys ++ zs), body, out y, ref inner, s)
+      call   statement(in names(ys ++ zs), stmt, out y, ref inner, s)
       call   outputs(in unqualified("lambda"), ys, inner)
       assign e1 := EProc(xs, ys, zs, y), t := TProc(types(xs), types(ys), types(zs))
 
@@ -1341,10 +1341,10 @@ procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
       call   infer(in generalized(s, env, xs) ++ env, body, out b, u, ref s)
       assign e1 := ELet(zip(xs, exprs), b), t := u
 
-    case EIte(cond, left, right) =>
+    case EIte(cond, then_expr, else_expr) =>
       call   check(in env, cond, type_bool(), out c, ref s)
-      call   infer(in env, left, out l, u, ref s)
-      call   check(in env, right, u, out b, ref s)
+      call   infer(in env, then_expr, out l, u, ref s)
+      call   check(in env, else_expr, u, out b, ref s)
       assign e1 := EIte(c, l, b), t := u
 
     case ETuple(items) =>
@@ -1352,16 +1352,16 @@ procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
       assign e1 := ETuple(exprs), t := TTuple(ts)
 
     // the exception, whose type must be known after checking, and the expression of any type
-    case ERaise(arg, a) =>
-      call   infer(in env, arg, out c, u, ref s)
-      call   normalize(in a, out w, ref s)
+    case ERaise(expr, typ) =>
+      call   infer(in env, expr, out c, u, ref s)
+      call   normalize(in typ, out w, ref s)
       call   unify(in u, w, ref s)
       call   fresh(out t, ref s)
       assign e1 := ERaise(c, u)
 
-    case EMatch(arg, cases) =>
+    case EMatch(expr, cases) =>
       call   fresh(out t, ref s)
-      call   infer(in env, arg, out c, u, ref s)
+      call   infer(in env, expr, out c, u, ref s)
       call   expr_branches(in env, cases, u, t, out bs, ref s)
       call   solve(ref s)
       call   coverage(in s, u, [case_of(br) for br in bs])
@@ -1374,21 +1374,21 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
   local cs: List[Name * (List[Type] * Type)], x: Var, f1: Expr, u: Type, w: Type, args1: List[Expr], ts: List[Type]
 
   match f
-    case EVar(Var(Name(None, b), a)) if size(b) > 1 and at(0, b) == '.' =>
-      call field_access(in env, b, a, args, out e1, t, ref s)
+    case EVar(Var(Name(None, base), typ)) if size(base) > 1 and at(0, base) == '.' =>
+      call field_access(in env, base, typ, args, out e1, t, ref s)
 
-    case EVar(Var(n, a)) =>
-      assign cs := candidates(s, env, n)
+    case EVar(Var(name, typ)) =>
+      assign cs := candidates(s, env, name)
       if size(cs) > 1
         call   infers(in env, args, out args1, ts, ref s)
         call   fresh(out t, ref s)
-        call   normalize(in a, out w, ref s)
+        call   normalize(in typ, out w, ref s)
         call   unify(in w, type_fun(ts, t), ref s)
         if with_arity(cs, size(args)) == Nil
-          raise WrongArity(n, size(args))
+          raise WrongArity(name, size(args))
         end
 
-        call   use_name(in n, with_arity(cs, size(args)), w, out x, ref s)
+        call   use_name(in name, with_arity(cs, size(args)), w, out x, ref s)
         assign e1 := EApp(EVar(x), args1)
       else
         call   infer(in env, f, out f1, u, ref s)
@@ -1415,8 +1415,8 @@ procedure field_access(in env: Env, f: Id, a: Type, args: List[Expr], out e1: Ex
       call   unify(in w, type_fun([u; us], t), ref s)
 
       match zonk_type(s.sub, u)
-        case TSort(Name(Some(m), tn), _) =>
-          assign acc := Name(Some(m), tn ++ f)
+        case TSort(Name(Some(m), base), _) =>
+          assign acc := Name(Some(m), base ++ f)
           match schemes_of(s.sig, acc)
             case [sc] if is_visible(s, acc) =>
               call use(in acc, w, sc, out x, ref s)
@@ -1492,10 +1492,10 @@ procedure expr_branches(
   match cases
     case Nil =>
       assign cases1 := Nil
-    case [Branch(p, g, b); more] =>
-      call   pattern(in p, t, out p1, xs, ref s)
+    case [Branch(pat, g, body); more] =>
+      call   pattern(in pat, t, out p1, xs, ref s)
       call   guard(in bind(xs) ++ env, g, out g1, ref s)
-      call   check(in bind(xs) ++ env, b, r, out b1, ref s)
+      call   check(in bind(xs) ++ env, body, r, out b1, ref s)
       call   expr_branches(in env, more, t, r, out rest, ref s)
       assign cases1 := [Branch(p1, g1, b1); rest]
   end
@@ -1554,44 +1554,44 @@ procedure binders(in pat: Pat, t: Type, out p1: Pat, xs: List[Var], ref s: State
     case PWild =>
       assign p1 := pat, xs := Nil
 
-    case PLit(v) =>
-      call   unify(in literal(v), t, ref s)
+    case PLit(lit) =>
+      call   unify(in literal(lit), t, ref s)
       assign p1 := pat, xs := Nil
 
-    case PVar(Var(n, a)) =>
-      if overloads(s, n, lambda k => is_constr(s.sig, k)) != Nil
-        call binders(in PApp(n, Nil), t, out p1, xs, ref s)
+    case PVar(Var(name, typ)) =>
+      if overloads(s, name, lambda k => is_constr(s.sig, k)) != Nil
+        call binders(in PApp(name, Nil), t, out p1, xs, ref s)
       else
-        call   normalize(in a, out u, ref s)
+        call   normalize(in typ, out u, ref s)
         call   unify(in u, t, ref s)
-        assign p1 := PVar(Var(n, u)), xs := [Var(n, u)]
+        assign p1 := PVar(Var(name, u)), xs := [Var(name, u)]
       end
 
-    case PApp(n, args) =>
-      match overloads(s, n, lambda k => is_constr(s.sig, k))
+    case PApp(constr, pats) =>
+      match overloads(s, constr, lambda k => is_constr(s.sig, k))
         case [k1] =>
           assign k := k1
         case Nil =>
-          raise UnknownConstructor(n)
+          raise UnknownConstructor(constr)
         case ks =>
-          call pattern_constructor(in n, ks, size(args), t, out k, ref s)
+          call pattern_constructor(in constr, ks, size(pats), t, out k, ref s)
       end
 
       match constr_of(s.sig, k)
         case Some((ps, ks, r)) =>
-          call   same_length(in "constructor " ++ k.base, "arguments", size(ks), size(args))
+          call   same_length(in "constructor " ++ k.base, "arguments", size(ks), size(pats))
           call   instance(in ps, out m, ref s)
           call   unify(in subst(r, m), t, ref s)
-          call   binder_list(in args, [subst(kt, m) for kt in ks], out qs, xs, ref s)
+          call   binder_list(in pats, [subst(kt, m) for kt in ks], out qs, xs, ref s)
           assign p1 := PApp(k, qs)
         case None =>
-          raise UnknownConstructor(n)
+          raise UnknownConstructor(constr)
       end
 
-    case PTuple(items) =>
-      call   fresh_list(in items, out ts, ref s)
+    case PTuple(pats) =>
+      call   fresh_list(in pats, out ts, ref s)
       call   unify(in TTuple(ts), t, ref s)
-      call   binder_list(in items, ts, out qs, xs, ref s)
+      call   binder_list(in pats, ts, out qs, xs, ref s)
       assign p1 := PTuple(qs)
   end
 
@@ -1646,17 +1646,17 @@ procedure variable(in env: Env, assignable: List[Name], x: Var, out y: Var, ref 
   local u: Type
 
   match x
-    case Var(n, a) =>
-      if not contains(n, assignable)
-        raise NotAssignable(n)
+    case Var(name, typ) =>
+      if not contains(name, assignable)
+        raise NotAssignable(name)
       end
-      match get(n, env)
+      match get(name, env)
         case Some(Local((_, t), _)) =>
-          call   normalize(in a, out u, ref s)
+          call   normalize(in typ, out u, ref s)
           call   unify(in t, u, ref s)
-          assign y := Var(n, t)
+          assign y := Var(name, t)
         case None =>
-          raise UnknownVariable(n)
+          raise UnknownVariable(name)
       end
   end
 
@@ -1681,25 +1681,25 @@ procedure statement(in assignable: List[Name], x: Stmt, out y: Stmt, ref env: En
     case SSkip =>
       assign y := x
 
-    case SAssign(pairs) =>
-      call   unique(in "assignment to", names(firsts(pairs)))
-      call   variables(in env, assignable, firsts(pairs), out ys, ref s)
-      call   checks(in env, "the assignment", seconds(pairs), types(ys), out exprs, ref s)
+    case SAssign(assignments) =>
+      call   unique(in "assignment to", names(firsts(assignments)))
+      call   variables(in env, assignable, firsts(assignments), out ys, ref s)
+      call   checks(in env, "the assignment", seconds(assignments), types(ys), out exprs, ref s)
       assign y := SAssign(zip(ys, exprs)), env := assigned(env, names(ys))
     // the types of locals that are initialized at the start of the block may be inferred
 
-    case SBlock(locals, body) =>
-      call   untyped(in locals, initialized(body))
+    case SBlock(locals, stmts) =>
+      call   untyped(in locals, initialized(stmts))
       call   formals(in "local", locals, out ys, ref s)
       assign inner := unassigned(ys) ++ env
-      call   statements(in names(ys) ++ assignable, body, out xs, ref inner, s)
+      call   statements(in names(ys) ++ assignable, stmts, out xs, ref inner, s)
       assign y := SBlock(ys, xs), env := drop(size(ys), inner)
 
-    case SIf(cond, left, right) =>
+    case SIf(cond, then_stmt, else_stmt) =>
       call   check(in env, cond, type_bool(), out c, ref s)
       assign other := env
-      call   statement(in assignable, left, out l, ref env, s)
-      call   statement(in assignable, right, out r, ref other, s)
+      call   statement(in assignable, then_stmt, out l, ref env, s)
+      call   statement(in assignable, else_stmt, out r, ref other, s)
       assign y := SIf(c, l, r), env := joined(env, other)
 
     case SWhile(cond, body) =>
@@ -1709,13 +1709,13 @@ procedure statement(in assignable: List[Name], x: Stmt, out y: Stmt, ref env: En
       assign y := SWhile(c, l)
 
     // a procedure that a variable holds and the refs are read
-    case SCall(p, ins, outs, refs) =>
-      call   call_proc(in env, assignable, p, ins, outs, refs, out y, ref s)
-      call   readables(in env, [p; names(refs)])
+    case SCall(proc, ins, outs, refs) =>
+      call   call_proc(in env, assignable, proc, ins, outs, refs, out y, ref s)
+      call   readables(in env, [proc; names(refs)])
       assign env := assigned(env, names(outs ++ refs))
 
-    case SMatch(arg, cases) =>
-      call   infer(in env, arg, out c, t, ref s)
+    case SMatch(expr, cases) =>
+      call   infer(in env, expr, out c, t, ref s)
       call   stmt_branches(in assignable, cases, t, out bs, ref env, s)
       call   solve(ref s)
       call   coverage(in s, t, [case_of(br) for br in bs])
@@ -1729,9 +1729,9 @@ procedure statement(in assignable: List[Name], x: Stmt, out y: Stmt, ref env: En
         assign env := unreachable(env)
       end
 
-    case SRaise(arg, a) =>
-      call   infer(in env, arg, out c, t, ref s)
-      call   normalize(in a, out u, ref s)
+    case SRaise(expr, typ) =>
+      call   infer(in env, expr, out c, t, ref s)
+      call   normalize(in typ, out u, ref s)
       call   unify(in t, u, ref s)
       assign y := SRaise(c, t), env := unreachable(env)
 
@@ -1754,9 +1754,9 @@ procedure untyped(in xs: List[Var], inits: List[Name]) :=
   match xs
     case Nil =>
       skip
-    case [Var(n, t); rest] =>
-      if holes(t) and not contains(n, inits)
-        raise MissingType(n)
+    case [Var(name, typ); rest] =>
+      if holes(typ) and not contains(name, inits)
+        raise MissingType(name)
       end
 
       call untyped(in rest, inits)
@@ -1902,11 +1902,11 @@ procedure stmt_branches(
   match cases
     case Nil =>
       assign cases1 := Nil, env := unreachable(env)
-    case [Branch(p, g, b); more] =>
-      call   pattern(in p, t, out p1, xs, ref s)
+    case [Branch(pat, g, body); more] =>
+      call   pattern(in pat, t, out p1, xs, ref s)
       assign inner := bind(xs) ++ env
       call   guard(in inner, g, out g1, ref s)
-      call   statement(in assignable -- names(xs), b, out b1, ref inner, s)
+      call   statement(in assignable -- names(xs), body, out b1, ref inner, s)
       call   stmt_branches(in assignable, more, t, out rest, ref env, s)
       assign cases1 := [Branch(p1, g1, b1); rest], env := joined(drop(size(xs), inner), env)
   end
@@ -1918,12 +1918,12 @@ procedure handler_list(in assignable: List[Name], hs: List[Handler], out hs1: Li
   match hs
     case Nil =>
       assign hs1 := Nil, env := unreachable(env)
-    case [Handler(a, p, g, b); more] =>
-      call   normalize(in a, out u, ref s)
-      call   pattern(in p, u, out p1, xs, ref s)
+    case [Handler(typ, pat, g, body); more] =>
+      call   normalize(in typ, out u, ref s)
+      call   pattern(in pat, u, out p1, xs, ref s)
       assign inner := bind(xs) ++ env
       call   guard(in inner, g, out g1, ref s)
-      call   statement(in assignable -- names(xs), b, out b1, ref inner, s)
+      call   statement(in assignable -- names(xs), body, out b1, ref inner, s)
       call   handler_list(in assignable, more, out rest, ref env, s)
       assign hs1 := [Handler(u, p1, g1, b1); rest], env := joined(drop(size(xs), inner), env)
   end
@@ -1956,10 +1956,10 @@ procedure declare_datas(in cs: List[Id * Cmd], ref s: State) :=
   match cs
     case Nil =>
       skip
-    case [(m, CData(n, ps, _)); rest] =>
+    case [(m, CData(name, params, _)); rest] =>
       assign s := enter(s, m)
-      call   declare_sort(in s.sig, n)
-      assign s := with_sig(s, with_data(s.sig, n, size(ps)))
+      call   declare_sort(in s.sig, name)
+      assign s := with_sig(s, with_data(s.sig, name, size(params)))
       call   declare_datas(in rest, ref s)
     case [_; rest] =>
       call declare_datas(in rest, ref s)
@@ -1971,13 +1971,13 @@ procedure declare_sorts(in cs: List[Id * Cmd], ref s: State) :=
   match cs
     case Nil =>
       skip
-    case [(m, CSort(n, ps, t)); rest] =>
+    case [(m, CSort(name, params, typ)); rest] =>
       assign s := enter(s, m)
-      call   declare_sort(in s.sig, n)
-      call   unique_ids(in "type parameter", ps)
-      call   known(in t, n, out u, ref s)
-      call   closed(in n, ps, [u])
-      assign s := with_sig(s, with_alias(s.sig, n, ps, u))
+      call   declare_sort(in s.sig, name)
+      call   unique_ids(in "type parameter", params)
+      call   known(in typ, name, out u, ref s)
+      call   closed(in name, params, [u])
+      assign s := with_sig(s, with_alias(s.sig, name, params, u))
       call   declare_sorts(in rest, ref s)
     case [_; rest] =>
       call declare_sorts(in rest, ref s)
@@ -1987,11 +1987,11 @@ procedure declare_constrs(in cs: List[Id * Cmd], ref s: State) :=
   match cs
     case Nil =>
       skip
-    case [(m, CData(n, ps, ks)); rest] =>
+    case [(m, CData(n, params, constrs)); rest] =>
       assign s := enter(s, m)
-      call   unique_ids(in "type parameter", ps)
-      assign s := with_sig(s, with_members(s.sig, n, [k.name for k in ks]))
-      call   declare_constructors(in n, ps, ks, ref s)
+      call   unique_ids(in "type parameter", params)
+      assign s := with_sig(s, with_members(s.sig, n, [k.name for k in constrs]))
+      call   declare_constructors(in n, params, constrs, ref s)
       call   declare_constrs(in rest, ref s)
     case [_; rest] =>
       call declare_constrs(in rest, ref s)
@@ -2003,11 +2003,11 @@ procedure declare_constructors(in n: Name, ps: List[Id], ks: List[Constr], ref s
   match ks
     case Nil =>
       skip
-    case [Constr(k, args); rest] =>
-      call   declare_name(in s.sig, k)
-      call   knowns(in args, k, out ts, ref s)
+    case [Constr(name, args); rest] =>
+      call   declare_name(in s.sig, name)
+      call   knowns(in args, name, out ts, ref s)
       call   closed(in n, ps, ts)
-      assign s := with_sig(s, with_constr(s.sig, k, (params(ps), ts, TSort(n, params(ps)))))
+      assign s := with_sig(s, with_constr(s.sig, name, (params(ps), ts, TSort(n, params(ps)))))
       call   declare_constructors(in n, ps, rest, ref s)
   end
 
@@ -2036,15 +2036,15 @@ procedure declare_funs(in cs: List[Id * Cmd], ref s: State) :=
   match cs
     case Nil =>
       skip
-    case [(m, CFun(n, ps, bound, res, _)); rest] =>
+    case [(m, CFun(name, ps, formals, typ, _)); rest] =>
       assign s := enter(s, m)
-      call   overload(in s.sig, n, size(first_list(bound)))
+      call   overload(in s.sig, name, size(first_list(formals)))
       call   unique_ids(in "type parameter", ps)
-      call   unique(in "formal", names(concat(bound)))
-      call   signatures(in bound, out xss, ref s)
-      call   known(in res, n, out r, ref s)
-      call   closed(in n, ps, [curried(xss, r)])
-      assign s := with_sig(s, with_fun(s.sig, n, (params(ps), curried(xss, r))))
+      call   unique(in "formal", names(concat(formals)))
+      call   signatures(in formals, out xss, ref s)
+      call   known(in typ, name, out r, ref s)
+      call   closed(in name, ps, [curried(xss, r)])
+      assign s := with_sig(s, with_fun(s.sig, name, (params(ps), curried(xss, r))))
       call   declare_funs(in rest, ref s)
     case [_; rest] =>
       call declare_funs(in rest, ref s)
@@ -2056,14 +2056,14 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
   match cs
     case Nil =>
       skip
-    case [(m, CProc(n, ps, ins, outs, refs, _)); rest] =>
+    case [(m, CProc(name, ps, ins, outs, refs, _)); rest] =>
       assign s := enter(s, m)
-      call   declare_name(in s.sig, n)
+      call   declare_name(in s.sig, name)
       call   unique_ids(in "type parameter", ps)
       call   signature(in ins ++ outs ++ refs, out xs, ref s)
       assign ts := types(xs)
-      call   closed(in n, ps, ts)
-      assign s := with_sig(s, with_proc(s.sig, n, (params(ps), take(size(ins), ts), take(size(outs), drop(size(ins), ts)), drop(size(ins) + size(outs), ts))))
+      call   closed(in name, ps, ts)
+      assign s := with_sig(s, with_proc(s.sig, name, (params(ps), take(size(ins), ts), take(size(outs), drop(size(ins), ts)), drop(size(ins) + size(outs), ts))))
       call   declare_procs(in rest, ref s)
     case [_; rest] =>
       call declare_procs(in rest, ref s)
@@ -2074,28 +2074,28 @@ procedure command(in cmd: Cmd, out c1: Cmd, ref s: State) :=
   local xss: List[List[Var]], r: Type, b: Expr, t: Type, is: List[Var], os: List[Var], rs: List[Var], y: Stmt, env: Env
 
   match cmd
-    case CFun(n, ps, bound, res, body) =>
-      call   signatures(in bound, out xss, ref s)
-      call   known(in res, n, out r, ref s)
+    case CFun(name, params, formals, typ, body) =>
+      call   signatures(in formals, out xss, ref s)
+      call   known(in typ, name, out r, ref s)
       call   check(in bind(concat(xss)), body, r, out b, ref s)
-      assign c1 := CFun(n, ps, xss, r, b)
+      assign c1 := CFun(name, params, xss, r, b)
 
-    case CProc(n, ps, ins, outs, refs, body) =>
+    case CProc(name, params, ins, outs, refs, stmt) =>
       call   signature(in ins, out is, ref s)
       call   signature(in outs, out os, ref s)
       call   signature(in refs, out rs, ref s)
       assign env := bind(is) ++ unassigned(os) ++ bind(rs)
-      call   statement(in names(os ++ rs), body, out y, ref env, s)
-      call   outputs(in n, os, env)
-      assign c1 := CProc(n, ps, is, os, rs, y)
+      call   statement(in names(os ++ rs), stmt, out y, ref env, s)
+      call   outputs(in name, os, env)
+      assign c1 := CProc(name, params, is, os, rs, y)
 
-    case CTest(n, [], body) =>
+    case CTest(test_name, [], stmt) =>
       assign env := Nil
-      call   statement(in Nil, body, out y, ref env, s)
-      assign c1 := CTest(n, Nil, y)
+      call   statement(in Nil, stmt, out y, ref env, s)
+      assign c1 := CTest(test_name, Nil, y)
 
-    case CTest(n, _, _) =>
-      raise TestParams(n)
+    case CTest(test_name, _, _) =>
+      raise TestParams(test_name)
 
     case _ =>
       assign c1 := cmd
@@ -2126,7 +2126,7 @@ procedure commands(in cs: List[Id * Cmd], out cs1: List[Cmd], ref s: State) :=
 function block_names(cs: List[Id * Cmd]): List[Id] :=
   match cs
     case Nil => Nil
-    case [(_, CTest(n, _, _)); more] => [n; block_names(more)]
+    case [(_, CTest(test_name, _, _)); more] => [test_name; block_names(more)]
     case [_; more] => block_names(more)
   end
 
@@ -2140,8 +2140,8 @@ procedure check_orders(in cmds: List[Cmd], abstract: List[Name], hidden: Set[Nam
       match (c, order_of(c))
         case (_, Some(("==", t))) if not contains(t, abstract) =>
           raise VisibleEquality(t)
-        case (CFun(f, _, _, _, _), Some((_, t))) if contains(f, hidden) and not contains(t, hidden_sorts) =>
-          raise UnexportedOrder(f, t)
+        case (CFun(name, _, _, _, _), Some((_, t))) if contains(name, hidden) and not contains(t, hidden_sorts) =>
+          raise UnexportedOrder(name, t)
         case _ =>
           call check_orders(in rest, abstract, hidden, hidden_sorts)
       end
@@ -2154,13 +2154,13 @@ function synthesized(ds: List[Id * Cmd], cmds: List[Cmd], natives: List[Name]): 
 
 function synthesized_for(d: Id * Cmd, compares: List[Name], equalities: List[Name]): List[Id * Cmd] :=
   match d
-    case (m, CAbstract(t, ps)) =>
-      if contains(t, compares) then
+    case (m, CAbstract(name, params)) =>
+      if contains(name, compares) then
         Nil
-      else if contains(t, equalities) then
-        [(m, failing(t, ps, "compare", type_int(), "Unordered"))]
+      else if contains(name, equalities) then
+        [(m, failing(name, params, "compare", type_int(), "Unordered"))]
       else
-        [(m, failing(t, ps, "compare", type_int(), "Incomparable")), (m, failing(t, ps, "==", type_bool(), "Incomparable"))]
+        [(m, failing(name, params, "compare", type_int(), "Incomparable")), (m, failing(name, params, "==", type_bool(), "Incomparable"))]
     case _ => Nil
   end
 
@@ -2191,9 +2191,9 @@ function natives(d: Mod): List[Id * Cmd] :=
 
 function native(cmd: Cmd): Cmd :=
   match cmd
-    case CFunSig(n, ps, xss, r) => CFun(n, ps, xss, r, ELit(VUnit))
-    case CProcSig(n, ps, ins, outs, refs) => CProc(n, ps, ins, outs, refs, SSkip)
-    case CAbstract(t, ps) => CData(t, ps, Nil)
+    case CFunSig(name, params, formals, typ) => CFun(name, params, formals, typ, ELit(VUnit))
+    case CProcSig(name, params, ins, outs, refs) => CProc(name, params, ins, outs, refs, SSkip)
+    case CAbstract(name, params) => CData(name, params, Nil)
     case _ => cmd
   end
 
@@ -2201,20 +2201,20 @@ function native(cmd: Cmd): Cmd :=
 function native_types(ds: List[Id * Cmd]): List[Name] :=
   match ds
     case Nil => Nil
-    case [(_, CData(t, _, _)); rest] => [t; native_types(rest)]
+    case [(_, CData(name, _, _)); rest] => [name; native_types(rest)]
     case [_; rest] => native_types(rest)
   end
 
 function qualified_name(cmd: Cmd): Name :=
   match cmd
-    case CFun(n, _, _, _, _) => n
+    case CFun(name, _, _, _, _) => name
     case _ => unqualified("")
   end
 
 function abstract_types(ds: List[Id * Cmd]): List[Name] :=
   match ds
     case Nil => Nil
-    case [(_, CAbstract(t, _)); rest] => [t; abstract_types(rest)]
+    case [(_, CAbstract(name, _)); rest] => [name; abstract_types(rest)]
     case [_; rest] => abstract_types(rest)
   end
 
@@ -2225,10 +2225,10 @@ function private_names(ex: List[Cmd], im: List[Cmd]): List[Name] :=
 
 function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
   match cmd
-    case CFun(n, _, _, _, _) => if exists(ex, lambda e => signs(e, n)) then Nil else [n]
-    case CProc(n, _, _, _, _, _) => if exists(ex, lambda e => signs(e, n)) then Nil else [n]
-    case CData(t, _, ks) => if exists(ex, lambda e => abstracts(e, t)) then [k.name for k in ks] else [t; [k.name for k in ks]]
-    case CSort(t, _, _) => [t]
+    case CFun(name, _, _, _, _) => if exists(ex, lambda e => signs(e, name)) then Nil else [name]
+    case CProc(name, _, _, _, _, _) => if exists(ex, lambda e => signs(e, name)) then Nil else [name]
+    case CData(t, _, constrs) => if exists(ex, lambda e => abstracts(e, t)) then [k.name for k in constrs] else [t; [k.name for k in constrs]]
+    case CSort(name, _, _) => [name]
     case _ => Nil
   end
 
@@ -2238,46 +2238,46 @@ function private_sorts(ex: List[Cmd], im: List[Cmd]): List[Name] :=
 
 function private_sort(cmd: Cmd, ex: List[Cmd]): List[Name] :=
   match cmd
-    case CData(t, _, _) => if exists(ex, lambda e => abstracts(e, t)) then Nil else [t]
-    case CSort(t, _, _) => [t]
+    case CData(name, _, _) => if exists(ex, lambda e => abstracts(e, name)) then Nil else [name]
+    case CSort(name, _, _) => [name]
     case _ => Nil
   end
 
 function signs(e: Cmd, n: Name): Bool :=
   match e
-    case CFunSig(m, _, _, _) => m == n
-    case CProcSig(m, _, _, _, _) => m == n
+    case CFunSig(name, _, _, _) => name == n
+    case CProcSig(name, _, _, _, _) => name == n
     case _ => false
   end
 
 function abstracts(e: Cmd, t: Name): Bool :=
   match e
-    case CAbstract(u, _) => u == t
+    case CAbstract(name, _) => name == t
     case _ => false
   end
 
 // the function n of k arguments, the procedure n, and the datatype n
 function defines_fun(cmd: Cmd, n: Name, k: Int): Bool :=
   match cmd
-    case CFun(m, _, xss, _, _) => m == n and size(first_list(xss)) == k
+    case CFun(name, _, formals, _, _) => name == n and size(first_list(formals)) == k
     case _ => false
   end
 
 function defines_proc(cmd: Cmd, n: Name): Bool :=
   match cmd
-    case CProc(m, _, _, _, _, _) => m == n
+    case CProc(name, _, _, _, _, _) => name == n
     case _ => false
   end
 
 function defines_data(cmd: Cmd, n: Name): Bool :=
   match cmd
-    case CData(m, _, _) => m == n
+    case CData(name, _, _) => name == n
     case _ => false
   end
 
 function signs_fun(cmd: Cmd, n: Name, k: Int): Bool :=
   match cmd
-    case CFunSig(m, _, xss, _) => m == n and size(first_list(xss)) == k
+    case CFunSig(name, _, formals, _) => name == n and size(first_list(formals)) == k
     case _ => false
   end
 
@@ -2287,46 +2287,46 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
     case Nil =>
       skip
 
-    case [CFunSig(n, ps, xss, r); rest] =>
-      if exists(rest, lambda e => signs_fun(e, n, size(first_list(xss))))
-        raise AlreadyDefined(n)
+    case [CFunSig(name, params, formals, typ); rest] =>
+      if exists(rest, lambda e => signs_fun(e, name, size(first_list(formals))))
+        raise AlreadyDefined(name)
       end
 
-      match [c for c in im if defines_fun(c, n, size(first_list(xss)))]
+      match [c for c in im if defines_fun(c, name, size(first_list(formals)))]
         case [CFun(_, ps1, xss1, r1, _)] =>
-          if ps1 != ps or xss1 != xss or r1 != r
-            raise SignatureMismatch(n)
+          if ps1 != params or xss1 != formals or r1 != typ
+            raise SignatureMismatch(name)
           end
         case _ =>
-          raise MissingDefinition(n)
+          raise MissingDefinition(name)
       end
 
       call check_signatures(in rest, im)
 
-    case [CProcSig(n, ps, ins, outs, refs); rest] =>
-      if exists(rest, lambda e => signs(e, n))
-        raise AlreadyDefined(n)
+    case [CProcSig(name, params, ins, outs, refs); rest] =>
+      if exists(rest, lambda e => signs(e, name))
+        raise AlreadyDefined(name)
       end
 
-      match [c for c in im if defines_proc(c, n)]
+      match [c for c in im if defines_proc(c, name)]
         case [CProc(_, ps1, ins1, outs1, refs1, _)] =>
-          if ps1 != ps or ins1 != ins or outs1 != outs or refs1 != refs
-            raise SignatureMismatch(n)
+          if ps1 != params or ins1 != ins or outs1 != outs or refs1 != refs
+            raise SignatureMismatch(name)
           end
         case _ =>
-          raise MissingDefinition(n)
+          raise MissingDefinition(name)
       end
 
       call check_signatures(in rest, im)
 
-    case [CAbstract(t, ps); rest] =>
-      match [c for c in im if defines_data(c, t)]
+    case [CAbstract(name, params); rest] =>
+      match [c for c in im if defines_data(c, name)]
         case [CData(_, ps1, _)] =>
-          if ps1 != ps
-            raise SignatureMismatch(t)
+          if ps1 != params
+            raise SignatureMismatch(name)
           end
         case _ =>
-          raise MissingDefinition(t)
+          raise MissingDefinition(name)
       end
 
       call check_signatures(in rest, im)
@@ -2340,9 +2340,9 @@ procedure check_arities(in im: List[Cmd], ex: List[Cmd]) :=
   match im
     case Nil =>
       skip
-    case [CFun(n, _, xss, _, _); rest] =>
-      if exists(ex, lambda e => signs(e, n)) and not exists(ex, lambda e => signs_fun(e, n, size(first_list(xss))))
-        raise PartlyExported(n)
+    case [CFun(name, _, formals, _, _); rest] =>
+      if exists(ex, lambda e => signs(e, name)) and not exists(ex, lambda e => signs_fun(e, name, size(first_list(formals))))
+        raise PartlyExported(name)
       end
       call check_arities(in rest, ex)
     case [_; rest] =>
@@ -2379,20 +2379,20 @@ function own_name(m: Id, n: Name): Name :=
 // the declaration of an export section with the types that it shows to importers
 function exposed(cmd: Cmd): Option[Name * List[Type]] :=
   match cmd
-    case CFunSig(n, _, xss, r) => Some((n, types(concat(xss)) ++ [r]))
-    case CProcSig(n, _, ins, outs, refs) => Some((n, types(ins ++ outs ++ refs)))
-    case CData(n, _, ks) => Some((n, [t for k in ks, t in k.args]))
-    case CSort(n, _, t) => Some((n, [t]))
+    case CFunSig(name, _, formals, typ) => Some((name, types(concat(formals)) ++ [typ]))
+    case CProcSig(name, _, ins, outs, refs) => Some((name, types(ins ++ outs ++ refs)))
+    case CData(name, _, constrs) => Some((name, [t for k in constrs, t in k.args]))
+    case CSort(name, _, typ) => Some((name, [typ]))
     case _ => None
   end
 
 // the sorts that t names, as written, unqualified or qualified
 function sorts_in(t: Type): List[Name] :=
   match t
-    case TSort(n, args) => [n; [u for a in args, u in sorts_in(a)]]
-    case TFun(args, r) => [u for a in args ++ [r], u in sorts_in(a)]
-    case TProc(is, os, rs) => [u for a in is ++ os ++ rs, u in sorts_in(a)]
-    case TTuple(ts) => [u for a in ts, u in sorts_in(a)]
+    case TSort(name, args) => [name; [u for a in args, u in sorts_in(a)]]
+    case TFun(args, res) => [u for a in args ++ [res], u in sorts_in(a)]
+    case TProc(ins, outs, refs) => [u for a in ins ++ outs ++ refs, u in sorts_in(a)]
+    case TTuple(types) => [u for a in types, u in sorts_in(a)]
     case _ => Nil
   end
 
@@ -2421,8 +2421,8 @@ procedure check_program(in source: Source, out q: Prog) :=
   try
     call check_units(in units(source.mods), ref sig, imports, cmds)
   catch
-    case Located(Some(m), p, e) if m == source.main =>
-      raise Located(None, p, e)
+    case Located(Some(m), pos, error) if m == source.main =>
+      raise Located(None, pos, error)
   end
 
   assign q := Prog(cmds)
@@ -2558,15 +2558,15 @@ test inference() :=
     call   type_of(in expr_app("<", [expr_int(1), ELit(VBool(true))]), out t)
     assert false
   catch
-    case CannotUnify(a, b) =>
-      assert (a, b) == (type_int(), type_bool())
+    case CannotUnify(left, right) =>
+      assert (left, right) == (type_int(), type_bool())
   end
   try
     call   type_of(in expr_app("x", Nil), out t)
     assert false
   catch
-    case UnknownVariable(x) =>
-      assert x == unqualified("x")
+    case UnknownVariable(name) =>
+      assert name == unqualified("x")
   end
 
 test elaboration() :=
@@ -2574,10 +2574,10 @@ test elaboration() :=
 
   call check_program(in with_lists([CTest("r", Nil, SBlock([Var(unqualified("n"), THole)], [SAssign([(Var(unqualified("n"), THole), expr_app("len", [expr_app("Cons", [expr_int(1), expr_var("Nil")])]))])]))]), out q)
   match q
-    case Prog([_, CFun(_, _, _, _, EMatch(_, [Branch(p, _, _); _])), CTest(_, Nil, SBlock(_, [SAssign([(_, EApp(EVar(Var(_, t)), _))])]))]) =>
+    case Prog([_, CFun(_, _, _, _, EMatch(_, [Branch(pat, _, _); _])), CTest(_, Nil, SBlock(_, [SAssign([(_, EApp(EVar(Var(_, typ)), _))])]))]) =>
       // the constructor Nil is elaborated to a pattern of a constructor
-      assert p == PApp(nil_name(), Nil)
-      assert t == type_fun([type_list(type_int())], type_int())
+      assert pat == PApp(nil_name(), Nil)
+      assert typ == type_fun([type_list(type_int())], type_int())
     case _ =>
       assert false
   end
@@ -2589,15 +2589,15 @@ test coverage() :=
     call   check_program(in with_lists([CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), type_plain_list(type_int()))]], type_int(), EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0))]))]), out q)
     assert false
   catch
-    case NotExhaustive(w) =>
-      assert w == PApp(cons_name(), [PWild, PWild])
+    case NotExhaustive(pat) =>
+      assert pat == PApp(cons_name(), [PWild, PWild])
   end
   try
     call   check_program(in with_lists([CFun(unqualified("f"), Nil, [[Var(unqualified("xs"), type_plain_list(type_int()))]], type_int(), EMatch(expr_var("xs"), [Branch(PWild, None, expr_int(0)), Branch(pat_var("Nil"), None, expr_int(1))]))]), out q)
     assert false
   catch
-    case Unreachable(p) =>
-      assert p == PApp(nil_name(), Nil)
+    case Unreachable(pat) =>
+      assert pat == PApp(nil_name(), Nil)
   end
 
 test statements() :=
@@ -2613,8 +2613,8 @@ test statements() :=
       ), out q)
     assert false
   catch
-    case NotAssignable(n) =>
-      assert n == unqualified("n")
+    case NotAssignable(name) =>
+      assert name == unqualified("n")
   end
   try
     call   check_program(in with_lists([CTest("t", Nil, SBlock(Nil, [SRaise(expr_var("Nil"), THole)]))]), out q)
@@ -2675,8 +2675,8 @@ procedure body_of(in cmd: Cmd, out b: Expr) :=
 
   call check_program(in with_bags([cmd]), out q)
   match reverse(q.cmds)
-    case [CFun(_, _, _, _, e); _] =>
-      assign b := e
+    case [CFun(_, _, _, _, body); _] =>
+      assign b := body
     case _ =>
       assert false
   end
@@ -2699,9 +2699,9 @@ test deferred() :=
 
   call body_of(in fun_cmd("f", Nil, type_int(), EApp(ELam([var_of("x", THole)], expr_app("size", [expr_var("x")])), [expr_app("Box", [ELit(VStr("x"))])])), out b)
   match b
-    case EApp(ELam(_, EApp(EVar(Var(m, t)), _)), _) =>
-      assert m == in_box("size")
-      assert t == type_fun([TSort(in_box("Box"), Nil)], type_int())
+    case EApp(ELam(_, EApp(EVar(Var(name, typ)), _)), _) =>
+      assert name == in_box("size")
+      assert typ == type_fun([TSort(in_box("Box"), Nil)], type_int())
     case _ =>
       assert false
   end
@@ -2719,16 +2719,16 @@ test constructors() :=
 
   call body_of(in fun_cmd("f", Nil, tsort("Box"), expr_app("Leaf", [ELit(VStr("s"))])), out b)
   match b
-    case EApp(EVar(Var(k, _)), _) =>
-      assert k == in_box("Leaf")
+    case EApp(EVar(Var(name, _)), _) =>
+      assert name == in_box("Leaf")
     case _ =>
       assert false
   end
 
   call body_of(in fun_cmd("g", [var_of("b", tsort("Bag"))], type_int(), EMatch(expr_var("b"), [Branch(PApp(unq("Leaf"), [pat_var("n")]), None, expr_var("n")), Branch(PApp(unq("Bag"), [pat_var("n")]), None, expr_var("n"))])), out b)
   match b
-    case EMatch(_, [Branch(PApp(k, _), _, _); _]) =>
-      assert k == in_bag("Leaf")
+    case EMatch(_, [Branch(PApp(constr, _), _, _); _]) =>
+      assert constr == in_bag("Leaf")
     case _ =>
       assert false
   end
@@ -2739,8 +2739,8 @@ test procedures() :=
 
   call check_program(in with_bags([CProc(unq("p"), Nil, Nil, Nil, Nil, SBlock([var_of("b", tsort("Box"))], [SCall(unq("fill"), Nil, [var_of("b", THole)], Nil)]))]), out q)
   match reverse(q.cmds)
-    case [CProc(_, _, _, _, _, SBlock(_, [SCall(p, _, _, _)])); _] =>
-      assert p == in_box("fill")
+    case [CProc(_, _, _, _, _, SBlock(_, [SCall(proc, _, _, _)])); _] =>
+      assert proc == in_box("fill")
     case _ =>
       assert false
   end
@@ -2751,8 +2751,8 @@ test fields() :=
 
   call body_of(in fun_cmd("f", Nil, type_int(), EApp(ELam([var_of("p", THole)], expr_app(".x", [expr_var("p")])), [expr_app("Pt", [expr_int(3)])])), out b)
   match b
-    case EApp(ELam(_, EApp(EVar(Var(m, _)), _)), _) =>
-      assert m == in_bag("Pt.x")
+    case EApp(ELam(_, EApp(EVar(Var(name, _)), _)), _) =>
+      assert name == in_bag("Pt.x")
     case _ =>
       assert false
   end
@@ -2763,24 +2763,24 @@ test builtins() :=
 
   call body_of(in fun_cmd("f", Nil, type_int(), expr_app("compare", [expr_app("Bag", [expr_int(1)]), expr_app("Bag", [expr_int(2)])])), out b)
   match b
-    case EApp(EVar(Var(m, _)), _) =>
-      assert m == in_bag("compare")
+    case EApp(EVar(Var(name, _)), _) =>
+      assert name == in_bag("compare")
     case _ =>
       assert false
   end
 
   call body_of(in fun_cmd("g", Nil, type_bool(), expr_app("==", [expr_int(1), expr_int(2)])), out b)
   match b
-    case EApp(EVar(Var(m, _)), _) =>
-      assert m == unq("==")
+    case EApp(EVar(Var(name, _)), _) =>
+      assert name == unq("==")
     case _ =>
       assert false
   end
 
   call body_of(in CFun(unq("h"), ["A"], [[var_of("x", TParam("A"))]], type_bool(), expr_app("==", [expr_var("x"), expr_var("x")])), out b)
   match b
-    case EApp(EVar(Var(m, _)), _) =>
-      assert m == unq("==")
+    case EApp(EVar(Var(name, _)), _) =>
+      assert name == unq("==")
     case _ =>
       assert false
   end
@@ -2788,8 +2788,8 @@ test builtins() :=
   // lambda x => x == x, of a type that nothing decides, compares by the builtin
   call body_of(in fun_cmd("k", Nil, type_bool(), ELet([(var_of("e", THole), ELam([var_of("x", THole)], expr_app("==", [expr_var("x"), expr_var("x")])))], ELit(VBool(true)))), out b)
   match b
-    case ELet([(_, ELam(_, EApp(EVar(Var(m, _)), _)))], _) =>
-      assert m == unq("==")
+    case ELet([(_, ELam(_, EApp(EVar(Var(name, _)), _)))], _) =>
+      assert name == unq("==")
     case _ =>
       assert false
   end
@@ -2808,22 +2808,22 @@ test errors() :=
     call   body_of(in fun_cmd("f", Nil, type_int(), expr_app("size", [expr_int(1)])), out b)
     assert false
   catch
-    case NoOverload(n, _) =>
-      assert n == unq("size")
+    case NoOverload(name, _) =>
+      assert name == unq("size")
   end
   // let h := lambda x => size(x) in true, where nothing decides size
   try
     call   body_of(in fun_cmd("f", Nil, type_bool(), ELet([(var_of("h", THole), ELam([var_of("x", THole)], expr_app("size", [expr_var("x")])))], ELit(VBool(true)))), out b)
     assert false
   catch
-    case Ambiguous(n, ms) =>
-      assert n == unq("size")
-      assert size(ms) == 2
+    case Ambiguous(name, candidates) =>
+      assert name == unq("size")
+      assert size(candidates) == 2
   end
   try
     call   body_of(in fun_cmd("f", Nil, type_int(), expr_app("size", [expr_int(1), expr_int(2)])), out b)
     assert false
   catch
-    case WrongArity(n, k) =>
-      assert (n, k) == (unq("size"), 2)
+    case WrongArity(name, arity) =>
+      assert (name, arity) == (unq("size"), 2)
   end

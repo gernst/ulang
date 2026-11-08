@@ -7,17 +7,17 @@ import array
 export
 
 data Value :=
-  | Lit(Val)
-  | Obj(Name, List[Value])
+  | Lit(lit: Val)
+  | Obj(constr: Name, args: List[Value])
   // arrays of array.u by arrays of the interpreter of this program
-  | Arr(Array[Value])
-  | Clos(Map[Name, Value], List[Var], Expr)
-  | Fn(Name, Int)
-  | Con(Name)
-  | Prim(Name)
+  | Arr(elems: Array[Value])
+  | Clos(env: Map[Name, Value], formals: List[Var], body: Expr)
+  | Fn(name: Name, arity: Int)
+  | Con(name: Name)
+  | Prim(name: Name)
   // procedures as values, declared ones by their names, and lambdas with the values of the variables around them
-  | Proc(Name)
-  | ProcClos(Map[Name, Value], List[Var], List[Var], List[Var], Stmt)
+  | Proc(name: Name)
+  | ProcClos(env: Map[Name, Value], ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
 
 function list_value(vs: List[Value]): Value
 function list_elements(v: Value): Option[List[Value]]
@@ -32,8 +32,8 @@ function list_value(vs: List[Value]): Value :=
 
 function list_elements(v: Value): Option[List[Value]] :=
   match v
-    case Obj(n, Nil) if n == nil_name() => Some(Nil)
-    case Obj(n, [w, ws]) if n == cons_name() =>
+    case Obj(constr, Nil) if constr == nil_name() => Some(Nil)
+    case Obj(constr, [w, ws]) if constr == cons_name() =>
       match list_elements(ws)
         case Some(us) => Some([w; us])
         case None => None

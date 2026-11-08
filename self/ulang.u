@@ -14,7 +14,7 @@ import map
 
 // the first failure of a test of a file that runs in a directory
 data TestFailed :=
-  | TestFailed(Str)
+  | TestFailed(message: Str)
 
 procedure main() :=
   local args: List[Str], command: List[Str], rest: List[Str], ok := true, dir: Bool
@@ -93,16 +93,16 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
   catch
     case TestFailed(m) =>
       assign message := m
-    case ParseError(m, p) =>
-      assign message := "parse error: " ++ m ++ at_pos(p)
-    case ImportError(d, m, p) =>
-      assign message := "parse error: " ++ m ++ " in " ++ d ++ at_pos(p)
+    case ParseError(m, pos) =>
+      assign message := "parse error: " ++ m ++ at_pos(pos)
+    case ImportError(module, m, pos) =>
+      assign message := "parse error: " ++ m ++ " in " ++ module ++ at_pos(pos)
     case OsError(m) =>
       assign message := "runtime error: " ++ m
-    case Unsupported(m) =>
-      assign message := "compile error: " ++ m
-    case UnknownEntry(n) =>
-      assign message := "compile error: there is no procedure " ++ n.base ++ " without parameters"
+    case Unsupported(what) =>
+      assign message := "compile error: " ++ what
+    case UnknownEntry(name) =>
+      assign message := "compile error: there is no procedure " ++ name.base ++ " without parameters"
     case e =>
       assign message := "type error: " ++ located_message(e)
     case e =>
@@ -158,8 +158,8 @@ procedure format_file(in file: Str, out ok: Bool) :=
       call os_print_error(in file ++ ": format error: the source parses differently")
     end
   catch
-    case ParseError(m, _) =>
-      call os_print_error(in file ++ ": format error: the source does not parse: " ++ m)
+    case ParseError(message, _) =>
+      call os_print_error(in file ++ ": format error: the source does not parse: " ++ message)
   end
 
 // calls the procedure name of file, which takes no parameters, and prints as it runs
@@ -332,19 +332,19 @@ procedure first_failure(in run: Run, tests: List[Cmd], out message: Str) :=
 
 function is_selected_test(cmd: Cmd, names: List[Str]): Bool :=
   match cmd
-    case CTest(n, _, _) => names == [] or contains(n, names)
+    case CTest(test_name, _, _) => names == [] or contains(test_name, names)
     case _ => false
   end
 
 function is_test(cmd: Cmd, n: Str): Bool :=
   match cmd
-    case CTest(m, _, _) => m == n
+    case CTest(test_name, _, _) => test_name == n
     case _ => false
   end
 
 function cmd_name(cmd: Cmd): Str :=
   match cmd
-    case CTest(n, _, _) => n
+    case CTest(test_name, _, _) => test_name
     case _ => ""
   end
 
@@ -353,8 +353,8 @@ function cmd_name(cmd: Cmd): Str :=
 // the message of e, with the position of the command that raised it, and the module if it is not the main module
 function located_message(e: TypeError): Str :=
   match e
-    case Located(None, p, inner) => type_message(inner) ++ at_pos(p)
-    case Located(Some(m), p, inner) => type_message(inner) ++ " in " ++ m ++ at_pos(p)
+    case Located(None, pos, error) => type_message(error) ++ at_pos(pos)
+    case Located(Some(m), pos, error) => type_message(error) ++ " in " ++ m ++ at_pos(pos)
     case _ => type_message(e)
   end
 
@@ -367,38 +367,38 @@ function candidate_text(c: Name * (List[Type] * Type)): Str :=
 
 function type_message(e: TypeError): Str :=
   match e
-    case UnknownSort(n) => "unknown sort " ++ n.base
-    case SortArity(n, k, m) => "sort " ++ n.base ++ " expects " ++ show(k) ++ " arguments, got " ++ show(m)
-    case SortDefined(n) => "sort " ++ n.base ++ " is already defined"
-    case MissingType(n) => "missing type for " ++ n.base
-    case UndeclaredParams(n, ts) => n.base ++ " has undeclared type parameters " ++ format_types(ts)
-    case CannotUnify(a, b) => "cannot unify " ++ format_type(a) ++ " and " ++ format_type(b)
-    case InfiniteType(a, b) => "infinite type " ++ format_type(a) ++ " = " ++ format_type(b)
-    case UnknownVariable(n) => "unknown variable " ++ n.base
-    case NoOverload(n, t) => "no declaration of " ++ n.base ++ " has the type " ++ format_type(t)
-    case WrongArity(n, k) => n.base ++ " does not take " ++ show(k) ++ " arguments"
-    case AlreadyDefined(n) => n.base ++ " is already defined"
-    case Duplicate(what, x) => "duplicate " ++ what ++ " " ++ x
-    case Ambiguous(n, cs) => n.base ++ " is ambiguous: " ++ join(", ", [candidate_text(c) for c in cs])
-    case UnknownField(n) => field_message(split(n.base, '.'))
-    case UnknownFieldType(f, t) => "the type " ++ format_type(t) ++ " of the value of " ++ f ++ " is not known"
-    case CountMismatch(owner, unit, k, m) => (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(m)
-    case UnknownConstructor(n) => "unknown constructor " ++ n.base
-    case NotExhaustive(p) => "match is not exhaustive, missing " ++ format_pat(p)
-    case Unreachable(p) => "unreachable case " ++ format_pat(p)
-    case NotAssignable(n) => n.base ++ " is not assignable"
-    case UnknownProcedure(n) => "unknown procedure " ++ n.base
-    case UnknownException(t) => "the type " ++ format_type(t) ++ " of an exception is not fully known"
-    case TestParams(n) => "test " ++ n ++ " takes parameters"
-    case Unassigned(n) => n.base ++ " is not assigned on every path"
-    case OutputUnassigned(x, p) => "output " ++ x.base ++ " of " ++ p.base ++ " is not assigned on every path"
-    case MissingDefinition(n) => n.base ++ " is exported but not defined"
-    case SignatureMismatch(n) => "the definition of " ++ n.base ++ " differs from its signature"
-    case PartlyExported(n) => n.base ++ " is exported, but not with each of its numbers of arguments"
-    case PrivateType(n, t) => "the signature of " ++ n.base ++ " names the private type " ++ t.base
-    case VisibleEquality(t) => t.base ++ " declares ==, which only abstract types may"
-    case UnexportedOrder(f, t) => f.base ++ " of the exported type " ++ t.base ++ " is not exported"
-    case Located(_, _, inner) => type_message(inner)
+    case UnknownSort(name) => "unknown sort " ++ name.base
+    case SortArity(name, expected, actual) => "sort " ++ name.base ++ " expects " ++ show(expected) ++ " arguments, got " ++ show(actual)
+    case SortDefined(name) => "sort " ++ name.base ++ " is already defined"
+    case MissingType(name) => "missing type for " ++ name.base
+    case UndeclaredParams(name, types) => name.base ++ " has undeclared type parameters " ++ format_types(types)
+    case CannotUnify(left, right) => "cannot unify " ++ format_type(left) ++ " and " ++ format_type(right)
+    case InfiniteType(meta, typ) => "infinite type " ++ format_type(meta) ++ " = " ++ format_type(typ)
+    case UnknownVariable(name) => "unknown variable " ++ name.base
+    case NoOverload(name, typ) => "no declaration of " ++ name.base ++ " has the type " ++ format_type(typ)
+    case WrongArity(name, arity) => name.base ++ " does not take " ++ show(arity) ++ " arguments"
+    case AlreadyDefined(name) => name.base ++ " is already defined"
+    case Duplicate(what, item) => "duplicate " ++ what ++ " " ++ item
+    case Ambiguous(name, candidates) => name.base ++ " is ambiguous: " ++ join(", ", [candidate_text(c) for c in candidates])
+    case UnknownField(name) => field_message(split(name.base, '.'))
+    case UnknownFieldType(field, typ) => "the type " ++ format_type(typ) ++ " of the value of " ++ field ++ " is not known"
+    case CountMismatch(owner, unit, k, actual) => (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(actual)
+    case UnknownConstructor(name) => "unknown constructor " ++ name.base
+    case NotExhaustive(pat) => "match is not exhaustive, missing " ++ format_pat(pat)
+    case Unreachable(pat) => "unreachable case " ++ format_pat(pat)
+    case NotAssignable(name) => name.base ++ " is not assignable"
+    case UnknownProcedure(name) => "unknown procedure " ++ name.base
+    case UnknownException(typ) => "the type " ++ format_type(typ) ++ " of an exception is not fully known"
+    case TestParams(test_name) => "test " ++ test_name ++ " takes parameters"
+    case Unassigned(name) => name.base ++ " is not assigned on every path"
+    case OutputUnassigned(x, proc) => "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned on every path"
+    case MissingDefinition(name) => name.base ++ " is exported but not defined"
+    case SignatureMismatch(name) => "the definition of " ++ name.base ++ " differs from its signature"
+    case PartlyExported(name) => name.base ++ " is exported, but not with each of its numbers of arguments"
+    case PrivateType(name, sort) => "the signature of " ++ name.base ++ " names the private type " ++ sort.base
+    case VisibleEquality(sort) => sort.base ++ " declares ==, which only abstract types may"
+    case UnexportedOrder(fun, sort) => fun.base ++ " of the exported type " ++ sort.base ++ " is not exported"
+    case Located(_, _, error) => type_message(error)
   end
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f
@@ -414,17 +414,17 @@ function without_update(f: Str): Str :=
 
 function runtime_message(e: RuntimeError): Str :=
   match e
-    case Uninitialized(n) => n.base ++ " is not initialized"
-    case NotFunction(v) => "cannot apply " ++ format_value(v)
-    case Unspecified(n, vs) => n.base ++ " is not specified for " ++ join(", ", [format_value(v) for v in vs])
-    case NoCase(s) => "no case matches " ++ s
+    case Uninitialized(name) => name.base ++ " is not initialized"
+    case NotFunction(value) => "cannot apply " ++ format_value(value)
+    case Unspecified(name, args) => name.base ++ " is not specified for " ++ join(", ", [format_value(v) for v in args])
+    case NoCase(text) => "no case matches " ++ text
     case CompareFunctions => "cannot compare functions"
-    case NotList(v) => "expected a list, got " ++ format_value(v)
+    case NotList(value) => "expected a list, got " ++ format_value(value)
     case AssertionFailed => "assertion failed"
-    case AssertionUnequal(a, b) => "assertion failed: " ++ a ++ " != " ++ b
-    case Uncaught(s) => "uncaught exception " ++ s
-    case UnassignedOutput(x, p) => "output " ++ x.base ++ " of " ++ p.base ++ " is not assigned"
-    case UnknownProc(n) => "unknown procedure " ++ n.base
-    case NotProc(v) => "cannot call " ++ format_value(v)
-    case RecursiveInitialization(n) => "recursive initialization of " ++ n.base
+    case AssertionUnequal(left, right) => "assertion failed: " ++ left ++ " != " ++ right
+    case Uncaught(text) => "uncaught exception " ++ text
+    case UnassignedOutput(x, proc) => "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned"
+    case UnknownProc(name) => "unknown procedure " ++ name.base
+    case NotProc(value) => "cannot call " ++ format_value(value)
+    case RecursiveInitialization(name) => "recursive initialization of " ++ name.base
   end

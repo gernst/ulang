@@ -35,12 +35,12 @@ data Counter :=
   | Counter(value: Int)
 
 data Tally :=
-  | Tally(List[Int])
+  | Tally(counts: List[Int])
 
 function level(c: Color): Level :=
   match c
     case Red => 0
-    case Green(n) => n
+    case Green(level) => level
   end
 
 function start(): Counter :=

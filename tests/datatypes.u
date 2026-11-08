@@ -52,32 +52,32 @@ test association_lists() :=
 
 // mutually recursive datatypes, and a type definition before the datatype it uses
 data Tree[A] :=
-  | Node(A, Forest[A])
+  | Node(label: A, children: Forest[A])
 
 data Forest[A] :=
   | Leaf
-  | Grow(Tree[A], Forest[A])
+  | Grow(tree: Tree[A], rest: Forest[A])
 
 type Pair[A] :=
   Tuple[A, A]
 
 data Tuple[A, B] :=
-  | Tuple(A, B)
+  | Tuple(first: A, second: B)
 
 function size[A](t: Tree[A]): Int :=
   match t
-    case Node(_, f) => 1 + sizes(f)
+    case Node(_, children) => 1 + sizes(children)
   end
 
 function sizes[A](f: Forest[A]): Int :=
   match f
     case Leaf => 0
-    case Grow(t, g) => size(t) + sizes(g)
+    case Grow(tree, rest) => size(tree) + sizes(rest)
   end
 
 function swap[A](p: Pair[A]): Pair[A] :=
   match p
-    case Tuple(x, y) => Tuple(y, x)
+    case Tuple(first, second) => Tuple(second, first)
   end
 
 test mutual_recursion() :=
@@ -87,25 +87,25 @@ test mutual_recursion() :=
 // the natural numbers of Peano
 data Nat :=
   | Zero
-  | Succ(Nat)
+  | Succ(pred: Nat)
 
 function add(m: Nat, n: Nat): Nat :=
   match m
     case Zero => n
-    case Succ(k) => Succ(add(k, n))
+    case Succ(pred) => Succ(add(pred, n))
   end
 
 function even(n: Nat): Bool :=
   match n
     case Zero => true
     case Succ(Zero) => false
-    case Succ(Succ(m)) => even(m)
+    case Succ(Succ(pred)) => even(pred)
   end
 
 function int(n: Nat): Int :=
   match n
     case Zero => 0
-    case Succ(m) => 1 + int(m)
+    case Succ(pred) => 1 + int(pred)
   end
 
 test nat() :=
@@ -166,15 +166,15 @@ data Point :=
 // label is a field of both constructors, and radius only of circles, whose accessor is partial
 data Shape :=
   | Circle(label: Str, center: Point, radius: Int)
-  | Box(label: Str, corner: Point, Point)
+  | Box(label: Str, corner: Point, opposite: Point)
 
 data Couple[A, B] :=
   | Couple(left: A, right: B)
 
 function area(s: Shape): Int :=
   match s
-    case Circle(_, _, r) => 3 * r * r
-    case Box(_, a, b) => (b.x - a.x) * (b.y - a.y)
+    case Circle(_, _, radius) => 3 * radius * radius
+    case Box(_, corner, opposite) => (opposite.x - corner.x) * (opposite.y - corner.y)
   end
 
 test fields() :=
@@ -202,7 +202,7 @@ test updates() :=
   try
     assign b := b with radius := 1
   catch
-    case MissingField(f) =>
-      assign m := f
+    case MissingField(field) =>
+      assign m := field
   end
   assert m == "Shape.radius"

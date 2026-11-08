@@ -46,7 +46,7 @@ implementation
 
 data Map[K, V] :=
   | Leaf
-  | Node(Map[K, V], K, V, Map[K, V], Int)
+  | Node(left: Map[K, V], key: K, value: V, right: Map[K, V], height: Int)
 
 function empty[K, V](): Map[K, V] :=
   Leaf
@@ -54,11 +54,11 @@ function empty[K, V](): Map[K, V] :=
 function get[K, V](k: K, m: Map[K, V]): Option[V] :=
   match m
     case Leaf => None
-    case Node(l, j, v, r, _) =>
-      match compare(k, j)
-        case -1 => get(k, l)
-        case 1 => get(k, r)
-        case _ => Some(v)
+    case Node(left, key, value, right, _) =>
+      match compare(k, key)
+        case -1 => get(k, left)
+        case 1 => get(k, right)
+        case _ => Some(value)
       end
   end
 
@@ -69,11 +69,11 @@ function contains[K, V](k: K, m: Map[K, V]): Bool :=
 function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V] :=
   match m
     case Leaf => Node(Leaf, k, v, Leaf, 1)
-    case Node(l, j, w, r, h) =>
-      match compare(k, j)
-        case -1 => balance(put(k, v, l), j, w, r)
-        case 1 => balance(l, j, w, put(k, v, r))
-        case _ => Node(l, k, v, r, h)
+    case Node(left, key, value, right, height) =>
+      match compare(k, key)
+        case -1 => balance(put(k, v, left), key, value, right)
+        case 1 => balance(left, key, value, put(k, v, right))
+        case _ => Node(left, k, v, right, height)
       end
   end
 
@@ -86,19 +86,19 @@ function ==[K, V](a: Map[K, V], b: Map[K, V]): Bool :=
 function entries_onto[K, V](m: Map[K, V], rest: List[K * V]): List[K * V] :=
   match m
     case Leaf => rest
-    case Node(l, k, v, r, _) => entries_onto(l, [(k, v); entries_onto(r, rest)])
+    case Node(left, key, value, right, _) => entries_onto(left, [(key, value); entries_onto(right, rest)])
   end
 
 function foldr[K, V, R](m: Map[K, V], acc: R, f: (K, V, R) -> R): R :=
   match m
     case Leaf => acc
-    case Node(l, k, v, r, _) => foldr(l, f(k, v, foldr(r, acc, f)), f)
+    case Node(left, key, value, right, _) => foldr(left, f(key, value, foldr(right, acc, f)), f)
   end
 
 function foldl[K, V, R](m: Map[K, V], acc: R, f: (R, K, V) -> R): R :=
   match m
     case Leaf => acc
-    case Node(l, k, v, r, _) => foldl(r, f(foldl(l, acc, f), k, v), f)
+    case Node(left, key, value, right, _) => foldl(right, f(foldl(left, acc, f), key, value), f)
   end
 
 function list[K, V](m: Map[K, V]): List[K * V] :=
@@ -107,13 +107,13 @@ function list[K, V](m: Map[K, V]): List[K * V] :=
 function size[K, V](m: Map[K, V]): Int :=
   match m
     case Leaf => 0
-    case Node(l, _, _, r, _) => size(l) + 1 + size(r)
+    case Node(left, _, _, right, _) => size(left) + 1 + size(right)
   end
 
 function height[K, V](m: Map[K, V]): Int :=
   match m
     case Leaf => 0
-    case Node(_, _, _, _, h) => h
+    case Node(_, _, _, _, height) => height
   end
 
 function node[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
@@ -121,25 +121,25 @@ function node[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
 
 function rotate_left[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case Node(a, j, v, Node(b, k, w, c, _), _) => node(node(a, j, v, b), k, w, c)
+    case Node(a, j, v, Node(b, k, w, right, _), _) => node(node(a, j, v, b), k, w, right)
     case _ => m
   end
 
 function rotate_right[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case Node(Node(a, j, v, b, _), k, w, c, _) => node(a, j, v, node(b, k, w, c))
+    case Node(Node(left, j, v, b, _), k, w, c, _) => node(left, j, v, node(b, k, w, c))
     case _ => m
   end
 
 function left_of[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case Node(l, _, _, _, _) => l
+    case Node(left, _, _, _, _) => left
     case _ => m
   end
 
 function right_of[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case Node(_, _, _, r, _) => r
+    case Node(_, _, _, right, _) => right
     case _ => m
   end
 
@@ -156,8 +156,8 @@ function balance[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
 function balanced[K, V](m: Map[K, V]): Bool :=
   match m
     case Leaf => true
-    case Node(l, _, _, r, h) =>
-      balanced(l) and balanced(r) and h == node_height(l, r) and height(l) <= height(r) + 1 and height(r) <= height(l) + 1
+    case Node(left, _, _, right, h) =>
+      balanced(left) and balanced(right) and h == node_height(left, right) and height(left) <= height(right) + 1 and height(right) <= height(left) + 1
   end
 
 function node_height[K, V](l: Map[K, V], r: Map[K, V]): Int :=
@@ -167,11 +167,11 @@ function node_height[K, V](l: Map[K, V], r: Map[K, V]): Int :=
 function remove[K, V](k: K, m: Map[K, V]): Map[K, V] :=
   match m
     case Leaf => Leaf
-    case Node(l, j, v, r, _) =>
-      match compare(k, j)
-        case -1 => balance(remove(k, l), j, v, r)
-        case 1 => balance(l, j, v, remove(k, r))
-        case _ => join(l, r)
+    case Node(left, key, value, right, _) =>
+      match compare(k, key)
+        case -1 => balance(remove(k, left), key, value, right)
+        case 1 => balance(left, key, value, remove(k, right))
+        case _ => join(left, right)
       end
   end
 
@@ -185,15 +185,15 @@ function join[K, V](l: Map[K, V], r: Map[K, V]): Map[K, V] :=
 function first_entry[K, V](m: Map[K, V]): Option[K * V] :=
   match m
     case Leaf => None
-    case Node(Leaf, k, v, _, _) => Some((k, v))
-    case Node(l, _, _, _, _) => first_entry(l)
+    case Node(Leaf, key, value, _, _) => Some((key, value))
+    case Node(left, _, _, _, _) => first_entry(left)
   end
 
 function remove_first[K, V](m: Map[K, V]): Map[K, V] :=
   match m
     case Leaf => Leaf
-    case Node(Leaf, _, _, r, _) => r
-    case Node(l, k, v, r, _) => balance(remove_first(l), k, v, r)
+    case Node(Leaf, _, _, right, _) => right
+    case Node(left, key, value, right, _) => balance(remove_first(left), key, value, right)
   end
 
 function map[K, V](ps: List[K * V]): Map[K, V] :=

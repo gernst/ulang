@@ -8,24 +8,24 @@ data DivisionByZero :=
   | DivisionByZero
 
 data NoIndex :=
-  | NoIndex(Str, Int)
+  | NoIndex(text: Str, index: Int)
 
 // an index of an array with the size of the array
 data OutOfBounds :=
-  | OutOfBounds(Int, Int)
+  | OutOfBounds(index: Int, count: Int)
 
 data NoCharacter :=
-  | NoCharacter(Int)
+  | NoCharacter(code: Int)
 
 data MissingField :=
-  | MissingField(Str)
+  | MissingField(field: Str)
 
 // the order of an abstract type that declares == but not compare, and both of one that declares neither, with the name of the type
 data Unordered :=
-  | Unordered(Str)
+  | Unordered(sort: Str)
 
 data Incomparable :=
-  | Incomparable(Str)
+  | Incomparable(sort: Str)
 
 infix right 1 ->
 

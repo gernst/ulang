@@ -22,15 +22,15 @@ test failures() :=
   try
     call os_read(in "out/files/missing.txt", out t)
   catch
-    case OsError(e) =>
-      assign m := e
+    case OsError(message) =>
+      assign m := message
   end
   assert m == "cannot read out/files/missing.txt"
   try
     call os_library(in "missing", out t)
   catch
-    case OsError(e) =>
-      assign m := e
+    case OsError(message) =>
+      assign m := message
   end
   assert m == "unknown module missing"
 
@@ -57,8 +57,8 @@ test walking() :=
   try
     call os_list(in "out/walk/missing", out entries)
   catch
-    case OsError(e) =>
-      assign m := e
+    case OsError(message) =>
+      assign m := message
   end
   assert m == "cannot list out/walk/missing"
 
@@ -74,8 +74,8 @@ test changing_directory() :=
   try
     call os_chdir(in "out/missing")
   catch
-    case OsError(e) =>
-      assign m := e
+    case OsError(message) =>
+      assign m := message
   end
   assert m == "cannot change to out/missing"
 

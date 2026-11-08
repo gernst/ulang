@@ -19,7 +19,7 @@ function pair(a: Int, b: Int): Pair
 implementation
 
 data Pair :=
-  | Pair(Int, Int)
+  | Pair(first: Int, second: Int)
 
 function pair(a: Int, b: Int): Pair :=
   Pair(a, b)
@@ -65,8 +65,8 @@ test equality_without_order() :=
   try
     assign r := show(compare(tally([1]), tally([2])))
   catch
-    case Unordered(t) =>
-      assign r := t
+    case Unordered(sort) =>
+      assign r := sort
   end
 
   assert r == "exported.Tally"
@@ -77,8 +77,8 @@ test incomparable() :=
   try
     assign r := if start() == start() then "equal" else "unequal"
   catch
-    case Incomparable(t) =>
-      assign r := t
+    case Incomparable(sort) =>
+      assign r := sort
   end
 
   assert r == "exported.Counter"
@@ -90,8 +90,8 @@ test incomparable_inside() :=
   try
     assign r := if [Pair(1, 2)] == [pair(1, 2)] then "equal" else "unequal"
   catch
-    case Incomparable(t) =>
-      assign r := t
+    case Incomparable(sort) =>
+      assign r := sort
   end
 
   assert r == "modules.Pair"

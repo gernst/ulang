@@ -56,12 +56,12 @@ data Color :=
   | Green
 
 data Pair[A, B] :=
-  | Pair(A, B)
+  | Pair(first: A, second: B)
 
 // a show of a generic datatype, which shows its components by the builtin
 function show[A, B](p: Pair[A, B]): Str :=
   match p
-    case Pair(a, b) => "<" ++ show(a) ++ " | " ++ show(b) ++ ">"
+    case Pair(first, second) => "<" ++ show(first) ++ " | " ++ show(second) ++ ">"
   end
 
 function texts[A](xs: List[A]): List[Str] :=
