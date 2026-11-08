@@ -14,10 +14,10 @@ function format_value(v: Value): Str
 function format_type(t: Type): Str
 function format_types(ts: List[Type]): Str
 function format_pat(pat: Pat): Str
-function text_of(v: Value): Str
-function array_text(texts: List[Str]): Str
 function format_name(n: Name): Str
-function symbolic(n: Id): Bool
+
+// the array of the texts of its elements, which the interpreter shows itself when they have declared shows
+function array_text(texts: List[Str]): Str
 
 implementation
 
@@ -802,13 +802,6 @@ function infix_text(op: Id, l: Str, r: Str): Str :=
 
 function pat_operand(a: Str): Str :=
   if contains(' ', a) and at(0, a) != '(' then "(" ++ a ++ ")" else a
-
-// the text of a string, for os_print
-function text_of(v: Value): Str :=
-  match v
-    case Lit(VStr(s)) => s
-    case _ => format_value(v)
-  end
 
 // the name with its module, to tell names apart
 function format_name(n: Name): Str :=

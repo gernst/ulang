@@ -68,6 +68,13 @@ function declared_for(run: Run, k: Name, fs: Map[Name, Name]): Option[Name] :=
 function load(q: Prog): Run :=
   Run(defs_of(q), Nil, Nil)
 
+// the contents of a string, as printing and declared shows give them, and the source of any other value
+function text_of(v: Value): Str :=
+  match v
+    case Lit(VStr(s)) => s
+    case _ => format_value(v)
+  end
+
 // the builtins without a module, and the functions of the builtin sections of the prelude, str, and array
 function builtin_names(): Set[Name] :=
   set(
