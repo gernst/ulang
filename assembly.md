@@ -1,6 +1,6 @@
 # Assembly
 
-A plan, not implemented yet (TODO, Compiler 4): a second backend of the compiler that writes GNU assembly for x86-64 Linux instead of C, so that compiled programs need no C compiler, only `as` and a linker, while the runtime stays C. The C backend stays as the portable one and as the seed of the bootstrap.
+A plan, not implemented yet (TODO, Compiler 3): a second backend of the compiler that writes GNU assembly for x86-64 Linux instead of C, so that compiled programs need no C compiler, only `as` and a linker, while the runtime stays C. The C backend stays as the portable one and as the seed of the bootstrap.
 
 ## Why
 
@@ -15,7 +15,7 @@ Measured on the compiler compiling itself, on the sources of commit 22b0daf:
 | self-compile, generated code at `-O0`, runtime at `-O2` | 0.61 s |
 | self-compile, both at `-O0` | 0.85 s |
 
-The second to last row approximates a simple backend, which keeps every variable in memory as `-O0` does, next to the runtime at `-O2`: it is 1.35 times slower, since much of the time is spent in the runtime, in `compare`, allocation, and the collector. In exchange, `cc` no longer compiles programs: `make selfcompile`, which takes 36 seconds, spends about 25 of them in `cc -O2`, which would become about a second of `as` and linking, and `make testc` (TODO, Testing 1) would compile each file in a fraction of the time.
+The second to last row approximates a simple backend, which keeps every variable in memory as `-O0` does, next to the runtime at `-O2`: it is 1.35 times slower, since much of the time is spent in the runtime, in `compare`, allocation, and the collector. In exchange, `cc` no longer compiles programs: `make selfcompile`, which takes 36 seconds, spends about 25 of them in `cc -O2`, which would become about a second of `as` and linking, and `make testc` would compile each file in a fraction of the time.
 
 ## Approach
 
@@ -27,7 +27,7 @@ The second to last row approximates a simple backend, which keeps every variable
 - **Control flow**: `&&`, `||`, `!`, `?:`, `if`, and `while` are comparisons and jumps to numbered labels, and `return` jumps to the epilogue of the function.
 - **Static data**: the literals of strings (`U_LIT`), the type descriptors `t_` (`struct u_type`), the constructor names `n_` (`struct u_name`), the units `o_`, and the `static` locals of functions, which are the caches of functions without parameters and literals, go to `.data` and `.rodata` with labels of their own, where function pointers in descriptors and closures are relocations.
 - **Exceptions** call the runtime as now: `u_push`, `setjmp` of the C library on the `jmp_buf` of the handler, `u_pop`, `u_raise`, and `u_reraise`.
-- **The runtime** stays C, compiled once at `-O2` to `self/runtime/ulang.o` (as for TODO, Testing 1), and a program is linked by `cc program.s ulang.o -lgmp -lgc`, where `cc` only assembles and links.
+- **The runtime** stays C, compiled once at `-O2` to `self/runtime/ulang.o` (as `make testc` does with `out/testc/ulang.o`), and a program is linked by `cc program.s ulang.o -lgmp -lgc`, where `cc` only assembles and links.
 
 ## Difficulties
 
@@ -39,10 +39,10 @@ The second to last row approximates a simple backend, which keeps every variable
 
 ## Steps
 
-0. **Compiled tests** (TODO, Testing 1): `make testc`, which the backend needs as its safety net, since every test must have the same outcome in both backends.
+0. **Compiled tests**, done: `make testc`, which the backend needs as its safety net, since every test must have the same outcome in both backends.
 1. **The runtime**: compiled once to `ulang.o`, the `_Static_assert`s of the offsets, and the inline functions of `ulang.h` exported as functions too.
 2. **`self/asm.u`**: the translation of a `CFile` as above, with unit tests that assemble and run small functions.
 3. **`ulang.bin compile <file> <entry> <target.s>`**, which chooses the backend by the extension of the target, and `make testc` with both backends.
 4. **Bootstrap**: `make selfcompile` through assembly, whose compiler must compile itself to the same `.s` file as well as to the same C, where `bootstrap/ulang.c` stays the versioned seed.
 5. **Simple improvements**, each measured on the self-compile: the instructions of `u_field`, `u_is_con`, and `u_truth` in place, results that stay in `%rax` instead of going through their slot, and arguments that are variables or constants loaded directly into the registers of arguments.
-6. **Later, each a project of its own**: register allocation, ARM64, and unboxed small integers (TODO, Compiler 3), which a backend of its own makes easier than C.
+6. **Later, each a project of its own**: register allocation, ARM64, and unboxed small integers, which `TODO.md` rejected for the C backend, and which a backend of its own makes easier.
