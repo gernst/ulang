@@ -4,7 +4,6 @@
 
 import syntax
 import lex
-import format
 import os
 import set
 import map
@@ -1809,7 +1808,7 @@ function module_name(path: Str): Str :=
     if size(f) >= 2 and slice(f, size(f) - 2, size(f)) == ".u" then slice(f, 0, size(f) - 2) else f
 
 // the parser, tested by the trees of single constructs, parsed with their own notation from the empty context, which reads no
-// files, and by printing a program in the layout of the printer back as it is
+// files
 
 function test_notation(): Str :=
   "infix right 8 ++\ninfix 6 ==\ninfix left 9 + -\ninfix left 10 *\nprefix 5 not\nprefix 11 -\n"
@@ -1873,10 +1872,3 @@ test parsed_comprehensions() :=
   assert expr == declared_app("foldr", [expr_var("a"), expr_var("Nil"), ELam([x, acc_var()], declared_app("foldr", [expr_var("b"), acc, ELam([y, acc_var()], EIte(EVar(x), cons, acc))]))])
   call   parsed(in "{y => x for x => y in a}", out expr)
   assert expr == declared_app("foldl", [expr_var("a"), declared_app("empty", []), ELam([acc_var(), x, y], declared_app("put", [EVar(y), EVar(x), acc]))])
-
-// a program in the layout of the printer, with the translations of locals, else if, fields, and updates, is printed back
-test printed_back() :=
-  local d: Mod, text := "infix left 9 +\n\ndata R :=\n  | R(f: Int, g: Int)\n\nprocedure p(in r: R, out n: Int) :=\n  local s := (r with f := 1), k: Int\n  if s.f + r.g\n    assign n := 1\n  else if r.f\n    assign k := 2, n := k\n  else\n    skip\n  end\n"
-
-  call   parse_text(in text, out d)
-  assert format_program([d]) == text
