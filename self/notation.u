@@ -46,7 +46,6 @@ function notation_of(notation: Notation, f: Fixity, op: Id): Option[Fixity * Int
 function is_operator(notation: Notation, op: Id): Bool :=
   contains(op, notation.prefix_ops) or contains(op, notation.postfix_ops) or contains(op, notation.infix_ops)
 
-// the notation with those of the commands cmds
 function with_notation(notation: Notation, cmds: List[Cmd]): Notation :=
   match cmds
     case Nil => notation

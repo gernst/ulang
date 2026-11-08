@@ -87,7 +87,6 @@ function array_name(): Name :=
 function array_foldr_name(): Name :=
   Name(Some("array"), "foldr")
 
-// the types of the builtins
 function type_bool(): Type :=
   TSort(Name(Some("prelude"), "Bool"), Nil)
 
@@ -132,6 +131,5 @@ function natives_prelude(): Mod :=
       Nil
     )
 
-// the program of the commands cmds of the module main
 function program_of(cmds: List[Cmd]): Source :=
   Source([natives_prelude(), Mod("main", Nil, Nil, Nil, unplaced(cmds))], "main")

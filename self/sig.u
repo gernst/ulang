@@ -49,7 +49,6 @@ implementation
 function empty(): Sig :=
   Sig(empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
-// the declarations of the modules ms
 function restrict(sig: Sig, ms: List[Id]): Sig :=
   Sig(
     owned_map(sig.aliases, ms),
@@ -113,7 +112,6 @@ function exported(sig: Sig, values: Set[Name], sorts: Set[Name]): Sig :=
 function without[V](m: Map[Name, V], names: Set[Name]): Map[Name, V] :=
   map([e for e in list(m) if not contains(key_of(e), names)])
 
-// a declaration of any kind named n
 function declares(sig: Sig, n: Name): Bool :=
   is_alias(sig, n) or is_fun(sig, n) or is_proc(sig, n) or is_data(sig, n) or is_constr(sig, n)
 

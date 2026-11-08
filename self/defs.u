@@ -36,7 +36,7 @@ function defs_of(q: Prog): Defs :=
     map(ordered_by(q.cmds, "show"))
   )
 
-// functions are overloaded by the number of arguments of their first list of formals
+// functions are overloaded by their number of arguments
 function fun_defs(cmds: List[Cmd]): List[(Name * Int) * (List[Var] * Expr)] :=
   match cmds
     case Nil => Nil
@@ -58,7 +58,6 @@ function constr_defs(cmds: List[Cmd]): List[Name * (Int * Int * Name)] :=
     case [_; rest] => constr_defs(rest)
   end
 
-// the constructors ks of datatype t from position i
 function constrs_from(t: Name, ks: List[Constr], i: Int): List[Name * (Int * Int * Name)] :=
   match ks
     case Nil => Nil

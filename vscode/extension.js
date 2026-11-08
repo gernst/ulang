@@ -5,8 +5,9 @@ const cp = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-// e.g. "/a/b.u: type error: cannot unify Int and Bool", optionally followed by "at 3.11" and "in module"
-const errorLine = /^(.*?): ((?:parse|type|runtime) error: .*?)(?: at (\d+)\.(\d+))?( in \w+)?$/;
+// e.g. "/a/b.u: type error: cannot unify Int and Bool", optionally followed by " in m" for an imported module m and
+// " at 3.11", the position in the file of that module
+const errorLine = /^(.*?): ((?:parse|type|runtime|compile) error: .*?)(?: in (\w+))?(?: at (\d+)\.(\d+))?$/;
 const testLine = /^test (\S+) (passed|failed: (.*))$/;
 
 function binary() {
@@ -112,15 +113,29 @@ function activate(context) {
   const diagnostics = vscode.languages.createDiagnosticCollection("ulang");
   context.subscriptions.push(output, diagnostics);
 
-  // errors of file in the error output of ulang, without a position at the start of the file
+  // errors of file in the error output of ulang, without a position at the start of the file, and those of an imported
+  // module at the import of the module, or else at the start, pointing to the module if it is next to file
   function diagnose(file, stderr) {
     const found = [];
+    const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n") : [];
     for (const line of stderr.split("\n")) {
       const match = errorLine.exec(line);
       if (!match) continue;
-      const position = match[3] ? new vscode.Position(Number(match[3]) - 1, Number(match[4]) - 1) : new vscode.Position(0, 0);
-      const message = match[2] + (match[5] || "");
-      found.push(new vscode.Diagnostic(new vscode.Range(position, position.translate(0, 1)), message, vscode.DiagnosticSeverity.Error));
+      const [, , message, module, row, column] = match;
+      const at = row ? new vscode.Position(Number(row) - 1, Number(column) - 1) : new vscode.Position(0, 0);
+      if (!module) {
+        found.push(new vscode.Diagnostic(new vscode.Range(at, at.translate(0, 1)), message, vscode.DiagnosticSeverity.Error));
+        continue;
+      }
+      const imported = lines.findIndex((l) => l.trim() === "import " + module);
+      const position = new vscode.Position(Math.max(imported, 0), 0);
+      const text = message + " in " + module + (row ? " at " + row + "." + column : "");
+      const diagnostic = new vscode.Diagnostic(new vscode.Range(position, position.translate(0, 1)), text, vscode.DiagnosticSeverity.Error);
+      const source = path.join(path.dirname(file), module + ".u");
+      if (row && fs.existsSync(source)) {
+        diagnostic.relatedInformation = [new vscode.DiagnosticRelatedInformation(new vscode.Location(vscode.Uri.file(source), at), message)];
+      }
+      found.push(diagnostic);
     }
     diagnostics.set(vscode.Uri.file(file), found);
   }

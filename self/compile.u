@@ -222,11 +222,9 @@ function type_key(t: Type): Str :=
     case _ => "?"
   end
 
-// a function n with k arguments
 function is_global_fun(defs: Defs, n: Name, k: Int): Bool :=
   contains((n, k), defs.funs)
 
-// the number of fields of constructor n
 function fields_count(defs: Defs, n: Name): Option[Int] :=
   match get(n, defs.constrs)
     case Some((k, _, _)) => Some(k)
@@ -281,7 +279,7 @@ function literal_value(l: Lit): CExpr :=
     case LChar(char) => c_call("u_mk_char", [CeNum(ord(char))])
   end
 
-// the tests that v matches p, in an order that checks a constructor before its fields
+// the tests that v matches pat, in an order that checks a constructor before its fields
 function pattern_tests(pat: Pat, v: CExpr): List[CExpr] :=
   match pat
     case PLit(lit) => [c_call("u_equals", [v, literal_value(lit)])]
@@ -296,7 +294,7 @@ function field_tests(ps: List[Pat * Int], v: CExpr): List[CExpr] :=
     case [(p, i); rest] => pattern_tests(p, field(v, i)) ++ field_tests(rest, v)
   end
 
-// the declarations of the variables of p, where v matches p
+// the declarations of the variables of pat, where v matches pat
 function pattern_binds(pat: Pat, v: CExpr): List[CStmt] :=
   match pat
     case PVar(Var(name, _)) => [CsDecl(value_type(), var_name(name), Some(v))]
@@ -319,7 +317,7 @@ function pattern_names(pat: Pat): List[Name] :=
     case _ => []
   end
 
-// the variables of e that bound does not bind, which lambdas capture if they are local
+// the variables of expr that bound does not bind, which lambdas capture if they are local
 function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
   match expr
     case ELit(_) => []
@@ -388,7 +386,7 @@ function global_value(defs: Defs, n: Name, t: Type): CExpr :=
         end
     end
 
-// the statements that compute e in a scope with the local variables env, and its value r
+// the statements that compute expr in a scope with the local variables env, and its value r
 procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt], r: CExpr, ref g: Gen) :=
   local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], ra: CExpr, rb: CExpr, rc: CExpr, rs: List[CExpr], t: Str, d: Str
 

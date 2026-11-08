@@ -92,7 +92,6 @@ function format_operand(expr: CExpr): Str :=
     case _ => "(" ++ format_expr(expr) ++ ")"
   end
 
-// the lines of a statement, indented by indent
 function format_stmt(indent: Str, stmt: CStmt): List[Str] :=
   let deeper := indent ++ "  " in
     match stmt

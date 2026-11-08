@@ -160,7 +160,6 @@ function char_values(vs: List[Value]): List[Char] :=
     case _ => Nil
   end
 
-// env where the variables xs have the values vs
 function bind_all(xs: List[Var], vs: List[Value], env: Bindings): Bindings :=
   match (xs, vs)
     case ([x; xs1], [v; vs1]) => bind_all(xs1, vs1, put(x.name, v, env))
@@ -1094,11 +1093,11 @@ procedure check_and_run(in cmds: List[Cmd]) :=
   call check_program(in with_lists(cmds), out q)
   call run_program(in q)
 
-// the test n that asserts that e equals expected
+// the test n that asserts that expr equals expected
 function asserting(n: Id, expr: Expr, expected: Expr): Cmd :=
   CTest(n, Nil, SBlock(Nil, [SAssert(expr_app("==", [expr, expected]))]))
 
-// a test that assigns e to a local variable
+// a test that assigns expr to a local variable
 function assigning(expr: Expr): Cmd :=
   CTest("a", Nil, SBlock([hole_var("v")], [SAssign([(hole_var("v"), expr)])]))
 

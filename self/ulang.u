@@ -220,7 +220,7 @@ procedure run_test(in run: Run, cmd: Cmd, out passed: Bool) :=
     assign passed := false
   end
 
-// the error of the test c, or else ""
+// the error of the test cmd, or else ""
 procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
   local cache: Map[Name, Value] := empty()
 
@@ -261,7 +261,6 @@ procedure walk_all(in paths: List[Str], out files: List[Str]) :=
 function is_source(path: Str): Bool :=
   if size(path) > 2 then slice(path, size(path) - 2, size(path)) == ".u" else false
 
-// the number of files that failed
 procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
   local good: Bool, rest: Int
 

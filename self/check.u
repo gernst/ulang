@@ -51,9 +51,6 @@ data TypeError :=
   // an error of the command at the position of an imported module, or of the main module for None
   | Located(module: Option[Id], pos: Pos, error: TypeError)
 
-data Checked :=
-  | Checked(cmds: List[Cmd], sig: Sig, imports: List[Id * List[Id]])
-
 procedure check_program(in source: Source, out q: Prog)
 
 implementation
@@ -821,7 +818,6 @@ procedure unifies(in xs: List[Type], ys: List[Type], ref s: State) :=
       raise CountMismatch("", "values", size(xs), size(ys))
   end
 
-// a fresh unknown for each of xs
 procedure fresh_list[A](in xs: List[A], out ts: List[Type], ref s: State) :=
   local t: Type, rest: List[Type]
 
@@ -872,7 +868,6 @@ procedure unique_ids(in what: Str, ns: List[Id]) :=
       skip
   end
 
-// the one of the names ns that n refers to
 // the number n of the units of owner, which expects m of them, e.g. the arguments of a constructor
 procedure same_length(in owner: Str, unit: Str, m: Int, n: Int) :=
   if m != n
@@ -2045,7 +2040,6 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
       call declare_procs(in rest, ref s)
   end
 
-// the elaborated command c
 procedure command(in cmd: Cmd, out c1: Cmd, ref s: State) :=
   local xs: List[Var], r: Type, b: Expr, t: Type, is: List[Var], os: List[Var], rs: List[Var], y: Stmt, env: Env
 
@@ -2396,21 +2390,21 @@ procedure check_program(in source: Source, out q: Prog) :=
   assign q := Prog(cmds)
 
 procedure check_mods(in mods: List[Mod], ref sig: Sig, imports: List[Id * List[Id]], cs: List[Cmd]) :=
-  local checked: Checked
+  local cmds: List[Cmd], shown: Sig
 
   match mods
     case Nil =>
       skip
     case [d; rest] =>
-      call   check_mod(in d, sig, imports, out checked)
-      assign sig := union(sig, checked.sig), imports := imports ++ checked.imports, cs := cs ++ checked.cmds
+      call   check_mod(in d, sig, imports, out cmds, shown)
+      assign sig := union(sig, shown), imports := imports ++ [(d.name, all_imports(d))], cs := cs ++ cmds
       call   check_mods(in rest, ref sig, imports, cs)
   end
 
-// module d, checked after the declarations before of the modules that imports lists, where the declarations that other
-// modules keep private are unknown, since before has only their signatures
-procedure check_mod(in d: Mod, before: Sig, imports: List[Id * List[Id]], out checked: Checked) :=
-  local own := [(d.name, all_imports(d))], placed := decls_of(d), s: State, decls: List[Id * Cmd], cmds: List[Cmd],
+// the commands of module d and the signature it shows its importers, checked after the declarations before of the modules that imports
+// lists, where the declarations that other modules keep private are unknown, since before has only their signatures
+procedure check_mod(in d: Mod, before: Sig, imports: List[Id * List[Id]], out cmds: List[Cmd], shown: Sig) :=
+  local own := [(d.name, all_imports(d))], placed := decls_of(d), s: State, decls: List[Id * Cmd], defined: List[Cmd],
     hidden: Set[Name], hidden_sorts: List[Name], extra: List[Id * Cmd], more: List[Cmd], builtins := natives(d)
 
   assign s := State(before, empty(), 0, d.name, Nil, visibility(imports ++ own, d.name), Nil, empty()), decls := seconds(placed)
@@ -2424,13 +2418,13 @@ procedure check_mod(in d: Mod, before: Sig, imports: List[Id * List[Id]], out ch
   call   declare_procs(in builtins, ref s)
   call   check_sections(in d, out hidden, hidden_sorts)
   call   unique_ids(in "declaration", block_names(decls))
-  call   placed_commands(in placed_definitions(placed), out cmds, ref s)
-  call   check_orders(in cmds, abstract_types(decls), hidden, hidden_sorts)
-  assign extra := synthesized(decls, cmds, native_types(builtins))
+  call   placed_commands(in placed_definitions(placed), out defined, ref s)
+  call   check_orders(in defined, abstract_types(decls), hidden, hidden_sorts)
+  assign extra := synthesized(decls, defined, native_types(builtins))
   call   declare_funs(in extra, ref s)
   call   commands(in extra, out more, ref s)
   assign hidden := hidden ++ set([qualified_name(c) for c in more])
-  assign checked := Checked(cmds ++ more, exported(restrict(s.sig, firsts(own)), hidden, set(hidden_sorts)), own)
+  assign cmds := defined ++ more, shown := exported(restrict(s.sig, firsts(own)), hidden, set(hidden_sorts))
 
 // the commands of module d with qualified names, with the module of each, and their positions
 function decls_of(d: Mod): List[Pos * (Id * Cmd)] :=
@@ -2493,7 +2487,7 @@ function located(d: Id * Cmd, p: Pos, e: TypeError): TypeError :=
     case (m, _) => if p == Pos(0, 0) then e else Located(Some(m), p, e)
   end
 
-// the type of e without a program
+// the type of expr without a program
 procedure type_of(in expr: Expr, out t: Type) :=
   local s := start("main", Nil), e1: Expr, u: Type
 
@@ -2632,7 +2626,7 @@ function in_bag(n: Id): Name :=
 function in_box(n: Id): Name :=
   Name(Some("box"), n)
 
-// the body of the last function of the checked program with_bags([c])
+// the body of the last function of the checked program with_bags([cmd])
 procedure body_of(in cmd: Cmd, out b: Expr) :=
   local q: Prog
 

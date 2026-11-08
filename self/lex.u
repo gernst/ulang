@@ -26,13 +26,13 @@ type Tokens :=
 data LexError :=
   | LexError(message: Str, pos: Pos)
 
-function is_symbol(c: Char): Bool
+function is_op_char(c: Char): Bool
 function is_keyword(w: Str): Bool
 procedure lex(in text: Str, out toks: Tokens)
 
 implementation
 
-function is_symbol(c: Char): Bool :=
+function is_op_char(c: Char): Bool :=
   contains(c, "-+*/%<>=!&:^~?@#$")
 
 function keywords(): Set[Str] :=
@@ -93,7 +93,6 @@ procedure lex_move_position(in text: Str, from: Int, to: Int, ref line: Int, col
     assign j := j + 1
   end
 
-// the position of offset in text, for errors
 function position_of(text: Str, offset: Int): Pos :=
   let lines := split(slice(text, 0, offset), '\n') in
     match last(lines)
@@ -150,7 +149,7 @@ procedure lex_number(in text: Str, out tok: Token, ref offset: Int) :=
 procedure lex_symbol(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
 
-  call   scan(in text, is_symbol, out from, ref offset)
+  call   scan(in text, is_op_char, out from, ref offset)
   assign tok := let s := slice(text, from, offset) in if contains(s, fixed_symbols()) then TKw(s) else TOp(s)
 
 procedure lex_string(in text: Str, out tok: Token, ref offset: Int) :=
@@ -179,7 +178,7 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
       call lex_name(in text, out tok, ref offset)
     case _ if is_digit(c) =>
       call lex_number(in text, out tok, ref offset)
-    case _ if is_symbol(c) =>
+    case _ if is_op_char(c) =>
       call lex_symbol(in text, out tok, ref offset)
     case '"' =>
       call lex_string(in text, out tok, ref offset)

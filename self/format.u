@@ -108,7 +108,7 @@ function postfix_operand(d: Doc): Str :=
 
 // a name is separated from its operand, and a symbol only from an operand that starts with a symbol, as in - -x
 function prefix_text(op: Id, a: Str): Str :=
-  if not symbolic(op) or is_symbol(at(0, a)) then op ++ " " ++ a else op ++ a
+  if not symbolic(op) or is_op_char(at(0, a)) then op ++ " " ++ a else op ++ a
 
 // the function of an application, and the record of an access
 function atom_text(d: Doc): Str :=
@@ -777,7 +777,7 @@ function format_pats(pats: List[Pat]): Str :=
 
 // constructors named by operators are shown infix
 function symbolic(n: Id): Bool :=
-  n != "" and is_symbol(at(0, n))
+  n != "" and is_op_char(at(0, n))
 
 function infix_text(op: Id, l: Str, r: Str): Str :=
   pat_operand(l) ++ " " ++ op ++ " " ++ pat_operand(r)

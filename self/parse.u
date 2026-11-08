@@ -22,9 +22,6 @@ data ParseError :=
 procedure parse_file(in path: Str, out source: Source)
 procedure parse_file_text(in path: Str, text: Str, out source: Source)
 
-// the module of text without implicit imports, which reads no files unless text imports modules
-procedure parse_text(in text: Str, out own: Mod)
-
 implementation
 
 // the operands of types, expressions, and patterns, and how operators apply to them
@@ -140,7 +137,6 @@ function expected(what: Str, toks: Tokens): ParseError :=
       ParseError(what ++ " expected but " ++ format_token(tok) ++ " found", head_pos(toks))
   end
 
-// the value of a literal token
 function literal_at(toks: Tokens): Option[Lit] :=
   match head_token(toks)
     case TKw("true") => Some(LBool(true))
@@ -192,7 +188,6 @@ procedure parse_plain_name(in notation: Notation, params: List[Id], out name: Id
       call parse_name(out name, ref toks)
   end
 
-// a name or an operator
 procedure parse_name_or_op(out name: Id, ref toks: Tokens) :=
   match head_token(toks)
     case TOp(op) =>
@@ -887,7 +882,7 @@ function option_list[A](o: Option[A]): List[A] :=
 function opens_inner(notation: Notation, toks: Tokens): Bool :=
   second_token(toks) != TKw("|") and starts_expr(notation, second_token(toks))
 
-// [a, b] is a :: b :: Nil, [a, b; c] is a :: b :: c, and [result for x in xs, y in ys if test], where if test is optional,
+// [a, b] is Cons(a, Cons(b, Nil)), [a, b; c] is Cons(a, Cons(b, c)), and [result for x in xs, y in ys if test], where if test is optional,
 // up to close, which is ] of a list and | of an array, which has no rest
 procedure parse_list(in notation: Notation, params: List[Id], close: Str, out expr: Expr, ref toks: Tokens) :=
   local exprs: List[Expr], rest: Option[Expr]
@@ -1786,6 +1781,7 @@ procedure parse_file(in path: Str, out source: Source) :=
   call os_read(in path, out text)
   call parse_file_text(in path, text, out source)
 
+// the module of text without implicit imports, which reads no files unless text imports modules, for the tests
 procedure parse_text(in text: Str, out own: Mod) :=
   local toks: Tokens, mods: List[Mod] := Nil
 
