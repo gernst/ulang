@@ -28,17 +28,6 @@ procedure parse_text(in text: Str, out own: Mod)
 
 implementation
 
-function keywords(): Set[Id] :=
-  {
-    "_", "assert", "assign", "builtin", "call", "case", "catch", "data", "else", "end", "export", "false", "for", "function",
-    "if", "implementation", "import", "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix",
-    "procedure", "raise", "ref", "skip", "test", "then", "true", "type", "try", "while", "with"
-  }
-
-// symbols with a fixed meaning, which cannot be operators
-function reserved(): Set[Str] :=
-  {"=", "=>", ":=", ":"}
-
 // the operands of types, expressions, and patterns, and how operators apply to them
 
 function type_ops(): Ops[List[Type]] :=
@@ -113,33 +102,30 @@ function head_pos(toks: Tokens): Pos :=
     case _ => Pos(0, 0)
   end
 
-function at_keyword(toks: Tokens, w: Str): Bool :=
-  head_token(toks) == TName(w)
-
-function at_punct(toks: Tokens, c: Char): Bool :=
-  head_token(toks) == TPunct(c)
+function at_kw(toks: Tokens, w: Str): Bool :=
+  head_token(toks) == TKw(w)
 
 function at_comma(toks: Tokens): Bool :=
-  at_punct(toks, ',')
+  at_kw(toks, ",")
 
 function at_bar(toks: Tokens): Bool :=
-  head_token(toks) == TPunct('|')
+  head_token(toks) == TKw("|")
 
 function at_mode(toks: Tokens): Bool :=
-  at_keyword(toks, "in") or at_keyword(toks, "out") or at_keyword(toks, "ref")
+  at_kw(toks, "in") or at_kw(toks, "out") or at_kw(toks, "ref")
 
 // a comma before another update
 function at_update(toks: Tokens): Bool :=
   match toks
-    case [(_, TPunct(',')), (_, TName(_)), (_, TSym(":=")); _] => true
+    case [(_, TKw(",")), (_, TName(_)), (_, TKw(":=")); _] => true
     case _ => false
   end
 
 function format_token(tok: Token): Str :=
   match tok
     case TName(name) => name
-    case TSym(s) => s
-    case TPunct(c) => str([c])
+    case TOp(s) => s
+    case TKw(w) => w
     case TNum(n) => show(n)
     case TStr(s) => quote(s)
     case TChar(c) => "'" ++ str([c]) ++ "'"
@@ -149,7 +135,7 @@ function format_token(tok: Token): Str :=
 // the error that what is expected but the next token is found, where a keyword is not a name
 function expected(what: Str, toks: Tokens): ParseError :=
   match head_token(toks)
-    case TName(w) if contains(w, keywords()) and (what == "name" or what == "pattern") =>
+    case TKw(w) if is_keyword(w) and (what == "name" or what == "pattern") =>
       ParseError("keyword " ++ w ++ " is not a name", head_pos(toks))
     case tok =>
       ParseError(what ++ " expected but " ++ format_token(tok) ++ " found", head_pos(toks))
@@ -158,18 +144,18 @@ function expected(what: Str, toks: Tokens): ParseError :=
 // the value of a literal token
 function literal_at(toks: Tokens): Option[Val] :=
   match head_token(toks)
-    case TName("true") => Some(VBool(true))
-    case TName("false") => Some(VBool(false))
+    case TKw("true") => Some(VBool(true))
+    case TKw("false") => Some(VBool(false))
     case TNum(n) => Some(VInt(n))
     case TStr(s) => Some(VStr(s))
     case TChar(c) => Some(VChar(c))
     case _ => None
   end
 
-// a name that may be declared as an operator, as a name and an operator are
+// an operator, or a name that the notation in effect declares as one
 function operator_at(notation: Notation, toks: Tokens): Option[Id] :=
   match head_token(toks)
-    case TSym(s) if not contains(s, reserved()) => Some(s)
+    case TOp(s) => Some(s)
     case TName(name) if is_operator(notation, name) => Some(name)
     case _ => None
   end
@@ -189,10 +175,9 @@ procedure expect(in tok: Token, ref toks: Tokens) :=
     raise expected(format_token(tok), toks)
   end
 
-// a name that is not a keyword
 procedure parse_name(out name: Id, ref toks: Tokens) :=
   match head_token(toks)
-    case TName(m) if not contains(m, keywords()) =>
+    case TName(m) =>
       assign name := m
       call   advance(ref toks)
     case _ =>
@@ -208,10 +193,10 @@ procedure parse_plain_name(in notation: Notation, params: List[Id], out name: Id
       call parse_name(out name, ref toks)
   end
 
-// a name or a symbol that is not reserved
-procedure parse_name_or_symbol(out name: Id, ref toks: Tokens) :=
+// a name or an operator
+procedure parse_name_or_op(out name: Id, ref toks: Tokens) :=
   match head_token(toks)
-    case TSym(s) if not contains(s, reserved()) =>
+    case TOp(s) =>
       assign name := s
       call   advance(ref toks)
     case _ =>
@@ -268,17 +253,17 @@ procedure parse_enclosed[A](
   in  notation: Notation,
       params: List[Id],
       item: (in Notation, List[Id], out A, ref Tokens),
-      close: Char,
+      close: Str,
   out xs: List[A],
   ref toks: Tokens
 ) :=
-  if at_punct(toks, close)
+  if at_kw(toks, close)
     assign xs := Nil
   else
     call parse_separated(in notation, params, item, at_comma, out xs, ref toks)
   end
 
-  call expect(in TPunct(close), ref toks)
+  call expect(in TKw(close), ref toks)
 
 // an item after tok, if tok is next
 procedure parse_optional[A](
@@ -315,7 +300,7 @@ procedure parse_display[A](
   ref toks: Tokens
 ) :=
   call parse_separated(in notation, params, item, at_comma, out items, ref toks)
-  call parse_optional(in notation, params, TPunct(';'), item, out rest, ref toks)
+  call parse_optional(in notation, params, TKw(";"), item, out rest, ref toks)
 
 // the items in front of rest by cons, as displays build lists
 function cons_all[A](cons: (A, A) -> A, items: List[A], rest: A): A :=
@@ -475,8 +460,8 @@ function type_infix(op: Id, pos: Pos, lhs: List[Type], rs: List[List[Type]]): Li
 
 function starts_type(notation: Notation, tok: Token): Bool :=
   match tok
-    case TName(name) => not contains(name, keywords()) and not is_operator(notation, name)
-    case TPunct('(') => true
+    case TName(name) => not is_operator(notation, name)
+    case TKw("(") => true
     case _ => false
   end
 
@@ -491,21 +476,21 @@ procedure parse_type(in notation: Notation, params: List[Id], out typ: Type, ref
 procedure parse_type_atom(in notation: Notation, params: List[Id], out r: List[Type], ref toks: Tokens) :=
   local name: Id, args: List[Type], ins: List[Type], outs: List[Type], refs: List[Type]
 
-  if at_punct(toks, '(') and contains(second_token(toks), [TName("in"), TName("out"), TName("ref")])
+  if at_kw(toks, "(") and contains(second_token(toks), [TKw("in"), TKw("out"), TKw("ref")])
     call   advance(ref toks)
     call   parse_sections(in notation, params, parse_type, parse_type, out ins, outs, refs, ref toks)
-    call   expect(in TPunct(')'), ref toks)
+    call   expect(in TKw(")"), ref toks)
     assign r := [TProc(ins, outs, refs)]
-  else if at_punct(toks, '(')
+  else if at_kw(toks, "(")
     call advance(ref toks)
-    call parse_enclosed(in notation, params, parse_type, ')', out r, ref toks)
+    call parse_enclosed(in notation, params, parse_type, ")", out r, ref toks)
   else
     call parse_plain_name(in notation, params, out name, ref toks)
 
-    if at_punct(toks, '[')
+    if at_kw(toks, "[")
       call   advance(ref toks)
       call   parse_separated(in notation, params, parse_type, at_comma, out args, ref toks)
-      call   expect(in TPunct(']'), ref toks)
+      call   expect(in TKw("]"), ref toks)
       assign r := [TSort(unqualified(name), args)]
     else if contains(name, params)
       assign r := [TParam(name)]
@@ -537,11 +522,11 @@ function expr_cons(a: Expr, b: Expr): Expr :=
 
 function starts_expr(notation: Notation, tok: Token): Bool :=
   match tok
-    case TName(name) => contains(name, ["let", "if", "lambda", "match", "true", "false"]) or not contains(name, keywords()) and not is_operator(notation, name)
+    case TName(name) => not is_operator(notation, name)
+    case TKw(w) => contains(w, ["let", "if", "lambda", "match", "true", "false", "(", "[", "{", "|"])
     case TNum(_) => true
     case TStr(_) => true
     case TChar(_) => true
-    case TPunct(c) => c == '(' or c == '[' or c == '{' or c == '|'
     case _ => false
   end
 
@@ -549,14 +534,14 @@ function starts_expr(notation: Notation, tok: Token): Bool :=
 procedure parse_expr(in notation: Notation, params: List[Id], out expr: Expr, ref toks: Tokens) :=
   local updates: List[Id * Expr]
 
-  if at_keyword(toks, "raise")
+  if at_kw(toks, "raise")
     call   advance(ref toks)
     call   parse_expr(in notation, params, out expr, ref toks)
     assign expr := ERaise(expr, THole)
   else
     call parse_operators(in notation, params, expr_ops(), out expr, ref toks)
 
-    if at_keyword(toks, "with")
+    if at_kw(toks, "with")
       call   advance(ref toks)
       call   parse_separated(in notation, params, parse_update, at_update, out updates, ref toks)
       assign expr := apply_updates(expr, updates)
@@ -568,7 +553,7 @@ procedure parse_update(in notation: Notation, params: List[Id], out update: Id *
   local f: Id, a: Expr
 
   call   parse_name(out f, ref toks)
-  call   expect(in TSym(":="), ref toks)
+  call   expect(in TKw(":="), ref toks)
   call   parse_operators(in notation, params, expr_ops(), out a, ref toks)
   assign update := (f, a)
 
@@ -585,10 +570,10 @@ procedure parse_app(in notation: Notation, params: List[Id], out expr: Expr, ref
 
   call parse_expr_atom(in notation, params, out expr, ref toks)
 
-  while at_punct(toks, '(') or at_punct(toks, '.')
-    if at_punct(toks, '(')
+  while at_kw(toks, "(") or at_kw(toks, ".")
+    if at_kw(toks, "(")
       call   advance(ref toks)
-      call   parse_enclosed(in notation, params, parse_expr, ')', out args, ref toks)
+      call   parse_enclosed(in notation, params, parse_expr, ")", out args, ref toks)
       assign expr := EApp(expr, args)
     else
       call   advance(ref toks)
@@ -605,30 +590,30 @@ procedure parse_expr_atom(in notation: Notation, params: List[Id], out expr: Exp
       call   advance(ref toks)
       assign expr := ELit(v)
 
-    case (_, TName("let")) =>
+    case (_, TKw("let")) =>
       call parse_let(in notation, params, out expr, ref toks)
 
-    case (_, TName("if")) =>
+    case (_, TKw("if")) =>
       call   advance(ref toks)
       call   parse_expr(in notation, params, out a, ref toks)
-      call   expect(in TName("then"), ref toks)
+      call   expect(in TKw("then"), ref toks)
       call   parse_expr(in notation, params, out l, ref toks)
-      call   expect(in TName("else"), ref toks)
+      call   expect(in TKw("else"), ref toks)
       call   parse_expr(in notation, params, out r, ref toks)
       assign expr := EIte(a, l, r)
 
-    case (_, TName("lambda")) =>
+    case (_, TKw("lambda")) =>
       call parse_lambda(in notation, params, out expr, ref toks)
 
-    case (_, TName("match")) =>
+    case (_, TKw("match")) =>
       call   advance(ref toks)
       call   parse_expr(in notation, params, out a, ref toks)
       call   parse_cases(in notation, params, parse_expr, out cases, ref toks)
       assign expr := EMatch(a, cases)
 
-    case (_, TPunct('(')) =>
+    case (_, TKw("(")) =>
       call advance(ref toks)
-      call parse_enclosed(in notation, params, parse_expr, ')', out exprs, ref toks)
+      call parse_enclosed(in notation, params, parse_expr, ")", out exprs, ref toks)
       match exprs
         case [inner] =>
           assign expr := inner
@@ -636,19 +621,19 @@ procedure parse_expr_atom(in notation: Notation, params: List[Id], out expr: Exp
           assign expr := ETuple(exprs)
       end
 
-    case (_, TPunct('[')) =>
-      call parse_list(in notation, params, ']', out expr, ref toks)
+    case (_, TKw("[")) =>
+      call parse_list(in notation, params, "]", out expr, ref toks)
 
     // |a, b| and |e for x in c if q| are the arrays of the elements of the list or the comprehension, where a | that starts
     // an operand opens an array and a | after an operand closes it, | |1|, |2| |
-    case (_, TPunct('|')) =>
-      call   parse_list(in notation, params, '|', out a, ref toks)
+    case (_, TKw("|")) =>
+      call   parse_list(in notation, params, "|", out a, ref toks)
       assign expr := declared_app("array", [a])
 
-    case (_, TPunct('{')) =>
+    case (_, TKw("{")) =>
       call parse_set_or_map(in notation, params, out expr, ref toks)
 
-    case (_, TName(name)) if not contains(name, keywords()) and not is_operator(notation, name) =>
+    case (_, TName(name)) if not is_operator(notation, name) =>
       call   advance(ref toks)
       assign expr := expr_var(name)
 
@@ -674,7 +659,7 @@ procedure parse_let(in notation: Notation, params: List[Id], out expr: Expr, ref
 
   call   advance(ref toks)
   call   parse_separated(in notation, params, parse_binding, at_comma, out bindings, ref toks)
-  call   expect(in TName("in"), ref toks)
+  call   expect(in TKw("in"), ref toks)
   call   parse_expr(in notation, params, out body, ref toks)
   assign pats := firsts(bindings), exprs := seconds(bindings)
 
@@ -692,7 +677,7 @@ procedure parse_binding(in notation: Notation, params: List[Id], out binding: Pa
   local pat: Pat, expr: Expr
 
   call   parse_pattern(in notation, params, out pat, ref toks)
-  call   expect(in TSym(":="), ref toks)
+  call   expect(in TKw(":="), ref toks)
   call   parse_expr(in notation, params, out expr, ref toks)
   assign binding := (pat, expr)
 
@@ -704,17 +689,17 @@ procedure parse_lambda(in notation: Notation, params: List[Id], out expr: Expr, 
 
   if at_mode(toks)
     call   parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
-    call   expect(in TSym("=>"), ref toks)
+    call   expect(in TKw("=>"), ref toks)
     call   parse_body(in notation, params, out body, ref toks)
-    call   expect(in TName("end"), ref toks)
+    call   expect(in TKw("end"), ref toks)
     assign expr := EProc(ins, outs, refs, body)
-  else if head_token(toks) == TSym("=>")
-    call   expect(in TSym("=>"), ref toks)
+  else if head_token(toks) == TKw("=>")
+    call   expect(in TKw("=>"), ref toks)
     call   parse_expr(in notation, params, out inner, ref toks)
     assign expr := ELam(Nil, inner)
   else
     call   parse_separated(in notation, params, parse_variable, at_comma, out xs, ref toks)
-    call   expect(in TSym("=>"), ref toks)
+    call   expect(in TKw("=>"), ref toks)
     call   parse_expr(in notation, params, out inner, ref toks)
     assign expr := ELam(xs, inner)
   end
@@ -728,13 +713,13 @@ procedure parse_set_or_map(in notation: Notation, params: List[Id], out expr: Ex
 
   call advance(ref toks)
 
-  if at_punct(toks, '}')
+  if at_kw(toks, "}")
     assign expr := declared_app("empty", [])
   else
     call parse_set_or_map_elements(in notation, params, pos, out expr, ref toks)
   end
 
-  call expect(in TPunct('}'), ref toks)
+  call expect(in TKw("}"), ref toks)
 
 // the elements or entries of a literal, or its comprehension, after {, where {a, b; s} adds a and b to s, and
 // {k => v; m} puts k => v into m
@@ -753,7 +738,7 @@ procedure parse_set_or_map_elements(
     case (_, Some((_, Some(_)))) =>
       raise ParseError("the rest of a literal {...} after ; is a set or a map, not an entry", pos)
 
-    case ([(k, Some(v))], None) if at_keyword(toks, "for") =>
+    case ([(k, Some(v))], None) if at_kw(toks, "for") =>
       call parse_comprehension(
         in notation, params,
           "foldl", declared_app("empty", []), declared_app("put", [k, v, EVar(acc_var())]),
@@ -761,7 +746,7 @@ procedure parse_set_or_map_elements(
         ref toks
       )
 
-    case ([(k, None)], None) if at_keyword(toks, "for") =>
+    case ([(k, None)], None) if at_kw(toks, "for") =>
       call parse_comprehension(
         in notation, params,
           "foldr", declared_app("empty", []), declared_app("insert", [k, EVar(acc_var())]),
@@ -797,7 +782,7 @@ procedure parse_element(
   local k: Expr, v: Option[Expr]
 
   call   parse_expr(in notation, params, out k, ref toks)
-  call   parse_optional(in notation, params, TSym("=>"), parse_expr, out v, ref toks)
+  call   parse_optional(in notation, params, TKw("=>"), parse_expr, out v, ref toks)
   assign element := (k, v)
 
 // the elements a and the entries k => v, each in their order
@@ -876,7 +861,7 @@ procedure parse_comprehension(
 
   call   advance(ref toks)
   call   parse_separated(in notation, params, parse_generator, at_comma, out generators, ref toks)
-  call   parse_optional(in notation, params, TName("if"), parse_expr, out cond, ref toks)
+  call   parse_optional(in notation, params, TKw("if"), parse_expr, out cond, ref toks)
   assign expr := comprehension_folds(fold, generators, init, add, cond)
 
 // x in c over a list or set, or k => v in m over a map, whose fold takes the key and value as two arguments
@@ -889,8 +874,8 @@ procedure parse_generator(
   local x: Var, y: Option[Var], c: Expr
 
   call   parse_variable(in notation, params, out x, ref toks)
-  call   parse_optional(in notation, params, TSym("=>"), parse_variable, out y, ref toks)
-  call   expect(in TName("in"), ref toks)
+  call   parse_optional(in notation, params, TKw("=>"), parse_variable, out y, ref toks)
+  call   expect(in TKw("in"), ref toks)
   call   parse_expr(in notation, params, out c, ref toks)
   assign generator := ([x; option_list(y)], c)
 
@@ -903,25 +888,25 @@ function option_list[A](o: Option[A]): List[A] :=
 // the | after the | that opens an array opens an element, ||1|, |2||, if an operand other than | starts after it, and else
 // closes an empty array, ||, so that an array whose first element starts with | needs parentheses, |(||)|
 function opens_inner(notation: Notation, toks: Tokens): Bool :=
-  second_token(toks) != TPunct('|') and starts_expr(notation, second_token(toks))
+  second_token(toks) != TKw("|") and starts_expr(notation, second_token(toks))
 
 // [a, b] is a :: b :: Nil, [a, b; c] is a :: b :: c, and [result for x in xs, y in ys if test], where if test is optional,
 // up to close, which is ] of a list and | of an array, which has no rest
-procedure parse_list(in notation: Notation, params: List[Id], close: Char, out expr: Expr, ref toks: Tokens) :=
+procedure parse_list(in notation: Notation, params: List[Id], close: Str, out expr: Expr, ref toks: Tokens) :=
   local exprs: List[Expr], rest: Option[Expr]
 
   call advance(ref toks)
 
-  if at_punct(toks, close) and not (close == '|' and opens_inner(notation, toks))
+  if at_kw(toks, close) and not (close == "|" and opens_inner(notation, toks))
     assign expr := nil_expr()
   else
     call parse_display(in notation, params, parse_expr, out exprs, rest, ref toks)
 
     match (exprs, rest)
-      case ([first], None) if at_keyword(toks, "for") =>
+      case ([first], None) if at_kw(toks, "for") =>
         call parse_comprehension(in notation, params, "foldr", nil_expr(), expr_cons(first, EVar(acc_var())), out expr, ref toks)
 
-      case (_, Some(_)) if close == '|' =>
+      case (_, Some(_)) if close == "|" =>
         raise ParseError("arrays have no rest", head_pos(toks))
 
       case _ =>
@@ -929,7 +914,7 @@ procedure parse_list(in notation: Notation, params: List[Id], close: Char, out e
     end
   end
 
-  call expect(in TPunct(close), ref toks)
+  call expect(in TKw(close), ref toks)
 
 // case p if g => b, up to end
 procedure parse_cases[B](
@@ -941,16 +926,16 @@ procedure parse_cases[B](
 ) :=
   local rev: List[Branch[B]] := Nil, pat: Pat, g: Option[Expr], b: B
 
-  while at_keyword(toks, "case")
+  while at_kw(toks, "case")
     call   advance(ref toks)
     call   parse_pattern(in notation, params, out pat, ref toks)
-    call   parse_optional(in notation, params, TName("if"), parse_expr, out g, ref toks)
-    call   expect(in TSym("=>"), ref toks)
+    call   parse_optional(in notation, params, TKw("if"), parse_expr, out g, ref toks)
+    call   expect(in TKw("=>"), ref toks)
     call   body(in notation, params, out b, ref toks)
     assign rev := [Branch(pat, g, b); rev]
   end
 
-  call   expect(in TName("end"), ref toks)
+  call   expect(in TKw("end"), ref toks)
   assign cases := reverse(rev)
 
 // patterns, where operators are constructors
@@ -978,11 +963,11 @@ function pat_nil(): Pat :=
 
 function starts_pattern(notation: Notation, tok: Token): Bool :=
   match tok
-    case TName(name) => contains(name, ["_", "true", "false"]) or not contains(name, keywords()) and not is_operator(notation, name)
+    case TName(name) => not is_operator(notation, name)
+    case TKw(w) => contains(w, ["_", "true", "false", "(", "["])
     case TNum(_) => true
     case TStr(_) => true
     case TChar(_) => true
-    case TPunct(c) => c == '(' or c == '['
     case _ => false
   end
 
@@ -997,13 +982,13 @@ procedure parse_pattern_atom(in notation: Notation, params: List[Id], out pat: P
       call   advance(ref toks)
       assign pat := PLit(v)
 
-    case (_, TName("_")) =>
+    case (_, TKw("_")) =>
       call   advance(ref toks)
       assign pat := PWild
 
-    case (_, TPunct('(')) =>
+    case (_, TKw("(")) =>
       call advance(ref toks)
-      call parse_enclosed(in notation, params, parse_pattern, ')', out pats, ref toks)
+      call parse_enclosed(in notation, params, parse_pattern, ")", out pats, ref toks)
       match pats
         case [inner] =>
           assign pat := inner
@@ -1011,24 +996,24 @@ procedure parse_pattern_atom(in notation: Notation, params: List[Id], out pat: P
           assign pat := PTuple(pats)
       end
 
-    case (_, TPunct('[')) =>
+    case (_, TKw("[")) =>
       call advance(ref toks)
 
-      if at_punct(toks, ']')
+      if at_kw(toks, "]")
         assign pat := pat_nil()
       else
         call   parse_display(in notation, params, parse_pattern, out pats, rest, ref toks)
         assign pat := cons_all(pat_cons, pats, or_default(rest, pat_nil()))
       end
 
-      call expect(in TPunct(']'), ref toks)
+      call expect(in TKw("]"), ref toks)
 
     case _ =>
       call parse_plain_name(in notation, params, out name, ref toks)
 
-      if at_punct(toks, '(')
+      if at_kw(toks, "(")
         call   advance(ref toks)
-        call   parse_enclosed(in notation, params, parse_pattern, ')', out pats, ref toks)
+        call   parse_enclosed(in notation, params, parse_pattern, ")", out pats, ref toks)
         assign pat := PApp(unqualified(name), pats)
       else
         assign pat := pat_var(name)
@@ -1039,7 +1024,7 @@ procedure parse_pattern_atom(in notation: Notation, params: List[Id], out pat: P
 
 function starts_stmt(tok: Token): Bool :=
   match tok
-    case TName(name) => contains(name, ["skip", "if", "while", "call", "match", "assert", "assign", "raise", "try"])
+    case TKw(w) => contains(w, ["skip", "if", "while", "call", "match", "assert", "assign", "raise", "try"])
     case _ => false
   end
 
@@ -1054,7 +1039,7 @@ function handlers(cases: List[Branch[Stmt]]): List[Handler] :=
 procedure parse_body(in notation: Notation, params: List[Id], out body: Stmt, ref toks: Tokens) :=
   local xs: List[Var] := Nil, inits: List[Stmt] := Nil, decls: List[Var * List[Stmt]], rev: List[Stmt] := Nil, s: Stmt
 
-  while at_keyword(toks, "local")
+  while at_kw(toks, "local")
     call   advance(ref toks)
     call   parse_separated(in notation, params, parse_local, at_comma, out decls, ref toks)
     assign xs := xs ++ firsts(decls), inits := inits ++ concat(seconds(decls))
@@ -1072,7 +1057,7 @@ procedure parse_local(in notation: Notation, params: List[Id], out decl: Var * L
   local x: Var, init: Option[Expr]
 
   call parse_formal(in notation, params, out x, ref toks)
-  call parse_optional(in notation, params, TSym(":="), parse_expr, out init, ref toks)
+  call parse_optional(in notation, params, TKw(":="), parse_expr, out init, ref toks)
 
   match init
     case Some(expr) =>
@@ -1085,46 +1070,46 @@ procedure parse_stmt(in notation: Notation, params: List[Id], out s: Stmt, ref t
   local expr: Expr, body: Stmt, cases: List[Branch[Stmt]]
 
   match head_token(toks)
-    case TName("skip") =>
+    case TKw("skip") =>
       call   advance(ref toks)
       assign s := SSkip
 
-    case TName("if") =>
+    case TKw("if") =>
       call parse_if(in notation, params, out s, ref toks)
 
-    case TName("while") =>
+    case TKw("while") =>
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
       call   parse_body(in notation, params, out body, ref toks)
-      call   expect(in TName("end"), ref toks)
+      call   expect(in TKw("end"), ref toks)
       assign s := SWhile(expr, body)
 
-    case TName("call") =>
+    case TKw("call") =>
       call parse_call(in notation, params, out s, ref toks)
 
-    case TName("match") =>
+    case TKw("match") =>
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
       call   parse_cases(in notation, params, parse_body, out cases, ref toks)
       assign s := SMatch(expr, cases)
 
-    case TName("assert") =>
+    case TKw("assert") =>
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
       assign s := SAssert(expr)
 
-    case TName("assign") =>
+    case TKw("assign") =>
       call parse_assign(in notation, params, out s, ref toks)
 
-    case TName("raise") =>
+    case TKw("raise") =>
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
       assign s := SRaise(expr, THole)
 
-    case TName("try") =>
+    case TKw("try") =>
       call   advance(ref toks)
       call   parse_body(in notation, params, out body, ref toks)
-      call   expect(in TName("catch"), ref toks)
+      call   expect(in TKw("catch"), ref toks)
       call   parse_cases(in notation, params, parse_body, out cases, ref toks)
       assign s := STry(body, handlers(cases))
 
@@ -1140,16 +1125,16 @@ procedure parse_if(in notation: Notation, params: List[Id], out s: Stmt, ref tok
   call   parse_expr(in notation, params, out cond, ref toks)
   call   parse_body(in notation, params, out l, ref toks)
 
-  if not at_keyword(toks, "else")
-    call   expect(in TName("end"), ref toks)
+  if not at_kw(toks, "else")
+    call   expect(in TKw("end"), ref toks)
     assign r := SSkip
-  else if second_token(toks) == TName("if")
+  else if second_token(toks) == TKw("if")
     call advance(ref toks)
     call parse_if(in notation, params, out r, ref toks)
   else
     call advance(ref toks)
     call parse_body(in notation, params, out r, ref toks)
-    call expect(in TName("end"), ref toks)
+    call expect(in TKw("end"), ref toks)
   end
 
   assign s := SIf(cond, l, r)
@@ -1166,17 +1151,17 @@ procedure parse_assignment(in notation: Notation, params: List[Id], out assignme
   local x: Var, expr: Expr
 
   call   parse_variable(in notation, params, out x, ref toks)
-  call   expect(in TSym(":="), ref toks)
+  call   expect(in TKw(":="), ref toks)
   call   parse_expr(in notation, params, out expr, ref toks)
   assign assignment := (x, expr)
 
 // the next section starts with keyword w, after a comma unless it is the first section
 function section_starts(toks: Tokens, w: Str, first: Bool): Bool :=
-  if first then at_keyword(toks, w) else at_punct(toks, ',') and second_token(toks) == TName(w)
+  if first then at_kw(toks, w) else at_kw(toks, ",") and second_token(toks) == TKw(w)
 
 // a comma before another item of a section, not before the keyword of the next section
 function section_continues(toks: Tokens): Bool :=
-  at_punct(toks, ',') and second_token(toks) != TName("out") and second_token(toks) != TName("ref")
+  at_kw(toks, ",") and second_token(toks) != TKw("out") and second_token(toks) != TKw("ref")
 
 // call p(in ins, out outs, ref refs)
 procedure parse_call(in notation: Notation, params: List[Id], out s: Stmt, ref toks: Tokens) :=
@@ -1184,9 +1169,9 @@ procedure parse_call(in notation: Notation, params: List[Id], out s: Stmt, ref t
 
   call   advance(ref toks)
   call   parse_name(out p, ref toks)
-  call   expect(in TPunct('('), ref toks)
+  call   expect(in TKw("("), ref toks)
   call   parse_sections(in notation, params, parse_expr, parse_variable, out ins, outs, refs, ref toks)
-  call   expect(in TPunct(')'), ref toks)
+  call   expect(in TKw(")"), ref toks)
   assign s := SCall(unqualified(p), ins, outs, refs)
 
 // in ins, out outs, ref refs of calls, declarations, lambdas, and types, where each section starts with its keyword,
@@ -1205,7 +1190,7 @@ procedure parse_sections[A, B](
 
   assign ins := Nil, outs := Nil, refs := Nil
 
-  if at_keyword(toks, "in")
+  if at_kw(toks, "in")
     call   advance(ref toks)
     call   parse_separated(in notation, params, item_in, section_continues, out ins, ref toks)
     assign first := false
@@ -1241,13 +1226,13 @@ procedure parse_formal(in notation: Notation, params: List[Id], out x: Var, ref 
   local name: Id, typ: Option[Type]
 
   call   parse_plain_name(in notation, params, out name, ref toks)
-  call   parse_optional(in notation, params, TSym(":"), parse_type, out typ, ref toks)
+  call   parse_optional(in notation, params, TKw(":"), parse_type, out typ, ref toks)
   assign x := Var(unqualified(name), or_default(typ, THole))
 
 // formals in parentheses, which may be empty
 procedure parse_formals(in notation: Notation, params: List[Id], out xs: List[Var], ref toks: Tokens) :=
-  call expect(in TPunct('('), ref toks)
-  call parse_enclosed(in notation, params, parse_formal, ')', out xs, ref toks)
+  call expect(in TKw("("), ref toks)
+  call parse_enclosed(in notation, params, parse_formal, ")", out xs, ref toks)
 
 // commands
 
@@ -1264,10 +1249,10 @@ function untested(cmds: List[Pos * Cmd]): List[Pos * Cmd] :=
 
 // the type parameters [A, B] of a declaration, if any
 procedure parse_params(in notation: Notation, out params: List[Id], ref toks: Tokens) :=
-  if at_punct(toks, '[')
+  if at_kw(toks, "[")
     call advance(ref toks)
     call parse_separated(in notation, Nil, parse_param, at_comma, out params, ref toks)
-    call expect(in TPunct(']'), ref toks)
+    call expect(in TKw("]"), ref toks)
   else
     assign params := Nil
   end
@@ -1279,9 +1264,9 @@ procedure parse_notation(in notation: Notation, out cmd: Cmd, ref toks: Tokens) 
   local f := FInfix, prec: Int, ops: List[Id]
 
   match head_token(toks)
-    case TName("prefix") =>
+    case TKw("prefix") =>
       assign f := FPrefix
-    case TName("postfix") =>
+    case TKw("postfix") =>
       assign f := FPostfix
     case _ =>
       match second_token(toks)
@@ -1308,11 +1293,11 @@ procedure parse_notation(in notation: Notation, out cmd: Cmd, ref toks: Tokens) 
   call   parse_repeated(in notation, Nil, parse_operator, at_operator, out ops, ref toks)
   assign cmd := CNotation(f, prec, ops)
 
-// a symbol that is not reserved, or a name that is not a keyword, as operators are declared
+// an operator or a name, as operators are declared
 function at_operator(toks: Tokens): Bool :=
   match head_token(toks)
-    case TSym(s) => not contains(s, reserved())
-    case TName(name) => not contains(name, keywords())
+    case TOp(_) => true
+    case TName(_) => true
     case _ => false
   end
 
@@ -1333,11 +1318,11 @@ procedure parse_constr(
 ) :=
   local name: Id, args: List[Option[Id] * Type] := Nil
 
-  call parse_name_or_symbol(out name, ref toks)
+  call parse_name_or_op(out name, ref toks)
 
-  if at_punct(toks, '(')
+  if at_kw(toks, "(")
     call advance(ref toks)
-    call parse_enclosed(in notation, params, parse_field, ')', out args, ref toks)
+    call parse_enclosed(in notation, params, parse_field, ")", out args, ref toks)
   end
 
   assign constr := (Constr(unqualified(name), seconds(args)), firsts(args))
@@ -1354,7 +1339,7 @@ procedure parse_field(in notation: Notation, params: List[Id], out arg: Option[I
   local f: Option[Id], typ: Type
 
   match (head_token(toks), second_token(toks))
-    case (TName(name), TSym(":")) if not contains(name, keywords()) =>
+    case (TName(name), TKw(":")) =>
       call   advance(ref toks)
       call   advance(ref toks)
       assign f := Some(name)
@@ -1373,7 +1358,7 @@ procedure parse_data(in notation: Notation, out cmds: List[Cmd], ref toks: Token
   call   advance(ref toks)
   call   parse_name(out name, ref toks)
   call   parse_params(in notation, out params, ref toks)
-  call   expect(in TSym(":="), ref toks)
+  call   expect(in TKw(":="), ref toks)
 
   if at_bar(toks)
     call advance(ref toks)
@@ -1498,15 +1483,15 @@ procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) 
   local name: Id, params: List[Id], xss: List[List[Var]], r: Type, body: Expr
 
   call   advance(ref toks)
-  call   parse_name_or_symbol(out name, ref toks)
+  call   parse_name_or_op(out name, ref toks)
   call   parse_params(in notation, out params, ref toks)
-  call   parse_repeated(in notation, params, parse_formals, lambda ts => at_punct(ts, '('), out xss, ref toks)
+  call   parse_repeated(in notation, params, parse_formals, lambda ts => at_kw(ts, "("), out xss, ref toks)
 
-  call   expect(in TSym(":"), ref toks)
+  call   expect(in TKw(":"), ref toks)
   call   parse_type(in notation, params, out r, ref toks)
 
   // a signature in an export section has no body
-  if head_token(toks) == TSym(":=")
+  if head_token(toks) == TKw(":=")
     call   advance(ref toks)
     call   parse_expr(in notation, params, out body, ref toks)
     assign cmd := CFun(unqualified(name), params, xss, r, body)
@@ -1520,11 +1505,11 @@ procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
   call   advance(ref toks)
   call   parse_name(out name, ref toks)
   call   parse_params(in notation, out params, ref toks)
-  call   expect(in TPunct('('), ref toks)
+  call   expect(in TKw("("), ref toks)
   call   parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
-  call   expect(in TPunct(')'), ref toks)
+  call   expect(in TKw(")"), ref toks)
 
-  if head_token(toks) == TSym(":=")
+  if head_token(toks) == TKw(":=")
     call   advance(ref toks)
     call   parse_body(in notation, params, out body, ref toks)
     assign cmd := CProc(unqualified(name), params, ins, outs, refs, body)
@@ -1537,19 +1522,19 @@ procedure parse_command(in notation: Notation, out cmds: List[Cmd], ref toks: To
   local name: Id, params: List[Id], typ: Type, cmd: Cmd, body: Stmt, xs: List[Var], pos: Pos
 
   match head_token(toks)
-    case TName(w) if contains(w, ["prefix", "postfix", "infix"]) =>
+    case TKw(w) if contains(w, ["prefix", "postfix", "infix"]) =>
       assign pos := head_pos(toks)
       call   parse_notation(in notation, out cmd, ref toks)
       call   check_duplicates(in notation, [cmd], pos)
       assign cmds := [cmd]
 
-    case TName("type") =>
+    case TKw("type") =>
       call   advance(ref toks)
       call   parse_name(out name, ref toks)
       call   parse_params(in notation, out params, ref toks)
 
       // an abstract type in an export section has no definition
-      if head_token(toks) == TSym(":=")
+      if head_token(toks) == TKw(":=")
         call   advance(ref toks)
         call   parse_type(in notation, params, out typ, ref toks)
         assign cmds := [CSort(unqualified(name), params, typ)]
@@ -1557,22 +1542,22 @@ procedure parse_command(in notation: Notation, out cmds: List[Cmd], ref toks: To
         assign cmds := [CAbstract(unqualified(name), params)]
       end
 
-    case TName("data") =>
+    case TKw("data") =>
       call parse_data(in notation, out cmds, ref toks)
 
-    case TName("function") =>
+    case TKw("function") =>
       call   parse_function(in notation, out cmd, ref toks)
       assign cmds := [cmd]
 
-    case TName("procedure") =>
+    case TKw("procedure") =>
       call   parse_procedure(in notation, out cmd, ref toks)
       assign cmds := [cmd]
 
-    case TName("test") =>
+    case TKw("test") =>
       call   advance(ref toks)
       call   parse_name(out name, ref toks)
       call   parse_formals(in notation, Nil, out xs, ref toks)
-      call   expect(in TSym(":="), ref toks)
+      call   expect(in TKw(":="), ref toks)
       call   parse_body(in notation, Nil, out body, ref toks)
       assign cmds := [CTest(name, xs, body)]
 
@@ -1654,7 +1639,7 @@ procedure parse_mod(
     assign pos := head_pos(toks), more := Nil
 
     match head_token(toks)
-      case TName("export") =>
+      case TKw("export") =>
         if section == InExport or section == InBuiltin or section == InImplementation
           raise ParseError("a module has one export section", pos)
         else if section != Opening
@@ -1664,7 +1649,7 @@ procedure parse_mod(
         call   advance(ref toks)
         assign section := InExport
 
-      case TName("builtin") =>
+      case TKw("builtin") =>
         if section != InExport
           raise ParseError("builtin follows export", pos)
         end
@@ -1672,7 +1657,7 @@ procedure parse_mod(
         call   advance(ref toks)
         assign section := InBuiltin
 
-      case TName("implementation") =>
+      case TKw("implementation") =>
         if section != InExport and section != InBuiltin
           raise ParseError("implementation follows export", pos)
         end
@@ -1680,13 +1665,13 @@ procedure parse_mod(
         call   advance(ref toks)
         assign section := InImplementation
 
-      case TName("import") if section == NoSections =>
+      case TKw("import") if section == NoSections =>
         raise ParseError("imports come first", pos)
 
-      case TName("import") if section != Opening =>
+      case TKw("import") if section != Opening =>
         raise ParseError("imports come before export", pos)
 
-      case TName("import") =>
+      case TKw("import") =>
         call   advance(ref toks)
         call   parse_name(out imported, ref toks)
         call   import_module(in imported, dir, loading, pos, ref mods)

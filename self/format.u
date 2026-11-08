@@ -5,6 +5,7 @@
 
 import syntax
 import value
+import lex
 import array
 
 export
@@ -106,9 +107,6 @@ function postfix_operand(d: Doc): Str :=
 // a name is separated from its operand, and a symbol only from an operand that starts with a symbol, as in - -x
 function prefix_text(op: Id, a: Str): Str :=
   if not symbolic(op) or is_symbol(at(0, a)) then op ++ " " ++ a else op ++ a
-
-function is_symbol(c: Char): Bool :=
-  contains(c, "-+*/%<>=!&:^~?@#$")
 
 // the function of an application, and the record of an access
 function atom_text(d: Doc): Str :=
@@ -795,7 +793,7 @@ function format_pats(pats: List[Pat]): Str :=
 
 // constructors named by operators are shown infix
 function symbolic(n: Id): Bool :=
-  let c := at(0, n) in not is_letter(c) and c != '_' and n != ","
+  n != "" and is_symbol(at(0, n))
 
 function infix_text(op: Id, l: Str, r: Str): Str :=
   pat_operand(l) ++ " " ++ op ++ " " ++ pat_operand(r)

@@ -1,16 +1,19 @@
-// the lexer of ulang, which splits source code into tokens with their offsets, where a symbol is always the longest run
-// of symbol characters
+// the lexer of ulang, which splits source code into tokens with their positions, where a symbol is always the longest run
+// of symbol characters, and which tells keywords from names and operators
 
 import syntax
 import os
+import set
 
 export
 
-// names include keywords and operators that are names, which only the parser tells apart
 data Token :=
+  // names that are not keywords, which are operators only if the notation in effect declares them
   | TName(Str)
-  | TSym(Str)
-  | TPunct(Char)
+  // runs of symbol characters that are not keywords, which are always operators
+  | TOp(Str)
+  // names and symbols with a fixed meaning, and punctuation
+  | TKw(Str)
   | TNum(Int)
   | TStr(Str)
   | TChar(Char)
@@ -23,12 +26,28 @@ type Tokens :=
 data LexError :=
   | LexError(Str, Pos)
 
+function is_symbol(c: Char): Bool
+function is_keyword(w: Str): Bool
 procedure lex(in text: Str, out toks: Tokens)
 
 implementation
 
 function is_symbol(c: Char): Bool :=
   contains(c, "-+*/%<>=!&:^~?@#$")
+
+function keywords(): Set[Str] :=
+  {
+    "_", "assert", "assign", "builtin", "call", "case", "catch", "data", "else", "end", "export", "false", "for", "function",
+    "if", "implementation", "import", "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix",
+    "procedure", "raise", "ref", "skip", "test", "then", "true", "type", "try", "while", "with"
+  }
+
+function is_keyword(w: Str): Bool :=
+  contains(w, keywords())
+
+// symbols with a fixed meaning, which cannot be operators
+function fixed_symbols(): Set[Str] :=
+  {"=>", ":=", ":"}
 
 // | always stands alone, between the constructors of a datatype and around arrays, which may start with a symbol, |-1|
 function is_punct(c: Char): Bool :=
@@ -114,7 +133,7 @@ procedure lex_name(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
 
   call   scan(in text, is_name_char, out from, ref offset)
-  assign tok := TName(slice(text, from, offset))
+  assign tok := let w := slice(text, from, offset) in if contains(w, keywords()) then TKw(w) else TName(w)
 
 procedure lex_number(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
@@ -132,7 +151,7 @@ procedure lex_symbol(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
 
   call   scan(in text, is_symbol, out from, ref offset)
-  assign tok := TSym(slice(text, from, offset))
+  assign tok := let s := slice(text, from, offset) in if contains(s, fixed_symbols()) then TKw(s) else TOp(s)
 
 procedure lex_string(in text: Str, out tok: Token, ref offset: Int) :=
   local contents: Str
@@ -167,7 +186,7 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
     case '\'' =>
       call lex_char(in text, out tok, ref offset)
     case _ if is_punct(c) =>
-      assign tok := TPunct(c), offset := offset + 1
+      assign tok := TKw(str([c])), offset := offset + 1
     case _ =>
       raise LexError("unexpected character", position_of(text, offset))
   end
@@ -203,18 +222,18 @@ test lex_tokens() :=
   call   lex(in "function f(x: Int): Int := x+-1 // one\n  y", out toks)
   assert toks ==
     [
-      (Pos(1, 1), TName("function")),
+      (Pos(1, 1), TKw("function")),
       (Pos(1, 10), TName("f")),
-      (Pos(1, 11), TPunct('(')),
+      (Pos(1, 11), TKw("(")),
       (Pos(1, 12), TName("x")),
-      (Pos(1, 13), TSym(":")),
+      (Pos(1, 13), TKw(":")),
       (Pos(1, 15), TName("Int")),
-      (Pos(1, 18), TPunct(')')),
-      (Pos(1, 19), TSym(":")),
+      (Pos(1, 18), TKw(")")),
+      (Pos(1, 19), TKw(":")),
       (Pos(1, 21), TName("Int")),
-      (Pos(1, 25), TSym(":=")),
+      (Pos(1, 25), TKw(":=")),
       (Pos(1, 28), TName("x")),
-      (Pos(1, 29), TSym("+-")),
+      (Pos(1, 29), TOp("+-")),
       (Pos(1, 31), TNum(1)),
       (Pos(2, 3), TName("y")),
       (Pos(2, 4), TEnd)
@@ -224,7 +243,7 @@ test lex_literals() :=
   local toks: Tokens
 
   call   lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' [x; xs]", out toks)
-  assert tokens(toks) == [TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\''), TPunct('['), TName("x"), TPunct(';'), TName("xs"), TPunct(']'), TEnd]
+  assert tokens(toks) == [TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\''), TKw("["), TName("x"), TKw(";"), TName("xs"), TKw("]"), TEnd]
 
 test lex_errors() :=
   local toks: Tokens, e := LexError("none", Pos(0, 0))
