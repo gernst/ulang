@@ -87,7 +87,7 @@ data State :=
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
   | HCon(constr: Name)
-  | HLit(lit: Val)
+  | HLit(lit: Lit)
 
 function with_sig(s: State, sig: Sig): State :=
   s with sig := sig
@@ -163,13 +163,13 @@ function is_visible(s: State, d: Name): Bool :=
 function params(ps: List[Id]): List[Type] :=
   [TParam(p) for p in ps]
 
-function literal(v: Val): Type :=
+function literal(v: Lit): Type :=
   match v
-    case VUnit => TTuple(Nil)
-    case VBool(_) => type_bool()
-    case VInt(_) => type_int()
-    case VStr(_) => type_str()
-    case VChar(_) => type_char()
+    case LUnit => TTuple(Nil)
+    case LBool(_) => type_bool()
+    case LInt(_) => type_int()
+    case LStr(_) => type_str()
+    case LChar(_) => type_char()
   end
 
 function initial(): Sig :=
@@ -598,7 +598,7 @@ function field_types(sig: Sig, k: Name, args: List[Type]): List[Type] :=
 // all constructors of t with their argument types, if there are finitely many
 function constructors_of(sig: Sig, su: Subst, t: Type): Option[List[Head * List[Type]]] :=
   match zonk_type(su, t)
-    case TSort(name, Nil) if TSort(name, Nil) == type_bool() => Some([(HLit(VBool(true)), Nil), (HLit(VBool(false)), Nil)])
+    case TSort(name, Nil) if TSort(name, Nil) == type_bool() => Some([(HLit(LBool(true)), Nil), (HLit(LBool(false)), Nil)])
     case TTuple(types) => Some([(HCon(tuple_name()), types)])
     case TSort(name, args) =>
       match members_of(sig, name)
@@ -1720,7 +1720,7 @@ procedure statement(in assignable: List[Name], x: Stmt, out y: Stmt, ref env: En
       call   check(in env, cond, type_bool(), out c, ref s)
       assign y := SAssert(c)
 
-      if c == ELit(VBool(false))
+      if c == ELit(LBool(false))
         assign env := unreachable(env)
       end
 
@@ -2147,7 +2147,7 @@ function failing(t: Name, ps: List[Id], op: Id, r: Type, e: Id): Cmd :=
       ps,
       [Var(unqualified("a"), a), Var(unqualified("b"), a)],
       r,
-      ERaise(EApp(EVar(Var(Name(Some("prelude"), e), THole)), [ELit(VStr(format_name(t)))]), THole)
+      ERaise(EApp(EVar(Var(Name(Some("prelude"), e), THole)), [ELit(LStr(format_name(t)))]), THole)
     )
 
 // the commands of ds without signatures and abstract types, which only the checks of sections need
@@ -2167,7 +2167,7 @@ function natives(d: Mod): List[Id * Cmd] :=
 
 function native(cmd: Cmd): Cmd :=
   match cmd
-    case CFunSig(name, params, formals, typ) => CFun(name, params, formals, typ, ELit(VUnit))
+    case CFunSig(name, params, formals, typ) => CFun(name, params, formals, typ, ELit(LUnit))
     case CProcSig(name, params, ins, outs, refs) => CProc(name, params, ins, outs, refs, SSkip)
     case CAbstract(name, params) => CData(name, params, Nil)
     case _ => cmd
@@ -2507,7 +2507,7 @@ test inference() :=
   call   type_of(in expr_app("<", [expr_int(1), expr_int(2)]), out t)
   assert t == type_bool()
   // let id = lambda x => x in (id(1), id(true))
-  call   type_of(in ELet([(Var(unqualified("id"), THole), ELam([Var(unqualified("x"), THole)], expr_var("x")))], ETuple([expr_app("id", [expr_int(1)]), expr_app("id", [ELit(VBool(true))])])), out t)
+  call   type_of(in ELet([(Var(unqualified("id"), THole), ELam([Var(unqualified("x"), THole)], expr_var("x")))], ETuple([expr_app("id", [expr_int(1)]), expr_app("id", [ELit(LBool(true))])])), out t)
   assert t == TTuple([type_int(), type_bool()])
   // lambda f => f(f)
   try
@@ -2518,7 +2518,7 @@ test inference() :=
       skip
   end
   try
-    call   type_of(in expr_app("<", [expr_int(1), ELit(VBool(true))]), out t)
+    call   type_of(in expr_app("<", [expr_int(1), ELit(LBool(true))]), out t)
     assert false
   catch
     case CannotUnify(left, right) =>
@@ -2618,7 +2618,7 @@ function bags(): List[Mod] :=
       CData(unq("Qt"), Nil, [Constr(unq("Qt"), [type_str()])]),
       fun_cmd("size", [var_of("b", tsort("Box"))], type_int(), expr_int(2)),
       fun_cmd("Qt.x", [var_of("q", tsort("Qt"))], type_str(), EMatch(expr_var("q"), [Branch(PApp(unq("Qt"), [pat_var("s")]), None, expr_var("s"))])),
-      CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Box"))], Nil, SAssign([(var_of("b", THole), expr_app("Box", [ELit(VStr(""))]))]))
+      CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Box"))], Nil, SAssign([(var_of("b", THole), expr_app("Box", [ELit(LStr(""))]))]))
     ]), Nil, Nil)
   ]
 
@@ -2648,7 +2648,7 @@ procedure body_of(in cmd: Cmd, out b: Expr) :=
 test by_arguments() :=
   local b: Expr
 
-  call body_of(in fun_cmd("f", Nil, type_int(), expr_app("+", [expr_app("size", [expr_app("Bag", [expr_int(1)])]), expr_app("size", [expr_app("Box", [ELit(VStr("x"))])])])), out b)
+  call body_of(in fun_cmd("f", Nil, type_int(), expr_app("+", [expr_app("size", [expr_app("Bag", [expr_int(1)])]), expr_app("size", [expr_app("Box", [ELit(LStr("x"))])])])), out b)
   match b
     case EApp(_, [EApp(EVar(Var(m, _)), _), EApp(EVar(Var(n, _)), _)]) =>
       assert (m, n) == (in_bag("size"), in_box("size"))
@@ -2660,7 +2660,7 @@ test by_arguments() :=
 test deferred() :=
   local b: Expr
 
-  call body_of(in fun_cmd("f", Nil, type_int(), EApp(ELam([var_of("x", THole)], expr_app("size", [expr_var("x")])), [expr_app("Box", [ELit(VStr("x"))])])), out b)
+  call body_of(in fun_cmd("f", Nil, type_int(), EApp(ELam([var_of("x", THole)], expr_app("size", [expr_var("x")])), [expr_app("Box", [ELit(LStr("x"))])])), out b)
   match b
     case EApp(ELam(_, EApp(EVar(Var(name, typ)), _)), _) =>
       assert name == in_box("size")
@@ -2680,7 +2680,7 @@ test by_result() :=
 test constructors() :=
   local b: Expr
 
-  call body_of(in fun_cmd("f", Nil, tsort("Box"), expr_app("Leaf", [ELit(VStr("s"))])), out b)
+  call body_of(in fun_cmd("f", Nil, tsort("Box"), expr_app("Leaf", [ELit(LStr("s"))])), out b)
   match b
     case EApp(EVar(Var(name, _)), _) =>
       assert name == in_box("Leaf")
@@ -2749,7 +2749,7 @@ test builtins() :=
   end
 
   // lambda x => x == x, of a type that nothing decides, compares by the builtin
-  call body_of(in fun_cmd("k", Nil, type_bool(), ELet([(var_of("e", THole), ELam([var_of("x", THole)], expr_app("==", [expr_var("x"), expr_var("x")])))], ELit(VBool(true)))), out b)
+  call body_of(in fun_cmd("k", Nil, type_bool(), ELet([(var_of("e", THole), ELam([var_of("x", THole)], expr_app("==", [expr_var("x"), expr_var("x")])))], ELit(LBool(true)))), out b)
   match b
     case ELet([(_, ELam(_, EApp(EVar(Var(name, _)), _)))], _) =>
       assert name == unq("==")
@@ -2776,7 +2776,7 @@ test errors() :=
   end
   // let h := lambda x => size(x) in true, where nothing decides size
   try
-    call   body_of(in fun_cmd("f", Nil, type_bool(), ELet([(var_of("h", THole), ELam([var_of("x", THole)], expr_app("size", [expr_var("x")])))], ELit(VBool(true)))), out b)
+    call   body_of(in fun_cmd("f", Nil, type_bool(), ELet([(var_of("h", THole), ELam([var_of("x", THole)], expr_app("size", [expr_var("x")])))], ELit(LBool(true)))), out b)
     assert false
   catch
     case Ambiguous(name, candidates) =>

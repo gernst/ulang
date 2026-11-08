@@ -21,18 +21,18 @@ data Type :=
   | TProc(ins: List[Type], outs: List[Type], refs: List[Type])
   | TTuple(types: List[Type])
 
-data Val :=
-  | VUnit
-  | VBool(bool: Bool)
-  | VInt(num: Int)
-  | VStr(text: Str)
-  | VChar(char: Char)
+data Lit :=
+  | LUnit
+  | LBool(bool: Bool)
+  | LInt(num: Int)
+  | LStr(text: Str)
+  | LChar(char: Char)
 
 data Var :=
   | Var(name: Name, typ: Type)
 
 data Expr :=
-  | ELit(lit: Val)
+  | ELit(lit: Lit)
   | EVar(var: Var)
   | EApp(fun: Expr, args: List[Expr])
   | ELam(formals: List[Var], body: Expr)
@@ -47,7 +47,7 @@ data Expr :=
 
 data Pat :=
   | PWild
-  | PLit(lit: Val)
+  | PLit(lit: Lit)
   | PVar(var: Var)
   | PApp(constr: Name, pats: List[Pat])
   | PTuple(pats: List[Pat])
@@ -142,7 +142,7 @@ function expr_var(n: Id): Expr :=
   EVar(Var(unqualified(n), THole))
 
 function expr_int(n: Int): Expr :=
-  ELit(VInt(n))
+  ELit(LInt(n))
 
 function expr_app(f: Id, args: List[Expr]): Expr :=
   EApp(expr_var(f), args)
@@ -150,7 +150,6 @@ function expr_app(f: Id, args: List[Expr]): Expr :=
 function pat_var(n: Id): Pat :=
   PVar(Var(unqualified(n), THole))
 
-// the commands of all sections with their positions, in order
 function placed_of(d: Mod): List[Pos * Cmd] :=
   d.exported ++ d.builtins ++ d.implemented
 

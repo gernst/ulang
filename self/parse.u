@@ -141,13 +141,13 @@ function expected(what: Str, toks: Tokens): ParseError :=
   end
 
 // the value of a literal token
-function literal_at(toks: Tokens): Option[Val] :=
+function literal_at(toks: Tokens): Option[Lit] :=
   match head_token(toks)
-    case TKw("true") => Some(VBool(true))
-    case TKw("false") => Some(VBool(false))
-    case TNum(num) => Some(VInt(num))
-    case TStr(text) => Some(VStr(text))
-    case TChar(char) => Some(VChar(char))
+    case TKw("true") => Some(LBool(true))
+    case TKw("false") => Some(LBool(false))
+    case TNum(num) => Some(LInt(num))
+    case TStr(text) => Some(LStr(text))
+    case TChar(char) => Some(LChar(char))
     case _ => None
   end
 
@@ -501,7 +501,7 @@ procedure parse_type_atom(in notation: Notation, params: List[Id], out r: List[T
 // -n for a number n is the negative literal, in patterns and expressions, and otherwise an operator is applied
 function expr_apply(f: Fixity, op: Id, pos: Pos, args: List[Expr]): Expr :=
   match args
-    case [ELit(VInt(num))] if f == FPrefix and op == "-" => ELit(VInt(0 - num))
+    case [ELit(LInt(num))] if f == FPrefix and op == "-" => ELit(LInt(0 - num))
     case [a] => expr_app(op, [a])
     case [a; more] => expr_infix(op, a, more)
     case Nil => expr_app(op, Nil)
@@ -939,7 +939,7 @@ procedure parse_cases[B](
 
 function pat_apply(f: Fixity, op: Id, pos: Pos, args: List[Pat]): Pat :=
   match args
-    case [PLit(VInt(num))] if f == FPrefix and op == "-" => PLit(VInt(0 - num))
+    case [PLit(LInt(num))] if f == FPrefix and op == "-" => PLit(LInt(0 - num))
     case [pat] => PApp(unqualified(op), [pat])
     case [pat; more] => pat_infix(op, pat, more)
     case Nil => PApp(unqualified(op), Nil)
@@ -1446,7 +1446,7 @@ function field_case(field: Id * (Name * Int * Int * Type)): Branch[Expr] :=
   end
 
 function missing_field(t: Id, f: Id): Branch[Expr] :=
-  Branch(PWild, None, ERaise(expr_app("MissingField", [ELit(VStr(t ++ "." ++ f))]), THole))
+  Branch(PWild, None, ERaise(expr_app("MissingField", [ELit(LStr(t ++ "." ++ f))]), THole))
 
 // case C(a0, _, a2) => C(a0, y, a2), where y replaces the field at its position
 function update_case(field: Id * (Name * Int * Int * Type)): Branch[Expr] :=
@@ -1808,7 +1808,7 @@ procedure parsed(in e: Str, out body: Expr) :=
   local d: Mod
 
   call   parse_text(in test_notation() ++ "function f(): Int :=\n  " ++ e, out d)
-  assign body := ELit(VUnit)
+  assign body := ELit(LUnit)
 
   match reverse(seconds(placed_of(d)))
     case [CFun(_, _, _, _, b); _] =>
@@ -1845,7 +1845,7 @@ test parsed_displays() :=
   call   parsed(in "[a, b; c]", out expr)
   assert expr == expr_app("Cons", [a, expr_app("Cons", [b, c])])
   call   parsed(in "match a case [x, -1; _] => x end", out expr)
-  assert expr == EMatch(a, [Branch(PApp(unqualified("Cons"), [pat_var("x"), PApp(unqualified("Cons"), [PLit(VInt(-1)), PWild])]), None, expr_var("x"))])
+  assert expr == EMatch(a, [Branch(PApp(unqualified("Cons"), [pat_var("x"), PApp(unqualified("Cons"), [PLit(LInt(-1)), PWild])]), None, expr_var("x"))])
   call   parsed(in "{a, b}", out expr)
   assert expr == declared_app("insert", [a, declared_app("insert", [b, declared_app("empty", [])])])
   call   parsed(in "{a => b, a => c}", out expr)

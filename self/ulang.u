@@ -6,7 +6,6 @@ import syntax
 import parse
 import check
 import format
-import value
 import run
 import compile
 import os

@@ -1,19 +1,18 @@
-// the tool's values, types, patterns, names, and programs as ulang source, where values, types, patterns, and names are
-// formatted by their structure, for the messages of the checker and the interpreter, while show of the program uses the shows
-// that datatypes declare, see show_in of self/run.u, and programs are formatted with the notation in effect, as ulang.bin
-// format prints them, which parses to the same commands
+// the tool's literals, types, patterns, names, and programs as ulang source, where literals, types, patterns, and names
+// are formatted by their structure, for the messages of the checker and the interpreter, as format_value of self/run.u
+// formats values, and programs with the notation in effect, as ulang.bin format prints them, which parses to the same
+// commands
 
 import syntax
 import builtins
 import notation
-import value
 import lex
 import array
 
 export
 
 function format_program(mods: List[Mod]): Str
-function format_value(v: Value): Str
+function format_lit(lit: Lit): Str
 function format_type(t: Type): Str
 function format_types(ts: List[Type]): Str
 function format_pat(pat: Pat): Str
@@ -129,10 +128,10 @@ function format_exprs(notation: Notation, indent: Str, exprs: List[Expr]): Str :
 
 function expr_doc(notation: Notation, indent: Str, expr: Expr): Doc :=
   match expr
-    case ELit(VInt(num)) if num < 0 =>
+    case ELit(LInt(num)) if num < 0 =>
       Doc(show(num), Negative)
     case ELit(lit) =>
-      Doc(format_value(Lit(lit)), Atom)
+      Doc(format_lit(lit), Atom)
     case EVar(Var(Name(None, "Nil"), _)) =>
       Doc("[]", Atom)
     case EVar(var) =>
@@ -415,10 +414,10 @@ function pattern_doc(notation: Notation, pat: Pat): Doc :=
   match pat
     case PWild =>
       Doc("_", Atom)
-    case PLit(VInt(num)) if num < 0 =>
+    case PLit(LInt(num)) if num < 0 =>
       Doc(show(num), Negative)
     case PLit(lit) =>
-      Doc(format_value(Lit(lit)), Atom)
+      Doc(format_lit(lit), Atom)
     case PVar(var) =>
       Doc(var.name.base, Atom)
     case PTuple(pats) =>
@@ -694,24 +693,15 @@ test bodies() :=
   assert format_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y\n  skip\nelse if x\nend"
   assert format_cmd(test_operators(), CNotation(FLeft, 9, ["+", "-"]), Nil) == Some("infix left 9 + -")
 
-// values, types, patterns, and names by their structure, in a fixed notation
+// literals, types, patterns, and names by their structure, in a fixed notation
 
-function format_value(v: Value): Str :=
-  match v
-    case Lit(VUnit) => "()"
-    case Lit(VBool(bool)) => if bool then "true" else "false"
-    case Lit(VInt(num)) => show(num)
-    case Lit(VStr(text)) => quote(text)
-    case Lit(VChar(char)) => "'" ++ escape_char(char) ++ "'"
-    case Obj(constr, args) if constr == tuple_name() => "(" ++ format_values(args) ++ ")"
-    case Obj(constr, _) if constr == cons_name() and list_elements(v) != None => "[" ++ format_values(list_items(v)) ++ "]"
-    case Obj(constr, Nil) if constr == nil_name() => "[]"
-    case Obj(constr, Nil) => constr.base
-    case Obj(constr, args) => constr.base ++ "(" ++ format_values(args) ++ ")"
-    case Arr(elems) => array_text([format_value(w) for w in list(elems)])
-    case Proc(_) => "<procedure>"
-    case ProcClos(_, _, _, _, _) => "<procedure>"
-    case _ => "<function>"
+function format_lit(lit: Lit): Str :=
+  match lit
+    case LUnit => "()"
+    case LBool(bool) => if bool then "true" else "false"
+    case LInt(num) => show(num)
+    case LStr(text) => quote(text)
+    case LChar(char) => "'" ++ escape_char(char) ++ "'"
   end
 
 // the array of the texts of its elements, |a, b|, where a first element that starts with || is in parentheses, |(||), a|,
@@ -720,15 +710,6 @@ function array_text(texts: List[Str]): Str :=
   match texts
     case [t; rest] if size(t) >= 2 and slice(t, 0, 2) == "||" => "|" ++ join(", ", ["(" ++ t ++ ")"; rest]) ++ "|"
     case _ => "|" ++ join(", ", texts) ++ "|"
-  end
-
-function format_values(vs: List[Value]): Str :=
-  join(", ", [format_value(v) for v in vs])
-
-function list_items(v: Value): List[Value] :=
-  match list_elements(v)
-    case Some(vs) => vs
-    case None => Nil
   end
 
 function escape_char(c: Char): Str :=
@@ -782,7 +763,7 @@ function type_component(t: Type): Str :=
 function format_pat(pat: Pat): Str :=
   match pat
     case PWild => "_"
-    case PLit(lit) => format_value(Lit(lit))
+    case PLit(lit) => format_lit(lit)
     case PVar(var) => var.name.base
     case PTuple(pats) => "(" ++ format_pats(pats) ++ ")"
     case PApp(constr, [x, xs]) if constr == cons_name() or constr == unqualified("Cons") => "[" ++ format_pat(x) ++ "; " ++ format_pat(xs) ++ "]"
@@ -815,6 +796,4 @@ test printing() :=
   assert format_type(TFun([TFun([TParam("A")], TParam("B")), TTuple([TSort(unqualified("Int"), []), TSort(unqualified("Str"), [])])], TSort(unqualified("List"), [TParam("A")]))) == "(A -> B, Int * Str) -> List[A]"
   assert format_type(TProc([TParam("A")], [], [TSort(unqualified("Int"), [])])) == "(in A, ref Int)"
   assert format_pat(PApp(cons_name(), [PVar(Var(unqualified("x"), THole)), PApp(unqualified("Some"), [PWild])])) == "[x; Some(_)]"
-  assert format_value(list_value([Lit(VInt(1)), Lit(VStr("a\"b"))])) == "[1, \"a\\\"b\"]"
-  assert format_value(Obj(tuple_name(), [Lit(VChar('\'')), Obj(nil_name(), Nil), Obj(unqualified("Some"), [Lit(VBool(true))])])) == "('\\'', [], Some(true))"
   assert format_name(cons_name()) == "list.Cons" and cons_name().base == "Cons"

@@ -272,13 +272,13 @@ function conjunction(cs: List[CExpr]): CExpr :=
     case [d; rest] => CeBinary("&&", d, conjunction(rest))
   end
 
-function literal_value(l: Val): CExpr :=
+function literal_value(l: Lit): CExpr :=
   match l
-    case VUnit => c_call("u_mk_tuple", [CeNum(0)])
-    case VBool(bool) => c_call("u_mk_bool", [CeNum(if bool then 1 else 0)])
-    case VInt(num) => if -1000000000000000000 < num and num < 1000000000000000000 then c_call("u_mk_int", [CeNum(num)]) else c_call("u_mk_int_str", [CeStr(show(num))])
-    case VStr(text) => c_call("u_mk_lit", [CeStr(text)])
-    case VChar(char) => c_call("u_mk_char", [CeNum(ord(char))])
+    case LUnit => c_call("u_mk_tuple", [CeNum(0)])
+    case LBool(bool) => c_call("u_mk_bool", [CeNum(if bool then 1 else 0)])
+    case LInt(num) => if -1000000000000000000 < num and num < 1000000000000000000 then c_call("u_mk_int", [CeNum(num)]) else c_call("u_mk_int_str", [CeStr(show(num))])
+    case LStr(text) => c_call("u_mk_lit", [CeStr(text)])
+    case LChar(char) => c_call("u_mk_char", [CeNum(ord(char))])
   end
 
 // the tests that v matches p, in an order that checks a constructor before its fields
@@ -394,7 +394,7 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
 
   match expr
     // a string literal is a static object, which is created once, named after its text
-    case ELit(VStr(text)) =>
+    case ELit(LStr(text)) =>
       call   gen_name(in "l_" ++ mangle(unqualified(slice(text, 0, if size(text) < 16 then size(text) else 16))) ++ "_", out t, ref g)
       assign ss := [CsDecl(CtNamed("static struct u_object"), t, Some(c_call("U_LIT", [CeStr(text)])))], r := CeUnary("&", CeVar(t))
 
