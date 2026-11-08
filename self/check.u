@@ -47,8 +47,8 @@ data TypeError :=
   | PrivateType(Name, Name)
   | VisibleEquality(Name)
   | UnexportedOrder(Name, Name)
-  // an error of the command at the position of module
-  | Located(Id, Pos, TypeError)
+  // an error of the command at the position of an imported module, or of the main module for None
+  | Located(Option[Id], Pos, TypeError)
 
 // checked modules: their commands with qualified names, their declarations, and the modules each imports
 data Checked :=
@@ -2418,7 +2418,13 @@ procedure check_sections(in ds: List[Mod], out hidden: Set[Name], hidden_sorts: 
 procedure check_program(in source: Source, out q: Prog) :=
   local sig: Sig := empty(), imports: List[Id * List[Id]] := Nil, cmds: List[Cmd] := Nil
 
-  call   check_units(in units(source.mods), ref sig, imports, cmds)
+  try
+    call check_units(in units(source.mods), ref sig, imports, cmds)
+  catch
+    case Located(Some(m), p, e) if m == source.main =>
+      raise Located(None, p, e)
+  end
+
   assign q := Prog(cmds)
 
 procedure check_units(in us: List[List[Mod]], ref sig: Sig, imports: List[Id * List[Id]], cs: List[Cmd]) :=
@@ -2517,7 +2523,7 @@ procedure placed_commands(in placed: List[Pos * (Id * Cmd)], out cmds: List[Cmd]
 // the error e of declaration d of a module at position p, if the parser read it
 function located(d: Id * Cmd, p: Pos, e: TypeError): TypeError :=
   match d
-    case (m, _) => if p == Pos(0, 0) then e else Located(m, p, e)
+    case (m, _) => if p == Pos(0, 0) then e else Located(Some(m), p, e)
   end
 
 // the units of the modules, in load order, each module on its own

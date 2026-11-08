@@ -1097,11 +1097,11 @@ procedure compile_program(in q: Prog, m: Id, entry: Id, out f: CFile) :=
 
 // checks the program of the file source, which is its module, and writes its translation to C to target
 procedure compile_file(in source: Str, entry: Id, target: Str) :=
-  local mods: List[Mod], q: Prog, f: CFile
+  local parsed: Source, q: Prog, f: CFile
 
-  call   parse_file(in source, out mods)
-  call   check_program(in Source(mods, module_name(source)), out q)
-  call   compile_program(in q, module_name(source), entry, out f)
+  call   parse_file(in source, out parsed)
+  call   check_program(in parsed, out q)
+  call   compile_program(in q, parsed.main, entry, out f)
   call   os_write(in target, format_file(f))
 
 // a procedure without parameters

@@ -16,12 +16,11 @@ data ParseError :=
   // an error of an imported module at its position in that module
   | ImportError(Id, Str, Pos)
 
-function module_name(path: Str): Str
-
 // the modules of the file at path, in load order, each after the modules it imports, with the module of the file last,
-// where imports are read from the directory of the file, or else from the library, and implicit ones from the library
-procedure parse_file(in path: Str, out mods: List[Mod])
-procedure parse_file_text(in path: Str, text: Str, out mods: List[Mod])
+// whose name is that of the file without its directory and .u, where imports are read from the directory of the file, or
+// else from the library, and implicit ones from the library
+procedure parse_file(in path: Str, out source: Source)
+procedure parse_file_text(in path: Str, text: Str, out source: Source)
 
 // the module of text without implicit imports, which reads no files unless text imports modules
 procedure parse_text(in text: Str, out own: Mod)
@@ -1785,19 +1784,18 @@ procedure lex_text(in text: Str, out toks: Tokens) :=
       raise ParseError(m, p)
   end
 
-procedure parse_file_text(in path: Str, text: Str, out mods: List[Mod]) :=
-  local toks: Tokens, own: Mod, name := module_name(path)
+procedure parse_file_text(in path: Str, text: Str, out source: Source) :=
+  local toks: Tokens, own: Mod, mods: List[Mod] := Nil, name := module_name(path)
 
   call   lex_text(in text, out toks)
-  assign mods := Nil
   call   parse_mod(in name, implicit_imports(name), Some(os_dirname(path)), [name], out own, ref mods, toks)
-  assign mods := mods ++ [own]
+  assign source := Source(mods ++ [own], name)
 
-procedure parse_file(in path: Str, out mods: List[Mod]) :=
+procedure parse_file(in path: Str, out source: Source) :=
   local text: Str
 
   call os_read(in path, out text)
-  call parse_file_text(in path, text, out mods)
+  call parse_file_text(in path, text, out source)
 
 procedure parse_text(in text: Str, out own: Mod) :=
   local toks: Tokens, mods: List[Mod] := Nil

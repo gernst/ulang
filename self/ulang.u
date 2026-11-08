@@ -104,7 +104,7 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
     case UnknownEntry(n) =>
       assign message := "compile error: there is no procedure " ++ n.base ++ " without parameters"
     case e =>
-      assign message := "type error: " ++ located_message(module_name(file), e)
+      assign message := "type error: " ++ located_message(e)
     case e =>
       assign message := "runtime error: " ++ runtime_message(e)
   end
@@ -116,12 +116,13 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
 function at_pos(p: Pos): Str :=
   " at " ++ show(p.line) ++ "." ++ show(p.col)
 
-// the checked program of file, which is the module of its base name, after the modules it imports
-procedure load_file(in file: Str, out q: Prog) :=
-  local mods: List[Mod]
+// the checked program of file, after the modules it imports, and the name of the module of file
+procedure load_file(in file: Str, out main: Id, q: Prog) :=
+  local source: Source
 
-  call parse_file(in file, out mods)
-  call check_program(in Source(mods, module_name(file)), out q)
+  call   parse_file(in file, out source)
+  call   check_program(in source, out q)
+  assign main := source.main
 
 function is_any_test(cmd: Cmd): Bool :=
   match cmd
@@ -130,9 +131,9 @@ function is_any_test(cmd: Cmd): Bool :=
   end
 
 procedure check_file(in file: Str, out ok: Bool) :=
-  local q: Prog
+  local main: Id, q: Prog
 
-  call   load_file(in file, out q)
+  call   load_file(in file, out main, q)
   assign ok := true
 
 procedure compile_to(in file: Str, entry: Str, target: Str, out ok: Bool) :=
@@ -141,16 +142,16 @@ procedure compile_to(in file: Str, entry: Str, target: Str, out ok: Bool) :=
 
 // prints file as source, which must parse to the same commands as file, so that formatting tests the parser and the printer
 procedure format_file(in file: Str, out ok: Bool) :=
-  local p: List[Mod], q: List[Mod], text: Str, source: Str
+  local p: Source, q: Source, text: Str, source: Str
 
   call   os_read(in file, out text)
   call   parse_file_text(in file, text, out p)
-  assign source := format_program(p), ok := false
+  assign source := format_program(p.mods), ok := false
 
   try
     call parse_file_text(in file, source, out q)
 
-    if [without_positions(d) for d in p] == [without_positions(d) for d in q]
+    if [without_positions(d) for d in p.mods] == [without_positions(d) for d in q.mods]
       call   os_print(in slice(source, 0, size(source) - 1))
       assign ok := true
     else
@@ -163,9 +164,10 @@ procedure format_file(in file: Str, out ok: Bool) :=
 
 // calls the procedure name of file, which takes no parameters, and prints as it runs
 procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
-  local q: Prog, run: Run, cache: Map[Name, Value] := empty(), n := Name(Some(module_name(file)), name)
+  local main: Id, q: Prog, run: Run, cache: Map[Name, Value] := empty(), n: Name
 
-  call   load_file(in file, out q)
+  call   load_file(in file, out main, q)
+  assign n := Name(Some(main), name)
   assign run := load(q) with args := args
 
   if exists(q.cmds, lambda c => is_entry(c, n))
@@ -178,9 +180,9 @@ procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
 
 // runs the tests of file, all or the named ones, each on its own, also after a failed one, printing whether it passed
 procedure test_file(in file: Str, names: List[Str], args: List[Str], out ok: Bool) :=
-  local q: Prog, run: Run, tests: List[Cmd], missing: List[Str]
+  local main: Id, q: Prog, run: Run, tests: List[Cmd], missing: List[Str]
 
-  call   load_file(in file, out q)
+  call   load_file(in file, out main, q)
   assign run := load(q) with args := args
   assign tests := [c for c in q.cmds if is_selected_test(c, names)]
   assign missing := [n for n in names if not exists(tests, lambda c => is_test(c, n))]
@@ -305,9 +307,9 @@ function starts_with(s: Str, start: Str): Bool :=
 
 // runs all tests of file, quietly, and raises the first failure
 procedure test_all(in file: Str, out ok: Bool) :=
-  local q: Prog, run: Run, message: Str
+  local main: Id, q: Prog, run: Run, message: Str
 
-  call   load_file(in file, out q)
+  call   load_file(in file, out main, q)
   assign run := load(q)
   call   first_failure(in run, [c for c in q.cmds if is_any_test(c)], out message)
 
@@ -348,10 +350,11 @@ function cmd_name(cmd: Cmd): Str :=
 
 // the messages of errors, without positions
 
-// the message of e, with the position of the command that raised it, and the module if it is not main
-function located_message(main: Id, e: TypeError): Str :=
+// the message of e, with the position of the command that raised it, and the module if it is not the main module
+function located_message(e: TypeError): Str :=
   match e
-    case Located(m, p, inner) => type_message(inner) ++ (if m == main then "" else " in " ++ m) ++ at_pos(p)
+    case Located(None, p, inner) => type_message(inner) ++ at_pos(p)
+    case Located(Some(m), p, inner) => type_message(inner) ++ " in " ++ m ++ at_pos(p)
     case _ => type_message(e)
   end
 
