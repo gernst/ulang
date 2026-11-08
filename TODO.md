@@ -66,6 +66,7 @@ Open action items, each with the problem and the desired solution.
 ## Rejected and decided
 
 - **A faster `self/run.u`** by numbering the names of declarations and variables when a program is loaded, so that the environments compare integers, and **integers tagged in the pointer** in the runtime, to save the boxes of most integers: both rejected.
+- **Hash consing** of all constructors and tuples in the runtime, tried and removed (`be1808d` is the state without it): 70% of the constructions of the compiler and 85% of `run.u` equal a live value, and peak memory fell by 40–57%, but it was 2.2–2.5 times slower from cache misses, a bucket, its entry, and the candidate for every construction. **Maps and sets ordered by hash** were 18% slower for the compiler and 75% for `run.u`, since hashes outside -16..255 are boxed and `Name` keys differ early anyway. Consing particular structures, such as types or the terms of `prove/`, for memory or identity is still open.
 - **A stack machine** for the interpreter, whose stack and code would be lists or maps, and **mutable arrays**, which values shared by two variables, atomic effects, and the restoring of variables by `try` exclude: rejected.
 - **Partial field accesses** marked at the access, as `e!f`, or rejected statically: dropped, `MissingField` stays.
 - **`call`, `assign`, and `skip`** stay, **`in`** stays at calls, **`test name()`** keeps its parentheses, and **`[…]`** stays for both type arguments and list literals.
