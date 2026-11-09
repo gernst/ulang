@@ -10,8 +10,8 @@ This program sorts numbers by inserting them into a search tree:
 import os
 
 data Tree[A] :=
-  | Leaf
-  | Node(left: Tree[A], key: A, right: Tree[A])
+  case Leaf
+  case Node(left: Tree[A], key: A, right: Tree[A])
 
 function insert(k: Int, t: Tree[Int]): Tree[Int] :=
   match t

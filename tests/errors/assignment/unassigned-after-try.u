@@ -1,6 +1,6 @@
 // type error: x is not assigned on every path at 5.1
 data Fail :=
-  | Fail
+  case Fail
 
 test unassigned_after_try() :=
   local x: Int

@@ -12,9 +12,9 @@ import map
 export
 
 data ParseError :=
-  | ParseError(message: Str, pos: Pos)
+  case ParseError(message: Str, pos: Pos)
   // an error of an imported module at its position in that module
-  | ImportError(module: Id, message: Str, pos: Pos)
+  case ImportError(module: Id, message: Str, pos: Pos)
 
 // the modules of the file at path, in load order, each after the modules it imports, with the module of the file last,
 // whose name is that of the file without its directory and .u, where imports are read from the directory of the file, or
@@ -106,9 +106,6 @@ function at_kw(toks: Tokens, w: Str): Bool :=
 
 function at_comma(toks: Tokens): Bool :=
   at_kw(toks, ",")
-
-function at_bar(toks: Tokens): Bool :=
-  head_token(toks) == TKw("|")
 
 function at_mode(toks: Tokens): Bool :=
   at_kw(toks, "in") or at_kw(toks, "out") or at_kw(toks, "ref")
@@ -310,7 +307,7 @@ function cons_all[A](cons: (A, A) -> A, items: List[A], rest: A): A :=
 // with their own precedence, and a left associative operator is applied to all operands of a chain at once
 
 data Ops[A] :=
-  | Ops(
+  case Ops(
     what: Str,
     starts: (Notation, Token) -> Bool,
     operand: (in Notation, List[Id], out A, ref Tokens),
@@ -1342,8 +1339,8 @@ procedure parse_field(in notation: Notation, params: List[Id], out field: Field,
   call   parse_type(in notation, params, out typ, ref toks)
   assign field := Field(name, typ)
 
-// data T[A] := | C(f: A) | D, where the first | is optional, whose fields the checker gives the accessors T.f and the
-// updaters T.f:=
+// data T[A] := case C(f: A) case D, with at least one constructor, as the cases of a match over T, whose fields the
+// checker gives the accessors T.f and the updaters T.f:=
 procedure parse_data(in notation: Notation, out cmds: List[Cmd], ref toks: Tokens) :=
   local name: Id, params: List[Id], constrs: List[Constr]
 
@@ -1352,11 +1349,11 @@ procedure parse_data(in notation: Notation, out cmds: List[Cmd], ref toks: Token
   call   parse_params(in notation, out params, ref toks)
   call   expect(in TKw(":="), ref toks)
 
-  if at_bar(toks)
-    call advance(ref toks)
+  if not at_kw(toks, "case")
+    raise ParseError("each constructor follows case, as in data T := case C", head_pos(toks))
   end
 
-  call parse_separated(in notation, params, parse_constr, at_bar, out constrs, ref toks)
+  call parse_constrs(in notation, params, out constrs, ref toks)
 
   match differing_field([field for k in constrs, field in k.fields])
     case Some(f) =>
@@ -1366,6 +1363,19 @@ procedure parse_data(in notation: Notation, out cmds: List[Cmd], ref toks: Token
   end
 
   assign cmds := [CData(unqualified(name), params, constrs)]
+
+// the constructors of a datatype, each after case
+procedure parse_constrs(in notation: Notation, params: List[Id], out constrs: List[Constr], ref toks: Tokens) :=
+  local constr: Constr, rest: List[Constr]
+
+  if at_kw(toks, "case")
+    call   advance(ref toks)
+    call   parse_constr(in notation, params, out constr, ref toks)
+    call   parse_constrs(in notation, params, out rest, ref toks)
+    assign constrs := [constr; rest]
+  else
+    assign constrs := Nil
+  end
 
 // a field with different types in different constructors, if any
 function differing_field(fields: List[Field]): Option[Id] :=
@@ -1507,11 +1517,11 @@ procedure import_notations(in names: List[Id], mods: List[Mod], ref notation: No
   end
 
 data Section :=
-  | Opening
-  | InExport
-  | InBuiltin
-  | InImplementation
-  | NoSections
+  case Opening
+  case InExport
+  case InBuiltin
+  case InImplementation
+  case NoSections
 
 // the module name of the tokens toks, which starts with the notation of its implicit imports, after the modules that its imports load
 // into mods, where notations apply to the commands after them, imports come first, and each command has the position where

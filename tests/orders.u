@@ -43,7 +43,7 @@ test comparisons() :=
 
 // versions, newest first, whose constructor is visible, so that their order must agree with the structural equality
 data Version :=
-  | V(major: Int, minor: Int)
+  case V(major: Int, minor: Int)
 
 function compare(a: Version, b: Version): Int :=
   compare((b.major, b.minor), (a.major, a.minor))
@@ -52,11 +52,11 @@ function compare(a: Version, b: Version): Int :=
 // then uses for its values, also inside other values and in generic code, as for the shows of the library
 
 data Color :=
-  | Red
-  | Green
+  case Red
+  case Green
 
 data Pair[A, B] :=
-  | Pair(first: A, second: B)
+  case Pair(first: A, second: B)
 
 // a show of a generic datatype, which shows its components by the builtin
 function show[A, B](p: Pair[A, B]): Str :=

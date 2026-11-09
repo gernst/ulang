@@ -28,15 +28,15 @@ implementation
 // same commands
 
 data Doc :=
-  | Doc(text: Str, shape: Shape)
+  case Doc(text: Str, shape: Shape)
 
 // an open form extends as far to the right as it can, as if, let, lambda without modes, raise, and updates do, a negative
 // literal would be read as - applied to its operand, and an operator binds its operands by its fixity and precedence
 data Shape :=
-  | Atom
-  | Open
-  | Negative
-  | Operator(fixity: Fixity, prec: Int)
+  case Atom
+  case Open
+  case Negative
+  case Operator(fixity: Fixity, prec: Int)
 
 // the last of the modules mods as source, after the modules before it, whose notation it starts with as far as it imports them,
 // implicitly or not
@@ -548,7 +548,7 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
     case CAbstract(name, params) =>
       Some("type " ++ name.base ++ params_text(params))
     case CData(name, params, constrs) =>
-      Some("data " ++ name.base ++ params_text(params) ++ " :=" ++ join("", ["\n  | " ++ constr_text(c) for c in constrs]))
+      Some("data " ++ name.base ++ params_text(params) ++ " :=" ++ join("", ["\n  case " ++ constr_text(c) for c in constrs]))
     case CFun(name, params, formals, typ, body) =>
       Some(function_head(name, params, formals, typ) ++ " :=\n  " ++ format_expr(notation, "  ", body))
     case CFunSig(name, params, formals, typ) =>

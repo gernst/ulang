@@ -6,7 +6,7 @@ function f(): Hidden
 implementation
 
 data Hidden :=
-  | Hidden
+  case Hidden
 
 function f(): Hidden :=
   Hidden

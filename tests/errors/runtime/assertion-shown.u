@@ -1,7 +1,7 @@
 // runtime error: assertion failed: ([], 1 EUR) != ([], 2 EUR)
 
 data Money :=
-  | Money(amount: Int)
+  case Money(amount: Int)
 
 function show(m: Money): Str :=
   match m

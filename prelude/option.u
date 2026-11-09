@@ -3,8 +3,8 @@
 export
 
 data Option[A] :=
-  | None
-  | Some(value: A)
+  case None
+  case Some(value: A)
 
 // a if it has a value, else b
 function or_else[A](a: Option[A], b: Option[A]): Option[A]

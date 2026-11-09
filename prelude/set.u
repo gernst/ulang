@@ -39,8 +39,8 @@ function show[A](s: Set[A]): Str
 implementation
 
 data Set[A] :=
-  | Leaf
-  | Node(left: Set[A], elem: A, right: Set[A], height: Int)
+  case Leaf
+  case Node(left: Set[A], elem: A, right: Set[A], height: Int)
 
 function empty[A](): Set[A] :=
   Leaf

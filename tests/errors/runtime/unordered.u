@@ -9,7 +9,7 @@ function ==(a: Tally, b: Tally): Bool
 implementation
 
 data Tally :=
-  | Tally(count: Int)
+  case Tally(count: Int)
 
 function tally(n: Int): Tally :=
   Tally(n)

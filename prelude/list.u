@@ -5,8 +5,8 @@ import option
 export
 
 data List[A] :=
-  | Nil
-  | Cons(head: A, tail: List[A])
+  case Nil
+  case Cons(head: A, tail: List[A])
 
 function ++[A](xs: List[A], ys: List[A]): List[A]
 function size[A](xs: List[A]): Int

@@ -9,7 +9,7 @@ function box(n: Int): Box
 implementation
 
 data Box :=
-  | Full(contents: Int)
+  case Full(contents: Int)
 
 function box(n: Int): Box :=
   Full(secret(n))

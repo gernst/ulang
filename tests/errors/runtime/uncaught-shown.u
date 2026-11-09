@@ -1,7 +1,7 @@
 // runtime error: uncaught exception Some(1 EUR)
 
 data Money :=
-  | Money(amount: Int)
+  case Money(amount: Int)
 
 function show(m: Money): Str :=
   match m

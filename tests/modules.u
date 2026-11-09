@@ -19,7 +19,7 @@ function pair(a: Int, b: Int): Pair
 implementation
 
 data Pair :=
-  | Pair(first: Int, second: Int)
+  case Pair(first: Int, second: Int)
 
 function pair(a: Int, b: Int): Pair :=
   Pair(a, b)

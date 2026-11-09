@@ -7,7 +7,7 @@ import map
 export
 
 data Notation :=
-  | Notation(prefix_ops: Map[Id, Int], postfix_ops: Map[Id, Int], infix_ops: Map[Id, Fixity * Int])
+  case Notation(prefix_ops: Map[Id, Int], postfix_ops: Map[Id, Int], infix_ops: Map[Id, Fixity * Int])
 
 function empty_notation(): Notation
 function prefix_prec(notation: Notation, op: Id): Option[Int]

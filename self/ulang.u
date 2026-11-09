@@ -13,7 +13,7 @@ import os
 import map
 
 data TestFailed :=
-  | TestFailed(message: Str)
+  case TestFailed(message: Str)
 
 procedure main() :=
   local args: List[Str], command: List[Str], rest: List[Str], ok := true, dir: Bool

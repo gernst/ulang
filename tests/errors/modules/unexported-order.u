@@ -8,7 +8,7 @@ function make(): T
 implementation
 
 data T :=
-  | T(value: Int)
+  case T(value: Int)
 
 function make(): T :=
   T(1)

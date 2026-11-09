@@ -4,43 +4,43 @@
 export
 
 data CType :=
-  | CtVoid
-  | CtInt
-  | CtNamed(name: Str)
-  | CtPtr(pointee: CType)
+  case CtVoid
+  case CtInt
+  case CtNamed(name: Str)
+  case CtPtr(pointee: CType)
 
 // operators are their C symbols, e.g. "+" or "==", and unary ones include "!", "-", "*", and "&"
 data CExpr :=
-  | CeVar(name: Str)
-  | CeNum(num: Int)
-  | CeStr(text: Str)
-  | CeCall(fun: CExpr, args: List[CExpr])
-  | CeUnary(op: Str, operand: CExpr)
-  | CeBinary(op: Str, left: CExpr, right: CExpr)
-  | CeIndex(base: CExpr, index: CExpr)
-  | CeArrow(base: CExpr, field: Str)
-  | CeCast(typ: CType, operand: CExpr)
-  | CeCond(cond: CExpr, then_expr: CExpr, else_expr: CExpr)
+  case CeVar(name: Str)
+  case CeNum(num: Int)
+  case CeStr(text: Str)
+  case CeCall(fun: CExpr, args: List[CExpr])
+  case CeUnary(op: Str, operand: CExpr)
+  case CeBinary(op: Str, left: CExpr, right: CExpr)
+  case CeIndex(base: CExpr, index: CExpr)
+  case CeArrow(base: CExpr, field: Str)
+  case CeCast(typ: CType, operand: CExpr)
+  case CeCond(cond: CExpr, then_expr: CExpr, else_expr: CExpr)
   // the initializer {a, b} of a struct
-  | CeInit(items: List[CExpr])
+  case CeInit(items: List[CExpr])
 
 data CStmt :=
-  | CsExpr(expr: CExpr)
-  | CsDecl(typ: CType, name: Str, init: Option[CExpr])
-  | CsAssign(target: CExpr, expr: CExpr)
-  | CsIf(cond: CExpr, then_stmts: List[CStmt], else_stmts: List[CStmt])
-  | CsWhile(cond: CExpr, body: List[CStmt])
-  | CsReturn(result: Option[CExpr])
-  | CsBlock(body: List[CStmt])
+  case CsExpr(expr: CExpr)
+  case CsDecl(typ: CType, name: Str, init: Option[CExpr])
+  case CsAssign(target: CExpr, expr: CExpr)
+  case CsIf(cond: CExpr, then_stmts: List[CStmt], else_stmts: List[CStmt])
+  case CsWhile(cond: CExpr, body: List[CStmt])
+  case CsReturn(result: Option[CExpr])
+  case CsBlock(body: List[CStmt])
 
 data CDecl :=
-  | CdInclude(header: Str)
-  | CdPrototype(typ: CType, fun: Str, formals: List[CType * Str])
-  | CdFunction(typ: CType, fun: Str, formals: List[CType * Str], body: List[CStmt])
-  | CdGlobal(typ: CType, name: Str, init: Option[CExpr])
+  case CdInclude(header: Str)
+  case CdPrototype(typ: CType, fun: Str, formals: List[CType * Str])
+  case CdFunction(typ: CType, fun: Str, formals: List[CType * Str], body: List[CStmt])
+  case CdGlobal(typ: CType, name: Str, init: Option[CExpr])
 
 data CFile :=
-  | CFile(decls: List[CDecl])
+  case CFile(decls: List[CDecl])
 
 // the C source code of a file, which is formatted rather than shown, since show gives ulang values as they are written
 function format_file(file: CFile): Str

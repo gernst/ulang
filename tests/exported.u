@@ -6,8 +6,8 @@ export
 infix right 12 **
 
 data Color :=
-  | Red
-  | Green(level: Int)
+  case Red
+  case Green(level: Int)
 
 type Level :=
   Int
@@ -32,10 +32,10 @@ function ==(a: Tally, b: Tally): Bool
 implementation
 
 data Counter :=
-  | Counter(value: Int)
+  case Counter(value: Int)
 
 data Tally :=
-  | Tally(counts: List[Int])
+  case Tally(counts: List[Int])
 
 function level(c: Color): Level :=
   match c

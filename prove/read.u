@@ -8,7 +8,7 @@ import map
 export
 
 data ReadError :=
-  | ReadError(message: Str)
+  case ReadError(message: Str)
 
 procedure read_expr(in text: Str, out e: Expr)
 
@@ -18,11 +18,11 @@ procedure read_decls(in decls: Decls, text: Str, out result: Decls)
 implementation
 
 data Tok :=
-  | TInt(num: Int)
-  | TName(name: Str)
-  | TSym(op: Str)
-  | TPunct(char: Char)
-  | TEnd
+  case TInt(num: Int)
+  case TName(name: Str)
+  case TSym(op: Str)
+  case TPunct(char: Char)
+  case TEnd
 
 // lexing
 

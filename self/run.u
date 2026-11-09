@@ -18,34 +18,34 @@ import array
 export
 
 data Value :=
-  | VLit(lit: Lit)
-  | VObj(constr: Name, args: List[Value])
-  | VArr(values: Array[Value])
-  | VFunClos(env: Map[Name, Value], formals: List[Var], body: Expr)
-  | VFun(name: Name, arity: Int)
-  | VCon(constr: Name)
-  | VPrim(name: Name)
-  | VProc(name: Name)
-  | VProcClos(env: Map[Name, Value], ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
+  case VLit(lit: Lit)
+  case VObj(constr: Name, args: List[Value])
+  case VArr(values: Array[Value])
+  case VFunClos(env: Map[Name, Value], formals: List[Var], body: Expr)
+  case VFun(name: Name, arity: Int)
+  case VCon(constr: Name)
+  case VPrim(name: Name)
+  case VProc(name: Name)
+  case VProcClos(env: Map[Name, Value], ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
 
 data Run :=
-  | Run(defs: Defs, computing: List[Name], args: List[Str])
+  case Run(defs: Defs, computing: List[Name], args: List[Str])
 
 // the errors that compiled code reports as well, and those that checked programs do not raise
 data RuntimeError :=
-  | Failed(failure: Failure)
-  | Uninitialized(name: Name)
-  | NotFunction(value: Value)
-  | Unspecified(name: Name, args: List[Value])
-  | NotList(value: Value)
-  | UnassignedOutput(output: Name, proc: Name)
-  | UnknownProc(name: Name)
-  | NotProc(value: Value)
+  case Failed(failure: Failure)
+  case Uninitialized(name: Name)
+  case NotFunction(value: Value)
+  case Unspecified(name: Name, args: List[Value])
+  case NotList(value: Value)
+  case UnassignedOutput(output: Name, proc: Name)
+  case UnknownProc(name: Name)
+  case NotProc(value: Value)
   // an access or update of a field, which the checker resolves to an accessor or updater
-  | UnresolvedField(field: Id)
+  case UnresolvedField(field: Id)
 
 data Thrown :=
-  | Thrown(value: Value, typ: Type)
+  case Thrown(value: Value, typ: Type)
 
 function load(q: Prog): Run
 function format_value(v: Value): Str

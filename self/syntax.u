@@ -9,113 +9,113 @@ type Id :=
 
 // module is None for locals, builtins, and names before checking
 data Name :=
-  | Name(module: Option[Id], base: Id)
+  case Name(module: Option[Id], base: Id)
 
 data Type :=
-  | THole
-  | TMeta(meta: Int)
-  | TParam(param: Id)
-  | TSort(name: Name, args: List[Type])
-  | TFun(args: List[Type], res: Type)
+  case THole
+  case TMeta(meta: Int)
+  case TParam(param: Id)
+  case TSort(name: Name, args: List[Type])
+  case TFun(args: List[Type], res: Type)
   // procedures as values, (in A, out B, ref C), whose parameters have modes as in declarations
-  | TProc(ins: List[Type], outs: List[Type], refs: List[Type])
-  | TTuple(types: List[Type])
+  case TProc(ins: List[Type], outs: List[Type], refs: List[Type])
+  case TTuple(types: List[Type])
 
 data Lit :=
-  | LUnit
-  | LBool(bool: Bool)
-  | LInt(num: Int)
-  | LStr(text: Str)
-  | LChar(char: Char)
+  case LUnit
+  case LBool(bool: Bool)
+  case LInt(num: Int)
+  case LStr(text: Str)
+  case LChar(char: Char)
 
 data Var :=
-  | Var(name: Name, typ: Type)
+  case Var(name: Name, typ: Type)
 
 data Expr :=
-  | ELit(lit: Lit)
-  | EVar(var: Var)
-  | EApp(fun: Expr, args: List[Expr])
+  case ELit(lit: Lit)
+  case EVar(var: Var)
+  case EApp(fun: Expr, args: List[Expr])
   // e.f and e with f := a, which the checker resolves by the type of e to the accessor T.f and the updater T.f:=
-  | EField(expr: Expr, field: Id)
-  | EUpdate(expr: Expr, field: Id, value: Expr)
-  | ELam(formals: List[Var], body: Expr)
+  case EField(expr: Expr, field: Id)
+  case EUpdate(expr: Expr, field: Id, value: Expr)
+  case ELam(formals: List[Var], body: Expr)
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
-  | EProc(ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
-  | ELet(bindings: List[Var * Expr], body: Expr)
-  | EIte(cond: Expr, then_expr: Expr, else_expr: Expr)
-  | EMatch(expr: Expr, cases: List[Branch[Expr]])
-  | ETuple(exprs: List[Expr])
+  case EProc(ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
+  case ELet(bindings: List[Var * Expr], body: Expr)
+  case EIte(cond: Expr, then_expr: Expr, else_expr: Expr)
+  case EMatch(expr: Expr, cases: List[Branch[Expr]])
+  case ETuple(exprs: List[Expr])
   // an exception, as an expression of any type
-  | ERaise(expr: Expr, typ: Type)
+  case ERaise(expr: Expr, typ: Type)
 
 data Pat :=
-  | PWild
-  | PLit(lit: Lit)
-  | PVar(var: Var)
-  | PApp(constr: Name, pats: List[Pat])
-  | PTuple(pats: List[Pat])
+  case PWild
+  case PLit(lit: Lit)
+  case PVar(var: Var)
+  case PApp(constr: Name, pats: List[Pat])
+  case PTuple(pats: List[Pat])
 
 data Branch[A] :=
-  | Branch(pat: Pat, guard: Option[Expr], body: A)
+  case Branch(pat: Pat, guard: Option[Expr], body: A)
 
 data Stmt :=
-  | SSkip
-  | SAssign(assignments: List[Var * Expr])
-  | SBlock(locals: List[Var], stmts: List[Stmt])
-  | SIf(cond: Expr, then_stmt: Stmt, else_stmt: Stmt)
-  | SWhile(cond: Expr, body: Stmt)
-  | SCall(proc: Name, ins: List[Expr], outs: List[Var], refs: List[Var])
-  | SMatch(expr: Expr, cases: List[Branch[Stmt]])
-  | SAssert(cond: Expr)
-  | SRaise(expr: Expr, typ: Type)
-  | STry(body: Stmt, handlers: List[Handler])
+  case SSkip
+  case SAssign(assignments: List[Var * Expr])
+  case SBlock(locals: List[Var], stmts: List[Stmt])
+  case SIf(cond: Expr, then_stmt: Stmt, else_stmt: Stmt)
+  case SWhile(cond: Expr, body: Stmt)
+  case SCall(proc: Name, ins: List[Expr], outs: List[Var], refs: List[Var])
+  case SMatch(expr: Expr, cases: List[Branch[Stmt]])
+  case SAssert(cond: Expr)
+  case SRaise(expr: Expr, typ: Type)
+  case STry(body: Stmt, handlers: List[Handler])
 
 // with the pattern PWild, a handler handles exceptions of any type
 data Handler :=
-  | Handler(typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
+  case Handler(typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
 
 data Constr :=
-  | Constr(name: Name, fields: List[Field])
+  case Constr(name: Name, fields: List[Field])
 
 data Field :=
-  | Field(name: Id, typ: Type)
+  case Field(name: Id, typ: Type)
 
 data Fixity :=
-  | FPrefix
-  | FPostfix
-  | FInfix
-  | FLeft
-  | FRight
+  case FPrefix
+  case FPostfix
+  case FInfix
+  case FLeft
+  case FRight
 
 data Cmd :=
-  | CSort(name: Name, params: List[Id], typ: Type)
-  | CData(name: Name, params: List[Id], constrs: List[Constr])
-  | CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, body: Expr)
-  | CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
+  case CSort(name: Name, params: List[Id], typ: Type)
+  case CData(name: Name, params: List[Id], constrs: List[Constr])
+  case CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, body: Expr)
+  case CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
   // the first import of a module comes with the module itself, whose commands are those it declares
-  | CNotation(fixity: Fixity, prec: Int, ops: List[Id])
+  case CNotation(fixity: Fixity, prec: Int, ops: List[Id])
   // tests take no parameters, which the checker enforces
-  | CTest(test_name: Id, vars: List[Var], stmt: Stmt)
+  case CTest(test_name: Id, vars: List[Var], stmt: Stmt)
   // the export section of a module, with the signatures of functions and procedures, as CFun and CProc without their
   // bodies, and abstract types, which its implementation section defines by data, and its builtin section, with the
   // signatures of exported functions and procedures that the interpreter and the runtime define
-  | CFunSig(name: Name, params: List[Id], formals: List[Var], typ: Type)
-  | CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var])
-  | CAbstract(name: Name, params: List[Id])
+  case CFunSig(name: Name, params: List[Id], formals: List[Var], typ: Type)
+  case CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var])
+  case CAbstract(name: Name, params: List[Id])
 
 data Prog :=
-  | Prog(cmds: List[Cmd])
+  case Prog(cmds: List[Cmd])
 
 data Pos :=
-  | Pos(line: Int, col: Int)
+  case Pos(line: Int, col: Int)
 
 // a module without sections has all its commands implemented and exports nothing
 data Mod :=
-  | Mod(name: Id, imports: List[Id], exported: List[Pos * Cmd], builtins: List[Pos * Cmd], implemented: List[Pos * Cmd])
+  case Mod(name: Id, imports: List[Id], exported: List[Pos * Cmd], builtins: List[Pos * Cmd], implemented: List[Pos * Cmd])
 
 // the modules in load order, each after the modules it imports, with main last
 data Source :=
-  | Source(mods: List[Mod], main: Id)
+  case Source(mods: List[Mod], main: Id)
 
 function unqualified(x: Id): Name
 

@@ -6,4 +6,4 @@ type T[A]
 implementation
 
 data T :=
-  | T
+  case T

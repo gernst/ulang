@@ -1,4 +1,4 @@
 // parse error: field v of T has different types at 5.1
 data T :=
-  | A(v: Int)
-  | B(v: Str)
+  case A(v: Int)
+  case B(v: Str)

@@ -7,7 +7,7 @@ function g(): Int
 builtin
 
 data T :=
-  | T
+  case T
 
 implementation
 

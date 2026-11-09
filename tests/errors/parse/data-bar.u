@@ -1,0 +1,5 @@
+// parse error: each constructor follows case, as in data T := case C at 4.3
+// the constructors of a datatype follow case, as the cases of a match do, not |
+data Shape :=
+  | Circle(radius: Int)
+  | Square(side: Int)

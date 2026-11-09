@@ -5,8 +5,8 @@ import array
 import set
 
 data Color :=
-  | Red
-  | Green
+  case Red
+  case Green
 
 function x_plus(n: Int): Int :=
   n + 1

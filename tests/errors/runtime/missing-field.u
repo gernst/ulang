@@ -1,7 +1,7 @@
 // runtime error: uncaught exception MissingField("Shape.radius")
 data Shape :=
-  | Circle(label: Str, radius: Int)
-  | Box(label: Str)
+  case Circle(label: Str, radius: Int)
+  case Box(label: Str)
 
 test r() :=
   local v := Box("b").radius

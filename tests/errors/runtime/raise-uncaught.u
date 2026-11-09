@@ -1,6 +1,6 @@
 // runtime error: uncaught exception Fail(2)
 data Fail :=
-  | Fail(code: Int)
+  case Fail(code: Int)
 
 test raise_uncaught() :=
   try

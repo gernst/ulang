@@ -2,8 +2,8 @@
 // the arithmetic keep the builtin types of the prelude
 
 data Int :=
-  | Zero
-  | Succ(pred: Int)
+  case Zero
+  case Succ(pred: Int)
 
 function name_of(n: Int): Str :=
   match n

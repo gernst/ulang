@@ -10,7 +10,7 @@ export
 // procs have parameters, ins, outs, and refs, constrs the parameters of their datatype, their argument types, and their
 // datatype, and named the declarations of each base name, of any kind and module
 data Sig :=
-  | Sig(
+  case Sig(
     aliases: Map[Name, List[Id] * Type],
     funs: Map[Name, List[List[Type] * Type]],
     procs: Map[Name, List[Type] * List[Type] * List[Type] * List[Type]],

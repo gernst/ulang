@@ -52,17 +52,17 @@ test association_lists() :=
 
 // mutually recursive datatypes, and a type definition before the datatype it uses
 data Tree[A] :=
-  | Node(label: A, children: Forest[A])
+  case Node(label: A, children: Forest[A])
 
 data Forest[A] :=
-  | Leaf
-  | Grow(tree: Tree[A], rest: Forest[A])
+  case Leaf
+  case Grow(tree: Tree[A], rest: Forest[A])
 
 type Pair[A] :=
   Tuple[A, A]
 
 data Tuple[A, B] :=
-  | Tuple(first: A, second: B)
+  case Tuple(first: A, second: B)
 
 function size[A](t: Tree[A]): Int :=
   match t
@@ -86,8 +86,8 @@ test mutual_recursion() :=
 
 // the natural numbers of Peano
 data Nat :=
-  | Zero
-  | Succ(pred: Nat)
+  case Zero
+  case Succ(pred: Nat)
 
 function add(m: Nat, n: Nat): Nat :=
   match m
@@ -161,15 +161,15 @@ test comparisons() :=
 // named fields of constructors, whose accessors e.f are resolved by the type of e
 
 data Point :=
-  | Point(x: Int, y: Int)
+  case Point(x: Int, y: Int)
 
 // label is a field of both constructors, and radius only of circles, whose accessor is partial
 data Shape :=
-  | Circle(label: Str, center: Point, radius: Int)
-  | Box(label: Str, corner: Point, opposite: Point)
+  case Circle(label: Str, center: Point, radius: Int)
+  case Box(label: Str, corner: Point, opposite: Point)
 
 data Couple[A, B] :=
-  | Couple(left: A, right: B)
+  case Couple(left: A, right: B)
 
 function area(s: Shape): Int :=
   match s

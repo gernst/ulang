@@ -6,7 +6,7 @@ export
 infix left 5 <+>
 
 data Cell :=
-  | Cell(contents: Int)
+  case Cell(contents: Int)
 
 function <+>(m: Int, n: Int): Int
 function twice(n: Int): Int

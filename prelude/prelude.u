@@ -5,24 +5,24 @@ export
 
 // the exceptions of the builtins and of accessors of fields, which every module sees
 data DivisionByZero :=
-  | DivisionByZero
+  case DivisionByZero
 
 // an index of a string or an array with its size
 data OutOfBounds :=
-  | OutOfBounds(index: Int, count: Int)
+  case OutOfBounds(index: Int, count: Int)
 
 data NoCharacter :=
-  | NoCharacter(code: Int)
+  case NoCharacter(code: Int)
 
 data MissingField :=
-  | MissingField(field: Str)
+  case MissingField(field: Str)
 
 // the order of an abstract type that declares == but not compare, and both of one that declares neither, with the name of the type
 data Unordered :=
-  | Unordered(sort: Str)
+  case Unordered(sort: Str)
 
 data Incomparable :=
-  | Incomparable(sort: Str)
+  case Incomparable(sort: Str)
 
 infix right 1 ->
 

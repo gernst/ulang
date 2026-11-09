@@ -26,11 +26,11 @@ export
 // Normal forms have no connectives, quantifiers, or literals as atoms: false is Seq(Nil, Nil, Nil),
 // true is Seq(Nil, Nil, [Concl(Nil, Nil)]), and not A is Seq(Nil, [A], Nil).
 data Seq :=
-  | Atom(expr: Expr)
-  | Seq(fixed: List[Var], assms: List[Seq], concls: List[Concl])
+  case Atom(expr: Expr)
+  case Seq(fixed: List[Var], assms: List[Seq], concls: List[Concl])
 
 data Concl :=
-  | Concl(vars: List[Var], body: List[Seq])
+  case Concl(vars: List[Var], body: List[Seq])
 
 function true_seq(): Seq
 function false_seq(): Seq
@@ -46,33 +46,33 @@ implementation
 
 // a fact with variables, which rewrites instances of lhs to rhs if the instances of the conditions simplify to true
 data Rule :=
-  | Rule(vars: List[Var], conds: List[Seq], lhs: Expr, rhs: Expr)
+  case Rule(vars: List[Var], conds: List[Seq], lhs: Expr, rhs: Expr)
 
 // the variables of the opened sequents, the last one first, such that level l is at depth - 1 - l, the solved
 // equations from atoms to their values, the inequalities t >= 0, the rules, whether the facts are inconsistent, and
 // the limits of internal splits, of nested unfolding and rewriting, and of trial merges that decide equations
 data Ctx :=
-  | Ctx(decls: Decls, vars: List[Var], eqs: Map[Expr, Expr], ineqs: List[Lin], rules: List[Rule], inconsistent: Bool,
+  case Ctx(decls: Decls, vars: List[Var], eqs: Map[Expr, Expr], ineqs: List[Lin], rules: List[Rule], inconsistent: Bool,
         splits: Int, unfolds: Int, probes: Int)
 
 // a simplified conjunction with the context after it, or Refuted if a conjunct is false
 data Conj :=
-  | Conj(ctx: Ctx, seqs: List[Seq])
-  | Refuted
+  case Conj(ctx: Ctx, seqs: List[Seq])
+  case Refuted
 
 // a simplified disjunction, or Proven if a disjunct is true
 data Disj :=
-  | Disj(concls: List[Concl])
-  | Proven
+  case Disj(concls: List[Concl])
+  case Proven
 
 data PatMatch :=
-  | Matched(exprs: List[Expr])
-  | Failed
-  | Stuck
+  case Matched(exprs: List[Expr])
+  case Failed
+  case Stuck
 
 data Split :=
-  | SplitIf(cond: Expr)
-  | SplitMatch(expr: Expr, datatype: Name)
+  case SplitIf(cond: Expr)
+  case SplitMatch(expr: Expr, datatype: Name)
 
 function true_seq(): Seq :=
   Seq(Nil, Nil, [Concl(Nil, Nil)])

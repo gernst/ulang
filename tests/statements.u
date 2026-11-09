@@ -165,7 +165,7 @@ test inferred_types() :=
   assert size(xs) == 2 and m == Some(true)
 
 data Fail :=
-  | Fail
+  case Fail
 
 // the outs of sign are assigned on every path, where a path that raises does not continue
 procedure sign(in n: Int, out s: Int) :=

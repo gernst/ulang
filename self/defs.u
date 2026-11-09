@@ -12,7 +12,7 @@ export
 // field f of a datatype T, the position of f in each constructor of T, in the order of their declaration, or -1 for a
 // constructor without f
 data Defs :=
-  | Defs(
+  case Defs(
     funs: Map[Name * Int, List[Var] * Expr],
     procs: Map[Name, List[Var] * List[Var] * List[Var] * Stmt],
     constrs: Map[Name, Int * Int * Name],

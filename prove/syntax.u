@@ -13,75 +13,75 @@ type Id :=
   Str
 
 data Name :=
-  | Name(module: Option[Id], base: Id)
+  case Name(module: Option[Id], base: Id)
 
 data Val :=
-  | VUnit
-  | VBool(bool: Bool)
-  | VInt(num: Int)
-  | VStr(text: Str)
-  | VChar(char: Char)
+  case VUnit
+  case VBool(bool: Bool)
+  case VInt(num: Int)
+  case VStr(text: Str)
+  case VChar(char: Char)
 
 // TParam indexes the type parameters of the enclosing function or lemma
 data Type :=
-  | TParam(index: Int)
-  | TSort(name: Name, args: List[Type])
-  | TFun(args: List[Type], res: Type)
+  case TParam(index: Int)
+  case TSort(name: Name, args: List[Type])
+  case TFun(args: List[Type], res: Type)
 
 // bound variables, whose names are only for printing
 data Var :=
-  | Var(name: Id, typ: Type)
+  case Var(name: Id, typ: Type)
 
 data Expr :=
-  | EBound(index: Int)
-  | ELevel(level: Int)
-  | EConst(lit: Val)
-  | EFun(name: Name)
+  case EBound(index: Int)
+  case ELevel(level: Int)
+  case EConst(lit: Val)
+  case EFun(name: Name)
   // of any head, a symbol, a variable, or a lambda, where tuples are constructors as well
-  | EApp(fun: Expr, args: List[Expr])
-  | ELam(formals: List[Var], body: Expr)
-  | EIte(cond: Expr, then_expr: Expr, else_expr: Expr)
-  | EMatch(expr: Expr, cases: List[Branch])
+  case EApp(fun: Expr, args: List[Expr])
+  case ELam(formals: List[Var], body: Expr)
+  case EIte(cond: Expr, then_expr: Expr, else_expr: Expr)
+  case EMatch(expr: Expr, cases: List[Branch])
   // c + k1·t1 + … + kn·tn, canonical: the ti sorted by compare and distinct, no ki == 0, no ti a Sum or a Const,
   // and neither c alone (a Const) nor 0 + 1·t (just t)
-  | ESum(constant: Int, terms: List[Expr * Int])
-  | ERaise(expr: Expr, typ: Type)
+  case ESum(constant: Int, terms: List[Expr * Int])
+  case ERaise(expr: Expr, typ: Type)
 
 // the variables of the pattern bind in the guard and the body, from left to right
 data Branch :=
-  | Branch(pat: Pat, guard: Option[Expr], body: Expr)
+  case Branch(pat: Pat, guard: Option[Expr], body: Expr)
 
 // tuples are constructors, as in Expr
 data Pat :=
-  | PWild
-  | PLit(lit: Val)
-  | PVar(var: Var)
-  | PApp(constr: Name, pats: List[Pat])
+  case PWild
+  case PLit(lit: Val)
+  case PVar(var: Var)
+  case PApp(constr: Name, pats: List[Pat])
 
 // a linear sum k + k1·t1 + … as it is computed with, which sum_expr makes canonical
 data Lin :=
-  | Lin(k: Int, terms: List[Expr * Int])
+  case Lin(k: Int, terms: List[Expr * Int])
 
 // a function by its formals, which bind in the body, and whether it calls itself
 data Def :=
-  | Def(recursive: Bool, formals: List[Var], body: Expr)
+  case Def(recursive: Bool, formals: List[Var], body: Expr)
 
 // a constructor by its datatype and its fields, where a field of the datatype itself is recursive
 data Ctor :=
-  | Ctor(datatype: Name, fields: List[Var])
+  case Ctor(datatype: Name, fields: List[Var])
 
 // the symbols of a program: the definitions of functions, the constructors, the datatypes with their constructors
 // in order, and the rank of each symbol in the order of declarations, the precedence of the term order
 data Decls :=
-  | Decls(defs: Map[Name, Def], ctors: Map[Name, Ctor], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int])
+  case Decls(defs: Map[Name, Def], ctors: Map[Name, Ctor], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int])
 
 data Rebind :=
   // the count outermost binders at depth become the levels from depth on
-  | Open(depth: Int, count: Int)
+  case Open(depth: Int, count: Int)
   // the levels become binders, the first one outermost
-  | Close(levels: List[Int])
+  case Close(levels: List[Int])
   // indices of the binders around the term are increased by n
-  | Shift(n: Int)
+  case Shift(n: Int)
 
 function sym(base: Id): Expr
 function app(f: Id, args: List[Expr]): Expr

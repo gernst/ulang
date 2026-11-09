@@ -5,8 +5,8 @@ export
 infix right 8 <+
 
 data Stack[A] :=
-  | Empty
-  | Push(top: A, rest: Stack[A])
+  case Empty
+  case Push(top: A, rest: Stack[A])
 
 function <+[A](x: A, s: Stack[A]): Stack[A]
 function top[A](s: Stack[A]): Option[A]

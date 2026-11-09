@@ -1,10 +1,10 @@
 data Token :=
-  | Num(num: Int)
-  | Sym(op: Str)
+  case Num(num: Int)
+  case Sym(op: Str)
 
 data ParseError :=
-  | Expected(what: Str)
-  | Trailing(toks: List[Token])
+  case Expected(what: Str)
+  case Trailing(toks: List[Token])
 
 procedure accept(in s: Str, ref ts: List[Token]) :=
   match ts
@@ -57,7 +57,7 @@ procedure value(in ts: List[Token], out n: Int) :=
   end
 
 data Fail :=
-  | Fail
+  case Fail
 
 // the assignment to k does not reach the caller, which gets refs and outs only when a procedure returns
 procedure count(ref k: Int) :=
@@ -202,7 +202,7 @@ test guarded_handlers() :=
 
 // raise is also an expression of any type, such that functions can raise exceptions, which statements catch
 data NotDigit :=
-  | NotDigit(char: Char)
+  case NotDigit(char: Char)
 
 function digit(c: Char): Int :=
   if is_digit(c) then ord(c) - ord('0') else raise NotDigit(c)
@@ -228,8 +228,8 @@ test raise_in_functions() :=
   assert n == 21 and bad == 'x'
 
 data Shape :=
-  | Circle(label: Str, radius: Int)
-  | Box(label: Str)
+  case Circle(label: Str, radius: Int)
+  case Box(label: Str)
 
 // builtins and accessors of fields raise exceptions of the prelude
 procedure failure(in k: Int, out m: Str) :=

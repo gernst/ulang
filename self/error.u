@@ -4,14 +4,14 @@
 export
 
 data Failure :=
-  | NoCase(text: Str)
-  | CompareFunctions
-  | CompareProcedures
-  | AssertionFailed
-  | AssertionUnequal(left: Str, right: Str)
-  | Uncaught(text: Str)
+  case NoCase(text: Str)
+  case CompareFunctions
+  case CompareProcedures
+  case AssertionFailed
+  case AssertionUnequal(left: Str, right: Str)
+  case Uncaught(text: Str)
   // of the qualified name of a function without parameters, which compiled code knows when it is compiled
-  | RecursiveInitialization(name: Str)
+  case RecursiveInitialization(name: Str)
 
 function format_failure(failure: Failure): Str
 

@@ -1,6 +1,6 @@
 // type error: C is already defined at 5.1
 data T :=
-  | C
+  case C
 
 function C(): Int :=
   0

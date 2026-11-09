@@ -4,7 +4,7 @@
 export
 
 data OsError :=
-  | OsError(message: Str)
+  case OsError(message: Str)
 
 // the paths of the files below path, depth-first in the order of names, or path itself if it is no directory,
 // where each path is that of its directory, /, and its name

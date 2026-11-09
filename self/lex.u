@@ -9,22 +9,22 @@ export
 
 data Token :=
   // names that are not keywords, which are operators only if the notation in effect declares them
-  | TName(name: Str)
+  case TName(name: Str)
   // runs of symbol characters that are not keywords, which are always operators
-  | TOp(op: Str)
+  case TOp(op: Str)
   // names and symbols with a fixed meaning, and punctuation
-  | TKw(kw: Str)
-  | TNum(num: Int)
-  | TStr(text: Str)
-  | TChar(char: Char)
-  | TEnd
+  case TKw(kw: Str)
+  case TNum(num: Int)
+  case TStr(text: Str)
+  case TChar(char: Char)
+  case TEnd
 
 // tokens with their positions
 type Tokens :=
   List[Pos * Token]
 
 data LexError :=
-  | LexError(message: Str, pos: Pos)
+  case LexError(message: Str, pos: Pos)
 
 function is_op_char(c: Char): Bool
 function is_keyword(w: Str): Bool

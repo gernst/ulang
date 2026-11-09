@@ -16,8 +16,8 @@ import set
 export
 
 data CompileError :=
-  | Unsupported(what: Str)
-  | UnknownEntry(name: Name)
+  case Unsupported(what: Str)
+  case UnknownEntry(name: Name)
 
 procedure compile_file(in source: Str, entry: Id, target: Str)
 function is_entry(cmd: Cmd, n: Name): Bool
@@ -29,7 +29,7 @@ type Vars :=
   List[Name * CExpr]
 
 data Gen :=
-  | Gen(count: Int, lifted: List[CDecl])
+  case Gen(count: Int, lifted: List[CDecl])
 
 function value_type(): CType :=
   CtNamed("u_value")

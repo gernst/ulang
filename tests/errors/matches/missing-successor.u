@@ -1,7 +1,7 @@
 // type error: match is not exhaustive, missing Succ(_) at 6.1
 data Nat :=
-  | Zero
-  | Succ(pred: Nat)
+  case Zero
+  case Succ(pred: Nat)
 
 function f(n: Nat): Nat :=
   match n

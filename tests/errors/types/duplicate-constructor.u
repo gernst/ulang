@@ -1,4 +1,4 @@
 // type error: C is already defined at 2.1
 data T :=
-  | C
-  | C
+  case C
+  case C
