@@ -22,6 +22,9 @@ data ParseError :=
 procedure parse_file(in path: Str, out source: Source)
 procedure parse_file_text(in path: Str, text: Str, out source: Source)
 
+// source with the modules names after its own, from the directory of path or else from the library, unless loaded already
+procedure load_modules(in path: Str, names: List[Id], ref source: Source)
+
 implementation
 
 // the operands of types, expressions, and patterns, and how operators apply to them
@@ -1305,21 +1308,21 @@ procedure parse_operator(in notation: Notation, params: List[Id], out op: Id, re
 procedure parse_constr(
   in  notation: Notation,
       params: List[Id],
-  out constr: Constr * List[Id],
+  out constr: Constr,
   ref toks: Tokens
 ) :=
-  local name: Id, args: List[Id * Type] := Nil
+  local name: Id, fields: List[Field] := Nil
 
   call parse_name_or_op(out name, ref toks)
 
   if at_kw(toks, "(")
     call advance(ref toks)
-    call parse_enclosed(in notation, params, parse_field, ")", out args, ref toks)
+    call parse_enclosed(in notation, params, parse_field, ")", out fields, ref toks)
   end
 
-  assign constr := (Constr(unqualified(name), seconds(args)), firsts(args))
+  assign constr := Constr(unqualified(name), fields)
 
-  match repeated(firsts(args))
+  match repeated([field.name for field in fields])
     case Some(f) =>
       raise ParseError("repeated field " ++ f ++ " of " ++ name, head_pos(toks))
     case None =>
@@ -1327,22 +1330,22 @@ procedure parse_constr(
   end
 
 // a field of a constructor, name: T
-procedure parse_field(in notation: Notation, params: List[Id], out arg: Id * Type, ref toks: Tokens) :=
-  local field: Id, typ: Type
+procedure parse_field(in notation: Notation, params: List[Id], out field: Field, ref toks: Tokens) :=
+  local name: Id, typ: Type
 
   if second_token(toks) != TKw(":")
     raise ParseError("fields of constructors have names, as in C(name: T)", head_pos(toks))
   end
 
-  call   parse_name(out field, ref toks)
+  call   parse_name(out name, ref toks)
   call   advance(ref toks)
   call   parse_type(in notation, params, out typ, ref toks)
-  assign arg := (field, typ)
+  assign field := Field(name, typ)
 
 // data T[A] := | C(f: A) | D, where the first | is optional
 // with the accessors T.f and the updaters T.f:= of its fields f
 procedure parse_data(in notation: Notation, out cmds: List[Cmd], ref toks: Tokens) :=
-  local name: Id, params: List[Id], constrs: List[Constr * List[Id]]
+  local name: Id, params: List[Id], constrs: List[Constr]
 
   call   advance(ref toks)
   call   parse_name(out name, ref toks)
@@ -1362,7 +1365,7 @@ procedure parse_data(in notation: Notation, out cmds: List[Cmd], ref toks: Token
       skip
   end
 
-  assign cmds := [CData(unqualified(name), params, firsts(constrs)); field_functions(name, params, constrs)]
+  assign cmds := [CData(unqualified(name), params, constrs); field_functions(name, params, constrs)]
 
 // a field with different types in different constructors, if any
 function differing_field(fields: List[Id * (Name * Int * Int * Type)]): Option[Id] :=
@@ -1383,20 +1386,20 @@ function fields_named(f: Id, fields: List[Id * (Name * Int * Int * Type)]): List
   end
 
 // the fields of the constructors with each constructor, the position of the field, its number of arguments, and its type
-function fields_of(constrs: List[Constr * List[Id]]): List[Id * (Name * Int * Int * Type)] :=
+function fields_of(constrs: List[Constr]): List[Id * (Name * Int * Int * Type)] :=
   match constrs
     case Nil => Nil
-    case [(Constr(name, args), fs); rest] => named_fields(name, size(args), zip(fs, args), 0) ++ fields_of(rest)
+    case [Constr(name, fields); rest] => named_fields(name, size(fields), fields, 0) ++ fields_of(rest)
   end
 
-function named_fields(k: Name, n: Int, fields: List[Id * Type], i: Int): List[Id * (Name * Int * Int * Type)] :=
+function named_fields(k: Name, n: Int, fields: List[Field], i: Int): List[Id * (Name * Int * Int * Type)] :=
   match fields
     case Nil => Nil
-    case [(f, t); rest] => [(f, (k, i, n, t)); named_fields(k, n, rest, i + 1)]
+    case [Field(f, t); rest] => [(f, (k, i, n, t)); named_fields(k, n, rest, i + 1)]
   end
 
 // the accessor T.f and the updater T.f:= of each field f, which are partial if f is not a field of all constructors
-function field_functions(t: Id, params: List[Id], constrs: List[Constr * List[Id]]): List[Cmd] :=
+function field_functions(t: Id, params: List[Id], constrs: List[Constr]): List[Cmd] :=
   let fs := fields_of(constrs), n := size(constrs) in
     let names := distinct(firsts(fs)) in
       [accessor(t, params, f, fields_named(f, fs), n) for f in names] ++ [updater(t, params, f, fields_named(f, fs), n) for f in names]
@@ -1775,6 +1778,12 @@ procedure parse_file_text(in path: Str, text: Str, out source: Source) :=
   call   parse_mod(in name, implicit_imports(name), Some(os_dirname(path)), [name], out own, ref mods, toks)
   assign source := Source(mods ++ [own], name)
 
+procedure load_modules(in path: Str, names: List[Id], ref source: Source) :=
+  local mods := source.mods
+
+  call   import_all(in names, Some(os_dirname(path)), Nil, ref mods)
+  assign source := source with mods := mods
+
 procedure parse_file(in path: Str, out source: Source) :=
   local text: Str
 
@@ -1791,7 +1800,7 @@ procedure parse_text(in text: Str, out own: Mod) :=
 // the module of the file at path, its name without its directory and .u
 function module_name(path: Str): Str :=
   let f := os_basename(path) in
-    if size(f) >= 2 and slice(f, size(f) - 2, size(f)) == ".u" then slice(f, 0, size(f) - 2) else f
+    if ends_with(f, ".u") then slice(f, 0, size(f) - 2) else f
 
 // the parser, tested by the trees of single constructs, parsed with their own notation from the empty context, which reads no
 // files

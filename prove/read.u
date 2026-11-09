@@ -599,11 +599,11 @@ procedure parse_data(ref decls: Decls, toks: List[Tok]) :=
   if head_tok(toks) == TPunct('[')
     call advance(ref toks)
 
-    while head_tok(toks) != TPunct(']')
+    while head_tok(toks) != TPunct(']') and head_tok(toks) != TEnd
       call advance(ref toks)
     end
 
-    call advance(ref toks)
+    call expect(in TPunct(']'), ref toks)
   end
 
   call   expect(in TSym(":="), ref toks)

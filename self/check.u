@@ -101,7 +101,7 @@ function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
   end
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
-  State(initial(), empty(), 0, main, sees(main, vs), vs, Nil, empty())
+  State(empty(), empty(), 0, main, sees(main, vs), vs, Nil, empty())
 
 function in_module(m: Id, n: Name): Name :=
   Name(Some(m), n.base)
@@ -168,9 +168,6 @@ function literal(v: Lit): Type :=
     case LStr(_) => type_str()
     case LChar(_) => type_char()
   end
-
-function initial(): Sig :=
-  empty()
 
 function logic(): List[Type] * Type :=
   (Nil, TFun([type_bool(), type_bool()], type_bool()))
@@ -291,9 +288,6 @@ function visible_accessors(s: State, cs: List[Name * (List[Type] * Type)]): List
     case Nil => Nil
     case [(d, sc); rest] => if is_visible(s, d) then [(d, sc); visible_accessors(s, rest)] else visible_accessors(s, rest)
   end
-
-function ends_with(b: Id, f: Id): Bool :=
-  if size(b) > size(f) then slice(b, size(b) - size(f), size(b)) == f else false
 
 // a procedure is a value of its type (in A, out B, ref C)
 function proc_scheme(sig: Sig, p: Name): List[Type] * Type :=
@@ -549,16 +543,22 @@ function unknown_in_all(xs: List[Stmt]): Option[Type] :=
 function unknown_in_branches(bs: List[Branch[Stmt]]): Option[Type] :=
   match bs
     case Nil => None
-    case [Branch(_, Some(g), body); rest] => or_else(unknown_in_expr(g), or_else(unknown_in(body), unknown_in_branches(rest)))
-    case [Branch(_, None, body); rest] => or_else(unknown_in(body), unknown_in_branches(rest))
+    case [Branch(_, guard, body); rest] => or_else(unknown_in_guard(guard), or_else(unknown_in(body), unknown_in_branches(rest)))
   end
 
 // handlers of _ catch exceptions of any type
 function unknown_in_handlers(hs: List[Handler]): Option[Type] :=
   match hs
     case Nil => None
-    case [Handler(_, PWild, _, body); rest] => or_else(unknown_in(body), unknown_in_handlers(rest))
-    case [Handler(typ, _, _, body); rest] => or_else(unknown_type(typ), or_else(unknown_in(body), unknown_in_handlers(rest)))
+    case [Handler(typ, pat, guard, body); rest] =>
+      let caught := if pat == PWild then None else unknown_type(typ) in
+      or_else(caught, or_else(unknown_in_guard(guard), or_else(unknown_in(body), unknown_in_handlers(rest))))
+  end
+
+function unknown_in_guard(guard: Option[Expr]): Option[Type] :=
+  match guard
+    case Some(g) => unknown_in_expr(g)
+    case None => None
   end
 
 function unknown_in_cmd(cmd: Cmd): Option[Type] :=
@@ -776,7 +776,7 @@ procedure unify(in t1: Type, t2: Type, ref s: State) :=
 
     case (TParam(x), TParam(y)) =>
       if x != y
-        raise CannotUnify(a, b)
+        raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
     case (TSort(f, xs), TSort(g, ys)) =>
@@ -1995,9 +1995,9 @@ procedure declare_constructors(in n: Name, ps: List[Id], ks: List[Constr], ref s
   match ks
     case Nil =>
       skip
-    case [Constr(name, args); rest] =>
+    case [Constr(name, fields); rest] =>
       call   declare_name(in s.sig, name)
-      call   knowns(in args, name, out ts, ref s)
+      call   knowns(in [field.typ for field in fields], name, out ts, ref s)
       call   closed(in n, ps, ts)
       assign s := with_sig(s, with_constr(s.sig, name, (params(ps), ts, TSort(n, params(ps)))))
       call   declare_constructors(in n, ps, rest, ref s)
@@ -2353,7 +2353,7 @@ function exposed(cmd: Cmd): Option[Name * List[Type]] :=
   match cmd
     case CFunSig(name, _, formals, typ) => Some((name, [x.typ for x in formals] ++ [typ]))
     case CProcSig(name, _, ins, outs, refs) => Some((name, [x.typ for x in ins ++ outs ++ refs]))
-    case CData(name, _, constrs) => Some((name, [t for k in constrs, t in k.args]))
+    case CData(name, _, constrs) => Some((name, [field.typ for k in constrs, field in k.fields]))
     case CSort(name, _, typ) => Some((name, [typ]))
     case _ => None
   end
@@ -2585,9 +2585,6 @@ test statements() :=
 
 // tests of overloading across modules
 
-function unq(n: Id): Name :=
-  unqualified(n)
-
 function tsort(n: Id): Type :=
   TSort(unqualified(n), Nil)
 
@@ -2602,19 +2599,19 @@ function fun_cmd(n: Id, xs: List[Var], r: Type, b: Expr): Cmd :=
 function bags(): List[Mod] :=
   [
     Mod("bag", Nil, unplaced([
-      CData(unq("Bag"), Nil, [Constr(unq("Bag"), [type_int()]), Constr(unq("Leaf"), [type_int()])]),
-      CData(unq("Pt"), Nil, [Constr(unq("Pt"), [type_int()])]),
+      CData(unqualified("Bag"), Nil, [Constr(unqualified("Bag"), [Field("n", type_int())]), Constr(unqualified("Leaf"), [Field("n", type_int())])]),
+      CData(unqualified("Pt"), Nil, [Constr(unqualified("Pt"), [Field("x", type_int())])]),
       fun_cmd("size", [var_of("b", tsort("Bag"))], type_int(), expr_int(1)),
       fun_cmd("compare", [var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))], type_int(), expr_int(0)),
-      fun_cmd("Pt.x", [var_of("p", tsort("Pt"))], type_int(), EMatch(expr_var("p"), [Branch(PApp(unq("Pt"), [pat_var("n")]), None, expr_var("n"))])),
-      CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Bag"))], Nil, SAssign([(var_of("b", THole), expr_app("Bag", [expr_int(0)]))]))
+      fun_cmd("Pt.x", [var_of("p", tsort("Pt"))], type_int(), EMatch(expr_var("p"), [Branch(PApp(unqualified("Pt"), [pat_var("n")]), None, expr_var("n"))])),
+      CProc(unqualified("fill"), Nil, Nil, [var_of("b", tsort("Bag"))], Nil, SAssign([(var_of("b", THole), expr_app("Bag", [expr_int(0)]))]))
     ]), Nil, Nil),
     Mod("box", Nil, unplaced([
-      CData(unq("Box"), Nil, [Constr(unq("Box"), [type_str()]), Constr(unq("Leaf"), [type_str()])]),
-      CData(unq("Qt"), Nil, [Constr(unq("Qt"), [type_str()])]),
+      CData(unqualified("Box"), Nil, [Constr(unqualified("Box"), [Field("s", type_str())]), Constr(unqualified("Leaf"), [Field("s", type_str())])]),
+      CData(unqualified("Qt"), Nil, [Constr(unqualified("Qt"), [Field("x", type_str())])]),
       fun_cmd("size", [var_of("b", tsort("Box"))], type_int(), expr_int(2)),
-      fun_cmd("Qt.x", [var_of("q", tsort("Qt"))], type_str(), EMatch(expr_var("q"), [Branch(PApp(unq("Qt"), [pat_var("s")]), None, expr_var("s"))])),
-      CProc(unq("fill"), Nil, Nil, [var_of("b", tsort("Box"))], Nil, SAssign([(var_of("b", THole), expr_app("Box", [ELit(LStr(""))]))]))
+      fun_cmd("Qt.x", [var_of("q", tsort("Qt"))], type_str(), EMatch(expr_var("q"), [Branch(PApp(unqualified("Qt"), [pat_var("s")]), None, expr_var("s"))])),
+      CProc(unqualified("fill"), Nil, Nil, [var_of("b", tsort("Box"))], Nil, SAssign([(var_of("b", THole), expr_app("Box", [ELit(LStr(""))]))]))
     ]), Nil, Nil)
   ]
 
@@ -2684,7 +2681,7 @@ test constructors() :=
       assert false
   end
 
-  call body_of(in fun_cmd("g", [var_of("b", tsort("Bag"))], type_int(), EMatch(expr_var("b"), [Branch(PApp(unq("Leaf"), [pat_var("n")]), None, expr_var("n")), Branch(PApp(unq("Bag"), [pat_var("n")]), None, expr_var("n"))])), out b)
+  call body_of(in fun_cmd("g", [var_of("b", tsort("Bag"))], type_int(), EMatch(expr_var("b"), [Branch(PApp(unqualified("Leaf"), [pat_var("n")]), None, expr_var("n")), Branch(PApp(unqualified("Bag"), [pat_var("n")]), None, expr_var("n"))])), out b)
   match b
     case EMatch(_, [Branch(PApp(constr, _), _, _); _]) =>
       assert constr == in_bag("Leaf")
@@ -2696,7 +2693,7 @@ test constructors() :=
 test procedures() :=
   local q: Prog
 
-  call check_program(in with_bags([CProc(unq("p"), Nil, Nil, Nil, Nil, SBlock([var_of("b", tsort("Box"))], [SCall(unq("fill"), Nil, [var_of("b", THole)], Nil)]))]), out q)
+  call check_program(in with_bags([CProc(unqualified("p"), Nil, Nil, Nil, Nil, SBlock([var_of("b", tsort("Box"))], [SCall(unqualified("fill"), Nil, [var_of("b", THole)], Nil)]))]), out q)
   match reverse(q.cmds)
     case [CProc(_, _, _, _, _, SBlock(_, [SCall(proc, _, _, _)])); _] =>
       assert proc == in_box("fill")
@@ -2731,15 +2728,15 @@ test builtins() :=
   call body_of(in fun_cmd("g", Nil, type_bool(), expr_app("==", [expr_int(1), expr_int(2)])), out b)
   match b
     case EApp(EVar(Var(name, _)), _) =>
-      assert name == unq("==")
+      assert name == unqualified("==")
     case _ =>
       assert false
   end
 
-  call body_of(in CFun(unq("h"), ["A"], [var_of("x", TParam("A"))], type_bool(), expr_app("==", [expr_var("x"), expr_var("x")])), out b)
+  call body_of(in CFun(unqualified("h"), ["A"], [var_of("x", TParam("A"))], type_bool(), expr_app("==", [expr_var("x"), expr_var("x")])), out b)
   match b
     case EApp(EVar(Var(name, _)), _) =>
-      assert name == unq("==")
+      assert name == unqualified("==")
     case _ =>
       assert false
   end
@@ -2748,7 +2745,7 @@ test builtins() :=
   call body_of(in fun_cmd("k", Nil, type_bool(), ELet([(var_of("e", THole), ELam([var_of("x", THole)], expr_app("==", [expr_var("x"), expr_var("x")])))], ELit(LBool(true)))), out b)
   match b
     case ELet([(_, ELam(_, EApp(EVar(Var(name, _)), _)))], _) =>
-      assert name == unq("==")
+      assert name == unqualified("==")
     case _ =>
       assert false
   end
@@ -2758,7 +2755,7 @@ test locals() :=
   local b: Expr
 
   call body_of(in fun_cmd("f", [var_of("size", type_int())], type_int(), expr_var("size")), out b)
-  assert b == EVar(Var(unq("size"), type_int()))
+  assert b == EVar(Var(unqualified("size"), type_int()))
 
 test errors() :=
   local b: Expr
@@ -2768,7 +2765,7 @@ test errors() :=
     assert false
   catch
     case NoOverload(name, _) =>
-      assert name == unq("size")
+      assert name == unqualified("size")
   end
   // let h := lambda x => size(x) in true, where nothing decides size
   try
@@ -2776,7 +2773,7 @@ test errors() :=
     assert false
   catch
     case Ambiguous(name, candidates) =>
-      assert name == unq("size")
+      assert name == unqualified("size")
       assert size(candidates) == 2
   end
   try
@@ -2784,5 +2781,5 @@ test errors() :=
     assert false
   catch
     case WrongArity(name, arity) =>
-      assert (name, arity) == (unq("size"), 2)
+      assert (name, arity) == (unqualified("size"), 2)
   end

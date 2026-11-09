@@ -75,29 +75,29 @@ function remove[A](x: A, s: Set[A]): Set[A] :=
       match compare(x, elem)
         case -1 => balance(remove(x, left), elem, right)
         case 1 => balance(left, elem, remove(x, right))
-        case _ => joined(left, right)
+        case _ => join(left, right)
       end
   end
 
 // the elements of l and r, where those of l are smaller
-function joined[A](l: Set[A], r: Set[A]): Set[A] :=
-  match first_of(r)
-    case Some(x) => balance(l, x, without_first(r))
+function join[A](l: Set[A], r: Set[A]): Set[A] :=
+  match least(r)
+    case Some(x) => balance(l, x, remove_least(r))
     case None => l
   end
 
-function first_of[A](s: Set[A]): Option[A] :=
+function least[A](s: Set[A]): Option[A] :=
   match s
     case Leaf => None
     case Node(Leaf, elem, _, _) => Some(elem)
-    case Node(left, _, _, _) => first_of(left)
+    case Node(left, _, _, _) => least(left)
   end
 
-function without_first[A](s: Set[A]): Set[A] :=
+function remove_least[A](s: Set[A]): Set[A] :=
   match s
     case Leaf => Leaf
     case Node(Leaf, _, right, _) => right
-    case Node(left, elem, right, _) => balance(without_first(left), elem, right)
+    case Node(left, elem, right, _) => balance(remove_least(left), elem, right)
   end
 
 function ++[A](a: Set[A], b: Set[A]): Set[A] :=
@@ -116,13 +116,13 @@ function forall[A](s: Set[A], p: A -> Bool): Bool :=
   foldl(s, true, lambda all, x => all and p(x))
 
 function set[A](xs: List[A]): Set[A] :=
-  inserted(xs, Leaf)
+  insert_all(xs, Leaf)
 
 // s with the elements of xs
-function inserted[A](xs: List[A], s: Set[A]): Set[A] :=
+function insert_all[A](xs: List[A], s: Set[A]): Set[A] :=
   match xs
     case Nil => s
-    case [x; rest] => inserted(rest, insert(x, s))
+    case [x; rest] => insert_all(rest, insert(x, s))
   end
 
 function compare[A](a: Set[A], b: Set[A]): Int :=
@@ -212,9 +212,6 @@ function balanced[A](s: Set[A]): Bool :=
       balanced(left) and balanced(right) and d == node_height(left, right) and height(left) <= height(right) + 1 and height(right) <= height(left) + 1
   end
 
-function upto(n: Int): List[Int] :=
-  if n == 0 then Nil else upto(n - 1) ++ [n]
-
 function show[A](s: Set[A]): Str :=
   "{" ++ join(", ", [show(x) for x in list(s)]) ++ "}"
 
@@ -229,7 +226,7 @@ test sets() :=
   assert list(set([Some(2), None, Some(1)])) == [None, Some(1), Some(2)]
 
 test set_folds() :=
-  local s := set(upto(50))
+  local s := set(range(1, 51))
 
   assert foldr(s, Nil, Cons) == list(s) and foldl(s, Nil, lambda xs, x => [x; xs]) == reverse(list(s))
   assert foldr(s, empty(), insert) == s and foldl(s, 0, lambda n, x => n + x) == 1275
@@ -243,7 +240,7 @@ test set_equality() :=
 
 // ascending elements would make a list of an unbalanced tree
 test set_balance() :=
-  local s := set(upto(200))
+  local s := set(range(1, 201))
 
   assert balanced(s) and size(s) == 200 and height(s) <= 11
-  assert contains(100, s) and not contains(201, s) and list(s) == upto(200)
+  assert contains(100, s) and not contains(201, s) and list(s) == range(1, 201)

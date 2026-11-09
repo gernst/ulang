@@ -7,6 +7,7 @@ import parse
 import check
 import format
 import run
+import error
 import compile
 import os
 import map
@@ -259,7 +260,7 @@ procedure walk_all(in paths: List[Str], out files: List[Str]) :=
   end
 
 function is_source(path: Str): Bool :=
-  if size(path) > 2 then slice(path, size(path) - 2, size(path)) == ".u" else false
+  size(path) > 2 and ends_with(path, ".u")
 
 procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
   local good: Bool, rest: Int
@@ -301,9 +302,6 @@ function expected_error(text: Str): Str :=
         ""
     case _ => ""
   end
-
-function starts_with(s: Str, start: Str): Bool :=
-  if size(s) >= size(start) then slice(s, 0, size(start)) == start else false
 
 // runs all tests of file, quietly, and raises the first failure
 procedure test_all(in file: Str, out ok: Bool) :=
@@ -410,22 +408,17 @@ function field_message(parts: List[Str]): Str :=
   end
 
 function without_update(f: Str): Str :=
-  let n := size(f) in if n > 2 and slice(f, n - 2, n) == ":=" then slice(f, 0, n - 2) else f
+  if size(f) > 2 and ends_with(f, ":=") then slice(f, 0, size(f) - 2) else f
 
 function runtime_message(e: RuntimeError): Str :=
   match e
+    case Failed(failure) => format_failure(failure)
     case Uninitialized(name) => name.base ++ " is not initialized"
     case NotFunction(value) => "cannot apply " ++ format_value(value)
     case Unspecified(name, args) => name.base ++ " is not specified for " ++ join(", ", [format_value(v) for v in args])
-    case NoCase(text) => "no case matches " ++ text
-    case CompareFunctions => "cannot compare functions"
     case NotList(value) => "expected a list, got " ++ format_value(value)
-    case AssertionFailed => "assertion failed"
-    case AssertionUnequal(left, right) => "assertion failed: " ++ left ++ " != " ++ right
-    case Uncaught(text) => "uncaught exception " ++ text
     case UnassignedOutput(x, proc) => "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned"
     case UnknownProc(name) => "unknown procedure " ++ name.base
     case NotProc(value) => "cannot call " ++ format_value(value)
-    case RecursiveInitialization(name) => "recursive initialization of " ++ name.base
     case UnresolvedField(field) => "the field " ++ field ++ " is not resolved"
   end

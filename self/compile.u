@@ -5,6 +5,7 @@ import syntax
 import builtins
 import check
 import defs
+import error
 import format
 import c
 import parse
@@ -1015,7 +1016,7 @@ function cached(n: Str, bs: List[CStmt], r: CExpr): List[CStmt] :=
   let h := CeVar("handler") in
     [
       CsDecl(CtNamed("static u_value"), "cache", Some(CeVar("NULL"))),
-      CsIf(CeBinary("==", CeVar("cache"), CeVar("U_COMPUTING")), [CsExpr(c_call("u_fail", [CeStr("recursive initialization of " ++ n)]))], []),
+      CsIf(CeBinary("==", CeVar("cache"), CeVar("U_COMPUTING")), [CsExpr(c_call("u_fail", [CeStr(format_failure(RecursiveInitialization(n)))]))], []),
       CsIf(CeVar("cache"), [CsReturn(Some(CeVar("cache")))], []),
       CsAssign(CeVar("cache"), CeVar("U_COMPUTING")),
       CsDecl(CtPtr(CtNamed("struct u_handler")), "handler", Some(c_call("u_push", []))),
@@ -1083,13 +1084,22 @@ procedure compile_program(in q: Prog, m: Id, entry: Id, out f: CFile) :=
   end
 
   assign fs := wrappers(defs) ++ ds ++ g.lifted
-  assign f := CFile([CdInclude("ulang.h")] ++ [p for d in fs, p in prototype(d)] ++ descriptor_decls(defs, q.cmds) ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
+  assign f := CFile([CdInclude("ulang.h")] ++ [p for d in fs, p in prototype(d)] ++ descriptor_decls(defs, q.cmds) ++ texts() ++ fs ++ [CdFunction(CtInt, "main", [(CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv")], [CsExpr(c_call("u_args", [CeVar("argc"), CeVar("argv")]))] ++ ms ++ [CsReturn(Some(CeNum(0)))])])
 
-// checks the program of the file source, which is its module, and writes its translation to C to target
+// the texts of the runtime errors that self/runtime/ulang.c prints
+function texts(): List[CDecl] :=
+  [text_decl(p) for p in failure_formats()]
+
+function text_decl(p: Str * Str): CDecl :=
+  let (name, text) := p in CdGlobal(CtNamed("const char *const"), name, Some(CeStr(text)))
+
+// checks the program of the file source, which is its module, and writes its translation to C to target, with the module
+// list, which the runtime needs, also for the modules before it, which do not import it
 procedure compile_file(in source: Str, entry: Id, target: Str) :=
   local parsed: Source, q: Prog, f: CFile
 
   call   parse_file(in source, out parsed)
+  call   load_modules(in source, ["list"], ref parsed)
   call   check_program(in parsed, out q)
   call   compile_program(in q, parsed.main, entry, out f)
   call   os_write(in target, format_file(f))

@@ -1,0 +1,6 @@
+// runtime error: recursive initialization of initialization.loop
+function loop(): Int :=
+  loop() + 1
+
+test initialization() :=
+  assert loop() == 1

@@ -194,6 +194,11 @@ u_value u_is_space(u_value c);
 // the text of a value as it is printed, by the descriptors of its objects, which use the shows that datatypes declare
 u_value u_show(u_value v);
 
+// the texts of the runtime errors, which every program defines from failure_formats of self/error.u, where %s stands for a
+// value as show gives it
+extern const char *const u_text_no_case, *const u_text_compare_functions, *const u_text_compare_procedures,
+  *const u_text_assertion_failed, *const u_text_assertion_unequal, *const u_text_uncaught;
+
 void u_no_case(u_value v);
 void u_assert_true(u_value v);
 void u_assert_equal(u_value a, u_value b);

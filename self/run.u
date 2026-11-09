@@ -8,6 +8,7 @@ import format
 
 import check
 import defs
+import error
 
 import os
 import set
@@ -30,21 +31,16 @@ data Value :=
 data Run :=
   | Run(defs: Defs, computing: List[Name], args: List[Str])
 
+// the errors that compiled code reports as well, and those that checked programs do not raise
 data RuntimeError :=
+  | Failed(failure: Failure)
   | Uninitialized(name: Name)
   | NotFunction(value: Value)
   | Unspecified(name: Name, args: List[Value])
-  // the errors that compiled code reports as well, with the values as show gives them
-  | NoCase(text: Str)
-  | CompareFunctions
   | NotList(value: Value)
-  | AssertionFailed
-  | AssertionUnequal(left: Str, right: Str)
-  | Uncaught(text: Str)
   | UnassignedOutput(output: Name, proc: Name)
   | UnknownProc(name: Name)
   | NotProc(value: Value)
-  | RecursiveInitialization(name: Name)
   // an access or update of a field, which the checker resolves to an accessor or updater
   | UnresolvedField(field: Id)
 
@@ -139,12 +135,21 @@ function builtin_names(): Set[Name] :=
 function is_builtin(n: Name): Bool :=
   contains(n, builtin_names())
 
-function is_function(v: Value): Bool :=
+// functions and procedures, which have no order or equality
+procedure incomparable(in v: Value) :=
   match v
-    case VLit(_) => false
-    case VObj(_, _) => false
-    case VArr(_) => false
-    case _ => true
+    case VProc(_) =>
+      raise Failed(CompareProcedures)
+    case VProcClos(_, _, _, _, _) =>
+      raise Failed(CompareProcedures)
+    case VLit(_) =>
+      skip
+    case VObj(_, _) =>
+      skip
+    case VArr(_) =>
+      skip
+    case _ =>
+      raise Failed(CompareFunctions)
   end
 
 function truth(v: Value): Bool :=
@@ -245,7 +250,7 @@ procedure evaluate(in run: Run, env: Bindings, expr: Expr, out v: Value, ref cac
           call evaluate(in run, inner, body, out v, ref cache)
         case None =>
           call  show_in(in run, w, out s, ref cache)
-          raise NoCase(s)
+          raise Failed(NoCase(s))
       end
 
     // tuples are objects of the constructor ,
@@ -389,7 +394,7 @@ procedure cached(in run: Run, n: Name, body: Expr, out v: Value, ref cache: Map[
     case Some(w) =>
       assign v := w
     case None if contains(n, run.computing) =>
-      raise RecursiveInitialization(n)
+      raise Failed(RecursiveInitialization(format_name(n)))
     case None =>
       call   evaluate(in (run with computing := [n; run.computing]), empty(), body, out v, ref cache)
       assign cache := put(n, v, cache)
@@ -547,9 +552,8 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
 procedure equal(in run: Run, a: Value, b: Value, out r: Bool, ref cache: Map[Name, Value]) :=
   local v: Value, k: Int
 
-  if is_function(a) or is_function(b)
-    raise CompareFunctions
-  end
+  call incomparable(in a)
+  call incomparable(in b)
   match (a, b)
     case (VObj(c, xs), VObj(d, ys)) =>
       match (declared_for(run, c, run.defs.equalities), declared_for(run, c, run.defs.orders))
@@ -581,9 +585,8 @@ procedure equal(in run: Run, a: Value, b: Value, out r: Bool, ref cache: Map[Nam
 procedure compare_values(in run: Run, a: Value, b: Value, out r: Int, ref cache: Map[Name, Value]) :=
   local v: Value
 
-  if is_function(a) or is_function(b)
-    raise CompareFunctions
-  end
+  call incomparable(in a)
+  call incomparable(in b)
 
   match (a, b)
     case (VLit(LInt(x)), VLit(LInt(y))) =>
@@ -744,7 +747,7 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
           call scoped(in run, ns, inner, [body], ref env, cache)
         case None =>
           call  show_in(in run, v, out s, ref cache)
-          raise NoCase(s)
+          raise Failed(NoCase(s))
       end
     // assertions of equations show both sides when they fail
 
@@ -755,13 +758,13 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
       if not r
         call  show_in(in run, v, out s, ref cache)
         call  show_in(in run, w, out t, ref cache)
-        raise AssertionUnequal(s, t)
+        raise Failed(AssertionUnequal(s, t))
       end
 
     case SAssert(cond) =>
       call evaluate(in run, env, cond, out v, ref cache)
       if not truth(v)
-        raise AssertionFailed
+        raise Failed(AssertionFailed)
       end
 
     case SRaise(expr, typ) =>
@@ -1078,7 +1081,7 @@ procedure uncaught(in run: Run, v: Value, ref cache: Map[Name, Value]) :=
   local s: Str
 
   call  show_in(in run, v, out s, ref cache)
-  raise Uncaught(s)
+  raise Failed(Uncaught(s))
 
 procedure run_all(in run: Run, cmds: List[Cmd], ref cache: Map[Name, Value]) :=
   match cmds
@@ -1131,7 +1134,7 @@ test expressions() :=
 // procedure sum(in n: Int, out s: Int) with a loop, and procedure size(ref k: Int) raising Fail after an increment
 function procedures(): List[Cmd] :=
   [
-    CData(unqualified("Fail"), Nil, [Constr(unqualified("Fail"), [type_int()])]),
+    CData(unqualified("Fail"), Nil, [Constr(unqualified("Fail"), [Field("code", type_int())])]),
     CProc(
       unqualified("sum"),
       Nil,
@@ -1221,21 +1224,21 @@ test errors() :=
     call   check_and_run(in procedures() ++ [CTest("t", Nil, SBlock(Nil, [SRaise(expr_app("Fail", [expr_int(1)]), THole)]))])
     assert false
   catch
-    case Uncaught(text) =>
+    case Failed(Uncaught(text)) =>
       assert text == "Fail(1)"
   end
   try
     call   check_and_run(in [CTest("t", Nil, SBlock(Nil, [SAssert(expr_app("==", [expr_int(1), expr_int(2)]))]))])
     assert false
   catch
-    case AssertionUnequal(left, right) =>
+    case Failed(AssertionUnequal(left, right)) =>
       assert (left, right) == ("1", "2")
   end
   try
     call   check_and_run(in [assigning(expr_app("/", [expr_int(1), expr_int(0)]))])
     assert false
   catch
-    case Uncaught(text) =>
+    case Failed(Uncaught(text)) =>
       assert text == "DivisionByZero"
   end
   // loop() := loop() + 1 needs its own value
@@ -1243,8 +1246,8 @@ test errors() :=
     call   check_and_run(in [CFun(unqualified("loop"), Nil, Nil, type_int(), expr_app("+", [expr_app("loop", []), expr_int(1)])), assigning(expr_app("loop", []))])
     assert false
   catch
-    case RecursiveInitialization(name) =>
-      assert name.base == "loop"
+    case Failed(RecursiveInitialization(name)) =>
+      assert name == "main.loop"
   end
 
 // match (1, true, 3) case (_, _, z) => z end, a flat tuple
@@ -1257,6 +1260,6 @@ test handler_types() :=
     call   check_and_run(in [CTest("t", Nil, STry(SRaise(ELit(LStr("x")), THole), [Handler(THole, pat_var("k"), Some(expr_app("<", [expr_var("k"), expr_int(2)])), SSkip)]))])
     assert false
   catch
-    case Uncaught(text) =>
+    case Failed(Uncaught(text)) =>
       assert text == "\"x\""
   end

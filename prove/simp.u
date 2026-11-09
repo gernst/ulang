@@ -614,12 +614,6 @@ function greatest_unit(decls: Decls, ts: List[Expr * Int], best: Option[Expr * I
         end
   end
 
-function gcd(a: Int, b: Int): Int :=
-  if b == 0 then abs(a) else gcd(b, a % b)
-
-function abs(a: Int): Int :=
-  if a < 0 then 0 - a else a
-
 function gcd_all(ts: List[Expr * Int]): Int :=
   match ts
     case Nil =>

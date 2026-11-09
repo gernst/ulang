@@ -33,8 +33,10 @@ These parts are right, and later changes should not weaken them:
 - **Export and implementation sections, with abstract types, and imports that are not transitive**, the basis for signatures later.
 - **Expected-error tests by a first-line comment** (`// type error: … at 3.1`), which are cheap to write and exact to check.
 
-## Compared to ulang
+And in the implementation:
 
-- **Already there**: explicit data flow with `in`, `out`, and `ref`, pure expressions with effects only in statements, exhaustive matches and inference, a small language without implicit behavior, exceptions as values of a type, named tests with `assert` showing both sides, procedures as values, which abstract over effectful code such as the parsing of sections in `self/parse.u`, positions in the errors of the parser and the checker, and named fields with accessors and updates.
-- **Missing**: positions of runtime errors, failure in the types, termination of functions, and contracts. These are extensions, not redesigns, see `TODO.md`.
-- **Questionable**: user-defined notations make the syntax depend on declarations, e.g. whether `and` is an operator or a name, for tools and for writing code alike, but they stay; and the heuristics of overloading, which `TODO.md` replaces by unique resolution.
+- **Errors as data**: type errors are values, with positions added once per declaration by `Located`, and each command starts with a fresh substitution and numbering of unknowns, and is resolved and zonked at its end.
+- **Narrow interfaces**: the functions `with_*`, `*_of`, and `is_*` of `Sig` keep the layout of its maps private.
+- **Tests across components**: the printer by its round trip through the parser (`make testformat`), which keeps the precedences of both honest, and the interpreter against compiled code (`make testc`), with the texts of shared runtime errors in one place, `self/error.u`.
+- **Backends**: C as a small typed syntax with a printer that adds parentheses (`self/c.u`), not built from strings; one type descriptor per datatype with `compare`, `equals`, and `show`, mirrored by the maps of `Defs`; outs and refs copied in and out alike in both backends; and fused comprehensions that fall back to the general fold.
+- **The prover**: locally nameless terms with a single `rebind` and its invariant written down, splits kept only if every case closes, canonical sums with Fourier–Motzkin elimination and integer rounding, and end-to-end tests that include the goals expected to stay open.

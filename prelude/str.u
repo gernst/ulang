@@ -12,6 +12,10 @@ export
 // the character as an option, which is None out of range
 function get(i: Int, s: Str): Option[Char]
 
+// whether s starts with start, and whether it ends with finish
+function starts_with(s: Str, start: Str): Bool
+function ends_with(s: Str, finish: Str): Bool
+
 builtin
 
 // the characters of a string, and the string of characters
@@ -53,8 +57,15 @@ implementation
 function get(i: Int, s: Str): Option[Char] :=
   if 0 <= i and i < size(s) then Some(at(i, s)) else None
 
+function starts_with(s: Str, start: Str): Bool :=
+  size(start) <= size(s) and slice(s, 0, size(start)) == start
+
+function ends_with(s: Str, finish: Str): Bool :=
+  size(finish) <= size(s) and slice(s, size(s) - size(finish), size(s)) == finish
+
 test strings() :=
   assert size("abc") == 3 and at(1, "abc") == 'b' and get(1, "abc") == Some('b') and get(3, "abc") == None
   assert get(-1, "abc") == None and contains('b', "abc") and not contains('d', "abc")
   assert slice("abc", 1, 3) == "bc" and join(", ", split("a,b", ',')) == "a, b"
   assert quote("a\"b") == "\"a\\\"b\"" and number("-12") == Some(-12) and number("1a") == None
+  assert starts_with("abc", "ab") and not starts_with("a", "ab") and ends_with("abc", "bc") and not ends_with("abc", "ab")

@@ -536,21 +536,20 @@ function format_cmds(notation: Notation, cmds: List[Cmd]): List[Str] :=
       Nil
     case [cmd; more] =>
       let after := with_notation(notation, [cmd]) in
-        match format_cmd(notation, cmd, more)
+        match format_cmd(notation, cmd)
           case Some(text) => [text; format_cmds(after, more)]
           case None => format_cmds(after, more)
         end
   end
 
-function format_cmd(notation: Notation, cmd: Cmd, more: List[Cmd]): Option[Str] :=
+function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
   match cmd
     case CSort(name, params, typ) =>
       Some("type " ++ name.base ++ params_text(params) ++ " :=\n  " ++ format_type(typ))
     case CAbstract(name, params) =>
       Some("type " ++ name.base ++ params_text(params))
     case CData(name, params, constrs) =>
-      let fields := field_names(name.base, more) in
-        Some("data " ++ name.base ++ params_text(params) ++ " :=" ++ join("", ["\n  | " ++ constr_text(c, fields) for c in constrs]))
+      Some("data " ++ name.base ++ params_text(params) ++ " :=" ++ join("", ["\n  | " ++ constr_text(c) for c in constrs]))
     case CFun(name, _, _, _, _) if contains('.', name.base) =>
       None
     case CFun(name, params, formals, typ, body) =>
@@ -582,48 +581,11 @@ function fixity_text(f: Fixity): Str :=
     case FRight => "infix right"
   end
 
-// C(f: T, U), where f names the field at its position
-function constr_text(c: Constr, fields: List[(Id * Int) * Id]): Str :=
+// C(f: T, g: U)
+function constr_text(c: Constr): Str :=
   match c
     case Constr(name, Nil) => name.base
-    case Constr(name, args) => name.base ++ "(" ++ join(", ", constr_args(name.base, args, 0, fields)) ++ ")"
-  end
-
-function constr_args(k: Id, args: List[Type], i: Int, fields: List[(Id * Int) * Id]): List[Str] :=
-  match args
-    case Nil =>
-      Nil
-    case [t; more] =>
-      let arg := match get((k, i), fields) case Some(f) => f ++ ": " ++ format_type(t) case None => format_type(t) end in
-        [arg; constr_args(k, more, i + 1, fields)]
-  end
-
-// the fields of the constructors of data t by their positions, from the accessors t.f after it, case C(_, y, _) => y
-function field_names(t: Id, cmds: List[Cmd]): List[(Id * Int) * Id] :=
-  match cmds
-    case [CFun(name, _, _, _, EMatch(_, cases)); more] if is_accessor(t, name.base) =>
-      [(position, slice(name.base, size(t) + 1, size(name.base))) for position in branch_positions(cases)] ++ field_names(t, more)
-    case [CFun(name, _, _, _, _); more] if contains('.', name.base) =>
-      field_names(t, more)
-    case _ =>
-      Nil
-  end
-
-function is_accessor(t: Id, f: Id): Bool :=
-  let n := size(t), m := size(f) in m > n + 1 and slice(f, 0, n + 1) == t ++ "." and slice(f, m - 2, m) != ":="
-
-function branch_positions(branches: List[Branch[Expr]]): List[Id * Int] :=
-  match branches
-    case [Branch(PApp(constr, pats), _, _); more] => [(constr.base, var_position(pats, 0)); branch_positions(more)]
-    case [_; more] => branch_positions(more)
-    case Nil => Nil
-  end
-
-function var_position(pats: List[Pat], i: Int): Int :=
-  match pats
-    case [PVar(_); _] => i
-    case [_; more] => var_position(more, i + 1)
-    case Nil => -1
+    case Constr(name, fields) => name.base ++ "(" ++ join(", ", [f.name ++ ": " ++ format_type(f.typ) for f in fields]) ++ ")"
   end
 
 function test_operators(): Notation :=
@@ -685,7 +647,7 @@ test bodies() :=
   local body := SBlock([x, y], [SAssign([(Var(x.name, THole), expr_int(1))]), SIf(EVar(y), SBlock(Nil, [SSkip]), SIf(EVar(x), SBlock(Nil, Nil), SSkip))])
 
   assert format_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y\n  skip\nelse if x\nend"
-  assert format_cmd(test_operators(), CNotation(FLeft, 9, ["+", "-"]), Nil) == Some("infix left 9 + -")
+  assert format_cmd(test_operators(), CNotation(FLeft, 9, ["+", "-"])) == Some("infix left 9 + -")
 
 // literals, types, patterns, and names by their structure, in a fixed notation
 
@@ -702,7 +664,7 @@ function format_lit(lit: Lit): Str :=
 // since the parser reads ||| as an empty array before a |
 function array_text(texts: List[Str]): Str :=
   match texts
-    case [t; rest] if size(t) >= 2 and slice(t, 0, 2) == "||" => "|" ++ join(", ", ["(" ++ t ++ ")"; rest]) ++ "|"
+    case [t; rest] if starts_with(t, "||") => "|" ++ join(", ", ["(" ++ t ++ ")"; rest]) ++ "|"
     case _ => "|" ++ join(", ", texts) ++ "|"
   end
 

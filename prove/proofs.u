@@ -134,3 +134,21 @@ test open_goals() :=
   assert r == "forall a, b => a < b ==> b < (a + 2)"
   call   simp_text(in "forall a => a < a", out r)
   assert r == "forall a => false"
+
+// a guard that mentions x keeps the equation of x, which is false
+test occurs_in_guards() :=
+  local r := ""
+
+  call   simp_text(in "exists x => x == (match 0 case _ if x > 0 => 0 case _ => 1 end)", out r)
+  assert r == "(exists x => match 0 case _ if 0 < x => 0 case _ => 1 end == x)"
+
+test unclosed_params() :=
+  local d: Decls
+
+  try
+    call read_decls(in empty_decls(), "data T[A := | C", out d)
+    assert false
+  catch
+    case ReadError(m) =>
+      assert m == "TPunct(']') expected but TEnd found"
+  end

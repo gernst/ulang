@@ -61,7 +61,7 @@ function constr_defs(cmds: List[Cmd]): List[Name * (Int * Int * Name)] :=
 function constrs_from(t: Name, ks: List[Constr], i: Int): List[Name * (Int * Int * Name)] :=
   match ks
     case Nil => Nil
-    case [Constr(name, args); rest] => [(name, (size(args), i, t)); constrs_from(t, rest, i + 1)]
+    case [Constr(name, fields); rest] => [(name, (size(fields), i, t)); constrs_from(t, rest, i + 1)]
   end
 
 // the datatype whose order or equality c declares, with compare or ==, if c is compare or == of two values of a datatype

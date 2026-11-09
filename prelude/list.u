@@ -50,6 +50,10 @@ function drop[A](n: Int, xs: List[A]): List[A]
 function slice[A](xs: List[A], i: Int, j: Int): List[A]
 
 function replicate[A](n: Int, x: A): List[A]
+
+// the integers from i up to j, exclusively
+function range(i: Int, j: Int): List[Int]
+
 function firsts[A, B](ps: List[A * B]): List[A]
 function seconds[A, B](ps: List[A * B]): List[B]
 
@@ -181,6 +185,9 @@ function slice[A](xs: List[A], i: Int, j: Int): List[A] :=
 function replicate[A](n: Int, x: A): List[A] :=
   if n == 0 then Nil else [x; replicate(n - 1, x)]
 
+function range(i: Int, j: Int): List[Int] :=
+  if i >= j then Nil else [i; range(i + 1, j)]
+
 function firsts[A, B](ps: List[A * B]): List[A] :=
   match ps
     case Nil => Nil
@@ -212,6 +219,7 @@ function joined_pairs(ss: List[Str]): List[Str] :=
   end
 
 test lists() :=
+  assert range(2, 5) == [2, 3, 4] and range(5, 2) == []
   assert [1, 2] ++ [3] == [1, 2, 3] and size([1, 2, 3]) == 3
   assert get(2, [(1, "a"), (2, "b"), (2, "c")]) == Some("b") and get(3, [(1, "a")]) == None
   assert remove(1, [1, 2, 1, 3]) == [2, 3] and remove(4, [1, 2]) == [1, 2] and remove((1, "a"), [(1, "a"), (1, "b")]) == [(1, "b")]

@@ -440,17 +440,19 @@ static u_value compare_arrays(u_value a, u_value b) {
   return ordering(a == b ? 0 : compare_items(a, b));
 }
 
+static void fail_with(const char *format, u_value a, u_value b);
+
 static u_value compare_functions(u_value a, u_value b) {
   (void)a;
   (void)b;
-  u_fail("cannot compare functions");
+  fail_with(u_text_compare_functions, NULL, NULL);
   return NULL;
 }
 
 static u_value compare_procedures(u_value a, u_value b) {
   (void)a;
   (void)b;
-  u_fail("cannot compare procedures");
+  fail_with(u_text_compare_procedures, NULL, NULL);
   return NULL;
 }
 
@@ -936,28 +938,33 @@ void u_fail(const char *msg) {
   exit(1);
 }
 
-void u_no_case(u_value v) {
+// ends the program with the runtime error of a text of self/error.u, where the first %s stands for a and the second for b
+static void fail_with(const char *format, u_value a, u_value b) {
   fflush(stdout);
-  fprintf(stderr, "runtime error: no case matches ");
-  u_fprint_value(stderr, v);
-  fprintf(stderr, "\n");
+  fputs("runtime error: ", stderr);
+  for (const char *p = format; *p; p++) {
+    if (p[0] == '%' && p[1] == 's') {
+      u_fprint_value(stderr, a);
+      a = b;
+      p++;
+    } else {
+      fputc(*p, stderr);
+    }
+  }
+  fputc('\n', stderr);
   exit(1);
 }
 
+void u_no_case(u_value v) {
+  fail_with(u_text_no_case, v, NULL);
+}
+
 void u_assert_true(u_value v) {
-  if (!u_truth(v)) u_fail("assertion failed");
+  if (!u_truth(v)) fail_with(u_text_assertion_failed, NULL, NULL);
 }
 
 void u_assert_equal(u_value a, u_value b) {
-  if (!u_equals(a, b)) {
-    fflush(stdout);
-    fprintf(stderr, "runtime error: assertion failed: ");
-    u_fprint_value(stderr, a);
-    fprintf(stderr, " != ");
-    u_fprint_value(stderr, b);
-    fprintf(stderr, "\n");
-    exit(1);
-  }
+  if (!u_equals(a, b)) fail_with(u_text_assertion_unequal, a, b);
 }
 
 static struct u_handler *handlers = NULL;
@@ -983,13 +990,7 @@ u_value u_caught(struct u_handler *h) {
 
 // exceptions without a handler end the program as runtime errors
 void u_raise(u_value v, const char *type) {
-  if (!handlers) {
-    fflush(stdout);
-    fprintf(stderr, "runtime error: uncaught exception ");
-    u_fprint_value(stderr, v);
-    fprintf(stderr, "\n");
-    exit(1);
-  }
+  if (!handlers) fail_with(u_text_uncaught, v, NULL);
   handlers->value = v;
   handlers->type = type;
   longjmp(handlers->env, 1);

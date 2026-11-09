@@ -75,7 +75,10 @@ data Handler :=
   | Handler(typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
 
 data Constr :=
-  | Constr(name: Name, args: List[Type])
+  | Constr(name: Name, fields: List[Field])
+
+data Field :=
+  | Field(name: Id, typ: Type)
 
 data Fixity :=
   | FPrefix

@@ -5,10 +5,6 @@
 #
 # usage: testc.sh <out> <runtime.o> <path> ...
 # where out is a directory for the C files, binaries, and results, and the environment may set CC, LIBS, and JOBS
-#
-# the modules that every module imports implicitly before list (implicit_imports of self/syntax.u), prelude.u and option.u,
-# cannot be compiled on their own, since the runtime needs the lists of list.u, so they are skipped, and their tests run with
-# the interpreter only
 
 set -u
 ulimit -s unlimited
@@ -51,10 +47,7 @@ shift 2
 mkdir -p "$out"
 rm -f "$out"/*.result
 
-skipped="$(sed -n 's/^  implicit_before(name, \[\(.*\)\])$/\1/p' self/syntax.u | grep -o '"[a-z_]*"' | tr -d '"' | sed '/^list$/,$d' | sed 's|.*|prelude/&.u|' | tr '\n' ' ')"
-files=$(find "$@" -name '*.u' | sort | while read -r f; do
-  case " $skipped " in *" $f "*) ;; *) echo "$f" ;; esac
-done)
+files=$(find "$@" -name '*.u' | sort)
 
 echo "$files" | xargs -P "$JOBS" -I {} sh "$0" --one "$out" "$runtime" {}
 
@@ -69,5 +62,5 @@ for f in $files; do
   fi
 done
 
-echo "$passed of $total files passed, compiled, where $(echo $skipped | wc -w) modules of the prelude were skipped"
+echo "$passed of $total files passed, compiled"
 [ "$passed" -eq "$total" ]

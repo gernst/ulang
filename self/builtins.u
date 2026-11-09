@@ -101,7 +101,7 @@ function type_plain_list(t: Type): Type :=
 
 // lists with constructors Nil and Cons, exported by the module list as in the library, and their length
 function lists(): List[Mod] :=
-  [Mod("list", Nil, unplaced([CData(unqualified("List"), ["A"], [Constr(unqualified("Nil"), Nil), Constr(unqualified("Cons"), [TParam("A"), type_plain_list(TParam("A"))])])]), Nil, Nil)]
+  [Mod("list", Nil, unplaced([CData(unqualified("List"), ["A"], [Constr(unqualified("Nil"), Nil), Constr(unqualified("Cons"), [Field("head", TParam("A")), Field("tail", type_plain_list(TParam("A")))])])]), Nil, Nil)]
 
 // the program of the commands cmds after len of the module main, which imports lists
 function with_lists(cmds: List[Cmd]): Source :=

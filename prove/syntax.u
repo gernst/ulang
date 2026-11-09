@@ -91,7 +91,6 @@ function empty_decls(): Decls
 function is_ctor(decls: Decls, f: Name): Bool
 function ctor_head(decls: Decls, e: Expr): Option[Name * List[Expr]]
 function nth[A](i: Int, xs: List[A]): A
-function range(i: Int, j: Int): List[Int]
 function rebind(op: Rebind, c: Int, e: Expr): Expr
 function binders(p: Pat): Int
 function pattern_vars(p: Pat): List[Var]
@@ -99,8 +98,6 @@ function shift(n: Int, e: Expr): Expr
 function subst(c: Int, t: Expr, e: Expr): Expr
 function beta(args: List[Expr], e: Expr): Expr
 function replace(a: Expr, b: Expr, e: Expr): Expr
-function first[A, B](p: A * B): A
-function second[A, B](p: A * B): B
 function occurs(a: Expr, e: Expr): Bool
 function loose(c: Int, e: Expr): List[Int]
 function lin_of(e: Expr): Lin
@@ -157,9 +154,6 @@ function nth_after[A](i: Int, xs: List[A], k: Int): A :=
     case [x; rest] =>
       if i == 0 then x else nth_after(i - 1, rest, k + 1)
   end
-
-function range(i: Int, j: Int): List[Int] :=
-  if i >= j then Nil else [i; range(i + 1, j)]
 
 function index_of(x: Int, xs: List[Int], i: Int): Option[Int] :=
   match xs
@@ -400,7 +394,7 @@ function occurs(a: Expr, e: Expr): Bool :=
         occurs(a, cond) or occurs(a, then_expr) or occurs(a, else_expr)
 
       case EMatch(expr, cases) =>
-        occurs(a, expr) or exists(cases, lambda br => occurs(a, br.body))
+        occurs(a, expr) or exists(cases, lambda br => occurs_branch(a, br))
 
       case ESum(_, terms) =>
         exists(terms, lambda p => occurs(a, first(p)))
@@ -412,10 +406,13 @@ function occurs(a: Expr, e: Expr): Bool :=
         false
     end
 
-function first[A, B](p: A * B): A :=
-  match p
-    case (a, _) =>
-      a
+function occurs_branch(a: Expr, br: Branch): Bool :=
+  match br
+    case Branch(_, Some(h), body) =>
+      occurs(a, h) or occurs(a, body)
+
+    case Branch(_, None, body) =>
+      occurs(a, body)
   end
 
 // the free indices of e below c binders, relative to them
@@ -802,10 +799,4 @@ function print_type(t: Type): Str :=
 
     case TFun(args, res) =>
       "(" ++ join(", ", [print_type(u) for u in args]) ++ ") -> " ++ print_type(res)
-  end
-
-function second[A, B](p: A * B): B :=
-  match p
-    case (_, b) =>
-      b
   end

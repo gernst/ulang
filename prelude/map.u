@@ -177,27 +177,27 @@ function remove[K, V](k: K, m: Map[K, V]): Map[K, V] :=
 
 // the entries of l and then r, whose heights differ by at most one
 function join[K, V](l: Map[K, V], r: Map[K, V]): Map[K, V] :=
-  match first_entry(r)
-    case Some((k, v)) => balance(l, k, v, remove_first(r))
+  match least(r)
+    case Some((k, v)) => balance(l, k, v, remove_least(r))
     case None => l
   end
 
-function first_entry[K, V](m: Map[K, V]): Option[K * V] :=
+function least[K, V](m: Map[K, V]): Option[K * V] :=
   match m
     case Leaf => None
     case Node(Leaf, key, value, _, _) => Some((key, value))
-    case Node(left, _, _, _, _) => first_entry(left)
+    case Node(left, _, _, _, _) => least(left)
   end
 
-function remove_first[K, V](m: Map[K, V]): Map[K, V] :=
+function remove_least[K, V](m: Map[K, V]): Map[K, V] :=
   match m
     case Leaf => Leaf
     case Node(Leaf, _, _, right, _) => right
-    case Node(left, key, value, right, _) => balance(remove_first(left), key, value, right)
+    case Node(left, key, value, right, _) => balance(remove_least(left), key, value, right)
   end
 
 function map[K, V](ps: List[K * V]): Map[K, V] :=
-  with_entries(ps, empty())
+  put_all(ps, empty())
 
 function ++[K, V](a: Map[K, V], b: Map[K, V]): Map[K, V] :=
   foldl(b, a, lambda m, k, v => put(k, v, m))
@@ -212,14 +212,11 @@ function forall[K, V](m: Map[K, V], p: (K, V) -> Bool): Bool :=
   foldl(m, true, lambda all, k, v => all and p(k, v))
 
 // m with the entries ps, where the last entry of a key counts
-function with_entries[K, V](ps: List[K * V], m: Map[K, V]): Map[K, V] :=
+function put_all[K, V](ps: List[K * V], m: Map[K, V]): Map[K, V] :=
   match ps
     case Nil => m
-    case [(k, v); rest] => with_entries(rest, put(k, v, m))
+    case [(k, v); rest] => put_all(rest, put(k, v, m))
   end
-
-function numbers(n: Int): List[Int] :=
-  if n == 0 then Nil else numbers(n - 1) ++ [n]
 
 function show[K, V](m: Map[K, V]): Str :=
   "{" ++ join(", ", [show(k) ++ " => " ++ show(v) for k => v in m]) ++ "}"
@@ -232,7 +229,7 @@ test maps() :=
   assert list(m) == [("a", 3), ("b", 2)] and size(m) == 2 and list({"b" => 2, "a" => 1, "a" => 3}) == list(m)
 
 test map_folds() :=
-  local m := map([(i, show(i)) for i in numbers(50)])
+  local m := map([(i, show(i)) for i in range(1, 51)])
 
   assert foldr(m, Nil, lambda k, v, ps => [(k, v); ps]) == list(m) and foldr(m, empty(), put) == m
   assert foldl(m, Nil, lambda ps, k, v => [(k, v); ps]) == reverse(list(m)) and foldl(m, 0, lambda n, k, v => n + k) == 1275
@@ -245,10 +242,10 @@ test map_equality() :=
 
 // ascending keys would make a list of an unbalanced tree
 test balance() :=
-  local m := map([(show(1000 + i), i) for i in numbers(200)])
+  local m := map([(show(1000 + i), i) for i in range(1, 201)])
 
   assert balanced(m) and size(m) == 200 and height(m) <= 11
   assert get("1100", m) == Some(100) and get("1201", m) == None
-  assert list(m) == [(show(1000 + i), i) for i in numbers(200)]
-  assign m := m -- set([show(1000 + 2 * i) for i in numbers(100)] ++ ["none"])
-  assert balanced(m) and size(m) == 100 and list(m) == [(show(999 + 2 * i), 2 * i - 1) for i in numbers(100)]
+  assert list(m) == [(show(1000 + i), i) for i in range(1, 201)]
+  assign m := m -- set([show(1000 + 2 * i) for i in range(1, 101)] ++ ["none"])
+  assert balanced(m) and size(m) == 100 and list(m) == [(show(999 + 2 * i), 2 * i - 1) for i in range(1, 101)]
