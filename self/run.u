@@ -509,8 +509,10 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
     case ("str.slice", [VLit(LStr(text)), VLit(LInt(i)), VLit(LInt(j))]) =>
       if i < 0 or i > size(text) or i > j
         raise failure(out_of_bounds_name(), [VLit(LInt(i)), VLit(LInt(size(text)))])
-      else if j > size(text)
-        raise failure(out_of_bounds_name(), [VLit(LInt(j)), VLit(LInt(size(text)))])
+      else
+        if j > size(text)
+          raise failure(out_of_bounds_name(), [VLit(LInt(j)), VLit(LInt(size(text)))])
+        end
       end
 
       assign v := VLit(LStr(slice(text, i, j)))
@@ -574,8 +576,10 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
     case ("array.slice", [VArr(values), VLit(LInt(i)), VLit(LInt(j))]) =>
       if i < 0 or i > size(values) or i > j
         raise failure(out_of_bounds_name(), [VLit(LInt(i)), VLit(LInt(size(values)))])
-      else if j > size(values)
-        raise failure(out_of_bounds_name(), [VLit(LInt(j)), VLit(LInt(size(values)))])
+      else
+        if j > size(values)
+          raise failure(out_of_bounds_name(), [VLit(LInt(j)), VLit(LInt(size(values)))])
+        end
       end
 
       assign v := VArr(slice(values, i, j))

@@ -43,28 +43,36 @@ procedure lex(in text: Str, out toks: List[Tok]) :=
 
     if is_space(c)
       assign i := i + 1
-    else if is_digit(c)
-      assign j := scan_end(text, i, is_digit)
-
-      match number(slice(text, i, j))
-        case Some(n) =>
-          assign rev := [TInt(n); rev]
-
-        case None =>
-          raise ReadError("invalid number")
-      end
-
-      assign i := j
-    else if is_letter(c) or c == '_'
-      assign j := scan_end(text, i, is_name_char)
-      assign rev := [TName(slice(text, i, j)); rev], i := j
-    else if is_symbol(c)
-      assign j := scan_end(text, i, is_symbol)
-      assign rev := [TSym(slice(text, i, j)); rev], i := j
-    else if contains(c, "()[],;")
-      assign rev := [TPunct(c); rev], i := i + 1
     else
-      raise ReadError("unexpected character " ++ show(c))
+      if is_digit(c)
+        assign j := scan_end(text, i, is_digit)
+
+        match number(slice(text, i, j))
+          case Some(n) =>
+            assign rev := [TInt(n); rev]
+
+          case None =>
+            raise ReadError("invalid number")
+        end
+
+        assign i := j
+      else
+        if is_letter(c) or c == '_'
+          assign j := scan_end(text, i, is_name_char)
+          assign rev := [TName(slice(text, i, j)); rev], i := j
+        else
+          if is_symbol(c)
+            assign j := scan_end(text, i, is_symbol)
+            assign rev := [TSym(slice(text, i, j)); rev], i := j
+          else
+            if contains(c, "()[],;")
+              assign rev := [TPunct(c); rev], i := i + 1
+            else
+              raise ReadError("unexpected character " ++ show(c))
+            end
+          end
+        end
+      end
     end
   end
 
@@ -324,13 +332,15 @@ procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
           call   parse_expr(in env, out b, ref toks)
           call   expect(in TPunct(']'), ref toks)
           assign e := app("Cons", [a, b])
-        else if head_tok(toks) == TPunct(',')
-          call   advance(ref toks)
-          call   parse_exprs(in env, ']', out es, ref toks)
-          assign e := list_expr([a; es])
         else
-          call   expect(in TPunct(']'), ref toks)
-          assign e := app("Cons", [a, sym("Nil")])
+          if head_tok(toks) == TPunct(',')
+            call   advance(ref toks)
+            call   parse_exprs(in env, ']', out es, ref toks)
+            assign e := list_expr([a; es])
+          else
+            call   expect(in TPunct(']'), ref toks)
+            assign e := app("Cons", [a, sym("Nil")])
+          end
         end
       end
 
@@ -466,12 +476,14 @@ procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
 
       if not is_upper(name)
         assign p := PVar(Var(name, unknown_type()))
-      else if head_tok(toks) == TPunct('(')
-        call   advance(ref toks)
-        call   parse_patterns(in ')', out ps, ref toks)
-        assign p := PApp(Name(None, name), ps)
       else
-        assign p := PApp(Name(None, name), Nil)
+        if head_tok(toks) == TPunct('(')
+          call   advance(ref toks)
+          call   parse_patterns(in ')', out ps, ref toks)
+          assign p := PApp(Name(None, name), ps)
+        else
+          assign p := PApp(Name(None, name), Nil)
+        end
       end
 
     case TPunct('[') =>
@@ -488,13 +500,15 @@ procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
           call   parse_pattern(out r, ref toks)
           call   expect(in TPunct(']'), ref toks)
           assign p := PApp(Name(None, "Cons"), [q, r])
-        else if head_tok(toks) == TPunct(',')
-          call   advance(ref toks)
-          call   parse_patterns(in ']', out ps, ref toks)
-          assign p := list_pattern([q; ps])
         else
-          call   expect(in TPunct(']'), ref toks)
-          assign p := list_pattern([q])
+          if head_tok(toks) == TPunct(',')
+            call   advance(ref toks)
+            call   parse_patterns(in ']', out ps, ref toks)
+            assign p := list_pattern([q; ps])
+          else
+            call   expect(in TPunct(']'), ref toks)
+            assign p := list_pattern([q])
+          end
         end
       end
 

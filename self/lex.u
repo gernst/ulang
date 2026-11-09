@@ -200,12 +200,14 @@ procedure lex(in text: Str, out toks: Tokens) :=
 
     if is_space(at(offset, text))
       assign offset := offset + 1
-    else if at(offset, text) == '/' and peek(text, offset + 1) == '/'
-      call scan(in text, lambda c => c != '\n', out start, ref offset)
     else
-      call   lex_token(in text, out tok, ref offset)
-      call   lex_move_position(in text, last, start, ref line, column)
-      assign rev := [(Pos(line, column), tok); rev], last := start
+      if at(offset, text) == '/' and peek(text, offset + 1) == '/'
+        call scan(in text, lambda c => c != '\n', out start, ref offset)
+      else
+        call   lex_token(in text, out tok, ref offset)
+        call   lex_move_position(in text, last, start, ref line, column)
+        assign rev := [(Pos(line, column), tok); rev], last := start
+      end
     end
   end
 

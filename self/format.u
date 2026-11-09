@@ -153,7 +153,12 @@ function expr_doc(notation: Notation, indent: Str, expr: Expr): Doc :=
     case ELam(Nil, body) =>
       Doc("lambda => " ++ format_expr(notation, indent, body), Open)
     case ELam(formals, body) =>
-      Doc("lambda " ++ join(", ", [formal_text(x) for x in formals]) ++ " => " ++ format_expr(notation, indent, body), Open)
+      match patterns_of_lambda(formals, body)
+        case Some((pats, inner)) =>
+          Doc("lambda " ++ format_patterns(notation, pats) ++ " => " ++ format_expr(notation, indent, inner), Open)
+        case None =>
+          Doc("lambda " ++ join(", ", [formal_text(x) for x in formals]) ++ " => " ++ format_expr(notation, indent, body), Open)
+      end
     case EProc(ins, outs, refs, stmt) =>
       Doc("lambda " ++ formal_sections(ins, outs, refs) ++ " =>" ++ format_body(notation, deeper(indent), stmt) ++ "\n" ++ indent ++ "end", Atom)
     case ELet(bindings, body) =>
@@ -472,11 +477,10 @@ function format_stmt(notation: Notation, indent: Str, s: Stmt): Str :=
       "skip" ++ format_body(notation, indent, s)
   end
 
-// the else of an if, where an if after else continues the chain, which ends with one end
+// the else of an if, whose body may be an if, nested
 function else_text(notation: Notation, indent: Str, r: Stmt): Str :=
   match r
     case SSkip => "\n" ++ indent ++ "end"
-    case SIf(_, _, _) => "\n" ++ indent ++ "else " ++ format_stmt(notation, indent, r)
     case _ => "\n" ++ indent ++ "else" ++ format_body(notation, deeper(indent), r) ++ "\n" ++ indent ++ "end"
   end
 
@@ -643,7 +647,7 @@ test bodies() :=
   local x := Var(unqualified("x"), type_int()), y := Var(unqualified("y"), THole)
   local body := SBlock([x, y], [SAssign([(Var(x.name, THole), expr_int(1))]), SIf(EVar(y), SBlock(Nil, [SSkip]), SIf(EVar(x), SBlock(Nil, Nil), SSkip))])
 
-  assert format_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y\n  skip\nelse if x\nend"
+  assert format_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y\n  skip\nelse\n  if x\n  end\nend"
   assert format_cmd(test_operators(), CNotation(FLeft, 9, ["+", "-"])) == Some("infix left 9 + -")
 
 // literals, types, patterns, and names by their structure, in a fixed notation

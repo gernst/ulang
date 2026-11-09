@@ -125,6 +125,8 @@ function expr_var(n: Id): Expr
 function expr_int(n: Int): Expr
 function expr_app(f: Id, args: List[Expr]): Expr
 function pat_var(n: Id): Pat
+function lambda_patterns(pats: List[Pat], body: Expr): Expr
+function patterns_of_lambda(formals: List[Var], body: Expr): Option[List[Pat] * Expr]
 function placed_of(d: Mod): List[Pos * Cmd]
 function implicit_imports(name: Id): List[Id]
 function all_imports(d: Mod): List[Id]
@@ -177,3 +179,31 @@ function all_imports(d: Mod): List[Id] :=
 // commands without positions, as programs that are not parsed have them
 function unplaced(cmds: List[Cmd]): List[Pos * Cmd] :=
   [(Pos(0, 0), c) for c in cmds]
+
+// lambda p, q => e with patterns p and q is lambda (1), (2) => match ((1), (2)) case (p, q) => e end, with formals that
+// users cannot write, and lambda (1) => match (1) case p => e end for one pattern
+function lambda_patterns(pats: List[Pat], body: Expr): Expr :=
+  let xs := pattern_formals(size(pats)) in
+    ELam(xs, EMatch(pattern_scrutinee(xs), [Branch(match pats case [pat] => pat case _ => PTuple(pats) end, None, body)]))
+
+function pattern_formals(n: Int): List[Var] :=
+  [Var(unqualified("(" ++ show(i) ++ ")"), THole) for i in range(1, n + 1)]
+
+function pattern_scrutinee(xs: List[Var]): Expr :=
+  match xs
+    case [x] => EVar(x)
+    case _ => ETuple([EVar(x) for x in xs])
+  end
+
+// the patterns and the body of a lambda that lambda_patterns built
+function patterns_of_lambda(formals: List[Var], body: Expr): Option[List[Pat] * Expr] :=
+  match (body, formals)
+    case (EMatch(e, [Branch(pat, None, inner)]), [_; more]) if formals == pattern_formals(size(formals)) and e == pattern_scrutinee(formals) =>
+      match (pat, more)
+        case (_, Nil) => Some(([pat], inner))
+        case (PTuple(pats), _) => Some((pats, inner))
+        case _ => None
+      end
+    case _ =>
+      None
+  end

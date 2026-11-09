@@ -593,18 +593,24 @@ procedure compile_named(
       call compile_exprs(in defs, env, args, out ss, rs, ref g)
       if is_global_fun(defs, n, size(args)) and arity(ty) == size(args)
         assign r := c_call(fun_name(n, size(args)), rs)
-      else if contains((n, size(args)), defs.fields)
-        assign r := field_call(n, positions_of(defs, n, size(args)), rs)
-      else if fields_count(defs, n) == Some(0) and args == []
-        assign r := unit_value(n)
-      else if fields_count(defs, n) == Some(size(args))
-        assign r := c_call("u_mk_con", [descriptor(n), CeNum(size(args))] ++ rs)
       else
-        match get(n, builtin_functions())
-          case Some((b, k)) if k == size(args) =>
-            assign r := c_call(b, rs)
-          case _ =>
-            assign r := c_call("u_apply", [global_value(defs, n, ty), CeNum(size(args))] ++ rs)
+        if contains((n, size(args)), defs.fields)
+          assign r := field_call(n, positions_of(defs, n, size(args)), rs)
+        else
+          if fields_count(defs, n) == Some(0) and args == []
+            assign r := unit_value(n)
+          else
+            if fields_count(defs, n) == Some(size(args))
+              assign r := c_call("u_mk_con", [descriptor(n), CeNum(size(args))] ++ rs)
+            else
+              match get(n, builtin_functions())
+                case Some((b, k)) if k == size(args) =>
+                  assign r := c_call(b, rs)
+                case _ =>
+                  assign r := c_call("u_apply", [global_value(defs, n, ty), CeNum(size(args))] ++ rs)
+              end
+            end
+          end
         end
       end
   end
@@ -825,8 +831,10 @@ procedure compile_array_comprehension(
 
       if rest != Nil
         assign ss := ss ++ [CsAssign(CeVar(t), c_call("u_array_done", [CeVar(t), CeNum(-1)]))]
-      else if cond != None
-        assign ss := ss ++ [CsAssign(CeVar(t), c_call("u_array_done", [CeVar(t), CeVar(n)]))]
+      else
+        if cond != None
+          assign ss := ss ++ [CsAssign(CeVar(t), c_call("u_array_done", [CeVar(t), CeVar(n)]))]
+        end
       end
 
     case Nil =>
@@ -855,8 +863,8 @@ procedure compile_stmt(in defs: Defs, env: Vars, s: Stmt, out ss: List[CStmt], r
       call   compile_stmt(in defs, env, then_stmt, out as, ref g)
       call   compile_stmt(in defs, env, else_stmt, out bs, ref g)
       assign ss := cs ++ [CsIf(truth(rc), as, bs)]
-    // the condition is computed before the loop and again at the end of each iteration
 
+    // the condition is computed before the loop and again at the end of each iteration
     case SWhile(cond, body) =>
       call   compile_expr(in defs, env, cond, out cs, rc, ref g)
       call   compile_stmt(in defs, env, body, out bs, ref g)

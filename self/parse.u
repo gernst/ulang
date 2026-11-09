@@ -473,21 +473,25 @@ procedure parse_type_atom(in notation: Notation, params: List[Id], out r: List[T
     call   parse_sections(in notation, params, parse_type, parse_type, out ins, outs, refs, ref toks)
     call   expect(in TKw(")"), ref toks)
     assign r := [TProc(ins, outs, refs)]
-  else if at_kw(toks, "(")
-    call advance(ref toks)
-    call parse_enclosed(in notation, params, parse_type, ")", out r, ref toks)
   else
-    call parse_plain_name(in notation, params, out name, ref toks)
-
-    if at_kw(toks, "[")
-      call   advance(ref toks)
-      call   parse_separated(in notation, params, parse_type, at_comma, out args, ref toks)
-      call   expect(in TKw("]"), ref toks)
-      assign r := [TSort(unqualified(name), args)]
-    else if contains(name, params)
-      assign r := [TParam(name)]
+    if at_kw(toks, "(")
+      call advance(ref toks)
+      call parse_enclosed(in notation, params, parse_type, ")", out r, ref toks)
     else
-      assign r := [TSort(unqualified(name), Nil)]
+      call parse_plain_name(in notation, params, out name, ref toks)
+
+      if at_kw(toks, "[")
+        call   advance(ref toks)
+        call   parse_separated(in notation, params, parse_type, at_comma, out args, ref toks)
+        call   expect(in TKw("]"), ref toks)
+        assign r := [TSort(unqualified(name), args)]
+      else
+        if contains(name, params)
+          assign r := [TParam(name)]
+        else
+          assign r := [TSort(unqualified(name), Nil)]
+        end
+      end
     end
   end
 
@@ -673,9 +677,10 @@ procedure parse_binding(in notation: Notation, params: List[Id], out binding: Pa
   call   parse_expr(in notation, params, out expr, ref toks)
   assign binding := (pat, expr)
 
-// lambda x, y => e is a function, and lambda in x, out y, ref z => body end a procedure, told apart by the modes
+// lambda x, y => e is a function, and lambda in x, out y, ref z => body end a procedure, told apart by the modes, where
+// the formals of a function may be patterns, which it matches as let does
 procedure parse_lambda(in notation: Notation, params: List[Id], out expr: Expr, ref toks: Tokens) :=
-  local ins: List[Var], outs: List[Var], refs: List[Var], body: Stmt, xs: List[Var], inner: Expr
+  local ins: List[Var], outs: List[Var], refs: List[Var], body: Stmt, pats: List[Pat], inner: Expr
 
   call advance(ref toks)
 
@@ -685,15 +690,20 @@ procedure parse_lambda(in notation: Notation, params: List[Id], out expr: Expr, 
     call   parse_body(in notation, params, out body, ref toks)
     call   expect(in TKw("end"), ref toks)
     assign expr := EProc(ins, outs, refs, body)
-  else if head_token(toks) == TKw("=>")
-    call   expect(in TKw("=>"), ref toks)
-    call   parse_expr(in notation, params, out inner, ref toks)
-    assign expr := ELam(Nil, inner)
   else
-    call   parse_separated(in notation, params, parse_variable, at_comma, out xs, ref toks)
-    call   expect(in TKw("=>"), ref toks)
-    call   parse_expr(in notation, params, out inner, ref toks)
-    assign expr := ELam(xs, inner)
+    if head_token(toks) == TKw("=>")
+      call   expect(in TKw("=>"), ref toks)
+      call   parse_expr(in notation, params, out inner, ref toks)
+      assign expr := ELam(Nil, inner)
+    else
+      call   parse_separated(in notation, params, parse_pattern, at_comma, out pats, ref toks)
+      call   expect(in TKw("=>"), ref toks)
+      call   parse_expr(in notation, params, out inner, ref toks)
+      assign expr := match pattern_vars(pats)
+          case Some(xs) => ELam(xs, inner)
+          case None => lambda_patterns(pats, inner)
+        end
+    end
   end
 
 // a literal is the fold of its elements unrolled, {a, b} the set insert(a, insert(b, empty())) and {k => v, l => w} the map
@@ -1109,7 +1119,7 @@ procedure parse_stmt(in notation: Notation, params: List[Id], out s: Stmt, ref t
       raise expected("statement", toks)
   end
 
-// the bodies start with a keyword, which ends the condition, and an if after else ends the whole chain
+// the bodies start with a keyword, which ends the condition, and an if after else is nested, with an end of its own
 procedure parse_if(in notation: Notation, params: List[Id], out s: Stmt, ref toks: Tokens) :=
   local cond: Expr, l: Stmt, r: Stmt
 
@@ -1117,16 +1127,13 @@ procedure parse_if(in notation: Notation, params: List[Id], out s: Stmt, ref tok
   call   parse_expr(in notation, params, out cond, ref toks)
   call   parse_body(in notation, params, out l, ref toks)
 
-  if not at_kw(toks, "else")
-    call   expect(in TKw("end"), ref toks)
-    assign r := SSkip
-  else if second_token(toks) == TKw("if")
-    call advance(ref toks)
-    call parse_if(in notation, params, out r, ref toks)
-  else
+  if at_kw(toks, "else")
     call advance(ref toks)
     call parse_body(in notation, params, out r, ref toks)
     call expect(in TKw("end"), ref toks)
+  else
+    call   expect(in TKw("end"), ref toks)
+    assign r := SSkip
   end
 
   assign s := SIf(cond, l, r)
@@ -1549,8 +1556,10 @@ procedure parse_mod(
       case TKw("export") =>
         if section == InExport or section == InBuiltin or section == InImplementation
           raise ParseError("a module has one export section", pos)
-        else if section != Opening
-          raise ParseError("export comes first, after the imports", pos)
+        else
+          if section != Opening
+            raise ParseError("export comes first, after the imports", pos)
+          end
         end
 
         call   advance(ref toks)

@@ -44,6 +44,12 @@ test lambdas() :=
   assert sum3(1)(2, 3)() == 6
   assert (let f := plus in f(1)(2)) == 3
 
+// the formals of a lambda may be patterns, which it matches as let does
+test lambda_patterns() :=
+  assert foldl([(1, 2), (3, 4)], 0, lambda n, (a, b) => n + a * b) == 14
+  assert (lambda (a, b), c => a + b + c)((1, 2), 3) == 6
+  assert (lambda (a, _) => a)((1, "b")) == 1
+
 test literals() :=
   assert "a" == "a"
   assert () == ()
