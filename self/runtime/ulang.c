@@ -907,17 +907,12 @@ u_value u_con_show(u_value v) {
 
 static u_value show_array(u_value v) {
   struct u_text t = {NULL, 0, 0, 1};
-  append(&t, "|");
+  append(&t, "array(");
   for (int i = 0; i < v->size; i++) {
-    u_value s = u_show(v->items[i]);
-    // a first element that starts with || in parentheses, since the parser reads ||| as an empty array before a |
-    int enclose = i == 0 && s->length >= 2 && u_str_at(s, 0) == '|' && u_str_at(s, 1) == '|';
     if (i > 0) append(&t, ", ");
-    if (enclose) append(&t, "(");
-    append_str(&t, s);
-    if (enclose) append(&t, ")");
+    append_str(&t, u_show(v->items[i]));
   }
-  append(&t, "|");
+  append(&t, ")");
   return text_value(&t);
 }
 

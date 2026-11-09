@@ -1,8 +1,8 @@
-// arrays of array.u: built from lists, literals |a, b|, and comprehensions |e for x in c if q|, read by index, changed
+// arrays of array.u: built from lists, literals array(a, b), and comprehensions array(for x in c if q yield e), read by index, changed
 // by copying, folded, and comprehended through their folds, ordered as lists of their elements, and shown as literals
 
-import array
-import set
+import "array.u"
+import "set.u"
 
 data Color :=
   case Red
@@ -12,50 +12,50 @@ function x_plus(n: Int): Int :=
   n + 1
 
 function squares(a: Array[Int]): List[Int] :=
-  [x * x for x in a if x > 1]
+  list(for x in a if x > 1 yield x * x)
 
 test building() :=
-  local a := array([1, 2, 3]), e: Array[Int] := array([])
+  local a := array(1, 2, 3), e: Array[Int] := array()
 
-  assert size(a) == 3 and size(e) == 0 and list(a) == [1, 2, 3] and list(e) == []
+  assert size(a) == 3 and size(e) == 0 and list(for x in a) == list(1, 2, 3) and list(for x in e) == list()
   assert at(0, a) == 1 and at(2, a) == 3 and get(1, a) == Some(2) and get(3, a) == None and get(-1, a) == None
   assert contains(2, a) and not contains(4, a) and not contains(1, e)
 
 test copying() :=
-  local a := array(['a', 'b', 'c'])
+  local a := array('a', 'b', 'c')
 
-  assert list(a) == ['a', 'b', 'c']
-  assert list(slice(a, 1, 3)) == ['b', 'c'] and list(slice(a, 0, 0)) == [] and slice(a, 0, 3) == a
+  assert list(for x in a) == list('a', 'b', 'c')
+  assert list(for x in slice(a, 1, 3)) == list('b', 'c') and list(for x in slice(a, 0, 0)) == list() and slice(a, 0, 3) == a
 
 test folding() :=
-  local a := array([1, 2, 3])
+  local a := array(1, 2, 3)
 
-  assert foldr(a, Nil, Cons) == [1, 2, 3] and foldl(a, Nil, lambda xs, x => [x; xs]) == [3, 2, 1]
+  assert foldr(a, list(), Cons) == list(1, 2, 3) and foldl(a, list(), lambda xs, x => list(x; xs)) == list(3, 2, 1)
   assert foldl(a, 0, lambda n, x => 10 * n + x) == 123 and foldr(a, 0, lambda x, n => 10 * n + x) == 321
-  assert squares(a) == [4, 9] and {x % 2 for x in a} == {0, 1}
+  assert squares(a) == list(4, 9) and set(for x in a yield x % 2) == set(0, 1)
 
 test ordering() :=
-  assert array([1, 2]) == array([1, 2]) and array([1, 2]) != array([1, 3]) and array([1]) != array([1, 2])
-  assert array([1, 2]) < array([1, 3]) and array([1]) < array([1, 2]) and array([2]) > array([1, 5])
-  assert array([{1, 2}]) == array([{2, 1}]) and compare(array([Green]), array([Red])) == 1
+  assert array(1, 2) == array(1, 2) and array(1, 2) != array(1, 3) and array(1) != array(1, 2)
+  assert array(1, 2) < array(1, 3) and array(1) < array(1, 2) and array(2) > array(1, 5)
+  assert array(set(1, 2)) == array(set(2, 1)) and compare(array(Green), array(Red)) == 1
 
 test showing() :=
-  assert show(|1, 2|) == "|1, 2|" and show(|Some(Red)|) == "|Some(Red)|" and show(array([])) == "||"
-  assert show(|{2, 1}|) == "|{1, 2}|" and show([|"a"|]) == "[|\"a\"|]" and show(||1|, ||, |-2||) == "||1|, ||, |-2||"
+  assert show(array(1, 2)) == "array(1, 2)" and show(array(Some(Red))) == "array(Some(Red))" and show(array()) == "array()"
+  assert show(array(set(2, 1))) == "array(set(1, 2))" and show(list(array("a"))) == "list(array(\"a\"))" and show(array(array(1), array(), array(-2))) == "array(array(1), array(), array(-2))"
 
 test literals() :=
-  local e: Array[Int] := ||
+  local e: Array[Int] := array()
 
-  assert |1, 2, 3| == array([1, 2, 3]) and size(e) == 0 and ||1|, || | == array([array([1]), array([])])
-  assert |(||)| == array([array([])]) and |(||1||), ||| == array([array([array([1])]), array([])]) and show(|(||), |1||) == "|(||), |1||"
-  assert at(1, |-1, x_plus(1), 3|) == 2 and |-1| == array([-1]) and |1|<|2| and not (|2|>|3|)
+  assert array(1, 2, 3) == array(for x in list(1, 2, 3)) and size(e) == 0 and array(array(1), array()) == array(for x in list(from_list(list(1)), from_list(list())))
+  assert array(array()) == array(for x in list(from_list(list()))) and show(array(array(), array(1))) == "array(array(), array(1))"
+  assert at(1, array(-1, x_plus(1), 3)) == 2 and array(-1) == array(for x in list(-1)) and array(1) < array(2) and not (array(2) > array(3))
 
 test comprehensions() :=
-  local a := |1, 2, 3, 4|, xs := [1, 2, 3, 4]
+  local a := array(1, 2, 3, 4), xs := list(1, 2, 3, 4)
 
-  assert |x * x for x in xs| == |1, 4, 9, 16| and |x * x for x in a| == |1, 4, 9, 16|
-  assert size(|x for x in xs|) == 4 and size(|x for x in a|) == 4 and |-x for x in a| == |-1, -2, -3, -4|
-  assert |x for x in xs if x % 2 == 0| == |2, 4| and |x for x in a if x > 2| == |3, 4|
-  assert size(|x for x in a if x > 5|) == 0 and |x for x in a if x > 5| == ||
-  assert |x for x in {3, 1, 2}| == |1, 2, 3| and |(x, y) for x in [1, 2], y in a if y > 3| == |(1, 4), (2, 4)|
-  assert ||y for y in a if y <= x| for x in xs if x < 3| == ||1|, |1, 2||
+  assert array(for x in xs yield x * x) == array(1, 4, 9, 16) and array(for x in a yield x * x) == array(1, 4, 9, 16)
+  assert size(array(for x in xs)) == 4 and size(array(for x in a)) == 4 and array(for x in a yield -x) == array(-1, -2, -3, -4)
+  assert array(for x in xs if x % 2 == 0) == array(2, 4) and array(for x in a if x > 2) == array(3, 4)
+  assert size(array(for x in a if x > 5)) == 0 and array(for x in a if x > 5) == array()
+  assert array(for x in set(3, 1, 2)) == array(1, 2, 3) and array(for x in list(1, 2) for y in a if y > 3 yield (x, y)) == array((1, 4), (2, 4))
+  assert array(for x in xs if x < 3 yield array(for y in a if y <= x)) == array(array(1), array(1, 2))

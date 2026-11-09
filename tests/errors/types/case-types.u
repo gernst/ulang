@@ -1,6 +1,6 @@
 // type error: cannot unify Bool and Int at 2.1
 function f(): Int :=
-  match Nil
-    case Nil => 0
-    case [_; _] => true
+  match list()
+    case list() => 0
+    case list(_; _) => true
   end

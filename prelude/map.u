@@ -1,7 +1,7 @@
 // maps from keys to values as AVL trees, ordered by compare, where the heights of the subtrees of each node
 // differ by at most one, such that get and put take logarithmic time
 
-import set
+import "set.u"
 
 export
 
@@ -11,9 +11,6 @@ function empty[K, V](): Map[K, V]
 function get[K, V](k: K, m: Map[K, V]): Option[V]
 function contains[K, V](k: K, m: Map[K, V]): Bool
 function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V]
-
-// the map of the entries, where the last entry of a key counts
-function map[K, V](ps: List[K * V]): Map[K, V]
 
 // the entries of both, where those of b count, and the entries of a without the keys ks
 function ++[K, V](a: Map[K, V], b: Map[K, V]): Map[K, V]
@@ -30,9 +27,6 @@ function size[K, V](m: Map[K, V]): Int
 // their keys
 function foldr[K, V, R](m: Map[K, V], acc: R, f: (K, V, R) -> R): R
 function foldl[K, V, R](m: Map[K, V], acc: R, f: (R, K, V) -> R): R
-
-// the entries of m in the order of their keys
-function list[K, V](m: Map[K, V]): List[K * V]
 
 // maps are ordered and equal by their entries, whatever the shapes of their trees, also as elements of other values
 // and in generic code
@@ -78,15 +72,15 @@ function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V] :=
   end
 
 function compare[K, V](a: Map[K, V], b: Map[K, V]): Int :=
-  compare(list(a), list(b))
+  compare(list(for k => v in a), list(for k => v in b))
 
 function ==[K, V](a: Map[K, V], b: Map[K, V]): Bool :=
-  list(a) == list(b)
+  list(for k => v in a) == list(for k => v in b)
 
 function entries_onto[K, V](m: Map[K, V], rest: List[K * V]): List[K * V] :=
   match m
     case Leaf => rest
-    case Node(left, key, value, right, _) => entries_onto(left, [(key, value); entries_onto(right, rest)])
+    case Node(left, key, value, right, _) => entries_onto(left, list((key, value); entries_onto(right, rest)))
   end
 
 function foldr[K, V, R](m: Map[K, V], acc: R, f: (K, V, R) -> R): R :=
@@ -100,9 +94,6 @@ function foldl[K, V, R](m: Map[K, V], acc: R, f: (R, K, V) -> R): R :=
     case Leaf => acc
     case Node(left, key, value, right, _) => foldl(right, f(foldl(left, acc, f), key, value), f)
   end
-
-function list[K, V](m: Map[K, V]): List[K * V] :=
-  entries_onto(m, Nil)
 
 function size[K, V](m: Map[K, V]): Int :=
   match m
@@ -196,9 +187,6 @@ function remove_least[K, V](m: Map[K, V]): Map[K, V] :=
     case Node(left, key, value, right, _) => balance(remove_least(left), key, value, right)
   end
 
-function map[K, V](ps: List[K * V]): Map[K, V] :=
-  put_all(ps, empty())
-
 function ++[K, V](a: Map[K, V], b: Map[K, V]): Map[K, V] :=
   foldl(b, a, lambda m, k, v => put(k, v, m))
 
@@ -214,38 +202,38 @@ function forall[K, V](m: Map[K, V], p: (K, V) -> Bool): Bool :=
 // m with the entries ps, where the last entry of a key counts
 function put_all[K, V](ps: List[K * V], m: Map[K, V]): Map[K, V] :=
   match ps
-    case Nil => m
-    case [(k, v); rest] => put_all(rest, put(k, v, m))
+    case list() => m
+    case list((k, v); rest) => put_all(rest, put(k, v, m))
   end
 
 function show[K, V](m: Map[K, V]): Str :=
-  "{" ++ join(", ", [show(k) ++ " => " ++ show(v) for k => v in m]) ++ "}"
+  "map(" ++ join(", ", list(for k => v in m yield show(k) ++ " => " ++ show(v))) ++ ")"
 
 test maps() :=
-  local m := {"a" => 1, "b" => 2}
+  local m := map("a" => 1, "b" => 2)
 
   assert get("a", m) == Some(1) and get("c", m) == None and contains("b", m) and not contains("c", m)
   assign m := put("a", 3, m)
-  assert list(m) == [("a", 3), ("b", 2)] and size(m) == 2 and list({"b" => 2, "a" => 1, "a" => 3}) == list(m)
+  assert list(for x in m) == list(("a", 3), ("b", 2)) and size(m) == 2 and list(for x in map("b" => 2, "a" => 1, "a" => 3)) == list(for x in m)
 
 test map_folds() :=
-  local m := map([(i, show(i)) for i in range(1, 51)])
+  local m := map(for i in range(1, 51) yield i => show(i))
 
-  assert foldr(m, Nil, lambda k, v, ps => [(k, v); ps]) == list(m) and foldr(m, empty(), put) == m
-  assert foldl(m, Nil, lambda ps, k, v => [(k, v); ps]) == reverse(list(m)) and foldl(m, 0, lambda n, k, v => n + k) == 1275
-  assert foldr({1 => "a", 2 => "b"}, "", lambda k, v, t => v ++ t) == "ab" and foldl({1 => "a", 2 => "b"}, "", lambda t, k, v => t ++ v) == "ab"
-  assert list({2 => "b", 1 => "a"}) == [(1, "a"), (2, "b")] and list(m) == list(m)
+  assert foldr(m, list(), lambda k, v, ps => list((k, v); ps)) == list(for x in m) and foldr(m, empty(), put) == m
+  assert foldl(m, list(), lambda ps, k, v => list((k, v); ps)) == reverse(list(for x in m)) and foldl(m, 0, lambda n, k, v => n + k) == 1275
+  assert foldr(map(1 => "a", 2 => "b"), "", lambda k, v, t => v ++ t) == "ab" and foldl(map(1 => "a", 2 => "b"), "", lambda t, k, v => t ++ v) == "ab"
+  assert list(for x in map(2 => "b", 1 => "a")) == list((1, "a"), (2, "b")) and list(for x in m) == list(for x in m)
 
 // maps of the same entries are equal, although their trees differ
 test map_equality() :=
-  assert {1 => "a", 2 => "b"} == {2 => "b", 1 => "a"} and {1 => "a"} != {1 => "b"}
+  assert map(1 => "a", 2 => "b") == map(2 => "b", 1 => "a") and map(1 => "a") != map(1 => "b")
 
 // ascending keys would make a list of an unbalanced tree
 test balance() :=
-  local m := map([(show(1000 + i), i) for i in range(1, 201)])
+  local m := map(for i in range(1, 201) yield show(1000 + i) => i)
 
   assert balanced(m) and size(m) == 200 and height(m) <= 11
   assert get("1100", m) == Some(100) and get("1201", m) == None
-  assert list(m) == [(show(1000 + i), i) for i in range(1, 201)]
-  assign m := m -- set([show(1000 + 2 * i) for i in range(1, 101)] ++ ["none"])
-  assert balanced(m) and size(m) == 100 and list(m) == [(show(999 + 2 * i), 2 * i - 1) for i in range(1, 101)]
+  assert list(for x in m) == list(for i in range(1, 201) yield (show(1000 + i), i))
+  assign m := m -- set(for x in list(for i in range(1, 101) yield show(1000 + 2 * i)) ++ list("none"))
+  assert balanced(m) and size(m) == 100 and list(for x in m) == list(for i in range(1, 101) yield (show(999 + 2 * i), 2 * i - 1))

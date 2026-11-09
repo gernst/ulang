@@ -4,10 +4,10 @@
 // modules, and abstract types are compared only through their modules, where comparing a type whose module declares no
 // order raises Unordered, and comparing one without an equality either raises Incomparable
 
-import stack
-import stack
-import exported
-import counter
+import "stack.u"
+import "stack.u"
+import "exported.u"
+import "counter.u"
 
 export
 
@@ -50,9 +50,9 @@ function counted(c: Counter): Int :=
   count(c)
 
 test abstract_annotations() :=
-  local t: Tally := tally([1, 2])
+  local t: Tally := tally(list(1, 2))
 
-  assert counted(next(start())) == 1 and t == tally([3])
+  assert counted(next(start())) == 1 and t == tally(list(3))
 
 test exported_fields() :=
   assert Green(3).level == 3 and (Green(3) with level := 4) == Green(4)
@@ -60,10 +60,10 @@ test exported_fields() :=
 test equality_without_order() :=
   local r := ""
 
-  assert tally([1, 2]) == tally([3]) and tally([1]) != tally([2]) and contains(tally([4]), [tally([1, 3])])
+  assert tally(list(1, 2)) == tally(list(3)) and tally(list(1)) != tally(list(2)) and contains(tally(list(4)), list(tally(list(1, 3))))
 
   try
-    assign r := show(compare(tally([1]), tally([2])))
+    assign r := show(compare(tally(list(1)), tally(list(2))))
   catch
     case Unordered(sort) =>
       assign r := sort
@@ -88,7 +88,7 @@ test incomparable_inside() :=
   local r := ""
 
   try
-    assign r := if [Pair(1, 2)] == [pair(1, 2)] then "equal" else "unequal"
+    assign r := if list(Pair(1, 2)) == list(pair(1, 2)) then "equal" else "unequal"
   catch
     case Incomparable(sort) =>
       assign r := sort

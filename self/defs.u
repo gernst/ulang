@@ -1,9 +1,9 @@
 // the definitions of a program that self/check.u has checked, as the interpreter of self/run.u and the compiler of
 // self/compile.u look them up, with the declared orders, equalities, and shows of its datatypes
 
-import syntax
-import builtins
-import map
+import "syntax.u"
+import "builtins.u"
+import "map.u"
 
 export
 
@@ -35,64 +35,64 @@ implementation
 
 function defs_of(q: Prog): Defs :=
   Defs(
-    map(fun_defs(q.cmds)),
-    map(proc_defs(q.cmds)),
-    map(constr_defs(q.cmds)),
-    map(field_defs(q.cmds)),
-    map(ordered_by(q.cmds, "compare")),
-    map(ordered_by(q.cmds, "==")),
-    map(ordered_by(q.cmds, "show"))
+    map(for (k, v) in fun_defs(q.cmds)),
+    map(for (k, v) in proc_defs(q.cmds)),
+    map(for (k, v) in constr_defs(q.cmds)),
+    map(for (k, v) in field_defs(q.cmds)),
+    map(for (k, v) in ordered_by(q.cmds, "compare")),
+    map(for (k, v) in ordered_by(q.cmds, "==")),
+    map(for (k, v) in ordered_by(q.cmds, "show"))
   )
 
 // functions are overloaded by their number of arguments
 function fun_defs(cmds: List[Cmd]): List[(Name * Int) * (List[Var] * Expr)] :=
   match cmds
-    case Nil => Nil
-    case [CFun(name, _, formals, _, body); rest] => [((name, size(formals)), (formals, body)); fun_defs(rest)]
-    case [_; rest] => fun_defs(rest)
+    case list() => list()
+    case list(CFun(name, _, formals, _, body); rest) => list(((name, size(formals)), (formals, body)); fun_defs(rest))
+    case list(_; rest) => fun_defs(rest)
   end
 
 function proc_defs(cmds: List[Cmd]): List[Name * (List[Var] * List[Var] * List[Var] * Stmt)] :=
   match cmds
-    case Nil => Nil
-    case [CProc(name, _, ins, outs, refs, stmt); rest] => [(name, (ins, outs, refs, stmt)); proc_defs(rest)]
-    case [_; rest] => proc_defs(rest)
+    case list() => list()
+    case list(CProc(name, _, ins, outs, refs, stmt); rest) => list((name, (ins, outs, refs, stmt)); proc_defs(rest))
+    case list(_; rest) => proc_defs(rest)
   end
 
 function constr_defs(cmds: List[Cmd]): List[Name * (Int * Int * Name)] :=
   match cmds
-    case Nil => Nil
-    case [CData(name, _, constrs); rest] => constrs_from(name, constrs, 0) ++ constr_defs(rest)
-    case [_; rest] => constr_defs(rest)
+    case list() => list()
+    case list(CData(name, _, constrs); rest) => constrs_from(name, constrs, 0) ++ constr_defs(rest)
+    case list(_; rest) => constr_defs(rest)
   end
 
 function constrs_from(t: Name, ks: List[Constr], i: Int): List[Name * (Int * Int * Name)] :=
   match ks
-    case Nil => Nil
-    case [Constr(name, fields); rest] => [(name, (size(fields), i, t)); constrs_from(t, rest, i + 1)]
+    case list() => list()
+    case list(Constr(name, fields); rest) => list((name, (size(fields), i, t)); constrs_from(t, rest, i + 1))
   end
 
 function field_defs(cmds: List[Cmd]): List[(Name * Int) * List[Int]] :=
   match cmds
-    case Nil => Nil
-    case [CData(name, _, constrs); rest] => field_positions(name, constrs) ++ field_defs(rest)
-    case [_; rest] => field_defs(rest)
+    case list() => list()
+    case list(CData(name, _, constrs); rest) => field_positions(name, constrs) ++ field_defs(rest)
+    case list(_; rest) => field_defs(rest)
   end
 
 function field_positions(t: Name, constrs: List[Constr]): List[(Name * Int) * List[Int]] :=
-  [e for f in field_names(constrs), e in [((accessor_name(t, f), 1), positions(f, constrs)), ((updater_name(t, f), 2), positions(f, constrs))]]
+  list(for f in field_names(constrs) for e in list(((accessor_name(t, f), 1), positions(f, constrs)), ((updater_name(t, f), 2), positions(f, constrs))) yield e)
 
 // the fields of the constructors of a datatype, each once
 function field_names(constrs: List[Constr]): List[Id] :=
-  distinct([field.name for k in constrs, field in k.fields])
+  distinct(list(for k in constrs for field in k.fields yield field.name))
 
 function positions(f: Id, constrs: List[Constr]): List[Int] :=
-  [position_in(f, k.fields, 0) for k in constrs]
+  list(for k in constrs yield position_in(f, k.fields, 0))
 
 function position_in(f: Id, fields: List[Field], i: Int): Int :=
   match fields
-    case Nil => -1
-    case [field; rest] => if field.name == f then i else position_in(f, rest, i + 1)
+    case list() => -1
+    case list(field; rest) => if field.name == f then i else position_in(f, rest, i + 1)
   end
 
 function accessor_name(t: Name, f: Id): Name :=
@@ -112,9 +112,9 @@ function field_of(n: Name): Str :=
 // and similarly the text of the values of T if c is show of one value of T with the result Str
 function order_of(cmd: Cmd): Option[Id * Name] :=
   match cmd
-    case CFun(Name(Some(m), "show"), _, [Var(_, TSort(Name(Some(k), base), args))], typ, _) =>
+    case CFun(Name(Some(m), "show"), _, list(Var(_, TSort(Name(Some(k), base), args))), typ, _) =>
       if k == m and distinct_params(args) and typ == type_str() then Some(("show", Name(Some(k), base))) else None
-    case CFun(Name(Some(m), f), _, [Var(_, TSort(Name(Some(k), b), args)), Var(_, u)], r, _) =>
+    case CFun(Name(Some(m), f), _, list(Var(_, TSort(Name(Some(k), b), args)), Var(_, u)), r, _) =>
       let op := order_op(f, b) in
         if k == m and u == TSort(Name(Some(k), b), args) and distinct_params(args) and order_result(op) == Some(r) then Some((op, Name(Some(k), b))) else None
     case _ => None
@@ -131,7 +131,7 @@ function order_result(op: Id): Option[Type] :=
   end
 
 function distinct_params(ts: List[Type]): Bool :=
-  [t for t in ts if is_param(t)] == ts and distinct(ts) == ts
+  list(for t in ts if is_param(t)) == ts and distinct(ts) == ts
 
 function is_param(t: Type): Bool :=
   match t
@@ -146,10 +146,10 @@ function ordered(cmds: List[Cmd], op: Id): List[Name] :=
 // the datatypes of cs ordered, equated, or shown by op, with the functions that do it
 function ordered_by(cmds: List[Cmd], op: Id): List[Name * Name] :=
   match cmds
-    case Nil => Nil
-    case [c; rest] =>
+    case list() => list()
+    case list(c; rest) =>
       match (c, order_of(c))
-        case (CFun(name, _, _, _, _), Some((o, t))) => if o == op then [(t, name); ordered_by(rest, op)] else ordered_by(rest, op)
+        case (CFun(name, _, _, _, _), Some((o, t))) => if o == op then list((t, name); ordered_by(rest, op)) else ordered_by(rest, op)
         case _ => ordered_by(rest, op)
       end
   end

@@ -1,5 +1,5 @@
 // type error: unknown constructor Full at 4.1
-import hiding
+import "hiding.u"
 
 function f(b: Box): Int :=
   match b

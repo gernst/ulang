@@ -54,7 +54,7 @@ procedure os_walk(in path: Str, out files: List[Str]) :=
   if dir
     call os_walk_dir(in path, out files)
   else
-    assign files := [path]
+    assign files := list(path)
   end
 
 procedure os_walk_dir(in dir: Str, out files: List[Str]) :=
@@ -67,15 +67,15 @@ procedure os_walk_entries(in dir: Str, entries: List[Str * Bool], out files: Lis
   local below: List[Str], rest: List[Str]
 
   match entries
-    case Nil =>
-      assign files := Nil
-    case [(name, true); more] =>
+    case list() =>
+      assign files := list()
+    case list((name, true); more) =>
       call   os_walk_dir(in os_join(dir, name), out below)
       call   os_walk_entries(in dir, more, out rest)
       assign files := below ++ rest
-    case [(name, false); more] =>
+    case list((name, false); more) =>
       call   os_walk_entries(in dir, more, out rest)
-      assign files := [os_join(dir, name); rest]
+      assign files := list(os_join(dir, name); rest)
   end
 
 function os_join(dir: Str, name: Str): Str :=

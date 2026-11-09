@@ -1,6 +1,6 @@
-// parse error: the rest of a literal {...} after ; is a set or a map, not an entry at 6.3
+// parse error: ) expected but => found at 6.17
 
-import map
+import "map.u"
 
 function f(m: Map[Int, Int]): Map[Int, Int] :=
-  {1 => 2; 3 => 4}
+  map(1 => 2; 3 => 4)

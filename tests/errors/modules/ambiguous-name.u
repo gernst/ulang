@@ -1,6 +1,6 @@
 // type error: helper is ambiguous: left.helper: Int -> Int, right.helper: Int -> Int at 5.1
-import left
-import right
+import "left.u"
+import "right.u"
 
 test r() :=
   local v := helper(1)

@@ -181,7 +181,7 @@
           }
         },
         {
-          "match": "\\b(import)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "\\b(import)\\s+(\"[A-Za-z0-9_]+\\.u\")",
           "captures": {
             "1": {
               "name": "keyword.control.import.ulang"
@@ -222,11 +222,11 @@
       "patterns": [
         {
           "name": "keyword.control.ulang",
-          "match": "\\b(if|then|else|while|match|case|end|let|in|lambda|for|call|assign|skip|assert|raise|try|catch|out|ref|with)\\b"
+          "match": "\\b(if|then|else|while|match|case|end|let|in|lambda|for|do|yield|call|assign|skip|assert|raise|try|catch|out|ref|with)\\b"
         },
         {
           "name": "keyword.other.ulang",
-          "match": "\\b(test)\\b"
+          "match": "\\b(test|list|set|map|array)\\b"
         },
         {
           "name": "keyword.control.ulang",

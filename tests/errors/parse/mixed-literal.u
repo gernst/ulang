@@ -1,6 +1,6 @@
-// parse error: a literal {...} has either elements a or entries k => v at 6.14
-import set
-import map
+// parse error: => expected but , found at 6.19
+import "set.u"
+import "map.u"
 
 test r() :=
-  local v := {1, 2 => 3}
+  local v := map(1, 2 => 3)

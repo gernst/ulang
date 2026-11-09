@@ -1,0 +1,5 @@
+// type error: match is not exhaustive, missing list(Nil; _) at 2.1
+test refutable() :=
+  for list(x; _) in list(list(1)) do
+    skip
+  end

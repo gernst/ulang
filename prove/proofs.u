@@ -1,11 +1,11 @@
 // simple proofs by simplification and induction, with goals and definitions read from text
 
-import syntax
-import read
-import simp
+import "syntax.u"
+import "read.u"
+import "simp.u"
 
 function list_decls(): Str :=
-  join(" ", [
+  join(" ", list(
     "data List[A] := | Nil | Cons(A, List[A])",
     "function ++(xs: List[A], ys: List[A]): List[A] := match xs case [] => ys case [x; zs] => [x; zs ++ ys] end",
     "function size(xs: List[A]): Int := match xs case [] => 0 case [_; ys] => 1 + size(ys) end",
@@ -14,7 +14,7 @@ function list_decls(): Str :=
     "function take(n: Int, xs: List[A]): List[A] := match xs case [] => [] case [y; ys] => if n <= 0 then [] else [y; take(n - 1, ys)] end",
     "function drop(n: Int, xs: List[A]): List[A] := match xs case [] => [] case [_; ys] => if n <= 0 then xs else drop(n - 1, ys) end",
     "function max(a: Int, b: Int): Int := if a < b then b else a"
-  ])
+  ))
 
 procedure decls_of(out d: Decls) :=
   call read_decls(in empty_decls(), list_decls(), out d)

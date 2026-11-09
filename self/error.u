@@ -32,14 +32,14 @@ function format_failure(failure: Failure): Str :=
   end
 
 function failure_formats(): List[Str * Str] :=
-  [
+  list(
     ("u_text_no_case", format_failure(NoCase("%s"))),
     ("u_text_compare_functions", format_failure(CompareFunctions)),
     ("u_text_compare_procedures", format_failure(CompareProcedures)),
     ("u_text_assertion_failed", format_failure(AssertionFailed)),
     ("u_text_assertion_unequal", format_failure(AssertionUnequal("%s", "%s"))),
     ("u_text_uncaught", format_failure(Uncaught("%s")))
-  ]
+  )
 
 test formats() :=
   assert contains(("u_text_assertion_unequal", "assertion failed: %s != %s"), failure_formats())

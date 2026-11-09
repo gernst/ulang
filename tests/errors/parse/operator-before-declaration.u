@@ -1,6 +1,6 @@
-// parse error: undeclared operator +++ at 3.14
+// parse error: undeclared operator +++ at 3.18
 test operator_before_declaration() :=
-  assert [1] +++ [2] == [1, 2]
+  assert list(1) +++ list(2) == list(1, 2)
 
 infix right 8 +++
 

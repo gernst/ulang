@@ -1,5 +1,5 @@
 // type error: unknown variable plain_helper at 4.1
-import plain
+import "plain.u"
 
 test t() :=
   assert plain_helper(1) == 2

@@ -1,15 +1,15 @@
 function range(n: Int): List[Int] :=
-  if n == 0 then Nil else [n; range(n - 1)]
+  if n == 0 then list() else list(n; range(n - 1))
 
 function head[A](xs: List[A]): Option[A] :=
   match xs
-    case [x; _] => Some(x)
+    case list(x; _) => Some(x)
     case _ => None
   end
 
 function nested(xs: List[Option[Int]]): Int :=
   match xs
-    case [Some(1), None; _] => 1
+    case list(Some(1), None; _) => 1
     case _ => 0
   end
 
@@ -31,22 +31,22 @@ function unit(u: ()): Int :=
   end
 
 test ranges() :=
-  assert range(3) == [3, 2, 1]
+  assert range(3) == list(3, 2, 1)
   assert size(range(3)) == 3
-  assert [x * x for x in range(3)] == [9, 4, 1]
+  assert list(for x in range(3) yield x * x) == list(9, 4, 1)
   assert head(range(2)) == Some(2)
-  assert head(Nil) == None
-  assert nested([Some(1), None]) == 1
-  assert nested(Nil) == 0
+  assert head(list()) == None
+  assert nested(list(Some(1), None)) == 1
+  assert nested(list()) == 0
   assert word(0) == "zero"
   assert word(7) == "other"
   assert flip(false) == 1
   assert unit(()) == 0
-  assert (range(2) != Nil)
+  assert (range(2) != list())
 
 // association lists, where the first pair of a key counts
 test association_lists() :=
-  local m := [("b", 2), ("a", 1), ("a", 3)]
+  local m := list(("b", 2), ("a", 1), ("a", 3))
 
   assert get("a", m) == Some(1) and get("b", m) == Some(2) and get("c", m) == None
 
@@ -125,10 +125,10 @@ test guards() :=
   local s: Str
 
   assert sign(-5) == -1 and sign(0) == 0 and sign(7) == 1
-  match [1, 2]
-    case [x; _] if x > 1 =>
+  match list(1, 2)
+    case list(x; _) if x > 1 =>
       assign s := "big"
-    case [x; _] if x == 1 =>
+    case list(x; _) if x == 1 =>
       assign s := "one"
     case _ =>
       assign s := "other"
@@ -138,16 +138,16 @@ test guards() :=
 // [a, b] is Cons(a, Cons(b, Nil)) and [a, b; c] is Cons(a, Cons(b, c)), in patterns and expressions
 function sum_pairs(xs: List[Int]): Int :=
   match xs
-    case [] => 0
-    case [x] => x
-    case [x, y; rest] => x * y + sum_pairs(rest)
+    case list() => 0
+    case list(x) => x
+    case list(x, y; rest) => x * y + sum_pairs(rest)
   end
 
 test list_patterns() :=
-  assert sum_pairs([1, 2, 3, 4, 5]) == 19
-  assert sum_pairs([]) == 0
-  assert [1; [2, 3]] == [1, 2, 3]
-  assert [1, 2; [3]] == Cons(1, Cons(2, Cons(3, Nil)))
+  assert sum_pairs(list(1, 2, 3, 4, 5)) == 19
+  assert sum_pairs(list()) == 0
+  assert list(1; list(2, 3)) == list(1, 2, 3)
+  assert list(1, 2; list(3)) == Cons(1, Cons(2, Cons(3, list())))
 
 // compare orders values of a type, constructors by their declaration and then by their fields
 test comparisons() :=
@@ -155,7 +155,7 @@ test comparisons() :=
   assert compare("ab", "b") == -1 and compare('b', 'a') == 1 and compare(false, true) == -1
   assert compare((1, "b"), (1, "a")) == 1 and compare((), ()) == 0
   assert compare(None, Some(0)) == -1 and compare(Some(2), Some(1)) == 1
-  assert compare(Zero, Succ(Zero)) == -1 and compare([1, 2], [1]) == 1 and compare([1], [1, 2]) == -1
+  assert compare(Zero, Succ(Zero)) == -1 and compare(list(1, 2), list(1)) == 1 and compare(list(1), list(1, 2)) == -1
   assert compare(100000000000000000000, 99999999999999999999) == 1 and compare(-100000000000000000000, 1) == -1
 
 // named fields of constructors, whose accessors e.f are resolved by the type of e

@@ -1,2 +1,2 @@
 // parse error: unknown module missing at 2.1
-import missing
+import "missing.u"

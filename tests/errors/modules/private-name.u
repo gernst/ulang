@@ -1,5 +1,5 @@
 // type error: unknown variable secret at 4.1
-import hiding
+import "hiding.u"
 
 test t() :=
   assert secret(1) == 1

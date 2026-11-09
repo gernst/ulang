@@ -1,9 +1,9 @@
 // the lexer of ulang, which splits source code into tokens with their positions, where a symbol is always the longest run
 // of symbol characters, and which tells keywords from names and operators
 
-import syntax
-import os
-import set
+import "syntax.u"
+import "os.u"
+import "set.u"
 
 export
 
@@ -36,22 +36,22 @@ function is_op_char(c: Char): Bool :=
   contains(c, "-+*/%<>=!&:^~?@#$")
 
 function keywords(): Set[Str] :=
-  {
-    "_", "assert", "assign", "builtin", "call", "case", "catch", "data", "else", "end", "export", "false", "for", "function",
-    "if", "implementation", "import", "in", "infix", "lambda", "let", "local", "match", "out", "postfix", "prefix",
-    "procedure", "raise", "ref", "skip", "test", "then", "true", "type", "try", "while", "with"
-  }
+  set(
+    "_", "array", "assert", "assign", "builtin", "call", "case", "catch", "data", "do", "else", "end", "export", "false", "for",
+    "function", "if", "implementation", "import", "in", "infix", "lambda", "let", "list", "local", "map", "match", "out",
+    "postfix", "prefix", "procedure", "raise", "ref", "set", "skip", "test", "then", "true", "type", "try", "while", "with",
+    "yield"
+  )
 
 function is_keyword(w: Str): Bool :=
   contains(w, keywords())
 
 // symbols with a fixed meaning, which cannot be operators
 function fixed_symbols(): Set[Str] :=
-  {"=>", ":=", ":"}
+  set("=>", ":=", ":")
 
-// | always stands alone, between the constructors of a datatype and around arrays, which may start with a symbol, |-1|
 function is_punct(c: Char): Bool :=
-  contains(c, "()[]{},;.|")
+  contains(c, "()[],;.")
 
 function is_name_char(c: Char): Bool :=
   is_letter(c) or is_digit(c) or c == '_'
@@ -102,7 +102,7 @@ function position_of(text: Str, offset: Int): Pos :=
 
 // the contents of the literal delimited by q at offset, with its escapes resolved, where offset ends after the closing quote
 procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int) :=
-  local start := offset, from := offset + 1, parts: List[Str] := Nil, c: Char
+  local start := offset, from := offset + 1, parts: List[Str] := list(), c: Char
 
   assign offset := offset + 1
 
@@ -116,7 +116,7 @@ procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int)
     if c == '\\'
       match unescape(peek(text, offset + 1))
         case Some(d) =>
-          assign parts := [str([d]), slice(text, from, offset); parts], offset := offset + 2
+          assign parts := list(str(list(d)), slice(text, from, offset); parts), offset := offset + 2
           assign from := offset
         case None =>
           raise LexError("invalid escape", position_of(text, offset))
@@ -126,7 +126,7 @@ procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int)
     end
   end
 
-  assign contents := join("", reverse([slice(text, from, offset); parts])), offset := offset + 1
+  assign contents := join("", reverse(list(slice(text, from, offset); parts))), offset := offset + 1
 
 procedure lex_name(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
@@ -185,7 +185,7 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
     case '\'' =>
       call lex_char(in text, out tok, ref offset)
     case _ if is_punct(c) =>
-      assign tok := TKw(str([c])), offset := offset + 1
+      assign tok := TKw(str(list(c))), offset := offset + 1
     case _ =>
       raise LexError("unexpected character", position_of(text, offset))
   end
@@ -193,7 +193,7 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
 // the tokens of text with their positions, which end with TEnd at the end of text, where line and column are those of
 // offset last
 procedure lex(in text: Str, out toks: Tokens) :=
-  local offset := 0, rev: Tokens := Nil, start: Int, tok: Token, last := 0, line := 1, column := 1
+  local offset := 0, rev: Tokens := list(), start: Int, tok: Token, last := 0, line := 1, column := 1
 
   while offset < size(text)
     assign start := offset
@@ -206,13 +206,13 @@ procedure lex(in text: Str, out toks: Tokens) :=
       else
         call   lex_token(in text, out tok, ref offset)
         call   lex_move_position(in text, last, start, ref line, column)
-        assign rev := [(Pos(line, column), tok); rev], last := start
+        assign rev := list((Pos(line, column), tok); rev), last := start
       end
     end
   end
 
   call   lex_move_position(in text, last, offset, ref line, column)
-  assign toks := reverse([(Pos(line, column), TEnd); rev])
+  assign toks := reverse(list((Pos(line, column), TEnd); rev))
 
 function tokens(toks: Tokens): List[Token] :=
   seconds(toks)
@@ -222,7 +222,7 @@ test lex_tokens() :=
 
   call   lex(in "function f(x: Int): Int := x+-1 // one\n  y", out toks)
   assert toks ==
-    [
+    list(
       (Pos(1, 1), TKw("function")),
       (Pos(1, 10), TName("f")),
       (Pos(1, 11), TKw("(")),
@@ -238,13 +238,13 @@ test lex_tokens() :=
       (Pos(1, 31), TNum(1)),
       (Pos(2, 3), TName("y")),
       (Pos(2, 4), TEnd)
-    ]
+    )
 
 test lex_literals() :=
   local toks: Tokens
 
-  call   lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' [x; xs]", out toks)
-  assert tokens(toks) == [TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\''), TKw("["), TName("x"), TKw(";"), TName("xs"), TKw("]"), TEnd]
+  call   lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' list(x; xs)", out toks)
+  assert tokens(toks) == list(TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\''), TKw("list"), TKw("("), TName("x"), TKw(";"), TName("xs"), TKw(")"), TEnd)
 
 test lex_errors() :=
   local toks: Tokens, e := LexError("none", Pos(0, 0))

@@ -1,3 +1,3 @@
-// parse error: expression expected but ; found at 3.4
+// parse error: expression expected but ; found at 3.8
 function f(xs: List[Int]): List[Int] :=
-  [; xs]
+  list(; xs)

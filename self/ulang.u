@@ -2,15 +2,15 @@
 // compile, which translates a file to C, whose main calls the procedure entry, or runs all tests for the entry test,
 // and format, which prints a file as format_program of format.u does
 
-import syntax
-import parse
-import check
-import format
-import run
-import error
-import compile
-import os
-import map
+import "syntax.u"
+import "parse.u"
+import "check.u"
+import "format.u"
+import "run.u"
+import "error.u"
+import "compile.u"
+import "os.u"
+import "map.u"
 
 data TestFailed :=
   case TestFailed(message: Str)
@@ -23,24 +23,24 @@ procedure main() :=
 
   // without arguments, e.g. when the tests run all files, the driver does nothing
   match command
-    case [] =>
+    case list() =>
       skip
-    case ["run", file] =>
+    case list("run", file) =>
       call attempt(in file, lambda out r => call run_file(in file, "main", rest, out r) end, out ok)
-    case ["run", file, name] =>
+    case list("run", file, name) =>
       call attempt(in file, lambda out r => call run_file(in file, name, rest, out r) end, out ok)
-    case ["test", first; more] =>
+    case list("test", first; more) =>
       call os_is_dir(in first, out dir)
       if dir
-        call test_paths(in [first; more], out ok)
+        call test_paths(in list(first; more), out ok)
       else
         call attempt(in first, lambda out r => call test_file(in first, more, rest, out r) end, out ok)
       end
-    case ["check", file] =>
+    case list("check", file) =>
       call attempt(in file, lambda out r => call check_file(in file, out r) end, out ok)
-    case ["compile", file, entry, target] =>
+    case list("compile", file, entry, target) =>
       call attempt(in file, lambda out r => call compile_to(in file, entry, target, out r) end, out ok)
-    case ["format", file] =>
+    case list("format", file) =>
       call attempt(in file, lambda out r => call format_file(in file, out r) end, out ok)
     case _ =>
       call   os_print_error(in usage())
@@ -62,16 +62,16 @@ function usage(): Str :=
 // the arguments of the driver, and those of the program after --
 function before_dashes(args: List[Str]): List[Str] :=
   match args
-    case Nil => Nil
-    case ["--"; _] => Nil
-    case [a; more] => [a; before_dashes(more)]
+    case list() => list()
+    case list("--"; _) => list()
+    case list(a; more) => list(a; before_dashes(more))
   end
 
 function after_dashes(args: List[Str]): List[Str] :=
   match args
-    case Nil => Nil
-    case ["--"; more] => more
-    case [_; more] => after_dashes(more)
+    case list() => list()
+    case list("--"; more) => more
+    case list(_; more) => after_dashes(more)
   end
 
 // runs a command for file, which reports the errors of file, and whether it succeeded
@@ -150,7 +150,7 @@ procedure format_file(in file: Str, out ok: Bool) :=
   try
     call parse_file_text(in file, source, out q)
 
-    if [without_positions(d) for d in p.mods] == [without_positions(d) for d in q.mods]
+    if list(for d in p.mods yield without_positions(d)) == list(for d in q.mods yield without_positions(d))
       call   os_print(in slice(source, 0, size(source) - 1))
       assign ok := true
     else
@@ -186,11 +186,11 @@ procedure test_file(in file: Str, names: List[Str], args: List[Str], out ok: Boo
 
   call   load_file(in file, out main, q)
   assign run := load(q) with args := args
-  assign tests := [c for c in q.cmds if is_selected_test(c, names)]
-  assign missing := [n for n in names if not exists(tests, lambda c => is_test(c, n))]
+  assign tests := list(for c in q.cmds if is_selected_test(c, names))
+  assign missing := list(for n in names if not exists(tests, lambda c => is_test(c, n)))
 
   match missing
-    case [n; _] =>
+    case list(n; _) =>
       call   os_print_error(in file ++ ": runtime error: there is no test " ++ n)
       assign ok := false
     case _ =>
@@ -201,9 +201,9 @@ procedure run_tests(in run: Run, tests: List[Cmd], out ok: Bool) :=
   local passed: Bool, rest: Bool
 
   match tests
-    case Nil =>
+    case list() =>
       assign ok := true
-    case [c; more] =>
+    case list(c; more) =>
       call   run_test(in run, c, out passed)
       call   run_tests(in run, more, out rest)
       assign ok := passed and rest
@@ -241,7 +241,7 @@ procedure test_paths(in paths: List[Str], out ok: Bool) :=
   local found: List[Str], files: List[Str], home: Str, failed: Int
 
   call   walk_all(in paths, out found)
-  assign files := [f for f in found if is_source(f)]
+  assign files := list(for f in found if is_source(f))
   call   os_cwd(out home)
   call   test_suite(in files, home, out failed)
   call   os_print(in show(size(files) - failed) ++ " of " ++ show(size(files)) ++ " files passed")
@@ -251,9 +251,9 @@ procedure walk_all(in paths: List[Str], out files: List[Str]) :=
   local here: List[Str], rest: List[Str]
 
   match paths
-    case Nil =>
-      assign files := Nil
-    case [path; more] =>
+    case list() =>
+      assign files := list()
+    case list(path; more) =>
       call   os_walk(in path, out here)
       call   walk_all(in more, out rest)
       assign files := here ++ rest
@@ -266,9 +266,9 @@ procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
   local good: Bool, rest: Int
 
   match files
-    case Nil =>
+    case list() =>
       assign failed := 0
-    case [file; more] =>
+    case list(file; more) =>
       call   verdict(in file, home, out good)
       call   test_suite(in more, home, out rest)
       assign failed := if good then rest else rest + 1
@@ -295,7 +295,7 @@ function outcome(message: Str): Str :=
 // the error that the first line of a file states, or else ""
 function expected_error(text: Str): Str :=
   match split(text, '\n')
-    case [line; _] =>
+    case list(line; _) =>
       if starts_with(line, "// parse error: ") or starts_with(line, "// type error: ") or starts_with(line, "// runtime error: ") then
         slice(line, 3, size(line))
       else
@@ -309,7 +309,7 @@ procedure test_all(in file: Str, out ok: Bool) :=
 
   call   load_file(in file, out main, q)
   assign run := load(q)
-  call   first_failure(in run, [c for c in q.cmds if is_any_test(c)], out message)
+  call   first_failure(in run, list(for c in q.cmds if is_any_test(c)), out message)
 
   if message != ""
     raise TestFailed(message)
@@ -319,9 +319,9 @@ procedure test_all(in file: Str, out ok: Bool) :=
 
 procedure first_failure(in run: Run, tests: List[Cmd], out message: Str) :=
   match tests
-    case Nil =>
+    case list() =>
       assign message := ""
-    case [c; more] =>
+    case list(c; more) =>
       call test_message(in run, c, out message)
       if message == ""
         call first_failure(in run, more, out message)
@@ -330,7 +330,7 @@ procedure first_failure(in run: Run, tests: List[Cmd], out message: Str) :=
 
 function is_selected_test(cmd: Cmd, names: List[Str]): Bool :=
   match cmd
-    case CTest(test_name, _, _) => names == [] or contains(test_name, names)
+    case CTest(test_name, _, _) => names == list() or contains(test_name, names)
     case _ => false
   end
 
@@ -377,9 +377,11 @@ function type_message(e: TypeError): Str :=
     case WrongArity(name, arity) => name.base ++ " does not take " ++ show(arity) ++ " arguments"
     case AlreadyDefined(name) => name.base ++ " is already defined"
     case Duplicate(what, item) => "duplicate " ++ what ++ " " ++ item
-    case Ambiguous(name, candidates) => name.base ++ " is ambiguous: " ++ join(", ", [candidate_text(c) for c in candidates])
+    case Ambiguous(name, candidates) => name.base ++ " is ambiguous: " ++ join(", ", list(for c in candidates yield candidate_text(c)))
     case UnknownField(name) => field_message(split(name.base, '.'))
     case UnknownFieldType(field, typ) => "the type " ++ format_type(typ) ++ " of the value of " ++ field ++ " is not known"
+    case UnknownContainer(typ) => "the type " ++ format_type(typ) ++ " of the container of a generator is not known there, which an annotation can give"
+    case FormImport(m) => m ++ "(...) needs import \"" ++ m ++ ".u\""
     case CountMismatch(owner, unit, k, actual) => (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(actual)
     case UnknownConstructor(name) => "unknown constructor " ++ name.base
     case NotExhaustive(pat) => "match is not exhaustive, missing " ++ format_pat(pat)
@@ -402,8 +404,8 @@ function type_message(e: TypeError): Str :=
 // the accessor T.f, or the updater T.f:=, of an unknown field f
 function field_message(parts: List[Str]): Str :=
   match parts
-    case ["", f] => "unknown field " ++ without_update(f)
-    case [t, f] => "unknown field " ++ without_update(f) ++ " of " ++ t
+    case list("", f) => "unknown field " ++ without_update(f)
+    case list(t, f) => "unknown field " ++ without_update(f) ++ " of " ++ t
     case _ => "unknown field " ++ join(".", parts)
   end
 
@@ -415,10 +417,11 @@ function runtime_message(e: RuntimeError): Str :=
     case Failed(failure) => format_failure(failure)
     case Uninitialized(name) => name.base ++ " is not initialized"
     case NotFunction(value) => "cannot apply " ++ format_value(value)
-    case Unspecified(name, args) => name.base ++ " is not specified for " ++ join(", ", [format_value(v) for v in args])
+    case Unspecified(name, args) => name.base ++ " is not specified for " ++ join(", ", list(for v in args yield format_value(v)))
     case NotList(value) => "expected a list, got " ++ format_value(value)
     case UnassignedOutput(x, proc) => "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned"
     case UnknownProc(name) => "unknown procedure " ++ name.base
     case NotProc(value) => "cannot call " ++ format_value(value)
     case UnresolvedField(field) => "the field " ++ field ++ " is not resolved"
+    case UntranslatedForm(form) => "the form " ++ form ++ "(...) is not translated"
   end

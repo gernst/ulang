@@ -66,8 +66,8 @@ function tally(ns: List[Int]): Tally :=
 
 function total(ns: List[Int]): Int :=
   match ns
-    case Nil => 0
-    case [n; rest] => n + total(rest)
+    case list() => 0
+    case list(n; rest) => n + total(rest)
   end
 
 function ==(a: Tally, b: Tally): Bool :=
@@ -78,4 +78,4 @@ function ==(a: Tally, b: Tally): Bool :=
 // the module sees its private declarations, and the constructors and fields of its abstract types
 test inside() :=
   assert count(next(next(start()))) == 2 and helper(1) == 2 and Counter(3).value == 3
-  assert Tally([1, 2]) == Tally([3])
+  assert Tally(list(1, 2)) == Tally(list(3))

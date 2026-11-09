@@ -70,29 +70,29 @@ function format_expr(expr: CExpr): Str :=
     case CeVar(name) => name
     case CeNum(num) => show(num)
     case CeStr(text) => format_str(text)
-    case CeCall(fun, args) => format_operand(fun) ++ "(" ++ join(", ", [format_expr(arg) for arg in args]) ++ ")"
+    case CeCall(fun, args) => format_operand(fun) ++ "(" ++ join(", ", list(for arg in args yield format_expr(arg))) ++ ")"
     case CeUnary(op, operand) => op ++ format_operand(operand)
     case CeBinary(op, left, right) => format_operand(left) ++ " " ++ op ++ " " ++ format_operand(right)
     case CeIndex(base, index) => format_operand(base) ++ "[" ++ format_expr(index) ++ "]"
     case CeArrow(base, field) => format_operand(base) ++ "->" ++ field
     case CeCast(typ, operand) => "(" ++ format_type(typ) ++ ")" ++ format_operand(operand)
     case CeCond(cond, then_expr, else_expr) => format_operand(cond) ++ " ? " ++ format_operand(then_expr) ++ " : " ++ format_operand(else_expr)
-    case CeInit(items) => "{" ++ join(", ", [format_expr(item) for item in items]) ++ "}"
+    case CeInit(items) => "{" ++ join(", ", list(for item in items yield format_expr(item))) ++ "}"
   end
 
 // the escapes of C strings are those of ulang for code points below 128, and a string of greater code points is "…",
 // u"…", or U"…" by the greatest, as the runtime reads its units, with an octal escape for each code point below 160 and
 // otherwise a universal character name, which C does not allow below 160
 function format_str(text: Str): Str :=
-  let greatest := foldl(list(text), 0, lambda m, c => if ord(c) > m then ord(c) else m) in
+  let greatest := foldl(chars(text), 0, lambda m, c => if ord(c) > m then ord(c) else m) in
     if greatest < 128 then
       quote(text)
     else
       (if greatest < 256 then "" else if greatest < 65536 then "u" else "U") ++
-        "\"" ++ join("", [format_unit(greatest, c) for c in list(text)]) ++ "\""
+        "\"" ++ join("", list(for c in chars(text) yield format_unit(greatest, c))) ++ "\""
 
 function format_unit(greatest: Int, c: Char): Str :=
-  let code := ord(c), quoted := quote(str([c])) in
+  let code := ord(c), quoted := quote(str(list(c))) in
     if code < 128 then slice(quoted, 1, size(quoted) - 1)
     else if code < 160 or greatest < 256 then "\\" ++ digits(code, 8, 3)
     else if code < 65536 then "\\u" ++ digits(code, 16, 4)
@@ -100,7 +100,7 @@ function format_unit(greatest: Int, c: Char): Str :=
 
 // the last k digits of n in base b, with leading zeros
 function digits(n: Int, b: Int, k: Int): Str :=
-  if k == 0 then "" else digits(n / b, b, k - 1) ++ str([at(n % b, "0123456789abcdef")])
+  if k == 0 then "" else digits(n / b, b, k - 1) ++ str(list(at(n % b, "0123456789abcdef")))
 
 function format_operand(expr: CExpr): Str :=
   match expr
@@ -116,27 +116,27 @@ function format_operand(expr: CExpr): Str :=
 function format_stmt(indent: Str, stmt: CStmt): List[Str] :=
   let deeper := indent ++ "  " in
     match stmt
-      case CsExpr(expr) => [indent ++ format_expr(expr) ++ ";"]
-      case CsDecl(typ, name, None) => [indent ++ format_typed(typ, name) ++ ";"]
-      case CsDecl(typ, name, Some(expr)) => [indent ++ format_typed(typ, name) ++ " = " ++ format_expr(expr) ++ ";"]
-      case CsAssign(target, expr) => [indent ++ format_expr(target) ++ " = " ++ format_expr(expr) ++ ";"]
-      case CsIf(cond, then_stmts, []) => [indent ++ "if (" ++ format_expr(cond) ++ ") {"] ++ format_stmts(deeper, then_stmts) ++ [indent ++ "}"]
+      case CsExpr(expr) => list(indent ++ format_expr(expr) ++ ";")
+      case CsDecl(typ, name, None) => list(indent ++ format_typed(typ, name) ++ ";")
+      case CsDecl(typ, name, Some(expr)) => list(indent ++ format_typed(typ, name) ++ " = " ++ format_expr(expr) ++ ";")
+      case CsAssign(target, expr) => list(indent ++ format_expr(target) ++ " = " ++ format_expr(expr) ++ ";")
+      case CsIf(cond, then_stmts, list()) => list(indent ++ "if (" ++ format_expr(cond) ++ ") {") ++ format_stmts(deeper, then_stmts) ++ list(indent ++ "}")
       case CsIf(cond, then_stmts, else_stmts) =>
-        [indent ++ "if (" ++ format_expr(cond) ++ ") {"] ++ format_stmts(deeper, then_stmts) ++ [indent ++ "} else {"] ++ format_stmts(deeper, else_stmts) ++ [indent ++ "}"]
-      case CsWhile(cond, body) => [indent ++ "while (" ++ format_expr(cond) ++ ") {"] ++ format_stmts(deeper, body) ++ [indent ++ "}"]
-      case CsReturn(None) => [indent ++ "return;"]
-      case CsReturn(Some(expr)) => [indent ++ "return " ++ format_expr(expr) ++ ";"]
-      case CsBlock(body) => [indent ++ "{"] ++ format_stmts(deeper, body) ++ [indent ++ "}"]
+        list(indent ++ "if (" ++ format_expr(cond) ++ ") {") ++ format_stmts(deeper, then_stmts) ++ list(indent ++ "} else {") ++ format_stmts(deeper, else_stmts) ++ list(indent ++ "}")
+      case CsWhile(cond, body) => list(indent ++ "while (" ++ format_expr(cond) ++ ") {") ++ format_stmts(deeper, body) ++ list(indent ++ "}")
+      case CsReturn(None) => list(indent ++ "return;")
+      case CsReturn(Some(expr)) => list(indent ++ "return " ++ format_expr(expr) ++ ";")
+      case CsBlock(body) => list(indent ++ "{") ++ format_stmts(deeper, body) ++ list(indent ++ "}")
     end
 
 function format_stmts(indent: Str, stmts: List[CStmt]): List[Str] :=
-  [line for stmt in stmts, line in format_stmt(indent, stmt)]
+  list(for stmt in stmts for line in format_stmt(indent, stmt) yield line)
 
 // the formals of a function, which are void if there are none
 function format_formals(formals: List[CType * Str]): Str :=
   match formals
-    case [] => "void"
-    case _ => join(", ", [format_formal(formal) for formal in formals])
+    case list() => "void"
+    case _ => join(", ", list(for formal in formals yield format_formal(formal)))
   end
 
 function format_formal(formal: CType * Str): Str :=
@@ -146,17 +146,17 @@ function format_formal(formal: CType * Str): Str :=
 
 function format_decl(decl: CDecl): List[Str] :=
   match decl
-    case CdInclude(header) => ["#include " ++ quote(header)]
-    case CdPrototype(typ, fun, formals) => [format_typed(typ, fun) ++ "(" ++ format_formals(formals) ++ ");"]
-    case CdFunction(typ, fun, formals, body) => [format_typed(typ, fun) ++ "(" ++ format_formals(formals) ++ ") {"] ++ format_stmts("  ", body) ++ ["}"]
-    case CdGlobal(typ, name, None) => [format_typed(typ, name) ++ ";"]
-    case CdGlobal(typ, name, Some(expr)) => [format_typed(typ, name) ++ " = " ++ format_expr(expr) ++ ";"]
+    case CdInclude(header) => list("#include " ++ quote(header))
+    case CdPrototype(typ, fun, formals) => list(format_typed(typ, fun) ++ "(" ++ format_formals(formals) ++ ");")
+    case CdFunction(typ, fun, formals, body) => list(format_typed(typ, fun) ++ "(" ++ format_formals(formals) ++ ") {") ++ format_stmts("  ", body) ++ list("}")
+    case CdGlobal(typ, name, None) => list(format_typed(typ, name) ++ ";")
+    case CdGlobal(typ, name, Some(expr)) => list(format_typed(typ, name) ++ " = " ++ format_expr(expr) ++ ";")
   end
 
 // the source code of a file, with an empty line between declarations
 function format_file(file: CFile): Str :=
   match file
-    case CFile(decls) => join("\n\n", [join("\n", format_decl(decl)) for decl in decls]) ++ "\n"
+    case CFile(decls) => join("\n\n", list(for decl in decls yield join("\n", format_decl(decl)))) ++ "\n"
   end
 
 // a function of the runtime, which compiled code calls
@@ -164,23 +164,23 @@ function c_call(fun: Str, args: List[CExpr]): CExpr :=
   CeCall(CeVar(fun), args)
 
 test format_c() :=
-  local value := CtNamed("value"), one := c_call("make_int", [CeNum(1)])
+  local value := CtNamed("value"), one := c_call("make_int", list(CeNum(1)))
   local fact := CdFunction(
     value,
     "fact",
-    [(value, "n")],
-    [
-      CsIf(c_call("is_zero", [CeVar("n")]), [CsReturn(Some(one))], []),
-      CsDecl(value, "m", Some(c_call("fact", [c_call("sub", [CeVar("n"), one])]))),
-      CsReturn(Some(c_call("mul", [CeVar("n"), CeVar("m")])))
-    ]
+    list((value, "n")),
+    list(
+      CsIf(c_call("is_zero", list(CeVar("n"))), list(CsReturn(Some(one))), list()),
+      CsDecl(value, "m", Some(c_call("fact", list(c_call("sub", list(CeVar("n"), one)))))),
+      CsReturn(Some(c_call("mul", list(CeVar("n"), CeVar("m")))))
+    )
   )
-  local main := CdFunction(CtInt, "main", [], [CsExpr(c_call("print", [c_call("fact", [c_call("make_int", [CeNum(5)])])])), CsReturn(Some(CeNum(0)))])
+  local main := CdFunction(CtInt, "main", list(), list(CsExpr(c_call("print", list(c_call("fact", list(c_call("make_int", list(CeNum(5)))))))), CsReturn(Some(CeNum(0)))))
 
-  assert format_file(CFile([CdInclude("ulang.h"), fact, main])) ==
+  assert format_file(CFile(list(CdInclude("ulang.h"), fact, main))) ==
     "#include \"ulang.h\"\n\nvalue fact(value n) {\n  if (is_zero(n)) {\n    return make_int(1);\n  }\n  value m = fact(sub(n, make_int(1)));\n  return mul(n, m);\n}\n\nint main(void) {\n  print(fact(make_int(5)));\n  return 0;\n}\n"
   assert format_expr(CeBinary("+", CeBinary("*", CeVar("a"), CeNum(2)), CeUnary("-", CeVar("b")))) == "(a * 2) + (-b)"
   assert format_expr(CeStr("a\"b\n")) == "\"a\\\"b\\n\""
   assert format_expr(CeStr("\"ä\n")) == "\"\\\"\\344\\n\"" and format_expr(CeStr("a→")) == "u\"a\\u2192\""
-  assert format_expr(CeStr(str([chr(128512), chr(150), chr(228)]))) == "U\"\\U0001f600\\226\\u00e4\""
-  assert format_stmt("", CsIf(CeVar("c"), [CsReturn(None)], [CsExpr(c_call("f", []))])) == ["if (c) {", "  return;", "} else {", "  f();", "}"]
+  assert format_expr(CeStr(str(list(chr(128512), chr(150), chr(228))))) == "U\"\\U0001f600\\226\\u00e4\""
+  assert format_stmt("", CsIf(CeVar("c"), list(CsReturn(None)), list(CsExpr(c_call("f", list()))))) == list("if (c) {", "  return;", "} else {", "  f();", "}")

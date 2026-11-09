@@ -127,7 +127,7 @@ function activate(context) {
         found.push(new vscode.Diagnostic(new vscode.Range(at, at.translate(0, 1)), message, vscode.DiagnosticSeverity.Error));
         continue;
       }
-      const imported = lines.findIndex((l) => l.trim() === "import " + module);
+      const imported = lines.findIndex((l) => l.trim() === 'import "' + module + '.u"');
       const position = new vscode.Position(Math.max(imported, 0), 0);
       const text = message + " in " + module + (row ? " at " + row + "." + column : "");
       const diagnostic = new vscode.Diagnostic(new vscode.Range(position, position.translate(0, 1)), text, vscode.DiagnosticSeverity.Error);

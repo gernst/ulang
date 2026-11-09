@@ -1,6 +1,6 @@
 // runtime error: uncaught exception OutOfBounds(3, 3)
 
-import array
+import "array.u"
 
 test out_of_bounds() :=
-  assert at(3, array([1, 2, 3])) == 0
+  assert at(3, array(1, 2, 3)) == 0

@@ -1,4 +1,4 @@
-import os
+import "os.u"
 
 test files() :=
   local t: Str, entries: List[Str * Bool]
@@ -48,13 +48,13 @@ test walking() :=
   call   os_write(in "out/walk/sub/deep/c.txt", "c")
   call   os_write(in "out/walk/sub/b.txt", "b")
   call   os_list(in "out/walk", out entries)
-  assert entries == [("a.txt", false), ("sub", true), ("z.txt", false)]
+  assert entries == list(("a.txt", false), ("sub", true), ("z.txt", false))
   call   os_walk(in "out/walk", out files)
-  assert files == ["out/walk/a.txt", "out/walk/sub/b.txt", "out/walk/sub/deep/c.txt", "out/walk/z.txt"]
+  assert files == list("out/walk/a.txt", "out/walk/sub/b.txt", "out/walk/sub/deep/c.txt", "out/walk/z.txt")
   call   os_walk(in "out/walk/sub/", out files)
-  assert files == ["out/walk/sub/b.txt", "out/walk/sub/deep/c.txt"]
+  assert files == list("out/walk/sub/b.txt", "out/walk/sub/deep/c.txt")
   call   os_walk(in "out/walk/a.txt", out files)
-  assert files == ["out/walk/a.txt"]
+  assert files == list("out/walk/a.txt")
   call   os_is_dir(in "out/walk/sub", out dir)
   assert dir
   call   os_is_dir(in "out/walk/a.txt", out dir)
@@ -89,10 +89,10 @@ test arguments() :=
   local args: List[Str]
 
   call   os_args(out args)
-  assert args == []
+  assert args == list()
 
 // os_print prints a string as it is, also the text of any value that show gives
 test printing() :=
   call os_print(in "a \"text\"")
-  call os_print(in show([1, 2]))
-  call os_print(in show(("a\n", Some('\''), [true], Nil, ())))
+  call os_print(in show(list(1, 2)))
+  call os_print(in show(("a\n", Some('\''), list(true), list(), ())))

@@ -8,7 +8,7 @@ data ParseError :=
 
 procedure accept(in s: Str, ref ts: List[Token]) :=
   match ts
-    case [Sym(op); us] =>
+    case list(Sym(op); us) =>
       if op == s
         assign ts := us
       else
@@ -20,7 +20,7 @@ procedure accept(in s: Str, ref ts: List[Token]) :=
 
 procedure number(out n: Int, ref ts: List[Token]) :=
   match ts
-    case [Num(num); us] =>
+    case list(Num(num); us) =>
       assign n := num, ts := us
     case _ =>
       raise Expected("number")
@@ -41,7 +41,7 @@ procedure parse(in ts: List[Token], out n: Int) :=
   local rest := ts
 
   call atom(out n, ref rest)
-  if rest != Nil
+  if rest != list()
     raise Trailing(rest)
   end
 
@@ -67,10 +67,10 @@ procedure count(ref k: Int) :=
 test parse_errors() :=
   local n: Int, e: Str, k: Int
 
-  call   parse(in [Sym("("), Sym("("), Num(3), Sym(")"), Sym(")")], out n)
+  call   parse(in list(Sym("("), Sym("("), Num(3), Sym(")"), Sym(")")), out n)
   assert n == 3
   try
-    call   parse(in [Sym("("), Num(3)], out n)
+    call   parse(in list(Sym("("), Num(3)), out n)
     assert false
   catch
     case Expected(what) =>
@@ -80,13 +80,13 @@ test parse_errors() :=
   end
   assert e == ")"
   try
-    call   parse(in [Num(1), Num(2)], out n)
+    call   parse(in list(Num(1), Num(2)), out n)
     assert false
   catch
     case Trailing(toks) =>
-      assert toks == [Num(2)]
+      assert toks == list(Num(2))
   end
-  call   value(in [Sym(")")], out n)
+  call   value(in list(Sym(")")), out n)
   assert n == 0
   assign k := 0
   try
@@ -209,17 +209,17 @@ function digit(c: Char): Int :=
 
 function digits(cs: List[Char]): Int :=
   match cs
-    case Nil => 0
-    case [c; rest] => digit(c) + 10 * digits(rest)
+    case list() => 0
+    case list(c; rest) => digit(c) + 10 * digits(rest)
   end
 
 test raise_in_functions() :=
   local n := 0, bad := ' '
 
-  assign n := digits(['1', '2'])
+  assign n := digits(list('1', '2'))
 
   try
-    assign n := digits(['1', 'x'])
+    assign n := digits(list('1', 'x'))
   catch
     case NotDigit(char) =>
       assign bad := char

@@ -4,8 +4,8 @@
 // which every module imports implicitly after list, so that list.u cannot use it, where the builtin section declares the
 // functions that the interpreter and the runtime define
 
-import option
-import list
+import "option.u"
+import "list.u"
 
 export
 
@@ -19,7 +19,7 @@ function ends_with(s: Str, finish: Str): Bool
 builtin
 
 // the characters of a string, and the string of characters
-function list(s: Str): List[Char]
+function chars(s: Str): List[Char]
 function str(cs: List[Char]): Str
 
 // the code point of a character, and the character of a code point from 0 to 0x10FFFF other than the surrogates 0xD800

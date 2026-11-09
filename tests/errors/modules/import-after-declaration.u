@@ -1,4 +1,4 @@
 // parse error: imports come first at 4.1
 function f(): Int := 1
 
-import list
+import "list.u"

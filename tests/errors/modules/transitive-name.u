@@ -1,5 +1,5 @@
 // type error: unknown variable twice at 4.1
-import wrapper
+import "wrapper.u"
 
 test r() :=
   local v := quad(1) + twice(1)

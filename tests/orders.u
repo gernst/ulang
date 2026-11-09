@@ -2,43 +2,43 @@
 // values everywhere, also inside other values and in generic code, the order of a datatype with visible constructors,
 // and the shows that datatypes declare
 
-import set
-import map
-import fractions
+import "set.u"
+import "map.u"
+import "fractions.u"
 
 // sets of the same elements, built in different orders, which have different trees
 function ab(): Set[Int] :=
-  set([1, 2])
+  set(1, 2)
 
 function ba(): Set[Int] :=
-  set([2, 1])
+  set(2, 1)
 
 // a map whose key is a set
 function keyed(): Map[Set[Int], Str] :=
   put(ab(), "x", empty())
 
 test sets_in_values() :=
-  assert [ab()] == [ba()] and (ab(), 1) == (ba(), 1) and Some(ab()) == Some(ba())
-  assert compare([ab()], [ba()]) == 0 and compare(ab(), set([1, 3])) == -1
+  assert list(ab()) == list(ba()) and (ab(), 1) == (ba(), 1) and Some(ab()) == Some(ba())
+  assert compare(list(ab()), list(ba())) == 0 and compare(ab(), set(1, 3)) == -1
 
 test generic_code() :=
-  assert contains(ba(), [ab()]) and get(ba(), [(ab(), "x")]) == Some("x")
-  assert size(set([ab(), ba()])) == 1
+  assert contains(ba(), list(ab())) and get(ba(), list((ab(), "x"))) == Some("x")
+  assert size(set(ab(), ba())) == 1
   assert get(ba(), keyed()) == Some("x") and contains(ba(), keyed())
 
 test declared_order() :=
   assert fraction(1, 2) == half(1) and half(2) != fraction(3, 2)
-  assert compare(half(1), fraction(2, 3)) == -1 and contains(fraction(2, 4), [half(3), half(1)])
-  assert list(set([fraction(1, 2), half(1), fraction(2, 2)])) == [fraction(1, 2), fraction(2, 2)]
+  assert compare(half(1), fraction(2, 3)) == -1 and contains(fraction(2, 4), list(half(3), half(1)))
+  assert list(for x in set(fraction(1, 2), half(1), fraction(2, 2))) == list(fraction(1, 2), fraction(2, 2))
 
 // < and the comparisons of the prelude follow compare, for any type
 test comparisons() :=
-  assert "ab" < "b" and not ("b" < "ab") and (1, "b") < (2, "a") and [1, 2] < [1, 3] and None < Some(0)
+  assert "ab" < "b" and not ("b" < "ab") and (1, "b") < (2, "a") and list(1, 2) < list(1, 3) and None < Some(0)
   assert "a" <= "a" and "b" > "a" and "a" >= "a" and not ('b' <= 'a')
-  assert ab() <= ba() and not (ab() < ba()) and ab() < set([1, 3])
+  assert ab() <= ba() and not (ab() < ba()) and ab() < set(1, 3)
   assert half(1) < fraction(2, 3) and fraction(2, 4) <= half(1) and half(3) > fraction(1, 1)
-  assert V(2, 0) < V(1, 10) and V(1, 10) < V(1, 9) and list({V(1, 0), V(2, 1), V(2, 0)}) == [V(2, 1), V(2, 0), V(1, 0)]
-  assert V(1, 2) == V(1, 2) and get(V(1, 2), {V(1, 2) => "x"}) == Some("x")
+  assert V(2, 0) < V(1, 10) and V(1, 10) < V(1, 9) and list(for x in set(V(1, 0), V(2, 1), V(2, 0))) == list(V(2, 1), V(2, 0), V(1, 0))
+  assert V(1, 2) == V(1, 2) and get(V(1, 2), map(V(1, 2) => "x")) == Some("x")
   assert 100000000000000000000 < 100000000000000000001 and -100000000000000000000 < 3 and not (3 < 2)
 
 // versions, newest first, whose constructor is visible, so that their order must agree with the structural equality
@@ -65,23 +65,23 @@ function show[A, B](p: Pair[A, B]): Str :=
   end
 
 function texts[A](xs: List[A]): List[Str] :=
-  [show(x) for x in xs]
+  list(for x in xs yield show(x))
 
 test builtin_show() :=
   assert show(1) == "1" and show(-12) == "-12" and show(true) == "true"
   assert show("a\"b") == "\"a\\\"b\"" and show('c') == "'c'"
-  assert show([1, 2]) == "[1, 2]" and show((1, "x")) == "(1, \"x\")" and show(Some(Red)) == "Some(Red)"
-  assert show(Nil) == "[]" and show([Green; Nil]) == "[Green]"
+  assert show(list(1, 2)) == "list(1, 2)" and show((1, "x")) == "(1, \"x\")" and show(Some(Red)) == "Some(Red)"
+  assert show(list()) == "list()" and show(list(Green; list())) == "list(Green)"
 
 test declared_show() :=
   assert show(Pair(1, "a")) == "<1 | \"a\">"
-  assert show([Pair(1, Red), Pair(2, Green)]) == "[<1 | Red>, <2 | Green>]"
-  assert show((Some(Pair('x', Nil)), Red)) == "(Some(<'x' | []>), Red)"
-  assert texts([Pair(true, false)]) == ["<true | false>"]
-  assert show(Pair(Pair(1, 2), [Pair(3, 'x')])) == "<<1 | 2> | [<3 | 'x'>]>"
+  assert show(list(Pair(1, Red), Pair(2, Green))) == "list(<1 | Red>, <2 | Green>)"
+  assert show((Some(Pair('x', list())), Red)) == "(Some(<'x' | list()>), Red)"
+  assert texts(list(Pair(true, false))) == list("<true | false>")
+  assert show(Pair(Pair(1, 2), list(Pair(3, 'x')))) == "<<1 | 2> | list(<3 | 'x'>)>"
 
 test library_shows() :=
-  local s := {3, 1, 2}, m := {"b" => [1], "a" => []}, e: Set[Int] := {}
+  local s := set(3, 1, 2), m := map("b" => list(1), "a" => list()), e: Set[Int] := set()
 
-  assert show(s) == "{1, 2, 3}" and show(e) == "{}" and show(m) == "{\"a\" => [], \"b\" => [1]}"
-  assert show([Some(s)]) == "[Some({1, 2, 3})]" and show(Pair(m, e)) == "<{\"a\" => [], \"b\" => [1]} | {}>"
+  assert show(s) == "set(1, 2, 3)" and show(e) == "set()" and show(m) == "map(\"a\" => list(), \"b\" => list(1))"
+  assert show(list(Some(s))) == "list(Some(set(1, 2, 3)))" and show(Pair(m, e)) == "<map(\"a\" => list(), \"b\" => list(1)) | set()>"

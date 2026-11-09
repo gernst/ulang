@@ -1,8 +1,8 @@
 // the notation of operators: the precedences of prefix and postfix operators, and the fixities and precedences of infix
 // ones, by the notation commands in effect
 
-import syntax
-import map
+import "syntax.u"
+import "map.u"
 
 export
 
@@ -48,17 +48,17 @@ function is_operator(notation: Notation, op: Id): Bool :=
 
 function with_notation(notation: Notation, cmds: List[Cmd]): Notation :=
   match cmds
-    case Nil => notation
-    case [CNotation(fixity, prec, ops); more] => with_notation(with_operators(notation, fixity, prec, ops), more)
-    case [_; more] => with_notation(notation, more)
+    case list() => notation
+    case list(CNotation(fixity, prec, ops); more) => with_notation(with_operators(notation, fixity, prec, ops), more)
+    case list(_; more) => with_notation(notation, more)
   end
 
 function with_operators(notation: Notation, f: Fixity, prec: Int, ops: List[Id]): Notation :=
   match (f, ops)
-    case (_, Nil) => notation
-    case (FPrefix, [op; more]) => with_operators(notation with prefix_ops := put(op, prec, notation.prefix_ops), f, prec, more)
-    case (FPostfix, [op; more]) => with_operators(notation with postfix_ops := put(op, prec, notation.postfix_ops), f, prec, more)
-    case (_, [op; more]) => with_operators(notation with infix_ops := put(op, (f, prec), notation.infix_ops), f, prec, more)
+    case (_, list()) => notation
+    case (FPrefix, list(op; more)) => with_operators(notation with prefix_ops := put(op, prec, notation.prefix_ops), f, prec, more)
+    case (FPostfix, list(op; more)) => with_operators(notation with postfix_ops := put(op, prec, notation.postfix_ops), f, prec, more)
+    case (_, list(op; more)) => with_operators(notation with infix_ops := put(op, (f, prec), notation.infix_ops), f, prec, more)
   end
 
 // the notation of both, where those of b count

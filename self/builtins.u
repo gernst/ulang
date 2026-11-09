@@ -1,7 +1,7 @@
 // the names of the builtin types, constructors, and exceptions, which the interpreter, the runtime, and the compiler
 // create and refer to, of the modules of the library
 
-import syntax
+import "syntax.u"
 
 export
 
@@ -78,54 +78,54 @@ function list_foldr_name(): Name :=
   Name(Some("list"), "foldr")
 
 function array_name(): Name :=
-  Name(Some("array"), "array")
+  Name(Some("array"), "from_list")
 
 function array_foldr_name(): Name :=
   Name(Some("array"), "foldr")
 
 function type_bool(): Type :=
-  TSort(Name(Some("prelude"), "Bool"), Nil)
+  TSort(Name(Some("prelude"), "Bool"), list())
 
 function type_int(): Type :=
-  TSort(Name(Some("prelude"), "Int"), Nil)
+  TSort(Name(Some("prelude"), "Int"), list())
 
 function type_str(): Type :=
-  TSort(Name(Some("prelude"), "Str"), Nil)
+  TSort(Name(Some("prelude"), "Str"), list())
 
 function type_char(): Type :=
-  TSort(Name(Some("prelude"), "Char"), Nil)
+  TSort(Name(Some("prelude"), "Char"), list())
 
 // the lists of the tests, before checking
 function type_plain_list(t: Type): Type :=
-  TSort(unqualified("List"), [t])
+  TSort(unqualified("List"), list(t))
 
 // lists with constructors Nil and Cons, exported by the module list as in the library, and their length
 function lists(): List[Mod] :=
-  [Mod("list", Nil, unplaced([CData(unqualified("List"), ["A"], [Constr(unqualified("Nil"), Nil), Constr(unqualified("Cons"), [Field("head", TParam("A")), Field("tail", type_plain_list(TParam("A")))])])]), Nil, Nil)]
+  list(Mod("list", list(), unplaced(list(CData(unqualified("List"), list("A"), list(Constr(unqualified("Nil"), list()), Constr(unqualified("Cons"), list(Field("head", TParam("A")), Field("tail", type_plain_list(TParam("A"))))))))), list(), list()))
 
 // the program of the commands cmds after len of the module main, which imports lists
 function with_lists(cmds: List[Cmd]): Source :=
-  Source([natives_prelude(); lists()] ++ [Mod("main", ["list"], Nil, Nil, unplaced([len_fun(); cmds]))], "main")
+  Source(list(natives_prelude(); lists()) ++ list(Mod("main", list("list"), list(), list(), unplaced(list(len_fun(); cmds)))), "main")
 
 function len_fun(): Cmd :=
   CFun(
     unqualified("len"),
-    ["A"],
-    [Var(unqualified("xs"), type_plain_list(TParam("A")))],
+    list("A"),
+    list(Var(unqualified("xs"), type_plain_list(TParam("A")))),
     type_int(),
-    EMatch(expr_var("xs"), [Branch(pat_var("Nil"), None, expr_int(0)), Branch(PApp(unqualified("Cons"), [PWild, pat_var("ys")]), None, expr_app("+", [expr_int(1), expr_app("len", [expr_var("ys")])]))])
+    EMatch(expr_var("xs"), list(Branch(pat_var("Nil"), None, expr_int(0)), Branch(PApp(unqualified("Cons"), list(PWild, pat_var("ys"))), None, expr_app("+", list(expr_int(1), expr_app("len", list(expr_var("ys"))))))))
   )
 
 // a prelude of the builtin types and functions of prelude/prelude.u only, for programs that are not parsed
 function natives_prelude(): Mod :=
-  let int_op := lambda op => CFunSig(unqualified(op), Nil, [Var(unqualified("a"), type_int()), Var(unqualified("b"), type_int())], type_int()) in
+  let int_op := lambda op => CFunSig(unqualified(op), list(), list(Var(unqualified("a"), type_int()), Var(unqualified("b"), type_int())), type_int()) in
     Mod(
       "prelude",
-      Nil,
-      Nil,
-      unplaced([CAbstract(unqualified(t), Nil) for t in ["Bool", "Int", "Str", "Char"]] ++ [int_op(op) for op in ["+", "-", "*", "/", "%"]] ++ [CFunSig(unqualified("++"), Nil, [Var(unqualified("a"), type_str()), Var(unqualified("b"), type_str())], type_str())]),
-      Nil
+      list(),
+      list(),
+      unplaced(list(for t in list("Bool", "Int", "Str", "Char") yield CAbstract(unqualified(t), list())) ++ list(for op in list("+", "-", "*", "/", "%") yield int_op(op)) ++ list(CFunSig(unqualified("++"), list(), list(Var(unqualified("a"), type_str()), Var(unqualified("b"), type_str())), type_str()))),
+      list()
     )
 
 function program_of(cmds: List[Cmd]): Source :=
-  Source([natives_prelude(), Mod("main", Nil, Nil, Nil, unplaced(cmds))], "main")
+  Source(list(natives_prelude(), Mod("main", list(), list(), list(), unplaced(cmds))), "main")

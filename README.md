@@ -7,7 +7,7 @@ The first implementation, an interpreter in Scala 3, is on the branch `scala-bas
 This program sorts numbers by inserting them into a search tree:
 
 ```
-import os
+import "os.u"
 
 data Tree[A] :=
   case Leaf
@@ -24,34 +24,27 @@ function insert(k: Int, t: Tree[Int]): Tree[Int] :=
 
 function keys[A](t: Tree[A]): List[A] :=
   match t
-    case Leaf => []
-    case Node(l, k, r) => keys(l) ++ [k; keys(r)]
+    case Leaf => list()
+    case Node(l, k, r) => keys(l) ++ list(k; keys(r))
   end
 
 // inserts the elements of xs into the search tree t, one at a time
 procedure insert_all(in xs: List[Int], ref t: Tree[Int]) :=
-  local rest := xs
-
-  while rest != []
-    match rest
-      case [x; more] =>
-        assign t := insert(x, t), rest := more
-      case [] =>
-        skip
-    end
+  for x in xs do
+    assign t := insert(x, t)
   end
 
 procedure main() :=
   local t := Leaf
 
-  call insert_all(in [3, 1, 2, 1], ref t)
+  call insert_all(in list(3, 1, 2, 1), ref t)
   call os_print(in show(keys(t)))
 
 test sorting() :=
   local t := Node(Leaf, 2, Leaf)
 
-  call   insert_all(in [3, 1, 2], ref t)
-  assert keys(t) == [1, 2, 3]
+  call   insert_all(in list(3, 1, 2), ref t)
+  assert keys(t) == list(1, 2, 3)
 ```
 
 ## Language
@@ -66,9 +59,9 @@ test sorting() :=
   Builtins raise `DivisionByZero`, `OutOfBounds`, and `NoCharacter`, whereas a failed `assert` ends the program.
 - Unbounded integers, characters, which are Unicode code points, and strings of them, which files hold as UTF-8.
 - Programs read their arguments with `os_args`, files with `os_read` and `os_write`, and print strings with `os_print`, all of the module `os`, where the builtin `show` gives the text of any value, which a datatype may declare for itself by a function `show`.
-- Literals and comprehensions of lists `[x * x for x in xs if x > 0]`, sets `{a, b}` and `{f(x) for x in c}`, and maps `{k => v}` and `{k => f(v) for k => v in m}`, where the generators range over lists, sets, or maps by their folds, and sets and maps need `import set` and `import map`, and `==` compares their elements and entries.
+- The forms `list(1, 2)`, `set(a, b)`, `map(k => v)`, and `array(a, b)`, and their generators `list(for x in xs if x > 0 yield x * x)`, `set(for x in c yield f(x))`, `map(for k => v in m yield k => f(v))`, which range over lists, sets, arrays, or maps by their folds, where sets, maps, and arrays need `import "set.u"`, `import "map.u"`, and `import "array.u"`, and `==` compares their elements and entries; and the statement `for x in xs if p do … end`, which runs its body for the elements of any container.
 - User-defined operators by `infix`, `prefix`, and `postfix` notations.
-- Modules: `import name` makes the declarations of a file available, but not transitively.
+- Modules: `import "name.u"` makes the declarations of the module `name` of a file available, but not transitively.
 - Named tests `test name() := …`, whose parameters are reserved for later and must be empty, while programs start at a procedure without parameters, like `procedure main() := …`.
 
 The library in `prelude/` contains the prelude with natural numbers, options, and lists, as well as maps, sets, and access to files.
