@@ -80,6 +80,8 @@ A minimal language with pure functional expressions, imperative statements, data
 - `-n` for a number `n` is a negative literal, in expressions and patterns, e.g. `case -1 =>`.
 - `self/compile.u` builds list comprehensions over lists and arrays, also of several generators, by nested loops without intermediate lists, array literals by `u_mk_array`, and array comprehensions by loops that fill an array sized by the first generator, grown for further generators and shrunk at the end unless it is exact.
 
+- Comments are documentation, part of the syntax, and printed back by `format`: a run of `//` lines from the start of a line, with the indentation of the line below it and no blank line between, is the doc of what follows: of a command (`Top(pos, doc, cmd)` of `self/syntax.u`, the items of the sections), of a constructor of a datatype or a `case` of a `match` or `catch` (`Constr`, `Branch`, and `Handler`), and of the module if it comes first in the file and a blank line, an `import`, or `export` follows it (`Mod.doc`). The lexer gives `TDoc` (`lex_doc` of `self/lex.u`), the parser takes it before a command or a `case`, `doc` is the first field and `""` means none, and the printer writes it back (`doc_lines` and `indented_doc` of `self/format.u`). Each doc is the text of its lines without `//` and the space after it, joined by newlines. Docs are not checked and not compiled. Any other `//`, at the end of a line, in the middle of a body, or detached by a blank line, is discarded without an error, so write none; the first line of a file that is expected to fail is a doc as well.
+
 ## Semantics
 
 - `raise e` is an expression of any type, and a failed `assert` cannot be caught.
@@ -97,7 +99,7 @@ A minimal language with pure functional expressions, imperative statements, data
 ## Style
 
 - Formals are the parameters of functions, procedures, and lambdas; params are type parameters.
-- Omit comments that are self-evident from the code, such as doc comments that restate the name of a declaration.
+- Docs state what the code and its names do not: a rule, a reason, or a convention that holds beyond the line, e.g. that a position is in another module, or in which order a function visits. Omit those that restate the name of a declaration or the lines below. Name a piece of code by a function instead of commenting it, and put a note on a `case` or a command, not in the middle of a body.
 - Functions only for computations that terminate; code that may not terminate, such as the evaluator of `self/run.u`, is written as procedures, unchecked.
 - Functions, procedures, and locals are snake_case, e.g. `zonk_type`; constructors and types are CamelCase, e.g. `TSort`, `TypeError`.
 - Names are descriptive but short, and one concept has one name, without short and long forms: `Constr`, `Mod`, `Sig`, `Prog`, not `Constructor`, `Module`, `Ctx`, `Program`.
