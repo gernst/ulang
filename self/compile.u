@@ -133,7 +133,45 @@ function unit_decl(n: Name, t: Name): CDecl :=
 // the constructors without arguments, where the descriptor of a datatype points to the functions compare, ==, and show
 // that its module declares, and otherwise to the structural ones of the runtime
 function descriptor_decls(defs: Defs, cmds: List[Cmd]): List[CDecl] :=
-  data_decls(cmds, defs.orders, defs.equalities, defs.shows)
+  data_decls(cmds, defs.orders, defs.equalities, defs.shows) ++ [d for e in list(defs.fields), d in field_decls(e)]
+
+// the positions of the field of an accessor T.f in each constructor of T, by their index of struct u_name, and the
+// name T.f, which MissingField carries, both shared by the updater T.f:=
+function field_decls(e: (Name * Int) * List[Int]): List[CDecl] :=
+  match e
+    case ((n, 1), ps) =>
+      [
+        CdGlobal(CtNamed("static const int"), table_name(n) ++ "[]", Some(CeInit([CeNum(p) for p in ps]))),
+        CdGlobal(CtNamed("static struct u_object"), field_text_name(n), Some(c_call("U_LIT", [CeStr(field_of(n))])))
+      ]
+    case _ => Nil
+  end
+
+function positions_of(defs: Defs, n: Name, k: Int): List[Int] :=
+  match get((n, k), defs.fields)
+    case Some(ps) => ps
+    case None => Nil
+  end
+
+function table_name(n: Name): Str :=
+  "x_" ++ mangle(Name(n.module, field_of(n)))
+
+function field_text_name(n: Name): Str :=
+  "lf_" ++ mangle(Name(n.module, field_of(n)))
+
+// the field of the accessor or the updater n of the value of a, where y is the new value of an updater, directly if the
+// field has the same position in every constructor, and else by the table of its positions
+function field_call(n: Name, ps: List[Int], rs: List[CExpr]): CExpr :=
+  match (rs, distinct(ps))
+    case ([a], [p]) if p >= 0 =>
+      c_call("u_field", [a, CeNum(p)])
+    case ([a], _) =>
+      c_call("u_select", [a, CeVar(table_name(n)), CeUnary("&", CeVar(field_text_name(n)))])
+    case ([a, y], _) =>
+      c_call("u_update", [a, CeVar(table_name(n)), CeUnary("&", CeVar(field_text_name(n))), y])
+    case _ =>
+      raise Unsupported("the field " ++ format_name(n))
+  end
 
 function data_decls(
   cmds: List[Cmd],
@@ -555,6 +593,8 @@ procedure compile_named(
       call compile_exprs(in defs, env, args, out ss, rs, ref g)
       if is_global_fun(defs, n, size(args)) and arity(ty) == size(args)
         assign r := c_call(fun_name(n, size(args)), rs)
+      else if contains((n, size(args)), defs.fields)
+        assign r := field_call(n, positions_of(defs, n, size(args)), rs)
       else if fields_count(defs, n) == Some(0) and args == []
         assign r := unit_value(n)
       else if fields_count(defs, n) == Some(size(args))

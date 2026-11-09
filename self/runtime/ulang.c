@@ -334,6 +334,18 @@ u_value u_mk_con_array(const struct u_name *name, int size, u_value *xs) {
   return v;
 }
 
+void u_missing_field(u_value field) {
+  u_raise(u_mk_con(&n_prelude_46_MissingField, 1, field), "prelude.MissingField");
+}
+
+u_value u_update(u_value v, const int *ix, u_value field, u_value y) {
+  int i = ix[v->name->index];
+  if (i < 0) u_missing_field(field);
+  u_value w = u_mk_con_array(v->name, v->size, v->items);
+  w->items[i] = y;
+  return w;
+}
+
 u_value u_mk_tuple(int size, ...) {
   va_list args;
   va_start(args, size);

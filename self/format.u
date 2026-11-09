@@ -527,8 +527,7 @@ function formal_sections(ins: List[Var], outs: List[Var], refs: List[Var]): Str 
 function formal_text(x: Var): Str :=
   if x.typ == THole then x.name.base else x.name.base ++ ": " ++ format_type(x.typ)
 
-// commands, where the notation of a command apply to those after it, and the
-// accessors and updaters of the fields of a data declaration as the names of its fields
+// commands, where the notation of a command apply to those after it
 
 function format_cmds(notation: Notation, cmds: List[Cmd]): List[Str] :=
   match cmds
@@ -550,8 +549,6 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
       Some("type " ++ name.base ++ params_text(params))
     case CData(name, params, constrs) =>
       Some("data " ++ name.base ++ params_text(params) ++ " :=" ++ join("", ["\n  | " ++ constr_text(c) for c in constrs]))
-    case CFun(name, _, _, _, _) if contains('.', name.base) =>
-      None
     case CFun(name, params, formals, typ, body) =>
       Some(function_head(name, params, formals, typ) ++ " :=\n  " ++ format_expr(notation, "  ", body))
     case CFunSig(name, params, formals, typ) =>

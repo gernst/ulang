@@ -8,18 +8,25 @@ import map
 export
 
 // constrs has the number of arguments of a constructor, its position in its declaration, which orders values, and its
-// datatype, see order_of
+// datatype, see order_of, and fields has for the accessor T.f, of one argument, and the updater T.f:=, of two, of each
+// field f of a datatype T, the position of f in each constructor of T, in the order of their declaration, or -1 for a
+// constructor without f
 data Defs :=
   | Defs(
     funs: Map[Name * Int, List[Var] * Expr],
     procs: Map[Name, List[Var] * List[Var] * List[Var] * Stmt],
     constrs: Map[Name, Int * Int * Name],
+    fields: Map[Name * Int, List[Int]],
     orders: Map[Name, Name],
     equalities: Map[Name, Name],
     shows: Map[Name, Name]
   )
 
 function defs_of(q: Prog): Defs
+function field_names(constrs: List[Constr]): List[Id]
+function accessor_name(t: Name, f: Id): Name
+function updater_name(t: Name, f: Id): Name
+function field_of(n: Name): Str
 function order_of(cmd: Cmd): Option[Id * Name]
 function ordered(cmds: List[Cmd], op: Id): List[Name]
 function ordered_by(cmds: List[Cmd], op: Id): List[Name * Name]
@@ -31,6 +38,7 @@ function defs_of(q: Prog): Defs :=
     map(fun_defs(q.cmds)),
     map(proc_defs(q.cmds)),
     map(constr_defs(q.cmds)),
+    map(field_defs(q.cmds)),
     map(ordered_by(q.cmds, "compare")),
     map(ordered_by(q.cmds, "==")),
     map(ordered_by(q.cmds, "show"))
@@ -63,6 +71,39 @@ function constrs_from(t: Name, ks: List[Constr], i: Int): List[Name * (Int * Int
     case Nil => Nil
     case [Constr(name, fields); rest] => [(name, (size(fields), i, t)); constrs_from(t, rest, i + 1)]
   end
+
+function field_defs(cmds: List[Cmd]): List[(Name * Int) * List[Int]] :=
+  match cmds
+    case Nil => Nil
+    case [CData(name, _, constrs); rest] => field_positions(name, constrs) ++ field_defs(rest)
+    case [_; rest] => field_defs(rest)
+  end
+
+function field_positions(t: Name, constrs: List[Constr]): List[(Name * Int) * List[Int]] :=
+  [e for f in field_names(constrs), e in [((accessor_name(t, f), 1), positions(f, constrs)), ((updater_name(t, f), 2), positions(f, constrs))]]
+
+// the fields of the constructors of a datatype, each once
+function field_names(constrs: List[Constr]): List[Id] :=
+  distinct([field.name for k in constrs, field in k.fields])
+
+function positions(f: Id, constrs: List[Constr]): List[Int] :=
+  [position_in(f, k.fields, 0) for k in constrs]
+
+function position_in(f: Id, fields: List[Field], i: Int): Int :=
+  match fields
+    case Nil => -1
+    case [field; rest] => if field.name == f then i else position_in(f, rest, i + 1)
+  end
+
+function accessor_name(t: Name, f: Id): Name :=
+  Name(t.module, t.base ++ "." ++ f)
+
+function updater_name(t: Name, f: Id): Name :=
+  Name(t.module, t.base ++ "." ++ f ++ ":=")
+
+// the name T.f of the field of the accessor T.f or the updater T.f:=, as MissingField has it
+function field_of(n: Name): Str :=
+  if ends_with(n.base, ":=") then slice(n.base, 0, size(n.base) - 2) else n.base
 
 // the datatype whose order or equality c declares, with compare or ==, if c is compare or == of two values of a datatype
 // T[A, …] of its own module with distinct parameters, which the interpreter and the runtime then use for all values of T,

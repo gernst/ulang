@@ -1342,8 +1342,8 @@ procedure parse_field(in notation: Notation, params: List[Id], out field: Field,
   call   parse_type(in notation, params, out typ, ref toks)
   assign field := Field(name, typ)
 
-// data T[A] := | C(f: A) | D, where the first | is optional
-// with the accessors T.f and the updaters T.f:= of its fields f
+// data T[A] := | C(f: A) | D, where the first | is optional, whose fields the checker gives the accessors T.f and the
+// updaters T.f:=
 procedure parse_data(in notation: Notation, out cmds: List[Cmd], ref toks: Tokens) :=
   local name: Id, params: List[Id], constrs: List[Constr]
 
@@ -1358,110 +1358,21 @@ procedure parse_data(in notation: Notation, out cmds: List[Cmd], ref toks: Token
 
   call parse_separated(in notation, params, parse_constr, at_bar, out constrs, ref toks)
 
-  match differing_field(fields_of(constrs))
+  match differing_field([field for k in constrs, field in k.fields])
     case Some(f) =>
       raise ParseError("field " ++ f ++ " of " ++ name ++ " has different types", head_pos(toks))
     case None =>
       skip
   end
 
-  assign cmds := [CData(unqualified(name), params, constrs); field_functions(name, params, constrs)]
+  assign cmds := [CData(unqualified(name), params, constrs)]
 
 // a field with different types in different constructors, if any
-function differing_field(fields: List[Id * (Name * Int * Int * Type)]): Option[Id] :=
+function differing_field(fields: List[Field]): Option[Id] :=
   match fields
     case Nil => None
-    case [(f, (_, _, _, t)); rest] => if exists(fields_named(f, rest), lambda e => type_of_field(e) != t) then Some(f) else differing_field(rest)
+    case [field; rest] => if exists(rest, lambda other => other.name == field.name and other.typ != field.typ) then Some(field.name) else differing_field(rest)
   end
-
-function type_of_field(field: Id * (Name * Int * Int * Type)): Type :=
-  match field
-    case (_, (_, _, _, t)) => t
-  end
-
-function fields_named(f: Id, fields: List[Id * (Name * Int * Int * Type)]): List[Id * (Name * Int * Int * Type)] :=
-  match fields
-    case Nil => Nil
-    case [(g, d); rest] => if g == f then [(g, d); fields_named(f, rest)] else fields_named(f, rest)
-  end
-
-// the fields of the constructors with each constructor, the position of the field, its number of arguments, and its type
-function fields_of(constrs: List[Constr]): List[Id * (Name * Int * Int * Type)] :=
-  match constrs
-    case Nil => Nil
-    case [Constr(name, fields); rest] => named_fields(name, size(fields), fields, 0) ++ fields_of(rest)
-  end
-
-function named_fields(k: Name, n: Int, fields: List[Field], i: Int): List[Id * (Name * Int * Int * Type)] :=
-  match fields
-    case Nil => Nil
-    case [Field(f, t); rest] => [(f, (k, i, n, t)); named_fields(k, n, rest, i + 1)]
-  end
-
-// the accessor T.f and the updater T.f:= of each field f, which are partial if f is not a field of all constructors
-function field_functions(t: Id, params: List[Id], constrs: List[Constr]): List[Cmd] :=
-  let fs := fields_of(constrs), n := size(constrs) in
-    let names := distinct(firsts(fs)) in
-      [accessor(t, params, f, fields_named(f, fs), n) for f in names] ++ [updater(t, params, f, fields_named(f, fs), n) for f in names]
-
-function accessor(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int * Int * Type)], n: Int): Cmd :=
-  CFun(
-    unqualified(t ++ "." ++ f),
-    params,
-    [Var(unqualified("x"), owner_type(t, params))],
-    field_type(fields),
-    field_match(t, f, [field_case(field) for field in fields], n)
-  )
-
-// x with f := y is C(a0, y, a2) for x = C(a0, _, a2)
-function updater(t: Id, params: List[Id], f: Id, fields: List[Id * (Name * Int * Int * Type)], n: Int): Cmd :=
-  CFun(
-    unqualified(t ++ "." ++ f ++ ":="),
-    params,
-    [Var(unqualified("x"), owner_type(t, params)), Var(unqualified("y"), field_type(fields))],
-    owner_type(t, params),
-    field_match(t, f, [update_case(field) for field in fields], n)
-  )
-
-function owner_type(t: Id, params: List[Id]): Type :=
-  TSort(unqualified(t), [TParam(p) for p in params])
-
-// the match of x by the cases of the constructors with the field f, and MissingField for the others of the n constructors
-function field_match(t: Id, f: Id, cases: List[Branch[Expr]], n: Int): Expr :=
-  EMatch(expr_var("x"), if size(cases) == n then cases else cases ++ [missing_field(t, f)])
-
-function field_type(fields: List[Id * (Name * Int * Int * Type)]): Type :=
-  match fields
-    case [field; _] => type_of_field(field)
-    case Nil => THole
-  end
-
-// case C(_, y, _) => y, where y is the field at its position
-function field_case(field: Id * (Name * Int * Int * Type)): Branch[Expr] :=
-  match field
-    case (_, (k, i, n, _)) =>
-      Branch(PApp(k, [if j == i then pat_var("y") else PWild for j in positions(n)]), None, expr_var("y"))
-  end
-
-function missing_field(t: Id, f: Id): Branch[Expr] :=
-  Branch(PWild, None, ERaise(expr_app("MissingField", [ELit(LStr(t ++ "." ++ f))]), THole))
-
-// case C(a0, _, a2) => C(a0, y, a2), where y replaces the field at its position
-function update_case(field: Id * (Name * Int * Int * Type)): Branch[Expr] :=
-  match field
-    case (_, (k, i, n, _)) =>
-      Branch(
-        PApp(k, [if j == i then PWild else pat_var("a" ++ show(j)) for j in positions(n)]),
-        None,
-        EApp(EVar(Var(k, THole)), [expr_var(if j == i then "y" else "a" ++ show(j)) for j in positions(n)])
-      )
-  end
-
-function positions(n: Int): List[Int] :=
-  positions_from(0, n)
-
-function positions_from(i: Int, n: Int): List[Int] :=
-  if i == n then Nil else [i; positions_from(i + 1, n)]
 
 procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
   local name: Id, params: List[Id], xs: List[Var], r: Type, body: Expr

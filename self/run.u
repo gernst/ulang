@@ -284,6 +284,7 @@ function variable_value(run: Run, env: Bindings, n: Name, t: Type): Value :=
     case (None, Some(_)) =>
       match get((n, arity(t)), run.defs.funs)
         case Some(_) => VFun(n, arity(t))
+        case None if contains((n, arity(t)), run.defs.fields) => VFun(n, arity(t))
         case None =>
           match get(n, run.defs.constrs)
             case Some((k, _, _)) => if k == 0 then VObj(n, Nil) else VCon(n)
@@ -342,7 +343,12 @@ procedure apply_value(in run: Run, f: Value, vs: List[Value], out v: Value, ref 
           call evaluate(in run, bind_all(formals, vs, empty()), body, out v, ref cache)
 
         case None =>
-          raise Uninitialized(name)
+          match get((name, arity), run.defs.fields)
+            case Some(ps) =>
+              call field_value(in run, name, ps, vs, out v)
+            case None =>
+              raise Uninitialized(name)
+          end
       end
 
     case VCon(constr) =>
@@ -398,6 +404,36 @@ procedure cached(in run: Run, n: Name, body: Expr, out v: Value, ref cache: Map[
     case None =>
       call   evaluate(in (run with computing := [n; run.computing]), empty(), body, out v, ref cache)
       assign cache := put(n, v, cache)
+  end
+
+// the field of the accessor or the updater name of an object, at its position in each constructor, ps, or else
+// MissingField, where an updater copies the object with the new value of the field
+procedure field_value(in run: Run, name: Name, ps: List[Int], vs: List[Value], out v: Value) :=
+  local p: Int
+
+  match vs
+    case [VObj(k, args); rest] =>
+      assign p := element(position_of(run, k), ps)
+
+      if p < 0
+        raise failure(missing_field_name(), [VLit(LStr(field_of(name)))])
+      end
+
+      match rest
+        case [y] =>
+          assign v := VObj(k, take(p, args) ++ [y; drop(p + 1, args)])
+        case _ =>
+          assign v := element(p, args)
+      end
+
+    case _ =>
+      raise Unspecified(name, vs)
+  end
+
+function element[A](i: Int, xs: List[A]): A :=
+  match drop(i, xs)
+    case [x; _] if i >= 0 => x
+    case _ => raise OutOfBounds(i, size(xs))
   end
 
 // an exception of a builtin, of a type of the prelude

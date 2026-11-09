@@ -144,6 +144,18 @@ static inline u_value u_field(u_value v, int i) {
   return v->items[i];
 }
 
+// the field of an accessor T.f, at the position ix[k] in the constructor k of v, by the index of k, which is the position
+// of k in its declaration, or else MissingField with the name T.f of the field, and v with y as the field for the
+// updater T.f:=
+void u_missing_field(u_value field);
+u_value u_update(u_value v, const int *ix, u_value field, u_value y);
+
+static inline u_value u_select(u_value v, const int *ix, u_value field) {
+  int i = ix[v->name->index];
+  if (i < 0) u_missing_field(field);
+  return v->items[i];
+}
+
 int u_equals(u_value a, u_value b);
 u_value u_compare(u_value a, u_value b);
 u_value u_apply(u_value f, int n, ...);

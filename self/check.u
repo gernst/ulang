@@ -1984,6 +1984,7 @@ procedure declare_constrs(in cs: List[Id * Cmd], ref s: State) :=
       call   unique_ids(in "type parameter", params)
       assign s := with_sig(s, with_members(s.sig, n, [k.name for k in constrs]))
       call   declare_constructors(in n, params, constrs, ref s)
+      call   declare_fields(in n, params, field_types(s.sig, constrs), ref s)
       call   declare_constrs(in rest, ref s)
     case [_; rest] =>
       call declare_constrs(in rest, ref s)
@@ -2001,6 +2002,36 @@ procedure declare_constructors(in n: Name, ps: List[Id], ks: List[Constr], ref s
       call   closed(in n, ps, ts)
       assign s := with_sig(s, with_constr(s.sig, name, (params(ps), ts, TSort(n, params(ps)))))
       call   declare_constructors(in n, ps, rest, ref s)
+  end
+
+// the accessor T.f and the updater T.f:= of each field f of the datatype T, which have no definitions, since the
+// interpreter and the compiler implement them by the positions of the fields (fields of Defs)
+procedure declare_fields(in n: Name, ps: List[Id], fields: List[Id * Type], ref s: State) :=
+  local t := TSort(n, params(ps))
+
+  match fields
+    case Nil =>
+      skip
+    case [(f, u); rest] =>
+      assign s := with_sig(s, with_fun(with_fun(s.sig, accessor_name(n, f), (params(ps), TFun([t], u))), updater_name(n, f), (params(ps), TFun([t, u], t))))
+      call   declare_fields(in n, ps, rest, ref s)
+  end
+
+// each field of the constructors once, with its type as the constructor that declares it first has it, which is that of
+// the others, since the parser rejects a field with different types
+function field_types(sig: Sig, ks: List[Constr]): List[Id * Type] :=
+  first_fields([p for k in ks, p in zip([field.name for field in k.fields], constr_types(sig, k.name))])
+
+function constr_types(sig: Sig, k: Name): List[Type] :=
+  match constr_of(sig, k)
+    case Some((_, ts, _)) => ts
+    case None => Nil
+  end
+
+function first_fields(fields: List[Id * Type]): List[Id * Type] :=
+  match fields
+    case Nil => Nil
+    case [(f, u); rest] => [(f, u); first_fields([p for p in rest if first(p) != f])]
   end
 
 procedure declare_funs(in cs: List[Id * Cmd], ref s: State) :=
@@ -2200,7 +2231,9 @@ function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
   match cmd
     case CFun(name, _, _, _, _) => if exists(ex, lambda e => signs(e, name)) then Nil else [name]
     case CProc(name, _, _, _, _, _) => if exists(ex, lambda e => signs(e, name)) then Nil else [name]
-    case CData(t, _, constrs) => if exists(ex, lambda e => abstracts(e, t)) then [k.name for k in constrs] else [t; [k.name for k in constrs]]
+    case CData(t, _, constrs) =>
+      let members := [k.name for k in constrs] ++ [n for f in field_names(constrs), n in [accessor_name(t, f), updater_name(t, f)]] in
+        if exists(ex, lambda e => abstracts(e, t)) then members else [t; members]
     case CSort(name, _, _) => [name]
     case _ => Nil
   end
@@ -2604,14 +2637,12 @@ function bags(): List[Mod] :=
       CData(unqualified("Pt"), Nil, [Constr(unqualified("Pt"), [Field("x", type_int())])]),
       fun_cmd("size", [var_of("b", tsort("Bag"))], type_int(), expr_int(1)),
       fun_cmd("compare", [var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))], type_int(), expr_int(0)),
-      fun_cmd("Pt.x", [var_of("p", tsort("Pt"))], type_int(), EMatch(expr_var("p"), [Branch(PApp(unqualified("Pt"), [pat_var("n")]), None, expr_var("n"))])),
       CProc(unqualified("fill"), Nil, Nil, [var_of("b", tsort("Bag"))], Nil, SAssign([(var_of("b", THole), expr_app("Bag", [expr_int(0)]))]))
     ]), Nil, Nil),
     Mod("box", Nil, unplaced([
       CData(unqualified("Box"), Nil, [Constr(unqualified("Box"), [Field("s", type_str())]), Constr(unqualified("Leaf"), [Field("s", type_str())])]),
       CData(unqualified("Qt"), Nil, [Constr(unqualified("Qt"), [Field("x", type_str())])]),
       fun_cmd("size", [var_of("b", tsort("Box"))], type_int(), expr_int(2)),
-      fun_cmd("Qt.x", [var_of("q", tsort("Qt"))], type_str(), EMatch(expr_var("q"), [Branch(PApp(unqualified("Qt"), [pat_var("s")]), None, expr_var("s"))])),
       CProc(unqualified("fill"), Nil, Nil, [var_of("b", tsort("Box"))], Nil, SAssign([(var_of("b", THole), expr_app("Box", [ELit(LStr(""))]))]))
     ]), Nil, Nil)
   ]
