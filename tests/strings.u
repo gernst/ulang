@@ -32,3 +32,33 @@ test string_functions() :=
   assert number("123") == Some(123) and number("-5") == Some(-5)
   assert number("1a") == None and number("") == None
   assert is_digit('7') and is_letter('Q') and is_space(' ')
+
+// strings are sequences of code points, of which a character is one, in UTF-8 in files
+test code_points() :=
+  assert size("ä→") == 2 and at(0, "ä→") == 'ä' and at(1, "ä→") == '→' and get(1, "ä→") == Some('→')
+  assert ord('ä') == 228 and ord('→') == 8594 and chr(8594) == '→' and ord(chr(128512)) == 128512
+  assert list("aä→") == ['a', 'ä', '→'] and str(list("aä→😀")) == "aä→😀" and str([chr(1000)]) == "Ϩ"
+  assert slice("aä→😀b", 1, 4) == "ä→😀" and slice("a→b", 2, 3) == "b" and slice("→b", 1, 2) == "b"
+  assert contains('→', "a→") and not contains('ä', "a→") and split("a→b→", '→') == ["a", "b", ""]
+  assert "ä" ++ "→" ++ "😀" == "ä→😀" and join("→", ["a", "ä"]) == "a→ä" and size("😀" ++ "a") == 2
+  assert compare("ä", "→") == -1 and "→" < "😀" and "a" < "ä" and compare("😀", "→a") == 1
+  assert show("ä→") == "\"ä→\"" and show('→') == "'→'" and quote("→\n") == "\"→\\n\""
+  assert number("１") == None and is_letter('ä') == false
+
+test no_characters() :=
+  local m := ""
+
+  try
+    assign m := str([chr(55296)])
+  catch
+    case NoCharacter(code) =>
+      assign m := show(code)
+  end
+  assert m == "55296"
+  try
+    assign m := str([chr(1114112)])
+  catch
+    case NoCharacter(code) =>
+      assign m := show(code)
+  end
+  assert m == "1114112" and ord(chr(1114111)) == 1114111 and ord(chr(57344)) == 57344

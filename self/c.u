@@ -69,8 +69,7 @@ function format_expr(expr: CExpr): Str :=
   match expr
     case CeVar(name) => name
     case CeNum(num) => show(num)
-    // the escapes of C strings are those of ulang
-    case CeStr(text) => quote(text)
+    case CeStr(text) => format_str(text)
     case CeCall(fun, args) => format_operand(fun) ++ "(" ++ join(", ", [format_expr(arg) for arg in args]) ++ ")"
     case CeUnary(op, operand) => op ++ format_operand(operand)
     case CeBinary(op, left, right) => format_operand(left) ++ " " ++ op ++ " " ++ format_operand(right)
@@ -80,6 +79,28 @@ function format_expr(expr: CExpr): Str :=
     case CeCond(cond, then_expr, else_expr) => format_operand(cond) ++ " ? " ++ format_operand(then_expr) ++ " : " ++ format_operand(else_expr)
     case CeInit(items) => "{" ++ join(", ", [format_expr(item) for item in items]) ++ "}"
   end
+
+// the escapes of C strings are those of ulang for code points below 128, and a string of greater code points is "…",
+// u"…", or U"…" by the greatest, as the runtime reads its units, with an octal escape for each code point below 160 and
+// otherwise a universal character name, which C does not allow below 160
+function format_str(text: Str): Str :=
+  let greatest := foldl(list(text), 0, lambda m, c => if ord(c) > m then ord(c) else m) in
+    if greatest < 128 then
+      quote(text)
+    else
+      (if greatest < 256 then "" else if greatest < 65536 then "u" else "U") ++
+        "\"" ++ join("", [format_unit(greatest, c) for c in list(text)]) ++ "\""
+
+function format_unit(greatest: Int, c: Char): Str :=
+  let code := ord(c), quoted := quote(str([c])) in
+    if code < 128 then slice(quoted, 1, size(quoted) - 1)
+    else if code < 160 or greatest < 256 then "\\" ++ digits(code, 8, 3)
+    else if code < 65536 then "\\u" ++ digits(code, 16, 4)
+    else "\\U" ++ digits(code, 16, 8)
+
+// the last k digits of n in base b, with leading zeros
+function digits(n: Int, b: Int, k: Int): Str :=
+  if k == 0 then "" else digits(n / b, b, k - 1) ++ str([at(n % b, "0123456789abcdef")])
 
 function format_operand(expr: CExpr): Str :=
   match expr
@@ -160,4 +181,6 @@ test format_c() :=
     "#include \"ulang.h\"\n\nvalue fact(value n) {\n  if (is_zero(n)) {\n    return make_int(1);\n  }\n  value m = fact(sub(n, make_int(1)));\n  return mul(n, m);\n}\n\nint main(void) {\n  print(fact(make_int(5)));\n  return 0;\n}\n"
   assert format_expr(CeBinary("+", CeBinary("*", CeVar("a"), CeNum(2)), CeUnary("-", CeVar("b")))) == "(a * 2) + (-b)"
   assert format_expr(CeStr("a\"b\n")) == "\"a\\\"b\\n\""
+  assert format_expr(CeStr("\"ä\n")) == "\"\\\"\\344\\n\"" and format_expr(CeStr("a→")) == "u\"a\\u2192\""
+  assert format_expr(CeStr(str([chr(128512), chr(150), chr(228)]))) == "U\"\\U0001f600\\226\\u00e4\""
   assert format_stmt("", CsIf(CeVar("c"), [CsReturn(None)], [CsExpr(c_call("f", []))])) == ["if (c) {", "  return;", "} else {", "  f();", "}"]

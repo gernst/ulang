@@ -14,7 +14,6 @@ function none_name(): Name
 function some_name(): Name
 function os_error_name(): Name
 function division_by_zero_name(): Name
-function no_index_name(): Name
 function out_of_bounds_name(): Name
 function no_character_name(): Name
 function missing_field_name(): Name
@@ -64,9 +63,6 @@ function os_error_name(): Name :=
 // the exceptions of the builtins and of accessors of fields, which the prelude declares
 function division_by_zero_name(): Name :=
   Name(Some("prelude"), "DivisionByZero")
-
-function no_index_name(): Name :=
-  Name(Some("prelude"), "NoIndex")
 
 function out_of_bounds_name(): Name :=
   Name(Some("prelude"), "OutOfBounds")

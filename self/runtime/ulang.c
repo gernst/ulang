@@ -136,7 +136,7 @@ static char *digits(u_value v) {
   return s;
 }
 
-// an integer as an index of a string, where big integers are beyond any string
+// an integer as an index of a string or an array, where big integers are beyond any
 static long long index_of(u_value v) {
   if (v->type == &u_int_type) return v->num;
   return mpz_sgn(v->big) < 0 ? LLONG_MIN / 4 : LLONG_MAX / 4;
@@ -156,17 +156,139 @@ u_value u_mk_char(long long c) {
   return v;
 }
 
-// a string of n characters, which the runtime knows when it builds the string
-u_value u_mk_str_n(const char *s, long long n) {
+// the string of n code points stored as units of width bytes, which it shares, where the width is the narrowest
+u_value u_mk_units(const void *units, long long n, int width) {
   u_value v = object(&u_str_type);
-  v->text = s;
+  v->units = units;
   v->length = n;
+  v->width = width;
   return v;
 }
 
-// a string of C, e.g. a literal, whose length is measured once
+// the string of a string of C whose bytes are code points below 128, e.g. digits
 u_value u_mk_str(const char *s) {
-  return u_mk_str_n(s, (long long)u_strlen(s));
+  return u_mk_units(s, (long long)u_strlen(s), 1);
+}
+
+// the narrowest width of units that holds the code point c
+static int width_of(long long c) {
+  return c < 0x100 ? 1 : c < 0x10000 ? 2 : 4;
+}
+
+// a string of n code points of units of width bytes, which its builder fills by put_unit, followed by a 0
+static u_value new_str(long long n, int width) {
+  char *units = GC_MALLOC_ATOMIC((size_t)(n + 1) * width);
+  if (!units) u_fail("out of memory");
+  memset(units + n * width, 0, width);
+  return u_mk_units(units, n, width);
+}
+
+static void put_unit(u_value s, long long i, long long c) {
+  if (s->width == 1) ((unsigned char *)s->units)[i] = (unsigned char)c;
+  else if (s->width == 2) ((uint16_t *)s->units)[i] = (uint16_t)c;
+  else ((uint32_t *)s->units)[i] = (uint32_t)c;
+}
+
+// the n code points of s from index from into r from index to, where r is at least as wide as s
+static void copy_units(u_value r, long long to, u_value s, long long from, long long n) {
+  if (r->width == s->width) u_memcpy((char *)r->units + to * r->width, (const char *)s->units + from * s->width, n * s->width);
+  else for (long long i = 0; i < n; i++) put_unit(r, to + i, u_str_at(s, from + i));
+}
+
+// the narrowest width of the code points of s from index i up to j
+static int width_between(u_value s, long long i, long long j) {
+  int w = 1;
+  if (s->width == 1) return 1;
+  for (; i < j && w < s->width; i++) {
+    int v = width_of(u_str_at(s, i));
+    if (v > w) w = v;
+  }
+  return w;
+}
+
+// the code points of s from index i up to j, as a string of the narrowest width
+static u_value substring(u_value s, long long i, long long j) {
+  u_value r = new_str(j - i, width_between(s, i, j));
+  copy_units(r, 0, s, i, j - i);
+  return r;
+}
+
+// the number of bytes of the UTF-8 of the code point c, and its UTF-8 at p
+static int utf8_size(long long c) {
+  return c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4;
+}
+
+static char *put_utf8(char *p, long long c) {
+  if (c < 0x80) *p++ = (char)c;
+  else if (c < 0x800) {
+    *p++ = (char)(0xC0 | (c >> 6));
+    *p++ = (char)(0x80 | (c & 0x3F));
+  } else if (c < 0x10000) {
+    *p++ = (char)(0xE0 | (c >> 12));
+    *p++ = (char)(0x80 | ((c >> 6) & 0x3F));
+    *p++ = (char)(0x80 | (c & 0x3F));
+  } else {
+    *p++ = (char)(0xF0 | (c >> 18));
+    *p++ = (char)(0x80 | ((c >> 12) & 0x3F));
+    *p++ = (char)(0x80 | ((c >> 6) & 0x3F));
+    *p++ = (char)(0x80 | (c & 0x3F));
+  }
+  return p;
+}
+
+// the units of a string of code points below 128 are their UTF-8 already
+const char *u_utf8(u_value s, size_t *n) {
+  size_t m = 0;
+  for (long long i = 0; i < s->length; i++) m += utf8_size(u_str_at(s, i));
+  if (n) *n = m;
+  if (s->width == 1 && m == (size_t)s->length) return s->units;
+  char *r = GC_MALLOC_ATOMIC(m + 1), *p = r;
+  if (!r) u_fail("out of memory");
+  for (long long i = 0; i < s->length; i++) p = put_utf8(p, u_str_at(s, i));
+  *p = 0;
+  return r;
+}
+
+// the code point of the UTF-8 at p before end, with its number of bytes in k, or else -1, which excludes overlong
+// encodings, surrogates, and code points beyond 0x10FFFF
+static long long get_utf8(const unsigned char *p, const unsigned char *end, int *k) {
+  long long c;
+  int n;
+  if (p[0] < 0x80) return *k = 1, p[0];
+  if (p[0] >= 0xC2 && p[0] <= 0xDF) n = 2, c = p[0] & 0x1F;
+  else if (p[0] >= 0xE0 && p[0] <= 0xEF) n = 3, c = p[0] & 0x0F;
+  else if (p[0] >= 0xF0 && p[0] <= 0xF4) n = 4, c = p[0] & 0x07;
+  else return -1;
+  if (end - p < n) return -1;
+  for (int i = 1; i < n; i++) {
+    if ((p[i] & 0xC0) != 0x80) return -1;
+    c = (c << 6) | (p[i] & 0x3F);
+  }
+  if ((n == 3 && c < 0x800) || (n == 4 && c < 0x10000) || c > 0x10FFFF || (c >= 0xD800 && c <= 0xDFFF)) return -1;
+  *k = n;
+  return c;
+}
+
+// the string of the UTF-8 of n bytes, which it shares if they are code points below 128 followed by a 0 and owned,
+// and else copies
+static u_value decode(const char *bytes, size_t n, int owned) {
+  const unsigned char *p = (const unsigned char *)bytes, *end = p + n;
+  long long length = 0;
+  int width = 1, k;
+  for (const unsigned char *q = p; q < end; q += k, length++) {
+    long long c = get_utf8(q, end, &k);
+    if (c < 0) return NULL;
+    if (width_of(c) > width) width = width_of(c);
+  }
+  if (owned && length == (long long)n) return u_mk_units(bytes, length, 1);
+  u_value s = new_str(length, width);
+  long long i = 0;
+  for (const unsigned char *q = p; q < end; q += k) put_unit(s, i++, get_utf8(q, end, &k));
+  return s;
+}
+
+u_value u_from_utf8(const char *bytes, size_t n) {
+  return decode(bytes, n, 0);
 }
 
 // an object with its items after it, in one allocation
@@ -190,10 +312,6 @@ const struct u_name n_os_46_OsError = {"os", "OsError", 0, &t_os_46_OsError};
 
 static void division_by_zero(void) {
   u_raise(&o_prelude_46_DivisionByZero, "prelude.DivisionByZero");
-}
-
-static void no_index(u_value s, u_value i) {
-  u_raise(u_mk_con(&n_prelude_46_NoIndex, 2, s, i), "prelude.NoIndex");
 }
 
 static void out_of_bounds(u_value i, long long n) {
@@ -272,8 +390,26 @@ static u_value compare_nums(u_value a, u_value b) {
   return ordering(sign(a->num - b->num));
 }
 
+// strings by their code points and then by their length
 static u_value compare_strs(u_value a, u_value b) {
-  return ordering(a == b ? 0 : sign(u_strcmp(a->text, b->text)));
+  if (a == b) return ordering(0);
+  long long n = a->length < b->length ? a->length : b->length;
+  if (a->width == 1 && b->width == 1) {
+    int c = memcmp(a->units, b->units, (size_t)n);
+    if (c != 0) return ordering(sign(c));
+  } else {
+    for (long long i = 0; i < n; i++) {
+      long long c = u_str_at(a, i), d = u_str_at(b, i);
+      if (c != d) return ordering(c < d ? -1 : 1);
+    }
+  }
+  return ordering(sign(a->length - b->length));
+}
+
+// strings of the same code points have the same width and units, since the width is the narrowest
+static u_value equal_strs(u_value a, u_value b) {
+  return u_mk_bool(a == b || (a->length == b->length && a->width == b->width &&
+                              memcmp(a->units, b->units, (size_t)(a->length * a->width)) == 0));
 }
 
 static int compare_items(u_value a, u_value b) {
@@ -392,26 +528,29 @@ u_value u_eq(u_value a, u_value b) {
 
 u_value u_chars(u_value s) {
   u_value cs = &o_list_46_Nil;
-  for (long i = (long)(size_t)s->length - 1; i >= 0; i--) cs = u_mk_con(&n_list_46_Cons, 2, u_mk_char((unsigned char)s->text[i]), cs);
+  for (long long i = s->length - 1; i >= 0; i--) cs = u_mk_con(&n_list_46_Cons, 2, u_mk_char(u_str_at(s, i)), cs);
   return cs;
 }
 
 u_value u_string(u_value cs) {
-  long n = 0;
-  for (u_value c = cs; u_is_con(c, &n_list_46_Cons); c = c->items[1]) n++;
-  char *s = GC_MALLOC_ATOMIC(n + 1);
-  long i = 0;
-  for (u_value c = cs; u_is_con(c, &n_list_46_Cons); c = c->items[1]) s[i++] = (char)c->items[0]->num;
-  s[n] = 0;
-  return u_mk_str_n(s, n);
+  long long n = 0;
+  int width = 1;
+  for (u_value c = cs; u_is_con(c, &n_list_46_Cons); c = c->items[1], n++)
+    if (width_of(c->items[0]->num) > width) width = width_of(c->items[0]->num);
+  u_value s = new_str(n, width);
+  long long i = 0;
+  for (u_value c = cs; u_is_con(c, &n_list_46_Cons); c = c->items[1]) put_unit(s, i++, c->items[0]->num);
+  return s;
 }
 
 u_value u_ord(u_value c) {
   return u_mk_int(c->num);
 }
 
+// the code points, without the surrogates of UTF-16
 u_value u_chr(u_value n) {
-  if (n->type != &u_int_type || n->num < 0 || n->num > 65535) u_raise(u_mk_con(&n_prelude_46_NoCharacter, 1, n), "prelude.NoCharacter");
+  if (n->type != &u_int_type || n->num < 0 || n->num > 0x10FFFF || (n->num >= 0xD800 && n->num <= 0xDFFF))
+    u_raise(u_mk_con(&n_prelude_46_NoCharacter, 1, n), "prelude.NoCharacter");
   return u_mk_char(n->num);
 }
 
@@ -428,6 +567,50 @@ static char *text(size_t n) {
   return s;
 }
 
+// a string that grows by appending, for quote and the shows of values, as a string of units of the narrowest width
+// of its code points so far
+struct u_text {
+  void *units;
+  long long length, capacity;
+  int width;
+};
+
+// room for n more code points of width bytes, where the units are copied when they widen
+static void reserve(struct u_text *t, long long n, int width) {
+  if (t->length + n + 1 <= t->capacity && width <= t->width) return;
+  long long capacity = t->length + n + 1 <= t->capacity ? t->capacity : 2 * (t->length + n + 1);
+  int w = width > t->width ? width : t->width;
+  struct u_object old = {.units = t->units, .length = t->length, .width = t->width};
+  u_value r = new_str(capacity - 1, w);
+  if (t->units) copy_units(r, 0, &old, 0, t->length);
+  t->units = (void *)r->units;
+  t->capacity = capacity;
+  t->width = w;
+}
+
+static void append_code(struct u_text *t, long long c) {
+  reserve(t, 1, width_of(c));
+  struct u_object r = {.units = t->units, .width = t->width};
+  put_unit(&r, t->length++, c);
+}
+
+static void append(struct u_text *t, const char *s) {
+  while (*s) append_code(t, (unsigned char)*s++);
+}
+
+static void append_str(struct u_text *t, u_value s) {
+  reserve(t, s->length, s->width);
+  struct u_object r = {.units = t->units, .width = t->width};
+  copy_units(&r, t->length, s, 0, s->length);
+  t->length += s->length;
+}
+
+static u_value text_value(struct u_text *t) {
+  if (!t->units) return u_mk_lit("");
+  memset((char *)t->units + t->length * t->width, 0, t->width);
+  return u_mk_units(t->units, t->length, t->width);
+}
+
 // the escape of c in a string or character delimited by quote, as the parser reads it, or else NULL
 static const char *escape(long long c, char quote) {
   if (c == '\\') return "\\\\";
@@ -438,12 +621,19 @@ static const char *escape(long long c, char quote) {
   return NULL;
 }
 
+// c, escaped if it needs to be in a string or character delimited by quote
+static void append_char(struct u_text *t, long long c, char quote) {
+  const char *e = escape(c, quote);
+  if (e) append(t, e);
+  else append_code(t, c);
+}
+
+// of the width of the wider string, which holds the widest code point
 u_value u_concat(u_value s, u_value t) {
-  size_t m = (size_t)s->length, n = (size_t)t->length;
-  char *r = text(m + n);
-  u_memcpy(r, s->text, m);
-  u_memcpy(r + m, t->text, n);
-  return u_mk_str_n(r, (long long)(m + n));
+  u_value r = new_str(s->length + t->length, s->width > t->width ? s->width : t->width);
+  copy_units(r, 0, s, 0, s->length);
+  copy_units(r, s->length, t, 0, t->length);
+  return r;
 }
 
 // the functions of the builtin section of str.u
@@ -453,75 +643,78 @@ u_value u_size(u_value s) {
 }
 
 u_value u_join(u_value sep, u_value ss) {
-  size_t n = 0, k = (size_t)sep->length;
-  for (u_value c = ss; u_is_con(c, &n_list_46_Cons); c = c->items[1]) n += (size_t)c->items[0]->length + (c != ss ? k : 0);
-  char *r = text(n), *p = r;
+  long long n = 0;
+  int width = 1;
+  for (u_value c = ss; u_is_con(c, &n_list_46_Cons); c = c->items[1]) {
+    u_value s = c != ss ? sep : NULL;
+    n += c->items[0]->length + (s ? s->length : 0);
+    if (c->items[0]->width > width) width = c->items[0]->width;
+    if (s && s->width > width) width = s->width;
+  }
+  u_value r = new_str(n, width);
+  long long i = 0;
   for (u_value c = ss; u_is_con(c, &n_list_46_Cons); c = c->items[1]) {
     if (c != ss) {
-      u_memcpy(p, sep->text, k);
-      p += k;
+      copy_units(r, i, sep, 0, sep->length);
+      i += sep->length;
     }
-    size_t m = (size_t)c->items[0]->length;
-    u_memcpy(p, c->items[0]->text, m);
-    p += m;
+    copy_units(r, i, c->items[0], 0, c->items[0]->length);
+    i += c->items[0]->length;
   }
-  return u_mk_str_n(r, (long long)n);
+  return r;
 }
 
-// from i up to but excluding j, where 0 <= i <= j <= the size of s, or else NoIndex
+// from i up to but excluding j, where 0 <= i <= j <= the size of s, or else OutOfBounds
 u_value u_slice(u_value s, u_value i, u_value j) {
   long long n = s->length, a = index_of(i), b = index_of(j);
-  if (a < 0 || a > n || a > b) no_index(s, i);
-  if (b > n) no_index(s, j);
-  char *r = text(b - a);
-  u_memcpy(r, s->text + a, b - a);
-  return u_mk_str_n(r, b - a);
+  if (a < 0 || a > n || a > b) out_of_bounds(i, n);
+  if (b > n) out_of_bounds(j, n);
+  return substring(s, a, b);
 }
 
 // the parts between the occurrences of c, including empty ones
 u_value u_split(u_value s, u_value c) {
   u_value parts = &o_list_46_Nil;
-  const char *end = s->text + (size_t)s->length, *from = end;
-  for (const char *p = end; p >= s->text; p--) {
-    if (p == s->text || p[-1] == (char)c->num) {
-      char *r = text(from - p);
-      u_memcpy(r, p, from - p);
-      parts = u_mk_con(&n_list_46_Cons, 2, u_mk_str_n(r, from - p), parts);
-      from = p - 1;
+  long long to = s->length;
+  for (long long i = s->length; i >= 0; i--) {
+    if (i == 0 || u_str_at(s, i - 1) == c->num) {
+      parts = u_mk_con(&n_list_46_Cons, 2, substring(s, i, to), parts);
+      to = i - 1;
     }
   }
   return parts;
 }
 
 u_value u_at(u_value i, u_value s) {
-  size_t n = (size_t)s->length;
-  if (i->type != &u_int_type || i->num < 0 || (size_t)i->num >= n) no_index(s, i);
-  return u_mk_char((unsigned char)s->text[i->num]);
+  long long k = index_of(i);
+  if (k < 0 || k >= s->length) out_of_bounds(i, s->length);
+  return u_mk_char(u_str_at(s, k));
 }
 
 u_value u_contains(u_value c, u_value s) {
-  return u_mk_bool(c->num != 0 && strchr(s->text, (int)c->num) != NULL);
+  if (s->width == 1) return u_mk_bool(c->num < 0x100 && memchr(s->units, (int)c->num, (size_t)s->length) != NULL);
+  for (long long i = 0; i < s->length; i++)
+    if (u_str_at(s, i) == c->num) return &u_true;
+  return &u_false;
 }
 
 u_value u_quote(u_value s) {
-  char *r = text(2 * (size_t)s->length + 2), *p = r;
-  *p++ = '"';
-  for (const char *c = s->text; *c; c++) {
-    const char *e = escape(*c, '"');
-    if (e) while (*e) *p++ = *e++;
-    else *p++ = *c;
-  }
-  *p++ = '"';
-  *p = 0;
-  return u_mk_str_n(r, p - r);
+  struct u_text t = {NULL, 0, 0, 1};
+  append_char(&t, '"', 0);
+  for (long long i = 0; i < s->length; i++) append_char(&t, u_str_at(s, i), '"');
+  append_char(&t, '"', 0);
+  return text_value(&t);
 }
 
+// digits are code points below 128, which a string of a wider width has none but
 u_value u_number(u_value s) {
-  const char *p = s->text + (s->text[0] == '-');
-  if (!*p) return &o_option_46_None;
-  for (; *p; p++)
-    if (*p < '0' || *p > '9') return &o_option_46_None;
-  return u_mk_con(&n_option_46_Some, 1, u_mk_int_str(s->text));
+  if (s->width != 1) return &o_option_46_None;
+  const char *text = s->units;
+  long long i = text[0] == '-';
+  if (i == s->length) return &o_option_46_None;
+  for (; i < s->length; i++)
+    if (text[i] < '0' || text[i] > '9') return &o_option_46_None;
+  return u_mk_con(&n_option_46_Some, 1, u_mk_int_str(text));
 }
 
 // the functions of the builtin section of array.u
@@ -639,41 +832,9 @@ u_value u_is_space(u_value c) {
   return u_mk_bool(c->num == ' ' || c->num == '\n' || c->num == '\t' || c->num == '\r');
 }
 
-// a text that grows by appending, for the shows of values
-struct u_text {
-  char *chars;
-  size_t length, capacity;
-};
-
-static void append_n(struct u_text *t, const char *s, size_t n) {
-  if (t->length + n + 1 > t->capacity) {
-    t->capacity = 2 * (t->length + n + 1);
-    t->chars = GC_REALLOC(t->chars, t->capacity);
-    if (!t->chars) u_fail("out of memory");
-  }
-  memcpy(t->chars + t->length, s, n);
-  t->length += n;
-  t->chars[t->length] = 0;
-}
-
-static void append(struct u_text *t, const char *s) {
-  append_n(t, s, strlen(s));
-}
-
 // the text of a value, shown by its type, appended
 static void append_shown(struct u_text *t, u_value v) {
-  u_value s = u_show(v);
-  append_n(t, s->text, (size_t)s->length);
-}
-
-static u_value text_value(struct u_text *t) {
-  return t->chars ? u_mk_str_n(t->chars, (long long)t->length) : u_mk_lit("");
-}
-
-static void append_char(struct u_text *t, long long c, char quote) {
-  const char *e = escape(c, quote);
-  char s[2] = {(char)c, 0};
-  append(t, e ? e : s);
+  append_str(t, u_show(v));
 }
 
 // values as self/print.u shows them, by their types
@@ -682,8 +843,9 @@ u_value u_show(u_value v) {
 }
 
 void u_fprint_value(FILE *out, u_value v) {
-  u_value s = u_show(v);
-  fwrite(s->text, 1, (size_t)s->length, out);
+  size_t n;
+  const char *s = u_utf8(u_show(v), &n);
+  fwrite(s, 1, n, out);
 }
 
 static u_value show_int(u_value v) {
@@ -695,7 +857,7 @@ static u_value show_bool(u_value v) {
 }
 
 static u_value show_char(u_value v) {
-  struct u_text t = {NULL, 0, 0};
+  struct u_text t = {NULL, 0, 0, 1};
   append(&t, "'");
   append_char(&t, v->num, '\'');
   append(&t, "'");
@@ -716,29 +878,29 @@ static void append_items(struct u_text *t, u_value v) {
 }
 
 static u_value show_tuple(u_value v) {
-  struct u_text t = {NULL, 0, 0};
+  struct u_text t = {NULL, 0, 0, 1};
   append_items(&t, v);
   return text_value(&t);
 }
 
 // constructors with their fields, where the library declares the shows of lists, options, sets, and maps
 u_value u_con_show(u_value v) {
-  struct u_text t = {NULL, 0, 0};
+  struct u_text t = {NULL, 0, 0, 1};
   append(&t, v->name->base);
   if (v->size > 0) append_items(&t, v);
   return text_value(&t);
 }
 
 static u_value show_array(u_value v) {
-  struct u_text t = {NULL, 0, 0};
+  struct u_text t = {NULL, 0, 0, 1};
   append(&t, "|");
   for (int i = 0; i < v->size; i++) {
     u_value s = u_show(v->items[i]);
     // a first element that starts with || in parentheses, since the parser reads ||| as an empty array before a |
-    int enclose = i == 0 && s->length >= 2 && s->text[0] == '|' && s->text[1] == '|';
+    int enclose = i == 0 && s->length >= 2 && u_str_at(s, 0) == '|' && u_str_at(s, 1) == '|';
     if (i > 0) append(&t, ", ");
     if (enclose) append(&t, "(");
-    append_n(&t, s->text, (size_t)s->length);
+    append_str(&t, s);
     if (enclose) append(&t, ")");
   }
   append(&t, "|");
@@ -759,7 +921,7 @@ const struct u_type u_int_type = {"Int", compare_ints, u_equals_by_compare, show
 const struct u_type u_big_type = {"Int", compare_ints, u_equals_by_compare, show_int};
 const struct u_type u_bool_type = {"Bool", compare_nums, u_equals_by_compare, show_bool};
 const struct u_type u_char_type = {"Char", compare_nums, u_equals_by_compare, show_char};
-const struct u_type u_str_type = {"Str", compare_strs, u_equals_by_compare, show_str};
+const struct u_type u_str_type = {"Str", compare_strs, equal_strs, show_str};
 const struct u_type u_tuple_type = {"*", compare_tuples, u_equals_by_compare, show_tuple};
 const struct u_type u_array_type = {"array.Array", compare_arrays, u_equals_by_compare, show_array};
 const struct u_type u_closure_type = {"->", compare_functions, compare_functions, show_function};
@@ -842,12 +1004,19 @@ void u_reraise(struct u_handler *h) {
 #define ULANG_LIB "prelude"
 #endif
 
-static void os_error(const char *message, const char *arg) {
-  u_raise(u_mk_con(&n_os_46_OsError, 1, u_concat(u_mk_str(message), u_mk_str(arg))), "os.OsError");
+static void os_error(const char *message, u_value arg) {
+  u_raise(u_mk_con(&n_os_46_OsError, 1, u_concat(u_mk_str(message), arg)), "os.OsError");
 }
 
-// the contents of a file, or else NULL
-static u_value read_file(const char *path) {
+// the string of the UTF-8 of a name of the system, or else OsError with what it names
+static u_value system_str(const char *bytes, const char *what) {
+  u_value s = u_from_utf8(bytes, u_strlen(bytes));
+  if (!s) os_error(what, u_mk_lit(" is not UTF-8"));
+  return s;
+}
+
+// the contents of a file as UTF-8, or else NULL, where invalid UTF-8 raises OsError
+static u_value read_file(const char *path, u_value name) {
   FILE *f = fopen(path, "rb");
   if (!f) return NULL;
   struct stat st;
@@ -858,40 +1027,57 @@ static u_value read_file(const char *path) {
   char *s = text(st.st_size);
   size_t n = fread(s, 1, st.st_size, f);
   fclose(f);
-  return n == (size_t)st.st_size ? u_mk_str_n(s, (long long)n) : NULL;
+  if (n != (size_t)st.st_size) return NULL;
+  u_value t = decode(s, n, 1);
+  if (!t) os_error("invalid UTF-8 in ", name);
+  return t;
 }
 
-// the arguments of the program, after its name
+// the arguments of the program, after its name, which are decoded when they are asked for
+static int argc = 0;
+static char **argv = NULL;
 static u_value args = NULL;
 
-void u_args(int argc, char **argv) {
-  args = &o_list_46_Nil;
-  for (int i = argc - 1; i >= 1; i--) args = u_mk_con(&n_list_46_Cons, 2, u_mk_str(argv[i]), args);
+void u_args(int n, char **v) {
+  argc = n;
+  argv = v;
 }
 
 void p_os_args(u_value *result) {
+  if (!args) {
+    u_value list = &o_list_46_Nil;
+    for (int i = argc - 1; i >= 1; i--) list = u_mk_con(&n_list_46_Cons, 2, system_str(argv[i], "an argument"), list);
+    args = list;
+  }
   *result = args;
 }
 
 void p_os_read(u_value path, u_value *result) {
-  u_value t = read_file(path->text);
-  if (!t) os_error("cannot read ", path->text);
+  u_value t = read_file(u_utf8(path, NULL), path);
+  if (!t) os_error("cannot read ", path);
   *result = t;
+}
+
+// the bytes of s as UTF-8 to f, and whether all were written
+static int write_utf8(FILE *f, u_value s) {
+  size_t n;
+  const char *bytes = u_utf8(s, &n);
+  return fwrite(bytes, 1, n, f) == n;
 }
 
 // creates the missing directories of path, as the interpreter does
 void p_os_write(u_value path, u_value contents) {
-  char *dir = strcpy(text((size_t)path->length), path->text);
+  const char *file = u_utf8(path, NULL);
+  char *dir = strcpy(text(u_strlen(file)), file);
   for (char *p = strchr(dir + 1, '/'); p; p = strchr(p + 1, '/')) {
     *p = 0;
     mkdir(dir, 0777);
     *p = '/';
   }
-  FILE *f = fopen(path->text, "wb");
-  if (!f) os_error("cannot write ", path->text);
-  size_t n = (size_t)contents->length;
-  int ok = fwrite(contents->text, 1, n, f) == n;
-  if (fclose(f) || !ok) os_error("cannot write ", path->text);
+  FILE *f = fopen(file, "wb");
+  if (!f) os_error("cannot write ", path);
+  int ok = write_utf8(f, contents);
+  if (fclose(f) || !ok) os_error("cannot write ", path);
 }
 
 static int compare_names(const void *a, const void *b) {
@@ -899,10 +1085,11 @@ static int compare_names(const void *a, const void *b) {
 }
 
 // the entries of dir without . and .., sorted by name, each with whether it is a directory, where links are not
-// followed, such that a walk cannot loop
+// followed, such that a walk cannot loop, and the order of the bytes of UTF-8 is that of the code points
 void p_os_list(u_value dir, u_value *result) {
-  DIR *d = opendir(dir->text);
-  if (!d) os_error("cannot list ", dir->text);
+  const char *name = u_utf8(dir, NULL);
+  DIR *d = opendir(name);
+  if (!d) os_error("cannot list ", dir);
   size_t n = 0, cap = 16;
   char **names = GC_MALLOC(cap * sizeof(char *));
   for (struct dirent *e = readdir(d); e; e = readdir(d)) {
@@ -914,11 +1101,11 @@ void p_os_list(u_value dir, u_value *result) {
   qsort(names, n, sizeof(char *), compare_names);
   u_value list = &o_list_46_Nil;
   for (size_t i = n; i-- > 0;) {
-    char *path = text((size_t)dir->length + 1 + u_strlen(names[i]));
-    sprintf(path, "%s/%s", dir->text, names[i]);
+    char *path = text(u_strlen(name) + 1 + u_strlen(names[i]));
+    sprintf(path, "%s/%s", name, names[i]);
     struct stat st;
     int is_dir = !lstat(path, &st) && S_ISDIR(st.st_mode);
-    list = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, u_mk_str(names[i]), u_mk_bool(is_dir)), list);
+    list = u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, system_str(names[i], "a name in a directory"), u_mk_bool(is_dir)), list);
   }
   *result = list;
 }
@@ -926,18 +1113,20 @@ void p_os_list(u_value dir, u_value *result) {
 // path is a directory, also through a link
 void p_os_is_dir(u_value path, u_value *result) {
   struct stat st;
-  *result = u_mk_bool(!stat(path->text, &st) && S_ISDIR(st.st_mode));
+  *result = u_mk_bool(!stat(u_utf8(path, NULL), &st) && S_ISDIR(st.st_mode));
 }
 
 void p_os_cwd(u_value *result) {
   char *dir = getcwd(NULL, 0);
-  if (!dir) os_error("cannot tell the working directory", "");
-  *result = u_mk_str(strcpy(text(u_strlen(dir)), dir));
+  if (!dir) os_error("cannot tell the working directory", u_mk_lit(""));
+  u_value s = u_from_utf8(dir, u_strlen(dir));
   free(dir);
+  if (!s) os_error("the working directory", u_mk_lit(" is not UTF-8"));
+  *result = s;
 }
 
 void p_os_chdir(u_value dir) {
-  if (chdir(dir->text)) os_error("cannot change to ", dir->text);
+  if (chdir(u_utf8(dir, NULL))) os_error("cannot change to ", dir);
 }
 
 void u_passed(const char *name) {
@@ -945,13 +1134,13 @@ void u_passed(const char *name) {
 }
 
 void p_os_print(u_value text) {
-  fwrite(text->text, 1, (size_t)text->length, stdout);
+  write_utf8(stdout, text);
   putchar('\n');
 }
 
 void p_os_print_error(u_value text) {
   fflush(stdout);
-  fwrite(text->text, 1, (size_t)text->length, stderr);
+  write_utf8(stderr, text);
   fputc('\n', stderr);
 }
 
@@ -961,9 +1150,10 @@ void p_os_exit(u_value code) {
 }
 
 void p_os_library(u_value name, u_value *result) {
-  char *path = text(u_strlen(ULANG_LIB) + (size_t)name->length + 3);
-  sprintf(path, "%s/%s.u", ULANG_LIB, name->text);
-  u_value t = read_file(path);
-  if (!t) os_error("unknown module ", name->text);
+  const char *base = u_utf8(name, NULL);
+  char *path = text(u_strlen(ULANG_LIB) + u_strlen(base) + 3);
+  sprintf(path, "%s/%s.u", ULANG_LIB, base);
+  u_value t = read_file(path, name);
+  if (!t) os_error("unknown module ", name);
   *result = t;
 }

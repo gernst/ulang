@@ -1,7 +1,7 @@
 import os
 
 test files() :=
-  local t: Str
+  local t: Str, entries: List[Str * Bool]
 
   call   os_write(in "out/files/a.txt", "line\n\"quoted\"\n")
   call   os_read(in "out/files/a.txt", out t)
@@ -9,6 +9,11 @@ test files() :=
   call   os_write(in "out/files/a.txt", "")
   call   os_read(in "out/files/a.txt", out t)
   assert t == ""
+  call   os_write(in "out/files/ä→.txt", "ä→😀\n")
+  call   os_read(in "out/files/ä→.txt", out t)
+  assert t == "ä→😀\n" and size(t) == 4
+  call   os_list(in "out/files", out entries)
+  assert contains(("ä→.txt", false), entries)
 
 test library() :=
   local t: Str

@@ -7,10 +7,7 @@ export
 data DivisionByZero :=
   | DivisionByZero
 
-data NoIndex :=
-  | NoIndex(text: Str, index: Int)
-
-// an index of an array with the size of the array
+// an index of a string or an array with its size
 data OutOfBounds :=
   | OutOfBounds(index: Int, count: Int)
 

@@ -1,4 +1,4 @@
-// strings and characters, by the functions that the interpreter and the runtime implement, with the names that strings share with the containers, in their order and with their results, where a string is a map
+// strings of code points and their characters, by the functions that the interpreter and the runtime implement, with the names that strings share with the containers, in their order and with their results, where a string is a map
 // from indices to characters, concatenated by ++ of the prelude, compared by compare, and shown by show
 //
 // which every module imports implicitly after list, so that list.u cannot use it, where the builtin section declares the
@@ -18,7 +18,8 @@ builtin
 function list(s: Str): List[Char]
 function str(cs: List[Char]): Str
 
-// the code of a character, and the character of a code from 0 to 65535, or else NoCharacter
+// the code point of a character, and the character of a code point from 0 to 0x10FFFF other than the surrogates 0xD800
+// to 0xDFFF of UTF-16, or else NoCharacter
 function ord(c: Char): Int
 function chr(n: Int): Char
 
@@ -26,15 +27,15 @@ function is_digit(c: Char): Bool
 function is_letter(c: Char): Bool
 function is_space(c: Char): Bool
 
-// the number of characters
+// the number of characters, which are code points
 function size(s: Str): Int
 
-// the character at index i, from 0, or else NoIndex
+// the character at index i, from 0, or else OutOfBounds
 function at(i: Int, s: Str): Char
 
 function contains(c: Char, s: Str): Bool
 
-// the characters from index i up to j, exclusively, where 0 <= i <= j <= size(s), or else NoIndex
+// the characters from index i up to j, exclusively, where 0 <= i <= j <= size(s), or else OutOfBounds
 function slice(s: Str, i: Int, j: Int): Str
 
 // the strings of strs with sep between them, and the parts of s between the occurrences of c, including empty ones

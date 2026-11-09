@@ -441,7 +441,8 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := VLit(LInt(ord(char)))
 
     case ("str.chr", [VLit(LInt(num))]) =>
-      if num < 0 or num > 65535
+      // the code points, without the surrogates of UTF-16
+      if num < 0 or num > 1114111 or (55296 <= num and num <= 57343)
         raise failure(no_character_name(), [VLit(LInt(num))])
       end
 
@@ -466,9 +467,9 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
     // from i up to but excluding j, where i <= j are indices of s or its end
     case ("str.slice", [VLit(LStr(text)), VLit(LInt(i)), VLit(LInt(j))]) =>
       if i < 0 or i > size(text) or i > j
-        raise failure(no_index_name(), [VLit(LStr(text)), VLit(LInt(i))])
+        raise failure(out_of_bounds_name(), [VLit(LInt(i)), VLit(LInt(size(text)))])
       else if j > size(text)
-        raise failure(no_index_name(), [VLit(LStr(text)), VLit(LInt(j))])
+        raise failure(out_of_bounds_name(), [VLit(LInt(j)), VLit(LInt(size(text)))])
       end
 
       assign v := VLit(LStr(slice(text, i, j)))
@@ -478,7 +479,7 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
 
     case ("str.at", [VLit(LInt(num)), VLit(LStr(text))]) =>
       if num < 0 or num >= size(text)
-        raise failure(no_index_name(), [VLit(LStr(text)), VLit(LInt(num))])
+        raise failure(out_of_bounds_name(), [VLit(LInt(num)), VLit(LInt(size(text)))])
       end
 
       assign v := VLit(LChar(at(num, text)))

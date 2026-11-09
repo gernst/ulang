@@ -45,9 +45,11 @@ A minimal language with pure functional expressions, imperative statements, data
 
 ## Library
 
-- The prelude declares the operators and the exceptions of builtins: `DivisionByZero` of `/` and `%`; `NoIndex(Str, Int)` of `at` and the strict `slice` of strings; `OutOfBounds(Int, Int)`, index and size, of `at`, `put`, and the strict `slice` of arrays; `NoCharacter(Int)` of `chr`; `MissingField(Str)` with the name `T.f`; and `Unordered(Str)` and `Incomparable(Str)` with the name of a type.
+- The prelude declares the operators and the exceptions of builtins: `DivisionByZero` of `/` and `%`; `OutOfBounds(Int, Int)`, index and size, of `at` and the strict `slice` of strings and arrays and of `put` of arrays; `NoCharacter(Int)` of `chr`; `MissingField(Str)` with the name `T.f`; and `Unordered(Str)` and `Incomparable(Str)` with the name of a type.
 - `<`, `==`, `compare`, `show`, `and`, and `or` are builtins without a module. `compare` is a total order of all values, consistent with `==`, with results `-1`, `0`, `1`, where constructors are ordered by their position in their declaration; `<`, and the `<=`, `>`, `>=` of the prelude, each by one `<`, follow it.
 - `str`: `list(s)`, `str(cs)`, `ord`, `chr`, `is_digit`, `is_letter`, `is_space`, `size`, `at(i, s)`, `get(i, s)` as an option, `contains(c, s)`, `slice`, `join`, `split`, `quote`, `number`.
+  - A `Char` is a Unicode code point, 0 to 0x10FFFF without the surrogates 0xD800 to 0xDFFF, else `chr` raises `NoCharacter`, and a `Str` a sequence of them, which `size`, `at`, and `slice` count; `is_letter` and `is_digit` are ASCII, as names are. UTF-8 is only the encoding of the system: the procedures of `os` decode files, arguments, and names of files, where invalid UTF-8 raises `OsError`, and encode what they write.
+  - The runtime stores each string in units of 1, 2, or 4 bytes, the narrowest that holds its code points, so that equal strings have equal units (`u_str_at` of `self/runtime/ulang.h`); literals are `U_LIT` of `"…"`, `u"…"`, or `U"…"` by their greatest code point (`format_str` of `self/c.u`).
 - `map` and `set`: `Map[K, V]` and `Set[A]`, abstract types of AVL trees ordered by `compare`, with `compare` and `==` by their elements and entries; `intersect(s, t)` of sets.
 - `array`: immutable `Array[A]`, kept as `VArr` of `Value` in `self/run.u`: `array(xs)`, `list(a)`, `size`, `at(i, a)`, `get(i, a)`, `slice`, `contains`, and the folds.
 - Lists, sets, maps, arrays, and strings share names and orders of arguments:

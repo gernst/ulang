@@ -257,8 +257,8 @@ procedure failure(in k: Int, out m: Str) :=
   catch
     case DivisionByZero =>
       assign m := "division"
-    case NoIndex(text, index) =>
-      assign m := text ++ show(index)
+    case OutOfBounds(index, count) =>
+      assign m := show(index) ++ " of " ++ show(count)
     case NoCharacter(code) =>
       assign m := show(code)
     case MissingField(field) =>
@@ -277,11 +277,11 @@ test builtin_exceptions() :=
   call   failure(in 1, out m)
   assert m == "division"
   call   failure(in 2, out m)
-  assert m == "ab2"
+  assert m == "2 of 2"
   call   failure(in 3, out m)
-  assert m == "ab3"
+  assert m == "3 of 2"
   call   failure(in 4, out m)
-  assert m == "ab2"
+  assert m == "2 of 2"
   call   failure(in 5, out m)
   assert m == "-1"
   call   failure(in 6, out m)

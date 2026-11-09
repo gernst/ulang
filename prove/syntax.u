@@ -146,12 +146,16 @@ function ctor_head(decls: Decls, e: Expr): Option[Name * List[Expr]] :=
   end
 
 function nth[A](i: Int, xs: List[A]): A :=
+  nth_after(i, xs, 0)
+
+// the element at index i of the rest xs of a list after its first k elements, which is of size k where xs is Nil
+function nth_after[A](i: Int, xs: List[A], k: Int): A :=
   match xs
     case Nil =>
-      raise NoIndex("nth", i)
+      raise OutOfBounds(i + k, k)
 
     case [x; rest] =>
-      if i == 0 then x else nth(i - 1, rest)
+      if i == 0 then x else nth_after(i - 1, rest, k + 1)
   end
 
 function range(i: Int, j: Int): List[Int] :=

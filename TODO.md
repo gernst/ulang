@@ -35,7 +35,7 @@ Open action items, each with the problem and the desired solution.
 
 ## Library
 
-1. **Two exceptions for indices**: `NoIndex(Str, Int)` of strings carries the string, whose text may be long, and `OutOfBounds(Int, Int)` of arrays the index and the size. Solution: `OutOfBounds` for strings too, which changes the messages of some error tests.
+1. **No binary data**: strings are code points, and the procedures of `os` read and write UTF-8 only, so a file that is not UTF-8 cannot be read. Solution: a type `Byte` with `Array[Byte]`, and procedures of `os` that read and write bytes, with explicit encodings between them and strings.
 2. **The functions `forall(c, p)` and `exists(c, p)` of the containers** clash with the quantifiers of specifications (`prove.md`, open point 15). Solution: bounded quantifiers as syntax, `forall x in c => e` and `exists x in c if q => e`, with generators as in comprehensions, which code computes by the folds of the containers, and which specifications read as `forall x => contains(x, c) ==> e`, where the unbounded `forall x: T => e` occurs only in specifications, and the functions go. Open: the form for the entries of maps.
 
 ## Compiler

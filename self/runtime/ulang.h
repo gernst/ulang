@@ -9,6 +9,7 @@
 #include <gmp.h>
 #include <setjmp.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct u_object *u_value;
 
@@ -39,7 +40,7 @@ extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_s
 // the datatypes whose constructors the builtins create, where the compiled program defines the descriptors of those of
 // the prelude and its modules, which every program has, and the runtime that of OsError, which programs need not import
 extern const struct u_type t_list_46_List, t_option_46_Option, t_os_46_OsError;
-extern const struct u_type t_prelude_46_DivisionByZero, t_prelude_46_NoIndex, t_prelude_46_OutOfBounds, t_prelude_46_NoCharacter,
+extern const struct u_type t_prelude_46_DivisionByZero, t_prelude_46_OutOfBounds, t_prelude_46_NoCharacter,
   t_prelude_46_MissingField;
 
 // the order, equality, and text of datatypes by their constructors and then their fields, which the descriptors
@@ -52,7 +53,7 @@ u_value u_con_show(u_value v);
 extern const struct u_name n_list_46_Nil, n_list_46_Cons, n_option_46_None, n_option_46_Some, n_os_46_OsError;
 
 // the exceptions of the builtins and of accessors of fields, which the prelude declares
-extern const struct u_name n_prelude_46_DivisionByZero, n_prelude_46_NoIndex, n_prelude_46_OutOfBounds, n_prelude_46_NoCharacter,
+extern const struct u_name n_prelude_46_DivisionByZero, n_prelude_46_OutOfBounds, n_prelude_46_NoCharacter,
   n_prelude_46_MissingField;
 
 // the code of a closure, with its captured values and its arguments
@@ -67,10 +68,12 @@ struct u_object {
   union {
     mpz_t big;
     long long num;
-    // strings with their length, which is measured once
+    // strings of code points, with their number, stored as units of 1, 2, or 4 bytes each, the narrowest that holds
+    // every code point of the string, such that equal strings have equal units, where units of 1 byte end with a 0
     struct {
-      const char *text;
+      const void *units;
       long long length;
+      int width;
     };
     struct {
       union {
@@ -89,16 +92,29 @@ u_value u_mk_int_str(const char *digits);
 u_value u_mk_bool(int b);
 u_value u_mk_char(long long c);
 u_value u_mk_str(const char *s);
-u_value u_mk_str_n(const char *s, long long n);
+u_value u_mk_units(const void *units, long long n, int width);
 
-// a string literal, whose length the C compiler knows
-#define u_mk_lit(s) u_mk_str_n(s, sizeof(s) - 1)
+// a string literal, "…" of code points below 256, u"…" below 65536, or U"…", of the narrowest kind that holds its code
+// points, whose length the C compiler knows
+#define u_mk_lit(s) u_mk_units(s, sizeof(s) / sizeof(s[0]) - 1, sizeof(s[0]))
+
+// the code point at index i of a string
+static inline long long u_str_at(u_value s, long long i) {
+  if (s->width == 1) return ((const unsigned char *)s->units)[i];
+  if (s->width == 2) return ((const uint16_t *)s->units)[i];
+  return ((const uint32_t *)s->units)[i];
+}
+
+// the UTF-8 of a string, ending with a 0, with its number of bytes in n unless n is NULL, and the string of UTF-8, or
+// else NULL if it is not valid
+const char *u_utf8(u_value s, size_t *n);
+u_value u_from_utf8(const char *bytes, size_t n);
 
 // the cache of a function without arguments while its value is computed, which is no object
 #define U_COMPUTING ((u_value)-1)
 
-// the initializer of a static object of a string literal, which needs no allocation
-#define U_LIT(s) {.type = &u_str_type, .text = s, .length = sizeof(s) - 1}
+// the initializer of a static object of a string literal as of u_mk_lit, which needs no allocation
+#define U_LIT(s) {.type = &u_str_type, .units = s, .length = sizeof(s) / sizeof(s[0]) - 1, .width = sizeof(s[0])}
 u_value u_mk_con(const struct u_name *name, int size, ...);
 u_value u_mk_con_array(const struct u_name *name, int size, u_value *items);
 u_value u_mk_tuple(int size, ...);
