@@ -183,10 +183,20 @@ test fields() :=
   assert c.label == "c" and b.label == "b" and c.radius == 2 and c.center.y == 0
   assert area(b) == 6 and b.corner.x == 1
 
-// the type of p is known only once the lambda is applied, until when its accessor stays open
+// the type of p is that of the argument of the lambda applied at once
 test unknown_type() :=
   local  v := (lambda p => p.x)(Point(1, 2))
   assert v == 1
+
+test lambda_arguments() :=
+  local ps := list(Point(1, 2), Point(3, 4))
+
+  assert exists(ps, lambda q => q.x == 3) and not forall(ps, lambda q => q.y < 4) and list(for q in ps yield q.y) == list(2, 4)
+
+test annotated_lambda() :=
+  local g: Point -> Int := lambda p => p.x
+
+  assert g(Point(5, 6)) == 5
 
 test generic_fields() :=
   local  q := Couple(1, "one")

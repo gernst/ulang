@@ -31,6 +31,7 @@ data TypeError :=
   case Ambiguous(name: Name, candidates: List[Name * (List[Type] * Type)])
   case UnknownField(name: Name)
   case UnknownFieldType(field: Id, typ: Type)
+  case UnknownFieldOwner(field: Id)
   // a container of a generator whose type, which chooses the folds, is not known at the generator
   case UnknownContainer(typ: Type)
   // set(…), map(…), and array(…) build by the module of their name, which the module must import
@@ -274,18 +275,6 @@ function candidates(s: State, env: Env, n: Name): List[Name * (List[Type] * Type
         list(for p in overloads(s, n, lambda p => is_proc(s.sig, p)) yield (p, proc_scheme(s.sig, p))) ++
         list(for sc in builtin_schemes(n) yield (n, sc))
   end
-
-// the accessors or updaters T.f of all datatypes T for the field f, which is .name or .name:=, of all modules, of which
-// visible_accessors keeps those of the modules that the module sees, since fields are visible as other names are
-function accessors(sig: Sig, f: Id, es: List[Id * List[Name]]): List[Name * (List[Type] * Type)] :=
-  match es
-    case list() => list()
-    case list((b, ds); rest) =>
-      if ends_with(b, f) then list(for d in ds for sc in schemes_of(sig, d) yield (d, sc)) ++ accessors(sig, f, rest) else accessors(sig, f, rest)
-  end
-
-function visible_accessors(s: State, cs: List[Name * (List[Type] * Type)]): List[Name * (List[Type] * Type)] :=
-  list(for (d, sc) in cs if is_visible(s, d))
 
 // a procedure is a value of its type (in A, out B, ref C)
 function proc_scheme(sig: Sig, p: Name): List[Type] * Type :=
@@ -1493,7 +1482,7 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
     case EVar(Var(name, typ)) =>
       assign cs := candidates(s, env, name)
       if size(cs) > 1
-        call   infers(in env, args, out args1, ts, ref s)
+        call   infers_first(in env, args, out args1, ts, ref s)
         call   fresh(out t, ref s)
         call   normalize(in typ, out w, ref s)
         call   unify(in w, TFun(ts, t), ref s)
@@ -1502,12 +1491,18 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
         end
 
         call   use_name(in name, with_arity(cs, size(args)), w, out x, ref s)
+        call   infers_lambdas(in env, args, ts, ref args1, s)
         assign e1 := EApp(EVar(x), args1)
       else
         call   infer(in env, f, out f1, u, ref s)
         call   apply(in env, u, args, out args1, t, ref s)
         assign e1 := EApp(f1, args1)
       end
+    case ELam(_, _) =>
+      call   infers(in env, args, out args1, ts, ref s)
+      call   fresh(out t, ref s)
+      call   infer_lambda(in env, f, TFun(ts, t), out f1, ref s)
+      assign e1 := EApp(f1, args1)
     case _ =>
       call   infer(in env, f, out f1, u, ref s)
       call   apply(in env, u, args, out args1, t, ref s)
@@ -1515,7 +1510,7 @@ procedure application(in env: Env, f: Expr, args: List[Expr], out e1: Expr, t: T
   end
 
 // the accessor T.f, or for the suffix .f:= the updater T.f:=, applied to e and the further arguments, of the type T of e,
-// of the module of T, where the accessors of all datatypes with the field are the candidates while T is not known
+// of the module of T, where an unknown type of e is an error
 procedure field_access(in env: Env, suffix: Id, expr: Expr, rest: List[Expr], out e1: Expr, t: Type, ref s: State) :=
   local c: Expr, u: Type, w: Type, rest1: List[Expr], us: List[Type], acc: Name, x: Var
 
@@ -1524,6 +1519,7 @@ procedure field_access(in env: Env, suffix: Id, expr: Expr, rest: List[Expr], ou
   call   fresh(out t, ref s)
   call   fresh(out w, ref s)
   call   unify(in w, TFun(list(u; us), t), ref s)
+  call   solve(ref s)
 
   match zonk_type(s.sub, u)
     case TSort(Name(Some(m), base), _) =>
@@ -1535,12 +1531,7 @@ procedure field_access(in env: Env, suffix: Id, expr: Expr, rest: List[Expr], ou
           raise UnknownField(acc)
       end
     case TMeta(_) =>
-      match visible_accessors(s, accessors(s.sig, suffix, list(for x in s.sig.named)))
-        case list() =>
-          raise UnknownField(unqualified(suffix))
-        case cs =>
-          call use_name(in unqualified(suffix), cs, w, out x, ref s)
-      end
+      raise UnknownFieldOwner(suffix)
     case v =>
       raise UnknownFieldType(suffix, v)
   end
@@ -1551,14 +1542,74 @@ procedure apply(in env: Env, f: Type, args: List[Expr], out args1: List[Expr], r
   local ts: List[Type]
 
   call   fresh(out r, ref s)
-  call   infers(in env, args, out args1, ts, ref s)
+  call   infers_first(in env, args, out args1, ts, ref s)
   call   unify(in f, TFun(ts, r), ref s)
+  call   infers_lambdas(in env, args, ts, ref args1, s)
+
+// the arguments in order, except the lambdas, which get an unknown type and wait until the type of the function is
+// known, so that the formals of a lambda have the types that the function expects, see infers_lambdas
+procedure infers_first(in env: Env, exprs: List[Expr], out es1: List[Expr], ts: List[Type], ref s: State) :=
+  local e1: Expr, t: Type
+
+  assign es1 := list(), ts := list()
+
+  for e in exprs do
+    if is_lambda(e)
+      call   fresh(out t, ref s)
+      assign e1 := e
+    else
+      call   infer(in env, e, out e1, t, ref s)
+    end
+
+    assign es1 := es1 ++ list(e1), ts := ts ++ list(t)
+  end
+
+function is_lambda(e: Expr): Bool :=
+  match e
+    case ELam(_, _) => true
+    case _ => false
+  end
+
+// the lambdas among exprs, whose types are those in ts, inferred with the formals that have no type typed by the parameters
+// of the function type there, if it is known
+procedure infers_lambdas(in env: Env, exprs: List[Expr], ts: List[Type], ref es1: List[Expr], s: State) :=
+  local found: List[Expr], e2: Expr
+
+  assign found := list()
+
+  for ((e, e1), t) in zip(zip(exprs, es1), ts) do
+    if is_lambda(e)
+      call   infer_lambda(in env, e, t, out e2, ref s)
+    else
+      assign e2 := e1
+    end
+
+    assign found := found ++ list(e2)
+  end
+
+  assign es1 := found
+
+procedure infer_lambda(in env: Env, e: Expr, t: Type, out e1: Expr, ref s: State) :=
+  local u: Type
+
+  match (e, zonk_type(s.sub, t))
+    case (ELam(formals, body), TFun(ps, _)) if size(ps) == size(formals) =>
+      call   infer(in env, ELam(list(for (x, p) in zip(formals, ps) yield if x.typ == THole then Var(x.name, p) else x), body), out e1, u, ref s)
+    case _ =>
+      call   infer(in env, e, out e1, u, ref s)
+  end
+
+  call   unify(in u, t, ref s)
 
 procedure check(in env: Env, expr: Expr, t: Type, out e1: Expr, ref s: State) :=
   local u: Type
 
-  call   infer(in env, expr, out e1, u, ref s)
-  call   unify(in u, t, ref s)
+  if is_lambda(expr)
+    call   infer_lambda(in env, expr, t, out e1, ref s)
+  else
+    call   infer(in env, expr, out e1, u, ref s)
+    call   unify(in u, t, ref s)
+  end
 
 // the expressions of what, checked against the types ts, as many
 procedure checks(in env: Env, what: Str, exprs: List[Expr], ts: List[Type], out es1: List[Expr], ref s: State) :=

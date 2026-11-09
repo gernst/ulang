@@ -397,6 +397,7 @@ function type_message(e: TypeError): Str :=
     case Ambiguous(name, candidates) => name.base ++ " is ambiguous: " ++ join(", ", list(for c in candidates yield candidate_text(c)))
     case UnknownField(name) => field_message(split(name.base, '.'))
     case UnknownFieldType(field, typ) => "the type " ++ format_type(typ) ++ " of the value of " ++ field ++ " is not known"
+    case UnknownFieldOwner(field) => "the type of the value of " ++ field ++ " is not known there, which an annotation can give"
     case UnknownContainer(typ) => "the type " ++ format_type(typ) ++ " of the container of a generator is not known there, which an annotation can give"
     case FormImport(m) => m ++ "(...) needs import \"" ++ m ++ ".u\""
     case CountMismatch(owner, unit, k, actual) => (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(actual)

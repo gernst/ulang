@@ -1,0 +1,4 @@
+// type error: the type of the value of .x is not known there, which an annotation can give at 2.1
+test unknown_owner() :=
+  local g := lambda p => p.x
+  assert true
