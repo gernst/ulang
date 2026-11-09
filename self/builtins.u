@@ -101,11 +101,11 @@ function type_plain_list(t: Type): Type :=
 
 // lists with constructors Nil and Cons, exported by the module list as in the library, and their length
 function lists(): List[Mod] :=
-  list(Mod("list", list(), unplaced(list(CData(unqualified("List"), list("A"), list(Constr(unqualified("Nil"), list()), Constr(unqualified("Cons"), list(Field("head", TParam("A")), Field("tail", type_plain_list(TParam("A"))))))))), list(), list()))
+  list(Mod("list", "", list(), unplaced(list(CData(unqualified("List"), list("A"), list(Constr("", unqualified("Nil"), list()), Constr("", unqualified("Cons"), list(Field("head", TParam("A")), Field("tail", type_plain_list(TParam("A"))))))))), list(), list()))
 
 // the program of the commands cmds after len of the module main, which imports lists
 function with_lists(cmds: List[Cmd]): Source :=
-  Source(list(natives_prelude(); lists()) ++ list(Mod("main", list("list"), list(), list(), unplaced(list(len_fun(); cmds)))), "main")
+  Source(list(natives_prelude(); lists()) ++ list(Mod("main", "", list("list"), list(), list(), unplaced(list(len_fun(); cmds)))), "main")
 
 function len_fun(): Cmd :=
   CFun(
@@ -121,6 +121,7 @@ function natives_prelude(): Mod :=
   let int_op := lambda op => CFunSig(unqualified(op), list(), list(Var(unqualified("a"), type_int()), Var(unqualified("b"), type_int())), type_int()) in
     Mod(
       "prelude",
+      "",
       list(),
       list(),
       unplaced(list(for t in list("Bool", "Int", "Str", "Char") yield CAbstract(unqualified(t), list())) ++ list(for op in list("+", "-", "*", "/", "%") yield int_op(op)) ++ list(CFunSig(unqualified("++"), list(), list(Var(unqualified("a"), type_str()), Var(unqualified("b"), type_str())), type_str()))),
@@ -128,4 +129,4 @@ function natives_prelude(): Mod :=
     )
 
 function program_of(cmds: List[Cmd]): Source :=
-  Source(list(natives_prelude(), Mod("main", list(), list(), list(), unplaced(cmds))), "main")
+  Source(list(natives_prelude(), Mod("main", "", list(), list(), list(), unplaced(cmds))), "main")

@@ -28,8 +28,6 @@ procedure load_modules(in path: Str, names: List[Id], ref source: Source)
 
 implementation
 
-// the operands of types, expressions, and patterns, and how operators apply to them
-
 function type_ops(): Ops[List[Type]] :=
   Ops("type", starts_type, parse_type_atom, type_apply)
 
@@ -38,8 +36,6 @@ function expr_ops(): Ops[Expr] :=
 
 function pat_ops(): Ops[Pat] :=
   Ops("pattern", starts_pattern, parse_pattern_atom, pat_apply)
-
-// notation
 
 // an operator of the notation cmds that already has a notation of the same kind
 function duplicate(notation: Notation, cmds: List[Cmd]): Option[Id] :=
@@ -82,12 +78,19 @@ procedure check_imported(in notation: Notation, imported: Notation, pos: Pos) :=
       skip
   end
 
-// tokens
-
 function head_token(toks: Tokens): Token :=
   match toks
     case list((_, tok); _) => tok
     case _ => TEnd
+  end
+
+// the comment at the start of the tokens, if it documents the module: a blank line or an import or export follows it
+function module_doc(toks: Tokens): Option[Str] :=
+  match toks
+    case list((Pos(line, _), TDoc(text)), (Pos(next, _), tok); _) =>
+      if next != line + size(split(text, '\n')) or tok == TKw("import") or tok == TKw("export") then Some(text) else None
+    case _ =>
+      None
   end
 
 function second_token(toks: Tokens): Token :=
@@ -104,6 +107,12 @@ function head_pos(toks: Tokens): Pos :=
 
 function at_kw(toks: Tokens, w: Str): Bool :=
   head_token(toks) == TKw(w)
+
+function at_doc(toks: Tokens): Bool :=
+  match head_token(toks)
+    case TDoc(_) => true
+    case _ => false
+  end
 
 function at_comma(toks: Tokens): Bool :=
   at_kw(toks, ",")
@@ -224,8 +233,6 @@ procedure parse_name_or_op(out name: Id, ref toks: Tokens) :=
       call parse_name(out name, ref toks)
   end
 
-// lists, whose items are parsed by procedures, as are those of sections
-
 // items, at least one, separated by the tokens that more finds
 procedure parse_separated[A](
   in  notation: Notation,
@@ -332,7 +339,6 @@ function cons_all[A](cons: (A, A) -> A, items: List[A], rest: A): A :=
 
 // precedence climbing over the tokens, as Mixfix of easyparse in cuvee, where prefix operators bind their operand
 // with their own precedence, and a left associative operator is applied to all operands of a chain at once
-
 data Ops[A] :=
   case Ops(
     what: Str,
@@ -452,7 +458,7 @@ function is_prec(fp: Option[Fixity * Int], prec: Int): Bool :=
 
 // types, whose operands are lists of types, since the arguments of a function are written (A, B),
 // and where a chain A * B * C is one tuple type, while (A * B) * C stays nested
-
+//
 // the type of an operand, which is a list of other than one type only as the arguments of a function
 function as_type(types: List[Type], pos: Pos): Type :=
   match types
@@ -521,8 +527,6 @@ procedure parse_type_atom(in notation: Notation, params: List[Id], out r: List[T
       end
     end
   end
-
-// expressions
 
 // -n for a number n is the negative literal, in patterns and expressions, and otherwise an operator is applied
 function expr_apply(f: Fixity, op: Id, pos: Pos, args: List[Expr]): Expr :=
@@ -721,8 +725,6 @@ procedure parse_lambda(in notation: Notation, params: List[Id], out expr: Expr, 
     end
   end
 
-// the forms list(…), set(…), map(…), and array(…)
-
 function form_of(kw: Str): Option[Form] :=
   match kw
     case "list" => Some(FormList)
@@ -847,7 +849,6 @@ procedure parse_cases[B](
   assign cases := list(for c in found)
 
 // patterns, where operators are constructors
-
 function pat_apply(f: Fixity, op: Id, pos: Pos, args: List[Pat]): Pat :=
   match args
     case list(PLit(LInt(num))) if f == FPrefix and op == "-" => PLit(LInt(0 - num))
@@ -929,8 +930,6 @@ procedure parse_pattern_atom(in notation: Notation, params: List[Id], out pat: P
         assign pat := pat_var(name)
       end
   end
-
-// statements
 
 function starts_stmt(tok: Token): Bool :=
   match tok
@@ -1189,8 +1188,6 @@ procedure parse_formals(in notation: Notation, params: List[Id], out xs: List[Va
   call expect(in TKw("("), ref toks)
   call parse_enclosed(in notation, params, parse_formal, ")", out xs, ref toks)
 
-// commands
-
 // the module d without its tests, as an import loads it
 function without_tests_of(d: Mod): Mod :=
   d with implemented := untested(d.implemented)
@@ -1270,6 +1267,7 @@ procedure parse_operator(in notation: Notation, params: List[Id], out op: Id, re
 procedure parse_constr(
   in  notation: Notation,
       params: List[Id],
+      doc: Str,
   out constr: Constr,
   ref toks: Tokens
 ) :=
@@ -1282,7 +1280,7 @@ procedure parse_constr(
     call parse_enclosed(in notation, params, parse_field, ")", out fields, ref toks)
   end
 
-  assign constr := Constr(unqualified(name), fields)
+  assign constr := Constr(doc, unqualified(name), fields)
 
   match repeated(list(for field in fields yield field.name))
     case Some(f) =>
@@ -1314,7 +1312,7 @@ procedure parse_data(in notation: Notation, out cmds: List[Cmd], ref toks: Token
   call   parse_params(in notation, out params, ref toks)
   call   expect(in TKw(":="), ref toks)
 
-  if not at_kw(toks, "case")
+  if not at_kw(toks, "case") and not (at_doc(toks) and second_token(toks) == TKw("case"))
     raise ParseError("each constructor follows case, as in data T := case C", head_pos(toks))
   end
 
@@ -1331,11 +1329,19 @@ procedure parse_data(in notation: Notation, out cmds: List[Cmd], ref toks: Token
 
 // the constructors of a datatype, each after case
 procedure parse_constrs(in notation: Notation, params: List[Id], out constrs: List[Constr], ref toks: Tokens) :=
-  local constr: Constr, rest: List[Constr]
+  local constr: Constr, rest: List[Constr], doc := ""
+
+  match toks
+    case list((_, TDoc(text)), (_, TKw("case")); _) =>
+      assign doc := text
+      call   advance(ref toks)
+    case _ =>
+      skip
+  end
 
   if at_kw(toks, "case")
     call   advance(ref toks)
-    call   parse_constr(in notation, params, out constr, ref toks)
+    call   parse_constr(in notation, params, doc, out constr, ref toks)
     call   parse_constrs(in notation, params, out rest, ref toks)
     assign constrs := list(constr; rest)
   else
@@ -1364,7 +1370,6 @@ procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) 
   call   expect(in TKw(":"), ref toks)
   call   parse_type(in notation, params, out r, ref toks)
 
-  // a signature in an export section has no body
   if head_token(toks) == TKw(":=")
     call   advance(ref toks)
     call   parse_expr(in notation, params, out body, ref toks)
@@ -1407,7 +1412,6 @@ procedure parse_command(in notation: Notation, out cmds: List[Cmd], ref toks: To
       call   parse_name(out name, ref toks)
       call   parse_params(in notation, out params, ref toks)
 
-      // an abstract type in an export section has no definition
       if head_token(toks) == TKw(":=")
         call   advance(ref toks)
         call   parse_type(in notation, params, out typ, ref toks)
@@ -1494,7 +1498,15 @@ procedure parse_mod(
 ) :=
   local imports: List[Id] := list(), notation := empty_notation(), plain: List[Top] := list(),
     exported: List[Top] := list(), builtins: List[Top] := list(), implemented: List[Top] := list(), more: List[Cmd],
-    section := Opening, pos: Pos, imported: Id, placed: List[Top], doc: Str
+    section := Opening, pos: Pos, imported: Id, placed: List[Top], doc: Str, mod_doc := ""
+
+  match module_doc(toks)
+    case Some(text) =>
+      assign mod_doc := text
+      call   advance(ref toks)
+    case None =>
+      skip
+  end
 
   call import_all(in implicit, None, loading, ref mods)
   call import_notations(in implicit, mods, ref notation)
@@ -1579,8 +1591,7 @@ procedure parse_mod(
     end
   end
 
-  // a module without sections has all its commands implemented
-  assign own := Mod(name, imports, reverse(exported), reverse(builtins), reverse(implemented) ++ reverse(plain))
+  assign own := Mod(name, mod_doc, imports, reverse(exported), reverse(builtins), reverse(implemented) ++ reverse(plain))
 
 // the section after the commands of one declaration, which must belong to the section
 procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
@@ -1699,7 +1710,6 @@ function module_name(path: Str): Str :=
 
 // the parser, tested by the trees of single constructs, parsed with their own notation from the empty context, which reads no
 // files
-
 function test_notation(): Str :=
   "infix right 8 ++\ninfix 6 ==\ninfix left 9 + -\ninfix left 10 *\nprefix 5 not\nprefix 11 -\n"
 
@@ -1723,6 +1733,27 @@ test parsed_docs() :=
   call   parse_text(in "// the answer\n// in two lines\nfunction f(): Int := 42\n\n// detached\n\nfunction g(): Int := 1\nfunction h(): Int := 2\n", out d)
   assert list(for top in d.implemented yield top.doc) == list("the answer\nin two lines", "", "")
   assert list(for top in d.implemented yield top.pos) == list(Pos(3, 1), Pos(7, 1), Pos(8, 1))
+
+test parsed_docs_of_modules_and_constructors() :=
+  local d: Mod, docs: List[Str] := list()
+
+  call   parse_text(in "// the module\n//\n// more\n\n// the function\nfunction f(): Int := 1\n", out d)
+  assert d.doc == "the module\n\nmore"
+  assert list(for top in d.implemented yield top.doc) == list("the function")
+  call   parse_text(in "// the function\nfunction f(): Int := 1\n", out d)
+  assert d.doc == "" and list(for top in d.implemented yield top.doc) == list("the function")
+  call   parse_text(in "// the module\nimport \"set.u\"\n", out d)
+  assert d.doc == "the module"
+  call   parse_text(in "data T :=\n  // first\n  // line\n  case A\n  case B(x: Int)\n\n// then\nfunction f(): Int := 1\n", out d)
+
+  match d.implemented
+    case list(Top(_, _, CData(_, _, constrs)), Top(_, doc, _)) =>
+      assign docs := list(for k in constrs yield k.doc) ++ list(doc)
+    case _ =>
+      skip
+  end
+
+  assert docs == list("first\nline", "", "then")
 
 test parsed_operators() :=
   local expr: Expr, a := expr_var("a"), b := expr_var("b"), c := expr_var("c")

@@ -45,7 +45,6 @@ data Expr :=
   case EIte(cond: Expr, then_expr: Expr, else_expr: Expr)
   case EMatch(expr: Expr, cases: List[Branch[Expr]])
   case ETuple(exprs: List[Expr])
-  // an exception, as an expression of any type
   case ERaise(expr: Expr, typ: Type)
   // list(a, b; r), set(…), map(k => v; r), and array(…), which the checker translates to the builders of their modules
   case EForm(form: Form, elems: List[Elem], rest: Option[Expr])
@@ -98,7 +97,7 @@ data Handler :=
   case Handler(typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
 
 data Constr :=
-  case Constr(name: Name, fields: List[Field])
+  case Constr(doc: Str, name: Name, fields: List[Field])
 
 data Field :=
   case Field(name: Id, typ: Type)
@@ -115,7 +114,6 @@ data Cmd :=
   case CData(name: Name, params: List[Id], constrs: List[Constr])
   case CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, body: Expr)
   case CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
-  // the first import of a module comes with the module itself, whose commands are those it declares
   case CNotation(fixity: Fixity, prec: Int, ops: List[Id])
   // tests take no parameters, which the checker enforces
   case CTest(test_name: Id, vars: List[Var], stmt: Stmt)
@@ -138,7 +136,7 @@ data Top :=
 
 // a module without sections has all its commands implemented and exports nothing
 data Mod :=
-  case Mod(name: Id, imports: List[Id], exported: List[Top], builtins: List[Top], implemented: List[Top])
+  case Mod(name: Id, doc: Str, imports: List[Id], exported: List[Top], builtins: List[Top], implemented: List[Top])
 
 // the modules in load order, each after the modules it imports, with main last
 data Source :=

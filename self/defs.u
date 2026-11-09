@@ -69,7 +69,7 @@ function constr_defs(cmds: List[Cmd]): List[Name * (Int * Int * Name)] :=
 function constrs_from(t: Name, ks: List[Constr], i: Int): List[Name * (Int * Int * Name)] :=
   match ks
     case list() => list()
-    case list(Constr(name, fields); rest) => list((name, (size(fields), i, t)); constrs_from(t, rest, i + 1))
+    case list(Constr(_, name, fields); rest) => list((name, (size(fields), i, t)); constrs_from(t, rest, i + 1))
   end
 
 function field_defs(cmds: List[Cmd]): List[(Name * Int) * List[Int]] :=

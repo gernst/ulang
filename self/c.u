@@ -21,7 +21,6 @@ data CExpr :=
   case CeArrow(base: CExpr, field: Str)
   case CeCast(typ: CType, operand: CExpr)
   case CeCond(cond: CExpr, then_expr: CExpr, else_expr: CExpr)
-  // the initializer {a, b} of a struct
   case CeInit(items: List[CExpr])
 
 data CStmt :=

@@ -225,8 +225,8 @@ function constructor_decls(t: Name, ks: List[Constr], i: Int): List[CDecl] :=
   match ks
     case list() => list()
     case list(k; rest) if contains(k.name, runtime_constructors()) => constructor_decls(t, rest, i + 1)
-    case list(Constr(name, list()); rest) => list(descriptor_decl(name, i, t), unit_decl(name, t); constructor_decls(t, rest, i + 1))
-    case list(Constr(name, _); rest) => list(descriptor_decl(name, i, t); constructor_decls(t, rest, i + 1))
+    case list(Constr(_, name, list()); rest) => list(descriptor_decl(name, i, t), unit_decl(name, t); constructor_decls(t, rest, i + 1))
+    case list(Constr(_, name, _); rest) => list(descriptor_decl(name, i, t); constructor_decls(t, rest, i + 1))
   end
 
 function in_scope(xs: List[Name]): Vars :=
@@ -422,7 +422,6 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
   local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], ra: CExpr, rb: CExpr, rc: CExpr, rs: List[CExpr], t: Str, d: Str
 
   match expr
-    // a string literal is a static object, which is created once, named after its text
     case ELit(LStr(text)) =>
       call   gen_name(in "l_" ++ mangle(unqualified(slice(text, 0, if size(text) < 16 then size(text) else 16))) ++ "_", out t, ref g)
       assign ss := list(CsDecl(CtNamed("static struct u_object"), t, Some(c_call("U_LIT", list(CeStr(text)))))), r := CeUnary("&", CeVar(t))
@@ -438,7 +437,6 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
           assign ss := list(), r := global_value(defs, name, typ)
       end
 
-    // |e for x in c, y in d if q| over lists and arrays, which fills an array without a list
     case EApp(EVar(Var(n, _)), list(EApp(EVar(Var(f, _)), list(xs, EVar(Var(k, _)), ELam(list(x, acc), body))))) if n == array_name() and k == nil_name() and fused(f, xs, x, body, acc.name) != None =>
       match fused(f, xs, x, body, acc.name)
         case Some((gs, q, e)) =>
@@ -447,7 +445,6 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
           raise Unsupported("an array comprehension")
       end
 
-    // |a, b|, whose elements are the items of the array
     case EApp(EVar(Var(name, _)), list(l)) if name == array_name() and list_literal(l) != None =>
       match list_literal(l)
         case Some(es) =>
@@ -850,7 +847,6 @@ procedure compile_stmt(in defs: Defs, env: Vars, s: Stmt, out ss: List[CStmt], r
       call   compile_stmt(in defs, env, else_stmt, out bs, ref g)
       assign ss := cs ++ list(CsIf(truth(rc), as, bs))
 
-    // the condition is computed before the loop and again at the end of each iteration
     case SWhile(cond, body) =>
       call   compile_expr(in defs, env, cond, out cs, rc, ref g)
       call   compile_stmt(in defs, env, body, out bs, ref g)
@@ -1018,8 +1014,6 @@ procedure compile_cmd(in defs: Defs, entry: Id, cmd: Cmd, out ds: List[CDecl], m
       assign params := list(for x in list(for x in ins yield x.name) yield (value_type(), var_name(x))) ++ list(for x in list(for x in outs ++ refs yield x.name) yield (value_ptr(), ref_name(x)))
       assign bs := copy_in(list(for x in outs yield x.name), list(for x in refs yield x.name)) ++ bs ++ copy_out(list(for x in outs ++ refs yield x.name))
       assign ds := list(CdFunction(CtVoid, proc_name(name), params, bs)), ms := list()
-
-    // main runs all tests for the entry test, which report that they passed
 
     case CTest(test_name, _, stmt) if entry == "test" =>
       call   compile_stmt(in defs, list(), stmt, out bs, ref g)

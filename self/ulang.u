@@ -169,7 +169,7 @@ function same_mods(mods: List[Mod], others: List[Mod]): Bool :=
       true
 
     case (list(d; more), list(e; rest)) =>
-      d.name == e.name and d.imports == e.imports and same_tops(d.exported, e.exported) and same_tops(d.builtins, e.builtins) and
+      d.name == e.name and d.doc == e.doc and d.imports == e.imports and same_tops(d.exported, e.exported) and same_tops(d.builtins, e.builtins) and
         same_tops(d.implemented, e.implemented) and same_mods(more, rest)
 
     case _ =>
@@ -364,8 +364,6 @@ function cmd_name(cmd: Cmd): Str :=
     case CTest(test_name, _, _) => test_name
     case _ => ""
   end
-
-// the messages of errors, without positions
 
 // the message of e, with the position of the command that raised it, and the module if it is not the main module
 function located_message(e: TypeError): Str :=

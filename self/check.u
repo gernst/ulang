@@ -45,7 +45,6 @@ data TypeError :=
   case TestParams(test_name: Id)
   case Unassigned(name: Name)
   case OutputUnassigned(output: Name, proc: Name)
-  // the errors of export sections
   case MissingDefinition(name: Name)
   case SignatureMismatch(name: Name)
   case PartlyExported(name: Name)
@@ -1382,8 +1381,6 @@ procedure generator(
       assign e1 := f1
   end
 
-// the translations of the forms
-
 function form_module(form: Form): Option[Id] :=
   match form
     case FormList => None
@@ -2099,7 +2096,7 @@ procedure declare_constrs(in cs: List[Id * Cmd], ref s: State) :=
 procedure declare_constructors(in n: Name, ps: List[Id], ks: List[Constr], ref s: State) :=
   local ts: List[Type]
 
-  for Constr(name, fields) in ks do
+  for Constr(_, name, fields) in ks do
     call   declare_name(in s.sig, name)
     call   knowns(in list(for field in fields yield field.typ), name, out ts, ref s)
     call   closed(in n, ps, ts)
@@ -2616,10 +2613,8 @@ test inference() :=
 
   call   type_of(in expr_app("<", list(expr_int(1), expr_int(2))), out t)
   assert t == type_bool()
-  // let id = lambda x => x in (id(1), id(true))
   call   type_of(in ELet(list((Var(unqualified("id"), THole), ELam(list(Var(unqualified("x"), THole)), expr_var("x")))), ETuple(list(expr_app("id", list(expr_int(1))), expr_app("id", list(ELit(LBool(true))))))), out t)
   assert t == TTuple(list(type_int(), type_bool()))
-  // lambda f => f(f)
   try
     call   type_of(in ELam(list(Var(unqualified("f"), THole)), expr_app("f", list(expr_var("f")))), out t)
     assert false
@@ -2697,8 +2692,6 @@ test statements() :=
       skip
   end
 
-// tests of overloading across modules
-
 function tsort(n: Id): Type :=
   TSort(unqualified(n), list())
 
@@ -2712,16 +2705,16 @@ function fun_cmd(n: Id, xs: List[Var], r: Type, b: Expr): Cmd :=
 // and that the program imports
 function bags(): List[Mod] :=
   list(
-    Mod("bag", list(), unplaced(list(
-      CData(unqualified("Bag"), list(), list(Constr(unqualified("Bag"), list(Field("n", type_int()))), Constr(unqualified("Leaf"), list(Field("n", type_int()))))),
-      CData(unqualified("Pt"), list(), list(Constr(unqualified("Pt"), list(Field("x", type_int()))))),
+    Mod("bag", "", list(), unplaced(list(
+      CData(unqualified("Bag"), list(), list(Constr("", unqualified("Bag"), list(Field("n", type_int()))), Constr("", unqualified("Leaf"), list(Field("n", type_int()))))),
+      CData(unqualified("Pt"), list(), list(Constr("", unqualified("Pt"), list(Field("x", type_int()))))),
       fun_cmd("size", list(var_of("b", tsort("Bag"))), type_int(), expr_int(1)),
       fun_cmd("compare", list(var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))), type_int(), expr_int(0)),
       CProc(unqualified("fill"), list(), list(), list(var_of("b", tsort("Bag"))), list(), SAssign(list((var_of("b", THole), expr_app("Bag", list(expr_int(0)))))))
     )), list(), list()),
-    Mod("box", list(), unplaced(list(
-      CData(unqualified("Box"), list(), list(Constr(unqualified("Box"), list(Field("s", type_str()))), Constr(unqualified("Leaf"), list(Field("s", type_str()))))),
-      CData(unqualified("Qt"), list(), list(Constr(unqualified("Qt"), list(Field("x", type_str()))))),
+    Mod("box", "", list(), unplaced(list(
+      CData(unqualified("Box"), list(), list(Constr("", unqualified("Box"), list(Field("s", type_str()))), Constr("", unqualified("Leaf"), list(Field("s", type_str()))))),
+      CData(unqualified("Qt"), list(), list(Constr("", unqualified("Qt"), list(Field("x", type_str()))))),
       fun_cmd("size", list(var_of("b", tsort("Box"))), type_int(), expr_int(2)),
       CProc(unqualified("fill"), list(), list(), list(var_of("b", tsort("Box"))), list(), SAssign(list((var_of("b", THole), expr_app("Box", list(ELit(LStr(""))))))))
     )), list(), list())
@@ -2729,7 +2722,7 @@ function bags(): List[Mod] :=
 
 // the program of the commands cmds of the module main, which imports bag and box
 function with_bags(cmds: List[Cmd]): Source :=
-  Source(list(natives_prelude(); bags()) ++ list(Mod("main", list("bag", "box"), list(), list(), unplaced(cmds))), "main")
+  Source(list(natives_prelude(); bags()) ++ list(Mod("main", "", list("bag", "box"), list(), list(), unplaced(cmds))), "main")
 
 function in_bag(n: Id): Name :=
   Name(Some("bag"), n)

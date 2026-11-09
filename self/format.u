@@ -26,7 +26,6 @@ implementation
 // programs as source, where the notation of the prelude, of the program, and of its imports decide where operators need
 // parentheses, and the translations of the parser are printed as what they translate, so that the source parses to the
 // same commands
-
 data Doc :=
   case Doc(text: Str, shape: Shape)
 
@@ -53,15 +52,13 @@ function imported_notation(mods: List[Mod], names: List[Id]): Notation :=
 // the imports of module d and its sections, where its export section declares the notation of the sections after it, and a
 // module that exports nothing has no sections
 function format_mod(notation: Notation, d: Mod): List[Str] :=
-  list(for n in d.imports yield "import " ++ quote(n ++ ".u")) ++
+  (if d.doc == "" then list() else list(doc_lines(d.doc))) ++ list(for n in d.imports yield "import " ++ quote(n ++ ".u")) ++
     if d.exported == list() and d.builtins == list() then
       format_cmds(notation, d.implemented)
     else
       let inner := with_notation(notation, commands_of(d.exported)) in
         list("export"; format_cmds(notation, d.exported)) ++ (if d.builtins == list() then list() else list("builtin"; format_cmds(inner, d.builtins))) ++
           (if d.implemented == list() then list() else list("implementation"; format_cmds(inner, d.implemented)))
-
-// operators and parentheses
 
 // op applied to the operands, if it is declared as an operator of their number
 function operator_doc(notation: Notation, op: Id, args: List[Doc]): Option[Doc] :=
@@ -119,7 +116,6 @@ function closed_text(d: Doc): Str :=
   parenthesized(d, d.shape == Open)
 
 // expressions, at the indentation of the line they start on
-
 function format_expr(notation: Notation, indent: Str, expr: Expr): Str :=
   expr_doc(notation, indent, expr).text
 
@@ -238,16 +234,12 @@ function case_head(notation: Notation, indent: Str, pat: Pat, guard: Option[Expr
 function deeper(indent: Str): Str :=
   indent ++ "  "
 
-// the translations of literals and comprehensions to the declarations of the module *, see declared of self/parse.u
-
 // the set or map after ; that a literal adds to, if it is not empty
 function rest_text(notation: Notation, indent: Str, rest: Option[Expr]): Str :=
   match rest
     case Some(r) => "; " ++ format_expr(notation, indent, r)
     case None => ""
   end
-
-// patterns
 
 function format_pattern(notation: Notation, pat: Pat): Str :=
   pattern_doc(notation, pat).text
@@ -298,7 +290,6 @@ function cons_pattern_rest(pat: Pat): Pat :=
   end
 
 // statements, each on a line of its own at indent
-
 function format_stmt(notation: Notation, indent: Str, s: Stmt): Str :=
   match s
     case SSkip =>
@@ -400,7 +391,6 @@ function formal_text(x: Var): Str :=
   if x.typ == THole then x.name.base else x.name.base ++ ": " ++ format_type(x.typ)
 
 // commands, where the notation of a command apply to those after it
-
 function format_cmds(notation: Notation, tops: List[Top]): List[Str] :=
   match tops
     case list() =>
@@ -413,9 +403,17 @@ function format_cmds(notation: Notation, tops: List[Top]): List[Str] :=
         end
   end
 
+// the lines of a documentation as comments
+function doc_lines(doc: Str): Str :=
+  join("\n", list(for line in split(doc, '\n') yield if line == "" then "//" else "// " ++ line))
+
 // the lines of a documentation as comments above its command, if there is any
 function doc_text(doc: Str): Str :=
-  if doc == "" then "" else join("\n", list(for line in split(doc, '\n') yield if line == "" then "//" else "// " ++ line)) ++ "\n"
+  if doc == "" then "" else doc_lines(doc) ++ "\n"
+
+// the lines of the documentation of a constructor as comments above it, each on a line of its own
+function constr_doc_text(doc: Str): Str :=
+  if doc == "" then "" else join("", list(for line in split(doc, '\n') yield if line == "" then "\n  //" else "\n  // " ++ line))
 
 function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
   match cmd
@@ -424,7 +422,7 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
     case CAbstract(name, params) =>
       Some("type " ++ name.base ++ params_text(params))
     case CData(name, params, constrs) =>
-      Some("data " ++ name.base ++ params_text(params) ++ " :=" ++ join("", list(for c in constrs yield "\n  case " ++ constr_text(c))))
+      Some("data " ++ name.base ++ params_text(params) ++ " :=" ++ join("", list(for c in constrs yield constr_doc_text(c.doc) ++ "\n  case " ++ constr_text(c))))
     case CFun(name, params, formals, typ, body) =>
       Some(function_head(name, params, formals, typ) ++ " :=\n  " ++ format_expr(notation, "  ", body))
     case CFunSig(name, params, formals, typ) =>
@@ -457,8 +455,8 @@ function fixity_text(f: Fixity): Str :=
 // C(f: T, g: U)
 function constr_text(c: Constr): Str :=
   match c
-    case Constr(name, list()) => name.base
-    case Constr(name, fields) => name.base ++ "(" ++ join(", ", list(for f in fields yield f.name ++ ": " ++ format_type(f.typ))) ++ ")"
+    case Constr(_, name, list()) => name.base
+    case Constr(_, name, fields) => name.base ++ "(" ++ join(", ", list(for f in fields yield f.name ++ ": " ++ format_type(f.typ))) ++ ")"
   end
 
 function test_operators(): Notation :=
@@ -514,7 +512,6 @@ test bodies() :=
   assert format_cmds(test_operators(), list(Top(Pos(0, 0), "note", CNotation(FLeft, 9, list("+"))), Top(Pos(0, 0), "", CNotation(FLeft, 8, list("-"))))) == list("// note\ninfix left 9 +", "infix left 8 -")
 
 // literals, types, patterns, and names by their structure, in a fixed notation
-
 function format_lit(lit: Lit): Str :=
   match lit
     case LUnit => "()"

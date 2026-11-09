@@ -43,7 +43,6 @@ data RuntimeError :=
   case NotProc(value: Value)
   // an access or update of a field, which the checker resolves to an accessor or updater
   case UnresolvedField(field: Id)
-  // a form that the checker translates
   case UntranslatedForm(form: Id)
 
 data Thrown :=
@@ -369,13 +368,11 @@ procedure apply_value(in run: Run, f: Value, vs: List[Value], out v: Value, ref 
         case ("show", list(a)) =>
           call   show_in(in run, a, out s, ref cache)
           assign v := VLit(LStr(s))
-        // integers directly, and other values by their order
         case ("<", list(VLit(LInt(a)), VLit(LInt(b)))) =>
           assign v := VLit(LBool(a < b))
         case ("<", list(a, b)) =>
           call   compare_values(in run, a, b, out k, ref cache)
           assign v := VLit(LBool(k < 0))
-        // the folds of arrays call f, from the last element and from the first
         case ("array.foldr", list(VArr(values), acc, g)) =>
           assign k := size(values), v := acc
           while k > 0
@@ -469,8 +466,6 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
     case ("prelude.%", list(VLit(LInt(a)), VLit(LInt(b)))) =>
       assign v := VLit(LInt(a % b))
 
-    // strings are converted with the builtins of the interpreter of this program
-
     case ("str.chars", list(VLit(LStr(text)))) =>
       assign v := list_value(list(for c in chars(text) yield VLit(LChar(c))))
 
@@ -495,8 +490,6 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
 
     case ("prelude.++", list(VLit(LStr(s)), VLit(LStr(t)))) =>
       assign v := VLit(LStr(s ++ t))
-
-    // the functions of the builtin section of str.u
 
     case ("str.size", list(VLit(LStr(text)))) =>
       assign v := VLit(LInt(size(text)))
@@ -553,8 +546,6 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
 
     case ("str.is_space", list(VLit(LChar(char)))) =>
       assign v := VLit(LBool(is_space(char)))
-
-    // the functions of the builtin section of array.u, by arrays of the interpreter of this program
 
     case ("array.from_list", list(w)) =>
       match list_elements(w)
@@ -1061,7 +1052,6 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
         call   os_print_error(in text)
         assign outs := list()
 
-      // os_exit does not return
       case ("os.os_exit", list(VLit(LInt(num)))) =>
         call   os_exit(in num)
         assign outs := list()
@@ -1148,9 +1138,7 @@ test expressions() :=
   call check_and_run(
     in list(
       asserting("p1", expr_app("len", list(expr_app("Cons", list(expr_int(1), expr_app("Cons", list(expr_int(2), expr_var("Nil"))))))), expr_int(2)),
-      // let f = lambda x => x * x in f(3) + f(4)
       asserting("p2", ELet(list((Var(unqualified("f"), THole), ELam(list(Var(unqualified("x"), THole)), expr_app("*", list(expr_var("x"), expr_var("x")))))), expr_app("+", list(expr_app("f", list(expr_int(3))), expr_app("f", list(expr_int(4)))))), expr_int(25)),
-      // false and 1 / 0 == 0
       asserting("p4", expr_app("and", list(ELit(LBool(false)), expr_app("==", list(expr_app("/", list(expr_int(1), expr_int(0))), expr_int(0))))), ELit(LBool(false)))
     )
   )
@@ -1158,7 +1146,7 @@ test expressions() :=
 // procedure sum(in n: Int, out s: Int) with a loop, and procedure size(ref k: Int) raising Fail after an increment
 function procedures(): List[Cmd] :=
   list(
-    CData(unqualified("Fail"), list(), list(Constr(unqualified("Fail"), list(Field("code", type_int()))))),
+    CData(unqualified("Fail"), list(), list(Constr("", unqualified("Fail"), list(Field("code", type_int()))))),
     CProc(
       unqualified("sum"),
       list(),
