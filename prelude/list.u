@@ -43,6 +43,10 @@ function concat[A](xss: List[List[A]]): List[A]
 function reverse_onto[A](xs: List[A], ys: List[A]): List[A]
 function reverse[A](xs: List[A]): List[A]
 function zip[A, B](xs: List[A], ys: List[B]): List[A * B]
+
+// the elements with their indices from 0
+function numbered[A](xs: List[A]): List[A * Int]
+
 function take[A](n: Int, xs: List[A]): List[A]
 function drop[A](n: Int, xs: List[A]): List[A]
 
@@ -167,6 +171,9 @@ function zip[A, B](xs: List[A], ys: List[B]): List[A * B] :=
     case _ => list()
   end
 
+function numbered[A](xs: List[A]): List[A * Int] :=
+  zip(xs, range(0, size(xs)))
+
 function take[A](n: Int, xs: List[A]): List[A] :=
   match xs
     case list() => list()
@@ -219,6 +226,7 @@ function joined_pairs(ss: List[Str]): List[Str] :=
   end
 
 test lists() :=
+  assert numbered(list("a", "b")) == list(("a", 0), ("b", 1)) and numbered(list()) == list()
   assert range(2, 5) == list(2, 3, 4) and range(5, 2) == list()
   assert list(1, 2) ++ list(3) == list(1, 2, 3) and size(list(1, 2, 3)) == 3
   assert get(2, list((1, "a"), (2, "b"), (2, "c"))) == Some("b") and get(3, list((1, "a"))) == None

@@ -286,10 +286,7 @@ function accessors(sig: Sig, f: Id, es: List[Id * List[Name]]): List[Name * (Lis
   end
 
 function visible_accessors(s: State, cs: List[Name * (List[Type] * Type)]): List[Name * (List[Type] * Type)] :=
-  match cs
-    case list() => list()
-    case list((d, sc); rest) => if is_visible(s, d) then list((d, sc); visible_accessors(s, rest)) else visible_accessors(s, rest)
-  end
+  list(for (d, sc) in cs if is_visible(s, d))
 
 // a procedure is a value of its type (in A, out B, ref C)
 function proc_scheme(sig: Sig, p: Name): List[Type] * Type :=
@@ -299,16 +296,10 @@ function proc_scheme(sig: Sig, p: Name): List[Type] * Type :=
   end
 
 function with_arity(cs: List[Name * (List[Type] * Type)], k: Int): List[Name * (List[Type] * Type)] :=
-  match cs
-    case list() => list()
-    case list((n, (ps, t)); rest) => if arity(t) == k then list((n, (ps, t)); with_arity(rest, k)) else with_arity(rest, k)
-  end
+  list(for (n, (ps, t)) in cs if arity(t) == k)
 
 function has_arity(scs: List[List[Type] * Type], k: Int): Bool :=
-  match scs
-    case list() => false
-    case list((_, t); rest) => arity(t) == k or has_arity(rest, k)
-  end
+  exists(scs, lambda (_, t) => arity(t) == k)
 
 function bind(xs: List[Var]): Env :=
   list(for x in xs yield (x.name, Local((list(), x.typ), true)))
@@ -334,10 +325,7 @@ function joined(env: Env, other: Env): Env :=
 
 // the variables after a raise, where no path continues, which joins with others as if it assigned all of them
 function unreachable(env: Env): Env :=
-  match env
-    case list() => list()
-    case list((n, l); rest) => list((n, l with assigned := true); unreachable(rest))
-  end
+  list(for (n, l) in env yield (n, l with assigned := true))
 
 procedure readable(in env: Env, n: Name) :=
   match get(n, env)
@@ -369,10 +357,7 @@ procedure outputs(in p: Name, os: List[Var], env: Env) :=
 
 // the unknowns of the types of env, which a let cannot generalize
 function fixed(su: Subst, env: Env): List[Type] :=
-  match env
-    case list() => list()
-    case list((_, Local((ps, t), _)); rest) => (free(zonk_type(su, t)) -- ps) ++ fixed(su, rest)
-  end
+  list(for (_, Local((ps, t), _)) in env for a in free(zonk_type(su, t)) -- ps yield a)
 
 function generalize(su: Subst, env: Env, t: Type): List[Type] * Type :=
   let fx := fixed(su, env), u := zonk_type(su, t) in
@@ -620,10 +605,7 @@ function fields_of(sig: Sig, su: Subst, t: Type, h: Head): List[Type] :=
   end
 
 function covers(hs: List[Head], ks: List[Head * List[Type]]): Bool :=
-  match ks
-    case list() => true
-    case list((h, _); rest) => contains(h, hs) and covers(hs, rest)
-  end
+  forall(ks, lambda (h, _) => contains(h, hs))
 
 // the rows whose first pattern has no constructor, without it
 function defaults(rows: List[List[Pat]]): List[List[Pat]] :=
@@ -673,12 +655,7 @@ function useful_in(
   pats: List[Pat],
   rest: List[Type]
 ): Bool :=
-  match ks
-    case list() => false
-    case list((h, args); more) =>
-      useful(sig, su, specialize(rows, h, size(args)), replicate(size(args), PWild) ++ pats, args ++ rest) or
-      useful_in(sig, su, rows, more, pats, rest)
-  end
+  exists(ks, lambda (h, args) => useful(sig, su, specialize(rows, h, size(args)), replicate(size(args), PWild) ++ pats, args ++ rest))
 
 function witness(h: Head, args: List[Pat]): Pat :=
   match h
@@ -823,27 +800,23 @@ procedure unifies(in xs: List[Type], ys: List[Type], ref s: State) :=
   end
 
 procedure fresh_list[A](in xs: List[A], out ts: List[Type], ref s: State) :=
-  local t: Type, rest: List[Type]
+  local t: Type
 
-  match xs
-    case list() =>
-      assign ts := list()
-    case list(_; more) =>
-      call   fresh(out t, ref s)
-      call   fresh_list(in more, out rest, ref s)
-      assign ts := list(t; rest)
+  assign ts := list()
+
+  for _ in xs do
+    call   fresh(out t, ref s)
+    assign ts := ts ++ list(t)
   end
 
 procedure instance(in ps: List[Type], out m: List[Type * Type], ref s: State) :=
-  local t: Type, rest: List[Type * Type]
+  local t: Type
 
-  match ps
-    case list() =>
-      assign m := list()
-    case list(p; qs) =>
-      call   fresh(out t, ref s)
-      call   instance(in qs, out rest, ref s)
-      assign m := list((p, t); rest)
+  assign m := list()
+
+  for p in ps do
+    call   fresh(out t, ref s)
+    assign m := m ++ list((p, t))
   end
 
 procedure instantiate(in sc: List[Type] * Type, out t: Type, ref s: State) :=
@@ -941,15 +914,13 @@ procedure normalize_sort(in n: Name, args: List[Type], out u: Type, ref s: State
   end
 
 procedure normalizes(in ts: List[Type], out us: List[Type], ref s: State) :=
-  local u: Type, rest: List[Type]
+  local u: Type
 
-  match ts
-    case list() =>
-      assign us := list()
-    case list(t; more) =>
-      call   normalize(in t, out u, ref s)
-      call   normalizes(in more, out rest, ref s)
-      assign us := list(u; rest)
+  assign us := list()
+
+  for t in ts do
+    call   normalize(in t, out u, ref s)
+    assign us := us ++ list(u)
   end
 
 procedure known(in t: Type, what: Name, out u: Type, ref s: State) :=
@@ -959,15 +930,13 @@ procedure known(in t: Type, what: Name, out u: Type, ref s: State) :=
   call normalize(in t, out u, ref s)
 
 procedure knowns(in ts: List[Type], what: Name, out us: List[Type], ref s: State) :=
-  local u: Type, rest: List[Type]
+  local u: Type
 
-  match ts
-    case list() =>
-      assign us := list()
-    case list(t; more) =>
-      call   known(in t, what, out u, ref s)
-      call   knowns(in more, what, out rest, ref s)
-      assign us := list(u; rest)
+  assign us := list()
+
+  for t in ts do
+    call   known(in t, what, out u, ref s)
+    assign us := us ++ list(u)
   end
 
 // the variables of a lambda, a let, or locals, which are what, e.g. formals
@@ -976,15 +945,13 @@ procedure formals(in what: Str, xs: List[Var], out ys: List[Var], ref s: State) 
   call   normalize_vars(in xs, out ys, ref s)
 
 procedure normalize_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
-  local u: Type, rest: List[Var]
+  local u: Type
 
-  match xs
-    case list() =>
-      assign ys := list()
-    case list(Var(name, typ); more) =>
-      call   normalize(in typ, out u, ref s)
-      call   normalize_vars(in more, out rest, ref s)
-      assign ys := list(Var(name, u); rest)
+  assign ys := list()
+
+  for Var(name, typ) in xs do
+    call   normalize(in typ, out u, ref s)
+    assign ys := ys ++ list(Var(name, u))
   end
 
 // the parameters and locals, which have types
@@ -993,15 +960,13 @@ procedure signature(in xs: List[Var], out ys: List[Var], ref s: State) :=
   call   known_vars(in xs, out ys, ref s)
 
 procedure known_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
-  local u: Type, rest: List[Var]
+  local u: Type
 
-  match xs
-    case list() =>
-      assign ys := list()
-    case list(Var(name, typ); more) =>
-      call   known(in typ, name, out u, ref s)
-      call   known_vars(in more, out rest, ref s)
-      assign ys := list(Var(name, u); rest)
+  assign ys := list()
+
+  for Var(name, typ) in xs do
+    call   known(in typ, name, out u, ref s)
+    assign ys := ys ++ list(Var(name, u))
   end
 
 // a use of n elaborated with an instance of sc, where w is normalized
@@ -1053,26 +1018,23 @@ procedure trials(
       s: State,
   out ok: List[(Name * (List[Type] * Type)) * State]
 ) :=
-  local rest: List[(Name * (List[Type] * Type)) * State], u: State, failed: Option[TypeError]
+  local u: State, failed: Option[TypeError]
 
-  match cs
-    case list() =>
-      assign ok := list()
-    case list((m, sc); more) =>
-      call   trials(in more, w, s, out rest)
-      assign u := s, failed := None
-      try
-        call trial(in sc, w, ref u)
-      catch
-        case e =>
-          assign failed := Some(e)
-      end
+  assign ok := list()
 
-      if failed == None
-        assign ok := list(((m, sc), u); rest)
-      else
-        assign ok := rest
-      end
+  for (m, sc) in cs do
+    assign u := s, failed := None
+
+    try
+      call trial(in sc, w, ref u)
+    catch
+      case e =>
+        assign failed := Some(e)
+    end
+
+    if failed == None
+      assign ok := ok ++ list(((m, sc), u))
+    end
   end
 
 procedure trial(in sc: List[Type] * Type, w: Type, ref s: State) :=
@@ -1152,24 +1114,24 @@ procedure settle(ref s: State) :=
 
 // the states after choosing each candidate of the use p, of those after which every open use of rest has a candidate that fits
 procedure viable(in cands: List[(Name * (List[Type] * Type)) * State], p: Pending, rest: List[Pending], out states: List[State]) :=
-  local t: State, failed := false
+  local t: State, failed: Bool
 
-  match cands
-    case list() =>
-      assign states := list()
-    case list(((m, _), s1); more) =>
-      call   viable(in more, p, rest, out states)
-      assign t := s1 with pending := rest, chosen := put(p.id, m, s1.chosen)
-      try
-        call solve(ref t)
-      catch
-        case NoOverload(_, _) =>
-          assign failed := true
-      end
+  assign states := list()
 
-      if not failed
-        assign states := list(t; states)
-      end
+  for ((m, _), s1) in cands do
+    assign t := s1 with pending := rest, chosen := put(p.id, m, s1.chosen)
+    assign failed := false
+
+    try
+      call solve(ref t)
+    catch
+      case NoOverload(_, _) =>
+        assign failed := true
+    end
+
+    if not failed
+      assign states := states ++ list(t)
+    end
   end
 
 // the types of a use without unknowns, for which the candidates that fit stay the same
@@ -1201,10 +1163,7 @@ function own_fits(
   s: State,
   ok: List[(Name * (List[Type] * Type)) * State]
 ): List[(Name * (List[Type] * Type)) * State] :=
-  match ok
-    case list() => list()
-    case list(((n, sc), u); rest) => if n.module == Some(s.module) then list(((n, sc), u); own_fits(s, rest)) else own_fits(s, rest)
-  end
+  list(for ((n, sc), u) in ok if n.module == Some(s.module))
 
 // the candidates of cs that are instances of all of all, if specific, or of which all of all are instances
 procedure most(
@@ -1214,19 +1173,16 @@ procedure most(
       s: State,
   out best: List[(Name * (List[Type] * Type)) * State]
 ) :=
-  local rest: List[(Name * (List[Type] * Type)) * State], yes: Bool
+  local yes: Bool
 
-  match cs
-    case list() =>
-      assign best := list()
-    case list(c; more) =>
-      call most(in more, all, specific, s, out rest)
-      call dominates(in fst_of(c), firsts(all), specific, s, out yes)
-      if yes
-        assign best := list(c; rest)
-      else
-        assign best := rest
-      end
+  assign best := list()
+
+  for c in cs do
+    call dominates(in fst_of(c), firsts(all), specific, s, out yes)
+
+    if yes
+      assign best := best ++ list(c)
+    end
   end
 
 function fst_of[A, B](p: A * B): A :=
@@ -1290,10 +1246,7 @@ procedure instance_of(in c: Name * (List[Type] * Type), d: Name * (List[Type] * 
   assign yes := failed == None
 
 function own[A](s: State, cs: List[Name * A]): List[Name * A] :=
-  match cs
-    case list() => list()
-    case list((n, a); rest) => if n.module == Some(s.module) then list((n, a); own(s, rest)) else own(s, rest)
-  end
+  list(for (n, a) in cs if n.module == Some(s.module))
 
 procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
   local sc: List[Type] * Type, m: Name, x: Var, xs: List[Var], ys: List[Var], zs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, w: Type,
@@ -1626,15 +1579,13 @@ procedure checks(in env: Env, what: Str, exprs: List[Expr], ts: List[Type], out 
   end
 
 procedure infers(in env: Env, exprs: List[Expr], out es1: List[Expr], ts: List[Type], ref s: State) :=
-  local e1: Expr, t: Type, rest: List[Expr], us: List[Type]
+  local e1: Expr, t: Type
 
-  match exprs
-    case list() =>
-      assign es1 := list(), ts := list()
-    case list(e; more) =>
-      call   infer(in env, e, out e1, t, ref s)
-      call   infers(in env, more, out rest, us, ref s)
-      assign es1 := list(e1; rest), ts := list(t; us)
+  assign es1 := list(), ts := list()
+
+  for e in exprs do
+    call   infer(in env, e, out e1, t, ref s)
+    assign es1 := es1 ++ list(e1), ts := ts ++ list(t)
   end
 
 procedure expr_branches(
@@ -1680,11 +1631,7 @@ procedure coverage(in s: State, t: Type, cs: List[Pat * Bool]) :=
   end
 
 function unguarded(cs: List[Pat * Bool]): List[Pat] :=
-  match cs
-    case list() => list()
-    case list((p, true); rest) => list(p; unguarded(rest))
-    case list((_, false); rest) => unguarded(rest)
-  end
+  list(for (p, g) in cs if g yield p)
 
 procedure reachable(in s: State, t: Type, before: List[Pat], cs: List[Pat * Bool]) :=
   match cs
@@ -1819,15 +1766,13 @@ procedure variable(in env: Env, assignable: List[Name], x: Var, out y: Var, ref 
   end
 
 procedure variables(in env: Env, assignable: List[Name], xs: List[Var], out ys: List[Var], ref s: State) :=
-  local y: Var, rest: List[Var]
+  local y: Var
 
-  match xs
-    case list() =>
-      assign ys := list()
-    case list(x; more) =>
-      call   variable(in env, assignable, x, out y, ref s)
-      call   variables(in env, assignable, more, out rest, ref s)
-      assign ys := list(y; rest)
+  assign ys := list()
+
+  for x in xs do
+    call   variable(in env, assignable, x, out y, ref s)
+    assign ys := ys ++ list(y)
   end
 
 // env tells which variables are assigned on every path to x, and after it
@@ -1921,15 +1866,13 @@ procedure untyped(in xs: List[Var], inits: List[Name]) :=
   end
 
 procedure statements(in assignable: List[Name], xs: List[Stmt], out ys: List[Stmt], ref env: Env, s: State) :=
-  local y: Stmt, rest: List[Stmt]
+  local y: Stmt
 
-  match xs
-    case list() =>
-      assign ys := list()
-    case list(x; more) =>
-      call   statement(in assignable, x, out y, ref env, s)
-      call   statements(in assignable, more, out rest, ref env, s)
-      assign ys := list(y; rest)
+  assign ys := list()
+
+  for x in xs do
+    call   statement(in assignable, x, out y, ref env, s)
+    assign ys := ys ++ list(y)
   end
 
 // the procedures of the program hide the builtin ones
@@ -2332,14 +2275,16 @@ function failing(t: Name, ps: List[Id], op: Id, r: Type, e: Id): Cmd :=
     )
 
 // the commands of ds without signatures and abstract types, which only the checks of sections need
-function definitions(ds: List[Id * Cmd]): List[Id * Cmd] :=
-  match ds
-    case list() => list()
-    case list((_, CFunSig(_, _, _, _)); rest) => definitions(rest)
-    case list((_, CProcSig(_, _, _, _, _)); rest) => definitions(rest)
-    case list((_, CAbstract(_, _)); rest) => definitions(rest)
-    case list(d; rest) => list(d; definitions(rest))
+function is_definition(d: Id * Cmd): Bool :=
+  match d
+    case (_, CFunSig(_, _, _, _)) => false
+    case (_, CProcSig(_, _, _, _, _)) => false
+    case (_, CAbstract(_, _)) => false
+    case _ => true
   end
+
+function definitions(ds: List[Id * Cmd]): List[Id * Cmd] :=
+  list(for d in ds if is_definition(d))
 
 // the signatures and types of the builtin section of d as definitions to declare, whose definitions the interpreter and the
 // runtime give, where a type is a datatype without constructors, whose values the interpreter and the runtime make
@@ -2615,10 +2560,7 @@ function decls_of(d: Mod): List[Pos * (Id * Cmd)] :=
   list(for top in placed_of(d) yield (top.pos, (d.name, qualify(d.name, top.cmd))))
 
 function placed_definitions(placed: List[Pos * (Id * Cmd)]): List[Pos * (Id * Cmd)] :=
-  match placed
-    case list() => list()
-    case list((p, d); rest) => if definitions(list(d)) == list() then placed_definitions(rest) else list((p, d); placed_definitions(rest))
-  end
+  list(for (p, d) in placed if is_definition(d))
 
 // the declarations of a phase, one by one, where an error is located at the declaration that raises it
 procedure each_placed(in phase: (in List[Id * Cmd], ref State), placed: List[Pos * (Id * Cmd)], ref s: State) :=

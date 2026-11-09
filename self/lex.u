@@ -4,6 +4,7 @@
 import "syntax.u"
 import "os.u"
 import "set.u"
+import "buffer.u"
 
 export
 
@@ -17,6 +18,9 @@ data Token :=
   case TNum(num: Int)
   case TStr(text: Str)
   case TChar(char: Char)
+  // the lines of a run of comments at the start of lines, without their markers, directly above a line that starts with a
+  // letter, joined by newlines
+  case TDoc(text: Str)
   case TEnd
 
 // tokens with their positions
@@ -169,6 +173,21 @@ procedure lex_char(in text: Str, out tok: Token, ref offset: Int) :=
 
   assign tok := TChar(at(0, contents))
 
+// the lines of the run of comments at offset, which is at the start of a line, with the markers // and the space after them
+// removed, joined by newlines, where offset ends at the start of the line after the run, and above tells whether a line
+// that starts with a letter follows
+procedure lex_doc(in text: Str, out doc: Str, above: Bool, ref offset: Int) :=
+  local lines: List[Str] := list(), from: Int, line: Str
+
+  while peek(text, offset) == '/' and peek(text, offset + 1) == '/'
+    call   scan(in text, lambda c => c != '\n', out from, ref offset)
+    assign line := slice(text, from + 2, offset)
+    assign lines := list(if starts_with(line, " ") then slice(line, 1, size(line)) else line; lines)
+    assign offset := if offset < size(text) then offset + 1 else offset
+  end
+
+  assign doc := join("\n", reverse(lines)), above := is_letter(peek(text, offset))
+
 // the token at offset, where offset ends after it
 procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
   local c := at(offset, text)
@@ -193,7 +212,7 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
 // the tokens of text with their positions, which end with TEnd at the end of text, where line and column are those of
 // offset last
 procedure lex(in text: Str, out toks: Tokens) :=
-  local offset := 0, rev: Tokens := list(), start: Int, tok: Token, last := 0, line := 1, column := 1
+  local offset := 0, found: Buffer[Pos * Token] := empty(), start: Int, tok: Token, last := 0, line := 1, column := 1, doc: Str, above: Bool
 
   while offset < size(text)
     assign start := offset
@@ -202,17 +221,26 @@ procedure lex(in text: Str, out toks: Tokens) :=
       assign offset := offset + 1
     else
       if at(offset, text) == '/' and peek(text, offset + 1) == '/'
-        call scan(in text, lambda c => c != '\n', out start, ref offset)
+        if offset == 0 or at(offset - 1, text) == '\n'
+          call lex_doc(in text, out doc, above, ref offset)
+
+          if above
+            call   lex_move_position(in text, last, start, ref line, column)
+            assign found := found ++ list((Pos(line, column), TDoc(doc))), last := start
+          end
+        else
+          call scan(in text, lambda c => c != '\n', out start, ref offset)
+        end
       else
         call   lex_token(in text, out tok, ref offset)
         call   lex_move_position(in text, last, start, ref line, column)
-        assign rev := list((Pos(line, column), tok); rev), last := start
+        assign found := found ++ list((Pos(line, column), tok)), last := start
       end
     end
   end
 
   call   lex_move_position(in text, last, offset, ref line, column)
-  assign toks := reverse(list((Pos(line, column), TEnd); rev))
+  assign toks := list(for t in found ++ list((Pos(line, column), TEnd)))
 
 function tokens(toks: Tokens): List[Token] :=
   seconds(toks)
@@ -239,6 +267,13 @@ test lex_tokens() :=
       (Pos(2, 3), TName("y")),
       (Pos(2, 4), TEnd)
     )
+
+test lex_docs() :=
+  local toks: Tokens
+
+  call   lex(in "// a\n//  b\n//\nf\n\n// detached\n\ng\n  // indented\nh // trailing\ni", out toks)
+  assert tokens(toks) == list(TDoc("a\n b\n"), TName("f"), TName("g"), TName("h"), TName("i"), TEnd)
+  assert firsts(toks) == list(Pos(1, 1), Pos(4, 1), Pos(8, 1), Pos(10, 1), Pos(11, 1), Pos(11, 2))
 
 test lex_literals() :=
   local toks: Tokens

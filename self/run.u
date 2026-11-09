@@ -271,15 +271,13 @@ procedure evaluate(in run: Run, env: Bindings, expr: Expr, out v: Value, ref cac
   end
 
 procedure evaluate_all(in run: Run, env: Bindings, exprs: List[Expr], out vs: List[Value], ref cache: Map[Name, Value]) :=
-  local v: Value, rest: List[Value]
+  local v: Value
 
-  match exprs
-    case list() =>
-      assign vs := list()
-    case list(e; more) =>
-      call   evaluate(in run, env, e, out v, ref cache)
-      call   evaluate_all(in run, env, more, out rest, ref cache)
-      assign vs := list(v; rest)
+  assign vs := list()
+
+  for e in exprs do
+    call   evaluate(in run, env, e, out v, ref cache)
+    assign vs := vs ++ list(v)
   end
 
 // unqualified names are local variables or builtins without a module, since the checker qualifies the names of declarations
@@ -712,15 +710,13 @@ procedure show_in(in run: Run, v: Value, out s: Str, ref cache: Map[Name, Value]
   end
 
 procedure show_all(in run: Run, vs: List[Value], out texts: List[Str], ref cache: Map[Name, Value]) :=
-  local s: Str, rest: List[Str]
+  local s: Str
 
-  match vs
-    case list() =>
-      assign texts := list()
-    case list(v; more) =>
-      call   show_in(in run, v, out s, ref cache)
-      call   show_all(in run, more, out rest, ref cache)
-      assign texts := list(s; rest)
+  assign texts := list()
+
+  for v in vs do
+    call   show_in(in run, v, out s, ref cache)
+    assign texts := texts ++ list(s)
   end
 
 function order(x: Int, y: Int): Int :=
@@ -1080,10 +1076,7 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
 
 // the entries of a directory as values of the program
 function entry_values(entries: List[Str * Bool]): List[Value] :=
-  match entries
-    case list() => list()
-    case list((name, dir); rest) => list(VObj(tuple_name(), list(VLit(LStr(name)), VLit(LBool(dir)))); entry_values(rest))
-  end
+  list(for (name, dir) in entries yield VObj(tuple_name(), list(VLit(LStr(name)), VLit(LBool(dir)))))
 
 // calls the procedure n without parameters
 procedure run_proc(in run: Run, n: Name, ref cache: Map[Name, Value]) :=

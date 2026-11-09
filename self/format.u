@@ -55,11 +55,11 @@ function imported_notation(mods: List[Mod], names: List[Id]): Notation :=
 function format_mod(notation: Notation, d: Mod): List[Str] :=
   list(for n in d.imports yield "import " ++ quote(n ++ ".u")) ++
     if d.exported == list() and d.builtins == list() then
-      format_cmds(notation, commands_of(d.implemented))
+      format_cmds(notation, d.implemented)
     else
       let inner := with_notation(notation, commands_of(d.exported)) in
-        list("export"; format_cmds(notation, commands_of(d.exported))) ++ (if d.builtins == list() then list() else list("builtin"; format_cmds(inner, commands_of(d.builtins)))) ++
-          (if d.implemented == list() then list() else list("implementation"; format_cmds(inner, commands_of(d.implemented))))
+        list("export"; format_cmds(notation, d.exported)) ++ (if d.builtins == list() then list() else list("builtin"; format_cmds(inner, d.builtins))) ++
+          (if d.implemented == list() then list() else list("implementation"; format_cmds(inner, d.implemented)))
 
 // operators and parentheses
 
@@ -401,17 +401,21 @@ function formal_text(x: Var): Str :=
 
 // commands, where the notation of a command apply to those after it
 
-function format_cmds(notation: Notation, cmds: List[Cmd]): List[Str] :=
-  match cmds
+function format_cmds(notation: Notation, tops: List[Top]): List[Str] :=
+  match tops
     case list() =>
       list()
-    case list(cmd; more) =>
-      let after := with_notation(notation, list(cmd)) in
-        match format_cmd(notation, cmd)
-          case Some(text) => list(text; format_cmds(after, more))
+    case list(top; more) =>
+      let after := with_notation(notation, list(top.cmd)) in
+        match format_cmd(notation, top.cmd)
+          case Some(text) => list(doc_text(top.doc) ++ text; format_cmds(after, more))
           case None => format_cmds(after, more)
         end
   end
+
+// the lines of a documentation as comments above its command, if there is any
+function doc_text(doc: Str): Str :=
+  if doc == "" then "" else join("\n", list(for line in split(doc, '\n') yield if line == "" then "//" else "// " ++ line)) ++ "\n"
 
 function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
   match cmd
@@ -506,6 +510,8 @@ test bodies() :=
 
   assert format_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y\n  skip\nelse\n  if x\n  end\nend"
   assert format_cmd(test_operators(), CNotation(FLeft, 9, list("+", "-"))) == Some("infix left 9 + -")
+  assert doc_text("") == "" and doc_text("a\n b\n") == "// a\n//  b\n//\n"
+  assert format_cmds(test_operators(), list(Top(Pos(0, 0), "note", CNotation(FLeft, 9, list("+"))), Top(Pos(0, 0), "", CNotation(FLeft, 8, list("-"))))) == list("// note\ninfix left 9 +", "infix left 8 -")
 
 // literals, types, patterns, and names by their structure, in a fixed notation
 

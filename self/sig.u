@@ -64,10 +64,7 @@ function owned_map[V](m: Map[Name, V], ms: List[Id]): Map[Name, V] :=
   map(for (k, v) in owned(list(for k => v in m), ms))
 
 function owned[V](es: List[Name * V], ms: List[Id]): List[Name * V] :=
-  match es
-    case list() => list()
-    case list((n, v); rest) => if in_modules(n, ms) then list((n, v); owned(rest, ms)) else owned(rest, ms)
-  end
+  list(for (n, v) in es if in_modules(n, ms))
 
 function owned_named(es: List[Id * List[Name]], ms: List[Id]): List[Id * List[Name]] :=
   match es

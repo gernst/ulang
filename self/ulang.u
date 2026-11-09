@@ -11,6 +11,7 @@ import "error.u"
 import "compile.u"
 import "os.u"
 import "map.u"
+import "buffer.u"
 
 data TestFailed :=
   case TestFailed(message: Str)
@@ -150,7 +151,7 @@ procedure format_file(in file: Str, out ok: Bool) :=
   try
     call parse_file_text(in file, source, out q)
 
-    if list(for d in p.mods yield without_positions(d)) == list(for d in q.mods yield without_positions(d))
+    if same_mods(p.mods, q.mods)
       call   os_print(in slice(source, 0, size(source) - 1))
       assign ok := true
     else
@@ -161,8 +162,31 @@ procedure format_file(in file: Str, out ok: Bool) :=
       call os_print_error(in file ++ ": format error: the source does not parse: " ++ message)
   end
 
-function without_positions(d: Mod): Mod :=
-  d with exported := unplaced(commands_of(d.exported)), builtins := unplaced(commands_of(d.builtins)), implemented := unplaced(commands_of(d.implemented))
+// whether the modules have the same names, imports, and commands with their documentation, whatever their positions
+function same_mods(mods: List[Mod], others: List[Mod]): Bool :=
+  match (mods, others)
+    case (list(), list()) =>
+      true
+
+    case (list(d; more), list(e; rest)) =>
+      d.name == e.name and d.imports == e.imports and same_tops(d.exported, e.exported) and same_tops(d.builtins, e.builtins) and
+        same_tops(d.implemented, e.implemented) and same_mods(more, rest)
+
+    case _ =>
+      false
+  end
+
+function same_tops(tops: List[Top], others: List[Top]): Bool :=
+  match (tops, others)
+    case (list(), list()) =>
+      true
+
+    case (list(top; more), list(other; rest)) =>
+      top.doc == other.doc and top.cmd == other.cmd and same_tops(more, rest)
+
+    case _ =>
+      false
+  end
 
 // calls the procedure name of file, which takes no parameters, and prints as it runs
 procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
@@ -246,16 +270,14 @@ procedure test_paths(in paths: List[Str], out ok: Bool) :=
   assign ok := failed == 0
 
 procedure walk_all(in paths: List[Str], out files: List[Str]) :=
-  local here: List[Str], rest: List[Str]
+  local here: List[Str], found: Buffer[Str] := empty()
 
-  match paths
-    case list() =>
-      assign files := list()
-    case list(path; more) =>
-      call   os_walk(in path, out here)
-      call   walk_all(in more, out rest)
-      assign files := here ++ rest
+  for path in paths do
+    call   os_walk(in path, out here)
+    assign found := found ++ here
   end
+
+  assign files := list(for file in found)
 
 function is_source(path: Str): Bool :=
   size(path) > 2 and ends_with(path, ".u")

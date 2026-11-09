@@ -12,6 +12,7 @@ import "parse.u"
 import "os.u"
 import "map.u"
 import "set.u"
+import "buffer.u"
 
 export
 
@@ -286,12 +287,6 @@ function constr_arity(d: Int * Int * Name): Int :=
     case (k, _, _) => k
   end
 
-function numbered[A](xs: List[A], i: Int): List[A * Int] :=
-  match xs
-    case list() => list()
-    case list(x; rest) => list((x, i); numbered(rest, i + 1))
-  end
-
 function index(a: Str, i: Int): CExpr :=
   CeIndex(CeVar(a), CeNum(i))
 
@@ -321,31 +316,25 @@ function literal_value(l: Lit): CExpr :=
 function pattern_tests(pat: Pat, v: CExpr): List[CExpr] :=
   match pat
     case PLit(lit) => list(c_call("u_equals", list(v, literal_value(lit))))
-    case PApp(constr, pats) => list(c_call("u_is_con", list(v, descriptor(constr)))) ++ field_tests(numbered(pats, 0), v)
-    case PTuple(pats) => field_tests(numbered(pats, 0), v)
+    case PApp(constr, pats) => list(c_call("u_is_con", list(v, descriptor(constr)))) ++ field_tests(numbered(pats), v)
+    case PTuple(pats) => field_tests(numbered(pats), v)
     case _ => list()
   end
 
 function field_tests(ps: List[Pat * Int], v: CExpr): List[CExpr] :=
-  match ps
-    case list() => list()
-    case list((p, i); rest) => pattern_tests(p, field(v, i)) ++ field_tests(rest, v)
-  end
+  list(for (p, i) in ps for t in pattern_tests(p, field(v, i)) yield t)
 
 // the declarations of the variables of pat, where v matches pat
 function pattern_binds(pat: Pat, v: CExpr): List[CStmt] :=
   match pat
     case PVar(Var(name, _)) => list(CsDecl(value_type(), var_name(name), Some(v)))
-    case PApp(_, pats) => field_binds(numbered(pats, 0), v)
-    case PTuple(pats) => field_binds(numbered(pats, 0), v)
+    case PApp(_, pats) => field_binds(numbered(pats), v)
+    case PTuple(pats) => field_binds(numbered(pats), v)
     case _ => list()
   end
 
 function field_binds(ps: List[Pat * Int], v: CExpr): List[CStmt] :=
-  match ps
-    case list() => list()
-    case list((p, i); rest) => pattern_binds(p, field(v, i)) ++ field_binds(rest, v)
-  end
+  list(for (p, i) in ps for b in pattern_binds(p, field(v, i)) yield b)
 
 function pattern_names(pat: Pat): List[Name] :=
   match pat
@@ -540,28 +529,24 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
   end
 
 procedure compile_exprs(in defs: Defs, env: Vars, exprs: List[Expr], out ss: List[CStmt], rs: List[CExpr], ref g: Gen) :=
-  local as: List[CStmt], r: CExpr, bs: List[CStmt], more: List[CExpr]
+  local as: List[CStmt], r: CExpr
 
-  match exprs
-    case list() =>
-      assign ss := list(), rs := list()
-    case list(e; rest) =>
-      call   compile_expr(in defs, env, e, out as, r, ref g)
-      call   compile_exprs(in defs, env, rest, out bs, more, ref g)
-      assign ss := as ++ bs, rs := list(r; more)
+  assign ss := list(), rs := list()
+
+  for e in exprs do
+    call   compile_expr(in defs, env, e, out as, r, ref g)
+    assign ss := ss ++ as, rs := rs ++ list(r)
   end
 
 // the values rs in fresh variables, which later expressions do not change, as declarations
 procedure temps(in rs: List[CExpr], out ss: List[CStmt], ref g: Gen) :=
-  local t: Str, more: List[CStmt]
+  local t: Str
 
-  match rs
-    case list() =>
-      assign ss := list()
-    case list(r; rest) =>
-      call   gen_name(in "t", out t, ref g)
-      call   temps(in rest, out more, ref g)
-      assign ss := list(CsDecl(value_type(), t, Some(r)); more)
+  assign ss := list()
+
+  for r in rs do
+    call   gen_name(in "t", out t, ref g)
+    assign ss := ss ++ list(CsDecl(value_type(), t, Some(r)))
   end
 
 // the variables xs as the temporaries declared by ts
@@ -629,7 +614,7 @@ procedure compile_lambda(in defs: Defs, env: Vars, xs: List[Var], b: Expr, out s
 
   call   gen_name(in "lam", out f, ref g)
   call   compile_expr(in defs, in_scope(caps ++ list(for x in xs yield x.name)), b, out bs, rb, ref g)
-  assign decls := unpack(numbered(caps, 0), "env") ++ unpack(numbered(list(for x in xs yield x.name), 0), "args")
+  assign decls := unpack(numbered(caps), "env") ++ unpack(numbered(list(for x in xs yield x.name)), "args")
   call   lift(in CdFunction(value_type(), f, list((value_ptr(), "env"), (value_ptr(), "args")), decls ++ bs ++ list(CsReturn(Some(rb)))), ref g)
   assign ss := list(), r := c_call("u_mk_closure", list(CeVar(f), CeNum(size(caps))) ++ list(for x in caps yield var_expr(env, x)))
 
@@ -650,7 +635,7 @@ procedure compile_proc_lambda(
 
   call   gen_name(in "proc", out f, ref g)
   call   compile_stmt(in defs, in_scope(caps ++ list(for x in ins ++ outs ++ refs yield x.name)), b, out bs, ref g)
-  assign decls := unpack(numbered(caps, 0), "env") ++ unpack(numbered(list(for x in ins yield x.name), 0), "ins") ++ unpack_pointers(numbered(list(for x in outs ++ refs yield x.name), 0))
+  assign decls := unpack(numbered(caps), "env") ++ unpack(numbered(list(for x in ins yield x.name)), "ins") ++ unpack_pointers(numbered(list(for x in outs ++ refs yield x.name)))
   assign decls := decls ++ copy_in(list(for x in outs yield x.name), list(for x in refs yield x.name))
   call   lift(in CdFunction(CtVoid, f, proc_params(), decls ++ bs ++ copy_out(list(for x in outs ++ refs yield x.name))), ref g)
   assign ss := list(), r := c_call("u_mk_proc", list(CeVar(f), CeNum(size(caps))) ++ list(for x in caps yield var_expr(env, x)))
@@ -659,17 +644,11 @@ function proc_params(): List[CType * Str] :=
   list((value_ptr(), "env"), (value_ptr(), "ins"), (CtPtr(value_ptr()), "outs"))
 
 function unpack_pointers(xs: List[Name * Int]): List[CStmt] :=
-  match xs
-    case list() => list()
-    case list((x, i); rest) => list(CsDecl(value_ptr(), ref_name(x), Some(index("outs", i))); unpack_pointers(rest))
-  end
+  list(for (x, i) in xs yield CsDecl(value_ptr(), ref_name(x), Some(index("outs", i))))
 
 // declarations of the variables xs with the values in the array a
 function unpack(xs: List[Name * Int], a: Str): List[CStmt] :=
-  match xs
-    case list() => list()
-    case list((x, i); rest) => list(CsDecl(value_type(), var_name(x), Some(index(a, i))); unpack(rest, a))
-  end
+  list(for (x, i) in xs yield CsDecl(value_type(), var_name(x), Some(index(a, i))))
 
 // the cases of a match of the value v, which assign the result to t, where t stays NULL if no case applies
 procedure expr_cases(
@@ -943,15 +922,13 @@ function changed(s: Stmt): List[Name] :=
   end
 
 procedure compile_stmts(in defs: Defs, env: Vars, xs: List[Stmt], out ss: List[CStmt], ref g: Gen) :=
-  local as: List[CStmt], bs: List[CStmt]
+  local as: List[CStmt]
 
-  match xs
-    case list() =>
-      assign ss := list()
-    case list(x; rest) =>
-      call   compile_stmt(in defs, env, x, out as, ref g)
-      call   compile_stmts(in defs, env, rest, out bs, ref g)
-      assign ss := as ++ bs
+  assign ss := list()
+
+  for x in xs do
+    call   compile_stmt(in defs, env, x, out as, ref g)
+    assign ss := ss ++ as
   end
 
 function reassign(env: Vars, xs: List[Name], ts: List[CStmt]): List[CStmt] :=
@@ -1053,16 +1030,14 @@ procedure compile_cmd(in defs: Defs, entry: Id, cmd: Cmd, out ds: List[CDecl], m
   end
 
 procedure compile_cmds(in defs: Defs, entry: Id, cmds: List[Cmd], out ds: List[CDecl], ms: List[CStmt], ref g: Gen) :=
-  local d1: List[CDecl], m1: List[CStmt], d2: List[CDecl], m2: List[CStmt]
+  local d1: List[CDecl], m1: List[CStmt], found_ds: Buffer[CDecl] := empty(), found_ms: Buffer[CStmt] := empty()
 
-  match cmds
-    case list() =>
-      assign ds := list(), ms := list()
-    case list(c; rest) =>
-      call   compile_cmd(in defs, entry, c, out d1, m1, ref g)
-      call   compile_cmds(in defs, entry, rest, out d2, m2, ref g)
-      assign ds := d1 ++ d2, ms := m1 ++ m2
+  for c in cmds do
+    call   compile_cmd(in defs, entry, c, out d1, m1, ref g)
+    assign found_ds := found_ds ++ d1, found_ms := found_ms ++ m1
   end
+
+  assign ds := list(for d in found_ds), ms := list(for m in found_ms)
 
 // the body of a function without arguments, whose value is computed once, since expressions are deterministic,
 // where the cache is U_COMPUTING while the value is computed, which detects a value that needs itself,
