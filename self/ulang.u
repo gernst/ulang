@@ -52,12 +52,16 @@ procedure main() :=
   end
 
 function usage(): Str :=
-  "usage: ulang run <file> [<procedure>] [-- args]\n" ++
-  "       ulang test <file> [<name> ...] [-- args]\n" ++
-  "       ulang test <dir> [<path> ...]\n" ++
-  "       ulang check <file>\n" ++
-  "       ulang compile <file> <entry> <target.c>\n" ++
-  "       ulang format <file>"
+  usage_run() ++ usage_test() ++ usage_other()
+
+function usage_run(): Str :=
+  "usage: ulang run <file> [<procedure>] [-- args]\n"
+
+function usage_test(): Str :=
+  "       ulang test <file> [<name> ...] [-- args]\n" ++ "       ulang test <dir> [<path> ...]\n"
+
+function usage_other(): Str :=
+  "       ulang check <file>\n" ++ "       ulang compile <file> <entry> <target.c>\n" ++ "       ulang format <file>"
 
 // the arguments of the driver, and those of the program after --
 function before_dashes(args: List[Str]): List[Str] :=
@@ -161,6 +165,12 @@ procedure format_file(in file: Str, out ok: Bool) :=
       call os_print_error(in file ++ ": format error: the source does not parse: " ++ message)
   end
 
+function same_mod(d: Mod, e: Mod): Bool :=
+  d.name == e.name and d.doc == e.doc and d.imports == e.imports and same_sections(d, e)
+
+function same_sections(d: Mod, e: Mod): Bool :=
+  same_tops(d.exported, e.exported) and same_tops(d.builtins, e.builtins) and same_tops(d.implemented, e.implemented)
+
 // whether the modules have the same names, imports, and commands with their documentation, whatever their positions
 function same_mods(mods: List[Mod], others: List[Mod]): Bool :=
   match (mods, others)
@@ -168,8 +178,7 @@ function same_mods(mods: List[Mod], others: List[Mod]): Bool :=
       true
 
     case (list(d; more), list(e; rest)) =>
-      d.name == e.name and d.doc == e.doc and d.imports == e.imports and same_tops(d.exported, e.exported) and same_tops(d.builtins, e.builtins) and
-        same_tops(d.implemented, e.implemented) and same_mods(more, rest)
+      same_mod(d, e) and same_mods(more, rest)
 
     case _ =>
       false
@@ -316,12 +325,18 @@ function outcome(message: Str): Str :=
 function expected_error(text: Str): Str :=
   match split(text, '\n')
     case list(line; _) =>
-      if starts_with(line, "// parse error: ") or starts_with(line, "// type error: ") or starts_with(line, "// runtime error: ") then
+      if states_error(line) then
         slice(line, 3, size(line))
       else
         ""
     case _ => ""
   end
+
+function states_error(line: Str): Bool :=
+  states(line, "parse") or states(line, "type") or states(line, "runtime")
+
+function states(line: Str, kind: Str): Bool :=
+  starts_with(line, "// " ++ kind ++ " error: ")
 
 // runs all tests of file, quietly, and raises the first failure
 procedure test_all(in file: Str, out ok: Bool) :=
@@ -379,6 +394,12 @@ function candidate_text(c: Name * (List[Type] * Type)): Str :=
     case (m, (_, t)) => format_name(m) ++ ": " ++ format_type(t)
   end
 
+function container_message(typ: Type): Str :=
+  "the type " ++ format_type(typ) ++ " of the container of a generator is not known there, which an annotation can give"
+
+function count_message(owner: Str, unit: Str, k: Int, actual: Int): Str :=
+  (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(actual)
+
 function type_message(e: TypeError): Str :=
   match e
     case UnknownSort(name) => "unknown sort " ++ name.base
@@ -397,9 +418,9 @@ function type_message(e: TypeError): Str :=
     case UnknownField(name) => field_message(split(name.base, '.'))
     case UnknownFieldType(field, typ) => "the type " ++ format_type(typ) ++ " of the value of " ++ field ++ " is not known"
     case UnknownFieldOwner(field) => "the type of the value of " ++ field ++ " is not known there, which an annotation can give"
-    case UnknownContainer(typ) => "the type " ++ format_type(typ) ++ " of the container of a generator is not known there, which an annotation can give"
+    case UnknownContainer(typ) => container_message(typ)
     case FormImport(m) => m ++ "(...) needs import \"" ++ m ++ ".u\""
-    case CountMismatch(owner, unit, k, actual) => (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(actual)
+    case CountMismatch(owner, unit, k, actual) => count_message(owner, unit, k, actual)
     case UnknownConstructor(name) => "unknown constructor " ++ name.base
     case NotExhaustive(pat) => "match is not exhaustive, missing " ++ format_pat(pat)
     case Unreachable(pat) => "unreachable case " ++ format_pat(pat)

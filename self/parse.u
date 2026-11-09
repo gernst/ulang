@@ -47,12 +47,22 @@ function duplicate_op(notation: Notation, cmd: Cmd): Option[Id] :=
     case _ => None
   end
 
+function redeclared_fixed(notation: Notation, imported: Notation): List[Id] :=
+  redeclared_postfix(notation, imported) ++ redeclared_infix(notation, imported)
+
+function redeclared_prefix(notation: Notation, imported: Notation): List[Id] :=
+  list(for op => prec in imported.prefix_ops if differs(prefix_prec(notation, op), prec) yield op)
+
+function redeclared_postfix(notation: Notation, imported: Notation): List[Id] :=
+  list(for op => prec in imported.postfix_ops if differs(postfix_prec(notation, op), prec) yield op)
+
+function redeclared_infix(notation: Notation, imported: Notation): List[Id] :=
+  list(for op => fp in imported.infix_ops if differs(infix_of(notation, op), fp) yield op)
+
 // an operator of the notation of an imported module with another notation of the same kind, where imports may repeat a
 // notation as it is
 function redeclared(notation: Notation, imported: Notation): Option[Id] :=
-  match list(for op => prec in imported.prefix_ops if differs(prefix_prec(notation, op), prec) yield op) ++
-      list(for op => prec in imported.postfix_ops if differs(postfix_prec(notation, op), prec) yield op) ++
-      list(for op => fp in imported.infix_ops if differs(infix_of(notation, op), fp) yield op)
+  match redeclared_prefix(notation, imported) ++ redeclared_fixed(notation, imported)
     case list(op; _) => Some(op)
     case list() => None
   end
@@ -86,10 +96,13 @@ function head_token(toks: Tokens): Token :=
 function module_doc(toks: Tokens): Option[Str] :=
   match toks
     case list((Pos(line, _), TDoc(text)), (Pos(next, _), tok); _) =>
-      if next != line + size(split(text, '\n')) or tok == TKw("import") or tok == TKw("export") then Some(text) else None
+      if documents_module(text, line, next, tok) then Some(text) else None
     case _ =>
       None
   end
+
+function documents_module(text: Str, line: Int, next: Int, tok: Token): Bool :=
+  next != line + size(split(text, '\n')) or tok == TKw("import") or tok == TKw("export")
 
 function second_token(toks: Tokens): Token :=
   match toks
@@ -212,10 +225,15 @@ procedure parse_import(out name: Id, ref toks: Tokens) :=
 
 function module_of_file(file: Str): Option[Id] :=
   if size(file) > 2 and ends_with(file, ".u") then
-    let name := slice(file, 0, size(file) - 2) in
-      if forall(chars(name), lambda c => is_letter(c) or is_digit(c) or c == '_') then Some(name) else None
+    checked_module(slice(file, 0, size(file) - 2))
   else
     None
+
+function checked_module(name: Str): Option[Id] :=
+  if is_module_name(name) then Some(name) else None
+
+function is_module_name(name: Str): Bool :=
+  forall(chars(name), lambda c => is_letter(c) or is_digit(c) or c == '_')
 
 // a name that is not declared as an operator
 procedure parse_plain_name(in notation: Notation, params: List[Id], out name: Id, ref toks: Tokens) :=
@@ -333,13 +351,16 @@ function cons_all[A](cons: (A, A) -> A, items: List[A], rest: A): A :=
     case list(a; more) => cons(a, cons_all(cons, more, rest))
   end
 
+type Operand[A] :=
+  (in Notation, List[Id], out A, ref Tokens)
+
 // precedence climbing over the tokens, as Mixfix of easyparse in cuvee, where prefix operators bind their operand
 // with their own precedence, and a left associative operator is applied to all operands of a chain at once
 data Ops[A] :=
   case Ops(
     what: Str,
     starts: (Notation, Token) -> Bool,
-    operand: (in Notation, List[Id], out A, ref Tokens),
+    operand: Operand[A],
     apply: (Fixity, Id, Pos, List[A]) -> A
   )
 
@@ -730,6 +751,9 @@ function form_of(kw: Str): Option[Form] :=
     case _ => None
   end
 
+function no_yield(pos: Pos): ParseError :=
+  ParseError("yield is needed after several generators, or after a generator whose pattern is no value", pos)
+
 // list(a, b; r), with the container r that the elements are added to, list(for gens yield e; r), and list(), where map takes
 // entries k => v, and arrays have no rest
 procedure parse_form(in notation: Notation, params: List[Id], out expr: Expr, ref toks: Tokens) :=
@@ -756,7 +780,7 @@ procedure parse_form(in notation: Notation, params: List[Id], out expr: Expr, re
         case Some(e) =>
           assign elem := e
         case None =>
-          raise ParseError("yield is needed after several generators, or after a generator whose pattern is no value", pos)
+          raise no_yield(pos)
       end
     end
 
@@ -986,7 +1010,7 @@ procedure parse_local(in notation: Notation, params: List[Id], out decl: Var * L
 // with names that users cannot write, which nested loops hide
 procedure parse_for(in notation: Notation, params: List[Id], out s: Stmt, ref toks: Tokens) :=
   local pos := head_pos(toks), gens: List[Gen], q: Option[Expr] := None, pat: Pat, c: Expr, body: Stmt, guarded: Stmt, step: Stmt
-  local items: Var, item: Var, rest: Var
+  local items: Var, item: Var, rest: Var, branches: List[Branch[Stmt]], collect: Stmt, loop: Stmt
 
   call   parse_gens(in notation, params, out gens, ref toks)
 
@@ -1019,13 +1043,10 @@ procedure parse_for(in notation: Notation, params: List[Id], out s: Stmt, ref to
   end
 
   assign step := SBlock(list(), list(guarded, SAssign(list((items, EVar(rest))))))
-  assign s := SBlock(
-    list(items),
-    list(
-      SAssign(list((items, EFor(FormList, list(GFor(PVar(item), c)), Elem(EVar(item)), None)))),
-      SWhile(expr_app("!=", list(EVar(items), expr_var("Nil"))), SMatch(EVar(items), list(Branch("", pat_cons(pat, PVar(rest)), None, step), Branch("", pat_nil(), None, SSkip))))
-    )
-  )
+  assign branches := list(Branch("", pat_cons(pat, PVar(rest)), None, step), Branch("", pat_nil(), None, SSkip))
+  assign collect := SAssign(list((items, EFor(FormList, list(GFor(PVar(item), c)), Elem(EVar(item)), None))))
+  assign loop := SWhile(expr_app("!=", list(EVar(items), expr_var("Nil"))), SMatch(EVar(items), branches))
+  assign s := SBlock(list(items), list(collect, loop))
 
 procedure parse_stmt(in notation: Notation, params: List[Id], out s: Stmt, ref toks: Tokens) :=
   local expr: Expr, body: Stmt, cases: List[Branch[Stmt]]
@@ -1348,11 +1369,14 @@ procedure parse_constrs(in notation: Notation, params: List[Id], out constrs: Li
     assign constrs := list()
   end
 
+function conflicts(field: Field, other: Field): Bool :=
+  other.name == field.name and other.typ != field.typ
+
 // a field with different types in different constructors, if any
 function differing_field(fields: List[Field]): Option[Id] :=
   match fields
     case list() => None
-    case list(field; rest) => if exists(rest, lambda other => other.name == field.name and other.typ != field.typ) then Some(field.name) else differing_field(rest)
+    case list(field; rest) => if exists(rest, lambda other => conflicts(field, other)) then Some(field.name) else differing_field(rest)
   end
 
 procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
@@ -1588,7 +1612,8 @@ procedure parse_mod(
     end
   end
 
-  assign own := Mod(name, mod_doc, imports, reverse(exported), reverse(builtins), reverse(implemented) ++ reverse(plain))
+  assign implemented := reverse(implemented) ++ reverse(plain)
+  assign own := Mod(name, mod_doc, imports, reverse(exported), reverse(builtins), implemented)
 
 // the section after the commands of one declaration, which must belong to the section
 procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
@@ -1725,14 +1750,14 @@ procedure parsed(in e: Str, out body: Expr) :=
   end
 
 test parsed_docs() :=
-  local d: Mod
+  local d: Mod, text := "// the answer\n// in two lines\nfunction f(): Int := 42\n\n// detached\n\n"
 
-  call   parse_text(in "// the answer\n// in two lines\nfunction f(): Int := 42\n\n// detached\n\nfunction g(): Int := 1\nfunction h(): Int := 2\n", out d)
+  call   parse_text(in text ++ "function g(): Int := 1\nfunction h(): Int := 2\n", out d)
   assert list(for top in d.implemented yield top.doc) == list("the answer\nin two lines", "", "")
   assert list(for top in d.implemented yield top.pos) == list(Pos(3, 1), Pos(7, 1), Pos(8, 1))
 
 test parsed_docs_of_modules_and_constructors() :=
-  local d: Mod, docs: List[Str] := list()
+  local d: Mod, docs: List[Str] := list(), then_f := "// then\nfunction f(): Int := 1\n"
 
   call   parse_text(in "// the module\n//\n// more\n\n// the function\nfunction f(): Int := 1\n", out d)
   assert d.doc == "the module\n\nmore"
@@ -1741,7 +1766,7 @@ test parsed_docs_of_modules_and_constructors() :=
   assert d.doc == "" and list(for top in d.implemented yield top.doc) == list("the function")
   call   parse_text(in "// the module\nimport \"set.u\"\n", out d)
   assert d.doc == "the module"
-  call   parse_text(in "data T :=\n  // first\n  // line\n  case A\n  case B(x: Int)\n\n// then\nfunction f(): Int := 1\n", out d)
+  call   parse_text(in "data T :=\n  // first\n  // line\n  case A\n  case B(x: Int)\n\n" ++ then_f, out d)
 
   match d.implemented
     case list(Top(_, _, CData(_, _, constrs)), Top(_, doc, _)) =>
@@ -1754,8 +1779,10 @@ test parsed_docs_of_modules_and_constructors() :=
 
 test parsed_docs_of_cases() :=
   local d: Mod, docs: List[Str] := list()
+  local fun_f := "function f(x: Int): Int :=\n  match x\n    // zero\n    // or one\n    case 0 => 1\n    case _ => 2\n  end\n\n"
+  local proc_p := "procedure p() :=\n  match 1\n    // a\n    case 1 =>\n      skip\n  end\n  try\n    skip\n  catch\n    // b\n    case _ =>\n      skip\n  end\n"
 
-  call   parse_text(in "function f(x: Int): Int :=\n  match x\n    // zero\n    // or one\n    case 0 => 1\n    case _ => 2\n  end\n\nprocedure p() :=\n  match 1\n    // a\n    case 1 =>\n      skip\n  end\n  try\n    skip\n  catch\n    // b\n    case _ =>\n      skip\n  end\n", out d)
+  call   parse_text(in fun_f ++ proc_p, out d)
 
   match commands_of(d.implemented)
     case list(CFun(_, _, _, _, EMatch(_, bs)), CProc(_, _, _, _, _, SBlock(_, list(SMatch(_, cs), STry(_, hs))))) =>
@@ -1790,11 +1817,12 @@ test parsed_operators() :=
 
 test parsed_forms() :=
   local expr: Expr, a := expr_var("a"), b := expr_var("b"), c := expr_var("c")
+  local tail := PApp(unqualified("Cons"), list(PLit(LInt(-1)), PWild))
 
   call   parsed(in "list(a, b; c)", out expr)
   assert expr == EForm(FormList, list(Elem(a), Elem(b)), Some(c))
   call   parsed(in "match a case list(x, -1; _) => x end", out expr)
-  assert expr == EMatch(a, list(Branch("", PApp(unqualified("Cons"), list(pat_var("x"), PApp(unqualified("Cons"), list(PLit(LInt(-1)), PWild)))), None, expr_var("x"))))
+  assert expr == EMatch(a, list(Branch("", PApp(unqualified("Cons"), list(pat_var("x"), tail)), None, expr_var("x"))))
   call   parsed(in "set()", out expr)
   assert expr == EForm(FormSet, list(), None)
   call   parsed(in "map(a => b, a => c)", out expr)
