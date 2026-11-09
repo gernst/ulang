@@ -1196,10 +1196,10 @@ procedure parse_formals(in notation: Notation, params: List[Id], out xs: List[Va
 function without_tests_of(d: Mod): Mod :=
   d with implemented := untested(d.implemented)
 
-function untested(cmds: List[Pos * Cmd]): List[Pos * Cmd] :=
+function untested(cmds: List[Top]): List[Top] :=
   match cmds
     case list() => list()
-    case list((_, CTest(_, _, _)); more) => untested(more)
+    case list(Top(_, _, CTest(_, _, _)); more) => untested(more)
     case list(c; more) => list(c; untested(more))
   end
 
@@ -1463,21 +1463,13 @@ procedure import_module(in name: Id, dir: Option[Str], loading: List[Id], pos: P
   end
 
 procedure import_all(in names: List[Id], dir: Option[Str], loading: List[Id], ref mods: List[Mod]) :=
-  match names
-    case list() =>
-      skip
-    case list(name; rest) =>
-      call import_module(in name, dir, loading, Pos(1, 1), ref mods)
-      call import_all(in rest, dir, loading, ref mods)
+  for name in names do
+    call import_module(in name, dir, loading, Pos(1, 1), ref mods)
   end
 
 procedure import_notations(in names: List[Id], mods: List[Mod], ref notation: Notation) :=
-  match names
-    case list() =>
-      skip
-    case list(name; rest) =>
-      call import_notation(in name, mods, Pos(1, 1), ref notation)
-      call import_notations(in rest, mods, ref notation)
+  for name in names do
+    call import_notation(in name, mods, Pos(1, 1), ref notation)
   end
 
 data Section :=
@@ -1499,9 +1491,9 @@ procedure parse_mod(
   ref mods: List[Mod],
       toks: Tokens
 ) :=
-  local imports: List[Id] := list(), notation := empty_notation(), plain: List[Pos * Cmd] := list(),
-    exported: List[Pos * Cmd] := list(), builtins: List[Pos * Cmd] := list(), implemented: List[Pos * Cmd] := list(), more: List[Cmd],
-    section := Opening, pos: Pos, imported: Id, placed: List[Pos * Cmd]
+  local imports: List[Id] := list(), notation := empty_notation(), plain: List[Top] := list(),
+    exported: List[Top] := list(), builtins: List[Top] := list(), implemented: List[Top] := list(), more: List[Cmd],
+    section := Opening, pos: Pos, imported: Id, placed: List[Top]
 
   call import_all(in implicit, None, loading, ref mods)
   call import_notations(in implicit, mods, ref notation)
@@ -1557,7 +1549,7 @@ procedure parse_mod(
         assign notation := with_notation(notation, more)
     end
 
-    assign placed := list(for c in more yield (pos, c))
+    assign placed := list(for c in more yield Top(pos, "", c))
 
     match section
       case InExport =>
@@ -1702,7 +1694,7 @@ procedure parsed(in e: Str, out body: Expr) :=
   call   parse_text(in test_notation() ++ "function f(): Int :=\n  " ++ e, out d)
   assign body := ELit(LUnit)
 
-  match reverse(seconds(placed_of(d)))
+  match reverse(commands_of(placed_of(d)))
     case list(CFun(_, _, _, _, b); _) =>
       assign body := b
     case _ =>

@@ -824,12 +824,8 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
   end
 
 procedure exec_all(in run: Run, xs: List[Stmt], ref env: Bindings, cache: Map[Name, Value]) :=
-  match xs
-    case list() =>
-      skip
-    case list(x; more) =>
-      call exec(in run, x, ref env, cache)
-      call exec_all(in run, more, ref env, cache)
+  for x in xs do
+    call exec(in run, x, ref env, cache)
   end
 
 // runs the statements xs from inner in the scope of the variables names, whose values inner gives,
@@ -1027,12 +1023,8 @@ function read_outs(p: Name, ys: List[Name], env: Bindings): List[Value] :=
   end
 
 procedure print_all(in lines: List[Str]) :=
-  match lines
-    case list() =>
-      skip
-    case list(line; rest) =>
-      call os_print(in line)
-      call print_all(in rest)
+  for line in lines do
+    call os_print(in line)
   end
 
 // the procedures of the library os are those of the interpreter of this program, whose OsError the program can catch
@@ -1127,12 +1119,8 @@ procedure uncaught(in run: Run, v: Value, ref cache: Map[Name, Value]) :=
   raise Failed(Uncaught(s))
 
 procedure run_all(in run: Run, cmds: List[Cmd], ref cache: Map[Name, Value]) :=
-  match cmds
-    case list() =>
-      skip
-    case list(c; more) =>
-      call run_cmd(in run, c, ref cache)
-      call run_all(in run, more, ref cache)
+  for c in cmds do
+    call run_cmd(in run, c, ref cache)
   end
 
 // runs the tests of a checked program, where failed assertions are errors

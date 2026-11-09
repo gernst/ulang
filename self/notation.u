@@ -71,4 +71,4 @@ function ++(a: Notation, b: Notation): Notation :=
 
 // the notation that module d exports to its importers, of the notation commands of its export section
 function exported_notation(d: Mod): Notation :=
-  with_notation(empty_notation(), seconds(d.exported))
+  with_notation(empty_notation(), commands_of(d.exported))

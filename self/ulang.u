@@ -162,7 +162,7 @@ procedure format_file(in file: Str, out ok: Bool) :=
   end
 
 function without_positions(d: Mod): Mod :=
-  d with exported := unplaced(seconds(d.exported)), builtins := unplaced(seconds(d.builtins)), implemented := unplaced(seconds(d.implemented))
+  d with exported := unplaced(commands_of(d.exported)), builtins := unplaced(commands_of(d.builtins)), implemented := unplaced(commands_of(d.implemented))
 
 // calls the procedure name of file, which takes no parameters, and prints as it runs
 procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
@@ -198,15 +198,13 @@ procedure test_file(in file: Str, names: List[Str], args: List[Str], out ok: Boo
   end
 
 procedure run_tests(in run: Run, tests: List[Cmd], out ok: Bool) :=
-  local passed: Bool, rest: Bool
+  local passed: Bool
 
-  match tests
-    case list() =>
-      assign ok := true
-    case list(c; more) =>
-      call   run_test(in run, c, out passed)
-      call   run_tests(in run, more, out rest)
-      assign ok := passed and rest
+  assign ok := true
+
+  for c in tests do
+    call   run_test(in run, c, out passed)
+    assign ok := ok and passed
   end
 
 procedure run_test(in run: Run, cmd: Cmd, out passed: Bool) :=
@@ -263,15 +261,16 @@ function is_source(path: Str): Bool :=
   size(path) > 2 and ends_with(path, ".u")
 
 procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
-  local good: Bool, rest: Int
+  local good: Bool
 
-  match files
-    case list() =>
-      assign failed := 0
-    case list(file; more) =>
-      call   verdict(in file, home, out good)
-      call   test_suite(in more, home, out rest)
-      assign failed := if good then rest else rest + 1
+  assign failed := 0
+
+  for file in files do
+    call verdict(in file, home, out good)
+
+    if not good
+      assign failed := failed + 1
+    end
   end
 
 // file, run in its directory, fails as its first line states, or else succeeds, where home is the directory to return to
@@ -318,14 +317,12 @@ procedure test_all(in file: Str, out ok: Bool) :=
   assign ok := true
 
 procedure first_failure(in run: Run, tests: List[Cmd], out message: Str) :=
-  match tests
-    case list() =>
-      assign message := ""
-    case list(c; more) =>
+  assign message := ""
+
+  for c in tests do
+    if message == ""
       call test_message(in run, c, out message)
-      if message == ""
-        call first_failure(in run, more, out message)
-      end
+    end
   end
 
 function is_selected_test(cmd: Cmd, names: List[Str]): Bool :=

@@ -48,18 +48,18 @@ function format_program(mods: List[Mod]): Str :=
 
 // the notation that the modules names of mods export, in order
 function imported_notation(mods: List[Mod], names: List[Id]): Notation :=
-  with_notation(empty_notation(), list(for d in mods for c in seconds(d.exported) if contains(d.name, names) yield c))
+  with_notation(empty_notation(), list(for d in mods for c in commands_of(d.exported) if contains(d.name, names) yield c))
 
 // the imports of module d and its sections, where its export section declares the notation of the sections after it, and a
 // module that exports nothing has no sections
 function format_mod(notation: Notation, d: Mod): List[Str] :=
   list(for n in d.imports yield "import " ++ quote(n ++ ".u")) ++
     if d.exported == list() and d.builtins == list() then
-      format_cmds(notation, seconds(d.implemented))
+      format_cmds(notation, commands_of(d.implemented))
     else
-      let inner := with_notation(notation, seconds(d.exported)) in
-        list("export"; format_cmds(notation, seconds(d.exported))) ++ (if d.builtins == list() then list() else list("builtin"; format_cmds(inner, seconds(d.builtins)))) ++
-          (if d.implemented == list() then list() else list("implementation"; format_cmds(inner, seconds(d.implemented))))
+      let inner := with_notation(notation, commands_of(d.exported)) in
+        list("export"; format_cmds(notation, commands_of(d.exported))) ++ (if d.builtins == list() then list() else list("builtin"; format_cmds(inner, commands_of(d.builtins)))) ++
+          (if d.implemented == list() then list() else list("implementation"; format_cmds(inner, commands_of(d.implemented))))
 
 // operators and parentheses
 
