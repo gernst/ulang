@@ -2122,7 +2122,8 @@ procedure check_orders(in cmds: List[Cmd], abstract: List[Name], hidden: Set[Nam
 // the order and equality of the abstract types of ds that their modules do not declare, which raise Unordered for a type
 // with an equality, and Incomparable for a type without, since the structure of an abstract type is no order
 function synthesized(ds: List[Id * Cmd], cmds: List[Cmd], natives: List[Name]): List[Id * Cmd] :=
-  [e for c in ds, e in synthesized_for(c, ordered(cmds, "compare") ++ natives, ordered(cmds, "=="))]
+  let compares := ordered(cmds, "compare") ++ natives, equalities := ordered(cmds, "==") in
+    [e for c in ds, e in synthesized_for(c, compares, equalities)]
 
 function synthesized_for(d: Id * Cmd, compares: List[Name], equalities: List[Name]): List[Id * Cmd] :=
   match d
