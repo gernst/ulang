@@ -311,7 +311,7 @@ procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
 
     case TName(name) =>
       call   advance(ref toks)
-      assign e := lookup(name, env, 0)
+      assign e := lookup(name, env)
 
     case TPunct('(') =>
       call advance(ref toks)
@@ -348,13 +348,13 @@ procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
       raise ReadError("expression expected but " ++ show(t) ++ " found")
   end
 
-function lookup(x: Id, env: List[Id], i: Int): Expr :=
-  match env
-    case list() =>
-      sym(x)
+function lookup(x: Id, env: List[Id]): Expr :=
+  match index_of(x, env)
+    case Some(i) =>
+      EBound(i)
 
-    case list(y; rest) =>
-      if x == y then EBound(i) else lookup(x, rest, i + 1)
+    case None =>
+      sym(x)
   end
 
 function list_expr(es: List[Expr]): Expr :=

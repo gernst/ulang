@@ -87,13 +87,7 @@ function field_names(constrs: List[Constr]): List[Id] :=
   distinct(list(for k in constrs for field in k.fields yield field.name))
 
 function positions(f: Id, constrs: List[Constr]): List[Int] :=
-  list(for k in constrs yield position_in(f, k.fields, 0))
-
-function position_in(f: Id, fields: List[Field], i: Int): Int :=
-  match fields
-    case list() => -1
-    case list(field; rest) => if field.name == f then i else position_in(f, rest, i + 1)
-  end
+  list(for k in constrs yield value_or(index_of(f, list(for field in k.fields yield field.name)), -1))
 
 function accessor_name(t: Name, f: Id): Name :=
   Name(t.module, t.base ++ "." ++ f)

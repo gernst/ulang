@@ -183,9 +183,6 @@ function line_margin(text: Str, offset: Int): Int :=
     else
       -1
 
-function spaces(n: Int): Str :=
-  str(list(for i in range(0, n) yield ' '))
-
 // whether a comment starts at offset after margin spaces
 function comment_at(text: Str, margin: Int, offset: Int): Bool :=
   forall(range(0, margin), lambda i => peek(text, offset + i) == ' ') and peek(text, offset + margin) == '/' and peek(text, offset + margin + 1) == '/'
@@ -211,7 +208,7 @@ procedure lex_doc(in text: Str, margin: Int, out doc: Str, above: Bool, ref offs
     end
   end
 
-  assign doc := join("\n", reverse(lines)), above := if margin == 0 then is_letter(peek(text, offset)) else starts_at(text, offset, spaces(margin) ++ "case ")
+  assign doc := join("\n", reverse(lines)), above := if margin == 0 then is_letter(peek(text, offset)) else starts_at(text, offset, repeat(" ", margin) ++ "case ")
 
 // the token at offset, where offset ends after it
 procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=

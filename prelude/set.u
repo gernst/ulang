@@ -111,25 +111,11 @@ function exists[A](s: Set[A], p: A -> Bool): Bool :=
 function forall[A](s: Set[A], p: A -> Bool): Bool :=
   foldl(s, true, lambda all, x => all and p(x))
 
-// s with the elements of xs
-function insert_all[A](xs: List[A], s: Set[A]): Set[A] :=
-  match xs
-    case list() => s
-    case list(x; rest) => insert_all(rest, insert(x, s))
-  end
-
 function compare[A](a: Set[A], b: Set[A]): Int :=
   compare(list(for x in a), list(for x in b))
 
 function ==[A](a: Set[A], b: Set[A]): Bool :=
   list(for x in a) == list(for x in b)
-
-// the elements of s in their order
-function elements_onto[A](s: Set[A], rest: List[A]): List[A] :=
-  match s
-    case Leaf => rest
-    case Node(left, elem, right, _) => elements_onto(left, list(elem; elements_onto(right, rest)))
-  end
 
 function foldr[A, R](s: Set[A], acc: R, f: (A, R) -> R): R :=
   match s

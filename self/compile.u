@@ -148,10 +148,7 @@ function field_decls(e: (Name * Int) * List[Int]): List[CDecl] :=
   end
 
 function positions_of(defs: Defs, n: Name, k: Int): List[Int] :=
-  match get((n, k), defs.fields)
-    case Some(ps) => ps
-    case None => list()
-  end
+  value_or(get((n, k), defs.fields), list())
 
 function table_name(n: Name): Str :=
   "x_" ++ mangle(Name(n.module, field_of(n)))

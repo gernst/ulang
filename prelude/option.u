@@ -9,6 +9,12 @@ data Option[A] :=
 // a if it has a value, else b
 function or_else[A](a: Option[A], b: Option[A]): Option[A]
 
+// the value of a, else d
+function value_or[A](a: Option[A], d: A): A
+
+// Some(f(x)) for Some(x), else None
+function map_option[A, B](a: Option[A], f: A -> B): Option[B]
+
 // None or Some(a), also inside other values
 function show[A](o: Option[A]): Str
 
@@ -20,6 +26,18 @@ function or_else[A](a: Option[A], b: Option[A]): Option[A] :=
     case None => b
   end
 
+function value_or[A](a: Option[A], d: A): A :=
+  match a
+    case Some(x) => x
+    case None => d
+  end
+
+function map_option[A, B](a: Option[A], f: A -> B): Option[B] :=
+  match a
+    case Some(x) => Some(f(x))
+    case None => None
+  end
+
 function show[A](o: Option[A]): Str :=
   match o
     case None => "None"
@@ -27,5 +45,7 @@ function show[A](o: Option[A]): Str :=
   end
 
 test options() :=
+  assert value_or(Some(1), 2) == 1 and value_or(None, 2) == 2
+  assert map_option(Some(1), lambda x => x + 1) == Some(2) and map_option(None, lambda x => x + 1) == None
   assert or_else(Some(1), Some(2)) == Some(1) and or_else(None, Some(2)) == Some(2)
   assert show(Some(Some(1))) == "Some(Some(1))" and show((None, Some("a"))) == "(None, Some(\"a\"))"

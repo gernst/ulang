@@ -99,10 +99,7 @@ function enter(s: State, m: Id): State :=
   s with sub := empty(), count := 0, module := m, visible := sees(m, s.table), pending := list(), chosen := empty()
 
 function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
-  match get(m, vs)
-    case Some(ms) => ms
-    case None => list(m)
-  end
+  value_or(get(m, vs), list(m))
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
   State(empty(), empty(), 0, main, sees(main, vs), vs, list(), empty())
@@ -130,10 +127,7 @@ function visibility(imports: List[Id * List[Id]], main: Id): List[Id * List[Id]]
   list(for m in distinct(list(main) ++ firsts(imports)) yield (m, distinct(list(m) ++ imports_of(imports, m))))
 
 function imports_of(imports: List[Id * List[Id]], m: Id): List[Id] :=
-  match get(m, imports)
-    case Some(ns) => ns
-    case None => list()
-  end
+  value_or(get(m, imports), list())
 
 // the declarations named n of a kind that the module sees, where its own declarations hide those of other modules
 // and declared tells whether a name is a declaration of that kind
@@ -362,10 +356,7 @@ function case_of[A](b: Branch[A]): Pat * Bool :=
   end
 
 function zonk_guard(s: State, g: Option[Expr]): Option[Expr] :=
-  match g
-    case Some(e) => Some(zonk_expr(s, e))
-    case None => None
-  end
+  map_option(g, lambda e => zonk_expr(s, e))
 
 function zonk_type(su: Subst, t: Type): Type :=
   match resolve(su, t)
@@ -496,10 +487,7 @@ function unknown_in_expr(expr: Expr): Option[Type] :=
   end
 
 function unknown_in_exprs(exprs: List[Expr]): Option[Type] :=
-  match exprs
-    case list() => None
-    case list(e; rest) => or_else(unknown_in_expr(e), unknown_in_exprs(rest))
-  end
+  find_map(exprs, unknown_in_expr)
 
 function branch_exprs(b: Branch[Expr]): List[Expr] :=
   match b
@@ -508,24 +496,25 @@ function branch_exprs(b: Branch[Expr]): List[Expr] :=
   end
 
 function unknown_in_all(xs: List[Stmt]): Option[Type] :=
-  match xs
-    case list() => None
-    case list(y; ys) => or_else(unknown_in(y), unknown_in_all(ys))
-  end
+  find_map(xs, unknown_in)
 
 function unknown_in_branches(bs: List[Branch[Stmt]]): Option[Type] :=
-  match bs
-    case list() => None
-    case list(Branch(_, _, guard, body); rest) => or_else(unknown_in_guard(guard), or_else(unknown_in(body), unknown_in_branches(rest)))
+  find_map(bs, unknown_in_branch)
+
+function unknown_in_branch(b: Branch[Stmt]): Option[Type] :=
+  match b
+    case Branch(_, _, guard, body) => or_else(unknown_in_guard(guard), unknown_in(body))
   end
 
 // handlers of _ catch exceptions of any type
 function unknown_in_handlers(hs: List[Handler]): Option[Type] :=
-  match hs
-    case list() => None
-    case list(Handler(_, typ, pat, guard, body); rest) =>
+  find_map(hs, unknown_in_handler)
+
+function unknown_in_handler(h: Handler): Option[Type] :=
+  match h
+    case Handler(_, typ, pat, guard, body) =>
       let caught := if pat == PWild then None else unknown_type(typ) in
-      or_else(caught, or_else(unknown_in_guard(guard), or_else(unknown_in(body), unknown_in_handlers(rest))))
+      or_else(caught, or_else(unknown_in_guard(guard), unknown_in(body)))
   end
 
 function unknown_in_guard(guard: Option[Expr]): Option[Type] :=
@@ -584,11 +573,7 @@ function constructors_of(sig: Sig, su: Subst, t: Type): Option[List[Head * List[
 
 function fields_of(sig: Sig, su: Subst, t: Type, h: Head): List[Type] :=
   match constructors_of(sig, su, t)
-    case Some(ks) =>
-      match get(h, ks)
-        case Some(ts) => ts
-        case None => list()
-      end
+    case Some(ks) => value_or(get(h, ks), list())
     case None => list()
   end
 
@@ -683,7 +668,7 @@ function first_missing(
     case list() => None
     case list((h, args); more) =>
       match missing(sig, su, specialize(rows, h, size(args)), args ++ rest)
-        case Some(ws) => Some(list(witness(h, take(size(args), ws)); drop(size(args), ws)))
+        case Some(ws) => let (found, others) := split_at(size(args), ws) in Some(list(witness(h, found); others))
         case None => first_missing(sig, su, rows, more, rest)
       end
   end
@@ -869,7 +854,7 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
 
     case TProc(ins, outs, refs) =>
       call   normalizes(in ins ++ outs ++ refs, out us, ref s)
-      assign u := TProc(take(size(ins), us), take(size(outs), drop(size(ins), us)), drop(size(ins) + size(outs), us))
+      assign u := let (in_types, others) := split_at(size(ins), us) in let (out_types, ref_types) := split_at(size(outs), others) in TProc(in_types, out_types, ref_types)
 
     case TSort(name, args) =>
       match visible_names(s, name, lambda t => is_sort(s.sig, t))
@@ -2164,10 +2149,7 @@ function field_types(sig: Sig, ks: List[Constr]): List[Id * Type] :=
   first_fields(list(for k in ks for p in zip(list(for field in k.fields yield field.name), constr_types(sig, k.name)) yield p))
 
 function constr_types(sig: Sig, k: Name): List[Type] :=
-  match constr_of(sig, k)
-    case Some((_, ts, _)) => ts
-    case None => list()
-  end
+  value_or(map_option(constr_of(sig, k), lambda (_, ts, _) => ts), list())
 
 function first_fields(fields: List[Id * Type]): List[Id * Type] :=
   match fields
@@ -2206,7 +2188,9 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
         call   signature(in ins ++ outs ++ refs, out xs, ref s)
         assign ts := list(for x in xs yield x.typ)
         call   closed(in name, ps, ts)
-        assign s := with_sig(s, with_proc(s.sig, name, (params(ps), take(size(ins), ts), take(size(outs), drop(size(ins), ts)), drop(size(ins) + size(outs), ts))))
+        assign s := let (in_types, others) := split_at(size(ins), ts) in
+          let (out_types, ref_types) := split_at(size(outs), others) in
+          with_sig(s, with_proc(s.sig, name, (params(ps), in_types, out_types, ref_types)))
       case _ =>
         skip
     end

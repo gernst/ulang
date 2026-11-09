@@ -251,10 +251,7 @@ function implicit_elem(form: Form, gens: List[Gen]): Option[Elem] :=
     case (list(GFor(PTuple(list(k, v)), _)), FormMap) => pair_elem(pattern_expr(k), pattern_expr(v))
     case (list(GFor(_, _)), FormMap) => None
     case (list(GFor(p, _)), _) =>
-      match pattern_expr(p)
-        case Some(e) => Some(Elem(e))
-        case None => None
-      end
+      map_option(pattern_expr(p), Elem)
     case _ => None
   end
 
@@ -289,12 +286,6 @@ function pattern_exprs(ps: List[Pat]): Option[List[Expr]] :=
         case (Some(e), Some(es)) => Some(list(e; es))
         case _ => None
       end
-  end
-
-function map_option[A, B](o: Option[A], f: A -> B): Option[B] :=
-  match o
-    case Some(a) => Some(f(a))
-    case None => None
   end
 
 function form_name(form: Form): Id :=

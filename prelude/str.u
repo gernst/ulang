@@ -16,6 +16,9 @@ function get(i: Int, s: Str): Option[Char]
 function starts_with(s: Str, start: Str): Bool
 function ends_with(s: Str, finish: Str): Bool
 
+// n copies of s
+function repeat(s: Str, n: Int): Str
+
 builtin
 
 // the characters of a string, and the string of characters
@@ -63,9 +66,13 @@ function starts_with(s: Str, start: Str): Bool :=
 function ends_with(s: Str, finish: Str): Bool :=
   size(finish) <= size(s) and slice(s, size(s) - size(finish), size(s)) == finish
 
+function repeat(s: Str, n: Int): Str :=
+  join("", replicate(n, s))
+
 test strings() :=
   assert size("abc") == 3 and at(1, "abc") == 'b' and get(1, "abc") == Some('b') and get(3, "abc") == None
   assert get(-1, "abc") == None and contains('b', "abc") and not contains('d', "abc")
   assert slice("abc", 1, 3) == "bc" and join(", ", split("a,b", ',')) == "a, b"
   assert quote("a\"b") == "\"a\\\"b\"" and number("-12") == Some(-12) and number("1a") == None
+  assert repeat("ab", 2) == "abab" and repeat("a", 0) == ""
   assert starts_with("abc", "ab") and not starts_with("a", "ab") and ends_with("abc", "bc") and not ends_with("abc", "ab")

@@ -243,7 +243,7 @@ function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Co
       match one_point(d, seqs)
         case Some((l, t, rest)) =>
           let levels := list(for m in range(d, depth(after)) if m != l) in
-          simp_seq(ctx, Seq(list(for m in levels yield nth(m - d, vars_from(after, d))),
+          simp_seq(ctx, Seq(list(for m in levels yield at(m - d, vars_from(after, d))),
                             list(for b in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, b))),
                             list(for c in cs yield rebind_concl(Close(levels), 0, replace_concl(ELevel(l), t, c)))))
 
@@ -395,7 +395,7 @@ function simp_concl(ctx: Ctx, c: Concl): Option[Concl] :=
           match one_point(d, seqs)
             case Some((l, t, rest)) =>
               let levels := list(for m in range(d, depth(after)) if m != l) in
-              simp_concl(ctx, Concl(list(for m in levels yield nth(m - d, vars_from(after, d))),
+              simp_concl(ctx, Concl(list(for m in levels yield at(m - d, vars_from(after, d))),
                                     list(for s in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, s)))))
 
             case None =>
@@ -694,7 +694,7 @@ function fm_unsat(cs: List[Lin], fuel: Int): Bool :=
         if fuel <= 0 or size(more) > 60 then
           false
         else
-          let rest := list(c; more), x := first(nth(0, c.terms)) in
+          let rest := list(c; more), x := first(at(0, c.terms)) in
           let pos := list(for t in rest if coefficient(x, t) > 0), neg := list(for t in rest if coefficient(x, t) < 0) in
           let none := list(for t in rest if coefficient(x, t) == 0) in
           fm_unsat(none ++ list(for p in pos for n in neg yield combine(x, p, n)), fuel - 1)
@@ -1277,7 +1277,7 @@ function datatype_of(decls: Decls, bs: List[Branch]): Option[Name] :=
 function induction(decls: Decls, s: Seq, p: Int): Seq :=
   match normal(s)
     case Seq(fixed, assms, concls) if p < size(fixed) =>
-      match nth(p, fixed).typ
+      match at(p, fixed).typ
         case TSort(name, _) =>
           match get(name, decls.datatypes)
             case Some(cs) =>
@@ -1314,8 +1314,8 @@ function induction_case(decls: Decls, t: Name, xs: List[Var], p: Int, as0: List[
       let fields := list(for i in range(0, n) yield ELevel(k + i)) in
       let value := if n == 0 then EFun(c) else EApp(EFun(c), fields) in
       let v := ELevel(p), others := list(for l in range(0, k) if l != p) in
-      let vars := list(for l in others yield nth(l, xs)) in
-      let ihs := list(for i in range(0, n) if is_recursive(t, nth(i, fs)) yield hypothesis(vars, others, v, ELevel(k + i), as0, cs0)) in
+      let vars := list(for l in others yield at(l, xs)) in
+      let ihs := list(for i in range(0, n) if is_recursive(t, at(i, fs)) yield hypothesis(vars, others, v, ELevel(k + i), as0, cs0)) in
       let levels := others ++ range(k, k + n) in
       Seq(vars ++ fs, list(for h in ihs ++ list(for a in as0 yield replace_seq(v, value, a)) yield rebind_seq(Close(levels), 0, h)),
           list(for d in cs0 yield rebind_concl(Close(levels), 0, replace_concl(v, value, d))))
@@ -1395,7 +1395,7 @@ function print_concl(names: List[Id], several: Bool, c: Concl): Str :=
       let inner := names ++ ys in
       let parts := list(for s in body yield rebind_seq(Open(d, k), 0, s)) in
       let text := if parts == list() then "true"
-          else if size(parts) == 1 and vars == list() and not several then print_open(inner, nth(0, parts))
+          else if size(parts) == 1 and vars == list() and not several then print_open(inner, at(0, parts))
           else join(" and ", list(for t in parts yield print_part(inner, t))) in
       if vars == list() then (if several and size(parts) > 1 then "(" ++ text ++ ")" else text)
       else "(exists " ++ join(", ", ys) ++ " => " ++ text ++ ")"

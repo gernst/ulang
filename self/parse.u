@@ -39,14 +39,12 @@ function pat_ops(): Ops[Pat] :=
 
 // an operator of the notation cmds that already has a notation of the same kind
 function duplicate(notation: Notation, cmds: List[Cmd]): Option[Id] :=
-  match cmds
-    case list() => None
-    case list(CNotation(fixity, _, ops); more) =>
-      match list(for op in ops if notation_of(notation, fixity, op) != None)
-        case list(op; _) => Some(op)
-        case list() => duplicate(notation, more)
-      end
-    case list(_; more) => duplicate(notation, more)
+  find_map(cmds, lambda cmd => duplicate_op(notation, cmd))
+
+function duplicate_op(notation: Notation, cmd: Cmd): Option[Id] :=
+  match cmd
+    case CNotation(fixity, _, ops) => find(ops, lambda op => notation_of(notation, fixity, op) != None)
+    case _ => None
   end
 
 // an operator of the notation of an imported module with another notation of the same kind, where imports may repeat a
@@ -314,12 +312,6 @@ procedure parse_optional[A](
     assign x := Some(a)
   else
     assign x := None
-  end
-
-function or_default[A](x: Option[A], default: A): A :=
-  match x
-    case Some(a) => a
-    case None => default
   end
 
 // the items a, b of a display [a, b], and the rest c of [a, b; c], read with brackets
@@ -745,7 +737,7 @@ procedure parse_form(in notation: Notation, params: List[Id], out expr: Expr, re
 
   match head_token(toks)
     case TKw(kw) =>
-      assign form := or_default(form_of(kw), FormList)
+      assign form := value_or(form_of(kw), FormList)
     case _ =>
       skip
   end
@@ -929,7 +921,7 @@ procedure parse_pattern_atom(in notation: Notation, params: List[Id], out pat: P
         assign pat := pat_nil()
       else
         call   parse_display(in notation, params, parse_pattern, out pats, rest, ref toks)
-        assign pat := cons_all(pat_cons, pats, or_default(rest, pat_nil()))
+        assign pat := cons_all(pat_cons, pats, value_or(rest, pat_nil()))
       end
 
       call expect(in TKw(")"), ref toks)
@@ -1196,7 +1188,7 @@ procedure parse_formal(in notation: Notation, params: List[Id], out x: Var, ref 
 
   call   parse_plain_name(in notation, params, out name, ref toks)
   call   parse_optional(in notation, params, TKw(":"), parse_type, out typ, ref toks)
-  assign x := Var(unqualified(name), or_default(typ, THole))
+  assign x := Var(unqualified(name), value_or(typ, THole))
 
 // formals in parentheses, which may be empty
 procedure parse_formals(in notation: Notation, params: List[Id], out xs: List[Var], ref toks: Tokens) :=
@@ -1453,10 +1445,7 @@ procedure parse_command(in notation: Notation, out cmds: List[Cmd], ref toks: To
 
 // the module name of mods, the modules loaded so far
 function loaded_mod(name: Id, mods: List[Mod]): Option[Mod] :=
-  match mods
-    case list() => None
-    case list(d; rest) => if d.name == name then Some(d) else loaded_mod(name, rest)
-  end
+  find(mods, lambda d => d.name == name)
 
 // the notation with the one that module name of mods exports, which must not declare an operator differently
 procedure import_notation(in name: Id, mods: List[Mod], pos: Pos, ref notation: Notation) :=

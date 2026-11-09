@@ -102,10 +102,7 @@ type Bindings :=
 
 // the position of constructor k in its declaration, which orders values of different constructors
 function position_of(run: Run, k: Name): Int :=
-  match get(k, run.defs.constrs)
-    case Some((_, i, _)) => i
-    case None => 0
-  end
+  value_or(map_option(get(k, run.defs.constrs), lambda (_, i, _) => i), 0)
 
 // the function of the map fs, by datatype, that orders, equates, or shows the values of the datatype of constructor k
 function declared_for(run: Run, k: Name, fs: Map[Name, Name]): Option[Name] :=
@@ -416,7 +413,7 @@ procedure field_value(in run: Run, name: Name, ps: List[Int], vs: List[Value], o
 
   match vs
     case list(VObj(k, args); rest) =>
-      assign p := element(position_of(run, k), ps)
+      assign p := at(position_of(run, k), ps)
 
       if p < 0
         raise failure(missing_field_name(), list(VLit(LStr(field_of(name)))))
@@ -426,17 +423,11 @@ procedure field_value(in run: Run, name: Name, ps: List[Int], vs: List[Value], o
         case list(y) =>
           assign v := VObj(k, take(p, args) ++ list(y; drop(p + 1, args)))
         case _ =>
-          assign v := element(p, args)
+          assign v := at(p, args)
       end
 
     case _ =>
       raise Unspecified(name, vs)
-  end
-
-function element[A](i: Int, xs: List[A]): A :=
-  match drop(i, xs)
-    case list(x; _) if i >= 0 => x
-    case _ => raise OutOfBounds(i, size(xs))
   end
 
 // an exception of a builtin, of a type of the prelude

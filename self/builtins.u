@@ -9,7 +9,6 @@ function tuple_name(): Name
 function list_name(): Name
 function nil_name(): Name
 function cons_name(): Name
-function option_name(): Name
 function none_name(): Name
 function some_name(): Name
 function os_error_name(): Name
@@ -47,9 +46,6 @@ function nil_name(): Name :=
 
 function cons_name(): Name :=
   Name(Some("list"), "Cons")
-
-function option_name(): Name :=
-  Name(Some("option"), "Option")
 
 function none_name(): Name :=
   Name(Some("option"), "None")

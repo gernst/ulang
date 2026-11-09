@@ -113,16 +113,6 @@ function without[V](m: Map[Name, V], names: Set[Name]): Map[Name, V] :=
 function declares(sig: Sig, n: Name): Bool :=
   is_alias(sig, n) or is_fun(sig, n) or is_proc(sig, n) or is_data(sig, n) or is_constr(sig, n)
 
-function key_of[K, V](e: K * V): K :=
-  match e
-    case (k, _) => k
-  end
-
-function value_of[K, V](e: K * V): V :=
-  match e
-    case (_, v) => v
-  end
-
 function union_named(es: List[Id * List[Name]], bs: Map[Id, List[Name]]): Map[Id, List[Name]] :=
   match es
     case list() => bs
@@ -137,10 +127,7 @@ function alias_of(sig: Sig, n: Name): Option[List[Id] * Type] :=
   get(n, sig.aliases)
 
 function schemes_of(sig: Sig, n: Name): List[List[Type] * Type] :=
-  match get(n, sig.funs)
-    case Some(ss) => ss
-    case None => list()
-  end
+  value_or(get(n, sig.funs), list())
 
 function proc_of(sig: Sig, n: Name): Option[List[Type] * List[Type] * List[Type] * List[Type]] :=
   get(n, sig.procs)
@@ -174,10 +161,7 @@ function is_sort(sig: Sig, n: Name): Bool :=
 
 // the declarations with base name b, of any kind and module, in the order of their declaration
 function names_of(sig: Sig, b: Id): List[Name] :=
-  match get(b, sig.named)
-    case Some(ns) => ns
-    case None => list()
-  end
+  value_or(get(b, sig.named), list())
 
 function with_named(bs: Map[Id, List[Name]], n: Name): Map[Id, List[Name]] :=
   match get(n.base, bs)

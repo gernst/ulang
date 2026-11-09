@@ -77,12 +77,6 @@ function compare[K, V](a: Map[K, V], b: Map[K, V]): Int :=
 function ==[K, V](a: Map[K, V], b: Map[K, V]): Bool :=
   list(for k => v in a) == list(for k => v in b)
 
-function entries_onto[K, V](m: Map[K, V], rest: List[K * V]): List[K * V] :=
-  match m
-    case Leaf => rest
-    case Node(left, key, value, right, _) => entries_onto(left, list((key, value); entries_onto(right, rest)))
-  end
-
 function foldr[K, V, R](m: Map[K, V], acc: R, f: (K, V, R) -> R): R :=
   match m
     case Leaf => acc
@@ -198,13 +192,6 @@ function exists[K, V](m: Map[K, V], p: (K, V) -> Bool): Bool :=
 
 function forall[K, V](m: Map[K, V], p: (K, V) -> Bool): Bool :=
   foldl(m, true, lambda all, k, v => all and p(k, v))
-
-// m with the entries ps, where the last entry of a key counts
-function put_all[K, V](ps: List[K * V], m: Map[K, V]): Map[K, V] :=
-  match ps
-    case list() => m
-    case list((k, v); rest) => put_all(rest, put(k, v, m))
-  end
 
 function show[K, V](m: Map[K, V]): Str :=
   "map(" ++ join(", ", list(for k => v in m yield show(k) ++ " => " ++ show(v))) ++ ")"
