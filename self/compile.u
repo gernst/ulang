@@ -381,8 +381,8 @@ function free_in_stmt(x: Stmt, bound: List[Name]): List[Name] :=
 
 function free_in_stmt_branch(b: Branch[Stmt], bound: List[Name]): List[Name] :=
   match b
-    case Branch(pat, Some(g), body) => free_vars(g, pattern_names(pat) ++ bound) ++ free_in_stmt(body, pattern_names(pat) ++ bound)
-    case Branch(pat, None, body) => free_in_stmt(body, pattern_names(pat) ++ bound)
+    case Branch(_, pat, Some(g), body) => free_vars(g, pattern_names(pat) ++ bound) ++ free_in_stmt(body, pattern_names(pat) ++ bound)
+    case Branch(_, pat, None, body) => free_in_stmt(body, pattern_names(pat) ++ bound)
   end
 
 function free_in_handler(h: Handler, bound: List[Name]): List[Name] :=
@@ -391,8 +391,8 @@ function free_in_handler(h: Handler, bound: List[Name]): List[Name] :=
 
 function free_in_branch(b: Branch[Expr], bound: List[Name]): List[Name] :=
   match b
-    case Branch(pat, Some(g), body) => free_vars(g, pattern_names(pat) ++ bound) ++ free_vars(body, pattern_names(pat) ++ bound)
-    case Branch(pat, None, body) => free_vars(body, pattern_names(pat) ++ bound)
+    case Branch(_, pat, Some(g), body) => free_vars(g, pattern_names(pat) ++ bound) ++ free_vars(body, pattern_names(pat) ++ bound)
+    case Branch(_, pat, None, body) => free_vars(body, pattern_names(pat) ++ bound)
   end
 
 procedure gen_name(in stem: Str, out x: Str, ref g: Gen) :=
@@ -662,7 +662,7 @@ procedure expr_cases(
   match cases
     case list() =>
       assign ss := list()
-    case list(Branch(pat, guard, e); more) =>
+    case list(Branch(_, pat, guard, e); more) =>
       assign env1 := in_scope(pattern_names(pat)) ++ env
       call   compile_expr(in defs, env1, e, out bs, rb, ref g)
       assign body := bs ++ list(CsAssign(CeVar(t), rb))
@@ -871,8 +871,8 @@ procedure compile_stmt(in defs: Defs, env: Vars, s: Stmt, out ss: List[CStmt], r
       call   stmt_cases(in defs, env, cases, CeVar(d), t, out bs, ref g)
       assign ss := as ++ list(CsDecl(value_type(), d, Some(ra)), CsDecl(CtInt, t, Some(CeNum(0)))) ++ bs
       assign ss := ss ++ list(CsIf(CeUnary("!", CeVar(t)), list(CsExpr(c_call("u_no_case", list(CeVar(d))))), list()))
-    // assertions of equations show both sides when they fail
 
+    // assertions of equations show both sides when they fail
     case SAssert(EApp(EVar(Var(Name(None, "=="), _)), list(a, b))) =>
       call   compile_expr(in defs, env, a, out as, ra, ref g)
       call   compile_expr(in defs, env, b, out bs, rb, ref g)
@@ -881,14 +881,14 @@ procedure compile_stmt(in defs: Defs, env: Vars, s: Stmt, out ss: List[CStmt], r
     case SAssert(cond) =>
       call   compile_expr(in defs, env, cond, out cs, rc, ref g)
       assign ss := cs ++ list(CsExpr(c_call("u_assert_true", list(rc))))
-    // exceptions carry their type, which handlers compare
 
+    // exceptions carry their type, which handlers compare
     case SRaise(expr, typ) =>
       call   compile_expr(in defs, env, expr, out as, ra, ref g)
       assign ss := as ++ list(CsExpr(c_call("u_raise", list(ra, CeStr(type_key(typ))))))
+
     // the body runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if none applies,
     // where the handlers start from the variables before the try, which their copies, unchanged since setjmp, restore
-
     case STry(body, handlers) =>
       call   compile_stmt(in defs, env, body, out bs, ref g)
       call   gen_name(in "h", out d, ref g)
@@ -941,7 +941,7 @@ procedure handler_cases(in defs: Defs, env: Vars, hs: List[Handler], h: Str, d: 
   match hs
     case list() =>
       assign ss := list()
-    case list(Handler(typ, pat, guard, s); more) =>
+    case list(Handler(_, typ, pat, guard, s); more) =>
       assign env1 := in_scope(pattern_names(pat)) ++ env
       call   compile_stmt(in defs, env1, s, out bs, ref g)
       assign body := list(CsAssign(CeVar(d), CeNum(1))) ++ bs
@@ -977,7 +977,7 @@ procedure stmt_cases(
   match cases
     case list() =>
       assign ss := list()
-    case list(Branch(pat, guard, s); more) =>
+    case list(Branch(_, pat, guard, s); more) =>
       assign env1 := in_scope(pattern_names(pat)) ++ env
       call   compile_stmt(in defs, env1, s, out bs, ref g)
       assign body := list(CsAssign(CeVar(d), CeNum(1))) ++ bs
@@ -1007,8 +1007,8 @@ procedure compile_cmd(in defs: Defs, entry: Id, cmd: Cmd, out ds: List[CDecl], m
         assign bs := bs ++ list(CsReturn(Some(rb)))
       end
       assign ds := list(CdFunction(value_type(), fun_name(name, size(formals)), params, bs)), ms := list()
-    // outs and refs are pointers to the variables of the caller, which the procedure assigns when it returns
 
+    // outs and refs are pointers to the variables of the caller, which the procedure assigns when it returns
     case CProc(name, _, ins, outs, refs, stmt) =>
       call   compile_stmt(in defs, in_scope(list(for x in ins ++ outs ++ refs yield x.name)), stmt, out bs, ref g)
       assign params := list(for x in list(for x in ins yield x.name) yield (value_type(), var_name(x))) ++ list(for x in list(for x in outs ++ refs yield x.name) yield (value_ptr(), ref_name(x)))

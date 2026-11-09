@@ -223,7 +223,7 @@ function assignments_text(notation: Notation, indent: Str, pairs: List[Var * Exp
   end
 
 function expr_cases(notation: Notation, indent: Str, branches: List[Branch[Expr]]): Str :=
-  join("", list(for b in branches yield "\n" ++ indent ++ case_head(notation, indent, b.pat, b.guard) ++ " " ++ format_expr(notation, indent, b.body)))
+  join("", list(for b in branches yield indented_doc(indent, b.doc) ++ "\n" ++ indent ++ case_head(notation, indent, b.pat, b.guard) ++ " " ++ format_expr(notation, indent, b.body)))
 
 function case_head(notation: Notation, indent: Str, pat: Pat, guard: Option[Expr]): Str :=
   match guard
@@ -309,7 +309,7 @@ function format_stmt(notation: Notation, indent: Str, s: Stmt): Str :=
     case SRaise(expr, _) =>
       "raise " ++ format_expr(notation, indent, expr)
     case STry(body, handlers) =>
-      "try" ++ format_body(notation, deeper(indent), body) ++ "\n" ++ indent ++ "catch" ++ stmt_cases(notation, deeper(indent), list(for h in handlers yield Branch(h.pat, h.guard, h.body))) ++ "\n" ++ indent ++ "end"
+      "try" ++ format_body(notation, deeper(indent), body) ++ "\n" ++ indent ++ "catch" ++ stmt_cases(notation, deeper(indent), list(for h in handlers yield Branch(h.doc, h.pat, h.guard, h.body))) ++ "\n" ++ indent ++ "end"
     case SBlock(_, _) =>
       match for_parts(s)
         case Some((pat, c, q, body)) => "for " ++ format_pattern(notation, pat) ++ " in " ++ format_expr(notation, indent, c) ++ condition_text(notation, indent, q) ++ " do" ++ format_body(notation, deeper(indent), body) ++ "\n" ++ indent ++ "end"
@@ -326,7 +326,7 @@ function condition_text(notation: Notation, indent: Str, q: Option[Expr]): Str :
 // the pattern, container, condition, and body of the block that the parser makes of for p in c if q do body end, see parse_for
 function for_parts(s: Stmt): Option[Pat * Expr * Option[Expr] * Stmt] :=
   match s
-    case SBlock(list(items), list(SAssign(list((_, EFor(FormList, list(GFor(_, c)), _, None)))), SWhile(_, SMatch(_, list(Branch(PApp(_, list(pat, _)), None, SBlock(list(), list(guarded, _))), _))))) if items.name.base == "(items)" =>
+    case SBlock(list(items), list(SAssign(list((_, EFor(FormList, list(GFor(_, c)), _, None)))), SWhile(_, SMatch(_, list(Branch(_, PApp(_, list(pat, _)), None, SBlock(list(), list(guarded, _))), _))))) if items.name.base == "(items)" =>
       match guarded
         case SIf(g, body, SSkip) => Some((pat, c, Some(g), body))
         case body => Some((pat, c, None, body))
@@ -342,7 +342,7 @@ function else_text(notation: Notation, indent: Str, r: Stmt): Str :=
   end
 
 function stmt_cases(notation: Notation, indent: Str, branches: List[Branch[Stmt]]): Str :=
-  join("", list(for b in branches yield "\n" ++ indent ++ case_head(notation, indent, b.pat, b.guard) ++ format_body(notation, deeper(indent), b.body)))
+  join("", list(for b in branches yield indented_doc(indent, b.doc) ++ "\n" ++ indent ++ case_head(notation, indent, b.pat, b.guard) ++ format_body(notation, deeper(indent), b.body)))
 
 // the lines of a body, each after a newline, where local x := e is x with the assignment that starts the block
 function format_body(notation: Notation, indent: Str, body: Stmt): Str :=
@@ -411,9 +411,9 @@ function doc_lines(doc: Str): Str :=
 function doc_text(doc: Str): Str :=
   if doc == "" then "" else doc_lines(doc) ++ "\n"
 
-// the lines of the documentation of a constructor as comments above it, each on a line of its own
-function constr_doc_text(doc: Str): Str :=
-  if doc == "" then "" else join("", list(for line in split(doc, '\n') yield if line == "" then "\n  //" else "\n  // " ++ line))
+// the lines of a documentation as comments above a constructor or a case at indent, each after a newline
+function indented_doc(indent: Str, doc: Str): Str :=
+  if doc == "" then "" else join("", list(for line in split(doc, '\n') yield if line == "" then "\n" ++ indent ++ "//" else "\n" ++ indent ++ "// " ++ line))
 
 function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
   match cmd
@@ -422,7 +422,7 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
     case CAbstract(name, params) =>
       Some("type " ++ name.base ++ params_text(params))
     case CData(name, params, constrs) =>
-      Some("data " ++ name.base ++ params_text(params) ++ " :=" ++ join("", list(for c in constrs yield constr_doc_text(c.doc) ++ "\n  case " ++ constr_text(c))))
+      Some("data " ++ name.base ++ params_text(params) ++ " :=" ++ join("", list(for c in constrs yield indented_doc("  ", c.doc) ++ "\n  case " ++ constr_text(c))))
     case CFun(name, params, formals, typ, body) =>
       Some(function_head(name, params, formals, typ) ++ " :=\n  " ++ format_expr(notation, "  ", body))
     case CFunSig(name, params, formals, typ) =>

@@ -22,7 +22,6 @@ procedure main() :=
   call   os_args(out args)
   assign command := before_dashes(args), rest := after_dashes(args)
 
-  // without arguments, e.g. when the tests run all files, the driver does nothing
   match command
     case list() =>
       skip

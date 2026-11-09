@@ -154,6 +154,9 @@ procedure incomparable(in v: Value) :=
 function truth(v: Value): Bool :=
   v == VLit(LBool(true))
 
+function is_code_point(num: Int): Bool :=
+  0 <= num and num <= 1114111 and not (55296 <= num and num <= 57343)
+
 function str_values(vs: List[Value]): List[Str] :=
   match vs
     case list(VLit(LStr(text)); rest) => list(text; str_values(rest))
@@ -233,8 +236,8 @@ procedure evaluate(in run: Run, env: Bindings, expr: Expr, out v: Value, ref cac
 
     case EProc(ins, outs, refs, stmt) =>
       assign v := VProcClos(env, ins, outs, refs, stmt)
-    // the variables are bound in parallel
 
+    // the variables are bound in parallel
     case ELet(bindings, body) =>
       call   evaluate_all(in run, env, seconds(bindings), out vs, ref cache)
       call   evaluate(in run, bind_all(firsts(bindings), vs, env), body, out v, ref cache)
@@ -259,7 +262,6 @@ procedure evaluate(in run: Run, env: Bindings, expr: Expr, out v: Value, ref cac
       end
 
     // tuples are objects of the constructor ,
-
     case ETuple(exprs) =>
       call   evaluate_all(in run, env, exprs, out vs, ref cache)
       assign v := VObj(tuple_name(), vs)
@@ -481,8 +483,7 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := VLit(LInt(ord(char)))
 
     case ("str.chr", list(VLit(LInt(num)))) =>
-      // the code points, without the surrogates of UTF-16
-      if num < 0 or num > 1114111 or (55296 <= num and num <= 57343)
+      if not is_code_point(num)
         raise failure(no_character_name(), list(VLit(LInt(num))))
       end
 
@@ -731,8 +732,8 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
   match x
     case SSkip =>
       skip
-    // the variables are assigned in parallel
 
+    // the variables are assigned in parallel
     case SAssign(assignments) =>
       call   evaluate_all(in run, env, seconds(assignments), out vs, ref cache)
       assign env := env ++ map(for (k, v) in zip(list(for x in firsts(assignments) yield x.name), vs))
@@ -779,8 +780,8 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
           call  show_in(in run, v, out s, ref cache)
           raise Failed(NoCase(s))
       end
-    // assertions of equations show both sides when they fail
 
+    // assertions of equations show both sides when they fail
     case SAssert(EApp(EVar(Var(Name(None, "=="), _)), list(lhs, rhs))) =>
       call   evaluate(in run, env, lhs, out v, ref cache)
       call   evaluate(in run, env, rhs, out w, ref cache)
@@ -864,7 +865,7 @@ procedure select[A](
   match cases
     case list() =>
       assign sel := None
-    case list(Branch(pat, guard, body); rest) =>
+    case list(Branch(_, pat, guard, body); rest) =>
       match match_into(pat, v, env)
         case Some(inner) =>
           call holds(in run, inner, guard, out ok, ref cache)
@@ -896,7 +897,7 @@ procedure handle(in run: Run, hs: List[Handler], v: Value, t: Type, ref env: Bin
   match hs
     case list() =>
       raise Thrown(v, t)
-    case list(Handler(_, PWild, guard, body); rest) =>
+    case list(Handler(_, _, PWild, guard, body); rest) =>
       call holds(in run, env, guard, out ok, ref cache)
       if ok
         call exec(in run, body, ref env, cache)
@@ -904,7 +905,7 @@ procedure handle(in run: Run, hs: List[Handler], v: Value, t: Type, ref env: Bin
         call handle(in run, rest, v, t, ref env, cache)
       end
     // the type is compared first, since the pattern and the guard assume it
-    case list(Handler(typ, pat, guard, body); rest) =>
+    case list(Handler(_, typ, pat, guard, body); rest) =>
       assign ok := false
       if typ == t
         match match_into(pat, v, env)
@@ -1178,7 +1179,6 @@ test procedures() :=
   call check_and_run(in procedures() ++
     list(
       CTest("sum", list(), SBlock(list(Var(unqualified("s"), type_int())), list(SCall(unqualified("sum"), list(expr_int(4)), list(Var(unqualified("s"), THole)), list()), equals("s", 10)))),
-      // the assignment to k does not reach the caller, since count raises, and the handler for Fail binds its argument
       CTest(
         "count",
         list(),
@@ -1188,7 +1188,7 @@ test procedures() :=
             SAssign(list((Var(unqualified("k"), THole), expr_int(1)), (Var(unqualified("m"), THole), expr_int(0)))),
             STry(
               SBlock(list(), list(SCall(unqualified("count"), list(), list(), list(Var(unqualified("k"), THole))))),
-              list(Handler(THole, PApp(unqualified("Fail"), list(pat_var("j"))), None, SBlock(list(), list(SAssign(list((Var(unqualified("m"), THole), expr_var("j"))))))))
+              list(Handler("", THole, PApp(unqualified("Fail"), list(pat_var("j"))), None, SBlock(list(), list(SAssign(list((Var(unqualified("m"), THole), expr_var("j"))))))))
             ),
             equals("k", 1),
             equals("m", 2)
@@ -1253,7 +1253,6 @@ test errors() :=
     case Failed(Uncaught(text)) =>
       assert text == "DivisionByZero"
   end
-  // loop() := loop() + 1 needs its own value
   try
     call   check_and_run(in list(CFun(unqualified("loop"), list(), list(), type_int(), expr_app("+", list(expr_app("loop", list()), expr_int(1)))), assigning(expr_app("loop", list()))))
     assert false
@@ -1264,12 +1263,12 @@ test errors() :=
 
 // match (1, true, 3) case (_, _, z) => z end, a flat tuple
 test tuples() :=
-  call check_and_run(in list(asserting("p", EMatch(ETuple(list(expr_int(1), ELit(LBool(true)), expr_int(3))), list(Branch(PTuple(list(PWild, PWild, pat_var("z"))), None, expr_var("z")))), expr_int(3))))
+  call check_and_run(in list(asserting("p", EMatch(ETuple(list(expr_int(1), ELit(LBool(true)), expr_int(3))), list(Branch("", PTuple(list(PWild, PWild, pat_var("z"))), None, expr_var("z")))), expr_int(3))))
 
 // a handler for integers skips a string without evaluating its guard, so the string is raised further
 test handler_types() :=
   try
-    call   check_and_run(in list(CTest("t", list(), STry(SRaise(ELit(LStr("x")), THole), list(Handler(THole, pat_var("k"), Some(expr_app("<", list(expr_var("k"), expr_int(2)))), SSkip))))))
+    call   check_and_run(in list(CTest("t", list(), STry(SRaise(ELit(LStr("x")), THole), list(Handler("", THole, pat_var("k"), Some(expr_app("<", list(expr_var("k"), expr_int(2)))), SSkip))))))
     assert false
   catch
     case Failed(Uncaught(text)) =>

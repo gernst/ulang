@@ -78,7 +78,7 @@ data Pat :=
   case PTuple(pats: List[Pat])
 
 data Branch[A] :=
-  case Branch(pat: Pat, guard: Option[Expr], body: A)
+  case Branch(doc: Str, pat: Pat, guard: Option[Expr], body: A)
 
 data Stmt :=
   case SSkip
@@ -94,7 +94,7 @@ data Stmt :=
 
 // with the pattern PWild, a handler handles exceptions of any type
 data Handler :=
-  case Handler(typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
+  case Handler(doc: Str, typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
 
 data Constr :=
   case Constr(doc: Str, name: Name, fields: List[Field])
@@ -215,7 +215,7 @@ function unplaced(cmds: List[Cmd]): List[Top] :=
 // users cannot write, and lambda (1) => match (1) case p => e end for one pattern
 function lambda_patterns(pats: List[Pat], body: Expr): Expr :=
   let xs := pattern_formals(size(pats)) in
-    ELam(xs, EMatch(pattern_scrutinee(xs), list(Branch(match pats case list(pat) => pat case _ => PTuple(pats) end, None, body))))
+    ELam(xs, EMatch(pattern_scrutinee(xs), list(Branch("", match pats case list(pat) => pat case _ => PTuple(pats) end, None, body))))
 
 function pattern_formals(n: Int): List[Var] :=
   list(for i in range(1, n + 1) yield Var(unqualified("(" ++ show(i) ++ ")"), THole))
@@ -229,7 +229,7 @@ function pattern_scrutinee(xs: List[Var]): Expr :=
 // the patterns and the body of a lambda that lambda_patterns built
 function patterns_of_lambda(formals: List[Var], body: Expr): Option[List[Pat] * Expr] :=
   match (body, formals)
-    case (EMatch(e, list(Branch(pat, None, inner))), list(_; more)) if formals == pattern_formals(size(formals)) and e == pattern_scrutinee(formals) =>
+    case (EMatch(e, list(Branch(_, pat, None, inner))), list(_; more)) if formals == pattern_formals(size(formals)) and e == pattern_scrutinee(formals) =>
       match (pat, more)
         case (_, list()) => Some((list(pat), inner))
         case (PTuple(pats), _) => Some((pats, inner))

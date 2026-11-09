@@ -113,7 +113,7 @@ function len_fun(): Cmd :=
     list("A"),
     list(Var(unqualified("xs"), type_plain_list(TParam("A")))),
     type_int(),
-    EMatch(expr_var("xs"), list(Branch(pat_var("Nil"), None, expr_int(0)), Branch(PApp(unqualified("Cons"), list(PWild, pat_var("ys"))), None, expr_app("+", list(expr_int(1), expr_app("len", list(expr_var("ys"))))))))
+    EMatch(expr_var("xs"), list(Branch("", pat_var("Nil"), None, expr_int(0)), Branch("", PApp(unqualified("Cons"), list(PWild, pat_var("ys"))), None, expr_app("+", list(expr_int(1), expr_app("len", list(expr_var("ys"))))))))
   )
 
 // a prelude of the builtin types and functions of prelude/prelude.u only, for programs that are not parsed

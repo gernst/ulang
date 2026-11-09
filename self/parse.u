@@ -114,6 +114,10 @@ function at_doc(toks: Tokens): Bool :=
     case _ => false
   end
 
+// a case, which a comment may document
+function at_case(toks: Tokens): Bool :=
+  at_kw(toks, "case") or (at_doc(toks) and second_token(toks) == TKw("case"))
+
 function at_comma(toks: Tokens): Bool :=
   at_kw(toks, ",")
 
@@ -682,9 +686,9 @@ procedure parse_let(in notation: Notation, params: List[Id], out expr: Expr, ref
     case (Some(xs), _, _) =>
       assign expr := ELet(zip(xs, exprs), body)
     case (None, list(pat), list(c)) =>
-      assign expr := EMatch(c, list(Branch(pat, None, body)))
+      assign expr := EMatch(c, list(Branch("", pat, None, body)))
     case _ =>
-      assign expr := EMatch(ETuple(exprs), list(Branch(PTuple(pats), None, body)))
+      assign expr := EMatch(ETuple(exprs), list(Branch("", PTuple(pats), None, body)))
   end
 
 // p := e
@@ -826,6 +830,16 @@ procedure parse_gens(in notation: Notation, params: List[Id], out gens: List[Gen
 
   assign gens := list(for g in found)
 
+// the comment before a case, or "" if there is none
+procedure parse_doc(out doc: Str, ref toks: Tokens) :=
+  match head_token(toks)
+    case TDoc(text) =>
+      assign doc := text
+      call   advance(ref toks)
+    case _ =>
+      assign doc := ""
+  end
+
 // case p if g => b, up to end
 procedure parse_cases[B](
   in  notation: Notation,
@@ -834,15 +848,16 @@ procedure parse_cases[B](
   out cases: List[Branch[B]],
   ref toks: Tokens
 ) :=
-  local found: Buffer[Branch[B]] := empty(), pat: Pat, g: Option[Expr], b: B
+  local found: Buffer[Branch[B]] := empty(), pat: Pat, g: Option[Expr], b: B, doc: Str
 
-  while at_kw(toks, "case")
+  while at_case(toks)
+    call   parse_doc(out doc, ref toks)
     call   advance(ref toks)
     call   parse_pattern(in notation, params, out pat, ref toks)
     call   parse_optional(in notation, params, TKw("if"), parse_expr, out g, ref toks)
     call   expect(in TKw("=>"), ref toks)
     call   body(in notation, params, out b, ref toks)
-    assign found := found ++ list(Branch(pat, g, b))
+    assign found := found ++ list(Branch(doc, pat, g, b))
   end
 
   call   expect(in TKw("end"), ref toks)
@@ -938,7 +953,7 @@ function starts_stmt(tok: Token): Bool :=
   end
 
 function handlers(cases: List[Branch[Stmt]]): List[Handler] :=
-  list(for Branch(pat, guard, body) in cases yield Handler(THole, pat, guard, body))
+  list(for Branch(doc, pat, guard, body) in cases yield Handler(doc, THole, pat, guard, body))
 
 // the body of an if, while, case, or procedure, which may declare variables first
 // where local x := e initializes x by an assignment at the start of the block, in order, such that its type can be inferred
@@ -1016,7 +1031,7 @@ procedure parse_for(in notation: Notation, params: List[Id], out s: Stmt, ref to
     list(items),
     list(
       SAssign(list((items, EFor(FormList, list(GFor(PVar(item), c)), Elem(EVar(item)), None)))),
-      SWhile(expr_app("!=", list(EVar(items), expr_var("Nil"))), SMatch(EVar(items), list(Branch(pat_cons(pat, PVar(rest)), None, step), Branch(pat_nil(), None, SSkip))))
+      SWhile(expr_app("!=", list(EVar(items), expr_var("Nil"))), SMatch(EVar(items), list(Branch("", pat_cons(pat, PVar(rest)), None, step), Branch("", pat_nil(), None, SSkip))))
     )
   )
 
@@ -1312,7 +1327,7 @@ procedure parse_data(in notation: Notation, out cmds: List[Cmd], ref toks: Token
   call   parse_params(in notation, out params, ref toks)
   call   expect(in TKw(":="), ref toks)
 
-  if not at_kw(toks, "case") and not (at_doc(toks) and second_token(toks) == TKw("case"))
+  if not at_case(toks)
     raise ParseError("each constructor follows case, as in data T := case C", head_pos(toks))
   end
 
@@ -1329,17 +1344,10 @@ procedure parse_data(in notation: Notation, out cmds: List[Cmd], ref toks: Token
 
 // the constructors of a datatype, each after case
 procedure parse_constrs(in notation: Notation, params: List[Id], out constrs: List[Constr], ref toks: Tokens) :=
-  local constr: Constr, rest: List[Constr], doc := ""
+  local constr: Constr, rest: List[Constr], doc: Str
 
-  match toks
-    case list((_, TDoc(text)), (_, TKw("case")); _) =>
-      assign doc := text
-      call   advance(ref toks)
-    case _ =>
-      skip
-  end
-
-  if at_kw(toks, "case")
+  if at_case(toks)
+    call   parse_doc(out doc, ref toks)
     call   advance(ref toks)
     call   parse_constr(in notation, params, doc, out constr, ref toks)
     call   parse_constrs(in notation, params, out rest, ref toks)
@@ -1755,6 +1763,20 @@ test parsed_docs_of_modules_and_constructors() :=
 
   assert docs == list("first\nline", "", "then")
 
+test parsed_docs_of_cases() :=
+  local d: Mod, docs: List[Str] := list()
+
+  call   parse_text(in "function f(x: Int): Int :=\n  match x\n    // zero\n    // or one\n    case 0 => 1\n    case _ => 2\n  end\n\nprocedure p() :=\n  match 1\n    // a\n    case 1 =>\n      skip\n  end\n  try\n    skip\n  catch\n    // b\n    case _ =>\n      skip\n  end\n", out d)
+
+  match commands_of(d.implemented)
+    case list(CFun(_, _, _, _, EMatch(_, bs)), CProc(_, _, _, _, _, SBlock(_, list(SMatch(_, cs), STry(_, hs))))) =>
+      assign docs := list(for b in bs yield b.doc) ++ list(for c in cs yield c.doc) ++ list(for h in hs yield h.doc)
+    case _ =>
+      skip
+  end
+
+  assert docs == list("zero\nor one", "", "a", "b")
+
 test parsed_operators() :=
   local expr: Expr, a := expr_var("a"), b := expr_var("b"), c := expr_var("c")
 
@@ -1783,7 +1805,7 @@ test parsed_forms() :=
   call   parsed(in "list(a, b; c)", out expr)
   assert expr == EForm(FormList, list(Elem(a), Elem(b)), Some(c))
   call   parsed(in "match a case list(x, -1; _) => x end", out expr)
-  assert expr == EMatch(a, list(Branch(PApp(unqualified("Cons"), list(pat_var("x"), PApp(unqualified("Cons"), list(PLit(LInt(-1)), PWild)))), None, expr_var("x"))))
+  assert expr == EMatch(a, list(Branch("", PApp(unqualified("Cons"), list(pat_var("x"), PApp(unqualified("Cons"), list(PLit(LInt(-1)), PWild)))), None, expr_var("x"))))
   call   parsed(in "set()", out expr)
   assert expr == EForm(FormSet, list(), None)
   call   parsed(in "map(a => b, a => c)", out expr)
