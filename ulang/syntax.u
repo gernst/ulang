@@ -201,7 +201,7 @@ data Top :=
 
 // a module without sections has all its commands implemented and exports nothing
 data Mod :=
-  // a file of import "m.u" lines, then export, builtin, and implementation, each followed by its commands
+  // a file of import "p" lines of packages, then export, builtin, and implementation, each followed by its commands
   case Mod(name: Id, doc: Str, imports: List[Id], exported: List[Top], builtins: List[Top], implemented: List[Top])
 
 // the files with sections of a directory, other than project.u, which see each other's exports and notations without
@@ -285,10 +285,8 @@ function library_name(module: Str, base: Id): Name
 // the directory of a module from the root of its project, "" for the root, and prelude for the library
 function module_dir(id: Id): Str
 
-function all_imports(d: Mod): List[Id]
-
-// the modules that d sees besides itself: its imports, the implicit ones included, and the members of the package of its
-// directory, whose member it is or, for a program, not
+// the modules that d sees besides itself: the implicit imports, the members of the packages it imports, and the members
+// of the package of its directory, whose member it is or, for a program, not
 function seen_modules(d: Mod, packages: List[Package]): List[Id]
 
 function unplaced(cmds: List[Cmd]): List[Top]
@@ -350,12 +348,8 @@ function library_file(id: Id): Str :=
 function library_name(module: Str, base: Id): Name :=
   Name(Some(library_module(module)), base)
 
-// the modules that d imports, implicitly or by its imports, in that order
-function all_imports(d: Mod): List[Id] :=
-  let implicit := implicit_imports(d.name) in implicit ++ list(for m in d.imports if not contains(m, implicit))
-
 function seen_modules(d: Mod, packages: List[Package]): List[Id] :=
-  all_imports(d) ++ list(for p in packages if p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
+  implicit_imports(d.name) ++ list(for p in packages if contains(p.id, d.imports) or p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
 
 // commands without positions and documentation, as programs that are not parsed have them
 function unplaced(cmds: List[Cmd]): List[Top] :=

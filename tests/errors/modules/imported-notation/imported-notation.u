@@ -1,3 +1,2 @@
-// parse error: imported operator <+> is declared differently at 3.1
-import "notation.u"
-import "tests/errors/modules/notation_right/notation_right.u"
+// parse error: imported operator <+> is declared differently at 2.1
+import "tests/errors/modules/notation_right"

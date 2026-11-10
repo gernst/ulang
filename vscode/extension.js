@@ -124,8 +124,9 @@ function activate(context) {
   const diagnostics = vscode.languages.createDiagnosticCollection("ulang");
   context.subscriptions.push(output, diagnostics);
 
-  // errors of file in the error output of ulang, without a position at the start of the file, and those of an imported
-  // module, known by its path from the root, at the import of the module, or else at the start, pointing to the module
+  // errors of file in the error output of ulang, without a position at the start of the file, and those of another
+  // module, known by its path from the root, at the import of its package, the directory of the module, or else at the
+  // start, as for a sibling, pointing to the module
   function diagnose(file, stderr) {
     const found = [];
     const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n") : [];
@@ -139,15 +140,14 @@ function activate(context) {
         continue;
       }
       const root = projectRoot(file);
-      const own = path.relative(root, path.dirname(file));
       const imported = lines.findIndex((l) => {
-        const named = /^import "(.*)\.u"$/.exec(l.trim());
-        return named && (named[1] === module || (!named[1].includes("/") && path.posix.join(own, named[1]) === module));
+        const named = /^import "(.*)"$/.exec(l.trim());
+        return named && named[1] === path.posix.dirname(module);
       });
       const position = new vscode.Position(Math.max(imported, 0), 0);
       const text = message + " in " + module + (row ? " at " + row + "." + column : "");
       const diagnostic = new vscode.Diagnostic(new vscode.Range(position, position.translate(0, 1)), text, vscode.DiagnosticSeverity.Error);
-      const source = [path.join(root, module + ".u"), path.join(path.dirname(file), module + ".u")].find((f) => fs.existsSync(f)) || "";
+      const source = [path.join(root, module + ".u")].find((f) => fs.existsSync(f)) || "";
       if (row && source) {
         diagnostic.relatedInformation = [new vscode.DiagnosticRelatedInformation(new vscode.Location(vscode.Uri.file(source), at), message)];
       }

@@ -1,4 +1,4 @@
-// a module of tests/paths/inner.u
+// a member of the package tests/paths, which tests/paths/inner.u uses
 
 export
 

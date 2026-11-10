@@ -1,6 +1,6 @@
 // type error: unknown variable secret at 5.1
 
-import "tests/errors/modules/hiding/hiding.u"
+import "tests/errors/modules/hiding"
 
 test t() :=
   assert secret(1) == 1

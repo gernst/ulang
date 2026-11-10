@@ -1,0 +1,3 @@
+// parse error: an import names the directory of a package, not a file at 3.8
+// an import names a package, not a file
+import "tests/modules/stack.u"

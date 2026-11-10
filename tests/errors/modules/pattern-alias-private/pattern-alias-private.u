@@ -1,6 +1,4 @@
-// type error: unknown constructor Minus at 5.1
-
-import "aliases.u"
+// type error: unknown constructor Minus at 3.1
 
 function f(t: Tm): Int :=
   match t

@@ -181,7 +181,7 @@
           }
         },
         {
-          "match": "\\b(import)\\s+(\"[A-Za-z0-9_]+\\.u\")",
+          "match": "\\b(import)\\s+(\"[A-Za-z0-9_/]+\")",
           "captures": {
             "1": {
               "name": "keyword.control.import.ulang"
@@ -226,7 +226,7 @@
         },
         {
           "name": "keyword.other.ulang",
-          "match": "\\b(test|list|set|map|array)\\b"
+          "match": "\\b(test|pattern|list|set|map|array)\\b"
         },
         {
           "name": "keyword.control.ulang",

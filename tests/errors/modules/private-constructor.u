@@ -1,6 +1,6 @@
 // type error: unknown variable Full at 5.1
 
-import "tests/errors/modules/hiding/hiding.u"
+import "tests/errors/modules/hiding"
 
 test t() :=
   local b := Full(1)

@@ -1,3 +1,3 @@
-// parse error: an import names a file name.u, where the name has letters, digits, and _ only at 3.8
-// the name of a module is that of its file, which must be a name
-import "my-set.u"
+// parse error: an import names a package by its path from the root, of names of letters, digits, and _ only at 3.8
+// the names of the path of a package are names
+import "my-set"

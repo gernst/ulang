@@ -1,0 +1,9 @@
+// parse error: keyword then is not a name at 9.7
+export
+
+function f(): Int
+
+implementation
+
+function f(): Int :=
+  let then := 1 in then

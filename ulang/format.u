@@ -61,17 +61,9 @@ function format_mod(notation: Notation, d: Mod): List[Str] :=
 function doc_header(d: Mod): List[Str] :=
   if d.doc == "" then list() else list(doc_lines(d.doc))
 
-// one block, sorted by the name of the module, where modules of the directory of d are named by their files
+// one block of the imported packages, sorted
 function import_lines(d: Mod): List[Str] :=
-  let is := list(for n in d.imports yield "import " ++ quote(import_file(d.name, n))) in if d.imports == list() then list() else list(join("\n", sort(is)))
-
-// the file that module importer imports module id by, as parse_import reads it: of the importer's directory by its name
-function import_file(importer: Id, id: Id): Str :=
-  let dir := module_dir(importer) in
-    if dir != "" and starts_with(id, dir ++ "/") and not contains('/', slice(id, size(dir) + 1, size(id))) then
-      slice(id, size(dir) + 1, size(id)) ++ ".u"
-    else
-      id ++ ".u"
+  let is := list(for p in d.imports yield "import " ++ quote(p)) in if d.imports == list() then list() else list(join("\n", sort(is)))
 
 function format_sections(notation: Notation, d: Mod): List[Str] :=
   if sectionless(d) then format_cmds(notation, d.implemented) else sections_of(notation, d)

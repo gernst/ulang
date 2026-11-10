@@ -1,0 +1,13 @@
+// the module syntax of the package tests/paths/nested, with a datatype Expr, as tests/paths/syntax.u has one
+
+export
+
+data Expr :=
+  case EConst(value: Int)
+
+function int_expr(n: Int): Expr
+
+implementation
+
+function int_expr(n: Int): Expr :=
+  EConst(n)

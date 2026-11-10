@@ -1,6 +1,4 @@
-// a module of tests/paths.u, which imports a file of its own directory by its name
-
-import "base.u"
+// a member of the package tests/paths, which tests/paths.u imports, and which uses its sibling base.u without importing it
 
 export
 
