@@ -218,3 +218,24 @@ test definite_assignment() :=
     assign d := 2
   end
   assert (a, b, c, d) == (-1, 7, 0, 1)
+
+test keywords_after_conditions() :=
+  local n := 0, m := 0
+  while n < 3 do
+    assign n := n + 1
+  end
+  while m < 2
+    assign m := m + 1
+  end
+  if n == 3 then
+    assign n := 10
+  else if m == 1 then
+    assign n := 20
+  else
+    assign n := 30
+  end
+  end
+  if n == 10
+    assign m := 0
+  end
+  assert n == 10 and m == 0

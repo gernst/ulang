@@ -480,10 +480,10 @@ function format_stmt(notation: Notation, indent: Str, s: Stmt): Str :=
       "assign " ++ assignments_text(notation, indent, assignments)
 
     case SIf(cond, then_stmt, else_stmt) =>
-      cond_text(notation, indent, "if", cond, then_stmt) ++ else_text(notation, indent, else_stmt)
+      cond_text(notation, indent, "if", "then", cond, then_stmt) ++ else_text(notation, indent, else_stmt)
 
     case SWhile(cond, body) =>
-      end_text(indent, cond_text(notation, indent, "while", cond, body))
+      end_text(indent, cond_text(notation, indent, "while", "do", cond, body))
 
     case SCall(proc, ins, outs, refs) =>
       "call " ++ call_text(notation, indent, proc, ins, outs, refs)
@@ -509,8 +509,8 @@ function format_stmt(notation: Notation, indent: Str, s: Stmt): Str :=
       end
   end
 
-function cond_text(notation: Notation, indent: Str, word: Str, cond: Expr, body: Stmt): Str :=
-  word ++ " " ++ format_expr(notation, indent, cond) ++ format_body(notation, deeper(indent), body)
+function cond_text(notation: Notation, indent: Str, word: Str, after: Str, cond: Expr, body: Stmt): Str :=
+  word ++ " " ++ format_expr(notation, indent, cond) ++ " " ++ after ++ format_body(notation, deeper(indent), body)
 
 function call_text(notation: Notation, indent: Str, proc: Name, ins: List[Expr], outs: List[Var], refs: List[Var]): Str :=
   proc.base ++ "(" ++ call_sections(notation, indent, ins, outs, refs) ++ ")"
@@ -862,7 +862,7 @@ test bodies() :=
   local x := Var(unqualified("x"), type_int()), y := Var(unqualified("y"), THole), body := SBlock(list(x, y), list(
     SAssign(list((Var(x.name, THole), expr_int(1)))),
     SIf(EVar(y), SBlock(list(), list(SSkip)), SIf(EVar(x), SBlock(list(), list()), SSkip)))), noted := Top(Pos(0, 0), "note", CNotation(FLeft, 9, list("+"))), plain := Top(Pos(0, 0), "", CNotation(FLeft, 8, list("-")))
-  assert format_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y\n  skip\nelse\n  if x\n  end\nend"
+  assert format_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y then\n  skip\nelse\n  if x then\n  end\nend"
   assert format_cmd(test_operators(), CNotation(FLeft, 9, list("+", "-"))) == Some("infix left 9 + -")
   assert doc_text("") == "" and doc_text("a\n b\n") == "// a\n//  b\n//\n"
   assert format_cmds(test_operators(), list(noted, plain)) == list("// note\ninfix left 9 +", "infix left 8 -")

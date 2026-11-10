@@ -1278,6 +1278,7 @@ procedure parse_stmt(
     case TKw("while") =>
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
+      call   skip_kw(in "do", ref toks)
       call   parse_body(in notation, params, out body, ref toks)
       call   expect(in TKw("end"), ref toks)
       assign s := SWhile(expr, body)
@@ -1328,6 +1329,7 @@ procedure parse_if(
   local cond: Expr, l: Stmt, r: Stmt
   call advance(ref toks)
   call parse_expr(in notation, params, out cond, ref toks)
+  call skip_kw(in "then", ref toks)
   call parse_body(in notation, params, out l, ref toks)
   if at_kw(toks, "else")
     call advance(ref toks)
@@ -1338,6 +1340,11 @@ procedure parse_if(
     assign r := SSkip
   end
   assign s := SIf(cond, l, r)
+
+procedure skip_kw(in word: Str, ref toks: Tokens) :=
+  if at_kw(toks, word)
+    call advance(ref toks)
+  end
 
 procedure parse_assign(
   in  notation: Notation,
