@@ -10,10 +10,9 @@ out/
 # editor backups
 *~
 
-# built by make, where the C files of the compiler in bootstrap/ are versioned, also the backups, but not the binaries and stages
+# built by make, where the C files of the seed in bootstrap/ are versioned, also those of the backups, but not the binaries
 ulang.vsix
-ulang.bin
-/bootstrap/stage/
+/bootstrap/ulang.bin
 /bootstrap/*/ulang.bin
 
 # notes on refactorings and plans, not versioned

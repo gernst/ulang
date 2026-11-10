@@ -6,17 +6,17 @@ A minimal language with pure functional expressions, imperative statements, data
 
 - A question asks for an answer, not an action: answer it, propose what suggests itself, and act only on an explicit go-ahead. Read-only lookups are fine.
 - Checks:
-  - After a refactor that keeps behaviour, `./ulang.bin check self/ulang.u` is enough.
+  - After a refactor that keeps behaviour, `out/ulang.bin check self/ulang.u` is enough.
   - Run `make test` after changes of behaviour or when asked, and say that it ran; after edits of tests, rerun only the affected files.
   - `make testc` only with a strong reason, e.g. changes to `self/compile.u`, the runtime, or what the generated C depends on, and only after asking.
   - Time every phase of a run of checks and keep the output, so that questions about durations are answered from it; never rerun only to measure.
-- Commits: no `Co-Authored-By` for Claude; end the message with `Agentic Coding (<model>)`, e.g. `Agentic Coding (Claude Opus 5.5)`. Run `make` after every commit, so that `ulang.bin` is current.
+- Commits: no `Co-Authored-By` for Claude; end the message with `Agentic Coding (<model>)`, e.g. `Agentic Coding (Claude Opus 5.5)`. Run `make` after every commit, so that `out/ulang.bin` is current.
 - `TODO.md` holds open items only, each as the problem and the desired solution; delete an item when it is done. Explanations go into this file or `README.md`.
 - Profile compiled programs with gprof, not perf, which cannot record call graphs here: build with `-pg`, run with `GLIBC_TUNABLES=glibc.gmon.maxarcs=50000000:glibc.gmon.minarcs=1000000`, and sum several runs by `gprof -s` if one has too few samples; gprof does not see time in shared libraries such as libgc.
 
 ## Build
 
-- `make` builds `./ulang.bin` from `bootstrap/ulang.c`, the C of the last compiler that compiled itself to the same C, with the runtime, GMP, and the Boehm collector. `ULANG_LIB` is the directory `prelude/` of the library, for imports and `os_library`. Commands exit with status 1 if anything fails, and need `ulimit -s unlimited`, which the Makefile sets.
+- `make` builds the tool `out/ulang.bin`, the compiler of the current sources `self/*.u` and `prelude/*.u`: the seed `bootstrap/ulang.bin`, built from `bootstrap/ulang.c`, the C of the last compiler that compiled itself to the same C, translates them to `out/ulang.c`. Each binary is linked with the runtime, GMP, and the Boehm collector, and rebuilt when its inputs change: about 15 seconds from nothing, 7 after an edit of the sources; `rm -rf out` loses nothing that `make` cannot rebuild. `ULANG_LIB` is the directory `prelude/` of the library, for imports and `os_library`. Commands exit with status 1 if anything fails, and need `ulimit -s unlimited`, which the Makefile sets.
   - `ulang.bin run <file> [<procedure>] [-- args]` calls the procedure, by default `main`, without parameters, in the interpreter `self/run.u`; `os_args` gives the arguments after `--`.
   - `ulang.bin test <file> [<name> …] [-- args]` runs all or the named `test`s, each on its own, printing `test name passed` or `test name failed: …`.
   - `ulang.bin test <dir> [<path> …]` runs the `.u` files below the directories, in the order of names, and the given files, each in its directory with all its tests in one process. A file must succeed, or fail with the error that its first line states; it prints the files that do not, and `N of M files passed`.
@@ -24,11 +24,11 @@ A minimal language with pure functional expressions, imperative statements, data
   - `ulang.bin compile <file> <entry> <target.c>` translates to C, whose `main()` calls the procedure `entry`, or runs all tests for the entry `test`; compile it by `cc -DULANG_LIB='"'$PWD/prelude'"' -I self/runtime target.c self/runtime/ulang.c -lgmp -lgc`.
   - `ulang.bin format <file>` prints the file as source (`format_program` of `self/format.u`), and fails if that does not parse to the same commands.
   - Parse errors are reported at their token, type errors at their declaration, as `at L.C` after the message, with ` in m` for an imported module `m` (`ImportError` of `self/parse.u`, `Located` of `self/check.u`). Compile and runtime errors have no positions; the texts of the runtime errors that both backends report are `runtime_message` of `RuntimeError` in `self/error.u`, which `self/compile.u` writes into every program as the formats `u_text_*` that the runtime prints; `InternalError` of `self/run.u` holds the errors of the interpreter that checked programs never raise.
-- `make selfcompile` compiles the compiler with `ulang.bin`, and `make bootstrap` with the interpreter (`ulang.bin run self/ulang.u main -- compile …`). Both replace `bootstrap/ulang.c` and `ulang.bin` only if the new compiler compiles itself to the same C, and keep the previous ones in `bootstrap/<time stamp>/`, where the C is versioned and the binaries are not. `make selfcompile` takes about 35 seconds.
-- `make test` is `ulang.bin test tests self prove prelude`, about 9 seconds.
+- `make selfcompile` compiles the sources with `out/ulang.bin`, and `make bootstrap` with the interpreter of the seed (`bootstrap/ulang.bin run self/ulang.u main -- compile …`), for sources that the seed cannot compile. Both replace the seed, `bootstrap/ulang.c` and `bootstrap/ulang.bin`, only if the new compiler compiles itself to the same C, keep the previous pair in `bootstrap/<time stamp>/`, and then rebuild `out/ulang.bin`. Their stages are in a directory `out/stage-*` of each run, removed if it succeeds. The C of the seed is versioned, the binaries are not, and of the backups only those worth keeping are committed. `make selfcompile` takes about 15 seconds, `make bootstrap` about 4 minutes.
+- `make test` is `out/ulang.bin test tests self prove prelude`, about 9 seconds.
 - `make testformat` formats every file that parses, testing parser and printer by their round trip.
 - `make testc` (`testc.sh`) runs the same files compiled, with the entry `test`, by `cc -O2` and the runtime object `out/testc/ulang.o`, in parallel, about 45 seconds. `compile` adds the module `list`, which the runtime needs, also to `prelude.u` and `option.u`, which do not import it (`load_modules` of `self/parse.u`).
-- `make install` packages the VS Code extension of `vscode/` as `ulang.vsix` into VSCodium: highlighting, a run button, `▶ Run` links above procedures without parameters and tests, errors in the Problems view, and tests in the Testing view, by running the `ulang.bin` of the workspace or of the setting `ulang.binary`.
+- `make install` packages the VS Code extension of `vscode/` as `ulang.vsix` into VSCodium: highlighting, a run button, `▶ Run` links above procedures without parameters and tests, errors in the Problems view, and tests in the Testing view, by running the `out/ulang.bin` of the workspace or of the setting `ulang.binary`, so after a change of its path, `make install` again.
 
 ## Tests
 

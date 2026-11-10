@@ -1,4 +1,4 @@
-// the driver of ulang, ./ulang.bin, with the commands run, test, and check with the interpreter of run.u,
+// the driver of ulang, out/ulang.bin, with the commands run, test, and check with the interpreter of run.u,
 // compile, which translates a file to C, whose main calls the procedure entry, or runs all tests for the entry test,
 // and format, which prints a file as format_program of format.u does
 

@@ -71,12 +71,12 @@ The library in `prelude/` contains the prelude with natural numbers, options, an
 Requires a C compiler, GMP, and the Boehm garbage collector. The interpreter recurses as deeply as the programs it runs, so `ulimit -s unlimited` is advisable.
 
 ```
-make                                      # builds ./ulang.bin from bootstrap/ulang.c
-./ulang.bin run file.u -- args            # checks a program and calls its procedure main
-./ulang.bin test file.u                   # runs its tests one by one
-./ulang.bin test dir                      # runs the files below dir, which must pass or fail as their first lines state
-./ulang.bin check file.u                  # only checks it
-./ulang.bin compile file.u main file.c    # compiles a program to C, whose main calls the procedure main
+make                                      # builds out/ulang.bin from the sources, by the seed in bootstrap/
+out/ulang.bin run file.u -- args          # checks a program and calls its procedure main
+out/ulang.bin test file.u                 # runs its tests one by one
+out/ulang.bin test dir                    # runs the files below dir, which must pass or fail as their first lines state
+out/ulang.bin check file.u                # only checks it
+out/ulang.bin compile file.u main file.c  # compiles a program to C, whose main calls the procedure main
 cc -I self/runtime file.c self/runtime/ulang.c -lgmp -lgc
 make test                                 # runs all tests
 ```
@@ -84,8 +84,9 @@ make test                                 # runs all tests
 ## Layout
 
 - `self/` is the implementation in ulang: lexer, parser, checker, interpreter, and the compiler to C, with its runtime in `self/runtime/`, and the driver `self/ulang.u`.
-- `bootstrap/ulang.c` is the C of the last compiler that compiled itself to the same C, from which `make` builds `ulang.bin`.
-  `make selfcompile` rebuilds the compiler with itself, and `make bootstrap` with the interpreter.
+- `bootstrap/ulang.c` is the seed, the C of the last compiler that compiled itself to the same C, from which `make` builds
+  `bootstrap/ulang.bin`, which compiles the sources to `out/ulang.bin`. `make selfcompile` replaces the seed by the compiler
+  compiled with itself, and `make bootstrap` by the compiler compiled with the interpreter.
 - `prelude/` is the library.
 - `tests/` are the tests, also of expected errors in `tests/errors/`.
 - `vscode/` is an extension for VS Code and VSCodium, installed by `make install`.

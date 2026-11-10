@@ -14,7 +14,7 @@ function binary() {
   const configured = vscode.workspace.getConfiguration("ulang").get("binary");
   if (configured) return configured;
   for (const folder of vscode.workspace.workspaceFolders || []) {
-    const candidate = path.join(folder.uri.fsPath, "ulang.bin");
+    const candidate = path.join(folder.uri.fsPath, "out", "ulang.bin");
     if (fs.existsSync(candidate)) return candidate;
   }
   return undefined;
@@ -26,7 +26,7 @@ function ulang(args, file) {
   return new Promise((resolve) => {
     const bin = binary();
     if (!bin) {
-      vscode.window.showErrorMessage("ulang: no ulang.bin found, set ulang.binary in the settings");
+      vscode.window.showErrorMessage("ulang: no out/ulang.bin found, set ulang.binary in the settings");
       resolve(undefined);
       return;
     }

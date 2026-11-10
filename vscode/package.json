@@ -68,7 +68,7 @@
         "ulang.binary": {
           "type": "string",
           "default": "",
-          "description": "The path to ulang.bin, by default ulang.bin in the workspace folder"
+          "description": "The path to ulang.bin, by default out/ulang.bin in the workspace folder"
         },
         "ulang.checkOnSave": {
           "type": "boolean",
