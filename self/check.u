@@ -1569,9 +1569,9 @@ procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
       call form_import(in form, s)
       call infer(in env, form_expr(form, elems, rest), out e1, t, ref s)
 
-    case EFor(FormArray, gens, elem, None) =>
-      call form_import(in FormArray, s)
-      call infer(in env, EApp(EVar(Var(Name(Some("array"), "from_list"), THole)), list(EFor(FormList, gens, elem, None))), out e1, t, ref s)
+    case EFor(FArray, gens, elem, None) =>
+      call form_import(in FArray, s)
+      call infer(in env, EApp(EVar(Var(Name(Some("array"), "from_list"), THole)), list(EFor(FList, gens, elem, None))), out e1, t, ref s)
 
     case EFor(form, list(), elem, rest) =>
       call form_import(in form, s)
@@ -1624,16 +1624,16 @@ procedure generator(
 
 function form_module(form: Form): Option[Id] :=
   match form
-    case FormList =>
+    case FList =>
       None
 
-    case FormSet =>
+    case FSet =>
       Some("set")
 
-    case FormMap =>
+    case FMap =>
       Some("map")
 
-    case FormArray =>
+    case FArray =>
       Some("array")
   end
 
@@ -1650,10 +1650,10 @@ function base_expr(form: Form, rest: Option[Expr]): Expr :=
     case (Some(r), _) =>
       r
 
-    case (None, FormList) =>
+    case (None, FList) =>
       EVar(Var(nil_name(), THole))
 
-    case (None, FormSet) =>
+    case (None, FSet) =>
       form_app("set", "empty", list())
 
     case (None, _) =>
@@ -1663,16 +1663,16 @@ function base_expr(form: Form, rest: Option[Expr]): Expr :=
 // base with elem added, which comes first in a list, and whose key counts in a map
 function step_expr(form: Form, elem: Elem, base: Expr): Expr :=
   match (form, elem)
-    case (FormMap, Entry(k, v)) =>
+    case (FMap, Entry(k, v)) =>
       form_app("map", "put", list(k, v, base))
 
-    case (FormMap, Elem(e)) =>
+    case (FMap, Elem(e)) =>
       form_app("map", "put", list(
         EApp(EVar(Var(Name(Some("prelude"), "first"), THole)), list(e)),
         EApp(EVar(Var(Name(Some("prelude"), "second"), THole)), list(e)),
         base))
 
-    case (FormSet, Elem(e)) =>
+    case (FSet, Elem(e)) =>
       form_app("set", "insert", list(e, base))
 
     case (_, Elem(e)) =>
@@ -1686,10 +1686,10 @@ function step_expr(form: Form, elem: Elem, base: Expr): Expr :=
 // put(l, w, put(k, v, r)), so that the last entry of a key counts, and array(a, b) is from_list(list(a, b))
 function form_expr(form: Form, elems: List[Elem], rest: Option[Expr]): Expr :=
   match form
-    case FormArray =>
-      form_app("array", "from_list", list(form_expr(FormList, elems, None)))
+    case FArray =>
+      form_app("array", "from_list", list(form_expr(FList, elems, None)))
 
-    case FormMap =>
+    case FMap =>
       foldl(elems, base_expr(form, rest), lambda acc, e => step_expr(form, e, acc))
 
     case _ =>
@@ -1712,7 +1712,7 @@ function gen_container(g: Gen): Expr :=
 // so that the steps run in the order of the generators, whose function binds the pattern of g and computes body, where a
 // pattern that is no variable is matched, and the fold of a map takes key and value
 function fold_expr(form: Form, m: Id, targs: List[Type], g: Gen, c: Expr, body: Expr, base: Expr): Expr :=
-  let fold := (if form == FormList then "foldr" else "foldl"), acc := form_acc() in match g
+  let fold := (if form == FList then "foldr" else "foldl"), acc := form_acc() in match g
     case GEntries(k, v, _) =>
       let kx := formal_of(k, "(key)", key_type(targs)), vx := formal_of(v, "(value)", value_type(targs)) in form_app(m, fold, list(
         c,

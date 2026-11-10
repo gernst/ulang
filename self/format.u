@@ -558,7 +558,7 @@ function for_parts(s: Stmt): Option[Pat * Expr * Option[Expr] * Stmt] :=
 
 function items_source(init: Stmt): Option[Expr] :=
   match init
-    case SAssign(list((_, EFor(FormList, list(GFor(_, c)), _, None)))) =>
+    case SAssign(list((_, EFor(FList, list(GFor(_, c)), _, None)))) =>
       Some(c)
     case _ =>
       None

@@ -9,42 +9,64 @@ type Id :=
 
 // module is None for locals, builtins, and names before checking
 data Name :=
+  // a name as written, e.g. x, f, or T, which the parser never qualifies
   case Name(module: Option[Id], base: Id)
 
 data Type :=
+  // a type that is not written, e.g. of local x := e, which the checker infers
   case THole
+  // an unknown of inference, which has no concrete syntax
   case TMeta(meta: Int)
+  // a type parameter, e.g. A, declared by [A, …] after the name of a declaration
   case TParam(param: Id)
+  // a type T or T[A, …], applied to its arguments, e.g. Int or Map[K, V]
   case TSort(name: Name, args: List[Type])
+  // a function type A -> B, (A, B, …) -> C, or () -> C
   case TFun(args: List[Type], res: Type)
   // procedures as values, (in A, out B, ref C), whose parameters have modes as in declarations
   case TProc(ins: List[Type], outs: List[Type], refs: List[Type])
+  // a tuple type A * B * …, where a chain is one tuple type, or () for none
   case TTuple(types: List[Type])
 
 data Lit :=
+  // ()
   case LUnit
+  // true or false
   case LBool(bool: Bool)
+  // a number, e.g. 42, or a negative one, e.g. -1
   case LInt(num: Int)
+  // a string in double quotes, e.g. "text", with escapes, e.g. \\, \", and \n
   case LStr(text: Str)
+  // a character in single quotes, e.g. 'c'
   case LChar(char: Char)
 
 data Var :=
+  // x or x: T, as a formal, local, or binding, with THole for a type not written
   case Var(name: Name, typ: Type)
 
 data Expr :=
+  // a literal
   case ELit(lit: Lit)
+  // a name x of a local or a declaration, which the checker resolves
   case EVar(var: Var)
+  // f(a, …) of a function or constructor, or an operator of the notation, e.g. a + b, -a, or not a
   case EApp(fun: Expr, args: List[Expr])
   // e.f and e with f := a, which the checker resolves by the type of e to the accessor T.f and the updater T.f:=
   case EField(expr: Expr, field: Id)
   case EUpdate(expr: Expr, field: Id, value: Expr)
+  // lambda x, … => body, see lambda_patterns for formals that are patterns
   case ELam(formals: List[Var], body: Expr)
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
   case EProc(ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
+  // let x := a, … in body, which binds in parallel
   case ELet(bindings: List[Var * Expr], body: Expr)
+  // if c then a else b
   case EIte(cond: Expr, then_expr: Expr, else_expr: Expr)
+  // match e case p => a … end, one case per line, also of a let with patterns other than variables
   case EMatch(expr: Expr, cases: List[Branch[Expr]])
+  // a tuple (a, b, …)
   case ETuple(exprs: List[Expr])
+  // raise e, of any type, which the checker infers into typ
   case ERaise(expr: Expr, typ: Type)
   // list(a, b; r), set(…), map(k => v; r), and array(…), which the checker translates to the builders of their modules
   case EForm(form: Form, elems: List[Elem], rest: Option[Expr])
@@ -53,14 +75,20 @@ data Expr :=
   case EFor(form: Form, gens: List[Gen], elem: Elem, rest: Option[Expr])
 
 data Form :=
-  case FormList
-  case FormSet
-  case FormMap
-  case FormArray
+  // the form list(…)
+  case FList
+  // the form set(…)
+  case FSet
+  // the form map(…)
+  case FMap
+  // the form array(…)
+  case FArray
 
 // an element of a list, set, or array, or an entry k => v of a map
 data Elem :=
+  // an element a
   case Elem(expr: Expr)
+  // an entry k => v
   case Entry(key: Expr, value: Expr)
 
 data Gen :=
@@ -68,52 +96,82 @@ data Gen :=
   case GFor(pat: Pat, expr: Expr)
   // for k => v in m over a map
   case GEntries(key: Pat, value: Pat, expr: Expr)
+  // a guard if q after a generator
   case GIf(cond: Expr)
 
 data Pat :=
+  // the wildcard _
   case PWild
+  // a literal, e.g. -1 or "a"
   case PLit(lit: Lit)
+  // a variable x, which binds x
   case PVar(var: Var)
+  // a constructor C(p, …) or C, where list(p, …; r) and list() are Cons and Nil
   case PApp(constr: Name, pats: List[Pat])
+  // a tuple (p, q, …)
   case PTuple(pats: List[Pat])
 
 data Branch[A] :=
+  // case p if g => body of a match, where if g is optional
   case Branch(doc: Str, pat: Pat, guard: Option[Expr], body: A)
 
 data Stmt :=
+  // skip, also an else that is not written
   case SSkip
+  // assign x := a, …, which assigns in parallel
   case SAssign(assignments: List[Var * Expr])
+  // statements one after another, the body of an if, while, case, or procedure, which may declare local x := e first
   case SBlock(locals: List[Var], stmts: List[Stmt])
+  // if c then … else … end, or if c then … end
   case SIf(cond: Expr, then_stmt: Stmt, else_stmt: Stmt)
+  // while c do … end
   case SWhile(cond: Expr, body: Stmt)
+  // call p(in a, …, out x, …, ref y, …), where in is optional before the first ins
   case SCall(proc: Name, ins: List[Expr], outs: List[Var], refs: List[Var])
+  // match e case p => … end
   case SMatch(expr: Expr, cases: List[Branch[Stmt]])
+  // assert c
   case SAssert(cond: Expr)
+  // raise e, where typ is the type of e, which the checker infers
   case SRaise(expr: Expr, typ: Type)
+  // try … catch case p => … end
   case STry(body: Stmt, handlers: List[Handler])
 
 // with the pattern PWild, a handler handles exceptions of any type
 data Handler :=
+  // case p if g => body of a catch, where typ is THole until the checker infers it from p
   case Handler(doc: Str, typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
 
 data Constr :=
+  // case C(f: A, …) of a datatype, or case C without fields
   case Constr(doc: Str, name: Name, fields: List[Field])
 
 data Field :=
+  // a field f: A
   case Field(name: Id, typ: Type)
 
 data Fixity :=
+  // prefix n op …, e.g. prefix 5 not
   case FPrefix
+  // postfix n op …, e.g. postfix 12 !
   case FPostfix
+  // infix n op …, which does not associate, e.g. infix 6 ==
   case FInfix
+  // infix left n op …, e.g. infix left 9 + -
   case FLeft
+  // infix right n op …, e.g. infix right 8 ++
   case FRight
 
 data Cmd :=
+  // an alias type T[A, …] := typ
   case CSort(name: Name, params: List[Id], typ: Type)
+  // data T[A, …] := case C(f: A, …) case D, one case per line
   case CData(name: Name, params: List[Id], constrs: List[Constr])
+  // function f[A, …](x: A, …): T := body
   case CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, body: Expr)
+  // procedure p[A, …](in x: A, …, out y: B, …, ref z: C, …) := body, where in is optional before the first ins
   case CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
+  // a notation, e.g. infix left 9 + -, see Fixity
   case CNotation(fixity: Fixity, prec: Int, ops: List[Id])
   // tests take no parameters, which the checker enforces
   case CTest(test_name: Id, vars: List[Var], stmt: Stmt)
@@ -122,24 +180,30 @@ data Cmd :=
   // signatures of exported functions and procedures that the interpreter and the runtime define
   case CFunSig(name: Name, params: List[Id], formals: List[Var], typ: Type)
   case CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var])
+  // an abstract type T[A, …], without a definition
   case CAbstract(name: Name, params: List[Id])
 
 data Prog :=
+  // the commands of a program without modules, as tests build it
   case Prog(cmds: List[Cmd])
 
 data Pos :=
+  // line and column, both from 1
   case Pos(line: Int, col: Int)
 
 // a command with its position and its documentation, which is empty if there is none
 data Top :=
+  // a command after its doc of // lines
   case Top(pos: Pos, doc: Str, cmd: Cmd)
 
 // a module without sections has all its commands implemented and exports nothing
 data Mod :=
+  // a file of import "m.u" lines, then export, builtin, and implementation, each followed by its commands
   case Mod(name: Id, doc: Str, imports: List[Id], exported: List[Top], builtins: List[Top], implemented: List[Top])
 
 // the modules in load order, each after the modules it imports, with main last
 data Source :=
+  // the file that is run, tested, checked, or compiled, with its imports
   case Source(mods: List[Mod], main: Id)
 
 function unqualified(x: Id): Name
@@ -271,7 +335,7 @@ function patterns_of_lambda(formals: List[Var], body: Expr): Option[List[Pat] * 
 // what a form of a single generator yields without yield, the value its pattern matches, an entry of a map
 function implicit_elem(form: Form, gens: List[Gen]): Option[Elem] :=
   match (list(for g in gens if not is_guard(g)), form)
-    case (list(GEntries(k, v, _)), FormMap) =>
+    case (list(GEntries(k, v, _)), FMap) =>
       pair_elem(pattern_expr(k), pattern_expr(v))
 
     case (list(GEntries(k, v, _)), _) =>
@@ -282,10 +346,10 @@ function implicit_elem(form: Form, gens: List[Gen]): Option[Elem] :=
           None
       end
 
-    case (list(GFor(PTuple(list(k, v)), _)), FormMap) =>
+    case (list(GFor(PTuple(list(k, v)), _)), FMap) =>
       pair_elem(pattern_expr(k), pattern_expr(v))
 
-    case (list(GFor(_, _)), FormMap) =>
+    case (list(GFor(_, _)), FMap) =>
       None
 
     case (list(GFor(p, _)), _) =>
@@ -349,15 +413,15 @@ function pattern_exprs(ps: List[Pat]): Option[List[Expr]] :=
 
 function form_name(form: Form): Id :=
   match form
-    case FormList =>
+    case FList =>
       "list"
 
-    case FormSet =>
+    case FSet =>
       "set"
 
-    case FormMap =>
+    case FMap =>
       "map"
 
-    case FormArray =>
+    case FArray =>
       "array"
   end

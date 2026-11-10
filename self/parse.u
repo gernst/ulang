@@ -895,16 +895,16 @@ procedure parse_lambda(
 function form_of(kw: Str): Option[Form] :=
   match kw
     case "list" =>
-      Some(FormList)
+      Some(FList)
 
     case "set" =>
-      Some(FormSet)
+      Some(FSet)
 
     case "map" =>
-      Some(FormMap)
+      Some(FMap)
 
     case "array" =>
-      Some(FormArray)
+      Some(FArray)
 
     case _ =>
       None
@@ -921,10 +921,10 @@ procedure parse_form(
   out expr: Expr,
   ref toks: Tokens
 ) :=
-  local form := FormList, pos := head_pos(toks), elems: List[Elem], rest: Option[Expr], gens: List[Gen], elem: Elem
+  local form := FList, pos := head_pos(toks), elems: List[Elem], rest: Option[Expr], gens: List[Gen], elem: Elem
   match head_token(toks)
     case TKw(kw) =>
-      assign form := value_or(form_of(kw), FormList)
+      assign form := value_or(form_of(kw), FList)
     case _ =>
       skip
   end
@@ -956,7 +956,7 @@ procedure parse_form(
     end
     assign expr := EForm(form, elems, rest)
   end
-  if form == FormArray and rest != None then
+  if form == FArray and rest != None then
     raise ParseError("arrays have no rest", pos)
   end
   call expect(in TKw(")"), ref toks)
@@ -971,7 +971,7 @@ procedure parse_elem(
 ) :=
   local k: Expr, v: Expr
   call parse_expr(in notation, params, out k, ref toks)
-  if form == FormMap then
+  if form == FMap then
     call   expect(in TKw("=>"), ref toks)
     call   parse_expr(in notation, params, out v, ref toks)
     assign elem := Entry(k, v)
@@ -1256,7 +1256,7 @@ procedure parse_for(
     Branch("", pat_cons(pat, PVar(rest)), None, step),
     Branch("", pat_nil(), None, SSkip))
   assign collect := SAssign(list(
-    (items, EFor(FormList, list(GFor(PVar(item), c)), Elem(EVar(item)), None))))
+    (items, EFor(FList, list(GFor(PVar(item), c)), Elem(EVar(item)), None))))
   assign loop := SWhile(expr_app("!=", list(EVar(items), expr_var("Nil"))), SMatch(EVar(items), branches))
   assign s := SBlock(list(items), list(collect, loop))
 
@@ -2091,15 +2091,15 @@ test parsed_operators() :=
 test parsed_forms() :=
   local expr: Expr, a := expr_var("a"), b := expr_var("b"), c := expr_var("c"), tail := PApp(unqualified("Cons"), list(PLit(LInt(-1)), PWild))
   call parsed(in "list(a, b; c)", out expr)
-  assert expr == EForm(FormList, list(Elem(a), Elem(b)), Some(c))
+  assert expr == EForm(FList, list(Elem(a), Elem(b)), Some(c))
   call parsed(in "match a case list(x, -1; _) => x end", out expr)
   assert expr == EMatch(a, list(
     Branch("", PApp(unqualified("Cons"), list(pat_var("x"), tail)), None, expr_var("x"))))
   call parsed(in "set()", out expr)
-  assert expr == EForm(FormSet, list(), None)
+  assert expr == EForm(FSet, list(), None)
   call parsed(in "map(a => b, a => c)", out expr)
-  assert expr == EForm(FormMap, list(Entry(a, b), Entry(a, c)), None)
+  assert expr == EForm(FMap, list(Entry(a, b), Entry(a, c)), None)
   call parsed(in "array(for x in a if x yield b)", out expr)
-  assert expr == EFor(FormArray, list(GFor(pat_var("x"), a), GIf(expr_var("x"))), Elem(b), None)
+  assert expr == EFor(FArray, list(GFor(pat_var("x"), a), GIf(expr_var("x"))), Elem(b), None)
   call parsed(in "map(for k => v in a)", out expr)
-  assert expr == EFor(FormMap, list(GEntries(pat_var("k"), pat_var("v"), a)), Entry(expr_var("k"), expr_var("v")), None)
+  assert expr == EFor(FMap, list(GEntries(pat_var("k"), pat_var("v"), a)), Entry(expr_var("k"), expr_var("v")), None)
