@@ -87,6 +87,24 @@ data Rebind :=
   // indices of the binders around the term are increased by n
   case Shift(n: Int)
 
+// the applications of the builtins without a module, as the simplifier matches them; terms read from checked programs
+// will carry Some("prelude") for the operators of the prelude
+pattern Not(a: Expr): Expr := EApp(EFun(Name(None, "not")), list(a))
+
+pattern And(a: Expr, b: Expr): Expr := EApp(EFun(Name(None, "and")), list(a, b))
+
+pattern Or(a: Expr, b: Expr): Expr := EApp(EFun(Name(None, "or")), list(a, b))
+
+pattern Implies(a: Expr, b: Expr): Expr := EApp(EFun(Name(None, "==>")), list(a, b))
+
+pattern Eq(a: Expr, b: Expr): Expr := EApp(EFun(Name(None, "==")), list(a, b))
+
+pattern Less(a: Expr, b: Expr): Expr := EApp(EFun(Name(None, "<")), list(a, b))
+
+pattern Forall(formals: List[Var], body: Expr): Expr := EApp(EFun(Name(None, "forall")), list(ELam(formals, body)))
+
+pattern Exists(formals: List[Var], body: Expr): Expr := EApp(EFun(Name(None, "exists")), list(ELam(formals, body)))
+
 function sym(base: Id): Expr
 
 function app(f: Id, args: List[Expr]): Expr

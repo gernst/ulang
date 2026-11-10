@@ -175,22 +175,22 @@ function to_seq(e: Expr): Seq :=
     case EConst(VBool(false)) =>
       false_seq()
 
-    case EApp(EFun(Name(None, "not")), list(a)) =>
+    case Not(a) =>
       Seq(list(), list(to_seq(a)), list())
 
-    case EApp(EFun(Name(None, "and")), list(a, b)) =>
+    case And(a, b) =>
       Seq(list(), list(), list(Concl(list(), list(to_seq(a), to_seq(b)))))
 
-    case EApp(EFun(Name(None, "or")), list(a, b)) =>
+    case Or(a, b) =>
       Seq(list(), list(), list(Concl(list(), list(to_seq(a))), Concl(list(), list(to_seq(b)))))
 
-    case EApp(EFun(Name(None, "==>")), list(a, b)) =>
+    case Implies(a, b) =>
       Seq(list(), list(to_seq(a)), list(Concl(list(), list(to_seq(b)))))
 
-    case EApp(EFun(Name(None, "forall")), list(ELam(formals, body))) =>
+    case Forall(formals, body) =>
       Seq(formals, list(), list(Concl(list(), list(to_seq(body)))))
 
-    case EApp(EFun(Name(None, "exists")), list(ELam(formals, body))) =>
+    case Exists(formals, body) =>
       Seq(list(), list(), list(Concl(formals, list(to_seq(body)))))
 
     case EIte(cond, then_expr, else_expr) =>
@@ -280,10 +280,10 @@ function one_point(d: Int, ss: List[Seq]): Option[Int * Expr * List[Seq]] :=
 
 function equation_of(d: Int, s: Seq): Option[Int * Expr] :=
   match s
-    case Atom(EApp(EFun(Name(None, "==")), list(ELevel(level), t))) if level >= d and not occurs(ELevel(level), t) =>
+    case Atom(Eq(ELevel(level), t)) if level >= d and not occurs(ELevel(level), t) =>
       Some((level, t))
 
-    case Atom(EApp(EFun(Name(None, "==")), list(t, ELevel(level)))) if level >= d and not occurs(ELevel(level), t) =>
+    case Atom(Eq(t, ELevel(level))) if level >= d and not occurs(ELevel(level), t) =>
       Some((level, t))
 
     case _ =>
@@ -414,7 +414,7 @@ function refute(ctx: Ctx, c: Concl): Ctx :=
 
 function add_rule(ctx: Ctx, xs: List[Var], conds: List[Seq], e: Expr, b: Bool): Ctx :=
   let rule := match e
-    case EApp(EFun(Name(None, "==")), list(l, r)) if b =>
+    case Eq(l, r) if b =>
       if greater(ctx.decls, l, r) then Rule(xs, conds, l, r) else if greater(ctx.decls, r, l) then Rule(xs, conds, r, l) else Rule(xs, conds, e, bool_expr(true))
     case _ =>
       Rule(xs, conds, e, bool_expr(b))
@@ -438,19 +438,19 @@ function assume_expr(ctx: Ctx, e: Expr, b: Bool): Ctx :=
     case EConst(VBool(bool)) =>
       if bool == b then ctx else contradiction(ctx)
 
-    case EApp(EFun(Name(None, "not")), list(a)) =>
+    case Not(a) =>
       assume_expr(ctx, a, not b)
 
-    case EApp(EFun(Name(None, "and")), list(x, y)) if b =>
+    case And(x, y) if b =>
       assume_expr(assume_expr(ctx, x, true), y, true)
 
-    case EApp(EFun(Name(None, "or")), list(x, y)) if not b =>
+    case Or(x, y) if not b =>
       assume_expr(assume_expr(ctx, x, false), y, false)
 
-    case EApp(EFun(Name(None, "==")), list(x, y)) if b =>
+    case Eq(x, y) if b =>
       merge(ctx, x, y, 20)
 
-    case EApp(EFun(Name(None, "<")), list(x, y)) =>
+    case Less(x, y) =>
       if b then add_ineq(ctx, lin_add(lin_sub(lin_of(y), lin_of(x)), Lin(-1, list()))) else add_ineq(ctx, lin_sub(lin_of(x), lin_of(y)))
 
     case _ =>
@@ -609,7 +609,7 @@ function bounds(ctx: Ctx, t: Lin): List[Lin] :=
 
 function bound_of(r: Rule, a: Expr): List[Lin] :=
   match (r.conds, r.lhs, r.rhs)
-    case (list(), EApp(EFun(Name(None, "<")), list(p, q)), EConst(VBool(bool))) =>
+    case (list(), Less(p, q), EConst(VBool(bool))) =>
       match lin_sub(lin_of(p), lin_of(q))
         case Lin(_, list(Term(atom, _))) =>
           match match_term(size(r.vars), atom, a, empty())
@@ -758,7 +758,7 @@ function simp_builtin(ctx: Ctx, op: Id, args: List[Expr]): Expr :=
     case ("not", list(EConst(VBool(bool)))) =>
       bool_expr(not bool)
 
-    case ("not", list(EApp(EFun(Name(None, "not")), list(a)))) =>
+    case ("not", list(Not(a))) =>
       a
 
     case ("and", list(a, b)) =>
@@ -1052,7 +1052,7 @@ function candidate(decls: Decls, e: Expr): Option[Split] :=
 
 function positive(c: Expr): Expr :=
   match c
-    case EApp(EFun(Name(None, "not")), list(a)) =>
+    case Not(a) =>
       positive(a)
     case _ =>
       c
