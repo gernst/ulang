@@ -86,6 +86,7 @@ A minimal language with pure functional expressions, imperative statements, data
 
 - `raise e` is an expression of any type, and a failed `assert` cannot be caught.
 - Effects on variables are atomic: a procedure works on copies of its outs and refs, which reach the caller only when it returns, and the handlers of a `try` see the variables as before it. Compiled code copies outs and refs in and out, and saves the variables that the body of a `try` assigns before its `setjmp`.
+- No formal, local, pattern variable, or formal of a lambda hides a local around it (`HiddenLocal`, `unhidden` of `self/check.u`), while locals may hide declarations, which depend on the imports; the names of the translations, such as `(acc)` and `(item)`, nest.
 - Variables are read only where they are assigned on every path, and outs must be assigned on every path that does not raise, where passing a ref reads it (`Local` of `self/check.u`, joining the paths of `if`, `match`, and `try`; a `while` may not run its body, and a handler starts from the variables before its `try`).
 - Procedures are values of types `(in A, out B, ref C)`: declared ones by name, and `lambda in x, out y, ref z => statements end`, which sees the variables around it by their values and assigns only its own outs and refs. `call p(…)` calls a variable `p`, which hides a procedure `p`; compiled code calls through `u_call_proc` and the wrappers `wp_`.
 - Functions without parameters are computed once, interpreted and compiled.

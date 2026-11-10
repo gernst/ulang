@@ -49,6 +49,8 @@ data TypeError :=
   case SignatureMismatch(name: Name)
   case PartlyExported(name: Name)
   case PrivateType(name: Name, sort: Name)
+  // a formal, local, pattern variable, or formal of a lambda of the name of a local around it
+  case HiddenLocal(name: Name)
   case VisibleEquality(sort: Name)
   // show, compare, or == of other values than those of a datatype of its module, see order_of of defs.u
   case MisshapenHook(name: Name)
@@ -378,6 +380,13 @@ function has_arity(scs: List[List[Type] * Type], k: Int): Bool :=
 
 function bind(xs: List[Var]): Env :=
   list(for x in xs yield (x.name, Local((list(), x.typ), true)))
+
+// no local of xs hides one of env, except those of the translations, whose names users cannot write, such as (acc) and
+// (item), which nest
+procedure unhidden(in env: Env, xs: List[Var]) :=
+  for x in xs if not starts_with(x.name.base, "(") and get(x.name, env) != None do
+    raise HiddenLocal(x.name)
+  end
 
 function unassigned(xs: List[Var]): Env :=
   list(for x in xs yield (x.name, Local((list(), x.typ), false)))
@@ -1365,6 +1374,7 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
 
     case ELam(bound, body) =>
       call   formals(in "formal", bound, out xs, ref s)
+      call   unhidden(in env, xs)
       call   infer(in bind(xs) ++ env, body, out b, u, ref s)
       assign res := ELam(xs, b), typ := TFun(list(for x in xs yield x.typ), u)
 
@@ -1374,6 +1384,7 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
       call   formals(in "formal", ins, out xs, ref s)
       call   formals(in "formal", outs, out ys, ref s)
       call   formals(in "formal", refs, out zs, ref s)
+      call   unhidden(in env, xs ++ ys ++ zs)
       assign inner := bind(xs) ++ unassigned(ys) ++ bind(zs) ++ env
       call   statement(in list(for x in ys ++ zs yield x.name), stmt, out y, ref inner, s)
       call   outputs(in unqualified("lambda"), ys, inner)
@@ -1381,6 +1392,7 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
 
     case ELet(bound, body) =>
       call   formals(in "binding", firsts(bound), out xs, ref s)
+      call   unhidden(in env, xs)
       call   checks(in env, "the bindings", seconds(bound), list(for x in xs yield x.typ), out exprs, ref s)
       call   solve(ref s)
       call   infer(in generalized(s, env, xs) ++ env, body, out b, u, ref s)
@@ -1850,6 +1862,7 @@ procedure expr_branches(
 
     case list(Branch(doc, pat, g, body); more) =>
       call   pattern(in pat, t, out p1, xs, ref s)
+      call   unhidden(in env, xs)
       call   guard(in bind(xs) ++ env, g, out g1, ref s)
       call   check(in bind(xs) ++ env, body, r, out b1, ref s)
       call   expr_branches(in env, more, t, r, out rest, ref s)
@@ -2095,6 +2108,7 @@ procedure statement(
     case SBlock(locals, stmts) =>
       call   untyped(in locals, initialized(stmts))
       call   formals(in "local", locals, out ys, ref s)
+      call   unhidden(in env, ys)
       assign inner := unassigned(ys) ++ env
       call   statements(in list(for x in ys yield x.name) ++ assignable, stmts, out xs, ref inner, s)
       assign y := SBlock(ys, xs), env := drop(size(ys), inner)
@@ -2311,6 +2325,7 @@ procedure stmt_branches(
 
     case list(Branch(doc, pat, g, body); more) =>
       call   pattern(in pat, t, out p1, xs, ref s)
+      call   unhidden(in env, xs)
       assign inner := bind(xs) ++ env
       call   guard(in inner, g, out g1, ref s)
       call   statement(in assignable -- list(for x in xs yield x.name), body, out b1, ref inner, s)
@@ -2334,6 +2349,7 @@ procedure handler_list(
     case list(Catch(doc, typ, pat, g, body); more) =>
       call   normalize(in typ, out u, ref s)
       call   pattern(in pat, u, out p1, xs, ref s)
+      call   unhidden(in env, xs)
       assign inner := bind(xs) ++ env
       call   guard(in inner, g, out g1, ref s)
       call   statement(in assignable -- list(for x in xs yield x.name), body, out b1, ref inner, s)

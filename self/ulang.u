@@ -538,6 +538,9 @@ function type_message(e: TypeError): Str :=
     case PrivateType(name, sort) =>
       "the signature of " ++ name.base ++ " names the private type " ++ sort.base
 
+    case HiddenLocal(name) =>
+      name.base ++ " hides a local of the same name"
+
     case VisibleEquality(sort) =>
       sort.base ++ " declares ==, which only abstract types may"
 
