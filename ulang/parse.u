@@ -1665,6 +1665,18 @@ procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) 
     assign cmd := CFunSig(unqualified(name), params, xs, r)
   end
 
+procedure parse_pat_alias(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
+  local name: Id, params: List[Id], xs: List[Var], r: Type, pat: Pat
+  call   advance(ref toks)
+  call   parse_name(out name, ref toks)
+  call   parse_params(in notation, out params, ref toks)
+  call   parse_formals(in notation, params, out xs, ref toks)
+  call   expect(in TKw(":"), ref toks)
+  call   parse_type(in notation, params, out r, ref toks)
+  call   expect(in TKw(":="), ref toks)
+  call   parse_pattern(in notation, params, out pat, ref toks)
+  assign cmd := CPatAlias(unqualified(name), params, xs, r, pat)
+
 procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
   local name: Id, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], body: Stmt
   call advance(ref toks)
@@ -1716,6 +1728,10 @@ procedure parse_command(
 
     case TKw("procedure") =>
       call   parse_procedure(in notation, out cmd, ref toks)
+      assign cmds := list(cmd)
+
+    case TKw("pattern") =>
+      call   parse_pat_alias(in notation, out cmd, ref toks)
       assign cmds := list(cmd)
 
     case TKw("test") =>

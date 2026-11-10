@@ -71,6 +71,7 @@ function keywords(): Set[Str] :=
     "map",
     "match",
     "out",
+    "pattern",
     "postfix",
     "prefix",
     "procedure",

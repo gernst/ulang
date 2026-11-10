@@ -182,6 +182,9 @@ data Cmd :=
   case CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var])
   // an abstract type T[A, …], without a definition
   case CAbstract(name: Name, params: List[Id])
+  // a pattern alias pattern C[A, …](x: A, …): T := pat, whose variables are the formals, each once, which the checker
+  // expands at its uses in patterns, and which is a function of the same name where pat has no _
+  case CPatAlias(name: Name, params: List[Id], formals: List[Var], typ: Type, pat: Pat)
 
 data Prog :=
   // the commands of a program without modules, as tests build it
@@ -219,6 +222,10 @@ function expr_app(f: Id, args: List[Expr]): Expr
 function pat_var(n: Id): Pat
 
 function lambda_patterns(pats: List[Pat], body: Expr): Expr
+
+function pattern_expr(p: Pat): Option[Expr]
+
+function subst_pat(pat: Pat, sub: List[Name * Pat]): Pat
 
 function implicit_elem(form: Form, gens: List[Gen]): Option[Yield]
 
@@ -395,6 +402,22 @@ function pattern_expr(p: Pat): Option[Expr] :=
 
     case PApp(c, ps) =>
       map_option(pattern_exprs(ps), lambda es => EApp(EVar(Var(c, THole)), es))
+  end
+
+// pat with the patterns of sub for its variables
+function subst_pat(pat: Pat, sub: List[Name * Pat]): Pat :=
+  match pat
+    case PVar(var) =>
+      value_or(get(var.name, sub), pat)
+
+    case PApp(constr, args) =>
+      PApp(constr, list(for a in args yield subst_pat(a, sub)))
+
+    case PTuple(args) =>
+      PTuple(list(for a in args yield subst_pat(a, sub)))
+
+    case _ =>
+      pat
   end
 
 function pattern_exprs(ps: List[Pat]): Option[List[Expr]] :=

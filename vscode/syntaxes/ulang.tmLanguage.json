@@ -71,7 +71,7 @@
     "declaration": {
       "patterns": [
         {
-          "begin": "\\b(function|procedure)\\s+([A-Za-z_][A-Za-z0-9_]*|[-+*/%<>=!&|:^~?@#$]+)",
+          "begin": "\\b(function|procedure|pattern)\\s+([A-Za-z_][A-Za-z0-9_]*|[-+*/%<>=!&|:^~?@#$]+)",
           "end": ":=|$",
           "beginCaptures": {
             "1": {

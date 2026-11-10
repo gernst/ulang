@@ -55,6 +55,12 @@ data TypeError :=
   // show, compare, or == of other values than those of a datatype of its module, see order_of of defs.u
   case MisshapenHook(name: Name)
   case UnexportedOrder(fun: Name, sort: Name)
+  // a pattern alias whose variables are not exactly its formals
+  case AliasVariables(name: Name)
+  // a pattern alias with _, which matches but builds no value
+  case PatternOnly(name: Name)
+  // an exported pattern alias of a constructor that importers do not see
+  case PrivateConstructor(name: Name, constr: Name)
   // an error of the command at the position of an imported module, or of the main module for None
   case Located(module: Option[Id], pos: Pos, error: TypeError)
 
@@ -123,6 +129,9 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
 
     case CAbstract(name, params) =>
       CAbstract(in_module(m, name), params)
+
+    case CPatAlias(name, params, formals, typ, pat) =>
+      CPatAlias(in_module(m, name), params, formals, typ, pat)
 
     case _ =>
       cmd
@@ -357,6 +366,10 @@ function candidates(s: State, env: Env, n: Name): List[Name * Scheme] :=
   end
 
 // f with k arguments is the order, the equality, or the text of the values of a datatype, see order_of of defs.u
+// constructors and pattern aliases, the names that patterns apply
+function is_pattern_name(sig: Sig, n: Name): Bool :=
+  is_constr(sig, n) or is_pat_alias(sig, n)
+
 function is_hook(f: Name, k: Int): Bool :=
   f.base == "show" and k == 1 or (f.base == "compare" or f.base == "==") and k == 2
 
@@ -1234,6 +1247,9 @@ procedure use_name(
 ) :=
   local m: Name
   match cs
+    case list() if overloads(s, n, lambda a => is_pat_alias(s.sig, a)) != list() =>
+      raise PatternOnly(n)
+
     case list() =>
       raise UnknownVariable(n)
 
@@ -1849,7 +1865,7 @@ procedure expr_branches(
       assign cases1 := list()
 
     case list(Branch(doc, pat, g, body); more) =>
-      call   pattern(in pat, t, out p1, xs, ref s)
+      call   typed_pattern(in pat, t, out p1, xs, ref s)
       call   unhidden(in env, xs)
       call   guard(in bind(xs) ++ env, g, out g1, ref s)
       call   check(in bind(xs) ++ env, body, r, out b1, ref s)
@@ -1907,7 +1923,7 @@ procedure reachable(
       end
   end
 
-procedure pattern(
+procedure typed_pattern(
   in  pat: Pat,
       t: Type,
   out p1: Pat,
@@ -1934,7 +1950,7 @@ procedure binders(
       assign p1 := pat, xs := list()
 
     case PVar(Var(name, typ)) =>
-      if overloads(s, name, lambda n => is_constr(s.sig, n)) != list() then
+      if overloads(s, name, lambda n => is_pattern_name(s.sig, n)) != list() then
         call binders(in PApp(name, list()), t, out p1, xs, ref s)
       else
         call   normalize(in typ, out u, ref s)
@@ -1943,7 +1959,7 @@ procedure binders(
       end
 
     case PApp(constr, args) =>
-      match overloads(s, constr, lambda n => is_constr(s.sig, n))
+      match overloads(s, constr, lambda n => is_pattern_name(s.sig, n))
         case list(k1) =>
           assign k := k1
 
@@ -1953,15 +1969,22 @@ procedure binders(
         case ks =>
           call pattern_constructor(in constr, ks, size(args), t, out k, ref s)
       end
-      match constr_of(s.sig, k)
-        case Some(decl) =>
+      match (constr_of(s.sig, k), pat_alias_of(s.sig, k))
+        case (Some(decl), _) =>
           call   same_length(in "constructor " ++ k.base, "arguments", size(decl.fields), size(args))
           call   instance(in decl.params, out m, ref s)
           call   unify(in subst(decl.typ, m), t, ref s)
           call   binder_list(in args, list(for field in decl.fields yield subst(field, m)), out qs, xs, ref s)
           assign p1 := PApp(k, qs)
 
-        case None =>
+        case (None, Some(alias)) =>
+          call   same_length(in "pattern alias " ++ k.base, "arguments", size(alias.formals), size(args))
+          call   instance(in alias.params, out m, ref s)
+          call   unify(in subst(alias.typ, m), t, ref s)
+          call   binder_list(in args, list(for x in alias.formals yield subst(x.typ, m)), out qs, xs, ref s)
+          assign p1 := subst_pat(alias.pat, zip(list(for x in alias.formals yield x.name), qs))
+
+        case (None, None) =>
           raise UnknownConstructor(constr)
       end
 
@@ -1999,17 +2022,19 @@ procedure pattern_constructor(
       raise Ambiguous(n, firsts(ok))
   end
 
-// the constructors of ks with k arguments, each with the scheme of its datatype
+// the constructors and pattern aliases of ks with k arguments, each with the scheme of the type that it matches
 function results(sig: Sig, ks: List[Name], k: Int): List[Name * Scheme] :=
   match ks
     case list() =>
       list()
 
     case list(n; rest) =>
-      match constr_of(sig, n)
-        case Some(constr) =>
-          if size(constr.fields) == k then list((n, Scheme(constr.params, constr.typ)); results(sig, rest, k)) else results(sig, rest, k)
-        case None =>
+      match (constr_of(sig, n), pat_alias_of(sig, n))
+        case (Some(constr), _) if size(constr.fields) == k =>
+          list((n, Scheme(constr.params, constr.typ)); results(sig, rest, k))
+        case (None, Some(alias)) if size(alias.formals) == k =>
+          list((n, Scheme(alias.params, alias.typ)); results(sig, rest, k))
+        case _ =>
           results(sig, rest, k)
       end
   end
@@ -2312,7 +2337,7 @@ procedure stmt_branches(
       assign cases1 := list(), env := unreachable(env)
 
     case list(Branch(doc, pat, g, body); more) =>
-      call   pattern(in pat, t, out p1, xs, ref s)
+      call   typed_pattern(in pat, t, out p1, xs, ref s)
       call   unhidden(in env, xs)
       assign inner := bind(xs) ++ env
       call   guard(in inner, g, out g1, ref s)
@@ -2336,7 +2361,7 @@ procedure handler_list(
 
     case list(Catch(doc, typ, pat, g, body); more) =>
       call   normalize(in typ, out u, ref s)
-      call   pattern(in pat, u, out p1, xs, ref s)
+      call   typed_pattern(in pat, u, out p1, xs, ref s)
       call   unhidden(in env, xs)
       assign inner := bind(xs) ++ env
       call   guard(in inner, g, out g1, ref s)
@@ -2346,13 +2371,13 @@ procedure handler_list(
   end
 
 procedure declare_name(in sig: Sig, n: Name) :=
-  if is_fun(sig, n) or is_proc(sig, n) or is_constr(sig, n) or builtin_schemes(unqualified(n.base)) != list() then
+  if is_fun(sig, n) or is_proc(sig, n) or is_constr(sig, n) or is_pat_alias(sig, n) or builtin_schemes(unqualified(n.base)) != list() then
     raise AlreadyDefined(n)
   end
 
 // functions of the same name must differ in their number of arguments, while they may overload builtins
 procedure overload(in sig: Sig, n: Name, k: Int) :=
-  if is_proc(sig, n) or is_constr(sig, n) or has_arity(schemes_of(sig, n), k) then
+  if is_proc(sig, n) or is_constr(sig, n) or is_pat_alias(sig, n) or has_arity(schemes_of(sig, n), k) then
     raise AlreadyDefined(n)
   end
 
@@ -2469,6 +2494,37 @@ procedure declare_funs(in cs: List[Id * Cmd], ref s: State) :=
         call   known(in typ, name, out r, ref s)
         call   closed(in name, ps, list(TFun(list(for x in xs yield x.typ), r)))
         assign s := with_sig(s, with_fun(s.sig, name, Scheme(params(ps), TFun(list(for x in xs yield x.typ), r))))
+
+      case _ =>
+        skip
+    end
+  end
+
+// each alias after the constructors and the aliases before it, so that aliases do not recur, with the function of the
+// same name that builds its values where its pattern has no _
+procedure declare_pat_aliases(in cs: List[Id * Cmd], ref s: State) :=
+  local xs: List[Var], r: Type, checked: Pat, ys: List[Var]
+  for (m, cmd) in cs do
+    match cmd
+      case CPatAlias(name, ps, formals, typ, pat) =>
+        assign s := enter(s, m)
+        call   declare_name(in s.sig, name)
+        call   unique_ids(in "type parameter", ps)
+        call   signature(in formals, out xs, ref s)
+        call   known(in typ, name, out r, ref s)
+        call   closed(in name, ps, list(TFun(list(for x in xs yield x.typ), r)))
+        call   typed_pattern(in pat, r, out checked, ys, ref s)
+        if set(for y in ys yield y.name) != set(for x in xs yield x.name) then
+          raise AliasVariables(name)
+        end
+        for y in ys do
+          call unify(in y.typ, value_or(map_option(find(xs, lambda x => x.name == y.name), lambda x => x.typ), y.typ), ref s)
+        end
+        call   solve(ref s)
+        assign s := with_sig(s, with_pat_alias(s.sig, name, PatAlias(params(ps), xs, r, zonk_pat(s, checked))))
+        if pattern_expr(pat) != None then
+          assign s := with_sig(s, with_fun(s.sig, name, Scheme(params(ps), TFun(list(for x in xs yield x.typ), r))))
+        end
 
       case _ =>
         skip
@@ -2701,6 +2757,9 @@ function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
     case CSort(name, _, _) =>
       list(name)
 
+    case CPatAlias(name, _, _, _, _) =>
+      list(name)
+
     case _ =>
       list()
   end
@@ -2840,6 +2899,32 @@ procedure check_arities(in im: List[Cmd], ex: List[Cmd]) :=
     end
   end
 
+// the exported pattern aliases of cs expand to constructors that importers see
+procedure exported_aliases(in cs: List[Id * Cmd], hidden: Set[Name], s: State) :=
+  for (_, cmd) in cs do
+    match cmd
+      case CPatAlias(name, _, _, _, _) if not contains(name, hidden) =>
+        for k in pattern_constrs(value_or(map_option(pat_alias_of(s.sig, name), lambda alias => alias.pat), PWild)) if contains(k, hidden) do
+          raise PrivateConstructor(name, k)
+        end
+
+      case _ =>
+        skip
+    end
+  end
+
+function pattern_constrs(pat: Pat): List[Name] :=
+  match pat
+    case PApp(constr, args) =>
+      list(constr; list(for a in args for k in pattern_constrs(a) yield k))
+
+    case PTuple(args) =>
+      list(for a in args for k in pattern_constrs(a) yield k)
+
+    case _ =>
+      list()
+  end
+
 // the types of the export section name only sorts that importers can name, not the private sorts of the module
 procedure check_exposed(in m: Id, ex: List[Cmd], hidden_sorts: List[Name]) :=
   local found: List[Name]
@@ -2882,6 +2967,9 @@ function exposed(cmd: Cmd): Option[Name * List[Type]] :=
 
     case CSort(name, _, typ) =>
       Some((name, list(typ)))
+
+    case CPatAlias(name, _, formals, typ, _) =>
+      Some((name, list(for x in formals yield x.typ) ++ list(typ)))
 
     case _ =>
       None
@@ -2957,11 +3045,13 @@ procedure check_mod(
   call   declare_datas(in builtins, ref s)
   call   each_placed(in declare_sorts, placed, ref s)
   call   each_placed(in declare_constrs, placed, ref s)
+  call   each_placed(in declare_pat_aliases, placed, ref s)
   call   each_placed(in declare_funs, placed, ref s)
   call   each_placed(in declare_procs, placed, ref s)
   call   declare_funs(in builtins, ref s)
   call   declare_procs(in builtins, ref s)
   call   check_sections(in d, out hidden, hidden_sorts)
+  call   each_placed(in lambda in cs: List[Id * Cmd], ref t: State => call exported_aliases(in cs, hidden, t) end, placed, ref s)
   call   unique_ids(in "declaration", block_names(decls))
   call   placed_commands(in placed_definitions(placed), lambda in checked: List[Cmd] => call check_orders(in checked, abstract_types(decls), hidden, hidden_sorts) end, out defined, ref s)
   assign extra := synthesized(decls, defined, native_types(builtins))
@@ -2974,8 +3064,23 @@ procedure check_mod(
 function decls_of(d: Mod): List[Pos * (Id * Cmd)] :=
   list(for top in placed_of(d) yield (top.pos, (d.name, qualify(d.name, top.cmd))))
 
+// the definitions to check, where a pattern alias is the function that builds its values, if it has one
 function placed_definitions(placed: List[Pos * (Id * Cmd)]): List[Pos * (Id * Cmd)] :=
-  list(for (p, d) in placed if is_definition(d))
+  list(for (p, (m, cmd)) in placed for c in definition_of(cmd) if is_definition((m, c)) yield (p, (m, c)))
+
+function definition_of(cmd: Cmd): List[Cmd] :=
+  match cmd
+    case CPatAlias(name, params, formals, typ, pat) =>
+      match pattern_expr(pat)
+        case Some(body) =>
+          list(CFun(name, params, formals, typ, body))
+        case None =>
+          list()
+      end
+
+    case _ =>
+      list(cmd)
+  end
 
 // the declarations of a phase, one by one, where an error is located at the declaration that raises it
 procedure each_placed(

@@ -1,0 +1,8 @@
+// type error: pattern alias Pair expects 2 arguments, got 1 at 4.1
+pattern Pair(x: Int, y: Int): Int * Int := (x, y)
+
+function f(p: Int * Int): Int :=
+  match p
+    case Pair(x) =>
+      x
+  end

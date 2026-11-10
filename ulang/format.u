@@ -753,6 +753,9 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
     case CProcSig(name, params, ins, outs, refs) =>
       Some(proc_head(name, params, ins, outs, refs))
 
+    case CPatAlias(name, params, formals, typ, pat) =>
+      Some("pattern " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ "): " ++ format_type(typ) ++ " := " ++ format_pattern(notation, pat))
+
     case CNotation(fixity, prec, ops) =>
       Some(fixity_text(fixity) ++ " " ++ show(prec) ++ " " ++ join(" ", ops))
 

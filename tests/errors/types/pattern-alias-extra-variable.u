@@ -1,0 +1,2 @@
+// type error: the variables of the pattern alias Pair are not its formals, each once at 2.1
+pattern Pair(x: Int): Int * Int := (x, y)

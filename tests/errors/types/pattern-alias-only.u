@@ -1,0 +1,5 @@
+// type error: the pattern alias First has _ and builds no value at 4.1
+pattern First(x: Int): Int * Int := (x, _)
+
+function f(): Int * Int :=
+  First(1)

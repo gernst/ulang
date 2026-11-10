@@ -549,6 +549,15 @@ function type_message(e: TypeError): Str :=
     case UnexportedOrder(fun, sort) =>
       fun.base ++ " of the exported type " ++ sort.base ++ " is not exported"
 
+    case AliasVariables(name) =>
+      "the variables of the pattern alias " ++ name.base ++ " are not its formals, each once"
+
+    case PatternOnly(name) =>
+      "the pattern alias " ++ name.base ++ " has _ and builds no value"
+
+    case PrivateConstructor(name, constr) =>
+      "the exported pattern alias " ++ name.base ++ " matches the private constructor " ++ constr.base
+
     case Located(_, _, error) =>
       type_message(error)
   end

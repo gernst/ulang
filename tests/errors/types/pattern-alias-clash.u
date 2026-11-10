@@ -1,0 +1,5 @@
+// type error: C is already defined at 5.1
+data T :=
+  case C(n: Int)
+
+pattern C(n: Int): T := C(n)

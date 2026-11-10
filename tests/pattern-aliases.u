@@ -1,0 +1,98 @@
+import "terms.u"
+
+data Term :=
+  case App(fun: Str, args: List[Term])
+  case Num(num: Int)
+
+pattern And(a: Term, b: Term): Term := App("and", list(a, b))
+
+pattern Not(a: Term): Term := App("not", list(a))
+
+pattern Zero(): Term := Num(0)
+
+pattern Call(f: Str): Term := App(f, _)
+
+pattern NotNot(a: Term): Term := Not(Not(a))
+
+pattern Single[A](x: A): List[A] := list(x)
+
+pattern Both[A, B](x: A, y: B): A * B := (x, y)
+
+function simp(t: Term): Term :=
+  match t
+    case NotNot(a) =>
+      simp(a)
+
+    case And(Zero(), _) =>
+      Zero()
+
+    case And(a, b) =>
+      And(simp(a), simp(b))
+
+    case Not(a) =>
+      Not(simp(a))
+
+    case _ =>
+      t
+  end
+
+function name_of(t: Term): Str :=
+  match t
+    case Call(f) =>
+      f
+    case Num(_) =>
+      "num"
+  end
+
+function only[A](xs: List[A], default: A): A :=
+  match xs
+    case Single(x) =>
+      x
+    case _ =>
+      default
+  end
+
+test aliases_match() :=
+  assert simp(Not(Not(Num(1)))) == Num(1)
+  assert simp(And(Zero(), Num(1))) == Num(0)
+  assert simp(And(Not(Not(Num(2))), Num(3))) == App("and", list(Num(2), Num(3)))
+  assert name_of(App("f", list())) == "f"
+  assert name_of(Num(3)) == "num"
+
+test aliases_build() :=
+  assert And(Num(1), Num(2)) == App("and", list(Num(1), Num(2)))
+  assert Zero() == Num(0)
+  assert Single(5) == list(5)
+
+test aliases_generic() :=
+  assert only(list(1), 0) == 1
+  assert only(list(1, 2), 0) == 0
+  assert only(list("a"), "") == "a"
+
+test aliases_bind() :=
+  assert match (1, "b")
+    case Both(a, _) =>
+      a
+  end == 1
+  assert list(for Both(x, y) in list((1, 2), (3, 4)) yield x + y) == list(3, 7)
+  assert (lambda Both(x, y) => x * y)((3, 4)) == 12
+
+test aliases_catch() :=
+  local r := Num(0)
+  try
+    assign r := raise Not(Num(7))
+  catch
+    case Not(a) =>
+      assign r := a
+  end
+  assert r == Num(7)
+
+test aliases_imported() :=
+  assert Plus(Leaf(1), Leaf(2)) == Op("+", list(Leaf(1), Leaf(2)))
+  assert match Plus(Leaf(1), Leaf(2))
+    case Plus(a, _) =>
+      a
+    case _ =>
+      Leaf(0)
+  end == Leaf(1)
+  assert minus_of(Op("-", list(Leaf(3)))) == Some(Leaf(3))

@@ -1,0 +1,6 @@
+// parse error: builtin sections have signatures and types without a definition only at 6.1
+export
+
+builtin
+
+pattern Z(): Int := 0
