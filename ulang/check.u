@@ -1437,7 +1437,7 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
       call infer(in env, form_expr(form, elems, rest), out res, typ, ref s)
 
     case EFor(FArray, gens, elem, None) =>
-      call infer(in env, ECall(Name(Some("array"), "from_list"), THole, list(EFor(FList, gens, elem, None))), out res, typ, ref s)
+      call infer(in env, ECall(library_name("array", "from_list"), THole, list(EFor(FList, gens, elem, None))), out res, typ, ref s)
 
     case EFor(form, list(), elem, rest) =>
       call infer(in env, step_expr(form, elem, base_expr(form, rest)), out res, typ, ref s)
@@ -1496,26 +1496,26 @@ function base_expr(form: Form, rest: Option[Expr]): Expr :=
       ENil(THole)
 
     case (None, FSet) =>
-      form_app("set", "empty", list())
+      form_app(library_module("set"), "empty", list())
 
     case (None, _) =>
-      form_app("map", "empty", list())
+      form_app(library_module("map"), "empty", list())
   end
 
 // base with elem added, which comes first in a list, and whose key counts in a map
 function step_expr(form: Form, elem: Yield, base: Expr): Expr :=
   match (form, elem)
     case (FMap, YPair(k, v)) =>
-      form_app("map", "put", list(k, v, base))
+      form_app(library_module("map"), "put", list(k, v, base))
 
     case (FMap, YVal(e)) =>
-      form_app("map", "put", list(
-        ECall(Name(Some("prelude"), "first"), THole, list(e)),
-        ECall(Name(Some("prelude"), "second"), THole, list(e)),
+      form_app(library_module("map"), "put", list(
+        ECall(library_name("prelude", "first"), THole, list(e)),
+        ECall(library_name("prelude", "second"), THole, list(e)),
         base))
 
     case (FSet, YVal(e)) =>
-      form_app("set", "insert", list(e, base))
+      form_app(library_module("set"), "insert", list(e, base))
 
     case (_, YVal(e)) =>
       ECons(THole, e, base)
@@ -1529,7 +1529,7 @@ function step_expr(form: Form, elem: Yield, base: Expr): Expr :=
 function form_expr(form: Form, elems: List[Yield], rest: Option[Expr]): Expr :=
   match form
     case FArray =>
-      form_app("array", "from_list", list(form_expr(FList, elems, None)))
+      form_app(library_module("array"), "from_list", list(form_expr(FList, elems, None)))
 
     case FMap =>
       foldl(elems, base_expr(form, rest), lambda acc, e => step_expr(form, e, acc))
@@ -1561,7 +1561,7 @@ function fold_expr(form: Form, m: Id, targs: List[Type], g: Gen, c: Expr, body: 
         base,
         ELam(if fold == "foldr" then list(kx, vx, acc) else list(acc, kx, vx), matched(list((kx, k), (vx, v)), body))))
 
-    case GVal(p, _) if m == "map" =>
+    case GVal(p, _) if m == library_module("map") =>
       let kx := Var(unqualified("(key)"), key_type(targs)), vx := Var(unqualified("(value)"), value_type(targs)) in form_app(m, fold, list(
         c,
         base,
@@ -2641,7 +2641,7 @@ function synthesized_for(d: Id * Cmd, compares: List[Name], equalities: List[Nam
   end
 
 function failing(t: Name, ps: List[Id], op: Id, r: Type, e: Id): Cmd :=
-  let a := TSort(t, params(ps)) in CFun(Name(t.module, t.base ++ "." ++ op), ps, list(Var(unqualified("a"), a), Var(unqualified("b"), a)), r, ERaise(ECall(Name(Some("prelude"), e), THole, list(ELit(LStr(format_name(t))))), THole))
+  let a := TSort(t, params(ps)) in CFun(Name(t.module, t.base ++ "." ++ op), ps, list(Var(unqualified("a"), a), Var(unqualified("b"), a)), r, ERaise(ECall(library_name("prelude", e), THole, list(ELit(LStr(format_name(t))))), THole))
 
 // the commands of ds without signatures and abstract types, which only the checks of sections need
 function is_definition(d: Id * Cmd): Bool :=

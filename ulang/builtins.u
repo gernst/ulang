@@ -6,25 +6,25 @@ import "syntax.u"
 export
 
 // the patterns of the constructors of lists after checking, which resolves list() and list(p; r) to the module list
-pattern PNil(): Pat := PApp(Name(Some("list"), "Nil"), list())
+pattern PNil(): Pat := PApp(Name(Some("prelude/list"), "Nil"), list())
 
-pattern PCons(head: Pat, tail: Pat): Pat := PApp(Name(Some("list"), "Cons"), list(head, tail))
+pattern PCons(head: Pat, tail: Pat): Pat := PApp(Name(Some("prelude/list"), "Cons"), list(head, tail))
 
 // the builtin types of the prelude, and lists after checking
-pattern TBool(): Type := TSort(Name(Some("prelude"), "Bool"), list())
+pattern TBool(): Type := TSort(Name(Some("prelude/prelude"), "Bool"), list())
 
-pattern TInt(): Type := TSort(Name(Some("prelude"), "Int"), list())
+pattern TInt(): Type := TSort(Name(Some("prelude/prelude"), "Int"), list())
 
-pattern TStr(): Type := TSort(Name(Some("prelude"), "Str"), list())
+pattern TStr(): Type := TSort(Name(Some("prelude/prelude"), "Str"), list())
 
-pattern TChar(): Type := TSort(Name(Some("prelude"), "Char"), list())
+pattern TChar(): Type := TSort(Name(Some("prelude/prelude"), "Char"), list())
 
-pattern TList(elem: Type): Type := TSort(Name(Some("list"), "List"), list(elem))
+pattern TList(elem: Type): Type := TSort(Name(Some("prelude/list"), "List"), list(elem))
 
 // the expressions of the constructors of lists after checking, and the lists that forms translate to, before it
-pattern ENil(typ: Type): Expr := EVar(Var(Name(Some("list"), "Nil"), typ))
+pattern ENil(typ: Type): Expr := EVar(Var(Name(Some("prelude/list"), "Nil"), typ))
 
-pattern ECons(typ: Type, head: Expr, tail: Expr): Expr := EApp(EVar(Var(Name(Some("list"), "Cons"), typ)), list(head, tail))
+pattern ECons(typ: Type, head: Expr, tail: Expr): Expr := EApp(EVar(Var(Name(Some("prelude/list"), "Cons"), typ)), list(head, tail))
 
 function nil_name(): Name
 
@@ -60,36 +60,36 @@ function natives_prelude(): Mod
 implementation
 
 function nil_name(): Name :=
-  Name(Some("list"), "Nil")
+  library_name("list", "Nil")
 
 function cons_name(): Name :=
-  Name(Some("list"), "Cons")
+  library_name("list", "Cons")
 
 function os_error_name(): Name :=
-  Name(Some("os"), "OsError")
+  library_name("os", "OsError")
 
 // the exceptions of the builtins and of accessors of fields, which the prelude declares
 function division_by_zero_name(): Name :=
-  Name(Some("prelude"), "DivisionByZero")
+  library_name("prelude", "DivisionByZero")
 
 function out_of_bounds_name(): Name :=
-  Name(Some("prelude"), "OutOfBounds")
+  library_name("prelude", "OutOfBounds")
 
 function no_character_name(): Name :=
-  Name(Some("prelude"), "NoCharacter")
+  library_name("prelude", "NoCharacter")
 
 function missing_field_name(): Name :=
-  Name(Some("prelude"), "MissingField")
+  library_name("prelude", "MissingField")
 
 // the builtins of lists and arrays that comprehensions use
 function list_foldr_name(): Name :=
-  Name(Some("list"), "foldr")
+  library_name("list", "foldr")
 
 function array_name(): Name :=
-  Name(Some("array"), "from_list")
+  library_name("array", "from_list")
 
 function array_foldr_name(): Name :=
-  Name(Some("array"), "foldr")
+  library_name("array", "foldr")
 
 // the lists of the tests, before checking
 function type_plain_list(t: Type): Type :=
@@ -98,7 +98,7 @@ function type_plain_list(t: Type): Type :=
 // lists with constructors Nil and Cons, exported by the module list as in the library, and their length
 function lists(): List[Mod] :=
   list(
-    Mod("list", "", list(), unplaced(list(
+    Mod(library_module("list"), "", list(), unplaced(list(
       CData(unqualified("List"), list("A"), list(
         Constr("", unqualified("Nil"), list()),
         Constr("", unqualified("Cons"), list(
@@ -108,7 +108,7 @@ function lists(): List[Mod] :=
 // the program of the commands cmds after len of the module main, which imports lists
 function with_lists(cmds: List[Cmd]): Source :=
   Source(list(natives_prelude(); lists()) ++ list(
-    Mod("main", "", list("list"), list(), list(), unplaced(list(len_fun(); cmds)))), "main")
+    Mod("main", "", list(library_module("list")), list(), list(), unplaced(list(len_fun(); cmds)))), "main")
 
 function len_fun(): Cmd :=
   CFun(unqualified("len"), list("A"), list(Var(unqualified("xs"), type_plain_list(TParam("A")))), TInt(), EMatch(expr_var("xs"), list(
@@ -117,7 +117,7 @@ function len_fun(): Cmd :=
 
 // a prelude of the builtin types and functions of prelude/prelude.u only, for programs that are not parsed
 function natives_prelude(): Mod :=
-  let int_op := lambda op => CFunSig(unqualified(op), list(), list(Var(unqualified("a"), TInt()), Var(unqualified("b"), TInt())), TInt()) in Mod("prelude", "", list(), list(), unplaced(list(for t in list("Bool", "Int", "Str", "Char") yield CAbstract(unqualified(t), list())) ++ list(for op in list("+", "-", "*", "/", "%") yield int_op(op)) ++ list(
+  let int_op := lambda op => CFunSig(unqualified(op), list(), list(Var(unqualified("a"), TInt()), Var(unqualified("b"), TInt())), TInt()) in Mod(library_module("prelude"), "", list(), list(), unplaced(list(for t in list("Bool", "Int", "Str", "Char") yield CAbstract(unqualified(t), list())) ++ list(for op in list("+", "-", "*", "/", "%") yield int_op(op)) ++ list(
     CFunSig(unqualified("++"), list(), list(Var(unqualified("a"), TStr()), Var(unqualified("b"), TStr())), TStr()))), list())
 
 function program_of(cmds: List[Cmd]): Source :=

@@ -1,4 +1,4 @@
-// parse error: import of the library module set, which every module sees without importing it at 4.1
+// parse error: import of the library module prelude/set, which every module sees without importing it at 4.1
 
 // the library is imported only implicitly
 import "set.u"

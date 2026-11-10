@@ -60,15 +60,15 @@ pattern VChar(char: Char): Value := VLit(LChar(char))
 pattern VBool(bool: Bool): Value := VLit(LBool(bool))
 
 // the values of the constructors of the library that the interpreter makes and takes apart
-pattern VNil(): Value := VObj(Name(Some("list"), "Nil"), list())
+pattern VNil(): Value := VObj(Name(Some("prelude/list"), "Nil"), list())
 
-pattern VCons(head: Value, tail: Value): Value := VObj(Name(Some("list"), "Cons"), list(head, tail))
+pattern VCons(head: Value, tail: Value): Value := VObj(Name(Some("prelude/list"), "Cons"), list(head, tail))
 
 pattern VTuple(args: List[Value]): Value := VObj(Name(None, ","), args)
 
-pattern VSome(value: Value): Value := VObj(Name(Some("option"), "Some"), list(value))
+pattern VSome(value: Value): Value := VObj(Name(Some("prelude/option"), "Some"), list(value))
 
-pattern VNone(): Value := VObj(Name(Some("option"), "None"), list())
+pattern VNone(): Value := VObj(Name(Some("prelude/option"), "None"), list())
 
 // values by their structure, for messages, while show of the program uses the shows that datatypes declare, see show_in
 function format_value(v: Value): Str :=
@@ -176,33 +176,33 @@ function builtin_names(): Set[Name] :=
     unqualified("=="),
     unqualified("compare"),
     unqualified("show"),
-    Name(Some("prelude"), "+"),
-    Name(Some("prelude"), "-"),
-    Name(Some("prelude"), "*"),
-    Name(Some("prelude"), "/"),
-    Name(Some("prelude"), "%"),
-    Name(Some("prelude"), "++"),
-    Name(Some("str"), "chars"),
-    Name(Some("str"), "str"),
-    Name(Some("str"), "ord"),
-    Name(Some("str"), "chr"),
-    Name(Some("str"), "is_digit"),
-    Name(Some("str"), "is_letter"),
-    Name(Some("str"), "is_space"),
-    Name(Some("str"), "size"),
-    Name(Some("str"), "at"),
-    Name(Some("str"), "contains"),
-    Name(Some("str"), "slice"),
-    Name(Some("str"), "join"),
-    Name(Some("str"), "split"),
-    Name(Some("str"), "quote"),
-    Name(Some("str"), "number"),
-    Name(Some("array"), "from_list"),
-    Name(Some("array"), "size"),
-    Name(Some("array"), "at"),
-    Name(Some("array"), "slice"),
-    Name(Some("array"), "foldr"),
-    Name(Some("array"), "foldl"))
+    library_name("prelude", "+"),
+    library_name("prelude", "-"),
+    library_name("prelude", "*"),
+    library_name("prelude", "/"),
+    library_name("prelude", "%"),
+    library_name("prelude", "++"),
+    library_name("str", "chars"),
+    library_name("str", "str"),
+    library_name("str", "ord"),
+    library_name("str", "chr"),
+    library_name("str", "is_digit"),
+    library_name("str", "is_letter"),
+    library_name("str", "is_space"),
+    library_name("str", "size"),
+    library_name("str", "at"),
+    library_name("str", "contains"),
+    library_name("str", "slice"),
+    library_name("str", "join"),
+    library_name("str", "split"),
+    library_name("str", "quote"),
+    library_name("str", "number"),
+    library_name("array", "from_list"),
+    library_name("array", "size"),
+    library_name("array", "at"),
+    library_name("array", "slice"),
+    library_name("array", "foldr"),
+    library_name("array", "foldl"))
 
 function is_builtin(n: Name): Bool :=
   contains(n, builtin_names())
@@ -522,14 +522,14 @@ procedure apply_value(
           call   compare_values(in run, a, b, out k, ref cache)
           assign v := VBool(k < 0)
 
-        case ("array.foldr", list(VArr(values), acc, g)) =>
+        case ("prelude/array.foldr", list(VArr(values), acc, g)) =>
           assign k := size(values), v := acc
           while k > 0 do
             assign k := k - 1
             call   apply_value(in run, g, list(at(k, values), v), out v, ref cache)
           end
 
-        case ("array.foldl", list(VArr(values), acc, g)) =>
+        case ("prelude/array.foldl", list(VArr(values), acc, g)) =>
           assign k := 0, v := acc
           while k < size(values) do
             call   apply_value(in run, g, list(v, at(k, values)), out v, ref cache)
@@ -600,31 +600,31 @@ function failure(n: Name, args: List[Value]): Thrown :=
 procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
   local r: Bool
   match (format_name(n), vs)
-    case ("prelude.+", list(VInt(a), VInt(b))) =>
+    case ("prelude/prelude.+", list(VInt(a), VInt(b))) =>
       assign v := VInt(a + b)
 
-    case ("prelude.-", list(VInt(a), VInt(b))) =>
+    case ("prelude/prelude.-", list(VInt(a), VInt(b))) =>
       assign v := VInt(a - b)
 
-    case ("prelude.*", list(VInt(a), VInt(b))) =>
+    case ("prelude/prelude.*", list(VInt(a), VInt(b))) =>
       assign v := VInt(a * b)
 
-    case ("prelude./", list(VInt(_), VInt(0))) =>
+    case ("prelude/prelude./", list(VInt(_), VInt(0))) =>
       raise failure(division_by_zero_name(), list())
 
-    case ("prelude./", list(VInt(a), VInt(b))) =>
+    case ("prelude/prelude./", list(VInt(a), VInt(b))) =>
       assign v := VInt(a / b)
 
-    case ("prelude.%", list(VInt(_), VInt(0))) =>
+    case ("prelude/prelude.%", list(VInt(_), VInt(0))) =>
       raise failure(division_by_zero_name(), list())
 
-    case ("prelude.%", list(VInt(a), VInt(b))) =>
+    case ("prelude/prelude.%", list(VInt(a), VInt(b))) =>
       assign v := VInt(a % b)
 
-    case ("str.chars", list(VStr(text))) =>
+    case ("prelude/str.chars", list(VStr(text))) =>
       assign v := list_value(list(for c in chars(text) yield VChar(c)))
 
-    case ("str.str", list(w)) =>
+    case ("prelude/str.str", list(w)) =>
       match list_elements(w)
         case Some(ws) =>
           assign v := VStr(str(char_values(ws)))
@@ -632,22 +632,22 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
           raise NotList(w)
       end
 
-    case ("str.ord", list(VChar(char))) =>
+    case ("prelude/str.ord", list(VChar(char))) =>
       assign v := VInt(ord(char))
 
-    case ("str.chr", list(VInt(num))) =>
+    case ("prelude/str.chr", list(VInt(num))) =>
       if not is_code_point(num) then
         raise failure(no_character_name(), list(VInt(num)))
       end
       assign v := VChar(chr(num))
 
-    case ("prelude.++", list(VStr(s), VStr(t))) =>
+    case ("prelude/prelude.++", list(VStr(s), VStr(t))) =>
       assign v := VStr(s ++ t)
 
-    case ("str.size", list(VStr(text))) =>
+    case ("prelude/str.size", list(VStr(text))) =>
       assign v := VInt(size(text))
 
-    case ("str.join", list(VStr(text), w)) =>
+    case ("prelude/str.join", list(VStr(text), w)) =>
       match list_elements(w)
         case Some(ws) =>
           assign v := VStr(join(text, str_values(ws)))
@@ -656,7 +656,7 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       end
 
     // from i up to but excluding j, where i <= j are indices of s or its end
-    case ("str.slice", list(VStr(text), VInt(i), VInt(j))) =>
+    case ("prelude/str.slice", list(VStr(text), VInt(i), VInt(j))) =>
       if i < 0 or i > size(text) or i > j then
         raise failure(out_of_bounds_name(), list(VInt(i), VInt(size(text))))
       else
@@ -666,22 +666,22 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       end
       assign v := VStr(slice(text, i, j))
 
-    case ("str.split", list(VStr(text), VChar(char))) =>
+    case ("prelude/str.split", list(VStr(text), VChar(char))) =>
       assign v := list_value(list(for part in split(text, char) yield VStr(part)))
 
-    case ("str.at", list(VInt(num), VStr(text))) =>
+    case ("prelude/str.at", list(VInt(num), VStr(text))) =>
       if num < 0 or num >= size(text) then
         raise failure(out_of_bounds_name(), list(VInt(num), VInt(size(text))))
       end
       assign v := VChar(at(num, text))
 
-    case ("str.contains", list(VChar(char), VStr(text))) =>
+    case ("prelude/str.contains", list(VChar(char), VStr(text))) =>
       assign v := VBool(contains(char, text))
 
-    case ("str.quote", list(VStr(text))) =>
+    case ("prelude/str.quote", list(VStr(text))) =>
       assign v := VStr(quote(text))
 
-    case ("str.number", list(VStr(text))) =>
+    case ("prelude/str.number", list(VStr(text))) =>
       match number(text)
         case Some(k) =>
           assign v := VSome(VInt(k))
@@ -689,16 +689,16 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
           assign v := VNone()
       end
 
-    case ("str.is_digit", list(VChar(char))) =>
+    case ("prelude/str.is_digit", list(VChar(char))) =>
       assign v := VBool(is_digit(char))
 
-    case ("str.is_letter", list(VChar(char))) =>
+    case ("prelude/str.is_letter", list(VChar(char))) =>
       assign v := VBool(is_letter(char))
 
-    case ("str.is_space", list(VChar(char))) =>
+    case ("prelude/str.is_space", list(VChar(char))) =>
       assign v := VBool(is_space(char))
 
-    case ("array.from_list", list(w)) =>
+    case ("prelude/array.from_list", list(w)) =>
       match list_elements(w)
         case Some(ws) =>
           assign v := VArr(array(for x in ws))
@@ -706,16 +706,16 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
           raise NotList(w)
       end
 
-    case ("array.size", list(VArr(values))) =>
+    case ("prelude/array.size", list(VArr(values))) =>
       assign v := VInt(size(values))
 
-    case ("array.at", list(VInt(num), VArr(values))) =>
+    case ("prelude/array.at", list(VInt(num), VArr(values))) =>
       if num < 0 or num >= size(values) then
         raise failure(out_of_bounds_name(), list(VInt(num), VInt(size(values))))
       end
       assign v := at(num, values)
 
-    case ("array.slice", list(VArr(values), VInt(i), VInt(j))) =>
+    case ("prelude/array.slice", list(VArr(values), VInt(i), VInt(j))) =>
       if i < 0 or i > size(values) or i > j then
         raise failure(out_of_bounds_name(), list(VInt(i), VInt(size(values))))
       else
@@ -1145,11 +1145,11 @@ procedure invoke(
     case Some(proc) =>
       call run_body(in run, n, empty(), proc.ins, proc.outs, proc.refs, proc.stmt, ins, refs, out outs, ref env, cache)
 
-    case None if format_name(n) == "os.os_print" =>
+    case None if format_name(n) == "prelude/os.os_print" =>
       assign outs := list()
       call   print_all(in list(for v in ins yield text_of(v)))
 
-    case None if format_name(n) == "os.os_args" =>
+    case None if format_name(n) == "prelude/os.os_args" =>
       assign outs := list(list_value(list(for a in run.args yield VStr(a))))
 
     case None =>
@@ -1238,39 +1238,39 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
   local text: Str, entries: List[Str * Bool], yes: Bool
   try
     match (format_name(n), ins)
-      case ("os.os_read", list(VStr(path))) =>
+      case ("prelude/os.os_read", list(VStr(path))) =>
         call   os_read(in path, out text)
         assign outs := list(VStr(text))
 
-      case ("os.os_write", list(VStr(path), VStr(t))) =>
+      case ("prelude/os.os_write", list(VStr(path), VStr(t))) =>
         call   os_write(in path, t)
         assign outs := list()
 
-      case ("os.os_library", list(VStr(name))) =>
+      case ("prelude/os.os_library", list(VStr(name))) =>
         call   os_library(in name, out text)
         assign outs := list(VStr(text))
 
-      case ("os.os_list", list(VStr(path))) =>
+      case ("prelude/os.os_list", list(VStr(path))) =>
         call   os_list(in path, out entries)
         assign outs := list(list_value(entry_values(entries)))
 
-      case ("os.os_is_dir", list(VStr(path))) =>
+      case ("prelude/os.os_is_dir", list(VStr(path))) =>
         call   os_is_dir(in path, out yes)
         assign outs := list(VBool(yes))
 
-      case ("os.os_cwd", list()) =>
+      case ("prelude/os.os_cwd", list()) =>
         call   os_cwd(out text)
         assign outs := list(VStr(text))
 
-      case ("os.os_chdir", list(VStr(path))) =>
+      case ("prelude/os.os_chdir", list(VStr(path))) =>
         call   os_chdir(in path)
         assign outs := list()
 
-      case ("os.os_print_error", list(VStr(msg))) =>
+      case ("prelude/os.os_print_error", list(VStr(msg))) =>
         call   os_print_error(in msg)
         assign outs := list()
 
-      case ("os.os_exit", list(VInt(num))) =>
+      case ("prelude/os.os_exit", list(VInt(num))) =>
         call   os_exit(in num)
         assign outs := list()
 

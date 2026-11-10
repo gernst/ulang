@@ -1021,4 +1021,4 @@ test printing() :=
   assert format_type(TFun(list(fun_type, pair_type), list_type)) == "(A -> B, Int * Str) -> List[A]"
   assert format_type(TProc(list(TParam("A")), list(), list(int_type))) == "(in A, ref Int)"
   assert format_pat(PCons(var_pat, PApp(unqualified("Some"), list(PWild)))) == "list(x; Some(_))"
-  assert format_name(cons_name()) == "list.Cons" and cons_name().base == "Cons"
+  assert format_name(cons_name()) == "prelude/list.Cons" and cons_name().base == "Cons"

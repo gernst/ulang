@@ -1,4 +1,4 @@
-// type error: empty is ambiguous: set.empty: () -> Set[A], map.empty: () -> Map[K, V], buffer.empty: () -> Buffer[A] at 3.1
+// type error: empty is ambiguous: prelude/set.empty: () -> Set[A], prelude/map.empty: () -> Map[K, V], prelude/buffer.empty: () -> Buffer[A] at 3.1
 
 test unknown_type() :=
   assert size(empty()) == 0

@@ -37,7 +37,17 @@ function value_ptr(): CType :=
 
 // names of ulang with their modules as names of C, where other characters than letters, digits, and _ are their codes
 function mangle(n: Name): Str :=
-  str(list(for c in chars(format_name(n)) for d in mangle_char(c) yield d))
+  str(list(for c in chars(c_text(n)) for d in mangle_char(c) yield d))
+
+// n as the C of programs and the runtime knows it, where a module of the library has the name of its file, as in
+// t_list_46_List and the key "os.OsError" of ulang/runtime, which the seed links with
+function c_text(n: Name): Str :=
+  match n.module
+    case Some(m) if contains(m, library_modules()) =>
+      format_name(Name(Some(library_file(m)), n.base))
+    case _ =>
+      format_name(n)
+  end
 
 function mangle_char(c: Char): List[Char] :=
   if is_letter(c) or is_digit(c) or c == '_' then list(c) else chars("_" ++ show(ord(c)) ++ "_")
@@ -47,7 +57,7 @@ function fun_name(n: Name, k: Int): Str :=
 
 // the C function of procedure n, which the runtime defines for those of the builtin section of os
 function proc_name(n: Name): Str :=
-  if n.module == Some("os") and contains(n.base, native_procs()) then "p_" ++ n.base else "p_" ++ mangle(n)
+  if n.module == Some(library_module("os")) and contains(n.base, native_procs()) then "p_" ++ n.base else "p_" ++ mangle(n)
 
 // the procedures of the builtin section of os
 function native_procs(): Set[Id] :=
@@ -74,37 +84,37 @@ function ref_name(n: Name): Str :=
 // sections of the prelude, str.u, and array.u by their qualified names
 function builtin_functions(): Map[Name, Str * Int] :=
   map(
-    Name(Some("prelude"), "+") => ("u_add", 2),
-    Name(Some("prelude"), "-") => ("u_sub", 2),
-    Name(Some("prelude"), "*") => ("u_mul", 2),
-    Name(Some("prelude"), "/") => ("u_div", 2),
-    Name(Some("prelude"), "%") => ("u_mod", 2),
+    library_name("prelude", "+") => ("u_add", 2),
+    library_name("prelude", "-") => ("u_sub", 2),
+    library_name("prelude", "*") => ("u_mul", 2),
+    library_name("prelude", "/") => ("u_div", 2),
+    library_name("prelude", "%") => ("u_mod", 2),
     unqualified("<") => ("u_lt", 2),
     unqualified("==") => ("u_eq", 2),
     unqualified("compare") => ("u_compare", 2),
     unqualified("show") => ("u_show", 1),
-    Name(Some("str"), "chars") => ("u_chars", 1),
-    Name(Some("str"), "str") => ("u_string", 1),
-    Name(Some("str"), "ord") => ("u_ord", 1),
-    Name(Some("str"), "chr") => ("u_chr", 1),
-    Name(Some("prelude"), "++") => ("u_concat", 2),
-    Name(Some("str"), "is_digit") => ("u_is_digit", 1),
-    Name(Some("str"), "is_letter") => ("u_is_letter", 1),
-    Name(Some("str"), "is_space") => ("u_is_space", 1),
-    Name(Some("str"), "size") => ("u_size", 1),
-    Name(Some("str"), "at") => ("u_at", 2),
-    Name(Some("str"), "contains") => ("u_contains", 2),
-    Name(Some("str"), "slice") => ("u_slice", 3),
-    Name(Some("str"), "join") => ("u_join", 2),
-    Name(Some("str"), "split") => ("u_split", 2),
-    Name(Some("str"), "quote") => ("u_quote", 1),
-    Name(Some("str"), "number") => ("u_number", 1),
-    Name(Some("array"), "from_list") => ("u_array", 1),
-    Name(Some("array"), "size") => ("u_array_size", 1),
-    Name(Some("array"), "at") => ("u_array_at", 2),
-    Name(Some("array"), "slice") => ("u_array_slice", 3),
-    Name(Some("array"), "foldr") => ("u_array_foldr", 3),
-    Name(Some("array"), "foldl") => ("u_array_foldl", 3))
+    library_name("str", "chars") => ("u_chars", 1),
+    library_name("str", "str") => ("u_string", 1),
+    library_name("str", "ord") => ("u_ord", 1),
+    library_name("str", "chr") => ("u_chr", 1),
+    library_name("prelude", "++") => ("u_concat", 2),
+    library_name("str", "is_digit") => ("u_is_digit", 1),
+    library_name("str", "is_letter") => ("u_is_letter", 1),
+    library_name("str", "is_space") => ("u_is_space", 1),
+    library_name("str", "size") => ("u_size", 1),
+    library_name("str", "at") => ("u_at", 2),
+    library_name("str", "contains") => ("u_contains", 2),
+    library_name("str", "slice") => ("u_slice", 3),
+    library_name("str", "join") => ("u_join", 2),
+    library_name("str", "split") => ("u_split", 2),
+    library_name("str", "quote") => ("u_quote", 1),
+    library_name("str", "number") => ("u_number", 1),
+    library_name("array", "from_list") => ("u_array", 1),
+    library_name("array", "size") => ("u_array_size", 1),
+    library_name("array", "at") => ("u_array_at", 2),
+    library_name("array", "slice") => ("u_array_slice", 3),
+    library_name("array", "foldr") => ("u_array_foldr", 3),
+    library_name("array", "foldl") => ("u_array_foldl", 3))
 
 // the descriptor of constructor n, which the runtime compares by its address
 function descriptor(n: Name): CExpr :=
@@ -223,7 +233,7 @@ function type_decl(t: Name, defs: Defs): CDecl :=
 
 function type_init(t: Name, defs: Defs): CExpr :=
   CeInit(list(
-    CeStr(format_name(t)),
+    CeStr(c_text(t)),
     compare_ref(t, defs),
     equals_ref(t, defs),
     show_ref(t, defs)))
@@ -298,10 +308,10 @@ function type_keys(types: List[Type]): Str :=
 function type_key(t: Type): Str :=
   match t
     case TSort(name, list()) =>
-      format_name(name)
+      c_text(name)
 
     case TSort(name, args) =>
-      format_name(name) ++ "[" ++ join(", ", list(for a in args yield type_key(a))) ++ "]"
+      c_text(name) ++ "[" ++ join(", ", list(for a in args yield type_key(a))) ++ "]"
 
     case TFun(args, res) =>
       "(" ++ join(", ", list(for a in args yield type_key(a))) ++ ") -> " ++ type_key(res)
@@ -1571,7 +1581,7 @@ function text_decl(p: Str * Str): CDecl :=
 procedure compile_file(in source: Str, entry: Id, target: Str) :=
   local parsed: Source, q: Prog, f: CFile
   call parse_file(in source, out parsed)
-  call load_modules(in source, list("list"), ref parsed)
+  call load_modules(in source, list(library_module("list")), ref parsed)
   call check_program(in parsed, out q)
   call compile_program(in q, parsed.main, entry, out f)
   call os_write(in target, format_file(f))

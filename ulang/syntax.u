@@ -268,7 +268,15 @@ function implicit_imports(name: Id): List[Id]
 // the modules of the library, each after those it uses
 function library_modules(): List[Id]
 
-// the directory of a module of a project from its root, "" for the root and for the library, whose modules have no /
+// the module of the library of the file name.u of the library, known as prelude/name, since the library is the package prelude
+function library_module(name: Str): Id
+
+// the name of the file of a module of the library without .u, as os_library reads it
+function library_file(id: Id): Str
+
+function library_name(module: Str, base: Id): Name
+
+// the directory of a module from the root of its project, "" for the root, and prelude for the library
 function module_dir(id: Id): Str
 
 function all_imports(d: Mod): List[Id]
@@ -321,7 +329,16 @@ function implicit_imports(name: Id): List[Id] :=
   implicit_before(name, library_modules())
 
 function library_modules(): List[Id] :=
-  list("prelude", "option", "list", "str", "set", "map", "array", "buffer", "os")
+  list(for name in list("prelude", "option", "list", "str", "set", "map", "array", "buffer", "os") yield library_module(name))
+
+function library_module(name: Str): Id :=
+  "prelude/" ++ name
+
+function library_file(id: Id): Str :=
+  slice(id, size("prelude/"), size(id))
+
+function library_name(module: Str, base: Id): Name :=
+  Name(Some(library_module(module)), base)
 
 function implicit_before(name: Id, core: List[Id]): List[Id] :=
   match core

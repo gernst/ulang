@@ -108,10 +108,10 @@ function decorateSections(context) {
 }
 
 // the root of the project of file, as the parser finds it: the nearest directory above it with project.u, else its own
-// directory, where the modules of a directory with prelude.u, the library, have their names
+// directory, where the modules of a directory with prelude.u, the library, are known as prelude/name, as from its parent
 function projectRoot(file) {
   const home = path.dirname(path.resolve(file));
-  if (fs.existsSync(path.join(home, "prelude.u"))) return home;
+  if (fs.existsSync(path.join(home, "prelude.u"))) return path.dirname(home);
   for (let dir = home; ; dir = path.dirname(dir)) {
     if (fs.existsSync(path.join(dir, "project.u"))) return dir;
     if (dir === path.dirname(dir)) return home;

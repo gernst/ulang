@@ -15,7 +15,7 @@ data ParseError :=
 
 // the modules of the file at path, in load order, each after the modules it imports, with the module of the file last,
 // where a module of a project is known by its path from the root without .u, the root being the nearest directory above
-// it with project.u, else its own directory, and a module of the library by its name; import "f.u" reads f.u of the
+// it with project.u, else its own directory, and a module name.u of the library as prelude/name; import "f.u" reads f.u of the
 // directory of the importing file, import "p/f.u" the file from the root, and implicit imports the library
 procedure parse_file(in path: Str, out source: Source)
 
@@ -1784,8 +1784,8 @@ procedure import_module(
 
 // the message of an import of name that names no file
 function unknown_module(name: Str): Str :=
-  if contains(name, library_modules()) then
-    "import of the library module " ++ name ++ ", which every module sees without importing it"
+  if contains(library_module(name), library_modules()) then
+    "import of the library module " ++ library_module(name) ++ ", which every module sees without importing it"
   else
     "unknown module " ++ name
 
@@ -1972,12 +1972,12 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
       skip
   end
 
-procedure library_text(in name: Id, pos: Pos, out text: Str) :=
+procedure library_text(in id: Id, pos: Pos, out text: Str) :=
   try
-    call os_library(in name, out text)
+    call os_library(in library_file(id), out text)
   catch
     case OsError(_) =>
-      raise ParseError("unknown module " ++ name, pos)
+      raise ParseError("unknown module " ++ id, pos)
   end
 
 // module id of text without its tests, after the modules it loads, parsed with the notation of its implicit and its own
@@ -2051,7 +2051,7 @@ procedure place_of(in path: Str, out place: Place) :=
   assign home := parent_dir(file)
   call   has_file(in home, "prelude.u", out library)
   if library then
-    assign place := Place(name, home, None)
+    assign place := Place(library_module(name), home, None)
   else
     call   project_root(in home, out root)
     assign place := Place(module_id(relative_path(root, home), name), root, Some(relative_path(root, home)))
