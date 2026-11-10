@@ -2448,8 +2448,6 @@ void wp_parse_46_parse_variable(u_value *env, u_value *ins, u_value **outs);
 
 void wp_parse_46_parsed(u_value *env, u_value *ins, u_value **outs);
 
-void wp_parse_46_skip_kw(u_value *env, u_value *ins, u_value **outs);
-
 void wp_parse_46_skip_section_start(u_value *env, u_value *ins, u_value **outs);
 
 void wp_run_46_apply_expr(u_value *env, u_value *ins, u_value **outs);
@@ -4005,8 +4003,6 @@ void p_parse_46_parse_for(u_value v_notation, u_value v_params, u_value *r_s, u_
 void p_parse_46_parse_stmt(u_value v_notation, u_value v_params, u_value *r_s, u_value *r_toks);
 
 void p_parse_46_parse_if(u_value v_notation, u_value v_params, u_value *r_s, u_value *r_toks);
-
-void p_parse_46_skip_kw(u_value v_word, u_value *r_toks);
 
 void p_parse_46_parse_assign(u_value v_notation, u_value v_params, u_value *r_s, u_value *r_toks);
 
@@ -11590,10 +11586,6 @@ void wp_parse_46_parse_variable(u_value *env, u_value *ins, u_value **outs) {
 
 void wp_parse_46_parsed(u_value *env, u_value *ins, u_value **outs) {
   p_parse_46_parsed(ins[0], outs[0]);
-}
-
-void wp_parse_46_skip_kw(u_value *env, u_value *ins, u_value **outs) {
-  p_parse_46_skip_kw(ins[0], outs[0]);
 }
 
 void wp_parse_46_skip_section_start(u_value *env, u_value *ins, u_value **outs) {
@@ -30209,7 +30201,7 @@ void p_parse_46_parse_stmt(u_value v_notation, u_value v_params, u_value *r_s, u
         p_parse_46_advance(&v_toks);
         p_parse_46_parse_expr(v_notation, v_params, &v_expr, &v_toks);
         static struct u_object l_do_3219 = U_LIT("do");
-        p_parse_46_skip_kw(&l_do_3219, &v_toks);
+        p_parse_46_expect(u_mk_con(&n_lex_46_TKw, 1, &l_do_3219), &v_toks);
         p_parse_46_parse_body(v_notation, v_params, &v_body, &v_toks);
         static struct u_object l_end_3220 = U_LIT("end");
         p_parse_46_expect(u_mk_con(&n_lex_46_TKw, 1, &l_end_3220), &v_toks);
@@ -30300,7 +30292,7 @@ void p_parse_46_parse_if(u_value v_notation, u_value v_params, u_value *r_s, u_v
     p_parse_46_advance(&v_toks);
     p_parse_46_parse_expr(v_notation, v_params, &v_cond, &v_toks);
     static struct u_object l_then_3228 = U_LIT("then");
-    p_parse_46_skip_kw(&l_then_3228, &v_toks);
+    p_parse_46_expect(u_mk_con(&n_lex_46_TKw, 1, &l_then_3228), &v_toks);
     p_parse_46_parse_body(v_notation, v_params, &v_l, &v_toks);
     static struct u_object l_else_3229 = U_LIT("else");
     if (u_truth(f_parse_46_at_kw_2(v_toks, &l_else_3229))) {
@@ -30322,18 +30314,6 @@ void p_parse_46_parse_if(u_value v_notation, u_value v_params, u_value *r_s, u_v
     v_s = t3233;
   }
   *r_s = v_s;
-  *r_toks = v_toks;
-}
-
-void p_parse_46_skip_kw(u_value v_word, u_value *r_toks) {
-  u_value v_toks = *r_toks;
-  {
-    if (u_truth(f_parse_46_at_kw_2(v_toks, v_word))) {
-      {
-        p_parse_46_advance(&v_toks);
-      }
-    }
-  }
   *r_toks = v_toks;
 }
 
