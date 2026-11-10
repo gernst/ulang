@@ -2975,8 +2975,7 @@ procedure check_mod(
   call   declare_procs(in builtins, ref s)
   call   check_sections(in d, out hidden, hidden_sorts)
   call   unique_ids(in "declaration", block_names(decls))
-  call   placed_commands(in placed_definitions(placed), out defined, ref s)
-  call   check_orders(in defined, abstract_types(decls), hidden, hidden_sorts)
+  call   placed_commands(in placed_definitions(placed), lambda in checked: List[Cmd] => call check_orders(in checked, abstract_types(decls), hidden, hidden_sorts) end, out defined, ref s)
   assign extra := synthesized(decls, defined, native_types(builtins))
   call   declare_funs(in extra, ref s)
   call   commands(in extra, out more, ref s)
@@ -3010,9 +3009,11 @@ procedure each_placed(
       call each_placed(in phase, rest, ref s)
   end
 
-// the commands of the definitions, checked one by one, where an error is located at the definition that raises it
+// the commands of the definitions, checked one by one and then by after, where an error is located at the definition that
+// raises it
 procedure placed_commands(
   in  placed: List[Pos * (Id * Cmd)],
+      after: (in List[Cmd]),
   out cmds: List[Cmd],
   ref s: State
 ) :=
@@ -3024,11 +3025,12 @@ procedure placed_commands(
     case list((p, d); more) =>
       try
         call commands(in list(d), out one, ref s)
+        call after(in one)
       catch
         case e =>
           raise located(d, p, e)
       end
-      call   placed_commands(in more, out rest, ref s)
+      call   placed_commands(in more, after, out rest, ref s)
       assign cmds := one ++ rest
   end
 

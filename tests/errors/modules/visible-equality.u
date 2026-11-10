@@ -1,4 +1,4 @@
-// type error: Pair declares ==, which only abstract types may
+// type error: Pair declares ==, which only abstract types may at 5.1
 data Pair :=
   case Pair(first: Int, second: Int)
 

@@ -1,4 +1,4 @@
-// type error: compare of the exported type T is not exported
+// type error: compare of the exported type T is not exported at 17.1
 
 export
 
