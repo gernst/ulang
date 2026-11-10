@@ -130,7 +130,7 @@ function field_of(n: Name): Str :=
 function order_of(cmd: Cmd): Option[Id * Name] :=
   match cmd
     case CFun(Name(Some(m), "show"), _, list(Var(_, TSort(Name(Some(k), base), args))), typ, _) =>
-      if k == m and distinct_params(args) and typ == type_str() then Some(("show", Name(Some(k), base))) else None
+      if k == m and distinct_params(args) and typ == TStr() then Some(("show", Name(Some(k), base))) else None
 
     case CFun(Name(Some(m), f), _, list(Var(_, TSort(Name(Some(k), b), args)), Var(_, u)), r, _) =>
       let op := order_op(f, b) in if k == m and u == TSort(Name(Some(k), b), args) and distinct_params(args) and order_result(op) == Some(r) then Some((op, Name(Some(k), b))) else None
@@ -145,10 +145,10 @@ function order_op(f: Id, b: Id): Id :=
 function order_result(op: Id): Option[Type] :=
   match op
     case "compare" =>
-      Some(type_int())
+      Some(TInt())
 
     case "==" =>
-      Some(type_bool())
+      Some(TBool())
 
     case _ =>
       None

@@ -317,7 +317,7 @@ function in_text(notation: Notation, indent: Str, c: Expr): Str :=
 
 function app_doc(notation: Notation, indent: Str, f: Expr, args: List[Expr]): Doc :=
   let docs := list(for a in args yield expr_doc(notation, indent, a)) in match f
-    case EVar(Var(name, _)) =>
+    case EName(name, _) =>
       match operator_doc(notation, name.base, docs)
         case Some(d) =>
           d
@@ -549,33 +549,11 @@ function condition_text(notation: Notation, indent: Str, q: Option[Expr]): Str :
       ""
   end
 
-// the pattern, container, condition, and body of the block that the parser makes of for p in c if q do body end, see parse_for
+// the pattern, container, condition, and body of the block that the parser makes of for p in c if q do body end
 function for_parts(stmt: Stmt): Option[Pat * Expr * Option[Expr] * Stmt] :=
   match stmt
-    case SBlock(list(items), list(init, SWhile(_, loop))) if items.name.base == "(items)" =>
-      match (items_source(init), loop_parts(loop))
-        case (Some(c), Some((pat, guarded))) =>
-          for_guarded(pat, c, guarded)
-        case _ =>
-          None
-      end
-
-    case _ =>
-      None
-  end
-
-function items_source(init: Stmt): Option[Expr] :=
-  match init
-    case SAssign(list((_, EFor(FList, list(GVal(_, c)), _, None)))) =>
-      Some(c)
-    case _ =>
-      None
-  end
-
-function loop_parts(loop: Stmt): Option[Pat * Stmt] :=
-  match loop
-    case SMatch(_, list(Branch(_, PApp(_, list(pat, _)), None, SBlock(list(), list(guarded, _))), _)) =>
-      Some((pat, guarded))
+    case ForBlock(pat, c, guarded) =>
+      for_guarded(pat, c, guarded)
     case _ =>
       None
   end
@@ -870,7 +848,7 @@ test updates_closed() :=
   assert source(expr_app("+", list(EField(sum, "f"), r))) == "(a + b).f + (" ++ source(r) ++ ")"
 
 test bodies() :=
-  local x := Var(unqualified("x"), type_int()), y := Var(unqualified("y"), THole), body := SBlock(list(x, y), list(
+  local x := Var(unqualified("x"), TInt()), y := Var(unqualified("y"), THole), body := SBlock(list(x, y), list(
     SAssign(list((Var(x.name, THole), expr_int(1)))),
     SIf(EVar(y), SBlock(list(), list(SSkip)), SIf(EVar(x), SBlock(list(), list()), SSkip)))), noted := Top(Pos(0, 0), "note", CNotation(FLeft, 9, list("+"))), plain := Top(Pos(0, 0), "", CNotation(FLeft, 8, list("-")))
   assert format_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y then\n  skip\nelse\n  if x then\n  end\nend"
@@ -1001,7 +979,10 @@ function format_pat(pat: Pat): Str :=
     case PTuple(args) =>
       "(" ++ format_pats(args) ++ ")"
 
-    case PApp(constr, list(x, xs)) if constr == cons_name() or constr == unqualified("Cons") =>
+    case PCons(x, xs) =>
+      "list(" ++ format_pat(x) ++ "; " ++ format_pat(xs) ++ ")"
+
+    case PApp(Name(None, "Cons"), list(x, xs)) =>
       "list(" ++ format_pat(x) ++ "; " ++ format_pat(xs) ++ ")"
 
     case PApp(constr, list(l, r)) if symbolic(constr.base) =>
@@ -1037,8 +1018,8 @@ function format_name(n: Name): Str :=
   end
 
 test printing() :=
-  local int_type := TSort(unqualified("Int"), list()), str_type := TSort(unqualified("Str"), list()), list_type := TSort(unqualified("List"), list(TParam("A"))), fun_type := TFun(list(TParam("A")), TParam("B")), pair_type := TTuple(list(int_type, str_type)), var_pat := PVar(Var(unqualified("x"), THole))
+  local int_type := TSort(unqualified("Int"), list()), str_type := TSort(unqualified("Str"), list()), list_type := TSort(unqualified("List"), list(TParam("A"))), fun_type := TFun(list(TParam("A")), TParam("B")), pair_type := TTuple(list(int_type, str_type)), var_pat := PName(unqualified("x"), THole)
   assert format_type(TFun(list(fun_type, pair_type), list_type)) == "(A -> B, Int * Str) -> List[A]"
   assert format_type(TProc(list(TParam("A")), list(), list(int_type))) == "(in A, ref Int)"
-  assert format_pat(PApp(cons_name(), list(var_pat, PApp(unqualified("Some"), list(PWild))))) == "list(x; Some(_))"
+  assert format_pat(PCons(var_pat, PApp(unqualified("Some"), list(PWild)))) == "list(x; Some(_))"
   assert format_name(cons_name()) == "list.Cons" and cons_name().base == "Cons"

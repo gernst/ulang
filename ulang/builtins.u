@@ -5,17 +5,30 @@ import "syntax.u"
 
 export
 
-function tuple_name(): Name
+// the patterns of the constructors of lists after checking, which resolves list() and list(p; r) to the module list
+pattern PNil(): Pat := PApp(Name(Some("list"), "Nil"), list())
 
-function list_name(): Name
+pattern PCons(head: Pat, tail: Pat): Pat := PApp(Name(Some("list"), "Cons"), list(head, tail))
+
+// the builtin types of the prelude, and lists after checking
+pattern TBool(): Type := TSort(Name(Some("prelude"), "Bool"), list())
+
+pattern TInt(): Type := TSort(Name(Some("prelude"), "Int"), list())
+
+pattern TStr(): Type := TSort(Name(Some("prelude"), "Str"), list())
+
+pattern TChar(): Type := TSort(Name(Some("prelude"), "Char"), list())
+
+pattern TList(elem: Type): Type := TSort(Name(Some("list"), "List"), list(elem))
+
+// the expressions of the constructors of lists after checking, and the lists that forms translate to, before it
+pattern ENil(typ: Type): Expr := EVar(Var(Name(Some("list"), "Nil"), typ))
+
+pattern ECons(typ: Type, head: Expr, tail: Expr): Expr := EApp(EVar(Var(Name(Some("list"), "Cons"), typ)), list(head, tail))
 
 function nil_name(): Name
 
 function cons_name(): Name
-
-function none_name(): Name
-
-function some_name(): Name
 
 function os_error_name(): Name
 
@@ -33,14 +46,6 @@ function array_name(): Name
 
 function array_foldr_name(): Name
 
-function type_bool(): Type
-
-function type_int(): Type
-
-function type_str(): Type
-
-function type_char(): Type
-
 // programs of the tests, which are not parsed
 function type_plain_list(t: Type): Type
 
@@ -54,24 +59,11 @@ function natives_prelude(): Mod
 
 implementation
 
-// tuples, which have no module
-function tuple_name(): Name :=
-  unqualified(",")
-
-function list_name(): Name :=
-  Name(Some("list"), "List")
-
 function nil_name(): Name :=
   Name(Some("list"), "Nil")
 
 function cons_name(): Name :=
   Name(Some("list"), "Cons")
-
-function none_name(): Name :=
-  Name(Some("option"), "None")
-
-function some_name(): Name :=
-  Name(Some("option"), "Some")
 
 function os_error_name(): Name :=
   Name(Some("os"), "OsError")
@@ -99,18 +91,6 @@ function array_name(): Name :=
 function array_foldr_name(): Name :=
   Name(Some("array"), "foldr")
 
-function type_bool(): Type :=
-  TSort(Name(Some("prelude"), "Bool"), list())
-
-function type_int(): Type :=
-  TSort(Name(Some("prelude"), "Int"), list())
-
-function type_str(): Type :=
-  TSort(Name(Some("prelude"), "Str"), list())
-
-function type_char(): Type :=
-  TSort(Name(Some("prelude"), "Char"), list())
-
 // the lists of the tests, before checking
 function type_plain_list(t: Type): Type :=
   TSort(unqualified("List"), list(t))
@@ -131,14 +111,14 @@ function with_lists(cmds: List[Cmd]): Source :=
     Mod("main", "", list("list"), list(), list(), unplaced(list(len_fun(); cmds)))), "main")
 
 function len_fun(): Cmd :=
-  CFun(unqualified("len"), list("A"), list(Var(unqualified("xs"), type_plain_list(TParam("A")))), type_int(), EMatch(expr_var("xs"), list(
+  CFun(unqualified("len"), list("A"), list(Var(unqualified("xs"), type_plain_list(TParam("A")))), TInt(), EMatch(expr_var("xs"), list(
     Branch("", pat_var("Nil"), None, expr_int(0)),
     Branch("", PApp(unqualified("Cons"), list(PWild, pat_var("ys"))), None, expr_app("+", list(expr_int(1), expr_app("len", list(expr_var("ys")))))))))
 
 // a prelude of the builtin types and functions of prelude/prelude.u only, for programs that are not parsed
 function natives_prelude(): Mod :=
-  let int_op := lambda op => CFunSig(unqualified(op), list(), list(Var(unqualified("a"), type_int()), Var(unqualified("b"), type_int())), type_int()) in Mod("prelude", "", list(), list(), unplaced(list(for t in list("Bool", "Int", "Str", "Char") yield CAbstract(unqualified(t), list())) ++ list(for op in list("+", "-", "*", "/", "%") yield int_op(op)) ++ list(
-    CFunSig(unqualified("++"), list(), list(Var(unqualified("a"), type_str()), Var(unqualified("b"), type_str())), type_str()))), list())
+  let int_op := lambda op => CFunSig(unqualified(op), list(), list(Var(unqualified("a"), TInt()), Var(unqualified("b"), TInt())), TInt()) in Mod("prelude", "", list(), list(), unplaced(list(for t in list("Bool", "Int", "Str", "Char") yield CAbstract(unqualified(t), list())) ++ list(for op in list("+", "-", "*", "/", "%") yield int_op(op)) ++ list(
+    CFunSig(unqualified("++"), list(), list(Var(unqualified("a"), TStr()), Var(unqualified("b"), TStr())), TStr()))), list())
 
 function program_of(cmds: List[Cmd]): Source :=
   Source(list(

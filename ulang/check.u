@@ -90,6 +90,9 @@ data Head :=
   case HCon(constr: Name)
   case HLit(lit: Lit)
 
+// the head of tuples, which have no module
+pattern HTuple(): Head := HCon(Name(None, ","))
+
 function with_sig(s: State, sig: Sig): State :=
   s with sig := sig
 
@@ -184,20 +187,20 @@ function literal(v: Lit): Type :=
       TTuple(list())
 
     case LBool(_) =>
-      type_bool()
+      TBool()
 
     case LInt(_) =>
-      type_int()
+      TInt()
 
     case LStr(_) =>
-      type_str()
+      TStr()
 
     case LChar(_) =>
-      type_char()
+      TChar()
   end
 
 function logic(): Scheme :=
-  Scheme(list(), TFun(list(type_bool(), type_bool()), type_bool()))
+  Scheme(list(), TFun(list(TBool(), TBool()), TBool()))
 
 // only what cannot be defined in the prelude, which are names without a module
 function builtin_schemes(n: Name): List[Scheme] :=
@@ -211,16 +214,16 @@ function builtin_schemes(n: Name): List[Scheme] :=
 function builtin_scheme(b: Id): List[Scheme] :=
   let a := TParam("A") in match b
     case "<" =>
-      list(Scheme(list(a), TFun(list(a, a), type_bool())))
+      list(Scheme(list(a), TFun(list(a, a), TBool())))
 
     case "==" =>
-      list(Scheme(list(a), TFun(list(a, a), type_bool())))
+      list(Scheme(list(a), TFun(list(a, a), TBool())))
 
     case "compare" =>
-      list(Scheme(list(a), TFun(list(a, a), type_int())))
+      list(Scheme(list(a), TFun(list(a, a), TInt())))
 
     case "show" =>
-      list(Scheme(list(a), TFun(list(a), type_str())))
+      list(Scheme(list(a), TFun(list(a), TStr())))
 
     case "and" =>
       list(logic())
@@ -786,7 +789,7 @@ function head_of(pat: Pat): Option[Head * List[Pat]] :=
       Some((HCon(constr), args))
 
     case PTuple(args) =>
-      Some((HCon(tuple_name()), args))
+      Some((HTuple(), args))
 
     case PLit(lit) =>
       Some((HLit(lit), list()))
@@ -825,11 +828,11 @@ function field_types(sig: Sig, k: Name, args: List[Type]): List[Type] :=
 // all constructors of t with their argument types, if there are finitely many
 function constructors_of(sig: Sig, su: Subst, t: Type): Option[List[Head * List[Type]]] :=
   match zonk_type(su, t)
-    case TSort(name, list()) if TSort(name, list()) == type_bool() =>
+    case TBool() =>
       Some(list((HLit(LBool(true)), list()), (HLit(LBool(false)), list())))
 
     case TTuple(types) =>
-      Some(list((HCon(tuple_name()), types)))
+      Some(list((HTuple(), types)))
 
     case TSort(name, args) =>
       match members_of(sig, name)
@@ -918,8 +921,12 @@ function useful_in(sig: Sig, su: Subst, rows: List[List[Pat]], ks: List[Head * L
 
 function witness(h: Head, args: List[Pat]): Pat :=
   match h
+    case HTuple() =>
+      PTuple(args)
+
     case HCon(constr) =>
-      if constr == tuple_name() then PTuple(args) else PApp(constr, args)
+      PApp(constr, args)
+
     case HLit(lit) =>
       PLit(lit)
   end
@@ -1361,7 +1368,7 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
     case ELit(lit) =>
       assign res := expr, typ := literal(lit)
 
-    case EVar(Var(name, a)) =>
+    case EName(name, a) =>
       call   normalize(in a, out w, ref s)
       call   use_name(in name, candidates(s, env, name), w, out z, ref s)
       call   readable(in env, name)
@@ -1403,7 +1410,7 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
       assign res := ELet(zip(xs, exprs), b), typ := u
 
     case EIte(cond, then_expr, else_expr) =>
-      call   check(in env, cond, type_bool(), out c, ref s)
+      call   check(in env, cond, TBool(), out c, ref s)
       call   infer(in env, then_expr, out l, u, ref s)
       call   check(in env, else_expr, u, out b, ref s)
       assign res := EIte(c, l, b), typ := u
@@ -1436,7 +1443,7 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
 
     case EFor(FArray, gens, elem, None) =>
       call form_import(in FArray, s)
-      call infer(in env, EApp(EVar(Var(Name(Some("array"), "from_list"), THole)), list(EFor(FList, gens, elem, None))), out res, typ, ref s)
+      call infer(in env, ECall(Name(Some("array"), "from_list"), THole, list(EFor(FList, gens, elem, None))), out res, typ, ref s)
 
     case EFor(form, list(), elem, rest) =>
       call form_import(in form, s)
@@ -1503,7 +1510,7 @@ function form_module(form: Form): Option[Id] :=
   end
 
 function form_app(m: Id, f: Id, args: List[Expr]): Expr :=
-  EApp(EVar(Var(Name(Some(m), f), THole)), args)
+  ECall(Name(Some(m), f), THole, args)
 
 // the accumulator of the folds, which users cannot name
 function form_acc(): Var :=
@@ -1516,7 +1523,7 @@ function base_expr(form: Form, rest: Option[Expr]): Expr :=
       r
 
     case (None, FList) =>
-      EVar(Var(nil_name(), THole))
+      ENil(THole)
 
     case (None, FSet) =>
       form_app("set", "empty", list())
@@ -1533,18 +1540,18 @@ function step_expr(form: Form, elem: Yield, base: Expr): Expr :=
 
     case (FMap, YVal(e)) =>
       form_app("map", "put", list(
-        EApp(EVar(Var(Name(Some("prelude"), "first"), THole)), list(e)),
-        EApp(EVar(Var(Name(Some("prelude"), "second"), THole)), list(e)),
+        ECall(Name(Some("prelude"), "first"), THole, list(e)),
+        ECall(Name(Some("prelude"), "second"), THole, list(e)),
         base))
 
     case (FSet, YVal(e)) =>
       form_app("set", "insert", list(e, base))
 
     case (_, YVal(e)) =>
-      EApp(EVar(Var(cons_name(), THole)), list(e, base))
+      ECons(THole, e, base)
 
     case (_, YPair(k, v)) =>
-      EApp(EVar(Var(cons_name(), THole)), list(ETuple(list(k, v)), base))
+      ECons(THole, ETuple(list(k, v)), base)
   end
 
 // list(a, b; r) is Cons(a, Cons(b, r)), set(a, b; r) is insert(a, insert(b, r)), map(k => v, l => w; r) is
@@ -1659,7 +1666,7 @@ procedure application(
 ) :=
   local cs: List[Name * Scheme], x: Var, f1: Expr, u: Type, w: Type, args1: List[Expr], ts: List[Type]
   match f
-    case EVar(Var(name, typ)) =>
+    case EName(name, typ) =>
       assign cs := candidates(s, env, name)
       if size(cs) > 1 then
         call infers_first(in env, args, out args1, ts, ref s)
@@ -1882,7 +1889,7 @@ procedure guard(
   local e1: Expr
   match g
     case Some(e) =>
-      call   check(in env, e, type_bool(), out e1, ref s)
+      call   check(in env, e, TBool(), out e1, ref s)
       assign g1 := Some(e1)
 
     case None =>
@@ -1949,13 +1956,13 @@ procedure binders(
       call   unify(in literal(lit), t, ref s)
       assign p1 := pat, xs := list()
 
-    case PVar(Var(name, typ)) =>
+    case PName(name, typ) =>
       if overloads(s, name, lambda n => is_pattern_name(s.sig, n)) != list() then
         call binders(in PApp(name, list()), t, out p1, xs, ref s)
       else
         call   normalize(in typ, out u, ref s)
         call   unify(in u, t, ref s)
-        assign p1 := PVar(Var(name, u)), xs := list(Var(name, u))
+        assign p1 := PName(name, u), xs := list(Var(name, u))
       end
 
     case PApp(constr, args) =>
@@ -2127,14 +2134,14 @@ procedure statement(
       assign y := SBlock(ys, xs), env := drop(size(ys), inner)
 
     case SIf(cond, left, right) =>
-      call   check(in env, cond, type_bool(), out c, ref s)
+      call   check(in env, cond, TBool(), out c, ref s)
       assign other := env
       call   statement(in assignable, left, out l, ref env, s)
       call   statement(in assignable, right, out r, ref other, s)
       assign y := SIf(c, l, r), env := joined(env, other)
 
     case SWhile(cond, body) =>
-      call   check(in env, cond, type_bool(), out c, ref s)
+      call   check(in env, cond, TBool(), out c, ref s)
       assign inner := env
       call   statement(in assignable, body, out l, ref inner, s)
       assign y := SWhile(c, l)
@@ -2153,7 +2160,7 @@ procedure statement(
       assign y := SMatch(c, bs)
 
     case SAssert(cond) =>
-      call   check(in env, cond, type_bool(), out c, ref s)
+      call   check(in env, cond, TBool(), out c, ref s)
       assign y := SAssert(c)
       if c == ELit(LBool(false)) then
         assign env := unreachable(env)
@@ -2655,16 +2662,16 @@ function synthesized(ds: List[Id * Cmd], cmds: List[Cmd], natives: List[Name]): 
 function synthesized_for(d: Id * Cmd, compares: List[Name], equalities: List[Name]): List[Id * Cmd] :=
   match d
     case (m, CAbstract(name, params)) =>
-      if contains(name, compares) then list() else if contains(name, equalities) then list((m, failing(name, params, "compare", type_int(), "Unordered"))) else list(
-        (m, failing(name, params, "compare", type_int(), "Incomparable")),
-        (m, failing(name, params, "==", type_bool(), "Incomparable")))
+      if contains(name, compares) then list() else if contains(name, equalities) then list((m, failing(name, params, "compare", TInt(), "Unordered"))) else list(
+        (m, failing(name, params, "compare", TInt(), "Incomparable")),
+        (m, failing(name, params, "==", TBool(), "Incomparable")))
 
     case _ =>
       list()
   end
 
 function failing(t: Name, ps: List[Id], op: Id, r: Type, e: Id): Cmd :=
-  let a := TSort(t, params(ps)) in CFun(Name(t.module, t.base ++ "." ++ op), ps, list(Var(unqualified("a"), a), Var(unqualified("b"), a)), r, ERaise(EApp(EVar(Var(Name(Some("prelude"), e), THole)), list(ELit(LStr(format_name(t))))), THole))
+  let a := TSort(t, params(ps)) in CFun(Name(t.module, t.base ++ "." ++ op), ps, list(Var(unqualified("a"), a), Var(unqualified("b"), a)), r, ERaise(ECall(Name(Some("prelude"), e), THole, list(ELit(LStr(format_name(t))))), THole))
 
 // the commands of ds without signatures and abstract types, which only the checks of sections need
 function is_definition(d: Id * Cmd): Bool :=
@@ -3144,12 +3151,12 @@ procedure type_of(in expr: Expr, out t: Type) :=
 test inference() :=
   local t: Type
   call type_of(in expr_app("<", list(expr_int(1), expr_int(2))), out t)
-  assert t == type_bool()
+  assert t == TBool()
   call type_of(in ELet(list(
     (Var(unqualified("id"), THole), ELam(list(Var(unqualified("x"), THole)), expr_var("x")))), ETuple(list(
     expr_app("id", list(expr_int(1))),
     expr_app("id", list(ELit(LBool(true))))))), out t)
-  assert t == TTuple(list(type_int(), type_bool()))
+  assert t == TTuple(list(TInt(), TBool()))
   try
     call type_of(in ELam(list(Var(unqualified("f"), THole)), expr_app("f", list(expr_var("f")))), out t)
     assert false
@@ -3162,7 +3169,7 @@ test inference() :=
     assert false
   catch
     case CannotUnify(left, right) =>
-      assert (left, right) == (type_int(), type_bool())
+      assert (left, right) == (TInt(), TBool())
   end
   try
     call type_of(in expr_app("x", list()), out t)
@@ -3179,9 +3186,9 @@ test elaboration() :=
       SAssign(list(
         (Var(unqualified("n"), THole), expr_app("len", list(expr_app("Cons", list(expr_int(1), expr_var("Nil"))))))))))))), out q)
   match q
-    case Prog(list(_, CFun(_, _, _, _, EMatch(_, list(Branch(_, pat, _, _); _))), CTest(_, list(), SBlock(_, list(SAssign(list((_, EApp(EVar(Var(_, typ)), _))))))))) =>
-      assert pat == PApp(nil_name(), list())
-      assert typ == TFun(list(TSort(list_name(), list(type_int()))), type_int())
+    case Prog(list(_, CFun(_, _, _, _, EMatch(_, list(Branch(_, pat, _, _); _))), CTest(_, list(), SBlock(_, list(SAssign(list((_, ECall(_, typ, _))))))))) =>
+      assert pat == PNil()
+      assert typ == TFun(list(TList(TInt())), TInt())
 
     case _ =>
       assert false
@@ -3191,31 +3198,31 @@ test coverage() :=
   local q: Prog
   try
     call check_program(in with_lists(list(
-      CFun(unqualified("f"), list(), list(Var(unqualified("xs"), type_plain_list(type_int()))), type_int(), EMatch(expr_var("xs"), list(Branch("", pat_var("Nil"), None, expr_int(0))))))), out q)
+      CFun(unqualified("f"), list(), list(Var(unqualified("xs"), type_plain_list(TInt()))), TInt(), EMatch(expr_var("xs"), list(Branch("", pat_var("Nil"), None, expr_int(0))))))), out q)
     assert false
   catch
     case NotExhaustive(pat) =>
-      assert pat == PApp(cons_name(), list(PWild, PWild))
+      assert pat == PCons(PWild, PWild)
   end
   try
     call check_program(in with_lists(list(
-      CFun(unqualified("f"), list(), list(Var(unqualified("xs"), type_plain_list(type_int()))), type_int(), EMatch(expr_var("xs"), list(
+      CFun(unqualified("f"), list(), list(Var(unqualified("xs"), type_plain_list(TInt()))), TInt(), EMatch(expr_var("xs"), list(
         Branch("", PWild, None, expr_int(0)),
         Branch("", pat_var("Nil"), None, expr_int(1))))))), out q)
     assert false
   catch
     case Unreachable(pat) =>
-      assert pat == PApp(nil_name(), list())
+      assert pat == PNil()
   end
 
 test statements() :=
   local q: Prog
   try
     call check_program(in program_of(list(
-      CProc(unqualified("inc"), list(), list(), list(), list(Var(unqualified("k"), type_int())), SBlock(list(), list(
+      CProc(unqualified("inc"), list(), list(), list(), list(Var(unqualified("k"), TInt())), SBlock(list(), list(
         SAssign(list(
           (Var(unqualified("k"), THole), expr_app("+", list(expr_var("k"), expr_int(1))))))))),
-      CProc(unqualified("p"), list(), list(Var(unqualified("n"), type_int())), list(), list(), SBlock(list(), list(
+      CProc(unqualified("p"), list(), list(Var(unqualified("n"), TInt())), list(), list(), SBlock(list(), list(
         SCall(unqualified("inc"), list(), list(), list(Var(unqualified("n"), THole)))))))), out q)
     assert false
   catch
@@ -3227,7 +3234,7 @@ test statements() :=
       CTest("t", list(), SBlock(list(), list(SRaise(expr_var("Nil"), THole)))))), out q)
     assert false
   catch
-    case UnknownException(TSort(Name(Some("list"), "List"), _)) =>
+    case UnknownException(TList(_)) =>
       skip
   end
 
@@ -3246,18 +3253,18 @@ function bags(): List[Mod] :=
   list(
     Mod("bag", "", list(), unplaced(list(
       CData(unqualified("Bag"), list(), list(
-        Constr("", unqualified("Bag"), list(Field("n", type_int()))),
-        Constr("", unqualified("Leaf"), list(Field("n", type_int()))))),
-      CData(unqualified("Pt"), list(), list(Constr("", unqualified("Pt"), list(Field("x", type_int()))))),
-      fun_cmd("size", list(var_of("b", tsort("Bag"))), type_int(), expr_int(1)),
-      fun_cmd("compare", list(var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))), type_int(), expr_int(0)),
+        Constr("", unqualified("Bag"), list(Field("n", TInt()))),
+        Constr("", unqualified("Leaf"), list(Field("n", TInt()))))),
+      CData(unqualified("Pt"), list(), list(Constr("", unqualified("Pt"), list(Field("x", TInt()))))),
+      fun_cmd("size", list(var_of("b", tsort("Bag"))), TInt(), expr_int(1)),
+      fun_cmd("compare", list(var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))), TInt(), expr_int(0)),
       CProc(unqualified("fill"), list(), list(), list(var_of("b", tsort("Bag"))), list(), SAssign(list((var_of("b", THole), expr_app("Bag", list(expr_int(0))))))))), list(), list()),
     Mod("box", "", list(), unplaced(list(
       CData(unqualified("Box"), list(), list(
-        Constr("", unqualified("Box"), list(Field("s", type_str()))),
-        Constr("", unqualified("Leaf"), list(Field("s", type_str()))))),
-      CData(unqualified("Qt"), list(), list(Constr("", unqualified("Qt"), list(Field("x", type_str()))))),
-      fun_cmd("size", list(var_of("b", tsort("Box"))), type_int(), expr_int(2)),
+        Constr("", unqualified("Box"), list(Field("s", TStr()))),
+        Constr("", unqualified("Leaf"), list(Field("s", TStr()))))),
+      CData(unqualified("Qt"), list(), list(Constr("", unqualified("Qt"), list(Field("x", TStr()))))),
+      fun_cmd("size", list(var_of("b", tsort("Box"))), TInt(), expr_int(2)),
       CProc(unqualified("fill"), list(), list(), list(var_of("b", tsort("Box"))), list(), SAssign(list((var_of("b", THole), expr_app("Box", list(ELit(LStr("")))))))))), list(), list()))
 
 // the program of the commands cmds of the module main, which imports bag and box
@@ -3284,11 +3291,11 @@ procedure body_of(in cmd: Cmd, out b: Expr) :=
 // size(Bag(1)) + size(Box("x"))
 test by_arguments() :=
   local b: Expr
-  call body_of(in fun_cmd("f", list(), type_int(), expr_app("+", list(
+  call body_of(in fun_cmd("f", list(), TInt(), expr_app("+", list(
     expr_app("size", list(expr_app("Bag", list(expr_int(1))))),
     expr_app("size", list(expr_app("Box", list(ELit(LStr("x"))))))))), out b)
   match b
-    case EApp(_, list(EApp(EVar(Var(m, _)), _), EApp(EVar(Var(n, _)), _))) =>
+    case EApp(_, list(ECall(m, _, _), ECall(n, _, _))) =>
       assert (m, n) == (in_bag("size"), in_box("size"))
     case _ =>
       assert false
@@ -3297,11 +3304,11 @@ test by_arguments() :=
 // (lambda x => size(x))(Box("x")), where size(x) stays open until the lambda is applied
 test deferred() :=
   local b: Expr
-  call body_of(in fun_cmd("f", list(), type_int(), EApp(ELam(list(var_of("x", THole)), expr_app("size", list(expr_var("x")))), list(expr_app("Box", list(ELit(LStr("x"))))))), out b)
+  call body_of(in fun_cmd("f", list(), TInt(), EApp(ELam(list(var_of("x", THole)), expr_app("size", list(expr_var("x")))), list(expr_app("Box", list(ELit(LStr("x"))))))), out b)
   match b
-    case EApp(ELam(_, EApp(EVar(Var(name, typ)), _)), _) =>
+    case EApp(ELam(_, ECall(name, typ, _)), _) =>
       assert name == in_box("size")
-      assert typ == TFun(list(TSort(in_box("Box"), list())), type_int())
+      assert typ == TFun(list(TSort(in_box("Box"), list())), TInt())
 
     case _ =>
       assert false
@@ -3310,20 +3317,20 @@ test deferred() :=
 // size as a value of the declared result type Box -> Int
 test by_result() :=
   local b: Expr
-  call body_of(in fun_cmd("f", list(), TFun(list(tsort("Box")), type_int()), expr_var("size")), out b)
-  assert b == EVar(Var(in_box("size"), TFun(list(TSort(in_box("Box"), list())), type_int())))
+  call body_of(in fun_cmd("f", list(), TFun(list(tsort("Box")), TInt()), expr_var("size")), out b)
+  assert b == EName(in_box("size"), TFun(list(TSort(in_box("Box"), list())), TInt()))
 
 // Leaf("s") constructs a Box, and the case Leaf(n) of a Bag is of bag
 test constructors() :=
   local b: Expr
   call body_of(in fun_cmd("f", list(), tsort("Box"), expr_app("Leaf", list(ELit(LStr("s"))))), out b)
   match b
-    case EApp(EVar(Var(name, _)), _) =>
+    case ECall(name, _, _) =>
       assert name == in_box("Leaf")
     case _ =>
       assert false
   end
-  call body_of(in fun_cmd("g", list(var_of("b", tsort("Bag"))), type_int(), EMatch(expr_var("b"), list(
+  call body_of(in fun_cmd("g", list(var_of("b", tsort("Bag"))), TInt(), EMatch(expr_var("b"), list(
     Branch("", PApp(unqualified("Leaf"), list(pat_var("n"))), None, expr_var("n")),
     Branch("", PApp(unqualified("Bag"), list(pat_var("n"))), None, expr_var("n"))))), out b)
   match b
@@ -3348,9 +3355,9 @@ test procedures() :=
 // (lambda p => p.x)(Pt(3)), where the type of p is not known at the access
 test fields() :=
   local b: Expr
-  call body_of(in fun_cmd("f", list(), type_int(), EApp(ELam(list(var_of("p", THole)), EField(expr_var("p"), "x")), list(expr_app("Pt", list(expr_int(3)))))), out b)
+  call body_of(in fun_cmd("f", list(), TInt(), EApp(ELam(list(var_of("p", THole)), EField(expr_var("p"), "x")), list(expr_app("Pt", list(expr_int(3)))))), out b)
   match b
-    case EApp(ELam(_, EApp(EVar(Var(name, _)), _)), _) =>
+    case EApp(ELam(_, ECall(name, _, _)), _) =>
       assert name == in_bag("Pt.x")
     case _ =>
       assert false
@@ -3360,31 +3367,31 @@ test fields() :=
 // parameters
 test builtins() :=
   local b: Expr
-  call body_of(in fun_cmd("f", list(), type_int(), expr_app("compare", list(expr_app("Bag", list(expr_int(1))), expr_app("Bag", list(expr_int(2)))))), out b)
+  call body_of(in fun_cmd("f", list(), TInt(), expr_app("compare", list(expr_app("Bag", list(expr_int(1))), expr_app("Bag", list(expr_int(2)))))), out b)
   match b
-    case EApp(EVar(Var(name, _)), _) =>
+    case ECall(name, _, _) =>
       assert name == unqualified("compare")
     case _ =>
       assert false
   end
-  call body_of(in fun_cmd("g", list(), type_bool(), expr_app("==", list(expr_int(1), expr_int(2)))), out b)
+  call body_of(in fun_cmd("g", list(), TBool(), expr_app("==", list(expr_int(1), expr_int(2)))), out b)
   match b
-    case EApp(EVar(Var(name, _)), _) =>
+    case ECall(name, _, _) =>
       assert name == unqualified("==")
     case _ =>
       assert false
   end
-  call body_of(in CFun(unqualified("h"), list("A"), list(var_of("x", TParam("A"))), type_bool(), expr_app("==", list(expr_var("x"), expr_var("x")))), out b)
+  call body_of(in CFun(unqualified("h"), list("A"), list(var_of("x", TParam("A"))), TBool(), expr_app("==", list(expr_var("x"), expr_var("x")))), out b)
   match b
-    case EApp(EVar(Var(name, _)), _) =>
+    case ECall(name, _, _) =>
       assert name == unqualified("==")
     case _ =>
       assert false
   end
-  call body_of(in fun_cmd("k", list(), type_bool(), ELet(list(
+  call body_of(in fun_cmd("k", list(), TBool(), ELet(list(
     (var_of("e", THole), ELam(list(var_of("x", THole)), expr_app("==", list(expr_var("x"), expr_var("x")))))), ELit(LBool(true)))), out b)
   match b
-    case ELet(list((_, ELam(_, EApp(EVar(Var(name, _)), _)))), _) =>
+    case ELet(list((_, ELam(_, ECall(name, _, _)))), _) =>
       assert name == unqualified("==")
     case _ =>
       assert false
@@ -3393,20 +3400,20 @@ test builtins() :=
 // a local variable hides all declarations of its name
 test locals() :=
   local b: Expr
-  call body_of(in fun_cmd("f", list(var_of("size", type_int())), type_int(), expr_var("size")), out b)
-  assert b == EVar(Var(unqualified("size"), type_int()))
+  call body_of(in fun_cmd("f", list(var_of("size", TInt())), TInt(), expr_var("size")), out b)
+  assert b == EName(unqualified("size"), TInt())
 
 test errors() :=
   local b: Expr
   try
-    call body_of(in fun_cmd("f", list(), type_int(), expr_app("size", list(expr_int(1)))), out b)
+    call body_of(in fun_cmd("f", list(), TInt(), expr_app("size", list(expr_int(1)))), out b)
     assert false
   catch
     case NoOverload(name, _) =>
       assert name == unqualified("size")
   end
   try
-    call body_of(in fun_cmd("f", list(), type_bool(), ELet(list(
+    call body_of(in fun_cmd("f", list(), TBool(), ELet(list(
       (var_of("h", THole), ELam(list(var_of("x", THole)), expr_app("size", list(expr_var("x")))))), ELit(LBool(true)))), out b)
     assert false
   catch
@@ -3415,7 +3422,7 @@ test errors() :=
       assert size(candidates) == 2
   end
   try
-    call body_of(in fun_cmd("f", list(), type_int(), expr_app("size", list(expr_int(1), expr_int(2)))), out b)
+    call body_of(in fun_cmd("f", list(), TInt(), expr_app("size", list(expr_int(1), expr_int(2)))), out b)
     assert false
   catch
     case WrongArity(name, arity) =>

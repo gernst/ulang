@@ -400,7 +400,7 @@ function field_tests(ps: List[Pat * Int], v: CExpr): List[CExpr] :=
 // the declarations of the variables of pat, where v matches pat
 function pattern_binds(pat: Pat, v: CExpr): List[CStmt] :=
   match pat
-    case PVar(Var(name, _)) =>
+    case PName(name, _) =>
       list(CsDecl(value_type(), var_name(name), Some(v)))
 
     case PApp(_, args) =>
@@ -418,7 +418,7 @@ function field_binds(ps: List[Pat * Int], v: CExpr): List[CStmt] :=
 
 function pattern_names(pat: Pat): List[Name] :=
   match pat
-    case PVar(Var(name, _)) =>
+    case PName(name, _) =>
       list(name)
 
     case PApp(_, args) =>
@@ -443,7 +443,7 @@ function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
     case ELit(_) =>
       list()
 
-    case EVar(Var(name, _)) =>
+    case EName(name, _) =>
       if contains(name, bound) then list() else list(name)
 
     case EApp(fun, args) =>
@@ -605,7 +605,7 @@ procedure compile_expr(
     case ELit(lit) =>
       assign ss := list(), r := literal_value(lit)
 
-    case EVar(Var(name, typ)) =>
+    case EName(name, typ) =>
       match get(name, env)
         case Some(c) =>
           assign ss := list(), r := c
@@ -613,7 +613,7 @@ procedure compile_expr(
           assign ss := list(), r := global_value(defs, name, typ)
       end
 
-    case EApp(EVar(Var(n, _)), args) if array_fusion(n, args) != None =>
+    case ECall(n, _, args) if array_fusion(n, args) != None =>
       match array_fusion(n, args)
         case Some((gs, q, e)) =>
           call compile_array_comprehension(in defs, env, gs, q, e, out ss, r, ref g)
@@ -621,7 +621,7 @@ procedure compile_expr(
           raise Unsupported("an array comprehension")
       end
 
-    case EApp(EVar(Var(name, _)), list(l)) if name == array_name() and list_literal(l) != None =>
+    case ECall(name, _, list(l)) if name == array_name() and list_literal(l) != None =>
       match list_literal(l)
         case Some(es) =>
           call   compile_exprs(in defs, env, es, out ss, rs, ref g)
@@ -633,7 +633,7 @@ procedure compile_expr(
 
     // [e for x in c, y in d if q] over lists and arrays, nested folds into which comprehensions translate, are nested loops
     // that build the list in order
-    case EApp(EVar(Var(n, _)), list(xs, init, ELam(list(x, acc), body))) if fused(n, xs, x, body, acc.name) != None =>
+    case ECall(n, _, list(xs, init, ELam(list(x, acc), body))) if fused(n, xs, x, body, acc.name) != None =>
       match fused(n, xs, x, body, acc.name)
         case Some((gs, q, e)) =>
           call compile_list_comprehension(in defs, env, gs, q, e, init, out ss, r, ref g)
@@ -641,7 +641,7 @@ procedure compile_expr(
           raise Unsupported("a list comprehension")
       end
 
-    case EApp(EVar(Var(name, typ)), args) if get(name, env) == None =>
+    case ECall(name, typ, args) if get(name, env) == None =>
       call compile_named(in defs, env, name, typ, args, out ss, r, ref g)
 
     case EField(_, field) =>
@@ -878,10 +878,10 @@ procedure expr_cases(
 // the elements of a list literal, Cons(a, Cons(b, Nil))
 function list_literal(expr: Expr): Option[List[Expr]] :=
   match expr
-    case EVar(Var(name, _)) if name == nil_name() =>
+    case ENil(_) =>
       Some(list())
 
-    case EApp(EVar(Var(name, _)), list(e, rest)) if name == cons_name() =>
+    case ECons(_, e, rest) =>
       match list_literal(rest)
         case Some(es) =>
           Some(list(e; es))
@@ -897,21 +897,15 @@ function list_literal(expr: Expr): Option[List[Expr]] :=
 // and returns acc otherwise
 function consing(body: Expr, acc: Name): Option[Option[Expr] * Expr] :=
   match body
-    case EIte(cond, EApp(EVar(Var(k, _)), list(e, EVar(Var(a, _)))), EVar(Var(b, _))) if cons_else(k, a, b, acc) =>
+    case EIte(cond, ECons(_, e, EName(a, _)), EName(b, _)) if a == acc and b == acc =>
       if contains(acc, free_vars(cond, list()) ++ free_vars(e, list())) then None else Some((Some(cond), e))
 
-    case EApp(EVar(Var(k, _)), list(e, EVar(Var(a, _)))) if cons_onto(k, a, acc) =>
+    case ECons(_, e, EName(a, _)) if a == acc =>
       if contains(acc, free_vars(e, list())) then None else Some((None, e))
 
     case _ =>
       None
   end
-
-function cons_onto(k: Name, a: Name, acc: Name): Bool :=
-  k == cons_name() and a == acc
-
-function cons_else(k: Name, a: Name, b: Name, acc: Name): Bool :=
-  cons_onto(k, a, acc) and b == acc
 
 type Fusion :=
   List[Name * Expr * Var] * Option[Expr] * Expr
@@ -929,7 +923,7 @@ function fused(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fusion] 
 
 function fused_inner(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fusion] :=
   match body
-    case EApp(EVar(Var(f1, _)), list(c1, EVar(Var(a, _)), lam)) if a == acc and unused(acc, c1, lam) =>
+    case ECall(f1, _, list(c1, EName(a, _), lam)) if a == acc and unused(acc, c1, lam) =>
       match lam
         case ELam(list(x1, acc1), inner) =>
           nested(f, c, x, fused(f1, c1, x1, inner, acc1.name))
@@ -955,7 +949,7 @@ function nested(f: Name, c: Expr, x: Var, inner: Option[Fusion]): Option[Fusion]
 // the generators, condition, and element of an array comprehension array(foldr(c, Nil, lambda x, acc => ...))
 function array_fusion(n: Name, args: List[Expr]): Option[Fusion] :=
   match args
-    case list(EApp(EVar(Var(f, _)), list(xs, EVar(Var(k, _)), lam))) if n == array_name() and k == nil_name() =>
+    case list(ECall(f, _, list(xs, ENil(_), lam))) if n == array_name() =>
       match lam
         case ELam(list(x, acc), body) =>
           fused(f, xs, x, body, acc.name)
@@ -1052,7 +1046,7 @@ procedure compile_array_comprehension(
       call   gen_name(in "t", out t, ref g)
       call   gen_name(in "n", out n, ref g)
       call   gen_name(in "l", out l, ref g)
-      assign scope := list((source, CeVar(l)); env), inner := list((f, EVar(Var(source, THole)), x); rest)
+      assign scope := list((source, CeVar(l)); env), inner := list((f, EName(source, THole), x); rest)
       call   compile_loops(in defs, scope, inner, cond, e, lambda re => push_stmt(t, re), out loops, ref g)
       assign ss := cs ++ list(declare(l, rc), declare_count(n, l), declare_array(t, n)) ++ loops
       assign r := CeVar(t)
@@ -1225,7 +1219,7 @@ procedure compile_stmt(
         CsIf(CeUnary("!", CeVar(t)), list(CsExpr(c_call("u_no_case", list(CeVar(d))))), list()))
 
     // assertions of equations show both sides when they fail
-    case SAssert(EApp(EVar(Var(Name(None, "=="), _)), list(a, b))) =>
+    case SAssert(ECall(Name(None, "=="), _, list(a, b))) =>
       call   compile_expr(in defs, env, a, out as, ra, ref g)
       call   compile_expr(in defs, env, b, out bs, rb, ref g)
       assign ss := as ++ bs ++ list(CsExpr(c_call("u_assert_equal", list(ra, rb))))

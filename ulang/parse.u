@@ -1213,18 +1213,14 @@ procedure parse_local(
       assign decl := (x, list())
   end
 
-// for p in c if q do body end, or for k => v in m do body end, runs body for the elements of the container in the order of
-// its fold, where the elements are collected first, list(for item in c), and then taken off one by one, by a while loop
-//   local items := list(for item in c)
-//   while items != list() match items case list(p; rest) => if q body end; assign items := rest case list() => skip end end
-// with names that users cannot write, which nested loops hide
+// for p in c if q do body end, or for k => v in m do body end, see ForBlock of ulang/syntax.u
 procedure parse_for(
   in  notation: Notation,
       params: List[Id],
   out stmt: Stmt,
   ref toks: Tokens
 ) :=
-  local pos := head_pos(toks), gens: List[Gen], q: Option[Expr] := None, pat: Pat, c: Expr, body: Stmt, guarded: Stmt, step: Stmt, items: Var, item: Var, rest: Var, branches: List[Branch[Stmt]], collect: Stmt, loop: Stmt
+  local pos := head_pos(toks), gens: List[Gen], q: Option[Expr] := None, pat: Pat, c: Expr, body: Stmt, guarded: Stmt
   call parse_gens(in notation, params, out gens, ref toks)
   match gens
     case list(GVal(p, e)) =>
@@ -1242,26 +1238,16 @@ procedure parse_for(
     case _ =>
       raise ParseError("for takes one generator and an optional condition", pos)
   end
-  call   expect(in TKw("do"), ref toks)
-  call   parse_body(in notation, params, out body, ref toks)
-  call   expect(in TKw("end"), ref toks)
-  assign items := Var(unqualified("(items)"), THole)
-  assign item := Var(unqualified("(item)"), THole)
-  assign rest := Var(unqualified("(rest)"), THole)
+  call expect(in TKw("do"), ref toks)
+  call parse_body(in notation, params, out body, ref toks)
+  call expect(in TKw("end"), ref toks)
   match q
     case Some(g) =>
       assign guarded := SIf(g, body, SSkip)
     case None =>
       assign guarded := body
   end
-  assign step := SBlock(list(), list(guarded, SAssign(list((items, EVar(rest))))))
-  assign branches := list(
-    Branch("", pat_cons(pat, PVar(rest)), None, step),
-    Branch("", pat_nil(), None, SSkip))
-  assign collect := SAssign(list(
-    (items, EFor(FList, list(GVal(PVar(item), c)), YVal(EVar(item)), None))))
-  assign loop := SWhile(expr_app("!=", list(EVar(items), expr_var("Nil"))), SMatch(EVar(items), branches))
-  assign stmt := SBlock(list(items), list(collect, loop))
+  assign stmt := ForBlock(pat, c, guarded)
 
 procedure parse_stmt(
   in  notation: Notation,
