@@ -2,8 +2,6 @@
 // checked programs: definitions of functions and datatypes, and formulas with quantifiers, where the connectives and
 // comparisons of the prelude are read as the builtins of the prover, a != b as not (a == b) and a <= b as not (b < a)
 
-import "syntax.u"
-
 export
 
 data ReadError :=

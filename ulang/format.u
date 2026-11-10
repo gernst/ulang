@@ -3,11 +3,6 @@
 // formats values, and programs with the notation in effect, as out/ulang.bin format prints them, which parses to the same
 // commands
 
-import "builtins.u"
-import "lex.u"
-import "notation.u"
-import "syntax.u"
-
 export
 
 function format_program(source: Source): Str

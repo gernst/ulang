@@ -1,8 +1,6 @@
 // the names of the builtin types, constructors, and exceptions, which the interpreter, the runtime, and the compiler
 // create and refer to, of the modules of the library
 
-import "syntax.u"
-
 export
 
 // the patterns of the constructors of lists after checking, which resolves list() and list(p; r) to the module list

@@ -1,9 +1,5 @@
 // simple proofs by simplification and induction, with goals and definitions read from text
 
-import "read.u"
-import "simp.u"
-import "syntax.u"
-
 function list_decls(): Str :=
   join(" ", list(
     "data List[A] := | Nil | Cons(A, List[A])",

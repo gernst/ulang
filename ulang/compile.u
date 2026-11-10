@@ -1,15 +1,6 @@
 // a compiler from programs of ulang/syntax.u, which ulang/check.u has checked, to C in the syntax of ulang/c.u,
 // whose code calls the runtime in ulang/runtime, where every value has the C type u_value
 
-import "builtins.u"
-import "c.u"
-import "check.u"
-import "defs.u"
-import "error.u"
-import "format.u"
-import "parse.u"
-import "syntax.u"
-
 export
 
 data CompileError :=

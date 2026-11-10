@@ -2,10 +2,6 @@
 // where notation apply to the commands after them, and imports inline the declarations of modules,
 // read from the directory of the importing file or from the root of the project, or else from the library
 
-import "lex.u"
-import "notation.u"
-import "syntax.u"
-
 export
 
 data ParseError :=
@@ -2007,7 +2003,12 @@ procedure load_program(
 function members_notation(names: List[Id], mods: List[Mod]): Notation :=
   foldl(list(for d in mods if contains(d.name, names)), empty_notation(), lambda notation, d => notation ++ exported_notation(d))
 
-procedure import_all(in names: List[Id], root: Str, loading: Loading, ref source: Source) :=
+procedure import_all(
+  in  names: List[Id],
+      root: Str,
+      loading: Loading,
+  ref source: Source
+) :=
   if names != list() then
     call load_package(in root, None, None, loading, ref source)
   end
@@ -2100,9 +2101,9 @@ procedure parse_mod(
         raise ParseError("imports come before export", pos)
 
       case TKw("import") =>
-        call   advance(ref toks)
-        call   parse_import(out imported, ref toks)
-        call   import_module(in imported, root, dir, siblings, loading, pos, out id, ref source)
+        call advance(ref toks)
+        call parse_import(out imported, ref toks)
+        call import_module(in imported, root, dir, siblings, loading, pos, out id, ref source)
         if not contains(id, siblings) then
           call import_notation(in id, source.mods, pos, ref notation)
         end

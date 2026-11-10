@@ -1,8 +1,6 @@
 // the notation of operators: the precedences of prefix and postfix operators, and the fixities and precedences of infix
 // ones, by the notation commands in effect
 
-import "syntax.u"
-
 export
 
 data Notation :=

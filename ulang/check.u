@@ -4,12 +4,6 @@
 // and each use resolves to the one whose type fits, at once if only one fits, or else at the end of the command,
 // when the uses that are still open are solved together
 
-import "builtins.u"
-import "defs.u"
-import "format.u"
-import "sig.u"
-import "syntax.u"
-
 export
 
 data TypeError :=
@@ -81,17 +75,7 @@ data Pending :=
 // where hidden and hidden_sorts are the private declarations and sorts of the members of the package being checked, which
 // the other members do not see, while sig has only the exports of the modules checked before
 data State :=
-  case State(
-    sig: Sig,
-    sub: Subst,
-    count: Int,
-    module: Id,
-    visible: List[Id],
-    table: List[Id * List[Id]],
-    pending: List[Pending],
-    chosen: Map[Name, Name],
-    hidden: Set[Name],
-    hidden_sorts: Set[Name])
+  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name])
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -3001,11 +2985,7 @@ procedure check_sections(in d: Mod) :=
   call check_exposed(in d.name, ex, private_sorts(ex, im))
 
 // the declarations and sorts that module d keeps private, which are all of a module without an export section
-procedure private_of(
-  in  d: Mod,
-  out hidden: Set[Name],
-      hidden_sorts: List[Name]
-) :=
+procedure private_of(in d: Mod, out hidden: Set[Name], hidden_sorts: List[Name]) :=
   local ex := exported_cmds(d), im := implemented_cmds(d)
   assign hidden := set(for x in private_names(ex, im)), hidden_sorts := private_sorts(ex, im)
 
@@ -3040,7 +3020,7 @@ function units(mods: List[Mod], packages: List[Package]): List[List[Mod]] :=
     case list(d; rest) =>
       match find(packages, lambda p => contains(d.name, p.members))
         case Some(p) =>
-          list(list(d; take_members(rest, p.members)); units(drop_members(rest, p.members), packages))
+          let unit := take_members(mods, p.members) in list(unit; units(drop(size(unit), mods), packages))
         case None =>
           list(list(d); units(rest, packages))
       end
@@ -3052,14 +3032,6 @@ function take_members(mods: List[Mod], members: List[Id]): List[Mod] :=
       list(d; take_members(rest, members))
     case _ =>
       list()
-  end
-
-function drop_members(mods: List[Mod], members: List[Id]): List[Mod] :=
-  match mods
-    case list(d; rest) if contains(d.name, members) =>
-      drop_members(rest, members)
-    case _ =>
-      mods
   end
 
 // the commands of the members mods of a package, or of a program alone, and the signature that they show their importers,

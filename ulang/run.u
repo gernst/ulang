@@ -2,13 +2,6 @@
 // where statements update the values of the variables in scope, which a call passes to a procedure and back,
 // and errors are values of RuntimeError and InternalError, while the exceptions of the program are values of Thrown
 
-import "builtins.u"
-import "check.u"
-import "defs.u"
-import "error.u"
-import "format.u"
-import "syntax.u"
-
 export
 
 data Value :=
