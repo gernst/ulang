@@ -2631,7 +2631,8 @@ procedure check_orders(
   end
 
 // the order and equality of the abstract types of ds that their modules do not declare, which raise Unordered for a type
-// with an equality, and Incomparable for a type without, since the structure of an abstract type is no order
+// with an equality, and Incomparable for a type without, since the structure of an abstract type is no order; all of them
+// are private, check_package hides them from importers, so nothing that other modules use may be added here
 function synthesized(ds: List[Id * Cmd], cmds: List[Cmd], natives: List[Name]): List[Id * Cmd] :=
   let compares := ordered(cmds, "compare") ++ natives, equalities := ordered(cmds, "==") in list(for c in ds for e in synthesized_for(c, compares, equalities) yield e)
 
