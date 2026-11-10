@@ -36,7 +36,7 @@ procedure main() :=
 
     case list("test", first; more) =>
       call os_is_dir(in first, out dir)
-      if dir
+      if dir then
         call test_paths(in list(first; more), out ok)
       else
         call attempt(in first, lambda out r =>
@@ -63,11 +63,12 @@ procedure main() :=
       call attempt(in file, lambda out r =>
         call format_file(in file, true, out r)
       end, out ok)
+
     case _ =>
       call   os_print_error(in usage())
       assign ok := false
   end
-  if not ok
+  if not ok then
     call os_exit(in 1)
   end
 
@@ -112,7 +113,7 @@ function after_dashes(args: List[Str]): List[Str] :=
 procedure attempt(in file: Str, command: (out Bool), out ok: Bool) :=
   local message: Str
   call guarded(in file, command, out ok, message)
-  if message != ""
+  if message != "" then
     call os_print_error(in file ++ ": " ++ message)
   end
 
@@ -146,7 +147,7 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
     case e =>
       assign message := "runtime error: " ++ runtime_message(e)
   end
-  if message != ""
+  if message != "" then
     assign ok := false
   end
 
@@ -185,11 +186,11 @@ procedure format_file(in file: Str, apply: Bool, out ok: Bool) :=
   assign source := format_program(p.mods), ok := false
   try
     call parse_file_text(in file, source, out q)
-    if same_mods(p.mods, q.mods)
-      if apply
-        call   os_write(in file, source)
+    if same_mods(p.mods, q.mods) then
+      if apply then
+        call os_write(in file, source)
       else
-        call   os_print(in source)
+        call os_print(in source)
       end
       assign ok := true
     else
@@ -237,7 +238,7 @@ procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
   call   load_file(in file, out main, q)
   assign n := Name(Some(main), name)
   assign run := load(q) with args := args
-  if exists(q.cmds, lambda c => is_entry(c, n))
+  if exists(q.cmds, lambda c => is_entry(c, n)) then
     call   run_proc(in run, n, ref cache)
     assign ok := true
   else
@@ -277,7 +278,7 @@ procedure run_tests(in run: Run, tests: List[Cmd], out ok: Bool) :=
 procedure run_test(in run: Run, cmd: Cmd, out passed: Bool) :=
   local message: Str
   call test_message(in run, cmd, out message)
-  if message == ""
+  if message == "" then
     call   os_print(in "test " ++ cmd_name(cmd) ++ " passed")
     assign passed := true
   else
@@ -324,7 +325,7 @@ procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
   assign failed := 0
   for file in files do
     call verdict(in file, home, out good)
-    if not good
+    if not good then
       assign failed := failed + 1
     end
   end
@@ -340,7 +341,7 @@ procedure verdict(in file: Str, home: Str, out good: Bool) :=
   end, out ok, got)
   call   os_chdir(in home)
   assign good := got == expected
-  if not good
+  if not good then
     call os_print(in file ++ ": expected " ++ outcome(expected) ++ ", got " ++ outcome(got))
   end
 
@@ -368,7 +369,7 @@ procedure test_all(in file: Str, out ok: Bool) :=
   call   load_file(in file, out main, q)
   assign run := load(q)
   call   first_failure(in run, list(for c in q.cmds if is_any_test(c)), out message)
-  if message != ""
+  if message != "" then
     raise TestFailed(message)
   end
   assign ok := true
@@ -376,7 +377,7 @@ procedure test_all(in file: Str, out ok: Bool) :=
 procedure first_failure(in run: Run, tests: List[Cmd], out message: Str) :=
   assign message := ""
   for c in tests do
-    if message == ""
+    if message == "" then
       call test_message(in run, c, out message)
     end
   end

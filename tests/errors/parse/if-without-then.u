@@ -1,0 +1,6 @@
+// parse error: then expected but skip found at 5.5
+
+test t() :=
+  if true
+    skip
+  end

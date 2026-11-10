@@ -55,7 +55,7 @@ implementation
 procedure os_walk(in path: Str, out files: List[Str]) :=
   local dir: Bool
   call os_is_dir(in path, out dir)
-  if dir
+  if dir then
     call os_walk_dir(in path, out files)
   else
     assign files := list(path)

@@ -236,7 +236,7 @@ procedure advance(ref toks: Tokens) :=
   end
 
 procedure expect(in tok: Token, ref toks: Tokens) :=
-  if head_token(toks) == tok
+  if head_token(toks) == tok then
     call advance(ref toks)
   else
     raise expected(format_token(tok), toks)
@@ -314,7 +314,7 @@ procedure parse_separated[A](
   local x: A, found: Buffer[A] := empty()
   call   item(in notation, params, out x, ref toks)
   assign found := found ++ list(x)
-  while more(toks)
+  while more(toks) do
     call   advance(ref toks)
     call   item(in notation, params, out x, ref toks)
     assign found := found ++ list(x)
@@ -333,7 +333,7 @@ procedure parse_repeated[A](
   local x: A, found: Buffer[A] := empty()
   call   item(in notation, params, out x, ref toks)
   assign found := found ++ list(x)
-  while more(toks)
+  while more(toks) do
     call   item(in notation, params, out x, ref toks)
     assign found := found ++ list(x)
   end
@@ -348,7 +348,7 @@ procedure parse_enclosed[A](
   out xs: List[A],
   ref toks: Tokens
 ) :=
-  if at_kw(toks, close)
+  if at_kw(toks, close) then
     assign xs := list()
   else
     call parse_separated(in notation, params, item, at_comma, out xs, ref toks)
@@ -365,7 +365,7 @@ procedure parse_optional[A](
   ref toks: Tokens
 ) :=
   local a: A
-  if head_token(toks) == tok
+  if head_token(toks) == tok then
     call   advance(ref toks)
     call   item(in notation, params, out a, ref toks)
     assign x := Some(a)
@@ -602,24 +602,24 @@ procedure parse_type_atom(
   ref toks: Tokens
 ) :=
   local name: Id, args: List[Type], ins: List[Type], outs: List[Type], refs: List[Type]
-  if at_kw(toks, "(") and contains(second_token(toks), list(TKw("in"), TKw("out"), TKw("ref")))
+  if at_kw(toks, "(") and contains(second_token(toks), list(TKw("in"), TKw("out"), TKw("ref"))) then
     call   advance(ref toks)
     call   parse_sections(in notation, params, parse_type, parse_type, out ins, outs, refs, ref toks)
     call   expect(in TKw(")"), ref toks)
     assign r := list(TProc(ins, outs, refs))
   else
-    if at_kw(toks, "(")
+    if at_kw(toks, "(") then
       call advance(ref toks)
       call parse_enclosed(in notation, params, parse_type, ")", out r, ref toks)
     else
       call parse_plain_name(in notation, params, out name, ref toks)
-      if at_kw(toks, "[")
+      if at_kw(toks, "[") then
         call   advance(ref toks)
         call   parse_separated(in notation, params, parse_type, at_comma, out args, ref toks)
         call   expect(in TKw("]"), ref toks)
         assign r := list(TSort(unqualified(name), args))
       else
-        if contains(name, params)
+        if contains(name, params) then
           assign r := list(TParam(name))
         else
           assign r := list(TSort(unqualified(name), list()))
@@ -693,13 +693,13 @@ procedure parse_expr(
   ref toks: Tokens
 ) :=
   local updates: List[Id * Expr]
-  if at_kw(toks, "raise")
+  if at_kw(toks, "raise") then
     call   advance(ref toks)
     call   parse_expr(in notation, params, out expr, ref toks)
     assign expr := ERaise(expr, THole)
   else
     call parse_operators(in notation, params, expr_ops(), out expr, ref toks)
-    if at_kw(toks, "with")
+    if at_kw(toks, "with") then
       call   advance(ref toks)
       call   parse_separated(in notation, params, parse_update, at_update, out updates, ref toks)
       assign expr := apply_updates(expr, updates)
@@ -737,8 +737,8 @@ procedure parse_app(
 ) :=
   local args: List[Expr], f: Id
   call parse_expr_atom(in notation, params, out expr, ref toks)
-  while at_kw(toks, "(") or at_kw(toks, ".")
-    if at_kw(toks, "(")
+  while at_kw(toks, "(") or at_kw(toks, ".") do
+    if at_kw(toks, "(") then
       call   advance(ref toks)
       call   parse_enclosed(in notation, params, parse_expr, ")", out args, ref toks)
       assign expr := EApp(expr, args)
@@ -868,14 +868,14 @@ procedure parse_lambda(
 ) :=
   local ins: List[Var], outs: List[Var], refs: List[Var], body: Stmt, pats: List[Pat], inner: Expr
   call advance(ref toks)
-  if at_mode(toks)
+  if at_mode(toks) then
     call   parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
     call   expect(in TKw("=>"), ref toks)
     call   parse_body(in notation, params, out body, ref toks)
     call   expect(in TKw("end"), ref toks)
     assign expr := EProc(ins, outs, refs, body)
   else
-    if head_token(toks) == TKw("=>")
+    if head_token(toks) == TKw("=>") then
       call   expect(in TKw("=>"), ref toks)
       call   parse_expr(in notation, params, out inner, ref toks)
       assign expr := ELam(list(), inner)
@@ -930,9 +930,9 @@ procedure parse_form(
   end
   call advance(ref toks)
   call expect(in TKw("("), ref toks)
-  if at_kw(toks, "for")
+  if at_kw(toks, "for") then
     call parse_gens(in notation, params, out gens, ref toks)
-    if at_kw(toks, "yield")
+    if at_kw(toks, "yield") then
       call advance(ref toks)
       call parse_elem(in notation, params, form, out elem, ref toks)
     else
@@ -946,7 +946,7 @@ procedure parse_form(
     call   parse_optional(in notation, params, TKw(";"), parse_expr, out rest, ref toks)
     assign expr := EFor(form, gens, elem, rest)
   else
-    if at_kw(toks, ")")
+    if at_kw(toks, ")") then
       assign elems := list(), rest := None
     else
       call parse_separated(in notation, params, lambda in n, ps, out e, ref ts =>
@@ -956,7 +956,7 @@ procedure parse_form(
     end
     assign expr := EForm(form, elems, rest)
   end
-  if form == FormArray and rest != None
+  if form == FormArray and rest != None then
     raise ParseError("arrays have no rest", pos)
   end
   call expect(in TKw(")"), ref toks)
@@ -971,7 +971,7 @@ procedure parse_elem(
 ) :=
   local k: Expr, v: Expr
   call parse_expr(in notation, params, out k, ref toks)
-  if form == FormMap
+  if form == FormMap then
     call   expect(in TKw("=>"), ref toks)
     call   parse_expr(in notation, params, out v, ref toks)
     assign elem := Entry(k, v)
@@ -987,11 +987,11 @@ procedure parse_gens(
   ref toks: Tokens
 ) :=
   local found: Buffer[Gen] := empty(), p: Pat, v: Pat, c: Expr
-  while at_kw(toks, "for") or size(found) > 0 and at_kw(toks, "if")
-    if at_kw(toks, "for")
+  while at_kw(toks, "for") or size(found) > 0 and at_kw(toks, "if") do
+    if at_kw(toks, "for") then
       call advance(ref toks)
       call parse_pattern(in notation, params, out p, ref toks)
-      if at_kw(toks, "=>")
+      if at_kw(toks, "=>") then
         call   advance(ref toks)
         call   parse_pattern(in notation, params, out v, ref toks)
         call   expect(in TKw("in"), ref toks)
@@ -1030,7 +1030,7 @@ procedure parse_cases[B](
   ref toks: Tokens
 ) :=
   local found: Buffer[Branch[B]] := empty(), pat: Pat, g: Option[Expr], b: B, doc: Str
-  while at_case(toks)
+  while at_case(toks) do
     call   parse_doc(out doc, ref toks)
     call   advance(ref toks)
     call   parse_pattern(in notation, params, out pat, ref toks)
@@ -1132,7 +1132,7 @@ procedure parse_pattern_atom(
     case (_, TKw("list")) =>
       call advance(ref toks)
       call expect(in TKw("("), ref toks)
-      if at_kw(toks, ")")
+      if at_kw(toks, ")") then
         assign pat := pat_nil()
       else
         call   parse_display(in notation, params, parse_pattern, out pats, rest, ref toks)
@@ -1142,7 +1142,7 @@ procedure parse_pattern_atom(
 
     case _ =>
       call parse_plain_name(in notation, params, out name, ref toks)
-      if at_kw(toks, "(")
+      if at_kw(toks, "(") then
         call   advance(ref toks)
         call   parse_enclosed(in notation, params, parse_pattern, ")", out pats, ref toks)
         assign pat := PApp(unqualified(name), pats)
@@ -1182,12 +1182,12 @@ procedure parse_body(
   ref toks: Tokens
 ) :=
   local xs: List[Var] := list(), inits: List[Stmt] := list(), decls: List[Var * List[Stmt]], found: Buffer[Stmt] := empty(), s: Stmt
-  while at_kw(toks, "local")
+  while at_kw(toks, "local") do
     call   advance(ref toks)
     call   parse_separated(in notation, params, parse_local, at_comma, out decls, ref toks)
     assign xs := xs ++ firsts(decls), inits := inits ++ concat(seconds(decls))
   end
-  while starts_stmt(head_token(toks))
+  while starts_stmt(head_token(toks)) do
     call   parse_stmt(in notation, params, out s, ref toks)
     assign found := found ++ list(s)
   end
@@ -1278,7 +1278,7 @@ procedure parse_stmt(
     case TKw("while") =>
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
-      call   skip_kw(in "do", ref toks)
+      call   expect(in TKw("do"), ref toks)
       call   parse_body(in notation, params, out body, ref toks)
       call   expect(in TKw("end"), ref toks)
       assign s := SWhile(expr, body)
@@ -1319,7 +1319,7 @@ procedure parse_stmt(
       raise expected("statement", toks)
   end
 
-// the bodies start with a keyword, which ends the condition, and an if after else is nested, with an end of its own
+// then ends the condition, and an if after else is nested, with an end of its own
 procedure parse_if(
   in  notation: Notation,
       params: List[Id],
@@ -1329,9 +1329,9 @@ procedure parse_if(
   local cond: Expr, l: Stmt, r: Stmt
   call advance(ref toks)
   call parse_expr(in notation, params, out cond, ref toks)
-  call skip_kw(in "then", ref toks)
+  call expect(in TKw("then"), ref toks)
   call parse_body(in notation, params, out l, ref toks)
-  if at_kw(toks, "else")
+  if at_kw(toks, "else") then
     call advance(ref toks)
     call parse_body(in notation, params, out r, ref toks)
     call expect(in TKw("end"), ref toks)
@@ -1340,11 +1340,6 @@ procedure parse_if(
     assign r := SSkip
   end
   assign s := SIf(cond, l, r)
-
-procedure skip_kw(in word: Str, ref toks: Tokens) :=
-  if at_kw(toks, word)
-    call advance(ref toks)
-  end
 
 procedure parse_assign(
   in  notation: Notation,
@@ -1407,24 +1402,24 @@ procedure parse_sections[A, B](
 ) :=
   local first := true
   assign ins := list(), outs := list(), refs := list()
-  if at_kw(toks, "in")
+  if at_kw(toks, "in") then
     call   advance(ref toks)
     call   parse_separated(in notation, params, item_in, section_continues, out ins, ref toks)
     assign first := false
   end
-  if section_starts(toks, "out", first)
+  if section_starts(toks, "out", first) then
     call   skip_section_start(in first, ref toks)
     call   parse_separated(in notation, params, item, section_continues, out outs, ref toks)
     assign first := false
   end
-  if section_starts(toks, "ref", first)
+  if section_starts(toks, "ref", first) then
     call skip_section_start(in first, ref toks)
     call parse_separated(in notation, params, item, section_continues, out refs, ref toks)
   end
 
 // the comma before a section unless it is the first, and the keyword of the section
 procedure skip_section_start(in first: Bool, ref toks: Tokens) :=
-  if not first
+  if not first then
     call advance(ref toks)
   end
   call advance(ref toks)
@@ -1482,7 +1477,7 @@ procedure parse_params(
   out params: List[Id],
   ref toks: Tokens
 ) :=
-  if at_kw(toks, "[")
+  if at_kw(toks, "[") then
     call advance(ref toks)
     call parse_separated(in notation, list(), parse_param, at_comma, out params, ref toks)
     call expect(in TKw("]"), ref toks)
@@ -1552,7 +1547,7 @@ procedure parse_operator(
   out op: Id,
   ref toks: Tokens
 ) :=
-  if at_operator(toks)
+  if at_operator(toks) then
     assign op := format_token(head_token(toks))
     call   advance(ref toks)
   else
@@ -1569,7 +1564,7 @@ procedure parse_constr(
 ) :=
   local name: Id, fields: List[Field] := list()
   call parse_name_or_op(out name, ref toks)
-  if at_kw(toks, "(")
+  if at_kw(toks, "(") then
     call advance(ref toks)
     call parse_enclosed(in notation, params, parse_field, ")", out fields, ref toks)
   end
@@ -1589,7 +1584,7 @@ procedure parse_field(
   ref toks: Tokens
 ) :=
   local name: Id, typ: Type
-  if second_token(toks) != TKw(":")
+  if second_token(toks) != TKw(":") then
     raise ParseError("fields of constructors have names, as in C(name: T)", head_pos(toks))
   end
   call   parse_name(out name, ref toks)
@@ -1609,7 +1604,7 @@ procedure parse_data(
   call parse_name(out name, ref toks)
   call parse_params(in notation, out params, ref toks)
   call expect(in TKw(":="), ref toks)
-  if not at_case(toks)
+  if not at_case(toks) then
     raise ParseError("each constructor follows case, as in data T := case C", head_pos(toks))
   end
   call parse_constrs(in notation, params, out constrs, ref toks)
@@ -1629,7 +1624,7 @@ procedure parse_constrs(
   ref toks: Tokens
 ) :=
   local constr: Constr, rest: List[Constr], doc: Str
-  if at_case(toks)
+  if at_case(toks) then
     call   parse_doc(out doc, ref toks)
     call   advance(ref toks)
     call   parse_constr(in notation, params, doc, out constr, ref toks)
@@ -1657,12 +1652,12 @@ procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) 
   call parse_name_or_op(out name, ref toks)
   call parse_params(in notation, out params, ref toks)
   call parse_formals(in notation, params, out xs, ref toks)
-  if at_kw(toks, "(")
+  if at_kw(toks, "(") then
     raise ParseError("a function has one list of formals", head_pos(toks))
   end
   call expect(in TKw(":"), ref toks)
   call parse_type(in notation, params, out r, ref toks)
-  if head_token(toks) == TKw(":=")
+  if head_token(toks) == TKw(":=") then
     call   advance(ref toks)
     call   parse_expr(in notation, params, out body, ref toks)
     assign cmd := CFun(unqualified(name), params, xs, r, body)
@@ -1678,7 +1673,7 @@ procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
   call expect(in TKw("("), ref toks)
   call parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
   call expect(in TKw(")"), ref toks)
-  if head_token(toks) == TKw(":=")
+  if head_token(toks) == TKw(":=") then
     call   advance(ref toks)
     call   parse_body(in notation, params, out body, ref toks)
     assign cmd := CProc(unqualified(name), params, ins, outs, refs, body)
@@ -1704,7 +1699,7 @@ procedure parse_command(
       call advance(ref toks)
       call parse_name(out name, ref toks)
       call parse_params(in notation, out params, ref toks)
-      if head_token(toks) == TKw(":=")
+      if head_token(toks) == TKw(":=") then
         call   advance(ref toks)
         call   parse_type(in notation, params, out typ, ref toks)
         assign cmds := list(CSort(unqualified(name), params, typ))
@@ -1764,7 +1759,7 @@ procedure import_module(
       pos: Pos,
   ref mods: List[Mod]
 ) :=
-  if loaded_mod(name, mods) == None
+  if loaded_mod(name, mods) == None then
     call load_module(in name, dir, loading, pos, ref mods)
   end
 
@@ -1817,7 +1812,7 @@ procedure parse_mod(
   end
   call import_all(in implicit, None, loading, ref mods)
   call import_notations(in implicit, mods, ref notation)
-  while head_token(toks) != TEnd
+  while head_token(toks) != TEnd do
     assign doc := ""
     match head_token(toks)
       case TDoc(text) =>
@@ -1830,10 +1825,10 @@ procedure parse_mod(
     assign pos := head_pos(toks), more := list()
     match head_token(toks)
       case TKw("export") =>
-        if section == InExport or section == InBuiltin or section == InImplementation
+        if section == InExport or section == InBuiltin or section == InImplementation then
           raise ParseError("a module has one export section", pos)
         else
-          if section != Opening
+          if section != Opening then
             raise ParseError("export comes first, after the imports", pos)
           end
         end
@@ -1841,14 +1836,14 @@ procedure parse_mod(
         assign section := InExport
 
       case TKw("builtin") =>
-        if section != InExport
+        if section != InExport then
           raise ParseError("builtin follows export", pos)
         end
         call   advance(ref toks)
         assign section := InBuiltin
 
       case TKw("implementation") =>
-        if section != InExport and section != InBuiltin
+        if section != InExport and section != InBuiltin then
           raise ParseError("implementation follows export", pos)
         end
         call   advance(ref toks)
@@ -1971,7 +1966,7 @@ procedure load_module(
   ref mods: List[Mod]
 ) :=
   local text: Str, toks: Tokens, own: Mod
-  if contains(name, loading)
+  if contains(name, loading) then
     raise ParseError("cyclic import of " ++ name, pos)
   end
   call module_text(in name, dir, pos, out text)

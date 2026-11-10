@@ -780,7 +780,7 @@ procedure compile_named(
       call compile_expr(in defs, env, a, out as, ra, ref g)
       call compile_expr(in defs, env, b, out bs, rb, ref g)
       call gen_name(in "t", out t, ref g)
-      if n == unqualified("and")
+      if n == unqualified("and") then
         assign ss := as ++ list(declare(t, ra), guarded(truth(CeVar(t)), t, bs, rb))
       else
         assign ss := as ++ list(declare(t, ra), guarded(CeUnary("!", truth(CeVar(t))), t, bs, rb))
@@ -789,16 +789,16 @@ procedure compile_named(
 
     case _ =>
       call compile_exprs(in defs, env, args, out ss, rs, ref g)
-      if is_global_fun(defs, n, size(args)) and arity(ty) == size(args)
+      if is_global_fun(defs, n, size(args)) and arity(ty) == size(args) then
         assign r := c_call(fun_name(n, size(args)), rs)
       else
-        if contains((n, size(args)), defs.fields)
+        if contains((n, size(args)), defs.fields) then
           assign r := field_call(n, positions_of(defs, n, size(args)), rs)
         else
-          if fields_count(defs, n) == Some(0) and args == list()
+          if fields_count(defs, n) == Some(0) and args == list() then
             assign r := unit_value(n)
           else
-            if fields_count(defs, n) == Some(size(args))
+            if fields_count(defs, n) == Some(size(args)) then
               assign r := c_call("u_mk_con", list(descriptor(n), CeNum(size(args))) ++ rs)
             else
               match get(n, builtin_functions())
@@ -1014,7 +1014,7 @@ procedure compile_loops(
       call compile_expr(in defs, env, c, out cs, rc, ref g)
       call compile_loops(in defs, in_scope(list(x.name)) ++ env, rest, cond, e, add, out body, ref g)
       call gen_name(in "l", out l, ref g)
-      if f == list_foldr_name()
+      if f == list_foldr_name() then
         assign item := declare(var_name(x.name), field(CeVar(l), 0))
         assign ss := cs ++ list(declare(l, rc), walk_list(l, item, body))
       else
@@ -1073,11 +1073,11 @@ procedure compile_array_comprehension(
       call   compile_loops(in defs, scope, inner, cond, e, lambda re => push_stmt(t, re), out loops, ref g)
       assign ss := cs ++ list(declare(l, rc), declare_count(n, l), declare_array(t, n)) ++ loops
       assign r := CeVar(t)
-      if rest != list()
+      if rest != list() then
         assign ss := ss ++ list(
           CsAssign(CeVar(t), c_call("u_array_done", list(CeVar(t), CeNum(-1)))))
       else
-        if cond != None
+        if cond != None then
           assign ss := ss ++ list(
             CsAssign(CeVar(t), c_call("u_array_done", list(CeVar(t), CeVar(n)))))
         end
@@ -1225,7 +1225,7 @@ procedure compile_stmt(
     case SCall(proc, ins, outs, refs) =>
       call   compile_exprs(in defs, env, ins, out as, rs, ref g)
       assign ps := address_args(env, outs, refs)
-      if get(proc, env) != None
+      if get(proc, env) != None then
         assign rs := list(var_expr(env, proc), CeNum(size(ins)), CeNum(size(outs ++ refs))) ++ rs ++ ps
         assign ss := as ++ list(call_c("u_call_proc", rs))
       else
@@ -1408,7 +1408,7 @@ procedure compile_cmd(
     case CFun(name, _, formals, _, body) =>
       call   compile_expr(in defs, in_scope(var_names(formals)), body, out bs, rb, ref g)
       assign params := value_formals(formals)
-      if formals == list()
+      if formals == list() then
         assign bs := cached(format_name(name), bs, rb)
       else
         assign bs := bs ++ list(CsReturn(Some(rb)))
@@ -1572,11 +1572,11 @@ function prototype(d: CDecl): List[CDecl] :=
 // the C of q of module m, whose main calls the procedure entry without parameters, or runs all tests for the entry test
 procedure compile_program(in q: Prog, m: Id, entry: Id, out f: CFile) :=
   local g := Gen(0, list()), defs := defs_of(q), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl], hs: List[CDecl]
-  if entry != "test" and not exists(q.cmds, lambda c => is_entry(c, Name(Some(m), entry)))
+  if entry != "test" and not exists(q.cmds, lambda c => is_entry(c, Name(Some(m), entry))) then
     raise UnknownEntry(Name(Some(m), entry))
   end
   call compile_cmds(in defs, entry, q.cmds, out ds, ms, ref g)
-  if entry != "test"
+  if entry != "test" then
     assign ms := list(CsExpr(c_call(proc_name(Name(Some(m), entry)), list())))
   end
   assign fs := wrappers(defs) ++ ds ++ g.lifted

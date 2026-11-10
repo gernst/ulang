@@ -3,14 +3,14 @@
 procedure sum(in n: Int, out s: Int) :=
   local i: Int
   assign i := 0, s := 0
-  while i < n
+  while i < n do
     assign i := i + 1, s := s + i
   end
 
 procedure total(in xs: List[Int], out s: Int) :=
   local ys: List[Int]
   assign s := 0, ys := xs
-  while ys != list()
+  while ys != list() do
     match ys
       case list(y; zs) =>
         assign s := s + y
@@ -34,10 +34,10 @@ procedure main(out a: Int, b: Int, c: Int) :=
   call   inc(ref a)
   call   sum(in a, out c)
   assign f := lambda x => x + a
-  if a > b
+  if a > b then
     assign c := f(c)
   else
-    if a == b
+    if a == b then
       skip
     else
       assign c := 0
@@ -138,7 +138,7 @@ test procedure_values() :=
 
 procedure sum_all(in xs: List[Int], out t: Int) :=
   local rest := xs, sum := 0
-  while rest != list()
+  while rest != list() do
     match rest
       case list(x; more) =>
         assign sum := sum + x, rest := more
@@ -163,10 +163,10 @@ data Fail :=
 
 // the outs of sign are assigned on every path, where a path that raises does not continue
 procedure sign(in n: Int, out s: Int) :=
-  if n < 0
+  if n < 0 then
     assign s := -1
   else
-    if n == 0
+    if n == 0 then
       raise Fail
     else
       assign s := 1
@@ -183,10 +183,10 @@ procedure first(in xs: List[Int], out x: Int) :=
 
 // an if after else is nested, with an end of its own, and statements may follow it in the else
 procedure classify(in n: Int, out c: Str) :=
-  if n < 0
+  if n < 0 then
     assign c := "negative"
   else
-    if n == 0
+    if n == 0 then
       assign c := "zero"
     else
       assign c := "positive"
@@ -212,7 +212,7 @@ test definite_assignment() :=
     case Fail =>
       assign c := 0
   end
-  if a < 0
+  if a < 0 then
     assign d := 1
   else
     assign d := 2
@@ -224,18 +224,19 @@ test keywords_after_conditions() :=
   while n < 3 do
     assign n := n + 1
   end
-  while m < 2
+  while m < 2 do
     assign m := m + 1
   end
   if n == 3 then
     assign n := 10
-  else if m == 1 then
-    assign n := 20
   else
-    assign n := 30
+    if m == 1 then
+      assign n := 20
+    else
+      assign n := 30
+    end
   end
-  end
-  if n == 10
+  if n == 10 then
     assign m := 0
   end
   assert n == 10 and m == 0

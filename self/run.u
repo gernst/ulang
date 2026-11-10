@@ -345,7 +345,7 @@ procedure evaluate(
 
     case EIte(cond, then_expr, else_expr) =>
       call evaluate(in run, env, cond, out w, ref cache)
-      if truth(w)
+      if truth(w) then
         call evaluate(in run, env, then_expr, out v, ref cache)
       else
         call evaluate(in run, env, else_expr, out v, ref cache)
@@ -434,7 +434,7 @@ procedure apply_expr(
   match (f, args)
     case (EVar(Var(Name(None, "and"), _)), list(l, r)) =>
       call evaluate(in run, env, l, out a, ref cache)
-      if truth(a)
+      if truth(a) then
         call evaluate(in run, env, r, out v, ref cache)
       else
         assign v := a
@@ -442,7 +442,7 @@ procedure apply_expr(
 
     case (EVar(Var(Name(None, "or"), _)), list(l, r)) =>
       call evaluate(in run, env, l, out a, ref cache)
-      if truth(a)
+      if truth(a) then
         assign v := a
       else
         call evaluate(in run, env, r, out v, ref cache)
@@ -509,14 +509,14 @@ procedure apply_value(
 
         case ("array.foldr", list(VArr(values), acc, g)) =>
           assign k := size(values), v := acc
-          while k > 0
+          while k > 0 do
             assign k := k - 1
             call   apply_value(in run, g, list(at(k, values), v), out v, ref cache)
           end
 
         case ("array.foldl", list(VArr(values), acc, g)) =>
           assign k := 0, v := acc
-          while k < size(values)
+          while k < size(values) do
             call   apply_value(in run, g, list(v, at(k, values)), out v, ref cache)
             assign k := k + 1
           end
@@ -564,7 +564,7 @@ procedure field_value(
   match vs
     case list(VObj(k, args); rest) =>
       assign p := at(position_of(run, k), ps)
-      if p < 0
+      if p < 0 then
         raise failure(missing_field_name(), list(VLit(LStr(field_of(name)))))
       end
       match rest
@@ -621,7 +621,7 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := VLit(LInt(ord(char)))
 
     case ("str.chr", list(VLit(LInt(num)))) =>
-      if not is_code_point(num)
+      if not is_code_point(num) then
         raise failure(no_character_name(), list(VLit(LInt(num))))
       end
       assign v := VLit(LChar(chr(num)))
@@ -642,10 +642,10 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
 
     // from i up to but excluding j, where i <= j are indices of s or its end
     case ("str.slice", list(VLit(LStr(text)), VLit(LInt(i)), VLit(LInt(j)))) =>
-      if i < 0 or i > size(text) or i > j
+      if i < 0 or i > size(text) or i > j then
         raise failure(out_of_bounds_name(), list(VLit(LInt(i)), VLit(LInt(size(text)))))
       else
-        if j > size(text)
+        if j > size(text) then
           raise failure(out_of_bounds_name(), list(VLit(LInt(j)), VLit(LInt(size(text)))))
         end
       end
@@ -655,7 +655,7 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := list_value(list(for part in split(text, char) yield VLit(LStr(part))))
 
     case ("str.at", list(VLit(LInt(num)), VLit(LStr(text)))) =>
-      if num < 0 or num >= size(text)
+      if num < 0 or num >= size(text) then
         raise failure(out_of_bounds_name(), list(VLit(LInt(num)), VLit(LInt(size(text)))))
       end
       assign v := VLit(LChar(at(num, text)))
@@ -695,16 +695,16 @@ procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
       assign v := VLit(LInt(size(values)))
 
     case ("array.at", list(VLit(LInt(num)), VArr(values))) =>
-      if num < 0 or num >= size(values)
+      if num < 0 or num >= size(values) then
         raise failure(out_of_bounds_name(), list(VLit(LInt(num)), VLit(LInt(size(values)))))
       end
       assign v := at(num, values)
 
     case ("array.slice", list(VArr(values), VLit(LInt(i)), VLit(LInt(j)))) =>
-      if i < 0 or i > size(values) or i > j
+      if i < 0 or i > size(values) or i > j then
         raise failure(out_of_bounds_name(), list(VLit(LInt(i)), VLit(LInt(size(values)))))
       else
-        if j > size(values)
+        if j > size(values) then
           raise failure(out_of_bounds_name(), list(VLit(LInt(j)), VLit(LInt(size(values)))))
         end
       end
@@ -737,7 +737,7 @@ procedure equal(
           assign r := k == 0
 
         case (None, None) =>
-          if c == d and size(xs) == size(ys)
+          if c == d and size(xs) == size(ys) then
             call equal_all(in run, xs, ys, out r, ref cache)
           else
             assign r := false
@@ -745,7 +745,7 @@ procedure equal(
       end
 
     case (VArr(xs), VArr(ys)) =>
-      if size(xs) == size(ys)
+      if size(xs) == size(ys) then
         call equal_all(in run, list(for x in xs), list(for x in ys), out r, ref cache)
       else
         assign r := false
@@ -792,7 +792,7 @@ procedure compare_values(
           end
 
         case None =>
-          if c == d
+          if c == d then
             call compare_all(in run, xs, ys, out r, ref cache)
           else
             assign r := order(position_of(run, c), position_of(run, d))
@@ -817,7 +817,7 @@ procedure compare_all(
   match (xs, ys)
     case (list(x; xs1), list(y; ys1)) =>
       call compare_values(in run, x, y, out r, ref cache)
-      if r == 0
+      if r == 0 then
         call compare_all(in run, xs1, ys1, out r, ref cache)
       end
 
@@ -890,7 +890,7 @@ procedure equal_all(
   match (xs, ys)
     case (list(x; xs1), list(y; ys1)) =>
       call equal(in run, x, y, out r, ref cache)
-      if r
+      if r then
         call equal_all(in run, xs1, ys1, out r, ref cache)
       end
 
@@ -915,7 +915,7 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
 
     case SIf(cond, then_stmt, else_stmt) =>
       call evaluate(in run, env, cond, out v, ref cache)
-      if truth(v)
+      if truth(v) then
         call exec(in run, then_stmt, ref env, cache)
       else
         call exec(in run, else_stmt, ref env, cache)
@@ -923,7 +923,7 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
 
     case SWhile(cond, body) =>
       call evaluate(in run, env, cond, out v, ref cache)
-      while truth(v)
+      while truth(v) do
         call exec(in run, body, ref env, cache)
         call evaluate(in run, env, cond, out v, ref cache)
       end
@@ -956,7 +956,7 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
       call evaluate(in run, env, lhs, out v, ref cache)
       call evaluate(in run, env, rhs, out w, ref cache)
       call equal(in run, v, w, out r, ref cache)
-      if not r
+      if not r then
         call show_in(in run, v, out s, ref cache)
         call show_in(in run, w, out t, ref cache)
         raise Failed(AssertionUnequal(s, t))
@@ -964,7 +964,7 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
 
     case SAssert(cond) =>
       call evaluate(in run, env, cond, out v, ref cache)
-      if not truth(v)
+      if not truth(v) then
         raise Failed(AssertionFailed)
       end
 
@@ -1045,7 +1045,7 @@ procedure select[A](
       match match_into(pat, v, env)
         case Some(inner) =>
           call holds(in run, inner, guard, out ok, ref cache)
-          if ok
+          if ok then
             assign sel := Some((body, inner, pattern_vars(pat)))
           else
             call select(in run, env, v, rest, out sel, ref cache)
@@ -1089,7 +1089,7 @@ procedure handle(
 
     case list(Handler(_, _, PWild, guard, body); rest) =>
       call holds(in run, env, guard, out ok, ref cache)
-      if ok
+      if ok then
         call exec(in run, body, ref env, cache)
       else
         call handle(in run, rest, v, t, ref env, cache)
@@ -1098,11 +1098,11 @@ procedure handle(
     // the type is compared first, since the pattern and the guard assume it
     case list(Handler(_, typ, pat, guard, body); rest) =>
       assign ok := false
-      if typ == t
+      if typ == t then
         match match_into(pat, v, env)
           case Some(inner) =>
             call holds(in run, inner, guard, out ok, ref cache)
-            if ok
+            if ok then
               call scoped(in run, pattern_vars(pat), inner, list(body), ref env, cache)
             end
 
@@ -1110,7 +1110,7 @@ procedure handle(
             skip
         end
       end
-      if not ok
+      if not ok then
         call handle(in run, rest, v, t, ref env, cache)
       end
   end

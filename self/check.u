@@ -963,7 +963,7 @@ procedure fresh(out t: Type, ref s: State) :=
   assign t := TMeta(s.count + 1), s := s with count := s.count + 1
 
 procedure bind_meta(in i: Int, t: Type, ref s: State) :=
-  if occurs(s.sub, i, t)
+  if occurs(s.sub, i, t) then
     raise InfiniteType(TMeta(i), zonk_type(s.sub, t))
   end
   assign s := s with sub := put(i, t, s.sub)
@@ -972,7 +972,7 @@ procedure unify(in t1: Type, t2: Type, ref s: State) :=
   local a := resolve(s.sub, t1), b := resolve(s.sub, t2)
   match (a, b)
     case (TMeta(i), TMeta(j)) =>
-      if i != j
+      if i != j then
         call bind_meta(in i, b, ref s)
       end
 
@@ -983,33 +983,33 @@ procedure unify(in t1: Type, t2: Type, ref s: State) :=
       call bind_meta(in meta, a, ref s)
 
     case (TParam(x), TParam(y)) =>
-      if x != y
+      if x != y then
         raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
     case (TSort(f, xs), TSort(g, ys)) =>
-      if f == g and size(xs) == size(ys)
+      if f == g and size(xs) == size(ys) then
         call unifies(in xs, ys, ref s)
       else
         raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
     case (TFun(xs, r1), TFun(ys, r2)) =>
-      if size(xs) == size(ys)
+      if size(xs) == size(ys) then
         call unifies(in xs ++ list(r1), ys ++ list(r2), ref s)
       else
         raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
     case (TTuple(xs), TTuple(ys)) =>
-      if size(xs) == size(ys)
+      if size(xs) == size(ys) then
         call unifies(in xs, ys, ref s)
       else
         raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
       end
 
     case (TProc(xs, ys, zs), TProc(us, vs, ws)) =>
-      if size(xs) == size(us) and size(ys) == size(vs) and size(zs) == size(ws)
+      if size(xs) == size(us) and size(ys) == size(vs) and size(zs) == size(ws) then
         call unifies(in xs ++ ys ++ zs, us ++ vs ++ ws, ref s)
       else
         raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
@@ -1075,12 +1075,12 @@ procedure unique_ids(in what: Str, ns: List[Id]) :=
 
 // the number n of the units of owner, which expects m of them, e.g. the arguments of a constructor
 procedure same_length(in owner: Str, unit: Str, m: Int, n: Int) :=
-  if m != n
+  if m != n then
     raise CountMismatch(owner, unit, m, n)
   end
 
 procedure arguments(in n: Name, k: Int, args: List[Type]) :=
-  if size(args) != k
+  if size(args) != k then
     raise SortArity(n, k, size(args))
   end
 
@@ -1163,7 +1163,7 @@ procedure normalizes(in ts: List[Type], out us: List[Type], ref s: State) :=
   end
 
 procedure known(in t: Type, what: Name, out u: Type, ref s: State) :=
-  if holes(t)
+  if holes(t) then
     raise MissingType(what)
   end
   call normalize(in t, out u, ref s)
@@ -1251,7 +1251,7 @@ procedure choose(
 ) :=
   local ok: List[(Name * (List[Type] * Type)) * State], best: List[(Name * (List[Type] * Type)) * State]
   call trials(in cs, w, s, out ok)
-  if size(ok) > 1 and known_type(s.sub, w)
+  if size(ok) > 1 and known_type(s.sub, w) then
     call   decide(in ok, w, s, out best)
     assign ok := best
   end
@@ -1284,7 +1284,7 @@ procedure trials(
       case e =>
         assign failed := Some(e)
     end
-    if failed == None
+    if failed == None then
       assign ok := ok ++ list(((m, sc), u))
     end
   end
@@ -1297,7 +1297,7 @@ procedure trial(in sc: List[Type] * Type, w: Type, ref s: State) :=
 // the open uses, until none can be decided, where each is decided once one of its candidates fits
 procedure solve(ref s: State) :=
   local changed := true, ps: List[Pending]
-  while changed
+  while changed do
     assign ps := s.pending, changed := false
     assign s := s with pending := list()
     call   revisit(in ps, ref changed, s)
@@ -1311,7 +1311,7 @@ procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
 
     case list(p; rest) =>
       call trials(in p.cands, p.typ, s, out ok)
-      if size(ok) > 1 and known_type(s.sub, p.typ)
+      if size(ok) > 1 and known_type(s.sub, p.typ) then
         call   decide(in ok, p.typ, s, out best)
         assign ok := best
       end
@@ -1325,7 +1325,7 @@ procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
 
         case _ =>
           assign s := s with pending := s.pending ++ list(p with cands := firsts(ok))
-          if size(ok) < size(p.cands)
+          if size(ok) < size(p.cands) then
             assign changed := true
           end
       end
@@ -1338,7 +1338,7 @@ procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
 procedure settle(ref s: State) :=
   local ok: List[(Name * (List[Type] * Type)) * State], best: List[(Name * (List[Type] * Type)) * State], states: List[State]
   call solve(ref s)
-  while s.pending != list()
+  while s.pending != list() do
     match s.pending
       case list(p; rest) =>
         call trials(in p.cands, p.typ, s, out ok)
@@ -1381,7 +1381,7 @@ procedure viable(
       case NoOverload(_, _) =>
         assign failed := true
     end
-    if not failed
+    if not failed then
       assign states := states ++ list(t)
     end
   end
@@ -1427,7 +1427,7 @@ procedure most(
   assign best := list()
   for c in cs do
     call dominates(in first(c), firsts(all), specific, s, out yes)
-    if yes
+    if yes then
       assign best := best ++ list(c)
     end
   end
@@ -1445,11 +1445,11 @@ procedure dominates(
       assign yes := true
 
     case list(d; rest) =>
-      if d == c
+      if d == c then
         call dominates(in c, rest, specific, s, out yes)
       else
         call related_to(in c, d, specific, s, out related)
-        if related
+        if related then
           call dominates(in c, rest, specific, s, out yes)
         else
           assign yes := false
@@ -1465,7 +1465,7 @@ procedure related_to(
       s: State,
   out yes: Bool
 ) :=
-  if specific
+  if specific then
     call instance_of(in c, d, s, out yes)
   else
     call instance_of(in d, c, s, out yes)
@@ -1796,12 +1796,12 @@ procedure application(
   match f
     case EVar(Var(name, typ)) =>
       assign cs := candidates(s, env, name)
-      if size(cs) > 1
+      if size(cs) > 1 then
         call infers_first(in env, args, out args1, ts, ref s)
         call fresh(out t, ref s)
         call normalize(in typ, out w, ref s)
         call unify(in w, TFun(ts, t), ref s)
-        if with_arity(cs, size(args)) == list()
+        if with_arity(cs, size(args)) == list() then
           raise WrongArity(name, size(args))
         end
         call   use_name(in name, with_arity(cs, size(args)), w, out x, ref s)
@@ -1887,7 +1887,7 @@ procedure infers_first(
   local e1: Expr, t: Type
   assign es1 := list(), ts := list()
   for e in exprs do
-    if is_lambda(e)
+    if is_lambda(e) then
       call   fresh(out t, ref s)
       assign e1 := e
     else
@@ -1915,7 +1915,7 @@ procedure infers_lambdas(
 ) :=
   local found: List[Expr] := list(), e2: Expr
   for ((e, e1), t) in zip(zip(exprs, es1), ts) do
-    if is_lambda(e)
+    if is_lambda(e) then
       call infer_lambda(in env, e, t, out e2, ref s)
     else
       assign e2 := e1
@@ -1942,7 +1942,7 @@ procedure infer_lambda(
 
 procedure check(in env: Env, expr: Expr, t: Type, out e1: Expr, ref s: State) :=
   local u: Type
-  if is_lambda(expr)
+  if is_lambda(expr) then
     call infer_lambda(in env, expr, t, out e1, ref s)
   else
     call infer(in env, expr, out e1, u, ref s)
@@ -2047,10 +2047,10 @@ procedure reachable(
       skip
 
     case list((p, open); rest) =>
-      if not useful(s.sig, s.sub, list(for q in before yield list(q)), list(p), list(t))
+      if not useful(s.sig, s.sub, list(for q in before yield list(q)), list(p), list(t)) then
         raise Unreachable(p)
       end
-      if open
+      if open then
         call reachable(in s, t, before ++ list(p), rest)
       else
         call reachable(in s, t, before, rest)
@@ -2084,7 +2084,7 @@ procedure binders(
       assign p1 := pat, xs := list()
 
     case PVar(Var(name, typ)) =>
-      if overloads(s, name, lambda k => is_constr(s.sig, k)) != list()
+      if overloads(s, name, lambda k => is_constr(s.sig, k)) != list() then
         call binders(in PApp(name, list()), t, out p1, xs, ref s)
       else
         call   normalize(in typ, out u, ref s)
@@ -2134,7 +2134,7 @@ procedure pattern_constructor(
 ) :=
   local ok: List[(Name * (List[Type] * Type)) * State]
   call trials(in results(s.sig, ks, k), t, s, out ok)
-  if size(ok) > 1
+  if size(ok) > 1 then
     call solve(ref s)
     call trials(in results(s.sig, ks, k), t, s, out ok)
   end
@@ -2198,7 +2198,7 @@ procedure variable(
   local u: Type
   match x
     case Var(name, typ) =>
-      if not contains(name, assignable)
+      if not contains(name, assignable) then
         raise NotAssignable(name)
       end
       match get(name, env)
@@ -2282,7 +2282,7 @@ procedure statement(
     case SAssert(cond) =>
       call   check(in env, cond, type_bool(), out c, ref s)
       assign y := SAssert(c)
-      if c == ELit(LBool(false))
+      if c == ELit(LBool(false)) then
         assign env := unreachable(env)
       end
 
@@ -2315,7 +2315,7 @@ procedure untyped(in xs: List[Var], inits: List[Name]) :=
       skip
 
     case list(Var(name, typ); rest) =>
-      if holes(typ) and not contains(name, inits)
+      if holes(typ) and not contains(name, inits) then
         raise MissingType(name)
       end
       call untyped(in rest, inits)
@@ -2496,24 +2496,24 @@ procedure handler_list(
   end
 
 procedure declare_name(in sig: Sig, n: Name) :=
-  if is_fun(sig, n) or is_proc(sig, n) or is_constr(sig, n) or builtin_schemes(unqualified(n.base)) != list()
+  if is_fun(sig, n) or is_proc(sig, n) or is_constr(sig, n) or builtin_schemes(unqualified(n.base)) != list() then
     raise AlreadyDefined(n)
   end
 
 // functions of the same name must differ in their number of arguments, while they may overload builtins
 procedure overload(in sig: Sig, n: Name, k: Int) :=
-  if is_proc(sig, n) or is_constr(sig, n) or has_arity(schemes_of(sig, n), k)
+  if is_proc(sig, n) or is_constr(sig, n) or has_arity(schemes_of(sig, n), k) then
     raise AlreadyDefined(n)
   end
 
 procedure declare_sort(in sig: Sig, n: Name) :=
-  if n.base == "->" or is_alias(sig, n) or is_data(sig, n)
+  if n.base == "->" or is_alias(sig, n) or is_data(sig, n) then
     raise SortDefined(n)
   end
 
 procedure closed(in n: Name, ps: List[Id], ts: List[Type]) :=
   local undeclared := distinct(list(for t in ts for v in free(t) yield v)) -- params(ps)
-  if undeclared != list()
+  if undeclared != list() then
     raise UndeclaredParams(n, undeclared)
   end
 
@@ -2928,12 +2928,12 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
       skip
 
     case list(CFunSig(name, params, formals, typ); rest) =>
-      if exists(rest, lambda e => signs_fun(e, name, size(formals)))
+      if exists(rest, lambda e => signs_fun(e, name, size(formals))) then
         raise AlreadyDefined(name)
       end
       match list(for c in im if defines_fun(c, name, size(formals)))
         case list(CFun(_, ps1, xs1, r1, _)) =>
-          if ps1 != params or xs1 != formals or r1 != typ
+          if ps1 != params or xs1 != formals or r1 != typ then
             raise SignatureMismatch(name)
           end
 
@@ -2943,12 +2943,12 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
       call check_signatures(in rest, im)
 
     case list(CProcSig(name, params, ins, outs, refs); rest) =>
-      if exists(rest, lambda e => signs(e, name))
+      if exists(rest, lambda e => signs(e, name)) then
         raise AlreadyDefined(name)
       end
       match list(for c in im if defines_proc(c, name))
         case list(CProc(_, ps1, ins1, outs1, refs1, _)) =>
-          if ps1 != params or ins1 != ins or outs1 != outs or refs1 != refs
+          if ps1 != params or ins1 != ins or outs1 != outs or refs1 != refs then
             raise SignatureMismatch(name)
           end
 
@@ -2960,7 +2960,7 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
     case list(CAbstract(name, params); rest) =>
       match list(for c in im if defines_data(c, name))
         case list(CData(_, ps1, _)) =>
-          if ps1 != params
+          if ps1 != params then
             raise SignatureMismatch(name)
           end
 
@@ -2978,7 +2978,7 @@ procedure check_arities(in im: List[Cmd], ex: List[Cmd]) :=
   for cmd in im do
     match cmd
       case CFun(name, _, formals, _, _) =>
-        if exists(ex, lambda e => signs(e, name)) and not exists(ex, lambda e => signs_fun(e, name, size(formals)))
+        if exists(ex, lambda e => signs(e, name)) and not exists(ex, lambda e => signs_fun(e, name, size(formals))) then
           raise PartlyExported(name)
         end
 
