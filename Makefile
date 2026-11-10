@@ -19,6 +19,7 @@ install: ulang.vsix
 
 # the compiler of self/ as a program, ./ulang.bin compile <file> <entry> <target.c>, built from bootstrap/ulang.c, the C of the last
 # working compiler, which is versioned as its backups are, with the runtime in self/runtime, GMP, and the Boehm collector
+CC = clang
 CFLAGS = -O2 -std=c11 -Wall -Wno-unused-variable -Wno-unused-function -I self/runtime -DULANG_LIB='"$(CURDIR)/prelude"'
 LIBS = -lgmp -lgc
 STAGE = bootstrap/stage
@@ -28,7 +29,7 @@ COMPILE = ulimit -s unlimited &&
 
 # also when the Makefile changes, e.g. CFLAGS with the directory of the library
 ulang.bin: bootstrap/ulang.c self/runtime/ulang.c self/runtime/ulang.h Makefile
-	cc $(CFLAGS) bootstrap/ulang.c self/runtime/ulang.c $(LIBS) -o $@
+	$(CC) $(CFLAGS) bootstrap/ulang.c self/runtime/ulang.c $(LIBS) -o $@
 
 # keeps the compiler so far in bootstrap/ with a time stamp, and installs the compiler of the C file $(1) and the binary $(2)
 define install
@@ -46,7 +47,7 @@ endef
 bootstrap: ulang.bin
 	mkdir -p $(STAGE)
 	$(COMPILE) ./ulang.bin run self/ulang.u main -- compile self/ulang.u main $(STAGE)/ulang1.c
-	cc $(CFLAGS) $(STAGE)/ulang1.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/ulang1.bin
+	$(CC) $(CFLAGS) $(STAGE)/ulang1.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/ulang1.bin
 	$(COMPILE) $(STAGE)/ulang1.bin compile self/ulang.u main $(STAGE)/ulang2.c
 	cmp $(STAGE)/ulang1.c $(STAGE)/ulang2.c
 	$(call install,$(STAGE)/ulang1.c,$(STAGE)/ulang1.bin)
@@ -56,9 +57,9 @@ bootstrap: ulang.bin
 selfcompile: ulang.bin
 	mkdir -p $(STAGE)
 	$(COMPILE) ./ulang.bin compile self/ulang.u main $(STAGE)/ulang1.c
-	cc $(CFLAGS) $(STAGE)/ulang1.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/ulang1.bin
+	$(CC) $(CFLAGS) $(STAGE)/ulang1.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/ulang1.bin
 	$(COMPILE) $(STAGE)/ulang1.bin compile self/ulang.u main $(STAGE)/ulang2.c
-	cc $(CFLAGS) $(STAGE)/ulang2.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/ulang2.bin
+	$(CC) $(CFLAGS) $(STAGE)/ulang2.c self/runtime/ulang.c $(LIBS) -o $(STAGE)/ulang2.bin
 	$(COMPILE) $(STAGE)/ulang2.bin compile self/ulang.u main $(STAGE)/ulang3.c
 	cmp $(STAGE)/ulang2.c $(STAGE)/ulang3.c
 	$(call install,$(STAGE)/ulang2.c,$(STAGE)/ulang2.bin)
@@ -74,7 +75,7 @@ TESTC = out/testc
 
 $(TESTC)/ulang.o: self/runtime/ulang.c self/runtime/ulang.h Makefile
 	mkdir -p $(TESTC)
-	cc $(CFLAGS) -c self/runtime/ulang.c -o $@
+	$(CC) $(CFLAGS) -c self/runtime/ulang.c -o $@
 
 # every file that parses, formatted by ulang.bin, which fails if the source does not parse to the same commands
 .PHONY: testformat
