@@ -18,6 +18,9 @@ function os_basename(path: Str): Str
 
 function os_dirname(path: Str): Str
 
+// print a string and then a newline
+procedure os_println(in text: Str)
+
 builtin
 
 // the arguments of the program, after -- for the interpreter
@@ -31,7 +34,7 @@ procedure os_write(in path: Str, text: Str)
 // the source of a module of the library
 procedure os_library(in name: Str, out text: Str)
 
-// print a string as it is, to the output and to the error output, where show gives the text of any value
+// print a string as it is, to the output, and with a newline to the error output, where show gives the text of any value
 procedure os_print(in text: Str)
 
 procedure os_print_error(in text: Str)
@@ -51,6 +54,10 @@ procedure os_cwd(out dir: Str)
 procedure os_chdir(in dir: Str)
 
 implementation
+
+procedure os_println(in text: Str) :=
+  call os_print(in text)
+  call os_print(in "\n")
 
 procedure os_walk(in path: Str, out files: List[Str]) :=
   local dir: Bool

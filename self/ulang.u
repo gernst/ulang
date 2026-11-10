@@ -282,10 +282,10 @@ procedure run_test(in run: Run, cmd: Cmd, out passed: Bool) :=
   local message: Str
   call test_message(in run, cmd, out message)
   if message == "" then
-    call   os_print(in "test " ++ cmd_name(cmd) ++ " passed")
+    call   os_println(in "test " ++ cmd_name(cmd) ++ " passed")
     assign passed := true
   else
-    call   os_print(in "test " ++ cmd_name(cmd) ++ " failed: " ++ message)
+    call   os_println(in "test " ++ cmd_name(cmd) ++ " failed: " ++ message)
     assign passed := false
   end
 
@@ -312,7 +312,7 @@ procedure test_paths(in paths: List[Str], out ok: Bool) :=
   assign files := list(for f in found if is_source(f))
   call   os_cwd(out home)
   call   test_suite(in files, home, out failed)
-  call   os_print(in show(size(files) - failed) ++ " of " ++ show(size(files)) ++ " files passed")
+  call   os_println(in show(size(files) - failed) ++ " of " ++ show(size(files)) ++ " files passed")
   assign ok := failed == 0
 
 procedure walk_all(in paths: List[Str], out files: List[Str]) :=
@@ -348,7 +348,7 @@ procedure verdict(in file: Str, home: Str, out good: Bool) :=
   call   os_chdir(in home)
   assign good := got == expected
   if not good then
-    call os_print(in file ++ ": expected " ++ outcome(expected) ++ ", got " ++ outcome(got))
+    call os_println(in file ++ ": expected " ++ outcome(expected) ++ ", got " ++ outcome(got))
   end
 
 function outcome(message: Str): Str :=

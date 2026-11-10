@@ -38,7 +38,7 @@ procedure main() :=
   local t := Leaf
 
   call insert_all(in list(3, 1, 2, 1), ref t)
-  call os_print(in show(keys(t)))
+  call os_println(in show(keys(t)))
 
 test sorting() :=
   local t := Node(Leaf, 2, Leaf)

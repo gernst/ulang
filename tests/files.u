@@ -89,8 +89,8 @@ test arguments() :=
   call os_args(out args)
   assert args == list()
 
-// os_print prints a string as it is, also the text of any value that show gives
+// os_println prints a string as it is and a newline, also the text of any value that show gives
 test printing() :=
-  call os_print(in "a \"text\"")
-  call os_print(in show(list(1, 2)))
-  call os_print(in show(("a\n", Some('\''), list(true), list(), ())))
+  call os_println(in "a \"text\"")
+  call os_println(in show(list(1, 2)))
+  call os_println(in show(("a\n", Some('\''), list(true), list(), ())))

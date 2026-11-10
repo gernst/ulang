@@ -1143,7 +1143,6 @@ void u_passed(const char *name) {
 
 void p_os_print(u_value text) {
   write_utf8(stdout, text);
-  putchar('\n');
 }
 
 void p_os_print_error(u_value text) {
