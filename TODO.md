@@ -57,6 +57,7 @@ Open action items, each with the problem and the desired solution.
 1. **Errors are lines of text**, which tools and agents parse. Solution: `--json` for `check`, `test`, and `run`, with a stable code per error, the file, line, and column, the expected and found types, and the qualified names involved.
 2. **Errors do not suggest their fix** where the checker knows it. Solution: suggested edits, e.g. the missing cases of a match, or a qualified name for an ambiguous use.
 3. **The resolution of names is invisible**. Solution: `ulang.bin check --resolved <file>`, and hover in the VS Code extension, showing the qualified name that each use resolved to.
+4. **Code that could be simpler is only found by reading it**, e.g. `list(for e in list(for x in m) …)` instead of `for k => v in m`, the same projection `list(for x in xs yield x.name)` repeated, a hand-written `match` on `get(…)` that is `value_or`, or a collecting loop `xs := xs ++ list(v)` instead of a `Buffer`. Solution: program transformations on the checked syntax tree, each a rewrite from a pattern to a simpler term that keeps the meaning, which `ulang.bin check` reports as warnings with the position and the suggested replacement whenever the source would be transformed, `ulang.bin format --apply` carries out, and which the compiler may also apply as the optimizations of Self-hosted toolchain 1; each rewrite has a test of the source that triggers it and of the result.
 
 ## Verification
 

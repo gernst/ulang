@@ -58,7 +58,7 @@ static struct u_object small_chars[256];
 __attribute__((constructor)) static void init(void) {
   GC_INIT();
   // a small heap collects often while it grows, which took half the time of the compiler
-  GC_expand_hp(128 << 20);
+  GC_expand_hp(256 << 20);
   mp_set_memory_functions(GC_malloc, gc_realloc, gc_free);
   for (int i = 0; i <= SMALL_MAX - SMALL_MIN; i++) {
     small_ints[i].type = &u_int_type;

@@ -145,13 +145,13 @@ function descriptor_decls(defs: Defs, cmds: List[Cmd]): List[CDecl] :=
   data_decls(cmds, defs) ++ field_table_decls(defs)
 
 function field_table_decls(defs: Defs): List[CDecl] :=
-  list(for e in list(for x in defs.fields) for d in field_decls(e) yield d)
+  list(for key => ps in defs.fields for d in field_decls(key, ps) yield d)
 
 // the positions of the field of an accessor T.f in each constructor of T, by their index of struct u_name, and the
 // name T.f, which MissingField carries, both shared by the updater T.f:=
-function field_decls(e: (Name * Int) * List[Int]): List[CDecl] :=
-  match e
-    case ((n, 1), ps) =>
+function field_decls(key: Name * Int, ps: List[Int]): List[CDecl] :=
+  match key
+    case (n, 1) =>
       list(table_decl(n, ps), field_text_decl(n))
     case _ => list()
   end
@@ -242,8 +242,8 @@ function address(c: CExpr): CExpr :=
 
 // outs and refs are locals of a procedure, which start as NULL and as the value of the caller, and which go back to the caller
 // only when it returns, so that an exception leaves the variables of the caller as they were
-function copy_in(outs: List[Name], refs: List[Name]): List[CStmt] :=
-  list(for x in outs yield declare_null(x)) ++ list(for x in refs yield declare_from_ref(x))
+function copy_in(outs: List[Var], refs: List[Var]): List[CStmt] :=
+  list(for x in var_names(outs) yield declare_null(x)) ++ list(for x in var_names(refs) yield declare_from_ref(x))
 
 function declare_null(x: Name): CStmt :=
   CsDecl(value_type(), var_name(x), Some(CeVar("NULL")))
@@ -251,8 +251,8 @@ function declare_null(x: Name): CStmt :=
 function declare_from_ref(x: Name): CStmt :=
   CsDecl(value_type(), var_name(x), Some(CeUnary("*", CeVar(ref_name(x)))))
 
-function copy_out(xs: List[Name]): List[CStmt] :=
-  list(for x in xs yield CsAssign(CeUnary("*", CeVar(ref_name(x))), CeVar(var_name(x))))
+function copy_out(xs: List[Var]): List[CStmt] :=
+  list(for x in var_names(xs) yield CsAssign(CeUnary("*", CeVar(ref_name(x))), CeVar(var_name(x))))
 
 function type_keys(types: List[Type]): Str :=
   join(", ", list(for a in types yield type_key(a)))
@@ -527,7 +527,7 @@ procedure compile_expr(in defs: Defs, env: Vars, expr: Expr, out ss: List[CStmt]
       call compile_proc_lambda(in defs, env, ins, outs, refs, stmt, out ss, r, ref g)
 
     case ELet(bindings, body) =>
-      assign names := list(for x in firsts(bindings) yield x.name)
+      assign names := var_names(firsts(bindings))
       call   compile_exprs(in defs, env, seconds(bindings), out as, rs, ref g)
       call   compile_expr(in defs, in_scope(names) ++ env, body, out bs, rb, ref g)
       call   gen_name(in "t", out t, ref g)
@@ -643,12 +643,13 @@ procedure compile_named(
 
 // a closure of a function lifted to the top level, which takes the captured values and the arguments
 procedure compile_lambda(in defs: Defs, env: Vars, xs: List[Var], b: Expr, out ss: List[CStmt], r: CExpr, ref g: Gen) :=
-  local  caps := captured(env, free_vars(b, var_names(xs)))
+  local  names := var_names(xs)
+  local  caps := captured(env, free_vars(b, names))
   local  f: Str, bs: List[CStmt], rb: CExpr, decls: List[CStmt]
 
   call   gen_name(in "lam", out f, ref g)
-  call   compile_expr(in defs, in_scope(caps ++ var_names(xs)), b, out bs, rb, ref g)
-  assign decls := unpack(numbered(caps), "env") ++ unpack(numbered(var_names(xs)), "args")
+  call   compile_expr(in defs, in_scope(caps ++ names), b, out bs, rb, ref g)
+  assign decls := unpack(numbered(caps), "env") ++ unpack(numbered(names), "args")
   call   lift(in CdFunction(value_type(), f, closure_params(), decls ++ bs ++ list(CsReturn(Some(rb)))), ref g)
   assign ss := list(), r := make_closure("u_mk_closure", f, caps, env)
 
@@ -664,15 +665,16 @@ procedure compile_proc_lambda(
       r: CExpr,
   ref g: Gen
 ) :=
-  local  caps := captured(env, free_in_stmt(b, var_names(ins ++ outs ++ refs)))
+  local  in_names := var_names(ins), pointer_names := var_names(outs ++ refs)
+  local  caps := captured(env, free_in_stmt(b, in_names ++ pointer_names))
   local  f: Str, bs: List[CStmt], decls: List[CStmt]
 
   call   gen_name(in "proc", out f, ref g)
-  call   compile_stmt(in defs, in_scope(caps ++ var_names(ins ++ outs ++ refs)), b, out bs, ref g)
-  assign decls := unpack(numbered(caps), "env") ++ unpack(numbered(var_names(ins)), "ins")
-  assign decls := decls ++ unpack_pointers(numbered(var_names(outs ++ refs)))
-  assign decls := decls ++ copy_in(var_names(outs), var_names(refs))
-  call   lift(in CdFunction(CtVoid, f, proc_params(), decls ++ bs ++ copy_out(var_names(outs ++ refs))), ref g)
+  call   compile_stmt(in defs, in_scope(caps ++ in_names ++ pointer_names), b, out bs, ref g)
+  assign decls := unpack(numbered(caps), "env") ++ unpack(numbered(in_names), "ins")
+  assign decls := decls ++ unpack_pointers(numbered(pointer_names))
+  assign decls := decls ++ copy_in(outs, refs)
+  call   lift(in CdFunction(CtVoid, f, proc_params(), decls ++ bs ++ copy_out(outs ++ refs)), ref g)
   assign ss := list(), r := make_closure("u_mk_proc", f, caps, env)
 
 function proc_params(): List[CType * Str] :=
@@ -1002,10 +1004,10 @@ procedure compile_stmt(in defs: Defs, env: Vars, s: Stmt, out ss: List[CStmt], r
     case SAssign(assignments) =>
       call   compile_exprs(in defs, env, seconds(assignments), out as, rs, ref g)
       call   temps(in rs, out cs, ref g)
-      assign ss := as ++ cs ++ reassign(env, list(for x in firsts(assignments) yield x.name), cs)
+      assign ss := as ++ cs ++ reassign(env, firsts(assignments), cs)
 
     case SBlock(locals, stmts) =>
-      call   compile_stmts(in defs, in_scope(list(for x in locals yield x.name)) ++ env, stmts, out bs, ref g)
+      call   compile_stmts(in defs, in_scope(var_names(locals)) ++ env, stmts, out bs, ref g)
       assign ss := list(CsBlock(null_decls(locals) ++ bs))
 
     case SIf(cond, then_stmt, else_stmt) =>
@@ -1077,11 +1079,11 @@ function saved_name(x: Name): Str :=
 // the variables that s assigns, directly or as outs and refs
 function changed(s: Stmt): List[Name] :=
   match s
-    case SAssign(assignments) => list(for x in firsts(assignments) yield x.name)
+    case SAssign(assignments) => var_names(firsts(assignments))
     case SBlock(_, stmts) => list(for y in stmts for n in changed(y) yield n)
     case SIf(_, then_stmt, else_stmt) => changed(then_stmt) ++ changed(else_stmt)
     case SWhile(_, body) => changed(body)
-    case SCall(_, _, outs, refs) => list(for x in outs ++ refs yield x.name)
+    case SCall(_, _, outs, refs) => var_names(outs ++ refs)
     case SMatch(_, cases) => list(for b in cases for n in changed(b.body) yield n)
     case STry(b, handlers) => changed(b) ++ list(for h in handlers for n in changed(h.body) yield n)
     case _ => list()
@@ -1097,9 +1099,9 @@ procedure compile_stmts(in defs: Defs, env: Vars, xs: List[Stmt], out ss: List[C
     assign ss := ss ++ as
   end
 
-function reassign(env: Vars, xs: List[Name], ts: List[CStmt]): List[CStmt] :=
+function reassign(env: Vars, xs: List[Var], ts: List[CStmt]): List[CStmt] :=
   match (xs, ts)
-    case (list(x; more), list(CsDecl(_, name, _); rest)) => list(CsAssign(var_expr(env, x), CeVar(name)); reassign(env, more, rest))
+    case (list(x; more), list(CsDecl(_, name, _); rest)) => list(CsAssign(var_expr(env, x.name), CeVar(name)); reassign(env, more, rest))
     case _ => list()
   end
 
@@ -1168,8 +1170,8 @@ procedure compile_cmd(in defs: Defs, entry: Id, cmd: Cmd, out ds: List[CDecl], m
 
   match cmd
     case CFun(name, _, formals, _, body) =>
-      call   compile_expr(in defs, in_scope(list(for x in formals yield x.name)), body, out bs, rb, ref g)
-      assign params := list(for x in formals yield (value_type(), var_name(x.name)))
+      call   compile_expr(in defs, in_scope(var_names(formals)), body, out bs, rb, ref g)
+      assign params := value_formals(formals)
 
       if formals == list()
         assign bs := cached(format_name(name), bs, rb)
@@ -1182,7 +1184,7 @@ procedure compile_cmd(in defs: Defs, entry: Id, cmd: Cmd, out ds: List[CDecl], m
     case CProc(name, _, ins, outs, refs, stmt) =>
       call   compile_stmt(in defs, in_scope(var_names(ins ++ outs ++ refs)), stmt, out bs, ref g)
       assign params := value_formals(ins) ++ pointer_formals(outs ++ refs)
-      assign bs := copy_in(var_names(outs), var_names(refs)) ++ bs ++ copy_out(var_names(outs ++ refs))
+      assign bs := copy_in(outs, refs) ++ bs ++ copy_out(outs ++ refs)
       assign ds := list(CdFunction(CtVoid, proc_name(name), params, bs)), ms := list()
 
     case CTest(test_name, _, stmt) if entry == "test" =>
