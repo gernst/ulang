@@ -1,5 +1,5 @@
-// the runtime errors that the interpreter and compiled code both report, with their texts, which self/compile.u writes into
-// every program as the formats u_text_* that self/runtime/ulang.c prints, where %s stands for a value as show gives it
+// the runtime errors that the interpreter and compiled code both report, with their texts, which ulang/compile.u writes into
+// every program as the formats u_text_* that ulang/runtime/ulang.c prints, where %s stands for a value as show gives it
 
 export
 

@@ -27,7 +27,7 @@ These parts are right, and later changes should not weaken them:
 - **Pure functions, effectful procedures.** The kind of a declaration says whether its code has effects, which is cheaper than effect annotations and gives most of their value, and with the check of termination, functions terminate.
 - **`in`, `out`, and `ref`**, so that data flow shows in signatures and at calls.
 - **Atomic effects under exceptions.** Outs and refs reach the caller only on return, and handlers see the variables as they were before the `try`.
-- **Procedures as values, and lambdas for both functions and procedures**, which abstract over effectful code, as `repsep` in `self/parse.u`.
+- **Procedures as values, and lambdas for both functions and procedures**, which abstract over effectful code, as `repsep` in `ulang/parse.u`.
 - **Static types, with inference inside bodies and types at boundaries.** Types are the one kind of specification that is always checked, complete, decidable, and fast, and they also drive resolution, induction in the prover, abstraction, and compilation.
 - **Pattern guards and nested patterns.**
 - **Unbounded integers, and deterministic containers**: maps and sets are ordered, so the order of iteration never depends on hashing.
@@ -38,6 +38,6 @@ And in the implementation:
 
 - **Errors as data**: type errors are values, with positions added once per declaration by `Located`, and each command starts with a fresh substitution and numbering of unknowns, and is resolved and zonked at its end.
 - **Narrow interfaces**: the functions `with_*`, `*_of`, and `is_*` of `Sig` keep the layout of its maps private.
-- **Tests across components**: the printer by its round trip through the parser (`make testformat`), which keeps the precedences of both honest, and the interpreter against compiled code (`make testc`), with the texts of shared runtime errors in one place, `self/error.u`.
-- **Backends**: C as a small typed syntax with a printer that adds parentheses (`self/c.u`), not built from strings; one type descriptor per datatype with `compare`, `equals`, and `show`, mirrored by the maps of `Defs`; outs and refs copied in and out alike in both backends; and fused comprehensions that fall back to the general fold.
+- **Tests across components**: the printer by its round trip through the parser (`make testformat`), which keeps the precedences of both honest, and the interpreter against compiled code (`make testc`), with the texts of shared runtime errors in one place, `ulang/error.u`.
+- **Backends**: C as a small typed syntax with a printer that adds parentheses (`ulang/c.u`), not built from strings; one type descriptor per datatype with `compare`, `equals`, and `show`, mirrored by the maps of `Defs`; outs and refs copied in and out alike in both backends; and fused comprehensions that fall back to the general fold.
 - **The prover**: locally nameless terms with a single `rebind` and its invariant written down, splits kept only if every case closes, canonical sums with Fourier–Motzkin elimination and integer rounding, and end-to-end tests that include the goals expected to stay open.

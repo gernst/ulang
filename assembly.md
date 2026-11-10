@@ -19,7 +19,7 @@ The second to last row approximates a simple backend, which keeps every variable
 
 ## Approach
 
-**`self/asm.u` translates a `CFile` of `self/c.u` to assembly**, so that `compile.u` stays as it is, and only the last step differs: `show_file(f)` for C, and `asm_file(f)` for assembly. The part of C that `compile.u` writes is small, 11 kinds of expressions, 7 of statements, and 4 of declarations, which keeps the backend small. A backend from the syntax of ulang directly would duplicate the lowering of `compile.u` (matches, comprehensions, closures, lifted lambdas, the saved variables of `try`) and is not needed for a first version.
+**`ulang/asm.u` translates a `CFile` of `ulang/c.u` to assembly**, so that `compile.u` stays as it is, and only the last step differs: `show_file(f)` for C, and `asm_file(f)` for assembly. The part of C that `compile.u` writes is small, 11 kinds of expressions, 7 of statements, and 4 of declarations, which keeps the backend small. A backend from the syntax of ulang directly would duplicate the lowering of `compile.u` (matches, comprehensions, closures, lifted lambdas, the saved variables of `try`) and is not needed for a first version.
 
 - **Target**: x86-64 with the System V calling convention, as on Linux, in the syntax of GNU `as`.
 - **Locals**: every `CsDecl` of a function gets a slot of its own in its frame, also those of nested blocks, and all variables live in memory, which is slow but simple, and makes `setjmp` harmless, since no value stays in a register across it. The scheme of `try`, which saves the variables that the body assigns before the `setjmp` and restores them in the handler, carries over unchanged.
@@ -27,7 +27,7 @@ The second to last row approximates a simple backend, which keeps every variable
 - **Control flow**: `&&`, `||`, `!`, `?:`, `if`, and `while` are comparisons and jumps to numbered labels, and `return` jumps to the epilogue of the function.
 - **Static data**: the literals of strings (`U_LIT`), the type descriptors `t_` (`struct u_type`), the constructor names `n_` (`struct u_name`), the units `o_`, and the `static` locals of functions, which are the caches of functions without parameters and literals, go to `.data` and `.rodata` with labels of their own, where function pointers in descriptors and closures are relocations.
 - **Exceptions** call the runtime as now: `u_push`, `setjmp` of the C library on the `jmp_buf` of the handler, `u_pop`, `u_raise`, and `u_reraise`.
-- **The runtime** stays C, compiled once at `-O2` to `self/runtime/ulang.o` (as `make testc` does with `out/testc/ulang.o`), and a program is linked by `cc program.s ulang.o -lgmp -lgc`, where `cc` only assembles and links.
+- **The runtime** stays C, compiled once at `-O2` to `ulang/runtime/ulang.o` (as `make testc` does with `out/testc/ulang.o`), and a program is linked by `cc program.s ulang.o -lgmp -lgc`, where `cc` only assembles and links.
 
 ## Difficulties
 
@@ -41,7 +41,7 @@ The second to last row approximates a simple backend, which keeps every variable
 
 0. **Compiled tests**, done: `make testc`, which the backend needs as its safety net, since every test must have the same outcome in both backends.
 1. **The runtime**: compiled once to `ulang.o`, the `_Static_assert`s of the offsets, and the inline functions of `ulang.h` exported as functions too.
-2. **`self/asm.u`**: the translation of a `CFile` as above, with unit tests that assemble and run small functions.
+2. **`ulang/asm.u`**: the translation of a `CFile` as above, with unit tests that assemble and run small functions.
 3. **`ulang.bin compile <file> <entry> <target.s>`**, which chooses the backend by the extension of the target, and `make testc` with both backends.
 4. **Bootstrap**: `make selfcompile` through assembly, whose compiler must compile itself to the same `.s` file as well as to the same C, where `bootstrap/ulang.c` stays the versioned seed.
 5. **Simple improvements**, each measured on the self-compile: the instructions of `u_field`, `u_is_con`, and `u_truth` in place, results that stay in `%rax` instead of going through their slot, and arguments that are variables or constants loaded directly into the registers of arguments.

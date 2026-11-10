@@ -1,4 +1,4 @@
-// a reader of terms and declarations in the syntax of ulang, for the tests of the prover until self/prove.u translates
+// a reader of terms and declarations in the syntax of ulang, for the tests of the prover until ulang/prove.u translates
 // checked programs: definitions of functions and datatypes, and formulas with quantifiers, where the connectives and
 // comparisons of the prelude are read as the builtins of the prover, a != b as not (a == b) and a <= b as not (b < a)
 

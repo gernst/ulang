@@ -25,7 +25,7 @@ if [ "${1:-}" = "--one" ]; then
 
   if ! out/ulang.bin compile "$file" test "$c" > "$log" 2>&1; then
     got=$(tail -n 1 "$log" | sed "s|^$file: ||")
-  elif ! $CC -O2 -w -I self/runtime "$c" "$runtime" $LIBS -o "$bin" > "$log" 2>&1; then
+  elif ! $CC -O2 -w -I ulang/runtime "$c" "$runtime" $LIBS -o "$bin" > "$log" 2>&1; then
     got="cc failed: $(head -n 1 "$log")"
   elif (cd "$(dirname "$file")" && "$root/$bin" > /dev/null 2> "$root/$log"); then
     got=success

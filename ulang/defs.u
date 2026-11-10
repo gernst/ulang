@@ -1,5 +1,5 @@
-// the definitions of a program that self/check.u has checked, as the interpreter of self/run.u and the compiler of
-// self/compile.u look them up, with the declared orders, equalities, and shows of its datatypes
+// the definitions of a program that ulang/check.u has checked, as the interpreter of ulang/run.u and the compiler of
+// ulang/compile.u look them up, with the declared orders, equalities, and shows of its datatypes
 
 import "builtins.u"
 import "map.u"

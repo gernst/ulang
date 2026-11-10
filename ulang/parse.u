@@ -1,4 +1,4 @@
-// the parser of ulang, which parses the tokens of self/lex.u into programs of self/syntax.u,
+// the parser of ulang, which parses the tokens of ulang/lex.u into programs of ulang/syntax.u,
 // where notation apply to the commands after them, and imports inline the declarations of modules,
 // read from the directory of the parsed file, or else from the library
 

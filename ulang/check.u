@@ -1,4 +1,4 @@
-// the type checker of ulang, which checks and elaborates programs of self/syntax.u in signatures of self/sig.u,
+// the type checker of ulang, which checks and elaborates programs of ulang/syntax.u in signatures of ulang/sig.u,
 // where the state is passed by reference, and errors are values of TypeError instead of messages,
 // and which overloads names across modules: the declarations of a name in all visible modules are its candidates,
 // and each use resolves to the one whose type fits, at once if only one fits, or else at the end of the command,

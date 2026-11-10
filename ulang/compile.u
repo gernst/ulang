@@ -1,5 +1,5 @@
-// a compiler from programs of self/syntax.u, which self/check.u has checked, to C in the syntax of self/c.u,
-// whose code calls the runtime in self/runtime, where every value has the C type u_value
+// a compiler from programs of ulang/syntax.u, which ulang/check.u has checked, to C in the syntax of ulang/c.u,
+// whose code calls the runtime in ulang/runtime, where every value has the C type u_value
 
 import "buffer.u"
 import "builtins.u"
@@ -1583,7 +1583,7 @@ procedure compile_program(in q: Prog, m: Id, entry: Id, out f: CFile) :=
   assign hs := list(CdInclude("ulang.h")) ++ prototypes(fs) ++ descriptor_decls(defs, q.cmds) ++ texts()
   assign f := CFile(hs ++ fs ++ list(main_function(ms)))
 
-// the texts of the runtime errors that self/runtime/ulang.c prints
+// the texts of the runtime errors that ulang/runtime/ulang.c prints
 function texts(): List[CDecl] :=
   list(for p in runtime_formats() yield text_decl(p))
 

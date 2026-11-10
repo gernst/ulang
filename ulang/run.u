@@ -1,4 +1,4 @@
-// the interpreter of ulang, which runs programs of self/syntax.u that self/check.u has checked,
+// the interpreter of ulang, which runs programs of ulang/syntax.u that ulang/check.u has checked,
 // where statements update the values of the variables in scope, which a call passes to a procedure and back,
 // and errors are values of RuntimeError and InternalError, while the exceptions of the program are values of Thrown
 
@@ -29,7 +29,7 @@ data Value :=
 data Run :=
   case Run(defs: Defs, computing: List[Name], args: List[Str])
 
-// the errors of the interpreter that checked programs do not raise, unlike RuntimeError of self/error.u
+// the errors of the interpreter that checked programs do not raise, unlike RuntimeError of ulang/error.u
 data InternalError :=
   case Uninitialized(name: Name)
   case NotFunction(value: Value)

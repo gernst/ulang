@@ -77,13 +77,13 @@ out/ulang.bin test file.u                 # runs its tests one by one
 out/ulang.bin test dir                    # runs the files below dir, which must pass or fail as their first lines state
 out/ulang.bin check file.u                # only checks it
 out/ulang.bin compile file.u main file.c  # compiles a program to C, whose main calls the procedure main
-cc -I self/runtime file.c self/runtime/ulang.c -lgmp -lgc
+cc -I ulang/runtime file.c ulang/runtime/ulang.c -lgmp -lgc
 make test                                 # runs all tests
 ```
 
 ## Layout
 
-- `self/` is the implementation in ulang: lexer, parser, checker, interpreter, and the compiler to C, with its runtime in `self/runtime/`, and the driver `self/ulang.u`.
+- `ulang/` is the implementation in ulang: lexer, parser, checker, interpreter, and the compiler to C, with its runtime in `ulang/runtime/`, and the driver `ulang/ulang.u`.
 - `bootstrap/ulang.c` is the seed, the C of the last compiler that compiled itself to the same C, from which `make` builds
   `bootstrap/ulang.bin`, which compiles the sources to `out/ulang.bin`. `make selfcompile` replaces the seed by the compiler
   compiled with itself, and `make bootstrap` by the compiler compiled with the interpreter.

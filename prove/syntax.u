@@ -1,4 +1,4 @@
-// the terms of the prover, independent of the syntax of self/, see prove.md, which is not versioned
+// the terms of the prover, independent of the syntax of ulang/, see prove.md, which is not versioned
 //
 // Variables are de Bruijn indices for the binders inside a term (ELam, EMatch, and Seq and Concl of simp.u),
 // and de Bruijn levels for the variables of the opened sequents, counted from the root.
@@ -8,7 +8,7 @@ import "map.u"
 
 export
 
-// names as in self/syntax.u, with the module that declares them, which is None for locals and builtins
+// names as in ulang/syntax.u, with the module that declares them, which is None for locals and builtins
 type Id :=
   Str
 

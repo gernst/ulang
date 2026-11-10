@@ -851,7 +851,7 @@ static void append_shown(struct u_text *t, u_value v) {
   append_str(t, u_show(v));
 }
 
-// values as self/print.u shows them, by their types
+// values as ulang/print.u shows them, by their types
 u_value u_show(u_value v) {
   return v->type->show(v);
 }
@@ -945,7 +945,7 @@ void u_fail(const char *msg) {
   exit(1);
 }
 
-// ends the program with the runtime error of a text of self/error.u, where the first %s stands for a and the second for b
+// ends the program with the runtime error of a text of ulang/error.u, where the first %s stands for a and the second for b
 static void fail_with(const char *format, u_value a, u_value b) {
   fflush(stdout);
   fputs("runtime error: ", stderr);
