@@ -2,18 +2,16 @@
 // where statements update the values of the variables in scope, which a call passes to a procedure and back,
 // and errors are values of RuntimeError, while the exceptions of the program are values of Thrown
 
-import "syntax.u"
+import "array.u"
 import "builtins.u"
-import "format.u"
-
 import "check.u"
 import "defs.u"
 import "error.u"
-
+import "format.u"
+import "map.u"
 import "os.u"
 import "set.u"
-import "map.u"
-import "array.u"
+import "syntax.u"
 
 export
 
@@ -123,10 +121,38 @@ function text_of(v: Value): Str :=
 
 // the builtins without a module, and the functions of the builtin sections of the prelude, str, and array
 function builtin_names(): Set[Name] :=
-  set(for x in list(for b in list("<", "==", "compare", "show") yield unqualified(b)) ++
-    list(for b in list("+", "-", "*", "/", "%", "++") yield Name(Some("prelude"), b)) ++
-    list(for b in list("chars", "str", "ord", "chr", "is_digit", "is_letter", "is_space", "size", "at", "contains", "slice", "join", "split", "quote", "number") yield Name(Some("str"), b)) ++
-    list(for b in list("from_list", "size", "at", "slice", "foldr", "foldl") yield Name(Some("array"), b)))
+  set(
+    unqualified("<"),
+    unqualified("=="),
+    unqualified("compare"),
+    unqualified("show"),
+    Name(Some("prelude"), "+"),
+    Name(Some("prelude"), "-"),
+    Name(Some("prelude"), "*"),
+    Name(Some("prelude"), "/"),
+    Name(Some("prelude"), "%"),
+    Name(Some("prelude"), "++"),
+    Name(Some("str"), "chars"),
+    Name(Some("str"), "str"),
+    Name(Some("str"), "ord"),
+    Name(Some("str"), "chr"),
+    Name(Some("str"), "is_digit"),
+    Name(Some("str"), "is_letter"),
+    Name(Some("str"), "is_space"),
+    Name(Some("str"), "size"),
+    Name(Some("str"), "at"),
+    Name(Some("str"), "contains"),
+    Name(Some("str"), "slice"),
+    Name(Some("str"), "join"),
+    Name(Some("str"), "split"),
+    Name(Some("str"), "quote"),
+    Name(Some("str"), "number"),
+    Name(Some("array"), "from_list"),
+    Name(Some("array"), "size"),
+    Name(Some("array"), "at"),
+    Name(Some("array"), "slice"),
+    Name(Some("array"), "foldr"),
+    Name(Some("array"), "foldl"))
 
 function is_builtin(n: Name): Bool :=
   contains(n, builtin_names())

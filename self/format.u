@@ -60,8 +60,9 @@ function format_mod(notation: Notation, d: Mod): List[Str] :=
 function doc_header(d: Mod): List[Str] :=
   if d.doc == "" then list() else list(doc_lines(d.doc))
 
+// one block, sorted by the name of the module
 function import_lines(d: Mod): List[Str] :=
-  list(for n in d.imports yield "import " ++ quote(n ++ ".u"))
+  if d.imports == list() then list() else list(join("\n", list(for n in sort(d.imports) yield "import " ++ quote(n ++ ".u"))))
 
 function format_sections(notation: Notation, d: Mod): List[Str] :=
   if sectionless(d) then format_cmds(notation, d.implemented) else sections_of(notation, d)
@@ -211,8 +212,15 @@ function end_text(indent: Str, text: Str): Str :=
 function block_text(notation: Notation, indent: Str, head: Str, stmt: Stmt): Str :=
   end_text(indent, head ++ format_body(notation, deeper(indent), stmt))
 
+// a display wider than the line puts one element on each line
 function form_text(notation: Notation, indent: Str, form: Form, elems: List[Elem], rest: Option[Expr]): Str :=
-  form_name(form) ++ "(" ++ elems_text(notation, indent, elems) ++ rest_text(notation, indent, rest) ++ ")"
+  let flat := form_name(form) ++ "(" ++ elems_text(notation, indent, elems) ++ rest_text(notation, indent, rest) ++ ")" in
+  if size(indent) + size(flat) > 80 then spread_form(notation, indent, form, elems, rest) else flat
+
+function spread_form(notation: Notation, indent: Str, form: Form, elems: List[Elem], rest: Option[Expr]): Str :=
+  let inner := deeper(indent) in
+  form_name(form) ++ "(\n" ++ inner ++ join(",\n" ++ inner, list(for e in elems yield elem_text(notation, inner, e))) ++
+    rest_text(notation, inner, rest) ++ ")"
 
 function elems_text(notation: Notation, indent: Str, elems: List[Elem]): Str :=
   join(", ", list(for e in elems yield elem_text(notation, indent, e)))
@@ -301,10 +309,15 @@ function assignment_text(notation: Notation, indent: Str, x: Var, a: Expr): Str 
   x.name.base ++ " := " ++ closed_expr(notation, indent, a)
 
 function expr_cases(notation: Notation, indent: Str, branches: List[Branch[Expr]]): Str :=
-  join("", list(for b in branches yield expr_case(notation, indent, b)))
+  case_chain(list(for b in branches yield expr_case(notation, indent, b)))
+
+// the cases, each starting with a newline, with a blank line between them unless there are at most two and each has a
+// head and one line of body
+function case_chain(cases: List[Str]): Str :=
+  join(if size(cases) > 2 or exists(cases, lambda c => size(split(c, '\n')) > 3) then "\n" else "", cases)
 
 function expr_case(notation: Notation, indent: Str, b: Branch[Expr]): Str :=
-  branch_head(notation, indent, b) ++ " " ++ format_expr(notation, indent, b.body)
+  branch_head(notation, indent, b) ++ "\n" ++ deeper(indent) ++ format_expr(notation, deeper(indent), b.body)
 
 function branch_head[A](notation: Notation, indent: Str, b: Branch[A]): Str :=
   indented_doc(indent, b.doc) ++ "\n" ++ indent ++ case_head(notation, indent, b.pat, b.guard)
@@ -468,7 +481,7 @@ function else_text(notation: Notation, indent: Str, r: Stmt): Str :=
   end
 
 function stmt_cases(notation: Notation, indent: Str, branches: List[Branch[Stmt]]): Str :=
-  join("", list(for b in branches yield stmt_case(notation, indent, b)))
+  case_chain(list(for b in branches yield stmt_case(notation, indent, b)))
 
 function stmt_case(notation: Notation, indent: Str, b: Branch[Stmt]): Str :=
   branch_head(notation, indent, b) ++ format_body(notation, deeper(indent), b.body)
@@ -584,8 +597,20 @@ function constrs_text(constrs: List[Constr]): Str :=
 function constr_line(c: Constr): Str :=
   indented_doc("  ", c.doc) ++ "\n  case " ++ constr_text(c)
 
+// a head wider than the line has one formal on each line, the modes in front of the first of their group
 function proc_head(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var]): Str :=
-  "procedure " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")"
+  let flat := "procedure " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")" in
+  if size(flat) > 80 then spread_proc_head(name, params, ins, outs, refs) else flat
+
+function spread_proc_head(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var]): Str :=
+  "procedure " ++ name.base ++ params_text(params) ++ "(\n" ++
+    join(",\n", mode_lines("in ", ins) ++ mode_lines("out", outs) ++ mode_lines("ref", refs)) ++ "\n)"
+
+function mode_lines(mode: Str, xs: List[Var]): List[Str] :=
+  match formal_texts(xs)
+    case list() => list()
+    case list(first; more) => list("  " ++ mode ++ " " ++ first; list(for text in more yield "      " ++ text))
+  end
 
 function params_text(params: List[Id]): Str :=
   if params == list() then "" else "[" ++ join(", ", params) ++ "]"

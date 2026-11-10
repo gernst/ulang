@@ -166,7 +166,7 @@ procedure format_file(in file: Str, out ok: Bool) :=
   end
 
 function same_mod(d: Mod, e: Mod): Bool :=
-  d.name == e.name and d.doc == e.doc and d.imports == e.imports and same_sections(d, e)
+  d.name == e.name and d.doc == e.doc and sort(d.imports) == sort(e.imports) and same_sections(d, e)
 
 function same_sections(d: Mod, e: Mod): Bool :=
   same_tops(d.exported, e.exported) and same_tops(d.builtins, e.builtins) and same_tops(d.implemented, e.implemented)
