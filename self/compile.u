@@ -1,18 +1,18 @@
 // a compiler from programs of self/syntax.u, which self/check.u has checked, to C in the syntax of self/c.u,
 // whose code calls the runtime in self/runtime, where every value has the C type u_value
 
-import "syntax.u"
+import "buffer.u"
 import "builtins.u"
+import "c.u"
 import "check.u"
 import "defs.u"
 import "error.u"
 import "format.u"
-import "c.u"
-import "parse.u"
-import "os.u"
 import "map.u"
+import "os.u"
+import "parse.u"
 import "set.u"
-import "buffer.u"
+import "syntax.u"
 
 export
 

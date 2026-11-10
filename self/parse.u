@@ -2,13 +2,13 @@
 // where notation apply to the commands after them, and imports inline the declarations of modules,
 // read from the directory of the parsed file, or else from the library
 
-import "syntax.u"
-import "notation.u"
+import "buffer.u"
 import "lex.u"
+import "map.u"
+import "notation.u"
 import "os.u"
 import "set.u"
-import "map.u"
-import "buffer.u"
+import "syntax.u"
 
 export
 

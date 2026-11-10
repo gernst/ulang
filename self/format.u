@@ -3,11 +3,11 @@
 // formats values, and programs with the notation in effect, as ulang.bin format prints them, which parses to the same
 // commands
 
-import "syntax.u"
-import "builtins.u"
-import "notation.u"
-import "lex.u"
 import "array.u"
+import "builtins.u"
+import "lex.u"
+import "notation.u"
+import "syntax.u"
 
 export
 
@@ -62,7 +62,8 @@ function doc_header(d: Mod): List[Str] :=
 
 // one block, sorted by the name of the module
 function import_lines(d: Mod): List[Str] :=
-  if d.imports == list() then list() else list(join("\n", list(for n in sort(d.imports) yield "import " ++ quote(n ++ ".u"))))
+  let is := list(for n in d.imports yield "import " ++ quote(n ++ ".u")) in
+  if d.imports == list() then list() else list(join("\n", sort(is)))
 
 function format_sections(notation: Notation, d: Mod): List[Str] :=
   if sectionless(d) then format_cmds(notation, d.implemented) else sections_of(notation, d)

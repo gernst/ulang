@@ -2,9 +2,9 @@
 // convert into, ++ and -- of two of a kind, where -- of a map takes a set of keys, and {x; s} and {k => v; m}, which add
 // to a set or map, and the literals and comprehensions of lists, sets, and maps
 
-import "set.u"
-import "map.u"
 import "array.u"
+import "map.u"
+import "set.u"
 
 test conversions() :=
   assert list(for x in set(for x in list(3, 1, 2, 1))) == list(1, 2, 3) and set(for x in list(for x in set(2, 1))) == set(1, 2)

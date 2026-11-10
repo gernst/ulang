@@ -1,10 +1,10 @@
 // the lexer of ulang, which splits source code into tokens with their positions, where a symbol is always the longest run
 // of symbol characters, and which tells keywords from names and operators
 
-import "syntax.u"
+import "buffer.u"
 import "os.u"
 import "set.u"
-import "buffer.u"
+import "syntax.u"
 
 export
 
