@@ -241,6 +241,9 @@ function commands_of(tops: List[Top]): List[Cmd]
 // the library those before it in library_modules, so that every module sees the library without importing it
 function implicit_imports(name: Id): List[Id]
 
+// the modules of the library, each after those it uses
+function library_modules(): List[Id]
+
 // the directory of a module of a project from its root, "" for the root and for the library, whose modules have no /
 function module_dir(id: Id): Str
 
@@ -293,7 +296,6 @@ function module_dir(id: Id): Str :=
 function implicit_imports(name: Id): List[Id] :=
   implicit_before(name, library_modules())
 
-// the modules of the library, each after those it uses
 function library_modules(): List[Id] :=
   list("prelude", "option", "list", "str", "set", "map", "array", "buffer", "os")
 
