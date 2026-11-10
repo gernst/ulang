@@ -1342,10 +1342,7 @@ function assigning(expr: Expr): Cmd :=
 
 test values() :=
   assert format_value(list_value(list(VInt(1), VStr("a\"b")))) == "list(1, \"a\\\"b\")"
-  assert format_value(VTuple(list(
-    VChar('\''),
-    VNil(),
-    VObj(unqualified("Some"), list(VBool(true)))))) == "('\\'', list(), Some(true))"
+  assert format_value(VTuple(list(VChar('\''), VNil(), VObj(unqualified("Some"), list(VBool(true)))))) == "('\\'', list(), Some(true))"
 
 test expressions() :=
   call check_and_run(in list(

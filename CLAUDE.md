@@ -16,6 +16,7 @@ A minimal language with pure functional expressions, imperative statements, data
 - `TODO.md` holds open items only, each as the problem and the desired solution; delete an item when it is done. Explanations go into this file or `README.md`.
 - Plans and guides of work in progress, such as `packages.md`, are files at the root that are not versioned: add each to the section of notes of `.gitignore` while it is in use, and remove it there with the file when the work is done; what stays true afterwards goes into this file, `README.md`, or `TODO.md`.
 - When working on ulang code, record in `unclear.md` each trip-up and unclear point: a wrong guess, a search that led nowhere, a doc that was stale or misleading, each as what was wrong and what is so, so that the documentation can be fixed from it.
+- To compare a compiler before and after a change, e.g. the C that both compile from the same files, build the one before from the committed sources in a worktree of its own, never take the `out/ulang.bin` of the main tree, which other sessions rebuild from their uncommitted edits; the binary finds the library by the path that `-DULANG_LIB` compiled in, no variable of the environment, so its worktree stays until the comparison is done.
 - Profile compiled programs with gprof, not perf, which cannot record call graphs here: build with `-pg`, run with `GLIBC_TUNABLES=glibc.gmon.maxarcs=50000000:glibc.gmon.minarcs=1000000`, and sum several runs by `gprof -s` if one has too few samples; gprof does not see time in shared libraries such as libgc.
 
 ## Build
