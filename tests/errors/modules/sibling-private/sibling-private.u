@@ -1,0 +1,10 @@
+// type error: unknown variable secret at 9.1
+
+export
+
+function revealed(n: Int): Int
+
+implementation
+
+function revealed(n: Int): Int :=
+  secret(n)

@@ -78,8 +78,20 @@ data Local :=
 data Pending :=
   case Pending(id: Name, name: Name, cands: List[Name * Scheme], typ: Type)
 
+// where hidden and hidden_sorts are the private declarations and sorts of the members of the package being checked, which
+// the other members do not see, while sig has only the exports of the modules checked before
 data State :=
-  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name])
+  case State(
+    sig: Sig,
+    sub: Subst,
+    count: Int,
+    module: Id,
+    visible: List[Id],
+    table: List[Id * List[Id]],
+    pending: List[Pending],
+    chosen: Map[Name, Name],
+    hidden: Set[Name],
+    hidden_sorts: Set[Name])
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -101,7 +113,7 @@ function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
   value_or(get(m, vs), list(m))
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
-  State(empty(), empty(), 0, main, sees(main, vs), vs, list(), empty())
+  State(empty(), empty(), 0, main, sees(main, vs), vs, list(), empty(), empty(), empty())
 
 function in_module(m: Id, n: Name): Name :=
   Name(Some(m), n.base)
@@ -139,7 +151,8 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
 function qualify_constr(m: Id, k: Constr): Constr :=
   k with name := in_module(m, k.name)
 
-// each module sees itself and its direct imports, which include the implicit ones, for the imports of each module
+// each module sees itself and its direct imports, which include the implicit ones and the members of its package, for the
+// imports of each module
 function visibility(imports: List[Id * List[Id]], main: Id): List[Id * List[Id]] :=
   list(for m in distinct(list(main) ++ firsts(imports)) yield (m, distinct(list(m) ++ imports_of(imports, m))))
 
@@ -153,7 +166,7 @@ function visible_names(s: State, n: Name, declared: Name -> Bool): List[Name] :=
     case Name(Some(_), _) =>
       if contains(n, ds) then list(n) else list()
     case Name(None, base) =>
-      if contains(Name(Some(s.module), base), ds) then list(Name(Some(s.module), base)) else list(for d in ds if is_visible(s, d))
+      if contains(Name(Some(s.module), base), ds) then list(Name(Some(s.module), base)) else list(for d in ds if is_visible_sort(s, d))
   end
 
 // the declarations named n of a kind in all modules that the module sees, its own included, whose types decide
@@ -166,10 +179,19 @@ function overloads(s: State, n: Name, declared: Name -> Bool): List[Name] :=
       list(for d in names_of(s.sig, n.base) if declared(d) and is_visible(s, d))
   end
 
+// whether the module sees the declaration d, which is its own, or of a module that it sees and not private to it
 function is_visible(s: State, d: Name): Bool :=
   match d.module
     case Some(m) =>
-      contains(m, s.visible)
+      m == s.module or contains(m, s.visible) and not contains(d, s.hidden)
+    case None =>
+      false
+  end
+
+function is_visible_sort(s: State, d: Name): Bool :=
+  match d.module
+    case Some(m) =>
+      m == s.module or contains(m, s.visible) and not contains(d, s.hidden_sorts)
     case None =>
       false
   end
@@ -2971,71 +2993,154 @@ function sorts_in(t: Type): List[Name] :=
       list()
   end
 
-// the sections of module d, with the declarations and sorts that it keeps private, which are all of a module without an
-// export section
-procedure check_sections(
+// the sections of module d, whose signatures its definitions repeat, and whose exports name no private sorts
+procedure check_sections(in d: Mod) :=
+  local ex := exported_cmds(d), im := implemented_cmds(d)
+  call check_signatures(in ex, im)
+  call check_arities(in im, ex)
+  call check_exposed(in d.name, ex, private_sorts(ex, im))
+
+// the declarations and sorts that module d keeps private, which are all of a module without an export section
+procedure private_of(
   in  d: Mod,
   out hidden: Set[Name],
       hidden_sorts: List[Name]
 ) :=
-  local ex := list(for c in commands_of(d.exported) yield qualify(d.name, c)), im := list(for c in commands_of(d.implemented) yield qualify(d.name, c))
-  call   check_signatures(in ex, im)
-  call   check_arities(in im, ex)
-  call   check_exposed(in d.name, ex, private_sorts(ex, im))
+  local ex := exported_cmds(d), im := implemented_cmds(d)
   assign hidden := set(for x in private_names(ex, im)), hidden_sorts := private_sorts(ex, im)
 
-// the commands of the program with qualified names, where each module is checked once, after the modules it imports
+function exported_cmds(d: Mod): List[Cmd] :=
+  list(for c in commands_of(d.exported) yield qualify(d.name, c))
+
+function implemented_cmds(d: Mod): List[Cmd] :=
+  list(for c in commands_of(d.implemented) yield qualify(d.name, c))
+
+// the commands of the program with qualified names, where each package and each program is checked once, after the
+// modules it imports
 procedure check_program(in source: Source, out q: Prog) :=
-  local sig: Sig := empty(), imports: List[Id * List[Id]] := list(), cmds: List[Cmd] := list()
+  local sig: Sig := empty(), imports: List[Id * List[Id]] := list(), cmds: List[Cmd] := list(), checked: List[Cmd], shown: Sig
   try
-    call check_mods(in source.mods, ref sig, imports, cmds)
+    for mods in units(source.mods, source.packages) do
+      call   check_package(in mods, source.packages, sig, imports, out checked, shown)
+      assign sig := union(sig, shown), imports := imports ++ list(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked
+    end
   catch
     case Located(Some(m), pos, error) if m == source.main =>
       raise Located(None, pos, error)
   end
   assign q := Prog(cmds)
 
-procedure check_mods(
-  in  mods: List[Mod],
-  ref sig: Sig,
-      imports: List[Id * List[Id]],
-      cs: List[Cmd]
-) :=
-  local cmds: List[Cmd], shown: Sig
-  for d in mods do
-    call   check_mod(in d, sig, imports, out cmds, shown)
-    assign sig := union(sig, shown), imports := imports ++ list((d.name, all_imports(d))), cs := cs ++ cmds
+// the modules in the order of mods, where the members of a package, which follow each other, are checked together, and
+// each other module, a program, on its own
+function units(mods: List[Mod], packages: List[Package]): List[List[Mod]] :=
+  match mods
+    case list() =>
+      list()
+
+    case list(d; rest) =>
+      match find(packages, lambda p => contains(d.name, p.members))
+        case Some(p) =>
+          list(list(d; take_members(rest, p.members)); units(drop_members(rest, p.members), packages))
+        case None =>
+          list(list(d); units(rest, packages))
+      end
   end
 
-// the commands of module d and the signature it shows its importers, checked after the declarations before of the modules that imports
-// lists, where the declarations that other modules keep private are unknown, since before has only their signatures
-procedure check_mod(
-  in  d: Mod,
+function take_members(mods: List[Mod], members: List[Id]): List[Mod] :=
+  match mods
+    case list(d; rest) if contains(d.name, members) =>
+      list(d; take_members(rest, members))
+    case _ =>
+      list()
+  end
+
+function drop_members(mods: List[Mod], members: List[Id]): List[Mod] :=
+  match mods
+    case list(d; rest) if contains(d.name, members) =>
+      drop_members(rest, members)
+    case _ =>
+      mods
+  end
+
+// the commands of the members mods of a package, or of a program alone, and the signature that they show their importers,
+// checked together after the declarations before of the modules that imports lists, where the declarations that other
+// modules keep private are unknown, since before has only their signatures, and those that members keep private are hidden
+// from the other members
+procedure check_package(
+  in  mods: List[Mod],
+      packages: List[Package],
       before: Sig,
       imports: List[Id * List[Id]],
   out cmds: List[Cmd],
       shown: Sig
 ) :=
-  local own := list((d.name, all_imports(d))), placed := decls_of(d), s: State, decls: List[Id * Cmd], defined: List[Cmd], hidden: Set[Name], hidden_sorts: List[Name], extra: List[Id * Cmd], more: List[Cmd], builtins := natives(d)
-  assign s := State(before, empty(), 0, d.name, list(), visibility(imports ++ own, d.name), list(), empty()), decls := seconds(placed)
+  local own := list(for d in mods yield (d.name, seen_modules(d, packages))), members := list(for d in mods yield d.name), placed := list(for d in mods for p in decls_of(d) yield p), s: State, decls: List[Id * Cmd], defined: List[Cmd], hidden: Set[Name] := empty(), hidden_sorts: List[Name] := list(), extra: List[Id * Cmd], more: List[Cmd], builtins := list(for d in mods for c in natives(d) yield c), private: Set[Name], private_sorts: List[Name]
+  for d in mods do
+    call   private_of(in d, out private, private_sorts)
+    assign hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
+  end
+  assign s := State(before, empty(), 0, first_member(members), list(), visibility(imports ++ own, first_member(members)), list(), empty(), hidden, set(for x in hidden_sorts)), decls := seconds(placed)
   call   each_placed(in declare_datas, placed, ref s)
   call   declare_datas(in builtins, ref s)
-  call   each_placed(in declare_sorts, placed, ref s)
+  call   each_placed(in declare_sorts, alias_order(list(for p in placed if alias_names(p) != None), list()), ref s)
   call   each_placed(in declare_constrs, placed, ref s)
   call   each_placed(in declare_pat_aliases, placed, ref s)
   call   each_placed(in declare_funs, placed, ref s)
   call   each_placed(in declare_procs, placed, ref s)
   call   declare_funs(in builtins, ref s)
   call   declare_procs(in builtins, ref s)
-  call   check_sections(in d, out hidden, hidden_sorts)
+  for d in mods do
+    call check_sections(in d)
+  end
   call   each_placed(in lambda in cs: List[Id * Cmd], ref t: State => call exported_aliases(in cs, hidden, t) end, placed, ref s)
-  call   unique_ids(in "declaration", block_names(decls))
+  for d in mods do
+    call unique_ids(in "declaration", block_names(decls_of_mod(d)))
+  end
   call   placed_commands(in placed_definitions(placed), lambda in checked: List[Cmd] => call check_orders(in checked, abstract_types(decls), hidden, hidden_sorts) end, out defined, ref s)
   assign extra := synthesized(decls, defined, native_types(builtins))
   call   declare_funs(in extra, ref s)
   call   commands(in extra, out more, ref s)
   assign hidden := hidden ++ set(for c in more yield qualified_name(c))
-  assign cmds := defined ++ more, shown := exported(restrict(s.sig, firsts(own)), hidden, set(for x in hidden_sorts))
+  assign cmds := defined ++ more, shown := exported(restrict(s.sig, members), hidden, set(for x in hidden_sorts))
+
+// the type aliases of a package, each after those that it names, since an alias is expanded where it is declared, and
+// members name each other's aliases in any order, where aliases that name each other stay in their order
+function alias_order(pending: List[Pos * (Id * Cmd)], done: List[Pos * (Id * Cmd)]): List[Pos * (Id * Cmd)] :=
+  match find(pending, lambda p => not exists(pending, lambda q => q != p and names_alias(p, q)))
+    case Some(p) =>
+      alias_order(remove(p, pending), done ++ list(p))
+    case None =>
+      done ++ pending
+  end
+
+// whether the alias p names the alias q, by its name as written
+function names_alias(p: Pos * (Id * Cmd), q: Pos * (Id * Cmd)): Bool :=
+  match (alias_names(p), alias_names(q))
+    case (Some((_, named)), Some((name, _))) =>
+      contains(name, named)
+    case _ =>
+      false
+  end
+
+// the name of the type alias of a placed command and the names of the sorts that it names, if it is one
+function alias_names(p: Pos * (Id * Cmd)): Option[Id * List[Id]] :=
+  match p
+    case (_, (_, CSort(name, _, typ))) =>
+      Some((name.base, list(for n in sorts_in(typ) yield n.base)))
+    case _ =>
+      None
+  end
+
+function first_member(members: List[Id]): Id :=
+  match members
+    case list(m; _) =>
+      m
+    case list() =>
+      ""
+  end
+
+function decls_of_mod(d: Mod): List[Id * Cmd] :=
+  seconds(decls_of(d))
 
 // the commands of module d with qualified names, with the module of each, and their positions
 function decls_of(d: Mod): List[Pos * (Id * Cmd)] :=
@@ -3239,7 +3344,7 @@ function bags(): List[Mod] :=
 
 // the program of the commands cmds of the module main, which imports bag and box
 function with_bags(cmds: List[Cmd]): Source :=
-  Source(list(natives_prelude(); bags()) ++ list(Mod("main", "", list("bag", "box"), list(), list(), unplaced(cmds))), "main")
+  Source(list(natives_prelude(); bags()) ++ list(Mod("main", "", list("bag", "box"), list(), list(), unplaced(cmds))), list(), "main")
 
 function in_bag(n: Id): Name :=
   Name(Some("bag"), n)

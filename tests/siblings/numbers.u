@@ -1,0 +1,5 @@
+// a program in the directory of the package tests/siblings, which sees the exports of its members and their notations
+// without importing them
+
+test program_sees_members() :=
+  assert is_even(10) and is_odd(7) and size(Even(1) <+> Even(1)) == 4 and size(Odd(1) <*> Odd(1)) == 9 and three() == 3

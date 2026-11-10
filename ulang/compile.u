@@ -1576,12 +1576,11 @@ function text_decl(p: Str * Str): CDecl :=
       CdGlobal(CtNamed("const char *const"), name, Some(CeStr(text)))
   end
 
-// checks the program of the file source, which is its module, and writes its translation to C to target, with the module
-// list, which the runtime needs, also for the modules before it, which do not import it
+// checks the program of the file source, which is its module, and writes its translation to C to target, with the whole
+// library, which every module sees, so also the module list, which the runtime needs
 procedure compile_file(in source: Str, entry: Id, target: Str) :=
   local parsed: Source, q: Prog, f: CFile
   call parse_file(in source, out parsed)
-  call load_modules(in source, list(library_module("list")), ref parsed)
   call check_program(in parsed, out q)
   call compile_program(in q, parsed.main, entry, out f)
   call os_write(in target, format_file(f))

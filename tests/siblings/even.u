@@ -1,0 +1,30 @@
+// a member of the package tests/siblings, with odd.u, where each uses the functions and the notation of the other without
+// importing it, and the size of each overloads that of the other by type
+
+export
+
+infix left 9 <+>
+
+// the even number 2 * half
+data Even :=
+  case Even(half: Int)
+
+function is_even(n: Int): Bool
+
+function <+>(a: Even, b: Even): Even
+
+function size(e: Even): Int
+
+implementation
+
+function is_even(n: Int): Bool :=
+  if n == 0 then true else is_odd(n - 1)
+
+function <+>(a: Even, b: Even): Even :=
+  Even(a.half + b.half)
+
+function size(e: Even): Int :=
+  2 * e.half
+
+test even_sees_odd() :=
+  assert is_even(4) and not is_even(3) and size(Odd(1) <*> Odd(2)) == 15 and size(list(1, 2)) == 2

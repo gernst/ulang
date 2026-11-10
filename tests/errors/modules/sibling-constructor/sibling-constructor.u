@@ -1,0 +1,10 @@
+// type error: unknown variable Box at 9.1
+
+export
+
+function other(): Box
+
+implementation
+
+function other(): Box :=
+  Box(0)

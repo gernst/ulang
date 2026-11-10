@@ -184,7 +184,7 @@ procedure format_file(in file: Str, apply: Bool, out ok: Bool) :=
   local p: Source, q: Source, text: Str, source: Str
   call   os_read(in file, out text)
   call   parse_file_text(in file, text, out p)
-  assign source := format_program(p.mods), ok := false
+  assign source := format_program(p), ok := false
   try
     call parse_file_text(in file, source, out q)
     if same_mods(p.mods, q.mods) then

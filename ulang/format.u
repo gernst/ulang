@@ -10,7 +10,7 @@ import "syntax.u"
 
 export
 
-function format_program(mods: List[Mod]): Str
+function format_program(source: Source): Str
 
 function format_lit(lit: Lit): Str
 
@@ -41,12 +41,12 @@ data Shape :=
   case Negative
   case Operator(fixity: Fixity, prec: Int)
 
-// the last of the modules mods as source, after the modules before it, whose notation it starts with as far as it imports them,
-// implicitly or not
-function format_program(mods: List[Mod]): Str :=
-  match last(mods)
+// the last of the modules of source as source, after the modules before it, whose notation it starts with as far as it
+// sees them, by imports, implicitly, or as the members of its package
+function format_program(source: Source): Str :=
+  match last(source.mods)
     case Some(d) =>
-      join("\n\n", format_mod(imported_notation(mods, all_imports(d)), d)) ++ "\n"
+      join("\n\n", format_mod(imported_notation(source.mods, seen_modules(d, source.packages)), d)) ++ "\n"
     case None =>
       ""
   end
