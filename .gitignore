@@ -4,7 +4,6 @@ out/
 # IDE state, also of the Scala implementation before
 .vscode/
 .bsp/
-.bloop/
 .metals/
 
 # editor backups
@@ -16,5 +15,6 @@ ulang.vsix
 /bootstrap/*/ulang.bin
 
 # notes on refactorings and plans, not versioned
-arrays.md
+packages.md
+unclear.md
 prove.md

@@ -12,6 +12,7 @@ A minimal language with pure functional expressions, imperative statements, data
   - Time every phase of a run of checks and keep the output, so that questions about durations are answered from it; never rerun only to measure.
 - Commits: no `Co-Authored-By` for Claude; end the message with `Agentic Coding (<model>)`, e.g. `Agentic Coding (Claude Opus 5.5)`. Run `make` after every commit, so that `out/ulang.bin` is current.
 - `TODO.md` holds open items only, each as the problem and the desired solution; delete an item when it is done. Explanations go into this file or `README.md`.
+- When working on ulang code, record in `unclear.md` each trip-up and unclear point: a wrong guess, a search that led nowhere, a doc that was stale or misleading, each as what was wrong and what is so, so that the documentation can be fixed from it.
 - Profile compiled programs with gprof, not perf, which cannot record call graphs here: build with `-pg`, run with `GLIBC_TUNABLES=glibc.gmon.maxarcs=50000000:glibc.gmon.minarcs=1000000`, and sum several runs by `gprof -s` if one has too few samples; gprof does not see time in shared libraries such as libgc.
 
 ## Build
