@@ -503,11 +503,11 @@ function zonk_expr(s: State, expr: Expr): Expr :=
     case EApp(fun, args) =>
       EApp(zonk_expr(s, fun), list(for a in args yield zonk_expr(s, a)))
 
-    case EField(expr, field) =>
-      EField(zonk_expr(s, expr), field)
+    case EField(base, field) =>
+      EField(zonk_expr(s, base), field)
 
-    case EUpdate(expr, field, value) =>
-      EUpdate(zonk_expr(s, expr), field, zonk_expr(s, value))
+    case EUpdate(base, field, value) =>
+      EUpdate(zonk_expr(s, base), field, zonk_expr(s, value))
 
     case ELam(formals, body) =>
       ELam(zonk_vars(s, formals), zonk_expr(s, body))
@@ -521,14 +521,14 @@ function zonk_expr(s: State, expr: Expr): Expr :=
     case EIte(cond, then_expr, else_expr) =>
       EIte(zonk_expr(s, cond), zonk_expr(s, then_expr), zonk_expr(s, else_expr))
 
-    case EMatch(expr, cases) =>
-      EMatch(zonk_expr(s, expr), list(for b in cases yield zonk_expr_branch(s, b)))
+    case EMatch(arg, cases) =>
+      EMatch(zonk_expr(s, arg), list(for b in cases yield zonk_expr_branch(s, b)))
 
-    case ETuple(exprs) =>
-      ETuple(list(for expr in exprs yield zonk_expr(s, expr)))
+    case ETuple(args) =>
+      ETuple(list(for arg in args yield zonk_expr(s, arg)))
 
-    case ERaise(expr, typ) =>
-      ERaise(zonk_expr(s, expr), zonk_type(s.sub, typ))
+    case ERaise(value, typ) =>
+      ERaise(zonk_expr(s, value), zonk_type(s.sub, typ))
 
     case EForm(_, _, _) =>
       expr
@@ -554,11 +554,11 @@ function zonk_pat(s: State, pat: Pat): Pat :=
     case PVar(var) =>
       PVar(zonk_var(s, var))
 
-    case PApp(constr, pats) =>
-      PApp(constr, list(for a in pats yield zonk_pat(s, a)))
+    case PApp(constr, args) =>
+      PApp(constr, list(for a in args yield zonk_pat(s, a)))
 
-    case PTuple(pats) =>
-      PTuple(list(for q in pats yield zonk_pat(s, q)))
+    case PTuple(args) =>
+      PTuple(list(for q in args yield zonk_pat(s, q)))
 
     case _ =>
       pat
@@ -569,14 +569,14 @@ function zonk_stmt(s: State, x: Stmt): Stmt :=
     case SSkip =>
       x
 
-    case SAssign(assignments) =>
-      SAssign(list(for p in assignments yield zonk_binding(s, p)))
+    case SAssign(upd) =>
+      SAssign(list(for p in upd yield zonk_binding(s, p)))
 
     case SBlock(locals, stmts) =>
       SBlock(zonk_vars(s, locals), list(for y in stmts yield zonk_stmt(s, y)))
 
-    case SIf(cond, then_stmt, else_stmt) =>
-      SIf(zonk_expr(s, cond), zonk_stmt(s, then_stmt), zonk_stmt(s, else_stmt))
+    case SIf(cond, left, right) =>
+      SIf(zonk_expr(s, cond), zonk_stmt(s, left), zonk_stmt(s, right))
 
     case SWhile(cond, body) =>
       SWhile(zonk_expr(s, cond), zonk_stmt(s, body))
@@ -584,17 +584,17 @@ function zonk_stmt(s: State, x: Stmt): Stmt :=
     case SCall(proc, ins, outs, refs) =>
       SCall(settled(s, proc), list(for e in ins yield zonk_expr(s, e)), zonk_vars(s, outs), zonk_vars(s, refs))
 
-    case SMatch(expr, cases) =>
-      SMatch(zonk_expr(s, expr), list(for b in cases yield zonk_stmt_branch(s, b)))
+    case SMatch(arg, cases) =>
+      SMatch(zonk_expr(s, arg), list(for b in cases yield zonk_stmt_branch(s, b)))
 
     case SAssert(cond) =>
       SAssert(zonk_expr(s, cond))
 
-    case SRaise(expr, typ) =>
-      SRaise(zonk_expr(s, expr), zonk_type(s.sub, typ))
+    case SRaise(value, typ) =>
+      SRaise(zonk_expr(s, value), zonk_type(s.sub, typ))
 
-    case STry(body, handlers) =>
-      STry(zonk_stmt(s, body), list(for h in handlers yield zonk_handler(s, h)))
+    case STry(body, catches) =>
+      STry(zonk_stmt(s, body), list(for h in catches yield zonk_handler(s, h)))
   end
 
 function zonk_stmt_branch(s: State, b: Branch[Stmt]): Branch[Stmt] :=
@@ -603,10 +603,10 @@ function zonk_stmt_branch(s: State, b: Branch[Stmt]): Branch[Stmt] :=
       Branch(doc, zonk_pat(s, pat), zonk_guard(s, guard), zonk_stmt(s, body))
   end
 
-function zonk_handler(s: State, h: Handler): Handler :=
+function zonk_handler(s: State, h: Catch): Catch :=
   match h
-    case Handler(doc, typ, pat, guard, body) =>
-      Handler(doc, zonk_type(s.sub, typ), zonk_pat(s, pat), zonk_guard(s, guard), zonk_stmt(s, body))
+    case Catch(doc, typ, pat, guard, body) =>
+      Catch(doc, zonk_type(s.sub, typ), zonk_pat(s, pat), zonk_guard(s, guard), zonk_stmt(s, body))
   end
 
 function zonk_cmd(s: State, cmd: Cmd): Cmd :=
@@ -631,14 +631,14 @@ function unknown_type(t: Type): Option[Type] :=
 // the type of an exception that is not known, also of those raised in expressions
 function unknown_in(x: Stmt): Option[Type] :=
   match x
-    case SAssign(assignments) =>
-      unknown_in_exprs(seconds(assignments))
+    case SAssign(upd) =>
+      unknown_in_exprs(seconds(upd))
 
     case SBlock(_, stmts) =>
       unknown_in_all(stmts)
 
-    case SIf(cond, then_stmt, else_stmt) =>
-      or_else(unknown_in_expr(cond), or_else(unknown_in(then_stmt), unknown_in(else_stmt)))
+    case SIf(cond, left, right) =>
+      or_else(unknown_in_expr(cond), or_else(unknown_in(left), unknown_in(right)))
 
     case SWhile(cond, body) =>
       or_else(unknown_in_expr(cond), unknown_in(body))
@@ -646,17 +646,17 @@ function unknown_in(x: Stmt): Option[Type] :=
     case SCall(_, ins, _, _) =>
       unknown_in_exprs(ins)
 
-    case SMatch(expr, cases) =>
-      or_else(unknown_in_expr(expr), unknown_in_branches(cases))
+    case SMatch(arg, cases) =>
+      or_else(unknown_in_expr(arg), unknown_in_branches(cases))
 
     case SAssert(cond) =>
       unknown_in_expr(cond)
 
-    case SRaise(expr, typ) =>
-      or_else(unknown_type(typ), unknown_in_expr(expr))
+    case SRaise(value, typ) =>
+      or_else(unknown_type(typ), unknown_in_expr(value))
 
-    case STry(body, handlers) =>
-      or_else(unknown_in(body), unknown_in_handlers(handlers))
+    case STry(body, catches) =>
+      or_else(unknown_in(body), unknown_in_handlers(catches))
 
     case _ =>
       None
@@ -664,17 +664,17 @@ function unknown_in(x: Stmt): Option[Type] :=
 
 function unknown_in_expr(expr: Expr): Option[Type] :=
   match expr
-    case ERaise(expr, typ) =>
-      or_else(unknown_type(typ), unknown_in_expr(expr))
+    case ERaise(value, typ) =>
+      or_else(unknown_type(typ), unknown_in_expr(value))
 
     case EApp(fun, args) =>
       unknown_in_exprs(list(fun; args))
 
-    case EField(expr, _) =>
-      unknown_in_expr(expr)
+    case EField(base, _) =>
+      unknown_in_expr(base)
 
-    case EUpdate(expr, _, value) =>
-      unknown_in_exprs(list(expr, value))
+    case EUpdate(base, _, value) =>
+      unknown_in_exprs(list(base, value))
 
     case ELam(_, body) =>
       unknown_in_expr(body)
@@ -688,11 +688,11 @@ function unknown_in_expr(expr: Expr): Option[Type] :=
     case EIte(cond, then_expr, else_expr) =>
       unknown_in_exprs(list(cond, then_expr, else_expr))
 
-    case EMatch(expr, cases) =>
-      unknown_in_exprs(list(expr; list(for b in cases for e in branch_exprs(b) yield e)))
+    case EMatch(arg, cases) =>
+      unknown_in_exprs(list(arg; list(for b in cases for e in branch_exprs(b) yield e)))
 
-    case ETuple(exprs) =>
-      unknown_in_exprs(exprs)
+    case ETuple(args) =>
+      unknown_in_exprs(args)
 
     case _ =>
       None
@@ -722,12 +722,12 @@ function unknown_in_branch(b: Branch[Stmt]): Option[Type] :=
   end
 
 // handlers of _ catch exceptions of any type
-function unknown_in_handlers(hs: List[Handler]): Option[Type] :=
+function unknown_in_handlers(hs: List[Catch]): Option[Type] :=
   find_map(hs, unknown_in_handler)
 
-function unknown_in_handler(h: Handler): Option[Type] :=
+function unknown_in_handler(h: Catch): Option[Type] :=
   match h
-    case Handler(_, typ, pat, guard, body) =>
+    case Catch(_, typ, pat, guard, body) =>
       let caught := if pat == PWild then None else unknown_type(typ) in or_else(caught, or_else(unknown_in_guard(guard), unknown_in(body)))
   end
 
@@ -756,11 +756,11 @@ function unknown_in_cmd(cmd: Cmd): Option[Type] :=
 
 function head_of(pat: Pat): Option[Head * List[Pat]] :=
   match pat
-    case PApp(constr, pats) =>
-      Some((HCon(constr), pats))
+    case PApp(constr, args) =>
+      Some((HCon(constr), args))
 
-    case PTuple(pats) =>
-      Some((HCon(tuple_name()), pats))
+    case PTuple(args) =>
+      Some((HCon(tuple_name()), args))
 
     case PLit(lit) =>
       Some((HLit(lit), list()))
@@ -1508,11 +1508,11 @@ procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
     case EApp(fun, args) =>
       call application(in env, fun, args, out e1, t, ref s)
 
-    case EField(expr, field) =>
-      call field_access(in env, "." ++ field, expr, list(), out e1, t, ref s)
+    case EField(base, field) =>
+      call field_access(in env, "." ++ field, base, list(), out e1, t, ref s)
 
-    case EUpdate(expr, field, value) =>
-      call field_access(in env, "." ++ field ++ ":=", expr, list(value), out e1, t, ref s)
+    case EUpdate(base, field, value) =>
+      call field_access(in env, "." ++ field ++ ":=", base, list(value), out e1, t, ref s)
 
     case ELam(bound, body) =>
       call   formals(in "formal", bound, out xs, ref s)
@@ -1548,16 +1548,16 @@ procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
       assign e1 := ETuple(exprs), t := TTuple(ts)
 
     // the exception, whose type must be known after checking, and the expression of any type
-    case ERaise(expr, typ) =>
-      call   infer(in env, expr, out c, u, ref s)
+    case ERaise(value, typ) =>
+      call   infer(in env, value, out c, u, ref s)
       call   normalize(in typ, out w, ref s)
       call   unify(in u, w, ref s)
       call   fresh(out t, ref s)
       assign e1 := ERaise(c, u)
 
-    case EMatch(expr, cases) =>
+    case EMatch(arg, cases) =>
       call   fresh(out t, ref s)
-      call   infer(in env, expr, out c, u, ref s)
+      call   infer(in env, arg, out c, u, ref s)
       call   expr_branches(in env, cases, u, t, out bs, ref s)
       call   solve(ref s)
       call   coverage(in s, u, list(for br in bs yield case_of(br)))
@@ -1599,7 +1599,7 @@ procedure generator(
       form: Form,
       g: Gen,
       more: List[Gen],
-      elem: Elem,
+      elem: Yield,
       rest: Option[Expr],
   out e1: Expr,
       t: Type,
@@ -1661,30 +1661,30 @@ function base_expr(form: Form, rest: Option[Expr]): Expr :=
   end
 
 // base with elem added, which comes first in a list, and whose key counts in a map
-function step_expr(form: Form, elem: Elem, base: Expr): Expr :=
+function step_expr(form: Form, elem: Yield, base: Expr): Expr :=
   match (form, elem)
-    case (FMap, Entry(k, v)) =>
+    case (FMap, YPair(k, v)) =>
       form_app("map", "put", list(k, v, base))
 
-    case (FMap, Elem(e)) =>
+    case (FMap, YVal(e)) =>
       form_app("map", "put", list(
         EApp(EVar(Var(Name(Some("prelude"), "first"), THole)), list(e)),
         EApp(EVar(Var(Name(Some("prelude"), "second"), THole)), list(e)),
         base))
 
-    case (FSet, Elem(e)) =>
+    case (FSet, YVal(e)) =>
       form_app("set", "insert", list(e, base))
 
-    case (_, Elem(e)) =>
+    case (_, YVal(e)) =>
       EApp(EVar(Var(cons_name(), THole)), list(e, base))
 
-    case (_, Entry(k, v)) =>
+    case (_, YPair(k, v)) =>
       EApp(EVar(Var(cons_name(), THole)), list(ETuple(list(k, v)), base))
   end
 
 // list(a, b; r) is Cons(a, Cons(b, r)), set(a, b; r) is insert(a, insert(b, r)), map(k => v, l => w; r) is
 // put(l, w, put(k, v, r)), so that the last entry of a key counts, and array(a, b) is from_list(list(a, b))
-function form_expr(form: Form, elems: List[Elem], rest: Option[Expr]): Expr :=
+function form_expr(form: Form, elems: List[Yield], rest: Option[Expr]): Expr :=
   match form
     case FArray =>
       form_app("array", "from_list", list(form_expr(FList, elems, None)))
@@ -1698,10 +1698,10 @@ function form_expr(form: Form, elems: List[Elem], rest: Option[Expr]): Expr :=
 
 function gen_container(g: Gen): Expr :=
   match g
-    case GFor(_, c) =>
+    case GVal(_, c) =>
       c
 
-    case GEntries(_, _, c) =>
+    case GPair(_, _, c) =>
       c
 
     case GIf(c) =>
@@ -1713,19 +1713,19 @@ function gen_container(g: Gen): Expr :=
 // pattern that is no variable is matched, and the fold of a map takes key and value
 function fold_expr(form: Form, m: Id, targs: List[Type], g: Gen, c: Expr, body: Expr, base: Expr): Expr :=
   let fold := (if form == FList then "foldr" else "foldl"), acc := form_acc() in match g
-    case GEntries(k, v, _) =>
+    case GPair(k, v, _) =>
       let kx := formal_of(k, "(key)", key_type(targs)), vx := formal_of(v, "(value)", value_type(targs)) in form_app(m, fold, list(
         c,
         base,
         ELam(if fold == "foldr" then list(kx, vx, acc) else list(acc, kx, vx), matched(list((kx, k), (vx, v)), body))))
 
-    case GFor(p, _) if m == "map" =>
+    case GVal(p, _) if m == "map" =>
       let kx := Var(unqualified("(key)"), key_type(targs)), vx := Var(unqualified("(value)"), value_type(targs)) in form_app(m, fold, list(
         c,
         base,
         ELam(if fold == "foldr" then list(kx, vx, acc) else list(acc, kx, vx), EMatch(ETuple(list(EVar(kx), EVar(vx))), list(Branch("", p, None, body))))))
 
-    case GFor(p, _) =>
+    case GVal(p, _) =>
       let x := formal_of(p, "(element)", key_type(targs)) in form_app(m, fold, list(
         c,
         base,
@@ -2092,7 +2092,7 @@ procedure binders(
         assign p1 := PVar(Var(name, u)), xs := list(Var(name, u))
       end
 
-    case PApp(constr, pats) =>
+    case PApp(constr, args) =>
       match overloads(s, constr, lambda k => is_constr(s.sig, k))
         case list(k1) =>
           assign k := k1
@@ -2101,24 +2101,24 @@ procedure binders(
           raise UnknownConstructor(constr)
 
         case ks =>
-          call pattern_constructor(in constr, ks, size(pats), t, out k, ref s)
+          call pattern_constructor(in constr, ks, size(args), t, out k, ref s)
       end
       match constr_of(s.sig, k)
         case Some((ps, ks, r)) =>
-          call   same_length(in "constructor " ++ k.base, "arguments", size(ks), size(pats))
+          call   same_length(in "constructor " ++ k.base, "arguments", size(ks), size(args))
           call   instance(in ps, out m, ref s)
           call   unify(in subst(r, m), t, ref s)
-          call   binder_list(in pats, list(for kt in ks yield subst(kt, m)), out qs, xs, ref s)
+          call   binder_list(in args, list(for kt in ks yield subst(kt, m)), out qs, xs, ref s)
           assign p1 := PApp(k, qs)
 
         case None =>
           raise UnknownConstructor(constr)
       end
 
-    case PTuple(pats) =>
-      call   fresh_list(in pats, out ts, ref s)
+    case PTuple(args) =>
+      call   fresh_list(in args, out ts, ref s)
       call   unify(in TTuple(ts), t, ref s)
-      call   binder_list(in pats, ts, out qs, xs, ref s)
+      call   binder_list(in args, ts, out qs, xs, ref s)
       assign p1 := PTuple(qs)
   end
 
@@ -2234,15 +2234,15 @@ procedure statement(
   ref env: Env,
       s: State
 ) :=
-  local ys: List[Var], exprs: List[Expr], c: Expr, t: Type, u: Type, l: Stmt, r: Stmt, xs: List[Stmt], bs: List[Branch[Stmt]], hs: List[Handler], inner: Env, other: Env
+  local ys: List[Var], exprs: List[Expr], c: Expr, t: Type, u: Type, l: Stmt, r: Stmt, xs: List[Stmt], bs: List[Branch[Stmt]], hs: List[Catch], inner: Env, other: Env
   match x
     case SSkip =>
       assign y := x
 
-    case SAssign(assignments) =>
-      call   unique(in "assignment to", list(for x in firsts(assignments) yield x.name))
-      call   variables(in env, assignable, firsts(assignments), out ys, ref s)
-      call   checks(in env, "the assignment", seconds(assignments), list(for x in ys yield x.typ), out exprs, ref s)
+    case SAssign(upd) =>
+      call   unique(in "assignment to", list(for x in firsts(upd) yield x.name))
+      call   variables(in env, assignable, firsts(upd), out ys, ref s)
+      call   checks(in env, "the assignment", seconds(upd), list(for x in ys yield x.typ), out exprs, ref s)
       assign y := SAssign(zip(ys, exprs)), env := assigned(env, list(for x in ys yield x.name))
 
     // the types of locals that are initialized at the start of the block may be inferred
@@ -2253,11 +2253,11 @@ procedure statement(
       call   statements(in list(for x in ys yield x.name) ++ assignable, stmts, out xs, ref inner, s)
       assign y := SBlock(ys, xs), env := drop(size(ys), inner)
 
-    case SIf(cond, then_stmt, else_stmt) =>
+    case SIf(cond, left, right) =>
       call   check(in env, cond, type_bool(), out c, ref s)
       assign other := env
-      call   statement(in assignable, then_stmt, out l, ref env, s)
-      call   statement(in assignable, else_stmt, out r, ref other, s)
+      call   statement(in assignable, left, out l, ref env, s)
+      call   statement(in assignable, right, out r, ref other, s)
       assign y := SIf(c, l, r), env := joined(env, other)
 
     case SWhile(cond, body) =>
@@ -2272,8 +2272,8 @@ procedure statement(
       call   readables(in env, list(proc; list(for x in refs yield x.name)))
       assign env := assigned(env, list(for x in outs ++ refs yield x.name))
 
-    case SMatch(expr, cases) =>
-      call   infer(in env, expr, out c, t, ref s)
+    case SMatch(arg, cases) =>
+      call   infer(in env, arg, out c, t, ref s)
       call   stmt_branches(in assignable, cases, t, out bs, ref env, s)
       call   solve(ref s)
       call   coverage(in s, t, list(for br in bs yield case_of(br)))
@@ -2286,16 +2286,16 @@ procedure statement(
         assign env := unreachable(env)
       end
 
-    case SRaise(expr, typ) =>
-      call   infer(in env, expr, out c, t, ref s)
+    case SRaise(value, typ) =>
+      call   infer(in env, value, out c, t, ref s)
       call   normalize(in typ, out u, ref s)
       call   unify(in t, u, ref s)
       assign y := SRaise(c, t), env := unreachable(env)
 
-    case STry(body, handlers) =>
+    case STry(body, catches) =>
       assign other := env
       call   statement(in assignable, body, out l, ref env, s)
-      call   handler_list(in assignable, handlers, out hs, ref other, s)
+      call   handler_list(in assignable, catches, out hs, ref other, s)
       assign y := STry(l, hs), env := joined(env, other)
   end
 
@@ -2475,24 +2475,24 @@ procedure stmt_branches(
 // handlers start from the variables before the try, which an exception restores
 procedure handler_list(
   in  assignable: List[Name],
-      hs: List[Handler],
-  out hs1: List[Handler],
+      hs: List[Catch],
+  out hs1: List[Catch],
   ref env: Env,
       s: State
 ) :=
-  local u: Type, p1: Pat, xs: List[Var], g1: Option[Expr], b1: Stmt, rest: List[Handler], inner: Env
+  local u: Type, p1: Pat, xs: List[Var], g1: Option[Expr], b1: Stmt, rest: List[Catch], inner: Env
   match hs
     case list() =>
       assign hs1 := list(), env := unreachable(env)
 
-    case list(Handler(doc, typ, pat, g, body); more) =>
+    case list(Catch(doc, typ, pat, g, body); more) =>
       call   normalize(in typ, out u, ref s)
       call   pattern(in pat, u, out p1, xs, ref s)
       assign inner := bind(xs) ++ env
       call   guard(in inner, g, out g1, ref s)
       call   statement(in assignable -- list(for x in xs yield x.name), body, out b1, ref inner, s)
       call   handler_list(in assignable, more, out rest, ref env, s)
-      assign hs1 := list(Handler(doc, u, p1, g1, b1); rest), env := joined(drop(size(xs), inner), env)
+      assign hs1 := list(Catch(doc, u, p1, g1, b1); rest), env := joined(drop(size(xs), inner), env)
   end
 
 procedure declare_name(in sig: Sig, n: Name) :=

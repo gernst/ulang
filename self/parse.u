@@ -921,7 +921,7 @@ procedure parse_form(
   out expr: Expr,
   ref toks: Tokens
 ) :=
-  local form := FList, pos := head_pos(toks), elems: List[Elem], rest: Option[Expr], gens: List[Gen], elem: Elem
+  local form := FList, pos := head_pos(toks), elems: List[Yield], rest: Option[Expr], gens: List[Gen], elem: Yield
   match head_token(toks)
     case TKw(kw) =>
       assign form := value_or(form_of(kw), FList)
@@ -966,7 +966,7 @@ procedure parse_elem(
   in  notation: Notation,
       params: List[Id],
       form: Form,
-  out elem: Elem,
+  out elem: Yield,
   ref toks: Tokens
 ) :=
   local k: Expr, v: Expr
@@ -974,9 +974,9 @@ procedure parse_elem(
   if form == FMap then
     call   expect(in TKw("=>"), ref toks)
     call   parse_expr(in notation, params, out v, ref toks)
-    assign elem := Entry(k, v)
+    assign elem := YPair(k, v)
   else
-    assign elem := Elem(k)
+    assign elem := YVal(k)
   end
 
 // generators for p in c and for k => v in m, and guards if q, from left to right, starting with a generator
@@ -996,11 +996,11 @@ procedure parse_gens(
         call   parse_pattern(in notation, params, out v, ref toks)
         call   expect(in TKw("in"), ref toks)
         call   parse_expr(in notation, params, out c, ref toks)
-        assign found := found ++ list(GEntries(p, v, c))
+        assign found := found ++ list(GPair(p, v, c))
       else
         call   expect(in TKw("in"), ref toks)
         call   parse_expr(in notation, params, out c, ref toks)
-        assign found := found ++ list(GFor(p, c))
+        assign found := found ++ list(GVal(p, c))
       end
     else
       call   advance(ref toks)
@@ -1170,8 +1170,8 @@ function starts_stmt(tok: Token): Bool :=
       false
   end
 
-function handlers(cases: List[Branch[Stmt]]): List[Handler] :=
-  list(for Branch(doc, pat, guard, body) in cases yield Handler(doc, THole, pat, guard, body))
+function handlers(cases: List[Branch[Stmt]]): List[Catch] :=
+  list(for Branch(doc, pat, guard, body) in cases yield Catch(doc, THole, pat, guard, body))
 
 // the body of an if, while, case, or procedure, which may declare variables first
 // where local x := e initializes x by an assignment at the start of the block, in order, such that its type can be inferred
@@ -1224,16 +1224,16 @@ procedure parse_for(
   local pos := head_pos(toks), gens: List[Gen], q: Option[Expr] := None, pat: Pat, c: Expr, body: Stmt, guarded: Stmt, step: Stmt, items: Var, item: Var, rest: Var, branches: List[Branch[Stmt]], collect: Stmt, loop: Stmt
   call parse_gens(in notation, params, out gens, ref toks)
   match gens
-    case list(GFor(p, e)) =>
+    case list(GVal(p, e)) =>
       assign pat := p, c := e
 
-    case list(GFor(p, e), GIf(g)) =>
+    case list(GVal(p, e), GIf(g)) =>
       assign pat := p, c := e, q := Some(g)
 
-    case list(GEntries(k, v, e)) =>
+    case list(GPair(k, v, e)) =>
       assign pat := PTuple(list(k, v)), c := e
 
-    case list(GEntries(k, v, e), GIf(g)) =>
+    case list(GPair(k, v, e), GIf(g)) =>
       assign pat := PTuple(list(k, v)), c := e, q := Some(g)
 
     case _ =>
@@ -1256,7 +1256,7 @@ procedure parse_for(
     Branch("", pat_cons(pat, PVar(rest)), None, step),
     Branch("", pat_nil(), None, SSkip))
   assign collect := SAssign(list(
-    (items, EFor(FList, list(GFor(PVar(item), c)), Elem(EVar(item)), None))))
+    (items, EFor(FList, list(GVal(PVar(item), c)), YVal(EVar(item)), None))))
   assign loop := SWhile(expr_app("!=", list(EVar(items), expr_var("Nil"))), SMatch(EVar(items), branches))
   assign s := SBlock(list(items), list(collect, loop))
 
@@ -2091,15 +2091,15 @@ test parsed_operators() :=
 test parsed_forms() :=
   local expr: Expr, a := expr_var("a"), b := expr_var("b"), c := expr_var("c"), tail := PApp(unqualified("Cons"), list(PLit(LInt(-1)), PWild))
   call parsed(in "list(a, b; c)", out expr)
-  assert expr == EForm(FList, list(Elem(a), Elem(b)), Some(c))
+  assert expr == EForm(FList, list(YVal(a), YVal(b)), Some(c))
   call parsed(in "match a case list(x, -1; _) => x end", out expr)
   assert expr == EMatch(a, list(
     Branch("", PApp(unqualified("Cons"), list(pat_var("x"), tail)), None, expr_var("x"))))
   call parsed(in "set()", out expr)
   assert expr == EForm(FSet, list(), None)
   call parsed(in "map(a => b, a => c)", out expr)
-  assert expr == EForm(FMap, list(Entry(a, b), Entry(a, c)), None)
+  assert expr == EForm(FMap, list(YPair(a, b), YPair(a, c)), None)
   call parsed(in "array(for x in a if x yield b)", out expr)
-  assert expr == EFor(FArray, list(GFor(pat_var("x"), a), GIf(expr_var("x"))), Elem(b), None)
+  assert expr == EFor(FArray, list(GVal(pat_var("x"), a), GIf(expr_var("x"))), YVal(b), None)
   call parsed(in "map(for k => v in a)", out expr)
-  assert expr == EFor(FMap, list(GEntries(pat_var("k"), pat_var("v"), a)), Entry(expr_var("k"), expr_var("v")), None)
+  assert expr == EFor(FMap, list(GPair(pat_var("k"), pat_var("v"), a)), YPair(expr_var("k"), expr_var("v")), None)

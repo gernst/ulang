@@ -401,11 +401,11 @@ function pattern_tests(pat: Pat, v: CExpr): List[CExpr] :=
     case PLit(lit) =>
       list(c_call("u_equals", list(v, literal_value(lit))))
 
-    case PApp(constr, pats) =>
-      list(c_call("u_is_con", list(v, descriptor(constr)))) ++ field_tests(numbered(pats), v)
+    case PApp(constr, args) =>
+      list(c_call("u_is_con", list(v, descriptor(constr)))) ++ field_tests(numbered(args), v)
 
-    case PTuple(pats) =>
-      field_tests(numbered(pats), v)
+    case PTuple(args) =>
+      field_tests(numbered(args), v)
 
     case _ =>
       list()
@@ -420,11 +420,11 @@ function pattern_binds(pat: Pat, v: CExpr): List[CStmt] :=
     case PVar(Var(name, _)) =>
       list(CsDecl(value_type(), var_name(name), Some(v)))
 
-    case PApp(_, pats) =>
-      field_binds(numbered(pats), v)
+    case PApp(_, args) =>
+      field_binds(numbered(args), v)
 
-    case PTuple(pats) =>
-      field_binds(numbered(pats), v)
+    case PTuple(args) =>
+      field_binds(numbered(args), v)
 
     case _ =>
       list()
@@ -438,11 +438,11 @@ function pattern_names(pat: Pat): List[Name] :=
     case PVar(Var(name, _)) =>
       list(name)
 
-    case PApp(_, pats) =>
-      list(for q in pats for x in pattern_names(q) yield x)
+    case PApp(_, args) =>
+      list(for q in args for x in pattern_names(q) yield x)
 
-    case PTuple(pats) =>
-      list(for q in pats for x in pattern_names(q) yield x)
+    case PTuple(args) =>
+      list(for q in args for x in pattern_names(q) yield x)
 
     case _ =>
       list()
@@ -466,11 +466,11 @@ function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
     case EApp(fun, args) =>
       free_vars(fun, bound) ++ free_in_all(args, bound)
 
-    case EField(expr, _) =>
-      free_vars(expr, bound)
+    case EField(base, _) =>
+      free_vars(base, bound)
 
-    case EUpdate(expr, _, value) =>
-      free_vars(expr, bound) ++ free_vars(value, bound)
+    case EUpdate(base, _, value) =>
+      free_vars(base, bound) ++ free_vars(value, bound)
 
     case EForm(_, _, _) =>
       list()
@@ -490,14 +490,14 @@ function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
     case EIte(cond, then_expr, else_expr) =>
       free_vars(cond, bound) ++ free_vars(then_expr, bound) ++ free_vars(else_expr, bound)
 
-    case EMatch(expr, cases) =>
-      free_vars(expr, bound) ++ list(for b in cases for n in free_in_branch(b, bound) yield n)
+    case EMatch(arg, cases) =>
+      free_vars(arg, bound) ++ list(for b in cases for n in free_in_branch(b, bound) yield n)
 
-    case ETuple(exprs) =>
-      free_in_all(exprs, bound)
+    case ETuple(args) =>
+      free_in_all(args, bound)
 
-    case ERaise(expr, _) =>
-      free_vars(expr, bound)
+    case ERaise(value, _) =>
+      free_vars(value, bound)
   end
 
 // the variables of x that bound does not bind, including procedures called through variables
@@ -506,14 +506,14 @@ function free_in_stmt(x: Stmt, bound: List[Name]): List[Name] :=
     case SSkip =>
       list()
 
-    case SAssign(assignments) =>
-      unbound(var_names(firsts(assignments)), bound) ++ free_in_all(seconds(assignments), bound)
+    case SAssign(upd) =>
+      unbound(var_names(firsts(upd)), bound) ++ free_in_all(seconds(upd), bound)
 
     case SBlock(locals, stmts) =>
       list(for y in stmts for n in free_in_stmt(y, var_names(locals) ++ bound) yield n)
 
-    case SIf(cond, then_stmt, else_stmt) =>
-      free_vars(cond, bound) ++ free_in_stmt(then_stmt, bound) ++ free_in_stmt(else_stmt, bound)
+    case SIf(cond, left, right) =>
+      free_vars(cond, bound) ++ free_in_stmt(left, bound) ++ free_in_stmt(right, bound)
 
     case SWhile(cond, body) =>
       free_vars(cond, bound) ++ free_in_stmt(body, bound)
@@ -521,17 +521,17 @@ function free_in_stmt(x: Stmt, bound: List[Name]): List[Name] :=
     case SCall(proc, ins, outs, refs) =>
       unbound(list(proc; var_names(outs ++ refs)), bound) ++ free_in_all(ins, bound)
 
-    case SMatch(expr, cases) =>
-      free_vars(expr, bound) ++ list(for b in cases for n in free_in_stmt_branch(b, bound) yield n)
+    case SMatch(arg, cases) =>
+      free_vars(arg, bound) ++ list(for b in cases for n in free_in_stmt_branch(b, bound) yield n)
 
     case SAssert(cond) =>
       free_vars(cond, bound)
 
-    case SRaise(expr, _) =>
-      free_vars(expr, bound)
+    case SRaise(value, _) =>
+      free_vars(value, bound)
 
-    case STry(body, handlers) =>
-      free_in_stmt(body, bound) ++ list(for h in handlers for n in free_in_handler(h, bound) yield n)
+    case STry(body, catches) =>
+      free_in_stmt(body, bound) ++ list(for h in catches for n in free_in_handler(h, bound) yield n)
   end
 
 function free_in_stmt_branch(b: Branch[Stmt], bound: List[Name]): List[Name] :=
@@ -542,7 +542,7 @@ function free_in_stmt_branch(b: Branch[Stmt], bound: List[Name]): List[Name] :=
       free_in_stmt(body, pattern_names(pat) ++ bound)
   end
 
-function free_in_handler(h: Handler, bound: List[Name]): List[Name] :=
+function free_in_handler(h: Catch, bound: List[Name]): List[Name] :=
   let inner := pattern_names(h.pat) ++ bound in free_in_stmt(h.body, inner) ++ match h.guard
     case Some(g) =>
       free_vars(g, inner)
@@ -705,8 +705,8 @@ procedure compile_expr(
         CsIf(truth(rc), as ++ list(set_var(t, ra)), bs ++ list(set_var(t, rb))))
       assign r := CeVar(t)
 
-    case EMatch(expr, cases) =>
-      call   compile_expr(in defs, env, expr, out as, ra, ref g)
+    case EMatch(arg, cases) =>
+      call   compile_expr(in defs, env, arg, out as, ra, ref g)
       call   gen_name(in "s", out d, ref g)
       call   gen_name(in "t", out t, ref g)
       call   expr_cases(in defs, env, cases, CeVar(d), t, out bs, ref g)
@@ -717,13 +717,13 @@ procedure compile_expr(
         CsIf(CeUnary("!", CeVar(t)), list(CsExpr(c_call("u_no_case", list(CeVar(d))))), list()))
       assign r := CeVar(t)
 
-    case ETuple(exprs) =>
-      call   compile_exprs(in defs, env, exprs, out ss, rs, ref g)
-      assign r := c_call("u_mk_tuple", list(CeNum(size(exprs))) ++ rs)
+    case ETuple(args) =>
+      call   compile_exprs(in defs, env, args, out ss, rs, ref g)
+      assign r := c_call("u_mk_tuple", list(CeNum(size(args))) ++ rs)
 
     // the value of a raise is never used, since u_raise does not return
-    case ERaise(expr, typ) =>
-      call   compile_expr(in defs, env, expr, out as, ra, ref g)
+    case ERaise(value, typ) =>
+      call   compile_expr(in defs, env, value, out as, ra, ref g)
       assign ss := as ++ list(CsExpr(c_call("u_raise", list(ra, CeStr(type_key(typ)))))), r := CeVar("NULL")
   end
 
@@ -1197,19 +1197,19 @@ procedure compile_stmt(
     case SSkip =>
       assign ss := list()
 
-    case SAssign(assignments) =>
-      call   compile_exprs(in defs, env, seconds(assignments), out as, rs, ref g)
+    case SAssign(upd) =>
+      call   compile_exprs(in defs, env, seconds(upd), out as, rs, ref g)
       call   temps(in rs, out cs, ref g)
-      assign ss := as ++ cs ++ reassign(env, firsts(assignments), cs)
+      assign ss := as ++ cs ++ reassign(env, firsts(upd), cs)
 
     case SBlock(locals, stmts) =>
       call   compile_stmts(in defs, in_scope(var_names(locals)) ++ env, stmts, out bs, ref g)
       assign ss := list(CsBlock(null_decls(locals) ++ bs))
 
-    case SIf(cond, then_stmt, else_stmt) =>
+    case SIf(cond, left, right) =>
       call   compile_expr(in defs, env, cond, out cs, rc, ref g)
-      call   compile_stmt(in defs, env, then_stmt, out as, ref g)
-      call   compile_stmt(in defs, env, else_stmt, out bs, ref g)
+      call   compile_stmt(in defs, env, left, out as, ref g)
+      call   compile_stmt(in defs, env, right, out bs, ref g)
       assign ss := cs ++ list(CsIf(truth(rc), as, bs))
 
     case SWhile(cond, body) =>
@@ -1232,8 +1232,8 @@ procedure compile_stmt(
         assign ss := as ++ list(call_c(proc_name(proc), rs ++ ps))
       end
 
-    case SMatch(expr, cases) =>
-      call   compile_expr(in defs, env, expr, out as, ra, ref g)
+    case SMatch(arg, cases) =>
+      call   compile_expr(in defs, env, arg, out as, ra, ref g)
       call   gen_name(in "s", out d, ref g)
       call   gen_name(in "d", out t, ref g)
       call   stmt_cases(in defs, env, cases, CeVar(d), t, out bs, ref g)
@@ -1252,17 +1252,17 @@ procedure compile_stmt(
       assign ss := cs ++ list(CsExpr(c_call("u_assert_true", list(rc))))
 
     // exceptions carry their type, which handlers compare
-    case SRaise(expr, typ) =>
-      call   compile_expr(in defs, env, expr, out as, ra, ref g)
+    case SRaise(value, typ) =>
+      call   compile_expr(in defs, env, value, out as, ra, ref g)
       assign ss := as ++ list(CsExpr(c_call("u_raise", list(ra, CeStr(type_key(typ))))))
 
     // the body runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if none applies,
     // where the handlers start from the variables before the try, which their copies, unchanged since setjmp, restore
-    case STry(body, handlers) =>
+    case STry(body, catches) =>
       call   compile_stmt(in defs, env, body, out bs, ref g)
       call   gen_name(in "h", out d, ref g)
       call   gen_name(in "d", out t, ref g)
-      call   handler_cases(in defs, env, handlers, d, t, out cs, ref g)
+      call   handler_cases(in defs, env, catches, d, t, out cs, ref g)
       assign xs := list(for x in distinct(changed(body)) if get(x, env) != None)
       assign as := list(pop_handler(d)) ++ restore_vars(env, xs) ++ list(declare_int(t, 0))
       assign as := as ++ cs ++ list(CsIf(not_flag(t), list(call_c("u_reraise", list(CeVar(d)))), list()))
@@ -1277,14 +1277,14 @@ function saved_name(x: Name): Str :=
 // the variables that s assigns, directly or as outs and refs
 function changed(s: Stmt): List[Name] :=
   match s
-    case SAssign(assignments) =>
-      var_names(firsts(assignments))
+    case SAssign(upd) =>
+      var_names(firsts(upd))
 
     case SBlock(_, stmts) =>
       list(for y in stmts for n in changed(y) yield n)
 
-    case SIf(_, then_stmt, else_stmt) =>
-      changed(then_stmt) ++ changed(else_stmt)
+    case SIf(_, left, right) =>
+      changed(left) ++ changed(right)
 
     case SWhile(_, body) =>
       changed(body)
@@ -1295,8 +1295,8 @@ function changed(s: Stmt): List[Name] :=
     case SMatch(_, cases) =>
       list(for b in cases for n in changed(b.body) yield n)
 
-    case STry(b, handlers) =>
-      changed(b) ++ list(for h in handlers for n in changed(h.body) yield n)
+    case STry(b, catches) =>
+      changed(b) ++ list(for h in catches for n in changed(h.body) yield n)
 
     case _ =>
       list()
@@ -1330,7 +1330,7 @@ function reassign(env: Vars, xs: List[Var], ts: List[CStmt]): List[CStmt] :=
 procedure handler_cases(
   in  defs: Defs,
       env: Vars,
-      hs: List[Handler],
+      hs: List[Catch],
       h: Str,
       d: Str,
   out ss: List[CStmt],
@@ -1341,7 +1341,7 @@ procedure handler_cases(
     case list() =>
       assign ss := list()
 
-    case list(Handler(_, typ, pat, guard, s); more) =>
+    case list(Catch(_, typ, pat, guard, s); more) =>
       assign env1 := in_scope(pattern_names(pat)) ++ env
       call   compile_stmt(in defs, env1, s, out bs, ref g)
       assign body := list(CsAssign(CeVar(d), CeNum(1))) ++ bs

@@ -52,8 +52,8 @@ data Expr :=
   // f(a, …) of a function or constructor, or an operator of the notation, e.g. a + b, -a, or not a
   case EApp(fun: Expr, args: List[Expr])
   // e.f and e with f := a, which the checker resolves by the type of e to the accessor T.f and the updater T.f:=
-  case EField(expr: Expr, field: Id)
-  case EUpdate(expr: Expr, field: Id, value: Expr)
+  case EField(base: Expr, field: Id)
+  case EUpdate(base: Expr, field: Id, value: Expr)
   // lambda x, … => body, see lambda_patterns for formals that are patterns
   case ELam(formals: List[Var], body: Expr)
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
@@ -63,16 +63,16 @@ data Expr :=
   // if c then a else b
   case EIte(cond: Expr, then_expr: Expr, else_expr: Expr)
   // match e case p => a … end, one case per line, also of a let with patterns other than variables
-  case EMatch(expr: Expr, cases: List[Branch[Expr]])
+  case EMatch(arg: Expr, cases: List[Branch[Expr]])
   // a tuple (a, b, …)
-  case ETuple(exprs: List[Expr])
+  case ETuple(args: List[Expr])
   // raise e, of any type, which the checker infers into typ
-  case ERaise(expr: Expr, typ: Type)
+  case ERaise(value: Expr, typ: Type)
   // list(a, b; r), set(…), map(k => v; r), and array(…), which the checker translates to the builders of their modules
-  case EForm(form: Form, elems: List[Elem], rest: Option[Expr])
+  case EForm(form: Form, elems: List[Yield], rest: Option[Expr])
   // list(for p in c if q yield e; r) and the like, which the checker translates to the folds of the modules of the
   // containers, where elem is what each step adds, written after yield or else the value of the single generator
-  case EFor(form: Form, gens: List[Gen], elem: Elem, rest: Option[Expr])
+  case EFor(form: Form, gens: List[Gen], elem: Yield, rest: Option[Expr])
 
 data Form :=
   // the form list(…)
@@ -85,17 +85,17 @@ data Form :=
   case FArray
 
 // an element of a list, set, or array, or an entry k => v of a map
-data Elem :=
+data Yield :=
   // an element a
-  case Elem(expr: Expr)
+  case YVal(value: Expr)
   // an entry k => v
-  case Entry(key: Expr, value: Expr)
+  case YPair(key: Expr, value: Expr)
 
 data Gen :=
   // for p in c over a list, set, or array, where p is irrefutable
-  case GFor(pat: Pat, expr: Expr)
+  case GVal(pat: Pat, over: Expr)
   // for k => v in m over a map
-  case GEntries(key: Pat, value: Pat, expr: Expr)
+  case GPair(key: Pat, value: Pat, over: Expr)
   // a guard if q after a generator
   case GIf(cond: Expr)
 
@@ -107,9 +107,9 @@ data Pat :=
   // a variable x, which binds x
   case PVar(var: Var)
   // a constructor C(p, …) or C, where list(p, …; r) and list() are Cons and Nil
-  case PApp(constr: Name, pats: List[Pat])
+  case PApp(constr: Name, args: List[Pat])
   // a tuple (p, q, …)
-  case PTuple(pats: List[Pat])
+  case PTuple(args: List[Pat])
 
 data Branch[A] :=
   // case p if g => body of a match, where if g is optional
@@ -119,28 +119,28 @@ data Stmt :=
   // skip, also an else that is not written
   case SSkip
   // assign x := a, …, which assigns in parallel
-  case SAssign(assignments: List[Var * Expr])
+  case SAssign(upd: List[Var * Expr])
   // statements one after another, the body of an if, while, case, or procedure, which may declare local x := e first
   case SBlock(locals: List[Var], stmts: List[Stmt])
   // if c then … else … end, or if c then … end
-  case SIf(cond: Expr, then_stmt: Stmt, else_stmt: Stmt)
+  case SIf(cond: Expr, left: Stmt, right: Stmt)
   // while c do … end
   case SWhile(cond: Expr, body: Stmt)
   // call p(in a, …, out x, …, ref y, …), where in is optional before the first ins
   case SCall(proc: Name, ins: List[Expr], outs: List[Var], refs: List[Var])
   // match e case p => … end
-  case SMatch(expr: Expr, cases: List[Branch[Stmt]])
+  case SMatch(arg: Expr, cases: List[Branch[Stmt]])
   // assert c
   case SAssert(cond: Expr)
   // raise e, where typ is the type of e, which the checker infers
-  case SRaise(expr: Expr, typ: Type)
+  case SRaise(value: Expr, typ: Type)
   // try … catch case p => … end
-  case STry(body: Stmt, handlers: List[Handler])
+  case STry(body: Stmt, catches: List[Catch])
 
 // with the pattern PWild, a handler handles exceptions of any type
-data Handler :=
+data Catch :=
   // case p if g => body of a catch, where typ is THole until the checker infers it from p
-  case Handler(doc: Str, typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
+  case Catch(doc: Str, typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
 
 data Constr :=
   // case C(f: A, …) of a datatype, or case C without fields
@@ -220,7 +220,7 @@ function pat_var(n: Id): Pat
 
 function lambda_patterns(pats: List[Pat], body: Expr): Expr
 
-function implicit_elem(form: Form, gens: List[Gen]): Option[Elem]
+function implicit_elem(form: Form, gens: List[Gen]): Option[Yield]
 
 function form_name(form: Form): Id
 
@@ -321,8 +321,8 @@ function patterns_of_lambda(formals: List[Var], body: Expr): Option[List[Pat] * 
         case (_, list()) =>
           Some((list(pat), inner))
 
-        case (PTuple(pats), _) =>
-          Some((pats, inner))
+        case (PTuple(args), _) =>
+          Some((args, inner))
 
         case _ =>
           None
@@ -333,36 +333,36 @@ function patterns_of_lambda(formals: List[Var], body: Expr): Option[List[Pat] * 
   end
 
 // what a form of a single generator yields without yield, the value its pattern matches, an entry of a map
-function implicit_elem(form: Form, gens: List[Gen]): Option[Elem] :=
+function implicit_elem(form: Form, gens: List[Gen]): Option[Yield] :=
   match (list(for g in gens if not is_guard(g)), form)
-    case (list(GEntries(k, v, _)), FMap) =>
+    case (list(GPair(k, v, _)), FMap) =>
       pair_elem(pattern_expr(k), pattern_expr(v))
 
-    case (list(GEntries(k, v, _)), _) =>
+    case (list(GPair(k, v, _)), _) =>
       match (pattern_expr(k), pattern_expr(v))
         case (Some(a), Some(b)) =>
-          Some(Elem(ETuple(list(a, b))))
+          Some(YVal(ETuple(list(a, b))))
         case _ =>
           None
       end
 
-    case (list(GFor(PTuple(list(k, v)), _)), FMap) =>
+    case (list(GVal(PTuple(list(k, v)), _)), FMap) =>
       pair_elem(pattern_expr(k), pattern_expr(v))
 
-    case (list(GFor(_, _)), FMap) =>
+    case (list(GVal(_, _)), FMap) =>
       None
 
-    case (list(GFor(p, _)), _) =>
-      map_option(pattern_expr(p), Elem)
+    case (list(GVal(p, _)), _) =>
+      map_option(pattern_expr(p), YVal)
 
     case _ =>
       None
   end
 
-function pair_elem(k: Option[Expr], v: Option[Expr]): Option[Elem] :=
+function pair_elem(k: Option[Expr], v: Option[Expr]): Option[Yield] :=
   match (k, v)
     case (Some(a), Some(b)) =>
-      Some(Entry(a, b))
+      Some(YPair(a, b))
     case _ =>
       None
   end

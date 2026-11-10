@@ -291,11 +291,11 @@ function pattern_vars(pat: Pat): List[Name] :=
     case PVar(Var(name, _)) =>
       list(name)
 
-    case PApp(_, pats) =>
-      list(for q in pats for x in pattern_vars(q) yield x)
+    case PApp(_, args) =>
+      list(for q in args for x in pattern_vars(q) yield x)
 
-    case PTuple(pats) =>
-      list(for q in pats for x in pattern_vars(q) yield x)
+    case PTuple(args) =>
+      list(for q in args for x in pattern_vars(q) yield x)
 
     case _ =>
       list()
@@ -350,8 +350,8 @@ procedure evaluate(
         call evaluate(in run, env, else_expr, out v, ref cache)
       end
 
-    case EMatch(expr, cases) =>
-      call evaluate(in run, env, expr, out w, ref cache)
+    case EMatch(arg, cases) =>
+      call evaluate(in run, env, arg, out w, ref cache)
       call select(in run, env, w, cases, out sel, ref cache)
       match sel
         case Some((body, inner, _)) =>
@@ -363,12 +363,12 @@ procedure evaluate(
       end
 
     // tuples are objects of the constructor ,
-    case ETuple(exprs) =>
-      call   evaluate_all(in run, env, exprs, out vs, ref cache)
+    case ETuple(args) =>
+      call   evaluate_all(in run, env, args, out vs, ref cache)
       assign v := VObj(tuple_name(), vs)
 
-    case ERaise(expr, typ) =>
-      call evaluate(in run, env, expr, out v, ref cache)
+    case ERaise(value, typ) =>
+      call evaluate(in run, env, value, out v, ref cache)
       raise Thrown(v, typ)
   end
 
@@ -905,19 +905,19 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
       skip
 
     // the variables are assigned in parallel
-    case SAssign(assignments) =>
-      call   evaluate_all(in run, env, seconds(assignments), out vs, ref cache)
-      assign env := env ++ map(for (k, v) in zip(list(for x in firsts(assignments) yield x.name), vs))
+    case SAssign(upd) =>
+      call   evaluate_all(in run, env, seconds(upd), out vs, ref cache)
+      assign env := env ++ map(for (k, v) in zip(list(for x in firsts(upd) yield x.name), vs))
 
     case SBlock(locals, stmts) =>
       call scoped(in run, list(for x in locals yield x.name), env -- set(for x in locals yield x.name), stmts, ref env, cache)
 
-    case SIf(cond, then_stmt, else_stmt) =>
+    case SIf(cond, left, right) =>
       call evaluate(in run, env, cond, out v, ref cache)
       if truth(v) then
-        call exec(in run, then_stmt, ref env, cache)
+        call exec(in run, left, ref env, cache)
       else
-        call exec(in run, else_stmt, ref env, cache)
+        call exec(in run, right, ref env, cache)
       end
 
     case SWhile(cond, body) =>
@@ -938,8 +938,8 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
       end
       assign env := env ++ map(for (k, v) in zip(list(for x in outs yield x.name), vs))
 
-    case SMatch(expr, cases) =>
-      call evaluate(in run, env, expr, out v, ref cache)
+    case SMatch(arg, cases) =>
+      call evaluate(in run, env, arg, out v, ref cache)
       call select(in run, env, v, cases, out sel, ref cache)
       match sel
         case Some((body, inner, ns)) =>
@@ -967,16 +967,16 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
         raise AssertionFailed
       end
 
-    case SRaise(expr, typ) =>
-      call evaluate(in run, env, expr, out v, ref cache)
+    case SRaise(value, typ) =>
+      call evaluate(in run, env, value, out v, ref cache)
       raise Thrown(v, typ)
 
-    case STry(body, handlers) =>
+    case STry(body, catches) =>
       try
         call exec(in run, body, ref env, cache)
       catch
         case Thrown(value, typ) =>
-          call handle(in run, handlers, value, typ, ref env, cache)
+          call handle(in run, catches, value, typ, ref env, cache)
       end
   end
 
@@ -1075,7 +1075,7 @@ procedure holds(
 // the first handler of v of type t whose guard holds, where _ handles exceptions of any type, or else raises v again
 procedure handle(
   in  run: Run,
-      hs: List[Handler],
+      hs: List[Catch],
       v: Value,
       t: Type,
   ref env: Bindings,
@@ -1086,7 +1086,7 @@ procedure handle(
     case list() =>
       raise Thrown(v, t)
 
-    case list(Handler(_, _, PWild, guard, body); rest) =>
+    case list(Catch(_, _, PWild, guard, body); rest) =>
       call holds(in run, env, guard, out ok, ref cache)
       if ok then
         call exec(in run, body, ref env, cache)
@@ -1095,7 +1095,7 @@ procedure handle(
       end
 
     // the type is compared first, since the pattern and the guard assume it
-    case list(Handler(_, typ, pat, guard, body); rest) =>
+    case list(Catch(_, typ, pat, guard, body); rest) =>
       assign ok := false
       if typ == t then
         match match_into(pat, v, env)
@@ -1372,7 +1372,7 @@ test procedures() :=
         (Var(unqualified("m"), THole), expr_int(0)))),
       STry(SBlock(list(), list(
         SCall(unqualified("count"), list(), list(), list(Var(unqualified("k"), THole))))), list(
-        Handler("", THole, PApp(unqualified("Fail"), list(pat_var("j"))), None, SBlock(list(), list(SAssign(list((Var(unqualified("m"), THole), expr_var("j"))))))))),
+        Catch("", THole, PApp(unqualified("Fail"), list(pat_var("j"))), None, SBlock(list(), list(SAssign(list((Var(unqualified("m"), THole), expr_var("j"))))))))),
       equals("k", 1),
       equals("m", 2))))))
 
@@ -1444,7 +1444,7 @@ test handler_types() :=
   try
     call check_and_run(in list(
       CTest("t", list(), STry(SRaise(ELit(LStr("x")), THole), list(
-        Handler("", THole, pat_var("k"), Some(expr_app("<", list(expr_var("k"), expr_int(2)))), SSkip))))))
+        Catch("", THole, pat_var("k"), Some(expr_app("<", list(expr_var("k"), expr_int(2)))), SSkip))))))
     assert false
   catch
     case Uncaught(text) =>
