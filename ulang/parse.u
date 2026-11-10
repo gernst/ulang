@@ -2,12 +2,8 @@
 // where notation apply to the commands after them, and imports inline the declarations of modules,
 // read from the directory of the importing file or from the root of the project, or else from the library
 
-import "buffer.u"
 import "lex.u"
-import "map.u"
 import "notation.u"
-import "os.u"
-import "set.u"
 import "syntax.u"
 
 export

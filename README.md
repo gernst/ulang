@@ -7,8 +7,6 @@ The first implementation, an interpreter in Scala 3, is on the branch `scala-bas
 This program sorts numbers by inserting them into a search tree:
 
 ```
-import "os.u"
-
 data Tree[A] :=
   case Leaf
   case Node(left: Tree[A], key: A, right: Tree[A])
@@ -59,9 +57,9 @@ test sorting() :=
   Builtins raise `DivisionByZero`, `OutOfBounds`, and `NoCharacter`, whereas a failed `assert` ends the program.
 - Unbounded integers, characters, which are Unicode code points, and strings of them, which files hold as UTF-8.
 - Programs read their arguments with `os_args`, files with `os_read` and `os_write`, and print strings with `os_print`, all of the module `os`, where the builtin `show` gives the text of any value, which a datatype may declare for itself by a function `show`.
-- The forms `list(1, 2)`, `set(a, b)`, `map(k => v)`, and `array(a, b)`, and their generators `list(for x in xs if x > 0 yield x * x)`, `set(for x in c yield f(x))`, `map(for k => v in m yield k => f(v))`, which range over lists, sets, arrays, or maps by their folds, where sets, maps, and arrays need `import "set.u"`, `import "map.u"`, and `import "array.u"`, and `==` compares their elements and entries; and the statement `for x in xs if p do … end`, which runs its body for the elements of any container.
+- The forms `list(1, 2)`, `set(a, b)`, `map(k => v)`, and `array(a, b)`, and their generators `list(for x in xs if x > 0 yield x * x)`, `set(for x in c yield f(x))`, `map(for k => v in m yield k => f(v))`, which range over lists, sets, arrays, or maps by their folds, and `==` compares their elements and entries; and the statement `for x in xs if p do … end`, which runs its body for the elements of any container.
 - User-defined operators by `infix`, `prefix`, and `postfix` notations.
-- Modules: `import "name.u"` makes the declarations of the module `name` of a file available, but not transitively.
+- Modules: `import "name.u"` makes the declarations of the module `name` of a file available, but not transitively, while every module sees the whole library without imports.
 - Named tests `test name() := …`, whose parameters are reserved for later and must be empty, while programs start at a procedure without parameters, like `procedure main() := …`.
 
 The library in `prelude/` contains the prelude with natural numbers, options, and lists, as well as maps, sets, and access to files.

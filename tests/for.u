@@ -1,8 +1,5 @@
 // for p in c if q do … end runs its body for the elements of a container in the order of its fold
 
-import "map.u"
-import "set.u"
-
 test lists() :=
   local sum := 0, seen: List[Int] := list()
   for x in list(1, 2, 3) do

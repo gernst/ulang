@@ -7,8 +7,6 @@
 import "builtins.u"
 import "defs.u"
 import "format.u"
-import "map.u"
-import "set.u"
 import "sig.u"
 import "syntax.u"
 

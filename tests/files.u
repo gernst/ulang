@@ -1,5 +1,3 @@
-import "os.u"
-
 test files() :=
   local t: Str, entries: List[Str * Bool]
   call os_write(in "out/files/a.txt", "line\n\"quoted\"\n")

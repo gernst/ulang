@@ -1,7 +1,5 @@
 // [a, b; xs] is notation for Cons(a, Cons(b, xs)), and [a, b] for Cons(a, Cons(b, Nil))
 
-import "option.u"
-
 export
 
 data List[A] :=

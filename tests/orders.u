@@ -3,8 +3,6 @@
 // and the shows that datatypes declare
 
 import "fractions.u"
-import "map.u"
-import "set.u"
 
 // sets of the same elements, built in different orders, which have different trees
 function ab(): Set[Int] :=
