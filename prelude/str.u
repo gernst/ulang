@@ -4,9 +4,6 @@
 // which every module imports implicitly after list, so that list.u cannot use it, where the builtin section declares the
 // functions that the interpreter and the runtime define
 
-import "list.u"
-import "option.u"
-
 export
 
 // the character as an option, which is None out of range

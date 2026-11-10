@@ -3,9 +3,6 @@
 // that the interpreter and the runtime define, which order arrays by their elements and then by their size, as lists, and
 // show them as |a, b|, where |a, b| and |e for x in c if q| are the arrays of the list or of the comprehension
 
-import "list.u"
-import "option.u"
-
 export
 
 // the element as an option, which is None out of range, and whether x is an element

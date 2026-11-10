@@ -261,7 +261,12 @@ function placed_of(d: Mod): List[Top]
 
 function commands_of(tops: List[Top]): List[Cmd]
 
+// the modules that module name imports without saying so: for a module of a project the whole library, and for a module of
+// the library those before it in library_modules, so that every module sees the library without importing it
 function implicit_imports(name: Id): List[Id]
+
+// the modules of the library, each after those it uses
+function library_modules(): List[Id]
 
 // the directory of a module of a project from its root, "" for the root and for the library, whose modules have no /
 function module_dir(id: Id): Str
@@ -304,8 +309,6 @@ function placed_of(d: Mod): List[Top] :=
 function commands_of(tops: List[Top]): List[Cmd] :=
   list(for top in tops yield top.cmd)
 
-// the modules that module name imports without saying so, from the library: the prelude and the modules that every module
-// sees with it, where each of these imports those before it
 function module_dir(id: Id): Str :=
   match reverse(split(id, '/'))
     case list(_; dirs) =>
@@ -315,7 +318,10 @@ function module_dir(id: Id): Str :=
   end
 
 function implicit_imports(name: Id): List[Id] :=
-  implicit_before(name, list("prelude", "option", "list", "str"))
+  implicit_before(name, library_modules())
+
+function library_modules(): List[Id] :=
+  list("prelude", "option", "list", "str", "set", "map", "array", "buffer", "os")
 
 function implicit_before(name: Id, core: List[Id]): List[Id] :=
   match core

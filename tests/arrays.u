@@ -1,9 +1,6 @@
 // arrays of array.u: built from lists, literals array(a, b), and comprehensions array(for x in c if q yield e), read by index, changed
 // by copying, folded, and comprehended through their folds, ordered as lists of their elements, and shown as literals
 
-import "array.u"
-import "set.u"
-
 data Color :=
   case Red
   case Green

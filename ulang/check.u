@@ -7,8 +7,6 @@
 import "builtins.u"
 import "defs.u"
 import "format.u"
-import "map.u"
-import "set.u"
 import "sig.u"
 import "syntax.u"
 
@@ -33,8 +31,6 @@ data TypeError :=
   case UnknownFieldOwner(field: Id)
   // a container of a generator whose type, which chooses the folds, is not known at the generator
   case UnknownContainer(typ: Type)
-  // set(…), map(…), and array(…) build by the module of their name, which the module must import
-  case FormImport(imported: Id)
   case CountMismatch(owner: Str, unit: Str, expected: Int, actual: Int)
   case UnknownConstructor(name: Name)
   case NotExhaustive(pat: Pat)
@@ -1438,15 +1434,12 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
     // forms as the builders of the module of their name, and their generators as the folds of the modules of the
     // containers, which the checked program keeps
     case EForm(form, elems, rest) =>
-      call form_import(in form, s)
       call infer(in env, form_expr(form, elems, rest), out res, typ, ref s)
 
     case EFor(FArray, gens, elem, None) =>
-      call form_import(in FArray, s)
       call infer(in env, ECall(Name(Some("array"), "from_list"), THole, list(EFor(FList, gens, elem, None))), out res, typ, ref s)
 
     case EFor(form, list(), elem, rest) =>
-      call form_import(in form, s)
       call infer(in env, step_expr(form, elem, base_expr(form, rest)), out res, typ, ref s)
 
     case EFor(form, list(GIf(cond); more), elem, rest) =>
@@ -1454,14 +1447,6 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
 
     case EFor(form, list(g; more), elem, rest) =>
       call generator(in env, form, g, more, elem, rest, out res, typ, ref s)
-  end
-
-procedure form_import(in form: Form, s: State) :=
-  match form_module(form)
-    case Some(m) if not contains(m, s.visible) =>
-      raise FormImport(m)
-    case _ =>
-      skip
   end
 
 // the fold of the module of the type of the container of generator g, which must be known after the container, applied to
@@ -1492,21 +1477,6 @@ procedure generator(
       assign e1 := EApp(f, list(c; args))
     case _ =>
       assign e1 := f1
-  end
-
-function form_module(form: Form): Option[Id] :=
-  match form
-    case FList =>
-      None
-
-    case FSet =>
-      Some("set")
-
-    case FMap =>
-      Some("map")
-
-    case FArray =>
-      Some("array")
   end
 
 function form_app(m: Id, f: Id, args: List[Expr]): Expr :=

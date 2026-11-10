@@ -1,7 +1,6 @@
 // the notation of operators: the precedences of prefix and postfix operators, and the fixities and precedences of infix
 // ones, by the notation commands in effect
 
-import "map.u"
 import "syntax.u"
 
 export

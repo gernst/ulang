@@ -1,8 +1,6 @@
 // maps from keys to values as AVL trees, ordered by compare, where the heights of the subtrees of each node
 // differ by at most one, such that get and put take logarithmic time
 
-import "set.u"
-
 export
 
 type Map[K, V]

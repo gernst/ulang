@@ -2,12 +2,8 @@
 // where notation apply to the commands after them, and imports inline the declarations of modules,
 // read from the directory of the importing file or from the root of the project, or else from the library
 
-import "buffer.u"
 import "lex.u"
-import "map.u"
 import "notation.u"
-import "os.u"
-import "set.u"
 import "syntax.u"
 
 export
@@ -20,8 +16,7 @@ data ParseError :=
 // the modules of the file at path, in load order, each after the modules it imports, with the module of the file last,
 // where a module of a project is known by its path from the root without .u, the root being the nearest directory above
 // it with project.u, else its own directory, and a module of the library by its name; import "f.u" reads f.u of the
-// directory of the importing file, or else the library, import "p/f.u" the file from the root, and implicit imports the
-// library
+// directory of the importing file, import "p/f.u" the file from the root, and implicit imports the library
 procedure parse_file(in path: Str, out source: Source)
 
 procedure parse_file_text(in path: Str, text: Str, out source: Source)
@@ -1757,8 +1752,8 @@ procedure import_notation(
 
 // the module id of import name, as parse_import gives it, loaded into mods, the modules loaded so far in load order, unless
 // it is loaded already, after the modules it imports, where root is the root of the project, dir the directory of the
-// importing file from the root, or None for the library, whose files hide the library, and loading are the modules being
-// parsed; a project module is known by its path from the root without .u, a library module by its name
+// importing file from the root, or None for the library, and loading are the modules being parsed; a project module is
+// known by its path from the root without .u, and the library is imported only implicitly, by import_library
 procedure import_module(
   in  name: Str,
       root: Str,
@@ -1768,41 +1763,31 @@ procedure import_module(
   out id: Id,
   ref mods: List[Mod]
 ) :=
-  local text: Str, sibling: Id
-  if contains('/', name) then
-    assign id := name
-    if loaded_mod(id, mods) == None then
-      try
-        call os_read(in os_join(root, id ++ ".u"), out text)
-      catch
-        case OsError(_) =>
-          raise ParseError("unknown module " ++ id, pos)
-      end
-      call load_module(in id, text, root, Some(module_dir(id)), loading, pos, ref mods)
-    end
-  else
-    match dir
-      case Some(d) =>
-        assign sibling := module_id(d, name)
-        if loaded_mod(sibling, mods) == None then
-          try
-            call   os_read(in os_join(root, sibling ++ ".u"), out text)
-            assign id := sibling
-            call   load_module(in id, text, root, dir, loading, pos, ref mods)
-          catch
-            case OsError(_) =>
-              assign id := name
-              call   import_library(in name, root, loading, pos, ref mods)
-          end
-        else
-          assign id := sibling
-        end
-
-      case None =>
-        assign id := name
-        call   import_library(in name, root, loading, pos, ref mods)
-    end
+  local text: Str
+  match (contains('/', name), dir)
+    case (true, _) =>
+      assign id := name
+    case (false, Some(d)) =>
+      assign id := module_id(d, name)
+    case (false, None) =>
+      raise ParseError(unknown_module(name), pos)
   end
+  if loaded_mod(id, mods) == None then
+    try
+      call os_read(in os_join(root, id ++ ".u"), out text)
+    catch
+      case OsError(_) =>
+        raise ParseError(unknown_module(name), pos)
+    end
+    call load_module(in id, text, root, Some(module_dir(id)), loading, pos, ref mods)
+  end
+
+// the message of an import of name that names no file
+function unknown_module(name: Str): Str :=
+  if contains(name, library_modules()) then
+    "import of the library module " ++ name ++ ", which every module sees without importing it"
+  else
+    "unknown module " ++ name
 
 procedure import_library(
   in  name: Id,
@@ -1821,16 +1806,9 @@ procedure import_library(
 function module_id(dir: Str, name: Str): Id :=
   if dir == "" then name else dir ++ "/" ++ name
 
-procedure import_all(
-  in  names: List[Id],
-      root: Str,
-      dir: Option[Str],
-      loading: List[Id],
-  ref mods: List[Mod]
-) :=
-  local id: Id
+procedure import_all(in names: List[Id], root: Str, loading: List[Id], ref mods: List[Mod]) :=
   for name in names do
-    call import_module(in name, root, dir, loading, Pos(1, 1), out id, ref mods)
+    call import_library(in name, root, loading, Pos(1, 1), ref mods)
   end
 
 procedure import_notations(
@@ -1871,7 +1849,7 @@ procedure parse_mod(
     case None =>
       skip
   end
-  call import_all(in implicit, root, None, loading, ref mods)
+  call import_all(in implicit, root, loading, ref mods)
   call import_notations(in implicit, mods, ref notation)
   while head_token(toks) != TEnd do
     assign doc := ""
@@ -2046,7 +2024,7 @@ procedure parse_file_text(in path: Str, text: Str, out source: Source) :=
 procedure load_modules(in path: Str, names: List[Id], ref source: Source) :=
   local mods := source.mods, place: Place
   call   place_of(in path, out place)
-  call   import_all(in names, place.root, place.dir, list(), ref mods)
+  call   import_all(in names, place.root, list(), ref mods)
   assign source := source with mods := mods
 
 procedure parse_file(in path: Str, out source: Source) :=
@@ -2166,7 +2144,7 @@ test parsed_docs_of_modules_and_constructors() :=
   assert list(for top in d.implemented yield top.doc) == list("the function")
   call parse_text(in "// the function\nfunction f(): Int := 1\n", out d)
   assert d.doc == "" and list(for top in d.implemented yield top.doc) == list("the function")
-  call parse_text(in "// the module\nimport \"set.u\"\n", out d)
+  call parse_text(in "// the module\nexport\n", out d)
   assert d.doc == "the module"
   call parse_text(in "data T :=\n  // first\n  // line\n  case A\n  case B(x: Int)\n\n" ++ then_f, out d)
   match d.implemented

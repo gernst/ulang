@@ -2,7 +2,6 @@
 // ulang/compile.u look them up, with the declared orders, equalities, and shows of its datatypes
 
 import "builtins.u"
-import "map.u"
 import "syntax.u"
 
 export

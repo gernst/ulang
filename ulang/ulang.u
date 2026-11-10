@@ -2,13 +2,10 @@
 // compile, which translates a file to C, whose main calls the procedure entry, or runs all tests for the entry test,
 // and format, which prints a file as format_program of format.u does
 
-import "buffer.u"
 import "check.u"
 import "compile.u"
 import "error.u"
 import "format.u"
-import "map.u"
-import "os.u"
 import "parse.u"
 import "run.u"
 import "sig.u"
@@ -491,9 +488,6 @@ function type_message(e: TypeError): Str :=
 
     case UnknownContainer(typ) =>
       container_message(typ)
-
-    case FormImport(m) =>
-      m ++ "(...) needs import \"" ++ m ++ ".u\""
 
     case CountMismatch(owner, unit, k, actual) =>
       count_message(owner, unit, k, actual)

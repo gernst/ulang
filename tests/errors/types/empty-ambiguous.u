@@ -1,7 +1,4 @@
-// type error: empty is ambiguous: set.empty: () -> Set[A], map.empty: () -> Map[K, V] at 6.1
-
-import "map.u"
-import "set.u"
+// type error: empty is ambiguous: set.empty: () -> Set[A], map.empty: () -> Map[K, V], buffer.empty: () -> Buffer[A] at 3.1
 
 test unknown_type() :=
   assert size(empty()) == 0
