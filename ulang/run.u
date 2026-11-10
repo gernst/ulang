@@ -131,13 +131,13 @@ type Bindings :=
 
 // the position of constructor k in its declaration, which orders values of different constructors
 function position_of(run: Run, k: Name): Int :=
-  value_or(map_option(get(k, run.defs.constrs), lambda (_, i, _) => i), 0)
+  value_or(map_option(get(k, run.defs.constrs), lambda constr => constr.position), 0)
 
 // the function of the map fs, by datatype, that orders, equates, or shows the values of the datatype of constructor k
 function declared_for(run: Run, k: Name, fs: Map[Name, Name]): Option[Name] :=
   match get(k, run.defs.constrs)
-    case Some((_, _, t)) =>
-      get(t, fs)
+    case Some(constr) =>
+      get(constr.datatype, fs)
     case None =>
       None
   end
@@ -405,8 +405,8 @@ function variable_value(run: Run, env: Bindings, n: Name, t: Type): Value :=
 
         case None =>
           match get(n, run.defs.constrs)
-            case Some((k, _, _)) =>
-              if k == 0 then VObj(n, list()) else VCon(n)
+            case Some(constr) =>
+              if constr.arity == 0 then VObj(n, list()) else VCon(n)
 
             case None if contains(n, run.defs.procs) =>
               VProc(n)
@@ -467,11 +467,12 @@ procedure apply_value(
 
     case VFun(name, arity) =>
       match get((name, arity), run.defs.funs)
-        case Some((list(), body)) =>
-          call cached(in run, name, body, out v, ref cache)
-
-        case Some((formals, body)) =>
-          call evaluate(in run, bind_all(formals, vs, empty()), body, out v, ref cache)
+        case Some(fun) =>
+          if fun.formals == list() then
+            call cached(in run, name, fun.body, out v, ref cache)
+          else
+            call evaluate(in run, bind_all(fun.formals, vs, empty()), fun.body, out v, ref cache)
+          end
 
         case None =>
           match get((name, arity), run.defs.fields)
@@ -1126,8 +1127,8 @@ procedure invoke(
       cache: Map[Name, Value]
 ) :=
   match get(n, run.defs.procs)
-    case Some((xs, ys, zs, body)) =>
-      call run_body(in run, n, empty(), xs, ys, zs, body, ins, refs, out outs, ref env, cache)
+    case Some(proc) =>
+      call run_body(in run, n, empty(), proc.ins, proc.outs, proc.refs, proc.stmt, ins, refs, out outs, ref env, cache)
 
     case None if format_name(n) == "os.os_print" =>
       assign outs := list()

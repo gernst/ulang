@@ -11,6 +11,7 @@ import "map.u"
 import "os.u"
 import "parse.u"
 import "run.u"
+import "sig.u"
 import "syntax.u"
 
 data TestFailed :=
@@ -426,12 +427,10 @@ function located_message(e: TypeError): Str :=
   end
 
 // a candidate of an ambiguous name with its type, if known, which tells overloads of one module apart
-function candidate_text(c: Name * (List[Type] * Type)): Str :=
+function candidate_text(c: Name * Scheme): Str :=
   match c
-    case (m, (_, THole)) =>
-      format_name(m)
-    case (m, (_, t)) =>
-      format_name(m) ++ ": " ++ format_type(t)
+    case (m, sc) =>
+      if sc.typ == THole then format_name(m) else format_name(m) ++ ": " ++ format_type(sc.typ)
   end
 
 function container_message(typ: Type): Str :=

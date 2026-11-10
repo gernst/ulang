@@ -508,38 +508,42 @@ function merge_lin(ctx: Ctx, d: Lin, fuel: Int): Ctx :=
 
     case Lin(k, terms) =>
       match greatest_unit(ctx.decls, terms, None)
-        case Some((t, n)) =>
-          let rest := lin_sub(d, Lin(0, list((t, n)))) in add_pair(ctx, t, sum_expr(if n == 1 then lin_scale(-1, rest) else rest), fuel)
+        case Some(unit) =>
+          let rest := lin_sub(d, Lin(0, list(unit))) in add_pair(ctx, unit.expr, sum_expr(if unit.factor == 1 then lin_scale(-1, rest) else rest), fuel)
         case None =>
-          let g := gcd_all(terms) in if k % g != 0 then contradiction(ctx) else add_pair(ctx, sum_expr(Lin(0, list(for p in terms yield (first(p), second(p) / g)))), int_expr(0 - k / g), fuel)
+          let g := gcd_all(terms) in if k % g != 0 then contradiction(ctx) else add_pair(ctx, sum_expr(Lin(0, divided(terms, g))), int_expr(0 - k / g), fuel)
       end
   end
 
-function greatest_unit(decls: Decls, ts: List[Expr * Int], best: Option[Expr * Int]): Option[Expr * Int] :=
-  match ts
+function greatest_unit(decls: Decls, terms: List[Term], best: Option[Term]): Option[Term] :=
+  match terms
     case list() =>
       best
 
-    case list((t, n); rest) =>
-      if n != 1 and n != -1 then greatest_unit(decls, rest, best) else match best
-        case Some((u, _)) if not greater(decls, t, u) =>
+    case list(term; rest) =>
+      if term.factor != 1 and term.factor != -1 then greatest_unit(decls, rest, best) else match best
+        case Some(other) if not greater(decls, term.expr, other.expr) =>
           greatest_unit(decls, rest, best)
         case _ =>
-          greatest_unit(decls, rest, Some((t, n)))
+          greatest_unit(decls, rest, Some(term))
       end
   end
 
-function gcd_all(ts: List[Expr * Int]): Int :=
-  match ts
+function gcd_all(terms: List[Term]): Int :=
+  match terms
     case list() =>
       0
-    case list((_, n); rest) =>
-      gcd(n, gcd_all(rest))
+    case list(term; rest) =>
+      gcd(term.factor, gcd_all(rest))
   end
+
+// the terms with their factors divided by g, which divides them all
+function divided(terms: List[Term], g: Int): List[Term] :=
+  list(for term in terms yield term with factor := term.factor / g)
 
 // the context with the atom l solved to r, where the equations and inequalities that mention l are solved again
 function add_pair(ctx: Ctx, l: Expr, r: Expr, fuel: Int): Ctx :=
-  let old := list(for x in ctx.eqs) in let changed := list(for p in old if occurs(l, first(p)) or occurs(l, second(p))) in let eqs := remove_keys(changed, ctx.eqs) in let base := ctx with eqs := put(l, r, eqs), ineqs := list() in let next := remerge(base, list(for p in changed yield (replace(l, r, first(p)), replace(l, r, second(p)))), fuel - 1) in readd_ineqs(next, ctx.ineqs)
+  let changed := list(for a => b in ctx.eqs if occurs(l, a) or occurs(l, b)) in let eqs := remove_keys(changed, ctx.eqs) in let base := ctx with eqs := put(l, r, eqs), ineqs := list() in let next := remerge(base, list(for (a, b) in changed yield (replace(l, r, a), replace(l, r, b))), fuel - 1) in readd_ineqs(next, ctx.ineqs)
 
 function remove_keys(ps: List[Expr * Expr], eqs: Map[Expr, Expr]): Map[Expr, Expr] :=
   match ps
@@ -569,14 +573,14 @@ function floor_div(a: Int, b: Int): Int :=
   if a >= 0 then a / b else 0 - (0 - a + b - 1) / b
 
 function tighten(t: Lin): Lin :=
-  let g := gcd_all(t.terms) in if g <= 1 then t else Lin(floor_div(t.k, g), list(for p in t.terms yield (first(p), second(p) / g)))
+  let g := gcd_all(t.terms) in if g <= 1 then t else Lin(floor_div(t.k, g), divided(t.terms, g))
 
 // t < 0, that is -t - 1 >= 0
 function negated(t: Lin): Lin :=
   lin_add(lin_scale(-1, t), Lin(-1, list()))
 
 function coefficient(x: Expr, t: Lin): Int :=
-  match list(for p in t.terms if first(p) == x yield second(p))
+  match list(for term in t.terms if term.expr == x yield term.factor)
     case list(n; _) =>
       n
     case list() =>
@@ -589,7 +593,7 @@ function fm_unsat(cs: List[Lin], fuel: Int): Bool :=
     case list() =>
       false
     case list(c; more) =>
-      if fuel <= 0 or size(more) > 60 then false else let rest := list(c; more), x := first(at(0, c.terms)) in let pos := list(for t in rest if coefficient(x, t) > 0), neg := list(for t in rest if coefficient(x, t) < 0) in let none := list(for t in rest if coefficient(x, t) == 0) in fm_unsat(none ++ list(for p in pos for n in neg yield combine(x, p, n)), fuel - 1)
+      if fuel <= 0 or size(more) > 60 then false else let rest := list(c; more), x := at(0, c.terms).expr in let pos := list(for t in rest if coefficient(x, t) > 0), neg := list(for t in rest if coefficient(x, t) < 0) in let none := list(for t in rest if coefficient(x, t) == 0) in fm_unsat(none ++ list(for p in pos for n in neg yield combine(x, p, n)), fuel - 1)
   end
 
 function combine(x: Expr, p: Lin, n: Lin): Lin :=
@@ -601,13 +605,13 @@ function entailed(ctx: Ctx, t: Lin): Bool :=
 // the instances of rules p < q without conditions, for the atoms of t and of the inequalities, with a single atom
 // p - q that binds all variables of the rule
 function bounds(ctx: Ctx, t: Lin): List[Lin] :=
-  let atoms := list(for p in t.terms yield first(p)) ++ list(for l in ctx.ineqs for p in l.terms yield first(p)) in list(for a in atoms for r in ctx.rules for b in bound_of(r, a) yield b)
+  let atoms := list(for term in t.terms yield term.expr) ++ list(for l in ctx.ineqs for term in l.terms yield term.expr) in list(for a in atoms for r in ctx.rules for b in bound_of(r, a) yield b)
 
 function bound_of(r: Rule, a: Expr): List[Lin] :=
   match (r.conds, r.lhs, r.rhs)
     case (list(), EApp(EFun(Name(None, "<")), list(p, q)), EConst(VBool(bool))) =>
       match lin_sub(lin_of(p), lin_of(q))
-        case Lin(_, list((atom, _))) =>
+        case Lin(_, list(Term(atom, _))) =>
           match match_term(size(r.vars), atom, a, empty())
             case Some(sub) =>
               let n := size(r.vars) in let args := list(for i in range(0, n) yield lookup_index(n - 1 - i, sub)) in let d := lin_sub(lin_of(beta(args, q)), lin_of(beta(args, p))) in if bool then list(lin_add(d, Lin(-1, list()))) else list(lin_scale(-1, d))
@@ -679,12 +683,12 @@ function simp_expr(ctx: Ctx, e: Expr): Expr :=
       e
   end
 
-function simp_terms(ctx: Ctx, ts: List[Expr * Int], acc: Lin): Lin :=
-  match ts
+function simp_terms(ctx: Ctx, terms: List[Term], acc: Lin): Lin :=
+  match terms
     case list() =>
       acc
-    case list((t, n); rest) =>
-      simp_terms(ctx, rest, lin_add(acc, lin_scale(n, lin_of(simp_expr(ctx, t)))))
+    case list(term; rest) =>
+      simp_terms(ctx, rest, lin_add(acc, lin_scale(term.factor, lin_of(simp_expr(ctx, term.expr)))))
   end
 
 function simp_ite(c: Expr, a: Expr, b: Expr): Expr :=
@@ -951,7 +955,7 @@ function match_term(n: Int, p: Expr, t: Expr, sub: Map[Int, Expr]): Option[Map[I
       match_terms(n, list(f; ps), list(g; ts), sub)
 
     case (ESum(k, ps), ESum(m, ts)) if k == m and size(ps) == size(ts) =>
-      if list(for q in ps yield second(q)) == list(for q in ts yield second(q)) then match_terms(n, list(for q in ps yield first(q)), list(for q in ts yield first(q)), sub) else None
+      if list(for q in ps yield q.factor) == list(for q in ts yield q.factor) then match_terms(n, list(for q in ps yield q.expr), list(for q in ts yield q.expr), sub) else None
 
     case _ =>
       if p == t then Some(sub) else None
@@ -1040,7 +1044,7 @@ function candidate(decls: Decls, e: Expr): Option[Split] :=
       first_of(list(for a in list(fun; args) yield candidate(decls, a)))
 
     case ESum(_, terms) =>
-      first_of(list(for p in terms yield candidate(decls, first(p))))
+      first_of(list(for term in terms yield candidate(decls, term.expr)))
 
     case _ =>
       None

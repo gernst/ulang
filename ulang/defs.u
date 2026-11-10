@@ -7,12 +7,20 @@ import "syntax.u"
 
 export
 
-// constrs has the number of arguments of a constructor, its position in its declaration, which orders values, and its
-// datatype, see order_of, and fields has for the accessor T.f, of one argument, and the updater T.f:=, of two, of each
-// field f of a datatype T, the position of f in each constructor of T, in the order of their declaration, or -1 for a
-// constructor without f
+data FunDef :=
+  case FunDef(formals: List[Var], body: Expr)
+
+data ProcDef :=
+  case ProcDef(ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
+
+// a constructor of datatype with arity fields, at position in its declaration, which orders values, see order_of
+data ConstrDef :=
+  case ConstrDef(arity: Int, position: Int, datatype: Name)
+
+// fields has for the accessor T.f, of one argument, and the updater T.f:=, of two, of each field f of a datatype T, the
+// position of f in each constructor of T, in the order of their declaration, or -1 for a constructor without f
 data Defs :=
-  case Defs(funs: Map[Name * Int, List[Var] * Expr], procs: Map[Name, List[Var] * List[Var] * List[Var] * Stmt], constrs: Map[Name, Int * Int * Name], fields: Map[Name * Int, List[Int]], orders: Map[Name, Name], equalities: Map[Name, Name], shows: Map[Name, Name])
+  case Defs(funs: Map[Name * Int, FunDef], procs: Map[Name, ProcDef], constrs: Map[Name, ConstrDef], fields: Map[Name * Int, List[Int]], orders: Map[Name, Name], equalities: Map[Name, Name], shows: Map[Name, Name])
 
 function defs_of(q: Prog): Defs
 
@@ -36,31 +44,31 @@ function defs_of(q: Prog): Defs :=
   Defs(map(for (k, v) in fun_defs(q.cmds)), map(for (k, v) in proc_defs(q.cmds)), map(for (k, v) in constr_defs(q.cmds)), map(for (k, v) in field_defs(q.cmds)), map(for (k, v) in ordered_by(q.cmds, "compare")), map(for (k, v) in ordered_by(q.cmds, "==")), map(for (k, v) in ordered_by(q.cmds, "show")))
 
 // functions are overloaded by their number of arguments
-function fun_defs(cmds: List[Cmd]): List[(Name * Int) * (List[Var] * Expr)] :=
+function fun_defs(cmds: List[Cmd]): List[(Name * Int) * FunDef] :=
   match cmds
     case list() =>
       list()
 
     case list(CFun(name, _, formals, _, body); rest) =>
-      list(((name, size(formals)), (formals, body)); fun_defs(rest))
+      list(((name, size(formals)), FunDef(formals, body)); fun_defs(rest))
 
     case list(_; rest) =>
       fun_defs(rest)
   end
 
-function proc_defs(cmds: List[Cmd]): List[Name * (List[Var] * List[Var] * List[Var] * Stmt)] :=
+function proc_defs(cmds: List[Cmd]): List[Name * ProcDef] :=
   match cmds
     case list() =>
       list()
 
     case list(CProc(name, _, ins, outs, refs, stmt); rest) =>
-      list((name, (ins, outs, refs, stmt)); proc_defs(rest))
+      list((name, ProcDef(ins, outs, refs, stmt)); proc_defs(rest))
 
     case list(_; rest) =>
       proc_defs(rest)
   end
 
-function constr_defs(cmds: List[Cmd]): List[Name * (Int * Int * Name)] :=
+function constr_defs(cmds: List[Cmd]): List[Name * ConstrDef] :=
   match cmds
     case list() =>
       list()
@@ -72,12 +80,12 @@ function constr_defs(cmds: List[Cmd]): List[Name * (Int * Int * Name)] :=
       constr_defs(rest)
   end
 
-function constrs_from(t: Name, ks: List[Constr], i: Int): List[Name * (Int * Int * Name)] :=
+function constrs_from(t: Name, ks: List[Constr], i: Int): List[Name * ConstrDef] :=
   match ks
     case list() =>
       list()
     case list(Constr(_, name, fields); rest) =>
-      list((name, (size(fields), i, t)); constrs_from(t, rest, i + 1))
+      list((name, ConstrDef(size(fields), i, t)); constrs_from(t, rest, i + 1))
   end
 
 function field_defs(cmds: List[Cmd]): List[(Name * Int) * List[Int]] :=

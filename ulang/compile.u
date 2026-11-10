@@ -324,31 +324,14 @@ function is_global_fun(defs: Defs, n: Name, k: Int): Bool :=
   contains((n, k), defs.funs)
 
 function fields_count(defs: Defs, n: Name): Option[Int] :=
-  match get(n, defs.constrs)
-    case Some((k, _, _)) =>
-      Some(k)
-    case None =>
-      None
-  end
+  map_option(get(n, defs.constrs), lambda constr => constr.arity)
 
 // the procedures with their numbers of ins and of outs and refs
 function proc_arities(defs: Defs): List[Name * (Int * Int)] :=
-  list(for n => d in defs.procs yield (n, proc_arity(d)))
-
-function proc_arity(d: List[Var] * List[Var] * List[Var] * Stmt): Int * Int :=
-  match d
-    case (ins, outs, refs, _) =>
-      (size(ins), size(outs) + size(refs))
-  end
+  list(for n => proc in defs.procs yield (n, (size(proc.ins), size(proc.outs) + size(proc.refs))))
 
 function constr_arities(defs: Defs): List[Name * Int] :=
-  list(for n => d in defs.constrs yield (n, constr_arity(d)))
-
-function constr_arity(d: Int * Int * Name): Int :=
-  match d
-    case (k, _, _) =>
-      k
-  end
+  list(for n => constr in defs.constrs yield (n, constr.arity))
 
 function index(a: Str, i: Int): CExpr :=
   CeIndex(CeVar(a), CeNum(i))
