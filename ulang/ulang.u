@@ -492,9 +492,6 @@ function type_message(e: TypeError): Str :=
     case UnknownContainer(typ) =>
       container_message(typ)
 
-    case FormImport(m) =>
-      m ++ "(...) needs import \"" ++ m ++ ".u\""
-
     case CountMismatch(owner, unit, k, actual) =>
       count_message(owner, unit, k, actual)
 
