@@ -50,6 +50,8 @@ data TypeError :=
   case PartlyExported(name: Name)
   case PrivateType(name: Name, sort: Name)
   case VisibleEquality(sort: Name)
+  // show, compare, or == of other values than those of a datatype of its module, see order_of of defs.u
+  case MisshapenHook(name: Name)
   case UnexportedOrder(fun: Name, sort: Name)
   // an error of the command at the position of an imported module, or of the main module for None
   case Located(module: Option[Id], pos: Pos, error: TypeError)
@@ -345,14 +347,19 @@ function constructor_of(sig: Sig, k: Name): List[Type] * Type :=
       (list(), TTuple(list()))
   end
 
-// the meanings of n with their names, where local variables hide functions, constructors, and builtins
+// the meanings of n with their names, where local variables hide functions, constructors, and builtins, and declared hooks
+// are no candidates, since the builtins reach them through the type of their arguments
 function candidates(s: State, env: Env, n: Name): List[Name * (List[Type] * Type)] :=
   match get(n, env)
     case Some(l) =>
       list((n, l.scheme))
     case None =>
-      list(for f in overloads(s, n, lambda f => is_fun(s.sig, f)) for sc in schemes_of(s.sig, f) yield (f, sc)) ++ list(for k in overloads(s, n, lambda k => is_constr(s.sig, k)) yield (k, constructor_of(s.sig, k))) ++ list(for p in overloads(s, n, lambda p => is_proc(s.sig, p)) yield (p, proc_scheme(s.sig, p))) ++ list(for sc in builtin_schemes(n) yield (n, sc))
+      list(for f in overloads(s, n, lambda f => is_fun(s.sig, f)) for sc in schemes_of(s.sig, f) if not is_hook(f, arity(second(sc))) yield (f, sc)) ++ list(for k in overloads(s, n, lambda k => is_constr(s.sig, k)) yield (k, constructor_of(s.sig, k))) ++ list(for p in overloads(s, n, lambda p => is_proc(s.sig, p)) yield (p, proc_scheme(s.sig, p))) ++ list(for sc in builtin_schemes(n) yield (n, sc))
   end
+
+// f with k arguments is the order, the equality, or the text of the values of a datatype, see order_of of defs.u
+function is_hook(f: Name, k: Int): Bool :=
+  f.base == "show" and k == 1 or (f.base == "compare" or f.base == "==") and k == 2
 
 // a procedure is a value of its type (in A, out B, ref C)
 function proc_scheme(sig: Sig, p: Name): List[Type] * Type :=
@@ -1249,12 +1256,8 @@ procedure choose(
   out m: Name,
   ref s: State
 ) :=
-  local ok: List[(Name * (List[Type] * Type)) * State], best: List[(Name * (List[Type] * Type)) * State]
+  local ok: List[(Name * (List[Type] * Type)) * State]
   call trials(in cs, w, s, out ok)
-  if size(ok) > 1 and known_type(s.sub, w) then
-    call   decide(in ok, w, s, out best)
-    assign ok := best
-  end
   match ok
     case list() =>
       raise NoOverload(n, zonk_type(s.sub, w))
@@ -1304,17 +1307,13 @@ procedure solve(ref s: State) :=
   end
 
 procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
-  local ok: List[(Name * (List[Type] * Type)) * State], best: List[(Name * (List[Type] * Type)) * State]
+  local ok: List[(Name * (List[Type] * Type)) * State]
   match ps
     case list() =>
       skip
 
     case list(p; rest) =>
       call trials(in p.cands, p.typ, s, out ok)
-      if size(ok) > 1 and known_type(s.sub, p.typ) then
-        call   decide(in ok, p.typ, s, out best)
-        assign ok := best
-      end
       match ok
         case list() =>
           raise NoOverload(p.name, zonk_type(s.sub, p.typ))
@@ -1332,166 +1331,16 @@ procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
       call revisit(in rest, ref changed, s)
   end
 
-// all uses decided at the end of a command, by the preferences of decide among the candidates that fit, and else by the one
-// candidate after which the other open uses can still be decided, e.g. empty and put of map literals {k => v} when set and
-// array are imported as well, where only the empty and the put of map fit together
+// the uses of a command, each of which must be decided by its types alone, so that a use means the one candidate that fits
+// it, whatever the order in which the uses are solved
 procedure settle(ref s: State) :=
-  local ok: List[(Name * (List[Type] * Type)) * State], best: List[(Name * (List[Type] * Type)) * State], states: List[State]
   call solve(ref s)
-  while s.pending != list() do
-    match s.pending
-      case list(p; rest) =>
-        call trials(in p.cands, p.typ, s, out ok)
-        call decide(in ok, p.typ, s, out best)
-        match best
-          case list(((m, _), s1)) =>
-            assign s := s1 with pending := rest, chosen := put(p.id, m, s1.chosen)
-            call   solve(ref s)
-
-          case _ =>
-            call viable(in best, p, rest, out states)
-            match states
-              case list(s2) =>
-                assign s := s2
-              case _ =>
-                raise Ambiguous(p.name, p.cands)
-            end
-        end
-
-      case list() =>
-        skip
-    end
-  end
-
-// the states after choosing each candidate of the use p, of those after which every open use of rest has a candidate that fits
-procedure viable(
-  in  cands: List[(Name * (List[Type] * Type)) * State],
-      p: Pending,
-      rest: List[Pending],
-  out states: List[State]
-) :=
-  local t: State, failed: Bool
-  assign states := list()
-  for ((m, _), s1) in cands do
-    assign t := s1 with pending := rest, chosen := put(p.id, m, s1.chosen)
-    assign failed := false
-    try
-      call solve(ref t)
-    catch
-      case NoOverload(_, _) =>
-        assign failed := true
-    end
-    if not failed then
-      assign states := states ++ list(t)
-    end
-  end
-
-// the types of a use without unknowns, for which the candidates that fit stay the same
-function known_type(su: Subst, t: Type): Bool :=
-  list(for m in free(zonk_type(su, t)) if is_meta(m)) == list()
-
-// among several candidates that fit w, the most specific, which is an instance of all others, if the type of the use
-// is known, and the most general otherwise, of which all others are instances, such that builtins like == serve
-// when no declaration for a type fits, and else the one declared by the module itself, or all if none of these is unique
-procedure decide(
-  in  ok: List[(Name * (List[Type] * Type)) * State],
-      w: Type,
-      s: State,
-  out picked: List[(Name * (List[Type] * Type)) * State]
-) :=
-  local best: List[(Name * (List[Type] * Type)) * State]
-  call most(in ok, ok, known_type(s.sub, w), s, out best)
-  match (best, own_fits(s, ok))
-    case (list(b), _) =>
-      assign picked := list(b)
-
-    case (_, list(o)) =>
-      assign picked := list(o)
-
-    case _ =>
-      assign picked := ok
-  end
-
-function own_fits(s: State, ok: List[(Name * (List[Type] * Type)) * State]): List[(Name * (List[Type] * Type)) * State] :=
-  list(for ((n, sc), u) in ok if n.module == Some(s.module))
-
-// the candidates of cs that are instances of all of all, if specific, or of which all of all are instances
-procedure most(
-  in  cs: List[(Name * (List[Type] * Type)) * State],
-      all: List[(Name * (List[Type] * Type)) * State],
-      specific: Bool,
-      s: State,
-  out best: List[(Name * (List[Type] * Type)) * State]
-) :=
-  local yes: Bool
-  assign best := list()
-  for c in cs do
-    call dominates(in first(c), firsts(all), specific, s, out yes)
-    if yes then
-      assign best := best ++ list(c)
-    end
-  end
-
-procedure dominates(
-  in  c: Name * (List[Type] * Type),
-      ds: List[Name * (List[Type] * Type)],
-      specific: Bool,
-      s: State,
-  out yes: Bool
-) :=
-  local related: Bool
-  match ds
+  match s.pending
+    case list(p; _) =>
+      raise Ambiguous(p.name, p.cands)
     case list() =>
-      assign yes := true
-
-    case list(d; rest) =>
-      if d == c then
-        call dominates(in c, rest, specific, s, out yes)
-      else
-        call related_to(in c, d, specific, s, out related)
-        if related then
-          call dominates(in c, rest, specific, s, out yes)
-        else
-          assign yes := false
-        end
-      end
+      skip
   end
-
-// c is an instance of d, if specific, or else d of c
-procedure related_to(
-  in  c: Name * (List[Type] * Type),
-      d: Name * (List[Type] * Type),
-      specific: Bool,
-      s: State,
-  out yes: Bool
-) :=
-  if specific then
-    call instance_of(in c, d, s, out yes)
-  else
-    call instance_of(in d, c, s, out yes)
-  end
-
-// the type of c, with its parameters fixed, is an instance of the scheme of d
-procedure instance_of(
-  in  c: Name * (List[Type] * Type),
-      d: Name * (List[Type] * Type),
-      s: State,
-  out yes: Bool
-) :=
-  local u := s, failed: Option[TypeError] := None
-  match (c, d)
-    case ((_, (_, t)), (_, sc)) =>
-      try
-        call trial(in sc, t, ref u)
-      catch
-        case e =>
-          assign failed := Some(e)
-      end
-  end
-  assign yes := failed == None
-
-function own[A](s: State, cs: List[Name * A]): List[Name * A] :=
-  list(for (n, a) in cs if n.module == Some(s.module))
 
 procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
   local sc: List[Type] * Type, m: Name, x: Var, xs: List[Var], ys: List[Var], zs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, w: Type, exprs: List[Expr], ts: List[Type], bs: List[Branch[Expr]], y: Stmt, inner: Env
@@ -2138,15 +1987,12 @@ procedure pattern_constructor(
     call solve(ref s)
     call trials(in results(s.sig, ks, k), t, s, out ok)
   end
-  match (ok, own(s, firsts(ok)))
-    case (list(((c1, _), _)), _) =>
+  match ok
+    case list(((c1, _), _)) =>
       assign c := c1
 
-    case (list(), _) =>
+    case list() =>
       raise NoOverload(n, zonk_type(s.sub, t))
-
-    case (_, list((c1, _))) =>
-      assign c := c1
 
     case _ =>
       raise Ambiguous(n, firsts(ok))
@@ -2729,6 +2575,9 @@ procedure check_orders(
       match (c, order_of(c))
         case (_, Some(("==", t))) if not contains(t, abstract) =>
           raise VisibleEquality(t)
+
+        case (CFun(name, _, formals, _, _), None) if is_hook(name, size(formals)) =>
+          raise MisshapenHook(name)
 
         case (CFun(name, _, _, _, _), Some((_, t))) if contains(name, hidden) and not contains(t, hidden_sorts) =>
           raise UnexportedOrder(name, t)
@@ -3396,13 +3245,14 @@ test fields() :=
       assert false
   end
 
-// compare of bags is that of bag, while == and compare of other types, also of type parameters, are the builtins
+// compare and == are the builtins, also of bags, whose compare of bag the builtin reaches through the type, and of type
+// parameters
 test builtins() :=
   local b: Expr
   call body_of(in fun_cmd("f", list(), type_int(), expr_app("compare", list(expr_app("Bag", list(expr_int(1))), expr_app("Bag", list(expr_int(2)))))), out b)
   match b
     case EApp(EVar(Var(name, _)), _) =>
-      assert name == in_bag("compare")
+      assert name == unqualified("compare")
     case _ =>
       assert false
   end

@@ -1,5 +1,4 @@
-// a module for tests/modules.u, which declares a next of its own, while tests/exported.u has a private helper of the same
-// name and type
+// a module for tests/modules.u, where tests/exported.u has a private helper of the same name and type
 
 export
 

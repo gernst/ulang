@@ -1,0 +1,9 @@
+// type error: helper is ambiguous: left.helper: Int -> Int, own-name.helper: Int -> Int at 8.1
+
+import "left.u"
+
+function helper(n: Int): Int :=
+  n + 2
+
+test r() :=
+  assert helper(1) == 3

@@ -1,5 +1,5 @@
 // modules are loaded once, and their notations apply after their import, and each module sees its own declarations, its
-// direct imports, and the prelude, where its own declarations hide those of other modules; with export sections,
+// direct imports, and the prelude, where its own declarations do not hide those of other modules; with export sections,
 // importers see the exported declarations with the notations, but not the private ones, whose names may repeat in other
 // modules, and abstract types are compared only through their modules, where comparing a type whose module declares no
 // order raises Unordered, and comparing one without an equality either raises Incomparable
@@ -23,13 +23,6 @@ data Pair :=
 
 function pair(a: Int, b: Int): Pair :=
   Pair(a, b)
-
-// hides next of counter, which has the same type
-function next(n: Int): Int :=
-  n + 2
-
-test own_names() :=
-  assert next(1) == 3
 
 test imported_notations() :=
   assert top(2 <+ 1 <+ Empty) == Some(2)
