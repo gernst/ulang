@@ -571,10 +571,10 @@ function zonk_pat(s: State, pat: Pat): Pat :=
       pat
   end
 
-function zonk_stmt(s: State, x: Stmt): Stmt :=
-  match x
+function zonk_stmt(s: State, stmt: Stmt): Stmt :=
+  match stmt
     case SSkip =>
-      x
+      stmt
 
     case SAssign(upd) =>
       SAssign(list(for p in upd yield zonk_binding(s, p)))
@@ -636,8 +636,8 @@ function unknown_type(t: Type): Option[Type] :=
   if free(t) == list() then None else Some(t)
 
 // the type of an exception that is not known, also of those raised in expressions
-function unknown_in(x: Stmt): Option[Type] :=
-  match x
+function unknown_in(stmt: Stmt): Option[Type] :=
+  match stmt
     case SAssign(upd) =>
       unknown_in_exprs(seconds(upd))
 
@@ -1124,7 +1124,7 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
       end
 
     case TSort(name, args) =>
-      match visible_names(s, name, lambda t => is_sort(s.sig, t))
+      match visible_names(s, name, lambda n => is_sort(s.sig, n))
         case list(m) =>
           call normalize_sort(in m, args, out u, ref s)
 
@@ -1342,31 +1342,31 @@ procedure settle(ref s: State) :=
       skip
   end
 
-procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
-  local sc: List[Type] * Type, m: Name, x: Var, xs: List[Var], ys: List[Var], zs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, w: Type, exprs: List[Expr], ts: List[Type], bs: List[Branch[Expr]], y: Stmt, inner: Env
+procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State) :=
+  local sc: List[Type] * Type, m: Name, z: Var, xs: List[Var], ys: List[Var], zs: List[Var], b: Expr, c: Expr, l: Expr, u: Type, w: Type, exprs: List[Expr], ts: List[Type], bs: List[Branch[Expr]], y: Stmt, inner: Env
   match expr
     case ELit(lit) =>
-      assign e1 := expr, t := literal(lit)
+      assign res := expr, typ := literal(lit)
 
     case EVar(Var(name, a)) =>
       call   normalize(in a, out w, ref s)
-      call   use_name(in name, candidates(s, env, name), w, out x, ref s)
+      call   use_name(in name, candidates(s, env, name), w, out z, ref s)
       call   readable(in env, name)
-      assign e1 := EVar(x), t := x.typ
+      assign res := EVar(z), typ := z.typ
 
     case EApp(fun, args) =>
-      call application(in env, fun, args, out e1, t, ref s)
+      call application(in env, fun, args, out res, typ, ref s)
 
     case EField(base, field) =>
-      call field_access(in env, "." ++ field, base, list(), out e1, t, ref s)
+      call field_access(in env, "." ++ field, base, list(), out res, typ, ref s)
 
     case EUpdate(base, field, value) =>
-      call field_access(in env, "." ++ field ++ ":=", base, list(value), out e1, t, ref s)
+      call field_access(in env, "." ++ field ++ ":=", base, list(value), out res, typ, ref s)
 
     case ELam(bound, body) =>
       call   formals(in "formal", bound, out xs, ref s)
       call   infer(in bind(xs) ++ env, body, out b, u, ref s)
-      assign e1 := ELam(xs, b), t := TFun(list(for x in xs yield x.typ), u)
+      assign res := ELam(xs, b), typ := TFun(list(for x in xs yield x.typ), u)
 
     // the body sees the variables around it, but assigns only the outs and refs of the lambda
     case EProc(ins, outs, refs, stmt) =>
@@ -1377,60 +1377,60 @@ procedure infer(in env: Env, expr: Expr, out e1: Expr, t: Type, ref s: State) :=
       assign inner := bind(xs) ++ unassigned(ys) ++ bind(zs) ++ env
       call   statement(in list(for x in ys ++ zs yield x.name), stmt, out y, ref inner, s)
       call   outputs(in unqualified("lambda"), ys, inner)
-      assign e1 := EProc(xs, ys, zs, y), t := TProc(list(for x in xs yield x.typ), list(for x in ys yield x.typ), list(for x in zs yield x.typ))
+      assign res := EProc(xs, ys, zs, y), typ := TProc(list(for x in xs yield x.typ), list(for x in ys yield x.typ), list(for x in zs yield x.typ))
 
     case ELet(bound, body) =>
       call   formals(in "binding", firsts(bound), out xs, ref s)
       call   checks(in env, "the bindings", seconds(bound), list(for x in xs yield x.typ), out exprs, ref s)
       call   solve(ref s)
       call   infer(in generalized(s, env, xs) ++ env, body, out b, u, ref s)
-      assign e1 := ELet(zip(xs, exprs), b), t := u
+      assign res := ELet(zip(xs, exprs), b), typ := u
 
     case EIte(cond, then_expr, else_expr) =>
       call   check(in env, cond, type_bool(), out c, ref s)
       call   infer(in env, then_expr, out l, u, ref s)
       call   check(in env, else_expr, u, out b, ref s)
-      assign e1 := EIte(c, l, b), t := u
+      assign res := EIte(c, l, b), typ := u
 
     case ETuple(items) =>
       call   infers(in env, items, out exprs, ts, ref s)
-      assign e1 := ETuple(exprs), t := TTuple(ts)
+      assign res := ETuple(exprs), typ := TTuple(ts)
 
     // the exception, whose type must be known after checking, and the expression of any type
-    case ERaise(value, typ) =>
+    case ERaise(value, raised) =>
       call   infer(in env, value, out c, u, ref s)
-      call   normalize(in typ, out w, ref s)
+      call   normalize(in raised, out w, ref s)
       call   unify(in u, w, ref s)
-      call   fresh(out t, ref s)
-      assign e1 := ERaise(c, u)
+      call   fresh(out typ, ref s)
+      assign res := ERaise(c, u)
 
     case EMatch(arg, cases) =>
-      call   fresh(out t, ref s)
+      call   fresh(out typ, ref s)
       call   infer(in env, arg, out c, u, ref s)
-      call   expr_branches(in env, cases, u, t, out bs, ref s)
+      call   expr_branches(in env, cases, u, typ, out bs, ref s)
       call   solve(ref s)
       call   coverage(in s, u, list(for br in bs yield case_of(br)))
-      assign e1 := EMatch(c, bs)
+      assign res := EMatch(c, bs)
 
     // forms as the builders of the module of their name, and their generators as the folds of the modules of the
     // containers, which the checked program keeps
     case EForm(form, elems, rest) =>
       call form_import(in form, s)
-      call infer(in env, form_expr(form, elems, rest), out e1, t, ref s)
+      call infer(in env, form_expr(form, elems, rest), out res, typ, ref s)
 
     case EFor(FArray, gens, elem, None) =>
       call form_import(in FArray, s)
-      call infer(in env, EApp(EVar(Var(Name(Some("array"), "from_list"), THole)), list(EFor(FList, gens, elem, None))), out e1, t, ref s)
+      call infer(in env, EApp(EVar(Var(Name(Some("array"), "from_list"), THole)), list(EFor(FList, gens, elem, None))), out res, typ, ref s)
 
     case EFor(form, list(), elem, rest) =>
       call form_import(in form, s)
-      call infer(in env, step_expr(form, elem, base_expr(form, rest)), out e1, t, ref s)
+      call infer(in env, step_expr(form, elem, base_expr(form, rest)), out res, typ, ref s)
 
     case EFor(form, list(GIf(cond); more), elem, rest) =>
-      call infer(in env, EIte(cond, EFor(form, more, elem, rest), base_expr(form, rest)), out e1, t, ref s)
+      call infer(in env, EIte(cond, EFor(form, more, elem, rest), base_expr(form, rest)), out res, typ, ref s)
 
     case EFor(form, list(g; more), elem, rest) =>
-      call generator(in env, form, g, more, elem, rest, out e1, t, ref s)
+      call generator(in env, form, g, more, elem, rest, out res, typ, ref s)
   end
 
 procedure form_import(in form: Form, s: State) :=
@@ -1758,12 +1758,12 @@ function is_lambda(e: Expr): Bool :=
 procedure infers_lambdas(
   in  env: Env,
       exprs: List[Expr],
-      ts: List[Type],
-  ref es1: List[Expr],
+      types: List[Type],
+  ref res: List[Expr],
       s: State
 ) :=
   local found: List[Expr] := list(), e2: Expr
-  for ((e, e1), t) in zip(zip(exprs, es1), ts) do
+  for ((e, e1), t) in zip(zip(exprs, res), types) do
     if is_lambda(e) then
       call infer_lambda(in env, e, t, out e2, ref s)
     else
@@ -1771,7 +1771,7 @@ procedure infers_lambdas(
     end
     assign found := found ++ list(e2)
   end
-  assign es1 := found
+  assign res := found
 
 procedure infer_lambda(
   in  env: Env,
@@ -1933,7 +1933,7 @@ procedure binders(
       assign p1 := pat, xs := list()
 
     case PVar(Var(name, typ)) =>
-      if overloads(s, name, lambda k => is_constr(s.sig, k)) != list() then
+      if overloads(s, name, lambda n => is_constr(s.sig, n)) != list() then
         call binders(in PApp(name, list()), t, out p1, xs, ref s)
       else
         call   normalize(in typ, out u, ref s)
@@ -1942,7 +1942,7 @@ procedure binders(
       end
 
     case PApp(constr, args) =>
-      match overloads(s, constr, lambda k => is_constr(s.sig, k))
+      match overloads(s, constr, lambda n => is_constr(s.sig, n))
         case list(k1) =>
           assign k := k1
 
@@ -2075,15 +2075,15 @@ procedure variables(
 // env tells which variables are assigned on every path to x, and after it
 procedure statement(
   in  assignable: List[Name],
-      x: Stmt,
+      stmt: Stmt,
   out y: Stmt,
   ref env: Env,
       s: State
 ) :=
   local ys: List[Var], exprs: List[Expr], c: Expr, t: Type, u: Type, l: Stmt, r: Stmt, xs: List[Stmt], bs: List[Branch[Stmt]], hs: List[Catch], inner: Env, other: Env
-  match x
+  match stmt
     case SSkip =>
-      assign y := x
+      assign y := stmt
 
     case SAssign(upd) =>
       call   unique(in "assignment to", list(for x in firsts(upd) yield x.name))
@@ -2174,11 +2174,11 @@ procedure statements(
   ref env: Env,
       s: State
 ) :=
-  local y: Stmt
+  local stmt: Stmt
   assign ys := list()
   for x in xs do
-    call   statement(in assignable, x, out y, ref env, s)
-    assign ys := ys ++ list(y)
+    call   statement(in assignable, x, out stmt, ref env, s)
+    assign ys := ys ++ list(stmt)
   end
 
 // the procedures of the program hide the builtin ones
@@ -2190,14 +2190,14 @@ procedure call_proc(
       ins: List[Expr],
       outs: List[Var],
       refs: List[Var],
-  out y: Stmt,
+  out stmt: Stmt,
   ref s: State
 ) :=
   match get(p, env)
     case Some(l) =>
-      call call_variable(in env, assignable, p, l.scheme, ins, outs, refs, out y, ref s)
+      call call_variable(in env, assignable, p, l.scheme, ins, outs, refs, out stmt, ref s)
     case None =>
-      call call_declared(in env, assignable, p, ins, outs, refs, out y, ref s)
+      call call_declared(in env, assignable, p, ins, outs, refs, out stmt, ref s)
   end
 
 procedure call_variable(
@@ -2208,7 +2208,7 @@ procedure call_variable(
       ins: List[Expr],
       outs: List[Var],
       refs: List[Var],
-  out y: Stmt,
+  out stmt: Stmt,
   ref s: State
 ) :=
   local x: Var, w: Type, is: List[Type], os: List[Type], rs: List[Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var]
@@ -2218,12 +2218,12 @@ procedure call_variable(
   call   fresh_list(in outs, out os, ref s)
   call   fresh_list(in refs, out rs, ref s)
   call   unify(in x.typ, TProc(is, os, rs), ref s)
-  call   unique(in "out or ref", list(for x in outs ++ refs yield x.name))
+  call   unique(in "out or ref", list(for y in outs ++ refs yield y.name))
   call   checks(in env, "procedure " ++ p.base, ins, is, out ins1, ref s)
   call   variables(in env, assignable, outs, out outs1, ref s)
   call   variables(in env, assignable, refs, out refs1, ref s)
-  call   unifies(in list(for x in outs1 ++ refs1 yield x.typ), os ++ rs, ref s)
-  assign y := SCall(p, ins1, outs1, refs1)
+  call   unifies(in list(for y in outs1 ++ refs1 yield y.typ), os ++ rs, ref s)
+  assign stmt := SCall(p, ins1, outs1, refs1)
 
 procedure call_declared(
   in  env: Env,
@@ -2232,18 +2232,18 @@ procedure call_declared(
       ins: List[Expr],
       outs: List[Var],
       refs: List[Var],
-  out y: Stmt,
+  out stmt: Stmt,
   ref s: State
 ) :=
   match overloads(s, p, lambda q => is_proc(s.sig, q))
     case list(q) =>
-      call declared_call(in env, assignable, p, q, ins, outs, refs, out y, ref s)
+      call declared_call(in env, assignable, p, q, ins, outs, refs, out stmt, ref s)
 
     case list() =>
-      call declared_call(in env, assignable, p, p, ins, outs, refs, out y, ref s)
+      call declared_call(in env, assignable, p, p, ins, outs, refs, out stmt, ref s)
 
     case qs =>
-      call overloaded_call(in env, assignable, p, qs, ins, outs, refs, out y, ref s)
+      call overloaded_call(in env, assignable, p, qs, ins, outs, refs, out stmt, ref s)
   end
 
 // a call of one of the procedures qs, by the types of its arguments, where the arguments are inferred first
@@ -2255,7 +2255,7 @@ procedure overloaded_call(
       ins: List[Expr],
       outs: List[Var],
       refs: List[Var],
-  out y: Stmt,
+  out stmt: Stmt,
   ref s: State
 ) :=
   local ins1: List[Expr], is: List[Type], outs1: List[Var], refs1: List[Var], m: Name
@@ -2264,7 +2264,7 @@ procedure overloaded_call(
   call   variables(in env, assignable, outs, out outs1, ref s)
   call   variables(in env, assignable, refs, out refs1, ref s)
   call   choose(in p, list(for q in qs yield (q, proc_scheme(s.sig, q))), TProc(is, list(for x in outs1 yield x.typ), list(for x in refs1 yield x.typ)), out m, ref s)
-  assign y := SCall(m, ins1, outs1, refs1)
+  assign stmt := SCall(m, ins1, outs1, refs1)
 
 procedure declared_call(
   in  env: Env,
@@ -2274,7 +2274,7 @@ procedure declared_call(
       ins: List[Expr],
       outs: List[Var],
       refs: List[Var],
-  out y: Stmt,
+  out stmt: Stmt,
   ref s: State
 ) :=
   local m: List[Type * Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var]
@@ -2289,7 +2289,7 @@ procedure declared_call(
       call   variables(in env, assignable, outs, out outs1, ref s)
       call   variables(in env, assignable, refs, out refs1, ref s)
       call   unifies(in list(for x in outs1 ++ refs1 yield x.typ), list(for t in os ++ rs yield subst(t, m)), ref s)
-      assign y := SCall(q, ins1, outs1, refs1)
+      assign stmt := SCall(q, ins1, outs1, refs1)
 
     case None =>
       raise UnknownProcedure(p)

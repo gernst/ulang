@@ -509,8 +509,8 @@ procedure climb_infix[A](
   ref toks: Tokens
 ) :=
   local next := (if f == FRight then prec else prec + 1)
-  call parse_separated(in notation, params, lambda in ns, params, out b, ref ts =>
-    call climb(in ns, params, ops, next, out b, ref ts)
+  call parse_separated(in notation, params, lambda in ns, ps, out b, ref ts =>
+    call climb(in ns, ps, ops, next, out b, ref ts)
   end, lambda ts => f == FLeft and operator_at(notation, ts) == Some(op), out args, ref toks)
   match operator_at(notation, toks)
     case Some(other) if f == FInfix and is_prec(infix_of(notation, other), prec) =>
@@ -1181,15 +1181,15 @@ procedure parse_body(
   out body: Stmt,
   ref toks: Tokens
 ) :=
-  local xs: List[Var] := list(), inits: List[Stmt] := list(), decls: List[Var * List[Stmt]], found: Buffer[Stmt] := empty(), s: Stmt
+  local xs: List[Var] := list(), inits: List[Stmt] := list(), decls: List[Var * List[Stmt]], found: Buffer[Stmt] := empty(), stmt: Stmt
   while at_kw(toks, "local") do
     call   advance(ref toks)
     call   parse_separated(in notation, params, parse_local, at_comma, out decls, ref toks)
     assign xs := xs ++ firsts(decls), inits := inits ++ concat(seconds(decls))
   end
   while starts_stmt(head_token(toks)) do
-    call   parse_stmt(in notation, params, out s, ref toks)
-    assign found := found ++ list(s)
+    call   parse_stmt(in notation, params, out stmt, ref toks)
+    assign found := found ++ list(stmt)
   end
   assign body := SBlock(xs, inits ++ list(for t in found))
 
@@ -1218,7 +1218,7 @@ procedure parse_local(
 procedure parse_for(
   in  notation: Notation,
       params: List[Id],
-  out s: Stmt,
+  out stmt: Stmt,
   ref toks: Tokens
 ) :=
   local pos := head_pos(toks), gens: List[Gen], q: Option[Expr] := None, pat: Pat, c: Expr, body: Stmt, guarded: Stmt, step: Stmt, items: Var, item: Var, rest: Var, branches: List[Branch[Stmt]], collect: Stmt, loop: Stmt
@@ -1258,22 +1258,22 @@ procedure parse_for(
   assign collect := SAssign(list(
     (items, EFor(FList, list(GVal(PVar(item), c)), YVal(EVar(item)), None))))
   assign loop := SWhile(expr_app("!=", list(EVar(items), expr_var("Nil"))), SMatch(EVar(items), branches))
-  assign s := SBlock(list(items), list(collect, loop))
+  assign stmt := SBlock(list(items), list(collect, loop))
 
 procedure parse_stmt(
   in  notation: Notation,
       params: List[Id],
-  out s: Stmt,
+  out stmt: Stmt,
   ref toks: Tokens
 ) :=
   local expr: Expr, body: Stmt, cases: List[Branch[Stmt]]
   match head_token(toks)
     case TKw("skip") =>
       call   advance(ref toks)
-      assign s := SSkip
+      assign stmt := SSkip
 
     case TKw("if") =>
-      call parse_if(in notation, params, out s, ref toks)
+      call parse_if(in notation, params, out stmt, ref toks)
 
     case TKw("while") =>
       call   advance(ref toks)
@@ -1281,39 +1281,39 @@ procedure parse_stmt(
       call   expect(in TKw("do"), ref toks)
       call   parse_body(in notation, params, out body, ref toks)
       call   expect(in TKw("end"), ref toks)
-      assign s := SWhile(expr, body)
+      assign stmt := SWhile(expr, body)
 
     case TKw("for") =>
-      call parse_for(in notation, params, out s, ref toks)
+      call parse_for(in notation, params, out stmt, ref toks)
 
     case TKw("call") =>
-      call parse_call(in notation, params, out s, ref toks)
+      call parse_call(in notation, params, out stmt, ref toks)
 
     case TKw("match") =>
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
       call   parse_cases(in notation, params, parse_body, out cases, ref toks)
-      assign s := SMatch(expr, cases)
+      assign stmt := SMatch(expr, cases)
 
     case TKw("assert") =>
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
-      assign s := SAssert(expr)
+      assign stmt := SAssert(expr)
 
     case TKw("assign") =>
-      call parse_assign(in notation, params, out s, ref toks)
+      call parse_assign(in notation, params, out stmt, ref toks)
 
     case TKw("raise") =>
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
-      assign s := SRaise(expr, THole)
+      assign stmt := SRaise(expr, THole)
 
     case TKw("try") =>
       call   advance(ref toks)
       call   parse_body(in notation, params, out body, ref toks)
       call   expect(in TKw("catch"), ref toks)
       call   parse_cases(in notation, params, parse_body, out cases, ref toks)
-      assign s := STry(body, handlers(cases))
+      assign stmt := STry(body, handlers(cases))
 
     case _ =>
       raise expected("statement", toks)
@@ -1323,7 +1323,7 @@ procedure parse_stmt(
 procedure parse_if(
   in  notation: Notation,
       params: List[Id],
-  out s: Stmt,
+  out stmt: Stmt,
   ref toks: Tokens
 ) :=
   local cond: Expr, l: Stmt, r: Stmt
@@ -1339,18 +1339,18 @@ procedure parse_if(
     call   expect(in TKw("end"), ref toks)
     assign r := SSkip
   end
-  assign s := SIf(cond, l, r)
+  assign stmt := SIf(cond, l, r)
 
 procedure parse_assign(
   in  notation: Notation,
       params: List[Id],
-  out s: Stmt,
+  out stmt: Stmt,
   ref toks: Tokens
 ) :=
   local assignments: List[Var * Expr]
   call   advance(ref toks)
   call   parse_separated(in notation, params, parse_assignment, at_comma, out assignments, ref toks)
-  assign s := SAssign(assignments)
+  assign stmt := SAssign(assignments)
 
 // x := e
 procedure parse_assignment(
@@ -1377,7 +1377,7 @@ function section_continues(toks: Tokens): Bool :=
 procedure parse_call(
   in  notation: Notation,
       params: List[Id],
-  out s: Stmt,
+  out stmt: Stmt,
   ref toks: Tokens
 ) :=
   local p: Id, ins: List[Expr], outs: List[Var], refs: List[Var]
@@ -1386,7 +1386,7 @@ procedure parse_call(
   call   expect(in TKw("("), ref toks)
   call   parse_sections(in notation, params, parse_expr, parse_variable, out ins, outs, refs, ref toks)
   call   expect(in TKw(")"), ref toks)
-  assign s := SCall(unqualified(p), ins, outs, refs)
+  assign stmt := SCall(unqualified(p), ins, outs, refs)
 
 // in ins, out outs, ref refs of calls, declarations, lambdas, and types, where each section starts with its keyword,
 // and empty sections are omitted
@@ -1962,14 +1962,14 @@ procedure load_module(
   in  name: Id,
       dir: Option[Str],
       loading: List[Id],
-      pos: Pos,
+      where: Pos,
   ref mods: List[Mod]
 ) :=
   local text: Str, toks: Tokens, own: Mod
   if contains(name, loading) then
-    raise ParseError("cyclic import of " ++ name, pos)
+    raise ParseError("cyclic import of " ++ name, where)
   end
-  call module_text(in name, dir, pos, out text)
+  call module_text(in name, dir, where, out text)
   try
     call lex(in text, out toks)
     call parse_mod(in name, implicit_imports(name), dir, list(name; loading), out own, ref mods, toks)

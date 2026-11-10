@@ -471,8 +471,8 @@ function cons_pattern_rest(pat: Pat): Pat :=
   end
 
 // statements, each on a line of its own at indent
-function format_stmt(notation: Notation, indent: Str, s: Stmt): Str :=
-  match s
+function format_stmt(notation: Notation, indent: Str, stmt: Stmt): Str :=
+  match stmt
     case SSkip =>
       "skip"
 
@@ -501,11 +501,11 @@ function format_stmt(notation: Notation, indent: Str, s: Stmt): Str :=
       end_text(indent, "try" ++ format_body(notation, deeper(indent), body) ++ catch_text(notation, indent, catches))
 
     case SBlock(_, _) =>
-      match for_parts(s)
+      match for_parts(stmt)
         case Some((pat, c, q, body)) =>
           end_text(indent, for_head(notation, indent, pat, c, q) ++ format_body(notation, deeper(indent), body))
         case None =>
-          "skip" ++ format_body(notation, indent, s)
+          "skip" ++ format_body(notation, indent, stmt)
       end
   end
 
@@ -542,8 +542,8 @@ function condition_text(notation: Notation, indent: Str, q: Option[Expr]): Str :
   end
 
 // the pattern, container, condition, and body of the block that the parser makes of for p in c if q do body end, see parse_for
-function for_parts(s: Stmt): Option[Pat * Expr * Option[Expr] * Stmt] :=
-  match s
+function for_parts(stmt: Stmt): Option[Pat * Expr * Option[Expr] * Stmt] :=
+  match stmt
     case SBlock(list(items), list(init, SWhile(_, loop))) if items.name.base == "(items)" =>
       match (items_source(init), loop_parts(loop))
         case (Some(c), Some((pat, guarded))) =>
@@ -581,12 +581,12 @@ function for_guarded(pat: Pat, c: Expr, guarded: Stmt): Option[Pat * Expr * Opti
   end
 
 // the else of an if, whose body may be an if, nested
-function else_text(notation: Notation, indent: Str, r: Stmt): Str :=
-  match r
+function else_text(notation: Notation, indent: Str, stmt: Stmt): Str :=
+  match stmt
     case SSkip =>
       "\n" ++ indent ++ "end"
     case _ =>
-      "\n" ++ indent ++ "else" ++ format_body(notation, deeper(indent), r) ++ "\n" ++ indent ++ "end"
+      "\n" ++ indent ++ "else" ++ format_body(notation, deeper(indent), stmt) ++ "\n" ++ indent ++ "end"
   end
 
 function stmt_cases(notation: Notation, indent: Str, branches: List[Branch[Stmt]]): Str :=
@@ -618,12 +618,12 @@ function format_stmts(notation: Notation, indent: Str, ss: List[Stmt]): Str :=
   join("", list(for run in runs(ss) for s in run yield stmt_line(notation, indent, has_assign(run), s)))
 
 // a statement after a newline, where a call is padded to the width of assign next to an assign
-function stmt_line(notation: Notation, indent: Str, padded: Bool, s: Stmt): Str :=
-  match s
+function stmt_line(notation: Notation, indent: Str, padded: Bool, stmt: Stmt): Str :=
+  match stmt
     case SCall(proc, ins, outs, refs) if padded =>
       "\n" ++ indent ++ "call   " ++ call_text(notation, indent, proc, ins, outs, refs)
     case _ =>
-      "\n" ++ indent ++ format_stmt(notation, indent, s)
+      "\n" ++ indent ++ format_stmt(notation, indent, stmt)
   end
 
 // the statements in groups, where the calls and assignments in a row are one group and any other statement is alone
@@ -641,8 +641,8 @@ function runs(ss: List[Stmt]): List[List[Stmt]] :=
       end
   end
 
-function is_simple(s: Stmt): Bool :=
-  match s
+function is_simple(stmt: Stmt): Bool :=
+  match stmt
     case SCall(_, _, _, _) =>
       true
 

@@ -501,8 +501,8 @@ function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
   end
 
 // the variables of x that bound does not bind, including procedures called through variables
-function free_in_stmt(x: Stmt, bound: List[Name]): List[Name] :=
-  match x
+function free_in_stmt(stmt: Stmt, bound: List[Name]): List[Name] :=
+  match stmt
     case SSkip =>
       list()
 
@@ -837,14 +837,14 @@ procedure compile_proc_lambda(
       ins: List[Var],
       outs: List[Var],
       refs: List[Var],
-      b: Stmt,
+      stmt: Stmt,
   out ss: List[CStmt],
       r: CExpr,
   ref g: Gen
 ) :=
-  local in_names := var_names(ins), pointer_names := var_names(outs ++ refs), caps := captured(env, free_in_stmt(b, in_names ++ pointer_names)), f: Str, bs: List[CStmt], decls: List[CStmt]
+  local in_names := var_names(ins), pointer_names := var_names(outs ++ refs), caps := captured(env, free_in_stmt(stmt, in_names ++ pointer_names)), f: Str, bs: List[CStmt], decls: List[CStmt]
   call   gen_name(in "proc", out f, ref g)
-  call   compile_stmt(in defs, in_scope(caps ++ in_names ++ pointer_names), b, out bs, ref g)
+  call   compile_stmt(in defs, in_scope(caps ++ in_names ++ pointer_names), stmt, out bs, ref g)
   assign decls := unpack(numbered(caps), "env") ++ unpack(numbered(in_names), "ins")
   assign decls := decls ++ unpack_pointers(numbered(pointer_names))
   assign decls := decls ++ copy_in(outs, refs)
@@ -1188,12 +1188,12 @@ function main_formals(): List[CType * Str] :=
 procedure compile_stmt(
   in  defs: Defs,
       env: Vars,
-      s: Stmt,
+      stmt: Stmt,
   out ss: List[CStmt],
   ref g: Gen
 ) :=
   local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], ra: CExpr, rb: CExpr, rc: CExpr, rs: List[CExpr], t: Str, d: Str, xs: List[Name], ps: List[CExpr]
-  match s
+  match stmt
     case SSkip =>
       assign ss := list()
 
@@ -1234,7 +1234,7 @@ procedure compile_stmt(
 
     case SMatch(arg, cases) =>
       call   compile_expr(in defs, env, arg, out as, ra, ref g)
-      call   gen_name(in "s", out d, ref g)
+      call   gen_name(in "stmt", out d, ref g)
       call   gen_name(in "d", out t, ref g)
       call   stmt_cases(in defs, env, cases, CeVar(d), t, out bs, ref g)
       assign ss := as ++ list(CsDecl(value_type(), d, Some(ra)), CsDecl(CtInt, t, Some(CeNum(0)))) ++ bs
@@ -1275,8 +1275,8 @@ function saved_name(x: Name): Str :=
   "was_" ++ var_name(x)
 
 // the variables that s assigns, directly or as outs and refs
-function changed(s: Stmt): List[Name] :=
-  match s
+function changed(stmt: Stmt): List[Name] :=
+  match stmt
     case SAssign(upd) =>
       var_names(firsts(upd))
 

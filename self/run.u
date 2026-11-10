@@ -898,16 +898,16 @@ procedure equal_all(
   end
 
 // x updates the values of the variables in scope
-procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value]) :=
+procedure exec(in run: Run, stmt: Stmt, ref env: Bindings, cache: Map[Name, Value]) :=
   local v: Value, w: Value, vs: List[Value], r: Bool, sel: Option[Stmt * Bindings * List[Name]], s: Str, t: Str
-  match x
+  match stmt
     case SSkip =>
       skip
 
     // the variables are assigned in parallel
     case SAssign(upd) =>
       call   evaluate_all(in run, env, seconds(upd), out vs, ref cache)
-      assign env := env ++ map(for (k, v) in zip(list(for x in firsts(upd) yield x.name), vs))
+      assign env := env ++ map(for (k, u) in zip(list(for x in firsts(upd) yield x.name), vs))
 
     case SBlock(locals, stmts) =>
       call scoped(in run, list(for x in locals yield x.name), env -- set(for x in locals yield x.name), stmts, ref env, cache)
@@ -936,7 +936,7 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
         case None =>
           call invoke(in run, proc, vs, list(for x in refs yield x.name), out vs, ref env, cache)
       end
-      assign env := env ++ map(for (k, v) in zip(list(for x in outs yield x.name), vs))
+      assign env := env ++ map(for (k, u) in zip(list(for x in outs yield x.name), vs))
 
     case SMatch(arg, cases) =>
       call evaluate(in run, env, arg, out v, ref cache)
@@ -1234,24 +1234,24 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
         call   os_library(in name, out text)
         assign outs := list(VLit(LStr(text)))
 
-      case ("os.os_list", list(VLit(LStr(text)))) =>
-        call   os_list(in text, out entries)
+      case ("os.os_list", list(VLit(LStr(path)))) =>
+        call   os_list(in path, out entries)
         assign outs := list(list_value(entry_values(entries)))
 
-      case ("os.os_is_dir", list(VLit(LStr(text)))) =>
-        call   os_is_dir(in text, out yes)
+      case ("os.os_is_dir", list(VLit(LStr(path)))) =>
+        call   os_is_dir(in path, out yes)
         assign outs := list(VLit(LBool(yes)))
 
       case ("os.os_cwd", list()) =>
         call   os_cwd(out text)
         assign outs := list(VLit(LStr(text)))
 
-      case ("os.os_chdir", list(VLit(LStr(text)))) =>
-        call   os_chdir(in text)
+      case ("os.os_chdir", list(VLit(LStr(path)))) =>
+        call   os_chdir(in path)
         assign outs := list()
 
-      case ("os.os_print_error", list(VLit(LStr(text)))) =>
-        call   os_print_error(in text)
+      case ("os.os_print_error", list(VLit(LStr(msg)))) =>
+        call   os_print_error(in msg)
         assign outs := list()
 
       case ("os.os_exit", list(VLit(LInt(num)))) =>

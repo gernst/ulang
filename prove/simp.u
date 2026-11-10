@@ -234,8 +234,8 @@ function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Co
           match disjoin(after, cs)
             case Proven =>
               true_seq()
-            case Disj(concls) =>
-              let levels := range(d, depth(after)), ys := vars_from(after, d) in let closed := list(for b in seqs yield rebind_seq(Close(levels), 0, b)), ends := list(for c in concls yield rebind_concl(Close(levels), 0, c)) in let result := sequent(ys, closed, ends) in split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, seqs, concls), result)
+            case Disj(goals) =>
+              let levels := range(d, depth(after)), ys := vars_from(after, d) in let closed := list(for b in seqs yield rebind_seq(Close(levels), 0, b)), ends := list(for c in goals yield rebind_concl(Close(levels), 0, c)) in let result := sequent(ys, closed, ends) in split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, seqs, goals), result)
           end
       end
   end
@@ -250,8 +250,8 @@ function sequent(xs: List[Var], assms: List[Seq], concls: List[Concl]): Seq :=
     case (list(), list(Seq(list(), list(s), list())), list()) =>
       s
 
-    case (_, _, list(Concl(list(), list(Seq(fixed, bs, concls))))) =>
-      Seq(xs ++ fixed, list(for a in assms yield rebind_seq(Shift(size(fixed)), 0, a)) ++ bs, concls)
+    case (_, _, list(Concl(list(), list(Seq(fixed, bs, cs))))) =>
+      Seq(xs ++ fixed, list(for a in assms yield rebind_seq(Shift(size(fixed)), 0, a)) ++ bs, cs)
 
     case _ =>
       Seq(xs, assms, concls)
@@ -311,8 +311,8 @@ function conjoin(ctx: Ctx, ss: List[Seq]): Conj :=
 
         case _ =>
           let next := assume(ctx, t) in if next.inconsistent then Refuted else match conjoin(next, rest)
-            case Conj(ctx, seqs) =>
-              Conj(ctx, list(t; seqs))
+            case Conj(c, seqs) =>
+              Conj(c, list(t; seqs))
             case Refuted =>
               Refuted
           end

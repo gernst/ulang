@@ -105,6 +105,9 @@ A minimal language with pure functional expressions, imperative statements, data
 - Functions, procedures, and locals are snake_case, e.g. `zonk_type`; constructors and types are CamelCase, e.g. `TSort`, `TypeError`.
 - Names are descriptive but short, and one concept has one name, without short and long forms: `Constr`, `Mod`, `Sig`, `Prog`, not `Constructor`, `Module`, `Ctx`, `Program`.
 - Variables are named by their type: `toks`/`tok`, `cmds`/`cmd`, `sig`, `loader`, `run`, `typ` and `types`, `fun`/`funs`, `text` for source and `offset` for positions in it, `name` for an `Id`, `cases`, `cond`, `body`, `prec`, `constr`/`constrs`, `field`/`fields`, `prog`, `expr`/`exprs`, `pat`/`pats`; `i`, `j` for plain counters.
+- A variable of type `Stmt` is `stmt`, unless the declaration has another statement of that name, e.g. a pattern of `EProc` or `CProc`; parts of a statement keep their roles, `body`, `loop`, `step`.
+- Patterns bind the names of the fields they match, `case EField(base, field)`, so a field is named by its role and a variable around the match by its type; where both would clash, the field name is the one to improve.
+- Renaming never makes a short name long, e.g. `t` to `candidate`, and never appends an index, e.g. `stmt1`; a clash of names is resolved by a better name for one of them, not by a suffix.
 - Procedures that consume tokens start with `parse_`, except `advance` and `expect`; functions that build trees do not. Predicates on the next token are `at_X`, grouped together.
 - `show` is text that parses back literally, never `show_X`; `format_X` prints into another language, e.g. types, values, tokens, programs, or C as source.
 - The notation is threaded as the first parameter where it is needed, not bundled into records.
