@@ -2,24 +2,22 @@
 
 procedure sum(in n: Int, out s: Int) :=
   local i: Int
-
   assign i := 0, s := 0
-
   while i < n
     assign i := i + 1, s := s + i
   end
 
 procedure total(in xs: List[Int], out s: Int) :=
   local ys: List[Int]
-
   assign s := 0, ys := xs
-
   while ys != list()
     match ys
       case list(y; zs) =>
         assign s := s + y
         assign ys := zs
-      case list() => skip
+
+      case list() =>
+        skip
     end
   end
 
@@ -31,7 +29,6 @@ procedure inc(ref x: Int) :=
 
 procedure main(out a: Int, b: Int, c: Int) :=
   local f: Int -> Int
-
   assign a := 1, b := 2
   call   swap(ref a, b)
   call   inc(ref a)
@@ -48,36 +45,32 @@ procedure main(out a: Int, b: Int, c: Int) :=
   end
 
 procedure capture(out r: Int) :=
-  local i := 1, f := lambda x => x + i
-
+  local i := 1, f := (lambda x => x + i)
   assign i := 10
   assign r := f(0)
 
 test procedures() :=
   local a: Int, b: Int, c: Int
-
-  call   sum(in 10, out c)
+  call sum(in 10, out c)
   assert c == 45
-  call   total(in list(1, 2, 3), out c)
+  call total(in list(1, 2, 3), out c)
   assert c == 6
   assign a := 1, b := 2
   call   swap(ref a, b)
   assert (a, b) == (2, 1)
-  call   inc(ref a)
+  call inc(ref a)
   assert a == 3
-  call   main(out a, b, c)
+  call main(out a, b, c)
   assert (a, b, c) == (3, 1, 6)
 
 // closures capture values, not variables
 test closures_capture_values() :=
   local r: Int
-
-  call   capture(out r)
+  call capture(out r)
   assert r == 1
 
 test sums() :=
   local x: Int, y: Int
-
   call   sum(in 4, out x)
   assign y := x * 2
   assert (x, y) == (6, 12)
@@ -85,11 +78,11 @@ test sums() :=
 // the bodies of cases may declare variables, like those of if and while
 test locals_in_cases() :=
   local n: Int
-
   match Some(3)
     case Some(m) =>
-      local  k := m * 2
+      local k := m * 2
       assign n := k + 1
+
     case None =>
       assign n := 0
   end
@@ -98,7 +91,7 @@ test locals_in_cases() :=
     raise "x"
   catch
     case s =>
-      local  t := s
+      local t := s
       assert t == "x"
   end
 
@@ -108,7 +101,6 @@ procedure double(in x: Int, out y: Int) :=
 
 procedure twice(in p: (in Int, out Int), x: Int, out z: Int) :=
   local y: Int
-
   call p(in x, out y)
   call p(in y, out z)
 
@@ -116,33 +108,36 @@ procedure each[A](in p: (in A, ref Int), xs: List[A], ref n: Int) :=
   match xs
     case list() =>
       skip
+
     case list(x; rest) =>
       call p(in x, ref n)
       call each(in p, rest, ref n)
   end
 
 function step(by_two: Bool): (in Int, out Int) :=
-  if by_two then double else lambda in x, out y => assign y := x + 1 end
+  if by_two then double else lambda in x, out y =>
+    assign y := x + 1
+  end
 
 test procedure_values() :=
-  local  z: Int, n := 0, k := 10, p := step(false)
-
-  call   twice(in double, 3, out z)
+  local z: Int, n := 0, k := 10, p := step(false)
+  call twice(in double, 3, out z)
   assert z == 12
-  call   twice(in lambda in x, out y => assign y := x + k end, 1, out z)
+  call twice(in lambda in x, out y =>
+    assign y := x + k
+  end, 1, out z)
   assert z == 21
-  call   each(in lambda in s, ref m => assign m := m + size(s) end, list("a", "bc"), ref n)
+  call each(in lambda in s, ref m =>
+    assign m := m + size(s)
+  end, list("a", "bc"), ref n)
   assert n == 3
-  call   p(in 1, out z)
+  call p(in 1, out z)
   assert z == 2
-  call   twice(in step(true), 1, out z)
+  call twice(in step(true), 1, out z)
   assert z == 4
-
-// locals with initial values, whose types are inferred
 
 procedure sum_all(in xs: List[Int], out t: Int) :=
   local rest := xs, sum := 0
-
   while rest != list()
     match rest
       case list(x; more) =>
@@ -151,19 +146,16 @@ procedure sum_all(in xs: List[Int], out t: Int) :=
         skip
     end
   end
-
   assign t := sum
 
 // the initial values are assigned in order, so each may refer to the locals before it
 test initialized_locals() :=
   local a := 1, b := a + 1, c: Int := b * 2, s := "x", t: Int
-
-  call   sum_all(in list(a, b, c), out t)
+  call sum_all(in list(a, b, c), out t)
   assert (a, b, c, s, t) == (1, 2, 4, "x", 7)
 
 test inferred_types() :=
   local xs := list(Some(1), None), m := get("a", list(("a", true)))
-
   assert size(xs) == 2 and m == Some(true)
 
 data Fail :=
@@ -175,7 +167,7 @@ procedure sign(in n: Int, out s: Int) :=
     assign s := -1
   else
     if n == 0
-      raise  Fail
+      raise Fail
     else
       assign s := 1
     end
@@ -199,32 +191,27 @@ procedure classify(in n: Int, out c: Str) :=
     else
       assign c := "positive"
     end
-
     assign c := c ++ "!"
   end
 
 test nested_ifs() :=
   local a: Str, b: Str, c: Str
-
-  call   classify(in -1, out a)
-  call   classify(in 0, out b)
-  call   classify(in 12, out c)
+  call classify(in -1, out a)
+  call classify(in 0, out b)
+  call classify(in 12, out c)
   assert (a, b, c) == ("negative", "zero!", "positive!")
 
 // a variable may be read where it is assigned on every path to the read
 test definite_assignment() :=
   local a: Int, b: Int, c: Int, d: Int
-
-  call   sign(in -5, out a)
-  call   first(in list(7, 8), out b)
-
+  call sign(in -5, out a)
+  call first(in list(7, 8), out b)
   try
-    call   sign(in 0, out c)
+    call sign(in 0, out c)
   catch
     case Fail =>
       assign c := 0
   end
-
   if a < 0
     assign d := 1
   else

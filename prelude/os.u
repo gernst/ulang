@@ -15,6 +15,7 @@ function os_join(dir: Str, name: Str): Str
 
 // the last part of a path, after its last /, and the part before, which is . for a path without /
 function os_basename(path: Str): Str
+
 function os_dirname(path: Str): Str
 
 builtin
@@ -24,6 +25,7 @@ procedure os_args(out args: List[Str])
 
 // read and write files, where relative paths start from the working directory, and failures raise OsError
 procedure os_read(in path: Str, out text: Str)
+
 procedure os_write(in path: Str, text: Str)
 
 // the source of a module of the library
@@ -31,6 +33,7 @@ procedure os_library(in name: Str, out text: Str)
 
 // print a string as it is, to the output and to the error output, where show gives the text of any value
 procedure os_print(in text: Str)
+
 procedure os_print_error(in text: Str)
 
 // end the program with the status code
@@ -39,17 +42,18 @@ procedure os_exit(in code: Int)
 // the names in a directory, sorted, each with whether it is a directory, without following links, and whether path is a directory,
 // also through a link
 procedure os_list(in dir: Str, out entries: List[Str * Bool])
+
 procedure os_is_dir(in path: Str, out yes: Bool)
 
 // the working directory, which relative paths start from, and its change
 procedure os_cwd(out dir: Str)
+
 procedure os_chdir(in dir: Str)
 
 implementation
 
 procedure os_walk(in path: Str, out files: List[Str]) :=
   local dir: Bool
-
   call os_is_dir(in path, out dir)
   if dir
     call os_walk_dir(in path, out files)
@@ -59,20 +63,24 @@ procedure os_walk(in path: Str, out files: List[Str]) :=
 
 procedure os_walk_dir(in dir: Str, out files: List[Str]) :=
   local entries: List[Str * Bool]
-
   call os_list(in dir, out entries)
   call os_walk_entries(in dir, entries, out files)
 
-procedure os_walk_entries(in dir: Str, entries: List[Str * Bool], out files: List[Str]) :=
+procedure os_walk_entries(
+  in  dir: Str,
+      entries: List[Str * Bool],
+  out files: List[Str]
+) :=
   local below: List[Str], rest: List[Str]
-
   match entries
     case list() =>
       assign files := list()
+
     case list((name, true); more) =>
       call   os_walk_dir(in os_join(dir, name), out below)
       call   os_walk_entries(in dir, more, out rest)
       assign files := below ++ rest
+
     case list((name, false); more) =>
       call   os_walk_entries(in dir, more, out rest)
       assign files := list(os_join(dir, name); rest)
@@ -83,8 +91,10 @@ function os_join(dir: Str, name: Str): Str :=
 
 function os_basename(path: Str): Str :=
   match last(split(path, '/'))
-    case Some(name) => name
-    case None => path
+    case Some(name) =>
+      name
+    case None =>
+      path
   end
 
 function os_dirname(path: Str): Str :=

@@ -18,35 +18,55 @@ data TestFailed :=
 
 procedure main() :=
   local args: List[Str], command: List[Str], rest: List[Str], ok := true, dir: Bool
-
   call   os_args(out args)
   assign command := before_dashes(args), rest := after_dashes(args)
-
   match command
     case list() =>
       skip
+
     case list("run", file) =>
-      call attempt(in file, lambda out r => call run_file(in file, "main", rest, out r) end, out ok)
+      call attempt(in file, lambda out r =>
+        call run_file(in file, "main", rest, out r)
+      end, out ok)
+
     case list("run", file, name) =>
-      call attempt(in file, lambda out r => call run_file(in file, name, rest, out r) end, out ok)
+      call attempt(in file, lambda out r =>
+        call run_file(in file, name, rest, out r)
+      end, out ok)
+
     case list("test", first; more) =>
       call os_is_dir(in first, out dir)
       if dir
         call test_paths(in list(first; more), out ok)
       else
-        call attempt(in first, lambda out r => call test_file(in first, more, rest, out r) end, out ok)
+        call attempt(in first, lambda out r =>
+          call test_file(in first, more, rest, out r)
+        end, out ok)
       end
+
     case list("check", file) =>
-      call attempt(in file, lambda out r => call check_file(in file, out r) end, out ok)
+      call attempt(in file, lambda out r =>
+        call check_file(in file, out r)
+      end, out ok)
+
     case list("compile", file, entry, target) =>
-      call attempt(in file, lambda out r => call compile_to(in file, entry, target, out r) end, out ok)
+      call attempt(in file, lambda out r =>
+        call compile_to(in file, entry, target, out r)
+      end, out ok)
+
     case list("format", file) =>
-      call attempt(in file, lambda out r => call format_file(in file, out r) end, out ok)
+      call attempt(in file, lambda out r =>
+        call format_file(in file, false, out r)
+      end, out ok)
+
+    case list("format", "--apply", file) =>
+      call attempt(in file, lambda out r =>
+        call format_file(in file, true, out r)
+      end, out ok)
     case _ =>
       call   os_print_error(in usage())
       assign ok := false
   end
-
   if not ok
     call os_exit(in 1)
   end
@@ -66,22 +86,31 @@ function usage_other(): Str :=
 // the arguments of the driver, and those of the program after --
 function before_dashes(args: List[Str]): List[Str] :=
   match args
-    case list() => list()
-    case list("--"; _) => list()
-    case list(a; more) => list(a; before_dashes(more))
+    case list() =>
+      list()
+
+    case list("--"; _) =>
+      list()
+
+    case list(a; more) =>
+      list(a; before_dashes(more))
   end
 
 function after_dashes(args: List[Str]): List[Str] :=
   match args
-    case list() => list()
-    case list("--"; more) => more
-    case list(_; more) => after_dashes(more)
+    case list() =>
+      list()
+
+    case list("--"; more) =>
+      more
+
+    case list(_; more) =>
+      after_dashes(more)
   end
 
 // runs a command for file, which reports the errors of file, and whether it succeeded
 procedure attempt(in file: Str, command: (out Bool), out ok: Bool) :=
   local message: Str
-
   call guarded(in file, command, out ok, message)
   if message != ""
     call os_print_error(in file ++ ": " ++ message)
@@ -90,28 +119,33 @@ procedure attempt(in file: Str, command: (out Bool), out ok: Bool) :=
 // runs a command for file, with whether it succeeded and the message of its error, or else ""
 procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str) :=
   assign ok := false, message := ""
-
   try
     call command(out ok)
   catch
     case TestFailed(m) =>
       assign message := m
+
     case ParseError(m, pos) =>
       assign message := "parse error: " ++ m ++ at_pos(pos)
+
     case ImportError(module, m, pos) =>
       assign message := "parse error: " ++ m ++ " in " ++ module ++ at_pos(pos)
+
     case OsError(m) =>
       assign message := "runtime error: " ++ m
+
     case Unsupported(what) =>
       assign message := "compile error: " ++ what
+
     case UnknownEntry(name) =>
       assign message := "compile error: there is no procedure " ++ name.base ++ " without parameters"
+
     case e =>
       assign message := "type error: " ++ located_message(e)
+
     case e =>
       assign message := "runtime error: " ++ runtime_message(e)
   end
-
   if message != ""
     assign ok := false
   end
@@ -122,20 +156,20 @@ function at_pos(p: Pos): Str :=
 // the checked program of file, after the modules it imports, and the name of the module of file
 procedure load_file(in file: Str, out main: Id, q: Prog) :=
   local source: Source
-
   call   parse_file(in file, out source)
   call   check_program(in source, out q)
   assign main := source.main
 
 function is_any_test(cmd: Cmd): Bool :=
   match cmd
-    case CTest(_, _, _) => true
-    case _ => false
+    case CTest(_, _, _) =>
+      true
+    case _ =>
+      false
   end
 
 procedure check_file(in file: Str, out ok: Bool) :=
   local main: Id, q: Prog
-
   call   load_file(in file, out main, q)
   assign ok := true
 
@@ -144,18 +178,19 @@ procedure compile_to(in file: Str, entry: Str, target: Str, out ok: Bool) :=
   assign ok := true
 
 // prints file as source, which must parse to the same commands as file, so that formatting tests the parser and the printer
-procedure format_file(in file: Str, out ok: Bool) :=
+procedure format_file(in file: Str, apply: Bool, out ok: Bool) :=
   local p: Source, q: Source, text: Str, source: Str
-
   call   os_read(in file, out text)
   call   parse_file_text(in file, text, out p)
   assign source := format_program(p.mods), ok := false
-
   try
     call parse_file_text(in file, source, out q)
-
     if same_mods(p.mods, q.mods)
-      call   os_print(in slice(source, 0, size(source) - 1))
+      if apply
+        call   os_write(in file, source)
+      else
+        call   os_print(in source)
+      end
       assign ok := true
     else
       call os_print_error(in file ++ ": format error: the source parses differently")
@@ -199,11 +234,9 @@ function same_tops(tops: List[Top], others: List[Top]): Bool :=
 // calls the procedure name of file, which takes no parameters, and prints as it runs
 procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
   local main: Id, q: Prog, run: Run, cache: Map[Name, Value] := empty(), n: Name
-
   call   load_file(in file, out main, q)
   assign n := Name(Some(main), name)
   assign run := load(q) with args := args
-
   if exists(q.cmds, lambda c => is_entry(c, n))
     call   run_proc(in run, n, ref cache)
     assign ok := true
@@ -213,27 +246,29 @@ procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
   end
 
 // runs the tests of file, all or the named ones, each on its own, also after a failed one, printing whether it passed
-procedure test_file(in file: Str, names: List[Str], args: List[Str], out ok: Bool) :=
+procedure test_file(
+  in  file: Str,
+      names: List[Str],
+      args: List[Str],
+  out ok: Bool
+) :=
   local main: Id, q: Prog, run: Run, tests: List[Cmd], missing: List[Str]
-
   call   load_file(in file, out main, q)
   assign run := load(q) with args := args
   assign tests := list(for c in q.cmds if is_selected_test(c, names))
   assign missing := list(for n in names if not exists(tests, lambda c => is_test(c, n)))
-
   match missing
     case list(n; _) =>
       call   os_print_error(in file ++ ": runtime error: there is no test " ++ n)
       assign ok := false
+
     case _ =>
       call run_tests(in run, tests, out ok)
   end
 
 procedure run_tests(in run: Run, tests: List[Cmd], out ok: Bool) :=
   local passed: Bool
-
   assign ok := true
-
   for c in tests do
     call   run_test(in run, c, out passed)
     assign ok := ok and passed
@@ -241,7 +276,6 @@ procedure run_tests(in run: Run, tests: List[Cmd], out ok: Bool) :=
 
 procedure run_test(in run: Run, cmd: Cmd, out passed: Bool) :=
   local message: Str
-
   call test_message(in run, cmd, out message)
   if message == ""
     call   os_print(in "test " ++ cmd_name(cmd) ++ " passed")
@@ -254,9 +288,7 @@ procedure run_test(in run: Run, cmd: Cmd, out passed: Bool) :=
 // the error of the test cmd, or else ""
 procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
   local cache: Map[Name, Value] := empty()
-
   assign message := ""
-
   try
     call run_cmd(in run, cmd, ref cache)
   catch
@@ -269,7 +301,6 @@ procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
 // that do not are printed with the difference, and how many files passed
 procedure test_paths(in paths: List[Str], out ok: Bool) :=
   local found: List[Str], files: List[Str], home: Str, failed: Int
-
   call   walk_all(in paths, out found)
   assign files := list(for f in found if is_source(f))
   call   os_cwd(out home)
@@ -279,12 +310,10 @@ procedure test_paths(in paths: List[Str], out ok: Bool) :=
 
 procedure walk_all(in paths: List[Str], out files: List[Str]) :=
   local here: List[Str], found: Buffer[Str] := empty()
-
   for path in paths do
     call   os_walk(in path, out here)
     assign found := found ++ here
   end
-
   assign files := list(for file in found)
 
 function is_source(path: Str): Bool :=
@@ -292,12 +321,9 @@ function is_source(path: Str): Bool :=
 
 procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
   local good: Bool
-
   assign failed := 0
-
   for file in files do
     call verdict(in file, home, out good)
-
     if not good
       assign failed := failed + 1
     end
@@ -306,14 +332,14 @@ procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
 // file, run in its directory, fails as its first line states, or else succeeds, where home is the directory to return to
 procedure verdict(in file: Str, home: Str, out good: Bool) :=
   local text: Str, expected: Str, got: Str, ok: Bool, name := os_basename(file)
-
   call   os_read(in file, out text)
   assign expected := expected_error(text)
   call   os_chdir(in os_dirname(file))
-  call   guarded(in name, lambda out r => call test_all(in name, out r) end, out ok, got)
+  call   guarded(in name, lambda out r =>
+    call test_all(in name, out r)
+  end, out ok, got)
   call   os_chdir(in home)
   assign good := got == expected
-
   if not good
     call os_print(in file ++ ": expected " ++ outcome(expected) ++ ", got " ++ outcome(got))
   end
@@ -325,11 +351,9 @@ function outcome(message: Str): Str :=
 function expected_error(text: Str): Str :=
   match split(text, '\n')
     case list(line; _) =>
-      if states_error(line) then
-        slice(line, 3, size(line))
-      else
-        ""
-    case _ => ""
+      if states_error(line) then slice(line, 3, size(line)) else ""
+    case _ =>
+      ""
   end
 
 function states_error(line: Str): Bool :=
@@ -341,20 +365,16 @@ function states(line: Str, kind: Str): Bool :=
 // runs all tests of file, quietly, and raises the first failure
 procedure test_all(in file: Str, out ok: Bool) :=
   local main: Id, q: Prog, run: Run, message: Str
-
   call   load_file(in file, out main, q)
   assign run := load(q)
   call   first_failure(in run, list(for c in q.cmds if is_any_test(c)), out message)
-
   if message != ""
     raise TestFailed(message)
   end
-
   assign ok := true
 
 procedure first_failure(in run: Run, tests: List[Cmd], out message: Str) :=
   assign message := ""
-
   for c in tests do
     if message == ""
       call test_message(in run, c, out message)
@@ -363,35 +383,48 @@ procedure first_failure(in run: Run, tests: List[Cmd], out message: Str) :=
 
 function is_selected_test(cmd: Cmd, names: List[Str]): Bool :=
   match cmd
-    case CTest(test_name, _, _) => names == list() or contains(test_name, names)
-    case _ => false
+    case CTest(test_name, _, _) =>
+      names == list() or contains(test_name, names)
+    case _ =>
+      false
   end
 
 function is_test(cmd: Cmd, n: Str): Bool :=
   match cmd
-    case CTest(test_name, _, _) => test_name == n
-    case _ => false
+    case CTest(test_name, _, _) =>
+      test_name == n
+    case _ =>
+      false
   end
 
 function cmd_name(cmd: Cmd): Str :=
   match cmd
-    case CTest(test_name, _, _) => test_name
-    case _ => ""
+    case CTest(test_name, _, _) =>
+      test_name
+    case _ =>
+      ""
   end
 
 // the message of e, with the position of the command that raised it, and the module if it is not the main module
 function located_message(e: TypeError): Str :=
   match e
-    case Located(None, pos, error) => type_message(error) ++ at_pos(pos)
-    case Located(Some(m), pos, error) => type_message(error) ++ " in " ++ m ++ at_pos(pos)
-    case _ => type_message(e)
+    case Located(None, pos, error) =>
+      type_message(error) ++ at_pos(pos)
+
+    case Located(Some(m), pos, error) =>
+      type_message(error) ++ " in " ++ m ++ at_pos(pos)
+
+    case _ =>
+      type_message(e)
   end
 
 // a candidate of an ambiguous name with its type, if known, which tells overloads of one module apart
 function candidate_text(c: Name * (List[Type] * Type)): Str :=
   match c
-    case (m, (_, THole)) => format_name(m)
-    case (m, (_, t)) => format_name(m) ++ ": " ++ format_type(t)
+    case (m, (_, THole)) =>
+      format_name(m)
+    case (m, (_, t)) =>
+      format_name(m) ++ ": " ++ format_type(t)
   end
 
 function container_message(typ: Type): Str :=
@@ -402,49 +435,123 @@ function count_message(owner: Str, unit: Str, k: Int, actual: Int): Str :=
 
 function type_message(e: TypeError): Str :=
   match e
-    case UnknownSort(name) => "unknown sort " ++ name.base
-    case SortArity(name, expected, actual) => "sort " ++ name.base ++ " expects " ++ show(expected) ++ " arguments, got " ++ show(actual)
-    case SortDefined(name) => "sort " ++ name.base ++ " is already defined"
-    case MissingType(name) => "missing type for " ++ name.base
-    case UndeclaredParams(name, types) => name.base ++ " has undeclared type parameters " ++ format_types(types)
-    case CannotUnify(left, right) => "cannot unify " ++ format_type(left) ++ " and " ++ format_type(right)
-    case InfiniteType(meta, typ) => "infinite type " ++ format_type(meta) ++ " = " ++ format_type(typ)
-    case UnknownVariable(name) => "unknown variable " ++ name.base
-    case NoOverload(name, typ) => "no declaration of " ++ name.base ++ " has the type " ++ format_type(typ)
-    case WrongArity(name, arity) => name.base ++ " does not take " ++ show(arity) ++ " arguments"
-    case AlreadyDefined(name) => name.base ++ " is already defined"
-    case Duplicate(what, item) => "duplicate " ++ what ++ " " ++ item
-    case Ambiguous(name, candidates) => name.base ++ " is ambiguous: " ++ join(", ", list(for c in candidates yield candidate_text(c)))
-    case UnknownField(name) => field_message(split(name.base, '.'))
-    case UnknownFieldType(field, typ) => "the type " ++ format_type(typ) ++ " of the value of " ++ field ++ " is not known"
-    case UnknownFieldOwner(field) => "the type of the value of " ++ field ++ " is not known there, which an annotation can give"
-    case UnknownContainer(typ) => container_message(typ)
-    case FormImport(m) => m ++ "(...) needs import \"" ++ m ++ ".u\""
-    case CountMismatch(owner, unit, k, actual) => count_message(owner, unit, k, actual)
-    case UnknownConstructor(name) => "unknown constructor " ++ name.base
-    case NotExhaustive(pat) => "match is not exhaustive, missing " ++ format_pat(pat)
-    case Unreachable(pat) => "unreachable case " ++ format_pat(pat)
-    case NotAssignable(name) => name.base ++ " is not assignable"
-    case UnknownProcedure(name) => "unknown procedure " ++ name.base
-    case UnknownException(typ) => "the type " ++ format_type(typ) ++ " of an exception is not fully known"
-    case TestParams(test_name) => "test " ++ test_name ++ " takes parameters"
-    case Unassigned(name) => name.base ++ " is not assigned on every path"
-    case OutputUnassigned(x, proc) => "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned on every path"
-    case MissingDefinition(name) => name.base ++ " is exported but not defined"
-    case SignatureMismatch(name) => "the definition of " ++ name.base ++ " differs from its signature"
-    case PartlyExported(name) => name.base ++ " is exported, but not with each of its numbers of arguments"
-    case PrivateType(name, sort) => "the signature of " ++ name.base ++ " names the private type " ++ sort.base
-    case VisibleEquality(sort) => sort.base ++ " declares ==, which only abstract types may"
-    case UnexportedOrder(fun, sort) => fun.base ++ " of the exported type " ++ sort.base ++ " is not exported"
-    case Located(_, _, error) => type_message(error)
+    case UnknownSort(name) =>
+      "unknown sort " ++ name.base
+
+    case SortArity(name, expected, actual) =>
+      "sort " ++ name.base ++ " expects " ++ show(expected) ++ " arguments, got " ++ show(actual)
+
+    case SortDefined(name) =>
+      "sort " ++ name.base ++ " is already defined"
+
+    case MissingType(name) =>
+      "missing type for " ++ name.base
+
+    case UndeclaredParams(name, types) =>
+      name.base ++ " has undeclared type parameters " ++ format_types(types)
+
+    case CannotUnify(left, right) =>
+      "cannot unify " ++ format_type(left) ++ " and " ++ format_type(right)
+
+    case InfiniteType(meta, typ) =>
+      "infinite type " ++ format_type(meta) ++ " = " ++ format_type(typ)
+
+    case UnknownVariable(name) =>
+      "unknown variable " ++ name.base
+
+    case NoOverload(name, typ) =>
+      "no declaration of " ++ name.base ++ " has the type " ++ format_type(typ)
+
+    case WrongArity(name, arity) =>
+      name.base ++ " does not take " ++ show(arity) ++ " arguments"
+
+    case AlreadyDefined(name) =>
+      name.base ++ " is already defined"
+
+    case Duplicate(what, item) =>
+      "duplicate " ++ what ++ " " ++ item
+
+    case Ambiguous(name, candidates) =>
+      name.base ++ " is ambiguous: " ++ join(", ", list(for c in candidates yield candidate_text(c)))
+
+    case UnknownField(name) =>
+      field_message(split(name.base, '.'))
+
+    case UnknownFieldType(field, typ) =>
+      "the type " ++ format_type(typ) ++ " of the value of " ++ field ++ " is not known"
+
+    case UnknownFieldOwner(field) =>
+      "the type of the value of " ++ field ++ " is not known there, which an annotation can give"
+
+    case UnknownContainer(typ) =>
+      container_message(typ)
+
+    case FormImport(m) =>
+      m ++ "(...) needs import \"" ++ m ++ ".u\""
+
+    case CountMismatch(owner, unit, k, actual) =>
+      count_message(owner, unit, k, actual)
+
+    case UnknownConstructor(name) =>
+      "unknown constructor " ++ name.base
+
+    case NotExhaustive(pat) =>
+      "match is not exhaustive, missing " ++ format_pat(pat)
+
+    case Unreachable(pat) =>
+      "unreachable case " ++ format_pat(pat)
+
+    case NotAssignable(name) =>
+      name.base ++ " is not assignable"
+
+    case UnknownProcedure(name) =>
+      "unknown procedure " ++ name.base
+
+    case UnknownException(typ) =>
+      "the type " ++ format_type(typ) ++ " of an exception is not fully known"
+
+    case TestParams(test_name) =>
+      "test " ++ test_name ++ " takes parameters"
+
+    case Unassigned(name) =>
+      name.base ++ " is not assigned on every path"
+
+    case OutputUnassigned(x, proc) =>
+      "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned on every path"
+
+    case MissingDefinition(name) =>
+      name.base ++ " is exported but not defined"
+
+    case SignatureMismatch(name) =>
+      "the definition of " ++ name.base ++ " differs from its signature"
+
+    case PartlyExported(name) =>
+      name.base ++ " is exported, but not with each of its numbers of arguments"
+
+    case PrivateType(name, sort) =>
+      "the signature of " ++ name.base ++ " names the private type " ++ sort.base
+
+    case VisibleEquality(sort) =>
+      sort.base ++ " declares ==, which only abstract types may"
+
+    case UnexportedOrder(fun, sort) =>
+      fun.base ++ " of the exported type " ++ sort.base ++ " is not exported"
+
+    case Located(_, _, error) =>
+      type_message(error)
   end
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f
 function field_message(parts: List[Str]): Str :=
   match parts
-    case list("", f) => "unknown field " ++ without_update(f)
-    case list(t, f) => "unknown field " ++ without_update(f) ++ " of " ++ t
-    case _ => "unknown field " ++ join(".", parts)
+    case list("", f) =>
+      "unknown field " ++ without_update(f)
+
+    case list(t, f) =>
+      "unknown field " ++ without_update(f) ++ " of " ++ t
+
+    case _ =>
+      "unknown field " ++ join(".", parts)
   end
 
 function without_update(f: Str): Str :=
@@ -452,14 +559,33 @@ function without_update(f: Str): Str :=
 
 function runtime_message(e: RuntimeError): Str :=
   match e
-    case Failed(failure) => format_failure(failure)
-    case Uninitialized(name) => name.base ++ " is not initialized"
-    case NotFunction(value) => "cannot apply " ++ format_value(value)
-    case Unspecified(name, args) => name.base ++ " is not specified for " ++ join(", ", list(for v in args yield format_value(v)))
-    case NotList(value) => "expected a list, got " ++ format_value(value)
-    case UnassignedOutput(x, proc) => "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned"
-    case UnknownProc(name) => "unknown procedure " ++ name.base
-    case NotProc(value) => "cannot call " ++ format_value(value)
-    case UnresolvedField(field) => "the field " ++ field ++ " is not resolved"
-    case UntranslatedForm(form) => "the form " ++ form ++ "(...) is not translated"
+    case Failed(failure) =>
+      format_failure(failure)
+
+    case Uninitialized(name) =>
+      name.base ++ " is not initialized"
+
+    case NotFunction(value) =>
+      "cannot apply " ++ format_value(value)
+
+    case Unspecified(name, args) =>
+      name.base ++ " is not specified for " ++ join(", ", list(for v in args yield format_value(v)))
+
+    case NotList(value) =>
+      "expected a list, got " ++ format_value(value)
+
+    case UnassignedOutput(x, proc) =>
+      "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned"
+
+    case UnknownProc(name) =>
+      "unknown procedure " ++ name.base
+
+    case NotProc(value) =>
+      "cannot call " ++ format_value(value)
+
+    case UnresolvedField(field) =>
+      "the field " ++ field ++ " is not resolved"
+
+    case UntranslatedForm(form) =>
+      "the form " ++ form ++ "(...) is not translated"
   end

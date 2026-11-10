@@ -9,6 +9,7 @@ data Cell :=
   case Cell(contents: Int)
 
 function <+>(m: Int, n: Int): Int
+
 function twice(n: Int): Int
 
 implementation

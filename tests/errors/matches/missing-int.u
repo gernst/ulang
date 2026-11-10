@@ -1,5 +1,6 @@
 // type error: match is not exhaustive, missing _ at 2.1
 function f(x: Int): Int :=
   match x
-    case 0 => 0
+    case 0 =>
+      0
   end

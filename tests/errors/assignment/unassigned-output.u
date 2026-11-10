@@ -3,5 +3,5 @@ procedure p(out r: Int) :=
   skip
 
 test unassigned_output() :=
-  local  x: Int
-  call   p(out x)
+  local x: Int
+  call p(out x)

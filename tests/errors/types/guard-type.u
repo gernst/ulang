@@ -1,6 +1,8 @@
 // type error: cannot unify Int and Bool at 2.1
 function f(n: Int): Int :=
   match n
-    case m if m => 1
-    case _ => 0
+    case m if m =>
+      1
+    case _ =>
+      0
   end

@@ -3,17 +3,19 @@
 // that the interpreter and the runtime define, which order arrays by their elements and then by their size, as lists, and
 // show them as |a, b|, where |a, b| and |e for x in c if q| are the arrays of the list or of the comprehension
 
-import "option.u"
 import "list.u"
+import "option.u"
 
 export
 
 // the element as an option, which is None out of range, and whether x is an element
 function get[A](i: Int, a: Array[A]): Option[A]
+
 function contains[A](x: A, a: Array[A]): Bool
 
 // whether p holds for some element, or for all
 function exists[A](a: Array[A], p: A -> Bool): Bool
+
 function forall[A](a: Array[A], p: A -> Bool): Bool
 
 builtin
@@ -33,6 +35,7 @@ function slice[A](a: Array[A], i: Int, j: Int): Array[A]
 
 // f(x1, f(x2, ... f(xn, acc))) and f(... f(f(acc, x1), x2) ..., xn), both by loops
 function foldr[A, R](a: Array[A], acc: R, f: (A, R) -> R): R
+
 function foldl[A, R](a: Array[A], acc: R, f: (R, A) -> R): R
 
 implementation
@@ -51,7 +54,6 @@ function contains[A](x: A, a: Array[A]): Bool :=
 
 test arrays() :=
   local a := array(1, 2, 3)
-
   assert size(a) == 3 and at(0, a) == 1 and at(2, a) == 3 and get(1, a) == Some(2) and get(3, a) == None and get(-1, a) == None
   assert list(for x in a) == list(1, 2, 3) and list(for x in array(for x in list())) == list() and contains(2, a) and not contains(4, a)
   assert list(for x in a) == list(1, 2, 3)

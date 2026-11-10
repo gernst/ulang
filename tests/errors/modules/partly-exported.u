@@ -1,4 +1,5 @@
 // type error: f is exported, but not with each of its numbers of arguments
+
 export
 
 function f(n: Int): Int

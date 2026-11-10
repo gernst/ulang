@@ -9,9 +9,14 @@ test characters() :=
 
 function vowel(c: Char): Bool :=
   match c
-    case 'a' => true
-    case 'e' => true
-    case _ => false
+    case 'a' =>
+      true
+
+    case 'e' =>
+      true
+
+    case _ =>
+      false
   end
 
 test char_patterns() :=
@@ -47,7 +52,6 @@ test code_points() :=
 
 test no_characters() :=
   local m := ""
-
   try
     assign m := str(list(chr(55296)))
   catch

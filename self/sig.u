@@ -10,38 +10,52 @@ export
 // procs have parameters, ins, outs, and refs, constrs the parameters of their datatype, their argument types, and their
 // datatype, and named the declarations of each base name, of any kind and module
 data Sig :=
-  case Sig(
-    aliases: Map[Name, List[Id] * Type],
-    funs: Map[Name, List[List[Type] * Type]],
-    procs: Map[Name, List[Type] * List[Type] * List[Type] * List[Type]],
-    datas: Map[Name, Int],
-    members: Map[Name, List[Name]],
-    constrs: Map[Name, List[Type] * List[Type] * Type],
-    named: Map[Id, List[Name]]
-  )
+  case Sig(aliases: Map[Name, List[Id] * Type], funs: Map[Name, List[List[Type] * Type]], procs: Map[Name, List[Type] * List[Type] * List[Type] * List[Type]], datas: Map[Name, Int], members: Map[Name, List[Name]], constrs: Map[Name, List[Type] * List[Type] * Type], named: Map[Id, List[Name]])
 
 function empty(): Sig
+
 function restrict(sig: Sig, ms: List[Id]): Sig
+
 function union(a: Sig, b: Sig): Sig
+
 function exported(sig: Sig, values: Set[Name], sorts: Set[Name]): Sig
+
 function alias_of(sig: Sig, n: Name): Option[List[Id] * Type]
+
 function schemes_of(sig: Sig, n: Name): List[List[Type] * Type]
+
 function proc_of(sig: Sig, n: Name): Option[List[Type] * List[Type] * List[Type] * List[Type]]
+
 function data_of(sig: Sig, n: Name): Option[Int]
+
 function members_of(sig: Sig, n: Name): Option[List[Name]]
+
 function constr_of(sig: Sig, n: Name): Option[List[Type] * List[Type] * Type]
+
 function is_fun(sig: Sig, n: Name): Bool
+
 function is_proc(sig: Sig, n: Name): Bool
+
 function is_data(sig: Sig, n: Name): Bool
+
 function is_alias(sig: Sig, n: Name): Bool
+
 function is_constr(sig: Sig, n: Name): Bool
+
 function is_sort(sig: Sig, n: Name): Bool
+
 function names_of(sig: Sig, b: Id): List[Name]
+
 function with_alias(sig: Sig, n: Name, ps: List[Id], t: Type): Sig
+
 function with_fun(sig: Sig, n: Name, sc: List[Type] * Type): Sig
+
 function with_proc(sig: Sig, n: Name, g: List[Type] * List[Type] * List[Type] * List[Type]): Sig
+
 function with_data(sig: Sig, n: Name, arity: Int): Sig
+
 function with_members(sig: Sig, n: Name, cs: List[Name]): Sig
+
 function with_constr(sig: Sig, n: Name, kc: List[Type] * List[Type] * Type): Sig
 
 implementation
@@ -50,15 +64,7 @@ function empty(): Sig :=
   Sig(empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
 function restrict(sig: Sig, ms: List[Id]): Sig :=
-  Sig(
-    owned_map(sig.aliases, ms),
-    owned_map(sig.funs, ms),
-    owned_map(sig.procs, ms),
-    owned_map(sig.datas, ms),
-    owned_map(sig.members, ms),
-    owned_map(sig.constrs, ms),
-    map(for (k, v) in owned_named(list(for k => v in sig.named), ms))
-  )
+  Sig(owned_map(sig.aliases, ms), owned_map(sig.funs, ms), owned_map(sig.procs, ms), owned_map(sig.datas, ms), owned_map(sig.members, ms), owned_map(sig.constrs, ms), map(for (k, v) in owned_named(list(for k => v in sig.named), ms)))
 
 function owned_map[V](m: Map[Name, V], ms: List[Id]): Map[Name, V] :=
   map(for (k, v) in owned(list(for k => v in m), ms))
@@ -68,44 +74,29 @@ function owned[V](es: List[Name * V], ms: List[Id]): List[Name * V] :=
 
 function owned_named(es: List[Id * List[Name]], ms: List[Id]): List[Id * List[Name]] :=
   match es
-    case list() => list()
+    case list() =>
+      list()
     case list((b, ns); rest) =>
       let ks := list(for n in ns if in_modules(n, ms)) in if ks == list() then owned_named(rest, ms) else list((b, ks); owned_named(rest, ms))
   end
 
 function in_modules(n: Name, ms: List[Id]): Bool :=
   match n.module
-    case Some(m) => contains(m, ms)
-    case None => false
+    case Some(m) =>
+      contains(m, ms)
+    case None =>
+      false
   end
 
 // the declarations of both, whose names differ since they are qualified by their modules
 function union(a: Sig, b: Sig): Sig :=
-  Sig(
-    a.aliases ++ b.aliases,
-    a.funs ++ b.funs,
-    a.procs ++ b.procs,
-    a.datas ++ b.datas,
-    a.members ++ b.members,
-    a.constrs ++ b.constrs,
-    union_named(list(for k => v in b.named), a.named)
-  )
+  Sig(a.aliases ++ b.aliases, a.funs ++ b.funs, a.procs ++ b.procs, a.datas ++ b.datas, a.members ++ b.members, a.constrs ++ b.constrs, union_named(list(for k => v in b.named), a.named))
 
 // the signature without the private functions, procedures, and constructors, values, and without the private sorts, each kind
 // of declaration filtered by its own names, since a datatype and its constructor may share a name, where an abstract type,
 // whose constructors are private, has no members
 function exported(sig: Sig, values: Set[Name], sorts: Set[Name]): Sig :=
-  let members := without(sig.members, sorts) in
-  let kept := Sig(
-      without(sig.aliases, sorts),
-      without(sig.funs, values),
-      without(sig.procs, values),
-      without(sig.datas, sorts),
-      map(for k => v in members if not hidden(v, values)),
-      without(sig.constrs, values),
-      empty()
-    ) in
-    kept with named := map(for k => v in sig.named yield k => declared(kept, v))
+  let members := without(sig.members, sorts) in let kept := Sig(without(sig.aliases, sorts), without(sig.funs, values), without(sig.procs, values), without(sig.datas, sorts), map(for k => v in members if not hidden(v, values)), without(sig.constrs, values), empty()) in kept with named := map(for k => v in sig.named yield k => declared(kept, v))
 
 function without[V](m: Map[Name, V], names: Set[Name]): Map[Name, V] :=
   map(for k => v in m if not contains(k, names))
@@ -115,11 +106,15 @@ function declares(sig: Sig, n: Name): Bool :=
 
 function union_named(es: List[Id * List[Name]], bs: Map[Id, List[Name]]): Map[Id, List[Name]] :=
   match es
-    case list() => bs
+    case list() =>
+      bs
+
     case list((k, ns); rest) =>
       match get(k, bs)
-        case Some(ms) => union_named(rest, put(k, ms ++ ns, bs))
-        case None => union_named(rest, put(k, ns, bs))
+        case Some(ms) =>
+          union_named(rest, put(k, ms ++ ns, bs))
+        case None =>
+          union_named(rest, put(k, ns, bs))
       end
   end
 
@@ -165,8 +160,10 @@ function names_of(sig: Sig, b: Id): List[Name] :=
 
 function with_named(bs: Map[Id, List[Name]], n: Name): Map[Id, List[Name]] :=
   match get(n.base, bs)
-    case Some(ns) => if contains(n, ns) then bs else put(n.base, ns ++ list(n), bs)
-    case None => put(n.base, list(n), bs)
+    case Some(ns) =>
+      if contains(n, ns) then bs else put(n.base, ns ++ list(n), bs)
+    case None =>
+      put(n.base, list(n), bs)
   end
 
 function with_alias(sig: Sig, n: Name, ps: List[Id], t: Type): Sig :=

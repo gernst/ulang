@@ -1,9 +1,11 @@
 // runtime error: uncaught exception Unordered("unordered.Tally")
+
 export
 
 type Tally
 
 function tally(n: Int): Tally
+
 function ==(a: Tally, b: Tally): Bool
 
 implementation

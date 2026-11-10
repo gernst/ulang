@@ -2,28 +2,25 @@ import "os.u"
 
 test files() :=
   local t: Str, entries: List[Str * Bool]
-
-  call   os_write(in "out/files/a.txt", "line\n\"quoted\"\n")
-  call   os_read(in "out/files/a.txt", out t)
+  call os_write(in "out/files/a.txt", "line\n\"quoted\"\n")
+  call os_read(in "out/files/a.txt", out t)
   assert t == "line\n\"quoted\"\n"
-  call   os_write(in "out/files/a.txt", "")
-  call   os_read(in "out/files/a.txt", out t)
+  call os_write(in "out/files/a.txt", "")
+  call os_read(in "out/files/a.txt", out t)
   assert t == ""
-  call   os_write(in "out/files/ä→.txt", "ä→😀\n")
-  call   os_read(in "out/files/ä→.txt", out t)
+  call os_write(in "out/files/ä→.txt", "ä→😀\n")
+  call os_read(in "out/files/ä→.txt", out t)
   assert t == "ä→😀\n" and size(t) == 4
-  call   os_list(in "out/files", out entries)
+  call os_list(in "out/files", out entries)
   assert contains(("ä→.txt", false), entries)
 
 test library() :=
   local t: Str
-
-  call   os_library(in "option", out t)
+  call os_library(in "option", out t)
   assert slice(t, 0, 16) == "// optional valu"
 
 test failures() :=
   local t: Str, m := ""
-
   try
     call os_read(in "out/files/missing.txt", out t)
   catch
@@ -42,22 +39,25 @@ test failures() :=
 // a tree of files, which os_list and os_walk see in the order of their names
 test walking() :=
   local entries: List[Str * Bool], files: List[Str], dir: Bool, m := ""
-
-  call   os_write(in "out/walk/z.txt", "z")
-  call   os_write(in "out/walk/a.txt", "a")
-  call   os_write(in "out/walk/sub/deep/c.txt", "c")
-  call   os_write(in "out/walk/sub/b.txt", "b")
-  call   os_list(in "out/walk", out entries)
+  call os_write(in "out/walk/z.txt", "z")
+  call os_write(in "out/walk/a.txt", "a")
+  call os_write(in "out/walk/sub/deep/c.txt", "c")
+  call os_write(in "out/walk/sub/b.txt", "b")
+  call os_list(in "out/walk", out entries)
   assert entries == list(("a.txt", false), ("sub", true), ("z.txt", false))
-  call   os_walk(in "out/walk", out files)
-  assert files == list("out/walk/a.txt", "out/walk/sub/b.txt", "out/walk/sub/deep/c.txt", "out/walk/z.txt")
-  call   os_walk(in "out/walk/sub/", out files)
+  call os_walk(in "out/walk", out files)
+  assert files == list(
+    "out/walk/a.txt",
+    "out/walk/sub/b.txt",
+    "out/walk/sub/deep/c.txt",
+    "out/walk/z.txt")
+  call os_walk(in "out/walk/sub/", out files)
   assert files == list("out/walk/sub/b.txt", "out/walk/sub/deep/c.txt")
-  call   os_walk(in "out/walk/a.txt", out files)
+  call os_walk(in "out/walk/a.txt", out files)
   assert files == list("out/walk/a.txt")
-  call   os_is_dir(in "out/walk/sub", out dir)
+  call os_is_dir(in "out/walk/sub", out dir)
   assert dir
-  call   os_is_dir(in "out/walk/a.txt", out dir)
+  call os_is_dir(in "out/walk/a.txt", out dir)
   assert not dir
   try
     call os_list(in "out/walk/missing", out entries)
@@ -70,11 +70,10 @@ test walking() :=
 // relative paths start from the directory that os_chdir sets
 test changing_directory() :=
   local t: Str, m := ""
-
-  call   os_write(in "out/here/here.txt", "here")
-  call   os_chdir(in "out/here")
-  call   os_read(in "here.txt", out t)
-  call   os_chdir(in "../..")
+  call os_write(in "out/here/here.txt", "here")
+  call os_chdir(in "out/here")
+  call os_read(in "here.txt", out t)
+  call os_chdir(in "../..")
   assert t == "here"
   try
     call os_chdir(in "out/missing")
@@ -87,8 +86,7 @@ test changing_directory() :=
 // the tests run without arguments
 test arguments() :=
   local args: List[Str]
-
-  call   os_args(out args)
+  call os_args(out args)
   assert args == list()
 
 // os_print prints a string as it is, also the text of any value that show gives

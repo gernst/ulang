@@ -7,8 +7,10 @@ data Int :=
 
 function name_of(n: Int): Str :=
   match n
-    case Zero => "zero"
-    case Succ(_) => "more"
+    case Zero =>
+      "zero"
+    case Succ(_) =>
+      "more"
   end
 
 test own_int() :=

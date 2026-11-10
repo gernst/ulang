@@ -2,8 +2,8 @@
 // checked programs: definitions of functions and datatypes, and formulas with quantifiers, where the connectives and
 // comparisons of the prelude are read as the builtins of the prover, a != b as not (a == b) and a <= b as not (b < a)
 
-import "syntax.u"
 import "map.u"
+import "syntax.u"
 
 export
 
@@ -24,8 +24,6 @@ data Tok :=
   case TPunct(char: Char)
   case TEnd
 
-// lexing
-
 function is_symbol(c: Char): Bool :=
   contains(c, "=<>!+-*/%:|&^~.")
 
@@ -37,24 +35,19 @@ function scan_end(text: Str, i: Int, p: Char -> Bool): Int :=
 
 procedure lex(in text: Str, out toks: List[Tok]) :=
   local i := 0, j := 0, c := ' ', rev: List[Tok] := list()
-
   while i < size(text)
     assign c := at(i, text)
-
     if is_space(c)
       assign i := i + 1
     else
       if is_digit(c)
         assign j := scan_end(text, i, is_digit)
-
         match number(slice(text, i, j))
           case Some(n) =>
             assign rev := list(TInt(n); rev)
-
           case None =>
             raise ReadError("invalid number")
         end
-
         assign i := j
       else
         if is_letter(c) or c == '_'
@@ -75,16 +68,12 @@ procedure lex(in text: Str, out toks: List[Tok]) :=
       end
     end
   end
-
   assign toks := reverse(rev)
-
-// tokens
 
 function head_tok(toks: List[Tok]): Tok :=
   match toks
     case list(t; _) =>
       t
-
     case list() =>
       TEnd
   end
@@ -93,7 +82,6 @@ function second_tok(toks: List[Tok]): Tok :=
   match toks
     case list(_, t; _) =>
       t
-
     case _ =>
       TEnd
   end
@@ -102,7 +90,6 @@ procedure advance(ref toks: List[Tok]) :=
   match toks
     case list(_; rest) =>
       assign toks := rest
-
     case list() =>
       skip
   end
@@ -125,13 +112,10 @@ procedure parse_name(out x: Id, ref toks: List[Tok]) :=
   end
 
 function is_upper(x: Id): Bool :=
-  let c := at(0, x) in
-  ord(c) >= 65 and ord(c) <= 90
+  let c := at(0, x) in ord(c) >= 65 and ord(c) <= 90
 
 function unknown_type(): Type :=
   TSort(Name(None, "?"), list())
-
-// expressions, where env holds the names of the binders around them, the innermost first
 
 function infix_prec(t: Tok): Int :=
   match t
@@ -194,7 +178,6 @@ function negate(a: Expr): Expr :=
   match a
     case EConst(VInt(num)) =>
       int_expr(0 - num)
-
     case _ =>
       app("-", list(int_expr(0), a))
   end
@@ -203,11 +186,14 @@ procedure parse_expr(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
   call parse_binary(in env, 1, out e, ref toks)
 
 // operators of at least the precedence min, where ==> and ++ are right associative
-procedure parse_binary(in env: List[Id], min: Int, out e: Expr, ref toks: List[Tok]) :=
+procedure parse_binary(
+  in  env: List[Id],
+      min: Int,
+  out e: Expr,
+  ref toks: List[Tok]
+) :=
   local op := "", prec := 0, rhs: Expr
-
   call parse_prefix(in env, out e, ref toks)
-
   while infix_prec(head_tok(toks)) >= min and infix_prec(head_tok(toks)) > 0
     assign op := op_name(head_tok(toks)), prec := infix_prec(head_tok(toks))
     call   advance(ref toks)
@@ -217,7 +203,6 @@ procedure parse_binary(in env: List[Id], min: Int, out e: Expr, ref toks: List[T
 
 procedure parse_prefix(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
   local a: Expr
-
   match head_tok(toks)
     case TName("not") =>
       call   advance(ref toks)
@@ -235,9 +220,7 @@ procedure parse_prefix(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
 
 procedure parse_app(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
   local args: List[Expr]
-
   call parse_atom(in env, out e, ref toks)
-
   while head_tok(toks) == TPunct('(')
     call   advance(ref toks)
     call   parse_exprs(in env, ')', out args, ref toks)
@@ -245,26 +228,27 @@ procedure parse_app(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
   end
 
 // expressions separated by commas up to the closing character
-procedure parse_exprs(in env: List[Id], close: Char, out es: List[Expr], ref toks: List[Tok]) :=
+procedure parse_exprs(
+  in  env: List[Id],
+      close: Char,
+  out es: List[Expr],
+  ref toks: List[Tok]
+) :=
   local e: Expr, rev: List[Expr] := list()
-
   if head_tok(toks) != TPunct(close)
     call   parse_expr(in env, out e, ref toks)
     assign rev := list(e)
-
     while head_tok(toks) == TPunct(',')
       call   advance(ref toks)
       call   parse_expr(in env, out e, ref toks)
       assign rev := list(e; rev)
     end
   end
-
   call   expect(in TPunct(close), ref toks)
   assign es := reverse(rev)
 
 procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
   local a: Expr, b: Expr, c: Expr, x := "", xs: List[Var], es: List[Expr], bs: List[Branch]
-
   match head_tok(toks)
     case TInt(num) =>
       call   advance(ref toks)
@@ -320,13 +304,11 @@ procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
 
     case TPunct('[') =>
       call advance(ref toks)
-
       if head_tok(toks) == TPunct(']')
         call   advance(ref toks)
         assign e := sym("Nil")
       else
         call parse_expr(in env, out a, ref toks)
-
         if head_tok(toks) == TPunct(';')
           call   advance(ref toks)
           call   parse_expr(in env, out b, ref toks)
@@ -352,7 +334,6 @@ function lookup(x: Id, env: List[Id]): Expr :=
   match index_of(x, env)
     case Some(i) =>
       EBound(i)
-
     case None =>
       sym(x)
   end
@@ -361,7 +342,6 @@ function list_expr(es: List[Expr]): Expr :=
   match es
     case list() =>
       sym("Nil")
-
     case list(e; rest) =>
       app("Cons", list(e, list_expr(rest)))
   end
@@ -369,21 +349,17 @@ function list_expr(es: List[Expr]): Expr :=
 // names with optional types, separated by commas
 procedure parse_binders(out xs: List[Var], ref toks: List[Tok]) :=
   local x := "", t: Type, rev: List[Var] := list()
-
-  call parse_binder(out x, t, ref toks)
+  call   parse_binder(out x, t, ref toks)
   assign rev := list(Var(x, t))
-
   while head_tok(toks) == TPunct(',')
     call   advance(ref toks)
     call   parse_binder(out x, t, ref toks)
     assign rev := list(Var(x, t); rev)
   end
-
   assign xs := reverse(rev)
 
 procedure parse_binder(out x: Id, t: Type, ref toks: List[Tok]) :=
   call parse_name(out x, ref toks)
-
   if head_tok(toks) == TSym(":")
     call advance(ref toks)
     call parse_type(out t, ref toks)
@@ -394,54 +370,48 @@ procedure parse_binder(out x: Id, t: Type, ref toks: List[Tok]) :=
 // a type, where single capitals are type parameters
 procedure parse_type(out t: Type, ref toks: List[Tok]) :=
   local x := "", ts: List[Type] := list(), u: Type
-
   call parse_name(out x, ref toks)
-
   if head_tok(toks) == TPunct('[')
     call   advance(ref toks)
     call   parse_type(out u, ref toks)
     assign ts := list(u)
-
     while head_tok(toks) == TPunct(',')
       call   advance(ref toks)
       call   parse_type(out u, ref toks)
       assign ts := ts ++ list(u)
     end
-
     call expect(in TPunct(']'), ref toks)
   end
-
   if size(x) == 1 and is_upper(x)
     assign t := TParam(ord(at(0, x)) - 65)
   else
     assign t := TSort(Name(None, x), ts)
   end
 
-procedure parse_cases(in env: List[Id], out bs: List[Branch], ref toks: List[Tok]) :=
+procedure parse_cases(
+  in  env: List[Id],
+  out bs: List[Branch],
+  ref toks: List[Tok]
+) :=
   local p: Pat, g: Option[Expr], h: Expr, b: Expr, inner: List[Id], rev: List[Branch] := list()
-
   while head_tok(toks) == TName("case")
     call   advance(ref toks)
     call   parse_pattern(out p, ref toks)
     assign inner := reverse(list(for x in pattern_vars(p) yield x.name)) ++ env, g := None
-
     if head_tok(toks) == TName("if")
       call   advance(ref toks)
       call   parse_expr(in inner, out h, ref toks)
       assign g := Some(h)
     end
-
     call   expect(in TSym("=>"), ref toks)
     call   parse_expr(in inner, out b, ref toks)
     assign rev := list(Branch(p, g, b); rev)
   end
-
   call   expect(in TName("end"), ref toks)
   assign bs := reverse(rev)
 
 procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
   local x := "", ps: List[Pat], q: Pat, r: Pat
-
   match head_tok(toks)
     case TName("_") =>
       call   advance(ref toks)
@@ -453,7 +423,6 @@ procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
 
     case TSym("-") =>
       call advance(ref toks)
-
       match head_tok(toks)
         case TInt(num) =>
           call   advance(ref toks)
@@ -473,7 +442,6 @@ procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
 
     case TName(name) =>
       call advance(ref toks)
-
       if not is_upper(name)
         assign p := PVar(Var(name, unknown_type()))
       else
@@ -488,13 +456,11 @@ procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
 
     case TPunct('[') =>
       call advance(ref toks)
-
       if head_tok(toks) == TPunct(']')
         call   advance(ref toks)
         assign p := PApp(Name(None, "Nil"), list())
       else
         call parse_pattern(out q, ref toks)
-
         if head_tok(toks) == TPunct(';')
           call   advance(ref toks)
           call   parse_pattern(out r, ref toks)
@@ -518,18 +484,15 @@ procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
 
 procedure parse_patterns(in close: Char, out ps: List[Pat], ref toks: List[Tok]) :=
   local p: Pat, rev: List[Pat] := list()
-
   if head_tok(toks) != TPunct(close)
     call   parse_pattern(out p, ref toks)
     assign rev := list(p)
-
     while head_tok(toks) == TPunct(',')
       call   advance(ref toks)
       call   parse_pattern(out p, ref toks)
       assign rev := list(p; rev)
     end
   end
-
   call   expect(in TPunct(close), ref toks)
   assign ps := reverse(rev)
 
@@ -537,29 +500,22 @@ function list_pattern(ps: List[Pat]): Pat :=
   match ps
     case list() =>
       PApp(Name(None, "Nil"), list())
-
     case list(p; rest) =>
       PApp(Name(None, "Cons"), list(p, list_pattern(rest)))
   end
 
 procedure read_expr(in text: Str, out e: Expr) :=
   local toks: List[Tok]
-
   call lex(in text, out toks)
   call parse_expr(in list(), out e, ref toks)
-
   if toks != list()
     raise ReadError("unexpected " ++ show(head_tok(toks)))
   end
 
-// declarations: function f(x: T, y) := e and data T[A] := | C | D(A, name: T[A]), whose ranks follow their order
-
 procedure read_decls(in decls: Decls, text: Str, out result: Decls) :=
   local toks: List[Tok]
-
   call   lex(in text, out toks)
   assign result := decls
-
   while toks != list()
     match head_tok(toks)
       case TName("function") =>
@@ -577,7 +533,6 @@ procedure read_decls(in decls: Decls, text: Str, out result: Decls) :=
 
 procedure parse_function(ref decls: Decls, toks: List[Tok]) :=
   local f := "", xs: List[Var] := list(), t: Type, body: Expr, name: Name
-
   match head_tok(toks)
     case TSym(op) =>
       assign f := op
@@ -587,63 +542,51 @@ procedure parse_function(ref decls: Decls, toks: List[Tok]) :=
       call parse_name(out f, ref toks)
   end
   call expect(in TPunct('('), ref toks)
-
   if head_tok(toks) != TPunct(')')
     call parse_binders(out xs, ref toks)
   end
-
   call expect(in TPunct(')'), ref toks)
-
   if head_tok(toks) == TSym(":")
     call advance(ref toks)
     call parse_type(out t, ref toks)
   end
-
   call   expect(in TSym(":="), ref toks)
   call   parse_expr(in reverse(list(for x in xs yield x.name)), out body, ref toks)
   assign name := Name(None, f)
-  assign decls := decls with defs := put(name, Def(occurs(EFun(name), body), xs, body), decls.defs),
-                            ranks := put(name, size(decls.ranks), decls.ranks)
+  assign decls := decls with defs := put(name, Def(occurs(EFun(name), body), xs, body), decls.defs), ranks := put(name, size(decls.ranks), decls.ranks)
 
 procedure parse_data(ref decls: Decls, toks: List[Tok]) :=
   local d := "", c := "", u: Type, fields: List[Var], cs: List[Name] := list(), name: Name, rank := 0
-
   call parse_name(out d, ref toks)
-
   if head_tok(toks) == TPunct('[')
     call advance(ref toks)
-
     while head_tok(toks) != TPunct(']') and head_tok(toks) != TEnd
       call advance(ref toks)
     end
-
     call expect(in TPunct(']'), ref toks)
   end
-
   call   expect(in TSym(":="), ref toks)
   assign name := Name(None, d), rank := size(decls.ranks)
-
   while head_tok(toks) == TSym("|")
     call   advance(ref toks)
     call   parse_name(out c, ref toks)
     assign fields := list()
-
     if head_tok(toks) == TPunct('(')
       call advance(ref toks)
       call parse_fields(in name, out fields, ref toks)
     end
-
     assign cs := cs ++ list(Name(None, c))
-    assign decls := decls with ctors := put(Name(None, c), Ctor(name, fields), decls.ctors),
-                              ranks := put(Name(None, c), rank, decls.ranks)
+    assign decls := decls with ctors := put(Name(None, c), Ctor(name, fields), decls.ctors), ranks := put(Name(None, c), rank, decls.ranks)
   end
-
   assign decls := decls with datatypes := put(name, cs, decls.datatypes)
 
 // fields name: T or T, where those without a name are named by their types, x for parameters and xs for the datatype
-procedure parse_fields(in datatype: Name, out fields: List[Var], ref toks: List[Tok]) :=
+procedure parse_fields(
+  in  datatype: Name,
+  out fields: List[Var],
+  ref toks: List[Tok]
+) :=
   local x := "", t: Type, rev: List[Var] := list()
-
   while head_tok(toks) != TPunct(')')
     if second_tok(toks) == TSym(":")
       call parse_name(out x, ref toks)
@@ -653,14 +596,11 @@ procedure parse_fields(in datatype: Name, out fields: List[Var], ref toks: List[
       call   parse_type(out t, ref toks)
       assign x := field_name(datatype, t)
     end
-
     assign rev := list(Var(x, t); rev)
-
     if head_tok(toks) == TPunct(',')
       call advance(ref toks)
     end
   end
-
   call   advance(ref toks)
   assign fields := reverse(rev)
 

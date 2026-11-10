@@ -1,8 +1,15 @@
 // type error: unreachable case (true, true) at 2.1
 function f(p: Bool * Bool): Int :=
   match p
-    case (true, _) => 0
-    case (_, false) => 1
-    case (true, true) => 2
-    case (false, true) => 3
+    case (true, _) =>
+      0
+
+    case (_, false) =>
+      1
+
+    case (true, true) =>
+      2
+
+    case (false, true) =>
+      3
   end

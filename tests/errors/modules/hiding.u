@@ -1,5 +1,6 @@
 // a module for tests/errors/modules/private-name.u, private-constructor.u, private-pattern.u, private-field.u, and incomparable.u,
 // with an abstract type without an order
+
 export
 
 type Box

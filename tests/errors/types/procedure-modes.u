@@ -3,5 +3,5 @@ procedure double(in x: Int, out y: Int) :=
   assign y := 2 * x
 
 test modes() :=
-  local  p := double, z := 0
+  local p := double, z := 0
   call p(in 1, ref z)

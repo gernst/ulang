@@ -1,4 +1,5 @@
 // runtime error: uncaught exception Incomparable("hiding.Box")
+
 import "hiding.u"
 
 test t() :=

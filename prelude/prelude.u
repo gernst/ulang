@@ -47,38 +47,50 @@ infix left 10 * / %
 prefix 11 -
 
 function not(b: Bool): Bool
+
 function ==>(a: Bool, b: Bool): Bool
+
 function !=[A](x: A, y: A): Bool
 
 // the comparisons by one < each, which follows compare, a total order
 function <=[A](x: A, y: A): Bool
+
 function >[A](x: A, y: A): Bool
+
 function >=[A](x: A, y: A): Bool
 
 function -(n: Int): Int
 
 // the absolute value, and the greatest common divisor, which is 0 only for 0 and 0
 function abs(n: Int): Int
+
 function gcd(a: Int, b: Int): Int
 
 // the components of a pair
 function first[A, B](p: A * B): A
+
 function second[A, B](p: A * B): B
 
-// the types of literals, the arithmetic of integers, and the concatenation of strings, which the interpreter and the runtime
-// define
 builtin
 
 type Bool
+
 type Int
+
 type Str
+
 type Char
 
 function +(a: Int, b: Int): Int
+
 function -(a: Int, b: Int): Int
+
 function *(a: Int, b: Int): Int
+
 function /(a: Int, b: Int): Int
+
 function %(a: Int, b: Int): Int
+
 function ++(a: Str, b: Str): Str
 
 implementation
@@ -90,16 +102,16 @@ function ==>(a: Bool, b: Bool): Bool :=
   not a or b
 
 function !=[A](x: A, y: A): Bool :=
-  not (x == y)
+  not x == y
 
 function <=[A](x: A, y: A): Bool :=
-  not (y < x)
+  not y < x
 
 function >[A](x: A, y: A): Bool :=
   y < x
 
 function >=[A](x: A, y: A): Bool :=
-  not (x < y)
+  not x < y
 
 function -(n: Int): Int :=
   0 - n
@@ -111,10 +123,16 @@ function gcd(a: Int, b: Int): Int :=
   if b == 0 then abs(a) else gcd(b, a % b)
 
 function first[A, B](p: A * B): A :=
-  let (a, _) := p in a
+  match p
+    case (a, _) =>
+      a
+  end
 
 function second[A, B](p: A * B): B :=
-  let (_, b) := p in b
+  match p
+    case (_, b) =>
+      b
+  end
 
 test arithmetic() :=
   assert abs(-3) == 3 and abs(3) == 3 and gcd(12, -18) == 6 and gcd(0, 5) == 5 and gcd(0, 0) == 0

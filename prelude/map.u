@@ -8,17 +8,23 @@ export
 type Map[K, V]
 
 function empty[K, V](): Map[K, V]
+
 function get[K, V](k: K, m: Map[K, V]): Option[V]
+
 function contains[K, V](k: K, m: Map[K, V]): Bool
+
 function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V]
 
 // the entries of both, where those of b count, and the entries of a without the keys ks
 function ++[K, V](a: Map[K, V], b: Map[K, V]): Map[K, V]
+
 function --[K, V](m: Map[K, V], ks: Set[K]): Map[K, V]
 
 // whether p holds for the key and the value of some entry, or of all
 function exists[K, V](m: Map[K, V], p: (K, V) -> Bool): Bool
+
 function forall[K, V](m: Map[K, V], p: (K, V) -> Bool): Bool
+
 function remove[K, V](k: K, m: Map[K, V]): Map[K, V]
 
 function size[K, V](m: Map[K, V]): Int
@@ -26,11 +32,13 @@ function size[K, V](m: Map[K, V]): Int
 // f(k1, v1, f(k2, v2, ... f(kn, vn, acc))) and f(... f(f(acc, k1, v1), k2, v2) ..., kn, vn) of the entries in the order of
 // their keys
 function foldr[K, V, R](m: Map[K, V], acc: R, f: (K, V, R) -> R): R
+
 function foldl[K, V, R](m: Map[K, V], acc: R, f: (R, K, V) -> R): R
 
 // maps are ordered and equal by their entries, whatever the shapes of their trees, also as elements of other values
 // and in generic code
 function compare[K, V](a: Map[K, V], b: Map[K, V]): Int
+
 function ==[K, V](a: Map[K, V], b: Map[K, V]): Bool
 
 // the entries in the order of their keys as the literal {k => v, l => w}, also inside other values
@@ -47,12 +55,19 @@ function empty[K, V](): Map[K, V] :=
 
 function get[K, V](k: K, m: Map[K, V]): Option[V] :=
   match m
-    case Leaf => None
+    case Leaf =>
+      None
+
     case Node(left, key, value, right, _) =>
       match compare(k, key)
-        case -1 => get(k, left)
-        case 1 => get(k, right)
-        case _ => Some(value)
+        case -1 =>
+          get(k, left)
+
+        case 1 =>
+          get(k, right)
+
+        case _ =>
+          Some(value)
       end
   end
 
@@ -62,12 +77,19 @@ function contains[K, V](k: K, m: Map[K, V]): Bool :=
 // m where k has the value v
 function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V] :=
   match m
-    case Leaf => Node(Leaf, k, v, Leaf, 1)
+    case Leaf =>
+      Node(Leaf, k, v, Leaf, 1)
+
     case Node(left, key, value, right, height) =>
       match compare(k, key)
-        case -1 => balance(put(k, v, left), key, value, right)
-        case 1 => balance(left, key, value, put(k, v, right))
-        case _ => Node(left, k, v, right, height)
+        case -1 =>
+          balance(put(k, v, left), key, value, right)
+
+        case 1 =>
+          balance(left, key, value, put(k, v, right))
+
+        case _ =>
+          Node(left, k, v, right, height)
       end
   end
 
@@ -79,26 +101,34 @@ function ==[K, V](a: Map[K, V], b: Map[K, V]): Bool :=
 
 function foldr[K, V, R](m: Map[K, V], acc: R, f: (K, V, R) -> R): R :=
   match m
-    case Leaf => acc
-    case Node(left, key, value, right, _) => foldr(left, f(key, value, foldr(right, acc, f)), f)
+    case Leaf =>
+      acc
+    case Node(left, key, value, right, _) =>
+      foldr(left, f(key, value, foldr(right, acc, f)), f)
   end
 
 function foldl[K, V, R](m: Map[K, V], acc: R, f: (R, K, V) -> R): R :=
   match m
-    case Leaf => acc
-    case Node(left, key, value, right, _) => foldl(right, f(foldl(left, acc, f), key, value), f)
+    case Leaf =>
+      acc
+    case Node(left, key, value, right, _) =>
+      foldl(right, f(foldl(left, acc, f), key, value), f)
   end
 
 function size[K, V](m: Map[K, V]): Int :=
   match m
-    case Leaf => 0
-    case Node(left, _, _, right, _) => size(left) + 1 + size(right)
+    case Leaf =>
+      0
+    case Node(left, _, _, right, _) =>
+      size(left) + 1 + size(right)
   end
 
 function height[K, V](m: Map[K, V]): Int :=
   match m
-    case Leaf => 0
-    case Node(_, _, _, _, height) => height
+    case Leaf =>
+      0
+    case Node(_, _, _, _, height) =>
+      height
   end
 
 function node[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
@@ -106,41 +136,45 @@ function node[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
 
 function rotate_left[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case Node(a, j, v, Node(b, k, w, right, _), _) => node(node(a, j, v, b), k, w, right)
-    case _ => m
+    case Node(a, j, v, Node(b, k, w, right, _), _) =>
+      node(node(a, j, v, b), k, w, right)
+    case _ =>
+      m
   end
 
 function rotate_right[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case Node(Node(left, j, v, b, _), k, w, c, _) => node(left, j, v, node(b, k, w, c))
-    case _ => m
+    case Node(Node(left, j, v, b, _), k, w, c, _) =>
+      node(left, j, v, node(b, k, w, c))
+    case _ =>
+      m
   end
 
 function left_of[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case Node(left, _, _, _, _) => left
-    case _ => m
+    case Node(left, _, _, _, _) =>
+      left
+    case _ =>
+      m
   end
 
 function right_of[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case Node(_, _, _, right, _) => right
-    case _ => m
+    case Node(_, _, _, right, _) =>
+      right
+    case _ =>
+      m
   end
 
 // the node of l, k, v, r, where the heights of l and r differ by at most two, rebalanced by one or two rotations
 function balance[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
-  if height(l) > height(r) + 1 then
-    rotate_right(node(if height(left_of(l)) < height(right_of(l)) then rotate_left(l) else l, k, v, r))
-  else if height(r) > height(l) + 1 then
-    rotate_left(node(l, k, v, if height(right_of(r)) < height(left_of(r)) then rotate_right(r) else r))
-  else
-    node(l, k, v, r)
+  if height(l) > height(r) + 1 then rotate_right(node(if height(left_of(l)) < height(right_of(l)) then rotate_left(l) else l, k, v, r)) else if height(r) > height(l) + 1 then rotate_left(node(l, k, v, if height(right_of(r)) < height(left_of(r)) then rotate_right(r) else r)) else node(l, k, v, r)
 
 // the heights of the subtrees of each node differ by at most one, and its height is correct
 function balanced[K, V](m: Map[K, V]): Bool :=
   match m
-    case Leaf => true
+    case Leaf =>
+      true
     case Node(left, _, _, right, h) =>
       balanced(left) and balanced(right) and h == node_height(left, right) and height(left) <= height(right) + 1 and height(right) <= height(left) + 1
   end
@@ -151,34 +185,53 @@ function node_height[K, V](l: Map[K, V], r: Map[K, V]): Int :=
 // m without k
 function remove[K, V](k: K, m: Map[K, V]): Map[K, V] :=
   match m
-    case Leaf => Leaf
+    case Leaf =>
+      Leaf
+
     case Node(left, key, value, right, _) =>
       match compare(k, key)
-        case -1 => balance(remove(k, left), key, value, right)
-        case 1 => balance(left, key, value, remove(k, right))
-        case _ => join(left, right)
+        case -1 =>
+          balance(remove(k, left), key, value, right)
+
+        case 1 =>
+          balance(left, key, value, remove(k, right))
+
+        case _ =>
+          join(left, right)
       end
   end
 
 // the entries of l and then r, whose heights differ by at most one
 function join[K, V](l: Map[K, V], r: Map[K, V]): Map[K, V] :=
   match least(r)
-    case Some((k, v)) => balance(l, k, v, remove_least(r))
-    case None => l
+    case Some((k, v)) =>
+      balance(l, k, v, remove_least(r))
+    case None =>
+      l
   end
 
 function least[K, V](m: Map[K, V]): Option[K * V] :=
   match m
-    case Leaf => None
-    case Node(Leaf, key, value, _, _) => Some((key, value))
-    case Node(left, _, _, _, _) => least(left)
+    case Leaf =>
+      None
+
+    case Node(Leaf, key, value, _, _) =>
+      Some((key, value))
+
+    case Node(left, _, _, _, _) =>
+      least(left)
   end
 
 function remove_least[K, V](m: Map[K, V]): Map[K, V] :=
   match m
-    case Leaf => Leaf
-    case Node(Leaf, _, _, right, _) => right
-    case Node(left, key, value, right, _) => balance(remove_least(left), key, value, right)
+    case Leaf =>
+      Leaf
+
+    case Node(Leaf, _, _, right, _) =>
+      right
+
+    case Node(left, key, value, right, _) =>
+      balance(remove_least(left), key, value, right)
   end
 
 function ++[K, V](a: Map[K, V], b: Map[K, V]): Map[K, V] :=
@@ -198,14 +251,12 @@ function show[K, V](m: Map[K, V]): Str :=
 
 test maps() :=
   local m := map("a" => 1, "b" => 2)
-
   assert get("a", m) == Some(1) and get("c", m) == None and contains("b", m) and not contains("c", m)
   assign m := put("a", 3, m)
   assert list(for x in m) == list(("a", 3), ("b", 2)) and size(m) == 2 and list(for x in map("b" => 2, "a" => 1, "a" => 3)) == list(for x in m)
 
 test map_folds() :=
   local m := map(for i in range(1, 51) yield i => show(i))
-
   assert foldr(m, list(), lambda k, v, ps => list((k, v); ps)) == list(for x in m) and foldr(m, empty(), put) == m
   assert foldl(m, list(), lambda ps, k, v => list((k, v); ps)) == reverse(list(for x in m)) and foldl(m, 0, lambda n, k, v => n + k) == 1275
   assert foldr(map(1 => "a", 2 => "b"), "", lambda k, v, t => v ++ t) == "ab" and foldl(map(1 => "a", 2 => "b"), "", lambda t, k, v => t ++ v) == "ab"
@@ -218,7 +269,6 @@ test map_equality() :=
 // ascending keys would make a list of an unbalanced tree
 test balance() :=
   local m := map(for i in range(1, 201) yield show(1000 + i) => i)
-
   assert balanced(m) and size(m) == 200 and height(m) <= 11
   assert get("1100", m) == Some(100) and get("1201", m) == None
   assert list(for x in m) == list(for i in range(1, 201) yield (show(1000 + i), i))

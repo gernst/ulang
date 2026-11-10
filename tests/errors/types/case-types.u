@@ -1,6 +1,8 @@
 // type error: cannot unify Bool and Int at 2.1
 function f(): Int :=
   match list()
-    case list() => 0
-    case list(_; _) => true
+    case list() =>
+      0
+    case list(_; _) =>
+      true
   end

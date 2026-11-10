@@ -31,7 +31,9 @@ data LexError :=
   case LexError(message: Str, pos: Pos)
 
 function is_op_char(c: Char): Bool
+
 function is_keyword(w: Str): Bool
+
 procedure lex(in text: Str, out toks: Tokens)
 
 implementation
@@ -41,11 +43,49 @@ function is_op_char(c: Char): Bool :=
 
 function keywords(): Set[Str] :=
   set(
-    "_", "array", "assert", "assign", "builtin", "call", "case", "catch", "data", "do", "else", "end", "export", "false", "for",
-    "function", "if", "implementation", "import", "in", "infix", "lambda", "let", "list", "local", "map", "match", "out",
-    "postfix", "prefix", "procedure", "raise", "ref", "set", "skip", "test", "then", "true", "type", "try", "while", "with",
-    "yield"
-  )
+    "_",
+    "array",
+    "assert",
+    "assign",
+    "builtin",
+    "call",
+    "case",
+    "catch",
+    "data",
+    "do",
+    "else",
+    "end",
+    "export",
+    "false",
+    "for",
+    "function",
+    "if",
+    "implementation",
+    "import",
+    "in",
+    "infix",
+    "lambda",
+    "let",
+    "list",
+    "local",
+    "map",
+    "match",
+    "out",
+    "postfix",
+    "prefix",
+    "procedure",
+    "raise",
+    "ref",
+    "set",
+    "skip",
+    "test",
+    "then",
+    "true",
+    "type",
+    "try",
+    "while",
+    "with",
+    "yield")
 
 function is_keyword(w: Str): Bool :=
   contains(w, keywords())
@@ -66,62 +106,76 @@ function peek(text: Str, offset: Int): Char :=
 
 function unescape(c: Char): Option[Char] :=
   match c
-    case '"' => Some('"')
-    case '\'' => Some('\'')
-    case '\\' => Some('\\')
-    case 'n' => Some('\n')
-    case 't' => Some('\t')
-    case 'r' => Some('\r')
-    case _ => None
+    case '"' =>
+      Some('"')
+
+    case '\'' =>
+      Some('\'')
+
+    case '\\' =>
+      Some('\\')
+
+    case 'n' =>
+      Some('\n')
+
+    case 't' =>
+      Some('\t')
+
+    case 'r' =>
+      Some('\r')
+
+    case _ =>
+      None
   end
 
 // the run of characters from offset that satisfy p, where start is the offset before it, and offset ends after it
 procedure scan(in text: Str, p: Char -> Bool, out start: Int, ref offset: Int) :=
   assign start := offset
-
   while p(peek(text, offset))
     assign offset := offset + 1
   end
 
 // the line and column of offset to in text, from those of offset from
-procedure lex_move_position(in text: Str, from: Int, to: Int, ref line: Int, column: Int) :=
+procedure lex_move_position(
+  in  text: Str,
+      from: Int,
+      to: Int,
+  ref line: Int,
+      column: Int
+) :=
   local j := from
-
   while j < to
     if at(j, text) == '\n'
       assign line := line + 1, column := 1
     else
       assign column := column + 1
     end
-
     assign j := j + 1
   end
 
 function position_of(text: Str, offset: Int): Pos :=
-  let lines := split(slice(text, 0, offset), '\n') in
-    match last(lines)
-      case Some(line) => Pos(size(lines), size(line) + 1)
-      case None => Pos(1, 1)
-    end
+  let lines := split(slice(text, 0, offset), '\n') in match last(lines)
+    case Some(line) =>
+      Pos(size(lines), size(line) + 1)
+    case None =>
+      Pos(1, 1)
+  end
 
 // the contents of the literal delimited by q at offset, with its escapes resolved, where offset ends after the closing quote
 procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int) :=
   local start := offset, from := offset + 1, parts: List[Str] := list(), c: Char
-
   assign offset := offset + 1
-
   while peek(text, offset) != q
     assign c := peek(text, offset)
-
     if c == '\n' or offset >= size(text)
       raise LexError("unterminated literal", position_of(text, start))
     end
-
     if c == '\\'
       match unescape(peek(text, offset + 1))
         case Some(d) =>
           assign parts := list(str(list(d)), slice(text, from, offset); parts), offset := offset + 2
           assign from := offset
+
         case None =>
           raise LexError("invalid escape", position_of(text, offset))
       end
@@ -129,20 +183,16 @@ procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int)
       assign offset := offset + 1
     end
   end
-
   assign contents := join("", reverse(list(slice(text, from, offset); parts))), offset := offset + 1
 
 procedure lex_name(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
-
   call   scan(in text, is_name_char, out from, ref offset)
   assign tok := let w := slice(text, from, offset) in if contains(w, keywords()) then TKw(w) else TName(w)
 
 procedure lex_number(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
-
   call scan(in text, is_digit, out from, ref offset)
-
   match number(slice(text, from, offset))
     case Some(n) =>
       assign tok := TNum(n)
@@ -152,25 +202,20 @@ procedure lex_number(in text: Str, out tok: Token, ref offset: Int) :=
 
 procedure lex_symbol(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
-
   call   scan(in text, is_op_char, out from, ref offset)
   assign tok := let s := slice(text, from, offset) in if contains(s, fixed_symbols()) then TKw(s) else TOp(s)
 
 procedure lex_string(in text: Str, out tok: Token, ref offset: Int) :=
   local contents: Str
-
   call   lex_literal(in text, '"', out contents, ref offset)
   assign tok := TStr(contents)
 
 procedure lex_char(in text: Str, out tok: Token, ref offset: Int) :=
   local start := offset, contents: Str
-
   call lex_literal(in text, '\'', out contents, ref offset)
-
   if size(contents) != 1
     raise LexError("invalid character", position_of(text, start))
   end
-
   assign tok := TChar(at(0, contents))
 
 function margin_before(text: Str, offset: Int): Int :=
@@ -184,13 +229,7 @@ function at_line_start(text: Str, offset: Int): Bool :=
 
 // the number of spaces before offset on its line, or -1 if anything else comes before it
 function line_margin(text: Str, offset: Int): Int :=
-  if at_line_start(text, offset) then
-    0
-  else
-    if space_before(text, offset) then
-      margin_before(text, offset)
-    else
-      -1
+  if at_line_start(text, offset) then 0 else if space_before(text, offset) then margin_before(text, offset) else -1
 
 function next_margin(margin: Int): Int :=
   if margin < 0 then -1 else margin + 1
@@ -208,21 +247,25 @@ function starts_at(text: Str, offset: Int, part: Str): Bool :=
 // the lines of the run of comments at offset, which is at the start of a line after margin spaces, with the markers // and the
 // space after them removed, joined by newlines, where offset ends at the start of the line after the run, and above tells
 // whether the line that follows starts with a letter, for a margin of 0, or is a case with the same margin
-procedure lex_doc(in text: Str, margin: Int, out doc: Str, above: Bool, ref offset: Int) :=
+procedure lex_doc(
+  in  text: Str,
+      margin: Int,
+  out doc: Str,
+      above: Bool,
+  ref offset: Int
+) :=
   local lines: List[Str] := list(), from: Int, line: Str, more := true
-
   while more
     call   scan(in text, lambda c => c != '\n', out from, ref offset)
     assign line := slice(text, from + 2, offset)
-    assign lines := list(if starts_with(line, " ") then slice(line, 1, size(line)) else line; lines)
+    assign lines := list(
+      if starts_with(line, " ") then slice(line, 1, size(line)) else line; lines)
     assign offset := if offset < size(text) then offset + 1 else offset
     assign more := comment_at(text, margin, offset)
-
     if more
       assign offset := offset + margin
     end
   end
-
   assign doc := join("\n", reverse(lines)), above := doc_above(text, margin, offset)
 
 function doc_above(text: Str, margin: Int, offset: Int): Bool :=
@@ -231,20 +274,25 @@ function doc_above(text: Str, margin: Int, offset: Int): Bool :=
 // the token at offset, where offset ends after it
 procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
   local c := at(offset, text)
-
   match c
     case _ if is_letter(c) or c == '_' =>
       call lex_name(in text, out tok, ref offset)
+
     case _ if is_digit(c) =>
       call lex_number(in text, out tok, ref offset)
+
     case _ if is_op_char(c) =>
       call lex_symbol(in text, out tok, ref offset)
+
     case '"' =>
       call lex_string(in text, out tok, ref offset)
+
     case '\'' =>
       call lex_char(in text, out tok, ref offset)
+
     case _ if is_punct(c) =>
       assign tok := TKw(str(list(c))), offset := offset + 1
+
     case _ =>
       raise LexError("unexpected character", position_of(text, offset))
   end
@@ -253,19 +301,15 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
 // offset last
 procedure lex(in text: Str, out toks: Tokens) :=
   local offset := 0, found: Buffer[Pos * Token] := empty(), start: Int, tok: Token, last := 0, line := 1, column := 1, doc: Str, above: Bool, margin: Int
-
   while offset < size(text)
     assign start := offset
-
     if is_space(at(offset, text))
       assign offset := offset + 1
     else
       if at(offset, text) == '/' and peek(text, offset + 1) == '/'
         assign margin := line_margin(text, offset)
-
         if margin >= 0
           call lex_doc(in text, margin, out doc, above, ref offset)
-
           if above or start == 0
             call   lex_move_position(in text, last, start, ref line, column)
             assign found := found ++ list((Pos(line, column), TDoc(doc))), last := start
@@ -280,7 +324,6 @@ procedure lex(in text: Str, out toks: Tokens) :=
       end
     end
   end
-
   call   lex_move_position(in text, last, offset, ref line, column)
   assign toks := list(for t in found ++ list((Pos(line, column), TEnd)))
 
@@ -289,31 +332,27 @@ function tokens(toks: Tokens): List[Token] :=
 
 test lex_tokens() :=
   local toks: Tokens
-
-  call   lex(in "function f(x: Int): Int := x+-1 // one\n  y", out toks)
-  assert toks ==
-    list(
-      (Pos(1, 1), TKw("function")),
-      (Pos(1, 10), TName("f")),
-      (Pos(1, 11), TKw("(")),
-      (Pos(1, 12), TName("x")),
-      (Pos(1, 13), TKw(":")),
-      (Pos(1, 15), TName("Int")),
-      (Pos(1, 18), TKw(")")),
-      (Pos(1, 19), TKw(":")),
-      (Pos(1, 21), TName("Int")),
-      (Pos(1, 25), TKw(":=")),
-      (Pos(1, 28), TName("x")),
-      (Pos(1, 29), TOp("+-")),
-      (Pos(1, 31), TNum(1)),
-      (Pos(2, 3), TName("y")),
-      (Pos(2, 4), TEnd)
-    )
+  call lex(in "function f(x: Int): Int := x+-1 // one\n  y", out toks)
+  assert toks == list(
+    (Pos(1, 1), TKw("function")),
+    (Pos(1, 10), TName("f")),
+    (Pos(1, 11), TKw("(")),
+    (Pos(1, 12), TName("x")),
+    (Pos(1, 13), TKw(":")),
+    (Pos(1, 15), TName("Int")),
+    (Pos(1, 18), TKw(")")),
+    (Pos(1, 19), TKw(":")),
+    (Pos(1, 21), TName("Int")),
+    (Pos(1, 25), TKw(":=")),
+    (Pos(1, 28), TName("x")),
+    (Pos(1, 29), TOp("+-")),
+    (Pos(1, 31), TNum(1)),
+    (Pos(2, 3), TName("y")),
+    (Pos(2, 4), TEnd))
 
 test lex_docs() :=
   local toks: Tokens
-
-  call   lex(in "// a\n//  b\n//\nf\n\n// detached\n\ng\n  // indented\nh // trailing\ni", out toks)
+  call lex(in "// a\n//  b\n//\nf\n\n// detached\n\ng\n  // indented\nh // trailing\ni", out toks)
   assert tokens(toks) == list(TDoc("a\n b\n"), TName("f"), TName("g"), TName("h"), TName("i"), TEnd)
   assert firsts(toks) == list(Pos(1, 1), Pos(4, 1), Pos(8, 1), Pos(10, 1), Pos(11, 1), Pos(11, 2))
 
@@ -322,20 +361,21 @@ function rest_of_docs(): List[Token] :=
 
 test lex_docs_of_modules_and_constructors() :=
   local toks: Tokens
-
-  call   lex(in "// head\n\nf", out toks)
+  call lex(in "// head\n\nf", out toks)
   assert tokens(toks) == list(TDoc("head"), TName("f"), TEnd)
-  call   lex(in "data T :=\n  // c\n  //\n  case C\n  // d\n  g\n  case D", out toks)
+  call lex(in "data T :=\n  // c\n  //\n  case C\n  // d\n  g\n  case D", out toks)
   assert tokens(toks) == list(TKw("data"), TName("T"), TKw(":="), TDoc("c\n"), TKw("case")) ++ rest_of_docs()
 
 test lex_docs_of_cases() :=
-  local toks: Tokens
-
-  local text := "match x\n    // c\n    case 1 =>\n    // d\n    y\n" ++ "    // e\n    case 2 =>\n  // f\n    case 3"
-  local first := list(TKw("match"), TName("x"), TDoc("c"), TKw("case"), TNum(1), TKw("=>"), TName("y"))
-  local second := list(TDoc("e"), TKw("case"), TNum(2), TKw("=>"), TKw("case"), TNum(3), TEnd)
-
-  call   lex(in text, out toks)
+  local toks: Tokens, text := "match x\n    // c\n    case 1 =>\n    // d\n    y\n" ++ "    // e\n    case 2 =>\n  // f\n    case 3", first := list(
+    TKw("match"),
+    TName("x"),
+    TDoc("c"),
+    TKw("case"),
+    TNum(1),
+    TKw("=>"),
+    TName("y")), second := list(TDoc("e"), TKw("case"), TNum(2), TKw("=>"), TKw("case"), TNum(3), TEnd)
+  call lex(in text, out toks)
   assert tokens(toks) == first ++ second
 
 function list_tokens(): List[Token] :=
@@ -343,13 +383,11 @@ function list_tokens(): List[Token] :=
 
 test lex_literals() :=
   local toks: Tokens
-
-  call   lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' list(x; xs)", out toks)
+  call lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' list(x; xs)", out toks)
   assert tokens(toks) == list(TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\'')) ++ list_tokens()
 
 test lex_errors() :=
   local toks: Tokens, e := LexError("none", Pos(0, 0))
-
   try
     call lex(in "x := \"ab", out toks)
   catch

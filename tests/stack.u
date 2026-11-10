@@ -9,6 +9,7 @@ data Stack[A] :=
   case Push(top: A, rest: Stack[A])
 
 function <+[A](x: A, s: Stack[A]): Stack[A]
+
 function top[A](s: Stack[A]): Option[A]
 
 // the top of s, or else x
@@ -21,14 +22,18 @@ function <+[A](x: A, s: Stack[A]): Stack[A] :=
 
 function top[A](s: Stack[A]): Option[A] :=
   match s
-    case Empty => None
-    case Push(top, _) => Some(top)
+    case Empty =>
+      None
+    case Push(top, _) =>
+      Some(top)
   end
 
 function peek[A](s: Stack[A], x: A): A :=
   match top(s)
-    case None => x
-    case Some(y) => y
+    case None =>
+      x
+    case Some(y) =>
+      y
   end
 
 test stack() :=

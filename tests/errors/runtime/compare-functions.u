@@ -1,5 +1,4 @@
 // runtime error: cannot compare functions
 test compare_functions() :=
-  local f := lambda x => x + 1
-
+  local f := (lambda x => x + 1)
   assert compare(f, f) == 0

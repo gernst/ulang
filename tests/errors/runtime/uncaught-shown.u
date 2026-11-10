@@ -5,7 +5,8 @@ data Money :=
 
 function show(m: Money): Str :=
   match m
-    case Money(amount) => show(amount) ++ " EUR"
+    case Money(amount) =>
+      show(amount) ++ " EUR"
   end
 
 test shown() :=

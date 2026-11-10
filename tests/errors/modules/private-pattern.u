@@ -1,7 +1,9 @@
-// type error: unknown constructor Full at 4.1
+// type error: unknown constructor Full at 5.1
+
 import "hiding.u"
 
 function f(b: Box): Int :=
   match b
-    case Full(contents) => contents
+    case Full(contents) =>
+      contents
   end

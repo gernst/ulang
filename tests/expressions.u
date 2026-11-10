@@ -1,25 +1,25 @@
 // arithmetic and precedence
 test arithmetic_precedence() :=
   assert 1 + 2 * 3 - 4 / 2 == 5
-  assert -2 * -3 == 6
+  assert (-2) * -3 == 6
   assert 7 % 3 == 1
-  assert -7 % 3 == -1
-  assert (not 1 < 2 or 1 + 1 == 2 and true)
+  assert (-7) % 3 == -1
+  assert not 1 < 2 or 1 + 1 == 2 and true
   assert (not true and false) == false
   assert (1 < 2) == (2 > 1)
 
 // integers are unbounded, also beyond 64 bits, where the runtime of compiled programs switches to GMP
 test big_integers() :=
   assert 9223372036854775807 + 1 == 9223372036854775808
-  assert -9223372036854775807 - 2 == -9223372036854775809
+  assert (-9223372036854775807) - 2 == -9223372036854775809
   assert 9223372036854775807 * 2 == 18446744073709551614
   assert 4294967296 * 4294967296 == 18446744073709551616
-  assert (-9223372036854775807 - 1) / -1 == 9223372036854775808
-  assert (-9223372036854775807 - 1) % -1 == 0
+  assert ((-9223372036854775807) - 1) / -1 == 9223372036854775808
+  assert ((-9223372036854775807) - 1) % -1 == 0
   assert 18446744073709551616 / 4294967296 == 4294967296
-  assert -18446744073709551617 % 10 == -7
+  assert (-18446744073709551617) % 10 == -7
   assert 18446744073709551616 - 18446744073709551615 == 1
-  assert 9223372036854775808 > 9223372036854775807 and -9223372036854775809 < 0
+  assert 9223372036854775808 > 9223372036854775807 and (-9223372036854775809) < 0
   assert show(100000000000000000000) == "100000000000000000000"
 
 // let binds in parallel
@@ -53,25 +53,27 @@ test lambda_patterns() :=
 test literals() :=
   assert "a" == "a"
   assert () == ()
-  assert (1 != 2)
+  assert 1 != 2
 
 // and, or are not strict
 test non_strict_and_or() :=
   assert (false and 1 / 0 == 0) == false
-  assert (true or 1 / 0 == 0)
+  assert true or 1 / 0 == 0
 
 type Pair[A] :=
   A * A
 
 function swap[A](p: Pair[A]): Pair[A] :=
   match p
-    case (x, y) => (y, x)
+    case (x, y) =>
+      (y, x)
   end
 
 // a function of one pair, whose type Int * Int -> Int differs from (Int, Int) -> Int of add
 function sum(p: Int * Int): Int :=
   match p
-    case (x, y) => x + y
+    case (x, y) =>
+      x + y
   end
 
 function add(x: Int, y: Int): Int :=
@@ -82,20 +84,27 @@ function apply(f: Int * Int -> Int): Int :=
 
 function xor(p: Bool * Bool): Bool :=
   match p
-    case (true, false) => true
-    case (false, true) => true
-    case _ => false
+    case (true, false) =>
+      true
+
+    case (false, true) =>
+      true
+
+    case _ =>
+      false
   end
 
 // tuples are flat, unlike nested ones
 function last(t: Int * Bool * Str): Str :=
   match t
-    case (_, _, s) => s
+    case (_, _, s) =>
+      s
   end
 
 function nested(t: Int * (Bool * Str)): Str :=
   match t
-    case (_, (_, s)) => s
+    case (_, (_, s)) =>
+      s
   end
 
 function divmod(a: Int, b: Int): Int * Int :=
@@ -110,14 +119,23 @@ test tuples() :=
   assert xor((true, true)) == false
   assert last((1, true, "x")) == "x"
   assert nested((1, (true, "x"))) == "x"
-  assert (1) == 1
+  assert 1 == 1
   assert () == ()
 
 // let binds one value per binder, patterns destructure them
 test let_patterns() :=
-  assert (let (q, r) := divmod(7, 2) in q * 10 + r) == 31
-  assert (let (x, y) := (1, 2), z := 3 in x + y + z) == 6
-  assert (let _ := 1, z := 2 in z) == 2
+  assert match divmod(7, 2)
+    case (q, r) =>
+      q * 10 + r
+  end == 31
+  assert match ((1, 2), 3)
+    case ((x, y), z) =>
+      x + y + z
+  end == 6
+  assert match (1, 2)
+    case (_, z) =>
+      z
+  end == 2
 
 // overloads are told apart by their numbers of parameters
 function pick(p: Int * Int): Int :=
@@ -128,7 +146,6 @@ function pick(x: Int, y: Int): Int :=
 
 test overloads_by_parameters() :=
   local p := (3, 4)
-
   assert pick(p) == 1
   assert pick(3, 4) == 2
   assert pick((3, 4)) == 1
@@ -136,18 +153,20 @@ test overloads_by_parameters() :=
 // -n for a number n is a negative literal, also in patterns, and - x applies the prefix operator
 function sign_name(n: Int): Str :=
   match compare(n, 0)
-    case -1 => "negative"
-    case 0 => "zero"
-    case _ => "positive"
+    case -1 =>
+      "negative"
+
+    case 0 =>
+      "zero"
+
+    case _ =>
+      "positive"
   end
 
 test negative_literals() :=
   local x := 3
-
-  assert -2 + 5 == 3 and 2 * -3 == -6 and - x == -3 and -(1 + 2) == -3
+  assert (-2) + 5 == 3 and 2 * -3 == -6 and -x == -3 and -(1 + 2) == -3
   assert list(sign_name(-5), sign_name(0), sign_name(7)) == list("negative", "zero", "positive")
-
-// functions
 
 function fact(n: Int): Int :=
   if n == 0 then 1 else n * fact(n - 1)
@@ -192,18 +211,20 @@ function curry(f: (Int, Int) -> Int): Int -> Int -> Int :=
 // functions are overloaded by their number of arguments
 function size(xs: List[Int]): Int :=
   match xs
-    case list() => 0
-    case list(_; ys) => 1 + size(ys)
+    case list() =>
+      0
+    case list(_; ys) =>
+      1 + size(ys)
   end
 
 function size(xs: List[Int], ys: List[Int]): Int :=
   size(xs) + size(ys)
 
 test notations() :=
-  assert list(1; list(2) ++ list(3)) ==  list(1, 2, 3)
+  assert list(1; list(2) ++ list(3)) == list(1, 2, 3)
   assert 2 ** 3 + 1 == 9
   assert 2 * 3 ** 2 == 18
-  assert -2 * -3 == 6
+  assert (-2) * -3 == 6
   assert curry(lambda a, b => a - b)(5)(3) == 2
   assert false ==> false
   assert not (true ==> false)

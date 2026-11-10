@@ -1,4 +1,5 @@
 // type error: the signature of f names the private type Hidden
+
 export
 
 function f(): Hidden

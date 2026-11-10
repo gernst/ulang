@@ -1,4 +1,5 @@
 // type error: the definition of T differs from its signature
+
 export
 
 type T[A]

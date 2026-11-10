@@ -6,27 +6,36 @@ export
 type Set[A]
 
 function empty[A](): Set[A]
+
 function contains[A](x: A, s: Set[A]): Bool
+
 function insert[A](x: A, s: Set[A]): Set[A]
+
 function remove[A](x: A, s: Set[A]): Set[A]
 
 // the union, the difference, and the intersection of two sets
 function ++[A](a: Set[A], b: Set[A]): Set[A]
+
 function --[A](a: Set[A], b: Set[A]): Set[A]
+
 function intersect[A](a: Set[A], b: Set[A]): Set[A]
 
 // whether p holds for some element, or for all
 function exists[A](s: Set[A], p: A -> Bool): Bool
+
 function forall[A](s: Set[A], p: A -> Bool): Bool
+
 function size[A](s: Set[A]): Int
 
 // f(x1, f(x2, ... f(xn, acc))) and f(... f(f(acc, x1), x2) ..., xn) of the elements in ascending order
 function foldr[A, R](s: Set[A], acc: R, f: (A, R) -> R): R
+
 function foldl[A, R](s: Set[A], acc: R, f: (R, A) -> R): R
 
 // sets are ordered and equal by their elements, whatever the shapes of their trees, also as elements of other values
 // and in generic code
 function compare[A](a: Set[A], b: Set[A]): Int
+
 function ==[A](a: Set[A], b: Set[A]): Bool
 
 // the elements in ascending order as the literal {a, b}, also inside other values
@@ -43,57 +52,90 @@ function empty[A](): Set[A] :=
 
 function contains[A](x: A, s: Set[A]): Bool :=
   match s
-    case Leaf => false
+    case Leaf =>
+      false
+
     case Node(left, elem, right, _) =>
       match compare(x, elem)
-        case -1 => contains(x, left)
-        case 1 => contains(x, right)
-        case _ => true
+        case -1 =>
+          contains(x, left)
+
+        case 1 =>
+          contains(x, right)
+
+        case _ =>
+          true
       end
   end
 
 function insert[A](x: A, s: Set[A]): Set[A] :=
   match s
-    case Leaf => Node(Leaf, x, Leaf, 1)
+    case Leaf =>
+      Node(Leaf, x, Leaf, 1)
+
     case Node(left, elem, right, _) =>
       match compare(x, elem)
-        case -1 => balance(insert(x, left), elem, right)
-        case 1 => balance(left, elem, insert(x, right))
-        case _ => s
+        case -1 =>
+          balance(insert(x, left), elem, right)
+
+        case 1 =>
+          balance(left, elem, insert(x, right))
+
+        case _ =>
+          s
       end
   end
 
 // s without x
 function remove[A](x: A, s: Set[A]): Set[A] :=
   match s
-    case Leaf => Leaf
+    case Leaf =>
+      Leaf
+
     case Node(left, elem, right, _) =>
       match compare(x, elem)
-        case -1 => balance(remove(x, left), elem, right)
-        case 1 => balance(left, elem, remove(x, right))
-        case _ => join(left, right)
+        case -1 =>
+          balance(remove(x, left), elem, right)
+
+        case 1 =>
+          balance(left, elem, remove(x, right))
+
+        case _ =>
+          join(left, right)
       end
   end
 
 // the elements of l and r, where those of l are smaller
 function join[A](l: Set[A], r: Set[A]): Set[A] :=
   match least(r)
-    case Some(x) => balance(l, x, remove_least(r))
-    case None => l
+    case Some(x) =>
+      balance(l, x, remove_least(r))
+    case None =>
+      l
   end
 
 function least[A](s: Set[A]): Option[A] :=
   match s
-    case Leaf => None
-    case Node(Leaf, elem, _, _) => Some(elem)
-    case Node(left, _, _, _) => least(left)
+    case Leaf =>
+      None
+
+    case Node(Leaf, elem, _, _) =>
+      Some(elem)
+
+    case Node(left, _, _, _) =>
+      least(left)
   end
 
 function remove_least[A](s: Set[A]): Set[A] :=
   match s
-    case Leaf => Leaf
-    case Node(Leaf, _, right, _) => right
-    case Node(left, elem, right, _) => balance(remove_least(left), elem, right)
+    case Leaf =>
+      Leaf
+
+    case Node(Leaf, _, right, _) =>
+      right
+
+    case Node(left, elem, right, _) =>
+      balance(remove_least(left), elem, right)
   end
 
 function ++[A](a: Set[A], b: Set[A]): Set[A] :=
@@ -119,26 +161,34 @@ function ==[A](a: Set[A], b: Set[A]): Bool :=
 
 function foldr[A, R](s: Set[A], acc: R, f: (A, R) -> R): R :=
   match s
-    case Leaf => acc
-    case Node(left, elem, right, _) => foldr(left, f(elem, foldr(right, acc, f)), f)
+    case Leaf =>
+      acc
+    case Node(left, elem, right, _) =>
+      foldr(left, f(elem, foldr(right, acc, f)), f)
   end
 
 function foldl[A, R](s: Set[A], acc: R, f: (R, A) -> R): R :=
   match s
-    case Leaf => acc
-    case Node(left, elem, right, _) => foldl(right, f(foldl(left, acc, f), elem), f)
+    case Leaf =>
+      acc
+    case Node(left, elem, right, _) =>
+      foldl(right, f(foldl(left, acc, f), elem), f)
   end
 
 function size[A](s: Set[A]): Int :=
   match s
-    case Leaf => 0
-    case Node(left, _, right, _) => size(left) + 1 + size(right)
+    case Leaf =>
+      0
+    case Node(left, _, right, _) =>
+      size(left) + 1 + size(right)
   end
 
 function height[A](s: Set[A]): Int :=
   match s
-    case Leaf => 0
-    case Node(_, _, _, height) => height
+    case Leaf =>
+      0
+    case Node(_, _, _, height) =>
+      height
   end
 
 function node_height[A](l: Set[A], r: Set[A]): Int :=
@@ -149,41 +199,45 @@ function node[A](l: Set[A], x: A, r: Set[A]): Set[A] :=
 
 function rotate_left[A](s: Set[A]): Set[A] :=
   match s
-    case Node(a, x, Node(b, y, right, _), _) => node(node(a, x, b), y, right)
-    case _ => s
+    case Node(a, x, Node(b, y, right, _), _) =>
+      node(node(a, x, b), y, right)
+    case _ =>
+      s
   end
 
 function rotate_right[A](s: Set[A]): Set[A] :=
   match s
-    case Node(Node(left, x, b, _), y, c, _) => node(left, x, node(b, y, c))
-    case _ => s
+    case Node(Node(left, x, b, _), y, c, _) =>
+      node(left, x, node(b, y, c))
+    case _ =>
+      s
   end
 
 function left_of[A](s: Set[A]): Set[A] :=
   match s
-    case Node(left, _, _, _) => left
-    case _ => s
+    case Node(left, _, _, _) =>
+      left
+    case _ =>
+      s
   end
 
 function right_of[A](s: Set[A]): Set[A] :=
   match s
-    case Node(_, _, right, _) => right
-    case _ => s
+    case Node(_, _, right, _) =>
+      right
+    case _ =>
+      s
   end
 
 // the node of l, x, r, where the heights of l and r differ by at most two, rebalanced by one or two rotations
 function balance[A](l: Set[A], x: A, r: Set[A]): Set[A] :=
-  if height(l) > height(r) + 1 then
-    rotate_right(node(if height(left_of(l)) < height(right_of(l)) then rotate_left(l) else l, x, r))
-  else if height(r) > height(l) + 1 then
-    rotate_left(node(l, x, if height(right_of(r)) < height(left_of(r)) then rotate_right(r) else r))
-  else
-    node(l, x, r)
+  if height(l) > height(r) + 1 then rotate_right(node(if height(left_of(l)) < height(right_of(l)) then rotate_left(l) else l, x, r)) else if height(r) > height(l) + 1 then rotate_left(node(l, x, if height(right_of(r)) < height(left_of(r)) then rotate_right(r) else r)) else node(l, x, r)
 
 // the heights of the subtrees of each node differ by at most one, and its height is correct
 function balanced[A](s: Set[A]): Bool :=
   match s
-    case Leaf => true
+    case Leaf =>
+      true
     case Node(left, _, right, d) =>
       balanced(left) and balanced(right) and d == node_height(left, right) and height(left) <= height(right) + 1 and height(right) <= height(left) + 1
   end
@@ -193,7 +247,6 @@ function show[A](s: Set[A]): Str :=
 
 test sets() :=
   local s := set("a", "b")
-
   assert contains("a", s) and not contains("c", s)
   assign s := insert("a", s)
   assert list(for x in s) == list("a", "b") and size(s) == 2
@@ -203,7 +256,6 @@ test sets() :=
 
 test set_folds() :=
   local s := set(for x in range(1, 51))
-
   assert foldr(s, list(), Cons) == list(for x in s) and foldl(s, list(), lambda xs, x => list(x; xs)) == reverse(list(for x in s))
   assert foldr(s, empty(), insert) == s and foldl(s, 0, lambda n, x => n + x) == 1275
   assert foldr(set(1, 2, 3), 0, lambda x, n => 10 * n + x) == 321 and foldl(set(1, 2, 3), 0, lambda n, x => 10 * n + x) == 123
@@ -212,11 +264,10 @@ test set_folds() :=
 // sets of the same elements are equal, although their trees differ
 test set_equality() :=
   assert set(1, 2) == set(2, 1) and set(1, 2) != set(1, 3)
-  assert set(1, 2, 3) == set(3, 2, 1) and not (set(1) != set(1))
+  assert set(1, 2, 3) == set(3, 2, 1) and not set(1) != set(1)
 
 // ascending elements would make a list of an unbalanced tree
 test set_balance() :=
   local s := set(for x in range(1, 201))
-
   assert balanced(s) and size(s) == 200 and height(s) <= 11
   assert contains(100, s) and not contains(201, s) and list(for x in s) == range(1, 201)

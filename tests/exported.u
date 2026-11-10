@@ -18,15 +18,20 @@ function level(c: Color): Level
 type Counter
 
 function start(): Counter
+
 function count(c: Counter): Int
+
 function next(c: Counter): Counter
+
 procedure bump(ref c: Counter)
+
 function **(n: Int, k: Int): Int
 
 // tallies, equal by their totals, which have no order
 type Tally
 
 function tally(ns: List[Int]): Tally
+
 function ==(a: Tally, b: Tally): Bool
 
 implementation
@@ -39,8 +44,10 @@ data Tally :=
 
 function level(c: Color): Level :=
   match c
-    case Red => 0
-    case Green(level) => level
+    case Red =>
+      0
+    case Green(level) =>
+      level
   end
 
 function start(): Counter :=
@@ -66,13 +73,16 @@ function tally(ns: List[Int]): Tally :=
 
 function total(ns: List[Int]): Int :=
   match ns
-    case list() => 0
-    case list(n; rest) => n + total(rest)
+    case list() =>
+      0
+    case list(n; rest) =>
+      n + total(rest)
   end
 
 function ==(a: Tally, b: Tally): Bool :=
   match (a, b)
-    case (Tally(xs), Tally(ys)) => total(xs) == total(ys)
+    case (Tally(xs), Tally(ys)) =>
+      total(xs) == total(ys)
   end
 
 // the module sees its private declarations, and the constructors and fields of its abstract types

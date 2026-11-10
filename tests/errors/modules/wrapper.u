@@ -6,6 +6,7 @@ import "inner.u"
 export
 
 function quad(n: Int): Int
+
 function cell(n: Int): Cell
 
 implementation

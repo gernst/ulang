@@ -1,4 +1,5 @@
-// type error: unknown field contents of Cell at 4.1
+// type error: unknown field contents of Cell at 5.1
+
 import "wrapper.u"
 
 test t() :=

@@ -1,54 +1,43 @@
 // for p in c if q do … end runs its body for the elements of a container in the order of its fold
 
-import "set.u"
 import "map.u"
+import "set.u"
 
 test lists() :=
   local sum := 0, seen: List[Int] := list()
-
   for x in list(1, 2, 3) do
     assign sum := sum + x
   end
-
   for x in list(1, 2, 3, 4) if x % 2 == 0 do
     assign seen := list(x; seen)
   end
-
   assert sum == 6 and seen == list(4, 2)
 
 test patterns() :=
   local total := 0
-
   for (a, b) in list((1, 2), (3, 4)) do
     assign total := total + a * b
   end
-
   for (x, _) in list((5, 0), (6, 7)) do
     assign total := total + x
   end
-
   assert total == 2 + 12 + 5 + 6
 
 test sets_and_maps() :=
   local text := "", sum := 0
-
   for x in set(3, 1, 2) do
     assign text := text ++ show(x)
   end
-
-  for k => v in map(1 => 10, 2 => 20) if k > 1 do
+  for (k, v) in map(1 => 10, 2 => 20) if k > 1 do
     assign sum := sum + v
   end
-
   assert text == "123" and sum == 20
 
 test nested() :=
   local pairs: List[Int * Int] := list()
-
   for x in list(1, 2) do
     for y in set(5, 6) do
       assign pairs := list((x, y); pairs)
     end
   end
-
   assert pairs == list((2, 6), (2, 5), (1, 6), (1, 5))

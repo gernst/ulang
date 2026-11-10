@@ -5,6 +5,8 @@ data Nat :=
 
 function f(n: Nat): Nat :=
   match n
-    case Zero => Zero
-    case Succ(Succ(pred)) => pred
+    case Zero =>
+      Zero
+    case Succ(Succ(pred)) =>
+      pred
   end

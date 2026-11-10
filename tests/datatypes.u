@@ -3,31 +3,40 @@ function range(n: Int): List[Int] :=
 
 function head[A](xs: List[A]): Option[A] :=
   match xs
-    case list(x; _) => Some(x)
-    case _ => None
+    case list(x; _) =>
+      Some(x)
+    case _ =>
+      None
   end
 
 function nested(xs: List[Option[Int]]): Int :=
   match xs
-    case list(Some(1), None; _) => 1
-    case _ => 0
+    case list(Some(1), None; _) =>
+      1
+    case _ =>
+      0
   end
 
 function word(x: Int): Str :=
   match x
-    case 0 => "zero"
-    case _ => "other"
+    case 0 =>
+      "zero"
+    case _ =>
+      "other"
   end
 
 function flip(b: Bool): Int :=
   match b
-    case true => 0
-    case false => 1
+    case true =>
+      0
+    case false =>
+      1
   end
 
 function unit(u: ()): Int :=
   match u
-    case () => 0
+    case () =>
+      0
   end
 
 test ranges() :=
@@ -42,12 +51,11 @@ test ranges() :=
   assert word(7) == "other"
   assert flip(false) == 1
   assert unit(()) == 0
-  assert (range(2) != list())
+  assert range(2) != list()
 
 // association lists, where the first pair of a key counts
 test association_lists() :=
   local m := list(("b", 2), ("a", 1), ("a", 3))
-
   assert get("a", m) == Some(1) and get("b", m) == Some(2) and get("c", m) == None
 
 // mutually recursive datatypes, and a type definition before the datatype it uses
@@ -66,18 +74,22 @@ data Tuple[A, B] :=
 
 function size[A](t: Tree[A]): Int :=
   match t
-    case Node(_, children) => 1 + sizes(children)
+    case Node(_, children) =>
+      1 + sizes(children)
   end
 
 function sizes[A](f: Forest[A]): Int :=
   match f
-    case Leaf => 0
-    case Grow(tree, rest) => size(tree) + sizes(rest)
+    case Leaf =>
+      0
+    case Grow(tree, rest) =>
+      size(tree) + sizes(rest)
   end
 
 function swap[A](p: Pair[A]): Pair[A] :=
   match p
-    case Tuple(first, second) => Tuple(second, first)
+    case Tuple(first, second) =>
+      Tuple(second, first)
   end
 
 test mutual_recursion() :=
@@ -91,21 +103,30 @@ data Nat :=
 
 function add(m: Nat, n: Nat): Nat :=
   match m
-    case Zero => n
-    case Succ(pred) => Succ(add(pred, n))
+    case Zero =>
+      n
+    case Succ(pred) =>
+      Succ(add(pred, n))
   end
 
 function even(n: Nat): Bool :=
   match n
-    case Zero => true
-    case Succ(Zero) => false
-    case Succ(Succ(pred)) => even(pred)
+    case Zero =>
+      true
+
+    case Succ(Zero) =>
+      false
+
+    case Succ(Succ(pred)) =>
+      even(pred)
   end
 
 function int(n: Nat): Int :=
   match n
-    case Zero => 0
-    case Succ(pred) => 1 + int(pred)
+    case Zero =>
+      0
+    case Succ(pred) =>
+      1 + int(pred)
   end
 
 test nat() :=
@@ -116,20 +137,26 @@ test nat() :=
 // cases apply if their guards hold, and else is the last case
 function sign(n: Int): Int :=
   match n
-    case m if m < 0 => -1
-    case 0 => 0
-    case _ => 1
+    case m if m < 0 =>
+      -1
+
+    case 0 =>
+      0
+
+    case _ =>
+      1
   end
 
 test guards() :=
   local s: Str
-
   assert sign(-5) == -1 and sign(0) == 0 and sign(7) == 1
   match list(1, 2)
     case list(x; _) if x > 1 =>
       assign s := "big"
+
     case list(x; _) if x == 1 =>
       assign s := "one"
+
     case _ =>
       assign s := "other"
   end
@@ -138,9 +165,14 @@ test guards() :=
 // [a, b] is Cons(a, Cons(b, Nil)) and [a, b; c] is Cons(a, Cons(b, c)), in patterns and expressions
 function sum_pairs(xs: List[Int]): Int :=
   match xs
-    case list() => 0
-    case list(x) => x
-    case list(x, y; rest) => x * y + sum_pairs(rest)
+    case list() =>
+      0
+
+    case list(x) =>
+      x
+
+    case list(x, y; rest) =>
+      x * y + sum_pairs(rest)
   end
 
 test list_patterns() :=
@@ -158,8 +190,6 @@ test comparisons() :=
   assert compare(Zero, Succ(Zero)) == -1 and compare(list(1, 2), list(1)) == 1 and compare(list(1), list(1, 2)) == -1
   assert compare(100000000000000000000, 99999999999999999999) == 1 and compare(-100000000000000000000, 1) == -1
 
-// named fields of constructors, whose accessors e.f are resolved by the type of e
-
 data Point :=
   case Point(x: Int, y: Int)
 
@@ -173,42 +203,41 @@ data Couple[A, B] :=
 
 function area(s: Shape): Int :=
   match s
-    case Circle(_, _, radius) => 3 * radius * radius
-    case Box(_, corner, opposite) => (opposite.x - corner.x) * (opposite.y - corner.y)
+    case Circle(_, _, radius) =>
+      3 * radius * radius
+    case Box(_, corner, opposite) =>
+      (opposite.x - corner.x) * (opposite.y - corner.y)
   end
 
 test fields() :=
-  local  p := Point(1, 2), c := Circle("c", Point(0, 0), 2), b := Box("b", Point(1, 1), Point(3, 4))
+  local p := Point(1, 2), c := Circle("c", Point(0, 0), 2), b := Box("b", Point(1, 1), Point(3, 4))
   assert p.x == 1 and p.y == 2
   assert c.label == "c" and b.label == "b" and c.radius == 2 and c.center.y == 0
   assert area(b) == 6 and b.corner.x == 1
 
 // the type of p is that of the argument of the lambda applied at once
 test unknown_type() :=
-  local  v := (lambda p => p.x)(Point(1, 2))
+  local v := (lambda p => p.x)(Point(1, 2))
   assert v == 1
 
 test lambda_arguments() :=
   local ps := list(Point(1, 2), Point(3, 4))
-
   assert exists(ps, lambda q => q.x == 3) and not forall(ps, lambda q => q.y < 4) and list(for q in ps yield q.y) == list(2, 4)
 
 test annotated_lambda() :=
-  local g: Point -> Int := lambda p => p.x
-
+  local g: Point -> Int := (lambda p => p.x)
   assert g(Point(5, 6)) == 5
 
 test generic_fields() :=
-  local  q := Couple(1, "one")
+  local q := Couple(1, "one")
   assert q.left == 1 and q.right == "one" and Couple(q, true).left.right == "one"
 
 test updates() :=
-  local  p := Point(1, 2), c := Circle("c", Point(0, 0), 2), b := Box("b", Point(1, 1), Point(3, 4)), m := ""
+  local p := Point(1, 2), c := Circle("c", Point(0, 0), 2), b := Box("b", Point(1, 1), Point(3, 4)), m := ""
   assert (p with x := 3) == Point(3, 2) and (p with y := 0, x := p.y + 3) == Point(5, 0)
   assert (c with radius := 3) == Circle("c", Point(0, 0), 3) and (b with label := "a", corner := p) == Box("a", p, Point(3, 4))
   assert (c with center := (c.center with x := 1)).center == Point(1, 0)
   assert (Couple(1, "one") with right := "two") == Couple(1, "two")
-
   try
     assign b := b with radius := 1
   catch

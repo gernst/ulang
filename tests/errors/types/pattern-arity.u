@@ -1,5 +1,6 @@
 // type error: constructor Some expects 1 arguments, got 2 at 2.1
 function f(): Int :=
   match None
-    case Some(x, y) => 0
+    case Some(x, y) =>
+      0
   end

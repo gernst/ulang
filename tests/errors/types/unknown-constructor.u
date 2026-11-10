@@ -1,5 +1,6 @@
 // type error: unknown constructor f at 2.1
 function f(): Int :=
   match list()
-    case f(x) => 0
+    case f(x) =>
+      0
   end

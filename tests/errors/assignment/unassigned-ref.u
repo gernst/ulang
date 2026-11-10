@@ -4,5 +4,4 @@ procedure increment(ref n: Int) :=
 
 test unassigned_ref() :=
   local x: Int
-
   call increment(ref x)

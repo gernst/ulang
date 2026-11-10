@@ -4,8 +4,8 @@
 // which every module imports implicitly after list, so that list.u cannot use it, where the builtin section declares the
 // functions that the interpreter and the runtime define
 
-import "option.u"
 import "list.u"
+import "option.u"
 
 export
 
@@ -14,6 +14,7 @@ function get(i: Int, s: Str): Option[Char]
 
 // whether s starts with start, and whether it ends with finish
 function starts_with(s: Str, start: Str): Bool
+
 function ends_with(s: Str, finish: Str): Bool
 
 // n copies of s
@@ -23,15 +24,19 @@ builtin
 
 // the characters of a string, and the string of characters
 function chars(s: Str): List[Char]
+
 function str(cs: List[Char]): Str
 
 // the code point of a character, and the character of a code point from 0 to 0x10FFFF other than the surrogates 0xD800
 // to 0xDFFF of UTF-16, or else NoCharacter
 function ord(c: Char): Int
+
 function chr(n: Int): Char
 
 function is_digit(c: Char): Bool
+
 function is_letter(c: Char): Bool
+
 function is_space(c: Char): Bool
 
 // the number of characters, which are code points
@@ -47,6 +52,7 @@ function slice(s: Str, i: Int, j: Int): Str
 
 // the strings of strs with sep between them, and the parts of s between the occurrences of c, including empty ones
 function join(sep: Str, strs: List[Str]): Str
+
 function split(s: Str, c: Char): List[Str]
 
 // the string in double quotes, with escapes as in literals

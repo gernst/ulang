@@ -14,6 +14,7 @@ function size[A](b: Buffer[A]): Int
 
 // f(x1, f(x2, ... f(xn, acc))) and f(... f(f(acc, x1), x2) ..., xn) of the elements in the order they were added
 function foldr[A, R](b: Buffer[A], acc: R, f: (A, R) -> R): R
+
 function foldl[A, R](b: Buffer[A], acc: R, f: (R, A) -> R): R
 
 implementation
@@ -26,31 +27,34 @@ function empty[A](): Buffer[A] :=
 
 function ++[A](b: Buffer[A], xs: List[A]): Buffer[A] :=
   match b
-    case Reversed(items) => Reversed(reverse_onto(xs, items))
+    case Reversed(items) =>
+      Reversed(reverse_onto(xs, items))
   end
 
 function size[A](b: Buffer[A]): Int :=
   match b
-    case Reversed(items) => size(items)
+    case Reversed(items) =>
+      size(items)
   end
 
 function foldr[A, R](b: Buffer[A], acc: R, f: (A, R) -> R): R :=
   match b
-    case Reversed(items) => foldl(items, acc, lambda r, x => f(x, r))
+    case Reversed(items) =>
+      foldl(items, acc, lambda r, x => f(x, r))
   end
 
 function foldl[A, R](b: Buffer[A], acc: R, f: (R, A) -> R): R :=
   match b
-    case Reversed(items) => foldr(items, acc, lambda x, r => f(r, x))
+    case Reversed(items) =>
+      foldr(items, acc, lambda x, r => f(r, x))
   end
 
 test buffers() :=
   local b: Buffer[Int] := empty()
-
   assert size(b) == 0 and list(for x in b) == list()
   assign b := b ++ list(1) ++ list(2, 3)
   assign b := b ++ list()
   assert size(b) == 3 and list(for x in b) == list(1, 2, 3)
   assert foldr(b, list(), Cons) == list(1, 2, 3) and foldl(b, list(), lambda xs, x => list(x; xs)) == list(3, 2, 1)
   assert foldr(b, 0, lambda x, n => 10 * n + x) == 321 and foldl(b, 0, lambda n, x => 10 * n + x) == 123
-  assert list(for x in (b ++ list(4)) if x > 2) == list(3, 4) and list(for x in b) == list(1, 2, 3)
+  assert list(for x in b ++ list(4) if x > 2) == list(3, 4) and list(for x in b) == list(1, 2, 3)

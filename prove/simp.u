@@ -15,8 +15,8 @@
 // acyclic, and linear sums are solved for an atom, and inequalities over sums, decided by Fourier–Motzkin, which stand
 // for the CC(X) of the plan until it is a union-find. Facts with variables are rewrite rules.
 
-import "syntax.u"
 import "map.u"
+import "syntax.u"
 
 export
 
@@ -33,7 +33,9 @@ data Concl :=
   case Concl(vars: List[Var], body: List[Seq])
 
 function true_seq(): Seq
+
 function false_seq(): Seq
+
 function simplify(decls: Decls, s: Seq): Seq
 
 // the cases of structural induction on the fixed variable at position p of the goal s, each with the hypotheses for
@@ -52,8 +54,7 @@ data Rule :=
 // equations from atoms to their values, the inequalities t >= 0, the rules, whether the facts are inconsistent, and
 // the limits of internal splits, of nested unfolding and rewriting, and of trial merges that decide equations
 data Ctx :=
-  case Ctx(decls: Decls, vars: List[Var], eqs: Map[Expr, Expr], ineqs: List[Lin], rules: List[Rule], inconsistent: Bool,
-        splits: Int, unfolds: Int, probes: Int)
+  case Ctx(decls: Decls, vars: List[Var], eqs: Map[Expr, Expr], ineqs: List[Lin], rules: List[Rule], inconsistent: Bool, splits: Int, unfolds: Int, probes: Int)
 
 // a simplified conjunction with the context after it, or Refuted if a conjunct is false
 data Conj :=
@@ -102,16 +103,12 @@ function contradiction(ctx: Ctx): Ctx :=
 function simplify(decls: Decls, s: Seq): Seq :=
   simp_seq(new_ctx(decls), s)
 
-// opening, closing, and substitution of sequents, as of terms
-
 function rebind_seq(op: Rebind, c: Int, s: Seq): Seq :=
   match s
     case Atom(expr) =>
       Atom(rebind(op, c, expr))
-
     case Seq(fixed, assms, concls) =>
-      let inner := c + size(fixed) in
-      Seq(fixed, list(for a in assms yield rebind_seq(op, inner, a)), list(for d in concls yield rebind_concl(op, inner, d)))
+      let inner := c + size(fixed) in Seq(fixed, list(for a in assms yield rebind_seq(op, inner, a)), list(for d in concls yield rebind_concl(op, inner, d)))
   end
 
 function rebind_concl(op: Rebind, c: Int, d: Concl): Concl :=
@@ -124,7 +121,6 @@ function replace_seq(a: Expr, b: Expr, s: Seq): Seq :=
   match s
     case Atom(expr) =>
       Atom(replace(a, b, expr))
-
     case Seq(fixed, assms, concls) =>
       Seq(fixed, list(for x in assms yield replace_seq(a, b, x)), list(for d in concls yield replace_concl(a, b, d)))
   end
@@ -139,10 +135,8 @@ function subst_seq(c: Int, t: Expr, s: Seq): Seq :=
   match s
     case Atom(expr) =>
       Atom(subst(c, t, expr))
-
     case Seq(fixed, assms, concls) =>
-      let inner := c + size(fixed) in
-      Seq(fixed, list(for a in assms yield subst_seq(inner, t, a)), list(for d in concls yield subst_concl(inner, t, d)))
+      let inner := c + size(fixed) in Seq(fixed, list(for a in assms yield subst_seq(inner, t, a)), list(for d in concls yield subst_concl(inner, t, d)))
   end
 
 function subst_concl(c: Int, t: Expr, d: Concl): Concl :=
@@ -155,7 +149,6 @@ function beta_seq(args: List[Expr], s: Seq): Seq :=
   match reverse(args)
     case list() =>
       s
-
     case list(a; rest) =>
       beta_seq(reverse(rest), subst_seq(0, shift(size(rest), a), s))
   end
@@ -164,10 +157,8 @@ function loose_seq(c: Int, s: Seq): List[Int] :=
   match s
     case Atom(expr) =>
       loose(c, expr)
-
     case Seq(fixed, assms, concls) =>
-      let inner := c + size(fixed) in
-      list(for a in assms for i in loose_seq(inner, a) yield i) ++ list(for d in concls for i in loose_concl(inner, d) yield i)
+      let inner := c + size(fixed) in list(for a in assms for i in loose_seq(inner, a) yield i) ++ list(for d in concls for i in loose_concl(inner, d) yield i)
   end
 
 function loose_concl(c: Int, d: Concl): List[Int] :=
@@ -175,8 +166,6 @@ function loose_concl(c: Int, d: Concl): List[Int] :=
     case Concl(vars, body) =>
       list(for s in body for i in loose_seq(c + size(vars), s) yield i)
   end
-
-// normalization of the connectives and quantifiers of a formula into the structure of sequents
 
 function to_seq(e: Expr): Seq :=
   match e
@@ -205,8 +194,10 @@ function to_seq(e: Expr): Seq :=
       Seq(list(), list(), list(Concl(formals, list(to_seq(body)))))
 
     case EIte(cond, then_expr, else_expr) =>
-      let t := to_seq(cond) in
-      Seq(list(), list(), list(Concl(list(), list(Seq(list(), list(t), list(Concl(list(), list(to_seq(then_expr))))), Seq(list(), list(Seq(list(), list(t), list())), list(Concl(list(), list(to_seq(else_expr)))))))))
+      let t := to_seq(cond) in Seq(list(), list(), list(
+        Concl(list(), list(
+          Seq(list(), list(t), list(Concl(list(), list(to_seq(then_expr))))),
+          Seq(list(), list(Seq(list(), list(t), list())), list(Concl(list(), list(to_seq(else_expr)))))))))
 
     case _ =>
       Atom(e)
@@ -216,12 +207,9 @@ function to_seq(e: Expr): Seq :=
 function simp_seq(ctx: Ctx, s: Seq): Seq :=
   match s
     case Atom(expr) =>
-      let t := simp_expr(ctx, expr) in
-      let n := to_seq(t) in
-      match n
+      let t := simp_expr(ctx, expr) in let n := to_seq(t) in match n
         case Atom(_) =>
           n
-
         case _ =>
           simp_seq(ctx, n)
       end
@@ -233,30 +221,21 @@ function simp_seq(ctx: Ctx, s: Seq): Seq :=
 // its binders are opened, its assumptions simplified as a conjunction, which may add binders, its conclusions in the
 // context of all assumptions, and the result closed again, or else split on a condition if all cases are closed
 function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Concl]): Seq :=
-  let d := depth(ctx), k := size(xs) in
-  let cs := list(for c in concls yield rebind_concl(Open(d, k), 0, c)) in
-  match conjoin(enter(ctx, xs), list(for a in assms yield rebind_seq(Open(d, k), 0, a)))
+  let d := depth(ctx), k := size(xs) in let cs := list(for c in concls yield rebind_concl(Open(d, k), 0, c)) in match conjoin(enter(ctx, xs), list(for a in assms yield rebind_seq(Open(d, k), 0, a)))
     case Refuted =>
       true_seq()
 
     case Conj(after, seqs) =>
       match one_point(d, seqs)
         case Some((l, t, rest)) =>
-          let levels := list(for m in range(d, depth(after)) if m != l) in
-          simp_seq(ctx, Seq(list(for m in levels yield at(m - d, vars_from(after, d))),
-                            list(for b in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, b))),
-                            list(for c in cs yield rebind_concl(Close(levels), 0, replace_concl(ELevel(l), t, c)))))
+          let levels := list(for m in range(d, depth(after)) if m != l) in simp_seq(ctx, Seq(list(for m in levels yield at(m - d, vars_from(after, d))), list(for b in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, b))), list(for c in cs yield rebind_concl(Close(levels), 0, replace_concl(ELevel(l), t, c)))))
 
         case None =>
           match disjoin(after, cs)
             case Proven =>
               true_seq()
-
             case Disj(concls) =>
-              let levels := range(d, depth(after)), ys := vars_from(after, d) in
-              let closed := list(for b in seqs yield rebind_seq(Close(levels), 0, b)), ends := list(for c in concls yield rebind_concl(Close(levels), 0, c)) in
-              let result := sequent(ys, closed, ends) in
-              split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, seqs, concls), result)
+              let levels := range(d, depth(after)), ys := vars_from(after, d) in let closed := list(for b in seqs yield rebind_seq(Close(levels), 0, b)), ends := list(for c in concls yield rebind_concl(Close(levels), 0, c)) in let result := sequent(ys, closed, ends) in split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, seqs, concls), result)
           end
       end
   end
@@ -293,7 +272,6 @@ function one_point(d: Int, ss: List[Seq]): Option[Int * Expr * List[Seq]] :=
           match one_point(d, rest)
             case Some((l, t, more)) =>
               Some((l, t, list(s; more)))
-
             case None =>
               None
           end
@@ -321,8 +299,7 @@ function conjoin(ctx: Ctx, ss: List[Seq]): Conj :=
       Conj(ctx, list())
 
     case list(s; rest) =>
-      let t := simp_seq(ctx, s) in
-      match t
+      let t := simp_seq(ctx, s) in match t
         case Seq(list(), list(), list(Concl(list(), list()))) =>
           conjoin(ctx, rest)
 
@@ -330,21 +307,15 @@ function conjoin(ctx: Ctx, ss: List[Seq]): Conj :=
           Refuted
 
         case Seq(list(), list(), list(Concl(vars, body))) =>
-          let d := depth(ctx) in
-          conjoin(enter(ctx, vars), list(for b in body yield rebind_seq(Open(d, size(vars)), 0, b)) ++ rest)
+          let d := depth(ctx) in conjoin(enter(ctx, vars), list(for b in body yield rebind_seq(Open(d, size(vars)), 0, b)) ++ rest)
 
         case _ =>
-          let next := assume(ctx, t) in
-          if next.inconsistent then
-            Refuted
-          else
-            match conjoin(next, rest)
-              case Conj(ctx, seqs) =>
-                Conj(ctx, list(t; seqs))
-
-              case Refuted =>
-                Refuted
-            end
+          let next := assume(ctx, t) in if next.inconsistent then Refuted else match conjoin(next, rest)
+            case Conj(ctx, seqs) =>
+              Conj(ctx, list(t; seqs))
+            case Refuted =>
+              Refuted
+          end
       end
   end
 
@@ -366,17 +337,12 @@ function disjoin(ctx: Ctx, cs: List[Concl]): Disj :=
           disjoin(ctx, concls ++ rest)
 
         case Some(d) =>
-          let next := refute(ctx, d) in
-          if next.inconsistent then
-            Proven
-          else
-            match disjoin(next, rest)
-              case Disj(concls) =>
-                Disj(list(d; concls))
-
-              case Proven =>
-                Proven
-            end
+          let next := refute(ctx, d) in if next.inconsistent then Proven else match disjoin(next, rest)
+            case Disj(concls) =>
+              Disj(list(d; concls))
+            case Proven =>
+              Proven
+          end
       end
   end
 
@@ -386,21 +352,16 @@ function disjoin(ctx: Ctx, cs: List[Concl]): Disj :=
 function simp_concl(ctx: Ctx, c: Concl): Option[Concl] :=
   match c
     case Concl(vars, body) =>
-      let d := depth(ctx), k := size(vars) in
-      match conjoin(enter(ctx, vars), list(for s in body yield rebind_seq(Open(d, k), 0, s)))
+      let d := depth(ctx), k := size(vars) in match conjoin(enter(ctx, vars), list(for s in body yield rebind_seq(Open(d, k), 0, s)))
         case Refuted =>
           None
 
         case Conj(after, seqs) =>
           match one_point(d, seqs)
             case Some((l, t, rest)) =>
-              let levels := list(for m in range(d, depth(after)) if m != l) in
-              simp_concl(ctx, Concl(list(for m in levels yield at(m - d, vars_from(after, d))),
-                                    list(for s in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, s)))))
-
+              let levels := list(for m in range(d, depth(after)) if m != l) in simp_concl(ctx, Concl(list(for m in levels yield at(m - d, vars_from(after, d))), list(for s in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, s)))))
             case None =>
-              let levels := range(d, depth(after)) in
-              Some(Concl(vars_from(after, d), list(for t in seqs yield rebind_seq(Close(levels), 0, t))))
+              let levels := range(d, depth(after)) in Some(Concl(vars_from(after, d), list(for t in seqs yield rebind_seq(Close(levels), 0, t))))
           end
       end
   end
@@ -426,7 +387,6 @@ function assume(ctx: Ctx, s: Seq): Ctx :=
       match reverse(list(a; more))
         case list(Atom(expr); conds) =>
           add_rule(ctx, fixed, reverse(conds), expr, false)
-
         case _ =>
           ctx
       end
@@ -454,15 +414,11 @@ function refute(ctx: Ctx, c: Concl): Ctx :=
 
 function add_rule(ctx: Ctx, xs: List[Var], conds: List[Seq], e: Expr, b: Bool): Ctx :=
   let rule := match e
-      case EApp(EFun(Name(None, "==")), list(l, r)) if b =>
-        if greater(ctx.decls, l, r) then Rule(xs, conds, l, r)
-        else if greater(ctx.decls, r, l) then Rule(xs, conds, r, l)
-        else Rule(xs, conds, e, bool_expr(true))
-
-      case _ =>
-        Rule(xs, conds, e, bool_expr(b))
-    end in
-  if valid_rule(rule) then ctx with rules := list(rule; ctx.rules) else ctx
+    case EApp(EFun(Name(None, "==")), list(l, r)) if b =>
+      if greater(ctx.decls, l, r) then Rule(xs, conds, l, r) else if greater(ctx.decls, r, l) then Rule(xs, conds, r, l) else Rule(xs, conds, e, bool_expr(true))
+    case _ =>
+      Rule(xs, conds, e, bool_expr(b))
+  end in if valid_rule(rule) then ctx with rules := list(rule; ctx.rules) else ctx
 
 // the variables of the right side and of the conditions occur in the left side, which is not a variable
 function valid_rule(r: Rule): Bool :=
@@ -474,45 +430,37 @@ function valid_rule(r: Rule): Bool :=
       false
 
     case _ =>
-      let bound := loose(0, r.lhs) in
-      forall(loose(0, r.rhs) ++ list(for c in r.conds for k in loose_seq(0, c) yield k), lambda i => contains(i, bound))
+      let bound := loose(0, r.lhs) in forall(loose(0, r.rhs) ++ list(for c in r.conds for k in loose_seq(0, c) yield k), lambda i => contains(i, bound))
   end
 
-// facts about atoms
-
 function assume_expr(ctx: Ctx, e: Expr, b: Bool): Ctx :=
-  if ctx.inconsistent then
-    ctx
-  else
-    match e
-      case EConst(VBool(bool)) =>
-        if bool == b then ctx else contradiction(ctx)
+  if ctx.inconsistent then ctx else match e
+    case EConst(VBool(bool)) =>
+      if bool == b then ctx else contradiction(ctx)
 
-      case EApp(EFun(Name(None, "not")), list(a)) =>
-        assume_expr(ctx, a, not b)
+    case EApp(EFun(Name(None, "not")), list(a)) =>
+      assume_expr(ctx, a, not b)
 
-      case EApp(EFun(Name(None, "and")), list(x, y)) if b =>
-        assume_expr(assume_expr(ctx, x, true), y, true)
+    case EApp(EFun(Name(None, "and")), list(x, y)) if b =>
+      assume_expr(assume_expr(ctx, x, true), y, true)
 
-      case EApp(EFun(Name(None, "or")), list(x, y)) if not b =>
-        assume_expr(assume_expr(ctx, x, false), y, false)
+    case EApp(EFun(Name(None, "or")), list(x, y)) if not b =>
+      assume_expr(assume_expr(ctx, x, false), y, false)
 
-      case EApp(EFun(Name(None, "==")), list(x, y)) if b =>
-        merge(ctx, x, y, 20)
+    case EApp(EFun(Name(None, "==")), list(x, y)) if b =>
+      merge(ctx, x, y, 20)
 
-      case EApp(EFun(Name(None, "<")), list(x, y)) =>
-        if b then add_ineq(ctx, lin_add(lin_sub(lin_of(y), lin_of(x)), Lin(-1, list())))
-        else add_ineq(ctx, lin_sub(lin_of(x), lin_of(y)))
+    case EApp(EFun(Name(None, "<")), list(x, y)) =>
+      if b then add_ineq(ctx, lin_add(lin_sub(lin_of(y), lin_of(x)), Lin(-1, list()))) else add_ineq(ctx, lin_sub(lin_of(x), lin_of(y)))
 
-      case _ =>
-        merge(ctx, e, bool_expr(b), 20)
-    end
+    case _ =>
+      merge(ctx, e, bool_expr(b), 20)
+  end
 
 function is_value(decls: Decls, e: Expr): Bool :=
   match e
     case EConst(_) =>
       true
-
     case _ =>
       ctor_head(decls, e) != None
   end
@@ -521,57 +469,32 @@ function is_sum(e: Expr): Bool :=
   match e
     case ESum(_, _) =>
       true
-
     case _ =>
       false
   end
 
 // whether a occurs in v below constructors only, such that a == v has no solution
 function occurs_ctor(decls: Decls, a: Expr, v: Expr): Bool :=
-  if a == v then
-    true
-  else
-    match ctor_head(decls, v)
-      case Some((_, args)) =>
-        exists(args, lambda x => occurs_ctor(decls, a, x))
-
-      case None =>
-        false
-    end
+  if a == v then true else match ctor_head(decls, v)
+    case Some((_, args)) =>
+      exists(args, lambda x => occurs_ctor(decls, a, x))
+    case None =>
+      false
+  end
 
 // the context with a == b for canonical a and b, solved by the theories into equations of atoms with their values
 function merge(ctx: Ctx, a: Expr, b: Expr, fuel: Int): Ctx :=
-  if fuel <= 0 or ctx.inconsistent or a == b then
-    ctx
-  else if is_sum(a) or is_sum(b) then
-    merge_lin(ctx, lin_sub(lin_of(a), lin_of(b)), fuel)
-  else
-    match (ctor_head(ctx.decls, a), ctor_head(ctx.decls, b))
-      case (Some((f, xs)), Some((g, ys))) =>
-        if f == g and size(xs) == size(ys) then merge_all(ctx, xs, ys, fuel) else contradiction(ctx)
-
-      case _ =>
-        if is_value(ctx.decls, a) and is_value(ctx.decls, b) then
-          contradiction(ctx)
-        else if is_value(ctx.decls, b) then
-          if occurs_ctor(ctx.decls, a, b) then contradiction(ctx) else add_pair(ctx, a, b, fuel)
-        else if is_value(ctx.decls, a) then
-          if occurs_ctor(ctx.decls, b, a) then contradiction(ctx) else add_pair(ctx, b, a, fuel)
-        else if greater(ctx.decls, a, b) then
-          add_pair(ctx, a, b, fuel)
-        else if greater(ctx.decls, b, a) then
-          add_pair(ctx, b, a, fuel)
-        else if compare(a, b) > 0 then
-          add_pair(ctx, a, b, fuel)
-        else
-          add_pair(ctx, b, a, fuel)
-    end
+  if fuel <= 0 or ctx.inconsistent or a == b then ctx else if is_sum(a) or is_sum(b) then merge_lin(ctx, lin_sub(lin_of(a), lin_of(b)), fuel) else match (ctor_head(ctx.decls, a), ctor_head(ctx.decls, b))
+    case (Some((f, xs)), Some((g, ys))) =>
+      if f == g and size(xs) == size(ys) then merge_all(ctx, xs, ys, fuel) else contradiction(ctx)
+    case _ =>
+      if is_value(ctx.decls, a) and is_value(ctx.decls, b) then contradiction(ctx) else if is_value(ctx.decls, b) then if occurs_ctor(ctx.decls, a, b) then contradiction(ctx) else add_pair(ctx, a, b, fuel) else if is_value(ctx.decls, a) then if occurs_ctor(ctx.decls, b, a) then contradiction(ctx) else add_pair(ctx, b, a, fuel) else if greater(ctx.decls, a, b) then add_pair(ctx, a, b, fuel) else if greater(ctx.decls, b, a) then add_pair(ctx, b, a, fuel) else if compare(a, b) > 0 then add_pair(ctx, a, b, fuel) else add_pair(ctx, b, a, fuel)
+  end
 
 function merge_all(ctx: Ctx, xs: List[Expr], ys: List[Expr], fuel: Int): Ctx :=
   match (xs, ys)
     case (list(x; xs1), list(y; ys1)) =>
       merge_all(merge(ctx, simp_expr(ctx, x), simp_expr(ctx, y), fuel - 1), xs1, ys1, fuel)
-
     case _ =>
       ctx
   end
@@ -586,13 +509,9 @@ function merge_lin(ctx: Ctx, d: Lin, fuel: Int): Ctx :=
     case Lin(k, terms) =>
       match greatest_unit(ctx.decls, terms, None)
         case Some((t, n)) =>
-          let rest := lin_sub(d, Lin(0, list((t, n)))) in
-          add_pair(ctx, t, sum_expr(if n == 1 then lin_scale(-1, rest) else rest), fuel)
-
+          let rest := lin_sub(d, Lin(0, list((t, n)))) in add_pair(ctx, t, sum_expr(if n == 1 then lin_scale(-1, rest) else rest), fuel)
         case None =>
-          let g := gcd_all(terms) in
-          if k % g != 0 then contradiction(ctx)
-          else add_pair(ctx, sum_expr(Lin(0, list(for p in terms yield (first(p), second(p) / g)))), int_expr(0 - k / g), fuel)
+          let g := gcd_all(terms) in if k % g != 0 then contradiction(ctx) else add_pair(ctx, sum_expr(Lin(0, list(for p in terms yield (first(p), second(p) / g)))), int_expr(0 - k / g), fuel)
       end
   end
 
@@ -602,41 +521,30 @@ function greatest_unit(decls: Decls, ts: List[Expr * Int], best: Option[Expr * I
       best
 
     case list((t, n); rest) =>
-      if n != 1 and n != -1 then
-        greatest_unit(decls, rest, best)
-      else
-        match best
-          case Some((u, _)) if not greater(decls, t, u) =>
-            greatest_unit(decls, rest, best)
-
-          case _ =>
-            greatest_unit(decls, rest, Some((t, n)))
-        end
+      if n != 1 and n != -1 then greatest_unit(decls, rest, best) else match best
+        case Some((u, _)) if not greater(decls, t, u) =>
+          greatest_unit(decls, rest, best)
+        case _ =>
+          greatest_unit(decls, rest, Some((t, n)))
+      end
   end
 
 function gcd_all(ts: List[Expr * Int]): Int :=
   match ts
     case list() =>
       0
-
     case list((_, n); rest) =>
       gcd(n, gcd_all(rest))
   end
 
 // the context with the atom l solved to r, where the equations and inequalities that mention l are solved again
 function add_pair(ctx: Ctx, l: Expr, r: Expr, fuel: Int): Ctx :=
-  let old := list(for x in ctx.eqs) in
-  let changed := list(for p in old if occurs(l, first(p)) or occurs(l, second(p))) in
-  let eqs := remove_keys(changed, ctx.eqs) in
-  let base := ctx with eqs := put(l, r, eqs), ineqs := list() in
-  let next := remerge(base, list(for p in changed yield (replace(l, r, first(p)), replace(l, r, second(p)))), fuel - 1) in
-  readd_ineqs(next, ctx.ineqs)
+  let old := list(for x in ctx.eqs) in let changed := list(for p in old if occurs(l, first(p)) or occurs(l, second(p))) in let eqs := remove_keys(changed, ctx.eqs) in let base := ctx with eqs := put(l, r, eqs), ineqs := list() in let next := remerge(base, list(for p in changed yield (replace(l, r, first(p)), replace(l, r, second(p)))), fuel - 1) in readd_ineqs(next, ctx.ineqs)
 
 function remove_keys(ps: List[Expr * Expr], eqs: Map[Expr, Expr]): Map[Expr, Expr] :=
   match ps
     case list() =>
       eqs
-
     case list((k, _); rest) =>
       remove_keys(rest, remove(k, eqs))
   end
@@ -645,7 +553,6 @@ function remerge(ctx: Ctx, ps: List[Expr * Expr], fuel: Int): Ctx :=
   match ps
     case list() =>
       ctx
-
     case list((a, b); rest) =>
       remerge(merge(ctx, simp_expr(ctx, a), simp_expr(ctx, b), fuel), rest, fuel)
   end
@@ -654,19 +561,15 @@ function readd_ineqs(ctx: Ctx, ls: List[Lin]): Ctx :=
   match ls
     case list() =>
       ctx
-
     case list(l; rest) =>
       readd_ineqs(add_ineq(ctx, lin_of(simp_expr(ctx, sum_expr(l)))), rest)
   end
-
-// inequalities t >= 0 over the integers
 
 function floor_div(a: Int, b: Int): Int :=
   if a >= 0 then a / b else 0 - (0 - a + b - 1) / b
 
 function tighten(t: Lin): Lin :=
-  let g := gcd_all(t.terms) in
-  if g <= 1 then t else Lin(floor_div(t.k, g), list(for p in t.terms yield (first(p), second(p) / g)))
+  let g := gcd_all(t.terms) in if g <= 1 then t else Lin(floor_div(t.k, g), list(for p in t.terms yield (first(p), second(p) / g)))
 
 // t < 0, that is -t - 1 >= 0
 function negated(t: Lin): Lin :=
@@ -676,29 +579,18 @@ function coefficient(x: Expr, t: Lin): Int :=
   match list(for p in t.terms if first(p) == x yield second(p))
     case list(n; _) =>
       n
-
     case list() =>
       0
   end
 
 // whether the inequalities have no integer solution, by Fourier–Motzkin with tightening, which may miss some
 function fm_unsat(cs: List[Lin], fuel: Int): Bool :=
-  if exists(cs, lambda c => c.terms == list() and c.k < 0) then
-    true
-  else
-    match list(for c in cs if c.terms != list())
-      case list() =>
-        false
-
-      case list(c; more) =>
-        if fuel <= 0 or size(more) > 60 then
-          false
-        else
-          let rest := list(c; more), x := first(at(0, c.terms)) in
-          let pos := list(for t in rest if coefficient(x, t) > 0), neg := list(for t in rest if coefficient(x, t) < 0) in
-          let none := list(for t in rest if coefficient(x, t) == 0) in
-          fm_unsat(none ++ list(for p in pos for n in neg yield combine(x, p, n)), fuel - 1)
-    end
+  if exists(cs, lambda c => c.terms == list() and c.k < 0) then true else match list(for c in cs if c.terms != list())
+    case list() =>
+      false
+    case list(c; more) =>
+      if fuel <= 0 or size(more) > 60 then false else let rest := list(c; more), x := first(at(0, c.terms)) in let pos := list(for t in rest if coefficient(x, t) > 0), neg := list(for t in rest if coefficient(x, t) < 0) in let none := list(for t in rest if coefficient(x, t) == 0) in fm_unsat(none ++ list(for p in pos for n in neg yield combine(x, p, n)), fuel - 1)
+  end
 
 function combine(x: Expr, p: Lin, n: Lin): Lin :=
   tighten(lin_add(lin_scale(0 - coefficient(x, n), p), lin_scale(coefficient(x, p), n)))
@@ -709,8 +601,7 @@ function entailed(ctx: Ctx, t: Lin): Bool :=
 // the instances of rules p < q without conditions, for the atoms of t and of the inequalities, with a single atom
 // p - q that binds all variables of the rule
 function bounds(ctx: Ctx, t: Lin): List[Lin] :=
-  let atoms := list(for p in t.terms yield first(p)) ++ list(for l in ctx.ineqs for p in l.terms yield first(p)) in
-  list(for a in atoms for r in ctx.rules for b in bound_of(r, a) yield b)
+  let atoms := list(for p in t.terms yield first(p)) ++ list(for l in ctx.ineqs for p in l.terms yield first(p)) in list(for a in atoms for r in ctx.rules for b in bound_of(r, a) yield b)
 
 function bound_of(r: Rule, a: Expr): List[Lin] :=
   match (r.conds, r.lhs, r.rhs)
@@ -719,11 +610,7 @@ function bound_of(r: Rule, a: Expr): List[Lin] :=
         case Lin(_, list((atom, _))) =>
           match match_term(size(r.vars), atom, a, empty())
             case Some(sub) =>
-              let n := size(r.vars) in
-              let args := list(for i in range(0, n) yield lookup_index(n - 1 - i, sub)) in
-              let d := lin_sub(lin_of(beta(args, q)), lin_of(beta(args, p))) in
-              if bool then list(lin_add(d, Lin(-1, list()))) else list(lin_scale(-1, d))
-
+              let n := size(r.vars) in let args := list(for i in range(0, n) yield lookup_index(n - 1 - i, sub)) in let d := lin_sub(lin_of(beta(args, q)), lin_of(beta(args, p))) in if bool then list(lin_add(d, Lin(-1, list()))) else list(lin_scale(-1, d))
             case None =>
               list()
           end
@@ -737,37 +624,22 @@ function bound_of(r: Rule, a: Expr): List[Lin] :=
   end
 
 function add_ineq(ctx: Ctx, d: Lin): Ctx :=
-  if ctx.inconsistent then
-    ctx
-  else
-    let t := tighten(d) in
-    match t
-      case Lin(k, list()) =>
-        if k >= 0 then ctx else contradiction(ctx)
-
-      case _ =>
-        if entailed(ctx, t) then
-          ctx
-        else if fm_unsat(list(t; ctx.ineqs), 20) then
-          contradiction(ctx)
-        else
-          let next := ctx with ineqs := list(t; ctx.ineqs) in
-          if entailed(next, lin_scale(-1, t)) then merge_lin(next, t, 10) else next
-    end
-
-// terms
+  if ctx.inconsistent then ctx else let t := tighten(d) in match t
+    case Lin(k, list()) =>
+      if k >= 0 then ctx else contradiction(ctx)
+    case _ =>
+      if entailed(ctx, t) then ctx else if fm_unsat(list(t; ctx.ineqs), 20) then contradiction(ctx) else let next := ctx with ineqs := list(t; ctx.ineqs) in if entailed(next, lin_scale(-1, t)) then merge_lin(next, t, 10) else next
+  end
 
 // a term equal to e in the context, in normal form: the subterms are simplified here, the branches of an if under its
 // condition and its negation, and a function for each kind of term combines the results, where binders are left alone
 function simp_expr(ctx: Ctx, e: Expr): Expr :=
   match e
     case EApp(fun, args) =>
-      let g := simp_expr(ctx, fun), bs := list(for a in args yield simp_expr(ctx, a)) in
-      simp_app(ctx, g, bs)
+      let g := simp_expr(ctx, fun), bs := list(for a in args yield simp_expr(ctx, a)) in simp_app(ctx, g, bs)
 
     case EIte(cond, then_expr, else_expr) =>
-      let t := simp_expr(ctx, cond) in
-      match t
+      let t := simp_expr(ctx, cond) in match t
         case EConst(VBool(true)) =>
           simp_expr(ctx, then_expr)
 
@@ -775,16 +647,13 @@ function simp_expr(ctx: Ctx, e: Expr): Expr :=
           simp_expr(ctx, else_expr)
 
         case _ =>
-          let u := simp_expr(assume_expr(ctx, t, true), then_expr), v := simp_expr(assume_expr(ctx, t, false), else_expr) in
-          simp_ite(t, u, v)
+          let u := simp_expr(assume_expr(ctx, t, true), then_expr), v := simp_expr(assume_expr(ctx, t, false), else_expr) in simp_ite(t, u, v)
       end
 
     case EMatch(expr, cases) =>
-      let t := simp_expr(ctx, expr) in
-      match select(ctx, t, cases)
+      let t := simp_expr(ctx, expr) in match select(ctx, t, cases)
         case Some(b) =>
           simp_expr(ctx, b)
-
         case None =>
           EMatch(t, cases)
       end
@@ -796,7 +665,6 @@ function simp_expr(ctx: Ctx, e: Expr): Expr :=
       match get(name, ctx.decls.defs)
         case Some(d) =>
           unfold(ctx, e, d, list())
-
         case None =>
           rewrite(ctx, e)
       end
@@ -815,25 +683,21 @@ function simp_terms(ctx: Ctx, ts: List[Expr * Int], acc: Lin): Lin :=
   match ts
     case list() =>
       acc
-
     case list((t, n); rest) =>
       simp_terms(ctx, rest, lin_add(acc, lin_scale(n, lin_of(simp_expr(ctx, t)))))
   end
 
 function simp_ite(c: Expr, a: Expr, b: Expr): Expr :=
-  if a == b then
-    a
-  else
-    match (a, b)
-      case (EConst(VBool(true)), EConst(VBool(false))) =>
-        c
+  if a == b then a else match (a, b)
+    case (EConst(VBool(true)), EConst(VBool(false))) =>
+      c
 
-      case (EConst(VBool(false)), EConst(VBool(true))) =>
-        app("not", list(c))
+    case (EConst(VBool(false)), EConst(VBool(true))) =>
+      app("not", list(c))
 
-      case _ =>
-        EIte(c, a, b)
-    end
+    case _ =>
+      EIte(c, a, b)
+  end
 
 function builtins(): List[Id] :=
   list("+", "-", "*", "/", "%", "==", "<", "not", "and", "or", "==>")
@@ -850,7 +714,6 @@ function simp_app(ctx: Ctx, f: Expr, args: List[Expr]): Expr :=
       match get(name, ctx.decls.defs)
         case Some(d) =>
           unfold(ctx, EApp(f, args), d, args)
-
         case None =>
           rewrite(ctx, EApp(f, args))
       end
@@ -895,22 +758,13 @@ function simp_builtin(ctx: Ctx, op: Id, args: List[Expr]): Expr :=
       a
 
     case ("and", list(a, b)) =>
-      if a == bool_expr(false) or b == bool_expr(false) then bool_expr(false)
-      else if a == bool_expr(true) or a == b then b
-      else if b == bool_expr(true) then a
-      else rewrite(ctx, app("and", list(a, b)))
+      if a == bool_expr(false) or b == bool_expr(false) then bool_expr(false) else if a == bool_expr(true) or a == b then b else if b == bool_expr(true) then a else rewrite(ctx, app("and", list(a, b)))
 
     case ("or", list(a, b)) =>
-      if a == bool_expr(true) or b == bool_expr(true) then bool_expr(true)
-      else if a == bool_expr(false) or a == b then b
-      else if b == bool_expr(false) then a
-      else rewrite(ctx, app("or", list(a, b)))
+      if a == bool_expr(true) or b == bool_expr(true) then bool_expr(true) else if a == bool_expr(false) or a == b then b else if b == bool_expr(false) then a else rewrite(ctx, app("or", list(a, b)))
 
     case ("==>", list(a, b)) =>
-      if a == bool_expr(false) or b == bool_expr(true) or a == b then bool_expr(true)
-      else if a == bool_expr(true) then b
-      else if b == bool_expr(false) then simp_builtin(ctx, "not", list(a))
-      else rewrite(ctx, app("==>", list(a, b)))
+      if a == bool_expr(false) or b == bool_expr(true) or a == b then bool_expr(true) else if a == bool_expr(true) then b else if b == bool_expr(false) then simp_builtin(ctx, "not", list(a)) else rewrite(ctx, app("==>", list(a, b)))
 
     case _ =>
       rewrite(ctx, app(op, args))
@@ -918,69 +772,50 @@ function simp_builtin(ctx: Ctx, op: Id, args: List[Expr]): Expr :=
 
 // the sides of an equation, the greater in the term order first
 function oriented(decls: Decls, a: Expr, b: Expr): List[Expr] :=
-  if greater(decls, b, a) then list(b, a)
-  else if greater(decls, a, b) then list(a, b)
-  else ordered(a, b)
+  if greater(decls, b, a) then list(b, a) else if greater(decls, a, b) then list(a, b) else ordered(a, b)
 
 function ordered(a: Expr, b: Expr): List[Expr] :=
   if compare(a, b) > 0 then list(b, a) else list(a, b)
 
 // true if equal in normal form, false if assuming it is inconsistent, as for distinct constructors
 function simp_eq(ctx: Ctx, a: Expr, b: Expr): Expr :=
-  if a == b then
-    bool_expr(true)
-  else if ctx.probes > 0 and merge(ctx with probes := ctx.probes - 1, a, b, 5).inconsistent then
-    bool_expr(false)
-  else
-    rewrite(ctx, app("==", oriented(ctx.decls, a, b)))
+  if a == b then bool_expr(true) else if ctx.probes > 0 and merge(ctx with probes := ctx.probes - 1, a, b, 5).inconsistent then bool_expr(false) else rewrite(ctx, app("==", oriented(ctx.decls, a, b)))
 
 function simp_less(ctx: Ctx, a: Expr, b: Expr): Expr :=
-  let d := lin_sub(lin_of(b), lin_of(a)) in
-  match d
+  let d := lin_sub(lin_of(b), lin_of(a)) in match d
     case Lin(k, list()) =>
       bool_expr(k >= 1)
-
     case _ =>
-      if entailed(ctx, lin_add(d, Lin(-1, list()))) then bool_expr(true)
-      else if entailed(ctx, lin_scale(-1, d)) then bool_expr(false)
-      else rewrite(ctx, app("<", list(a, b)))
+      if entailed(ctx, lin_add(d, Lin(-1, list()))) then bool_expr(true) else if entailed(ctx, lin_scale(-1, d)) then bool_expr(false) else rewrite(ctx, app("<", list(a, b)))
   end
 
 // the application of a function to its arguments, unfolded always if it is not recursive, and else where the match or
 // if of its body is decided, which terminates since functions do
 function unfold(ctx: Ctx, t: Expr, d: Def, args: List[Expr]): Expr :=
-  if size(d.formals) != size(args) or ctx.unfolds > max_unfolds() then
-    rewrite(ctx, t)
-  else
-    let body := beta(args, d.body), inner := ctx with unfolds := ctx.unfolds + 1 in
-    if not d.recursive then
-      simp_expr(inner, body)
-    else
-      match body
-        case EMatch(expr, cases) =>
-          match select(inner, simp_expr(inner, expr), cases)
-            case Some(b) =>
-              simp_expr(inner, b)
+  if size(d.formals) != size(args) or ctx.unfolds > max_unfolds() then rewrite(ctx, t) else let body := beta(args, d.body), inner := ctx with unfolds := ctx.unfolds + 1 in if not d.recursive then simp_expr(inner, body) else match body
+    case EMatch(expr, cases) =>
+      match select(inner, simp_expr(inner, expr), cases)
+        case Some(b) =>
+          simp_expr(inner, b)
+        case None =>
+          rewrite(ctx, t)
+      end
 
-            case None =>
-              rewrite(ctx, t)
-          end
+    case EIte(cond, then_expr, else_expr) =>
+      match simp_expr(inner, cond)
+        case EConst(VBool(true)) =>
+          simp_expr(inner, then_expr)
 
-        case EIte(cond, then_expr, else_expr) =>
-          match simp_expr(inner, cond)
-            case EConst(VBool(true)) =>
-              simp_expr(inner, then_expr)
-
-            case EConst(VBool(false)) =>
-              simp_expr(inner, else_expr)
-
-            case _ =>
-              rewrite(ctx, t)
-          end
+        case EConst(VBool(false)) =>
+          simp_expr(inner, else_expr)
 
         case _ =>
           rewrite(ctx, t)
       end
+
+    case _ =>
+      rewrite(ctx, t)
+  end
 
 // the body of the first branch that matches t, with the values of its variables, or None if that is not decided
 function select(ctx: Ctx, t: Expr, bs: List[Branch]): Option[Expr] :=
@@ -1028,7 +863,6 @@ function match_pat(decls: Decls, p: Pat, t: Expr): PatMatch :=
       match t
         case EConst(w) =>
           if lit == w then Matched(list()) else Failed
-
         case _ =>
           Stuck
       end
@@ -1037,7 +871,6 @@ function match_pat(decls: Decls, p: Pat, t: Expr): PatMatch :=
       match ctor_head(decls, t)
         case Some((f, args)) =>
           if f == constr and size(pats) == size(args) then match_pats(decls, pats, args) else Failed
-
         case None =>
           Stuck
       end
@@ -1069,7 +902,6 @@ function rewrite(ctx: Ctx, t: Expr): Expr :=
   match get(t, ctx.eqs)
     case Some(v) =>
       v
-
     case None =>
       if ctx.unfolds > max_unfolds() then t else apply_rules(ctx, ctx.rules, t)
   end
@@ -1083,22 +915,15 @@ function apply_rules(ctx: Ctx, rules: List[Rule], t: Expr): Expr :=
       match instance(ctx, r, t)
         case Some(u) =>
           u
-
         case None =>
           apply_rules(ctx, rest, t)
       end
   end
 
 function instance(ctx: Ctx, r: Rule, t: Expr): Option[Expr] :=
-  let n := size(r.vars) in
-  match match_term(n, r.lhs, t, empty())
+  let n := size(r.vars) in match match_term(n, r.lhs, t, empty())
     case Some(sub) =>
-      let args := list(for i in range(0, n) yield lookup_index(n - 1 - i, sub)), inner := ctx with unfolds := ctx.unfolds + 1 in
-      if forall(r.conds, lambda c => simp_seq(inner, beta_seq(args, c)) == true_seq()) then
-        Some(simp_expr(inner, beta(args, r.rhs)))
-      else
-        None
-
+      let args := list(for i in range(0, n) yield lookup_index(n - 1 - i, sub)), inner := ctx with unfolds := ctx.unfolds + 1 in if forall(r.conds, lambda c => simp_seq(inner, beta_seq(args, c)) == true_seq()) then Some(simp_expr(inner, beta(args, r.rhs))) else None
     case None =>
       None
   end
@@ -1107,7 +932,6 @@ function lookup_index(i: Int, sub: Map[Int, Expr]): Expr :=
   match get(i, sub)
     case Some(e) =>
       e
-
     case None =>
       EBound(i)
   end
@@ -1119,7 +943,6 @@ function match_term(n: Int, p: Expr, t: Expr, sub: Map[Int, Expr]): Option[Map[I
       match get(index, sub)
         case Some(u) =>
           if u == t then Some(sub) else None
-
         case None =>
           Some(put(index, t, sub))
       end
@@ -1128,8 +951,7 @@ function match_term(n: Int, p: Expr, t: Expr, sub: Map[Int, Expr]): Option[Map[I
       match_terms(n, list(f; ps), list(g; ts), sub)
 
     case (ESum(k, ps), ESum(m, ts)) if k == m and size(ps) == size(ts) =>
-      if list(for q in ps yield second(q)) == list(for q in ts yield second(q)) then match_terms(n, list(for q in ps yield first(q)), list(for q in ts yield first(q)), sub)
-      else None
+      if list(for q in ps yield second(q)) == list(for q in ts yield second(q)) then match_terms(n, list(for q in ps yield first(q)), list(for q in ts yield first(q)), sub) else None
 
     case _ =>
       if p == t then Some(sub) else None
@@ -1141,7 +963,6 @@ function match_terms(n: Int, ps: List[Expr], ts: List[Expr], sub: Map[Int, Expr]
       match match_term(n, p, t, sub)
         case Some(next) =>
           match_terms(n, ps1, ts1, next)
-
         case None =>
           None
       end
@@ -1150,46 +971,28 @@ function match_terms(n: Int, ps: List[Expr], ts: List[Expr], sub: Map[Int, Expr]
       Some(sub)
   end
 
-// internal splits on a condition or the value of a match that is not decided, kept only if all cases are closed
-
 function split_on(ctx: Ctx, levels: List[Int], ys: List[Var], assms: List[Seq], concls: List[Concl], cand: Option[Split], result: Seq): Seq :=
-  if ctx.splits <= 0 then
-    result
-  else
-    match cand
-      case None =>
-        result
+  if ctx.splits <= 0 then result else match cand
+    case None =>
+      result
 
-      case Some(SplitIf(cond)) =>
-        let t := Atom(rebind(Close(levels), 0, cond)), inner := ctx with splits := ctx.splits - 1 in
-        if simp_seq(inner, Seq(ys, list(t; assms), concls)) == true_seq()
-            and simp_seq(inner, Seq(ys, list(Seq(list(), list(t), list()); assms), concls)) == true_seq() then
-          true_seq()
-        else
+    case Some(SplitIf(cond)) =>
+      let t := Atom(rebind(Close(levels), 0, cond)), inner := ctx with splits := ctx.splits - 1 in if simp_seq(inner, Seq(ys, list(t; assms), concls)) == true_seq() and simp_seq(inner, Seq(ys, list(Seq(list(), list(t), list()); assms), concls)) == true_seq() then true_seq() else result
+
+    case Some(SplitMatch(expr, datatype)) =>
+      let t := rebind(Close(levels), 0, expr), inner := ctx with splits := ctx.splits - 1 in match get(datatype, ctx.decls.datatypes)
+        case Some(cs) =>
+          if forall(cs, lambda c => simp_seq(inner, split_case(ctx.decls, ys, assms, concls, t, c)) == true_seq()) then true_seq() else result
+        case None =>
           result
-
-      case Some(SplitMatch(expr, datatype)) =>
-        let t := rebind(Close(levels), 0, expr), inner := ctx with splits := ctx.splits - 1 in
-        match get(datatype, ctx.decls.datatypes)
-          case Some(cs) =>
-            if forall(cs, lambda c => simp_seq(inner, split_case(ctx.decls, ys, assms, concls, t, c)) == true_seq()) then
-              true_seq()
-            else
-              result
-
-          case None =>
-            result
-        end
-    end
+      end
+  end
 
 // the case of the constructor c for the value t, with the fields of c as fixed variables outside the others
 function split_case(decls: Decls, ys: List[Var], assms: List[Seq], concls: List[Concl], t: Expr, c: Name): Seq :=
   match get(c, decls.ctors)
     case Some(Ctor(_, fields)) =>
-      let k := size(ys), n := size(fields) in
-      let value := if n == 0 then EFun(c) else EApp(EFun(c), list(for i in range(0, n) yield EBound(k + n - 1 - i))) in
-      Seq(fields ++ ys, list(Atom(app("==", list(t, value))); assms), concls)
-
+      let k := size(ys), n := size(fields) in let value := if n == 0 then EFun(c) else EApp(EFun(c), list(for i in range(0, n) yield EBound(k + n - 1 - i))) in Seq(fields ++ ys, list(Atom(app("==", list(t, value))); assms), concls)
     case None =>
       Seq(ys, assms, concls)
   end
@@ -1213,7 +1016,6 @@ function candidate_seq(decls: Decls, s: Seq): Option[Split] :=
   match s
     case Atom(expr) =>
       candidate(decls, expr)
-
     case Seq(_, assms, concls) =>
       split_candidate(decls, assms, concls)
   end
@@ -1230,7 +1032,6 @@ function candidate(decls: Decls, e: Expr): Option[Split] :=
       match (loose(0, expr), datatype_of(decls, cases))
         case (list(), Some(t)) =>
           or_else(candidate(decls, expr), Some(SplitMatch(expr, t)))
-
         case _ =>
           candidate(decls, expr)
       end
@@ -1249,7 +1050,6 @@ function positive(c: Expr): Expr :=
   match c
     case EApp(EFun(Name(None, "not")), list(a)) =>
       positive(a)
-
     case _ =>
       c
   end
@@ -1263,7 +1063,6 @@ function datatype_of(decls: Decls, bs: List[Branch]): Option[Name] :=
       match get(constr, decls.ctors)
         case Some(ctor) =>
           Some(ctor.datatype)
-
         case None =>
           datatype_of(decls, rest)
       end
@@ -1272,8 +1071,6 @@ function datatype_of(decls: Decls, bs: List[Branch]): Option[Name] :=
       datatype_of(decls, rest)
   end
 
-// induction
-
 function induction(decls: Decls, s: Seq, p: Int): Seq :=
   match normal(s)
     case Seq(fixed, assms, concls) if p < size(fixed) =>
@@ -1281,9 +1078,8 @@ function induction(decls: Decls, s: Seq, p: Int): Seq :=
         case TSort(name, _) =>
           match get(name, decls.datatypes)
             case Some(cs) =>
-              let k := size(fixed) in
-              let as0 := list(for a in assms yield rebind_seq(Open(0, k), 0, a)), cs0 := list(for c in concls yield rebind_concl(Open(0, k), 0, c)) in
-              Seq(list(), list(), list(Concl(list(), list(for c in cs yield induction_case(decls, name, fixed, p, as0, cs0, c)))))
+              let k := size(fixed) in let as0 := list(for a in assms yield rebind_seq(Open(0, k), 0, a)), cs0 := list(for c in concls yield rebind_concl(Open(0, k), 0, c)) in Seq(list(), list(), list(
+                Concl(list(), list(for c in cs yield induction_case(decls, name, fixed, p, as0, cs0, c)))))
 
             case None =>
               s
@@ -1302,7 +1098,6 @@ function normal(s: Seq): Seq :=
   match s
     case Atom(expr) =>
       to_seq(expr)
-
     case _ =>
       s
   end
@@ -1310,16 +1105,7 @@ function normal(s: Seq): Seq :=
 function induction_case(decls: Decls, t: Name, xs: List[Var], p: Int, as0: List[Seq], cs0: List[Concl], c: Name): Seq :=
   match get(c, decls.ctors)
     case Some(Ctor(_, fs)) =>
-      let k := size(xs), n := size(fs) in
-      let fields := list(for i in range(0, n) yield ELevel(k + i)) in
-      let value := if n == 0 then EFun(c) else EApp(EFun(c), fields) in
-      let v := ELevel(p), others := list(for l in range(0, k) if l != p) in
-      let vars := list(for l in others yield at(l, xs)) in
-      let ihs := list(for i in range(0, n) if is_recursive(t, at(i, fs)) yield hypothesis(vars, others, v, ELevel(k + i), as0, cs0)) in
-      let levels := others ++ range(k, k + n) in
-      Seq(vars ++ fs, list(for h in ihs ++ list(for a in as0 yield replace_seq(v, value, a)) yield rebind_seq(Close(levels), 0, h)),
-          list(for d in cs0 yield rebind_concl(Close(levels), 0, replace_concl(v, value, d))))
-
+      let k := size(xs), n := size(fs) in let fields := list(for i in range(0, n) yield ELevel(k + i)) in let value := if n == 0 then EFun(c) else EApp(EFun(c), fields) in let v := ELevel(p), others := list(for l in range(0, k) if l != p) in let vars := list(for l in others yield at(l, xs)) in let ihs := list(for i in range(0, n) if is_recursive(t, at(i, fs)) yield hypothesis(vars, others, v, ELevel(k + i), as0, cs0)) in let levels := others ++ range(k, k + n) in Seq(vars ++ fs, list(for h in ihs ++ list(for a in as0 yield replace_seq(v, value, a)) yield rebind_seq(Close(levels), 0, h)), list(for d in cs0 yield rebind_concl(Close(levels), 0, replace_concl(v, value, d))))
     case None =>
       false_seq()
   end
@@ -1328,16 +1114,12 @@ function is_recursive(t: Name, field: Var): Bool :=
   match field.typ
     case TSort(name, _) =>
       name == t
-
     case _ =>
       false
   end
 
 function hypothesis(vars: List[Var], others: List[Int], v: Expr, y: Expr, as0: List[Seq], cs0: List[Concl]): Seq :=
-  Seq(vars, list(for a in as0 yield rebind_seq(Close(others), 0, replace_seq(v, y, a))),
-      list(for d in cs0 yield rebind_concl(Close(others), 0, replace_concl(v, y, d))))
-
-// printing, where the binders are opened with names distinct from those around them
+  Seq(vars, list(for a in as0 yield rebind_seq(Close(others), 0, replace_seq(v, y, a))), list(for d in cs0 yield rebind_concl(Close(others), 0, replace_concl(v, y, d))))
 
 function print_seq(s: Seq): Str :=
   print_open(list(), s)
@@ -1349,10 +1131,8 @@ function fresh_all(names: List[Id], xs: List[Var]): List[Id] :=
   match xs
     case list() =>
       list()
-
     case list(x; rest) =>
-      let y := fresh(names, x.name) in
-      list(y; fresh_all(names ++ list(y), rest))
+      let y := fresh(names, x.name) in list(y; fresh_all(names ++ list(y), rest))
   end
 
 function print_open(names: List[Id], s: Seq): Str :=
@@ -1370,20 +1150,13 @@ function print_open(names: List[Id], s: Seq): Str :=
       "not " ++ print_part(names, a)
 
     case Seq(fixed, assms, concls) =>
-      let ys := fresh_all(names, fixed), d := size(names), k := size(fixed) in
-      let inner := names ++ ys in
-      let binder := if fixed == list() then "" else "forall " ++ join(", ", ys) ++ " => " in
-      let premises := join(" and ", list(for a in assms yield print_part(inner, rebind_seq(Open(d, k), 0, a)))) in
-      let ends := if concls == list() then "false"
-          else join(" or ", list(for c in concls yield print_concl(inner, size(concls) > 1, rebind_concl(Open(d, k), 0, c)))) in
-      binder ++ (if assms == list() then ends else premises ++ " ==> " ++ ends)
+      let ys := fresh_all(names, fixed), d := size(names), k := size(fixed) in let inner := names ++ ys in let binder := if fixed == list() then "" else "forall " ++ join(", ", ys) ++ " => " in let premises := join(" and ", list(for a in assms yield print_part(inner, rebind_seq(Open(d, k), 0, a)))) in let ends := if concls == list() then "false" else join(" or ", list(for c in concls yield print_concl(inner, size(concls) > 1, rebind_concl(Open(d, k), 0, c)))) in binder ++ (if assms == list() then ends else premises ++ " ==> " ++ ends)
   end
 
 function print_part(names: List[Id], s: Seq): Str :=
   match s
     case Atom(_) =>
       print_open(names, s)
-
     case _ =>
       "(" ++ print_open(names, s) ++ ")"
   end
@@ -1391,12 +1164,5 @@ function print_part(names: List[Id], s: Seq): Str :=
 function print_concl(names: List[Id], several: Bool, c: Concl): Str :=
   match c
     case Concl(vars, body) =>
-      let ys := fresh_all(names, vars), d := size(names), k := size(vars) in
-      let inner := names ++ ys in
-      let parts := list(for s in body yield rebind_seq(Open(d, k), 0, s)) in
-      let text := if parts == list() then "true"
-          else if size(parts) == 1 and vars == list() and not several then print_open(inner, at(0, parts))
-          else join(" and ", list(for t in parts yield print_part(inner, t))) in
-      if vars == list() then (if several and size(parts) > 1 then "(" ++ text ++ ")" else text)
-      else "(exists " ++ join(", ", ys) ++ " => " ++ text ++ ")"
+      let ys := fresh_all(names, vars), d := size(names), k := size(vars) in let inner := names ++ ys in let parts := list(for s in body yield rebind_seq(Open(d, k), 0, s)) in let text := if parts == list() then "true" else if size(parts) == 1 and vars == list() and not several then print_open(inner, at(0, parts)) else join(" and ", list(for t in parts yield print_part(inner, t))) in if vars == list() then if several and size(parts) > 1 then "(" ++ text ++ ")" else text else "(exists " ++ join(", ", ys) ++ " => " ++ text ++ ")"
   end

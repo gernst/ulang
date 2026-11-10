@@ -1,6 +1,8 @@
 // type error: x is not assignable at 2.1
 procedure p(out r: Int) :=
   match list(1)
-    case list(x; _) => assign x := 1
-    case list() => skip
+    case list(x; _) =>
+      assign x := 1
+    case list() =>
+      skip
   end

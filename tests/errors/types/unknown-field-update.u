@@ -3,4 +3,4 @@ data Point :=
   case Point(x: Int, y: Int)
 
 test r() :=
-  local v := Point(1, 2) with z := 3
+  local v := (Point(1, 2) with z := 3)

@@ -1,4 +1,5 @@
 // type error: compare of the exported type T is not exported
+
 export
 
 type T

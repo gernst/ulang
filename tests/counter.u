@@ -4,6 +4,7 @@
 export
 
 function helper(n: Int): Int
+
 function next(n: Int): Int
 
 implementation

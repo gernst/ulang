@@ -6,7 +6,9 @@ export
 type Fraction
 
 function fraction(n: Int, d: Int): Fraction
+
 function half(n: Int): Fraction
+
 function compare(a: Fraction, b: Fraction): Int
 
 implementation
@@ -23,13 +25,16 @@ function half(n: Int): Fraction :=
 
 function value(f: Fraction): Int * Int :=
   match f
-    case Fraction(num, den) => (num, den)
-    case Half(num) => (num, 2)
+    case Fraction(num, den) =>
+      (num, den)
+    case Half(num) =>
+      (num, 2)
   end
 
 function compare(a: Fraction, b: Fraction): Int :=
   match (value(a), value(b))
-    case ((n, d), (m, e)) => compare(n * e, m * d)
+    case ((n, d), (m, e)) =>
+      compare(n * e, m * d)
   end
 
 test values() :=

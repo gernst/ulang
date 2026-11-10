@@ -22,13 +22,26 @@ implementation
 
 function format_failure(failure: Failure): Str :=
   match failure
-    case NoCase(text) => "no case matches " ++ text
-    case CompareFunctions => "cannot compare functions"
-    case CompareProcedures => "cannot compare procedures"
-    case AssertionFailed => "assertion failed"
-    case AssertionUnequal(left, right) => "assertion failed: " ++ left ++ " != " ++ right
-    case Uncaught(text) => "uncaught exception " ++ text
-    case RecursiveInitialization(name) => "recursive initialization of " ++ name
+    case NoCase(text) =>
+      "no case matches " ++ text
+
+    case CompareFunctions =>
+      "cannot compare functions"
+
+    case CompareProcedures =>
+      "cannot compare procedures"
+
+    case AssertionFailed =>
+      "assertion failed"
+
+    case AssertionUnequal(left, right) =>
+      "assertion failed: " ++ left ++ " != " ++ right
+
+    case Uncaught(text) =>
+      "uncaught exception " ++ text
+
+    case RecursiveInitialization(name) =>
+      "recursive initialization of " ++ name
   end
 
 function failure_formats(): List[Str * Str] :=
@@ -38,8 +51,7 @@ function failure_formats(): List[Str * Str] :=
     ("u_text_compare_procedures", format_failure(CompareProcedures)),
     ("u_text_assertion_failed", format_failure(AssertionFailed)),
     ("u_text_assertion_unequal", format_failure(AssertionUnequal("%s", "%s"))),
-    ("u_text_uncaught", format_failure(Uncaught("%s")))
-  )
+    ("u_text_uncaught", format_failure(Uncaught("%s"))))
 
 test formats() :=
   assert contains(("u_text_assertion_unequal", "assertion failed: %s != %s"), failure_formats())
