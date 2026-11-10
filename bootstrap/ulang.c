@@ -5066,21 +5066,21 @@ const struct u_name n_syntax_46_EFor = {"syntax", "EFor", 13, &t_syntax_46_Expr}
 
 const struct u_type t_syntax_46_Form = {"syntax.Form", u_con_compare, u_equals_by_compare, u_con_show};
 
-const struct u_name n_syntax_46_FormList = {"syntax", "FormList", 0, &t_syntax_46_Form};
+const struct u_name n_syntax_46_FList = {"syntax", "FList", 0, &t_syntax_46_Form};
 
-struct u_object o_syntax_46_FormList = U_UNIT(n_syntax_46_FormList, t_syntax_46_Form);
+struct u_object o_syntax_46_FList = U_UNIT(n_syntax_46_FList, t_syntax_46_Form);
 
-const struct u_name n_syntax_46_FormSet = {"syntax", "FormSet", 1, &t_syntax_46_Form};
+const struct u_name n_syntax_46_FSet = {"syntax", "FSet", 1, &t_syntax_46_Form};
 
-struct u_object o_syntax_46_FormSet = U_UNIT(n_syntax_46_FormSet, t_syntax_46_Form);
+struct u_object o_syntax_46_FSet = U_UNIT(n_syntax_46_FSet, t_syntax_46_Form);
 
-const struct u_name n_syntax_46_FormMap = {"syntax", "FormMap", 2, &t_syntax_46_Form};
+const struct u_name n_syntax_46_FMap = {"syntax", "FMap", 2, &t_syntax_46_Form};
 
-struct u_object o_syntax_46_FormMap = U_UNIT(n_syntax_46_FormMap, t_syntax_46_Form);
+struct u_object o_syntax_46_FMap = U_UNIT(n_syntax_46_FMap, t_syntax_46_Form);
 
-const struct u_name n_syntax_46_FormArray = {"syntax", "FormArray", 3, &t_syntax_46_Form};
+const struct u_name n_syntax_46_FArray = {"syntax", "FArray", 3, &t_syntax_46_Form};
 
-struct u_object o_syntax_46_FormArray = U_UNIT(n_syntax_46_FormArray, t_syntax_46_Form);
+struct u_object o_syntax_46_FArray = U_UNIT(n_syntax_46_FArray, t_syntax_46_Form);
 
 const struct u_type t_syntax_46_Elem = {"syntax.Elem", u_con_compare, u_equals_by_compare, u_con_show};
 
@@ -12936,7 +12936,7 @@ u_value f_syntax_46_implicit_elem_2(u_value v_form, u_value v_gens) {
   *e165 = &o_list_46_Nil;
   u_value s167 = u_mk_tuple(2, t164, v_form);
   u_value t168 = NULL;
-  if ((!t168) && (u_is_con(u_field(s167, 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(s167, 0), 0), &n_syntax_46_GEntries) && (u_is_con(u_field(u_field(s167, 0), 1), &n_list_46_Nil) && u_is_con(u_field(s167, 1), &n_syntax_46_FormMap))))) {
+  if ((!t168) && (u_is_con(u_field(s167, 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(s167, 0), 0), &n_syntax_46_GEntries) && (u_is_con(u_field(u_field(s167, 0), 1), &n_list_46_Nil) && u_is_con(u_field(s167, 1), &n_syntax_46_FMap))))) {
     u_value v_k = u_field(u_field(u_field(s167, 0), 0), 0);
     u_value v_v = u_field(u_field(u_field(s167, 0), 0), 1);
     t168 = f_syntax_46_pair_elem_2(f_syntax_46_pattern_expr_1(v_k), f_syntax_46_pattern_expr_1(v_v));
@@ -12959,12 +12959,12 @@ u_value f_syntax_46_implicit_elem_2(u_value v_form, u_value v_gens) {
     }
     t168 = t170;
   }
-  if ((!t168) && (u_is_con(u_field(s167, 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(s167, 0), 0), &n_syntax_46_GFor) && (u_is_con(u_field(u_field(u_field(s167, 0), 0), 0), &n_syntax_46_PTuple) && (u_is_con(u_field(u_field(u_field(u_field(s167, 0), 0), 0), 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s167, 0), 0), 0), 0), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(u_field(u_field(u_field(s167, 0), 0), 0), 0), 1), 1), &n_list_46_Nil) && (u_is_con(u_field(u_field(s167, 0), 1), &n_list_46_Nil) && u_is_con(u_field(s167, 1), &n_syntax_46_FormMap))))))))) {
+  if ((!t168) && (u_is_con(u_field(s167, 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(s167, 0), 0), &n_syntax_46_GFor) && (u_is_con(u_field(u_field(u_field(s167, 0), 0), 0), &n_syntax_46_PTuple) && (u_is_con(u_field(u_field(u_field(u_field(s167, 0), 0), 0), 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s167, 0), 0), 0), 0), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(u_field(u_field(u_field(s167, 0), 0), 0), 0), 1), 1), &n_list_46_Nil) && (u_is_con(u_field(u_field(s167, 0), 1), &n_list_46_Nil) && u_is_con(u_field(s167, 1), &n_syntax_46_FMap))))))))) {
     u_value v_k = u_field(u_field(u_field(u_field(u_field(s167, 0), 0), 0), 0), 0);
     u_value v_v = u_field(u_field(u_field(u_field(u_field(u_field(s167, 0), 0), 0), 0), 1), 0);
     t168 = f_syntax_46_pair_elem_2(f_syntax_46_pattern_expr_1(v_k), f_syntax_46_pattern_expr_1(v_v));
   }
-  if ((!t168) && (u_is_con(u_field(s167, 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(s167, 0), 0), &n_syntax_46_GFor) && (u_is_con(u_field(u_field(s167, 0), 1), &n_list_46_Nil) && u_is_con(u_field(s167, 1), &n_syntax_46_FormMap))))) {
+  if ((!t168) && (u_is_con(u_field(s167, 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(s167, 0), 0), &n_syntax_46_GFor) && (u_is_con(u_field(u_field(s167, 0), 1), &n_list_46_Nil) && u_is_con(u_field(s167, 1), &n_syntax_46_FMap))))) {
     t168 = &o_option_46_None;
   }
   if ((!t168) && (u_is_con(u_field(s167, 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(s167, 0), 0), &n_syntax_46_GFor) && u_is_con(u_field(u_field(s167, 0), 1), &n_list_46_Nil)))) {
@@ -13078,19 +13078,19 @@ u_value f_syntax_46_pattern_exprs_1(u_value v_ps) {
 u_value f_syntax_46_form_name_1(u_value v_form) {
   u_value s182 = v_form;
   u_value t183 = NULL;
-  if ((!t183) && u_is_con(s182, &n_syntax_46_FormList)) {
+  if ((!t183) && u_is_con(s182, &n_syntax_46_FList)) {
     static struct u_object l_list_184 = U_LIT("list");
     t183 = &l_list_184;
   }
-  if ((!t183) && u_is_con(s182, &n_syntax_46_FormSet)) {
+  if ((!t183) && u_is_con(s182, &n_syntax_46_FSet)) {
     static struct u_object l_set_185 = U_LIT("set");
     t183 = &l_set_185;
   }
-  if ((!t183) && u_is_con(s182, &n_syntax_46_FormMap)) {
+  if ((!t183) && u_is_con(s182, &n_syntax_46_FMap)) {
     static struct u_object l_map_186 = U_LIT("map");
     t183 = &l_map_186;
   }
-  if ((!t183) && u_is_con(s182, &n_syntax_46_FormArray)) {
+  if ((!t183) && u_is_con(s182, &n_syntax_46_FArray)) {
     static struct u_object l_array_187 = U_LIT("array");
     t183 = &l_array_187;
   }
@@ -17188,7 +17188,7 @@ u_value f_format_46_for_parts_1(u_value v_s) {
 u_value f_format_46_items_source_1(u_value v_init) {
   u_value s924 = v_init;
   u_value t925 = NULL;
-  if ((!t925) && (u_is_con(s924, &n_syntax_46_SAssign) && (u_is_con(u_field(s924, 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s924, 0), 0), 1), &n_syntax_46_EFor) && (u_is_con(u_field(u_field(u_field(u_field(s924, 0), 0), 1), 0), &n_syntax_46_FormList) && (u_is_con(u_field(u_field(u_field(u_field(s924, 0), 0), 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s924, 0), 0), 1), 1), 0), &n_syntax_46_GFor) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s924, 0), 0), 1), 1), 1), &n_list_46_Nil) && (u_is_con(u_field(u_field(u_field(u_field(s924, 0), 0), 1), 3), &n_option_46_None) && u_is_con(u_field(u_field(s924, 0), 1), &n_list_46_Nil)))))))))) {
+  if ((!t925) && (u_is_con(s924, &n_syntax_46_SAssign) && (u_is_con(u_field(s924, 0), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(s924, 0), 0), 1), &n_syntax_46_EFor) && (u_is_con(u_field(u_field(u_field(u_field(s924, 0), 0), 1), 0), &n_syntax_46_FList) && (u_is_con(u_field(u_field(u_field(u_field(s924, 0), 0), 1), 1), &n_list_46_Cons) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s924, 0), 0), 1), 1), 0), &n_syntax_46_GFor) && (u_is_con(u_field(u_field(u_field(u_field(u_field(s924, 0), 0), 1), 1), 1), &n_list_46_Nil) && (u_is_con(u_field(u_field(u_field(u_field(s924, 0), 0), 1), 3), &n_option_46_None) && u_is_con(u_field(u_field(s924, 0), 1), &n_list_46_Nil)))))))))) {
     u_value v_c = u_field(u_field(u_field(u_field(u_field(u_field(s924, 0), 0), 1), 1), 0), 1);
     t925 = u_mk_con(&n_option_46_Some, 1, v_c);
   }
@@ -22569,15 +22569,15 @@ void p_check_46_infer(u_value v_env, u_value v_expr, u_value *r_e1, u_value *r_t
         p_check_46_infer(v_env, f_check_46_form_expr_3(v_form, v_elems, v_rest), &v_e1, &v_t, &v_s);
       }
     }
-    if ((!d1793) && (u_is_con(s1792, &n_syntax_46_EFor) && (u_is_con(u_field(s1792, 0), &n_syntax_46_FormArray) && u_is_con(u_field(s1792, 3), &n_option_46_None)))) {
+    if ((!d1793) && (u_is_con(s1792, &n_syntax_46_EFor) && (u_is_con(u_field(s1792, 0), &n_syntax_46_FArray) && u_is_con(u_field(s1792, 3), &n_option_46_None)))) {
       u_value v_gens = u_field(s1792, 1);
       u_value v_elem = u_field(s1792, 2);
       d1793 = 1;
       {
-        p_check_46_form_import(&o_syntax_46_FormArray, v_s);
+        p_check_46_form_import(&o_syntax_46_FArray, v_s);
         static struct u_object l_array_1846 = U_LIT("array");
         static struct u_object l_from_list_1847 = U_LIT("from_list");
-        p_check_46_infer(v_env, u_mk_con(&n_syntax_46_EApp, 2, u_mk_con(&n_syntax_46_EVar, 1, u_mk_con(&n_syntax_46_Var, 2, u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, &l_array_1846), &l_from_list_1847), &o_syntax_46_THole)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_EFor, 4, &o_syntax_46_FormList, v_gens, v_elem, &o_option_46_None), &o_list_46_Nil)), &v_e1, &v_t, &v_s);
+        p_check_46_infer(v_env, u_mk_con(&n_syntax_46_EApp, 2, u_mk_con(&n_syntax_46_EVar, 1, u_mk_con(&n_syntax_46_Var, 2, u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, &l_array_1846), &l_from_list_1847), &o_syntax_46_THole)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_EFor, 4, &o_syntax_46_FList, v_gens, v_elem, &o_option_46_None), &o_list_46_Nil)), &v_e1, &v_t, &v_s);
       }
     }
     if ((!d1793) && (u_is_con(s1792, &n_syntax_46_EFor) && u_is_con(u_field(s1792, 1), &n_list_46_Nil))) {
@@ -22709,18 +22709,18 @@ void p_check_46_generator(u_value v_env, u_value v_form, u_value v_g, u_value v_
 u_value f_check_46_form_module_1(u_value v_form) {
   u_value s1858 = v_form;
   u_value t1859 = NULL;
-  if ((!t1859) && u_is_con(s1858, &n_syntax_46_FormList)) {
+  if ((!t1859) && u_is_con(s1858, &n_syntax_46_FList)) {
     t1859 = &o_option_46_None;
   }
-  if ((!t1859) && u_is_con(s1858, &n_syntax_46_FormSet)) {
+  if ((!t1859) && u_is_con(s1858, &n_syntax_46_FSet)) {
     static struct u_object l_set_1860 = U_LIT("set");
     t1859 = u_mk_con(&n_option_46_Some, 1, &l_set_1860);
   }
-  if ((!t1859) && u_is_con(s1858, &n_syntax_46_FormMap)) {
+  if ((!t1859) && u_is_con(s1858, &n_syntax_46_FMap)) {
     static struct u_object l_map_1861 = U_LIT("map");
     t1859 = u_mk_con(&n_option_46_Some, 1, &l_map_1861);
   }
-  if ((!t1859) && u_is_con(s1858, &n_syntax_46_FormArray)) {
+  if ((!t1859) && u_is_con(s1858, &n_syntax_46_FArray)) {
     static struct u_object l_array_1862 = U_LIT("array");
     t1859 = u_mk_con(&n_option_46_Some, 1, &l_array_1862);
   }
@@ -22762,10 +22762,10 @@ u_value f_check_46_base_expr_2(u_value v_form, u_value v_rest) {
     u_value v_r = u_field(u_field(s1864, 0), 0);
     t1865 = v_r;
   }
-  if ((!t1865) && (u_is_con(u_field(s1864, 0), &n_option_46_None) && u_is_con(u_field(s1864, 1), &n_syntax_46_FormList))) {
+  if ((!t1865) && (u_is_con(u_field(s1864, 0), &n_option_46_None) && u_is_con(u_field(s1864, 1), &n_syntax_46_FList))) {
     t1865 = u_mk_con(&n_syntax_46_EVar, 1, u_mk_con(&n_syntax_46_Var, 2, f_builtins_46_nil_name_0(), &o_syntax_46_THole));
   }
-  if ((!t1865) && (u_is_con(u_field(s1864, 0), &n_option_46_None) && u_is_con(u_field(s1864, 1), &n_syntax_46_FormSet))) {
+  if ((!t1865) && (u_is_con(u_field(s1864, 0), &n_option_46_None) && u_is_con(u_field(s1864, 1), &n_syntax_46_FSet))) {
     static struct u_object l_set_1866 = U_LIT("set");
     static struct u_object l_empty_1867 = U_LIT("empty");
     t1865 = f_check_46_form_app_3(&l_set_1866, &l_empty_1867, &o_list_46_Nil);
@@ -22784,14 +22784,14 @@ u_value f_check_46_base_expr_2(u_value v_form, u_value v_rest) {
 u_value f_check_46_step_expr_3(u_value v_form, u_value v_elem, u_value v_base) {
   u_value s1870 = u_mk_tuple(2, v_form, v_elem);
   u_value t1871 = NULL;
-  if ((!t1871) && (u_is_con(u_field(s1870, 0), &n_syntax_46_FormMap) && u_is_con(u_field(s1870, 1), &n_syntax_46_Entry))) {
+  if ((!t1871) && (u_is_con(u_field(s1870, 0), &n_syntax_46_FMap) && u_is_con(u_field(s1870, 1), &n_syntax_46_Entry))) {
     u_value v_k = u_field(u_field(s1870, 1), 0);
     u_value v_v = u_field(u_field(s1870, 1), 1);
     static struct u_object l_map_1872 = U_LIT("map");
     static struct u_object l_put_1873 = U_LIT("put");
     t1871 = f_check_46_form_app_3(&l_map_1872, &l_put_1873, u_mk_con(&n_list_46_Cons, 2, v_k, u_mk_con(&n_list_46_Cons, 2, v_v, u_mk_con(&n_list_46_Cons, 2, v_base, &o_list_46_Nil))));
   }
-  if ((!t1871) && (u_is_con(u_field(s1870, 0), &n_syntax_46_FormMap) && u_is_con(u_field(s1870, 1), &n_syntax_46_Elem))) {
+  if ((!t1871) && (u_is_con(u_field(s1870, 0), &n_syntax_46_FMap) && u_is_con(u_field(s1870, 1), &n_syntax_46_Elem))) {
     u_value v_e = u_field(u_field(s1870, 1), 0);
     static struct u_object l_map_1874 = U_LIT("map");
     static struct u_object l_put_1875 = U_LIT("put");
@@ -22801,7 +22801,7 @@ u_value f_check_46_step_expr_3(u_value v_form, u_value v_elem, u_value v_base) {
     static struct u_object l_second_1879 = U_LIT("second");
     t1871 = f_check_46_form_app_3(&l_map_1874, &l_put_1875, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_EApp, 2, u_mk_con(&n_syntax_46_EVar, 1, u_mk_con(&n_syntax_46_Var, 2, u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, &l_prelude_1876), &l_first_1877), &o_syntax_46_THole)), u_mk_con(&n_list_46_Cons, 2, v_e, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_EApp, 2, u_mk_con(&n_syntax_46_EVar, 1, u_mk_con(&n_syntax_46_Var, 2, u_mk_con(&n_syntax_46_Name, 2, u_mk_con(&n_option_46_Some, 1, &l_prelude_1878), &l_second_1879), &o_syntax_46_THole)), u_mk_con(&n_list_46_Cons, 2, v_e, &o_list_46_Nil)), u_mk_con(&n_list_46_Cons, 2, v_base, &o_list_46_Nil))));
   }
-  if ((!t1871) && (u_is_con(u_field(s1870, 0), &n_syntax_46_FormSet) && u_is_con(u_field(s1870, 1), &n_syntax_46_Elem))) {
+  if ((!t1871) && (u_is_con(u_field(s1870, 0), &n_syntax_46_FSet) && u_is_con(u_field(s1870, 1), &n_syntax_46_Elem))) {
     u_value v_e = u_field(u_field(s1870, 1), 0);
     static struct u_object l_set_1880 = U_LIT("set");
     static struct u_object l_insert_1881 = U_LIT("insert");
@@ -22825,12 +22825,12 @@ u_value f_check_46_step_expr_3(u_value v_form, u_value v_elem, u_value v_base) {
 u_value f_check_46_form_expr_3(u_value v_form, u_value v_elems, u_value v_rest) {
   u_value s1882 = v_form;
   u_value t1883 = NULL;
-  if ((!t1883) && u_is_con(s1882, &n_syntax_46_FormArray)) {
+  if ((!t1883) && u_is_con(s1882, &n_syntax_46_FArray)) {
     static struct u_object l_array_1884 = U_LIT("array");
     static struct u_object l_from_list_1885 = U_LIT("from_list");
-    t1883 = f_check_46_form_app_3(&l_array_1884, &l_from_list_1885, u_mk_con(&n_list_46_Cons, 2, f_check_46_form_expr_3(&o_syntax_46_FormList, v_elems, &o_option_46_None), &o_list_46_Nil));
+    t1883 = f_check_46_form_app_3(&l_array_1884, &l_from_list_1885, u_mk_con(&n_list_46_Cons, 2, f_check_46_form_expr_3(&o_syntax_46_FList, v_elems, &o_option_46_None), &o_list_46_Nil));
   }
-  if ((!t1883) && u_is_con(s1882, &n_syntax_46_FormMap)) {
+  if ((!t1883) && u_is_con(s1882, &n_syntax_46_FMap)) {
     t1883 = f_list_46_foldl_3(v_elems, f_check_46_base_expr_2(v_form, v_rest), u_mk_closure(lam1886, 1, v_form));
   }
   if (!t1883) {
@@ -22865,7 +22865,7 @@ u_value f_check_46_gen_container_1(u_value v_g) {
 
 u_value f_check_46_fold_expr_7(u_value v_form, u_value v_m, u_value v_targs, u_value v_g, u_value v_c, u_value v_body, u_value v_base) {
   u_value t1892;
-  if (u_truth(u_eq(v_form, &o_syntax_46_FormList))) {
+  if (u_truth(u_eq(v_form, &o_syntax_46_FList))) {
     static struct u_object l_foldr_1890 = U_LIT("foldr");
     t1892 = &l_foldr_1890;
   } else {
@@ -29453,16 +29453,16 @@ u_value f_parse_46_form_of_1(u_value v_kw) {
   u_value s3060 = v_kw;
   u_value t3061 = NULL;
   if ((!t3061) && u_equals(s3060, u_mk_lit("list"))) {
-    t3061 = u_mk_con(&n_option_46_Some, 1, &o_syntax_46_FormList);
+    t3061 = u_mk_con(&n_option_46_Some, 1, &o_syntax_46_FList);
   }
   if ((!t3061) && u_equals(s3060, u_mk_lit("set"))) {
-    t3061 = u_mk_con(&n_option_46_Some, 1, &o_syntax_46_FormSet);
+    t3061 = u_mk_con(&n_option_46_Some, 1, &o_syntax_46_FSet);
   }
   if ((!t3061) && u_equals(s3060, u_mk_lit("map"))) {
-    t3061 = u_mk_con(&n_option_46_Some, 1, &o_syntax_46_FormMap);
+    t3061 = u_mk_con(&n_option_46_Some, 1, &o_syntax_46_FMap);
   }
   if ((!t3061) && u_equals(s3060, u_mk_lit("array"))) {
-    t3061 = u_mk_con(&n_option_46_Some, 1, &o_syntax_46_FormArray);
+    t3061 = u_mk_con(&n_option_46_Some, 1, &o_syntax_46_FArray);
   }
   if (!t3061) {
     t3061 = &o_option_46_None;
@@ -29488,7 +29488,7 @@ void p_parse_46_parse_form(u_value v_notation, u_value v_params, u_value *r_expr
     u_value v_rest = NULL;
     u_value v_gens = NULL;
     u_value v_elem = NULL;
-    u_value t3063 = &o_syntax_46_FormList;
+    u_value t3063 = &o_syntax_46_FList;
     v_form = t3063;
     u_value t3064 = f_parse_46_head_pos_1(v_toks);
     v_pos = t3064;
@@ -29498,7 +29498,7 @@ void p_parse_46_parse_form(u_value v_notation, u_value v_params, u_value *r_expr
       u_value v_kw = u_field(s3065, 0);
       d3066 = 1;
       {
-        u_value t3067 = f_option_46_value_or_2(f_parse_46_form_of_1(v_kw), &o_syntax_46_FormList);
+        u_value t3067 = f_option_46_value_or_2(f_parse_46_form_of_1(v_kw), &o_syntax_46_FList);
         v_form = t3067;
       }
     }
@@ -29572,7 +29572,7 @@ void p_parse_46_parse_form(u_value v_notation, u_value v_params, u_value *r_expr
         v_expr = t3081;
       }
     }
-    u_value t3082 = u_eq(v_form, &o_syntax_46_FormArray);
+    u_value t3082 = u_eq(v_form, &o_syntax_46_FArray);
     if (u_truth(t3082)) {
       t3082 = f_prelude_46__33__61__2(v_rest, &o_option_46_None);
     }
@@ -29596,7 +29596,7 @@ void p_parse_46_parse_elem(u_value v_notation, u_value v_params, u_value v_form,
     u_value v_k = NULL;
     u_value v_v = NULL;
     p_parse_46_parse_expr(v_notation, v_params, &v_k, &v_toks);
-    if (u_truth(u_eq(v_form, &o_syntax_46_FormMap))) {
+    if (u_truth(u_eq(v_form, &o_syntax_46_FMap))) {
       {
         static struct u_object l__61__62__3085 = U_LIT("=>");
         p_parse_46_expect(u_mk_con(&n_lex_46_TKw, 1, &l__61__62__3085), &v_toks);
@@ -30220,7 +30220,7 @@ void p_parse_46_parse_for(u_value v_notation, u_value v_params, u_value *r_s, u_
     static struct u_object l__3214 = U_LIT("");
     u_value t3215 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 4, &l__3213, f_parse_46_pat_cons_2(v_pat, u_mk_con(&n_syntax_46_PVar, 1, v_rest)), &o_option_46_None, v_step), u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_Branch, 4, &l__3214, f_parse_46_pat_nil_0(), &o_option_46_None, &o_syntax_46_SSkip), &o_list_46_Nil));
     v_branches = t3215;
-    u_value t3216 = u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_items, u_mk_con(&n_syntax_46_EFor, 4, &o_syntax_46_FormList, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_GFor, 2, u_mk_con(&n_syntax_46_PVar, 1, v_item), v_c), &o_list_46_Nil), u_mk_con(&n_syntax_46_Elem, 1, u_mk_con(&n_syntax_46_EVar, 1, v_item)), &o_option_46_None)), &o_list_46_Nil));
+    u_value t3216 = u_mk_con(&n_syntax_46_SAssign, 1, u_mk_con(&n_list_46_Cons, 2, u_mk_tuple(2, v_items, u_mk_con(&n_syntax_46_EFor, 4, &o_syntax_46_FList, u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_syntax_46_GFor, 2, u_mk_con(&n_syntax_46_PVar, 1, v_item), v_c), &o_list_46_Nil), u_mk_con(&n_syntax_46_Elem, 1, u_mk_con(&n_syntax_46_EVar, 1, v_item)), &o_option_46_None)), &o_list_46_Nil));
     v_collect = t3216;
     static struct u_object l__33__61__3217 = U_LIT("!=");
     static struct u_object l_Nil_3218 = U_LIT("Nil");
