@@ -116,6 +116,7 @@ function infix_operand(d: Doc, f: Fixity, prec: Int, side: Fixity): Str :=
       case Operator(FPrefix, q) => q <= prec
       case Operator(FPostfix, _) => true
       case Operator(fixity, q) => q < prec or q == prec and not (f == side and fixity == side)
+      case Negative => side == FLeft
       case _ => true
     end)
 
@@ -402,7 +403,7 @@ function format_stmt(notation: Notation, indent: Str, s: Stmt): Str :=
     case SWhile(cond, body) =>
       end_text(indent, cond_text(notation, indent, "while", cond, body))
     case SCall(proc, ins, outs, refs) =>
-      "call " ++ proc.base ++ "(" ++ call_sections(notation, indent, ins, outs, refs) ++ ")"
+      "call " ++ call_text(notation, indent, proc, ins, outs, refs)
     case SMatch(expr, cases) =>
       end_text(indent, "match " ++ format_expr(notation, indent, expr) ++ stmt_cases(notation, deeper(indent), cases))
     case SAssert(cond) =>
@@ -420,6 +421,9 @@ function format_stmt(notation: Notation, indent: Str, s: Stmt): Str :=
 
 function cond_text(notation: Notation, indent: Str, word: Str, cond: Expr, body: Stmt): Str :=
   word ++ " " ++ format_expr(notation, indent, cond) ++ format_body(notation, deeper(indent), body)
+
+function call_text(notation: Notation, indent: Str, proc: Name, ins: List[Expr], outs: List[Var], refs: List[Var]): Str :=
+  proc.base ++ "(" ++ call_sections(notation, indent, ins, outs, refs) ++ ")"
 
 function call_sections(notation: Notation, indent: Str, ins: List[Expr], outs: List[Var], refs: List[Var]): Str :=
   sections_text(list(for a in ins yield format_expr(notation, indent, a)), names_of(outs), names_of(refs))
@@ -503,7 +507,43 @@ function format_body(notation: Notation, indent: Str, body: Stmt): Str :=
   end
 
 function format_stmts(notation: Notation, indent: Str, ss: List[Stmt]): Str :=
-  join("", list(for s in ss yield "\n" ++ indent ++ format_stmt(notation, indent, s)))
+  join("", list(for run in runs(ss) for s in run yield stmt_line(notation, indent, has_assign(run), s)))
+
+// a statement after a newline, where a call is padded to the width of assign next to an assign
+function stmt_line(notation: Notation, indent: Str, padded: Bool, s: Stmt): Str :=
+  match s
+    case SCall(proc, ins, outs, refs) if padded =>
+      "\n" ++ indent ++ "call   " ++ call_text(notation, indent, proc, ins, outs, refs)
+    case _ =>
+      "\n" ++ indent ++ format_stmt(notation, indent, s)
+  end
+
+// the statements in groups, where the calls and assignments in a row are one group and any other statement is alone
+function runs(ss: List[Stmt]): List[List[Stmt]] :=
+  match ss
+    case list() =>
+      list()
+
+    case list(s; rest) =>
+      let more := runs(rest) in
+      match more
+        case list(list(t; same); others) if is_simple(s) and is_simple(t) =>
+          list(list(s, t; same); others)
+
+        case _ =>
+          list(list(s); more)
+      end
+  end
+
+function is_simple(s: Stmt): Bool :=
+  match s
+    case SCall(_, _, _, _) => true
+    case SAssign(_) => true
+    case _ => false
+  end
+
+function has_assign(run: List[Stmt]): Bool :=
+  exists(run, lambda s => match s case SAssign(_) => true case _ => false end)
 
 // the declarations of the locals xs, with the assignments at the start of ss that initialize them, and the statements after
 function local_decls(notation: Notation, indent: Str, xs: List[Var], ss: List[Stmt]): List[Str] * List[Stmt] :=
@@ -667,7 +707,7 @@ test operators_parenthesized() :=
   assert source(expr_app("-", list(expr_app("-", list(a))))) == "- -a"
   assert source(expr_app("-", list(expr_app("not", list(a))))) == "-(not a)"
   assert source(expr_app("*", list(a, expr_app("not", list(b))))) == "a * (not b)"
-  assert source(expr_app("-", list(a, expr_int(-1)))) == "a - (-1)"
+  assert source(expr_app("-", list(a, expr_int(-1)))) == "a - -1"
   assert source(EField(expr_int(-1), "f")) == "(-1).f"
   assert source(expr_app("+", list(EIte(a, b, c), expr_int(1)))) == "(if a then b else c) + 1"
 
