@@ -1,0 +1,6 @@
+// parse error: a comment is the doc of the command or case on the next line, from the start of a line with its indentation at 4.1
+function f(): Int := 1
+
+// detached
+
+function g(): Int := 2

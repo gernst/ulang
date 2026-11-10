@@ -2033,7 +2033,7 @@ procedure parsed(in e: Str, out body: Expr) :=
   end
 
 test parsed_docs() :=
-  local d: Mod, text := "// the answer\n// in two lines\nfunction f(): Int := 42\n\n// detached\n\n"
+  local d: Mod, text := "// the answer\n// in two lines\nfunction f(): Int := 42\n\n\n\n"
   call parse_text(in text ++ "function g(): Int := 1\nfunction h(): Int := 2\n", out d)
   assert list(for top in d.implemented yield top.doc) == list("the answer\nin two lines", "", "")
   assert list(for top in d.implemented yield top.pos) == list(Pos(3, 1), Pos(7, 1), Pos(8, 1))

@@ -271,6 +271,9 @@ procedure lex_doc(
 function doc_above(text: Str, margin: Int, offset: Int): Bool :=
   if margin == 0 then is_letter(peek(text, offset)) else starts_at(text, offset, repeat(" ", margin) ++ "case ")
 
+function misplaced_comment(): Str :=
+  "a comment is the doc of the command or case on the next line, from the start of a line with its indentation"
+
 // the token at offset, where offset ends after it
 procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
   local c := at(offset, text)
@@ -310,12 +313,13 @@ procedure lex(in text: Str, out toks: Tokens) :=
         assign margin := line_margin(text, offset)
         if margin >= 0 then
           call lex_doc(in text, margin, out doc, above, ref offset)
-          if above or start == 0 then
-            call   lex_move_position(in text, last, start, ref line, column)
-            assign found := found ++ list((Pos(line, column), TDoc(doc))), last := start
+          if not (above or start == 0) then
+            raise LexError(misplaced_comment(), position_of(text, start))
           end
+          call   lex_move_position(in text, last, start, ref line, column)
+          assign found := found ++ list((Pos(line, column), TDoc(doc))), last := start
         else
-          call scan(in text, lambda c => c != '\n', out start, ref offset)
+          raise LexError(misplaced_comment(), position_of(text, start))
         end
       else
         call   lex_token(in text, out tok, ref offset)
@@ -332,7 +336,7 @@ function tokens(toks: Tokens): List[Token] :=
 
 test lex_tokens() :=
   local toks: Tokens
-  call lex(in "function f(x: Int): Int := x+-1 // one\n  y", out toks)
+  call lex(in "function f(x: Int): Int := x+-1\n  y", out toks)
   assert toks == list(
     (Pos(1, 1), TKw("function")),
     (Pos(1, 10), TName("f")),
@@ -352,7 +356,7 @@ test lex_tokens() :=
 
 test lex_docs() :=
   local toks: Tokens
-  call lex(in "// a\n//  b\n//\nf\n\n// detached\n\ng\n  // indented\nh // trailing\ni", out toks)
+  call lex(in "// a\n//  b\n//\nf\n\n\n\ng\n\nh\ni", out toks)
   assert tokens(toks) == list(TDoc("a\n b\n"), TName("f"), TName("g"), TName("h"), TName("i"), TEnd)
   assert firsts(toks) == list(Pos(1, 1), Pos(4, 1), Pos(8, 1), Pos(10, 1), Pos(11, 1), Pos(11, 2))
 
@@ -363,11 +367,11 @@ test lex_docs_of_modules_and_constructors() :=
   local toks: Tokens
   call lex(in "// head\n\nf", out toks)
   assert tokens(toks) == list(TDoc("head"), TName("f"), TEnd)
-  call lex(in "data T :=\n  // c\n  //\n  case C\n  // d\n  g\n  case D", out toks)
+  call lex(in "data T :=\n  // c\n  //\n  case C\n  g\n  case D", out toks)
   assert tokens(toks) == list(TKw("data"), TName("T"), TKw(":="), TDoc("c\n"), TKw("case")) ++ rest_of_docs()
 
 test lex_docs_of_cases() :=
-  local toks: Tokens, text := "match x\n    // c\n    case 1 =>\n    // d\n    y\n" ++ "    // e\n    case 2 =>\n  // f\n    case 3", first := list(
+  local toks: Tokens, text := "match x\n    // c\n    case 1 =>\n    y\n" ++ "    // e\n    case 2 =>\n    case 3", first := list(
     TKw("match"),
     TName("x"),
     TDoc("c"),
@@ -386,29 +390,37 @@ test lex_literals() :=
   call lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' list(x; xs)", out toks)
   assert tokens(toks) == list(TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\'')) ++ list_tokens()
 
+// the error of lexing text, or LexError("none", Pos(0, 0)) if there is none
+procedure lex_error(in text: Str, out e: LexError) :=
+  local toks: Tokens
+  assign e := LexError("none", Pos(0, 0))
+  try
+    call lex(in text, out toks)
+  catch
+    case LexError(message, pos) =>
+      assign e := LexError(message, pos)
+  end
+
 test lex_errors() :=
-  local toks: Tokens, e := LexError("none", Pos(0, 0))
-  try
-    call lex(in "x := \"ab", out toks)
-  catch
-    case LexError(message, pos) =>
-      assign e := LexError(message, pos)
-  end
+  local e: LexError
+  call lex_error(in "x := \"ab", out e)
   assert e == LexError("unterminated literal", Pos(1, 6))
-  try
-    call lex(in "'\\q'", out toks)
-  catch
-    case LexError(message, pos) =>
-      assign e := LexError(message, pos)
-  end
+  call lex_error(in "'\\q'", out e)
   assert e == LexError("invalid escape", Pos(1, 2))
-  try
-    call lex(in "'ab'", out toks)
-  catch
-    case LexError(message, pos) =>
-      assign e := LexError(message, pos)
-  end
+  call lex_error(in "'ab'", out e)
   assert e == LexError("invalid character", Pos(1, 1))
+
+// comments after code, detached by a blank line, before a statement, and before a case with another indentation
+test lex_misplaced_comments() :=
+  local e: LexError
+  call lex_error(in "x // one", out e)
+  assert e == LexError(misplaced_comment(), Pos(1, 3))
+  call lex_error(in "f\n// a\n\ng", out e)
+  assert e == LexError(misplaced_comment(), Pos(2, 1))
+  call lex_error(in "f\n  // a\n  g", out e)
+  assert e == LexError(misplaced_comment(), Pos(2, 3))
+  call lex_error(in "match x\n  // a\n    case 3", out e)
+  assert e == LexError(misplaced_comment(), Pos(2, 3))
 
 test lex_position() :=
   assert position_of("ab\ncd", 4) == Pos(2, 2)

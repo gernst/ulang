@@ -14,7 +14,7 @@ What a language would ideally offer for writing code with an AI assistant, which
 ## Principles
 
 1. **Locality.** Every rule should be decidable from the code where it is used, its arguments, and the signatures it refers to, not from other uses in the same command, from which modules happen to be imported, or from line breaks. User-defined notations are the deliberate exception.
-2. **Comments are syntax.** Prose is a doc on a module, a command, a constructor, or a `case`, kept in the tree and printed back by the formatter, so that no tool loses or moves a comment; a note in the middle of a body is a sign that the code needs a name. Free-form and trailing comments are not part of the language, and are discarded.
+2. **Comments are syntax.** Prose is a doc on a module, a command, a constructor, or a `case`, kept in the tree and printed back by the formatter, so that no tool loses or moves a comment; a note in the middle of a body is a sign that the code needs a name. Free-form and trailing comments are not part of the language, and are parse errors.
 3. **One way to write each thing.** Two syntaxes for the same construct are two things to learn, and a chance to mix them up.
 4. **Keystrokes are cheap.** A convenience that only saves typing is not worth a rule, since agents don't mind writing. What matters is that the shape of the code is clear.
 5. **The cost of a feature** is roughly the length of the paragraph needed to explain it to an agent. In `CLAUDE.md`, the longest paragraphs are about literals and comprehensions, overloading, and the hooks `compare`, `==`, and `show`, which depend on each other, and that is where the complexity is, not in the core.
