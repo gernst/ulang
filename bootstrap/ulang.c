@@ -380,8 +380,6 @@ u_value w_f_ulang_47_check_46_definition_of_1(u_value *env, u_value *args);
 
 u_value w_f_ulang_47_check_46_definitions_1(u_value *env, u_value *args);
 
-u_value w_f_ulang_47_check_46_drop_members_2(u_value *env, u_value *args);
-
 u_value w_f_ulang_47_check_46_enter_2(u_value *env, u_value *args);
 
 u_value w_f_ulang_47_check_46_exported_cmds_1(u_value *env, u_value *args);
@@ -3443,8 +3441,6 @@ void p_ulang_47_check_46_check_program(u_value v_source, u_value *r_q);
 u_value f_ulang_47_check_46_units_2(u_value v_mods, u_value v_packages);
 
 u_value f_ulang_47_check_46_take_members_2(u_value v_mods, u_value v_members);
-
-u_value f_ulang_47_check_46_drop_members_2(u_value v_mods, u_value v_members);
 
 void p_ulang_47_check_46_check_package(u_value v_mods, u_value v_packages, u_value v_before, u_value v_imports, u_value *r_cmds, u_value *r_shown);
 
@@ -7910,10 +7906,6 @@ u_value w_f_ulang_47_check_46_definition_of_1(u_value *env, u_value *args) {
 
 u_value w_f_ulang_47_check_46_definitions_1(u_value *env, u_value *args) {
   return f_ulang_47_check_46_definitions_1(args[0]);
-}
-
-u_value w_f_ulang_47_check_46_drop_members_2(u_value *env, u_value *args) {
-  return f_ulang_47_check_46_drop_members_2(args[0], args[1]);
 }
 
 u_value w_f_ulang_47_check_46_enter_2(u_value *env, u_value *args) {
@@ -23780,7 +23772,13 @@ u_value f_ulang_47_check_46_units_2(u_value v_mods, u_value v_packages) {
     u_value t1854 = NULL;
     if ((!t1854) && u_is_con(s1853, &n_option_46_Some)) {
       u_value v_p = u_field(s1853, 0);
-      t1854 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_list_46_Cons, 2, v_d, f_ulang_47_check_46_take_members_2(v_rest, u_field(v_p, 1))), f_ulang_47_check_46_units_2(f_ulang_47_check_46_drop_members_2(v_rest, u_field(v_p, 1)), v_packages));
+      u_value t1856 = f_ulang_47_check_46_take_members_2(v_mods, u_field(v_p, 1));
+      u_value t1855;
+      {
+        u_value v_unit = t1856;
+        t1855 = u_mk_con(&n_list_46_Cons, 2, v_unit, f_ulang_47_check_46_units_2(f_list_46_drop_2(f_list_46_size_1(v_unit), v_mods), v_packages));
+      }
+      t1854 = t1855;
     }
     if ((!t1854) && u_is_con(s1853, &n_option_46_None)) {
       t1854 = u_mk_con(&n_list_46_Cons, 2, u_mk_con(&n_list_46_Cons, 2, v_d, &o_list_46_Nil), f_ulang_47_check_46_units_2(v_rest, v_packages));
@@ -23797,36 +23795,17 @@ u_value f_ulang_47_check_46_units_2(u_value v_mods, u_value v_packages) {
 }
 
 u_value f_ulang_47_check_46_take_members_2(u_value v_mods, u_value v_members) {
-  u_value s1855 = v_mods;
-  u_value t1856 = NULL;
-  if ((!t1856) && u_is_con(s1855, &n_list_46_Cons)) {
-    u_value v_d = u_field(s1855, 0);
-    u_value v_rest = u_field(s1855, 1);
-    if (u_truth(f_list_46_contains_2(u_field(v_d, 0), v_members))) {
-      t1856 = u_mk_con(&n_list_46_Cons, 2, v_d, f_ulang_47_check_46_take_members_2(v_rest, v_members));
-    }
-  }
-  if (!t1856) {
-    t1856 = &o_list_46_Nil;
-  }
-  if (!t1856) {
-    u_no_case(s1855);
-  }
-  return t1856;
-}
-
-u_value f_ulang_47_check_46_drop_members_2(u_value v_mods, u_value v_members) {
   u_value s1857 = v_mods;
   u_value t1858 = NULL;
   if ((!t1858) && u_is_con(s1857, &n_list_46_Cons)) {
     u_value v_d = u_field(s1857, 0);
     u_value v_rest = u_field(s1857, 1);
     if (u_truth(f_list_46_contains_2(u_field(v_d, 0), v_members))) {
-      t1858 = f_ulang_47_check_46_drop_members_2(v_rest, v_members);
+      t1858 = u_mk_con(&n_list_46_Cons, 2, v_d, f_ulang_47_check_46_take_members_2(v_rest, v_members));
     }
   }
   if (!t1858) {
-    t1858 = v_mods;
+    t1858 = &o_list_46_Nil;
   }
   if (!t1858) {
     u_no_case(s1857);
