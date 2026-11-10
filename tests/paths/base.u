@@ -1,0 +1,10 @@
+// a module of tests/paths/inner.u
+
+export
+
+function base_double(n: Int): Int
+
+implementation
+
+function base_double(n: Int): Int :=
+  2 * n

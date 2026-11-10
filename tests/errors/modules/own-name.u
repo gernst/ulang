@@ -1,4 +1,4 @@
-// type error: helper is ambiguous: left.helper: Int -> Int, own-name.helper: Int -> Int at 8.1
+// type error: helper is ambiguous: tests/errors/modules/left.helper: Int -> Int, tests/errors/modules/own-name.helper: Int -> Int at 8.1
 
 import "left.u"
 

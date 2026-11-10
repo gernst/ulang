@@ -1,4 +1,4 @@
-// runtime error: uncaught exception Incomparable("hiding.Box")
+// runtime error: uncaught exception Incomparable("tests/errors/modules/hiding.Box")
 
 import "hiding.u"
 

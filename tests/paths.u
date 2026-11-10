@@ -1,0 +1,14 @@
+// imports by paths from the root of the project, of two modules with the same file name, which are distinct modules
+
+import "prove/syntax.u"
+import "tests/paths/inner.u"
+import "ulang/syntax.u"
+
+// two datatypes Expr, each of its own module
+test both_syntaxes() :=
+  assert show(expr_int(3)) == "ELit(LInt(3))"
+  assert show(int_expr(3)) == "EConst(VInt(3))"
+
+// a module of another directory, whose own imports name the files of its directory
+test across_directories() :=
+  assert inner_twice(3) == 6

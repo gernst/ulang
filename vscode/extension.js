@@ -7,7 +7,7 @@ const path = require("path");
 
 // e.g. "/a/b.u: type error: cannot unify Int and Bool", optionally followed by " in m" for an imported module m and
 // " at 3.11", the position in the file of that module
-const errorLine = /^(.*?): ((?:parse|type|runtime|compile) error: .*?)(?: in (\w+))?(?: at (\d+)\.(\d+))?$/;
+const errorLine = /^(.*?): ((?:parse|type|runtime|compile) error: .*?)(?: in ([\w/-]+))?(?: at (\d+)\.(\d+))?$/;
 const testLine = /^test (\S+) (passed|failed: (.*))$/;
 
 function binary() {
@@ -107,6 +107,17 @@ function decorateSections(context) {
   vscode.window.visibleTextEditors.forEach(decorate);
 }
 
+// the root of the project of file, as the parser finds it: the nearest directory above it with project.u, else its own
+// directory, where the modules of a directory with prelude.u, the library, have their names
+function projectRoot(file) {
+  const home = path.dirname(path.resolve(file));
+  if (fs.existsSync(path.join(home, "prelude.u"))) return home;
+  for (let dir = home; ; dir = path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, "project.u"))) return dir;
+    if (dir === path.dirname(dir)) return home;
+  }
+}
+
 function activate(context) {
   decorateSections(context);
   const output = vscode.window.createOutputChannel("ulang");
@@ -114,7 +125,7 @@ function activate(context) {
   context.subscriptions.push(output, diagnostics);
 
   // errors of file in the error output of ulang, without a position at the start of the file, and those of an imported
-  // module at the import of the module, or else at the start, pointing to the module if it is next to file
+  // module, known by its path from the root, at the import of the module, or else at the start, pointing to the module
   function diagnose(file, stderr) {
     const found = [];
     const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n") : [];
@@ -127,12 +138,17 @@ function activate(context) {
         found.push(new vscode.Diagnostic(new vscode.Range(at, at.translate(0, 1)), message, vscode.DiagnosticSeverity.Error));
         continue;
       }
-      const imported = lines.findIndex((l) => l.trim() === 'import "' + module + '.u"');
+      const root = projectRoot(file);
+      const own = path.relative(root, path.dirname(file));
+      const imported = lines.findIndex((l) => {
+        const named = /^import "(.*)\.u"$/.exec(l.trim());
+        return named && (named[1] === module || (!named[1].includes("/") && path.posix.join(own, named[1]) === module));
+      });
       const position = new vscode.Position(Math.max(imported, 0), 0);
       const text = message + " in " + module + (row ? " at " + row + "." + column : "");
       const diagnostic = new vscode.Diagnostic(new vscode.Range(position, position.translate(0, 1)), text, vscode.DiagnosticSeverity.Error);
-      const source = path.join(path.dirname(file), module + ".u");
-      if (row && fs.existsSync(source)) {
+      const source = [path.join(root, module + ".u"), path.join(path.dirname(file), module + ".u")].find((f) => fs.existsSync(f)) || "";
+      if (row && source) {
         diagnostic.relatedInformation = [new vscode.DiagnosticRelatedInformation(new vscode.Location(vscode.Uri.file(source), at), message)];
       }
       found.push(diagnostic);

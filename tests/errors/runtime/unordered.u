@@ -1,4 +1,4 @@
-// runtime error: uncaught exception Unordered("unordered.Tally")
+// runtime error: uncaught exception Unordered("tests/errors/runtime/unordered.Tally")
 
 export
 

@@ -239,6 +239,9 @@ function commands_of(tops: List[Top]): List[Cmd]
 
 function implicit_imports(name: Id): List[Id]
 
+// the directory of a module of a project from its root, "" for the root and for the library, whose modules have no /
+function module_dir(id: Id): Str
+
 function all_imports(d: Mod): List[Id]
 
 function unplaced(cmds: List[Cmd]): List[Top]
@@ -279,6 +282,14 @@ function commands_of(tops: List[Top]): List[Cmd] :=
 
 // the modules that module name imports without saying so, from the library: the prelude and the modules that every module
 // sees with it, where each of these imports those before it
+function module_dir(id: Id): Str :=
+  match reverse(split(id, '/'))
+    case list(_; dirs) =>
+      join("/", reverse(dirs))
+    case list() =>
+      ""
+  end
+
 function implicit_imports(name: Id): List[Id] :=
   implicit_before(name, list("prelude", "option", "list", "str"))
 

@@ -1,4 +1,4 @@
-// runtime error: recursive initialization of initialization.loop
+// runtime error: recursive initialization of tests/errors/runtime/initialization.loop
 function loop(): Int :=
   loop() + 1
 

@@ -57,7 +57,7 @@ test equality_without_order() :=
     case Unordered(sort) =>
       assign r := sort
   end
-  assert r == "exported.Tally"
+  assert r == "tests/exported.Tally"
 
 test incomparable() :=
   local r := ""
@@ -67,7 +67,7 @@ test incomparable() :=
     case Incomparable(sort) =>
       assign r := sort
   end
-  assert r == "exported.Counter"
+  assert r == "tests/exported.Counter"
 
 // also in the module of the type, and inside other values
 test incomparable_inside() :=
@@ -78,4 +78,4 @@ test incomparable_inside() :=
     case Incomparable(sort) =>
       assign r := sort
   end
-  assert r == "modules.Pair"
+  assert r == "tests/modules.Pair"

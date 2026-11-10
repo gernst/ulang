@@ -1,4 +1,4 @@
-// type error: f is ambiguous: overload-unapplied.f: Int -> Int, overload-unapplied.f: (Int, Int) -> Int at 8.1
+// type error: f is ambiguous: tests/errors/types/overload-unapplied.f: Int -> Int, tests/errors/types/overload-unapplied.f: (Int, Int) -> Int at 8.1
 function f(x: Int): Int :=
   x
 

@@ -1,6 +1,6 @@
 // the parser of ulang, which parses the tokens of ulang/lex.u into programs of ulang/syntax.u,
 // where notation apply to the commands after them, and imports inline the declarations of modules,
-// read from the directory of the parsed file, or else from the library
+// read from the directory of the importing file or from the root of the project, or else from the library
 
 import "buffer.u"
 import "lex.u"
@@ -18,13 +18,15 @@ data ParseError :=
   case ImportError(module: Id, message: Str, pos: Pos)
 
 // the modules of the file at path, in load order, each after the modules it imports, with the module of the file last,
-// whose name is that of the file without its directory and .u, where imports are read from the directory of the file, or
-// else from the library, and implicit ones from the library
+// where a module of a project is known by its path from the root without .u, the root being the nearest directory above
+// it with project.u, else its own directory, and a module of the library by its name; import "f.u" reads f.u of the
+// directory of the importing file, or else the library, import "p/f.u" the file from the root, and implicit imports the
+// library
 procedure parse_file(in path: Str, out source: Source)
 
 procedure parse_file_text(in path: Str, text: Str, out source: Source)
 
-// source with the modules names after its own, from the directory of path or else from the library, unless loaded already
+// source with the modules names after its own, imported as by the file at path, unless loaded already
 procedure load_modules(in path: Str, names: List[Id], ref source: Source)
 
 implementation
@@ -99,7 +101,7 @@ function head_token(toks: Tokens): Token :=
       TEnd
   end
 
-// the comment at the start of the tokens, if it documents the module: a blank line or an import or export follows it
+// the comment at the start of the tokens, if it documents the module: a blank line, an import, export, or the end follows it
 function module_doc(toks: Tokens): Option[Str] :=
   match toks
     case list((Pos(line, _), TDoc(text)), (Pos(next, _), tok); _) =>
@@ -109,7 +111,7 @@ function module_doc(toks: Tokens): Option[Str] :=
   end
 
 function documents_module(text: Str, line: Int, next: Int, tok: Token): Bool :=
-  next != line + size(split(text, '\n')) or tok == TKw("import") or tok == TKw("export")
+  next != line + size(split(text, '\n')) or tok == TKw("import") or tok == TKw("export") or tok == TEnd
 
 function second_token(toks: Tokens): Token :=
   match toks
@@ -252,7 +254,8 @@ procedure parse_name(out name: Id, ref toks: Tokens) :=
       raise expected("name", toks)
   end
 
-// the module of import "name.u", whose name is that of its file without .u, letters, digits, and _, also a keyword
+// the module of import "name.u" in the directory of the importing file, or import "p/name.u" from the root of the project,
+// without .u, where names have letters, digits, and _, also keywords, and are separated by /
 procedure parse_import(out name: Id, ref toks: Tokens) :=
   local pos := head_pos(toks)
   match head_token(toks)
@@ -272,8 +275,8 @@ procedure parse_import(out name: Id, ref toks: Tokens) :=
 function module_of_file(file: Str): Option[Id] :=
   if size(file) > 2 and ends_with(file, ".u") then checked_module(slice(file, 0, size(file) - 2)) else None
 
-function checked_module(name: Str): Option[Id] :=
-  if is_module_name(name) then Some(name) else None
+function checked_module(path: Str): Option[Id] :=
+  if forall(split(path, '/'), lambda name => size(name) > 0 and is_module_name(name)) then Some(path) else None
 
 function is_module_name(name: Str): Bool :=
   forall(chars(name), lambda c => is_letter(c) or is_digit(c) or c == '_')
@@ -1746,18 +1749,18 @@ procedure parse_command(
       raise expected("declaration", toks)
   end
 
-// the module name of mods, the modules loaded so far
-function loaded_mod(name: Id, mods: List[Mod]): Option[Mod] :=
-  find(mods, lambda d => d.name == name)
+// the module of id of mods, the modules loaded so far
+function loaded_mod(id: Id, mods: List[Mod]): Option[Mod] :=
+  find(mods, lambda d => d.name == id)
 
-// the notation with the one that module name of mods exports, which must not declare an operator differently
+// the notation with the one that module id of mods exports, which must not declare an operator differently
 procedure import_notation(
-  in  name: Id,
+  in  id: Id,
       mods: List[Mod],
       pos: Pos,
   ref notation: Notation
 ) :=
-  match loaded_mod(name, mods)
+  match loaded_mod(id, mods)
     case Some(d) =>
       call   check_imported(in notation, exported_notation(d), pos)
       assign notation := notation ++ exported_notation(d)
@@ -1766,27 +1769,82 @@ procedure import_notation(
       skip
   end
 
-// module name loaded into mods, the modules loaded so far in load order, unless it is loaded already, after the modules it
-// imports, where dir is the directory whose modules hide the library, and loading are the modules being parsed
+// the module id of import name, as parse_import gives it, loaded into mods, the modules loaded so far in load order, unless
+// it is loaded already, after the modules it imports, where root is the root of the project, dir the directory of the
+// importing file from the root, or None for the library, whose files hide the library, and loading are the modules being
+// parsed; a project module is known by its path from the root without .u, a library module by its name
 procedure import_module(
-  in  name: Id,
+  in  name: Str,
+      root: Str,
       dir: Option[Str],
+      loading: List[Id],
+      pos: Pos,
+  out id: Id,
+  ref mods: List[Mod]
+) :=
+  local text: Str, sibling: Id
+  if contains('/', name) then
+    assign id := name
+    if loaded_mod(id, mods) == None then
+      try
+        call os_read(in os_join(root, id ++ ".u"), out text)
+      catch
+        case OsError(_) =>
+          raise ParseError("unknown module " ++ id, pos)
+      end
+      call load_module(in id, text, root, Some(module_dir(id)), loading, pos, ref mods)
+    end
+  else
+    match dir
+      case Some(d) =>
+        assign sibling := module_id(d, name)
+        if loaded_mod(sibling, mods) == None then
+          try
+            call   os_read(in os_join(root, sibling ++ ".u"), out text)
+            assign id := sibling
+            call   load_module(in id, text, root, dir, loading, pos, ref mods)
+          catch
+            case OsError(_) =>
+              assign id := name
+              call   import_library(in name, root, loading, pos, ref mods)
+          end
+        else
+          assign id := sibling
+        end
+
+      case None =>
+        assign id := name
+        call   import_library(in name, root, loading, pos, ref mods)
+    end
+  end
+
+procedure import_library(
+  in  name: Id,
+      root: Str,
       loading: List[Id],
       pos: Pos,
   ref mods: List[Mod]
 ) :=
+  local text: Str
   if loaded_mod(name, mods) == None then
-    call load_module(in name, dir, loading, pos, ref mods)
+    call library_text(in name, pos, out text)
+    call load_module(in name, text, root, None, loading, pos, ref mods)
   end
+
+// the module of name in dir, both from the root
+function module_id(dir: Str, name: Str): Id :=
+  if dir == "" then name else dir ++ "/" ++ name
 
 procedure import_all(
   in  names: List[Id],
+      root: Str,
       dir: Option[Str],
       loading: List[Id],
   ref mods: List[Mod]
 ) :=
+  local id: Id
   for name in names do
-    call import_module(in name, dir, loading, Pos(1, 1), ref mods)
+    call import_module(in name, root, dir, loading, Pos(1, 1), out id, ref mods)
   end
 
 procedure import_notations(
@@ -1806,18 +1864,19 @@ data Section :=
   case NoSections
 
 // the module name of the tokens toks, which starts with the notation of its implicit imports, after the modules that its imports load
-// into mods, where notations apply to the commands after them, imports come first, and each command has the position where
-// it starts
+// into mods, from the directory dir of root as import_module reads them, where notations apply to the commands after them,
+// imports come first, and each command has the position where it starts
 procedure parse_mod(
   in  name: Id,
       implicit: List[Id],
+      root: Str,
       dir: Option[Str],
       loading: List[Id],
   out own: Mod,
   ref mods: List[Mod],
       toks: Tokens
 ) :=
-  local imports: List[Id] := list(), notation := empty_notation(), plain: List[Top] := list(), exported: List[Top] := list(), builtins: List[Top] := list(), implemented: List[Top] := list(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[Top], doc: Str, mod_doc := ""
+  local imports: List[Id] := list(), notation := empty_notation(), plain: List[Top] := list(), exported: List[Top] := list(), builtins: List[Top] := list(), implemented: List[Top] := list(), more: List[Cmd], section := Opening, pos: Pos, imported: Str, id: Id, placed: List[Top], doc: Str, mod_doc := ""
   match module_doc(toks)
     case Some(text) =>
       assign mod_doc := text
@@ -1826,7 +1885,7 @@ procedure parse_mod(
     case None =>
       skip
   end
-  call import_all(in implicit, None, loading, ref mods)
+  call import_all(in implicit, root, None, loading, ref mods)
   call import_notations(in implicit, mods, ref notation)
   while head_token(toks) != TEnd do
     assign doc := ""
@@ -1874,9 +1933,9 @@ procedure parse_mod(
       case TKw("import") =>
         call   advance(ref toks)
         call   parse_import(out imported, ref toks)
-        call   import_module(in imported, dir, loading, pos, ref mods)
-        call   import_notation(in imported, mods, pos, ref notation)
-        assign imports := imports ++ list(imported)
+        call   import_module(in imported, root, dir, loading, pos, out id, ref mods)
+        call   import_notation(in id, mods, pos, ref notation)
+        assign imports := imports ++ list(id)
 
       case _ =>
         call   parse_command(in notation, out more, ref toks)
@@ -1949,21 +2008,6 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
       skip
   end
 
-// modules are files in the directory of the parsed file, or in the library
-procedure module_text(in name: Id, dir: Option[Str], pos: Pos, out text: Str) :=
-  match dir
-    case Some(d) =>
-      try
-        call os_read(in os_join(d, name ++ ".u"), out text)
-      catch
-        case OsError(_) =>
-          call library_text(in name, pos, out text)
-      end
-
-    case None =>
-      call library_text(in name, pos, out text)
-  end
-
 procedure library_text(in name: Id, pos: Pos, out text: Str) :=
   try
     call os_library(in name, out text)
@@ -1972,28 +2016,29 @@ procedure library_text(in name: Id, pos: Pos, out text: Str) :=
       raise ParseError("unknown module " ++ name, pos)
   end
 
-// module name without its tests, after the modules it loads, parsed with the notation of its implicit and its own imports,
-// since imports are not transitive
+// module id of text without its tests, after the modules it loads, parsed with the notation of its implicit and its own
+// imports, since imports are not transitive, where dir is the directory of its file from root, or None for the library
 procedure load_module(
-  in  name: Id,
+  in  id: Id,
+      text: Str,
+      root: Str,
       dir: Option[Str],
       loading: List[Id],
       where: Pos,
   ref mods: List[Mod]
 ) :=
-  local text: Str, toks: Tokens, own: Mod
-  if contains(name, loading) then
-    raise ParseError("cyclic import of " ++ name, where)
+  local toks: Tokens, own: Mod
+  if contains(id, loading) then
+    raise ParseError("cyclic import of " ++ id, where)
   end
-  call module_text(in name, dir, where, out text)
   try
     call lex(in text, out toks)
-    call parse_mod(in name, implicit_imports(name), dir, list(name; loading), out own, ref mods, toks)
+    call parse_mod(in id, implicit_imports(id), root, dir, list(id; loading), out own, ref mods, toks)
   catch
     case LexError(message, pos) =>
-      raise ImportError(name, message, pos)
+      raise ImportError(id, message, pos)
     case ParseError(message, pos) =>
-      raise ImportError(name, message, pos)
+      raise ImportError(id, message, pos)
   end
   assign mods := mods ++ list(without_tests_of(own))
 
@@ -2006,14 +2051,16 @@ procedure lex_text(in text: Str, out toks: Tokens) :=
   end
 
 procedure parse_file_text(in path: Str, text: Str, out source: Source) :=
-  local toks: Tokens, own: Mod, mods: List[Mod] := list(), name := module_name(path)
+  local toks: Tokens, own: Mod, mods: List[Mod] := list(), place: Place
+  call   place_of(in path, out place)
   call   lex_text(in text, out toks)
-  call   parse_mod(in name, implicit_imports(name), Some(os_dirname(path)), list(name), out own, ref mods, toks)
-  assign source := Source(mods ++ list(own), name)
+  call   parse_mod(in place.id, implicit_imports(place.id), place.root, place.dir, list(place.id), out own, ref mods, toks)
+  assign source := Source(mods ++ list(own), place.id)
 
 procedure load_modules(in path: Str, names: List[Id], ref source: Source) :=
-  local mods := source.mods
-  call   import_all(in names, Some(os_dirname(path)), list(), ref mods)
+  local mods := source.mods, place: Place
+  call   place_of(in path, out place)
+  call   import_all(in names, place.root, place.dir, list(), ref mods)
   assign source := source with mods := mods
 
 procedure parse_file(in path: Str, out source: Source) :=
@@ -2025,9 +2072,81 @@ procedure parse_file(in path: Str, out source: Source) :=
 procedure parse_text(in text: Str, out own: Mod) :=
   local toks: Tokens, mods: List[Mod] := list()
   call lex_text(in text, out toks)
-  call parse_mod(in "main", list(), None, list("main"), out own, ref mods, toks)
+  call parse_mod(in "main", list(), "", None, list("main"), out own, ref mods, toks)
 
-// the module of the file at path, its name without its directory and .u
+// the file of a module: its id, the root of its project, and its directory from the root, None for the library
+data Place :=
+  case Place(id: Id, root: Str, dir: Option[Str])
+
+// the place of the file at path, whose root is the nearest directory above it with project.u, else its own directory,
+// where a directory with prelude.u is the library, whose modules are known by their names
+procedure place_of(in path: Str, out place: Place) :=
+  local cwd: Str, file: Str, home: Str, root: Str, library: Bool, name := module_name(path)
+  call   os_cwd(out cwd)
+  assign file := normal_path(if starts_with(path, "/") then path else os_join(cwd, path))
+  assign home := parent_dir(file)
+  call   has_file(in home, "prelude.u", out library)
+  if library then
+    assign place := Place(name, home, None)
+  else
+    call   project_root(in home, out root)
+    assign place := Place(module_id(relative_path(root, home), name), root, Some(relative_path(root, home)))
+  end
+
+// the nearest directory from dir upward with project.u, or else dir, where dir is absolute and normal
+procedure project_root(in dir: Str, out root: Str) :=
+  local found := false, here := dir
+  assign root := dir
+  while not found do
+    call has_file(in here, "project.u", out found)
+    if found then
+      assign root := here
+    else
+      if here == "/" then
+        assign found := true
+      else
+        assign here := parent_dir(here)
+      end
+    end
+  end
+
+// the directory of an absolute path, / for /
+function parent_dir(path: Str): Str :=
+  let dir := os_dirname(path) in if dir == "" then "/" else dir
+
+procedure has_file(in dir: Str, name: Str, out found: Bool) :=
+  local entries: List[Str * Bool]
+  try
+    call   os_list(in dir, out entries)
+    assign found := contains((name, false), entries)
+  catch
+    case OsError(_) =>
+      assign found := false
+  end
+
+// the absolute path without . and .. and repeated /
+function normal_path(path: Str): Str :=
+  "/" ++ join("/", reverse(foldl(split(path, '/'), list(), normal_step)))
+
+function normal_step(parts: List[Str], part: Str): List[Str] :=
+  match (part, parts)
+    case ("", _) =>
+      parts
+    case (".", _) =>
+      parts
+    case ("..", list(_; rest)) =>
+      rest
+    case ("..", list()) =>
+      list()
+    case _ =>
+      list(part; parts)
+  end
+
+// dir from root, which is root or above it, both normal, as "" for root itself
+function relative_path(root: Str, dir: Str): Str :=
+  if dir == root then "" else if root == "/" then slice(dir, 1, size(dir)) else slice(dir, size(root) + 1, size(dir))
+
+// the name of the module of the file at path, without its directory and .u
 function module_name(path: Str): Str :=
   let f := os_basename(path) in if ends_with(f, ".u") then slice(f, 0, size(f) - 2) else f
 

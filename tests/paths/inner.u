@@ -1,0 +1,12 @@
+// a module of tests/paths.u, which imports a file of its own directory by its name
+
+import "base.u"
+
+export
+
+function inner_twice(n: Int): Int
+
+implementation
+
+function inner_twice(n: Int): Int :=
+  base_double(n)
