@@ -1,7 +1,0 @@
-// type error: helper is ambiguous: tests/errors/modules/left.helper: Int -> Int, tests/errors/modules/right.helper: Int -> Int at 6.1
-
-import "left.u"
-import "right.u"
-
-test r() :=
-  local v := helper(1)

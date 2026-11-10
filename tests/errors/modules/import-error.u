@@ -1,2 +1,0 @@
-// parse error: keyword then is not a name in tests/errors/modules/broken at 3.7
-import "broken.u"

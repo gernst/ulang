@@ -2,7 +2,7 @@
 // values everywhere, also inside other values and in generic code, the order of a datatype with visible constructors,
 // and the shows that datatypes declare
 
-import "fractions.u"
+import "tests/fractions/fractions.u"
 
 // sets of the same elements, built in different orders, which have different trees
 function ab(): Set[Int] :=

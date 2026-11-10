@@ -1,5 +1,5 @@
-// a module for tests/modules.u with an export section, whose private helper has the name and type of the public helper
-// of tests/counter.u, and abstract types without an order, with and without an equality
+// a module for tests/modules/modules.u with an export section, whose private helper has the name and type of the public
+// helper of tests/modules/counter.u, and abstract types without an order, with and without an equality
 
 export
 

@@ -1,4 +1,4 @@
 // parse error: imports come before export at 4.1
 export
 
-import "left.u"
+import "tests/errors/modules/left/left.u"

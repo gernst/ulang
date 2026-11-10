@@ -1,5 +1,5 @@
 // parse error: undeclared operator <+> at 5.16
-import "wrapper.u"
+import "tests/errors/modules/wrapper/wrapper.u"
 
 test r() :=
   local v := 1 <+> 2
