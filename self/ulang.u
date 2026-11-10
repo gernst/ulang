@@ -146,6 +146,9 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
 
     case e =>
       assign message := "runtime error: " ++ runtime_message(e)
+
+    case e =>
+      assign message := "internal error: " ++ internal_message(e)
   end
   if message != "" then
     assign ok := false
@@ -295,6 +298,9 @@ procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
   catch
     case e =>
       assign message := "runtime error: " ++ runtime_message(e)
+
+    case e =>
+      assign message := "internal error: " ++ internal_message(e)
   end
 
 // the .u files of the paths, where directories are walked, each run in its directory with all its tests, which must
@@ -558,11 +564,8 @@ function field_message(parts: List[Str]): Str :=
 function without_update(f: Str): Str :=
   if size(f) > 2 and ends_with(f, ":=") then slice(f, 0, size(f) - 2) else f
 
-function runtime_message(e: RuntimeError): Str :=
+function internal_message(e: InternalError): Str :=
   match e
-    case Failed(failure) =>
-      format_failure(failure)
-
     case Uninitialized(name) =>
       name.base ++ " is not initialized"
 

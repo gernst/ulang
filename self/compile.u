@@ -1489,7 +1489,7 @@ function pop_cache_handler(): CStmt :=
   CsExpr(c_call("u_pop", list(cache_handler())))
 
 function fail_recursive(n: Str): CStmt :=
-  CsExpr(c_call("u_fail", list(CeStr(format_failure(RecursiveInitialization(n))))))
+  CsExpr(c_call("u_fail", list(CeStr(runtime_message(RecursiveInitialization(n))))))
 
 function cache_unwind(): List[CStmt] :=
   list(
@@ -1585,7 +1585,7 @@ procedure compile_program(in q: Prog, m: Id, entry: Id, out f: CFile) :=
 
 // the texts of the runtime errors that self/runtime/ulang.c prints
 function texts(): List[CDecl] :=
-  list(for p in failure_formats() yield text_decl(p))
+  list(for p in runtime_formats() yield text_decl(p))
 
 function text_decl(p: Str * Str): CDecl :=
   match p

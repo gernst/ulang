@@ -3,7 +3,7 @@
 
 export
 
-data Failure :=
+data RuntimeError :=
   case NoCase(text: Str)
   case CompareFunctions
   case CompareProcedures
@@ -13,15 +13,15 @@ data Failure :=
   // of the qualified name of a function without parameters, which compiled code knows when it is compiled
   case RecursiveInitialization(name: Str)
 
-function format_failure(failure: Failure): Str
+function runtime_message(e: RuntimeError): Str
 
-// the formats of the failures whose values compiled code knows only at run time, by the names of their C variables
-function failure_formats(): List[Str * Str]
+// the formats of the runtime errors whose values compiled code knows only at run time, by the names of their C variables
+function runtime_formats(): List[Str * Str]
 
 implementation
 
-function format_failure(failure: Failure): Str :=
-  match failure
+function runtime_message(e: RuntimeError): Str :=
+  match e
     case NoCase(text) =>
       "no case matches " ++ text
 
@@ -44,14 +44,14 @@ function format_failure(failure: Failure): Str :=
       "recursive initialization of " ++ name
   end
 
-function failure_formats(): List[Str * Str] :=
+function runtime_formats(): List[Str * Str] :=
   list(
-    ("u_text_no_case", format_failure(NoCase("%s"))),
-    ("u_text_compare_functions", format_failure(CompareFunctions)),
-    ("u_text_compare_procedures", format_failure(CompareProcedures)),
-    ("u_text_assertion_failed", format_failure(AssertionFailed)),
-    ("u_text_assertion_unequal", format_failure(AssertionUnequal("%s", "%s"))),
-    ("u_text_uncaught", format_failure(Uncaught("%s"))))
+    ("u_text_no_case", runtime_message(NoCase("%s"))),
+    ("u_text_compare_functions", runtime_message(CompareFunctions)),
+    ("u_text_compare_procedures", runtime_message(CompareProcedures)),
+    ("u_text_assertion_failed", runtime_message(AssertionFailed)),
+    ("u_text_assertion_unequal", runtime_message(AssertionUnequal("%s", "%s"))),
+    ("u_text_uncaught", runtime_message(Uncaught("%s"))))
 
 test formats() :=
-  assert contains(("u_text_assertion_unequal", "assertion failed: %s != %s"), failure_formats())
+  assert contains(("u_text_assertion_unequal", "assertion failed: %s != %s"), runtime_formats())

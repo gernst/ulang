@@ -1,6 +1,6 @@
 // the interpreter of ulang, which runs programs of self/syntax.u that self/check.u has checked,
 // where statements update the values of the variables in scope, which a call passes to a procedure and back,
-// and errors are values of RuntimeError, while the exceptions of the program are values of Thrown
+// and errors are values of RuntimeError and InternalError, while the exceptions of the program are values of Thrown
 
 import "array.u"
 import "builtins.u"
@@ -29,9 +29,8 @@ data Value :=
 data Run :=
   case Run(defs: Defs, computing: List[Name], args: List[Str])
 
-// the errors that compiled code reports as well, and those that checked programs do not raise
-data RuntimeError :=
-  case Failed(failure: Failure)
+// the errors of the interpreter that checked programs do not raise, unlike RuntimeError of self/error.u
+data InternalError :=
   case Uninitialized(name: Name)
   case NotFunction(value: Value)
   case Unspecified(name: Name, args: List[Value])
@@ -197,10 +196,10 @@ function is_builtin(n: Name): Bool :=
 procedure incomparable(in v: Value) :=
   match v
     case VProc(_) =>
-      raise Failed(CompareProcedures)
+      raise CompareProcedures
 
     case VProcClos(_, _, _, _, _) =>
-      raise Failed(CompareProcedures)
+      raise CompareProcedures
 
     case VLit(_) =>
       skip
@@ -212,7 +211,7 @@ procedure incomparable(in v: Value) :=
       skip
 
     case _ =>
-      raise Failed(CompareFunctions)
+      raise CompareFunctions
   end
 
 function truth(v: Value): Bool :=
@@ -360,7 +359,7 @@ procedure evaluate(
 
         case None =>
           call show_in(in run, w, out s, ref cache)
-          raise Failed(NoCase(s))
+          raise NoCase(s)
       end
 
     // tuples are objects of the constructor ,
@@ -544,7 +543,7 @@ procedure cached(
       assign v := w
 
     case None if contains(n, run.computing) =>
-      raise Failed(RecursiveInitialization(format_name(n)))
+      raise RecursiveInitialization(format_name(n))
 
     case None =>
       call   evaluate(in run with computing := list(n; run.computing), empty(), body, out v, ref cache)
@@ -948,7 +947,7 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
 
         case None =>
           call show_in(in run, v, out s, ref cache)
-          raise Failed(NoCase(s))
+          raise NoCase(s)
       end
 
     // assertions of equations show both sides when they fail
@@ -959,13 +958,13 @@ procedure exec(in run: Run, x: Stmt, ref env: Bindings, cache: Map[Name, Value])
       if not r then
         call show_in(in run, v, out s, ref cache)
         call show_in(in run, w, out t, ref cache)
-        raise Failed(AssertionUnequal(s, t))
+        raise AssertionUnequal(s, t)
       end
 
     case SAssert(cond) =>
       call evaluate(in run, env, cond, out v, ref cache)
       if not truth(v) then
-        raise Failed(AssertionFailed)
+        raise AssertionFailed
       end
 
     case SRaise(expr, typ) =>
@@ -1299,7 +1298,7 @@ procedure run_cmd(in run: Run, cmd: Cmd, ref cache: Map[Name, Value]) :=
 procedure uncaught(in run: Run, v: Value, ref cache: Map[Name, Value]) :=
   local s: Str
   call show_in(in run, v, out s, ref cache)
-  raise Failed(Uncaught(s))
+  raise Uncaught(s)
 
 procedure run_all(in run: Run, cmds: List[Cmd], ref cache: Map[Name, Value]) :=
   for c in cmds do
@@ -1406,7 +1405,7 @@ test errors() :=
       CTest("t", list(), SBlock(list(), list(SRaise(expr_app("Fail", list(expr_int(1))), THole))))))
     assert false
   catch
-    case Failed(Uncaught(text)) =>
+    case Uncaught(text) =>
       assert text == "Fail(1)"
   end
   try
@@ -1414,14 +1413,14 @@ test errors() :=
       CTest("t", list(), SBlock(list(), list(SAssert(expr_app("==", list(expr_int(1), expr_int(2)))))))))
     assert false
   catch
-    case Failed(AssertionUnequal(left, right)) =>
+    case AssertionUnequal(left, right) =>
       assert (left, right) == ("1", "2")
   end
   try
     call check_and_run(in list(assigning(expr_app("/", list(expr_int(1), expr_int(0))))))
     assert false
   catch
-    case Failed(Uncaught(text)) =>
+    case Uncaught(text) =>
       assert text == "DivisionByZero"
   end
   try
@@ -1430,7 +1429,7 @@ test errors() :=
       assigning(expr_app("loop", list()))))
     assert false
   catch
-    case Failed(RecursiveInitialization(name)) =>
+    case RecursiveInitialization(name) =>
       assert name == "main.loop"
   end
 
@@ -1448,6 +1447,6 @@ test handler_types() :=
         Handler("", THole, pat_var("k"), Some(expr_app("<", list(expr_var("k"), expr_int(2)))), SSkip))))))
     assert false
   catch
-    case Failed(Uncaught(text)) =>
+    case Uncaught(text) =>
       assert text == "\"x\""
   end
