@@ -132,7 +132,10 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
     case CPatAlias(name, params, formals, typ, pat) =>
       CPatAlias(in_module(m, name), params, formals, typ, pat)
 
-    case _ =>
+    case CNotation(_, _, _) =>
+      cmd
+
+    case CTest(_, _, _) =>
       cmd
   end
 
@@ -684,7 +687,7 @@ function unknown_in(stmt: Stmt): Option[Type] :=
     case STry(body, catches) =>
       or_else(unknown_in(body), unknown_in_handlers(catches))
 
-    case _ =>
+    case SSkip =>
       None
   end
 
@@ -720,8 +723,17 @@ function unknown_in_expr(expr: Expr): Option[Type] :=
     case ETuple(args) =>
       unknown_in_exprs(args)
 
-    case _ =>
+    case ELit(_) =>
       None
+
+    case EVar(_) =>
+      None
+
+    case EForm(form, _, _) =>
+      raise UntranslatedForm(form_name(form))
+
+    case EFor(form, _, _, _) =>
+      raise UntranslatedForm(form_name(form))
   end
 
 function unknown_in_exprs(exprs: List[Expr]): Option[Type] :=
@@ -2782,6 +2794,10 @@ function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
     case CPatAlias(name, _, _, _, _) =>
       List(name)
 
+    case CTest(_, _, _) =>
+      List()
+
+    // notations, signatures, and abstract types, which enter_section of ulang/parse.u keeps out of implementation sections
     case _ =>
       List()
   end
@@ -2993,8 +3009,21 @@ function exposed(cmd: Cmd): Option[Name * List[Type]] :=
     case CPatAlias(name, _, formals, typ, _) =>
       Some((name, List(for x in formals yield x.typ) ++ List(typ)))
 
-    case _ =>
+    case CAbstract(_, _) =>
       None
+
+    case CNotation(_, _, _) =>
+      None
+
+    // definitions and tests, which enter_section of ulang/parse.u keeps out of export sections
+    case CFun(name, _, _, _, _) =>
+      raise Unexpected("definition " ++ format_name(name) ++ " in an export section")
+
+    case CProc(name, _, _, _, _, _) =>
+      raise Unexpected("definition " ++ format_name(name) ++ " in an export section")
+
+    case CTest(test_name, _, _) =>
+      raise Unexpected("test " ++ test_name ++ " in an export section")
   end
 
 // the sections of module d, whose signatures its definitions repeat, and whose exports name no private sorts
@@ -3325,21 +3354,38 @@ function fun_cmd(n: Id, xs: List[Var], r: Type, b: Expr): Cmd :=
 // and that the program imports
 function bags(): List[Mod] :=
   List(
-    Mod("bag", "", List(), unplaced(List(
+    sectioned("bag", List(
       CData(unqualified("Bag"), List(), List(
         Constr("", unqualified("Bag"), List(Field("n", TInt()))),
         Constr("", unqualified("Leaf"), List(Field("n", TInt()))))),
       CData(unqualified("Pt"), List(), List(Constr("", unqualified("Pt"), List(Field("x", TInt()))))),
       fun_cmd("size", List(var_of("b", tsort("Bag"))), TInt(), expr_int(1)),
       fun_cmd("compare", List(var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))), TInt(), expr_int(0)),
-      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Bag"))), List(), SAssign(List((var_of("b", THole), expr_app("Bag", List(expr_int(0))))))))), List(), List()),
-    Mod("box", "", List(), unplaced(List(
+      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Bag"))), List(), SAssign(List((var_of("b", THole), expr_app("Bag", List(expr_int(0))))))))),
+    sectioned("box", List(
       CData(unqualified("Box"), List(), List(
         Constr("", unqualified("Box"), List(Field("s", TStr()))),
         Constr("", unqualified("Leaf"), List(Field("s", TStr()))))),
       CData(unqualified("Qt"), List(), List(Constr("", unqualified("Qt"), List(Field("x", TStr()))))),
       fun_cmd("size", List(var_of("b", tsort("Box"))), TInt(), expr_int(2)),
-      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Box"))), List(), SAssign(List((var_of("b", THole), expr_app("Box", List(ELit(LStr("")))))))))), List(), List()))
+      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Box"))), List(), SAssign(List((var_of("b", THole), expr_app("Box", List(ELit(LStr("")))))))))))
+
+// the module of cmds with sections, as the parser gives it: the datatypes and the signatures of the definitions exported,
+// and the definitions implemented
+function sectioned(name: Id, cmds: List[Cmd]): Mod :=
+  Mod(name, "", List(), unplaced(List(for c in cmds yield signature_of(c))), List(), unplaced(List(for c in cmds if signature_of(c) != c)))
+
+function signature_of(cmd: Cmd): Cmd :=
+  match cmd
+    case CFun(name, params, formals, typ, _) =>
+      CFunSig(name, params, formals, typ)
+
+    case CProc(name, params, ins, outs, refs, _) =>
+      CProcSig(name, params, ins, outs, refs)
+
+    case _ =>
+      cmd
+  end
 
 // the program of the commands cmds of the module main, which imports bag and box, each a package of its own
 function with_bags(cmds: List[Cmd]): Source :=
