@@ -117,12 +117,26 @@ function runtime_constructors(): Set[Name] :=
 function runtime_types(): Set[Name] :=
   Set(os_error_name())
 
+// the datatypes whose descriptors, of themselves, their constructors, and their values without arguments,
+// ulang/runtime/ulang.h declares extern, since the builtins of the runtime create them
+function runtime_referenced(): Set[Name] :=
+  Set(
+    library_name("list", "List"),
+    library_name("option", "Option"),
+    division_by_zero_name(),
+    out_of_bounds_name(),
+    no_character_name(),
+    missing_field_name())
+
+function linkage_of(t: Name): Linkage :=
+  if contains(t, runtime_referenced()) then LkExtern else LkStatic
+
 function type_name(t: Name): Str :=
   "t_" ++ mangle(t)
 
 // the descriptor of constructor n at position i of its declaration, of datatype t
 function descriptor_decl(n: Name, i: Int, t: Name): CDecl :=
-  CdGlobal(CtNamed("const struct u_name"), descriptor_name(n), Some(CeInit(descriptor_fields(n, i, t))))
+  CdGlobal(linkage_of(t), CtNamed("const struct u_name"), descriptor_name(n), Some(CeInit(descriptor_fields(n, i, t))))
 
 function descriptor_name(n: Name): Str :=
   "n_" ++ mangle(n)
@@ -142,7 +156,7 @@ function descriptor_fields(n: Name, i: Int, t: Name): List[CExpr] :=
 
 // the shared value of constructor n without arguments, of datatype t
 function unit_decl(n: Name, t: Name): CDecl :=
-  CdGlobal(CtNamed("struct u_object"), "o_" ++ mangle(n), Some(unit_init(n, t)))
+  CdGlobal(linkage_of(t), CtNamed("struct u_object"), "o_" ++ mangle(n), Some(unit_init(n, t)))
 
 function unit_init(n: Name, t: Name): CExpr :=
   c_call("U_UNIT", List(CeVar(descriptor_name(n)), CeVar(type_name(t))))
@@ -167,10 +181,10 @@ function field_decls(key: Name * Int, ps: List[Int]): List[CDecl] :=
   end
 
 function table_decl(n: Name, ps: List[Int]): CDecl :=
-  CdGlobal(CtNamed("static const int"), table_name(n) ++ "[]", Some(CeInit(List(for p in ps yield CeNum(p)))))
+  CdGlobal(LkStatic, CtNamed("const int"), table_name(n) ++ "[]", Some(CeInit(List(for p in ps yield CeNum(p)))))
 
 function field_text_decl(n: Name): CDecl :=
-  CdGlobal(CtNamed("static struct u_object"), field_text_name(n), Some(c_call("U_LIT", List(CeStr(field_of(n))))))
+  CdGlobal(LkStatic, CtNamed("struct u_object"), field_text_name(n), Some(c_call("U_LIT", List(CeStr(field_of(n))))))
 
 function positions_of(defs: Defs, n: Name, k: Int): List[Int] :=
   value_or(get((n, k), defs.fields), List())
@@ -214,7 +228,7 @@ function type_decls(t: Name, defs: Defs): List[CDecl] :=
   if contains(t, runtime_types()) then List() else List(type_decl(t, defs))
 
 function type_decl(t: Name, defs: Defs): CDecl :=
-  CdGlobal(CtNamed("const struct u_type"), type_name(t), Some(type_init(t, defs)))
+  CdGlobal(linkage_of(t), CtNamed("const struct u_type"), type_name(t), Some(type_init(t, defs)))
 
 function type_init(t: Name, defs: Defs): CExpr :=
   CeInit(List(
@@ -793,7 +807,7 @@ procedure compile_lambda(
   call   gen_name(in "lam", out f, ref g)
   call   compile_expr(in defs, in_scope(caps ++ names), b, out bs, rb, ref g)
   assign decls := unpack(numbered(caps), "env") ++ unpack(numbered(names), "args")
-  call   lift(in CdFunction(value_type(), f, closure_params(), decls ++ bs ++ List(CsReturn(Some(rb)))), ref g)
+  call   lift(in CdFunction(LkStatic, value_type(), f, closure_params(), decls ++ bs ++ List(CsReturn(Some(rb)))), ref g)
   assign ss := List(), r := make_closure("u_mk_closure", f, caps, env)
 
 // a lambda in x, out y, ref z => body end is a lifted function of the captured values, the ins, and pointers to the outs and refs
@@ -814,7 +828,7 @@ procedure compile_proc_lambda(
   assign decls := unpack(numbered(caps), "env") ++ unpack(numbered(in_names), "ins")
   assign decls := decls ++ unpack_pointers(numbered(pointer_names))
   assign decls := decls ++ copy_in(outs, refs)
-  call   lift(in CdFunction(CtVoid, f, proc_params(), decls ++ bs ++ copy_out(outs ++ refs)), ref g)
+  call   lift(in CdFunction(LkStatic, CtVoid, f, proc_params(), decls ++ bs ++ copy_out(outs ++ refs)), ref g)
   assign ss := List(), r := make_closure("u_mk_proc", f, caps, env)
 
 function proc_params(): List[CType * Str] :=
@@ -1137,7 +1151,7 @@ function prototypes(fs: List[CDecl]): List[CDecl] :=
   List(for d in fs for p in prototype(d) yield p)
 
 function main_function(ms: List[CStmt]): CDecl :=
-  CdFunction(CtInt, "main", main_formals(), main_body(ms))
+  CdFunction(LkExtern, CtInt, "main", main_formals(), main_body(ms))
 
 function main_body(ms: List[CStmt]): List[CStmt] :=
   List(call_c("u_args", List(CeVar("argc"), CeVar("argv")))) ++ ms ++ List(CsReturn(Some(CeNum(0))))
@@ -1388,7 +1402,8 @@ procedure compile_cmd(
       else
         assign bs := bs ++ List(CsReturn(Some(rb)))
       end
-      assign ds := List(CdFunction(value_type(), fun_name(name, size(formals)), params, bs)), ms := List()
+      assign ds := List(
+        CdFunction(LkStatic, value_type(), fun_name(name, size(formals)), params, bs)), ms := List()
 
     // outs and refs are pointers to the variables of the caller, which the procedure assigns when it returns
     case CProc(name, _, ins, outs, refs, stmt) =>
@@ -1396,7 +1411,7 @@ procedure compile_cmd(
       call   compile_stmt(in defs, in_scope(var_names(ins ++ outs ++ refs)), stmt, out bs, ref g)
       assign params := value_formals(ins) ++ pointer_formals(outs ++ refs)
       assign bs := copy_in(outs, refs) ++ bs ++ copy_out(outs ++ refs)
-      assign ds := List(CdFunction(CtVoid, proc_name(name), params, bs)), ms := List()
+      assign ds := List(CdFunction(LkStatic, CtVoid, proc_name(name), params, bs)), ms := List()
 
     case CTest(test_name, _, stmt) if entry == "test" =>
       local bs: List[CStmt]
@@ -1497,7 +1512,7 @@ function proc_call(n: Name, k: Int, m: Int): CStmt :=
 function proc_wrapper(p: Name * (Int * Int)): CDecl :=
   match p
     case (n, (k, m)) =>
-      CdFunction(CtVoid, "wp_" ++ mangle(n), proc_params(), List(proc_call(n, k, m)))
+      CdFunction(LkStatic, CtVoid, "wp_" ++ mangle(n), proc_params(), List(proc_call(n, k, m)))
   end
 
 function fun_wrapper(p: Name * Int): CDecl :=
@@ -1513,7 +1528,7 @@ function builtin_wrapper(p: Str * Int): CDecl :=
   end
 
 function wrapper(w: Str, f: Str, k: Int): CDecl :=
-  CdFunction(value_type(), w, closure_params(), List(CsReturn(Some(c_call(f, indexed("args", k))))))
+  CdFunction(LkStatic, value_type(), w, closure_params(), List(CsReturn(Some(c_call(f, indexed("args", k))))))
 
 function closure_params(): List[CType * Str] :=
   List((value_ptr(), "env"), (value_ptr(), "args"))
@@ -1532,7 +1547,7 @@ function constr_wrapper(p: Name * Int): List[CDecl] :=
 
     case (n, k) =>
       List(
-        CdFunction(value_type(), "wc_" ++ mangle(n), closure_params(), List(CsReturn(Some(con_array(n, k))))))
+        CdFunction(LkStatic, value_type(), "wc_" ++ mangle(n), closure_params(), List(CsReturn(Some(con_array(n, k))))))
   end
 
 function range_to(k: Int): List[Int] :=
@@ -1540,8 +1555,8 @@ function range_to(k: Int): List[Int] :=
 
 function prototype(d: CDecl): List[CDecl] :=
   match d
-    case CdFunction(typ, fun, formals, _) =>
-      List(CdPrototype(typ, fun, formals))
+    case CdFunction(linkage, typ, fun, formals, _) =>
+      List(CdPrototype(linkage, typ, fun, formals))
     case _ =>
       List()
   end
@@ -1567,7 +1582,7 @@ function texts(): List[CDecl] :=
 function text_decl(p: Str * Str): CDecl :=
   match p
     case (name, text) =>
-      CdGlobal(CtNamed("const char *const"), name, Some(CeStr(text)))
+      CdGlobal(LkExtern, CtNamed("const char *const"), name, Some(CeStr(text)))
   end
 
 // checks the program of the file source, which is its module, and writes its translation to C to target, with the whole

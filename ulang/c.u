@@ -32,11 +32,17 @@ data CStmt :=
   case CsReturn(result: Option[CExpr])
   case CsBlock(body: List[CStmt])
 
+// whether a declaration is seen by other files, as the runtime sees those that ulang/runtime/ulang.h declares extern,
+// while the C compiler drops static ones that nothing reaches
+data Linkage :=
+  case LkStatic
+  case LkExtern
+
 data CDecl :=
   case CdInclude(header: Str)
-  case CdPrototype(typ: CType, fun: Str, formals: List[CType * Str])
-  case CdFunction(typ: CType, fun: Str, formals: List[CType * Str], body: List[CStmt])
-  case CdGlobal(typ: CType, name: Str, init: Option[CExpr])
+  case CdPrototype(linkage: Linkage, typ: CType, fun: Str, formals: List[CType * Str])
+  case CdFunction(linkage: Linkage, typ: CType, fun: Str, formals: List[CType * Str], body: List[CStmt])
+  case CdGlobal(linkage: Linkage, typ: CType, name: Str, init: Option[CExpr])
 
 data CFile :=
   case CFile(decls: List[CDecl])
@@ -206,17 +212,28 @@ function format_decl(decl: CDecl): List[Str] :=
     case CdInclude(header) =>
       List("#include " ++ quote(header))
 
-    case CdPrototype(typ, fun, formals) =>
-      List(format_typed(typ, fun) ++ "(" ++ format_formals(formals) ++ ");")
+    case CdPrototype(linkage, typ, fun, formals) =>
+      List(
+        format_linkage(linkage) ++ format_typed(typ, fun) ++ "(" ++ format_formals(formals) ++ ");")
 
-    case CdFunction(typ, fun, formals, body) =>
-      List(format_typed(typ, fun) ++ "(" ++ format_formals(formals) ++ ") {") ++ format_stmts("  ", body) ++ List("}")
+    case CdFunction(linkage, typ, fun, formals, body) =>
+      List(
+        format_linkage(linkage) ++ format_typed(typ, fun) ++ "(" ++ format_formals(formals) ++ ") {") ++ format_stmts("  ", body) ++ List("}")
 
-    case CdGlobal(typ, name, None) =>
-      List(format_typed(typ, name) ++ ";")
+    case CdGlobal(linkage, typ, name, None) =>
+      List(format_linkage(linkage) ++ format_typed(typ, name) ++ ";")
 
-    case CdGlobal(typ, name, Some(expr)) =>
-      List(format_typed(typ, name) ++ " = " ++ format_expr(expr) ++ ";")
+    case CdGlobal(linkage, typ, name, Some(expr)) =>
+      List(
+        format_linkage(linkage) ++ format_typed(typ, name) ++ " = " ++ format_expr(expr) ++ ";")
+  end
+
+function format_linkage(linkage: Linkage): Str :=
+  match linkage
+    case LkStatic =>
+      "static "
+    case LkExtern =>
+      ""
   end
 
 // the source code of a file, with an empty line between declarations
@@ -231,13 +248,13 @@ function c_call(fun: Str, args: List[CExpr]): CExpr :=
   CeCall(CeVar(fun), args)
 
 test format_c() :=
-  local value := CtNamed("value"), one := c_call("make_int", List(CeNum(1))), fact := CdFunction(value, "fact", List((value, "n")), List(
+  local value := CtNamed("value"), one := c_call("make_int", List(CeNum(1))), fact := CdFunction(LkStatic, value, "fact", List((value, "n")), List(
     CsIf(c_call("is_zero", List(CeVar("n"))), List(CsReturn(Some(one))), List()),
     CsDecl(value, "m", Some(c_call("fact", List(c_call("sub", List(CeVar("n"), one)))))),
-    CsReturn(Some(c_call("mul", List(CeVar("n"), CeVar("m"))))))), main := CdFunction(CtInt, "main", List(), List(
+    CsReturn(Some(c_call("mul", List(CeVar("n"), CeVar("m"))))))), main := CdFunction(LkExtern, CtInt, "main", List(), List(
     CsExpr(c_call("print", List(c_call("fact", List(c_call("make_int", List(CeNum(5)))))))),
     CsReturn(Some(CeNum(0)))))
-  assert format_file(CFile(List(CdInclude("ulang.h"), fact, main))) == "#include \"ulang.h\"\n\nvalue fact(value n) {\n  if (is_zero(n)) {\n    return make_int(1);\n  }\n  value m = fact(sub(n, make_int(1)));\n  return mul(n, m);\n}\n\nint main(void) {\n  print(fact(make_int(5)));\n  return 0;\n}\n"
+  assert format_file(CFile(List(CdInclude("ulang.h"), fact, main))) == "#include \"ulang.h\"\n\nstatic value fact(value n) {\n  if (is_zero(n)) {\n    return make_int(1);\n  }\n  value m = fact(sub(n, make_int(1)));\n  return mul(n, m);\n}\n\nint main(void) {\n  print(fact(make_int(5)));\n  return 0;\n}\n"
   assert format_expr(CeBinary("+", CeBinary("*", CeVar("a"), CeNum(2)), CeUnary("-", CeVar("b")))) == "(a * 2) + (-b)"
   assert format_expr(CeStr("a\"b\n")) == "\"a\\\"b\\n\""
   assert format_expr(CeStr("\"ä\n")) == "\"\\\"\\344\\n\"" and format_expr(CeStr("a→")) == "u\"a\\u2192\""
