@@ -179,8 +179,8 @@ function words_of(text: Str): Set[Str] :=
   Set(for w in split(str(List(for c in chars(text) yield if is_word_char(c) then c else ' ')), ' ') if w != "")
 
 // the declarations of the file at its path from the root, or None if it cannot be read or parsed, which the cache keeps
-// by the path, where only the module of the file is taken from what the parser loads, since it drops the tests of the
-// others
+// by the path, where only the module of the file is taken from what the parser loads, which also holds its imports and the
+// other members of its package
 procedure file_decls(
   in  file: Str,
   out decls: Option[Decls],

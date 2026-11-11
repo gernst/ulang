@@ -29,7 +29,8 @@ function is_source(path: Str): Bool
 // which is known before the text is lexed, and so also of a file that does not lex
 function has_sections(text: Str): Bool
 
-// the module of text without implicit imports and imports, which reads no files, for the tests
+// the module of text without implicit imports and imports, which reads no files, for the tests, parsed with the empty
+// notation, so without the operators of the library, such as +
 procedure parse_text(in text: Str, out own: Mod)
 
 // the source of texts instead of files, for the tests: the members of the package of the directory dir from the root,
