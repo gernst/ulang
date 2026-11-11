@@ -73,7 +73,7 @@ type Env :=
   List[Name * Local]
 
 data Local :=
-  case Local(scheme: Scheme, assigned: Bool)
+  case Local(typ: Type, assigned: Bool)
 
 // a use of an overloaded name that more than one candidate fits, by the placeholder id that stands for it
 data Pending :=
@@ -371,7 +371,7 @@ function constructor_of(sig: Sig, k: Name): Scheme :=
 function candidates(s: State, env: Env, n: Name): List[Name * Scheme] :=
   match get(n, env)
     case Some(l) =>
-      List((n, l.scheme))
+      List((n, Scheme(List(), l.typ)))
     case None =>
       List(for f in overloads(s, n, lambda f => is_fun(s.sig, f)) for sc in schemes_of(s.sig, f) if not is_hook(f, arity(sc.typ)) yield (f, sc)) ++ List(for k in overloads(s, n, lambda k => is_constr(s.sig, k)) yield (k, constructor_of(s.sig, k))) ++ List(for p in overloads(s, n, lambda p => is_proc(s.sig, p)) yield (p, proc_scheme(s.sig, p))) ++ List(for sc in builtin_schemes(n) yield (n, sc))
   end
@@ -400,7 +400,7 @@ function has_arity(scs: List[Scheme], k: Int): Bool :=
   exists(scs, lambda sc => arity(sc.typ) == k)
 
 function bind(xs: List[Var]): Env :=
-  List(for x in xs yield (x.name, Local(Scheme(List(), x.typ), true)))
+  List(for x in xs yield (x.name, Local(x.typ, true)))
 
 // no local of xs hides one of env, except those of the translations, whose names users cannot write, such as (acc) and
 // (item), which nest
@@ -410,7 +410,7 @@ procedure unhidden(in env: Env, xs: List[Var]) :=
   end
 
 function unassigned(xs: List[Var]): Env :=
-  List(for x in xs yield (x.name, Local(Scheme(List(), x.typ), false)))
+  List(for x in xs yield (x.name, Local(x.typ, false)))
 
 // env after assignments to xs, which are the innermost variables of their names
 function assigned(env: Env, xs: List[Name]): Env :=
@@ -2153,8 +2153,8 @@ procedure variable(
       match get(name, env)
         case Some(l) =>
           call   normalize(in typ, out u, ref s)
-          call   unify(in l.scheme.typ, u, ref s)
-          assign y := Var(name, l.scheme.typ)
+          call   unify(in l.typ, u, ref s)
+          assign y := Var(name, l.typ)
 
         case None =>
           raise UnknownVariable(name)
@@ -2316,7 +2316,7 @@ procedure call_proc(
 ) :=
   match get(p, env)
     case Some(l) =>
-      call call_variable(in env, assignable, p, l.scheme, ins, outs, refs, out stmt, ref s)
+      call call_variable(in env, assignable, p, l.typ, ins, outs, refs, out stmt, ref s)
     case None =>
       call call_declared(in env, assignable, p, ins, outs, refs, out stmt, ref s)
   end
@@ -2325,20 +2325,18 @@ procedure call_variable(
   in  env: Env,
       assignable: List[Name],
       p: Name,
-      sc: Scheme,
+      typ: Type,
       ins: List[Expr],
       outs: List[Var],
       refs: List[Var],
   out stmt: Stmt,
   ref s: State
 ) :=
-  local x: Var, w: Type, is: List[Type], os: List[Type], rs: List[Type], typed_ins: List[Expr], typed_outs: List[Var], typed_refs: List[Var]
-  call   fresh(out w, ref s)
-  call   use(in p, w, sc, out x, ref s)
+  local is: List[Type], os: List[Type], rs: List[Type], typed_ins: List[Expr], typed_outs: List[Var], typed_refs: List[Var]
   call   fresh_list(in ins, out is, ref s)
   call   fresh_list(in outs, out os, ref s)
   call   fresh_list(in refs, out rs, ref s)
-  call   unify(in x.typ, TProc(is, os, rs), ref s)
+  call   unify(in typ, TProc(is, os, rs), ref s)
   call   unique(in "out or ref", List(for y in outs ++ refs yield y.name))
   call   checks(in env, "procedure " ++ p.base, ins, is, out typed_ins, ref s)
   call   variables(in env, assignable, outs, out typed_outs, ref s)
