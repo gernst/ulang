@@ -1,4 +1,4 @@
-// a member of the package tests/paths with a datatype Expr, as tests/paths/nested/syntax.u has one
+// a member of the package tests/modules/paths with a datatype Expr, as tests/modules/paths/nested/syntax.u has one
 
 export
 

@@ -1,0 +1,258 @@
+// the references of the documentation, "`f` of `file`", which agents follow, name declarations of their files, so that a
+// move or a rename that leaves one stale fails here: a reference is a list of spans in backticks, separated by commas,
+// and, or or, followed by of and a file with an extension in backticks, where the list stops at a path; only names are
+// checked, identifiers, T.f for a field or a hook of the datatype T, and prefixes p*, while other code is not; the
+// declarations of a module are read by the parser of ulang/parse.u, those of other files are their words
+
+import "ulang"
+
+// the declarations of a file
+data Decls :=
+  // the names of the commands and constructors of a module, with the fields of each datatype
+  case DModule(names: Set[Str], fields: Map[Str, Set[Str]])
+  // the words of a file that is no module, such as C or JavaScript
+  case DWords(words: Set[Str])
+
+// a name and the file that a line of a document refers to it in
+data DocRef :=
+  case DocRef(line: Int, name: Str, file: Str)
+
+function separators(): List[Str] :=
+  List(", ", " and ", ", and ", " or ", ", or ")
+
+function extensions(): List[Str] :=
+  List(".u", ".c", ".h", ".js", ".sh")
+
+function is_file(span: Str): Bool :=
+  not contains(' ', span) and exists(extensions(), lambda e => ends_with(span, e))
+
+function is_path(span: Str): Bool :=
+  contains('/', span) or is_file(span)
+
+function is_word_char(c: Char): Bool :=
+  is_letter(c) or is_digit(c) or c == '_'
+
+function is_ident(s: Str): Bool :=
+  s != "" and not is_digit(at(0, s)) and forall(chars(s), is_word_char)
+
+function is_hook_name(s: Str): Bool :=
+  contains(s, List("compare", "==", "show"))
+
+// the references of the lines of text, numbered from 1
+function refs_of(text: Str): List[DocRef] :=
+  refs_of_lines(split(text, '\n'), 1)
+
+function refs_of_lines(lines: List[Str], n: Int): List[DocRef] :=
+  match lines
+    case List() =>
+      List()
+    case List(line; rest) =>
+      refs_in(n, line) ++ refs_of_lines(rest, n + 1)
+  end
+
+// the references of line n, whose spans in backticks are at the odd positions of its parts
+function refs_in(n: Int, line: Str): List[DocRef] :=
+  refs_from(n, from_list(split(line, '`')), 1)
+
+function refs_from(n: Int, spans: Array[Str], i: Int): List[DocRef] :=
+  if i >= size(spans) then
+    List()
+  else
+    refs_at(n, spans, i) ++ refs_from(n, spans, i + 2)
+
+// the references to the file of the span at i, in the order of the line
+function refs_at(n: Int, spans: Array[Str], i: Int): List[DocRef] :=
+  if i >= 3 and is_file(at(i, spans)) and at(i - 1, spans) == " of " then
+    List(for name in reverse(names_before(spans, i - 2)) yield DocRef(n, name, at(i, spans)))
+  else
+    List()
+
+// the spans of the list that ends at i, from the last, which stops at a path and at text other than a separator
+function names_before(spans: Array[Str], i: Int): List[Str] :=
+  if is_path(at(i, spans)) then
+    List()
+  else if i >= 3 and contains(at(i - 1, spans), separators()) then
+    List(at(i, spans); names_before(spans, i - 2))
+  else
+    List(at(i, spans))
+
+// whether the span is a name, which the test checks
+function is_checked(name: Str): Bool :=
+  if ends_with(name, "*") then
+    is_ident(slice(name, 0, size(name) - 1))
+  else
+    match split(name, '.')
+      case List(base) =>
+        is_ident(base)
+
+      case List(base, _) =>
+        is_ident(base)
+
+      case _ =>
+        false
+    end
+
+// whether the checked name is declared, where a prefix p* is declared if a name that starts with p is, and T.f if T is a
+// datatype with the field f or f is a hook, or in another file if T is a word, while an updater T.f:= is checked as T.f
+function is_declared(name: Str, decls: Decls): Bool :=
+  if ends_with(name, "*") then
+    let start := slice(name, 0, size(name) - 1) in
+    exists(names_of(decls), lambda n => starts_with(n, start))
+  else
+    match (split(name, '.'), decls)
+      case (List(base), _) =>
+        contains(base, names_of(decls))
+
+      case (List(base, member), DModule(names, fields)) =>
+        contains(base, names) and (is_hook_name(member) or contains(without_update(member), value_or(get(base, fields), Set())))
+
+      case (List(base, _), DWords(words)) =>
+        contains(base, words)
+
+      case _ =>
+        false
+    end
+
+function without_update(member: Str): Str :=
+  if ends_with(member, ":=") then slice(member, 0, size(member) - 2) else member
+
+function names_of(decls: Decls): Set[Str] :=
+  match decls
+    case DModule(names, _) =>
+      names
+    case DWords(words) =>
+      words
+  end
+
+function module_decls(d: Mod): Decls :=
+  let cmds := List(for top in d.exported ++ d.builtins ++ d.implemented yield top.cmd) in
+  DModule(Set(for c in cmds for n in cmd_names(c) yield n), Map(for c in cmds for (t, fs) in cmd_fields(c) yield t => fs))
+
+function cmd_names(cmd: Cmd): List[Str] :=
+  match cmd
+    case CSort(name, _, _) =>
+      List(name.base)
+
+    case CData(name, _, constrs) =>
+      List(name.base; List(for k in constrs yield k.name.base))
+
+    case CFun(name, _, _, _, _) =>
+      List(name.base)
+
+    case CProc(name, _, _, _, _, _) =>
+      List(name.base)
+
+    case CNotation(_, _, _) =>
+      List()
+
+    case CTest(test_name, _, _) =>
+      List(test_name)
+
+    case CFunSig(name, _, _, _) =>
+      List(name.base)
+
+    case CProcSig(name, _, _, _, _) =>
+      List(name.base)
+
+    case CAbstract(name, _) =>
+      List(name.base)
+
+    case CPatAlias(name, _, _, _, _) =>
+      List(name.base)
+  end
+
+function cmd_fields(cmd: Cmd): List[Str * Set[Str]] :=
+  match cmd
+    case CData(name, _, constrs) =>
+      List(
+        (name.base, Set(for k in constrs for field in k.fields yield field.name)))
+
+    case _ =>
+      List()
+  end
+
+function words_of(text: Str): Set[Str] :=
+  Set(for w in split(str(List(for c in chars(text) yield if is_word_char(c) then c else ' ')), ' ') if w != "")
+
+// the declarations of the file at its path from the root, or None if it cannot be read or parsed, which the cache keeps
+// by the path, where only the module of the file is taken from what the parser loads, since it drops the tests of the
+// others
+procedure file_decls(
+  in  file: Str,
+  out decls: Option[Decls],
+  ref cache: Map[Str, Option[Decls]]
+) :=
+  match get(file, cache)
+    case Some(cached) =>
+      assign decls := cached
+
+    case None =>
+      assign decls := None
+      try
+        if ends_with(file, ".u") then
+          local source: Source
+          call parse_file(in "../" ++ file, out source)
+          for d in source.mods if d.name == source.main do
+            assign decls := Some(module_decls(d))
+          end
+        else
+          local text: Str
+          call   os_read(in "../" ++ file, out text)
+          assign decls := Some(DWords(words_of(text)))
+        end
+      catch
+        case _ =>
+          skip
+      end
+      assign cache := put(file, decls, cache)
+  end
+
+// the references of the document at its path from the root whose names are not declared in their files
+procedure problems_of(
+  in  doc: Str,
+  out problems: List[Str],
+  ref cache: Map[Str, Option[Decls]]
+) :=
+  local text: Str, found: Buffer[Str] := empty()
+  call os_read(in "../" ++ doc, out text)
+  for r in refs_of(text) if is_checked(r.name) do
+    local decls: Option[Decls]
+    call file_decls(in r.file, out decls, ref cache)
+    match decls
+      case Some(d) =>
+        if not is_declared(r.name, d) then
+          assign found := found ++ List(
+            doc ++ ":" ++ show(r.line) ++ ": `" ++ r.name ++ "` is not declared in " ++ r.file)
+        end
+
+      case None =>
+        assign found := found ++ List(
+          doc ++ ":" ++ show(r.line) ++ ": " ++ r.file ++ " cannot be read or parsed")
+    end
+  end
+  assign problems := List(for p in found)
+
+test recognized() :=
+  assert refs_in(1, "(`a` and `b` of `x/y.u`), `p/q.u`, `c` of `z.u`, `d` in `w.u`") == List(DocRef(1, "a", "x/y.u"), DocRef(1, "b", "x/y.u"), DocRef(1, "c", "z.u"))
+  assert refs_in(2, "`a`, `b`, and `c` of `f.c`; `e`, `f` of `g.js`") == List(
+    DocRef(2, "a", "f.c"),
+    DocRef(2, "b", "f.c"),
+    DocRef(2, "c", "f.c"),
+    DocRef(2, "e", "g.js"),
+    DocRef(2, "f", "g.js"))
+
+test checked() :=
+  assert is_checked("u_text_*") and is_checked("T.f") and is_checked("T.==") and is_checked("parse_file")
+  assert not is_checked("test paths()") and not is_checked("Ctx(…)") and not is_checked("a.b.c")
+  assert is_declared("T.f:=", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("T.compare", DModule(Set("T"), Map()))
+  assert not is_declared("T.g", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("u_*", DWords(Set("u_text")))
+
+// in one test, since the first failed assert ends a compiled run
+test references() :=
+  local cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List()
+  for doc in List("CLAUDE.md", "README.md", "TODO.md") do
+    local problems: List[Str]
+    call   problems_of(in doc, out problems, ref cache)
+    assign found := found ++ problems
+  end
+  assert found == List()

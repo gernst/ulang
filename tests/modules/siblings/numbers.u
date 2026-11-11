@@ -1,4 +1,4 @@
-// a program in the directory of the package tests/siblings, which sees the exports of its members and their notations
+// a program in the directory of the package tests/modules/siblings, which sees the exports of its members and their notations
 // without importing them
 
 test program_sees_members() :=

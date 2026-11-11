@@ -2,8 +2,8 @@
 // distinct modules, and an importer sees the exports of all members of a package; the imports are not sorted, which
 // format keeps, since their order is the order of loading
 
-import "tests/paths/nested"
-import "tests/paths"
+import "tests/modules/paths/nested"
+import "tests/modules/paths"
 
 // two datatypes Expr, each of its own module
 test both_syntaxes() :=

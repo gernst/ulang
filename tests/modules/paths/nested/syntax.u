@@ -1,4 +1,4 @@
-// the module syntax of the package tests/paths/nested, with a datatype Expr, as tests/paths/syntax.u has one
+// the module syntax of the package tests/modules/paths/nested, with a datatype Expr, as tests/modules/paths/syntax.u has one
 
 export
 

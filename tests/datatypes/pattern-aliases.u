@@ -1,4 +1,4 @@
-import "tests/terms"
+import "tests/datatypes/terms"
 
 data Term :=
   case App(fun: Str, args: List[Term])

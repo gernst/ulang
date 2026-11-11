@@ -1,4 +1,4 @@
-// a member of the package tests/siblings, with odd.u, where each uses the functions and the notation of the other without
+// a member of the package tests/modules/siblings, with odd.u, where each uses the functions and the notation of the other without
 // importing it, and the size of each overloads that of the other by type
 
 export

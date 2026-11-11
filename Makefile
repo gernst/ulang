@@ -99,6 +99,27 @@ bootstrap: bootstrap/ulang.bin
 .PHONY: test
 test: out/ulang.bin out/ulang.sh
 	out/ulang.sh test tests ulang prove prelude
+	$(MAKE) --no-print-directory testdocs
+
+# the checks of the repository in checks/, which run only compiled, since they parse the sources of the compiler, which the
+# interpreter does too slowly: checks/docs.u, that the references of the documentation name declarations of their files;
+# each binary run in checks/ by a copy of the script
+CHECKS = out/checks
+
+$(CHECKS)/docs.c: out/ulang.bin out/ulang.sh checks/docs.u $(SOURCES)
+	mkdir -p $(CHECKS)
+	out/ulang.sh compile checks/docs.u test $@
+
+$(CHECKS)/docs.bin: $(CHECKS)/docs.c $(RUNTIME) Makefile
+	$(CC) $(CFLAGS) $(CHECKS)/docs.c ulang/runtime/ulang.c $(LIBS) -o $@
+
+$(CHECKS)/docs.sh: $(SCRIPT)
+	mkdir -p $(CHECKS)
+	cp $(SCRIPT) $@
+
+.PHONY: testdocs
+testdocs: $(CHECKS)/docs.bin $(CHECKS)/docs.sh
+	cd checks && ../$(CHECKS)/docs.sh
 
 # rewrites every .u file as format does, after a change of the printer, except the tests of format errors, which must stay
 # unformatted, and the files whose first line expects a parse error, which format refuses, ending its run
