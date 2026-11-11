@@ -351,36 +351,45 @@ procedure count(ref k: Int) :=
   raise Fail
 
 test parse_errors() :=
-  local n: Int, e: Str, k: Int
+  local n: Int, k := 0
   call parse(in List(Sym("("), Sym("("), Num(3), Sym(")"), Sym(")")), out n)
   assert n == 3
-  try
+  assert raises Expected(")") do
     call parse(in List(Sym("("), Num(3)), out n)
-    assert false
-  catch
-    case Expected(what) =>
-      assign e := what
-    case Trailing(_) =>
-      assert false
   end
-  assert e == ")"
-  try
+  assert raises Trailing(List(Num(2))) do
     call parse(in List(Num(1), Num(2)), out n)
-    assert false
-  catch
-    case Trailing(toks) =>
-      assert toks == List(Num(2))
   end
   call value(in List(Sym(")")), out n)
   assert n == 0
-  assign k := 0
-  try
+  assert raises Fail do
     call count(ref k)
-  catch
-    case Fail =>
-      skip
   end
   assert k == 0
+
+// assert raises passes if its body raises an exception that its pattern matches, of any type for _, where the variables
+// after it are those before it, as in a handler, and an exception that a try inside handles does not count
+test assert_raises() :=
+  local k := 0, s := "a"
+  assert raises Fail do
+    assign k := 1, s := "b"
+    call   count(ref k)
+  end
+  assert (k, s) == (0, "a")
+  assert raises "x" do
+    raise "x"
+  end
+  assert raises _ do
+    raise 42
+  end
+  assert raises Expected("x") do
+    try
+      raise Expected("y")
+    catch
+      case Expected("y") =>
+        raise Expected("x")
+    end
+  end
 
 // handlers see the variables as they were before the try, also when compiled with optimizations
 test restored_by_raise() :=

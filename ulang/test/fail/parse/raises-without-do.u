@@ -1,0 +1,6 @@
+// parse error: do expected but local found at 5.5
+
+test missing_do() :=
+  assert raises DivisionByZero
+    local n := 1 / 0
+  end

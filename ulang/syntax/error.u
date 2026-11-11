@@ -24,6 +24,8 @@ data RuntimeError :=
   case CompareProcedures
   case AssertionFailed
   case AssertionUnequal(left: Str, right: Str)
+  // of the pattern of an assert raises, as format_pat writes it, whose body raised nothing
+  case AssertionNotRaised(expected: Str)
   case Uncaught(text: Str)
   // of the qualified name of a function without parameters, which compiled code knows when it is compiled
   case RecursiveInitialization(name: Str)
@@ -98,6 +100,9 @@ function runtime_message(e: RuntimeError): Str :=
     case AssertionUnequal(left, right) =>
       "assertion failed: " ++ left ++ " != " ++ right
 
+    case AssertionNotRaised(expected) =>
+      "assertion failed: nothing raised, expected " ++ expected
+
     case Uncaught(text) =>
       "uncaught exception " ++ text
 
@@ -112,6 +117,7 @@ function runtime_formats(): List[Str * Str] :=
     ("u_text_compare_procedures", runtime_message(CompareProcedures)),
     ("u_text_assertion_failed", runtime_message(AssertionFailed)),
     ("u_text_assertion_unequal", runtime_message(AssertionUnequal("%s", "%s"))),
+    ("u_text_assertion_not_raised", runtime_message(AssertionNotRaised("%s"))),
     ("u_text_uncaught", runtime_message(Uncaught("%s"))))
 
 test formats() :=

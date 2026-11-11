@@ -548,6 +548,9 @@ function format_stmt(notation: Notation, indent: Str, stmt: Stmt): Str :=
     case SAssert(cond) =>
       "assert " ++ format_expr(notation, indent, cond)
 
+    case SAssertRaises(_, pat, body) =>
+      end_text(indent, "assert raises " ++ format_pattern(notation, indent, pat) ++ " do" ++ format_body(notation, deeper(indent), body))
+
     case SRaise(value, _) =>
       "raise " ++ format_expr(notation, indent, value)
 

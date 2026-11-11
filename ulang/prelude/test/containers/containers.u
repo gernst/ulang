@@ -164,3 +164,12 @@ test lowercase_form_names() :=
   local list := List(1, 2), array := Array(3)
   assert map(lambda x => x + 1, list) == List(2, 3)
   assert set(1) == Set(1) and size(array) == 1
+
+// of indices and sizes, counted in code points for strings
+test out_of_bounds() :=
+  assert raises OutOfBounds(3, 3) do
+    local x := at(3, Array(1, 2, 3))
+  end
+  assert raises OutOfBounds(2, 2) do
+    local c := at(2, "ä→")
+  end

@@ -19,26 +19,18 @@ test library() :=
   assert slice(t, 0, 16) == "// optional valu"
 
 test failures() :=
-  local t: Str, m := ""
+  local t: Str
   call enter_scratch()
-  try
+  assert raises OsError("cannot read files/missing.txt") do
     call os_read(in "files/missing.txt", out t)
-  catch
-    case OsError(message) =>
-      assign m := message
   end
-  assert m == "cannot read files/missing.txt"
-  try
+  assert raises OsError("unknown module missing") do
     call os_library(in "missing", out t)
-  catch
-    case OsError(message) =>
-      assign m := message
   end
-  assert m == "unknown module missing"
 
 // a tree of files, which os_list and os_walk see in the order of their names
 test walking() :=
-  local entries: List[Str * Bool], files: List[Str], dir: Bool, m := ""
+  local entries: List[Str * Bool], files: List[Str], dir: Bool
   call enter_scratch()
   call os_write(in "walk/z.txt", "z")
   call os_write(in "walk/a.txt", "a")
@@ -56,30 +48,22 @@ test walking() :=
   assert dir
   call os_is_dir(in "walk/a.txt", out dir)
   assert not dir
-  try
+  assert raises OsError("cannot list walk/missing") do
     call os_list(in "walk/missing", out entries)
-  catch
-    case OsError(message) =>
-      assign m := message
   end
-  assert m == "cannot list walk/missing"
 
 // relative paths start from the directory that os_chdir sets
 test changing_directory() :=
-  local t: Str, m := ""
+  local t: Str
   call enter_scratch()
   call os_write(in "here/here.txt", "here")
   call os_chdir(in "here")
   call os_read(in "here.txt", out t)
   call os_chdir(in "..")
   assert t == "here"
-  try
+  assert raises OsError("cannot change to missing") do
     call os_chdir(in "missing")
-  catch
-    case OsError(message) =>
-      assign m := message
   end
-  assert m == "cannot change to missing"
 
 // the tests run without arguments
 test arguments() :=

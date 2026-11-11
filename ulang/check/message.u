@@ -159,6 +159,9 @@ function type_message(e: TypeError): Str :=
     case AliasVariables(name) =>
       "the variables of the pattern alias " ++ name.base ++ " are not its formals, each once"
 
+    case RaisesVariables(name) =>
+      "the pattern of assert raises binds " ++ name.base ++ ", which only _ may stand for"
+
     case PatternOnly(name) =>
       "the pattern alias " ++ name.base ++ " has _ and builds no value"
 

@@ -942,13 +942,16 @@ void u_fail(const char *msg) {
   exit(1);
 }
 
-// ends the program with the runtime error of a text of ulang/syntax/error.u, where the first %s stands for a and the second for b
-static void fail_with(const char *format, u_value a, u_value b) {
+// ends the program with the runtime error of a text of ulang/syntax/error.u, where the first %s stands for a and the second for
+// b, as show gives them, or as they are if raw, which then are strings
+static void fail_with_texts(const char *format, u_value a, u_value b, int raw) {
   fflush(stdout);
   fputs("runtime error: ", stderr);
   for (const char *p = format; *p; p++) {
     if (p[0] == '%' && p[1] == 's') {
-      u_fprint_value(stderr, a);
+      size_t n;
+      const char *s = u_utf8(raw ? a : u_show(a), &n);
+      fwrite(s, 1, n, stderr);
       a = b;
       p++;
     } else {
@@ -957,6 +960,10 @@ static void fail_with(const char *format, u_value a, u_value b) {
   }
   fputc('\n', stderr);
   exit(1);
+}
+
+static void fail_with(const char *format, u_value a, u_value b) {
+  fail_with_texts(format, a, b, 0);
 }
 
 void u_no_case(u_value v) {
@@ -969,6 +976,10 @@ void u_assert_true(u_value v) {
 
 void u_assert_equal(u_value a, u_value b) {
   if (!u_equals(a, b)) fail_with(u_text_assertion_unequal, a, b);
+}
+
+void u_fail_text(const char *format, u_value text) {
+  fail_with_texts(format, text, NULL, 1);
 }
 
 static struct u_handler *handlers = NULL;

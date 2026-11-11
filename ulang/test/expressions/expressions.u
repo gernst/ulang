@@ -284,18 +284,18 @@ test code_points() :=
   assert number("１") == None and is_letter('ä') == false
 
 test no_characters() :=
-  local m := ""
-  try
-    assign m := str(List(chr(55296)))
-  catch
-    case NoCharacter(code) =>
-      assign m := show(code)
+  assert raises NoCharacter(55296) do
+    local c := chr(55296)
   end
-  assert m == "55296"
-  try
-    assign m := str(List(chr(1114112)))
-  catch
-    case NoCharacter(code) =>
-      assign m := show(code)
+  assert raises NoCharacter(1114112) do
+    local c := chr(1114112)
   end
-  assert m == "1114112" and ord(chr(1114111)) == 1114111 and ord(chr(57344)) == 57344
+  assert ord(chr(1114111)) == 1114111 and ord(chr(57344)) == 57344
+
+test division_by_zero() :=
+  assert raises DivisionByZero do
+    local n := 1 / 0
+  end
+  assert raises DivisionByZero do
+    local n := 1 % 0
+  end

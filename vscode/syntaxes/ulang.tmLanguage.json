@@ -222,7 +222,7 @@
       "patterns": [
         {
           "name": "keyword.control.ulang",
-          "match": "\\b(if|then|else|while|match|case|end|let|in|lambda|for|do|yield|call|assign|skip|assert|raise|try|catch|out|ref|with)\\b"
+          "match": "\\b(if|then|else|while|match|case|end|let|in|lambda|for|do|yield|call|assign|skip|assert|raises|raise|try|catch|out|ref|with)\\b"
         },
         {
           "name": "keyword.other.ulang",

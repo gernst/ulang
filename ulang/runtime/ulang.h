@@ -214,11 +214,14 @@ u_value u_show(u_value v);
 // the texts of the runtime errors, which every program defines from failure_formats of ulang/syntax/error.u, where %s stands for a
 // value as show gives it
 extern const char *const u_text_no_case, *const u_text_compare_functions, *const u_text_compare_procedures,
-  *const u_text_assertion_failed, *const u_text_assertion_unequal, *const u_text_uncaught;
+  *const u_text_assertion_failed, *const u_text_assertion_unequal, *const u_text_assertion_not_raised, *const u_text_uncaught;
 
 void u_no_case(u_value v);
 void u_assert_true(u_value v);
 void u_assert_equal(u_value a, u_value b);
+// ends the program with the runtime error of format, a u_text_* that the program defines, where %s stands for the string text
+// as it is, so that the runtime refers to no text that older programs, such as the seed, do not define
+void u_fail_text(const char *format, u_value text);
 void u_fail(const char *msg);
 
 // the handlers of the trys in progress, innermost first, where a raise jumps to the innermost one

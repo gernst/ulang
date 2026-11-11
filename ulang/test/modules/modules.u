@@ -47,33 +47,21 @@ test exported_fields() :=
   assert Green(3).level == 3 and (Green(3) with level := 4) == Green(4)
 
 test equality_without_order() :=
-  local r := ""
   assert tally(List(1, 2)) == tally(List(3)) and tally(List(1)) != tally(List(2)) and contains(tally(List(4)), List(tally(List(1, 3))))
-  try
-    assign r := show(compare(tally(List(1)), tally(List(2))))
-  catch
-    case Unordered(sort) =>
-      assign r := sort
+  assert raises Unordered("ulang/test/modules/exported.Tally") do
+    local r := compare(tally(List(1)), tally(List(2)))
   end
-  assert r == "ulang/test/modules/exported.Tally"
+  assert raises Unordered("ulang/test/modules/exported.Tally") do
+    local r := tally(List(1)) < tally(List(2))
+  end
 
 test incomparable() :=
-  local r := ""
-  try
-    assign r := if start() == start() then "equal" else "unequal"
-  catch
-    case Incomparable(sort) =>
-      assign r := sort
+  assert raises Incomparable("ulang/test/modules/exported.Counter") do
+    local r := start() == start()
   end
-  assert r == "ulang/test/modules/exported.Counter"
 
 // also in the module of the type, and inside other values
 test incomparable_inside() :=
-  local r := ""
-  try
-    assign r := if List(Pair(1, 2)) == List(pair(1, 2)) then "equal" else "unequal"
-  catch
-    case Incomparable(sort) =>
-      assign r := sort
+  assert raises Incomparable("ulang/test/modules/modules.Pair") do
+    local r := List(Pair(1, 2)) == List(pair(1, 2))
   end
-  assert r == "ulang/test/modules/modules.Pair"

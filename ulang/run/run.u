@@ -1004,6 +1004,20 @@ procedure exec(
         raise AssertionFailed
       end
 
+    // an exception that the pattern does not match raises again, from handle
+    case SAssertRaises(typ, pat, body) =>
+      local inner := env, raised := false
+      try
+        call exec(in run, body, ref inner, cache)
+      catch
+        case Thrown(value, t) =>
+          call   handle(in run, List(Catch("", typ, pat, None, SSkip)), value, t, ref inner, cache)
+          assign raised := true
+      end
+      if not raised then
+        raise AssertionNotRaised(format_pat(pat))
+      end
+
     case SRaise(value, typ) =>
       local v: Val
       call evaluate(in run, env, value, out v, ref cache)
@@ -1438,37 +1452,21 @@ function equals(n: Id, k: Int): Stmt :=
   SAssert(expr_app("==", List(expr_var(n), expr_int(k))))
 
 test errors() :=
-  try
+  assert raises Uncaught("Fail(1)") do
     call check_and_run(in procedures() ++ List(
       CTest("t", List(), SBlock(List(), List(SRaise(expr_app("Fail", List(expr_int(1))), THole))))))
-    assert false
-  catch
-    case Uncaught(text) =>
-      assert text == "Fail(1)"
   end
-  try
+  assert raises AssertionUnequal("1", "2") do
     call check_and_run(in List(
       CTest("t", List(), SBlock(List(), List(SAssert(expr_app("==", List(expr_int(1), expr_int(2)))))))))
-    assert false
-  catch
-    case AssertionUnequal(left, right) =>
-      assert (left, right) == ("1", "2")
   end
-  try
+  assert raises Uncaught("DivisionByZero") do
     call check_and_run(in List(assigning(expr_app("/", List(expr_int(1), expr_int(0))))))
-    assert false
-  catch
-    case Uncaught(text) =>
-      assert text == "DivisionByZero"
   end
-  try
+  assert raises RecursiveInitialization("main.loop") do
     call check_and_run(in List(
       CFun(unqualified("loop"), List(), List(), TInt(), expr_app("+", List(expr_app("loop", List()), expr_int(1)))),
       assigning(expr_app("loop", List()))))
-    assert false
-  catch
-    case RecursiveInitialization(name) =>
-      assert name == "main.loop"
   end
 
 // match (1, true, 3) case (_, _, z) => z end, a flat tuple
@@ -1479,12 +1477,8 @@ test tuples() :=
 
 // a handler for integers skips a string without evaluating its guard, so the string is raised further
 test handler_types() :=
-  try
+  assert raises Uncaught("\"x\"") do
     call check_and_run(in List(
       CTest("t", List(), STry(SRaise(ELit(LStr("x")), THole), List(
         Catch("", THole, pat_var("k"), Some(expr_app("<", List(expr_var("k"), expr_int(2)))), SSkip))))))
-    assert false
-  catch
-    case Uncaught(text) =>
-      assert text == "\"x\""
   end

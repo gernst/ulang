@@ -526,6 +526,9 @@ function free_in_stmt(stmt: Stmt, bound: List[Name]): List[Name] :=
     case SAssert(cond) =>
       free_vars(cond, bound)
 
+    case SAssertRaises(_, _, body) =>
+      free_in_stmt(body, bound)
+
     case SRaise(value, _) =>
       free_vars(value, bound)
 
@@ -1293,21 +1296,43 @@ procedure compile_stmt(
       call   compile_expr(in defs, env, value, out as, ra, ref g)
       assign ss := as ++ List(CsExpr(c_call("u_raise", List(ra, CeStr(type_key(typ))))))
 
-    // the body runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if none applies,
-    // where the handlers start from the variables before the try, which their copies, unchanged since setjmp, restore
     case STry(body, catches) =>
-      local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], t: Str, d: Str, xs: List[Name]
+      local bs: List[CStmt]
+      call compile_stmt(in defs, env, body, out bs, ref g)
+      call compile_try(in defs, env, body, bs, catches, out ss, ref g)
+
+    // a try of one handler, whose body fails with the text of the pattern if it gets to its end
+    case SAssertRaises(typ, pat, body) =>
+      local bs: List[CStmt], ps: List[CStmt], rp: CExpr
       call   compile_stmt(in defs, env, body, out bs, ref g)
-      call   gen_name(in "h", out d, ref g)
-      call   gen_name(in "d", out t, ref g)
-      call   handler_cases(in defs, env, catches, d, t, out cs, ref g)
-      assign xs := List(for x in distinct(changed(body)) if get(x, env) != None)
-      assign as := List(pop_handler(d)) ++ restore_vars(env, xs) ++ List(declare_int(t, 0))
-      assign as := as ++ cs ++ List(CsIf(not_flag(t), List(call_c("u_reraise", List(CeVar(d)))), List()))
-      assign ss := save_vars(env, xs) ++ List(push_handler(d))
-      assign ss := List(
-        CsBlock(ss ++ List(CsIf(setjmp_zero(d), bs ++ List(pop_handler(d)), as))))
+      call   compile_expr(in defs, env, ELit(LStr(format_pat(pat))), out ps, rp, ref g)
+      assign bs := bs ++ ps ++ List(
+        CsExpr(c_call("u_fail_text", List(CeVar("u_text_assertion_not_raised"), rp))))
+      call   compile_try(in defs, env, body, bs, List(Catch("", typ, pat, None, SSkip)), out ss, ref g)
   end
+
+// the body, compiled to bs, runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if
+// none applies, where the handlers start from the variables before the try, which their copies, unchanged since setjmp,
+// restore
+procedure compile_try(
+  in  defs: Defs,
+      env: Vars,
+      body: Stmt,
+      bs: List[CStmt],
+      catches: List[Catch],
+  out ss: List[CStmt],
+  ref g: Gen
+) :=
+  local as: List[CStmt], cs: List[CStmt], t: Str, d: Str, xs: List[Name]
+  call   gen_name(in "h", out d, ref g)
+  call   gen_name(in "d", out t, ref g)
+  call   handler_cases(in defs, env, catches, d, t, out cs, ref g)
+  assign xs := List(for x in distinct(changed(body)) if get(x, env) != None)
+  assign as := List(pop_handler(d)) ++ restore_vars(env, xs) ++ List(declare_int(t, 0))
+  assign as := as ++ cs ++ List(CsIf(not_flag(t), List(call_c("u_reraise", List(CeVar(d)))), List()))
+  assign ss := save_vars(env, xs) ++ List(push_handler(d))
+  assign ss := List(
+    CsBlock(ss ++ List(CsIf(setjmp_zero(d), bs ++ List(pop_handler(d)), as))))
 
 function saved_name(x: Name): Str :=
   "was_" ++ var_name(x)
@@ -1341,6 +1366,9 @@ function changed(stmt: Stmt): List[Name] :=
 
     case SAssert(_) =>
       List()
+
+    case SAssertRaises(_, _, body) =>
+      changed(body)
 
     case SRaise(_, _) =>
       List()

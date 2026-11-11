@@ -54,6 +54,8 @@ data TypeError :=
   case AliasVariables(name: Name)
   // a pattern alias with _, which matches but builds no value
   case PatternOnly(name: Name)
+  // a pattern of assert raises that binds the variable name
+  case RaisesVariables(name: Name)
   // an exported pattern alias of a constructor that importers do not see
   case PrivateConstructor(name: Name, constr: Name)
   // an error of the command at the position of an imported module, or of the main module for None
@@ -635,6 +637,9 @@ function zonk_stmt(s: State, stmt: Stmt): Stmt :=
     case SAssert(cond) =>
       SAssert(zonk_expr(s, cond))
 
+    case SAssertRaises(typ, pat, body) =>
+      SAssertRaises(zonk_type(s.sub, typ), zonk_pat(s, pat), zonk_stmt(s, body))
+
     case SRaise(value, typ) =>
       SRaise(zonk_expr(s, value), zonk_type(s.sub, typ))
 
@@ -699,6 +704,9 @@ function unknown_in(stmt: Stmt): Option[Type] :=
 
     case SAssert(cond) =>
       unknown_in_expr(cond)
+
+    case SAssertRaises(typ, pat, body) =>
+      or_else(if pat == PWild then None else unknown_type(typ), unknown_in(body))
 
     case SRaise(value, typ) =>
       or_else(unknown_type(typ), unknown_in_expr(value))
@@ -2244,6 +2252,20 @@ procedure statement(
         assign env := unreachable(env)
       end
 
+    // the variables after the body are those before, as at the start of a handler, since it raises if the test passes
+    case SAssertRaises(typ, pat, body) =>
+      local u: Type, p: Pat, xs: List[Var], b: Stmt, inner: Env := env
+      call normalize(in typ, out u, ref s)
+      call typed_pattern(in pat, u, out p, xs, ref s)
+      match xs
+        case List(x; _) =>
+          raise RaisesVariables(x.name)
+        case List() =>
+          skip
+      end
+      call   statement(in assignable, body, out b, ref inner, s)
+      assign y := SAssertRaises(u, p, b)
+
     case SRaise(value, typ) =>
       local c: Expr, t: Type, u: Type
       call   infer(in env, value, out c, t, ref s)
@@ -3329,26 +3351,14 @@ test inference() :=
     expr_app("id", List(expr_int(1))),
     expr_app("id", List(ELit(LBool(true))))))), out t)
   assert t == TTuple(List(TInt(), TBool()))
-  try
+  assert raises InfiniteType(_, _) do
     call type_of(in ELam(List(Var(unqualified("f"), THole)), expr_app("f", List(expr_var("f")))), out t)
-    assert false
-  catch
-    case InfiniteType(_, _) =>
-      skip
   end
-  try
+  assert raises CannotUnify(TInt(), TBool()) do
     call type_of(in expr_app("<", List(expr_int(1), ELit(LBool(true)))), out t)
-    assert false
-  catch
-    case CannotUnify(left, right) =>
-      assert (left, right) == (TInt(), TBool())
   end
-  try
+  assert raises UnknownVariable(Name(None, "x")) do
     call type_of(in expr_app("x", List()), out t)
-    assert false
-  catch
-    case UnknownVariable(name) =>
-      assert name == unqualified("x")
   end
 
 test elaboration() :=
@@ -3371,46 +3381,30 @@ test elaboration() :=
 
 test coverage() :=
   local q: Prog
-  try
+  assert raises NotExhaustive(PCons(PWild, PWild)) do
     call check_program(in with_lists(List(
       CFun(unqualified("f"), List(), List(Var(unqualified("xs"), type_plain_list(TInt()))), TInt(), EMatch(expr_var("xs"), List(Branch("", pat_var("Nil"), None, expr_int(0))))))), out q)
-    assert false
-  catch
-    case NotExhaustive(pat) =>
-      assert pat == PCons(PWild, PWild)
   end
-  try
+  assert raises Unreachable(PNil()) do
     call check_program(in with_lists(List(
       CFun(unqualified("f"), List(), List(Var(unqualified("xs"), type_plain_list(TInt()))), TInt(), EMatch(expr_var("xs"), List(
         Branch("", PWild, None, expr_int(0)),
         Branch("", pat_var("Nil"), None, expr_int(1))))))), out q)
-    assert false
-  catch
-    case Unreachable(pat) =>
-      assert pat == PNil()
   end
 
 test statements() :=
   local q: Prog
-  try
+  assert raises NotAssignable(Name(None, "n")) do
     call check_program(in program_of(List(
       CProc(unqualified("inc"), List(), List(), List(), List(Var(unqualified("k"), TInt())), SBlock(List(), List(
         SAssign(List(
           (Var(unqualified("k"), THole), expr_app("+", List(expr_var("k"), expr_int(1))))))))),
       CProc(unqualified("p"), List(), List(Var(unqualified("n"), TInt())), List(), List(), SBlock(List(), List(
         SCall(unqualified("inc"), List(), List(), List(Var(unqualified("n"), THole)))))))), out q)
-    assert false
-  catch
-    case NotAssignable(name) =>
-      assert name == unqualified("n")
   end
-  try
+  assert raises UnknownException(TList(_)) do
     call check_program(in with_lists(List(
       CTest("t", List(), SBlock(List(), List(SRaise(expr_var("Nil"), THole)))))), out q)
-    assert false
-  catch
-    case UnknownException(TList(_)) =>
-      skip
   end
 
 function tsort(n: Id): Type :=
@@ -3597,26 +3591,13 @@ test locals() :=
 
 test errors() :=
   local b: Expr
-  try
+  assert raises NoOverload(Name(None, "size"), _) do
     call body_of(in fun_cmd("f", List(), TInt(), expr_app("size", List(expr_int(1)))), out b)
-    assert false
-  catch
-    case NoOverload(name, _) =>
-      assert name == unqualified("size")
   end
-  try
+  assert raises Ambiguous(Name(None, "size"), List(_, _)) do
     call body_of(in fun_cmd("f", List(), TBool(), ELet(List(
       (PVar(var_of("h", THole)), ELam(List(var_of("x", THole)), expr_app("size", List(expr_var("x")))))), ELit(LBool(true)))), out b)
-    assert false
-  catch
-    case Ambiguous(name, candidates) =>
-      assert name == unqualified("size")
-      assert size(candidates) == 2
   end
-  try
+  assert raises WrongArity(Name(None, "size"), 2) do
     call body_of(in fun_cmd("f", List(), TInt(), expr_app("size", List(expr_int(1), expr_int(2)))), out b)
-    assert false
-  catch
-    case WrongArity(name, arity) =>
-      assert (name, arity) == (unqualified("size"), 2)
   end

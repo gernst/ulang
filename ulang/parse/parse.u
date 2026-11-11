@@ -1283,10 +1283,8 @@ procedure parse_stmt(
       assign stmt := SMatch(expr, cases)
 
     case TKw("assert") =>
-      local expr: Expr
-      call   advance(ref toks)
-      call   parse_expr(in notation, params, out expr, ref toks)
-      assign stmt := SAssert(expr)
+      call advance(ref toks)
+      call parse_assert(in notation, params, out stmt, ref toks)
 
     case TKw("assign") =>
       call parse_assign(in notation, params, out stmt, ref toks)
@@ -1307,6 +1305,27 @@ procedure parse_stmt(
 
     case _ =>
       raise expected("statement", toks)
+  end
+
+// assert c, or assert raises p do … end
+procedure parse_assert(
+  in  notation: Notation,
+      params: List[Id],
+  out stmt: Stmt,
+  ref toks: Tokens
+) :=
+  if at_kw(toks, "raises") then
+    local pat: Pat, body: Stmt
+    call   advance(ref toks)
+    call   parse_pattern(in notation, params, out pat, ref toks)
+    call   expect(in TKw("do"), ref toks)
+    call   parse_body(in notation, params, out body, ref toks)
+    call   expect(in TKw("end"), ref toks)
+    assign stmt := SAssertRaises(THole, pat, body)
+  else
+    local expr: Expr
+    call   parse_expr(in notation, params, out expr, ref toks)
+    assign stmt := SAssert(expr)
   end
 
 // then ends the condition, and an if after else is nested, with an end of its own

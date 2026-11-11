@@ -130,6 +130,9 @@ data Stmt :=
   case SMatch(arg: Expr, cases: List[Branch[Stmt]])
   // assert c
   case SAssert(cond: Expr)
+  // assert raises p do … end, which fails unless body raises an exception that p matches, where typ is THole until
+  // the checker infers it from p, as of a Catch
+  case SAssertRaises(typ: Type, pat: Pat, body: Stmt)
   // raise e, where typ is the type of e, which the checker infers
   case SRaise(value: Expr, typ: Type)
   // try … catch case p => … end

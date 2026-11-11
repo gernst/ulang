@@ -1,0 +1,6 @@
+// runtime error: assertion failed: nothing raised, expected DivisionByZero
+
+test nothing_raised() :=
+  assert raises DivisionByZero do
+    local n := 1 / 1
+  end
