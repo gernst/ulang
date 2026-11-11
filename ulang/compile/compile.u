@@ -8,7 +8,8 @@ import "ulang/check"
 
 export
 
-procedure compile_file(in source: Str, entry: Id, target: Str)
+// the entry is a procedure without parameters, or None for all tests
+procedure compile_file(in source: Str, entry: Option[Id], target: Str)
 
 implementation
 
@@ -1468,7 +1469,7 @@ procedure stmt_cases(
 // the C functions of a command, and the statements of main for runs and tests
 procedure compile_cmd(
   in  defs: Defs,
-      entry: Id,
+      entry: Option[Id],
       cmd: Cmd,
   out ds: List[CDecl],
       ms: List[CStmt],
@@ -1495,7 +1496,7 @@ procedure compile_cmd(
       assign bs := copy_in(outs, refs) ++ bs ++ copy_out(outs ++ refs)
       assign ds := List(CdFunction(LkStatic, CtVoid, proc_name(name), params, bs)), ms := List()
 
-    case CTest(test_name, _, stmt) if entry == "test" =>
+    case CTest(test_name, _, stmt) if entry == None =>
       local bs: List[CStmt]
       call   compile_stmt(in defs, List(), stmt, out bs, ref g)
       assign ds := List(), ms := List(
@@ -1507,7 +1508,7 @@ procedure compile_cmd(
 
 procedure compile_cmds(
   in  defs: Defs,
-      entry: Id,
+      entry: Option[Id],
       cmds: List[Cmd],
   out ds: List[CDecl],
       ms: List[CStmt],
@@ -1643,15 +1644,21 @@ function prototype(d: CDecl): List[CDecl] :=
       List()
   end
 
-// the C of q of module m, whose main calls the procedure entry without parameters, or runs all tests for the entry test
-procedure compile_program(in q: Prog, m: Id, entry: Id, out f: CFile) :=
+// the C of q of module m, whose main calls the procedure entry without parameters, or runs all tests for None
+procedure compile_program(in q: Prog, m: Id, entry: Option[Id], out f: CFile) :=
   local g := Gen(0, List()), defs := defs_of(q), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl], hs: List[CDecl]
-  if entry != "test" then
-    call require_entry(in q, Name(Some(m), entry))
+  match entry
+    case Some(proc) =>
+      call require_entry(in q, Name(Some(m), proc))
+    case None =>
+      skip
   end
   call compile_cmds(in defs, entry, q.cmds, out ds, ms, ref g)
-  if entry != "test" then
-    assign ms := List(CsExpr(c_call(proc_name(Name(Some(m), entry)), List())))
+  match entry
+    case Some(proc) =>
+      assign ms := List(CsExpr(c_call(proc_name(Name(Some(m), proc)), List())))
+    case None =>
+      skip
   end
   assign fs := wrappers(defs) ++ ds ++ g.lifted
   assign hs := List(CdInclude("ulang.h")) ++ prototypes(fs) ++ descriptor_decls(defs, q.cmds) ++ texts()
@@ -1669,7 +1676,7 @@ function text_decl(p: Str * Str): CDecl :=
 
 // checks the program of the file source, which is its module, and writes its translation to C to target, with the whole
 // library, which every module sees, so also the module list, which the runtime needs
-procedure compile_file(in source: Str, entry: Id, target: Str) :=
+procedure compile_file(in source: Str, entry: Option[Id], target: Str) :=
   local parsed: Source, q: Prog, f: CFile
   call parse_file(in source, out parsed)
   call check_program(in parsed, out q)

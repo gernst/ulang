@@ -40,7 +40,7 @@ bootstrap/ulang.bin: bootstrap/ulang.c $(RUNTIME) Makefile
 
 out/ulang.c: bootstrap/ulang.bin $(SOURCES)
 	mkdir -p out
-	bootstrap/ulang.sh compile ulang/ulang.u main $@
+	bootstrap/ulang.sh compile ulang/ulang.u -o $@
 
 out/ulang.bin: out/ulang.c $(RUNTIME) Makefile
 	$(CC) $(CFLAGS) out/ulang.c ulang/runtime/ulang.c $(LIBS) -o $@
@@ -72,10 +72,10 @@ install_seed = if cmp -s $(1) bootstrap/ulang.c; then echo "the seed is unchange
 # the C of the seed may differ, and that becomes the seed
 selfcompile: out/ulang.bin out/ulang.sh
 	stage=$$(mktemp -d out/stage-XXXXXX) && \
-	out/ulang.sh compile ulang/ulang.u main $$stage/ulang2.c && \
+	out/ulang.sh compile ulang/ulang.u -o $$stage/ulang2.c && \
 	$(CC) $(CFLAGS) $$stage/ulang2.c ulang/runtime/ulang.c $(LIBS) -o $$stage/ulang2.bin && \
 	cp $(SCRIPT) $$stage/ulang2.sh && \
-	$$stage/ulang2.sh compile ulang/ulang.u main $$stage/ulang3.c && \
+	$$stage/ulang2.sh compile ulang/ulang.u -o $$stage/ulang3.c && \
 	cmp $$stage/ulang2.c $$stage/ulang3.c && \
 	$(call install_seed,$$stage/ulang2.c,$$stage/ulang2.bin) && \
 	rm -r -- "$${stage:?}"
@@ -85,10 +85,10 @@ selfcompile: out/ulang.bin out/ulang.sh
 # compiled, must compile them to the same C, and becomes the seed
 bootstrap: bootstrap/ulang.bin
 	mkdir -p out && stage=$$(mktemp -d out/stage-XXXXXX) && \
-	bootstrap/ulang.sh run ulang/ulang.u main -- compile ulang/ulang.u main $$stage/ulang1.c && \
+	bootstrap/ulang.sh run ulang/ulang.u -- compile ulang/ulang.u -o $$stage/ulang1.c && \
 	$(CC) $(CFLAGS) $$stage/ulang1.c ulang/runtime/ulang.c $(LIBS) -o $$stage/ulang1.bin && \
 	cp $(SCRIPT) $$stage/ulang1.sh && \
-	$$stage/ulang1.sh compile ulang/ulang.u main $$stage/ulang2.c && \
+	$$stage/ulang1.sh compile ulang/ulang.u -o $$stage/ulang2.c && \
 	cmp $$stage/ulang1.c $$stage/ulang2.c && \
 	$(call install_seed,$$stage/ulang1.c,$$stage/ulang1.bin) && \
 	rm -r -- "$${stage:?}"
@@ -109,7 +109,7 @@ CHECKS = out/checks
 
 $(CHECKS)/docs.c: out/ulang.bin out/ulang.sh checks/docs.u $(SOURCES)
 	mkdir -p $(CHECKS)
-	out/ulang.sh compile checks/docs.u test $@
+	out/ulang.sh compile checks/docs.u --tests -o $@
 
 $(CHECKS)/docs.bin: $(CHECKS)/docs.c $(RUNTIME) Makefile
 	$(CC) $(CFLAGS) $(CHECKS)/docs.c ulang/runtime/ulang.c $(LIBS) -o $@
@@ -122,14 +122,11 @@ $(CHECKS)/docs.sh: $(SCRIPT)
 testdocs: $(CHECKS)/docs.bin $(CHECKS)/docs.sh
 	cd checks && ../$(CHECKS)/docs.sh
 
-# rewrites every .u file as format does, after a change of the printer, except the files whose first line expects a parse
-# error, which format refuses, ending its run
-REFORMAT = $(shell find project.u $(wildcard ulang examples) -name '*.u' \
-	| xargs awk 'FNR == 1 && !/^\/\/ parse error/ { print FILENAME }' | sort)
-
+# rewrites every .u file as format does, after a change of the printer, which skips the files whose first line expects a
+# parse error, since it refuses them
 .PHONY: reformat
 reformat: out/ulang.bin out/ulang.sh
-	out/ulang.sh format $(REFORMAT)
+	out/ulang.sh format project.u ulang examples
 
 # the same files, each compiled by out/ulang.bin and cc with the runtime object, and run in its directory, by testc.sh in
 # parallel

@@ -72,10 +72,13 @@ Requires a C compiler, GMP, and the Boehm garbage collector. The interpreter and
 make                                      # builds out/ulang.bin and out/ulang.sh from the sources, by the seed in bootstrap/,
                                           # and copies both to the root, so ./ulang.sh works as out/ulang.sh does
 out/ulang.sh run file.u -- args           # checks a program and calls its procedure main
-out/ulang.sh test file.u                  # runs its tests one by one
+out/ulang.sh run file.u:go                # calls its procedure go instead
+out/ulang.sh test file.u                  # runs its tests one by one, as its first line states
+out/ulang.sh test file.u:name             # runs one of them
 out/ulang.sh test dir                     # runs the files below dir, which must pass or fail as their first lines state
 out/ulang.sh check file.u                 # only checks it
-out/ulang.sh compile file.u main file.c   # compiles a program to C, whose main calls the procedure main
+out/ulang.sh compile file.u -o file.c     # compiles a program to C, whose main calls the procedure main
+out/ulang.sh help                         # lists the commands
 cc -I ulang/runtime file.c ulang/runtime/ulang.c -lgmp -lgc
 make test                                 # runs all tests
 ```

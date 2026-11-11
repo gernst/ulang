@@ -173,7 +173,7 @@ function activate(context) {
   async function execute(document, command, names, show) {
     if (document.isDirty) await document.save();
     const file = document.uri.fsPath;
-    const result = await ulang([command, file, ...names], file);
+    const result = await ulang([command, ...(names.length ? names.map((name) => file + ":" + name) : [file])], file);
     if (!result) return;
     diagnose(file, result.stderr, result.stdout);
     if (show) {
