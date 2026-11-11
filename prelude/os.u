@@ -78,17 +78,18 @@ procedure os_walk_entries(
       entries: List[Str * Bool],
   out files: List[Str]
 ) :=
-  local below: List[Str], rest: List[Str]
   match entries
     case List() =>
       assign files := List()
 
     case List((name, true); more) =>
+      local below: List[Str], rest: List[Str]
       call   os_walk_dir(in os_join(dir, name), out below)
       call   os_walk_entries(in dir, more, out rest)
       assign files := below ++ rest
 
     case List((name, false); more) =>
+      local rest: List[Str]
       call   os_walk_entries(in dir, more, out rest)
       assign files := List(os_join(dir, name); rest)
   end

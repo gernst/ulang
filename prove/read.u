@@ -199,14 +199,15 @@ procedure parse_binary(
   end
 
 procedure parse_prefix(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
-  local a: Expr
   match head_tok(toks)
     case TName("not") =>
+      local a: Expr
       call   advance(ref toks)
       call   parse_binary(in env, 5, out a, ref toks)
       assign e := app("not", List(a))
 
     case TSym("-") =>
+      local a: Expr
       call   advance(ref toks)
       call   parse_binary(in env, 9, out a, ref toks)
       assign e := negate(a)
@@ -245,7 +246,7 @@ procedure parse_exprs(
   assign es := reverse(rev)
 
 procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
-  local a: Expr, b: Expr, c: Expr, x := "", xs: List[Var], es: List[Expr], bs: List[Branch]
+  local x := ""
   match head_tok(toks)
     case TInt(num) =>
       call   advance(ref toks)
@@ -260,6 +261,7 @@ procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
       assign e := bool_expr(false)
 
     case TName("if") =>
+      local a: Expr, b: Expr, c: Expr
       call   advance(ref toks)
       call   parse_expr(in env, out c, ref toks)
       call   expect(in TName("then"), ref toks)
@@ -269,6 +271,7 @@ procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
       assign e := EIte(c, a, b)
 
     case TName("let") =>
+      local a: Expr, b: Expr
       call   advance(ref toks)
       call   parse_name(out x, ref toks)
       call   expect(in TSym(":="), ref toks)
@@ -278,12 +281,14 @@ procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
       assign e := subst(0, a, b)
 
     case TName("match") =>
+      local a: Expr, bs: List[Branch]
       call   advance(ref toks)
       call   parse_expr(in env, out a, ref toks)
       call   parse_cases(in env, out bs, ref toks)
       assign e := EMatch(a, bs)
 
     case TName(q) if q == "forall" or q == "exists" or q == "lambda" =>
+      local b: Expr, xs: List[Var]
       call   advance(ref toks)
       call   parse_binders(out xs, ref toks)
       call   expect(in TSym("=>"), ref toks)
@@ -300,6 +305,7 @@ procedure parse_atom(in env: List[Id], out e: Expr, ref toks: List[Tok]) :=
       call expect(in TPunct(')'), ref toks)
 
     case TPunct('[') =>
+      local a: Expr, b: Expr, es: List[Expr]
       call advance(ref toks)
       if head_tok(toks) == TPunct(']') then
         call   advance(ref toks)
@@ -408,7 +414,7 @@ procedure parse_cases(
   assign bs := reverse(rev)
 
 procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
-  local x := "", ps: List[Pat], q: Pat, r: Pat
+  local x := ""
   match head_tok(toks)
     case TName("_") =>
       call   advance(ref toks)
@@ -438,6 +444,7 @@ procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
       assign p := PLit(VBool(false))
 
     case TName(name) =>
+      local ps: List[Pat]
       call advance(ref toks)
       if not is_upper(name) then
         assign p := PVar(Var(name, unknown_type()))
@@ -452,6 +459,7 @@ procedure parse_pattern(out p: Pat, ref toks: List[Tok]) :=
       end
 
     case TPunct('[') =>
+      local ps: List[Pat], q: Pat, r: Pat
       call advance(ref toks)
       if head_tok(toks) == TPunct(']') then
         call   advance(ref toks)

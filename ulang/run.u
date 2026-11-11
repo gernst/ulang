@@ -313,7 +313,6 @@ procedure evaluate(
   out v: Value,
   ref cache: Map[Name, Value]
 ) :=
-  local w: Value, vs: List[Value], sel: Option[Expr * Bindings * List[Name]], s: Str
   match expr
     case ELit(lit) =>
       assign v := VLit(lit)
@@ -344,10 +343,12 @@ procedure evaluate(
 
     // the variables are bound in parallel
     case ELet(bindings, body) =>
+      local vs: List[Value]
       call evaluate_all(in run, env, seconds(bindings), out vs, ref cache)
       call evaluate(in run, bind_all(firsts(bindings), vs, env), body, out v, ref cache)
 
     case EIte(cond, then_expr, else_expr) =>
+      local w: Value
       call evaluate(in run, env, cond, out w, ref cache)
       if is_true(w) then
         call evaluate(in run, env, then_expr, out v, ref cache)
@@ -356,6 +357,7 @@ procedure evaluate(
       end
 
     case EMatch(arg, cases) =>
+      local w: Value, sel: Option[Expr * Bindings * List[Name]], s: Str
       call evaluate(in run, env, arg, out w, ref cache)
       call select(in run, env, w, cases, out sel, ref cache)
       match sel
@@ -369,6 +371,7 @@ procedure evaluate(
 
     // tuples are objects of the constructor ,
     case ETuple(args) =>
+      local vs: List[Value]
       call   evaluate_all(in run, env, args, out vs, ref cache)
       assign v := VTuple(vs)
 
@@ -434,9 +437,9 @@ procedure apply_expr(
   out v: Value,
   ref cache: Map[Name, Value]
 ) :=
-  local a: Value, g: Value, vs: List[Value]
   match (f, args)
     case (EName(Name(None, "and"), _), List(l, r)) =>
+      local a: Value
       call evaluate(in run, env, l, out a, ref cache)
       if is_true(a) then
         call evaluate(in run, env, r, out v, ref cache)
@@ -445,6 +448,7 @@ procedure apply_expr(
       end
 
     case (EName(Name(None, "or"), _), List(l, r)) =>
+      local a: Value
       call evaluate(in run, env, l, out a, ref cache)
       if is_true(a) then
         assign v := a
@@ -453,6 +457,7 @@ procedure apply_expr(
       end
 
     case _ =>
+      local g: Value, vs: List[Value]
       call evaluate(in run, env, f, out g, ref cache)
       call evaluate_all(in run, env, args, out vs, ref cache)
       call apply_value(in run, g, vs, out v, ref cache)
@@ -465,7 +470,6 @@ procedure apply_value(
   out v: Value,
   ref cache: Map[Name, Value]
 ) :=
-  local k: Int, r: Bool, s: Str
   match f
     case VFunClos(env, formals, body) =>
       call evaluate(in run, bind_all(formals, vs, env), body, out v, ref cache)
@@ -492,6 +496,7 @@ procedure apply_value(
       assign v := VObj(constr, vs)
 
     case VPrim(name) =>
+      local k: Int, r: Bool, s: Str
       match (format_name(name), vs)
         case ("compare", List(a, b)) =>
           call   compare_values(in run, a, b, out k, ref cache)
@@ -565,10 +570,9 @@ procedure field_value(
       vs: List[Value],
   out v: Value
 ) :=
-  local p: Int
   match vs
     case List(VObj(k, args); rest) =>
-      assign p := at(position_of(run, k), ps)
+      local p: Int := at(position_of(run, k), ps)
       if p < 0 then
         raise failure(missing_field_name(), List(VStr(field_of(name))))
       end
@@ -588,7 +592,6 @@ function failure(n: Name, args: List[Value]): Thrown :=
   Thrown(VObj(n, args), TSort(n, List()))
 
 procedure primitive(in n: Name, vs: List[Value], out v: Value) :=
-  local r: Bool
   match (format_name(n), vs)
     case ("prelude/prelude.+", List(VInt(a), VInt(b))) =>
       assign v := VInt(a + b)
@@ -727,11 +730,11 @@ procedure equal(
   out r: Bool,
   ref cache: Map[Name, Value]
 ) :=
-  local v: Value, k: Int
   call incomparable(in a)
   call incomparable(in b)
   match (a, b)
     case (VObj(c, xs), VObj(d, ys)) =>
+      local v: Value, k: Int
       match (declared_for(run, c, run.defs.equalities), declared_for(run, c, run.defs.orders))
         case (Some(f), _) =>
           call   apply_value(in run, VFun(f, 2), List(a, b), out v, ref cache)
@@ -769,7 +772,6 @@ procedure compare_values(
   out r: Int,
   ref cache: Map[Name, Value]
 ) :=
-  local v: Value
   call incomparable(in a)
   call incomparable(in b)
   match (a, b)
@@ -786,6 +788,7 @@ procedure compare_values(
       assign r := compare(x, y)
 
     case (VObj(c, xs), VObj(d, ys)) =>
+      local v: Value
       match declared_for(run, c, run.defs.orders)
         case Some(f) =>
           call apply_value(in run, VFun(f, 2), List(a, b), out v, ref cache)
@@ -838,9 +841,9 @@ procedure show_in(
   out s: Str,
   ref cache: Map[Name, Value]
 ) :=
-  local w: Value, texts: List[Str]
   match v
     case VObj(constr, _) if declared_for(run, constr, run.defs.shows) != None =>
+      local w: Value
       match declared_for(run, constr, run.defs.shows)
         case Some(f) =>
           call   apply_value(in run, VFun(f, 1), List(v), out w, ref cache)
@@ -851,6 +854,7 @@ procedure show_in(
       end
 
     case VTuple(args) =>
+      local texts: List[Str]
       call   show_all(in run, args, out texts, ref cache)
       assign s := "(" ++ join(", ", texts) ++ ")"
 
@@ -858,10 +862,12 @@ procedure show_in(
       assign s := constr.base
 
     case VObj(constr, args) =>
+      local texts: List[Str]
       call   show_all(in run, args, out texts, ref cache)
       assign s := constr.base ++ "(" ++ join(", ", texts) ++ ")"
 
     case VArr(values) =>
+      local texts: List[Str]
       call   show_all(in run, List(for x in values), out texts, ref cache)
       assign s := array_text(texts)
 
@@ -910,13 +916,13 @@ procedure exec(
   ref env: Bindings,
       cache: Map[Name, Value]
 ) :=
-  local v: Value, w: Value, vs: List[Value], r: Bool, sel: Option[Stmt * Bindings * List[Name]], s: Str, t: Str
   match stmt
     case SSkip =>
       skip
 
     // the variables are assigned in parallel
     case SAssign(upd) =>
+      local vs: List[Value]
       call   evaluate_all(in run, env, seconds(upd), out vs, ref cache)
       assign env := env ++ Map(for (k, u) in zip(List(for x in firsts(upd) yield x.name), vs))
 
@@ -924,6 +930,7 @@ procedure exec(
       call scoped(in run, List(for x in locals yield x.name), env -- Set(for x in locals yield x.name), stmts, ref env, cache)
 
     case SIf(cond, left, right) =>
+      local v: Value
       call evaluate(in run, env, cond, out v, ref cache)
       if is_true(v) then
         call exec(in run, left, ref env, cache)
@@ -932,6 +939,7 @@ procedure exec(
       end
 
     case SWhile(cond, body) =>
+      local v: Value
       call evaluate(in run, env, cond, out v, ref cache)
       while is_true(v) do
         call exec(in run, body, ref env, cache)
@@ -940,6 +948,7 @@ procedure exec(
 
     // a variable of a procedure type hides the procedures of that name
     case SCall(proc, ins, outs, refs) =>
+      local vs: List[Value]
       call evaluate_all(in run, env, ins, out vs, ref cache)
       match get(proc, env)
         case Some(f) =>
@@ -950,6 +959,7 @@ procedure exec(
       assign env := env ++ Map(for (k, u) in zip(List(for x in outs yield x.name), vs))
 
     case SMatch(arg, cases) =>
+      local v: Value, sel: Option[Stmt * Bindings * List[Name]], s: Str
       call evaluate(in run, env, arg, out v, ref cache)
       call select(in run, env, v, cases, out sel, ref cache)
       match sel
@@ -963,6 +973,7 @@ procedure exec(
 
     // assertions of equations show both sides when they fail
     case SAssert(ECall(Name(None, "=="), _, List(lhs, rhs))) =>
+      local v: Value, w: Value, r: Bool, s: Str, t: Str
       call evaluate(in run, env, lhs, out v, ref cache)
       call evaluate(in run, env, rhs, out w, ref cache)
       call equal(in run, v, w, out r, ref cache)
@@ -973,12 +984,14 @@ procedure exec(
       end
 
     case SAssert(cond) =>
+      local v: Value
       call evaluate(in run, env, cond, out v, ref cache)
       if not is_true(v) then
         raise AssertionFailed
       end
 
     case SRaise(value, typ) =>
+      local v: Value
       call evaluate(in run, env, value, out v, ref cache)
       raise Thrown(v, typ)
 
@@ -1046,12 +1059,12 @@ procedure select[A](
   out sel: Option[A * Bindings * List[Name]],
   ref cache: Map[Name, Value]
 ) :=
-  local ok: Bool
   match cases
     case List() =>
       assign sel := None
 
     case List(Branch(_, pat, guard, body); rest) =>
+      local ok: Bool
       match match_into(pat, v, env)
         case Some(inner) =>
           call holds(in run, inner, guard, out ok, ref cache)
@@ -1073,9 +1086,9 @@ procedure holds(
   out ok: Bool,
   ref cache: Map[Name, Value]
 ) :=
-  local w: Value
   match g
     case Some(e) =>
+      local w: Value
       call   evaluate(in run, env, e, out w, ref cache)
       assign ok := is_true(w)
 
@@ -1092,12 +1105,12 @@ procedure handle(
   ref env: Bindings,
       cache: Map[Name, Value]
 ) :=
-  local ok: Bool
   match hs
     case List() =>
       raise Thrown(v, t)
 
     case List(Catch(_, _, PWild, guard, body); rest) =>
+      local ok: Bool
       call holds(in run, env, guard, out ok, ref cache)
       if ok then
         call exec(in run, body, ref env, cache)
@@ -1107,7 +1120,7 @@ procedure handle(
 
     // the type is compared first, since the pattern and the guard assume it
     case List(Catch(_, typ, pat, guard, body); rest) =>
-      assign ok := false
+      local ok: Bool := false
       if typ == t then
         match match_into(pat, v, env)
           case Some(inner) =>
@@ -1230,10 +1243,10 @@ procedure print_all(in lines: List[Str]) :=
 
 // the procedures of the library os are those of the interpreter of this program, whose OsError the program can catch
 procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
-  local text: Str, entries: List[Str * Bool], yes: Bool
   try
     match (format_name(n), ins)
       case ("prelude/os.os_read", List(VStr(path))) =>
+        local text: Str
         call   os_read(in path, out text)
         assign outs := List(VStr(text))
 
@@ -1242,18 +1255,22 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
         assign outs := List()
 
       case ("prelude/os.os_library", List(VStr(name))) =>
+        local text: Str
         call   os_library(in name, out text)
         assign outs := List(VStr(text))
 
       case ("prelude/os.os_list", List(VStr(path))) =>
+        local entries: List[Str * Bool]
         call   os_list(in path, out entries)
         assign outs := List(list_value(entry_values(entries)))
 
       case ("prelude/os.os_is_dir", List(VStr(path))) =>
+        local yes: Bool
         call   os_is_dir(in path, out yes)
         assign outs := List(VBool(yes))
 
       case ("prelude/os.os_cwd", List()) =>
+        local text: Str
         call   os_cwd(out text)
         assign outs := List(VStr(text))
 

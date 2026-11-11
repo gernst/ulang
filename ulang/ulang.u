@@ -10,7 +10,7 @@ data Unformatted :=
   case Unformatted(line: Int)
 
 procedure main() :=
-  local args: List[Str], command: List[Str], rest: List[Str], ok := true, dir: Bool, formatted: Bool
+  local args: List[Str], command: List[Str], rest: List[Str], ok := true
   call   os_args(out args)
   assign command := first(split_on(args, "--")), rest := second(split_on(args, "--"))
   match command
@@ -28,6 +28,7 @@ procedure main() :=
       end, out ok)
 
     case List("test", first; more) =>
+      local dir: Bool
       call os_is_dir(in first, out dir)
       if dir then
         call test_paths(in List(first; more), out ok)
@@ -48,6 +49,7 @@ procedure main() :=
       end, out ok)
 
     case List("format", file; more) =>
+      local formatted: Bool
       for f in List(file; more) do
         call   attempt(in f, lambda out r =>
           call format_file(in f, out r)

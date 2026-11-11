@@ -578,9 +578,9 @@ procedure compile_expr(
       r: CExpr,
   ref g: Gen
 ) :=
-  local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], ra: CExpr, rb: CExpr, rc: CExpr, rs: List[CExpr], t: Str, d: Str, names: List[Name]
   match expr
     case ELit(LStr(text)) =>
+      local t: Str
       call   gen_name(in "l_" ++ mangle(unqualified(prefix_of(text))) ++ "_", out t, ref g)
       assign ss := List(static_literal(t, text)), r := CeUnary("&", CeVar(t))
 
@@ -604,6 +604,7 @@ procedure compile_expr(
       end
 
     case ECall(name, _, List(l)) if name == array_name() and list_literal(l) != None =>
+      local rs: List[CExpr]
       match list_literal(l)
         case Some(es) =>
           call   compile_exprs(in defs, env, es, out ss, rs, ref g)
@@ -639,6 +640,7 @@ procedure compile_expr(
       raise Unsupported("the untranslated form " ++ form_name(form))
 
     case EApp(fun, args) =>
+      local as: List[CStmt], bs: List[CStmt], ra: CExpr, rs: List[CExpr]
       call   compile_expr(in defs, env, fun, out as, ra, ref g)
       call   compile_exprs(in defs, env, args, out bs, rs, ref g)
       assign ss := as ++ bs, r := c_call("u_apply", List(ra, CeNum(size(args))) ++ rs)
@@ -650,7 +652,7 @@ procedure compile_expr(
       call compile_proc_lambda(in defs, env, ins, outs, refs, stmt, out ss, r, ref g)
 
     case ELet(bindings, body) =>
-      assign names := var_names(firsts(bindings))
+      local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], rb: CExpr, rs: List[CExpr], t: Str, names: List[Name] := var_names(firsts(bindings))
       call   compile_exprs(in defs, env, seconds(bindings), out as, rs, ref g)
       call   compile_expr(in defs, in_scope(names) ++ env, body, out bs, rb, ref g)
       call   gen_name(in "t", out t, ref g)
@@ -661,6 +663,7 @@ procedure compile_expr(
       assign r := CeVar(t)
 
     case EIte(cond, then_expr, else_expr) =>
+      local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], ra: CExpr, rb: CExpr, rc: CExpr, t: Str
       call   compile_expr(in defs, env, cond, out cs, rc, ref g)
       call   compile_expr(in defs, env, then_expr, out as, ra, ref g)
       call   compile_expr(in defs, env, else_expr, out bs, rb, ref g)
@@ -671,6 +674,7 @@ procedure compile_expr(
       assign r := CeVar(t)
 
     case EMatch(arg, cases) =>
+      local as: List[CStmt], bs: List[CStmt], ra: CExpr, t: Str, d: Str
       call   compile_expr(in defs, env, arg, out as, ra, ref g)
       call   gen_name(in "s", out d, ref g)
       call   gen_name(in "t", out t, ref g)
@@ -683,11 +687,13 @@ procedure compile_expr(
       assign r := CeVar(t)
 
     case ETuple(args) =>
+      local rs: List[CExpr]
       call   compile_exprs(in defs, env, args, out ss, rs, ref g)
       assign r := c_call("u_mk_tuple", List(CeNum(size(args))) ++ rs)
 
     // the value of a raise is never used, since u_raise does not return
     case ERaise(value, typ) =>
+      local as: List[CStmt], ra: CExpr
       call   compile_expr(in defs, env, value, out as, ra, ref g)
       assign ss := as ++ List(CsExpr(c_call("u_raise", List(ra, CeStr(type_key(typ)))))), r := CeVar("NULL")
   end
@@ -738,10 +744,10 @@ procedure compile_named(
       r: CExpr,
   ref g: Gen
 ) :=
-  local as: List[CStmt], bs: List[CStmt], ra: CExpr, rb: CExpr, rs: List[CExpr], t: Str
   match args
     // and, or are not strict
     case List(a, b) if n == unqualified("and") or n == unqualified("or") =>
+      local as: List[CStmt], bs: List[CStmt], ra: CExpr, rb: CExpr, t: Str
       call compile_expr(in defs, env, a, out as, ra, ref g)
       call compile_expr(in defs, env, b, out bs, rb, ref g)
       call gen_name(in "t", out t, ref g)
@@ -753,6 +759,7 @@ procedure compile_named(
       assign r := CeVar(t)
 
     case _ =>
+      local rs: List[CExpr]
       call compile_exprs(in defs, env, args, out ss, rs, ref g)
       if is_global_fun(defs, n, size(args)) and arity(ty) == size(args) then
         assign r := c_call(fun_name(n, size(args)), rs)
@@ -836,13 +843,12 @@ procedure expr_cases(
   out ss: List[CStmt],
   ref g: Gen
 ) :=
-  local bs: List[CStmt], rb: CExpr, gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env1: Vars
   match cases
     case List() =>
       assign ss := List()
 
     case List(Branch(_, pat, guard, e); more) =>
-      assign env1 := in_scope(pattern_names(pat)) ++ env
+      local bs: List[CStmt], rb: CExpr, gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env1: Vars := in_scope(pattern_names(pat)) ++ env
       call   compile_expr(in defs, env1, e, out bs, rb, ref g)
       assign body := bs ++ List(CsAssign(CeVar(t), rb))
       match guard
@@ -955,9 +961,9 @@ procedure compile_loops(
   out ss: List[CStmt],
   ref g: Gen
 ) :=
-  local cs: List[CStmt], rc: CExpr, es: List[CStmt], re: CExpr, body: List[CStmt], l: Str, n: Str, i: Str, item: CStmt
   match gs
     case List() =>
+      local cs: List[CStmt], rc: CExpr, es: List[CStmt], re: CExpr
       call   compile_expr(in defs, env, e, out es, re, ref g)
       assign ss := es ++ add(re)
       match cond
@@ -970,6 +976,7 @@ procedure compile_loops(
       end
 
     case List((f, c, x); rest) =>
+      local cs: List[CStmt], rc: CExpr, body: List[CStmt], l: Str, n: Str, i: Str, item: CStmt
       call compile_expr(in defs, env, c, out cs, rc, ref g)
       call compile_loops(in defs, in_scope(List(x.name)) ++ env, rest, cond, e, add, out body, ref g)
       call gen_name(in "l", out l, ref g)
@@ -1021,9 +1028,10 @@ procedure compile_array_comprehension(
       r: CExpr,
   ref g: Gen
 ) :=
-  local cs: List[CStmt], rc: CExpr, loops: List[CStmt], t: Str, n: Str, l: Str, source := unqualified("(source)"), scope: Vars, inner: List[Name * Expr * Var]
+  local source := unqualified("(source)")
   match gs
     case List((f, c, x); rest) =>
+      local cs: List[CStmt], rc: CExpr, loops: List[CStmt], t: Str, n: Str, l: Str, scope: Vars, inner: List[Name * Expr * Var]
       call   compile_expr(in defs, env, c, out cs, rc, ref g)
       call   gen_name(in "t", out t, ref g)
       call   gen_name(in "n", out n, ref g)
@@ -1151,27 +1159,30 @@ procedure compile_stmt(
   out ss: List[CStmt],
   ref g: Gen
 ) :=
-  local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], ra: CExpr, rb: CExpr, rc: CExpr, rs: List[CExpr], t: Str, d: Str, xs: List[Name], ps: List[CExpr]
   match stmt
     case SSkip =>
       assign ss := List()
 
     case SAssign(upd) =>
+      local as: List[CStmt], cs: List[CStmt], rs: List[CExpr]
       call   compile_exprs(in defs, env, seconds(upd), out as, rs, ref g)
       call   temps(in rs, out cs, ref g)
       assign ss := as ++ cs ++ reassign(env, firsts(upd), cs)
 
     case SBlock(locals, stmts) =>
+      local bs: List[CStmt]
       call   compile_stmts(in defs, in_scope(var_names(locals)) ++ env, stmts, out bs, ref g)
       assign ss := List(CsBlock(null_decls(locals) ++ bs))
 
     case SIf(cond, left, right) =>
+      local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], rc: CExpr
       call   compile_expr(in defs, env, cond, out cs, rc, ref g)
       call   compile_stmt(in defs, env, left, out as, ref g)
       call   compile_stmt(in defs, env, right, out bs, ref g)
       assign ss := cs ++ List(CsIf(truth(rc), as, bs))
 
     case SWhile(cond, body) =>
+      local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], ra: CExpr, rc: CExpr, t: Str
       call   compile_expr(in defs, env, cond, out cs, rc, ref g)
       call   compile_stmt(in defs, env, body, out bs, ref g)
       call   gen_name(in "t", out t, ref g)
@@ -1182,6 +1193,7 @@ procedure compile_stmt(
 
     // a variable of a procedure type hides the procedures of that name
     case SCall(proc, ins, outs, refs) =>
+      local as: List[CStmt], rs: List[CExpr], ps: List[CExpr]
       call   compile_exprs(in defs, env, ins, out as, rs, ref g)
       assign ps := address_args(env, outs, refs)
       if get(proc, env) != None then
@@ -1192,6 +1204,7 @@ procedure compile_stmt(
       end
 
     case SMatch(arg, cases) =>
+      local as: List[CStmt], bs: List[CStmt], ra: CExpr, t: Str, d: Str
       call   compile_expr(in defs, env, arg, out as, ra, ref g)
       call   gen_name(in "stmt", out d, ref g)
       call   gen_name(in "d", out t, ref g)
@@ -1202,22 +1215,26 @@ procedure compile_stmt(
 
     // assertions of equations show both sides when they fail
     case SAssert(ECall(Name(None, "=="), _, List(a, b))) =>
+      local as: List[CStmt], bs: List[CStmt], ra: CExpr, rb: CExpr
       call   compile_expr(in defs, env, a, out as, ra, ref g)
       call   compile_expr(in defs, env, b, out bs, rb, ref g)
       assign ss := as ++ bs ++ List(CsExpr(c_call("u_assert_equal", List(ra, rb))))
 
     case SAssert(cond) =>
+      local cs: List[CStmt], rc: CExpr
       call   compile_expr(in defs, env, cond, out cs, rc, ref g)
       assign ss := cs ++ List(CsExpr(c_call("u_assert_true", List(rc))))
 
     // exceptions carry their type, which handlers compare
     case SRaise(value, typ) =>
+      local as: List[CStmt], ra: CExpr
       call   compile_expr(in defs, env, value, out as, ra, ref g)
       assign ss := as ++ List(CsExpr(c_call("u_raise", List(ra, CeStr(type_key(typ))))))
 
     // the body runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if none applies,
     // where the handlers start from the variables before the try, which their copies, unchanged since setjmp, restore
     case STry(body, catches) =>
+      local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], t: Str, d: Str, xs: List[Name]
       call   compile_stmt(in defs, env, body, out bs, ref g)
       call   gen_name(in "h", out d, ref g)
       call   gen_name(in "d", out t, ref g)
@@ -1295,13 +1312,13 @@ procedure handler_cases(
   out ss: List[CStmt],
   ref g: Gen
 ) :=
-  local v := c_call("u_caught", List(CeVar(h))), bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env1: Vars, tests: List[CExpr]
+  local v := c_call("u_caught", List(CeVar(h)))
   match hs
     case List() =>
       assign ss := List()
 
     case List(Catch(_, typ, pat, guard, s); more) =>
-      assign env1 := in_scope(pattern_names(pat)) ++ env
+      local bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env1: Vars := in_scope(pattern_names(pat)) ++ env, tests: List[CExpr]
       call   compile_stmt(in defs, env1, s, out bs, ref g)
       assign body := List(CsAssign(CeVar(d), CeNum(1))) ++ bs
       match guard
@@ -1332,13 +1349,12 @@ procedure stmt_cases(
   out ss: List[CStmt],
   ref g: Gen
 ) :=
-  local bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env1: Vars
   match cases
     case List() =>
       assign ss := List()
 
     case List(Branch(_, pat, guard, s); more) =>
-      assign env1 := in_scope(pattern_names(pat)) ++ env
+      local bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env1: Vars := in_scope(pattern_names(pat)) ++ env
       call   compile_stmt(in defs, env1, s, out bs, ref g)
       assign body := List(CsAssign(CeVar(d), CeNum(1))) ++ bs
       match guard
@@ -1362,9 +1378,9 @@ procedure compile_cmd(
       ms: List[CStmt],
   ref g: Gen
 ) :=
-  local bs: List[CStmt], rb: CExpr, params: List[CType * Str]
   match cmd
     case CFun(name, _, formals, _, body) =>
+      local bs: List[CStmt], rb: CExpr, params: List[CType * Str]
       call   compile_expr(in defs, in_scope(var_names(formals)), body, out bs, rb, ref g)
       assign params := value_formals(formals)
       if formals == List() then
@@ -1376,12 +1392,14 @@ procedure compile_cmd(
 
     // outs and refs are pointers to the variables of the caller, which the procedure assigns when it returns
     case CProc(name, _, ins, outs, refs, stmt) =>
+      local bs: List[CStmt], params: List[CType * Str]
       call   compile_stmt(in defs, in_scope(var_names(ins ++ outs ++ refs)), stmt, out bs, ref g)
       assign params := value_formals(ins) ++ pointer_formals(outs ++ refs)
       assign bs := copy_in(outs, refs) ++ bs ++ copy_out(outs ++ refs)
       assign ds := List(CdFunction(CtVoid, proc_name(name), params, bs)), ms := List()
 
     case CTest(test_name, _, stmt) if entry == "test" =>
+      local bs: List[CStmt]
       call   compile_stmt(in defs, List(), stmt, out bs, ref g)
       assign ds := List(), ms := List(
         CsBlock(bs ++ List(CsExpr(c_call("u_passed", List(CeStr(test_name)))))))

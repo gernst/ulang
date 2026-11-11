@@ -433,9 +433,10 @@ procedure climb_operand[A](
   out a: A,
   ref toks: Tokens
 ) :=
-  local pos := head_pos(toks), operand := ops.operand, b: A
+  local pos := head_pos(toks), operand := ops.operand
   match operator_at(notation, toks)
     case Some(op) =>
+      local b: A
       match prefix_prec(notation, op)
         case Some(prec) =>
           call   advance(ref toks)
@@ -466,9 +467,10 @@ procedure climb_rest[A](
   out a: A,
   ref toks: Tokens
 ) :=
-  local pos := head_pos(toks), args: List[A]
+  local pos := head_pos(toks)
   match operator_at(notation, toks)
     case Some(op) =>
+      local args: List[A]
       match (postfix_prec(notation, op), infix_of(notation, op))
         case (Some(prec), _) if prec >= min =>
           call advance(ref toks)
@@ -595,8 +597,8 @@ procedure parse_type_atom(
   out r: List[Type],
   ref toks: Tokens
 ) :=
-  local name: Id, args: List[Type], ins: List[Type], outs: List[Type], refs: List[Type]
   if at_kw(toks, "(") and contains(second_token(toks), List(TKw("in"), TKw("out"), TKw("ref"))) then
+    local ins: List[Type], outs: List[Type], refs: List[Type]
     call   advance(ref toks)
     call   parse_sections(in notation, params, parse_type, parse_type, out ins, outs, refs, ref toks)
     call   expect(in TKw(")"), ref toks)
@@ -606,6 +608,7 @@ procedure parse_type_atom(
       call advance(ref toks)
       call parse_enclosed(in notation, params, parse_type, ")", out r, ref toks)
     else
+      local name: Id, args: List[Type]
       call parse_plain_name(in notation, params, out name, ref toks)
       if at_kw(toks, "[") then
         call   advance(ref toks)
@@ -738,7 +741,6 @@ procedure parse_expr_atom(
   out expr: Expr,
   ref toks: Tokens
 ) :=
-  local a: Expr, l: Expr, r: Expr, cases: List[Branch[Expr]], exprs: List[Expr]
   match (literal_at(toks), head_token(toks))
     case (Some(v), _) =>
       call   advance(ref toks)
@@ -748,6 +750,7 @@ procedure parse_expr_atom(
       call parse_let(in notation, params, out expr, ref toks)
 
     case (_, TKw("if")) =>
+      local a: Expr, l: Expr, r: Expr
       call   advance(ref toks)
       call   parse_expr(in notation, params, out a, ref toks)
       call   expect(in TKw("then"), ref toks)
@@ -760,12 +763,14 @@ procedure parse_expr_atom(
       call parse_lambda(in notation, params, out expr, ref toks)
 
     case (_, TKw("match")) =>
+      local a: Expr, cases: List[Branch[Expr]]
       call   advance(ref toks)
       call   parse_expr(in notation, params, out a, ref toks)
       call   parse_cases(in notation, params, parse_expr, out cases, ref toks)
       assign expr := EMatch(a, cases)
 
     case (_, TKw("(")) =>
+      local exprs: List[Expr]
       call advance(ref toks)
       call parse_enclosed(in notation, params, parse_expr, ")", out exprs, ref toks)
       match exprs
@@ -852,20 +857,22 @@ procedure parse_lambda(
   out expr: Expr,
   ref toks: Tokens
 ) :=
-  local ins: List[Var], outs: List[Var], refs: List[Var], body: Stmt, pats: List[Pat], inner: Expr
   call advance(ref toks)
   if at_mode(toks) then
+    local ins: List[Var], outs: List[Var], refs: List[Var], body: Stmt
     call   parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
     call   expect(in TKw("=>"), ref toks)
     call   parse_body(in notation, params, out body, ref toks)
     call   expect(in TKw("end"), ref toks)
     assign expr := EProc(ins, outs, refs, body)
   else
+    local inner: Expr
     if head_token(toks) == TKw("=>") then
       call   expect(in TKw("=>"), ref toks)
       call   parse_expr(in notation, params, out inner, ref toks)
       assign expr := ELam(List(), inner)
     else
+      local pats: List[Pat]
       call   parse_separated(in notation, params, parse_pattern, at_comma, out pats, ref toks)
       call   expect(in TKw("=>"), ref toks)
       call   parse_expr(in notation, params, out inner, ref toks)
@@ -1106,7 +1113,6 @@ procedure parse_pattern_atom(
   out pat: Pat,
   ref toks: Tokens
 ) :=
-  local name: Id, pats: List[Pat], rest: Option[Pat]
   match (literal_at(toks), head_token(toks))
     case (Some(v), _) =>
       call   advance(ref toks)
@@ -1117,6 +1123,7 @@ procedure parse_pattern_atom(
       assign pat := PWild
 
     case (_, TKw("(")) =>
+      local pats: List[Pat]
       call advance(ref toks)
       call parse_enclosed(in notation, params, parse_pattern, ")", out pats, ref toks)
       match pats
@@ -1128,6 +1135,7 @@ procedure parse_pattern_atom(
 
     // List(), List(a, b), and List(a, b; rest), since only lists have free constructors
     case _ if form_at(toks) == Some(FList) =>
+      local pats: List[Pat], rest: Option[Pat]
       call advance(ref toks)
       call expect(in TKw("("), ref toks)
       if at_kw(toks, ")") then
@@ -1139,6 +1147,7 @@ procedure parse_pattern_atom(
       call expect(in TKw(")"), ref toks)
 
     case _ =>
+      local name: Id, pats: List[Pat]
       call parse_plain_name(in notation, params, out name, ref toks)
       if at_kw(toks, "(") then
         call   advance(ref toks)
@@ -1250,7 +1259,6 @@ procedure parse_stmt(
   out stmt: Stmt,
   ref toks: Tokens
 ) :=
-  local expr: Expr, body: Stmt, cases: List[Branch[Stmt]]
   match head_token(toks)
     case TKw("skip") =>
       call   advance(ref toks)
@@ -1260,6 +1268,7 @@ procedure parse_stmt(
       call parse_if(in notation, params, out stmt, ref toks)
 
     case TKw("while") =>
+      local expr: Expr, body: Stmt
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
       call   expect(in TKw("do"), ref toks)
@@ -1274,12 +1283,14 @@ procedure parse_stmt(
       call parse_call(in notation, params, out stmt, ref toks)
 
     case TKw("match") =>
+      local expr: Expr, cases: List[Branch[Stmt]]
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
       call   parse_cases(in notation, params, parse_body, out cases, ref toks)
       assign stmt := SMatch(expr, cases)
 
     case TKw("assert") =>
+      local expr: Expr
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
       assign stmt := SAssert(expr)
@@ -1288,11 +1299,13 @@ procedure parse_stmt(
       call parse_assign(in notation, params, out stmt, ref toks)
 
     case TKw("raise") =>
+      local expr: Expr
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
       assign stmt := SRaise(expr, THole)
 
     case TKw("try") =>
+      local body: Stmt, cases: List[Branch[Stmt]]
       call   advance(ref toks)
       call   parse_body(in notation, params, out body, ref toks)
       call   expect(in TKw("catch"), ref toks)
@@ -1690,15 +1703,15 @@ procedure parse_command(
   out cmds: List[Cmd],
   ref toks: Tokens
 ) :=
-  local name: Id, params: List[Id], typ: Type, cmd: Cmd, body: Stmt, xs: List[Var], pos: Pos
   match head_token(toks)
     case TKw(kw) if contains(kw, List("prefix", "postfix", "infix")) =>
-      assign pos := head_pos(toks)
+      local cmd: Cmd, pos: Pos := head_pos(toks)
       call   parse_notation(in notation, out cmd, ref toks)
       call   check_duplicates(in notation, List(cmd), pos)
       assign cmds := List(cmd)
 
     case TKw("type") =>
+      local name: Id, params: List[Id], typ: Type
       call advance(ref toks)
       call parse_name(out name, ref toks)
       call parse_params(in notation, out params, ref toks)
@@ -1714,18 +1727,22 @@ procedure parse_command(
       call parse_data(in notation, out cmds, ref toks)
 
     case TKw("function") =>
+      local cmd: Cmd
       call   parse_function(in notation, out cmd, ref toks)
       assign cmds := List(cmd)
 
     case TKw("procedure") =>
+      local cmd: Cmd
       call   parse_procedure(in notation, out cmd, ref toks)
       assign cmds := List(cmd)
 
     case TKw("pattern") =>
+      local cmd: Cmd
       call   parse_pat_alias(in notation, out cmd, ref toks)
       assign cmds := List(cmd)
 
     case TKw("test") =>
+      local name: Id, body: Stmt, xs: List[Var]
       call   advance(ref toks)
       call   parse_name(out name, ref toks)
       call   parse_formals(in notation, List(), out xs, ref toks)
@@ -1941,7 +1958,7 @@ procedure lex_member(in id: Id, text: Str, main: Bool, out toks: Tokens) :=
 // notation commands at the start of a line, which parse without notation, where those that do not parse are left to the
 // parse of the module
 procedure exported_ops(in toks: Tokens, out notation: Notation) :=
-  local rest := toks, inside := false, cmd: Cmd
+  local rest := toks, inside := false
   assign notation := empty_notation()
   while head_token(rest) != TEnd do
     match (head_pos(rest).col, head_token(rest))
@@ -1953,6 +1970,7 @@ procedure exported_ops(in toks: Tokens, out notation: Notation) :=
         assign rest := List()
 
       case (1, TKw(kw)) if inside and contains(kw, List("prefix", "postfix", "infix")) =>
+        local cmd: Cmd
         try
           call   parse_notation(in empty_notation(), out cmd, ref rest)
           assign notation := with_notation(notation, List(cmd))
