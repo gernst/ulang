@@ -1695,6 +1695,31 @@ procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
     assign cmd := CProcSig(unqualified(name), params, ins, outs, refs)
   end
 
+// lemma l[A, …](x: A, …) := requires a, … ensures b, where requires is optional
+procedure parse_lemma(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
+  local name: Id, params: List[Id], xs: List[Var], assms: List[Expr] := List(), concl: Expr, pos: Pos
+  call   advance(ref toks)
+  assign pos := head_pos(toks)
+  call   parse_name(out name, ref toks)
+  call   check_value_name(in name, pos)
+  call   parse_params(in notation, out params, ref toks)
+  call   parse_formals(in notation, params, out xs, ref toks)
+  call   expect(in TKw(":="), ref toks)
+  if head_token(toks) == TKw("requires") then
+    local assm: Expr
+    call   advance(ref toks)
+    call   parse_expr(in notation, params, out assm, ref toks)
+    assign assms := List(assm)
+    while head_token(toks) == TKw(",") do
+      call   advance(ref toks)
+      call   parse_expr(in notation, params, out assm, ref toks)
+      assign assms := assms ++ List(assm)
+    end
+  end
+  call   expect(in TKw("ensures"), ref toks)
+  call   parse_expr(in notation, params, out concl, ref toks)
+  assign cmd := CLemma(unqualified(name), params, xs, assms, concl)
+
 // the commands of one declaration
 procedure parse_command(
   in  notation: Notation,
@@ -1737,6 +1762,11 @@ procedure parse_command(
     case TKw("pattern") =>
       local cmd: Cmd
       call   parse_pat_alias(in notation, out cmd, ref toks)
+      assign cmds := List(cmd)
+
+    case TKw("lemma") =>
+      local cmd: Cmd
+      call   parse_lemma(in notation, out cmd, ref toks)
       assign cmds := List(cmd)
 
     case TKw("test") =>
@@ -2186,6 +2216,9 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
 
     case (List(CTest(_, _, _); _), InExport) =>
       raise ParseError("tests belong to the implementation section", pos)
+
+    case (List(CLemma(_, _, _, _, _); _), InExport) =>
+      raise ParseError("lemmas belong to the implementation section", pos)
 
     case (_, Opening) =>
       assign section := NoSections

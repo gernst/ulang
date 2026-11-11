@@ -1,0 +1,14 @@
+// lemmas about the lists of the library, which the prover proves by its default proof
+
+lemma append_nil[A](xs: List[A]) :=
+  ensures xs ++ List() == xs
+
+lemma append_assoc[A](xs: List[A], ys: List[A], zs: List[A]) :=
+  ensures (xs ++ ys) ++ zs == xs ++ ys ++ zs
+
+lemma size_append[A](xs: List[A], ys: List[A]) :=
+  ensures size(xs ++ ys) == size(xs) + size(ys)
+
+lemma take_drop[A](n: Int, xs: List[A]) :=
+  requires 0 <= n
+  ensures  take(n, xs) ++ drop(n, xs) == xs

@@ -799,7 +799,17 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
 
     case CTest(test_name, vars, stmt) =>
       Some("test " ++ test_name ++ "(" ++ formals_text(vars) ++ ") :=" ++ format_body(notation, "  ", stmt))
+
+    case CLemma(name, params, formals, assms, concl) =>
+      Some("lemma " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ ") :=" ++ contract_text(notation, assms, concl))
   end
+
+// requires and ensures on lines of their own, where ensures aligns with requires
+function contract_text(notation: Notation, assms: List[Expr], concl: Expr): Str :=
+  if assms == List() then
+    "\n  ensures " ++ format_expr(notation, "  ", concl)
+  else
+    "\n  requires " ++ join(", ", List(for a in assms yield format_expr(notation, "  ", a))) ++ "\n  ensures  " ++ format_expr(notation, "  ", concl)
 
 function data_text(name: Name, params: List[Id], constrs: List[Constr]): Str :=
   "data " ++ name.base ++ params_text(params) ++ " :=" ++ constrs_text(constrs)

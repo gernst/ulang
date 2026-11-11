@@ -159,6 +159,9 @@ function cmd_names(cmd: Cmd): List[Str] :=
 
     case CPatAlias(name, _, _, _, _) =>
       List(name.base)
+
+    case CLemma(name, _, _, _, _) =>
+      List(name.base)
   end
 
 function cmd_fields(cmd: Cmd): List[Str * Set[Str]] :=

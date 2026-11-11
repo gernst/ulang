@@ -1,0 +1,5 @@
+// parse error: lemmas belong to the implementation section at 4.1
+export
+
+lemma l(x: Int) :=
+  ensures x == x

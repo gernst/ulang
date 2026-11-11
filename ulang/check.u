@@ -132,6 +132,9 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
     case CPatAlias(name, params, formals, typ, pat) =>
       CPatAlias(in_module(m, name), params, formals, typ, pat)
 
+    case CLemma(name, params, formals, assms, concl) =>
+      CLemma(in_module(m, name), params, formals, assms, concl)
+
     case CNotation(_, _, _) =>
       cmd
 
@@ -660,6 +663,9 @@ function zonk_cmd(s: State, cmd: Cmd): Cmd :=
     case CTest(test_name, vars, stmt) =>
       CTest(test_name, vars, zonk_stmt(s, stmt))
 
+    case CLemma(name, params, formals, assms, concl) =>
+      CLemma(name, params, zonk_vars(s, formals), List(for a in assms yield zonk_expr(s, a)), zonk_expr(s, concl))
+
     case _ =>
       cmd
   end
@@ -788,6 +794,9 @@ function unknown_in_cmd(cmd: Cmd): Option[Type] :=
 
     case CTest(_, _, stmt) =>
       unknown_in(stmt)
+
+    case CLemma(_, _, _, assms, concl) =>
+      find_map(List(concl; assms), unknown_in_expr)
 
     case _ =>
       None
@@ -2603,6 +2612,26 @@ procedure declare_pat_aliases(in cs: List[Id * Cmd], ref s: State) :=
     end
   end
 
+// lemmas have names of their own, apart from the values, which they may share
+procedure declare_lemmas(in cs: List[Id * Cmd], ref s: State) :=
+  for (m, cmd) in cs do
+    match cmd
+      case CLemma(name, ps, formals, _, _) =>
+        local xs: List[Var]
+        assign s := enter(s, m)
+        if lemma_of(s.sig, name) != None then
+          raise AlreadyDefined(name)
+        end
+        call   unique_ids(in "type parameter", ps)
+        call   signature(in formals, out xs, ref s)
+        call   closed(in name, ps, List(for x in xs yield x.typ))
+        assign s := with_sig(s, with_lemma(s.sig, name, LemmaSig(params(ps), List(for x in xs yield x.typ))))
+
+      case _ =>
+        skip
+    end
+  end
+
 procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
@@ -2653,6 +2682,17 @@ procedure command(in cmd: Cmd, out c1: Cmd, ref s: State) :=
 
     case CTest(test_name, _, _) =>
       raise TestParams(test_name)
+
+    case CLemma(name, params, formals, assms, concl) =>
+      local xs: List[Var], checked: List[Expr] := List(), c: Expr
+      call signature(in formals, out xs, ref s)
+      for a in assms do
+        local b: Expr
+        call   check(in bind(xs), a, TBool(), out b, ref s)
+        assign checked := checked ++ List(b)
+      end
+      call   check(in bind(xs), concl, TBool(), out c, ref s)
+      assign c1 := CLemma(name, params, xs, checked, c)
 
     case _ =>
       assign c1 := cmd
@@ -2819,6 +2859,9 @@ function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
       List(name)
 
     case CPatAlias(name, _, _, _, _) =>
+      List(name)
+
+    case CLemma(name, _, _, _, _) =>
       List(name)
 
     case CTest(_, _, _) =>
@@ -3126,6 +3169,7 @@ procedure check_package(
   call   each_placed(in declare_pat_aliases, placed, ref s)
   call   each_placed(in declare_funs, placed, ref s)
   call   each_placed(in declare_procs, placed, ref s)
+  call   each_placed(in declare_lemmas, placed, ref s)
   call   declare_funs(in builtins, ref s)
   call   declare_procs(in builtins, ref s)
   for d in mods do

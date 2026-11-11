@@ -183,6 +183,9 @@ data Cmd :=
   // a pattern alias pattern C[A, …](x: A, …): T := pat, whose variables are the formals, each once, which the checker
   // expands at its uses in patterns, and which is a function of the same name where pat has no _
   case CPatAlias(name: Name, params: List[Id], formals: List[Var], typ: Type, pat: Pat)
+  // lemma l[A, …](x: A, …) := requires a, … ensures b, which states b for all formals that satisfy the assumptions a, …,
+  // see prove.md, and which the prover proves, while the interpreter and the compiler skip it
+  case CLemma(name: Name, params: List[Id], formals: List[Var], assms: List[Expr], concl: Expr)
 
 data Prog :=
   // the commands of a program without modules, as tests build it

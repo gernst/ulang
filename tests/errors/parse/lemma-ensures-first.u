@@ -1,0 +1,4 @@
+// parse error: declaration expected but requires found at 4.3
+lemma l(x: Int) :=
+  ensures  x == x
+  requires x > 0

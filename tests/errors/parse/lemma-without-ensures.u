@@ -1,0 +1,6 @@
+// parse error: ensures expected but test found at 5.1
+lemma l(x: Int) :=
+  requires x > 0
+
+test t() :=
+  skip

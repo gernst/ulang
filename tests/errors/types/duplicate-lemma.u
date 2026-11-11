@@ -1,0 +1,6 @@
+// type error: l is already defined at 5.1
+lemma l(x: Int) :=
+  ensures x == x
+
+lemma l(y: Bool) :=
+  ensures y == y

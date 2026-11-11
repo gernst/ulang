@@ -1,0 +1,4 @@
+// type error: cannot unify Int and Bool at 2.1
+lemma l(x: Int) :=
+  requires x
+  ensures  x == x
