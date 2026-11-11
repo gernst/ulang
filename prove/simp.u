@@ -15,6 +15,8 @@
 // acyclic, and linear sums are solved for an atom, and inequalities over sums, decided by Fourier–Motzkin, which stand
 // for the CC(X) of the plan until it is a union-find. Facts with variables are rewrite rules.
 
+import "ulang"
+
 export
 
 // nested sequents:
@@ -172,10 +174,10 @@ function loose_concl(c: Int, d: Concl): List[Int] :=
 
 function to_seq(e: Term): Seq :=
   match e
-    case EConst(VBool(true)) =>
+    case EConst(LBool(true)) =>
       true_seq()
 
-    case EConst(VBool(false)) =>
+    case EConst(LBool(false)) =>
       false_seq()
 
     case Not(a) =>
@@ -473,7 +475,7 @@ function assume_term(ctx: Ctx, e: Term, b: Bool): Ctx :=
     ctx
   else
     match e
-      case EConst(VBool(bool)) =>
+      case EConst(LBool(bool)) =>
         if bool == b then ctx else contradiction(ctx)
 
       case Not(a) =>
@@ -706,7 +708,7 @@ function bounds(ctx: Ctx, t: Lin): List[Lin] :=
 
 function bound_of(r: Rule, a: Term): List[Lin] :=
   match (r.conds, r.lhs, r.rhs)
-    case (List(), Less(p, q), EConst(VBool(bool))) =>
+    case (List(), Less(p, q), EConst(LBool(bool))) =>
       match lin_sub(lin_of(p), lin_of(q))
         case Lin(_, List(Summand(atom, _))) =>
           match match_term(size(r.vars), atom, a, empty())
@@ -764,10 +766,10 @@ function simp_term(ctx: Ctx, e: Term): Term :=
     case EIte(cond, then_expr, else_expr) =>
       let t := simp_term(ctx, cond) in
       match t
-        case EConst(VBool(true)) =>
+        case EConst(LBool(true)) =>
           simp_term(ctx, then_expr)
 
-        case EConst(VBool(false)) =>
+        case EConst(LBool(false)) =>
           simp_term(ctx, else_expr)
 
         case _ =>
@@ -818,10 +820,10 @@ function simp_ite(c: Term, a: Term, b: Term): Term :=
     a
   else
     match (a, b)
-      case (EConst(VBool(true)), EConst(VBool(false))) =>
+      case (EConst(LBool(true)), EConst(LBool(false))) =>
         c
 
-      case (EConst(VBool(false)), EConst(VBool(true))) =>
+      case (EConst(LBool(false)), EConst(LBool(true))) =>
         app("not", List(c))
 
       case _ =>
@@ -859,19 +861,19 @@ function simp_builtin(ctx: Ctx, op: Id, args: List[Term]): Term :=
     case ("-", List(a, b)) =>
       rewrite(ctx, sum_term(lin_sub(lin_of(a), lin_of(b))))
 
-    case ("*", List(EConst(VInt(num)), b)) =>
+    case ("*", List(EConst(LInt(num)), b)) =>
       rewrite(ctx, sum_term(lin_scale(num, lin_of(b))))
 
-    case ("*", List(a, EConst(VInt(num)))) =>
+    case ("*", List(a, EConst(LInt(num)))) =>
       rewrite(ctx, sum_term(lin_scale(num, lin_of(a))))
 
     case ("*", List(a, b)) =>
       rewrite(ctx, app("*", ordered(a, b)))
 
-    case ("/", List(EConst(VInt(m)), EConst(VInt(n)))) if n != 0 =>
+    case ("/", List(EConst(LInt(m)), EConst(LInt(n)))) if n != 0 =>
       int_term(m / n)
 
-    case ("%", List(EConst(VInt(m)), EConst(VInt(n)))) if n != 0 =>
+    case ("%", List(EConst(LInt(m)), EConst(LInt(n)))) if n != 0 =>
       int_term(m % n)
 
     case ("==", List(a, b)) =>
@@ -880,7 +882,7 @@ function simp_builtin(ctx: Ctx, op: Id, args: List[Term]): Term :=
     case ("<", List(a, b)) =>
       simp_less(ctx, a, b)
 
-    case ("not", List(EConst(VBool(bool)))) =>
+    case ("not", List(EConst(LBool(bool)))) =>
       bool_term(not bool)
 
     case ("not", List(Not(a))) =>
@@ -977,10 +979,10 @@ function unfold(ctx: Ctx, t: Term, d: Def, args: List[Term]): Term :=
 
         case EIte(cond, then_expr, else_expr) =>
           match simp_term(inner, cond)
-            case EConst(VBool(true)) =>
+            case EConst(LBool(true)) =>
               simp_term(inner, then_expr)
 
-            case EConst(VBool(false)) =>
+            case EConst(LBool(false)) =>
               simp_term(inner, else_expr)
 
             case _ =>
@@ -1012,10 +1014,10 @@ function select(ctx: Ctx, t: Term, bs: List[TermBranch]): Option[Term] :=
 
             case Some(h) =>
               match simp_term(ctx, beta(exprs, h))
-                case EConst(VBool(true)) =>
+                case EConst(LBool(true)) =>
                   Some(beta(exprs, body))
 
-                case EConst(VBool(false)) =>
+                case EConst(LBool(false)) =>
                   select(ctx, t, rest)
 
                 case _ =>
@@ -1052,6 +1054,9 @@ function match_pat(decls: Decls, p: Pat, t: Term): PatMatch :=
         case None =>
           Stuck
       end
+
+    case PTuple(args) =>
+      match_pat(decls, PApp(tuple_name(size(args)), args), t)
   end
 
 function match_pats(decls: Decls, ps: List[Pat], ts: List[Term]): PatMatch :=
@@ -1351,7 +1356,7 @@ function fresh_all(names: List[Id], xs: List[Var]): List[Id] :=
       List()
 
     case List(x; rest) =>
-      let y := fresh(names, x.name) in
+      let y := fresh(names, x.name.base) in
       List(y; fresh_all(names ++ List(y), rest))
   end
 

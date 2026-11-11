@@ -1,39 +1,18 @@
-// the terms of the prover, independent of the syntax of ulang/, see prove.md, which is not versioned
+// the terms of the prover, over the names, literals, types, variables, and patterns of ulang/syntax.u, see prove.md,
+// which is not versioned
 //
 // Variables are de Bruijn indices for the binders inside a term (ELam, EMatch, and Seq and Concl of simp.u),
 // and de Bruijn levels for the variables of the opened sequents, counted from the root.
 // A list of binders binds from left to right, the last one is EBound(0).
 
+import "ulang"
+
 export
-
-// names as in ulang/syntax.u, with the module that declares them, which is None for locals and builtins
-type Id :=
-  Str
-
-data Name :=
-  case Name(module: Option[Id], base: Id)
-
-data Val :=
-  case VUnit
-  case VBool(bool: Bool)
-  case VInt(num: Int)
-  case VStr(text: Str)
-  case VChar(char: Char)
-
-// TParam indexes the type parameters of the enclosing function or lemma
-data Type :=
-  case TParam(index: Int)
-  case TSort(name: Name, args: List[Type])
-  case TFun(args: List[Type], res: Type)
-
-// bound variables, whose names are only for printing
-data Var :=
-  case Var(name: Id, typ: Type)
 
 data Term :=
   case EBound(index: Int)
   case ELevel(level: Int)
-  case EConst(lit: Val)
+  case EConst(lit: Lit)
   case EFun(name: Name)
   // of any head, a symbol, a variable, or a lambda, where tuples are constructors as well
   case EApp(fun: Term, args: List[Term])
@@ -52,13 +31,6 @@ data Summand :=
 // the variables of the pattern bind in the guard and the body, from left to right
 data TermBranch :=
   case TermBranch(pat: Pat, guard: Option[Term], body: Term)
-
-// tuples are constructors, as in Term
-data Pat :=
-  case PWild
-  case PLit(lit: Val)
-  case PVar(var: Var)
-  case PApp(constr: Name, pats: List[Pat])
 
 // a linear sum k + k1·t1 + … as it is computed with, which sum_term makes canonical
 data Lin :=
@@ -111,6 +83,9 @@ pattern Forall(formals: List[Var], body: Term): Term :=
 pattern Exists(formals: List[Var], body: Term): Term :=
   EApp(EFun(Name(None, "exists")), List(ELam(formals, body)))
 
+// the constructor of tuples of n components, by a name that users cannot write, as which PTuple is matched
+function tuple_name(n: Int): Name
+
 function sym(base: Id): Term
 
 function app(f: Id, args: List[Term]): Term
@@ -159,6 +134,9 @@ function print_term(names: List[Id], e: Term): Str
 
 implementation
 
+function tuple_name(n: Int): Name :=
+  Name(None, "(" ++ str(List(for _ in range(1, n) yield ',')) ++ ")")
+
 function sym(base: Id): Term :=
   EFun(Name(None, base))
 
@@ -166,10 +144,10 @@ function app(f: Id, args: List[Term]): Term :=
   EApp(sym(f), args)
 
 function bool_term(b: Bool): Term :=
-  EConst(VBool(b))
+  EConst(LBool(b))
 
 function int_term(n: Int): Term :=
-  EConst(VInt(n))
+  EConst(LInt(n))
 
 function empty_decls(): Decls :=
   Decls(empty(), empty(), empty(), empty())
@@ -283,6 +261,9 @@ function pattern_vars(p: Pat): List[Var] :=
 
     case PApp(_, pats) =>
       List(for q in pats for x in pattern_vars(q) yield x)
+
+    case PTuple(args) =>
+      List(for q in args for x in pattern_vars(q) yield x)
 
     case _ =>
       List()
@@ -480,7 +461,7 @@ function lin_of(e: Term): Lin :=
     case ESum(constant, summands) =>
       Lin(constant, summands)
 
-    case EConst(VInt(num)) =>
+    case EConst(LInt(num)) =>
       Lin(num, List())
 
     case _ =>
@@ -695,10 +676,10 @@ function print_in(names: List[Id], bound: List[Id], e: Term): Str :=
   end
 
 function bound_names(xs: List[Var], bound: List[Id]): List[Id] :=
-  reverse(List(for x in xs yield x.name)) ++ bound
+  reverse(List(for x in xs yield x.name.base)) ++ bound
 
 function print_binders(xs: List[Var]): Str :=
-  join(", ", List(for x in xs yield x.name))
+  join(", ", List(for x in xs yield x.name.base))
 
 function print_arg(names: List[Id], bound: List[Id], e: Term): Str :=
   match e
@@ -717,7 +698,7 @@ function print_arg(names: List[Id], bound: List[Id], e: Term): Str :=
     case ELam(_, _) =>
       "(" ++ print_in(names, bound, e) ++ ")"
 
-    case EConst(VInt(num)) if num < 0 =>
+    case EConst(LInt(num)) if num < 0 =>
       "(" ++ show(num) ++ ")"
 
     case _ =>
@@ -746,7 +727,7 @@ function print_pat(p: Pat): Str :=
       print_val(lit)
 
     case PVar(var) =>
-      var.name
+      var.name.base
 
     case PApp(Name(_, "Nil"), List()) =>
       "[]"
@@ -759,6 +740,9 @@ function print_pat(p: Pat): Str :=
 
     case PApp(Name(_, base), pats) =>
       base ++ "(" ++ join(", ", List(for q in pats yield print_pat(q))) ++ ")"
+
+    case PTuple(args) =>
+      "(" ++ join(", ", List(for q in args yield print_pat(q))) ++ ")"
   end
 
 // the atoms first, as written, then the constant
@@ -800,20 +784,20 @@ function print_summand(names: List[Id], bound: List[Id], summand: Summand): Str 
   else
     " - " ++ show(0 - n) ++ " * " ++ print_arg(names, bound, t)
 
-function print_val(v: Val): Str :=
+function print_val(v: Lit): Str :=
   match v
-    case VUnit =>
+    case LUnit =>
       "()"
 
-    case VBool(bool) =>
+    case LBool(bool) =>
       show(bool)
 
-    case VInt(num) =>
+    case LInt(num) =>
       show(num)
 
-    case VStr(text) =>
+    case LStr(text) =>
       quote(text)
 
-    case VChar(char) =>
+    case LChar(char) =>
       show(char)
   end
