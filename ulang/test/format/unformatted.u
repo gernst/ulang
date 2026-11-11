@@ -1,3 +1,0 @@
-// format error: the file differs from what ulang format writes at 3.1
-function f(): Int :=
-  1  +  2
