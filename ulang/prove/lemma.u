@@ -1,6 +1,6 @@
 // the default proof of lemmas, until proofs have syntax, see prove.md, which is not versioned
 
-import "ulang"
+import "ulang/syntax"
 
 export
 

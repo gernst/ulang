@@ -1,5 +1,7 @@
-// the definitions of a program that ulang/check.u has checked, as the interpreter of ulang/run.u and the compiler of
-// ulang/compile.u look them up, with the declared orders, equalities, and shows of its datatypes
+// the definitions of a program that ulang/check/check.u has checked, as the interpreter of ulang/run/run.u and the compiler of
+// ulang/compile/compile.u look them up, with the declared orders, equalities, and shows of its datatypes
+
+import "ulang/syntax"
 
 export
 

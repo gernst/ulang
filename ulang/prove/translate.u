@@ -1,10 +1,10 @@
-// the translation of the programs that ulang/check.u checks into the terms of the prover, see prove.md, which is not
+// the translation of the programs that ulang/check/check.u checks into the terms of the prover, see prove.md, which is not
 // versioned
 //
 // Checked programs have resolved names, which the terms keep: only the formals and the variables of lambdas, lets, and
 // patterns become indices, by an environment of their names, the innermost first.
 
-import "ulang"
+import "ulang/syntax"
 
 export
 
@@ -35,7 +35,7 @@ function fun_name(cmd: Cmd): Option[Name] :=
       None
   end
 
-// a function by its name and arity, as Defs.funs of ulang/defs.u, with its formals and body
+// a function by its name and arity, as Defs.funs of ulang/check/defs.u, with its formals and body
 function definition(cmd: Cmd): Option[(Name * Int) * (List[Var] * Term)] :=
   match cmd
     case CFun(name, _, formals, _, body) =>

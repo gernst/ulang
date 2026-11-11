@@ -2,9 +2,10 @@
 // move or a rename that leaves one stale fails here: a reference is a list of spans in backticks, separated by commas,
 // and, or or, followed by of and a file with an extension in backticks, where the list stops at a path; only names are
 // checked, identifiers, T.f for a field or a hook of the datatype T, and prefixes p*, while other code is not; the
-// declarations of a module are read by the parser of ulang/parse.u, those of other files are their words
+// declarations of a module are read by the parser of ulang/parse/parse.u, those of other files are their words
 
-import "ulang"
+import "ulang/syntax"
+import "ulang/parse"
 
 // the declarations of a file
 data Decls :=

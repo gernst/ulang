@@ -1,6 +1,10 @@
-// the interpreter of ulang, which runs programs of ulang/syntax.u that ulang/check.u has checked,
+// the interpreter of ulang, which runs programs of ulang/syntax/syntax.u that ulang/check/check.u has checked,
 // where statements update the values of the variables in scope, which a call passes to a procedure and back,
-// and errors are values of RuntimeError and InternalError of ulang/error.u, while the exceptions of the program are values of Thrown
+// and errors are values of RuntimeError and InternalError of ulang/syntax/error.u, while the exceptions of the program are values of Thrown
+
+import "ulang/syntax"
+import "ulang/format"
+import "ulang/check"
 
 export
 

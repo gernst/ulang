@@ -1,9 +1,15 @@
 // the driver of ulang, out/ulang.bin, with the commands run, test, and check with the interpreter of run.u,
 // compile, which translates a file to C, whose main calls the procedure entry, or runs all tests for the entry test,
 // format, which prints a file as format_program of format.u does, and prove, which proves the lemmas of a file by the
-// default proof of prove/lemma.u, as test does after the tests
+// default proof of ulang/prove/lemma.u, as test does after the tests
 
-import "prove"
+import "ulang/syntax"
+import "ulang/format"
+import "ulang/parse"
+import "ulang/check"
+import "ulang/run"
+import "ulang/compile"
+import "ulang/prove"
 
 data TestFailed :=
   case TestFailed(message: Str)

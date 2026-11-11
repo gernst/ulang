@@ -1,11 +1,11 @@
-// the terms of the prover, over the names, literals, types, variables, and patterns of ulang/syntax.u, see prove.md,
+// the terms of the prover, over the names, literals, types, variables, and patterns of ulang/syntax/syntax.u, see prove.md,
 // which is not versioned
 //
 // Variables are de Bruijn indices for the binders inside a term (ELam, EMatch, and Seq and Concl of simp.u),
 // and de Bruijn levels for the variables of the opened sequents, counted from the root.
 // A list of binders binds from left to right, the last one is EBound(0).
 
-import "ulang"
+import "ulang/syntax"
 
 export
 
@@ -43,7 +43,7 @@ data Def :=
 data ConstrDecl :=
   case ConstrDecl(datatype: Name, fields: List[Var])
 
-// the symbols of a program: the definitions of functions by name and arity, as Defs.funs of ulang/defs.u, the
+// the symbols of a program: the definitions of functions by name and arity, as Defs.funs of ulang/check/defs.u, the
 // constructors, the datatypes with their constructors in order, and the rank of each symbol in the order of
 // declarations, the precedence of the term order
 data Decls :=

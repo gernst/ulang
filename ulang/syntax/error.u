@@ -1,5 +1,5 @@
 // the errors that the phases share, with their messages: the kinds of errors, the internal errors, and the runtime
-// errors that the interpreter and compiled code both report, with their texts, which ulang/compile.u writes into every program as the
+// errors that the interpreter and compiled code both report, with their texts, which ulang/compile/compile.u writes into every program as the
 // formats u_text_* that ulang/runtime/ulang.c prints, where %s stands for a value as show gives it
 
 export
@@ -37,7 +37,7 @@ function runtime_formats(): List[Str * Str]
 // since an earlier phase rules out what they meet
 data InternalError :=
   case Uninitialized(name: Name)
-  // of values as format_value of ulang/run.u gives them
+  // of values as format_value of ulang/run/run.u gives them
   case NotFunction(text: Str)
   case Unspecified(name: Name, args: List[Str])
   case NotList(text: Str)

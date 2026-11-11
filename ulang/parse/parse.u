@@ -1,5 +1,7 @@
-// the parser of ulang, which parses the tokens of ulang/lex.u into programs of ulang/syntax.u,
+// the parser of ulang, which parses the tokens of ulang/parse/lex.u into programs of ulang/syntax/syntax.u,
 // where notation apply to the commands after them, and imports load the packages of directories of the project
+
+import "ulang/syntax"
 
 export
 
@@ -1208,7 +1210,7 @@ procedure parse_local(
       assign decl := (x, List())
   end
 
-// for p in c if q do body end, or for k => v in m do body end, see ForBlock of ulang/syntax.u
+// for p in c if q do body end, or for k => v in m do body end, see ForBlock of ulang/syntax/syntax.u
 procedure parse_for(
   in  notation: Notation,
       params: List[Id],

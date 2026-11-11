@@ -1,8 +1,10 @@
-// the type checker of ulang, which checks and elaborates programs of ulang/syntax.u in signatures of ulang/sig.u,
+// the type checker of ulang, which checks and elaborates programs of ulang/syntax/syntax.u in signatures of ulang/check/sig.u,
 // where the state is passed by reference, and errors are values of TypeError instead of messages,
 // and which overloads names across modules: the declarations of a name in all visible modules are its candidates,
 // and each use resolves to the one whose type fits, at once if only one fits, or else at the end of the command,
 // when the uses that are still open are solved together
+
+import "ulang/syntax"
 
 export
 
@@ -2779,7 +2781,7 @@ procedure check_orders(
 
 // the abstract types of ds other than natives, which the checked program keeps, so that the backends raise Unordered and
 // Incomparable for those whose modules declare no order, since the structure of an abstract type is no order
-// (unordered_of of ulang/defs.u)
+// (unordered_of of ulang/check/defs.u)
 function abstract_decls(ds: List[Id * Cmd], natives: List[Name]): List[Cmd] :=
   List(for n in abstract_types(ds) if not contains(n, natives) yield CAbstract(n, List()))
 
@@ -2879,7 +2881,7 @@ function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
     case CTest(_, _, _) =>
       List()
 
-    // notations, signatures, and abstract types, which enter_section of ulang/parse.u keeps out of implementation sections
+    // notations, signatures, and abstract types, which enter_section of ulang/parse/parse.u keeps out of implementation sections
     case _ =>
       List()
   end
@@ -3091,7 +3093,7 @@ function exposed(cmd: Cmd): Option[Name * List[Type]] :=
     case CPatAlias(name, _, formals, typ, _) =>
       Some((name, List(for x in formals yield x.typ) ++ List(typ)))
 
-    // abstract types and notations, and definitions and tests, which enter_section of ulang/parse.u keeps out of export
+    // abstract types and notations, and definitions and tests, which enter_section of ulang/parse/parse.u keeps out of export
     // sections
     case _ =>
       None

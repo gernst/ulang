@@ -1,5 +1,8 @@
 // the messages of type errors
 
+import "ulang/syntax"
+import "ulang/format"
+
 export
 
 // the message of e, with the position of the command that raised it, and the module if it is not the main module

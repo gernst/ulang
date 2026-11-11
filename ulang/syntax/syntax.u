@@ -305,7 +305,7 @@ function unplaced(cmds: List[Cmd]): List[Top]
 
 // the escapes of literals, each the character after \ with the character that it stands for, as the lexer reads them and
 // the printers write them, where a quote is escaped only in a literal that it delimits; the runtime writes them by escape
-// of ulang/runtime/ulang.c, which the test escapes_round_trip of ulang/lex.u keeps in step
+// of ulang/runtime/ulang.c, which the test escapes_round_trip of ulang/parse/lex.u keeps in step
 function escapes(): List[Char * Char]
 
 // c in a literal delimited by the quote delimiter, escaped if it needs to be

@@ -15,7 +15,7 @@
 // acyclic, and linear sums are solved for an atom, and inequalities over sums, decided by Fourier–Motzkin, which stand
 // for the CC(X) of the plan until it is a union-find. Facts with variables are rewrite rules.
 
-import "ulang"
+import "ulang/syntax"
 
 export
 

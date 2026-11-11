@@ -1,7 +1,9 @@
 // the tool's literals, types, patterns, names, and programs as ulang source, where literals, types, patterns, and names
-// are formatted by their structure, for the messages of the checker and the interpreter, as format_value of ulang/run.u
+// are formatted by their structure, for the messages of the checker and the interpreter, as format_value of ulang/run/run.u
 // formats values, and programs with the notation in effect, as out/ulang.bin format prints them, which parses to the same
 // commands
+
+import "ulang/syntax"
 
 export
 

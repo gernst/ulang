@@ -19,7 +19,7 @@ The second to last row approximates a simple backend, which keeps every variable
 
 ## Approach
 
-**`ulang/asm.u` translates a `CFile` of `ulang/c.u` to assembly**, so that `compile.u` stays as it is, and only the last step differs: `show_file(f)` for C, and `asm_file(f)` for assembly. The part of C that `compile.u` writes is small, 11 kinds of expressions, 7 of statements, and 4 of declarations, which keeps the backend small. A backend from the syntax of ulang directly would duplicate the lowering of `compile.u` (matches, comprehensions, closures, lifted lambdas, the saved variables of `try`) and is not needed for a first version.
+**`ulang/asm.u` translates a `CFile` of `ulang/compile/c.u` to assembly**, so that `compile.u` stays as it is, and only the last step differs: `show_file(f)` for C, and `asm_file(f)` for assembly. The part of C that `compile.u` writes is small, 11 kinds of expressions, 7 of statements, and 4 of declarations, which keeps the backend small. A backend from the syntax of ulang directly would duplicate the lowering of `compile.u` (matches, comprehensions, closures, lifted lambdas, the saved variables of `try`) and is not needed for a first version.
 
 - **Target**: x86-64 with the System V calling convention, as on Linux, in the syntax of GNU `as`.
 - **Locals**: every `CsDecl` of a function gets a slot of its own in its frame, also those of nested blocks, and all variables live in memory, which is slow but simple, and makes `setjmp` harmless, since no value stays in a register across it. The scheme of `try`, which saves the variables that the body assigns before the `setjmp` and restores them in the handler, carries over unchanged.

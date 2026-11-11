@@ -82,7 +82,7 @@ make test                                 # runs all tests
 
 ## Layout
 
-- `ulang/` is the implementation in ulang: lexer, parser, checker, interpreter, and the compiler to C, with its runtime in `ulang/runtime/`, and the driver `ulang/ulang.u`.
+- `ulang/` is the implementation in ulang, a package per phase, each importing those before it: `ulang/syntax/` with the errors that all phases share, `ulang/format/` the printer, `ulang/parse/` lexer and parser, `ulang/check/` the checker, `ulang/run/` the interpreter, `ulang/compile/` the compiler to C, with its runtime in `ulang/runtime/`, `ulang/prove/` a prover by contextual simplification over checked programs, and the driver `ulang/ulang.u`.
 - `bootstrap/ulang.c` is the seed, the C of the last compiler that compiled itself to the same C, from which `make` builds
   `bootstrap/ulang.bin`, which compiles the sources to `out/ulang.bin`. `make selfcompile` replaces the seed by the compiler
   compiled with itself, and `make bootstrap` by the compiler compiled with the interpreter. `bootstrap/ulang.sh` is the script
@@ -91,4 +91,3 @@ make test                                 # runs all tests
 - `tests/` are the tests, also of expected errors in `tests/errors/`.
 - `vscode/` is an extension for VS Code and VSCodium, installed by `make install`.
 - `TODO.md` lists the open work, and `DESIGN.md` the design notes.
-- `prove/` is a prover by contextual simplification, with its tests, on terms of its own.

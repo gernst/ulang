@@ -1,6 +1,8 @@
 // the lexer of ulang, which splits source code into tokens with their positions, where a symbol is always the longest run
 // of symbol characters, and which tells keywords from names and operators
 
+import "ulang/syntax"
+
 export
 
 data Token :=
@@ -377,7 +379,7 @@ test lex_literals() :=
   call lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' List(x; xs)", out toks)
   assert tokens(toks) == List(TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\'')) ++ list_tokens()
 
-// every escape as show writes it, in the interpreter by format_lit of ulang/format.u and quote, in compiled programs by
+// every escape as show writes it, in the interpreter by format_lit of ulang/format/format.u and quote, in compiled programs by
 // the runtime, and read back by the lexer
 test escapes_round_trip() :=
   local toks: Tokens

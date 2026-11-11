@@ -1,6 +1,8 @@
 // the signatures of modules, the types of their declarations by name, made of the signatures of the declarations, which the
 // checker fills
 
+import "ulang/syntax"
+
 export
 
 // a type over params, the unknowns that each use instantiates fresh: of functions and locals, of the candidates of

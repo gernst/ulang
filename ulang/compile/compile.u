@@ -1,5 +1,10 @@
-// a compiler from programs of ulang/syntax.u, which ulang/check.u has checked, to C in the syntax of ulang/c.u,
+// a compiler from programs of ulang/syntax/syntax.u, which ulang/check/check.u has checked, to C in the syntax of ulang/compile/c.u,
 // whose code calls the runtime in ulang/runtime, where every value has the C type u_value
+
+import "ulang/syntax"
+import "ulang/format"
+import "ulang/parse"
+import "ulang/check"
 
 export
 
