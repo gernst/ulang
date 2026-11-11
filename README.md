@@ -62,7 +62,7 @@ test sorting() :=
 - Modules and packages: a file with `export` and `implementation` sections is a module, and the modules of a directory are a package, whose members see each other's exports without imports, also cyclically, while their private declarations stay private to their file. `import "p"` makes the exports of the package of the directory `p` available, by its path from the root of the project, the nearest directory above with `project.u`, but not transitively; packages do not import each other cyclically. A file without sections is a program, which sees the package of its directory, and every module sees the whole library without imports.
 - Named tests `test name() := …`, whose parameters are reserved for later and must be empty, while programs start at a procedure without parameters, like `procedure main() := …`.
 
-The library in `prelude/` contains the prelude with natural numbers, options, and lists, as well as maps, sets, and access to files.
+The library in `ulang/prelude/` contains the prelude with natural numbers, options, and lists, as well as maps, sets, and access to files.
 
 ## Usage
 
@@ -87,7 +87,7 @@ make test                                 # runs all tests
   `bootstrap/ulang.bin`, which compiles the sources to `out/ulang.bin`. `make selfcompile` replaces the seed by the compiler
   compiled with itself, and `make bootstrap` by the compiler compiled with the interpreter. `bootstrap/ulang.sh` is the script
   that runs each binary with a large stack, copied next to it by `make`.
-- `prelude/` is the library.
-- The tests of each package are in its subfolder `test/`, those that are expected to fail in `test/fail/`: `ulang/test/` of the language, `ulang/prove/test/` of the prover, and `prelude/test/` of the library.
+- `ulang/prelude/` is the library.
+- The tests of each package are in its subfolder `test/`, those that are expected to fail in `test/fail/`: `ulang/test/` of the language, `ulang/prove/test/` of the prover, and `ulang/prelude/test/` of the library.
 - `vscode/` is an extension for VS Code and VSCodium, installed by `make install`.
 - `TODO.md` lists the open work, and `DESIGN.md` the design notes.

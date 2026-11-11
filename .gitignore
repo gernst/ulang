@@ -1,5 +1,5 @@
-# build output
-out/
+# build output, only at the root, so that no other directory of the sources holds one
+/out/
 
 # IDE state, also of the Scala implementation before
 .vscode/

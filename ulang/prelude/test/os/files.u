@@ -1,0 +1,110 @@
+test files() :=
+  local t: Str, entries: List[Str * Bool]
+  call enter_scratch()
+  call os_write(in "files/a.txt", "line\n\"quoted\"\n")
+  call os_read(in "files/a.txt", out t)
+  assert t == "line\n\"quoted\"\n"
+  call os_write(in "files/a.txt", "")
+  call os_read(in "files/a.txt", out t)
+  assert t == ""
+  call os_write(in "files/ä→.txt", "ä→😀\n")
+  call os_read(in "files/ä→.txt", out t)
+  assert t == "ä→😀\n" and size(t) == 4
+  call os_list(in "files", out entries)
+  assert contains(("ä→.txt", false), entries)
+
+test library() :=
+  local t: Str
+  call os_library(in "option", out t)
+  assert slice(t, 0, 16) == "// optional valu"
+
+test failures() :=
+  local t: Str, m := ""
+  call enter_scratch()
+  try
+    call os_read(in "files/missing.txt", out t)
+  catch
+    case OsError(message) =>
+      assign m := message
+  end
+  assert m == "cannot read files/missing.txt"
+  try
+    call os_library(in "missing", out t)
+  catch
+    case OsError(message) =>
+      assign m := message
+  end
+  assert m == "unknown module missing"
+
+// a tree of files, which os_list and os_walk see in the order of their names
+test walking() :=
+  local entries: List[Str * Bool], files: List[Str], dir: Bool, m := ""
+  call enter_scratch()
+  call os_write(in "walk/z.txt", "z")
+  call os_write(in "walk/a.txt", "a")
+  call os_write(in "walk/sub/deep/c.txt", "c")
+  call os_write(in "walk/sub/b.txt", "b")
+  call os_list(in "walk", out entries)
+  assert entries == List(("a.txt", false), ("sub", true), ("z.txt", false))
+  call os_walk(in "walk", out files)
+  assert files == List("walk/a.txt", "walk/sub/b.txt", "walk/sub/deep/c.txt", "walk/z.txt")
+  call os_walk(in "walk/sub/", out files)
+  assert files == List("walk/sub/b.txt", "walk/sub/deep/c.txt")
+  call os_walk(in "walk/a.txt", out files)
+  assert files == List("walk/a.txt")
+  call os_is_dir(in "walk/sub", out dir)
+  assert dir
+  call os_is_dir(in "walk/a.txt", out dir)
+  assert not dir
+  try
+    call os_list(in "walk/missing", out entries)
+  catch
+    case OsError(message) =>
+      assign m := message
+  end
+  assert m == "cannot list walk/missing"
+
+// relative paths start from the directory that os_chdir sets
+test changing_directory() :=
+  local t: Str, m := ""
+  call enter_scratch()
+  call os_write(in "here/here.txt", "here")
+  call os_chdir(in "here")
+  call os_read(in "here.txt", out t)
+  call os_chdir(in "..")
+  assert t == "here"
+  try
+    call os_chdir(in "missing")
+  catch
+    case OsError(message) =>
+      assign m := message
+  end
+  assert m == "cannot change to missing"
+
+// the tests run without arguments
+test arguments() :=
+  local args: List[Str]
+  call os_args(out args)
+  assert args == List()
+
+// os_println prints a string as it is and a newline, also the text of any value that show gives
+test printing() :=
+  call os_println(in "a \"text\"")
+  call os_println(in show(List(1, 2)))
+  call os_println(in show(("a\n", Some('\''), List(true), List(), ())))
+
+// enters out/test/os below the root of the project, the nearest directory upward with project.u, so that the files that
+// the tests write stay out of the sources
+procedure enter_scratch() :=
+  local dir: Str, entries: List[Str * Bool], found := false
+  call os_cwd(out dir)
+  while not found do
+    call os_list(in dir, out entries)
+    if contains(("project.u", false), entries) or dir == "/" then
+      assign found := true
+    else
+      assign dir := os_dirname(dir)
+    end
+  end
+  call os_write(in os_join(dir, "out/test/os/.scratch"), "")
+  call os_chdir(in os_join(dir, "out/test/os"))

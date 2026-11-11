@@ -38,7 +38,7 @@ function len_fun(): Cmd :=
     Branch("", pat_var("Nil"), None, expr_int(0)),
     Branch("", PApp(unqualified("Cons"), List(PWild, pat_var("ys"))), None, expr_app("+", List(expr_int(1), expr_app("len", List(expr_var("ys")))))))))
 
-// a prelude of the builtin types and functions of prelude/prelude.u only, for programs that are not parsed
+// a prelude of the builtin types and functions of ulang/prelude/prelude.u only, for programs that are not parsed
 function natives_prelude(): Mod :=
   let int_op := lambda op => CFunSig(unqualified(op), List(), List(Var(unqualified("a"), TInt()), Var(unqualified("b"), TInt())), TInt()) in
   Mod(library_module("prelude"), "", List(), List(), unplaced(List(for t in List("Bool", "Int", "Str", "Char") yield CAbstract(unqualified(t), List())) ++ List(for op in List("+", "-", "*", "/", "%") yield int_op(op)) ++ List(

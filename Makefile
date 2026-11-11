@@ -17,15 +17,15 @@ ulang.vsix: $(EXTENSION) vscode/vsix/*
 install: ulang.vsix
 	codium --install-extension ulang.vsix
 
-# out/ulang.bin, the tool, is the compiler of the current sources ulang/*.u, ulang/*/*.u, and prelude/*.u, translated by the seed, and
-# bootstrap/ulang.bin, the seed, is built from bootstrap/ulang.c, the C of the last compiler that compiled itself to the same C,
-# which is versioned, as the C of its backups in bootstrap/<time stamp>/ is, while the binaries are not; each is linked with the
-# runtime in ulang/runtime, GMP, and the Boehm collector
+# out/ulang.bin, the tool, is the compiler of the current sources ulang/*.u and ulang/*/*.u, with the library in
+# ulang/prelude, translated by the seed, and bootstrap/ulang.bin, the seed, is built from bootstrap/ulang.c, the C of the last
+# compiler that compiled itself to the same C, which is versioned, as the C of its backups in bootstrap/<time stamp>/ is, while
+# the binaries are not; each is linked with the runtime in ulang/runtime, GMP, and the Boehm collector
 CC = clang
-CFLAGS = -O2 -std=c11 -Wall -Wno-unused-variable -Wno-unused-function -I ulang/runtime -DULANG_LIB='"$(CURDIR)/prelude"'
+CFLAGS = -O2 -std=c11 -Wall -Wno-unused-variable -Wno-unused-function -I ulang/runtime -DULANG_LIB='"$(CURDIR)/ulang/prelude"'
 LIBS = -lgmp -lgc
 RUNTIME = ulang/runtime/ulang.c ulang/runtime/ulang.h
-SOURCES = $(wildcard ulang/*.u ulang/*/*.u prelude/*.u)
+SOURCES = $(wildcard ulang/*.u ulang/*/*.u)
 
 # each binary is run by a copy of bootstrap/ulang.sh next to it, of the same name, which gives it the large stack that the
 # interpreter and the compiler need
@@ -94,12 +94,12 @@ bootstrap: bootstrap/ulang.bin
 	rm -r -- "$${stage:?}"
 	$(MAKE) all
 
-# every .u file of ulang/ and prelude/, also the tests of the packages in their subfolders test/, run by out/ulang.bin with
+# every .u file of ulang/, also of the library and of the tests of the packages in their subfolders test/, run by out/ulang.bin with
 # all its tests in its directory, must succeed, or fail with the error that its first line states, e.g.
 # // type error: unknown variable x
 .PHONY: test
 test: out/ulang.bin out/ulang.sh
-	out/ulang.sh test ulang prelude
+	out/ulang.sh test ulang
 	$(MAKE) --no-print-directory testdocs
 
 # the checks of the repository in checks/, which run only compiled, since they parse the sources of the compiler, which the
@@ -124,7 +124,7 @@ testdocs: $(CHECKS)/docs.bin $(CHECKS)/docs.sh
 
 # rewrites every .u file as format does, after a change of the printer, except the tests of format errors, which must stay
 # unformatted, and the files whose first line expects a parse error, which format refuses, ending its run
-REFORMAT = $(shell find project.u $(wildcard ulang prelude examples) -name '*.u' -not -path 'ulang/test/fail/format/*' \
+REFORMAT = $(shell find project.u $(wildcard ulang examples) -name '*.u' -not -path 'ulang/test/fail/format/*' \
 	| xargs awk 'FNR == 1 && !/^\/\/ parse error/ { print FILENAME }' | sort)
 
 .PHONY: reformat
@@ -141,4 +141,4 @@ $(TESTC)/ulang.o: $(RUNTIME) Makefile
 
 .PHONY: testc
 testc: out/ulang.bin out/ulang.sh $(TESTC)/ulang.o
-	./testc.sh $(TESTC) $(TESTC)/ulang.o ulang prelude
+	./testc.sh $(TESTC) $(TESTC)/ulang.o ulang
