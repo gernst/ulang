@@ -16,14 +16,14 @@ procedure decls_of(out d: Decls) :=
 
 // the goal simplified
 procedure simp_text(in goal: Str, out result: Str) :=
-  local d: Decls, e: Expr
+  local d: Decls, e: Term
   call   decls_of(out d)
   call   read_expr(in goal, out e)
   assign result := print_seq(simplify(d, Atom(e)))
 
 // the cases of induction on the fixed variable at position p, simplified
 procedure induct_text(in goal: Str, p: Int, out result: Str) :=
-  local d: Decls, e: Expr
+  local d: Decls, e: Term
   call   decls_of(out d)
   call   read_expr(in goal, out e)
   assign result := print_seq(simplify(d, induction(d, Atom(e), p)))
