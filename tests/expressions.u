@@ -24,7 +24,8 @@ test big_integers() :=
 
 // let binds in parallel
 test let_parallel() :=
-  assert (let x := 1, y := 2 in x + y * 3) == 7
+  assert (let x := 1, y := 2 in
+  x + y * 3) == 7
 
 test conditionals() :=
   assert (if not 1 < 2 then 0 else 1) == 1
@@ -41,7 +42,8 @@ test lambdas() :=
   assert (lambda f, x => f(x))(lambda y => y + 1, 1) == 2
   assert plus(1)(2) == 3 and twice(plus(3), 1) == 7
   assert sum3(1)(2, 3)() == 6
-  assert (let f := plus in f(1)(2)) == 3
+  assert (let f := plus in
+  f(1)(2)) == 3
 
 // the formals of a lambda may be patterns, which it matches as let does
 test lambda_patterns() :=
@@ -178,10 +180,12 @@ function twice[A](f: A -> A, x: A): A :=
 
 // let generalizes its bindings
 function poly(): Bool :=
-  let f := id in f(1) == twice(f, 1) and f(true)
+  let f := id in
+  f(1) == twice(f, 1) and f(true)
 
 function generic(): Bool :=
-  let g := lambda y => y in g(1) == 1 and g(true)
+  let g := lambda y => y in
+  g(1) == 1 and g(true)
 
 type Pred[A] :=
   A -> Bool

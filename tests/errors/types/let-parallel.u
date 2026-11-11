@@ -1,4 +1,5 @@
 // type error: unknown variable x at 3.1
 // the bindings of a let are parallel, so y := x does not see x := 1
 function f(): Int :=
-  let x := 1, y := x in y
+  let x := 1, y := x in
+  y

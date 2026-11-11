@@ -125,7 +125,8 @@ procedure lex_move_position(
   end
 
 function position_of(text: Str, offset: Int): Pos :=
-  let lines := split(slice(text, 0, offset), '\n') in match last(lines)
+  let lines := split(slice(text, 0, offset), '\n') in
+  match last(lines)
     case Some(line) =>
       Pos(size(lines), size(line) + 1)
     case None =>
@@ -159,7 +160,8 @@ procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int)
 procedure lex_name(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
   call   scan(in text, is_name_char, out from, ref offset)
-  assign tok := let w := slice(text, from, offset) in if contains(w, keywords()) then TKw(w) else TName(w)
+  assign tok := let w := slice(text, from, offset) in
+  if contains(w, keywords()) then TKw(w) else TName(w)
 
 procedure lex_number(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
@@ -174,7 +176,8 @@ procedure lex_number(in text: Str, out tok: Token, ref offset: Int) :=
 procedure lex_symbol(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
   call   scan(in text, is_op_char, out from, ref offset)
-  assign tok := let s := slice(text, from, offset) in if contains(s, fixed_symbols()) then TKw(s) else TOp(s)
+  assign tok := let s := slice(text, from, offset) in
+  if contains(s, fixed_symbols()) then TKw(s) else TOp(s)
 
 procedure lex_string(in text: Str, out tok: Token, ref offset: Int) :=
   local contents: Str
@@ -200,7 +203,12 @@ function at_line_start(text: Str, offset: Int): Bool :=
 
 // the number of spaces before offset on its line, or -1 if anything else comes before it
 function line_margin(text: Str, offset: Int): Int :=
-  if at_line_start(text, offset) then 0 else if has_space_before(text, offset) then margin_before(text, offset) else -1
+  if at_line_start(text, offset) then
+    0
+  else if has_space_before(text, offset) then
+    margin_before(text, offset)
+  else
+    -1
 
 function next_margin(margin: Int): Int :=
   if margin < 0 then -1 else margin + 1
@@ -240,7 +248,10 @@ procedure lex_doc(
   assign doc := join("\n", reverse(lines)), above := is_doc_above(text, margin, offset)
 
 function is_doc_above(text: Str, margin: Int, offset: Int): Bool :=
-  if margin == 0 then is_letter(peek(text, offset)) else starts_at(text, offset, repeat(" ", margin) ++ "case ")
+  if margin == 0 then
+    is_letter(peek(text, offset))
+  else
+    starts_at(text, offset, repeat(" ", margin) ++ "case ")
 
 function misplaced_comment(): Str :=
   "a comment is the doc of the command or case on the next line, from the start of a line with its indentation"

@@ -166,7 +166,12 @@ function right_of[K, V](m: Map[K, V]): Map[K, V] :=
 
 // the node of l, k, v, r, where the heights of l and r differ by at most two, rebalanced by one or two rotations
 function balance[K, V](l: Map[K, V], k: K, v: V, r: Map[K, V]): Map[K, V] :=
-  if height(l) > height(r) + 1 then rotate_right(node(if height(left_of(l)) < height(right_of(l)) then rotate_left(l) else l, k, v, r)) else if height(r) > height(l) + 1 then rotate_left(node(l, k, v, if height(right_of(r)) < height(left_of(r)) then rotate_right(r) else r)) else node(l, k, v, r)
+  if height(l) > height(r) + 1 then
+    rotate_right(node(if height(left_of(l)) < height(right_of(l)) then rotate_left(l) else l, k, v, r))
+  else if height(r) > height(l) + 1 then
+    rotate_left(node(l, k, v, if height(right_of(r)) < height(left_of(r)) then rotate_right(r) else r))
+  else
+    node(l, k, v, r)
 
 // the heights of the subtrees of each node differ by at most one, and its height is correct
 function balanced[K, V](m: Map[K, V]): Bool :=

@@ -84,10 +84,13 @@ function split_on[A](xs: List[A], sep: A): List[A] * List[A] :=
       (List(), List())
 
     case List(x; more) =>
-      if x == sep then (List(), more) else match split_on(more, sep)
-        case (before, after) =>
-          (List(x; before), after)
-      end
+      if x == sep then
+        (List(), more)
+      else
+        match split_on(more, sep)
+          case (before, after) =>
+            (List(x; before), after)
+        end
   end
 
 // runs a command for file, which reports the errors of file, and whether it succeeded

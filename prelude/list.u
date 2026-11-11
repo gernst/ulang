@@ -127,7 +127,10 @@ function remove[A](x: A, xs: List[A]): List[A] :=
   end
 
 function sort[A](xs: List[A]): List[A] :=
-  if size(xs) < 2 then xs else merge_sorted(sort(take(size(xs) / 2, xs)), sort(drop(size(xs) / 2, xs)))
+  if size(xs) < 2 then
+    xs
+  else
+    merge_sorted(sort(take(size(xs) / 2, xs)), sort(drop(size(xs) / 2, xs)))
 
 function merge_sorted[A](xs: List[A], ys: List[A]): List[A] :=
   match (xs, ys)
@@ -138,7 +141,10 @@ function merge_sorted[A](xs: List[A], ys: List[A]): List[A] :=
       xs
 
     case (List(x; xt), List(y; yt)) =>
-      if compare(y, x) < 0 then List(y; merge_sorted(xs, yt)) else List(x; merge_sorted(xt, ys))
+      if compare(y, x) < 0 then
+        List(y; merge_sorted(xs, yt))
+      else
+        List(x; merge_sorted(xt, ys))
   end
 
 function contains[A](x: A, xs: List[A]): Bool :=
@@ -300,7 +306,8 @@ function drop[A](n: Int, xs: List[A]): List[A] :=
   end
 
 function slice[A](xs: List[A], i: Int, j: Int): List[A] :=
-  let k := if i < 0 then 0 else i in take(j - k, drop(k, xs))
+  let k := if i < 0 then 0 else i in
+  take(j - k, drop(k, xs))
 
 function split_at[A](n: Int, xs: List[A]): List[A] * List[A] :=
   (take(n, xs), drop(n, xs))

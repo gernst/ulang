@@ -198,7 +198,8 @@ function hook_result(hook: Hook): Type :=
 
 // the builtin of the name of the hook, of any values
 function hook_scheme(hook: Hook): Scheme :=
-  let a := TParam("A") in Scheme(List(a), TFun(replicate(hook_arity(hook), a), hook_result(hook)))
+  let a := TParam("A") in
+  Scheme(List(a), TFun(replicate(hook_arity(hook), a), hook_result(hook)))
 
 // the hook that a function f of k arguments declares if it has the right type
 function hook_of(f: Id, k: Int): Option[Hook] :=
@@ -211,9 +212,14 @@ function hook_of(f: Id, k: Int): Option[Hook] :=
 function order_of(cmd: Cmd): Option[Hook * Name] :=
   match cmd
     case CFun(Name(Some(m), f), _, List(Var(_, TSort(Name(Some(k), b), args)); more), r, _) =>
-      let typ := TSort(Name(Some(k), b), args) in match hook_of(hook_base(f, b), 1 + size(more))
+      let typ := TSort(Name(Some(k), b), args) in
+      match hook_of(hook_base(f, b), 1 + size(more))
         case Some(hook) =>
-          if k == m and forall(more, lambda x => x.typ == typ) and is_distinct_params(args) and r == hook_result(hook) then Some((hook, Name(Some(k), b))) else None
+          if k == m and forall(more, lambda x => x.typ == typ) and is_distinct_params(args) and r == hook_result(hook) then
+            Some((hook, Name(Some(k), b)))
+          else
+            None
+
         case None =>
           None
       end
@@ -250,7 +256,11 @@ function ordered_by(cmds: List[Cmd], hook: Hook): List[Name * Name] :=
     case List(c; rest) =>
       match (c, order_of(c))
         case (CFun(name, _, _, _, _), Some((h, t))) =>
-          if h == hook then List((t, name); ordered_by(rest, hook)) else ordered_by(rest, hook)
+          if h == hook then
+            List((t, name); ordered_by(rest, hook))
+          else
+            ordered_by(rest, hook)
+
         case _ =>
           ordered_by(rest, hook)
       end

@@ -35,14 +35,20 @@ function c_text(n: Name): Str :=
   end
 
 function mangle_char(c: Char): List[Char] :=
-  if is_letter(c) or is_digit(c) or c == '_' then List(c) else chars("_" ++ show(ord(c)) ++ "_")
+  if is_letter(c) or is_digit(c) or c == '_' then
+    List(c)
+  else
+    chars("_" ++ show(ord(c)) ++ "_")
 
 function fun_name(n: Name, k: Int): Str :=
   "f_" ++ mangle(n) ++ "_" ++ show(k)
 
 // the C function of procedure n, which the runtime defines for those of the builtin section of os
 function proc_name(n: Name): Str :=
-  if n.module == Some(library_module("os")) and contains(n.base, native_procs()) then "p_" ++ n.base else "p_" ++ mangle(n)
+  if n.module == Some(library_module("os")) and contains(n.base, native_procs()) then
+    "p_" ++ n.base
+  else
+    "p_" ++ mangle(n)
 
 // the procedures of the builtin section of os
 function native_procs(): Set[Id] :=
@@ -360,7 +366,10 @@ function conjunction(cs: List[CExpr]): CExpr :=
   end
 
 function int_value(num: Int): CExpr :=
-  if is_small(num) then c_call("u_mk_int", List(CeNum(num))) else c_call("u_mk_int_str", List(CeStr(show(num))))
+  if is_small(num) then
+    c_call("u_mk_int", List(CeNum(num)))
+  else
+    c_call("u_mk_int_str", List(CeStr(show(num))))
 
 function is_small(num: Int): Bool :=
   (-1000000000000000000) < num and num < 1000000000000000000
@@ -510,13 +519,16 @@ function free_in_stmt(stmt: Stmt, bound: List[Name]): List[Name] :=
 function free_in_stmt_branch(b: Branch[Stmt], bound: List[Name]): List[Name] :=
   match b
     case Branch(_, pat, Some(g), body) =>
-      let inner := pattern_names(pat) ++ bound in free_vars(g, inner) ++ free_in_stmt(body, inner)
+      let inner := pattern_names(pat) ++ bound in
+      free_vars(g, inner) ++ free_in_stmt(body, inner)
+
     case Branch(_, pat, None, body) =>
       free_in_stmt(body, pattern_names(pat) ++ bound)
   end
 
 function free_in_handler(h: Catch, bound: List[Name]): List[Name] :=
-  let inner := pattern_names(h.pat) ++ bound in free_in_stmt(h.body, inner) ++ match h.guard
+  let inner := pattern_names(h.pat) ++ bound in
+  free_in_stmt(h.body, inner) ++ match h.guard
     case Some(g) =>
       free_vars(g, inner)
     case None =>
@@ -526,7 +538,9 @@ function free_in_handler(h: Catch, bound: List[Name]): List[Name] :=
 function free_in_branch(b: Branch[Expr], bound: List[Name]): List[Name] :=
   match b
     case Branch(_, pat, Some(g), body) =>
-      let inner := pattern_names(pat) ++ bound in free_vars(g, inner) ++ free_vars(body, inner)
+      let inner := pattern_names(pat) ++ bound in
+      free_vars(g, inner) ++ free_vars(body, inner)
+
     case Branch(_, pat, None, body) =>
       free_vars(body, pattern_names(pat) ++ bound)
   end
@@ -539,7 +553,10 @@ procedure lift(in d: CDecl, ref g: Gen) :=
 
 // a function, constructor, or builtin of name n with type t as a value, which is a closure of its wrapper
 function global_value(defs: Defs, n: Name, t: Type): CExpr :=
-  if is_global_fun(defs, n, arity(t)) then closure("w_" ++ fun_name(n, arity(t))) else other_global(defs, n)
+  if is_global_fun(defs, n, arity(t)) then
+    closure("w_" ++ fun_name(n, arity(t)))
+  else
+    other_global(defs, n)
 
 function closure(w: Str): CExpr :=
   c_call("u_mk_closure", List(CeVar(w), CeNum(0)))
@@ -894,7 +911,10 @@ function list_literal(expr: Expr): Option[List[Expr]] :=
 function consing(body: Expr, acc: Name): Option[Option[Expr] * Expr] :=
   match body
     case EIte(cond, ECons(_, e, EName(a, _)), EName(b, _)) if a == acc and b == acc =>
-      if contains(acc, free_vars(cond, List()) ++ free_vars(e, List())) then None else Some((Some(cond), e))
+      if contains(acc, free_vars(cond, List()) ++ free_vars(e, List())) then
+        None
+      else
+        Some((Some(cond), e))
 
     case ECons(_, e, EName(a, _)) if a == acc =>
       if contains(acc, free_vars(e, List())) then None else Some((None, e))
@@ -910,12 +930,15 @@ type Fusion :=
 // foldr(c2, acc, lambda x2, acc => ... if q then Cons(e, acc) else acc)), into which comprehensions translate, where each
 // generator is the fold of its container, the container, and the variable, and acc is free nowhere else
 function fused(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fusion] :=
-  if f != list_foldr_name() and f != array_foldr_name() then None else match consing(body, acc)
-    case Some((q, e)) =>
-      Some((List((f, c, x)), q, e))
-    case None =>
-      fused_inner(f, c, x, body, acc)
-  end
+  if f != list_foldr_name() and f != array_foldr_name() then
+    None
+  else
+    match consing(body, acc)
+      case Some((q, e)) =>
+        Some((List((f, c, x)), q, e))
+      case None =>
+        fused_inner(f, c, x, body, acc)
+    end
 
 function fused_inner(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fusion] :=
   match body

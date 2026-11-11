@@ -40,7 +40,8 @@ function len_fun(): Cmd :=
 
 // a prelude of the builtin types and functions of prelude/prelude.u only, for programs that are not parsed
 function natives_prelude(): Mod :=
-  let int_op := lambda op => CFunSig(unqualified(op), List(), List(Var(unqualified("a"), TInt()), Var(unqualified("b"), TInt())), TInt()) in Mod(library_module("prelude"), "", List(), List(), unplaced(List(for t in List("Bool", "Int", "Str", "Char") yield CAbstract(unqualified(t), List())) ++ List(for op in List("+", "-", "*", "/", "%") yield int_op(op)) ++ List(
+  let int_op := lambda op => CFunSig(unqualified(op), List(), List(Var(unqualified("a"), TInt()), Var(unqualified("b"), TInt())), TInt()) in
+  Mod(library_module("prelude"), "", List(), List(), unplaced(List(for t in List("Bool", "Int", "Str", "Char") yield CAbstract(unqualified(t), List())) ++ List(for op in List("+", "-", "*", "/", "%") yield int_op(op)) ++ List(
     CFunSig(unqualified("++"), List(), List(Var(unqualified("a"), TStr()), Var(unqualified("b"), TStr())), TStr()))), List())
 
 function program_of(cmds: List[Cmd]): Source :=

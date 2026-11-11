@@ -400,7 +400,8 @@ function unplaced(cmds: List[Cmd]): List[Top] :=
 // lambda p, q => e with patterns p and q is lambda (1), (2) => match ((1), (2)) case (p, q) => e end, with formals that
 // users cannot write, and lambda (1) => match (1) case p => e end for one pattern
 function lambda_patterns(pats: List[Pat], body: Expr): Expr :=
-  let xs := pattern_formals(size(pats)) in ELam(xs, EMatch(pattern_scrutinee(xs), List(
+  let xs := pattern_formals(size(pats)) in
+  ELam(xs, EMatch(pattern_scrutinee(xs), List(
     Branch("", match pats
       case List(pat) =>
         pat

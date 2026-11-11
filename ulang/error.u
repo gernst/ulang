@@ -138,7 +138,10 @@ function located_message(e: TypeError): Str :=
 function candidate_text(c: Name * Scheme): Str :=
   match c
     case (m, sc) =>
-      if sc.typ == THole then format_name(m) else format_name(m) ++ ": " ++ format_type(sc.typ)
+      if sc.typ == THole then
+        format_name(m)
+      else
+        format_name(m) ++ ": " ++ format_type(sc.typ)
   end
 
 function container_message(typ: Type): Str :=
@@ -279,7 +282,8 @@ function type_message(e: TypeError): Str :=
   end
 
 function hook_message(hook: Hook): Str :=
-  let values := if hook_arity(hook) == 1 then "one value" else "two values" in hook_name(hook) ++ " must take " ++ values ++ " T[A, …] of a datatype T of its module, with distinct type parameters, and give " ++ format_type(hook_result(hook))
+  let values := if hook_arity(hook) == 1 then "one value" else "two values" in
+  hook_name(hook) ++ " must take " ++ values ++ " T[A, …] of a datatype T of its module, with distinct type parameters, and give " ++ format_type(hook_result(hook))
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f
 function field_message(parts: List[Str]): Str :=

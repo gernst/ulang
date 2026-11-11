@@ -95,7 +95,10 @@ procedure os_walk_entries(
   end
 
 function os_join(dir: Str, name: Str): Str :=
-  if size(dir) > 0 and at(size(dir) - 1, dir) == '/' then dir ++ name else dir ++ "/" ++ name
+  if size(dir) > 0 and at(size(dir) - 1, dir) == '/' then
+    dir ++ name
+  else
+    dir ++ "/" ++ name
 
 function os_basename(path: Str): Str :=
   match last(split(path, '/'))

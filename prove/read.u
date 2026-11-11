@@ -109,7 +109,8 @@ procedure parse_name(out x: Id, ref toks: List[Tok]) :=
   end
 
 function is_upper(x: Id): Bool :=
-  let c := at(0, x) in ord(c) >= 65 and ord(c) <= 90
+  let c := at(0, x) in
+  ord(c) >= 65 and ord(c) <= 90
 
 function unknown_type(): Type :=
   TSort(Name(None, "?"), List())

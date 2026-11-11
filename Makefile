@@ -100,6 +100,15 @@ bootstrap: bootstrap/ulang.bin
 test: out/ulang.bin out/ulang.sh
 	out/ulang.sh test tests ulang prove prelude
 
+# rewrites every .u file as format does, after a change of the printer, except the tests of format errors, which must stay
+# unformatted, and the files whose first line expects a parse error, which format refuses, ending its run
+REFORMAT = $(shell find project.u $(wildcard ulang prelude prove tests examples) -name '*.u' -not -path 'tests/errors/format/*' \
+	| xargs awk 'FNR == 1 && !/^\/\/ parse error/ { print FILENAME }' | sort)
+
+.PHONY: reformat
+reformat: out/ulang.bin out/ulang.sh
+	out/ulang.sh format $(REFORMAT)
+
 # the same files, each compiled by out/ulang.bin and cc with the runtime object, and run in its directory, by testc.sh in
 # parallel
 TESTC = out/testc

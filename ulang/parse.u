@@ -1364,7 +1364,10 @@ procedure parse_assignment(
 
 // the next section starts with keyword w, after a comma unless it is the first section
 function section_starts(toks: Tokens, w: Str, first: Bool): Bool :=
-  if first then at_kw(toks, w) else at_kw(toks, ",") and second_token(toks) == TKw(w)
+  if first then
+    at_kw(toks, w)
+  else
+    at_kw(toks, ",") and second_token(toks) == TKw(w)
 
 // a comma before another item of a section, not before the keyword of the next section
 function section_continues(toks: Tokens): Bool :=
@@ -1640,8 +1643,12 @@ function differing_field(fields: List[Field]): Option[Id] :=
   match fields
     case List() =>
       None
+
     case List(field; rest) =>
-      if exists(rest, lambda other => conflicts(field, other)) then Some(field.name) else differing_field(rest)
+      if exists(rest, lambda other => conflicts(field, other)) then
+        Some(field.name)
+      else
+        differing_field(rest)
   end
 
 procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
@@ -1816,7 +1823,10 @@ procedure import_package(
 
 // the message of an import of id that names no directory, where the names of the members of the library hint at it
 function unknown_package(id: Id): Str :=
-  if contains(library_module(id), library_modules()) then library_import() else "unknown package " ++ id
+  if contains(library_module(id), library_modules()) then
+    library_import()
+  else
+    "unknown package " ++ id
 
 function library_import(): Str :=
   "import of the library, which every module sees without importing it"
@@ -2300,14 +2310,21 @@ function normal_step(parts: List[Str], part: Str): List[Str] :=
 
 // dir from root, which is root or above it, both normal, as "" for root itself
 function relative_path(root: Str, dir: Str): Str :=
-  if dir == root then "" else if root == "/" then slice(dir, 1, size(dir)) else slice(dir, size(root) + 1, size(dir))
+  if dir == root then
+    ""
+  else if root == "/" then
+    slice(dir, 1, size(dir))
+  else
+    slice(dir, size(root) + 1, size(dir))
 
 // the name of the module of the file at path, without its directory and .u
 function module_name(path: Str): Str :=
-  let f := os_basename(path) in if is_source(f) then slice(f, 0, size(f) - 2) else f
+  let f := os_basename(path) in
+  if is_source(f) then slice(f, 0, size(f) - 2) else f
 
 function is_source(path: Str): Bool :=
-  let f := os_basename(path) in size(f) > 2 and ends_with(f, ".u")
+  let f := os_basename(path) in
+  size(f) > 2 and ends_with(f, ".u")
 
 // the parser, tested by the trees of single constructs, parsed with their own notation from the empty context, which reads no
 // files

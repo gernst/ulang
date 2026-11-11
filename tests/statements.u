@@ -115,9 +115,12 @@ procedure each[A](in p: (in A, ref Int), xs: List[A], ref n: Int) :=
   end
 
 function step(by_two: Bool): (in Int, out Int) :=
-  if by_two then double else lambda in x, out y =>
-    assign y := x + 1
-  end
+  if by_two then
+    double
+  else
+    lambda in x, out y =>
+      assign y := x + 1
+    end
 
 test procedure_values() :=
   local z: Int, n := 0, k := 10, p := step(false)

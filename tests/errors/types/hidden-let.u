@@ -1,4 +1,5 @@
 // type error: x hides a local of the same name at 3.1
 
 function f(x: Int): Int :=
-  let x := 2 in x
+  let x := 2 in
+  x
