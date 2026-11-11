@@ -15,6 +15,11 @@ function value_or[A](a: Option[A], d: A): A
 // Some(f(x)) for Some(x), else None
 function map_option[A, B](a: Option[A], f: A -> B): Option[B]
 
+// f(x, acc) for Some(x), else acc: an option is a container of at most one element, for generators and for statements
+function foldr[A, R](o: Option[A], acc: R, f: (A, R) -> R): R
+
+function foldl[A, R](o: Option[A], acc: R, f: (R, A) -> R): R
+
 // None or Some(a), also inside other values
 function show[A](o: Option[A]): Str
 
@@ -44,6 +49,22 @@ function map_option[A, B](a: Option[A], f: A -> B): Option[B] :=
       None
   end
 
+function foldr[A, R](o: Option[A], acc: R, f: (A, R) -> R): R :=
+  match o
+    case Some(x) =>
+      f(x, acc)
+    case None =>
+      acc
+  end
+
+function foldl[A, R](o: Option[A], acc: R, f: (R, A) -> R): R :=
+  match o
+    case Some(x) =>
+      f(acc, x)
+    case None =>
+      acc
+  end
+
 function show[A](o: Option[A]): Str :=
   match o
     case None =>
@@ -57,3 +78,16 @@ test options() :=
   assert map_option(Some(1), lambda x => x + 1) == Some(2) and map_option(None, lambda x => x + 1) == None
   assert or_else(Some(1), Some(2)) == Some(1) and or_else(None, Some(2)) == Some(2)
   assert show(Some(Some(1))) == "Some(Some(1))" and show((None, Some("a"))) == "(None, Some(\"a\"))"
+
+test option_generators() :=
+  local n := 0
+  assert List(for x in Some(1)) == List(1) and List(for x in None) == List()
+  assert Set(for x in List(1, 2, 3) for y in if x == 2 then None else Some(x * 10) yield y) == Set(10, 30)
+  assert Map(for x in Some(1) for y in Some("a") yield x => y) == Map(1 => "a")
+  for x in Some(5) do
+    assign n := n + x
+  end
+  for x in None do
+    assign n := n + x
+  end
+  assert n == 5

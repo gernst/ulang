@@ -1,6 +1,9 @@
-// type error: Option[Int] is no container: prelude/option declares no foldr at 2.1
+// type error: Box[Int] is no container: tests/errors/types/generator-no-fold declares no foldr at 5.1
+data Box[A] :=
+  case Box(value: A)
+
 procedure main() :=
-  local o: Option[Int] := Some(1), n := 0
-  for x in o do
+  local b: Box[Int] := Box(1), n := 0
+  for x in b do
     assign n := n + x
   end
