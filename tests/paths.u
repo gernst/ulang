@@ -1,8 +1,9 @@
 // imports of packages by their paths from the root of the project, of two modules with the same file name, which are
-// distinct modules, and an importer sees the exports of all members of a package
+// distinct modules, and an importer sees the exports of all members of a package; the imports are not sorted, which
+// format keeps, since their order is the order of loading
 
-import "tests/paths"
 import "tests/paths/nested"
+import "tests/paths"
 
 // two datatypes Expr, each of its own module
 test both_syntaxes() :=

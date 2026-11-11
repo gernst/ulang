@@ -2266,12 +2266,16 @@ function normal_step(parts: List[Str], part: Str): List[Str] :=
   match (part, parts)
     case ("", _) =>
       parts
+
     case (".", _) =>
       parts
+
     case ("..", List(_; rest)) =>
       rest
+
     case ("..", List()) =>
       List()
+
     case _ =>
       List(part; parts)
   end
@@ -2332,8 +2336,11 @@ test parsed_docs_of_cases() :=
   local d: Mod, docs: List[Str] := List(), fun_f := "function f(x: Int): Int :=\n  match x\n    // zero\n    // or one\n    case 0 => 1\n    case _ => 2\n  end\n\n", proc_p := "procedure p() :=\n  match 1\n    // a\n    case 1 =>\n      skip\n  end\n  try\n    skip\n  catch\n    // b\n    case _ =>\n      skip\n  end\n"
   call parse_text(in fun_f ++ proc_p, out d)
   match commands_of(d.implemented)
-    case List(CFun(_, _, _, _, EMatch(_, bs)), CProc(_, _, _, _, _, SBlock(_, List(SMatch(_, cs), STry(_, hs))))) =>
+    case List(
+      CFun(_, _, _, _, EMatch(_, bs)),
+      CProc(_, _, _, _, _, SBlock(_, List(SMatch(_, cs), STry(_, hs))))) =>
       assign docs := List(for b in bs yield b.doc) ++ List(for c in cs yield c.doc) ++ List(for h in hs yield h.doc)
+
     case _ =>
       skip
   end

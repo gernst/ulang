@@ -94,14 +94,6 @@ $(TESTC)/ulang.o: $(RUNTIME) Makefile
 	mkdir -p $(TESTC)
 	$(CC) $(CFLAGS) -c ulang/runtime/ulang.c -o $@
 
-# every file that parses, formatted by out/ulang.bin, which fails if the source does not parse to the same commands
-.PHONY: testformat
-testformat: out/ulang.bin
-	@n=0; for f in $$(find tests ulang prove prelude -name '*.u' | sort); do \
-	  head -n 1 $$f | grep -q '^// parse error' && continue; \
-	  out/ulang.bin format $$f > /dev/null || exit 1; n=$$((n + 1)); \
-	done; echo "$$n files formatted"
-
 .PHONY: testc
 testc: out/ulang.bin $(TESTC)/ulang.o
 	./testc.sh $(TESTC) $(TESTC)/ulang.o tests ulang prove prelude

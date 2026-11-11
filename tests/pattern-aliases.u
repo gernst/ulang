@@ -4,19 +4,26 @@ data Term :=
   case App(fun: Str, args: List[Term])
   case Num(num: Int)
 
-pattern And(a: Term, b: Term): Term := App("and", List(a, b))
+pattern And(a: Term, b: Term): Term :=
+  App("and", List(a, b))
 
-pattern Not(a: Term): Term := App("not", List(a))
+pattern Not(a: Term): Term :=
+  App("not", List(a))
 
-pattern Zero(): Term := Num(0)
+pattern Zero(): Term :=
+  Num(0)
 
-pattern Call(f: Str): Term := App(f, _)
+pattern Call(f: Str): Term :=
+  App(f, _)
 
-pattern NotNot(a: Term): Term := Not(Not(a))
+pattern NotNot(a: Term): Term :=
+  Not(Not(a))
 
-pattern Single[A](x: A): List[A] := List(x)
+pattern Single[A](x: A): List[A] :=
+  List(x)
 
-pattern Both[A, B](x: A, y: B): A * B := (x, y)
+pattern Both[A, B](x: A, y: B): A * B :=
+  (x, y)
 
 function simp(t: Term): Term :=
   match t

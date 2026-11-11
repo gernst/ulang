@@ -375,7 +375,14 @@ test lex_docs_of_cases() :=
   assert tokens(toks) == first ++ second
 
 function list_tokens(): List[Token] :=
-  List(TName("List"), TKw("("), TName("x"), TKw(";"), TName("xs"), TKw(")"), TEnd)
+  List(
+    TName("List"),
+    TKw("("),
+    TName("x"),
+    TKw(";"),
+    TName("xs"),
+    TKw(")"),
+    TEnd)
 
 test lex_literals() :=
   local toks: Tokens

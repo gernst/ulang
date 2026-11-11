@@ -8,4 +8,5 @@ data Tm :=
 
 implementation
 
-pattern Minus(a: Tm): Tm := Op("-", List(a))
+pattern Minus(a: Tm): Tm :=
+  Op("-", List(a))

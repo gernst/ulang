@@ -44,26 +44,36 @@ procedure run_cmd(in run: Run, cmd: Cmd, ref cache: Map[Name, Value])
 
 implementation
 
-pattern VInt(num: Int): Value := VLit(LInt(num))
+pattern VInt(num: Int): Value :=
+  VLit(LInt(num))
 
-pattern VStr(text: Str): Value := VLit(LStr(text))
+pattern VStr(text: Str): Value :=
+  VLit(LStr(text))
 
-pattern VChar(char: Char): Value := VLit(LChar(char))
+pattern VChar(char: Char): Value :=
+  VLit(LChar(char))
 
-pattern VBool(bool: Bool): Value := VLit(LBool(bool))
+pattern VBool(bool: Bool): Value :=
+  VLit(LBool(bool))
 
 // the values of the constructors of the library that the interpreter makes and takes apart
-pattern VNil(): Value := VObj(Name(Some("prelude/list"), "Nil"), List())
+pattern VNil(): Value :=
+  VObj(Name(Some("prelude/list"), "Nil"), List())
 
-pattern VCons(head: Value, tail: Value): Value := VObj(Name(Some("prelude/list"), "Cons"), List(head, tail))
+pattern VCons(head: Value, tail: Value): Value :=
+  VObj(Name(Some("prelude/list"), "Cons"), List(head, tail))
 
-pattern VTuple(args: List[Value]): Value := VObj(Name(None, ","), args)
+pattern VTuple(args: List[Value]): Value :=
+  VObj(Name(None, ","), args)
 
-pattern VSome(value: Value): Value := VObj(Name(Some("prelude/option"), "Some"), List(value))
+pattern VSome(value: Value): Value :=
+  VObj(Name(Some("prelude/option"), "Some"), List(value))
 
-pattern VNone(): Value := VObj(Name(Some("prelude/option"), "None"), List())
+pattern VNone(): Value :=
+  VObj(Name(Some("prelude/option"), "None"), List())
 
-pattern VOsError(message: Str): Value := VObj(Name(Some("prelude/os"), "OsError"), List(VStr(message)))
+pattern VOsError(message: Str): Value :=
+  VObj(Name(Some("prelude/os"), "OsError"), List(VStr(message)))
 
 // values by their structure, for messages, while show of the program uses the shows that datatypes declare, see show_in
 function format_value(v: Value): Str :=
@@ -894,7 +904,12 @@ procedure equal_all(
   end
 
 // x updates the values of the variables in scope
-procedure exec(in run: Run, stmt: Stmt, ref env: Bindings, cache: Map[Name, Value]) :=
+procedure exec(
+  in  run: Run,
+      stmt: Stmt,
+  ref env: Bindings,
+      cache: Map[Name, Value]
+) :=
   local v: Value, w: Value, vs: List[Value], r: Bool, sel: Option[Stmt * Bindings * List[Name]], s: Str, t: Str
   match stmt
     case SSkip =>

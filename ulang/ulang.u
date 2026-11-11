@@ -5,8 +5,12 @@
 data TestFailed :=
   case TestFailed(message: Str)
 
+// a file that format would change, at the first line that differs
+data Unformatted :=
+  case Unformatted(line: Int)
+
 procedure main() :=
-  local args: List[Str], command: List[Str], rest: List[Str], ok := true, dir: Bool
+  local args: List[Str], command: List[Str], rest: List[Str], ok := true, dir: Bool, formatted: Bool
   call   os_args(out args)
   assign command := first(split_on(args, "--")), rest := second(split_on(args, "--"))
   match command
@@ -43,15 +47,13 @@ procedure main() :=
         call compile_to(in file, entry, target, out r)
       end, out ok)
 
-    case List("format", file) =>
-      call attempt(in file, lambda out r =>
-        call format_file(in file, false, out r)
-      end, out ok)
-
-    case List("format", "--apply", file) =>
-      call attempt(in file, lambda out r =>
-        call format_file(in file, true, out r)
-      end, out ok)
+    case List("format", file; more) =>
+      for f in List(file; more) do
+        call   attempt(in f, lambda out r =>
+          call format_file(in f, out r)
+        end, out formatted)
+        assign ok := ok and formatted
+      end
 
     case _ =>
       call   os_print_error(in usage())
@@ -71,7 +73,7 @@ function usage_test(): Str :=
   "       ulang test <file> [<name> ...] [-- args]\n" ++ "       ulang test <dir> [<path> ...]\n"
 
 function usage_other(): Str :=
-  "       ulang check <file>\n" ++ "       ulang compile <file> <entry> <target.c>\n" ++ "       ulang format <file>"
+  "       ulang check <file>\n" ++ "       ulang compile <file> <entry> <target.c>\n" ++ "       ulang format <file> ..."
 
 // the elements before the first sep, and those after it, none if xs has no sep
 function split_on[A](xs: List[A], sep: A): List[A] * List[A] :=
@@ -112,6 +114,9 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
     case OsError(m) =>
       assign message := "runtime error: " ++ m
 
+    case Unformatted(line) =>
+      assign message := "format error: the file differs from what ulang format writes" ++ at_pos(Pos(line, 1))
+
     case Unsupported(what) =>
       assign message := "compile error: " ++ what
 
@@ -138,6 +143,33 @@ procedure load_file(in file: Str, out main: Id, q: Prog) :=
   call   check_program(in source, out q)
   assign main := source.main
 
+// load_file, where file must be formatted, which is checked after the program, so that its errors come first
+procedure load_formatted(in file: Str, out main: Id, q: Prog) :=
+  local source: Source, text: Str
+  call   parse_file(in file, out source)
+  call   check_program(in source, out q)
+  call   os_read(in file, out text)
+  assign main := source.main
+  match first_difference(split(text, '\n'), split(format_program(source), '\n'), 1)
+    case Some(line) =>
+      raise Unformatted(line)
+    case None =>
+      skip
+  end
+
+// the number of the first line that differs, counting from line
+function first_difference(lines: List[Str], others: List[Str], line: Int): Option[Int] :=
+  match (lines, others)
+    case (List(), List()) =>
+      None
+
+    case (List(a; more), List(b; rest)) =>
+      if a == b then first_difference(more, rest, line + 1) else Some(line)
+
+    case _ =>
+      Some(line)
+  end
+
 function is_any_test(cmd: Cmd): Bool :=
   match cmd
     case CTest(_, _, _) =>
@@ -148,15 +180,15 @@ function is_any_test(cmd: Cmd): Bool :=
 
 procedure check_file(in file: Str, out ok: Bool) :=
   local main: Id, q: Prog
-  call   load_file(in file, out main, q)
+  call   load_formatted(in file, out main, q)
   assign ok := true
 
 procedure compile_to(in file: Str, entry: Str, target: Str, out ok: Bool) :=
   call   compile_file(in file, entry, target)
   assign ok := true
 
-// prints file as source, which must parse to the same commands as file, so that formatting tests the parser and the printer
-procedure format_file(in file: Str, apply: Bool, out ok: Bool) :=
+// rewrites file as source, if that parses to the same commands as file, so that formatting tests the parser and the printer
+procedure format_file(in file: Str, out ok: Bool) :=
   local p: Source, q: Source, text: Str, source: Str
   call   os_read(in file, out text)
   call   parse_file_text(in file, text, out p)
@@ -164,10 +196,8 @@ procedure format_file(in file: Str, apply: Bool, out ok: Bool) :=
   try
     call parse_file_text(in file, source, out q)
     if same_mods(p.mods, q.mods) then
-      if apply then
+      if source != text then
         call os_write(in file, source)
-      else
-        call os_print(in source)
       end
       assign ok := true
     else
@@ -179,7 +209,7 @@ procedure format_file(in file: Str, apply: Bool, out ok: Bool) :=
   end
 
 function same_mod(d: Mod, e: Mod): Bool :=
-  d.name == e.name and d.doc == e.doc and sort(d.imports) == sort(e.imports) and same_sections(d, e)
+  d.name == e.name and d.doc == e.doc and d.imports == e.imports and same_sections(d, e)
 
 function same_sections(d: Mod, e: Mod): Bool :=
   same_tops(d.exported, e.exported) and same_tops(d.builtins, e.builtins) and same_tops(d.implemented, e.implemented)
@@ -213,7 +243,7 @@ procedure test_file(
   out ok: Bool
 ) :=
   local main: Id, q: Prog, run: Run, tests: List[Cmd], missing: List[Str]
-  call   load_file(in file, out main, q)
+  call   load_formatted(in file, out main, q)
   assign run := load(q) with args := args
   assign tests := List(for c in q.cmds if is_selected_test(c, names))
   assign missing := List(for n in names if not exists(tests, lambda c => is_test(c, n)))
@@ -254,7 +284,6 @@ procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
   catch
     case e =>
       assign message := "runtime error: " ++ runtime_message(e)
-
     case e =>
       assign message := "internal error: " ++ internal_message(e)
   end
@@ -317,7 +346,7 @@ function expected_error(text: Str): Str :=
   end
 
 function states_error(line: Str): Bool :=
-  states(line, "parse") or states(line, "type") or states(line, "runtime")
+  states(line, "parse") or states(line, "type") or states(line, "format") or states(line, "runtime")
 
 function states(line: Str, kind: Str): Bool :=
   starts_with(line, "// " ++ kind ++ " error: ")
@@ -325,7 +354,7 @@ function states(line: Str, kind: Str): Bool :=
 // runs all tests of file, quietly, and raises the first failure
 procedure test_all(in file: Str, out ok: Bool) :=
   local main: Id, q: Prog, run: Run, message: Str
-  call   load_file(in file, out main, q)
+  call   load_formatted(in file, out main, q)
   assign run := load(q)
   call   first_failure(in run, List(for c in q.cmds if is_any_test(c)), out message)
   if message != "" then

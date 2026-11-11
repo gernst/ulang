@@ -87,21 +87,29 @@ data Rebind :=
 
 // the applications of the builtins without a module, as the simplifier matches them; terms read from checked programs
 // will carry Some("prelude") for the operators of the prelude
-pattern Not(a: Expr): Expr := EApp(EFun(Name(None, "not")), List(a))
+pattern Not(a: Expr): Expr :=
+  EApp(EFun(Name(None, "not")), List(a))
 
-pattern And(a: Expr, b: Expr): Expr := EApp(EFun(Name(None, "and")), List(a, b))
+pattern And(a: Expr, b: Expr): Expr :=
+  EApp(EFun(Name(None, "and")), List(a, b))
 
-pattern Or(a: Expr, b: Expr): Expr := EApp(EFun(Name(None, "or")), List(a, b))
+pattern Or(a: Expr, b: Expr): Expr :=
+  EApp(EFun(Name(None, "or")), List(a, b))
 
-pattern Implies(a: Expr, b: Expr): Expr := EApp(EFun(Name(None, "==>")), List(a, b))
+pattern Implies(a: Expr, b: Expr): Expr :=
+  EApp(EFun(Name(None, "==>")), List(a, b))
 
-pattern Eq(a: Expr, b: Expr): Expr := EApp(EFun(Name(None, "==")), List(a, b))
+pattern Eq(a: Expr, b: Expr): Expr :=
+  EApp(EFun(Name(None, "==")), List(a, b))
 
-pattern Less(a: Expr, b: Expr): Expr := EApp(EFun(Name(None, "<")), List(a, b))
+pattern Less(a: Expr, b: Expr): Expr :=
+  EApp(EFun(Name(None, "<")), List(a, b))
 
-pattern Forall(formals: List[Var], body: Expr): Expr := EApp(EFun(Name(None, "forall")), List(ELam(formals, body)))
+pattern Forall(formals: List[Var], body: Expr): Expr :=
+  EApp(EFun(Name(None, "forall")), List(ELam(formals, body)))
 
-pattern Exists(formals: List[Var], body: Expr): Expr := EApp(EFun(Name(None, "exists")), List(ELam(formals, body)))
+pattern Exists(formals: List[Var], body: Expr): Expr :=
+  EApp(EFun(Name(None, "exists")), List(ELam(formals, body)))
 
 function sym(base: Id): Expr
 

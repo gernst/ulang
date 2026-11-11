@@ -1,2 +1,3 @@
 // type error: cannot unify Int and Bool at 2.1
-pattern Pair(x: Int, y: Bool): Int * Int := (x, y)
+pattern Pair(x: Int, y: Bool): Int * Int :=
+  (x, y)

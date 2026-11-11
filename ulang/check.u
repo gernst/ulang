@@ -86,7 +86,8 @@ data Head :=
   case HLit(lit: Lit)
 
 // the head of tuples, which have no module
-pattern HTuple(): Head := HCon(Name(None, ","))
+pattern HTuple(): Head :=
+  HCon(Name(None, ","))
 
 function with_sig(s: State, sig: Sig): State :=
   s with sig := sig
@@ -2040,8 +2041,10 @@ function results(sig: Sig, ks: List[Name], k: Int): List[Name * Scheme] :=
       match (constr_of(sig, n), pat_alias_of(sig, n))
         case (Some(constr), _) if size(constr.fields) == k =>
           List((n, Scheme(constr.params, constr.typ)); results(sig, rest, k))
+
         case (None, Some(alias)) if size(alias.formals) == k =>
           List((n, Scheme(alias.params, alias.typ)); results(sig, rest, k))
+
         case _ =>
           results(sig, rest, k)
       end
@@ -3065,11 +3068,15 @@ procedure check_package(
   for d in mods do
     call check_sections(in d)
   end
-  call   each_placed(in lambda in cs: List[Id * Cmd], ref t: State => call exported_aliases(in cs, hidden, t) end, placed, ref s)
+  call each_placed(in lambda in cs: List[Id * Cmd], ref t: State =>
+    call exported_aliases(in cs, hidden, t)
+  end, placed, ref s)
   for d in mods do
     call unique_ids(in "declaration", block_names(decls_of_mod(d)))
   end
-  call   placed_commands(in placed_definitions(placed), lambda in checked: List[Cmd] => call check_orders(in checked, abstract_types(decls), hidden, hidden_sorts) end, out defined, ref s)
+  call   placed_commands(in placed_definitions(placed), lambda in checked: List[Cmd] =>
+    call check_orders(in checked, abstract_types(decls), hidden, hidden_sorts)
+  end, out defined, ref s)
   assign extra := synthesized(decls, defined, native_types(builtins))
   call   declare_funs(in extra, ref s)
   call   commands(in extra, out more, ref s)
@@ -3234,7 +3241,10 @@ test elaboration() :=
       SAssign(List(
         (Var(unqualified("n"), THole), expr_app("len", List(expr_app("Cons", List(expr_int(1), expr_var("Nil"))))))))))))), out q)
   match q
-    case Prog(List(_, CFun(_, _, _, _, EMatch(_, List(Branch(_, pat, _, _); _))), CTest(_, List(), SBlock(_, List(SAssign(List((_, ECall(_, typ, _))))))))) =>
+    case Prog(List(
+      _,
+      CFun(_, _, _, _, EMatch(_, List(Branch(_, pat, _, _); _))),
+      CTest(_, List(), SBlock(_, List(SAssign(List((_, ECall(_, typ, _))))))))) =>
       assert pat == PNil()
       assert typ == TFun(List(TList(TInt())), TInt())
 

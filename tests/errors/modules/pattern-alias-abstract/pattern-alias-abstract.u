@@ -6,7 +6,8 @@ type Box
 
 function box(n: Int): Box
 
-pattern Small(): Box := Box(0)
+pattern Small(): Box :=
+  Box(0)
 
 implementation
 

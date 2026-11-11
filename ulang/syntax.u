@@ -216,11 +216,14 @@ data Source :=
   case Source(mods: List[Mod], packages: List[Package], main: Id)
 
 // a variable and an application of a variable as expressions, and a variable as a pattern, with THole for no type
-pattern EName(name: Name, typ: Type): Expr := EVar(Var(name, typ))
+pattern EName(name: Name, typ: Type): Expr :=
+  EVar(Var(name, typ))
 
-pattern ECall(name: Name, typ: Type, args: List[Expr]): Expr := EApp(EVar(Var(name, typ)), args)
+pattern ECall(name: Name, typ: Type, args: List[Expr]): Expr :=
+  EApp(EVar(Var(name, typ)), args)
 
-pattern PName(name: Name, typ: Type): Pat := PVar(Var(name, typ))
+pattern PName(name: Name, typ: Type): Pat :=
+  PVar(Var(name, typ))
 
 // the block of for p in c if q do body end, with guarded the body under the condition, which runs it for the elements of
 // the container in the order of its fold, where the elements are collected first, List(for item in c), and then taken off
@@ -230,14 +233,14 @@ pattern PName(name: Name, typ: Type): Pat := PVar(Var(name, typ))
 // with names that users cannot write, which nested loops hide; the parser makes it and the printer reads it back
 pattern ForBlock(pat: Pat, over: Expr, guarded: Stmt): Stmt :=
   SBlock(List(Var(Name(None, "(items)"), THole)), List(
-    SAssign(List((Var(Name(None, "(items)"), THole), EFor(FList, List(GVal(PName(Name(None, "(item)"), THole), over)), YVal(EName(Name(None, "(item)"), THole)), None)))),
-    SWhile(
-      ECall(Name(None, "!="), THole, List(EName(Name(None, "(items)"), THole), EName(Name(None, "Nil"), THole))),
-      SMatch(EName(Name(None, "(items)"), THole), List(
-        Branch("", PApp(Name(None, "Cons"), List(pat, PName(Name(None, "(rest)"), THole))), None, SBlock(List(), List(
-          guarded,
-          SAssign(List((Var(Name(None, "(items)"), THole), EName(Name(None, "(rest)"), THole))))))),
-        Branch("", PApp(Name(None, "Nil"), List()), None, SSkip))))))
+    SAssign(List(
+      (Var(Name(None, "(items)"), THole), EFor(FList, List(GVal(PName(Name(None, "(item)"), THole), over)), YVal(EName(Name(None, "(item)"), THole)), None)))),
+    SWhile(ECall(Name(None, "!="), THole, List(EName(Name(None, "(items)"), THole), EName(Name(None, "Nil"), THole))), SMatch(EName(Name(None, "(items)"), THole), List(
+      Branch("", PApp(Name(None, "Cons"), List(pat, PName(Name(None, "(rest)"), THole))), None, SBlock(List(), List(
+        guarded,
+        SAssign(List(
+          (Var(Name(None, "(items)"), THole), EName(Name(None, "(rest)"), THole))))))),
+      Branch("", PApp(Name(None, "Nil"), List()), None, SSkip))))))
 
 function unqualified(x: Id): Name
 
@@ -342,7 +345,16 @@ function implicit_imports(name: Id): List[Id] :=
   if contains(name, library_modules()) then List() else library_modules()
 
 function library_modules(): List[Id] :=
-  List(for name in List("prelude", "option", "list", "str", "set", "map", "array", "buffer", "os") yield library_module(name))
+  List(for name in List(
+    "prelude",
+    "option",
+    "list",
+    "str",
+    "set",
+    "map",
+    "array",
+    "buffer",
+    "os") yield library_module(name))
 
 function library_module(name: Str): Id :=
   "prelude/" ++ name

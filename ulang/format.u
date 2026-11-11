@@ -64,9 +64,9 @@ function format_mod(notation: Notation, d: Mod): List[Str] :=
 function doc_header(d: Mod): List[Str] :=
   if d.doc == "" then List() else List(doc_lines(d.doc))
 
-// one block of the imported packages, sorted
+// one block of the imported packages, in their order, which is the order of loading
 function import_lines(d: Mod): List[Str] :=
-  let is := List(for p in d.imports yield "import " ++ quote(p)) in if d.imports == List() then List() else List(join("\n", sort(is)))
+  let is := List(for p in d.imports yield "import " ++ quote(p)) in if d.imports == List() then List() else List(join("\n", is))
 
 function format_sections(notation: Notation, d: Mod): List[Str] :=
   if sectionless(d) then format_cmds(notation, d.implemented) else sections_of(notation, d)
@@ -210,7 +210,7 @@ function expr_doc(notation: Notation, indent: Str, expr: Expr): Doc :=
     case ELam(formals, body) =>
       match patterns_of_lambda(formals, body)
         case Some((pats, inner)) =>
-          Doc("lambda " ++ format_patterns(notation, pats) ++ " => " ++ format_expr(notation, indent, inner), Open)
+          Doc("lambda " ++ format_patterns(notation, indent, pats) ++ " => " ++ format_expr(notation, indent, inner), Open)
         case None =>
           Doc("lambda " ++ formals_text(formals) ++ " => " ++ format_expr(notation, indent, body), Open)
       end
@@ -292,10 +292,10 @@ function elem_text(notation: Notation, indent: Str, elem: Yield): Str :=
 function gen_text(notation: Notation, indent: Str, g: Gen): Str :=
   match g
     case GVal(p, c) =>
-      "for " ++ format_pattern(notation, p) ++ in_text(notation, indent, c)
+      "for " ++ format_pattern(notation, indent, p) ++ in_text(notation, indent, c)
 
     case GPair(k, v, c) =>
-      "for " ++ format_pattern(notation, k) ++ " => " ++ format_pattern(notation, v) ++ in_text(notation, indent, c)
+      "for " ++ format_pattern(notation, indent, k) ++ " => " ++ format_pattern(notation, indent, v) ++ in_text(notation, indent, c)
 
     case GIf(q) =>
       "if " ++ format_expr(notation, indent, q)
@@ -385,9 +385,9 @@ function branch_head[A](notation: Notation, indent: Str, b: Branch[A]): Str :=
 function case_head(notation: Notation, indent: Str, pat: Pat, guard: Option[Expr]): Str :=
   match guard
     case Some(g) =>
-      "case " ++ format_pattern(notation, pat) ++ " if " ++ format_expr(notation, indent, g) ++ " =>"
+      "case " ++ format_pattern(notation, indent, pat) ++ " if " ++ format_expr(notation, indent, g) ++ " =>"
     case None =>
-      "case " ++ format_pattern(notation, pat) ++ " =>"
+      "case " ++ format_pattern(notation, indent, pat) ++ " =>"
   end
 
 function deeper(indent: Str): Str :=
@@ -402,13 +402,13 @@ function rest_text(notation: Notation, indent: Str, rest: Option[Expr]): Str :=
       ""
   end
 
-function format_pattern(notation: Notation, pat: Pat): Str :=
-  pattern_doc(notation, pat).text
+function format_pattern(notation: Notation, indent: Str, pat: Pat): Str :=
+  pattern_doc(notation, indent, pat).text
 
-function format_patterns(notation: Notation, pats: List[Pat]): Str :=
-  join(", ", List(for p in pats yield format_pattern(notation, p)))
+function format_patterns(notation: Notation, indent: Str, pats: List[Pat]): Str :=
+  join(", ", List(for p in pats yield format_pattern(notation, indent, p)))
 
-function pattern_doc(notation: Notation, pat: Pat): Doc :=
+function pattern_doc(notation: Notation, indent: Str, pat: Pat): Doc :=
   match pat
     case PWild =>
       Doc("_", Atom)
@@ -423,32 +423,39 @@ function pattern_doc(notation: Notation, pat: Pat): Doc :=
       Doc(var.name.base, Atom)
 
     case PTuple(args) =>
-      Doc("(" ++ format_patterns(notation, args) ++ ")", Atom)
+      Doc("(" ++ format_patterns(notation, indent, args) ++ ")", Atom)
 
     case PApp(Name(None, "Nil"), List()) =>
       Doc("List()", Atom)
 
     case PApp(Name(None, "Cons"), List(_, _)) =>
-      Doc(list_pattern_text(notation, pat), Atom)
+      Doc(list_pattern_text(notation, indent, pat), Atom)
 
     case PApp(constr, args) =>
-      pattern_app_doc(notation, constr, args)
+      pattern_app_doc(notation, indent, constr, args)
   end
 
-function pattern_app_doc(notation: Notation, constr: Name, pats: List[Pat]): Doc :=
-  let docs := List(for q in pats yield pattern_doc(notation, q)) in match operator_doc(notation, constr.base, docs)
+function pattern_app_doc(notation: Notation, indent: Str, constr: Name, pats: List[Pat]): Doc :=
+  let docs := List(for q in pats yield pattern_doc(notation, indent, q)) in match operator_doc(notation, constr.base, docs)
     case Some(d) =>
       d
     case None =>
       Doc(constr.base ++ "(" ++ texts(docs) ++ ")", Atom)
   end
 
-function list_pattern_text(notation: Notation, pat: Pat): Str :=
+// a list wider than the line puts one element on each line, as the forms of expressions do
+function list_pattern_text(notation: Notation, indent: Str, pat: Pat): Str :=
+  let flat := "List(" ++ format_patterns(notation, indent, cons_pattern_items(pat)) ++ pattern_rest_text(notation, indent, pat) ++ ")" in if size(indent) + size(flat) > 80 then spread_list_pattern(notation, indent, pat) else flat
+
+function spread_list_pattern(notation: Notation, indent: Str, pat: Pat): Str :=
+  let inner := deeper(indent) in "List(\n" ++ inner ++ join(",\n" ++ inner, List(for p in cons_pattern_items(pat) yield format_pattern(notation, inner, p))) ++ pattern_rest_text(notation, inner, pat) ++ ")"
+
+function pattern_rest_text(notation: Notation, indent: Str, pat: Pat): Str :=
   match cons_pattern_rest(pat)
     case PApp(Name(None, "Nil"), List()) =>
-      "List(" ++ format_patterns(notation, cons_pattern_items(pat)) ++ ")"
+      ""
     case rest =>
-      "List(" ++ format_patterns(notation, cons_pattern_items(pat)) ++ "; " ++ format_pattern(notation, rest) ++ ")"
+      "; " ++ format_pattern(notation, indent, rest)
   end
 
 function cons_pattern_items(pat: Pat): List[Pat] :=
@@ -525,7 +532,7 @@ function handler_branches(handlers: List[Catch]): List[Branch[Stmt]] :=
   List(for h in handlers yield Branch(h.doc, h.pat, h.guard, h.body))
 
 function for_head(notation: Notation, indent: Str, pat: Pat, c: Expr, q: Option[Expr]): Str :=
-  "for " ++ format_pattern(notation, pat) ++ in_text(notation, indent, c) ++ do_text(notation, indent, q)
+  "for " ++ format_pattern(notation, indent, pat) ++ in_text(notation, indent, c) ++ do_text(notation, indent, q)
 
 function do_text(notation: Notation, indent: Str, q: Option[Expr]): Str :=
   condition_text(notation, indent, q) ++ " do"
@@ -729,7 +736,7 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
       Some(proc_head(name, params, ins, outs, refs))
 
     case CPatAlias(name, params, formals, typ, pat) =>
-      Some("pattern " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ "): " ++ format_type(typ) ++ " := " ++ format_pattern(notation, pat))
+      Some("pattern " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ "): " ++ format_type(typ) ++ " :=\n  " ++ format_pattern(notation, "  ", pat))
 
     case CNotation(fixity, prec, ops) =>
       Some(fixity_text(fixity) ++ " " ++ show(prec) ++ " " ++ join(" ", ops))

@@ -225,7 +225,7 @@ function type_message(e: TypeError): Str :=
   end
 
 function hook_message(f: Id): Str :=
-  let values := if f == "show" then "one value" else "two values", result := if f == "show" then "Str" else if f == "==" then "Bool" else "Int" in f ++ " must take " ++ values ++ " T[A, …] of a datatype T of its module, with distinct type parameters, and give " ++ result
+  let values := (if f == "show" then "one value" else "two values"), result := if f == "show" then "Str" else if f == "==" then "Bool" else "Int" in f ++ " must take " ++ values ++ " T[A, …] of a datatype T of its module, with distinct type parameters, and give " ++ result
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f
 function field_message(parts: List[Str]): Str :=

@@ -2,4 +2,5 @@
 data T :=
   case C(n: Int)
 
-pattern C(n: Int): T := C(n)
+pattern C(n: Int): T :=
+  C(n)
