@@ -8,7 +8,7 @@ data ParseError :=
 
 procedure accept(in s: Str, ref ts: List[Token]) :=
   match ts
-    case list(Sym(op); us) =>
+    case List(Sym(op); us) =>
       if op == s then
         assign ts := us
       else
@@ -21,7 +21,7 @@ procedure accept(in s: Str, ref ts: List[Token]) :=
 
 procedure number(out n: Int, ref ts: List[Token]) :=
   match ts
-    case list(Num(num); us) =>
+    case List(Num(num); us) =>
       assign n := num, ts := us
     case _ =>
       raise Expected("number")
@@ -41,7 +41,7 @@ procedure atom(out n: Int, ref ts: List[Token]) :=
 procedure parse(in ts: List[Token], out n: Int) :=
   local rest := ts
   call atom(out n, ref rest)
-  if rest != list() then
+  if rest != List() then
     raise Trailing(rest)
   end
 
@@ -66,10 +66,10 @@ procedure count(ref k: Int) :=
 
 test parse_errors() :=
   local n: Int, e: Str, k: Int
-  call parse(in list(Sym("("), Sym("("), Num(3), Sym(")"), Sym(")")), out n)
+  call parse(in List(Sym("("), Sym("("), Num(3), Sym(")"), Sym(")")), out n)
   assert n == 3
   try
-    call parse(in list(Sym("("), Num(3)), out n)
+    call parse(in List(Sym("("), Num(3)), out n)
     assert false
   catch
     case Expected(what) =>
@@ -79,13 +79,13 @@ test parse_errors() :=
   end
   assert e == ")"
   try
-    call parse(in list(Num(1), Num(2)), out n)
+    call parse(in List(Num(1), Num(2)), out n)
     assert false
   catch
     case Trailing(toks) =>
-      assert toks == list(Num(2))
+      assert toks == List(Num(2))
   end
-  call value(in list(Sym(")")), out n)
+  call value(in List(Sym(")")), out n)
   assert n == 0
   assign k := 0
   try
@@ -203,17 +203,17 @@ function digit(c: Char): Int :=
 
 function digits(cs: List[Char]): Int :=
   match cs
-    case list() =>
+    case List() =>
       0
-    case list(c; rest) =>
+    case List(c; rest) =>
       digit(c) + 10 * digits(rest)
   end
 
 test raise_in_functions() :=
   local n := 0, bad := ' '
-  assign n := digits(list('1', '2'))
+  assign n := digits(List('1', '2'))
   try
-    assign n := digits(list('1', 'x'))
+    assign n := digits(List('1', 'x'))
   catch
     case NotDigit(char) =>
       assign bad := char

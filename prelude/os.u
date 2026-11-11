@@ -65,7 +65,7 @@ procedure os_walk(in path: Str, out files: List[Str]) :=
   if dir then
     call os_walk_dir(in path, out files)
   else
-    assign files := list(path)
+    assign files := List(path)
   end
 
 procedure os_walk_dir(in dir: Str, out files: List[Str]) :=
@@ -80,17 +80,17 @@ procedure os_walk_entries(
 ) :=
   local below: List[Str], rest: List[Str]
   match entries
-    case list() =>
-      assign files := list()
+    case List() =>
+      assign files := List()
 
-    case list((name, true); more) =>
+    case List((name, true); more) =>
       call   os_walk_dir(in os_join(dir, name), out below)
       call   os_walk_entries(in dir, more, out rest)
       assign files := below ++ rest
 
-    case list((name, false); more) =>
+    case List((name, false); more) =>
       call   os_walk_entries(in dir, more, out rest)
-      assign files := list(os_join(dir, name); rest)
+      assign files := List(os_join(dir, name); rest)
   end
 
 function os_join(dir: Str, name: Str): Str :=
@@ -107,10 +107,10 @@ function os_basename(path: Str): Str :=
 // / for a path right below the root, such as /a
 function os_dirname(path: Str): Str :=
   match split(path, '/')
-    case list(_) =>
+    case List(_) =>
       "."
 
-    case list("", _) =>
+    case List("", _) =>
       "/"
 
     case parts =>

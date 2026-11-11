@@ -3,26 +3,26 @@
 
 export
 
-// the patterns of the constructors of lists after checking, which resolves list() and list(p; r) to the module list
-pattern PNil(): Pat := PApp(Name(Some("prelude/list"), "Nil"), list())
+// the patterns of the constructors of lists after checking, which resolves List() and List(p; r) to the module list
+pattern PNil(): Pat := PApp(Name(Some("prelude/list"), "Nil"), List())
 
-pattern PCons(head: Pat, tail: Pat): Pat := PApp(Name(Some("prelude/list"), "Cons"), list(head, tail))
+pattern PCons(head: Pat, tail: Pat): Pat := PApp(Name(Some("prelude/list"), "Cons"), List(head, tail))
 
 // the builtin types of the prelude, and lists after checking
-pattern TBool(): Type := TSort(Name(Some("prelude/prelude"), "Bool"), list())
+pattern TBool(): Type := TSort(Name(Some("prelude/prelude"), "Bool"), List())
 
-pattern TInt(): Type := TSort(Name(Some("prelude/prelude"), "Int"), list())
+pattern TInt(): Type := TSort(Name(Some("prelude/prelude"), "Int"), List())
 
-pattern TStr(): Type := TSort(Name(Some("prelude/prelude"), "Str"), list())
+pattern TStr(): Type := TSort(Name(Some("prelude/prelude"), "Str"), List())
 
-pattern TChar(): Type := TSort(Name(Some("prelude/prelude"), "Char"), list())
+pattern TChar(): Type := TSort(Name(Some("prelude/prelude"), "Char"), List())
 
-pattern TList(elem: Type): Type := TSort(Name(Some("prelude/list"), "List"), list(elem))
+pattern TList(elem: Type): Type := TSort(Name(Some("prelude/list"), "List"), List(elem))
 
 // the expressions of the constructors of lists after checking, and the lists that forms translate to, before it
 pattern ENil(typ: Type): Expr := EVar(Var(Name(Some("prelude/list"), "Nil"), typ))
 
-pattern ECons(typ: Type, head: Expr, tail: Expr): Expr := EApp(EVar(Var(Name(Some("prelude/list"), "Cons"), typ)), list(head, tail))
+pattern ECons(typ: Type, head: Expr, tail: Expr): Expr := EApp(EVar(Var(Name(Some("prelude/list"), "Cons"), typ)), List(head, tail))
 
 function nil_name(): Name
 

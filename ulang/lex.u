@@ -37,9 +37,8 @@ function is_op_char(c: Char): Bool :=
   contains(c, "-+*/%<>=!&:^~?@#$")
 
 function keywords(): Set[Str] :=
-  set(
+  Set(
     "_",
-    "array",
     "assert",
     "assign",
     "builtin",
@@ -61,9 +60,7 @@ function keywords(): Set[Str] :=
     "infix",
     "lambda",
     "let",
-    "list",
     "local",
-    "map",
     "match",
     "out",
     "pattern",
@@ -72,7 +69,6 @@ function keywords(): Set[Str] :=
     "procedure",
     "raise",
     "ref",
-    "set",
     "skip",
     "test",
     "then",
@@ -88,7 +84,7 @@ function is_keyword(w: Str): Bool :=
 
 // symbols with a fixed meaning, which cannot be operators
 function fixed_symbols(): Set[Str] :=
-  set("=>", ":=", ":")
+  Set("=>", ":=", ":")
 
 function is_punct(c: Char): Bool :=
   contains(c, "()[],;.")
@@ -159,7 +155,7 @@ function position_of(text: Str, offset: Int): Pos :=
 
 // the contents of the literal delimited by q at offset, with its escapes resolved, where offset ends after the closing quote
 procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int) :=
-  local start := offset, from := offset + 1, parts: List[Str] := list(), c: Char
+  local start := offset, from := offset + 1, parts: List[Str] := List(), c: Char
   assign offset := offset + 1
   while peek(text, offset) != q do
     assign c := peek(text, offset)
@@ -169,7 +165,7 @@ procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int)
     if c == '\\' then
       match unescape(peek(text, offset + 1))
         case Some(d) =>
-          assign parts := list(str(list(d)), slice(text, from, offset); parts), offset := offset + 2
+          assign parts := List(str(List(d)), slice(text, from, offset); parts), offset := offset + 2
           assign from := offset
 
         case None =>
@@ -179,7 +175,7 @@ procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int)
       assign offset := offset + 1
     end
   end
-  assign contents := join("", reverse(list(slice(text, from, offset); parts))), offset := offset + 1
+  assign contents := join("", reverse(List(slice(text, from, offset); parts))), offset := offset + 1
 
 procedure lex_name(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
@@ -250,11 +246,11 @@ procedure lex_doc(
       above: Bool,
   ref offset: Int
 ) :=
-  local lines: List[Str] := list(), from: Int, line: Str, more := true
+  local lines: List[Str] := List(), from: Int, line: Str, more := true
   while more do
     call   scan(in text, lambda c => c != '\n', out from, ref offset)
     assign line := slice(text, from + 2, offset)
-    assign lines := list(
+    assign lines := List(
       if starts_with(line, " ") then slice(line, 1, size(line)) else line; lines)
     assign offset := if offset < size(text) then offset + 1 else offset
     assign more := comment_at(text, margin, offset)
@@ -290,7 +286,7 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
       call lex_char(in text, out tok, ref offset)
 
     case _ if is_punct(c) =>
-      assign tok := TKw(str(list(c))), offset := offset + 1
+      assign tok := TKw(str(List(c))), offset := offset + 1
 
     case _ =>
       raise LexError("unexpected character", position_of(text, offset))
@@ -313,19 +309,19 @@ procedure lex(in text: Str, out toks: Tokens) :=
             raise LexError(misplaced_comment(), position_of(text, start))
           end
           call   lex_move_position(in text, last, start, ref line, column)
-          assign found := found ++ list((Pos(line, column), TDoc(doc))), last := start
+          assign found := found ++ List((Pos(line, column), TDoc(doc))), last := start
         else
           raise LexError(misplaced_comment(), position_of(text, start))
         end
       else
         call   lex_token(in text, out tok, ref offset)
         call   lex_move_position(in text, last, start, ref line, column)
-        assign found := found ++ list((Pos(line, column), tok)), last := start
+        assign found := found ++ List((Pos(line, column), tok)), last := start
       end
     end
   end
   call   lex_move_position(in text, last, offset, ref line, column)
-  assign toks := list(for t in found ++ list((Pos(line, column), TEnd)))
+  assign toks := List(for t in found ++ List((Pos(line, column), TEnd)))
 
 function tokens(toks: Tokens): List[Token] :=
   seconds(toks)
@@ -333,7 +329,7 @@ function tokens(toks: Tokens): List[Token] :=
 test lex_tokens() :=
   local toks: Tokens
   call lex(in "function f(x: Int): Int := x+-1\n  y", out toks)
-  assert toks == list(
+  assert toks == List(
     (Pos(1, 1), TKw("function")),
     (Pos(1, 10), TName("f")),
     (Pos(1, 11), TKw("(")),
@@ -353,38 +349,38 @@ test lex_tokens() :=
 test lex_docs() :=
   local toks: Tokens
   call lex(in "// a\n//  b\n//\nf\n\n\n\ng\n\nh\ni", out toks)
-  assert tokens(toks) == list(TDoc("a\n b\n"), TName("f"), TName("g"), TName("h"), TName("i"), TEnd)
-  assert firsts(toks) == list(Pos(1, 1), Pos(4, 1), Pos(8, 1), Pos(10, 1), Pos(11, 1), Pos(11, 2))
+  assert tokens(toks) == List(TDoc("a\n b\n"), TName("f"), TName("g"), TName("h"), TName("i"), TEnd)
+  assert firsts(toks) == List(Pos(1, 1), Pos(4, 1), Pos(8, 1), Pos(10, 1), Pos(11, 1), Pos(11, 2))
 
 function rest_of_docs(): List[Token] :=
-  list(TName("C"), TName("g"), TKw("case"), TName("D"), TEnd)
+  List(TName("C"), TName("g"), TKw("case"), TName("D"), TEnd)
 
 test lex_docs_of_modules_and_constructors() :=
   local toks: Tokens
   call lex(in "// head\n\nf", out toks)
-  assert tokens(toks) == list(TDoc("head"), TName("f"), TEnd)
+  assert tokens(toks) == List(TDoc("head"), TName("f"), TEnd)
   call lex(in "data T :=\n  // c\n  //\n  case C\n  g\n  case D", out toks)
-  assert tokens(toks) == list(TKw("data"), TName("T"), TKw(":="), TDoc("c\n"), TKw("case")) ++ rest_of_docs()
+  assert tokens(toks) == List(TKw("data"), TName("T"), TKw(":="), TDoc("c\n"), TKw("case")) ++ rest_of_docs()
 
 test lex_docs_of_cases() :=
-  local toks: Tokens, text := "match x\n    // c\n    case 1 =>\n    y\n" ++ "    // e\n    case 2 =>\n    case 3", first := list(
+  local toks: Tokens, text := "match x\n    // c\n    case 1 =>\n    y\n" ++ "    // e\n    case 2 =>\n    case 3", first := List(
     TKw("match"),
     TName("x"),
     TDoc("c"),
     TKw("case"),
     TNum(1),
     TKw("=>"),
-    TName("y")), second := list(TDoc("e"), TKw("case"), TNum(2), TKw("=>"), TKw("case"), TNum(3), TEnd)
+    TName("y")), second := List(TDoc("e"), TKw("case"), TNum(2), TKw("=>"), TKw("case"), TNum(3), TEnd)
   call lex(in text, out toks)
   assert tokens(toks) == first ++ second
 
 function list_tokens(): List[Token] :=
-  list(TKw("list"), TKw("("), TName("x"), TKw(";"), TName("xs"), TKw(")"), TEnd)
+  List(TName("List"), TKw("("), TName("x"), TKw(";"), TName("xs"), TKw(")"), TEnd)
 
 test lex_literals() :=
   local toks: Tokens
-  call lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' list(x; xs)", out toks)
-  assert tokens(toks) == list(TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\'')) ++ list_tokens()
+  call lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' List(x; xs)", out toks)
+  assert tokens(toks) == List(TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\'')) ++ list_tokens()
 
 // the error of lexing text, or LexError("none", Pos(0, 0)) if there is none
 procedure lex_error(in text: Str, out e: LexError) :=

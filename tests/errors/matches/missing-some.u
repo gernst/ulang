@@ -1,8 +1,8 @@
-// type error: match is not exhaustive, missing list(Some(_); _) at 2.1
+// type error: match is not exhaustive, missing List(Some(_); _) at 2.1
 function f(x: List[Option[Int]]): Int :=
   match x
-    case list() =>
+    case List() =>
       0
-    case list(None; _) =>
+    case List(None; _) =>
       1
   end

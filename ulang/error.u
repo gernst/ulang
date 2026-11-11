@@ -54,7 +54,7 @@ function runtime_message(e: RuntimeError): Str :=
   end
 
 function runtime_formats(): List[Str * Str] :=
-  list(
+  List(
     ("u_text_no_case", runtime_message(NoCase("%s"))),
     ("u_text_compare_functions", runtime_message(CompareFunctions)),
     ("u_text_compare_procedures", runtime_message(CompareProcedures)),
@@ -119,10 +119,10 @@ function type_message(e: TypeError): Str :=
       name.base ++ " has undeclared type parameters " ++ format_types(types)
 
     case CannotUnify(left, right) =>
-      "cannot unify " ++ join(" and ", format_types_apart(list(left, right)))
+      "cannot unify " ++ join(" and ", format_types_apart(List(left, right)))
 
     case InfiniteType(meta, typ) =>
-      "infinite type " ++ join(" = ", format_types_apart(list(meta, typ)))
+      "infinite type " ++ join(" = ", format_types_apart(List(meta, typ)))
 
     case UnknownVariable(name) =>
       "unknown variable " ++ name.base
@@ -140,7 +140,7 @@ function type_message(e: TypeError): Str :=
       "duplicate " ++ what ++ " " ++ item
 
     case Ambiguous(name, candidates) =>
-      name.base ++ " is ambiguous: " ++ join(", ", list(for c in candidates yield candidate_text(c)))
+      name.base ++ " is ambiguous: " ++ join(", ", List(for c in candidates yield candidate_text(c)))
 
     case UnknownField(name) =>
       field_message(split(name.base, '.'))
@@ -230,10 +230,10 @@ function hook_message(f: Id): Str :=
 // the accessor T.f, or the updater T.f:=, of an unknown field f
 function field_message(parts: List[Str]): Str :=
   match parts
-    case list("", f) =>
+    case List("", f) =>
       "unknown field " ++ without_update(f)
 
-    case list(t, f) =>
+    case List(t, f) =>
       "unknown field " ++ without_update(f) ++ " of " ++ t
 
     case _ =>
@@ -252,7 +252,7 @@ function internal_message(e: InternalError): Str :=
       "cannot apply " ++ format_value(value)
 
     case Unspecified(name, args) =>
-      name.base ++ " is not specified for " ++ join(", ", list(for v in args yield format_value(v)))
+      name.base ++ " is not specified for " ++ join(", ", List(for v in args yield format_value(v)))
 
     case NotList(value) =>
       "expected a list, got " ++ format_value(value)

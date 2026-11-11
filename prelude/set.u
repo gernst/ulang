@@ -154,10 +154,10 @@ function forall[A](s: Set[A], p: A -> Bool): Bool :=
   foldl(s, true, lambda all, x => all and p(x))
 
 function compare[A](a: Set[A], b: Set[A]): Int :=
-  compare(list(for x in a), list(for x in b))
+  compare(List(for x in a), List(for x in b))
 
 function ==[A](a: Set[A], b: Set[A]): Bool :=
-  list(for x in a) == list(for x in b)
+  List(for x in a) == List(for x in b)
 
 function foldr[A, R](s: Set[A], acc: R, f: (A, R) -> R): R :=
   match s
@@ -243,31 +243,31 @@ function balanced[A](s: Set[A]): Bool :=
   end
 
 function show[A](s: Set[A]): Str :=
-  "set(" ++ join(", ", list(for x in s yield show(x))) ++ ")"
+  "Set(" ++ join(", ", List(for x in s yield show(x))) ++ ")"
 
 test sets() :=
-  local s := set("a", "b")
+  local s := Set("a", "b")
   assert contains("a", s) and not contains("c", s)
   assign s := insert("a", s)
-  assert list(for x in s) == list("a", "b") and size(s) == 2
-  assert list(for x in set(for x in list(3, 1, 2, 1))) == list(1, 2, 3) and list(for x in set(3, 1, 2, 1)) == list(1, 2, 3)
-  assert list(for x in set(for x in list((2, 'a'), (1, 'b'), (2, 'a')))) == list((1, 'b'), (2, 'a'))
-  assert list(for x in set(for x in list(Some(2), None, Some(1)))) == list(None, Some(1), Some(2))
+  assert List(for x in s) == List("a", "b") and size(s) == 2
+  assert List(for x in Set(for x in List(3, 1, 2, 1))) == List(1, 2, 3) and List(for x in Set(3, 1, 2, 1)) == List(1, 2, 3)
+  assert List(for x in Set(for x in List((2, 'a'), (1, 'b'), (2, 'a')))) == List((1, 'b'), (2, 'a'))
+  assert List(for x in Set(for x in List(Some(2), None, Some(1)))) == List(None, Some(1), Some(2))
 
 test set_folds() :=
-  local s := set(for x in range(1, 51))
-  assert foldr(s, list(), Cons) == list(for x in s) and foldl(s, list(), lambda xs, x => list(x; xs)) == reverse(list(for x in s))
+  local s := Set(for x in range(1, 51))
+  assert foldr(s, List(), Cons) == List(for x in s) and foldl(s, List(), lambda xs, x => List(x; xs)) == reverse(List(for x in s))
   assert foldr(s, empty(), insert) == s and foldl(s, 0, lambda n, x => n + x) == 1275
-  assert foldr(set(1, 2, 3), 0, lambda x, n => 10 * n + x) == 321 and foldl(set(1, 2, 3), 0, lambda n, x => 10 * n + x) == 123
-  assert list(for x in set(3, 1, 2)) == list(1, 2, 3) and list(for x in s) == list(for x in s)
+  assert foldr(Set(1, 2, 3), 0, lambda x, n => 10 * n + x) == 321 and foldl(Set(1, 2, 3), 0, lambda n, x => 10 * n + x) == 123
+  assert List(for x in Set(3, 1, 2)) == List(1, 2, 3) and List(for x in s) == List(for x in s)
 
 // sets of the same elements are equal, although their trees differ
 test set_equality() :=
-  assert set(1, 2) == set(2, 1) and set(1, 2) != set(1, 3)
-  assert set(1, 2, 3) == set(3, 2, 1) and not set(1) != set(1)
+  assert Set(1, 2) == Set(2, 1) and Set(1, 2) != Set(1, 3)
+  assert Set(1, 2, 3) == Set(3, 2, 1) and not Set(1) != Set(1)
 
 // ascending elements would make a list of an unbalanced tree
 test set_balance() :=
-  local s := set(for x in range(1, 201))
+  local s := Set(for x in range(1, 201))
   assert balanced(s) and size(s) == 200 and height(s) <= 11
-  assert contains(100, s) and not contains(201, s) and list(for x in s) == range(1, 201)
+  assert contains(100, s) and not contains(201, s) and List(for x in s) == range(1, 201)

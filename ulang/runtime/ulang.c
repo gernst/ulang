@@ -896,7 +896,7 @@ u_value u_con_show(u_value v) {
 
 static u_value show_array(u_value v) {
   struct u_text t = {NULL, 0, 0, 1};
-  append(&t, "array");
+  append(&t, "Array");
   append_items(&t, v);
   return text_value(&t);
 }

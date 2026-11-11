@@ -10,45 +10,45 @@ procedure main() :=
   call   os_args(out args)
   assign command := first(split_on(args, "--")), rest := second(split_on(args, "--"))
   match command
-    case list() =>
+    case List() =>
       skip
 
-    case list("run", file) =>
+    case List("run", file) =>
       call attempt(in file, lambda out r =>
         call run_file(in file, "main", rest, out r)
       end, out ok)
 
-    case list("run", file, name) =>
+    case List("run", file, name) =>
       call attempt(in file, lambda out r =>
         call run_file(in file, name, rest, out r)
       end, out ok)
 
-    case list("test", first; more) =>
+    case List("test", first; more) =>
       call os_is_dir(in first, out dir)
       if dir then
-        call test_paths(in list(first; more), out ok)
+        call test_paths(in List(first; more), out ok)
       else
         call attempt(in first, lambda out r =>
           call test_file(in first, more, rest, out r)
         end, out ok)
       end
 
-    case list("check", file) =>
+    case List("check", file) =>
       call attempt(in file, lambda out r =>
         call check_file(in file, out r)
       end, out ok)
 
-    case list("compile", file, entry, target) =>
+    case List("compile", file, entry, target) =>
       call attempt(in file, lambda out r =>
         call compile_to(in file, entry, target, out r)
       end, out ok)
 
-    case list("format", file) =>
+    case List("format", file) =>
       call attempt(in file, lambda out r =>
         call format_file(in file, false, out r)
       end, out ok)
 
-    case list("format", "--apply", file) =>
+    case List("format", "--apply", file) =>
       call attempt(in file, lambda out r =>
         call format_file(in file, true, out r)
       end, out ok)
@@ -76,13 +76,13 @@ function usage_other(): Str :=
 // the elements before the first sep, and those after it, none if xs has no sep
 function split_on[A](xs: List[A], sep: A): List[A] * List[A] :=
   match xs
-    case list() =>
-      (list(), list())
+    case List() =>
+      (List(), List())
 
-    case list(x; more) =>
-      if x == sep then (list(), more) else match split_on(more, sep)
+    case List(x; more) =>
+      if x == sep then (List(), more) else match split_on(more, sep)
         case (before, after) =>
-          (list(x; before), after)
+          (List(x; before), after)
       end
   end
 
@@ -215,10 +215,10 @@ procedure test_file(
   local main: Id, q: Prog, run: Run, tests: List[Cmd], missing: List[Str]
   call   load_file(in file, out main, q)
   assign run := load(q) with args := args
-  assign tests := list(for c in q.cmds if is_selected_test(c, names))
-  assign missing := list(for n in names if not exists(tests, lambda c => is_test(c, n)))
+  assign tests := List(for c in q.cmds if is_selected_test(c, names))
+  assign missing := List(for n in names if not exists(tests, lambda c => is_test(c, n)))
   match missing
-    case list(n; _) =>
+    case List(n; _) =>
       call   os_print_error(in file ++ ": runtime error: there is no test " ++ n)
       assign ok := false
 
@@ -265,7 +265,7 @@ procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
 procedure test_paths(in paths: List[Str], out ok: Bool) :=
   local found: List[Str], files: List[Str], home: Str, failed: Int
   call   walk_all(in paths, out found)
-  assign files := list(for f in found if is_source(f))
+  assign files := List(for f in found if is_source(f))
   call   os_cwd(out home)
   call   test_suite(in files, home, out failed)
   call   os_println(in show(size(files) - failed) ++ " of " ++ show(size(files)) ++ " files passed")
@@ -277,7 +277,7 @@ procedure walk_all(in paths: List[Str], out files: List[Str]) :=
     call   os_walk(in path, out here)
     assign found := found ++ here
   end
-  assign files := list(for file in found)
+  assign files := List(for file in found)
 
 procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
   local good: Bool
@@ -310,7 +310,7 @@ function outcome(message: Str): Str :=
 // the error that the first line of a file states, or else ""
 function expected_error(text: Str): Str :=
   match split(text, '\n')
-    case list(line; _) =>
+    case List(line; _) =>
       if states_error(line) then slice(line, 3, size(line)) else ""
     case _ =>
       ""
@@ -327,7 +327,7 @@ procedure test_all(in file: Str, out ok: Bool) :=
   local main: Id, q: Prog, run: Run, message: Str
   call   load_file(in file, out main, q)
   assign run := load(q)
-  call   first_failure(in run, list(for c in q.cmds if is_any_test(c)), out message)
+  call   first_failure(in run, List(for c in q.cmds if is_any_test(c)), out message)
   if message != "" then
     raise TestFailed(message)
   end
@@ -344,7 +344,7 @@ procedure first_failure(in run: Run, tests: List[Cmd], out message: Str) :=
 function is_selected_test(cmd: Cmd, names: List[Str]): Bool :=
   match cmd
     case CTest(test_name, _, _) =>
-      names == list() or contains(test_name, names)
+      names == List() or contains(test_name, names)
     case _ =>
       false
   end

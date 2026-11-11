@@ -1,4 +1,4 @@
 // parse error: => expected but , found at 4.19
 
 test r() :=
-  local v := map(1, 2 => 3)
+  local v := Map(1, 2 => 3)

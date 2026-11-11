@@ -16,34 +16,34 @@ implementation
 
 // the lists of the tests, before checking
 function type_plain_list(t: Type): Type :=
-  TSort(unqualified("List"), list(t))
+  TSort(unqualified("List"), List(t))
 
 // lists with constructors Nil and Cons, exported by the module list as in the library, and their length
 function lists(): List[Mod] :=
-  list(
-    Mod(library_module("list"), "", list(), unplaced(list(
-      CData(unqualified("List"), list("A"), list(
-        Constr("", unqualified("Nil"), list()),
-        Constr("", unqualified("Cons"), list(
+  List(
+    Mod(library_module("list"), "", List(), unplaced(List(
+      CData(unqualified("List"), List("A"), List(
+        Constr("", unqualified("Nil"), List()),
+        Constr("", unqualified("Cons"), List(
           Field("head", TParam("A")),
-          Field("tail", type_plain_list(TParam("A"))))))))), list(), list()))
+          Field("tail", type_plain_list(TParam("A"))))))))), List(), List()))
 
 // the program of the commands cmds after len of the module main, which imports lists
 function with_lists(cmds: List[Cmd]): Source :=
-  Source(list(natives_prelude(); lists()) ++ list(
-    Mod("main", "", list(library_module("list")), list(), list(), unplaced(list(len_fun(); cmds)))), list(), "main")
+  Source(List(natives_prelude(); lists()) ++ List(
+    Mod("main", "", List(library_module("list")), List(), List(), unplaced(List(len_fun(); cmds)))), List(), "main")
 
 function len_fun(): Cmd :=
-  CFun(unqualified("len"), list("A"), list(Var(unqualified("xs"), type_plain_list(TParam("A")))), TInt(), EMatch(expr_var("xs"), list(
+  CFun(unqualified("len"), List("A"), List(Var(unqualified("xs"), type_plain_list(TParam("A")))), TInt(), EMatch(expr_var("xs"), List(
     Branch("", pat_var("Nil"), None, expr_int(0)),
-    Branch("", PApp(unqualified("Cons"), list(PWild, pat_var("ys"))), None, expr_app("+", list(expr_int(1), expr_app("len", list(expr_var("ys")))))))))
+    Branch("", PApp(unqualified("Cons"), List(PWild, pat_var("ys"))), None, expr_app("+", List(expr_int(1), expr_app("len", List(expr_var("ys")))))))))
 
 // a prelude of the builtin types and functions of prelude/prelude.u only, for programs that are not parsed
 function natives_prelude(): Mod :=
-  let int_op := lambda op => CFunSig(unqualified(op), list(), list(Var(unqualified("a"), TInt()), Var(unqualified("b"), TInt())), TInt()) in Mod(library_module("prelude"), "", list(), list(), unplaced(list(for t in list("Bool", "Int", "Str", "Char") yield CAbstract(unqualified(t), list())) ++ list(for op in list("+", "-", "*", "/", "%") yield int_op(op)) ++ list(
-    CFunSig(unqualified("++"), list(), list(Var(unqualified("a"), TStr()), Var(unqualified("b"), TStr())), TStr()))), list())
+  let int_op := lambda op => CFunSig(unqualified(op), List(), List(Var(unqualified("a"), TInt()), Var(unqualified("b"), TInt())), TInt()) in Mod(library_module("prelude"), "", List(), List(), unplaced(List(for t in List("Bool", "Int", "Str", "Char") yield CAbstract(unqualified(t), List())) ++ List(for op in List("+", "-", "*", "/", "%") yield int_op(op)) ++ List(
+    CFunSig(unqualified("++"), List(), List(Var(unqualified("a"), TStr()), Var(unqualified("b"), TStr())), TStr()))), List())
 
 function program_of(cmds: List[Cmd]): Source :=
-  Source(list(
+  Source(List(
     natives_prelude(),
-    Mod("main", "", list(), list(), list(), unplaced(cmds))), list(), "main")
+    Mod("main", "", List(), List(), List(), unplaced(cmds))), List(), "main")

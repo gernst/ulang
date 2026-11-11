@@ -62,28 +62,28 @@ function is_operator(notation: Notation, op: Id): Bool :=
 
 function with_notation(notation: Notation, cmds: List[Cmd]): Notation :=
   match cmds
-    case list() =>
+    case List() =>
       notation
 
-    case list(CNotation(fixity, prec, ops); more) =>
+    case List(CNotation(fixity, prec, ops); more) =>
       with_notation(with_operators(notation, fixity, prec, ops), more)
 
-    case list(_; more) =>
+    case List(_; more) =>
       with_notation(notation, more)
   end
 
 function with_operators(notation: Notation, f: Fixity, prec: Int, ops: List[Id]): Notation :=
   match (f, ops)
-    case (_, list()) =>
+    case (_, List()) =>
       notation
 
-    case (FPrefix, list(op; more)) =>
+    case (FPrefix, List(op; more)) =>
       with_operators(notation with prefix_ops := put(op, prec, notation.prefix_ops), f, prec, more)
 
-    case (FPostfix, list(op; more)) =>
+    case (FPostfix, List(op; more)) =>
       with_operators(notation with postfix_ops := put(op, prec, notation.postfix_ops), f, prec, more)
 
-    case (_, list(op; more)) =>
+    case (_, List(op; more)) =>
       with_operators(notation with infix_ops := put(op, (f, prec), notation.infix_ops), f, prec, more)
   end
 

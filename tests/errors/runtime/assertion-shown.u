@@ -1,4 +1,4 @@
-// runtime error: assertion failed: (list(), 1 EUR) != (list(), 2 EUR)
+// runtime error: assertion failed: (List(), 1 EUR) != (List(), 2 EUR)
 
 data Money :=
   case Money(amount: Int)
@@ -10,4 +10,4 @@ function show(m: Money): Str :=
   end
 
 test shown() :=
-  assert (list(), Money(1)) == (list(), Money(2))
+  assert (List(), Money(1)) == (List(), Money(2))

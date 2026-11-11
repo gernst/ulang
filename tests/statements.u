@@ -10,13 +10,13 @@ procedure sum(in n: Int, out s: Int) :=
 procedure total(in xs: List[Int], out s: Int) :=
   local ys: List[Int]
   assign s := 0, ys := xs
-  while ys != list() do
+  while ys != List() do
     match ys
-      case list(y; zs) =>
+      case List(y; zs) =>
         assign s := s + y
         assign ys := zs
 
-      case list() =>
+      case List() =>
         skip
     end
   end
@@ -53,7 +53,7 @@ test procedures() :=
   local a: Int, b: Int, c: Int
   call sum(in 10, out c)
   assert c == 45
-  call total(in list(1, 2, 3), out c)
+  call total(in List(1, 2, 3), out c)
   assert c == 6
   assign a := 1, b := 2
   call   swap(ref a, b)
@@ -106,10 +106,10 @@ procedure twice(in p: (in Int, out Int), x: Int, out z: Int) :=
 
 procedure each[A](in p: (in A, ref Int), xs: List[A], ref n: Int) :=
   match xs
-    case list() =>
+    case List() =>
       skip
 
-    case list(x; rest) =>
+    case List(x; rest) =>
       call p(in x, ref n)
       call each(in p, rest, ref n)
   end
@@ -129,7 +129,7 @@ test procedure_values() :=
   assert z == 21
   call each(in lambda in s, ref m =>
     assign m := m + size(s)
-  end, list("a", "bc"), ref n)
+  end, List("a", "bc"), ref n)
   assert n == 3
   call p(in 1, out z)
   assert z == 2
@@ -138,11 +138,11 @@ test procedure_values() :=
 
 procedure sum_all(in xs: List[Int], out t: Int) :=
   local rest := xs, sum := 0
-  while rest != list() do
+  while rest != List() do
     match rest
-      case list(x; more) =>
+      case List(x; more) =>
         assign sum := sum + x, rest := more
-      case list() =>
+      case List() =>
         skip
     end
   end
@@ -151,11 +151,11 @@ procedure sum_all(in xs: List[Int], out t: Int) :=
 // the initial values are assigned in order, so each may refer to the locals before it
 test initialized_locals() :=
   local a := 1, b := a + 1, c: Int := b * 2, s := "x", t: Int
-  call sum_all(in list(a, b, c), out t)
+  call sum_all(in List(a, b, c), out t)
   assert (a, b, c, s, t) == (1, 2, 4, "x", 7)
 
 test inferred_types() :=
-  local xs := list(Some(1), None), m := get("a", list(("a", true)))
+  local xs := List(Some(1), None), m := get("a", List(("a", true)))
   assert size(xs) == 2 and m == Some(true)
 
 data Fail :=
@@ -175,9 +175,9 @@ procedure sign(in n: Int, out s: Int) :=
 
 procedure first(in xs: List[Int], out x: Int) :=
   match xs
-    case list(y; _) =>
+    case List(y; _) =>
       assign x := y
-    case list() =>
+    case List() =>
       raise Fail
   end
 
@@ -205,7 +205,7 @@ test nested_ifs() :=
 test definite_assignment() :=
   local a: Int, b: Int, c: Int, d: Int
   call sign(in -5, out a)
-  call first(in list(7, 8), out b)
+  call first(in List(7, 8), out b)
   try
     call sign(in 0, out c)
   catch

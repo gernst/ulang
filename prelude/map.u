@@ -92,10 +92,10 @@ function put[K, V](k: K, v: V, m: Map[K, V]): Map[K, V] :=
   end
 
 function compare[K, V](a: Map[K, V], b: Map[K, V]): Int :=
-  compare(list(for k => v in a), list(for k => v in b))
+  compare(List(for k => v in a), List(for k => v in b))
 
 function ==[K, V](a: Map[K, V], b: Map[K, V]): Bool :=
-  list(for k => v in a) == list(for k => v in b)
+  List(for k => v in a) == List(for k => v in b)
 
 function foldr[K, V, R](m: Map[K, V], acc: R, f: (K, V, R) -> R): R :=
   match m
@@ -245,30 +245,30 @@ function forall[K, V](m: Map[K, V], p: (K, V) -> Bool): Bool :=
   foldl(m, true, lambda all, k, v => all and p(k, v))
 
 function show[K, V](m: Map[K, V]): Str :=
-  "map(" ++ join(", ", list(for k => v in m yield show(k) ++ " => " ++ show(v))) ++ ")"
+  "Map(" ++ join(", ", List(for k => v in m yield show(k) ++ " => " ++ show(v))) ++ ")"
 
 test maps() :=
-  local m := map("a" => 1, "b" => 2)
+  local m := Map("a" => 1, "b" => 2)
   assert get("a", m) == Some(1) and get("c", m) == None and contains("b", m) and not contains("c", m)
   assign m := put("a", 3, m)
-  assert list(for x in m) == list(("a", 3), ("b", 2)) and size(m) == 2 and list(for x in map("b" => 2, "a" => 1, "a" => 3)) == list(for x in m)
+  assert List(for x in m) == List(("a", 3), ("b", 2)) and size(m) == 2 and List(for x in Map("b" => 2, "a" => 1, "a" => 3)) == List(for x in m)
 
 test map_folds() :=
-  local m := map(for i in range(1, 51) yield i => show(i))
-  assert foldr(m, list(), lambda k, v, ps => list((k, v); ps)) == list(for x in m) and foldr(m, empty(), put) == m
-  assert foldl(m, list(), lambda ps, k, v => list((k, v); ps)) == reverse(list(for x in m)) and foldl(m, 0, lambda n, k, v => n + k) == 1275
-  assert foldr(map(1 => "a", 2 => "b"), "", lambda k, v, t => v ++ t) == "ab" and foldl(map(1 => "a", 2 => "b"), "", lambda t, k, v => t ++ v) == "ab"
-  assert list(for x in map(2 => "b", 1 => "a")) == list((1, "a"), (2, "b")) and list(for x in m) == list(for x in m)
+  local m := Map(for i in range(1, 51) yield i => show(i))
+  assert foldr(m, List(), lambda k, v, ps => List((k, v); ps)) == List(for x in m) and foldr(m, empty(), put) == m
+  assert foldl(m, List(), lambda ps, k, v => List((k, v); ps)) == reverse(List(for x in m)) and foldl(m, 0, lambda n, k, v => n + k) == 1275
+  assert foldr(Map(1 => "a", 2 => "b"), "", lambda k, v, t => v ++ t) == "ab" and foldl(Map(1 => "a", 2 => "b"), "", lambda t, k, v => t ++ v) == "ab"
+  assert List(for x in Map(2 => "b", 1 => "a")) == List((1, "a"), (2, "b")) and List(for x in m) == List(for x in m)
 
 // maps of the same entries are equal, although their trees differ
 test map_equality() :=
-  assert map(1 => "a", 2 => "b") == map(2 => "b", 1 => "a") and map(1 => "a") != map(1 => "b")
+  assert Map(1 => "a", 2 => "b") == Map(2 => "b", 1 => "a") and Map(1 => "a") != Map(1 => "b")
 
 // ascending keys would make a list of an unbalanced tree
 test balance() :=
-  local m := map(for i in range(1, 201) yield show(1000 + i) => i)
+  local m := Map(for i in range(1, 201) yield show(1000 + i) => i)
   assert balanced(m) and size(m) == 200 and height(m) <= 11
   assert get("1100", m) == Some(100) and get("1201", m) == None
-  assert list(for x in m) == list(for i in range(1, 201) yield (show(1000 + i), i))
-  assign m := m -- set(for x in list(for i in range(1, 101) yield show(1000 + 2 * i)) ++ list("none"))
-  assert balanced(m) and size(m) == 100 and list(for x in m) == list(for i in range(1, 101) yield (show(999 + 2 * i), 2 * i - 1))
+  assert List(for x in m) == List(for i in range(1, 201) yield (show(1000 + i), i))
+  assign m := m -- Set(for x in List(for i in range(1, 101) yield show(1000 + 2 * i)) ++ List("none"))
+  assert balanced(m) and size(m) == 100 and List(for x in m) == List(for i in range(1, 101) yield (show(999 + 2 * i), 2 * i - 1))

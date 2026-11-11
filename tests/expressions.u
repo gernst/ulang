@@ -45,7 +45,7 @@ test lambdas() :=
 
 // the formals of a lambda may be patterns, which it matches as let does
 test lambda_patterns() :=
-  assert foldl(list((1, 2), (3, 4)), 0, lambda n, (a, b) => n + a * b) == 14
+  assert foldl(List((1, 2), (3, 4)), 0, lambda n, (a, b) => n + a * b) == 14
   assert (lambda (a, b), c => a + b + c)((1, 2), 3) == 6
   assert (lambda (a, _) => a)((1, "b")) == 1
 
@@ -165,7 +165,7 @@ function sign_name(n: Int): Str :=
 test negative_literals() :=
   local x := 3
   assert (-2) + 5 == 3 and 2 * -3 == -6 and -x == -3 and -(1 + 2) == -3
-  assert list(sign_name(-5), sign_name(0), sign_name(7)) == list("negative", "zero", "positive")
+  assert List(sign_name(-5), sign_name(0), sign_name(7)) == List("negative", "zero", "positive")
 
 function fact(n: Int): Int :=
   if n == 0 then 1 else n * fact(n - 1)
@@ -210,9 +210,9 @@ function curry(f: (Int, Int) -> Int): Int -> Int -> Int :=
 // functions are overloaded by their number of arguments
 function length(xs: List[Int]): Int :=
   match xs
-    case list() =>
+    case List() =>
       0
-    case list(_; ys) =>
+    case List(_; ys) =>
       1 + length(ys)
   end
 
@@ -220,12 +220,12 @@ function length(xs: List[Int], ys: List[Int]): Int :=
   length(xs) + length(ys)
 
 test notations() :=
-  assert list(1; list(2) ++ list(3)) == list(1, 2, 3)
+  assert List(1; List(2) ++ List(3)) == List(1, 2, 3)
   assert 2 ** 3 + 1 == 9
   assert 2 * 3 ** 2 == 18
   assert (-2) * -3 == 6
   assert curry(lambda a, b => a - b)(5)(3) == 2
   assert false ==> false
   assert not (true ==> false)
-  assert length(list(1, 2)) == 2
-  assert length(list(1), list(2, 3)) == 3
+  assert length(List(1, 2)) == 2
+  assert length(List(1), List(2, 3)) == 3

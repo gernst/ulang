@@ -86,20 +86,20 @@ function empty(): Sig :=
   Sig(empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
 function restrict(sig: Sig, ms: List[Id]): Sig :=
-  Sig(owned_map(sig.type_aliases, ms), owned_map(sig.funs, ms), owned_map(sig.procs, ms), owned_map(sig.datas, ms), owned_map(sig.members, ms), owned_map(sig.constrs, ms), owned_map(sig.pat_aliases, ms), map(for (k, v) in owned_named(list(for k => v in sig.named), ms)))
+  Sig(owned_map(sig.type_aliases, ms), owned_map(sig.funs, ms), owned_map(sig.procs, ms), owned_map(sig.datas, ms), owned_map(sig.members, ms), owned_map(sig.constrs, ms), owned_map(sig.pat_aliases, ms), Map(for (k, v) in owned_named(List(for k => v in sig.named), ms)))
 
 function owned_map[V](m: Map[Name, V], ms: List[Id]): Map[Name, V] :=
-  map(for (k, v) in owned(list(for k => v in m), ms))
+  Map(for (k, v) in owned(List(for k => v in m), ms))
 
 function owned[V](es: List[Name * V], ms: List[Id]): List[Name * V] :=
-  list(for (n, v) in es if in_modules(n, ms))
+  List(for (n, v) in es if in_modules(n, ms))
 
 function owned_named(es: List[Id * List[Name]], ms: List[Id]): List[Id * List[Name]] :=
   match es
-    case list() =>
-      list()
-    case list((b, ns); rest) =>
-      let ks := list(for n in ns if in_modules(n, ms)) in if ks == list() then owned_named(rest, ms) else list((b, ks); owned_named(rest, ms))
+    case List() =>
+      List()
+    case List((b, ns); rest) =>
+      let ks := List(for n in ns if in_modules(n, ms)) in if ks == List() then owned_named(rest, ms) else List((b, ks); owned_named(rest, ms))
   end
 
 function in_modules(n: Name, ms: List[Id]): Bool :=
@@ -112,26 +112,26 @@ function in_modules(n: Name, ms: List[Id]): Bool :=
 
 // the declarations of both, whose names differ since they are qualified by their modules
 function union(a: Sig, b: Sig): Sig :=
-  Sig(a.type_aliases ++ b.type_aliases, a.funs ++ b.funs, a.procs ++ b.procs, a.datas ++ b.datas, a.members ++ b.members, a.constrs ++ b.constrs, a.pat_aliases ++ b.pat_aliases, union_named(list(for k => v in b.named), a.named))
+  Sig(a.type_aliases ++ b.type_aliases, a.funs ++ b.funs, a.procs ++ b.procs, a.datas ++ b.datas, a.members ++ b.members, a.constrs ++ b.constrs, a.pat_aliases ++ b.pat_aliases, union_named(List(for k => v in b.named), a.named))
 
 // the signature without the private functions, procedures, and constructors, values, and without the private sorts, each kind
 // of declaration filtered by its own names, since a datatype and its constructor may share a name, where an abstract type,
 // whose constructors are private, has no members
 function exported(sig: Sig, values: Set[Name], sorts: Set[Name]): Sig :=
-  let members := without(sig.members, sorts) in let kept := Sig(without(sig.type_aliases, sorts), without(sig.funs, values), without(sig.procs, values), without(sig.datas, sorts), map(for k => v in members if not hidden(v, values)), without(sig.constrs, values), without(sig.pat_aliases, values), empty()) in kept with named := map(for k => v in sig.named yield k => declared(kept, v))
+  let members := without(sig.members, sorts) in let kept := Sig(without(sig.type_aliases, sorts), without(sig.funs, values), without(sig.procs, values), without(sig.datas, sorts), Map(for k => v in members if not hidden(v, values)), without(sig.constrs, values), without(sig.pat_aliases, values), empty()) in kept with named := Map(for k => v in sig.named yield k => declared(kept, v))
 
 function without[V](m: Map[Name, V], names: Set[Name]): Map[Name, V] :=
-  map(for k => v in m if not contains(k, names))
+  Map(for k => v in m if not contains(k, names))
 
 function declares(sig: Sig, n: Name): Bool :=
   is_type_alias(sig, n) or is_fun(sig, n) or is_proc(sig, n) or is_data(sig, n) or is_constr(sig, n) or is_pat_alias(sig, n)
 
 function union_named(es: List[Id * List[Name]], bs: Map[Id, List[Name]]): Map[Id, List[Name]] :=
   match es
-    case list() =>
+    case List() =>
       bs
 
-    case list((k, ns); rest) =>
+    case List((k, ns); rest) =>
       match get(k, bs)
         case Some(ms) =>
           union_named(rest, put(k, ms ++ ns, bs))
@@ -144,7 +144,7 @@ function type_alias_of(sig: Sig, n: Name): Option[TypeAlias] :=
   get(n, sig.type_aliases)
 
 function schemes_of(sig: Sig, n: Name): List[Scheme] :=
-  value_or(get(n, sig.funs), list())
+  value_or(get(n, sig.funs), List())
 
 function proc_of(sig: Sig, n: Name): Option[ProcSig] :=
   get(n, sig.procs)
@@ -184,21 +184,21 @@ function is_sort(sig: Sig, n: Name): Bool :=
 
 // the declarations with base name b, of any kind and module, in the order of their declaration
 function names_of(sig: Sig, b: Id): List[Name] :=
-  value_or(get(b, sig.named), list())
+  value_or(get(b, sig.named), List())
 
 function with_named(bs: Map[Id, List[Name]], n: Name): Map[Id, List[Name]] :=
   match get(n.base, bs)
     case Some(ns) =>
-      if contains(n, ns) then bs else put(n.base, ns ++ list(n), bs)
+      if contains(n, ns) then bs else put(n.base, ns ++ List(n), bs)
     case None =>
-      put(n.base, list(n), bs)
+      put(n.base, List(n), bs)
   end
 
 function with_type_alias(sig: Sig, n: Name, alias: TypeAlias): Sig :=
   sig with type_aliases := put(n, alias, sig.type_aliases), named := with_named(sig.named, n)
 
 function with_fun(sig: Sig, n: Name, sc: Scheme): Sig :=
-  sig with funs := put(n, schemes_of(sig, n) ++ list(sc), sig.funs), named := with_named(sig.named, n)
+  sig with funs := put(n, schemes_of(sig, n) ++ List(sc), sig.funs), named := with_named(sig.named, n)
 
 function with_proc(sig: Sig, n: Name, proc: ProcSig): Sig :=
   sig with procs := put(n, proc, sig.procs), named := with_named(sig.named, n)
@@ -216,7 +216,7 @@ function with_pat_alias(sig: Sig, n: Name, alias: PatAlias): Sig :=
   sig with pat_aliases := put(n, alias, sig.pat_aliases), named := with_named(sig.named, n)
 
 function declared(sig: Sig, names: List[Name]): List[Name] :=
-  list(for name in names if declares(sig, name))
+  List(for name in names if declares(sig, name))
 
 function hidden(names: List[Name], values: Set[Name]): Bool :=
   exists(names, lambda name => contains(name, values))

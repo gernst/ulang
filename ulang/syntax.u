@@ -68,20 +68,20 @@ data Expr :=
   case ETuple(args: List[Expr])
   // raise e, of any type, which the checker infers into typ
   case ERaise(value: Expr, typ: Type)
-  // list(a, b; r), set(…), map(k => v; r), and array(…), which the checker translates to the builders of their modules
+  // List(a, b; r), Set(…), Map(k => v; r), and Array(…), which the checker translates to the builders of their modules
   case EForm(form: Form, elems: List[Yield], rest: Option[Expr])
-  // list(for p in c if q yield e; r) and the like, which the checker translates to the folds of the modules of the
+  // List(for p in c if q yield e; r) and the like, which the checker translates to the folds of the modules of the
   // containers, where elem is what each step adds, written after yield or else the value of the single generator
   case EFor(form: Form, gens: List[Gen], elem: Yield, rest: Option[Expr])
 
 data Form :=
-  // the form list(…)
+  // the form List(…)
   case FList
-  // the form set(…)
+  // the form Set(…)
   case FSet
-  // the form map(…)
+  // the form Map(…)
   case FMap
-  // the form array(…)
+  // the form Array(…)
   case FArray
 
 // an element of a list, set, or array, or an entry k => v of a map
@@ -106,7 +106,7 @@ data Pat :=
   case PLit(lit: Lit)
   // a variable x, which binds x
   case PVar(var: Var)
-  // a constructor C(p, …) or C, where list(p, …; r) and list() are Cons and Nil
+  // a constructor C(p, …) or C, where List(p, …; r) and List() are Cons and Nil
   case PApp(constr: Name, args: List[Pat])
   // a tuple (p, q, …)
   case PTuple(args: List[Pat])
@@ -223,21 +223,21 @@ pattern ECall(name: Name, typ: Type, args: List[Expr]): Expr := EApp(EVar(Var(na
 pattern PName(name: Name, typ: Type): Pat := PVar(Var(name, typ))
 
 // the block of for p in c if q do body end, with guarded the body under the condition, which runs it for the elements of
-// the container in the order of its fold, where the elements are collected first, list(for item in c), and then taken off
+// the container in the order of its fold, where the elements are collected first, List(for item in c), and then taken off
 // one by one, by a while loop
-//   local items := list(for item in c)
-//   while items != list() match items case list(p; rest) => guarded; assign items := rest case list() => skip end end
+//   local items := List(for item in c)
+//   while items != List() match items case List(p; rest) => guarded; assign items := rest case List() => skip end end
 // with names that users cannot write, which nested loops hide; the parser makes it and the printer reads it back
 pattern ForBlock(pat: Pat, over: Expr, guarded: Stmt): Stmt :=
-  SBlock(list(Var(Name(None, "(items)"), THole)), list(
-    SAssign(list((Var(Name(None, "(items)"), THole), EFor(FList, list(GVal(PName(Name(None, "(item)"), THole), over)), YVal(EName(Name(None, "(item)"), THole)), None)))),
+  SBlock(List(Var(Name(None, "(items)"), THole)), List(
+    SAssign(List((Var(Name(None, "(items)"), THole), EFor(FList, List(GVal(PName(Name(None, "(item)"), THole), over)), YVal(EName(Name(None, "(item)"), THole)), None)))),
     SWhile(
-      ECall(Name(None, "!="), THole, list(EName(Name(None, "(items)"), THole), EName(Name(None, "Nil"), THole))),
-      SMatch(EName(Name(None, "(items)"), THole), list(
-        Branch("", PApp(Name(None, "Cons"), list(pat, PName(Name(None, "(rest)"), THole))), None, SBlock(list(), list(
+      ECall(Name(None, "!="), THole, List(EName(Name(None, "(items)"), THole), EName(Name(None, "Nil"), THole))),
+      SMatch(EName(Name(None, "(items)"), THole), List(
+        Branch("", PApp(Name(None, "Cons"), List(pat, PName(Name(None, "(rest)"), THole))), None, SBlock(List(), List(
           guarded,
-          SAssign(list((Var(Name(None, "(items)"), THole), EName(Name(None, "(rest)"), THole))))))),
-        Branch("", PApp(Name(None, "Nil"), list()), None, SSkip))))))
+          SAssign(List((Var(Name(None, "(items)"), THole), EName(Name(None, "(rest)"), THole))))))),
+        Branch("", PApp(Name(None, "Nil"), List()), None, SSkip))))))
 
 function unqualified(x: Id): Name
 
@@ -328,21 +328,21 @@ function placed_of(d: Mod): List[Top] :=
   d.exported ++ d.builtins ++ d.implemented
 
 function commands_of(tops: List[Top]): List[Cmd] :=
-  list(for top in tops yield top.cmd)
+  List(for top in tops yield top.cmd)
 
 function module_dir(id: Id): Str :=
   match reverse(split(id, '/'))
-    case list(_; dirs) =>
+    case List(_; dirs) =>
       join("/", reverse(dirs))
-    case list() =>
+    case List() =>
       ""
   end
 
 function implicit_imports(name: Id): List[Id] :=
-  if contains(name, library_modules()) then list() else library_modules()
+  if contains(name, library_modules()) then List() else library_modules()
 
 function library_modules(): List[Id] :=
-  list(for name in list("prelude", "option", "list", "str", "set", "map", "array", "buffer", "os") yield library_module(name))
+  List(for name in List("prelude", "option", "list", "str", "set", "map", "array", "buffer", "os") yield library_module(name))
 
 function library_module(name: Str): Id :=
   "prelude/" ++ name
@@ -354,41 +354,41 @@ function library_name(module: Str, base: Id): Name :=
   Name(Some(library_module(module)), base)
 
 function seen_modules(d: Mod, packages: List[Package]): List[Id] :=
-  implicit_imports(d.name) ++ list(for p in packages if contains(p.id, d.imports) or p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
+  implicit_imports(d.name) ++ List(for p in packages if contains(p.id, d.imports) or p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
 
 // commands without positions and documentation, as programs that are not parsed have them
 function unplaced(cmds: List[Cmd]): List[Top] :=
-  list(for c in cmds yield Top(Pos(0, 0), "", c))
+  List(for c in cmds yield Top(Pos(0, 0), "", c))
 
 // lambda p, q => e with patterns p and q is lambda (1), (2) => match ((1), (2)) case (p, q) => e end, with formals that
 // users cannot write, and lambda (1) => match (1) case p => e end for one pattern
 function lambda_patterns(pats: List[Pat], body: Expr): Expr :=
-  let xs := pattern_formals(size(pats)) in ELam(xs, EMatch(pattern_scrutinee(xs), list(
+  let xs := pattern_formals(size(pats)) in ELam(xs, EMatch(pattern_scrutinee(xs), List(
     Branch("", match pats
-      case list(pat) =>
+      case List(pat) =>
         pat
       case _ =>
         PTuple(pats)
     end, None, body))))
 
 function pattern_formals(n: Int): List[Var] :=
-  list(for i in range(1, n + 1) yield Var(unqualified("(" ++ show(i) ++ ")"), THole))
+  List(for i in range(1, n + 1) yield Var(unqualified("(" ++ show(i) ++ ")"), THole))
 
 function pattern_scrutinee(xs: List[Var]): Expr :=
   match xs
-    case list(x) =>
+    case List(x) =>
       EVar(x)
     case _ =>
-      ETuple(list(for x in xs yield EVar(x)))
+      ETuple(List(for x in xs yield EVar(x)))
   end
 
 // the patterns and the body of a lambda that lambda_patterns built
 function patterns_of_lambda(formals: List[Var], body: Expr): Option[List[Pat] * Expr] :=
   match (body, formals)
-    case (EMatch(e, list(Branch(_, pat, None, inner))), list(_; more)) if formals == pattern_formals(size(formals)) and e == pattern_scrutinee(formals) =>
+    case (EMatch(e, List(Branch(_, pat, None, inner))), List(_; more)) if formals == pattern_formals(size(formals)) and e == pattern_scrutinee(formals) =>
       match (pat, more)
-        case (_, list()) =>
-          Some((list(pat), inner))
+        case (_, List()) =>
+          Some((List(pat), inner))
 
         case (PTuple(args), _) =>
           Some((args, inner))
@@ -403,25 +403,25 @@ function patterns_of_lambda(formals: List[Var], body: Expr): Option[List[Pat] * 
 
 // what a form of a single generator yields without yield, the value its pattern matches, an entry of a map
 function implicit_elem(form: Form, gens: List[Gen]): Option[Yield] :=
-  match (list(for g in gens if not is_guard(g)), form)
-    case (list(GPair(k, v, _)), FMap) =>
+  match (List(for g in gens if not is_guard(g)), form)
+    case (List(GPair(k, v, _)), FMap) =>
       pair_elem(pattern_expr(k), pattern_expr(v))
 
-    case (list(GPair(k, v, _)), _) =>
+    case (List(GPair(k, v, _)), _) =>
       match (pattern_expr(k), pattern_expr(v))
         case (Some(a), Some(b)) =>
-          Some(YVal(ETuple(list(a, b))))
+          Some(YVal(ETuple(List(a, b))))
         case _ =>
           None
       end
 
-    case (list(GVal(PTuple(list(k, v)), _)), FMap) =>
+    case (List(GVal(PTuple(List(k, v)), _)), FMap) =>
       pair_elem(pattern_expr(k), pattern_expr(v))
 
-    case (list(GVal(_, _)), FMap) =>
+    case (List(GVal(_, _)), FMap) =>
       None
 
-    case (list(GVal(p, _)), _) =>
+    case (List(GVal(p, _)), _) =>
       map_option(pattern_expr(p), YVal)
 
     case _ =>
@@ -459,7 +459,7 @@ function pattern_expr(p: Pat): Option[Expr] :=
     case PTuple(ps) =>
       map_option(pattern_exprs(ps), ETuple)
 
-    case PApp(c, list()) =>
+    case PApp(c, List()) =>
       Some(EName(c, THole))
 
     case PApp(c, ps) =>
@@ -473,10 +473,10 @@ function subst_pat(pat: Pat, sub: List[Name * Pat]): Pat :=
       value_or(get(var.name, sub), pat)
 
     case PApp(constr, args) =>
-      PApp(constr, list(for a in args yield subst_pat(a, sub)))
+      PApp(constr, List(for a in args yield subst_pat(a, sub)))
 
     case PTuple(args) =>
-      PTuple(list(for a in args yield subst_pat(a, sub)))
+      PTuple(List(for a in args yield subst_pat(a, sub)))
 
     case _ =>
       pat
@@ -485,49 +485,49 @@ function subst_pat(pat: Pat, sub: List[Name * Pat]): Pat :=
 function sorts_in(t: Type): List[Name] :=
   match t
     case TSort(name, args) =>
-      list(name; list(for a in args for u in sorts_in(a) yield u))
+      List(name; List(for a in args for u in sorts_in(a) yield u))
 
     case TFun(args, res) =>
-      list(for a in args ++ list(res) for u in sorts_in(a) yield u)
+      List(for a in args ++ List(res) for u in sorts_in(a) yield u)
 
     case TProc(ins, outs, refs) =>
-      list(for a in ins ++ outs ++ refs for u in sorts_in(a) yield u)
+      List(for a in ins ++ outs ++ refs for u in sorts_in(a) yield u)
 
     case TTuple(types) =>
-      list(for a in types for u in sorts_in(a) yield u)
+      List(for a in types for u in sorts_in(a) yield u)
 
     case _ =>
-      list()
+      List()
   end
 
 // the variables that pat binds, from left to right
 function pattern_names(pat: Pat): List[Name] :=
   match pat
     case PVar(var) =>
-      list(var.name)
+      List(var.name)
 
     case PApp(_, args) =>
-      list(for arg in args for name in pattern_names(arg) yield name)
+      List(for arg in args for name in pattern_names(arg) yield name)
 
     case PTuple(args) =>
-      list(for arg in args for name in pattern_names(arg) yield name)
+      List(for arg in args for name in pattern_names(arg) yield name)
 
     case PWild =>
-      list()
+      List()
 
     case PLit(_) =>
-      list()
+      List()
   end
 
 function pattern_exprs(ps: List[Pat]): Option[List[Expr]] :=
   match ps
-    case list() =>
-      Some(list())
+    case List() =>
+      Some(List())
 
-    case list(p; more) =>
+    case List(p; more) =>
       match (pattern_expr(p), pattern_exprs(more))
         case (Some(e), Some(es)) =>
-          Some(list(e; es))
+          Some(List(e; es))
         case _ =>
           None
       end
@@ -536,14 +536,14 @@ function pattern_exprs(ps: List[Pat]): Option[List[Expr]] :=
 function form_name(form: Form): Id :=
   match form
     case FList =>
-      "list"
+      "List"
 
     case FSet =>
-      "set"
+      "Set"
 
     case FMap =>
-      "map"
+      "Map"
 
     case FArray =>
-      "array"
+      "Array"
   end

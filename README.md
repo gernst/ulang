@@ -22,8 +22,8 @@ function insert(k: Int, t: Tree[Int]): Tree[Int] :=
 
 function keys[A](t: Tree[A]): List[A] :=
   match t
-    case Leaf => list()
-    case Node(l, k, r) => keys(l) ++ list(k; keys(r))
+    case Leaf => List()
+    case Node(l, k, r) => keys(l) ++ List(k; keys(r))
   end
 
 // inserts the elements of xs into the search tree t, one at a time
@@ -35,14 +35,14 @@ procedure insert_all(in xs: List[Int], ref t: Tree[Int]) :=
 procedure main() :=
   local t := Leaf
 
-  call insert_all(in list(3, 1, 2, 1), ref t)
+  call insert_all(in List(3, 1, 2, 1), ref t)
   call os_println(in show(keys(t)))
 
 test sorting() :=
   local t := Node(Leaf, 2, Leaf)
 
-  call   insert_all(in list(3, 1, 2), ref t)
-  assert keys(t) == list(1, 2, 3)
+  call   insert_all(in List(3, 1, 2), ref t)
+  assert keys(t) == List(1, 2, 3)
 ```
 
 ## Language
@@ -57,7 +57,7 @@ test sorting() :=
   Builtins raise `DivisionByZero`, `OutOfBounds`, and `NoCharacter`, whereas a failed `assert` ends the program.
 - Unbounded integers, characters, which are Unicode code points, and strings of them, which files hold as UTF-8.
 - Programs read their arguments with `os_args`, files with `os_read` and `os_write`, and print strings with `os_print`, all of the module `os`, where the builtin `show` gives the text of any value, which a datatype may declare for itself by a function `show`.
-- The forms `list(1, 2)`, `set(a, b)`, `map(k => v)`, and `array(a, b)`, and their generators `list(for x in xs if x > 0 yield x * x)`, `set(for x in c yield f(x))`, `map(for k => v in m yield k => f(v))`, which range over lists, sets, arrays, or maps by their folds, and `==` compares their elements and entries; and the statement `for x in xs if p do … end`, which runs its body for the elements of any container.
+- The forms `List(1, 2)`, `Set(a, b)`, `Map(k => v)`, and `Array(a, b)`, and their generators `List(for x in xs if x > 0 yield x * x)`, `Set(for x in c yield f(x))`, `Map(for k => v in m yield k => f(v))`, which range over lists, sets, arrays, or maps by their folds, and `==` compares their elements and entries; and the statement `for x in xs if p do … end`, which runs its body for the elements of any container.
 - User-defined operators by `infix`, `prefix`, and `postfix` notations.
 - Modules and packages: a file with `export` and `implementation` sections is a module, and the modules of a directory are a package, whose members see each other's exports without imports, also cyclically, while their private declarations stay private to their file. `import "p"` makes the exports of the package of the directory `p` available, by its path from the root of the project, the nearest directory above with `project.u`, but not transitively; packages do not import each other cyclically. A file without sections is a program, which sees the package of its directory, and every module sees the whole library without imports.
 - Named tests `test name() := …`, whose parameters are reserved for later and must be empty, while programs start at a procedure without parameters, like `procedure main() := …`.

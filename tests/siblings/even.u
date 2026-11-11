@@ -27,4 +27,4 @@ function size(e: Even): Int :=
   2 * e.half
 
 test even_sees_odd() :=
-  assert is_even(4) and not is_even(3) and size(Odd(1) <*> Odd(2)) == 15 and size(list(1, 2)) == 2
+  assert is_even(4) and not is_even(3) and size(Odd(1) <*> Odd(2)) == 15 and size(List(1, 2)) == 2

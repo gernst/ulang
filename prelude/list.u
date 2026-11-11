@@ -92,38 +92,38 @@ implementation
 
 function ++[A](xs: List[A], ys: List[A]): List[A] :=
   match xs
-    case list() =>
+    case List() =>
       ys
-    case list(x; zs) =>
-      list(x; zs ++ ys)
+    case List(x; zs) =>
+      List(x; zs ++ ys)
   end
 
 function size[A](xs: List[A]): Int :=
   match xs
-    case list() =>
+    case List() =>
       0
-    case list(_; ys) =>
+    case List(_; ys) =>
       1 + size(ys)
   end
 
 function get[K, V](k: K, xs: List[K * V]): Option[V] :=
   match xs
-    case list() =>
+    case List() =>
       None
 
-    case list((j, v); _) if j == k =>
+    case List((j, v); _) if j == k =>
       Some(v)
 
-    case list(_; ys) =>
+    case List(_; ys) =>
       get(k, ys)
   end
 
 function remove[A](x: A, xs: List[A]): List[A] :=
   match xs
-    case list() =>
-      list()
-    case list(y; ys) =>
-      if y == x then remove(x, ys) else list(y; remove(x, ys))
+    case List() =>
+      List()
+    case List(y; ys) =>
+      if y == x then remove(x, ys) else List(y; remove(x, ys))
   end
 
 function sort[A](xs: List[A]): List[A] :=
@@ -131,54 +131,54 @@ function sort[A](xs: List[A]): List[A] :=
 
 function merge_sorted[A](xs: List[A], ys: List[A]): List[A] :=
   match (xs, ys)
-    case (list(), _) =>
+    case (List(), _) =>
       ys
 
-    case (_, list()) =>
+    case (_, List()) =>
       xs
 
-    case (list(x; xt), list(y; yt)) =>
-      if compare(y, x) < 0 then list(y; merge_sorted(xs, yt)) else list(x; merge_sorted(xt, ys))
+    case (List(x; xt), List(y; yt)) =>
+      if compare(y, x) < 0 then List(y; merge_sorted(xs, yt)) else List(x; merge_sorted(xt, ys))
   end
 
 function contains[A](x: A, xs: List[A]): Bool :=
   match xs
-    case list() =>
+    case List() =>
       false
-    case list(y; ys) =>
+    case List(y; ys) =>
       x == y or contains(x, ys)
   end
 
 function exists[A](xs: List[A], p: A -> Bool): Bool :=
   match xs
-    case list() =>
+    case List() =>
       false
-    case list(y; ys) =>
+    case List(y; ys) =>
       p(y) or exists(ys, p)
   end
 
 function forall[A](xs: List[A], p: A -> Bool): Bool :=
   match xs
-    case list() =>
+    case List() =>
       true
-    case list(y; ys) =>
+    case List(y; ys) =>
       p(y) and forall(ys, p)
   end
 
 function find[A](xs: List[A], p: A -> Bool): Option[A] :=
   match xs
-    case list() =>
+    case List() =>
       None
-    case list(y; ys) =>
+    case List(y; ys) =>
       if p(y) then Some(y) else find(ys, p)
   end
 
 function find_map[A, B](xs: List[A], f: A -> Option[B]): Option[B] :=
   match xs
-    case list() =>
+    case List() =>
       None
 
-    case list(y; ys) =>
+    case List(y; ys) =>
       match f(y)
         case None =>
           find_map(ys, f)
@@ -189,7 +189,7 @@ function find_map[A, B](xs: List[A], f: A -> Option[B]): Option[B] :=
 
 function at[A](i: Int, xs: List[A]): A :=
   match drop(i, xs)
-    case list(x; _) if i >= 0 =>
+    case List(x; _) if i >= 0 =>
       x
     case _ =>
       raise OutOfBounds(i, size(xs))
@@ -197,87 +197,87 @@ function at[A](i: Int, xs: List[A]): A :=
 
 function index_of[A](x: A, xs: List[A]): Option[Int] :=
   match xs
-    case list() =>
+    case List() =>
       None
-    case list(y; ys) =>
+    case List(y; ys) =>
       if y == x then Some(0) else map_option(index_of(x, ys), lambda i => i + 1)
   end
 
 function flat_map[A, B](xs: List[A], f: A -> List[B]): List[B] :=
-  concat(list(for x in xs yield f(x)))
+  concat(List(for x in xs yield f(x)))
 
 function foldr[A, R](xs: List[A], acc: R, f: (A, R) -> R): R :=
   match xs
-    case list() =>
+    case List() =>
       acc
-    case list(y; ys) =>
+    case List(y; ys) =>
       f(y, foldr(ys, acc, f))
   end
 
 function foldl[A, R](xs: List[A], acc: R, f: (R, A) -> R): R :=
   match xs
-    case list() =>
+    case List() =>
       acc
-    case list(y; ys) =>
+    case List(y; ys) =>
       foldl(ys, f(acc, y), f)
   end
 
 function distinct[A](xs: List[A]): List[A] :=
   match xs
-    case list() =>
-      list()
-    case list(y; ys) =>
-      list(y; distinct(list(for z in ys if z != y)))
+    case List() =>
+      List()
+    case List(y; ys) =>
+      List(y; distinct(List(for z in ys if z != y)))
   end
 
 function last[A](xs: List[A]): Option[A] :=
   match xs
-    case list() =>
+    case List() =>
       None
 
-    case list(x) =>
+    case List(x) =>
       Some(x)
 
-    case list(_; rest) =>
+    case List(_; rest) =>
       last(rest)
   end
 
 function repeated[A](xs: List[A]): Option[A] :=
   match xs
-    case list() =>
+    case List() =>
       None
-    case list(y; ys) =>
+    case List(y; ys) =>
       if contains(y, ys) then Some(y) else repeated(ys)
   end
 
 function --[A](xs: List[A], ys: List[A]): List[A] :=
-  list(for x in xs if not contains(x, ys))
+  List(for x in xs if not contains(x, ys))
 
 function concat[A](xss: List[List[A]]): List[A] :=
   match xss
-    case list() =>
-      list()
-    case list(xs; yss) =>
+    case List() =>
+      List()
+    case List(xs; yss) =>
       xs ++ concat(yss)
   end
 
 function reverse_onto[A](xs: List[A], ys: List[A]): List[A] :=
   match xs
-    case list() =>
+    case List() =>
       ys
-    case list(x; rest) =>
-      reverse_onto(rest, list(x; ys))
+    case List(x; rest) =>
+      reverse_onto(rest, List(x; ys))
   end
 
 function reverse[A](xs: List[A]): List[A] :=
-  reverse_onto(xs, list())
+  reverse_onto(xs, List())
 
 function zip[A, B](xs: List[A], ys: List[B]): List[A * B] :=
   match (xs, ys)
-    case (list(x; xs1), list(y; ys1)) =>
-      list((x, y); zip(xs1, ys1))
+    case (List(x; xs1), List(y; ys1)) =>
+      List((x, y); zip(xs1, ys1))
     case _ =>
-      list()
+      List()
   end
 
 function numbered[A](xs: List[A]): List[A * Int] :=
@@ -285,17 +285,17 @@ function numbered[A](xs: List[A]): List[A * Int] :=
 
 function take[A](n: Int, xs: List[A]): List[A] :=
   match xs
-    case list() =>
-      list()
-    case list(y; ys) =>
-      if n <= 0 then list() else list(y; take(n - 1, ys))
+    case List() =>
+      List()
+    case List(y; ys) =>
+      if n <= 0 then List() else List(y; take(n - 1, ys))
   end
 
 function drop[A](n: Int, xs: List[A]): List[A] :=
   match xs
-    case list() =>
-      list()
-    case list(_; ys) =>
+    case List() =>
+      List()
+    case List(_; ys) =>
       if n <= 0 then xs else drop(n - 1, ys)
   end
 
@@ -306,38 +306,38 @@ function split_at[A](n: Int, xs: List[A]): List[A] * List[A] :=
   (take(n, xs), drop(n, xs))
 
 function replicate[A](n: Int, x: A): List[A] :=
-  if n <= 0 then list() else list(x; replicate(n - 1, x))
+  if n <= 0 then List() else List(x; replicate(n - 1, x))
 
 function range(i: Int, j: Int): List[Int] :=
-  if i >= j then list() else list(i; range(i + 1, j))
+  if i >= j then List() else List(i; range(i + 1, j))
 
 function firsts[A, B](ps: List[A * B]): List[A] :=
   match ps
-    case list() =>
-      list()
-    case list((a, _); rest) =>
-      list(a; firsts(rest))
+    case List() =>
+      List()
+    case List((a, _); rest) =>
+      List(a; firsts(rest))
   end
 
 function seconds[A, B](ps: List[A * B]): List[B] :=
   match ps
-    case list() =>
-      list()
-    case list((_, b); rest) =>
-      list(b; seconds(rest))
+    case List() =>
+      List()
+    case List((_, b); rest) =>
+      List(b; seconds(rest))
   end
 
 function show[A](xs: List[A]): Str :=
-  "list(" ++ separated(list(for x in xs yield show(x))) ++ ")"
+  "List(" ++ separated(List(for x in xs yield show(x))) ++ ")"
 
 // the strings with commas between them, joined pairwise, so that each character is copied about log n times, since join of
 // str.u comes after this module
 function separated(ss: List[Str]): Str :=
   match ss
-    case list() =>
+    case List() =>
       ""
 
-    case list(s) =>
+    case List(s) =>
       s
 
     case _ =>
@@ -346,35 +346,35 @@ function separated(ss: List[Str]): Str :=
 
 function joined_pairs(ss: List[Str]): List[Str] :=
   match ss
-    case list(a, b; rest) =>
-      list(a ++ ", " ++ b; joined_pairs(rest))
+    case List(a, b; rest) =>
+      List(a ++ ", " ++ b; joined_pairs(rest))
     case _ =>
       ss
   end
 
 test lists() :=
-  assert numbered(list("a", "b")) == list(("a", 0), ("b", 1)) and numbered(list()) == list()
-  assert range(2, 5) == list(2, 3, 4) and range(5, 2) == list()
-  assert list(1, 2) ++ list(3) == list(1, 2, 3) and size(list(1, 2, 3)) == 3
-  assert get(2, list((1, "a"), (2, "b"), (2, "c"))) == Some("b") and get(3, list((1, "a"))) == None
-  assert remove(1, list(1, 2, 1, 3)) == list(2, 3) and remove(4, list(1, 2)) == list(1, 2) and remove((1, "a"), list((1, "a"), (1, "b"))) == list((1, "b"))
-  assert contains(2, list(1, 2)) and not contains(3, list(1, 2))
-  assert slice(list(1, 2, 3), 1, 3) == list(2, 3) and slice(list(1, 2), 1, 5) == list(2) and slice(list(1, 2, 3), 2, 1) == list() and slice(list(1, 2), -1, 1) == list(1)
-  assert exists(list(1, 2), lambda x => x > 1) and not exists(list(1, 2), lambda x => x > 2) and not exists(list(), lambda x => x > 0)
-  assert forall(list(1, 2), lambda x => x > 0) and not forall(list(1, 2), lambda x => x > 1) and forall(list(), lambda x => x > 0)
-  assert foldr(list(1, 2, 3), list(), Cons) == list(1, 2, 3) and foldr(list(1, 2, 3), 0, lambda x, n => 10 * n + x) == 321
-  assert foldl(list(1, 2, 3), list(), lambda xs, x => list(x; xs)) == list(3, 2, 1) and foldl(list(1, 2, 3), 0, lambda n, x => 10 * n + x) == 123
-  assert distinct(list(1, 2, 1, 3, 2)) == list(1, 2, 3)
-  assert repeated(list(1, 2, 1)) == Some(1) and last(list(1, 2)) == Some(2) and last(list()) == None
-  assert list(1, 2, 3) -- list(2) == list(1, 3)
-  assert concat(list(list(1), list(), list(2, 3))) == list(1, 2, 3)
-  assert zip(list(1, 2, 3), list(true, false)) == list((1, true), (2, false))
-  assert take(2, list(1, 2, 3)) == list(1, 2) and drop(2, list(1, 2, 3)) == list(3)
-  assert find(list(1, 4, 6), lambda x => x > 3) == Some(4) and find(list(1, 2), lambda x => x > 3) == None
-  assert find_map(list(1, 4, 6), lambda x => if x > 3 then Some(x * 2) else None) == Some(8) and find_map(list(1), lambda x => None) == None
-  assert at(1, list(5, 6)) == 6 and index_of(6, list(5, 6)) == Some(1) and index_of(7, list(5, 6)) == None
-  assert flat_map(list(1, 2), lambda x => list(x, x)) == list(1, 1, 2, 2) and split_at(1, list(1, 2, 3)) == (list(1), list(2, 3))
-  assert sort(list(3, 1, 2, 1)) == list(1, 1, 2, 3) and sort(list("b", "a")) == list("a", "b") and sort(list(1)) == list(1)
-  assert replicate(2, 0) == list(0, 0) and replicate(-1, 0) == list()
-  assert reverse(list(1, 2, 3)) == list(3, 2, 1) and reverse_onto(list(2, 1), list(3)) == list(1, 2, 3)
-  assert firsts(list((1, true), (2, false))) == list(1, 2) and seconds(list((1, true), (2, false))) == list(true, false)
+  assert numbered(List("a", "b")) == List(("a", 0), ("b", 1)) and numbered(List()) == List()
+  assert range(2, 5) == List(2, 3, 4) and range(5, 2) == List()
+  assert List(1, 2) ++ List(3) == List(1, 2, 3) and size(List(1, 2, 3)) == 3
+  assert get(2, List((1, "a"), (2, "b"), (2, "c"))) == Some("b") and get(3, List((1, "a"))) == None
+  assert remove(1, List(1, 2, 1, 3)) == List(2, 3) and remove(4, List(1, 2)) == List(1, 2) and remove((1, "a"), List((1, "a"), (1, "b"))) == List((1, "b"))
+  assert contains(2, List(1, 2)) and not contains(3, List(1, 2))
+  assert slice(List(1, 2, 3), 1, 3) == List(2, 3) and slice(List(1, 2), 1, 5) == List(2) and slice(List(1, 2, 3), 2, 1) == List() and slice(List(1, 2), -1, 1) == List(1)
+  assert exists(List(1, 2), lambda x => x > 1) and not exists(List(1, 2), lambda x => x > 2) and not exists(List(), lambda x => x > 0)
+  assert forall(List(1, 2), lambda x => x > 0) and not forall(List(1, 2), lambda x => x > 1) and forall(List(), lambda x => x > 0)
+  assert foldr(List(1, 2, 3), List(), Cons) == List(1, 2, 3) and foldr(List(1, 2, 3), 0, lambda x, n => 10 * n + x) == 321
+  assert foldl(List(1, 2, 3), List(), lambda xs, x => List(x; xs)) == List(3, 2, 1) and foldl(List(1, 2, 3), 0, lambda n, x => 10 * n + x) == 123
+  assert distinct(List(1, 2, 1, 3, 2)) == List(1, 2, 3)
+  assert repeated(List(1, 2, 1)) == Some(1) and last(List(1, 2)) == Some(2) and last(List()) == None
+  assert List(1, 2, 3) -- List(2) == List(1, 3)
+  assert concat(List(List(1), List(), List(2, 3))) == List(1, 2, 3)
+  assert zip(List(1, 2, 3), List(true, false)) == List((1, true), (2, false))
+  assert take(2, List(1, 2, 3)) == List(1, 2) and drop(2, List(1, 2, 3)) == List(3)
+  assert find(List(1, 4, 6), lambda x => x > 3) == Some(4) and find(List(1, 2), lambda x => x > 3) == None
+  assert find_map(List(1, 4, 6), lambda x => if x > 3 then Some(x * 2) else None) == Some(8) and find_map(List(1), lambda x => None) == None
+  assert at(1, List(5, 6)) == 6 and index_of(6, List(5, 6)) == Some(1) and index_of(7, List(5, 6)) == None
+  assert flat_map(List(1, 2), lambda x => List(x, x)) == List(1, 1, 2, 2) and split_at(1, List(1, 2, 3)) == (List(1), List(2, 3))
+  assert sort(List(3, 1, 2, 1)) == List(1, 1, 2, 3) and sort(List("b", "a")) == List("a", "b") and sort(List(1)) == List(1)
+  assert replicate(2, 0) == List(0, 0) and replicate(-1, 0) == List()
+  assert reverse(List(1, 2, 3)) == List(3, 2, 1) and reverse_onto(List(2, 1), List(3)) == List(1, 2, 3)
+  assert firsts(List((1, true), (2, false))) == List(1, 2) and seconds(List((1, true), (2, false))) == List(true, false)

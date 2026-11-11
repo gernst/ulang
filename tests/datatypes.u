@@ -1,9 +1,9 @@
 function range(n: Int): List[Int] :=
-  if n == 0 then list() else list(n; range(n - 1))
+  if n == 0 then List() else List(n; range(n - 1))
 
 function head[A](xs: List[A]): Option[A] :=
   match xs
-    case list(x; _) =>
+    case List(x; _) =>
       Some(x)
     case _ =>
       None
@@ -11,7 +11,7 @@ function head[A](xs: List[A]): Option[A] :=
 
 function nested(xs: List[Option[Int]]): Int :=
   match xs
-    case list(Some(1), None; _) =>
+    case List(Some(1), None; _) =>
       1
     case _ =>
       0
@@ -40,22 +40,22 @@ function unit(u: ()): Int :=
   end
 
 test ranges() :=
-  assert range(3) == list(3, 2, 1)
+  assert range(3) == List(3, 2, 1)
   assert size(range(3)) == 3
-  assert list(for x in range(3) yield x * x) == list(9, 4, 1)
+  assert List(for x in range(3) yield x * x) == List(9, 4, 1)
   assert head(range(2)) == Some(2)
-  assert head(list()) == None
-  assert nested(list(Some(1), None)) == 1
-  assert nested(list()) == 0
+  assert head(List()) == None
+  assert nested(List(Some(1), None)) == 1
+  assert nested(List()) == 0
   assert word(0) == "zero"
   assert word(7) == "other"
   assert flip(false) == 1
   assert unit(()) == 0
-  assert range(2) != list()
+  assert range(2) != List()
 
 // association lists, where the first pair of a key counts
 test association_lists() :=
-  local m := list(("b", 2), ("a", 1), ("a", 3))
+  local m := List(("b", 2), ("a", 1), ("a", 3))
   assert get("a", m) == Some(1) and get("b", m) == Some(2) and get("c", m) == None
 
 // mutually recursive datatypes, and a type definition before the datatype it uses
@@ -150,11 +150,11 @@ function sign(n: Int): Int :=
 test guards() :=
   local s: Str
   assert sign(-5) == -1 and sign(0) == 0 and sign(7) == 1
-  match list(1, 2)
-    case list(x; _) if x > 1 =>
+  match List(1, 2)
+    case List(x; _) if x > 1 =>
       assign s := "big"
 
-    case list(x; _) if x == 1 =>
+    case List(x; _) if x == 1 =>
       assign s := "one"
 
     case _ =>
@@ -165,21 +165,21 @@ test guards() :=
 // [a, b] is Cons(a, Cons(b, Nil)) and [a, b; c] is Cons(a, Cons(b, c)), in patterns and expressions
 function sum_pairs(xs: List[Int]): Int :=
   match xs
-    case list() =>
+    case List() =>
       0
 
-    case list(x) =>
+    case List(x) =>
       x
 
-    case list(x, y; rest) =>
+    case List(x, y; rest) =>
       x * y + sum_pairs(rest)
   end
 
 test list_patterns() :=
-  assert sum_pairs(list(1, 2, 3, 4, 5)) == 19
-  assert sum_pairs(list()) == 0
-  assert list(1; list(2, 3)) == list(1, 2, 3)
-  assert list(1, 2; list(3)) == Cons(1, Cons(2, Cons(3, list())))
+  assert sum_pairs(List(1, 2, 3, 4, 5)) == 19
+  assert sum_pairs(List()) == 0
+  assert List(1; List(2, 3)) == List(1, 2, 3)
+  assert List(1, 2; List(3)) == Cons(1, Cons(2, Cons(3, List())))
 
 // compare orders values of a type, constructors by their declaration and then by their fields
 test comparisons() :=
@@ -187,7 +187,7 @@ test comparisons() :=
   assert compare("ab", "b") == -1 and compare('b', 'a') == 1 and compare(false, true) == -1
   assert compare((1, "b"), (1, "a")) == 1 and compare((), ()) == 0
   assert compare(None, Some(0)) == -1 and compare(Some(2), Some(1)) == 1
-  assert compare(Zero, Succ(Zero)) == -1 and compare(list(1, 2), list(1)) == 1 and compare(list(1), list(1, 2)) == -1
+  assert compare(Zero, Succ(Zero)) == -1 and compare(List(1, 2), List(1)) == 1 and compare(List(1), List(1, 2)) == -1
   assert compare(100000000000000000000, 99999999999999999999) == 1 and compare(-100000000000000000000, 1) == -1
 
 data Point :=
@@ -221,8 +221,8 @@ test unknown_type() :=
   assert v == 1
 
 test lambda_arguments() :=
-  local ps := list(Point(1, 2), Point(3, 4))
-  assert exists(ps, lambda q => q.x == 3) and not forall(ps, lambda q => q.y < 4) and list(for q in ps yield q.y) == list(2, 4)
+  local ps := List(Point(1, 2), Point(3, 4))
+  assert exists(ps, lambda q => q.x == 3) and not forall(ps, lambda q => q.y < 4) and List(for q in ps yield q.y) == List(2, 4)
 
 test annotated_lambda() :=
   local g: Point -> Int := (lambda p => p.x)

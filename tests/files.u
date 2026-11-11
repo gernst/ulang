@@ -42,17 +42,17 @@ test walking() :=
   call os_write(in "out/walk/sub/deep/c.txt", "c")
   call os_write(in "out/walk/sub/b.txt", "b")
   call os_list(in "out/walk", out entries)
-  assert entries == list(("a.txt", false), ("sub", true), ("z.txt", false))
+  assert entries == List(("a.txt", false), ("sub", true), ("z.txt", false))
   call os_walk(in "out/walk", out files)
-  assert files == list(
+  assert files == List(
     "out/walk/a.txt",
     "out/walk/sub/b.txt",
     "out/walk/sub/deep/c.txt",
     "out/walk/z.txt")
   call os_walk(in "out/walk/sub/", out files)
-  assert files == list("out/walk/sub/b.txt", "out/walk/sub/deep/c.txt")
+  assert files == List("out/walk/sub/b.txt", "out/walk/sub/deep/c.txt")
   call os_walk(in "out/walk/a.txt", out files)
-  assert files == list("out/walk/a.txt")
+  assert files == List("out/walk/a.txt")
   call os_is_dir(in "out/walk/sub", out dir)
   assert dir
   call os_is_dir(in "out/walk/a.txt", out dir)
@@ -85,10 +85,10 @@ test changing_directory() :=
 test arguments() :=
   local args: List[Str]
   call os_args(out args)
-  assert args == list()
+  assert args == List()
 
 // os_println prints a string as it is and a newline, also the text of any value that show gives
 test printing() :=
   call os_println(in "a \"text\"")
-  call os_println(in show(list(1, 2)))
-  call os_println(in show(("a\n", Some('\''), list(true), list(), ())))
+  call os_println(in show(List(1, 2)))
+  call os_println(in show(("a\n", Some('\''), List(true), List(), ())))

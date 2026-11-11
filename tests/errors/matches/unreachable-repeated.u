@@ -1,12 +1,12 @@
 // type error: unreachable case Nil at 2.1
 function f(xs: List[Int]): Int :=
   match xs
-    case list() =>
+    case List() =>
       0
 
-    case list(_; _) =>
+    case List(_; _) =>
       1
 
-    case list() =>
+    case List() =>
       2
   end

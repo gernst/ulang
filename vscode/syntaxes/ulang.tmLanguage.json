@@ -226,7 +226,11 @@
         },
         {
           "name": "keyword.other.ulang",
-          "match": "\\b(test|pattern|list|set|map|array)\\b"
+          "match": "\\b(test|pattern)\\b"
+        },
+        {
+          "name": "keyword.other.ulang",
+          "match": "\\b(List|Set|Map|Array)(?=\\s*\\()"
         },
         {
           "name": "keyword.control.ulang",
