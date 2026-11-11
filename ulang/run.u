@@ -234,7 +234,7 @@ procedure incomparable(in v: Value) :=
       raise CompareFunctions
   end
 
-function truth(v: Value): Bool :=
+function is_true(v: Value): Bool :=
   v == VBool(true)
 
 function is_code_point(num: Int): Bool :=
@@ -349,7 +349,7 @@ procedure evaluate(
 
     case EIte(cond, then_expr, else_expr) =>
       call evaluate(in run, env, cond, out w, ref cache)
-      if truth(w) then
+      if is_true(w) then
         call evaluate(in run, env, then_expr, out v, ref cache)
       else
         call evaluate(in run, env, else_expr, out v, ref cache)
@@ -438,7 +438,7 @@ procedure apply_expr(
   match (f, args)
     case (EName(Name(None, "and"), _), List(l, r)) =>
       call evaluate(in run, env, l, out a, ref cache)
-      if truth(a) then
+      if is_true(a) then
         call evaluate(in run, env, r, out v, ref cache)
       else
         assign v := a
@@ -446,7 +446,7 @@ procedure apply_expr(
 
     case (EName(Name(None, "or"), _), List(l, r)) =>
       call evaluate(in run, env, l, out a, ref cache)
-      if truth(a) then
+      if is_true(a) then
         assign v := a
       else
         call evaluate(in run, env, r, out v, ref cache)
@@ -735,7 +735,7 @@ procedure equal(
       match (declared_for(run, c, run.defs.equalities), declared_for(run, c, run.defs.orders))
         case (Some(f), _) =>
           call   apply_value(in run, VFun(f, 2), List(a, b), out v, ref cache)
-          assign r := truth(v)
+          assign r := is_true(v)
 
         case (None, Some(_)) =>
           call   compare_values(in run, a, b, out k, ref cache)
@@ -925,7 +925,7 @@ procedure exec(
 
     case SIf(cond, left, right) =>
       call evaluate(in run, env, cond, out v, ref cache)
-      if truth(v) then
+      if is_true(v) then
         call exec(in run, left, ref env, cache)
       else
         call exec(in run, right, ref env, cache)
@@ -933,7 +933,7 @@ procedure exec(
 
     case SWhile(cond, body) =>
       call evaluate(in run, env, cond, out v, ref cache)
-      while truth(v) do
+      while is_true(v) do
         call exec(in run, body, ref env, cache)
         call evaluate(in run, env, cond, out v, ref cache)
       end
@@ -974,7 +974,7 @@ procedure exec(
 
     case SAssert(cond) =>
       call evaluate(in run, env, cond, out v, ref cache)
-      if not truth(v) then
+      if not is_true(v) then
         raise AssertionFailed
       end
 
@@ -1077,7 +1077,7 @@ procedure holds(
   match g
     case Some(e) =>
       call   evaluate(in run, env, e, out w, ref cache)
-      assign ok := truth(w)
+      assign ok := is_true(w)
 
     case None =>
       assign ok := true

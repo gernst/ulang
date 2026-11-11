@@ -573,7 +573,7 @@ procedure parse_data(ref decls: Decls, toks: List[Tok]) :=
       call parse_fields(in name, out fields, ref toks)
     end
     assign cs := cs ++ List(Name(None, c))
-    assign decls := decls with ctors := put(Name(None, c), Ctor(name, fields), decls.ctors), ranks := put(Name(None, c), rank, decls.ranks)
+    assign decls := decls with constrs := put(Name(None, c), Constr(name, fields), decls.constrs), ranks := put(Name(None, c), rank, decls.ranks)
   end
   assign decls := decls with datatypes := put(name, cs, decls.datatypes)
 

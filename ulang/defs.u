@@ -126,10 +126,10 @@ function field_of(n: Name): Str :=
 function order_of(cmd: Cmd): Option[Id * Name] :=
   match cmd
     case CFun(Name(Some(m), "show"), _, List(Var(_, TSort(Name(Some(k), base), args))), typ, _) =>
-      if k == m and distinct_params(args) and typ == TStr() then Some(("show", Name(Some(k), base))) else None
+      if k == m and is_distinct_params(args) and typ == TStr() then Some(("show", Name(Some(k), base))) else None
 
     case CFun(Name(Some(m), f), _, List(Var(_, TSort(Name(Some(k), b), args)), Var(_, u)), r, _) =>
-      let op := order_op(f, b) in if k == m and u == TSort(Name(Some(k), b), args) and distinct_params(args) and order_result(op) == Some(r) then Some((op, Name(Some(k), b))) else None
+      let op := order_op(f, b) in if k == m and u == TSort(Name(Some(k), b), args) and is_distinct_params(args) and order_result(op) == Some(r) then Some((op, Name(Some(k), b))) else None
 
     case _ =>
       None
@@ -150,7 +150,7 @@ function order_result(op: Id): Option[Type] :=
       None
   end
 
-function distinct_params(ts: List[Type]): Bool :=
+function is_distinct_params(ts: List[Type]): Bool :=
   List(for t in ts if is_param(t)) == ts and distinct(ts) == ts
 
 function is_param(t: Type): Bool :=

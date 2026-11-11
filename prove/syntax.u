@@ -69,13 +69,13 @@ data Def :=
   case Def(recursive: Bool, formals: List[Var], body: Expr)
 
 // a constructor by its datatype and its fields, where a field of the datatype itself is recursive
-data Ctor :=
-  case Ctor(datatype: Name, fields: List[Var])
+data Constr :=
+  case Constr(datatype: Name, fields: List[Var])
 
 // the symbols of a program: the definitions of functions, the constructors, the datatypes with their constructors
 // in order, and the rank of each symbol in the order of declarations, the precedence of the term order
 data Decls :=
-  case Decls(defs: Map[Name, Def], ctors: Map[Name, Ctor], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int])
+  case Decls(defs: Map[Name, Def], constrs: Map[Name, Constr], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int])
 
 data Rebind :=
   // the count outermost binders at depth become the levels from depth on
@@ -121,9 +121,9 @@ function int_expr(n: Int): Expr
 
 function empty_decls(): Decls
 
-function is_ctor(decls: Decls, f: Name): Bool
+function is_constr(decls: Decls, f: Name): Bool
 
-function ctor_head(decls: Decls, e: Expr): Option[Name * List[Expr]]
+function constr_head(decls: Decls, e: Expr): Option[Name * List[Expr]]
 
 function rebind(op: Rebind, c: Int, e: Expr): Expr
 
@@ -153,7 +153,7 @@ function lin_sub(a: Lin, b: Lin): Lin
 
 function sum_expr(a: Lin): Expr
 
-function greater(decls: Decls, s: Expr, t: Expr): Bool
+function is_greater(decls: Decls, s: Expr, t: Expr): Bool
 
 function print_expr(names: List[Id], e: Expr): Str
 
@@ -174,16 +174,16 @@ function int_expr(n: Int): Expr :=
 function empty_decls(): Decls :=
   Decls(empty(), empty(), empty(), empty())
 
-function is_ctor(decls: Decls, f: Name): Bool :=
-  contains(f, decls.ctors)
+function is_constr(decls: Decls, f: Name): Bool :=
+  contains(f, decls.constrs)
 
 // the constructor and the arguments of a constructor term
-function ctor_head(decls: Decls, e: Expr): Option[Name * List[Expr]] :=
+function constr_head(decls: Decls, e: Expr): Option[Name * List[Expr]] :=
   match e
-    case EFun(name) if is_ctor(decls, name) =>
+    case EFun(name) if is_constr(decls, name) =>
       Some((name, List()))
 
-    case EApp(EFun(name), args) if is_ctor(decls, name) =>
+    case EApp(EFun(name), args) if is_constr(decls, name) =>
       Some((name, args))
 
     case _ =>
@@ -509,7 +509,7 @@ function sum_expr(a: Lin): Expr :=
       ESum(k, terms)
   end
 
-function greater(decls: Decls, s: Expr, t: Expr): Bool :=
+function is_greater(decls: Decls, s: Expr, t: Expr): Bool :=
   if s == t then false else match (s, t)
     case (_, EBound(_)) =>
       occurs(t, s)
@@ -518,16 +518,16 @@ function greater(decls: Decls, s: Expr, t: Expr): Bool :=
       false
 
     case _ =>
-      if exists(args_of(s), lambda a => a == t or greater(decls, a, t)) then true else let c := compare(head_key(decls, s), head_key(decls, t)) in if c > 0 then dominates(decls, s, args_of(t)) else if c == 0 then lex_greater(decls, args_of(s), args_of(t)) and dominates(decls, s, args_of(t)) else false
+      if exists(args_of(s), lambda a => a == t or is_greater(decls, a, t)) then true else let c := compare(head_key(decls, s), head_key(decls, t)) in if c > 0 then dominates(decls, s, args_of(t)) else if c == 0 then is_lex_greater(decls, args_of(s), args_of(t)) and dominates(decls, s, args_of(t)) else false
   end
 
 function dominates(decls: Decls, s: Expr, ts: List[Expr]): Bool :=
-  forall(ts, lambda t => greater(decls, s, t))
+  forall(ts, lambda t => is_greater(decls, s, t))
 
-function lex_greater(decls: Decls, ss: List[Expr], ts: List[Expr]): Bool :=
+function is_lex_greater(decls: Decls, ss: List[Expr], ts: List[Expr]): Bool :=
   match (ss, ts)
     case (List(s; ss1), List(t; ts1)) =>
-      if s == t then lex_greater(decls, ss1, ts1) else greater(decls, s, t)
+      if s == t then is_lex_greater(decls, ss1, ts1) else is_greater(decls, s, t)
     case _ =>
       false
   end

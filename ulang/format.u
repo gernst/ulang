@@ -69,9 +69,9 @@ function import_lines(d: Mod): List[Str] :=
   let is := List(for p in d.imports yield "import " ++ quote(p)) in if d.imports == List() then List() else List(join("\n", is))
 
 function format_sections(notation: Notation, d: Mod): List[Str] :=
-  if sectionless(d) then format_cmds(notation, d.implemented) else sections_of(notation, d)
+  if is_sectionless(d) then format_cmds(notation, d.implemented) else sections_of(notation, d)
 
-function sectionless(d: Mod): Bool :=
+function is_sectionless(d: Mod): Bool :=
   d.exported == List() and d.builtins == List()
 
 function sections_of(notation: Notation, d: Mod): List[Str] :=
@@ -167,7 +167,7 @@ function postfix_operand(d: Doc): Str :=
 
 // a name is separated from its operand, and a symbol only from an operand that starts with a symbol, as in - -x
 function prefix_text(op: Id, a: Str): Str :=
-  if not symbolic(op) or is_op_char(at(0, a)) then op ++ " " ++ a else op ++ a
+  if not is_symbolic(op) or is_op_char(at(0, a)) then op ++ " " ++ a else op ++ a
 
 // the function of an application, and the record of an access
 function atom_text(d: Doc): Str :=
@@ -998,7 +998,7 @@ function format_pat(pat: Pat): Str :=
     case PApp(Name(None, "Cons"), List(x, xs)) =>
       "List(" ++ format_pat(x) ++ "; " ++ format_pat(xs) ++ ")"
 
-    case PApp(constr, List(l, r)) if symbolic(constr.base) =>
+    case PApp(constr, List(l, r)) if is_symbolic(constr.base) =>
       infix_text(constr.base, format_pat(l), format_pat(r))
 
     case PApp(constr, List()) =>
@@ -1012,7 +1012,7 @@ function format_pats(pats: List[Pat]): Str :=
   join(", ", List(for p in pats yield format_pat(p)))
 
 // constructors named by operators are shown infix
-function symbolic(n: Id): Bool :=
+function is_symbolic(n: Id): Bool :=
   n != "" and is_op_char(at(0, n))
 
 function infix_text(op: Id, l: Str, r: Str): Str :=

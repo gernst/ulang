@@ -412,13 +412,13 @@ function refute(ctx: Ctx, c: Concl): Ctx :=
 function add_rule(ctx: Ctx, xs: List[Var], conds: List[Seq], e: Expr, b: Bool): Ctx :=
   let rule := match e
     case Eq(l, r) if b =>
-      if greater(ctx.decls, l, r) then Rule(xs, conds, l, r) else if greater(ctx.decls, r, l) then Rule(xs, conds, r, l) else Rule(xs, conds, e, bool_expr(true))
+      if is_greater(ctx.decls, l, r) then Rule(xs, conds, l, r) else if is_greater(ctx.decls, r, l) then Rule(xs, conds, r, l) else Rule(xs, conds, e, bool_expr(true))
     case _ =>
       Rule(xs, conds, e, bool_expr(b))
-  end in if valid_rule(rule) then ctx with rules := List(rule; ctx.rules) else ctx
+  end in if is_valid_rule(rule) then ctx with rules := List(rule; ctx.rules) else ctx
 
 // the variables of the right side and of the conditions occur in the left side, which is not a variable
-function valid_rule(r: Rule): Bool :=
+function is_valid_rule(r: Rule): Bool :=
   match r.lhs
     case EBound(_) =>
       false
@@ -459,7 +459,7 @@ function is_value(decls: Decls, e: Expr): Bool :=
     case EConst(_) =>
       true
     case _ =>
-      ctor_head(decls, e) != None
+      constr_head(decls, e) != None
   end
 
 function is_sum(e: Expr): Bool :=
@@ -471,21 +471,21 @@ function is_sum(e: Expr): Bool :=
   end
 
 // whether a occurs in v below constructors only, such that a == v has no solution
-function occurs_ctor(decls: Decls, a: Expr, v: Expr): Bool :=
-  if a == v then true else match ctor_head(decls, v)
+function occurs_constr(decls: Decls, a: Expr, v: Expr): Bool :=
+  if a == v then true else match constr_head(decls, v)
     case Some((_, args)) =>
-      exists(args, lambda x => occurs_ctor(decls, a, x))
+      exists(args, lambda x => occurs_constr(decls, a, x))
     case None =>
       false
   end
 
 // the context with a == b for canonical a and b, solved by the theories into equations of atoms with their values
 function merge(ctx: Ctx, a: Expr, b: Expr, fuel: Int): Ctx :=
-  if fuel <= 0 or ctx.inconsistent or a == b then ctx else if is_sum(a) or is_sum(b) then merge_lin(ctx, lin_sub(lin_of(a), lin_of(b)), fuel) else match (ctor_head(ctx.decls, a), ctor_head(ctx.decls, b))
+  if fuel <= 0 or ctx.inconsistent or a == b then ctx else if is_sum(a) or is_sum(b) then merge_lin(ctx, lin_sub(lin_of(a), lin_of(b)), fuel) else match (constr_head(ctx.decls, a), constr_head(ctx.decls, b))
     case (Some((f, xs)), Some((g, ys))) =>
       if f == g and size(xs) == size(ys) then merge_all(ctx, xs, ys, fuel) else contradiction(ctx)
     case _ =>
-      if is_value(ctx.decls, a) and is_value(ctx.decls, b) then contradiction(ctx) else if is_value(ctx.decls, b) then if occurs_ctor(ctx.decls, a, b) then contradiction(ctx) else add_pair(ctx, a, b, fuel) else if is_value(ctx.decls, a) then if occurs_ctor(ctx.decls, b, a) then contradiction(ctx) else add_pair(ctx, b, a, fuel) else if greater(ctx.decls, a, b) then add_pair(ctx, a, b, fuel) else if greater(ctx.decls, b, a) then add_pair(ctx, b, a, fuel) else if compare(a, b) > 0 then add_pair(ctx, a, b, fuel) else add_pair(ctx, b, a, fuel)
+      if is_value(ctx.decls, a) and is_value(ctx.decls, b) then contradiction(ctx) else if is_value(ctx.decls, b) then if occurs_constr(ctx.decls, a, b) then contradiction(ctx) else add_pair(ctx, a, b, fuel) else if is_value(ctx.decls, a) then if occurs_constr(ctx.decls, b, a) then contradiction(ctx) else add_pair(ctx, b, a, fuel) else if is_greater(ctx.decls, a, b) then add_pair(ctx, a, b, fuel) else if is_greater(ctx.decls, b, a) then add_pair(ctx, b, a, fuel) else if compare(a, b) > 0 then add_pair(ctx, a, b, fuel) else add_pair(ctx, b, a, fuel)
   end
 
 function merge_all(ctx: Ctx, xs: List[Expr], ys: List[Expr], fuel: Int): Ctx :=
@@ -519,7 +519,7 @@ function greatest_unit(decls: Decls, terms: List[Term], best: Option[Term]): Opt
 
     case List(term; rest) =>
       if term.factor != 1 and term.factor != -1 then greatest_unit(decls, rest, best) else match best
-        case Some(other) if not greater(decls, term.expr, other.expr) =>
+        case Some(other) if not is_greater(decls, term.expr, other.expr) =>
           greatest_unit(decls, rest, best)
         case _ =>
           greatest_unit(decls, rest, Some(term))
@@ -585,19 +585,19 @@ function coefficient(x: Expr, t: Lin): Int :=
   end
 
 // whether the inequalities have no integer solution, by Fourier–Motzkin with tightening, which may miss some
-function fm_unsat(cs: List[Lin], fuel: Int): Bool :=
+function is_unsat(cs: List[Lin], fuel: Int): Bool :=
   if exists(cs, lambda c => c.terms == List() and c.k < 0) then true else match List(for c in cs if c.terms != List())
     case List() =>
       false
     case List(c; more) =>
-      if fuel <= 0 or size(more) > 60 then false else let rest := List(c; more), x := at(0, c.terms).expr in let pos := List(for t in rest if coefficient(x, t) > 0), neg := List(for t in rest if coefficient(x, t) < 0) in let none := List(for t in rest if coefficient(x, t) == 0) in fm_unsat(none ++ List(for p in pos for n in neg yield combine(x, p, n)), fuel - 1)
+      if fuel <= 0 or size(more) > 60 then false else let rest := List(c; more), x := at(0, c.terms).expr in let pos := List(for t in rest if coefficient(x, t) > 0), neg := List(for t in rest if coefficient(x, t) < 0) in let none := List(for t in rest if coefficient(x, t) == 0) in is_unsat(none ++ List(for p in pos for n in neg yield combine(x, p, n)), fuel - 1)
   end
 
 function combine(x: Expr, p: Lin, n: Lin): Lin :=
   tighten(lin_add(lin_scale(0 - coefficient(x, n), p), lin_scale(coefficient(x, p), n)))
 
-function entailed(ctx: Ctx, t: Lin): Bool :=
-  ctx.inconsistent or fm_unsat(List(tighten(negated(t)); ctx.ineqs ++ bounds(ctx, t)), 20)
+function is_entailed(ctx: Ctx, t: Lin): Bool :=
+  ctx.inconsistent or is_unsat(List(tighten(negated(t)); ctx.ineqs ++ bounds(ctx, t)), 20)
 
 // the instances of rules p < q without conditions, for the atoms of t and of the inequalities, with a single atom
 // p - q that binds all variables of the rule
@@ -629,7 +629,7 @@ function add_ineq(ctx: Ctx, d: Lin): Ctx :=
     case Lin(k, List()) =>
       if k >= 0 then ctx else contradiction(ctx)
     case _ =>
-      if entailed(ctx, t) then ctx else if fm_unsat(List(t; ctx.ineqs), 20) then contradiction(ctx) else let next := ctx with ineqs := List(t; ctx.ineqs) in if entailed(next, lin_scale(-1, t)) then merge_lin(next, t, 10) else next
+      if is_entailed(ctx, t) then ctx else if is_unsat(List(t; ctx.ineqs), 20) then contradiction(ctx) else let next := ctx with ineqs := List(t; ctx.ineqs) in if is_entailed(next, lin_scale(-1, t)) then merge_lin(next, t, 10) else next
   end
 
 // a term equal to e in the context, in normal form: the subterms are simplified here, the branches of an if under its
@@ -773,7 +773,7 @@ function simp_builtin(ctx: Ctx, op: Id, args: List[Expr]): Expr :=
 
 // the sides of an equation, the greater in the term order first
 function oriented(decls: Decls, a: Expr, b: Expr): List[Expr] :=
-  if greater(decls, b, a) then List(b, a) else if greater(decls, a, b) then List(a, b) else ordered(a, b)
+  if is_greater(decls, b, a) then List(b, a) else if is_greater(decls, a, b) then List(a, b) else ordered(a, b)
 
 function ordered(a: Expr, b: Expr): List[Expr] :=
   if compare(a, b) > 0 then List(b, a) else List(a, b)
@@ -787,7 +787,7 @@ function simp_less(ctx: Ctx, a: Expr, b: Expr): Expr :=
     case Lin(k, List()) =>
       bool_expr(k >= 1)
     case _ =>
-      if entailed(ctx, lin_add(d, Lin(-1, List()))) then bool_expr(true) else if entailed(ctx, lin_scale(-1, d)) then bool_expr(false) else rewrite(ctx, app("<", List(a, b)))
+      if is_entailed(ctx, lin_add(d, Lin(-1, List()))) then bool_expr(true) else if is_entailed(ctx, lin_scale(-1, d)) then bool_expr(false) else rewrite(ctx, app("<", List(a, b)))
   end
 
 // the application of a function to its arguments, unfolded always if it is not recursive, and else where the match or
@@ -869,7 +869,7 @@ function match_pat(decls: Decls, p: Pat, t: Expr): PatMatch :=
       end
 
     case PApp(constr, pats) =>
-      match ctor_head(decls, t)
+      match constr_head(decls, t)
         case Some((f, args)) =>
           if f == constr and size(pats) == size(args) then match_pats(decls, pats, args) else Failed
         case None =>
@@ -991,8 +991,8 @@ function split_on(ctx: Ctx, levels: List[Int], ys: List[Var], assms: List[Seq], 
 
 // the case of the constructor c for the value t, with the fields of c as fixed variables outside the others
 function split_case(decls: Decls, ys: List[Var], assms: List[Seq], concls: List[Concl], t: Expr, c: Name): Seq :=
-  match get(c, decls.ctors)
-    case Some(Ctor(_, fields)) =>
+  match get(c, decls.constrs)
+    case Some(Constr(_, fields)) =>
       let k := size(ys), n := size(fields) in let value := if n == 0 then EFun(c) else EApp(EFun(c), List(for i in range(0, n) yield EBound(k + n - 1 - i))) in Seq(fields ++ ys, List(Atom(app("==", List(t, value))); assms), concls)
     case None =>
       Seq(ys, assms, concls)
@@ -1061,9 +1061,9 @@ function datatype_of(decls: Decls, bs: List[Branch]): Option[Name] :=
       None
 
     case List(Branch(PApp(constr, _), _, _); rest) =>
-      match get(constr, decls.ctors)
-        case Some(ctor) =>
-          Some(ctor.datatype)
+      match get(constr, decls.constrs)
+        case Some(decl) =>
+          Some(decl.datatype)
         case None =>
           datatype_of(decls, rest)
       end
@@ -1104,8 +1104,8 @@ function normal(s: Seq): Seq :=
   end
 
 function induction_case(decls: Decls, t: Name, xs: List[Var], p: Int, as0: List[Seq], cs0: List[Concl], c: Name): Seq :=
-  match get(c, decls.ctors)
-    case Some(Ctor(_, fs)) =>
+  match get(c, decls.constrs)
+    case Some(Constr(_, fs)) =>
       let k := size(xs), n := size(fs) in let fields := List(for i in range(0, n) yield ELevel(k + i)) in let value := if n == 0 then EFun(c) else EApp(EFun(c), fields) in let v := ELevel(p), others := List(for l in range(0, k) if l != p) in let vars := List(for l in others yield at(l, xs)) in let ihs := List(for i in range(0, n) if is_recursive(t, at(i, fs)) yield hypothesis(vars, others, v, ELevel(k + i), as0, cs0)) in let levels := others ++ range(k, k + n) in Seq(vars ++ fs, List(for h in ihs ++ List(for a in as0 yield replace_seq(v, value, a)) yield rebind_seq(Close(levels), 0, h)), List(for d in cs0 yield rebind_concl(Close(levels), 0, replace_concl(v, value, d))))
     case None =>
       false_seq()

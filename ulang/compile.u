@@ -905,7 +905,7 @@ function fused(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fusion] 
 
 function fused_inner(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fusion] :=
   match body
-    case ECall(f1, _, List(c1, EName(a, _), lam)) if a == acc and unused(acc, c1, lam) =>
+    case ECall(f1, _, List(c1, EName(a, _), lam)) if a == acc and is_unused(acc, c1, lam) =>
       match lam
         case ELam(List(x1, acc1), inner) =>
           nested(f, c, x, fused(f1, c1, x1, inner, acc1.name))
@@ -917,7 +917,7 @@ function fused_inner(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fu
       None
   end
 
-function unused(acc: Name, c: Expr, lam: Expr): Bool :=
+function is_unused(acc: Name, c: Expr, lam: Expr): Bool :=
   not contains(acc, free_vars(c, List()) ++ free_vars(lam, List()))
 
 function nested(f: Name, c: Expr, x: Var, inner: Option[Fusion]): Option[Fusion] :=

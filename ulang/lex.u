@@ -213,7 +213,7 @@ procedure lex_char(in text: Str, out tok: Token, ref offset: Int) :=
 function margin_before(text: Str, offset: Int): Int :=
   next_margin(line_margin(text, offset - 1))
 
-function space_before(text: Str, offset: Int): Bool :=
+function has_space_before(text: Str, offset: Int): Bool :=
   at(offset - 1, text) == ' '
 
 function at_line_start(text: Str, offset: Int): Bool :=
@@ -221,16 +221,16 @@ function at_line_start(text: Str, offset: Int): Bool :=
 
 // the number of spaces before offset on its line, or -1 if anything else comes before it
 function line_margin(text: Str, offset: Int): Int :=
-  if at_line_start(text, offset) then 0 else if space_before(text, offset) then margin_before(text, offset) else -1
+  if at_line_start(text, offset) then 0 else if has_space_before(text, offset) then margin_before(text, offset) else -1
 
 function next_margin(margin: Int): Int :=
   if margin < 0 then -1 else margin + 1
 
 // whether a comment starts at offset after margin spaces
-function comment_at(text: Str, margin: Int, offset: Int): Bool :=
-  forall(range(0, margin), lambda i => peek(text, offset + i) == ' ') and slashes_at(text, offset + margin)
+function has_comment_at(text: Str, margin: Int, offset: Int): Bool :=
+  forall(range(0, margin), lambda i => peek(text, offset + i) == ' ') and has_slashes_at(text, offset + margin)
 
-function slashes_at(text: Str, offset: Int): Bool :=
+function has_slashes_at(text: Str, offset: Int): Bool :=
   peek(text, offset) == '/' and peek(text, offset + 1) == '/'
 
 function starts_at(text: Str, offset: Int, part: Str): Bool :=
@@ -253,14 +253,14 @@ procedure lex_doc(
     assign lines := List(
       if starts_with(line, " ") then slice(line, 1, size(line)) else line; lines)
     assign offset := if offset < size(text) then offset + 1 else offset
-    assign more := comment_at(text, margin, offset)
+    assign more := has_comment_at(text, margin, offset)
     if more then
       assign offset := offset + margin
     end
   end
-  assign doc := join("\n", reverse(lines)), above := doc_above(text, margin, offset)
+  assign doc := join("\n", reverse(lines)), above := is_doc_above(text, margin, offset)
 
-function doc_above(text: Str, margin: Int, offset: Int): Bool :=
+function is_doc_above(text: Str, margin: Int, offset: Int): Bool :=
   if margin == 0 then is_letter(peek(text, offset)) else starts_at(text, offset, repeat(" ", margin) ++ "case ")
 
 function misplaced_comment(): Str :=

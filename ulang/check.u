@@ -274,22 +274,22 @@ function free(t: Type): List[Type] :=
       distinct(List(for a in types for v in free(a) yield v))
   end
 
-function holes(t: Type): Bool :=
+function has_holes(t: Type): Bool :=
   match t
     case THole =>
       true
 
     case TSort(_, args) =>
-      exists(args, holes)
+      exists(args, has_holes)
 
     case TFun(args, res) =>
-      exists(args, holes) or holes(res)
+      exists(args, has_holes) or has_holes(res)
 
     case TProc(ins, outs, refs) =>
-      exists(ins ++ outs ++ refs, holes)
+      exists(ins ++ outs ++ refs, has_holes)
 
     case TTuple(types) =>
-      exists(types, holes)
+      exists(types, has_holes)
 
     case _ =>
       false
@@ -899,7 +899,7 @@ function specialize(rows: List[List[Pat]], h: Head, n: Int): List[List[Pat]] :=
   end
 
 // some values of types ts match q but no row
-function useful(sig: Sig, su: Subst, rows: List[List[Pat]], q: List[Pat], ts: List[Type]): Bool :=
+function is_useful(sig: Sig, su: Subst, rows: List[List[Pat]], q: List[Pat], ts: List[Type]): Bool :=
   match (q, ts)
     case (List(), _) =>
       rows == List()
@@ -907,14 +907,14 @@ function useful(sig: Sig, su: Subst, rows: List[List[Pat]], q: List[Pat], ts: Li
     case (List(p; ps), List(t; rest)) =>
       match head_of(p)
         case Some((h, args)) =>
-          useful(sig, su, specialize(rows, h, size(args)), args ++ ps, fields_of(sig, su, t, h) ++ rest)
+          is_useful(sig, su, specialize(rows, h, size(args)), args ++ ps, fields_of(sig, su, t, h) ++ rest)
 
         case None =>
           match constructors_of(sig, su, t)
             case Some(ks) =>
-              if covers(heads(rows), ks) then useful_in(sig, su, rows, ks, ps, rest) else useful(sig, su, defaults(rows), ps, rest)
+              if covers(heads(rows), ks) then is_useful_in(sig, su, rows, ks, ps, rest) else is_useful(sig, su, defaults(rows), ps, rest)
             case None =>
-              useful(sig, su, defaults(rows), ps, rest)
+              is_useful(sig, su, defaults(rows), ps, rest)
           end
       end
 
@@ -922,8 +922,8 @@ function useful(sig: Sig, su: Subst, rows: List[List[Pat]], q: List[Pat], ts: Li
       false
   end
 
-function useful_in(sig: Sig, su: Subst, rows: List[List[Pat]], ks: List[Head * List[Type]], pats: List[Pat], rest: List[Type]): Bool :=
-  exists(ks, lambda (h, args) => useful(sig, su, specialize(rows, h, size(args)), replicate(size(args), PWild) ++ pats, args ++ rest))
+function is_useful_in(sig: Sig, su: Subst, rows: List[List[Pat]], ks: List[Head * List[Type]], pats: List[Pat], rest: List[Type]): Bool :=
+  exists(ks, lambda (h, args) => is_useful(sig, su, specialize(rows, h, size(args)), replicate(size(args), PWild) ++ pats, args ++ rest))
 
 function witness(h: Head, args: List[Pat]): Pat :=
   match h
@@ -1208,7 +1208,7 @@ procedure normalizes(in ts: List[Type], out us: List[Type], ref s: State) :=
   call map_state(in ts, normalize, out us, ref s)
 
 procedure known(in t: Type, what: Name, out u: Type, ref s: State) :=
-  if holes(t) then
+  if has_holes(t) then
     raise MissingType(what)
   end
   call normalize(in t, out u, ref s)
@@ -1922,7 +1922,7 @@ procedure reachable(
       skip
 
     case List((p, open); rest) =>
-      if not useful(s.sig, s.sub, List(for q in before yield List(q)), List(p), List(t)) then
+      if not is_useful(s.sig, s.sub, List(for q in before yield List(q)), List(p), List(t)) then
         raise Unreachable(p)
       end
       if open then
@@ -2196,7 +2196,7 @@ procedure untyped(in xs: List[Var], inits: List[Name]) :=
       skip
 
     case List(Var(name, typ); rest) =>
-      if holes(typ) and not contains(name, inits) then
+      if has_holes(typ) and not contains(name, inits) then
         raise MissingType(name)
       end
       call untyped(in rest, inits)

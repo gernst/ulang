@@ -92,17 +92,17 @@ function owned_map[V](m: Map[Name, V], ms: List[Id]): Map[Name, V] :=
   Map(for (k, v) in owned(List(for k => v in m), ms))
 
 function owned[V](es: List[Name * V], ms: List[Id]): List[Name * V] :=
-  List(for (n, v) in es if in_modules(n, ms))
+  List(for (n, v) in es if is_in_modules(n, ms))
 
 function owned_named(es: List[Id * List[Name]], ms: List[Id]): List[Id * List[Name]] :=
   match es
     case List() =>
       List()
     case List((b, ns); rest) =>
-      let ks := List(for n in ns if in_modules(n, ms)) in if ks == List() then owned_named(rest, ms) else List((b, ks); owned_named(rest, ms))
+      let ks := List(for n in ns if is_in_modules(n, ms)) in if ks == List() then owned_named(rest, ms) else List((b, ks); owned_named(rest, ms))
   end
 
-function in_modules(n: Name, ms: List[Id]): Bool :=
+function is_in_modules(n: Name, ms: List[Id]): Bool :=
   match n.module
     case Some(m) =>
       contains(m, ms)
@@ -118,7 +118,7 @@ function union(a: Sig, b: Sig): Sig :=
 // of declaration filtered by its own names, since a datatype and its constructor may share a name, where an abstract type,
 // whose constructors are private, has no members
 function exported(sig: Sig, values: Set[Name], sorts: Set[Name]): Sig :=
-  let members := without(sig.members, sorts) in let kept := Sig(without(sig.type_aliases, sorts), without(sig.funs, values), without(sig.procs, values), without(sig.datas, sorts), Map(for k => v in members if not hidden(v, values)), without(sig.constrs, values), without(sig.pat_aliases, values), empty()) in kept with named := Map(for k => v in sig.named yield k => declared(kept, v))
+  let members := without(sig.members, sorts) in let kept := Sig(without(sig.type_aliases, sorts), without(sig.funs, values), without(sig.procs, values), without(sig.datas, sorts), Map(for k => v in members if not is_hidden(v, values)), without(sig.constrs, values), without(sig.pat_aliases, values), empty()) in kept with named := Map(for k => v in sig.named yield k => declared(kept, v))
 
 function without[V](m: Map[Name, V], names: Set[Name]): Map[Name, V] :=
   Map(for k => v in m if not contains(k, names))
@@ -218,5 +218,5 @@ function with_pat_alias(sig: Sig, n: Name, alias: PatAlias): Sig :=
 function declared(sig: Sig, names: List[Name]): List[Name] :=
   List(for name in names if declares(sig, name))
 
-function hidden(names: List[Name], values: Set[Name]): Bool :=
+function is_hidden(names: List[Name], values: Set[Name]): Bool :=
   exists(names, lambda name => contains(name, values))
