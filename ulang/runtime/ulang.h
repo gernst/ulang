@@ -224,12 +224,14 @@ void u_assert_equal(u_value a, u_value b);
 void u_fail_text(const char *format, u_value text);
 void u_fail(const char *msg);
 
-// the handlers of the trys in progress, innermost first, where a raise jumps to the innermost one
+// the handlers of the trys in progress, innermost first, where a raise jumps to the innermost one; the handler of a function
+// without parameters whose value is computed has its cache, which a test that fails resets, since its failure jumps past it
 struct u_handler {
   jmp_buf env;
   struct u_handler *next;
   u_value value;
   const char *type;
+  u_value *cache;
 };
 
 void u_args(int argc, char **argv);
@@ -258,6 +260,7 @@ void p_os_library(u_value name, u_value *text);
 
 
 struct u_handler *u_push(void);
+struct u_handler *u_push_cache(u_value *cache);
 void u_pop(struct u_handler *h);
 int u_has_type(struct u_handler *h, const char *type);
 u_value u_caught(struct u_handler *h);

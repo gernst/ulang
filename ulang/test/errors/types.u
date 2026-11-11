@@ -272,6 +272,14 @@ test lemma_unknown_variable() :=
     call check_text(in "ulang/test/errors/lemma-unknown-variable.u", List("lemma l(x: Int) :=", "  ensures x == y"))
   end
 
+test let_monomorphic() :=
+  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+    call check_text(in "ulang/test/errors/let-monomorphic.u", List(
+      "function f(): Bool :=",
+      "  let g := lambda y => y in",
+      "  g(1) == 1 and g(true)"))
+  end
+
 test let_parallel() :=
   assert raises Located(None, Pos(2, 1), UnknownVariable(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/let-parallel.u", List(

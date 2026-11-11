@@ -20,6 +20,11 @@ function foldr[A, R](o: Option[A], acc: R, f: (A, R) -> R): R
 
 function foldl[A, R](o: Option[A], acc: R, f: (R, A) -> R): R
 
+// p(x) for Some(x), else false, and p(x), else true, as for the other containers
+function exists[A](o: Option[A], p: A -> Bool): Bool
+
+function forall[A](o: Option[A], p: A -> Bool): Bool
+
 // None or Some(a), also inside other values
 function show[A](o: Option[A]): Str
 
@@ -65,6 +70,22 @@ function foldl[A, R](o: Option[A], acc: R, f: (R, A) -> R): R :=
       acc
   end
 
+function exists[A](o: Option[A], p: A -> Bool): Bool :=
+  match o
+    case Some(x) =>
+      p(x)
+    case None =>
+      false
+  end
+
+function forall[A](o: Option[A], p: A -> Bool): Bool :=
+  match o
+    case Some(x) =>
+      p(x)
+    case None =>
+      true
+  end
+
 function show[A](o: Option[A]): Str :=
   match o
     case None =>
@@ -78,6 +99,8 @@ test options() :=
   assert map_option(Some(1), lambda x => x + 1) == Some(2) and map_option(None, lambda x => x + 1) == None
   assert or_else(Some(1), Some(2)) == Some(1) and or_else(None, Some(2)) == Some(2)
   assert show(Some(Some(1))) == "Some(Some(1))" and show((None, Some("a"))) == "(None, Some(\"a\"))"
+  assert exists(Some(1), lambda x => x > 0) and not exists(Some(1), lambda x => x > 1) and not exists(None, lambda x => x > 0)
+  assert forall(Some(1), lambda x => x > 0) and not forall(Some(1), lambda x => x > 1) and forall(None, lambda x => x > 0)
 
 test option_generators() :=
   local n := 0

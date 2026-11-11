@@ -248,14 +248,6 @@ function builtin_scheme(b: Id): List[Scheme] :=
       List(for hook in hooks() if hook_name(hook) == b yield hook_scheme(hook))
   end
 
-function is_meta(t: Type): Bool :=
-  match t
-    case TMeta(_) =>
-      true
-    case _ =>
-      false
-  end
-
 // the Params and Metas in t
 function free(t: Type): List[Type] :=
   match t
@@ -479,19 +471,6 @@ procedure outputs(in p: Name, os: List[Var], env: Env) :=
       end
       call outputs(in p, more, env)
   end
-
-// the unknowns of the types of env, which a let cannot generalize
-function fixed(su: Subst, env: Env): List[Type] :=
-  List(for (_, l) in env for a in free(zonk_type(su, l.scheme.typ)) -- l.scheme.params yield a)
-
-function generalize(su: Subst, env: Env, t: Type): Scheme :=
-  let fx := fixed(su, env), u := zonk_type(su, t) in
-  Scheme(List(for m in free(u) if is_meta(m) and not contains(m, fx)), u)
-
-// the unknowns of open uses of overloaded names stay fixed, too, since their declarations are not chosen yet
-function generalized(s: State, env: Env, xs: List[Var]): Env :=
-  let waiting := List(for p in s.pending yield (p.id, Local(Scheme(List(), p.typ), true))) in
-  List(for x in xs yield (x.name, Local(generalize(s.sub, waiting ++ env, x.typ), true)))
 
 // the pattern of a case, and whether it has no guard, such that it may cover values
 function case_of[A](b: Branch[A]): Pat * Bool :=
@@ -1457,6 +1436,7 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
       call   outputs(in unqualified("lambda"), ys, inner)
       assign res := EProc(xs, ys, zs, y), typ := TProc(List(for x in xs yield x.typ), List(for x in ys yield x.typ), List(for x in zs yield x.typ))
 
+    // lets do not generalize, only declarations have type parameters
     case ELet(bound, body) =>
       match pattern_vars(firsts(bound))
         case Some(vars) =>
@@ -1464,11 +1444,10 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
           call   formals(in "binding", vars, out xs, ref s)
           call   unhidden(in env, xs)
           call   checks(in env, "the bindings", seconds(bound), List(for x in xs yield x.typ), out exprs, ref s)
-          call   solve(ref s)
-          call   infer(in generalized(s, env, xs) ++ env, body, out b, u, ref s)
+          call   infer(in bind(xs) ++ env, body, out b, u, ref s)
           assign res := ELet(zip(List(for x in xs yield PVar(x)), exprs), b), typ := u
 
-        // other patterns are irrefutable, checked for exhaustiveness as the cases of a match, and do not generalize
+        // other patterns are irrefutable, checked for exhaustiveness as the cases of a match
         case None =>
           local ts: List[Type], exprs: List[Expr], pats: List[Pat] := List(), xs: List[Var] := List(), b: Expr
           call fresh_list(in bound, out ts, ref s)
@@ -3342,15 +3321,20 @@ procedure type_of(in expr: Expr, out t: Type) :=
   call   settle(ref s)
   assign t := zonk_type(s.sub, u)
 
+// let id := lambda x => x in (id(1), id(arg)), whose id is not generalized
+function let_id(arg: Expr): Expr :=
+  ELet(List(
+    (PVar(Var(unqualified("id"), THole)), ELam(List(Var(unqualified("x"), THole)), expr_var("x")))), ETuple(List(expr_app("id", List(expr_int(1))), expr_app("id", List(arg)))))
+
 test inference() :=
   local t: Type
   call type_of(in expr_app("<", List(expr_int(1), expr_int(2))), out t)
   assert t == TBool()
-  call type_of(in ELet(List(
-    (PVar(Var(unqualified("id"), THole)), ELam(List(Var(unqualified("x"), THole)), expr_var("x")))), ETuple(List(
-    expr_app("id", List(expr_int(1))),
-    expr_app("id", List(ELit(LBool(true))))))), out t)
-  assert t == TTuple(List(TInt(), TBool()))
+  call type_of(in let_id(expr_int(2)), out t)
+  assert t == TTuple(List(TInt(), TInt()))
+  assert raises CannotUnify(TInt(), TBool()) do
+    call type_of(in let_id(ELit(LBool(true))), out t)
+  end
   assert raises InfiniteType(_, _) do
     call type_of(in ELam(List(Var(unqualified("f"), THole)), expr_app("f", List(expr_var("f")))), out t)
   end

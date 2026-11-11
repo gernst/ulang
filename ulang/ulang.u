@@ -803,7 +803,19 @@ procedure walk_all(
       assign found := found ++ List(path)
     end
   end
-  assign files := List(for file in found)
+  assign files := List(for file in found yield without_dot(file))
+
+// the path without ./ in front, by which test labels files as the binary of the tests does (normal_target of
+// ulang/runtime/ulang.c)
+function without_dot(path: Str): Str :=
+  if starts_with(path, "./") then
+    without_dot(slice(path, 2, size(path)))
+  else
+    path
+
+test paths_without_dot() :=
+  assert without_dot("./ulang/x.u") == "ulang/x.u" and without_dot("././x.u") == "x.u"
+  assert without_dot("../x.u") == "../x.u" and without_dot("x.u") == "x.u"
 
 // the files below dir as walk_all walks them, where here is the working directory
 procedure walk_dir(
@@ -852,10 +864,11 @@ test paths_up() :=
 // the directories, absolute and normal, that the project of path runs only compiled, as the function project of its
 // project.u declares
 procedure compiled_only_of(in path: Str, out skipped: List[Str]) :=
-  local here: Str, root: Str, entries: List[Str * Bool], q: Prog, error: Str, v: Option[Val]
+  local here: Str, dir: Bool, root: Str, entries: List[Str * Bool], q: Prog, error: Str, v: Option[Val]
   assign skipped := List()
   call   os_cwd(out here)
-  call   project_root(in absolute_path(here, path), out root)
+  call   os_is_dir(in path, out dir)
+  call   project_root(in absolute_path(here, if dir then path else os_dirname(path)), out root)
   call   os_list(in root, out entries)
   if contains(("project.u", false), entries) then
     call check_file(in os_join(root, "project.u"), false, out q, error)

@@ -397,6 +397,19 @@ test assert_raises() :=
     end
   end
 
+// a function without parameters whose computation raises computes again at its next use, instead of needing itself
+function failing_constant(): Int :=
+  1 / 0
+
+test constant_raises_again() :=
+  local n := 0
+  assert raises DivisionByZero do
+    assign n := failing_constant()
+  end
+  assert raises DivisionByZero do
+    assign n := failing_constant()
+  end
+
 // handlers see the variables as they were before the try, also when compiled with optimizations
 test restored_by_raise() :=
   local k := 0, n := 0

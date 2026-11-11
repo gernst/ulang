@@ -1011,6 +1011,12 @@ struct u_handler *u_push(void) {
   return h;
 }
 
+struct u_handler *u_push_cache(u_value *cache) {
+  struct u_handler *h = u_push();
+  h->cache = cache;
+  return h;
+}
+
 void u_pop(struct u_handler *h) {
   handlers = h->next;
 }
@@ -1223,7 +1229,8 @@ static int has_name(const char **names, int count, const char *name) {
   return 0;
 }
 
-// runs a test, which passes if it returns, and fails with the message of its runtime error or failed assertion
+// runs a test, which passes if it returns, and fails with the message of its runtime error or failed assertion, where the
+// caches of the values that it was computing are reset, so that later tests compute them again
 static const char *run_test(const struct u_test *t) {
   jmp_buf env;
   struct u_handler *outer = handlers;
@@ -1233,6 +1240,8 @@ static const char *run_test(const struct u_test *t) {
     t->run();
   }
   test_env = NULL;
+  for (struct u_handler *h = handlers; h != outer; h = h->next)
+    if (h->cache) *h->cache = NULL;
   handlers = outer;
   return test_message;
 }

@@ -1536,11 +1536,14 @@ procedure compile_cmds(
 
 // the body of a function without arguments, whose value is computed once, since expressions are deterministic,
 // where the cache is U_COMPUTING while the value is computed, which detects a value that needs itself,
-// and an exception that leaves the computation resets the cache, such that the next call computes it again
+// and an exception that leaves the computation resets the cache, such that the next call computes it again, as a test that
+// fails does by the cache in the handler, since its failure jumps past the handler (run_test of ulang/runtime/ulang.c); the
+// result is computed before the handler is popped, which then covers the whole computation
 function cached(n: Str, bs: List[CStmt], r: CExpr): List[CStmt] :=
   cache_start(n) ++ bs ++ List(
+    CsDecl(value_type(), "computed", Some(r)),
     pop_cache_handler(),
-    CsAssign(CeVar("cache"), r),
+    CsAssign(CeVar("cache"), CeVar("computed")),
     CsReturn(Some(CeVar("cache"))))
 
 function cache_handler(): CExpr :=
@@ -1568,7 +1571,7 @@ function cache_mark(): CStmt :=
   CsAssign(CeVar("cache"), CeVar("U_COMPUTING"))
 
 function cache_handler_decl(): CStmt :=
-  CsDecl(CtPtr(CtNamed("struct u_handler")), "handler", Some(c_call("u_push", List())))
+  CsDecl(CtPtr(CtNamed("struct u_handler")), "handler", Some(c_call("u_push_cache", List(CeUnary("&", CeVar("cache"))))))
 
 function cache_catch(): CStmt :=
   CsIf(CeBinary("!=", c_call("setjmp", List(CeArrow(cache_handler(), "env"))), CeNum(0)), cache_unwind(), List())
