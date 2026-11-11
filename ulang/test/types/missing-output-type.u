@@ -1,3 +1,0 @@
-// type error: missing type for x at 2.1
-procedure p(out x) :=
-  skip

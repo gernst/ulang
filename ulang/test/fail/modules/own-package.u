@@ -1,3 +1,0 @@
-// parse error: import of the own package ulang/test/fail/modules, which the files of its directory see without importing it at 3.1
-// the programs of a directory see its package without importing it
-import "ulang/test/fail/modules"

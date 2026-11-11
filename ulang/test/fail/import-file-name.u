@@ -1,3 +1,0 @@
-// parse error: an import names a package by its path from the root, of names of letters, digits, and _ only at 3.8
-// the names of the path of a package are names
-import "my-set"

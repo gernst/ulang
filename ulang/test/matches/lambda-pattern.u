@@ -1,3 +1,0 @@
-// type error: match is not exhaustive, missing None at 2.1
-function value(): Option[Int] -> Int :=
-  lambda Some(x) => x

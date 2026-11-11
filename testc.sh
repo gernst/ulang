@@ -1,7 +1,7 @@
 #!/bin/sh
 # the .u files below the paths, each compiled by out/ulang.sh with --tests and by cc with the runtime object, and run in its
-# directory, where a file must succeed, or fail with the error that its first line states, e.g. // type error: unknown variable x,
-# as out/ulang.sh test does for directories with the interpreter, which prints the files that do not and N of M files passed
+# directory, where a file must succeed, as out/ulang.sh test does for directories with the interpreter, which prints the files
+# that do not and N of M files passed
 #
 # usage: testc.sh <out> <runtime.o> <path> ...
 # where out is a directory for the C files, binaries, and results, and the environment may set CC, LIBS, and JOBS
@@ -20,8 +20,7 @@ if [ "${1:-}" = "--one" ]; then
   name=$(echo "$file" | sed 's|/|_|g; s|\.u$||')
   c=$out/$name.c bin=$out/$name log=$out/$name.log
 
-  expected=$(head -n 1 "$file" | sed -n 's|^// \([a-z]* error: .*\)$|\1|p')
-  [ -n "$expected" ] || expected=success
+  expected=success
 
   if ! out/ulang.sh compile "$file" --tests -o "$c" > "$log" 2>&1; then
     got=$(tail -n 1 "$log" | sed "s|^$file: ||")

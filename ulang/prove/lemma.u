@@ -14,7 +14,20 @@ function prove_lemmas(decls: Decls, lemmas: List[Lemma]): List[Proved]
 
 function is_proven(proved: Proved): Bool
 
+// a lemma that the default proof leaves open, with the goal as print_seq writes it
+data OpenLemma :=
+  case OpenLemma(name: Str, goal: Str)
+
+// proves the lemmas of the module m of the checked program q in their order, raising OpenLemma for the first that is open
+procedure prove_program(in q: Prog, m: Id)
+
 implementation
+
+procedure prove_program(in q: Prog, m: Id) :=
+  local t := translate(q, m)
+  for p in prove_lemmas(t.decls, t.lemmas) if not is_proven(p) do
+    raise OpenLemma(p.name.base, print_seq(p.goal))
+  end
 
 function prove_lemmas(decls: Decls, lemmas: List[Lemma]): List[Proved] :=
   proofs(decls, lemmas, List())

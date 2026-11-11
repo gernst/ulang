@@ -1,6 +1,0 @@
-// type error: match is not exhaustive, missing false at 2.1
-function f(x: Bool): Int :=
-  match x
-    case true =>
-      0
-  end

@@ -73,11 +73,11 @@ make                                      # builds out/ulang.bin and out/ulang.s
                                           # and copies both to the root, so ./ulang.sh works as out/ulang.sh does
 out/ulang.sh run file.u -- args           # checks a program and calls its procedure main
 out/ulang.sh run file.u:go                # calls its procedure go instead
-out/ulang.sh test file.u                  # runs its tests one by one, as its first line states
+out/ulang.sh test file.u                  # runs its tests one by one
 out/ulang.sh test file.u:name             # runs one of them
-out/ulang.sh test dir                     # runs the files below dir, which must pass or fail as their first lines state
-out/ulang.sh test                         # runs the whole project, the root above with project.u, but checks/, which
-                                          # project.u declares to run only compiled
+out/ulang.sh test dir                     # runs the files below dir, which must pass
+out/ulang.sh test                         # runs the whole project, the root above with project.u, but checks/ and
+                                          # ulang/test/errors/, which project.u declares to run only compiled
 out/ulang.sh check file.u                 # only checks it
 out/ulang.sh compile file.u -o file.c     # compiles a program to C, whose main calls the procedure main
 out/ulang.sh help                         # lists the commands
@@ -93,6 +93,6 @@ make test                                 # runs all tests
   compiled with itself, and `make bootstrap` by the compiler compiled with the interpreter. `bootstrap/ulang.sh` is the script
   that runs each binary with a large stack, copied next to it by `make`.
 - `ulang/prelude/` is the library.
-- The tests of each package are in its subfolder `test/`, also those that are expected to fail, except that those that fail in the parser are in `test/fail/`: `ulang/test/` of the language, `ulang/prove/test/` of the prover, and `ulang/prelude/test/` of the library.
+- The tests of each package are in its subfolder `test/`: `ulang/test/` of the language, `ulang/prove/test/` of the prover, and `ulang/prelude/test/` of the library. No file fails: the errors of the phases are tested in `ulang/test/errors/`, by cases, source texts in tests, whose exceptions `assert raises` expects.
 - `vscode/` is an extension for VS Code and VSCodium, installed by `make install`.
 - `TODO.md` lists the open work, and `DESIGN.md` the design notes.

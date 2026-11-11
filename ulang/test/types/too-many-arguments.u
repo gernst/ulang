@@ -1,6 +1,0 @@
-// type error: cannot unify Int -> Int and (Int, Int) -> ?2 at 5.1
-function g(x: Int): Int :=
-  x
-
-function f(): Int :=
-  g(1, 2)

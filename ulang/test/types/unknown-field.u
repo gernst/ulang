@@ -1,6 +1,0 @@
-// type error: unknown field z of Point at 5.1
-data Point :=
-  case Point(x: Int, y: Int)
-
-test r() :=
-  local v := Point(1, 2).z

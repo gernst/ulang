@@ -1,0 +1,156 @@
+// the errors of assignments: variables that are not assignable or not assigned on every path, each a case, the lines of a source text at a path of this directory, which the procedures of
+// ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
+
+import "ulang/syntax"
+import "ulang/check"
+import "ulang/test/cases"
+
+test assign_captured() :=
+  assert raises Located(None, Pos(1, 1), NotAssignable(Name(None, "k"))) do
+    call check_text(in "assign-captured.u", List(
+      "test capture() :=",
+      "  local k := 0, p := lambda in x =>",
+      "    assign k := x",
+      "  end",
+      "  call p(in 1)"))
+  end
+
+test assign_input() :=
+  assert raises Located(None, Pos(1, 1), NotAssignable(Name(None, "x"))) do
+    call check_text(in "assign-input.u", List("procedure p(in x: Int) :=", "  assign x := 1"))
+  end
+
+test assign_pattern_variable() :=
+  assert raises Located(None, Pos(1, 1), NotAssignable(Name(None, "x"))) do
+    call check_text(in "assign-pattern-variable.u", List(
+      "procedure p(out r: Int) :=",
+      "  match List(1)",
+      "    case List(x; _) =>",
+      "      assign x := 1",
+      "    case List() =>",
+      "      skip",
+      "  end"))
+  end
+
+test assign_twice() :=
+  assert raises Located(None, Pos(1, 1), Duplicate("assignment to", "x")) do
+    call check_text(in "assign-twice.u", List("procedure p(out x: Int) :=", "  assign x := 1, x := 2"))
+  end
+
+test assign_type() :=
+  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+    call check_text(in "assign-type.u", List("procedure p(out x: Int) :=", "  assign x := true"))
+  end
+
+test call_aliasing() :=
+  assert raises Located(None, Pos(4, 1), Duplicate("out or ref", "z")) do
+    call check_text(in "call-aliasing.u", List(
+      "procedure p(ref x: Int, y: Int) :=",
+      "  skip",
+      "",
+      "procedure q(out z: Int) :=",
+      "  call p(ref z, z)"))
+  end
+
+test local_scope() :=
+  assert raises Located(None, Pos(1, 1), NotAssignable(Name(None, "y"))) do
+    call check_text(in "local-scope.u", List(
+      "procedure p(in x: Int) :=",
+      "  if x > 0 then",
+      "    local y: Int := x",
+      "  end",
+      "  assign y := 1"))
+  end
+
+test unassigned_after_if() :=
+  assert raises Located(None, Pos(1, 1), Unassigned(Name(None, "x"))) do
+    call check_text(in "unassigned-after-if.u", List(
+      "test unassigned_after_if() :=",
+      "  local x: Int, y := 1",
+      "  if y > 0 then",
+      "    assign x := 1",
+      "  end",
+      "  assert x == 1"))
+  end
+
+test unassigned_after_raises() :=
+  assert raises Located(None, Pos(5, 1), Unassigned(Name(None, "n"))) do
+    call check_text(in "unassigned-after-raises.u", List(
+      "data Fail :=",
+      "  case Fail",
+      "",
+      "// the body of assert raises raises if the test passes, so its assignments do not count after it",
+      "test after() :=",
+      "  local n: Int",
+      "  assert raises Fail do",
+      "    assign n := 1",
+      "    raise Fail",
+      "  end",
+      "  assert n == 1"))
+  end
+
+test unassigned_after_try() :=
+  assert raises Located(None, Pos(4, 1), Unassigned(Name(None, "x"))) do
+    call check_text(in "unassigned-after-try.u", List(
+      "data Fail :=",
+      "  case Fail",
+      "",
+      "test unassigned_after_try() :=",
+      "  local x: Int",
+      "  try",
+      "    assign x := 1",
+      "  catch",
+      "    case Fail =>",
+      "      skip",
+      "  end",
+      "  assert x == 1"))
+  end
+
+test unassigned_after_while() :=
+  assert raises Located(None, Pos(1, 1), Unassigned(Name(None, "x"))) do
+    call check_text(in "unassigned-after-while.u", List(
+      "test unassigned_after_while() :=",
+      "  local x: Int, n := 0",
+      "  while n < 3 do",
+      "    assign x := n, n := n + 1",
+      "  end",
+      "  assert x == 2"))
+  end
+
+test unassigned_lambda_output() :=
+  assert raises Located(None, Pos(1, 1), OutputUnassigned(Name(None, "y"), Name(None, "lambda"))) do
+    call check_text(in "unassigned-lambda-output.u", List(
+      "test unassigned_lambda_output() :=",
+      "  local p := lambda in x: Int, out y: Int =>",
+      "    if x > 0 then",
+      "      assign y := x",
+      "    end",
+      "  end"))
+  end
+
+test unassigned_output() :=
+  assert raises Located(None, Pos(1, 1), OutputUnassigned(Name(None, "r"), Name(Some("ulang/test/errors/unassigned-output"), "p"))) do
+    call check_text(in "unassigned-output.u", List(
+      "procedure p(out r: Int) :=",
+      "  skip",
+      "",
+      "test unassigned_output() :=",
+      "  local x: Int",
+      "  call p(out x)"))
+  end
+
+test unassigned_ref() :=
+  assert raises Located(None, Pos(4, 1), Unassigned(Name(None, "x"))) do
+    call check_text(in "unassigned-ref.u", List(
+      "procedure increment(ref n: Int) :=",
+      "  assign n := n + 1",
+      "",
+      "test unassigned_ref() :=",
+      "  local x: Int",
+      "  call increment(ref x)"))
+  end
+
+test uninitialized() :=
+  assert raises Located(None, Pos(1, 1), Unassigned(Name(None, "x"))) do
+    call check_text(in "uninitialized.u", List("test uninitialized() :=", "  local x: Int, y: Int := x"))
+  end

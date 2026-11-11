@@ -1,0 +1,13 @@
+// a module for the test imported_notation of ulang/test/errors/modules.u, which exports the notation of a member of the
+// package of its case differently
+
+export
+
+infix right 9 <+>
+
+function <+>(a: Int, b: Int): Int
+
+implementation
+
+function <+>(a: Int, b: Int): Int :=
+  a - b

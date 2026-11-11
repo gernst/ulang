@@ -1,3 +1,0 @@
-// type error: cannot unify Int and Bool at 2.1
-function f(xs: List[Int]): List[Int] :=
-  List(for x in xs if x)

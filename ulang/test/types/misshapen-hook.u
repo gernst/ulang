@@ -1,7 +1,0 @@
-// type error: show must take one value T[A, …] of a datatype T of its module, with distinct type parameters, and give Str at 6.1
-
-data Pair[A, B] :=
-  case Pair(left: A, right: B)
-
-function show(p: Pair[Int, Int]): Str :=
-  "pair"

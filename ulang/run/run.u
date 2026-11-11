@@ -36,6 +36,9 @@ procedure constant_of(in run: Run, n: Name, out v: Option[Val])
 
 procedure run_cmd(in run: Run, cmd: Cmd, ref cache: Map[Name, Val])
 
+// runs the tests of a checked program, where failed assertions are errors
+procedure run_program(in q: Prog)
+
 implementation
 
 pattern VInt(num: Int): Val :=
@@ -1377,7 +1380,6 @@ procedure run_all(in run: Run, cmds: List[Cmd], ref cache: Map[Name, Val]) :=
     call run_cmd(in run, c, ref cache)
   end
 
-// runs the tests of a checked program, where failed assertions are errors
 procedure run_program(in q: Prog) :=
   local cache: Map[Name, Val] := empty()
   call run_all(in load(q), q.cmds, ref cache)
@@ -1390,11 +1392,11 @@ procedure check_and_run(in cmds: List[Cmd]) :=
 
 // the test n that asserts that expr equals expected
 function asserting(n: Id, expr: Expr, expected: Expr): Cmd :=
-  CTest(n, List(), SBlock(List(), List(SAssert(expr_app("==", List(expr, expected))))))
+  CTest(unqualified(n), List(), SBlock(List(), List(SAssert(expr_app("==", List(expr, expected))))))
 
 // a test that assigns expr to a local variable
 function assigning(expr: Expr): Cmd :=
-  CTest("a", List(), SBlock(List(hole_var("v")), List(SAssign(List((hole_var("v"), expr))))))
+  CTest(unqualified("a"), List(), SBlock(List(hole_var("v")), List(SAssign(List((hole_var("v"), expr))))))
 
 test values() :=
   assert format_value(list_value(List(VInt(1), VStr("a\"b")))) == "List(1, \"a\\\"b\")"
@@ -1429,10 +1431,10 @@ function procedures(): List[Cmd] :=
 
 test procedures() :=
   call check_and_run(in procedures() ++ List(
-    CTest("sum", List(), SBlock(List(Var(unqualified("s"), TInt())), List(
+    CTest(unqualified("sum"), List(), SBlock(List(Var(unqualified("s"), TInt())), List(
       SCall(unqualified("sum"), List(expr_int(4)), List(Var(unqualified("s"), THole)), List()),
       equals("s", 10)))),
-    CTest("count", List(), SBlock(List(Var(unqualified("k"), TInt()), Var(unqualified("m"), TInt())), List(
+    CTest(unqualified("count"), List(), SBlock(List(Var(unqualified("k"), TInt()), Var(unqualified("m"), TInt())), List(
       SAssign(List(
         (Var(unqualified("k"), THole), expr_int(1)),
         (Var(unqualified("m"), THole), expr_int(0)))),
@@ -1445,7 +1447,7 @@ test procedures() :=
 // a declared procedure and a lambda that captures k, called through variables
 test procedure_values() :=
   call check_and_run(in procedures() ++ List(
-    CTest("values", List(), SBlock(List(Var(unqualified("s"), TInt()), Var(unqualified("t"), TInt())), List(
+    CTest(unqualified("values"), List(), SBlock(List(Var(unqualified("s"), TInt()), Var(unqualified("t"), TInt())), List(
       SBlock(List(hole_var("f"), hole_var("k"), hole_var("g")), List(
         SAssign(List((hole_var("f"), expr_var("sum")))),
         SAssign(List((hole_var("k"), expr_int(10)))),
@@ -1468,11 +1470,11 @@ function equals(n: Id, k: Int): Stmt :=
 test errors() :=
   assert raises Uncaught("Fail(1)") do
     call check_and_run(in procedures() ++ List(
-      CTest("t", List(), SBlock(List(), List(SRaise(expr_app("Fail", List(expr_int(1))), THole))))))
+      CTest(unqualified("t"), List(), SBlock(List(), List(SRaise(expr_app("Fail", List(expr_int(1))), THole))))))
   end
   assert raises AssertionUnequal("1", "2") do
     call check_and_run(in List(
-      CTest("t", List(), SBlock(List(), List(SAssert(expr_app("==", List(expr_int(1), expr_int(2)))))))))
+      CTest(unqualified("t"), List(), SBlock(List(), List(SAssert(expr_app("==", List(expr_int(1), expr_int(2)))))))))
   end
   assert raises Uncaught("DivisionByZero") do
     call check_and_run(in List(assigning(expr_app("/", List(expr_int(1), expr_int(0))))))
@@ -1493,6 +1495,6 @@ test tuples() :=
 test handler_types() :=
   assert raises Uncaught("\"x\"") do
     call check_and_run(in List(
-      CTest("t", List(), STry(SRaise(ELit(LStr("x")), THole), List(
+      CTest(unqualified("t"), List(), STry(SRaise(ELit(LStr("x")), THole), List(
         Catch("", THole, pat_var("k"), Some(expr_app("<", List(expr_var("k"), expr_int(2)))), SSkip))))))
   end

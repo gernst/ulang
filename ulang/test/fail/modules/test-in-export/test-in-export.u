@@ -1,5 +1,0 @@
-// parse error: tests belong to the implementation section at 4.1
-export
-
-test t() :=
-  assert true

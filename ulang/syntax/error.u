@@ -158,3 +158,12 @@ function internal_message(e: InternalError): Str :=
     case Unexpected(what) =>
       "unexpected " ++ what
   end
+
+// the messages of the runtime errors that the cases of ulang/test/errors/ raise
+test messages() :=
+  assert runtime_message(AssertionNotRaised("DivisionByZero")) == "assertion failed: nothing raised, expected DivisionByZero"
+  assert runtime_message(AssertionUnequal("24", "120")) == "assertion failed: 24 != 120"
+  assert runtime_message(CompareFunctions) == "cannot compare functions"
+  assert runtime_message(CompareProcedures) == "cannot compare procedures"
+  assert runtime_message(RecursiveInitialization("ulang/test/errors/initialization.loop")) == "recursive initialization of ulang/test/errors/initialization.loop"
+  assert runtime_message(Uncaught("Fail(2)")) == "uncaught exception Fail(2)"

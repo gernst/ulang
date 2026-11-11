@@ -16,13 +16,32 @@ data ParseError :=
 // its package, the files with sections of its directory, whose members see each other's exports and notations, and a
 // file without sections, a program, sees those of the package of its directory; import "p" loads the package of the
 // directory p from the root, whose exports and notations the importing file sees, packages do not import each other
-// cyclically, and implicit imports are the library
+// cyclically, and implicit imports are the library; the modules keep their tests if they are the file or members of its
+// package, and lose them else
 procedure parse_file(in path: Str, out source: Source)
 
 procedure parse_file_text(in path: Str, text: Str, out source: Source)
 
 // whether path names a source file, name.u with a name
 function is_source(path: Str): Bool
+
+// whether text has sections, as members of packages have, by a line that starts with export, builtin, or implementation,
+// which is known before the text is lexed, and so also of a file that does not lex
+function has_sections(text: Str): Bool
+
+// the module of text without implicit imports and imports, which reads no files, for the tests
+procedure parse_text(in text: Str, out own: Mod)
+
+// the source of texts instead of files, for the tests: the members of the package of the directory dir from the root,
+// each its module and text, and main, the module and text of the main file, which is one of them or a program in dir,
+// where the library and the imported packages are read from their files
+procedure parse_texts(
+  in  root: Str,
+      dir: Str,
+      members: List[Id * Str],
+      main: Id * Str,
+  out source: Source
+)
 
 // the nearest directory from dir upward with project.u, or else dir, where dir is absolute and normal
 procedure project_root(in dir: Str, out root: Str)
@@ -1803,7 +1822,7 @@ procedure parse_command(
       call   parse_formals(in notation, List(), out xs, ref toks)
       call   expect(in TKw(":="), ref toks)
       call   parse_body(in notation, List(), out body, ref toks)
-      assign cmds := List(CTest(name, xs, body))
+      assign cmds := List(CTest(unqualified(name), xs, body))
 
     case _ =>
       raise expected("declaration", toks)
@@ -1895,8 +1914,6 @@ function module_id(dir: Str, name: Str): Id :=
 function package_id(dir: Option[Str]): Id :=
   value_or(dir, "prelude")
 
-// whether text has sections, as members of packages have, by a line that starts with export, builtin, or implementation,
-// which is known before the text is lexed, and so also of a file that does not lex
 function has_sections(text: Str): Bool :=
   exists(split(text, '\n'), lambda line => contains(first_word(line), List("export", "builtin", "implementation")))
 
@@ -1954,8 +1971,8 @@ procedure package_files(
 
 // the package of the directory dir from root, None for the library, loaded into source unless it is loaded or being
 // loaded already, after the packages and programs that its members import: its members are lexed, the notations of
-// their export sections collected, and each parsed with those of the others, where main is the text of the main file,
-// which keeps its tests, and the other members are loaded without theirs
+// their export sections collected, and each parsed with those of the others, where main is the text of the main file, with
+// which all members keep their tests, while without it, for imports and the package of a program, they lose them
 procedure load_package(
   in  root: Str,
       dir: Option[Str],
@@ -1963,15 +1980,43 @@ procedure load_package(
       loading: List[Id],
   ref source: Source
 ) :=
-  local id := package_id(dir), files: List[Id * Str], lexed: List[Id * Tokens], notations: List[Id * Notation], own: Mod, mods: Buffer[Mod] := empty()
-  if not exists(source.packages, lambda p => p.id == id) and not contains(id, loading) then
+  local files: List[Id * Str]
+  if not exists(source.packages, lambda p => p.id == package_id(dir)) and not contains(package_id(dir), loading) then
     call package_files(in root, dir, main, out files)
-    call lex_members(in files, main, out lexed, notations)
-    for (m, toks) in lexed do
-      call   parse_member(in m, toks, others_notation(m, notations), root, dir, is_main(m, main), List(id; loading), out own, ref source)
-      assign mods := mods ++ List(own)
-    end
-    assign source := source with mods := source.mods ++ List(for d in mods), packages := source.packages ++ List(Package(id, firsts(files)))
+    call load_members(in root, dir, files, main, loading, ref source)
+  end
+
+// the package of the directory dir from root of the members files, each its module and text, as load_package loads it
+procedure load_members(
+  in  root: Str,
+      dir: Option[Str],
+      files: List[Id * Str],
+      main: Option[Id * Str],
+      loading: List[Id],
+  ref source: Source
+) :=
+  local id := package_id(dir), lexed: List[Id * Tokens], notations: List[Id * Notation], own: Mod, mods: Buffer[Mod] := empty()
+  call lex_members(in files, main, out lexed, notations)
+  for (m, toks) in lexed do
+    call   parse_member(in m, toks, others_notation(m, notations), root, dir, is_main(m, main), main != None, List(id; loading), out own, ref source)
+    assign mods := mods ++ List(own)
+  end
+  assign source := source with mods := source.mods ++ List(for d in mods), packages := source.packages ++ List(Package(id, firsts(files)))
+
+procedure parse_texts(
+  in  root: Str,
+      dir: Str,
+      members: List[Id * Str],
+      main: Id * Str,
+  out source: Source
+) :=
+  match main
+    case (id, text) =>
+      assign source := Source(List(), List(), id)
+      call   load_members(in root, Some(dir), members, Some(main), List(), ref source)
+      if not has_sections(text) then
+        call load_program(in id, text, root, ref source)
+      end
   end
 
 function is_main(id: Id, main: Option[Id * Str]): Bool :=
@@ -2043,7 +2088,8 @@ procedure exported_ops(in toks: Tokens, out notation: Notation) :=
   end
 
 // the module id of a package, of the tokens toks, parsed with the notation that the other members export, where main
-// tells whether it is the main file, which keeps its tests, and whose errors are its own
+// tells whether it is the main file, whose errors are its own, and tested whether it keeps its tests, as the members of
+// the package of the main file do
 procedure parse_member(
   in  id: Id,
       toks: Tokens,
@@ -2051,6 +2097,7 @@ procedure parse_member(
       root: Str,
       dir: Option[Str],
       main: Bool,
+      tested: Bool,
       loading: List[Id],
   out own: Mod,
   ref source: Source
@@ -2062,7 +2109,7 @@ procedure parse_member(
     case ParseError(message, pos) if not main =>
       raise ImportError(id, message, pos)
   end
-  if not main then
+  if not tested then
     assign own := without_tests_of(own)
   end
 
@@ -2072,7 +2119,7 @@ procedure load_program(in id: Id, text: Str, root: Str, ref source: Source) :=
   local dir := module_dir(id), toks: Tokens, own: Mod
   call   load_package(in root, Some(dir), None, List(), ref source)
   call   lex_member(in id, text, true, out toks)
-  call   parse_member(in id, toks, members_notation(package_members(dir, source.packages), source.mods), root, Some(dir), true, List(), out own, ref source)
+  call   parse_member(in id, toks, members_notation(package_members(dir, source.packages), source.mods), root, Some(dir), true, true, List(), out own, ref source)
   assign source := source with mods := source.mods ++ List(own)
 
 // the notation that the modules names of mods export
@@ -2285,7 +2332,6 @@ procedure parse_file(in path: Str, out source: Source) :=
   call os_read(in path, out text)
   call parse_file_text(in path, text, out source)
 
-// the module of text without implicit imports and imports, which reads no files, for the tests
 procedure parse_text(in text: Str, out own: Mod) :=
   local toks: Tokens, source := Source(List(), List(), "main")
   call lex_text(in text, out toks)

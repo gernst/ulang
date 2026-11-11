@@ -11,6 +11,9 @@ export
 // the entry is a procedure without parameters, or None for all tests
 procedure compile_file(in source: Str, entry: Option[Id], target: Str)
 
+// compile_file of the checked program q, whose entry is a procedure of its main module
+procedure compile_prog(in q: Prog, entry: Option[Id], target: Str)
+
 implementation
 
 // the variables in scope with the C expressions they are accessed through
@@ -1496,11 +1499,11 @@ procedure compile_cmd(
       assign bs := copy_in(outs, refs) ++ bs ++ copy_out(outs ++ refs)
       assign ds := List(CdFunction(LkStatic, CtVoid, proc_name(name), params, bs)), ms := List()
 
-    case CTest(test_name, _, stmt) if entry == None =>
+    case CTest(name, _, stmt) if entry == None =>
       local bs: List[CStmt]
       call   compile_stmt(in defs, List(), stmt, out bs, ref g)
       assign ds := List(), ms := List(
-        CsBlock(bs ++ List(CsExpr(c_call("u_passed", List(CeStr(test_name)))))))
+        CsBlock(bs ++ List(CsExpr(c_call("u_passed", List(CeStr(name.base)))))))
 
     case _ =>
       assign ds := List(), ms := List()
@@ -1677,8 +1680,12 @@ function text_decl(p: Str * Str): CDecl :=
 // checks the program of the file source, which is its module, and writes its translation to C to target, with the whole
 // library, which every module sees, so also the module list, which the runtime needs
 procedure compile_file(in source: Str, entry: Option[Id], target: Str) :=
-  local parsed: Source, q: Prog, f: CFile
+  local parsed: Source, q: Prog
   call parse_file(in source, out parsed)
   call check_program(in parsed, out q)
-  call compile_program(in q, parsed.main, entry, out f)
+  call compile_prog(in q, entry, target)
+
+procedure compile_prog(in q: Prog, entry: Option[Id], target: Str) :=
+  local f: CFile
+  call compile_program(in q, q.main, entry, out f)
   call os_write(in target, format_file(f))

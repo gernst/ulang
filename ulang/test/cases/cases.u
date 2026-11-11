@@ -1,0 +1,111 @@
+// the phases of ulang over cases, source texts given by their lines, for the tests of errors in ulang/test/errors/, which
+// assert by assert raises the exception of the phase where a case fails: parse_file_text and parse_texts raise ParseError,
+// check_program Located, require_formatted Unformatted, run_program the RuntimeError of a test, and prove_program
+// OpenLemma; a case sits at a path from the working directory, so that it imports the packages of the project as files
+
+import "ulang/syntax"
+import "ulang/parse"
+import "ulang/check"
+import "ulang/format"
+import "ulang/run"
+import "ulang/prove"
+
+export
+
+// parses and checks the case as the file at path, which must be formatted, after the errors of parsing and checking
+procedure load_text(in path: Str, lines: List[Str], out main: Id, q: Prog)
+
+// load_text without its results
+procedure check_text(in path: Str, lines: List[Str])
+
+// load_text, then the tests of the case
+procedure run_text(in path: Str, lines: List[Str])
+
+// load_text, then the lemmas of the case
+procedure prove_text(in path: Str, lines: List[Str])
+
+// load_text of several modules: the members of the package of the directory dir from the root, each its name and lines,
+// and main, the name and lines of the main file, which is one of them or a program in dir
+procedure load_texts(
+  in  dir: Str,
+      members: List[Str * List[Str]],
+      main: Str * List[Str],
+  out q: Prog
+)
+
+// load_texts without its result
+procedure check_texts(
+  in  dir: Str,
+      members: List[Str * List[Str]],
+      main: Str * List[Str]
+)
+
+// load_texts, then the tests of main
+procedure run_texts(
+  in  dir: Str,
+      members: List[Str * List[Str]],
+      main: Str * List[Str]
+)
+
+implementation
+
+// the module of the file name.u in dir
+function module_in(dir: Str, name: Str): Id :=
+  dir ++ "/" ++ slice(name, 0, size(name) - 2)
+
+function text_of(lines: List[Str]): Str :=
+  join("\n", lines) ++ "\n"
+
+procedure load_text(in path: Str, lines: List[Str], out main: Id, q: Prog) :=
+  local source: Source
+  call   parse_file_text(in path, text_of(lines), out source)
+  call   check_program(in source, out q)
+  call   require_formatted(in source, source.main, text_of(lines))
+  assign main := source.main
+
+procedure check_text(in path: Str, lines: List[Str]) :=
+  local main: Id, q: Prog
+  call load_text(in path, lines, out main, q)
+
+procedure run_text(in path: Str, lines: List[Str]) :=
+  local main: Id, q: Prog
+  call load_text(in path, lines, out main, q)
+  call run_program(in q)
+
+procedure prove_text(in path: Str, lines: List[Str]) :=
+  local main: Id, q: Prog
+  call load_text(in path, lines, out main, q)
+  call prove_program(in q, main)
+
+procedure load_texts(
+  in  dir: Str,
+      members: List[Str * List[Str]],
+      main: Str * List[Str],
+  out q: Prog
+) :=
+  local here: Str, root: Str, source: Source
+  call os_cwd(out here)
+  call project_root(in normal_path(here), out root)
+  match main
+    case (name, lines) =>
+      call parse_texts(in root, dir, List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), out source)
+      call check_program(in source, out q)
+      call require_formatted(in source, source.main, text_of(lines))
+  end
+
+procedure check_texts(
+  in  dir: Str,
+      members: List[Str * List[Str]],
+      main: Str * List[Str]
+) :=
+  local q: Prog
+  call load_texts(in dir, members, main, out q)
+
+procedure run_texts(
+  in  dir: Str,
+      members: List[Str * List[Str]],
+      main: Str * List[Str]
+) :=
+  local q: Prog
+  call load_texts(in dir, members, main, out q)
+  call run_program(in q)

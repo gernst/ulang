@@ -1,5 +1,0 @@
-// type error: cannot unify Int and Bool at 2.1
-procedure p(in x: Int) :=
-  if x then
-    skip
-  end

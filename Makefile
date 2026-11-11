@@ -95,12 +95,33 @@ bootstrap: bootstrap/ulang.bin
 	$(MAKE) all
 
 # every .u file of the project, also of the library and of the tests of the packages in their subfolders test/, but those of
-# checks/, which project.u declares to run only compiled, run by out/ulang.bin with all its tests in its directory, must
-# succeed, or fail with the error that its first line states, e.g. // type error: unknown variable x
+# checks/ and ulang/test/errors/, which project.u declares to run only compiled, run by out/ulang.bin with all its tests in
+# its directory, must succeed
 .PHONY: test
 test: out/ulang.bin out/ulang.sh
 	out/ulang.sh test
+	$(MAKE) --no-print-directory testerrors
 	$(MAKE) --no-print-directory testdocs
+
+# the tests of the errors of the phases in ulang/test/errors/, whose cases each load the library, which the interpreted
+# parser and checker do too slowly, so they run only compiled, each binary in ulang/test/errors/ by a copy of the script
+ERRORS = out/errors
+ERROR_TESTS = $(basename $(notdir $(wildcard ulang/test/errors/*.u)))
+
+$(ERRORS)/%.c: ulang/test/errors/%.u ulang/test/cases/cases.u out/ulang.bin out/ulang.sh $(SOURCES)
+	mkdir -p $(ERRORS)
+	out/ulang.sh compile $< --tests -o $@
+
+$(ERRORS)/%.bin: $(ERRORS)/%.c $(RUNTIME) Makefile
+	$(CC) $(subst -O2,-O1,$(CFLAGS)) $< ulang/runtime/ulang.c $(LIBS) -o $@
+
+$(ERRORS)/%.sh: $(SCRIPT)
+	mkdir -p $(ERRORS)
+	cp $(SCRIPT) $@
+
+.PHONY: testerrors
+testerrors: $(ERROR_TESTS:%=$(ERRORS)/%.bin) $(ERROR_TESTS:%=$(ERRORS)/%.sh)
+	cd ulang/test/errors && for t in $(ERROR_TESTS); do ../../../$(ERRORS)/$$t.sh || exit 1; done
 
 # the checks of the repository in checks/, which run only compiled, since they parse the sources of the compiler, which the
 # interpreter does too slowly: checks/docs.u, that the references of the documentation name declarations of their files;
@@ -122,8 +143,7 @@ $(CHECKS)/docs.sh: $(SCRIPT)
 testdocs: $(CHECKS)/docs.bin $(CHECKS)/docs.sh
 	cd checks && ../$(CHECKS)/docs.sh
 
-# rewrites every .u file of the project as format does, after a change of the printer, which skips the files whose first line
-# expects a parse error, since it refuses them
+# rewrites every .u file of the project as format does, after a change of the printer
 .PHONY: reformat
 reformat: out/ulang.bin out/ulang.sh
 	out/ulang.sh format

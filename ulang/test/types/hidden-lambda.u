@@ -1,4 +1,0 @@
-// type error: x hides a local of the same name at 3.1
-
-function f(x: Int): Int :=
-  (lambda x => x + 1)(x)

@@ -1,3 +1,0 @@
-// parse error: declaration expected but assign found at 3.1
-
-assign x := 1

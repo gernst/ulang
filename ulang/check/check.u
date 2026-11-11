@@ -142,8 +142,8 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
     case CNotation(_, _, _) =>
       cmd
 
-    case CTest(_, _, _) =>
-      cmd
+    case CTest(name, vars, stmt) =>
+      CTest(in_module(m, name), vars, stmt)
   end
 
 function qualify_constr(m: Id, k: Constr): Constr :=
@@ -667,8 +667,8 @@ function zonk_cmd(s: State, cmd: Cmd): Cmd :=
     case CProc(name, params, ins, outs, refs, stmt) =>
       CProc(name, params, zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), zonk_stmt(s, stmt))
 
-    case CTest(test_name, vars, stmt) =>
-      CTest(test_name, vars, zonk_stmt(s, stmt))
+    case CTest(name, vars, stmt) =>
+      CTest(name, vars, zonk_stmt(s, stmt))
 
     case CLemma(name, params, formals, assms, concl) =>
       CLemma(name, params, zonk_vars(s, formals), List(for a in assms yield zonk_expr(s, a)), zonk_expr(s, concl))
@@ -2699,13 +2699,13 @@ procedure command(in cmd: Cmd, out c1: Cmd, ref s: State) :=
       call   outputs(in name, os, env)
       assign c1 := CProc(name, params, is, os, rs, y)
 
-    case CTest(test_name, List(), stmt) =>
+    case CTest(name, List(), stmt) =>
       local y: Stmt, env: Env := List()
       call   statement(in List(), stmt, out y, ref env, s)
-      assign c1 := CTest(test_name, List(), y)
+      assign c1 := CTest(name, List(), y)
 
-    case CTest(test_name, _, _) =>
-      raise TestParams(test_name)
+    case CTest(name, _, _) =>
+      raise TestParams(name.base)
 
     case CData(name, params, constrs) =>
       assign c1 := CData(name, params, List(for k in constrs yield resolved_fields(s.sig, k)))
@@ -2761,8 +2761,8 @@ function block_names(cs: List[Id * Cmd]): List[Id] :=
     case List() =>
       List()
 
-    case List((_, CTest(test_name, _, _)); more) =>
-      List(test_name; block_names(more))
+    case List((_, CTest(name, _, _)); more) =>
+      List(name.base; block_names(more))
 
     case List(_; more) =>
       block_names(more)
@@ -3152,7 +3152,7 @@ procedure check_program(in source: Source, out q: Prog) :=
     case Located(Some(m), pos, error) if m == source.main =>
       raise Located(None, pos, error)
   end
-  assign q := Prog(cmds)
+  assign q := Prog(cmds, source.main)
 
 // the modules in the order of mods, where the members of a package, which follow each other, are checked together, and
 // each other module, a program, on its own
@@ -3364,14 +3364,14 @@ test inference() :=
 test elaboration() :=
   local q: Prog
   call check_program(in with_lists(List(
-    CTest("r", List(), SBlock(List(Var(unqualified("n"), THole)), List(
+    CTest(unqualified("r"), List(), SBlock(List(Var(unqualified("n"), THole)), List(
       SAssign(List(
         (Var(unqualified("n"), THole), expr_app("len", List(expr_app("Cons", List(expr_int(1), expr_var("Nil"))))))))))))), out q)
-  match q
-    case Prog(List(
+  match q.cmds
+    case List(
       _,
       CFun(_, _, _, _, EMatch(_, List(Branch(_, pat, _, _); _))),
-      CTest(_, List(), SBlock(_, List(SAssign(List((_, ECall(_, typ, _))))))))) =>
+      CTest(_, List(), SBlock(_, List(SAssign(List((_, ECall(_, typ, _)))))))) =>
       assert pat == PNil()
       assert typ == TFun(List(TList(TInt())), TInt())
 
@@ -3404,7 +3404,7 @@ test statements() :=
   end
   assert raises UnknownException(TList(_)) do
     call check_program(in with_lists(List(
-      CTest("t", List(), SBlock(List(), List(SRaise(expr_var("Nil"), THole)))))), out q)
+      CTest(unqualified("t"), List(), SBlock(List(), List(SRaise(expr_var("Nil"), THole)))))), out q)
   end
 
 function tsort(n: Id): Type :=

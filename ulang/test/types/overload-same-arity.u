@@ -1,6 +1,0 @@
-// type error: f is already defined at 5.1
-function f(x: Int): Int :=
-  x
-
-function f(y: Int): Int :=
-  y

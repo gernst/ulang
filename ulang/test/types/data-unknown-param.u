@@ -1,3 +1,0 @@
-// type error: unknown sort A at 2.1
-data T :=
-  case C(value: A)

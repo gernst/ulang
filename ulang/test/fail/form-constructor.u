@@ -1,3 +1,0 @@
-// parse error: Set(…) is a form, which is no value at 3.8
-data Bag :=
-  case Set(n: Int)

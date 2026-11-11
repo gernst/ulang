@@ -1,3 +1,0 @@
-// type error: unknown sort Table at 2.1
-type P[A] :=
-  Table[A]

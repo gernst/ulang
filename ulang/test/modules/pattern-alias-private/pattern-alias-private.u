@@ -1,9 +1,0 @@
-// type error: unknown constructor Minus at 3.1
-
-function f(t: Tm): Int :=
-  match t
-    case Minus(_) =>
-      1
-    case _ =>
-      0
-  end

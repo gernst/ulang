@@ -1,6 +1,0 @@
-// type error: duplicate out or ref z at 5.1
-procedure p(ref x: Int, y: Int) :=
-  skip
-
-procedure q(out z: Int) :=
-  call p(ref z, z)

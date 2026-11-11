@@ -1,8 +1,0 @@
-// type error: the type ?2 of an exception is not fully known at 2.1
-test catch_unknown_type() :=
-  try
-    raise 1
-  catch
-    case e =>
-      skip
-  end

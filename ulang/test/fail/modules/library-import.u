@@ -1,7 +1,0 @@
-// parse error: import of the library, which every module sees without importing it at 4.1
-
-// the library is imported only implicitly
-import "prelude"
-
-procedure main() :=
-  skip

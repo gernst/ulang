@@ -1,3 +1,0 @@
-// type error: cannot unify Int and Bool at 2.1
-test list_type() :=
-  assert List(1, true) == List()

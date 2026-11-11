@@ -1,6 +1,0 @@
-// type error: duplicate pattern variable x at 2.1
-function f(): Int :=
-  match List()
-    case List(x; x) =>
-      0
-  end

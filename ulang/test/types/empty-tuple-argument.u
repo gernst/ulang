@@ -1,3 +1,0 @@
-// type error: cannot unify (()) -> Int and Int at 2.1
-function f(g: (()) -> Int): Int :=
-  g

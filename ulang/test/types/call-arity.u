@@ -1,6 +1,0 @@
-// type error: procedure p expects 1 ins, got 2 at 5.1
-procedure p(in x: Int, out y: Int) :=
-  assign y := x
-
-procedure q(out z: Int) :=
-  call p(in 1, 2, out z)

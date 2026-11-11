@@ -1,3 +1,0 @@
-// type error: unknown sort Unit at 2.1
-function f(u: Unit): Int :=
-  0

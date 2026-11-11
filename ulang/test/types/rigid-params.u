@@ -1,3 +1,0 @@
-// type error: cannot unify A and B at 2.1
-function f[A, B](x: A): B :=
-  x

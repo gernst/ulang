@@ -1,6 +1,0 @@
-// type error: cannot unify Bool and Int at 5.1
-procedure p(in x: Int, out y: Int) :=
-  assign y := x
-
-procedure q(out z: Bool) :=
-  call p(in 1, out z)

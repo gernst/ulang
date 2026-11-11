@@ -1,3 +1,0 @@
-// parse error: unknown package ulang/test/fail/modules/missing/nowhere at 3.1
-// a path from the root names no file
-import "ulang/test/fail/modules/missing/nowhere"

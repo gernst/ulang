@@ -1,3 +1,0 @@
-// type error: cannot unify Int and Bool at 2.1
-function f(): Bool :=
-  (lambda g => g(1) == 1 and g(true))(lambda y => y)

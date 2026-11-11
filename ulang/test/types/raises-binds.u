@@ -1,6 +1,0 @@
-// type error: the pattern of assert raises binds n, which only _ may stand for at 3.1
-
-test binds() :=
-  assert raises Some(n) do
-    raise Some(1)
-  end

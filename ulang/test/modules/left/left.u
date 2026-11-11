@@ -1,6 +1,6 @@
-// a module for ulang/test/modules/ambiguous-name/ambiguous-name.u, which exports a helper of the same name and type
-// as the other one, for ulang/test/modules/own-name.u, which declares one of its own, and for the misplaced imports of
-// ulang/test/fail/modules/import-after-declaration.u and ulang/test/fail/modules/import-after-export/import-after-export.u
+// a module for the tests ambiguous_name, own_name, import_after_declaration, and import_after_export of
+// ulang/test/errors/modules.u, which exports a helper that a member of the package of a case or the case itself declares
+// too, or that a case imports where imports are misplaced
 
 export
 

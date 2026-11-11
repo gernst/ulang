@@ -1,4 +1,0 @@
-// parse error: ) expected but => found at 4.17
-
-function f(m: Map[Int, Int]): Map[Int, Int] :=
-  Map(1 => 2; 3 => 4)

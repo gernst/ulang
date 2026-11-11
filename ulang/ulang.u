@@ -1,7 +1,7 @@
 // the driver of ulang, out/ulang.bin, with the commands of usage: run, test, and check with the interpreter of
 // ulang/run/run.u, prove by the default proof of ulang/prove/lemma.u, as test does after the tests, format by
-// format_program of ulang/format/format.u, and compile to C; test, check, and prove judge each file by its first line,
-// which states the error that the file must fail with, or else the file must succeed
+// format_program of ulang/format/format.u, and compile to C, where a file passes if it loads, its tests pass, and its
+// lemmas are proven, and the errors that the phases must raise are tested by the cases of ulang/test/errors/
 
 import "ulang/syntax"
 import "ulang/format"
@@ -10,13 +10,6 @@ import "ulang/check"
 import "ulang/run"
 import "ulang/compile"
 import "ulang/prove"
-
-data TestFailed :=
-  case TestFailed(message: Str)
-
-// a file that format would change, at the first line that differs
-data Unformatted :=
-  case Unformatted(line: Int)
 
 // the command of the arguments, as request reads them
 data Request :=
@@ -35,41 +28,27 @@ data Request :=
 data Target :=
   case Target(path: Str, name: Option[Str])
 
-// a file with the names of its tests or lemmas that are selected, all of them for List()
-data Subject :=
-  case Subject(file: Str, names: List[Str])
-
-// what test, check, and prove do with a file
-data Mode :=
-  case Testing(args: List[Str])
-  case Checking
-  case Proving
-
 procedure main() :=
   local args: List[Str], ok := true
   call os_args(out args)
   match request(args)
-    case RRun(Target(file, name), rest) =>
-      call attempt(in file, lambda out r =>
-        call run_file(in file, value_or(name, "main"), rest, out r)
-      end, out ok)
+    case RRun(target, rest) =>
+      call run_target(in target, rest, out ok)
 
     case RTest(targets, rest) =>
-      call judge(in Testing(rest), targets, out ok)
+      call test_targets(in targets, rest, out ok)
 
     case RCheck(paths) =>
-      call judge(in Checking, List(for p in paths yield Target(p, None)), out ok)
+      call check_paths(in paths, out ok)
 
     case RProve(targets) =>
-      call judge(in Proving, targets, out ok)
+      call prove_targets(in targets, out ok)
 
     case RFormat(paths, check_only) =>
       call format_paths(in paths, check_only, out ok)
 
-    case RCompile(Target(file, name), tests, output) =>
-      call attempt(in file, lambda out r =>
-        call compile_to(in file, if tests then None else Some(value_or(name, "main")), output, out r)
-      end, out ok)
+    case RCompile(target, tests, output) =>
+      call compile_target(in target, tests, output, out ok)
 
     case RHelp(None) =>
       call os_println(in usage())
@@ -249,16 +228,16 @@ function description(command: Str): Str :=
       "calls the procedure, main by default, which takes no parameters, where os_args gives the arguments after --"
 
     case "test" =>
-      "runs the tests of the files, also below directories, by default the project, each in its directory, printing a line per test\n" ++ "and lemma, and judges each file by its first line, which states the error that it must fail with, or else it must\n" ++ "succeed, unless names are selected, which must pass; with several files, it prints the files that do not pass and\n" ++ "how many do"
+      "runs the tests of the files, all or the named ones, also below directories, by default the project, each in its\n" ++ "directory, printing a line per test and lemma, where a file passes if it loads and its tests pass and its lemmas are\n" ++ "proven; with several files, it prints the files that do not pass and how many do"
 
     case "check" =>
-      "checks the files, also below directories, by default the project, judged by their first lines as by test"
+      "checks the files, also below directories, by default the project"
 
     case "prove" =>
-      "proves the lemmas of the files, all or the named ones, judged by their first lines as by test; functions are not yet\n" ++ "checked to terminate, so a lemma about one that does not may be proven falsely"
+      "proves the lemmas of the files, all or the named ones, also below directories, by default the project; functions are\n" ++ "not yet checked to terminate, so a lemma about one that does not may be proven falsely"
 
     case "format" =>
-      "rewrites the files, also below directories, by default the project, as format_program writes them, but those whose first line\n" ++ "states a parse error; with --check, it only reports the files that differ"
+      "rewrites the files, also below directories, by default the project, as format_program writes them; with --check, it\n" ++ "only reports the files that differ"
 
     case "compile" =>
       "translates the file to C, whose main calls the procedure, main by default, or runs all tests for --tests"
@@ -283,125 +262,247 @@ function split_on[A](xs: List[A], sep: A): List[A] * List[A] :=
         end
   end
 
-// runs command for file, printing the error of file, and whether it succeeded
-procedure attempt(in file: Str, command: (out Bool), out ok: Bool) :=
-  local failure: Str, error: Str
-  call guarded(in lambda out f =>
-    local r: Bool
-    call   command(out r)
-    assign f := if r then "" else "failed"
-  end, out failure, error)
+// calls the procedure of the target, main by default, without parameters, where os_args gives args
+procedure run_target(in target: Target, args: List[Str], out ok: Bool) :=
+  local q: Prog, error: Str, entry := Name(None, value_or(target.name, "main")), cache: Map[Name, Val] := empty()
+  call   check_file(in target.path, false, out q, error)
+  assign ok := false
+  if error == "" then
+    assign entry := Name(Some(q.main), entry.base)
+    try
+      call   require_entry(in q, entry)
+      call   run_proc(in load(q) with args := args, entry, ref cache)
+      assign ok := true
+    catch
+      case UnknownEntry(name) =>
+        assign error := error_text(RuntimeKind, "there is no procedure " ++ name.base ++ " without parameters")
+
+      case OsError(m) =>
+        assign error := error_text(RuntimeKind, m)
+
+      case e =>
+        assign error := error_text(RuntimeKind, runtime_message(e))
+
+      case e =>
+        assign error := error_text(InternalKind, internal_message(e))
+    end
+  end
   if error != "" then
-    call os_print_error(in file ++ ": " ++ error)
-  end
-  assign ok := failure == "" and error == ""
-
-// runs command, with the failure that it reports, or else "", and the message of the error that it raises, or else ""
-procedure guarded(in command: (out Str), out failure: Str, error: Str) :=
-  assign failure := "", error := ""
-  try
-    call command(out failure)
-  catch
-    case TestFailed(m) =>
-      assign error := m
-
-    case ParseError(m, pos) =>
-      assign error := error_text(ParseKind, m ++ at_pos(pos))
-
-    case ImportError(module, m, pos) =>
-      assign error := error_text(ParseKind, m ++ " in " ++ module ++ at_pos(pos))
-
-    case OsError(m) =>
-      assign error := error_text(RuntimeKind, m)
-
-    case Unformatted(line) =>
-      assign error := error_text(FormatKind, "the file differs from what ulang format writes" ++ at_pos(Pos(line, 1)))
-
-    case UnknownEntry(name) =>
-      assign error := error_text(RuntimeKind, "there is no procedure " ++ name.base ++ " without parameters")
-
-    case e =>
-      assign error := error_text(TypeKind, located_message(e))
-
-    case e =>
-      assign error := error_text(RuntimeKind, runtime_message(e))
-
-    case e =>
-      assign error := error_text(InternalKind, internal_message(e))
+    call os_print_error(in target.path ++ ": " ++ error)
   end
 
-// the checked program of file, after the modules it imports, and the name of the module of file
-procedure load_file(in file: Str, out main: Id, q: Prog) :=
-  local source: Source
-  call   parse_file(in file, out source)
-  call   check_program(in source, out q)
-  assign main := source.main
-
-// load_file, where file must be formatted, which is checked after the program, so that its errors come first
-procedure load_formatted(in file: Str, out main: Id, q: Prog) :=
-  local source: Source, text: Str
-  call   parse_file(in file, out source)
-  call   check_program(in source, out q)
-  call   os_read(in file, out text)
-  assign main := source.main
-  match first_difference(split(text, '\n'), split(format_program(source), '\n'), 1)
-    case Some(line) =>
-      raise Unformatted(line)
-    case None =>
-      skip
-  end
-
-// the number of the first line that differs, counting from line
-function first_difference(lines: List[Str], others: List[Str], line: Int): Option[Int] :=
-  match (lines, others)
-    case (List(), List()) =>
-      None
-
-    case (List(a; more), List(b; rest)) =>
-      if a == b then first_difference(more, rest, line + 1) else Some(line)
-
-    case _ =>
-      Some(line)
-  end
-
-procedure compile_to(in file: Str, entry: Option[Id], target: Str, out ok: Bool) :=
-  call   compile_file(in file, entry, target)
-  assign ok := true
-
-// the files of the paths rewritten as format writes them, or for check_only reported if they differ, but those that state
-// a parse error, which format refuses
-procedure format_paths(in paths: List[Str], check_only: Bool, out ok: Bool) :=
-  local files: List[Str], done: Bool, text: Str, root: Str
-  call   default_path(out root)
-  call   walk_all(in if paths == List() then List(root) else paths, List(), out files)
-  assign ok := true
-  for f in files if is_source(f) do
-    call os_read(in f, out text)
-    if not starts_with(expected_error(text), error_text(ParseKind, "")) then
-      if check_only then
-        call attempt(in f, lambda out r =>
-          call check_format(in f, out r)
-        end, out done)
-      else
-        call attempt(in f, lambda out r =>
-          call format_file(in f, out r)
-        end, out done)
+// runs the tests of the targets, by default of the project, each unit loaded once in its directory, and the lemmas of each
+// file whose tests all run, printing a line per test and lemma, labeled by its file if there are several files
+procedure test_targets(in targets: List[Target], args: List[Str], out ok: Bool) :=
+  local found: List[Target], home: Str, q: Prog, error: Str, failed: List[Str] := List(), passed: Bool, units: List[List[Target]]
+  call targets_of(in targets, true, out found)
+  call units_of(in found, out units)
+  call os_cwd(out home)
+  for unit in units do
+    call os_chdir(in os_dirname(first_path(unit)))
+    call check_file(in os_basename(first_path(unit)), true, out q, error)
+    call os_chdir(in home)
+    if error != "" then
+      call   report(in first_path(unit), error, size(files_of(found)) > 1)
+      assign failed := failed ++ files_of(unit)
+    else
+      for file in files_of(unit) do
+        call os_chdir(in os_dirname(file))
+        call test_module(in q, sibling(q.main, file), names_of(file, unit), args, label_of(file, found), out passed)
+        call os_chdir(in home)
+        if not passed then
+          assign failed := failed ++ List(file)
+          if size(files_of(found)) > 1 then
+            call os_println(in file ++ ": failed")
+          end
+        end
       end
-      assign ok := ok and done
+    end
+  end
+  call   summarize(in files_of(found), failed)
+  assign ok := failed == List()
+
+// runs the tests of the module m of q, all or the named ones, each on its own, also after a failed one, and then its lemmas
+// if all are run, where passed tells whether all pass and are proven
+procedure test_module(
+  in  q: Prog,
+      m: Id,
+      names: List[Str],
+      args: List[Str],
+      label: Str,
+  out passed: Bool
+) :=
+  local run := (load(q) with args := args), tests: List[Cmd], message: Str, proven: Bool
+  assign tests := List(for c in q.cmds if is_selected_test(c, m, names)), passed := true
+  for n in names if not exists(tests, lambda c => cmd_name(c) == n) do
+    call   os_println(in label ++ error_text(RuntimeKind, "there is no test " ++ n))
+    assign passed := false
+  end
+  for c in tests do
+    call test_message(in run, c, out message)
+    if message == "" then
+      call os_println(in label ++ "test " ++ cmd_name(c) ++ " passed")
+    else
+      call   os_println(in label ++ "test " ++ cmd_name(c) ++ " failed: " ++ message)
+      assign passed := false
+    end
+  end
+  if names == List() then
+    call   prove_module(in q, m, List(), label, out proven)
+    assign passed := passed and proven
+  end
+
+// the error of the test cmd, or else ""
+procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
+  local cache: Map[Name, Val] := empty()
+  assign message := ""
+  try
+    call run_cmd(in run, cmd, ref cache)
+  catch
+    case e =>
+      assign message := error_text(RuntimeKind, runtime_message(e))
+    case e =>
+      assign message := error_text(InternalKind, internal_message(e))
+  end
+
+// checks the files of the paths, by default of the project, each unit once, where each file must be formatted
+procedure check_paths(in paths: List[Str], out ok: Bool) :=
+  local found: List[Target], home: Str, q: Prog, error: Str, failed: List[Str] := List(), units: List[List[Target]]
+  call targets_of(in List(for p in paths yield Target(p, None)), false, out found)
+  call units_of(in found, out units)
+  call os_cwd(out home)
+  for unit in units do
+    call os_chdir(in os_dirname(first_path(unit)))
+    call check_file(in os_basename(first_path(unit)), true, out q, error)
+    call os_chdir(in home)
+    if error != "" then
+      call   report(in first_path(unit), error, size(files_of(found)) > 1)
+      assign failed := failed ++ files_of(unit)
+    end
+  end
+  call   summarize(in files_of(found), failed)
+  assign ok := failed == List()
+
+// proves the lemmas of the targets, all or the named ones, by default of the project, each unit loaded once
+procedure prove_targets(in targets: List[Target], out ok: Bool) :=
+  local found: List[Target], home: Str, q: Prog, error: Str, failed: List[Str] := List(), proven: Bool, units: List[List[Target]]
+  call targets_of(in targets, false, out found)
+  call units_of(in found, out units)
+  call os_cwd(out home)
+  for unit in units do
+    call os_chdir(in os_dirname(first_path(unit)))
+    call check_file(in os_basename(first_path(unit)), true, out q, error)
+    call os_chdir(in home)
+    if error != "" then
+      call   report(in first_path(unit), error, size(files_of(found)) > 1)
+      assign failed := failed ++ files_of(unit)
+    else
+      for file in files_of(unit) do
+        call prove_module(in q, sibling(q.main, file), names_of(file, unit), label_of(file, found), out proven)
+        if not proven then
+          assign failed := failed ++ List(file)
+        end
+      end
+    end
+  end
+  call   summarize(in files_of(found), failed)
+  assign ok := failed == List()
+
+// proves the lemmas of the module m of q, all or the named ones, in their order, where those before are facts, printing
+// whether each is proven, and whether all are
+procedure prove_module(
+  in  q: Prog,
+      m: Id,
+      names: List[Str],
+      label: Str,
+  out proven: Bool
+) :=
+  local t := translate(q, m)
+  assign proven := true
+  for n in names if not exists(t.lemmas, lambda l => l.name.base == n) do
+    call   os_println(in label ++ error_text(RuntimeKind, "there is no lemma " ++ n))
+    assign proven := false
+  end
+  for Proved(name, goal) in prove_lemmas(t.decls, t.lemmas) if names == List() or contains(name.base, names) do
+    if goal == true_seq() then
+      call os_println(in label ++ "lemma " ++ name.base ++ " proved")
+    else
+      call   os_println(in label ++ "lemma " ++ name.base ++ " open: " ++ print_seq(goal))
+      assign proven := false
     end
   end
 
+// translates the file of the target to C, whose main calls the procedure of the target, main by default, or runs all tests
+// for tests
+procedure compile_target(
+  in  target: Target,
+      tests: Bool,
+      output: Str,
+  out ok: Bool
+) :=
+  local q: Prog, error: Str
+  call   check_file(in target.path, false, out q, error)
+  assign ok := false
+  if error == "" then
+    try
+      call   compile_prog(in q, if tests then None else Some(value_or(target.name, "main")), output)
+      assign ok := true
+    catch
+      case UnknownEntry(name) =>
+        assign error := error_text(RuntimeKind, "there is no procedure " ++ name.base ++ " without parameters")
+
+      case OsError(m) =>
+        assign error := error_text(RuntimeKind, m)
+
+      case e =>
+        assign error := error_text(InternalKind, internal_message(e))
+    end
+  end
+  if error != "" then
+    call os_print_error(in target.path ++ ": " ++ error)
+  end
+
+// the files of the paths, by default of the project, rewritten as format writes them, or for check_only reported if they
+// differ
+procedure format_paths(in paths: List[Str], check_only: Bool, out ok: Bool) :=
+  local found: List[Target], done: Bool, error: Str
+  call   targets_of(in List(for p in paths yield Target(p, None)), false, out found)
+  assign ok := true
+  for file in files_of(found) do
+    assign error := "", done := false
+    try
+      if check_only then
+        call   check_format(in file)
+        assign done := true
+      else
+        call format_file(in file, out done)
+      end
+    catch
+      case ParseError(m, pos) =>
+        assign error := error_text(ParseKind, m ++ at_pos(pos))
+
+      case ImportError(module, m, pos) =>
+        assign error := error_text(ParseKind, m ++ " in " ++ module ++ at_pos(pos))
+
+      case OsError(m) =>
+        assign error := error_text(RuntimeKind, m)
+
+      case Unformatted(line) =>
+        assign error := error_text(FormatKind, "the file differs from what ulang format writes" ++ at_pos(Pos(line, 1)))
+    end
+    if error != "" then
+      call   os_print_error(in file ++ ": " ++ error)
+      assign done := false
+    end
+    assign ok := ok and done
+  end
+
 // raises Unformatted if format would change file
-procedure check_format(in file: Str, out ok: Bool) :=
+procedure check_format(in file: Str) :=
   local source: Source, text: Str
   call os_read(in file, out text)
   call parse_file_text(in file, text, out source)
-  match first_difference(split(text, '\n'), split(format_program(source), '\n'), 1)
-    case Some(line) =>
-      raise Unformatted(line)
-    case None =>
-      assign ok := true
-  end
+  call require_formatted(in source, source.main, text)
 
 // rewrites file as source, if that parses to the same commands as file, so that formatting tests the parser and the printer
 procedure format_file(in file: Str, out ok: Bool) :=
@@ -437,221 +538,146 @@ function same_mods(mods: List[Mod], others: List[Mod]): Bool :=
 function same_tops(tops: List[Top], others: List[Top]): Bool :=
   size(tops) == size(others) and forall(zip(tops, others), lambda (top, other) => top.doc == other.doc and top.cmd == other.cmd)
 
-// calls the procedure name of file, which takes no parameters, and prints as it runs
-procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
-  local main: Id, q: Prog, run: Run, cache: Map[Name, Val] := empty()
-  call   load_file(in file, out main, q)
-  call   require_entry(in q, Name(Some(main), name))
-  assign run := load(q) with args := args
-  call   run_proc(in run, Name(Some(main), name), ref cache)
-  assign ok := true
-
-// judges the files of the targets, by default the root of the project, each by verdict, and prints how many passed if
-// there are several
-procedure judge(in mode: Mode, targets: List[Target], out ok: Bool) :=
-  local found: List[Subject], home: Str, good: Bool, failed := 0, root: Str
-  call default_path(out root)
-  call subjects_of(in mode, if targets == List() then List(Target(root, None)) else targets, out found)
-  call os_cwd(out home)
-  for s in found do
-    call verdict(in mode, s, home, size(found) > 1, out good)
-    if not good then
-      assign failed := failed + 1
-    end
-  end
-  if size(found) > 1 then
-    call os_println(in show(size(found) - failed) ++ " of " ++ show(size(found)) ++ " files passed")
-  end
-  assign ok := failed == 0
-
-// the .u files of the targets, where directories are walked, for testing without the directories that the project runs
-// only compiled, and the names of one file are joined
-procedure subjects_of(
-  in  mode: Mode,
-      targets: List[Target],
-  out subjects: List[Subject]
-) :=
-  local files: List[Str], found: Buffer[Subject] := empty(), skipped: List[Str]
-  for Target(path, name) in targets do
-    match name
-      case Some(n) =>
-        assign found := found ++ List(Subject(path, List(n)))
-
-      case None =>
-        call   skipped_by(in mode, path, out skipped)
-        call   walk_all(in List(path), skipped, out files)
-        assign found := found ++ List(for f in files if is_source(f) yield Subject(f, List()))
-    end
-  end
-  assign subjects := joined_subjects(List(for s in found))
-
-function joined_subjects(subjects: List[Subject]): List[Subject] :=
-  match subjects
-    case List(Subject(f, ns), Subject(g, ms); more) =>
-      if f == g and ns != List() and ms != List() then
-        joined_subjects(List(Subject(f, ns ++ ms); more))
-      else
-        List(Subject(f, ns); joined_subjects(List(Subject(g, ms); more)))
-
-    case _ =>
-      subjects
-  end
-
-// runs the file of s in its directory, where home is the directory to return to, printing its lines, prefixed by the file
-// if there are several, and its error, which must be the one that its first line states, if no names are selected
-procedure verdict(
-  in  mode: Mode,
-      s: Subject,
-      home: Str,
-      several: Bool,
-  out good: Bool
-) :=
-  local text: Str, expected: Str, got: Str, failure: Str, error: Str, name := os_basename(s.file), label := (if several then s.file ++ ": " else "")
-  call   os_read(in s.file, out text)
-  assign expected := if s.names == List() then expected_by(mode, expected_error(text)) else ""
-  call   os_chdir(in os_dirname(s.file))
-  call   guarded(in lambda out f =>
-    call outcome_of(in mode, name, s.names, label, out f)
-  end, out failure, error)
-  call   os_chdir(in home)
-  if error != "" then
-    if several then
-      call os_println(in s.file ++ ": " ++ error)
-    else
-      call os_print_error(in s.file ++ ": " ++ error)
-    end
-  end
-  assign got := if error != "" then error else failure
-  assign good := got == expected
-  if not good then
-    call os_println(in s.file ++ ": expected " ++ outcome(expected) ++ ", got " ++ outcome(got))
-  end
-
-// the error that the first line states, as far as mode can meet it: check only those of loading, and prove also open lemmas
-function expected_by(mode: Mode, expected: Str): Str :=
-  match mode
-    case Testing(_) =>
-      expected
-
-    case Checking =>
-      if is_load_error(expected) then expected else ""
-
-    case Proving =>
-      if is_load_error(expected) or starts_with(expected, "lemma ") then
-        expected
-      else
-        ""
-  end
-
-function is_load_error(message: Str): Bool :=
-  exists(List(ParseKind, TypeKind, FormatKind), lambda kind => starts_with(message, error_text(kind, "")))
-
-// the first failure of file, or else "", printing a line per test and lemma
-procedure outcome_of(
-  in  mode: Mode,
-      file: Str,
-      names: List[Str],
-      label: Str,
-  out failure: Str
-) :=
-  local main: Id, q: Prog
-  call   load_formatted(in file, out main, q)
-  assign failure := ""
-  match mode
-    case Testing(args) =>
-      call test_outcome(in q, main, names, args, label, out failure)
-
-    case Checking =>
-      skip
-
-    case Proving =>
-      call prove_outcome(in q, main, names, label, out failure)
-  end
-
-// runs the tests of q, all or the named ones, each on its own, also after a failed one, and then its lemmas if all are run
-procedure test_outcome(
-  in  q: Prog,
-      main: Id,
-      names: List[Str],
-      args: List[Str],
-      label: Str,
-  out failure: Str
-) :=
-  local run := (load(q) with args := args), tests: List[Cmd], message: Str, open: Str
-  assign tests := List(for c in q.cmds if is_selected_test(c, names)), failure := ""
-  match List(for n in names if not exists(tests, lambda c => is_test(c, n)))
-    case List(n; _) =>
-      raise TestFailed(error_text(RuntimeKind, "there is no test " ++ n))
-    case List() =>
-      skip
-  end
-  for c in tests do
-    call test_message(in run, c, out message)
-    if message == "" then
-      call os_println(in label ++ "test " ++ cmd_name(c) ++ " passed")
-    else
-      call os_println(in label ++ "test " ++ cmd_name(c) ++ " failed: " ++ message)
-    end
-    if failure == "" then
-      assign failure := message
-    end
-  end
-  if names == List() then
-    call prove_outcome(in q, main, List(), label, out open)
-    if failure == "" then
-      assign failure := open
-    end
-  end
-
-// proves the lemmas of q, all or the named ones, printing whether each is proven, with the first that is open
-procedure prove_outcome(
-  in  q: Prog,
-      main: Id,
-      names: List[Str],
-      label: Str,
-  out failure: Str
-) :=
-  local proved: List[Proved]
-  call   lemma_results(in q, main, names, out proved)
-  assign failure := ""
-  for Proved(name, goal) in proved do
-    if goal == true_seq() then
-      call os_println(in label ++ "lemma " ++ name.base ++ " proved")
-    else
-      call os_println(in label ++ open_lemma(name, goal))
-      if failure == "" then
-        assign failure := open_lemma(name, goal)
+// the checked program of file and the message of the error of loading it, or else "", where formatted requires each file
+// of its unit, the members of its package or file alone if it is a program, to be formatted, after the errors of parsing
+// and checking
+procedure check_file(in file: Str, formatted: Bool, out q: Prog, error: Str) :=
+  local source: Source, text: Str
+  assign q := Prog(List(), ""), error := ""
+  try
+    call parse_file(in file, out source)
+    call check_program(in source, out q)
+    for m in unit_modules(source) if formatted and error == "" do
+      call os_read(in os_join(os_dirname(file), module_file(m)), out text)
+      try
+        call require_formatted(in source, m, text)
+      catch
+        case Unformatted(line) =>
+          assign error := error_text(FormatKind, "the file differs from what ulang format writes" ++ (if m == source.main then "" else " in " ++ m) ++ at_pos(Pos(line, 1)))
       end
     end
-  end
-
-// the lemmas of the module main of q proven, the named ones if names are given, where those before them are facts
-procedure lemma_results(
-  in  q: Prog,
-      main: Id,
-      names: List[Str],
-  out proved: List[Proved]
-) :=
-  local t := translate(q, main), missing: List[Str] := List(for n in names if not exists(t.lemmas, lambda l => l.name.base == n))
-  match missing
-    case List(n; _) =>
-      raise TestFailed(error_text(RuntimeKind, "there is no lemma " ++ n))
-    case List() =>
-      assign proved := List(for p in prove_lemmas(t.decls, t.lemmas) if names == List() or contains(p.name.base, names))
-  end
-
-// the error of the test cmd, or else ""
-procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
-  local cache: Map[Name, Val] := empty()
-  assign message := ""
-  try
-    call run_cmd(in run, cmd, ref cache)
   catch
+    case ParseError(m, pos) =>
+      assign error := error_text(ParseKind, m ++ at_pos(pos))
+
+    case ImportError(module, m, pos) =>
+      assign error := error_text(ParseKind, m ++ " in " ++ module ++ at_pos(pos))
+
+    case OsError(m) =>
+      assign error := error_text(RuntimeKind, m)
+
     case e =>
-      assign message := error_text(RuntimeKind, runtime_message(e))
+      assign error := error_text(TypeKind, located_message(e))
+
     case e =>
-      assign message := error_text(InternalKind, internal_message(e))
+      assign error := error_text(InternalKind, internal_message(e))
   end
+
+// the modules of the unit of the main module of source: the members of its package, or main alone if it is a program
+function unit_modules(source: Source): List[Id] :=
+  match find(source.packages, lambda p => contains(source.main, p.members))
+    case Some(p) =>
+      p.members
+    case None =>
+      List(source.main)
+  end
+
+// the name of the file of the module m in its directory
+function module_file(m: Id): Str :=
+  os_basename(m) ++ ".u"
+
+// the module of file, a file of the directory of the module main
+function sibling(main: Id, file: Str): Id :=
+  let name := slice(os_basename(file), 0, size(os_basename(file)) - 2) in
+  if module_dir(main) == "" then name else module_dir(main) ++ "/" ++ name
+
+// prints the error of loading file, after the lines of the others if there are several files, else alone to stderr
+procedure report(in file: Str, error: Str, several: Bool) :=
+  if several then
+    call os_println(in file ++ ": " ++ error)
+  else
+    call os_print_error(in file ++ ": " ++ error)
+  end
+
+// prints how many of the files passed if there are several
+procedure summarize(in files: List[Str], failed: List[Str]) :=
+  if size(files) > 1 then
+    call os_println(in show(size(files) - size(failed)) ++ " of " ++ show(size(files)) ++ " files passed")
+  end
+
+// the targets of the targets, by default the root of the project, where a directory is a target without a name for each of
+// the .u files below it, without those of the directories that the project runs only compiled if compiled_only is set
+procedure targets_of(
+  in  targets: List[Target],
+      compiled_only: Bool,
+  out found: List[Target]
+) :=
+  local root: Str, files: List[Str], skipped: List[Str], buffer: Buffer[Target] := empty()
+  call default_path(out root)
+  for Target(path, name) in if targets == List() then List(Target(root, None)) else targets do
+    match name
+      case Some(_) =>
+        assign buffer := buffer ++ List(Target(path, name))
+
+      case None =>
+        assign skipped := List()
+        if compiled_only then
+          call compiled_only_of(in path, out skipped)
+        end
+        call   walk_all(in List(path), skipped, out files)
+        assign buffer := buffer ++ List(for f in files if is_source(f) yield Target(f, None))
+    end
+  end
+  assign found := List(for t in buffer)
+
+// the targets grouped by the load that they need, in the order of their first targets: those of the members of a package,
+// the files with sections of a directory, together, and those of each program, a file without sections, apart
+procedure units_of(in targets: List[Target], out units: List[List[Target]]) :=
+  local text: Str, keyed: Buffer[Str * Target] := empty()
+  for t in targets do
+    try
+      call os_read(in t.path, out text)
+    catch
+      case OsError(_) =>
+        assign text := ""
+    end
+    assign keyed := keyed ++ List((if has_sections(text) then os_dirname(t.path) ++ "/" else t.path, t))
+  end
+  assign units := grouped(List(for k in keyed))
+
+function grouped(keyed: List[Str * Target]): List[List[Target]] :=
+  match keyed
+    case List() =>
+      List()
+
+    case List((key, _); _) =>
+      List(
+        List(for (k, t) in keyed if k == key yield t); grouped(List(for (k, t) in keyed if k != key)))
+  end
+
+function first_path(targets: List[Target]): Str :=
+  match targets
+    case List(t; _) =>
+      t.path
+    case List() =>
+      ""
+  end
+
+// the files of the targets, each once, in the order of their first targets
+function files_of(targets: List[Target]): List[Str] :=
+  foldl(targets, List(), lambda files, t => if contains(t.path, files) then files else files ++ List(t.path))
+
+// the names that the targets select of file, List() for all, if one target selects all of it
+function names_of(file: Str, targets: List[Target]): List[Str] :=
+  let mine := List(for t in targets if t.path == file yield t.name) in
+  if contains(None, mine) then
+    List()
+  else
+    List(for n in mine for x in n yield x)
+
+// the label of the lines of file, the file if the targets have several files
+function label_of(file: Str, targets: List[Target]): Str :=
+  if size(files_of(targets)) > 1 then file ++ ": " else ""
 
 // the files of the paths, where directories are walked in the order of names, without the hidden ones, those named out,
 // and the skipped ones, which are absolute and normal
@@ -717,29 +743,27 @@ test paths_up() :=
   assert path_up("/a", "/a/b/c") == "../.."
   assert path_up("/", "/b") == ".."
 
-// the directories that judging in mode skips when it walks path: in testing, those that the project of path runs only
-// compiled, as its function project of project.u declares
-procedure skipped_by(in mode: Mode, path: Str, out skipped: List[Str]) :=
-  local here: Str, root: Str, entries: List[Str * Bool], main: Id, q: Prog, v: Option[Val]
+// the directories, absolute and normal, that the project of path runs only compiled, as the function project of its
+// project.u declares
+procedure compiled_only_of(in path: Str, out skipped: List[Str]) :=
+  local here: Str, root: Str, entries: List[Str * Bool], q: Prog, error: Str, v: Option[Val]
   assign skipped := List()
-  match mode
-    case Testing(_) =>
-      call os_cwd(out here)
-      call project_root(in absolute_path(here, path), out root)
-      call os_list(in root, out entries)
-      if contains(("project.u", false), entries) then
-        call load_file(in os_join(root, "project.u"), out main, q)
-        call constant_of(in load(q), Name(Some(main), "project"), out v)
-        match v
-          case Some(VObj(_, List(dirs))) =>
-            assign skipped := List(for d in strings_of(dirs) yield normal_path(os_join(root, d)))
-          case _ =>
-            skip
-        end
+  call   os_cwd(out here)
+  call   project_root(in absolute_path(here, path), out root)
+  call   os_list(in root, out entries)
+  if contains(("project.u", false), entries) then
+    call check_file(in os_join(root, "project.u"), false, out q, error)
+    if error != "" then
+      call os_print_error(in os_join(root, "project.u") ++ ": " ++ error)
+    else
+      call constant_of(in load(q), Name(Some(q.main), "project"), out v)
+      match v
+        case Some(VObj(_, List(dirs))) =>
+          assign skipped := List(for d in strings_of(dirs) yield normal_path(os_join(root, d)))
+        case _ =>
+          skip
       end
-
-    case _ =>
-      skip
+    end
   end
 
 // the strings of a list value
@@ -751,54 +775,19 @@ function strings_of(v: Val): List[Str] :=
       List()
   end
 
-function outcome(message: Str): Str :=
-  if message == "" then "success" else message
-
-// the error that the first line of a file states, or else ""
-function expected_error(text: Str): Str :=
-  match split(text, '\n')
-    case List(line; _) =>
-      if states_error(line) then slice(line, 3, size(line)) else ""
-    case _ =>
-      ""
-  end
-
-// // lemma name open: goal, as open_lemma writes it
-function states_open_lemma(line: Str): Bool :=
-  match split(line, ' ')
-    case List("//", "lemma", _, "open:"; _) =>
-      true
-    case _ =>
-      false
-  end
-
-function states_error(line: Str): Bool :=
-  states_open_lemma(line) or exists(error_kinds(), lambda kind => starts_with(line, "// " ++ error_text(kind, "")))
-
-// the message of a lemma that the default proof leaves open, as the first line of a file that expects it states it
-function open_lemma(name: Name, goal: Seq): Str :=
-  "lemma " ++ name.base ++ " open: " ++ print_seq(goal)
-
-function is_selected_test(cmd: Cmd, names: List[Str]): Bool :=
+// whether cmd is a test of the module m that names selects, all of them for List()
+function is_selected_test(cmd: Cmd, m: Id, names: List[Str]): Bool :=
   match cmd
-    case CTest(test_name, _, _) =>
-      names == List() or contains(test_name, names)
-    case _ =>
-      false
-  end
-
-function is_test(cmd: Cmd, n: Str): Bool :=
-  match cmd
-    case CTest(test_name, _, _) =>
-      test_name == n
+    case CTest(name, _, _) =>
+      name.module == Some(m) and (names == List() or contains(name.base, names))
     case _ =>
       false
   end
 
 function cmd_name(cmd: Cmd): Str :=
   match cmd
-    case CTest(test_name, _, _) =>
-      test_name
+    case CTest(name, _, _) =>
+      name.base
     case _ =>
       ""
   end

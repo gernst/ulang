@@ -1,4 +1,0 @@
-// type error: cannot unify A and Int at 2.1
-function f[A](x: A): Bool :=
-  let g := lambda y => x in
-  g(1) == 1

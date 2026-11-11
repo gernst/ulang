@@ -1,8 +1,0 @@
-// type error: unreachable case true at 2.1
-function f(b: Bool): Int :=
-  match b
-    case _ =>
-      0
-    case true =>
-      1
-  end

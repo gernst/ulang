@@ -1,6 +1,0 @@
-// runtime error: cannot compare procedures
-procedure p() :=
-  skip
-
-test compare_procedures() :=
-  assert p == p

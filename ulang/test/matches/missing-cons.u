@@ -1,6 +1,0 @@
-// type error: match is not exhaustive, missing List(_; _) at 2.1
-function f(x: List[Option[Int]]): Int :=
-  match x
-    case List() =>
-      0
-  end

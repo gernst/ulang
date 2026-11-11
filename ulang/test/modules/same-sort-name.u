@@ -1,9 +1,0 @@
-// type error: cannot unify ulang/test/modules/hiding/hiding.Box and ulang/test/modules/same-sort-name.Box at 8.1
-
-import "ulang/test/modules/hiding"
-
-data Box :=
-  case Empty
-
-function f(): Box :=
-  box(1)

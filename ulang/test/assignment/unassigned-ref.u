@@ -1,7 +1,0 @@
-// type error: x is not assigned on every path at 5.1
-procedure increment(ref n: Int) :=
-  assign n := n + 1
-
-test unassigned_ref() :=
-  local x: Int
-  call increment(ref x)

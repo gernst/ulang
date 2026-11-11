@@ -1,3 +1,0 @@
-// type error: sort T expects 1 arguments, got 0 at 2.1
-data T[A] :=
-  case C(inner: T)

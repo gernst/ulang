@@ -1,3 +1,0 @@
-// parse error: keyword in is not a name at 3.7
-function f(): Int :=
-  let in := 1 in in

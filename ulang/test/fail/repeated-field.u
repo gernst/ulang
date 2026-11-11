@@ -1,4 +1,0 @@
-// parse error: repeated field v of A at 4.3
-data T :=
-  case A(v: Int, v: Int)
-  case B

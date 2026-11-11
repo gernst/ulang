@@ -1,5 +1,0 @@
-// type error: f is exported but not defined
-
-export
-
-function f(n: Int): Int

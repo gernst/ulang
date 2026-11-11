@@ -1,3 +1,0 @@
-// parse error: package expected but set found at 3.8
-// imports name packages by strings, so that their names may be keywords
-import set

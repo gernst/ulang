@@ -1,8 +1,0 @@
-// parse error: undeclared operator +++ at 3.18
-test operator_before_declaration() :=
-  assert List(1) +++ List(2) == List(1, 2)
-
-infix right 8 +++
-
-function +++[A](xs: List[A], ys: List[A]): List[A] :=
-  xs ++ ys

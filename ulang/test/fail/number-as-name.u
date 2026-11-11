@@ -1,4 +1,0 @@
-// parse error: name expected but 1 found at 3.10
-
-function 1(): Int :=
-  1

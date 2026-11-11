@@ -1,7 +1,0 @@
-// type error: output r of p is not assigned on every path at 2.1
-procedure p(out r: Int) :=
-  skip
-
-test unassigned_output() :=
-  local x: Int
-  call p(out x)

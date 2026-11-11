@@ -1,9 +1,0 @@
-// type error: unknown constructor Full at 5.1
-
-import "ulang/test/modules/hiding"
-
-function f(b: Box): Int :=
-  match b
-    case Full(contents) =>
-      contents
-  end

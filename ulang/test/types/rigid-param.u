@@ -1,3 +1,0 @@
-// type error: cannot unify A and Int at 2.1
-function f[A](x: A): Int :=
-  x

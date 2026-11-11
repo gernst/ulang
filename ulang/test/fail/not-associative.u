@@ -1,3 +1,0 @@
-// parse error: operator == is not associative at 3.17
-test not_associative() :=
-  assert 1 == 1 == true

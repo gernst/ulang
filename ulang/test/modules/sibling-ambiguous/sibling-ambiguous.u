@@ -1,4 +1,0 @@
-// type error: twice is ambiguous: ulang/test/modules/sibling-ambiguous/one.twice: Int -> Int, ulang/test/modules/sibling-ambiguous/two.twice: Int -> Int at 3.1
-
-procedure main() :=
-  call os_println(in show(twice(1)))

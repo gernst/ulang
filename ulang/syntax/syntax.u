@@ -175,7 +175,7 @@ data Cmd :=
   // a notation, e.g. infix left 9 + -, see Fixity
   case CNotation(fixity: Fixity, prec: Int, ops: List[Id])
   // tests take no parameters, which the checker enforces
-  case CTest(test_name: Id, vars: List[Var], stmt: Stmt)
+  case CTest(name: Name, vars: List[Var], stmt: Stmt)
   // the export section of a module, with the signatures of functions and procedures, as CFun and CProc without their
   // bodies, and abstract types, which its implementation section defines by data, and its builtin section, with the
   // signatures of exported functions and procedures that the interpreter and the runtime define
@@ -190,9 +190,10 @@ data Cmd :=
   // see prove.md, and which the prover proves, while the interpreter and the compiler skip it
   case CLemma(name: Name, params: List[Id], formals: List[Var], assms: List[Expr], concl: Expr)
 
+// the checked program: the commands of its modules with resolved names, and the module of the file that is loaded, whose
+// procedures run and compile call
 data Prog :=
-  // the commands of a program without modules, as tests build it
-  case Prog(cmds: List[Cmd])
+  case Prog(cmds: List[Cmd], main: Id)
 
 data Pos :=
   // line and column, both from 1

@@ -1,6 +1,0 @@
-// type error: cannot unify Bool and Int at 2.1
-function f(p: Int * Int): Int :=
-  match p
-    case (x, true) =>
-      x
-  end

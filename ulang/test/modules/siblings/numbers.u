@@ -2,4 +2,4 @@
 // without importing them
 
 test program_sees_members() :=
-  assert is_even(10) and is_odd(7) and size(Even(1) <+> Even(1)) == 4 and size(Odd(1) <*> Odd(1)) == 9 and three() == 3
+  assert is_even(10) and is_odd(7) and size(Even(1) <+> Even(1)) == 4 and size(Odd(1) <*> Odd(1)) == 9

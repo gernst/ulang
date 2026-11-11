@@ -1,2 +1,0 @@
-// parse error: keyword then is not a name in ulang/test/fail/modules/broken/broken at 9.7
-import "ulang/test/fail/modules/broken"

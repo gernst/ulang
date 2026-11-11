@@ -1,6 +1,0 @@
-// type error: cannot unify List[?2] and Int at 2.1
-function f(): Int :=
-  match 1
-    case List() =>
-      0
-  end

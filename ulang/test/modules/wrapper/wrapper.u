@@ -1,4 +1,5 @@
-// a module for ulang/test/modules/transitive-name.u, transitive-notation.u, and transitive-field.u, which imports
+// a module for the tests transitive_name, transitive_notation, transitive_field, and cycle of ulang/test/errors/modules.u,
+// which imports
 // the package ulang/test/modules/inner and exports only its own functions, one with a result of a type of inner.u
 
 import "ulang/test/modules/inner"

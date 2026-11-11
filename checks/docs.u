@@ -146,8 +146,8 @@ function cmd_names(cmd: Cmd): List[Str] :=
     case CNotation(_, _, _) =>
       List()
 
-    case CTest(test_name, _, _) =>
-      List(test_name)
+    case CTest(name, _, _) =>
+      List(name.base)
 
     case CFunSig(name, _, _, _) =>
       List(name.base)

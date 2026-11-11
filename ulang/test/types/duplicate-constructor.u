@@ -1,4 +1,0 @@
-// type error: C is already defined at 2.1
-data T :=
-  case C
-  case C

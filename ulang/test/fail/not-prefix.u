@@ -1,3 +1,0 @@
-// parse error: * is not a prefix operator at 3.10
-test not_prefix() :=
-  assert * 2 == 2

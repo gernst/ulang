@@ -1,3 +1,0 @@
-// parse error: expression expected but _ found at 3.17
-function f(): Int :=
-  let _ := 1 in _

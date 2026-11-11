@@ -1,2 +1,0 @@
-// parse error: imported operator <+> is declared differently at 2.1
-import "ulang/test/fail/modules/notation_right"

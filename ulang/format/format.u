@@ -9,6 +9,16 @@ export
 
 function format_program(source: Source): Str
 
+// a text that format would change, at the first line that differs
+data Unformatted :=
+  case Unformatted(line: Int)
+
+// the module name of source as format writes it, with the notation that it sees
+function format_module(source: Source, name: Id): Str
+
+// raises Unformatted if text, the source of the module name of source, is not what format_module writes of it
+procedure require_formatted(in source: Source, name: Id, text: Str)
+
 function format_lit(lit: Lit): Str
 
 function format_type(t: Type): Str
@@ -27,6 +37,27 @@ function array_text(texts: List[Str]): Str
 
 implementation
 
+procedure require_formatted(in source: Source, name: Id, text: Str) :=
+  match first_difference(split(text, '\n'), split(format_module(source, name), '\n'), 1)
+    case Some(line) =>
+      raise Unformatted(line)
+    case None =>
+      skip
+  end
+
+// the number of the first line that differs, counting from line
+function first_difference(lines: List[Str], others: List[Str], line: Int): Option[Int] :=
+  match (lines, others)
+    case (List(), List()) =>
+      None
+
+    case (List(a; more), List(b; rest)) =>
+      if a == b then first_difference(more, rest, line + 1) else Some(line)
+
+    case _ =>
+      Some(line)
+  end
+
 // programs as source, where the notation of the prelude, of the program, and of its imports decide where operators need
 // parentheses, and the translations of the parser are printed as what they translate, so that the source parses to the
 // same commands
@@ -44,7 +75,10 @@ data Shape :=
 // the last of the modules of source as source, after the modules before it, whose notation it starts with as far as it
 // sees them, by imports, implicitly, or as the members of its package
 function format_program(source: Source): Str :=
-  match last(source.mods)
+  format_module(source, source.main)
+
+function format_module(source: Source, name: Id): Str :=
+  match find(source.mods, lambda d => d.name == name)
     case Some(d) =>
       join("\n\n", format_mod(imported_notation(source.mods, seen_modules(d, source.packages)), d)) ++ "\n"
     case None =>
@@ -802,8 +836,8 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
     case CNotation(fixity, prec, ops) =>
       Some(fixity_text(fixity) ++ " " ++ show(prec) ++ " " ++ join(" ", ops))
 
-    case CTest(test_name, vars, stmt) =>
-      Some("test " ++ test_name ++ "(" ++ formals_text(vars) ++ ") :=" ++ format_body(notation, "  ", stmt))
+    case CTest(name, vars, stmt) =>
+      Some("test " ++ name.base ++ "(" ++ formals_text(vars) ++ ") :=" ++ format_body(notation, "  ", stmt))
 
     case CLemma(name, params, formals, assms, concl) =>
       Some("lemma " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ ") :=" ++ contract_text(notation, assms, concl))

@@ -1,3 +1,0 @@
-// type error: duplicate type parameter A at 2.1
-function f[A, A](x: A): A :=
-  x

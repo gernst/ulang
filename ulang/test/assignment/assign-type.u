@@ -1,3 +1,0 @@
-// type error: cannot unify Bool and Int at 2.1
-procedure p(out x: Int) :=
-  assign x := true

@@ -1,6 +1,0 @@
-// runtime error: assertion failed: 24 != 120
-function fact(n: Int): Int :=
-  if n == 0 then 1 else n * fact(n - 1)
-
-test assertion() :=
-  assert fact(4) == 120

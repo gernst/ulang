@@ -1,4 +1,0 @@
-// lemma less_by_two open: forall a, b => a < b ==> b < (a + 2)
-lemma less_by_two(a: Int, b: Int) :=
-  requires a < b
-  ensures  b < a + 2

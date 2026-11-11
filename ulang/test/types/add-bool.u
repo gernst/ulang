@@ -1,3 +1,0 @@
-// type error: cannot unify Int and Bool at 2.1
-function f(): Int :=
-  1 + true
