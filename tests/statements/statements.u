@@ -480,32 +480,6 @@ test guarded_handlers() :=
   end
   assert n == 2
 
-// raise is also an expression of any type, such that functions can raise exceptions, which statements catch
-data NotDigit :=
-  case NotDigit(char: Char)
-
-function digit(c: Char): Int :=
-  if is_digit(c) then ord(c) - ord('0') else raise NotDigit(c)
-
-function digits(cs: List[Char]): Int :=
-  match cs
-    case List() =>
-      0
-    case List(c; rest) =>
-      digit(c) + 10 * digits(rest)
-  end
-
-test raise_in_functions() :=
-  local n := 0, bad := ' '
-  assign n := digits(List('1', '2'))
-  try
-    assign n := digits(List('1', 'x'))
-  catch
-    case NotDigit(char) =>
-      assign bad := char
-  end
-  assert n == 21 and bad == 'x'
-
 data Shape :=
   case Circle(label: Str, radius: Int)
   case Box(label: Str)

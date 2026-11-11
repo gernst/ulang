@@ -28,10 +28,14 @@ function type_ops(): Ops[List[Type]] :=
   Ops("type", starts_type, parse_type_atom, type_apply)
 
 function expr_ops(): Ops[Expr] :=
-  Ops("expression", starts_expr, parse_app, expr_apply)
+  Ops("expression", starts_expr, parse_app, lambda in f, op, pos, args, out expr =>
+    assign expr := expr_apply(f, op, pos, args)
+  end)
 
 function pat_ops(): Ops[Pat] :=
-  Ops("pattern", starts_pattern, parse_pattern_atom, pat_apply)
+  Ops("pattern", starts_pattern, parse_pattern_atom, lambda in f, op, pos, args, out pat =>
+    assign pat := pat_apply(f, op, pos, args)
+  end)
 
 // an operator of the notation cmds that already has a notation of the same kind
 function duplicate(notation: Notation, cmds: List[Cmd]): Option[Id] :=
@@ -391,10 +395,14 @@ function cons_all[A](cons: (A, A) -> A, items: List[A], rest: A): A :=
 type Operand[A] :=
   (in Notation, List[Id], out A, ref Tokens)
 
+// an operator applied to its operands, which raises a ParseError if they do not fit
+type Apply[A] :=
+  (in Fixity, Id, Pos, List[A], out A)
+
 // precedence climbing over the tokens, as Mixfix of easyparse in cuvee, where prefix operators bind their operand
 // with their own precedence, and a left associative operator is applied to all operands of a chain at once
 data Ops[A] :=
-  case Ops(what: Str, starts: (Notation, Token) -> Bool, operand: Operand[A], apply: (Fixity, Id, Pos, List[A]) -> A)
+  case Ops(what: Str, starts: (Notation, Token) -> Bool, operand: Operand[A], apply: Apply[A])
 
 // operands and operators, where an operator that cannot be applied is an error
 procedure parse_operators[A](
@@ -433,15 +441,15 @@ procedure climb_operand[A](
   out a: A,
   ref toks: Tokens
 ) :=
-  local pos := head_pos(toks), operand := ops.operand
+  local pos := head_pos(toks), operand := ops.operand, apply := ops.apply
   match operator_at(notation, toks)
     case Some(op) =>
       local b: A
       match prefix_prec(notation, op)
         case Some(prec) =>
-          call   advance(ref toks)
-          call   climb(in notation, params, ops, prec, out b, ref toks)
-          assign a := ops.apply(FPrefix, op, pos, List(b))
+          call advance(ref toks)
+          call climb(in notation, params, ops, prec, out b, ref toks)
+          call apply(in FPrefix, op, pos, List(b), out a)
 
         case None if is_operator(notation, op) =>
           raise ParseError(op ++ " is not a prefix operator", pos)
@@ -467,19 +475,21 @@ procedure climb_rest[A](
   out a: A,
   ref toks: Tokens
 ) :=
-  local pos := head_pos(toks)
+  local pos := head_pos(toks), apply := ops.apply
   match operator_at(notation, toks)
     case Some(op) =>
-      local args: List[A]
+      local args: List[A], b: A
       match (postfix_prec(notation, op), infix_of(notation, op))
         case (Some(prec), _) if prec >= min =>
           call advance(ref toks)
-          call climb_rest(in notation, params, ops, min, ops.apply(FPostfix, op, pos, List(lhs)), out a, ref toks)
+          call apply(in FPostfix, op, pos, List(lhs), out b)
+          call climb_rest(in notation, params, ops, min, b, out a, ref toks)
 
         case (_, Some((f, prec))) if prec >= min =>
           call advance(ref toks)
           call climb_infix(in notation, params, ops, op, f, prec, out args, ref toks)
-          call climb_rest(in notation, params, ops, min, ops.apply(f, op, pos, List(lhs; args)), out a, ref toks)
+          call apply(in f, op, pos, List(lhs; args), out b)
+          call climb_rest(in notation, params, ops, min, b, out a, ref toks)
 
         case _ if not is_operator(notation, op) =>
           raise ParseError("undeclared operator " ++ op, pos)
@@ -527,44 +537,60 @@ function is_prec(fp: Option[Fixity * Int], prec: Int): Bool :=
 // and where a chain A * B * C is one tuple type, while (A * B) * C stays nested
 //
 // the type of an operand, which is a list of other than one type only as the arguments of a function
-function as_type(types: List[Type], pos: Pos): Type :=
+procedure as_type(in types: List[Type], pos: Pos, out typ: Type) :=
   match types
-    case List(typ) =>
-      typ
+    case List(t) =>
+      assign typ := t
 
     case List() =>
-      TTuple(List())
+      assign typ := TTuple(List())
 
     case _ =>
       raise ParseError("tuple types are written A * B", pos)
   end
 
-function type_apply(f: Fixity, op: Id, pos: Pos, args: List[List[Type]]): List[Type] :=
-  match args
-    case List(a) =>
-      List(TSort(unqualified(op), List(as_type(a, pos))))
-
-    case _ if op == "*" =>
-      List(TTuple(List(for a in args yield as_type(a, pos))))
-
-    case List(a; more) =>
-      type_infix(op, pos, a, more)
-
-    case List() =>
-      List()
+procedure as_types(in args: List[List[Type]], pos: Pos, out types: List[Type]) :=
+  assign types := List()
+  for a in args do
+    local typ: Type
+    call   as_type(in a, pos, out typ)
+    assign types := types ++ List(typ)
   end
 
-// lhs and the operands rs, applied from the left
-function type_infix(op: Id, pos: Pos, lhs: List[Type], rs: List[List[Type]]): List[Type] :=
-  match rs
+// a chain of -> or another infix operator applied from the left, where the first operand of -> is the list of
+// arguments of a function
+procedure type_apply(
+  in  f: Fixity,
+      op: Id,
+      pos: Pos,
+      args: List[List[Type]],
+  out r: List[Type]
+) :=
+  match args
+    case List(a) =>
+      local typ: Type
+      call   as_type(in a, pos, out typ)
+      assign r := List(TSort(unqualified(op), List(typ)))
+
+    case _ if op == "*" =>
+      local types: List[Type]
+      call   as_types(in args, pos, out types)
+      assign r := List(TTuple(types))
+
+    case List(a; more) if op == "->" =>
+      local types: List[Type]
+      call   as_types(in more, pos, out types)
+      assign r := foldl(types, a, lambda lhs, typ => List(TFun(lhs, typ)))
+
+    case List(a; more) =>
+      local first: Type, types: List[Type]
+      call   as_type(in a, pos, out first)
+      call   as_types(in more, pos, out types)
+      assign r := List(
+        foldl(types, first, lambda lhs, typ => TSort(unqualified(op), List(lhs, typ))))
+
     case List() =>
-      lhs
-
-    case List(r; more) if op == "->" =>
-      type_infix(op, pos, List(TFun(lhs, as_type(r, pos))), more)
-
-    case List(r; more) =>
-      type_infix(op, pos, List(TSort(unqualified(op), List(as_type(lhs, pos), as_type(r, pos)))), more)
+      assign r := List()
   end
 
 function starts_type(notation: Notation, tok: Token): Bool :=
@@ -586,8 +612,8 @@ procedure parse_type(
   ref toks: Tokens
 ) :=
   local start := head_pos(toks), r: List[Type]
-  call   parse_operators(in notation, params, type_ops(), out r, ref toks)
-  assign typ := as_type(r, start)
+  call parse_operators(in notation, params, type_ops(), out r, ref toks)
+  call as_type(in r, start, out typ)
 
 // a type, a type in parentheses, the arguments (A, B) of a function, or (), where params are the type parameters in scope,
 // which distinguish TParam from TSort
@@ -671,7 +697,6 @@ function starts_expr(notation: Notation, tok: Token): Bool :=
       false
   end
 
-// raise e is a whole expression, not an operand, such that a statement raise after an expression starts a statement
 procedure parse_expr(
   in  notation: Notation,
       params: List[Id],
@@ -679,17 +704,11 @@ procedure parse_expr(
   ref toks: Tokens
 ) :=
   local updates: List[Id * Expr]
-  if at_kw(toks, "raise") then
+  call parse_operators(in notation, params, expr_ops(), out expr, ref toks)
+  if at_kw(toks, "with") then
     call   advance(ref toks)
-    call   parse_expr(in notation, params, out expr, ref toks)
-    assign expr := ERaise(expr, THole)
-  else
-    call parse_operators(in notation, params, expr_ops(), out expr, ref toks)
-    if at_kw(toks, "with") then
-      call   advance(ref toks)
-      call   parse_separated(in notation, params, parse_update, at_update, out updates, ref toks)
-      assign expr := apply_updates(expr, updates)
-    end
+    call   parse_separated(in notation, params, parse_update, at_update, out updates, ref toks)
+    assign expr := apply_updates(expr, updates)
   end
 
 // f := a in e with f := a

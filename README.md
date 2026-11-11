@@ -53,7 +53,7 @@ test sorting() :=
 - Datatypes with pattern matching, guards, and checks that matches are exhaustive and cases reachable.
 - Named fields of constructors, read as `e.field` and updated as `e with field := a, other := b`, which are resolved by the type of `e`, and raise `MissingField` for a constructor without that field.
 - Type inference with let-polymorphism, where top-level declarations carry their types.
-- Exceptions of any type, raised by `raise e` in statements and expressions, and caught by `try`, which leave the variables as they were: outs and refs reach the caller only when a procedure returns, and handlers see the variables as they were before the `try`.
+- Exceptions of any type, raised by the statement `raise e`, and caught by `try`, which leave the variables as they were: outs and refs reach the caller only when a procedure returns, and handlers see the variables as they were before the `try`.
   Builtins raise `DivisionByZero`, `OutOfBounds`, and `NoCharacter`, whereas a failed `assert` ends the program.
 - Unbounded integers, characters, which are Unicode code points, and strings of them, which files hold as UTF-8.
 - Programs read their arguments with `os_args`, files with `os_read` and `os_write`, and print strings with `os_print`, all of the module `os`, where the builtin `show` gives the text of any value, which a datatype may declare for itself by a function `show`.

@@ -570,9 +570,6 @@ function zonk_expr(s: State, expr: Expr): Expr :=
     case ETuple(args) =>
       ETuple(List(for arg in args yield zonk_expr(s, arg)))
 
-    case ERaise(value, typ) =>
-      ERaise(zonk_expr(s, value), zonk_type(s.sub, typ))
-
     case EForm(_, _, _) =>
       expr
 
@@ -707,9 +704,6 @@ function unknown_in(stmt: Stmt): Option[Type] :=
 
 function unknown_in_expr(expr: Expr): Option[Type] :=
   match expr
-    case ERaise(value, typ) =>
-      or_else(unknown_type(typ), unknown_in_expr(value))
-
     case EApp(fun, args) =>
       unknown_in_exprs(List(fun; args))
 
@@ -1486,15 +1480,6 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
       local exprs: List[Expr], ts: List[Type]
       call   infers(in env, items, out exprs, ts, ref s)
       assign res := ETuple(exprs), typ := TTuple(ts)
-
-    // the exception, whose type must be known after checking, and the expression of any type
-    case ERaise(value, raised) =>
-      local c: Expr, u: Type, w: Type
-      call   infer(in env, value, out c, u, ref s)
-      call   normalize(in raised, out w, ref s)
-      call   unify(in u, w, ref s)
-      call   fresh(out typ, ref s)
-      assign res := ERaise(c, u)
 
     case EMatch(arg, cases) =>
       local c: Expr, u: Type, bs: List[Branch[Expr]]
@@ -2740,32 +2725,11 @@ procedure check_orders(
       end
   end
 
-// the order and equality of the abstract types of ds that their modules do not declare, which raise Unordered for a type
-// with an equality, and Incomparable for a type without, since the structure of an abstract type is no order; all of them
-// are private, check_package hides them from importers, so nothing that other modules use may be added here
-function synthesized(ds: List[Id * Cmd], cmds: List[Cmd], natives: List[Name]): List[Id * Cmd] :=
-  let compares := ordered(cmds, HookCompare) ++ natives, equalities := ordered(cmds, HookEquality) in
-  List(for c in ds for e in synthesized_for(c, compares, equalities) yield e)
-
-function synthesized_for(d: Id * Cmd, compares: List[Name], equalities: List[Name]): List[Id * Cmd] :=
-  match d
-    case (m, CAbstract(name, params)) =>
-      if contains(name, compares) then
-        List()
-      else if contains(name, equalities) then
-        List((m, failing(name, params, HookCompare, "Unordered")))
-      else
-        List(
-          (m, failing(name, params, HookCompare, "Incomparable")),
-          (m, failing(name, params, HookEquality, "Incomparable")))
-
-    case _ =>
-      List()
-  end
-
-function failing(t: Name, ps: List[Id], hook: Hook, e: Id): Cmd :=
-  let a := TSort(t, params(ps)) in
-  CFun(Name(t.module, t.base ++ "." ++ hook_name(hook)), ps, List(Var(unqualified("a"), a), Var(unqualified("b"), a)), hook_result(hook), ERaise(ECall(library_name("prelude", e), THole, List(ELit(LStr(format_name(t))))), THole))
+// the abstract types of ds other than natives, which the checked program keeps, so that the backends raise Unordered and
+// Incomparable for those whose modules declare no order, since the structure of an abstract type is no order
+// (unordered_of of ulang/defs.u)
+function abstract_decls(ds: List[Id * Cmd], natives: List[Name]): List[Cmd] :=
+  List(for n in abstract_types(ds) if not contains(n, natives) yield CAbstract(n, List()))
 
 // the commands of ds without signatures and abstract types, which only the checks of sections need
 function is_definition(d: Id * Cmd): Bool :=
@@ -2817,14 +2781,6 @@ function native_types(ds: List[Id * Cmd]): List[Name] :=
 
     case List(_; rest) =>
       native_types(rest)
-  end
-
-function qualified_name(cmd: Cmd): Name :=
-  match cmd
-    case CFun(name, _, _, _, _) =>
-      name
-    case _ =>
-      unqualified("")
   end
 
 function abstract_types(ds: List[Id * Cmd]): List[Name] :=
@@ -3157,7 +3113,7 @@ procedure check_package(
   out cmds: List[Cmd],
       shown: Sig
 ) :=
-  local own := List(for d in mods yield (d.name, seen_modules(d, packages))), members := List(for d in mods yield d.name), placed := List(for d in mods for p in decls_of(d) yield p), s: State, decls: List[Id * Cmd], defined: List[Cmd], hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List(), extra: List[Id * Cmd], more: List[Cmd], builtins := List(for d in mods for c in natives(d) yield c), private: Set[Name], private_sorts: List[Name]
+  local own := List(for d in mods yield (d.name, seen_modules(d, packages))), members := List(for d in mods yield d.name), placed := List(for d in mods for p in decls_of(d) yield p), s: State, decls: List[Id * Cmd], defined: List[Cmd], hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List(), builtins := List(for d in mods for c in natives(d) yield c), private: Set[Name], private_sorts: List[Name]
   for d in mods do
     call   private_of(in d, out private, private_sorts)
     assign hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
@@ -3184,11 +3140,7 @@ procedure check_package(
   call   placed_commands(in placed_definitions(placed), lambda in checked: List[Cmd] =>
     call check_orders(in checked, abstract_types(decls), hidden, hidden_sorts)
   end, out defined, ref s)
-  assign extra := synthesized(decls, defined, native_types(builtins))
-  call   declare_funs(in extra, ref s)
-  call   commands(in extra, out more, ref s)
-  assign hidden := hidden ++ Set(for c in more yield qualified_name(c))
-  assign cmds := defined ++ more, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts))
+  assign cmds := defined ++ abstract_decls(decls, native_types(builtins)), shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts))
 
 // the type aliases of a package, each after those that it names, since an alias is expanded where it is declared, and
 // members name each other's aliases in any order, where aliases that name each other stay in their order

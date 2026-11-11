@@ -338,6 +338,18 @@ void u_missing_field(u_value field) {
   u_raise(u_mk_con(&n_prelude_46_MissingField, 1, field), "prelude.MissingField");
 }
 
+u_value u_unordered(u_value a, u_value b) {
+  (void)b;
+  u_raise(u_mk_con(&n_prelude_46_Unordered, 1, u_from_utf8(a->type->name, u_strlen(a->type->name))), "prelude.Unordered");
+  return a;
+}
+
+u_value u_incomparable(u_value a, u_value b) {
+  (void)b;
+  u_raise(u_mk_con(&n_prelude_46_Incomparable, 1, u_from_utf8(a->type->name, u_strlen(a->type->name))), "prelude.Incomparable");
+  return a;
+}
+
 u_value u_update(u_value v, const int *ix, u_value field, u_value y) {
   int i = ix[v->name->index];
   if (i < 0) u_missing_field(field);

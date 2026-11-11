@@ -14,9 +14,10 @@ data ConstrDef :=
   case ConstrDef(arity: Int, position: Int, datatype: Name)
 
 // fields has for the accessor T.f, of one argument, and the updater T.f:=, of two, of each field f of a datatype T, the
-// position of f in each constructor of T, in the order of their declaration, or -1 for a constructor without f
+// position of f in each constructor of T, in the order of their declaration, or -1 for a constructor without f; abstracts
+// are the abstract types, other than those of builtin sections, whose structure is no order, see unordered_of
 data Defs :=
-  case Defs(funs: Map[Name * Int, FunDef], procs: Map[Name, ProcDef], constrs: Map[Name, ConstrDef], fields: Map[Name * Int, List[Int]], orders: Map[Name, Name], equalities: Map[Name, Name], shows: Map[Name, Name])
+  case Defs(funs: Map[Name * Int, FunDef], procs: Map[Name, ProcDef], constrs: Map[Name, ConstrDef], fields: Map[Name * Int, List[Int]], orders: Map[Name, Name], equalities: Map[Name, Name], shows: Map[Name, Name], abstracts: Set[Name])
 
 function defs_of(q: Prog): Defs
 
@@ -55,9 +56,11 @@ function hook_of(f: Id, k: Int): Option[Hook]
 
 function order_of(cmd: Cmd): Option[Hook * Name]
 
-function ordered(cmds: List[Cmd], hook: Hook): List[Name]
-
 function ordered_by(cmds: List[Cmd], hook: Hook): List[Name * Name]
+
+// the exception that comparing values of the datatype t raises, for an abstract type whose module declares no compare:
+// Unordered if it declares ==, which equates them, else Incomparable, which equating them raises too
+function unordered_of(defs: Defs, t: Name): Option[Name]
 
 implementation
 
@@ -76,7 +79,27 @@ function is_entry(cmd: Cmd, n: Name): Bool :=
   end
 
 function defs_of(q: Prog): Defs :=
-  Defs(Map(for (k, v) in fun_defs(q.cmds)), Map(for (k, v) in proc_defs(q.cmds)), Map(for (k, v) in constr_defs(q.cmds)), Map(for (k, v) in field_defs(q.cmds)), Map(for (k, v) in ordered_by(q.cmds, HookCompare)), Map(for (k, v) in ordered_by(q.cmds, HookEquality)), Map(for (k, v) in ordered_by(q.cmds, HookShow)))
+  Defs(Map(for (k, v) in fun_defs(q.cmds)), Map(for (k, v) in proc_defs(q.cmds)), Map(for (k, v) in constr_defs(q.cmds)), Map(for (k, v) in field_defs(q.cmds)), Map(for (k, v) in ordered_by(q.cmds, HookCompare)), Map(for (k, v) in ordered_by(q.cmds, HookEquality)), Map(for (k, v) in ordered_by(q.cmds, HookShow)), Set(for n in abstract_names(q.cmds)))
+
+// the checked program keeps the abstract types of its modules as CAbstract, see check_package
+function abstract_names(cmds: List[Cmd]): List[Name] :=
+  List(for cmd in cmds for n in abstract_name(cmd) yield n)
+
+function abstract_name(cmd: Cmd): Option[Name] :=
+  match cmd
+    case CAbstract(name, _) =>
+      Some(name)
+    case _ =>
+      None
+  end
+
+function unordered_of(defs: Defs, t: Name): Option[Name] :=
+  if not contains(t, defs.abstracts) or contains(t, defs.orders) then
+    None
+  else if contains(t, defs.equalities) then
+    Some(unordered_name())
+  else
+    Some(incomparable_name())
 
 // functions are overloaded by their number of arguments
 function fun_defs(cmds: List[Cmd]): List[(Name * Int) * FunDef] :=
@@ -207,13 +230,12 @@ function hook_of(f: Id, k: Int): Option[Hook] :=
 
 // the datatype whose order, equality, or text cmd declares, if cmd is a hook of values T[A, …] of a datatype T of its own
 // module with distinct parameters and the result of the hook, which the interpreter and the runtime then use for all
-// values of T, also in generic code, where the builtins compare structurally and show the structure; the hook may be
-// named T.compare or T.==, as the checker synthesizes them for an abstract type T
+// values of T, also in generic code, where the builtins compare structurally and show the structure
 function order_of(cmd: Cmd): Option[Hook * Name] :=
   match cmd
     case CFun(Name(Some(m), f), _, List(Var(_, TSort(Name(Some(k), b), args)); more), r, _) =>
       let typ := TSort(Name(Some(k), b), args) in
-      match hook_of(hook_base(f, b), 1 + size(more))
+      match hook_of(f, 1 + size(more))
         case Some(hook) =>
           if k == m and forall(more, lambda x => x.typ == typ) and is_distinct_params(args) and r == hook_result(hook) then
             Some((hook, Name(Some(k), b)))
@@ -229,9 +251,6 @@ function order_of(cmd: Cmd): Option[Hook * Name] :=
   end
 
 // f without the prefix T. of the name b of T
-function hook_base(f: Id, b: Id): Id :=
-  if starts_with(f, b ++ ".") then slice(f, size(b) + 1, size(f)) else f
-
 function is_distinct_params(ts: List[Type]): Bool :=
   List(for t in ts if is_param(t)) == ts and distinct(ts) == ts
 
@@ -242,10 +261,6 @@ function is_param(t: Type): Bool :=
     case _ =>
       false
   end
-
-// the datatypes of cmds that declare the hook
-function ordered(cmds: List[Cmd], hook: Hook): List[Name] :=
-  firsts(ordered_by(cmds, hook))
 
 // the datatypes of cmds that declare the hook, with the functions that declare it
 function ordered_by(cmds: List[Cmd], hook: Hook): List[Name * Name] :=

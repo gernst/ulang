@@ -87,7 +87,7 @@ test aliases_bind() :=
 test aliases_catch() :=
   local r := Num(0)
   try
-    assign r := raise Not(Num(7))
+    raise Not(Num(7))
   catch
     case Not(a) =>
       assign r := a

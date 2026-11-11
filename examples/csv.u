@@ -30,25 +30,35 @@ function usage(): Str :=
     "diff <file> <file>",
     "count <col> <file>"))
 
-function parse_table(text: Str): Table :=
-  match List(for line in split(text, '\n') if line != "")
+// the table of text, whose first line is the header, as parse_table reads it after its checks
+function table_of(text: Str): Table :=
+  match lines_of(text)
+    case List() =>
+      Table(List(), Set())
+
+    case List(header; lines) =>
+      let columns := split(header, ',') in
+      Table(columns, Set(for line in lines yield Map(for (col, field) in zip(columns, split(line, ',')))))
+  end
+
+function lines_of(text: Str): List[Str] :=
+  List(for line in split(text, '\n') if line != "")
+
+procedure parse_table(in text: Str, out table: Table) :=
+  match lines_of(text)
     case List() =>
       raise CsvError("no header")
 
     case List(header; lines) =>
-      let columns := split(header, ',') in
+      local columns := split(header, ',')
       if repeated(columns) != None then
         raise CsvError("repeated column in " ++ header)
-      else
-        Table(columns, Set(for line in lines yield parse_row(columns, line)))
+      end
+      for line in lines if size(split(line, ',')) != size(columns) do
+        raise CsvError("expected " ++ show(size(columns)) ++ " fields: " ++ line)
+      end
   end
-
-function parse_row(columns: List[Str], line: Str): Row :=
-  let fields := split(line, ',') in
-  if size(fields) != size(columns) then
-    raise CsvError("expected " ++ show(size(columns)) ++ " fields: " ++ line)
-  else
-    Map(for (col, field) in zip(columns, fields))
+  assign table := table_of(text)
 
 // the rows in the order of their fields, column by column as in the header
 function format_table(table: Table): Str :=
@@ -113,8 +123,8 @@ procedure require_same_columns(in a: Table, b: Table) :=
 
 procedure read_table(in path: Str, out table: Table) :=
   local text: Str
-  call   os_read(in path, out text)
-  assign table := parse_table(text)
+  call os_read(in path, out text)
+  call parse_table(in text, out table)
 
 procedure query(in args: List[Str], out result: Table) :=
   match args
@@ -192,16 +202,16 @@ procedure main() :=
   end
 
 function people(): Table :=
-  parse_table("name,city\nada,london\nalan,london\nedsger,nuenen\n")
+  table_of("name,city\nada,london\nalan,london\nedsger,nuenen\n")
 
 function cities(): Table :=
-  parse_table("city,country\nlondon,uk\nnuenen,nl\n")
+  table_of("city,country\nlondon,uk\nnuenen,nl\n")
 
 test parsing() :=
   assert format_table(people()) == "name,city\nada,london\nalan,london\nedsger,nuenen\n"
 
 test joining() :=
-  assert join(people(), cities()) == parse_table("name,city,country\nada,london,uk\nalan,london,uk\nedsger,nuenen,nl\n")
+  assert join(people(), cities()) == table_of("name,city,country\nada,london,uk\nalan,london,uk\nedsger,nuenen,nl\n")
 
 test join_with_own_projection() :=
   assert join(people(), project(List("city"), people())) == people()
@@ -210,7 +220,7 @@ test projection_drops_duplicates() :=
   assert size(project(List("city"), people()).rows) == 2
 
 test selection() :=
-  assert select("country", "nl", join(people(), cities())) == parse_table("name,city,country\nedsger,nuenen,nl\n")
+  assert select("country", "nl", join(people(), cities())) == table_of("name,city,country\nedsger,nuenen,nl\n")
 
 test renaming() :=
   assert format_table(rename("city", "town", cities())) == "town,country\nlondon,uk\nnuenen,nl\n"
@@ -219,4 +229,4 @@ test union_and_diff() :=
   assert diff(union(people(), people()), people()).rows == Set()
 
 test counting() :=
-  assert count("city", people()) == parse_table("city,count\nlondon,2\nnuenen,1\n")
+  assert count("city", people()) == table_of("city,count\nlondon,2\nnuenen,1\n")

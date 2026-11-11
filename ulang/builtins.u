@@ -47,6 +47,10 @@ function no_character_name(): Name
 
 function missing_field_name(): Name
 
+function unordered_name(): Name
+
+function incomparable_name(): Name
+
 function list_foldr_name(): Name
 
 function array_name(): Name
@@ -76,6 +80,12 @@ function no_character_name(): Name :=
 
 function missing_field_name(): Name :=
   library_name("prelude", "MissingField")
+
+function unordered_name(): Name :=
+  library_name("prelude", "Unordered")
+
+function incomparable_name(): Name :=
+  library_name("prelude", "Incomparable")
 
 // the builtins of lists and arrays that comprehensions use
 function list_foldr_name(): Name :=

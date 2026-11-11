@@ -149,6 +149,21 @@ function declared_for(run: Run, k: Name, fs: Map[Name, Name]): Option[Name] :=
       None
   end
 
+// raises the exception of unordered_of for the datatype of constructor k, where equating raises only Incomparable
+procedure unordered(in run: Run, k: Name, equating: Bool) :=
+  match get(k, run.defs.constrs)
+    case Some(constr) =>
+      match unordered_of(run.defs, constr.datatype)
+        case Some(e) if not equating or e == incomparable_name() =>
+          raise failure(e, List(VStr(format_name(constr.datatype))))
+        case _ =>
+          skip
+      end
+
+    case None =>
+      skip
+  end
+
 function load(q: Prog): Run :=
   Run(defs_of(q), List(), List())
 
@@ -366,10 +381,6 @@ procedure evaluate(
       local vs: List[Val]
       call   evaluate_all(in run, env, args, out vs, ref cache)
       assign v := VTuple(vs)
-
-    case ERaise(value, typ) =>
-      call evaluate(in run, env, value, out v, ref cache)
-      raise Thrown(v, typ)
   end
 
 procedure evaluate_all(
@@ -737,6 +748,7 @@ procedure equal(
   match (a, b)
     case (VObj(c, xs), VObj(d, ys)) =>
       local v: Val, k: Int
+      call unordered(in run, c, true)
       match (declared_for(run, c, run.defs.equalities), declared_for(run, c, run.defs.orders))
         case (Some(f), _) =>
           call   apply_value(in run, VFun(f, 2), List(a, b), out v, ref cache)
@@ -791,6 +803,7 @@ procedure compare_values(
 
     case (VObj(c, xs), VObj(d, ys)) =>
       local v: Val
+      call unordered(in run, c, false)
       match declared_for(run, c, run.defs.orders)
         case Some(f) =>
           call apply_value(in run, VFun(f, 2), List(a, b), out v, ref cache)

@@ -41,7 +41,7 @@ extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_s
 // the prelude and its modules, which every program has, and the runtime that of OsError, which programs need not import
 extern const struct u_type t_list_46_List, t_option_46_Option, t_os_46_OsError;
 extern const struct u_type t_prelude_46_DivisionByZero, t_prelude_46_OutOfBounds, t_prelude_46_NoCharacter,
-  t_prelude_46_MissingField;
+  t_prelude_46_MissingField, t_prelude_46_Unordered, t_prelude_46_Incomparable;
 
 // the order, equality, and text of datatypes by their constructors and then their fields, which the descriptors
 // of datatypes use unless their module declares compare, ==, or show, and the equality of an order
@@ -49,12 +49,17 @@ u_value u_con_compare(u_value a, u_value b);
 u_value u_equals_by_compare(u_value a, u_value b);
 u_value u_con_show(u_value v);
 
+// the order and equality of abstract types whose modules declare no compare, which raise Unordered(T) or, for a type
+// without ==, Incomparable(T), with the name T of the type of a
+u_value u_unordered(u_value a, u_value b);
+u_value u_incomparable(u_value a, u_value b);
+
 // the constructors that the builtins create, of the modules list, option, and os of the library
 extern const struct u_name n_list_46_Nil, n_list_46_Cons, n_option_46_None, n_option_46_Some, n_os_46_OsError;
 
 // the exceptions of the builtins and of accessors of fields, which the prelude declares
 extern const struct u_name n_prelude_46_DivisionByZero, n_prelude_46_OutOfBounds, n_prelude_46_NoCharacter,
-  n_prelude_46_MissingField;
+  n_prelude_46_MissingField, n_prelude_46_Unordered, n_prelude_46_Incomparable;
 
 // the code of a closure, with its captured values and its arguments
 typedef u_value (*code)(u_value *env, u_value *args);

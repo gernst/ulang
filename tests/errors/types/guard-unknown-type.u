@@ -1,8 +1,0 @@
-// type error: the type List[?4] of an exception is not fully known at 2.1
-test guard_unknown_type() :=
-  try
-    raise 1
-  catch
-    case 1 if raise List() =>
-      skip
-  end

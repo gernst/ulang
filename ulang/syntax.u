@@ -66,8 +66,6 @@ data Expr :=
   case EMatch(arg: Expr, cases: List[Branch[Expr]])
   // a tuple (a, b, …)
   case ETuple(args: List[Expr])
-  // raise e, of any type, which the checker infers into typ
-  case ERaise(value: Expr, typ: Type)
   // List(a, b; r), Set(…), Map(k => v; r), and Array(…), which the checker translates to the builders of their modules
   case EForm(form: Form, elems: List[Yield], rest: Option[Expr])
   // List(for p in c if q yield e; r) and the like, which the checker translates to the folds of the modules of the

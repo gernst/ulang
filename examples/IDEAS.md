@@ -1,6 +1,6 @@
 # Ideas for examples
 
-Programs that show ulang on tasks of real software, beside `words.u`, the most frequent words of files, and `sudoku.u`, a search undone by raising.
+Programs that show ulang on tasks of real software, beside `words.u`, the most frequent words of files.
 What `os` offers bounds them: files, arguments, printing, and directories, but no processes, clock, network, or bytes (Library 1 of `TODO.md`), so most are tools from text to text.
 
 ## Within the language as it is

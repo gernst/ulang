@@ -237,9 +237,6 @@ function expr_doc(notation: Notation, indent: Str, expr: Expr): Doc :=
     case ETuple(args) =>
       Doc("(" ++ format_exprs(notation, indent, args) ++ ")", Atom)
 
-    case ERaise(value, _) =>
-      Doc("raise " ++ format_expr(notation, indent, value), Open)
-
     case EForm(form, elems, rest) =>
       Doc(form_text(notation, indent, form, elems, rest), Atom)
 

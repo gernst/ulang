@@ -132,7 +132,9 @@ function runtime_referenced(): Set[Name] :=
     division_by_zero_name(),
     out_of_bounds_name(),
     no_character_name(),
-    missing_field_name())
+    missing_field_name(),
+    unordered_name(),
+    incomparable_name())
 
 function linkage_of(t: Name): Linkage :=
   if contains(t, runtime_referenced()) then LkExtern else LkStatic
@@ -241,11 +243,26 @@ function type_init(t: Name, defs: Defs): CExpr :=
     equals_ref(t, defs),
     show_ref(t, defs)))
 
+// abstract types without an order raise by u_unordered or u_incomparable of the runtime
 function compare_ref(t: Name, defs: Defs): CExpr :=
-  CeVar(declared_or(get(t, defs.orders), 2, "u_con_compare"))
+  match unordered_of(defs, t)
+    case Some(e) if e == unordered_name() =>
+      CeVar("u_unordered")
+
+    case Some(_) =>
+      CeVar("u_incomparable")
+
+    case None =>
+      CeVar(declared_or(get(t, defs.orders), 2, "u_con_compare"))
+  end
 
 function equals_ref(t: Name, defs: Defs): CExpr :=
-  CeVar(declared_or(get(t, defs.equalities), 2, "u_equals_by_compare"))
+  match unordered_of(defs, t)
+    case Some(e) if e == incomparable_name() =>
+      CeVar("u_incomparable")
+    case _ =>
+      CeVar(declared_or(get(t, defs.equalities), 2, "u_equals_by_compare"))
+  end
 
 function show_ref(t: Name, defs: Defs): CExpr :=
   CeVar(declared_or(get(t, defs.shows), 1, "u_con_show"))
@@ -475,9 +492,6 @@ function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
 
     case ETuple(args) =>
       free_in_all(args, bound)
-
-    case ERaise(value, _) =>
-      free_vars(value, bound)
   end
 
 // the variables of x that bound does not bind, including procedures called through variables
@@ -698,12 +712,6 @@ procedure compile_expr(
       local rs: List[CExpr]
       call   compile_exprs(in defs, env, args, out ss, rs, ref g)
       assign r := c_call("u_mk_tuple", List(CeNum(size(args))) ++ rs)
-
-    // the value of a raise is never used, since u_raise does not return
-    case ERaise(value, typ) =>
-      local as: List[CStmt], ra: CExpr
-      call   compile_expr(in defs, env, value, out as, ra, ref g)
-      assign ss := as ++ List(CsExpr(c_call("u_raise", List(ra, CeStr(type_key(typ)))))), r := CeVar("NULL")
   end
 
 procedure compile_exprs(
