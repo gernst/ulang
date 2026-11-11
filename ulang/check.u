@@ -559,7 +559,7 @@ function zonk_expr(s: State, expr: Expr): Expr :=
       EProc(zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), zonk_stmt(s, stmt))
 
     case ELet(bindings, body) =>
-      ELet(List(for p in bindings yield zonk_binding(s, p)), zonk_expr(s, body))
+      ELet(List(for (p, e) in bindings yield (zonk_pat(s, p), zonk_expr(s, e))), zonk_expr(s, body))
 
     case EIte(cond, then_expr, else_expr) =>
       EIte(zonk_expr(s, cond), zonk_expr(s, then_expr), zonk_expr(s, else_expr))
@@ -580,16 +580,32 @@ function zonk_expr(s: State, expr: Expr): Expr :=
       expr
   end
 
-function zonk_binding(s: State, p: Var * Expr): Var * Expr :=
-  match p
-    case (x, e) =>
-      (zonk_var(s, x), zonk_expr(s, e))
-  end
-
 function zonk_expr_branch(s: State, b: Branch[Expr]): Branch[Expr] :=
   match b
     case Branch(doc, pat, guard, body) =>
       Branch(doc, zonk_pat(s, pat), zonk_guard(s, guard), zonk_expr(s, body))
+  end
+
+// the match of a let with patterns other than variables, against the tuple of the values if there are several
+function let_match(bound: List[Pat * Expr], body: Expr): Expr :=
+  match bound
+    case List((pat, e)) =>
+      EMatch(e, List(Branch("", pat, None, body)))
+    case _ =>
+      EMatch(ETuple(seconds(bound)), List(Branch("", PTuple(firsts(bound)), None, body)))
+  end
+
+// the let of n bindings whose checked match let_match built
+function let_of_match(n: Int, m: Expr): Expr :=
+  match (n, m)
+    case (1, EMatch(e, List(Branch(_, pat, None, body)))) =>
+      ELet(List((pat, e)), body)
+
+    case (_, EMatch(ETuple(exprs), List(Branch(_, PTuple(pats), None, body)))) =>
+      ELet(zip(pats, exprs), body)
+
+    case _ =>
+      raise Unexpected("checked let of patterns that is no match")
   end
 
 function zonk_pat(s: State, pat: Pat): Pat :=
@@ -605,6 +621,12 @@ function zonk_pat(s: State, pat: Pat): Pat :=
 
     case _ =>
       pat
+  end
+
+function zonk_binding(s: State, p: Var * Expr): Var * Expr :=
+  match p
+    case (x, e) =>
+      (zonk_var(s, x), zonk_expr(s, e))
   end
 
 function zonk_stmt(s: State, stmt: Stmt): Stmt :=
@@ -1453,13 +1475,22 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
       assign res := EProc(xs, ys, zs, y), typ := TProc(List(for x in xs yield x.typ), List(for x in ys yield x.typ), List(for x in zs yield x.typ))
 
     case ELet(bound, body) =>
-      local xs: List[Var], b: Expr, u: Type, exprs: List[Expr]
-      call   formals(in "binding", firsts(bound), out xs, ref s)
-      call   unhidden(in env, xs)
-      call   checks(in env, "the bindings", seconds(bound), List(for x in xs yield x.typ), out exprs, ref s)
-      call   solve(ref s)
-      call   infer(in generalized(s, env, xs) ++ env, body, out b, u, ref s)
-      assign res := ELet(zip(xs, exprs), b), typ := u
+      match pattern_vars(firsts(bound))
+        case Some(vars) =>
+          local xs: List[Var], b: Expr, u: Type, exprs: List[Expr]
+          call   formals(in "binding", vars, out xs, ref s)
+          call   unhidden(in env, xs)
+          call   checks(in env, "the bindings", seconds(bound), List(for x in xs yield x.typ), out exprs, ref s)
+          call   solve(ref s)
+          call   infer(in generalized(s, env, xs) ++ env, body, out b, u, ref s)
+          assign res := ELet(zip(List(for x in xs yield PVar(x)), exprs), b), typ := u
+
+        // other patterns are checked as the match that binds them, which is exhaustive, and do not generalize
+        case None =>
+          local m: Expr
+          call   infer(in env, let_match(bound, body), out m, typ, ref s)
+          assign res := let_of_match(size(bound), m)
+      end
 
     case EIte(cond, then_expr, else_expr) =>
       local b: Expr, c: Expr, l: Expr, u: Type
@@ -2028,22 +2059,20 @@ procedure binders(
         case ks =>
           call pattern_constructor(in constr, ks, size(args), t, out k, ref s)
       end
-      match (constr_of(s.sig, k), pat_alias_of(s.sig, k))
-        case (Some(decl), _) =>
-          call   same_length(in "constructor " ++ k.base, "arguments", size(decl.fields), size(args))
-          call   instance(in decl.params, out m, ref s)
-          call   unify(in subst(decl.typ, m), t, ref s)
-          call   binder_list(in args, List(for field in decl.fields yield subst(field, m)), out qs, xs, ref s)
-          assign p1 := PApp(k, qs)
+      match pat_head(s.sig, k)
+        case Some(head) =>
+          call same_length(in head.what ++ " " ++ k.base, "arguments", size(head.args), size(args))
+          call instance(in head.params, out m, ref s)
+          call unify(in subst(head.typ, m), t, ref s)
+          call binder_list(in args, List(for a in head.args yield subst(a, m)), out qs, xs, ref s)
+          match pat_alias_of(s.sig, k)
+            case Some(alias) =>
+              assign p1 := subst_pat(alias.pat, zip(List(for x in alias.formals yield x.name), qs))
+            case None =>
+              assign p1 := PApp(k, qs)
+          end
 
-        case (None, Some(alias)) =>
-          call   same_length(in "pattern alias " ++ k.base, "arguments", size(alias.formals), size(args))
-          call   instance(in alias.params, out m, ref s)
-          call   unify(in subst(alias.typ, m), t, ref s)
-          call   binder_list(in args, List(for x in alias.formals yield subst(x.typ, m)), out qs, xs, ref s)
-          assign p1 := subst_pat(alias.pat, zip(List(for x in alias.formals yield x.name), qs))
-
-        case (None, None) =>
+        case None =>
           raise UnknownConstructor(constr)
       end
 
@@ -2089,16 +2118,29 @@ function results(sig: Sig, ks: List[Name], k: Int): List[Name * Scheme] :=
       List()
 
     case List(n; rest) =>
-      match (constr_of(sig, n), pat_alias_of(sig, n))
-        case (Some(constr), _) if size(constr.fields) == k =>
-          List((n, Scheme(constr.params, constr.typ)); results(sig, rest, k))
-
-        case (None, Some(alias)) if size(alias.formals) == k =>
-          List((n, Scheme(alias.params, alias.typ)); results(sig, rest, k))
-
+      match pat_head(sig, n)
+        case Some(head) if size(head.args) == k =>
+          List((n, Scheme(head.params, head.typ)); results(sig, rest, k))
         case _ =>
           results(sig, rest, k)
       end
+  end
+
+// the head of a pattern, a constructor or a pattern alias, named by what it is, with the params of its declaration, the
+// types of its arguments, and the type that it matches
+data PatHead :=
+  case PatHead(what: Str, params: List[Type], args: List[Type], typ: Type)
+
+function pat_head(sig: Sig, n: Name): Option[PatHead] :=
+  match (constr_of(sig, n), pat_alias_of(sig, n))
+    case (Some(decl), _) =>
+      Some(PatHead("constructor", decl.params, decl.fields, decl.typ))
+
+    case (None, Some(alias)) =>
+      Some(PatHead("pattern alias", alias.params, List(for x in alias.formals yield x.typ), alias.typ))
+
+    case (None, None) =>
+      None
   end
 
 procedure binder_list(
@@ -3301,7 +3343,7 @@ test inference() :=
   call type_of(in expr_app("<", List(expr_int(1), expr_int(2))), out t)
   assert t == TBool()
   call type_of(in ELet(List(
-    (Var(unqualified("id"), THole), ELam(List(Var(unqualified("x"), THole)), expr_var("x")))), ETuple(List(
+    (PVar(Var(unqualified("id"), THole)), ELam(List(Var(unqualified("x"), THole)), expr_var("x")))), ETuple(List(
     expr_app("id", List(expr_int(1))),
     expr_app("id", List(ELit(LBool(true))))))), out t)
   assert t == TTuple(List(TInt(), TBool()))
@@ -3557,7 +3599,7 @@ test builtins() :=
       assert false
   end
   call body_of(in fun_cmd("k", List(), TBool(), ELet(List(
-    (var_of("e", THole), ELam(List(var_of("x", THole)), expr_app("==", List(expr_var("x"), expr_var("x")))))), ELit(LBool(true)))), out b)
+    (PVar(var_of("e", THole)), ELam(List(var_of("x", THole)), expr_app("==", List(expr_var("x"), expr_var("x")))))), ELit(LBool(true)))), out b)
   match b
     case ELet(List((_, ELam(_, ECall(name, _, _)))), _) =>
       assert name == unqualified("==")
@@ -3582,7 +3624,7 @@ test errors() :=
   end
   try
     call body_of(in fun_cmd("f", List(), TBool(), ELet(List(
-      (var_of("h", THole), ELam(List(var_of("x", THole)), expr_app("size", List(expr_var("x")))))), ELit(LBool(true)))), out b)
+      (PVar(var_of("h", THole)), ELam(List(var_of("x", THole)), expr_app("size", List(expr_var("x")))))), ELit(LBool(true)))), out b)
     assert false
   catch
     case Ambiguous(name, candidates) =>

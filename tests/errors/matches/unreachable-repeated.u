@@ -1,4 +1,4 @@
-// type error: unreachable case Nil at 2.1
+// type error: unreachable case List() at 2.1
 function f(xs: List[Int]): Int :=
   match xs
     case List() =>

@@ -467,7 +467,7 @@ function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
       free_in_stmt(stmt, var_names(ins ++ outs ++ refs) ++ bound)
 
     case ELet(bindings, body) =>
-      free_in_all(seconds(bindings), bound) ++ free_vars(body, var_names(firsts(bindings)) ++ bound)
+      free_in_all(seconds(bindings), bound) ++ free_vars(body, bound_by(firsts(bindings)) ++ bound)
 
     case EIte(cond, then_expr, else_expr) =>
       free_vars(cond, bound) ++ free_vars(then_expr, bound) ++ free_vars(else_expr, bound)
@@ -620,37 +620,24 @@ procedure compile_expr(
           assign ss := List(), r := global_value(defs, name, typ)
       end
 
-    case ECall(n, _, args) if array_fusion(n, args) != None =>
-      match array_fusion(n, args)
-        case Some((gs, q, e)) =>
+    case ECall(name, typ, args) if get(name, env) == None =>
+      match fusion_of(name, args)
+        case Some(FusedArray((gs, q, e))) =>
           call compile_array_comprehension(in defs, env, gs, q, e, out ss, r, ref g)
-        case None =>
-          raise Unexpected("array comprehension")
-      end
 
-    case ECall(name, _, List(l)) if name == array_name() and list_literal(l) != None =>
-      local rs: List[CExpr]
-      match list_literal(l)
-        case Some(es) =>
+        case Some(FusedLiteral(es)) =>
+          local rs: List[CExpr]
           call   compile_exprs(in defs, env, es, out ss, rs, ref g)
           assign r := c_call("u_mk_array", List(CeNum(size(rs))) ++ rs)
 
-        case None =>
-          raise Unexpected("array literal")
-      end
-
-    // [e for x in c, y in d if q] over lists and arrays, nested folds into which comprehensions translate, are nested loops
-    // that build the list in order
-    case ECall(n, _, List(xs, init, ELam(List(x, acc), body))) if fused(n, xs, x, body, acc.name) != None =>
-      match fused(n, xs, x, body, acc.name)
-        case Some((gs, q, e)) =>
+        // [e for x in c, y in d if q] over lists and arrays, nested folds into which comprehensions translate, are nested
+        // loops that build the list in order
+        case Some(FusedList((gs, q, e), init)) =>
           call compile_list_comprehension(in defs, env, gs, q, e, init, out ss, r, ref g)
-        case None =>
-          raise Unexpected("list comprehension")
-      end
 
-    case ECall(name, typ, args) if get(name, env) == None =>
-      call compile_named(in defs, env, name, typ, args, out ss, r, ref g)
+        case None =>
+          call compile_named(in defs, env, name, typ, args, out ss, r, ref g)
+      end
 
     case EField(_, field) =>
       raise UnresolvedField(field)
@@ -677,14 +664,14 @@ procedure compile_expr(
       call compile_proc_lambda(in defs, env, ins, outs, refs, stmt, out ss, r, ref g)
 
     case ELet(bindings, body) =>
-      local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], rb: CExpr, rs: List[CExpr], t: Str, names: List[Name] := var_names(firsts(bindings))
+      local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], rb: CExpr, rs: List[CExpr], t: Str, names := bound_by(firsts(bindings))
       call   compile_exprs(in defs, env, seconds(bindings), out as, rs, ref g)
       call   compile_expr(in defs, in_scope(names) ++ env, body, out bs, rb, ref g)
       call   gen_name(in "t", out t, ref g)
       call   temps(in rs, out cs, ref g)
       assign ss := as ++ cs ++ List(
         declare_none(t),
-        CsBlock(rebind(names, cs) ++ bs ++ List(set_var(t, rb))))
+        CsBlock(let_binds(firsts(bindings), cs) ++ bs ++ List(set_var(t, rb))))
       assign r := CeVar(t)
 
     case EIte(cond, then_expr, else_expr) =>
@@ -747,16 +734,17 @@ procedure temps(in rs: List[CExpr], out ss: List[CStmt], ref g: Gen) :=
     assign ss := ss ++ List(CsDecl(value_type(), t, Some(r)))
   end
 
-// the variables xs as the temporaries declared by ts
-function rebind(xs: List[Name], ts: List[CStmt]): List[CStmt] :=
-  match (xs, ts)
-    case (List(x; more), List(CsDecl(_, name, _); rest)) =>
-      List(
-        CsDecl(value_type(), var_name(x), Some(CeVar(name))); rebind(more, rest))
-
+// the variables of the patterns of a let, bound to the parts of the temporaries declared by ts, which they match
+function let_binds(pats: List[Pat], ts: List[CStmt]): List[CStmt] :=
+  match (pats, ts)
+    case (List(pat; more), List(CsDecl(_, name, _); rest)) =>
+      pattern_binds(pat, CeVar(name)) ++ let_binds(more, rest)
     case _ =>
       List()
   end
+
+function bound_by(pats: List[Pat]): List[Name] :=
+  List(for p in pats for n in pattern_names(p) yield n)
 
 // applications of functions, constructors, and builtins of their arities are direct calls
 procedure compile_named(
@@ -925,6 +913,40 @@ function consing(body: Expr, acc: Name): Option[Option[Expr] * Expr] :=
 
 type Fusion :=
   List[Name * Expr * Var] * Option[Expr] * Expr
+
+// a call that compiles to loops or to an array made at once, instead of a call of its function
+data Fused :=
+  // array.from_list of a comprehension
+  case FusedArray(fusion: Fusion)
+  // array.from_list of a list literal
+  case FusedLiteral(elems: List[Expr])
+  // a comprehension of lists, onto the list init
+  case FusedList(fusion: Fusion, init: Expr)
+
+function fusion_of(name: Name, args: List[Expr]): Option[Fused] :=
+  match (array_fusion(name, args), args)
+    case (Some(fusion), _) =>
+      Some(FusedArray(fusion))
+
+    case (None, List(l)) if name == array_name() =>
+      match list_literal(l)
+        case Some(es) =>
+          Some(FusedLiteral(es))
+        case None =>
+          None
+      end
+
+    case (None, List(xs, init, ELam(List(x, acc), body))) =>
+      match fused(name, xs, x, body, acc.name)
+        case Some(fusion) =>
+          Some(FusedList(fusion, init))
+        case None =>
+          None
+      end
+
+    case _ =>
+      None
+  end
 
 // the generators, the condition, and the element of a comprehension over lists and arrays, foldr(c1, init, lambda x1, acc =>
 // foldr(c2, acc, lambda x2, acc => ... if q then Cons(e, acc) else acc)), into which comprehensions translate, where each

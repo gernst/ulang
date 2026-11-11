@@ -328,11 +328,16 @@ procedure evaluate(
     case EProc(ins, outs, refs, stmt) =>
       assign v := VProcClos(env, ins, outs, refs, stmt)
 
-    // the variables are bound in parallel
+    // the patterns are bound in parallel, and match, since they are irrefutable
     case ELet(bindings, body) =>
       local vs: List[Value]
       call evaluate_all(in run, env, seconds(bindings), out vs, ref cache)
-      call evaluate(in run, bind_all(firsts(bindings), vs, env), body, out v, ref cache)
+      match match_all_into(firsts(bindings), vs, env)
+        case Some(inner) =>
+          call evaluate(in run, inner, body, out v, ref cache)
+        case None =>
+          raise Unexpected("let whose patterns do not match")
+      end
 
     case EIte(cond, then_expr, else_expr) =>
       local w: Value
@@ -1348,7 +1353,7 @@ test expressions() :=
     asserting("p1", expr_app("len", List(
       expr_app("Cons", List(expr_int(1), expr_app("Cons", List(expr_int(2), expr_var("Nil"))))))), expr_int(2)),
     asserting("p2", ELet(List(
-      (Var(unqualified("f"), THole), ELam(List(Var(unqualified("x"), THole)), expr_app("*", List(expr_var("x"), expr_var("x")))))), expr_app("+", List(expr_app("f", List(expr_int(3))), expr_app("f", List(expr_int(4)))))), expr_int(25)),
+      (PVar(Var(unqualified("f"), THole)), ELam(List(Var(unqualified("x"), THole)), expr_app("*", List(expr_var("x"), expr_var("x")))))), expr_app("+", List(expr_app("f", List(expr_int(3))), expr_app("f", List(expr_int(4)))))), expr_int(25)),
     asserting("p4", expr_app("and", List(
       ELit(LBool(false)),
       expr_app("==", List(expr_app("/", List(expr_int(1), expr_int(0))), expr_int(0))))), ELit(LBool(false)))))

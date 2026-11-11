@@ -1,4 +1,4 @@
-// type error: match is not exhaustive, missing Nil at 2.1
+// type error: match is not exhaustive, missing List() at 2.1
 function f(x: List[Option[Int]]): Int :=
   match x
     case List(_; _) =>

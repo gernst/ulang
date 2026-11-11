@@ -248,8 +248,21 @@ function expr_doc(notation: Notation, indent: Str, expr: Expr): Doc :=
   end
 
 // the body on the next line, at the indentation of the let
-function let_text(notation: Notation, indent: Str, bindings: List[Var * Expr], body: Expr): Str :=
-  "let " ++ assignments_text(notation, indent, bindings) ++ " in\n" ++ indent ++ format_expr(notation, indent, body)
+function let_text(notation: Notation, indent: Str, bindings: List[Pat * Expr], body: Expr): Str :=
+  "let " ++ bindings_text(notation, indent, bindings) ++ " in\n" ++ indent ++ format_expr(notation, indent, body)
+
+// the bindings of a let, where each but the last is closed, since a comma would continue it
+function bindings_text(notation: Notation, indent: Str, bindings: List[Pat * Expr]): Str :=
+  match bindings
+    case List() =>
+      ""
+
+    case List((p, a)) =>
+      format_pattern(notation, indent, p) ++ " := " ++ format_expr(notation, indent, a)
+
+    case List((p, a); more) =>
+      format_pattern(notation, indent, p) ++ " := " ++ closed_expr(notation, indent, a) ++ ", " ++ bindings_text(notation, indent, more)
+  end
 
 // on one line if it fits in 80 columns, as a display does
 function ite_text(notation: Notation, indent: Str, cond: Expr, then_expr: Expr, else_expr: Expr): Str :=
@@ -1010,49 +1023,43 @@ function type_component(clashes: Set[Id], t: Type): Str :=
       format_type_apart(clashes, t)
   end
 
-// patterns as the messages of the checker show them
+// patterns as the messages of the checker show them, in the syntax of the source without a notation, since no
+// constructor is named by an operator
 function format_pat(pat: Pat): Str :=
+  format_pattern(empty_notation(), "", source_pattern(pat))
+
+// the checked pattern in the shape of the parsed one, where a constructor without arguments is a name, and Cons and Nil,
+// which checking resolves, are the names that the parser writes for lists
+function source_pattern(pat: Pat): Pat :=
   match pat
     case PWild =>
-      "_"
+      pat
 
-    case PLit(lit) =>
-      format_lit(lit)
+    case PLit(_) =>
+      pat
 
-    case PVar(var) =>
-      var.name.base
+    case PVar(_) =>
+      pat
 
     case PTuple(args) =>
-      "(" ++ format_pats(args) ++ ")"
+      PTuple(List(for p in args yield source_pattern(p)))
 
     case PCons(x, xs) =>
-      "List(" ++ format_pat(x) ++ "; " ++ format_pat(xs) ++ ")"
+      PApp(Name(None, "Cons"), List(source_pattern(x), source_pattern(xs)))
 
-    case PApp(Name(None, "Cons"), List(x, xs)) =>
-      "List(" ++ format_pat(x) ++ "; " ++ format_pat(xs) ++ ")"
-
-    case PApp(constr, List(l, r)) if is_symbolic(constr.base) =>
-      infix_text(constr.base, format_pat(l), format_pat(r))
+    case PNil() =>
+      PApp(Name(None, "Nil"), List())
 
     case PApp(constr, List()) =>
-      constr.base
+      PName(constr, THole)
 
     case PApp(constr, args) =>
-      constr.base ++ "(" ++ format_pats(args) ++ ")"
+      PApp(constr, List(for p in args yield source_pattern(p)))
   end
 
-function format_pats(pats: List[Pat]): Str :=
-  join(", ", List(for p in pats yield format_pat(p)))
-
-// constructors named by operators are shown infix
+// whether a name is an operator, which starts with a symbol
 function is_symbolic(n: Id): Bool :=
   n != "" and is_op_char(at(0, n))
-
-function infix_text(op: Id, l: Str, r: Str): Str :=
-  pat_operand(l) ++ " " ++ op ++ " " ++ pat_operand(r)
-
-function pat_operand(a: Str): Str :=
-  if contains(' ', a) and at(0, a) != '(' then "(" ++ a ++ ")" else a
 
 // the name with its module, to tell names apart
 function format_name(n: Name): Str :=

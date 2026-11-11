@@ -58,11 +58,11 @@ data Expr :=
   case ELam(formals: List[Var], body: Expr)
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
   case EProc(ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
-  // let x := a, … in body, which binds in parallel
-  case ELet(bindings: List[Var * Expr], body: Expr)
+  // let p := a, … in body, which binds in parallel, by irrefutable patterns
+  case ELet(bindings: List[Pat * Expr], body: Expr)
   // if c then a else b
   case EIte(cond: Expr, then_expr: Expr, else_expr: Expr)
-  // match e case p => a … end, one case per line, also of a let with patterns other than variables
+  // match e case p => a … end, one case per line
   case EMatch(arg: Expr, cases: List[Branch[Expr]])
   // a tuple (a, b, …)
   case ETuple(args: List[Expr])
@@ -261,6 +261,9 @@ function pattern_expr(p: Pat): Option[Expr]
 function subst_pat(pat: Pat, sub: List[Name * Pat]): Pat
 
 function pattern_names(pat: Pat): List[Name]
+
+// the variables of patterns that are all variables
+function pattern_vars(pats: List[Pat]): Option[List[Var]]
 
 // the sorts that t names, as written, unqualified or qualified
 function sorts_in(t: Type): List[Name]
@@ -539,6 +542,23 @@ function sorts_in(t: Type): List[Name] :=
   end
 
 // the variables that pat binds, from left to right
+function pattern_vars(pats: List[Pat]): Option[List[Var]] :=
+  match pats
+    case List() =>
+      Some(List())
+
+    case List(PVar(var); more) =>
+      match pattern_vars(more)
+        case Some(xs) =>
+          Some(List(var; xs))
+        case None =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
 function pattern_names(pat: Pat): List[Name] :=
   match pat
     case PVar(var) =>

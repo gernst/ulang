@@ -128,18 +128,12 @@ test tuples() :=
 
 // let binds one value per binder, patterns destructure them
 test let_patterns() :=
-  assert match divmod(7, 2)
-    case (q, r) =>
-      q * 10 + r
-  end == 31
-  assert match ((1, 2), 3)
-    case ((x, y), z) =>
-      x + y + z
-  end == 6
-  assert match (1, 2)
-    case (_, z) =>
-      z
-  end == 2
+  assert (let (q, r) := divmod(7, 2) in
+  q * 10 + r) == 31
+  assert (let (x, y) := (1, 2), z := 3 in
+  x + y + z) == 6
+  assert (let _ := 1, z := 2 in
+  z) == 2
 
 // overloads are told apart by their numbers of parameters
 function pick(p: Int * Int): Int :=

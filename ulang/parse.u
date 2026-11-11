@@ -794,47 +794,19 @@ procedure parse_expr_atom(
       raise expected("expression", toks)
   end
 
-// the variables of patterns that are all variables
-function pattern_vars(pats: List[Pat]): Option[List[Var]] :=
-  match pats
-    case List() =>
-      Some(List())
-
-    case List(PVar(var); more) =>
-      match pattern_vars(more)
-        case Some(xs) =>
-          Some(List(var; xs))
-        case None =>
-          None
-      end
-
-    case _ =>
-      None
-  end
-
-// let x := e, y := f in body binds variables in parallel, other patterns are matched against the tuple of values
+// let p := e, q := f in body binds in parallel
 procedure parse_let(
   in  notation: Notation,
       params: List[Id],
   out expr: Expr,
   ref toks: Tokens
 ) :=
-  local bindings: List[Pat * Expr], body: Expr, pats: List[Pat], exprs: List[Expr]
+  local bindings: List[Pat * Expr], body: Expr
   call   advance(ref toks)
   call   parse_separated(in notation, params, parse_binding, at_comma, out bindings, ref toks)
   call   expect(in TKw("in"), ref toks)
   call   parse_expr(in notation, params, out body, ref toks)
-  assign pats := firsts(bindings), exprs := seconds(bindings)
-  match (pattern_vars(pats), pats, exprs)
-    case (Some(xs), _, _) =>
-      assign expr := ELet(zip(xs, exprs), body)
-
-    case (None, List(pat), List(c)) =>
-      assign expr := EMatch(c, List(Branch("", pat, None, body)))
-
-    case _ =>
-      assign expr := EMatch(ETuple(exprs), List(Branch("", PTuple(pats), None, body)))
-  end
+  assign expr := ELet(bindings, body)
 
 // p := e
 procedure parse_binding(
