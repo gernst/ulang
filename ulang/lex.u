@@ -97,28 +97,7 @@ function peek(text: Str, offset: Int): Char :=
   if offset < size(text) then at(offset, text) else chr(0)
 
 function unescape(c: Char): Option[Char] :=
-  match c
-    case '"' =>
-      Some('"')
-
-    case '\'' =>
-      Some('\'')
-
-    case '\\' =>
-      Some('\\')
-
-    case 'n' =>
-      Some('\n')
-
-    case 't' =>
-      Some('\t')
-
-    case 'r' =>
-      Some('\r')
-
-    case _ =>
-      None
-  end
+  map_option(find(escapes(), lambda (e, _) => e == c), second)
 
 // the run of characters from offset that satisfy p, where start is the offset before it, and offset ends after it
 procedure scan(in text: Str, p: Char -> Bool, out start: Int, ref offset: Int) :=
@@ -388,6 +367,17 @@ test lex_literals() :=
   local toks: Tokens
   call lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' List(x; xs)", out toks)
   assert tokens(toks) == List(TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\'')) ++ list_tokens()
+
+// every escape as show writes it, in the interpreter by format_lit of ulang/format.u and quote, in compiled programs by
+// the runtime, and read back by the lexer
+test escapes_round_trip() :=
+  local toks: Tokens
+  for (_, c) in escapes() do
+    assert show(c) == "'" ++ escape(c, '\'') ++ "'"
+    assert show(str(List('a', c))) == "\"a" ++ escape(c, '"') ++ "\""
+    call lex(in show(c) ++ " " ++ show(str(List('a', c))), out toks)
+    assert tokens(toks) == List(TChar(c), TStr(str(List('a', c))), TEnd)
+  end
 
 // the error of lexing text, or LexError("none", Pos(0, 0)) if there is none
 procedure lex_error(in text: Str, out e: LexError) :=

@@ -66,15 +66,16 @@ The library in `prelude/` contains the prelude with natural numbers, options, an
 
 ## Usage
 
-Requires a C compiler, GMP, and the Boehm garbage collector. The interpreter recurses as deeply as the programs it runs, so `ulimit -s unlimited` is advisable.
+Requires a C compiler, GMP, and the Boehm garbage collector. The interpreter and the compiler recurse as deeply as the programs they run, so `out/ulang.sh` runs `out/ulang.bin` with a large stack, by `ulimit -s unlimited`; compiled programs need the same limit.
 
 ```
-make                                      # builds out/ulang.bin from the sources, by the seed in bootstrap/
-out/ulang.bin run file.u -- args          # checks a program and calls its procedure main
-out/ulang.bin test file.u                 # runs its tests one by one
-out/ulang.bin test dir                    # runs the files below dir, which must pass or fail as their first lines state
-out/ulang.bin check file.u                # only checks it
-out/ulang.bin compile file.u main file.c  # compiles a program to C, whose main calls the procedure main
+make                                      # builds out/ulang.bin and out/ulang.sh from the sources, by the seed in bootstrap/,
+                                          # and copies both to the root, so ./ulang.sh works as out/ulang.sh does
+out/ulang.sh run file.u -- args           # checks a program and calls its procedure main
+out/ulang.sh test file.u                  # runs its tests one by one
+out/ulang.sh test dir                     # runs the files below dir, which must pass or fail as their first lines state
+out/ulang.sh check file.u                 # only checks it
+out/ulang.sh compile file.u main file.c   # compiles a program to C, whose main calls the procedure main
 cc -I ulang/runtime file.c ulang/runtime/ulang.c -lgmp -lgc
 make test                                 # runs all tests
 ```
@@ -84,7 +85,8 @@ make test                                 # runs all tests
 - `ulang/` is the implementation in ulang: lexer, parser, checker, interpreter, and the compiler to C, with its runtime in `ulang/runtime/`, and the driver `ulang/ulang.u`.
 - `bootstrap/ulang.c` is the seed, the C of the last compiler that compiled itself to the same C, from which `make` builds
   `bootstrap/ulang.bin`, which compiles the sources to `out/ulang.bin`. `make selfcompile` replaces the seed by the compiler
-  compiled with itself, and `make bootstrap` by the compiler compiled with the interpreter.
+  compiled with itself, and `make bootstrap` by the compiler compiled with the interpreter. `bootstrap/ulang.sh` is the script
+  that runs each binary with a large stack, copied next to it by `make`.
 - `prelude/` is the library.
 - `tests/` are the tests, also of expected errors in `tests/errors/`.
 - `vscode/` is an extension for VS Code and VSCodium, installed by `make install`.

@@ -46,7 +46,7 @@ data TypeError :=
   case HiddenLocal(name: Name)
   case VisibleEquality(sort: Name)
   // show, compare, or == of other values than those of a datatype of its module, see order_of of defs.u
-  case MisshapenHook(name: Name)
+  case MisshapenHook(name: Name, hook: Hook)
   case UnexportedOrder(fun: Name, sort: Name)
   // a pattern alias whose variables are not exactly its formals
   case AliasVariables(name: Name)
@@ -222,15 +222,6 @@ function builtin_scheme(b: Id): List[Scheme] :=
     case "<" =>
       List(Scheme(List(a), TFun(List(a, a), TBool())))
 
-    case "==" =>
-      List(Scheme(List(a), TFun(List(a, a), TBool())))
-
-    case "compare" =>
-      List(Scheme(List(a), TFun(List(a, a), TInt())))
-
-    case "show" =>
-      List(Scheme(List(a), TFun(List(a), TStr())))
-
     case "and" =>
       List(logic())
 
@@ -238,7 +229,7 @@ function builtin_scheme(b: Id): List[Scheme] :=
       List(logic())
 
     case _ =>
-      List()
+      List(for hook in hooks() if hook_name(hook) == b yield hook_scheme(hook))
   end
 
 function is_meta(t: Type): Bool :=
@@ -380,7 +371,7 @@ function is_pattern_name(sig: Sig, n: Name): Bool :=
   is_constr(sig, n) or is_pat_alias(sig, n)
 
 function is_hook(f: Name, k: Int): Bool :=
-  f.base == "show" and k == 1 or (f.base == "compare" or f.base == "==") and k == 2
+  hook_of(f.base, k) != None
 
 // a procedure is a value of its type (in A, out B, ref C)
 function proc_scheme(sig: Sig, p: Name): Scheme :=
@@ -2658,11 +2649,16 @@ procedure check_orders(
 
     case List(c; rest) =>
       match (c, order_of(c))
-        case (_, Some(("==", t))) if not contains(t, abstract) =>
+        case (_, Some((HookEquality, t))) if not contains(t, abstract) =>
           raise VisibleEquality(t)
 
-        case (CFun(name, _, formals, _, _), None) if is_hook(name, size(formals)) =>
-          raise MisshapenHook(name)
+        case (CFun(name, _, formals, _, _), None) =>
+          match hook_of(name.base, size(formals))
+            case Some(hook) =>
+              raise MisshapenHook(name, hook)
+            case None =>
+              call check_orders(in rest, abstract, hidden, hidden_sorts)
+          end
 
         case (CFun(name, _, _, _, _), Some((_, t))) if contains(name, hidden) and not contains(t, hidden_sorts) =>
           raise UnexportedOrder(name, t)
@@ -2676,21 +2672,21 @@ procedure check_orders(
 // with an equality, and Incomparable for a type without, since the structure of an abstract type is no order; all of them
 // are private, check_package hides them from importers, so nothing that other modules use may be added here
 function synthesized(ds: List[Id * Cmd], cmds: List[Cmd], natives: List[Name]): List[Id * Cmd] :=
-  let compares := ordered(cmds, "compare") ++ natives, equalities := ordered(cmds, "==") in List(for c in ds for e in synthesized_for(c, compares, equalities) yield e)
+  let compares := ordered(cmds, HookCompare) ++ natives, equalities := ordered(cmds, HookEquality) in List(for c in ds for e in synthesized_for(c, compares, equalities) yield e)
 
 function synthesized_for(d: Id * Cmd, compares: List[Name], equalities: List[Name]): List[Id * Cmd] :=
   match d
     case (m, CAbstract(name, params)) =>
-      if contains(name, compares) then List() else if contains(name, equalities) then List((m, failing(name, params, "compare", TInt(), "Unordered"))) else List(
-        (m, failing(name, params, "compare", TInt(), "Incomparable")),
-        (m, failing(name, params, "==", TBool(), "Incomparable")))
+      if contains(name, compares) then List() else if contains(name, equalities) then List((m, failing(name, params, HookCompare, "Unordered"))) else List(
+        (m, failing(name, params, HookCompare, "Incomparable")),
+        (m, failing(name, params, HookEquality, "Incomparable")))
 
     case _ =>
       List()
   end
 
-function failing(t: Name, ps: List[Id], op: Id, r: Type, e: Id): Cmd :=
-  let a := TSort(t, params(ps)) in CFun(Name(t.module, t.base ++ "." ++ op), ps, List(Var(unqualified("a"), a), Var(unqualified("b"), a)), r, ERaise(ECall(library_name("prelude", e), THole, List(ELit(LStr(format_name(t))))), THole))
+function failing(t: Name, ps: List[Id], hook: Hook, e: Id): Cmd :=
+  let a := TSort(t, params(ps)) in CFun(Name(t.module, t.base ++ "." ++ hook_name(hook)), ps, List(Var(unqualified("a"), a), Var(unqualified("b"), a)), hook_result(hook), ERaise(ECall(library_name("prelude", e), THole, List(ELit(LStr(format_name(t))))), THole))
 
 // the commands of ds without signatures and abstract types, which only the checks of sections need
 function is_definition(d: Id * Cmd): Bool :=

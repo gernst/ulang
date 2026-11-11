@@ -1,6 +1,6 @@
 # out/ulang.bin, the self-hosted driver of ulang, compiled from the sources by the seed in bootstrap/
 
-all: out/ulang.bin out/ulang.sh
+all: out/ulang.bin out/ulang.sh ulang.bin ulang.sh
 
 .PHONY: install
 
@@ -49,6 +49,13 @@ out/ulang.sh: $(SCRIPT)
 	mkdir -p out
 	cp $(SCRIPT) $@
 
+# copies of the tool and its script at the root, ./ulang.sh, which are not versioned
+ulang.bin: out/ulang.bin
+	cp out/ulang.bin $@
+
+ulang.sh: $(SCRIPT)
+	cp $(SCRIPT) $@
+
 # keeps the seed in bootstrap/<time stamp>/ and installs the C file $(1) and the binary $(2) as the seed, as one command, unless
 # the C is that of the seed
 install_seed = if cmp -s $(1) bootstrap/ulang.c; then echo "the seed is unchanged"; else \
@@ -72,7 +79,7 @@ selfcompile: out/ulang.bin out/ulang.sh
 	cmp $$stage/ulang2.c $$stage/ulang3.c && \
 	$(call install_seed,$$stage/ulang2.c,$$stage/ulang2.bin) && \
 	rm -r -- "$${stage:?}"
-	$(MAKE) out/ulang.bin
+	$(MAKE) all
 
 # the interpreter ulang/run.u in the seed runs the compiler on the sources, for sources that the seed cannot compile, whose C,
 # compiled, must compile them to the same C, and becomes the seed
@@ -85,7 +92,7 @@ bootstrap: bootstrap/ulang.bin
 	cmp $$stage/ulang1.c $$stage/ulang2.c && \
 	$(call install_seed,$$stage/ulang1.c,$$stage/ulang1.bin) && \
 	rm -r -- "$${stage:?}"
-	$(MAKE) out/ulang.bin
+	$(MAKE) all
 
 # every .u file of tests/, ulang/, prove/, and the library, run by out/ulang.bin with all its tests in its directory, must
 # succeed, or fail with the error that its first line states, e.g. // type error: unknown variable x

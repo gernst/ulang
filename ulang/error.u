@@ -4,6 +4,21 @@
 
 export
 
+// the kinds of errors, which the commands report as "kind error: message" after the file, and which the first line of a
+// file that is expected to fail states, also in the regular expression errorLine of vscode/extension.js
+data ErrorKind :=
+  case ParseKind
+  case TypeKind
+  case FormatKind
+  case RuntimeKind
+  case CompileKind
+  case InternalKind
+
+function error_kinds(): List[ErrorKind]
+
+// "kind error: message"
+function error_text(kind: ErrorKind, message: Str): Str
+
 data RuntimeError :=
   case NoCase(text: Str)
   case CompareFunctions
@@ -28,6 +43,33 @@ function internal_message(e: InternalError): Str
 function at_pos(p: Pos): Str
 
 implementation
+
+function error_kinds(): List[ErrorKind] :=
+  List(ParseKind, TypeKind, FormatKind, RuntimeKind, CompileKind, InternalKind)
+
+function kind_name(kind: ErrorKind): Str :=
+  match kind
+    case ParseKind =>
+      "parse"
+
+    case TypeKind =>
+      "type"
+
+    case FormatKind =>
+      "format"
+
+    case RuntimeKind =>
+      "runtime"
+
+    case CompileKind =>
+      "compile"
+
+    case InternalKind =>
+      "internal"
+  end
+
+function error_text(kind: ErrorKind, message: Str): Str :=
+  kind_name(kind) ++ " error: " ++ message
 
 function runtime_message(e: RuntimeError): Str :=
   match e
@@ -205,8 +247,8 @@ function type_message(e: TypeError): Str :=
     case VisibleEquality(sort) =>
       sort.base ++ " declares ==, which only abstract types may"
 
-    case MisshapenHook(name) =>
-      hook_message(name.base)
+    case MisshapenHook(_, hook) =>
+      hook_message(hook)
 
     case UnexportedOrder(fun, sort) =>
       fun.base ++ " of the exported type " ++ sort.base ++ " is not exported"
@@ -224,8 +266,8 @@ function type_message(e: TypeError): Str :=
       type_message(error)
   end
 
-function hook_message(f: Id): Str :=
-  let values := (if f == "show" then "one value" else "two values"), result := if f == "show" then "Str" else if f == "==" then "Bool" else "Int" in f ++ " must take " ++ values ++ " T[A, …] of a datatype T of its module, with distinct type parameters, and give " ++ result
+function hook_message(hook: Hook): Str :=
+  let values := if hook_arity(hook) == 1 then "one value" else "two values" in hook_name(hook) ++ " must take " ++ values ++ " T[A, …] of a datatype T of its module, with distinct type parameters, and give " ++ format_type(hook_result(hook))
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f
 function field_message(parts: List[Str]): Str :=

@@ -108,31 +108,31 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
       assign message := m
 
     case ParseError(m, pos) =>
-      assign message := "parse error: " ++ m ++ at_pos(pos)
+      assign message := error_text(ParseKind, m ++ at_pos(pos))
 
     case ImportError(module, m, pos) =>
-      assign message := "parse error: " ++ m ++ " in " ++ module ++ at_pos(pos)
+      assign message := error_text(ParseKind, m ++ " in " ++ module ++ at_pos(pos))
 
     case OsError(m) =>
-      assign message := "runtime error: " ++ m
+      assign message := error_text(RuntimeKind, m)
 
     case Unformatted(line) =>
-      assign message := "format error: the file differs from what ulang format writes" ++ at_pos(Pos(line, 1))
+      assign message := error_text(FormatKind, "the file differs from what ulang format writes" ++ at_pos(Pos(line, 1)))
 
     case Unsupported(what) =>
-      assign message := "compile error: " ++ what
+      assign message := error_text(CompileKind, what)
 
     case UnknownEntry(name) =>
-      assign message := "compile error: there is no procedure " ++ name.base ++ " without parameters"
+      assign message := error_text(RuntimeKind, "there is no procedure " ++ name.base ++ " without parameters")
 
     case e =>
-      assign message := "type error: " ++ located_message(e)
+      assign message := error_text(TypeKind, located_message(e))
 
     case e =>
-      assign message := "runtime error: " ++ runtime_message(e)
+      assign message := error_text(RuntimeKind, runtime_message(e))
 
     case e =>
-      assign message := "internal error: " ++ internal_message(e)
+      assign message := error_text(InternalKind, internal_message(e))
   end
   if message != "" then
     assign ok := false
@@ -203,11 +203,11 @@ procedure format_file(in file: Str, out ok: Bool) :=
       end
       assign ok := true
     else
-      call os_print_error(in file ++ ": format error: the source parses differently")
+      call os_print_error(in file ++ ": " ++ error_text(FormatKind, "the source parses differently"))
     end
   catch
     case ParseError(message, _) =>
-      call os_print_error(in file ++ ": format error: the source does not parse: " ++ message)
+      call os_print_error(in file ++ ": " ++ error_text(FormatKind, "the source does not parse: " ++ message))
   end
 
 function same_mod(d: Mod, e: Mod): Bool :=
@@ -225,17 +225,12 @@ function same_tops(tops: List[Top], others: List[Top]): Bool :=
 
 // calls the procedure name of file, which takes no parameters, and prints as it runs
 procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
-  local main: Id, q: Prog, run: Run, cache: Map[Name, Value] := empty(), n: Name
+  local main: Id, q: Prog, run: Run, cache: Map[Name, Value] := empty()
   call   load_file(in file, out main, q)
-  assign n := Name(Some(main), name)
+  call   require_entry(in q, Name(Some(main), name))
   assign run := load(q) with args := args
-  if exists(q.cmds, lambda c => is_entry(c, n)) then
-    call   run_proc(in run, n, ref cache)
-    assign ok := true
-  else
-    call   os_print_error(in file ++ ": runtime error: there is no procedure " ++ name ++ " without parameters")
-    assign ok := false
-  end
+  call   run_proc(in run, Name(Some(main), name), ref cache)
+  assign ok := true
 
 // runs the tests of file, all or the named ones, each on its own, also after a failed one, printing whether it passed
 procedure test_file(
@@ -251,7 +246,7 @@ procedure test_file(
   assign missing := List(for n in names if not exists(tests, lambda c => is_test(c, n)))
   match missing
     case List(n; _) =>
-      call   os_print_error(in file ++ ": runtime error: there is no test " ++ n)
+      call   os_print_error(in file ++ ": " ++ error_text(RuntimeKind, "there is no test " ++ n))
       assign ok := false
 
     case _ =>
@@ -285,9 +280,9 @@ procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
     call run_cmd(in run, cmd, ref cache)
   catch
     case e =>
-      assign message := "runtime error: " ++ runtime_message(e)
+      assign message := error_text(RuntimeKind, runtime_message(e))
     case e =>
-      assign message := "internal error: " ++ internal_message(e)
+      assign message := error_text(InternalKind, internal_message(e))
   end
 
 // the .u files of the paths, where directories are walked, each run in its directory with all its tests, which must
@@ -348,10 +343,7 @@ function expected_error(text: Str): Str :=
   end
 
 function states_error(line: Str): Bool :=
-  states(line, "parse") or states(line, "type") or states(line, "format") or states(line, "runtime")
-
-function states(line: Str, kind: Str): Bool :=
-  starts_with(line, "// " ++ kind ++ " error: ")
+  exists(error_kinds(), lambda kind => starts_with(line, "// " ++ error_text(kind, "")))
 
 // runs all tests of file, quietly, and raises the first failure
 procedure test_all(in file: Str, out ok: Bool) :=

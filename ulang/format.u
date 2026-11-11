@@ -868,32 +868,11 @@ function format_lit(lit: Lit): Str :=
       quote(text)
 
     case LChar(char) =>
-      "'" ++ escape_char(char) ++ "'"
+      "'" ++ escape(char, '\'') ++ "'"
   end
 
 function array_text(texts: List[Str]): Str :=
   "Array(" ++ join(", ", texts) ++ ")"
-
-function escape_char(c: Char): Str :=
-  match c
-    case '\\' =>
-      "\\\\"
-
-    case '\n' =>
-      "\\n"
-
-    case '\t' =>
-      "\\t"
-
-    case '\r' =>
-      "\\r"
-
-    case '\'' =>
-      "\\'"
-
-    case _ =>
-      str(List(c))
-  end
 
 // types as the messages of the checker show them, without numbering the unknowns anew
 function format_type(t: Type): Str :=

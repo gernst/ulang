@@ -614,7 +614,7 @@ static u_value text_value(struct u_text *t) {
   return u_mk_units(t->units, t->length, t->width);
 }
 
-// the escape of c in a string or character delimited by quote, as the parser reads it, or else NULL
+// the escape of c in a string or character delimited by quote, of the table escapes of ulang/syntax.u, or else NULL
 static const char *escape(long long c, char quote) {
   if (c == '\\') return "\\\\";
   if (c == '\n') return "\\n";

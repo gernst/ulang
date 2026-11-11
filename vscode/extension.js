@@ -6,8 +6,8 @@ const fs = require("fs");
 const path = require("path");
 
 // e.g. "/a/b.u: type error: cannot unify Int and Bool", optionally followed by " in m" for an imported module m and
-// " at 3.11", the position in the file of that module
-const errorLine = /^(.*?): ((?:parse|type|format|runtime|compile) error: .*?)(?: in ([\w/-]+))?(?: at (\d+)\.(\d+))?$/;
+// " at 3.11", the position in the file of that module, with the kinds of error_kinds of ulang/error.u
+const errorLine = /^(.*?): ((?:parse|type|format|runtime|compile|internal) error: .*?)(?: in ([\w/-]+))?(?: at (\d+)\.(\d+))?$/;
 const testLine = /^test (\S+) (passed|failed: (.*))$/;
 
 function binary() {

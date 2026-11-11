@@ -20,6 +20,12 @@ data Defs :=
 
 function defs_of(q: Prog): Defs
 
+// the procedure without parameters that run and compile call is not in the program
+data EntryError :=
+  case UnknownEntry(name: Name)
+
+procedure require_entry(in q: Prog, n: Name)
+
 function field_names(constrs: List[Constr]): List[Id]
 
 function accessor_name(t: Name, f: Id): Name
@@ -28,16 +34,49 @@ function updater_name(t: Name, f: Id): Name
 
 function field_of(n: Name): Str
 
-function order_of(cmd: Cmd): Option[Id * Name]
+// the functions of a datatype T that the builtins compare, ==, and show use for all values of T, see order_of, each of
+// arity values T[A, …] of T, with the result type; its name is also the builtin of any values, of hook_scheme
+data Hook :=
+  case HookCompare
+  case HookEquality
+  case HookShow
 
-function ordered(cmds: List[Cmd], op: Id): List[Name]
+function hooks(): List[Hook]
 
-function ordered_by(cmds: List[Cmd], op: Id): List[Name * Name]
+function hook_name(hook: Hook): Id
+
+function hook_arity(hook: Hook): Int
+
+function hook_result(hook: Hook): Type
+
+function hook_scheme(hook: Hook): Scheme
+
+function hook_of(f: Id, k: Int): Option[Hook]
+
+function order_of(cmd: Cmd): Option[Hook * Name]
+
+function ordered(cmds: List[Cmd], hook: Hook): List[Name]
+
+function ordered_by(cmds: List[Cmd], hook: Hook): List[Name * Name]
 
 implementation
 
+procedure require_entry(in q: Prog, n: Name) :=
+  if not exists(q.cmds, lambda c => is_entry(c, n)) then
+    raise UnknownEntry(n)
+  end
+
+// a procedure without parameters
+function is_entry(cmd: Cmd, n: Name): Bool :=
+  match cmd
+    case CProc(name, _, List(), List(), List(), _) =>
+      name == n
+    case _ =>
+      false
+  end
+
 function defs_of(q: Prog): Defs :=
-  Defs(Map(for (k, v) in fun_defs(q.cmds)), Map(for (k, v) in proc_defs(q.cmds)), Map(for (k, v) in constr_defs(q.cmds)), Map(for (k, v) in field_defs(q.cmds)), Map(for (k, v) in ordered_by(q.cmds, "compare")), Map(for (k, v) in ordered_by(q.cmds, "==")), Map(for (k, v) in ordered_by(q.cmds, "show")))
+  Defs(Map(for (k, v) in fun_defs(q.cmds)), Map(for (k, v) in proc_defs(q.cmds)), Map(for (k, v) in constr_defs(q.cmds)), Map(for (k, v) in field_defs(q.cmds)), Map(for (k, v) in ordered_by(q.cmds, HookCompare)), Map(for (k, v) in ordered_by(q.cmds, HookEquality)), Map(for (k, v) in ordered_by(q.cmds, HookShow)))
 
 // functions are overloaded by their number of arguments
 function fun_defs(cmds: List[Cmd]): List[(Name * Int) * FunDef] :=
@@ -118,37 +157,74 @@ function updater_name(t: Name, f: Id): Name :=
 function field_of(n: Name): Str :=
   if ends_with(n.base, ":=") then slice(n.base, 0, size(n.base) - 2) else n.base
 
-// the datatype whose order or equality c declares, with compare or ==, if c is compare or == of two values of a datatype
-// T[A, …] of its own module with distinct parameters, which the interpreter and the runtime then use for all values of T,
-// also in generic code, where the builtins compare structurally
-// with the functions T.compare and T.== that the checker synthesizes for an abstract type T,
-// and similarly the text of the values of T if c is show of one value of T with the result Str
-function order_of(cmd: Cmd): Option[Id * Name] :=
+function hooks(): List[Hook] :=
+  List(HookCompare, HookEquality, HookShow)
+
+function hook_name(hook: Hook): Id :=
+  match hook
+    case HookCompare =>
+      "compare"
+
+    case HookEquality =>
+      "=="
+
+    case HookShow =>
+      "show"
+  end
+
+function hook_arity(hook: Hook): Int :=
+  match hook
+    case HookCompare =>
+      2
+
+    case HookEquality =>
+      2
+
+    case HookShow =>
+      1
+  end
+
+function hook_result(hook: Hook): Type :=
+  match hook
+    case HookCompare =>
+      TInt()
+
+    case HookEquality =>
+      TBool()
+
+    case HookShow =>
+      TStr()
+  end
+
+// the builtin of the name of the hook, of any values
+function hook_scheme(hook: Hook): Scheme :=
+  let a := TParam("A") in Scheme(List(a), TFun(replicate(hook_arity(hook), a), hook_result(hook)))
+
+// the hook that a function f of k arguments declares if it has the right type
+function hook_of(f: Id, k: Int): Option[Hook] :=
+  find(hooks(), lambda hook => hook_name(hook) == f and hook_arity(hook) == k)
+
+// the datatype whose order, equality, or text cmd declares, if cmd is a hook of values T[A, …] of a datatype T of its own
+// module with distinct parameters and the result of the hook, which the interpreter and the runtime then use for all
+// values of T, also in generic code, where the builtins compare structurally and show the structure; the hook may be
+// named T.compare or T.==, as the checker synthesizes them for an abstract type T
+function order_of(cmd: Cmd): Option[Hook * Name] :=
   match cmd
-    case CFun(Name(Some(m), "show"), _, List(Var(_, TSort(Name(Some(k), base), args))), typ, _) =>
-      if k == m and is_distinct_params(args) and typ == TStr() then Some(("show", Name(Some(k), base))) else None
-
-    case CFun(Name(Some(m), f), _, List(Var(_, TSort(Name(Some(k), b), args)), Var(_, u)), r, _) =>
-      let op := order_op(f, b) in if k == m and u == TSort(Name(Some(k), b), args) and is_distinct_params(args) and order_result(op) == Some(r) then Some((op, Name(Some(k), b))) else None
-
-    case _ =>
-      None
-  end
-
-function order_op(f: Id, b: Id): Id :=
-  if f == b ++ ".compare" then "compare" else if f == b ++ ".==" then "==" else f
-
-function order_result(op: Id): Option[Type] :=
-  match op
-    case "compare" =>
-      Some(TInt())
-
-    case "==" =>
-      Some(TBool())
+    case CFun(Name(Some(m), f), _, List(Var(_, TSort(Name(Some(k), b), args)); more), r, _) =>
+      let typ := TSort(Name(Some(k), b), args) in match hook_of(hook_base(f, b), 1 + size(more))
+        case Some(hook) =>
+          if k == m and forall(more, lambda x => x.typ == typ) and is_distinct_params(args) and r == hook_result(hook) then Some((hook, Name(Some(k), b))) else None
+        case None =>
+          None
+      end
 
     case _ =>
       None
   end
+
+// f without the prefix T. of the name b of T
+function hook_base(f: Id, b: Id): Id :=
+  if starts_with(f, b ++ ".") then slice(f, size(b) + 1, size(f)) else f
 
 function is_distinct_params(ts: List[Type]): Bool :=
   List(for t in ts if is_param(t)) == ts and distinct(ts) == ts
@@ -161,21 +237,21 @@ function is_param(t: Type): Bool :=
       false
   end
 
-// the datatypes of cs ordered, equated, or shown by op
-function ordered(cmds: List[Cmd], op: Id): List[Name] :=
-  firsts(ordered_by(cmds, op))
+// the datatypes of cmds that declare the hook
+function ordered(cmds: List[Cmd], hook: Hook): List[Name] :=
+  firsts(ordered_by(cmds, hook))
 
-// the datatypes of cs ordered, equated, or shown by op, with the functions that do it
-function ordered_by(cmds: List[Cmd], op: Id): List[Name * Name] :=
+// the datatypes of cmds that declare the hook, with the functions that declare it
+function ordered_by(cmds: List[Cmd], hook: Hook): List[Name * Name] :=
   match cmds
     case List() =>
       List()
 
     case List(c; rest) =>
       match (c, order_of(c))
-        case (CFun(name, _, _, _, _), Some((o, t))) =>
-          if o == op then List((t, name); ordered_by(rest, op)) else ordered_by(rest, op)
+        case (CFun(name, _, _, _, _), Some((h, t))) =>
+          if h == hook then List((t, name); ordered_by(rest, hook)) else ordered_by(rest, hook)
         case _ =>
-          ordered_by(rest, op)
+          ordered_by(rest, hook)
       end
   end

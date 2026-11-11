@@ -1,0 +1,7 @@
+// type error: compare must take two values T[A, …] of a datatype T of its module, with distinct type parameters, and give Int at 6.1
+
+data Pair[A, B] :=
+  case Pair(left: A, right: B)
+
+function compare[A, B](p: Pair[A, B], q: Pair[A, B]): Bool :=
+  true

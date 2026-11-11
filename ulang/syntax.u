@@ -299,7 +299,32 @@ function seen_modules(d: Mod, packages: List[Package]): List[Id]
 
 function unplaced(cmds: List[Cmd]): List[Top]
 
+// the escapes of literals, each the character after \ with the character that it stands for, as the lexer reads them and
+// the printers write them, where a quote is escaped only in a literal that it delimits; the runtime writes them by escape
+// of ulang/runtime/ulang.c, which the test escapes_round_trip of ulang/lex.u keeps in step
+function escapes(): List[Char * Char]
+
+// c in a literal delimited by the quote delimiter, escaped if it needs to be
+function escape(c: Char, delimiter: Char): Str
+
 implementation
+
+function escapes(): List[Char * Char] :=
+  List(
+    ('"', '"'),
+    ('\'', '\''),
+    ('\\', '\\'),
+    ('n', '\n'),
+    ('t', '\t'),
+    ('r', '\r'))
+
+function escape(c: Char, delimiter: Char): Str :=
+  match find(escapes(), lambda (_, d) => d == c)
+    case Some((e, _)) if c == delimiter or not contains(c, "\"'") =>
+      str(List('\\', e))
+    case _ =>
+      str(List(c))
+  end
 
 // a name without a module, of a local or a builtin, or before checking
 function unqualified(x: Id): Name :=

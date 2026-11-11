@@ -5,11 +5,8 @@ export
 
 data CompileError :=
   case Unsupported(what: Str)
-  case UnknownEntry(name: Name)
 
 procedure compile_file(in source: Str, entry: Id, target: Str)
-
-function is_entry(cmd: Cmd, n: Name): Bool
 
 implementation
 
@@ -1549,8 +1546,8 @@ function prototype(d: CDecl): List[CDecl] :=
 // the C of q of module m, whose main calls the procedure entry without parameters, or runs all tests for the entry test
 procedure compile_program(in q: Prog, m: Id, entry: Id, out f: CFile) :=
   local g := Gen(0, List()), defs := defs_of(q), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl], hs: List[CDecl]
-  if entry != "test" and not exists(q.cmds, lambda c => is_entry(c, Name(Some(m), entry))) then
-    raise UnknownEntry(Name(Some(m), entry))
+  if entry != "test" then
+    call require_entry(in q, Name(Some(m), entry))
   end
   call compile_cmds(in defs, entry, q.cmds, out ds, ms, ref g)
   if entry != "test" then
@@ -1578,12 +1575,3 @@ procedure compile_file(in source: Str, entry: Id, target: Str) :=
   call check_program(in parsed, out q)
   call compile_program(in q, parsed.main, entry, out f)
   call os_write(in target, format_file(f))
-
-// a procedure without parameters
-function is_entry(cmd: Cmd, n: Name): Bool :=
-  match cmd
-    case CProc(name, _, List(), List(), List(), _) =>
-      name == n
-    case _ =>
-      false
-  end
