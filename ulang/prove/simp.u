@@ -1344,8 +1344,8 @@ function induction_case(decls: Decls, t: Name, xs: List[Var], p: Int, as0: List[
       let fields := List(for i in range(0, n) yield ELevel(k + i)) in
       let value := if n == 0 then EFun(c) else EApp(EFun(c), fields) in
       let v := ELevel(p), others := List(for l in range(0, k) if l != p) in
-      let vars := List(for l in others yield at(l, from_list(xs))) in
-      let ihs := List(for i in range(0, n) if is_recursive(t, at(i, from_list(fs))) yield hypothesis(vars, others, v, ELevel(k + i), as0, cs0)) in
+      let vars := List(for (x, l) in numbered(xs) if l != p yield x) in
+      let ihs := List(for (f, i) in numbered(fs) if is_recursive(t, f) yield hypothesis(vars, others, v, ELevel(k + i), as0, cs0)) in
       let levels := others ++ range(k, k + n) in
       Seq(vars ++ fs, List(for h in ihs ++ List(for a in as0 yield replace_seq(v, value, a)) yield rebind_seq(Close(levels), 0, h)), List(for d in cs0 yield rebind_concl(Close(levels), 0, replace_concl(v, value, d))))
 

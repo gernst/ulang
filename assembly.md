@@ -1,6 +1,6 @@
 # Assembly
 
-A plan, not implemented yet (TODO, Compiler 3): a second backend of the compiler that writes GNU assembly for x86-64 Linux instead of C, so that compiled programs need no C compiler, only `as` and a linker, while the runtime stays C. The C backend stays as the portable one and as the seed of the bootstrap.
+A plan, not implemented yet (TODO, Compiler 2): a second backend of the compiler that writes GNU assembly for x86-64 Linux instead of C, so that compiled programs need no C compiler, only `as` and a linker, while the runtime stays C. The C backend stays as the portable one and as the seed of the bootstrap.
 
 ## Why
 
