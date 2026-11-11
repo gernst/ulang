@@ -1,0 +1,22 @@
+// lemmas of linear arithmetic over the integers and of splits on conditions
+
+lemma successor(a: Int, b: Int) :=
+  requires a < b
+  ensures  a + 1 <= b
+
+lemma transitive(a: Int, b: Int, c: Int) :=
+  requires a < b, b < c
+  ensures  a + 2 <= c
+
+lemma linear(a: Int, b: Int) :=
+  ensures 2 * a + b == b + a + a
+
+lemma antisymmetric(a: Int, b: Int) :=
+  requires a <= b, b <= a
+  ensures  a == b
+
+function maximum(a: Int, b: Int): Int :=
+  if a < b then b else a
+
+lemma maximum_bounds(a: Int, b: Int) :=
+  ensures maximum(a, b) >= a and maximum(a, b) >= b

@@ -2683,6 +2683,9 @@ procedure command(in cmd: Cmd, out c1: Cmd, ref s: State) :=
     case CTest(test_name, _, _) =>
       raise TestParams(test_name)
 
+    case CData(name, params, constrs) =>
+      assign c1 := CData(name, params, List(for k in constrs yield resolved_fields(s.sig, k)))
+
     case CLemma(name, params, formals, assms, concl) =>
       local xs: List[Var], checked: List[Expr] := List(), c: Expr
       call signature(in formals, out xs, ref s)
@@ -2696,6 +2699,15 @@ procedure command(in cmd: Cmd, out c1: Cmd, ref s: State) :=
 
     case _ =>
       assign c1 := cmd
+  end
+
+// the constructor k with the types of its fields resolved, as declare_constructors declared them
+function resolved_fields(sig: Sig, k: Constr): Constr :=
+  match constr_of(sig, k.name)
+    case Some(constr) =>
+      k with fields := List(for (field, typ) in zip(k.fields, constr.fields) yield field with typ := typ)
+    case None =>
+      k
   end
 
 procedure commands(in cs: List[Id * Cmd], out cs1: List[Cmd], ref s: State) :=

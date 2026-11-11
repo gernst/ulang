@@ -17,7 +17,7 @@ ulang.vsix: $(EXTENSION) vscode/vsix/*
 install: ulang.vsix
 	codium --install-extension ulang.vsix
 
-# out/ulang.bin, the tool, is the compiler of the current sources ulang/*.u and prelude/*.u, translated by the seed, and
+# out/ulang.bin, the tool, is the compiler of the current sources ulang/*.u, prove/*.u, and prelude/*.u, translated by the seed, and
 # bootstrap/ulang.bin, the seed, is built from bootstrap/ulang.c, the C of the last compiler that compiled itself to the same C,
 # which is versioned, as the C of its backups in bootstrap/<time stamp>/ is, while the binaries are not; each is linked with the
 # runtime in ulang/runtime, GMP, and the Boehm collector
@@ -25,7 +25,7 @@ CC = clang
 CFLAGS = -O2 -std=c11 -Wall -Wno-unused-variable -Wno-unused-function -I ulang/runtime -DULANG_LIB='"$(CURDIR)/prelude"'
 LIBS = -lgmp -lgc
 RUNTIME = ulang/runtime/ulang.c ulang/runtime/ulang.h
-SOURCES = $(wildcard ulang/*.u prelude/*.u)
+SOURCES = $(wildcard ulang/*.u prove/*.u prelude/*.u)
 
 # each binary is run by a copy of bootstrap/ulang.sh next to it, of the same name, which gives it the large stack that the
 # interpreter and the compiler need

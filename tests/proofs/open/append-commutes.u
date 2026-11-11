@@ -1,0 +1,3 @@
+// lemma append_commutes open: forall xs, ys => (ys ++ xs) == (xs ++ ys)
+lemma append_commutes[A](xs: List[A], ys: List[A]) :=
+  ensures xs ++ ys == ys ++ xs

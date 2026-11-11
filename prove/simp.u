@@ -174,10 +174,10 @@ function loose_concl(c: Int, d: Concl): List[Int] :=
 
 function to_seq(e: Term): Seq :=
   match e
-    case EConst(LBool(true)) =>
+    case ELit(LBool(true)) =>
       true_seq()
 
-    case EConst(LBool(false)) =>
+    case ELit(LBool(false)) =>
       false_seq()
 
     case Not(a) =>
@@ -462,7 +462,7 @@ function is_valid_rule(r: Rule): Bool :=
     case EBound(_) =>
       false
 
-    case EConst(_) =>
+    case ELit(_) =>
       false
 
     case _ =>
@@ -475,7 +475,7 @@ function assume_term(ctx: Ctx, e: Term, b: Bool): Ctx :=
     ctx
   else
     match e
-      case EConst(LBool(bool)) =>
+      case ELit(LBool(bool)) =>
         if bool == b then ctx else contradiction(ctx)
 
       case Not(a) =>
@@ -502,7 +502,7 @@ function assume_term(ctx: Ctx, e: Term, b: Bool): Ctx :=
 
 function is_value(decls: Decls, e: Term): Bool :=
   match e
-    case EConst(_) =>
+    case ELit(_) =>
       true
     case _ =>
       constr_head(decls, e) != None
@@ -708,7 +708,7 @@ function bounds(ctx: Ctx, t: Lin): List[Lin] :=
 
 function bound_of(r: Rule, a: Term): List[Lin] :=
   match (r.conds, r.lhs, r.rhs)
-    case (List(), Less(p, q), EConst(LBool(bool))) =>
+    case (List(), Less(p, q), ELit(LBool(bool))) =>
       match lin_sub(lin_of(p), lin_of(q))
         case Lin(_, List(Summand(atom, _))) =>
           match match_term(size(r.vars), atom, a, empty())
@@ -766,10 +766,10 @@ function simp_term(ctx: Ctx, e: Term): Term :=
     case EIte(cond, then_expr, else_expr) =>
       let t := simp_term(ctx, cond) in
       match t
-        case EConst(LBool(true)) =>
+        case ELit(LBool(true)) =>
           simp_term(ctx, then_expr)
 
-        case EConst(LBool(false)) =>
+        case ELit(LBool(false)) =>
           simp_term(ctx, else_expr)
 
         case _ =>
@@ -790,7 +790,7 @@ function simp_term(ctx: Ctx, e: Term): Term :=
       rewrite(ctx, sum_term(simp_summands(ctx, summands, Lin(constant, List()))))
 
     case EFun(name) =>
-      match get(name, ctx.decls.defs)
+      match get((name, 0), ctx.decls.defs)
         case Some(d) =>
           unfold(ctx, e, d, List())
         case None =>
@@ -799,9 +799,6 @@ function simp_term(ctx: Ctx, e: Term): Term :=
 
     case ELevel(_) =>
       rewrite(ctx, e)
-
-    case ERaise(expr, typ) =>
-      ERaise(simp_term(ctx, expr), typ)
 
     case _ =>
       e
@@ -820,119 +817,139 @@ function simp_ite(c: Term, a: Term, b: Term): Term :=
     a
   else
     match (a, b)
-      case (EConst(LBool(true)), EConst(LBool(false))) =>
+      case (ELit(LBool(true)), ELit(LBool(false))) =>
         c
 
-      case (EConst(LBool(false)), EConst(LBool(true))) =>
-        app("not", List(c))
+      case (ELit(LBool(false)), ELit(LBool(true))) =>
+        Not(c)
 
       case _ =>
         EIte(c, a, b)
     end
-
-function builtins(): List[Id] :=
-  List("+", "-", "*", "/", "%", "==", "<", "not", "and", "or", "==>")
 
 function simp_app(ctx: Ctx, f: Term, args: List[Term]): Term :=
   match f
     case ELam(formals, body) if size(formals) == size(args) =>
       simp_term(ctx, beta(args, body))
 
-    case EFun(Name(None, base)) if contains(base, builtins()) =>
-      simp_builtin(ctx, base, args)
-
     case EFun(name) =>
-      match get(name, ctx.decls.defs)
-        case Some(d) =>
-          unfold(ctx, EApp(f, args), d, args)
+      match simp_builtin(ctx, EApp(f, args))
+        case Some(t) =>
+          t
+
         case None =>
-          rewrite(ctx, EApp(f, args))
+          match get((name, size(args)), ctx.decls.defs)
+            case Some(d) =>
+              unfold(ctx, EApp(f, args), d, args)
+            case None =>
+              rewrite(ctx, EApp(f, args))
+          end
       end
 
     case _ =>
       rewrite(ctx, EApp(f, args))
   end
 
-function simp_builtin(ctx: Ctx, op: Id, args: List[Term]): Term :=
-  match (op, args)
-    case ("+", List(a, b)) =>
-      rewrite(ctx, sum_term(lin_add(lin_of(a), lin_of(b))))
+// e simplified if it is an application of a builtin, whose arguments are simplified, which takes precedence over a
+// definition of the same name, as of not and ==> in the prelude
+function simp_builtin(ctx: Ctx, e: Term): Option[Term] :=
+  match e
+    case Plus(a, b) =>
+      Some(rewrite(ctx, sum_term(lin_add(lin_of(a), lin_of(b)))))
 
-    case ("-", List(a, b)) =>
-      rewrite(ctx, sum_term(lin_sub(lin_of(a), lin_of(b))))
+    case Minus(a, b) =>
+      Some(rewrite(ctx, sum_term(lin_sub(lin_of(a), lin_of(b)))))
 
-    case ("*", List(EConst(LInt(num)), b)) =>
-      rewrite(ctx, sum_term(lin_scale(num, lin_of(b))))
+    case Times(ELit(LInt(num)), b) =>
+      Some(rewrite(ctx, sum_term(lin_scale(num, lin_of(b)))))
 
-    case ("*", List(a, EConst(LInt(num)))) =>
-      rewrite(ctx, sum_term(lin_scale(num, lin_of(a))))
+    case Times(a, ELit(LInt(num))) =>
+      Some(rewrite(ctx, sum_term(lin_scale(num, lin_of(a)))))
 
-    case ("*", List(a, b)) =>
-      rewrite(ctx, app("*", ordered(a, b)))
+    case Times(a, b) =>
+      match ordered(a, b)
+        case (x, y) =>
+          Some(rewrite(ctx, Times(x, y)))
+      end
 
-    case ("/", List(EConst(LInt(m)), EConst(LInt(n)))) if n != 0 =>
-      int_term(m / n)
+    case Div(ELit(LInt(m)), ELit(LInt(n))) if n != 0 =>
+      Some(int_term(m / n))
 
-    case ("%", List(EConst(LInt(m)), EConst(LInt(n)))) if n != 0 =>
-      int_term(m % n)
+    case Div(_, _) =>
+      Some(rewrite(ctx, e))
 
-    case ("==", List(a, b)) =>
-      simp_eq(ctx, a, b)
+    case Mod(ELit(LInt(m)), ELit(LInt(n))) if n != 0 =>
+      Some(int_term(m % n))
 
-    case ("<", List(a, b)) =>
-      simp_less(ctx, a, b)
+    case Mod(_, _) =>
+      Some(rewrite(ctx, e))
 
-    case ("not", List(EConst(LBool(bool)))) =>
-      bool_term(not bool)
+    case Eq(a, b) =>
+      Some(simp_eq(ctx, a, b))
 
-    case ("not", List(Not(a))) =>
-      a
+    case Less(a, b) =>
+      Some(simp_less(ctx, a, b))
 
-    case ("and", List(a, b)) =>
+    case Not(a) =>
+      Some(simp_not(ctx, a))
+
+    case And(a, b) =>
       if a == bool_term(false) or b == bool_term(false) then
-        bool_term(false)
+        Some(bool_term(false))
       else if a == bool_term(true) or a == b then
-        b
+        Some(b)
       else if b == bool_term(true) then
-        a
+        Some(a)
       else
-        rewrite(ctx, app("and", List(a, b)))
+        Some(rewrite(ctx, e))
 
-    case ("or", List(a, b)) =>
+    case Or(a, b) =>
       if a == bool_term(true) or b == bool_term(true) then
-        bool_term(true)
+        Some(bool_term(true))
       else if a == bool_term(false) or a == b then
-        b
+        Some(b)
       else if b == bool_term(false) then
-        a
+        Some(a)
       else
-        rewrite(ctx, app("or", List(a, b)))
+        Some(rewrite(ctx, e))
 
-    case ("==>", List(a, b)) =>
+    case Implies(a, b) =>
       if a == bool_term(false) or b == bool_term(true) or a == b then
-        bool_term(true)
+        Some(bool_term(true))
       else if a == bool_term(true) then
-        b
+        Some(b)
       else if b == bool_term(false) then
-        simp_builtin(ctx, "not", List(a))
+        Some(simp_not(ctx, a))
       else
-        rewrite(ctx, app("==>", List(a, b)))
+        Some(rewrite(ctx, e))
 
     case _ =>
-      rewrite(ctx, app(op, args))
+      None
+  end
+
+function simp_not(ctx: Ctx, a: Term): Term :=
+  match a
+    case ELit(LBool(bool)) =>
+      bool_term(not bool)
+
+    case Not(b) =>
+      b
+
+    case _ =>
+      rewrite(ctx, Not(a))
   end
 
 // the sides of an equation, the greater in the term order first
-function oriented(decls: Decls, a: Term, b: Term): List[Term] :=
+function oriented(decls: Decls, a: Term, b: Term): Term * Term :=
   if is_greater(decls, b, a) then
-    List(b, a)
+    (b, a)
   else if is_greater(decls, a, b) then
-    List(a, b)
+    (a, b)
   else
     ordered(a, b)
 
-function ordered(a: Term, b: Term): List[Term] :=
-  if compare(a, b) > 0 then List(b, a) else List(a, b)
+function ordered(a: Term, b: Term): Term * Term :=
+  if compare(a, b) > 0 then (b, a) else (a, b)
 
 // true if equal in normal form, false if assuming it is inconsistent, as for distinct constructors
 function simp_eq(ctx: Ctx, a: Term, b: Term): Term :=
@@ -941,7 +958,10 @@ function simp_eq(ctx: Ctx, a: Term, b: Term): Term :=
   else if ctx.probes > 0 and merge(ctx with probes := ctx.probes - 1, a, b, 5).inconsistent then
     bool_term(false)
   else
-    rewrite(ctx, app("==", oriented(ctx.decls, a, b)))
+    match oriented(ctx.decls, a, b)
+      case (x, y) =>
+        rewrite(ctx, Eq(x, y))
+    end
 
 function simp_less(ctx: Ctx, a: Term, b: Term): Term :=
   let d := lin_sub(lin_of(b), lin_of(a)) in
@@ -955,7 +975,7 @@ function simp_less(ctx: Ctx, a: Term, b: Term): Term :=
       else if is_entailed(ctx, lin_scale(-1, d)) then
         bool_term(false)
       else
-        rewrite(ctx, app("<", List(a, b)))
+        rewrite(ctx, Less(a, b))
   end
 
 // the application of a function to its arguments, unfolded always if it is not recursive, and else where the match or
@@ -979,10 +999,10 @@ function unfold(ctx: Ctx, t: Term, d: Def, args: List[Term]): Term :=
 
         case EIte(cond, then_expr, else_expr) =>
           match simp_term(inner, cond)
-            case EConst(LBool(true)) =>
+            case ELit(LBool(true)) =>
               simp_term(inner, then_expr)
 
-            case EConst(LBool(false)) =>
+            case ELit(LBool(false)) =>
               simp_term(inner, else_expr)
 
             case _ =>
@@ -1014,10 +1034,10 @@ function select(ctx: Ctx, t: Term, bs: List[TermBranch]): Option[Term] :=
 
             case Some(h) =>
               match simp_term(ctx, beta(exprs, h))
-                case EConst(LBool(true)) =>
+                case ELit(LBool(true)) =>
                   Some(beta(exprs, body))
 
-                case EConst(LBool(false)) =>
+                case ELit(LBool(false)) =>
                   select(ctx, t, rest)
 
                 case _ =>
@@ -1037,7 +1057,7 @@ function match_pat(decls: Decls, p: Pat, t: Term): PatMatch :=
 
     case PLit(lit) =>
       match t
-        case EConst(w) =>
+        case ELit(w) =>
           if lit == w then Matched(List()) else Failed
         case _ =>
           Stuck
@@ -1201,7 +1221,7 @@ function split_case(decls: Decls, ys: List[Var], assms: List[Seq], concls: List[
         EFun(c)
       else
         EApp(EFun(c), List(for i in range(0, n) yield EBound(k + n - 1 - i))) in
-      Seq(fields ++ ys, List(Atom(app("==", List(t, value))); assms), concls)
+      Seq(fields ++ ys, List(Atom(Eq(t, value)); assms), concls)
 
     case None =>
       Seq(ys, assms, concls)

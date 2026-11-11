@@ -1,6 +1,9 @@
 // the driver of ulang, out/ulang.bin, with the commands run, test, and check with the interpreter of run.u,
 // compile, which translates a file to C, whose main calls the procedure entry, or runs all tests for the entry test,
-// and format, which prints a file as format_program of format.u does
+// format, which prints a file as format_program of format.u does, and prove, which proves the lemmas of a file by the
+// default proof of prove/lemma.u, as test does after the tests
+
+import "prove"
 
 data TestFailed :=
   case TestFailed(message: Str)
@@ -43,6 +46,11 @@ procedure main() :=
         call check_file(in file, out r)
       end, out ok)
 
+    case List("prove", file; names) =>
+      call attempt(in file, lambda out r =>
+        call prove_file(in file, names, out r)
+      end, out ok)
+
     case List("compile", file, entry, target) =>
       call attempt(in file, lambda out r =>
         call compile_to(in file, entry, target, out r)
@@ -75,7 +83,7 @@ function usage_test(): Str :=
   "       ulang test <file> [<name> ...] [-- args]\n" ++ "       ulang test <dir> [<path> ...]\n"
 
 function usage_other(): Str :=
-  "       ulang check <file>\n" ++ "       ulang compile <file> <entry> <target.c>\n" ++ "       ulang format <file> ..."
+  "       ulang check <file>\n" ++ "       ulang prove <file> [<lemma> ...]\n" ++ "       ulang compile <file> <entry> <target.c>\n" ++ "       ulang format <file> ...\n" ++ "functions are not yet checked to terminate, so a lemma about one that does not may be proven falsely"
 
 // the elements before the first sep, and those after it, none if xs has no sep
 function split_on[A](xs: List[A], sep: A): List[A] * List[A] :=
@@ -250,7 +258,46 @@ procedure test_file(
       assign ok := false
 
     case _ =>
+      local proven: Bool
       call run_tests(in run, tests, out ok)
+      if names == List() then
+        call   prove_lemmas_of(in q, main, List(), out proven)
+        assign ok := ok and proven
+      end
+  end
+
+// proves the lemmas of file, all or the named ones, printing whether each is proven
+procedure prove_file(in file: Str, names: List[Str], out ok: Bool) :=
+  local main: Id, q: Prog
+  call load_formatted(in file, out main, q)
+  call prove_lemmas_of(in q, main, names, out ok)
+
+procedure prove_lemmas_of(in q: Prog, main: Id, names: List[Str], out ok: Bool) :=
+  local proved: List[Proved]
+  call   lemma_results(in q, main, names, out proved)
+  assign ok := true
+  for Proved(name, goal) in proved do
+    if goal == true_seq() then
+      call os_println(in "lemma " ++ name.base ++ " proved")
+    else
+      call   os_println(in "lemma " ++ name.base ++ " open: " ++ print_seq(goal))
+      assign ok := false
+    end
+  end
+
+// the lemmas of the module main of q proven, the named ones if names are given, where those before them are facts
+procedure lemma_results(
+  in  q: Prog,
+      main: Id,
+      names: List[Str],
+  out proved: List[Proved]
+) :=
+  local t := translate(q, main), missing: List[Str] := List(for n in names if not exists(t.lemmas, lambda l => l.name.base == n))
+  match missing
+    case List(n; _) =>
+      raise TestFailed(error_text(RuntimeKind, "there is no lemma " ++ n))
+    case List() =>
+      assign proved := List(for p in prove_lemmas(t.decls, t.lemmas) if names == List() or contains(p.name.base, names))
   end
 
 procedure run_tests(in run: Run, tests: List[Cmd], out ok: Bool) :=
@@ -342,19 +389,39 @@ function expected_error(text: Str): Str :=
       ""
   end
 
+// // lemma name open: goal, as open_lemma writes it
+function states_open_lemma(line: Str): Bool :=
+  match split(line, ' ')
+    case List("//", "lemma", _, "open:"; _) =>
+      true
+    case _ =>
+      false
+  end
+
 function states_error(line: Str): Bool :=
-  exists(error_kinds(), lambda kind => starts_with(line, "// " ++ error_text(kind, "")))
+  states_open_lemma(line) or exists(error_kinds(), lambda kind => starts_with(line, "// " ++ error_text(kind, "")))
 
 // runs all tests of file, quietly, and raises the first failure
 procedure test_all(in file: Str, out ok: Bool) :=
-  local main: Id, q: Prog, run: Run, message: Str
+  local main: Id, q: Prog, run: Run, message: Str, proved: List[Proved]
   call   load_formatted(in file, out main, q)
   assign run := load(q)
   call   first_failure(in run, List(for c in q.cmds if is_any_test(c)), out message)
   if message != "" then
     raise TestFailed(message)
   end
+  call lemma_results(in q, main, List(), out proved)
+  match find(proved, lambda p => p.goal != true_seq())
+    case Some(Proved(name, goal)) =>
+      raise TestFailed(open_lemma(name, goal))
+    case None =>
+      skip
+  end
   assign ok := true
+
+// the message of a lemma that the default proof leaves open, as the first line of a file that expects it states it
+function open_lemma(name: Name, goal: Seq): Str :=
+  "lemma " ++ name.base ++ " open: " ++ print_seq(goal)
 
 procedure first_failure(in run: Run, tests: List[Cmd], out message: Str) :=
   assign message := ""

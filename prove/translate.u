@@ -1,0 +1,184 @@
+// the translation of the programs that ulang/check.u checks into the terms of the prover, see prove.md, which is not
+// versioned
+//
+// Checked programs have resolved names, which the terms keep: only the formals and the variables of lambdas, lets, and
+// patterns become indices, by an environment of their names, the innermost first.
+
+import "ulang"
+
+export
+
+// a lemma as the sequent that the prover proves
+data Lemma :=
+  case Lemma(name: Name, goal: Seq)
+
+data Translation :=
+  case Translation(decls: Decls, lemmas: List[Lemma])
+
+// the symbols of the checked program q and the lemmas of its module m in their order
+function translate(q: Prog, m: Id): Translation
+
+implementation
+
+function translate(q: Prog, m: Id): Translation :=
+  let ranked := zip(range(0, size(q.cmds)), q.cmds) in
+  let defined := List(for cmd in q.cmds for d in definition(cmd) yield d) in
+  let datas := List(for (rank, cmd) in ranked for d in datatype(rank, cmd) yield d) in
+  let ranks := Map(for (rank, cmd) in ranked for n in fun_name(cmd) yield n => rank) in
+  Translation(with_defs(datas_decls(datas), defined, ranks), List(for cmd in q.cmds for l in lemma_of(m, cmd) yield l))
+
+function fun_name(cmd: Cmd): Option[Name] :=
+  match cmd
+    case CFun(name, _, _, _, _) =>
+      Some(name)
+    case _ =>
+      None
+  end
+
+// a function by its name and arity, as Defs.funs of ulang/defs.u, with its formals and body
+function definition(cmd: Cmd): Option[(Name * Int) * (List[Var] * Term)] :=
+  match cmd
+    case CFun(name, _, formals, _, body) =>
+      Some(((name, size(formals)), (formals, term_of(bind(formals, List()), body))))
+    case _ =>
+      None
+  end
+
+function datatype(rank: Int, cmd: Cmd): Option[Int * (Name * List[Constr])] :=
+  match cmd
+    case CData(t, _, constrs) =>
+      Some((rank, (t, constrs)))
+    case _ =>
+      None
+  end
+
+function datas_decls(datas: List[Int * (Name * List[Constr])]): Decls :=
+  match datas
+    case List() =>
+      empty_decls()
+
+    case List((rank, (t, constrs)); rest) =>
+      let decls := datas_decls(rest) in
+      let constr_decls := Map(for k in constrs yield k.name => ConstrDecl(t, List(for field in k.fields yield Var(Name(None, field.name), field.typ)))) in
+      decls with constrs := decls.constrs ++ constr_decls, datatypes := put(t, List(for k in constrs yield k.name), decls.datatypes), ranks := decls.ranks ++ Map(for k in constrs yield k.name => rank)
+  end
+
+// the definitions, each recursive if its name reaches itself by the names in the bodies, also through other functions,
+// which counts the arities of a name together, since a function may be passed without its arguments
+function with_defs(decls: Decls, defined: List[(Name * Int) * (List[Var] * Term)], ranks: Map[Name, Int]): Decls :=
+  let calls := Map(for ((n, _), (_, body)) in defined yield n => symbols_in(body)) in
+  let defs := Map(for ((n, k), (formals, body)) in defined yield (n, k) => Def(contains(n, reachable(calls, List(for g in value_or(get(n, calls), empty())), empty())), formals, body)) in
+  decls with defs := defs, ranks := decls.ranks ++ ranks
+
+// the names that the names todo reach, with seen, which grows within the keys of calls, so that this ends
+function reachable(calls: Map[Name, Set[Name]], todo: List[Name], seen: Set[Name]): Set[Name] :=
+  match todo
+    case List() =>
+      seen
+
+    case List(f; rest) =>
+      match get(f, calls)
+        case Some(called) if not contains(f, seen) =>
+          reachable(calls, List(for g in called) ++ rest, insert(f, seen))
+        case _ =>
+          reachable(calls, rest, seen)
+      end
+  end
+
+// the lemma of cmd if it belongs to module m, for all formals that satisfy its assumptions
+function lemma_of(m: Id, cmd: Cmd): Option[Lemma] :=
+  match cmd
+    case CLemma(name, _, formals, assms, concl) if name.module == Some(m) =>
+      let env := bind(formals, List()) in
+      let atoms := List(for a in assms yield Atom(term_of(env, a))), goal := Atom(term_of(env, concl)) in
+      Some(Lemma(name, Seq(formals, atoms, List(Concl(List(), List(goal))))))
+
+    case _ =>
+      None
+  end
+
+// the environment env with the variables xs bound inside it, the last one innermost
+function bind(xs: List[Var], env: List[Name]): List[Name] :=
+  reverse(List(for x in xs yield x.name)) ++ env
+
+function term_of(env: List[Name], expr: Expr): Term :=
+  match expr
+    case ELit(lit) =>
+      ELit(lit)
+
+    case EVar(Var(name, _)) =>
+      match index_of(name, env)
+        case Some(i) =>
+          EBound(i)
+        case None =>
+          EFun(name)
+      end
+
+    case EApp(fun, args) =>
+      let f := term_of(env, fun), terms := List(for a in args yield term_of(env, a)) in
+      EApp(f, terms)
+
+    case ELam(formals, body) =>
+      let inner := term_of(bind(formals, env), body) in
+      ELam(formals, inner)
+
+    case ELet(bindings, body) =>
+      let_term(env, bindings, body)
+
+    case EIte(cond, then_expr, else_expr) =>
+      let c := term_of(env, cond), a := term_of(env, then_expr), b := term_of(env, else_expr) in
+      EIte(c, a, b)
+
+    case EMatch(arg, cases) =>
+      let a := term_of(env, arg), bs := List(for br in cases yield branch_term(env, br)) in
+      EMatch(a, bs)
+
+    case ETuple(args) =>
+      let terms := List(for a in args yield term_of(env, a)) in
+      EApp(EFun(tuple_name(size(args))), terms)
+
+    // procedure values are atoms, told apart by their text
+    case EProc(_, _, _, _) =>
+      EFun(Name(Some("(procedure)"), show(expr)))
+
+    // the checker translates accesses, updates, and forms, so checked programs have none
+    case EField(_, _) =>
+      unchecked(expr)
+
+    case EUpdate(_, _, _) =>
+      unchecked(expr)
+
+    case EForm(_, _, _) =>
+      unchecked(expr)
+
+    case EFor(_, _, _, _) =>
+      unchecked(expr)
+  end
+
+function unchecked(expr: Expr): Term :=
+  EFun(Name(Some("(unchecked)"), show(expr)))
+
+// a let of variables by substitution, else the match of its patterns, of a tuple if there are several
+function let_term(env: List[Name], bindings: List[Pat * Expr], body: Expr): Term :=
+  let values := List(for (_, a) in bindings yield term_of(env, a)), pats := List(for (p, _) in bindings yield p) in
+  match pattern_vars(pats)
+    case Some(xs) =>
+      let inner := term_of(bind(xs, env), body) in
+      beta(values, inner)
+
+    case None =>
+      let_match(env, if size(pats) == 1 then at(0, from_list(pats)) else PTuple(pats), if size(values) == 1 then
+        at(0, from_list(values))
+      else
+        EApp(EFun(tuple_name(size(values))), values), body)
+  end
+
+// the match of value against the irrefutable pat, which binds in body
+function let_match(env: List[Name], pat: Pat, value: Term, body: Expr): Term :=
+  let inner := term_of(bind(pattern_vars(pat), env), body) in
+  EMatch(value, List(TermBranch(pat, None, inner)))
+
+function branch_term(env: List[Name], br: Branch[Expr]): TermBranch :=
+  let inner := bind(pattern_vars(br.pat), env) in
+  let guard := map_option(br.guard, lambda g => term_of(inner, g)), body := term_of(inner, br.body) in
+  TermBranch(br.pat, guard, body)

@@ -1,5 +1,21 @@
 // lemmas about the lists of the library, which the prover proves by its default proof
 
+lemma evaluation() :=
+  ensures size(List(1, 2, 3) ++ List(4)) == 4 and reverse(List(1, 2, 3)) == List(3, 2, 1)
+
+lemma evaluation_take_drop() :=
+  ensures take(2, List(1, 2, 3)) ++ drop(2, List(1, 2, 3)) == List(1, 2, 3)
+
+lemma size_cons[A](x: A, xs: List[A]) :=
+  ensures size(List(x; xs)) == 1 + size(xs)
+
+lemma cons_injective[A](x: A, y: A, xs: List[A], ys: List[A]) :=
+  requires List(x; xs) == List(y; ys)
+  ensures  x == y and xs == ys
+
+lemma cons_acyclic[A](x: A, xs: List[A]) :=
+  ensures List(x; xs) != xs and List(x; xs) != List()
+
 lemma append_nil[A](xs: List[A]) :=
   ensures xs ++ List() == xs
 
@@ -9,6 +25,19 @@ lemma append_assoc[A](xs: List[A], ys: List[A], zs: List[A]) :=
 lemma size_append[A](xs: List[A], ys: List[A]) :=
   ensures size(xs ++ ys) == size(xs) + size(ys)
 
+// by size_append, which is a fact of the lemmas after it
+lemma size_twice[A](xs: List[A]) :=
+  ensures size(xs ++ xs) == 2 * size(xs)
+
+lemma size_reverse_onto[A](xs: List[A], ys: List[A]) :=
+  ensures size(reverse_onto(xs, ys)) == size(xs) + size(ys)
+
 lemma take_drop[A](n: Int, xs: List[A]) :=
-  requires 0 <= n
-  ensures  take(n, xs) ++ drop(n, xs) == xs
+  ensures take(n, xs) ++ drop(n, xs) == xs
+
+lemma size_positive[A](xs: List[A]) :=
+  ensures 0 <= size(xs)
+
+// by size_positive
+lemma size_cons_positive[A](x: A, xs: List[A]) :=
+  ensures 0 < size(List(x; xs))

@@ -1,0 +1,3 @@
+// lemma irreflexive open: forall a => false
+lemma irreflexive(a: Int) :=
+  ensures a < a

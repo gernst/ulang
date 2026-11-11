@@ -1,0 +1,63 @@
+// the default proof of lemmas, until proofs have syntax, see prove.md, which is not versioned
+
+import "ulang"
+
+export
+
+// a lemma with its goal after the proof, which is true_seq() if it is proven
+data Proved :=
+  case Proved(name: Name, goal: Seq)
+
+// the lemmas in their order, each by simplification, else by induction on the first of its formals by which all cases
+// close, where the lemmas proven before are assumptions
+function prove_lemmas(decls: Decls, lemmas: List[Lemma]): List[Proved]
+
+function is_proven(proved: Proved): Bool
+
+implementation
+
+function prove_lemmas(decls: Decls, lemmas: List[Lemma]): List[Proved] :=
+  proofs(decls, lemmas, List())
+
+function proofs(decls: Decls, lemmas: List[Lemma], facts: List[Seq]): List[Proved] :=
+  match lemmas
+    case List() =>
+      List()
+
+    case List(Lemma(name, goal); rest) =>
+      let proved := Proved(name, default_proof(decls, facts, goal)) in
+      List(
+        proved; proofs(decls, rest, if is_proven(proved) then facts ++ List(goal) else facts))
+  end
+
+function is_proven(proved: Proved): Bool :=
+  proved.goal == true_seq()
+
+// the goal with the facts as assumptions, which are closed, so that they stay valid under its binders
+function with_facts(goal: Seq, facts: List[Seq]): Seq :=
+  match goal
+    case Seq(fixed, assms, concls) =>
+      Seq(fixed, facts ++ assms, concls)
+    case Atom(_) =>
+      Seq(List(), facts, List(Concl(List(), List(goal))))
+  end
+
+// true_seq() if the goal is proven, else the goal simplified without the facts, which would only clutter it; the facts
+// are added after induction, since in the induction hypotheses they would be conditions that never hold
+function default_proof(decls: Decls, facts: List[Seq], goal: Seq): Seq :=
+  if is_true(decls, with_facts(goal, facts)) then
+    true_seq()
+  else
+    match goal
+      case Seq(fixed, _, _) =>
+        if exists(range(0, size(fixed)), lambda p => is_true(decls, with_facts(induction(decls, goal, p), facts))) then
+          true_seq()
+        else
+          simplify(decls, goal)
+
+      case Atom(_) =>
+        simplify(decls, goal)
+    end
+
+function is_true(decls: Decls, goal: Seq): Bool :=
+  simplify(decls, goal) == true_seq()
