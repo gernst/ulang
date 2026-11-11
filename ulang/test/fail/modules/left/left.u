@@ -1,0 +1,12 @@
+// a module for ulang/test/fail/modules/ambiguous-name/ambiguous-name.u, which exports a helper of the same name and type
+// as the other one, for ulang/test/fail/modules/own-name.u, which declares one of its own, and for the misplaced imports of
+// ulang/test/fail/modules/import-after-declaration.u and ulang/test/fail/modules/import-after-export/import-after-export.u
+
+export
+
+function helper(n: Int): Int
+
+implementation
+
+function helper(n: Int): Int :=
+  n + 1

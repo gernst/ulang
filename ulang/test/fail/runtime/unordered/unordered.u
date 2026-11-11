@@ -1,0 +1,23 @@
+// runtime error: uncaught exception Unordered("ulang/test/fail/runtime/unordered/unordered.Tally")
+
+export
+
+type Tally
+
+function tally(n: Int): Tally
+
+function ==(a: Tally, b: Tally): Bool
+
+implementation
+
+data Tally :=
+  case Tally(count: Int)
+
+function tally(n: Int): Tally :=
+  Tally(n)
+
+function ==(a: Tally, b: Tally): Bool :=
+  true
+
+test t() :=
+  assert tally(1) < tally(2)

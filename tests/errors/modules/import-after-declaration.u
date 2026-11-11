@@ -1,4 +1,0 @@
-// parse error: imports come first at 4.1
-function f(): Int := 1
-
-import "tests/errors/modules/left"

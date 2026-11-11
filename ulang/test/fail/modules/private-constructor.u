@@ -1,0 +1,6 @@
+// type error: unknown variable Full at 5.1
+
+import "ulang/test/fail/modules/hiding"
+
+test t() :=
+  local b := Full(1)

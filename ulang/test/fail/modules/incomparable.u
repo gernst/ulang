@@ -1,0 +1,6 @@
+// runtime error: uncaught exception Incomparable("ulang/test/fail/modules/hiding/hiding.Box")
+
+import "ulang/test/fail/modules/hiding"
+
+test t() :=
+  assert box(1) == box(1)

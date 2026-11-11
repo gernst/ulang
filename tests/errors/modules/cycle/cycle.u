@@ -1,3 +1,0 @@
-// parse error: cyclic import of the package tests/errors/modules/cycle/ping in tests/errors/modules/cycle/pong/pong at 2.1
-// packages do not import each other cyclically
-import "tests/errors/modules/cycle/ping"

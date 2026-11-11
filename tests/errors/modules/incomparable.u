@@ -1,6 +1,0 @@
-// runtime error: uncaught exception Incomparable("tests/errors/modules/hiding/hiding.Box")
-
-import "tests/errors/modules/hiding"
-
-test t() :=
-  assert box(1) == box(1)

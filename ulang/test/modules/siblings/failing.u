@@ -1,0 +1,15 @@
+// runtime error: assertion failed: 3 != 4
+//
+// a member of the package ulang/test/modules/siblings whose test fails, which runs only when this file runs, not with its siblings
+
+export
+
+function three(): Int
+
+implementation
+
+function three(): Int :=
+  size(Odd(1))
+
+test failing() :=
+  assert three() == 4

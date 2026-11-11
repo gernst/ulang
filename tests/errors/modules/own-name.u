@@ -1,9 +1,0 @@
-// type error: helper is ambiguous: tests/errors/modules/left/left.helper: Int -> Int, tests/errors/modules/own-name.helper: Int -> Int at 8.1
-
-import "tests/errors/modules/left"
-
-function helper(n: Int): Int :=
-  n + 2
-
-test r() :=
-  assert helper(1) == 3

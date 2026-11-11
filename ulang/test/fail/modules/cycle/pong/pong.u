@@ -1,0 +1,11 @@
+// parse error: cyclic import of the package ulang/test/fail/modules/cycle/pong in ulang/test/fail/modules/cycle/ping/ping at 2.1
+import "ulang/test/fail/modules/cycle/ping"
+
+export
+
+function pong(): Int
+
+implementation
+
+function pong(): Int :=
+  2

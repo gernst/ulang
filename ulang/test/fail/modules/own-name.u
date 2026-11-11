@@ -1,0 +1,9 @@
+// type error: helper is ambiguous: ulang/test/fail/modules/left/left.helper: Int -> Int, ulang/test/fail/modules/own-name.helper: Int -> Int at 8.1
+
+import "ulang/test/fail/modules/left"
+
+function helper(n: Int): Int :=
+  n + 2
+
+test r() :=
+  assert helper(1) == 3

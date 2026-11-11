@@ -1,0 +1,25 @@
+// a module for ulang/test/datatypes/pattern-aliases.u, with an exported and a private pattern alias
+
+export
+
+data Tm :=
+  case Op(name: Str, args: List[Tm])
+  case Leaf(n: Int)
+
+pattern Plus(a: Tm, b: Tm): Tm :=
+  Op("+", List(a, b))
+
+function minus_of(t: Tm): Option[Tm]
+
+implementation
+
+pattern Minus(a: Tm): Tm :=
+  Op("-", List(a))
+
+function minus_of(t: Tm): Option[Tm] :=
+  match t
+    case Minus(a) =>
+      Some(a)
+    case _ =>
+      None
+  end

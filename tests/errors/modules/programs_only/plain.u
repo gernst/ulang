@@ -1,4 +1,0 @@
-// a program, which no file can import, in a directory that tests/errors/modules/no-members.u imports
-
-function plain_helper(n: Int): Int :=
-  n + 1

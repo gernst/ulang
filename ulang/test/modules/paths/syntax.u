@@ -1,0 +1,13 @@
+// a member of the package ulang/test/modules/paths with a datatype Expr, as ulang/test/modules/paths/nested/syntax.u has one
+
+export
+
+data Expr :=
+  case ELit(value: Int)
+
+function expr_int(n: Int): Expr
+
+implementation
+
+function expr_int(n: Int): Expr :=
+  ELit(n)

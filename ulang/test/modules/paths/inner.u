@@ -1,0 +1,10 @@
+// a member of the package ulang/test/modules/paths, which ulang/test/modules/paths.u imports, and which uses its sibling base.u without importing it
+
+export
+
+function inner_twice(n: Int): Int
+
+implementation
+
+function inner_twice(n: Int): Int :=
+  base_double(n)

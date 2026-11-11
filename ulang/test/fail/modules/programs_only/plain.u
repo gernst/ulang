@@ -1,0 +1,4 @@
+// a program, which no file can import, in a directory that ulang/test/fail/modules/no-members.u imports
+
+function plain_helper(n: Int): Int :=
+  n + 1

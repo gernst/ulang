@@ -1,0 +1,10 @@
+// a member of the package ulang/test/modules/paths, which ulang/test/modules/paths/inner.u uses
+
+export
+
+function base_double(n: Int): Int
+
+implementation
+
+function base_double(n: Int): Int :=
+  2 * n

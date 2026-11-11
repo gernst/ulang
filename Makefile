@@ -94,11 +94,12 @@ bootstrap: bootstrap/ulang.bin
 	rm -r -- "$${stage:?}"
 	$(MAKE) all
 
-# every .u file of tests/, ulang/, and the library, run by out/ulang.bin with all its tests in its directory, must
-# succeed, or fail with the error that its first line states, e.g. // type error: unknown variable x
+# every .u file of ulang/ and prelude/, also the tests of the packages in their subfolders test/, run by out/ulang.bin with
+# all its tests in its directory, must succeed, or fail with the error that its first line states, e.g.
+# // type error: unknown variable x
 .PHONY: test
 test: out/ulang.bin out/ulang.sh
-	out/ulang.sh test tests ulang prelude
+	out/ulang.sh test ulang prelude
 	$(MAKE) --no-print-directory testdocs
 
 # the checks of the repository in checks/, which run only compiled, since they parse the sources of the compiler, which the
@@ -123,7 +124,7 @@ testdocs: $(CHECKS)/docs.bin $(CHECKS)/docs.sh
 
 # rewrites every .u file as format does, after a change of the printer, except the tests of format errors, which must stay
 # unformatted, and the files whose first line expects a parse error, which format refuses, ending its run
-REFORMAT = $(shell find project.u $(wildcard ulang prelude tests examples) -name '*.u' -not -path 'tests/errors/format/*' \
+REFORMAT = $(shell find project.u $(wildcard ulang prelude examples) -name '*.u' -not -path 'ulang/test/fail/format/*' \
 	| xargs awk 'FNR == 1 && !/^\/\/ parse error/ { print FILENAME }' | sort)
 
 .PHONY: reformat
@@ -140,4 +141,4 @@ $(TESTC)/ulang.o: $(RUNTIME) Makefile
 
 .PHONY: testc
 testc: out/ulang.bin out/ulang.sh $(TESTC)/ulang.o
-	./testc.sh $(TESTC) $(TESTC)/ulang.o tests ulang prelude
+	./testc.sh $(TESTC) $(TESTC)/ulang.o ulang prelude

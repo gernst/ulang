@@ -1,0 +1,12 @@
+// a module for ulang/test/fail/modules/pattern-alias-private/pattern-alias-private.u, with a private pattern alias
+
+export
+
+data Tm :=
+  case Op(name: Str, args: List[Tm])
+  case Leaf(n: Int)
+
+implementation
+
+pattern Minus(a: Tm): Tm :=
+  Op("-", List(a))
