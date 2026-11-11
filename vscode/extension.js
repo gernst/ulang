@@ -9,6 +9,8 @@ const path = require("path");
 // " at 3.11", the position in the file of that module, with the kinds of error_kinds of ulang/syntax/error.u
 const errorLine = /^(.*?): ((?:parse|type|format|runtime|internal) error: .*?)(?: in ([\w/-]+))?(?: at (\d+)\.(\d+))?$/;
 const testLine = /^test (\S+) (passed|failed: (.*))$/;
+// e.g. "lemma append_nil proved" or "lemma append_nil open: forall xs => ...", of ulang prove and ulang test
+const lemmaLine = /^lemma (\S+) (?:proved|open: (.*))$/;
 
 function binary() {
   const configured = vscode.workspace.getConfiguration("ulang").get("binary");
@@ -37,7 +39,8 @@ function ulang(args, file) {
   });
 }
 
-// the procedures without parameters and the tests of a document with their names, which ulang run and ulang test select
+// the procedures without parameters, the tests, and the lemmas of a document with their names, which ulang run, ulang
+// test, and ulang prove select
 function blocks(document) {
   const result = [];
   for (let line = 0; line < document.lineCount; line++) {
@@ -45,7 +48,9 @@ function blocks(document) {
     const test = /^test\s+(\w+)/.exec(text);
     const proc = /^procedure\s+(\w+)\(\s*\)\s*:=/.exec(text);
     if (test) result.push({ kind: "test", name: test[1], line });
+    const lemma = /^lemma\s+(\w+)/.exec(text);
     if (proc) result.push({ kind: "run", name: proc[1], line });
+    if (lemma) result.push({ kind: "prove", name: lemma[1], line });
   }
   return result;
 }
@@ -126,8 +131,8 @@ function activate(context) {
 
   // errors of file in the error output of ulang, without a position at the start of the file, and those of another
   // module, known by its path from the root, at the import of its package, the directory of the module, or else at the
-  // start, as for a sibling, pointing to the module
-  function diagnose(file, stderr) {
+  // start, as for a sibling, pointing to the module; the lemmas that stdout states open are warnings at their lemma
+  function diagnose(file, stderr, stdout) {
     const found = [];
     const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n") : [];
     for (const line of stderr.split("\n")) {
@@ -153,16 +158,24 @@ function activate(context) {
       }
       found.push(diagnostic);
     }
+    for (const line of (stdout || "").split("\n")) {
+      const match = lemmaLine.exec(line);
+      if (!match || match[2] === undefined) continue;
+      const row = lines.findIndex((l) => new RegExp("^lemma\\s+" + match[1] + "\\b").test(l));
+      const at = new vscode.Position(Math.max(row, 0), 0);
+      const range = new vscode.Range(at, at.translate(0, "lemma".length));
+      found.push(new vscode.Diagnostic(range, "lemma " + match[1] + " open: " + match[2], vscode.DiagnosticSeverity.Warning));
+    }
     diagnostics.set(vscode.Uri.file(file), found);
   }
 
-  // ulang command file names..., e.g. ulang run file name, ulang test file name, or ulang check file
+  // ulang command file names..., e.g. ulang run file name, ulang test file name, ulang prove file name, or ulang check file
   async function execute(document, command, names, show) {
     if (document.isDirty) await document.save();
     const file = document.uri.fsPath;
     const result = await ulang([command, file, ...names], file);
     if (!result) return;
-    diagnose(file, result.stderr);
+    diagnose(file, result.stderr, result.stdout);
     if (show) {
       output.clear();
       output.append(result.stdout);
@@ -188,7 +201,7 @@ function activate(context) {
     tests.forEach((t) => run.started(t));
     const result = await ulang(["test", file.uri.fsPath], file.uri.fsPath);
     if (!result) return;
-    diagnose(file.uri.fsPath, result.stderr);
+    diagnose(file.uri.fsPath, result.stderr, result.stdout);
     const outcomes = new Map();
     for (const line of result.stdout.split("\n")) {
       const match = testLine.exec(line);
@@ -231,7 +244,7 @@ function activate(context) {
         provideCodeLenses(doc) {
           return blocks(doc).map((block) => {
             const range = new vscode.Range(block.line, 0, block.line, 0);
-            const title = block.kind === "test" ? "▶ Run test" : "▶ Run";
+            const title = { test: "▶ Run test", run: "▶ Run", prove: "▶ Prove" }[block.kind];
             return new vscode.CodeLens(range, { title, command: "ulang.runBlock", arguments: [doc.uri, block.kind, block.name] });
           });
         },

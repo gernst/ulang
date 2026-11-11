@@ -226,7 +226,7 @@
         },
         {
           "name": "keyword.other.ulang",
-          "match": "\\b(test|pattern)\\b"
+          "match": "\\b(test|pattern|requires|ensures)\\b"
         },
         {
           "name": "keyword.other.ulang",
