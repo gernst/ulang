@@ -1,0 +1,43 @@
+// words: the ten most frequent words of the files given as arguments, where a file that cannot be read is reported
+// and skipped
+//
+//   out/ulang.sh run examples/words.u -- file …
+
+// the words of a text, lower-cased runs of letters
+function words(text: Str): List[Str] :=
+  List(for w in split(str(List(for c in chars(text) yield if is_letter(c) then lower(c) else ' ')), ' ') if w != "")
+
+function lower(c: Char): Char :=
+  if 'A' <= c and c <= 'Z' then chr(ord(c) + 32) else c
+
+// adds the words to the counts in m
+procedure count(in ws: List[Str], ref m: Map[Str, Int]) :=
+  for w in ws do
+    assign m := put(w, value_or(get(w, m), 0) + 1, m)
+  end
+
+// the n most frequent words, ties in alphabetical order
+function top(n: Int, m: Map[Str, Int]): List[Str * Int] :=
+  take(n, List(for (c, w) in sort(List(for w => c in m yield (-c, w))) yield (w, -c)))
+
+procedure main() :=
+  local args: List[Str], m := Map()
+  call os_args(out args)
+  for path in args do
+    local text: Str
+    try
+      call os_read(in path, out text)
+      call count(in words(text), ref m)
+    catch
+      case OsError(message) =>
+        call os_print_error(in message)
+    end
+  end
+  for (w, c) in top(10, m) do
+    call os_println(in show(c) ++ " " ++ w)
+  end
+
+test counting() :=
+  local m := Map()
+  call count(in words("The cat saw the other cat. THE end."), ref m)
+  assert top(2, m) == List(("the", 3), ("cat", 2))

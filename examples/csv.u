@@ -1,0 +1,222 @@
+// csv: the relational algebra on CSV files, one operation per command line, which prints the resulting table as CSV
+//
+//   out/ulang.sh run examples/csv.u -- join <file> …
+//   out/ulang.sh run examples/csv.u -- project <col> … <file>
+//   out/ulang.sh run examples/csv.u -- rename <old> <new> <file>
+//   out/ulang.sh run examples/csv.u -- select <col> <value> <file>
+//   out/ulang.sh run examples/csv.u -- union <file> <file>
+//   out/ulang.sh run examples/csv.u -- diff <file> <file>
+//   out/ulang.sh run examples/csv.u -- count <col> <file>
+//
+// a file has a header, and its fields are split at commas, without quoting
+
+type Row :=
+  Map[Str, Str]
+
+// the rows are a set, so that duplicates vanish as in the algebra, and equal tables are ==
+data Table :=
+  case Table(columns: List[Str], rows: Set[Row])
+
+data CsvError :=
+  case CsvError(message: Str)
+
+function usage(): Str :=
+  "usage: csv " ++ join(" | ", List(
+    "join <file> …",
+    "project <col> … <file>",
+    "rename <old> <new> <file>",
+    "select <col> <value> <file>",
+    "union <file> <file>",
+    "diff <file> <file>",
+    "count <col> <file>"))
+
+function parse_table(text: Str): Table :=
+  match List(for line in split(text, '\n') if line != "")
+    case List() =>
+      raise CsvError("no header")
+
+    case List(header; lines) =>
+      let columns := split(header, ',') in
+      if repeated(columns) != None then
+        raise CsvError("repeated column in " ++ header)
+      else
+        Table(columns, Set(for line in lines yield parse_row(columns, line)))
+  end
+
+function parse_row(columns: List[Str], line: Str): Row :=
+  let fields := split(line, ',') in
+  if size(fields) != size(columns) then
+    raise CsvError("expected " ++ show(size(columns)) ++ " fields: " ++ line)
+  else
+    Map(for (col, field) in zip(columns, fields))
+
+// the rows in the order of their fields, column by column as in the header
+function format_table(table: Table): Str :=
+  let lines := sort(List(for row in table.rows yield fields_of(table.columns, row))) in
+  join("\n", List(for fields in List(table.columns; lines) yield join(",", fields))) ++ "\n"
+
+function fields_of(cols: List[Str], row: Row): List[Str] :=
+  List(for col in cols yield value_or(get(col, row), ""))
+
+// this and the operations below assume columns that query has checked
+function project(cols: List[Str], table: Table): Table :=
+  Table(cols, Set(for row in table.rows yield Map(for col in cols yield col => value_or(get(col, row), ""))))
+
+function rename(old: Str, new: Str, table: Table): Table :=
+  let columns := List(for col in table.columns yield renamed(old, new, col)) in
+  Table(columns, Set(for row in table.rows yield Map(for col => v in row yield renamed(old, new, col) => v)))
+
+function renamed(old: Str, new: Str, col: Str): Str :=
+  if col == old then new else col
+
+function select(col: Str, value: Str, table: Table): Table :=
+  table with rows := Set(for row in table.rows if get(col, row) == Some(value))
+
+function union(a: Table, b: Table): Table :=
+  a with rows := a.rows ++ b.rows
+
+function diff(a: Table, b: Table): Table :=
+  a with rows := a.rows -- b.rows
+
+// the natural join, which indexes the rows of b by the values of the shared columns
+function join(a: Table, b: Table): Table :=
+  let shared := List(for col in a.columns if contains(col, b.columns)) in
+  let index := foldl(b.rows, Map(), lambda index, row => indexed(shared, row, index)) in
+  let rows := Set(for row in a.rows for other in partners(shared, row, index) yield row ++ other) in
+  Table(a.columns ++ List(for col in b.columns if not contains(col, a.columns)), rows)
+
+function partners(cols: List[Str], row: Row, index: Map[List[Str], List[Row]]): List[Row] :=
+  value_or(get(fields_of(cols, row), index), List())
+
+function indexed(cols: List[Str], row: Row, index: Map[List[Str], List[Row]]): Map[List[Str], List[Row]] :=
+  let key := fields_of(cols, row) in
+  put(key, List(row; value_or(get(key, index), List())), index)
+
+// the number of rows per value of col, in a column count
+function count(col: Str, table: Table): Table :=
+  let counts := foldl(table.rows, Map(), lambda counts, row => increment(col, row, counts)) in
+  Table(List(col, "count"), Set(for v => n in counts yield Map(col => v, "count" => show(n))))
+
+function increment(col: Str, row: Row, counts: Map[Str, Int]): Map[Str, Int] :=
+  let v := value_or(get(col, row), "") in
+  put(v, value_or(get(v, counts), 0) + 1, counts)
+
+procedure require_columns(in cols: List[Str], table: Table) :=
+  for col in cols if not contains(col, table.columns) do
+    raise CsvError("no column " ++ col ++ " in " ++ join(",", table.columns))
+  end
+
+procedure require_same_columns(in a: Table, b: Table) :=
+  if Set(for col in a.columns) != Set(for col in b.columns) then
+    raise CsvError("different columns " ++ join(",", a.columns) ++ " and " ++ join(",", b.columns))
+  end
+
+procedure read_table(in path: Str, out table: Table) :=
+  local text: Str
+  call   os_read(in path, out text)
+  assign table := parse_table(text)
+
+procedure query(in args: List[Str], out result: Table) :=
+  match args
+    case List("join", path; paths) =>
+      call read_table(in path, out result)
+      for other in paths do
+        local table: Table
+        call   read_table(in other, out table)
+        assign result := join(result, table)
+      end
+
+    case List("project"; rest) if size(rest) >= 2 =>
+      local table: Table, cols: List[Str] := take(size(rest) - 1, rest)
+      call   read_table(in at(size(rest) - 1, rest), out table)
+      call   require_columns(in cols, table)
+      assign result := project(cols, table)
+
+    case List("rename", old, new, path) =>
+      local table: Table
+      call read_table(in path, out table)
+      call require_columns(in List(old), table)
+      if contains(new, table.columns) then
+        raise CsvError("column " ++ new ++ " exists")
+      end
+      assign result := rename(old, new, table)
+
+    case List("select", col, value, path) =>
+      local table: Table
+      call   read_table(in path, out table)
+      call   require_columns(in List(col), table)
+      assign result := select(col, value, table)
+
+    case List("union", path, other) =>
+      local a: Table, b: Table
+      call   read_table(in path, out a)
+      call   read_table(in other, out b)
+      call   require_same_columns(in a, b)
+      assign result := union(a, b)
+
+    case List("diff", path, other) =>
+      local a: Table, b: Table
+      call   read_table(in path, out a)
+      call   read_table(in other, out b)
+      call   require_same_columns(in a, b)
+      assign result := diff(a, b)
+
+    case List("count", col, path) =>
+      local table: Table
+      call read_table(in path, out table)
+      call require_columns(in List(col), table)
+      if col == "count" then
+        raise CsvError("column count is the result")
+      end
+      assign result := count(col, table)
+
+    case _ =>
+      raise CsvError(usage())
+  end
+
+procedure main() :=
+  local args: List[Str]
+  call os_args(out args)
+  try
+    local result: Table
+    call query(in args, out result)
+    call os_print(in format_table(result))
+  catch
+    case CsvError(message) =>
+      call os_print_error(in "csv: " ++ message)
+      call os_exit(in 1)
+
+    case OsError(message) =>
+      call os_print_error(in "csv: " ++ message)
+      call os_exit(in 1)
+  end
+
+function people(): Table :=
+  parse_table("name,city\nada,london\nalan,london\nedsger,nuenen\n")
+
+function cities(): Table :=
+  parse_table("city,country\nlondon,uk\nnuenen,nl\n")
+
+test parsing() :=
+  assert format_table(people()) == "name,city\nada,london\nalan,london\nedsger,nuenen\n"
+
+test joining() :=
+  assert join(people(), cities()) == parse_table("name,city,country\nada,london,uk\nalan,london,uk\nedsger,nuenen,nl\n")
+
+test join_with_own_projection() :=
+  assert join(people(), project(List("city"), people())) == people()
+
+test projection_drops_duplicates() :=
+  assert size(project(List("city"), people()).rows) == 2
+
+test selection() :=
+  assert select("country", "nl", join(people(), cities())) == parse_table("name,city,country\nedsger,nuenen,nl\n")
+
+test renaming() :=
+  assert format_table(rename("city", "town", cities())) == "town,country\nlondon,uk\nnuenen,nl\n"
+
+test union_and_diff() :=
+  assert diff(union(people(), people()), people()).rows == Set()
+
+test counting() :=
+  assert count("city", people()) == parse_table("city,count\nlondon,2\nnuenen,1\n")
