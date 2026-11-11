@@ -8,11 +8,22 @@ import "ulang/check"
 
 export
 
-// the entry is a procedure without parameters, or None for all tests
-procedure compile_file(in source: Str, entry: Option[Id], target: Str)
+// what the function main of the C runs
+data Entry :=
+  // a procedure of the main module without parameters
+  case EntryProc(proc: Id)
+  // the tests of the files, in their order, which main selects by its arguments, as ulang test does, see u_run_tests of
+  // ulang/runtime/ulang.c
+  case EntryTests(files: List[TestFile])
 
-// compile_file of the checked program q, whose entry is a procedure of its main module
-procedure compile_prog(in q: Prog, entry: Option[Id], target: Str)
+// a file of tests: its path, as the arguments of the compiled program name it, and its module
+data TestFile :=
+  case TestFile(path: Str, module: Id)
+
+procedure compile_file(in source: Str, entry: Entry, target: Str)
+
+// compile_file of the checked program q, whose entry is a procedure of its main module or the tests of its files
+procedure compile_prog(in q: Prog, entry: Entry, target: Str)
 
 implementation
 
@@ -1469,10 +1480,10 @@ procedure stmt_cases(
       assign ss := List(case_if(d, pattern_tests(pat, v), pat, v, body)) ++ rest
   end
 
-// the C functions of a command, and the statements of main for runs and tests
+// the C functions of a command, a function of each test if tests are compiled
 procedure compile_cmd(
   in  defs: Defs,
-      entry: Option[Id],
+      tests: Bool,
       cmd: Cmd,
   out ds: List[CDecl],
       ms: List[CStmt],
@@ -1499,11 +1510,10 @@ procedure compile_cmd(
       assign bs := copy_in(outs, refs) ++ bs ++ copy_out(outs ++ refs)
       assign ds := List(CdFunction(LkStatic, CtVoid, proc_name(name), params, bs)), ms := List()
 
-    case CTest(name, _, stmt) if entry == None =>
+    case CTest(name, _, stmt) if tests =>
       local bs: List[CStmt]
       call   compile_stmt(in defs, List(), stmt, out bs, ref g)
-      assign ds := List(), ms := List(
-        CsBlock(bs ++ List(CsExpr(c_call("u_passed", List(CeStr(name.base)))))))
+      assign ds := List(CdFunction(LkStatic, CtVoid, test_name(name), List(), bs)), ms := List()
 
     case _ =>
       assign ds := List(), ms := List()
@@ -1511,7 +1521,7 @@ procedure compile_cmd(
 
 procedure compile_cmds(
   in  defs: Defs,
-      entry: Option[Id],
+      tests: Bool,
       cmds: List[Cmd],
   out ds: List[CDecl],
       ms: List[CStmt],
@@ -1519,7 +1529,7 @@ procedure compile_cmds(
 ) :=
   local d1: List[CDecl], m1: List[CStmt], found_ds: Buffer[CDecl] := empty(), found_ms: Buffer[CStmt] := empty()
   for c in cmds do
-    call   compile_cmd(in defs, entry, c, out d1, m1, ref g)
+    call   compile_cmd(in defs, tests, c, out d1, m1, ref g)
     assign found_ds := found_ds ++ d1, found_ms := found_ms ++ m1
   end
   assign ds := List(for d in found_ds), ms := List(for m in found_ms)
@@ -1647,25 +1657,43 @@ function prototype(d: CDecl): List[CDecl] :=
       List()
   end
 
-// the C of q of module m, whose main calls the procedure entry without parameters, or runs all tests for None
-procedure compile_program(in q: Prog, m: Id, entry: Option[Id], out f: CFile) :=
-  local g := Gen(0, List()), defs := defs_of(q), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl], hs: List[CDecl]
+// the C of q of module m, whose main calls the procedure of the entry without parameters, or runs the tests of its files
+procedure compile_program(in q: Prog, m: Id, entry: Entry, out f: CFile) :=
+  local g := Gen(0, List()), defs := defs_of(q), ds: List[CDecl], ms: List[CStmt], fs: List[CDecl], hs: List[CDecl], tables: List[CDecl]
   match entry
-    case Some(proc) =>
-      call require_entry(in q, Name(Some(m), proc))
-    case None =>
-      skip
-  end
-  call compile_cmds(in defs, entry, q.cmds, out ds, ms, ref g)
-  match entry
-    case Some(proc) =>
-      assign ms := List(CsExpr(c_call(proc_name(Name(Some(m), proc)), List())))
-    case None =>
-      skip
+    case EntryProc(proc) =>
+      call   require_entry(in q, Name(Some(m), proc))
+      call   compile_cmds(in defs, false, q.cmds, out ds, ms, ref g)
+      assign ms := List(CsExpr(c_call(proc_name(Name(Some(m), proc)), List()))), tables := List()
+
+    case EntryTests(files) =>
+      call   compile_cmds(in defs, true, q.cmds, out ds, ms, ref g)
+      assign ms := List(
+        CsReturn(Some(c_call("u_run_tests", List(CeVar("argc"), CeVar("argv"), CeVar("u_files"), CeVar("u_tests")))))), tables := test_tables(files, q.cmds)
   end
   assign fs := wrappers(defs) ++ ds ++ g.lifted
   assign hs := List(CdInclude("ulang.h")) ++ prototypes(fs) ++ descriptor_decls(defs, q.cmds) ++ texts()
-  assign f := CFile(hs ++ fs ++ List(main_function(ms)))
+  assign f := CFile(hs ++ fs ++ tables ++ List(main_function(ms)))
+
+function test_name(n: Name): Str :=
+  "test_" ++ mangle(n)
+
+// the paths of the files and their tests, each with the index of its file, in the order of the files and then of the
+// commands, both ended by NULL, as u_run_tests of ulang/runtime/ulang.c takes them
+function test_tables(files: List[TestFile], cmds: List[Cmd]): List[CDecl] :=
+  let rows := List(for (i, file) in zip(range_to(size(files)), files) for c in cmds for name in tested_name(c, file.module) yield CeInit(List(CeNum(i), CeStr(name.base), CeVar(test_name(name))))) in
+  List(
+    CdGlobal(LkStatic, CtNamed("const char *const"), "u_files[]", Some(CeInit(List(for file in files yield CeStr(file.path)) ++ List(CeVar("NULL"))))),
+    CdGlobal(LkStatic, CtNamed("const struct u_test"), "u_tests[]", Some(CeInit(rows ++ List(CeInit(List(CeNum(0), CeVar("NULL"), CeVar("NULL"))))))))
+
+// the name of cmd if it is a test of the module m
+function tested_name(cmd: Cmd, m: Id): Option[Name] :=
+  match cmd
+    case CTest(name, _, _) if name.module == Some(m) =>
+      Some(name)
+    case _ =>
+      None
+  end
 
 // the texts of the runtime errors that ulang/runtime/ulang.c prints
 function texts(): List[CDecl] :=
@@ -1679,13 +1707,13 @@ function text_decl(p: Str * Str): CDecl :=
 
 // checks the program of the file source, which is its module, and writes its translation to C to target, with the whole
 // library, which every module sees, so also the module list, which the runtime needs
-procedure compile_file(in source: Str, entry: Option[Id], target: Str) :=
+procedure compile_file(in source: Str, entry: Entry, target: Str) :=
   local parsed: Source, q: Prog
   call parse_file(in source, out parsed)
   call check_program(in parsed, out q)
   call compile_prog(in q, entry, target)
 
-procedure compile_prog(in q: Prog, entry: Option[Id], target: Str) :=
+procedure compile_prog(in q: Prog, entry: Entry, target: Str) :=
   local f: CFile
   call compile_program(in q, q.main, entry, out f)
   call os_write(in target, format_file(f))

@@ -22,8 +22,17 @@ function binary() {
   return undefined;
 }
 
-// runs ulang.bin with args in the directory of file, resolving to its exit code, output, and errors,
-// with a stack as large as the system allows, since the interpreter recurses as deeply as the programs it runs
+// the root of the project of file, the nearest directory upward with project.u, else the directory of file
+function projectRoot(file) {
+  for (let dir = path.dirname(file); ; dir = path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, "project.u"))) return dir;
+    if (path.dirname(dir) === dir) return path.dirname(file);
+  }
+}
+
+// runs ulang.bin with args in the directory of file, or for test at the root of its project, where tests run, resolving
+// to its exit code, output, and errors, with a stack as large as the system allows, since the interpreter recurses as
+// deeply as the programs it runs
 function ulang(args, file) {
   return new Promise((resolve) => {
     const bin = binary();
@@ -33,7 +42,7 @@ function ulang(args, file) {
       return;
     }
     const script = 'ulimit -s unlimited 2>/dev/null; exec "$0" "$@"';
-    cp.execFile("sh", ["-c", script, bin, ...args], { cwd: path.dirname(file) }, (error, stdout, stderr) => {
+    cp.execFile("sh", ["-c", script, bin, ...args], { cwd: args[0] === "test" ? projectRoot(file) : path.dirname(file) }, (error, stdout, stderr) => {
       resolve({ code: error ? error.code || 1 : 0, stdout, stderr });
     });
   });

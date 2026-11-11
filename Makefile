@@ -95,42 +95,49 @@ bootstrap: bootstrap/ulang.bin
 	$(MAKE) all
 
 # every .u file of the project, also of the library and of the tests of the packages in their subfolders test/, but those of
-# checks/ and ulang/test/errors/, which project.u declares to run only compiled, run by out/ulang.bin with all its tests in
-# its directory, must succeed
+# ulang/test/errors/, which project.u declares to run only compiled, run by out/ulang.bin with all its tests in the
+# working directory, the root, must succeed
 .PHONY: test
 test: out/ulang.bin out/ulang.sh
 	out/ulang.sh test
 	$(MAKE) --no-print-directory testerrors
 	$(MAKE) --no-print-directory testdocs
 
-# the tests of the errors of the phases in ulang/test/errors/, whose cases each load the library, which the interpreted
-# parser and checker do too slowly, so they run only compiled, each binary in ulang/test/errors/ by a copy of the script
-ERRORS = out/errors
-ERROR_TESTS = $(basename $(notdir $(wildcard ulang/test/errors/*.u)))
+# the tests of the project compiled into one binary by compile --tests, whose main runs those that its arguments select, as
+# test does, at the root, by a copy of the script; at -O1, which cc compiles in half the time of -O2
+SUITE = out/suite
+PROJECT_SOURCES = $(shell find . -name '*.u' -not -path '*/out/*' -not -path '*/.*/*')
 
-$(ERRORS)/%.c: ulang/test/errors/%.u ulang/test/cases/cases.u out/ulang.bin out/ulang.sh $(SOURCES)
-	mkdir -p $(ERRORS)
-	out/ulang.sh compile $< --tests -o $@
+$(SUITE)/suite.c: out/ulang.bin out/ulang.sh $(PROJECT_SOURCES)
+	mkdir -p $(SUITE)
+	out/ulang.sh compile --tests -o $@
 
-$(ERRORS)/%.bin: $(ERRORS)/%.c $(RUNTIME) Makefile
+$(SUITE)/suite.bin: $(SUITE)/suite.c $(RUNTIME) Makefile
 	$(CC) $(subst -O2,-O1,$(CFLAGS)) $< ulang/runtime/ulang.c $(LIBS) -o $@
 
-$(ERRORS)/%.sh: $(SCRIPT)
-	mkdir -p $(ERRORS)
+$(SUITE)/suite.sh: $(SCRIPT)
+	mkdir -p $(SUITE)
 	cp $(SCRIPT) $@
 
+# the tests of the errors of the phases in ulang/test/errors/, whose cases each load the library, which the interpreted
+# parser and checker do too slowly, so they run only compiled
 .PHONY: testerrors
-testerrors: $(ERROR_TESTS:%=$(ERRORS)/%.bin) $(ERROR_TESTS:%=$(ERRORS)/%.sh)
-	cd ulang/test/errors && for t in $(ERROR_TESTS); do ../../../$(ERRORS)/$$t.sh || exit 1; done
+testerrors: $(SUITE)/suite.bin $(SUITE)/suite.sh
+	$(SUITE)/suite.sh ulang/test/errors
 
-# the checks of the repository in checks/, which run only compiled, since they parse the sources of the compiler, which the
-# interpreter does too slowly: checks/docs.u, that the references of the documentation name declarations of their files;
-# each binary run in checks/ by a copy of the script
+# all tests of the project compiled, which have the same outcome as interpreted, but without lemmas
+.PHONY: testc
+testc: $(SUITE)/suite.bin $(SUITE)/suite.sh
+	$(SUITE)/suite.sh
+
+# the checks of the repository in checks/, programs that run compiled at the root, since they parse the sources of the
+# compiler, which the interpreter does too slowly: checks/docs.u, that the references of the documentation name
+# declarations of their files
 CHECKS = out/checks
 
 $(CHECKS)/docs.c: out/ulang.bin out/ulang.sh checks/docs.u $(SOURCES)
 	mkdir -p $(CHECKS)
-	out/ulang.sh compile checks/docs.u --tests -o $@
+	out/ulang.sh compile checks/docs.u -o $@
 
 $(CHECKS)/docs.bin: $(CHECKS)/docs.c $(RUNTIME) Makefile
 	$(CC) $(CFLAGS) $(CHECKS)/docs.c ulang/runtime/ulang.c $(LIBS) -o $@
@@ -141,21 +148,9 @@ $(CHECKS)/docs.sh: $(SCRIPT)
 
 .PHONY: testdocs
 testdocs: $(CHECKS)/docs.bin $(CHECKS)/docs.sh
-	cd checks && ../$(CHECKS)/docs.sh
+	$(CHECKS)/docs.sh
 
 # rewrites every .u file of the project as format does, after a change of the printer
 .PHONY: reformat
 reformat: out/ulang.bin out/ulang.sh
 	out/ulang.sh format
-
-# the same files, each compiled by out/ulang.bin and cc with the runtime object, and run in its directory, by testc.sh in
-# parallel
-TESTC = out/testc
-
-$(TESTC)/ulang.o: $(RUNTIME) Makefile
-	mkdir -p $(TESTC)
-	$(CC) $(CFLAGS) -c ulang/runtime/ulang.c -o $@
-
-.PHONY: testc
-testc: out/ulang.bin out/ulang.sh $(TESTC)/ulang.o
-	./testc.sh $(TESTC) $(TESTC)/ulang.o ulang

@@ -7,19 +7,19 @@ import "ulang/test/cases"
 
 test append_commutes() :=
   assert raises OpenLemma("append_commutes", "forall xs, ys => (ys ++ xs) == (xs ++ ys)") do
-    call prove_text(in "append-commutes.u", List(
+    call prove_text(in "ulang/test/errors/append-commutes.u", List(
       "lemma append_commutes[A](xs: List[A], ys: List[A]) :=",
       "  ensures xs ++ ys == ys ++ xs"))
   end
 
 test irreflexive() :=
   assert raises OpenLemma("irreflexive", "forall a => false") do
-    call prove_text(in "irreflexive.u", List("lemma irreflexive(a: Int) :=", "  ensures a < a"))
+    call prove_text(in "ulang/test/errors/irreflexive.u", List("lemma irreflexive(a: Int) :=", "  ensures a < a"))
   end
 
 test less_by_two() :=
   assert raises OpenLemma("less_by_two", "forall a, b => a < b ==> b < (a + 2)") do
-    call prove_text(in "less-by-two.u", List(
+    call prove_text(in "ulang/test/errors/less-by-two.u", List(
       "lemma less_by_two(a: Int, b: Int) :=",
       "  requires a < b",
       "  ensures  b < a + 2"))

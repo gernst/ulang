@@ -936,30 +936,50 @@ const struct u_type u_proc_type = {"proc", compare_callables, compare_callables,
 // the error of the builtins on files, whose descriptor the runtime defines, since programs need not import os
 const struct u_type t_os_46_OsError = {"os.OsError", u_con_compare, u_equals_by_compare, u_con_show};
 
-void u_fail(const char *msg) {
+// the test that runs, whose failure jumps back to u_run_tests with the message, or NULL outside tests
+static jmp_buf *test_env = NULL;
+static char *test_message = NULL;
+
+// ends the program with the runtime error of message, or the test that runs
+static void fail_message(char *message) {
+  if (test_env) {
+    test_message = message;
+    longjmp(*test_env, 1);
+  }
   fflush(stdout);
-  fprintf(stderr, "runtime error: %s\n", msg);
+  fprintf(stderr, "%s\n", message);
   exit(1);
 }
 
-// ends the program with the runtime error of a text of ulang/syntax/error.u, where the first %s stands for a and the second for
-// b, as show gives them, or as they are if raw, which then are strings
+void u_fail(const char *msg) {
+  char *message;
+  size_t size;
+  FILE *f = open_memstream(&message, &size);
+  fprintf(f, "runtime error: %s", msg);
+  fclose(f);
+  fail_message(message);
+}
+
+// ends the program or the test that runs with the runtime error of a text of ulang/syntax/error.u, where the first %s stands
+// for a and the second for b, as show gives them, or as they are if raw, which then are strings
 static void fail_with_texts(const char *format, u_value a, u_value b, int raw) {
-  fflush(stdout);
-  fputs("runtime error: ", stderr);
+  char *message;
+  size_t size;
+  FILE *f = open_memstream(&message, &size);
+  fputs("runtime error: ", f);
   for (const char *p = format; *p; p++) {
     if (p[0] == '%' && p[1] == 's') {
       size_t n;
       const char *s = u_utf8(raw ? a : u_show(a), &n);
-      fwrite(s, 1, n, stderr);
+      fwrite(s, 1, n, f);
       a = b;
       p++;
     } else {
-      fputc(*p, stderr);
+      fputc(*p, f);
     }
   }
-  fputc('\n', stderr);
-  exit(1);
+  fclose(f);
+  fail_message(message);
 }
 
 static void fail_with(const char *format, u_value a, u_value b) {
@@ -1147,6 +1167,150 @@ void p_os_chdir(u_value dir) {
 
 void u_passed(const char *name) {
   printf("test %s passed\n", name);
+}
+
+// the path of a target without ./ in front and / at the end, "" for the root
+static char *normal_target(const char *path) {
+  while (path[0] == '.' && path[1] == '/') path += 2;
+  if (strcmp(path, ".") == 0) path = "";
+  char *s = GC_MALLOC_ATOMIC(strlen(path) + 1);
+  strcpy(s, path);
+  size_t n = strlen(s);
+  while (n > 0 && s[n - 1] == '/') s[--n] = 0;
+  return s;
+}
+
+static int ends_with_u(const char *path, size_t n) {
+  return n > 2 && strncmp(path + n - 2, ".u", 2) == 0;
+}
+
+// whether the target path selects the file, as itself or as a directory above it
+static int selects(const char *path, const char *file) {
+  size_t n = strlen(path);
+  return n == 0 || strcmp(path, file) == 0 || (strncmp(path, file, n) == 0 && file[n] == '/');
+}
+
+// the files that the targets select, each once, in the order of their first targets, and for each the names of its tests
+// that they select, count[i] of names[i], or -1 for all of them, where each file has room for capacity names
+struct selection {
+  int *files;
+  int size;
+  const char ***names;
+  int *count;
+  int capacity;
+};
+
+static int find_selected(struct selection *s, int file) {
+  for (int i = 0; i < s->size; i++)
+    if (s->files[i] == file) return i;
+  return -1;
+}
+
+static void select_file(struct selection *s, int file, const char *name) {
+  int i = find_selected(s, file);
+  if (i < 0) {
+    i = s->size++;
+    s->files[i] = file;
+    s->names[i] = GC_MALLOC(sizeof(const char *) * s->capacity);
+    s->count[i] = name ? 0 : -1;
+  }
+  if (!name) {
+    s->count[i] = -1;
+  } else if (s->count[i] >= 0) {
+    s->names[i][s->count[i]++] = name;
+  }
+}
+
+static int has_name(const char **names, int count, const char *name) {
+  for (int i = 0; i < count; i++)
+    if (strcmp(names[i], name) == 0) return 1;
+  return 0;
+}
+
+// runs a test, which passes if it returns, and fails with the message of its runtime error or failed assertion
+static const char *run_test(const struct u_test *t) {
+  jmp_buf env;
+  struct u_handler *outer = handlers;
+  test_message = NULL;
+  if (setjmp(env) == 0) {
+    test_env = &env;
+    t->run();
+  }
+  test_env = NULL;
+  handlers = outer;
+  return test_message;
+}
+
+int u_run_tests(int argc, char **argv, const char *const *files, const struct u_test *tests) {
+  int nfiles = 0, end = argc, ok = 1, passed = 0;
+  while (files[nfiles]) nfiles++;
+  for (int i = 1; i < argc; i++)
+    if (strcmp(argv[i], "--") == 0) {
+      end = i;
+      break;
+    }
+  // the arguments of os_args are those after --, after argv[0], here --
+  if (end < argc) u_args(argc - end, argv + end);
+  else u_args(1, argv);
+  struct selection s = {GC_MALLOC(sizeof(int) * nfiles), 0, GC_MALLOC(sizeof(char **) * nfiles), GC_MALLOC(sizeof(int) * nfiles),
+                        argc};
+  // the targets, by default the root, which selects all files
+  const char *root[] = {""}, **targets = end > 1 ? (const char **)argv + 1 : root;
+  int ntargets = end > 1 ? end - 1 : 1;
+  const char **missing = GC_MALLOC(sizeof(char *) * ntargets);
+  int nmissing = 0;
+  for (int i = 0; i < ntargets; i++) {
+    const char *arg = targets[i];
+    char *path = normal_target(arg), *name = NULL, *colon = strrchr(path, ':');
+    if (colon && ends_with_u(path, colon - path)) {
+      *colon = 0;
+      name = colon + 1;
+    }
+    int found = 0;
+    for (int f = 0; f < nfiles; f++)
+      if (name ? strcmp(path, files[f]) == 0 : selects(path, files[f])) {
+        select_file(&s, f, name);
+        found = 1;
+      }
+    if (!found) missing[nmissing++] = arg;
+  }
+  int several = s.size + nmissing > 1;
+  for (int i = 0; i < s.size; i++) {
+    const char *file = files[s.files[i]];
+    int file_ok = 1;
+    const char *label = several ? file : NULL;
+    for (int k = 0; k < s.count[i]; k++) {
+      int exists = 0;
+      for (const struct u_test *t = tests; t->name; t++)
+        if (t->file == s.files[i] && strcmp(t->name, s.names[i][k]) == 0) exists = 1;
+      if (!exists) {
+        printf("%s%sruntime error: there is no test %s\n", label ? label : "", label ? ": " : "", s.names[i][k]);
+        file_ok = 0;
+      }
+    }
+    for (const struct u_test *t = tests; t->name; t++) {
+      if (t->file != s.files[i] || (s.count[i] >= 0 && !has_name(s.names[i], s.count[i], t->name))) continue;
+      const char *message = run_test(t);
+      if (message) {
+        printf("%s%stest %s failed: %s\n", label ? label : "", label ? ": " : "", t->name, message);
+        file_ok = 0;
+      } else {
+        printf("%s%stest %s passed\n", label ? label : "", label ? ": " : "", t->name);
+      }
+      fflush(stdout);
+    }
+    if (file_ok) passed++;
+    else if (several) printf("%s: failed\n", file);
+    ok = ok && file_ok;
+  }
+  for (int i = 0; i < nmissing; i++) {
+    fflush(stdout);
+    fprintf(several ? stdout : stderr, "%s: runtime error: there is no file %s in the tests\n", missing[i], missing[i]);
+    ok = 0;
+  }
+  if (several) printf("%d of %d files passed\n", passed, s.size + nmissing);
+  fflush(stdout);
+  return ok ? 0 : 1;
 }
 
 void p_os_print(u_value text) {

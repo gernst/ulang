@@ -18,8 +18,10 @@ data Request :=
   case RCheck(paths: List[Str])
   case RProve(targets: List[Target])
   case RFormat(paths: List[Str], check_only: Bool)
-  // the procedure of the target, or all tests for tests
-  case RCompile(target: Target, tests: Bool, output: Str)
+  // the procedure of the target, main by default
+  case RCompile(target: Target, output: Str)
+  // the tests of the project
+  case RCompileTests(output: Str)
   case RHelp(command: Option[Str])
   // arguments that request does not read, with what is wrong with them
   case RUsage(problem: Str)
@@ -47,8 +49,11 @@ procedure main() :=
     case RFormat(paths, check_only) =>
       call format_paths(in paths, check_only, out ok)
 
-    case RCompile(target, tests, output) =>
-      call compile_target(in target, tests, output, out ok)
+    case RCompile(target, output) =>
+      call compile_target(in target, output, out ok)
+
+    case RCompileTests(output) =>
+      call compile_tests(in output, out ok)
 
     case RHelp(None) =>
       call os_println(in usage())
@@ -126,7 +131,7 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
         RUsage("unknown command " ++ command)
   end
 
-// the words of compile in any order, the file with its procedure, --tests, and -o with the target
+// the words of compile in any order, the file with its procedure or --tests, and -o with the target
 function compile_request(words: List[Str], target: Option[Target], tests: Bool, output: Option[Str]): Request :=
   match words
     case List("-o", path; more) =>
@@ -143,20 +148,23 @@ function compile_request(words: List[Str], target: Option[Target], tests: Bool, 
 
     case List() =>
       match (target, output)
-        case (Some(Target(_, Some(_))), _) if tests =>
-          RUsage("compile takes a procedure or --tests, not both")
+        case (_, None) =>
+          RUsage("compile takes -o <target.c>")
+
+        case (Some(_), _) if tests =>
+          RUsage("compile --tests takes no file, since it compiles the tests of the project")
+
+        case (None, Some(path)) =>
+          if tests then
+            RCompileTests(path)
+          else
+            RUsage("compile takes a file or --tests")
 
         case (Some(t), Some(path)) =>
           if is_source(t.path) then
-            RCompile(t, tests, path)
+            RCompile(t, path)
           else
             RUsage("compile takes a file name.u, not " ++ t.path)
-
-        case (None, _) =>
-          RUsage("compile takes a file")
-
-        case (_, None) =>
-          RUsage("compile takes -o <target.c>")
       end
   end
 
@@ -176,8 +184,8 @@ test requests() :=
   assert request(List("test", "a.u:t", "dir", "b:c")) == RTest(List(Target("a.u", Some("t")), Target("dir", None), Target("b:c", None)), List())
   assert request(List("check")) == RCheck(List())
   assert request(List("format", "--check", "a.u")) == RFormat(List("a.u"), true)
-  assert request(List("compile", "-o", "a.c", "a.u", "--tests")) == RCompile(Target("a.u", None), true, "a.c")
-  assert request(List("compile", "a.u:go", "-o", "a.c")) == RCompile(Target("a.u", Some("go")), false, "a.c")
+  assert request(List("compile", "-o", "a.c", "--tests")) == RCompileTests("a.c")
+  assert request(List("compile", "a.u:go", "-o", "a.c")) == RCompile(Target("a.u", Some("go")), "a.c")
   assert request(List("help", "prove")) == RHelp(Some("prove"))
 
 test usage_errors() :=
@@ -187,7 +195,8 @@ test usage_errors() :=
   assert request(List("check", "a.u:t")) == RUsage("check takes no names")
   assert request(List("run", "dir")) == RUsage("run takes a file name.u, not dir")
   assert request(List("compile", "a.u")) == RUsage("compile takes -o <target.c>")
-  assert request(List("compile", "a.u:go", "--tests", "-o", "a.c")) == RUsage("compile takes a procedure or --tests, not both")
+  assert request(List("compile", "a.u", "--tests", "-o", "a.c")) == RUsage("compile --tests takes no file, since it compiles the tests of the project")
+  assert request(List("compile", "-o", "a.c")) == RUsage("compile takes a file or --tests")
 
 function commands(): List[Str] :=
   List("run", "test", "check", "prove", "format", "compile", "help")
@@ -216,7 +225,7 @@ function synopsis(command: Str): Str :=
       "format [--check] [<path> ...]"
 
     case "compile" =>
-      "compile <file>[:<procedure>] [--tests] -o <target.c>"
+      "compile (<file>[:<procedure>] | --tests) -o <target.c>"
 
     case _ =>
       "help [<command>]"
@@ -228,7 +237,7 @@ function description(command: Str): Str :=
       "calls the procedure, main by default, which takes no parameters, where os_args gives the arguments after --"
 
     case "test" =>
-      "runs the tests of the files, all or the named ones, also below directories, by default the project, each in its\n" ++ "directory, printing a line per test and lemma, where a file passes if it loads and its tests pass and its lemmas are\n" ++ "proven; with several files, it prints the files that do not pass and how many do"
+      "runs the tests of the files, all or the named ones, also below directories, by default the project, in the working\n" ++ "directory, printing a line per test and lemma, where a file passes if it loads and its tests pass and its lemmas are\n" ++ "proven; with several files, it prints the files that do not pass and how many do"
 
     case "check" =>
       "checks the files, also below directories, by default the project"
@@ -240,7 +249,7 @@ function description(command: Str): Str :=
       "rewrites the files, also below directories, by default the project, as format_program writes them; with --check, it\n" ++ "only reports the files that differ"
 
     case "compile" =>
-      "translates the file to C, whose main calls the procedure, main by default, or runs all tests for --tests"
+      "translates the file to C, whose main calls the procedure, main by default, or with --tests the tests of the project,\n" ++ "whose main takes the arguments of test, without lemmas, and runs them as test does, from the root of the project"
 
     case _ =>
       "prints the usage of all commands, or of one"
@@ -291,25 +300,20 @@ procedure run_target(in target: Target, args: List[Str], out ok: Bool) :=
     call os_print_error(in target.path ++ ": " ++ error)
   end
 
-// runs the tests of the targets, by default of the project, each unit loaded once in its directory, and the lemmas of each
-// file whose tests all run, printing a line per test and lemma, labeled by its file if there are several files
+// runs the tests of the targets, by default of the project, each unit loaded once, in the working directory, and the lemmas
+// of each file whose tests all run, printing a line per test and lemma, labeled by its file if there are several files
 procedure test_targets(in targets: List[Target], args: List[Str], out ok: Bool) :=
-  local found: List[Target], home: Str, q: Prog, error: Str, failed: List[Str] := List(), passed: Bool, units: List[List[Target]]
+  local found: List[Target], q: Prog, error: Str, failed: List[Str] := List(), passed: Bool, units: List[List[Target]]
   call targets_of(in targets, true, out found)
   call units_of(in found, out units)
-  call os_cwd(out home)
   for unit in units do
-    call os_chdir(in os_dirname(first_path(unit)))
-    call check_file(in os_basename(first_path(unit)), true, out q, error)
-    call os_chdir(in home)
+    call check_file(in first_path(unit), true, out q, error)
     if error != "" then
       call   report(in first_path(unit), error, size(files_of(found)) > 1)
       assign failed := failed ++ files_of(unit)
     else
       for file in files_of(unit) do
-        call os_chdir(in os_dirname(file))
         call test_module(in q, sibling(q.main, file), names_of(file, unit), args, label_of(file, found), out passed)
-        call os_chdir(in home)
         if not passed then
           assign failed := failed ++ List(file)
           if size(files_of(found)) > 1 then
@@ -367,14 +371,11 @@ procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
 
 // checks the files of the paths, by default of the project, each unit once, where each file must be formatted
 procedure check_paths(in paths: List[Str], out ok: Bool) :=
-  local found: List[Target], home: Str, q: Prog, error: Str, failed: List[Str] := List(), units: List[List[Target]]
+  local found: List[Target], q: Prog, error: Str, failed: List[Str] := List(), units: List[List[Target]]
   call targets_of(in List(for p in paths yield Target(p, None)), false, out found)
   call units_of(in found, out units)
-  call os_cwd(out home)
   for unit in units do
-    call os_chdir(in os_dirname(first_path(unit)))
-    call check_file(in os_basename(first_path(unit)), true, out q, error)
-    call os_chdir(in home)
+    call check_file(in first_path(unit), true, out q, error)
     if error != "" then
       call   report(in first_path(unit), error, size(files_of(found)) > 1)
       assign failed := failed ++ files_of(unit)
@@ -385,14 +386,11 @@ procedure check_paths(in paths: List[Str], out ok: Bool) :=
 
 // proves the lemmas of the targets, all or the named ones, by default of the project, each unit loaded once
 procedure prove_targets(in targets: List[Target], out ok: Bool) :=
-  local found: List[Target], home: Str, q: Prog, error: Str, failed: List[Str] := List(), proven: Bool, units: List[List[Target]]
+  local found: List[Target], q: Prog, error: Str, failed: List[Str] := List(), proven: Bool, units: List[List[Target]]
   call targets_of(in targets, false, out found)
   call units_of(in found, out units)
-  call os_cwd(out home)
   for unit in units do
-    call os_chdir(in os_dirname(first_path(unit)))
-    call check_file(in os_basename(first_path(unit)), true, out q, error)
-    call os_chdir(in home)
+    call check_file(in first_path(unit), true, out q, error)
     if error != "" then
       call   report(in first_path(unit), error, size(files_of(found)) > 1)
       assign failed := failed ++ files_of(unit)
@@ -432,20 +430,14 @@ procedure prove_module(
     end
   end
 
-// translates the file of the target to C, whose main calls the procedure of the target, main by default, or runs all tests
-// for tests
-procedure compile_target(
-  in  target: Target,
-      tests: Bool,
-      output: Str,
-  out ok: Bool
-) :=
+// translates the file of the target to C, whose main calls the procedure of the target, main by default
+procedure compile_target(in target: Target, output: Str, out ok: Bool) :=
   local q: Prog, error: Str
   call   check_file(in target.path, false, out q, error)
   assign ok := false
   if error == "" then
     try
-      call   compile_prog(in q, if tests then None else Some(value_or(target.name, "main")), output)
+      call   compile_prog(in q, EntryProc(value_or(target.name, "main")), output)
       assign ok := true
     catch
       case UnknownEntry(name) =>
@@ -461,6 +453,99 @@ procedure compile_target(
   if error != "" then
     call os_print_error(in target.path ++ ": " ++ error)
   end
+
+// translates the tests of the project to C, whose main runs them as test does, where each unit is checked as test checks
+// it, and the commands of each module are taken from the unit that it is a member of, with its tests, or else from the
+// first unit that loads it
+procedure compile_tests(in output: Str, out ok: Bool) :=
+  local root: Str, found: List[Target], units: List[List[Target]], q: Prog, error: Str, failed := false, files: Buffer[TestFile] := empty(), own: Buffer[Cmd] := empty(), others: Map[Id, List[Cmd]] := empty(), members: Set[Id] := empty()
+  call default_path(out root)
+  call targets_of(in List(), false, out found)
+  call units_of(in found, out units)
+  for unit in units do
+    call check_file(in first_path(unit), true, out q, error)
+    if error != "" then
+      call   report(in first_path(unit), error, true)
+      assign failed := true
+    else
+      local modules := List(for file in files_of(unit) yield sibling(q.main, file))
+      assign files := files ++ List(for file in files_of(unit) yield TestFile(from_root(root, file), sibling(q.main, file))), own := own ++ List(for c in q.cmds if belongs(c, modules)), members := members ++ Set(for m in modules)
+      assign others := others_of(q.cmds, modules, others)
+    end
+  end
+  assign ok := false
+  if not failed then
+    try
+      call   compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), ""), EntryTests(List(for f in files)), output)
+      assign ok := true
+    catch
+      case OsError(m) =>
+        call os_print_error(in output ++ ": " ++ error_text(RuntimeKind, m))
+      case e =>
+        call os_print_error(in output ++ ": " ++ error_text(InternalKind, internal_message(e)))
+    end
+  end
+
+// others with the commands of cmds of the modules that are neither in modules nor in others yet, by their modules
+function others_of(cmds: List[Cmd], modules: List[Id], others: Map[Id, List[Cmd]]): Map[Id, List[Cmd]] :=
+  let fresh := List(for c in cmds for m in cmd_module(c) if not contains(m, modules) and get(m, others) == None yield (m, c)) in
+  others ++ foldl(reverse(fresh), empty(), lambda found, (m, c) => put(m, List(c; value_or(get(m, found), List())), found))
+
+// whether cmd is a command of one of the modules
+function belongs(cmd: Cmd, modules: List[Id]): Bool :=
+  match cmd_module(cmd)
+    case Some(m) =>
+      contains(m, modules)
+    case None =>
+      false
+  end
+
+// the module of cmd, None for a notation, which the checked program no longer needs
+function cmd_module(cmd: Cmd): Option[Id] :=
+  match cmd
+    case CSort(name, _, _) =>
+      name.module
+
+    case CData(name, _, _) =>
+      name.module
+
+    case CFun(name, _, _, _, _) =>
+      name.module
+
+    case CProc(name, _, _, _, _, _) =>
+      name.module
+
+    case CNotation(_, _, _) =>
+      None
+
+    case CTest(name, _, _) =>
+      name.module
+
+    case CFunSig(name, _, _, _) =>
+      name.module
+
+    case CProcSig(name, _, _, _, _) =>
+      name.module
+
+    case CAbstract(name, _) =>
+      name.module
+
+    case CPatAlias(name, _, _, _, _) =>
+      name.module
+
+    case CLemma(name, _, _, _, _) =>
+      name.module
+  end
+
+// the path of file from the root, where file is a path from the working directory and root the root from there
+function from_root(root: Str, file: Str): Str :=
+  if starts_with(file, root ++ "/") then
+    slice(file, size(root) + 1, size(file))
+  else
+    file
+
+test paths_from_root() :=
+  assert from_root(".", "./ulang/ulang.u") == "ulang/ulang.u" and from_root("../..", "../../a/b.u") == "a/b.u"
 
 // the files of the paths, by default of the project, rewritten as format writes them, or for check_only reported if they
 // differ

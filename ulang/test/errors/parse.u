@@ -7,17 +7,17 @@ import "ulang/test/cases"
 
 test argument_list() :=
   assert raises ParseError("tuple types are written A * B", Pos(1, 15)) do
-    call check_text(in "argument-list.u", List("function f(p: (Int, Int)): Int :=", "  1"))
+    call check_text(in "ulang/test/errors/argument-list.u", List("function f(p: (Int, Int)): Int :=", "  1"))
   end
 
 test comment_before_statement() :=
   assert raises ParseError("a comment is the doc of the command or case on the next line, from the start of a line with its indentation", Pos(3, 3)) do
-    call check_text(in "comment-before-statement.u", List("procedure main() :=", "  local x := 1", "  // two", "  assign x := 2"))
+    call check_text(in "ulang/test/errors/comment-before-statement.u", List("procedure main() :=", "  local x := 1", "  // two", "  assign x := 2"))
   end
 
 test data_bar() :=
   assert raises ParseError("each constructor follows case, as in data T := case C", Pos(3, 3)) do
-    call check_text(in "data-bar.u", List(
+    call check_text(in "ulang/test/errors/data-bar.u", List(
       "// the constructors of a datatype follow case, as the cases of a match do, not |",
       "data Shape :=",
       "  Array( Circle(radius: Int)",
@@ -26,7 +26,7 @@ test data_bar() :=
 
 test detached_comment() :=
   assert raises ParseError("a comment is the doc of the command or case on the next line, from the start of a line with its indentation", Pos(3, 1)) do
-    call check_text(in "detached-comment.u", List(
+    call check_text(in "ulang/test/errors/detached-comment.u", List(
       "function f(): Int := 1",
       "",
       "// detached",
@@ -36,106 +36,106 @@ test detached_comment() :=
 
 test duplicate_notation() :=
   assert raises ParseError("operator + is already declared", Pos(1, 1)) do
-    call check_text(in "duplicate-notation.u", List("infix left 9 +"))
+    call check_text(in "ulang/test/errors/duplicate-notation.u", List("infix left 9 +"))
   end
 
 test field_types() :=
   assert raises ParseError("field v of T has different types", Pos(4, 1)) do
-    call check_text(in "field-types.u", List("data T :=", "  case A(v: Int)", "  case B(v: Str)"))
+    call check_text(in "ulang/test/errors/field-types.u", List("data T :=", "  case A(v: Int)", "  case B(v: Str)"))
   end
 
 test form_constructor() :=
   assert raises ParseError("Set(…) is a form, which is no value", Pos(2, 8)) do
-    call check_text(in "form-constructor.u", List("data Bag :=", "  case Set(n: Int)"))
+    call check_text(in "ulang/test/errors/form-constructor.u", List("data Bag :=", "  case Set(n: Int)"))
   end
 
 test form_value() :=
   assert raises ParseError("List(…) is a form, which is no value", Pos(2, 23)) do
-    call check_text(in "form-value.u", List("function f(xs: List[Int]): Int :=", "  size(foldr(xs, Nil, List))"))
+    call check_text(in "ulang/test/errors/form-value.u", List("function f(xs: List[Int]): Int :=", "  size(foldr(xs, Nil, List))"))
   end
 
 test formal_lists() :=
   assert raises ParseError("a function has one list of formals", Pos(1, 19)) do
-    call check_text(in "formal-lists.u", List("function f(a: Int)(b: Int): Int :=", "  a + b"))
+    call check_text(in "ulang/test/errors/formal-lists.u", List("function f(a: Int)(b: Int): Int :=", "  a + b"))
   end
 
 test if_without_then() :=
   assert raises ParseError("then expected but skip found", Pos(3, 5)) do
-    call check_text(in "if-without-then.u", List("test t() :=", "  if true", "    skip", "  end"))
+    call check_text(in "ulang/test/errors/if-without-then.u", List("test t() :=", "  if true", "    skip", "  end"))
   end
 
 // an import names a package, not a file
 test import_file() :=
   assert raises ParseError("an import names the directory of a package, not a file", Pos(1, 8)) do
-    call check_text(in "import-file.u", List("import \"ulang/test/modules/stack.u\""))
+    call check_text(in "ulang/test/errors/import-file.u", List("import \"ulang/test/modules/stack.u\""))
   end
 
 // the names of the path of a package are names
 test import_file_name() :=
   assert raises ParseError("an import names a package by its path from the root, of names of letters, digits, and _ only", Pos(1, 8)) do
-    call check_text(in "import-file-name.u", List("import \"my-set\""))
+    call check_text(in "ulang/test/errors/import-file-name.u", List("import \"my-set\""))
   end
 
 // imports name packages by strings, so that their names may be keywords
 test import_name() :=
   assert raises ParseError("package expected but set found", Pos(1, 8)) do
-    call check_text(in "import-name.u", List("import set"))
+    call check_text(in "ulang/test/errors/import-name.u", List("import set"))
   end
 
 // an import names a path from the root of the project, without .. segments
 test import_parent() :=
   assert raises ParseError("an import names a package by its path from the root, of names of letters, digits, and _ only", Pos(1, 8)) do
-    call check_text(in "import-parent.u", List("import \"../modules/left\""))
+    call check_text(in "ulang/test/errors/import-parent.u", List("import \"../modules/left\""))
   end
 
 test keyword_name() :=
   assert raises ParseError("keyword in is not a name", Pos(2, 7)) do
-    call check_text(in "keyword-name.u", List("function f(): Int :=", "  let in := 1 in in"))
+    call check_text(in "ulang/test/errors/keyword-name.u", List("function f(): Int :=", "  let in := 1 in in"))
   end
 
 test lemma_ensures_first() :=
   assert raises ParseError("declaration expected but requires found", Pos(3, 3)) do
-    call check_text(in "lemma-ensures-first.u", List("lemma l(x: Int) :=", "  ensures  x == x", "  requires x > 0"))
+    call check_text(in "ulang/test/errors/lemma-ensures-first.u", List("lemma l(x: Int) :=", "  ensures  x == x", "  requires x > 0"))
   end
 
 test lemma_without_ensures() :=
   assert raises ParseError("ensures expected but test found", Pos(4, 1)) do
-    call check_text(in "lemma-without-ensures.u", List("lemma l(x: Int) :=", "  requires x > 0", "", "test t() :=", "  skip"))
+    call check_text(in "ulang/test/errors/lemma-without-ensures.u", List("lemma l(x: Int) :=", "  requires x > 0", "", "test t() :=", "  skip"))
   end
 
 test list_without_elements() :=
   assert raises ParseError("expression expected but ; found", Pos(2, 8)) do
-    call check_text(in "list-without-elements.u", List("function f(xs: List[Int]): List[Int] :=", "  List(; xs)"))
+    call check_text(in "ulang/test/errors/list-without-elements.u", List("function f(xs: List[Int]): List[Int] :=", "  List(; xs)"))
   end
 
 test mixed_literal() :=
   assert raises ParseError("=> expected but , found", Pos(2, 19)) do
-    call check_text(in "mixed-literal.u", List("test r() :=", "  local v := Map(1, 2 => 3)"))
+    call check_text(in "ulang/test/errors/mixed-literal.u", List("test r() :=", "  local v := Map(1, 2 => 3)"))
   end
 
 test not_associative() :=
   assert raises ParseError("operator == is not associative", Pos(2, 17)) do
-    call check_text(in "not-associative.u", List("test not_associative() :=", "  assert 1 == 1 == true"))
+    call check_text(in "ulang/test/errors/not-associative.u", List("test not_associative() :=", "  assert 1 == 1 == true"))
   end
 
 test not_prefix() :=
   assert raises ParseError("* is not a prefix operator", Pos(2, 10)) do
-    call check_text(in "not-prefix.u", List("test not_prefix() :=", "  assert * 2 == 2"))
+    call check_text(in "ulang/test/errors/not-prefix.u", List("test not_prefix() :=", "  assert * 2 == 2"))
   end
 
 test notation_without_precedence() :=
   assert raises ParseError("precedence expected but ++ found", Pos(1, 12)) do
-    call check_text(in "notation-without-precedence.u", List("infix left ++"))
+    call check_text(in "ulang/test/errors/notation-without-precedence.u", List("infix left ++"))
   end
 
 test number_as_name() :=
   assert raises ParseError("name expected but 1 found", Pos(1, 10)) do
-    call check_text(in "number-as-name.u", List("function 1(): Int :=", "  1"))
+    call check_text(in "ulang/test/errors/number-as-name.u", List("function 1(): Int :=", "  1"))
   end
 
 test operator_before_declaration() :=
   assert raises ParseError("undeclared operator +++", Pos(2, 18)) do
-    call check_text(in "operator-before-declaration.u", List(
+    call check_text(in "ulang/test/errors/operator-before-declaration.u", List(
       "test operator_before_declaration() :=",
       "  assert List(1) +++ List(2) == List(1, 2)",
       "",
@@ -147,17 +147,17 @@ test operator_before_declaration() :=
 
 test pattern_alias_builtin() :=
   assert raises ParseError("builtin sections have signatures and types without a definition only", Pos(5, 1)) do
-    call check_text(in "pattern-alias-builtin.u", List("export", "", "builtin", "", "pattern Z(): Int := 0"))
+    call check_text(in "ulang/test/errors/pattern-alias-builtin.u", List("export", "", "builtin", "", "pattern Z(): Int := 0"))
   end
 
 test prefix_as_infix() :=
   assert raises ParseError("unexpected operator not", Pos(2, 5)) do
-    call check_text(in "prefix-as-infix.u", List("function f(a: Bool, b: Bool): Bool :=", "  a not b"))
+    call check_text(in "ulang/test/errors/prefix-as-infix.u", List("function f(a: Bool, b: Bool): Bool :=", "  a not b"))
   end
 
 test raises_without_do() :=
   assert raises ParseError("do expected but local found", Pos(3, 5)) do
-    call check_text(in "raises-without-do.u", List(
+    call check_text(in "ulang/test/errors/raises-without-do.u", List(
       "test missing_do() :=",
       "  assert raises DivisionByZero",
       "    local n := 1 / 0",
@@ -166,47 +166,47 @@ test raises_without_do() :=
 
 test repeated_field() :=
   assert raises ParseError("repeated field v of A", Pos(3, 3)) do
-    call check_text(in "repeated-field.u", List("data T :=", "  case A(v: Int, v: Int)", "  case B"))
+    call check_text(in "ulang/test/errors/repeated-field.u", List("data T :=", "  case A(v: Int, v: Int)", "  case B"))
   end
 
 test set_literal_rest() :=
   assert raises ParseError(") expected but => found", Pos(2, 17)) do
-    call check_text(in "set-literal-rest.u", List(
+    call check_text(in "ulang/test/errors/set-literal-rest.u", List(
       "function f(m: Map[Int, Int]): Map[Int, Int] :=",
       "  Map(1 => 2; 3 => 4)"))
   end
 
 test statement_as_declaration() :=
   assert raises ParseError("declaration expected but assign found", Pos(1, 1)) do
-    call check_text(in "statement-as-declaration.u", List("assign x := 1"))
+    call check_text(in "ulang/test/errors/statement-as-declaration.u", List("assign x := 1"))
   end
 
 test string_escape() :=
   assert raises ParseError("invalid escape", Pos(2, 12)) do
-    call check_text(in "string-escape.u", List("test bad_escape() :=", "  assert \"a\\qb\" == \"\""))
+    call check_text(in "ulang/test/errors/string-escape.u", List("test bad_escape() :=", "  assert \"a\\qb\" == \"\""))
   end
 
 test trailing_comment() :=
   assert raises ParseError("a comment is the doc of the command or case on the next line, from the start of a line with its indentation", Pos(1, 24)) do
-    call check_text(in "trailing-comment.u", List("function f(): Int := 1 // one"))
+    call check_text(in "ulang/test/errors/trailing-comment.u", List("function f(): Int := 1 // one"))
   end
 
 test undeclared_operator() :=
   assert raises ParseError("undeclared operator <+>", Pos(2, 12)) do
-    call check_text(in "undeclared-operator.u", List("test undeclared_operator() :=", "  assert 1 <+> 2 == 3"))
+    call check_text(in "ulang/test/errors/undeclared-operator.u", List("test undeclared_operator() :=", "  assert 1 <+> 2 == 3"))
   end
 
 test unnamed_field() :=
   assert raises ParseError("fields of constructors have names, as in C(name: T)", Pos(2, 25)) do
-    call check_text(in "unnamed-field.u", List("data Pair :=", "  case Pair(first: Int, Int)"))
+    call check_text(in "ulang/test/errors/unnamed-field.u", List("data Pair :=", "  case Pair(first: Int, Int)"))
   end
 
 test while_without_do() :=
   assert raises ParseError("do expected but skip found", Pos(3, 5)) do
-    call check_text(in "while-without-do.u", List("test t() :=", "  while false", "    skip", "  end"))
+    call check_text(in "ulang/test/errors/while-without-do.u", List("test t() :=", "  while false", "    skip", "  end"))
   end
 
 test wildcard_name() :=
   assert raises ParseError("expression expected but _ found", Pos(2, 17)) do
-    call check_text(in "wildcard-name.u", List("function f(): Int :=", "  let _ := 1 in _"))
+    call check_text(in "ulang/test/errors/wildcard-name.u", List("function f(): Int :=", "  let _ := 1 in _"))
   end

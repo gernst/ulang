@@ -7,12 +7,12 @@ import "ulang/test/cases"
 
 test empty_match() :=
   assert raises Located(None, Pos(1, 1), NotExhaustive(PWild)) do
-    call check_text(in "empty-match.u", List("function f(x: Int): Int :=", "  match x", "  end"))
+    call check_text(in "ulang/test/errors/empty-match.u", List("function f(x: Int): Int :=", "  match x", "  end"))
   end
 
 test guard_not_exhaustive() :=
   assert raises Located(None, Pos(1, 1), NotExhaustive(PLit(LBool(true)))) do
-    call check_text(in "guard-not-exhaustive.u", List(
+    call check_text(in "ulang/test/errors/guard-not-exhaustive.u", List(
       "function f(b: Bool): Int :=",
       "  match b",
       "    case true if b =>",
@@ -24,12 +24,12 @@ test guard_not_exhaustive() :=
 
 test lambda_pattern() :=
   assert raises Located(None, Pos(1, 1), NotExhaustive(PApp(Name(Some("prelude/option"), "None"), List()))) do
-    call check_text(in "lambda-pattern.u", List("function value(): Option[Int] -> Int :=", "  lambda Some(x) => x"))
+    call check_text(in "ulang/test/errors/lambda-pattern.u", List("function value(): Option[Int] -> Int :=", "  lambda Some(x) => x"))
   end
 
 test missing_cons() :=
   assert raises Located(None, Pos(1, 1), NotExhaustive(PApp(Name(Some("prelude/list"), "Cons"), List(PWild, PWild)))) do
-    call check_text(in "missing-cons.u", List(
+    call check_text(in "ulang/test/errors/missing-cons.u", List(
       "function f(x: List[Option[Int]]): Int :=",
       "  match x",
       "    case List() =>",
@@ -39,7 +39,7 @@ test missing_cons() :=
 
 test missing_false() :=
   assert raises Located(None, Pos(1, 1), NotExhaustive(PLit(LBool(false)))) do
-    call check_text(in "missing-false.u", List(
+    call check_text(in "ulang/test/errors/missing-false.u", List(
       "function f(x: Bool): Int :=",
       "  match x",
       "    case true =>",
@@ -49,7 +49,7 @@ test missing_false() :=
 
 test missing_int() :=
   assert raises Located(None, Pos(1, 1), NotExhaustive(PWild)) do
-    call check_text(in "missing-int.u", List(
+    call check_text(in "ulang/test/errors/missing-int.u", List(
       "function f(x: Int): Int :=",
       "  match x",
       "    case 0 =>",
@@ -59,7 +59,7 @@ test missing_int() :=
 
 test missing_nested_zero() :=
   assert raises Located(None, Pos(5, 1), NotExhaustive(_)) do
-    call check_text(in "missing-nested-zero.u", List(
+    call check_text(in "ulang/test/errors/missing-nested-zero.u", List(
       "data Nat :=",
       "  case Zero",
       "  case Succ(pred: Nat)",
@@ -75,7 +75,7 @@ test missing_nested_zero() :=
 
 test missing_nil() :=
   assert raises Located(None, Pos(1, 1), NotExhaustive(PApp(Name(Some("prelude/list"), "Nil"), List()))) do
-    call check_text(in "missing-nil.u", List(
+    call check_text(in "ulang/test/errors/missing-nil.u", List(
       "function f(x: List[Option[Int]]): Int :=",
       "  match x",
       "    case List(_; _) =>",
@@ -85,7 +85,7 @@ test missing_nil() :=
 
 test missing_pair_case() :=
   assert raises Located(None, Pos(1, 1), NotExhaustive(PTuple(List(PLit(LBool(false)), PLit(LBool(true)))))) do
-    call check_text(in "missing-pair-case.u", List(
+    call check_text(in "ulang/test/errors/missing-pair-case.u", List(
       "function f(p: Bool * Bool): Int :=",
       "  match p",
       "    case (true, _) =>",
@@ -97,7 +97,7 @@ test missing_pair_case() :=
 
 test missing_some() :=
   assert raises Located(None, Pos(1, 1), NotExhaustive(_)) do
-    call check_text(in "missing-some.u", List(
+    call check_text(in "ulang/test/errors/missing-some.u", List(
       "function f(x: List[Option[Int]]): Int :=",
       "  match x",
       "    case List() =>",
@@ -109,7 +109,7 @@ test missing_some() :=
 
 test missing_some_literal() :=
   assert raises Located(None, Pos(1, 1), NotExhaustive(_)) do
-    call check_text(in "missing-some-literal.u", List(
+    call check_text(in "ulang/test/errors/missing-some-literal.u", List(
       "function f(x: List[Option[Int]]): Int :=",
       "  match x",
       "    case List() =>",
@@ -125,7 +125,7 @@ test missing_some_literal() :=
 
 test missing_statement_case() :=
   assert raises Located(None, Pos(1, 1), NotExhaustive(PLit(LBool(false)))) do
-    call check_text(in "missing-statement-case.u", List(
+    call check_text(in "ulang/test/errors/missing-statement-case.u", List(
       "procedure p(in x: Bool, out r: Int) :=",
       "  match x",
       "    case true =>",
@@ -135,7 +135,7 @@ test missing_statement_case() :=
 
 test missing_successor() :=
   assert raises Located(None, Pos(5, 1), NotExhaustive(_)) do
-    call check_text(in "missing-successor.u", List(
+    call check_text(in "ulang/test/errors/missing-successor.u", List(
       "data Nat :=",
       "  case Zero",
       "  case Succ(pred: Nat)",
@@ -149,7 +149,7 @@ test missing_successor() :=
 
 test pattern_alias_missing() :=
   assert raises Located(None, Pos(4, 1), NotExhaustive(_)) do
-    call check_text(in "pattern-alias-missing.u", List(
+    call check_text(in "ulang/test/errors/pattern-alias-missing.u", List(
       "pattern Yes(): Option[Bool] :=",
       "  Some(true)",
       "",
@@ -164,7 +164,7 @@ test pattern_alias_missing() :=
 
 test pattern_alias_unreachable() :=
   assert raises Located(None, Pos(4, 1), Unreachable(_)) do
-    call check_text(in "pattern-alias-unreachable.u", List(
+    call check_text(in "ulang/test/errors/pattern-alias-unreachable.u", List(
       "pattern Yes(): Option[Bool] :=",
       "  Some(true)",
       "",
@@ -183,7 +183,7 @@ test pattern_alias_unreachable() :=
 
 test unreachable_after_wildcard() :=
   assert raises Located(None, Pos(1, 1), Unreachable(PLit(LBool(true)))) do
-    call check_text(in "unreachable-after-wildcard.u", List(
+    call check_text(in "ulang/test/errors/unreachable-after-wildcard.u", List(
       "function f(b: Bool): Int :=",
       "  match b",
       "    case _ =>",
@@ -195,7 +195,7 @@ test unreachable_after_wildcard() :=
 
 test unreachable_covered() :=
   assert raises Located(None, Pos(1, 1), Unreachable(PTuple(List(PLit(LBool(true)), PLit(LBool(true)))))) do
-    call check_text(in "unreachable-covered.u", List(
+    call check_text(in "ulang/test/errors/unreachable-covered.u", List(
       "function f(p: Bool * Bool): Int :=",
       "  match p",
       "    case (true, _) =>",
@@ -214,7 +214,7 @@ test unreachable_covered() :=
 
 test unreachable_literal() :=
   assert raises Located(None, Pos(1, 1), Unreachable(PLit(LInt(0)))) do
-    call check_text(in "unreachable-literal.u", List(
+    call check_text(in "ulang/test/errors/unreachable-literal.u", List(
       "function f(n: Int): Int :=",
       "  match n",
       "    case 0 =>",
@@ -230,7 +230,7 @@ test unreachable_literal() :=
 
 test unreachable_repeated() :=
   assert raises Located(None, Pos(1, 1), Unreachable(PApp(Name(Some("prelude/list"), "Nil"), List()))) do
-    call check_text(in "unreachable-repeated.u", List(
+    call check_text(in "ulang/test/errors/unreachable-repeated.u", List(
       "function f(xs: List[Int]): Int :=",
       "  match xs",
       "    case List() =>",
@@ -246,7 +246,7 @@ test unreachable_repeated() :=
 
 test unreachable_wildcard() :=
   assert raises Located(None, Pos(1, 1), Unreachable(PWild)) do
-    call check_text(in "unreachable-wildcard.u", List(
+    call check_text(in "ulang/test/errors/unreachable-wildcard.u", List(
       "function f(b: Bool): Int :=",
       "  match b",
       "    case true =>",

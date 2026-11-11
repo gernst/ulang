@@ -195,13 +195,13 @@ procedure file_decls(
       try
         if ends_with(file, ".u") then
           local source: Source
-          call parse_file(in "../" ++ file, out source)
+          call parse_file(in file, out source)
           for d in source.mods if d.name == source.main do
             assign decls := Some(module_decls(d))
           end
         else
           local text: Str
-          call   os_read(in "../" ++ file, out text)
+          call   os_read(in file, out text)
           assign decls := Some(DWords(words_of(text)))
         end
       catch
@@ -218,7 +218,7 @@ procedure problems_of(
   ref cache: Map[Str, Option[Decls]]
 ) :=
   local text: Str, found: Buffer[Str] := empty()
-  call os_read(in "../" ++ doc, out text)
+  call os_read(in doc, out text)
   for r in refs_of(text) if is_checked(r.name) do
     local decls: Option[Decls]
     call file_decls(in r.file, out decls, ref cache)
@@ -251,12 +251,18 @@ test checked() :=
   assert is_declared("T.f:=", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("T.compare", DModule(Set("T"), Map()))
   assert not is_declared("T.g", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("u_*", DWords(Set("u_text")))
 
-// in one test, since the first failed assert ends a compiled run
-test references() :=
+// prints the references of the documents that are not declared in their files, run at the root of the project, and fails
+// if there is one
+procedure main() :=
   local cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List()
   for doc in List("CLAUDE.md", "README.md", "TODO.md") do
     local problems: List[Str]
     call   problems_of(in doc, out problems, ref cache)
     assign found := found ++ problems
   end
-  assert found == List()
+  for problem in found do
+    call os_println(in problem)
+  end
+  if found != List() then
+    call os_exit(in 1)
+  end

@@ -1,7 +1,8 @@
 // the phases of ulang over cases, source texts given by their lines, for the tests of errors in ulang/test/errors/, which
 // assert by assert raises the exception of the phase where a case fails: parse_file_text and parse_texts raise ParseError,
 // check_program Located, require_formatted Unformatted, run_program the RuntimeError of a test, and prove_program
-// OpenLemma; a case sits at a path from the working directory, so that it imports the packages of the project as files
+// OpenLemma; a case sits at a path from the working directory, the root, where the tests run, so that it imports the
+// packages of the project as files
 
 import "ulang/syntax"
 import "ulang/parse"

@@ -76,8 +76,10 @@ out/ulang.sh run file.u:go                # calls its procedure go instead
 out/ulang.sh test file.u                  # runs its tests one by one
 out/ulang.sh test file.u:name             # runs one of them
 out/ulang.sh test dir                     # runs the files below dir, which must pass
-out/ulang.sh test                         # runs the whole project, the root above with project.u, but checks/ and
+out/ulang.sh test                         # runs the whole project, the root above with project.u, but
                                           # ulang/test/errors/, which project.u declares to run only compiled
+out/ulang.sh compile --tests -o suite.c   # compiles the tests of the whole project, whose binary runs at the root
+                                          # with the arguments of test
 out/ulang.sh check file.u                 # only checks it
 out/ulang.sh compile file.u -o file.c     # compiles a program to C, whose main calls the procedure main
 out/ulang.sh help                         # lists the commands

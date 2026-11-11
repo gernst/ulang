@@ -6,7 +6,7 @@ import "ulang/test/cases"
 
 test assertion() :=
   assert raises AssertionUnequal("24", "120") do
-    call run_text(in "assertion.u", List(
+    call run_text(in "ulang/test/errors/assertion.u", List(
       "function fact(n: Int): Int :=",
       "  if n == 0 then 1 else n * fact(n - 1)",
       "",
@@ -16,7 +16,7 @@ test assertion() :=
 
 test assertion_shown() :=
   assert raises AssertionUnequal("(List(), 1 EUR)", "(List(), 2 EUR)") do
-    call run_text(in "assertion-shown.u", List(
+    call run_text(in "ulang/test/errors/assertion-shown.u", List(
       "data Money :=",
       "  case Money(amount: Int)",
       "",
@@ -32,7 +32,7 @@ test assertion_shown() :=
 
 test compare_functions() :=
   assert raises CompareFunctions do
-    call run_text(in "compare-functions.u", List(
+    call run_text(in "ulang/test/errors/compare-functions.u", List(
       "test compare_functions() :=",
       "  local f := (lambda x => x + 1)",
       "  assert compare(f, f) == 0"))
@@ -40,7 +40,7 @@ test compare_functions() :=
 
 test compare_procedures() :=
   assert raises CompareProcedures do
-    call run_text(in "compare-procedures.u", List(
+    call run_text(in "ulang/test/errors/compare-procedures.u", List(
       "procedure p() :=",
       "  skip",
       "",
@@ -50,7 +50,7 @@ test compare_procedures() :=
 
 test initialization() :=
   assert raises RecursiveInitialization("ulang/test/errors/initialization.loop") do
-    call run_text(in "initialization.u", List(
+    call run_text(in "ulang/test/errors/initialization.u", List(
       "function loop(): Int :=",
       "  loop() + 1",
       "",
@@ -60,7 +60,7 @@ test initialization() :=
 
 test not_raised() :=
   assert raises AssertionNotRaised("DivisionByZero") do
-    call run_text(in "not-raised.u", List(
+    call run_text(in "ulang/test/errors/not-raised.u", List(
       "test nothing_raised() :=",
       "  assert raises DivisionByZero do",
       "    local n := 1 / 1",
@@ -69,7 +69,7 @@ test not_raised() :=
 
 test raise_uncaught() :=
   assert raises Uncaught("Fail(2)") do
-    call run_text(in "raise-uncaught.u", List(
+    call run_text(in "ulang/test/errors/raise-uncaught.u", List(
       "data Fail :=",
       "  case Fail(code: Int)",
       "",
@@ -84,12 +84,12 @@ test raise_uncaught() :=
 
 test string_display() :=
   assert raises AssertionUnequal("\"a\\\"b\\n\"", "\"c\"") do
-    call run_text(in "string-display.u", List("test shown() :=", "  assert \"a\\\"b\\n\" == \"c\""))
+    call run_text(in "ulang/test/errors/string-display.u", List("test shown() :=", "  assert \"a\\\"b\\n\" == \"c\""))
   end
 
 test uncaught_shown() :=
   assert raises Uncaught("Some(1 EUR)") do
-    call run_text(in "uncaught-shown.u", List(
+    call run_text(in "ulang/test/errors/uncaught-shown.u", List(
       "data Money :=",
       "  case Money(amount: Int)",
       "",

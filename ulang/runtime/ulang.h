@@ -239,6 +239,17 @@ void p_os_print(u_value text);
 void p_os_print_error(u_value text);
 void p_os_exit(u_value code);
 void u_passed(const char *name);
+
+// a test of a compiled suite: the index of its file in the paths of the files, its name, and its body
+struct u_test {
+  int file;
+  const char *name;
+  void (*run)(void);
+};
+
+// runs the tests that the arguments select, as ulang test does, where files and tests end with NULL, and returns the
+// status of the program
+int u_run_tests(int argc, char **argv, const char *const *files, const struct u_test *tests);
 void p_os_write(u_value path, u_value text);
 void p_os_list(u_value dir, u_value *entries);
 void p_os_is_dir(u_value path, u_value *yes);

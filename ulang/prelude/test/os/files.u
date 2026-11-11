@@ -1,6 +1,6 @@
 test files() :=
-  local t: Str, entries: List[Str * Bool]
-  call enter_scratch()
+  local t: Str, entries: List[Str * Bool], home: Str
+  call enter_scratch(out home)
   call os_write(in "files/a.txt", "line\n\"quoted\"\n")
   call os_read(in "files/a.txt", out t)
   assert t == "line\n\"quoted\"\n"
@@ -12,6 +12,7 @@ test files() :=
   assert t == "ä→😀\n" and size(t) == 4
   call os_list(in "files", out entries)
   assert contains(("ä→.txt", false), entries)
+  call os_chdir(in home)
 
 test library() :=
   local t: Str
@@ -19,19 +20,20 @@ test library() :=
   assert slice(t, 0, 16) == "// optional valu"
 
 test failures() :=
-  local t: Str
-  call enter_scratch()
+  local t: Str, home: Str
+  call enter_scratch(out home)
   assert raises OsError("cannot read files/missing.txt") do
     call os_read(in "files/missing.txt", out t)
   end
   assert raises OsError("unknown module missing") do
     call os_library(in "missing", out t)
   end
+  call os_chdir(in home)
 
 // a tree of files, which os_list and os_walk see in the order of their names
 test walking() :=
-  local entries: List[Str * Bool], files: List[Str], dir: Bool
-  call enter_scratch()
+  local entries: List[Str * Bool], files: List[Str], dir: Bool, home: Str
+  call enter_scratch(out home)
   call os_write(in "walk/z.txt", "z")
   call os_write(in "walk/a.txt", "a")
   call os_write(in "walk/sub/deep/c.txt", "c")
@@ -51,11 +53,12 @@ test walking() :=
   assert raises OsError("cannot list walk/missing") do
     call os_list(in "walk/missing", out entries)
   end
+  call os_chdir(in home)
 
 // relative paths start from the directory that os_chdir sets
 test changing_directory() :=
-  local t: Str
-  call enter_scratch()
+  local t: Str, home: Str
+  call enter_scratch(out home)
   call os_write(in "here/here.txt", "here")
   call os_chdir(in "here")
   call os_read(in "here.txt", out t)
@@ -64,6 +67,7 @@ test changing_directory() :=
   assert raises OsError("cannot change to missing") do
     call os_chdir(in "missing")
   end
+  call os_chdir(in home)
 
 // the tests run without arguments
 test arguments() :=
@@ -78,10 +82,12 @@ test printing() :=
   call os_println(in show(("a\n", Some('\''), List(true), List(), ())))
 
 // enters out/test/os below the root of the project, the nearest directory upward with project.u, so that the files that
-// the tests write stay out of the sources
-procedure enter_scratch() :=
+// the tests write stay out of the sources, where home is the working directory before, which each test enters again at
+// its end, since the tests of all files run in one working directory
+procedure enter_scratch(out home: Str) :=
   local dir: Str, entries: List[Str * Bool], found := false
-  call os_cwd(out dir)
+  call   os_cwd(out home)
+  assign dir := home
   while not found do
     call os_list(in dir, out entries)
     if contains(("project.u", false), entries) or dir == "/" then

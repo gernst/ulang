@@ -8,7 +8,7 @@ import "ulang/test/cases"
 
 test abstract_arity() :=
   assert raises SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T")) do
-    call check_text(in "abstract-arity.u", List(
+    call check_text(in "ulang/test/errors/abstract-arity.u", List(
       "export",
       "",
       "type T[A]",
@@ -21,22 +21,22 @@ test abstract_arity() :=
 
 test abstract_outside_export() :=
   assert raises ParseError("types without a definition belong to the export or builtin section", Pos(5, 1)) do
-    call check_text(in "abstract-outside-export.u", List("export", "", "implementation", "", "type T"))
+    call check_text(in "ulang/test/errors/abstract-outside-export.u", List("export", "", "implementation", "", "type T"))
   end
 
 test abstract_undefined() :=
   assert raises MissingDefinition(Name(Some("ulang/test/errors/abstract-undefined"), "T")) do
-    call check_text(in "abstract-undefined.u", List("export", "", "type T", "", "implementation", "", "type T :=", "  Int"))
+    call check_text(in "ulang/test/errors/abstract-undefined.u", List("export", "", "type T", "", "implementation", "", "type T :=", "  Int"))
   end
 
 test builtin_before_export() :=
   assert raises ParseError("builtin follows export", Pos(1, 1)) do
-    call check_text(in "builtin-before-export.u", List("builtin", "", "function f(): Int"))
+    call check_text(in "ulang/test/errors/builtin-before-export.u", List("builtin", "", "function f(): Int"))
   end
 
 test builtin_data() :=
   assert raises ParseError("builtin sections have signatures and types without a definition only", Pos(7, 1)) do
-    call check_text(in "builtin-data.u", List(
+    call check_text(in "ulang/test/errors/builtin-data.u", List(
       "export",
       "",
       "function g(): Int",
@@ -54,12 +54,12 @@ test builtin_data() :=
 
 test definition_in_export() :=
   assert raises ParseError("definitions belong to the implementation section", Pos(3, 1)) do
-    call check_text(in "definition-in-export.u", List("export", "", "function f(): Int :=", "  1"))
+    call check_text(in "ulang/test/errors/definition-in-export.u", List("export", "", "function f(): Int :=", "  1"))
   end
 
 test duplicate_signature() :=
   assert raises AlreadyDefined(Name(Some("ulang/test/errors/duplicate-signature"), "f")) do
-    call check_text(in "duplicate-signature.u", List(
+    call check_text(in "ulang/test/errors/duplicate-signature.u", List(
       "export",
       "",
       "function f(n: Int): Int",
@@ -74,32 +74,32 @@ test duplicate_signature() :=
 
 test export_late() :=
   assert raises ParseError("export comes first, after the imports", Pos(4, 1)) do
-    call check_text(in "export-late.u", List("function f(): Int :=", "  1", "", "export"))
+    call check_text(in "ulang/test/errors/export-late.u", List("function f(): Int :=", "  1", "", "export"))
   end
 
 test implementation_without_export() :=
   assert raises ParseError("implementation follows export", Pos(1, 1)) do
-    call check_text(in "implementation-without-export.u", List("implementation"))
+    call check_text(in "ulang/test/errors/implementation-without-export.u", List("implementation"))
   end
 
 test import_after_declaration() :=
   assert raises ParseError("imports come first", Pos(3, 1)) do
-    call check_text(in "import-after-declaration.u", List("function f(): Int := 1", "", "import \"ulang/test/modules/left\""))
+    call check_text(in "ulang/test/errors/import-after-declaration.u", List("function f(): Int := 1", "", "import \"ulang/test/modules/left\""))
   end
 
 test import_after_export() :=
   assert raises ParseError("imports come before export", Pos(3, 1)) do
-    call check_text(in "import-after-export.u", List("export", "", "import \"ulang/test/modules/left\""))
+    call check_text(in "ulang/test/errors/import-after-export.u", List("export", "", "import \"ulang/test/modules/left\""))
   end
 
 test lemma_in_export() :=
   assert raises ParseError("lemmas belong to the implementation section", Pos(3, 1)) do
-    call check_text(in "lemma-in-export.u", List("export", "", "lemma l(x: Int) :=", "  ensures x == x"))
+    call check_text(in "ulang/test/errors/lemma-in-export.u", List("export", "", "lemma l(x: Int) :=", "  ensures x == x"))
   end
 
 test library_import() :=
   assert raises ParseError("import of the library, which every module sees without importing it", Pos(2, 1)) do
-    call check_text(in "library-import.u", List(
+    call check_text(in "ulang/test/errors/library-import.u", List(
       "// the library is imported only implicitly",
       "import \"prelude\"",
       "",
@@ -110,28 +110,28 @@ test library_import() :=
 // the names of the members of the library hint at it
 test library_member() :=
   assert raises ParseError("import of the library, which every module sees without importing it", Pos(1, 1)) do
-    call check_text(in "library-member.u", List("import \"set\""))
+    call check_text(in "ulang/test/errors/library-member.u", List("import \"set\""))
   end
 
 test missing_definition() :=
   assert raises MissingDefinition(Name(Some("ulang/test/errors/missing-definition"), "f")) do
-    call check_text(in "missing-definition.u", List("export", "", "function f(n: Int): Int"))
+    call check_text(in "ulang/test/errors/missing-definition.u", List("export", "", "function f(n: Int): Int"))
   end
 
 // a directory of programs only is no package
 test no_members() :=
   assert raises ParseError("the package ulang/test/modules/programs_only has no members, files with sections", Pos(1, 1)) do
-    call check_text(in "no-members.u", List("import \"ulang/test/modules/programs_only\""))
+    call check_text(in "ulang/test/errors/no-members.u", List("import \"ulang/test/modules/programs_only\""))
   end
 
 test notation_in_implementation() :=
   assert raises ParseError("notations belong to the export section", Pos(5, 1)) do
-    call check_text(in "notation-in-implementation.u", List("export", "", "implementation", "", "infix 6 <=>"))
+    call check_text(in "ulang/test/errors/notation-in-implementation.u", List("export", "", "implementation", "", "infix 6 <=>"))
   end
 
 test own_name() :=
   assert raises Located(None, Pos(6, 1), Ambiguous(Name(None, "helper"), _)) do
-    call check_text(in "own-name.u", List(
+    call check_text(in "ulang/test/errors/own-name.u", List(
       "import \"ulang/test/modules/left\"",
       "",
       "function helper(n: Int): Int :=",
@@ -144,12 +144,12 @@ test own_name() :=
 // the programs of a directory see its package without importing it
 test own_package() :=
   assert raises ParseError("import of the own package ulang/test/errors, which the files of its directory see without importing it", Pos(1, 1)) do
-    call check_text(in "own-package.u", List("import \"ulang/test/errors\""))
+    call check_text(in "ulang/test/errors/own-package.u", List("import \"ulang/test/errors\""))
   end
 
 test partly_exported() :=
   assert raises PartlyExported(Name(Some("ulang/test/errors/partly-exported"), "f")) do
-    call check_text(in "partly-exported.u", List(
+    call check_text(in "ulang/test/errors/partly-exported.u", List(
       "export",
       "",
       "function f(n: Int): Int",
@@ -165,7 +165,7 @@ test partly_exported() :=
 
 test pattern_alias_abstract() :=
   assert raises Located(None, Pos(7, 1), PrivateConstructor(_, _)) do
-    call check_text(in "pattern-alias-abstract.u", List(
+    call check_text(in "ulang/test/errors/pattern-alias-abstract.u", List(
       "export",
       "",
       "type Box",
@@ -186,7 +186,7 @@ test pattern_alias_abstract() :=
 
 test private_constructor() :=
   assert raises Located(None, Pos(3, 1), UnknownVariable(Name(None, "Full"))) do
-    call check_text(in "private-constructor.u", List(
+    call check_text(in "ulang/test/errors/private-constructor.u", List(
       "import \"ulang/test/modules/hiding\"",
       "",
       "test t() :=",
@@ -195,7 +195,7 @@ test private_constructor() :=
 
 test private_field() :=
   assert raises Located(None, Pos(3, 1), UnknownField(_)) do
-    call check_text(in "private-field.u", List(
+    call check_text(in "ulang/test/errors/private-field.u", List(
       "import \"ulang/test/modules/hiding\"",
       "",
       "test t() :=",
@@ -204,7 +204,7 @@ test private_field() :=
 
 test private_name() :=
   assert raises Located(None, Pos(3, 1), UnknownVariable(Name(None, "secret"))) do
-    call check_text(in "private-name.u", List(
+    call check_text(in "ulang/test/errors/private-name.u", List(
       "import \"ulang/test/modules/hiding\"",
       "",
       "test t() :=",
@@ -213,7 +213,7 @@ test private_name() :=
 
 test private_pattern() :=
   assert raises Located(None, Pos(3, 1), UnknownConstructor(Name(None, "Full"))) do
-    call check_text(in "private-pattern.u", List(
+    call check_text(in "ulang/test/errors/private-pattern.u", List(
       "import \"ulang/test/modules/hiding\"",
       "",
       "function f(b: Box): Int :=",
@@ -225,7 +225,7 @@ test private_pattern() :=
 
 test private_type() :=
   assert raises PrivateType(Name(Some("ulang/test/errors/private-type"), "f"), Name(Some("ulang/test/errors/private-type"), "Hidden")) do
-    call check_text(in "private-type.u", List(
+    call check_text(in "ulang/test/errors/private-type.u", List(
       "export",
       "",
       "function f(): Hidden",
@@ -241,12 +241,12 @@ test private_type() :=
 
 test repeated_export() :=
   assert raises ParseError("a module has one export section", Pos(3, 1)) do
-    call check_text(in "repeated-export.u", List("export", "", "export"))
+    call check_text(in "ulang/test/errors/repeated-export.u", List("export", "", "export"))
   end
 
 test same_sort_name() :=
   assert raises Located(None, Pos(6, 1), CannotUnify(_, _)) do
-    call check_text(in "same-sort-name.u", List(
+    call check_text(in "ulang/test/errors/same-sort-name.u", List(
       "import \"ulang/test/modules/hiding\"",
       "",
       "data Box :=",
@@ -258,7 +258,7 @@ test same_sort_name() :=
 
 test signature_mismatch() :=
   assert raises SignatureMismatch(Name(Some("ulang/test/errors/signature-mismatch"), "f")) do
-    call check_text(in "signature-mismatch.u", List(
+    call check_text(in "ulang/test/errors/signature-mismatch.u", List(
       "export",
       "",
       "function f(n: Int): Int",
@@ -271,17 +271,17 @@ test signature_mismatch() :=
 
 test signature_outside_export() :=
   assert raises ParseError("signatures belong to the export section", Pos(1, 1)) do
-    call check_text(in "signature-outside-export.u", List("function f(): Int"))
+    call check_text(in "ulang/test/errors/signature-outside-export.u", List("function f(): Int"))
   end
 
 test test_in_export() :=
   assert raises ParseError("tests belong to the implementation section", Pos(3, 1)) do
-    call check_text(in "test-in-export.u", List("export", "", "test t() :=", "  assert true"))
+    call check_text(in "ulang/test/errors/test-in-export.u", List("export", "", "test t() :=", "  assert true"))
   end
 
 test transitive_field() :=
   assert raises Located(None, Pos(3, 1), UnknownField(_)) do
-    call check_text(in "transitive-field.u", List(
+    call check_text(in "ulang/test/errors/transitive-field.u", List(
       "import \"ulang/test/modules/wrapper\"",
       "",
       "test t() :=",
@@ -290,7 +290,7 @@ test transitive_field() :=
 
 test transitive_name() :=
   assert raises Located(None, Pos(3, 1), UnknownVariable(Name(None, "twice"))) do
-    call check_text(in "transitive-name.u", List(
+    call check_text(in "ulang/test/errors/transitive-name.u", List(
       "import \"ulang/test/modules/wrapper\"",
       "",
       "test r() :=",
@@ -299,7 +299,7 @@ test transitive_name() :=
 
 test transitive_notation() :=
   assert raises ParseError("undeclared operator <+>", Pos(4, 16)) do
-    call check_text(in "transitive-notation.u", List(
+    call check_text(in "ulang/test/errors/transitive-notation.u", List(
       "import \"ulang/test/modules/wrapper\"",
       "",
       "test r() :=",
@@ -308,7 +308,7 @@ test transitive_notation() :=
 
 test unexported_order() :=
   assert raises Located(None, Pos(15, 1), UnexportedOrder(Name(Some("ulang/test/errors/unexported-order"), "compare"), Name(Some("ulang/test/errors/unexported-order"), "T"))) do
-    call check_text(in "unexported-order.u", List(
+    call check_text(in "ulang/test/errors/unexported-order.u", List(
       "export",
       "",
       "type T",
@@ -329,18 +329,18 @@ test unexported_order() :=
 
 test unknown_package() :=
   assert raises ParseError("unknown package missing", Pos(1, 1)) do
-    call check_text(in "unknown-package.u", List("import \"missing\""))
+    call check_text(in "ulang/test/errors/unknown-package.u", List("import \"missing\""))
   end
 
 // a path from the root names no file
 test unknown_path() :=
   assert raises ParseError("unknown package ulang/test/errors/missing/nowhere", Pos(1, 1)) do
-    call check_text(in "unknown-path.u", List("import \"ulang/test/errors/missing/nowhere\""))
+    call check_text(in "ulang/test/errors/unknown-path.u", List("import \"ulang/test/errors/missing/nowhere\""))
   end
 
 test visible_equality() :=
   assert raises Located(None, Pos(4, 1), VisibleEquality(Name(Some("ulang/test/errors/visible-equality"), "Pair"))) do
-    call check_text(in "visible-equality.u", List(
+    call check_text(in "ulang/test/errors/visible-equality.u", List(
       "data Pair :=",
       "  case Pair(first: Int, second: Int)",
       "",
