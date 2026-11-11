@@ -1165,10 +1165,6 @@ void p_os_chdir(u_value dir) {
   if (chdir(u_utf8(dir, NULL))) os_error("cannot change to ", dir);
 }
 
-void u_passed(const char *name) {
-  printf("test %s passed\n", name);
-}
-
 // the path of a target without ./ in front and / at the end, "" for the root
 static char *normal_target(const char *path) {
   while (path[0] == '.' && path[1] == '/') path += 2;

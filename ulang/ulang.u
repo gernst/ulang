@@ -303,8 +303,41 @@ procedure run_target(in target: Target, args: List[Str], out ok: Bool) :=
 // runs the tests of the targets, by default of the project, each unit loaded once, in the working directory, and the lemmas
 // of each file whose tests all run, printing a line per test and lemma, labeled by its file if there are several files
 procedure test_targets(in targets: List[Target], args: List[Str], out ok: Bool) :=
-  local found: List[Target], q: Prog, error: Str, failed: List[Str] := List(), passed: Bool, units: List[List[Target]]
+  local found: List[Target]
   call targets_of(in targets, true, out found)
+  call visit_units(in found, lambda in q, unit, out failed =>
+    call test_unit(in q, unit, found, args, out failed)
+  end, out ok)
+
+// runs the tests of the files of the unit, whose checked program is q, where failed are the files that do not pass
+procedure test_unit(
+  in  q: Prog,
+      unit: List[Target],
+      found: List[Target],
+      args: List[Str],
+  out failed: List[Str]
+) :=
+  local passed: Bool
+  assign failed := List()
+  for file in files_of(unit) do
+    call test_module(in q, sibling(q.main, file), names_of(file, unit), args, label_of(file, found), out passed)
+    if not passed then
+      assign failed := failed ++ List(file)
+      if size(files_of(found)) > 1 then
+        call os_println(in file ++ ": failed")
+      end
+    end
+  end
+
+// checks each unit of the targets once, where the error of a unit that does not load is reported at its first file, and
+// calls visit with the checked program of each unit that loads, which gives the files of the unit that fail, then prints
+// how many files passed, where ok tells whether all did
+procedure visit_units(
+  in  found: List[Target],
+      visit: (in Prog, List[Target], out List[Str]),
+  out ok: Bool
+) :=
+  local units: List[List[Target]], q: Prog, error: Str, failed: Buffer[Str] := empty(), bad: List[Str]
   call units_of(in found, out units)
   for unit in units do
     call check_file(in first_path(unit), true, out q, error)
@@ -312,19 +345,12 @@ procedure test_targets(in targets: List[Target], args: List[Str], out ok: Bool) 
       call   report(in first_path(unit), error, size(files_of(found)) > 1)
       assign failed := failed ++ files_of(unit)
     else
-      for file in files_of(unit) do
-        call test_module(in q, sibling(q.main, file), names_of(file, unit), args, label_of(file, found), out passed)
-        if not passed then
-          assign failed := failed ++ List(file)
-          if size(files_of(found)) > 1 then
-            call os_println(in file ++ ": failed")
-          end
-        end
-      end
+      call   visit(in q, unit, out bad)
+      assign failed := failed ++ bad
     end
   end
-  call   summarize(in files_of(found), failed)
-  assign ok := failed == List()
+  call   summarize(in files_of(found), List(for f in failed))
+  assign ok := size(failed) == 0
 
 // runs the tests of the module m of q, all or the named ones, each on its own, also after a failed one, and then its lemmas
 // if all are run, where passed tells whether all pass and are proven
@@ -371,40 +397,35 @@ procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
 
 // checks the files of the paths, by default of the project, each unit once, where each file must be formatted
 procedure check_paths(in paths: List[Str], out ok: Bool) :=
-  local found: List[Target], q: Prog, error: Str, failed: List[Str] := List(), units: List[List[Target]]
+  local found: List[Target]
   call targets_of(in List(for p in paths yield Target(p, None)), false, out found)
-  call units_of(in found, out units)
-  for unit in units do
-    call check_file(in first_path(unit), true, out q, error)
-    if error != "" then
-      call   report(in first_path(unit), error, size(files_of(found)) > 1)
-      assign failed := failed ++ files_of(unit)
-    end
-  end
-  call   summarize(in files_of(found), failed)
-  assign ok := failed == List()
+  call visit_units(in found, lambda in q, unit, out failed =>
+    assign failed := List()
+  end, out ok)
 
 // proves the lemmas of the targets, all or the named ones, by default of the project, each unit loaded once
 procedure prove_targets(in targets: List[Target], out ok: Bool) :=
-  local found: List[Target], q: Prog, error: Str, failed: List[Str] := List(), proven: Bool, units: List[List[Target]]
+  local found: List[Target]
   call targets_of(in targets, false, out found)
-  call units_of(in found, out units)
-  for unit in units do
-    call check_file(in first_path(unit), true, out q, error)
-    if error != "" then
-      call   report(in first_path(unit), error, size(files_of(found)) > 1)
-      assign failed := failed ++ files_of(unit)
-    else
-      for file in files_of(unit) do
-        call prove_module(in q, sibling(q.main, file), names_of(file, unit), label_of(file, found), out proven)
-        if not proven then
-          assign failed := failed ++ List(file)
-        end
-      end
+  call visit_units(in found, lambda in q, unit, out failed =>
+    call prove_unit(in q, unit, found, out failed)
+  end, out ok)
+
+// proves the lemmas of the files of the unit, whose checked program is q, where failed are the files with open lemmas
+procedure prove_unit(
+  in  q: Prog,
+      unit: List[Target],
+      found: List[Target],
+  out failed: List[Str]
+) :=
+  local proven: Bool
+  assign failed := List()
+  for file in files_of(unit) do
+    call prove_module(in q, sibling(q.main, file), names_of(file, unit), label_of(file, found), out proven)
+    if not proven then
+      assign failed := failed ++ List(file)
     end
   end
-  call   summarize(in files_of(found), failed)
-  assign ok := failed == List()
 
 // proves the lemmas of the module m of q, all or the named ones, in their order, where those before are facts, printing
 // whether each is proven, and whether all are

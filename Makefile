@@ -104,7 +104,8 @@ test: out/ulang.bin out/ulang.sh
 	$(MAKE) --no-print-directory testdocs
 
 # the tests of the project compiled into one binary by compile --tests, whose main runs those that its arguments select, as
-# test does, at the root, by a copy of the script; at -O1, which cc compiles in half the time of -O2
+# test does, at the root, by a copy of the script; at -O1, which cc compiles in half the time of -O2; its C depends on every
+# .u file of the project, PROJECT_SOURCES, while SOURCES are those of the tool, the compiler and the library
 SUITE = out/suite
 PROJECT_SOURCES = $(shell find . -name '*.u' -not -path '*/out/*' -not -path '*/.*/*')
 

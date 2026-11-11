@@ -1630,7 +1630,7 @@ function closure_params(): List[CType * Str] :=
   List((value_ptr(), "env"), (value_ptr(), "args"))
 
 function indexed(name: Str, k: Int): List[CExpr] :=
-  List(for i in range_to(k) yield index(name, i))
+  List(for i in range(0, k) yield index(name, i))
 
 function con_array(n: Name, k: Int): CExpr :=
   c_call("u_mk_con_array", List(descriptor(n), CeNum(k), CeVar("args")))
@@ -1645,9 +1645,6 @@ function constr_wrapper(p: Name * Int): List[CDecl] :=
       List(
         CdFunction(LkStatic, value_type(), "wc_" ++ mangle(n), closure_params(), List(CsReturn(Some(con_array(n, k))))))
   end
-
-function range_to(k: Int): List[Int] :=
-  if k == 0 then List() else range_to(k - 1) ++ List(k - 1)
 
 function prototype(d: CDecl): List[CDecl] :=
   match d
@@ -1681,7 +1678,7 @@ function test_name(n: Name): Str :=
 // the paths of the files and their tests, each with the index of its file, in the order of the files and then of the
 // commands, both ended by NULL, as u_run_tests of ulang/runtime/ulang.c takes them
 function test_tables(files: List[TestFile], cmds: List[Cmd]): List[CDecl] :=
-  let rows := List(for (i, file) in zip(range_to(size(files)), files) for c in cmds for name in tested_name(c, file.module) yield CeInit(List(CeNum(i), CeStr(name.base), CeVar(test_name(name))))) in
+  let rows := List(for (file, i) in numbered(files) for c in cmds for name in tested_name(c, file.module) yield CeInit(List(CeNum(i), CeStr(name.base), CeVar(test_name(name))))) in
   List(
     CdGlobal(LkStatic, CtNamed("const char *const"), "u_files[]", Some(CeInit(List(for file in files yield CeStr(file.path)) ++ List(CeVar("NULL"))))),
     CdGlobal(LkStatic, CtNamed("const struct u_test"), "u_tests[]", Some(CeInit(rows ++ List(CeInit(List(CeNum(0), CeVar("NULL"), CeVar("NULL"))))))))

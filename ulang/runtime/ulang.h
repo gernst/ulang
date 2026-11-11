@@ -238,7 +238,6 @@ void p_os_read(u_value path, u_value *text);
 void p_os_print(u_value text);
 void p_os_print_error(u_value text);
 void p_os_exit(u_value code);
-void u_passed(const char *name);
 
 // a test of a compiled suite: the index of its file in the paths of the files, its name, and its body
 struct u_test {
