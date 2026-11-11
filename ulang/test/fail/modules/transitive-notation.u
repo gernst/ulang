@@ -1,5 +1,5 @@
 // parse error: undeclared operator <+> at 5.16
-import "ulang/test/fail/modules/wrapper"
+import "ulang/test/modules/wrapper"
 
 test r() :=
   local v := 1 <+> 2

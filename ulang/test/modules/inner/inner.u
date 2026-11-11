@@ -1,0 +1,21 @@
+// a module for ulang/test/modules/transitive-name.u, transitive-notation.u, and transitive-field.u, whose exports
+// ulang/test/modules/wrapper/wrapper.u sees, but not the modules that import it
+
+export
+
+infix left 5 <+>
+
+data Cell :=
+  case Cell(contents: Int)
+
+function <+>(m: Int, n: Int): Int
+
+function twice(n: Int): Int
+
+implementation
+
+function <+>(m: Int, n: Int): Int :=
+  m + n
+
+function twice(n: Int): Int :=
+  n <+> n

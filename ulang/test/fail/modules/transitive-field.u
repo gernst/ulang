@@ -1,6 +1,0 @@
-// type error: unknown field contents of Cell at 5.1
-
-import "ulang/test/fail/modules/wrapper"
-
-test t() :=
-  assert cell(1).contents == 1

@@ -368,7 +368,8 @@ test parse_errors() :=
   assert k == 0
 
 // assert raises passes if its body raises an exception that its pattern matches, of any type for _, where the variables
-// after it are those before it, as in a handler, and an exception that a try inside handles does not count
+// after it are those before it, as in a handler, an exception that a try inside handles does not count, and one that
+// the pattern does not match is raised further
 test assert_raises() :=
   local k := 0, s := "a"
   assert raises Fail do
@@ -388,6 +389,11 @@ test assert_raises() :=
     catch
       case Expected("y") =>
         raise Expected("x")
+    end
+  end
+  assert raises Expected("y") do
+    assert raises Expected("x") do
+      raise Expected("y")
     end
   end
 

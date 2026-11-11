@@ -1,6 +1,0 @@
-// runtime error: recursive initialization of ulang/test/fail/runtime/initialization.loop
-function loop(): Int :=
-  loop() + 1
-
-test initialization() :=
-  assert loop() == 1

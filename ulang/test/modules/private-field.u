@@ -1,0 +1,6 @@
+// type error: unknown field contents of Box at 5.1
+
+import "ulang/test/modules/hiding"
+
+test t() :=
+  assert box(1).contents == 1

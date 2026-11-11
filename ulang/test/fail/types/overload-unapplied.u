@@ -1,9 +1,0 @@
-// type error: f is ambiguous: ulang/test/fail/types/overload-unapplied.f: Int -> Int, ulang/test/fail/types/overload-unapplied.f: (Int, Int) -> Int at 8.1
-function f(x: Int): Int :=
-  x
-
-function f(x: Int, y: Int): Int :=
-  x
-
-test r() :=
-  local v := f

@@ -124,7 +124,7 @@ testdocs: $(CHECKS)/docs.bin $(CHECKS)/docs.sh
 
 # rewrites every .u file as format does, after a change of the printer, except the tests of format errors, which must stay
 # unformatted, and the files whose first line expects a parse error, which format refuses, ending its run
-REFORMAT = $(shell find project.u $(wildcard ulang examples) -name '*.u' -not -path 'ulang/test/fail/format/*' \
+REFORMAT = $(shell find project.u $(wildcard ulang examples) -name '*.u' -not -path 'ulang/test/format/*' \
 	| xargs awk 'FNR == 1 && !/^\/\/ parse error/ { print FILENAME }' | sort)
 
 .PHONY: reformat

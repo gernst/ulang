@@ -1,0 +1,6 @@
+// type error: helper is ambiguous: ulang/test/modules/ambiguous-name/right.helper: Int -> Int, ulang/test/modules/left/left.helper: Int -> Int at 5.1
+
+import "ulang/test/modules/left"
+
+test r() :=
+  local v := helper(1)

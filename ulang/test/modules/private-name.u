@@ -1,0 +1,6 @@
+// type error: unknown variable secret at 5.1
+
+import "ulang/test/modules/hiding"
+
+test t() :=
+  assert secret(1) == 1

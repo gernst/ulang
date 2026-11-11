@@ -1,0 +1,9 @@
+// type error: Box[Int] is no container: ulang/test/types/generator-no-fold declares no foldr at 5.1
+data Box[A] :=
+  case Box(value: A)
+
+procedure main() :=
+  local b: Box[Int] := Box(1), n := 0
+  for x in b do
+    assign n := n + x
+  end

@@ -88,6 +88,6 @@ make test                                 # runs all tests
   compiled with itself, and `make bootstrap` by the compiler compiled with the interpreter. `bootstrap/ulang.sh` is the script
   that runs each binary with a large stack, copied next to it by `make`.
 - `ulang/prelude/` is the library.
-- The tests of each package are in its subfolder `test/`, those that are expected to fail in `test/fail/`: `ulang/test/` of the language, `ulang/prove/test/` of the prover, and `ulang/prelude/test/` of the library.
+- The tests of each package are in its subfolder `test/`, also those that are expected to fail, except that those that fail in the parser are in `test/fail/`: `ulang/test/` of the language, `ulang/prove/test/` of the prover, and `ulang/prelude/test/` of the library.
 - `vscode/` is an extension for VS Code and VSCodium, installed by `make install`.
 - `TODO.md` lists the open work, and `DESIGN.md` the design notes.
