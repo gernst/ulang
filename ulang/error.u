@@ -1,5 +1,5 @@
-// the messages of errors: of type errors and of internal errors, and of the runtime errors that the
-// interpreter and compiled code both report, with their texts, which ulang/compile.u writes into every program as the
+// the errors that the phases share, with their messages: the kinds of errors, the internal errors, and the runtime
+// errors that the interpreter and compiled code both report, with their texts, which ulang/compile.u writes into every program as the
 // formats u_text_* that ulang/runtime/ulang.c prints, where %s stands for a value as show gives it
 
 export
@@ -33,19 +33,17 @@ function runtime_message(e: RuntimeError): Str
 // the formats of the runtime errors whose values compiled code knows only at run time, by the names of their C variables
 function runtime_formats(): List[Str * Str]
 
-// the message of e, with the position of the command that raised it, and the module if it is not the main module
-function located_message(e: TypeError): Str
-
 // the errors of the interpreter, the checker, and the compiler that checked programs do not raise, unlike RuntimeError,
 // since an earlier phase rules out what they meet
 data InternalError :=
   case Uninitialized(name: Name)
-  case NotFunction(value: Val)
-  case Unspecified(name: Name, args: List[Val])
-  case NotList(value: Val)
+  // of values as format_value of ulang/run.u gives them
+  case NotFunction(text: Str)
+  case Unspecified(name: Name, args: List[Str])
+  case NotList(text: Str)
   case UnassignedOutput(output: Name, proc: Name)
   case UnknownProc(name: Name)
-  case NotProc(value: Val)
+  case NotProc(text: Str)
   // an access or update of a field, which the checker resolves to an accessor or updater
   case UnresolvedField(field: Id)
   case UntranslatedForm(form: Id)
@@ -122,198 +120,19 @@ test formats() :=
 function at_pos(p: Pos): Str :=
   " at " ++ show(p.line) ++ "." ++ show(p.col)
 
-function located_message(e: TypeError): Str :=
-  match e
-    case Located(None, pos, error) =>
-      type_message(error) ++ at_pos(pos)
-
-    case Located(Some(m), pos, error) =>
-      type_message(error) ++ " in " ++ m ++ at_pos(pos)
-
-    case _ =>
-      type_message(e)
-  end
-
-// a candidate of an ambiguous name with its type, if known, which tells overloads of one module apart
-function candidate_text(c: Name * Scheme): Str :=
-  match c
-    case (m, sc) =>
-      if sc.typ == THole then
-        format_name(m)
-      else
-        format_name(m) ++ ": " ++ format_type(sc.typ)
-  end
-
-function container_message(typ: Type): Str :=
-  "the type " ++ format_type(typ) ++ " of the container of a generator is not known there, which an annotation can give"
-
-function sort_module(typ: Type): Str :=
-  match typ
-    case TSort(Name(Some(m), _), _) =>
-      m
-    case _ =>
-      "its module"
-  end
-
-function count_message(owner: Str, unit: Str, k: Int, actual: Int): Str :=
-  (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(actual)
-
-function type_message(e: TypeError): Str :=
-  match e
-    case UnknownSort(name) =>
-      "unknown sort " ++ name.base
-
-    case SortArity(name, expected, actual) =>
-      "sort " ++ name.base ++ " expects " ++ show(expected) ++ " arguments, got " ++ show(actual)
-
-    case SortDefined(name) =>
-      "sort " ++ name.base ++ " is already defined"
-
-    case MissingType(name) =>
-      "missing type for " ++ name.base
-
-    case UndeclaredParams(name, types) =>
-      name.base ++ " has undeclared type parameters " ++ format_types(types)
-
-    case CannotUnify(left, right) =>
-      "cannot unify " ++ join(" and ", format_types_apart(List(left, right)))
-
-    case InfiniteType(meta, typ) =>
-      "infinite type " ++ join(" = ", format_types_apart(List(meta, typ)))
-
-    case UnknownVariable(name) =>
-      "unknown variable " ++ name.base
-
-    case NoOverload(name, typ) =>
-      "no declaration of " ++ name.base ++ " has the type " ++ format_type(typ)
-
-    case WrongArity(name, arity) =>
-      name.base ++ " does not take " ++ show(arity) ++ " arguments"
-
-    case AlreadyDefined(name) =>
-      name.base ++ " is already defined"
-
-    case Duplicate(what, item) =>
-      "duplicate " ++ what ++ " " ++ item
-
-    case Ambiguous(name, candidates) =>
-      name.base ++ " is ambiguous: " ++ join(", ", List(for c in candidates yield candidate_text(c)))
-
-    case UnknownField(name) =>
-      field_message(split(name.base, '.'))
-
-    case UnknownFieldType(field, typ) =>
-      "the type " ++ format_type(typ) ++ " of the value of " ++ field ++ " is not known"
-
-    case UnknownFieldOwner(field) =>
-      "the type of the value of " ++ field ++ " is not known there, which an annotation can give"
-
-    case UnknownContainer(typ) =>
-      container_message(typ)
-
-    case NoFold(typ, fold) =>
-      format_type(typ) ++ " is no container: " ++ sort_module(typ) ++ " declares no " ++ fold
-
-    case CountMismatch(owner, unit, k, actual) =>
-      count_message(owner, unit, k, actual)
-
-    case UnknownConstructor(name) =>
-      "unknown constructor " ++ name.base
-
-    case NotExhaustive(pat) =>
-      "match is not exhaustive, missing " ++ format_pat(pat)
-
-    case Unreachable(pat) =>
-      "unreachable case " ++ format_pat(pat)
-
-    case NotAssignable(name) =>
-      name.base ++ " is not assignable"
-
-    case UnknownProcedure(name) =>
-      "unknown procedure " ++ name.base
-
-    case UnknownException(typ) =>
-      "the type " ++ format_type(typ) ++ " of an exception is not fully known"
-
-    case TestParams(test_name) =>
-      "test " ++ test_name ++ " takes parameters"
-
-    case Unassigned(name) =>
-      name.base ++ " is not assigned on every path"
-
-    case OutputUnassigned(x, proc) =>
-      "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned on every path"
-
-    case MissingDefinition(name) =>
-      name.base ++ " is exported but not defined"
-
-    case SignatureMismatch(name) =>
-      "the definition of " ++ name.base ++ " differs from its signature"
-
-    case PartlyExported(name) =>
-      name.base ++ " is exported, but not with each of its numbers of arguments"
-
-    case PrivateType(name, sort) =>
-      "the signature of " ++ name.base ++ " names the private type " ++ sort.base
-
-    case HiddenLocal(name) =>
-      name.base ++ " hides a local of the same name"
-
-    case VisibleEquality(sort) =>
-      sort.base ++ " declares ==, which only abstract types may"
-
-    case MisshapenHook(_, hook) =>
-      hook_message(hook)
-
-    case UnexportedOrder(fun, sort) =>
-      fun.base ++ " of the exported type " ++ sort.base ++ " is not exported"
-
-    case AliasVariables(name) =>
-      "the variables of the pattern alias " ++ name.base ++ " are not its formals, each once"
-
-    case PatternOnly(name) =>
-      "the pattern alias " ++ name.base ++ " has _ and builds no value"
-
-    case PrivateConstructor(name, constr) =>
-      "the exported pattern alias " ++ name.base ++ " matches the private constructor " ++ constr.base
-
-    case Located(_, _, error) =>
-      type_message(error)
-  end
-
-function hook_message(hook: Hook): Str :=
-  let values := if hook_arity(hook) == 1 then "one value" else "two values" in
-  hook_name(hook) ++ " must take " ++ values ++ " T[A, …] of a datatype T of its module, with distinct type parameters, and give " ++ format_type(hook_result(hook))
-
-// the accessor T.f, or the updater T.f:=, of an unknown field f
-function field_message(parts: List[Str]): Str :=
-  match parts
-    case List("", f) =>
-      "unknown field " ++ without_update(f)
-
-    case List(t, f) =>
-      "unknown field " ++ without_update(f) ++ " of " ++ t
-
-    case _ =>
-      "unknown field " ++ join(".", parts)
-  end
-
-function without_update(f: Str): Str :=
-  if size(f) > 2 and ends_with(f, ":=") then slice(f, 0, size(f) - 2) else f
-
 function internal_message(e: InternalError): Str :=
   match e
     case Uninitialized(name) =>
       name.base ++ " is not initialized"
 
-    case NotFunction(value) =>
-      "cannot apply " ++ format_value(value)
+    case NotFunction(text) =>
+      "cannot apply " ++ text
 
     case Unspecified(name, args) =>
-      name.base ++ " is not specified for " ++ join(", ", List(for v in args yield format_value(v)))
+      name.base ++ " is not specified for " ++ join(", ", args)
 
-    case NotList(value) =>
-      "expected a list, got " ++ format_value(value)
+    case NotList(text) =>
+      "expected a list, got " ++ text
 
     case UnassignedOutput(x, proc) =>
       "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned"
@@ -321,8 +140,8 @@ function internal_message(e: InternalError): Str :=
     case UnknownProc(name) =>
       "unknown procedure " ++ name.base
 
-    case NotProc(value) =>
-      "cannot call " ++ format_value(value)
+    case NotProc(text) =>
+      "cannot call " ++ text
 
     case UnresolvedField(field) =>
       "the field " ++ field ++ " is not resolved"

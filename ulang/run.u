@@ -549,7 +549,7 @@ procedure apply_value(
       end
 
     case _ =>
-      raise NotFunction(f)
+      raise NotFunction(format_value(f))
   end
 
 // the value of a function without parameters, which is computed once, since expressions are deterministic,
@@ -597,7 +597,7 @@ procedure field_value(
       end
 
     case _ =>
-      raise Unspecified(name, vs)
+      raise Unspecified(name, List(for w in vs yield format_value(w)))
   end
 
 // an exception of a builtin, of a type of the prelude
@@ -635,7 +635,7 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
         case Some(ws) =>
           assign v := VStr(str(char_values(ws)))
         case _ =>
-          raise NotList(w)
+          raise NotList(format_value(w))
       end
 
     case ("prelude/str.ord", List(VChar(char))) =>
@@ -658,7 +658,7 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
         case Some(ws) =>
           assign v := VStr(join(text, str_values(ws)))
         case _ =>
-          raise NotList(w)
+          raise NotList(format_value(w))
       end
 
     // from i up to but excluding j, where i <= j are indices of s or its end
@@ -709,7 +709,7 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
         case Some(ws) =>
           assign v := VArr(Array(for x in ws))
         case _ =>
-          raise NotList(w)
+          raise NotList(format_value(w))
       end
 
     case ("prelude/array.size", List(VArr(values))) =>
@@ -732,7 +732,7 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
       assign v := VArr(slice(values, i, j))
 
     case _ =>
-      raise Unspecified(n, vs)
+      raise Unspecified(n, List(for w in vs yield format_value(w)))
   end
 
 // values of datatypes with declared equalities or orders are compared by them, and others structurally
@@ -811,7 +811,7 @@ procedure compare_values(
             case VInt(num) =>
               assign r := num
             case _ =>
-              raise NotFunction(v)
+              raise NotFunction(format_value(v))
           end
 
         case None =>
@@ -1192,7 +1192,7 @@ procedure invoke_value(
       call run_body(in run, unqualified("lambda"), around, xs, ys, zs, stmt, ins, refs, out outs, ref env, cache)
 
     case _ =>
-      raise NotProc(f)
+      raise NotProc(format_value(f))
   end
 
 // the body of procedure n with the ins xs, outs ys, and refs zs, whose variables start from around,

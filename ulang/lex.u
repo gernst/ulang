@@ -25,16 +25,11 @@ type Tokens :=
 data LexError :=
   case LexError(message: Str, pos: Pos)
 
-function is_op_char(c: Char): Bool
-
 function is_keyword(w: Str): Bool
 
 procedure lex(in text: Str, out toks: Tokens)
 
 implementation
-
-function is_op_char(c: Char): Bool :=
-  contains(c, "-+*/%<>=!&:^~?@#$")
 
 function keywords(): Set[Str] :=
   Set(

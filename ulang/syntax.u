@@ -311,6 +311,9 @@ function escapes(): List[Char * Char]
 // c in a literal delimited by the quote delimiter, escaped if it needs to be
 function escape(c: Char, delimiter: Char): Str
 
+// the characters of operators, as the lexer reads them and the printer separates them
+function is_op_char(c: Char): Bool
+
 implementation
 
 function escapes(): List[Char * Char] :=
@@ -321,6 +324,9 @@ function escapes(): List[Char * Char] :=
     ('n', '\n'),
     ('t', '\t'),
     ('r', '\r'))
+
+function is_op_char(c: Char): Bool :=
+  contains(c, "-+*/%<>=!&:^~?@#$")
 
 function escape(c: Char, delimiter: Char): Str :=
   match find(escapes(), lambda (_, d) => d == c)
