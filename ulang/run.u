@@ -63,6 +63,8 @@ pattern VSome(value: Value): Value := VObj(Name(Some("prelude/option"), "Some"),
 
 pattern VNone(): Value := VObj(Name(Some("prelude/option"), "None"), list())
 
+pattern VOsError(message: Str): Value := VObj(Name(Some("prelude/os"), "OsError"), list(VStr(message)))
+
 // values by their structure, for messages, while show of the program uses the shows that datatypes declare, see show_in
 function format_value(v: Value): Str :=
   match v
@@ -292,21 +294,6 @@ function match_all_into(pats: List[Pat], vs: List[Value], env: Bindings): Option
 
     case _ =>
       None
-  end
-
-function pattern_vars(pat: Pat): List[Name] :=
-  match pat
-    case PName(name, _) =>
-      list(name)
-
-    case PApp(_, args) =>
-      list(for q in args for x in pattern_vars(q) yield x)
-
-    case PTuple(args) =>
-      list(for q in args for x in pattern_vars(q) yield x)
-
-    case _ =>
-      list()
   end
 
 procedure evaluate(
@@ -1054,7 +1041,7 @@ procedure select[A](
         case Some(inner) =>
           call holds(in run, inner, guard, out ok, ref cache)
           if ok then
-            assign sel := Some((body, inner, pattern_vars(pat)))
+            assign sel := Some((body, inner, pattern_names(pat)))
           else
             call select(in run, env, v, rest, out sel, ref cache)
           end
@@ -1111,7 +1098,7 @@ procedure handle(
           case Some(inner) =>
             call holds(in run, inner, guard, out ok, ref cache)
             if ok then
-              call scoped(in run, pattern_vars(pat), inner, list(body), ref env, cache)
+              call scoped(in run, pattern_names(pat), inner, list(body), ref env, cache)
             end
 
           case _ =>
@@ -1272,7 +1259,7 @@ procedure os_proc(in n: Name, ins: List[Value], out outs: List[Value]) :=
     end
   catch
     case OsError(message) =>
-      raise Thrown(VObj(os_error_name(), list(VStr(message))), TSort(os_error_name(), list()))
+      raise Thrown(VOsError(message), TSort(os_error_name(), list()))
   end
 
 // the entries of a directory as values of the program

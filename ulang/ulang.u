@@ -8,7 +8,7 @@ data TestFailed :=
 procedure main() :=
   local args: List[Str], command: List[Str], rest: List[Str], ok := true, dir: Bool
   call   os_args(out args)
-  assign command := before_dashes(args), rest := after_dashes(args)
+  assign command := first(split_on(args, "--")), rest := second(split_on(args, "--"))
   match command
     case list() =>
       skip
@@ -73,29 +73,17 @@ function usage_test(): Str :=
 function usage_other(): Str :=
   "       ulang check <file>\n" ++ "       ulang compile <file> <entry> <target.c>\n" ++ "       ulang format <file>"
 
-// the arguments of the driver, and those of the program after --
-function before_dashes(args: List[Str]): List[Str] :=
-  match args
+// the elements before the first sep, and those after it, none if xs has no sep
+function split_on[A](xs: List[A], sep: A): List[A] * List[A] :=
+  match xs
     case list() =>
-      list()
+      (list(), list())
 
-    case list("--"; _) =>
-      list()
-
-    case list(a; more) =>
-      list(a; before_dashes(more))
-  end
-
-function after_dashes(args: List[Str]): List[Str] :=
-  match args
-    case list() =>
-      list()
-
-    case list("--"; more) =>
-      more
-
-    case list(_; more) =>
-      after_dashes(more)
+    case list(x; more) =>
+      if x == sep then (list(), more) else match split_on(more, sep)
+        case (before, after) =>
+          (list(x; before), after)
+      end
   end
 
 // runs a command for file, which reports the errors of file, and whether it succeeded
@@ -142,9 +130,6 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
   if message != "" then
     assign ok := false
   end
-
-function at_pos(p: Pos): Str :=
-  " at " ++ show(p.line) ++ "." ++ show(p.col)
 
 // the checked program of file, after the modules it imports, and the name of the module of file
 procedure load_file(in file: Str, out main: Id, q: Prog) :=
@@ -201,28 +186,10 @@ function same_sections(d: Mod, e: Mod): Bool :=
 
 // whether the modules have the same names, imports, and commands with their documentation, whatever their positions
 function same_mods(mods: List[Mod], others: List[Mod]): Bool :=
-  match (mods, others)
-    case (list(), list()) =>
-      true
-
-    case (list(d; more), list(e; rest)) =>
-      same_mod(d, e) and same_mods(more, rest)
-
-    case _ =>
-      false
-  end
+  size(mods) == size(others) and forall(zip(mods, others), lambda (d, e) => same_mod(d, e))
 
 function same_tops(tops: List[Top], others: List[Top]): Bool :=
-  match (tops, others)
-    case (list(), list()) =>
-      true
-
-    case (list(top; more), list(other; rest)) =>
-      top.doc == other.doc and top.cmd == other.cmd and same_tops(more, rest)
-
-    case _ =>
-      false
-  end
+  size(tops) == size(others) and forall(zip(tops, others), lambda (top, other) => top.doc == other.doc and top.cmd == other.cmd)
 
 // calls the procedure name of file, which takes no parameters, and prints as it runs
 procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
@@ -312,9 +279,6 @@ procedure walk_all(in paths: List[Str], out files: List[Str]) :=
   end
   assign files := list(for file in found)
 
-function is_source(path: Str): Bool :=
-  size(path) > 2 and ends_with(path, ".u")
-
 procedure test_suite(in files: List[Str], home: Str, out failed: Int) :=
   local good: Bool
   assign failed := 0
@@ -399,199 +363,4 @@ function cmd_name(cmd: Cmd): Str :=
       test_name
     case _ =>
       ""
-  end
-
-// the message of e, with the position of the command that raised it, and the module if it is not the main module
-function located_message(e: TypeError): Str :=
-  match e
-    case Located(None, pos, error) =>
-      type_message(error) ++ at_pos(pos)
-
-    case Located(Some(m), pos, error) =>
-      type_message(error) ++ " in " ++ m ++ at_pos(pos)
-
-    case _ =>
-      type_message(e)
-  end
-
-// a candidate of an ambiguous name with its type, if known, which tells overloads of one module apart
-function candidate_text(c: Name * Scheme): Str :=
-  match c
-    case (m, sc) =>
-      if sc.typ == THole then format_name(m) else format_name(m) ++ ": " ++ format_type(sc.typ)
-  end
-
-function container_message(typ: Type): Str :=
-  "the type " ++ format_type(typ) ++ " of the container of a generator is not known there, which an annotation can give"
-
-function count_message(owner: Str, unit: Str, k: Int, actual: Int): Str :=
-  (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(actual)
-
-function type_message(e: TypeError): Str :=
-  match e
-    case UnknownSort(name) =>
-      "unknown sort " ++ name.base
-
-    case SortArity(name, expected, actual) =>
-      "sort " ++ name.base ++ " expects " ++ show(expected) ++ " arguments, got " ++ show(actual)
-
-    case SortDefined(name) =>
-      "sort " ++ name.base ++ " is already defined"
-
-    case MissingType(name) =>
-      "missing type for " ++ name.base
-
-    case UndeclaredParams(name, types) =>
-      name.base ++ " has undeclared type parameters " ++ format_types(types)
-
-    case CannotUnify(left, right) =>
-      "cannot unify " ++ format_type(left) ++ " and " ++ format_type(right)
-
-    case InfiniteType(meta, typ) =>
-      "infinite type " ++ format_type(meta) ++ " = " ++ format_type(typ)
-
-    case UnknownVariable(name) =>
-      "unknown variable " ++ name.base
-
-    case NoOverload(name, typ) =>
-      "no declaration of " ++ name.base ++ " has the type " ++ format_type(typ)
-
-    case WrongArity(name, arity) =>
-      name.base ++ " does not take " ++ show(arity) ++ " arguments"
-
-    case AlreadyDefined(name) =>
-      name.base ++ " is already defined"
-
-    case Duplicate(what, item) =>
-      "duplicate " ++ what ++ " " ++ item
-
-    case Ambiguous(name, candidates) =>
-      name.base ++ " is ambiguous: " ++ join(", ", list(for c in candidates yield candidate_text(c)))
-
-    case UnknownField(name) =>
-      field_message(split(name.base, '.'))
-
-    case UnknownFieldType(field, typ) =>
-      "the type " ++ format_type(typ) ++ " of the value of " ++ field ++ " is not known"
-
-    case UnknownFieldOwner(field) =>
-      "the type of the value of " ++ field ++ " is not known there, which an annotation can give"
-
-    case UnknownContainer(typ) =>
-      container_message(typ)
-
-    case CountMismatch(owner, unit, k, actual) =>
-      count_message(owner, unit, k, actual)
-
-    case UnknownConstructor(name) =>
-      "unknown constructor " ++ name.base
-
-    case NotExhaustive(pat) =>
-      "match is not exhaustive, missing " ++ format_pat(pat)
-
-    case Unreachable(pat) =>
-      "unreachable case " ++ format_pat(pat)
-
-    case NotAssignable(name) =>
-      name.base ++ " is not assignable"
-
-    case UnknownProcedure(name) =>
-      "unknown procedure " ++ name.base
-
-    case UnknownException(typ) =>
-      "the type " ++ format_type(typ) ++ " of an exception is not fully known"
-
-    case TestParams(test_name) =>
-      "test " ++ test_name ++ " takes parameters"
-
-    case Unassigned(name) =>
-      name.base ++ " is not assigned on every path"
-
-    case OutputUnassigned(x, proc) =>
-      "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned on every path"
-
-    case MissingDefinition(name) =>
-      name.base ++ " is exported but not defined"
-
-    case SignatureMismatch(name) =>
-      "the definition of " ++ name.base ++ " differs from its signature"
-
-    case PartlyExported(name) =>
-      name.base ++ " is exported, but not with each of its numbers of arguments"
-
-    case PrivateType(name, sort) =>
-      "the signature of " ++ name.base ++ " names the private type " ++ sort.base
-
-    case HiddenLocal(name) =>
-      name.base ++ " hides a local of the same name"
-
-    case VisibleEquality(sort) =>
-      sort.base ++ " declares ==, which only abstract types may"
-
-    case MisshapenHook(name) =>
-      hook_message(name.base)
-
-    case UnexportedOrder(fun, sort) =>
-      fun.base ++ " of the exported type " ++ sort.base ++ " is not exported"
-
-    case AliasVariables(name) =>
-      "the variables of the pattern alias " ++ name.base ++ " are not its formals, each once"
-
-    case PatternOnly(name) =>
-      "the pattern alias " ++ name.base ++ " has _ and builds no value"
-
-    case PrivateConstructor(name, constr) =>
-      "the exported pattern alias " ++ name.base ++ " matches the private constructor " ++ constr.base
-
-    case Located(_, _, error) =>
-      type_message(error)
-  end
-
-function hook_message(f: Id): Str :=
-  let values := if f == "show" then "one value" else "two values", result := if f == "show" then "Str" else if f == "==" then "Bool" else "Int" in f ++ " must take " ++ values ++ " T[A, …] of a datatype T of its module, with distinct type parameters, and give " ++ result
-
-// the accessor T.f, or the updater T.f:=, of an unknown field f
-function field_message(parts: List[Str]): Str :=
-  match parts
-    case list("", f) =>
-      "unknown field " ++ without_update(f)
-
-    case list(t, f) =>
-      "unknown field " ++ without_update(f) ++ " of " ++ t
-
-    case _ =>
-      "unknown field " ++ join(".", parts)
-  end
-
-function without_update(f: Str): Str :=
-  if size(f) > 2 and ends_with(f, ":=") then slice(f, 0, size(f) - 2) else f
-
-function internal_message(e: InternalError): Str :=
-  match e
-    case Uninitialized(name) =>
-      name.base ++ " is not initialized"
-
-    case NotFunction(value) =>
-      "cannot apply " ++ format_value(value)
-
-    case Unspecified(name, args) =>
-      name.base ++ " is not specified for " ++ join(", ", list(for v in args yield format_value(v)))
-
-    case NotList(value) =>
-      "expected a list, got " ++ format_value(value)
-
-    case UnassignedOutput(x, proc) =>
-      "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned"
-
-    case UnknownProc(name) =>
-      "unknown procedure " ++ name.base
-
-    case NotProc(value) =>
-      "cannot call " ++ format_value(value)
-
-    case UnresolvedField(field) =>
-      "the field " ++ field ++ " is not resolved"
-
-    case UntranslatedForm(form) =>
-      "the form " ++ form ++ "(...) is not translated"
   end

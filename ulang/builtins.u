@@ -44,17 +44,6 @@ function array_name(): Name
 
 function array_foldr_name(): Name
 
-// programs of the tests, which are not parsed
-function type_plain_list(t: Type): Type
-
-function lists(): List[Mod]
-
-function with_lists(cmds: List[Cmd]): Source
-
-function program_of(cmds: List[Cmd]): Source
-
-function natives_prelude(): Mod
-
 implementation
 
 function nil_name(): Name :=
@@ -88,37 +77,3 @@ function array_name(): Name :=
 
 function array_foldr_name(): Name :=
   library_name("array", "foldr")
-
-// the lists of the tests, before checking
-function type_plain_list(t: Type): Type :=
-  TSort(unqualified("List"), list(t))
-
-// lists with constructors Nil and Cons, exported by the module list as in the library, and their length
-function lists(): List[Mod] :=
-  list(
-    Mod(library_module("list"), "", list(), unplaced(list(
-      CData(unqualified("List"), list("A"), list(
-        Constr("", unqualified("Nil"), list()),
-        Constr("", unqualified("Cons"), list(
-          Field("head", TParam("A")),
-          Field("tail", type_plain_list(TParam("A"))))))))), list(), list()))
-
-// the program of the commands cmds after len of the module main, which imports lists
-function with_lists(cmds: List[Cmd]): Source :=
-  Source(list(natives_prelude(); lists()) ++ list(
-    Mod("main", "", list(library_module("list")), list(), list(), unplaced(list(len_fun(); cmds)))), list(), "main")
-
-function len_fun(): Cmd :=
-  CFun(unqualified("len"), list("A"), list(Var(unqualified("xs"), type_plain_list(TParam("A")))), TInt(), EMatch(expr_var("xs"), list(
-    Branch("", pat_var("Nil"), None, expr_int(0)),
-    Branch("", PApp(unqualified("Cons"), list(PWild, pat_var("ys"))), None, expr_app("+", list(expr_int(1), expr_app("len", list(expr_var("ys")))))))))
-
-// a prelude of the builtin types and functions of prelude/prelude.u only, for programs that are not parsed
-function natives_prelude(): Mod :=
-  let int_op := lambda op => CFunSig(unqualified(op), list(), list(Var(unqualified("a"), TInt()), Var(unqualified("b"), TInt())), TInt()) in Mod(library_module("prelude"), "", list(), list(), unplaced(list(for t in list("Bool", "Int", "Str", "Char") yield CAbstract(unqualified(t), list())) ++ list(for op in list("+", "-", "*", "/", "%") yield int_op(op)) ++ list(
-    CFunSig(unqualified("++"), list(), list(Var(unqualified("a"), TStr()), Var(unqualified("b"), TStr())), TStr()))), list())
-
-function program_of(cmds: List[Cmd]): Source :=
-  Source(list(
-    natives_prelude(),
-    Mod("main", "", list(), list(), list(), unplaced(cmds))), list(), "main")

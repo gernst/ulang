@@ -432,7 +432,8 @@ static int compare_items(u_value a, u_value b) {
   return sign(a->size - b->size);
 }
 
-static u_value compare_tuples(u_value a, u_value b) {
+// tuples, and arrays by their elements and then by their size, as lists
+static u_value compare_by_items(u_value a, u_value b) {
   return ordering(a == b ? 0 : compare_items(a, b));
 }
 
@@ -447,24 +448,12 @@ u_value u_con_compare(u_value a, u_value b) {
   return ordering(compare_items(a, b));
 }
 
-// arrays by their elements and then by their size, as lists
-static u_value compare_arrays(u_value a, u_value b) {
-  return ordering(a == b ? 0 : compare_items(a, b));
-}
-
 static void fail_with(const char *format, u_value a, u_value b);
 
-static u_value compare_functions(u_value a, u_value b) {
-  (void)a;
+// functions and procedures, which are incomparable
+static u_value compare_callables(u_value a, u_value b) {
   (void)b;
-  fail_with(u_text_compare_functions, NULL, NULL);
-  return NULL;
-}
-
-static u_value compare_procedures(u_value a, u_value b) {
-  (void)a;
-  (void)b;
-  fail_with(u_text_compare_procedures, NULL, NULL);
+  fail_with(a->type == &u_closure_type ? u_text_compare_functions : u_text_compare_procedures, NULL, NULL);
   return NULL;
 }
 
@@ -851,7 +840,7 @@ static void append_shown(struct u_text *t, u_value v) {
   append_str(t, u_show(v));
 }
 
-// values as ulang/print.u shows them, by their types
+// values as show_in of ulang/run.u shows them, by their types
 u_value u_show(u_value v) {
   return v->type->show(v);
 }
@@ -907,12 +896,8 @@ u_value u_con_show(u_value v) {
 
 static u_value show_array(u_value v) {
   struct u_text t = {NULL, 0, 0, 1};
-  append(&t, "array(");
-  for (int i = 0; i < v->size; i++) {
-    if (i > 0) append(&t, ", ");
-    append_str(&t, u_show(v->items[i]));
-  }
-  append(&t, ")");
+  append(&t, "array");
+  append_items(&t, v);
   return text_value(&t);
 }
 
@@ -931,10 +916,10 @@ const struct u_type u_big_type = {"Int", compare_ints, u_equals_by_compare, show
 const struct u_type u_bool_type = {"Bool", compare_nums, u_equals_by_compare, show_bool};
 const struct u_type u_char_type = {"Char", compare_nums, u_equals_by_compare, show_char};
 const struct u_type u_str_type = {"Str", compare_strs, equal_strs, show_str};
-const struct u_type u_tuple_type = {"*", compare_tuples, u_equals_by_compare, show_tuple};
-const struct u_type u_array_type = {"array.Array", compare_arrays, u_equals_by_compare, show_array};
-const struct u_type u_closure_type = {"->", compare_functions, compare_functions, show_function};
-const struct u_type u_proc_type = {"proc", compare_procedures, compare_procedures, show_procedure};
+const struct u_type u_tuple_type = {"*", compare_by_items, u_equals_by_compare, show_tuple};
+const struct u_type u_array_type = {"array.Array", compare_by_items, u_equals_by_compare, show_array};
+const struct u_type u_closure_type = {"->", compare_callables, compare_callables, show_function};
+const struct u_type u_proc_type = {"proc", compare_callables, compare_callables, show_procedure};
 
 // the error of the builtins on files, whose descriptor the runtime defines, since programs need not import os
 const struct u_type t_os_46_OsError = {"os.OsError", u_con_compare, u_equals_by_compare, u_con_show};

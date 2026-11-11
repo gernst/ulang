@@ -25,6 +25,9 @@ data TypeError :=
   case UnknownFieldOwner(field: Id)
   // a container of a generator whose type, which chooses the folds, is not known at the generator
   case UnknownContainer(typ: Type)
+  // a container of a generator whose type is of a module that declares no fold of three arguments, the one that the form
+  // takes
+  case NoFold(typ: Type, fold: Id)
   case CountMismatch(owner: Str, unit: Str, expected: Int, actual: Int)
   case UnknownConstructor(name: Name)
   case NotExhaustive(pat: Pat)
@@ -819,7 +822,7 @@ function heads(rows: List[List[Pat]]): List[Head] :=
   end
 
 // the argument types of constructor k of a datatype with type arguments args
-function field_types(sig: Sig, k: Name, args: List[Type]): List[Type] :=
+function constr_fields(sig: Sig, k: Name, args: List[Type]): List[Type] :=
   match constr_of(sig, k)
     case Some(constr) =>
       list(for a in constr.fields yield subst(a, zip(constr.params, args)))
@@ -839,7 +842,7 @@ function constructors_of(sig: Sig, su: Subst, t: Type): Option[List[Head * List[
     case TSort(name, args) =>
       match members_of(sig, name)
         case Some(ks) =>
-          Some(list(for k in ks yield (HCon(k), field_types(sig, k, args))))
+          Some(list(for k in ks yield (HCon(k), constr_fields(sig, k, args))))
         case None =>
           None
       end
@@ -1186,13 +1189,22 @@ procedure normalize_sort(
       end
   end
 
-procedure normalizes(in ts: List[Type], out us: List[Type], ref s: State) :=
-  local u: Type
-  assign us := list()
-  for t in ts do
-    call   normalize(in t, out u, ref s)
-    assign us := us ++ list(u)
+// step applied to each of xs in order, threading the state
+procedure map_state[A, B](
+  in  xs: List[A],
+      step: (in A, out B, ref State),
+  out ys: List[B],
+  ref s: State
+) :=
+  local y: B, found: Buffer[B] := empty()
+  for x in xs do
+    call   step(in x, out y, ref s)
+    assign found := found ++ list(y)
   end
+  assign ys := list(for z in found)
+
+procedure normalizes(in ts: List[Type], out us: List[Type], ref s: State) :=
+  call map_state(in ts, normalize, out us, ref s)
 
 procedure known(in t: Type, what: Name, out u: Type, ref s: State) :=
   if holes(t) then
@@ -1206,12 +1218,9 @@ procedure knowns(
   out us: List[Type],
   ref s: State
 ) :=
-  local u: Type
-  assign us := list()
-  for t in ts do
-    call   known(in t, what, out u, ref s)
-    assign us := us ++ list(u)
-  end
+  call map_state(in ts, lambda in t: Type, out u: Type, ref r: State =>
+    call known(in t, what, out u, ref r)
+  end, out us, ref s)
 
 // the variables of a lambda, a let, or locals, which are what, e.g. formals
 procedure formals(in what: Str, xs: List[Var], out ys: List[Var], ref s: State) :=
@@ -1219,12 +1228,12 @@ procedure formals(in what: Str, xs: List[Var], out ys: List[Var], ref s: State) 
   call normalize_vars(in xs, out ys, ref s)
 
 procedure normalize_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
+  call map_state(in xs, normalize_var, out ys, ref s)
+
+procedure normalize_var(in x: Var, out y: Var, ref s: State) :=
   local u: Type
-  assign ys := list()
-  for Var(name, typ) in xs do
-    call   normalize(in typ, out u, ref s)
-    assign ys := ys ++ list(Var(name, u))
-  end
+  call   normalize(in x.typ, out u, ref s)
+  assign y := Var(x.name, u)
 
 // the parameters and locals, which have types
 procedure signature(in xs: List[Var], out ys: List[Var], ref s: State) :=
@@ -1232,12 +1241,12 @@ procedure signature(in xs: List[Var], out ys: List[Var], ref s: State) :=
   call known_vars(in xs, out ys, ref s)
 
 procedure known_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
+  call map_state(in xs, known_var, out ys, ref s)
+
+procedure known_var(in x: Var, out y: Var, ref s: State) :=
   local u: Type
-  assign ys := list()
-  for Var(name, typ) in xs do
-    call   known(in typ, name, out u, ref s)
-    assign ys := ys ++ list(Var(name, u))
-  end
+  call   known(in x.typ, x.name, out u, ref s)
+  assign y := Var(x.name, u)
 
 // a use of n elaborated with an instance of sc, where w is normalized
 procedure use(in n: Name, w: Type, sc: Scheme, out x: Var, ref s: State) :=
@@ -1468,15 +1477,19 @@ procedure generator(
       t: Type,
   ref s: State
 ) :=
-  local c: Expr, u: Type, f1: Expr, x: Var
+  local c: Expr, u: Type, f1: Expr, x: Var, w: Type
   call   infer(in env, gen_container(g), out c, u, ref s)
   call   solve(ref s)
-  assign x := Var(unqualified("(container)"), u)
-  match zonk_type(s.sub, u)
+  assign x := Var(unqualified("(container)"), u), w := zonk_type(s.sub, u)
+  match w
     case TSort(Name(Some(m), _), targs) =>
+      if not declares_fold(s.sig, m, fold_name(form)) then
+        raise NoFold(w, fold_name(form))
+      end
       call infer(in bind(list(x)) ++ env, fold_expr(form, m, targs, g, EVar(x), EFor(form, more, elem, Some(EVar(form_acc()))), base_expr(form, rest)), out f1, t, ref s)
-    case v =>
-      raise UnknownContainer(v)
+
+    case _ =>
+      raise UnknownContainer(w)
   end
   match f1
     case EApp(f, list(_; args)) =>
@@ -1484,6 +1497,18 @@ procedure generator(
     case _ =>
       assign e1 := f1
   end
+
+// foldr for lists, which come out in the order of the container, and foldl for the others
+function fold_name(form: Form): Id :=
+  if form == FList then "foldr" else "foldl"
+
+function declares_fold(sig: Sig, m: Id, fold: Id): Bool :=
+  exists(schemes_of(sig, Name(Some(m), fold)), lambda sc => match sc.typ
+    case TFun(args, _) =>
+      size(args) == 3
+    case _ =>
+      false
+  end)
 
 function form_app(m: Id, f: Id, args: List[Expr]): Expr :=
   ECall(Name(Some(m), f), THole, args)
@@ -1560,7 +1585,7 @@ function gen_container(g: Gen): Expr :=
 // so that the steps run in the order of the generators, whose function binds the pattern of g and computes body, where a
 // pattern that is no variable is matched, and the fold of a map takes key and value
 function fold_expr(form: Form, m: Id, targs: List[Type], g: Gen, c: Expr, body: Expr, base: Expr): Expr :=
-  let fold := (if form == FList then "foldr" else "foldl"), acc := form_acc() in match g
+  let fold := fold_name(form), acc := form_acc() in match g
     case GPair(k, v, _) =>
       let kx := formal_of(k, "(key)", key_type(targs)), vx := formal_of(v, "(value)", value_type(targs)) in form_app(m, fold, list(
         c,
@@ -2074,12 +2099,9 @@ procedure variables(
   out ys: List[Var],
   ref s: State
 ) :=
-  local y: Var
-  assign ys := list()
-  for x in xs do
-    call   variable(in env, assignable, x, out y, ref s)
-    assign ys := ys ++ list(y)
-  end
+  call map_state(in xs, lambda in x: Var, out y: Var, ref r: State =>
+    call variable(in env, assignable, x, out y, ref r)
+  end, out ys, ref s)
 
 // env tells which variables are assigned on every path to x, and after it
 procedure statement(
@@ -2414,7 +2436,7 @@ procedure declare_constrs(in cs: List[Id * Cmd], ref s: State) :=
         call   unique_ids(in "type parameter", params)
         assign s := with_sig(s, with_members(s.sig, n, list(for k in constrs yield k.name)))
         call   declare_constructors(in n, params, constrs, ref s)
-        call   declare_fields(in n, params, field_types(s.sig, constrs), ref s)
+        call   declare_fields(in n, params, datatype_fields(s.sig, params, constrs), ref s)
 
       case _ =>
         skip
@@ -2450,11 +2472,8 @@ procedure declare_fields(
 
 // each field of the constructors once, with its type as the constructor that declares it first has it, which is that of
 // the others, since the parser rejects a field with different types
-function field_types(sig: Sig, ks: List[Constr]): List[Id * Type] :=
-  first_fields(list(for k in ks for p in zip(list(for field in k.fields yield field.name), constr_types(sig, k.name)) yield p))
-
-function constr_types(sig: Sig, k: Name): List[Type] :=
-  value_or(map_option(constr_of(sig, k), lambda constr => constr.fields), list())
+function datatype_fields(sig: Sig, ps: List[Id], ks: List[Constr]): List[Id * Type] :=
+  first_fields(list(for k in ks for p in zip(list(for field in k.fields yield field.name), constr_fields(sig, k.name, params(ps))) yield p))
 
 function first_fields(fields: List[Id * Type]): List[Id * Type] :=
   match fields
@@ -2957,25 +2976,6 @@ function exposed(cmd: Cmd): Option[Name * List[Type]] :=
 
     case _ =>
       None
-  end
-
-// the sorts that t names, as written, unqualified or qualified
-function sorts_in(t: Type): List[Name] :=
-  match t
-    case TSort(name, args) =>
-      list(name; list(for a in args for u in sorts_in(a) yield u))
-
-    case TFun(args, res) =>
-      list(for a in args ++ list(res) for u in sorts_in(a) yield u)
-
-    case TProc(ins, outs, refs) =>
-      list(for a in ins ++ outs ++ refs for u in sorts_in(a) yield u)
-
-    case TTuple(types) =>
-      list(for a in types for u in sorts_in(a) yield u)
-
-    case _ =>
-      list()
   end
 
 // the sections of module d, whose signatures its definitions repeat, and whose exports name no private sorts

@@ -1,0 +1,9 @@
+// type error: cannot unify tests/errors/modules/hiding/hiding.Box and tests/errors/modules/same-sort-name.Box at 8.1
+
+import "tests/errors/modules/hiding"
+
+data Box :=
+  case Empty
+
+function f(): Box :=
+  box(1)

@@ -104,9 +104,20 @@ function os_basename(path: Str): Str :=
       path
   end
 
+// / for a path right below the root, such as /a
 function os_dirname(path: Str): Str :=
-  let parts := split(path, '/') in if size(parts) == 1 then "." else join("/", take(size(parts) - 1, parts))
+  match split(path, '/')
+    case list(_) =>
+      "."
+
+    case list("", _) =>
+      "/"
+
+    case parts =>
+      join("/", take(size(parts) - 1, parts))
+  end
 
 test paths() :=
   assert os_basename("a/b.u") == "b.u" and os_basename("b.u") == "b.u" and os_dirname("a/b/c.u") == "a/b" and os_dirname("c.u") == "."
+  assert os_dirname("/a") == "/" and os_dirname("/a/b") == "/a"
   assert os_join("a", "b") == "a/b" and os_join("a/", "b") == "a/b"

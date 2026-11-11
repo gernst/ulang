@@ -13,6 +13,9 @@ function format_type(t: Type): Str
 
 function format_types(ts: List[Type]): Str
 
+// the types of one message, where a name of sorts of several modules is qualified by its module wherever it occurs
+function format_types_apart(ts: List[Type]): List[Str]
+
 function format_pat(pat: Pat): Str
 
 function format_name(n: Name): Str
@@ -887,6 +890,20 @@ function escape_char(c: Char): Str :=
 
 // types as the messages of the checker show them, without numbering the unknowns anew
 function format_type(t: Type): Str :=
+  join(", ", format_types_apart(list(t)))
+
+function format_types(ts: List[Type]): Str :=
+  join(", ", format_types_apart(ts))
+
+// the types of one message, where a name of sorts of several modules is qualified by its module wherever it occurs
+function format_types_apart(ts: List[Type]): List[Str] :=
+  let clashes := clashing_bases(list(for t in ts for name in sorts_in(t) yield name)) in list(for t in ts yield format_type_apart(clashes, t))
+
+function clashing_bases(names: List[Name]): Set[Id] :=
+  set(for name in names if exists(names, lambda other => other.base == name.base and other != name) yield name.base)
+
+// t, where the sorts of the names clashes are qualified by their modules
+function format_type_apart(clashes: Set[Id], t: Type): Str :=
   match t
     case TParam(param) =>
       param
@@ -898,56 +915,59 @@ function format_type(t: Type): Str :=
       "?" ++ show(meta)
 
     case TFun(list(TTuple(list())), res) =>
-      "(()) -> " ++ format_type(res)
+      "(()) -> " ++ format_type_apart(clashes, res)
 
     case TFun(list(a), res) =>
-      type_operand(a) ++ " -> " ++ format_type(res)
+      type_operand(clashes, a) ++ " -> " ++ format_type_apart(clashes, res)
 
     case TFun(args, res) =>
-      "(" ++ format_types(args) ++ ") -> " ++ format_type(res)
+      "(" ++ format_list_apart(clashes, args) ++ ") -> " ++ format_type_apart(clashes, res)
 
     case TProc(ins, outs, refs) =>
-      "(" ++ join(", ", type_section("in", ins) ++ type_section("out", outs) ++ type_section("ref", refs)) ++ ")"
+      "(" ++ join(", ", type_section(clashes, "in", ins) ++ type_section(clashes, "out", outs) ++ type_section(clashes, "ref", refs)) ++ ")"
 
     case TTuple(list()) =>
       "()"
 
     case TTuple(types) =>
-      join(" * ", list(for a in types yield type_component(a)))
+      join(" * ", list(for a in types yield type_component(clashes, a)))
 
     case TSort(name, list()) =>
-      name.base
+      sort_text(clashes, name)
 
     case TSort(name, args) =>
-      name.base ++ "[" ++ format_types(args) ++ "]"
+      sort_text(clashes, name) ++ "[" ++ format_list_apart(clashes, args) ++ "]"
   end
 
-function format_types(ts: List[Type]): Str :=
-  join(", ", list(for t in ts yield format_type(t)))
+function sort_text(clashes: Set[Id], name: Name): Str :=
+  if contains(name.base, clashes) then format_name(name) else name.base
 
-function type_section(mode: Str, ts: List[Type]): List[Str] :=
-  if ts == list() then list() else list(mode ++ " " ++ format_types(ts))
+function format_list_apart(clashes: Set[Id], ts: List[Type]): Str :=
+  join(", ", list(for t in ts yield format_type_apart(clashes, t)))
+
+function type_section(clashes: Set[Id], mode: Str, ts: List[Type]): List[Str] :=
+  if ts == list() then list() else list(mode ++ " " ++ format_list_apart(clashes, ts))
 
 // the argument of a function, in parentheses if it is a function
-function type_operand(t: Type): Str :=
+function type_operand(clashes: Set[Id], t: Type): Str :=
   match t
     case TFun(_, _) =>
-      "(" ++ format_type(t) ++ ")"
+      "(" ++ format_type_apart(clashes, t) ++ ")"
     case _ =>
-      format_type(t)
+      format_type_apart(clashes, t)
   end
 
 // a component of a tuple, in parentheses if it is a function or a tuple
-function type_component(t: Type): Str :=
+function type_component(clashes: Set[Id], t: Type): Str :=
   match t
     case TFun(_, _) =>
-      "(" ++ format_type(t) ++ ")"
+      "(" ++ format_type_apart(clashes, t) ++ ")"
 
     case TTuple(list(_, _; _)) =>
-      "(" ++ format_type(t) ++ ")"
+      "(" ++ format_type_apart(clashes, t) ++ ")"
 
     case _ =>
-      format_type(t)
+      format_type_apart(clashes, t)
   end
 
 // patterns as the messages of the checker show them

@@ -413,21 +413,6 @@ function pattern_binds(pat: Pat, v: CExpr): List[CStmt] :=
 function field_binds(ps: List[Pat * Int], v: CExpr): List[CStmt] :=
   list(for (p, i) in ps for b in pattern_binds(p, field(v, i)) yield b)
 
-function pattern_names(pat: Pat): List[Name] :=
-  match pat
-    case PName(name, _) =>
-      list(name)
-
-    case PApp(_, args) =>
-      list(for q in args for x in pattern_names(q) yield x)
-
-    case PTuple(args) =>
-      list(for q in args for x in pattern_names(q) yield x)
-
-    case _ =>
-      list()
-  end
-
 function free_in_all(exprs: List[Expr], bound: List[Name]): List[Name] :=
   list(for a in exprs for n in free_vars(a, bound) yield n)
 

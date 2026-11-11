@@ -19,6 +19,9 @@ procedure parse_file(in path: Str, out source: Source)
 
 procedure parse_file_text(in path: Str, text: Str, out source: Source)
 
+// whether path names a source file, name.u with a name
+function is_source(path: Str): Bool
+
 implementation
 
 function type_ops(): Ops[List[Type]] :=
@@ -249,7 +252,7 @@ procedure parse_name(out name: Id, ref toks: Tokens) :=
 procedure parse_import(out name: Id, ref toks: Tokens) :=
   local pos := head_pos(toks)
   match head_token(toks)
-    case TStr(path) if ends_with(path, ".u") =>
+    case TStr(path) if is_source(path) =>
       raise ParseError("an import names the directory of a package, not a file", pos)
 
     case TStr(path) if is_package_path(path) =>
@@ -1839,7 +1842,7 @@ procedure package_files(
     case Some(d) =>
       call os_list(in if d == "" then root else os_join(root, d), out entries)
       for (file, is_dir) in entries do
-        if not is_dir and ends_with(file, ".u") and file != "project.u" and module_id(d, module_name(file)) != main_id then
+        if not is_dir and is_source(file) and file != "project.u" and module_id(d, module_name(file)) != main_id then
           call os_read(in os_join(os_join(root, d), file), out text)
           if has_sections(text) then
             assign found := found ++ list((module_id(d, module_name(file)), text))
@@ -2208,7 +2211,7 @@ procedure place_of(in path: Str, out place: Place) :=
   local cwd: Str, file: Str, home: Str, root: Str, library: Bool, name := module_name(path)
   call   os_cwd(out cwd)
   assign file := normal_path(if starts_with(path, "/") then path else os_join(cwd, path))
-  assign home := parent_dir(file)
+  assign home := os_dirname(file)
   call   has_file(in home, "prelude.u", out library)
   if library then
     assign place := Place(library_module(name), home, None)
@@ -2229,14 +2232,10 @@ procedure project_root(in dir: Str, out root: Str) :=
       if here == "/" then
         assign found := true
       else
-        assign here := parent_dir(here)
+        assign here := os_dirname(here)
       end
     end
   end
-
-// the directory of an absolute path, / for /
-function parent_dir(path: Str): Str :=
-  let dir := os_dirname(path) in if dir == "" then "/" else dir
 
 procedure has_file(in dir: Str, name: Str, out found: Bool) :=
   local entries: List[Str * Bool]
@@ -2272,7 +2271,10 @@ function relative_path(root: Str, dir: Str): Str :=
 
 // the name of the module of the file at path, without its directory and .u
 function module_name(path: Str): Str :=
-  let f := os_basename(path) in if ends_with(f, ".u") then slice(f, 0, size(f) - 2) else f
+  let f := os_basename(path) in if is_source(f) then slice(f, 0, size(f) - 2) else f
+
+function is_source(path: Str): Bool :=
+  let f := os_basename(path) in size(f) > 2 and ends_with(f, ".u")
 
 // the parser, tested by the trees of single constructs, parsed with their own notation from the empty context, which reads no
 // files

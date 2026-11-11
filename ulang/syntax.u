@@ -257,6 +257,11 @@ function pattern_expr(p: Pat): Option[Expr]
 
 function subst_pat(pat: Pat, sub: List[Name * Pat]): Pat
 
+function pattern_names(pat: Pat): List[Name]
+
+// the sorts that t names, as written, unqualified or qualified
+function sorts_in(t: Type): List[Name]
+
 function implicit_elem(form: Form, gens: List[Gen]): Option[Yield]
 
 function form_name(form: Form): Id
@@ -475,6 +480,43 @@ function subst_pat(pat: Pat, sub: List[Name * Pat]): Pat :=
 
     case _ =>
       pat
+  end
+
+function sorts_in(t: Type): List[Name] :=
+  match t
+    case TSort(name, args) =>
+      list(name; list(for a in args for u in sorts_in(a) yield u))
+
+    case TFun(args, res) =>
+      list(for a in args ++ list(res) for u in sorts_in(a) yield u)
+
+    case TProc(ins, outs, refs) =>
+      list(for a in ins ++ outs ++ refs for u in sorts_in(a) yield u)
+
+    case TTuple(types) =>
+      list(for a in types for u in sorts_in(a) yield u)
+
+    case _ =>
+      list()
+  end
+
+// the variables that pat binds, from left to right
+function pattern_names(pat: Pat): List[Name] :=
+  match pat
+    case PVar(var) =>
+      list(var.name)
+
+    case PApp(_, args) =>
+      list(for arg in args for name in pattern_names(arg) yield name)
+
+    case PTuple(args) =>
+      list(for arg in args for name in pattern_names(arg) yield name)
+
+    case PWild =>
+      list()
+
+    case PLit(_) =>
+      list()
   end
 
 function pattern_exprs(ps: List[Pat]): Option[List[Expr]] :=

@@ -1,0 +1,6 @@
+// type error: Option[Int] is no container: prelude/option declares no foldr at 2.1
+procedure main() :=
+  local o: Option[Int] := Some(1), n := 0
+  for x in o do
+    assign n := n + x
+  end
