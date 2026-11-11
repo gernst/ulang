@@ -21,9 +21,7 @@ function find[A](xs: List[A], p: A -> Bool): Option[A]
 
 function find_map[A, B](xs: List[A], f: A -> Option[B]): Option[B]
 
-// the element at index i, which raises OutOfBounds out of range, and the index of the first x
-function at[A](i: Int, xs: List[A]): A
-
+// the index of the first x
 function index_of[A](x: A, xs: List[A]): Option[Int]
 
 // the elements of the lists that f gives for the elements of xs
@@ -191,14 +189,6 @@ function find_map[A, B](xs: List[A], f: A -> Option[B]): Option[B] :=
         case found =>
           found
       end
-  end
-
-function at[A](i: Int, xs: List[A]): A :=
-  match drop(i, xs)
-    case List(x; _) if i >= 0 =>
-      x
-    case _ =>
-      raise OutOfBounds(i, size(xs))
   end
 
 function index_of[A](x: A, xs: List[A]): Option[Int] :=
@@ -379,7 +369,7 @@ test lists() :=
   assert take(2, List(1, 2, 3)) == List(1, 2) and drop(2, List(1, 2, 3)) == List(3)
   assert find(List(1, 4, 6), lambda x => x > 3) == Some(4) and find(List(1, 2), lambda x => x > 3) == None
   assert find_map(List(1, 4, 6), lambda x => if x > 3 then Some(x * 2) else None) == Some(8) and find_map(List(1), lambda x => None) == None
-  assert at(1, List(5, 6)) == 6 and index_of(6, List(5, 6)) == Some(1) and index_of(7, List(5, 6)) == None
+  assert index_of(6, List(5, 6)) == Some(1) and index_of(7, List(5, 6)) == None
   assert flat_map(List(1, 2), lambda x => List(x, x)) == List(1, 1, 2, 2) and split_at(1, List(1, 2, 3)) == (List(1), List(2, 3))
   assert sort(List(3, 1, 2, 1)) == List(1, 1, 2, 3) and sort(List("b", "a")) == List("a", "b") and sort(List(1)) == List(1)
   assert replicate(2, 0) == List(0, 0) and replicate(-1, 0) == List()

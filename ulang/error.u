@@ -40,12 +40,12 @@ function located_message(e: TypeError): Str
 // since an earlier phase rules out what they meet
 data InternalError :=
   case Uninitialized(name: Name)
-  case NotFunction(value: Value)
-  case Unspecified(name: Name, args: List[Value])
-  case NotList(value: Value)
+  case NotFunction(value: Val)
+  case Unspecified(name: Name, args: List[Val])
+  case NotList(value: Val)
   case UnassignedOutput(output: Name, proc: Name)
   case UnknownProc(name: Name)
-  case NotProc(value: Value)
+  case NotProc(value: Val)
   // an access or update of a field, which the checker resolves to an accessor or updater
   case UnresolvedField(field: Id)
   case UntranslatedForm(form: Id)

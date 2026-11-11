@@ -237,7 +237,7 @@ function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Co
       match one_point(d, seqs)
         case Some((l, t, rest)) =>
           let levels := List(for m in range(d, depth(after)) if m != l) in
-          simp_seq(ctx, Seq(List(for m in levels yield at(m - d, vars_from(after, d))), List(for b in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, b))), List(for c in cs yield rebind_concl(Close(levels), 0, replace_concl(ELevel(l), t, c)))))
+          simp_seq(ctx, Seq(List(for m in levels yield at(m - d, from_list(vars_from(after, d)))), List(for b in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, b))), List(for c in cs yield rebind_concl(Close(levels), 0, replace_concl(ELevel(l), t, c)))))
 
         case None =>
           match disjoin(after, cs)
@@ -384,7 +384,7 @@ function simp_concl(ctx: Ctx, c: Concl): Option[Concl] :=
           match one_point(d, seqs)
             case Some((l, t, rest)) =>
               let levels := List(for m in range(d, depth(after)) if m != l) in
-              simp_concl(ctx, Concl(List(for m in levels yield at(m - d, vars_from(after, d))), List(for s in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, s)))))
+              simp_concl(ctx, Concl(List(for m in levels yield at(m - d, from_list(vars_from(after, d)))), List(for s in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, s)))))
 
             case None =>
               let levels := range(d, depth(after)) in
@@ -686,7 +686,7 @@ function is_unsat(cs: List[Lin], fuel: Int): Bool :=
         if fuel <= 0 or size(more) > 60 then
           false
         else
-          let rest := List(c; more), x := at(0, c.terms).expr in
+          let rest := List(c; more), x := at(0, from_list(c.terms)).expr in
           let pos := List(for t in rest if coefficient(x, t) > 0), neg := List(for t in rest if coefficient(x, t) < 0) in
           let none := List(for t in rest if coefficient(x, t) == 0) in
           is_unsat(none ++ List(for p in pos for n in neg yield combine(x, p, n)), fuel - 1)
@@ -1282,7 +1282,7 @@ function datatype_of(decls: Decls, bs: List[Branch]): Option[Name] :=
 function induction(decls: Decls, s: Seq, p: Int): Seq :=
   match normal(s)
     case Seq(fixed, assms, concls) if p < size(fixed) =>
-      match at(p, fixed).typ
+      match at(p, from_list(fixed)).typ
         case TSort(name, _) =>
           match get(name, decls.datatypes)
             case Some(cs) =>
@@ -1319,8 +1319,8 @@ function induction_case(decls: Decls, t: Name, xs: List[Var], p: Int, as0: List[
       let fields := List(for i in range(0, n) yield ELevel(k + i)) in
       let value := if n == 0 then EFun(c) else EApp(EFun(c), fields) in
       let v := ELevel(p), others := List(for l in range(0, k) if l != p) in
-      let vars := List(for l in others yield at(l, xs)) in
-      let ihs := List(for i in range(0, n) if is_recursive(t, at(i, fs)) yield hypothesis(vars, others, v, ELevel(k + i), as0, cs0)) in
+      let vars := List(for l in others yield at(l, from_list(xs))) in
+      let ihs := List(for i in range(0, n) if is_recursive(t, at(i, from_list(fs))) yield hypothesis(vars, others, v, ELevel(k + i), as0, cs0)) in
       let levels := others ++ range(k, k + n) in
       Seq(vars ++ fs, List(for h in ihs ++ List(for a in as0 yield replace_seq(v, value, a)) yield rebind_seq(Close(levels), 0, h)), List(for d in cs0 yield rebind_concl(Close(levels), 0, replace_concl(v, value, d))))
 
@@ -1398,7 +1398,7 @@ function print_concl(names: List[Id], several: Bool, c: Concl): Str :=
       let text := if parts == List() then
         "true"
       else if size(parts) == 1 and vars == List() and not several then
-        print_open(inner, at(0, parts))
+        print_open(inner, at(0, from_list(parts)))
       else
         join(" and ", List(for t in parts yield print_part(inner, t))) in
       if vars == List() then

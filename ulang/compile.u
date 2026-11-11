@@ -208,14 +208,12 @@ function field_call(n: Name, ps: List[Int], rs: List[CExpr]): CExpr :=
     case (List(a), List(p)) if p >= 0 =>
       c_call("u_field", List(a, CeNum(p)))
 
-    case (List(a), _) =>
-      c_call("u_select", List(a, CeVar(table_name(n)), CeUnary("&", CeVar(field_text_name(n)))))
-
     case (List(a, y), _) =>
       c_call("u_update", List(a, CeVar(table_name(n)), CeUnary("&", CeVar(field_text_name(n))), y))
 
+    // an accessor, of one argument
     case _ =>
-      raise Unexpected("arguments of the field " ++ format_name(n))
+      c_call("u_select", rs ++ List(CeVar(table_name(n)), CeUnary("&", CeVar(field_text_name(n)))))
   end
 
 function data_decls(cmds: List[Cmd], defs: Defs): List[CDecl] :=
@@ -578,11 +576,9 @@ function builtin_global(defs: Defs, n: Name): CExpr :=
     case Some((f, _)) =>
       closure("w" ++ f)
 
-    case None if contains(n, defs.procs) =>
-      c_call("u_mk_proc", List(CeVar("wp_" ++ mangle(n)), CeNum(0)))
-
+    // a procedure, since the checker resolves every other name
     case None =>
-      raise Unexpected("variable " ++ n.base)
+      c_call("u_mk_proc", List(CeVar("wp_" ++ mangle(n)), CeNum(0)))
   end
 
 function declare_none(x: Str): CStmt :=

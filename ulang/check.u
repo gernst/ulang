@@ -586,28 +586,6 @@ function zonk_expr_branch(s: State, b: Branch[Expr]): Branch[Expr] :=
       Branch(doc, zonk_pat(s, pat), zonk_guard(s, guard), zonk_expr(s, body))
   end
 
-// the match of a let with patterns other than variables, against the tuple of the values if there are several
-function let_match(bound: List[Pat * Expr], body: Expr): Expr :=
-  match bound
-    case List((pat, e)) =>
-      EMatch(e, List(Branch("", pat, None, body)))
-    case _ =>
-      EMatch(ETuple(seconds(bound)), List(Branch("", PTuple(firsts(bound)), None, body)))
-  end
-
-// the let of n bindings whose checked match let_match built
-function let_of_match(n: Int, m: Expr): Expr :=
-  match (n, m)
-    case (1, EMatch(e, List(Branch(_, pat, None, body)))) =>
-      ELet(List((pat, e)), body)
-
-    case (_, EMatch(ETuple(exprs), List(Branch(_, PTuple(pats), None, body)))) =>
-      ELet(zip(pats, exprs), body)
-
-    case _ =>
-      raise Unexpected("checked let of patterns that is no match")
-  end
-
 function zonk_pat(s: State, pat: Pat): Pat :=
   match pat
     case PVar(var) =>
@@ -759,17 +737,9 @@ function unknown_in_expr(expr: Expr): Option[Type] :=
     case ETuple(args) =>
       unknown_in_exprs(args)
 
-    case ELit(_) =>
+    // literals and variables, and forms, which the checker has translated
+    case _ =>
       None
-
-    case EVar(_) =>
-      None
-
-    case EForm(form, _, _) =>
-      raise UntranslatedForm(form_name(form))
-
-    case EFor(form, _, _, _) =>
-      raise UntranslatedForm(form_name(form))
   end
 
 function unknown_in_exprs(exprs: List[Expr]): Option[Type] :=
@@ -1485,11 +1455,24 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
           call   infer(in generalized(s, env, xs) ++ env, body, out b, u, ref s)
           assign res := ELet(zip(List(for x in xs yield PVar(x)), exprs), b), typ := u
 
-        // other patterns are checked as the match that binds them, which is exhaustive, and do not generalize
+        // other patterns are irrefutable, checked for exhaustiveness as the cases of a match, and do not generalize
         case None =>
-          local m: Expr
-          call   infer(in env, let_match(bound, body), out m, typ, ref s)
-          assign res := let_of_match(size(bound), m)
+          local ts: List[Type], exprs: List[Expr], pats: List[Pat] := List(), xs: List[Var] := List(), b: Expr
+          call fresh_list(in bound, out ts, ref s)
+          call checks(in env, "the bindings", seconds(bound), ts, out exprs, ref s)
+          for (pat, t) in zip(firsts(bound), ts) do
+            local p1: Pat, ys: List[Var]
+            call   binders(in pat, t, out p1, ys, ref s)
+            assign pats := pats ++ List(p1), xs := xs ++ ys
+          end
+          call unique(in "pattern variable", List(for x in xs yield x.name))
+          call unhidden(in env, xs)
+          call infer(in bind(xs) ++ env, body, out b, typ, ref s)
+          call solve(ref s)
+          for (pat, t) in zip(pats, ts) do
+            call coverage(in s, t, List((pat, true)))
+          end
+          assign res := ELet(zip(pats, exprs), b)
       end
 
     case EIte(cond, then_expr, else_expr) =>
@@ -3097,21 +3080,10 @@ function exposed(cmd: Cmd): Option[Name * List[Type]] :=
     case CPatAlias(name, _, formals, typ, _) =>
       Some((name, List(for x in formals yield x.typ) ++ List(typ)))
 
-    case CAbstract(_, _) =>
+    // abstract types and notations, and definitions and tests, which enter_section of ulang/parse.u keeps out of export
+    // sections
+    case _ =>
       None
-
-    case CNotation(_, _, _) =>
-      None
-
-    // definitions and tests, which enter_section of ulang/parse.u keeps out of export sections
-    case CFun(name, _, _, _, _) =>
-      raise Unexpected("definition " ++ format_name(name) ++ " in an export section")
-
-    case CProc(name, _, _, _, _, _) =>
-      raise Unexpected("definition " ++ format_name(name) ++ " in an export section")
-
-    case CTest(test_name, _, _) =>
-      raise Unexpected("test " ++ test_name ++ " in an export section")
   end
 
 // the sections of module d, whose signatures its definitions repeat, and whose exports name no private sorts

@@ -640,10 +640,16 @@ function print_expr(names: List[Id], e: Expr): Str :=
 function print_in(names: List[Id], bound: List[Id], e: Expr): Str :=
   match e
     case EBound(index) =>
-      if index < size(bound) then at(index, bound) else "#" ++ show(index)
+      if index < size(bound) then
+        at(index, from_list(bound))
+      else
+        "#" ++ show(index)
 
     case ELevel(level) =>
-      if level < size(names) then at(level, names) else "@" ++ show(level)
+      if level < size(names) then
+        at(level, from_list(names))
+      else
+        "@" ++ show(level)
 
     case EConst(lit) =>
       print_val(lit)

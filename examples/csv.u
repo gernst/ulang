@@ -128,7 +128,7 @@ procedure query(in args: List[Str], out result: Table) :=
 
     case List("project"; rest) if size(rest) >= 2 =>
       local table: Table, cols: List[Str] := take(size(rest) - 1, rest)
-      call   read_table(in at(size(rest) - 1, rest), out table)
+      call   read_table(in at(size(rest) - 1, from_list(rest)), out table)
       call   require_columns(in cols, table)
       assign result := project(cols, table)
 
