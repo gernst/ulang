@@ -119,9 +119,6 @@ procedure guarded(in file: Str, command: (out Bool), out ok: Bool, message: Str)
     case Unformatted(line) =>
       assign message := error_text(FormatKind, "the file differs from what ulang format writes" ++ at_pos(Pos(line, 1)))
 
-    case Unsupported(what) =>
-      assign message := error_text(CompileKind, what)
-
     case UnknownEntry(name) =>
       assign message := error_text(RuntimeKind, "there is no procedure " ++ name.base ++ " without parameters")
 

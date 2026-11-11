@@ -3,9 +3,6 @@
 
 export
 
-data CompileError :=
-  case Unsupported(what: Str)
-
 procedure compile_file(in source: Str, entry: Id, target: Str)
 
 implementation
@@ -198,7 +195,7 @@ function field_call(n: Name, ps: List[Int], rs: List[CExpr]): CExpr :=
       c_call("u_update", List(a, CeVar(table_name(n)), CeUnary("&", CeVar(field_text_name(n))), y))
 
     case _ =>
-      raise Unsupported("the field " ++ format_name(n))
+      raise Unexpected("arguments of the field " ++ format_name(n))
   end
 
 function data_decls(cmds: List[Cmd], defs: Defs): List[CDecl] :=
@@ -554,7 +551,7 @@ function builtin_global(defs: Defs, n: Name): CExpr :=
       c_call("u_mk_proc", List(CeVar("wp_" ++ mangle(n)), CeNum(0)))
 
     case None =>
-      raise Unsupported("the variable " ++ n.base)
+      raise Unexpected("variable " ++ n.base)
   end
 
 function declare_none(x: Str): CStmt :=
@@ -597,7 +594,7 @@ procedure compile_expr(
         case Some((gs, q, e)) =>
           call compile_array_comprehension(in defs, env, gs, q, e, out ss, r, ref g)
         case None =>
-          raise Unsupported("an array comprehension")
+          raise Unexpected("array comprehension")
       end
 
     case ECall(name, _, List(l)) if name == array_name() and list_literal(l) != None =>
@@ -608,7 +605,7 @@ procedure compile_expr(
           assign r := c_call("u_mk_array", List(CeNum(size(rs))) ++ rs)
 
         case None =>
-          raise Unsupported("an array literal")
+          raise Unexpected("array literal")
       end
 
     // [e for x in c, y in d if q] over lists and arrays, nested folds into which comprehensions translate, are nested loops
@@ -618,23 +615,23 @@ procedure compile_expr(
         case Some((gs, q, e)) =>
           call compile_list_comprehension(in defs, env, gs, q, e, init, out ss, r, ref g)
         case None =>
-          raise Unsupported("a list comprehension")
+          raise Unexpected("list comprehension")
       end
 
     case ECall(name, typ, args) if get(name, env) == None =>
       call compile_named(in defs, env, name, typ, args, out ss, r, ref g)
 
     case EField(_, field) =>
-      raise Unsupported("the unresolved field " ++ field)
+      raise UnresolvedField(field)
 
     case EUpdate(_, field, _) =>
-      raise Unsupported("the unresolved field " ++ field)
+      raise UnresolvedField(field)
 
     case EForm(form, _, _) =>
-      raise Unsupported("the untranslated form " ++ form_name(form))
+      raise UntranslatedForm(form_name(form))
 
     case EFor(form, _, _, _) =>
-      raise Unsupported("the untranslated form " ++ form_name(form))
+      raise UntranslatedForm(form_name(form))
 
     case EApp(fun, args) =>
       local as: List[CStmt], bs: List[CStmt], ra: CExpr, rs: List[CExpr]
@@ -1048,7 +1045,7 @@ procedure compile_array_comprehension(
       end
 
     case List() =>
-      raise Unsupported("a comprehension without generators")
+      raise Unexpected("comprehension without generators")
   end
 
 function declare(x: Str, init: CExpr): CStmt :=

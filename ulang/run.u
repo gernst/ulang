@@ -1,6 +1,6 @@
 // the interpreter of ulang, which runs programs of ulang/syntax.u that ulang/check.u has checked,
 // where statements update the values of the variables in scope, which a call passes to a procedure and back,
-// and errors are values of RuntimeError and InternalError, while the exceptions of the program are values of Thrown
+// and errors are values of RuntimeError and InternalError of ulang/error.u, while the exceptions of the program are values of Thrown
 
 export
 
@@ -17,19 +17,6 @@ data Value :=
 
 data Run :=
   case Run(defs: Defs, computing: List[Name], args: List[Str])
-
-// the errors of the interpreter that checked programs do not raise, unlike RuntimeError of ulang/error.u
-data InternalError :=
-  case Uninitialized(name: Name)
-  case NotFunction(value: Value)
-  case Unspecified(name: Name, args: List[Value])
-  case NotList(value: Value)
-  case UnassignedOutput(output: Name, proc: Name)
-  case UnknownProc(name: Name)
-  case NotProc(value: Value)
-  // an access or update of a field, which the checker resolves to an accessor or updater
-  case UnresolvedField(field: Id)
-  case UntranslatedForm(form: Id)
 
 data Thrown :=
   case Thrown(value: Value, typ: Type)

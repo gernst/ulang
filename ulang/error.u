@@ -1,4 +1,4 @@
-// the messages of errors: of type errors and of internal errors of the interpreter, and of the runtime errors that the
+// the messages of errors: of type errors and of internal errors, and of the runtime errors that the
 // interpreter and compiled code both report, with their texts, which ulang/compile.u writes into every program as the
 // formats u_text_* that ulang/runtime/ulang.c prints, where %s stands for a value as show gives it
 
@@ -11,7 +11,6 @@ data ErrorKind :=
   case TypeKind
   case FormatKind
   case RuntimeKind
-  case CompileKind
   case InternalKind
 
 function error_kinds(): List[ErrorKind]
@@ -37,6 +36,22 @@ function runtime_formats(): List[Str * Str]
 // the message of e, with the position of the command that raised it, and the module if it is not the main module
 function located_message(e: TypeError): Str
 
+// the errors of the interpreter, the checker, and the compiler that checked programs do not raise, unlike RuntimeError,
+// since an earlier phase rules out what they meet
+data InternalError :=
+  case Uninitialized(name: Name)
+  case NotFunction(value: Value)
+  case Unspecified(name: Name, args: List[Value])
+  case NotList(value: Value)
+  case UnassignedOutput(output: Name, proc: Name)
+  case UnknownProc(name: Name)
+  case NotProc(value: Value)
+  // an access or update of a field, which the checker resolves to an accessor or updater
+  case UnresolvedField(field: Id)
+  case UntranslatedForm(form: Id)
+  // of any other code that an earlier phase rules out, described by what was met, e.g. "array literal"
+  case Unexpected(what: Str)
+
 function internal_message(e: InternalError): Str
 
 // the suffix of a message at a position, " at L.C"
@@ -45,7 +60,7 @@ function at_pos(p: Pos): Str
 implementation
 
 function error_kinds(): List[ErrorKind] :=
-  List(ParseKind, TypeKind, FormatKind, RuntimeKind, CompileKind, InternalKind)
+  List(ParseKind, TypeKind, FormatKind, RuntimeKind, InternalKind)
 
 function kind_name(kind: ErrorKind): Str :=
   match kind
@@ -60,9 +75,6 @@ function kind_name(kind: ErrorKind): Str :=
 
     case RuntimeKind =>
       "runtime"
-
-    case CompileKind =>
-      "compile"
 
     case InternalKind =>
       "internal"
@@ -313,4 +325,7 @@ function internal_message(e: InternalError): Str :=
 
     case UntranslatedForm(form) =>
       "the form " ++ form ++ "(...) is not translated"
+
+    case Unexpected(what) =>
+      "unexpected " ++ what
   end
