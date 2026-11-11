@@ -6,6 +6,13 @@ export
 data OsError :=
   case OsError(message: Str)
 
+// the description of a project, which the function project(): Project of its file project.u at the root gives, read by
+// ulang test, where the project is otherwise made by convention
+data Project :=
+  // the directories, from the root, whose programs ulang test does not run when it walks them, since they run only
+  // compiled, e.g. because the interpreter is too slow for them
+  case Project(compiled_only: List[Str])
+
 // the paths of the files below path, depth-first in the order of names, or path itself if it is no directory,
 // where each path is that of its directory, /, and its name
 procedure os_walk(in path: Str, out files: List[Str])

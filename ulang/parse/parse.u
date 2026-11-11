@@ -24,6 +24,12 @@ procedure parse_file_text(in path: Str, text: Str, out source: Source)
 // whether path names a source file, name.u with a name
 function is_source(path: Str): Bool
 
+// the nearest directory from dir upward with project.u, or else dir, where dir is absolute and normal
+procedure project_root(in dir: Str, out root: Str)
+
+// the absolute path without . and .. and repeated /
+function normal_path(path: Str): Str
+
 implementation
 
 function type_ops(): Ops[List[Type]] :=
@@ -2304,7 +2310,6 @@ procedure place_of(in path: Str, out place: Place) :=
     assign place := Place(module_id(relative_path(root, home), name), root, Some(relative_path(root, home)))
   end
 
-// the nearest directory from dir upward with project.u, or else dir, where dir is absolute and normal
 procedure project_root(in dir: Str, out root: Str) :=
   local found := false, here := dir
   assign root := dir
@@ -2331,7 +2336,6 @@ procedure has_file(in dir: Str, name: Str, out found: Bool) :=
       assign found := false
   end
 
-// the absolute path without . and .. and repeated /
 function normal_path(path: Str): Str :=
   "/" ++ join("/", reverse(foldl(split(path, '/'), List(), normal_step)))
 

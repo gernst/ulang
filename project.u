@@ -1,1 +1,5 @@
-// the project ulang: the language, its compiler and interpreter, its library, its tests, and the prover
+// the project ulang: the language, its compiler and interpreter, its library, its tests, and the prover, where the checks
+// of checks/ parse the sources of the compiler, which the interpreter does too slowly
+
+function project(): Project :=
+  Project(List("checks"))

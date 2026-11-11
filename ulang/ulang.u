@@ -249,16 +249,16 @@ function description(command: Str): Str :=
       "calls the procedure, main by default, which takes no parameters, where os_args gives the arguments after --"
 
     case "test" =>
-      "runs the tests of the files, also below directories, by default ., each in its directory, printing a line per test\n" ++ "and lemma, and judges each file by its first line, which states the error that it must fail with, or else it must\n" ++ "succeed, unless names are selected, which must pass; with several files, it prints the files that do not pass and\n" ++ "how many do"
+      "runs the tests of the files, also below directories, by default the project, each in its directory, printing a line per test\n" ++ "and lemma, and judges each file by its first line, which states the error that it must fail with, or else it must\n" ++ "succeed, unless names are selected, which must pass; with several files, it prints the files that do not pass and\n" ++ "how many do"
 
     case "check" =>
-      "checks the files, also below directories, by default ., judged by their first lines as by test"
+      "checks the files, also below directories, by default the project, judged by their first lines as by test"
 
     case "prove" =>
       "proves the lemmas of the files, all or the named ones, judged by their first lines as by test; functions are not yet\n" ++ "checked to terminate, so a lemma about one that does not may be proven falsely"
 
     case "format" =>
-      "rewrites the files, also below directories, by default ., as format_program writes them, but those whose first line\n" ++ "states a parse error; with --check, it only reports the files that differ"
+      "rewrites the files, also below directories, by default the project, as format_program writes them, but those whose first line\n" ++ "states a parse error; with --check, it only reports the files that differ"
 
     case "compile" =>
       "translates the file to C, whose main calls the procedure, main by default, or runs all tests for --tests"
@@ -371,8 +371,9 @@ procedure compile_to(in file: Str, entry: Option[Id], target: Str, out ok: Bool)
 // the files of the paths rewritten as format writes them, or for check_only reported if they differ, but those that state
 // a parse error, which format refuses
 procedure format_paths(in paths: List[Str], check_only: Bool, out ok: Bool) :=
-  local files: List[Str], done: Bool, text: Str
-  call   walk_all(in if paths == List() then List(".") else paths, out files)
+  local files: List[Str], done: Bool, text: Str, root: Str
+  call   default_path(out root)
+  call   walk_all(in if paths == List() then List(root) else paths, List(), out files)
   assign ok := true
   for f in files if is_source(f) do
     call os_read(in f, out text)
@@ -445,10 +446,12 @@ procedure run_file(in file: Str, name: Str, args: List[Str], out ok: Bool) :=
   call   run_proc(in run, Name(Some(main), name), ref cache)
   assign ok := true
 
-// judges the files of the targets, by default ., each by verdict, and prints how many passed if there are several
+// judges the files of the targets, by default the root of the project, each by verdict, and prints how many passed if
+// there are several
 procedure judge(in mode: Mode, targets: List[Target], out ok: Bool) :=
-  local found: List[Subject], home: Str, good: Bool, failed := 0
-  call subjects_of(in if targets == List() then List(Target(".", None)) else targets, out found)
+  local found: List[Subject], home: Str, good: Bool, failed := 0, root: Str
+  call default_path(out root)
+  call subjects_of(in mode, if targets == List() then List(Target(root, None)) else targets, out found)
   call os_cwd(out home)
   for s in found do
     call verdict(in mode, s, home, size(found) > 1, out good)
@@ -461,16 +464,22 @@ procedure judge(in mode: Mode, targets: List[Target], out ok: Bool) :=
   end
   assign ok := failed == 0
 
-// the .u files of the targets, where directories are walked, and the names of one file are joined
-procedure subjects_of(in targets: List[Target], out subjects: List[Subject]) :=
-  local files: List[Str], found: Buffer[Subject] := empty()
+// the .u files of the targets, where directories are walked, for testing without the directories that the project runs
+// only compiled, and the names of one file are joined
+procedure subjects_of(
+  in  mode: Mode,
+      targets: List[Target],
+  out subjects: List[Subject]
+) :=
+  local files: List[Str], found: Buffer[Subject] := empty(), skipped: List[Str]
   for Target(path, name) in targets do
     match name
       case Some(n) =>
         assign found := found ++ List(Subject(path, List(n)))
 
       case None =>
-        call   os_walk(in path, out files)
+        call   skipped_by(in mode, path, out skipped)
+        call   walk_all(in List(path), skipped, out files)
         assign found := found ++ List(for f in files if is_source(f) yield Subject(f, List()))
     end
   end
@@ -644,13 +653,103 @@ procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
       assign message := error_text(InternalKind, internal_message(e))
   end
 
-procedure walk_all(in paths: List[Str], out files: List[Str]) :=
-  local here: List[Str], found: Buffer[Str] := empty()
+// the files of the paths, where directories are walked in the order of names, without the hidden ones, those named out,
+// and the skipped ones, which are absolute and normal
+procedure walk_all(
+  in  paths: List[Str],
+      skipped: List[Str],
+  out files: List[Str]
+) :=
+  local here: Str, found: Buffer[Str] := empty(), dir: Bool, below: List[Str]
+  call os_cwd(out here)
   for path in paths do
-    call   os_walk(in path, out here)
-    assign found := found ++ here
+    call os_is_dir(in path, out dir)
+    if dir then
+      call   walk_dir(in path, skipped, here, out below)
+      assign found := found ++ below
+    else
+      assign found := found ++ List(path)
+    end
   end
   assign files := List(for file in found)
+
+// the files below dir as walk_all walks them, where here is the working directory
+procedure walk_dir(
+  in  dir: Str,
+      skipped: List[Str],
+      here: Str,
+  out files: List[Str]
+) :=
+  local entries: List[Str * Bool], found: Buffer[Str] := empty(), below: List[Str]
+  call os_list(in dir, out entries)
+  for (name, is_folder) in entries do
+    if not is_folder then
+      assign found := found ++ List(os_join(dir, name))
+    else
+      if not starts_with(name, ".") and name != "out" and not contains(absolute_path(here, os_join(dir, name)), skipped) then
+        call   walk_dir(in os_join(dir, name), skipped, here, out below)
+        assign found := found ++ below
+      end
+    end
+  end
+  assign files := List(for file in found)
+
+// path from the directory here, absolute and normal
+function absolute_path(here: Str, path: Str): Str :=
+  normal_path(if starts_with(path, "/") then path else os_join(here, path))
+
+// the root of the project of the working directory, as a path from it, . or a sequence of ..
+procedure default_path(out path: Str) :=
+  local here: Str, root: Str
+  call   os_cwd(out here)
+  call   project_root(in normal_path(here), out root)
+  assign path := path_up(root, normal_path(here))
+
+// the path from dir up to root, which is dir or a directory above it
+function path_up(root: Str, dir: Str): Str :=
+  if dir == root then
+    "."
+  else
+    join("/", List(for d in split(slice(dir, if root == "/" then 1 else size(root) + 1, size(dir)), '/') yield ".."))
+
+test paths_up() :=
+  assert path_up("/a", "/a") == "."
+  assert path_up("/a", "/a/b/c") == "../.."
+  assert path_up("/", "/b") == ".."
+
+// the directories that judging in mode skips when it walks path: in testing, those that the project of path runs only
+// compiled, as its function project of project.u declares
+procedure skipped_by(in mode: Mode, path: Str, out skipped: List[Str]) :=
+  local here: Str, root: Str, entries: List[Str * Bool], main: Id, q: Prog, v: Option[Val]
+  assign skipped := List()
+  match mode
+    case Testing(_) =>
+      call os_cwd(out here)
+      call project_root(in absolute_path(here, path), out root)
+      call os_list(in root, out entries)
+      if contains(("project.u", false), entries) then
+        call load_file(in os_join(root, "project.u"), out main, q)
+        call constant_of(in load(q), Name(Some(main), "project"), out v)
+        match v
+          case Some(VObj(_, List(dirs))) =>
+            assign skipped := List(for d in strings_of(dirs) yield normal_path(os_join(root, d)))
+          case _ =>
+            skip
+        end
+      end
+
+    case _ =>
+      skip
+  end
+
+// the strings of a list value
+function strings_of(v: Val): List[Str] :=
+  match v
+    case VObj(_, List(VLit(LStr(text)), tail)) =>
+      List(text; strings_of(tail))
+    case _ =>
+      List()
+  end
 
 function outcome(message: Str): Str :=
   if message == "" then "success" else message

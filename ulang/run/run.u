@@ -31,6 +31,9 @@ function format_value(v: Val): Str
 
 procedure run_proc(in run: Run, n: Name, ref cache: Map[Name, Val])
 
+// the value of the function n without parameters, None if there is none
+procedure constant_of(in run: Run, n: Name, out v: Option[Val])
+
 procedure run_cmd(in run: Run, cmd: Cmd, ref cache: Map[Name, Val])
 
 implementation
@@ -1327,6 +1330,17 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
 // the entries of a directory as values of the program
 function entry_values(entries: List[Str * Bool]): List[Val] :=
   List(for (name, dir) in entries yield VTuple(List(VStr(name), VBool(dir))))
+
+procedure constant_of(in run: Run, n: Name, out v: Option[Val]) :=
+  local cache: Map[Name, Val] := empty(), value: Val
+  match get((n, 0), run.defs.funs)
+    case Some(fun) =>
+      call   cached(in run, n, fun.body, out value, ref cache)
+      assign v := Some(value)
+
+    case None =>
+      assign v := None
+  end
 
 // calls the procedure n without parameters
 procedure run_proc(in run: Run, n: Name, ref cache: Map[Name, Val]) :=

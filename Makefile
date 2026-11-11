@@ -94,12 +94,12 @@ bootstrap: bootstrap/ulang.bin
 	rm -r -- "$${stage:?}"
 	$(MAKE) all
 
-# every .u file of ulang/, also of the library and of the tests of the packages in their subfolders test/, run by out/ulang.bin with
-# all its tests in its directory, must succeed, or fail with the error that its first line states, e.g.
-# // type error: unknown variable x
+# every .u file of the project, also of the library and of the tests of the packages in their subfolders test/, but those of
+# checks/, which project.u declares to run only compiled, run by out/ulang.bin with all its tests in its directory, must
+# succeed, or fail with the error that its first line states, e.g. // type error: unknown variable x
 .PHONY: test
 test: out/ulang.bin out/ulang.sh
-	out/ulang.sh test ulang
+	out/ulang.sh test
 	$(MAKE) --no-print-directory testdocs
 
 # the checks of the repository in checks/, which run only compiled, since they parse the sources of the compiler, which the
@@ -122,11 +122,11 @@ $(CHECKS)/docs.sh: $(SCRIPT)
 testdocs: $(CHECKS)/docs.bin $(CHECKS)/docs.sh
 	cd checks && ../$(CHECKS)/docs.sh
 
-# rewrites every .u file as format does, after a change of the printer, which skips the files whose first line expects a
-# parse error, since it refuses them
+# rewrites every .u file of the project as format does, after a change of the printer, which skips the files whose first line
+# expects a parse error, since it refuses them
 .PHONY: reformat
 reformat: out/ulang.bin out/ulang.sh
-	out/ulang.sh format project.u ulang examples
+	out/ulang.sh format
 
 # the same files, each compiled by out/ulang.bin and cc with the runtime object, and run in its directory, by testc.sh in
 # parallel
