@@ -888,12 +888,12 @@ procedure expr_cases(
       assign ss := List()
 
     case List(Branch(_, pat, guard, e); more) =>
-      local bs: List[CStmt], rb: CExpr, gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env1: Vars := in_scope(pattern_names(pat)) ++ env
-      call   compile_expr(in defs, env1, e, out bs, rb, ref g)
+      local bs: List[CStmt], rb: CExpr, gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env
+      call   compile_expr(in defs, env_, e, out bs, rb, ref g)
       assign body := bs ++ List(CsAssign(CeVar(t), rb))
       match guard
         case Some(c) =>
-          call   compile_expr(in defs, env1, c, out gs, rg, ref g)
+          call   compile_expr(in defs, env_, c, out gs, rg, ref g)
           assign body := gs ++ List(CsIf(truth(rg), body, List()))
 
         case None =>
@@ -991,10 +991,10 @@ function fused(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fusion] 
 
 function fused_inner(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fusion] :=
   match body
-    case ECall(f1, _, List(c1, EName(a, _), lam)) if a == acc and is_unused(acc, c1, lam) =>
+    case ECall(f_, _, List(c_, EName(a, _), lam)) if a == acc and is_unused(acc, c_, lam) =>
       match lam
-        case ELam(List(x1, acc1), inner) =>
-          nested(f, c, x, fused(f1, c1, x1, inner, acc1.name))
+        case ELam(List(x_, acc_), inner) =>
+          nested(f, c, x, fused(f_, c_, x_, inner, acc_.name))
         case _ =>
           None
       end
@@ -1429,12 +1429,12 @@ procedure handler_cases(
       assign ss := List()
 
     case List(Catch(_, typ, pat, guard, s); more) =>
-      local bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env1: Vars := in_scope(pattern_names(pat)) ++ env, tests: List[CExpr]
-      call   compile_stmt(in defs, env1, s, out bs, ref g)
+      local bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env, tests: List[CExpr]
+      call   compile_stmt(in defs, env_, s, out bs, ref g)
       assign body := List(CsAssign(CeVar(d), CeNum(1))) ++ bs
       match guard
         case Some(c) =>
-          call   compile_expr(in defs, env1, c, out gs, rg, ref g)
+          call   compile_expr(in defs, env_, c, out gs, rg, ref g)
           assign body := gs ++ List(CsIf(truth(rg), body, List()))
 
         case None =>
@@ -1465,12 +1465,12 @@ procedure stmt_cases(
       assign ss := List()
 
     case List(Branch(_, pat, guard, s); more) =>
-      local bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env1: Vars := in_scope(pattern_names(pat)) ++ env
-      call   compile_stmt(in defs, env1, s, out bs, ref g)
+      local bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env
+      call   compile_stmt(in defs, env_, s, out bs, ref g)
       assign body := List(CsAssign(CeVar(d), CeNum(1))) ++ bs
       match guard
         case Some(c) =>
-          call   compile_expr(in defs, env1, c, out gs, rg, ref g)
+          call   compile_expr(in defs, env_, c, out gs, rg, ref g)
           assign body := gs ++ List(CsIf(truth(rg), body, List()))
 
         case None =>
@@ -1527,10 +1527,10 @@ procedure compile_cmds(
       ms: List[CStmt],
   ref g: Gen
 ) :=
-  local d1: List[CDecl], m1: List[CStmt], found_ds: Buffer[CDecl] := empty(), found_ms: Buffer[CStmt] := empty()
+  local ds_: List[CDecl], ms_: List[CStmt], found_ds: Buffer[CDecl] := empty(), found_ms: Buffer[CStmt] := empty()
   for c in cmds do
-    call   compile_cmd(in defs, tests, c, out d1, m1, ref g)
-    assign found_ds := found_ds ++ d1, found_ms := found_ms ++ m1
+    call   compile_cmd(in defs, tests, c, out ds_, ms_, ref g)
+    assign found_ds := found_ds ++ ds_, found_ms := found_ms ++ ms_
   end
   assign ds := List(for d in found_ds), ms := List(for m in found_ms)
 

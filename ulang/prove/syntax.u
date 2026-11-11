@@ -514,19 +514,19 @@ function merge_summands(ts: List[Summand], us: List[Summand]): List[Summand] :=
     case (_, List()) =>
       ts
 
-    case (List(t; ts1), List(u; us1)) =>
+    case (List(t; ts_), List(u; us_)) =>
       match compare(t.term, u.term)
         case -1 =>
-          List(t; merge_summands(ts1, us))
+          List(t; merge_summands(ts_, us))
 
         case 1 =>
-          List(u; merge_summands(ts, us1))
+          List(u; merge_summands(ts, us_))
 
         case _ =>
           if t.factor + u.factor == 0 then
-            merge_summands(ts1, us1)
+            merge_summands(ts_, us_)
           else
-            List(t with factor := t.factor + u.factor; merge_summands(ts1, us1))
+            List(t with factor := t.factor + u.factor; merge_summands(ts_, us_))
       end
   end
 
@@ -580,9 +580,9 @@ function dominates(decls: Decls, s: Term, ts: List[Term]): Bool :=
 
 function is_lex_greater(decls: Decls, ss: List[Term], ts: List[Term]): Bool :=
   match (ss, ts)
-    case (List(s; ss1), List(t; ts1)) =>
+    case (List(s; ss_), List(t; ts_)) =>
       if s == t then
-        is_lex_greater(decls, ss1, ts1)
+        is_lex_greater(decls, ss_, ts_)
       else
         is_greater(decls, s, t)
 

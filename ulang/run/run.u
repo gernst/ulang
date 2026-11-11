@@ -270,8 +270,8 @@ function char_values(vs: List[Val]): List[Char] :=
 
 function bind_all(xs: List[Var], vs: List[Val], env: Bindings): Bindings :=
   match (xs, vs)
-    case (List(x; xs1), List(v; vs1)) =>
-      bind_all(xs1, vs1, put(x.name, v, env))
+    case (List(x; xs_), List(v; vs_)) =>
+      bind_all(xs_, vs_, put(x.name, v, env))
     case _ =>
       env
   end
@@ -306,10 +306,10 @@ function match_all_into(pats: List[Pat], vs: List[Val], env: Bindings): Option[B
     case (List(), List()) =>
       Some(env)
 
-    case (List(p; ps1), List(v; vs1)) =>
+    case (List(p; ps_), List(v; vs_)) =>
       match match_into(p, v, env)
         case Some(inner) =>
-          match_all_into(ps1, vs1, inner)
+          match_all_into(ps_, vs_, inner)
         case None =>
           None
       end
@@ -848,10 +848,10 @@ procedure compare_all(
   ref cache: Map[Name, Val]
 ) :=
   match (xs, ys)
-    case (List(x; xs1), List(y; ys1)) =>
+    case (List(x; xs_), List(y; ys_)) =>
       call compare_values(in run, x, y, out r, ref cache)
       if r == 0 then
-        call compare_all(in run, xs1, ys1, out r, ref cache)
+        call compare_all(in run, xs_, ys_, out r, ref cache)
       end
 
     case _ =>
@@ -919,10 +919,10 @@ procedure equal_all(
   ref cache: Map[Name, Val]
 ) :=
   match (xs, ys)
-    case (List(x; xs1), List(y; ys1)) =>
+    case (List(x; xs_), List(y; ys_)) =>
       call equal(in run, x, y, out r, ref cache)
       if r then
-        call equal_all(in run, xs1, ys1, out r, ref cache)
+        call equal_all(in run, xs_, ys_, out r, ref cache)
       end
 
     case _ =>

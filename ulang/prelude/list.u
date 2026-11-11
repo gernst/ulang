@@ -270,8 +270,8 @@ function reverse[A](xs: List[A]): List[A] :=
 
 function zip[A, B](xs: List[A], ys: List[B]): List[A * B] :=
   match (xs, ys)
-    case (List(x; xs1), List(y; ys1)) =>
-      List((x, y); zip(xs1, ys1))
+    case (List(x; xs_), List(y; ys_)) =>
+      List((x, y); zip(xs_, ys_))
     case _ =>
       List()
   end

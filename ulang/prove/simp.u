@@ -567,8 +567,8 @@ function merge(ctx: Ctx, a: Term, b: Term, fuel: Int): Ctx :=
 
 function merge_all(ctx: Ctx, xs: List[Term], ys: List[Term], fuel: Int): Ctx :=
   match (xs, ys)
-    case (List(x; xs1), List(y; ys1)) =>
-      merge_all(merge(ctx, simp_term(ctx, x), simp_term(ctx, y), fuel - 1), xs1, ys1, fuel)
+    case (List(x; xs_), List(y; ys_)) =>
+      merge_all(merge(ctx, simp_term(ctx, x), simp_term(ctx, y), fuel - 1), xs_, ys_, fuel)
     case _ =>
       ctx
   end
@@ -1081,8 +1081,8 @@ function match_pat(decls: Decls, p: Pat, t: Term): PatMatch :=
 
 function match_pats(decls: Decls, ps: List[Pat], ts: List[Term]): PatMatch :=
   match (ps, ts)
-    case (List(p; ps1), List(t; ts1)) =>
-      match (match_pat(decls, p, t), match_pats(decls, ps1, ts1))
+    case (List(p; ps_), List(t; ts_)) =>
+      match (match_pat(decls, p, t), match_pats(decls, ps_, ts_))
         case (Failed, _) =>
           Failed
 
@@ -1171,10 +1171,10 @@ function match_term(n: Int, p: Term, t: Term, sub: Map[Int, Term]): Option[Map[I
 
 function match_terms(n: Int, ps: List[Term], ts: List[Term], sub: Map[Int, Term]): Option[Map[Int, Term]] :=
   match (ps, ts)
-    case (List(p; ps1), List(t; ts1)) =>
+    case (List(p; ps_), List(t; ts_)) =>
       match match_term(n, p, t, sub)
         case Some(next) =>
-          match_terms(n, ps1, ts1, next)
+          match_terms(n, ps_, ts_, next)
         case None =>
           None
       end
@@ -1312,9 +1312,9 @@ function induction(decls: Decls, s: Seq, p: Int): Seq :=
           match get(name, decls.datatypes)
             case Some(cs) =>
               let k := size(fixed) in
-              let as0 := List(for a in assms yield rebind_seq(Open(0, k), 0, a)), cs0 := List(for c in concls yield rebind_concl(Open(0, k), 0, c)) in
+              let assms_ := List(for a in assms yield rebind_seq(Open(0, k), 0, a)), concls_ := List(for c in concls yield rebind_concl(Open(0, k), 0, c)) in
               Seq(List(), List(), List(
-                Concl(List(), List(for c in cs yield induction_case(decls, name, fixed, p, as0, cs0, c)))))
+                Concl(List(), List(for c in cs yield induction_case(decls, name, fixed, p, assms_, concls_, c)))))
 
             case None =>
               s
@@ -1337,7 +1337,7 @@ function normal(s: Seq): Seq :=
       s
   end
 
-function induction_case(decls: Decls, t: Name, xs: List[Var], p: Int, as0: List[Seq], cs0: List[Concl], c: Name): Seq :=
+function induction_case(decls: Decls, t: Name, xs: List[Var], p: Int, assms: List[Seq], concls: List[Concl], c: Name): Seq :=
   match get(c, decls.constrs)
     case Some(ConstrDecl(_, fs)) =>
       let k := size(xs), n := size(fs) in
@@ -1345,9 +1345,9 @@ function induction_case(decls: Decls, t: Name, xs: List[Var], p: Int, as0: List[
       let value := if n == 0 then EFun(c) else EApp(EFun(c), fields) in
       let v := ELevel(p), others := List(for l in range(0, k) if l != p) in
       let vars := List(for (x, l) in numbered(xs) if l != p yield x) in
-      let ihs := List(for (f, i) in numbered(fs) if is_recursive(t, f) yield hypothesis(vars, others, v, ELevel(k + i), as0, cs0)) in
+      let ihs := List(for (f, i) in numbered(fs) if is_recursive(t, f) yield hypothesis(vars, others, v, ELevel(k + i), assms, concls)) in
       let levels := others ++ range(k, k + n) in
-      Seq(vars ++ fs, List(for h in ihs ++ List(for a in as0 yield replace_seq(v, value, a)) yield rebind_seq(Close(levels), 0, h)), List(for d in cs0 yield rebind_concl(Close(levels), 0, replace_concl(v, value, d))))
+      Seq(vars ++ fs, List(for h in ihs ++ List(for a in assms yield replace_seq(v, value, a)) yield rebind_seq(Close(levels), 0, h)), List(for d in concls yield rebind_concl(Close(levels), 0, replace_concl(v, value, d))))
 
     case None =>
       false_seq()
@@ -1361,8 +1361,8 @@ function is_recursive(t: Name, field: Var): Bool :=
       false
   end
 
-function hypothesis(vars: List[Var], others: List[Int], v: Term, y: Term, as0: List[Seq], cs0: List[Concl]): Seq :=
-  Seq(vars, List(for a in as0 yield rebind_seq(Close(others), 0, replace_seq(v, y, a))), List(for d in cs0 yield rebind_concl(Close(others), 0, replace_concl(v, y, d))))
+function hypothesis(vars: List[Var], others: List[Int], v: Term, y: Term, assms: List[Seq], concls: List[Concl]): Seq :=
+  Seq(vars, List(for a in assms yield rebind_seq(Close(others), 0, replace_seq(v, y, a))), List(for d in concls yield rebind_concl(Close(others), 0, replace_concl(v, y, d))))
 
 function print_seq(s: Seq): Str :=
   print_open(List(), s)

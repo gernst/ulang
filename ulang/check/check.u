@@ -1025,8 +1025,8 @@ procedure bind_meta(in i: Int, t: Type, ref s: State) :=
   end
   assign s := s with sub := put(i, t, s.sub)
 
-procedure unify(in t1: Type, t2: Type, ref s: State) :=
-  local a := resolve(s.sub, t1), b := resolve(s.sub, t2)
+procedure unify(in t: Type, t_: Type, ref s: State) :=
+  local a := resolve(s.sub, t), b := resolve(s.sub, t_)
   match (a, b)
     case (TMeta(i), TMeta(j)) =>
       if i != j then
@@ -1041,46 +1041,46 @@ procedure unify(in t1: Type, t2: Type, ref s: State) :=
 
     case (TParam(x), TParam(y)) =>
       if x != y then
-        raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
+        raise CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_))
       end
 
     case (TSort(f, xs), TSort(g, ys)) =>
       if f == g and size(xs) == size(ys) then
         call unifies(in xs, ys, ref s)
       else
-        raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
+        raise CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_))
       end
 
-    case (TFun(xs, r1), TFun(ys, r2)) =>
+    case (TFun(xs, r), TFun(ys, r_)) =>
       if size(xs) == size(ys) then
-        call unifies(in xs ++ List(r1), ys ++ List(r2), ref s)
+        call unifies(in xs ++ List(r), ys ++ List(r_), ref s)
       else
-        raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
+        raise CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_))
       end
 
     case (TTuple(xs), TTuple(ys)) =>
       if size(xs) == size(ys) then
         call unifies(in xs, ys, ref s)
       else
-        raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
+        raise CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_))
       end
 
     case (TProc(xs, ys, zs), TProc(us, vs, ws)) =>
       if size(xs) == size(us) and size(ys) == size(vs) and size(zs) == size(ws) then
         call unifies(in xs ++ ys ++ zs, us ++ vs ++ ws, ref s)
       else
-        raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
+        raise CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_))
       end
 
     case _ =>
-      raise CannotUnify(zonk_type(s.sub, t1), zonk_type(s.sub, t2))
+      raise CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_))
   end
 
 procedure unifies(in xs: List[Type], ys: List[Type], ref s: State) :=
   match (xs, ys)
-    case (List(x; xs1), List(y; ys1)) =>
+    case (List(x; xs_), List(y; ys_)) =>
       call unify(in x, y, ref s)
-      call unifies(in xs1, ys1, ref s)
+      call unifies(in xs_, ys_, ref s)
 
     case (List(), List()) =>
       skip
@@ -1292,8 +1292,8 @@ procedure use_name(
     case List() =>
       raise UnknownVariable(n)
 
-    case List((m1, sc)) =>
-      call use(in m1, w, sc, out x, ref s)
+    case List((m, sc)) =>
+      call use(in m, w, sc, out x, ref s)
 
     case _ =>
       local m: Name
@@ -1315,8 +1315,8 @@ procedure choose(
     case List() =>
       raise NoOverload(n, zonk_type(s.sub, w))
 
-    case List(((m1, _), s1)) =>
-      assign m := m1, s := s1
+    case List(((m_, _), s_)) =>
+      assign m := m_, s := s_
 
     case _ =>
       assign m := Name(Some("?"), show(s.count + 1))
@@ -1371,8 +1371,8 @@ procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
         case List() =>
           raise NoOverload(p.name, zonk_type(s.sub, p.typ))
 
-        case List(((m, _), s1)) =>
-          assign s := s1 with chosen := put(p.id, m, s1.chosen)
+        case List(((m, _), s_)) =>
+          assign s := s_ with chosen := put(p.id, m, s_.chosen)
           assign changed := true
 
         case _ =>
@@ -1453,9 +1453,9 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
           call fresh_list(in bound, out ts, ref s)
           call checks(in env, "the bindings", seconds(bound), ts, out exprs, ref s)
           for (pat, t) in zip(firsts(bound), ts) do
-            local p1: Pat, ys: List[Var]
-            call   binders(in pat, t, out p1, ys, ref s)
-            assign pats := pats ++ List(p1), xs := xs ++ ys
+            local typed_pat: Pat, ys: List[Var]
+            call   binders(in pat, t, out typed_pat, ys, ref s)
+            assign pats := pats ++ List(typed_pat), xs := xs ++ ys
           end
           call unique(in "pattern variable", List(for x in xs yield x.name))
           call unhidden(in env, xs)
@@ -1515,11 +1515,11 @@ procedure generator(
       more: List[Gen],
       elem: Yield,
       rest: Option[Expr],
-  out e1: Expr,
+  out typed_expr: Expr,
       t: Type,
   ref s: State
 ) :=
-  local c: Expr, u: Type, f1: Expr, x: Var, w: Type
+  local c: Expr, u: Type, typed_fold: Expr, x: Var, w: Type
   call   infer(in env, gen_container(g), out c, u, ref s)
   call   solve(ref s)
   assign x := Var(unqualified("(container)"), u), w := zonk_type(s.sub, u)
@@ -1528,16 +1528,16 @@ procedure generator(
       if not declares_fold(s.sig, m, fold_name(form)) then
         raise NoFold(w, fold_name(form))
       end
-      call infer(in bind(List(x)) ++ env, fold_expr(form, m, targs, g, EVar(x), EFor(form, more, elem, Some(EVar(form_acc()))), base_expr(form, rest)), out f1, t, ref s)
+      call infer(in bind(List(x)) ++ env, fold_expr(form, m, targs, g, EVar(x), EFor(form, more, elem, Some(EVar(form_acc()))), base_expr(form, rest)), out typed_fold, t, ref s)
 
     case _ =>
       raise UnknownContainer(w)
   end
-  match f1
+  match typed_fold
     case EApp(f, List(_; args)) =>
-      assign e1 := EApp(f, List(c; args))
+      assign typed_expr := EApp(f, List(c; args))
     case _ =>
-      assign e1 := f1
+      assign typed_expr := typed_fold
   end
 
 // foldr for lists, which come out in the order of the container, and foldl for the others
@@ -1705,17 +1705,17 @@ function is_pvar(p: Pat): Bool :=
 // where the arguments are inferred first
 procedure application(
   in  env: Env,
-      f: Expr,
+      fun: Expr,
       args: List[Expr],
-  out e1: Expr,
+  out typed_expr: Expr,
       t: Type,
   ref s: State
 ) :=
-  match f
+  match fun
     case EName(name, typ) =>
-      local cs: List[Name * Scheme] := candidates(s, env, name), x: Var, f1: Expr, u: Type, w: Type, args1: List[Expr], ts: List[Type]
+      local cs: List[Name * Scheme] := candidates(s, env, name), x: Var, typed_fun: Expr, u: Type, w: Type, typed_args: List[Expr], ts: List[Type]
       if size(cs) > 1 then
-        call infers_first(in env, args, out args1, ts, ref s)
+        call infers_first(in env, args, out typed_args, ts, ref s)
         call fresh(out t, ref s)
         call normalize(in typ, out w, ref s)
         call unify(in w, TFun(ts, t), ref s)
@@ -1723,54 +1723,54 @@ procedure application(
           raise WrongArity(name, size(args))
         end
         call   use_name(in name, with_arity(cs, size(args)), w, out x, ref s)
-        call   infers_lambdas(in env, args, ts, ref args1, s)
-        assign e1 := EApp(EVar(x), args1)
+        call   infers_lambdas(in env, args, ts, ref typed_args, s)
+        assign typed_expr := EApp(EVar(x), typed_args)
       else
-        call   infer(in env, f, out f1, u, ref s)
-        call   apply(in env, u, args, out args1, t, ref s)
-        assign e1 := EApp(f1, args1)
+        call   infer(in env, fun, out typed_fun, u, ref s)
+        call   apply(in env, u, args, out typed_args, t, ref s)
+        assign typed_expr := EApp(typed_fun, typed_args)
       end
 
     case ELam(_, _) =>
-      local f1: Expr, args1: List[Expr], ts: List[Type]
-      call   infers(in env, args, out args1, ts, ref s)
+      local typed_fun: Expr, typed_args: List[Expr], ts: List[Type]
+      call   infers(in env, args, out typed_args, ts, ref s)
       call   fresh(out t, ref s)
-      call   infer_lambda(in env, f, TFun(ts, t), out f1, ref s)
-      assign e1 := EApp(f1, args1)
+      call   infer_lambda(in env, fun, TFun(ts, t), out typed_fun, ref s)
+      assign typed_expr := EApp(typed_fun, typed_args)
 
     case _ =>
-      local f1: Expr, u: Type, args1: List[Expr]
-      call   infer(in env, f, out f1, u, ref s)
-      call   apply(in env, u, args, out args1, t, ref s)
-      assign e1 := EApp(f1, args1)
+      local typed_fun: Expr, u: Type, typed_args: List[Expr]
+      call   infer(in env, fun, out typed_fun, u, ref s)
+      call   apply(in env, u, args, out typed_args, t, ref s)
+      assign typed_expr := EApp(typed_fun, typed_args)
   end
 
-// the accessor T.f, or for the suffix .f:= the updater T.f:=, applied to e and the further arguments, of the type T of e,
-// of the module of T, where an unknown type of e is an error
+// the accessor T.f, or for the suffix .f:= the updater T.f:=, applied to expr and the further arguments, of the type T of
+// expr, of the module of T, where an unknown type of expr is an error
 procedure field_access(
   in  env: Env,
       suffix: Id,
       expr: Expr,
       rest: List[Expr],
-  out e1: Expr,
+  out typed_expr: Expr,
       t: Type,
   ref s: State
 ) :=
-  local c: Expr, u: Type, w: Type, rest1: List[Expr], us: List[Type], x: Var
+  local c: Expr, u: Type, w: Type, typed_rest: List[Expr], us: List[Type], x: Var
   call infer(in env, expr, out c, u, ref s)
-  call infers(in env, rest, out rest1, us, ref s)
+  call infers(in env, rest, out typed_rest, us, ref s)
   call fresh(out t, ref s)
   call fresh(out w, ref s)
   call unify(in w, TFun(List(u; us), t), ref s)
   call solve(ref s)
   match zonk_type(s.sub, u)
     case TSort(Name(Some(m), base), _) =>
-      local acc: Name := Name(Some(m), base ++ suffix)
-      match schemes_of(s.sig, acc)
-        case List(sc) if is_visible(s, acc) =>
-          call use(in acc, w, sc, out x, ref s)
+      local accessor: Name := Name(Some(m), base ++ suffix)
+      match schemes_of(s.sig, accessor)
+        case List(sc) if is_visible(s, accessor) =>
+          call use(in accessor, w, sc, out x, ref s)
         case _ =>
-          raise UnknownField(acc)
+          raise UnknownField(accessor)
       end
 
     case TMeta(_) =>
@@ -1779,41 +1779,41 @@ procedure field_access(
     case v =>
       raise UnknownFieldType(suffix, v)
   end
-  assign e1 := EApp(EVar(x), List(c; rest1))
+  assign typed_expr := EApp(EVar(x), List(c; typed_rest))
 
 procedure apply(
   in  env: Env,
       f: Type,
       args: List[Expr],
-  out args1: List[Expr],
+  out typed_args: List[Expr],
       r: Type,
   ref s: State
 ) :=
   local ts: List[Type]
   call fresh(out r, ref s)
-  call infers_first(in env, args, out args1, ts, ref s)
+  call infers_first(in env, args, out typed_args, ts, ref s)
   call unify(in f, TFun(ts, r), ref s)
-  call infers_lambdas(in env, args, ts, ref args1, s)
+  call infers_lambdas(in env, args, ts, ref typed_args, s)
 
 // the arguments in order, except the lambdas, which get an unknown type and wait until the type of the function is
 // known, so that the formals of a lambda have the types that the function expects, see infers_lambdas
 procedure infers_first(
   in  env: Env,
       exprs: List[Expr],
-  out es1: List[Expr],
+  out typed_exprs: List[Expr],
       ts: List[Type],
   ref s: State
 ) :=
-  local e1: Expr, t: Type
-  assign es1 := List(), ts := List()
-  for e in exprs do
-    if is_lambda(e) then
+  local typed_expr: Expr, t: Type
+  assign typed_exprs := List(), ts := List()
+  for expr in exprs do
+    if is_lambda(expr) then
       call   fresh(out t, ref s)
-      assign e1 := e
+      assign typed_expr := expr
     else
-      call infer(in env, e, out e1, t, ref s)
+      call infer(in env, expr, out typed_expr, t, ref s)
     end
-    assign es1 := es1 ++ List(e1), ts := ts ++ List(t)
+    assign typed_exprs := typed_exprs ++ List(typed_expr), ts := ts ++ List(t)
   end
 
 function is_lambda(e: Expr): Bool :=
@@ -1824,8 +1824,8 @@ function is_lambda(e: Expr): Bool :=
       false
   end
 
-// the lambdas among exprs, whose types are those in ts, inferred with the formals that have no type typed by the parameters
-// of the function type there, if it is known
+// the lambdas among exprs, whose types are those in types, inferred with the formals that have no type typed by the
+// parameters of the function type there, if it is known, where res are the other exprs as infers_first typed them
 procedure infers_lambdas(
   in  env: Env,
       exprs: List[Expr],
@@ -1833,39 +1833,46 @@ procedure infers_lambdas(
   ref res: List[Expr],
       s: State
 ) :=
-  local found: List[Expr] := List(), e2: Expr
-  for ((e, e1), t) in zip(zip(exprs, res), types) do
-    if is_lambda(e) then
-      call infer_lambda(in env, e, t, out e2, ref s)
+  local found: List[Expr] := List()
+  for ((expr, typed_expr), t) in zip(zip(exprs, res), types) do
+    if is_lambda(expr) then
+      local typed_lambda: Expr
+      call   infer_lambda(in env, expr, t, out typed_lambda, ref s)
+      assign found := found ++ List(typed_lambda)
     else
-      assign e2 := e1
+      assign found := found ++ List(typed_expr)
     end
-    assign found := found ++ List(e2)
   end
   assign res := found
 
 procedure infer_lambda(
   in  env: Env,
-      e: Expr,
+      expr: Expr,
       t: Type,
-  out e1: Expr,
+  out typed_expr: Expr,
   ref s: State
 ) :=
   local u: Type
-  match (e, zonk_type(s.sub, t))
+  match (expr, zonk_type(s.sub, t))
     case (ELam(formals, body), TFun(ps, _)) if size(ps) == size(formals) =>
-      call infer(in env, ELam(List(for (x, p) in zip(formals, ps) yield if x.typ == THole then Var(x.name, p) else x), body), out e1, u, ref s)
+      call infer(in env, ELam(List(for (x, p) in zip(formals, ps) yield if x.typ == THole then Var(x.name, p) else x), body), out typed_expr, u, ref s)
     case _ =>
-      call infer(in env, e, out e1, u, ref s)
+      call infer(in env, expr, out typed_expr, u, ref s)
   end
   call unify(in u, t, ref s)
 
-procedure check(in env: Env, expr: Expr, t: Type, out e1: Expr, ref s: State) :=
+procedure check(
+  in  env: Env,
+      expr: Expr,
+      t: Type,
+  out typed_expr: Expr,
+  ref s: State
+) :=
   local u: Type
   if is_lambda(expr) then
-    call infer_lambda(in env, expr, t, out e1, ref s)
+    call infer_lambda(in env, expr, t, out typed_expr, ref s)
   else
-    call infer(in env, expr, out e1, u, ref s)
+    call infer(in env, expr, out typed_expr, u, ref s)
     call unify(in u, t, ref s)
   end
 
@@ -1875,18 +1882,18 @@ procedure checks(
       what: Str,
       exprs: List[Expr],
       ts: List[Type],
-  out es1: List[Expr],
+  out typed_exprs: List[Expr],
   ref s: State
 ) :=
   match (exprs, ts)
-    case (List(e; more), List(t; ts1)) =>
-      local e1: Expr, rest: List[Expr]
-      call   check(in env, e, t, out e1, ref s)
-      call   checks(in env, what, more, ts1, out rest, ref s)
-      assign es1 := List(e1; rest)
+    case (List(expr; more), List(t; ts_)) =>
+      local typed_expr: Expr, rest: List[Expr]
+      call   check(in env, expr, t, out typed_expr, ref s)
+      call   checks(in env, what, more, ts_, out rest, ref s)
+      assign typed_exprs := List(typed_expr; rest)
 
     case (List(), List()) =>
-      assign es1 := List()
+      assign typed_exprs := List()
 
     case _ =>
       raise CountMismatch(what, "values", size(ts), size(exprs))
@@ -1895,15 +1902,15 @@ procedure checks(
 procedure infers(
   in  env: Env,
       exprs: List[Expr],
-  out es1: List[Expr],
+  out typed_exprs: List[Expr],
       ts: List[Type],
   ref s: State
 ) :=
-  local e1: Expr, t: Type
-  assign es1 := List(), ts := List()
-  for e in exprs do
-    call   infer(in env, e, out e1, t, ref s)
-    assign es1 := es1 ++ List(e1), ts := ts ++ List(t)
+  local typed_expr: Expr, t: Type
+  assign typed_exprs := List(), ts := List()
+  for expr in exprs do
+    call   infer(in env, expr, out typed_expr, t, ref s)
+    assign typed_exprs := typed_exprs ++ List(typed_expr), ts := ts ++ List(t)
   end
 
 procedure expr_branches(
@@ -1911,37 +1918,37 @@ procedure expr_branches(
       cases: List[Branch[Expr]],
       t: Type,
       r: Type,
-  out cases1: List[Branch[Expr]],
+  out typed_cases: List[Branch[Expr]],
   ref s: State
 ) :=
   match cases
     case List() =>
-      assign cases1 := List()
+      assign typed_cases := List()
 
     case List(Branch(doc, pat, g, body); more) =>
-      local p1: Pat, xs: List[Var], g1: Option[Expr], b1: Expr, rest: List[Branch[Expr]]
-      call   typed_pattern(in pat, t, out p1, xs, ref s)
+      local typed_pat: Pat, xs: List[Var], typed_guard: Option[Expr], typed_body: Expr, rest: List[Branch[Expr]]
+      call   typed_pattern(in pat, t, out typed_pat, xs, ref s)
       call   unhidden(in env, xs)
-      call   guard(in bind(xs) ++ env, g, out g1, ref s)
-      call   check(in bind(xs) ++ env, body, r, out b1, ref s)
+      call   guard(in bind(xs) ++ env, g, out typed_guard, ref s)
+      call   check(in bind(xs) ++ env, body, r, out typed_body, ref s)
       call   expr_branches(in env, more, t, r, out rest, ref s)
-      assign cases1 := List(Branch(doc, p1, g1, b1); rest)
+      assign typed_cases := List(Branch(doc, typed_pat, typed_guard, typed_body); rest)
   end
 
 procedure guard(
   in  env: Env,
       g: Option[Expr],
-  out g1: Option[Expr],
+  out typed_guard: Option[Expr],
   ref s: State
 ) :=
   match g
-    case Some(e) =>
-      local e1: Expr
-      call   check(in env, e, TBool(), out e1, ref s)
-      assign g1 := Some(e1)
+    case Some(expr) =>
+      local typed_expr: Expr
+      call   check(in env, expr, TBool(), out typed_expr, ref s)
+      assign typed_guard := Some(typed_expr)
 
     case None =>
-      assign g1 := None
+      assign typed_guard := None
   end
 
 // guarded cases neither cover values for exhaustiveness nor make later cases unreachable
@@ -1981,43 +1988,43 @@ procedure reachable(
 procedure typed_pattern(
   in  pat: Pat,
       t: Type,
-  out p1: Pat,
+  out typed_pat: Pat,
       xs: List[Var],
   ref s: State
 ) :=
-  call binders(in pat, t, out p1, xs, ref s)
+  call binders(in pat, t, out typed_pat, xs, ref s)
   call unique(in "pattern variable", List(for x in xs yield x.name))
 
 procedure binders(
   in  pat: Pat,
       t: Type,
-  out p1: Pat,
+  out typed_pat: Pat,
       xs: List[Var],
   ref s: State
 ) :=
   match pat
     case PWild =>
-      assign p1 := pat, xs := List()
+      assign typed_pat := pat, xs := List()
 
     case PLit(lit) =>
       call   unify(in literal(lit), t, ref s)
-      assign p1 := pat, xs := List()
+      assign typed_pat := pat, xs := List()
 
     case PName(name, typ) =>
       local u: Type
       if overloads(s, name, lambda n => is_pattern_name(s.sig, n)) != List() then
-        call binders(in PApp(name, List()), t, out p1, xs, ref s)
+        call binders(in PApp(name, List()), t, out typed_pat, xs, ref s)
       else
         call   normalize(in typ, out u, ref s)
         call   unify(in u, t, ref s)
-        assign p1 := PName(name, u), xs := List(Var(name, u))
+        assign typed_pat := PName(name, u), xs := List(Var(name, u))
       end
 
     case PApp(constr, args) =>
       local m: List[Type * Type], qs: List[Pat], k: Name
       match overloads(s, constr, lambda n => is_pattern_name(s.sig, n))
-        case List(k1) =>
-          assign k := k1
+        case List(k_) =>
+          assign k := k_
 
         case List() =>
           raise UnknownConstructor(constr)
@@ -2033,9 +2040,9 @@ procedure binders(
           call binder_list(in args, List(for a in head.args yield subst(a, m)), out qs, xs, ref s)
           match pat_alias_of(s.sig, k)
             case Some(alias) =>
-              assign p1 := subst_pat(alias.pat, zip(List(for x in alias.formals yield x.name), qs))
+              assign typed_pat := subst_pat(alias.pat, zip(List(for x in alias.formals yield x.name), qs))
             case None =>
-              assign p1 := PApp(k, qs)
+              assign typed_pat := PApp(k, qs)
           end
 
         case None =>
@@ -2047,7 +2054,7 @@ procedure binders(
       call   fresh_list(in args, out ts, ref s)
       call   unify(in TTuple(ts), t, ref s)
       call   binder_list(in args, ts, out qs, xs, ref s)
-      assign p1 := PTuple(qs)
+      assign typed_pat := PTuple(qs)
   end
 
 // the one of the constructors ks with k arguments whose datatype fits t, where open uses are solved first if
@@ -2067,8 +2074,8 @@ procedure pattern_constructor(
     call trials(in results(s.sig, ks, k), t, s, out ok)
   end
   match ok
-    case List(((c1, _), _)) =>
-      assign c := c1
+    case List(((c_, _), _)) =>
+      assign c := c_
 
     case List() =>
       raise NoOverload(n, zonk_type(s.sub, t))
@@ -2117,10 +2124,10 @@ procedure binder_list(
   ref s: State
 ) :=
   match (pats, ts)
-    case (List(p; more), List(t; ts1)) =>
+    case (List(p; more), List(t; ts_)) =>
       local q: Pat, ys: List[Var], rest: List[Pat], zs: List[Var]
       call   binders(in p, t, out q, ys, ref s)
-      call   binder_list(in more, ts1, out rest, zs, ref s)
+      call   binder_list(in more, ts_, out rest, zs, ref s)
       assign qs := List(q; rest), xs := ys ++ zs
 
     case (List(), List()) =>
@@ -2325,7 +2332,7 @@ procedure call_variable(
   out stmt: Stmt,
   ref s: State
 ) :=
-  local x: Var, w: Type, is: List[Type], os: List[Type], rs: List[Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var]
+  local x: Var, w: Type, is: List[Type], os: List[Type], rs: List[Type], typed_ins: List[Expr], typed_outs: List[Var], typed_refs: List[Var]
   call   fresh(out w, ref s)
   call   use(in p, w, sc, out x, ref s)
   call   fresh_list(in ins, out is, ref s)
@@ -2333,11 +2340,11 @@ procedure call_variable(
   call   fresh_list(in refs, out rs, ref s)
   call   unify(in x.typ, TProc(is, os, rs), ref s)
   call   unique(in "out or ref", List(for y in outs ++ refs yield y.name))
-  call   checks(in env, "procedure " ++ p.base, ins, is, out ins1, ref s)
-  call   variables(in env, assignable, outs, out outs1, ref s)
-  call   variables(in env, assignable, refs, out refs1, ref s)
-  call   unifies(in List(for y in outs1 ++ refs1 yield y.typ), os ++ rs, ref s)
-  assign stmt := SCall(p, ins1, outs1, refs1)
+  call   checks(in env, "procedure " ++ p.base, ins, is, out typed_ins, ref s)
+  call   variables(in env, assignable, outs, out typed_outs, ref s)
+  call   variables(in env, assignable, refs, out typed_refs, ref s)
+  call   unifies(in List(for y in typed_outs ++ typed_refs yield y.typ), os ++ rs, ref s)
+  assign stmt := SCall(p, typed_ins, typed_outs, typed_refs)
 
 procedure call_declared(
   in  env: Env,
@@ -2372,13 +2379,13 @@ procedure overloaded_call(
   out stmt: Stmt,
   ref s: State
 ) :=
-  local ins1: List[Expr], is: List[Type], outs1: List[Var], refs1: List[Var], m: Name
+  local typed_ins: List[Expr], is: List[Type], typed_outs: List[Var], typed_refs: List[Var], m: Name
   call   unique(in "out or ref", List(for x in outs ++ refs yield x.name))
-  call   infers(in env, ins, out ins1, is, ref s)
-  call   variables(in env, assignable, outs, out outs1, ref s)
-  call   variables(in env, assignable, refs, out refs1, ref s)
-  call   choose(in p, List(for q in qs yield (q, proc_scheme(s.sig, q))), TProc(is, List(for x in outs1 yield x.typ), List(for x in refs1 yield x.typ)), out m, ref s)
-  assign stmt := SCall(m, ins1, outs1, refs1)
+  call   infers(in env, ins, out typed_ins, is, ref s)
+  call   variables(in env, assignable, outs, out typed_outs, ref s)
+  call   variables(in env, assignable, refs, out typed_refs, ref s)
+  call   choose(in p, List(for q in qs yield (q, proc_scheme(s.sig, q))), TProc(is, List(for x in typed_outs yield x.typ), List(for x in typed_refs yield x.typ)), out m, ref s)
+  assign stmt := SCall(m, typed_ins, typed_outs, typed_refs)
 
 procedure declared_call(
   in  env: Env,
@@ -2393,17 +2400,17 @@ procedure declared_call(
 ) :=
   match proc_of(s.sig, q)
     case Some(proc) =>
-      local m: List[Type * Type], ins1: List[Expr], outs1: List[Var], refs1: List[Var]
+      local m: List[Type * Type], typed_ins: List[Expr], typed_outs: List[Var], typed_refs: List[Var]
       call   instance(in proc.params, out m, ref s)
       call   same_length(in "procedure " ++ q.base, "ins", size(proc.ins), size(ins))
       call   same_length(in "procedure " ++ q.base, "outs", size(proc.outs), size(outs))
       call   same_length(in "procedure " ++ q.base, "refs", size(proc.refs), size(refs))
       call   unique(in "out or ref", List(for x in outs ++ refs yield x.name))
-      call   checks(in env, "procedure " ++ q.base, ins, List(for t in proc.ins yield subst(t, m)), out ins1, ref s)
-      call   variables(in env, assignable, outs, out outs1, ref s)
-      call   variables(in env, assignable, refs, out refs1, ref s)
-      call   unifies(in List(for x in outs1 ++ refs1 yield x.typ), List(for t in proc.outs ++ proc.refs yield subst(t, m)), ref s)
-      assign stmt := SCall(q, ins1, outs1, refs1)
+      call   checks(in env, "procedure " ++ q.base, ins, List(for t in proc.ins yield subst(t, m)), out typed_ins, ref s)
+      call   variables(in env, assignable, outs, out typed_outs, ref s)
+      call   variables(in env, assignable, refs, out typed_refs, ref s)
+      call   unifies(in List(for x in typed_outs ++ typed_refs yield x.typ), List(for t in proc.outs ++ proc.refs yield subst(t, m)), ref s)
+      assign stmt := SCall(q, typed_ins, typed_outs, typed_refs)
 
     case None =>
       raise UnknownProcedure(p)
@@ -2414,47 +2421,47 @@ procedure stmt_branches(
   in  assignable: List[Name],
       cases: List[Branch[Stmt]],
       t: Type,
-  out cases1: List[Branch[Stmt]],
+  out typed_cases: List[Branch[Stmt]],
   ref env: Env,
       s: State
 ) :=
   match cases
     case List() =>
-      assign cases1 := List(), env := unreachable(env)
+      assign typed_cases := List(), env := unreachable(env)
 
     case List(Branch(doc, pat, g, body); more) =>
-      local p1: Pat, xs: List[Var], g1: Option[Expr], b1: Stmt, rest: List[Branch[Stmt]], inner: Env
-      call   typed_pattern(in pat, t, out p1, xs, ref s)
+      local typed_pat: Pat, xs: List[Var], typed_guard: Option[Expr], typed_body: Stmt, rest: List[Branch[Stmt]], inner: Env
+      call   typed_pattern(in pat, t, out typed_pat, xs, ref s)
       call   unhidden(in env, xs)
       assign inner := bind(xs) ++ env
-      call   guard(in inner, g, out g1, ref s)
-      call   statement(in assignable -- List(for x in xs yield x.name), body, out b1, ref inner, s)
+      call   guard(in inner, g, out typed_guard, ref s)
+      call   statement(in assignable -- List(for x in xs yield x.name), body, out typed_body, ref inner, s)
       call   stmt_branches(in assignable, more, t, out rest, ref env, s)
-      assign cases1 := List(Branch(doc, p1, g1, b1); rest), env := joined(drop(size(xs), inner), env)
+      assign typed_cases := List(Branch(doc, typed_pat, typed_guard, typed_body); rest), env := joined(drop(size(xs), inner), env)
   end
 
 // handlers start from the variables before the try, which an exception restores
 procedure handler_list(
   in  assignable: List[Name],
-      hs: List[Catch],
-  out hs1: List[Catch],
+      handlers: List[Catch],
+  out typed_handlers: List[Catch],
   ref env: Env,
       s: State
 ) :=
-  match hs
+  match handlers
     case List() =>
-      assign hs1 := List(), env := unreachable(env)
+      assign typed_handlers := List(), env := unreachable(env)
 
     case List(Catch(doc, typ, pat, g, body); more) =>
-      local u: Type, p1: Pat, xs: List[Var], g1: Option[Expr], b1: Stmt, rest: List[Catch], inner: Env
+      local u: Type, typed_pat: Pat, xs: List[Var], typed_guard: Option[Expr], typed_body: Stmt, rest: List[Catch], inner: Env
       call   normalize(in typ, out u, ref s)
-      call   typed_pattern(in pat, u, out p1, xs, ref s)
+      call   typed_pattern(in pat, u, out typed_pat, xs, ref s)
       call   unhidden(in env, xs)
       assign inner := bind(xs) ++ env
-      call   guard(in inner, g, out g1, ref s)
-      call   statement(in assignable -- List(for x in xs yield x.name), body, out b1, ref inner, s)
+      call   guard(in inner, g, out typed_guard, ref s)
+      call   statement(in assignable -- List(for x in xs yield x.name), body, out typed_body, ref inner, s)
       call   handler_list(in assignable, more, out rest, ref env, s)
-      assign hs1 := List(Catch(doc, u, p1, g1, b1); rest), env := joined(drop(size(xs), inner), env)
+      assign typed_handlers := List(Catch(doc, u, typed_pat, typed_guard, typed_body); rest), env := joined(drop(size(xs), inner), env)
   end
 
 procedure declare_name(in sig: Sig, n: Name) :=
@@ -2659,14 +2666,14 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
     end
   end
 
-procedure command(in cmd: Cmd, out c1: Cmd, ref s: State) :=
+procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
   match cmd
     case CFun(name, params, formals, typ, body) =>
       local xs: List[Var], r: Type, b: Expr
       call   signature(in formals, out xs, ref s)
       call   known(in typ, name, out r, ref s)
       call   check(in bind(xs), body, r, out b, ref s)
-      assign c1 := CFun(name, params, xs, r, b)
+      assign typed_cmd := CFun(name, params, xs, r, b)
 
     case CProc(name, params, ins, outs, refs, stmt) =>
       local is: List[Var], os: List[Var], rs: List[Var], y: Stmt, env: Env
@@ -2676,18 +2683,18 @@ procedure command(in cmd: Cmd, out c1: Cmd, ref s: State) :=
       assign env := bind(is) ++ unassigned(os) ++ bind(rs)
       call   statement(in List(for x in os ++ rs yield x.name), stmt, out y, ref env, s)
       call   outputs(in name, os, env)
-      assign c1 := CProc(name, params, is, os, rs, y)
+      assign typed_cmd := CProc(name, params, is, os, rs, y)
 
     case CTest(name, List(), stmt) =>
       local y: Stmt, env: Env := List()
       call   statement(in List(), stmt, out y, ref env, s)
-      assign c1 := CTest(name, List(), y)
+      assign typed_cmd := CTest(name, List(), y)
 
     case CTest(name, _, _) =>
       raise TestParams(name.base)
 
     case CData(name, params, constrs) =>
-      assign c1 := CData(name, params, List(for k in constrs yield resolved_fields(s.sig, k)))
+      assign typed_cmd := CData(name, params, List(for k in constrs yield resolved_fields(s.sig, k)))
 
     case CLemma(name, params, formals, assms, concl) =>
       local xs: List[Var], checked: List[Expr] := List(), c: Expr
@@ -2698,10 +2705,10 @@ procedure command(in cmd: Cmd, out c1: Cmd, ref s: State) :=
         assign checked := checked ++ List(b)
       end
       call   check(in bind(xs), concl, TBool(), out c, ref s)
-      assign c1 := CLemma(name, params, xs, checked, c)
+      assign typed_cmd := CLemma(name, params, xs, checked, c)
 
     case _ =>
-      assign c1 := cmd
+      assign typed_cmd := cmd
   end
 
 // the constructor k with the types of its fields resolved, as declare_constructors declared them
@@ -2713,25 +2720,29 @@ function resolved_fields(sig: Sig, k: Constr): Constr :=
       k
   end
 
-procedure commands(in cs: List[Id * Cmd], out cs1: List[Cmd], ref s: State) :=
-  match cs
+procedure commands(
+  in  cmds: List[Id * Cmd],
+  out typed_cmds: List[Cmd],
+  ref s: State
+) :=
+  match cmds
     case List() =>
-      assign cs1 := List()
+      assign typed_cmds := List()
 
-    case List((m, c); more) =>
-      local c1: Cmd, c2: Cmd, rest: List[Cmd]
+    case List((m, cmd); more) =>
+      local typed_cmd: Cmd, zonked: Cmd, rest: List[Cmd]
       assign s := enter(s, m)
-      call   command(in c, out c1, ref s)
+      call   command(in cmd, out typed_cmd, ref s)
       call   settle(ref s)
-      assign c2 := zonk_cmd(s, c1)
-      match unknown_in_cmd(c2)
+      assign zonked := zonk_cmd(s, typed_cmd)
+      match unknown_in_cmd(zonked)
         case Some(t) =>
           raise UnknownException(t)
         case None =>
           skip
       end
       call   commands(in more, out rest, ref s)
-      assign cs1 := List(c2; rest)
+      assign typed_cmds := List(zonked; rest)
   end
 
 // tests are chosen by name
@@ -2967,8 +2978,8 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
         raise AlreadyDefined(name)
       end
       match List(for c in im if defines_fun(c, name, size(formals)))
-        case List(CFun(_, ps1, xs1, r1, _)) =>
-          if ps1 != params or xs1 != formals or r1 != typ then
+        case List(CFun(_, params_, formals_, typ_, _)) =>
+          if params_ != params or formals_ != formals or typ_ != typ then
             raise SignatureMismatch(name)
           end
 
@@ -2982,8 +2993,8 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
         raise AlreadyDefined(name)
       end
       match List(for c in im if defines_proc(c, name))
-        case List(CProc(_, ps1, ins1, outs1, refs1, _)) =>
-          if ps1 != params or ins1 != ins or outs1 != outs or refs1 != refs then
+        case List(CProc(_, params_, ins_, outs_, refs_, _)) =>
+          if params_ != params or ins_ != ins or outs_ != outs or refs_ != refs then
             raise SignatureMismatch(name)
           end
 
@@ -2994,8 +3005,8 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
 
     case List(CAbstract(name, params); rest) =>
       match List(for c in im if defines_data(c, name))
-        case List(CData(_, ps1, _)) =>
-          if ps1 != params then
+        case List(CData(_, params_, _)) =>
+          if params_ != params then
             raise SignatureMismatch(name)
           end
 
@@ -3316,8 +3327,8 @@ function located(d: Id * Cmd, p: Pos, e: TypeError): TypeError :=
 
 // the type of expr without a program
 procedure type_of(in expr: Expr, out t: Type) :=
-  local s := start("main", List()), e1: Expr, u: Type
-  call   infer(in List(), expr, out e1, u, ref s)
+  local s := start("main", List()), typed_expr: Expr, u: Type
+  call   infer(in List(), expr, out typed_expr, u, ref s)
   call   settle(ref s)
   assign t := zonk_type(s.sub, u)
 
