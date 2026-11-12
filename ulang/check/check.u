@@ -3743,17 +3743,21 @@ procedure commands(
       assign typed_cmds := List(zonked; rest)
   end
 
-// tests are chosen by name
-function block_names(cs: List[Id * Cmd]): List[Id] :=
-  match cs
-    case List() =>
-      List()
+// tests are chosen by name, so a name of a test of module d is not repeated, where the error is at the second test
+procedure unique_tests(in d: Mod, ref s: State) :=
+  local seen: Set[Id] := empty(), found := false
+  for (pos, (_, cmd)) in decls_of(d) do
+    match cmd
+      case CTest(name, _, _) =>
+        if contains(name.base, seen) and not found then
+          assign found := true
+          assign s := s with errors := s.errors ++ List(Located(Some(d.name), pos, Duplicate("declaration", name.base)))
+        end
+        assign seen := seen ++ Set(name.base)
 
-    case List((_, CTest(name, _, _)); more) =>
-      List(name.base; block_names(more))
-
-    case List(_; more) =>
-      block_names(more)
+      case _ =>
+        skip
+    end
   end
 
 // only abstract types declare equalities, since matching tells the values of other datatypes apart by their constructors,
@@ -3943,51 +3947,48 @@ function signs_fun(cmd: Cmd, n: Name, k: Int): Bool :=
       false
   end
 
-// the signatures of ex, each of which the implementation section im defines once and exactly as written
-procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
+// the signatures of ex, each of which the implementation section im defines once and exactly as written, where an error
+// is at the second signature of a name, at the definition that differs, or at the signature without a definition
+procedure check_signatures(in ex: List[Pos * Cmd], im: List[Pos * Cmd]) :=
   match ex
     case List() =>
       skip
 
-    case List(CFunSig(name, params, formals, typ, _); rest) =>
-      if exists(rest, lambda e => signs_fun(e, name, size(formals))) then
-        raise AlreadyDefined(name)
-      end
-      match List(for c in im if defines_fun(c, name, size(formals)))
-        case List(CFun(_, params_, formals_, typ_, _, _)) =>
+    case List((pos, CFunSig(name, params, formals, typ, _)); rest) =>
+      call once(in name, List(for (p, e) in rest if signs_fun(e, name, size(formals)) yield p))
+      match List(for (p, c) in im if defines_fun(c, name, size(formals)) yield (p, c))
+        case List((p, CFun(_, params_, formals_, typ_, _, _))) =>
           if params_ != params or formals_ != formals or typ_ != typ then
-            raise SignatureMismatch(name)
+            raise Located(None, p, SignatureMismatch(name))
           end
 
         case _ =>
-          raise MissingDefinition(name)
+          raise Located(None, pos, MissingDefinition(name))
       end
       call check_signatures(in rest, im)
 
-    case List(CProcSig(name, params, ins, outs, refs, raised, _); rest) =>
-      if exists(rest, lambda e => signs(e, name)) then
-        raise AlreadyDefined(name)
-      end
-      match List(for c in im if defines_proc(c, name))
-        case List(CProc(_, params_, ins_, outs_, refs_, raised_, _, _)) =>
+    case List((pos, CProcSig(name, params, ins, outs, refs, raised, _)); rest) =>
+      call once(in name, List(for (p, e) in rest if signs(e, name) yield p))
+      match List(for (p, c) in im if defines_proc(c, name) yield (p, c))
+        case List((p, CProc(_, params_, ins_, outs_, refs_, raised_, _, _))) =>
           if params_ != params or ins_ != ins or outs_ != outs or refs_ != refs or raised_ != raised then
-            raise SignatureMismatch(name)
+            raise Located(None, p, SignatureMismatch(name))
           end
 
         case _ =>
-          raise MissingDefinition(name)
+          raise Located(None, pos, MissingDefinition(name))
       end
       call check_signatures(in rest, im)
 
-    case List(CAbstract(name, params); rest) =>
-      match List(for c in im if defines_data(c, name))
-        case List(CData(_, params_, _)) =>
+    case List((pos, CAbstract(name, params)); rest) =>
+      match List(for (p, c) in im if defines_data(c, name) yield (p, c))
+        case List((p, CData(_, params_, _))) =>
           if params_ != params then
-            raise SignatureMismatch(name)
+            raise Located(None, p, SignatureMismatch(name))
           end
 
         case _ =>
-          raise MissingDefinition(name)
+          raise Located(None, pos, MissingDefinition(name))
       end
       call check_signatures(in rest, im)
 
@@ -3995,13 +3996,19 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
       call check_signatures(in rest, im)
   end
 
+// the signature name is not repeated at the positions others
+procedure once(in name: Name, others: List[Pos]) :=
+  for p in take(1, others) do
+    raise Located(None, p, AlreadyDefined(name))
+  end
+
 // a function of the implementation section that is exported is exported with each of its numbers of arguments
-procedure check_arities(in im: List[Cmd], ex: List[Cmd]) :=
-  for cmd in im do
+procedure check_arities(in im: List[Pos * Cmd], ex: List[Cmd]) :=
+  for (pos, cmd) in im do
     match cmd
       case CFun(name, _, formals, _, _, _) =>
         if exists(ex, lambda e => signs(e, name)) and not exists(ex, lambda e => signs_fun(e, name, size(formals))) then
-          raise PartlyExported(name)
+          raise Located(None, pos, PartlyExported(name))
         end
 
       case _ =>
@@ -4036,18 +4043,18 @@ function pattern_constrs(pat: Pat): List[Name] :=
   end
 
 // the types of the export section name only sorts that importers can name, not the private sorts of the module
-procedure check_exposed(in m: Id, ex: List[Cmd], hidden_sorts: List[Name]) :=
+procedure check_exposed(in m: Id, ex: List[Pos * Cmd], hidden_sorts: List[Name]) :=
   match ex
     case List() =>
       skip
 
-    case List(c; rest) =>
+    case List((pos, c); rest) =>
       match exposed(c)
         case Some((n, ts)) =>
           local found: List[Name] := List(for u in ts for t in sorts_in(u) if contains(own_name(m, t), hidden_sorts) yield own_name(m, t))
           match found
             case List(t; _) =>
-              raise PrivateType(n, t)
+              raise Located(None, pos, PrivateType(n, t))
             case List() =>
               skip
           end
@@ -4088,15 +4095,19 @@ function exposed(cmd: Cmd): Option[Name * List[Type]] :=
 
 // the sections of module d, whose signatures its definitions repeat, and whose exports name no private sorts
 procedure check_sections(in d: Mod) :=
-  local ex := exported_cmds(d), im := implemented_cmds(d)
+  local ex := placed_cmds(d.name, d.exported), im := placed_cmds(d.name, d.implemented)
   call check_signatures(in ex, im)
-  call check_arities(in im, ex)
-  call check_exposed(in d.name, ex, private_sorts(ex, im))
+  call check_arities(in im, seconds(ex))
+  call check_exposed(in d.name, ex, private_sorts(seconds(ex), seconds(im)))
 
 // the declarations and sorts that module d keeps private, which are all of a module without an export section
 procedure private_of(in d: Mod, out hidden: Set[Name], hidden_sorts: List[Name]) :=
   local ex := exported_cmds(d), im := implemented_cmds(d)
   assign hidden := Set(for x in private_names(ex, im)), hidden_sorts := private_sorts(ex, im)
+
+// the commands of docs of the module m with qualified names, at their declarations
+function placed_cmds(m: Id, docs: List[Doc[Cmd]]): List[Pos * Cmd] :=
+  List(for c in docs if is_parsed(c.at) yield (c.at.pos, qualify(m, c.at.that)))
 
 function exported_cmds(d: Mod): List[Cmd] :=
   List(for c in commands_of(d.exported) yield qualify(d.name, c))
@@ -4267,14 +4278,14 @@ procedure check_package(
       call check_sections(in d)
     catch
       case e =>
-        assign s := s with errors := s.errors ++ List(e)
+        assign s := s with errors := s.errors ++ List(located(d.name, Pos(0, 0), e))
     end
   end
   call each_placed(in lambda in cs: List[Id * Cmd], ref t: State =>
     call exported_aliases(in cs, hidden, t)
   end, placed, ref s)
   for d in mods do
-    call unique_ids(in "declaration", block_names(decls_of_mod(d)), ref s)
+    call unique_tests(in d, ref s)
   end
   if not exists(s.errors, is_blocking) then
     call placed_commands(in placed_definitions(placed), lambda in checked: List[Cmd] =>
@@ -4738,9 +4749,6 @@ function first_member(members: List[Id]): Id :=
       ""
   end
 
-function decls_of_mod(d: Mod): List[Id * Cmd] :=
-  seconds(decls_of(d))
-
 // the commands of module d with qualified names, with the module of each, and their positions
 function decls_of(d: Mod): List[Pos * (Id * Cmd)] :=
   List(for c in placed_of(d) yield (c.at.pos, (d.name, qualify(d.name, c.at.that))))
@@ -4859,14 +4867,14 @@ function qualified_at(m: Id, cmd: At[Cmd]): Option[At[Cmd]] :=
 
 // s with the errors after the first before located at the declaration d at position p, which raised or reported them
 function placed_errors(s: State, before: Int, d: Id * Cmd, p: Pos): State :=
-  s with errors := take(before, s.errors) ++ List(for e in drop(before, s.errors) yield located(d, p, e))
+  s with errors := take(before, s.errors) ++ List(for e in drop(before, s.errors) yield located(first(d), p, e))
 
-// the error e of declaration d of a module at position p, if the parser read it
-function located(d: Id * Cmd, p: Pos, e: TypeError): TypeError :=
-  match (d, e)
-    case ((m, _), Located(None, q, error)) =>
+// the error e of a declaration of module m at position p, if the parser read it
+function located(m: Id, p: Pos, e: TypeError): TypeError :=
+  match e
+    case Located(None, q, error) =>
       Located(Some(m), q, error)
-    case ((m, _), _) =>
+    case _ =>
       if p == Pos(0, 0) then e else Located(Some(m), p, e)
   end
 

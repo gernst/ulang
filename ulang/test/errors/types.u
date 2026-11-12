@@ -111,7 +111,7 @@ test duplicate_let() :=
   end
 
 test duplicate_test() :=
-  assert raises Duplicate("declaration", "a") do
+  assert raises Located(None, Pos(4, 1), Duplicate("declaration", "a")) do
     call check_text(in "ulang/test/errors/duplicate-test.u", List("test a() :=", "  skip", "", "test a() :=", "  skip"))
   end
 

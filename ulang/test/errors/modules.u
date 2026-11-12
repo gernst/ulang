@@ -7,7 +7,7 @@ import "ulang/check"
 import "ulang/test/cases"
 
 test abstract_arity() :=
-  assert raises SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T")) do
+  assert raises Located(None, Pos(7, 1), SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T"))) do
     call check_text(in "ulang/test/errors/abstract-arity.u", List(
       "export",
       "",
@@ -25,7 +25,7 @@ test abstract_outside_export() :=
   end
 
 test abstract_undefined() :=
-  assert raises MissingDefinition(Name(Some("ulang/test/errors/abstract-undefined"), "T")) do
+  assert raises Located(None, Pos(3, 1), MissingDefinition(Name(Some("ulang/test/errors/abstract-undefined"), "T"))) do
     call check_text(in "ulang/test/errors/abstract-undefined.u", List("export", "", "type T", "", "implementation", "", "type T :=", "  Int"))
   end
 
@@ -58,7 +58,7 @@ test definition_in_export() :=
   end
 
 test duplicate_signature() :=
-  assert raises AlreadyDefined(Name(Some("ulang/test/errors/duplicate-signature"), "f")) do
+  assert raises Located(None, Pos(5, 1), AlreadyDefined(Name(Some("ulang/test/errors/duplicate-signature"), "f"))) do
     call check_text(in "ulang/test/errors/duplicate-signature.u", List(
       "export",
       "",
@@ -145,7 +145,7 @@ test library_member() :=
   end
 
 test missing_definition() :=
-  assert raises MissingDefinition(Name(Some("ulang/test/errors/missing-definition"), "f")) do
+  assert raises Located(None, Pos(3, 1), MissingDefinition(Name(Some("ulang/test/errors/missing-definition"), "f"))) do
     call check_text(in "ulang/test/errors/missing-definition.u", List("export", "", "function f(n: Int): Int"))
   end
 
@@ -179,7 +179,7 @@ test own_package() :=
   end
 
 test partly_exported() :=
-  assert raises PartlyExported(Name(Some("ulang/test/errors/partly-exported"), "f")) do
+  assert raises Located(None, Pos(10, 1), PartlyExported(Name(Some("ulang/test/errors/partly-exported"), "f"))) do
     call check_text(in "ulang/test/errors/partly-exported.u", List(
       "export",
       "",
@@ -255,7 +255,7 @@ test private_pattern() :=
   end
 
 test private_type() :=
-  assert raises PrivateType(Name(Some("ulang/test/errors/private-type"), "f"), Name(Some("ulang/test/errors/private-type"), "Hidden")) do
+  assert raises Located(None, Pos(3, 1), PrivateType(Name(Some("ulang/test/errors/private-type"), "f"), Name(Some("ulang/test/errors/private-type"), "Hidden"))) do
     call check_text(in "ulang/test/errors/private-type.u", List(
       "export",
       "",
@@ -288,7 +288,7 @@ test same_sort_name() :=
   end
 
 test signature_mismatch() :=
-  assert raises SignatureMismatch(Name(Some("ulang/test/errors/signature-mismatch"), "f")) do
+  assert raises Located(None, Pos(7, 1), SignatureMismatch(Name(Some("ulang/test/errors/signature-mismatch"), "f"))) do
     call check_text(in "ulang/test/errors/signature-mismatch.u", List(
       "export",
       "",
