@@ -491,6 +491,19 @@ procedure prove_unit(
     end
   end
 
+// the lemmas up to the last of the named ones, all if none are named, since those before are the facts of the named ones,
+// while those after are not needed
+function lemmas_upto(lemmas: List[Lemma], names: List[Str]): List[Lemma] :=
+  if names == List() then
+    lemmas
+  else
+    match index_of(true, reverse(List(for l in lemmas yield contains(l.name.base, names))))
+      case Some(i) =>
+        take(size(lemmas) - i, lemmas)
+      case None =>
+        lemmas
+    end
+
 // proves the lemmas of the module m of q, of the file, all or the named ones, in their order, where those before are
 // facts, printing whether each is proven, with an error of a proof for each gap and for each function that they reach
 // whose termination is not proven, and whether all are proven
@@ -502,7 +515,7 @@ procedure prove_module(
       label: Str,
   out proven: Bool
 ) :=
-  local t := translate(q, m), proofs := prove_lemmas(t.decls, t.lemmas)
+  local t := translate(q, m), proofs := prove_lemmas(t.decls, lemmas_upto(t.lemmas, names))
   assign proven := true
   for n in names if not exists(t.lemmas, lambda l => l.name.base == n) do
     call   os_println(in label ++ error_text(RuntimeKind, "there is no lemma " ++ n))

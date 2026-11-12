@@ -197,7 +197,8 @@ function activate(context) {
       output.append(result.stderr);
       output.show(true);
     }
-    await record(document);
+    // the Testing view follows the runs of tests; a prove of one lemma would otherwise prove the whole file again
+    if (command !== "prove") await record(document);
   }
 
   // the results of all tests of document, as a test run, so that they show up in the editor and the Testing view
