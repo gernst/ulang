@@ -3413,7 +3413,7 @@ procedure declare_pat_aliases(in cs: List[Id * Cmd], ref s: State) :=
     end
   end
 
-// the proof of a lemma over its formals and the locals of the proof, see prover.md, section 3: the steps in their order,
+// the proof of a lemma over its formals and the locals of the proof, see prove.md, section 4: the steps in their order,
 // each adding its local to env, then the split, whose cases are proofs with the variables of their patterns
 procedure check_proof(
   in  formals: List[Var],

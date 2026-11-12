@@ -1,4 +1,4 @@
-// the proofs of lemmas, which walk the steps of a proof over the goal, see prover.md, section 3, which is not versioned
+// the proofs of lemmas, which walk the steps of a proof over the goal, see prove.md, section 4, which is not versioned
 //
 // The state of a block is its fixed variables as levels, the first ones the formals, the facts and the goal over them,
 // and the levels of the variables that the terms of the proof have as indices, the innermost first, which a translated

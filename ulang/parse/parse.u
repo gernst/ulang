@@ -2543,7 +2543,7 @@ function at_step(toks: Tokens): Bool :=
   exists(List("local", "call", "assert", "assign", "induction", "match", "if"), lambda kw => at_kw(toks, kw))
 
 // the steps of a proof, the locals first, then the calls, cuts, and assignments, which are parsed as statements, and at
-// most one split, which ends the proof, see prover.md, section 3, where a proof ends at a token that starts no step
+// most one split, which ends the proof, see prove.md, section 4, where a proof ends at a token that starts no step
 procedure parse_proof(
   in  notation: Notation,
       params: List[Id],

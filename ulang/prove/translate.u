@@ -15,7 +15,7 @@ data Lemma :=
   case Lemma(name: Name, goal: Seq, proof: Option[ProofTerm])
 
 // a proof over the terms of the prover, whose variables are the formals, the locals, and the variables of the cases
-// around it, as indices, the innermost first, at the position where it starts, see prover.md, section 3
+// around it, as indices, the innermost first, at the position where it starts, see prove.md, section 4
 data ProofTerm :=
   case ProofTerm(steps: List[StepTerm], split: Option[SplitTerm], pos: Pos)
 

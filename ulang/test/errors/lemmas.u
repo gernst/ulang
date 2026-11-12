@@ -48,7 +48,7 @@ test abstract_constructors() :=
 
 // the recursive functions of the library whose termination the prover does not prove: distinct recurses on a
 // comprehension, sort on take and drop of half its list, and separated on joined_pairs, which need lemmas of their
-// sizes, gcd on a remainder, which needs its bounds (prover.md, D6), and list_count and list_values of
+// sizes, gcd on a remainder, which needs its bounds (prove.md, section 7, D6), and list_count and list_values of
 // ulang/prelude/enumerate.u count n down to n == 0, so they do not terminate for a negative n
 test library_terminates() :=
   local main: Id, q: Prog, open: List[Str] := List()

@@ -1,4 +1,4 @@
-// the termination of recursive functions, proven by the simplifier, see prover.md, section 4, which is not versioned
+// the termination of recursive functions, proven by the simplifier, see prove.md, section 6, which is not versioned
 //
 // The functions that reach each other are a component, whose recursive calls are taken from the equations of their
 // definitions (ulang/prove/equations.u), each with the conditions of its equation and of the ifs around it. A measure

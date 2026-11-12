@@ -1,4 +1,4 @@
-// lemmas with proofs, see prover.md, section 3: calls of lemmas proven before, cuts, definitions, and the splits induction,
+// lemmas with proofs, see prove.md, section 4: calls of lemmas proven before, cuts, definitions, and the splits induction,
 // match, and if
 
 lemma size_append[A](in xs: List[A], ys: List[A]) :=
