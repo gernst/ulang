@@ -1067,6 +1067,10 @@ function format_type_apart(clashes: Set[Id], t: Type): Str :=
     case TParam(param) =>
       param
 
+    // a type of the checker, in messages, which have none of it
+    case TError =>
+      "?"
+
     case THole =>
       "_"
 

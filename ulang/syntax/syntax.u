@@ -19,6 +19,9 @@ data Type :=
   case TMeta(meta: Int)
   // a type parameter, e.g. A, declared by [A, …] after the name of a declaration
   case TParam(param: Id)
+  // the type of a part that does not parse, which unifies with every type, and of what it reaches, whose errors the
+  // checker does not report, which has no concrete syntax
+  case TError
   // a type T or T[A, …], applied to its arguments, e.g. Int or Map[K, V]
   case TSort(name: Name, args: List[Type])
   // a function type A -> B, (A, B, …) -> C, or () -> C

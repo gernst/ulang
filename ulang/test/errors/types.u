@@ -755,6 +755,33 @@ test signature_kept() :=
   assert List(for e in parsing yield e.pos) == List(Pos(4, 1))
   assert List(for e in errors yield error_pos(e)) == List(Pos(5, 10))
 
+// a part of an expression that does not parse, and an unknown name, have the type TError, which unifies with every type
+// and makes no error of what it reaches, and a statement that does not parse may assign every variable, so that the rest
+// of the body is checked without follow-up errors
+test checked_around_unparsed() :=
+  local parsing: List[ParseError], errors: List[TypeError]
+  call check_text_partial(in "ulang/test/errors/checked-around-unparsed.u", List(
+    "data Color :=",
+    "  case Red",
+    "  case Green",
+    "",
+    "procedure main() :=",
+    "  local x := f(1 +, 2), y := 1, c := Red",
+    "  x := 2",
+    "  assign y := y + x + true",
+    "  call os_println(in show(x ++ \"a\"))",
+    "  match x",
+    "    case 1 =>",
+    "      skip",
+    "  end",
+    "  call os_println(in show(size(x)))",
+    "  match c",
+    "    case Red =>",
+    "      skip",
+    "  end"), out parsing, errors)
+  assert List(for e in parsing yield e.pos) == List(Pos(6, 19), Pos(7, 3))
+  assert List(for e in errors yield error_pos(e)) == List(Pos(6, 14), Pos(8, 23), Pos(15, 3))
+
 function is_unparsed_use(e: TypeError): Bool :=
   match e
     case Located(_, _, UnparsedDeclaration(_)) =>
