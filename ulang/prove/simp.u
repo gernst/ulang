@@ -1343,18 +1343,47 @@ function apply_rules(ctx: Ctx, rules: List[Rule], t: Term): Term :=
       end
   end
 
+// the rule applied to t: the instances of its left side are matched first syntactically, then modulo the equations of
+// the e-graph with t, where the head of t is that of the left side, and the first whose conditions hold is taken
 function instance(ctx: Ctx, r: Rule, t: Term): Option[Term] :=
   let n := size(r.vars) in
-  match match_term(n, r.lhs, t, empty())
+  let syntactic := match match_term(n, r.lhs, t, empty())
     case Some(sub) =>
-      let args := List(for i in range(0, n) yield lookup_index(n - 1 - i, sub)), inner := ctx with unfolds := ctx.unfolds + 1 in
+      List(List(for i in range(0, n) yield lookup_index(n - 1 - i, sub)))
+    case None =>
+      List()
+  end in
+  let modulo := if first(shape(t)) != first(shape(r.lhs)) then
+    List()
+  else
+    let (g, c) := add_term(ctx.graph, t) in
+    List(for sub in ematch(g, n, r.lhs, c, empty()) for args in extract_args(ctx.decls, g, n, sub) yield args) in
+  first_instance(ctx with unfolds := ctx.unfolds + 1, r, syntactic ++ modulo)
+
+// the terms of the classes of a substitution of ematch, in the order of beta, where a variable that the left side does
+// not bind stays, as in lookup_index
+function extract_args(decls: Decls, g: EGraph, n: Int, sub: Map[Int, Int]): Option[List[Term]] :=
+  let terms := List(for i in range(0, n) yield match get(n - 1 - i, sub)
+    case Some(c) =>
+      extract_in(decls, g, c, List())
+    case None =>
+      Some(EBound(n - 1 - i))
+  end) in
+  if exists(terms, lambda t => t == None) then
+    None
+  else
+    Some(List(for t in terms for u in t yield u))
+
+function first_instance(inner: Ctx, r: Rule, candidates: List[List[Term]]): Option[Term] :=
+  match candidates
+    case List() =>
+      None
+
+    case List(args; rest) =>
       if forall(r.conds, lambda c => simp_seq(inner, beta_seq(args, c)) == true_seq()) then
         Some(simp_term(inner, beta(args, r.rhs)))
       else
-        None
-
-    case None =>
-      None
+        first_instance(inner, r, rest)
   end
 
 function lookup_index(i: Int, sub: Map[Int, Term]): Term :=
