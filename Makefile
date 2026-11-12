@@ -151,6 +151,23 @@ $(CHECKS)/docs.sh: $(SCRIPT)
 testdocs: $(CHECKS)/docs.bin $(CHECKS)/docs.sh
 	$(CHECKS)/docs.sh
 
+# checks/termination.u, a report of the recursive functions of ulang/ and the library whose termination the prover does
+# not prove, not a test, since most of them recurse through comprehensions, which its measures do not reach yet
+$(CHECKS)/termination.c: out/ulang.bin out/ulang.sh checks/termination.u $(SOURCES)
+	mkdir -p $(CHECKS)
+	out/ulang.sh compile checks/termination.u -o $@
+
+$(CHECKS)/termination.bin: $(CHECKS)/termination.c $(RUNTIME) Makefile
+	$(CC) $(CFLAGS) $(CHECKS)/termination.c ulang/runtime/ulang.c $(LIBS) -o $@
+
+$(CHECKS)/termination.sh: $(SCRIPT)
+	mkdir -p $(CHECKS)
+	cp $(SCRIPT) $@
+
+.PHONY: termination
+termination: $(CHECKS)/termination.bin $(CHECKS)/termination.sh
+	$(CHECKS)/termination.sh
+
 # rewrites every .u file of the project as format does, after a change of the printer
 .PHONY: reformat
 reformat: out/ulang.bin out/ulang.sh
