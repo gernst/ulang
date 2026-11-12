@@ -101,3 +101,31 @@ test abstract_constructors() :=
   assert raises OpenLemma("abstract_constructors", "not Node(Node(Leaf, 1, Leaf, 1), 2, Leaf, 2) == Node(Leaf, 1, Node(Leaf, 2, Leaf, 1), 2)") do
     call prove_text(in "ulang/test/errors/abstract-constructors.u", List("lemma abstract_constructors() :=", "  ensures Set(1, 2) != Set(2, 1)"))
   end
+
+// the recursive functions of the library whose termination the prover does not prove: distinct recurses on a
+// comprehension, sort on take and drop of half its list, and separated on joined_pairs, which need lemmas of their
+// sizes, and gcd on a remainder, which needs its bounds (prover.md, D6)
+test library_terminates() :=
+  local main: Id, q: Prog, open: List[Str] := List()
+  call load_text(in "ulang/test/errors/library-terminates.u", List("lemma trivial() :=", "  ensures true"), out main, q)
+  match translate(q, main)
+    case Translation(decls, _) =>
+      assign open := List(for t in terminations(decls, Set(for k => d in decls.defs if d.recursive yield k)) if not is_terminating(t) for (n, _) in t.names yield n.base)
+  end
+  assert Set(for n in open) == Set("distinct", "separated", "sort", "gcd")
+
+// a function that does not terminate is open, one that counts down to a guard terminates by its Int measure
+test terminations_of_program() :=
+  local main: Id, q: Prog, open: List[Str] := List(), proven: List[Str] := List()
+  call load_text(in "ulang/test/errors/terminations-of-program.u", List(
+    "function loop(x: Int): Int :=",
+    "  loop(x) + 1",
+    "",
+    "function down(n: Int): Int :=",
+    "  if n <= 0 then 0 else down(n - 1) + 1"), out main, q)
+  match translate(q, main)
+    case Translation(decls, _) =>
+      local ts := terminations(decls, Set((Name(Some(main), "loop"), 1), (Name(Some(main), "down"), 1)))
+      assign open := List(for t in ts if not is_terminating(t) for (n, _) in t.names yield n.base), proven := List(for t in ts if is_terminating(t) for (n, _) in t.names yield n.base)
+  end
+  assert open == List("loop") and proven == List("down")

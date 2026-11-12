@@ -35,9 +35,10 @@ data TermBranch :=
 data Lin :=
   case Lin(k: Int, summands: List[Summand])
 
-// a function by its formals, which bind in the body, whether it calls itself, also through others, and its equations
+// a function by its formals, which bind in the body, whether it calls itself, also through others, its equations, and the
+// definitions that it reaches by its body, by name and arity
 data Def :=
-  case Def(recursive: Bool, formals: List[Var], body: Term, equations: List[DefEquation])
+  case Def(recursive: Bool, formals: List[Var], body: Term, equations: List[DefEquation], reaches: Set[Name * Int])
 
 // an equation of one case of a definition, f(args) == rhs where the conds hold, over the variables vars, which bind in
 // the other fields as the formals of a lemma do, the first one outermost; decided if rhs is the match or if of a case

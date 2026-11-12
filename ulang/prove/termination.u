@@ -1,0 +1,243 @@
+// the termination of recursive functions, proven by the simplifier, see prover.md, section 4, which is not versioned
+//
+// The functions that reach each other are a component, whose recursive calls are taken from the equations of their
+// definitions (ulang/prove/equations.u), each with the conditions of its equation and of the ifs around it. A measure
+// is a slot of terms over the formals, one per function of the component: the size of a formal of a datatype, and for
+// a function alone also a formal of type Int, its negation, and the difference of two. A lexicographic order of slots
+// is searched greedily, as Isabelle's lexicographic_order does: a slot that every remaining call decreases at least
+// weakly and some strictly is taken, and the calls that it decreases strictly are done. A strict decrease of an Int
+// measure also needs it positive before the call, so that it stays a natural number.
+
+import "ulang/syntax"
+
+export
+
+// a recursive call: the function, the variables around it, those of its equation and of the cases of the matches
+// around it, which the other fields have as levels, its arguments, or None where it is not analysed, under a lambda or
+// in a condition of its equation, and the path to it: the conditions of the equation and of the ifs around it, and for
+// each match around it, the equation of its argument with the pattern and the guard of the case
+data Call :=
+  case Call(name: Name * Int, vars: List[Var], args: Option[List[Term]], path: List[Term])
+
+// a call in an equation of the function caller
+data CallSite :=
+  case CallSite(caller: Name * Int, equation: DefEquation, recursion: Call)
+
+// a measure per function of a component, each a term over the formals of its function as the body is, and whether they
+// are of type Int
+data Slot :=
+  case Slot(measures: List[Term], int: Bool)
+
+// a component of recursive functions, the slots of its order, and the calls that no order decreases, none if its
+// termination is proven
+data Termination :=
+  case Termination(names: List[Name * Int], order: List[Slot], open: List[CallSite])
+
+// the components of the recursive functions that the roots reach, also the roots themselves
+function terminations(decls: Decls, roots: Set[Name * Int]): List[Termination]
+
+function is_terminating(t: Termination): Bool
+
+implementation
+
+function is_terminating(t: Termination): Bool :=
+  t.open == List()
+
+function terminations(decls: Decls, roots: Set[Name * Int]): List[Termination] :=
+  let reached := roots ++ Set(for r in roots for d in get(r, decls.defs) for k in d.reaches yield k) in
+  let components := Set(for k in reached for d in get(k, decls.defs) if d.recursive yield component(decls, k)) in
+  List(for c in components yield termination(decls, c))
+
+// the recursive functions that reach k and that k reaches, in order
+function component(decls: Decls, k: Name * Int): List[Name * Int] :=
+  match get(k, decls.defs)
+    case Some(d) =>
+      List(for j in d.reaches for e in get(j, decls.defs) if contains(k, e.reaches) yield j)
+    case None =>
+      List()
+  end
+
+function termination(decls: Decls, names: List[Name * Int]): Termination :=
+  let sites := List(for k in names for d in get(k, decls.defs) for eq in d.equations for c in equation_calls(decls, names, eq) yield CallSite(k, eq, c)) in
+  search(decls, names, measure_slots(decls, names), sites, List())
+
+function equation_calls(decls: Decls, names: List[Name * Int], eq: DefEquation): List[Call] :=
+  let op := Open(0, size(eq.vars)) in
+  let conds := List(for c in eq.conds yield rebind(op, 0, c)) in
+  List(for c in conds for k in mentioned(names, c) yield Call(k, eq.vars, None, List())) ++ calls_in(decls, names, rebind(op, 0, eq.rhs), eq.vars, conds)
+
+// the calls of the component in t, over the levels of vars, where the path holds the conditions around them
+function calls_in(decls: Decls, names: List[Name * Int], t: Term, vars: List[Var], path: List[Term]): List[Call] :=
+  match t
+    case EApp(EFun(name), args) =>
+      let here := if contains((name, size(args)), names) then
+        List(Call((name, size(args)), vars, Some(args), path))
+      else
+        List() in
+      here ++ List(for a in args for c in calls_in(decls, names, a, vars, path) yield c)
+
+    case EApp(fun, args) =>
+      List(for a in List(fun; args) for c in calls_in(decls, names, a, vars, path) yield c)
+
+    case EIte(cond, then_expr, else_expr) =>
+      calls_in(decls, names, cond, vars, path) ++ calls_in(decls, names, then_expr, vars, path ++ List(cond)) ++ calls_in(decls, names, else_expr, vars, path ++ List(Not(cond)))
+
+    case EMatch(arg, cases) =>
+      calls_in(decls, names, arg, vars, path) ++ List(for br in cases for c in branch_calls(decls, names, arg, br, vars, path) yield c)
+
+    case ESum(_, summands) =>
+      List(for summand in summands for c in calls_in(decls, names, summand.term, vars, path) yield c)
+
+    case _ =>
+      List(for k in mentioned(names, t) yield Call(k, vars, None, path))
+  end
+
+// the calls in a case of a match on arg, whose pattern variables, and a variable for each wildcard, follow vars
+function branch_calls(decls: Decls, names: List[Name * Int], arg: Term, br: TermBranch, vars: List[Var], path: List[Term]): List[Call] :=
+  match pattern_term(br.pat, size(vars))
+    case (value, fresh, bound) =>
+      let inner := vars ++ fresh, here := path ++ List(Eq(arg, value)) in
+      let guarded := here ++ List(for g in br.guard yield beta(bound, g)) in
+      List(for g in br.guard for c in calls_in(decls, names, beta(bound, g), inner, here) yield c) ++ calls_in(decls, names, beta(bound, br.body), inner, guarded)
+  end
+
+// the value of a pattern over new levels from base on, a level for each variable and wildcard, the variables of these
+// levels, and the levels of the variables of the pattern in the order in which they bind
+function pattern_term(pat: Pat, base: Int): Term * List[Var] * List[Term] :=
+  match pat
+    case PWild =>
+      (ELevel(base), List(Var(Name(None, "_"), THole)), List())
+
+    case PVar(var) =>
+      (ELevel(base), List(var), List(ELevel(base)))
+
+    case PLit(lit) =>
+      (ELit(lit), List(), List())
+
+    case PApp(constr, args) =>
+      match patterns_terms(List(for a in args yield a.that), base, List(), List(), List())
+        case (terms, fresh, bound) =>
+          (if terms == List() then EFun(constr) else EApp(EFun(constr), terms), fresh, bound)
+      end
+
+    case PTuple(args) =>
+      match patterns_terms(List(for a in args yield a.that), base, List(), List(), List())
+        case (terms, fresh, bound) =>
+          (EApp(EFun(tuple_name(size(terms))), terms), fresh, bound)
+      end
+  end
+
+function patterns_terms(pats: List[Pat], base: Int, terms: List[Term], fresh: List[Var], bound: List[Term]): List[Term] * List[Var] * List[Term] :=
+  match pats
+    case List() =>
+      (terms, fresh, bound)
+
+    case List(pat; rest) =>
+      match pattern_term(pat, base + size(fresh))
+        case (t, vs, bs) =>
+          patterns_terms(rest, base, terms ++ List(t), fresh ++ vs, bound ++ bs)
+      end
+  end
+
+// the functions of the component that t names, also without their arguments
+function mentioned(names: List[Name * Int], t: Term): List[Name * Int] :=
+  let symbols := symbols_in(t) in
+  List(for (n, k) in names if contains((n, k), symbols) or contains((n, -1), symbols) yield (n, k))
+
+// the slots of the measures: for a function alone, the sizes of its formals of datatypes and the measures of its Int
+// formals; for several, the sizes at the positions where all of them have a formal of a datatype
+function measure_slots(decls: Decls, names: List[Name * Int]): List[Slot] :=
+  let formals := List(for k in names for d in get(k, decls.defs) yield d.formals) in
+  match formals
+    case List(fs) =>
+      List(for m in size_measures(decls, fs) yield Slot(List(m), false)) ++ List(for m in int_measures(fs) yield Slot(List(m), true))
+
+    case _ =>
+      let n := foldl(formals, 0, lambda acc, fs => if acc == 0 or size(fs) < acc then size(fs) else acc) in
+      List(for i in range(0, n) if forall(formals, lambda fs => is_datatype(decls, at(i, from_list(fs)).typ)) yield Slot(List(for fs in formals yield Size(EBound(size(fs) - 1 - i))), false))
+  end
+
+function size_measures(decls: Decls, fs: List[Var]): List[Term] :=
+  let n := size(fs) in
+  List(for (x, i) in zip(fs, range(0, n)) if is_datatype(decls, x.typ) yield Size(EBound(n - 1 - i)))
+
+function int_measures(fs: List[Var]): List[Term] :=
+  let n := size(fs) in
+  let ints := List(for (x, i) in zip(fs, range(0, n)) if x.typ == TInt() yield EBound(n - 1 - i)) in
+  ints ++ List(for x in ints yield Minus(ELit(LInt(0)), x)) ++ List(for x in ints for y in ints if x != y yield Minus(y, x))
+
+function is_datatype(decls: Decls, t: Type): Bool :=
+  match t
+    case TSort(name, _) =>
+      contains(name, decls.datatypes)
+    case _ =>
+      false
+  end
+
+// the order chosen so far, and the calls that it does not decrease strictly yet
+function search(decls: Decls, names: List[Name * Int], slots: List[Slot], sites: List[CallSite], order: List[Slot]): Termination :=
+  if sites == List() then
+    Termination(names, order, List())
+  else
+    match first_slot(decls, names, slots, sites)
+      case Some(slot) =>
+        search(decls, names, List(for s in slots if s != slot), List(for site in sites if not is_strict(decls, names, slot, site)), order ++ List(slot))
+      case None =>
+        Termination(names, order, sites)
+    end
+
+// the first slot that decreases every site at least weakly and some strictly
+function first_slot(decls: Decls, names: List[Name * Int], slots: List[Slot], sites: List[CallSite]): Option[Slot] :=
+  match slots
+    case List() =>
+      None
+
+    case List(slot; rest) =>
+      let strict := List(for site in sites yield is_strict(decls, names, slot, site)) in
+      if exists(strict, lambda b => b) and forall(zip(sites, strict), lambda p => second(p) or is_weak(decls, names, slot, first(p))) then
+        Some(slot)
+      else
+        first_slot(decls, names, rest, sites)
+  end
+
+function is_strict(decls: Decls, names: List[Name * Int], slot: Slot, site: CallSite): Bool :=
+  match measures_at(names, slot, site)
+    case Some((before, after)) =>
+      is_valid(decls, site, List(Less(after, before)) ++ (if slot.int then List(Less(ELit(LInt(0)), before)) else List()))
+    case None =>
+      false
+  end
+
+function is_weak(decls: Decls, names: List[Name * Int], slot: Slot, site: CallSite): Bool :=
+  match measures_at(names, slot, site)
+    case Some((before, after)) =>
+      is_valid(decls, site, List(Not(Less(before, after))))
+    case None =>
+      false
+  end
+
+// the measure of the slot before the call, at the arguments of its equation, and after it, at those of the call
+function measures_at(names: List[Name * Int], slot: Slot, site: CallSite): Option[Term * Term] :=
+  match (site.recursion.args, measure_of(names, slot, site.caller), measure_of(names, slot, site.recursion.name))
+    case (Some(args), Some(m), Some(m_)) =>
+      let op := Open(0, size(site.equation.vars)) in
+      Some((beta(List(for a in site.equation.args yield rebind(op, 0, a)), m), beta(args, m_)))
+
+    case _ =>
+      None
+  end
+
+function measure_of(names: List[Name * Int], slot: Slot, k: Name * Int): Option[Term] :=
+  match List(for (j, m) in zip(names, slot.measures) if j == k yield m)
+    case List(m; _) =>
+      Some(m)
+    case List() =>
+      None
+  end
+
+// the goals, over the levels of the variables of the call, under the path to it
+function is_valid(decls: Decls, site: CallSite, goals: List[Term]): Bool :=
+  let r := site.recursion in
+  let op := Close(range(0, size(r.vars))) in
+  let assms := List(for c in r.path yield Atom(rebind(op, 0, c))) in
+  simplify(decls, Seq(r.vars, assms, List(Concl(List(), List(for g in goals yield Atom(rebind(op, 0, g))))))) == true_seq()
