@@ -53,13 +53,14 @@ function translate(q: Prog, m: Id): Translation
 implementation
 
 function translate(q: Prog, m: Id): Translation :=
-  let ranked := zip(range(0, size(q.cmds)), q.cmds) in
-  let defined := List(for cmd in q.cmds for d in definition(cmd) yield d) in
+  let cmds := definitions(q) in
+  let ranked := zip(range(0, size(cmds)), cmds) in
+  let defined := List(for cmd in cmds for d in definition(cmd) yield d) in
   let datas := List(for (rank, cmd) in ranked for d in datatype(rank, cmd) yield d) in
   let ranks := Map(for (rank, cmd) in ranked for n in fun_name(cmd) yield n => rank) in
   let defs := defs_of(q) in
   let decls := datas_decls(datas) with abstracts := defs.abstracts, ordered := defs.abstracts ++ Set(for t => _ in defs.orders yield t) in
-  Translation(with_defs(decls, defined, ranks), List(for cmd in q.cmds for l in lemma_of(m, cmd) yield l))
+  Translation(with_defs(decls, defined, ranks), List(for cmd in cmds for l in lemma_of(m, cmd) yield l))
 
 function fun_name(cmd: Cmd): Option[Name] :=
   match cmd

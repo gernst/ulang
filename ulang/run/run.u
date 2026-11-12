@@ -1447,7 +1447,7 @@ procedure run_all(in run: Run, cmds: List[Cmd], ref cache: Map[Name, Val]) :=
 
 procedure run_program(in q: Prog) raises Thrown, RuntimeError, InternalError :=
   local cache: Map[Name, Val] := empty()
-  call run_all(in load(q), q.cmds, ref cache)
+  call run_all(in load(q), definitions(q), ref cache)
 
 // checks the commands, after len of a module that imports lists, and runs their tests
 procedure check_and_run(in cmds: List[Cmd]) :=

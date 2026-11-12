@@ -1720,16 +1720,16 @@ procedure compile_program(in q: Prog, m: Id, entry: Entry, out f: CFile) :=
   match entry
     case EntryProc(proc) =>
       call   require_entry(in q, Name(Some(m), proc))
-      call   compile_cmds(in defs, false, q.cmds, out ds, ms, ref g)
+      call   compile_cmds(in defs, false, definitions(q), out ds, ms, ref g)
       assign ms := List(CsExpr(c_call(proc_name(Name(Some(m), proc)), List()))), tables := List()
 
     case EntryTests(files) =>
-      call   compile_cmds(in defs, true, q.cmds, out ds, ms, ref g)
+      call   compile_cmds(in defs, true, definitions(q), out ds, ms, ref g)
       assign ms := List(
-        CsReturn(Some(c_call("u_run_tests", List(CeVar("argc"), CeVar("argv"), CeVar("u_files"), CeVar("u_tests")))))), tables := test_tables(files, q.cmds)
+        CsReturn(Some(c_call("u_run_tests", List(CeVar("argc"), CeVar("argv"), CeVar("u_files"), CeVar("u_tests")))))), tables := test_tables(files, definitions(q))
   end
   assign fs := wrappers(defs) ++ ds ++ g.lifted
-  assign hs := List(CdInclude("ulang.h")) ++ prototypes(fs) ++ descriptor_decls(defs, q.cmds) ++ texts()
+  assign hs := List(CdInclude("ulang.h")) ++ prototypes(fs) ++ descriptor_decls(defs, definitions(q)) ++ texts()
   assign f := CFile(hs ++ fs ++ tables ++ List(main_function(ms)))
 
 function test_name(n: Name): Str :=

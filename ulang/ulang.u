@@ -404,7 +404,7 @@ procedure test_module(
   out passed: Bool
 ) :=
   local run := (load(q) with args := args), tests: List[Cmd], message: Str
-  assign tests := List(for c in q.cmds if is_selected_test(c, m, names)), passed := true
+  assign tests := List(for c in definitions(q) if is_selected_test(c, m, names)), passed := true
   for n in names if not exists(tests, lambda c => cmd_name(c) == n) do
     call   os_println(in label ++ error_text(RuntimeKind, "there is no test " ++ n))
     assign passed := false
@@ -565,7 +565,7 @@ procedure compile_target(in target: Target, output: Str, out status: Int) :=
 // it, and the commands of each module are taken from the unit that it is a member of, with its tests, or else from the
 // first unit that loads it
 procedure compile_tests(in output: Str, out status: Int) :=
-  local root: Str, found: List[Target], units: List[List[Target]], q: Prog, errors: List[Diagnostic], failed := false, files: Buffer[TestFile] := empty(), own: Buffer[Cmd] := empty(), others: Map[Id, List[Cmd]] := empty(), members: Set[Id] := empty()
+  local root: Str, found: List[Target], units: List[List[Target]], q: Prog, errors: List[Diagnostic], failed := false, files: Buffer[TestFile] := empty(), own: Buffer[At[Cmd]] := empty(), others: Map[Id, List[At[Cmd]]] := empty(), members: Set[Id] := empty()
   call default_path(out root)
   call targets_of(in List(), false, out found)
   call units_of(in found, out units)
@@ -576,14 +576,14 @@ procedure compile_tests(in output: Str, out status: Int) :=
       assign failed := true
     else
       local modules := List(for file in files_of(unit) yield sibling(q.main, file))
-      assign files := files ++ List(for file in files_of(unit) yield TestFile(from_root(root, file), sibling(q.main, file))), own := own ++ List(for c in q.cmds if belongs(c, modules)), members := members ++ Set(for m in modules)
+      assign files := files ++ List(for file in files_of(unit) yield TestFile(from_root(root, file), sibling(q.main, file))), own := own ++ List(for c in q.cmds if belongs(c.that, modules)), members := members ++ Set(for m in modules)
       assign others := others_of(q.cmds, modules, others)
     end
   end
   assign status := if failed then 1 else 0
   if not failed then
     try
-      call compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), "", List()), EntryTests(List(for f in files)), output)
+      call compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), List(), "", List()), EntryTests(List(for f in files)), output)
     catch
       case OsError(m) =>
         call   report(in output, List(diagnostic(RuntimeKind, m)), false)
@@ -596,8 +596,8 @@ procedure compile_tests(in output: Str, out status: Int) :=
   end
 
 // others with the commands of cmds of the modules that are neither in modules nor in others yet, by their modules
-function others_of(cmds: List[Cmd], modules: List[Id], others: Map[Id, List[Cmd]]): Map[Id, List[Cmd]] :=
-  let fresh := List(for c in cmds for m in cmd_module(c) if not contains(m, modules) and get(m, others) == None yield (m, c)) in
+function others_of(cmds: List[At[Cmd]], modules: List[Id], others: Map[Id, List[At[Cmd]]]): Map[Id, List[At[Cmd]]] :=
+  let fresh := List(for c in cmds for m in cmd_module(c.that) if not contains(m, modules) and get(m, others) == None yield (m, c)) in
   others ++ foldl(reverse(fresh), empty(), lambda found, (m, c) => put(m, List(c; value_or(get(m, found), List())), found))
 
 // whether cmd is a command of one of the modules
@@ -739,7 +739,7 @@ procedure load_file(
       q: Prog,
       errors: List[Diagnostic]
 ) :=
-  assign source := Source(List(), List(), ""), q := Prog(List(), "", List()), errors := List()
+  assign source := Source(List(), List(), ""), q := Prog(List(), List(), "", List()), errors := List()
   try
     local text: Str, typed: List[TypeError]
     call parse_file(in file, out source)

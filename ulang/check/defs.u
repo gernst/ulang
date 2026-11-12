@@ -67,7 +67,7 @@ function unordered_of(defs: Defs, t: Name): Option[Name]
 implementation
 
 procedure require_entry(in q: Prog, n: Name) raises EntryError :=
-  if not exists(q.cmds, lambda c => is_entry(c, n)) then
+  if not exists(definitions(q), lambda c => is_entry(c, n)) then
     raise UnknownEntry(n)
   end
 
@@ -81,9 +81,11 @@ function is_entry(cmd: Cmd, n: Name): Bool :=
   end
 
 function defs_of(q: Prog): Defs :=
-  Defs(Map(for (k, v) in fun_defs(q.cmds)), Map(for (k, v) in proc_defs(q.cmds)), Map(for (k, v) in constr_defs(q.cmds)), Map(for (k, v) in field_defs(q.cmds)), Map(for (k, v) in ordered_by(q.cmds, HookCompare)), Map(for (k, v) in ordered_by(q.cmds, HookEquality)), Map(for (k, v) in ordered_by(q.cmds, HookShow)), Set(for n in abstract_names(q.cmds)))
+  let cmds := definitions(q) in
+  Defs(Map(for (k, v) in fun_defs(cmds)), Map(for (k, v) in proc_defs(cmds)), Map(for (k, v) in constr_defs(cmds)), Map(for (k, v) in field_defs(cmds)), Map(for (k, v) in ordered_by(cmds, HookCompare)), Map(for (k, v) in ordered_by(cmds, HookEquality)), Map(for (k, v) in ordered_by(cmds, HookShow)), Set(for n in abstract_names(cmds)))
 
-// the checked program keeps the abstract types of its modules as CAbstract, see check_package
+// the checked program keeps the abstract types of its modules as the CAbstract of their export sections (Prog of
+// ulang/syntax/syntax.u)
 function abstract_names(cmds: List[Cmd]): List[Name] :=
   List(for cmd in cmds for n in abstract_name(cmd) yield n)
 

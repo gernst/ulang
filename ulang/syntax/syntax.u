@@ -262,10 +262,11 @@ data Example :=
   // since it does not assign them, and each ref as before, e.g. divmod(in 7, 0, out _, _) raises DivisionByZero
   case XCallRaises(proc: Name, ins: List[At[Expr]], blanks: Int, befores: List[At[Expr]], pat: At[Pat])
 
-// the checked program: the commands of its modules with resolved names, and the module of the file that is loaded, whose
-// procedures run and compile call
+// the checked program: the commands of the export and implementation sections of its modules with resolved names, each at
+// its declaration, the definitions checked and the signatures as written, then the tests of examples and lemmas, those of
+// the builtin sections apart, and the module of the file that is loaded, whose procedures run and compile call
 data Prog :=
-  case Prog(cmds: List[Cmd], main: Id, errors: List[Diagnostic])
+  case Prog(cmds: List[At[Cmd]], builtins: List[At[Cmd]], main: Id, errors: List[Diagnostic])
 
 data Pos :=
   // line and column, both from 1
@@ -343,6 +344,10 @@ function lambda_vars(formals: List[At[Pat]]): List[Var]
 function lambda_of(pos: Pos, xs: List[Var], body: At[Expr]): Expr
 
 function placed_of(d: Mod): List[Doc[Cmd]]
+
+// the commands of q that the backends run and the prover translates, without the signatures and the pattern aliases, which
+// only the checker needs
+function definitions(q: Prog): List[Cmd]
 
 function commands_of(docs: List[Doc[Cmd]]): List[Cmd]
 
@@ -480,6 +485,38 @@ function pat_var(n: Id): At[Pat] :=
 
 function placed_of(d: Mod): List[Doc[Cmd]] :=
   d.exported ++ d.builtins ++ d.implemented
+
+function definitions(q: Prog): List[Cmd] :=
+  List(for cmd in q.cmds for c in definition_in(cmd) yield c)
+
+function definition_in(cmd: At[Cmd]): Option[Cmd] :=
+  match cmd
+    case AOk(_, that) =>
+      if is_signature(that) then None else Some(that)
+
+    case AErr(_, that, _) =>
+      if is_signature(that) then None else Some(that)
+
+    // without_unparsed of ulang/parse/parse.u leaves none to the checker
+    case AUnparsed(_, _, _) =>
+      None
+  end
+
+// whether cmd only declares, for the checker
+function is_signature(cmd: Cmd): Bool :=
+  match cmd
+    case CFunSig(_, _, _, _, _) =>
+      true
+
+    case CProcSig(_, _, _, _, _, _, _) =>
+      true
+
+    case CPatAlias(_, _, _, _, _) =>
+      true
+
+    case _ =>
+      false
+  end
 
 function commands_of(docs: List[Doc[Cmd]]): List[Cmd] :=
   parts(docs)
