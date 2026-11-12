@@ -507,7 +507,7 @@ function free_vars(expr: At[Expr], bound: List[Name]): List[Name] :=
       free_vars(body, var_names(lambda_vars(formals)) ++ bound)
 
     case EProc(ins, outs, refs, _, stmt) =>
-      free_in_stmt(stmt, var_names(ins ++ outs ++ refs) ++ bound)
+      free_in_stmt(stmt, var_names(vars(ins ++ outs ++ refs)) ++ bound)
 
     case ELet(bindings, body) =>
       free_in_all(seconds(bindings), bound) ++ free_vars(body, bound_by(firsts(bindings)) ++ bound)
@@ -532,7 +532,7 @@ function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
       unbound(var_names(firsts(upd)), bound) ++ free_in_all(seconds(upd), bound)
 
     case SBlock(locals, stmts) =>
-      List(for y in stmts_of(stmts) for n in free_in_stmt(y, var_names(locals) ++ bound) yield n)
+      List(for y in stmts_of(stmts) for n in free_in_stmt(y, var_names(vars(locals)) ++ bound) yield n)
 
     case SIf(cond, left, right) =>
       free_vars(cond, bound) ++ free_in_stmt(left, bound) ++ free_in_stmt(right, bound)
@@ -715,7 +715,7 @@ procedure compile_expr(
       end
 
     case EProc(ins, outs, refs, _, stmt) =>
-      call compile_proc_lambda(in defs, env, ins, outs, refs, stmt, out ss, r, ref g)
+      call compile_proc_lambda(in defs, env, vars(ins), vars(outs), vars(refs), stmt, out ss, r, ref g)
 
     case ELet(bindings, body) =>
       local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], rb: CExpr, rs: List[CExpr], t: Str, names := bound_by(firsts(bindings))
@@ -1279,8 +1279,8 @@ procedure compile_stmt(
 
     case SBlock(locals, stmts) =>
       local bs: List[CStmt]
-      call   compile_stmts(in defs, in_scope(var_names(locals)) ++ env, stmts_of(stmts), out bs, ref g)
-      assign ss := List(CsBlock(null_decls(locals) ++ bs))
+      call   compile_stmts(in defs, in_scope(var_names(vars(locals))) ++ env, stmts_of(stmts), out bs, ref g)
+      assign ss := List(CsBlock(null_decls(vars(locals)) ++ bs))
 
     case SIf(cond, left, right) =>
       local as: List[CStmt], bs: List[CStmt], cs: List[CStmt], rc: CExpr
@@ -1549,8 +1549,8 @@ procedure compile_cmd(
   match cmd
     case CFun(name, _, formals, _, _, body) =>
       local bs: List[CStmt], rb: CExpr, params: List[CType * Str]
-      call   compile_expr(in defs, in_scope(var_names(formals)), body, out bs, rb, ref g)
-      assign params := value_formals(formals)
+      call   compile_expr(in defs, in_scope(var_names(vars(formals))), body, out bs, rb, ref g)
+      assign params := value_formals(vars(formals))
       if formals == List() then
         assign bs := cached(format_name(name), bs, rb)
       else
@@ -1562,9 +1562,9 @@ procedure compile_cmd(
     // outs and refs are pointers to the variables of the caller, which the procedure assigns when it returns
     case CProc(name, _, ins, outs, refs, _, _, stmt) =>
       local bs: List[CStmt], params: List[CType * Str]
-      call   compile_stmt(in defs, in_scope(var_names(ins ++ outs ++ refs)), stmt, out bs, ref g)
-      assign params := value_formals(ins) ++ pointer_formals(outs ++ refs)
-      assign bs := copy_in(outs, refs) ++ bs ++ copy_out(outs ++ refs)
+      call   compile_stmt(in defs, in_scope(var_names(vars(ins ++ outs ++ refs))), stmt, out bs, ref g)
+      assign params := value_formals(vars(ins)) ++ pointer_formals(vars(outs ++ refs))
+      assign bs := copy_in(vars(outs), vars(refs)) ++ bs ++ copy_out(vars(outs ++ refs))
       assign ds := List(CdFunction(LkStatic, CtVoid, proc_name(name), params, bs)), ms := List()
 
     case CTest(name, _, stmt) if tests =>

@@ -729,22 +729,22 @@ function has_assign(run: List[At[Stmt]]): Bool :=
   end)
 
 // the declarations of the locals xs, with the assignments at the start of ss that initialize them, and the statements after
-function local_decls(notation: Notation, indent: Str, xs: List[Var], ss: List[Doc[Stmt]]): List[Str] * List[Doc[Stmt]] :=
+function local_decls(notation: Notation, indent: Str, xs: List[At[Var]], ss: List[Doc[Stmt]]): List[Str] * List[Doc[Stmt]] :=
   match (xs, ss)
     case (List(), _) =>
       (List(), ss)
 
-    case (List(x; more), List(Doc(None, AOk(_, SAssign(List((y, a))))); rest)) if y == Var(x.name, THole) =>
+    case (List(x; more), List(Doc(None, AOk(_, SAssign(List((y, a))))); rest)) if y == Var(x.that.name, THole) =>
       match local_decls(notation, indent, more, rest)
         case (decls, after) =>
           (List(
-            formal_text(x) ++ " := " ++ closed_expr(notation, indent, a); decls), after)
+            formal_text(x.that) ++ " := " ++ closed_expr(notation, indent, a); decls), after)
       end
 
     case (List(x; more), _) =>
       match local_decls(notation, indent, more, ss)
         case (decls, after) =>
-          (List(formal_text(x); decls), after)
+          (List(formal_text(x.that); decls), after)
       end
   end
 
@@ -755,13 +755,13 @@ function sections_text(ins: List[Str], outs: List[Str], refs: List[Str]): Str :=
 function section(mode: Str, items: List[Str]): List[Str] :=
   if items == List() then List() else List(mode ++ " " ++ join(", ", items))
 
-function formal_sections(ins: List[Var], outs: List[Var], refs: List[Var]): Str :=
+function formal_sections(ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]]): Str :=
   sections_text(formal_texts(ins), formal_texts(outs), formal_texts(refs))
 
-function formal_texts(xs: List[Var]): List[Str] :=
-  List(for x in xs yield formal_text(x))
+function formal_texts(xs: List[At[Var]]): List[Str] :=
+  List(for x in xs yield formal_text(x.that))
 
-function formals_text(xs: List[Var]): Str :=
+function formals_text(xs: List[At[Var]]): Str :=
   join(", ", formal_texts(xs))
 
 function formal_text(x: Var): Str :=
@@ -850,7 +850,7 @@ function proof_text(notation: Notation, indent: Str, proof: Proof): Str :=
   let body := if proof.steps == List() then
     ""
   else
-    format_body(notation, indent, AOk(Pos(0, 0), SBlock(locals, stmts))) in
+    format_body(notation, indent, AOk(Pos(0, 0), SBlock(unplaced_vars(locals), stmts))) in
   match proof.split
     case Some(split) =>
       body ++ "\n" ++ indent ++ split_text(notation, indent, split.that)
@@ -924,17 +924,17 @@ function constr_line(c: Doc[Constr]): Str :=
 
 // the head of a procedure or a lemma, by its keyword, where one wider than the line has one formal on each line, the modes
 // in front of the first of their group
-function proc_head(keyword: Str, name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type]): Str :=
+function proc_head(keyword: Str, name: Name, params: List[Id], ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], raised: List[Type]): Str :=
   let flat := keyword ++ " " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")" ++ raised_text(empty(), TTuple(raised)) in
   if size(flat) > 80 then
     spread_proc_head(keyword, name, params, ins, outs, refs) ++ raised_text(empty(), TTuple(raised))
   else
     flat
 
-function spread_proc_head(keyword: Str, name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var]): Str :=
+function spread_proc_head(keyword: Str, name: Name, params: List[Id], ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]]): Str :=
   keyword ++ " " ++ name.base ++ params_text(params) ++ "(\n" ++ join(",\n", mode_lines("in ", ins) ++ mode_lines("out", outs) ++ mode_lines("ref", refs)) ++ "\n)"
 
-function mode_lines(mode: Str, xs: List[Var]): List[Str] :=
+function mode_lines(mode: Str, xs: List[At[Var]]): List[Str] :=
   match formal_texts(xs)
     case List() =>
       List()
@@ -947,7 +947,7 @@ function mode_lines(mode: Str, xs: List[Var]): List[Str] :=
 function params_text(params: List[Id]): Str :=
   if params == List() then "" else "[" ++ join(", ", params) ++ "]"
 
-function function_head(n: Name, params: List[Id], xs: List[Var], r: Type): Str :=
+function function_head(n: Name, params: List[Id], xs: List[At[Var]], r: Type): Str :=
   "function " ++ n.base ++ params_text(params) ++ "(" ++ formals_text(xs) ++ "): " ++ format_type(r)
 
 function fixity_text(f: Fixity): Str :=
