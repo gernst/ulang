@@ -270,7 +270,7 @@ function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Co
               let levels := range(d, depth(after)), ys := vars_from(after, d) in
               let closed := List(for b in seqs yield rebind_seq(Close(levels), 0, b)), ends := List(for c in goals yield rebind_concl(Close(levels), 0, c)) in
               let result := sequent(ys, closed, ends) in
-              split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, seqs, goals), result)
+              split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, levels, ys, seqs, goals), result)
           end
       end
   end
@@ -813,7 +813,59 @@ function is_entailed(ctx: Ctx, t: Lin): Bool :=
 // p - q that binds all variables of the rule
 function bounds(ctx: Ctx, t: Lin): List[Lin] :=
   let atoms := List(for summand in t.summands yield summand.term) ++ List(for l in ctx.ineqs for summand in l.summands yield summand.term) in
-  List(for a in atoms for r in ctx.rules for b in bound_of(r, a) yield b) ++ List(for a in atoms if is_size(a) yield Lin(0, List(Summand(a, 1))))
+  List(for a in atoms for r in ctx.rules for b in bound_of(r, a) yield b) ++ List(for a in atoms if is_size(a) or is_square(a) yield Lin(0, List(Summand(a, 1)))) ++ List(for a in atoms for b in field_bound(a) yield b) ++ List(for a in atoms for b in division_bounds(ctx, a) yield b)
+
+// for m / k or m % k with a literal k other than 0, with q = m / k and r = m % k: m == k * q + r as two inequalities,
+// -|k| < r < |k|, and, since / truncates towards zero, 0 <= r where m >= 0 and r <= 0 where m <= 0 follow from the
+// inequalities alone
+function division_bounds(ctx: Ctx, a: Term): List[Lin] :=
+  match a
+    case Div(m, ELit(LInt(k))) if k != 0 =>
+      division_facts(ctx, m, k)
+
+    case Mod(m, ELit(LInt(k))) if k != 0 =>
+      division_facts(ctx, m, k)
+
+    case _ =>
+      List()
+  end
+
+function division_facts(ctx: Ctx, m: Term, k: Int): List[Lin] :=
+  let q := lin_of(Div(m, int_term(k))), r := lin_of(Mod(m, int_term(k))), n := abs(k) in
+  let eq := lin_sub(lin_of(m), lin_add(lin_scale(k, q), r)) in
+  let sign := if is_unsat(List(tighten(negated(lin_of(m))); ctx.ineqs), limits().eliminations) then
+    List(r)
+  else if is_unsat(List(tighten(negated(lin_scale(-1, lin_of(m)))); ctx.ineqs), limits().eliminations) then
+    List(lin_scale(-1, r))
+  else
+    List() in
+  List(
+    eq,
+    lin_scale(-1, eq),
+    lin_sub(Lin(n - 1, List()), r),
+    lin_add(r, Lin(n - 1, List()))) ++ sign
+
+function has_division(t: Lin): Bool :=
+  exists(t.summands, lambda summand => match summand.term
+    case Div(_, ELit(LInt(_))) =>
+      true
+
+    case Mod(_, ELit(LInt(_))) =>
+      true
+
+    case _ =>
+      false
+  end)
+
+// size(x) > size(T.f(x)) for an accessor T.f, true where x has the field f, while where it has not, the accessor raises,
+// so that a recursion on the field stops there
+function field_bound(a: Term): List[Lin] :=
+  match a
+    case Size(EApp(EFun(name), List(x))) if field_of_accessor(name) != None =>
+      List(lin_sub(lin_of(Size(x)), lin_add(lin_of(a), Lin(1, List()))))
+    case _ =>
+      List()
+  end
 
 function is_size(t: Term): Bool :=
   match t
@@ -984,10 +1036,7 @@ function simp_builtin(ctx: Ctx, e: Term): Option[Term] :=
       Some(rewrite(ctx, sum_term(lin_scale(num, lin_of(a)))))
 
     case Times(a, b) =>
-      match ordered(a, b)
-        case (x, y) =>
-          Some(rewrite(ctx, Times(x, y)))
-      end
+      Some(ring_product(ctx, a, b))
 
     case Div(ELit(LInt(m)), ELit(LInt(n))) if n != 0 =>
       Some(int_term(m / n))
@@ -1012,6 +1061,14 @@ function simp_builtin(ctx: Ctx, e: Term): Option[Term] :=
 
     case Size(a) =>
       Some(simp_size(ctx, a))
+
+    case EApp(EFun(name), List(x)) if field_of_accessor(name) != None =>
+      match simp_access(ctx, name, x)
+        case Some(t) =>
+          Some(t)
+        case None =>
+          Some(rewrite(ctx, e))
+      end
 
     case Not(a) =>
       Some(simp_not(ctx, a))
@@ -1050,6 +1107,43 @@ function simp_builtin(ctx: Ctx, e: Term): Option[Term] :=
       None
   end
 
+// the product of two terms, distributed over their sums into a sum of monomials, each the product of its atoms in the
+// order of compare, nested to the left, so that products are equal where they are equal in a commutative ring
+function ring_product(ctx: Ctx, a: Term, b: Term): Term :=
+  let la := lin_of(a), lb := lin_of(b) in
+  let constants := lin_add(lin_scale(la.k, Lin(0, lb.summands)), lin_add(lin_scale(lb.k, Lin(0, la.summands)), Lin(la.k * lb.k, List()))) in
+  let products := List(for s in la.summands for t in lb.summands yield lin_scale(s.factor * t.factor, lin_of(rewrite(ctx, monomial(factors(s.term) ++ factors(t.term)))))) in
+  sum_term(foldl(products, constants, lambda acc, p => lin_add(acc, p)))
+
+function factors(t: Term): List[Term] :=
+  match t
+    case Times(x, y) =>
+      factors(x) ++ factors(y)
+    case _ =>
+      List(t)
+  end
+
+function monomial(fs: List[Term]): Term :=
+  match sort(fs)
+    case List(f; rest) =>
+      foldl(rest, f, lambda acc, g => Times(acc, g))
+
+    // factors give at least one
+    case List() =>
+      int_term(1)
+  end
+
+// a monomial in which every atom occurs an even number of times, which is at least 0
+function is_square(t: Term): Bool :=
+  match t
+    case Times(_, _) =>
+      let fs := factors(t) in
+      forall(fs, lambda f => size(List(for g in fs if g == f)) % 2 == 0)
+
+    case _ =>
+      false
+  end
+
 function simp_not(ctx: Ctx, a: Term): Term :=
   match a
     case ELit(LBool(bool)) =>
@@ -1084,6 +1178,8 @@ function simp_eq(ctx: Ctx, a: Term, b: Term): Term :=
     limits().probe_merges), a, b).inconsistent then
     bool_term(false)
   else if is_equal_by_rules(ctx, a, b) then
+    bool_term(true)
+  else if has_division(lin_sub(lin_of(a), lin_of(b))) and is_entailed(ctx, lin_sub(lin_of(a), lin_of(b))) and is_entailed(ctx, lin_sub(lin_of(b), lin_of(a))) then
     bool_term(true)
   else
     match oriented(ctx.decls, a, b)
@@ -1549,10 +1645,52 @@ function split_case(decls: Decls, ys: List[Var], assms: List[Seq], concls: List[
       Seq(ys, assms, concls)
   end
 
-// the first if or match of the sequent whose condition or argument is ground, else the first application whose unfolding
-// is stuck, so that the splits that the terms ask for come before those that only unfolding would need
-function split_candidate(decls: Decls, ss: List[Seq], cs: List[Concl]): Option[Split] :=
-  or_else(candidate_in(decls, false, ss, cs), candidate_in(decls, true, ss, cs))
+// the first if or match of the sequent whose condition or argument is ground, else the first disjunct of an assumption
+// that is a disjunction, else a variable of type Bool of the levels, the variables ys, that the sequent mentions, else
+// the first application whose unfolding is stuck, so that the splits that the terms ask for come first, and those that
+// only unfolding would need last
+function split_candidate(decls: Decls, levels: List[Int], ys: List[Var], ss: List[Seq], cs: List[Concl]): Option[Split] :=
+  match candidate_in(decls, false, ss, cs)
+    case Some(split) =>
+      Some(split)
+
+    case None =>
+      let disjunct := first_of(List(for s in ss yield disjunction_split(s))) in
+      let booleans := List(for (l, y) in zip(levels, ys) if y.typ == TBool() and (exists(ss, lambda s => occurs_seq(ELevel(l), s) and not is_literal_of(ELevel(l), s)) or exists(cs, lambda c => exists(c.body, lambda b => occurs_seq(ELevel(l), b)))) yield SplitIf(ELevel(l))) in
+      match disjunct
+        case Some(split) =>
+          Some(split)
+
+        case None =>
+          match booleans
+            case List(split; _) =>
+              Some(split)
+            case List() =>
+              candidate_in(decls, true, ss, cs)
+          end
+      end
+  end
+
+// a split on the first disjunct of an assumption c or …, where that is ground
+function disjunction_split(s: Seq): Option[Split] :=
+  match s
+    case Seq(List(), List(), List(Concl(List(), List(Atom(c))), _; _)) if loose(0, c) == List() =>
+      Some(SplitIf(c))
+    case _ =>
+      None
+  end
+
+// whether s is the assumption t or not t, as a split on t adds
+function is_literal_of(t: Term, s: Seq): Bool :=
+  s == Atom(t) or s == Seq(List(), List(Atom(t)), List())
+
+function occurs_seq(t: Term, s: Seq): Bool :=
+  match s
+    case Atom(term) =>
+      occurs(t, term)
+    case Seq(_, assms, concls) =>
+      exists(assms, lambda a => occurs_seq(t, a)) or exists(concls, lambda c => exists(c.body, lambda b => occurs_seq(t, b)))
+  end
 
 function candidate_in(decls: Decls, stuck: Bool, ss: List[Seq], cs: List[Concl]): Option[Split] :=
   or_else(first_of(List(for s in ss yield candidate_seq(decls, stuck, s))), first_of(List(for c in cs yield candidate_concl(decls, stuck, c))))
@@ -1709,25 +1847,50 @@ function induction_case(decls: Decls, t: Name, xs: List[Var], p: Int, assms: Lis
       false_seq()
   end
 
-// the size of a constructor term: 0 without recursive fields, else 1 and the sizes of the recursive fields, of the
-// representation also for abstract types, since termination is about the recursion over it
+// the size of a value: of a constructor term or a tuple 0 without fields, else 1 and the sizes of all fields, so that
+// an element of a container is smaller than it, of a literal 0, of the representation also for abstract types, since
+// termination is about the recursion over it, and else an atom that is at least 0 (bounds)
 function simp_size(ctx: Ctx, a: Term): Term :=
-  match constr_head(ctx.decls, a)
-    case Some((f, args)) =>
-      match get(f, ctx.decls.constrs)
-        case Some(decl) =>
-          let parts := List(for (field, arg) in zip(decl.fields, args) if is_recursive(decl.datatype, field) yield simp_size(ctx, arg)) in
-          if parts == List() then
-            int_term(0)
-          else
-            sum_term(foldl(parts, Lin(1, List()), lambda acc, p => lin_add(acc, lin_of(p))))
+  match (a, constr_head(ctx.decls, a))
+    case (ELit(_), _) =>
+      int_term(0)
 
+    case (_, Some((_, List()))) =>
+      int_term(0)
+
+    case (_, Some((_, args))) =>
+      sum_term(foldl(args, Lin(1, List()), lambda acc, arg => lin_add(acc, lin_of(simp_size(ctx, arg)))))
+
+    // the size of xs ++ ys is the sum of the sizes, by induction on xs
+    case (EApp(EFun(Name(Some("prelude/list"), "++")), List(xs, ys)), None) =>
+      sum_term(lin_add(lin_of(simp_size(ctx, xs)), lin_of(simp_size(ctx, ys))))
+
+    case (_, None) =>
+      rewrite(ctx, Size(a))
+  end
+
+// T.f(x) for an accessor T.f, the field f of a constructor term x that has it, else None, where the accessor stays
+// uninterpreted, as the prover takes functions to be total
+function simp_access(ctx: Ctx, name: Name, x: Term): Option[Term] :=
+  match (field_of_accessor(name), constr_head(ctx.decls, x))
+    case (Some(f), Some((c, args))) =>
+      match get(c, ctx.decls.constrs)
+        case Some(decl) =>
+          first_field(f, decl.fields, args)
         case None =>
-          int_term(0)
+          None
       end
 
-    case None =>
-      rewrite(ctx, Size(a))
+    case _ =>
+      None
+  end
+
+function first_field(f: Id, fields: List[Var], args: List[Term]): Option[Term] :=
+  match (fields, args)
+    case (List(field; fields_), List(arg; args_)) =>
+      if field.name.base == f then Some(arg) else first_field(f, fields_, args_)
+    case _ =>
+      None
   end
 
 function is_recursive(t: Name, field: Var): Bool :=
@@ -1809,7 +1972,7 @@ function print_concl(names: List[Id], several: Bool, c: Concl): Str :=
         "(exists " ++ join(", ", ys) ++ " => " ++ text ++ ")"
   end
 
-// the builtin size on lists, where it agrees with their length: by evaluation, by its decrease on the tail, which
+// the builtin size on lists, which counts the sizes of their elements, 0 for literals: by evaluation, by its decrease on the tail, which
 // terminations of recursions over lists need, and by its lower bound
 test sizes() :=
   local list := Name(Some("prelude/list"), "List"), nil := Name(Some("prelude/list"), "Nil"), cons := Name(Some("prelude/list"), "Cons"), int_var := (lambda base => Var(Name(None, base), TSort(Name(None, "Int"), List()))), list_var := (lambda base => Var(Name(None, base), TSort(list, List(TSort(Name(None, "Int"), List()))))), decls := (empty_decls() with constrs := Map(

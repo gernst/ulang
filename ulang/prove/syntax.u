@@ -133,6 +133,9 @@ function is_constr(decls: Decls, f: Name): Bool
 
 function constr_head(decls: Decls, e: Term): Option[Name * List[Term]]
 
+// the field of an accessor T.f, whose name has a dot and no :=, which an updater T.f:= has
+function field_of_accessor(name: Name): Option[Id]
+
 function free_head(decls: Decls, e: Term): Option[Name * List[Term]]
 
 function value_order(decls: Decls, a: Term, b: Term): Option[Int]
@@ -199,6 +202,14 @@ function constr_head(decls: Decls, e: Term): Option[Name * List[Term]] :=
     case EApp(EFun(name), args) if is_constr(decls, name) or name == tuple_name(size(args)) =>
       Some((name, args))
 
+    case _ =>
+      None
+  end
+
+function field_of_accessor(name: Name): Option[Id] :=
+  match split(name.base, '.')
+    case List(_, f) =>
+      if ends_with(f, ":=") then None else Some(f)
     case _ =>
       None
   end
