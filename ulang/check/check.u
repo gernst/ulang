@@ -3775,7 +3775,7 @@ procedure check_package(
   end
   assign cmds := defined ++ tested ++ enumerated ++ abstract_decls(decls, native_types(builtins)), shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors
   if errors == List() then
-    assign errors := raises_errors(defined, s.sig, hidden)
+    assign errors := raises_errors(defined ++ tested, s.sig, hidden)
   end
 
 // an example of the function or procedure owner, translated into the test cmd, at the position pos in module, where an
@@ -3850,28 +3850,29 @@ function numbered_examples(m: Id, cmds: List[Bool * Cmd], counts: Map[Id, Int]):
   end
 
 function example_test(m: Id, pos: Pos, owner: Name, exported: Bool, n: Int, x: Example): ExampleTest :=
-  ExampleTest(pos, m, owner, exported, CTest(Name(Some(m), owner.base ++ ".example." ++ show(n)), List(), example_stmt(x)))
+  ExampleTest(pos, m, owner, exported, CTest(Name(Some(m), owner.base ++ ".example." ++ show(n)), List(), example_stmt(pos, x)))
 
 // the body of the test of the example x, which is checked as written, in the scope of its module, so that its names take
 // the declarations that overloading chooses, also another one than the owner, which the convention, an example applies
-// its function, rules out; the parts that the source does not have are at Pos(0, 0), so that their errors are located
-// at the example
-function example_stmt(x: Example): At[Stmt] :=
+// its function, rules out; the statement is at the example at pos, where the checks of the exceptions report what its
+// assert raises cannot catch, and the other parts that the source does not have are at Pos(0, 0), so that their errors
+// are located at the example too
+function example_stmt(pos: Pos, x: Example): At[Stmt] :=
   match x
     case XHolds(expr) =>
-      nowhere(SAssert(expr))
+      AOk(pos, SAssert(expr))
 
     case XRaises(expr, pat) =>
       let value := Var(generated_name("value"), THole) in
-      nowhere(SAssertRaises(THole, pat, nowhere(block(List(value), List(nowhere(SAssign(List((value, expr)))))))))
+      AOk(pos, SAssertRaises(THole, pat, nowhere(block(List(value), List(nowhere(SAssign(List((value, expr)))))))))
 
     case XCall(proc, ins, outs, refs) =>
       let out_vars := generated_vars("out", size(outs)), ref_vars := generated_vars("ref", size(refs)) in
-      nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, firsts(refs)) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars))) ++ expected_values(out_vars ++ ref_vars, outs ++ seconds(refs))))
+      AOk(pos, block(out_vars ++ ref_vars, initial_refs(ref_vars, firsts(refs)) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars))) ++ expected_values(out_vars ++ ref_vars, outs ++ seconds(refs))))
 
     case XCallRaises(proc, ins, blanks, befores, pat) =>
       let out_vars := generated_vars("out", blanks), ref_vars := generated_vars("ref", size(befores)) in
-      nowhere(SAssertRaises(THole, pat, nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, befores) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars)))))))
+      AOk(pos, SAssertRaises(THole, pat, nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, befores) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars)))))))
   end
 
 // a name of the generated code, which users cannot write

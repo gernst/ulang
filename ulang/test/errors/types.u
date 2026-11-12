@@ -129,6 +129,17 @@ test empty_tuple_argument() :=
     call check_text(in "ulang/test/errors/empty-tuple-argument.u", List("function f(g: (()) -> Int): Int :=", "  g"))
   end
 
+test example_never_raised() :=
+  assert raises Located(None, Pos(5, 3), NeverRaised(_)) do
+    call check_text(in "ulang/test/errors/example-never-raised.u", List(
+      "data Overflow :=",
+      "  case Overflow",
+      "",
+      "procedure p(in x: Int, out y: Int) :=",
+      "  example p(in 1, out _) raises Overflow",
+      "  assign y := x"))
+  end
+
 test example_type() :=
   assert raises Located(None, Pos(2, 11), Mismatch(_, _, "the assertion")) do
     call check_text(in "ulang/test/errors/example-type.u", List("function f(x: Int): Int :=", "  example f(1)", "  x"))
