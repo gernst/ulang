@@ -248,6 +248,9 @@ function format_token(tok: Token): Str :=
     case TDoc(_) =>
       "a comment"
 
+    case TMisplaced =>
+      "a comment"
+
     case TEnd =>
       "end of input"
   end
@@ -358,8 +361,8 @@ procedure advance(ref toks: Tokens) :=
       skip
   end
 
-// the end of the construct opener at pos, whose error is at the construct, since a missing end is found only where a line
-// at its indentation or to its left starts
+// the end of the construct opener at pos, whose error is at the construct, which is still open where the end is missing,
+// while the end that is missing may be of a construct inside it, which took the end of this one
 procedure expect_end(in opener: Str, pos: Pos, ref toks: Tokens) :=
   match head_token(toks)
     case TKw("end") =>
@@ -369,7 +372,7 @@ procedure expect_end(in opener: Str, pos: Pos, ref toks: Tokens) :=
       raise expected("end", toks)
 
     case tok =>
-      raise ParseError("the " ++ opener ++ " has no end: end expected but " ++ format_token(tok) ++ " found at line " ++ show(head_pos(toks).line), pos)
+      raise ParseError("the " ++ opener ++ ", or a construct inside it, has no end: end expected but " ++ format_token(tok) ++ " found", pos)
   end
 
 procedure expect(in tok: Token, ref toks: Tokens) :=
@@ -476,7 +479,8 @@ procedure parse_repeated[A](
   assign xs := List(for y in found)
 
 // an argument of an application, a call, or a tuple, or after an error the argument as written up to the next , ) ; out or
-// ref outside its brackets, from its start, as the handler sees the tokens, else the error, since the argument does not end
+// ref outside its brackets and blocks, from its start, as the handler sees the tokens, else the error, since the argument
+// does not end
 procedure parse_arg(
   in  notation: Notation,
       params: List[Id],
@@ -488,39 +492,34 @@ procedure parse_arg(
     call parse_expr(in notation, params, out expr, ref toks)
   catch
     case ParseError(message, at) =>
-      call skip_arg(out text, ends, ref toks)
+      call skip_arg(in notation, out text, ends, ref toks)
       if not ends then
         raise ParseError(message, at)
       end
       assign expr := AUnparsed(pos, text, parse_diagnostic(ParseError(message, at)))
   end
 
-// the tokens of an argument up to the next , ) ; out or ref outside its brackets, joined by spaces, and whether it ends
-// there, not at a later line at its column or to its left, or at the end of the input
-procedure skip_arg(out text: Str, ends: Bool, ref toks: Tokens) :=
-  local pos := head_pos(toks), depth := 0, skipped: Buffer[Str] := empty(), done := false
+// the tokens of an argument up to the next , ) ; out or ref outside its brackets and blocks, joined by spaces, and whether
+// it ends there, not at a statement, a doc, what ends a body, a command, or the end of the input
+procedure skip_arg(
+  in  notation: Notation,
+  out text: Str,
+      ends: Bool,
+  ref toks: Tokens
+) :=
+  local skipped: Buffer[Str] := empty(), prev := TKw("("), blocks := 0, brackets := 0, ites := 0, done := false
   assign ends := false
   while not done do
-    match head_token(toks)
-      case TKw(kw) if depth == 0 and contains(kw, List(",", ")", ";", "out", "ref")) =>
-        assign done := true, ends := true
-
-      case TEnd =>
+    if blocks == 0 and brackets == 0 and contains(head_token(toks), List(TKw(","), TKw(")"), TKw(";"), TKw("out"), TKw("ref"))) then
+      assign done := true, ends := true
+    else
+      if head_token(toks) == TEnd or at_command(toks) or blocks == 0 and brackets == 0 and at_next(notation, prev, ites, toks) then
         assign done := true
-
-      case _ if head_pos(toks).line > pos.line and head_pos(toks).col <= pos.col =>
-        assign done := true
-
-      case tok =>
-        if tok == TKw("(") or tok == TKw("[") then
-          assign depth := depth + 1
-        else
-          if tok == TKw(")") or tok == TKw("]") then
-            assign depth := depth - 1
-          end
-        end
-        assign skipped := skipped ++ List(format_token(tok))
+      else
+        call   nest(in prev, toks, ref blocks, brackets, ites)
+        assign skipped := skipped ++ List(format_token(head_token(toks))), prev := head_token(toks)
         call   advance(ref toks)
+      end
     end
   end
   assign text := join(" ", List(for t in skipped))
@@ -1364,8 +1363,8 @@ function starts_stmt(tok: Token): Bool :=
 function handlers(cases: List[Doc[Branch[At[Stmt]]]]): List[Doc[Catch]] :=
   List(for d in cases yield Doc(d.doc, map_at(d.at, lambda b => Catch(THole, b.pat, b.guard, b.body))))
 
-// the body of an if, while, case, or procedure, at its first token, which may declare variables first, and which ends at a
-// line to the left of its first token, so that a missing end is found at the next statement around it
+// the body of an if, while, case, or procedure, at its first token, which may declare variables first, up to what ends it,
+// end, else, catch, case, or a command
 // where local x := e initializes x by an assignment at the start of the block, in order, such that its type can be inferred
 procedure parse_body(
   in  notation: Notation,
@@ -1379,32 +1378,45 @@ procedure parse_body(
     call   parse_separated(in notation, params, parse_local, at_comma, out decls, ref toks)
     assign xs := xs ++ firsts(decls), inits := inits ++ concat(seconds(decls))
   end
-  while at_stmt(toks) and head_pos(toks).col >= pos.col do
+  while at_stmt(toks) do
     call   parse_stmt_recovering(in notation, params, out stmt, ref toks)
     assign found := found ++ List(stmt)
   end
   assign body := AOk(pos, SBlock(xs, List(for init in inits yield Doc(None, init)) ++ List(for t in found)))
 
-// whether the next token starts a statement, or something else that is not a command, in column 1, and does not end a body,
-// which a statement that does not parse then is, also after a doc, which may document a statement but not what ends a
-// body, where a doc of the end is an error of the end
+// whether the next token starts a statement, or something else that is neither a command nor ends a body, which a
+// statement that does not parse then is, also after a doc, which may document a statement but not what ends a body,
+// where a doc of the end is an error of the end
 function at_stmt(toks: Tokens): Bool :=
   match head_token(toks)
     case TKw(kw) =>
-      starts_stmt(TKw(kw)) or head_pos(toks).col > 1 and not ends_body(kw)
+      starts_stmt(TKw(kw)) or not ends_body(kw) and not is_command_kw(kw)
 
     case TDoc(_) =>
-      head_pos(toks).col > 1 and not ends_body_token(second_token(toks)) and second_token(toks) != TEnd
+      match second_token(toks)
+        case TKw(kw) =>
+          not ends_body(kw) and not is_command_kw(kw)
+
+        case TEnd =>
+          false
+
+        case _ =>
+          true
+      end
 
     case TEnd =>
       false
 
-    case _ =>
-      head_pos(toks).col > 1
+    case tok =>
+      not is_elif(tok)
   end
 
 function ends_body(kw: Str): Bool :=
   contains(kw, List("end", "else", "catch", "case"))
+
+// elif ends the body of an if, which reports it, as else would
+function is_elif(tok: Token): Bool :=
+  tok == TName("elif")
 
 function ends_body_token(tok: Token): Bool :=
   match tok
@@ -1433,42 +1445,150 @@ procedure parse_stmt_recovering(
     assign stmt := Doc(doc, parsed)
   catch
     case ParseError(message, at) =>
-      call   skip_stmt(out text, ref toks)
+      call   skip_stmt(in notation, out text, ref toks)
       assign stmt := Doc(doc, AUnparsed(pos, text, parse_diagnostic(ParseError(message, at))))
   end
 
-// the tokens of a statement, at least its first, up to the next line at its column or to its left, where a statement that
-// opens a block also takes the else, catch, and end at its column, joined by spaces
-procedure skip_stmt(out text: Str, ref toks: Tokens) :=
-  local pos := head_pos(toks), opens := is_opener(head_token(toks)), skipped: Buffer[Str] := empty(), done := false
-  while not done do
-    assign skipped := skipped ++ List(format_token(head_token(toks)))
+// the tokens of a statement, at least its first, up to the next statement, a doc, what ends the body, or a command, outside
+// the brackets and blocks of the statement, joined by spaces, where a statement that opens a block takes its end, and one
+// of two names, as return x, takes both
+procedure skip_stmt(in notation: Notation, out text: Str, ref toks: Tokens) :=
+  local skipped: Buffer[Str] := empty(), prev := TKw("skip"), blocks := 0, brackets := 0, ites := 0, done := false, first := true
+  if is_name_token(head_token(toks)) and is_name_token(second_token(toks)) then
+    assign skipped := skipped ++ List(format_token(head_token(toks)), format_token(second_token(toks))), prev := second_token(toks), first := false
     call   advance(ref toks)
-    if head_token(toks) == TEnd or head_pos(toks).line > pos.line and head_pos(toks).col < pos.col then
+    call   advance(ref toks)
+  end
+  while not done do
+    if head_token(toks) == TEnd or at_command(toks) or not first and blocks == 0 and brackets == 0 and at_next(notation, prev, ites, toks) then
       assign done := true
     else
-      if head_pos(toks).line > pos.line and head_pos(toks).col == pos.col then
-        assign done := not (opens and (is_continuation(head_token(toks)) or at_doc(toks) and ends_body_token(second_token(toks))))
-        if opens and head_token(toks) == TKw("end") then
-          assign skipped := skipped ++ List("end")
-          call   advance(ref toks)
-        end
-      end
+      call   nest(in prev, toks, ref blocks, brackets, ites)
+      assign skipped := skipped ++ List(format_token(head_token(toks))), prev := head_token(toks), first := false
+      call   advance(ref toks)
     end
   end
   assign text := join(" ", List(for t in skipped))
 
-function is_opener(tok: Token): Bool :=
-  contains(tok, List(
-    TKw("if"),
-    TKw("while"),
-    TKw("for"),
-    TKw("match"),
-    TKw("try"),
-    TKw("assert")))
+function is_name_token(tok: Token): Bool :=
+  match tok
+    case TName(_) =>
+      true
+    case _ =>
+      false
+  end
 
-function is_continuation(tok: Token): Bool :=
-  tok == TKw("else") or tok == TKw("catch") or tok == TName("elif")
+// whether toks start what follows a statement after prev: the next statement, a doc, or what ends the body, where an else
+// is of one of the ites if expressions that are open
+function at_next(notation: Notation, prev: Token, ites: Int, toks: Tokens): Bool :=
+  match head_token(toks)
+    case TKw("else") =>
+      ites == 0
+
+    case TKw(kw) if ends_body(kw) =>
+      true
+
+    case TDoc(_) =>
+      true
+
+    case tok =>
+      is_elif(tok) or starts_stmt_after(notation, prev, tok)
+  end
+
+// whether tok starts a statement after prev, where if and match start one only after what ends a statement or opens a
+// body, since they also start expressions, and a name that is no operator after what ends an expression, which no
+// expression continues by a name
+function starts_stmt_after(notation: Notation, prev: Token, tok: Token): Bool :=
+  match tok
+    case TKw("if") =>
+      is_stmt_end(prev)
+
+    case TKw("match") =>
+      is_stmt_end(prev)
+
+    case TKw("local") =>
+      true
+
+    case TName(name) =>
+      ends_expr(prev) and not is_operator(notation, name)
+
+    case _ =>
+      starts_stmt(tok)
+  end
+
+// whether tok ends an expression or a statement
+function ends_expr(tok: Token): Bool :=
+  match tok
+    case TName(_) =>
+      true
+
+    case TNum(_) =>
+      true
+
+    case TStr(_) =>
+      true
+
+    case TChar(_) =>
+      true
+
+    case TKw(kw) =>
+      contains(kw, List(")", "]", "end", "skip", "true", "false"))
+
+    case _ =>
+      false
+  end
+
+// whether a statement may start after tok, which ends an expression or a statement, or opens a body
+function is_stmt_end(tok: Token): Bool :=
+  ends_expr(tok) or contains(tok, List(TKw("then"), TKw("else"), TKw("do"), TKw("=>"), TKw("try")))
+
+// the depths of the blocks that end closes, of the brackets, and of the if expressions that else closes after the next
+// token, which follows prev, where a block opens outside brackets, which enclose what is inside, at while, for, match,
+// try, an if that starts a statement, assert raises, and a lambda of a procedure
+procedure nest(
+  in  prev: Token,
+      toks: Tokens,
+  ref blocks: Int,
+      brackets: Int,
+      ites: Int
+) :=
+  match head_token(toks)
+    case TKw(kw) if kw == "(" or kw == "[" =>
+      assign brackets := brackets + 1
+
+    case TKw(kw) if (kw == ")" or kw == "]") and brackets > 0 =>
+      assign brackets := brackets - 1
+
+    case _ if brackets > 0 =>
+      skip
+
+    case TKw("end") if blocks > 0 =>
+      assign blocks := blocks - 1
+
+    case TKw(kw) if contains(kw, List("while", "for", "match", "try")) =>
+      assign blocks := blocks + 1
+
+    case TKw("if") if is_stmt_end(prev) =>
+      assign blocks := blocks + 1
+
+    case TKw("if") =>
+      assign ites := ites + 1
+
+    case TKw("else") if ites > 0 =>
+      assign ites := ites - 1
+
+    case TKw("assert") if second_token(toks) == TKw("raises") =>
+      assign blocks := blocks + 1
+
+    case TKw("lambda") if is_mode(second_token(toks)) =>
+      assign blocks := blocks + 1
+
+    case _ =>
+      skip
+  end
+
+function is_mode(tok: Token): Bool :=
+  tok == TKw("in") or tok == TKw("out") or tok == TKw("ref")
 
 // x: T, x := e, or x: T := e, where the checker requires a type or an initial value
 procedure parse_local(
@@ -2620,7 +2740,9 @@ procedure parse_mod(
   ref source: Source,
       toks: Tokens
 ) :=
-  local imports: List[Id] := List(), notation := empty_notation(), plain: List[Doc[Cmd]] := List(), exported: List[Doc[Cmd]] := List(), builtins: List[Doc[Cmd]] := List(), implemented: List[Doc[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[Doc[Cmd]], doc: Option[Str], broken: List[ParseError] := List(), mod_doc := module_doc(toks)
+  local imports: List[Id] := List(), notation := empty_notation(), plain: List[Doc[Cmd]] := List(), exported: List[Doc[Cmd]] := List(), builtins: List[Doc[Cmd]] := List(), implemented: List[Doc[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[Doc[Cmd]], doc: Option[Str], broken: List[ParseError] := misplaced_comments(toks), mod_doc: Option[Str]
+  assign toks := List(for (p, tok) in toks if tok != TMisplaced yield (p, tok))
+  assign mod_doc := module_doc(toks)
   if mod_doc != None then
     call advance(ref toks)
   end
@@ -2704,6 +2826,7 @@ procedure parse_mod(
         assign plain := reverse_onto(placed, plain)
     end
   end
+  assign broken := List(for (_, e) in sort(List(for e in broken yield (e.pos, e))) yield e)
   match broken
     case List(e) =>
       raise e
@@ -2717,7 +2840,11 @@ procedure parse_mod(
   assign implemented := reverse(implemented) ++ reverse(plain)
   assign own := Mod(name, mod_doc, imports, reverse(exported), reverse(builtins), implemented)
 
-// the tokens from the next keyword in column 1 that starts a command, or a doc there, after the first token
+// the errors of the comments of toks that document nothing
+function misplaced_comments(toks: Tokens): List[ParseError] :=
+  List(for (p, tok) in toks if tok == TMisplaced yield ParseError(misplaced_comment(), p))
+
+// the tokens from the next keyword that starts a command, or a doc of one, after the first token
 procedure skip_command(ref toks: Tokens) :=
   call advance(ref toks)
   while not starts_command(toks) do
@@ -2725,32 +2852,40 @@ procedure skip_command(ref toks: Tokens) :=
   end
 
 function starts_command(toks: Tokens): Bool :=
+  head_token(toks) == TEnd or at_command(toks) or at_doc(toks) and at_command(rest_of(toks))
+
+// whether the next token is a keyword that starts a command, which never occurs inside one
+function at_command(toks: Tokens): Bool :=
   match head_token(toks)
-    case TEnd =>
-      true
-
-    case TDoc(_) =>
-      head_pos(toks).col == 1
-
     case TKw(kw) =>
-      head_pos(toks).col == 1 and contains(kw, List(
-        "function",
-        "procedure",
-        "data",
-        "type",
-        "test",
-        "lemma",
-        "pattern",
-        "prefix",
-        "postfix",
-        "infix",
-        "export",
-        "builtin",
-        "implementation",
-        "import"))
-
+      is_command_kw(kw)
     case _ =>
       false
+  end
+
+function is_command_kw(kw: Str): Bool :=
+  contains(kw, List(
+    "function",
+    "procedure",
+    "data",
+    "type",
+    "test",
+    "lemma",
+    "pattern",
+    "prefix",
+    "postfix",
+    "infix",
+    "export",
+    "builtin",
+    "implementation",
+    "import"))
+
+function rest_of(toks: Tokens): Tokens :=
+  match toks
+    case List(_; more) =>
+      more
+    case List() =>
+      List()
   end
 
 // the section after the commands of one declaration, which must belong to the section
