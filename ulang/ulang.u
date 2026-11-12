@@ -299,7 +299,7 @@ procedure run_target(in target: Target, args: List[Str], out status: Int) :=
   call   check_file(in target.path, false, out q, errors)
   call   report(in target.path, errors, false)
   assign status := load_status(q, errors)
-  if errors == List() then
+  if errors == List() or is_runnable(q, errors) then
     assign entry := Name(Some(q.main), entry.base)
     try
       call require_entry(in q, entry)
@@ -307,17 +307,23 @@ procedure run_target(in target: Target, args: List[Str], out status: Int) :=
     catch
       case UnknownEntry(name) =>
         call   report(in target.path, List(no_entry(name)), false)
-        assign status := 1
+        assign status := worse(status, 1)
 
       case e =>
         call   report(in target.path, List(diagnostic(RuntimeKind, runtime_message(e))), false)
-        assign status := 3
+        assign status := worse(status, 3)
 
       case e =>
         call   report(in target.path, List(diagnostic(InternalKind, internal_message(e))), false)
         assign status := 4
     end
   end
+
+// whether the program q, whose diagnostics are errors, runs despite them, where a run raises Deferred at the parts and
+// definitions that they make unsafe: if its main module is checked, which it is not if a package that it imports has
+// errors, and no error is internal
+function is_runnable(q: Prog, errors: List[Diagnostic]): Bool :=
+  not exists(errors, lambda d => d.kind == InternalKind) and exists(q.cmds, lambda c => is_parsed(c) and cmd_module(c.that) == Some(q.main))
 
 // the exit status of loading the program q, whose diagnostics are errors: 0 for none, 1 for errors of the sources, and 4 for
 // an internal error, where a run, a test, or a lemma that fails is 3 and a usage error 2, and the greatest of several counts
@@ -345,7 +351,7 @@ procedure test_targets(
 ) :=
   local found: List[Target]
   call targets_of(in targets, true, out found)
-  call visit_units(in found, lambda in source, q, unit, out failed =>
+  call visit_units(in found, true, lambda in source, q, unit, out failed =>
     call test_unit(in q, unit, found, args, out failed)
   end, out status)
 
@@ -370,10 +376,12 @@ procedure test_unit(
   end
 
 // checks each unit of the targets once, where the error of a unit that does not load is reported at its first file, and
-// calls visit with the checked program of each unit that loads, which gives the files of the unit that fail, then prints
-// how many files passed, where status is the exit status of the worst
+// calls visit with the checked program of each unit that loads, which gives the files of the unit that fail, also of a
+// unit with errors if deferred and it is runnable, whose files then fail, then prints how many files passed, where status
+// is the exit status of the worst
 procedure visit_units(
   in  found: List[Target],
+      deferred: Bool,
       visit: (in Source, Prog, List[Target], out List[Str]) raises Thrown,
   out status: Int
 ) :=
@@ -385,6 +393,10 @@ procedure visit_units(
     if errors != List() then
       call   report(in first_path(unit), errors, size(files_of(found)) > 1)
       assign failed := failed ++ files_of(unit), status := worse(status, load_status(q, errors))
+      if deferred and is_runnable(q, errors) then
+        call   visit(in source, q, unit, out bad)
+        assign status := if bad == List() then status else worse(status, 3)
+      end
     else
       call   visit(in source, q, unit, out bad)
       assign failed := failed ++ bad, status := if bad == List() then status else worse(status, 3)
@@ -418,7 +430,7 @@ procedure test_module(
       assign passed := false
     end
   end
-  if names == List() then
+  if names == List() and not has_errors(q) then
     local proven: Bool
     call   prove_module(in q, m, file, List(), label, out proven)
     assign passed := passed and proven
@@ -441,7 +453,7 @@ procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
 procedure check_paths(in paths: List[Str], lint: Bool, out status: Int) :=
   local found: List[Target]
   call targets_of(in List(for p in paths yield Target(p, None)), false, out found)
-  call visit_units(in found, lambda in source, q, unit, out failed =>
+  call visit_units(in found, false, lambda in source, q, unit, out failed =>
     assign failed := List()
     if lint then
       call print_lints(in source, q, unit)
@@ -471,7 +483,7 @@ function replacement_text(source: Source, m: Id, w: Warning): Str :=
 procedure prove_targets(in targets: List[Target], out status: Int) :=
   local found: List[Target]
   call targets_of(in targets, false, out found)
-  call visit_units(in found, lambda in source, q, unit, out failed =>
+  call visit_units(in found, false, lambda in source, q, unit, out failed =>
     call prove_unit(in q, unit, found, out failed)
   end, out status)
 

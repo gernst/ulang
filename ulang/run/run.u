@@ -330,6 +330,20 @@ function match_all_into(pats: List[At[Pat]], vs: List[Val], env: Bindings): Opti
       None
   end
 
+// raises Deferred at a part that checking rejected or that does not parse, which a run reaches only in a program with
+// errors, whose other parts it runs
+procedure require_checked[A](in x: At[A]) raises RuntimeError :=
+  match x
+    case AOk(_, _) =>
+      skip
+
+    case AErr(_, _, errors) =>
+      raise Deferred(deferred_text(errors))
+
+    case AUnparsed(_, _, error) =>
+      raise Deferred(deferred_text(List(error)))
+  end
+
 procedure evaluate(
   in  run: Run,
       env: Bindings,
@@ -337,6 +351,7 @@ procedure evaluate(
   out v: Val,
   ref cache: Map[Name, Val]
 ) :=
+  call require_checked(in expr)
   match expr.that
     case ELit(lit) =>
       assign v := VLit(lit)
@@ -961,6 +976,7 @@ procedure exec(
   ref env: Bindings,
       cache: Map[Name, Val]
 ) :=
+  call require_checked(in stmt)
   match stmt.that
     case SSkip =>
       skip

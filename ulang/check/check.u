@@ -4266,12 +4266,22 @@ procedure check_source(
       assign sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, errors := found, loose := found_loose
     catch
       case e =>
-        assign cmds := cmds ++ List(for d in mods for c in written_of(d.name, d.exported ++ d.implemented) yield c), errors := List(e), loose := List(e)
+        assign cmds := cmds ++ List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, unchecked(c))), errors := List(e), loose := List(e)
     end
   end
   assign errors := distinct(List(for e in errors yield in_main(source.main, e)))
   call   with_errors(in source.main, cmds ++ builtins_of(source), distinct(List(for e in loose yield in_main(source.main, e))), out placed)
   assign q := Prog(take(size(cmds), placed), drop(size(cmds), placed), source.main)
+
+// a command of a package whose check failed, as written, which is an error node without errors of its own, so that no run
+// takes it for checked code (rejected of ulang/syntax/syntax.u), while the error of the package stands on its command
+function unchecked(cmd: At[Cmd]): At[Cmd] :=
+  match cmd
+    case AOk(pos, that) =>
+      AErr(pos, that, List())
+    case _ =>
+      cmd
+  end
 
 // the commands of the builtin sections of source
 function builtins_of(source: Source): List[Id * At[Cmd]] :=
