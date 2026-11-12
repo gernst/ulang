@@ -231,7 +231,7 @@ data Example :=
 // the checked program: the commands of its modules with resolved names, and the module of the file that is loaded, whose
 // procedures run and compile call
 data Prog :=
-  case Prog(cmds: List[Cmd], main: Id)
+  case Prog(cmds: List[Cmd], main: Id, errors: List[Diagnostic])
 
 data Pos :=
   // line and column, both from 1

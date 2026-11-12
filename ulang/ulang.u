@@ -31,29 +31,29 @@ data Target :=
   case Target(path: Str, name: Option[Str])
 
 procedure main() :=
-  local args: List[Str], ok := true
+  local args: List[Str], status := 0
   call os_args(out args)
   match request(args)
     case RRun(target, rest) =>
-      call run_target(in target, rest, out ok)
+      call run_target(in target, rest, out status)
 
     case RTest(targets, rest) =>
-      call test_targets(in targets, rest, out ok)
+      call test_targets(in targets, rest, out status)
 
     case RCheck(paths) =>
-      call check_paths(in paths, out ok)
+      call check_paths(in paths, out status)
 
     case RProve(targets) =>
-      call prove_targets(in targets, out ok)
+      call prove_targets(in targets, out status)
 
     case RFormat(paths, check_only) =>
-      call format_paths(in paths, check_only, out ok)
+      call format_paths(in paths, check_only, out status)
 
     case RCompile(target, output) =>
-      call compile_target(in target, output, out ok)
+      call compile_target(in target, output, out status)
 
     case RCompileTests(output) =>
-      call compile_tests(in output, out ok)
+      call compile_tests(in output, out status)
 
     case RHelp(None) =>
       call os_println(in usage())
@@ -65,8 +65,8 @@ procedure main() :=
       call os_print_error(in "ulang: " ++ problem ++ "\n" ++ usage())
       call os_exit(in 2)
   end
-  if not ok then
-    call os_exit(in 1)
+  if status != 0 then
+    call os_exit(in status)
   end
 
 // the arguments after -- are those of the program, for run and test
@@ -272,40 +272,60 @@ function split_on[A](xs: List[A], sep: A): List[A] * List[A] :=
   end
 
 // calls the procedure of the target, main by default, without parameters, where os_args gives args
-procedure run_target(in target: Target, args: List[Str], out ok: Bool) :=
+procedure run_target(in target: Target, args: List[Str], out status: Int) :=
   local q: Prog, errors: List[Diagnostic], entry := Name(None, value_or(target.name, "main")), cache: Map[Name, Val] := empty()
   call   check_file(in target.path, false, out q, errors)
   call   report(in target.path, errors, false)
-  assign ok := false
+  assign status := load_status(q, errors)
   if errors == List() then
     assign entry := Name(Some(q.main), entry.base)
     try
-      call   require_entry(in q, entry)
-      call   run_proc(in load(q) with args := args, entry, ref cache)
-      assign ok := true
+      call require_entry(in q, entry)
+      call run_proc(in load(q) with args := args, entry, ref cache)
     catch
       case UnknownEntry(name) =>
-        call report(in target.path, List(no_entry(name)), false)
+        call   report(in target.path, List(no_entry(name)), false)
+        assign status := 1
 
       case e =>
-        call report(in target.path, List(diagnostic(RuntimeKind, runtime_message(e))), false)
+        call   report(in target.path, List(diagnostic(RuntimeKind, runtime_message(e))), false)
+        assign status := 3
 
       case e =>
-        call report(in target.path, List(diagnostic(InternalKind, internal_message(e))), false)
+        call   report(in target.path, List(diagnostic(InternalKind, internal_message(e))), false)
+        assign status := 4
     end
   end
+
+// the exit status of loading the program q, whose diagnostics are errors: 0 for none, 1 for errors of the sources, and 4 for
+// an internal error, where a run, a test, or a lemma that fails is 3 and a usage error 2, and the greatest of several counts
+function load_status(q: Prog, errors: List[Diagnostic]): Int :=
+  if exists(errors, lambda d => d.kind == InternalKind) then
+    4
+  else if has_errors(q) or errors != List() then
+    1
+  else
+    0
+
+// the greater of two exit statuses, the worse
+function worse(status: Int, other: Int): Int :=
+  if status > other then status else other
 
 function no_entry(name: Name): Diagnostic :=
   Diagnostic(RuntimeKind, "UnknownEntry", None, Pos(0, 0), "there is no procedure " ++ name.base ++ " without parameters", List())
 
 // runs the tests of the targets, by default of the project, each unit loaded once, in the working directory, and the lemmas
 // of each file whose tests all run, printing a line per test and lemma, labeled by its file if there are several files
-procedure test_targets(in targets: List[Target], args: List[Str], out ok: Bool) :=
+procedure test_targets(
+  in  targets: List[Target],
+      args: List[Str],
+  out status: Int
+) :=
   local found: List[Target]
   call targets_of(in targets, true, out found)
   call visit_units(in found, lambda in q, unit, out failed =>
     call test_unit(in q, unit, found, args, out failed)
-  end, out ok)
+  end, out status)
 
 // runs the tests of the files of the unit, whose checked program is q, where failed are the files that do not pass
 procedure test_unit(
@@ -329,26 +349,26 @@ procedure test_unit(
 
 // checks each unit of the targets once, where the error of a unit that does not load is reported at its first file, and
 // calls visit with the checked program of each unit that loads, which gives the files of the unit that fail, then prints
-// how many files passed, where ok tells whether all did
+// how many files passed, where status is the exit status of the worst
 procedure visit_units(
   in  found: List[Target],
       visit: (in Prog, List[Target], out List[Str]) raises Thrown,
-  out ok: Bool
+  out status: Int
 ) :=
   local units: List[List[Target]], q: Prog, errors: List[Diagnostic], failed: Buffer[Str] := empty(), bad: List[Str]
-  call units_of(in found, out units)
+  call   units_of(in found, out units)
+  assign status := 0
   for unit in units do
     call check_file(in first_path(unit), true, out q, errors)
     if errors != List() then
       call   report(in first_path(unit), errors, size(files_of(found)) > 1)
-      assign failed := failed ++ files_of(unit)
+      assign failed := failed ++ files_of(unit), status := worse(status, load_status(q, errors))
     else
       call   visit(in q, unit, out bad)
-      assign failed := failed ++ bad
+      assign failed := failed ++ bad, status := if bad == List() then status else worse(status, 3)
     end
   end
-  call   summarize(in files_of(found), List(for f in failed))
-  assign ok := size(failed) == 0
+  call summarize(in files_of(found), List(for f in failed))
 
 // runs the tests of the module m of q, all or the named ones, each on its own, also after a failed one, and then its lemmas
 // if all are run, where passed tells whether all pass and are proven
@@ -394,20 +414,20 @@ procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
   end
 
 // checks the files of the paths, by default of the project, each unit once, where each file must be formatted
-procedure check_paths(in paths: List[Str], out ok: Bool) :=
+procedure check_paths(in paths: List[Str], out status: Int) :=
   local found: List[Target]
   call targets_of(in List(for p in paths yield Target(p, None)), false, out found)
   call visit_units(in found, lambda in q, unit, out failed =>
     assign failed := List()
-  end, out ok)
+  end, out status)
 
 // proves the lemmas of the targets, all or the named ones, by default of the project, each unit loaded once
-procedure prove_targets(in targets: List[Target], out ok: Bool) :=
+procedure prove_targets(in targets: List[Target], out status: Int) :=
   local found: List[Target]
   call targets_of(in targets, false, out found)
   call visit_units(in found, lambda in q, unit, out failed =>
     call prove_unit(in q, unit, found, out failed)
-  end, out ok)
+  end, out status)
 
 // proves the lemmas of the files of the unit, whose checked program is q, where failed are the files with open lemmas
 procedure prove_unit(
@@ -450,31 +470,33 @@ procedure prove_module(
   end
 
 // translates the file of the target to C, whose main calls the procedure of the target, main by default
-procedure compile_target(in target: Target, output: Str, out ok: Bool) :=
+procedure compile_target(in target: Target, output: Str, out status: Int) :=
   local q: Prog, errors: List[Diagnostic]
   call   check_file(in target.path, false, out q, errors)
   call   report(in target.path, errors, false)
-  assign ok := false
+  assign status := load_status(q, errors)
   if errors == List() then
     try
-      call   compile_prog(in q, EntryProc(value_or(target.name, "main")), output)
-      assign ok := true
+      call compile_prog(in q, EntryProc(value_or(target.name, "main")), output)
     catch
       case UnknownEntry(name) =>
-        call report(in target.path, List(no_entry(name)), false)
+        call   report(in target.path, List(no_entry(name)), false)
+        assign status := 1
 
       case OsError(m) =>
-        call report(in target.path, List(diagnostic(RuntimeKind, m)), false)
+        call   report(in target.path, List(diagnostic(RuntimeKind, m)), false)
+        assign status := 1
 
       case e =>
-        call report(in target.path, List(diagnostic(InternalKind, internal_message(e))), false)
+        call   report(in target.path, List(diagnostic(InternalKind, internal_message(e))), false)
+        assign status := 4
     end
   end
 
 // translates the tests of the project to C, whose main runs them as test does, where each unit is checked as test checks
 // it, and the commands of each module are taken from the unit that it is a member of, with its tests, or else from the
 // first unit that loads it
-procedure compile_tests(in output: Str, out ok: Bool) :=
+procedure compile_tests(in output: Str, out status: Int) :=
   local root: Str, found: List[Target], units: List[List[Target]], q: Prog, errors: List[Diagnostic], failed := false, files: Buffer[TestFile] := empty(), own: Buffer[Cmd] := empty(), others: Map[Id, List[Cmd]] := empty(), members: Set[Id] := empty()
   call default_path(out root)
   call targets_of(in List(), false, out found)
@@ -490,16 +512,18 @@ procedure compile_tests(in output: Str, out ok: Bool) :=
       assign others := others_of(q.cmds, modules, others)
     end
   end
-  assign ok := false
+  assign status := if failed then 1 else 0
   if not failed then
     try
-      call   compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), ""), EntryTests(List(for f in files)), output)
-      assign ok := true
+      call compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), "", List()), EntryTests(List(for f in files)), output)
     catch
       case OsError(m) =>
-        call report(in output, List(diagnostic(RuntimeKind, m)), false)
+        call   report(in output, List(diagnostic(RuntimeKind, m)), false)
+        assign status := 1
+
       case e =>
-        call report(in output, List(diagnostic(InternalKind, internal_message(e))), false)
+        call   report(in output, List(diagnostic(InternalKind, internal_message(e))), false)
+        assign status := 4
     end
   end
 
@@ -570,10 +594,10 @@ test paths_from_root() :=
 
 // the files of the paths, by default of the project, rewritten as format writes them, or for check_only reported if they
 // differ
-procedure format_paths(in paths: List[Str], check_only: Bool, out ok: Bool) :=
+procedure format_paths(in paths: List[Str], check_only: Bool, out status: Int) :=
   local found: List[Target], done: Bool, errors: List[Diagnostic]
   call   targets_of(in List(for p in paths yield Target(p, None)), false, out found)
-  assign ok := true
+  assign status := 0
   for file in files_of(found) do
     assign errors := List(), done := false
     try
@@ -598,7 +622,7 @@ procedure format_paths(in paths: List[Str], check_only: Bool, out ok: Bool) :=
       call   report(in file, errors, false)
       assign done := false
     end
-    assign ok := ok and done
+    assign status := if done then status else worse(status, 1)
   end
 
 // raises Unformatted if format would change file
@@ -653,11 +677,11 @@ procedure check_file(
       errors: List[Diagnostic]
 ) :=
   local source: Source, text: Str, typed: List[TypeError]
-  assign q := Prog(List(), ""), errors := List()
+  assign q := Prog(List(), "", List()), errors := List()
   try
     call   parse_file(in file, out source)
     call   check_all(in source, out q, typed)
-    assign errors := List(for e in take(20, typed) yield type_diagnostic(e))
+    assign errors := take(20, q.errors)
     for m in unit_modules(source) if formatted and errors == List() do
       call os_read(in os_join(os_dirname(file), module_file(m)), out text)
       try
