@@ -313,8 +313,24 @@ test let_rigid() :=
       "  g(1) == 1"))
   end
 
+// a part of the wrong type is reported at the innermost part, since the checker passes the expected type down to the
+// components of a tuple, the elements of a form, the body of a let, and the arguments of a call of one candidate
+test innermost_mismatch() :=
+  local errors: List[TypeError]
+  call check_text_all(in "ulang/test/errors/innermost-mismatch.u", List(
+    "function g(): Int * Int :=",
+    "  (1, \"a\")",
+    "",
+    "function h(): List[Int] :=",
+    "  List(1, \"a\")",
+    "",
+    "function k(): Int :=",
+    "  let x := 1 in",
+    "  \"a\""), out errors)
+  assert List(for e in errors yield error_pos(e)) == List(Pos(2, 7), Pos(5, 11), Pos(9, 3))
+
 test list_type() :=
-  assert raises Located(None, Pos(2, 10), Mismatch(_, _, "argument 2 of the call")) do
+  assert raises Located(None, Pos(2, 18), Mismatch(_, _, "an element of List")) do
     call check_text(in "ulang/test/errors/list-type.u", List("test list_type() :=", "  assert List(1, true) == List()"))
   end
 
