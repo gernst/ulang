@@ -101,8 +101,8 @@ test lints_of_variables() :=
     (Pos(4, 23), "the variable b is never read, write _"),
     (Pos(7, 15), "the variable d is never read, write _"),
     (Pos(7, 54), "the variable x is never read, write _"),
-    (Pos(10, 3), "the local unread is never read"),
-    (Pos(10, 3), "the local written is never read"),
+    (Pos(10, 9), "the local unread is never read"),
+    (Pos(10, 22), "the local written is never read"),
     (Pos(13, 7), "the variable x is never read, write _"))
 
 test lints_of_locals_too_high() :=
@@ -117,7 +117,7 @@ test lints_of_locals_too_high() :=
     "  end",
     "  assign b := n, n := b"), out found)
   assert found == List(
-    (Pos(2, 3), "the local a is used only in the branches of one statement, which declare it where they use it"))
+    (Pos(2, 9), "the local a is used only in the branches of one statement, which declare it where they use it"))
 
 test lints_of_collecting_loops() :=
   local found: List[Pos * Str]
@@ -186,5 +186,5 @@ test lints_of_names() :=
     "  x"), out found)
   assert found == List(
     (Pos(1, 1), "the name show_it is show if it gives text that parses back, else format_ if it prints into another language"),
-    (Pos(1, 1), "the name e1 has a numeric index, name it by its role"),
+    (Pos(1, 18), "the name e1 has a numeric index, name it by its role"),
     (Pos(4, 7), "the name y2 has a numeric index, name it by its role"))

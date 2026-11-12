@@ -112,7 +112,7 @@ function fun_defs(cmds: List[Cmd]): List[(Name * Int) * FunDef] :=
       List()
 
     case List(CFun(name, _, formals, _, _, body); rest) =>
-      List(((name, size(formals)), FunDef(formals, body)); fun_defs(rest))
+      List(((name, size(formals)), FunDef(vars(formals), body)); fun_defs(rest))
 
     case List(_; rest) =>
       fun_defs(rest)
@@ -124,7 +124,8 @@ function proc_defs(cmds: List[Cmd]): List[Name * ProcDef] :=
       List()
 
     case List(CProc(name, _, ins, outs, refs, _, _, stmt); rest) =>
-      List((name, ProcDef(ins, outs, refs, stmt)); proc_defs(rest))
+      List(
+        (name, ProcDef(vars(ins), vars(outs), vars(refs), stmt)); proc_defs(rest))
 
     case List(_; rest) =>
       proc_defs(rest)
@@ -237,11 +238,11 @@ function hook_of(f: Id, k: Int): Option[Hook] :=
 // values of T, also in generic code, where the builtins compare structurally and show the structure
 function order_of(cmd: Cmd): Option[Hook * Name] :=
   match cmd
-    case CFun(Name(Some(m), f), _, List(Var(_, TSort(Name(Some(k), b), args)); more), r, _, _) =>
+    case CFun(Name(Some(m), f), _, List(AOk(_, Var(_, TSort(Name(Some(k), b), args))); more), r, _, _) =>
       let typ := TSort(Name(Some(k), b), args) in
       match hook_of(f, 1 + size(more))
         case Some(hook) =>
-          if k == m and forall(more, lambda x => x.typ == typ) and is_distinct_params(args) and r == hook_result(hook) then
+          if k == m and forall(more, lambda x => x.that.typ == typ) and is_distinct_params(args) and r == hook_result(hook) then
             Some((hook, Name(Some(k), b)))
           else
             None

@@ -45,8 +45,19 @@ data RuntimeError :=
   case Uncaught(text: Str)
   // of the qualified name of a function without parameters, which compiled code knows when it is compiled
   case RecursiveInitialization(name: Str)
+  // of a part or a definition that checking rejected, which the interpreter reached, with the first of its errors as
+  // deferred_text writes it
+  case Deferred(text: Str)
 
 function runtime_message(e: RuntimeError): Str
+
+// the first of the errors of a part or a definition that checking rejected, as a run reports it when it reaches it, where
+// one without errors of its own is of a package whose check failed
+function deferred_text(ds: List[Diagnostic]): Str
+
+// whether d makes the code it stands on unsafe to run, as the errors of parsing and of types do, but not those of raises
+// and of proofs, so that a run raises Deferred where it reaches such code
+function blocks_run(d: Diagnostic): Bool
 
 // the formats of the runtime errors whose values compiled code knows only at run time, by the names of their C variables
 function runtime_formats(): List[Str * Str]
@@ -127,7 +138,27 @@ function runtime_message(e: RuntimeError): Str :=
 
     case RecursiveInitialization(name) =>
       "recursive initialization of " ++ name
+
+    case Deferred(text) =>
+      "reached " ++ text
   end
+
+function deferred_text(ds: List[Diagnostic]): Str :=
+  match ds
+    case List(d; _) =>
+      "the " ++ kind_name(d.kind) ++ " error" ++ at_pos(d.pos) ++ match d.module
+        case Some(m) =>
+          " in " ++ m
+        case None =>
+          ""
+      end ++ ", " ++ d.message
+
+    case List() =>
+      "code of a package whose check failed"
+  end
+
+function blocks_run(d: Diagnostic): Bool :=
+  d.kind == ParseKind or d.kind == TypeKind and not contains(d.code, List("NotAnException", "UndeclaredRaise", "UntypedRaise", "NeverRaised"))
 
 function runtime_formats(): List[Str * Str] :=
   List(
@@ -238,3 +269,5 @@ test messages() :=
   assert runtime_message(CompareProcedures) == "cannot compare procedures"
   assert runtime_message(RecursiveInitialization("ulang/test/errors/initialization.loop")) == "recursive initialization of ulang/test/errors/initialization.loop"
   assert runtime_message(Uncaught("Fail(2)")) == "uncaught exception Fail(2)"
+  assert runtime_message(Deferred(deferred_text(List(
+    Diagnostic(TypeKind, "Mismatch", None, Pos(2, 7), "expected Int but found Bool", List()))))) == "reached the type error at 2.7, expected Int but found Bool"

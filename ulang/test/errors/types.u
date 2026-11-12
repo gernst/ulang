@@ -91,7 +91,7 @@ test duplicate_constructor() :=
   end
 
 test duplicate_formal() :=
-  assert raises Located(None, Pos(1, 1), Duplicate("formal", "a")) do
+  assert raises Located(None, Pos(1, 20), Duplicate("formal", "a")) do
     call check_text(in "ulang/test/errors/duplicate-formal.u", List("function f(a: Int, a: Int): Int :=", "  a"))
   end
 
@@ -106,7 +106,7 @@ test duplicate_lemma() :=
   end
 
 test duplicate_let() :=
-  assert raises Located(None, Pos(2, 3), Duplicate("binding", "x")) do
+  assert raises Located(None, Pos(2, 15), Duplicate("binding", "x")) do
     call check_text(in "ulang/test/errors/duplicate-let.u", List("function f(): Int :=", "  let x := 1, x := 2 in", "  x"))
   end
 
@@ -356,17 +356,27 @@ test misshapen_hook() :=
   end
 
 test missing_local_type() :=
-  assert raises Located(None, Pos(2, 3), MissingType(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 9), MissingType(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/missing-local-type.u", List("test missing_local_type() :=", "  local x", "  assert true"))
   end
 
+// a local of a proof without a value has its type, reported at the local
+test missing_proof_local_type() :=
+  assert raises Located(None, Pos(3, 9), MissingType(Name(None, "a"))) do
+    call check_text(in "ulang/test/errors/missing-proof-local-type.u", List(
+      "lemma l(in n: Int) :=",
+      "  ensures n == n",
+      "  local a, b: Int",
+      "  assert n == n"))
+  end
+
 test missing_output_type() :=
-  assert raises Located(None, Pos(1, 1), MissingType(Name(None, "x"))) do
+  assert raises Located(None, Pos(1, 17), MissingType(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/missing-output-type.u", List("procedure p(out x) :=", "  skip"))
   end
 
 test missing_parameter_type() :=
-  assert raises Located(None, Pos(1, 1), MissingType(Name(None, "x"))) do
+  assert raises Located(None, Pos(1, 12), MissingType(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/missing-parameter-type.u", List("function f(x): Int :=", "  x"))
   end
 
@@ -560,7 +570,7 @@ test too_many_arguments() :=
   end
 
 test unit() :=
-  assert raises Located(None, Pos(1, 1), UnknownSort(Name(None, "Unit"))) do
+  assert raises Located(None, Pos(1, 12), UnknownSort(Name(None, "Unit"))) do
     call check_text(in "ulang/test/errors/unit.u", List("function f(u: Unit): Int :=", "  0"))
   end
 
@@ -786,7 +796,7 @@ test checked_despite_parse_errors() :=
     "      s * s",
     "  end"), out parsing, errors)
   assert List(for e in parsing yield e.pos) == List(Pos(1, 13), Pos(12, 3))
-  assert List(for e in errors yield error_pos(e)) == List(Pos(14, 1), Pos(5, 7), Pos(8, 3), Pos(16, 10))
+  assert List(for e in errors yield error_pos(e)) == List(Pos(14, 15), Pos(5, 7), Pos(8, 3), Pos(16, 10))
   assert List(for e in errors yield is_unparsed_use(e)) == List(true, false, true, true)
 
 // a definition whose part after := does not parse keeps its signature, so that its uses are checked, while it is not
@@ -1025,6 +1035,20 @@ test proof_out_one_branch() :=
       "    assign y := 0",
       "  end"))
   end
+
+// a call that no declaration fits has the type TError, so that the access of a field on it makes no follow-up
+test no_follow_ups() :=
+  local q: Prog
+  call checked_text(in "ulang/test/errors/no-follow-ups.u", List(
+    "data P :=",
+    "  case P(x: Int)",
+    "",
+    "function f(n: Int): Int :=",
+    "  size(n, n, n).x",
+    "",
+    "function g(n: Int): Int :=",
+    "  size(n).x"), out q)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("WrongArity", Pos(5, 3)), ("NoOverload", Pos(8, 3)))
 
 // the errors of the translation of a form stand on the part of the form, which the diagnostics of the checked program read
 test errors_of_forms() :=

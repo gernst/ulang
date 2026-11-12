@@ -128,3 +128,18 @@ test uncaught_shown() :=
       "test shown() :=",
       "  raise Fine(Money(1))"))
   end
+
+// a run of a program with errors runs what they do not touch, here the first test, and raises Deferred where it reaches a
+// part that checking rejected, the call of the second test, or a definition that it rejected
+test deferred_errors() :=
+  assert raises Deferred("the type error at 2.7, expected Int but found Bool in argument 2 of the call") do
+    call run_text_despite_errors(in "ulang/test/errors/deferred-errors.u", List(
+      "function broken(n: Int): Int :=",
+      "  n + true",
+      "",
+      "test good() :=",
+      "  assert 1 + 1 == 2",
+      "",
+      "test bad() :=",
+      "  assert broken(1) == 2"))
+  end

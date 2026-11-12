@@ -654,6 +654,9 @@ function zonk_var(s: State, x: Var): Var :=
 function zonk_vars(s: State, xs: List[Var]): List[Var] :=
   List(for x in xs yield zonk_var(s, x))
 
+function zonk_decls(s: State, xs: List[At[Var]]): List[At[Var]] :=
+  List(for x in xs yield map_at(x, lambda v => zonk_var(s, v)))
+
 function zonk_expr(s: State, expr: At[Expr]): At[Expr] :=
   map_at(expr, lambda e => zonk_node(s, e))
 
@@ -678,7 +681,7 @@ function zonk_node(s: State, expr: Expr): Expr :=
       ELam(List(for p in formals yield zonk_pat(s, p)), zonk_expr(s, body))
 
     case EProc(ins, outs, refs, raised, stmt) =>
-      EProc(zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), zonk_type(s.sub, raised), zonk_stmt(s, stmt))
+      EProc(zonk_decls(s, ins), zonk_decls(s, outs), zonk_decls(s, refs), zonk_type(s.sub, raised), zonk_stmt(s, stmt))
 
     case ELet(bindings, body) =>
       ELet(List(for (p, e) in bindings yield (zonk_pat(s, p), zonk_expr(s, e))), zonk_expr(s, body))
@@ -738,7 +741,7 @@ function zonk_statement(s: State, stmt: Stmt): Stmt :=
       SAssign(List(for p in upd yield zonk_binding(s, p)))
 
     case SBlock(locals, stmts) =>
-      SBlock(zonk_vars(s, locals), List(for d in stmts yield Doc(d.doc, zonk_stmt(s, d.at))))
+      SBlock(zonk_decls(s, locals), List(for d in stmts yield Doc(d.doc, zonk_stmt(s, d.at))))
 
     case SIf(cond, left, right) =>
       SIf(zonk_expr(s, cond), zonk_stmt(s, left), zonk_stmt(s, right))
@@ -774,7 +777,7 @@ function zonk_proof(s: State, proof: Proof): Proof :=
 function zonk_step(s: State, step: Step): Step :=
   match step
     case StepLocal(x, value) =>
-      StepLocal(zonk_var(s, x), map_option(value, lambda e => zonk_expr(s, e)))
+      StepLocal(map_at(x, lambda v => zonk_var(s, v)), map_option(value, lambda e => zonk_expr(s, e)))
 
     case StepCall(name, ins, outs) =>
       StepCall(name, List(for e in ins yield zonk_expr(s, e)), zonk_vars(s, outs))
@@ -822,16 +825,16 @@ function zonk_handler(s: State, h: Catch): Catch :=
 function zonk_cmd(s: State, cmd: Cmd): Cmd :=
   match cmd
     case CFun(name, params, formals, typ, _, body) =>
-      CFun(name, params, zonk_vars(s, formals), zonk_type(s.sub, typ), no_spec(), zonk_expr(s, body))
+      CFun(name, params, zonk_decls(s, formals), zonk_type(s.sub, typ), no_spec(), zonk_expr(s, body))
 
     case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
-      CProc(name, params, zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), raised, zonk_contract(s, spec), zonk_stmt(s, stmt))
+      CProc(name, params, zonk_decls(s, ins), zonk_decls(s, outs), zonk_decls(s, refs), raised, zonk_contract(s, spec), zonk_stmt(s, stmt))
 
     case CTest(name, vars, stmt) =>
       CTest(name, vars, zonk_stmt(s, stmt))
 
     case CLemma(name, params, ins, outs, claim, proof) =>
-      CLemma(name, params, zonk_vars(s, ins), zonk_vars(s, outs), zonk_claim(s, claim), map_option(proof, lambda p => zonk_proof(s, p)))
+      CLemma(name, params, zonk_decls(s, ins), zonk_decls(s, outs), zonk_claim(s, claim), map_option(proof, lambda p => zonk_proof(s, p)))
 
     case _ =>
       cmd
@@ -1464,31 +1467,63 @@ procedure knowns(
     call known(in t, what, out u, ref r)
   end, out us, ref s)
 
-// the variables of a lambda, a let, or locals, which are what, e.g. formals
-procedure formals(in what: Str, xs: List[Var], out ys: List[Var], ref s: State) :=
-  call unique(in what, List(for x in xs yield x.name), ref s)
-  call normalize_vars(in xs, out ys, ref s)
-
-procedure normalize_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
+// the declared variables of a lambda or locals, which are what, e.g. formals, each with the errors of its type at it
+procedure formals(
+  in  what: Str,
+      xs: List[At[Var]],
+  out ys: List[Var],
+  ref s: State
+) :=
+  call unique_decls(in what, xs, ref s)
   call map_state(in xs, normalize_var, out ys, ref s)
 
-procedure normalize_var(in x: Var, out y: Var, ref s: State) :=
-  local u: Type
-  call   normalize(in x.typ, out u, ref s)
-  assign y := Var(x.name, u)
+procedure normalize_var(in x: At[Var], out y: Var, ref s: State) :=
+  local u: Type, outer := s.at
+  assign s := s with at := decl_pos(outer, x.pos)
+  call   normalize(in x.that.typ, out u, ref s)
+  assign y := Var(x.that.name, u), s := s with at := outer
 
-// the parameters and locals, which have types
-procedure signature(in xs: List[Var], out ys: List[Var], ref s: State) :=
-  call unique(in "formal", List(for x in xs yield x.name), ref s)
-  call known_vars(in xs, out ys, ref s)
-
-procedure known_vars(in xs: List[Var], out ys: List[Var], ref s: State) :=
+// the parameters and locals, which have types, each with the errors of its type at it
+procedure signature(in xs: List[At[Var]], out ys: List[Var], ref s: State) :=
+  call unique_decls(in "formal", xs, ref s)
   call map_state(in xs, known_var, out ys, ref s)
 
-procedure known_var(in x: Var, out y: Var, ref s: State) :=
-  local u: Type
-  call   known(in x.typ, x.name, out u, ref s)
-  assign y := Var(x.name, u)
+procedure known_var(in x: At[Var], out y: Var, ref s: State) :=
+  local u: Type, outer := s.at
+  assign s := s with at := decl_pos(outer, x.pos)
+  call   known(in x.that.typ, x.that.name, out u, ref s)
+  assign y := Var(x.that.name, u), s := s with at := outer
+
+// the declarations decls with the types of xs, which are their variables as checked
+function retyped(decls: List[At[Var]], xs: List[Var]): List[At[Var]] :=
+  List(for (d, x) in zip(decls, xs) yield map_at(d, lambda _ => x))
+
+// the position of a declaration, or else of what declares it, outer, if the parser did not read it
+function decl_pos(outer: Pos, pos: Pos): Pos :=
+  if pos == Pos(0, 0) then outer else pos
+
+// the declarations xs, which must have distinct names, of what they are, e.g. formals, where a repeated one is reported
+// at its second declaration
+procedure unique_decls(in what: Str, xs: List[At[Var]], ref s: State) :=
+  match repeated_decl(xs, empty())
+    case Some(x) =>
+      call report(in at_use(decl_pos(s.at, x.pos), Duplicate(what, x.that.name.base)), ref s)
+    case None =>
+      skip
+  end
+
+// the first of xs whose name is declared before it, in seen or in xs
+function repeated_decl(xs: List[At[Var]], seen: Set[Name]): Option[At[Var]] :=
+  match xs
+    case List() =>
+      None
+
+    case List(x; rest) =>
+      if contains(x.that.name, seen) then
+        Some(x)
+      else
+        repeated_decl(rest, Set(x.that.name; seen))
+  end
 
 // a use of n elaborated with an instance of sc, where w is normalized
 procedure use(in n: Name, w: Type, sc: Scheme, out x: Var, ref s: State) :=
@@ -1524,6 +1559,15 @@ procedure use_name(
       assign x := Var(m, w)
   end
 
+// the result of the type w of a function, if it is one, is TError
+procedure unify_result(in w: Type, ref s: State) :=
+  match zonk_type(s.sub, w)
+    case TFun(_, r) =>
+      call unify(in r, TError, ref s)
+    case _ =>
+      call unify(in w, TError, ref s)
+  end
+
 // the one of the candidates cs that fits w, or a placeholder for the use if several fit, which stays open
 procedure choose(
   in  n: Name,
@@ -1535,8 +1579,10 @@ procedure choose(
   local ok: List[(Name * Scheme) * State]
   call trials(in cs, w, s, out ok)
   match ok
+    // a use that no candidate fits has the result TError, so that what uses it makes no follow-ups
     case List() =>
       call   report(in NoOverload(n, zonk_type(s.sub, w)), ref s)
+      call   unify_result(in w, ref s)
       assign m := n
 
     case List(((m_, _), s_)) =>
@@ -1716,7 +1762,7 @@ procedure infer_node(
     // the body sees the variables around it, but assigns only the outs and refs of the lambda
     case EProc(ins, outs, refs, _, stmt) =>
       local xs: List[Var], ys: List[Var], zs: List[Var], r: Type, y: At[Stmt], inner: Env
-      call   unique(in "formal", List(for x in ins ++ outs ++ refs yield x.name), ref s)
+      call   unique_decls(in "formal", ins ++ outs ++ refs, ref s)
       call   formals(in "formal", ins, out xs, ref s)
       call   formals(in "formal", outs, out ys, ref s)
       call   formals(in "formal", refs, out zs, ref s)
@@ -1725,14 +1771,14 @@ procedure infer_node(
       call   statement(in List(for x in ys ++ zs yield x.name), stmt, out y, ref inner, s)
       call   outputs(in unqualified("lambda"), ys, inner, ref s)
       call   fresh(out r, ref s)
-      assign res := EProc(xs, ys, zs, r, y), typ := TProc(List(for x in xs yield x.typ), List(for x in ys yield x.typ), List(for x in zs yield x.typ), r)
+      assign res := EProc(retyped(ins, xs), retyped(outs, ys), retyped(refs, zs), r, y), typ := TProc(List(for x in xs yield x.typ), List(for x in ys yield x.typ), List(for x in zs yield x.typ), r)
 
     // lets do not generalize, only declarations have type parameters
     case ELet(bound, body) =>
       match variables_of(s, firsts(bound))
-        case Some(vars) =>
+        case Some(bound_vars) =>
           local xs: List[Var], b: At[Expr], u: Type, exprs: List[At[Expr]]
-          call   formals(in "binding", vars, out xs, ref s)
+          call   formals(in "binding", bound_vars, out xs, ref s)
           call   unhidden(in env, xs, ref s)
           call   checks(in env, "the bindings", seconds(bound), List(for x in xs yield x.typ), out exprs, ref s)
           call   infer_body(in bind(xs) ++ env, body, expected, out b, u, ref s)
@@ -2226,11 +2272,15 @@ function is_pvar(s: State, p: At[Pat]): Bool :=
   end
 
 // the variables of patterns that are all variables
-function variables_of(s: State, pats: List[At[Pat]]): Option[List[Var]] :=
-  if forall(pats, lambda p => is_pvar(s, p)) then pattern_vars(pats) else None
+function variables_of(s: State, pats: List[At[Pat]]): Option[List[At[Var]]] :=
+  if forall(pats, lambda p => is_pvar(s, p)) then
+    map_option(pattern_vars(pats), lambda xs => List(for (p, x) in zip(pats, xs) yield AOk(p.pos, x)))
+  else
+    None
 
 // overloaded names are resolved by their number of arguments and the types of the arguments and the result,
-// where the arguments are inferred first
+// where the arguments are inferred first, and a call that no candidate fits by its arity has the type TError, so that its
+// uses make no follow-ups
 procedure application(
   in  env: Env,
       fun: At[Expr],
@@ -2250,9 +2300,12 @@ procedure application(
         call normalize(in typ, out w, ref s)
         call unify(in w, TFun(ts, t), ref s)
         if with_arity(cs, size(args)) == List() then
-          call report(in WrongArity(name, size(args)), ref s)
+          call   report(in WrongArity(name, size(args)), ref s)
+          call   unify(in t, TError, ref s)
+          assign x := Var(name, TError)
+        else
+          call use_name(in name, with_arity(cs, size(args)), w, out x, ref s)
         end
-        call   use_name(in name, with_arity(cs, size(args)), w, out x, ref s)
         call   infers_lambdas(in env, args, ts, ref typed_args, s)
         assign typed_expr := EApp(fun with that := EVar(x), typed_args)
       else
@@ -2964,7 +3017,7 @@ procedure statement_node(
       call   unhidden(in env, ys, ref s)
       assign inner := unassigned(ys) ++ env
       call   statements(in List(for x in ys yield x.name) ++ assignable, stmts_of(stmts), out xs, ref inner, s)
-      assign y := SBlock(ys, List(for (d, x) in zip(stmts, xs) yield Doc(d.doc, x))), env := drop(size(ys), inner)
+      assign y := SBlock(retyped(locals, ys), List(for (d, x) in zip(stmts, xs) yield Doc(d.doc, x))), env := drop(size(ys), inner)
 
     case SIf(cond, left, right) =>
       local c: At[Expr], l: At[Stmt], r: At[Stmt], other: Env
@@ -3125,14 +3178,14 @@ function initialized(xs: List[At[Stmt]]): List[Name] :=
   end
 
 // the locals without a type are initialized
-procedure untyped(in xs: List[Var], inits: List[Name], ref s: State) :=
+procedure untyped(in xs: List[At[Var]], inits: List[Name], ref s: State) :=
   match xs
     case List() =>
       skip
 
-    case List(Var(name, typ); rest) =>
-      if has_holes(typ) and not contains(name, inits) then
-        call report(in MissingType(name), ref s)
+    case List(x; rest) =>
+      if has_holes(x.that.typ) and not contains(x.that.name, inits) then
+        call report(in at_use(decl_pos(s.at, x.pos), MissingType(x.that.name)), ref s)
       end
       call untyped(in rest, inits, ref s)
   end
@@ -3458,7 +3511,6 @@ procedure declare_funs(in cs: List[Id * Cmd], ref s: State) :=
         assign s := enter(s, m)
         call   overload(in s.sig, name, size(formals))
         call   unique_ids(in "type parameter", ps, ref s)
-        call   unique(in "formal", List(for x in formals yield x.name), ref s)
         call   signature(in formals, out xs, ref s)
         call   known(in typ, name, out r, ref s)
         call   closed(in name, ps, List(TFun(List(for x in xs yield x.typ), r)), ref s)
@@ -3541,26 +3593,24 @@ procedure proof_step(
   match step
     case StepLocal(x, Some(e)) =>
       local c: At[Expr], y: Var, t: Type
-      if x.typ == THole then
+      if x.that.typ == THole then
         call   infer(in env, e, out c, t, ref s)
-        assign y := Var(x.name, t)
+        assign y := Var(x.that.name, t)
       else
         local ys: List[Var]
         call   formals(in "local", List(x), out ys, ref s)
         assign y := at(0, from_list(ys))
-        call   check(in env, e, y.typ, "the local " ++ x.name.base, out c, ref s)
+        call   check(in env, e, y.typ, "the local " ++ x.that.name.base, out c, ref s)
       end
       call   unhidden(in env, List(y), ref s)
-      assign env := bind(List(y)) ++ env, typed_step := StepLocal(y, Some(c))
+      assign env := bind(List(y)) ++ env, typed_step := StepLocal(map_at(x, lambda _ => y), Some(c))
 
     case StepLocal(x, None) =>
       local ys: List[Var]
-      if x.typ == THole then
-        call report(in MissingType(x.name), ref s)
-      end
+      call   untyped(in List(x), List(), ref s)
       call   formals(in "local", List(x), out ys, ref s)
       call   unhidden(in env, ys, ref s)
-      assign env := List(for y in ys yield (y.name, Local(y.typ, false))) ++ env, typed_step := StepLocal(at(0, from_list(ys)), None)
+      assign env := List(for y in ys yield (y.name, Local(y.typ, false))) ++ env, typed_step := StepLocal(map_at(x, lambda _ => at(0, from_list(ys))), None)
 
     case StepCall(name, ins, outs) =>
       local qualified := in_module(s.module, name), typed_ins: List[At[Expr]] := ins, typed_outs: List[Var] := outs
@@ -3758,7 +3808,7 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
       call   signature(in formals, out xs, ref s)
       call   known(in typ, name, out r, ref s)
       call   check(in bind(xs), body, r, "the result of " ++ name.base, out b, ref s)
-      assign typed_cmd := CFun(name, params, xs, r, no_spec(), b)
+      assign typed_cmd := CFun(name, params, retyped(formals, xs), r, no_spec(), b)
 
     case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
       local is: List[Var], os: List[Var], rs: List[Var], typed_raised: List[Type], y: At[Stmt], env: Env, typed_spec: Spec
@@ -3770,7 +3820,7 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
       call   contract(in is, os, rs, spec, out typed_spec, ref s)
       call   statement(in List(for x in os ++ rs yield x.name), stmt, out y, ref env, s)
       call   outputs(in name, os, env, ref s)
-      assign typed_cmd := CProc(name, params, is, os, rs, typed_raised, typed_spec, y)
+      assign typed_cmd := CProc(name, params, retyped(ins, is), retyped(outs, os), retyped(refs, rs), typed_raised, typed_spec, y)
 
     case CTest(name, List(), stmt) =>
       local y: At[Stmt], env: Env := List()
@@ -3803,7 +3853,7 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
         case None =>
           skip
       end
-      assign typed_cmd := CLemma(name, params, xs, ys, ClaimHolds(checked, c), typed_proof)
+      assign typed_cmd := CLemma(name, params, retyped(ins, xs), retyped(outs, ys), ClaimHolds(checked, c), typed_proof)
 
     // the call of the claim assigns the outs of the lemma, and the invariants are over the scopes of the loops
     case CLemma(name, params, ins, outs, ClaimCorrect(proc, args, call_outs), proof) =>
@@ -3837,7 +3887,7 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
         case _ =>
           skip
       end
-      assign typed_cmd := CLemma(name, params, xs, ys, claim, typed_proof)
+      assign typed_cmd := CLemma(name, params, retyped(ins, xs), retyped(outs, ys), claim, typed_proof)
 
     case _ =>
       assign typed_cmd := cmd
@@ -4173,7 +4223,7 @@ procedure check_signatures(in ex: List[Pos * Cmd], im: List[Pos * Cmd]) :=
       call once(in name, List(for (p, e) in rest if signs_fun(e, name, size(formals)) yield p))
       match List(for (p, c) in im if defines_fun(c, name, size(formals)) yield (p, c))
         case List((p, CFun(_, params_, formals_, typ_, _, _))) =>
-          if params_ != params or formals_ != formals or typ_ != typ then
+          if params_ != params or vars(formals_) != vars(formals) or typ_ != typ then
             raise Located(None, p, SignatureMismatch(name))
           end
 
@@ -4186,7 +4236,7 @@ procedure check_signatures(in ex: List[Pos * Cmd], im: List[Pos * Cmd]) :=
       call once(in name, List(for (p, e) in rest if signs(e, name) yield p))
       match List(for (p, c) in im if defines_proc(c, name) yield (p, c))
         case List((p, CProc(_, params_, ins_, outs_, refs_, raised_, _, _))) =>
-          if params_ != params or ins_ != ins or outs_ != outs or refs_ != refs or raised_ != raised then
+          if params_ != params or vars(ins_) != vars(ins) or vars(outs_) != vars(outs) or vars(refs_) != vars(refs) or raised_ != raised then
             raise Located(None, p, SignatureMismatch(name))
           end
 
@@ -4288,10 +4338,10 @@ function own_name(m: Id, n: Name): Name :=
 function exposed(cmd: Cmd): Option[Name * List[Type]] :=
   match cmd
     case CFunSig(name, _, formals, typ, _) =>
-      Some((name, List(for x in formals yield x.typ) ++ List(typ)))
+      Some((name, List(for x in formals yield x.that.typ) ++ List(typ)))
 
     case CProcSig(name, _, ins, outs, refs, raised, _) =>
-      Some((name, List(for x in ins ++ outs ++ refs yield x.typ) ++ raised))
+      Some((name, List(for x in ins ++ outs ++ refs yield x.that.typ) ++ raised))
 
     case CData(name, _, constrs) =>
       Some((name, List(for k in parts(constrs) for field in k.fields yield field.typ)))
@@ -4300,7 +4350,7 @@ function exposed(cmd: Cmd): Option[Name * List[Type]] :=
       Some((name, List(typ)))
 
     case CPatAlias(name, _, formals, typ, _) =>
-      Some((name, List(for x in formals yield x.typ) ++ List(typ)))
+      Some((name, List(for x in formals yield x.that.typ) ++ List(typ)))
 
     // abstract types and notations, and definitions and tests, which enter_section of ulang/parse/parse.u keeps out of export
     // sections
@@ -4373,12 +4423,22 @@ procedure check_source(
       assign sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, errors := found, loose := found_loose
     catch
       case e =>
-        assign cmds := cmds ++ List(for d in mods for c in written_of(d.name, d.exported ++ d.implemented) yield c), errors := List(e), loose := List(e)
+        assign cmds := cmds ++ List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, unchecked(c))), errors := List(e), loose := List(e)
     end
   end
   assign errors := distinct(List(for e in errors yield in_main(source.main, e)))
   call   with_errors(in source.main, cmds ++ builtins_of(source), distinct(List(for e in loose yield in_main(source.main, e))), out placed)
   assign q := Prog(take(size(cmds), placed), drop(size(cmds), placed), source.main)
+
+// a command of a package whose check failed, as written, which is an error node without errors of its own, so that no run
+// takes it for checked code (rejected of ulang/syntax/syntax.u), while the error of the package stands on its command
+function unchecked(cmd: At[Cmd]): At[Cmd] :=
+  match cmd
+    case AOk(pos, that) =>
+      AErr(pos, that, List())
+    case _ =>
+      cmd
+  end
 
 // the commands of the builtin sections of source
 function builtins_of(source: Source): List[Id * At[Cmd]] :=
@@ -4803,7 +4863,7 @@ procedure lemma_tests(
         match (all_some(List(for typ in lemma_sig.formals yield enum_expr(t, abstract, lambda _ => enum_call("ints", List()), typ))), datatypes_needed(t, abstract, List(for typ in lemma_sig.formals for n in datatypes_in(typ) yield n), List()))
           case (Some(enums), Some(needed)) =>
             assign tests := tests ++ List(
-              (pos, (m, CTest(Name(Some(m), name.base ++ ".lemma"), List(), lemma_stmt(zip(formals, enums), assms, concl)))))
+              (pos, (m, CTest(Name(Some(m), name.base ++ ".lemma"), List(), lemma_stmt(zip(vars(formals), enums), assms, concl)))))
             for n in needed if not contains((m, n), enumerated) do
               assign funs := funs ++ List((pos, (m, enum_fun(t, abstract, n)))), enumerated := List((m, n); enumerated)
             end
@@ -4951,7 +5011,7 @@ function enum_fun(s: State, abstract: List[Name], n: Name): Cmd :=
   let field_enum := (lambda t => value_or(enum_expr(s, abstract, lambda p => generated_var(generated_name(p)), t), nowhere(ELit(LInt(0))))), below := generated_op("-", List(generated_var(d), nowhere(ELit(LInt(1))))) in
   let nullary := List(for (c, k) in constrs if k.fields == List() yield generated_var(c)), applied := List(for (c, k) in constrs if k.fields != List() yield (c, k.fields)), at_zero := generated_op("==", List(generated_var(d), nowhere(ELit(LInt(0))))) in
   let counts := List(for (_, fields) in applied yield product_expr(List(for t in fields yield enum_call("count_of", List(field_enum(t), below))))), values := List(for (c, fields) in applied yield constr_values(c, List(for t in fields yield field_enum(t)), below)) in
-  CFun(enum_fun_name(s.module, n), params, List(for p in params yield Var(generated_name(p), enum_type(TParam(p)))), enum_type(TSort(n, List(for p in params yield TParam(p)))), no_spec(), enum_call("Enumeration", List(
+  CFun(enum_fun_name(s.module, n), params, unplaced_vars(List(for p in params yield Var(generated_name(p), enum_type(TParam(p))))), enum_type(TSort(n, List(for p in params yield TParam(p)))), no_spec(), enum_call("Enumeration", List(
     generated_lambda(d, nowhere(EIte(at_zero, nowhere(ELit(LInt(size(nullary)))), foldl(counts, nowhere(ELit(LInt(size(nullary)))), lambda a, b => generated_op("+", List(a, b)))))),
     generated_lambda(d, nowhere(EIte(at_zero, generated_list(nullary), foldl(values, generated_list(nullary), lambda a, b => generated_op("++", List(a, b)))))))))
 
@@ -5291,11 +5351,11 @@ test coverage() :=
   local q: Prog
   assert raises NotExhaustive(PCons(AOk(_, PWild), AOk(_, PWild))) do
     call check_program(in with_lists(List(
-      CFun(unqualified("f"), List(), List(Var(unqualified("xs"), type_plain_list(TInt()))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(case_at(pat_var("Nil"), expr_int(0)))))))), out q)
+      CFun(unqualified("f"), List(), unplaced_vars(List(Var(unqualified("xs"), type_plain_list(TInt())))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(case_at(pat_var("Nil"), expr_int(0)))))))), out q)
   end
   assert raises Unreachable(PNil()) do
     call check_program(in with_lists(List(
-      CFun(unqualified("f"), List(), List(Var(unqualified("xs"), type_plain_list(TInt()))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(
+      CFun(unqualified("f"), List(), unplaced_vars(List(Var(unqualified("xs"), type_plain_list(TInt())))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(
         case_at(nowhere(PWild), expr_int(0)),
         case_at(pat_var("Nil"), expr_int(1)))))))), out q)
   end
@@ -5304,10 +5364,10 @@ test statements() :=
   local q: Prog
   assert raises NotAssignable(Name(None, "n")) do
     call check_program(in program_of(List(
-      CProc(unqualified("inc"), List(), List(), List(), List(Var(unqualified("k"), TInt())), List(), no_spec(), nowhere(block(List(), List(
+      CProc(unqualified("inc"), List(), List(), List(), unplaced_vars(List(Var(unqualified("k"), TInt()))), List(), no_spec(), nowhere(block(List(), List(
         nowhere(SAssign(List(
           (Var(unqualified("k"), THole), expr_app("+", List(expr_var("k"), expr_int(1))))))))))),
-      CProc(unqualified("p"), List(), List(Var(unqualified("n"), TInt())), List(), List(), List(), no_spec(), nowhere(block(List(), List(
+      CProc(unqualified("p"), List(), unplaced_vars(List(Var(unqualified("n"), TInt()))), List(), List(), List(), no_spec(), nowhere(block(List(), List(
         nowhere(SCall(unqualified("inc"), List(), List(), List(Var(unqualified("n"), THole)))))))))), out q)
   end
   assert raises UnknownException(TList(_)) do
@@ -5322,7 +5382,7 @@ function var_of(n: Id, t: Type): Var :=
   Var(unqualified(n), t)
 
 function fun_cmd(n: Id, xs: List[Var], r: Type, b: At[Expr]): Cmd :=
-  CFun(unqualified(n), List(), xs, r, no_spec(), b)
+  CFun(unqualified(n), List(), unplaced_vars(xs), r, no_spec(), b)
 
 function constr_at(n: Id, fields: List[Field]): Doc[Constr] :=
   Doc(None, nowhere(Constr(unqualified(n), fields)))
@@ -5338,14 +5398,14 @@ function bags(): List[Mod] :=
       CData(unqualified("Pt"), List(), List(constr_at("Pt", List(Field("x", TInt()))))),
       fun_cmd("size", List(var_of("b", tsort("Bag"))), TInt(), expr_int(1)),
       fun_cmd("compare", List(var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))), TInt(), expr_int(0)),
-      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Bag"))), List(), List(), no_spec(), nowhere(SAssign(List((var_of("b", THole), expr_app("Bag", List(expr_int(0)))))))))),
+      CProc(unqualified("fill"), List(), List(), unplaced_vars(List(var_of("b", tsort("Bag")))), List(), List(), no_spec(), nowhere(SAssign(List((var_of("b", THole), expr_app("Bag", List(expr_int(0)))))))))),
     sectioned("box", List(
       CData(unqualified("Box"), List(), List(
         constr_at("Box", List(Field("s", TStr()))),
         constr_at("Leaf", List(Field("s", TStr()))))),
       CData(unqualified("Qt"), List(), List(constr_at("Qt", List(Field("x", TStr()))))),
       fun_cmd("size", List(var_of("b", tsort("Box"))), TInt(), expr_int(2)),
-      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Box"))), List(), List(), no_spec(), nowhere(SAssign(List((var_of("b", THole), expr_app("Box", List(nowhere(ELit(LStr("")))))))))))))
+      CProc(unqualified("fill"), List(), List(), unplaced_vars(List(var_of("b", tsort("Box")))), List(), List(), no_spec(), nowhere(SAssign(List((var_of("b", THole), expr_app("Box", List(nowhere(ELit(LStr("")))))))))))))
 
 // the module of cmds with sections, as the parser gives it: the datatypes and the signatures of the definitions exported,
 // and the definitions implemented
@@ -5481,7 +5541,7 @@ test builtins() :=
     case _ =>
       assert false
   end
-  call body_of(in CFun(unqualified("h"), List("A"), List(var_of("x", TParam("A"))), TBool(), no_spec(), expr_app("==", List(expr_var("x"), expr_var("x")))), out b)
+  call body_of(in CFun(unqualified("h"), List("A"), unplaced_vars(List(var_of("x", TParam("A")))), TBool(), no_spec(), expr_app("==", List(expr_var("x"), expr_var("x")))), out b)
   match b
     case ECall(_, name, _, _) =>
       assert name == unqualified("==")

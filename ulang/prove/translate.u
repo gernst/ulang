@@ -88,7 +88,9 @@ function fun_name(cmd: Cmd): Option[Name] :=
 function definition(cmd: Cmd): Option[(Name * Int) * (List[Var] * Term)] :=
   match cmd
     case CFun(name, _, formals, _, _, body) =>
-      Some(((name, size(formals)), (formals, term_of(bind(formals, List()), body))))
+      let xs := vars(formals) in
+      Some(((name, size(xs)), (xs, term_of(bind(xs, List()), body))))
+
     case _ =>
       None
   end
@@ -148,12 +150,13 @@ function reachable(calls: Map[Name * Int, Set[Name * Int]], arities: Map[Name, L
 function lemma_of(m: Id, procs: Map[Name * Int, Cmd], contracts: Set[Name * Int], cmd: Cmd): Option[Lemma] :=
   match cmd
     case CLemma(name, _, formals, outs, ClaimHolds(assms, concl), proof) if name.module == Some(m) =>
-      let env := bind(formals, List()), all := bind(formals ++ outs, List()) in
+      let xs := vars(formals), ys := vars(outs) in
+      let env := bind(xs, List()), all := bind(xs ++ ys, List()) in
       let atoms := List(for a in assms yield Atom(term_of(env, a))), goal := Atom(term_of(all, concl)) in
-      Some(Lemma(name, Seq(formals, atoms, List(Concl(outs, List(goal)))), map_option(proof, lambda p => proof_term(formals, all, p, Pos(0, 0))), false))
+      Some(Lemma(name, Seq(xs, atoms, List(Concl(ys, List(goal)))), map_option(proof, lambda p => proof_term(xs, all, p, Pos(0, 0))), false))
 
     case CLemma(name, _, formals, outs, ClaimCorrect(proc, args, _), proof) if name.module == Some(m) =>
-      Some(claim_of(name, formals, outs, args, get((proc, size(args) + size(outs)), procs), contracts, value_or(proof, Proof(List(), None))))
+      Some(claim_of(name, vars(formals), vars(outs), args, get((proc, size(args) + size(outs)), procs), contracts, value_or(proof, Proof(List(), None))))
 
     case _ =>
       None
@@ -172,7 +175,8 @@ function proc_of(cmd: Cmd): Option[(Name * Int) * Cmd] :=
 // and its outs and the values of its refs after as outs, where its requires sees the refs before and its ensures after
 function contract_of(cmd: Cmd): Option[(Name * Int) * Lemma] :=
   match cmd
-    case CProc(name, _, ins, outs, refs, _, spec, _) if spec.pre != List() or spec.post != None =>
+    case CProc(name, _, in_decls, out_decls, ref_decls, _, spec, _) if spec.pre != List() or spec.post != None =>
+      let ins := vars(in_decls), outs := vars(out_decls), refs := vars(ref_decls) in
       let before := List(for r in refs yield Var(Name(None, "(before)" ++ r.name.base), r.typ)) in
       let pre := bind(ins ++ refs, List()), post := bind(ins ++ before ++ outs ++ refs, List()) in
       let atoms := List(for a in spec.pre yield Atom(term_of(pre, a))) in
@@ -210,7 +214,8 @@ function claim_of(name: Name, formals: List[Var], outs: List[Var], args: List[At
   let at_formals := List(for a in args yield term_of(env, a)), at_all := List(for a in args yield term_of(all, a)) in
   let results := List(for i in range(0, size(outs)) yield EBound(size(outs) - 1 - i)) in
   match proc
-    case Some(CProc(_, _, ins, proc_outs, _, _, spec, stmt)) =>
+    case Some(CProc(_, _, in_decls, out_decls, _, _, spec, stmt)) =>
+      let ins := vars(in_decls), proc_outs := vars(out_decls) in
       let atoms := List(for a in spec.pre yield Atom(beta(at_formals, term_of(bind(ins, List()), a)))) in
       let concl := match spec.post
         case Some(e) =>
@@ -450,10 +455,10 @@ function steps_term(formals: List[Var], env: List[Name], steps: List[At[Step]], 
     case List(step; rest) =>
       match step.that
         case StepLocal(x, Some(value)) =>
-          steps_term(formals, List(x.name; env), rest, List(DefineTerm(x, term_of(env, value), step.pos); acc))
+          steps_term(formals, List(x.that.name; env), rest, List(DefineTerm(x.that, term_of(env, value), step.pos); acc))
 
         case StepLocal(x, None) =>
-          steps_term(formals, List(x.name; env), rest, List(WitnessTerm(x, step.pos); acc))
+          steps_term(formals, List(x.that.name; env), rest, List(WitnessTerm(x.that, step.pos); acc))
 
         case StepCall(name, ins, outs) =>
           let witnesses := List(for y in outs yield value_or(index_of(y.name, env), 0)) in

@@ -55,6 +55,13 @@ procedure run_text(
       lines: List[Str]
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError, Thrown, RuntimeError
 
+// the tests of the case despite its errors of types, as test runs a unit with errors, where a test that reaches a part or
+// a definition that checking rejected raises Deferred
+procedure run_text_despite_errors(
+  in  path: Str,
+      lines: List[Str]
+) raises ParseError, InternalError, OsError, Thrown, RuntimeError
+
 // load_text, then the lemmas of the case
 procedure prove_text(
   in  path: Str,
@@ -150,6 +157,14 @@ procedure run_text(
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError, Thrown, RuntimeError :=
   local main: Id, q: Prog
   call load_text(in path, lines, out main, q)
+  call run_program(in q)
+
+procedure run_text_despite_errors(
+  in  path: Str,
+      lines: List[Str]
+) raises ParseError, InternalError, OsError, Thrown, RuntimeError :=
+  local q: Prog
+  call checked_text(in path, lines, out q)
   call run_program(in q)
 
 procedure prove_text(
