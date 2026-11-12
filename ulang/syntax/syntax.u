@@ -190,20 +190,21 @@ data Cmd :=
   case CSort(name: Name, params: List[Id], typ: Type)
   // data T[A, …] := case C(f: A, …) case D, one case per line
   case CData(name: Name, params: List[Id], constrs: List[Doc[Constr]])
-  // function f[A, …](x: A, …): T := body
-  case CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, body: At[Expr])
-  // procedure p[A, …](in x: A, …, out y: B, …, ref z: C, …) := body, where in is optional before the first ins
+  // function f[A, …](x: A, …): T := spec body, where spec is the lines after :=, see Spec
+  case CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, spec: Spec, body: At[Expr])
+  // procedure p[A, …](in x: A, …, out y: B, …, ref z: C, …) := spec body, where in is optional before the first ins
   // raises T, … after the formals, where none written is none raised if it is exported, and else inferred
-  case CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], stmt: At[Stmt])
+  case CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], spec: Spec, stmt: At[Stmt])
   // a notation, e.g. infix left 9 + -, see Fixity
   case CNotation(fixity: Fixity, prec: Int, ops: List[Id])
   // tests take no parameters, which the checker enforces
   case CTest(name: Name, vars: List[Var], stmt: At[Stmt])
   // the export section of a module, with the signatures of functions and procedures, as CFun and CProc without their
   // bodies, and abstract types, which its implementation section defines by data, and its builtin section, with the
-  // signatures of exported functions and procedures that the interpreter and the runtime define
-  case CFunSig(name: Name, params: List[Id], formals: List[Var], typ: Type)
-  case CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type])
+  // signatures of exported functions and procedures that the interpreter and the runtime define; a spec follows := after
+  // the head, which a signature without one has not
+  case CFunSig(name: Name, params: List[Id], formals: List[Var], typ: Type, spec: Spec)
+  case CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], spec: Spec)
   // an abstract type T[A, …], without a definition
   case CAbstract(name: Name, params: List[Id])
   // a pattern alias pattern C[A, …](x: A, …): T := pat, whose variables are the formals, each once, which the checker
@@ -212,9 +213,13 @@ data Cmd :=
   // lemma l[A, …](x: A, …) := requires a, … ensures b, which states b for all formals that satisfy the assumptions a, …,
   // see prove.md, and which the prover proves, while the interpreter and the compiler skip it
   case CLemma(name: Name, params: List[Id], formals: List[Var], assms: List[At[Expr]], concl: At[Expr])
-  // an example of the function or procedure owner, a line example … below its head, after it in the section, which the
-  // checker translates into a test, and format prints between the head and := of a definition
-  case CExample(owner: Name, claim: Example)
+
+// the specification of a function or procedure, lines after := of its head and before its body, where the contracts of
+// prove.md, requires and ensures, will join the examples; on the first occurrence of a signature, the export of an
+// exported one, and empty on its definition
+data Spec :=
+  // the examples, each at its keyword, which the checker translates into tests
+  case Spec(examples: List[At[Example]])
 
 // an example of a function or procedure
 data Example :=
@@ -271,6 +276,9 @@ function arity(t: Type): Int
 
 // x at the position Pos(0, 0), of code that the parser did not read, e.g. of tests
 function nowhere[A](x: A): At[A]
+
+// the spec of a head without :=, and of the checked program, whose examples are tests
+function no_spec(): Spec
 
 // the part of x mapped by f, at the position of x
 function map_at[A, B](x: At[A], f: A -> B): At[B]
@@ -398,6 +406,9 @@ function arity(t: Type): Int :=
     case _ =>
       -1
   end
+
+function no_spec(): Spec :=
+  Spec(List())
 
 function nowhere[A](x: A): At[A] :=
   AOk(Pos(0, 0), x)
@@ -664,11 +675,11 @@ function form_name(form: Form): Id :=
 
 function strip_cmd(cmd: Cmd): Cmd :=
   match cmd
-    case CFun(name, params, formals, typ, body) =>
-      CFun(name, params, formals, typ, strip_expr(body))
+    case CFun(name, params, formals, typ, spec, body) =>
+      CFun(name, params, formals, typ, strip_spec(spec), strip_expr(body))
 
-    case CProc(name, params, ins, outs, refs, raised, stmt) =>
-      CProc(name, params, ins, outs, refs, raised, strip_stmt(stmt))
+    case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
+      CProc(name, params, ins, outs, refs, raised, strip_spec(spec), strip_stmt(stmt))
 
     case CTest(name, vars, stmt) =>
       CTest(name, vars, strip_stmt(stmt))
@@ -682,24 +693,24 @@ function strip_cmd(cmd: Cmd): Cmd :=
     case CData(name, params, constrs) =>
       CData(name, params, List(for c in constrs yield Doc(c.doc, stripped(c.at, lambda x => x))))
 
-    case CExample(owner, claim) =>
-      CExample(owner, strip_example(claim))
-
     case CSort(_, _, _) =>
       cmd
 
     case CNotation(_, _, _) =>
       cmd
 
-    case CFunSig(_, _, _, _) =>
-      cmd
+    case CFunSig(name, params, formals, typ, spec) =>
+      CFunSig(name, params, formals, typ, strip_spec(spec))
 
-    case CProcSig(_, _, _, _, _, _) =>
-      cmd
+    case CProcSig(name, params, ins, outs, refs, raised, spec) =>
+      CProcSig(name, params, ins, outs, refs, raised, strip_spec(spec))
 
     case CAbstract(_, _) =>
       cmd
   end
+
+function strip_spec(spec: Spec): Spec :=
+  Spec(List(for x in spec.examples yield stripped(x, strip_example)))
 
 function strip_example(x: Example): Example :=
   match x

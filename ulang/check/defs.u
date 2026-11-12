@@ -74,7 +74,7 @@ procedure require_entry(in q: Prog, n: Name) raises EntryError :=
 // a procedure without parameters
 function is_entry(cmd: Cmd, n: Name): Bool :=
   match cmd
-    case CProc(name, _, List(), List(), List(), _, _) =>
+    case CProc(name, _, List(), List(), List(), _, _, _) =>
       name == n
     case _ =>
       false
@@ -109,7 +109,7 @@ function fun_defs(cmds: List[Cmd]): List[(Name * Int) * FunDef] :=
     case List() =>
       List()
 
-    case List(CFun(name, _, formals, _, body); rest) =>
+    case List(CFun(name, _, formals, _, _, body); rest) =>
       List(((name, size(formals)), FunDef(formals, body)); fun_defs(rest))
 
     case List(_; rest) =>
@@ -121,7 +121,7 @@ function proc_defs(cmds: List[Cmd]): List[Name * ProcDef] :=
     case List() =>
       List()
 
-    case List(CProc(name, _, ins, outs, refs, _, stmt); rest) =>
+    case List(CProc(name, _, ins, outs, refs, _, _, stmt); rest) =>
       List((name, ProcDef(ins, outs, refs, stmt)); proc_defs(rest))
 
     case List(_; rest) =>
@@ -235,7 +235,7 @@ function hook_of(f: Id, k: Int): Option[Hook] :=
 // values of T, also in generic code, where the builtins compare structurally and show the structure
 function order_of(cmd: Cmd): Option[Hook * Name] :=
   match cmd
-    case CFun(Name(Some(m), f), _, List(Var(_, TSort(Name(Some(k), b), args)); more), r, _) =>
+    case CFun(Name(Some(m), f), _, List(Var(_, TSort(Name(Some(k), b), args)); more), r, _, _) =>
       let typ := TSort(Name(Some(k), b), args) in
       match hook_of(f, 1 + size(more))
         case Some(hook) =>
@@ -272,7 +272,7 @@ function ordered_by(cmds: List[Cmd], hook: Hook): List[Name * Name] :=
 
     case List(c; rest) =>
       match (c, order_of(c))
-        case (CFun(name, _, _, _, _), Some((h, t))) =>
+        case (CFun(name, _, _, _, _, _), Some((h, t))) =>
           if h == hook then
             List((t, name); ordered_by(rest, hook))
           else

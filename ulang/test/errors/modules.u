@@ -81,9 +81,8 @@ test example_on_definition() :=
       "",
       "implementation",
       "",
-      "function f(x: Int): Int",
+      "function f(x: Int): Int :=",
       "  example f(1) == 1",
-      ":=",
       "  x"))
   end
 
@@ -92,7 +91,7 @@ test example_private() :=
     call check_text(in "ulang/test/errors/example-private.u", List(
       "export",
       "",
-      "function f(x: Int): Int",
+      "function f(x: Int): Int :=",
       "  example f(g()) == 1",
       "",
       "implementation",

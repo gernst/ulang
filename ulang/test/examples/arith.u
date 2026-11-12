@@ -2,20 +2,20 @@
 
 export
 
-function divisor(a: Int, b: Int): Int
+function divisor(a: Int, b: Int): Int :=
   example divisor(12, 18) == 6
   example divisor(0, -5) == 5
   example divisor(7, 0) == 7
 
-function quotient(a: Int, b: Int): Int
+function quotient(a: Int, b: Int): Int :=
   example quotient(7, 2) == 3
   example quotient(1, 0) raises DivisionByZero
 
-procedure divmod(in a: Int, b: Int, out q: Int, r: Int)
+procedure divmod(in a: Int, b: Int, out q: Int, r: Int) :=
   example divmod(in 7, 2, out 3, 1)
   example divmod(in 7, 0, out _, _) raises DivisionByZero
 
-procedure push(in x: Int, ref xs: List[Int])
+procedure push(in x: Int, ref xs: List[Int]) :=
   example push(in 3, ref List(1) => List(3, 1))
 
 implementation
@@ -32,13 +32,22 @@ procedure divmod(in a: Int, b: Int, out q: Int, r: Int) :=
 procedure push(in x: Int, ref xs: List[Int]) :=
   assign xs := List(x; xs)
 
-function double(x: Int): Int
+function double(x: Int): Int :=
   example double(2) == 4
   example not double(1) == 3
-:=
   x + x
 
-procedure swap(ref a: Int, b: Int)
+procedure swap(ref a: Int, b: Int) :=
   example swap(ref 1 => 2, 2 => 1)
-:=
   assign a := b, b := a
+
+// the body after the examples starts with -, which ends the example by its line
+function negated(x: Int): Int :=
+  example negated(2) == -2
+  -x
+
+// an example on two lines, whose second, the body of a let, is indented deeper than its keyword
+function halved(x: Int): Int :=
+  example (let y := 8 in
+    halved(y)) == 4
+  x / 2
