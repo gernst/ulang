@@ -24,8 +24,10 @@ data StepTerm :=
   case DefineTerm(var: Var, value: Term, pos: Pos)
   // local q: T, a witness
   case WitnessTerm(var: Var, pos: Pos)
-  // call l(a, …), the instance of the lemma l
-  case CallTerm(name: Name, args: List[Term], pos: Pos)
+  // call l(a, …, out q, …), the instance of the lemma l, with the witnesses as the indices of the locals q, …
+  case CallTerm(name: Name, args: List[Term], outs: List[Int], pos: Pos)
+  // assign q := e, the witness of the out q, by its index
+  case AssignTerm(witness: Int, value: Term, pos: Pos)
   // assert e
   case AssertTerm(cond: Term, pos: Pos)
   // a part of a proof that the prover does not take yet, with what it is
@@ -129,10 +131,10 @@ function reachable(calls: Map[Name * Int, Set[Name * Int]], arities: Map[Name, L
 // the lemma of cmd if it belongs to module m, for all formals that satisfy its assumptions
 function lemma_of(m: Id, cmd: Cmd): Option[Lemma] :=
   match cmd
-    case CLemma(name, _, formals, _, assms, concl, proof) if name.module == Some(m) =>
-      let env := bind(formals, List()) in
-      let atoms := List(for a in assms yield Atom(term_of(env, a))), goal := Atom(term_of(env, concl)) in
-      Some(Lemma(name, Seq(formals, atoms, List(Concl(List(), List(goal)))), map_option(proof, lambda p => proof_term(formals, env, p, Pos(0, 0)))))
+    case CLemma(name, _, formals, outs, assms, concl, proof) if name.module == Some(m) =>
+      let env := bind(formals, List()), all := bind(formals ++ outs, List()) in
+      let atoms := List(for a in assms yield Atom(term_of(env, a))), goal := Atom(term_of(all, concl)) in
+      Some(Lemma(name, Seq(formals, atoms, List(Concl(outs, List(goal)))), map_option(proof, lambda p => proof_term(formals, all, p, Pos(0, 0)))))
 
     case _ =>
       None
@@ -169,16 +171,17 @@ function steps_term(formals: List[Var], env: List[Name], steps: List[At[Step]], 
         case StepLocal(x, None) =>
           steps_term(formals, List(x.name; env), rest, List(WitnessTerm(x, step.pos); acc))
 
-        case StepCall(name, ins, _) =>
+        case StepCall(name, ins, outs) =>
+          let witnesses := List(for y in outs yield value_or(index_of(y.name, env), 0)) in
           steps_term(formals, env, rest, List(
-            CallTerm(name, List(for a in ins yield term_of(env, a)), step.pos); acc))
+            CallTerm(name, List(for a in ins yield term_of(env, a)), witnesses, step.pos); acc))
 
         case StepAssert(cond) =>
           steps_term(formals, env, rest, List(AssertTerm(term_of(env, cond), step.pos); acc))
 
-        // the checker rejects assignments while lemmas have no outs
-        case StepAssign(_) =>
-          steps_term(formals, env, rest, List(UnsupportedTerm("an assignment of outs", step.pos); acc))
+        // the assignments in parallel, of distinct outs, each a term of its own
+        case StepAssign(upd) =>
+          steps_term(formals, env, rest, reverse(List(for (y, e) in upd yield AssignTerm(value_or(index_of(y.name, env), 0), term_of(env, e), step.pos))) ++ acc)
       end
   end
 

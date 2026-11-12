@@ -748,3 +748,11 @@ test proof_assign_formal() :=
   assert raises Located(None, Pos(3, 3), NotAssignable(Name(None, "n"))) do
     call check_text(in "ulang/test/errors/proof-assign-formal.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  assign n := 1"))
   end
+
+test proof_out_unassigned() :=
+  assert raises Located(None, Pos(1, 1), OutputUnassigned(Name(None, "y"), Name(Some("ulang/test/errors/proof-out-unassigned"), "a"))) do
+    call check_text(in "ulang/test/errors/proof-out-unassigned.u", List(
+      "lemma a(in x: Int, out y: Int) :=",
+      "  ensures y == x",
+      "  assert x == x"))
+  end

@@ -29,7 +29,7 @@ data PatAlias :=
 
 // a lemma over params with the types of its formals, which only proofs cite, so that it is no value
 data LemmaSig :=
-  case LemmaSig(params: List[Type], formals: List[Type])
+  case LemmaSig(params: List[Type], formals: List[Type], outs: List[Type])
 
 // named has the declarations of each base name, of any kind and module, but lemmas, which uses of names do not reach
 data Sig :=

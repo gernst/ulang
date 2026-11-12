@@ -27,16 +27,18 @@ data Walk :=
 data Around :=
   case Around(formal: Int, fields: List[Int])
 
+// the variables, the levels of the variables of the terms of the proof, the facts, the goal, the levels of the outs of
+// the lemma that are not assigned yet, which are existential in the goal, and the induction around the block
 data Scope :=
-  case Scope(vars: List[Var], env: List[Int], facts: List[Seq], goal: Term, around: Option[Around])
+  case Scope(vars: List[Var], env: List[Int], facts: List[Seq], goal: Term, outs: List[Int], around: Option[Around])
 
 function check_proof(decls: Decls, proven: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap] :=
   match target.goal
-    case Seq(formals, atoms, List(Concl(List(), List(Atom(concl))))) =>
-      let n := size(formals) in
-      let levels := List(for i in range(0, n) yield ELevel(i)) in
+    case Seq(formals, atoms, List(Concl(outs, List(Atom(concl))))) =>
+      let n := size(formals), m := size(outs) in
+      let levels := List(for i in range(0, n) yield ELevel(i)), all := List(for i in range(0, n + m) yield ELevel(i)) in
       let facts := List(for a in atoms for t in atom_term(a) yield Atom(beta(levels, t))) in
-      let scope := Scope(formals, reverse(range(0, n)), facts, beta(levels, concl), None) in
+      let scope := Scope(formals ++ outs, reverse(range(0, n + m)), facts, beta(all, concl), range(n, n + m), None) in
       block_gaps(Walk(decls, proven, target), scope, proof)
 
     // translate gives every lemma this shape
@@ -94,12 +96,13 @@ function step_gaps(w: Walk, scope: Scope, step: StepTerm): Scope * List[Gap] :=
       let c := opened(scope, cond) in
       (scope with facts := scope.facts ++ List(Atom(c)), closing(w, scope, c, pos))
 
-    case CallTerm(name, args, pos) =>
+    case CallTerm(name, args, outs, pos) =>
       let terms := List(for a in args yield opened(scope, a)) in
+      let witnesses := List(for i in outs yield ELevel(at(i, from_list(scope.env)))) in
       match called(w, scope, name, terms)
-        case Some(Seq(_, atoms, List(Concl(List(), List(Atom(concl)))))) =>
+        case Some(Seq(_, atoms, List(Concl(_, List(Atom(concl)))))) =>
           let required := List(for a in atoms for t in atom_term(a) for g in closing(w, scope, beta(terms, t), pos) yield g) in
-          (scope with facts := scope.facts ++ List(Atom(beta(terms, concl))), required)
+          (scope with facts := scope.facts ++ List(Atom(beta(terms ++ witnesses, concl))), required)
 
         case Some(_) =>
           (scope, List(Gap(pos, "a lemma of another shape")))
@@ -107,6 +110,10 @@ function step_gaps(w: Walk, scope: Scope, step: StepTerm): Scope * List[Gap] :=
         case None =>
           (scope, List(Gap(pos, call_gap(w, name))))
       end
+
+    case AssignTerm(witness, value, _) =>
+      let l := at(witness, from_list(scope.env)) in
+      (scope with facts := scope.facts ++ List(Atom(Eq(ELevel(l), opened(scope, value)))), outs := List(for o in scope.outs if o != l yield o), List())
 
     case UnsupportedTerm(what, pos) =>
       (scope, List(Gap(pos, what ++ " is not supported yet")))
@@ -147,10 +154,12 @@ function closing(w: Walk, scope: Scope, c: Term, pos: Pos): List[Gap] :=
   else
     List(Gap(pos, print_seq(alone)))
 
-// the goal c under the facts of the scope, closed over its variables
+// the goal c under the facts of the scope, closed over its variables, where the outs that are not assigned are existential
 function sequent(scope: Scope, c: Term): Seq :=
-  let op := Close(range(0, size(scope.vars))) in
-  Seq(scope.vars, List(for f in scope.facts yield rebind_seq(op, 0, f)), List(Concl(List(), List(Atom(rebind(op, 0, c))))))
+  let fixed := List(for l in range(0, size(scope.vars)) if not contains(l, scope.outs) yield l) in
+  let names := from_list(scope.vars) in
+  Seq(List(for l in fixed yield at(l, names)), List(for f in scope.facts yield rebind_seq(Close(fixed), 0, f)), List(
+    Concl(List(for l in scope.outs yield at(l, names)), List(Atom(rebind(Close(fixed ++ scope.outs), 0, c))))))
 
 function with_facts(goal: Seq, facts: List[Seq]): Seq :=
   match goal
@@ -250,13 +259,14 @@ function is_recursive_field(t: Name, field: Var): Bool :=
 // formals, whose levels from base on are bound again as the variables of the hypothesis
 function hypothesis(goal: Seq, base: Int, p: Int, y: Term): Seq :=
   match goal
-    case Seq(formals, atoms, List(Concl(List(), List(Atom(concl))))) =>
-      let n := size(formals) in
-      let levels := List(for i in range(0, n) yield ELevel(base + i)) in
+    case Seq(formals, atoms, List(Concl(outs, List(Atom(concl))))) =>
+      let n := size(formals), m := size(outs) in
+      let levels := List(for i in range(0, n + m) yield ELevel(base + i)) in
       let others := List(for i in range(0, n) if i != p yield base + i) in
-      let op := Close(others) in
-      let instance := lambda t => rebind(op, 0, replace(ELevel(base + p), y, beta(levels, t))) in
-      Seq(List(for (x, i) in zip(formals, range(0, n)) if i != p yield x), List(for a in atoms for t in atom_term(a) yield Atom(instance(t))), List(Concl(List(), List(Atom(instance(concl))))))
+      let instance := lambda t => replace(ELevel(base + p), y, beta(levels, t)) in
+      let assms := List(for a in atoms for t in atom_term(a) yield Atom(rebind(Close(others), 0, instance(t)))) in
+      let conclusion := rebind(Close(others ++ range(base + n, base + n + m)), 0, instance(concl)) in
+      Seq(List(for (x, i) in zip(formals, range(0, n)) if i != p yield x), assms, List(Concl(outs, List(Atom(conclusion)))))
 
     case _ =>
       goal

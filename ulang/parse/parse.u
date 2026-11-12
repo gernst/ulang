@@ -2215,9 +2215,6 @@ procedure parse_lemma(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
   if refs != List() then
     raise ParseError("a lemma has no ref formals, since it has no state", pos)
   end
-  if outs != List() then
-    raise ParseError("a lemma has no out formals yet", pos)
-  end
   call expect(in TKw(":="), ref toks)
   if head_token(toks) == TKw("requires") then
     local assm: At[Expr]

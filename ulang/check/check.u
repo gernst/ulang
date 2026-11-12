@@ -3170,6 +3170,7 @@ procedure declare_pat_aliases(in cs: List[Id * Cmd], ref s: State) :=
 // each adding its local to env, then the split, whose cases are proofs with the variables of their patterns
 procedure check_proof(
   in  formals: List[Var],
+      outs: List[Name],
       proof: Proof,
   out typed_proof: Proof,
   ref env: Env,
@@ -3179,14 +3180,14 @@ procedure check_proof(
   for step in proof.steps do
     local typed_step: Step, outer := s.at
     assign s := s with at := step.pos
-    call   proof_step(in step.that, out typed_step, ref env, s)
+    call   proof_step(in outs, step.that, out typed_step, ref env, s)
     assign steps := steps ++ List(AOk(step.pos, typed_step)), s := s with at := outer
   end
   match proof.split
     case Some(placed) =>
       local typed_split: Split, outer := s.at
       assign s := s with at := placed.pos
-      call   proof_split(in formals, placed.that, out typed_split, ref env, s)
+      call   proof_split(in formals, outs, placed.that, out typed_split, ref env, s)
       assign split := Some(AOk(placed.pos, typed_split)), s := s with at := outer
 
     case None =>
@@ -3195,9 +3196,10 @@ procedure check_proof(
   assign typed_proof := Proof(List(for step in steps), split)
 
 // a step, where a local with a value is a definition and one without a witness that an out of a call binds, a call is of
-// a lemma of the module, and an assignment of the outs of the lemma, which it has none of yet
+// a lemma of the module, and an assignment gives the witnesses of the outs of the lemma, each once
 procedure proof_step(
-  in  step: Step,
+  in  assignable: List[Name],
+      step: Step,
   out typed_step: Step,
   ref env: Env,
       s: State
@@ -3227,7 +3229,7 @@ procedure proof_step(
       assign env := List(for y in ys yield (y.name, Local(y.typ, false))) ++ env, typed_step := StepLocal(at(0, from_list(ys)), None)
 
     case StepCall(name, ins, outs) =>
-      local qualified := in_module(s.module, name), typed_ins: List[At[Expr]] := ins
+      local qualified := in_module(s.module, name), typed_ins: List[At[Expr]] := ins, typed_outs: List[Var] := outs
       match lemma_of(s.sig, qualified)
         case Some(lemma_sig) =>
           local m: List[Type * Type]
@@ -3237,14 +3239,18 @@ procedure proof_step(
           else
             call checks(in env, "lemma " ++ name.base, ins, List(for t in lemma_sig.formals yield subst(t, m)), out typed_ins, ref s)
           end
-          if outs != List() then
-            call report(in CountMismatch("lemma " ++ name.base, "outs", 0, size(outs)), ref s)
+          if size(outs) != size(lemma_sig.outs) then
+            call report(in CountMismatch("lemma " ++ name.base, "outs", size(lemma_sig.outs), size(outs)), ref s)
+          else
+            call   variables(in env, unbound(env), outs, out typed_outs, ref s)
+            call   unifies(in List(for y in typed_outs yield y.typ), List(for t in lemma_sig.outs yield subst(t, m)), ref s)
+            assign env := assigned(env, List(for y in outs yield y.name))
           end
 
         case None =>
           call report(in UnknownLemma(name), ref s)
       end
-      assign typed_step := StepCall(qualified, typed_ins, outs)
+      assign typed_step := StepCall(qualified, typed_ins, typed_outs)
 
     case StepAssert(cond) =>
       local c: At[Expr]
@@ -3252,15 +3258,21 @@ procedure proof_step(
       assign typed_step := StepAssert(c)
 
     case StepAssign(upd) =>
-      for (x, _) in upd do
-        call report(in NotAssignable(x.name), ref s)
-      end
-      assign typed_step := step
+      local ys: List[Var], exprs: List[At[Expr]]
+      call   unique(in "assignment to", List(for x in firsts(upd) yield x.name), ref s)
+      call   variables(in env, List(for o in assignable if contains(o, unbound(env)) yield o), firsts(upd), out ys, ref s)
+      call   checks(in env, "the assignment", seconds(upd), List(for y in ys yield y.typ), out exprs, ref s)
+      assign typed_step := StepAssign(zip(ys, exprs)), env := assigned(env, List(for y in ys yield y.name))
   end
+
+// the variables of env that are not assigned yet, the witnesses of a proof and the outs of its lemma
+function unbound(env: Env): List[Name] :=
+  List(for (n, l) in env if not l.assigned yield n)
 
 // a split of a proof, where induction is on a formal of a datatype of the lemma
 procedure proof_split(
   in  formals: List[Var],
+      outs: List[Name],
       split: Split,
   out typed_split: Split,
   ref env: Env,
@@ -3277,23 +3289,23 @@ procedure proof_split(
           call report(in NotInducible(x.name), ref s)
           call fresh(out t, ref s)
       end
-      call   proof_cases(in formals, cases, t, out typed_cases, ref env, s)
+      call   proof_cases(in formals, outs, cases, t, out typed_cases, ref env, s)
       assign typed_split := SplitInduction(Var(x.name, t), typed_cases)
 
     case SplitMatch(arg, cases) =>
       local c: At[Expr], t: Type, typed_cases: List[Doc[Branch[Proof]]]
       call   infer(in env, arg, out c, t, ref s)
-      call   proof_cases(in formals, cases, t, out typed_cases, ref env, s)
+      call   proof_cases(in formals, outs, cases, t, out typed_cases, ref env, s)
       assign typed_split := SplitMatch(c, typed_cases)
 
     case SplitIf(cond, left, right) =>
       local c: At[Expr], l: Proof, r: Option[Proof] := None, inner := env
       call check(in env, cond, TBool(), "the condition", out c, ref s)
-      call check_proof(in formals, left, out l, ref inner, s)
+      call check_proof(in formals, outs, left, out l, ref inner, s)
       match right
         case Some(p) =>
           local q: Proof, other := env
-          call   check_proof(in formals, p, out q, ref other, s)
+          call   check_proof(in formals, outs, p, out q, ref other, s)
           assign r := Some(q)
 
         case None =>
@@ -3314,6 +3326,7 @@ function is_datatype_type(s: State, t: Type): Bool :=
 // the cases of a split, each a proof with the variables of its pattern, from env, which they do not change
 procedure proof_cases(
   in  formals: List[Var],
+      outs: List[Name],
       cases: List[Doc[Branch[Proof]]],
       t: Type,
   out typed_cases: List[Doc[Branch[Proof]]],
@@ -3327,7 +3340,7 @@ procedure proof_cases(
     call   unhidden(in env, xs, ref s)
     assign inner := bind(xs) ++ env
     call   guard(in inner, placed.that.guard, out typed_guard, ref s)
-    call   check_proof(in formals, placed.that.body, out typed_body, ref inner, s)
+    call   check_proof(in formals, outs, placed.that.body, out typed_body, ref inner, s)
     assign found := found ++ List(Doc(doc, AOk(placed.pos, Branch(typed_pat, typed_guard, typed_body))))
   end
   assign typed_cases := List(for c in found)
@@ -3336,16 +3349,17 @@ procedure proof_cases(
 procedure declare_lemmas(in cs: List[Id * Cmd], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
-      case CLemma(name, ps, formals, _, _, _, _) =>
-        local xs: List[Var]
+      case CLemma(name, ps, formals, outs, _, _, _) =>
+        local xs: List[Var], ys: List[Var]
         assign s := enter(s, m)
         if lemma_of(s.sig, name) != None then
           raise AlreadyDefined(name)
         end
         call   unique_ids(in "type parameter", ps, ref s)
-        call   signature(in formals, out xs, ref s)
+        call   signature(in formals ++ outs, out xs, ref s)
         call   closed(in name, ps, List(for x in xs yield x.typ), ref s)
-        assign s := with_sig(s, with_lemma(s.sig, name, LemmaSig(params(ps), List(for x in xs yield x.typ))))
+        assign ys := drop(size(formals), xs), xs := take(size(formals), xs)
+        assign s := with_sig(s, with_lemma(s.sig, name, LemmaSig(params(ps), List(for x in xs yield x.typ), List(for y in ys yield y.typ))))
 
       case _ =>
         skip
@@ -3410,24 +3424,26 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
       assign typed_cmd := CData(name, params, List(for k in constrs yield map_doc(k, lambda c => resolved_fields(s.sig, c))))
 
     case CLemma(name, params, ins, outs, assms, concl, proof) =>
-      local xs: List[Var], checked: List[At[Expr]] := List(), c: At[Expr], typed_proof: Option[Proof] := None
+      local xs: List[Var], ys: List[Var], checked: List[At[Expr]] := List(), c: At[Expr], typed_proof: Option[Proof] := None
       call signature(in ins, out xs, ref s)
+      call signature(in outs, out ys, ref s)
       for a in assms do
         local b: At[Expr]
         call   check(in bind(xs), a, TBool(), "the assumption", out b, ref s)
         assign checked := checked ++ List(b)
       end
-      call check(in bind(xs), concl, TBool(), "the conclusion", out c, ref s)
+      call check(in bind(xs ++ ys), concl, TBool(), "the conclusion", out c, ref s)
       match proof
         case Some(p) =>
-          local env := bind(xs), q: Proof
-          call   check_proof(in xs, p, out q, ref env, s)
+          local env := bind(xs) ++ unassigned(ys), q: Proof
+          call   check_proof(in xs, List(for y in ys yield y.name), p, out q, ref env, s)
+          call   outputs(in name, ys, env, ref s)
           assign typed_proof := Some(q)
 
         case None =>
           skip
       end
-      assign typed_cmd := CLemma(name, params, xs, outs, checked, c, typed_proof)
+      assign typed_cmd := CLemma(name, params, xs, ys, checked, c, typed_proof)
 
     case _ =>
       assign typed_cmd := cmd
@@ -4158,7 +4174,7 @@ procedure lemma_tests(
   local enumerated: List[Id * Name] := List(), tests: Buffer[Pos * (Id * Cmd)] := empty(), funs: Buffer[Pos * (Id * Cmd)] := empty()
   for (pos, (m, cmd)) in placed do
     match (cmd, lemma_of(s.sig, lemma_name(cmd)))
-      case (CLemma(name, _, formals, _, assms, concl, _), Some(lemma_sig)) =>
+      case (CLemma(name, _, formals, List(), assms, concl, _), Some(lemma_sig)) =>
         local t := enter(s, m)
         match (all_some(List(for typ in lemma_sig.formals yield enum_expr(t, abstract, lambda _ => enum_call("ints", List()), typ))), datatypes_needed(t, abstract, List(for typ in lemma_sig.formals for n in datatypes_in(typ) yield n), List()))
           case (Some(enums), Some(needed)) =>

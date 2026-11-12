@@ -143,3 +143,12 @@ test proof_open_case() :=
       "  induction xs",
       "  end"))
   end
+
+// a witness for which the ensures does not hold
+test proof_false_witness() :=
+  assert raises OpenLemma("false_witness", "forall x => false at 3.3") do
+    call prove_text(in "ulang/test/errors/proof-false-witness.u", List(
+      "lemma false_witness(in x: Int, out y: Int) :=",
+      "  ensures y == x + 1",
+      "  assign y := x"))
+  end
