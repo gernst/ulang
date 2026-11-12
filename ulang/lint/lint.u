@@ -61,19 +61,19 @@ function cmd_lints(cmd: At[Cmd]): List[Warning] :=
 function placed_cmd_lints(pos: Pos, cmd: Cmd): List[Warning] :=
   match cmd
     case CFun(name, _, formals, typ, _, body) =>
-      decl_name_lints(pos, name.base, List(typ)) ++ vars_lints(pos, vars(formals)) ++ expr_lints(name.base, body)
+      decl_name_lints(pos, name.base, List(typ)) ++ vars_lints(pos, formals) ++ expr_lints(name.base, body)
 
     case CProc(name, _, ins, outs, refs, _, _, stmt) =>
-      decl_name_lints(pos, name.base, List(for x in outs yield x.that.typ)) ++ vars_lints(pos, vars(ins ++ outs ++ refs)) ++ stmt_lints("", stmt)
+      decl_name_lints(pos, name.base, List(for x in outs yield x.that.typ)) ++ vars_lints(pos, ins ++ outs ++ refs) ++ stmt_lints("", stmt)
 
     case CTest(_, _, stmt) =>
       stmt_lints("", stmt)
 
     case CLemma(_, _, ins, outs, assms, concl, _) =>
-      vars_lints(pos, vars(ins ++ outs)) ++ exprs_lints("", assms) ++ expr_lints("", concl)
+      vars_lints(pos, ins ++ outs) ++ exprs_lints("", assms) ++ expr_lints("", concl)
 
     case CPatAlias(name, _, formals, _, _) =>
-      decl_name_lints(pos, name.base, List()) ++ vars_lints(pos, vars(formals))
+      decl_name_lints(pos, name.base, List()) ++ vars_lints(pos, formals)
 
     case CSort(_, _, _) =>
       List()
@@ -206,7 +206,7 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
       exprs_lints(fun, List(for (_, e) in upd yield e))
 
     case SBlock(locals, stmts) =>
-      locals_lints(pos, vars(locals), stmts) ++ collecting_loops(stmts_of(stmts)) ++ stmts_lints(fun, stmts_of(stmts))
+      locals_lints(pos, locals, stmts) ++ collecting_loops(stmts_of(stmts)) ++ stmts_lints(fun, stmts_of(stmts))
 
     case SIf(cond, left, right) =>
       expr_lints(fun, cond) ++ stmts_lints(fun, List(left, right))
@@ -396,9 +396,10 @@ function is_skip(stmt: At[Stmt]): Bool :=
 
 // the warnings of the locals xs of a block at pos, whose statements are stmts, starting with the assignments of the locals
 // that have initial values
-function locals_lints(pos: Pos, xs: List[Var], stmts: List[Doc[Stmt]]): List[Warning] :=
-  let inits := initialized(xs, stmts) in
-  List(for x in xs for w in local_lints(pos, x.name.base, contains(x.name.base, inits), stmts_of(stmts)) yield w)
+// the warnings of the locals xs of a block at pos, each at its declaration
+function locals_lints(pos: Pos, xs: List[At[Var]], stmts: List[Doc[Stmt]]): List[Warning] :=
+  let inits := initialized(vars(xs), stmts) in
+  List(for x in xs for w in local_lints(decl_pos(pos, x.pos), x.that.name.base, contains(x.that.name.base, inits), stmts_of(stmts)) yield w)
 
 // the locals of xs that the assignments at the start of stmts initialize, as format_body prints them
 function initialized(xs: List[Var], stmts: List[Doc[Stmt]]): Set[Id] :=
@@ -678,8 +679,13 @@ function gen_pats(g: Gen): List[At[Pat]] :=
       List()
   end
 
-function vars_lints(pos: Pos, xs: List[Var]): List[Warning] :=
-  List(for x in xs for w in name_lints(pos, x.name.base) yield w)
+// the warnings of the names of the formals xs of a declaration at pos, each at the formal
+function vars_lints(pos: Pos, xs: List[At[Var]]): List[Warning] :=
+  List(for x in xs for w in name_lints(decl_pos(pos, x.pos), x.that.name.base) yield w)
+
+// the position of a declaration, or else of what declares it, outer, if the parser did not read it
+function decl_pos(outer: Pos, pos: Pos): Pos :=
+  if pos == Pos(0, 0) then outer else pos
 
 // the warnings of the name of a declaration whose results are of the types results, where show_ is a name only of what
 // gives no text, as show_ref of a hook

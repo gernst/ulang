@@ -2569,7 +2569,7 @@ procedure parse_proof(
     local decls: List[At[Var] * List[At[Stmt]]], at := head_pos(toks)
     call   advance(ref toks)
     call   parse_separated(in notation, params, parse_local, at_comma, out decls, ref toks)
-    assign steps := steps ++ List(for (x, inits) in decls yield AOk(at, StepLocal(x.that, initial_value(inits))))
+    assign steps := steps ++ List(for (x, inits) in decls yield AOk(at, StepLocal(x, initial_value(inits))))
   end
   while exists(List("call", "assert", "assign"), lambda kw => at_kw(toks, kw)) do
     local stmt: At[Stmt], step: Step

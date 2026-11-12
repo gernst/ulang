@@ -170,10 +170,10 @@ function steps_term(formals: List[Var], env: List[Name], steps: List[At[Step]], 
     case List(step; rest) =>
       match step.that
         case StepLocal(x, Some(value)) =>
-          steps_term(formals, List(x.name; env), rest, List(DefineTerm(x, term_of(env, value), step.pos); acc))
+          steps_term(formals, List(x.that.name; env), rest, List(DefineTerm(x.that, term_of(env, value), step.pos); acc))
 
         case StepLocal(x, None) =>
-          steps_term(formals, List(x.name; env), rest, List(WitnessTerm(x, step.pos); acc))
+          steps_term(formals, List(x.that.name; env), rest, List(WitnessTerm(x.that, step.pos); acc))
 
         case StepCall(name, ins, outs) =>
           let witnesses := List(for y in outs yield value_or(index_of(y.name, env), 0)) in

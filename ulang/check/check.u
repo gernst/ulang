@@ -765,7 +765,7 @@ function zonk_proof(s: State, proof: Proof): Proof :=
 function zonk_step(s: State, step: Step): Step :=
   match step
     case StepLocal(x, value) =>
-      StepLocal(zonk_var(s, x), map_option(value, lambda e => zonk_expr(s, e)))
+      StepLocal(map_at(x, lambda v => zonk_var(s, v)), map_option(value, lambda e => zonk_expr(s, e)))
 
     case StepCall(name, ins, outs) =>
       StepCall(name, List(for e in ins yield zonk_expr(s, e)), zonk_vars(s, outs))
@@ -3549,26 +3549,24 @@ procedure proof_step(
   match step
     case StepLocal(x, Some(e)) =>
       local c: At[Expr], y: Var, t: Type
-      if x.typ == THole then
+      if x.that.typ == THole then
         call   infer(in env, e, out c, t, ref s)
-        assign y := Var(x.name, t)
+        assign y := Var(x.that.name, t)
       else
         local ys: List[Var]
-        call   formals(in "local", unplaced_vars(List(x)), out ys, ref s)
+        call   formals(in "local", List(x), out ys, ref s)
         assign y := at(0, from_list(ys))
-        call   check(in env, e, y.typ, "the local " ++ x.name.base, out c, ref s)
+        call   check(in env, e, y.typ, "the local " ++ x.that.name.base, out c, ref s)
       end
       call   unhidden(in env, List(y), ref s)
-      assign env := bind(List(y)) ++ env, typed_step := StepLocal(y, Some(c))
+      assign env := bind(List(y)) ++ env, typed_step := StepLocal(map_at(x, lambda _ => y), Some(c))
 
     case StepLocal(x, None) =>
       local ys: List[Var]
-      if x.typ == THole then
-        call report(in MissingType(x.name), ref s)
-      end
-      call   formals(in "local", unplaced_vars(List(x)), out ys, ref s)
+      call   untyped(in List(x), List(), ref s)
+      call   formals(in "local", List(x), out ys, ref s)
       call   unhidden(in env, ys, ref s)
-      assign env := List(for y in ys yield (y.name, Local(y.typ, false))) ++ env, typed_step := StepLocal(at(0, from_list(ys)), None)
+      assign env := List(for y in ys yield (y.name, Local(y.typ, false))) ++ env, typed_step := StepLocal(map_at(x, lambda _ => at(0, from_list(ys))), None)
 
     case StepCall(name, ins, outs) =>
       local qualified := in_module(s.module, name), typed_ins: List[At[Expr]] := ins, typed_outs: List[Var] := outs

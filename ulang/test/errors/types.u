@@ -360,6 +360,16 @@ test missing_local_type() :=
     call check_text(in "ulang/test/errors/missing-local-type.u", List("test missing_local_type() :=", "  local x", "  assert true"))
   end
 
+// a local of a proof without a value has its type, reported at the local
+test missing_proof_local_type() :=
+  assert raises Located(None, Pos(3, 9), MissingType(Name(None, "a"))) do
+    call check_text(in "ulang/test/errors/missing-proof-local-type.u", List(
+      "lemma l(in n: Int) :=",
+      "  ensures n == n",
+      "  local a, b: Int",
+      "  assert n == n"))
+  end
+
 test missing_output_type() :=
   assert raises Located(None, Pos(1, 17), MissingType(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/missing-output-type.u", List("procedure p(out x) :=", "  skip"))

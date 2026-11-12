@@ -850,7 +850,7 @@ function proof_text(notation: Notation, indent: Str, proof: Proof): Str :=
   let body := if proof.steps == List() then
     ""
   else
-    format_body(notation, indent, AOk(Pos(0, 0), SBlock(unplaced_vars(locals), stmts))) in
+    format_body(notation, indent, AOk(Pos(0, 0), SBlock(locals, stmts))) in
   match proof.split
     case Some(split) =>
       body ++ "\n" ++ indent ++ split_text(notation, indent, split.that)
@@ -858,7 +858,7 @@ function proof_text(notation: Notation, indent: Str, proof: Proof): Str :=
       body
   end
 
-function local_of(step: Step): Option[Var] :=
+function local_of(step: Step): Option[At[Var]] :=
   match step
     case StepLocal(x, _) =>
       Some(x)
@@ -870,7 +870,7 @@ function local_of(step: Step): Option[Var] :=
 function step_stmts(step: At[Step]): List[At[Stmt]] :=
   match step.that
     case StepLocal(x, Some(e)) =>
-      List(AOk(step.pos, SAssign(List((Var(x.name, THole), e)))))
+      List(AOk(step.pos, SAssign(List((Var(x.that.name, THole), e)))))
 
     case StepLocal(_, None) =>
       List()

@@ -137,7 +137,7 @@ data Proof :=
 
 data Step :=
   // local x := e, a definition, or local q: T, a witness that an out of a call binds
-  case StepLocal(var: Var, value: Option[At[Expr]])
+  case StepLocal(var: At[Var], value: Option[At[Expr]])
   // call l(in a, …, out q, …), the instance of the lemma l, whose requires are proven and whose ensures is then a fact
   case StepCall(name: Name, ins: List[At[Expr]], outs: List[Var])
   // assert e, a cut, which must follow by simplification and is a fact afterwards
@@ -958,7 +958,7 @@ function strip_proof(proof: Proof): Proof :=
 function strip_step(step: Step): Step :=
   match step
     case StepLocal(x, value) =>
-      StepLocal(x, map_option(value, strip_expr))
+      StepLocal(nowhere(x.that), map_option(value, strip_expr))
 
     case StepCall(name, ins, outs) =>
       StepCall(name, List(for a in ins yield strip_expr(a)), outs)
