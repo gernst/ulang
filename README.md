@@ -52,7 +52,7 @@ test sorting() :=
 - `if` always nests: an `if` after `else` is an `if` in its body, which has its own `end`.
 - Datatypes with pattern matching, guards, and checks that matches are exhaustive and cases reachable.
 - Named fields of constructors, read as `e.field` and updated as `e with field := a, other := b`, which are resolved by the type of `e`, and raise `MissingField` for a constructor without that field.
-- Type inference with let-polymorphism, where top-level declarations carry their types.
+- Hindley-Milner type inference, where only declarations are polymorphic, with type parameters, and `let` does not generalize.
 - Exceptions of any type, raised by the statement `raise e`, and caught by `try`, which leave the variables as they were: outs and refs reach the caller only when a procedure returns, and handlers see the variables as they were before the `try`.
   Builtins raise `DivisionByZero`, `OutOfBounds`, and `NoCharacter`, whereas a failed `assert` ends the program.
 - Unbounded integers, characters, which are Unicode code points, and strings of them, which files hold as UTF-8.
