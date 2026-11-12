@@ -668,6 +668,9 @@ procedure check_file(
       end
     end
   catch
+    case ParseErrors(found) =>
+      assign errors := List(for e in take(20, found) yield parse_diagnostic(e))
+
     case e =>
       assign errors := List(parse_diagnostic(e))
 
