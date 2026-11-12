@@ -113,6 +113,17 @@ test distinct_open() :=
       "  ensures a != b or xs != List()"))
   end
 
+// an open goal keeps the call of a function that is not recursive whose body stays undecided, while the proof unfolds it
+test lazy_goal() :=
+  assert raises OpenLemma("maximum_open", "forall a, b, c => c <= maximum(a, b)") do
+    call prove_text(in "ulang/test/errors/lazy-goal.u", List(
+      "function maximum(a: Int, b: Int): Int :=",
+      "  if a < b then b else a",
+      "",
+      "lemma maximum_open(in a: Int, b: Int, c: Int) :=",
+      "  ensures maximum(a, b) >= c"))
+  end
+
 // a cut that does not follow, at its step
 test proof_open_assert() :=
   assert raises OpenLemma("open_assert", "forall x => 0 < x at 3.3") do

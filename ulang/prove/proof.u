@@ -160,7 +160,7 @@ function closing(w: Walk, scope: Scope, c: Term, pos: Pos): List[Gap] :=
     List()
   else
     List(
-      Gap(pos, "OpenGoal", "the goal stays open", Some(print_seq(printable(w.decls, alone)))))
+      Gap(pos, "OpenGoal", "the goal stays open", Some(print_seq(printable(w.decls, for_printing(w.decls, goal, alone))))))
 
 // the goal c under the facts of the scope, closed over its variables, where the outs that are not assigned are existential
 function sequent(scope: Scope, c: Term): Seq :=

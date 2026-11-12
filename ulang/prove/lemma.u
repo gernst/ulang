@@ -185,7 +185,7 @@ function default_gaps(decls: Decls, facts: List[Seq], goal: Seq): List[Gap] :=
     List()
   else
     List(
-      Gap(Pos(0, 0), "OpenLemma", "the default proof leaves the goal open", Some(print_seq(printable(decls, after)))))
+      Gap(Pos(0, 0), "OpenLemma", "the default proof leaves the goal open", Some(print_seq(printable(decls, for_printing(decls, goal, after))))))
 
 function is_proven(proved: Proved): Bool :=
   proved.gaps == List()

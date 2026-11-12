@@ -38,6 +38,11 @@ function false_seq(): Seq
 
 function simplify(decls: Decls, s: Seq): Seq
 
+// the open goal s for printing, given its simplification simplified: s simplified again, but where a call of a function
+// that is not recursive keeps its name if the match or if at the top of its body stays undecided, so that it shows
+// max(a, b), not its body, while proofs unfold every such call; simplified where that closes s
+function for_printing(decls: Decls, s: Seq, simplified: Seq): Seq
+
 // s with the variables of op bound or freed below c binders, as rebind of ulang/prove/syntax.u does for terms
 function rebind_seq(op: Rebind, c: Int, s: Seq): Seq
 
@@ -75,9 +80,10 @@ function limits(): Limits :=
 // variables that a proof defines, which no term is rewritten to and the one-point rule keeps, the e-graph of the ground
 // equations, the inequalities t >= 0, the rules, whether the facts are inconsistent, and
 // what is left of the limits: of the merges of the current fact, of internal splits, of trial merges, and the unfoldings
-// and rewrites so far
+// and rewrites so far, and whether the calls of functions that are not recursive unfold only where their bodies are
+// decided, for printing
 data Ctx :=
-  case Ctx(decls: Decls, vars: List[Var], defined: Set[Int], graph: EGraph, ineqs: List[Lin], rules: List[Rule], inconsistent: Bool, merges: Int, splits: Int, unfolds: Int, probes: Int)
+  case Ctx(decls: Decls, vars: List[Var], defined: Set[Int], graph: EGraph, ineqs: List[Lin], rules: List[Rule], inconsistent: Bool, merges: Int, splits: Int, unfolds: Int, probes: Int, lazy: Bool)
 
 // a simplified conjunction with the context after it, or Refuted if a conjunct is false
 data Conj :=
@@ -108,7 +114,7 @@ function false_seq(): Seq :=
 
 function new_ctx(decls: Decls): Ctx :=
   let l := limits() in
-  Ctx(decls, List(), empty(), empty_graph(), List(), List(), false, l.merges, l.splits, 0, l.probes)
+  Ctx(decls, List(), empty(), empty_graph(), List(), List(), false, l.merges, l.splits, 0, l.probes, false)
 
 // the context with a new budget of merges, for a fact or a term that the simplification of a sequent adds, not one
 // that solving adds
@@ -131,6 +137,10 @@ function contradiction(ctx: Ctx): Ctx :=
 
 function simplify(decls: Decls, s: Seq): Seq :=
   simp_seq(new_ctx(decls), s)
+
+function for_printing(decls: Decls, s: Seq, simplified: Seq): Seq :=
+  let lazy := simp_seq(new_ctx(decls) with lazy := true, s) in
+  if lazy == true_seq() then simplified else lazy
 
 function rebind_seq(op: Rebind, c: Int, s: Seq): Seq :=
   match s
@@ -1448,8 +1458,15 @@ function unfold(ctx: Ctx, key: Name * Int, t: Term, d: Def, args: List[Term]): T
     rewrite(ctx, t)
   else
     let inner := ctx with unfolds := ctx.unfolds + 1 in
-    if not d.recursive then
+    if not d.recursive and not (ctx.lazy and is_branching(d.body)) then
       simp_term(inner, beta(args, d.body))
+    else if not d.recursive then
+      match decided_body(inner, beta(args, d.body))
+        case Some(u) =>
+          u
+        case None =>
+          rewrite(ctx, t)
+      end
     else if not contains(key, ctx.decls.terminating) then
       rewrite(ctx, t)
     else
@@ -1502,6 +1519,18 @@ function equation_instance(inner: Ctx, eq: DefEquation, candidates: List[List[Te
           Some(simp_term(inner, body))
       else
         equation_instance(inner, eq, rest)
+  end
+
+function is_branching(body: Term): Bool :=
+  match body
+    case EMatch(_, _) =>
+      true
+
+    case EIte(_, _, _) =>
+      true
+
+    case _ =>
+      false
   end
 
 // the branch of the match or if at the top of body, simplified, if its argument or condition decides it
