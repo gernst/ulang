@@ -813,7 +813,15 @@ function is_entailed(ctx: Ctx, t: Lin): Bool :=
 // p - q that binds all variables of the rule
 function bounds(ctx: Ctx, t: Lin): List[Lin] :=
   let atoms := List(for summand in t.summands yield summand.term) ++ List(for l in ctx.ineqs for summand in l.summands yield summand.term) in
-  List(for a in atoms for r in ctx.rules for b in bound_of(r, a) yield b)
+  List(for a in atoms for r in ctx.rules for b in bound_of(r, a) yield b) ++ List(for a in atoms if is_size(a) yield Lin(0, List(Summand(a, 1))))
+
+function is_size(t: Term): Bool :=
+  match t
+    case Size(_) =>
+      true
+    case _ =>
+      false
+  end
 
 function bound_of(r: Rule, a: Term): List[Lin] :=
   match (r.conds, r.lhs, r.rhs)
@@ -1001,6 +1009,9 @@ function simp_builtin(ctx: Ctx, e: Term): Option[Term] :=
 
     case Compare(a, b) =>
       Some(simp_compare(ctx, a, b))
+
+    case Size(a) =>
+      Some(simp_size(ctx, a))
 
     case Not(a) =>
       Some(simp_not(ctx, a))
@@ -1641,6 +1652,27 @@ function induction_case(decls: Decls, t: Name, xs: List[Var], p: Int, assms: Lis
       false_seq()
   end
 
+// the size of a constructor term: 0 without recursive fields, else 1 and the sizes of the recursive fields, of the
+// representation also for abstract types, since termination is about the recursion over it
+function simp_size(ctx: Ctx, a: Term): Term :=
+  match constr_head(ctx.decls, a)
+    case Some((f, args)) =>
+      match get(f, ctx.decls.constrs)
+        case Some(decl) =>
+          let parts := List(for (field, arg) in zip(decl.fields, args) if is_recursive(decl.datatype, field) yield simp_size(ctx, arg)) in
+          if parts == List() then
+            int_term(0)
+          else
+            sum_term(foldl(parts, Lin(1, List()), lambda acc, p => lin_add(acc, lin_of(p))))
+
+        case None =>
+          int_term(0)
+      end
+
+    case None =>
+      rewrite(ctx, Size(a))
+  end
+
 function is_recursive(t: Name, field: Var): Bool :=
   match field.typ
     case TSort(name, _) =>
@@ -1719,3 +1751,14 @@ function print_concl(names: List[Id], several: Bool, c: Concl): Str :=
       else
         "(exists " ++ join(", ", ys) ++ " => " ++ text ++ ")"
   end
+
+// the builtin size on lists, where it agrees with their length: by evaluation, by its decrease on the tail, which
+// terminations of recursions over lists need, and by its lower bound
+test sizes() :=
+  local list := Name(Some("prelude/list"), "List"), nil := Name(Some("prelude/list"), "Nil"), cons := Name(Some("prelude/list"), "Cons"), int_var := (lambda base => Var(Name(None, base), TSort(Name(None, "Int"), List()))), list_var := (lambda base => Var(Name(None, base), TSort(list, List(TSort(Name(None, "Int"), List()))))), decls := (empty_decls() with constrs := Map(
+    nil => ConstrDecl(list, List()),
+    cons => ConstrDecl(list, List(int_var("head"), list_var("tail")))), datatypes := Map(list => List(nil, cons))), two := EApp(EFun(cons), List(ELit(LInt(1)), EApp(EFun(cons), List(ELit(LInt(2)), EFun(nil))))), goal := (lambda e => Seq(List(int_var("y"), list_var("ys")), List(), List(Concl(List(), List(Atom(e))))))
+  assert simplify(decls, goal(Eq(Size(two), ELit(LInt(2))))) == true_seq()
+  assert simplify(decls, goal(Less(Size(EBound(0)), Size(EApp(EFun(cons), List(EBound(1), EBound(0))))))) == true_seq()
+  assert simplify(decls, goal(Not(Less(Size(EBound(0)), ELit(LInt(0)))))) == true_seq()
+  assert simplify(decls, goal(Less(ELit(LInt(0)), Size(EBound(0))))) != true_seq()

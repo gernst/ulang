@@ -90,6 +90,11 @@ pattern Less(a: Term, b: Term): Term :=
 pattern Compare(a: Term, b: Term): Term :=
   EApp(EFun(Name(None, "compare")), List(a, b))
 
+// the structural size of a value of any datatype, a builtin of the prover only, without a module, so that no checked
+// program carries it and the size functions of the library stay apart, the measure of termination proofs
+pattern Size(a: Term): Term :=
+  EApp(EFun(Name(None, "size")), List(a))
+
 pattern Plus(a: Term, b: Term): Term :=
   EApp(EFun(Name(Some("prelude/prelude"), "+")), List(a, b))
 
