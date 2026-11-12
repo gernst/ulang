@@ -392,7 +392,7 @@ procedure evaluate(
       end
 
     case EMatch(arg, cases) =>
-      local w: Val, sel: Option[At[Expr] * Bindings * List[Name]], s: Str
+      local w: Val, sel: Option[At[Expr] * Bindings * List[Name]]
       call evaluate(in run, env, arg, out w, ref cache)
       call select(in run, env, w, parts(cases), out sel, ref cache)
       match sel
@@ -400,6 +400,7 @@ procedure evaluate(
           call evaluate(in run, inner, body, out v, ref cache)
 
         case None =>
+          local s: Str
           call show_in(in run, w, out s, ref cache)
           raise NoCase(s)
       end
@@ -537,17 +538,19 @@ procedure apply_value(
       assign v := VObj(constr, vs)
 
     case VPrim(name) =>
-      local k: Int, r: Bool, s: Str
       match (format_name(name), vs)
         case ("compare", List(a, b)) =>
+          local k: Int
           call   compare_values(in run, a, b, out k, ref cache)
           assign v := VInt(k)
 
         case ("==", List(a, b)) =>
+          local r: Bool
           call   equal(in run, a, b, out r, ref cache)
           assign v := VBool(r)
 
         case ("show", List(a)) =>
+          local s: Str
           call   show_in(in run, a, out s, ref cache)
           assign v := VStr(s)
 
@@ -555,10 +558,12 @@ procedure apply_value(
           assign v := VBool(a < b)
 
         case ("<", List(a, b)) =>
+          local k: Int
           call   compare_values(in run, a, b, out k, ref cache)
           assign v := VBool(k < 0)
 
         case ("prelude/array.foldr", List(VArr(values), acc, g)) =>
+          local k: Int
           assign k := size(values), v := acc
           while k > 0 do
             assign k := k - 1
@@ -566,6 +571,7 @@ procedure apply_value(
           end
 
         case ("prelude/array.foldl", List(VArr(values), acc, g)) =>
+          local k: Int
           assign k := 0, v := acc
           while k < size(values) do
             call   apply_value(in run, g, List(v, at(k, values)), out v, ref cache)
@@ -775,14 +781,15 @@ procedure equal(
   call incomparable(in b)
   match (a, b)
     case (VObj(c, xs), VObj(d, ys)) =>
-      local v: Val, k: Int
       call unordered(in run, c, true)
       match (declared_for(run, c, run.defs.equalities), declared_for(run, c, run.defs.orders))
         case (Some(f), _) =>
+          local v: Val
           call   apply_value(in run, VFun(f, 2), List(a, b), out v, ref cache)
           assign r := is_true(v)
 
         case (None, Some(_)) =>
+          local k: Int
           call   compare_values(in run, a, b, out k, ref cache)
           assign r := k == 0
 
@@ -830,10 +837,10 @@ procedure compare_values(
       assign r := compare(x, y)
 
     case (VObj(c, xs), VObj(d, ys)) =>
-      local v: Val
       call unordered(in run, c, false)
       match declared_for(run, c, run.defs.orders)
         case Some(f) =>
+          local v: Val
           call apply_value(in run, VFun(f, 2), List(a, b), out v, ref cache)
           match v
             case VInt(num) =>
@@ -881,9 +888,9 @@ procedure compare_all(
 procedure show_in(in run: Run, v: Val, out s: Str, ref cache: Map[Name, Val]) :=
   match v
     case VObj(constr, _) if declared_for(run, constr, run.defs.shows) != None =>
-      local w: Val
       match declared_for(run, constr, run.defs.shows)
         case Some(f) =>
+          local w: Val
           call   apply_value(in run, VFun(f, 1), List(v), out w, ref cache)
           assign s := text_of(w)
 
@@ -997,7 +1004,7 @@ procedure exec(
       assign env := env ++ Map(for (k, u) in zip(List(for x in outs yield x.name), vs))
 
     case SMatch(arg, cases) =>
-      local v: Val, sel: Option[At[Stmt] * Bindings * List[Name]], s: Str
+      local v: Val, sel: Option[At[Stmt] * Bindings * List[Name]]
       call evaluate(in run, env, arg, out v, ref cache)
       call select(in run, env, v, parts(cases), out sel, ref cache)
       match sel
@@ -1005,17 +1012,19 @@ procedure exec(
           call scoped(in run, ns, inner, List(body), ref env, cache)
 
         case None =>
+          local s: Str
           call show_in(in run, v, out s, ref cache)
           raise NoCase(s)
       end
 
     // assertions of equations show both sides when they fail
     case SAssert(AOk(_, ECall(_, Name(None, "=="), _, List(lhs, rhs)))) =>
-      local v: Val, w: Val, r: Bool, s: Str, t: Str
+      local v: Val, w: Val, r: Bool
       call evaluate(in run, env, lhs, out v, ref cache)
       call evaluate(in run, env, rhs, out w, ref cache)
       call equal(in run, v, w, out r, ref cache)
       if not r then
+        local s: Str, t: Str
         call show_in(in run, v, out s, ref cache)
         call show_in(in run, w, out t, ref cache)
         raise AssertionUnequal(s, t)
@@ -1140,9 +1149,9 @@ procedure select[A](
       assign sel := None
 
     case List(Branch(pat, guard, body); rest) =>
-      local ok: Bool
       match match_into(pat, v, env)
         case Some(inner) =>
+          local ok: Bool
           call holds(in run, inner, guard, out ok, ref cache)
           if ok then
             assign sel := Some((body, inner, pattern_names(pat)))
@@ -1381,9 +1390,10 @@ procedure constant_of(
       n: Name,
   out v: Option[Val]
 ) raises Thrown, RuntimeError, InternalError :=
-  local cache: Map[Name, Val] := empty(), value: Val
+  local cache: Map[Name, Val] := empty()
   match get((n, 0), run.defs.funs)
     case Some(fun) =>
+      local value: Val
       call   cached(in run, n, fun.body, out value, ref cache)
       assign v := Some(value)
 
@@ -1397,8 +1407,9 @@ procedure run_proc(
       n: Name,
   ref cache: Map[Name, Val]
 ) raises Thrown, RuntimeError, InternalError :=
-  local env: Bindings := empty(), outs: List[Val]
+  local env: Bindings := empty()
   try
+    local outs: List[Val]
     call invoke(in run, n, List(), List(), out outs, ref env, cache)
   catch
     case Thrown(value, _) =>

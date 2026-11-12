@@ -128,11 +128,12 @@ procedure load_texts(
       main: Str * List[Str],
   out q: Prog
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
-  local here: Str, root: Str, source: Source
+  local here: Str, root: Str
   call os_cwd(out here)
   call project_root(in normal_path(here), out root)
   match main
     case (name, lines) =>
+      local source: Source
       call parse_texts(in root, dir, List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), out source)
       call check_program(in source, out q)
       call require_formatted(in source, source.main, text_of(lines))

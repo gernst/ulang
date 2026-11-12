@@ -483,11 +483,12 @@ procedure parse_arg(
   out expr: At[Expr],
   ref toks: Tokens
 ) raises ParseError :=
-  local pos := head_pos(toks), text: Str, ends: Bool
+  local pos := head_pos(toks)
   try
     call parse_expr(in notation, params, out expr, ref toks)
   catch
     case ParseError(message, at) =>
+      local ends: Bool, text: Str
       call skip_arg(out text, ends, ref toks)
       if not ends then
         raise ParseError(message, at)
@@ -550,8 +551,8 @@ procedure parse_optional[A](
   out x: Option[A],
   ref toks: Tokens
 ) :=
-  local a: A
   if head_token(toks) == tok then
+    local a: A
     call   advance(ref toks)
     call   item(in notation, params, out a, ref toks)
     assign x := Some(a)
@@ -632,9 +633,9 @@ procedure climb_operand[A](
   local pos := head_pos(toks), operand := ops.operand, apply := ops.apply
   match operator_at(notation, toks)
     case Some(op) =>
-      local b: A
       match prefix_prec(notation, op)
         case Some(prec) =>
+          local b: A
           call advance(ref toks)
           call climb(in notation, params, ops, prec, out b, ref toks)
           call apply(in FPrefix, op, pos, List(b), out a)
@@ -666,14 +667,15 @@ procedure climb_rest[A](
   local pos := head_pos(toks), apply := ops.apply
   match operator_at(notation, toks)
     case Some(op) =>
-      local args: List[A], b: A
       match (postfix_prec(notation, op), infix_of(notation, op))
         case (Some(prec), _) if prec >= min =>
+          local b: A
           call advance(ref toks)
           call apply(in FPostfix, op, pos, List(lhs), out b)
           call climb_rest(in notation, params, ops, min, b, out a, ref toks)
 
         case (_, Some((f, prec))) if prec >= min =>
+          local args: List[A], b: A
           call advance(ref toks)
           call climb_infix(in notation, params, ops, op, f, prec, out args, ref toks)
           call apply(in f, op, pos, List(lhs; args), out b)
@@ -823,9 +825,10 @@ procedure parse_type_atom(
       call advance(ref toks)
       call parse_enclosed(in notation, params, parse_type, ")", out r, ref toks)
     else
-      local name: Id, args: List[Type]
+      local name: Id
       call parse_plain_name(in notation, params, out name, ref toks)
       if at_kw(toks, "[") then
+        local args: List[Type]
         call   advance(ref toks)
         call   parse_separated(in notation, params, parse_type, at_comma, out args, ref toks)
         call   expect(in TKw("]"), ref toks)
@@ -892,10 +895,9 @@ procedure parse_expr(
   out expr: At[Expr],
   ref toks: Tokens
 ) :=
-  local updates: List[Id * At[Expr]], pos: Pos
   call parse_operators(in notation, params, expr_ops(), out expr, ref toks)
   if at_kw(toks, "with") then
-    assign pos := head_pos(toks)
+    local pos: Pos := head_pos(toks), updates: List[Id * At[Expr]]
     call   advance(ref toks)
     call   parse_separated(in notation, params, parse_update, at_update, out updates, ref toks)
     assign expr := apply_updates(pos, expr, updates)
@@ -1050,13 +1052,13 @@ procedure parse_lambda(
     call   expect_end(in "lambda", pos, ref toks)
     assign expr := AOk(pos, EProc(ins, outs, refs, THole, body))
   else
-    local inner: At[Expr]
     if head_token(toks) == TKw("=>") then
+      local inner: At[Expr]
       call   expect(in TKw("=>"), ref toks)
       call   parse_expr(in notation, params, out inner, ref toks)
       assign expr := AOk(pos, ELam(List(), inner))
     else
-      local pats: List[At[Pat]]
+      local pats: List[At[Pat]], inner: At[Expr]
       call   parse_separated(in notation, params, parse_pattern, at_comma, out pats, ref toks)
       call   expect(in TKw("=>"), ref toks)
       call   parse_expr(in notation, params, out inner, ref toks)
@@ -1111,10 +1113,11 @@ procedure parse_form(
   out expr: At[Expr],
   ref toks: Tokens
 ) :=
-  local form := value_or(form_at(toks), FList), pos := head_pos(toks), elems: List[Yield], rest: Option[At[Expr]], gens: List[Gen], elem: Yield
+  local form := value_or(form_at(toks), FList), pos := head_pos(toks), rest: Option[At[Expr]]
   call advance(ref toks)
   call expect(in TKw("("), ref toks)
   if at_kw(toks, "for") then
+    local elem: Yield, gens: List[Gen]
     call parse_gens(in notation, params, out gens, ref toks)
     if at_kw(toks, "yield") then
       call advance(ref toks)
@@ -1130,6 +1133,7 @@ procedure parse_form(
     call   parse_optional(in notation, params, TKw(";"), parse_expr, out rest, ref toks)
     assign expr := AOk(pos, EFor(form, gens, elem, rest))
   else
+    local elems: List[Yield]
     if at_kw(toks, ")") then
       assign elems := List(), rest := None
     else
@@ -1153,9 +1157,10 @@ procedure parse_elem(
   out elem: Yield,
   ref toks: Tokens
 ) :=
-  local k: At[Expr], v: At[Expr]
+  local k: At[Expr]
   call parse_expr(in notation, params, out k, ref toks)
   if form == FMap then
+    local v: At[Expr]
     call   expect(in TKw("=>"), ref toks)
     call   parse_expr(in notation, params, out v, ref toks)
     assign elem := YPair(k, v)
@@ -1319,21 +1324,22 @@ procedure parse_pattern_atom(
 
     // List(), List(a, b), and List(a, b; rest), since only lists have free constructors
     case _ if form_at(toks) == Some(FList) =>
-      local pats: List[At[Pat]], rest: Option[At[Pat]]
       call advance(ref toks)
       call expect(in TKw("("), ref toks)
       if at_kw(toks, ")") then
         assign pat := pat_nil(pos)
       else
+        local pats: List[At[Pat]], rest: Option[At[Pat]]
         call   parse_display(in notation, params, parse_pattern, out pats, rest, ref toks)
         assign pat := cons_all(pat_cons(pos), pats, value_or(rest, pat_nil(pos)))
       end
       call expect(in TKw(")"), ref toks)
 
     case _ =>
-      local name: Id, pats: List[At[Pat]]
+      local name: Id
       call parse_plain_name(in notation, params, out name, ref toks)
       if at_kw(toks, "(") then
+        local pats: List[At[Pat]]
         call   advance(ref toks)
         call   parse_enclosed(in notation, params, parse_pattern, ")", out pats, ref toks)
         assign pat := AOk(pos, PApp(unqualified(name), pats))
@@ -1422,10 +1428,11 @@ procedure parse_stmt_recovering(
   out stmt: Doc[Stmt],
   ref toks: Tokens
 ) :=
-  local doc_pos := head_pos(toks), doc: Option[Str], pos: Pos, text: Str, parsed: At[Stmt]
+  local doc_pos := head_pos(toks), doc: Option[Str], pos: Pos
   call   parse_doc(out doc, ref toks)
   assign pos := head_pos(toks)
   try
+    local parsed: At[Stmt]
     if doc != None and not starts_stmt(head_token(toks)) then
       raise ParseError(misplaced_comment(), doc_pos)
     end
@@ -1433,6 +1440,7 @@ procedure parse_stmt_recovering(
     assign stmt := Doc(doc, parsed)
   catch
     case ParseError(message, at) =>
+      local text: Str
       call   skip_stmt(out text, ref toks)
       assign stmt := Doc(doc, AUnparsed(pos, text, parse_diagnostic(ParseError(message, at))))
   end
@@ -1939,8 +1947,8 @@ procedure parse_constrs(
   out constrs: List[Doc[Constr]],
   ref toks: Tokens
 ) :=
-  local constr: Constr, rest: List[Doc[Constr]], doc: Option[Str], pos: Pos
   if at_case(toks) then
+    local constr: Constr, doc: Option[Str], pos: Pos, rest: List[Doc[Constr]]
     call   parse_doc(out doc, ref toks)
     assign pos := head_pos(toks)
     call   advance(ref toks)
@@ -1969,7 +1977,7 @@ function differing_field(fields: List[Field]): Option[Id] :=
 
 // a function, which is a signature without :=, or with := and a spec that the next command follows
 procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
-  local name: Id, params: List[Id], xs: List[Var], r: Type, body: At[Expr], pos: Pos, spec: Spec
+  local name: Id, params: List[Id], xs: List[Var], r: Type, pos: Pos
   call   advance(ref toks)
   assign pos := head_pos(toks)
   call   parse_name_or_op(out name, ref toks)
@@ -1982,11 +1990,13 @@ procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) 
   call expect(in TKw(":"), ref toks)
   call parse_type(in notation, params, out r, ref toks)
   if head_token(toks) == TKw(":=") then
+    local spec: Spec
     call advance(ref toks)
     call parse_spec(in notation, params, false, out spec, ref toks)
     if spec.examples != List() and starts_command(toks) then
       assign cmd := CFunSig(unqualified(name), params, xs, r, spec)
     else
+      local body: At[Expr]
       call   parse_expr(in notation, params, out body, ref toks)
       assign cmd := CFun(unqualified(name), params, xs, r, spec, body)
     end
@@ -2010,7 +2020,7 @@ procedure parse_pat_alias(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
 
 // a procedure, which is a signature without :=, or with := and a spec that the next command follows
 procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
-  local name: Id, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], body: At[Stmt], pos: Pos, spec: Spec
+  local name: Id, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], pos: Pos
   call   advance(ref toks)
   assign pos := head_pos(toks)
   call   parse_name(out name, ref toks)
@@ -2021,11 +2031,13 @@ procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
   call   expect(in TKw(")"), ref toks)
   call   parse_raises(in notation, params, out raised, ref toks)
   if head_token(toks) == TKw(":=") then
+    local spec: Spec
     call advance(ref toks)
     call parse_spec(in notation, params, true, out spec, ref toks)
     if spec.examples != List() and starts_command(toks) then
       assign cmd := CProcSig(unqualified(name), params, ins, outs, refs, raised, spec)
     else
+      local body: At[Stmt]
       call   parse_body(in notation, params, out body, ref toks)
       assign cmd := CProc(unqualified(name), params, ins, outs, refs, raised, spec, body)
     end
@@ -2238,11 +2250,12 @@ procedure parse_command(
       assign cmds := List(cmd)
 
     case TKw("type") =>
-      local name: Id, params: List[Id], typ: Type
+      local name: Id, params: List[Id]
       call advance(ref toks)
       call parse_name(out name, ref toks)
       call parse_params(in notation, out params, ref toks)
       if head_token(toks) == TKw(":=") then
+        local typ: Type
         call   advance(ref toks)
         call   parse_type(in notation, params, out typ, ref toks)
         assign cmds := List(CSort(unqualified(name), params, typ))
@@ -2387,7 +2400,7 @@ procedure package_files(
       main: Option[Id * Str],
   out files: List[Id * Str]
 ) :=
-  local entries: List[Str * Bool], text: Str, found: Buffer[Id * Str] := empty(), main_id := ""
+  local found: Buffer[Id * Str] := empty(), main_id := ""
   match main
     case Some((id, _)) =>
       assign main_id := id
@@ -2396,6 +2409,7 @@ procedure package_files(
   end
   match dir
     case Some(d) =>
+      local entries: List[Str * Bool], text: Str
       call os_list(in if d == "" then root else os_join(root, d), out entries)
       for (file, is_dir) in entries do
         if not is_dir and is_source(file) and file != "project.u" and module_id(d, module_name(file)) != main_id then
@@ -2407,6 +2421,7 @@ procedure package_files(
       end
 
     case None =>
+      local text: Str
       for id in library_modules() do
         if id != main_id then
           call   library_text(in id, Pos(1, 1), out text)
@@ -2433,8 +2448,8 @@ procedure load_package(
       loading: List[Id],
   ref source: Source
 ) :=
-  local files: List[Id * Str]
   if not exists(source.packages, lambda p => p.id == package_id(dir)) and not contains(package_id(dir), loading) then
+    local files: List[Id * Str]
     call package_files(in root, dir, main, out files)
     call load_members(in root, dir, files, main, loading, ref source)
   end
@@ -2526,8 +2541,8 @@ procedure exported_ops(in toks: Tokens, out notation: Notation) :=
         assign rest := List()
 
       case (1, TKw(kw)) if inside and contains(kw, List("prefix", "postfix", "infix")) =>
-        local cmd: Cmd
         try
+          local cmd: Cmd
           call   parse_notation(in empty_notation(), out cmd, ref rest)
           assign notation := with_notation(notation, List(cmd))
         catch
@@ -2849,7 +2864,7 @@ data Place :=
 // the place of the file at path, whose root is the nearest directory above it with project.u, else its own directory,
 // where a directory with prelude.u is the library, whose modules are known by their names
 procedure place_of(in path: Str, out place: Place) :=
-  local cwd: Str, file: Str, home: Str, root: Str, library: Bool, name := module_name(path)
+  local cwd: Str, file: Str, home: Str, library: Bool, name := module_name(path)
   call   os_cwd(out cwd)
   assign file := normal_path(if starts_with(path, "/") then path else os_join(cwd, path))
   assign home := os_dirname(file)
@@ -2857,6 +2872,7 @@ procedure place_of(in path: Str, out place: Place) :=
   if library then
     assign place := Place(library_module(name), home, None)
   else
+    local root: Str
     call   project_root(in home, out root)
     assign place := Place(module_id(relative_path(root, home), name), root, Some(relative_path(root, home)))
   end
@@ -2878,8 +2894,8 @@ procedure project_root(in dir: Str, out root: Str) raises OsError :=
   end
 
 procedure has_file(in dir: Str, name: Str, out found: Bool) :=
-  local entries: List[Str * Bool]
   try
+    local entries: List[Str * Bool]
     call   os_list(in dir, out entries)
     assign found := contains((name, false), entries)
   catch
