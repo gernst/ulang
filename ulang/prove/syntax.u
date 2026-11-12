@@ -68,8 +68,9 @@ data Rebind :=
   case Shift(n: Int)
 
 // the builtins of the prover by the names that checked programs carry: ==, <, and, and or have no module, and the
-// operators of the prelude are those of prelude/prelude, where !=, <=, >, >=, and unary - are functions of the prelude
-// that unfold to these
+// operators of the prelude are those of prelude/prelude, where != and unary - are functions of the prelude that unfold
+// to these, while <=, >, and >= are functions of the prelude that the prover takes as builtins, so that no comparison is
+// negated: > and >= are < and <= with their sides swapped, and a negation moves into the comparison
 pattern Not(a: Term): Term :=
   EApp(EFun(Name(Some("prelude/prelude"), "not")), List(a))
 
@@ -88,6 +89,15 @@ pattern Eq(a: Term, b: Term): Term :=
 // on integers only
 pattern Less(a: Term, b: Term): Term :=
   EApp(EFun(Name(None, "<")), List(a, b))
+
+pattern LessEq(a: Term, b: Term): Term :=
+  EApp(EFun(Name(Some("prelude/prelude"), "<=")), List(a, b))
+
+pattern Greater(a: Term, b: Term): Term :=
+  EApp(EFun(Name(Some("prelude/prelude"), ">")), List(a, b))
+
+pattern GreaterEq(a: Term, b: Term): Term :=
+  EApp(EFun(Name(Some("prelude/prelude"), ">=")), List(a, b))
 
 pattern Compare(a: Term, b: Term): Term :=
   EApp(EFun(Name(None, "compare")), List(a, b))

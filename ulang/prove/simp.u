@@ -210,6 +210,12 @@ function to_seq(e: Term): Seq :=
     case ELit(LBool(false)) =>
       false_seq()
 
+    case Not(Less(a, b)) =>
+      Atom(LessEq(b, a))
+
+    case Not(LessEq(a, b)) =>
+      Atom(Less(b, a))
+
     case Not(a) =>
       Seq(List(), List(to_seq(a)), List())
 
@@ -311,10 +317,17 @@ function negated_conclusions(cs: List[Concl]): List[Seq] * List[Concl] :=
       end
   end
 
-// a sequent that only wraps a single conjunct is that conjunct, not not A is A, and a single conclusion that is a sequent without
-// existential variables is merged, since A ==> (forall y. B ==> C) is forall y. A and B ==> C
+// a sequent that only wraps a single conjunct is that conjunct, not not A is A, a negated comparison is the comparison
+// with its sides swapped, and a single conclusion that is a sequent without existential variables is merged, since
+// A ==> (forall y. B ==> C) is forall y. A and B ==> C
 function sequent(xs: List[Var], assms: List[Seq], concls: List[Concl]): Seq :=
   match (xs, assms, concls)
+    case (List(), List(Atom(Less(a, b))), List()) =>
+      Atom(LessEq(b, a))
+
+    case (List(), List(Atom(LessEq(a, b))), List()) =>
+      Atom(Less(b, a))
+
     case (List(), List(), List(Concl(List(), List(s)))) =>
       s
 
@@ -552,6 +565,12 @@ function assume_term(ctx: Ctx, e: Term, b: Bool): Ctx :=
           add_ineq(ctx, lin_add(lin_sub(lin_of(y), lin_of(x)), Lin(-1, List())))
         else
           add_ineq(ctx, lin_sub(lin_of(x), lin_of(y)))
+
+      case LessEq(x, y) =>
+        if b then
+          add_ineq(ctx, lin_sub(lin_of(y), lin_of(x)))
+        else
+          add_ineq(ctx, lin_add(lin_sub(lin_of(x), lin_of(y)), Lin(-1, List())))
 
       case _ =>
         merge(ctx, e, bool_term(b))
@@ -934,8 +953,8 @@ function is_size(t: Term): Bool :=
   end
 
 function bound_of(r: Rule, a: Term): List[Lin] :=
-  match (r.conds, r.lhs, r.rhs)
-    case (List(), Less(p, q), ELit(LBool(bool))) =>
+  match (r.conds, comparison_of(r.lhs), r.rhs)
+    case (List(), Some((p, q, strict)), ELit(LBool(bool))) =>
       match lin_sub(lin_of(p), lin_of(q))
         case Lin(_, List(Summand(atom, _))) =>
           match match_term(size(r.vars), atom, a, empty())
@@ -943,10 +962,7 @@ function bound_of(r: Rule, a: Term): List[Lin] :=
               let n := size(r.vars) in
               let args := List(for i in range(0, n) yield lookup_index(n - 1 - i, sub)) in
               let d := lin_sub(lin_of(beta(args, q)), lin_of(beta(args, p))) in
-              if bool then
-                List(lin_add(d, Lin(-1, List())))
-              else
-                List(lin_scale(-1, d))
+              List(comparison_ineq(d, strict, bool))
 
             case None =>
               List()
@@ -958,6 +974,35 @@ function bound_of(r: Rule, a: Term): List[Lin] :=
 
     case _ =>
       List()
+  end
+
+// the sides of p < q or p <= q, and whether it is strict
+function comparison_of(t: Term): Option[Term * Term * Bool] :=
+  match t
+    case Less(p, q) =>
+      Some((p, q, true))
+
+    case LessEq(p, q) =>
+      Some((p, q, false))
+
+    case _ =>
+      None
+  end
+
+// the inequality, of the form t >= 0, that a comparison with the difference d of its sides, q - p, says if it is b
+function comparison_ineq(d: Lin, strict: Bool, b: Bool): Lin :=
+  match (strict, b)
+    case (true, true) =>
+      lin_add(d, Lin(-1, List()))
+
+    case (true, false) =>
+      lin_scale(-1, d)
+
+    case (false, true) =>
+      d
+
+    case (false, false) =>
+      lin_add(lin_scale(-1, d), Lin(-1, List()))
   end
 
 function add_ineq(ctx: Ctx, d: Lin): Ctx :=
@@ -1114,6 +1159,15 @@ function simp_builtin(ctx: Ctx, e: Term): Option[Term] :=
     case Less(a, b) =>
       Some(simp_less(ctx, a, b))
 
+    case LessEq(a, b) =>
+      Some(simp_less_eq(ctx, a, b))
+
+    case Greater(a, b) =>
+      Some(simp_less(ctx, b, a))
+
+    case GreaterEq(a, b) =>
+      Some(simp_less_eq(ctx, b, a))
+
     case Compare(a, b) =>
       Some(simp_compare(ctx, a, b))
 
@@ -1209,6 +1263,12 @@ function simp_not(ctx: Ctx, a: Term): Term :=
 
     case Not(b) =>
       b
+
+    case Less(x, y) =>
+      rewrite(ctx, LessEq(y, x))
+
+    case LessEq(x, y) =>
+      rewrite(ctx, Less(y, x))
 
     case _ =>
       rewrite(ctx, Not(a))
@@ -1337,6 +1397,24 @@ function simp_less(ctx: Ctx, a: Term, b: Term): Term :=
         bool_term(false)
       else
         rewrite(ctx, Less(a, b))
+  end
+
+function simp_less_eq(ctx: Ctx, a: Term, b: Term): Term :=
+  let d := lin_sub(lin_of(b), lin_of(a)) in
+  match (d, value_order(ctx.decls, a, b))
+    case (Lin(k, List()), _) =>
+      bool_term(k >= 0)
+
+    case (_, Some(c)) =>
+      bool_term(c <= 0)
+
+    case _ =>
+      if is_entailed(ctx, d) then
+        bool_term(true)
+      else if is_entailed(ctx, lin_add(lin_scale(-1, d), Lin(-1, List()))) then
+        bool_term(false)
+      else
+        rewrite(ctx, LessEq(a, b))
   end
 
 // -1, 0, or 1 where the order of the values or the context decides it, consistent with simp_less and simp_eq

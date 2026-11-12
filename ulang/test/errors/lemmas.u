@@ -94,13 +94,13 @@ test vacuous() :=
 
 // the sign of a remainder follows that of its dividend, since / truncates towards zero, so it is open without it
 test remainder_unsigned() :=
-  assert raises OpenLemma("remainder_unsigned", "forall m => (m % 3) < 0 ==> false") do
+  assert raises OpenLemma("remainder_unsigned", "forall m => 0 <= (m % 3)") do
     call prove_text(in "ulang/test/errors/remainder-unsigned.u", List("lemma remainder_unsigned(in m: Int) :=", "  ensures m % 3 >= 0"))
   end
 
 // only squares are at least 0
 test product_unsigned() :=
-  assert raises OpenLemma("product_unsigned", "forall x, y => (x * y) < 0 ==> false") do
+  assert raises OpenLemma("product_unsigned", "forall x, y => 0 <= (x * y)") do
     call prove_text(in "ulang/test/errors/product-unsigned.u", List("lemma product_unsigned(in x: Int, y: Int) :=", "  ensures x * y >= 0"))
   end
 
