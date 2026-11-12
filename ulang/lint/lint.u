@@ -1,0 +1,1011 @@
+// the lints of ulang: checks of the parsed program, each a rule of Lint, which check --lint reports as warnings, where
+// the parsed program keeps the source that format prints, and a file is linted only if it checks, so that the names of
+// a pattern, such as Some and value_or, are those of the library unless a module declares them again; the walks judge
+// variables by their names, since no local hides another, and declarations by their base names, so overloads count as
+// one
+
+import "ulang/syntax"
+
+export
+
+// the rules, whose names are the codes of their warnings
+data Lint :=
+  // an if of true and false, or of false and true, which is its condition or not of it
+  case BoolIte
+  // a match that spells out value_or
+  case Folded
+  // a list that a generator only iterates, of the elements of a container, which is that container
+  case CopiedContainer
+  // a for whose body only appends one element to a list that starts empty, which is a form List(for …)
+  case CollectingLoop
+  // a handler whose body is skip, which swallows what it catches
+  case SwallowedException
+  // a private function, procedure, or pattern alias that no export, test, lemma, hook, or procedure without formals
+  // reaches
+  case UnusedPrivate
+  // a local that is neither read nor passed as an out or ref, or a pattern variable that is never read
+  case UnusedVariable
+  // a name with a numeric index, such as e1, instead of a name by its role
+  case NumberedName
+  // a declaration show_x, where show is text that parses back and format_x prints into another language
+  case ShowName
+  // a local without an initial value that only one if, match, or try uses, so that its branches declare it
+  case LocalTooHigh
+
+// a warning of lint at pos of a module, with the expression to write instead if there is one
+data Warning :=
+  case Warning(lint: Lint, pos: Pos, message: Str, replacement: Option[At[Expr]])
+
+// the warnings of module d, of its commands in the order of the module, and then of its unused private declarations
+function lints(d: Mod): List[Warning]
+
+implementation
+
+function lints(d: Mod): List[Warning] :=
+  List(for cmd in d.exported ++ d.builtins ++ d.implemented for w in cmd_lints(cmd.at) yield w) ++ unused_privates(d)
+
+function cmd_lints(cmd: At[Cmd]): List[Warning] :=
+  match cmd
+    case AOk(pos, that) =>
+      placed_cmd_lints(pos, that)
+
+    case AErr(pos, that, _) =>
+      placed_cmd_lints(pos, that)
+
+    case AUnparsed(_, _, _) =>
+      List()
+  end
+
+// fun is the function that a body defines, whose own definition no lint replaces by a call of it, as of not or value_or;
+// the names of exported declarations are judged at their definitions, which repeat the signatures
+function placed_cmd_lints(pos: Pos, cmd: Cmd): List[Warning] :=
+  match cmd
+    case CFun(name, _, formals, typ, _, body) =>
+      decl_name_lints(pos, name.base, List(typ)) ++ vars_lints(pos, formals) ++ expr_lints(name.base, body)
+
+    case CProc(name, _, ins, outs, refs, _, _, stmt) =>
+      decl_name_lints(pos, name.base, List(for x in outs yield x.typ)) ++ vars_lints(pos, ins ++ outs ++ refs) ++ stmt_lints("", stmt)
+
+    case CTest(_, _, stmt) =>
+      stmt_lints("", stmt)
+
+    case CLemma(_, _, ins, outs, assms, concl, _) =>
+      vars_lints(pos, ins ++ outs) ++ exprs_lints("", assms) ++ expr_lints("", concl)
+
+    case CPatAlias(name, _, formals, _, _) =>
+      decl_name_lints(pos, name.base, List()) ++ vars_lints(pos, formals)
+
+    case CSort(_, _, _) =>
+      List()
+
+    case CData(_, _, _) =>
+      List()
+
+    case CNotation(_, _, _) =>
+      List()
+
+    case CFunSig(_, _, _, _, _) =>
+      List()
+
+    case CProcSig(_, _, _, _, _, _, _) =>
+      List()
+
+    case CAbstract(_, _) =>
+      List()
+  end
+
+// the lints of the part expr, the construct at its position and its parts, where an unparsed part has none
+function expr_lints(fun: Id, expr: At[Expr]): List[Warning] :=
+  match expr
+    case AOk(pos, that) =>
+      placed_lints(fun, pos, that) ++ part_lints(fun, that)
+
+    case AErr(pos, that, _) =>
+      placed_lints(fun, pos, that) ++ part_lints(fun, that)
+
+    case AUnparsed(_, _, _) =>
+      List()
+  end
+
+function part_lints(fun: Id, expr: Expr): List[Warning] :=
+  match expr
+    case ELit(_) =>
+      List()
+
+    case EVar(_) =>
+      List()
+
+    case EApp(f, args) =>
+      expr_lints(fun, f) ++ exprs_lints(fun, args)
+
+    case EField(base, _) =>
+      expr_lints(fun, base)
+
+    case EUpdate(base, _, value) =>
+      expr_lints(fun, base) ++ expr_lints(fun, value)
+
+    case ELam(formals, body) =>
+      binder_lints(formals, expr_names(body)) ++ expr_lints(fun, body)
+
+    case EProc(_, _, _, _, stmt) =>
+      stmt_lints(fun, stmt)
+
+    case ELet(bindings, body) =>
+      binder_lints(List(for (p, _) in bindings yield p), expr_names(body)) ++ exprs_lints(fun, List(for (_, e) in bindings yield e)) ++ expr_lints(fun, body)
+
+    case EIte(cond, then_expr, else_expr) =>
+      exprs_lints(fun, List(cond, then_expr, else_expr))
+
+    case EMatch(arg, cases) =>
+      expr_lints(fun, arg) ++ List(for br in parts(cases) for w in expr_branch_lints(fun, br) yield w)
+
+    case ETuple(args) =>
+      exprs_lints(fun, args)
+
+    case EForm(_, elems, rest) =>
+      List(for y in elems for w in yield_lints(fun, y) yield w) ++ option_lints(fun, rest)
+
+    case EFor(_, gens, elem, rest) =>
+      gens_binder_lints(gens, yield_names(elem)) ++ gens_lints(fun, gens) ++ yield_lints(fun, elem) ++ option_lints(fun, rest)
+  end
+
+function expr_branch_lints(fun: Id, br: Branch[At[Expr]]): List[Warning] :=
+  binder_lints(List(br.pat), option_names(br.guard) ++ expr_names(br.body)) ++ option_lints(fun, br.guard) ++ expr_lints(fun, br.body)
+
+function exprs_lints(fun: Id, exprs: List[At[Expr]]): List[Warning] :=
+  List(for e in exprs for w in expr_lints(fun, e) yield w)
+
+function option_lints(fun: Id, expr: Option[At[Expr]]): List[Warning] :=
+  List(for e in expr for w in expr_lints(fun, e) yield w)
+
+function yield_lints(fun: Id, elem: Yield): List[Warning] :=
+  match elem
+    case YVal(value) =>
+      expr_lints(fun, value)
+    case YPair(key, value) =>
+      expr_lints(fun, key) ++ expr_lints(fun, value)
+  end
+
+function gens_lints(fun: Id, gens: List[Gen]): List[Warning] :=
+  List(for g in gens for w in gen_lints(fun, g) yield w)
+
+function gen_lints(fun: Id, g: Gen): List[Warning] :=
+  match g
+    case GVal(_, over) =>
+      iterated_list(over) ++ expr_lints(fun, over)
+
+    case GPair(_, _, over) =>
+      expr_lints(fun, over)
+
+    case GIf(cond) =>
+      expr_lints(fun, cond)
+  end
+
+function stmt_lints(fun: Id, stmt: At[Stmt]): List[Warning] :=
+  match stmt
+    case AOk(pos, that) =>
+      part_stmt_lints(fun, pos, that)
+
+    case AErr(pos, that, _) =>
+      part_stmt_lints(fun, pos, that)
+
+    case AUnparsed(_, _, _) =>
+      List()
+  end
+
+function stmts_lints(fun: Id, stmts: List[At[Stmt]]): List[Warning] :=
+  List(for s in stmts for w in stmt_lints(fun, s) yield w)
+
+// the lints of stmt at pos, where the locals of a block are judged at the position of the block, since a Var has none
+function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
+  match stmt
+    case SSkip =>
+      List()
+
+    case SAssign(upd) =>
+      exprs_lints(fun, List(for (_, e) in upd yield e))
+
+    case SBlock(locals, stmts) =>
+      locals_lints(pos, locals, stmts) ++ collecting_loops(stmts_of(stmts)) ++ stmts_lints(fun, stmts_of(stmts))
+
+    case SIf(cond, left, right) =>
+      expr_lints(fun, cond) ++ stmts_lints(fun, List(left, right))
+
+    case SWhile(cond, body) =>
+      expr_lints(fun, cond) ++ stmt_lints(fun, body)
+
+    case SCall(_, ins, _, _) =>
+      exprs_lints(fun, ins)
+
+    case SMatch(arg, cases) =>
+      expr_lints(fun, arg) ++ List(for br in parts(cases) for w in stmt_branch_lints(fun, br) yield w)
+
+    case SAssert(cond) =>
+      expr_lints(fun, cond)
+
+    case SAssertRaises(_, _, body) =>
+      stmt_lints(fun, body)
+
+    case SRaise(value, _) =>
+      expr_lints(fun, value)
+
+    case STry(body, catches) =>
+      stmt_lints(fun, body) ++ List(for c in catches for w in catch_lints(fun, c) yield w)
+
+    case SFor(gens, body) =>
+      gens_binder_lints(gens, stmt_names(body)) ++ gens_lints(fun, gens) ++ stmt_lints(fun, body)
+  end
+
+function stmt_branch_lints(fun: Id, br: Branch[At[Stmt]]): List[Warning] :=
+  binder_lints(List(br.pat), option_names(br.guard) ++ stmt_names(br.body)) ++ option_lints(fun, br.guard) ++ stmt_lints(fun, br.body)
+
+function catch_lints(fun: Id, c: Doc[Catch]): List[Warning] :=
+  let handler := c.at.that in
+  let scope := option_names(handler.guard) ++ stmt_names(handler.body) in
+  swallowed(c.at.pos, handler.body) ++ binder_lints(List(handler.pat), scope) ++ option_lints(fun, handler.guard) ++ stmt_lints(fun, handler.body)
+
+// the lints of the construct expr at pos, which its parts do not include
+function placed_lints(fun: Id, pos: Pos, expr: Expr): List[Warning] :=
+  match expr
+    case EIte(cond, then_expr, else_expr) =>
+      match (literal_bool(then_expr), literal_bool(else_expr))
+        case (Some(true), Some(false)) =>
+          List(
+            Warning(BoolIte, pos, "an if of true and false is its condition", Some(cond)))
+
+        case (Some(false), Some(true)) if fun != "not" =>
+          List(
+            Warning(BoolIte, pos, "an if of false and true is not of its condition", Some(expr_app("not", List(cond)))))
+
+        case _ =>
+          List()
+      end
+
+    case EMatch(arg, cases) if fun != "value_or" =>
+      match option_default(parts(cases))
+        case Some(d) =>
+          List(
+            Warning(Folded, pos, "a match that gives the value of an option, or else a default, is value_or", Some(expr_app("value_or", List(arg, d)))))
+
+        case None =>
+          List()
+      end
+
+    case _ =>
+      List()
+  end
+
+function literal_bool(expr: At[Expr]): Option[Bool] :=
+  match strip_expr(expr)
+    case AOk(_, ELit(LBool(b))) =>
+      Some(b)
+    case _ =>
+      None
+  end
+
+// a list that a generator iterates, which is the elements of its container in the order of its fold, as the generator
+// takes them from the container itself, where a map gives its pairs to a single pattern
+function iterated_list(over: At[Expr]): List[Warning] :=
+  match over
+    case AOk(pos, EFor(FList, List(g), elem, None)) if is_identity(g, elem) =>
+      List(
+        Warning(CopiedContainer, pos, "a list that is only iterated, of the elements of a container, is that container", Some(gen_over(g))))
+
+    case _ =>
+      List()
+  end
+
+// whether elem is what the single generator g yields without yield
+function is_identity(g: Gen, elem: Yield): Bool :=
+  match implicit_elem(FList, List(g))
+    case Some(implicit) =>
+      strip_expr(nowhere(EFor(FList, List(g), implicit, None))) == strip_expr(nowhere(EFor(FList, List(g), elem, None)))
+    case None =>
+      false
+  end
+
+function gen_over(g: Gen): At[Expr] :=
+  match g
+    case GVal(_, over) =>
+      over
+
+    case GPair(_, _, over) =>
+      over
+
+    case GIf(cond) =>
+      cond
+  end
+
+// the default d of cases Some(x) => x and None => d, in either order, without guards, where d is a plain value, so that
+// value_or, which takes d evaluated, computes nothing that the match would not
+function option_default(cases: List[Branch[At[Expr]]]): Option[At[Expr]] :=
+  match cases
+    case List(Branch(some, None, x), Branch(none, None, d)) if is_some_of(some, x) and is_none(none) and is_plain(d) =>
+      Some(d)
+
+    case List(Branch(none, None, d), Branch(some, None, x)) if is_some_of(some, x) and is_none(none) and is_plain(d) =>
+      Some(d)
+
+    case _ =>
+      None
+  end
+
+// whether pat is Some(x) and body the variable x
+function is_some_of(pat: At[Pat], body: At[Expr]): Bool :=
+  match (strip_pat(pat), strip_expr(body))
+    case (AOk(_, PApp(Name(None, "Some"), List(AOk(_, PVar(v))))), AOk(_, EVar(w))) =>
+      v.name == w.name
+    case _ =>
+      false
+  end
+
+// whether pat is None, bare, as a variable that the checker resolves, or with ()
+function is_none(pat: At[Pat]): Bool :=
+  match strip_pat(pat)
+    case AOk(_, PVar(v)) =>
+      v.name == Name(None, "None")
+
+    case AOk(_, PApp(Name(None, "None"), List())) =>
+      true
+
+    case _ =>
+      false
+  end
+
+// whether expr is a literal, a variable, or a tuple or constructor of plain values, which evaluates without calling a function
+function is_plain(expr: At[Expr]): Bool :=
+  match strip_expr(expr)
+    case AOk(_, ELit(_)) =>
+      true
+
+    case AOk(_, EVar(_)) =>
+      true
+
+    case AOk(_, ETuple(args)) =>
+      forall(args, is_plain)
+
+    case AOk(_, ECall(_, name, _, args)) =>
+      name.module == None and is_capitalized(name.base) and forall(args, is_plain)
+
+    case _ =>
+      false
+  end
+
+function is_capitalized(name: Id): Bool :=
+  size(name) > 0 and ord(at(0, name)) >= ord('A') and ord(at(0, name)) <= ord('Z')
+
+// the handler at pos swallows what it catches if its body is skip
+function swallowed(pos: Pos, body: At[Stmt]): List[Warning] :=
+  if is_skip(body) then
+    List(
+      Warning(SwallowedException, pos, "a handler that only skips swallows what it catches", None))
+  else
+    List()
+
+function is_skip(stmt: At[Stmt]): Bool :=
+  match stmt_part(stmt)
+    case SSkip =>
+      true
+
+    case SBlock(List(), stmts) =>
+      forall(stmts_of(stmts), is_skip)
+
+    case _ =>
+      false
+  end
+
+// the warnings of the locals xs of a block at pos, whose statements are stmts, starting with the assignments of the locals
+// that have initial values
+function locals_lints(pos: Pos, xs: List[Var], stmts: List[Doc[Stmt]]): List[Warning] :=
+  let inits := initialized(xs, stmts) in
+  List(for x in xs for w in local_lints(pos, x.name.base, contains(x.name.base, inits), stmts_of(stmts)) yield w)
+
+// the locals of xs that the assignments at the start of stmts initialize, as format_body prints them
+function initialized(xs: List[Var], stmts: List[Doc[Stmt]]): Set[Id] :=
+  match (xs, stmts)
+    case (List(x; more), List(Doc(None, AOk(_, SAssign(List((y, _))))); rest)) if y == Var(x.name, THole) =>
+      Set(x.name.base) ++ initialized(more, rest)
+
+    case (List(_; more), _) =>
+      initialized(more, stmts)
+
+    case (List(), _) =>
+      Set()
+  end
+
+// a local that is neither read nor an out or ref of a call is unused, and one without an initial value that only a
+// branching statement names, outside its condition, is declared too high
+function local_lints(pos: Pos, name: Id, has_init: Bool, stmts: List[At[Stmt]]): List[Warning] :=
+  name_lints(pos, name) ++ (if not exists(stmts, lambda s => contains(name, stmt_names(s) ++ call_outs(s))) then
+    List(
+      Warning(UnusedVariable, pos, "the local " ++ name ++ " is never read", None))
+  else if has_init then
+    List()
+  else
+    too_high(pos, name, List(for s in stmts if is_named(name, s))))
+
+function too_high(pos: Pos, name: Id, users: List[At[Stmt]]): List[Warning] :=
+  match users
+    case List(s) if is_branching(name, stmt_part(s)) =>
+      List(
+        Warning(LocalTooHigh, pos, "the local " ++ name ++ " is used only in the branches of one statement, which declare it where they use it", None))
+
+    case _ =>
+      List()
+  end
+
+// whether stmt branches without naming name in its condition, an argument or guard of a match, or the head of a try
+function is_branching(name: Id, stmt: Stmt): Bool :=
+  match stmt
+    case SIf(cond, _, _) =>
+      not contains(name, expr_names(cond))
+
+    case SMatch(arg, cases) =>
+      not contains(name, expr_names(arg)) and forall(parts(cases), lambda br => not contains(name, option_names(br.guard)))
+
+    case STry(_, catches) =>
+      forall(parts(catches), lambda c => not contains(name, option_names(c.guard)))
+
+    case _ =>
+      false
+  end
+
+// whether stmt reads, assigns, or passes the variable name
+function is_named(name: Id, stmt: At[Stmt]): Bool :=
+  contains(name, stmt_names(stmt) ++ call_outs(stmt) ++ assigned(stmt))
+
+// the loops of stmts that only append one element to a local that an earlier statement sets to List(), where no statement
+// between names the local
+function collecting_loops(stmts: List[At[Stmt]]): List[Warning] :=
+  match stmts
+    case List() =>
+      List()
+    case List(s; rest) =>
+      List(for x in emptied(stmt_part(s)) for w in collecting_loop(x, rest) yield w) ++ collecting_loops(rest)
+  end
+
+function emptied(stmt: Stmt): List[Id] :=
+  match stmt
+    case SAssign(upd) =>
+      List(for (x, e) in upd if is_empty_list(e) yield x.name.base)
+    case _ =>
+      List()
+  end
+
+function is_empty_list(expr: At[Expr]): Bool :=
+  match strip_expr(expr)
+    case AOk(_, EForm(FList, List(), None)) =>
+      true
+    case _ =>
+      false
+  end
+
+// the warning of the first statement of stmts that names x, if it is a loop that only appends to x
+function collecting_loop(x: Id, stmts: List[At[Stmt]]): List[Warning] :=
+  match List(for s in stmts if is_named(x, s))
+    case List(AOk(pos, SFor(gens, body)); _) if not contains(x, gens_names(gens)) =>
+      List(for elem in appended(x, body) yield collected(pos, x, AOk(pos, EFor(FList, gens, YVal(elem), None))))
+    case _ =>
+      List()
+  end
+
+function collected(pos: Pos, x: Id, list: At[Expr]): Warning :=
+  Warning(CollectingLoop, pos, "a loop that only appends to " ++ x ++ " is the list that it builds, which " ++ x ++ " can be assigned", Some(list))
+
+// the element e of a body assign x := x ++ List(e) that does not name x
+function appended(x: Id, body: At[Stmt]): Option[At[Expr]] :=
+  match stmt_part(body)
+    case SBlock(List(), List(only)) =>
+      appended(x, only.at)
+
+    case SAssign(List(
+      (y, AOk(_, ECall(_, Name(None, "++"), _, List(AOk(_, EVar(z)), AOk(_, EForm(FList, List(YVal(e)), None)))))))) if y.name.base == x and z.name.base == x and not contains(x, expr_names(e)) =>
+      Some(e)
+
+    case _ =>
+      None
+  end
+
+// the private functions, procedures, and pattern aliases of d that no export, test, lemma, hook, or procedure without
+// formals reaches, by the names that their bodies read, where the exported names are the roots, also of overloads
+function unused_privates(d: Mod): List[Warning] :=
+  let exported := exported_names(d), cmds := commands_of(d.implemented) in
+  let reached := reach(uses_graph(cmds), List(for x in exported ++ conventional(d.name) ++ root_names(cmds)), Set()) in
+  List(for c in d.implemented for (kind, name) in private_decl(c.at) if not contains(name, exported ++ reached) yield unused(c.at.pos, kind, name))
+
+function unused(pos: Pos, kind: Str, name: Id): Warning :=
+  Warning(UnusedPrivate, pos, "nothing reaches the private " ++ kind ++ " " ++ name, None)
+
+function exported_names(d: Mod): Set[Id] :=
+  Set(for c in commands_of(d.exported ++ d.builtins) for n in declared_name(c) yield n)
+
+// the declarations of cmds by their base names, each to the names that the bodies of its overloads read
+function uses_graph(cmds: List[Cmd]): Map[Id, Set[Id]] :=
+  Map(for n in Set(for c in cmds for m in declared_name(c) yield m) yield n => overload_names(n, cmds))
+
+function overload_names(name: Id, cmds: List[Cmd]): Set[Id] :=
+  Set(for c in cmds if declared_name(c) == Some(name) for x in cmd_names(c) yield x)
+
+function root_names(cmds: List[Cmd]): Set[Id] :=
+  Set(for c in cmds if is_root(c) for x in cmd_names(c) ++ Set(for n in declared_name(c) yield n) yield x)
+
+// the names reachable from todo in graph, which maps each declaration to the names that it reads, besides seen
+function reach(graph: Map[Id, Set[Id]], todo: List[Id], seen: Set[Id]): Set[Id] :=
+  match todo
+    case List() =>
+      seen
+
+    case List(n; rest) =>
+      if contains(n, seen) then
+        reach(graph, rest, seen)
+      else
+        reach(graph, List(for x in value_or(get(n, graph), Set())) ++ rest, Set(n) ++ seen)
+  end
+
+// the names that the language uses without a use in the module: the hooks, and project of project.u
+function conventional(m: Id): Set[Id] :=
+  Set("show", "compare", "==") ++ (if m == "project" then Set("project") else Set())
+
+// whether cmd is used where it is, as a test, a lemma, a declaration with examples, which are tests, or a procedure without
+// formals, which run and test may call
+function is_root(cmd: Cmd): Bool :=
+  match cmd
+    case CTest(_, _, _) =>
+      true
+
+    case CLemma(_, _, _, _, _, _, _) =>
+      true
+
+    case CProc(_, _, List(), List(), List(), _, _, _) =>
+      true
+
+    case CFun(_, _, _, _, spec, _) =>
+      spec.examples != List()
+
+    case CProc(_, _, _, _, _, _, spec, _) =>
+      spec.examples != List()
+
+    case _ =>
+      false
+  end
+
+function declared_name(cmd: Cmd): Option[Id] :=
+  match cmd
+    case CFun(name, _, _, _, _, _) =>
+      Some(name.base)
+
+    case CProc(name, _, _, _, _, _, _, _) =>
+      Some(name.base)
+
+    case CFunSig(name, _, _, _, _) =>
+      Some(name.base)
+
+    case CProcSig(name, _, _, _, _, _, _) =>
+      Some(name.base)
+
+    case CPatAlias(name, _, _, _, _) =>
+      Some(name.base)
+
+    case _ =>
+      None
+  end
+
+// the kind and name of a declaration that may be private
+function private_decl(cmd: At[Cmd]): Option[Str * Id] :=
+  match cmd
+    case AOk(_, CFun(name, _, _, _, _, _)) =>
+      Some(("function", name.base))
+
+    case AOk(_, CProc(name, _, _, _, _, _, _, _)) =>
+      Some(("procedure", name.base))
+
+    case AOk(_, CPatAlias(name, _, _, _, _)) =>
+      Some(("pattern alias", name.base))
+
+    case _ =>
+      None
+  end
+
+// the names that the body of cmd reads, and its examples
+function cmd_names(cmd: Cmd): Set[Id] :=
+  match cmd
+    case CFun(_, _, _, _, spec, body) =>
+      spec_names(spec) ++ expr_names(body)
+
+    case CProc(_, _, _, _, _, _, spec, stmt) =>
+      spec_names(spec) ++ stmt_names(stmt)
+
+    case CTest(_, _, stmt) =>
+      stmt_names(stmt)
+
+    case CLemma(_, _, _, _, assms, concl, proof) =>
+      exprs_names(assms) ++ expr_names(concl) ++ Set(for p in proof for x in proof_names(p) yield x)
+
+    case CPatAlias(_, _, _, _, pat) =>
+      pat_names(pat)
+
+    case _ =>
+      Set()
+  end
+
+function spec_names(spec: Spec): Set[Id] :=
+  Set(for x in spec.examples for n in example_names(x.that) yield n)
+
+function example_names(x: Example): Set[Id] :=
+  match x
+    case XHolds(expr) =>
+      expr_names(expr)
+
+    case XRaises(expr, pat) =>
+      expr_names(expr) ++ pat_names(pat)
+
+    case XCall(proc, ins, outs, refs) =>
+      Set(proc.base) ++ exprs_names(ins ++ outs ++ List(for (before, after) in refs for e in List(before, after) yield e))
+
+    case XCallRaises(proc, ins, _, befores, pat) =>
+      Set(proc.base) ++ exprs_names(ins ++ befores) ++ pat_names(pat)
+  end
+
+// the warnings of the variables that pats bind, which scope reads or not
+function binder_lints(pats: List[At[Pat]], scope: Set[Id]): List[Warning] :=
+  List(for p in pats for (pos, x) in pat_vars(p) for w in var_lints(pos, x, scope) yield w)
+
+function var_lints(pos: Pos, name: Id, scope: Set[Id]): List[Warning] :=
+  name_lints(pos, name) ++ (if contains(name, scope) then
+    List()
+  else
+    List(
+      Warning(UnusedVariable, pos, "the variable " ++ name ++ " is never read, write _", None)))
+
+// the warnings of the variables of the generators gens, each read in the generators after it or in scope
+function gens_binder_lints(gens: List[Gen], scope: Set[Id]): List[Warning] :=
+  match gens
+    case List() =>
+      List()
+    case List(g; rest) =>
+      binder_lints(gen_pats(g), gens_names(rest) ++ scope) ++ gens_binder_lints(rest, scope)
+  end
+
+function gen_pats(g: Gen): List[At[Pat]] :=
+  match g
+    case GVal(pat, _) =>
+      List(pat)
+
+    case GPair(key, value, _) =>
+      List(key, value)
+
+    case GIf(_) =>
+      List()
+  end
+
+function vars_lints(pos: Pos, xs: List[Var]): List[Warning] :=
+  List(for x in xs for w in name_lints(pos, x.name.base) yield w)
+
+// the warnings of the name of a declaration whose results are of the types results, where show_ is a name only of what
+// gives no text, as show_ref of a hook
+function decl_name_lints(pos: Pos, name: Id, results: List[Type]): List[Warning] :=
+  name_lints(pos, name) ++ (if starts_with(name, "show_") and exists(results, is_str) then
+    List(
+      Warning(ShowName, pos, "the name " ++ name ++ " is show if it gives text that parses back, else format_ if it prints into another language", None))
+  else
+    List())
+
+function is_str(typ: Type): Bool :=
+  match typ
+    case TSort(Name(None, "Str"), List()) =>
+      true
+    case _ =>
+      false
+  end
+
+function name_lints(pos: Pos, name: Id): List[Warning] :=
+  if is_numbered(name) then
+    List(
+      Warning(NumberedName, pos, "the name " ++ name ++ " has a numeric index, name it by its role", None))
+  else
+    List()
+
+// whether name ends in a digit after a letter, as e1 or stmt2
+function is_numbered(name: Id): Bool :=
+  match reverse(chars(name))
+    case List(c, d; _) =>
+      is_digit(c) and is_letter(d)
+    case _ =>
+      false
+  end
+
+// the variables that pat binds, each at its position, where a capitalized name is a constructor or an alias without
+// formals
+function pat_vars(pat: At[Pat]): List[Pos * Id] :=
+  match pat
+    case AOk(pos, that) =>
+      placed_pat_vars(pos, that)
+
+    case AErr(pos, that, _) =>
+      placed_pat_vars(pos, that)
+
+    case AUnparsed(_, _, _) =>
+      List()
+  end
+
+function placed_pat_vars(pos: Pos, pat: Pat): List[Pos * Id] :=
+  match pat
+    case PVar(v) if not is_capitalized(v.name.base) =>
+      List((pos, v.name.base))
+
+    case PApp(_, args) =>
+      List(for p in args for x in pat_vars(p) yield x)
+
+    case PTuple(args) =>
+      List(for p in args for x in pat_vars(p) yield x)
+
+    case _ =>
+      List()
+  end
+
+function stmt_part(stmt: At[Stmt]): Stmt :=
+  match stmt
+    case AOk(_, that) =>
+      that
+
+    case AErr(_, that, _) =>
+      that
+
+    case AUnparsed(_, _, _) =>
+      SSkip
+  end
+
+// the statements directly inside stmt, without those of procedures inside its expressions, which assign only their own
+// outs and refs
+function child_stmts(stmt: Stmt): List[At[Stmt]] :=
+  match stmt
+    case SSkip =>
+      List()
+
+    case SAssign(_) =>
+      List()
+
+    case SBlock(_, stmts) =>
+      stmts_of(stmts)
+
+    case SIf(_, left, right) =>
+      List(left, right)
+
+    case SWhile(_, body) =>
+      List(body)
+
+    case SCall(_, _, _, _) =>
+      List()
+
+    case SMatch(_, cases) =>
+      List(for br in parts(cases) yield br.body)
+
+    case SAssert(_) =>
+      List()
+
+    case SAssertRaises(_, _, body) =>
+      List(body)
+
+    case SRaise(_, _) =>
+      List()
+
+    case STry(body, catches) =>
+      List(body; List(for c in parts(catches) yield c.body))
+
+    case SFor(_, body) =>
+      List(body)
+  end
+
+// the variables that stmt passes as outs or refs of calls
+function call_outs(stmt: At[Stmt]): Set[Id] :=
+  let part := stmt_part(stmt) in
+  let own := match part
+    case SCall(_, _, outs, refs) =>
+      Set(for x in outs ++ refs yield x.name.base)
+    case _ =>
+      Set()
+  end in
+  own ++ Set(for s in child_stmts(part) for x in call_outs(s) yield x)
+
+// the variables that the assignments of stmt assign
+function assigned(stmt: At[Stmt]): Set[Id] :=
+  let part := stmt_part(stmt) in
+  let own := match part
+    case SAssign(upd) =>
+      Set(for (x, _) in upd yield x.name.base)
+    case _ =>
+      Set()
+  end in
+  own ++ Set(for s in child_stmts(part) for x in assigned(s) yield x)
+
+// the names that expr reads, of locals and declarations as written, also inside its lambdas, and the constructors and
+// aliases that its patterns name
+function expr_names(expr: At[Expr]): Set[Id] :=
+  match expr
+    case AOk(_, that) =>
+      part_names(that)
+
+    case AErr(_, that, _) =>
+      part_names(that)
+
+    case AUnparsed(_, _, _) =>
+      Set()
+  end
+
+function part_names(expr: Expr): Set[Id] :=
+  match expr
+    case ELit(_) =>
+      Set()
+
+    case EVar(v) =>
+      Set(v.name.base)
+
+    case EApp(f, args) =>
+      expr_names(f) ++ exprs_names(args)
+
+    case EField(base, _) =>
+      expr_names(base)
+
+    case EUpdate(base, _, value) =>
+      expr_names(base) ++ expr_names(value)
+
+    case ELam(formals, body) =>
+      Set(for p in formals for x in pat_names(p) yield x) ++ expr_names(body)
+
+    case EProc(_, _, _, _, stmt) =>
+      stmt_names(stmt)
+
+    case ELet(bindings, body) =>
+      Set(for (p, e) in bindings for x in pat_names(p) ++ expr_names(e) yield x) ++ expr_names(body)
+
+    case EIte(cond, then_expr, else_expr) =>
+      exprs_names(List(cond, then_expr, else_expr))
+
+    case EMatch(arg, cases) =>
+      expr_names(arg) ++ Set(for br in parts(cases) for x in pat_names(br.pat) ++ option_names(br.guard) ++ expr_names(br.body) yield x)
+
+    case ETuple(args) =>
+      exprs_names(args)
+
+    case EForm(_, elems, rest) =>
+      Set(for y in elems for x in yield_names(y) yield x) ++ option_names(rest)
+
+    case EFor(_, gens, elem, rest) =>
+      gens_names(gens) ++ yield_names(elem) ++ option_names(rest)
+  end
+
+function exprs_names(exprs: List[At[Expr]]): Set[Id] :=
+  Set(for e in exprs for x in expr_names(e) yield x)
+
+function option_names(expr: Option[At[Expr]]): Set[Id] :=
+  Set(for e in expr for x in expr_names(e) yield x)
+
+function yield_names(elem: Yield): Set[Id] :=
+  match elem
+    case YVal(value) =>
+      expr_names(value)
+    case YPair(key, value) =>
+      expr_names(key) ++ expr_names(value)
+  end
+
+function gens_names(gens: List[Gen]): Set[Id] :=
+  Set(for g in gens for x in gen_names(g) yield x)
+
+function gen_names(g: Gen): Set[Id] :=
+  match g
+    case GVal(pat, over) =>
+      pat_names(pat) ++ expr_names(over)
+
+    case GPair(key, value, over) =>
+      pat_names(key) ++ pat_names(value) ++ expr_names(over)
+
+    case GIf(cond) =>
+      expr_names(cond)
+  end
+
+// the constructors and aliases that pat names, without the variables that it binds
+function pat_names(pat: At[Pat]): Set[Id] :=
+  match pat
+    case AOk(_, that) =>
+      part_pat_names(that)
+
+    case AErr(_, that, _) =>
+      part_pat_names(that)
+
+    case AUnparsed(_, _, _) =>
+      Set()
+  end
+
+function part_pat_names(pat: Pat): Set[Id] :=
+  match pat
+    case PVar(v) if is_capitalized(v.name.base) =>
+      Set(v.name.base)
+
+    case PApp(constr, args) =>
+      Set(constr.base) ++ Set(for p in args for x in pat_names(p) yield x)
+
+    case PTuple(args) =>
+      Set(for p in args for x in pat_names(p) yield x)
+
+    case _ =>
+      Set()
+  end
+
+// the names that a proof reads, of its expressions and of the lemmas that it calls
+function proof_names(proof: Proof): Set[Id] :=
+  Set(for step in proof.steps for x in step_names(step.that) yield x) ++ Set(for split in proof.split for x in split_names(split.that) yield x)
+
+function step_names(step: Step): Set[Id] :=
+  match step
+    case StepLocal(_, value) =>
+      option_names(value)
+
+    case StepCall(name, ins, _) =>
+      Set(name.base) ++ exprs_names(ins)
+
+    case StepAssert(cond) =>
+      expr_names(cond)
+
+    case StepAssign(upd) =>
+      Set(for (_, e) in upd for x in expr_names(e) yield x)
+  end
+
+function split_names(split: Split): Set[Id] :=
+  match split
+    case SplitInduction(_, cases) =>
+      branches_proof_names(cases)
+
+    case SplitMatch(arg, cases) =>
+      expr_names(arg) ++ branches_proof_names(cases)
+
+    case SplitIf(cond, left, right) =>
+      expr_names(cond) ++ proof_names(left) ++ Set(for p in right for x in proof_names(p) yield x)
+  end
+
+function branches_proof_names(cases: List[Doc[Branch[Proof]]]): Set[Id] :=
+  Set(for br in parts(cases) for x in pat_names(br.pat) ++ option_names(br.guard) ++ proof_names(br.body) yield x)
+
+// the names that stmt reads, of its expressions, of the procedures it calls, and of the refs that it passes
+function stmt_names(stmt: At[Stmt]): Set[Id] :=
+  let part := stmt_part(stmt) in
+  own_names(part) ++ Set(for s in child_stmts(part) for x in stmt_names(s) yield x)
+
+// the names that stmt reads itself, without its statements
+function own_names(stmt: Stmt): Set[Id] :=
+  match stmt
+    case SSkip =>
+      Set()
+
+    case SAssign(upd) =>
+      Set(for (_, e) in upd for x in expr_names(e) yield x)
+
+    case SBlock(_, _) =>
+      Set()
+
+    case SIf(cond, _, _) =>
+      expr_names(cond)
+
+    case SWhile(cond, _) =>
+      expr_names(cond)
+
+    case SCall(proc, ins, _, refs) =>
+      Set(proc.base) ++ exprs_names(ins) ++ Set(for r in refs yield r.name.base)
+
+    case SMatch(arg, cases) =>
+      expr_names(arg) ++ Set(for br in parts(cases) for x in pat_names(br.pat) ++ option_names(br.guard) yield x)
+
+    case SAssert(cond) =>
+      expr_names(cond)
+
+    case SAssertRaises(_, pat, _) =>
+      pat_names(pat)
+
+    case SRaise(value, _) =>
+      expr_names(value)
+
+    case STry(_, catches) =>
+      Set(for c in parts(catches) for x in pat_names(c.pat) ++ option_names(c.guard) yield x)
+
+    case SFor(gens, _) =>
+      gens_names(gens)
+  end

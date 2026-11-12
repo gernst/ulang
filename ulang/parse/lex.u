@@ -398,9 +398,9 @@ test escapes_round_trip() :=
 
 // the error of lexing text, or LexError("none", Pos(0, 0)) if there is none
 procedure lex_error(in text: Str, out e: LexError) :=
-  local toks: Tokens
   assign e := LexError("none", Pos(0, 0))
   try
+    local toks: Tokens
     call lex(in text, out toks)
   catch
     case LexError(message, pos) =>

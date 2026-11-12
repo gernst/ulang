@@ -84,6 +84,7 @@ out/ulang.sh test                         # runs the whole project, the root abo
 out/ulang.sh compile --tests -o suite.c   # compiles the tests of the whole project, whose binary runs at the root
                                           # with the arguments of test
 out/ulang.sh check file.u                 # only checks it
+out/ulang.sh check --lint file.u          # and prints simpler expressions to write, as warnings
 out/ulang.sh compile file.u -o file.c     # compiles a program to C, whose main calls the procedure main
 out/ulang.sh help                         # lists the commands
 cc -I ulang/runtime file.c ulang/runtime/ulang.c -lgmp -lgc
@@ -92,7 +93,7 @@ make test                                 # runs all tests
 
 ## Layout
 
-- `ulang/` is the implementation in ulang, a package per phase, each importing those before it: `ulang/syntax/` with the errors that all phases share, `ulang/format/` the printer, `ulang/parse/` lexer and parser, `ulang/check/` the checker, `ulang/run/` the interpreter, `ulang/compile/` the compiler to C, with its runtime in `ulang/runtime/`, `ulang/prove/` a prover by contextual simplification over checked programs, and the driver `ulang/ulang.u`.
+- `ulang/` is the implementation in ulang, a package per phase, each importing those before it: `ulang/syntax/` with the errors that all phases share, `ulang/format/` the printer, `ulang/parse/` lexer and parser, `ulang/check/` the checker, `ulang/run/` the interpreter, `ulang/compile/` the compiler to C, with its runtime in `ulang/runtime/`, `ulang/prove/` a prover by contextual simplification over checked programs, `ulang/lint/` the lints, and the driver `ulang/ulang.u`.
 - `bootstrap/ulang.c` is the seed, the C of the last compiler that compiled itself to the same C, from which `make` builds
   `bootstrap/ulang.bin`, which compiles the sources to `out/ulang.bin`. `make selfcompile` replaces the seed by the compiler
   compiled with itself, and `make bootstrap` by the compiler compiled with the interpreter. `bootstrap/ulang.sh` is the script

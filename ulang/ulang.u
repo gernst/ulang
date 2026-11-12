@@ -10,12 +10,14 @@ import "ulang/check"
 import "ulang/run"
 import "ulang/compile"
 import "ulang/prove"
+import "ulang/lint"
 
 // the command of the arguments, as request reads them
 data Request :=
   case RRun(target: Target, args: List[Str])
   case RTest(targets: List[Target], args: List[Str])
-  case RCheck(paths: List[Str])
+  // with lint, also the lints of the files that load, as warnings
+  case RCheck(paths: List[Str], lint: Bool)
   case RProve(targets: List[Target])
   case RFormat(paths: List[Str], check_only: Bool)
   // the procedure of the target, main by default
@@ -40,8 +42,8 @@ procedure main() :=
     case RTest(targets, rest) =>
       call test_targets(in targets, rest, out status)
 
-    case RCheck(paths) =>
-      call check_paths(in paths, out status)
+    case RCheck(paths, lint) =>
+      call check_paths(in paths, lint, out status)
 
     case RProve(targets) =>
       call prove_targets(in targets, out status)
@@ -97,11 +99,11 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
     case ("test", _) =>
       RTest(List(for w in words yield target_of(w)), rest)
 
+    case ("check", List("--lint"; paths)) =>
+      check_request(paths, true)
+
     case ("check", _) =>
-      if exists(words, lambda w => target_of(w).name != None) then
-        RUsage("check takes no names")
-      else
-        RCheck(words)
+      check_request(words, false)
 
     case ("prove", _) =>
       RProve(List(for w in words yield target_of(w)))
@@ -130,6 +132,12 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
       else
         RUsage("unknown command " ++ command)
   end
+
+function check_request(paths: List[Str], lint: Bool): Request :=
+  if exists(paths, lambda w => target_of(w).name != None) then
+    RUsage("check takes no names")
+  else
+    RCheck(paths, lint)
 
 // the words of compile in any order, the file with its procedure or --tests, and -o with the target
 function compile_request(words: List[Str], target: Option[Target], tests: Bool, output: Option[Str]): Request :=
@@ -182,7 +190,8 @@ test requests() :=
   assert request(List("run", "a.u")) == RRun(Target("a.u", None), List())
   assert request(List("run", "a.u:go", "--", "x")) == RRun(Target("a.u", Some("go")), List("x"))
   assert request(List("test", "a.u:t", "dir", "b:c")) == RTest(List(Target("a.u", Some("t")), Target("dir", None), Target("b:c", None)), List())
-  assert request(List("check")) == RCheck(List())
+  assert request(List("check")) == RCheck(List(), false)
+  assert request(List("check", "--lint", "a.u")) == RCheck(List("a.u"), true)
   assert request(List("format", "--check", "a.u")) == RFormat(List("a.u"), true)
   assert request(List("compile", "-o", "a.c", "--tests")) == RCompileTests("a.c")
   assert request(List("compile", "a.u:go", "-o", "a.c")) == RCompile(Target("a.u", Some("go")), "a.c")
@@ -216,7 +225,7 @@ function synopsis(command: Str): Str :=
       "test [<path>[:<name>] ...] [-- args]"
 
     case "check" =>
-      "check [<path> ...]"
+      "check [--lint] [<path> ...]"
 
     case "prove" =>
       "prove [<path>[:<lemma>] ...]"
@@ -240,7 +249,7 @@ function description(command: Str): Str :=
       "runs the tests of the files, all or the named ones, also below directories, by default the project, in the working\n" ++ "directory, printing a line per test and lemma, where a file passes if it loads and its tests pass and its lemmas are\n" ++ "proven; with several files, it prints the files that do not pass and how many do"
 
     case "check" =>
-      "checks the files, also below directories, by default the project"
+      "checks the files, also below directories, by default the project; with --lint, it also prints the lints of the files\n" ++ "that load, as warnings with the simpler expression to write, which do not fail the check"
 
     case "prove" =>
       "proves the lemmas of the files, all or the named ones, also below directories, by default the project, where a\n" ++ "recursive function unfolds only if the prover proves that it terminates"
@@ -323,7 +332,7 @@ procedure test_targets(
 ) :=
   local found: List[Target]
   call targets_of(in targets, true, out found)
-  call visit_units(in found, lambda in q, unit, out failed =>
+  call visit_units(in found, lambda in source, q, unit, out failed =>
     call test_unit(in q, unit, found, args, out failed)
   end, out status)
 
@@ -352,19 +361,19 @@ procedure test_unit(
 // how many files passed, where status is the exit status of the worst
 procedure visit_units(
   in  found: List[Target],
-      visit: (in Prog, List[Target], out List[Str]) raises Thrown,
+      visit: (in Source, Prog, List[Target], out List[Str]) raises Thrown,
   out status: Int
 ) :=
-  local units: List[List[Target]], q: Prog, errors: List[Diagnostic], failed: Buffer[Str] := empty(), bad: List[Str]
+  local units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], failed: Buffer[Str] := empty(), bad: List[Str]
   call   units_of(in found, out units)
   assign status := 0
   for unit in units do
-    call check_file(in first_path(unit), true, out q, errors)
+    call load_file(in first_path(unit), true, out source, q, errors)
     if errors != List() then
       call   report(in first_path(unit), errors, size(files_of(found)) > 1)
       assign failed := failed ++ files_of(unit), status := worse(status, load_status(q, errors))
     else
-      call   visit(in q, unit, out bad)
+      call   visit(in source, q, unit, out bad)
       assign failed := failed ++ bad, status := if bad == List() then status else worse(status, 3)
     end
   end
@@ -380,7 +389,7 @@ procedure test_module(
       label: Str,
   out passed: Bool
 ) :=
-  local run := (load(q) with args := args), tests: List[Cmd], message: Str, proven: Bool
+  local run := (load(q) with args := args), tests: List[Cmd], message: Str
   assign tests := List(for c in q.cmds if is_selected_test(c, m, names)), passed := true
   for n in names if not exists(tests, lambda c => cmd_name(c) == n) do
     call   os_println(in label ++ error_text(RuntimeKind, "there is no test " ++ n))
@@ -396,6 +405,7 @@ procedure test_module(
     end
   end
   if names == List() then
+    local proven: Bool
     call   prove_module(in q, m, List(), label, out proven)
     assign passed := passed and proven
   end
@@ -414,18 +424,40 @@ procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
   end
 
 // checks the files of the paths, by default of the project, each unit once, where each file must be formatted
-procedure check_paths(in paths: List[Str], out status: Int) :=
+procedure check_paths(in paths: List[Str], lint: Bool, out status: Int) :=
   local found: List[Target]
   call targets_of(in List(for p in paths yield Target(p, None)), false, out found)
-  call visit_units(in found, lambda in q, unit, out failed =>
+  call visit_units(in found, lambda in source, q, unit, out failed =>
     assign failed := List()
+    if lint then
+      call print_lints(in source, q, unit)
+    end
   end, out status)
+
+// prints the warnings of the lints of the files of the unit, each with its code, the expression to write instead if it has
+// one, and its position
+procedure print_lints(in source: Source, q: Prog, unit: List[Target]) :=
+  for file in files_of(unit) do
+    for d in find(source.mods, lambda d => d.name == sibling(q.main, file)) do
+      for w in lints(d) do
+        call os_println(in file ++ ": warning[" ++ show(w.lint) ++ "]: " ++ w.message ++ replacement_text(source, d.name, w) ++ at_pos(w.pos))
+      end
+    end
+  end
+
+function replacement_text(source: Source, m: Id, w: Warning): Str :=
+  match w.replacement
+    case Some(r) =>
+      ", write " ++ format_module_expr(source, m, r)
+    case None =>
+      ""
+  end
 
 // proves the lemmas of the targets, all or the named ones, by default of the project, each unit loaded once
 procedure prove_targets(in targets: List[Target], out status: Int) :=
   local found: List[Target]
   call targets_of(in targets, false, out found)
-  call visit_units(in found, lambda in q, unit, out failed =>
+  call visit_units(in found, lambda in source, q, unit, out failed =>
     call prove_unit(in q, unit, found, out failed)
   end, out status)
 
@@ -640,12 +672,13 @@ procedure check_format(in file: Str) :=
 
 // rewrites file as source, if that parses to the same commands as file, so that formatting tests the parser and the printer
 procedure format_file(in file: Str, out ok: Bool) :=
-  local p: Source, q: Source, text: Str, source: Str
+  local p: Source, text: Str, source: Str
   call   os_read(in file, out text)
   call   parse_file_text(in file, text, out p)
   call   require_parsed(in p)
   assign source := format_program(p), ok := false
   try
+    local q: Source
     call parse_file_text(in file, source, out q)
     if not has_errors(q) and same_mods(p.mods, q.mods) then
       if source != text then
@@ -683,9 +716,20 @@ procedure check_file(
   out q: Prog,
       errors: List[Diagnostic]
 ) :=
-  local source: Source, text: Str, typed: List[TypeError]
-  assign q := Prog(List(), "", List()), errors := List()
+  local source: Source
+  call load_file(in file, formatted, out source, q, errors)
+
+// check_file with the parsed source, which has no modules if file does not parse
+procedure load_file(
+  in  file: Str,
+      formatted: Bool,
+  out source: Source,
+      q: Prog,
+      errors: List[Diagnostic]
+) :=
+  assign source := Source(List(), List(), ""), q := Prog(List(), "", List()), errors := List()
   try
+    local text: Str, typed: List[TypeError]
     call parse_file(in file, out source)
     if has_errors(source) then
       call   check_partial(in without_unparsed(source), unparsed_names(source), out q, typed)
@@ -896,7 +940,7 @@ function path_up(root: Str, dir: Str): Str :=
   if dir == root then
     "."
   else
-    join("/", List(for d in split(slice(dir, if root == "/" then 1 else size(root) + 1, size(dir)), '/') yield ".."))
+    join("/", List(for _ in split(slice(dir, if root == "/" then 1 else size(root) + 1, size(dir)), '/') yield ".."))
 
 test paths_up() :=
   assert path_up("/a", "/a") == "."
@@ -906,17 +950,19 @@ test paths_up() :=
 // the directories, absolute and normal, that the project of path runs only compiled, as the function project of its
 // project.u declares
 procedure compiled_only_of(in path: Str, out skipped: List[Str]) :=
-  local here: Str, dir: Bool, root: Str, entries: List[Str * Bool], q: Prog, errors: List[Diagnostic], v: Option[Val]
+  local here: Str, dir: Bool, root: Str, entries: List[Str * Bool]
   assign skipped := List()
   call   os_cwd(out here)
   call   os_is_dir(in path, out dir)
   call   project_root(in absolute_path(here, if dir then path else os_dirname(path)), out root)
   call   os_list(in root, out entries)
   if contains(("project.u", false), entries) then
+    local errors: List[Diagnostic], q: Prog
     call check_file(in os_join(root, "project.u"), false, out q, errors)
     if errors != List() then
       call report(in os_join(root, "project.u"), errors, false)
     else
+      local v: Option[Val]
       call constant_of(in load(q), Name(Some(q.main), "project"), out v)
       match v
         case Some(VObj(_, List(dirs))) =>

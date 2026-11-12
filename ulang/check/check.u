@@ -430,12 +430,7 @@ function subst(t: Type, m: List[Type * Type]): Type :=
       TTuple(List(for a in types yield subst(a, m)))
 
     case _ =>
-      match get(t, m)
-        case Some(u) =>
-          u
-        case None =>
-          t
-      end
+      value_or(get(t, m), t)
   end
 
 function resolve(su: Subst, t: Type): Type :=
@@ -626,13 +621,7 @@ function zonk_type(su: Subst, t: Type): Type :=
 function settled(s: State, n: Name): Name :=
   match n.module
     case Some("?") =>
-      match get(n, s.chosen)
-        case Some(m) =>
-          m
-        case None =>
-          n
-      end
-
+      value_or(get(n, s.chosen), n)
     case _ =>
       n
   end
@@ -1392,9 +1381,9 @@ procedure normalize_sort(
       assign u := TSort(n, us)
 
     case None =>
-      local us: List[Type]
       match type_alias_of(s.sig, n)
         case Some(alias) =>
+          local us: List[Type]
           call   arguments(in n, size(alias.params), args)
           call   normalizes(in args, out us, ref s)
           assign u := subst(alias.typ, zip(params(alias.params), us))
@@ -2170,8 +2159,9 @@ procedure application(
 ) :=
   match fun.that
     case EName(name, typ) =>
-      local cs: List[Name * Scheme] := candidates(s, env, name), x: Var, typed_fun: At[Expr], u: Type, w: Type, typed_args: List[At[Expr]], ts: List[Type]
+      local cs: List[Name * Scheme] := candidates(s, env, name)
       if size(cs) > 1 then
+        local ts: List[Type], typed_args: List[At[Expr]], w: Type, x: Var
         call infers_first(in env, args, out typed_args, ts, ref s)
         call fresh(out t, ref s)
         call normalize(in typ, out w, ref s)
@@ -2183,7 +2173,7 @@ procedure application(
         call   infers_lambdas(in env, args, ts, ref typed_args, s)
         assign typed_expr := EApp(fun with that := EVar(x), typed_args)
       else
-        local before := size(s.errors)
+        local before := size(s.errors), typed_args: List[At[Expr]], typed_fun: At[Expr], u: Type
         call   infer(in env, fun, out typed_fun, u, ref s)
         call   apply(in env, u, args, expected, out typed_args, t, ref s)
         assign typed_expr := EApp(typed_fun, typed_args)
@@ -2428,10 +2418,10 @@ procedure check(
   out typed_expr: At[Expr],
   ref s: State
 ) :=
-  local u: Type
   if is_lambda(expr) then
     call infer_lambda(in env, expr, t, out typed_expr, ref s)
   else
+    local u: Type
     call infer_against(in env, expr, t, what, out typed_expr, u, ref s)
     call expect(in expr.pos, what, t, u, ref s)
   end
@@ -2637,10 +2627,10 @@ procedure pattern_binders(
       assign typed_pat := AOk(pos, pat), xs := List()
 
     case PName(name, typ) =>
-      local u: Type
       if overloads(s, name, lambda n => is_pattern_name(s.sig, n)) != List() then
         call pattern_binders(in pos, PApp(name, List()), t, out typed_pat, xs, ref s)
       else
+        local u: Type
         call   normalize(in typ, out u, ref s)
         call   unify(in u, t, ref s)
         assign typed_pat := AOk(pos, PName(name, u)), xs := List(Var(name, u))
@@ -2810,17 +2800,18 @@ procedure variable(
 ) :=
   match x
     case Var(name, typ) =>
-      local u: Type
       if not contains(name, assignable) then
         call report(in NotAssignable(name), ref s)
       end
       match get(name, env)
         case Some(l) =>
+          local u: Type
           call   normalize(in typ, out u, ref s)
           call   unify(in l.typ, u, ref s)
           assign y := Var(name, l.typ)
 
         case None =>
+          local u: Type
           call   report(in unknown_variable(s, name), ref s)
           assign y := Var(name, TError)
       end
@@ -2956,7 +2947,7 @@ procedure statement_node(
 
     // the pattern over each item, irrefutable, whose variables the body sees, which may not run, as of a while
     case SFor(gens, body) =>
-      local over: At[Expr], t: Type, u: Type, typed_pat: At[Pat], xs: List[Var], typed_body: At[Stmt], inner: Env
+      local over: At[Expr], t: Type, typed_pat: At[Pat], xs: List[Var], typed_body: At[Stmt], inner: Env
       call   items(in env, pos, loop_container(pos, gens), out over, t, ref s)
       call   typed_pattern(in loop_pattern(pos, gens), t, out typed_pat, xs, ref s)
       call   solve(ref s)
@@ -3811,9 +3802,6 @@ function is_definition(d: Id * Cmd): Bool :=
       true
   end
 
-function definitions(ds: List[Id * Cmd]): List[Id * Cmd] :=
-  List(for d in ds if is_definition(d))
-
 // the signatures and types of the builtin section of d as definitions to declare, whose definitions the interpreter and the
 // runtime give, where a type is a datatype without constructors, whose values the interpreter and the runtime make
 function natives(d: Mod): List[Id * Cmd] :=
@@ -4064,10 +4052,9 @@ procedure check_exposed(in m: Id, ex: List[Cmd], hidden_sorts: List[Name]) :=
       skip
 
     case List(c; rest) =>
-      local found: List[Name]
       match exposed(c)
         case Some((n, ts)) =>
-          assign found := List(for u in ts for t in sorts_in(u) if contains(own_name(m, t), hidden_sorts) yield own_name(m, t))
+          local found: List[Name] := List(for u in ts for t in sorts_in(u) if contains(own_name(m, t), hidden_sorts) yield own_name(m, t))
           match found
             case List(t; _) =>
               raise PrivateType(n, t)
@@ -4269,7 +4256,7 @@ procedure check_package(
       shown: Sig,
       errors: List[TypeError]
 ) :=
-  local own := List(for d in mods yield (d.name, seen_modules(d, packages))), members := List(for d in mods yield d.name), placed := List(for d in mods for p in decls_of(d) yield p), s: State, decls: List[Id * Cmd], defined: List[Cmd], tested: List[Cmd] := List(), generated: List[Pos * (Id * Cmd)], enumerated: List[Cmd] := List(), hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List(), builtins := List(for d in mods for c in natives(d) yield c), private: Set[Name], private_sorts: List[Name]
+  local own := List(for d in mods yield (d.name, seen_modules(d, packages))), members := List(for d in mods yield d.name), placed := List(for d in mods for p in decls_of(d) yield p), s: State, decls: List[Id * Cmd], defined: List[Cmd], tested: List[Cmd] := List(), enumerated: List[Cmd] := List(), hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List(), builtins := List(for d in mods for c in natives(d) yield c), private: Set[Name], private_sorts: List[Name]
   for d in mods do
     call   private_of(in d, out private, private_sorts)
     assign hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
@@ -4307,6 +4294,7 @@ procedure check_package(
     assign defined := List()
   end
   if s.errors == List() then
+    local generated: List[Pos * (Id * Cmd)]
     for d in mods do
       call examples_placed(in d, ref s)
     end
