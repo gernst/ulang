@@ -2679,17 +2679,26 @@ procedure parse_mod(
         call   import_notation(in package_members(imported, source.packages), source.mods, pos, ref notation)
         assign imports := imports ++ List(imported)
 
-      // after an error, at the next command, from the start of this one, as the handler sees the tokens
+      // a command that does not parse leaves the tokens at its start, since a call that raises gives back no refs, so
+      // the next command follows it; one that parses but does not belong to the section is dropped, where the tokens
+      // are already at the next command
       case _ =>
         try
-          call   parse_command(in notation, out more, ref toks)
-          call   enter_section(in more, pos, ref section)
-          assign broken := broken ++ List(for cmd in more for d in unparsed_errors(cmd) yield ParseError(d.message, d.pos))
-          assign notation := with_notation(notation, more)
+          call parse_command(in notation, out more, ref toks)
         catch
           case ParseError(message, at) =>
             assign broken := broken ++ List(ParseError(message, at))
             call   skip_command(ref toks)
+        end
+        if more != List() then
+          try
+            call   enter_section(in more, pos, ref section)
+            assign broken := broken ++ List(for cmd in more for d in unparsed_errors(cmd) yield ParseError(d.message, d.pos))
+            assign notation := with_notation(notation, more)
+          catch
+            case ParseError(message, at) =>
+              assign broken := broken ++ List(ParseError(message, at)), more := List()
+          end
         end
     end
     match more
