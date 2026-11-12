@@ -926,9 +926,11 @@ test bodies() :=
   assert doc_text(None) == "" and doc_text(Some("a\n b\n")) == "// a\n//  b\n//\n" and doc_text(Some("")) == "//\n"
   assert format_cmds(test_operators(), List(noted, plain)) == List("// note\ninfix left 9 +", "infix left 8 -")
 
-// the lines of the spec, each after a newline
+// the lines of the spec, each after a newline, where the lines that continue an example are indented deeper than its
+// keyword, also the body of a let, which follows at the indentation of the line of the let, since the parser ends an
+// example at a line that is not (example_tokens of ulang/parse/parse.u)
 function spec_text(notation: Notation, spec: Spec): Str :=
-  join("", List(for x in spec.examples yield "\n  example " ++ example_text(notation, "  ", x.that)))
+  join("", List(for x in spec.examples yield "\n  example " ++ example_text(notation, "    ", x.that)))
 
 // := and the spec of a signature, if it has one
 function signature_spec(notation: Notation, spec: Spec): Str :=

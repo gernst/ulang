@@ -47,11 +47,11 @@ function sets[A](e: Enumeration[A]): Enumeration[Set[A]] :=
 
 function maps[K, V](k: Enumeration[K], v: Enumeration[V]): Enumeration[Map[K, V]] :=
   example values_of(maps(bools(), bools()), 1) == List(
-    Map(),
-    Map(false => false),
-    Map(false => true),
-    Map(true => false),
-    Map(true => true))
+      Map(),
+      Map(false => false),
+      Map(false => true),
+      Map(true => false),
+      Map(true => true))
 
 function arrays[A](e: Enumeration[A]): Enumeration[Array[A]] :=
   example values_of(arrays(ints()), 1) == List(Array(), Array(0))

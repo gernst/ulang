@@ -45,3 +45,9 @@ procedure swap(ref a: Int, b: Int) :=
 function negated(x: Int): Int :=
   example negated(2) == -2
   -x
+
+// an example on two lines, whose second, the body of a let, is indented deeper than its keyword
+function halved(x: Int): Int :=
+  example (let y := 8 in
+    halved(y)) == 4
+  x / 2
