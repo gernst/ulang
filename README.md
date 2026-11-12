@@ -53,9 +53,9 @@ test sorting() :=
 - Datatypes with pattern matching, guards, and checks that matches are exhaustive and cases reachable.
 - Named fields of constructors, read as `e.field` and updated as `e with field := a, other := b`, which are resolved by the type of `e`, and raise `MissingField` for a constructor without that field.
 - Hindley-Milner type inference, where only declarations are polymorphic, with type parameters, and `let` does not generalize.
-- Exceptions of any type, raised by the statement `raise e`, and caught by `try`, which leave the variables as they were: outs and refs reach the caller only when a procedure returns, and handlers see the variables as they were before the `try`.
+- Exceptions, values of datatypes without type parameters, raised by the statement `raise e`, and caught by `try`, which leave the variables as they were: outs and refs reach the caller only when a procedure returns, and handlers see the variables as they were before the `try`.
 - Checked exceptions: `raises T, …` after an exported procedure and in procedure types, inferred for private procedures, where a `try` removes the types that its handlers cover, and a handler of a type that its body cannot raise is an error.
-  Builtins raise `DivisionByZero`, `OutOfBounds`, and `NoCharacter`, whereas a failed `assert` ends the program.
+  Builtins raise `DivisionByZero`, `OutOfBounds`, and `NoCharacter`, which no `raises` counts, whereas a failed `assert` ends the program.
 - Unbounded integers, characters, which are Unicode code points, and strings of them, which files hold as UTF-8.
 - Programs read their arguments with `os_args`, files with `os_read` and `os_write`, and print strings with `os_print`, all of the module `os`, where the builtin `show` gives the text of any value, which a datatype may declare for itself by a function `show`.
 - The forms `List(1, 2)`, `Set(a, b)`, `Map(k => v)`, and `Array(a, b)`, and their generators `List(for x in xs if x > 0 yield x * x)`, `Set(for x in c yield f(x))`, `Map(for k => v in m yield k => f(v))`, which range over lists, sets, arrays, or maps by their folds, and `==` compares their elements and entries; and the statement `for x in xs if p do … end`, which runs its body for the elements of any container.

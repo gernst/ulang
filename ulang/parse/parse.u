@@ -9,6 +9,10 @@ data ParseError :=
   case ParseError(message: Str, pos: Pos)
   // an error of an imported module at its position in that module
   case ImportError(module: Id, message: Str, pos: Pos)
+  // the errors of the commands of the main module, more than one, in order, where the parser resumes at the next command
+  case ParseErrors(errors: List[ParseError])
+
+function parse_diagnostic(e: ParseError): Diagnostic
 
 // the modules of the file at path, in load order, each after the modules it imports, with the module of the file last,
 // where a module of a project is known by its path from the root without .u, the root being the nearest directory above
@@ -58,6 +62,23 @@ procedure project_root(in dir: Str, out root: Str) raises OsError
 function normal_path(path: Str): Str
 
 implementation
+
+function parse_diagnostic(e: ParseError): Diagnostic :=
+  match e
+    case ParseError(message, pos) =>
+      Diagnostic(ParseKind, "ParseError", None, pos, message, List())
+
+    case ImportError(module, message, pos) =>
+      Diagnostic(ParseKind, "ImportError", Some(module), pos, message, List())
+
+    case ParseErrors(errors) =>
+      match errors
+        case List(first; _) =>
+          parse_diagnostic(first)
+        case List() =>
+          Diagnostic(ParseKind, "ParseErrors", None, Pos(0, 0), "", List())
+      end
+  end
 
 function type_ops(): Ops[List[Type]] :=
   Ops("type", starts_type, parse_type_atom, type_apply)
@@ -2142,6 +2163,8 @@ procedure parse_member(
   catch
     case ParseError(message, pos) if not main =>
       raise ImportError(id, message, pos)
+    case ParseErrors(List(ParseError(message, pos); _)) if not main =>
+      raise ImportError(id, message, pos)
   end
   if not tested then
     assign own := without_tests_of(own)
@@ -2199,7 +2222,7 @@ procedure parse_mod(
   ref source: Source,
       toks: Tokens
 ) :=
-  local imports: List[Id] := List(), notation := empty_notation(), plain: List[Doc[Cmd]] := List(), exported: List[Doc[Cmd]] := List(), builtins: List[Doc[Cmd]] := List(), implemented: List[Doc[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[Doc[Cmd]], doc: Option[Str], mod_doc := module_doc(toks)
+  local imports: List[Id] := List(), notation := empty_notation(), plain: List[Doc[Cmd]] := List(), exported: List[Doc[Cmd]] := List(), builtins: List[Doc[Cmd]] := List(), implemented: List[Doc[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[Doc[Cmd]], doc: Option[Str], broken: List[ParseError] := List(), mod_doc := module_doc(toks)
   if mod_doc != None then
     call advance(ref toks)
   end
@@ -2248,10 +2271,17 @@ procedure parse_mod(
         call   import_notation(in package_members(imported, source.packages), source.mods, pos, ref notation)
         assign imports := imports ++ List(imported)
 
+      // after an error, at the next command, from the start of this one, as the handler sees the tokens
       case _ =>
-        call   parse_command(in notation, out more, ref toks)
-        call   enter_section(in more, pos, ref section)
-        assign notation := with_notation(notation, more)
+        try
+          call   parse_command(in notation, out more, ref toks)
+          call   enter_section(in more, pos, ref section)
+          assign notation := with_notation(notation, more)
+        catch
+          case ParseError(message, at) =>
+            assign broken := broken ++ List(ParseError(message, at))
+            call   skip_command(ref toks)
+        end
     end
     match more
       case List(c; rest) =>
@@ -2275,8 +2305,54 @@ procedure parse_mod(
         assign plain := reverse_onto(placed, plain)
     end
   end
+  match broken
+    case List(e) =>
+      raise e
+
+    case List() =>
+      skip
+
+    case _ =>
+      raise ParseErrors(broken)
+  end
   assign implemented := reverse(implemented) ++ reverse(plain)
   assign own := Mod(name, mod_doc, imports, reverse(exported), reverse(builtins), implemented)
+
+// the tokens from the next keyword in column 1 that starts a command, or a doc there, after the first token
+procedure skip_command(ref toks: Tokens) :=
+  call advance(ref toks)
+  while not starts_command(toks) do
+    call advance(ref toks)
+  end
+
+function starts_command(toks: Tokens): Bool :=
+  match head_token(toks)
+    case TEnd =>
+      true
+
+    case TDoc(_) =>
+      head_pos(toks).col == 1
+
+    case TKw(kw) =>
+      head_pos(toks).col == 1 and contains(kw, List(
+        "function",
+        "procedure",
+        "data",
+        "type",
+        "test",
+        "lemma",
+        "pattern",
+        "prefix",
+        "postfix",
+        "infix",
+        "export",
+        "builtin",
+        "implementation",
+        "import"))
+
+    case _ =>
+      false
+  end
 
 // the section after the commands of one declaration, which must belong to the section
 procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=

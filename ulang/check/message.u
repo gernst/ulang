@@ -8,6 +8,9 @@ export
 // the message of e, with the position of the command that raised it, and the module if it is not the main module
 function located_message(e: TypeError): Str
 
+// e as a diagnostic, whose code is the constructor of the error, with the types expected and found of a mismatch
+function type_diagnostic(e: TypeError): Diagnostic
+
 implementation
 
 function located_message(e: TypeError): Str :=
@@ -20,6 +23,36 @@ function located_message(e: TypeError): Str :=
 
     case _ =>
       type_message(e)
+  end
+
+function type_diagnostic(e: TypeError): Diagnostic :=
+  match e
+    case Located(m, pos, error) =>
+      Diagnostic(TypeKind, error_code(error), m, pos, type_message(error), type_details(error))
+    case _ =>
+      Diagnostic(TypeKind, error_code(e), None, Pos(0, 0), type_message(e), type_details(e))
+  end
+
+// the constructor of e, as show writes it
+function error_code(e: TypeError): Str :=
+  let text := show(e) in
+  match index_of('(', chars(text))
+    case Some(i) =>
+      slice(text, 0, i)
+    case None =>
+      text
+  end
+
+function type_details(e: TypeError): List[Str * Str] :=
+  match e
+    case Mismatch(expected_type, found_type, _) =>
+      zip(List("expected", "found"), format_types_apart(List(expected_type, found_type)))
+
+    case CannotUnify(left, right) =>
+      zip(List("left", "right"), format_types_apart(List(left, right)))
+
+    case _ =>
+      List()
   end
 
 // a candidate of an ambiguous name with its type, if known, which tells overloads of one module apart
@@ -221,6 +254,7 @@ test messages() :=
     (Name(Some("ulang/test/errors/own-name"), "helper"), Scheme(List(), TFun(List(TSort(Name(Some("prelude/prelude"), "Int"), List())), TSort(Name(Some("prelude/prelude"), "Int"), List())))))))) == "helper is ambiguous: ulang/test/modules/left/left.helper: Int -> Int, ulang/test/errors/own-name.helper: Int -> Int at 6.1"
   assert located_message(Located(None, Pos(1, 1), CannotUnify(TParam("A"), TParam("B")))) == "cannot unify A and B at 1.1"
   assert type_message(Mismatch(TBool(), TInt(), "the condition of if")) == "expected Bool but found Int in the condition of if"
+  assert type_diagnostic(Located(Some("m"), Pos(2, 3), Mismatch(TBool(), TInt(), "the guard"))) == Diagnostic(TypeKind, "Mismatch", Some("m"), Pos(2, 3), "expected Bool but found Int in the guard", List(("expected", "Bool"), ("found", "Int")))
   assert located_message(Located(None, Pos(4, 1), CountMismatch("procedure p", "ins", 1, 2))) == "procedure p expects 1 ins, got 2 at 4.1"
   assert located_message(Duplicate("declaration", "a")) == "duplicate declaration a"
   assert located_message(Located(None, Pos(4, 1), HiddenLocal(Name(None, "m")))) == "m hides a local of the same name at 4.1"

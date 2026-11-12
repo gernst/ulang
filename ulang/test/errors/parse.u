@@ -210,3 +210,24 @@ test wildcard_name() :=
   assert raises ParseError("expression expected but _ found", Pos(2, 17)) do
     call check_text(in "ulang/test/errors/wildcard-name.u", List("function f(): Int :=", "  let _ := 1 in _"))
   end
+
+// the parser resumes at the next command after an error, and reports the errors of all commands
+test several_parse_errors() :=
+  assert raises ParseErrors(List(
+    ParseError(_, Pos(4, 1)),
+    ParseError(_, Pos(5, 3)),
+    ParseError(_, Pos(9, 3)))) do
+    call check_text(in "ulang/test/errors/several-parse-errors.u", List(
+      "function f(n: Int): Int :=",
+      "  n +",
+      "",
+      "function g(): Int :=",
+      "  [1, 2]",
+      "",
+      "procedure p() :=",
+      "  skip",
+      "  local x := 1",
+      "",
+      "function h(): Int :=",
+      "  1"))
+  end

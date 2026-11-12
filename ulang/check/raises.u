@@ -8,13 +8,9 @@ import "ulang/syntax"
 
 export
 
-// raises the first error of the exceptions of each of the checked commands cmds of a package, whose private names are
-// hidden
-procedure check_raises(
-  in  cmds: List[Cmd],
-      sig: Sig,
-      hidden: Set[Name]
-) raises TypeError
+// the first error of the exceptions of each of the checked commands cmds of a package, whose private names are hidden, at
+// its position in the module of the command
+function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name]): List[TypeError]
 
 implementation
 
@@ -26,20 +22,10 @@ data Flow :=
 data Scope :=
   case Scope(sig: Sig, procs: Map[Name, Set[Name]], locals: Map[Name, Type])
 
-procedure check_raises(
-  in  cmds: List[Cmd],
-      sig: Sig,
-      hidden: Set[Name]
-) raises TypeError :=
-  local inferred := inferred_procs(cmds, hidden), scope: Scope := infer_procs(cmds, Scope(sig, written_procs(cmds, inferred), empty()), inferred)
-  for cmd in cmds do
-    match sort(cmd_errors(scope, cmd, inferred))
-      case List((pos, e); _) =>
-        raise Located(module_of(cmd), pos, e)
-      case List() =>
-        skip
-    end
-  end
+function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name]): List[TypeError] :=
+  let inferred := inferred_procs(cmds, hidden) in
+  let scope := infer_procs(cmds, Scope(sig, written_procs(cmds, inferred), empty()), inferred) in
+  List(for cmd in cmds for (pos, e) in take(1, sort(cmd_errors(scope, cmd, inferred))) yield Located(module_of(cmd), pos, e))
 
 // the private procedures without raises, whose raises are inferred
 function inferred_procs(cmds: List[Cmd], hidden: Set[Name]): Set[Name] :=

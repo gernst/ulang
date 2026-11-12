@@ -23,6 +23,12 @@ data Diagnostic :=
 // "kind error: message"
 function error_text(kind: ErrorKind, message: Str): Str
 
+// an error without a position, of a run or of a file, whose code is its kind
+function diagnostic(kind: ErrorKind, message: Str): Diagnostic
+
+// "kind error: message", with " in m" for a module other than the main one, and " at L.C" if it has a position
+function format_diagnostic(d: Diagnostic): Str
+
 data RuntimeError :=
   case NoCase(text: Str)
   case CompareFunctions
@@ -127,6 +133,12 @@ function runtime_formats(): List[Str * Str] :=
 
 test formats() :=
   assert contains(("u_text_assertion_unequal", "assertion failed: %s != %s"), runtime_formats())
+
+function diagnostic(kind: ErrorKind, message: Str): Diagnostic :=
+  Diagnostic(kind, kind_name(kind), None, Pos(0, 0), message, List())
+
+function format_diagnostic(d: Diagnostic): Str :=
+  error_text(d.kind, d.message ++ join("", List(for m in d.module yield " in " ++ m)) ++ (if d.pos == Pos(0, 0) then "" else at_pos(d.pos)))
 
 function at_pos(p: Pos): Str :=
   " at " ++ show(p.line) ++ "." ++ show(p.col)
