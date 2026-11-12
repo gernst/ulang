@@ -230,6 +230,43 @@ test wildcard_name() :=
   end
 
 // the parser resumes at the next command after an error, and reports the errors of all commands
+// a statement that does not parse ends at the next line at its column, after the end of a block that it opens, so that the
+// statements after it are parsed
+test several_statement_errors() :=
+  assert raises ParseErrors(List(
+    ParseError("statement expected but x found", Pos(3, 3)),
+    ParseError("expression expected but then found", Pos(4, 11)),
+    ParseError("expression expected but while found", Pos(10, 3)),
+    ParseError("statement expected but return found", Pos(11, 5)))) do
+    call check_text(in "ulang/test/errors/several-statement-errors.u", List(
+      "procedure p() :=",
+      "  local x := 1",
+      "  x := 2",
+      "  if x == then",
+      "    assign x := 3",
+      "  else",
+      "    assign x := 4",
+      "  end",
+      "  assign x := x +",
+      "  while x < 3 do",
+      "    return x",
+      "  end"))
+  end
+
+// an argument that does not parse ends at the next , or ) outside its brackets, so that the arguments after it are parsed,
+// and one that does not end there is an error of its statement
+test several_argument_errors() :=
+  assert raises ParseErrors(List(
+    ParseError("expression expected but , found", Pos(2, 19)),
+    ParseError("* is not a prefix operator", Pos(2, 26)),
+    ParseError("expression expected but assign found", Pos(4, 3)))) do
+    call check_text(in "ulang/test/errors/several-argument-errors.u", List(
+      "procedure p() :=",
+      "  local x := f(1 +, g(2, * 3), 4)",
+      "  call os_println(in show(x +",
+      "  assign x := 5"))
+  end
+
 test several_parse_errors() :=
   assert raises ParseErrors(List(
     ParseError(_, Pos(4, 1)),
