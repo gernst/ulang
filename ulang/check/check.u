@@ -628,8 +628,23 @@ function zonk_stmt(s: State, stmt: Stmt): Stmt :=
     case STry(body, catches) =>
       STry(zonk_stmt(s, body), List(for h in catches yield zonk_handler(s, h)))
 
+    case SFor(gens, body) =>
+      SFor(List(for g in gens yield zonk_gen(s, g)), zonk_stmt(s, body))
+
     case SAt(_, _) =>
       stmt
+  end
+
+function zonk_gen(s: State, g: Gen): Gen :=
+  match g
+    case GVal(pat, over) =>
+      GVal(zonk_pat(s, pat), zonk_expr(s, over))
+
+    case GPair(key, value, over) =>
+      GPair(zonk_pat(s, key), zonk_pat(s, value), zonk_expr(s, over))
+
+    case GIf(cond) =>
+      GIf(zonk_expr(s, cond))
   end
 
 function zonk_stmt_branch(s: State, b: Branch[Stmt]): Branch[Stmt] :=
@@ -698,6 +713,9 @@ function unknown_in(stmt: Stmt): Option[Type] :=
 
     case STry(body, catches) =>
       or_else(unknown_in(body), unknown_in_handlers(catches))
+
+    case SFor(gens, body) =>
+      or_else(unknown_in_exprs(List(for g in gens yield gen_container(g))), unknown_in(body))
 
     case SSkip =>
       None
@@ -2325,6 +2343,18 @@ procedure statement(
       call   handler_list(in assignable, catches, out hs, ref other, s)
       assign y := STry(l, hs), env := joined(env, other)
 
+    // the pattern over each item, irrefutable, whose variables the body sees, which may not run, as of a while
+    case SFor(gens, body) =>
+      local over: Expr, t: Type, u: Type, typed_pat: Pat, xs: List[Var], typed_body: Stmt, inner: Env
+      call   items(in env, loop_container(gens), out over, t, ref s)
+      call   typed_pattern(in loop_pattern(gens), t, out typed_pat, xs, ref s)
+      call   solve(ref s)
+      call   coverage(in s, t, List((typed_pat, true)))
+      call   unhidden(in env, xs)
+      assign inner := bind(xs) ++ env
+      call   statement(in assignable -- List(for x in xs yield x.name), loop_body(gens, body), out typed_body, ref inner, s)
+      assign y := SFor(List(GVal(typed_pat, over)), typed_body)
+
     case SAt(pos, inner) =>
       local typed: Stmt * Env
       call   at_position(in pos, lambda out r: Stmt * Env, ref u: State =>
@@ -2333,6 +2363,65 @@ procedure statement(
         assign r := (x, after)
       end, out typed, ref s)
       assign y := first(typed), env := second(typed)
+  end
+
+// the list of the elements of the container c, of type List[t], which is c itself if it is a list, and else built by the fold
+// of a generator, where a map gives its pairs
+procedure items(in env: Env, c: Expr, out list: Expr, t: Type, ref s: State) :=
+  local typed_c: Expr, u: Type, w: Type
+  call   infer(in env, c, out typed_c, u, ref s)
+  call   solve(ref s)
+  assign w := zonk_type(s.sub, u)
+  match w
+    case TList(elem) =>
+      assign list := typed_c, t := elem
+
+    case _ =>
+      local x := Var(unqualified("(container)"), u), item := Var(unqualified("(item)"), THole), typed_list: Expr, v: Type
+      call   infer(in bind(List(x)) ++ env, EFor(FList, List(GVal(PVar(item), EVar(x))), YVal(EVar(item)), None), out typed_list, v, ref s)
+      call   fresh(out t, ref s)
+      call   unify(in v, TList(t), ref s)
+      assign list := with_container(typed_list, typed_c)
+  end
+
+// the fold of a generator over the variable of its container, applied to the container instead
+function with_container(fold: Expr, c: Expr): Expr :=
+  match fold
+    case EApp(f, List(_; args)) =>
+      EApp(f, List(c; args))
+    case _ =>
+      fold
+  end
+
+// the container of the generator of a for statement, which the parser makes of one generator and an optional guard
+function loop_container(gens: List[Gen]): Expr :=
+  match gens
+    case List(g; _) =>
+      gen_container(g)
+    case List() =>
+      ETuple(List())
+  end
+
+// the pattern of the generator of a for statement, a pair of key and value over a map
+function loop_pattern(gens: List[Gen]): Pat :=
+  match gens
+    case List(GVal(pat, _); _) =>
+      pat
+
+    case List(GPair(key, value, _); _) =>
+      PTuple(List(key, value))
+
+    case _ =>
+      PWild
+  end
+
+// the body of a for statement under its guard
+function loop_body(gens: List[Gen], body: Stmt): Stmt :=
+  match gens
+    case List(_, GIf(cond)) =>
+      SIf(cond, body, SSkip)
+    case _ =>
+      body
   end
 
 // the variables that the leading assignments of a block assign one at a time, as local x := e does

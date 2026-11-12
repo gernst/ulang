@@ -1241,41 +1241,38 @@ procedure parse_local(
       assign decl := (x, List())
   end
 
-// for p in c if q do body end, or for k => v in m do body end, see ForBlock of ulang/syntax/syntax.u
+// for p in c if q do body end, or for k => v in m do body end, of one generator and an optional guard
 procedure parse_for(
   in  notation: Notation,
       params: List[Id],
   out stmt: Stmt,
   ref toks: Tokens
 ) :=
-  local pos := head_pos(toks), gens: List[Gen], q: Option[Expr] := None, pat: Pat, c: Expr, body: Stmt, guarded: Stmt
+  local pos := head_pos(toks), gens: List[Gen], body: Stmt
   call parse_gens(in notation, params, out gens, ref toks)
+  if not is_loop(gens) then
+    raise ParseError("for takes one generator and an optional condition", pos)
+  end
+  call   expect(in TKw("do"), ref toks)
+  call   parse_body(in notation, params, out body, ref toks)
+  call   expect(in TKw("end"), ref toks)
+  assign stmt := SFor(gens, body)
+
+// whether gens are one generator and an optional guard, which a for statement takes
+function is_loop(gens: List[Gen]): Bool :=
   match gens
-    case List(GVal(p, e)) =>
-      assign pat := p, c := e
+    case List(GIf(_); _) =>
+      false
 
-    case List(GVal(p, e), GIf(g)) =>
-      assign pat := p, c := e, q := Some(g)
+    case List(_) =>
+      true
 
-    case List(GPair(k, v, e)) =>
-      assign pat := PTuple(List(k, v)), c := e
-
-    case List(GPair(k, v, e), GIf(g)) =>
-      assign pat := PTuple(List(k, v)), c := e, q := Some(g)
+    case List(_, GIf(_)) =>
+      true
 
     case _ =>
-      raise ParseError("for takes one generator and an optional condition", pos)
+      false
   end
-  call expect(in TKw("do"), ref toks)
-  call parse_body(in notation, params, out body, ref toks)
-  call expect(in TKw("end"), ref toks)
-  match q
-    case Some(g) =>
-      assign guarded := SIf(g, body, SSkip)
-    case None =>
-      assign guarded := body
-  end
-  assign stmt := ForBlock(pat, c, guarded)
 
 procedure parse_stmt(
   in  notation: Notation,

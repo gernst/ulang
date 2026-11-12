@@ -599,12 +599,10 @@ function format_stmt(notation: Notation, indent: Str, stmt: Stmt): Str :=
       end_text(indent, "try" ++ format_body(notation, deeper(indent), body) ++ catch_text(notation, indent, catches))
 
     case SBlock(_, _) =>
-      match for_parts(stmt)
-        case Some((pat, c, q, body)) =>
-          end_text(indent, for_head(notation, indent, pat, c, q) ++ format_body(notation, deeper(indent), body))
-        case None =>
-          "skip" ++ format_body(notation, indent, stmt)
-      end
+      "skip" ++ format_body(notation, indent, stmt)
+
+    case SFor(gens, body) =>
+      end_text(indent, gens_text(notation, indent, gens) ++ " do" ++ format_body(notation, deeper(indent), body))
 
     case SAt(_, inner) =>
       format_stmt(notation, indent, inner)
@@ -628,37 +626,6 @@ function catch_text(notation: Notation, indent: Str, handlers: List[Catch]): Str
 function handler_branches(handlers: List[Catch]): List[Branch[Stmt]] :=
   List(for h in handlers yield Branch(h.doc, h.pat, h.guard, h.body))
 
-function for_head(notation: Notation, indent: Str, pat: Pat, c: Expr, q: Option[Expr]): Str :=
-  "for " ++ format_pattern(notation, indent, pat) ++ in_text(notation, indent, c) ++ do_text(notation, indent, q)
-
-function do_text(notation: Notation, indent: Str, q: Option[Expr]): Str :=
-  condition_text(notation, indent, q) ++ " do"
-
-function condition_text(notation: Notation, indent: Str, q: Option[Expr]): Str :=
-  match q
-    case Some(c) =>
-      " if " ++ format_expr(notation, indent, c)
-    case None =>
-      ""
-  end
-
-// the pattern, container, condition, and body of the block that the parser makes of for p in c if q do body end
-function for_parts(stmt: Stmt): Option[Pat * Expr * Option[Expr] * Stmt] :=
-  match stmt
-    case ForBlock(pat, c, guarded) =>
-      for_guarded(pat, c, guarded)
-    case _ =>
-      None
-  end
-
-function for_guarded(pat: Pat, c: Expr, guarded: Stmt): Option[Pat * Expr * Option[Expr] * Stmt] :=
-  match guarded
-    case SIf(g, body, SSkip) =>
-      Some((pat, c, Some(g), body))
-    case body =>
-      Some((pat, c, None, body))
-  end
-
 // the else of an if, whose body may be an if, nested
 function else_text(notation: Notation, indent: Str, stmt: Stmt): Str :=
   match stmt
@@ -677,9 +644,6 @@ function stmt_case(notation: Notation, indent: Str, b: Branch[Stmt]): Str :=
 // the lines of a body, each after a newline, where local x := e is x with the assignment that starts the block
 function format_body(notation: Notation, indent: Str, body: Stmt): Str :=
   match body
-    case SBlock(_, _) if for_parts(body) != None =>
-      format_stmts(notation, indent, List(body))
-
     case SBlock(List(), stmts) =>
       format_stmts(notation, indent, stmts)
 

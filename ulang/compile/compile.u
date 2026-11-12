@@ -554,6 +554,13 @@ function free_in_stmt(stmt: Stmt, bound: List[Name]): List[Name] :=
     case STry(body, catches) =>
       free_in_stmt(body, bound) ++ List(for h in catches for n in free_in_handler(h, bound) yield n)
 
+    case SFor(List(GVal(pat, over)), body) =>
+      free_vars(over, bound) ++ free_in_stmt(body, pattern_names(pat) ++ bound)
+
+    // the checker gives one generator over a list, which the case before takes
+    case SFor(_, body) =>
+      free_in_stmt(body, bound)
+
     // the checker drops positions
     case SAt(_, inner) =>
       free_in_stmt(inner, bound)
@@ -1328,6 +1335,22 @@ procedure compile_stmt(
       call compile_stmt(in defs, env, body, out bs, ref g)
       call compile_try(in defs, env, body, bs, catches, out ss, ref g)
 
+    // the checker gives the list of the items and patterns that match every item, so that the loop walks the list and binds
+    // the pattern to each item
+    case SFor(List(GVal(pat, over)), body) =>
+      local cs: List[CStmt], rc: CExpr, bs: List[CStmt], l: Str
+      call   compile_expr(in defs, env, over, out cs, rc, ref g)
+      call   compile_stmt(in defs, in_scope(pattern_names(pat)) ++ env, body, out bs, ref g)
+      call   gen_name(in "l", out l, ref g)
+      assign ss := cs ++ List(
+        CsBlock(List(
+          declare(l, rc),
+          CsWhile(is_cell(l), pattern_binds(pat, field(CeVar(l), 0)) ++ bs ++ List(set_var(l, field(CeVar(l), 1)))))))
+
+    // the checker gives one generator over a list
+    case SFor(_, _) =>
+      raise Unexpected("for of other generators")
+
     // a try of one handler, whose body fails with the text of the pattern if it gets to its end
     case SAssertRaises(typ, pat, body) =>
       local bs: List[CStmt], ps: List[CStmt], rp: CExpr
@@ -1391,6 +1414,9 @@ function changed(stmt: Stmt): List[Name] :=
 
     case STry(b, catches) =>
       changed(b) ++ List(for h in catches for n in changed(h.body) yield n)
+
+    case SFor(_, body) =>
+      changed(body)
 
     case SSkip =>
       List()

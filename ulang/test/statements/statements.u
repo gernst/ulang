@@ -275,6 +275,20 @@ test for_sets_and_maps() :=
   end
   assert text == "123" and sum == 20
 
+// for k => v in m binds key and value, and format keeps it so
+test for_keys_arrays_and_options() :=
+  local sum := 0, text := ""
+  for k => v in Map(1 => 10, 2 => 20) if k > 1 do
+    assign sum := sum + k + v
+  end
+  for c in Array('a', 'b') do
+    assign text := text ++ str(List(c))
+  end
+  for x in Some(5) do
+    assign sum := sum + x
+  end
+  assert sum == 27 and text == "ab"
+
 test for_nested() :=
   local pairs: List[Int * Int] := List()
   for x in List(1, 2) do

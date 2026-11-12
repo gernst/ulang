@@ -1045,6 +1045,30 @@ procedure exec(
           call handle(in run, catches, value, typ, ref env, cache)
       end
 
+    // the checker gives the list of the items, and patterns that match every item
+    case SFor(List(GVal(pat, over)), body) =>
+      local items: Val, more := true
+      call evaluate(in run, env, over, out items, ref cache)
+      while more do
+        match items
+          case VCons(head, tail) =>
+            match match_into(pat, head, env)
+              case Some(inner) =>
+                call scoped(in run, pattern_names(pat), inner, List(body), ref env, cache)
+              case None =>
+                raise Unexpected("for whose pattern does not match")
+            end
+            assign items := tail
+
+          case _ =>
+            assign more := false
+        end
+      end
+
+    // the checker gives one generator over a list
+    case SFor(_, _) =>
+      raise Unexpected("for of other generators")
+
     // the checker drops positions
     case SAt(_, _) =>
       raise Unexpected("position")

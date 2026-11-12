@@ -142,6 +142,10 @@ data Stmt :=
   case SRaise(value: Expr, typ: Type)
   // try … catch case p => … end
   case STry(body: Stmt, catches: List[Catch])
+  // for p in c if q do … end, or for k => v in m do … end, over the elements of any container in the order of its fold,
+  // where the parser allows one generator and an optional guard, and the checker gives the backends one GVal over the list
+  // of the elements and the guard as an if in the body
+  case SFor(gens: List[Gen], body: Stmt)
   // stmt at the position of its keyword, which the parser adds to each statement and the checker drops, as for EAt
   case SAt(pos: Pos, stmt: Stmt)
 
@@ -236,23 +240,6 @@ pattern ECall(name: Name, typ: Type, args: List[Expr]): Expr :=
 
 pattern PName(name: Name, typ: Type): Pat :=
   PVar(Var(name, typ))
-
-// the block of for p in c if q do body end, with guarded the body under the condition, which runs it for the elements of
-// the container in the order of its fold, where the elements are collected first, List(for item in c), and then taken off
-// one by one, by a while loop
-//   local items := List(for item in c)
-//   while items != List() match items case List(p; rest) => guarded; assign items := rest case List() => skip end end
-// with names that users cannot write, which nested loops hide; the parser makes it and the printer reads it back
-pattern ForBlock(pat: Pat, over: Expr, guarded: Stmt): Stmt :=
-  SBlock(List(Var(Name(None, "(items)"), THole)), List(
-    SAssign(List(
-      (Var(Name(None, "(items)"), THole), EFor(FList, List(GVal(PName(Name(None, "(item)"), THole), over)), YVal(EName(Name(None, "(item)"), THole)), None)))),
-    SWhile(ECall(Name(None, "!="), THole, List(EName(Name(None, "(items)"), THole), EName(Name(None, "Nil"), THole))), SMatch(EName(Name(None, "(items)"), THole), List(
-      Branch("", PApp(Name(None, "Cons"), List(pat, PName(Name(None, "(rest)"), THole))), None, SBlock(List(), List(
-        guarded,
-        SAssign(List(
-          (Var(Name(None, "(items)"), THole), EName(Name(None, "(rest)"), THole))))))),
-      Branch("", PApp(Name(None, "Nil"), List()), None, SSkip))))))
 
 function unqualified(x: Id): Name
 
@@ -780,6 +767,9 @@ function strip_stmt(stmt: Stmt): Stmt :=
 
     case STry(body, catches) =>
       STry(strip_stmt(body), List(for c in catches yield Catch(c.doc, c.typ, strip_pat(c.pat), map_option(c.guard, strip_expr), strip_stmt(c.body))))
+
+    case SFor(gens, body) =>
+      SFor(List(for g in gens yield strip_gen(g)), strip_stmt(body))
 
     case SAt(_, inner) =>
       strip_stmt(inner)
