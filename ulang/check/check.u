@@ -3544,6 +3544,10 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
 
 procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
   match cmd
+    // a definition with parts that do not parse, which its signature declares
+    case _ if unparsed_errors(cmd) != List() =>
+      assign typed_cmd := cmd
+
     case CFun(name, params, formals, typ, _, body) =>
       local xs: List[Var], r: Type, b: At[Expr]
       call   signature(in formals, out xs, ref s)
@@ -3622,12 +3626,16 @@ procedure commands(
       assign s := enter(s, m)
       call   command(in cmd, out typed_cmd, ref s)
       call   settle(ref s)
-      assign zonked := zonk_cmd(s, typed_cmd)
-      match unknown_in_cmd(zonked)
-        case Some((pos, t)) =>
-          assign s := s with errors := s.errors ++ List(at_use(pos, UnknownException(t)))
-        case None =>
-          skip
+      if unparsed_errors(cmd) == List() then
+        assign zonked := zonk_cmd(s, typed_cmd)
+        match unknown_in_cmd(zonked)
+          case Some((pos, t)) =>
+            assign s := s with errors := s.errors ++ List(at_use(pos, UnknownException(t)))
+          case None =>
+            skip
+        end
+      else
+        assign zonked := cmd
       end
       call   commands(in more, out rest, ref s)
       assign typed_cmds := List(zonked; rest)
@@ -4197,7 +4205,7 @@ procedure check_package(
     end, out enumerated, ref s)
   end
   assign cmds := defined ++ tested ++ enumerated ++ abstract_decls(decls, native_types(builtins)), shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors
-  if errors == List() then
+  if errors == List() and forall(defined, lambda c => unparsed_errors(c) == List()) then
     assign errors := raises_errors(defined ++ tested, s.sig, hidden)
   end
 

@@ -743,6 +743,18 @@ test checked_despite_parse_errors() :=
   assert List(for e in errors yield error_pos(e)) == List(Pos(14, 1), Pos(5, 7), Pos(8, 3), Pos(16, 10))
   assert List(for e in errors yield is_unparsed_use(e)) == List(true, false, true, true)
 
+// a definition whose part after := does not parse keeps its signature, so that its uses are checked, while it is not
+test signature_kept() :=
+  local parsing: List[ParseError], errors: List[TypeError]
+  call check_text_partial(in "ulang/test/errors/signature-kept.u", List(
+    "function f(n: Int): Int :=",
+    "  n +",
+    "",
+    "function g(n: Int): Int :=",
+    "  f(n) + true"), out parsing, errors)
+  assert List(for e in parsing yield e.pos) == List(Pos(4, 1))
+  assert List(for e in errors yield error_pos(e)) == List(Pos(5, 10))
+
 function is_unparsed_use(e: TypeError): Bool :=
   match e
     case Located(_, _, UnparsedDeclaration(_)) =>
