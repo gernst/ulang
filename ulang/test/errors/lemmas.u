@@ -91,11 +91,6 @@ test boolean_below_true() :=
       "  ensures  b == false"))
   end
 
-test compare_self() :=
-  assert raises OpenLemma("compare_self", "forall x => match compare(x, x) case -1 => contains(x, Leaf) case 1 => contains(x, Leaf) case _ => true end") do
-    call prove_text(in "ulang/test/errors/compare-self.u", List("lemma compare_self(x: Int) :=", "  ensures contains(x, Set(x))"))
-  end
-
 test deep_evaluation() :=
   assert raises OpenLemma("deep_evaluation", "(size([65; [66; [67; [68; [69; [70; [71; [72; [73; [74; [75; [76; [77; [78; [79; [80; [81; [82; [83; [84; [85; [86; [87; [88; [89; [90; [91; [92; [93; [94; [95; [96; [97; [98; [99; []]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]) + 65) == 100") do
     call prove_text(in "ulang/test/errors/deep-evaluation.u", List("lemma deep_evaluation() :=", "  ensures size(range(0, 100)) == 100"))
@@ -107,4 +102,10 @@ test excluded_constructor() :=
       "lemma excluded_constructor(xs: List[Int]) :=",
       "  requires xs != List()",
       "  ensures  take(1, xs) ++ drop(1, xs) == xs"))
+  end
+
+// equal sets of different shapes, which would be refuted as distinct constructors if those of abstract types were free
+test abstract_constructors() :=
+  assert raises OpenLemma("abstract_constructors", "not Node(Node(Leaf, 1, Leaf, 1), 2, Leaf, 2) == Node(Leaf, 1, Node(Leaf, 2, Leaf, 1), 2)") do
+    call prove_text(in "ulang/test/errors/abstract-constructors.u", List("lemma abstract_constructors() :=", "  ensures Set(1, 2) != Set(2, 1)"))
   end

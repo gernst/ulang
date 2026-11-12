@@ -521,7 +521,7 @@ function is_value(decls: Decls, e: Term): Bool :=
     case ELit(_) =>
       true
     case _ =>
-      constr_head(decls, e) != None
+      free_head(decls, e) != None
   end
 
 function is_sum(e: Term): Bool :=
@@ -537,7 +537,7 @@ function occurs_constr(decls: Decls, a: Term, v: Term): Bool :=
   if a == v then
     true
   else
-    match constr_head(decls, v)
+    match free_head(decls, v)
       case Some((_, args)) =>
         exists(args, lambda x => occurs_constr(decls, a, x))
       case None =>
@@ -551,7 +551,7 @@ function merge(ctx: Ctx, a: Term, b: Term): Ctx :=
   else if is_sum(a) or is_sum(b) then
     merge_lin(ctx, lin_sub(lin_of(a), lin_of(b)))
   else
-    match (constr_head(ctx.decls, a), constr_head(ctx.decls, b))
+    match (free_head(ctx.decls, a), free_head(ctx.decls, b))
       case (Some((f, xs)), Some((g, ys))) =>
         if f == g and size(xs) == size(ys) then
           merge_all(ctx, xs, ys)
@@ -906,6 +906,9 @@ function simp_builtin(ctx: Ctx, e: Term): Option[Term] :=
     case Less(a, b) =>
       Some(simp_less(ctx, a, b))
 
+    case Compare(a, b) =>
+      Some(simp_compare(ctx, a, b))
+
     case Not(a) =>
       Some(simp_not(ctx, a))
 
@@ -984,9 +987,12 @@ function simp_eq(ctx: Ctx, a: Term, b: Term): Term :=
 
 function simp_less(ctx: Ctx, a: Term, b: Term): Term :=
   let d := lin_sub(lin_of(b), lin_of(a)) in
-  match d
-    case Lin(k, List()) =>
+  match (d, value_order(ctx.decls, a, b))
+    case (Lin(k, List()), _) =>
       bool_term(k >= 1)
+
+    case (_, Some(c)) =>
+      bool_term(c < 0)
 
     case _ =>
       if is_entailed(ctx, lin_add(d, Lin(-1, List()))) then
@@ -995,6 +1001,28 @@ function simp_less(ctx: Ctx, a: Term, b: Term): Term :=
         bool_term(false)
       else
         rewrite(ctx, Less(a, b))
+  end
+
+// -1, 0, or 1 where the order of the values or the context decides it, consistent with simp_less and simp_eq
+function simp_compare(ctx: Ctx, a: Term, b: Term): Term :=
+  match value_order(ctx.decls, a, b)
+    case Some(c) =>
+      int_term(c)
+
+    case None =>
+      match (simp_less(ctx, a, b), simp_less(ctx, b, a))
+        case (ELit(LBool(true)), _) =>
+          int_term(-1)
+
+        case (_, ELit(LBool(true))) =>
+          int_term(1)
+
+        case (ELit(LBool(false)), ELit(LBool(false))) =>
+          int_term(0)
+
+        case _ =>
+          rewrite(ctx, Compare(a, b))
+      end
   end
 
 // the application of a function to its arguments, unfolded always if it is not recursive, and else where the match or
