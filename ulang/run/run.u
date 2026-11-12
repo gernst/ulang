@@ -356,7 +356,7 @@ procedure evaluate(
       raise Unexpected("position")
 
     case ELam(formals, body) =>
-      assign v := VFunClos(env, formals, body)
+      assign v := VFunClos(env, lambda_vars(formals), body)
 
     case EProc(ins, outs, refs, stmt) =>
       assign v := VProcClos(env, ins, outs, refs, stmt)
@@ -1443,7 +1443,7 @@ test expressions() :=
     asserting("p1", expr_app("len", List(
       expr_app("Cons", List(expr_int(1), expr_app("Cons", List(expr_int(2), expr_var("Nil"))))))), expr_int(2)),
     asserting("p2", ELet(List(
-      (PVar(Var(unqualified("f"), THole)), ELam(List(Var(unqualified("x"), THole)), expr_app("*", List(expr_var("x"), expr_var("x")))))), expr_app("+", List(expr_app("f", List(expr_int(3))), expr_app("f", List(expr_int(4)))))), expr_int(25)),
+      (PVar(Var(unqualified("f"), THole)), lambda_of(List(Var(unqualified("x"), THole)), expr_app("*", List(expr_var("x"), expr_var("x")))))), expr_app("+", List(expr_app("f", List(expr_int(3))), expr_app("f", List(expr_int(4)))))), expr_int(25)),
     asserting("p4", expr_app("and", List(
       ELit(LBool(false)),
       expr_app("==", List(expr_app("/", List(expr_int(1), expr_int(0))), expr_int(0))))), ELit(LBool(false)))))

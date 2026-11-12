@@ -900,12 +900,7 @@ procedure parse_lambda(
       call   parse_separated(in notation, params, parse_pattern, at_comma, out pats, ref toks)
       call   expect(in TKw("=>"), ref toks)
       call   parse_expr(in notation, params, out inner, ref toks)
-      assign expr := match pattern_vars(pats)
-        case Some(xs) =>
-          ELam(xs, inner)
-        case None =>
-          lambda_patterns(pats, inner)
-      end
+      assign expr := ELam(pats, inner)
     end
   end
 

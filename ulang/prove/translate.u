@@ -119,8 +119,9 @@ function term_of(env: List[Name], expr: Expr): Term :=
       EApp(f, terms)
 
     case ELam(formals, body) =>
-      let inner := term_of(bind(formals, env), body) in
-      ELam(formals, inner)
+      let xs := lambda_vars(formals) in
+      let inner := term_of(bind(xs, env), body) in
+      ELam(xs, inner)
 
     case ELet(bindings, body) =>
       let_term(env, bindings, body)

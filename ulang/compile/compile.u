@@ -496,7 +496,7 @@ function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
       List()
 
     case ELam(formals, body) =>
-      free_vars(body, var_names(formals) ++ bound)
+      free_vars(body, var_names(lambda_vars(formals)) ++ bound)
 
     case EProc(ins, outs, refs, stmt) =>
       free_in_stmt(stmt, var_names(ins ++ outs ++ refs) ++ bound)
@@ -710,7 +710,7 @@ procedure compile_expr(
       assign ss := as ++ bs, r := c_call("u_apply", List(ra, CeNum(size(args))) ++ rs)
 
     case ELam(formals, body) =>
-      call compile_lambda(in defs, env, formals, body, out ss, r, ref g)
+      call compile_lambda(in defs, env, lambda_vars(formals), body, out ss, r, ref g)
 
     case EProc(ins, outs, refs, stmt) =>
       call compile_proc_lambda(in defs, env, ins, outs, refs, stmt, out ss, r, ref g)
@@ -982,7 +982,7 @@ function fusion_of(name: Name, args: List[Expr]): Option[Fused] :=
           None
       end
 
-    case (None, List(xs, init, ELam(List(x, acc), body))) =>
+    case (None, List(xs, init, ELam(List(PVar(x), PVar(acc)), body))) =>
       match fused(name, xs, x, body, acc.name)
         case Some(fusion) =>
           Some(FusedList(fusion, init))
@@ -1012,7 +1012,7 @@ function fused_inner(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fu
   match body
     case ECall(f_, _, List(c_, EName(a, _), lam)) if a == acc and is_unused(acc, c_, lam) =>
       match lam
-        case ELam(List(x_, acc_), inner) =>
+        case ELam(List(PVar(x_), PVar(acc_)), inner) =>
           nested(f, c, x, fused(f_, c_, x_, inner, acc_.name))
         case _ =>
           None
@@ -1038,7 +1038,7 @@ function array_fusion(n: Name, args: List[Expr]): Option[Fusion] :=
   match args
     case List(ECall(f, _, List(xs, ENil(_), lam))) if n == array_name() =>
       match lam
-        case ELam(List(x, acc), body) =>
+        case ELam(List(PVar(x), PVar(acc)), body) =>
           fused(f, xs, x, body, acc.name)
         case _ =>
           None

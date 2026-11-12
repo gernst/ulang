@@ -54,8 +54,9 @@ data Expr :=
   // e.f and e with f := a, which the checker resolves by the type of e to the accessor T.f and the updater T.f:=
   case EField(base: Expr, field: Id)
   case EUpdate(base: Expr, field: Id, value: Expr)
-  // lambda x, … => body, see lambda_patterns for formals that are patterns
-  case ELam(formals: List[Var], body: Expr)
+  // lambda p, … => body, whose formals are patterns, which it matches as let does, and which the checker makes variables,
+  // lambda_vars, matching the others in the body
+  case ELam(formals: List[Pat], body: Expr)
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
   case EProc(ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
   // let p := a, … in body, which binds in parallel, by irrefutable patterns
@@ -253,8 +254,6 @@ function expr_app(f: Id, args: List[Expr]): Expr
 
 function pat_var(n: Id): Pat
 
-function lambda_patterns(pats: List[Pat], body: Expr): Expr
-
 function pattern_expr(p: Pat): Option[Expr]
 
 function subst_pat(pat: Pat, sub: List[Name * Pat]): Pat
@@ -271,7 +270,9 @@ function implicit_elem(form: Form, gens: List[Gen]): Option[Yield]
 
 function form_name(form: Form): Id
 
-function patterns_of_lambda(formals: List[Var], body: Expr): Option[List[Pat] * Expr]
+function lambda_vars(formals: List[Pat]): List[Var]
+
+function lambda_of(xs: List[Var], body: Expr): Expr
 
 function placed_of(d: Mod): List[Top]
 
@@ -414,47 +415,12 @@ function seen_modules(d: Mod, packages: List[Package]): List[Id] :=
 function unplaced(cmds: List[Cmd]): List[Top] :=
   List(for c in cmds yield Top(Pos(0, 0), "", c))
 
-// lambda p, q => e with patterns p and q is lambda (1), (2) => match ((1), (2)) case (p, q) => e end, with formals that
-// users cannot write, and lambda (1) => match (1) case p => e end for one pattern
-function lambda_patterns(pats: List[Pat], body: Expr): Expr :=
-  let xs := pattern_formals(size(pats)) in
-  ELam(xs, EMatch(pattern_scrutinee(xs), List(
-    Branch("", match pats
-      case List(pat) =>
-        pat
-      case _ =>
-        PTuple(pats)
-    end, None, body))))
+// the variables of the formals of a checked lambda, which the checker makes variables
+function lambda_vars(formals: List[Pat]): List[Var] :=
+  value_or(pattern_vars(formals), List())
 
-function pattern_formals(n: Int): List[Var] :=
-  List(for i in range(1, n + 1) yield Var(unqualified("(" ++ show(i) ++ ")"), THole))
-
-function pattern_scrutinee(xs: List[Var]): Expr :=
-  match xs
-    case List(x) =>
-      EVar(x)
-    case _ =>
-      ETuple(List(for x in xs yield EVar(x)))
-  end
-
-// the patterns and the body of a lambda that lambda_patterns built
-function patterns_of_lambda(formals: List[Var], body: Expr): Option[List[Pat] * Expr] :=
-  match (body, formals)
-    case (EMatch(e, List(Branch(_, pat, None, inner))), List(_; more)) if formals == pattern_formals(size(formals)) and e == pattern_scrutinee(formals) =>
-      match (pat, more)
-        case (_, List()) =>
-          Some((List(pat), inner))
-
-        case (PTuple(args), _) =>
-          Some((args, inner))
-
-        case _ =>
-          None
-      end
-
-    case _ =>
-      None
-  end
+function lambda_of(xs: List[Var], body: Expr): Expr :=
+  ELam(List(for x in xs yield PVar(x)), body)
 
 // what a form of a single generator yields without yield, the value its pattern matches, an entry of a map
 function implicit_elem(form: Form, gens: List[Gen]): Option[Yield] :=
@@ -683,7 +649,7 @@ function strip_expr(expr: Expr): Expr :=
       EUpdate(strip_expr(base), field, strip_expr(value))
 
     case ELam(formals, body) =>
-      ELam(formals, strip_expr(body))
+      ELam(List(for p in formals yield strip_pat(p)), strip_expr(body))
 
     case EProc(ins, outs, refs, stmt) =>
       EProc(ins, outs, refs, strip_stmt(stmt))

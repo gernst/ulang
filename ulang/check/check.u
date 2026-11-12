@@ -539,7 +539,7 @@ function zonk_expr(s: State, expr: Expr): Expr :=
       EUpdate(zonk_expr(s, base), field, zonk_expr(s, value))
 
     case ELam(formals, body) =>
-      ELam(zonk_vars(s, formals), zonk_expr(s, body))
+      ELam(List(for p in formals yield zonk_pat(s, p)), zonk_expr(s, body))
 
     case EProc(ins, outs, refs, stmt) =>
       EProc(zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), zonk_stmt(s, stmt))
@@ -1443,12 +1443,18 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
     case EUpdate(base, field, value) =>
       call field_access(in env, "." ++ field ++ ":=", base, List(value), out res, typ, ref s)
 
-    case ELam(bound, body) =>
-      local xs: List[Var], b: Expr, u: Type
-      call   formals(in "formal", bound, out xs, ref s)
-      call   unhidden(in env, xs)
-      call   infer(in bind(xs) ++ env, body, out b, u, ref s)
-      assign res := ELam(xs, b), typ := TFun(List(for x in xs yield x.typ), u)
+    case ELam(pats, body) =>
+      match pattern_vars(pats)
+        case Some(bound) =>
+          local xs: List[Var], b: Expr, u: Type
+          call   formals(in "formal", bound, out xs, ref s)
+          call   unhidden(in env, xs)
+          call   infer(in bind(xs) ++ env, body, out b, u, ref s)
+          assign res := lambda_of(xs, b), typ := TFun(List(for x in xs yield x.typ), u)
+
+        case None =>
+          call infer(in env, lambda_match(pats, body), out res, typ, ref s)
+      end
 
     // the body sees the variables around it, but assigns only the outs and refs of the lambda
     case EProc(ins, outs, refs, stmt) =>
@@ -1698,21 +1704,21 @@ function fold_expr(form: Form, m: Id, targs: List[Type], g: Gen, c: Expr, body: 
       form_app(m, fold, List(
         c,
         base,
-        ELam(if fold == "foldr" then List(kx, vx, acc) else List(acc, kx, vx), matched(List((kx, k), (vx, v)), body))))
+        lambda_of(if fold == "foldr" then List(kx, vx, acc) else List(acc, kx, vx), matched(List((kx, k), (vx, v)), body))))
 
     case GVal(p, _) if m == library_module("map") =>
       let kx := Var(unqualified("(key)"), key_type(targs)), vx := Var(unqualified("(value)"), value_type(targs)) in
       form_app(m, fold, List(
         c,
         base,
-        ELam(if fold == "foldr" then List(kx, vx, acc) else List(acc, kx, vx), EMatch(ETuple(List(EVar(kx), EVar(vx))), List(Branch("", p, None, body))))))
+        lambda_of(if fold == "foldr" then List(kx, vx, acc) else List(acc, kx, vx), EMatch(ETuple(List(EVar(kx), EVar(vx))), List(Branch("", p, None, body))))))
 
     case GVal(p, _) =>
       let x := formal_of(p, "(element)", key_type(targs)) in
       form_app(m, fold, List(
         c,
         base,
-        ELam(if fold == "foldr" then List(x, acc) else List(acc, x), matched(List((x, p)), body))))
+        lambda_of(if fold == "foldr" then List(x, acc) else List(acc, x), matched(List((x, p)), body))))
 
     case GIf(_) =>
       body
@@ -1885,6 +1891,51 @@ procedure infers_first(
     assign typed_exprs := typed_exprs ++ List(typed_expr), ts := ts ++ List(t)
   end
 
+// lambda p, q => e with patterns that are not all variables is lambda (1), (2) => match ((1), (2)) case (p, q) => e end, with
+// formals that users cannot write, and lambda (1) => match (1) case p => e end for one pattern
+function lambda_match(pats: List[Pat], body: Expr): Expr :=
+  match pattern_vars(pats)
+    case Some(_) =>
+      ELam(pats, body)
+
+    case None =>
+      let xs := List(for i in range(1, size(pats) + 1) yield Var(unqualified("(" ++ show(i) ++ ")"), THole)) in
+      lambda_of(xs, EMatch(scrutinee(xs), List(Branch("", matched_pattern(pats), None, body))))
+  end
+
+function matched_pattern(pats: List[Pat]): Pat :=
+  match pats
+    case List(pat) =>
+      pat
+    case _ =>
+      PTuple(pats)
+  end
+
+function scrutinee(xs: List[Var]): Expr :=
+  match xs
+    case List(x) =>
+      EVar(x)
+    case _ =>
+      ETuple(List(for x in xs yield EVar(x)))
+  end
+
+// the formals of a lambda of variables, typed by the types ps of the function that it is an argument for, where untyped
+function typed_formals(lam: Expr, ps: List[Type]): Expr :=
+  match lam
+    case ELam(formals, body) =>
+      ELam(List(for (p, t) in zip(formals, ps) yield typed_formal(p, t)), body)
+    case _ =>
+      lam
+  end
+
+function typed_formal(p: Pat, t: Type): Pat :=
+  match p
+    case PVar(x) if x.typ == THole =>
+      PVar(Var(x.name, t))
+    case _ =>
+      p
+  end
+
 function is_lambda(e: Expr): Bool :=
   match e
     case ELam(_, _) =>
@@ -1924,7 +1975,7 @@ procedure infer_lambda(
   local u: Type
   match (expr, zonk_type(s.sub, t))
     case (ELam(formals, body), TFun(ps, _)) if size(ps) == size(formals) =>
-      call infer(in env, ELam(List(for (x, p) in zip(formals, ps) yield if x.typ == THole then Var(x.name, p) else x), body), out typed_expr, u, ref s)
+      call infer(in env, typed_formals(lambda_match(formals, body), ps), out typed_expr, u, ref s)
     case _ =>
       call infer(in env, expr, out typed_expr, u, ref s)
   end
@@ -3497,7 +3548,7 @@ procedure type_of(in expr: Expr, out t: Type) :=
 // let id := lambda x => x in (id(1), id(arg)), whose id is not generalized
 function let_id(arg: Expr): Expr :=
   ELet(List(
-    (PVar(Var(unqualified("id"), THole)), ELam(List(Var(unqualified("x"), THole)), expr_var("x")))), ETuple(List(expr_app("id", List(expr_int(1))), expr_app("id", List(arg)))))
+    (PVar(Var(unqualified("id"), THole)), lambda_of(List(Var(unqualified("x"), THole)), expr_var("x")))), ETuple(List(expr_app("id", List(expr_int(1))), expr_app("id", List(arg)))))
 
 test inference() :=
   local t: Type
@@ -3509,7 +3560,7 @@ test inference() :=
     call type_of(in let_id(ELit(LBool(true))), out t)
   end
   assert raises InfiniteType(_, _) do
-    call type_of(in ELam(List(Var(unqualified("f"), THole)), expr_app("f", List(expr_var("f")))), out t)
+    call type_of(in lambda_of(List(Var(unqualified("f"), THole)), expr_app("f", List(expr_var("f")))), out t)
   end
   assert raises CannotUnify(TInt(), TBool()) do
     call type_of(in expr_app("<", List(expr_int(1), ELit(LBool(true)))), out t)
@@ -3647,7 +3698,7 @@ test by_arguments() :=
 // (lambda x => size(x))(Box("x")), where size(x) stays open until the lambda is applied
 test deferred() :=
   local b: Expr
-  call body_of(in fun_cmd("f", List(), TInt(), EApp(ELam(List(var_of("x", THole)), expr_app("size", List(expr_var("x")))), List(expr_app("Box", List(ELit(LStr("x"))))))), out b)
+  call body_of(in fun_cmd("f", List(), TInt(), EApp(lambda_of(List(var_of("x", THole)), expr_app("size", List(expr_var("x")))), List(expr_app("Box", List(ELit(LStr("x"))))))), out b)
   match b
     case EApp(ELam(_, ECall(name, typ, _)), _) =>
       assert name == in_box("size")
@@ -3698,7 +3749,7 @@ test procedures() :=
 // (lambda p => p.x)(Pt(3)), where the type of p is not known at the access
 test fields() :=
   local b: Expr
-  call body_of(in fun_cmd("f", List(), TInt(), EApp(ELam(List(var_of("p", THole)), EField(expr_var("p"), "x")), List(expr_app("Pt", List(expr_int(3)))))), out b)
+  call body_of(in fun_cmd("f", List(), TInt(), EApp(lambda_of(List(var_of("p", THole)), EField(expr_var("p"), "x")), List(expr_app("Pt", List(expr_int(3)))))), out b)
   match b
     case EApp(ELam(_, ECall(name, _, _)), _) =>
       assert name == in_bag("Pt.x")
@@ -3732,7 +3783,7 @@ test builtins() :=
       assert false
   end
   call body_of(in fun_cmd("k", List(), TBool(), ELet(List(
-    (PVar(var_of("e", THole)), ELam(List(var_of("x", THole)), expr_app("==", List(expr_var("x"), expr_var("x")))))), ELit(LBool(true)))), out b)
+    (PVar(var_of("e", THole)), lambda_of(List(var_of("x", THole)), expr_app("==", List(expr_var("x"), expr_var("x")))))), ELit(LBool(true)))), out b)
   match b
     case ELet(List((_, ELam(_, ECall(name, _, _)))), _) =>
       assert name == unqualified("==")
@@ -3753,7 +3804,7 @@ test errors() :=
   end
   assert raises Ambiguous(Name(None, "size"), List(_, _)) do
     call body_of(in fun_cmd("f", List(), TBool(), ELet(List(
-      (PVar(var_of("h", THole)), ELam(List(var_of("x", THole)), expr_app("size", List(expr_var("x")))))), ELit(LBool(true)))), out b)
+      (PVar(var_of("h", THole)), lambda_of(List(var_of("x", THole)), expr_app("size", List(expr_var("x")))))), ELit(LBool(true)))), out b)
   end
   assert raises WrongArity(Name(None, "size"), 2) do
     call body_of(in fun_cmd("f", List(), TInt(), expr_app("size", List(expr_int(1), expr_int(2)))), out b)

@@ -251,12 +251,7 @@ function expr_out(notation: Notation, indent: Str, expr: Expr): Out :=
       Out("lambda => " ++ format_expr(notation, indent, body), Open)
 
     case ELam(formals, body) =>
-      match patterns_of_lambda(formals, body)
-        case Some((pats, inner)) =>
-          Out("lambda " ++ format_patterns(notation, indent, pats) ++ " => " ++ format_expr(notation, indent, inner), Open)
-        case None =>
-          Out("lambda " ++ formals_text(formals) ++ " => " ++ format_expr(notation, indent, body), Open)
-      end
+      Out("lambda " ++ format_patterns(notation, indent, formals) ++ " => " ++ format_expr(notation, indent, body), Open)
 
     case EProc(ins, outs, refs, stmt) =>
       Out(block_text(notation, indent, "lambda " ++ formal_sections(ins, outs, refs) ++ " =>", stmt), Atom)
