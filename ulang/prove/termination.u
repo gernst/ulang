@@ -74,7 +74,12 @@ function calls_in(decls: Decls, names: List[Name * Int], t: Term, vars: List[Var
         List(Call((name, size(args)), vars, Some(args), path))
       else
         List() in
-      here ++ List(for a in args for c in calls_in(decls, names, a, vars, path) yield c)
+      match element_lambda(name, args)
+        case Some((container, i, positions)) =>
+          here ++ List(for (a, j) in zip(args, range(0, size(args))) for c in calls_at(decls, names, container, a, j == i, positions, vars, path) yield c)
+        case None =>
+          here ++ List(for a in args for c in calls_in(decls, names, a, vars, path) yield c)
+      end
 
     case EApp(fun, args) =>
       List(for a in List(fun; args) for c in calls_in(decls, names, a, vars, path) yield c)
@@ -90,6 +95,57 @@ function calls_in(decls: Decls, names: List[Name * Int], t: Term, vars: List[Var
 
     case _ =>
       List(for k in mentioned(names, t) yield Call(k, vars, None, path))
+  end
+
+// the container, the position of the lambda among the arguments, and the positions of its formals that are elements of
+// the container, for the folds, exists, and forall of the containers of the library that are datatypes
+function element_lambda(name: Name, args: List[Term]): Option[Term * Int * List[Int]] :=
+  match (name.module, args)
+    case (Some(m), List(c; _)) if contains(m, List(
+      "prelude/list",
+      "prelude/set",
+      "prelude/map",
+      "prelude/option",
+      "prelude/buffer")) =>
+      match (name.base, args)
+        case ("foldr", List(_, _, ELam(formals, _))) =>
+          Some((c, 2, range(0, size(formals) - 1)))
+
+        case ("foldl", List(_, _, ELam(formals, _))) =>
+          Some((c, 2, range(1, size(formals))))
+
+        case ("exists", List(_, ELam(formals, _))) =>
+          Some((c, 1, range(0, size(formals))))
+
+        case ("forall", List(_, ELam(formals, _))) =>
+          Some((c, 1, range(0, size(formals))))
+
+        case _ =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+function calls_at(decls: Decls, names: List[Name * Int], container: Term, arg: Term, is_lambda: Bool, positions: List[Int], vars: List[Var], path: List[Term]): List[Call] :=
+  if is_lambda then
+    lambda_calls(decls, names, container, arg, positions, vars, path)
+  else
+    calls_in(decls, names, arg, vars, path)
+
+// the calls in the body of a lambda that the container calls with its elements at the positions of its formals, whose
+// formals follow vars, where each element is smaller than the container
+function lambda_calls(decls: Decls, names: List[Name * Int], container: Term, lam: Term, positions: List[Int], vars: List[Var], path: List[Term]): List[Call] :=
+  match lam
+    case ELam(formals, body) =>
+      let base := size(vars) in
+      let levels := List(for i in range(0, size(formals)) yield ELevel(base + i)) in
+      let smaller := List(for i in positions yield Less(Size(ELevel(base + i)), Size(container))) in
+      calls_in(decls, names, beta(levels, body), vars ++ formals, path ++ smaller)
+
+    case _ =>
+      calls_in(decls, names, lam, vars, path)
   end
 
 // the calls in a case of a match on arg, whose pattern variables, and a variable for each wildcard, follow vars
@@ -156,8 +212,17 @@ function measure_slots(decls: Decls, names: List[Name * Int]): List[Slot] :=
 
     case _ =>
       let n := foldl(formals, 0, lambda acc, fs => if acc == 0 or size(fs) < acc then size(fs) else acc) in
-      List(for i in range(0, n) if forall(formals, lambda fs => is_datatype(decls, at(i, from_list(fs)).typ)) yield Slot(List(for fs in formals yield Size(EBound(size(fs) - 1 - i))), false))
+      let common := List(for i in range(0, n) if forall(formals, lambda fs => is_datatype(decls, at(i, from_list(fs)).typ)) yield Slot(List(for fs in formals yield Size(EBound(size(fs) - 1 - i))), false)) in
+      let k := size(formals) in
+      let ranks := List(
+        Slot(List(for i in range(0, k) yield int_term(i + 1)), true),
+        Slot(List(for i in range(0, k) yield int_term(k - i)), true)) in
+      List(Slot(List(for fs in formals yield sizes_sum(decls, fs)), false)) ++ common ++ ranks
   end
+
+// the sum of the sizes of the formals of datatypes, for mutual recursions whose functions take them at different places
+function sizes_sum(decls: Decls, fs: List[Var]): Term :=
+  foldl(size_measures(decls, fs), int_term(0), lambda acc, m => Plus(acc, m))
 
 function size_measures(decls: Decls, fs: List[Var]): List[Term] :=
   let n := size(fs) in
@@ -238,8 +303,10 @@ function search(decls: Decls, names: List[Name * Int], slots: List[Slot], sites:
     match first_slot(decls, names, slots, sites)
       case Some(slot) =>
         search(decls, names, List(for s in slots if s != slot), List(for site in sites if not is_strict(decls, names, slot, site)), order ++ List(slot))
+
       case None =>
-        Termination(names, order, sites)
+        let undecreased := List(for site in sites if not exists(slots, lambda slot => is_strict(decls, names, slot, site)) yield site) in
+        Termination(names, order, if undecreased == List() then sites else undecreased)
     end
 
 // the first slot that decreases every site at least weakly and some strictly
@@ -283,6 +350,37 @@ function measures_at(names: List[Name * Int], slot: Slot, site: CallSite): Optio
       None
   end
 
+// the accesses T.f(x) to fields in t, outside lambdas and matches
+function accesses_in(t: Term): List[Term] :=
+  match t
+    case EApp(EFun(name), args) =>
+      let here := if size(args) == 1 and field_of_accessor(name) != None then
+        List(t)
+      else
+        List() in
+      here ++ List(for a in args for b in accesses_in(a) yield b)
+
+    case EApp(fun, args) =>
+      List(for a in List(fun; args) for b in accesses_in(a) yield b)
+
+    case EIte(cond, then_expr, else_expr) =>
+      accesses_in(cond) ++ accesses_in(then_expr) ++ accesses_in(else_expr)
+
+    case ESum(_, summands) =>
+      List(for summand in summands for b in accesses_in(summand.term) yield b)
+
+    case _ =>
+      List()
+  end
+
+function accessed(t: Term): List[Term] :=
+  match t
+    case EApp(_, List(x)) =>
+      List(x)
+    case _ =>
+      List()
+  end
+
 function measure_of(names: List[Name * Int], slot: Slot, k: Name * Int): Option[Term] :=
   match List(for (j, m) in zip(names, slot.measures) if j == k yield m)
     case List(m; _) =>
@@ -291,9 +389,13 @@ function measure_of(names: List[Name * Int], slot: Slot, k: Name * Int): Option[
       None
   end
 
-// the goals, over the levels of the variables of the call, under the path to it
+// the goals, over the levels of the variables of the call, under the path to it, and that an access to a field of a
+// value of the path or the goals is smaller than the value, where an access to a value without the field raises, so
+// that the call is not made
 function is_valid(decls: Decls, site: CallSite, goals: List[Term]): Bool :=
   let r := site.recursion in
   let op := Close(range(0, size(r.vars))) in
-  let assms := List(for c in r.path yield Atom(rebind(op, 0, c))) in
+  let accesses := Set(for t in r.path ++ goals for a in accesses_in(t) yield a) in
+  let fields := List(for a in accesses for x in accessed(a) yield Less(Size(a), Size(x))) in
+  let assms := List(for c in r.path ++ fields yield Atom(rebind(op, 0, c))) in
   simplify(decls, Seq(r.vars, assms, List(Concl(List(), List(for g in goals yield Atom(rebind(op, 0, g))))))) == true_seq()
