@@ -4440,10 +4440,8 @@ procedure check_package(
     end, out enumerated, ref s)
   end
   assign cmds := with_definitions(List(for d in mods for c in written_of(d.name, d.exported ++ d.implemented) yield c), defined) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors, loose := List(for (i, e) in zip(range(0, size(s.errors)), s.errors) if not contains(i, s.taken) yield e)
-  if errors == List() and not partial then
-    assign errors := raises_errors(List(for (_, c) in defined ++ tested yield c.that), s.sig, hidden)
-    assign loose := errors
-  end
+  assign errors := errors ++ raises_errors(List(for (_, c) in defined ++ tested if cmd_errors(c) == List() yield c.that), s.sig, hidden)
+  assign loose := loose ++ drop(size(s.errors), errors)
 
 // an example of the function or procedure owner, translated into the test cmd, at the position pos in module, where an
 // example of the export section is checked as an importer of module sees it
@@ -4602,7 +4600,7 @@ procedure example_commands(
 ) :=
   assign cmds := List()
   for x in xs do
-    local before := size(s.errors), one: List[Cmd] := List(x.cmd), viewer := (if x.exported then "(example)/" ++ x.module else x.module)
+    local errors: List[Diagnostic], before := size(s.errors), one: List[Cmd] := List(x.cmd), viewer := (if x.exported then "(example)/" ++ x.module else x.module)
     assign s := s with table := List((viewer, List(x.module; sees(x.module, s.table))); s.table)
     try
       call commands(in List((viewer, x.cmd)), out one, ref s)
@@ -4610,7 +4608,9 @@ procedure example_commands(
       case e =>
         assign s := s with errors := s.errors ++ List(e)
     end
-    assign s := placed_errors(s, before, (x.module, x.cmd), x.pos), cmds := cmds ++ List(for c in one yield (x.module, AOk(x.pos, c)))
+    assign s := placed_errors(s, before, (x.module, x.cmd), x.pos)
+    call   take_errors(in x.pos, before, out errors, ref s)
+    assign cmds := cmds ++ List(for c in one yield (x.module, checked_at(x.pos, c, errors)))
   end
 
 // the tests l.lemma of the lemmas l of the package whose formals have enumerable types, each on the values up to a depth
@@ -4940,7 +4940,7 @@ procedure placed_commands(
       assign cmds := List()
 
     case List((p, d); more) =>
-      local before := size(s.errors), one: List[Cmd] := List(second(d)), rest: List[Id * At[Cmd]]
+      local before := size(s.errors), one: List[Cmd] := List(second(d)), rest: List[Id * At[Cmd]], errors: List[Diagnostic]
       try
         call commands(in List(d), out one, ref s)
         if size(s.errors) == before then
@@ -4951,8 +4951,9 @@ procedure placed_commands(
           assign s := s with errors := s.errors ++ List(e)
       end
       assign s := placed_errors(s, before, d, p)
+      call   take_errors(in p, before, out errors, ref s)
       call   placed_commands(in more, after, out rest, ref s)
-      assign cmds := List(for c in one yield (first(d), AOk(p, c))) ++ rest
+      assign cmds := List(for c in one yield (first(d), checked_at(p, c, errors))) ++ rest
   end
 
 // the commands of the export and implementation sections of the modules, each at its declaration, with the checked

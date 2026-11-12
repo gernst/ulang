@@ -716,6 +716,52 @@ test several_errors() :=
     "  assert f(1) == \"a\""), out errors)
   assert List(for e in errors yield error_pos(e)) == List(Pos(2, 7), Pos(5, 6), Pos(5, 13), Pos(8, 18))
 
+// the errors of raises are reported next to the type errors, of the commands without errors, where a procedure with errors
+// counts as raising what its signature declares, so that its callers make no follow-ups
+test raises_besides_types() :=
+  local errors: List[TypeError]
+  call check_text_all(in "ulang/test/errors/raises-besides-types.u", List(
+    "data Fail :=",
+    "  case Fail",
+    "",
+    "function f(n: Int): Int :=",
+    "  n + true",
+    "",
+    "procedure p() :=",
+    "  raise Fail",
+    "",
+    "procedure q() raises Str :=",
+    "  call p()",
+    "",
+    "procedure r() :=",
+    "  local x: Int := true",
+    "  raise Fail",
+    "",
+    "procedure t() raises Str :=",
+    "  call r()"), out errors)
+  assert List(for e in errors yield error_pos(e)) == List(Pos(5, 7), Pos(14, 19), Pos(11, 3))
+  match reverse(errors)
+    case List(Located(None, _, UndeclaredRaise(name, _)); _) =>
+      assert name.base == "q"
+    case _ =>
+      assert false
+  end
+
+// a file with parse errors gets the errors of raises of its commands without errors too
+test raises_despite_parse_errors() :=
+  local parsing: List[ParseError], errors: List[TypeError]
+  call check_text_partial(in "ulang/test/errors/raises-despite-parse-errors.u", List(
+    "function f( :=",
+    "  1",
+    "",
+    "data Fail :=",
+    "  case Fail",
+    "",
+    "procedure q() raises Str :=",
+    "  raise Fail"), out parsing, errors)
+  assert size(parsing) == 1
+  assert List(for e in errors yield error_pos(e)) == List(Pos(8, 3))
+
 // a file with parse errors is checked without the commands that do not parse, where a use of a name that one of them
 // declares, also a constructor in a pattern, which binds its variables, is reported as such and not as unknown
 test checked_despite_parse_errors() :=
