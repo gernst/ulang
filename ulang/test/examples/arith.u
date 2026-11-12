@@ -41,10 +41,11 @@ procedure swap(ref a: Int, b: Int) :=
   example swap(ref 1 => 2, 2 => 1)
   assign a := b, b := a
 
-// the body after the examples starts with -, which ends the example by its line
+// the body after the examples cannot start with -, which would continue the last example, whose expression goes as far as
+// it can, whatever the layout
 function negated(x: Int): Int :=
   example negated(2) == -2
-  -x
+  0 - x
 
 // an example on two lines, whose second, the body of a let, is indented deeper than its keyword
 function halved(x: Int): Int :=

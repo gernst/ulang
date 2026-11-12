@@ -2330,39 +2330,57 @@ procedure parse_spec(
 ) :=
   local found: Buffer[At[Example]] := empty()
   while at_kw(toks, "example") do
-    local x: At[Example], pos: Pos := head_pos(toks), own: Tokens := example_tokens(notation, toks)
-    assign toks := drop(size(own), toks)
-    assign own := own ++ List((head_pos(toks), TEnd))
-    call   advance(ref own)
-    call   parse_example(in notation, params, of_proc, pos, out x, ref own)
+    local x: At[Example], pos: Pos := head_pos(toks)
+    call   advance(ref toks)
+    call   parse_example(in notation, params, of_proc, pos, out x, ref toks)
     assign found := found ++ List(x)
   end
   assign spec := Spec(List(for x in found))
 
-// the example at pos of the tokens own after its keyword, or one that does not parse, whose test fails, which fails no
-// declaration
+// the example at pos after its keyword, as far as its expression goes, so that a body after the examples starts with
+// what cannot continue it, or one that does not parse, whose test fails, which fails no declaration, up to the next example
+// if one follows before the next command, else up to its error, where the body then starts
 procedure parse_example(
   in  notation: Notation,
       params: List[Id],
       of_proc: Bool,
       pos: Pos,
   out x: At[Example],
-  ref own: Tokens
+  ref toks: Tokens
 ) :=
-  local claim: Example
+  local claim: Example, skipped: Buffer[Str] := empty(), next := has_next_example(toks), start := toks, invalid: Option[ParseError] := None
   try
     if of_proc then
-      call parse_proc_example(in notation, params, pos, out claim, ref own)
+      call parse_proc_example(in notation, params, pos, out claim, invalid, ref toks)
     else
-      call parse_fun_example(in notation, params, out claim, ref own)
+      call parse_fun_example(in notation, params, out claim, ref toks)
     end
-    if head_token(own) != TEnd then
-      raise expected("the end of the example", own)
+    match invalid
+      case Some(e) =>
+        assign x := AUnparsed(pos, joined(List(for (_, tok) in take(size(start) - size(toks), start) yield format_token(tok))), parse_diagnostic(e))
+      case None =>
+        assign x := AOk(pos, claim)
     end
-    assign x := AOk(pos, claim)
   catch
     case ParseError(message, at) =>
-      assign x := AUnparsed(pos, joined(List(for (_, tok) in own if tok != TEnd yield format_token(tok))), parse_diagnostic(ParseError(example_message(message), at)))
+      while not (at_kw(toks, "example") or starts_command(toks) or not next and not head_pos(toks) < at) do
+        assign skipped := skipped ++ List(format_token(head_token(toks)))
+        call   advance(ref toks)
+      end
+      assign x := AUnparsed(pos, joined(List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
+  end
+
+// whether another example follows before the next command
+function has_next_example(toks: Tokens): Bool :=
+  match toks
+    case List((_, TKw("example")); _) =>
+      true
+
+    case List((_, tok); more) if not is_command_token(tok) =>
+      has_next_example(more)
+
+    case _ =>
+      false
   end
 
 // the texts of tokens as the source usually spaces them, the text of a part that does not parse: without spaces inside
@@ -2385,51 +2403,6 @@ function is_tight(a: Str, b: Str): Bool :=
 function is_name_text(a: Str): Bool :=
   a != "" and is_letter(at(0, a)) and not is_keyword(a)
 
-// message of the parse of an example, whose tokens end at the end of the example
-function example_message(message: Str): Str :=
-  if ends_with(message, "but end of input found") then
-    slice(message, 0, size(message) - size("end of input found")) ++ "the end of the example found"
-  else
-    message
-
-// the tokens of the example at the start of toks, up to the first token on a later line outside brackets after a token
-// that ends an expression, the next example or the body, which may start with what would continue the expression of the
-// example, e.g. ( or -, while an example that format breaks continues inside brackets or after an operator or in
-function example_tokens(notation: Notation, toks: Tokens): Tokens :=
-  match toks
-    case List((p, tok); more) =>
-      List((p, tok); example_rest(notation, more, p.line, tok, 0))
-    case List() =>
-      List()
-  end
-
-function example_rest(notation: Notation, toks: Tokens, line: Int, prev: Token, depth: Int): Tokens :=
-  match toks
-    case List((p, tok); more) if tok != TEnd and tok != TKw("example") and not is_command_token(tok) and (p.line == line or depth > 0 or not ends_example_line(notation, prev)) =>
-      List(
-        (p, tok); example_rest(notation, more, p.line, tok, depth + bracket_change(tok)))
-
-    case _ =>
-      List()
-  end
-
-// whether an example may end after tok at the end of a line, which ends an expression and is no operator
-function ends_example_line(notation: Notation, tok: Token): Bool :=
-  match tok
-    case TName(name) =>
-      not is_operator(notation, name)
-    case _ =>
-      ends_expr(tok)
-  end
-
-function bracket_change(tok: Token): Int :=
-  if tok == TKw("(") or tok == TKw("[") then
-    1
-  else if tok == TKw(")") or tok == TKw("]") then
-    -1
-  else
-    0
-
 // e or e raises p, after example
 procedure parse_fun_example(
   in  notation: Notation,
@@ -2449,18 +2422,21 @@ procedure parse_fun_example(
   end
 
 // p(in a, …, out b, …, ref c => d, …), or p(in a, …, out _, …, ref c, …) raises q, after example at pos
+// where invalid is the error of an example that parses but does not fit its procedure, which ends where its parse ends
 procedure parse_proc_example(
   in  notation: Notation,
       params: List[Id],
       pos: Pos,
   out x: Example,
+      invalid: Option[ParseError],
   ref toks: Tokens
 ) :=
   local p: Id, ins: List[At[Expr]], outs: List[Option[At[Expr]] * Option[At[Expr]]], refs: List[Option[At[Expr]] * Option[At[Expr]]]
-  call parse_name(out p, ref toks)
-  call expect(in TKw("("), ref toks)
-  call parse_sections(in notation, params, parse_expr, parse_example_arg, out ins, outs, refs, ref toks)
-  call expect(in TKw(")"), ref toks)
+  assign invalid := None
+  call   parse_name(out p, ref toks)
+  call   expect(in TKw("("), ref toks)
+  call   parse_sections(in notation, params, parse_expr, parse_example_arg, out ins, outs, refs, ref toks)
+  call   expect(in TKw(")"), ref toks)
   if at_kw(toks, "raises") then
     local pat: At[Pat]
     call advance(ref toks)
@@ -2468,15 +2444,19 @@ procedure parse_proc_example(
     match (raising_outs(outs), ref_befores(refs))
       case (Some(n), Some(before)) =>
         assign x := XCallRaises(unqualified(p), ins, n, before, pat)
+
       case _ =>
-        raise ParseError("an example that raises has _ for each out and each ref as before the call", pos)
+        assign x := XCallRaises(unqualified(p), ins, 0, List(), pat)
+        assign invalid := Some(ParseError("an example that raises has _ for each out and each ref as before the call", pos))
     end
   else
     match (expected_outs(outs), before_after(refs))
       case (Some(values), Some(changes)) =>
         assign x := XCall(unqualified(p), ins, values, changes)
+
       case _ =>
-        raise ParseError("an example of a procedure has the value of each out and each ref as before => after", pos)
+        assign x := XCall(unqualified(p), ins, List(), List())
+        assign invalid := Some(ParseError("an example of a procedure has the value of each out and each ref as before => after", pos))
     end
   end
 
@@ -3281,6 +3261,9 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
 
     case (List(CNotation(_, _, _); _), InImplementation) =>
       raise ParseError("notations belong to the export section", pos)
+
+    case (List(CFunSig(_, _, _, _, spec); _), s) if s != InExport and spec.examples != List() =>
+      raise ParseError("signatures belong to the export section; the last example takes what continues its expression, so a body after examples cannot start with (, -, an operator, ., or with, which can be bound by a let, as in let r := -x in r", pos)
 
     case (List(CFunSig(_, _, _, _, _); _), s) if s != InExport =>
       raise ParseError("signatures belong to the export section", pos)
