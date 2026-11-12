@@ -4374,15 +4374,24 @@ function numbered_examples(m: Id, cmds: List[Bool * Cmd], counts: Map[Id, Int]):
       match example_owner(qualify(m, cmd))
         case Some(owner) =>
           let n := value_or(get(owner.base, counts), 0), examples := spec_of(cmd).examples in
-          List(for (i, x) in zip(range(n + 1, n + 1 + size(examples)), examples) yield example_test(m, x.pos, owner, exported, i, x.that)) ++ numbered_examples(m, more, put(owner.base, n + size(examples), counts))
+          List(for (i, x) in zip(range(n + 1, n + 1 + size(examples)), examples) yield example_test(m, x.pos, owner, exported, i, x)) ++ numbered_examples(m, more, put(owner.base, n + size(examples), counts))
 
         case None =>
           numbered_examples(m, more, counts)
       end
   end
 
-function example_test(m: Id, pos: Pos, owner: Name, exported: Bool, n: Int, x: Example): ExampleTest :=
-  ExampleTest(pos, m, owner, exported, CTest(Name(Some(m), owner.base ++ ".example." ++ show(n)), List(), example_stmt(pos, x)))
+function example_test(m: Id, pos: Pos, owner: Name, exported: Bool, n: Int, x: At[Example]): ExampleTest :=
+  ExampleTest(pos, m, owner, exported, CTest(Name(Some(m), owner.base ++ ".example." ++ show(n)), List(), example_body(pos, x)))
+
+// the body of the test of the example x, which raises the error of a part that does not parse
+function example_body(pos: Pos, x: At[Example]): At[Stmt] :=
+  match example_error(x)
+    case Some(error) =>
+      AOk(pos, SRaise(nowhere(ELit(LStr("the example does not parse: " ++ error.message ++ " at " ++ show(error.pos.line) ++ "." ++ show(error.pos.col)))), THole))
+    case None =>
+      example_stmt(pos, x.that)
+  end
 
 // the body of the test of the example x, which is checked as written, in the scope of its module, so that its names take
 // the declarations that overloading chooses, also another one than the owner, which the convention, an example applies

@@ -246,7 +246,16 @@ function format_expr(notation: Notation, indent: Str, expr: At[Expr]): Str :=
 function format_exprs(notation: Notation, indent: Str, exprs: List[At[Expr]]): Str :=
   join(", ", List(for e in exprs yield format_expr(notation, indent, e)))
 
+// expr, as written if it does not parse
 function expr_out(notation: Notation, indent: Str, expr: At[Expr]): Out :=
+  match expr
+    case AUnparsed(_, text, _) =>
+      Out(text, Atom)
+    case _ =>
+      node_out(notation, indent, expr)
+  end
+
+function node_out(notation: Notation, indent: Str, expr: At[Expr]): Out :=
   match expr.that
     case ELit(LInt(num)) if num < 0 =>
       Out(show(num), Negative)
@@ -573,7 +582,16 @@ function cons_pattern_rest(pat: Pat): Pat :=
   end
 
 // statements, each on a line of its own at indent
+// stmt, as written if it does not parse
 function format_stmt(notation: Notation, indent: Str, stmt: At[Stmt]): Str :=
+  match stmt
+    case AUnparsed(_, text, _) =>
+      text
+    case _ =>
+      format_stmt_node(notation, indent, stmt)
+  end
+
+function format_stmt_node(notation: Notation, indent: Str, stmt: At[Stmt]): Str :=
   match stmt.that
     case SSkip =>
       "skip"
@@ -666,8 +684,8 @@ function format_stmts(notation: Notation, indent: Str, ss: List[Doc[Stmt]]): Str
 
 // a statement after its doc and a newline, where a call is padded to the width of assign next to an assign
 function stmt_line(notation: Notation, indent: Str, padded: Bool, stmt: Doc[Stmt]): Str :=
-  match stmt.at.that
-    case SCall(proc, ins, outs, refs) if padded =>
+  match stmt.at
+    case AOk(_, SCall(proc, ins, outs, refs)) if padded =>
       indented_doc(indent, stmt.doc) ++ "\n" ++ indent ++ "call   " ++ call_text(notation, indent, proc, ins, outs, refs)
     case _ =>
       indented_doc(indent, stmt.doc) ++ "\n" ++ indent ++ format_stmt(notation, indent, stmt.at)
@@ -691,11 +709,11 @@ function runs(ss: List[Doc[Stmt]]): List[List[Doc[Stmt]]] :=
   end
 
 function is_simple(stmt: At[Stmt]): Bool :=
-  match stmt.that
-    case SCall(_, _, _, _) =>
+  match stmt
+    case AOk(_, SCall(_, _, _, _)) =>
       true
 
-    case SAssign(_) =>
+    case AOk(_, SAssign(_)) =>
       true
 
     case _ =>
@@ -703,8 +721,8 @@ function is_simple(stmt: At[Stmt]): Bool :=
   end
 
 function has_assign(run: List[At[Stmt]]): Bool :=
-  exists(run, lambda s => match s.that
-    case SAssign(_) =>
+  exists(run, lambda s => match s
+    case AOk(_, SAssign(_)) =>
       true
     case _ =>
       false
@@ -1010,8 +1028,17 @@ test bodies() :=
 // the lines of the spec, each after a newline, where the lines that continue an example are indented deeper than its
 // keyword, also the body of a let, which follows at the indentation of the line of the let, since the parser ends an
 // example at a line that is not (example_tokens of ulang/parse/parse.u)
+// the text of x, as written if it does not parse
+function example_out(notation: Notation, x: At[Example]): Str :=
+  match x
+    case AUnparsed(_, text, _) =>
+      text
+    case _ =>
+      example_text(notation, "    ", x.that)
+  end
+
 function spec_text(notation: Notation, spec: Spec): Str :=
-  join("", List(for x in spec.examples yield "\n  example " ++ example_text(notation, "    ", x.that)))
+  join("", List(for x in spec.examples yield "\n  example " ++ example_out(notation, x)))
 
 // := and the spec of a signature, if it has one
 function signature_spec(notation: Notation, spec: Spec): Str :=

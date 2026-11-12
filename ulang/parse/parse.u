@@ -644,7 +644,7 @@ procedure skip_arg(
       end
     end
   end
-  assign text := join(" ", List(for t in skipped))
+  assign text := joined(List(for t in skipped))
 
 // items separated by commas until close, which may be empty
 procedure parse_enclosed[A](
@@ -1597,7 +1597,7 @@ procedure skip_stmt(in notation: Notation, out text: Str, ref toks: Tokens) :=
       call   advance(ref toks)
     end
   end
-  assign text := join(" ", List(for t in skipped))
+  assign text := joined(List(for t in skipped))
 
 function is_name_token(tok: Token): Bool :=
   match tok
@@ -2262,7 +2262,7 @@ procedure parse_expr_recovering(
         assign skipped := skipped ++ List(format_token(head_token(toks)))
         call   advance(ref toks)
       end
-      assign expr := AUnparsed(pos, join(" ", List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
+      assign expr := AUnparsed(pos, joined(List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
   end
 
 procedure parse_pat_alias(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
@@ -2330,21 +2330,67 @@ procedure parse_spec(
 ) :=
   local found: Buffer[At[Example]] := empty()
   while at_kw(toks, "example") do
-    local x: Example, pos: Pos := head_pos(toks), own: Tokens := example_tokens(notation, toks)
+    local x: At[Example], pos: Pos := head_pos(toks), own: Tokens := example_tokens(notation, toks)
     assign toks := drop(size(own), toks)
     assign own := own ++ List((head_pos(toks), TEnd))
     call   advance(ref own)
+    call   parse_example(in notation, params, of_proc, pos, out x, ref own)
+    assign found := found ++ List(x)
+  end
+  assign spec := Spec(List(for x in found))
+
+// the example at pos of the tokens own after its keyword, or one that does not parse, whose test fails, which fails no
+// declaration
+procedure parse_example(
+  in  notation: Notation,
+      params: List[Id],
+      of_proc: Bool,
+      pos: Pos,
+  out x: At[Example],
+  ref own: Tokens
+) :=
+  local claim: Example
+  try
     if of_proc then
-      call parse_proc_example(in notation, params, pos, out x, ref own)
+      call parse_proc_example(in notation, params, pos, out claim, ref own)
     else
-      call parse_fun_example(in notation, params, out x, ref own)
+      call parse_fun_example(in notation, params, out claim, ref own)
     end
     if head_token(own) != TEnd then
       raise expected("the end of the example", own)
     end
-    assign found := found ++ List(AOk(pos, x))
+    assign x := AOk(pos, claim)
+  catch
+    case ParseError(message, at) =>
+      assign x := AUnparsed(pos, joined(List(for (_, tok) in own if tok != TEnd yield format_token(tok))), parse_diagnostic(ParseError(example_message(message), at)))
   end
-  assign spec := Spec(List(for x in found))
+
+// the texts of tokens as the source usually spaces them, the text of a part that does not parse: without spaces inside
+// brackets, before , and ., after ., and between a name and the ( of its arguments
+function joined(parts: List[Str]): Str :=
+  match parts
+    case List(a, b; more) =>
+      a ++ (if is_tight(a, b) then "" else " ") ++ joined(List(b; more))
+
+    case List(a) =>
+      a
+
+    case List() =>
+      ""
+  end
+
+function is_tight(a: Str, b: Str): Bool :=
+  contains(b, List(")", "]", ",", ".")) or contains(a, List("(", "[", ".")) or b == "(" and is_name_text(a)
+
+function is_name_text(a: Str): Bool :=
+  a != "" and is_letter(at(0, a)) and not is_keyword(a)
+
+// message of the parse of an example, whose tokens end at the end of the example
+function example_message(message: Str): Str :=
+  if ends_with(message, "but end of input found") then
+    slice(message, 0, size(message) - size("end of input found")) ++ "the end of the example found"
+  else
+    message
 
 // the tokens of the example at the start of toks, up to the first token on a later line outside brackets after a token
 // that ends an expression, the next example or the body, which may start with what would continue the expression of the
@@ -2359,7 +2405,7 @@ function example_tokens(notation: Notation, toks: Tokens): Tokens :=
 
 function example_rest(notation: Notation, toks: Tokens, line: Int, prev: Token, depth: Int): Tokens :=
   match toks
-    case List((p, tok); more) if tok != TEnd and (p.line == line or depth > 0 or not ends_example_line(notation, prev)) =>
+    case List((p, tok); more) if tok != TEnd and tok != TKw("example") and not is_command_token(tok) and (p.line == line or depth > 0 or not ends_example_line(notation, prev)) =>
       List(
         (p, tok); example_rest(notation, more, p.line, tok, depth + bracket_change(tok)))
 
@@ -3179,7 +3225,7 @@ procedure skip_command(out text: Str, ref toks: Tokens) :=
     assign skipped := skipped ++ List(format_token(head_token(toks)))
     call   advance(ref toks)
   end
-  assign text := join(" ", List(for t in skipped))
+  assign text := joined(List(for t in skipped))
 
 function starts_command(toks: Tokens): Bool :=
   head_token(toks) == TEnd or at_command(toks) or at_doc(toks) and at_command(rest_of(toks))

@@ -352,6 +352,9 @@ function unparsed_errors(cmd: Cmd): List[Diagnostic]
 // whether x parsed, though it may have parts that do not
 function is_parsed[A](x: At[A]): Bool
 
+// the first error of the parts of the example x that do not parse, which its test reports
+function example_error(x: At[Example]): Option[Diagnostic]
+
 // the parts of docs, without their docs and positions, and without those that do not parse
 function parts[A](docs: List[Doc[A]]): List[A]
 
@@ -771,7 +774,12 @@ function strip_example(x: Example): Example :=
 
 // x at Pos(0, 0), with its part stripped by strip
 function stripped[A](x: At[A], strip: A -> A): At[A] :=
-  map_at(x, strip) with pos := Pos(0, 0)
+  match x
+    case AUnparsed(_, text, error) =>
+      AUnparsed(Pos(0, 0), text, error with pos := Pos(0, 0))
+    case _ =>
+      map_at(x, strip) with pos := Pos(0, 0)
+  end
 
 function strip_expr(expr: At[Expr]): At[Expr] :=
   stripped(expr, strip_node)
@@ -974,8 +982,29 @@ function unparsed_errors(cmd: Cmd): List[Diagnostic] :=
       List()
   end
 
+// none, since an example that does not parse fails its test, not its declaration
 function unparsed_in_spec(spec: Spec): List[Diagnostic] :=
-  List(for x in spec.examples for d in unparsed_in_example(x.that) yield d)
+  List()
+
+function example_error(x: At[Example]): Option[Diagnostic] :=
+  match x
+    case AUnparsed(_, _, error) =>
+      Some(error)
+
+    case AOk(_, claim) =>
+      first_error(unparsed_in_example(claim))
+
+    case AErr(_, claim, _) =>
+      first_error(unparsed_in_example(claim))
+  end
+
+function first_error(errors: List[Diagnostic]): Option[Diagnostic] :=
+  match errors
+    case List(e; _) =>
+      Some(e)
+    case List() =>
+      None
+  end
 
 function unparsed_in_example(claim: Example): List[Diagnostic] :=
   match claim

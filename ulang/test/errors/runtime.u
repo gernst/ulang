@@ -67,6 +67,34 @@ test not_raised() :=
       "  end"))
   end
 
+// an example that does not parse fails its test, not its declaration, so the file checks and the other examples run
+test example_unparsed() :=
+  assert raises Uncaught("\"the example does not parse: expression expected but ) found at 3.21\"") do
+    call run_text(in "ulang/test/errors/example-unparsed.u", List(
+      "function double(n: Int): Int :=",
+      "  example double(2) == 4",
+      "  example double(3 +) == 6",
+      "  2 * n"))
+  end
+
+test example_out_blank() :=
+  assert raises Uncaught("\"the example does not parse: an example of a procedure has the value of each out and each ref as before => after at 2.3\"") do
+    call run_text(in "ulang/test/errors/example-out-blank.u", List("procedure p(out x: Int) :=", "  example p(out _)", "  assign x := 1"))
+  end
+
+test example_end() :=
+  assert raises Uncaught("\"the example does not parse: the end of the example expected but x found at 2.21\"") do
+    call run_text(in "ulang/test/errors/example-end.u", List("function f(x: Int): Int :=", "  example f(1) == 1 x", "  x"))
+  end
+
+test example_raises_after() :=
+  assert raises Uncaught("\"the example does not parse: an example that raises has _ for each out and each ref as before the call at 2.3\"") do
+    call run_text(in "ulang/test/errors/example-raises-after.u", List(
+      "procedure p(ref x: Int) :=",
+      "  example p(ref 1 => 2) raises DivisionByZero",
+      "  assign x := x / 0"))
+  end
+
 test raise_uncaught() :=
   assert raises Uncaught("Fail(2)") do
     call run_text(in "ulang/test/errors/raise-uncaught.u", List(

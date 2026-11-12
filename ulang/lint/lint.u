@@ -629,7 +629,7 @@ function cmd_names(cmd: Cmd): Set[Id] :=
   end
 
 function spec_names(spec: Spec): Set[Id] :=
-  Set(for x in spec.examples for n in example_names(x.that) yield n)
+  Set(for x in spec.examples if is_parsed(x) for n in example_names(x.that) yield n)
 
 function example_names(x: Example): Set[Id] :=
   match x
