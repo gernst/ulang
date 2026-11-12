@@ -753,8 +753,8 @@ test proof_unknown_lemma() :=
   end
 
 test proof_not_inducible() :=
-  assert raises Located(None, Pos(3, 3), NotInducible(Name(None, "n"))) do
-    call check_text(in "ulang/test/errors/proof-not-inducible.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  induction n", "  end"))
+  assert raises Located(None, Pos(3, 3), NotInducible(Name(None, "b"))) do
+    call check_text(in "ulang/test/errors/proof-not-inducible.u", List("lemma a(in b: Bool) :=", "  ensures b == b", "  induction b", "  end"))
   end
 
 test proof_call_argument() :=

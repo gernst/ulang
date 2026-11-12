@@ -3413,7 +3413,7 @@ procedure proof_split(
   match split
     case SplitInduction(x, cases) =>
       local t: Type, typed_cases: List[Doc[Branch[Proof]]]
-      match List(for f in formals if f.name == x.name and is_datatype_type(s, f.typ) yield f.typ)
+      match List(for f in formals if f.name == x.name and (is_datatype_type(s, f.typ) or zonk_type(s.sub, f.typ) == TInt()) yield f.typ)
         case List(u; _) =>
           assign t := u
 

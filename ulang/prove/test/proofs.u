@@ -92,3 +92,33 @@ lemma size_witness(in xs: List[Int], out n: Int) :=
       assign n := size(rest)
       call   size_positive(in rest)
   end
+
+// induction on an integer: the cases 0 and n > 0, with the hypothesis for n - 1, where n < 0 closes by the requires
+function triangle(n: Int): Int :=
+  if n <= 0 then 0 else n + triangle(n - 1)
+
+lemma triangle_nonnegative(in n: Int) :=
+  requires n >= 0
+  ensures  triangle(n) >= 0
+  induction n
+    case _ =>
+      call triangle_nonnegative(in n - 1)
+  end
+
+lemma triangle_closed(in n: Int) :=
+  requires n >= 0
+  ensures  2 * triangle(n) == n * (n + 1)
+  induction n
+    case _ =>
+      call triangle_closed(in n - 1)
+  end
+
+lemma size_replicate(in n: Int, x: Int) :=
+  requires n >= 0
+  ensures  size(replicate(n, x)) == n
+  induction n
+    case 0 =>
+      assert replicate(0, x) == List()
+    case m =>
+      call size_replicate(in m - 1, x)
+  end

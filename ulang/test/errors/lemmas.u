@@ -152,3 +152,15 @@ test proof_false_witness() :=
       "  ensures y == x + 1",
       "  assign y := x"))
   end
+
+// induction on an integer without the requires that n >= 0 leaves the case n < 0
+test proof_int_negative() :=
+  assert raises OpenLemma("replicate_any", "forall n, x => n < 0 ==> false at 3.3") do
+    call prove_text(in "ulang/test/errors/proof-int-negative.u", List(
+      "lemma replicate_any(in n: Int, x: Int) :=",
+      "  ensures size(replicate(n, x)) == n",
+      "  induction n",
+      "    case _ =>",
+      "      call replicate_any(in n - 1, x)",
+      "  end"))
+  end
