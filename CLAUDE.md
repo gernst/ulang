@@ -32,7 +32,7 @@ Agents have almost no ulang in their training data, so what they write comes fro
 - Functions are expressions without `raise`, failing only by the exceptions of builtins, so code that raises, may not terminate, or reads files is a procedure.
 - Layout is not written by hand: `ulang.sh format` gives it, and `check` rejects any other.
 
-A type error is reported at the innermost part around it, and a part of the wrong type at the part, with the type expected and found, e.g. `1 + true` as `expected Int but found Bool in argument 2 of the call` at the `true`, and `if 1 then 2 else 3` at the `1`, and a run stops at the first error (Diagnostics 1 of `TODO.md`): check after each small edit; which declaration an overloaded name such as `size` takes depends on the imports and the types, so read the `export` sections of the imported packages.
+A type error is reported at the innermost part around it, and a part of the wrong type at the part, with the type expected and found, e.g. `1 + true` as `expected Int but found Bool in argument 2 of the call` at the `true`, and `if 1 then 2 else 3` at the `1`, and `check` reports all type errors of the first package that has some, at most 20 per file, while parsing stops at the first error (Diagnostics 1 of `TODO.md`): check after each small edit; which declaration an overloaded name such as `size` takes depends on the imports and the types, so read the `export` sections of the imported packages.
 
 ## Build
 

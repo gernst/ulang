@@ -19,6 +19,13 @@ procedure load_text(in path: Str, lines: List[Str], out main: Id, q: Prog)
 // load_text without its results
 procedure check_text(in path: Str, lines: List[Str])
 
+// the errors of checking the case, all of them, in the order of the commands
+procedure check_text_all(
+  in  path: Str,
+      lines: List[Str],
+  out errors: List[TypeError]
+)
+
 // load_text, then the tests of the case
 procedure run_text(in path: Str, lines: List[Str])
 
@@ -67,6 +74,15 @@ procedure load_text(in path: Str, lines: List[Str], out main: Id, q: Prog) :=
 procedure check_text(in path: Str, lines: List[Str]) :=
   local main: Id, q: Prog
   call load_text(in path, lines, out main, q)
+
+procedure check_text_all(
+  in  path: Str,
+      lines: List[Str],
+  out errors: List[TypeError]
+) :=
+  local source: Source, q: Prog
+  call parse_file_text(in path, text_of(lines), out source)
+  call check_all(in source, out q, errors)
 
 procedure run_text(in path: Str, lines: List[Str]) :=
   local main: Id, q: Prog

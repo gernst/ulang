@@ -580,3 +580,25 @@ test unknown_variable() :=
   assert raises Located(None, Pos(2, 3), UnknownVariable(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/unknown-variable.u", List("function f(): Int :=", "  x"))
   end
+
+// the checker reports every error of the commands, each once, where a part that fails stands for what it should be
+test several_errors() :=
+  local errors: List[TypeError]
+  call check_text_all(in "ulang/test/errors/several-errors.u", List(
+    "function f(n: Int): Int :=",
+    "  n + true",
+    "",
+    "function g(): Bool :=",
+    "  if 1 then x else false",
+    "",
+    "test t() :=",
+    "  assert f(1) == \"a\""), out errors)
+  assert List(for e in errors yield error_pos(e)) == List(Pos(2, 7), Pos(5, 6), Pos(5, 13), Pos(8, 18))
+
+function error_pos(e: TypeError): Pos :=
+  match e
+    case Located(_, pos, _) =>
+      pos
+    case _ =>
+      Pos(0, 0)
+  end

@@ -10,6 +10,8 @@ data ParseError :=
   // an error of an imported module at its position in that module
   case ImportError(module: Id, message: Str, pos: Pos)
 
+function parse_diagnostic(e: ParseError): Diagnostic
+
 // the modules of the file at path, in load order, each after the modules it imports, with the module of the file last,
 // where a module of a project is known by its path from the root without .u, the root being the nearest directory above
 // it with project.u, else its own directory, and a module name.u of the library as prelude/name; loading a module loads
@@ -51,6 +53,14 @@ procedure project_root(in dir: Str, out root: Str)
 function normal_path(path: Str): Str
 
 implementation
+
+function parse_diagnostic(e: ParseError): Diagnostic :=
+  match e
+    case ParseError(message, pos) =>
+      Diagnostic(ParseKind, "ParseError", None, pos, message, List())
+    case ImportError(module, message, pos) =>
+      Diagnostic(ParseKind, "ImportError", Some(module), pos, message, List())
+  end
 
 function type_ops(): Ops[List[Type]] :=
   Ops("type", starts_type, parse_type_atom, type_apply)
