@@ -719,3 +719,32 @@ function error_pos(e: TypeError): Pos :=
     case _ =>
       Pos(0, 0)
   end
+
+test proof_unknown_lemma() :=
+  assert raises Located(None, Pos(3, 3), UnknownLemma(Name(None, "b"))) do
+    call check_text(in "ulang/test/errors/proof-unknown-lemma.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  call b(in n)"))
+  end
+
+test proof_not_inducible() :=
+  assert raises Located(None, Pos(3, 3), NotInducible(Name(None, "n"))) do
+    call check_text(in "ulang/test/errors/proof-not-inducible.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  induction n", "  end"))
+  end
+
+test proof_call_argument() :=
+  assert raises Located(None, Pos(3, 13), Mismatch(_, _, "lemma a")) do
+    call check_text(in "ulang/test/errors/proof-call-argument.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  call a(in true)"))
+  end
+
+test proof_witness_unbound() :=
+  assert raises Located(None, Pos(4, 10), Unassigned(Name(None, "q"))) do
+    call check_text(in "ulang/test/errors/proof-witness-unbound.u", List(
+      "lemma a(in n: Int) :=",
+      "  ensures n == n",
+      "  local q: Int",
+      "  assert q == 1"))
+  end
+
+test proof_assign_formal() :=
+  assert raises Located(None, Pos(3, 3), NotAssignable(Name(None, "n"))) do
+    call check_text(in "ulang/test/errors/proof-assign-formal.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  assign n := 1"))
+  end
