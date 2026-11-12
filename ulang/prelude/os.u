@@ -18,12 +18,21 @@ data Project :=
 procedure os_walk(in path: Str, out files: List[Str]) raises OsError
 
 // the path of name in dir, which may end with /
-function os_join(dir: Str, name: Str): Str
+function os_join(dir: Str, name: Str): Str :=
+  example os_join("a", "b") == "a/b"
+  example os_join("a/", "b") == "a/b"
 
-// the last part of a path, after its last /, and the part before, which is . for a path without /
-function os_basename(path: Str): Str
+// the last part of a path, after its last /
+function os_basename(path: Str): Str :=
+  example os_basename("a/b.u") == "b.u"
+  example os_basename("b.u") == "b.u"
 
-function os_dirname(path: Str): Str
+// the part of a path before its last /, which is . for a path without /
+function os_dirname(path: Str): Str :=
+  example os_dirname("a/b/c.u") == "a/b"
+  example os_dirname("c.u") == "."
+  example os_dirname("/a") == "/"
+  example os_dirname("/a/b") == "/a"
 
 // print a string and then a newline
 procedure os_println(in text: Str)
@@ -122,8 +131,3 @@ function os_dirname(path: Str): Str :=
     case parts =>
       join("/", take(size(parts) - 1, parts))
   end
-
-test paths() :=
-  assert os_basename("a/b.u") == "b.u" and os_basename("b.u") == "b.u" and os_dirname("a/b/c.u") == "a/b" and os_dirname("c.u") == "."
-  assert os_dirname("/a") == "/" and os_dirname("/a/b") == "/a"
-  assert os_join("a", "b") == "a/b" and os_join("a/", "b") == "a/b"

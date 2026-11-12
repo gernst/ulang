@@ -1,0 +1,26 @@
+// lemmas of a datatype of naturals, where commutativity, which does not orient, is an equation of the saturation of
+// simp_eq of ulang/prove/simp.u, as the induction hypothesis of add_commutes and as a fact of the lemma after it
+
+data Nat :=
+  case Zero
+  case Succ(pred: Nat)
+
+function add(m: Nat, n: Nat): Nat :=
+  match m
+    case Zero =>
+      n
+    case Succ(p) =>
+      Succ(add(p, n))
+  end
+
+lemma add_zero(m: Nat) :=
+  ensures add(m, Zero) == m
+
+lemma add_succ(m: Nat, n: Nat) :=
+  ensures add(m, Succ(n)) == Succ(add(m, n))
+
+lemma add_commutes(m: Nat, n: Nat) :=
+  ensures add(m, n) == add(n, m)
+
+lemma add_commutes_inside(a: Nat, b: Nat, c: Nat) :=
+  ensures add(c, add(a, b)) == add(add(b, a), c)

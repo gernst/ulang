@@ -5,6 +5,7 @@
 // patterns become indices, by an environment of their names, the innermost first.
 
 import "ulang/syntax"
+import "ulang/check"
 
 export
 
@@ -25,11 +26,13 @@ function translate(q: Prog, m: Id): Translation :=
   let defined := List(for cmd in q.cmds for d in definition(cmd) yield d) in
   let datas := List(for (rank, cmd) in ranked for d in datatype(rank, cmd) yield d) in
   let ranks := Map(for (rank, cmd) in ranked for n in fun_name(cmd) yield n => rank) in
-  Translation(with_defs(datas_decls(datas), defined, ranks), List(for cmd in q.cmds for l in lemma_of(m, cmd) yield l))
+  let defs := defs_of(q) in
+  let decls := datas_decls(datas) with abstracts := defs.abstracts, ordered := defs.abstracts ++ Set(for t => _ in defs.orders yield t) in
+  Translation(with_defs(decls, defined, ranks), List(for cmd in q.cmds for l in lemma_of(m, cmd) yield l))
 
 function fun_name(cmd: Cmd): Option[Name] :=
   match cmd
-    case CFun(name, _, _, _, _) =>
+    case CFun(name, _, _, _, _, _) =>
       Some(name)
     case _ =>
       None
@@ -38,7 +41,7 @@ function fun_name(cmd: Cmd): Option[Name] :=
 // a function by its name and arity, as Defs.funs of ulang/check/defs.u, with its formals and body
 function definition(cmd: Cmd): Option[(Name * Int) * (List[Var] * Term)] :=
   match cmd
-    case CFun(name, _, formals, _, body) =>
+    case CFun(name, _, formals, _, _, body) =>
       Some(((name, size(formals)), (formals, term_of(bind(formals, List()), body))))
     case _ =>
       None
@@ -63,15 +66,24 @@ function datas_decls(datas: List[Int * (Name * List[Constr])]): Decls :=
       decls with constrs := decls.constrs ++ constr_decls, datatypes := put(t, List(for k in constrs yield k.name), decls.datatypes), ranks := decls.ranks ++ Map(for k in constrs yield k.name => rank)
   end
 
-// the definitions, each recursive if its name reaches itself by the names in the bodies, also through other functions,
-// which counts the arities of a name together, since a function may be passed without its arguments
+// the definitions, each recursive if it reaches itself by the symbols in the bodies, also through other functions, where
+// a name passed without its arguments reaches the definitions of all its arities
 function with_defs(decls: Decls, defined: List[(Name * Int) * (List[Var] * Term)], ranks: Map[Name, Int]): Decls :=
-  let calls := Map(for ((n, _), (_, body)) in defined yield n => symbols_in(body)) in
-  let defs := Map(for ((n, k), (formals, body)) in defined yield (n, k) => Def(contains(n, reachable(calls, List(for g in value_or(get(n, calls), empty())), empty())), formals, body)) in
+  let calls := Map(for ((n, k), (_, body)) in defined yield (n, k) => symbols_in(body)) in
+  let arities := Map(for ((n, _), _) in defined yield n => List(for ((m, k), _) in defined if m == n yield k)) in
+  let reached := Map(for ((n, k), _) in defined yield (n, k) => reachable(calls, arities, callees(arities, value_or(get((n, k), calls), empty())), empty())) in
+  let defs := Map(for ((n, k), (formals, body)) in defined yield (n, k) => definition_of((n, k), formals, body, decls, value_or(get((n, k), reached), empty()))) in
   decls with defs := defs, ranks := decls.ranks ++ ranks
 
-// the names that the names todo reach, with seen, which grows within the keys of calls, so that this ends
-function reachable(calls: Map[Name, Set[Name]], todo: List[Name], seen: Set[Name]): Set[Name] :=
+function definition_of(key: Name * Int, formals: List[Var], body: Term, decls: Decls, reaches: Set[Name * Int]): Def :=
+  Def(contains(key, reaches), formals, body, def_equations(decls, formals, body), reaches)
+
+// the definitions that the symbols name, by the arities of the defined names
+function callees(arities: Map[Name, List[Int]], symbols: Set[Name * Int]): List[Name * Int] :=
+  List(for (n, k) in symbols for j in value_or(get(n, arities), List()) if k == j or k == -1 yield (n, j))
+
+// the definitions that those of todo reach, with seen, which grows within the keys of calls, so that this ends
+function reachable(calls: Map[Name * Int, Set[Name * Int]], arities: Map[Name, List[Int]], todo: List[Name * Int], seen: Set[Name * Int]): Set[Name * Int] :=
   match todo
     case List() =>
       seen
@@ -79,9 +91,9 @@ function reachable(calls: Map[Name, Set[Name]], todo: List[Name], seen: Set[Name
     case List(f; rest) =>
       match get(f, calls)
         case Some(called) if not contains(f, seen) =>
-          reachable(calls, List(for g in called) ++ rest, insert(f, seen))
+          reachable(calls, arities, callees(arities, called) ++ rest, insert(f, seen))
         case _ =>
-          reachable(calls, rest, seen)
+          reachable(calls, arities, rest, seen)
       end
   end
 

@@ -22,10 +22,10 @@ function lints(d: Mod): List[Lint] :=
 // fun is the function that a body defines, whose own definition no lint replaces by a call of it, as of not or value_or
 function cmd_lints(cmd: Cmd): List[Lint] :=
   match cmd
-    case CFun(name, _, _, _, body) =>
+    case CFun(name, _, _, _, _, body) =>
       expr_lints(name.base, body)
 
-    case CProc(_, _, _, _, _, _, stmt) =>
+    case CProc(_, _, _, _, _, _, _, stmt) =>
       stmt_lints("", stmt)
 
     case CTest(_, _, stmt) =>
@@ -43,10 +43,10 @@ function cmd_lints(cmd: Cmd): List[Lint] :=
     case CNotation(_, _, _) =>
       List()
 
-    case CFunSig(_, _, _, _) =>
+    case CFunSig(_, _, _, _, _) =>
       List()
 
-    case CProcSig(_, _, _, _, _, _) =>
+    case CProcSig(_, _, _, _, _, _, _) =>
       List()
 
     case CAbstract(_, _) =>
@@ -164,7 +164,7 @@ function part_stmt_lints(fun: Id, stmt: Stmt): List[Lint] :=
       exprs_lints(fun, List(for (_, e) in upd yield e))
 
     case SBlock(_, stmts) =>
-      stmts_lints(fun, stmts)
+      stmts_lints(fun, List(for d in stmts yield d.at))
 
     case SIf(cond, left, right) =>
       expr_lints(fun, cond) ++ stmts_lints(fun, List(left, right))

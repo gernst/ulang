@@ -35,9 +35,16 @@ data TermBranch :=
 data Lin :=
   case Lin(k: Int, summands: List[Summand])
 
-// a function by its formals, which bind in the body, and whether it calls itself, also through others
+// a function by its formals, which bind in the body, whether it calls itself, also through others, its equations, and the
+// definitions that it reaches by its body, by name and arity
 data Def :=
-  case Def(recursive: Bool, formals: List[Var], body: Term)
+  case Def(recursive: Bool, formals: List[Var], body: Term, equations: List[DefEquation], reaches: Set[Name * Int])
+
+// an equation of one case of a definition, f(args) == rhs where the conds hold, over the variables vars, which bind in
+// the other fields as the formals of a lemma do, the first one outermost; decided if rhs is the match or if of a case
+// that is not refined further, which only unfolds where it is decided
+data DefEquation :=
+  case DefEquation(vars: List[Var], conds: List[Term], args: List[Term], rhs: Term, decided: Bool)
 
 // a constructor by its datatype and its fields, where a field of the datatype itself is recursive
 data ConstrDecl :=
@@ -45,9 +52,12 @@ data ConstrDecl :=
 
 // the symbols of a program: the definitions of functions by name and arity, as Defs.funs of ulang/check/defs.u, the
 // constructors, the datatypes with their constructors in order, and the rank of each symbol in the order of
-// declarations, the precedence of the term order
+// declarations, the precedence of the term order, the abstract types, whose constructors are a representation that
+// == need not respect, so that they are neither injective nor distinct, and the datatypes that are not ordered by
+// their structure, the abstract types and those with a declared compare, and the recursive functions whose termination
+// is proven, the only recursive ones that unfold
 data Decls :=
-  case Decls(defs: Map[Name * Int, Def], constrs: Map[Name, ConstrDecl], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int])
+  case Decls(defs: Map[Name * Int, Def], constrs: Map[Name, ConstrDecl], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int], abstracts: Set[Name], ordered: Set[Name], terminating: Set[Name * Int])
 
 data Rebind :=
   // the count outermost binders at depth become the levels from depth on
@@ -78,6 +88,14 @@ pattern Eq(a: Term, b: Term): Term :=
 // on integers only
 pattern Less(a: Term, b: Term): Term :=
   EApp(EFun(Name(None, "<")), List(a, b))
+
+pattern Compare(a: Term, b: Term): Term :=
+  EApp(EFun(Name(None, "compare")), List(a, b))
+
+// the structural size of a value of any datatype, a builtin of the prover only, without a module, so that no checked
+// program carries it and the size functions of the library stay apart, the measure of termination proofs
+pattern Size(a: Term): Term :=
+  EApp(EFun(Name(None, "size")), List(a))
 
 pattern Plus(a: Term, b: Term): Term :=
   EApp(EFun(Name(Some("prelude/prelude"), "+")), List(a, b))
@@ -115,6 +133,13 @@ function is_constr(decls: Decls, f: Name): Bool
 
 function constr_head(decls: Decls, e: Term): Option[Name * List[Term]]
 
+// the field of an accessor T.f, whose name has a dot and no :=, which an updater T.f:= has
+function field_of_accessor(name: Name): Option[Id]
+
+function free_head(decls: Decls, e: Term): Option[Name * List[Term]]
+
+function value_order(decls: Decls, a: Term, b: Term): Option[Int]
+
 function rebind(op: Rebind, c: Int, e: Term): Term
 
 function binders(p: Pat): Int
@@ -133,8 +158,9 @@ function occurs(a: Term, e: Term): Bool
 
 function loose(c: Int, e: Term): List[Int]
 
-// the symbols of the functions, constructors, and builtins that e names
-function symbols_in(e: Term): Set[Name]
+// the symbols of the functions, constructors, and builtins that e names, each with the number of its arguments, or -1
+// where it is passed without them
+function symbols_in(e: Term): Set[Name * Int]
 
 function lin_of(e: Term): Lin
 
@@ -162,7 +188,7 @@ function int_term(n: Int): Term :=
   ELit(LInt(n))
 
 function empty_decls(): Decls :=
-  Decls(empty(), empty(), empty(), empty())
+  Decls(empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
 function is_constr(decls: Decls, f: Name): Bool :=
   contains(f, decls.constrs)
@@ -175,6 +201,110 @@ function constr_head(decls: Decls, e: Term): Option[Name * List[Term]] :=
 
     case EApp(EFun(name), args) if is_constr(decls, name) or name == tuple_name(size(args)) =>
       Some((name, args))
+
+    case _ =>
+      None
+  end
+
+function field_of_accessor(name: Name): Option[Id] :=
+  match split(name.base, '.')
+    case List(_, f) =>
+      if ends_with(f, ":=") then None else Some(f)
+    case _ =>
+      None
+  end
+
+// the constructor and the arguments of a constructor term whose constructors are free, injective and distinct for ==,
+// which those of abstract types are not
+function free_head(decls: Decls, e: Term): Option[Name * List[Term]] :=
+  match constr_head(decls, e)
+    case Some((f, args)) =>
+      match get(f, decls.constrs)
+        case Some(decl) if contains(decl.datatype, decls.abstracts) =>
+          None
+        case _ =>
+          Some((f, args))
+      end
+
+    case None =>
+      None
+  end
+
+// compare(a, b) where it is decided: 0 for equal terms, else for values of integers, booleans, tuples, and datatypes
+// ordered by their structure, where constructors are ordered by their position in the declaration and then by their
+// arguments from the left; strings and characters are left out
+function value_order(decls: Decls, a: Term, b: Term): Option[Int] :=
+  if a == b then
+    Some(0)
+  else
+    match (a, b)
+      case (ELit(LInt(m)), ELit(LInt(n))) =>
+        Some(compare(m, n))
+
+      case (ELit(LBool(x)), ELit(LBool(y))) =>
+        Some(compare(x, y))
+
+      case _ =>
+        match (constr_head(decls, a), constr_head(decls, b))
+          case (Some((f, xs)), Some((g, ys))) =>
+            match (constr_position(decls, f), constr_position(decls, g))
+              case (Some(i), Some(j)) =>
+                if i != j then
+                  Some(compare(i, j))
+                else
+                  values_order(decls, xs, ys)
+
+              case _ =>
+                None
+            end
+
+          case _ =>
+            None
+        end
+    end
+
+// the position of a constructor in its datatype, if that is ordered by its structure, 0 for tuples
+function constr_position(decls: Decls, f: Name): Option[Int] :=
+  match get(f, decls.constrs)
+    case Some(decl) =>
+      if contains(decl.datatype, decls.ordered) then
+        None
+      else
+        match get(decl.datatype, decls.datatypes)
+          case Some(constrs) =>
+            index_in(f, constrs, 0)
+          case None =>
+            None
+        end
+
+    case None =>
+      if base_is_tuple(f) then Some(0) else None
+  end
+
+function base_is_tuple(f: Name): Bool :=
+  f.module == None and starts_with(f.base, "(")
+
+function index_in(f: Name, names: List[Name], i: Int): Option[Int] :=
+  match names
+    case List() =>
+      None
+    case List(g; rest) =>
+      if f == g then Some(i) else index_in(f, rest, i + 1)
+  end
+
+// the lexicographic order of the arguments, decided as soon as a pair is unequal
+function values_order(decls: Decls, xs: List[Term], ys: List[Term]): Option[Int] :=
+  match (xs, ys)
+    case (List(), List()) =>
+      Some(0)
+
+    case (List(x; xs_), List(y; ys_)) =>
+      match value_order(decls, x, y)
+        case Some(0) =>
+          values_order(decls, xs_, ys_)
+        case other =>
+          other
+      end
 
     case _ =>
       None
@@ -416,7 +546,7 @@ function occurs_branch(a: Term, br: TermBranch): Bool :=
       occurs(a, body)
   end
 
-function symbols_in(e: Term): Set[Name] :=
+function symbols_in(e: Term): Set[Name * Int] :=
   match e
     case EBound(_) =>
       empty()
@@ -428,7 +558,10 @@ function symbols_in(e: Term): Set[Name] :=
       empty()
 
     case EFun(name) =>
-      Set(name)
+      Set((name, -1))
+
+    case EApp(EFun(name), args) =>
+      insert((name, size(args)), Set(for a in args for n in symbols_in(a) yield n))
 
     case EApp(fun, args) =>
       symbols_in(fun) ++ Set(for a in args for n in symbols_in(a) yield n)
@@ -446,7 +579,7 @@ function symbols_in(e: Term): Set[Name] :=
       Set(for summand in summands for n in symbols_in(summand.term) yield n)
   end
 
-function symbols_in_branch(br: TermBranch): Set[Name] :=
+function symbols_in_branch(br: TermBranch): Set[Name * Int] :=
   match br
     case TermBranch(_, Some(guard), body) =>
       symbols_in(guard) ++ symbols_in(body)

@@ -1,0 +1,374 @@
+// an e-graph of the ground terms of a context: classes of terms known to be equal, closed under congruence, as
+// persistent maps, so that a nested sequent extends the e-graph of its parent and a split needs no undo
+//
+// A term enters as nodes, a head over the classes of its arguments; binders, conditionals, and matches enter whole,
+// as opaque nodes, since their parts are not ground. A union merges two classes and reports the parent nodes whose
+// arguments it merged, which the simplifier simplifies again, and the pairs of classes that congruence makes equal,
+// which it merges by its theories, so that the e-graph itself knows no theory.
+
+import "ulang/syntax"
+
+export
+
+// the head of a node: an application of a symbol, a symbol alone, an application of another head, which is the first
+// argument, a literal, a level, a linear sum c + k1·x1 + … over the classes of its atoms, or a term that enters whole
+data Head :=
+  case HApp(name: Name)
+  case HFun(name: Name)
+  case HApply
+  case HLit(lit: Lit)
+  case HLevel(level: Int)
+  case HSum(constant: Int, factors: List[Int])
+  case HTerm(term: Term)
+
+data ENode :=
+  case ENode(head: Head, args: List[Int])
+
+type EGraph
+
+// the classes of a union that congruence makes equal, which the e-graph has not merged, and the parent nodes with their
+// classes whose arguments it merged
+data Union :=
+  case Union(graph: EGraph, pending: List[Int * Int], parents: List[ENode * Int])
+
+function empty_graph(): EGraph
+
+// the representative of the class of i
+function class_of(g: EGraph, i: Int): Int
+
+// the e-graph with the term t and the class of t
+function add_term(g: EGraph, t: Term): EGraph * Int
+
+// the class of t, if its nodes are all in the e-graph
+function lookup_term(g: EGraph, t: Term): Option[Int]
+
+function unite(g: EGraph, i: Int, j: Int): Union
+
+// the nodes of the class of i
+function class_nodes(g: EGraph, i: Int): List[ENode]
+
+// the term of a node, given the terms of its arguments, where a sum is normalized
+function node_term(node: ENode, args: List[Term]): Term
+
+// the node of t and the terms of its arguments
+function shape(t: Term): Head * List[Term]
+
+// the classes, by their representatives
+function class_ids(g: EGraph): List[Int]
+
+function node_count(g: EGraph): Int
+
+// the substitutions, extending sub, of the variables below n of the pattern p by classes, under which p is in the class
+// c, where p is a term whose variables are the indices below n, matched modulo the equations of the e-graph
+function ematch(g: EGraph, n: Int, p: Term, c: Int, sub: Map[Int, Int]): List[Map[Int, Int]]
+
+// the e-graph with the instance of the pattern p by sub, which binds its variables below n, and the class of it
+function add_instance(g: EGraph, n: Int, p: Term, sub: Map[Int, Int]): EGraph * Int
+
+// the e-graph with i and j merged, and the classes that congruence makes equal merged too, without theories
+function close_union(g: EGraph, i: Int, j: Int): EGraph
+
+implementation
+
+// the parents of the classes that were merged into others, the nodes of each class, the parent nodes of each class with
+// their classes, the classes of the nodes, whose arguments were the representatives when they were entered, and the
+// next class
+data EGraph :=
+  case EGraph(parent: Map[Int, Int], nodes: Map[Int, List[ENode]], uses: Map[Int, List[ENode * Int]], memo: Map[ENode, Int], next: Int)
+
+function empty_graph(): EGraph :=
+  EGraph(empty(), empty(), empty(), empty(), 0)
+
+function class_of(g: EGraph, i: Int): Int :=
+  match get(i, g.parent)
+    case Some(p) =>
+      class_of(g, p)
+    case None =>
+      i
+  end
+
+function canonical(g: EGraph, node: ENode): ENode :=
+  ENode(node.head, List(for a in node.args yield class_of(g, a)))
+
+function shape(t: Term): Head * List[Term] :=
+  match t
+    case ELevel(level) =>
+      (HLevel(level), List())
+
+    case ELit(lit) =>
+      (HLit(lit), List())
+
+    case EFun(name) =>
+      (HFun(name), List())
+
+    // a symbol applied to no arguments, as the checker writes a call of a function without parameters, is the symbol
+    case EApp(EFun(name), List()) =>
+      (HFun(name), List())
+
+    case EApp(EFun(name), args) =>
+      (HApp(name), args)
+
+    case EApp(fun, args) =>
+      (HApply, List(fun; args))
+
+    case ESum(constant, summands) =>
+      (HSum(constant, List(for summand in summands yield summand.factor)), List(for summand in summands yield summand.term))
+
+    case _ =>
+      (HTerm(t), List())
+  end
+
+function node_term(node: ENode, args: List[Term]): Term :=
+  match (node.head, args)
+    case (HApp(name), _) =>
+      EApp(EFun(name), args)
+
+    case (HFun(name), _) =>
+      EFun(name)
+
+    case (HApply, List(fun; rest)) =>
+      EApp(fun, rest)
+
+    case (HLit(lit), _) =>
+      ELit(lit)
+
+    case (HLevel(level), _) =>
+      ELevel(level)
+
+    case (HSum(constant, factors), _) =>
+      sum_term(sum_of(Lin(constant, List()), factors, args))
+
+    case (HTerm(term), _) =>
+      term
+
+    // nodes of HApply have the head as their first argument, see shape
+    case (HApply, List()) =>
+      EApp(ELit(LBool(false)), List())
+  end
+
+function sum_of(acc: Lin, factors: List[Int], args: List[Term]): Lin :=
+  match (factors, args)
+    case (List(factor; factors_), List(arg; args_)) =>
+      sum_of(lin_add(acc, lin_scale(factor, lin_of(arg))), factors_, args_)
+    case _ =>
+      acc
+  end
+
+function add_term(g: EGraph, t: Term): EGraph * Int :=
+  match shape(t)
+    case (head, args) =>
+      match add_terms(g, args, List())
+        case (h, ids) =>
+          add_node(h, ENode(head, ids))
+      end
+  end
+
+function add_terms(g: EGraph, ts: List[Term], acc: List[Int]): EGraph * List[Int] :=
+  match ts
+    case List() =>
+      (g, reverse(acc))
+
+    case List(t; rest) =>
+      match add_term(g, t)
+        case (h, i) =>
+          add_terms(h, rest, List(i; acc))
+      end
+  end
+
+function add_node(g: EGraph, node: ENode): EGraph * Int :=
+  let c := canonical(g, node) in
+  match get(c, g.memo)
+    case Some(i) =>
+      (g, class_of(g, i))
+
+    case None =>
+      let i := g.next in
+      let uses := foldl(Set(for a in c.args), g.uses, lambda acc, a => put(a, List((c, i); value_or(get(a, acc), List())), acc)) in
+      (g with memo := put(c, i, g.memo), nodes := put(i, List(c), g.nodes), uses := uses, next := i + 1, i)
+  end
+
+function lookup_term(g: EGraph, t: Term): Option[Int] :=
+  match shape(t)
+    case (head, args) =>
+      match lookup_terms(g, args, List())
+        case Some(ids) =>
+          match get(canonical(g, ENode(head, ids)), g.memo)
+            case Some(i) =>
+              Some(class_of(g, i))
+            case None =>
+              None
+          end
+
+        case None =>
+          None
+      end
+  end
+
+function lookup_terms(g: EGraph, ts: List[Term], acc: List[Int]): Option[List[Int]] :=
+  match ts
+    case List() =>
+      Some(reverse(acc))
+
+    case List(t; rest) =>
+      match lookup_term(g, t)
+        case Some(i) =>
+          lookup_terms(g, rest, List(i; acc))
+        case None =>
+          None
+      end
+  end
+
+function class_nodes(g: EGraph, i: Int): List[ENode] :=
+  List(for node in value_or(get(class_of(g, i), g.nodes), List()) yield canonical(g, node))
+
+// the larger class stays the representative, so that the chains of parents grow only logarithmically
+function unite(g: EGraph, i: Int, j: Int): Union :=
+  let a := class_of(g, i), b := class_of(g, j) in
+  if a == b then
+    Union(g, List(), List())
+  else
+    let nodes_a := value_or(get(a, g.nodes), List()), nodes_b := value_or(get(b, g.nodes), List()) in
+    let (root, child) := if size(nodes_a) >= size(nodes_b) then (a, b) else (b, a) in
+    let parents := value_or(get(child, g.uses), List()) in
+    let merged := g with parent := put(child, root, g.parent), nodes := put(root, nodes_a ++ nodes_b, remove(child, g.nodes)), uses := put(root, value_or(get(root, g.uses), List()) ++ parents, remove(child, g.uses)) in
+    rehash(merged, parents, List(), parents)
+
+// the parent nodes entered again by their canonical forms, where one that is already there with another class is
+// congruent to it
+function rehash(g: EGraph, todo: List[ENode * Int], pending: List[Int * Int], parents: List[ENode * Int]): Union :=
+  match todo
+    case List() =>
+      Union(g, reverse(pending), parents)
+
+    case List((node, i); rest) =>
+      let c := canonical(g, node) in
+      match get(c, g.memo)
+        case Some(k) if class_of(g, k) != class_of(g, i) =>
+          rehash(g, rest, List((class_of(g, k), class_of(g, i)); pending), parents)
+
+        case Some(_) =>
+          rehash(g, rest, pending, parents)
+
+        case None =>
+          rehash(g with memo := put(c, class_of(g, i), g.memo), rest, pending, parents)
+      end
+  end
+
+test classes() :=
+  local x := ELevel(0), y := ELevel(1), f := Name(None, "f"), fx := EApp(EFun(f), List(x)), fy := EApp(EFun(f), List(y)), g := empty_graph(), i := 0, j := 0, u := Union(empty_graph(), List(), List())
+  match add_term(g, fx)
+    case (h, k) =>
+      assign g := h, i := k
+  end
+  match add_term(g, fy)
+    case (h, k) =>
+      assign g := h, j := k
+  end
+  assert i != j and lookup_term(g, ELevel(2)) == None
+  match (lookup_term(g, x), lookup_term(g, y))
+    case (Some(a), Some(b)) =>
+      assign u := unite(g, a, b)
+    case _ =>
+      assert false
+  end
+  assert size(u.pending) == 1 and size(u.parents) == 1
+  assert class_of(u.graph, i) != class_of(u.graph, j)
+  assign u := unite(u.graph, i, j)
+  assert class_of(u.graph, i) == class_of(u.graph, j) and size(class_nodes(u.graph, i)) == 2
+  assert lookup_term(u.graph, fy) == Some(class_of(u.graph, i))
+
+function class_ids(g: EGraph): List[Int] :=
+  List(for i => _ in g.nodes yield i)
+
+function node_count(g: EGraph): Int :=
+  g.next
+
+function ematch(g: EGraph, n: Int, p: Term, c: Int, sub: Map[Int, Int]): List[Map[Int, Int]] :=
+  match p
+    case EBound(index) if index < n =>
+      match get(index, sub)
+        case Some(d) =>
+          if class_of(g, d) == class_of(g, c) then List(sub) else List()
+        case None =>
+          List(put(index, class_of(g, c), sub))
+      end
+
+    case _ =>
+      match shape(p)
+        case (head, args) =>
+          List(for node in class_nodes(g, c) if node.head == head and size(node.args) == size(args) for s in ematch_all(g, n, args, node.args, sub) yield s)
+      end
+  end
+
+function ematch_all(g: EGraph, n: Int, ps: List[Term], cs: List[Int], sub: Map[Int, Int]): List[Map[Int, Int]] :=
+  match (ps, cs)
+    case (List(p; ps_), List(c; cs_)) =>
+      List(for s in ematch(g, n, p, c, sub) for t in ematch_all(g, n, ps_, cs_, s) yield t)
+    case _ =>
+      List(sub)
+  end
+
+function add_instance(g: EGraph, n: Int, p: Term, sub: Map[Int, Int]): EGraph * Int :=
+  match p
+    case EBound(index) if index < n =>
+      match get(index, sub)
+        case Some(c) =>
+          (g, class_of(g, c))
+
+        // the variables of the instances are those of the patterns that ematch binds, see is_valid_rule of simp.u
+        case None =>
+          add_term(g, p)
+      end
+
+    case _ =>
+      match shape(p)
+        case (head, args) =>
+          match add_instances(g, n, args, sub, List())
+            case (h, ids) =>
+              add_node(h, ENode(head, ids))
+          end
+      end
+  end
+
+function add_instances(g: EGraph, n: Int, ps: List[Term], sub: Map[Int, Int], acc: List[Int]): EGraph * List[Int] :=
+  match ps
+    case List() =>
+      (g, reverse(acc))
+
+    case List(p; rest) =>
+      match add_instance(g, n, p, sub)
+        case (h, i) =>
+          add_instances(h, n, rest, sub, List(i; acc))
+      end
+  end
+
+function close_union(g: EGraph, i: Int, j: Int): EGraph :=
+  let u := unite(g, i, j) in
+  close_pending(u.graph, u.pending)
+
+function close_pending(g: EGraph, pairs: List[Int * Int]): EGraph :=
+  match pairs
+    case List() =>
+      g
+    case List((p, q); rest) =>
+      close_pending(close_union(g, p, q), rest)
+  end
+
+test matching() :=
+  local x := ELevel(0), y := ELevel(1), f := Name(None, "f"), g := empty_graph(), c := 0, pat := EApp(EFun(f), List(EBound(0), EBound(0)))
+  match add_term(g, EApp(EFun(f), List(x, y)))
+    case (h, k) =>
+      assign g := h, c := k
+  end
+  assert ematch(g, 1, pat, c, empty()) == List()
+  match (lookup_term(g, x), lookup_term(g, y))
+    case (Some(a), Some(b)) =>
+      assign g := close_union(g, a, b)
+    case _ =>
+      assert false
+  end
+  assert size(ematch(g, 1, pat, c, empty())) == 1
+  match add_instance(g, 1, EApp(EFun(f), List(EBound(0), x)), Map(0 => class_of(g, c)))
+    case (h, k) =>
+      assert k != class_of(h, c) and node_count(h) == node_count(g) + 1
+  end

@@ -1,7 +1,7 @@
 // the phases of ulang over cases, source texts given by their lines, for the tests of errors in ulang/test/errors/, which
 // assert by assert raises the exception of the phase where a case fails: parse_file_text and parse_texts raise ParseError,
 // check_program Located, require_formatted Unformatted, run_program the RuntimeError of a test, and prove_program
-// OpenLemma; a case sits at a path from the working directory, the root, where the tests run, so that it imports the
+// OpenTermination or OpenLemma; a case sits at a path from the working directory, the root, where the tests run, so that it imports the
 // packages of the project as files
 
 import "ulang/syntax"
@@ -44,7 +44,7 @@ procedure run_text(
 procedure prove_text(
   in  path: Str,
       lines: List[Str]
-) raises ParseError, TypeError, Unformatted, InternalError, OsError, OpenLemma
+) raises ParseError, TypeError, Unformatted, InternalError, OsError, OpenLemma, OpenTermination
 
 // load_text of several modules: the members of the package of the directory dir from the root, each its name and lines,
 // and main, the name and lines of the main file, which is one of them or a program in dir
@@ -117,7 +117,7 @@ procedure run_text(
 procedure prove_text(
   in  path: Str,
       lines: List[Str]
-) raises ParseError, TypeError, Unformatted, InternalError, OsError, OpenLemma :=
+) raises ParseError, TypeError, Unformatted, InternalError, OsError, OpenLemma, OpenTermination :=
   local main: Id, q: Prog
   call load_text(in path, lines, out main, q)
   call prove_program(in q, main)

@@ -20,3 +20,78 @@ function maximum(a: Int, b: Int): Int :=
 
 lemma maximum_bounds(a: Int, b: Int) :=
   ensures maximum(a, b) >= a and maximum(a, b) >= b
+
+lemma irreflexive(x: Int) :=
+  ensures not x < x
+
+// as an implication, since its tests would be Vacuous with x < x as an assumption
+lemma irreflexive_assumption(x: Int) :=
+  ensures x < x ==> false
+
+lemma irreflexive_atoms[A](xs: List[A], x: Int, y: Int, g: Int -> Int) :=
+  ensures not size(xs) < size(xs) and not x * y < x * y and not x / 2 < x / 2 and not g(x) < g(x)
+
+lemma unequal_ordered(x: Int, y: Int) :=
+  requires x != y
+  ensures  x < y or y < x
+
+lemma trichotomy(x: Int, y: Int) :=
+  ensures x < y or x == y or y < x
+
+lemma parity(x: Int, y: Int) :=
+  ensures 2 * x != 2 * y + 1
+
+lemma scaled_sum(x: Int, y: Int) :=
+  ensures 3 * (x + y) == 3 * x + 3 * y
+
+lemma maximum_commutes(a: Int, b: Int) :=
+  ensures maximum(a, b) == maximum(b, a)
+
+lemma maximum_of_less(a: Int, b: Int) :=
+  requires a < b
+  ensures  maximum(a, b) == b
+
+function fib(n: Int): Int :=
+  if n < 2 then n else fib(n - 1) + fib(n - 2)
+
+lemma fib_evaluation() :=
+  ensures fib(15) == 610
+
+// unary minus is not recursive, though its body applies the binary minus of the same name
+lemma unary_minus(x: Int) :=
+  ensures -x == 0 - x and -x + x == 0
+
+// by m == 3 * (m / 3) + m % 3 and the bounds of m % 3, which the atoms of division by a literal come with
+lemma division_remainder(m: Int) :=
+  ensures m == m / 3 * 3 + m % 3
+
+lemma remainder_bound(m: Int) :=
+  requires m >= 0
+  ensures  m % 2 < 2
+
+lemma halving(m: Int) :=
+  ensures 2 * m / 2 == m
+
+lemma remainder_sign(m: Int) :=
+  requires m >= 0
+  ensures  m % 3 >= 0
+
+lemma remainder_negative(m: Int) :=
+  requires m < 0
+  ensures  m % 3 <= 0
+
+// by products distributed into sums of monomials, whose atoms are ordered, and squares at least 0
+lemma square_nonnegative(x: Int) :=
+  ensures x * x >= 0
+
+lemma distributive(x: Int, y: Int, z: Int) :=
+  ensures x * (y + z) == x * y + x * z
+
+lemma associative(x: Int, y: Int, z: Int) :=
+  ensures x * y * z == x * (y * z)
+
+lemma difference_of_squares(x: Int, y: Int) :=
+  ensures (x + y) * (x - y) == x * x - y * y
+
+lemma binomial(x: Int) :=
+  ensures (x + 1) * (x + 1) == x * x + 2 * x + 1

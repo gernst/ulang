@@ -137,10 +137,10 @@ function cmd_names(cmd: Cmd): List[Str] :=
     case CData(name, _, constrs) =>
       List(name.base; List(for k in parts(constrs) yield k.name.base))
 
-    case CFun(name, _, _, _, _) =>
+    case CFun(name, _, _, _, _, _) =>
       List(name.base)
 
-    case CProc(name, _, _, _, _, _, _) =>
+    case CProc(name, _, _, _, _, _, _, _) =>
       List(name.base)
 
     case CNotation(_, _, _) =>
@@ -149,10 +149,10 @@ function cmd_names(cmd: Cmd): List[Str] :=
     case CTest(name, _, _) =>
       List(name.base)
 
-    case CFunSig(name, _, _, _) =>
+    case CFunSig(name, _, _, _, _) =>
       List(name.base)
 
-    case CProcSig(name, _, _, _, _, _) =>
+    case CProcSig(name, _, _, _, _, _, _) =>
       List(name.base)
 
     case CAbstract(name, _) =>

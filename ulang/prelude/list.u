@@ -28,12 +28,15 @@ function index_of[A](x: A, xs: List[A]): Option[Int]
 function flat_map[A, B](xs: List[A], f: A -> List[B]): List[B]
 
 // f(x1, f(x2, ... f(xn, acc))), which recurses as deep as xs is long, and f(... f(f(acc, x1), x2) ..., xn)
-function foldr[A, R](xs: List[A], acc: R, f: (A, R) -> R): R
+function foldr[A, R](xs: List[A], acc: R, f: (A, R) -> R): R :=
+  example foldr(List(1, 2), List(), lambda x, ys => List(x; ys)) == List(1, 2)
 
-function foldl[A, R](xs: List[A], acc: R, f: (R, A) -> R): R
+function foldl[A, R](xs: List[A], acc: R, f: (R, A) -> R): R :=
+  example foldl(List(1, 2), List(), lambda ys, x => List(x; ys)) == List(2, 1)
 
 // the value of the first pair of k in an association list of keys and values
-function get[K, V](k: K, xs: List[K * V]): Option[V]
+function get[K, V](k: K, xs: List[K * V]): Option[V] :=
+  example get(1, List((1, "a"), (1, "b"))) == Some("a")
 
 // xs without the occurrences of x
 function remove[A](x: A, xs: List[A]): List[A]
@@ -62,7 +65,8 @@ function reverse[A](xs: List[A]): List[A]
 function zip[A, B](xs: List[A], ys: List[B]): List[A * B]
 
 // the elements with their indices from 0
-function numbered[A](xs: List[A]): List[A * Int]
+function numbered[A](xs: List[A]): List[A * Int] :=
+  example numbered(List("a", "b")) == List(("a", 0), ("b", 1))
 
 function take[A](n: Int, xs: List[A]): List[A]
 
@@ -72,7 +76,8 @@ function drop[A](n: Int, xs: List[A]): List[A]
 function slice[A](xs: List[A], i: Int, j: Int): List[A]
 
 // the first n elements and the others
-function split_at[A](n: Int, xs: List[A]): List[A] * List[A]
+function split_at[A](n: Int, xs: List[A]): List[A] * List[A] :=
+  example split_at(1, List(1, 2, 3)) == (List(1), List(2, 3))
 
 function replicate[A](n: Int, x: A): List[A]
 

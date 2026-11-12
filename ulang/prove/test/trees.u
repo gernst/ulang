@@ -1,0 +1,31 @@
+// lemmas over a datatype of the program, which the tests of lemmas enumerate by the function that the checker generates
+// for it, and of tuples, options, and sets, which prelude/enumerate enumerates
+
+data Tree[A] :=
+  case Leaf
+  case Node(left: Tree[A], value: A, right: Tree[A])
+
+function size_of[A](t: Tree[A]): Int :=
+  match t
+    case Leaf =>
+      0
+    case Node(l, _, r) =>
+      size_of(l) + 1 + size_of(r)
+  end
+
+function mirror[A](t: Tree[A]): Tree[A] :=
+  match t
+    case Leaf =>
+      Leaf
+    case Node(l, x, r) =>
+      Node(mirror(r), x, mirror(l))
+  end
+
+lemma mirror_size[A](t: Tree[A]) :=
+  ensures size_of(mirror(t)) == size_of(t)
+
+lemma mirror_twice[A](t: Tree[A]) :=
+  ensures mirror(mirror(t)) == t
+
+lemma reflexive(p: Int * Bool, o: Option[Set[Int]]) :=
+  ensures p == p and o == o

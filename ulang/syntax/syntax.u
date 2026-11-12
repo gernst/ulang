@@ -135,8 +135,9 @@ data Stmt :=
   case SSkip
   // assign x := a, …, which assigns in parallel
   case SAssign(upd: List[Var * At[Expr]])
-  // statements one after another, the body of an if, while, case, or procedure, which may declare local x := e first
-  case SBlock(locals: List[Var], stmts: List[At[Stmt]])
+  // statements one after another, each after its doc, the body of an if, while, case, or procedure, which may declare
+  // local x := e first, as assignments without docs that start stmts
+  case SBlock(locals: List[Var], stmts: List[Doc[Stmt]])
   // if c then … else … end, or if c then … end
   case SIf(cond: At[Expr], left: At[Stmt], right: At[Stmt])
   // while c do … end
@@ -189,20 +190,21 @@ data Cmd :=
   case CSort(name: Name, params: List[Id], typ: Type)
   // data T[A, …] := case C(f: A, …) case D, one case per line
   case CData(name: Name, params: List[Id], constrs: List[Doc[Constr]])
-  // function f[A, …](x: A, …): T := body
-  case CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, body: At[Expr])
-  // procedure p[A, …](in x: A, …, out y: B, …, ref z: C, …) := body, where in is optional before the first ins
+  // function f[A, …](x: A, …): T := spec body, where spec is the lines after :=, see Spec
+  case CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, spec: Spec, body: At[Expr])
+  // procedure p[A, …](in x: A, …, out y: B, …, ref z: C, …) := spec body, where in is optional before the first ins
   // raises T, … after the formals, where none written is none raised if it is exported, and else inferred
-  case CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], stmt: At[Stmt])
+  case CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], spec: Spec, stmt: At[Stmt])
   // a notation, e.g. infix left 9 + -, see Fixity
   case CNotation(fixity: Fixity, prec: Int, ops: List[Id])
   // tests take no parameters, which the checker enforces
   case CTest(name: Name, vars: List[Var], stmt: At[Stmt])
   // the export section of a module, with the signatures of functions and procedures, as CFun and CProc without their
   // bodies, and abstract types, which its implementation section defines by data, and its builtin section, with the
-  // signatures of exported functions and procedures that the interpreter and the runtime define
-  case CFunSig(name: Name, params: List[Id], formals: List[Var], typ: Type)
-  case CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type])
+  // signatures of exported functions and procedures that the interpreter and the runtime define; a spec follows := after
+  // the head, which a signature without one has not
+  case CFunSig(name: Name, params: List[Id], formals: List[Var], typ: Type, spec: Spec)
+  case CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], spec: Spec)
   // an abstract type T[A, …], without a definition
   case CAbstract(name: Name, params: List[Id])
   // a pattern alias pattern C[A, …](x: A, …): T := pat, whose variables are the formals, each once, which the checker
@@ -212,10 +214,30 @@ data Cmd :=
   // see prove.md, and which the prover proves, while the interpreter and the compiler skip it
   case CLemma(name: Name, params: List[Id], formals: List[Var], assms: List[At[Expr]], concl: At[Expr])
 
+// the specification of a function or procedure, lines after := of its head and before its body, where the contracts of
+// prove.md, requires and ensures, will join the examples; on the first occurrence of a signature, the export of an
+// exported one, and empty on its definition
+data Spec :=
+  // the examples, each at its keyword, which the checker translates into tests
+  case Spec(examples: List[At[Example]])
+
+// an example of a function or procedure
+data Example :=
+  // a Bool expression that applies the function, e.g. gcd(12, 18) == 6
+  case XHolds(expr: At[Expr])
+  // an application of the function that raises an exception that pat matches, e.g. chr(-1) raises NoCharacter(-1)
+  case XRaises(expr: At[Expr], pat: At[Pat])
+  // a call of the procedure with the expected values of its outs and each ref from before to after, e.g.
+  // divmod(in 7, 2, out 3, 1) or push(in 3, ref List(1) => List(3, 1))
+  case XCall(proc: Name, ins: List[At[Expr]], outs: List[At[Expr]], refs: List[At[Expr] * At[Expr]])
+  // a call of the procedure that raises an exception that pat matches, with blanks, the number of its outs, written _,
+  // since it does not assign them, and each ref as before, e.g. divmod(in 7, 0, out _, _) raises DivisionByZero
+  case XCallRaises(proc: Name, ins: List[At[Expr]], blanks: Int, befores: List[At[Expr]], pat: At[Pat])
+
 // the checked program: the commands of its modules with resolved names, and the module of the file that is loaded, whose
 // procedures run and compile call
 data Prog :=
-  case Prog(cmds: List[Cmd], main: Id)
+  case Prog(cmds: List[Cmd], main: Id, errors: List[Diagnostic])
 
 data Pos :=
   // line and column, both from 1
@@ -254,6 +276,9 @@ function arity(t: Type): Int
 
 // x at the position Pos(0, 0), of code that the parser did not read, e.g. of tests
 function nowhere[A](x: A): At[A]
+
+// the spec of a head without :=, and of the checked program, whose examples are tests
+function no_spec(): Spec
 
 // the part of x mapped by f, at the position of x
 function map_at[A, B](x: At[A], f: A -> B): At[B]
@@ -296,8 +321,15 @@ function commands_of(docs: List[Doc[Cmd]]): List[Cmd]
 // the parts of docs, without their docs and positions
 function parts[A](docs: List[Doc[A]]): List[A]
 
-// the modules that module name imports without saying so: for a module of a project the whole library, and none for a
-// module of the library, which sees the others as the members of its package
+// the statements of docs, without their docs
+function stmts_of(docs: List[Doc[Stmt]]): List[At[Stmt]]
+
+// a block of stmts without docs
+function block(locals: List[Var], stmts: List[At[Stmt]]): Stmt
+
+// the modules that module name imports without saying so: for a module of a project the library but enumerate, which only
+// the generated tests of lemmas name, and none for a module of the library, which sees the others as the members of its
+// package
 function implicit_imports(name: Id): List[Id]
 
 // the members of the package of the library
@@ -375,6 +407,9 @@ function arity(t: Type): Int :=
       -1
   end
 
+function no_spec(): Spec :=
+  Spec(List())
+
 function nowhere[A](x: A): At[A] :=
   AOk(Pos(0, 0), x)
 
@@ -412,6 +447,12 @@ function placed_of(d: Mod): List[Doc[Cmd]] :=
 function commands_of(docs: List[Doc[Cmd]]): List[Cmd] :=
   parts(docs)
 
+function stmts_of(docs: List[Doc[Stmt]]): List[At[Stmt]] :=
+  List(for d in docs yield d.at)
+
+function block(locals: List[Var], stmts: List[At[Stmt]]): Stmt :=
+  SBlock(locals, List(for stmt in stmts yield Doc(None, stmt)))
+
 function parts[A](docs: List[Doc[A]]): List[A] :=
   List(for d in docs yield d.at.that)
 
@@ -424,7 +465,10 @@ function module_dir(id: Id): Str :=
   end
 
 function implicit_imports(name: Id): List[Id] :=
-  if contains(name, library_modules()) then List() else library_modules()
+  if contains(name, library_modules()) then
+    List()
+  else
+    List(for m in library_modules() if m != library_module("enumerate"))
 
 function library_modules(): List[Id] :=
   List(for name in List(
@@ -436,7 +480,8 @@ function library_modules(): List[Id] :=
     "map",
     "array",
     "buffer",
-    "os") yield library_module(name))
+    "os",
+    "enumerate") yield library_module(name))
 
 function library_module(name: Str): Id :=
   "prelude/" ++ name
@@ -630,11 +675,11 @@ function form_name(form: Form): Id :=
 
 function strip_cmd(cmd: Cmd): Cmd :=
   match cmd
-    case CFun(name, params, formals, typ, body) =>
-      CFun(name, params, formals, typ, strip_expr(body))
+    case CFun(name, params, formals, typ, spec, body) =>
+      CFun(name, params, formals, typ, strip_spec(spec), strip_expr(body))
 
-    case CProc(name, params, ins, outs, refs, raised, stmt) =>
-      CProc(name, params, ins, outs, refs, raised, strip_stmt(stmt))
+    case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
+      CProc(name, params, ins, outs, refs, raised, strip_spec(spec), strip_stmt(stmt))
 
     case CTest(name, vars, stmt) =>
       CTest(name, vars, strip_stmt(stmt))
@@ -654,14 +699,32 @@ function strip_cmd(cmd: Cmd): Cmd :=
     case CNotation(_, _, _) =>
       cmd
 
-    case CFunSig(_, _, _, _) =>
-      cmd
+    case CFunSig(name, params, formals, typ, spec) =>
+      CFunSig(name, params, formals, typ, strip_spec(spec))
 
-    case CProcSig(_, _, _, _, _, _) =>
-      cmd
+    case CProcSig(name, params, ins, outs, refs, raised, spec) =>
+      CProcSig(name, params, ins, outs, refs, raised, strip_spec(spec))
 
     case CAbstract(_, _) =>
       cmd
+  end
+
+function strip_spec(spec: Spec): Spec :=
+  Spec(List(for x in spec.examples yield stripped(x, strip_example)))
+
+function strip_example(x: Example): Example :=
+  match x
+    case XHolds(expr) =>
+      XHolds(strip_expr(expr))
+
+    case XRaises(expr, pat) =>
+      XRaises(strip_expr(expr), strip_pat(pat))
+
+    case XCall(proc, ins, outs, refs) =>
+      XCall(proc, List(for a in ins yield strip_expr(a)), List(for a in outs yield strip_expr(a)), List(for (a, b) in refs yield (strip_expr(a), strip_expr(b))))
+
+    case XCallRaises(proc, ins, blanks, befores, pat) =>
+      XCallRaises(proc, List(for a in ins yield strip_expr(a)), blanks, List(for a in befores yield strip_expr(a)), strip_pat(pat))
   end
 
 // x at Pos(0, 0), with its part stripped by strip
@@ -751,7 +814,7 @@ function strip_statement(stmt: Stmt): Stmt :=
       SAssign(List(for (x, e) in upd yield (x, strip_expr(e))))
 
     case SBlock(locals, stmts) =>
-      SBlock(locals, List(for y in stmts yield strip_stmt(y)))
+      SBlock(locals, List(for d in stmts yield Doc(d.doc, strip_stmt(d.at))))
 
     case SIf(cond, left, right) =>
       SIf(strip_expr(cond), strip_stmt(left), strip_stmt(right))

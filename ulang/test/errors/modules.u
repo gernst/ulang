@@ -72,6 +72,37 @@ test duplicate_signature() :=
       "  n"))
   end
 
+test example_on_definition() :=
+  assert raises Located(None, Pos(8, 3), ExampleOnDefinition(Name(Some("ulang/test/errors/example-on-definition"), "f"))) do
+    call check_text(in "ulang/test/errors/example-on-definition.u", List(
+      "export",
+      "",
+      "function f(x: Int): Int",
+      "",
+      "implementation",
+      "",
+      "function f(x: Int): Int :=",
+      "  example f(1) == 1",
+      "  x"))
+  end
+
+test example_private() :=
+  assert raises Located(None, Pos(4, 13), UnknownVariable(Name(None, "g"))) do
+    call check_text(in "ulang/test/errors/example-private.u", List(
+      "export",
+      "",
+      "function f(x: Int): Int :=",
+      "  example f(g()) == 1",
+      "",
+      "implementation",
+      "",
+      "function f(x: Int): Int :=",
+      "  x",
+      "",
+      "function g(): Int :=",
+      "  1"))
+  end
+
 test export_late() :=
   assert raises ParseError("export comes first, after the imports", Pos(4, 1)) do
     call check_text(in "ulang/test/errors/export-late.u", List("function f(): Int :=", "  1", "", "export"))

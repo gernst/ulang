@@ -16,7 +16,8 @@ data Token :=
   case TStr(text: Str)
   case TChar(char: Char)
   // the lines of a run of comments at the start of lines, without their markers, joined by newlines, directly above a line
-  // that starts with a letter, or above a case with the same indentation, or at the start of the text
+  // with the same indentation that starts with a letter, or at the start of the text, where the parser decides whether
+  // what follows may have a doc
   case TDoc(text: Str)
   case TEnd
 
@@ -30,6 +31,9 @@ data LexError :=
 function is_keyword(w: Str): Bool
 
 procedure lex(in text: Str, out toks: Tokens) raises LexError
+
+// the error of a comment that documents nothing
+function misplaced_comment(): Str
 
 implementation
 
@@ -47,6 +51,7 @@ function keywords(): Set[Str] :=
     "else",
     "end",
     "ensures",
+    "example",
     "export",
     "false",
     "for",
@@ -226,7 +231,7 @@ function starts_at(text: Str, offset: Int, part: Str): Bool :=
 
 // the lines of the run of comments at offset, which is at the start of a line after margin spaces, with the markers // and the
 // space after them removed, joined by newlines, where offset ends at the start of the line after the run, and above tells
-// whether the line that follows starts with a letter, for a margin of 0, or is a case with the same margin
+// whether the line that follows starts with a letter after the same margin
 procedure lex_doc(
   in  text: Str,
       margin: Int,
@@ -249,13 +254,10 @@ procedure lex_doc(
   assign doc := join("\n", reverse(lines)), above := is_doc_above(text, margin, offset)
 
 function is_doc_above(text: Str, margin: Int, offset: Int): Bool :=
-  if margin == 0 then
-    is_letter(peek(text, offset))
-  else
-    starts_at(text, offset, repeat(" ", margin) ++ "case ")
+  starts_at(text, offset, repeat(" ", margin)) and is_letter(peek(text, offset + margin))
 
 function misplaced_comment(): Str :=
-  "a comment is the doc of the command or case on the next line, from the start of a line with its indentation"
+  "a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation"
 
 // the token at offset, where offset ends after it
 procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
@@ -411,15 +413,13 @@ test lex_errors() :=
   call lex_error(in "'ab'", out e)
   assert e == LexError("invalid character", Pos(1, 1))
 
-// comments after code, detached by a blank line, before a statement, and before a case with another indentation
+// comments after code, detached by a blank line, and before a case with another indentation
 test lex_misplaced_comments() :=
   local e: LexError
   call lex_error(in "x // one", out e)
   assert e == LexError(misplaced_comment(), Pos(1, 3))
   call lex_error(in "f\n// a\n\ng", out e)
   assert e == LexError(misplaced_comment(), Pos(2, 1))
-  call lex_error(in "f\n  // a\n  g", out e)
-  assert e == LexError(misplaced_comment(), Pos(2, 3))
   call lex_error(in "match x\n  // a\n    case 3", out e)
   assert e == LexError(misplaced_comment(), Pos(2, 3))
 

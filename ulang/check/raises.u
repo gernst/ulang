@@ -33,7 +33,7 @@ function inferred_procs(cmds: List[Cmd], hidden: Set[Name]): Set[Name] :=
 
 function inferred_name(cmd: Cmd, hidden: Set[Name]): Option[Name] :=
   match cmd
-    case CProc(name, _, _, _, _, List(), _) if contains(name, hidden) =>
+    case CProc(name, _, _, _, _, List(), _, _) if contains(name, hidden) =>
       Some(name)
     case _ =>
       None
@@ -45,7 +45,7 @@ function written_procs(cmds: List[Cmd], inferred: Set[Name]): Map[Name, Set[Name
 
 function proc_raised(cmd: Cmd): Option[Name * List[Type]] :=
   match cmd
-    case CProc(name, _, _, _, _, raised, _) =>
+    case CProc(name, _, _, _, _, raised, _, _) =>
       Some((name, raised))
     case _ =>
       None
@@ -79,7 +79,7 @@ function keys(raised: Map[Name, Pos]): Set[Name] :=
 function cmd_errors(scope: Scope, cmd: Cmd, inferred: Set[Name]): List[Pos * TypeError] :=
   let flow := cmd_flow(scope, cmd) in
   match cmd
-    case CProc(name, _, _, _, _, _, _) if not contains(name, inferred) =>
+    case CProc(name, _, _, _, _, _, _, _) if not contains(name, inferred) =>
       flow.errors ++ omitted(name, flow.raised, proc_raises(scope, name))
     case _ =>
       flow.errors
@@ -91,10 +91,10 @@ function omitted(name: Name, raised: Map[Name, Pos], allowed: Set[Name]): List[P
 // the module of a checked command, whose name the checker qualifies
 function module_of(cmd: Cmd): Option[Id] :=
   match cmd
-    case CFun(name, _, _, _, _) =>
+    case CFun(name, _, _, _, _, _) =>
       name.module
 
-    case CProc(name, _, _, _, _, _, _) =>
+    case CProc(name, _, _, _, _, _, _, _) =>
       name.module
 
     case CTest(name, _, _) =>
@@ -109,10 +109,10 @@ function module_of(cmd: Cmd): Option[Id] :=
     case CData(name, _, _) =>
       name.module
 
-    case CFunSig(name, _, _, _) =>
+    case CFunSig(name, _, _, _, _) =>
       name.module
 
-    case CProcSig(name, _, _, _, _, _) =>
+    case CProcSig(name, _, _, _, _, _, _) =>
       name.module
 
     case CAbstract(name, _) =>
@@ -127,10 +127,10 @@ function module_of(cmd: Cmd): Option[Id] :=
 
 function cmd_flow(scope: Scope, cmd: Cmd): Flow :=
   match cmd
-    case CProc(_, _, ins, outs, refs, _, stmt) =>
+    case CProc(_, _, ins, outs, refs, _, _, stmt) =>
       stmt_flow(bound(scope, ins ++ outs ++ refs), stmt)
 
-    case CFun(_, _, formals, _, body) =>
+    case CFun(_, _, formals, _, _, body) =>
       Flow(empty(), expr_errors(bound(scope, formals), body))
 
     case CTest(_, _, stmt) =>
@@ -145,10 +145,10 @@ function cmd_flow(scope: Scope, cmd: Cmd): Flow :=
     case CData(_, _, _) =>
       none()
 
-    case CFunSig(_, _, _, _) =>
+    case CFunSig(_, _, _, _, _) =>
       none()
 
-    case CProcSig(_, _, _, _, _, _) =>
+    case CProcSig(_, _, _, _, _, _, _) =>
       none()
 
     case CAbstract(_, _) =>
@@ -259,7 +259,7 @@ function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
       Flow(empty(), exprs_errors(scope, List(for (_, e) in upd yield e)))
 
     case SBlock(locals, stmts) =>
-      stmts_flow(bound(scope, locals), stmts)
+      stmts_flow(bound(scope, locals), stmts_of(stmts))
 
     case SIf(cond, left, right) =>
       with_errors(stmts_flow(scope, List(left, right)), expr_errors(scope, cond))

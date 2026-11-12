@@ -35,6 +35,14 @@ function type_diagnostic(e: TypeError): Diagnostic :=
 
 // the constructor of e, as show writes it
 function error_code(e: TypeError): Str :=
+  match e
+    case Hinted(error, _) =>
+      error_code(error)
+    case _ =>
+      constructor_text(e)
+  end
+
+function constructor_text(e: TypeError): Str :=
   let text := show(e) in
   match index_of('(', chars(text))
     case Some(i) =>
@@ -45,6 +53,9 @@ function error_code(e: TypeError): Str :=
 
 function type_details(e: TypeError): List[Str * Str] :=
   match e
+    case Hinted(error, _) =>
+      type_details(error)
+
     case Mismatch(expected_type, found_type, _) =>
       zip(List("expected", "found"), format_types_apart(List(expected_type, found_type)))
 
@@ -79,8 +90,41 @@ function sort_module(typ: Type): Str :=
 function count_message(owner: Str, unit: Str, k: Int, actual: Int): Str :=
   (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(actual)
 
+// the message of e with its hint
 function type_message(e: TypeError): Str :=
+  plain_message(e) ++ hint_of(e)
+
+// the form to write instead, after "; ", where the error alone tells it, or the hint that the checker found
+function hint_of(e: TypeError): Str :=
   match e
+    case Hinted(_, hint) =>
+      "; " ++ hint
+
+    case NotExhaustive(pat) =>
+      "; add case " ++ format_pat(pat) ++ " =>"
+
+    case Ambiguous(_, candidates) if are_apart(candidates) =>
+      "; a type of the local, the formal, or the result that holds the value decides, as in local s: Set[Int] := empty()"
+
+    case CannotUnify(TProc(_, _, _, _), TFun(_, _)) =>
+      "; a procedure is called by call p(in a, out x), not in an expression"
+
+    case CannotUnify(TFun(_, _), TProc(_, _, _, _)) =>
+      "; a procedure is called by call p(in a, out x), not in an expression"
+
+    case _ =>
+      ""
+  end
+
+// whether the types of candidates differ, so that a type decides between them
+function are_apart(candidates: List[Name * Scheme]): Bool :=
+  forall(candidates, lambda (_, sc) => sc.typ != THole) and size(Set(for (_, sc) in candidates yield format_type(sc.typ))) == size(candidates)
+
+function plain_message(e: TypeError): Str :=
+  match e
+    case Hinted(error, _) =>
+      plain_message(error)
+
     case UnknownSort(name) =>
       "unknown sort " ++ name.base
 
@@ -166,6 +210,9 @@ function type_message(e: TypeError): Str :=
 
     case TestParams(test_name) =>
       "test " ++ test_name ++ " takes parameters"
+
+    case ExampleOnDefinition(name) =>
+      "the examples of " ++ name.base ++ " belong to its signature in export"
 
     case Unassigned(name) =>
       name.base ++ " is not assigned on every path"
@@ -263,7 +310,7 @@ test messages() :=
   assert located_message(Located(None, Pos(1, 1), MissingType(Name(None, "x")))) == "missing type for x at 1.1"
   assert located_message(Located(None, Pos(1, 1), NoFold(TSort(Name(Some("prelude/prelude"), "Int"), List()), "foldr"))) == "Int is no container: prelude/prelude declares no foldr at 1.1"
   assert located_message(Located(None, Pos(1, 1), NotAssignable(Name(None, "k")))) == "k is not assignable at 1.1"
-  assert located_message(Located(None, Pos(1, 1), NotExhaustive(PWild))) == "match is not exhaustive, missing _ at 1.1"
+  assert located_message(Located(None, Pos(1, 1), NotExhaustive(PWild))) == "match is not exhaustive, missing _; add case _ => at 1.1"
   assert located_message(Located(None, Pos(1, 1), OutputUnassigned(Name(None, "y"), Name(None, "lambda")))) == "output y of lambda is not assigned on every path at 1.1"
   assert located_message(PartlyExported(Name(Some("ulang/test/errors/partly-exported"), "f"))) == "f is exported, but not with each of its numbers of arguments"
   assert located_message(Located(None, Pos(4, 1), PatternOnly(Name(None, "First")))) == "the pattern alias First has _ and builds no value at 4.1"
@@ -277,6 +324,7 @@ test messages() :=
   assert located_message(SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T"))) == "the definition of T differs from its signature"
   assert located_message(Located(None, Pos(1, 1), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1))) == "sort Int expects 0 arguments, got 1 at 1.1"
   assert located_message(Located(None, Pos(1, 1), TestParams("sorted"))) == "test sorted takes parameters at 1.1"
+  assert located_message(Located(None, Pos(2, 3), ExampleOnDefinition(Name(Some("m"), "f")))) == "the examples of f belong to its signature in export at 2.3"
   assert located_message(Located(None, Pos(1, 1), Unassigned(Name(None, "x")))) == "x is not assigned on every path at 1.1"
   assert located_message(Located(None, Pos(15, 1), UnexportedOrder(Name(Some("ulang/test/errors/unexported-order"), "compare"), Name(Some("ulang/test/errors/unexported-order"), "T")))) == "compare of the exported type T is not exported at 15.1"
   assert located_message(Located(None, Pos(1, 1), UnknownConstructor(Name(None, "f")))) == "unknown constructor f at 1.1"

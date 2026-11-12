@@ -10,9 +10,41 @@ test argument_list() :=
     call check_text(in "ulang/test/errors/argument-list.u", List("function f(p: (Int, Int)): Int :=", "  1"))
   end
 
-test comment_before_statement() :=
-  assert raises ParseError("a comment is the doc of the command or case on the next line, from the start of a line with its indentation", Pos(3, 3)) do
-    call check_text(in "ulang/test/errors/comment-before-statement.u", List("procedure main() :=", "  local x := 1", "  // two", "  assign x := 2"))
+// a doc stands before a statement, but not before what ends a body, a local line, or a part of an expression
+test comment_before_end() :=
+  assert raises ParseError("a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation", Pos(4, 3)) do
+    call check_text(in "ulang/test/errors/comment-before-end.u", List(
+      "procedure main() :=",
+      "  if true then",
+      "    skip",
+      "  // the end",
+      "  end"))
+  end
+
+test comment_before_else() :=
+  assert raises ParseError("a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation", Pos(4, 3)) do
+    call check_text(in "ulang/test/errors/comment-before-else.u", List(
+      "procedure main() :=",
+      "  if true then",
+      "    skip",
+      "  // otherwise",
+      "  else",
+      "    skip",
+      "  end"))
+  end
+
+test comment_before_local() :=
+  assert raises ParseError("a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation", Pos(2, 3)) do
+    call check_text(in "ulang/test/errors/comment-before-local.u", List("procedure main() :=", "  // one", "  local x := 1", "  skip"))
+  end
+
+test comment_in_argument() :=
+  assert raises ParseError("a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation", Pos(3, 5)) do
+    call check_text(in "ulang/test/errors/comment-in-argument.u", List(
+      "procedure main() :=",
+      "  call os_println(in show(1,",
+      "    // two",
+      "    2))"))
   end
 
 test data_bar() :=
@@ -25,7 +57,7 @@ test data_bar() :=
   end
 
 test detached_comment() :=
-  assert raises ParseError("a comment is the doc of the command or case on the next line, from the start of a line with its indentation", Pos(3, 1)) do
+  assert raises ParseError("a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation", Pos(3, 1)) do
     call check_text(in "ulang/test/errors/detached-comment.u", List(
       "function f(): Int := 1",
       "",
@@ -37,6 +69,24 @@ test detached_comment() :=
 test duplicate_notation() :=
   assert raises ParseError("operator + is already declared", Pos(1, 1)) do
     call check_text(in "ulang/test/errors/duplicate-notation.u", List("infix left 9 +"))
+  end
+
+test example_out_blank() :=
+  assert raises ParseError("an example of a procedure has the value of each out and each ref as before => after", Pos(2, 3)) do
+    call check_text(in "ulang/test/errors/example-out-blank.u", List("procedure p(out x: Int) :=", "  example p(out _)", "  assign x := 1"))
+  end
+
+test example_end() :=
+  assert raises ParseError("the end of the example expected but x found", Pos(2, 21)) do
+    call check_text(in "ulang/test/errors/example-end.u", List("function f(x: Int): Int :=", "  example f(1) == 1 x", "  x"))
+  end
+
+test example_raises_after() :=
+  assert raises ParseError("an example that raises has _ for each out and each ref as before the call", Pos(2, 3)) do
+    call check_text(in "ulang/test/errors/example-raises-after.u", List(
+      "procedure p(ref x: Int) :=",
+      "  example p(ref 1 => 2) raises DivisionByZero",
+      "  assign x := x / 0"))
   end
 
 test field_types() :=
@@ -187,7 +237,7 @@ test string_escape() :=
   end
 
 test trailing_comment() :=
-  assert raises ParseError("a comment is the doc of the command or case on the next line, from the start of a line with its indentation", Pos(1, 24)) do
+  assert raises ParseError("a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation", Pos(1, 24)) do
     call check_text(in "ulang/test/errors/trailing-comment.u", List("function f(): Int := 1 // one"))
   end
 
@@ -212,6 +262,84 @@ test wildcard_name() :=
   end
 
 // the parser resumes at the next command after an error, and reports the errors of all commands
+// a statement that does not parse ends at the next line at its column, after the end of a block that it opens, so that the
+// statements after it are parsed
+test several_statement_errors() :=
+  assert raises ParseErrors(List(
+    ParseError("statement expected but x found; a statement starts with its keyword, as in assign x := e", Pos(3, 3)),
+    ParseError("expression expected but then found", Pos(4, 11)),
+    ParseError("expression expected but while found", Pos(10, 3)),
+    ParseError("statement expected but return found; a function is the value of its body, and a procedure gives its results by assigning its outs", Pos(11, 5)))) do
+    call check_text(in "ulang/test/errors/several-statement-errors.u", List(
+      "procedure p() :=",
+      "  local x := 1",
+      "  x := 2",
+      "  if x == then",
+      "    assign x := 3",
+      "  else",
+      "    assign x := 4",
+      "  end",
+      "  assign x := x +",
+      "  while x < 3 do",
+      "    return x",
+      "  end"))
+  end
+
+// an argument that does not parse ends at the next , or ) outside its brackets, so that the arguments after it are parsed,
+// and one that does not end there is an error of its statement
+test several_argument_errors() :=
+  assert raises ParseErrors(List(
+    ParseError("expression expected but , found", Pos(2, 19)),
+    ParseError("* is not a prefix operator", Pos(2, 26)),
+    ParseError("expression expected but assign found", Pos(4, 3)))) do
+    call check_text(in "ulang/test/errors/several-argument-errors.u", List(
+      "procedure p() :=",
+      "  local x := f(1 +, g(2, * 3), 4)",
+      "  call os_println(in show(x +",
+      "  assign x := 5"))
+  end
+
+// the hints of habits of other languages, the form to write instead, after the error
+test habits() :=
+  assert raises ParseErrors(List(
+    ParseError("statement expected but x found; a statement starts with its keyword, as in assign x := e", Pos(3, 3)),
+    ParseError(":= expected but += found; write assign x := x + e", Pos(4, 12)),
+    ParseError("statement expected but print found; a procedure is called by call print(in a, out x), and a function only in an expression", Pos(5, 3)),
+    ParseError("statement expected but return found; a function is the value of its body, and a procedure gives its results by assigning its outs", Pos(6, 3)),
+    ParseError("else or end expected but elif found; write else, then if c then … end on the next line, with an end of its own", Pos(9, 3)),
+    ParseError("expression expected but [ found; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments", Pos(12, 16)),
+    ParseError("undeclared operator ::; a list is built and matched as List(x; rest)", Pos(13, 18)),
+    ParseError("undeclared operator &&; the operators of Bool are and, or, and not", Pos(14, 24)),
+    ParseError("statement expected but break found; a loop ends by its condition or by an exception", Pos(16, 5)),
+    ParseError("statement expected but local found; locals are declared at the start of a body, before its statements", Pos(19, 3)))) do
+    call check_text(in "ulang/test/errors/habits.u", List(
+      "procedure main() :=",
+      "  local x := 1, xs := List(1)",
+      "  x := 2",
+      "  assign x += 1",
+      "  print(x)",
+      "  return x",
+      "  if x == 1 then",
+      "    skip",
+      "  elif x == 2 then",
+      "    skip",
+      "  end",
+      "  assign xs := [1, 2]",
+      "  assign xs := x :: xs",
+      "  assign x := if x > 1 && x < 3 then 1 else 2",
+      "  while x < 3 do",
+      "    break",
+      "  end",
+      "  skip",
+      "  local y := 2"))
+  end
+
+// a missing end is reported at the construct that it closes, found at the next line to the left of its body
+test missing_end() :=
+  assert raises ParseError("the if has no end: end expected but assign found at line 4", Pos(2, 3)) do
+    call check_text(in "ulang/test/errors/missing-end.u", List("procedure main() :=", "  if true then", "    skip", "  assign x := 3"))
+  end
+
 test several_parse_errors() :=
   assert raises ParseErrors(List(
     ParseError(_, Pos(4, 1)),

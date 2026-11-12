@@ -532,7 +532,7 @@ function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
       unbound(var_names(firsts(upd)), bound) ++ free_in_all(seconds(upd), bound)
 
     case SBlock(locals, stmts) =>
-      List(for y in stmts for n in free_in_stmt(y, var_names(locals) ++ bound) yield n)
+      List(for y in stmts_of(stmts) for n in free_in_stmt(y, var_names(locals) ++ bound) yield n)
 
     case SIf(cond, left, right) =>
       free_vars(cond, bound) ++ free_in_stmt(left, bound) ++ free_in_stmt(right, bound)
@@ -1276,7 +1276,7 @@ procedure compile_stmt(
 
     case SBlock(locals, stmts) =>
       local bs: List[CStmt]
-      call   compile_stmts(in defs, in_scope(var_names(locals)) ++ env, stmts, out bs, ref g)
+      call   compile_stmts(in defs, in_scope(var_names(locals)) ++ env, stmts_of(stmts), out bs, ref g)
       assign ss := List(CsBlock(null_decls(locals) ++ bs))
 
     case SIf(cond, left, right) =>
@@ -1400,7 +1400,7 @@ function changed(stmt: At[Stmt]): List[Name] :=
       var_names(firsts(upd))
 
     case SBlock(_, stmts) =>
-      List(for y in stmts for n in changed(y) yield n)
+      List(for y in stmts_of(stmts) for n in changed(y) yield n)
 
     case SIf(_, left, right) =>
       changed(left) ++ changed(right)
@@ -1542,7 +1542,7 @@ procedure compile_cmd(
   ref g: Gen
 ) :=
   match cmd
-    case CFun(name, _, formals, _, body) =>
+    case CFun(name, _, formals, _, _, body) =>
       local bs: List[CStmt], rb: CExpr, params: List[CType * Str]
       call   compile_expr(in defs, in_scope(var_names(formals)), body, out bs, rb, ref g)
       assign params := value_formals(formals)
@@ -1555,7 +1555,7 @@ procedure compile_cmd(
         CdFunction(LkStatic, value_type(), fun_name(name, size(formals)), params, bs)), ms := List()
 
     // outs and refs are pointers to the variables of the caller, which the procedure assigns when it returns
-    case CProc(name, _, ins, outs, refs, _, stmt) =>
+    case CProc(name, _, ins, outs, refs, _, _, stmt) =>
       local bs: List[CStmt], params: List[CType * Str]
       call   compile_stmt(in defs, in_scope(var_names(ins ++ outs ++ refs)), stmt, out bs, ref g)
       assign params := value_formals(ins) ++ pointer_formals(outs ++ refs)

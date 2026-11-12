@@ -1,4 +1,4 @@
-// the lemmas that the default proof of ulang/prove/lemma.u leaves open, each a case, the lines of a source text at a path of this directory, which the procedures of
+// the lemmas that the default proof of ulang/prove/lemma.u leaves open, or whose tests on enumerated values fail, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
 import "ulang/syntax"
@@ -12,6 +12,13 @@ test append_commutes() :=
       "  ensures xs ++ ys == ys ++ xs"))
   end
 
+test falsified() :=
+  assert raises Uncaught("Falsified(\"xs = List(1, 0), ys = List()\")") do
+    call run_text(in "ulang/test/errors/falsified.u", List(
+      "lemma reverse_same(xs: List[Int], ys: List[Int]) :=",
+      "  ensures reverse(xs) ++ ys == xs ++ ys"))
+  end
+
 test irreflexive() :=
   assert raises OpenLemma("irreflexive", "forall a => false") do
     call prove_text(in "ulang/test/errors/irreflexive.u", List("lemma irreflexive(a: Int) :=", "  ensures a < a"))
@@ -23,4 +30,76 @@ test less_by_two() :=
       "lemma less_by_two(a: Int, b: Int) :=",
       "  requires a < b",
       "  ensures  b < a + 2"))
+  end
+
+test integer_infeasible() :=
+  assert raises OpenLemma("integer_infeasible", "forall x, y => (not (11 * x + 13 * y) < 27) and (not 45 < (11 * x + 13 * y)) and (not (7 * x - 9 * y) < (-10)) and (not 4 < (7 * x - 9 * y)) ==> false") do
+    call prove_text(in "ulang/test/errors/integer-infeasible.u", List(
+      "lemma integer_infeasible(x: Int, y: Int) :=",
+      "  requires 27 <= 11 * x + 13 * y, 11 * x + 13 * y <= 45, (-10) <= 7 * x - 9 * y, 7 * x - 9 * y <= 4",
+      "  ensures  false"))
+  end
+
+// equal sets of different shapes, which would be refuted as distinct constructors if those of abstract types were free
+test abstract_constructors() :=
+  assert raises OpenLemma("abstract_constructors", "not Node(Node(Leaf, 1, Leaf, 1), 2, Leaf, 2) == Node(Leaf, 1, Node(Leaf, 2, Leaf, 1), 2)") do
+    call prove_text(in "ulang/test/errors/abstract-constructors.u", List("lemma abstract_constructors() :=", "  ensures Set(1, 2) != Set(2, 1)"))
+  end
+
+// the recursive functions of the library whose termination the prover does not prove: distinct recurses on a
+// comprehension, sort on take and drop of half its list, and separated on joined_pairs, which need lemmas of their
+// sizes, gcd on a remainder, which needs its bounds (prover.md, D6), and list_count and list_values of
+// ulang/prelude/enumerate.u count n down to n == 0, so they do not terminate for a negative n
+test library_terminates() :=
+  local main: Id, q: Prog, open: List[Str] := List()
+  call load_text(in "ulang/test/errors/library-terminates.u", List("lemma trivial() :=", "  ensures true"), out main, q)
+  match translate(q, main)
+    case Translation(decls, _) =>
+      assign open := List(for t in terminations(decls, Set(for k => d in decls.defs if d.recursive yield k)) if not is_terminating(t) for (n, _) in t.names yield n.base)
+  end
+  assert Set(for n in open) == Set("distinct", "separated", "sort", "gcd", "list_count", "list_values")
+
+// a function that does not terminate is open, one that counts down to a guard terminates by its Int measure
+test terminations_of_program() :=
+  local main: Id, q: Prog, open: List[Str] := List(), proven: List[Str] := List()
+  call load_text(in "ulang/test/errors/terminations-of-program.u", List(
+    "function loop(x: Int): Int :=",
+    "  loop(x) + 1",
+    "",
+    "function down(n: Int): Int :=",
+    "  if n <= 0 then 0 else down(n - 1) + 1"), out main, q)
+  match translate(q, main)
+    case Translation(decls, _) =>
+      local ts := terminations(decls, Set((Name(Some(main), "loop"), 1), (Name(Some(main), "down"), 1)))
+      assign open := List(for t in ts if not is_terminating(t) for (n, _) in t.names yield n.base), proven := List(for t in ts if is_terminating(t) for (n, _) in t.names yield n.base)
+  end
+  assert open == List("loop") and proven == List("down")
+
+// a function that a lemma reaches and whose termination is not proven is an error at the call that does not decrease,
+// and stays uninterpreted for the lemma, though the if of its body is decided, so that loop(0) == 0 stays open
+test nonterminating_function() :=
+  assert raises OpenTermination("loop", "loop(x) where x == x") do
+    call prove_text(in "ulang/test/errors/nonterminating-function.u", List(
+      "function loop(x: Int): Int :=",
+      "  if x == x then loop(x) + 1 else 0",
+      "",
+      "lemma loop_zero() :=",
+      "  ensures loop(0) == 0"))
+  end
+
+test vacuous() :=
+  assert raises Uncaught("Vacuous") do
+    call run_text(in "ulang/test/errors/vacuous.u", List("lemma large(n: Int) :=", "  requires n > 100", "  ensures  n > 0"))
+  end
+
+// the sign of a remainder follows that of its dividend, since / truncates towards zero, so it is open without it
+test remainder_unsigned() :=
+  assert raises OpenLemma("remainder_unsigned", "forall m => (m % 3) < 0 ==> false") do
+    call prove_text(in "ulang/test/errors/remainder-unsigned.u", List("lemma remainder_unsigned(m: Int) :=", "  ensures m % 3 >= 0"))
+  end
+
+// only squares are at least 0
+test product_unsigned() :=
+  assert raises OpenLemma("product_unsigned", "forall x, y => (x * y) < 0 ==> false") do
+    call prove_text(in "ulang/test/errors/product-unsigned.u", List("lemma product_unsigned(x: Int, y: Int) :=", "  ensures x * y >= 0"))
   end

@@ -129,6 +129,11 @@ test empty_tuple_argument() :=
     call check_text(in "ulang/test/errors/empty-tuple-argument.u", List("function f(g: (()) -> Int): Int :=", "  g"))
   end
 
+test example_type() :=
+  assert raises Located(None, Pos(2, 11), Mismatch(_, _, "the assertion")) do
+    call check_text(in "ulang/test/errors/example-type.u", List("function f(x: Int): Int :=", "  example f(1)", "  x"))
+  end
+
 test field_unknown_owner() :=
   assert raises Located(None, Pos(2, 28), UnknownFieldOwner(".x")) do
     call check_text(in "ulang/test/errors/field-unknown-owner.u", List(
@@ -682,6 +687,30 @@ test several_errors() :=
     "test t() :=",
     "  assert f(1) == \"a\""), out errors)
   assert List(for e in errors yield error_pos(e)) == List(Pos(2, 7), Pos(5, 6), Pos(5, 13), Pos(8, 18))
+
+// the hints of habits of other languages, the form to write instead, which the messages give after their errors
+test hints() :=
+  local errors: List[TypeError]
+  call check_text_all(in "ulang/test/errors/hints.u", List(
+    "procedure twice(in n: Int, out m: Int) :=",
+    "  assign m := 2 * n",
+    "",
+    "procedure main() :=",
+    "  local s := \"a\" ++ \"b\", n := 1 + s, t := twice(2), u := sise(\"ab\"), v := length(\"a\")",
+    "  skip"), out errors)
+  assert List(for e in errors yield error_hint(e)) == List(
+    "strings join by ++, and + adds integers",
+    "",
+    "did you mean size?",
+    "write size")
+
+function error_hint(e: TypeError): Str :=
+  match e
+    case Located(_, _, Hinted(_, hint)) =>
+      hint
+    case _ =>
+      ""
+  end
 
 function error_pos(e: TypeError): Pos :=
   match e
