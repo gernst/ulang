@@ -108,12 +108,7 @@ function os_join(dir: Str, name: Str): Str :=
     dir ++ "/" ++ name
 
 function os_basename(path: Str): Str :=
-  match last(split(path, '/'))
-    case Some(name) =>
-      name
-    case None =>
-      path
-  end
+  value_or(last(split(path, '/')), path)
 
 // / for a path right below the root, such as /a
 function os_dirname(path: Str): Str :=

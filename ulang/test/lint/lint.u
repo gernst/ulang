@@ -1,0 +1,67 @@
+// the lints of parsed texts, with their positions and the replacements as format writes them, where the texts are not
+// checked, as check --lint checks them first
+
+import "ulang/syntax"
+import "ulang/parse"
+import "ulang/format"
+import "ulang/lint"
+
+// the lints of the program of the lines, each its position and the text of its replacement
+procedure linted(in lines: List[Str], out found: List[Pos * Str]) :=
+  local d: Mod
+  call   parse_text(in join("\n", lines) ++ "\n", out d)
+  assign found := List(for l in lints(d) yield (l.pos, format_module_expr(Source(List(d), List(), d.name), d.name, l.replacement)))
+
+test lints_of_ifs() :=
+  local found: List[Pos * Str]
+  call linted(in List(
+    "prefix 5 not",
+    "function f(c: Bool): Bool :=",
+    "  if c then true else false",
+    "function g(c: Bool): Bool :=",
+    "  if c then false else true",
+    "function not(b: Bool): Bool :=",
+    "  if b then false else true"), out found)
+  assert found == List((Pos(3, 3), "c"), (Pos(5, 3), "not c"))
+
+test lints_of_matches() :=
+  local found: List[Pos * Str]
+  call linted(in List(
+    "function h(o: Option[Int], d: Int): Int :=",
+    "  match o",
+    "    case None =>",
+    "      d",
+    "    case Some(x) =>",
+    "      x",
+    "  end",
+    "function k(o: Option[Int]): Int :=",
+    "  match o",
+    "    case Some(x) =>",
+    "      x",
+    "    case None =>",
+    "      size(List())",
+    "  end",
+    "function value_or(o: Option[Int], d: Int): Int :=",
+    "  match o",
+    "    case Some(x) =>",
+    "      x",
+    "    case None() =>",
+    "      Pair(d, (0, \"a\"))",
+    "  end"), out found)
+  assert found == List((Pos(2, 3), "value_or(o, d)"))
+
+test lints_of_iterated_lists() :=
+  local found: List[Pos * Str]
+  call linted(in List(
+    "function l(xs: Set[Int]): List[Int] :=",
+    "  List(for y in List(for x in xs) yield y)",
+    "function m(xs: Set[Int]): List[Int] :=",
+    "  List(for y in List(for x in xs if is_odd(x)) yield y)",
+    "function n(m: Map[Int, Str]): List[Int] :=",
+    "  List(for (k, v) in List(for k => v in m) yield k)",
+    "procedure p(in xs: Set[Int], out n: Int) :=",
+    "  assign n := 0",
+    "  for y in List(for x in xs yield x) do",
+    "    assign n := plus(n, y)",
+    "  end"), out found)
+  assert found == List((Pos(2, 17), "xs"), (Pos(6, 22), "m"), (Pos(9, 12), "xs"))

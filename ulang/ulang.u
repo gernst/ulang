@@ -10,12 +10,14 @@ import "ulang/check"
 import "ulang/run"
 import "ulang/compile"
 import "ulang/prove"
+import "ulang/lint"
 
 // the command of the arguments, as request reads them
 data Request :=
   case RRun(target: Target, args: List[Str])
   case RTest(targets: List[Target], args: List[Str])
-  case RCheck(paths: List[Str])
+  // with lint, also the lints of the files that load, as warnings
+  case RCheck(paths: List[Str], lint: Bool)
   case RProve(targets: List[Target])
   case RFormat(paths: List[Str], check_only: Bool)
   // the procedure of the target, main by default
@@ -40,8 +42,8 @@ procedure main() :=
     case RTest(targets, rest) =>
       call test_targets(in targets, rest, out ok)
 
-    case RCheck(paths) =>
-      call check_paths(in paths, out ok)
+    case RCheck(paths, lint) =>
+      call check_paths(in paths, lint, out ok)
 
     case RProve(targets) =>
       call prove_targets(in targets, out ok)
@@ -97,11 +99,11 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
     case ("test", _) =>
       RTest(List(for w in words yield target_of(w)), rest)
 
+    case ("check", List("--lint"; paths)) =>
+      check_request(paths, true)
+
     case ("check", _) =>
-      if exists(words, lambda w => target_of(w).name != None) then
-        RUsage("check takes no names")
-      else
-        RCheck(words)
+      check_request(words, false)
 
     case ("prove", _) =>
       RProve(List(for w in words yield target_of(w)))
@@ -130,6 +132,12 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
       else
         RUsage("unknown command " ++ command)
   end
+
+function check_request(paths: List[Str], lint: Bool): Request :=
+  if exists(paths, lambda w => target_of(w).name != None) then
+    RUsage("check takes no names")
+  else
+    RCheck(paths, lint)
 
 // the words of compile in any order, the file with its procedure or --tests, and -o with the target
 function compile_request(words: List[Str], target: Option[Target], tests: Bool, output: Option[Str]): Request :=
@@ -182,7 +190,8 @@ test requests() :=
   assert request(List("run", "a.u")) == RRun(Target("a.u", None), List())
   assert request(List("run", "a.u:go", "--", "x")) == RRun(Target("a.u", Some("go")), List("x"))
   assert request(List("test", "a.u:t", "dir", "b:c")) == RTest(List(Target("a.u", Some("t")), Target("dir", None), Target("b:c", None)), List())
-  assert request(List("check")) == RCheck(List())
+  assert request(List("check")) == RCheck(List(), false)
+  assert request(List("check", "--lint", "a.u")) == RCheck(List("a.u"), true)
   assert request(List("format", "--check", "a.u")) == RFormat(List("a.u"), true)
   assert request(List("compile", "-o", "a.c", "--tests")) == RCompileTests("a.c")
   assert request(List("compile", "a.u:go", "-o", "a.c")) == RCompile(Target("a.u", Some("go")), "a.c")
@@ -216,7 +225,7 @@ function synopsis(command: Str): Str :=
       "test [<path>[:<name>] ...] [-- args]"
 
     case "check" =>
-      "check [<path> ...]"
+      "check [--lint] [<path> ...]"
 
     case "prove" =>
       "prove [<path>[:<lemma>] ...]"
@@ -240,7 +249,7 @@ function description(command: Str): Str :=
       "runs the tests of the files, all or the named ones, also below directories, by default the project, in the working\n" ++ "directory, printing a line per test and lemma, where a file passes if it loads and its tests pass and its lemmas are\n" ++ "proven; with several files, it prints the files that do not pass and how many do"
 
     case "check" =>
-      "checks the files, also below directories, by default the project"
+      "checks the files, also below directories, by default the project; with --lint, it also prints the lints of the files\n" ++ "that load, as warnings with the simpler expression to write, which do not fail the check"
 
     case "prove" =>
       "proves the lemmas of the files, all or the named ones, also below directories, by default the project; functions are\n" ++ "not yet checked to terminate, so a lemma about one that does not may be proven falsely"
@@ -305,7 +314,7 @@ procedure run_target(in target: Target, args: List[Str], out ok: Bool) :=
 procedure test_targets(in targets: List[Target], args: List[Str], out ok: Bool) :=
   local found: List[Target]
   call targets_of(in targets, true, out found)
-  call visit_units(in found, lambda in q, unit, out failed =>
+  call visit_units(in found, lambda in source, q, unit, out failed =>
     call test_unit(in q, unit, found, args, out failed)
   end, out ok)
 
@@ -334,18 +343,18 @@ procedure test_unit(
 // how many files passed, where ok tells whether all did
 procedure visit_units(
   in  found: List[Target],
-      visit: (in Prog, List[Target], out List[Str]),
+      visit: (in Source, Prog, List[Target], out List[Str]),
   out ok: Bool
 ) :=
-  local units: List[List[Target]], q: Prog, error: Str, failed: Buffer[Str] := empty(), bad: List[Str]
+  local units: List[List[Target]], source: Source, q: Prog, error: Str, failed: Buffer[Str] := empty(), bad: List[Str]
   call units_of(in found, out units)
   for unit in units do
-    call check_file(in first_path(unit), true, out q, error)
+    call load_file(in first_path(unit), true, out source, q, error)
     if error != "" then
       call   report(in first_path(unit), error, size(files_of(found)) > 1)
       assign failed := failed ++ files_of(unit)
     else
-      call   visit(in q, unit, out bad)
+      call   visit(in source, q, unit, out bad)
       assign failed := failed ++ bad
     end
   end
@@ -396,18 +405,31 @@ procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
   end
 
 // checks the files of the paths, by default of the project, each unit once, where each file must be formatted
-procedure check_paths(in paths: List[Str], out ok: Bool) :=
+procedure check_paths(in paths: List[Str], lint: Bool, out ok: Bool) :=
   local found: List[Target]
   call targets_of(in List(for p in paths yield Target(p, None)), false, out found)
-  call visit_units(in found, lambda in q, unit, out failed =>
+  call visit_units(in found, lambda in source, q, unit, out failed =>
     assign failed := List()
+    if lint then
+      call print_lints(in source, q, unit)
+    end
   end, out ok)
+
+// prints the lints of the files of the unit, each as a warning with the expression to write instead and its position
+procedure print_lints(in source: Source, q: Prog, unit: List[Target]) :=
+  for file in files_of(unit) do
+    for d in find(source.mods, lambda d => d.name == sibling(q.main, file)) do
+      for l in lints(d) do
+        call os_println(in file ++ ": warning: " ++ l.message ++ ", write " ++ format_module_expr(source, d.name, l.replacement) ++ at_pos(l.pos))
+      end
+    end
+  end
 
 // proves the lemmas of the targets, all or the named ones, by default of the project, each unit loaded once
 procedure prove_targets(in targets: List[Target], out ok: Bool) :=
   local found: List[Target]
   call targets_of(in targets, false, out found)
-  call visit_units(in found, lambda in q, unit, out failed =>
+  call visit_units(in found, lambda in source, q, unit, out failed =>
     call prove_unit(in q, unit, found, out failed)
   end, out ok)
 
@@ -648,8 +670,19 @@ function same_tops(tops: List[Top], others: List[Top]): Bool :=
 // of its unit, the members of its package or file alone if it is a program, to be formatted, after the errors of parsing
 // and checking
 procedure check_file(in file: Str, formatted: Bool, out q: Prog, error: Str) :=
-  local source: Source, text: Str
-  assign q := Prog(List(), ""), error := ""
+  local source: Source
+  call load_file(in file, formatted, out source, q, error)
+
+// check_file with the parsed source, which has no modules if file does not parse
+procedure load_file(
+  in  file: Str,
+      formatted: Bool,
+  out source: Source,
+      q: Prog,
+      error: Str
+) :=
+  local text: Str
+  assign source := Source(List(), List(), ""), q := Prog(List(), ""), error := ""
   try
     call parse_file(in file, out source)
     call check_program(in source, out q)

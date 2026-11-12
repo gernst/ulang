@@ -309,12 +309,7 @@ function subst(t: Type, m: List[Type * Type]): Type :=
       TTuple(List(for a in types yield subst(a, m)))
 
     case _ =>
-      match get(t, m)
-        case Some(u) =>
-          u
-        case None =>
-          t
-      end
+      value_or(get(t, m), t)
   end
 
 function resolve(su: Subst, t: Type): Type :=
@@ -504,13 +499,7 @@ function zonk_type(su: Subst, t: Type): Type :=
 function settled(s: State, n: Name): Name :=
   match n.module
     case Some("?") =>
-      match get(n, s.chosen)
-        case Some(m) =>
-          m
-        case None =>
-          n
-      end
-
+      value_or(get(n, s.chosen), n)
     case _ =>
       n
   end

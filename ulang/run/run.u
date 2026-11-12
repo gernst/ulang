@@ -94,7 +94,7 @@ function format_value(v: Val): Str :=
       constr.base ++ "(" ++ format_values(args) ++ ")"
 
     case VArr(values) =>
-      array_text(List(for w in List(for x in values) yield format_value(w)))
+      array_text(List(for w in values yield format_value(w)))
 
     case VProc(_) =>
       "<procedure>"

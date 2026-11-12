@@ -29,12 +29,7 @@ function top[A](s: Stack[A]): Option[A] :=
   end
 
 function peek[A](s: Stack[A], x: A): A :=
-  match top(s)
-    case None =>
-      x
-    case Some(y) =>
-      y
-  end
+  value_or(top(s), x)
 
 test stack() :=
   assert top(1 <+ Empty) == Some(1)

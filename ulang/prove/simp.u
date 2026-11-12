@@ -1142,12 +1142,7 @@ function instance(ctx: Ctx, r: Rule, t: Term): Option[Term] :=
   end
 
 function lookup_index(i: Int, sub: Map[Int, Term]): Term :=
-  match get(i, sub)
-    case Some(e) =>
-      e
-    case None =>
-      EBound(i)
-  end
+  value_or(get(i, sub), EBound(i))
 
 // the values of the variables below n of the pattern p such that it is t, first order
 function match_term(n: Int, p: Term, t: Term, sub: Map[Int, Term]): Option[Map[Int, Term]] :=
