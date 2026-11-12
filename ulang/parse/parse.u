@@ -252,11 +252,16 @@ function format_token(tok: Token): Str :=
       "end of input"
   end
 
-// the error that what is expected but the next token is found, where a keyword is not a name
+// the error that what is expected but the next token is found, where a keyword is not a name, and a doc documents nothing
+// there
 function expected(what: Str, toks: Tokens): ParseError :=
   match head_token(toks)
+    case TDoc(_) =>
+      ParseError(misplaced_comment(), head_pos(toks))
+
     case TKw(kw) if is_keyword(kw) and (what == "name" or what == "pattern") =>
       ParseError("keyword " ++ kw ++ " is not a name", head_pos(toks))
+
     case tok =>
       ParseError(what ++ " expected but " ++ format_token(tok) ++ " found", head_pos(toks))
   end
@@ -1301,7 +1306,7 @@ procedure parse_body(
   out body: At[Stmt],
   ref toks: Tokens
 ) :=
-  local pos := head_pos(toks), xs: List[Var] := List(), inits: List[At[Stmt]] := List(), decls: List[Var * List[At[Stmt]]], found: Buffer[At[Stmt]] := empty(), stmt: At[Stmt]
+  local pos := head_pos(toks), xs: List[Var] := List(), inits: List[At[Stmt]] := List(), decls: List[Var * List[At[Stmt]]], found: Buffer[Doc[Stmt]] := empty(), stmt: Doc[Stmt]
   while at_kw(toks, "local") do
     call   advance(ref toks)
     call   parse_separated(in notation, params, parse_local, at_comma, out decls, ref toks)
@@ -1311,17 +1316,18 @@ procedure parse_body(
     call   parse_stmt_recovering(in notation, params, out stmt, ref toks)
     assign found := found ++ List(stmt)
   end
-  assign body := AOk(pos, SBlock(xs, inits ++ List(for t in found)))
+  assign body := AOk(pos, SBlock(xs, List(for init in inits yield Doc(None, init)) ++ List(for t in found)))
 
 // whether the next token starts a statement, or something else that is not a command, in column 1, and does not end a body,
-// which a statement that does not parse then is
+// which a statement that does not parse then is, also after a doc, which may document a statement but not what ends a
+// body, where a doc of the end is an error of the end
 function at_stmt(toks: Tokens): Bool :=
   match head_token(toks)
     case TKw(kw) =>
-      starts_stmt(TKw(kw)) or head_pos(toks).col > 1 and not contains(kw, List("end", "else", "catch", "case"))
+      starts_stmt(TKw(kw)) or head_pos(toks).col > 1 and not ends_body(kw)
 
     case TDoc(_) =>
-      false
+      head_pos(toks).col > 1 and not ends_body_token(second_token(toks)) and second_token(toks) != TEnd
 
     case TEnd =>
       false
@@ -1330,21 +1336,38 @@ function at_stmt(toks: Tokens): Bool :=
       head_pos(toks).col > 1
   end
 
-// a statement, or after an error the statement as written up to the next line at its column or to its left, from the start
-// of the statement, as the handler sees the tokens
+function ends_body(kw: Str): Bool :=
+  contains(kw, List("end", "else", "catch", "case"))
+
+function ends_body_token(tok: Token): Bool :=
+  match tok
+    case TKw(kw) =>
+      ends_body(kw)
+    case _ =>
+      false
+  end
+
+// a statement after its doc, or after an error the statement as written up to the next line at its column or to its left,
+// from the start of the statement, as the handler sees the tokens, where a doc of what is no statement is an error at the doc
 procedure parse_stmt_recovering(
   in  notation: Notation,
       params: List[Id],
-  out stmt: At[Stmt],
+  out stmt: Doc[Stmt],
   ref toks: Tokens
 ) :=
-  local pos := head_pos(toks), text: Str
+  local doc_pos := head_pos(toks), doc: Option[Str], pos: Pos, text: Str, parsed: At[Stmt]
+  call   parse_doc(out doc, ref toks)
+  assign pos := head_pos(toks)
   try
-    call parse_stmt(in notation, params, out stmt, ref toks)
+    if doc != None and not starts_stmt(head_token(toks)) then
+      raise ParseError(misplaced_comment(), doc_pos)
+    end
+    call   parse_stmt(in notation, params, out parsed, ref toks)
+    assign stmt := Doc(doc, parsed)
   catch
     case ParseError(message, at) =>
       call   skip_stmt(out text, ref toks)
-      assign stmt := AUnparsed(pos, text, parse_diagnostic(ParseError(message, at)))
+      assign stmt := Doc(doc, AUnparsed(pos, text, parse_diagnostic(ParseError(message, at))))
   end
 
 // the tokens of a statement, at least its first, up to the next line at its column or to its left, where a statement that
@@ -1358,7 +1381,7 @@ procedure skip_stmt(out text: Str, ref toks: Tokens) :=
       assign done := true
     else
       if head_pos(toks).line > pos.line and head_pos(toks).col == pos.col then
-        assign done := not (opens and is_continuation(head_token(toks)))
+        assign done := not (opens and (is_continuation(head_token(toks)) or at_doc(toks) and ends_body_token(second_token(toks))))
         if opens and head_token(toks) == TKw("end") then
           assign skipped := skipped ++ List("end")
           call   advance(ref toks)
@@ -2880,7 +2903,7 @@ test parsed_docs_of_cases() :=
   match commands_of(d.implemented)
     case List(
       CFun(_, _, _, _, AOk(_, EMatch(_, bs))),
-      CProc(_, _, _, _, _, _, AOk(_, SBlock(_, List(AOk(_, SMatch(_, cs)), AOk(_, STry(_, hs))))))) =>
+      CProc(_, _, _, _, _, _, AOk(_, SBlock(_, List(Doc(_, AOk(_, SMatch(_, cs))), Doc(_, AOk(_, STry(_, hs)))))))) =>
       assign docs := List(for b in bs yield b.doc) ++ List(for c in cs yield c.doc) ++ List(for h in hs yield h.doc)
 
     case _ =>
@@ -3085,7 +3108,7 @@ function unparsed_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
       unparsed_in_exprs(seconds(upd))
 
     case SBlock(_, stmts) =>
-      unparsed_in_stmts(stmts)
+      unparsed_in_stmts(stmts_of(stmts))
 
     case SIf(cond, left, right) =>
       unparsed_in_expr(cond) ++ unparsed_in_stmts(List(left, right))

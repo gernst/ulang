@@ -135,8 +135,9 @@ data Stmt :=
   case SSkip
   // assign x := a, …, which assigns in parallel
   case SAssign(upd: List[Var * At[Expr]])
-  // statements one after another, the body of an if, while, case, or procedure, which may declare local x := e first
-  case SBlock(locals: List[Var], stmts: List[At[Stmt]])
+  // statements one after another, each after its doc, the body of an if, while, case, or procedure, which may declare
+  // local x := e first, as assignments without docs that start stmts
+  case SBlock(locals: List[Var], stmts: List[Doc[Stmt]])
   // if c then … else … end, or if c then … end
   case SIf(cond: At[Expr], left: At[Stmt], right: At[Stmt])
   // while c do … end
@@ -312,6 +313,12 @@ function commands_of(docs: List[Doc[Cmd]]): List[Cmd]
 // the parts of docs, without their docs and positions
 function parts[A](docs: List[Doc[A]]): List[A]
 
+// the statements of docs, without their docs
+function stmts_of(docs: List[Doc[Stmt]]): List[At[Stmt]]
+
+// a block of stmts without docs
+function block(locals: List[Var], stmts: List[At[Stmt]]): Stmt
+
 // the modules that module name imports without saying so: for a module of a project the library but enumerate, which only
 // the generated tests of lemmas name, and none for a module of the library, which sees the others as the members of its
 // package
@@ -428,6 +435,12 @@ function placed_of(d: Mod): List[Doc[Cmd]] :=
 
 function commands_of(docs: List[Doc[Cmd]]): List[Cmd] :=
   parts(docs)
+
+function stmts_of(docs: List[Doc[Stmt]]): List[At[Stmt]] :=
+  List(for d in docs yield d.at)
+
+function block(locals: List[Var], stmts: List[At[Stmt]]): Stmt :=
+  SBlock(locals, List(for stmt in stmts yield Doc(None, stmt)))
 
 function parts[A](docs: List[Doc[A]]): List[A] :=
   List(for d in docs yield d.at.that)
@@ -790,7 +803,7 @@ function strip_statement(stmt: Stmt): Stmt :=
       SAssign(List(for (x, e) in upd yield (x, strip_expr(e))))
 
     case SBlock(locals, stmts) =>
-      SBlock(locals, List(for y in stmts yield strip_stmt(y)))
+      SBlock(locals, List(for d in stmts yield Doc(d.doc, strip_stmt(d.at))))
 
     case SIf(cond, left, right) =>
       SIf(strip_expr(cond), strip_stmt(left), strip_stmt(right))

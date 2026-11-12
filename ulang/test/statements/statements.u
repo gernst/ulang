@@ -152,6 +152,34 @@ procedure sum_all(in xs: List[Int], out t: Int) :=
   assign t := sum
 
 // the initial values are assigned in order, so each may refer to the locals before it
+// a doc stands before a statement, also in a case and after else, at its indentation
+procedure documented(in n: Int, out s: Int) :=
+  local m := n
+  // the first value
+  assign s := 1
+  if m > 0 then
+    // a positive n
+    assign s := 2
+  else
+    // nested, below else
+    if m == 0 then
+      skip
+    end
+  end
+  match m
+    case 3 =>
+      // the third
+      assign s := 3
+
+    case _ =>
+      skip
+  end
+
+test documented_statements() :=
+  local s: Int
+  call documented(in 3, out s)
+  assert s == 3
+
 test initialized_locals() :=
   local a := 1, b := a + 1, c: Int := b * 2, s := "x", t: Int
   call sum_all(in List(a, b, c), out t)

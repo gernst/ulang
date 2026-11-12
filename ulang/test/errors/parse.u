@@ -10,9 +10,41 @@ test argument_list() :=
     call check_text(in "ulang/test/errors/argument-list.u", List("function f(p: (Int, Int)): Int :=", "  1"))
   end
 
-test comment_before_statement() :=
-  assert raises ParseError("a comment is the doc of the command or case on the next line, from the start of a line with its indentation", Pos(3, 3)) do
-    call check_text(in "ulang/test/errors/comment-before-statement.u", List("procedure main() :=", "  local x := 1", "  // two", "  assign x := 2"))
+// a doc stands before a statement, but not before what ends a body, a local line, or a part of an expression
+test comment_before_end() :=
+  assert raises ParseError("a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation", Pos(4, 3)) do
+    call check_text(in "ulang/test/errors/comment-before-end.u", List(
+      "procedure main() :=",
+      "  if true then",
+      "    skip",
+      "  // the end",
+      "  end"))
+  end
+
+test comment_before_else() :=
+  assert raises ParseError("a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation", Pos(4, 3)) do
+    call check_text(in "ulang/test/errors/comment-before-else.u", List(
+      "procedure main() :=",
+      "  if true then",
+      "    skip",
+      "  // otherwise",
+      "  else",
+      "    skip",
+      "  end"))
+  end
+
+test comment_before_local() :=
+  assert raises ParseError("a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation", Pos(2, 3)) do
+    call check_text(in "ulang/test/errors/comment-before-local.u", List("procedure main() :=", "  // one", "  local x := 1", "  skip"))
+  end
+
+test comment_in_argument() :=
+  assert raises ParseError("a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation", Pos(3, 5)) do
+    call check_text(in "ulang/test/errors/comment-in-argument.u", List(
+      "procedure main() :=",
+      "  call os_println(in show(1,",
+      "    // two",
+      "    2))"))
   end
 
 test data_bar() :=
@@ -25,7 +57,7 @@ test data_bar() :=
   end
 
 test detached_comment() :=
-  assert raises ParseError("a comment is the doc of the command or case on the next line, from the start of a line with its indentation", Pos(3, 1)) do
+  assert raises ParseError("a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation", Pos(3, 1)) do
     call check_text(in "ulang/test/errors/detached-comment.u", List(
       "function f(): Int := 1",
       "",
@@ -205,7 +237,7 @@ test string_escape() :=
   end
 
 test trailing_comment() :=
-  assert raises ParseError("a comment is the doc of the command or case on the next line, from the start of a line with its indentation", Pos(1, 24)) do
+  assert raises ParseError("a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation", Pos(1, 24)) do
     call check_text(in "ulang/test/errors/trailing-comment.u", List("function f(): Int := 1 // one"))
   end
 

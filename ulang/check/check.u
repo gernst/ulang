@@ -643,7 +643,7 @@ function zonk_statement(s: State, stmt: Stmt): Stmt :=
       SAssign(List(for p in upd yield zonk_binding(s, p)))
 
     case SBlock(locals, stmts) =>
-      SBlock(zonk_vars(s, locals), List(for y in stmts yield zonk_stmt(s, y)))
+      SBlock(zonk_vars(s, locals), List(for d in stmts yield Doc(d.doc, zonk_stmt(s, d.at))))
 
     case SIf(cond, left, right) =>
       SIf(zonk_expr(s, cond), zonk_stmt(s, left), zonk_stmt(s, right))
@@ -724,7 +724,7 @@ function unknown_in(stmt: At[Stmt]): Option[Pos * Type] :=
       unknown_in_exprs(seconds(upd))
 
     case SBlock(_, stmts) =>
-      unknown_in_all(stmts)
+      unknown_in_all(stmts_of(stmts))
 
     case SIf(cond, left, right) =>
       or_else(unknown_in_expr(cond), or_else(unknown_in(left), unknown_in(right)))
@@ -2516,12 +2516,12 @@ procedure statement_node(
     // the types of locals that are initialized at the start of the block may be inferred
     case SBlock(locals, stmts) =>
       local ys: List[Var], xs: List[At[Stmt]], inner: Env
-      call   untyped(in locals, initialized(stmts), ref s)
+      call   untyped(in locals, initialized(stmts_of(stmts)), ref s)
       call   formals(in "local", locals, out ys, ref s)
       call   unhidden(in env, ys, ref s)
       assign inner := unassigned(ys) ++ env
-      call   statements(in List(for x in ys yield x.name) ++ assignable, stmts, out xs, ref inner, s)
-      assign y := SBlock(ys, xs), env := drop(size(ys), inner)
+      call   statements(in List(for x in ys yield x.name) ++ assignable, stmts_of(stmts), out xs, ref inner, s)
+      assign y := SBlock(ys, List(for (d, x) in zip(stmts, xs) yield Doc(d.doc, x))), env := drop(size(ys), inner)
 
     case SIf(cond, left, right) =>
       local c: At[Expr], l: At[Stmt], r: At[Stmt], other: Env
@@ -3790,15 +3790,15 @@ function example_stmt(owner: Owner, x: Example): At[Stmt] :=
 
     case XRaises(expr, pat) =>
       let value := Var(generated_name("value"), THole) in
-      nowhere(SAssertRaises(THole, pat, nowhere(SBlock(List(value), List(nowhere(SAssign(List((value, owned_calls(owner, expr))))))))))
+      nowhere(SAssertRaises(THole, pat, nowhere(block(List(value), List(nowhere(SAssign(List((value, owned_calls(owner, expr))))))))))
 
     case XCall(_, ins, outs, refs) =>
       let out_vars := generated_vars("out", size(outs)), ref_vars := generated_vars("ref", size(refs)) in
-      nowhere(SBlock(out_vars ++ ref_vars, initial_refs(ref_vars, firsts(refs)) ++ List(nowhere(SCall(owner.name, ins, out_vars, ref_vars))) ++ expected_values(out_vars ++ ref_vars, outs ++ seconds(refs))))
+      nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, firsts(refs)) ++ List(nowhere(SCall(owner.name, ins, out_vars, ref_vars))) ++ expected_values(out_vars ++ ref_vars, outs ++ seconds(refs))))
 
     case XCallRaises(_, ins, blanks, befores, pat) =>
       let out_vars := generated_vars("out", blanks), ref_vars := generated_vars("ref", size(befores)) in
-      nowhere(SAssertRaises(THole, pat, nowhere(SBlock(out_vars ++ ref_vars, initial_refs(ref_vars, befores) ++ List(nowhere(SCall(owner.name, ins, out_vars, ref_vars)))))))
+      nowhere(SAssertRaises(THole, pat, nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, befores) ++ List(nowhere(SCall(owner.name, ins, out_vars, ref_vars)))))))
   end
 
 // a name of the generated code, which users cannot write
@@ -4137,10 +4137,10 @@ function lemma_stmt(formals: List[Var * At[Expr]], assms: List[At[Expr]], concl:
   let es := List(for i in range(1, size(formals) + 1) yield Var(generated_name("e" ++ show(i)), THole)), n := Var(generated_name("depth"), THole), held := Var(generated_name("held"), THole), d := generated_name("d") in
   let raised := nowhere(SRaise(enum_call("Falsified", List(bindings_text(firsts(formals)))), THole)), counted := nowhere(SAssign(List(
     (held, generated_op("+", List(nowhere(EVar(held)), nowhere(ELit(LInt(1))))))))) in
-  let check := nowhere(SIf(conjunction(assms), nowhere(SBlock(List(), List(
+  let check := nowhere(SIf(conjunction(assms), nowhere(block(List(), List(
     nowhere(SIf(generated_op("not", List(concl)), raised, nowhere(SSkip))),
     counted))), nowhere(SSkip))) in
-  nowhere(SBlock(es ++ List(n, held), List(for (e, (_, enum)) in zip(es, formals) yield nowhere(SAssign(List((e, enum))))) ++ List(
+  nowhere(block(es ++ List(n, held), List(for (e, (_, enum)) in zip(es, formals) yield nowhere(SAssign(List((e, enum))))) ++ List(
     nowhere(SAssign(List(
       (n, enum_call("depth_of", List(
         generated_list(List(for e in es yield generated_lambda(d, enum_call("count_of", List(nowhere(EVar(e)), generated_var(d)))))))))))),
@@ -4348,14 +4348,14 @@ function case_at[A](pat: At[Pat], body: A): Doc[Branch[A]] :=
 test elaboration() :=
   local q: Prog
   call check_program(in with_lists(List(
-    CTest(unqualified("r"), List(), nowhere(SBlock(List(Var(unqualified("n"), THole)), List(
+    CTest(unqualified("r"), List(), nowhere(block(List(Var(unqualified("n"), THole)), List(
       nowhere(SAssign(List(
         (Var(unqualified("n"), THole), expr_app("len", List(expr_app("Cons", List(expr_int(1), expr_var("Nil"))))))))))))))), out q)
   match q.cmds
     case List(
       _,
       CFun(_, _, _, _, AOk(_, EMatch(_, List(Doc(_, AOk(_, Branch(pat, _, _))); _)))),
-      CTest(_, List(), AOk(_, SBlock(_, List(AOk(_, SAssign(List((_, AOk(_, ECall(_, _, typ, _))))))))))) =>
+      CTest(_, List(), AOk(_, SBlock(_, List(Doc(_, AOk(_, SAssign(List((_, AOk(_, ECall(_, _, typ, _)))))))))))) =>
       assert pat.that == PNil()
       assert typ == TFun(List(TList(TInt())), TInt())
 
@@ -4380,15 +4380,15 @@ test statements() :=
   local q: Prog
   assert raises NotAssignable(Name(None, "n")) do
     call check_program(in program_of(List(
-      CProc(unqualified("inc"), List(), List(), List(), List(Var(unqualified("k"), TInt())), List(), nowhere(SBlock(List(), List(
+      CProc(unqualified("inc"), List(), List(), List(), List(Var(unqualified("k"), TInt())), List(), nowhere(block(List(), List(
         nowhere(SAssign(List(
           (Var(unqualified("k"), THole), expr_app("+", List(expr_var("k"), expr_int(1))))))))))),
-      CProc(unqualified("p"), List(), List(Var(unqualified("n"), TInt())), List(), List(), List(), nowhere(SBlock(List(), List(
+      CProc(unqualified("p"), List(), List(Var(unqualified("n"), TInt())), List(), List(), List(), nowhere(block(List(), List(
         nowhere(SCall(unqualified("inc"), List(), List(), List(Var(unqualified("n"), THole)))))))))), out q)
   end
   assert raises UnknownException(TList(_)) do
     call check_program(in with_lists(List(
-      CTest(unqualified("t"), List(), nowhere(SBlock(List(), List(nowhere(SRaise(expr_var("Nil"), THole)))))))), out q)
+      CTest(unqualified("t"), List(), nowhere(block(List(), List(nowhere(SRaise(expr_var("Nil"), THole)))))))), out q)
   end
 
 function tsort(n: Id): Type :=
@@ -4517,11 +4517,11 @@ test constructors() :=
 test procedures() :=
   local q: Prog
   call check_program(in with_bags(List(
-    CProc(unqualified("p"), List(), List(), List(), List(), List(), nowhere(SBlock(List(var_of("b", tsort("Box"))), List(
+    CProc(unqualified("p"), List(), List(), List(), List(), List(), nowhere(block(List(var_of("b", tsort("Box"))), List(
       nowhere(SCall(unqualified("fill"), List(), List(var_of("b", THole)), List())))))))), out q)
   match reverse(q.cmds)
     case List(
-      CProc(_, _, _, _, _, _, AOk(_, SBlock(_, List(AOk(_, SCall(proc, _, _, _)))))); _) =>
+      CProc(_, _, _, _, _, _, AOk(_, SBlock(_, List(Doc(_, AOk(_, SCall(proc, _, _, _))))))); _) =>
       assert proc == in_box("fill")
 
     case _ =>

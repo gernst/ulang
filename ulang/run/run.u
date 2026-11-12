@@ -965,7 +965,7 @@ procedure exec(
       assign env := env ++ Map(for (k, u) in zip(List(for x in firsts(upd) yield x.name), vs))
 
     case SBlock(locals, stmts) =>
-      call scoped(in run, List(for x in locals yield x.name), env -- Set(for x in locals yield x.name), stmts, ref env, cache)
+      call scoped(in run, List(for x in locals yield x.name), env -- Set(for x in locals yield x.name), stmts_of(stmts), ref env, cache)
 
     case SIf(cond, left, right) =>
       local v: Val
@@ -1446,15 +1446,15 @@ procedure check_and_run(in cmds: List[Cmd]) :=
 
 // the test n that asserts that expr equals expected
 function asserting(n: Id, expr: At[Expr], expected: At[Expr]): Cmd :=
-  CTest(unqualified(n), List(), nowhere(SBlock(List(), List(nowhere(SAssert(expr_app("==", List(expr, expected))))))))
+  CTest(unqualified(n), List(), nowhere(block(List(), List(nowhere(SAssert(expr_app("==", List(expr, expected))))))))
 
 // a test that assigns expr to a local variable
 function assigning(expr: At[Expr]): Cmd :=
-  CTest(unqualified("a"), List(), nowhere(SBlock(List(hole_var("v")), List(nowhere(SAssign(List((hole_var("v"), expr))))))))
+  CTest(unqualified("a"), List(), nowhere(block(List(hole_var("v")), List(nowhere(SAssign(List((hole_var("v"), expr))))))))
 
 // statements one after another, at Pos(0, 0), with the locals xs
 function block(xs: List[Var], stmts: List[Stmt]): At[Stmt] :=
-  nowhere(SBlock(xs, List(for y in stmts yield nowhere(y))))
+  nowhere(SBlock(xs, List(for y in stmts yield Doc(None, nowhere(y)))))
 
 test values() :=
   assert format_value(list_value(List(VInt(1), VStr("a\"b")))) == "List(1, \"a\\\"b\")"
@@ -1507,7 +1507,7 @@ test procedures() :=
 test procedure_values() :=
   call check_and_run(in procedures() ++ List(
     CTest(unqualified("values"), List(), block(List(Var(unqualified("s"), TInt()), Var(unqualified("t"), TInt())), List(
-      SBlock(List(hole_var("f"), hole_var("k"), hole_var("g")), List(
+      block(List(hole_var("f"), hole_var("k"), hole_var("g")), List(
         nowhere(SAssign(List((hole_var("f"), expr_var("sum"))))),
         nowhere(SAssign(List((hole_var("k"), expr_int(10))))),
         nowhere(SAssign(List(
