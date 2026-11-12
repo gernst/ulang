@@ -24,8 +24,8 @@ procedure main() :=
   local args: List[Str], m := Map()
   call os_args(out args)
   for path in args do
-    local text: Str
     try
+      local text: Str
       call os_read(in path, out text)
       call count(in words(text), ref m)
     catch

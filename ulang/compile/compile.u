@@ -909,11 +909,12 @@ procedure expr_cases(
       assign ss := List()
 
     case List(Doc(_, AOk(_, Branch(pat, guard, e))); more) =>
-      local bs: List[CStmt], rb: CExpr, gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env
+      local bs: List[CStmt], rb: CExpr, body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env
       call   compile_expr(in defs, env_, e, out bs, rb, ref g)
       assign body := bs ++ List(CsAssign(CeVar(t), rb))
       match guard
         case Some(c) =>
+          local gs: List[CStmt], rg: CExpr
           call   compile_expr(in defs, env_, c, out gs, rg, ref g)
           assign body := gs ++ List(CsIf(truth(rg), body, List()))
 
@@ -1068,11 +1069,12 @@ procedure compile_loops(
 ) :=
   match gs
     case List() =>
-      local cs: List[CStmt], rc: CExpr, es: List[CStmt], re: CExpr
+      local es: List[CStmt], re: CExpr
       call   compile_expr(in defs, env, e, out es, re, ref g)
       assign ss := es ++ add(re)
       match cond
         case Some(q) =>
+          local cs: List[CStmt], rc: CExpr
           call   compile_expr(in defs, env, q, out cs, rc, ref g)
           assign ss := cs ++ List(CsIf(truth(rc), ss, List()))
 
@@ -1081,14 +1083,15 @@ procedure compile_loops(
       end
 
     case List((f, c, x); rest) =>
-      local cs: List[CStmt], rc: CExpr, body: List[CStmt], l: Str, n: Str, i: Str, item: CStmt
+      local cs: List[CStmt], rc: CExpr, body: List[CStmt], l: Str
       call compile_expr(in defs, env, c, out cs, rc, ref g)
       call compile_loops(in defs, in_scope(List(x.name)) ++ env, rest, cond, e, add, out body, ref g)
       call gen_name(in "l", out l, ref g)
       if f == list_foldr_name() then
-        assign item := declare(var_name(x.name), field(CeVar(l), 0))
+        local item: CStmt := declare(var_name(x.name), field(CeVar(l), 0))
         assign ss := cs ++ List(declare(l, rc), walk_list(l, item, body))
       else
+        local i: Str, item: CStmt, n: Str
         call   gen_name(in "n", out n, ref g)
         call   gen_name(in "i", out i, ref g)
         assign item := declare(var_name(x.name), CeIndex(CeArrow(CeVar(l), "items"), CeVar(i)))
@@ -1473,11 +1476,12 @@ procedure handler_cases(
       assign ss := List()
 
     case List(Doc(_, AOk(_, Catch(typ, pat, guard, s))); more) =>
-      local bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env, tests: List[CExpr]
+      local bs: List[CStmt], body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env, tests: List[CExpr]
       call   compile_stmt(in defs, env_, s, out bs, ref g)
       assign body := List(CsAssign(CeVar(d), CeNum(1))) ++ bs
       match guard
         case Some(c) =>
+          local gs: List[CStmt], rg: CExpr
           call   compile_expr(in defs, env_, c, out gs, rg, ref g)
           assign body := gs ++ List(CsIf(truth(rg), body, List()))
 
@@ -1513,11 +1517,12 @@ procedure stmt_cases(
       assign ss := List()
 
     case List(Doc(_, AOk(_, Branch(pat, guard, s))); more) =>
-      local bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env
+      local bs: List[CStmt], body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env
       call   compile_stmt(in defs, env_, s, out bs, ref g)
       assign body := List(CsAssign(CeVar(d), CeNum(1))) ++ bs
       match guard
         case Some(c) =>
+          local gs: List[CStmt], rg: CExpr
           call   compile_expr(in defs, env_, c, out gs, rg, ref g)
           assign body := gs ++ List(CsIf(truth(rg), body, List()))
 

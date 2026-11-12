@@ -34,6 +34,14 @@ procedure check_text_all(
   out errors: List[TypeError]
 ) raises ParseError, OsError, InternalError
 
+// the errors of parsing the case and of checking its commands that parse, as check does for a file with parse errors
+procedure check_text_partial(
+  in  path: Str,
+      lines: List[Str],
+  out parsing: List[ParseError],
+      errors: List[TypeError]
+) raises ParseError, OsError, InternalError
+
 // load_text, then the tests of the case
 procedure run_text(
   in  path: Str,
@@ -108,6 +116,17 @@ procedure check_text_all(
   call require_parsed(in source)
   call check_all(in source, out q, errors)
 
+procedure check_text_partial(
+  in  path: Str,
+      lines: List[Str],
+  out parsing: List[ParseError],
+      errors: List[TypeError]
+) raises ParseError, OsError, InternalError :=
+  local source: Source, q: Prog
+  call   parse_file_text(in path, text_of(lines), out source)
+  call   check_partial(in without_unparsed(source), unparsed_names(source), out q, errors)
+  assign parsing := parse_errors(source)
+
 procedure run_text(
   in  path: Str,
       lines: List[Str]
@@ -130,11 +149,12 @@ procedure load_texts(
       main: Str * List[Str],
   out q: Prog
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
-  local here: Str, root: Str, source: Source
+  local here: Str, root: Str
   call os_cwd(out here)
   call project_root(in normal_path(here), out root)
   match main
     case (name, lines) =>
+      local source: Source
       call parse_texts(in root, dir, List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), out source)
       call require_parsed(in source)
       call check_program(in source, out q)

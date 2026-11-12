@@ -702,12 +702,7 @@ function resimplify(ctx: Ctx, parents: List[ENode * Int]): Ctx :=
 // the best term of the class of i: a literal, else a value, else a sum, the solved form of an atom, else the least in
 // the term order; a class always has a node whose arguments are in other classes, its oldest node, so this is total
 function extract(ctx: Ctx, i: Int): Term :=
-  match extract_in(ctx.decls, ctx.graph, class_of(ctx.graph, i), List())
-    case Some(t) =>
-      t
-    case None =>
-      ELevel(i)
-  end
+  value_or(extract_in(ctx.decls, ctx.graph, class_of(ctx.graph, i), List()), ELevel(i))
 
 // the best term of the class c, from the nodes without arguments in the classes of the stack, which are being extracted
 function extract_in(decls: Decls, g: EGraph, c: Int, stack: List[Int]): Option[Term] :=
@@ -1561,12 +1556,7 @@ function first_instance(inner: Ctx, r: Rule, candidates: List[List[Term]]): Opti
   end
 
 function lookup_index(i: Int, sub: Map[Int, Term]): Term :=
-  match get(i, sub)
-    case Some(e) =>
-      e
-    case None =>
-      EBound(i)
-  end
+  value_or(get(i, sub), EBound(i))
 
 // the values of the variables below n of the pattern p such that it is t, first order
 function match_term(n: Int, p: Term, t: Term, sub: Map[Int, Term]): Option[Map[Int, Term]] :=

@@ -3,6 +3,7 @@
 
 import "ulang/syntax"
 import "ulang/check"
+import "ulang/parse"
 import "ulang/test/cases"
 
 test add_bool() :=
@@ -714,6 +715,80 @@ test several_errors() :=
     "test t() :=",
     "  assert f(1) == \"a\""), out errors)
   assert List(for e in errors yield error_pos(e)) == List(Pos(2, 7), Pos(5, 6), Pos(5, 13), Pos(8, 18))
+
+// a file with parse errors is checked without the commands that do not parse, where a use of a name that one of them
+// declares, also a constructor in a pattern, which binds its variables, is reported as such and not as unknown
+test checked_despite_parse_errors() :=
+  local parsing: List[ParseError], errors: List[TypeError]
+  call check_text_partial(in "ulang/test/errors/checked-despite-parse-errors.u", List(
+    "function f( :=",
+    "  1",
+    "",
+    "function g(n: Int): Int :=",
+    "  n + true",
+    "",
+    "function h(): Int :=",
+    "  f() + 1",
+    "",
+    "data Shape :=",
+    "  case Circle(r: Int",
+    "  case Square(s: Int)",
+    "",
+    "function area(x: Shape): Int :=",
+    "  match x",
+    "    case Square(s) =>",
+    "      s * s",
+    "  end"), out parsing, errors)
+  assert List(for e in parsing yield e.pos) == List(Pos(1, 13), Pos(12, 3))
+  assert List(for e in errors yield error_pos(e)) == List(Pos(14, 1), Pos(5, 7), Pos(8, 3), Pos(16, 10))
+  assert List(for e in errors yield is_unparsed_use(e)) == List(true, false, true, true)
+
+// a definition whose part after := does not parse keeps its signature, so that its uses are checked, while it is not
+test signature_kept() :=
+  local parsing: List[ParseError], errors: List[TypeError]
+  call check_text_partial(in "ulang/test/errors/signature-kept.u", List(
+    "function f(n: Int): Int :=",
+    "  n +",
+    "",
+    "function g(n: Int): Int :=",
+    "  f(n) + true"), out parsing, errors)
+  assert List(for e in parsing yield e.pos) == List(Pos(4, 1))
+  assert List(for e in errors yield error_pos(e)) == List(Pos(5, 10))
+
+// a part of an expression that does not parse, and an unknown name, have the type TError, which unifies with every type
+// and makes no error of what it reaches, and a statement that does not parse may assign every variable, so that the rest
+// of the body is checked without follow-up errors
+test checked_around_unparsed() :=
+  local parsing: List[ParseError], errors: List[TypeError]
+  call check_text_partial(in "ulang/test/errors/checked-around-unparsed.u", List(
+    "data Color :=",
+    "  case Red",
+    "  case Green",
+    "",
+    "procedure main() :=",
+    "  local x := f(1 +, 2), y := 1, c := Red",
+    "  x := 2",
+    "  assign y := y + x + true",
+    "  call os_println(in show(x ++ \"a\"))",
+    "  match x",
+    "    case 1 =>",
+    "      skip",
+    "  end",
+    "  call os_println(in show(size(x)))",
+    "  match c",
+    "    case Red =>",
+    "      skip",
+    "  end"), out parsing, errors)
+  assert List(for e in parsing yield e.pos) == List(Pos(6, 19), Pos(7, 3))
+  assert List(for e in errors yield error_pos(e)) == List(Pos(6, 14), Pos(8, 23), Pos(15, 3))
+
+function is_unparsed_use(e: TypeError): Bool :=
+  match e
+    case Located(_, _, UnparsedDeclaration(_)) =>
+      true
+    case _ =>
+      false
+  end
 
 // the hints of habits of other languages, the form to write instead, which the messages give after their errors
 test hints() :=
