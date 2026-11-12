@@ -20,3 +20,39 @@ function maximum(a: Int, b: Int): Int :=
 
 lemma maximum_bounds(a: Int, b: Int) :=
   ensures maximum(a, b) >= a and maximum(a, b) >= b
+
+lemma irreflexive(x: Int) :=
+  ensures not x < x
+
+lemma irreflexive_assumption(x: Int) :=
+  requires x < x
+  ensures  false
+
+lemma irreflexive_atoms[A](xs: List[A], x: Int, y: Int, g: Int -> Int) :=
+  ensures not size(xs) < size(xs) and not x * y < x * y and not x / 2 < x / 2 and not g(x) < g(x)
+
+lemma unequal_ordered(x: Int, y: Int) :=
+  requires x != y
+  ensures  x < y or y < x
+
+lemma trichotomy(x: Int, y: Int) :=
+  ensures x < y or x == y or y < x
+
+lemma parity(x: Int, y: Int) :=
+  ensures 2 * x != 2 * y + 1
+
+lemma scaled_sum(x: Int, y: Int) :=
+  ensures 3 * (x + y) == 3 * x + 3 * y
+
+lemma maximum_commutes(a: Int, b: Int) :=
+  ensures maximum(a, b) == maximum(b, a)
+
+lemma maximum_of_less(a: Int, b: Int) :=
+  requires a < b
+  ensures  maximum(a, b) == b
+
+function fib(n: Int): Int :=
+  if n < 2 then n else fib(n - 1) + fib(n - 2)
+
+lemma fib_evaluation() :=
+  ensures fib(15) == 610

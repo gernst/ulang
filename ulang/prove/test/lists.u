@@ -41,3 +41,23 @@ lemma size_positive[A](xs: List[A]) :=
 // by size_positive
 lemma size_cons_positive[A](x: A, xs: List[A]) :=
   ensures 0 < size(List(x; xs))
+
+lemma reverse_onto_twice[A](xs: List[A], ys: List[A]) :=
+  ensures reverse_onto(reverse_onto(xs, ys), List()) == reverse_onto(ys, xs)
+
+// by reverse_onto_twice
+lemma reverse_twice[A](xs: List[A]) :=
+  ensures reverse(reverse(xs)) == xs
+
+lemma reverse_onto_concat[A](xs: List[A], ys: List[A], zs: List[A]) :=
+  ensures reverse_onto(xs ++ ys, zs) == reverse_onto(ys, reverse_onto(xs, zs))
+
+// by size_append, which does not orient as a rule but is used as a fact of the sums
+lemma size_append_commutes[A](xs: List[A], ys: List[A]) :=
+  ensures size(xs ++ ys) == size(ys ++ xs)
+
+lemma evaluation_range() :=
+  ensures size(range(0, 30)) == 30
+
+lemma identity_comprehension(xs: List[Int]) :=
+  ensures List(for y in xs yield y) == xs

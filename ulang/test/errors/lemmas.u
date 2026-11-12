@@ -24,3 +24,92 @@ test less_by_two() :=
       "  requires a < b",
       "  ensures  b < a + 2"))
   end
+
+test unary_minus() :=
+  assert raises OpenLemma("unary_minus", "forall x => -(x) == (-x)") do
+    call prove_text(in "ulang/test/errors/unary-minus.u", List("lemma unary_minus(x: Int) :=", "  ensures -x == 0 - x"))
+  end
+
+test square_nonnegative() :=
+  assert raises OpenLemma("square_nonnegative", "forall x => (x * x) < 0 ==> false") do
+    call prove_text(in "ulang/test/errors/square-nonnegative.u", List("lemma square_nonnegative(x: Int) :=", "  ensures x * x >= 0"))
+  end
+
+test distributive() :=
+  assert raises OpenLemma("distributive", "forall x, y, z => (x * (y + z)) == ((x * y) + (x * z))") do
+    call prove_text(in "ulang/test/errors/distributive.u", List(
+      "lemma distributive(x: Int, y: Int, z: Int) :=",
+      "  ensures x * (y + z) == x * y + x * z"))
+  end
+
+test division_remainder() :=
+  assert raises OpenLemma("division_remainder", "forall m => ((m % 3) + 3 * (m / 3)) == m") do
+    call prove_text(in "ulang/test/errors/division-remainder.u", List(
+      "lemma division_remainder(m: Int) :=",
+      "  ensures m == m / 3 * 3 + m % 3"))
+  end
+
+test remainder_bound() :=
+  assert raises OpenLemma("remainder_bound", "forall m => (not m < 0) ==> (m % 2) < 2") do
+    call prove_text(in "ulang/test/errors/remainder-bound.u", List(
+      "lemma remainder_bound(m: Int) :=",
+      "  requires m >= 0",
+      "  ensures  m % 2 < 2"))
+  end
+
+test integer_infeasible() :=
+  assert raises OpenLemma("integer_infeasible", "forall x, y => (not (11 * x + 13 * y) < 27) and (not 45 < (11 * x + 13 * y)) and (not (7 * x - 9 * y) < (-10)) and (not 4 < (7 * x - 9 * y)) ==> false") do
+    call prove_text(in "ulang/test/errors/integer-infeasible.u", List(
+      "lemma integer_infeasible(x: Int, y: Int) :=",
+      "  requires 27 <= 11 * x + 13 * y, 11 * x + 13 * y <= 45, (-10) <= 7 * x - 9 * y, 7 * x - 9 * y <= 4",
+      "  ensures  false"))
+  end
+
+test unit_clause() :=
+  assert raises OpenLemma("unit_clause", "forall p, q => (p or q) and (not p) ==> q") do
+    call prove_text(in "ulang/test/errors/unit-clause.u", List(
+      "lemma unit_clause(p: Bool, q: Bool) :=",
+      "  requires p or q, not p",
+      "  ensures  q"))
+  end
+
+test disjunctive_bound() :=
+  assert raises OpenLemma("disjunctive_bound", "forall a => (a == 1 or a == 2) ==> 0 < a") do
+    call prove_text(in "ulang/test/errors/disjunctive-bound.u", List(
+      "lemma disjunctive_bound(a: Int) :=",
+      "  requires a == 1 or a == 2",
+      "  ensures  a > 0"))
+  end
+
+test boolean_equivalence() :=
+  assert raises OpenLemma("boolean_equivalence", "forall a, b => ((a and b) or ((not a) and (not b))) == (b == a)") do
+    call prove_text(in "ulang/test/errors/boolean-equivalence.u", List(
+      "lemma boolean_equivalence(a: Bool, b: Bool) :=",
+      "  ensures (a == b) == (a and b or not a and not b)"))
+  end
+
+test boolean_below_true() :=
+  assert raises OpenLemma("boolean_below_true", "forall b => b < true ==> b == false") do
+    call prove_text(in "ulang/test/errors/boolean-below-true.u", List(
+      "lemma boolean_below_true(b: Bool) :=",
+      "  requires b < true",
+      "  ensures  b == false"))
+  end
+
+test compare_self() :=
+  assert raises OpenLemma("compare_self", "forall x => match compare(x, x) case -1 => contains(x, Leaf) case 1 => contains(x, Leaf) case _ => true end") do
+    call prove_text(in "ulang/test/errors/compare-self.u", List("lemma compare_self(x: Int) :=", "  ensures contains(x, Set(x))"))
+  end
+
+test deep_evaluation() :=
+  assert raises OpenLemma("deep_evaluation", "(size([65; [66; [67; [68; [69; [70; [71; [72; [73; [74; [75; [76; [77; [78; [79; [80; [81; [82; [83; [84; [85; [86; [87; [88; [89; [90; [91; [92; [93; [94; [95; [96; [97; [98; [99; []]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]) + 65) == 100") do
+    call prove_text(in "ulang/test/errors/deep-evaluation.u", List("lemma deep_evaluation() :=", "  ensures size(range(0, 100)) == 100"))
+  end
+
+test excluded_constructor() :=
+  assert raises OpenLemma("excluded_constructor", "forall xs => (not [] == xs) ==> (take(1, xs) ++ drop(1, xs)) == xs") do
+    call prove_text(in "ulang/test/errors/excluded-constructor.u", List(
+      "lemma excluded_constructor(xs: List[Int]) :=",
+      "  requires xs != List()",
+      "  ensures  take(1, xs) ++ drop(1, xs) == xs"))
+  end
