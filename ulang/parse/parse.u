@@ -1517,14 +1517,21 @@ procedure parse_formals(
   call expect(in TKw("("), ref toks)
   call parse_enclosed(in notation, params, parse_formal, ")", out xs, ref toks)
 
-// the module d without its tests, as an import loads it
+// the module d without its tests, examples, and lemmas, which only its own tests and proofs use, as an import loads it
 function without_tests_of(d: Mod): Mod :=
-  d with implemented := untested(d.implemented)
+  d with exported := untested(d.exported), builtins := untested(d.builtins), implemented := untested(d.implemented)
 
 function is_test(c: Doc[Cmd]): Bool :=
   match c.at.that
     case CTest(_, _, _) =>
       true
+
+    case CExample(_, _) =>
+      true
+
+    case CLemma(_, _, _, _, _) =>
+      true
+
     case _ =>
       false
   end
@@ -1712,7 +1719,12 @@ function differing_field(fields: List[Field]): Option[Id] :=
         differing_field(rest)
   end
 
-procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
+procedure parse_function(
+  in  notation: Notation,
+  out cmd: Cmd,
+      examples: List[At[Cmd]],
+  ref toks: Tokens
+) :=
   local name: Id, params: List[Id], xs: List[Var], r: Type, body: At[Expr], pos: Pos
   call   advance(ref toks)
   assign pos := head_pos(toks)
@@ -1725,6 +1737,7 @@ procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) 
   end
   call expect(in TKw(":"), ref toks)
   call parse_type(in notation, params, out r, ref toks)
+  call parse_examples(in notation, params, unqualified(name), false, out examples, ref toks)
   if head_token(toks) == TKw(":=") then
     call   advance(ref toks)
     call   parse_expr(in notation, params, out body, ref toks)
@@ -1747,7 +1760,12 @@ procedure parse_pat_alias(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
   call   parse_pattern(in notation, params, out pat, ref toks)
   assign cmd := CPatAlias(unqualified(name), params, xs, r, pat)
 
-procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
+procedure parse_procedure(
+  in  notation: Notation,
+  out cmd: Cmd,
+      examples: List[At[Cmd]],
+  ref toks: Tokens
+) :=
   local name: Id, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], body: At[Stmt], pos: Pos
   call   advance(ref toks)
   assign pos := head_pos(toks)
@@ -1757,12 +1775,151 @@ procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
   call   expect(in TKw("("), ref toks)
   call   parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
   call   expect(in TKw(")"), ref toks)
+  call   parse_examples(in notation, params, unqualified(name), true, out examples, ref toks)
   if head_token(toks) == TKw(":=") then
     call   advance(ref toks)
     call   parse_body(in notation, params, out body, ref toks)
     assign cmd := CProc(unqualified(name), params, ins, outs, refs, body)
   else
     assign cmd := CProcSig(unqualified(name), params, ins, outs, refs)
+  end
+
+// the lines example … after the head of the function or, if of_proc, procedure owner, each at its keyword
+procedure parse_examples(
+  in  notation: Notation,
+      params: List[Id],
+      owner: Name,
+      of_proc: Bool,
+  out examples: List[At[Cmd]],
+  ref toks: Tokens
+) :=
+  local found: Buffer[At[Cmd]] := empty()
+  while at_kw(toks, "example") do
+    local x: Example, pos: Pos := head_pos(toks)
+    call advance(ref toks)
+    if of_proc then
+      call parse_proc_example(in notation, params, pos, out x, ref toks)
+    else
+      call parse_fun_example(in notation, params, out x, ref toks)
+    end
+    assign found := found ++ List(AOk(pos, CExample(owner, x)))
+  end
+  assign examples := List(for x in found)
+
+// e or e raises p, after example
+procedure parse_fun_example(
+  in  notation: Notation,
+      params: List[Id],
+  out x: Example,
+  ref toks: Tokens
+) :=
+  local expr: At[Expr]
+  call parse_expr(in notation, params, out expr, ref toks)
+  if at_kw(toks, "raises") then
+    local pat: At[Pat]
+    call   advance(ref toks)
+    call   parse_pattern(in notation, params, out pat, ref toks)
+    assign x := XRaises(expr, pat)
+  else
+    assign x := XHolds(expr)
+  end
+
+// p(in a, …, out b, …, ref c => d, …), or p(in a, …, out _, …, ref c, …) raises q, after example at pos
+procedure parse_proc_example(
+  in  notation: Notation,
+      params: List[Id],
+      pos: Pos,
+  out x: Example,
+  ref toks: Tokens
+) :=
+  local p: Id, ins: List[At[Expr]], outs: List[Option[At[Expr]] * Option[At[Expr]]], refs: List[Option[At[Expr]] * Option[At[Expr]]]
+  call parse_name(out p, ref toks)
+  call expect(in TKw("("), ref toks)
+  call parse_sections(in notation, params, parse_expr, parse_example_arg, out ins, outs, refs, ref toks)
+  call expect(in TKw(")"), ref toks)
+  if at_kw(toks, "raises") then
+    local pat: At[Pat]
+    call advance(ref toks)
+    call parse_pattern(in notation, params, out pat, ref toks)
+    match (raising_outs(outs), ref_befores(refs))
+      case (Some(n), Some(before)) =>
+        assign x := XCallRaises(unqualified(p), ins, n, before, pat)
+      case _ =>
+        raise ParseError("an example that raises has _ for each out and each ref as before the call", pos)
+    end
+  else
+    match (expected_outs(outs), before_after(refs))
+      case (Some(values), Some(changes)) =>
+        assign x := XCall(unqualified(p), ins, values, changes)
+      case _ =>
+        raise ParseError("an example of a procedure has the value of each out and each ref as before => after", pos)
+    end
+  end
+
+// an out or ref of an example of a procedure: _ or a value, and the value after the call of a ref, after =>
+procedure parse_example_arg(
+  in  notation: Notation,
+      params: List[Id],
+  out arg: Option[At[Expr]] * Option[At[Expr]],
+  ref toks: Tokens
+) :=
+  local value: Option[At[Expr]] := None, after: Option[At[Expr]] := None
+  if at_kw(toks, "_") then
+    call advance(ref toks)
+  else
+    local expr: At[Expr]
+    call   parse_expr(in notation, params, out expr, ref toks)
+    assign value := Some(expr)
+  end
+  if at_kw(toks, "=>") then
+    local expr: At[Expr]
+    call   advance(ref toks)
+    call   parse_expr(in notation, params, out expr, ref toks)
+    assign after := Some(expr)
+  end
+  assign arg := (value, after)
+
+// the number of outs if each is _
+function raising_outs(args: List[Option[At[Expr]] * Option[At[Expr]]]): Option[Int] :=
+  if forall(args, lambda a => a == (None, None)) then Some(size(args)) else None
+
+// the refs if each is given only as before the call
+function ref_befores(args: List[Option[At[Expr]] * Option[At[Expr]]]): Option[List[At[Expr]]] :=
+  match args
+    case List() =>
+      Some(List())
+
+    case List((Some(before), None); more) =>
+      map_option(ref_befores(more), lambda rest => List(before; rest))
+
+    case _ =>
+      None
+  end
+
+// the outs if each is a value
+function expected_outs(args: List[Option[At[Expr]] * Option[At[Expr]]]): Option[List[At[Expr]]] :=
+  match args
+    case List() =>
+      Some(List())
+
+    case List((Some(value), None); more) =>
+      map_option(expected_outs(more), lambda rest => List(value; rest))
+
+    case _ =>
+      None
+  end
+
+// the refs if each is given as before => after
+function before_after(args: List[Option[At[Expr]] * Option[At[Expr]]]): Option[List[At[Expr] * At[Expr]]] :=
+  match args
+    case List() =>
+      Some(List())
+
+    case List((Some(before), Some(after)); more) =>
+      map_option(before_after(more), lambda rest => List((before, after); rest))
+
+    case _ =>
+      None
   end
 
 // lemma l[A, …](x: A, …) := requires a, … ensures b, where requires is optional
@@ -1790,12 +1947,14 @@ procedure parse_lemma(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
   call   parse_expr(in notation, params, out concl, ref toks)
   assign cmd := CLemma(unqualified(name), params, xs, assms, concl)
 
-// the commands of one declaration
+// the commands of one declaration, and the examples of a function or procedure, each at its line
 procedure parse_command(
   in  notation: Notation,
   out cmds: List[Cmd],
+      examples: List[At[Cmd]],
   ref toks: Tokens
 ) :=
+  assign examples := List()
   match head_token(toks)
     case TKw(kw) if contains(kw, List("prefix", "postfix", "infix")) =>
       local cmd: Cmd, pos: Pos := head_pos(toks)
@@ -1821,12 +1980,12 @@ procedure parse_command(
 
     case TKw("function") =>
       local cmd: Cmd
-      call   parse_function(in notation, out cmd, ref toks)
+      call   parse_function(in notation, out cmd, examples, ref toks)
       assign cmds := List(cmd)
 
     case TKw("procedure") =>
       local cmd: Cmd
-      call   parse_procedure(in notation, out cmd, ref toks)
+      call   parse_procedure(in notation, out cmd, examples, ref toks)
       assign cmds := List(cmd)
 
     case TKw("pattern") =>
@@ -2191,7 +2350,7 @@ procedure parse_mod(
   ref source: Source,
       toks: Tokens
 ) :=
-  local imports: List[Id] := List(), notation := empty_notation(), plain: List[Doc[Cmd]] := List(), exported: List[Doc[Cmd]] := List(), builtins: List[Doc[Cmd]] := List(), implemented: List[Doc[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[Doc[Cmd]], doc: Option[Str], broken: List[ParseError] := List(), mod_doc := module_doc(toks)
+  local imports: List[Id] := List(), notation := empty_notation(), plain: List[Doc[Cmd]] := List(), exported: List[Doc[Cmd]] := List(), builtins: List[Doc[Cmd]] := List(), implemented: List[Doc[Cmd]] := List(), more: List[Cmd], examples: List[At[Cmd]], section := Opening, pos: Pos, imported: Id, placed: List[Doc[Cmd]], doc: Option[Str], broken: List[ParseError] := List(), mod_doc := module_doc(toks)
   if mod_doc != None then
     call advance(ref toks)
   end
@@ -2200,7 +2359,7 @@ procedure parse_mod(
   assign notation := notation ++ package
   while head_token(toks) != TEnd do
     call   parse_doc(out doc, ref toks)
-    assign pos := head_pos(toks), more := List()
+    assign pos := head_pos(toks), more := List(), examples := List()
     match head_token(toks)
       case TKw("export") =>
         if section == InExport or section == InBuiltin or section == InImplementation then
@@ -2243,7 +2402,7 @@ procedure parse_mod(
       // after an error, at the next command, from the start of this one, as the handler sees the tokens
       case _ =>
         try
-          call   parse_command(in notation, out more, ref toks)
+          call   parse_command(in notation, out more, examples, ref toks)
           call   enter_section(in more, pos, ref section)
           assign notation := with_notation(notation, more)
         catch
@@ -2255,7 +2414,7 @@ procedure parse_mod(
     match more
       case List(c; rest) =>
         assign placed := List(
-          Doc(doc, AOk(pos, c)); List(for d in rest yield Doc(None, AOk(pos, d))))
+          Doc(doc, AOk(pos, c)); List(for d in rest yield Doc(None, AOk(pos, d)))) ++ List(for x in examples yield Doc(None, x))
 
       case _ =>
         assign placed := List()

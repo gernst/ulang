@@ -1,4 +1,4 @@
-// the lemmas that the default proof of ulang/prove/lemma.u leaves open, each a case, the lines of a source text at a path of this directory, which the procedures of
+// the lemmas that the default proof of ulang/prove/lemma.u leaves open, or whose tests on enumerated values fail, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
 import "ulang/syntax"
@@ -12,6 +12,13 @@ test append_commutes() :=
       "  ensures xs ++ ys == ys ++ xs"))
   end
 
+test falsified() :=
+  assert raises Uncaught("Falsified(\"xs = List(1, 0), ys = List()\")") do
+    call run_text(in "ulang/test/errors/falsified.u", List(
+      "lemma reverse_same(xs: List[Int], ys: List[Int]) :=",
+      "  ensures reverse(xs) ++ ys == xs ++ ys"))
+  end
+
 test irreflexive() :=
   assert raises OpenLemma("irreflexive", "forall a => false") do
     call prove_text(in "ulang/test/errors/irreflexive.u", List("lemma irreflexive(a: Int) :=", "  ensures a < a"))
@@ -23,4 +30,9 @@ test less_by_two() :=
       "lemma less_by_two(a: Int, b: Int) :=",
       "  requires a < b",
       "  ensures  b < a + 2"))
+  end
+
+test vacuous() :=
+  assert raises Uncaught("Vacuous") do
+    call run_text(in "ulang/test/errors/vacuous.u", List("lemma large(n: Int) :=", "  requires n > 100", "  ensures  n > 0"))
   end

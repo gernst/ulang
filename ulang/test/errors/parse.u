@@ -39,6 +39,24 @@ test duplicate_notation() :=
     call check_text(in "ulang/test/errors/duplicate-notation.u", List("infix left 9 +"))
   end
 
+test example_out_blank() :=
+  assert raises ParseError("an example of a procedure has the value of each out and each ref as before => after", Pos(2, 3)) do
+    call check_text(in "ulang/test/errors/example-out-blank.u", List(
+      "procedure p(out x: Int)",
+      "  example p(out _)",
+      ":=",
+      "  assign x := 1"))
+  end
+
+test example_raises_after() :=
+  assert raises ParseError("an example that raises has _ for each out and each ref as before the call", Pos(2, 3)) do
+    call check_text(in "ulang/test/errors/example-raises-after.u", List(
+      "procedure p(ref x: Int)",
+      "  example p(ref 1 => 2) raises DivisionByZero",
+      ":=",
+      "  assign x := x / 0"))
+  end
+
 test field_types() :=
   assert raises ParseError("field v of T has different types", Pos(4, 1)) do
     call check_text(in "ulang/test/errors/field-types.u", List("data T :=", "  case A(v: Int)", "  case B(v: Str)"))

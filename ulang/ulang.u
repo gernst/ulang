@@ -558,6 +558,10 @@ function cmd_module(cmd: Cmd): Option[Id] :=
 
     case CLemma(name, _, _, _, _) =>
       name.module
+
+    // the checker translates examples into tests
+    case CExample(owner, _) =>
+      owner.module
   end
 
 // the path of file from the root, where file is a path from the working directory and root the root from there

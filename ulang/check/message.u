@@ -167,6 +167,12 @@ function type_message(e: TypeError): Str :=
     case TestParams(test_name) =>
       "test " ++ test_name ++ " takes parameters"
 
+    case ForeignExample(name) =>
+      "an example of " ++ name.base ++ " does not apply " ++ name.base
+
+    case ExampleOnDefinition(name) =>
+      "the examples of " ++ name.base ++ " belong to its signature in export"
+
     case Unassigned(name) =>
       name.base ++ " is not assigned on every path"
 
@@ -261,6 +267,8 @@ test messages() :=
   assert located_message(SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T"))) == "the definition of T differs from its signature"
   assert located_message(Located(None, Pos(1, 1), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1))) == "sort Int expects 0 arguments, got 1 at 1.1"
   assert located_message(Located(None, Pos(1, 1), TestParams("sorted"))) == "test sorted takes parameters at 1.1"
+  assert located_message(Located(None, Pos(2, 3), ForeignExample(Name(Some("m"), "size")))) == "an example of size does not apply size at 2.3"
+  assert located_message(Located(None, Pos(2, 3), ExampleOnDefinition(Name(Some("m"), "f")))) == "the examples of f belong to its signature in export at 2.3"
   assert located_message(Located(None, Pos(1, 1), Unassigned(Name(None, "x")))) == "x is not assigned on every path at 1.1"
   assert located_message(Located(None, Pos(15, 1), UnexportedOrder(Name(Some("ulang/test/errors/unexported-order"), "compare"), Name(Some("ulang/test/errors/unexported-order"), "T")))) == "compare of the exported type T is not exported at 15.1"
   assert located_message(Located(None, Pos(1, 1), UnknownConstructor(Name(None, "f")))) == "unknown constructor f at 1.1"

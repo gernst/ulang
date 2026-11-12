@@ -208,6 +208,22 @@ data Cmd :=
   // lemma l[A, …](x: A, …) := requires a, … ensures b, which states b for all formals that satisfy the assumptions a, …,
   // see prove.md, and which the prover proves, while the interpreter and the compiler skip it
   case CLemma(name: Name, params: List[Id], formals: List[Var], assms: List[At[Expr]], concl: At[Expr])
+  // an example of the function or procedure owner, a line example … below its head, after it in the section, which the
+  // checker translates into a test, and format prints between the head and := of a definition
+  case CExample(owner: Name, claim: Example)
+
+// an example of a function or procedure
+data Example :=
+  // a Bool expression that applies the function, e.g. gcd(12, 18) == 6
+  case XHolds(expr: At[Expr])
+  // an application of the function that raises an exception that pat matches, e.g. chr(-1) raises NoCharacter(-1)
+  case XRaises(expr: At[Expr], pat: At[Pat])
+  // a call of the procedure with the expected values of its outs and each ref from before to after, e.g.
+  // divmod(in 7, 2, out 3, 1) or push(in 3, ref List(1) => List(3, 1))
+  case XCall(proc: Name, ins: List[At[Expr]], outs: List[At[Expr]], refs: List[At[Expr] * At[Expr]])
+  // a call of the procedure that raises an exception that pat matches, with blanks, the number of its outs, written _,
+  // since it does not assign them, and each ref as before, e.g. divmod(in 7, 0, out _, _) raises DivisionByZero
+  case XCallRaises(proc: Name, ins: List[At[Expr]], blanks: Int, befores: List[At[Expr]], pat: At[Pat])
 
 // the checked program: the commands of its modules with resolved names, and the module of the file that is loaded, whose
 // procedures run and compile call
@@ -293,8 +309,9 @@ function commands_of(docs: List[Doc[Cmd]]): List[Cmd]
 // the parts of docs, without their docs and positions
 function parts[A](docs: List[Doc[A]]): List[A]
 
-// the modules that module name imports without saying so: for a module of a project the whole library, and none for a
-// module of the library, which sees the others as the members of its package
+// the modules that module name imports without saying so: for a module of a project the library but enumerate, which only
+// the generated tests of lemmas name, and none for a module of the library, which sees the others as the members of its
+// package
 function implicit_imports(name: Id): List[Id]
 
 // the members of the package of the library
@@ -421,7 +438,10 @@ function module_dir(id: Id): Str :=
   end
 
 function implicit_imports(name: Id): List[Id] :=
-  if contains(name, library_modules()) then List() else library_modules()
+  if contains(name, library_modules()) then
+    List()
+  else
+    List(for m in library_modules() if m != library_module("enumerate"))
 
 function library_modules(): List[Id] :=
   List(for name in List(
@@ -433,7 +453,8 @@ function library_modules(): List[Id] :=
     "map",
     "array",
     "buffer",
-    "os") yield library_module(name))
+    "os",
+    "enumerate") yield library_module(name))
 
 function library_module(name: Str): Id :=
   "prelude/" ++ name
@@ -645,6 +666,9 @@ function strip_cmd(cmd: Cmd): Cmd :=
     case CData(name, params, constrs) =>
       CData(name, params, List(for c in constrs yield Doc(c.doc, stripped(c.at, lambda x => x))))
 
+    case CExample(owner, claim) =>
+      CExample(owner, strip_example(claim))
+
     case CSort(_, _, _) =>
       cmd
 
@@ -659,6 +683,21 @@ function strip_cmd(cmd: Cmd): Cmd :=
 
     case CAbstract(_, _) =>
       cmd
+  end
+
+function strip_example(x: Example): Example :=
+  match x
+    case XHolds(expr) =>
+      XHolds(strip_expr(expr))
+
+    case XRaises(expr, pat) =>
+      XRaises(strip_expr(expr), strip_pat(pat))
+
+    case XCall(proc, ins, outs, refs) =>
+      XCall(proc, List(for a in ins yield strip_expr(a)), List(for a in outs yield strip_expr(a)), List(for (a, b) in refs yield (strip_expr(a), strip_expr(b))))
+
+    case XCallRaises(proc, ins, blanks, befores, pat) =>
+      XCallRaises(proc, List(for a in ins yield strip_expr(a)), blanks, List(for a in befores yield strip_expr(a)), strip_pat(pat))
   end
 
 // x at Pos(0, 0), with its part stripped by strip

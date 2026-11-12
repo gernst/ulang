@@ -739,13 +739,24 @@ function format_cmds(notation: Notation, cmds: List[Doc[Cmd]]): List[Str] :=
       List()
 
     case List(d; more) =>
-      let after := with_notation(notation, List(d.at.that)) in
-      match format_cmd(notation, d.at.that)
+      let after := with_notation(notation, List(d.at.that)), examples := leading_examples(more) in
+      match format_cmd(notation, examples, d.at.that)
         case Some(text) =>
-          List(doc_text(d.doc) ++ text; format_cmds(after, more))
+          List(
+            doc_text(d.doc) ++ text; format_cmds(after, drop(size(examples), more)))
+
         case None =>
-          format_cmds(after, more)
+          format_cmds(after, drop(size(examples), more))
       end
+  end
+
+// the examples at the start of cmds, those of the declaration before
+function leading_examples(cmds: List[Doc[Cmd]]): List[Example] :=
+  match cmds
+    case List(Doc(_, AOk(_, CExample(_, x))); more) =>
+      List(x; leading_examples(more))
+    case _ =>
+      List()
   end
 
 // the lines of a documentation as comments
@@ -763,7 +774,9 @@ function indented_doc(indent: Str, doc: Option[Str]): Str :=
 function doc_line(indent: Str, line: Str): Str :=
   if line == "" then "\n" ++ indent ++ "//" else "\n" ++ indent ++ "// " ++ line
 
-function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
+// cmd with the examples of a function or procedure, each on a line of its own below its head, where := of a definition
+// follows them on a line of its own
+function format_cmd(notation: Notation, examples: List[Example], cmd: Cmd): Option[Str] :=
   match cmd
     case CSort(name, params, typ) =>
       Some("type " ++ name.base ++ params_text(params) ++ " :=\n  " ++ format_type(typ))
@@ -775,16 +788,20 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
       Some(data_text(name, params, constrs))
 
     case CFun(name, params, formals, typ, body) =>
-      Some(function_head(name, params, formals, typ) ++ " :=\n  " ++ format_expr(notation, "  ", body))
+      Some(function_head(name, params, formals, typ) ++ examples_text(notation, examples) ++ defined_text(examples) ++ "\n  " ++ format_expr(notation, "  ", body))
 
     case CFunSig(name, params, formals, typ) =>
-      Some(function_head(name, params, formals, typ))
+      Some(function_head(name, params, formals, typ) ++ examples_text(notation, examples))
 
     case CProc(name, params, ins, outs, refs, stmt) =>
-      Some(proc_head(name, params, ins, outs, refs) ++ " :=" ++ format_body(notation, "  ", stmt))
+      Some(proc_head(name, params, ins, outs, refs) ++ examples_text(notation, examples) ++ defined_text(examples) ++ format_body(notation, "  ", stmt))
 
     case CProcSig(name, params, ins, outs, refs) =>
-      Some(proc_head(name, params, ins, outs, refs))
+      Some(proc_head(name, params, ins, outs, refs) ++ examples_text(notation, examples))
+
+    // an example without its declaration before, which the parser does not make
+    case CExample(_, x) =>
+      Some("example " ++ example_text(notation, "  ", x))
 
     case CPatAlias(name, params, formals, typ, pat) =>
       Some("pattern " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ "): " ++ format_type(typ) ++ " :=\n  " ++ format_pattern(notation, "  ", pat))
@@ -913,9 +930,34 @@ test bodies() :=
     nowhere(SAssign(List((Var(x.name, THole), expr_int(1))))),
     nowhere(SIf(nowhere(EVar(y)), nowhere(SBlock(List(), List(nowhere(SSkip)))), nowhere(SIf(nowhere(EVar(x)), nowhere(SBlock(List(), List())), nowhere(SSkip)))))))), noted := Doc(Some("note"), nowhere(CNotation(FLeft, 9, List("+")))), plain := Doc(None, nowhere(CNotation(FLeft, 8, List("-"))))
   assert format_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y then\n  skip\nelse\n  if x then\n  end\nend"
-  assert format_cmd(test_operators(), CNotation(FLeft, 9, List("+", "-"))) == Some("infix left 9 + -")
+  assert format_cmd(test_operators(), List(), CNotation(FLeft, 9, List("+", "-"))) == Some("infix left 9 + -")
   assert doc_text(None) == "" and doc_text(Some("a\n b\n")) == "// a\n//  b\n//\n" and doc_text(Some("")) == "//\n"
   assert format_cmds(test_operators(), List(noted, plain)) == List("// note\ninfix left 9 +", "infix left 8 -")
+
+function examples_text(notation: Notation, examples: List[Example]): Str :=
+  join("", List(for x in examples yield "\n  example " ++ example_text(notation, "  ", x)))
+
+// the := of a definition, at the end of its head, or on a line of its own after its examples
+function defined_text(examples: List[Example]): Str :=
+  if examples == List() then " :=" else "\n:="
+
+function example_text(notation: Notation, indent: Str, x: Example): Str :=
+  match x
+    case XHolds(expr) =>
+      format_expr(notation, indent, expr)
+
+    case XRaises(expr, pat) =>
+      format_expr(notation, indent, expr) ++ " raises " ++ format_pattern(notation, indent, pat)
+
+    case XCall(proc, ins, outs, refs) =>
+      proc.base ++ "(" ++ sections_text(exprs_text(notation, indent, ins), exprs_text(notation, indent, outs), List(for (before, after) in refs yield format_expr(notation, indent, before) ++ " => " ++ format_expr(notation, indent, after))) ++ ")"
+
+    case XCallRaises(proc, ins, blanks, befores, pat) =>
+      proc.base ++ "(" ++ sections_text(exprs_text(notation, indent, ins), replicate(blanks, "_"), exprs_text(notation, indent, befores)) ++ ") raises " ++ format_pattern(notation, indent, pat)
+  end
+
+function exprs_text(notation: Notation, indent: Str, exprs: List[At[Expr]]): List[Str] :=
+  List(for expr in exprs yield format_expr(notation, indent, expr))
 
 // literals, types, patterns, and names by their structure, in a fixed notation
 function format_lit(lit: Lit): Str :=
