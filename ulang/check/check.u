@@ -1532,6 +1532,15 @@ procedure use_name(
       assign x := Var(m, w)
   end
 
+// the result of the type w of a function, if it is one, is TError
+procedure unify_result(in w: Type, ref s: State) :=
+  match zonk_type(s.sub, w)
+    case TFun(_, r) =>
+      call unify(in r, TError, ref s)
+    case _ =>
+      call unify(in w, TError, ref s)
+  end
+
 // the one of the candidates cs that fits w, or a placeholder for the use if several fit, which stays open
 procedure choose(
   in  n: Name,
@@ -1543,8 +1552,10 @@ procedure choose(
   local ok: List[(Name * Scheme) * State]
   call trials(in cs, w, s, out ok)
   match ok
+    // a use that no candidate fits has the result TError, so that what uses it makes no follow-ups
     case List() =>
       call   report(in NoOverload(n, zonk_type(s.sub, w)), ref s)
+      call   unify_result(in w, ref s)
       assign m := n
 
     case List(((m_, _), s_)) =>
@@ -2241,7 +2252,8 @@ function variables_of(s: State, pats: List[At[Pat]]): Option[List[At[Var]]] :=
     None
 
 // overloaded names are resolved by their number of arguments and the types of the arguments and the result,
-// where the arguments are inferred first
+// where the arguments are inferred first, and a call that no candidate fits by its arity has the type TError, so that its
+// uses make no follow-ups
 procedure application(
   in  env: Env,
       fun: At[Expr],
@@ -2261,9 +2273,12 @@ procedure application(
         call normalize(in typ, out w, ref s)
         call unify(in w, TFun(ts, t), ref s)
         if with_arity(cs, size(args)) == List() then
-          call report(in WrongArity(name, size(args)), ref s)
+          call   report(in WrongArity(name, size(args)), ref s)
+          call   unify(in t, TError, ref s)
+          assign x := Var(name, TError)
+        else
+          call use_name(in name, with_arity(cs, size(args)), w, out x, ref s)
         end
-        call   use_name(in name, with_arity(cs, size(args)), w, out x, ref s)
         call   infers_lambdas(in env, args, ts, ref typed_args, s)
         assign typed_expr := EApp(fun with that := EVar(x), typed_args)
       else

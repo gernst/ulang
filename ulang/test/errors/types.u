@@ -925,6 +925,20 @@ test proof_out_one_branch() :=
       "  end"))
   end
 
+// a call that no declaration fits has the type TError, so that the access of a field on it makes no follow-up
+test no_follow_ups() :=
+  local q: Prog
+  call checked_text(in "ulang/test/errors/no-follow-ups.u", List(
+    "data P :=",
+    "  case P(x: Int)",
+    "",
+    "function f(n: Int): Int :=",
+    "  size(n, n, n).x",
+    "",
+    "function g(n: Int): Int :=",
+    "  size(n).x"), out q)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("WrongArity", Pos(5, 3)), ("NoOverload", Pos(8, 3)))
+
 // the errors of the translation of a form stand on the part of the form, which the diagnostics of the checked program read
 test errors_of_forms() :=
   local q: Prog
