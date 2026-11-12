@@ -904,17 +904,78 @@ function bounds(ctx: Ctx, t: Lin): List[Lin] :=
 
 // for m / k or m % k with a literal k other than 0, with q = m / k and r = m % k: m == k * q + r as two inequalities,
 // -|k| < r < |k|, and, since / truncates towards zero, 0 <= r where m >= 0 and r <= 0 where m <= 0 follow from the
-// inequalities alone
+// inequalities alone; for a divisor n that is not a literal, the same where the facts give the sign of n
 function division_bounds(ctx: Ctx, a: Term): List[Lin] :=
   match a
-    case Div(m, ELit(LInt(k))) if k != 0 =>
+    case Div(_, ELit(LInt(0))) =>
+      List()
+
+    case Mod(_, ELit(LInt(0))) =>
+      List()
+
+    case Div(m, ELit(LInt(k))) =>
       division_facts(ctx, m, k)
 
-    case Mod(m, ELit(LInt(k))) if k != 0 =>
+    case Mod(m, ELit(LInt(k))) =>
       division_facts(ctx, m, k)
+
+    case Div(m, n) =>
+      variable_division_facts(ctx, m, n)
+
+    case Mod(m, n) =>
+      variable_division_facts(ctx, m, n)
 
     case _ =>
       List()
+  end
+
+// the facts of division by the divisor n, which is not a literal, with q = m / n and r = m % n, where n != 0 follows
+// from the facts: m == n * q + r, with the product as the monomial that ring_product writes, the sign of r by that of
+// m, and, where the inequalities give the sign of n, alone or with n != 0, n < r < -n or -n < r < n
+function variable_division_facts(ctx: Ctx, m: Term, n: Term): List[Lin] :=
+  let q := Div(m, n), r := lin_of(Mod(m, n)), d := lin_of(n) in
+  let nonzero := is_nonzero(ctx, n) in
+  let positive := is_bound(ctx, lin_add(d, Lin(-1, List()))) or nonzero and is_bound(ctx, d) in
+  let negative := is_bound(ctx, lin_add(lin_scale(-1, d), Lin(-1, List()))) or nonzero and is_bound(ctx, lin_scale(-1, d)) in
+  if not (nonzero or positive or negative) then
+    List()
+  else
+    let eq := lin_sub(lin_of(m), lin_add(lin_of(monomial(List(n, q))), r)) in
+    let sign := if is_bound(ctx, lin_of(m)) then
+      List(r)
+    else if is_bound(ctx, lin_scale(-1, lin_of(m))) then
+      List(lin_scale(-1, r))
+    else
+      List() in
+    let range := if positive then
+      List(
+        lin_add(lin_sub(d, r), Lin(-1, List())),
+        lin_add(lin_add(r, d), Lin(-1, List())))
+    else if negative then
+      List(
+        lin_add(lin_sub(r, d), Lin(-1, List())),
+        lin_add(lin_scale(-1, lin_add(r, d)), Lin(-1, List())))
+    else
+      List() in
+    List(eq, lin_scale(-1, eq)) ++ range ++ sign
+
+// whether the inequalities alone give t >= 0, without the bounds, which would ask for the facts of division again
+function is_bound(ctx: Ctx, t: Lin): Bool :=
+  is_unsat(List(tighten(negated(t)); ctx.ineqs), limits().eliminations)
+
+// whether the facts give n != 0, as the class of n == 0 being that of false
+function is_nonzero(ctx: Ctx, n: Term): Bool :=
+  match lookup_term(ctx.graph, bool_term(false))
+    case Some(f) =>
+      exists(List(Eq(n, int_term(0)), Eq(int_term(0), n)), lambda e => match lookup_term(ctx.graph, e)
+        case Some(c) =>
+          class_of(ctx.graph, c) == class_of(ctx.graph, f)
+        case None =>
+          false
+      end)
+
+    case None =>
+      false
   end
 
 function division_facts(ctx: Ctx, m: Term, k: Int): List[Lin] :=
@@ -934,10 +995,10 @@ function division_facts(ctx: Ctx, m: Term, k: Int): List[Lin] :=
 
 function has_division(t: Lin): Bool :=
   exists(t.summands, lambda summand => match summand.term
-    case Div(_, ELit(LInt(_))) =>
+    case Div(_, _) =>
       true
 
-    case Mod(_, ELit(LInt(_))) =>
+    case Mod(_, _) =>
       true
 
     case _ =>

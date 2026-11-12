@@ -3,7 +3,7 @@
 // The functions that reach each other are a component, whose recursive calls are taken from the equations of their
 // definitions (ulang/prove/equations.u), each with the conditions of its equation and of the ifs around it. A measure
 // is a slot of terms over the formals, one per function of the component: the size of a formal of a datatype, and for
-// a function alone also a formal of type Int, its negation, and the difference of two. A lexicographic order of slots
+// a function alone also a formal of type Int, its negation, its absolute value, and the difference of two. A lexicographic order of slots
 // is searched greedily, as Isabelle's lexicographic_order does: a slot that every remaining call decreases at least
 // weakly and some strictly is taken, and the calls that it decreases strictly are done. A strict decrease of an Int
 // measure also needs it positive before the call, so that it stays a natural number.
@@ -210,7 +210,7 @@ function size_measures(decls: Decls, fs: List[Var]): List[Term] :=
 function int_measures(fs: List[Var]): List[Term] :=
   let n := size(fs) in
   let ints := List(for (x, i) in zip(fs, range(0, n)) if x.typ == TInt() yield EBound(n - 1 - i)) in
-  ints ++ List(for x in ints yield Minus(ELit(LInt(0)), x)) ++ List(for x in ints for y in ints if x != y yield Minus(y, x))
+  ints ++ List(for x in ints yield Minus(ELit(LInt(0)), x)) ++ List(for x in ints for y in ints if x != y yield Minus(y, x)) ++ List(for x in ints yield EApp(EFun(Name(Some("prelude/prelude"), "abs")), List(x)))
 
 // the differences of the sides of the comparisons in the conditions of the ifs of the body outside its matches and
 // lambdas, where the formals are the only indices, both ways, of the comparisons of which one side is an integer, as
