@@ -1,0 +1,533 @@
+// the part of the compilers that does not depend on their target: the names of the symbols that compiled code and the
+// runtime share, the tables of the runtime, and analyses of checked programs
+
+import "ulang/syntax"
+import "ulang/format"
+import "ulang/check"
+
+export
+
+// names of ulang with their modules as names of C, where other characters than letters, digits, and _ are their codes
+function mangle(n: Name): Str
+
+// n as the C of programs and the runtime knows it, where a module of the library has the name of its file, as in
+// t_list_46_List and the key "os.OsError" of ulang/runtime, which the seed links with
+function c_text(n: Name): Str
+
+function fun_name(n: Name, k: Int): Str
+
+// the C function of procedure n, which the runtime defines for those of the builtin section of os
+function proc_name(n: Name): Str
+
+// the functions of the runtime for the builtins with their numbers of arguments, without a module, and of the builtin
+// sections of the prelude, str.u, and array.u by their qualified names
+function builtin_functions(): Map[Name, Str * Int]
+
+// the datatypes and constructors whose descriptors the runtime defines, of OsError, which its builtins create also in
+// programs that do not import os, while each program defines those of the prelude and its modules, which it always has
+function runtime_constructors(): Set[Name]
+
+function runtime_types(): Set[Name]
+
+// the datatypes whose descriptors, of themselves, their constructors, and their values without arguments,
+// ulang/runtime/ulang.h declares extern, since the builtins of the runtime create them
+function runtime_referenced(): Set[Name]
+
+function type_name(t: Name): Str
+
+function descriptor_name(n: Name): Str
+
+function positions_of(defs: Defs, n: Name, k: Int): List[Int]
+
+function table_name(n: Name): Str
+
+function field_text_name(n: Name): Str
+
+// types as names of exceptions, which handlers compare
+function type_key(t: Type): Str
+
+function is_global_fun(defs: Defs, n: Name, k: Int): Bool
+
+function fields_count(defs: Defs, n: Name): Option[Int]
+
+// the procedures with their numbers of ins and of outs and refs
+function proc_arities(defs: Defs): List[Name * (Int * Int)]
+
+function constr_arities(defs: Defs): List[Name * Int]
+
+function is_small(num: Int): Bool
+
+// the variables of expr that bound does not bind, which lambdas capture if they are local
+function free_vars(expr: At[Expr], bound: List[Name]): List[Name]
+
+// the variables of x that bound does not bind, including procedures called through variables
+function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name]
+
+function prefix_of(text: Str): Str
+
+function bound_by(pats: List[At[Pat]]): List[Name]
+
+type Fusion :=
+  List[Name * At[Expr] * Var] * Option[At[Expr]] * At[Expr]
+
+// a call that compiles to loops or to an array made at once, instead of a call of its function
+data Fused :=
+  // array.from_list of a comprehension
+  case FusedArray(fusion: Fusion)
+  // array.from_list of a list literal
+  case FusedLiteral(elems: List[At[Expr]])
+  // a comprehension of lists, onto the list init
+  case FusedList(fusion: Fusion, init: At[Expr])
+
+function fusion_of(name: Name, args: List[At[Expr]]): Option[Fused]
+
+function var_names(xs: List[Var]): List[Name]
+
+// the variables that s assigns, directly or as outs and refs
+function changed(stmt: At[Stmt]): List[Name]
+
+function test_name(n: Name): Str
+
+// the name of cmd if it is a test of the module m
+function tested_name(cmd: Cmd, m: Id): Option[Name]
+
+implementation
+
+function mangle(n: Name): Str :=
+  str(List(for c in chars(c_text(n)) for d in mangle_char(c) yield d))
+
+function c_text(n: Name): Str :=
+  match n.module
+    case Some(m) if contains(m, library_modules()) =>
+      format_name(Name(Some(library_file(m)), n.base))
+    case _ =>
+      format_name(n)
+  end
+
+function mangle_char(c: Char): List[Char] :=
+  if is_letter(c) or is_digit(c) or c == '_' then
+    List(c)
+  else
+    chars("_" ++ show(ord(c)) ++ "_")
+
+function fun_name(n: Name, k: Int): Str :=
+  "f_" ++ mangle(n) ++ "_" ++ show(k)
+
+function proc_name(n: Name): Str :=
+  if n.module == Some(library_module("os")) and contains(n.base, native_procs()) then
+    "p_" ++ n.base
+  else
+    "p_" ++ mangle(n)
+
+// the procedures of the builtin section of os
+function native_procs(): Set[Id] :=
+  Set(
+    "os_args",
+    "os_read",
+    "os_write",
+    "os_library",
+    "os_print",
+    "os_print_error",
+    "os_exit",
+    "os_list",
+    "os_is_dir",
+    "os_cwd",
+    "os_chdir")
+
+function builtin_functions(): Map[Name, Str * Int] :=
+  Map(
+    library_name("prelude", "+") => ("u_add", 2),
+    library_name("prelude", "-") => ("u_sub", 2),
+    library_name("prelude", "*") => ("u_mul", 2),
+    library_name("prelude", "/") => ("u_div", 2),
+    library_name("prelude", "%") => ("u_mod", 2),
+    unqualified("<") => ("u_lt", 2),
+    unqualified("==") => ("u_eq", 2),
+    unqualified("compare") => ("u_compare", 2),
+    unqualified("show") => ("u_show", 1),
+    library_name("str", "chars") => ("u_chars", 1),
+    library_name("str", "str") => ("u_string", 1),
+    library_name("str", "ord") => ("u_ord", 1),
+    library_name("str", "chr") => ("u_chr", 1),
+    library_name("prelude", "++") => ("u_concat", 2),
+    library_name("str", "is_digit") => ("u_is_digit", 1),
+    library_name("str", "is_letter") => ("u_is_letter", 1),
+    library_name("str", "is_space") => ("u_is_space", 1),
+    library_name("str", "size") => ("u_size", 1),
+    library_name("str", "at") => ("u_at", 2),
+    library_name("str", "contains") => ("u_contains", 2),
+    library_name("str", "slice") => ("u_slice", 3),
+    library_name("str", "join") => ("u_join", 2),
+    library_name("str", "split") => ("u_split", 2),
+    library_name("str", "quote") => ("u_quote", 1),
+    library_name("str", "number") => ("u_number", 1),
+    library_name("array", "from_list") => ("u_array", 1),
+    library_name("array", "size") => ("u_array_size", 1),
+    library_name("array", "at") => ("u_array_at", 2),
+    library_name("array", "slice") => ("u_array_slice", 3),
+    library_name("array", "foldr") => ("u_array_foldr", 3),
+    library_name("array", "foldl") => ("u_array_foldl", 3))
+
+function runtime_constructors(): Set[Name] :=
+  Set(os_error_name())
+
+function runtime_types(): Set[Name] :=
+  Set(os_error_name())
+
+function runtime_referenced(): Set[Name] :=
+  Set(
+    library_name("list", "List"),
+    library_name("option", "Option"),
+    division_by_zero_name(),
+    out_of_bounds_name(),
+    no_character_name(),
+    missing_field_name(),
+    unordered_name(),
+    incomparable_name())
+
+function type_name(t: Name): Str :=
+  "t_" ++ mangle(t)
+
+function descriptor_name(n: Name): Str :=
+  "n_" ++ mangle(n)
+
+function positions_of(defs: Defs, n: Name, k: Int): List[Int] :=
+  value_or(get((n, k), defs.fields), List())
+
+function table_name(n: Name): Str :=
+  "x_" ++ mangle(Name(n.module, field_of(n)))
+
+function field_text_name(n: Name): Str :=
+  "lf_" ++ mangle(Name(n.module, field_of(n)))
+
+function type_keys(types: List[Type]): Str :=
+  join(", ", List(for a in types yield type_key(a)))
+
+function type_key(t: Type): Str :=
+  match t
+    case TSort(name, List()) =>
+      c_text(name)
+
+    case TSort(name, args) =>
+      c_text(name) ++ "[" ++ join(", ", List(for a in args yield type_key(a))) ++ "]"
+
+    case TFun(args, res) =>
+      "(" ++ join(", ", List(for a in args yield type_key(a))) ++ ") -> " ++ type_key(res)
+
+    case TProc(ins, outs, refs, _) =>
+      "(in " ++ type_keys(ins) ++ ", out " ++ type_keys(outs) ++ ", ref " ++ type_keys(refs) ++ ")"
+
+    case TTuple(types) =>
+      "(" ++ join(" * ", List(for a in types yield type_key(a))) ++ ")"
+
+    case _ =>
+      "?"
+  end
+
+function is_global_fun(defs: Defs, n: Name, k: Int): Bool :=
+  contains((n, k), defs.funs)
+
+function fields_count(defs: Defs, n: Name): Option[Int] :=
+  map_option(get(n, defs.constrs), lambda constr => constr.arity)
+
+function proc_arities(defs: Defs): List[Name * (Int * Int)] :=
+  List(for n => proc in defs.procs yield (n, (size(proc.ins), size(proc.outs) + size(proc.refs))))
+
+function constr_arities(defs: Defs): List[Name * Int] :=
+  List(for n => constr in defs.constrs yield (n, constr.arity))
+
+function is_small(num: Int): Bool :=
+  (-1000000000000000000) < num and num < 1000000000000000000
+
+function free_in_all(exprs: List[At[Expr]], bound: List[Name]): List[Name] :=
+  List(for a in exprs for n in free_vars(a, bound) yield n)
+
+function unbound(names: List[Name], bound: List[Name]): List[Name] :=
+  List(for y in names if not contains(y, bound))
+
+function free_vars(expr: At[Expr], bound: List[Name]): List[Name] :=
+  match expr.that
+    case ELit(_) =>
+      List()
+
+    case EName(name, _) =>
+      if contains(name, bound) then List() else List(name)
+
+    case EApp(fun, args) =>
+      free_vars(fun, bound) ++ free_in_all(args, bound)
+
+    case EField(base, _) =>
+      free_vars(base, bound)
+
+    case EUpdate(base, _, value) =>
+      free_vars(base, bound) ++ free_vars(value, bound)
+
+    case EForm(_, _, _) =>
+      List()
+
+    case EFor(_, _, _, _) =>
+      List()
+
+    case ELam(formals, body) =>
+      free_vars(body, var_names(lambda_vars(formals)) ++ bound)
+
+    case EProc(ins, outs, refs, _, stmt) =>
+      free_in_stmt(stmt, var_names(ins ++ outs ++ refs) ++ bound)
+
+    case ELet(bindings, body) =>
+      free_in_all(seconds(bindings), bound) ++ free_vars(body, bound_by(firsts(bindings)) ++ bound)
+
+    case EIte(cond, then_expr, else_expr) =>
+      free_vars(cond, bound) ++ free_vars(then_expr, bound) ++ free_vars(else_expr, bound)
+
+    case EMatch(arg, cases) =>
+      free_vars(arg, bound) ++ List(for b in cases for n in free_in_branch(b, bound) yield n)
+
+    case ETuple(args) =>
+      free_in_all(args, bound)
+  end
+
+function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
+  match stmt.that
+    case SSkip =>
+      List()
+
+    case SAssign(upd) =>
+      unbound(var_names(firsts(upd)), bound) ++ free_in_all(seconds(upd), bound)
+
+    case SBlock(locals, stmts) =>
+      List(for y in stmts_of(stmts) for n in free_in_stmt(y, var_names(locals) ++ bound) yield n)
+
+    case SIf(cond, left, right) =>
+      free_vars(cond, bound) ++ free_in_stmt(left, bound) ++ free_in_stmt(right, bound)
+
+    case SWhile(cond, body) =>
+      free_vars(cond, bound) ++ free_in_stmt(body, bound)
+
+    case SCall(proc, ins, outs, refs) =>
+      unbound(List(proc; var_names(outs ++ refs)), bound) ++ free_in_all(ins, bound)
+
+    case SMatch(arg, cases) =>
+      free_vars(arg, bound) ++ List(for b in cases for n in free_in_stmt_branch(b, bound) yield n)
+
+    case SAssert(cond) =>
+      free_vars(cond, bound)
+
+    case SAssertRaises(_, _, body) =>
+      free_in_stmt(body, bound)
+
+    case SRaise(value, _) =>
+      free_vars(value, bound)
+
+    case STry(body, catches) =>
+      free_in_stmt(body, bound) ++ List(for h in catches for n in free_in_handler(h, bound) yield n)
+
+    case SFor(List(GVal(pat, over)), body) =>
+      free_vars(over, bound) ++ free_in_stmt(body, pattern_names(pat) ++ bound)
+
+    // the checker gives one generator over a list, which the case before takes
+    case SFor(_, body) =>
+      free_in_stmt(body, bound)
+  end
+
+function free_in_stmt_branch(d: Doc[Branch[At[Stmt]]], bound: List[Name]): List[Name] :=
+  match d.at.that
+    case Branch(pat, Some(g), body) =>
+      let inner := pattern_names(pat) ++ bound in
+      free_vars(g, inner) ++ free_in_stmt(body, inner)
+
+    case Branch(pat, None, body) =>
+      free_in_stmt(body, pattern_names(pat) ++ bound)
+  end
+
+function free_in_handler(d: Doc[Catch], bound: List[Name]): List[Name] :=
+  let h := d.at.that, inner := pattern_names(d.at.that.pat) ++ bound in
+  free_in_stmt(h.body, inner) ++ match h.guard
+    case Some(g) =>
+      free_vars(g, inner)
+    case None =>
+      List()
+  end
+
+function free_in_branch(d: Doc[Branch[At[Expr]]], bound: List[Name]): List[Name] :=
+  match d.at.that
+    case Branch(pat, Some(g), body) =>
+      let inner := pattern_names(pat) ++ bound in
+      free_vars(g, inner) ++ free_vars(body, inner)
+
+    case Branch(pat, None, body) =>
+      free_vars(body, pattern_names(pat) ++ bound)
+  end
+
+function prefix_of(text: Str): Str :=
+  slice(text, 0, if size(text) < 16 then size(text) else 16)
+
+function bound_by(pats: List[At[Pat]]): List[Name] :=
+  List(for p in pats for n in pattern_names(p) yield n)
+
+// the elements of a list literal, Cons(a, Cons(b, Nil))
+function list_literal(expr: At[Expr]): Option[List[At[Expr]]] :=
+  match expr.that
+    case ENil(_) =>
+      Some(List())
+
+    case ECons(_, _, e, rest) =>
+      match list_literal(rest)
+        case Some(es) =>
+          Some(List(e; es))
+        case None =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+// the condition and the element of a function body that puts the element in front of the accumulator acc if the condition holds,
+// and returns acc otherwise
+function consing(body: At[Expr], acc: Name): Option[Option[At[Expr]] * At[Expr]] :=
+  match body.that
+    case EIte(cond, AOk(_, ECons(_, _, e, AOk(_, EName(a, _)))), AOk(_, EName(b, _))) if a == acc and b == acc =>
+      if contains(acc, free_vars(cond, List()) ++ free_vars(e, List())) then
+        None
+      else
+        Some((Some(cond), e))
+
+    case ECons(_, _, e, AOk(_, EName(a, _))) if a == acc =>
+      if contains(acc, free_vars(e, List())) then None else Some((None, e))
+
+    case _ =>
+      None
+  end
+
+function fusion_of(name: Name, args: List[At[Expr]]): Option[Fused] :=
+  match (array_fusion(name, args), args)
+    case (Some(fusion), _) =>
+      Some(FusedArray(fusion))
+
+    case (None, List(l)) if name == array_name() =>
+      match list_literal(l)
+        case Some(es) =>
+          Some(FusedLiteral(es))
+        case None =>
+          None
+      end
+
+    case (None, List(xs, init, AOk(_, ELam(List(AOk(_, PVar(x)), AOk(_, PVar(acc))), body)))) =>
+      match fused(name, xs, x, body, acc.name)
+        case Some(fusion) =>
+          Some(FusedList(fusion, init))
+        case None =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+// the generators, the condition, and the element of a comprehension over lists and arrays, foldr(c1, init, lambda x1, acc =>
+// foldr(c2, acc, lambda x2, acc => ... if q then Cons(e, acc) else acc)), into which comprehensions translate, where each
+// generator is the fold of its container, the container, and the variable, and acc is free nowhere else
+function fused(f: Name, c: At[Expr], x: Var, body: At[Expr], acc: Name): Option[Fusion] :=
+  if f != list_foldr_name() and f != array_foldr_name() then
+    None
+  else
+    match consing(body, acc)
+      case Some((q, e)) =>
+        Some((List((f, c, x)), q, e))
+      case None =>
+        fused_inner(f, c, x, body, acc)
+    end
+
+function fused_inner(f: Name, c: At[Expr], x: Var, body: At[Expr], acc: Name): Option[Fusion] :=
+  match body.that
+    case ECall(_, f_, _, List(c_, AOk(_, EName(a, _)), lam)) if a == acc and is_unused(acc, c_, lam) =>
+      match lam.that
+        case ELam(List(AOk(_, PVar(x_)), AOk(_, PVar(acc_))), inner) =>
+          nested(f, c, x, fused(f_, c_, x_, inner, acc_.name))
+        case _ =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+function is_unused(acc: Name, c: At[Expr], lam: At[Expr]): Bool :=
+  not contains(acc, free_vars(c, List()) ++ free_vars(lam, List()))
+
+function nested(f: Name, c: At[Expr], x: Var, inner: Option[Fusion]): Option[Fusion] :=
+  match inner
+    case Some((gs, q, e)) =>
+      Some((List((f, c, x); gs), q, e))
+    case None =>
+      None
+  end
+
+// the generators, condition, and element of an array comprehension Array(foldr(c, Nil, lambda x, acc => ...))
+function array_fusion(n: Name, args: List[At[Expr]]): Option[Fusion] :=
+  match args
+    case List(AOk(_, ECall(_, f, _, List(xs, AOk(_, ENil(_)), lam)))) if n == array_name() =>
+      match lam.that
+        case ELam(List(AOk(_, PVar(x)), AOk(_, PVar(acc))), body) =>
+          fused(f, xs, x, body, acc.name)
+        case _ =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+function var_names(xs: List[Var]): List[Name] :=
+  List(for x in xs yield x.name)
+
+function changed(stmt: At[Stmt]): List[Name] :=
+  match stmt.that
+    case SAssign(upd) =>
+      var_names(firsts(upd))
+
+    case SBlock(_, stmts) =>
+      List(for y in stmts_of(stmts) for n in changed(y) yield n)
+
+    case SIf(_, left, right) =>
+      changed(left) ++ changed(right)
+
+    case SWhile(_, body) =>
+      changed(body)
+
+    case SCall(_, _, outs, refs) =>
+      var_names(outs ++ refs)
+
+    case SMatch(_, cases) =>
+      List(for b in cases for n in changed(b.at.that.body) yield n)
+
+    case STry(b, catches) =>
+      changed(b) ++ List(for h in catches for n in changed(h.at.that.body) yield n)
+
+    case SFor(_, body) =>
+      changed(body)
+
+    case SSkip =>
+      List()
+
+    case SAssert(_) =>
+      List()
+
+    case SAssertRaises(_, _, body) =>
+      changed(body)
+
+    case SRaise(_, _) =>
+      List()
+  end
+
+function test_name(n: Name): Str :=
+  "test_" ++ mangle(n)
+
+function tested_name(cmd: Cmd, m: Id): Option[Name] :=
+  match cmd
+    case CTest(name, _, _) if name.module == Some(m) =>
+      Some(name)
+    case _ =>
+      None
+  end
