@@ -369,7 +369,7 @@ procedure evaluate(
       end
 
     case EProc(ins, outs, refs, _, stmt) =>
-      assign v := VProcClos(env, ins, outs, refs, stmt)
+      assign v := VProcClos(env, vars(ins), vars(outs), vars(refs), stmt)
 
     // the patterns are bound in parallel, and match, since they are irrefutable
     case ELet(bindings, body) =>
@@ -972,7 +972,7 @@ procedure exec(
       assign env := env ++ Map(for (k, u) in zip(List(for x in firsts(upd) yield x.name), vs))
 
     case SBlock(locals, stmts) =>
-      call scoped(in run, List(for x in locals yield x.name), env -- Set(for x in locals yield x.name), stmts_of(stmts), ref env, cache)
+      call scoped(in run, List(for x in locals yield x.that.name), env -- Set(for x in locals yield x.that.name), stmts_of(stmts), ref env, cache)
 
     case SIf(cond, left, right) =>
       local v: Val
@@ -1465,7 +1465,7 @@ function assigning(expr: At[Expr]): Cmd :=
 
 // statements one after another, at Pos(0, 0), with the locals xs
 function block(xs: List[Var], stmts: List[Stmt]): At[Stmt] :=
-  nowhere(SBlock(xs, List(for y in stmts yield Doc(None, nowhere(y)))))
+  nowhere(SBlock(unplaced_vars(xs), List(for y in stmts yield Doc(None, nowhere(y)))))
 
 test values() :=
   assert format_value(list_value(List(VInt(1), VStr("a\"b")))) == "List(1, \"a\\\"b\")"
@@ -1486,7 +1486,7 @@ function procedures(): List[Cmd] :=
   List(
     CData(unqualified("Fail"), List(), List(
       Doc(None, nowhere(Constr(unqualified("Fail"), List(Field("code", TInt()))))))),
-    CProc(unqualified("sum"), List(), List(Var(unqualified("n"), TInt())), List(Var(unqualified("s"), TInt())), List(), List(), no_spec(), block(List(Var(unqualified("i"), TInt())), List(
+    CProc(unqualified("sum"), List(), unplaced_vars(List(Var(unqualified("n"), TInt()))), unplaced_vars(List(Var(unqualified("s"), TInt()))), List(), List(), no_spec(), block(List(Var(unqualified("i"), TInt())), List(
       SAssign(List(
         (Var(unqualified("s"), THole), expr_int(0)),
         (Var(unqualified("i"), THole), expr_int(0)))),
@@ -1494,7 +1494,7 @@ function procedures(): List[Cmd] :=
         SAssign(List(
           (Var(unqualified("i"), THole), expr_app("+", List(expr_var("i"), expr_int(1)))),
           (Var(unqualified("s"), THole), expr_app("+", List(expr_var("s"), expr_app("+", List(expr_var("i"), expr_int(1)))))))))))))),
-    CProc(unqualified("count"), List(), List(), List(), List(Var(unqualified("k"), TInt())), List(), no_spec(), block(List(), List(
+    CProc(unqualified("count"), List(), List(), List(), unplaced_vars(List(Var(unqualified("k"), TInt()))), List(), no_spec(), block(List(), List(
       SAssign(List(
         (Var(unqualified("k"), THole), expr_app("+", List(expr_var("k"), expr_int(1)))))),
       SRaise(expr_app("Fail", List(expr_var("k"))), THole)))))
@@ -1522,7 +1522,7 @@ test procedure_values() :=
         nowhere(SAssign(List((hole_var("f"), expr_var("sum"))))),
         nowhere(SAssign(List((hole_var("k"), expr_int(10))))),
         nowhere(SAssign(List(
-          (hole_var("g"), nowhere(EProc(List(hole_var("n")), List(hole_var("r")), List(), THole, block(List(), List(
+          (hole_var("g"), nowhere(EProc(unplaced_vars(List(hole_var("n"))), unplaced_vars(List(hole_var("r"))), List(), THole, block(List(), List(
             SAssign(List(
               (hole_var("r"), expr_app("+", List(expr_var("n"), expr_var("k")))))))))))))),
         nowhere(SCall(unqualified("f"), List(expr_int(4)), List(hole_var("s")), List())),

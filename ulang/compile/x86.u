@@ -490,7 +490,7 @@ procedure compile_expr(in defs: Defs, env: Slots, expr: At[Expr], ref e: Emit) :
       end
 
     case EProc(ins, outs, refs, _, stmt) =>
-      call compile_proc_lambda(in defs, env, ins, outs, refs, stmt, ref e)
+      call compile_proc_lambda(in defs, env, vars(ins), vars(outs), vars(refs), stmt, ref e)
 
     case ELet(bindings, body) =>
       local slots: List[Int], binds: Slots
@@ -757,7 +757,7 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
 
     case SBlock(locals, stmts) =>
       local binds: Slots := List(), t: Int
-      for x in var_names(locals) do
+      for x in var_names(vars(locals)) do
         call   new_slot(out t, ref e)
         call   emit(in IMov(OImm(0), slot(t)), ref e)
         assign binds := binds ++ List((x, t))
@@ -1032,7 +1032,7 @@ procedure compile_cmd(in defs: Defs, tests: Bool, cmd: Cmd, ref e: Emit) :=
       else
         local fs: List[Int]
         call formal_slots(in size(formals), out fs, ref e)
-        call compile_expr(in defs, zip(var_names(formals), fs), body, ref e)
+        call compile_expr(in defs, zip(var_names(vars(formals)), fs), body, ref e)
       end
       call end_function(in f, false, outer, ref e)
 
@@ -1041,10 +1041,10 @@ procedure compile_cmd(in defs: Defs, tests: Bool, cmd: Cmd, ref e: Emit) :=
       local fs: List[Int], vs: Slots, ps: Slots, k := size(ins), outer: Buffer[Line] * Int
       call   begin_function(out outer, ref e)
       call   formal_slots(in k + size(outs ++ refs), out fs, ref e)
-      assign ps := zip(var_names(outs ++ refs), drop(k, fs))
-      call   copy_in(in var_names(outs), var_names(refs), ps, out vs, ref e)
-      call   compile_stmt(in defs, zip(var_names(ins), take(k, fs)) ++ vs, stmt, ref e)
-      call   copy_out(in var_names(outs ++ refs), ps, vs, ref e)
+      assign ps := zip(var_names(vars(outs ++ refs)), drop(k, fs))
+      call   copy_in(in var_names(vars(outs)), var_names(vars(refs)), ps, out vs, ref e)
+      call   compile_stmt(in defs, zip(var_names(vars(ins)), take(k, fs)) ++ vs, stmt, ref e)
+      call   copy_out(in var_names(vars(outs ++ refs)), ps, vs, ref e)
       call   end_function(in proc_name(name), false, outer, ref e)
 
     case CTest(name, _, stmt) if tests =>

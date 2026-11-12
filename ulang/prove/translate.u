@@ -74,7 +74,9 @@ function fun_name(cmd: Cmd): Option[Name] :=
 function definition(cmd: Cmd): Option[(Name * Int) * (List[Var] * Term)] :=
   match cmd
     case CFun(name, _, formals, _, _, body) =>
-      Some(((name, size(formals)), (formals, term_of(bind(formals, List()), body))))
+      let xs := vars(formals) in
+      Some(((name, size(xs)), (xs, term_of(bind(xs, List()), body))))
+
     case _ =>
       None
   end
@@ -133,9 +135,10 @@ function reachable(calls: Map[Name * Int, Set[Name * Int]], arities: Map[Name, L
 function lemma_of(m: Id, cmd: Cmd): Option[Lemma] :=
   match cmd
     case CLemma(name, _, formals, outs, assms, concl, proof) if name.module == Some(m) =>
-      let env := bind(formals, List()), all := bind(formals ++ outs, List()) in
+      let xs := vars(formals), ys := vars(outs) in
+      let env := bind(xs, List()), all := bind(xs ++ ys, List()) in
       let atoms := List(for a in assms yield Atom(term_of(env, a))), goal := Atom(term_of(all, concl)) in
-      Some(Lemma(name, Seq(formals, atoms, List(Concl(outs, List(goal)))), map_option(proof, lambda p => proof_term(formals, all, p, Pos(0, 0)))))
+      Some(Lemma(name, Seq(xs, atoms, List(Concl(ys, List(goal)))), map_option(proof, lambda p => proof_term(xs, all, p, Pos(0, 0)))))
 
     case _ =>
       None

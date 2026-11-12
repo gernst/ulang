@@ -91,10 +91,10 @@ function omitted(name: Name, raised: Map[Name, Pos], allowed: Set[Name]): List[P
 function cmd_flow(scope: Scope, cmd: Cmd): Flow :=
   match cmd
     case CProc(_, _, ins, outs, refs, _, _, stmt) =>
-      stmt_flow(bound(scope, ins ++ outs ++ refs), stmt)
+      stmt_flow(bound(scope, vars(ins ++ outs ++ refs)), stmt)
 
     case CFun(_, _, formals, _, _, body) =>
-      Flow(empty(), expr_errors(bound(scope, formals), body))
+      Flow(empty(), expr_errors(bound(scope, vars(formals)), body))
 
     case CTest(_, _, stmt) =>
       stmt_flow(scope, stmt)
@@ -222,7 +222,7 @@ function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
       Flow(empty(), exprs_errors(scope, List(for (_, e) in upd yield e)))
 
     case SBlock(locals, stmts) =>
-      stmts_flow(bound(scope, locals), stmts_of(stmts))
+      stmts_flow(bound(scope, vars(locals)), stmts_of(stmts))
 
     case SIf(cond, left, right) =>
       with_errors(stmts_flow(scope, List(left, right)), expr_errors(scope, cond))
@@ -355,7 +355,7 @@ function part_errors(scope: Scope, pos: Pos, expr: Expr): List[Pos * TypeError] 
       expr_errors(bound(scope, List(for p in formals for v in pattern_variables(p) yield v)), body)
 
     case EProc(ins, outs, refs, raised, stmt) =>
-      let flow := stmt_flow(bound(scope, ins ++ outs ++ refs), stmt) in
+      let flow := stmt_flow(bound(scope, vars(ins ++ outs ++ refs)), stmt) in
       flow.errors ++ List(for t => p in flow.raised if not contains(t, raised_names(raised)) yield (p, UntypedRaise(Name(None, "lambda"), TSort(t, List()))))
 
     case ELet(bindings, body) =>

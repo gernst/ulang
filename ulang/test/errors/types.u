@@ -91,7 +91,7 @@ test duplicate_constructor() :=
   end
 
 test duplicate_formal() :=
-  assert raises Located(None, Pos(1, 1), Duplicate("formal", "a")) do
+  assert raises Located(None, Pos(1, 20), Duplicate("formal", "a")) do
     call check_text(in "ulang/test/errors/duplicate-formal.u", List("function f(a: Int, a: Int): Int :=", "  a"))
   end
 
@@ -106,7 +106,7 @@ test duplicate_lemma() :=
   end
 
 test duplicate_let() :=
-  assert raises Located(None, Pos(2, 3), Duplicate("binding", "x")) do
+  assert raises Located(None, Pos(2, 15), Duplicate("binding", "x")) do
     call check_text(in "ulang/test/errors/duplicate-let.u", List("function f(): Int :=", "  let x := 1, x := 2 in", "  x"))
   end
 
@@ -356,17 +356,17 @@ test misshapen_hook() :=
   end
 
 test missing_local_type() :=
-  assert raises Located(None, Pos(2, 3), MissingType(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 9), MissingType(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/missing-local-type.u", List("test missing_local_type() :=", "  local x", "  assert true"))
   end
 
 test missing_output_type() :=
-  assert raises Located(None, Pos(1, 1), MissingType(Name(None, "x"))) do
+  assert raises Located(None, Pos(1, 17), MissingType(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/missing-output-type.u", List("procedure p(out x) :=", "  skip"))
   end
 
 test missing_parameter_type() :=
-  assert raises Located(None, Pos(1, 1), MissingType(Name(None, "x"))) do
+  assert raises Located(None, Pos(1, 12), MissingType(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/missing-parameter-type.u", List("function f(x): Int :=", "  x"))
   end
 
@@ -560,7 +560,7 @@ test too_many_arguments() :=
   end
 
 test unit() :=
-  assert raises Located(None, Pos(1, 1), UnknownSort(Name(None, "Unit"))) do
+  assert raises Located(None, Pos(1, 12), UnknownSort(Name(None, "Unit"))) do
     call check_text(in "ulang/test/errors/unit.u", List("function f(u: Unit): Int :=", "  0"))
   end
 
@@ -786,7 +786,7 @@ test checked_despite_parse_errors() :=
     "      s * s",
     "  end"), out parsing, errors)
   assert List(for e in parsing yield e.pos) == List(Pos(1, 13), Pos(12, 3))
-  assert List(for e in errors yield error_pos(e)) == List(Pos(14, 1), Pos(5, 7), Pos(8, 3), Pos(16, 10))
+  assert List(for e in errors yield error_pos(e)) == List(Pos(14, 15), Pos(5, 7), Pos(8, 3), Pos(16, 10))
   assert List(for e in errors yield is_unparsed_use(e)) == List(true, false, true, true)
 
 // a definition whose part after := does not parse keeps its signature, so that its uses are checked, while it is not

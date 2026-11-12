@@ -61,19 +61,19 @@ function cmd_lints(cmd: At[Cmd]): List[Warning] :=
 function placed_cmd_lints(pos: Pos, cmd: Cmd): List[Warning] :=
   match cmd
     case CFun(name, _, formals, typ, _, body) =>
-      decl_name_lints(pos, name.base, List(typ)) ++ vars_lints(pos, formals) ++ expr_lints(name.base, body)
+      decl_name_lints(pos, name.base, List(typ)) ++ vars_lints(pos, vars(formals)) ++ expr_lints(name.base, body)
 
     case CProc(name, _, ins, outs, refs, _, _, stmt) =>
-      decl_name_lints(pos, name.base, List(for x in outs yield x.typ)) ++ vars_lints(pos, ins ++ outs ++ refs) ++ stmt_lints("", stmt)
+      decl_name_lints(pos, name.base, List(for x in outs yield x.that.typ)) ++ vars_lints(pos, vars(ins ++ outs ++ refs)) ++ stmt_lints("", stmt)
 
     case CTest(_, _, stmt) =>
       stmt_lints("", stmt)
 
     case CLemma(_, _, ins, outs, assms, concl, _) =>
-      vars_lints(pos, ins ++ outs) ++ exprs_lints("", assms) ++ expr_lints("", concl)
+      vars_lints(pos, vars(ins ++ outs)) ++ exprs_lints("", assms) ++ expr_lints("", concl)
 
     case CPatAlias(name, _, formals, _, _) =>
-      decl_name_lints(pos, name.base, List()) ++ vars_lints(pos, formals)
+      decl_name_lints(pos, name.base, List()) ++ vars_lints(pos, vars(formals))
 
     case CSort(_, _, _) =>
       List()
@@ -206,7 +206,7 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
       exprs_lints(fun, List(for (_, e) in upd yield e))
 
     case SBlock(locals, stmts) =>
-      locals_lints(pos, locals, stmts) ++ collecting_loops(stmts_of(stmts)) ++ stmts_lints(fun, stmts_of(stmts))
+      locals_lints(pos, vars(locals), stmts) ++ collecting_loops(stmts_of(stmts)) ++ stmts_lints(fun, stmts_of(stmts))
 
     case SIf(cond, left, right) =>
       expr_lints(fun, cond) ++ stmts_lints(fun, List(left, right))

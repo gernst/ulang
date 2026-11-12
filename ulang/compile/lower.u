@@ -282,7 +282,7 @@ function free_vars(expr: At[Expr], bound: List[Name]): List[Name] :=
       free_vars(body, var_names(lambda_vars(formals)) ++ bound)
 
     case EProc(ins, outs, refs, _, stmt) =>
-      free_in_stmt(stmt, var_names(ins ++ outs ++ refs) ++ bound)
+      free_in_stmt(stmt, var_names(vars(ins ++ outs ++ refs)) ++ bound)
 
     case ELet(bindings, body) =>
       free_in_all(seconds(bindings), bound) ++ free_vars(body, bound_by(firsts(bindings)) ++ bound)
@@ -306,7 +306,7 @@ function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
       unbound(var_names(firsts(upd)), bound) ++ free_in_all(seconds(upd), bound)
 
     case SBlock(locals, stmts) =>
-      List(for y in stmts_of(stmts) for n in free_in_stmt(y, var_names(locals) ++ bound) yield n)
+      List(for y in stmts_of(stmts) for n in free_in_stmt(y, var_names(vars(locals)) ++ bound) yield n)
 
     case SIf(cond, left, right) =>
       free_vars(cond, bound) ++ free_in_stmt(left, bound) ++ free_in_stmt(right, bound)

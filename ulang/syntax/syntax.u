@@ -77,7 +77,7 @@ data Expr :=
   case ELam(formals: List[At[Pat]], body: At[Expr])
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
   // where raised is the type of what it may raise, as of TProc, THole until the checker infers it from where it is used
-  case EProc(ins: List[Var], outs: List[Var], refs: List[Var], raised: Type, stmt: At[Stmt])
+  case EProc(ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], raised: Type, stmt: At[Stmt])
   // let p := a, … in body, which binds in parallel, by irrefutable patterns
   case ELet(bindings: List[At[Pat] * At[Expr]], body: At[Expr])
   // if c then a else b
@@ -164,7 +164,7 @@ data Stmt :=
   case SAssign(upd: List[Var * At[Expr]])
   // statements one after another, each after its doc, the body of an if, while, case, or procedure, which may declare
   // local x := e first, as assignments without docs that start stmts
-  case SBlock(locals: List[Var], stmts: List[Doc[Stmt]])
+  case SBlock(locals: List[At[Var]], stmts: List[Doc[Stmt]])
   // if c then … else … end, or if c then … end
   case SIf(cond: At[Expr], left: At[Stmt], right: At[Stmt])
   // while c do … end
@@ -218,29 +218,29 @@ data Cmd :=
   // data T[A, …] := case C(f: A, …) case D, one case per line
   case CData(name: Name, params: List[Id], constrs: List[Doc[Constr]])
   // function f[A, …](x: A, …): T := spec body, where spec is the lines after :=, see Spec
-  case CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, spec: Spec, body: At[Expr])
+  case CFun(name: Name, params: List[Id], formals: List[At[Var]], typ: Type, spec: Spec, body: At[Expr])
   // procedure p[A, …](in x: A, …, out y: B, …, ref z: C, …) := spec body, where in is optional before the first ins
   // raises T, … after the formals, where none written is none raised if it is exported, and else inferred
-  case CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], spec: Spec, stmt: At[Stmt])
+  case CProc(name: Name, params: List[Id], ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], raised: List[Type], spec: Spec, stmt: At[Stmt])
   // a notation, e.g. infix left 9 + -, see Fixity
   case CNotation(fixity: Fixity, prec: Int, ops: List[Id])
   // tests take no parameters, which the checker enforces
-  case CTest(name: Name, vars: List[Var], stmt: At[Stmt])
+  case CTest(name: Name, vars: List[At[Var]], stmt: At[Stmt])
   // the export section of a module, with the signatures of functions and procedures, as CFun and CProc without their
   // bodies, and abstract types, which its implementation section defines by data, and its builtin section, with the
   // signatures of exported functions and procedures that the interpreter and the runtime define; a spec follows := after
   // the head, which a signature without one has not
-  case CFunSig(name: Name, params: List[Id], formals: List[Var], typ: Type, spec: Spec)
-  case CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], spec: Spec)
+  case CFunSig(name: Name, params: List[Id], formals: List[At[Var]], typ: Type, spec: Spec)
+  case CProcSig(name: Name, params: List[Id], ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], raised: List[Type], spec: Spec)
   // an abstract type T[A, …], without a definition
   case CAbstract(name: Name, params: List[Id])
   // a pattern alias pattern C[A, …](x: A, …): T := pat, whose variables are the formals, each once, which the checker
   // expands at its uses in patterns, and which is a function of the same name where pat has no _
-  case CPatAlias(name: Name, params: List[Id], formals: List[Var], typ: Type, pat: At[Pat])
+  case CPatAlias(name: Name, params: List[Id], formals: List[At[Var]], typ: Type, pat: At[Pat])
   // lemma l[A, …](in x: A, …, out y: B, …) := requires a, … ensures b, which states b for all ins that satisfy the
   // assumptions a, …, for some outs, see prove.md, and which the prover proves, while the interpreter and the compiler
   // skip it
-  case CLemma(name: Name, params: List[Id], ins: List[Var], outs: List[Var], assms: List[At[Expr]], concl: At[Expr], proof: Option[Proof])
+  case CLemma(name: Name, params: List[Id], ins: List[At[Var]], outs: List[At[Var]], assms: List[At[Expr]], concl: At[Expr], proof: Option[Proof])
 
 // the specification of a function or procedure, lines after := of its head and before its body, where the contracts of
 // prove.md, requires and ensures, will join the examples; on the first occurrence of a signature, the export of an
@@ -374,6 +374,12 @@ function stmts_of(docs: List[Doc[Stmt]]): List[At[Stmt]]
 
 // a block of stmts without docs
 function block(locals: List[Var], stmts: List[At[Stmt]]): Stmt
+
+// the variables of declarations, without their positions
+function vars(xs: List[At[Var]]): List[Var]
+
+// variables of code that the parser did not read, as declarations at no position
+function unplaced_vars(xs: List[Var]): List[At[Var]]
 
 // the modules that module name imports without saying so: for a module of a project the library but enumerate, which only
 // the generated tests of lemmas name, and none for a module of the library, which sees the others as the members of its
@@ -531,7 +537,16 @@ function stmts_of(docs: List[Doc[Stmt]]): List[At[Stmt]] :=
   List(for d in docs yield d.at)
 
 function block(locals: List[Var], stmts: List[At[Stmt]]): Stmt :=
-  SBlock(locals, List(for stmt in stmts yield Doc(None, stmt)))
+  SBlock(unplaced_vars(locals), List(for stmt in stmts yield Doc(None, stmt)))
+
+function vars(xs: List[At[Var]]): List[Var] :=
+  List(for x in xs yield x.that)
+
+function unplaced_vars(xs: List[Var]): List[At[Var]] :=
+  List(for x in xs yield nowhere(x))
+
+function strip_vars(xs: List[At[Var]]): List[At[Var]] :=
+  unplaced_vars(vars(xs))
 
 function parts[A](docs: List[Doc[A]]): List[A] :=
   List(for d in docs if is_parsed(d.at) yield d.at.that)
@@ -764,19 +779,19 @@ function form_name(form: Form): Id :=
 function strip_cmd(cmd: Cmd): Cmd :=
   match cmd
     case CFun(name, params, formals, typ, spec, body) =>
-      CFun(name, params, formals, typ, strip_spec(spec), strip_expr(body))
+      CFun(name, params, strip_vars(formals), typ, strip_spec(spec), strip_expr(body))
 
     case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
-      CProc(name, params, ins, outs, refs, raised, strip_spec(spec), strip_stmt(stmt))
+      CProc(name, params, strip_vars(ins), strip_vars(outs), strip_vars(refs), raised, strip_spec(spec), strip_stmt(stmt))
 
     case CTest(name, vars, stmt) =>
-      CTest(name, vars, strip_stmt(stmt))
+      CTest(name, strip_vars(vars), strip_stmt(stmt))
 
     case CPatAlias(name, params, formals, typ, pat) =>
-      CPatAlias(name, params, formals, typ, strip_pat(pat))
+      CPatAlias(name, params, strip_vars(formals), typ, strip_pat(pat))
 
     case CLemma(name, params, ins, outs, assms, concl, proof) =>
-      CLemma(name, params, ins, outs, List(for a in assms yield strip_expr(a)), strip_expr(concl), map_option(proof, strip_proof))
+      CLemma(name, params, strip_vars(ins), strip_vars(outs), List(for a in assms yield strip_expr(a)), strip_expr(concl), map_option(proof, strip_proof))
 
     case CData(name, params, constrs) =>
       CData(name, params, List(for c in constrs yield Doc(c.doc, stripped(c.at, lambda x => x))))
@@ -788,10 +803,10 @@ function strip_cmd(cmd: Cmd): Cmd :=
       cmd
 
     case CFunSig(name, params, formals, typ, spec) =>
-      CFunSig(name, params, formals, typ, strip_spec(spec))
+      CFunSig(name, params, strip_vars(formals), typ, strip_spec(spec))
 
     case CProcSig(name, params, ins, outs, refs, raised, spec) =>
-      CProcSig(name, params, ins, outs, refs, raised, strip_spec(spec))
+      CProcSig(name, params, strip_vars(ins), strip_vars(outs), strip_vars(refs), raised, strip_spec(spec))
 
     case CAbstract(_, _) =>
       cmd
@@ -848,7 +863,7 @@ function strip_node(expr: Expr): Expr :=
       ELam(List(for p in formals yield strip_pat(p)), strip_expr(body))
 
     case EProc(ins, outs, refs, raised, stmt) =>
-      EProc(ins, outs, refs, raised, strip_stmt(stmt))
+      EProc(strip_vars(ins), strip_vars(outs), strip_vars(refs), raised, strip_stmt(stmt))
 
     case ELet(bindings, body) =>
       ELet(List(for (p, e) in bindings yield (strip_pat(p), strip_expr(e))), strip_expr(body))
@@ -907,7 +922,7 @@ function strip_statement(stmt: Stmt): Stmt :=
       SAssign(List(for (x, e) in upd yield (x, strip_expr(e))))
 
     case SBlock(locals, stmts) =>
-      SBlock(locals, List(for d in stmts yield Doc(d.doc, strip_stmt(d.at))))
+      SBlock(strip_vars(locals), List(for d in stmts yield Doc(d.doc, strip_stmt(d.at))))
 
     case SIf(cond, left, right) =>
       SIf(strip_expr(cond), strip_stmt(left), strip_stmt(right))
