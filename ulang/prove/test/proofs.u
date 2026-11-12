@@ -122,3 +122,24 @@ lemma size_replicate(in n: Int, x: Int) :=
     case m =>
       call size_replicate(in m - 1, x)
   end
+
+// a nested pattern: the case List(x; rest) after List(x, y; rest) has only the leaf where rest is List(), and the cuts
+// unfold size, which only the proof names
+lemma short_rest(in xs: List[Int]) :=
+  ensures xs == xs
+  match xs
+    case List(x, y; rest) =>
+      assert size(xs) == 2 + size(rest)
+    case List(x; rest) =>
+      assert size(rest) == 0
+  end
+
+// the case after a guarded one has the negation of its guard
+lemma absolute_by_guard(in x: Int) :=
+  ensures (if x < 0 then 0 - x else x) >= 0
+  match x
+    case y if y < 0 =>
+      assert 0 - y > 0
+    case _ =>
+      assert x >= 0
+  end

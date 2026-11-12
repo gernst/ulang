@@ -71,12 +71,13 @@ data Limits :=
 function limits(): Limits :=
   Limits(20, 5, 2, 3, 256, 20, 60, 3, 400)
 
-// the variables of the opened sequents, the last one first, such that level l is at depth - 1 - l, the e-graph of the
-// ground equations, the inequalities t >= 0, the rules, whether the facts are inconsistent, and
+// the variables of the opened sequents, the last one first, such that level l is at depth - 1 - l, the levels of the
+// variables that a proof defines, which no term is rewritten to and the one-point rule keeps, the e-graph of the ground
+// equations, the inequalities t >= 0, the rules, whether the facts are inconsistent, and
 // what is left of the limits: of the merges of the current fact, of internal splits, of trial merges, and the unfoldings
 // and rewrites so far
 data Ctx :=
-  case Ctx(decls: Decls, vars: List[Var], graph: EGraph, ineqs: List[Lin], rules: List[Rule], inconsistent: Bool, merges: Int, splits: Int, unfolds: Int, probes: Int)
+  case Ctx(decls: Decls, vars: List[Var], defined: Set[Int], graph: EGraph, ineqs: List[Lin], rules: List[Rule], inconsistent: Bool, merges: Int, splits: Int, unfolds: Int, probes: Int)
 
 // a simplified conjunction with the context after it, or Refuted if a conjunct is false
 data Conj :=
@@ -107,7 +108,7 @@ function false_seq(): Seq :=
 
 function new_ctx(decls: Decls): Ctx :=
   let l := limits() in
-  Ctx(decls, List(), empty_graph(), List(), List(), false, l.merges, l.splits, 0, l.probes)
+  Ctx(decls, List(), empty(), empty_graph(), List(), List(), false, l.merges, l.splits, 0, l.probes)
 
 // the context with a new budget of merges, for a fact or a term that the simplification of a sequent adds, not one
 // that solving adds
@@ -118,7 +119,8 @@ function depth(ctx: Ctx): Int :=
   size(ctx.vars)
 
 function enter(ctx: Ctx, xs: List[Var]): Ctx :=
-  ctx with vars := reverse(xs) ++ ctx.vars
+  let d := depth(ctx) in
+  ctx with vars := reverse(xs) ++ ctx.vars, defined := ctx.defined ++ Set(for (x, i) in numbered(xs) if is_defined_var(x) yield d + i)
 
 // the variables of the levels from d on
 function vars_from(ctx: Ctx, d: Int): List[Var] :=
@@ -251,12 +253,14 @@ function simp_seq(ctx: Ctx, s: Seq): Seq :=
       end
 
     case Seq(fixed, assms, concls) =>
-      simp_sequent(ctx, fixed, assms, concls)
+      simp_sequent(ctx, fixed, assms, concls, false)
   end
 
 // its binders are opened, its assumptions simplified as a conjunction, which may add binders, its conclusions in the
-// context of all assumptions, and the result closed again, or else split on a condition if all cases are closed
-function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Concl]): Seq :=
+// context of all assumptions, and the result closed again, or else split on a condition if all cases are closed; the
+// conclusions that are negations not A are assumptions A, since not A or R is A ==> R, so that their equations are facts
+// for all the others: the sequent is simplified again with them unless assumed says that it is that simplification
+function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Concl], assumed: Bool): Seq :=
   let d := depth(ctx), k := size(xs) in
   let cs := List(for c in concls yield rebind_concl(Open(d, k), 0, c)) in
   match conjoin(enter(ctx, xs), List(for a in assms yield rebind_seq(Open(d, k), 0, a)))
@@ -264,7 +268,7 @@ function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Co
       true_seq()
 
     case Conj(after, seqs) =>
-      match one_point(d, seqs)
+      match one_point(after.defined, d, seqs)
         case Some((l, t, rest)) =>
           let levels := List(for m in range(d, depth(after)) if m != l) in
           simp_seq(ctx, Seq(List(for m in levels yield at(m - d, from_list(vars_from(after, d)))), List(for b in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, b))), List(for c in cs yield rebind_concl(Close(levels), 0, replace_concl(ELevel(l), t, c)))))
@@ -277,9 +281,33 @@ function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Co
             case Disj(goals) =>
               let levels := range(d, depth(after)), ys := vars_from(after, d) in
               let closed := List(for b in seqs yield rebind_seq(Close(levels), 0, b)), ends := List(for c in goals yield rebind_concl(Close(levels), 0, c)) in
-              let result := sequent(ys, closed, ends) in
-              split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, levels, ys, seqs, goals), result)
+              match negated_conclusions(ends)
+                case (List(), _) =>
+                  split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, levels, ys, seqs, goals), sequent(ys, closed, ends))
+
+                case (moved, rest) =>
+                  if assumed then
+                    split_on(ctx, levels, ys, closed ++ moved, rest, split_candidate(ctx.decls, levels, ys, seqs, goals), sequent(ys, closed ++ moved, rest))
+                  else
+                    simp_sequent(ctx, ys, closed ++ moved, rest, true)
+              end
           end
+      end
+  end
+
+// the assumptions of the conclusions that are negations, without existential variables, and the other conclusions
+function negated_conclusions(cs: List[Concl]): List[Seq] * List[Concl] :=
+  match cs
+    case List() =>
+      (List(), List())
+
+    case List(c; rest) =>
+      let (moved, others) := negated_conclusions(rest) in
+      match c
+        case Concl(List(), List(Seq(List(), assms, List()))) =>
+          (assms ++ moved, others)
+        case _ =>
+          (moved, List(c; others))
       end
   end
 
@@ -300,19 +328,20 @@ function sequent(xs: List[Var], assms: List[Seq], concls: List[Concl]): Seq :=
       Seq(xs, assms, concls)
   end
 
-// an equation of a variable of the levels from d on with a term without it, by which it is eliminated
-function one_point(d: Int, ss: List[Seq]): Option[Int * Term * List[Seq]] :=
+// an equation of a variable of the levels from d on with a term without it, by which it is eliminated, unless it is
+// defined by a proof, whose name an open goal keeps
+function one_point(defined: Set[Int], d: Int, ss: List[Seq]): Option[Int * Term * List[Seq]] :=
   match ss
     case List() =>
       None
 
     case List(s; rest) =>
-      match equation_of(d, s)
+      match equation_of(defined, d, s)
         case Some((l, t)) =>
           Some((l, t, rest))
 
         case None =>
-          match one_point(d, rest)
+          match one_point(defined, d, rest)
             case Some((l, t, more)) =>
               Some((l, t, List(s; more)))
             case None =>
@@ -321,12 +350,12 @@ function one_point(d: Int, ss: List[Seq]): Option[Int * Term * List[Seq]] :=
       end
   end
 
-function equation_of(d: Int, s: Seq): Option[Int * Term] :=
+function equation_of(defined: Set[Int], d: Int, s: Seq): Option[Int * Term] :=
   match s
-    case Atom(Eq(ELevel(level), t)) if level >= d and not occurs(ELevel(level), t) =>
+    case Atom(Eq(ELevel(level), t)) if level >= d and not contains(level, defined) and not occurs(ELevel(level), t) =>
       Some((level, t))
 
-    case Atom(Eq(t, ELevel(level))) if level >= d and not occurs(ELevel(level), t) =>
+    case Atom(Eq(t, ELevel(level))) if level >= d and not contains(level, defined) and not occurs(ELevel(level), t) =>
       Some((level, t))
 
     case _ =>
@@ -411,7 +440,7 @@ function simp_concl(ctx: Ctx, c: Concl): Option[Concl] :=
           None
 
         case Conj(after, seqs) =>
-          match one_point(d, seqs)
+          match one_point(after.defined, d, seqs)
             case Some((l, t, rest)) =>
               let levels := List(for m in range(d, depth(after)) if m != l) in
               simp_concl(ctx, Concl(List(for m in levels yield at(m - d, from_list(vars_from(after, d)))), List(for s in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, s)))))
@@ -601,15 +630,16 @@ function merge_all(ctx: Ctx, xs: List[Term], ys: List[Term]): Ctx :=
       ctx
   end
 
-// the context with d == 0, solved for its greatest atom with a coefficient 1 or -1, or else kept as the equation
-// of its atoms, divided by their greatest common divisor, with the constant
+// the context with d == 0, solved for its greatest atom with a coefficient 1 or -1, a variable that a proof defines
+// before any other, so that it stays equal to its value, or else kept as the equation of its atoms, divided by their
+// greatest common divisor, with the constant
 function merge_lin(ctx: Ctx, d: Lin): Ctx :=
   match d
     case Lin(k, List()) =>
       if k == 0 then ctx else contradiction(ctx)
 
     case Lin(k, summands) =>
-      match greatest_unit(ctx.decls, summands, None)
+      match greatest_unit(ctx, summands, None)
         case Some(unit) =>
           let rest := lin_sub(d, Lin(0, List(unit))) in
           equate(ctx, unit.term, sum_term(if unit.factor == 1 then lin_scale(-1, rest) else rest))
@@ -623,21 +653,41 @@ function merge_lin(ctx: Ctx, d: Lin): Ctx :=
       end
   end
 
-function greatest_unit(decls: Decls, summands: List[Summand], best: Option[Summand]): Option[Summand] :=
+function greatest_unit(ctx: Ctx, summands: List[Summand], best: Option[Summand]): Option[Summand] :=
   match summands
     case List() =>
       best
 
     case List(summand; rest) =>
       if summand.factor != 1 and summand.factor != -1 then
-        greatest_unit(decls, rest, best)
+        greatest_unit(ctx, rest, best)
       else
         match best
-          case Some(other) if not is_greater(decls, summand.term, other.term) =>
-            greatest_unit(decls, rest, best)
+          case Some(other) if not is_solved_before(ctx, summand.term, other.term) =>
+            greatest_unit(ctx, rest, best)
           case _ =>
-            greatest_unit(decls, rest, Some(summand))
+            greatest_unit(ctx, rest, Some(summand))
         end
+  end
+
+function is_solved_before(ctx: Ctx, a: Term, b: Term): Bool :=
+  match (is_defined_level(ctx, a), is_defined_level(ctx, b))
+    case (true, false) =>
+      true
+
+    case (false, true) =>
+      false
+
+    case _ =>
+      is_greater(ctx.decls, a, b)
+  end
+
+function is_defined_level(ctx: Ctx, t: Term): Bool :=
+  match t
+    case ELevel(level) =>
+      contains(level, ctx.defined)
+    case _ =>
+      false
   end
 
 function gcd_all(summands: List[Summand]): Int :=
@@ -700,55 +750,57 @@ function resimplify(ctx: Ctx, parents: List[ENode * Int]): Ctx :=
   end
 
 // the best term of the class of i: a literal, else a value, else a sum, the solved form of an atom, else the least in
-// the term order; a class always has a node whose arguments are in other classes, its oldest node, so this is total
+// the term order, and a variable that a proof defines last; a class always has a node whose arguments are in other
+// classes, its oldest node, so this is total
 function extract(ctx: Ctx, i: Int): Term :=
-  value_or(extract_in(ctx.decls, ctx.graph, class_of(ctx.graph, i), List()), ELevel(i))
+  value_or(extract_in(ctx, ctx.graph, class_of(ctx.graph, i), List()), ELevel(i))
 
-// the best term of the class c, from the nodes without arguments in the classes of the stack, which are being extracted
-function extract_in(decls: Decls, g: EGraph, c: Int, stack: List[Int]): Option[Term] :=
+// the best term of the class c of g, the e-graph of the context or an extension of it, from the nodes without arguments
+// in the classes of the stack, which are being extracted
+function extract_in(ctx: Ctx, g: EGraph, c: Int, stack: List[Int]): Option[Term] :=
   let inner := List(c; stack) in
-  let terms := List(for node in class_nodes(g, c) if not exists(node.args, lambda a => contains(a, inner)) for t in node_extract(decls, g, node, inner) yield t) in
-  best_term(decls, terms, None)
+  let terms := List(for node in class_nodes(g, c) if not exists(node.args, lambda a => contains(a, inner)) for t in node_extract(ctx, g, node, inner) yield t) in
+  best_term(ctx, terms, None)
 
-function node_extract(decls: Decls, g: EGraph, node: ENode, stack: List[Int]): Option[Term] :=
-  match extract_all(decls, g, node.args, stack, List())
+function node_extract(ctx: Ctx, g: EGraph, node: ENode, stack: List[Int]): Option[Term] :=
+  match extract_all(ctx, g, node.args, stack, List())
     case Some(args) =>
       Some(node_term(node, args))
     case None =>
       None
   end
 
-function extract_all(decls: Decls, g: EGraph, cs: List[Int], stack: List[Int], acc: List[Term]): Option[List[Term]] :=
+function extract_all(ctx: Ctx, g: EGraph, cs: List[Int], stack: List[Int], acc: List[Term]): Option[List[Term]] :=
   match cs
     case List() =>
       Some(reverse(acc))
 
     case List(c; rest) =>
-      match extract_in(decls, g, c, stack)
+      match extract_in(ctx, g, c, stack)
         case Some(t) =>
-          extract_all(decls, g, rest, stack, List(t; acc))
+          extract_all(ctx, g, rest, stack, List(t; acc))
         case None =>
           None
       end
   end
 
-function best_term(decls: Decls, ts: List[Term], best: Option[Term]): Option[Term] :=
+function best_term(ctx: Ctx, ts: List[Term], best: Option[Term]): Option[Term] :=
   match (ts, best)
     case (List(), _) =>
       best
 
     case (List(t; rest), Some(u)) =>
-      best_term(decls, rest, if is_better(decls, t, u) then Some(t) else best)
+      best_term(ctx, rest, if is_better(ctx, t, u) then Some(t) else best)
 
     case (List(t; rest), None) =>
-      best_term(decls, rest, Some(t))
+      best_term(ctx, rest, Some(t))
   end
 
-function is_better(decls: Decls, t: Term, u: Term): Bool :=
-  let r := term_rank(decls, t), s := term_rank(decls, u) in
-  r < s or r == s and (is_greater(decls, u, t) or not is_greater(decls, t, u) and compare(t, u) < 0)
+function is_better(ctx: Ctx, t: Term, u: Term): Bool :=
+  let r := term_rank(ctx, t), s := term_rank(ctx, u) in
+  r < s or r == s and (is_greater(ctx.decls, u, t) or not is_greater(ctx.decls, t, u) and compare(t, u) < 0)
 
-function term_rank(decls: Decls, t: Term): Int :=
+function term_rank(ctx: Ctx, t: Term): Int :=
   match t
     case ELit(_) =>
       0
@@ -756,8 +808,11 @@ function term_rank(decls: Decls, t: Term): Int :=
     case ESum(_, _) =>
       2
 
+    case ELevel(level) if contains(level, ctx.defined) =>
+      4
+
     case _ =>
-      if free_head(decls, t) != None then 1 else 3
+      if free_head(ctx.decls, t) != None then 1 else 3
   end
 
 function readd_ineqs(ctx: Ctx, ls: List[Lin]): Ctx :=
@@ -1344,7 +1399,7 @@ function first_equation(inner: Ctx, key: Name * Int, t: Term, eqs: List[DefEquat
       else
         EApp(EFun(first(key)), eq.args) in
       let (g, c) := add_term(inner.graph, t) in
-      let candidates := List(for sub in ematch(g, n, lhs, c, empty()) for args in extract_args(inner.decls, g, n, sub) yield args) in
+      let candidates := List(for sub in ematch(g, n, lhs, c, empty()) for args in extract_args(inner, g, n, sub) yield args) in
       match equation_instance(inner, eq, candidates)
         case Some(u) =>
           Some(u)
@@ -1526,15 +1581,15 @@ function instance(ctx: Ctx, r: Rule, t: Term): Option[Term] :=
     List()
   else
     let (g, c) := add_term(ctx.graph, t) in
-    List(for sub in ematch(g, n, r.lhs, c, empty()) for args in extract_args(ctx.decls, g, n, sub) yield args) in
+    List(for sub in ematch(g, n, r.lhs, c, empty()) for args in extract_args(ctx, g, n, sub) yield args) in
   first_instance(ctx with unfolds := ctx.unfolds + 1, r, syntactic ++ modulo)
 
 // the terms of the classes of a substitution of ematch, in the order of beta, where a variable that the left side does
 // not bind stays, as in lookup_index
-function extract_args(decls: Decls, g: EGraph, n: Int, sub: Map[Int, Int]): Option[List[Term]] :=
+function extract_args(ctx: Ctx, g: EGraph, n: Int, sub: Map[Int, Int]): Option[List[Term]] :=
   let terms := List(for i in range(0, n) yield match get(n - 1 - i, sub)
     case Some(c) =>
-      extract_in(decls, g, c, List())
+      extract_in(ctx, g, c, List())
     case None =>
       Some(EBound(n - 1 - i))
   end) in
@@ -1654,7 +1709,7 @@ function split_candidate(decls: Decls, levels: List[Int], ys: List[Var], ss: Lis
 
     case None =>
       let disjunct := first_of(List(for s in ss yield disjunction_split(s))) in
-      let booleans := List(for (l, y) in zip(levels, ys) if y.typ == TBool() and (exists(ss, lambda s => occurs_seq(ELevel(l), s) and not is_literal_of(ELevel(l), s)) or exists(cs, lambda c => exists(c.body, lambda b => occurs_seq(ELevel(l), b)))) yield CandidateIf(ELevel(l))) in
+      let booleans := List(for (l, y) in zip(levels, ys) if y.typ == TBool() and not is_defined_var(y) and (exists(ss, lambda s => occurs_seq(ELevel(l), s) and not is_literal_of(ELevel(l), s)) or exists(cs, lambda c => exists(c.body, lambda b => occurs_seq(ELevel(l), b)))) yield CandidateIf(ELevel(l))) in
       match disjunct
         case Some(split) =>
           Some(split)
@@ -1903,8 +1958,61 @@ function hypothesis(vars: List[Var], others: List[Int], v: Term, y: Term, assms:
   Seq(vars, List(for a in assms yield rebind_seq(Close(others), 0, replace_seq(v, y, a))), List(for d in concls yield rebind_concl(Close(others), 0, replace_concl(v, y, d))))
 
 function printable(decls: Decls, s: Seq): Seq :=
+  let named := named_definitions(0, s) in
   let folds := List(for k => d in decls.defs for e in fold_equation(k, d) yield e) in
-  if folds == List() then s else map_terms(s, lambda t => folded(folds, t))
+  if folds == List() then
+    named
+  else
+    map_terms(named, lambda t => folded(folds, t))
+
+// s with the value of each variable that a proof defines folded into its name, the last one first, so that a value
+// inside another one is folded after it, and its equation left out, as the variable itself where it no longer occurs;
+// s is opened at the levels from d on
+function named_definitions(d: Int, s: Seq): Seq :=
+  match s
+    case Atom(_) =>
+      s
+
+    case Seq(fixed, assms, concls) =>
+      let k := size(fixed) in
+      let levels := range(d, d + k) in
+      let defined := reverse(List(for (x, l) in zip(fixed, levels) if is_defined_var(x) yield l)) in
+      let (rest, ends) := folded_definitions(defined, List(for a in assms yield rebind_seq(Open(d, k), 0, a)), List(for c in concls yield rebind_concl(Open(d, k), 0, c))) in
+      let inner := List(for a in rest yield named_definitions(d + k, a)), goals := List(for c in ends yield Concl(c.vars, List(for b in c.body yield named_definitions(d + k, b)))) in
+      let kept := List(for (x, l) in zip(fixed, levels) if not is_defined_var(x) or exists(inner, lambda a => occurs_seq(ELevel(l), a)) or exists(goals, lambda c => exists(c.body, lambda b => occurs_seq(ELevel(l), b))) yield (x, l)) in
+      let op := Close(List(for (_, l) in kept yield l)) in
+      Seq(List(for (x, _) in kept yield x), List(for a in inner yield rebind_seq(op, 0, a)), List(for c in goals yield rebind_concl(op, 0, c)))
+  end
+
+function folded_definitions(defined: List[Int], assms: List[Seq], concls: List[Concl]): List[Seq] * List[Concl] :=
+  match defined
+    case List() =>
+      (assms, concls)
+
+    case List(l; more) =>
+      match definition_in(l, assms, List())
+        case Some((value, rest)) =>
+          folded_definitions(more, List(for a in rest yield replace_seq(value, ELevel(l), a)), List(for c in concls yield replace_concl(value, ELevel(l), c)))
+        case None =>
+          folded_definitions(more, assms, concls)
+      end
+  end
+
+// the value of the level l by an assumption l == value or value == l, and the other assumptions
+function definition_in(l: Int, assms: List[Seq], before: List[Seq]): Option[Term * List[Seq]] :=
+  match assms
+    case List() =>
+      None
+
+    case List(Atom(Eq(ELevel(level), value)); rest) if level == l and not occurs(ELevel(l), value) =>
+      Some((value, reverse(before) ++ rest))
+
+    case List(Atom(Eq(value, ELevel(level))); rest) if level == l and not occurs(ELevel(l), value) =>
+      Some((value, reverse(before) ++ rest))
+
+    case List(a; rest) =>
+      definition_in(l, rest, List(a; before))
+  end
 
 // the body of a function that is not recursive as a pattern, its formals the variables, which folds into the call where
 // the body is larger, and where it is no binder, conditional, or match, which enter e-graphs whole

@@ -69,7 +69,7 @@ procedure prove_program(in q: Prog, m: Id) raises OpenLemma, OpenTermination :=
   end
 
 function prove_lemmas(decls: Decls, lemmas: List[Lemma]): Proofs :=
-  let roots := Set(for l in lemmas for k in defined_in(decls, l.goal) yield k) in
+  let roots := Set(for l in lemmas for k in defined_in(decls, lemma_symbols(l)) yield k) in
   let ts := terminations(decls, roots) in
   let proven := Set(for t in ts if is_terminating(t) for k in t.names yield k) in
   Proofs(proofs(decls with terminating := proven, lemmas, List()), ts)
@@ -91,10 +91,67 @@ function print_open_call(site: CallSite): Str :=
   else
     text ++ " where " ++ join(" and ", List(for c in r.path yield print_term(names, c)))
 
-// the definitions that the sequent names, by name and arity, where a name without arguments names all its arities
-function defined_in(decls: Decls, s: Seq): List[Name * Int] :=
-  let symbols := seq_symbols(s) in
+// the definitions that the symbols name, by name and arity, where a name without arguments names all its arities
+function defined_in(decls: Decls, symbols: Set[Name * Int]): List[Name * Int] :=
   List(for (n, k) => _ in decls.defs if contains((n, k), symbols) or contains((n, -1), symbols) yield (n, k))
+
+// the symbols of the statement of the lemma and of its proof, whose steps unfold the functions that they name too
+function lemma_symbols(l: Lemma): Set[Name * Int] :=
+  seq_symbols(l.goal) ++ match l.proof
+    case Some(p) =>
+      proof_symbols(p)
+    case None =>
+      empty()
+  end
+
+function proof_symbols(p: ProofTerm): Set[Name * Int] :=
+  Set(for step in p.steps for k in step_symbols(step) yield k) ++ match p.split
+    case Some(split) =>
+      split_symbols(split)
+    case None =>
+      empty()
+  end
+
+function step_symbols(step: StepTerm): Set[Name * Int] :=
+  match step
+    case DefineTerm(_, value, _) =>
+      symbols_in(value)
+
+    case WitnessTerm(_, _) =>
+      empty()
+
+    case CallTerm(_, args, _, _) =>
+      Set(for a in args for k in symbols_in(a) yield k)
+
+    case AssignTerm(_, value, _) =>
+      symbols_in(value)
+
+    case AssertTerm(cond, _) =>
+      symbols_in(cond)
+
+    case UnsupportedTerm(_, _) =>
+      empty()
+  end
+
+function split_symbols(split: SplitTerm): Set[Name * Int] :=
+  match split
+    case InductionTerm(_, cases, _) =>
+      cases_symbols(cases)
+
+    case MatchTerm(arg, cases, _) =>
+      symbols_in(arg) ++ cases_symbols(cases)
+
+    case IfTerm(cond, left, right, _) =>
+      symbols_in(cond) ++ proof_symbols(left) ++ match right
+        case Some(p) =>
+          proof_symbols(p)
+        case None =>
+          empty()
+      end
+  end
+
+function cases_symbols(cases: List[CaseTerm]): Set[Name * Int] :=
+  Set(for c in cases for k in Set(for g in c.guard for j in symbols_in(g) yield j) ++ proof_symbols(c.proof) yield k)
 
 function seq_symbols(s: Seq): Set[Name * Int] :=
   match s

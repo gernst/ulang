@@ -328,6 +328,12 @@ test missing_end() :=
     call check_text(in "ulang/test/errors/missing-end.u", List("procedure main() :=", "  if true then", "    skip", "  assign x := 3"))
   end
 
+// an example goes as far as its expression, so a name after it starts the body, and what follows the body is an error
+test example_end() :=
+  assert raises ParseError("declaration expected but x found", Pos(3, 3)) do
+    call check_text(in "ulang/test/errors/example-end.u", List("function f(x: Int): Int :=", "  example f(1) == 1 x", "  x"))
+  end
+
 test several_parse_errors() :=
   assert raises ParseErrors(List(
     ParseError(_, Pos(4, 1)),

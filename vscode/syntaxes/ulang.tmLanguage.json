@@ -222,11 +222,11 @@
       "patterns": [
         {
           "name": "keyword.control.ulang",
-          "match": "\\b(if|then|else|while|match|case|end|let|in|lambda|for|do|yield|call|assign|skip|assert|raises|raise|try|catch|out|ref|with)\\b"
+          "match": "\\b(if|then|else|while|match|induction|case|end|let|in|lambda|for|do|yield|call|assign|skip|assert|raises|raise|try|catch|out|ref|with)\\b"
         },
         {
           "name": "keyword.other.ulang",
-          "match": "\\b(test|pattern|requires|ensures)\\b"
+          "match": "\\b(test|pattern|requires|ensures|example)\\b"
         },
         {
           "name": "keyword.other.ulang",

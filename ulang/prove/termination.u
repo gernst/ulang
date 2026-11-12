@@ -12,10 +12,11 @@ import "ulang/syntax"
 
 export
 
-// a recursive call: the function, the variables around it, those of its equation and of the cases of the matches
+// a recursive call: the function, the variables around it, those of its equation and of the leaves of the matches
 // around it, which the other fields have as levels, its arguments, or None where it is not analysed, under a lambda or
 // in a condition of its equation, and the path to it: the conditions of the equation and of the ifs around it, and for
-// each match around it, the equation of its argument with the pattern and the guard of the case
+// each match around it, the equation of its argument with the value of the leaf (ulang/prove/patterns.u), the
+// conditions of the leaf, the guard of the case, and the negated guards of the cases before it
 data Call :=
   case Call(name: Name * Int, vars: List[Var], args: Option[List[Term]], path: List[Term])
 
@@ -88,7 +89,8 @@ function calls_in(decls: Decls, names: List[Name * Int], t: Term, vars: List[Var
       calls_in(decls, names, cond, vars, path) ++ calls_in(decls, names, then_expr, vars, path ++ List(cond)) ++ calls_in(decls, names, else_expr, vars, path ++ List(Not(cond)))
 
     case EMatch(arg, cases) =>
-      calls_in(decls, names, arg, vars, path) ++ List(for br in cases for c in branch_calls(decls, names, arg, br, vars, path) yield c)
+      let rows := List(for br in cases yield (br.pat, br.guard != None)) in
+      calls_in(decls, names, arg, vars, path) ++ List(for leaf in leaves(decls, arg, size(vars), rows, None) for c in leaf_calls(decls, names, arg, cases, leaf, vars, path) yield c)
 
     case ESum(_, summands) =>
       List(for summand in summands for c in calls_in(decls, names, summand.term, vars, path) yield c)
@@ -148,50 +150,27 @@ function lambda_calls(decls: Decls, names: List[Name * Int], container: Term, la
       calls_in(decls, names, lam, vars, path)
   end
 
-// the calls in a case of a match on arg, whose pattern variables, and a variable for each wildcard, follow vars
-function branch_calls(decls: Decls, names: List[Name * Int], arg: Term, br: TermBranch, vars: List[Var], path: List[Term]): List[Call] :=
-  match pattern_term(br.pat, size(vars))
-    case (value, fresh, bound) =>
-      let inner := vars ++ fresh, here := path ++ List(Eq(arg, value)) in
-      let guarded := here ++ List(for g in br.guard yield beta(bound, g)) in
-      List(for g in br.guard for c in calls_in(decls, names, beta(bound, g), inner, here) yield c) ++ calls_in(decls, names, beta(bound, br.body), inner, guarded)
-  end
+// the calls of the cases of a match on arg that match the leaf, whose variables follow vars, under the equation of arg
+// with the value of the leaf, its conditions, and the guards of the cases before, negated
+function leaf_calls(decls: Decls, names: List[Name * Int], arg: Term, cases: List[TermBranch], leaf: Leaf, vars: List[Var], path: List[Term]): List[Call] :=
+  let here := path ++ (if leaf.value == arg then List() else List(Eq(arg, leaf.value))) ++ leaf.conds in
+  hits_calls(decls, names, cases, leaf.hits, vars ++ leaf.vars, here)
 
-// the value of a pattern over new levels from base on, a level for each variable and wildcard, the variables of these
-// levels, and the levels of the variables of the pattern in the order in which they bind
-function pattern_term(pat: Pat, base: Int): Term * List[Var] * List[Term] :=
-  match pat
-    case PWild =>
-      (ELevel(base), List(Var(Name(None, "_"), THole)), List())
-
-    case PVar(var) =>
-      (ELevel(base), List(var), List(ELevel(base)))
-
-    case PLit(lit) =>
-      (ELit(lit), List(), List())
-
-    case PApp(constr, args) =>
-      match patterns_terms(List(for a in args yield a.that), base, List(), List(), List())
-        case (terms, fresh, bound) =>
-          (if terms == List() then EFun(constr) else EApp(EFun(constr), terms), fresh, bound)
-      end
-
-    case PTuple(args) =>
-      match patterns_terms(List(for a in args yield a.that), base, List(), List(), List())
-        case (terms, fresh, bound) =>
-          (EApp(EFun(tuple_name(size(terms))), terms), fresh, bound)
-      end
-  end
-
-function patterns_terms(pats: List[Pat], base: Int, terms: List[Term], fresh: List[Var], bound: List[Term]): List[Term] * List[Var] * List[Term] :=
-  match pats
+function hits_calls(decls: Decls, names: List[Name * Int], cases: List[TermBranch], hits: List[Hit], vars: List[Var], path: List[Term]): List[Call] :=
+  match hits
     case List() =>
-      (terms, fresh, bound)
+      List()
 
-    case List(pat; rest) =>
-      match pattern_term(pat, base + size(fresh))
-        case (t, vs, bs) =>
-          patterns_terms(rest, base, terms ++ List(t), fresh ++ vs, bound ++ bs)
+    case List(hit; rest) =>
+      let br := at(hit.row, from_list(cases)) in
+      let body := beta(hit.bindings, br.body) in
+      match br.guard
+        case Some(g) =>
+          let guard := beta(hit.bindings, g) in
+          calls_in(decls, names, guard, vars, path) ++ calls_in(decls, names, body, vars, path ++ List(guard)) ++ hits_calls(decls, names, cases, rest, vars, path ++ List(Not(guard)))
+
+        case None =>
+          calls_in(decls, names, body, vars, path)
       end
   end
 

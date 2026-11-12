@@ -1,0 +1,324 @@
+// the leaves of the patterns of a match, one case of a proof, an equation of a definition, or a path of the termination
+// analysis each, see prove.md, section 9, which is not versioned
+//
+// The rows are the patterns of the cases in their order, matched column by column, where the arguments of a constructor
+// replace its column at the front, so that the variables bind in their order. A column that a row matches by a
+// constructor is split on the constructors of its datatype, where a row of a constructor goes to its branch, and a row of
+// a variable or a wildcard to every branch; a column that a row matches by a literal is split into the literal and the
+// rest, which has its negation as a condition; and a column of variables and wildcards is dropped. This compiles pattern
+// matching into a decision tree (Wadler 1987, Maranget 2008), so the leaves are disjoint and cover the type, and the
+// exhaustiveness check of ulang/check/check.u, missing and is_useful, specializes the rows in the same way.
+
+import "ulang/syntax"
+
+export
+
+// a row that matches a leaf: its position among the rows, and the values of the variables of its pattern in the order in
+// which they bind, terms over the variables of the leaf
+data Hit :=
+  case Hit(row: Int, bindings: List[Term])
+
+// a leaf: its new variables, the levels from the base on, the first one at the base; its value, a term over them and the
+// value matched; the negations of the literals of the rows where it is the rest; and the rows that match it, in their
+// order, up to the first one without a guard, since a guard that fails lets the leaf through to the rows after it
+data Leaf :=
+  case Leaf(vars: List[Var], value: Term, conds: List[Term], hits: List[Hit])
+
+// the leaves of the rows, each a pattern and whether its case has a guard, for the value, whose new variables are the
+// levels from base on, where the value is split on the constructors of the datatype split first, also if no row has a
+// constructor, as induction does
+function leaves(decls: Decls, value: Term, base: Int, rows: List[Pat * Bool], split: Option[Name]): List[Leaf]
+
+implementation
+
+// the value of a hole: a constructor of holes, or a literal, where a hole without a value is a variable of its leaf, and
+// the hole 0 is the value matched
+data Shape :=
+  case SConstr(constr: Name, args: List[Int])
+  case SLit(lit: Lit)
+
+// the holes of a branch: their values, the variables of the fields that they are, and the next hole
+data Holes :=
+  case Holes(shapes: Map[Int, Shape], vars: Map[Int, Var], next: Int)
+
+// a row being matched: its position, whether it has a guard, the patterns of the columns that are left, and the holes of
+// its variables so far, in the order in which they bind
+data Row :=
+  case Row(index: Int, guarded: Bool, pats: List[Pat], bound: List[Int])
+
+// a leaf before its terms are made: its holes, the literals that holes are not, and the rows that reach it
+data Raw :=
+  case Raw(holes: Holes, excluded: List[Int * Lit], rows: List[Row])
+
+function leaves(decls: Decls, value: Term, base: Int, rows: List[Pat * Bool], split: Option[Name]): List[Leaf] :=
+  let start := List(for ((pat, guarded), i) in numbered(rows) yield Row(i, guarded, List(pat), List())) in
+  let names := List(for (pat, _) in rows yield pattern_vars(pat)) in
+  List(for raw in expand(decls, List(0), start, Holes(empty(), empty(), 1), List(), split) yield leaf_of(raw, names, value, base))
+
+// the branches of the columns cols for the rows, where split names a datatype that the first column is split on
+function expand(decls: Decls, cols: List[Int], rows: List[Row], holes: Holes, excluded: List[Int * Lit], split: Option[Name]): List[Raw] :=
+  match (cols, split)
+    case (List(c; rest), Some(t)) =>
+      constr_branches(decls, c, rest, rows, holes, excluded, datatype_constrs(decls, t))
+
+    case _ =>
+      match rows
+        case List() =>
+          List(Raw(holes, excluded, List()))
+
+        // a first row of variables and wildcards without a guard matches all that is left, and hides the rows after it
+        case List(row; _) if not row.guarded and forall(row.pats, is_variable) =>
+          List(
+            Raw(holes, excluded, List(row with bound := row.bound ++ variable_holes(cols, row.pats))))
+
+        case _ =>
+          match cols
+            case List() =>
+              List(Raw(holes, excluded, reached(rows)))
+
+            case List(c; rest) =>
+              match column_constrs(decls, rows)
+                case List() =>
+                  match column_lit(rows)
+                    case Some(lit) =>
+                      lit_branches(decls, c, rest, rows, holes, excluded, lit)
+                    case None =>
+                      expand(decls, rest, List(for row in rows yield dropped(c, row)), holes, excluded, None)
+                  end
+
+                case constrs =>
+                  constr_branches(decls, c, rest, rows, holes, excluded, constrs)
+              end
+          end
+      end
+  end
+
+// the rows up to the first one without a guard
+function reached(rows: List[Row]): List[Row] :=
+  match rows
+    case List() =>
+      List()
+    case List(row; rest) =>
+      if row.guarded then List(row; reached(rest)) else List(row)
+  end
+
+function is_variable(pat: Pat): Bool :=
+  match pat
+    case PVar(_) =>
+      true
+
+    case PWild =>
+      true
+
+    case _ =>
+      false
+  end
+
+// the holes of the columns whose patterns are variables
+function variable_holes(cols: List[Int], pats: List[Pat]): List[Int] :=
+  List(for (c, pat) in zip(cols, pats) if pat != PWild yield c)
+
+// the row without its first column, a variable or a wildcard, whose variable binds the hole c
+function dropped(c: Int, row: Row): Row :=
+  match row.pats
+    case List(PVar(_); rest) =>
+      row with pats := rest, bound := row.bound ++ List(c)
+
+    case List(_; rest) =>
+      row with pats := rest
+
+    case List() =>
+      row
+  end
+
+// the constructors of the datatype of the first constructor in the first column, with their fields, all constructors
+// of it in order, or else that constructor alone, as for a tuple
+function column_constrs(decls: Decls, rows: List[Row]): List[Name * List[Var]] :=
+  match rows
+    case List() =>
+      List()
+
+    case List(row; rest) =>
+      match row.pats
+        case List(PApp(constr, args); _) =>
+          match get(constr, decls.constrs)
+            case Some(decl) =>
+              datatype_constrs(decls, decl.datatype)
+            case None =>
+              List((constr, List(for _ in args yield component())))
+          end
+
+        case List(PTuple(args); _) =>
+          List((tuple_name(size(args)), List(for _ in args yield component())))
+
+        case _ =>
+          column_constrs(decls, rest)
+      end
+  end
+
+function datatype_constrs(decls: Decls, t: Name): List[Name * List[Var]] :=
+  List(for c in value_or(get(t, decls.datatypes), List()) for decl in get(c, decls.constrs) yield (c, decl.fields))
+
+// the variable of a component of a tuple, which has no field name
+function component(): Var :=
+  Var(Name(None, "component"), THole)
+
+function column_lit(rows: List[Row]): Option[Lit] :=
+  match rows
+    case List() =>
+      None
+
+    case List(row; rest) =>
+      match row.pats
+        case List(PLit(lit); _) =>
+          Some(lit)
+        case _ =>
+          column_lit(rest)
+      end
+  end
+
+// a branch per constructor, whose fields are new holes in place of the hole c
+function constr_branches(decls: Decls, c: Int, rest: List[Int], rows: List[Row], holes: Holes, excluded: List[Int * Lit], constrs: List[Name * List[Var]]): List[Raw] :=
+  List(for (constr, fields) in constrs for raw in constr_branch(decls, c, rest, rows, holes, excluded, constr, fields) yield raw)
+
+function constr_branch(decls: Decls, c: Int, rest: List[Int], rows: List[Row], holes: Holes, excluded: List[Int * Lit], constr: Name, fields: List[Var]): List[Raw] :=
+  let ids := range(holes.next, holes.next + size(fields)) in
+  let vars := holes.vars ++ Map(for (id, field) in zip(ids, fields) yield id => field) in
+  let inner := Holes(put(c, SConstr(constr, ids), holes.shapes), vars, holes.next + size(fields)) in
+  expand(decls, ids ++ rest, List(for row in rows for r in specialized(c, constr, size(fields), row) yield r), inner, excluded, None)
+
+// the row in the branch of the constructor with n fields, or None if it matches another constructor
+function specialized(c: Int, constr: Name, n: Int, row: Row): Option[Row] :=
+  match row.pats
+    case List(PApp(other, args); rest) =>
+      if other == constr and size(args) == n then
+        Some(row with pats := List(for a in args yield a.that) ++ rest)
+      else
+        None
+
+    case List(PTuple(args); rest) =>
+      if size(args) == n then
+        Some(row with pats := List(for a in args yield a.that) ++ rest)
+      else
+        None
+
+    case List(PVar(_); rest) =>
+      Some(row with pats := wildcards(n) ++ rest, bound := row.bound ++ List(c))
+
+    case List(PWild; rest) =>
+      Some(row with pats := wildcards(n) ++ rest)
+
+    // a literal where the column has constructors, which the checker rules out
+    case _ =>
+      None
+  end
+
+function wildcards(n: Int): List[Pat] :=
+  List(for _ in range(0, n) yield PWild)
+
+// the branch of the literal, where the hole c is it, and the rest, where it is not, which goes on with the column
+function lit_branches(decls: Decls, c: Int, rest: List[Int], rows: List[Row], holes: Holes, excluded: List[Int * Lit], lit: Lit): List[Raw] :=
+  let at_lit := List(for row in rows for r in at_literal(c, lit, row) yield r) in
+  let others := List(for row in rows if row.pats == List() or at(0, from_list(row.pats)) != PLit(lit) yield row) in
+  expand(decls, rest, at_lit, holes with shapes := put(c, SLit(lit), holes.shapes), excluded, None) ++ expand(decls, List(c; rest), others, holes, excluded ++ List((c, lit)), None)
+
+function at_literal(c: Int, lit: Lit, row: Row): Option[Row] :=
+  match row.pats
+    case List(PLit(other); rest) =>
+      if other == lit then Some(row with pats := rest) else None
+
+    case List(PVar(_); rest) =>
+      Some(row with pats := rest, bound := row.bound ++ List(c))
+
+    case List(_; rest) =>
+      Some(row with pats := rest)
+
+    case List() =>
+      Some(row)
+  end
+
+// the leaf of a branch, whose variables are the holes without a value that its value has, in their order, each named as
+// the variable of the first row that binds it, else as its field; names are the variables of the patterns of the rows
+function leaf_of(raw: Raw, names: List[List[Var]], value: Term, base: Int): Leaf :=
+  let free := free_holes(raw.holes, 0) in
+  let named := match raw.rows
+    case List(row; _) =>
+      Map(for (h, x) in zip(row.bound, at(row.index, from_list(names))) yield h => x)
+    case List() =>
+      empty()
+  end in
+  let vars := List(for h in free yield value_or(get(h, named), value_or(get(h, raw.holes.vars), component()))) in
+  let term := lambda h => hole_term(raw.holes, free, value, base, h) in
+  Leaf(vars, term(0), List(for (h, lit) in raw.excluded yield Not(Eq(term(h), ELit(lit)))), List(for row in raw.rows yield Hit(row.index, List(for h in row.bound yield term(h)))))
+
+// the holes without a value below the hole h, from the left, other than the hole 0, which is the value
+function free_holes(holes: Holes, h: Int): List[Int] :=
+  match get(h, holes.shapes)
+    case Some(SConstr(_, args)) =>
+      List(for a in args for f in free_holes(holes, a) yield f)
+
+    case Some(SLit(_)) =>
+      List()
+
+    case None =>
+      if h == 0 then List() else List(h)
+  end
+
+function hole_term(holes: Holes, free: List[Int], value: Term, base: Int, h: Int): Term :=
+  match get(h, holes.shapes)
+    case Some(SConstr(constr, List())) =>
+      EFun(constr)
+
+    case Some(SConstr(constr, args)) =>
+      EApp(EFun(constr), List(for a in args yield hole_term(holes, free, value, base, a)))
+
+    case Some(SLit(lit)) =>
+      ELit(lit)
+
+    case None =>
+      if h == 0 then value else ELevel(base + value_or(index_of(h, free), 0))
+  end
+
+// the leaves of List(x, y; rest) and List(x; rest) after it, over the value at the level 0: Nil without a row, Cons of
+// Nil for the second row, and Cons of Cons for the first, whose y and rest are new variables
+test nested_leaves() :=
+  local list := Name(Some("prelude/list"), "List"), nil := Name(Some("prelude/list"), "Nil"), cons := Name(Some("prelude/list"), "Cons"), var := (lambda base => Var(Name(None, base), THole)), pvar := (lambda base => AOk(Pos(0, 0), PVar(var(base)))), decls := (empty_decls() with constrs := Map(
+    nil => ConstrDecl(list, List()),
+    cons => ConstrDecl(list, List(var("head"), var("tail")))), datatypes := Map(list => List(nil, cons))), two := PApp(cons, List(pvar("x"), AOk(Pos(0, 0), PApp(cons, List(pvar("y"), pvar("rest")))))), one := PApp(cons, List(pvar("x"), pvar("rest")))
+  match leaves(decls, ELevel(0), 1, List((two, false), (one, false)), None)
+    case List(empty, single, double) =>
+      assert empty.value == EFun(nil) and empty.hits == List()
+      assert single.value == EApp(EFun(cons), List(ELevel(1), EFun(nil)))
+      assert single.hits == List(Hit(1, List(ELevel(1), EFun(nil))))
+      assert double.vars == List(var("x"), var("y"), var("rest"))
+      assert double.hits == List(Hit(0, List(ELevel(1), ELevel(2), ELevel(3))))
+
+    case _ =>
+      assert false
+  end
+
+// literals split into the literal and the rest, where a guarded row lets the leaf through to the next
+test literal_leaves() :=
+  local x := AOk(Pos(0, 0), PVar(Var(Name(None, "x"), THole)))
+  match leaves(empty_decls(), ELevel(0), 1, List((PLit(LInt(0)), true), (PLit(LInt(0)), false), (x.that, false)), None)
+    case List(zero, other) =>
+      assert zero.value == ELit(LInt(0)) and zero.hits == List(Hit(0, List()), Hit(1, List()))
+      assert other.value == ELevel(0) and other.conds == List(Not(Eq(ELevel(0), ELit(LInt(0))))) and other.hits == List(Hit(2, List(ELevel(0))))
+
+    case _ =>
+      assert false
+  end
+
+// a split that induction asks for, also where the only row is a catch-all, which binds the constructor terms
+test forced_leaves() :=
+  local list := Name(Some("prelude/list"), "List"), nil := Name(Some("prelude/list"), "Nil"), cons := Name(Some("prelude/list"), "Cons"), var := (lambda base => Var(Name(None, base), THole)), decls := (empty_decls() with constrs := Map(
+    nil => ConstrDecl(list, List()),
+    cons => ConstrDecl(list, List(var("head"), var("tail")))), datatypes := Map(list => List(nil, cons)))
+  match leaves(decls, ELevel(0), 1, List((PVar(var("ys")), false)), Some(list))
+    case List(empty, nonempty) =>
+      assert empty.hits == List(Hit(0, List(EFun(nil))))
+      assert nonempty.vars == List(var("head"), var("tail")) and nonempty.hits == List(Hit(0, List(EApp(EFun(cons), List(ELevel(1), ELevel(2))))))
+
+    case _ =>
+      assert false
+  end

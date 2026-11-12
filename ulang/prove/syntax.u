@@ -142,6 +142,13 @@ function value_order(decls: Decls, a: Term, b: Term): Option[Int]
 
 function rebind(op: Rebind, c: Int, e: Term): Term
 
+// a variable that a proof defines by local x := e, which the simplifier keeps as a name, so that an open goal shows x
+// where it has e, marked by a module that no program has, so that the mark survives rebinding and the simplification of
+// the sequents that bind it
+function defined_var(x: Var): Var
+
+function is_defined_var(x: Var): Bool
+
 function binders(p: Pat): Int
 
 function pattern_vars(p: Pat): List[Var]
@@ -389,6 +396,12 @@ function rebind_branch(op: Rebind, c: Int, br: TermBranch): TermBranch :=
           TermBranch(pat, None, rebind(op, inner, body))
       end
   end
+
+function defined_var(x: Var): Var :=
+  x with name := Name(Some("(definition)"), x.name.base)
+
+function is_defined_var(x: Var): Bool :=
+  x.name.module == Some("(definition)")
 
 function binders(p: Pat): Int :=
   size(pattern_vars(p))
