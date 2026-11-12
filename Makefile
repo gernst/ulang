@@ -131,6 +131,30 @@ testerrors: $(SUITE)/suite.bin $(SUITE)/suite.sh
 testc: $(SUITE)/suite.bin $(SUITE)/suite.sh
 	$(SUITE)/suite.sh
 
+# the tests of the project as testc runs them, but compiled to assembly by ulang/compile/x86.u, which as and the linker
+# turn into a binary with the runtime, compiled once to out/asm/ulang.o, without compiling C of programs
+ASM = out/asm
+SUITE_ASM = out/suite-asm
+
+$(ASM)/ulang.o: $(RUNTIME) Makefile
+	mkdir -p $(ASM)
+	$(CC) $(CFLAGS) -c ulang/runtime/ulang.c -o $@
+
+$(SUITE_ASM)/suite.s: out/ulang.bin out/ulang.sh $(PROJECT_SOURCES)
+	mkdir -p $(SUITE_ASM)
+	out/ulang.sh compile --tests -o $@
+
+$(SUITE_ASM)/suite.bin: $(SUITE_ASM)/suite.s $(ASM)/ulang.o
+	$(CC) $< $(ASM)/ulang.o $(LIBS) -o $@
+
+$(SUITE_ASM)/suite.sh: $(SCRIPT)
+	mkdir -p $(SUITE_ASM)
+	cp $(SCRIPT) $@
+
+.PHONY: testasm
+testasm: $(SUITE_ASM)/suite.bin $(SUITE_ASM)/suite.sh
+	$(SUITE_ASM)/suite.sh
+
 # the checks of the repository in checks/, programs that run compiled at the root, since they parse the sources of the
 # compiler, which the interpreter does too slowly: checks/docs.u, that the references of the documentation name
 # declarations of their files

@@ -12,6 +12,18 @@
 
 #include "ulang.h"
 
+// the layout of the structures that the assembly of ulang/compile/x86.u reads and writes, which it repeats
+_Static_assert(sizeof(struct u_object) == 32 && offsetof(struct u_object, type) == 0, "u_object");
+_Static_assert(offsetof(struct u_object, num) == 8 && offsetof(struct u_object, units) == 8, "u_object");
+_Static_assert(offsetof(struct u_object, length) == 16 && offsetof(struct u_object, width) == 24, "u_object");
+_Static_assert(offsetof(struct u_object, name) == 8 && offsetof(struct u_object, size) == 16, "u_object");
+_Static_assert(offsetof(struct u_object, items) == 24, "u_object");
+_Static_assert(sizeof(struct u_name) == 32 && offsetof(struct u_name, index) == 16, "u_name");
+_Static_assert(offsetof(struct u_name, type) == 24, "u_name");
+_Static_assert(sizeof(struct u_type) == 32, "u_type");
+_Static_assert(offsetof(struct u_handler, env) == 0, "u_handler");
+_Static_assert(sizeof(struct u_test) == 24 && offsetof(struct u_test, name) == 8, "u_test");
+
 // the functions of libc on strings and memory, which are loops of the runtime when it is built with -DULANG_PROFILE,
 // such that gprof attributes their time
 #ifdef ULANG_PROFILE
