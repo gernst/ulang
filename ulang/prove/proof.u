@@ -10,9 +10,11 @@ import "ulang/syntax"
 
 export
 
-// a goal that a proof leaves open at pos, or a step that it cannot take, as text
+// what a proof leaves at pos: a goal that stays open, with the goal as text, or a step that it cannot take, by the code
+// of the Diagnostic of ulang/syntax/error.u that reports it: OpenGoal, UnprovenCall, Unsupported, or OpenLemma of a
+// lemma without a proof
 data Gap :=
-  case Gap(pos: Pos, text: Str)
+  case Gap(pos: Pos, code: Str, message: Str, goal: Option[Str])
 
 // the gaps of the proof of the lemma target, none if it proves it, where proven are the lemmas proven before
 function check_proof(decls: Decls, proven: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap]
@@ -44,7 +46,7 @@ function check_proof(decls: Decls, proven: List[Lemma], target: Lemma, proof: Pr
 
     // translate gives every lemma this shape
     case _ =>
-      List(Gap(proof.pos, "a lemma of another shape"))
+      List(Gap(proof.pos, "Unsupported", "a lemma of another shape", None))
   end
 
 function atom_term(s: Seq): Option[Term] :=
@@ -106,10 +108,10 @@ function step_gaps(w: Walk, scope: Scope, step: StepTerm): Scope * List[Gap] :=
           (scope with facts := scope.facts ++ List(Atom(beta(terms ++ witnesses, concl))), required)
 
         case Some(_) =>
-          (scope, List(Gap(pos, "a lemma of another shape")))
+          (scope, List(Gap(pos, "Unsupported", "a lemma of another shape", None)))
 
         case None =>
-          (scope, List(Gap(pos, call_gap(w, name))))
+          (scope, List(Gap(pos, "UnprovenCall", call_gap(w, name), None)))
       end
 
     case AssignTerm(witness, value, _) =>
@@ -117,7 +119,7 @@ function step_gaps(w: Walk, scope: Scope, step: StepTerm): Scope * List[Gap] :=
       (scope with facts := scope.facts ++ List(Atom(Eq(ELevel(l), opened(scope, value)))), outs := List(for o in scope.outs if o != l yield o), List())
 
     case UnsupportedTerm(what, pos) =>
-      (scope, List(Gap(pos, what ++ " is not supported yet")))
+      (scope, List(Gap(pos, "Unsupported", what ++ " is not supported yet", None)))
   end
 
 // the statement of the lemma that a call names: one proven before, or the lemma itself at a recursive field of its
@@ -157,7 +159,8 @@ function closing(w: Walk, scope: Scope, c: Term, pos: Pos): List[Gap] :=
   if alone == true_seq() or simplify(w.decls, with_facts(goal, facts)) == true_seq() then
     List()
   else
-    List(Gap(pos, print_seq(printable(w.decls, alone))))
+    List(
+      Gap(pos, "OpenGoal", "the goal stays open", Some(print_seq(printable(w.decls, alone)))))
 
 // the goal c under the facts of the scope, closed over its variables, where the outs that are not assigned are existential
 function sequent(scope: Scope, c: Term): Seq :=
@@ -188,7 +191,7 @@ function split_gaps(w: Walk, scope: Scope, split: SplitTerm): List[Gap] :=
 
         case _ =>
           List(
-            Gap(pos, "induction on a formal that is not of a datatype with constructors or Int"))
+            Gap(pos, "Unsupported", "induction on a formal that is not of a datatype with constructors or Int", None))
       end
 
     case MatchTerm(arg, cases, pos) =>
@@ -239,7 +242,7 @@ function constr_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, 
       end
 
     case None =>
-      List(Gap(pos, "a constructor without a declaration"))
+      List(Gap(pos, "Unsupported", "a constructor without a declaration", None))
   end
 
 function is_catch_all(case_term: CaseTerm): Bool :=
