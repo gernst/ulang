@@ -24,6 +24,10 @@ function has_errors(source: Source): Bool
 // their names are unknown to it
 function without_unparsed(source: Source): Source
 
+// the names that the commands of source declare that do not parse, as far as the parser read them, the name after the
+// keyword of a declaration and those after case in a datatype
+function unparsed_names(source: Source): Set[Id]
+
 // raises the errors of source: the first one of an imported module, else the one of the main module, or ParseErrors of
 // several
 procedure require_parsed(in source: Source) raises ParseError
@@ -120,6 +124,62 @@ procedure require_parsed(in source: Source) raises ParseError :=
 
 function without_unparsed(source: Source): Source :=
   source with mods := List(for m in source.mods yield m with exported := whole(m.exported), builtins := whole(m.builtins), implemented := whole(m.implemented))
+
+function unparsed_names(source: Source): Set[Id] :=
+  Set(for m in source.mods for d in m.exported ++ m.builtins ++ m.implemented for x in declared_by(d.at) yield x)
+
+function declared_by(cmd: At[Cmd]): List[Id] :=
+  match cmd
+    case AUnparsed(_, _, error) =>
+      List(for (k, v) in error.details if k == "declares" for x in split(v, ',') yield x)
+    case _ =>
+      List()
+  end
+
+// the names that the declaration at the start of toks declares, as far as they are written, up to the next command, the
+// name after its keyword and in a datatype those after case
+function declared_names(toks: Tokens): List[Id] :=
+  match toks
+    case List((_, TKw(kw)), (_, TName(name)); more) if contains(kw, List("function", "procedure", "pattern", "type")) =>
+      List(name)
+
+    case List((_, TKw("data")), (_, TName(name)); more) =>
+      List(name; constructor_names(more))
+
+    case _ =>
+      List()
+  end
+
+function constructor_names(toks: Tokens): List[Id] :=
+  match toks
+    case List((_, TKw("case")), (_, TName(name)); more) =>
+      List(name; constructor_names(more))
+
+    case List((_, tok); more) if not is_command_token(tok) =>
+      constructor_names(more)
+
+    case _ =>
+      List()
+  end
+
+function is_command_token(tok: Token): Bool :=
+  match tok
+    case TKw(kw) =>
+      is_command_kw(kw)
+
+    case TEnd =>
+      true
+
+    case _ =>
+      false
+  end
+
+// d with the names that its command declares, as the detail declares, if any
+function declaring(d: Diagnostic, names: List[Id]): Diagnostic :=
+  if names == List() then
+    d
+  else
+    d with details := d.details ++ List(("declares", join(",", names)))
 
 function whole(docs: List[Doc[Cmd]]): List[Doc[Cmd]] :=
   List(for d in docs if cmd_errors(d.at) == List())
@@ -2949,7 +3009,7 @@ procedure parse_mod(
   ref source: Source,
       toks: Tokens
 ) :=
-  local imports: List[Id] := List(), notation := empty_notation(), plain: List[Doc[Cmd]] := List(), exported: List[Doc[Cmd]] := List(), builtins: List[Doc[Cmd]] := List(), implemented: List[Doc[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[Doc[Cmd]], doc: Option[Str], mod_doc: Option[Str], text: Str
+  local imports: List[Id] := List(), notation := empty_notation(), plain: List[Doc[Cmd]] := List(), exported: List[Doc[Cmd]] := List(), builtins: List[Doc[Cmd]] := List(), implemented: List[Doc[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[Doc[Cmd]], doc: Option[Str], mod_doc: Option[Str], text: Str, names: List[Id] := List()
   assign implemented := List(for (p, tok) in toks if tok == TMisplaced yield Doc(None, AUnparsed(p, "//", parse_diagnostic(ParseError(misplaced_comment(), p)))))
   assign toks := List(for (p, tok) in toks if tok != TMisplaced yield (p, tok))
   assign mod_doc := module_doc(toks)
@@ -2969,13 +3029,14 @@ procedure parse_mod(
         match head_token(toks)
           case TKw(kw) if section_named(kw) != None =>
             call   advance(ref toks)
-            assign section := value_or(section_named(kw), section), text := kw
+            assign section := value_or(section_named(kw), section), text := kw, names := List()
 
           case _ =>
-            call skip_command(out text, ref toks)
+            assign names := declared_names(toks)
+            call   skip_command(out text, ref toks)
         end
         assign placed := List(
-          Doc(doc, AUnparsed(pos, text, parse_diagnostic(ParseError(message, at)))))
+          Doc(doc, AUnparsed(pos, text, declaring(parse_diagnostic(ParseError(message, at)), names))))
     end
     match more
       case List(c; rest) =>

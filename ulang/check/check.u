@@ -38,6 +38,8 @@ data TypeError :=
   case Unreachable(pat: Pat)
   case NotAssignable(name: Name)
   case UnknownProcedure(name: Name)
+  // a use of a name that only a command declares that does not parse
+  case UnparsedDeclaration(name: Name)
   // a call in a proof of a name that is no lemma of its module
   case UnknownLemma(name: Name)
   // induction on a name that is no formal of a datatype of the lemma
@@ -95,6 +97,15 @@ procedure check_all(
 // whether checking found errors in the program, which it then holds as diagnostics
 function has_errors(q: Prog): Bool
 
+// check_all of a source without its commands that do not parse, where a use of a name that one of them declares, of
+// unparsed, is no unknown name but UnparsedDeclaration
+procedure check_partial(
+  in  source: Source,
+      unparsed: Set[Id],
+  out q: Prog,
+      errors: List[TypeError]
+) raises InternalError
+
 // whether the patterns pats, without guards, match every value of type t, as the cases of an exhaustive match do
 function covers_all(sig: Sig, t: Type, pats: List[Pat]): Bool
 
@@ -120,7 +131,7 @@ data Pending :=
 // where hidden and hidden_sorts are the private declarations and sorts of the members of the package being checked, which
 // the other members do not see, while sig has only the exports of the modules checked before
 data State :=
-  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError])
+  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id])
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -143,7 +154,7 @@ function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
   value_or(get(m, vs), List(m))
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
-  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List())
+  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty())
 
 function in_module(m: Id, n: Name): Name :=
   Name(Some(m), n.base)
@@ -1811,7 +1822,7 @@ function component_types(s: State, expected: Option[Type * Str], n: Int): Option
 // the error e of a program at the innermost part around it, s.at, which infer, statement, and binders set, after which the
 // checker continues with a fallback
 procedure report(in e: TypeError, ref s: State) :=
-  assign s := s with errors := s.errors ++ List(at_use(s.at, e))
+  assign s := s with errors := s.errors ++ List(at_use(s.at, unparsed_use(s.unparsed, e)))
 
 // the first error that s reported
 procedure reported(in s: State) :=
@@ -2559,6 +2570,13 @@ procedure pattern_binders(
         case (Some(_), None) =>
           call   report(in UnknownConstructor(constr), ref s)
           assign typed_pat := AOk(pos, PWild), xs := List()
+
+        // a constructor that does not parse binds the variables of its arguments, of unknown types
+        case (None, _) if contains(constr.base, s.unparsed) =>
+          local qs: List[At[Pat]], ts: List[Type]
+          call   fresh_list(in args, out ts, ref s)
+          call   binder_list(in args, ts, out qs, xs, ref s)
+          assign typed_pat := AOk(pos, PWild)
 
         // reported where k was resolved
         case (None, _) =>
@@ -4016,22 +4034,69 @@ procedure check_all(
   out q: Prog,
       errors: List[TypeError]
 ) raises InternalError :=
+  call check_partial(in source, empty(), out q, errors)
+
+procedure check_partial(
+  in  source: Source,
+      unparsed: Set[Id],
+  out q: Prog,
+      errors: List[TypeError]
+) raises InternalError :=
   local sig: Sig := empty(), imports: List[Id * List[Id]] := List(), cmds: List[Cmd] := List(), checked: List[Cmd], shown: Sig, found: List[TypeError]
   assign errors := List()
   for mods in units(source.mods, source.packages) if errors == List() do
     try
-      call   check_package(in mods, source.packages, sig, imports, out checked, shown, found)
+      call   check_package(in mods, source.packages, sig, imports, unparsed, out checked, shown, found)
       assign sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, errors := found
     catch
       case e =>
         assign errors := List(e)
     end
   end
-  assign errors := List(for e in errors yield in_main(source.main, e))
+  assign errors := distinct(List(for e in errors yield in_main(source.main, e)))
   assign q := Prog(cmds, source.main, List(for e in errors yield type_diagnostic(e)))
 
 function has_errors(q: Prog): Bool :=
   q.errors != List()
+
+// whether e stops the definitions after the declarations, as all errors do but the uses of declarations that do not parse,
+// which have no type that could mislead the checking of the definitions
+function is_blocking(e: TypeError): Bool :=
+  match e
+    case Located(_, _, error) =>
+      is_blocking(error)
+
+    case UnparsedDeclaration(_) =>
+      false
+
+    case _ =>
+      true
+  end
+
+// e as the use of a declaration of unparsed that does not parse, if it is an unknown name of one
+function unparsed_use(unparsed: Set[Id], e: TypeError): TypeError :=
+  match e
+    case Located(m, pos, error) =>
+      Located(m, pos, unparsed_use(unparsed, error))
+
+    case Hinted(UnknownVariable(name), _) if contains(name.base, unparsed) =>
+      UnparsedDeclaration(name)
+
+    case UnknownVariable(name) if contains(name.base, unparsed) =>
+      UnparsedDeclaration(name)
+
+    case UnknownSort(name) if contains(name.base, unparsed) =>
+      UnparsedDeclaration(name)
+
+    case UnknownConstructor(name) if contains(name.base, unparsed) =>
+      UnparsedDeclaration(name)
+
+    case UnknownProcedure(name) if contains(name.base, unparsed) =>
+      UnparsedDeclaration(name)
+
+    case _ =>
+      e
+  end
 
 // e without the module if it is the main one
 function in_main(main: Id, e: TypeError): TypeError :=
@@ -4078,6 +4143,7 @@ procedure check_package(
       packages: List[Package],
       before: Sig,
       imports: List[Id * List[Id]],
+      unparsed: Set[Id],
   out cmds: List[Cmd],
       shown: Sig,
       errors: List[TypeError]
@@ -4087,7 +4153,7 @@ procedure check_package(
     call   private_of(in d, out private, private_sorts)
     assign hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
   end
-  assign s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List()), decls := seconds(placed)
+  assign s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed), decls := seconds(placed)
   call   each_placed(in declare_datas, placed, ref s)
   call   declare_datas(in builtins, ref s)
   call   each_placed(in declare_sorts, alias_order(List(for p in placed if alias_names(p) != None), List()), ref s)
@@ -4112,7 +4178,7 @@ procedure check_package(
   for d in mods do
     call unique_ids(in "declaration", block_names(decls_of_mod(d)), ref s)
   end
-  if s.errors == List() then
+  if not exists(s.errors, is_blocking) then
     call placed_commands(in placed_definitions(placed), lambda in checked: List[Cmd] =>
       call check_orders(in checked, abstract_types(decls), hidden, hidden_sorts)
     end, out defined, ref s)
