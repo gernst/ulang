@@ -5,9 +5,17 @@ const cp = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-// e.g. "/a/b.u: type error: cannot unify Int and Bool", optionally followed by " in m" for an imported module m and
-// " at 3.11", the position in the file of that module, with the kinds of error_kinds of ulang/syntax/error.u
-const errorLine = /^(.*?): ((?:parse|type|format|runtime|internal) error: .*?)(?: in ([\w/-]+))?(?: at (\d+)\.(\d+))?$/;
+// an error is one JSON object on a line, as format_diagnostic of ulang/syntax/error.u writes it, with the fields file,
+// module for an imported module, line and column in the file of that module, kind, code, message, and details
+function parseDiagnostic(line) {
+  if (!line.startsWith("{")) return undefined;
+  try {
+    const d = JSON.parse(line);
+    return typeof d.message === "string" && typeof d.kind === "string" ? d : undefined;
+  } catch (e) {
+    return undefined;
+  }
+}
 const testLine = /^test (\S+) (passed|failed: (.*))$/;
 // e.g. "lemma append_nil proved" or "lemma append_nil open: forall xs => ...", of ulang prove and ulang test
 const lemmaLine = /^lemma (\S+) (?:proved|open: (.*))$/;
@@ -144,13 +152,17 @@ function activate(context) {
   function diagnose(file, stderr, stdout) {
     const found = [];
     const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n") : [];
-    for (const line of stderr.split("\n")) {
-      const match = errorLine.exec(line);
-      if (!match) continue;
-      const [, , message, module, row, column] = match;
-      const at = row ? new vscode.Position(Number(row) - 1, Number(column) - 1) : new vscode.Position(0, 0);
+    for (const line of (stderr + "\n" + (stdout || "")).split("\n")) {
+      const d = parseDiagnostic(line);
+      if (!d) continue;
+      const message = d.kind + " error: " + d.message;
+      const module = d.module;
+      const row = d.line, column = d.column;
+      const at = row ? new vscode.Position(row - 1, column - 1) : new vscode.Position(0, 0);
       if (!module) {
-        found.push(new vscode.Diagnostic(new vscode.Range(at, at.translate(0, 1)), message, vscode.DiagnosticSeverity.Error));
+        const diagnostic = new vscode.Diagnostic(new vscode.Range(at, at.translate(0, 1)), message, vscode.DiagnosticSeverity.Error);
+        diagnostic.code = d.code;
+        found.push(diagnostic);
         continue;
       }
       const root = projectRoot(file);

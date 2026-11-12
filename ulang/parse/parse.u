@@ -22,9 +22,16 @@ function parse_diagnostic(e: ParseError): Diagnostic
 // directory p from the root, whose exports and notations the importing file sees, packages do not import each other
 // cyclically, and implicit imports are the library; the modules keep their tests if they are the file or members of its
 // package, and lose them else
-procedure parse_file(in path: Str, out source: Source)
+procedure parse_file(
+  in  path: Str,
+  out source: Source
+) raises ParseError, OsError
 
-procedure parse_file_text(in path: Str, text: Str, out source: Source)
+procedure parse_file_text(
+  in  path: Str,
+      text: Str,
+  out source: Source
+) raises ParseError, OsError
 
 // whether path names a source file, name.u with a name
 function is_source(path: Str): Bool
@@ -35,7 +42,7 @@ function has_sections(text: Str): Bool
 
 // the module of text without implicit imports and imports, which reads no files, for the tests, parsed with the empty
 // notation, so without the operators of the library, such as +
-procedure parse_text(in text: Str, out own: Mod)
+procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError
 
 // the source of texts instead of files, for the tests: the members of the package of the directory dir from the root,
 // each its module and text, and main, the module and text of the main file, which is one of them or a program in dir,
@@ -46,10 +53,10 @@ procedure parse_texts(
       members: List[Id * Str],
       main: Id * Str,
   out source: Source
-)
+) raises ParseError, OsError
 
 // the nearest directory from dir upward with project.u, or else dir, where dir is absolute and normal
-procedure project_root(in dir: Str, out root: Str)
+procedure project_root(in dir: Str, out root: Str) raises OsError
 
 // the absolute path without . and .. and repeated /
 function normal_path(path: Str): Str
@@ -195,6 +202,19 @@ function at_comma(toks: Tokens): Bool :=
 
 function at_mode(toks: Tokens): Bool :=
   at_kw(toks, "in") or at_kw(toks, "out") or at_kw(toks, "ref")
+
+// a comma before another raised type, unless name : of the next formal follows it
+function at_raised_type(toks: Tokens): Bool :=
+  match toks
+    case List((_, TKw(",")), (_, TName(_)), (_, TKw(":")); _) =>
+      false
+
+    case List((_, TKw(",")), (_, TName(_)); _) =>
+      true
+
+    case _ =>
+      false
+  end
 
 // a comma before another update
 function at_update(toks: Tokens): Bool :=
@@ -353,7 +373,7 @@ procedure parse_name_or_op(out name: Id, ref toks: Tokens) :=
 procedure parse_separated[A](
   in  notation: Notation,
       params: List[Id],
-      item: (in Notation, List[Id], out A, ref Tokens),
+      item: (in Notation, List[Id], out A, ref Tokens) raises ParseError,
       more: Tokens -> Bool,
   out xs: List[A],
   ref toks: Tokens
@@ -372,7 +392,7 @@ procedure parse_separated[A](
 procedure parse_repeated[A](
   in  notation: Notation,
       params: List[Id],
-      item: (in Notation, List[Id], out A, ref Tokens),
+      item: (in Notation, List[Id], out A, ref Tokens) raises ParseError,
       more: Tokens -> Bool,
   out xs: List[A],
   ref toks: Tokens
@@ -390,7 +410,7 @@ procedure parse_repeated[A](
 procedure parse_enclosed[A](
   in  notation: Notation,
       params: List[Id],
-      item: (in Notation, List[Id], out A, ref Tokens),
+      item: (in Notation, List[Id], out A, ref Tokens) raises ParseError,
       close: Str,
   out xs: List[A],
   ref toks: Tokens
@@ -407,7 +427,7 @@ procedure parse_optional[A](
   in  notation: Notation,
       params: List[Id],
       tok: Token,
-      item: (in Notation, List[Id], out A, ref Tokens),
+      item: (in Notation, List[Id], out A, ref Tokens) raises ParseError,
   out x: Option[A],
   ref toks: Tokens
 ) :=
@@ -424,7 +444,7 @@ procedure parse_optional[A](
 procedure parse_display[A](
   in  notation: Notation,
       params: List[Id],
-      item: (in Notation, List[Id], out A, ref Tokens),
+      item: (in Notation, List[Id], out A, ref Tokens) raises ParseError,
   out items: List[A],
       rest: Option[A],
   ref toks: Tokens
@@ -442,11 +462,11 @@ function cons_all[A](cons: (A, A) -> A, items: List[A], rest: A): A :=
   end
 
 type Operand[A] :=
-  (in Notation, List[Id], out A, ref Tokens)
+  (in Notation, List[Id], out A, ref Tokens) raises ParseError
 
 // an operator applied to its operands, which raises a ParseError if they do not fit
 type Apply[A] :=
-  (in Fixity, Id, Pos, List[A], out A)
+  (in Fixity, Id, Pos, List[A], out A) raises ParseError
 
 // precedence climbing over the tokens, as Mixfix of easyparse in cuvee, where prefix operators bind their operand
 // with their own precedence, and a left associative operator is applied to all operands of a chain at once
@@ -673,11 +693,12 @@ procedure parse_type_atom(
   ref toks: Tokens
 ) :=
   if at_kw(toks, "(") and contains(second_token(toks), List(TKw("in"), TKw("out"), TKw("ref"))) then
-    local ins: List[Type], outs: List[Type], refs: List[Type]
+    local ins: List[Type], outs: List[Type], refs: List[Type], raised: List[Type]
     call   advance(ref toks)
     call   parse_sections(in notation, params, parse_type, parse_type, out ins, outs, refs, ref toks)
     call   expect(in TKw(")"), ref toks)
-    assign r := List(TProc(ins, outs, refs))
+    call   parse_raises(in notation, params, out raised, ref toks)
+    assign r := List(TProc(ins, outs, refs, TTuple(raised)))
   else
     if at_kw(toks, "(") then
       call advance(ref toks)
@@ -908,7 +929,7 @@ procedure parse_lambda(
     call   expect(in TKw("=>"), ref toks)
     call   parse_body(in notation, params, out body, ref toks)
     call   expect(in TKw("end"), ref toks)
-    assign expr := AOk(pos, EProc(ins, outs, refs, body))
+    assign expr := AOk(pos, EProc(ins, outs, refs, THole, body))
   else
     local inner: At[Expr]
     if head_token(toks) == TKw("=>") then
@@ -1069,7 +1090,7 @@ procedure parse_doc(out doc: Option[Str], ref toks: Tokens) :=
 procedure parse_cases[B](
   in  notation: Notation,
       params: List[Id],
-      body: (in Notation, List[Id], out B, ref Tokens),
+      body: (in Notation, List[Id], out B, ref Tokens) raises ParseError,
   out cases: List[Doc[Branch[B]]],
   ref toks: Tokens
 ) :=
@@ -1454,8 +1475,8 @@ procedure parse_call(
 procedure parse_sections[A, B](
   in  notation: Notation,
       params: List[Id],
-      item_in: (in Notation, List[Id], out A, ref Tokens),
-      item: (in Notation, List[Id], out B, ref Tokens),
+      item_in: (in Notation, List[Id], out A, ref Tokens) raises ParseError,
+      item: (in Notation, List[Id], out B, ref Tokens) raises ParseError,
   out ins: List[A],
       outs: List[B],
       refs: List[B],
@@ -1766,7 +1787,7 @@ procedure parse_procedure(
       examples: List[At[Cmd]],
   ref toks: Tokens
 ) :=
-  local name: Id, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], body: At[Stmt], pos: Pos
+  local name: Id, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], body: At[Stmt], pos: Pos
   call   advance(ref toks)
   assign pos := head_pos(toks)
   call   parse_name(out name, ref toks)
@@ -1775,13 +1796,28 @@ procedure parse_procedure(
   call   expect(in TKw("("), ref toks)
   call   parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
   call   expect(in TKw(")"), ref toks)
+  call   parse_raises(in notation, params, out raised, ref toks)
   call   parse_examples(in notation, params, unqualified(name), true, out examples, ref toks)
   if head_token(toks) == TKw(":=") then
     call   advance(ref toks)
     call   parse_body(in notation, params, out body, ref toks)
-    assign cmd := CProc(unqualified(name), params, ins, outs, refs, body)
+    assign cmd := CProc(unqualified(name), params, ins, outs, refs, raised, body)
   else
-    assign cmd := CProcSig(unqualified(name), params, ins, outs, refs)
+    assign cmd := CProcSig(unqualified(name), params, ins, outs, refs, raised)
+  end
+
+// raises T, … after the formals of a procedure or the modes of a procedure type, or nothing, where a comma followed by
+// name : ends the types, since it starts the next formal around a procedure type
+procedure parse_raises(
+  in  notation: Notation,
+      params: List[Id],
+  out raised: List[Type],
+  ref toks: Tokens
+) :=
+  assign raised := List()
+  if at_kw(toks, "raises") then
+    call advance(ref toks)
+    call parse_separated(in notation, params, parse_type, at_raised_type, out raised, ref toks)
   end
 
 // the lines example … after the head of the function or, if of_proc, procedure owner, each at its keyword
@@ -2057,12 +2093,7 @@ procedure import_package(
   if id == "prelude" then
     raise ParseError(library_import(), pos)
   end
-  try
-    call os_is_dir(in os_join(root, id), out found)
-  catch
-    case OsError(_) =>
-      assign found := false
-  end
+  call os_is_dir(in os_join(root, id), out found)
   if not found then
     raise ParseError(unknown_package(id), pos)
   end
@@ -2192,7 +2223,7 @@ procedure parse_texts(
       members: List[Id * Str],
       main: Id * Str,
   out source: Source
-) :=
+) raises ParseError, OsError :=
   match main
     case (id, text) =>
       assign source := Source(List(), List(), id)
@@ -2488,7 +2519,7 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
     case (List(CFunSig(_, _, _, _); _), InBuiltin) =>
       skip
 
-    case (List(CProcSig(_, _, _, _, _); _), InBuiltin) =>
+    case (List(CProcSig(_, _, _, _, _, _); _), InBuiltin) =>
       skip
 
     case (List(CAbstract(_, _); _), InBuiltin) =>
@@ -2503,7 +2534,7 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
     case (List(CFunSig(_, _, _, _); _), s) if s != InExport =>
       raise ParseError("signatures belong to the export section", pos)
 
-    case (List(CProcSig(_, _, _, _, _); _), s) if s != InExport =>
+    case (List(CProcSig(_, _, _, _, _, _); _), s) if s != InExport =>
       raise ParseError("signatures belong to the export section", pos)
 
     case (List(CAbstract(_, _); _), s) if s != InExport =>
@@ -2512,7 +2543,7 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
     case (List(CFun(_, _, _, _, _); _), InExport) =>
       raise ParseError("definitions belong to the implementation section", pos)
 
-    case (List(CProc(_, _, _, _, _, _); _), InExport) =>
+    case (List(CProc(_, _, _, _, _, _, _); _), InExport) =>
       raise ParseError("definitions belong to the implementation section", pos)
 
     case (List(CTest(_, _, _); _), InExport) =>
@@ -2544,7 +2575,11 @@ procedure lex_text(in text: Str, out toks: Tokens) :=
       raise ParseError(message, pos)
   end
 
-procedure parse_file_text(in path: Str, text: Str, out source: Source) :=
+procedure parse_file_text(
+  in  path: Str,
+      text: Str,
+  out source: Source
+) raises ParseError, OsError :=
   local place: Place
   call   place_of(in path, out place)
   assign source := Source(List(), List(), place.id)
@@ -2554,12 +2589,15 @@ procedure parse_file_text(in path: Str, text: Str, out source: Source) :=
     call load_program(in place.id, text, place.root, ref source)
   end
 
-procedure parse_file(in path: Str, out source: Source) :=
+procedure parse_file(
+  in  path: Str,
+  out source: Source
+) raises ParseError, OsError :=
   local text: Str
   call os_read(in path, out text)
   call parse_file_text(in path, text, out source)
 
-procedure parse_text(in text: Str, out own: Mod) :=
+procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError :=
   local toks: Tokens, source := Source(List(), List(), "main")
   call lex_text(in text, out toks)
   call parse_mod(in "main", List(), empty_notation(), "", None, List(), out own, ref source, toks)
@@ -2583,7 +2621,7 @@ procedure place_of(in path: Str, out place: Place) :=
     assign place := Place(module_id(relative_path(root, home), name), root, Some(relative_path(root, home)))
   end
 
-procedure project_root(in dir: Str, out root: Str) :=
+procedure project_root(in dir: Str, out root: Str) raises OsError :=
   local found := false, here := dir
   assign root := dir
   while not found do
@@ -2678,6 +2716,22 @@ test parsed_positions() :=
     AOk(Pos(8, 3), EApp(AOk(Pos(8, 3), EName(unqualified("f"), THole)), List(AOk(Pos(8, 5), EName(unqualified("a"), THole))))),
     AOk(Pos(8, 11), EField(AOk(Pos(8, 10), EName(unqualified("b"), THole)), "g")))))
 
+// a comma followed by name : ends the types that a procedure type raises, since it starts the next formal
+test parsed_raises() :=
+  local d: Mod, found: List[List[Type] * List[Type]] := List(), e := TSort(unqualified("E"), List()), f := TSort(unqualified("F"), List()), int := TSort(unqualified("Int"), List())
+  call parse_text(in "procedure p(in q: (in Int) raises E, F, n: Int) raises F := skip\nprocedure r() raises E, F := skip\n", out d)
+  for c in commands_of(d.implemented) do
+    match c
+      case CProc(_, _, ins, _, _, raised, _) =>
+        assign found := found ++ List((List(for x in ins yield x.typ), raised))
+      case _ =>
+        skip
+    end
+  end
+  assert found == List(
+    (List(TProc(List(int), List(), List(), TTuple(List(e, f))), int), List(f)),
+    (List(), List(e, f)))
+
 test parsed_docs() :=
   local d: Mod, text := "// the answer\n// in two lines\nfunction f(): Int := 42\n\n\n\n"
   call parse_text(in text ++ "function g(): Int := 1\nfunction h(): Int := 2\n", out d)
@@ -2708,7 +2762,7 @@ test parsed_docs_of_cases() :=
   match commands_of(d.implemented)
     case List(
       CFun(_, _, _, _, AOk(_, EMatch(_, bs))),
-      CProc(_, _, _, _, _, AOk(_, SBlock(_, List(AOk(_, SMatch(_, cs)), AOk(_, STry(_, hs))))))) =>
+      CProc(_, _, _, _, _, _, AOk(_, SBlock(_, List(AOk(_, SMatch(_, cs)), AOk(_, STry(_, hs))))))) =>
       assign docs := List(for b in bs yield b.doc) ++ List(for c in cs yield c.doc) ++ List(for h in hs yield h.doc)
 
     case _ =>

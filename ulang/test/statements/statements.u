@@ -165,7 +165,7 @@ data Failed :=
   case Failed
 
 // the outs of sign are assigned on every path, where a path that raises does not continue
-procedure sign(in n: Int, out s: Int) :=
+procedure sign(in n: Int, out s: Int) raises Failed :=
   if n < 0 then
     assign s := -1
   else
@@ -176,7 +176,7 @@ procedure sign(in n: Int, out s: Int) :=
     end
   end
 
-procedure first(in xs: List[Int], out x: Int) :=
+procedure first(in xs: List[Int], out x: Int) raises Failed :=
   match xs
     case List(y; _) =>
       assign x := y
@@ -306,7 +306,7 @@ data ParseError :=
   case Expected(what: Str)
   case Trailing(toks: List[Token])
 
-procedure accept(in s: Str, ref ts: List[Token]) :=
+procedure accept(in s: Str, ref ts: List[Token]) raises ParseError :=
   match ts
     case List(Sym(op); us) =>
       if op == s then
@@ -479,6 +479,13 @@ test unmatched_raised_further() :=
   end
   assert e == "x"
 
+// raises n if it is positive, and else a text
+procedure positive(in n: Int) :=
+  if n > 0 then
+    raise n
+  end
+  raise "not positive"
+
 // exceptions of any type, which cases catch only if the types agree, while _ catches all
 test any_type() :=
   local n: Int, s: Str
@@ -491,13 +498,13 @@ test any_type() :=
   assert n == 42
   try
     try
-      raise Some(1)
+      call positive(in 1)
     catch
-      case Some(t) =>
-        assign s := t
+      case t =>
+        assign s := t ++ "!"
     end
   catch
-    case Some(k) =>
+    case k =>
       assign n := k + 1
   end
   assert n == 2
@@ -508,6 +515,27 @@ test any_type() :=
       assign s := "caught"
   end
   assert s == "caught"
+
+// a procedure value raises what its type allows, which a lambda takes from the formal it is given to
+procedure attempt(in step: (in Int) raises Failed, n: Int, out ok: Bool) :=
+  try
+    call   step(in n)
+    assign ok := true
+  catch
+    case Failed =>
+      assign ok := false
+  end
+
+test procedure_values_raise() :=
+  local ok: Bool, fails_below := lambda in n =>
+    if n < 0 then
+      raise Failed
+    end
+  end
+  call attempt(in fails_below, -1, out ok)
+  assert not ok
+  call attempt(in fails_below, 1, out ok)
+  assert ok
 
 // handlers apply if their guards hold
 test guarded_handlers() :=

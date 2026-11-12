@@ -209,6 +209,18 @@ function type_message(e: TypeError): Str :=
     case RaisesVariables(name) =>
       "the pattern of assert raises binds " ++ name.base ++ ", which only _ may stand for"
 
+    case NotAnException(typ) =>
+      "only values of datatypes without type parameters are raised, not of " ++ format_type(typ)
+
+    case UndeclaredRaise(name, typ) =>
+      name.base ++ " raises " ++ format_type(typ) ++ ", which its raises omit"
+
+    case UntypedRaise(name, typ) =>
+      "the procedure value " ++ name.base ++ " raises " ++ format_type(typ) ++ ", which its type omits"
+
+    case NeverRaised(typ) =>
+      "the handler of " ++ format_type(typ) ++ " is unreachable, since nothing in the body raises " ++ format_type(typ)
+
     case PatternOnly(name) =>
       "the pattern alias " ++ name.base ++ " has _ and builds no value"
 
@@ -264,6 +276,10 @@ test messages() :=
   assert located_message(Located(None, Pos(7, 1), PrivateConstructor(Name(Some("ulang/test/errors/pattern-alias-abstract"), "Small"), Name(Some("ulang/test/errors/pattern-alias-abstract"), "Box")))) == "the exported pattern alias Small matches the private constructor Box at 7.1"
   assert located_message(PrivateType(Name(Some("ulang/test/errors/private-type"), "f"), Name(Some("ulang/test/errors/private-type"), "Hidden"))) == "the signature of f names the private type Hidden"
   assert located_message(Located(None, Pos(1, 1), RaisesVariables(Name(None, "n")))) == "the pattern of assert raises binds n, which only _ may stand for at 1.1"
+  assert located_message(Located(None, Pos(2, 3), NotAnException(TSort(Name(Some("prelude/prelude"), "Int"), List())))) == "only values of datatypes without type parameters are raised, not of Int at 2.3"
+  assert located_message(Located(None, Pos(2, 3), UndeclaredRaise(Name(Some("a"), "p"), TSort(Name(Some("a"), "Failed"), List())))) == "p raises Failed, which its raises omit at 2.3"
+  assert located_message(Located(None, Pos(2, 3), UntypedRaise(Name(None, "lambda"), TSort(Name(Some("a"), "Failed"), List())))) == "the procedure value lambda raises Failed, which its type omits at 2.3"
+  assert located_message(Located(None, Pos(2, 3), NeverRaised(TSort(Name(Some("a"), "Failed"), List())))) == "the handler of Failed is unreachable, since nothing in the body raises Failed at 2.3"
   assert located_message(SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T"))) == "the definition of T differs from its signature"
   assert located_message(Located(None, Pos(1, 1), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1))) == "sort Int expects 0 arguments, got 1 at 1.1"
   assert located_message(Located(None, Pos(1, 1), TestParams("sorted"))) == "test sorted takes parameters at 1.1"
