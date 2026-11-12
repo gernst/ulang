@@ -120,7 +120,7 @@ function default_proof(decls: Decls, facts: List[Seq], goal: Seq): Seq :=
   else
     match goal
       case Seq(fixed, _, _) =>
-        if exists(range(0, size(fixed)), lambda p => is_true(decls, with_facts(induction(decls, goal, p), facts))) then
+        if exists(range(0, size(fixed)), lambda p => is_true(decls, with_facts(induct(decls, goal, p), facts))) then
           true_seq()
         else
           simplify(decls, goal)

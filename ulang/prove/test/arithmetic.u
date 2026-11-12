@@ -1,53 +1,53 @@
 // lemmas of linear arithmetic over the integers and of splits on conditions
 
-lemma successor(a: Int, b: Int) :=
+lemma successor(in a: Int, b: Int) :=
   requires a < b
   ensures  a + 1 <= b
 
-lemma transitive(a: Int, b: Int, c: Int) :=
+lemma transitive(in a: Int, b: Int, c: Int) :=
   requires a < b, b < c
   ensures  a + 2 <= c
 
-lemma linear(a: Int, b: Int) :=
+lemma linear(in a: Int, b: Int) :=
   ensures 2 * a + b == b + a + a
 
-lemma antisymmetric(a: Int, b: Int) :=
+lemma antisymmetric(in a: Int, b: Int) :=
   requires a <= b, b <= a
   ensures  a == b
 
 function maximum(a: Int, b: Int): Int :=
   if a < b then b else a
 
-lemma maximum_bounds(a: Int, b: Int) :=
+lemma maximum_bounds(in a: Int, b: Int) :=
   ensures maximum(a, b) >= a and maximum(a, b) >= b
 
-lemma irreflexive(x: Int) :=
+lemma irreflexive(in x: Int) :=
   ensures not x < x
 
 // as an implication, since its tests would be Vacuous with x < x as an assumption
-lemma irreflexive_assumption(x: Int) :=
+lemma irreflexive_assumption(in x: Int) :=
   ensures x < x ==> false
 
-lemma irreflexive_atoms[A](xs: List[A], x: Int, y: Int, g: Int -> Int) :=
+lemma irreflexive_atoms[A](in xs: List[A], x: Int, y: Int, g: Int -> Int) :=
   ensures not size(xs) < size(xs) and not x * y < x * y and not x / 2 < x / 2 and not g(x) < g(x)
 
-lemma unequal_ordered(x: Int, y: Int) :=
+lemma unequal_ordered(in x: Int, y: Int) :=
   requires x != y
   ensures  x < y or y < x
 
-lemma trichotomy(x: Int, y: Int) :=
+lemma trichotomy(in x: Int, y: Int) :=
   ensures x < y or x == y or y < x
 
-lemma parity(x: Int, y: Int) :=
+lemma parity(in x: Int, y: Int) :=
   ensures 2 * x != 2 * y + 1
 
-lemma scaled_sum(x: Int, y: Int) :=
+lemma scaled_sum(in x: Int, y: Int) :=
   ensures 3 * (x + y) == 3 * x + 3 * y
 
-lemma maximum_commutes(a: Int, b: Int) :=
+lemma maximum_commutes(in a: Int, b: Int) :=
   ensures maximum(a, b) == maximum(b, a)
 
-lemma maximum_of_less(a: Int, b: Int) :=
+lemma maximum_of_less(in a: Int, b: Int) :=
   requires a < b
   ensures  maximum(a, b) == b
 
@@ -58,40 +58,40 @@ lemma fib_evaluation() :=
   ensures fib(15) == 610
 
 // unary minus is not recursive, though its body applies the binary minus of the same name
-lemma unary_minus(x: Int) :=
+lemma unary_minus(in x: Int) :=
   ensures -x == 0 - x and -x + x == 0
 
 // by m == 3 * (m / 3) + m % 3 and the bounds of m % 3, which the atoms of division by a literal come with
-lemma division_remainder(m: Int) :=
+lemma division_remainder(in m: Int) :=
   ensures m == m / 3 * 3 + m % 3
 
-lemma remainder_bound(m: Int) :=
+lemma remainder_bound(in m: Int) :=
   requires m >= 0
   ensures  m % 2 < 2
 
-lemma halving(m: Int) :=
+lemma halving(in m: Int) :=
   ensures 2 * m / 2 == m
 
-lemma remainder_sign(m: Int) :=
+lemma remainder_sign(in m: Int) :=
   requires m >= 0
   ensures  m % 3 >= 0
 
-lemma remainder_negative(m: Int) :=
+lemma remainder_negative(in m: Int) :=
   requires m < 0
   ensures  m % 3 <= 0
 
 // by products distributed into sums of monomials, whose atoms are ordered, and squares at least 0
-lemma square_nonnegative(x: Int) :=
+lemma square_nonnegative(in x: Int) :=
   ensures x * x >= 0
 
-lemma distributive(x: Int, y: Int, z: Int) :=
+lemma distributive(in x: Int, y: Int, z: Int) :=
   ensures x * (y + z) == x * y + x * z
 
-lemma associative(x: Int, y: Int, z: Int) :=
+lemma associative(in x: Int, y: Int, z: Int) :=
   ensures x * y * z == x * (y * z)
 
-lemma difference_of_squares(x: Int, y: Int) :=
+lemma difference_of_squares(in x: Int, y: Int) :=
   ensures (x + y) * (x - y) == x * x - y * y
 
-lemma binomial(x: Int) :=
+lemma binomial(in x: Int) :=
   ensures (x + 1) * (x + 1) == x * x + 2 * x + 1

@@ -791,10 +791,10 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
       Some(function_head(name, params, formals, typ) ++ signature_spec(notation, spec))
 
     case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
-      Some(proc_head(name, params, ins, outs, refs, raised) ++ " :=" ++ spec_text(notation, spec) ++ format_body(notation, "  ", stmt))
+      Some(proc_head("procedure", name, params, ins, outs, refs, raised) ++ " :=" ++ spec_text(notation, spec) ++ format_body(notation, "  ", stmt))
 
     case CProcSig(name, params, ins, outs, refs, raised, spec) =>
-      Some(proc_head(name, params, ins, outs, refs, raised) ++ signature_spec(notation, spec))
+      Some(proc_head("procedure", name, params, ins, outs, refs, raised) ++ signature_spec(notation, spec))
 
     case CPatAlias(name, params, formals, typ, pat) =>
       Some("pattern " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ "): " ++ format_type(typ) ++ " :=\n  " ++ format_pattern(notation, "  ", pat))
@@ -805,8 +805,8 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
     case CTest(name, vars, stmt) =>
       Some("test " ++ name.base ++ "(" ++ formals_text(vars) ++ ") :=" ++ format_body(notation, "  ", stmt))
 
-    case CLemma(name, params, formals, assms, concl) =>
-      Some("lemma " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ ") :=" ++ contract_text(notation, assms, concl))
+    case CLemma(name, params, ins, outs, assms, concl) =>
+      Some(proc_head("lemma", name, params, ins, outs, List(), List()) ++ " :=" ++ contract_text(notation, assms, concl))
   end
 
 // requires and ensures on lines of their own, where ensures aligns with requires
@@ -825,16 +825,17 @@ function constrs_text(constrs: List[Doc[Constr]]): Str :=
 function constr_line(c: Doc[Constr]): Str :=
   indented_doc("  ", c.doc) ++ "\n  case " ++ constr_text(c.at.that)
 
-// a head wider than the line has one formal on each line, the modes in front of the first of their group
-function proc_head(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type]): Str :=
-  let flat := "procedure " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")" ++ raised_text(empty(), TTuple(raised)) in
+// the head of a procedure or a lemma, by its keyword, where one wider than the line has one formal on each line, the modes
+// in front of the first of their group
+function proc_head(keyword: Str, name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type]): Str :=
+  let flat := keyword ++ " " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")" ++ raised_text(empty(), TTuple(raised)) in
   if size(flat) > 80 then
-    spread_proc_head(name, params, ins, outs, refs) ++ raised_text(empty(), TTuple(raised))
+    spread_proc_head(keyword, name, params, ins, outs, refs) ++ raised_text(empty(), TTuple(raised))
   else
     flat
 
-function spread_proc_head(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var]): Str :=
-  "procedure " ++ name.base ++ params_text(params) ++ "(\n" ++ join(",\n", mode_lines("in ", ins) ++ mode_lines("out", outs) ++ mode_lines("ref", refs)) ++ "\n)"
+function spread_proc_head(keyword: Str, name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var]): Str :=
+  keyword ++ " " ++ name.base ++ params_text(params) ++ "(\n" ++ join(",\n", mode_lines("in ", ins) ++ mode_lines("out", outs) ++ mode_lines("ref", refs)) ++ "\n)"
 
 function mode_lines(mode: Str, xs: List[Var]): List[Str] :=
   match formal_texts(xs)

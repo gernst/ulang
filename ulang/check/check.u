@@ -170,8 +170,8 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
     case CPatAlias(name, params, formals, typ, pat) =>
       CPatAlias(in_module(m, name), params, formals, typ, pat)
 
-    case CLemma(name, params, formals, assms, concl) =>
-      CLemma(in_module(m, name), params, formals, assms, concl)
+    case CLemma(name, params, ins, outs, assms, concl) =>
+      CLemma(in_module(m, name), params, ins, outs, assms, concl)
 
     case CNotation(_, _, _) =>
       cmd
@@ -768,8 +768,8 @@ function zonk_cmd(s: State, cmd: Cmd): Cmd :=
     case CTest(name, vars, stmt) =>
       CTest(name, vars, zonk_stmt(s, stmt))
 
-    case CLemma(name, params, formals, assms, concl) =>
-      CLemma(name, params, zonk_vars(s, formals), List(for a in assms yield zonk_expr(s, a)), zonk_expr(s, concl))
+    case CLemma(name, params, ins, outs, assms, concl) =>
+      CLemma(name, params, zonk_vars(s, ins), zonk_vars(s, outs), List(for a in assms yield zonk_expr(s, a)), zonk_expr(s, concl))
 
     case _ =>
       cmd
@@ -910,7 +910,7 @@ function unknown_in_cmd(cmd: Cmd): Option[Pos * Type] :=
     case CTest(_, _, stmt) =>
       unknown_in(stmt)
 
-    case CLemma(_, _, _, assms, concl) =>
+    case CLemma(_, _, _, _, assms, concl) =>
       find_map(List(concl; assms), unknown_in_expr)
 
     case _ =>
@@ -3136,7 +3136,7 @@ procedure declare_pat_aliases(in cs: List[Id * Cmd], ref s: State) :=
 procedure declare_lemmas(in cs: List[Id * Cmd], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
-      case CLemma(name, ps, formals, _, _) =>
+      case CLemma(name, ps, formals, _, _, _) =>
         local xs: List[Var]
         assign s := enter(s, m)
         if lemma_of(s.sig, name) != None then
@@ -3209,16 +3209,16 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
     case CData(name, params, constrs) =>
       assign typed_cmd := CData(name, params, List(for k in constrs yield map_doc(k, lambda c => resolved_fields(s.sig, c))))
 
-    case CLemma(name, params, formals, assms, concl) =>
+    case CLemma(name, params, ins, outs, assms, concl) =>
       local xs: List[Var], checked: List[At[Expr]] := List(), c: At[Expr]
-      call signature(in formals, out xs, ref s)
+      call signature(in ins, out xs, ref s)
       for a in assms do
         local b: At[Expr]
         call   check(in bind(xs), a, TBool(), "the assumption", out b, ref s)
         assign checked := checked ++ List(b)
       end
       call   check(in bind(xs), concl, TBool(), "the conclusion", out c, ref s)
-      assign typed_cmd := CLemma(name, params, xs, checked, c)
+      assign typed_cmd := CLemma(name, params, xs, outs, checked, c)
 
     case _ =>
       assign typed_cmd := cmd
@@ -3400,7 +3400,7 @@ function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
     case CPatAlias(name, _, _, _, _) =>
       List(name)
 
-    case CLemma(name, _, _, _, _) =>
+    case CLemma(name, _, _, _, _, _) =>
       List(name)
 
     case CTest(_, _, _) =>
@@ -3949,7 +3949,7 @@ procedure lemma_tests(
   local enumerated: List[Id * Name] := List(), tests: Buffer[Pos * (Id * Cmd)] := empty(), funs: Buffer[Pos * (Id * Cmd)] := empty()
   for (pos, (m, cmd)) in placed do
     match (cmd, lemma_of(s.sig, lemma_name(cmd)))
-      case (CLemma(name, _, formals, assms, concl), Some(lemma_sig)) =>
+      case (CLemma(name, _, formals, _, assms, concl), Some(lemma_sig)) =>
         local t := enter(s, m)
         match (all_some(List(for typ in lemma_sig.formals yield enum_expr(t, abstract, lambda _ => enum_call("ints", List()), typ))), datatypes_needed(t, abstract, List(for typ in lemma_sig.formals for n in datatypes_in(typ) yield n), List()))
           case (Some(enums), Some(needed)) =>
@@ -3971,7 +3971,7 @@ procedure lemma_tests(
 
 function lemma_name(cmd: Cmd): Name :=
   match cmd
-    case CLemma(name, _, _, _, _) =>
+    case CLemma(name, _, _, _, _, _) =>
       name
     case _ =>
       unqualified("")

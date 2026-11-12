@@ -145,12 +145,17 @@ test keyword_name() :=
 
 test lemma_ensures_first() :=
   assert raises ParseError("declaration expected but requires found", Pos(3, 3)) do
-    call check_text(in "ulang/test/errors/lemma-ensures-first.u", List("lemma l(x: Int) :=", "  ensures  x == x", "  requires x > 0"))
+    call check_text(in "ulang/test/errors/lemma-ensures-first.u", List("lemma l(in x: Int) :=", "  ensures  x == x", "  requires x > 0"))
   end
 
 test lemma_without_ensures() :=
   assert raises ParseError("ensures expected but test found", Pos(4, 1)) do
-    call check_text(in "ulang/test/errors/lemma-without-ensures.u", List("lemma l(x: Int) :=", "  requires x > 0", "", "test t() :=", "  skip"))
+    call check_text(in "ulang/test/errors/lemma-without-ensures.u", List(
+      "lemma l(in x: Int) :=",
+      "  requires x > 0",
+      "",
+      "test t() :=",
+      "  skip"))
   end
 
 test list_without_elements() :=

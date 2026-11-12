@@ -60,6 +60,7 @@ function keywords(): Set[Str] :=
     "implementation",
     "import",
     "in",
+    "induction",
     "infix",
     "lambda",
     "lemma",

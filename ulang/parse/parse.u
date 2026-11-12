@@ -1777,7 +1777,7 @@ function is_test(c: Doc[Cmd]): Bool :=
     case CTest(_, _, _) =>
       true
 
-    case CLemma(_, _, _, _, _) =>
+    case CLemma(_, _, _, _, _, _) =>
       true
 
     case _ =>
@@ -2200,15 +2200,25 @@ function before_after(args: List[Option[At[Expr]] * Option[At[Expr]]]): Option[L
   end
 
 // lemma l[A, …](x: A, …) := requires a, … ensures b, where requires is optional
+// lemma l[A](in x: A, …) := requires …, ensures …, whose head has the modes of a procedure without refs, where outs wait
+// for proofs that give their witnesses
 procedure parse_lemma(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
-  local name: Id, params: List[Id], xs: List[Var], assms: List[At[Expr]] := List(), concl: At[Expr], pos: Pos
+  local name: Id, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], assms: List[At[Expr]] := List(), concl: At[Expr], pos: Pos
   call   advance(ref toks)
   assign pos := head_pos(toks)
   call   parse_name(out name, ref toks)
   call   check_value_name(in name, pos)
   call   parse_params(in notation, out params, ref toks)
-  call   parse_formals(in notation, params, out xs, ref toks)
-  call   expect(in TKw(":="), ref toks)
+  call   expect(in TKw("("), ref toks)
+  call   parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
+  call   expect(in TKw(")"), ref toks)
+  if refs != List() then
+    raise ParseError("a lemma has no ref formals, since it has no state", pos)
+  end
+  if outs != List() then
+    raise ParseError("a lemma has no out formals yet", pos)
+  end
+  call expect(in TKw(":="), ref toks)
   if head_token(toks) == TKw("requires") then
     local assm: At[Expr]
     call   advance(ref toks)
@@ -2222,7 +2232,7 @@ procedure parse_lemma(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
   end
   call   expect(in TKw("ensures"), ref toks)
   call   parse_expr(in notation, params, out concl, ref toks)
-  assign cmd := CLemma(unqualified(name), params, xs, assms, concl)
+  assign cmd := CLemma(unqualified(name), params, ins, outs, assms, concl)
 
 // the commands of one declaration
 procedure parse_command(
@@ -2789,7 +2799,7 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
     case (List(CTest(_, _, _); _), InExport) =>
       raise ParseError("tests belong to the implementation section", pos)
 
-    case (List(CLemma(_, _, _, _, _); _), InExport) =>
+    case (List(CLemma(_, _, _, _, _, _); _), InExport) =>
       raise ParseError("lemmas belong to the implementation section", pos)
 
     case (_, Opening) =>
@@ -3059,7 +3069,7 @@ function unparsed_errors(cmd: Cmd): List[Diagnostic] :=
     case CTest(_, _, stmt) =>
       unparsed_in_stmt(stmt)
 
-    case CLemma(_, _, _, assms, concl) =>
+    case CLemma(_, _, _, _, assms, concl) =>
       unparsed_in_exprs(assms ++ List(concl))
 
     case CSort(_, _, _) =>

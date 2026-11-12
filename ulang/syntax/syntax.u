@@ -210,9 +210,10 @@ data Cmd :=
   // a pattern alias pattern C[A, …](x: A, …): T := pat, whose variables are the formals, each once, which the checker
   // expands at its uses in patterns, and which is a function of the same name where pat has no _
   case CPatAlias(name: Name, params: List[Id], formals: List[Var], typ: Type, pat: At[Pat])
-  // lemma l[A, …](x: A, …) := requires a, … ensures b, which states b for all formals that satisfy the assumptions a, …,
-  // see prove.md, and which the prover proves, while the interpreter and the compiler skip it
-  case CLemma(name: Name, params: List[Id], formals: List[Var], assms: List[At[Expr]], concl: At[Expr])
+  // lemma l[A, …](in x: A, …, out y: B, …) := requires a, … ensures b, which states b for all ins that satisfy the
+  // assumptions a, …, for some outs, see prover.md, and which the prover proves, while the interpreter and the compiler
+  // skip it
+  case CLemma(name: Name, params: List[Id], ins: List[Var], outs: List[Var], assms: List[At[Expr]], concl: At[Expr])
 
 // the specification of a function or procedure, lines after := of its head and before its body, where the contracts of
 // prove.md, requires and ensures, will join the examples; on the first occurrence of a signature, the export of an
@@ -687,8 +688,8 @@ function strip_cmd(cmd: Cmd): Cmd :=
     case CPatAlias(name, params, formals, typ, pat) =>
       CPatAlias(name, params, formals, typ, strip_pat(pat))
 
-    case CLemma(name, params, formals, assms, concl) =>
-      CLemma(name, params, formals, List(for a in assms yield strip_expr(a)), strip_expr(concl))
+    case CLemma(name, params, ins, outs, assms, concl) =>
+      CLemma(name, params, ins, outs, List(for a in assms yield strip_expr(a)), strip_expr(concl))
 
     case CData(name, params, constrs) =>
       CData(name, params, List(for c in constrs yield Doc(c.doc, stripped(c.at, lambda x => x))))

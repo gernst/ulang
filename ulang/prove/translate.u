@@ -100,7 +100,7 @@ function reachable(calls: Map[Name * Int, Set[Name * Int]], arities: Map[Name, L
 // the lemma of cmd if it belongs to module m, for all formals that satisfy its assumptions
 function lemma_of(m: Id, cmd: Cmd): Option[Lemma] :=
   match cmd
-    case CLemma(name, _, formals, assms, concl) if name.module == Some(m) =>
+    case CLemma(name, _, formals, _, assms, concl) if name.module == Some(m) =>
       let env := bind(formals, List()) in
       let atoms := List(for a in assms yield Atom(term_of(env, a))), goal := Atom(term_of(env, concl)) in
       Some(Lemma(name, Seq(formals, atoms, List(Concl(List(), List(goal))))))

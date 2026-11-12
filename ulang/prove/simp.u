@@ -40,7 +40,7 @@ function simplify(decls: Decls, s: Seq): Seq
 
 // the cases of structural induction on the fixed variable at position p of the goal s, each with the hypotheses for
 // the recursive fields of its constructor, which are the goal for them, for all values of the other fixed variables
-function induction(decls: Decls, s: Seq, p: Int): Seq
+function induct(decls: Decls, s: Seq, p: Int): Seq
 
 function print_seq(s: Seq): Str
 
@@ -1798,7 +1798,7 @@ function datatype_of(decls: Decls, bs: List[TermBranch]): Option[Name] :=
       datatype_of(decls, rest)
   end
 
-function induction(decls: Decls, s: Seq, p: Int): Seq :=
+function induct(decls: Decls, s: Seq, p: Int): Seq :=
   match normal(s)
     case Seq(fixed, assms, concls) if p < size(fixed) =>
       match at(p, from_list(fixed)).typ

@@ -100,7 +100,7 @@ function module_of(cmd: Cmd): Option[Id] :=
     case CTest(name, _, _) =>
       name.module
 
-    case CLemma(name, _, _, _, _) =>
+    case CLemma(name, _, _, _, _, _) =>
       name.module
 
     case CSort(name, _, _) =>
@@ -136,7 +136,7 @@ function cmd_flow(scope: Scope, cmd: Cmd): Flow :=
     case CTest(_, _, stmt) =>
       stmt_flow(scope, stmt)
 
-    case CLemma(_, _, _, _, _) =>
+    case CLemma(_, _, _, _, _, _) =>
       none()
 
     case CSort(_, _, _) =>

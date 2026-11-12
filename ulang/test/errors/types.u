@@ -97,10 +97,10 @@ test duplicate_formal() :=
 test duplicate_lemma() :=
   assert raises Located(None, Pos(4, 1), AlreadyDefined(Name(Some("ulang/test/errors/duplicate-lemma"), "l"))) do
     call check_text(in "ulang/test/errors/duplicate-lemma.u", List(
-      "lemma l(x: Int) :=",
+      "lemma l(in x: Int) :=",
       "  ensures x == x",
       "",
-      "lemma l(y: Bool) :=",
+      "lemma l(in y: Bool) :=",
       "  ensures y == y"))
   end
 
@@ -264,17 +264,17 @@ test lambda_monomorphic() :=
 
 test lemma_ensures_type() :=
   assert raises Located(None, Pos(2, 13), Mismatch(_, _, "the conclusion")) do
-    call check_text(in "ulang/test/errors/lemma-ensures-type.u", List("lemma l(x: Int) :=", "  ensures x + 1"))
+    call check_text(in "ulang/test/errors/lemma-ensures-type.u", List("lemma l(in x: Int) :=", "  ensures x + 1"))
   end
 
 test lemma_requires_type() :=
   assert raises Located(None, Pos(2, 12), Mismatch(_, _, "the assumption")) do
-    call check_text(in "ulang/test/errors/lemma-requires-type.u", List("lemma l(x: Int) :=", "  requires x", "  ensures  x == x"))
+    call check_text(in "ulang/test/errors/lemma-requires-type.u", List("lemma l(in x: Int) :=", "  requires x", "  ensures  x == x"))
   end
 
 test lemma_unknown_variable() :=
   assert raises Located(None, Pos(2, 16), UnknownVariable(Name(None, "y"))) do
-    call check_text(in "ulang/test/errors/lemma-unknown-variable.u", List("lemma l(x: Int) :=", "  ensures x == y"))
+    call check_text(in "ulang/test/errors/lemma-unknown-variable.u", List("lemma l(in x: Int) :=", "  ensures x == y"))
   end
 
 test let_monomorphic() :=

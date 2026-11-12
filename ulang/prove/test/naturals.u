@@ -13,14 +13,14 @@ function add(m: Nat, n: Nat): Nat :=
       Succ(add(p, n))
   end
 
-lemma add_zero(m: Nat) :=
+lemma add_zero(in m: Nat) :=
   ensures add(m, Zero) == m
 
-lemma add_succ(m: Nat, n: Nat) :=
+lemma add_succ(in m: Nat, n: Nat) :=
   ensures add(m, Succ(n)) == Succ(add(m, n))
 
-lemma add_commutes(m: Nat, n: Nat) :=
+lemma add_commutes(in m: Nat, n: Nat) :=
   ensures add(m, n) == add(n, m)
 
-lemma add_commutes_inside(a: Nat, b: Nat, c: Nat) :=
+lemma add_commutes_inside(in a: Nat, b: Nat, c: Nat) :=
   ensures add(c, add(a, b)) == add(add(b, a), c)
