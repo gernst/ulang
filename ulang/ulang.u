@@ -464,11 +464,13 @@ procedure prove_module(
     call   os_println(in label ++ "termination of " ++ first(site.caller).base ++ " open: " ++ print_open_call(site))
     assign proven := false
   end
-  for Proved(name, goal) in proofs.lemmas if names == List() or contains(name.base, names) do
-    if goal == true_seq() then
+  for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) do
+    if gaps == List() then
       call os_println(in label ++ "lemma " ++ name.base ++ " proved")
     else
-      call   os_println(in label ++ "lemma " ++ name.base ++ " open: " ++ print_seq(goal))
+      for gap in gaps do
+        call os_println(in label ++ "lemma " ++ name.base ++ " open: " ++ print_gap(gap))
+      end
       assign proven := false
     end
   end

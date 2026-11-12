@@ -103,3 +103,43 @@ test product_unsigned() :=
   assert raises OpenLemma("product_unsigned", "forall x, y => (x * y) < 0 ==> false") do
     call prove_text(in "ulang/test/errors/product-unsigned.u", List("lemma product_unsigned(in x: Int, y: Int) :=", "  ensures x * y >= 0"))
   end
+
+// a cut that does not follow, at its step
+test proof_open_assert() :=
+  assert raises OpenLemma("open_assert", "forall x => 0 < x at 3.3") do
+    call prove_text(in "ulang/test/errors/proof-open-assert.u", List(
+      "lemma open_assert(in x: Int) :=",
+      "  ensures x == x",
+      "  assert x > 0"))
+  end
+
+// a call of the lemma itself outside the case of an induction
+test proof_self_call() :=
+  assert raises OpenLemma("self_call", "the lemma calls itself only at a recursive field of the case of its induction at 3.3") do
+    call prove_text(in "ulang/test/errors/proof-self-call.u", List(
+      "lemma self_call(in x: Int) :=",
+      "  ensures x == x",
+      "  call self_call(in x)"))
+  end
+
+// a call of a lemma that comes after the one that calls it
+test proof_later_call() :=
+  assert raises OpenLemma("early", "the lemma late is not proven before this one at 3.3") do
+    call prove_text(in "ulang/test/errors/proof-later-call.u", List(
+      "lemma early(in x: Int) :=",
+      "  ensures x == x",
+      "  call late(in x)",
+      "",
+      "lemma late(in x: Int) :=",
+      "  ensures x == x"))
+  end
+
+// a case of an induction that is not written must close by simplification
+test proof_open_case() :=
+  assert raises OpenLemma("open_case", "forall head, tail => size(tail) == 0 ==> false at 3.3") do
+    call prove_text(in "ulang/test/errors/proof-open-case.u", List(
+      "lemma open_case(in xs: List[Int]) :=",
+      "  ensures size(xs) == 0",
+      "  induction xs",
+      "  end"))
+  end

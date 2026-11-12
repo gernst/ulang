@@ -1,0 +1,263 @@
+// the proofs of lemmas, which walk the steps of a proof over the goal, see prover.md, section 3, which is not versioned
+//
+// The state of a block is its fixed variables as levels, the first ones the formals, the facts and the goal over them,
+// and the levels of the variables that the terms of the proof have as indices, the innermost first, which a translated
+// term is opened at; a case of a split adds the fields of its constructor as variables, also those that its pattern does
+// not name. Every step is simplified with the lemmas proven before as facts, which it may also call; the lemma itself is
+// called only as an induction hypothesis, at a recursive field of the case.
+
+import "ulang/syntax"
+
+export
+
+// a goal that a proof leaves open at pos, or a step that it cannot take, as text
+data Gap :=
+  case Gap(pos: Pos, text: Str)
+
+// the gaps of the proof of the lemma target, none if it proves it, where proven are the lemmas proven before
+function check_proof(decls: Decls, proven: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap]
+
+implementation
+
+// what a proof works with: the declarations, the lemmas proven before, and the lemma being proven
+data Walk :=
+  case Walk(decls: Decls, proven: List[Lemma], target: Lemma)
+
+// the induction around a block: the position of its formal and the levels of the recursive fields of the case
+data Around :=
+  case Around(formal: Int, fields: List[Int])
+
+data Scope :=
+  case Scope(vars: List[Var], env: List[Int], facts: List[Seq], goal: Term, around: Option[Around])
+
+function check_proof(decls: Decls, proven: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap] :=
+  match target.goal
+    case Seq(formals, atoms, List(Concl(List(), List(Atom(concl))))) =>
+      let n := size(formals) in
+      let levels := List(for i in range(0, n) yield ELevel(i)) in
+      let facts := List(for a in atoms for t in atom_term(a) yield Atom(beta(levels, t))) in
+      let scope := Scope(formals, reverse(range(0, n)), facts, beta(levels, concl), None) in
+      block_gaps(Walk(decls, proven, target), scope, proof)
+
+    // translate gives every lemma this shape
+    case _ =>
+      List(Gap(proof.pos, "a lemma of another shape"))
+  end
+
+function atom_term(s: Seq): Option[Term] :=
+  match s
+    case Atom(t) =>
+      Some(t)
+    case _ =>
+      None
+  end
+
+// a translated term at the levels of its variables
+function opened(scope: Scope, t: Term): Term :=
+  beta(List(for l in reverse(scope.env) yield ELevel(l)), t)
+
+// the steps in their order, then the split, or else the goal, which must close
+function block_gaps(w: Walk, scope: Scope, proof: ProofTerm): List[Gap] :=
+  match steps_gaps(w, scope, proof.steps, List())
+    case (after, gaps) =>
+      gaps ++ match proof.split
+        case Some(split) =>
+          split_gaps(w, after, split)
+        case None =>
+          closing(w, after, after.goal, proof.pos)
+      end
+  end
+
+function steps_gaps(w: Walk, scope: Scope, steps: List[StepTerm], gaps: List[Gap]): Scope * List[Gap] :=
+  match steps
+    case List() =>
+      (scope, gaps)
+
+    case List(step; rest) =>
+      match step_gaps(w, scope, step)
+        case (after, more) =>
+          steps_gaps(w, after, rest, gaps ++ more)
+      end
+  end
+
+function step_gaps(w: Walk, scope: Scope, step: StepTerm): Scope * List[Gap] :=
+  match step
+    case DefineTerm(x, value, _) =>
+      let k := size(scope.vars) in
+      (scope with vars := scope.vars ++ List(x), env := List(k; scope.env), facts := scope.facts ++ List(Atom(Eq(ELevel(k), opened(scope, value)))), List())
+
+    case WitnessTerm(x, _) =>
+      let k := size(scope.vars) in
+      (scope with vars := scope.vars ++ List(x), env := List(k; scope.env), List())
+
+    case AssertTerm(cond, pos) =>
+      let c := opened(scope, cond) in
+      (scope with facts := scope.facts ++ List(Atom(c)), closing(w, scope, c, pos))
+
+    case CallTerm(name, args, pos) =>
+      let terms := List(for a in args yield opened(scope, a)) in
+      match called(w, scope, name, terms)
+        case Some(Seq(_, atoms, List(Concl(List(), List(Atom(concl)))))) =>
+          let required := List(for a in atoms for t in atom_term(a) for g in closing(w, scope, beta(terms, t), pos) yield g) in
+          (scope with facts := scope.facts ++ List(Atom(beta(terms, concl))), required)
+
+        case Some(_) =>
+          (scope, List(Gap(pos, "a lemma of another shape")))
+
+        case None =>
+          (scope, List(Gap(pos, call_gap(w, name))))
+      end
+
+    case UnsupportedTerm(what, pos) =>
+      (scope, List(Gap(pos, what ++ " is not supported yet")))
+  end
+
+// the statement of the lemma that a call names: one proven before, or the lemma itself at a recursive field of its
+// induction, as its hypothesis
+function called(w: Walk, scope: Scope, name: Name, args: List[Term]): Option[Seq] :=
+  if name == w.target.name then
+    match scope.around
+      case Some(around) if exists(around.fields, lambda l => args != List() and at(around.formal, from_list(args)) == ELevel(l)) =>
+        Some(w.target.goal)
+      case _ =>
+        None
+    end
+  else
+    match List(for l in w.proven if l.name == name yield l.goal)
+      case List(goal; _) =>
+        Some(goal)
+      case List() =>
+        None
+    end
+
+function call_gap(w: Walk, name: Name): Str :=
+  if name == w.target.name then
+    "the lemma calls itself only at a recursive field of the case of its induction"
+  else
+    "the lemma " ++ name.base ++ " is not proven before this one"
+
+// no gap if c follows, without the lemmas proven before or with them as facts, since facts also change normal forms,
+// else the goal simplified at pos
+function closing(w: Walk, scope: Scope, c: Term, pos: Pos): List[Gap] :=
+  let goal := sequent(scope, c) in
+  let facts := List(for l in w.proven yield l.goal) in
+  let alone := simplify(w.decls, goal) in
+  if alone == true_seq() or simplify(w.decls, with_facts(goal, facts)) == true_seq() then
+    List()
+  else
+    List(Gap(pos, print_seq(alone)))
+
+// the goal c under the facts of the scope, closed over its variables
+function sequent(scope: Scope, c: Term): Seq :=
+  let op := Close(range(0, size(scope.vars))) in
+  Seq(scope.vars, List(for f in scope.facts yield rebind_seq(op, 0, f)), List(Concl(List(), List(Atom(rebind(op, 0, c))))))
+
+function with_facts(goal: Seq, facts: List[Seq]): Seq :=
+  match goal
+    case Seq(fixed, assms, concls) =>
+      Seq(fixed, facts ++ assms, concls)
+    case Atom(_) =>
+      Seq(List(), facts, List(Concl(List(), List(goal))))
+  end
+
+function split_gaps(w: Walk, scope: Scope, split: SplitTerm): List[Gap] :=
+  match split
+    case InductionTerm(p, cases, pos) =>
+      match at(p, from_list(scope.vars)).typ
+        case TSort(t, _) =>
+          let constrs := value_or(get(t, w.decls.datatypes), List()) in
+          List(for c in constrs for g in constr_gaps(w, scope, cases, ELevel(p), Some(p), t, c, pos) yield g)
+
+        case _ =>
+          List(Gap(pos, "induction on a formal that is not of a datatype"))
+      end
+
+    case MatchTerm(arg, cases, pos) =>
+      let value := opened(scope, arg) in
+      match List(for c in cases for f in c.constr for d in get(f, w.decls.constrs) yield d.datatype)
+        case List(t; _) =>
+          let constrs := value_or(get(t, w.decls.datatypes), List()) in
+          List(for c in constrs for g in constr_gaps(w, scope, cases, value, None, t, c, pos) yield g)
+
+        case List() =>
+          match cases
+            case List(c; _) =>
+              catch_all_gaps(w, scope, c, value)
+            case List() =>
+              closing(w, scope, scope.goal, pos)
+          end
+      end
+
+    case IfTerm(cond, left, right, pos) =>
+      let c := opened(scope, cond) in
+      let yes := scope with facts := scope.facts ++ List(Atom(c)) in
+      let no := scope with facts := scope.facts ++ List(Seq(List(), List(Atom(c)), List())) in
+      block_gaps(w, yes, left) ++ block_gaps(w, no, value_or(right, ProofTerm(List(), None, pos)))
+  end
+
+// the case of the constructor c of the datatype t for the value: the written case of c, else the first catch-all, else
+// the goal, which must close, with the fields of c as variables, and for induction on the formal at the position
+// formal the hypotheses for the recursive fields
+function constr_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, formal: Option[Int], t: Name, c: Name, pos: Pos): List[Gap] :=
+  match get(c, w.decls.constrs)
+    case Some(decl) =>
+      let k := size(scope.vars), n := size(decl.fields) in
+      let fields := List(for i in range(0, n) yield ELevel(k + i)) in
+      let constr_value := if n == 0 then EFun(c) else EApp(EFun(c), fields) in
+      let recursive := List(for (f, i) in zip(decl.fields, range(0, n)) if is_recursive_field(t, f) yield k + i) in
+      let hypotheses := match formal
+        case Some(p) =>
+          List(for l in recursive yield hypothesis(w.target.goal, k + n, p, ELevel(l)))
+        case None =>
+          List()
+      end in
+      let inner := scope with vars := scope.vars ++ decl.fields, facts := scope.facts ++ List(Atom(Eq(value, constr_value))) ++ hypotheses, around := map_option(formal, lambda p => Around(p, recursive)) in
+      match List(for case_term in cases if case_term.constr == Some(c) yield case_term) ++ List(for case_term in cases if case_term.constr == None yield case_term)
+        case List(CaseTerm(Some(_), vars, proof, _); _) =>
+          block_gaps(w, inner with vars := scope.vars ++ vars, env := reverse(range(k, k + n)) ++ scope.env, proof)
+
+        case List(case_term; _) =>
+          catch_all_gaps(w, inner, case_term, constr_value)
+
+        case List() =>
+          closing(w, inner, inner.goal, pos)
+      end
+
+    case None =>
+      List(Gap(pos, "a constructor without a declaration"))
+  end
+
+// a catch-all case for the value, whose variable, if it has one, is the value
+function catch_all_gaps(w: Walk, scope: Scope, case_term: CaseTerm, value: Term): List[Gap] :=
+  match case_term.vars
+    case List(x) =>
+      let k := size(scope.vars) in
+      block_gaps(w, scope with vars := scope.vars ++ List(x), env := List(k; scope.env), facts := scope.facts ++ List(Atom(Eq(ELevel(k), value))), case_term.proof)
+
+    case _ =>
+      block_gaps(w, scope, case_term.proof)
+  end
+
+function is_recursive_field(t: Name, field: Var): Bool :=
+  match field.typ
+    case TSort(name, _) =>
+      name == t
+    case _ =>
+      false
+  end
+
+// the statement of the lemma for the field y in place of its formal at the position p, for all values of the other
+// formals, whose levels from base on are bound again as the variables of the hypothesis
+function hypothesis(goal: Seq, base: Int, p: Int, y: Term): Seq :=
+  match goal
+    case Seq(formals, atoms, List(Concl(List(), List(Atom(concl))))) =>
+      let n := size(formals) in
+      let levels := List(for i in range(0, n) yield ELevel(base + i)) in
+      let others := List(for i in range(0, n) if i != p yield base + i) in
+      let op := Close(others) in
+      let instance := lambda t => rebind(op, 0, replace(ELevel(base + p), y, beta(levels, t))) in
+      Seq(List(for (x, i) in zip(formals, range(0, n)) if i != p yield x), List(for a in atoms for t in atom_term(a) yield Atom(instance(t))), List(Concl(List(), List(Atom(instance(concl))))))
+
+    case _ =>
+      goal
+  end

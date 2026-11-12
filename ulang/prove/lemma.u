@@ -4,9 +4,9 @@ import "ulang/syntax"
 
 export
 
-// a lemma with its goal after the proof, which is true_seq() if it is proven
+// a lemma with the gaps that its proof leaves, none if it is proven
 data Proved :=
-  case Proved(name: Name, goal: Seq)
+  case Proved(name: Name, gaps: List[Gap])
 
 // the lemmas with their goals after the proofs, and the terminations of the recursive functions that they reach
 data Proofs :=
@@ -25,7 +25,10 @@ function has_errors(proofs: Proofs): Bool
 // a call that no measure of the termination of its function decreases, as the call and the conditions before it
 function print_open_call(site: CallSite): Str
 
-// a lemma that the default proof leaves open, with the goal as print_seq writes it
+// a gap as text, with its position if it has one
+function print_gap(gap: Gap): Str
+
+// a lemma that its proof leaves open, with its first gap as print_gap writes it
 data OpenLemma :=
   case OpenLemma(name: Str, goal: Str)
 
@@ -49,8 +52,13 @@ procedure prove_program(in q: Prog, m: Id) raises OpenLemma, OpenTermination :=
         skip
     end
   end
-  for p in proofs.lemmas if not is_proven(p) do
-    raise OpenLemma(p.name.base, print_seq(p.goal))
+  for p in proofs.lemmas do
+    match p.gaps
+      case List(gap; _) =>
+        raise OpenLemma(p.name.base, print_gap(gap))
+      case List() =>
+        skip
+    end
   end
 
 function prove_lemmas(decls: Decls, lemmas: List[Lemma]): Proofs :=
@@ -89,19 +97,36 @@ function seq_symbols(s: Seq): Set[Name * Int] :=
       Set(for a in assms for k in seq_symbols(a) yield k) ++ Set(for c in concls for b in c.body for k in seq_symbols(b) yield k)
   end
 
-function proofs(decls: Decls, lemmas: List[Lemma], facts: List[Seq]): List[Proved] :=
+// the lemmas in their order, where proven are the lemmas proven before, whose goals are the facts of the default proof
+function proofs(decls: Decls, lemmas: List[Lemma], proven: List[Lemma]): List[Proved] :=
   match lemmas
     case List() =>
       List()
 
-    case List(Lemma(name, goal); rest) =>
-      let proved := Proved(name, default_proof(decls, facts, goal)) in
+    case List(target; rest) =>
+      let gaps := match target.proof
+        case Some(proof) =>
+          check_proof(decls, proven, target, proof)
+        case None =>
+          default_gaps(decls, List(for l in proven yield l.goal), target.goal)
+      end in
+      let proved := Proved(target.name, gaps) in
       List(
-        proved; proofs(decls, rest, if is_proven(proved) then facts ++ List(goal) else facts))
+        proved; proofs(decls, rest, if is_proven(proved) then proven ++ List(target) else proven))
   end
 
+function default_gaps(decls: Decls, facts: List[Seq], goal: Seq): List[Gap] :=
+  let after := default_proof(decls, facts, goal) in
+  if after == true_seq() then List() else List(Gap(Pos(0, 0), print_seq(after)))
+
 function is_proven(proved: Proved): Bool :=
-  proved.goal == true_seq()
+  proved.gaps == List()
+
+function print_gap(gap: Gap): Str :=
+  if gap.pos == Pos(0, 0) then
+    gap.text
+  else
+    gap.text ++ " at " ++ show(gap.pos.line) ++ "." ++ show(gap.pos.col)
 
 // the goal with the facts as assumptions, which are closed, so that they stay valid under its binders
 function with_facts(goal: Seq, facts: List[Seq]): Seq :=

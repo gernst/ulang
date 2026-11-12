@@ -38,6 +38,9 @@ function false_seq(): Seq
 
 function simplify(decls: Decls, s: Seq): Seq
 
+// s with the variables of op bound or freed below c binders, as rebind of ulang/prove/syntax.u does for terms
+function rebind_seq(op: Rebind, c: Int, s: Seq): Seq
+
 // the cases of structural induction on the fixed variable at position p of the goal s, each with the hypotheses for
 // the recursive fields of its constructor, which are the goal for them, for all values of the other fixed variables
 function induct(decls: Decls, s: Seq, p: Int): Seq
