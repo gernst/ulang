@@ -35,9 +35,15 @@ data TermBranch :=
 data Lin :=
   case Lin(k: Int, summands: List[Summand])
 
-// a function by its formals, which bind in the body, and whether it calls itself, also through others
+// a function by its formals, which bind in the body, whether it calls itself, also through others, and its equations
 data Def :=
-  case Def(recursive: Bool, formals: List[Var], body: Term)
+  case Def(recursive: Bool, formals: List[Var], body: Term, equations: List[DefEquation])
+
+// an equation of one case of a definition, f(args) == rhs where the conds hold, over the variables vars, which bind in
+// the other fields as the formals of a lemma do, the first one outermost; decided if rhs is the match or if of a case
+// that is not refined further, which only unfolds where it is decided
+data DefEquation :=
+  case DefEquation(vars: List[Var], conds: List[Term], args: List[Term], rhs: Term, decided: Bool)
 
 // a constructor by its datatype and its fields, where a field of the datatype itself is recursive
 data ConstrDecl :=

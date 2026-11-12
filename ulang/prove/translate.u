@@ -71,7 +71,7 @@ function datas_decls(datas: List[Int * (Name * List[Constr])]): Decls :=
 function with_defs(decls: Decls, defined: List[(Name * Int) * (List[Var] * Term)], ranks: Map[Name, Int]): Decls :=
   let calls := Map(for ((n, k), (_, body)) in defined yield (n, k) => symbols_in(body)) in
   let arities := Map(for ((n, _), _) in defined yield n => List(for ((m, k), _) in defined if m == n yield k)) in
-  let defs := Map(for ((n, k), (formals, body)) in defined yield (n, k) => Def(contains((n, k), reachable(calls, arities, callees(arities, value_or(get((n, k), calls), empty())), empty())), formals, body)) in
+  let defs := Map(for ((n, k), (formals, body)) in defined yield (n, k) => Def(contains((n, k), reachable(calls, arities, callees(arities, value_or(get((n, k), calls), empty())), empty())), formals, body, def_equations(decls, formals, body))) in
   decls with defs := defs, ranks := decls.ranks ++ ranks
 
 // the definitions that the symbols name, by the arities of the defined names

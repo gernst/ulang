@@ -1,0 +1,264 @@
+// the equations of a definition, one per case of its outer matches and conditionals, as Isabelle's function package
+// makes them, so that a recursive function rewrites where the class of its argument has a constructor, see prover.md,
+// section 4, which is not versioned
+//
+// The walk keeps the variables of the equation as levels, the formals first, so that a pattern replaces the variable
+// that a match takes apart by plain replace, and closes them at the end. A match on a variable whose cases are flat,
+// constructors of variables, literals, and catch-alls, gives one equation per case, where a catch-all is completed to
+// the constructors that the cases before it leave, and the guards before a case on its constructor become negated
+// conditions; an if gives its condition and its negation; anything else ends the walk.
+
+import "ulang/syntax"
+
+export
+
+function def_equations(decls: Decls, formals: List[Var], body: Term): List[DefEquation]
+
+implementation
+
+// an equation being refined, over the levels below the size of vars
+data Partial :=
+  case Partial(vars: List[Var], conds: List[Term], args: List[Term], body: Term)
+
+// a case before the one being refined: the constructor or literal it matches, or None for a catch-all, its guard, over
+// its own pattern variables for a constructor, and over the variable that the match takes apart for a catch-all, and
+// the positions of the pattern variables among the fields
+data Earlier :=
+  case Earlier(head: Option[Term], guard: Option[Term], positions: List[Int])
+
+function def_equations(decls: Decls, formals: List[Var], body: Term): List[DefEquation] :=
+  let levels := List(for i in range(0, size(formals)) yield ELevel(i)) in
+  walk(decls, Partial(formals, List(), levels, beta(levels, body)))
+
+function walk(decls: Decls, p: Partial): List[DefEquation] :=
+  match p.body
+    case EIte(cond, then_expr, else_expr) =>
+      walk(decls, p with conds := p.conds ++ List(cond), body := then_expr) ++ walk(decls, p with conds := p.conds ++ List(Not(cond)), body := else_expr)
+
+    case EMatch(ELevel(level), cases) if level < size(p.vars) and forall(cases, lambda br => is_flat(br.pat)) =>
+      cases_equations(decls, p, level, cases, List())
+
+    case EMatch(_, _) =>
+      List(closed(p, true))
+
+    case _ =>
+      List(closed(p, false))
+  end
+
+function closed(p: Partial, decided: Bool): DefEquation :=
+  let op := Close(range(0, size(p.vars))) in
+  DefEquation(p.vars, List(for c in p.conds yield rebind(op, 0, c)), List(for a in p.args yield rebind(op, 0, a)), rebind(op, 0, p.body), decided)
+
+// a constructor of variables and wildcards, a literal, or a catch-all
+function is_flat(pat: Pat): Bool :=
+  match pat
+    case PApp(_, args) =>
+      forall(args, lambda a => is_variable(a.that))
+
+    case PTuple(_) =>
+      false
+
+    case _ =>
+      true
+  end
+
+function is_variable(pat: Pat): Bool :=
+  match pat
+    case PVar(_) =>
+      true
+
+    case PWild =>
+      true
+
+    case _ =>
+      false
+  end
+
+// the positions of the variables among the arguments of a pattern, in the order in which they bind
+function var_positions(args: List[At[Pat]]): List[Int] :=
+  List(for (a, i) in zip(args, range(0, size(args))) if a.that != PWild yield i)
+
+function cases_equations(decls: Decls, p: Partial, level: Int, cases: List[TermBranch], earlier: List[Earlier]): List[DefEquation] :=
+  match cases
+    case List() =>
+      List()
+
+    case List(TermBranch(PApp(constr, args), guard, body); rest) =>
+      let here := constr_case(decls, p, level, constr, var_positions(args), guard, body, earlier) in
+      let before := Earlier(Some(EFun(constr)), guard, var_positions(args)) in
+      here ++ cases_equations(decls, p, level, rest, earlier ++ List(before))
+
+    case List(TermBranch(PLit(lit), guard, body); rest) =>
+      let value := ELit(lit) in
+      let here := if is_covered(earlier, value) then
+        List()
+      else
+        let negations := List(for e in earlier if e.head == Some(value) or e.head == None for g in e.guard yield Not(replace(ELevel(level), value, g))) in
+        let q := substituted(p, level, value, List()) in
+        walk(decls, q with conds := q.conds ++ negations ++ List(for g in guard yield replace(ELevel(level), value, g)), body := replace(ELevel(level), value, body)) in
+      here ++ cases_equations(decls, p, level, rest, earlier ++ List(Earlier(Some(value), guard, List())))
+
+    case List(TermBranch(pat, guard, body); rest) =>
+      let bound := match pat
+        case PVar(_) =>
+          true
+        case _ =>
+          false
+      end in
+      let here := catch_all(decls, p, level, bound, guard, body, earlier) in
+      let at_value := List(for g in guard yield if bound then beta(List(ELevel(level)), g) else g) in
+      if guard == None then
+        here
+      else
+        here ++ cases_equations(decls, p, level, rest, earlier ++ List(Earlier(None, first_of(at_value), List())))
+  end
+
+// whether a case before without a guard covers the constructor or literal head
+function is_covered(earlier: List[Earlier], head: Term): Bool :=
+  exists(earlier, lambda e => e.guard == None and (e.head == Some(head) or e.head == None))
+
+function first_of(ts: List[Term]): Option[Term] :=
+  match ts
+    case List(t; _) =>
+      Some(t)
+    case List() =>
+      None
+  end
+
+function levels_at(base: Int, positions: List[Int]): List[Term] :=
+  List(for i in positions yield ELevel(base + i))
+
+// p with the variable at level replaced by value, where the new variables vars come after those of p
+function substituted(p: Partial, level: Int, value: Term, vars: List[Var]): Partial :=
+  Partial(p.vars ++ vars, List(for c in p.conds yield replace(ELevel(level), value, c)), List(for a in p.args yield replace(ELevel(level), value, a)), replace(ELevel(level), value, p.body))
+
+// the equations of the case of constr, whose fields are new variables, unless an earlier case without a guard covers it
+function constr_case(decls: Decls, p: Partial, level: Int, constr: Name, positions: List[Int], guard: Option[Term], body: Term, earlier: List[Earlier]): List[DefEquation] :=
+  match get(constr, decls.constrs)
+    case Some(decl) =>
+      if is_covered(earlier, EFun(constr)) then
+        List()
+      else
+        let base := size(p.vars) in
+        let value := constr_value(constr, base, size(decl.fields)), args := levels_at(base, positions) in
+        let negations := List(for e in earlier if (e.head == Some(EFun(constr)) or e.head == None) and e.guard != None yield Not(guard_at(e, levels_at(base, e.positions), value, level))) in
+        let q := substituted(p, level, value, decl.fields) in
+        walk(decls, q with conds := q.conds ++ negations ++ List(for g in guard yield replace(ELevel(level), value, beta(args, g))), body := replace(ELevel(level), value, beta(args, body)))
+
+    case None =>
+      List()
+  end
+
+// the guard of an earlier case at the variables of the case being refined, where a catch-all binds the whole value
+function guard_at(e: Earlier, args: List[Term], value: Term, level: Int): Term :=
+  match e.guard
+    case Some(g) =>
+      match e.head
+        case None =>
+          replace(ELevel(level), value, g)
+        case Some(_) =>
+          replace(ELevel(level), value, beta(args, g))
+      end
+
+    case None =>
+      ELit(LBool(true))
+  end
+
+// the body of a catch-all, whose variable, if it binds one, is the value
+function bound_to(bound: Bool, value: Term, body: Term): Term :=
+  if bound then beta(List(value), body) else body
+
+function constr_value(constr: Name, base: Int, n: Int): Term :=
+  if n == 0 then
+    EFun(constr)
+  else
+    EApp(EFun(constr), List(for i in range(0, n) yield ELevel(base + i)))
+
+// the equations of a catch-all, which bound binds to the value: one per constructor that no earlier case without a
+// guard covers, if the earlier cases are constructors, else one with the negations of the earlier literals
+function catch_all(decls: Decls, p: Partial, level: Int, bound: Bool, guard: Option[Term], body: Term, earlier: List[Earlier]): List[DefEquation] :=
+  let constrs := List(for e in earlier for h in e.head for (f, _) in constr_head(decls, h) yield f) in
+  match constrs
+    case List(f; _) =>
+      match get(f, decls.constrs)
+        case Some(decl) =>
+          let all := value_or(get(decl.datatype, decls.datatypes), List()) in
+          List(for c in all for eq in completed(decls, p, level, c, bound, guard, body, earlier) yield eq)
+
+        case None =>
+          List()
+      end
+
+    case List() =>
+      let value := ELevel(level) in
+      let negations := List(for e in earlier for h in e.head yield Not(literal_case(e, value, h, level))) ++ List(for e in earlier if e.head == None for g in e.guard yield Not(g)) in
+      walk(decls, p with conds := p.conds ++ negations ++ List(for g in guard yield bound_to(bound, value, g)), body := bound_to(bound, value, body))
+  end
+
+// that the value is the literal h of an earlier case, and its guard holds
+function literal_case(e: Earlier, value: Term, h: Term, level: Int): Term :=
+  match e.guard
+    case Some(g) =>
+      And(Eq(value, h), replace(ELevel(level), h, g))
+    case None =>
+      Eq(value, h)
+  end
+
+// the catch-all at the constructor c, as a case of its own with its fields as variables
+function completed(decls: Decls, p: Partial, level: Int, c: Name, bound: Bool, guard: Option[Term], body: Term, earlier: List[Earlier]): List[DefEquation] :=
+  match get(c, decls.constrs)
+    case Some(decl) =>
+      let base := size(p.vars) in
+      let value := constr_value(c, base, size(decl.fields)) in
+      let negations := List(for e in earlier if (e.head == Some(EFun(c)) or e.head == None) and e.guard != None yield Not(guard_at(e, levels_at(base, e.positions), value, level))) in
+      if is_covered(earlier, EFun(c)) then
+        List()
+      else
+        let q := substituted(p, level, value, decl.fields) in
+        walk(decls, q with conds := q.conds ++ negations ++ List(for g in guard yield replace(ELevel(level), value, bound_to(bound, value, g))), body := replace(ELevel(level), value, bound_to(bound, value, body)))
+
+    case None =>
+      List()
+  end
+
+// take, match xs case Nil => Nil case Cons(y, ys) => if n <= 0 then Nil else Cons(y, take(n - 1, ys)), where ys is
+// the index 0, y 1, xs 2, and n 3 in the second case
+test take_equations() :=
+  local list := Name(Some("prelude/list"), "List"), nil := Name(Some("prelude/list"), "Nil"), cons := Name(Some("prelude/list"), "Cons"), take := Name(Some("prelude/list"), "take"), le := Name(Some("prelude/prelude"), "<="), var := (lambda base => Var(Name(None, base), THole)), decls := (empty_decls() with constrs := Map(
+    nil => ConstrDecl(list, List()),
+    cons => ConstrDecl(list, List(var("head"), var("tail")))), datatypes := Map(list => List(nil, cons))), pvar := (lambda base => AOk(Pos(0, 0), PVar(var(base)))), step := EApp(EFun(cons), List(
+    EBound(1),
+    EApp(EFun(take), List(Minus(EBound(3), ELit(LInt(1))), EBound(0))))), body := EMatch(EBound(0), List(
+    TermBranch(PApp(nil, List()), None, EFun(nil)),
+    TermBranch(PApp(cons, List(pvar("y"), pvar("ys"))), None, EIte(EApp(EFun(le), List(EBound(3), ELit(LInt(0)))), EFun(nil), step)))), eqs := def_equations(decls, List(var("n"), var("xs")), body)
+  assert size(eqs) == 3 and forall(eqs, lambda eq => not eq.decided)
+  match eqs
+    case List(empty, short, long) =>
+      assert empty.args == List(EBound(1), EFun(nil)) and empty.conds == List() and empty.rhs == EFun(nil)
+      assert short.args == List(EBound(3), EApp(EFun(cons), List(EBound(1), EBound(0))))
+      assert short.conds == List(EApp(EFun(le), List(EBound(3), ELit(LInt(0))))) and short.rhs == EFun(nil)
+      assert long.conds == List(Not(EApp(EFun(le), List(EBound(3), ELit(LInt(0))))))
+      assert long.rhs == EApp(EFun(cons), List(
+        EBound(1),
+        EApp(EFun(take), List(Minus(EBound(3), ELit(LInt(1))), EBound(0)))))
+
+    case _ =>
+      assert false
+  end
+
+// match xs case Cons(y, _) if p(y) => 1 case _ => 2, where y is the index 0 in the first case: the guarded case, then
+// the catch-all at Nil and at Cons, the latter with the negated guard, over the variables xs, head, and tail
+test completed_equations() :=
+  local list := Name(Some("prelude/list"), "List"), nil := Name(Some("prelude/list"), "Nil"), cons := Name(Some("prelude/list"), "Cons"), p := Name(None, "p"), var := (lambda base => Var(Name(None, base), THole)), decls := (empty_decls() with constrs := Map(
+    nil => ConstrDecl(list, List()),
+    cons => ConstrDecl(list, List(var("head"), var("tail")))), datatypes := Map(list => List(nil, cons))), guarded := TermBranch(PApp(cons, List(AOk(Pos(0, 0), PVar(var("y"))), AOk(Pos(0, 0), PWild))), Some(EApp(EFun(p), List(EBound(0)))), ELit(LInt(1))), eqs := def_equations(decls, List(var("xs")), EMatch(EBound(0), List(guarded, TermBranch(PWild, None, ELit(LInt(2))))))
+  assert size(eqs) == 3
+  match eqs
+    case List(first, at_nil, at_cons) =>
+      assert first.args == List(EApp(EFun(cons), List(EBound(1), EBound(0)))) and first.conds == List(EApp(EFun(p), List(EBound(1))))
+      assert at_nil.args == List(EFun(nil)) and at_nil.conds == List() and at_nil.rhs == ELit(LInt(2))
+      assert at_cons.conds == List(Not(EApp(EFun(p), List(EBound(1))))) and at_cons.rhs == ELit(LInt(2))
+
+    case _ =>
+      assert false
+  end
