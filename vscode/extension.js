@@ -185,9 +185,11 @@ function activate(context) {
     for (const line of (stdout || "").split("\n")) {
       const match = lemmaLine.exec(line);
       if (!match || match[2] === undefined) continue;
+      // a goal that a proof leaves open ends with the position of its step, else it is at the lemma
+      const step = / at (\d+)\.(\d+)$/.exec(match[2]);
       const row = lines.findIndex((l) => new RegExp("^lemma\\s+" + match[1] + "\\b").test(l));
-      const at = new vscode.Position(Math.max(row, 0), 0);
-      const range = new vscode.Range(at, at.translate(0, "lemma".length));
+      const at = step ? new vscode.Position(Number(step[1]) - 1, Number(step[2]) - 1) : new vscode.Position(Math.max(row, 0), 0);
+      const range = new vscode.Range(at, at.translate(0, step ? 1 : "lemma".length));
       found.push(new vscode.Diagnostic(range, "lemma " + match[1] + " open: " + match[2], vscode.DiagnosticSeverity.Warning));
     }
     // a function of another module, such as the library, is reported at the start of the file
