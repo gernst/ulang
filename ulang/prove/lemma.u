@@ -8,31 +8,73 @@ export
 data Proved :=
   case Proved(name: Name, goal: Seq)
 
+// the lemmas with their goals after the proofs, and the terminations of the recursive functions that they reach
+data Proofs :=
+  case Proofs(lemmas: List[Proved], terminations: List[Termination])
+
 // the lemmas in their order, each by simplification, else by induction on the first of its formals by which all cases
-// close, where the lemmas proven before are assumptions
-function prove_lemmas(decls: Decls, lemmas: List[Lemma]): List[Proved]
+// close, where the lemmas proven before are assumptions, and the recursive functions that they reach unfold only if
+// their termination is proven
+function prove_lemmas(decls: Decls, lemmas: List[Lemma]): Proofs
 
 function is_proven(proved: Proved): Bool
+
+// an open lemma, or a recursive function that a lemma reaches whose termination is not proven
+function has_errors(proofs: Proofs): Bool
+
+// a call that no measure of the termination of its function decreases, as the call and the conditions before it
+function print_open_call(site: CallSite): Str
 
 // a lemma that the default proof leaves open, with the goal as print_seq writes it
 data OpenLemma :=
   case OpenLemma(name: Str, goal: Str)
 
-// proves the lemmas of the module m of the checked program q in their order, raising OpenLemma for the first that is open
-procedure prove_program(in q: Prog, m: Id) raises OpenLemma
+// a recursive function whose termination is not proven, with the first call that no measure decreases
+data OpenTermination :=
+  case OpenTermination(name: Str, recursion: Str)
+
+// proves the lemmas of the module m of the checked program q in their order, raising OpenTermination for the first
+// function that they reach whose termination is not proven, else OpenLemma for the first lemma that is open
+procedure prove_program(in q: Prog, m: Id) raises OpenLemma, OpenTermination
 
 implementation
 
-procedure prove_program(in q: Prog, m: Id) raises OpenLemma :=
-  local t := translate(q, m)
-  for p in prove_lemmas(t.decls, t.lemmas) if not is_proven(p) do
+procedure prove_program(in q: Prog, m: Id) raises OpenLemma, OpenTermination :=
+  local t := translate(q, m), proofs := prove_lemmas(t.decls, t.lemmas)
+  for tm in proofs.terminations do
+    match tm.open
+      case List(site; _) =>
+        raise OpenTermination(first(site.caller).base, print_open_call(site))
+      case List() =>
+        skip
+    end
+  end
+  for p in proofs.lemmas if not is_proven(p) do
     raise OpenLemma(p.name.base, print_seq(p.goal))
   end
 
-function prove_lemmas(decls: Decls, lemmas: List[Lemma]): List[Proved] :=
+function prove_lemmas(decls: Decls, lemmas: List[Lemma]): Proofs :=
   let roots := Set(for l in lemmas for k in defined_in(decls, l.goal) yield k) in
-  let proven := Set(for t in terminations(decls, roots) if is_terminating(t) for k in t.names yield k) in
-  proofs(decls with terminating := proven, lemmas, List())
+  let ts := terminations(decls, roots) in
+  let proven := Set(for t in ts if is_terminating(t) for k in t.names yield k) in
+  Proofs(proofs(decls with terminating := proven, lemmas, List()), ts)
+
+function has_errors(proofs: Proofs): Bool :=
+  exists(proofs.lemmas, lambda p => not is_proven(p)) or exists(proofs.terminations, lambda t => not is_terminating(t))
+
+function print_open_call(site: CallSite): Str :=
+  let r := site.recursion in
+  let names := List(for x in r.vars yield x.name.base) in
+  let text := match r.args
+    case Some(args) =>
+      print_term(names, EApp(EFun(first(r.name)), args))
+    case None =>
+      first(r.name).base ++ " under a lambda or in a condition"
+  end in
+  if r.path == List() then
+    text
+  else
+    text ++ " where " ++ join(" and ", List(for c in r.path yield print_term(names, c)))
 
 // the definitions that the sequent names, by name and arity, where a name without arguments names all its arities
 function defined_in(decls: Decls, s: Seq): List[Name * Int] :=

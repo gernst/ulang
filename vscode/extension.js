@@ -11,6 +11,8 @@ const errorLine = /^(.*?): ((?:parse|type|format|runtime|internal) error: .*?)(?
 const testLine = /^test (\S+) (passed|failed: (.*))$/;
 // e.g. "lemma append_nil proved" or "lemma append_nil open: forall xs => ...", of ulang prove and ulang test
 const lemmaLine = /^lemma (\S+) (?:proved|open: (.*))$/;
+// e.g. "termination of loop open: loop(x) where x == x", of a function that a lemma reaches
+const terminationLine = /^termination of (\S+) open: (.*)$/;
 
 function binary() {
   const configured = vscode.workspace.getConfiguration("ulang").get("binary");
@@ -140,7 +142,8 @@ function activate(context) {
 
   // errors of file in the error output of ulang, without a position at the start of the file, and those of another
   // module, known by its path from the root, at the import of its package, the directory of the module, or else at the
-  // start, as for a sibling, pointing to the module; the lemmas that stdout states open are warnings at their lemma
+  // start, as for a sibling, pointing to the module; the lemmas that stdout states open are warnings at their lemma,
+  // and the functions whose termination is open at their declaration
   function diagnose(file, stderr, stdout) {
     const found = [];
     const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n") : [];
@@ -174,6 +177,15 @@ function activate(context) {
       const at = new vscode.Position(Math.max(row, 0), 0);
       const range = new vscode.Range(at, at.translate(0, "lemma".length));
       found.push(new vscode.Diagnostic(range, "lemma " + match[1] + " open: " + match[2], vscode.DiagnosticSeverity.Warning));
+    }
+    // a function of another module, such as the library, is reported at the start of the file
+    for (const line of (stdout || "").split("\n")) {
+      const match = terminationLine.exec(line);
+      if (!match) continue;
+      const row = lines.findIndex((l) => new RegExp("^function\\s+" + match[1] + "\\b").test(l));
+      const at = new vscode.Position(Math.max(row, 0), 0);
+      const range = new vscode.Range(at, at.translate(0, "function".length));
+      found.push(new vscode.Diagnostic(range, "termination of " + match[1] + " not proven: " + match[2], vscode.DiagnosticSeverity.Warning));
     }
     diagnostics.set(vscode.Uri.file(file), found);
   }

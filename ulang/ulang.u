@@ -426,7 +426,7 @@ procedure prove_unit(
   end
 
 // proves the lemmas of the module m of q, all or the named ones, in their order, where those before are facts, printing
-// whether each is proven, and whether all are
+// whether each is proven, the functions that they reach whose termination is not proven, and whether all are proven
 procedure prove_module(
   in  q: Prog,
       m: Id,
@@ -434,13 +434,17 @@ procedure prove_module(
       label: Str,
   out proven: Bool
 ) :=
-  local t := translate(q, m)
+  local t := translate(q, m), proofs := prove_lemmas(t.decls, t.lemmas)
   assign proven := true
   for n in names if not exists(t.lemmas, lambda l => l.name.base == n) do
     call   os_println(in label ++ error_text(RuntimeKind, "there is no lemma " ++ n))
     assign proven := false
   end
-  for Proved(name, goal) in prove_lemmas(t.decls, t.lemmas) if names == List() or contains(name.base, names) do
+  for site in List(for tm in proofs.terminations for s in take(1, tm.open) yield s) do
+    call   os_println(in label ++ "termination of " ++ first(site.caller).base ++ " open: " ++ print_open_call(site))
+    assign proven := false
+  end
+  for Proved(name, goal) in proofs.lemmas if names == List() or contains(name.base, names) do
     if goal == true_seq() then
       call os_println(in label ++ "lemma " ++ name.base ++ " proved")
     else

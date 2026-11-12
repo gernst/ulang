@@ -125,10 +125,11 @@ test terminations_of_program() :=
   end
   assert open == List("loop") and proven == List("down")
 
-// a function whose termination is not proven stays uninterpreted, though the if of its body is decided
-test nonterminating_uninterpreted() :=
-  assert raises OpenLemma("loop_zero", "loop(0) == 0") do
-    call prove_text(in "ulang/test/errors/nonterminating-uninterpreted.u", List(
+// a function that a lemma reaches and whose termination is not proven is an error at the call that does not decrease,
+// and stays uninterpreted for the lemma, though the if of its body is decided, so that loop(0) == 0 stays open
+test nonterminating_function() :=
+  assert raises OpenTermination("loop", "loop(x) where x == x") do
+    call prove_text(in "ulang/test/errors/nonterminating-function.u", List(
       "function loop(x: Int): Int :=",
       "  if x == x then loop(x) + 1 else 0",
       "",
