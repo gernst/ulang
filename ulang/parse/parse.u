@@ -686,22 +686,22 @@ function expr_apply(f: Fixity, op: Id, pos: Pos, args: List[Expr]): Expr :=
       ELit(LInt(0 - num))
 
     case List(a) =>
-      expr_app(op, List(a))
+      EApp(EAt(pos, expr_var(op)), List(a))
 
     case List(a; more) =>
-      expr_infix(op, a, more)
+      expr_infix(op, pos, a, more)
 
     case List() =>
-      expr_app(op, List())
+      EApp(EAt(pos, expr_var(op)), List())
   end
 
-// lhs and the operands rs, applied from the left
-function expr_infix(op: Id, lhs: Expr, rs: List[Expr]): Expr :=
+// lhs and the operands rs, applied from the left, where op is at pos
+function expr_infix(op: Id, pos: Pos, lhs: Expr, rs: List[Expr]): Expr :=
   match rs
     case List() =>
       lhs
     case List(r; more) =>
-      expr_infix(op, expr_app(op, List(lhs, r)), more)
+      expr_infix(op, pos, EApp(EAt(pos, expr_var(op)), List(lhs, r)), more)
   end
 
 function starts_expr(notation: Notation, tok: Token): Bool :=
@@ -731,12 +731,13 @@ procedure parse_expr(
   out expr: Expr,
   ref toks: Tokens
 ) :=
-  local updates: List[Id * Expr]
+  local updates: List[Id * Expr], pos: Pos
   call parse_operators(in notation, params, expr_ops(), out expr, ref toks)
   if at_kw(toks, "with") then
+    assign pos := head_pos(toks)
     call   advance(ref toks)
     call   parse_separated(in notation, params, parse_update, at_update, out updates, ref toks)
-    assign expr := apply_updates(expr, updates)
+    assign expr := EAt(pos, apply_updates(expr, updates))
   end
 
 // f := a in e with f := a
@@ -768,7 +769,7 @@ procedure parse_app(
   out expr: Expr,
   ref toks: Tokens
 ) :=
-  local args: List[Expr], f: Id
+  local args: List[Expr], f: Id, pos: Pos
   call parse_expr_atom(in notation, params, out expr, ref toks)
   while at_kw(toks, "(") or at_kw(toks, ".") do
     if at_kw(toks, "(") then
@@ -776,9 +777,10 @@ procedure parse_app(
       call   parse_enclosed(in notation, params, parse_expr, ")", out args, ref toks)
       assign expr := EApp(expr, args)
     else
+      assign pos := head_pos(toks)
       call   advance(ref toks)
       call   parse_name(out f, ref toks)
-      assign expr := EField(expr, f)
+      assign expr := EAt(pos, EField(expr, f))
     end
   end
 
@@ -788,13 +790,15 @@ procedure parse_expr_atom(
   out expr: Expr,
   ref toks: Tokens
 ) :=
+  local pos := head_pos(toks)
   match (literal_at(toks), head_token(toks))
     case (Some(v), _) =>
       call   advance(ref toks)
       assign expr := ELit(v)
 
     case (_, TKw("let")) =>
-      call parse_let(in notation, params, out expr, ref toks)
+      call   parse_let(in notation, params, out expr, ref toks)
+      assign expr := EAt(pos, expr)
 
     case (_, TKw("if")) =>
       local a: Expr, l: Expr, r: Expr
@@ -804,7 +808,7 @@ procedure parse_expr_atom(
       call   parse_expr(in notation, params, out l, ref toks)
       call   expect(in TKw("else"), ref toks)
       call   parse_expr(in notation, params, out r, ref toks)
-      assign expr := EIte(a, l, r)
+      assign expr := EAt(pos, EIte(a, l, r))
 
     case (_, TKw("lambda")) =>
       call parse_lambda(in notation, params, out expr, ref toks)
@@ -814,7 +818,7 @@ procedure parse_expr_atom(
       call   advance(ref toks)
       call   parse_expr(in notation, params, out a, ref toks)
       call   parse_cases(in notation, params, parse_expr, out cases, ref toks)
-      assign expr := EMatch(a, cases)
+      assign expr := EAt(pos, EMatch(a, cases))
 
     case (_, TKw("(")) =>
       local exprs: List[Expr]
@@ -828,14 +832,15 @@ procedure parse_expr_atom(
       end
 
     case _ if form_at(toks) != None =>
-      call parse_form(in notation, params, out expr, ref toks)
+      call   parse_form(in notation, params, out expr, ref toks)
+      assign expr := EAt(pos, expr)
 
     case (_, TName(name)) if form_of(name) != None =>
-      raise no_value(name, head_pos(toks))
+      raise no_value(name, pos)
 
     case (_, TName(name)) if not is_operator(notation, name) =>
       call   advance(ref toks)
-      assign expr := expr_var(name)
+      assign expr := EAt(pos, expr_var(name))
 
     case _ =>
       raise expected("expression", toks)
@@ -1166,12 +1171,12 @@ procedure parse_pattern_atom(
       call expect(in TKw(")"), ref toks)
 
     case _ =>
-      local name: Id, pats: List[Pat]
+      local pos := head_pos(toks), name: Id, pats: List[Pat]
       call parse_plain_name(in notation, params, out name, ref toks)
       if at_kw(toks, "(") then
         call   advance(ref toks)
         call   parse_enclosed(in notation, params, parse_pattern, ")", out pats, ref toks)
-        assign pat := PApp(unqualified(name), pats)
+        assign pat := PAt(pos, PApp(unqualified(name), pats))
       else
         assign pat := pat_var(name)
       end
@@ -1226,12 +1231,12 @@ procedure parse_local(
   out decl: Var * List[Stmt],
   ref toks: Tokens
 ) :=
-  local x: Var, init: Option[Expr]
+  local pos := head_pos(toks), x: Var, init: Option[Expr]
   call parse_formal(in notation, params, out x, ref toks)
   call parse_optional(in notation, params, TKw(":="), parse_expr, out init, ref toks)
   match init
     case Some(expr) =>
-      assign decl := (x, List(SAssign(List((Var(x.name, THole), expr)))))
+      assign decl := (x, List(SAt(pos, SAssign(List((Var(x.name, THole), expr))))))
     case None =>
       assign decl := (x, List())
   end
@@ -1278,6 +1283,7 @@ procedure parse_stmt(
   out stmt: Stmt,
   ref toks: Tokens
 ) :=
+  local pos := head_pos(toks)
   match head_token(toks)
     case TKw("skip") =>
       call   advance(ref toks)
@@ -1332,6 +1338,7 @@ procedure parse_stmt(
     case _ =>
       raise expected("statement", toks)
   end
+  assign stmt := SAt(pos, stmt)
 
 // assert c, or assert raises p do … end
 procedure parse_assert(
@@ -2428,7 +2435,13 @@ function test_notation(): Str :=
   "infix right 8 ++\ninfix 6 ==\ninfix left 9 + -\ninfix left 10 *\nprefix 5 not\nprefix 11 -\n"
 
 // the body of a function that is e
+// the body of a function of e, without positions
 procedure parsed(in e: Str, out body: Expr) :=
+  call   parsed_placed(in e, out body)
+  assign body := strip_expr(body)
+
+// the body of a function of e, whose text starts at column 3 of line 8
+procedure parsed_placed(in e: Str, out body: Expr) :=
   local d: Mod
   call   parse_text(in test_notation() ++ "function f(): Int :=\n  " ++ e, out d)
   assign body := ELit(LUnit)
@@ -2438,6 +2451,14 @@ procedure parsed(in e: Str, out body: Expr) :=
     case _ =>
       skip
   end
+
+// the uses of names, also of operators, and accesses of fields are at the token that names them
+test parsed_positions() :=
+  local expr: Expr
+  call parsed_placed(in "f(a) + b.g", out expr)
+  assert expr == EApp(EAt(Pos(8, 8), expr_var("+")), List(
+    EApp(EAt(Pos(8, 3), expr_var("f")), List(EAt(Pos(8, 5), expr_var("a")))),
+    EAt(Pos(8, 11), EField(EAt(Pos(8, 10), expr_var("b")), "g"))))
 
 test parsed_docs() :=
   local d: Mod, text := "// the answer\n// in two lines\nfunction f(): Int := 42\n\n\n\n"
@@ -2466,7 +2487,7 @@ test parsed_docs_of_modules_and_constructors() :=
 test parsed_docs_of_cases() :=
   local d: Mod, docs: List[Str] := List(), fun_f := "function f(x: Int): Int :=\n  match x\n    // zero\n    // or one\n    case 0 => 1\n    case _ => 2\n  end\n\n", proc_p := "procedure p() :=\n  match 1\n    // a\n    case 1 =>\n      skip\n  end\n  try\n    skip\n  catch\n    // b\n    case _ =>\n      skip\n  end\n"
   call parse_text(in fun_f ++ proc_p, out d)
-  match commands_of(d.implemented)
+  match List(for c in commands_of(d.implemented) yield strip_cmd(c))
     case List(
       CFun(_, _, _, _, EMatch(_, bs)),
       CProc(_, _, _, _, _, SBlock(_, List(SMatch(_, cs), STry(_, hs))))) =>

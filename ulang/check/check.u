@@ -77,12 +77,12 @@ data Local :=
 
 // a use of an overloaded name that more than one candidate fits, by the placeholder id that stands for it
 data Pending :=
-  case Pending(id: Name, name: Name, cands: List[Name * Scheme], typ: Type)
+  case Pending(id: Name, name: Name, cands: List[Name * Scheme], typ: Type, pos: Pos)
 
 // where hidden and hidden_sorts are the private declarations and sorts of the members of the package being checked, which
 // the other members do not see, while sig has only the exports of the modules checked before
 data State :=
-  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name])
+  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos)
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -99,13 +99,13 @@ function with_sig(s: State, sig: Sig): State :=
 // the state for checking a declaration of module m, where the substitution starts empty and unknowns are numbered
 // from 1 again, since unknowns do not outlive the command that introduces them
 function enter(s: State, m: Id): State :=
-  s with sub := empty(), count := 0, module := m, visible := sees(m, s.table), pending := List(), chosen := empty()
+  s with sub := empty(), count := 0, module := m, visible := sees(m, s.table), pending := List(), chosen := empty(), at := Pos(0, 0)
 
 function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
   value_or(get(m, vs), List(m))
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
-  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty())
+  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0))
 
 function in_module(m: Id, n: Name): Name :=
   Name(Some(m), n.base)
@@ -561,6 +561,9 @@ function zonk_expr(s: State, expr: Expr): Expr :=
 
     case EFor(_, _, _, _) =>
       expr
+
+    case EAt(_, _) =>
+      expr
   end
 
 function zonk_expr_branch(s: State, b: Branch[Expr]): Branch[Expr] :=
@@ -624,6 +627,9 @@ function zonk_stmt(s: State, stmt: Stmt): Stmt :=
 
     case STry(body, catches) =>
       STry(zonk_stmt(s, body), List(for h in catches yield zonk_handler(s, h)))
+
+    case SAt(_, _) =>
+      stmt
   end
 
 function zonk_stmt_branch(s: State, b: Branch[Stmt]): Branch[Stmt] :=
@@ -694,6 +700,9 @@ function unknown_in(stmt: Stmt): Option[Type] :=
       or_else(unknown_in(body), unknown_in_handlers(catches))
 
     case SSkip =>
+      None
+
+    case SAt(_, _) =>
       None
   end
 
@@ -1320,7 +1329,7 @@ procedure choose(
 
     case _ =>
       assign m := Name(Some("?"), show(s.count + 1))
-      assign s := s with count := s.count + 1, pending := s.pending ++ List(Pending(m, n, firsts(ok), w))
+      assign s := s with count := s.count + 1, pending := s.pending ++ List(Pending(m, n, firsts(ok), w, s.at))
   end
 
 // the candidates that fit w, each with the state after unifying its instance with w
@@ -1369,7 +1378,7 @@ procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
       call trials(in p.cands, p.typ, s, out ok)
       match ok
         case List() =>
-          raise NoOverload(p.name, zonk_type(s.sub, p.typ))
+          raise at_use(p.pos, NoOverload(p.name, zonk_type(s.sub, p.typ)))
 
         case List(((m, _), s_)) =>
           assign s := s_ with chosen := put(p.id, m, s_.chosen)
@@ -1390,7 +1399,7 @@ procedure settle(ref s: State) :=
   call solve(ref s)
   match s.pending
     case List(p; _) =>
-      raise Ambiguous(p.name, p.cands)
+      raise at_use(p.pos, Ambiguous(p.name, p.cands))
     case List() =>
       skip
   end
@@ -1504,6 +1513,43 @@ procedure infer(in env: Env, expr: Expr, out res: Expr, typ: Type, ref s: State)
 
     case EFor(form, List(g; more), elem, rest) =>
       call generator(in env, form, g, more, elem, rest, out res, typ, ref s)
+
+    case EAt(pos, inner) =>
+      local typed: Expr * Type
+      call   at_position(in pos, lambda out r: Expr * Type, ref u: State =>
+        local x: Expr, w: Type
+        call   infer(in env, inner, out x, w, ref u)
+        assign r := (x, w)
+      end, out typed, ref s)
+      assign res := first(typed), typ := second(typed)
+  end
+
+// step at pos, where an error is reported at pos, unless a use inside has reported it at its own position, and an open
+// use of an overloaded name remembers pos for the end of the command, where it is solved
+procedure at_position[A](
+  in  pos: Pos,
+      step: (out A, ref State),
+  out a: A,
+  ref s: State
+) :=
+  local outer := s.at
+  try
+    assign s := s with at := pos
+    call   step(out a, ref s)
+    assign s := s with at := outer
+  catch
+    case e =>
+      raise at_use(pos, e)
+  end
+
+// e at pos, unless it has a position already, where Located without a module is in the module of the command, which
+// located adds
+function at_use(pos: Pos, e: TypeError): TypeError :=
+  match e
+    case Located(_, _, _) =>
+      e
+    case _ =>
+      if pos == Pos(0, 0) then e else Located(None, pos, e)
   end
 
 // the fold of the module of the type of the container of generator g, which must be known after the container, applied to
@@ -1730,6 +1776,11 @@ procedure application(
         call   apply(in env, u, args, out typed_args, t, ref s)
         assign typed_expr := EApp(typed_fun, typed_args)
       end
+
+    // the application is at the position of the name of its function, so that the types of the arguments are reported
+    // there
+    case EAt(pos, inner) =>
+      call infer(in env, EAt(pos, EApp(inner, args)), out typed_expr, t, ref s)
 
     case ELam(_, _) =>
       local typed_fun: Expr, typed_args: List[Expr], ts: List[Type]
@@ -2055,6 +2106,15 @@ procedure binders(
       call   unify(in TTuple(ts), t, ref s)
       call   binder_list(in args, ts, out qs, xs, ref s)
       assign typed_pat := PTuple(qs)
+
+    case PAt(pos, inner) =>
+      local typed: Pat * List[Var]
+      call   at_position(in pos, lambda out r: Pat * List[Var], ref u: State =>
+        local q: Pat, ys: List[Var]
+        call   binders(in inner, t, out q, ys, ref u)
+        assign r := (q, ys)
+      end, out typed, ref s)
+      assign typed_pat := first(typed), xs := second(typed)
   end
 
 // the one of the constructors ks with k arguments whose datatype fits t, where open uses are solved first if
@@ -2264,13 +2324,26 @@ procedure statement(
       call   statement(in assignable, body, out l, ref env, s)
       call   handler_list(in assignable, catches, out hs, ref other, s)
       assign y := STry(l, hs), env := joined(env, other)
+
+    case SAt(pos, inner) =>
+      local typed: Stmt * Env
+      call   at_position(in pos, lambda out r: Stmt * Env, ref u: State =>
+        local after := env, x: Stmt
+        call   statement(in assignable, inner, out x, ref after, u)
+        assign r := (x, after)
+      end, out typed, ref s)
+      assign y := first(typed), env := second(typed)
   end
 
 // the variables that the leading assignments of a block assign one at a time, as local x := e does
 function initialized(xs: List[Stmt]): List[Name] :=
   match xs
+    case List(SAt(_, SAssign(List((x, _)))); rest) =>
+      List(x.name; initialized(rest))
+
     case List(SAssign(List((x, _))); rest) =>
       List(x.name; initialized(rest))
+
     case _ =>
       List()
   end
@@ -3185,7 +3258,7 @@ procedure check_package(
     call   private_of(in d, out private, private_sorts)
     assign hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
   end
-  assign s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts)), decls := seconds(placed)
+  assign s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0)), decls := seconds(placed)
   call   each_placed(in declare_datas, placed, ref s)
   call   declare_datas(in builtins, ref s)
   call   each_placed(in declare_sorts, alias_order(List(for p in placed if alias_names(p) != None), List()), ref s)
@@ -3318,8 +3391,10 @@ procedure placed_commands(
 
 // the error e of declaration d of a module at position p, if the parser read it
 function located(d: Id * Cmd, p: Pos, e: TypeError): TypeError :=
-  match d
-    case (m, _) =>
+  match (d, e)
+    case ((m, _), Located(None, q, error)) =>
+      Located(Some(m), q, error)
+    case ((m, _), _) =>
       if p == Pos(0, 0) then e else Located(Some(m), p, e)
   end
 

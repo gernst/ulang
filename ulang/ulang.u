@@ -642,7 +642,7 @@ function same_mods(mods: List[Mod], others: List[Mod]): Bool :=
   size(mods) == size(others) and forall(zip(mods, others), lambda (d, e) => same_mod(d, e))
 
 function same_tops(tops: List[Top], others: List[Top]): Bool :=
-  size(tops) == size(others) and forall(zip(tops, others), lambda (top, other) => top.doc == other.doc and top.cmd == other.cmd)
+  size(tops) == size(others) and forall(zip(tops, others), lambda (top, other) => top.doc == other.doc and strip_cmd(top.cmd) == strip_cmd(other.cmd))
 
 // the checked program of file and the message of the error of loading it, or else "", where formatted requires each file
 // of its unit, the members of its package or file alone if it is a program, to be formatted, after the errors of parsing

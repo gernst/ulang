@@ -278,6 +278,10 @@ function expr_doc(notation: Notation, indent: Str, expr: Expr): Doc :=
 
     case EFor(form, gens, elem, rest) =>
       Doc(for_text(notation, indent, form, gens, elem, rest), Atom)
+
+    // format_cmds strips the positions, so that the shapes that the printer matches are those that the parser builds
+    case EAt(_, inner) =>
+      expr_doc(notation, indent, inner)
   end
 
 // the body on the next line, at the indentation of the let
@@ -511,6 +515,9 @@ function pattern_doc(notation: Notation, indent: Str, pat: Pat): Doc :=
 
     case PApp(constr, args) =>
       pattern_app_doc(notation, indent, constr, args)
+
+    case PAt(_, inner) =>
+      pattern_doc(notation, indent, inner)
   end
 
 function pattern_app_doc(notation: Notation, indent: Str, constr: Name, pats: List[Pat]): Doc :=
@@ -598,6 +605,9 @@ function format_stmt(notation: Notation, indent: Str, stmt: Stmt): Str :=
         case None =>
           "skip" ++ format_body(notation, indent, stmt)
       end
+
+    case SAt(_, inner) =>
+      format_stmt(notation, indent, inner)
   end
 
 function cond_text(notation: Notation, indent: Str, word: Str, after: Str, cond: Expr, body: Stmt): Str :=
@@ -781,7 +791,7 @@ function format_cmds(notation: Notation, tops: List[Top]): List[Str] :=
 
     case List(top; more) =>
       let after := with_notation(notation, List(top.cmd)) in
-      match format_cmd(notation, top.cmd)
+      match format_cmd(notation, strip_cmd(top.cmd))
         case Some(text) =>
           List(doc_text(top.doc) ++ text; format_cmds(after, more))
         case None =>
@@ -1101,6 +1111,9 @@ function source_pattern(pat: Pat): Pat :=
 
     case PApp(constr, args) =>
       PApp(constr, List(for p in args yield source_pattern(p)))
+
+    case PAt(_, inner) =>
+      source_pattern(inner)
   end
 
 // whether a name is an operator, which starts with a symbol

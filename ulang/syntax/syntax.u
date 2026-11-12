@@ -71,6 +71,9 @@ data Expr :=
   // List(for p in c if q yield e; r) and the like, which the checker translates to the folds of the modules of the
   // containers, where elem is what each step adds, written after yield or else the value of the single generator
   case EFor(form: Form, gens: List[Gen], elem: Yield, rest: Option[Expr])
+  // expr at the position of the token that names it, which the parser adds to the uses of names, accesses and updates of
+  // fields, and forms, and the checker drops, reporting an error inside at the innermost position
+  case EAt(pos: Pos, expr: Expr)
 
 data Form :=
   // the form List(…)
@@ -108,6 +111,8 @@ data Pat :=
   case PApp(constr: Name, args: List[Pat])
   // a tuple (p, q, …)
   case PTuple(args: List[Pat])
+  // pat at its position, which the parser adds to constructors and the checker drops, as for EAt
+  case PAt(pos: Pos, pat: Pat)
 
 data Branch[A] :=
   // case p if g => body of a match, where if g is optional
@@ -137,6 +142,8 @@ data Stmt :=
   case SRaise(value: Expr, typ: Type)
   // try … catch case p => … end
   case STry(body: Stmt, catches: List[Catch])
+  // stmt at the position of its keyword, which the parser adds to each statement and the checker drops, as for EAt
+  case SAt(pos: Pos, stmt: Stmt)
 
 // with the pattern PWild, a handler handles exceptions of any type
 data Catch :=
@@ -306,6 +313,15 @@ function module_dir(id: Id): Str
 function seen_modules(d: Mod, packages: List[Package]): List[Id]
 
 function unplaced(cmds: List[Cmd]): List[Top]
+
+// cmd without the positions EAt, SAt, and PAt, which parsing the same text at other places gives the same
+function strip_cmd(cmd: Cmd): Cmd
+
+function strip_expr(expr: Expr): Expr
+
+function strip_stmt(stmt: Stmt): Stmt
+
+function strip_pat(pat: Pat): Pat
 
 // the escapes of literals, each the character after \ with the character that it stands for, as the lexer reads them and
 // the printers write them, where a quote is escaped only in a literal that it delimits; the runtime writes them by escape
@@ -516,6 +532,9 @@ function pattern_expr(p: Pat): Option[Expr] :=
 
     case PApp(c, ps) =>
       map_option(pattern_exprs(ps), lambda es => ECall(c, THole, es))
+
+    case PAt(pos, pat) =>
+      map_option(pattern_expr(pat), lambda e => EAt(pos, e))
   end
 
 // pat with the patterns of sub for its variables
@@ -529,6 +548,9 @@ function subst_pat(pat: Pat, sub: List[Name * Pat]): Pat :=
 
     case PTuple(args) =>
       PTuple(List(for a in args yield subst_pat(a, sub)))
+
+    case PAt(pos, inner) =>
+      PAt(pos, subst_pat(inner, sub))
 
     case _ =>
       pat
@@ -586,6 +608,9 @@ function pattern_names(pat: Pat): List[Name] :=
 
     case PLit(_) =>
       List()
+
+    case PAt(_, inner) =>
+      pattern_names(inner)
   end
 
 function pattern_exprs(ps: List[Pat]): Option[List[Expr]] :=
@@ -615,4 +640,168 @@ function form_name(form: Form): Id :=
 
     case FArray =>
       "Array"
+  end
+
+function strip_cmd(cmd: Cmd): Cmd :=
+  match cmd
+    case CFun(name, params, formals, typ, body) =>
+      CFun(name, params, formals, typ, strip_expr(body))
+
+    case CProc(name, params, ins, outs, refs, stmt) =>
+      CProc(name, params, ins, outs, refs, strip_stmt(stmt))
+
+    case CTest(name, vars, stmt) =>
+      CTest(name, vars, strip_stmt(stmt))
+
+    case CPatAlias(name, params, formals, typ, pat) =>
+      CPatAlias(name, params, formals, typ, strip_pat(pat))
+
+    case CLemma(name, params, formals, assms, concl) =>
+      CLemma(name, params, formals, List(for a in assms yield strip_expr(a)), strip_expr(concl))
+
+    case CSort(_, _, _) =>
+      cmd
+
+    case CData(_, _, _) =>
+      cmd
+
+    case CNotation(_, _, _) =>
+      cmd
+
+    case CFunSig(_, _, _, _) =>
+      cmd
+
+    case CProcSig(_, _, _, _, _) =>
+      cmd
+
+    case CAbstract(_, _) =>
+      cmd
+  end
+
+function strip_expr(expr: Expr): Expr :=
+  match expr
+    case ELit(_) =>
+      expr
+
+    case EVar(_) =>
+      expr
+
+    case EApp(fun, args) =>
+      EApp(strip_expr(fun), List(for a in args yield strip_expr(a)))
+
+    case EField(base, field) =>
+      EField(strip_expr(base), field)
+
+    case EUpdate(base, field, value) =>
+      EUpdate(strip_expr(base), field, strip_expr(value))
+
+    case ELam(formals, body) =>
+      ELam(formals, strip_expr(body))
+
+    case EProc(ins, outs, refs, stmt) =>
+      EProc(ins, outs, refs, strip_stmt(stmt))
+
+    case ELet(bindings, body) =>
+      ELet(List(for (p, e) in bindings yield (strip_pat(p), strip_expr(e))), strip_expr(body))
+
+    case EIte(cond, then_expr, else_expr) =>
+      EIte(strip_expr(cond), strip_expr(then_expr), strip_expr(else_expr))
+
+    case EMatch(arg, cases) =>
+      EMatch(strip_expr(arg), List(for br in cases yield strip_branch(br, strip_expr)))
+
+    case ETuple(args) =>
+      ETuple(List(for a in args yield strip_expr(a)))
+
+    case EForm(form, elems, rest) =>
+      EForm(form, List(for y in elems yield strip_yield(y)), map_option(rest, strip_expr))
+
+    case EFor(form, gens, elem, rest) =>
+      EFor(form, List(for g in gens yield strip_gen(g)), strip_yield(elem), map_option(rest, strip_expr))
+
+    case EAt(_, inner) =>
+      strip_expr(inner)
+  end
+
+function strip_yield(y: Yield): Yield :=
+  match y
+    case YVal(value) =>
+      YVal(strip_expr(value))
+    case YPair(key, value) =>
+      YPair(strip_expr(key), strip_expr(value))
+  end
+
+function strip_gen(g: Gen): Gen :=
+  match g
+    case GVal(pat, over) =>
+      GVal(strip_pat(pat), strip_expr(over))
+
+    case GPair(key, value, over) =>
+      GPair(strip_pat(key), strip_pat(value), strip_expr(over))
+
+    case GIf(cond) =>
+      GIf(strip_expr(cond))
+  end
+
+function strip_branch[A](br: Branch[A], strip_body: A -> A): Branch[A] :=
+  Branch(br.doc, strip_pat(br.pat), map_option(br.guard, strip_expr), strip_body(br.body))
+
+function strip_stmt(stmt: Stmt): Stmt :=
+  match stmt
+    case SSkip =>
+      stmt
+
+    case SAssign(upd) =>
+      SAssign(List(for (x, e) in upd yield (x, strip_expr(e))))
+
+    case SBlock(locals, stmts) =>
+      SBlock(locals, List(for s in stmts yield strip_stmt(s)))
+
+    case SIf(cond, left, right) =>
+      SIf(strip_expr(cond), strip_stmt(left), strip_stmt(right))
+
+    case SWhile(cond, body) =>
+      SWhile(strip_expr(cond), strip_stmt(body))
+
+    case SCall(proc, ins, outs, refs) =>
+      SCall(proc, List(for a in ins yield strip_expr(a)), outs, refs)
+
+    case SMatch(arg, cases) =>
+      SMatch(strip_expr(arg), List(for br in cases yield strip_branch(br, strip_stmt)))
+
+    case SAssert(cond) =>
+      SAssert(strip_expr(cond))
+
+    case SAssertRaises(typ, pat, body) =>
+      SAssertRaises(typ, strip_pat(pat), strip_stmt(body))
+
+    case SRaise(value, typ) =>
+      SRaise(strip_expr(value), typ)
+
+    case STry(body, catches) =>
+      STry(strip_stmt(body), List(for c in catches yield Catch(c.doc, c.typ, strip_pat(c.pat), map_option(c.guard, strip_expr), strip_stmt(c.body))))
+
+    case SAt(_, inner) =>
+      strip_stmt(inner)
+  end
+
+function strip_pat(pat: Pat): Pat :=
+  match pat
+    case PApp(constr, args) =>
+      PApp(constr, List(for a in args yield strip_pat(a)))
+
+    case PTuple(args) =>
+      PTuple(List(for a in args yield strip_pat(a)))
+
+    case PAt(_, inner) =>
+      strip_pat(inner)
+
+    case PWild =>
+      pat
+
+    case PLit(_) =>
+      pat
+
+    case PVar(_) =>
+      pat
   end

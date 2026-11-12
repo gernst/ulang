@@ -772,6 +772,10 @@ function print_pat(p: Pat): Str :=
 
     case PTuple(args) =>
       "(" ++ join(", ", List(for q in args yield print_pat(q))) ++ ")"
+
+    // the checker drops positions
+    case PAt(_, inner) =>
+      print_pat(inner)
   end
 
 // the atoms first, as written, then the constant

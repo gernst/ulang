@@ -6,7 +6,7 @@ import "ulang/check"
 import "ulang/test/cases"
 
 test add_bool() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 5), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/add-bool.u", List("function f(): Int :=", "  1 + true"))
   end
 
@@ -16,7 +16,7 @@ test alias_arity() :=
   end
 
 test call_arity() :=
-  assert raises Located(None, Pos(4, 1), CountMismatch("procedure p", "ins", 1, 2)) do
+  assert raises Located(None, Pos(5, 3), CountMismatch("procedure p", "ins", 1, 2)) do
     call check_text(in "ulang/test/errors/call-arity.u", List(
       "procedure p(in x: Int, out y: Int) :=",
       "  assign y := x",
@@ -26,7 +26,7 @@ test call_arity() :=
   end
 
 test call_output_type() :=
-  assert raises Located(None, Pos(4, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(5, 3), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/call-output-type.u", List(
       "procedure p(in x: Int, out y: Int) :=",
       "  assign y := x",
@@ -36,7 +36,7 @@ test call_output_type() :=
   end
 
 test case_types() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/case-types.u", List(
       "function f(): Int :=",
       "  match List()",
@@ -60,12 +60,12 @@ test catch_unknown_type() :=
   end
 
 test comprehension_list() :=
-  assert raises Located(None, Pos(1, 1), NoFold(_, "foldr")) do
+  assert raises Located(None, Pos(2, 3), NoFold(_, "foldr")) do
     call check_text(in "ulang/test/errors/comprehension-list.u", List("function f(n: Int): List[Int] :=", "  List(for x in n)"))
   end
 
 test comprehension_test() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/comprehension-test.u", List("function f(xs: List[Int]): List[Int] :=", "  List(for x in xs if x)"))
   end
 
@@ -105,7 +105,7 @@ test duplicate_lemma() :=
   end
 
 test duplicate_let() :=
-  assert raises Located(None, Pos(1, 1), Duplicate("binding", "x")) do
+  assert raises Located(None, Pos(2, 3), Duplicate("binding", "x")) do
     call check_text(in "ulang/test/errors/duplicate-let.u", List("function f(): Int :=", "  let x := 1, x := 2 in", "  x"))
   end
 
@@ -120,7 +120,7 @@ test duplicate_type_parameter() :=
   end
 
 test empty_ambiguous() :=
-  assert raises Located(None, Pos(1, 1), Ambiguous(Name(None, "empty"), _)) do
+  assert raises Located(None, Pos(2, 15), Ambiguous(Name(None, "empty"), _)) do
     call check_text(in "ulang/test/errors/empty-ambiguous.u", List("test unknown_type() :=", "  assert size(empty()) == 0"))
   end
 
@@ -130,7 +130,7 @@ test empty_tuple_argument() :=
   end
 
 test field_unknown_owner() :=
-  assert raises Located(None, Pos(1, 1), UnknownFieldOwner(".x")) do
+  assert raises Located(None, Pos(2, 28), UnknownFieldOwner(".x")) do
     call check_text(in "ulang/test/errors/field-unknown-owner.u", List(
       "test unknown_owner() :=",
       "  local g := (lambda p => p.x)",
@@ -138,7 +138,7 @@ test field_unknown_owner() :=
   end
 
 test for_refutable() :=
-  assert raises Located(None, Pos(1, 1), NotExhaustive(_)) do
+  assert raises Located(None, Pos(2, 3), NotExhaustive(_)) do
     call check_text(in "ulang/test/errors/for-refutable.u", List(
       "test refutable() :=",
       "  for List(x; _) in List(List(1)) do",
@@ -147,7 +147,7 @@ test for_refutable() :=
   end
 
 test generator_no_fold() :=
-  assert raises Located(None, Pos(4, 1), NoFold(_, "foldr")) do
+  assert raises Located(None, Pos(6, 3), NoFold(_, "foldr")) do
     call check_text(in "ulang/test/errors/generator-no-fold.u", List(
       "data Box[A] :=",
       "  case Box(value: A)",
@@ -160,7 +160,7 @@ test generator_no_fold() :=
   end
 
 test guard_type() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/guard-type.u", List(
       "function f(n: Int): Int :=",
       "  match n",
@@ -172,7 +172,7 @@ test guard_type() :=
   end
 
 test hidden_catch() :=
-  assert raises Located(None, Pos(4, 1), HiddenLocal(Name(None, "m"))) do
+  assert raises Located(None, Pos(5, 3), HiddenLocal(Name(None, "m"))) do
     call check_text(in "ulang/test/errors/hidden-catch.u", List(
       "data E :=",
       "  case E(m: Str)",
@@ -187,7 +187,7 @@ test hidden_catch() :=
   end
 
 test hidden_for() :=
-  assert raises Located(None, Pos(1, 1), HiddenLocal(Name(None, "x"))) do
+  assert raises Located(None, Pos(3, 3), HiddenLocal(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/hidden-for.u", List(
       "procedure p(in x: Int, xs: List[Int]) :=",
       "  local n := 0",
@@ -197,7 +197,7 @@ test hidden_for() :=
   end
 
 test hidden_generator() :=
-  assert raises Located(None, Pos(1, 1), HiddenLocal(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/hidden-generator.u", List(
       "function f(x: Int, xs: List[Int]): List[Int] :=",
       "  List(for x in xs yield x + 1)"))
@@ -209,7 +209,7 @@ test hidden_lambda() :=
   end
 
 test hidden_let() :=
-  assert raises Located(None, Pos(1, 1), HiddenLocal(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/hidden-let.u", List("function f(x: Int): Int :=", "  let x := 2 in", "  x"))
   end
 
@@ -219,7 +219,7 @@ test hidden_local() :=
   end
 
 test hidden_pattern() :=
-  assert raises Located(None, Pos(1, 1), HiddenLocal(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/hidden-pattern.u", List(
       "function f(x: Int, o: Option[Int]): Int :=",
       "  match o",
@@ -231,7 +231,7 @@ test hidden_pattern() :=
   end
 
 test hidden_procedure_lambda() :=
-  assert raises Located(None, Pos(1, 1), HiddenLocal(Name(None, "y"))) do
+  assert raises Located(None, Pos(2, 9), HiddenLocal(Name(None, "y"))) do
     call check_text(in "ulang/test/errors/hidden-procedure-lambda.u", List(
       "procedure p(in y: Int) :=",
       "  local q := lambda in x: Int, out y: Int =>",
@@ -241,17 +241,17 @@ test hidden_procedure_lambda() :=
   end
 
 test if_condition() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/if-condition.u", List("function f(): Int :=", "  if 1 then 2 else 3"))
   end
 
 test if_statement_condition() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/if-statement-condition.u", List("procedure p(in x: Int) :=", "  if x then", "    skip", "  end"))
   end
 
 test lambda_monomorphic() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 30), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/lambda-monomorphic.u", List(
       "function f(): Bool :=",
       "  (lambda g => g(1) == 1 and g(true))(lambda y => y)"))
@@ -268,12 +268,12 @@ test lemma_requires_type() :=
   end
 
 test lemma_unknown_variable() :=
-  assert raises Located(None, Pos(1, 1), UnknownVariable(Name(None, "y"))) do
+  assert raises Located(None, Pos(2, 16), UnknownVariable(Name(None, "y"))) do
     call check_text(in "ulang/test/errors/lemma-unknown-variable.u", List("lemma l(x: Int) :=", "  ensures x == y"))
   end
 
 test let_monomorphic() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(3, 17), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/let-monomorphic.u", List(
       "function f(): Bool :=",
       "  let g := lambda y => y in",
@@ -281,7 +281,7 @@ test let_monomorphic() :=
   end
 
 test let_parallel() :=
-  assert raises Located(None, Pos(2, 1), UnknownVariable(Name(None, "x"))) do
+  assert raises Located(None, Pos(3, 20), UnknownVariable(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/let-parallel.u", List(
       "// the bindings of a let are parallel, so y := x does not see x := 1",
       "function f(): Int :=",
@@ -290,7 +290,7 @@ test let_parallel() :=
   end
 
 test let_rigid() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(3, 8), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/let-rigid.u", List(
       "function f[A](x: A): Bool :=",
       "  let g := lambda y => x in",
@@ -298,7 +298,7 @@ test let_rigid() :=
   end
 
 test list_type() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 10), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/list-type.u", List("test list_type() :=", "  assert List(1, true) == List()"))
   end
 
@@ -338,7 +338,7 @@ test missing_parameter_type() :=
   end
 
 test overload_arity() :=
-  assert raises Located(None, Pos(7, 1), WrongArity(Name(None, "f"), 3)) do
+  assert raises Located(None, Pos(8, 14), WrongArity(Name(None, "f"), 3)) do
     call check_text(in "ulang/test/errors/overload-arity.u", List(
       "function f(x: Int): Int :=",
       "  x",
@@ -361,7 +361,7 @@ test overload_same_arity() :=
   end
 
 test overload_unapplied() :=
-  assert raises Located(None, Pos(7, 1), Ambiguous(Name(None, "f"), _)) do
+  assert raises Located(None, Pos(8, 14), Ambiguous(Name(None, "f"), _)) do
     call check_text(in "ulang/test/errors/overload-unapplied.u", List(
       "function f(x: Int): Int :=",
       "  x",
@@ -374,7 +374,7 @@ test overload_unapplied() :=
   end
 
 test pair_type() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/pair-type.u", List(
       "function f(p: Int * Int): Int :=",
       "  match p",
@@ -384,7 +384,7 @@ test pair_type() :=
   end
 
 test pattern_alias_arity() :=
-  assert raises Located(None, Pos(4, 1), CountMismatch("pattern alias Pair", "arguments", 2, 1)) do
+  assert raises Located(None, Pos(6, 10), CountMismatch("pattern alias Pair", "arguments", 2, 1)) do
     call check_text(in "ulang/test/errors/pattern-alias-arity.u", List(
       "pattern Pair(x: Int, y: Int): Int * Int :=",
       "  (x, y)",
@@ -412,7 +412,7 @@ test pattern_alias_extra_variable() :=
   end
 
 test pattern_alias_only() :=
-  assert raises Located(None, Pos(4, 1), PatternOnly(Name(None, "First"))) do
+  assert raises Located(None, Pos(5, 3), PatternOnly(Name(None, "First"))) do
     call check_text(in "ulang/test/errors/pattern-alias-only.u", List(
       "pattern First(x: Int): Int * Int :=",
       "  (x, _)",
@@ -432,7 +432,7 @@ test pattern_alias_variables() :=
   end
 
 test pattern_arity() :=
-  assert raises Located(None, Pos(1, 1), CountMismatch("constructor Some", "arguments", 1, 2)) do
+  assert raises Located(None, Pos(3, 10), CountMismatch("constructor Some", "arguments", 1, 2)) do
     call check_text(in "ulang/test/errors/pattern-arity.u", List(
       "function f(): Int :=",
       "  match None",
@@ -442,7 +442,7 @@ test pattern_arity() :=
   end
 
 test pattern_duplicate() :=
-  assert raises Located(None, Pos(1, 1), Duplicate("pattern variable", "x")) do
+  assert raises Located(None, Pos(2, 3), Duplicate("pattern variable", "x")) do
     call check_text(in "ulang/test/errors/pattern-duplicate.u", List(
       "function f(): Int :=",
       "  match List()",
@@ -452,7 +452,7 @@ test pattern_duplicate() :=
   end
 
 test pattern_type() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/pattern-type.u", List(
       "function f(): Int :=",
       "  match 1",
@@ -462,7 +462,7 @@ test pattern_type() :=
   end
 
 test procedure_modes() :=
-  assert raises Located(None, Pos(4, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(6, 3), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/procedure-modes.u", List(
       "procedure double(in x: Int, out y: Int) :=",
       "  assign y := 2 * x",
@@ -483,7 +483,7 @@ test raise_unknown_type() :=
   end
 
 test raises_binds() :=
-  assert raises Located(None, Pos(1, 1), RaisesVariables(Name(None, "n"))) do
+  assert raises Located(None, Pos(2, 3), RaisesVariables(Name(None, "n"))) do
     call check_text(in "ulang/test/errors/raises-binds.u", List(
       "test binds() :=",
       "  assert raises Some(n) do",
@@ -512,12 +512,12 @@ test test_params() :=
   end
 
 test test_types() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/test-types.u", List("test test_types() :=", "  assert 1"))
   end
 
 test too_many_arguments() :=
-  assert raises Located(None, Pos(4, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(5, 3), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/too-many-arguments.u", List(
       "function g(x: Int): Int :=",
       "  x",
@@ -532,7 +532,7 @@ test unit() :=
   end
 
 test unknown_constructor() :=
-  assert raises Located(None, Pos(1, 1), UnknownConstructor(Name(None, "f"))) do
+  assert raises Located(None, Pos(3, 10), UnknownConstructor(Name(None, "f"))) do
     call check_text(in "ulang/test/errors/unknown-constructor.u", List(
       "function f(): Int :=",
       "  match List()",
@@ -542,7 +542,7 @@ test unknown_constructor() :=
   end
 
 test unknown_field() :=
-  assert raises Located(None, Pos(4, 1), UnknownField(Name(Some("ulang/test/errors/unknown-field"), "Point.z"))) do
+  assert raises Located(None, Pos(5, 25), UnknownField(Name(Some("ulang/test/errors/unknown-field"), "Point.z"))) do
     call check_text(in "ulang/test/errors/unknown-field.u", List(
       "data Point :=",
       "  case Point(x: Int, y: Int)",
@@ -552,7 +552,7 @@ test unknown_field() :=
   end
 
 test unknown_field_update() :=
-  assert raises Located(None, Pos(4, 1), UnknownField(_)) do
+  assert raises Located(None, Pos(5, 27), UnknownField(_)) do
     call check_text(in "ulang/test/errors/unknown-field-update.u", List(
       "data Point :=",
       "  case Point(x: Int, y: Int)",
@@ -562,7 +562,7 @@ test unknown_field_update() :=
   end
 
 test unknown_procedure() :=
-  assert raises Located(None, Pos(1, 1), UnknownProcedure(Name(None, "r"))) do
+  assert raises Located(None, Pos(2, 3), UnknownProcedure(Name(None, "r"))) do
     call check_text(in "ulang/test/errors/unknown-procedure.u", List("procedure q(in x: Int) :=", "  call r(in x)"))
   end
 
@@ -577,6 +577,6 @@ test unknown_sort_generic() :=
   end
 
 test unknown_variable() :=
-  assert raises Located(None, Pos(1, 1), UnknownVariable(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 3), UnknownVariable(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/unknown-variable.u", List("function f(): Int :=", "  x"))
   end

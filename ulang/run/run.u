@@ -299,6 +299,10 @@ function match_into(pat: Pat, v: Val, env: Bindings): Option[Bindings] :=
 
     case (PTuple(_), _) =>
       None
+
+    // the checker drops positions
+    case (PAt(_, inner), _) =>
+      match_into(inner, v, env)
   end
 
 function match_all_into(pats: List[Pat], vs: List[Val], env: Bindings): Option[Bindings] :=
@@ -346,6 +350,10 @@ procedure evaluate(
 
     case EFor(form, _, _, _) =>
       raise UntranslatedForm(form_name(form))
+
+    // the checker drops positions
+    case EAt(_, _) =>
+      raise Unexpected("position")
 
     case ELam(formals, body) =>
       assign v := VFunClos(env, formals, body)
@@ -1036,6 +1044,10 @@ procedure exec(
         case Thrown(value, typ) =>
           call handle(in run, catches, value, typ, ref env, cache)
       end
+
+    // the checker drops positions
+    case SAt(_, _) =>
+      raise Unexpected("position")
   end
 
 procedure exec_all(

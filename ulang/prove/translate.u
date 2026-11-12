@@ -141,7 +141,10 @@ function term_of(env: List[Name], expr: Expr): Term :=
     case EProc(_, _, _, _) =>
       EFun(Name(Some("(procedure)"), show(expr)))
 
-    // the checker translates accesses, updates, and forms, so checked programs have none
+    // the checker translates accesses, updates, and forms, and drops positions, so checked programs have none
+    case EAt(_, _) =>
+      unchecked(expr)
+
     case EField(_, _) =>
       unchecked(expr)
 

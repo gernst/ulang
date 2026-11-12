@@ -130,7 +130,7 @@ test notation_in_implementation() :=
   end
 
 test own_name() :=
-  assert raises Located(None, Pos(6, 1), Ambiguous(Name(None, "helper"), _)) do
+  assert raises Located(None, Pos(7, 10), Ambiguous(Name(None, "helper"), _)) do
     call check_text(in "ulang/test/errors/own-name.u", List(
       "import \"ulang/test/modules/left\"",
       "",
@@ -185,7 +185,7 @@ test pattern_alias_abstract() :=
   end
 
 test private_constructor() :=
-  assert raises Located(None, Pos(3, 1), UnknownVariable(Name(None, "Full"))) do
+  assert raises Located(None, Pos(4, 14), UnknownVariable(Name(None, "Full"))) do
     call check_text(in "ulang/test/errors/private-constructor.u", List(
       "import \"ulang/test/modules/hiding\"",
       "",
@@ -194,7 +194,7 @@ test private_constructor() :=
   end
 
 test private_field() :=
-  assert raises Located(None, Pos(3, 1), UnknownField(_)) do
+  assert raises Located(None, Pos(4, 16), UnknownField(_)) do
     call check_text(in "ulang/test/errors/private-field.u", List(
       "import \"ulang/test/modules/hiding\"",
       "",
@@ -203,7 +203,7 @@ test private_field() :=
   end
 
 test private_name() :=
-  assert raises Located(None, Pos(3, 1), UnknownVariable(Name(None, "secret"))) do
+  assert raises Located(None, Pos(4, 10), UnknownVariable(Name(None, "secret"))) do
     call check_text(in "ulang/test/errors/private-name.u", List(
       "import \"ulang/test/modules/hiding\"",
       "",
@@ -212,7 +212,7 @@ test private_name() :=
   end
 
 test private_pattern() :=
-  assert raises Located(None, Pos(3, 1), UnknownConstructor(Name(None, "Full"))) do
+  assert raises Located(None, Pos(5, 10), UnknownConstructor(Name(None, "Full"))) do
     call check_text(in "ulang/test/errors/private-pattern.u", List(
       "import \"ulang/test/modules/hiding\"",
       "",
@@ -280,7 +280,7 @@ test test_in_export() :=
   end
 
 test transitive_field() :=
-  assert raises Located(None, Pos(3, 1), UnknownField(_)) do
+  assert raises Located(None, Pos(4, 17), UnknownField(_)) do
     call check_text(in "ulang/test/errors/transitive-field.u", List(
       "import \"ulang/test/modules/wrapper\"",
       "",
@@ -289,7 +289,7 @@ test transitive_field() :=
   end
 
 test transitive_name() :=
-  assert raises Located(None, Pos(3, 1), UnknownVariable(Name(None, "twice"))) do
+  assert raises Located(None, Pos(4, 24), UnknownVariable(Name(None, "twice"))) do
     call check_text(in "ulang/test/errors/transitive-name.u", List(
       "import \"ulang/test/modules/wrapper\"",
       "",
@@ -350,7 +350,7 @@ test visible_equality() :=
 
 // a member of a package builds the abstract type of its sibling by its private constructor
 test sibling_constructor() :=
-  assert raises Located(None, Pos(7, 1), UnknownVariable(Name(None, "Box"))) do
+  assert raises Located(None, Pos(8, 3), UnknownVariable(Name(None, "Box"))) do
     call check_texts(in "ulang/test/errors/sibling-constructor", List(
       ("boxes.u", List(
         "export",
@@ -387,7 +387,7 @@ test sibling_constructor() :=
 
 // a member of a package uses the private function of its sibling
 test sibling_private() :=
-  assert raises Located(None, Pos(7, 1), UnknownVariable(Name(None, "secret"))) do
+  assert raises Located(None, Pos(8, 3), UnknownVariable(Name(None, "secret"))) do
     call check_texts(in "ulang/test/errors/sibling-private", List(
       ("secrets.u", List(
         "export",
@@ -422,7 +422,7 @@ test sibling_private() :=
 
 // a program sees two members of its package with functions of the same name and type
 test sibling_ambiguous() :=
-  assert raises Located(None, Pos(1, 1), Ambiguous(Name(None, "twice"), _)) do
+  assert raises Located(None, Pos(2, 27), Ambiguous(Name(None, "twice"), _)) do
     call check_texts(in "ulang/test/errors/sibling-ambiguous", List(
       ("one.u", List(
         "export",
@@ -446,7 +446,7 @@ test sibling_ambiguous() :=
 
 // a program matches by a private pattern alias of a member of its package
 test pattern_alias_private() :=
-  assert raises Located(None, Pos(1, 1), UnknownConstructor(Name(None, "Minus"))) do
+  assert raises Located(None, Pos(3, 10), UnknownConstructor(Name(None, "Minus"))) do
     call check_texts(in "ulang/test/errors/pattern-alias-private", List(
       ("aliases.u", List(
         "export",
@@ -470,7 +470,7 @@ test pattern_alias_private() :=
 
 // a program sees a helper of a member of its package and one of the same name and type of an imported package
 test ambiguous_name() :=
-  assert raises Located(None, Pos(3, 1), Ambiguous(Name(None, "helper"), _)) do
+  assert raises Located(None, Pos(4, 14), Ambiguous(Name(None, "helper"), _)) do
     call check_texts(in "ulang/test/errors/ambiguous-name", List(
       ("right.u", List(
         "export",

@@ -512,6 +512,10 @@ function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
 
     case ETuple(args) =>
       free_in_all(args, bound)
+
+    // the checker drops positions
+    case EAt(_, inner) =>
+      free_vars(inner, bound)
   end
 
 // the variables of x that bound does not bind, including procedures called through variables
@@ -549,6 +553,10 @@ function free_in_stmt(stmt: Stmt, bound: List[Name]): List[Name] :=
 
     case STry(body, catches) =>
       free_in_stmt(body, bound) ++ List(for h in catches for n in free_in_handler(h, bound) yield n)
+
+    // the checker drops positions
+    case SAt(_, inner) =>
+      free_in_stmt(inner, bound)
   end
 
 function free_in_stmt_branch(b: Branch[Stmt], bound: List[Name]): List[Name] :=
@@ -683,6 +691,10 @@ procedure compile_expr(
 
     case EFor(form, _, _, _) =>
       raise UntranslatedForm(form_name(form))
+
+    // the checker drops positions
+    case EAt(_, _) =>
+      raise Unexpected("position")
 
     case EApp(fun, args) =>
       local as: List[CStmt], bs: List[CStmt], ra: CExpr, rs: List[CExpr]
@@ -1324,6 +1336,10 @@ procedure compile_stmt(
       assign bs := bs ++ ps ++ List(
         CsExpr(c_call("u_fail_text", List(CeVar("u_text_assertion_not_raised"), rp))))
       call   compile_try(in defs, env, body, bs, List(Catch("", typ, pat, None, SSkip)), out ss, ref g)
+
+    // the checker drops positions
+    case SAt(_, _) =>
+      raise Unexpected("position")
   end
 
 // the body, compiled to bs, runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if
@@ -1387,6 +1403,10 @@ function changed(stmt: Stmt): List[Name] :=
 
     case SRaise(_, _) =>
       List()
+
+    // the checker drops positions
+    case SAt(_, inner) =>
+      changed(inner)
   end
 
 procedure compile_stmts(
