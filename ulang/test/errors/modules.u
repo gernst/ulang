@@ -245,7 +245,7 @@ test repeated_export() :=
   end
 
 test same_sort_name() :=
-  assert raises Located(None, Pos(6, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(7, 3), Mismatch(_, _, "the result of f")) do
     call check_text(in "ulang/test/errors/same-sort-name.u", List(
       "import \"ulang/test/modules/hiding\"",
       "",

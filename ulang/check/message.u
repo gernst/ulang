@@ -66,6 +66,14 @@ function type_message(e: TypeError): Str :=
     case CannotUnify(left, right) =>
       "cannot unify " ++ join(" and ", format_types_apart(List(left, right)))
 
+    case Mismatch(expected_type, found_type, what) =>
+      match format_types_apart(List(expected_type, found_type))
+        case List(expected, found) =>
+          "expected " ++ expected ++ " but found " ++ found ++ " in " ++ what
+        case _ =>
+          "mismatch in " ++ what
+      end
+
     case InfiniteType(meta, typ) =>
       "infinite type " ++ join(" = ", format_types_apart(List(meta, typ)))
 
@@ -212,6 +220,7 @@ test messages() :=
     (Name(Some("ulang/test/modules/left/left"), "helper"), Scheme(List(), TFun(List(TSort(Name(Some("prelude/prelude"), "Int"), List())), TSort(Name(Some("prelude/prelude"), "Int"), List())))),
     (Name(Some("ulang/test/errors/own-name"), "helper"), Scheme(List(), TFun(List(TSort(Name(Some("prelude/prelude"), "Int"), List())), TSort(Name(Some("prelude/prelude"), "Int"), List())))))))) == "helper is ambiguous: ulang/test/modules/left/left.helper: Int -> Int, ulang/test/errors/own-name.helper: Int -> Int at 6.1"
   assert located_message(Located(None, Pos(1, 1), CannotUnify(TParam("A"), TParam("B")))) == "cannot unify A and B at 1.1"
+  assert type_message(Mismatch(TBool(), TInt(), "the condition of if")) == "expected Bool but found Int in the condition of if"
   assert located_message(Located(None, Pos(4, 1), CountMismatch("procedure p", "ins", 1, 2))) == "procedure p expects 1 ins, got 2 at 4.1"
   assert located_message(Duplicate("declaration", "a")) == "duplicate declaration a"
   assert located_message(Located(None, Pos(4, 1), HiddenLocal(Name(None, "m")))) == "m hides a local of the same name at 4.1"

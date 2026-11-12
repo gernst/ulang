@@ -38,7 +38,7 @@ test assign_twice() :=
   end
 
 test assign_type() :=
-  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 15), Mismatch(_, _, "the assignment")) do
     call check_text(in "ulang/test/errors/assign-type.u", List("procedure p(out x: Int) :=", "  assign x := true"))
   end
 
