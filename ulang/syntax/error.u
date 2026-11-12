@@ -10,6 +10,8 @@ data ErrorKind :=
   case TypeKind
   case FormatKind
   case RuntimeKind
+  // a lemma that its proof leaves open, or a function that it reaches whose termination is not proven
+  case ProofKind
   case InternalKind
 
 function error_kinds(): List[ErrorKind]
@@ -74,7 +76,7 @@ function at_pos(p: Pos): Str
 implementation
 
 function error_kinds(): List[ErrorKind] :=
-  List(ParseKind, TypeKind, FormatKind, RuntimeKind, InternalKind)
+  List(ParseKind, TypeKind, FormatKind, RuntimeKind, ProofKind, InternalKind)
 
 function kind_name(kind: ErrorKind): Str :=
   match kind
@@ -89,6 +91,9 @@ function kind_name(kind: ErrorKind): Str :=
 
     case RuntimeKind =>
       "runtime"
+
+    case ProofKind =>
+      "proof"
 
     case InternalKind =>
       "internal"

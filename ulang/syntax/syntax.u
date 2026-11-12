@@ -129,7 +129,7 @@ data Pat :=
   // a tuple (p, q, …)
   case PTuple(args: List[At[Pat]])
 
-// the proof of a lemma after its contract, see prover.md, section 3: steps that add facts and witnesses, then at most one
+// the proof of a lemma after its contract, see prove.md, section 4: steps that add facts and witnesses, then at most one
 // split, which ends it, since it replaces the goal by its cases, each a proof of its own; without steps and split, the
 // goal must close by simplification
 data Proof :=
@@ -238,7 +238,7 @@ data Cmd :=
   // expands at its uses in patterns, and which is a function of the same name where pat has no _
   case CPatAlias(name: Name, params: List[Id], formals: List[Var], typ: Type, pat: At[Pat])
   // lemma l[A, …](in x: A, …, out y: B, …) := requires a, … ensures b, which states b for all ins that satisfy the
-  // assumptions a, …, for some outs, see prover.md, and which the prover proves, while the interpreter and the compiler
+  // assumptions a, …, for some outs, see prove.md, and which the prover proves, while the interpreter and the compiler
   // skip it
   case CLemma(name: Name, params: List[Id], ins: List[Var], outs: List[Var], assms: List[At[Expr]], concl: At[Expr], proof: Option[Proof])
 

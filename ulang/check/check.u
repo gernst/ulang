@@ -3413,7 +3413,7 @@ procedure declare_pat_aliases(in cs: List[Id * Cmd], ref s: State) :=
     end
   end
 
-// the proof of a lemma over its formals and the locals of the proof, see prover.md, section 3: the steps in their order,
+// the proof of a lemma over its formals and the locals of the proof, see prove.md, section 4: the steps in their order,
 // each adding its local to env, then the split, whose cases are proofs with the variables of their patterns
 procedure check_proof(
   in  formals: List[Var],
@@ -3528,7 +3528,7 @@ procedure proof_split(
   match split
     case SplitInduction(x, cases) =>
       local t: Type, typed_cases: List[Doc[Branch[Proof]]]
-      match List(for f in formals if f.name == x.name and is_datatype_type(s, f.typ) yield f.typ)
+      match List(for f in formals if f.name == x.name and (is_datatype_type(s, f.typ) or zonk_type(s.sub, f.typ) == TInt()) yield f.typ)
         case List(u; _) =>
           assign t := u
 
@@ -3546,22 +3546,26 @@ procedure proof_split(
       assign typed_split := SplitMatch(c, typed_cases)
 
     case SplitIf(cond, left, right) =>
-      local c: At[Expr], l: Proof, r: Option[Proof] := None, inner := env
+      local c: At[Expr], l: Proof, r: Option[Proof] := None, inner := env, other := env
       call check(in env, cond, TBool(), "the condition", out c, ref s)
       call check_proof(in formals, outs, left, out l, ref inner, s)
       match right
         case Some(p) =>
-          local q: Proof, other := env
+          local q: Proof
           call   check_proof(in formals, outs, p, out q, ref other, s)
           assign r := Some(q)
 
         case None =>
           skip
       end
-      assign typed_split := SplitIf(c, l, r)
+      assign typed_split := SplitIf(c, l, r), env := joined(outer_part(inner, env), outer_part(other, env))
   end
 
 // a type of a datatype with constructors, which builtin types such as Int have none of
+// the variables of env in inner, the environment of a block inside, which adds its own in front
+function outer_part(inner: Env, env: Env): Env :=
+  drop(size(inner) - size(env), inner)
+
 function is_datatype_type(s: State, t: Type): Bool :=
   match zonk_type(s.sub, t)
     case TSort(name, _) =>
@@ -3570,7 +3574,8 @@ function is_datatype_type(s: State, t: Type): Bool :=
       false
   end
 
-// the cases of a split, each a proof with the variables of its pattern, from env, which they do not change
+// the cases of a split, each a proof with the variables of its pattern, from env, after which a variable is assigned if
+// every case assigns it, and the cases that are not written count as paths that do not
 procedure proof_cases(
   in  formals: List[Var],
       outs: List[Name],
@@ -3580,7 +3585,7 @@ procedure proof_cases(
   ref env: Env,
       s: State
 ) :=
-  local found: Buffer[Doc[Branch[Proof]]] := empty()
+  local found: Buffer[Doc[Branch[Proof]]] := empty(), after := unreachable(env)
   for Doc(doc, placed) in cases do
     local typed_pat: At[Pat], xs: List[Var], typed_guard: Option[At[Expr]], typed_body: Proof, inner: Env
     call   typed_pattern(in placed.that.pat, t, out typed_pat, xs, ref s)
@@ -3588,9 +3593,13 @@ procedure proof_cases(
     assign inner := bind(xs) ++ env
     call   guard(in inner, placed.that.guard, out typed_guard, ref s)
     call   check_proof(in formals, outs, placed.that.body, out typed_body, ref inner, s)
-    assign found := found ++ List(Doc(doc, AOk(placed.pos, Branch(typed_pat, typed_guard, typed_body))))
+    assign found := found ++ List(Doc(doc, AOk(placed.pos, Branch(typed_pat, typed_guard, typed_body)))), after := joined(after, outer_part(inner, env))
   end
   assign typed_cases := List(for c in found)
+  if not covers_all(s.sig, zonk_type(s.sub, t), List(for c in found if c.at.that.guard == None yield strip_pat(c.at.that.pat).that)) then
+    assign after := joined(after, env)
+  end
+  assign env := after
 
 // lemmas have names of their own, apart from the values, which they may share
 procedure declare_lemmas(in cs: List[Id * Cmd], ref s: State) :=

@@ -15,7 +15,7 @@ data Lemma :=
   case Lemma(name: Name, goal: Seq, proof: Option[ProofTerm])
 
 // a proof over the terms of the prover, whose variables are the formals, the locals, and the variables of the cases
-// around it, as indices, the innermost first, at the position where it starts, see prover.md, section 3
+// around it, as indices, the innermost first, at the position where it starts, see prove.md, section 4
 data ProofTerm :=
   case ProofTerm(steps: List[StepTerm], split: Option[SplitTerm], pos: Pos)
 
@@ -39,10 +39,10 @@ data SplitTerm :=
   case MatchTerm(arg: Term, cases: List[CaseTerm], pos: Pos)
   case IfTerm(cond: Term, left: ProofTerm, right: Option[ProofTerm], pos: Pos)
 
-// a case of a split: its constructor and a variable for each field, wildcards too, which bind in the proof, or None for a
-// catch-all, which binds its variable, if it has one, to the value
+// a case of a split: its constructor and a variable for each field, wildcards too, which bind in the proof, or its
+// literal, or neither for a catch-all, which binds its variable, if it has one, to the value
 data CaseTerm :=
-  case CaseTerm(constr: Option[Name], vars: List[Var], proof: ProofTerm, pos: Pos)
+  case CaseTerm(constr: Option[Name], lit: Option[Lit], vars: List[Var], proof: ProofTerm, pos: Pos)
 
 data Translation :=
   case Translation(decls: Decls, lemmas: List[Lemma])
@@ -200,20 +200,23 @@ function split_term(formals: List[Var], env: List[Name], split: At[Split]): Spli
 // a case, whose pattern is a constructor of variables and wildcards, or a catch-all, without a guard
 function case_term(formals: List[Var], env: List[Name], d: Doc[Branch[Proof]]): CaseTerm :=
   let br := d.at.that, pos := d.at.pos in
-  let unsupported := lambda what => CaseTerm(None, List(), ProofTerm(List(UnsupportedTerm(what, pos)), None, pos), pos) in
+  let unsupported := lambda what => CaseTerm(None, None, List(), ProofTerm(List(UnsupportedTerm(what, pos)), None, pos), pos) in
   if br.guard != None then
     unsupported("a guard of a case of a proof")
   else
     match br.pat.that
       case PApp(constr, args) if forall(args, lambda a => is_variable(a.that)) =>
         let vars := List(for a in args yield field_var(a.that)) in
-        CaseTerm(Some(constr), vars, proof_term(formals, bind(vars, env), br.body, pos), pos)
+        CaseTerm(Some(constr), None, vars, proof_term(formals, bind(vars, env), br.body, pos), pos)
 
       case PVar(x) =>
-        CaseTerm(None, List(x), proof_term(formals, bind(List(x), env), br.body, pos), pos)
+        CaseTerm(None, None, List(x), proof_term(formals, bind(List(x), env), br.body, pos), pos)
 
       case PWild =>
-        CaseTerm(None, List(), proof_term(formals, env, br.body, pos), pos)
+        CaseTerm(None, None, List(), proof_term(formals, env, br.body, pos), pos)
+
+      case PLit(lit) =>
+        CaseTerm(None, Some(lit), List(), proof_term(formals, env, br.body, pos), pos)
 
       case _ =>
         unsupported("a pattern of a case of a proof that is not a constructor of variables")

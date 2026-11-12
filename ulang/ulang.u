@@ -360,7 +360,7 @@ procedure test_unit(
   local passed: Bool
   assign failed := List()
   for file in files_of(unit) do
-    call test_module(in q, sibling(q.main, file), names_of(file, unit), args, label_of(file, found), out passed)
+    call test_module(in q, sibling(q.main, file), file, names_of(file, unit), args, label_of(file, found), out passed)
     if not passed then
       assign failed := failed ++ List(file)
       if size(files_of(found)) > 1 then
@@ -397,6 +397,7 @@ procedure visit_units(
 procedure test_module(
   in  q: Prog,
       m: Id,
+      file: Str,
       names: List[Str],
       args: List[Str],
       label: Str,
@@ -419,7 +420,7 @@ procedure test_module(
   end
   if names == List() then
     local proven: Bool
-    call   prove_module(in q, m, List(), label, out proven)
+    call   prove_module(in q, m, file, List(), label, out proven)
     assign passed := passed and proven
   end
 
@@ -484,39 +485,55 @@ procedure prove_unit(
   local proven: Bool
   assign failed := List()
   for file in files_of(unit) do
-    call prove_module(in q, sibling(q.main, file), names_of(file, unit), label_of(file, found), out proven)
+    call prove_module(in q, sibling(q.main, file), file, names_of(file, unit), label_of(file, found), out proven)
     if not proven then
       assign failed := failed ++ List(file)
     end
   end
 
-// proves the lemmas of the module m of q, all or the named ones, in their order, where those before are facts, printing
-// whether each is proven, the functions that they reach whose termination is not proven, and whether all are proven
+// the lemmas up to the last of the named ones, all if none are named, since those before are the facts of the named ones,
+// while those after are not needed
+function lemmas_upto(lemmas: List[Lemma], names: List[Str]): List[Lemma] :=
+  if names == List() then
+    lemmas
+  else
+    match index_of(true, reverse(List(for l in lemmas yield contains(l.name.base, names))))
+      case Some(i) =>
+        take(size(lemmas) - i, lemmas)
+      case None =>
+        lemmas
+    end
+
+// proves the lemmas of the module m of q, of the file, all or the named ones, in their order, where those before are
+// facts, printing whether each is proven, with an error of a proof for each gap and for each function that they reach
+// whose termination is not proven, and whether all are proven
 procedure prove_module(
   in  q: Prog,
       m: Id,
+      file: Str,
       names: List[Str],
       label: Str,
   out proven: Bool
 ) :=
-  local t := translate(q, m), proofs := prove_lemmas(t.decls, t.lemmas)
+  local t := translate(q, m), proofs := prove_lemmas(t.decls, lemmas_upto(t.lemmas, names))
   assign proven := true
   for n in names if not exists(t.lemmas, lambda l => l.name.base == n) do
     call   os_println(in label ++ error_text(RuntimeKind, "there is no lemma " ++ n))
     assign proven := false
   end
   for site in List(for tm in proofs.terminations for s in take(1, tm.open) yield s) do
-    call   os_println(in label ++ "termination of " ++ first(site.caller).base ++ " open: " ++ print_open_call(site))
+    call   os_println(in format_diagnostic(file, termination_diagnostic(m, site)))
     assign proven := false
   end
   for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) do
     if gaps == List() then
       call os_println(in label ++ "lemma " ++ name.base ++ " proved")
     else
-      for gap in gaps do
-        call os_println(in label ++ "lemma " ++ name.base ++ " open: " ++ print_gap(gap))
-      end
+      call   os_println(in label ++ "lemma " ++ name.base ++ " open")
       assign proven := false
+      for gap in gaps do
+        call os_println(in format_diagnostic(file, gap_diagnostic(name, gap)))
+      end
     end
   end
 

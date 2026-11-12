@@ -33,7 +33,7 @@ test less_by_two() :=
   end
 
 test integer_infeasible() :=
-  assert raises OpenLemma("integer_infeasible", "forall x, y => (not (11 * x + 13 * y) < 27) and (not 45 < (11 * x + 13 * y)) and (not (7 * x - 9 * y) < (-10)) and (not 4 < (7 * x - 9 * y)) ==> false") do
+  assert raises OpenLemma("integer_infeasible", "forall x, y => 27 <= (11 * x + 13 * y) and (11 * x + 13 * y) <= 45 and (-10) <= (7 * x - 9 * y) and (7 * x - 9 * y) <= 4 ==> false") do
     call prove_text(in "ulang/test/errors/integer-infeasible.u", List(
       "lemma integer_infeasible(in x: Int, y: Int) :=",
       "  requires 27 <= 11 * x + 13 * y, 11 * x + 13 * y <= 45, (-10) <= 7 * x - 9 * y, 7 * x - 9 * y <= 4",
@@ -42,13 +42,13 @@ test integer_infeasible() :=
 
 // equal sets of different shapes, which would be refuted as distinct constructors if those of abstract types were free
 test abstract_constructors() :=
-  assert raises OpenLemma("abstract_constructors", "not Node(Node(Leaf, 1, Leaf, 1), 2, Leaf, 2) == Node(Leaf, 1, Node(Leaf, 2, Leaf, 1), 2)") do
+  assert raises OpenLemma("abstract_constructors", "Node(Node(Leaf, 1, Leaf, 1), 2, Leaf, 2) != Node(Leaf, 1, Node(Leaf, 2, Leaf, 1), 2)") do
     call prove_text(in "ulang/test/errors/abstract-constructors.u", List("lemma abstract_constructors() :=", "  ensures Set(1, 2) != Set(2, 1)"))
   end
 
 // the recursive functions of the library whose termination the prover does not prove: distinct recurses on a
 // comprehension, sort on take and drop of half its list, and separated on joined_pairs, which need lemmas of their
-// sizes, gcd on a remainder, which needs its bounds (prover.md, D6), and list_count and list_values of
+// sizes, gcd on a remainder, which needs its bounds (prove.md, section 7, D6), and list_count and list_values of
 // ulang/prelude/enumerate.u count n down to n == 0, so they do not terminate for a negative n
 test library_terminates() :=
   local main: Id, q: Prog, open: List[Str] := List()
@@ -151,4 +151,16 @@ test proof_false_witness() :=
       "lemma false_witness(in x: Int, out y: Int) :=",
       "  ensures y == x + 1",
       "  assign y := x"))
+  end
+
+// induction on an integer without the requires that n >= 0 leaves the case n < 0
+test proof_int_negative() :=
+  assert raises OpenLemma("replicate_any", "forall n, x => n < 0 ==> false at 3.3") do
+    call prove_text(in "ulang/test/errors/proof-int-negative.u", List(
+      "lemma replicate_any(in n: Int, x: Int) :=",
+      "  ensures size(replicate(n, x)) == n",
+      "  induction n",
+      "    case _ =>",
+      "      call replicate_any(in n - 1, x)",
+      "  end"))
   end

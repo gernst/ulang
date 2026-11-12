@@ -778,7 +778,22 @@ function args_of(e: Term): List[Term] :=
   end
 
 function infix_ops(): List[Id] :=
-  List("==>", "or", "and", "==", "<", "++", "+", "-", "*", "/", "%")
+  List(
+    "==>",
+    "or",
+    "and",
+    "==",
+    "!=",
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "++",
+    "+",
+    "-",
+    "*",
+    "/",
+    "%")
 
 function print_term(names: List[Id], e: Term): Str :=
   print_in(names, List(), e)

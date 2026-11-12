@@ -25,8 +25,15 @@ function has_errors(proofs: Proofs): Bool
 // a call that no measure of the termination of its function decreases, as the call and the conditions before it
 function print_open_call(site: CallSite): Str
 
-// a gap as text, with its position if it has one
+// a gap as text, its goal if it has one, else its message, with its position if it has one
 function print_gap(gap: Gap): Str
+
+// a gap of the lemma as an error of a proof
+function gap_diagnostic(name: Name, gap: Gap): Diagnostic
+
+// a function whose termination is not proven, of module m, the main module of the run, as an error of a proof, at its
+// call that no measure decreases
+function termination_diagnostic(m: Id, site: CallSite): Diagnostic
 
 // a lemma that its proof leaves open, with its first gap as print_gap writes it
 data OpenLemma :=
@@ -117,16 +124,34 @@ function proofs(decls: Decls, lemmas: List[Lemma], proven: List[Lemma]): List[Pr
 
 function default_gaps(decls: Decls, facts: List[Seq], goal: Seq): List[Gap] :=
   let after := default_proof(decls, facts, goal) in
-  if after == true_seq() then List() else List(Gap(Pos(0, 0), print_seq(after)))
+  if after == true_seq() then
+    List()
+  else
+    List(
+      Gap(Pos(0, 0), "OpenLemma", "the default proof leaves the goal open", Some(print_seq(printable(decls, after)))))
 
 function is_proven(proved: Proved): Bool :=
   proved.gaps == List()
 
 function print_gap(gap: Gap): Str :=
+  let text := value_or(gap.goal, gap.message) in
   if gap.pos == Pos(0, 0) then
-    gap.text
+    text
   else
-    gap.text ++ " at " ++ show(gap.pos.line) ++ "." ++ show(gap.pos.col)
+    text ++ " at " ++ show(gap.pos.line) ++ "." ++ show(gap.pos.col)
+
+function gap_diagnostic(name: Name, gap: Gap): Diagnostic :=
+  let message := "lemma " ++ name.base ++ ": " ++ gap.message ++ match gap.goal
+    case Some(goal) =>
+      ", " ++ goal
+    case None =>
+      ""
+  end in
+  Diagnostic(ProofKind, gap.code, None, gap.pos, message, List(("lemma", name.base)) ++ List(for goal in gap.goal yield ("goal", goal)))
+
+function termination_diagnostic(m: Id, site: CallSite): Diagnostic :=
+  let f := first(site.caller), call_text := print_open_call(site) in
+  Diagnostic(ProofKind, "OpenTermination", if f.module == Some(m) then None else f.module, Pos(0, 0), "the termination of " ++ f.base ++ " is not proven, no measure decreases " ++ call_text, List(("function", f.base), ("call", call_text)))
 
 // the goal with the facts as assumptions, which are closed, so that they stay valid under its binders
 function with_facts(goal: Seq, facts: List[Seq]): Seq :=

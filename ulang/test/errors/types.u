@@ -828,8 +828,8 @@ test proof_unknown_lemma() :=
   end
 
 test proof_not_inducible() :=
-  assert raises Located(None, Pos(3, 3), NotInducible(Name(None, "n"))) do
-    call check_text(in "ulang/test/errors/proof-not-inducible.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  induction n", "  end"))
+  assert raises Located(None, Pos(3, 3), NotInducible(Name(None, "b"))) do
+    call check_text(in "ulang/test/errors/proof-not-inducible.u", List("lemma a(in b: Bool) :=", "  ensures b == b", "  induction b", "  end"))
   end
 
 test proof_call_argument() :=
@@ -857,4 +857,14 @@ test proof_out_unassigned() :=
       "lemma a(in x: Int, out y: Int) :=",
       "  ensures y == x",
       "  assert x == x"))
+  end
+
+test proof_out_one_branch() :=
+  assert raises Located(None, Pos(1, 1), OutputUnassigned(Name(None, "y"), Name(Some("ulang/test/errors/proof-out-one-branch"), "half"))) do
+    call check_text(in "ulang/test/errors/proof-out-one-branch.u", List(
+      "lemma half(in x: Int, out y: Int) :=",
+      "  ensures y >= 0",
+      "  if x < 0 then",
+      "    assign y := 0",
+      "  end"))
   end
