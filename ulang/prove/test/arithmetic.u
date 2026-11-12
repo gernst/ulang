@@ -79,3 +79,19 @@ lemma remainder_sign(m: Int) :=
 lemma remainder_negative(m: Int) :=
   requires m < 0
   ensures  m % 3 <= 0
+
+// by products distributed into sums of monomials, whose atoms are ordered, and squares at least 0
+lemma square_nonnegative(x: Int) :=
+  ensures x * x >= 0
+
+lemma distributive(x: Int, y: Int, z: Int) :=
+  ensures x * (y + z) == x * y + x * z
+
+lemma associative(x: Int, y: Int, z: Int) :=
+  ensures x * y * z == x * (y * z)
+
+lemma difference_of_squares(x: Int, y: Int) :=
+  ensures (x + y) * (x - y) == x * x - y * y
+
+lemma binomial(x: Int) :=
+  ensures (x + 1) * (x + 1) == x * x + 2 * x + 1

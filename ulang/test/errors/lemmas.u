@@ -32,18 +32,6 @@ test less_by_two() :=
       "  ensures  b < a + 2"))
   end
 
-test square_nonnegative() :=
-  assert raises OpenLemma("square_nonnegative", "forall x => (x * x) < 0 ==> false") do
-    call prove_text(in "ulang/test/errors/square-nonnegative.u", List("lemma square_nonnegative(x: Int) :=", "  ensures x * x >= 0"))
-  end
-
-test distributive() :=
-  assert raises OpenLemma("distributive", "forall x, y, z => (x * (y + z)) == ((x * y) + (x * z))") do
-    call prove_text(in "ulang/test/errors/distributive.u", List(
-      "lemma distributive(x: Int, y: Int, z: Int) :=",
-      "  ensures x * (y + z) == x * y + x * z"))
-  end
-
 test integer_infeasible() :=
   assert raises OpenLemma("integer_infeasible", "forall x, y => (not (11 * x + 13 * y) < 27) and (not 45 < (11 * x + 13 * y)) and (not (7 * x - 9 * y) < (-10)) and (not 4 < (7 * x - 9 * y)) ==> false") do
     call prove_text(in "ulang/test/errors/integer-infeasible.u", List(
@@ -108,4 +96,10 @@ test vacuous() :=
 test remainder_unsigned() :=
   assert raises OpenLemma("remainder_unsigned", "forall m => (m % 3) < 0 ==> false") do
     call prove_text(in "ulang/test/errors/remainder-unsigned.u", List("lemma remainder_unsigned(m: Int) :=", "  ensures m % 3 >= 0"))
+  end
+
+// only squares are at least 0
+test product_unsigned() :=
+  assert raises OpenLemma("product_unsigned", "forall x, y => (x * y) < 0 ==> false") do
+    call prove_text(in "ulang/test/errors/product-unsigned.u", List("lemma product_unsigned(x: Int, y: Int) :=", "  ensures x * y >= 0"))
   end

@@ -813,7 +813,7 @@ function is_entailed(ctx: Ctx, t: Lin): Bool :=
 // p - q that binds all variables of the rule
 function bounds(ctx: Ctx, t: Lin): List[Lin] :=
   let atoms := List(for summand in t.summands yield summand.term) ++ List(for l in ctx.ineqs for summand in l.summands yield summand.term) in
-  List(for a in atoms for r in ctx.rules for b in bound_of(r, a) yield b) ++ List(for a in atoms if is_size(a) yield Lin(0, List(Summand(a, 1)))) ++ List(for a in atoms for b in field_bound(a) yield b) ++ List(for a in atoms for b in division_bounds(ctx, a) yield b)
+  List(for a in atoms for r in ctx.rules for b in bound_of(r, a) yield b) ++ List(for a in atoms if is_size(a) or is_square(a) yield Lin(0, List(Summand(a, 1)))) ++ List(for a in atoms for b in field_bound(a) yield b) ++ List(for a in atoms for b in division_bounds(ctx, a) yield b)
 
 // for m / k or m % k with a literal k other than 0, with q = m / k and r = m % k: m == k * q + r as two inequalities,
 // -|k| < r < |k|, and, since / truncates towards zero, 0 <= r where m >= 0 and r <= 0 where m <= 0 follow from the
@@ -1036,10 +1036,7 @@ function simp_builtin(ctx: Ctx, e: Term): Option[Term] :=
       Some(rewrite(ctx, sum_term(lin_scale(num, lin_of(a)))))
 
     case Times(a, b) =>
-      match ordered(a, b)
-        case (x, y) =>
-          Some(rewrite(ctx, Times(x, y)))
-      end
+      Some(ring_product(ctx, a, b))
 
     case Div(ELit(LInt(m)), ELit(LInt(n))) if n != 0 =>
       Some(int_term(m / n))
@@ -1108,6 +1105,43 @@ function simp_builtin(ctx: Ctx, e: Term): Option[Term] :=
 
     case _ =>
       None
+  end
+
+// the product of two terms, distributed over their sums into a sum of monomials, each the product of its atoms in the
+// order of compare, nested to the left, so that products are equal where they are equal in a commutative ring
+function ring_product(ctx: Ctx, a: Term, b: Term): Term :=
+  let la := lin_of(a), lb := lin_of(b) in
+  let constants := lin_add(lin_scale(la.k, Lin(0, lb.summands)), lin_add(lin_scale(lb.k, Lin(0, la.summands)), Lin(la.k * lb.k, List()))) in
+  let products := List(for s in la.summands for t in lb.summands yield lin_scale(s.factor * t.factor, lin_of(rewrite(ctx, monomial(factors(s.term) ++ factors(t.term)))))) in
+  sum_term(foldl(products, constants, lambda acc, p => lin_add(acc, p)))
+
+function factors(t: Term): List[Term] :=
+  match t
+    case Times(x, y) =>
+      factors(x) ++ factors(y)
+    case _ =>
+      List(t)
+  end
+
+function monomial(fs: List[Term]): Term :=
+  match sort(fs)
+    case List(f; rest) =>
+      foldl(rest, f, lambda acc, g => Times(acc, g))
+
+    // factors give at least one
+    case List() =>
+      int_term(1)
+  end
+
+// a monomial in which every atom occurs an even number of times, which is at least 0
+function is_square(t: Term): Bool :=
+  match t
+    case Times(_, _) =>
+      let fs := factors(t) in
+      forall(fs, lambda f => size(List(for g in fs if g == f)) % 2 == 0)
+
+    case _ =>
+      false
   end
 
 function simp_not(ctx: Ctx, a: Term): Term :=
