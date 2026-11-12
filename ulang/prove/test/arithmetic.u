@@ -95,3 +95,25 @@ lemma difference_of_squares(in x: Int, y: Int) :=
 
 lemma binomial(in x: Int) :=
   ensures (x + 1) * (x + 1) == x * x + 2 * x + 1
+
+// by the facts of division by a variable divisor, which the sign of the divisor bounds, as the literal one does
+lemma remainder_below(in m: Int, n: Int) :=
+  requires n > 0
+  ensures  m % n < n
+
+lemma remainder_above(in m: Int, n: Int) :=
+  requires n < 0
+  ensures  n < m % n
+
+// the sign of the remainder by that of the dividend, where the divisor is only known not to be 0
+lemma remainder_of_nonnegative(in m: Int, n: Int) :=
+  requires m >= 0, n != 0
+  ensures  m % n >= 0
+
+lemma quotient_and_remainder(in m: Int, n: Int) :=
+  requires n != 0
+  ensures  n * (m / n) + m % n == m
+
+// gcd unfolds, since it terminates by the absolute value of its divisor
+lemma gcd_zero(in a: Int) :=
+  ensures gcd(a, 0) == abs(a)
