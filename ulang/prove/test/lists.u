@@ -66,3 +66,7 @@ lemma identity_comprehension(xs: List[Int]) :=
 lemma excluded_constructor(xs: List[Int]) :=
   requires xs != List()
   ensures  take(1, xs) ++ drop(1, xs) == xs
+
+// by the equations of range, beyond the depth of 64 unfoldings of before
+lemma evaluation_deep() :=
+  ensures size(range(0, 100)) == 100

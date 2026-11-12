@@ -30,7 +30,22 @@ procedure prove_program(in q: Prog, m: Id) raises OpenLemma :=
   end
 
 function prove_lemmas(decls: Decls, lemmas: List[Lemma]): List[Proved] :=
-  proofs(decls, lemmas, List())
+  let roots := Set(for l in lemmas for k in defined_in(decls, l.goal) yield k) in
+  let proven := Set(for t in terminations(decls, roots) if is_terminating(t) for k in t.names yield k) in
+  proofs(decls with terminating := proven, lemmas, List())
+
+// the definitions that the sequent names, by name and arity, where a name without arguments names all its arities
+function defined_in(decls: Decls, s: Seq): List[Name * Int] :=
+  let symbols := seq_symbols(s) in
+  List(for (n, k) => _ in decls.defs if contains((n, k), symbols) or contains((n, -1), symbols) yield (n, k))
+
+function seq_symbols(s: Seq): Set[Name * Int] :=
+  match s
+    case Atom(term) =>
+      symbols_in(term)
+    case Seq(_, assms, concls) =>
+      Set(for a in assms for k in seq_symbols(a) yield k) ++ Set(for c in concls for b in c.body for k in seq_symbols(b) yield k)
+  end
 
 function proofs(decls: Decls, lemmas: List[Lemma], facts: List[Seq]): List[Proved] :=
   match lemmas

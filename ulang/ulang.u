@@ -243,7 +243,7 @@ function description(command: Str): Str :=
       "checks the files, also below directories, by default the project"
 
     case "prove" =>
-      "proves the lemmas of the files, all or the named ones, also below directories, by default the project; functions are\n" ++ "not yet checked to terminate, so a lemma about one that does not may be proven falsely"
+      "proves the lemmas of the files, all or the named ones, also below directories, by default the project, where a\n" ++ "recursive function unfolds only if the prover proves that it terminates"
 
     case "format" =>
       "rewrites the files, also below directories, by default the project, as format_program writes them; with --check, it\n" ++ "only reports the files that differ"

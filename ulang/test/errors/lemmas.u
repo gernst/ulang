@@ -91,11 +91,6 @@ test boolean_below_true() :=
       "  ensures  b == false"))
   end
 
-test deep_evaluation() :=
-  assert raises OpenLemma("deep_evaluation", "(size([65; [66; [67; [68; [69; [70; [71; [72; [73; [74; [75; [76; [77; [78; [79; [80; [81; [82; [83; [84; [85; [86; [87; [88; [89; [90; [91; [92; [93; [94; [95; [96; [97; [98; [99; []]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]) + 65) == 100") do
-    call prove_text(in "ulang/test/errors/deep-evaluation.u", List("lemma deep_evaluation() :=", "  ensures size(range(0, 100)) == 100"))
-  end
-
 // equal sets of different shapes, which would be refuted as distinct constructors if those of abstract types were free
 test abstract_constructors() :=
   assert raises OpenLemma("abstract_constructors", "not Node(Node(Leaf, 1, Leaf, 1), 2, Leaf, 2) == Node(Leaf, 1, Node(Leaf, 2, Leaf, 1), 2)") do
@@ -129,3 +124,14 @@ test terminations_of_program() :=
       assign open := List(for t in ts if not is_terminating(t) for (n, _) in t.names yield n.base), proven := List(for t in ts if is_terminating(t) for (n, _) in t.names yield n.base)
   end
   assert open == List("loop") and proven == List("down")
+
+// a function whose termination is not proven stays uninterpreted, though the if of its body is decided
+test nonterminating_uninterpreted() :=
+  assert raises OpenLemma("loop_zero", "loop(0) == 0") do
+    call prove_text(in "ulang/test/errors/nonterminating-uninterpreted.u", List(
+      "function loop(x: Int): Int :=",
+      "  if x == x then loop(x) + 1 else 0",
+      "",
+      "lemma loop_zero() :=",
+      "  ensures loop(0) == 0"))
+  end

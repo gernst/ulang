@@ -61,7 +61,7 @@ data Limits :=
   case Limits(merges: Int, probe_merges: Int, probes: Int, splits: Int, unfolds: Int, eliminations: Int, constraints: Int, rounds: Int, nodes: Int)
 
 function limits(): Limits :=
-  Limits(20, 5, 2, 3, 64, 20, 60, 3, 400)
+  Limits(20, 5, 2, 3, 256, 20, 60, 3, 400)
 
 // the variables of the opened sequents, the last one first, such that level l is at depth - 1 - l, the e-graph of the
 // ground equations, the inequalities t >= 0, the rules, whether the facts are inconsistent, and
@@ -909,7 +909,7 @@ function simp_term(ctx: Ctx, e: Term): Term :=
     case EFun(name) =>
       match get((name, 0), ctx.decls.defs)
         case Some(d) =>
-          unfold(ctx, e, d, List())
+          unfold(ctx, (name, 0), e, d, List())
         case None =>
           rewrite(ctx, e)
       end
@@ -957,7 +957,7 @@ function simp_app(ctx: Ctx, f: Term, args: List[Term]): Term :=
         case None =>
           match get((name, size(args)), ctx.decls.defs)
             case Some(d) =>
-              unfold(ctx, EApp(f, args), d, args)
+              unfold(ctx, (name, size(args)), EApp(f, args), d, args)
             case None =>
               rewrite(ctx, EApp(f, args))
           end
@@ -1207,40 +1207,97 @@ function simp_compare(ctx: Ctx, a: Term, b: Term): Term :=
       end
   end
 
-// the application of a function to its arguments, unfolded always if it is not recursive, and else where the match or
-// if of its body is decided, which terminates since functions do
-function unfold(ctx: Ctx, t: Term, d: Def, args: List[Term]): Term :=
+// the application of a function to its arguments, unfolded always if it is not recursive, and else, if its termination
+// is proven, by the first of its equations that matches modulo the e-graph and whose conditions hold, or where the match
+// or if of its body is decided, which leaves the conditions that the equations do not decide for splits, while a
+// recursive function whose termination is not proven stays uninterpreted, since unfolding it could prove false
+function unfold(ctx: Ctx, key: Name * Int, t: Term, d: Def, args: List[Term]): Term :=
   if size(d.formals) != size(args) or ctx.unfolds > limits().unfolds then
     rewrite(ctx, t)
   else
-    let body := beta(args, d.body), inner := ctx with unfolds := ctx.unfolds + 1 in
+    let inner := ctx with unfolds := ctx.unfolds + 1 in
     if not d.recursive then
-      simp_term(inner, body)
+      simp_term(inner, beta(args, d.body))
+    else if not contains(key, ctx.decls.terminating) then
+      rewrite(ctx, t)
     else
-      match body
-        case EMatch(expr, cases) =>
-          match select(inner, simp_term(inner, expr), cases)
-            case Some(b) =>
-              simp_term(inner, b)
+      match first_equation(inner, key, t, d.equations)
+        case Some(u) =>
+          u
+
+        case None =>
+          match decided_body(inner, beta(args, d.body))
+            case Some(u) =>
+              u
             case None =>
               rewrite(ctx, t)
           end
+      end
 
-        case EIte(cond, then_expr, else_expr) =>
-          match simp_term(inner, cond)
-            case ELit(LBool(true)) =>
-              simp_term(inner, then_expr)
+function first_equation(inner: Ctx, key: Name * Int, t: Term, eqs: List[DefEquation]): Option[Term] :=
+  match eqs
+    case List() =>
+      None
 
-            case ELit(LBool(false)) =>
-              simp_term(inner, else_expr)
+    case List(eq; rest) =>
+      let n := size(eq.vars), lhs := if eq.args == List() then
+        EFun(first(key))
+      else
+        EApp(EFun(first(key)), eq.args) in
+      let (g, c) := add_term(inner.graph, t) in
+      let candidates := List(for sub in ematch(g, n, lhs, c, empty()) for args in extract_args(inner.decls, g, n, sub) yield args) in
+      match equation_instance(inner, eq, candidates)
+        case Some(u) =>
+          Some(u)
+        case None =>
+          first_equation(inner, key, t, rest)
+      end
+  end
 
-            case _ =>
-              rewrite(ctx, t)
-          end
+// the right side of the equation at the first instance whose conditions hold, where a decided one only where its match
+// or if is decided
+function equation_instance(inner: Ctx, eq: DefEquation, candidates: List[List[Term]]): Option[Term] :=
+  match candidates
+    case List() =>
+      None
+
+    case List(args; rest) =>
+      if forall(eq.conds, lambda c => simp_seq(inner, Atom(beta(args, c))) == true_seq()) then
+        let body := beta(args, eq.rhs) in
+        if eq.decided then
+          decided_body(inner, body)
+        else
+          Some(simp_term(inner, body))
+      else
+        equation_instance(inner, eq, rest)
+  end
+
+// the branch of the match or if at the top of body, simplified, if its argument or condition decides it
+function decided_body(inner: Ctx, body: Term): Option[Term] :=
+  match body
+    case EMatch(expr, cases) =>
+      match select(inner, simp_term(inner, expr), cases)
+        case Some(b) =>
+          Some(simp_term(inner, b))
+        case None =>
+          None
+      end
+
+    case EIte(cond, then_expr, else_expr) =>
+      match simp_term(inner, cond)
+        case ELit(LBool(true)) =>
+          Some(simp_term(inner, then_expr))
+
+        case ELit(LBool(false)) =>
+          Some(simp_term(inner, else_expr))
 
         case _ =>
-          rewrite(ctx, t)
+          None
       end
+
+    case _ =>
+      None
+  end
 
 // the body of the first branch that matches t, with the values of its variables, or None if that is not decided
 function select(ctx: Ctx, t: Term, bs: List[TermBranch]): Option[Term] :=

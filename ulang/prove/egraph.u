@@ -101,6 +101,10 @@ function shape(t: Term): Head * List[Term] :=
     case EFun(name) =>
       (HFun(name), List())
 
+    // a symbol applied to no arguments, as the checker writes a call of a function without parameters, is the symbol
+    case EApp(EFun(name), List()) =>
+      (HFun(name), List())
+
     case EApp(EFun(name), args) =>
       (HApp(name), args)
 

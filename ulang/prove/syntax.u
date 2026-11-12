@@ -54,9 +54,10 @@ data ConstrDecl :=
 // constructors, the datatypes with their constructors in order, and the rank of each symbol in the order of
 // declarations, the precedence of the term order, the abstract types, whose constructors are a representation that
 // == need not respect, so that they are neither injective nor distinct, and the datatypes that are not ordered by
-// their structure, the abstract types and those with a declared compare
+// their structure, the abstract types and those with a declared compare, and the recursive functions whose termination
+// is proven, the only recursive ones that unfold
 data Decls :=
-  case Decls(defs: Map[Name * Int, Def], constrs: Map[Name, ConstrDecl], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int], abstracts: Set[Name], ordered: Set[Name])
+  case Decls(defs: Map[Name * Int, Def], constrs: Map[Name, ConstrDecl], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int], abstracts: Set[Name], ordered: Set[Name], terminating: Set[Name * Int])
 
 data Rebind :=
   // the count outermost binders at depth become the levels from depth on
@@ -184,7 +185,7 @@ function int_term(n: Int): Term :=
   ELit(LInt(n))
 
 function empty_decls(): Decls :=
-  Decls(empty(), empty(), empty(), empty(), empty(), empty())
+  Decls(empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
 function is_constr(decls: Decls, f: Name): Bool :=
   contains(f, decls.constrs)
