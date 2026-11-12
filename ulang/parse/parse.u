@@ -2228,7 +2228,7 @@ procedure parse_spec(
 ) :=
   local found: Buffer[At[Example]] := empty()
   while at_kw(toks, "example") do
-    local x: Example, pos: Pos := head_pos(toks), own: Tokens := example_tokens(toks, pos)
+    local x: Example, pos: Pos := head_pos(toks), own: Tokens := example_tokens(notation, toks)
     assign toks := drop(size(own), toks)
     assign own := own ++ List((head_pos(toks), TEnd))
     call   advance(ref own)
@@ -2244,15 +2244,43 @@ procedure parse_spec(
   end
   assign spec := Spec(List(for x in found))
 
-// the tokens of the example at pos: up to the first token on a later line that is not indented deeper, the next example
-// or the body, which may start with what would continue the expression of the example, e.g. ( or -
-function example_tokens(toks: Tokens, pos: Pos): Tokens :=
+// the tokens of the example at the start of toks, up to the first token on a later line outside brackets after a token
+// that ends an expression, the next example or the body, which may start with what would continue the expression of the
+// example, e.g. ( or -, while an example that format breaks continues inside brackets or after an operator or in
+function example_tokens(notation: Notation, toks: Tokens): Tokens :=
   match toks
-    case List((p, tok); more) if p.line == pos.line or p.col > pos.col =>
-      List((p, tok); example_tokens(more, pos))
+    case List((p, tok); more) =>
+      List((p, tok); example_rest(notation, more, p.line, tok, 0))
+    case List() =>
+      List()
+  end
+
+function example_rest(notation: Notation, toks: Tokens, line: Int, prev: Token, depth: Int): Tokens :=
+  match toks
+    case List((p, tok); more) if tok != TEnd and (p.line == line or depth > 0 or not ends_example_line(notation, prev)) =>
+      List(
+        (p, tok); example_rest(notation, more, p.line, tok, depth + bracket_change(tok)))
+
     case _ =>
       List()
   end
+
+// whether an example may end after tok at the end of a line, which ends an expression and is no operator
+function ends_example_line(notation: Notation, tok: Token): Bool :=
+  match tok
+    case TName(name) =>
+      not is_operator(notation, name)
+    case _ =>
+      ends_expr(tok)
+  end
+
+function bracket_change(tok: Token): Int :=
+  if tok == TKw("(") or tok == TKw("[") then
+    1
+  else if tok == TKw(")") or tok == TKw("]") then
+    -1
+  else
+    0
 
 // e or e raises p, after example
 procedure parse_fun_example(
@@ -2682,21 +2710,21 @@ procedure lex_member(in id: Id, text: Str, main: Bool, out toks: Tokens) :=
   end
 
 // the notation of the commands of the export section of the tokens of a module, read before the module is parsed, of the
-// notation commands at the start of a line, which parse without notation, where those that do not parse are left to the
-// parse of the module
+// notation commands, whose keywords occur only at commands, which parse without notation, where those that do not parse
+// are left to the parse of the module
 procedure exported_ops(in toks: Tokens, out notation: Notation) :=
   local rest := toks, inside := false
   assign notation := empty_notation()
   while head_token(rest) != TEnd do
-    match (head_pos(rest).col, head_token(rest))
-      case (1, TKw("export")) =>
+    match head_token(rest)
+      case TKw("export") =>
         assign inside := true
         call   advance(ref rest)
 
-      case (1, TKw(kw)) if contains(kw, List("builtin", "implementation")) =>
+      case TKw(kw) if contains(kw, List("builtin", "implementation")) =>
         assign rest := List()
 
-      case (1, TKw(kw)) if inside and contains(kw, List("prefix", "postfix", "infix")) =>
+      case TKw(kw) if inside and contains(kw, List("prefix", "postfix", "infix")) =>
         local cmd: Cmd
         try
           call   parse_notation(in empty_notation(), out cmd, ref rest)
