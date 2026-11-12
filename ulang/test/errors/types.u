@@ -783,3 +783,13 @@ test proof_out_unassigned() :=
       "  ensures y == x",
       "  assert x == x"))
   end
+
+test proof_out_one_branch() :=
+  assert raises Located(None, Pos(1, 1), OutputUnassigned(Name(None, "y"), Name(Some("ulang/test/errors/proof-out-one-branch"), "half"))) do
+    call check_text(in "ulang/test/errors/proof-out-one-branch.u", List(
+      "lemma half(in x: Int, out y: Int) :=",
+      "  ensures y >= 0",
+      "  if x < 0 then",
+      "    assign y := 0",
+      "  end"))
+  end

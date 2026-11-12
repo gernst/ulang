@@ -69,3 +69,26 @@ lemma remainder_of_halves(in m: Int) :=
   local q: Int, r: Int
   call halves(in m, out q, r)
   assert r < 2
+
+lemma size_positive[A](in xs: List[A]) :=
+  ensures size(xs) >= 0
+
+// outs assigned in every case of a split
+lemma absolute_witness(in x: Int, out y: Int) :=
+  ensures y >= 0 and (y == x or y == 0 - x)
+  if x < 0 then
+    assign y := 0 - x
+  else
+    assign y := x
+  end
+
+lemma size_witness(in xs: List[Int], out n: Int) :=
+  ensures n >= 0
+  match xs
+    case List() =>
+      assign n := 0
+
+    case List(_; rest) =>
+      assign n := size(rest)
+      call   size_positive(in rest)
+  end

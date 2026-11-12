@@ -223,7 +223,8 @@ function constr_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, 
       let inner := scope with vars := scope.vars ++ decl.fields, facts := scope.facts ++ List(Atom(Eq(value, constr_value))) ++ hypotheses, around := map_option(formal, lambda p => Around(p, recursive)) in
       match List(for case_term in cases if case_term.constr == Some(c) yield case_term) ++ List(for case_term in cases if case_term.constr == None yield case_term)
         case List(CaseTerm(Some(_), vars, proof, _); _) =>
-          block_gaps(w, inner with vars := scope.vars ++ vars, env := reverse(range(k, k + n)) ++ scope.env, proof)
+          let named := List(for (x, f) in zip(vars, decl.fields) yield if x.name == Name(None, "(field)") then f else x) in
+          block_gaps(w, inner with vars := scope.vars ++ named, env := reverse(range(k, k + n)) ++ scope.env, proof)
 
         case List(case_term; _) =>
           catch_all_gaps(w, inner, case_term, constr_value)
