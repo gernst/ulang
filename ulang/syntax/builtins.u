@@ -52,6 +52,10 @@ function unordered_name(): Name
 
 function incomparable_name(): Name
 
+// the exceptions of builtin functions and accessors, which no raises counts, since they are defects of the program, such
+// as a division by zero, that requires of functions will rule out
+function unchecked_exceptions(): List[Name]
+
 function list_foldr_name(): Name
 
 function array_name(): Name
@@ -89,6 +93,15 @@ function incomparable_name(): Name :=
   library_name("prelude", "Incomparable")
 
 // the builtins of lists and arrays that comprehensions use
+function unchecked_exceptions(): List[Name] :=
+  List(
+    division_by_zero_name(),
+    out_of_bounds_name(),
+    no_character_name(),
+    missing_field_name(),
+    unordered_name(),
+    incomparable_name())
+
 function list_foldr_name(): Name :=
   library_name("list", "foldr")
 

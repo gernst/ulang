@@ -19,11 +19,11 @@ data OpenLemma :=
   case OpenLemma(name: Str, goal: Str)
 
 // proves the lemmas of the module m of the checked program q in their order, raising OpenLemma for the first that is open
-procedure prove_program(in q: Prog, m: Id)
+procedure prove_program(in q: Prog, m: Id) raises OpenLemma
 
 implementation
 
-procedure prove_program(in q: Prog, m: Id) :=
+procedure prove_program(in q: Prog, m: Id) raises OpenLemma :=
   local t := translate(q, m)
   for p in prove_lemmas(t.decls, t.lemmas) if not is_proven(p) do
     raise OpenLemma(p.name.base, print_seq(p.goal))

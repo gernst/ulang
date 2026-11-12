@@ -8,6 +8,9 @@ export
 // the message of e, with the position of the command that raised it, and the module if it is not the main module
 function located_message(e: TypeError): Str
 
+// e as a diagnostic, whose code is the constructor of the error, with the types expected and found of a mismatch
+function type_diagnostic(e: TypeError): Diagnostic
+
 implementation
 
 function located_message(e: TypeError): Str :=
@@ -20,6 +23,36 @@ function located_message(e: TypeError): Str :=
 
     case _ =>
       type_message(e)
+  end
+
+function type_diagnostic(e: TypeError): Diagnostic :=
+  match e
+    case Located(m, pos, error) =>
+      Diagnostic(TypeKind, error_code(error), m, pos, type_message(error), type_details(error))
+    case _ =>
+      Diagnostic(TypeKind, error_code(e), None, Pos(0, 0), type_message(e), type_details(e))
+  end
+
+// the constructor of e, as show writes it
+function error_code(e: TypeError): Str :=
+  let text := show(e) in
+  match index_of('(', chars(text))
+    case Some(i) =>
+      slice(text, 0, i)
+    case None =>
+      text
+  end
+
+function type_details(e: TypeError): List[Str * Str] :=
+  match e
+    case Mismatch(expected_type, found_type, _) =>
+      zip(List("expected", "found"), format_types_apart(List(expected_type, found_type)))
+
+    case CannotUnify(left, right) =>
+      zip(List("left", "right"), format_types_apart(List(left, right)))
+
+    case _ =>
+      List()
   end
 
 // a candidate of an ambiguous name with its type, if known, which tells overloads of one module apart
@@ -65,6 +98,14 @@ function type_message(e: TypeError): Str :=
 
     case CannotUnify(left, right) =>
       "cannot unify " ++ join(" and ", format_types_apart(List(left, right)))
+
+    case Mismatch(expected_type, found_type, what) =>
+      match format_types_apart(List(expected_type, found_type))
+        case List(expected, found) =>
+          "expected " ++ expected ++ " but found " ++ found ++ " in " ++ what
+        case _ =>
+          "mismatch in " ++ what
+      end
 
     case InfiniteType(meta, typ) =>
       "infinite type " ++ join(" = ", format_types_apart(List(meta, typ)))
@@ -162,6 +203,18 @@ function type_message(e: TypeError): Str :=
     case RaisesVariables(name) =>
       "the pattern of assert raises binds " ++ name.base ++ ", which only _ may stand for"
 
+    case NotAnException(typ) =>
+      "only values of datatypes without type parameters are raised, not of " ++ format_type(typ)
+
+    case UndeclaredRaise(name, typ) =>
+      name.base ++ " raises " ++ format_type(typ) ++ ", which its raises omit"
+
+    case UntypedRaise(name, typ) =>
+      "the procedure value " ++ name.base ++ " raises " ++ format_type(typ) ++ ", which its type omits"
+
+    case NeverRaised(typ) =>
+      "the handler of " ++ format_type(typ) ++ " is unreachable, since nothing in the body raises " ++ format_type(typ)
+
     case PatternOnly(name) =>
       "the pattern alias " ++ name.base ++ " has _ and builds no value"
 
@@ -200,6 +253,8 @@ test messages() :=
     (Name(Some("ulang/test/modules/left/left"), "helper"), Scheme(List(), TFun(List(TSort(Name(Some("prelude/prelude"), "Int"), List())), TSort(Name(Some("prelude/prelude"), "Int"), List())))),
     (Name(Some("ulang/test/errors/own-name"), "helper"), Scheme(List(), TFun(List(TSort(Name(Some("prelude/prelude"), "Int"), List())), TSort(Name(Some("prelude/prelude"), "Int"), List())))))))) == "helper is ambiguous: ulang/test/modules/left/left.helper: Int -> Int, ulang/test/errors/own-name.helper: Int -> Int at 6.1"
   assert located_message(Located(None, Pos(1, 1), CannotUnify(TParam("A"), TParam("B")))) == "cannot unify A and B at 1.1"
+  assert type_message(Mismatch(TBool(), TInt(), "the condition of if")) == "expected Bool but found Int in the condition of if"
+  assert type_diagnostic(Located(Some("m"), Pos(2, 3), Mismatch(TBool(), TInt(), "the guard"))) == Diagnostic(TypeKind, "Mismatch", Some("m"), Pos(2, 3), "expected Bool but found Int in the guard", List(("expected", "Bool"), ("found", "Int")))
   assert located_message(Located(None, Pos(4, 1), CountMismatch("procedure p", "ins", 1, 2))) == "procedure p expects 1 ins, got 2 at 4.1"
   assert located_message(Duplicate("declaration", "a")) == "duplicate declaration a"
   assert located_message(Located(None, Pos(4, 1), HiddenLocal(Name(None, "m")))) == "m hides a local of the same name at 4.1"
@@ -215,6 +270,10 @@ test messages() :=
   assert located_message(Located(None, Pos(7, 1), PrivateConstructor(Name(Some("ulang/test/errors/pattern-alias-abstract"), "Small"), Name(Some("ulang/test/errors/pattern-alias-abstract"), "Box")))) == "the exported pattern alias Small matches the private constructor Box at 7.1"
   assert located_message(PrivateType(Name(Some("ulang/test/errors/private-type"), "f"), Name(Some("ulang/test/errors/private-type"), "Hidden"))) == "the signature of f names the private type Hidden"
   assert located_message(Located(None, Pos(1, 1), RaisesVariables(Name(None, "n")))) == "the pattern of assert raises binds n, which only _ may stand for at 1.1"
+  assert located_message(Located(None, Pos(2, 3), NotAnException(TSort(Name(Some("prelude/prelude"), "Int"), List())))) == "only values of datatypes without type parameters are raised, not of Int at 2.3"
+  assert located_message(Located(None, Pos(2, 3), UndeclaredRaise(Name(Some("a"), "p"), TSort(Name(Some("a"), "Failed"), List())))) == "p raises Failed, which its raises omit at 2.3"
+  assert located_message(Located(None, Pos(2, 3), UntypedRaise(Name(None, "lambda"), TSort(Name(Some("a"), "Failed"), List())))) == "the procedure value lambda raises Failed, which its type omits at 2.3"
+  assert located_message(Located(None, Pos(2, 3), NeverRaised(TSort(Name(Some("a"), "Failed"), List())))) == "the handler of Failed is unreachable, since nothing in the body raises Failed at 2.3"
   assert located_message(SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T"))) == "the definition of T differs from its signature"
   assert located_message(Located(None, Pos(1, 1), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1))) == "sort Int expects 0 arguments, got 1 at 1.1"
   assert located_message(Located(None, Pos(1, 1), TestParams("sorted"))) == "test sorted takes parameters at 1.1"

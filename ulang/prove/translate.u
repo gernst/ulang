@@ -147,7 +147,7 @@ function term_of(env: List[Name], expr: At[Expr]): Term :=
       EApp(EFun(tuple_name(size(args))), terms)
 
     // procedure values are atoms, told apart by their text
-    case EProc(_, _, _, _) =>
+    case EProc(_, _, _, _, _) =>
       EFun(Name(Some("(procedure)"), show(expr.that)))
 
     // the checker translates accesses, updates, and forms, so checked programs have none
