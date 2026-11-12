@@ -121,14 +121,14 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
     case CFun(name, params, formals, typ, body) =>
       CFun(in_module(m, name), params, formals, typ, body)
 
-    case CProc(name, params, ins, outs, refs, stmt) =>
-      CProc(in_module(m, name), params, ins, outs, refs, stmt)
+    case CProc(name, params, ins, outs, refs, raised, stmt) =>
+      CProc(in_module(m, name), params, ins, outs, refs, raised, stmt)
 
     case CFunSig(name, params, formals, typ) =>
       CFunSig(in_module(m, name), params, formals, typ)
 
-    case CProcSig(name, params, ins, outs, refs) =>
-      CProcSig(in_module(m, name), params, ins, outs, refs)
+    case CProcSig(name, params, ins, outs, refs, raised) =>
+      CProcSig(in_module(m, name), params, ins, outs, refs, raised)
 
     case CAbstract(name, params) =>
       CAbstract(in_module(m, name), params)
@@ -266,8 +266,8 @@ function free(t: Type): List[Type] :=
     case TFun(args, res) =>
       distinct(List(for a in args ++ List(res) for v in free(a) yield v))
 
-    case TProc(ins, outs, refs) =>
-      distinct(List(for a in ins ++ outs ++ refs for v in free(a) yield v))
+    case TProc(ins, outs, refs, raised) =>
+      distinct(List(for a in ins ++ outs ++ refs ++ List(raised) for v in free(a) yield v))
 
     case TTuple(types) =>
       distinct(List(for a in types for v in free(a) yield v))
@@ -284,8 +284,8 @@ function has_holes(t: Type): Bool :=
     case TFun(args, res) =>
       exists(args, has_holes) or has_holes(res)
 
-    case TProc(ins, outs, refs) =>
-      exists(ins ++ outs ++ refs, has_holes)
+    case TProc(ins, outs, refs, raised) =>
+      exists(ins ++ outs ++ refs ++ List(raised), has_holes)
 
     case TTuple(types) =>
       exists(types, has_holes)
@@ -302,8 +302,8 @@ function subst(t: Type, m: List[Type * Type]): Type :=
     case TFun(args, res) =>
       TFun(List(for a in args yield subst(a, m)), subst(res, m))
 
-    case TProc(ins, outs, refs) =>
-      TProc(List(for a in ins yield subst(a, m)), List(for a in outs yield subst(a, m)), List(for a in refs yield subst(a, m)))
+    case TProc(ins, outs, refs, raised) =>
+      TProc(List(for a in ins yield subst(a, m)), List(for a in outs yield subst(a, m)), List(for a in refs yield subst(a, m)), subst(raised, m))
 
     case TTuple(types) =>
       TTuple(List(for a in types yield subst(a, m)))
@@ -342,8 +342,8 @@ function occurs(su: Subst, i: Int, t: Type): Bool :=
     case TFun(args, res) =>
       exists(args, lambda a => occurs(su, i, a)) or occurs(su, i, res)
 
-    case TProc(ins, outs, refs) =>
-      exists(ins ++ outs ++ refs, lambda a => occurs(su, i, a))
+    case TProc(ins, outs, refs, raised) =>
+      exists(ins ++ outs ++ refs ++ List(raised), lambda a => occurs(su, i, a))
 
     case TTuple(types) =>
       exists(types, lambda a => occurs(su, i, a))
@@ -388,7 +388,7 @@ function is_hook(f: Name, k: Int): Bool :=
 function proc_scheme(sig: Sig, p: Name): Scheme :=
   match proc_of(sig, p)
     case Some(proc) =>
-      Scheme(proc.params, TProc(proc.ins, proc.outs, proc.refs))
+      Scheme(proc.params, TProc(proc.ins, proc.outs, proc.refs, TTuple(proc.raised)))
     case None =>
       Scheme(List(), THole)
   end
@@ -490,8 +490,8 @@ function zonk_type(su: Subst, t: Type): Type :=
     case TFun(args, res) =>
       TFun(List(for a in args yield zonk_type(su, a)), zonk_type(su, res))
 
-    case TProc(ins, outs, refs) =>
-      TProc(List(for a in ins yield zonk_type(su, a)), List(for a in outs yield zonk_type(su, a)), List(for a in refs yield zonk_type(su, a)))
+    case TProc(ins, outs, refs, raised) =>
+      TProc(List(for a in ins yield zonk_type(su, a)), List(for a in outs yield zonk_type(su, a)), List(for a in refs yield zonk_type(su, a)), zonk_type(su, raised))
 
     case TTuple(types) =>
       TTuple(List(for a in types yield zonk_type(su, a)))
@@ -658,8 +658,8 @@ function zonk_cmd(s: State, cmd: Cmd): Cmd :=
     case CFun(name, params, formals, typ, body) =>
       CFun(name, params, zonk_vars(s, formals), zonk_type(s.sub, typ), zonk_expr(s, body))
 
-    case CProc(name, params, ins, outs, refs, stmt) =>
-      CProc(name, params, zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), zonk_stmt(s, stmt))
+    case CProc(name, params, ins, outs, refs, raised, stmt) =>
+      CProc(name, params, zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), raised, zonk_stmt(s, stmt))
 
     case CTest(name, vars, stmt) =>
       CTest(name, vars, zonk_stmt(s, stmt))
@@ -796,7 +796,7 @@ function unknown_in_cmd(cmd: Cmd): Option[Type] :=
     case CFun(_, _, _, _, body) =>
       unknown_in_expr(body)
 
-    case CProc(_, _, _, _, _, stmt) =>
+    case CProc(_, _, _, _, _, _, stmt) =>
       unknown_in(stmt)
 
     case CTest(_, _, stmt) =>
@@ -1084,9 +1084,9 @@ procedure unify(in t: Type, t_: Type, ref s: State) :=
         call report(in CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_)), s)
       end
 
-    case (TProc(xs, ys, zs), TProc(us, vs, ws)) =>
+    case (TProc(xs, ys, zs, r), TProc(us, vs, ws, r_)) =>
       if size(xs) == size(us) and size(ys) == size(vs) and size(zs) == size(ws) then
-        call unifies(in xs ++ ys ++ zs, us ++ vs ++ ws, ref s)
+        call unifies(in xs ++ ys ++ zs ++ List(r), us ++ vs ++ ws ++ List(r_), ref s)
       else
         call report(in CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_)), s)
       end
@@ -1180,14 +1180,15 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
       call   normalizes(in types, out us, ref s)
       assign u := TTuple(us)
 
-    case TProc(ins, outs, refs) =>
-      local us: List[Type]
+    case TProc(ins, outs, refs, raised) =>
+      local us: List[Type], r: Type
       call   normalizes(in ins ++ outs ++ refs, out us, ref s)
+      call   normalize(in raised, out r, ref s)
       assign u := match split_at(size(ins), us)
         case (in_types, others) =>
           match split_at(size(outs), others)
             case (out_types, ref_types) =>
-              TProc(in_types, out_types, ref_types)
+              TProc(in_types, out_types, ref_types, r)
           end
       end
 
@@ -1494,7 +1495,7 @@ procedure infer_node(
       assign inner := bind(xs) ++ unassigned(ys) ++ bind(zs) ++ env
       call   statement(in List(for x in ys ++ zs yield x.name), stmt, out y, ref inner, s)
       call   outputs(in unqualified("lambda"), ys, inner, s)
-      assign res := EProc(xs, ys, zs, y), typ := TProc(List(for x in xs yield x.typ), List(for x in ys yield x.typ), List(for x in zs yield x.typ))
+      assign res := EProc(xs, ys, zs, y), typ := TProc(List(for x in xs yield x.typ), List(for x in ys yield x.typ), List(for x in zs yield x.typ), TTuple(List()))
 
     // lets do not generalize, only declarations have type parameters
     case ELet(bound, body) =>
@@ -2629,7 +2630,7 @@ procedure call_variable(
   call   fresh_list(in ins, out is, ref s)
   call   fresh_list(in outs, out os, ref s)
   call   fresh_list(in refs, out rs, ref s)
-  call   unify(in typ, TProc(is, os, rs), ref s)
+  call   unify(in typ, TProc(is, os, rs, TTuple(List())), ref s)
   call   unique(in "out or ref", List(for y in outs ++ refs yield y.name), s)
   call   checks(in env, "procedure " ++ p.base, ins, is, out typed_ins, ref s)
   call   variables(in env, assignable, outs, out typed_outs, ref s)
@@ -2675,7 +2676,7 @@ procedure overloaded_call(
   call   infers(in env, ins, out typed_ins, is, ref s)
   call   variables(in env, assignable, outs, out typed_outs, ref s)
   call   variables(in env, assignable, refs, out typed_refs, ref s)
-  call   choose(in p, List(for q in qs yield (q, proc_scheme(s.sig, q))), TProc(is, List(for x in typed_outs yield x.typ), List(for x in typed_refs yield x.typ)), out m, ref s)
+  call   choose(in p, List(for q in qs yield (q, proc_scheme(s.sig, q))), TProc(is, List(for x in typed_outs yield x.typ), List(for x in typed_refs yield x.typ), TTuple(List())), out m, ref s)
   assign stmt := SCall(m, typed_ins, typed_outs, typed_refs)
 
 procedure declared_call(
@@ -2956,19 +2957,20 @@ procedure declare_lemmas(in cs: List[Id * Cmd], ref s: State) :=
 procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
-      case CProc(name, ps, ins, outs, refs, _) =>
-        local xs: List[Var], ts: List[Type]
+      case CProc(name, ps, ins, outs, refs, raised, _) =>
+        local xs: List[Var], ts: List[Type], typed_raised: List[Type]
         assign s := enter(s, m)
         call   declare_name(in s.sig, name)
         call   unique_ids(in "type parameter", ps, s)
         call   signature(in ins ++ outs ++ refs, out xs, ref s)
+        call   normalizes(in raised, out typed_raised, ref s)
         assign ts := List(for x in xs yield x.typ)
         call   closed(in name, ps, ts)
         assign s := match split_at(size(ins), ts)
           case (in_types, others) =>
             match split_at(size(outs), others)
               case (out_types, ref_types) =>
-                with_sig(s, with_proc(s.sig, name, ProcSig(params(ps), in_types, out_types, ref_types)))
+                with_sig(s, with_proc(s.sig, name, ProcSig(params(ps), in_types, out_types, ref_types, typed_raised)))
             end
         end
 
@@ -2986,15 +2988,16 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
       call   check(in bind(xs), body, r, out b, ref s)
       assign typed_cmd := CFun(name, params, xs, r, b)
 
-    case CProc(name, params, ins, outs, refs, stmt) =>
-      local is: List[Var], os: List[Var], rs: List[Var], y: At[Stmt], env: Env
+    case CProc(name, params, ins, outs, refs, raised, stmt) =>
+      local is: List[Var], os: List[Var], rs: List[Var], typed_raised: List[Type], y: At[Stmt], env: Env
       call   signature(in ins, out is, ref s)
       call   signature(in outs, out os, ref s)
       call   signature(in refs, out rs, ref s)
+      call   normalizes(in raised, out typed_raised, ref s)
       assign env := bind(is) ++ unassigned(os) ++ bind(rs)
       call   statement(in List(for x in os ++ rs yield x.name), stmt, out y, ref env, s)
       call   outputs(in name, os, env, s)
-      assign typed_cmd := CProc(name, params, is, os, rs, y)
+      assign typed_cmd := CProc(name, params, is, os, rs, typed_raised, y)
 
     case CTest(name, List(), stmt) =>
       local y: At[Stmt], env: Env := List()
@@ -3114,7 +3117,7 @@ function is_definition(d: Id * Cmd): Bool :=
     case (_, CFunSig(_, _, _, _)) =>
       false
 
-    case (_, CProcSig(_, _, _, _, _)) =>
+    case (_, CProcSig(_, _, _, _, _, _)) =>
       false
 
     case (_, CAbstract(_, _)) =>
@@ -3137,8 +3140,8 @@ function native(cmd: Cmd): Cmd :=
     case CFunSig(name, params, formals, typ) =>
       CFun(name, params, formals, typ, nowhere(ELit(LUnit)))
 
-    case CProcSig(name, params, ins, outs, refs) =>
-      CProc(name, params, ins, outs, refs, nowhere(SSkip))
+    case CProcSig(name, params, ins, outs, refs, raised) =>
+      CProc(name, params, ins, outs, refs, raised, nowhere(SSkip))
 
     case CAbstract(name, params) =>
       CData(name, params, List())
@@ -3182,7 +3185,7 @@ function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
     case CFun(name, _, _, _, _) =>
       if exists(ex, lambda e => signs(e, name)) then List() else List(name)
 
-    case CProc(name, _, _, _, _, _) =>
+    case CProc(name, _, _, _, _, _, _) =>
       if exists(ex, lambda e => signs(e, name)) then List() else List(name)
 
     case CData(t, _, constrs) =>
@@ -3230,7 +3233,7 @@ function signs(e: Cmd, n: Name): Bool :=
     case CFunSig(name, _, _, _) =>
       name == n
 
-    case CProcSig(name, _, _, _, _) =>
+    case CProcSig(name, _, _, _, _, _) =>
       name == n
 
     case _ =>
@@ -3256,7 +3259,7 @@ function defines_fun(cmd: Cmd, n: Name, k: Int): Bool :=
 
 function defines_proc(cmd: Cmd, n: Name): Bool :=
   match cmd
-    case CProc(name, _, _, _, _, _) =>
+    case CProc(name, _, _, _, _, _, _) =>
       name == n
     case _ =>
       false
@@ -3299,13 +3302,13 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
       end
       call check_signatures(in rest, im)
 
-    case List(CProcSig(name, params, ins, outs, refs); rest) =>
+    case List(CProcSig(name, params, ins, outs, refs, raised); rest) =>
       if exists(rest, lambda e => signs(e, name)) then
         raise AlreadyDefined(name)
       end
       match List(for c in im if defines_proc(c, name))
-        case List(CProc(_, params_, ins_, outs_, refs_, _)) =>
-          if params_ != params or ins_ != ins or outs_ != outs or refs_ != refs then
+        case List(CProc(_, params_, ins_, outs_, refs_, raised_, _)) =>
+          if params_ != params or ins_ != ins or outs_ != outs or refs_ != refs or raised_ != raised then
             raise SignatureMismatch(name)
           end
 
@@ -3404,8 +3407,8 @@ function exposed(cmd: Cmd): Option[Name * List[Type]] :=
     case CFunSig(name, _, formals, typ) =>
       Some((name, List(for x in formals yield x.typ) ++ List(typ)))
 
-    case CProcSig(name, _, ins, outs, refs) =>
-      Some((name, List(for x in ins ++ outs ++ refs yield x.typ)))
+    case CProcSig(name, _, ins, outs, refs, raised) =>
+      Some((name, List(for x in ins ++ outs ++ refs yield x.typ) ++ raised))
 
     case CData(name, _, constrs) =>
       Some((name, List(for k in parts(constrs) for field in k.fields yield field.typ)))
@@ -3712,10 +3715,10 @@ test statements() :=
   local q: Prog
   assert raises NotAssignable(Name(None, "n")) do
     call check_program(in program_of(List(
-      CProc(unqualified("inc"), List(), List(), List(), List(Var(unqualified("k"), TInt())), nowhere(SBlock(List(), List(
+      CProc(unqualified("inc"), List(), List(), List(), List(Var(unqualified("k"), TInt())), List(), nowhere(SBlock(List(), List(
         nowhere(SAssign(List(
           (Var(unqualified("k"), THole), expr_app("+", List(expr_var("k"), expr_int(1))))))))))),
-      CProc(unqualified("p"), List(), List(Var(unqualified("n"), TInt())), List(), List(), nowhere(SBlock(List(), List(
+      CProc(unqualified("p"), List(), List(Var(unqualified("n"), TInt())), List(), List(), List(), nowhere(SBlock(List(), List(
         nowhere(SCall(unqualified("inc"), List(), List(), List(Var(unqualified("n"), THole)))))))))), out q)
   end
   assert raises UnknownException(TList(_)) do
@@ -3746,14 +3749,14 @@ function bags(): List[Mod] :=
       CData(unqualified("Pt"), List(), List(constr_at("Pt", List(Field("x", TInt()))))),
       fun_cmd("size", List(var_of("b", tsort("Bag"))), TInt(), expr_int(1)),
       fun_cmd("compare", List(var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))), TInt(), expr_int(0)),
-      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Bag"))), List(), nowhere(SAssign(List((var_of("b", THole), expr_app("Bag", List(expr_int(0)))))))))),
+      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Bag"))), List(), List(), nowhere(SAssign(List((var_of("b", THole), expr_app("Bag", List(expr_int(0)))))))))),
     sectioned("box", List(
       CData(unqualified("Box"), List(), List(
         constr_at("Box", List(Field("s", TStr()))),
         constr_at("Leaf", List(Field("s", TStr()))))),
       CData(unqualified("Qt"), List(), List(constr_at("Qt", List(Field("x", TStr()))))),
       fun_cmd("size", List(var_of("b", tsort("Box"))), TInt(), expr_int(2)),
-      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Box"))), List(), nowhere(SAssign(List((var_of("b", THole), expr_app("Box", List(nowhere(ELit(LStr("")))))))))))))
+      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Box"))), List(), List(), nowhere(SAssign(List((var_of("b", THole), expr_app("Box", List(nowhere(ELit(LStr("")))))))))))))
 
 // the module of cmds with sections, as the parser gives it: the datatypes and the signatures of the definitions exported,
 // and the definitions implemented
@@ -3765,8 +3768,8 @@ function signature_of(cmd: Cmd): Cmd :=
     case CFun(name, params, formals, typ, _) =>
       CFunSig(name, params, formals, typ)
 
-    case CProc(name, params, ins, outs, refs, _) =>
-      CProcSig(name, params, ins, outs, refs)
+    case CProc(name, params, ins, outs, refs, raised, _) =>
+      CProcSig(name, params, ins, outs, refs, raised)
 
     case _ =>
       cmd
@@ -3849,11 +3852,11 @@ test constructors() :=
 test procedures() :=
   local q: Prog
   call check_program(in with_bags(List(
-    CProc(unqualified("p"), List(), List(), List(), List(), nowhere(SBlock(List(var_of("b", tsort("Box"))), List(
+    CProc(unqualified("p"), List(), List(), List(), List(), List(), nowhere(SBlock(List(var_of("b", tsort("Box"))), List(
       nowhere(SCall(unqualified("fill"), List(), List(var_of("b", THole)), List())))))))), out q)
   match reverse(q.cmds)
     case List(
-      CProc(_, _, _, _, _, AOk(_, SBlock(_, List(AOk(_, SCall(proc, _, _, _)))))); _) =>
+      CProc(_, _, _, _, _, _, AOk(_, SBlock(_, List(AOk(_, SCall(proc, _, _, _)))))); _) =>
       assert proc == in_box("fill")
 
     case _ =>

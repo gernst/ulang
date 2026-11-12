@@ -356,7 +356,7 @@ function type_key(t: Type): Str :=
     case TFun(args, res) =>
       "(" ++ join(", ", List(for a in args yield type_key(a))) ++ ") -> " ++ type_key(res)
 
-    case TProc(ins, outs, refs) =>
+    case TProc(ins, outs, refs, _) =>
       "(in " ++ type_keys(ins) ++ ", out " ++ type_keys(outs) ++ ", ref " ++ type_keys(refs) ++ ")"
 
     case TTuple(types) =>
@@ -1547,7 +1547,7 @@ procedure compile_cmd(
         CdFunction(LkStatic, value_type(), fun_name(name, size(formals)), params, bs)), ms := List()
 
     // outs and refs are pointers to the variables of the caller, which the procedure assigns when it returns
-    case CProc(name, _, ins, outs, refs, stmt) =>
+    case CProc(name, _, ins, outs, refs, _, stmt) =>
       local bs: List[CStmt], params: List[CType * Str]
       call   compile_stmt(in defs, in_scope(var_names(ins ++ outs ++ refs)), stmt, out bs, ref g)
       assign params := value_formals(ins) ++ pointer_formals(outs ++ refs)

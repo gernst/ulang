@@ -1451,7 +1451,7 @@ function procedures(): List[Cmd] :=
   List(
     CData(unqualified("Fail"), List(), List(
       Doc(None, nowhere(Constr(unqualified("Fail"), List(Field("code", TInt()))))))),
-    CProc(unqualified("sum"), List(), List(Var(unqualified("n"), TInt())), List(Var(unqualified("s"), TInt())), List(), block(List(Var(unqualified("i"), TInt())), List(
+    CProc(unqualified("sum"), List(), List(Var(unqualified("n"), TInt())), List(Var(unqualified("s"), TInt())), List(), List(), block(List(Var(unqualified("i"), TInt())), List(
       SAssign(List(
         (Var(unqualified("s"), THole), expr_int(0)),
         (Var(unqualified("i"), THole), expr_int(0)))),
@@ -1459,7 +1459,7 @@ function procedures(): List[Cmd] :=
         SAssign(List(
           (Var(unqualified("i"), THole), expr_app("+", List(expr_var("i"), expr_int(1)))),
           (Var(unqualified("s"), THole), expr_app("+", List(expr_var("s"), expr_app("+", List(expr_var("i"), expr_int(1)))))))))))))),
-    CProc(unqualified("count"), List(), List(), List(), List(Var(unqualified("k"), TInt())), block(List(), List(
+    CProc(unqualified("count"), List(), List(), List(), List(Var(unqualified("k"), TInt())), List(), block(List(), List(
       SAssign(List(
         (Var(unqualified("k"), THole), expr_app("+", List(expr_var("k"), expr_int(1)))))),
       SRaise(expr_app("Fail", List(expr_var("k"))), THole)))))

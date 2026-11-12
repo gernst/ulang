@@ -165,7 +165,7 @@ data Failed :=
   case Failed
 
 // the outs of sign are assigned on every path, where a path that raises does not continue
-procedure sign(in n: Int, out s: Int) :=
+procedure sign(in n: Int, out s: Int) raises Failed :=
   if n < 0 then
     assign s := -1
   else
@@ -176,7 +176,7 @@ procedure sign(in n: Int, out s: Int) :=
     end
   end
 
-procedure first(in xs: List[Int], out x: Int) :=
+procedure first(in xs: List[Int], out x: Int) raises Failed :=
   match xs
     case List(y; _) =>
       assign x := y
@@ -306,7 +306,7 @@ data ParseError :=
   case Expected(what: Str)
   case Trailing(toks: List[Token])
 
-procedure accept(in s: Str, ref ts: List[Token]) :=
+procedure accept(in s: Str, ref ts: List[Token]) raises ParseError :=
   match ts
     case List(Sym(op); us) =>
       if op == s then

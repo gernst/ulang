@@ -175,6 +175,19 @@ function at_comma(toks: Tokens): Bool :=
 function at_mode(toks: Tokens): Bool :=
   at_kw(toks, "in") or at_kw(toks, "out") or at_kw(toks, "ref")
 
+// a comma before another raised type, unless name : of the next formal follows it
+function at_raised_type(toks: Tokens): Bool :=
+  match toks
+    case List((_, TKw(",")), (_, TName(_)), (_, TKw(":")); _) =>
+      false
+
+    case List((_, TKw(",")), (_, TName(_)); _) =>
+      true
+
+    case _ =>
+      false
+  end
+
 // a comma before another update
 function at_update(toks: Tokens): Bool :=
   match toks
@@ -652,11 +665,12 @@ procedure parse_type_atom(
   ref toks: Tokens
 ) :=
   if at_kw(toks, "(") and contains(second_token(toks), List(TKw("in"), TKw("out"), TKw("ref"))) then
-    local ins: List[Type], outs: List[Type], refs: List[Type]
+    local ins: List[Type], outs: List[Type], refs: List[Type], raised: List[Type]
     call   advance(ref toks)
     call   parse_sections(in notation, params, parse_type, parse_type, out ins, outs, refs, ref toks)
     call   expect(in TKw(")"), ref toks)
-    assign r := List(TProc(ins, outs, refs))
+    call   parse_raises(in notation, params, out raised, ref toks)
+    assign r := List(TProc(ins, outs, refs, TTuple(raised)))
   else
     if at_kw(toks, "(") then
       call advance(ref toks)
@@ -1727,7 +1741,7 @@ procedure parse_pat_alias(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
   assign cmd := CPatAlias(unqualified(name), params, xs, r, pat)
 
 procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
-  local name: Id, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], body: At[Stmt], pos: Pos
+  local name: Id, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], body: At[Stmt], pos: Pos
   call   advance(ref toks)
   assign pos := head_pos(toks)
   call   parse_name(out name, ref toks)
@@ -1736,12 +1750,27 @@ procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
   call   expect(in TKw("("), ref toks)
   call   parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
   call   expect(in TKw(")"), ref toks)
+  call   parse_raises(in notation, params, out raised, ref toks)
   if head_token(toks) == TKw(":=") then
     call   advance(ref toks)
     call   parse_body(in notation, params, out body, ref toks)
-    assign cmd := CProc(unqualified(name), params, ins, outs, refs, body)
+    assign cmd := CProc(unqualified(name), params, ins, outs, refs, raised, body)
   else
-    assign cmd := CProcSig(unqualified(name), params, ins, outs, refs)
+    assign cmd := CProcSig(unqualified(name), params, ins, outs, refs, raised)
+  end
+
+// raises T, … after the formals of a procedure or the modes of a procedure type, or nothing, where a comma followed by
+// name : ends the types, since it starts the next formal around a procedure type
+procedure parse_raises(
+  in  notation: Notation,
+      params: List[Id],
+  out raised: List[Type],
+  ref toks: Tokens
+) :=
+  assign raised := List()
+  if at_kw(toks, "raises") then
+    call advance(ref toks)
+    call parse_separated(in notation, params, parse_type, at_raised_type, out raised, ref toks)
   end
 
 // lemma l[A, …](x: A, …) := requires a, … ensures b, where requires is optional
@@ -2253,7 +2282,7 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
     case (List(CFunSig(_, _, _, _); _), InBuiltin) =>
       skip
 
-    case (List(CProcSig(_, _, _, _, _); _), InBuiltin) =>
+    case (List(CProcSig(_, _, _, _, _, _); _), InBuiltin) =>
       skip
 
     case (List(CAbstract(_, _); _), InBuiltin) =>
@@ -2268,7 +2297,7 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
     case (List(CFunSig(_, _, _, _); _), s) if s != InExport =>
       raise ParseError("signatures belong to the export section", pos)
 
-    case (List(CProcSig(_, _, _, _, _); _), s) if s != InExport =>
+    case (List(CProcSig(_, _, _, _, _, _); _), s) if s != InExport =>
       raise ParseError("signatures belong to the export section", pos)
 
     case (List(CAbstract(_, _); _), s) if s != InExport =>
@@ -2277,7 +2306,7 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
     case (List(CFun(_, _, _, _, _); _), InExport) =>
       raise ParseError("definitions belong to the implementation section", pos)
 
-    case (List(CProc(_, _, _, _, _, _); _), InExport) =>
+    case (List(CProc(_, _, _, _, _, _, _); _), InExport) =>
       raise ParseError("definitions belong to the implementation section", pos)
 
     case (List(CTest(_, _, _); _), InExport) =>
@@ -2443,6 +2472,22 @@ test parsed_positions() :=
     AOk(Pos(8, 3), EApp(AOk(Pos(8, 3), EName(unqualified("f"), THole)), List(AOk(Pos(8, 5), EName(unqualified("a"), THole))))),
     AOk(Pos(8, 11), EField(AOk(Pos(8, 10), EName(unqualified("b"), THole)), "g")))))
 
+// a comma followed by name : ends the types that a procedure type raises, since it starts the next formal
+test parsed_raises() :=
+  local d: Mod, found: List[List[Type] * List[Type]] := List(), e := TSort(unqualified("E"), List()), f := TSort(unqualified("F"), List()), int := TSort(unqualified("Int"), List())
+  call parse_text(in "procedure p(in q: (in Int) raises E, F, n: Int) raises F := skip\nprocedure r() raises E, F := skip\n", out d)
+  for c in commands_of(d.implemented) do
+    match c
+      case CProc(_, _, ins, _, _, raised, _) =>
+        assign found := found ++ List((List(for x in ins yield x.typ), raised))
+      case _ =>
+        skip
+    end
+  end
+  assert found == List(
+    (List(TProc(List(int), List(), List(), TTuple(List(e, f))), int), List(f)),
+    (List(), List(e, f)))
+
 test parsed_docs() :=
   local d: Mod, text := "// the answer\n// in two lines\nfunction f(): Int := 42\n\n\n\n"
   call parse_text(in text ++ "function g(): Int := 1\nfunction h(): Int := 2\n", out d)
@@ -2473,7 +2518,7 @@ test parsed_docs_of_cases() :=
   match commands_of(d.implemented)
     case List(
       CFun(_, _, _, _, AOk(_, EMatch(_, bs))),
-      CProc(_, _, _, _, _, AOk(_, SBlock(_, List(AOk(_, SMatch(_, cs)), AOk(_, STry(_, hs))))))) =>
+      CProc(_, _, _, _, _, _, AOk(_, SBlock(_, List(AOk(_, SMatch(_, cs)), AOk(_, STry(_, hs))))))) =>
       assign docs := List(for b in bs yield b.doc) ++ List(for c in cs yield c.doc) ++ List(for h in hs yield h.doc)
 
     case _ =>
