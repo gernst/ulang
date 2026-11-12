@@ -129,6 +129,17 @@ test empty_tuple_argument() :=
     call check_text(in "ulang/test/errors/empty-tuple-argument.u", List("function f(g: (()) -> Int): Int :=", "  g"))
   end
 
+test example_never_raised() :=
+  assert raises Located(None, Pos(5, 3), NeverRaised(_)) do
+    call check_text(in "ulang/test/errors/example-never-raised.u", List(
+      "data Overflow :=",
+      "  case Overflow",
+      "",
+      "procedure p(in x: Int, out y: Int) :=",
+      "  example p(in 1, out _) raises Overflow",
+      "  assign y := x"))
+  end
+
 test example_type() :=
   assert raises Located(None, Pos(2, 11), Mismatch(_, _, "the assertion")) do
     call check_text(in "ulang/test/errors/example-type.u", List("function f(x: Int): Int :=", "  example f(1)", "  x"))
@@ -302,8 +313,24 @@ test let_rigid() :=
       "  g(1) == 1"))
   end
 
+// a part of the wrong type is reported at the innermost part, since the checker passes the expected type down to the
+// components of a tuple, the elements of a form, the body of a let, and the arguments of a call of one candidate
+test innermost_mismatch() :=
+  local errors: List[TypeError]
+  call check_text_all(in "ulang/test/errors/innermost-mismatch.u", List(
+    "function g(): Int * Int :=",
+    "  (1, \"a\")",
+    "",
+    "function h(): List[Int] :=",
+    "  List(1, \"a\")",
+    "",
+    "function k(): Int :=",
+    "  let x := 1 in",
+    "  \"a\""), out errors)
+  assert List(for e in errors yield error_pos(e)) == List(Pos(2, 7), Pos(5, 11), Pos(9, 3))
+
 test list_type() :=
-  assert raises Located(None, Pos(2, 10), Mismatch(_, _, "argument 2 of the call")) do
+  assert raises Located(None, Pos(2, 18), Mismatch(_, _, "an element of List")) do
     call check_text(in "ulang/test/errors/list-type.u", List("test list_type() :=", "  assert List(1, true) == List()"))
   end
 

@@ -1571,7 +1571,7 @@ procedure infer(
     case AOk(pos, node) =>
       local outer := s.at, x: Expr
       assign s := s with at := pos
-      call   infer_node(in env, pos, node, out x, typ, ref s)
+      call   infer_node(in env, pos, node, None, out x, typ, ref s)
       assign res := AOk(pos, x), s := s with at := outer
 
     // the parser and the checker make no error nodes yet
@@ -1579,11 +1579,37 @@ procedure infer(
       raise Unexpected("error node")
   end
 
-// the expression expr at pos, where the translations of forms, generators, and lambdas with patterns are at pos
+// expr against the type that what names, t, which it passes down to its parts, so that a part of the wrong type is
+// reported at the part, and then expects of the whole
+procedure infer_against(
+  in  env: Env,
+      expr: At[Expr],
+      t: Type,
+      what: Str,
+  out res: At[Expr],
+      typ: Type,
+  ref s: State
+) :=
+  match expr
+    case AOk(pos, node) =>
+      local outer := s.at, x: Expr
+      assign s := s with at := pos
+      call   infer_node(in env, pos, node, Some((t, what)), out x, typ, ref s)
+      assign res := AOk(pos, x), s := s with at := outer
+
+    // the parser and the checker make no error nodes yet
+    case _ =>
+      raise Unexpected("error node")
+  end
+
+// the expression expr at pos, where the translations of forms, generators, and lambdas with patterns are at pos, and
+// expected the type that a part around it expects, if known, which the parts of applications, tuples, lets, and forms
+// are checked against
 procedure infer_node(
   in  env: Env,
       pos: Pos,
       expr: Expr,
+      expected: Option[Type * Str],
   out res: Expr,
       typ: Type,
   ref s: State
@@ -1600,7 +1626,7 @@ procedure infer_node(
       assign res := EVar(z), typ := z.typ
 
     case EApp(fun, args) =>
-      call application(in env, fun, args, out res, typ, ref s)
+      call application(in env, fun, args, expected, out res, typ, ref s)
 
     case EField(base, field) =>
       call field_access(in env, pos, "." ++ field, base, List(), out res, typ, ref s)
@@ -1618,7 +1644,7 @@ procedure infer_node(
           assign res := lambda_of(pos, xs, b), typ := TFun(List(for x in xs yield x.typ), u)
 
         case None =>
-          call translated(in env, AOk(pos, lambda_match(s, pos, pats, body)), out res, typ, ref s)
+          call translated(in env, AOk(pos, lambda_match(s, pos, pats, body)), expected, out res, typ, ref s)
       end
 
     // the body sees the variables around it, but assigns only the outs and refs of the lambda
@@ -1643,7 +1669,7 @@ procedure infer_node(
           call   formals(in "binding", vars, out xs, ref s)
           call   unhidden(in env, xs, ref s)
           call   checks(in env, "the bindings", seconds(bound), List(for x in xs yield x.typ), out exprs, ref s)
-          call   infer(in bind(xs) ++ env, body, out b, u, ref s)
+          call   infer_body(in bind(xs) ++ env, body, expected, out b, u, ref s)
           assign res := ELet(zip(List(for (p, x) in zip(firsts(bound), xs) yield p with that := PVar(x)), exprs), b), typ := u
 
         // other patterns are irrefutable, checked for exhaustiveness as the cases of a match
@@ -1658,7 +1684,7 @@ procedure infer_node(
           end
           call unique(in "pattern variable", List(for x in xs yield x.name), ref s)
           call unhidden(in env, xs, ref s)
-          call infer(in bind(xs) ++ env, body, out b, typ, ref s)
+          call infer_body(in bind(xs) ++ env, body, expected, out b, typ, ref s)
           call solve(ref s)
           for (pat, t) in zip(pats, ts) do
             call coverage(in t, List((pat.that, true)), ref s)
@@ -1675,7 +1701,19 @@ procedure infer_node(
 
     case ETuple(items) =>
       local exprs: List[At[Expr]], ts: List[Type]
-      call   infers(in env, items, out exprs, ts, ref s)
+      match component_types(s, expected, size(items))
+        case Some(us) =>
+          assign exprs := List()
+          for ((item, u), i) in zip(zip(items, us), range(1, size(items) + 1)) do
+            local typed_item: At[Expr]
+            call   check(in env, item, u, "component " ++ show(i) ++ " of the tuple", out typed_item, ref s)
+            assign exprs := exprs ++ List(typed_item)
+          end
+          assign ts := us
+
+        case None =>
+          call infers(in env, items, out exprs, ts, ref s)
+      end
       assign res := ETuple(exprs), typ := TTuple(ts)
 
     case EMatch(arg, cases) =>
@@ -1690,16 +1728,18 @@ procedure infer_node(
     // forms as the builders of the module of their name, and their generators as the folds of the modules of the
     // containers, which the checked program keeps
     case EForm(form, elems, rest) =>
-      call translated(in env, form_expr(pos, form, elems, rest), out res, typ, ref s)
+      local before := size(s.errors), places := Set(for y in elems for e in yielded_exprs(y) yield e.pos)
+      call   translated(in env, form_expr(pos, form, elems, rest), expected, out res, typ, ref s)
+      assign s := s with errors := take(before, s.errors) ++ List(for e in drop(before, s.errors) yield element_error(form, places, e))
 
     case EFor(FArray, gens, elem, None) =>
-      call translated(in env, form_app(pos, library_module("array"), "from_list", List(AOk(pos, EFor(FList, gens, elem, None)))), out res, typ, ref s)
+      call translated(in env, form_app(pos, library_module("array"), "from_list", List(AOk(pos, EFor(FList, gens, elem, None)))), expected, out res, typ, ref s)
 
     case EFor(form, List(), elem, rest) =>
-      call translated(in env, step_expr(pos, form, elem, base_expr(pos, form, rest)), out res, typ, ref s)
+      call translated(in env, step_expr(pos, form, elem, base_expr(pos, form, rest)), expected, out res, typ, ref s)
 
     case EFor(form, List(GIf(cond); more), elem, rest) =>
-      call translated(in env, AOk(pos, EIte(cond, AOk(pos, EFor(form, more, elem, rest)), base_expr(pos, form, rest))), out res, typ, ref s)
+      call translated(in env, AOk(pos, EIte(cond, AOk(pos, EFor(form, more, elem, rest)), base_expr(pos, form, rest))), expected, out res, typ, ref s)
 
     case EFor(form, List(g; more), elem, rest) =>
       call generator(in env, pos, form, g, more, elem, rest, out res, typ, ref s)
@@ -1709,13 +1749,64 @@ procedure infer_node(
 procedure translated(
   in  env: Env,
       expr: At[Expr],
+      expected: Option[Type * Str],
   out res: Expr,
       typ: Type,
   ref s: State
 ) :=
   local typed_expr: At[Expr]
-  call   infer(in env, expr, out typed_expr, typ, ref s)
+  call   infer_body(in env, expr, expected, out typed_expr, typ, ref s)
   assign res := typed_expr.that
+
+// expr against expected, if known, else inferred
+procedure infer_body(
+  in  env: Env,
+      expr: At[Expr],
+      expected: Option[Type * Str],
+  out typed_expr: At[Expr],
+      typ: Type,
+  ref s: State
+) :=
+  match expected
+    case Some((t, what)) =>
+      call   check(in env, expr, t, what, out typed_expr, ref s)
+      assign typ := t
+
+    case None =>
+      call infer(in env, expr, out typed_expr, typ, ref s)
+  end
+
+// e as an error of an element of a form, at one of places, instead of an argument of the call that the form is translated to
+function element_error(form: Form, places: Set[Pos], e: TypeError): TypeError :=
+  match e
+    case Located(m, pos, Mismatch(t, u, what)) if contains(pos, places) and starts_with(what, "argument") =>
+      Located(m, pos, Mismatch(t, u, "an element of " ++ form_name(form)))
+    case _ =>
+      e
+  end
+
+function yielded_exprs(y: Yield): List[At[Expr]] :=
+  match y
+    case YVal(value) =>
+      List(value)
+    case YPair(key, value) =>
+      List(key, value)
+  end
+
+// the types of the n components of a tuple of the type expected, if known
+function component_types(s: State, expected: Option[Type * Str], n: Int): Option[List[Type]] :=
+  match expected
+    case Some((t, _)) =>
+      match zonk_type(s.sub, t)
+        case TTuple(ts) if size(ts) == n =>
+          Some(ts)
+        case _ =>
+          None
+      end
+
+    case None =>
+      None
+  end
 
 // the error e of a program at the innermost part around it, s.at, which infer, statement, and binders set, after which the
 // checker continues with a fallback
@@ -1970,6 +2061,7 @@ procedure application(
   in  env: Env,
       fun: At[Expr],
       args: List[At[Expr]],
+      expected: Option[Type * Str],
   out typed_expr: Expr,
       t: Type,
   ref s: State
@@ -1991,7 +2083,7 @@ procedure application(
       else
         local before := size(s.errors)
         call   infer(in env, fun, out typed_fun, u, ref s)
-        call   apply(in env, u, args, out typed_args, t, ref s)
+        call   apply(in env, u, args, expected, out typed_args, t, ref s)
         assign typed_expr := EApp(typed_fun, typed_args)
         assign s := s with errors := take(before, s.errors) ++ List(for e in drop(before, s.errors) yield argument_hint(name, e))
       end
@@ -2006,7 +2098,7 @@ procedure application(
     case _ =>
       local typed_fun: At[Expr], u: Type, typed_args: List[At[Expr]]
       call   infer(in env, fun, out typed_fun, u, ref s)
-      call   apply(in env, u, args, out typed_args, t, ref s)
+      call   apply(in env, u, args, expected, out typed_args, t, ref s)
       assign typed_expr := EApp(typed_fun, typed_args)
   end
 
@@ -2055,24 +2147,64 @@ procedure apply(
   in  env: Env,
       f: Type,
       args: List[At[Expr]],
+      expected: Option[Type * Str],
   out typed_args: List[At[Expr]],
       r: Type,
   ref s: State
 ) :=
-  local ts: List[Type]
+  local ts: List[Type], fitting := false
   call fresh(out r, ref s)
-  call infers_first(in env, args, out typed_args, ts, ref s)
-  match zonk_type(s.sub, f)
-    case TFun(ps, res) if size(ps) == size(args) =>
+  match (zonk_type(s.sub, f), expected)
+    case (TFun(ps, res), Some((t, _))) if size(ps) == size(args) =>
+      call fits(in res, t, s, out fitting)
+    case _ =>
+      skip
+  end
+  match (zonk_type(s.sub, f), expected)
+    case (TFun(ps, res), Some((t, _))) if fitting =>
+      call unify(in res, t, ref s)
+      call unify(in res, r, ref s)
+      call checks_args(in env, args, ps, out typed_args, ref s)
+
+    case (TFun(ps, res), _) if size(ps) == size(args) =>
+      call infers_first(in env, args, out typed_args, ts, ref s)
       for ((a, p), (t, i)) in zip(zip(args, ps), numbered(ts)) do
         call expect(in a.pos, "argument " ++ show(i + 1) ++ " of the call", p, t, ref s)
       end
       call unify(in res, r, ref s)
+      call infers_lambdas(in env, args, ts, ref typed_args, s)
 
     case _ =>
+      call infers_first(in env, args, out typed_args, ts, ref s)
       call unify(in f, TFun(ts, r), ref s)
+      call infers_lambdas(in env, args, ts, ref typed_args, s)
   end
-  call infers_lambdas(in env, args, ts, ref typed_args, s)
+
+// whether u unifies with t, tried on a copy of s
+procedure fits(in u: Type, t: Type, s: State, out ok: Bool) :=
+  local trial := s
+  call   unify(in u, t, ref trial)
+  assign ok := size(trial.errors) == size(s.errors)
+
+// the arguments checked against the types of the formals ps, the lambdas last, since they take the types of their formals
+// from the other arguments
+procedure checks_args(
+  in  env: Env,
+      args: List[At[Expr]],
+      ps: List[Type],
+  out typed_args: List[At[Expr]],
+  ref s: State
+) :=
+  local typed: Map[Int, At[Expr]] := Map(), x: At[Expr]
+  for ((a, p), i) in zip(zip(args, ps), range(0, size(args))) if not is_lambda(a) do
+    call   check(in env, a, p, "argument " ++ show(i + 1) ++ " of the call", out x, ref s)
+    assign typed := put(i, x, typed)
+  end
+  for ((a, p), i) in zip(zip(args, ps), range(0, size(args))) if is_lambda(a) do
+    call   check(in env, a, p, "argument " ++ show(i + 1) ++ " of the call", out x, ref s)
+    assign typed := put(i, x, typed)
+  end
+  assign typed_args := List(for (a, i) in zip(args, range(0, size(args))) yield value_or(get(i, typed), a))
 
 // the arguments in order, except the lambdas, which get an unknown type and wait until the type of the function is
 // known, so that the formals of a lambda have the types that the function expects, see infers_lambdas
@@ -2192,7 +2324,7 @@ procedure check(
   if is_lambda(expr) then
     call infer_lambda(in env, expr, t, out typed_expr, ref s)
   else
-    call infer(in env, expr, out typed_expr, u, ref s)
+    call infer_against(in env, expr, t, what, out typed_expr, u, ref s)
     call expect(in expr.pos, what, t, u, ref s)
   end
 
@@ -4000,7 +4132,7 @@ procedure check_package(
   end
   assign cmds := defined ++ tested ++ enumerated ++ abstract_decls(decls, native_types(builtins)), shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors
   if errors == List() then
-    assign errors := raises_errors(defined, s.sig, hidden)
+    assign errors := raises_errors(defined ++ tested, s.sig, hidden)
   end
 
 // an example of the function or procedure owner, translated into the test cmd, at the position pos in module, where an
@@ -4075,28 +4207,29 @@ function numbered_examples(m: Id, cmds: List[Bool * Cmd], counts: Map[Id, Int]):
   end
 
 function example_test(m: Id, pos: Pos, owner: Name, exported: Bool, n: Int, x: Example): ExampleTest :=
-  ExampleTest(pos, m, owner, exported, CTest(Name(Some(m), owner.base ++ ".example." ++ show(n)), List(), example_stmt(x)))
+  ExampleTest(pos, m, owner, exported, CTest(Name(Some(m), owner.base ++ ".example." ++ show(n)), List(), example_stmt(pos, x)))
 
 // the body of the test of the example x, which is checked as written, in the scope of its module, so that its names take
 // the declarations that overloading chooses, also another one than the owner, which the convention, an example applies
-// its function, rules out; the parts that the source does not have are at Pos(0, 0), so that their errors are located
-// at the example
-function example_stmt(x: Example): At[Stmt] :=
+// its function, rules out; the statement is at the example at pos, where the checks of the exceptions report what its
+// assert raises cannot catch, and the other parts that the source does not have are at Pos(0, 0), so that their errors
+// are located at the example too
+function example_stmt(pos: Pos, x: Example): At[Stmt] :=
   match x
     case XHolds(expr) =>
-      nowhere(SAssert(expr))
+      AOk(pos, SAssert(expr))
 
     case XRaises(expr, pat) =>
       let value := Var(generated_name("value"), THole) in
-      nowhere(SAssertRaises(THole, pat, nowhere(block(List(value), List(nowhere(SAssign(List((value, expr)))))))))
+      AOk(pos, SAssertRaises(THole, pat, nowhere(block(List(value), List(nowhere(SAssign(List((value, expr)))))))))
 
     case XCall(proc, ins, outs, refs) =>
       let out_vars := generated_vars("out", size(outs)), ref_vars := generated_vars("ref", size(refs)) in
-      nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, firsts(refs)) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars))) ++ expected_values(out_vars ++ ref_vars, outs ++ seconds(refs))))
+      AOk(pos, block(out_vars ++ ref_vars, initial_refs(ref_vars, firsts(refs)) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars))) ++ expected_values(out_vars ++ ref_vars, outs ++ seconds(refs))))
 
     case XCallRaises(proc, ins, blanks, befores, pat) =>
       let out_vars := generated_vars("out", blanks), ref_vars := generated_vars("ref", size(befores)) in
-      nowhere(SAssertRaises(THole, pat, nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, befores) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars)))))))
+      AOk(pos, SAssertRaises(THole, pat, nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, befores) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars)))))))
   end
 
 // a name of the generated code, which users cannot write

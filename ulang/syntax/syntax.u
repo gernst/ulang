@@ -343,7 +343,7 @@ function placed_of(d: Mod): List[Doc[Cmd]]
 
 function commands_of(docs: List[Doc[Cmd]]): List[Cmd]
 
-// the parts of docs, without their docs and positions
+// the parts of docs, without their docs and positions, and without those that do not parse
 function parts[A](docs: List[Doc[A]]): List[A]
 
 // the statements of docs, without their docs
@@ -479,7 +479,15 @@ function block(locals: List[Var], stmts: List[At[Stmt]]): Stmt :=
   SBlock(locals, List(for stmt in stmts yield Doc(None, stmt)))
 
 function parts[A](docs: List[Doc[A]]): List[A] :=
-  List(for d in docs yield d.at.that)
+  List(for d in docs if is_parsed(d.at) yield d.at.that)
+
+function is_parsed[A](x: At[A]): Bool :=
+  match x
+    case AUnparsed(_, _, _) =>
+      false
+    case _ =>
+      true
+  end
 
 function module_dir(id: Id): Str :=
   match reverse(split(id, '/'))

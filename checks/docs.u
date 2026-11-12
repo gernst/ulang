@@ -196,6 +196,7 @@ procedure file_decls(
         if ends_with(file, ".u") then
           local source: Source
           call parse_file(in file, out source)
+          call require_parsed(in source)
           for d in source.mods if d.name == source.main do
             assign decls := Some(module_decls(d))
           end
