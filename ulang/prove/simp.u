@@ -11,9 +11,10 @@
 // - facts: the assumptions before, the conjuncts before in a conclusion, and the negated conclusions before,
 //   where siblings only see those before them, since each seeing all others would simplify A and A to true and true.
 //
-// Ground facts are equations solved into a substitution of atoms, where constructors are injective, distinct, and
-// acyclic, and linear sums are solved for an atom, and inequalities over sums, decided by Fourier–Motzkin, which stand
-// for the CC(X) of the plan until it is a union-find. Facts with variables are rewrite rules.
+// Ground facts are equations in an e-graph (ulang/prove/egraph.u), whose congruences are merged by the theories, where
+// constructors are injective, distinct, and acyclic, and linear sums are solved for an atom, whose class then extracts
+// as the sum, and inequalities over sums, decided by Fourier–Motzkin, as the CC(X) of the plan. A term is rewritten to
+// the best term of its class. Facts with variables are rewrite rules.
 
 import "ulang/syntax"
 
@@ -51,7 +52,7 @@ data Rule :=
 
 // the limits of the simplifier, which leave a goal equivalent but not normalized where they are reached:
 // - merges: the equations that one fact may solve, also of the facts that solving it solves again, in one budget for
-//   the cycle of merge, add_pair, remerge, and add_ineq, so that a fact solves at most this many,
+//   the cycle of merge, equate, join, and add_ineq, so that a fact solves at most this many,
 // - probe_merges: the merges of a trial merge that decides an equation, and probes: the trial merges nested,
 // - splits: the internal splits nested, unfolds: the unfoldings and rewrites nested,
 // - eliminations: the variables that Fourier–Motzkin eliminates, and constraints: the inequalities it works on
@@ -61,12 +62,12 @@ data Limits :=
 function limits(): Limits :=
   Limits(20, 5, 2, 3, 64, 20, 60)
 
-// the variables of the opened sequents, the last one first, such that level l is at depth - 1 - l, the solved
-// equations from atoms to their values, the inequalities t >= 0, the rules, whether the facts are inconsistent, and
+// the variables of the opened sequents, the last one first, such that level l is at depth - 1 - l, the e-graph of the
+// ground equations, the inequalities t >= 0, the rules, whether the facts are inconsistent, and
 // what is left of the limits: of the merges of the current fact, of internal splits, of trial merges, and the unfoldings
 // and rewrites so far
 data Ctx :=
-  case Ctx(decls: Decls, vars: List[Var], eqs: Map[Term, Term], ineqs: List[Lin], rules: List[Rule], inconsistent: Bool, merges: Int, splits: Int, unfolds: Int, probes: Int)
+  case Ctx(decls: Decls, vars: List[Var], graph: EGraph, ineqs: List[Lin], rules: List[Rule], inconsistent: Bool, merges: Int, splits: Int, unfolds: Int, probes: Int)
 
 // a simplified conjunction with the context after it, or Refuted if a conjunct is false
 data Conj :=
@@ -95,7 +96,7 @@ function false_seq(): Seq :=
 
 function new_ctx(decls: Decls): Ctx :=
   let l := limits() in
-  Ctx(decls, List(), empty(), List(), List(), false, l.merges, l.splits, 0, l.probes)
+  Ctx(decls, List(), empty_graph(), List(), List(), false, l.merges, l.splits, 0, l.probes)
 
 // the context with a new budget of merges, for a fact or a term that the simplification of a sequent adds, not one
 // that solving adds
@@ -565,20 +566,20 @@ function merge(ctx: Ctx, a: Term, b: Term): Ctx :=
           if occurs_constr(ctx.decls, a, b) then
             contradiction(ctx)
           else
-            add_pair(ctx, a, b)
+            equate(ctx, a, b)
         else if is_value(ctx.decls, a) then
           if occurs_constr(ctx.decls, b, a) then
             contradiction(ctx)
           else
-            add_pair(ctx, b, a)
+            equate(ctx, b, a)
         else if is_greater(ctx.decls, a, b) then
-          add_pair(ctx, a, b)
+          equate(ctx, a, b)
         else if is_greater(ctx.decls, b, a) then
-          add_pair(ctx, b, a)
+          equate(ctx, b, a)
         else if compare(a, b) > 0 then
-          add_pair(ctx, a, b)
+          equate(ctx, a, b)
         else
-          add_pair(ctx, b, a)
+          equate(ctx, b, a)
     end
 
 function merge_all(ctx: Ctx, xs: List[Term], ys: List[Term]): Ctx :=
@@ -600,14 +601,14 @@ function merge_lin(ctx: Ctx, d: Lin): Ctx :=
       match greatest_unit(ctx.decls, summands, None)
         case Some(unit) =>
           let rest := lin_sub(d, Lin(0, List(unit))) in
-          add_pair(ctx, unit.term, sum_term(if unit.factor == 1 then lin_scale(-1, rest) else rest))
+          equate(ctx, unit.term, sum_term(if unit.factor == 1 then lin_scale(-1, rest) else rest))
 
         case None =>
           let g := gcd_all(summands) in
           if k % g != 0 then
             contradiction(ctx)
           else
-            add_pair(ctx, sum_term(Lin(0, divided(summands, g))), int_term(0 - k / g))
+            equate(ctx, sum_term(Lin(0, divided(summands, g))), int_term(0 - k / g))
       end
   end
 
@@ -640,28 +641,117 @@ function gcd_all(summands: List[Summand]): Int :=
 function divided(summands: List[Summand], g: Int): List[Summand] :=
   List(for summand in summands yield summand with factor := summand.factor / g)
 
-// the context with the atom l solved to r, where the equations and inequalities that mention l are solved again
-function add_pair(ctx: Ctx, l: Term, r: Term): Ctx :=
-  let changed := List(for a => b in ctx.eqs if occurs(l, a) or occurs(l, b)) in
-  let eqs := remove_keys(changed, ctx.eqs) in
-  let base := ctx with eqs := put(l, r, eqs), ineqs := List(), merges := ctx.merges - 1 in
-  let next := remerge(base, List(for (a, b) in changed yield (replace(l, r, a), replace(l, r, b)))) in
-  readd_ineqs(next, ctx.ineqs)
+// the context with l == r in the e-graph, where the inequalities are solved again after the classes that it merges
+function equate(ctx: Ctx, l: Term, r: Term): Ctx :=
+  let (g, i) := add_term(ctx.graph, l) in
+  let (h, j) := add_term(g, r) in
+  readd_ineqs(join(ctx with graph := h, ineqs := List(), i, j), ctx.ineqs)
 
-function remove_keys(ps: List[Term * Term], eqs: Map[Term, Term]): Map[Term, Term] :=
-  match ps
-    case List() =>
-      eqs
-    case List((k, _); rest) =>
-      remove_keys(rest, remove(k, eqs))
-  end
+// the context with the classes i and j merged, where the classes that congruence makes equal are merged by the theories,
+// and the parents of the merged classes are simplified again, so that a value of a class reaches the terms above it
+function join(ctx: Ctx, i: Int, j: Int): Ctx :=
+  if ctx.merges <= 0 or ctx.inconsistent or class_of(ctx.graph, i) == class_of(ctx.graph, j) then
+    ctx
+  else
+    let u := unite(ctx.graph, i, j) in
+    resimplify(congruent(ctx with graph := u.graph, merges := ctx.merges - 1, u.pending), u.parents)
 
-function remerge(ctx: Ctx, ps: List[Term * Term]): Ctx :=
-  match ps
+function congruent(ctx: Ctx, pairs: List[Int * Int]): Ctx :=
+  match pairs
     case List() =>
       ctx
-    case List((a, b); rest) =>
-      remerge(merge(ctx, simp_term(ctx, a), simp_term(ctx, b)), rest)
+    case List((p, q); rest) =>
+      congruent(merge_classes(ctx, p, q), rest)
+  end
+
+// the classes merged, and their terms by the theories, which take the terms from before
+function merge_classes(ctx: Ctx, p: Int, q: Int): Ctx :=
+  let a := extract(ctx, p), b := extract(ctx, q) in
+  merge(join(ctx, p, q), a, b)
+
+function resimplify(ctx: Ctx, parents: List[ENode * Int]): Ctx :=
+  match parents
+    case List() =>
+      ctx
+
+    case List((node, i); rest) =>
+      if ctx.inconsistent then
+        ctx
+      else
+        let t := node_term(node, List(for a in node.args yield extract(ctx, a))) in
+        let u := simp_term(ctx, t) in
+        if u == t then
+          resimplify(ctx, rest)
+        else
+          let (g, k) := add_term(ctx.graph, u) in
+          let a := extract(ctx, i) in
+          resimplify(merge(join(ctx with graph := g, i, k), a, u), rest)
+  end
+
+// the best term of the class of i: a literal, else a value, else a sum, the solved form of an atom, else the least in
+// the term order; a class always has a node whose arguments are in other classes, its oldest node, so this is total
+function extract(ctx: Ctx, i: Int): Term :=
+  match extract_in(ctx.decls, ctx.graph, class_of(ctx.graph, i), List())
+    case Some(t) =>
+      t
+    case None =>
+      ELevel(i)
+  end
+
+// the best term of the class c, from the nodes without arguments in the classes of the stack, which are being extracted
+function extract_in(decls: Decls, g: EGraph, c: Int, stack: List[Int]): Option[Term] :=
+  let inner := List(c; stack) in
+  let terms := List(for node in class_nodes(g, c) if not exists(node.args, lambda a => contains(a, inner)) for t in node_extract(decls, g, node, inner) yield t) in
+  best_term(decls, terms, None)
+
+function node_extract(decls: Decls, g: EGraph, node: ENode, stack: List[Int]): Option[Term] :=
+  match extract_all(decls, g, node.args, stack, List())
+    case Some(args) =>
+      Some(node_term(node, args))
+    case None =>
+      None
+  end
+
+function extract_all(decls: Decls, g: EGraph, cs: List[Int], stack: List[Int], acc: List[Term]): Option[List[Term]] :=
+  match cs
+    case List() =>
+      Some(reverse(acc))
+
+    case List(c; rest) =>
+      match extract_in(decls, g, c, stack)
+        case Some(t) =>
+          extract_all(decls, g, rest, stack, List(t; acc))
+        case None =>
+          None
+      end
+  end
+
+function best_term(decls: Decls, ts: List[Term], best: Option[Term]): Option[Term] :=
+  match (ts, best)
+    case (List(), _) =>
+      best
+
+    case (List(t; rest), Some(u)) =>
+      best_term(decls, rest, if is_better(decls, t, u) then Some(t) else best)
+
+    case (List(t; rest), None) =>
+      best_term(decls, rest, Some(t))
+  end
+
+function is_better(decls: Decls, t: Term, u: Term): Bool :=
+  let r := term_rank(decls, t), s := term_rank(decls, u) in
+  r < s or r == s and (is_greater(decls, u, t) or not is_greater(decls, t, u) and compare(t, u) < 0)
+
+function term_rank(decls: Decls, t: Term): Int :=
+  match t
+    case ELit(_) =>
+      0
+
+    case ESum(_, _) =>
+      2
+
+    case _ =>
+      if free_head(decls, t) != None then 1 else 3
   end
 
 function readd_ineqs(ctx: Ctx, ls: List[Lin]): Ctx :=
@@ -1147,18 +1237,18 @@ function match_pats(decls: Decls, ps: List[Pat], ts: List[Term]): PatMatch :=
       Matched(List())
   end
 
-// the value of a canonical atom by the equations, or else by the first rule that applies
+// the best term of the class of a canonical atom in the e-graph, or else the atom by the first rule that applies
 function rewrite(ctx: Ctx, t: Term): Term :=
-  match get(t, ctx.eqs)
-    case Some(v) =>
-      v
-
+  let v := match lookup_term(ctx.graph, t)
+    case Some(c) =>
+      extract(ctx, c)
     case None =>
-      if ctx.unfolds > limits().unfolds then
-        t
-      else
-        apply_rules(ctx, ctx.rules, t)
-  end
+      t
+  end in
+  if v != t or ctx.unfolds > limits().unfolds then
+    v
+  else
+    apply_rules(ctx, ctx.rules, t)
 
 function apply_rules(ctx: Ctx, rules: List[Rule], t: Term): Term :=
   match rules
