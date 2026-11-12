@@ -6,10 +6,10 @@ import "ulang/syntax"
 export
 
 data FunDef :=
-  case FunDef(formals: List[Var], body: Expr)
+  case FunDef(formals: List[Var], body: At[Expr])
 
 data ProcDef :=
-  case ProcDef(ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
+  case ProcDef(ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
 
 // a constructor of datatype with arity fields, at position in its declaration, which orders values, see order_of
 data ConstrDef :=
@@ -134,7 +134,7 @@ function constr_defs(cmds: List[Cmd]): List[Name * ConstrDef] :=
       List()
 
     case List(CData(name, _, constrs); rest) =>
-      constrs_from(name, constrs, 0) ++ constr_defs(rest)
+      constrs_from(name, parts(constrs), 0) ++ constr_defs(rest)
 
     case List(_; rest) =>
       constr_defs(rest)
@@ -144,7 +144,7 @@ function constrs_from(t: Name, ks: List[Constr], i: Int): List[Name * ConstrDef]
   match ks
     case List() =>
       List()
-    case List(Constr(_, name, fields); rest) =>
+    case List(Constr(name, fields); rest) =>
       List((name, ConstrDef(size(fields), i, t)); constrs_from(t, rest, i + 1))
   end
 
@@ -154,7 +154,7 @@ function field_defs(cmds: List[Cmd]): List[(Name * Int) * List[Int]] :=
       List()
 
     case List(CData(name, _, constrs); rest) =>
-      field_positions(name, constrs) ++ field_defs(rest)
+      field_positions(name, parts(constrs)) ++ field_defs(rest)
 
     case List(_; rest) =>
       field_defs(rest)

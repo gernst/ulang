@@ -75,17 +75,17 @@ test constructor_clash() :=
   end
 
 test data_arity() :=
-  assert raises Located(None, Pos(1, 1), SortArity(Name(Some("ulang/test/errors/data-arity"), "T"), 1, 0)) do
+  assert raises Located(None, Pos(2, 3), SortArity(Name(Some("ulang/test/errors/data-arity"), "T"), 1, 0)) do
     call check_text(in "ulang/test/errors/data-arity.u", List("data T[A] :=", "  case C(inner: T)"))
   end
 
 test data_unknown_param() :=
-  assert raises Located(None, Pos(1, 1), UnknownSort(Name(None, "A"))) do
+  assert raises Located(None, Pos(2, 3), UnknownSort(Name(None, "A"))) do
     call check_text(in "ulang/test/errors/data-unknown-param.u", List("data T :=", "  case C(value: A)"))
   end
 
 test duplicate_constructor() :=
-  assert raises Located(None, Pos(1, 1), AlreadyDefined(Name(Some("ulang/test/errors/duplicate-constructor"), "C"))) do
+  assert raises Located(None, Pos(3, 3), AlreadyDefined(Name(Some("ulang/test/errors/duplicate-constructor"), "C"))) do
     call check_text(in "ulang/test/errors/duplicate-constructor.u", List("data T :=", "  case C", "  case C"))
   end
 
@@ -204,7 +204,7 @@ test hidden_generator() :=
   end
 
 test hidden_lambda() :=
-  assert raises Located(None, Pos(1, 1), HiddenLocal(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 4), HiddenLocal(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/hidden-lambda.u", List("function f(x: Int): Int :=", "  (lambda x => x + 1)(x)"))
   end
 
@@ -214,7 +214,7 @@ test hidden_let() :=
   end
 
 test hidden_local() :=
-  assert raises Located(None, Pos(1, 1), HiddenLocal(Name(None, "n"))) do
+  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(None, "n"))) do
     call check_text(in "ulang/test/errors/hidden-local.u", List("procedure p(in n: Int) :=", "  local n := 1", "  assert n == 1"))
   end
 
@@ -231,7 +231,7 @@ test hidden_pattern() :=
   end
 
 test hidden_procedure_lambda() :=
-  assert raises Located(None, Pos(2, 9), HiddenLocal(Name(None, "y"))) do
+  assert raises Located(None, Pos(2, 14), HiddenLocal(Name(None, "y"))) do
     call check_text(in "ulang/test/errors/hidden-procedure-lambda.u", List(
       "procedure p(in y: Int) :=",
       "  local q := lambda in x: Int, out y: Int =>",
@@ -323,7 +323,7 @@ test misshapen_hook() :=
   end
 
 test missing_local_type() :=
-  assert raises Located(None, Pos(1, 1), MissingType(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 3), MissingType(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/missing-local-type.u", List("test missing_local_type() :=", "  local x", "  assert true"))
   end
 
@@ -374,7 +374,7 @@ test overload_unapplied() :=
   end
 
 test pair_type() :=
-  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(3, 14), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/pair-type.u", List(
       "function f(p: Int * Int): Int :=",
       "  match p",
@@ -452,7 +452,7 @@ test pattern_duplicate() :=
   end
 
 test pattern_type() :=
-  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(3, 10), CannotUnify(_, _)) do
     call check_text(in "ulang/test/errors/pattern-type.u", List(
       "function f(): Int :=",
       "  match 1",

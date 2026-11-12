@@ -7,7 +7,7 @@ export
 pattern PNil(): Pat :=
   PApp(Name(Some("prelude/list"), "Nil"), List())
 
-pattern PCons(head: Pat, tail: Pat): Pat :=
+pattern PCons(head: At[Pat], tail: At[Pat]): Pat :=
   PApp(Name(Some("prelude/list"), "Cons"), List(head, tail))
 
 // the builtin types of the prelude, and lists after checking
@@ -30,8 +30,9 @@ pattern TList(elem: Type): Type :=
 pattern ENil(typ: Type): Expr :=
   EVar(Var(Name(Some("prelude/list"), "Nil"), typ))
 
-pattern ECons(typ: Type, head: Expr, tail: Expr): Expr :=
-  EApp(EVar(Var(Name(Some("prelude/list"), "Cons"), typ)), List(head, tail))
+// at the position pos of the constructor
+pattern ECons(pos: Pos, typ: Type, head: At[Expr], tail: At[Expr]): Expr :=
+  EApp(AOk(pos, EVar(Var(Name(Some("prelude/list"), "Cons"), typ))), List(head, tail))
 
 function nil_name(): Name
 

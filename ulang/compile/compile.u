@@ -244,7 +244,7 @@ function data_decls(cmds: List[Cmd], defs: Defs): List[CDecl] :=
       List()
 
     case List(CData(name, _, constrs); rest) =>
-      type_decls(name, defs) ++ constructor_decls(name, constrs, 0) ++ data_decls(rest, defs)
+      type_decls(name, defs) ++ constructor_decls(name, parts(constrs), 0) ++ data_decls(rest, defs)
 
     case List(_; rest) =>
       data_decls(rest, defs)
@@ -304,12 +304,12 @@ function constructor_decls(t: Name, ks: List[Constr], i: Int): List[CDecl] :=
     case List(k; rest) if contains(k.name, runtime_constructors()) =>
       constructor_decls(t, rest, i + 1)
 
-    case List(Constr(_, name, List()); rest) =>
+    case List(Constr(name, List()); rest) =>
       List(
         descriptor_decl(name, i, t),
         unit_decl(name, t); constructor_decls(t, rest, i + 1))
 
-    case List(Constr(_, name, _); rest) =>
+    case List(Constr(name, _); rest) =>
       List(descriptor_decl(name, i, t); constructor_decls(t, rest, i + 1))
   end
 
@@ -443,8 +443,8 @@ function pattern_tests(pat: Pat, v: CExpr): List[CExpr] :=
       List()
   end
 
-function field_tests(ps: List[Pat * Int], v: CExpr): List[CExpr] :=
-  List(for (p, i) in ps for t in pattern_tests(p, field(v, i)) yield t)
+function field_tests(ps: List[At[Pat] * Int], v: CExpr): List[CExpr] :=
+  List(for (p, i) in ps for t in pattern_tests(p.that, field(v, i)) yield t)
 
 // the declarations of the variables of pat, where v matches pat
 function pattern_binds(pat: Pat, v: CExpr): List[CStmt] :=
@@ -462,18 +462,18 @@ function pattern_binds(pat: Pat, v: CExpr): List[CStmt] :=
       List()
   end
 
-function field_binds(ps: List[Pat * Int], v: CExpr): List[CStmt] :=
-  List(for (p, i) in ps for b in pattern_binds(p, field(v, i)) yield b)
+function field_binds(ps: List[At[Pat] * Int], v: CExpr): List[CStmt] :=
+  List(for (p, i) in ps for b in pattern_binds(p.that, field(v, i)) yield b)
 
-function free_in_all(exprs: List[Expr], bound: List[Name]): List[Name] :=
+function free_in_all(exprs: List[At[Expr]], bound: List[Name]): List[Name] :=
   List(for a in exprs for n in free_vars(a, bound) yield n)
 
 function unbound(names: List[Name], bound: List[Name]): List[Name] :=
   List(for y in names if not contains(y, bound))
 
 // the variables of expr that bound does not bind, which lambdas capture if they are local
-function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
-  match expr
+function free_vars(expr: At[Expr], bound: List[Name]): List[Name] :=
+  match expr.that
     case ELit(_) =>
       List()
 
@@ -512,15 +512,11 @@ function free_vars(expr: Expr, bound: List[Name]): List[Name] :=
 
     case ETuple(args) =>
       free_in_all(args, bound)
-
-    // the checker drops positions
-    case EAt(_, inner) =>
-      free_vars(inner, bound)
   end
 
 // the variables of x that bound does not bind, including procedures called through variables
-function free_in_stmt(stmt: Stmt, bound: List[Name]): List[Name] :=
-  match stmt
+function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
+  match stmt.that
     case SSkip =>
       List()
 
@@ -560,24 +556,20 @@ function free_in_stmt(stmt: Stmt, bound: List[Name]): List[Name] :=
     // the checker gives one generator over a list, which the case before takes
     case SFor(_, body) =>
       free_in_stmt(body, bound)
-
-    // the checker drops positions
-    case SAt(_, inner) =>
-      free_in_stmt(inner, bound)
   end
 
-function free_in_stmt_branch(b: Branch[Stmt], bound: List[Name]): List[Name] :=
-  match b
-    case Branch(_, pat, Some(g), body) =>
+function free_in_stmt_branch(d: Doc[Branch[At[Stmt]]], bound: List[Name]): List[Name] :=
+  match d.at.that
+    case Branch(pat, Some(g), body) =>
       let inner := pattern_names(pat) ++ bound in
       free_vars(g, inner) ++ free_in_stmt(body, inner)
 
-    case Branch(_, pat, None, body) =>
+    case Branch(pat, None, body) =>
       free_in_stmt(body, pattern_names(pat) ++ bound)
   end
 
-function free_in_handler(h: Catch, bound: List[Name]): List[Name] :=
-  let inner := pattern_names(h.pat) ++ bound in
+function free_in_handler(d: Doc[Catch], bound: List[Name]): List[Name] :=
+  let h := d.at.that, inner := pattern_names(d.at.that.pat) ++ bound in
   free_in_stmt(h.body, inner) ++ match h.guard
     case Some(g) =>
       free_vars(g, inner)
@@ -585,13 +577,13 @@ function free_in_handler(h: Catch, bound: List[Name]): List[Name] :=
       List()
   end
 
-function free_in_branch(b: Branch[Expr], bound: List[Name]): List[Name] :=
-  match b
-    case Branch(_, pat, Some(g), body) =>
+function free_in_branch(d: Doc[Branch[At[Expr]]], bound: List[Name]): List[Name] :=
+  match d.at.that
+    case Branch(pat, Some(g), body) =>
       let inner := pattern_names(pat) ++ bound in
       free_vars(g, inner) ++ free_vars(body, inner)
 
-    case Branch(_, pat, None, body) =>
+    case Branch(pat, None, body) =>
       free_vars(body, pattern_names(pat) ++ bound)
   end
 
@@ -646,12 +638,12 @@ function static_literal(x: Str, text: Str): CStmt :=
 procedure compile_expr(
   in  defs: Defs,
       env: Vars,
-      expr: Expr,
+      expr: At[Expr],
   out ss: List[CStmt],
       r: CExpr,
   ref g: Gen
 ) :=
-  match expr
+  match expr.that
     case ELit(LStr(text)) =>
       local t: Str
       call   gen_name(in "l_" ++ mangle(unqualified(prefix_of(text))) ++ "_", out t, ref g)
@@ -668,7 +660,7 @@ procedure compile_expr(
           assign ss := List(), r := global_value(defs, name, typ)
       end
 
-    case ECall(name, typ, args) if get(name, env) == None =>
+    case ECall(_, name, typ, args) if get(name, env) == None =>
       match fusion_of(name, args)
         case Some(FusedArray((gs, q, e))) =>
           call compile_array_comprehension(in defs, env, gs, q, e, out ss, r, ref g)
@@ -699,18 +691,20 @@ procedure compile_expr(
     case EFor(form, _, _, _) =>
       raise UntranslatedForm(form_name(form))
 
-    // the checker drops positions
-    case EAt(_, _) =>
-      raise Unexpected("position")
-
     case EApp(fun, args) =>
       local as: List[CStmt], bs: List[CStmt], ra: CExpr, rs: List[CExpr]
       call   compile_expr(in defs, env, fun, out as, ra, ref g)
       call   compile_exprs(in defs, env, args, out bs, rs, ref g)
       assign ss := as ++ bs, r := c_call("u_apply", List(ra, CeNum(size(args))) ++ rs)
 
+    // the checker makes the formals variables
     case ELam(formals, body) =>
-      call compile_lambda(in defs, env, lambda_vars(formals), body, out ss, r, ref g)
+      match pattern_vars(formals)
+        case Some(xs) =>
+          call compile_lambda(in defs, env, xs, body, out ss, r, ref g)
+        case None =>
+          raise Unexpected("lambda of patterns")
+      end
 
     case EProc(ins, outs, refs, stmt) =>
       call compile_proc_lambda(in defs, env, ins, outs, refs, stmt, out ss, r, ref g)
@@ -759,7 +753,7 @@ procedure compile_expr(
 procedure compile_exprs(
   in  defs: Defs,
       env: Vars,
-      exprs: List[Expr],
+      exprs: List[At[Expr]],
   out ss: List[CStmt],
       rs: List[CExpr],
   ref g: Gen
@@ -781,15 +775,15 @@ procedure temps(in rs: List[CExpr], out ss: List[CStmt], ref g: Gen) :=
   end
 
 // the variables of the patterns of a let, bound to the parts of the temporaries declared by ts, which they match
-function let_binds(pats: List[Pat], ts: List[CStmt]): List[CStmt] :=
+function let_binds(pats: List[At[Pat]], ts: List[CStmt]): List[CStmt] :=
   match (pats, ts)
     case (List(pat; more), List(CsDecl(_, name, _); rest)) =>
-      pattern_binds(pat, CeVar(name)) ++ let_binds(more, rest)
+      pattern_binds(pat.that, CeVar(name)) ++ let_binds(more, rest)
     case _ =>
       List()
   end
 
-function bound_by(pats: List[Pat]): List[Name] :=
+function bound_by(pats: List[At[Pat]]): List[Name] :=
   List(for p in pats for n in pattern_names(p) yield n)
 
 // applications of functions, constructors, and builtins of their arities are direct calls
@@ -798,7 +792,7 @@ procedure compile_named(
       env: Vars,
       n: Name,
       ty: Type,
-      args: List[Expr],
+      args: List[At[Expr]],
   out ss: List[CStmt],
       r: CExpr,
   ref g: Gen
@@ -849,7 +843,7 @@ procedure compile_lambda(
   in  defs: Defs,
       env: Vars,
       xs: List[Var],
-      b: Expr,
+      b: At[Expr],
   out ss: List[CStmt],
       r: CExpr,
   ref g: Gen
@@ -868,7 +862,7 @@ procedure compile_proc_lambda(
       ins: List[Var],
       outs: List[Var],
       refs: List[Var],
-      stmt: Stmt,
+      stmt: At[Stmt],
   out ss: List[CStmt],
       r: CExpr,
   ref g: Gen
@@ -896,7 +890,7 @@ function unpack(xs: List[Name * Int], a: Str): List[CStmt] :=
 procedure expr_cases(
   in  defs: Defs,
       env: Vars,
-      cases: List[Branch[Expr]],
+      cases: List[Doc[Branch[At[Expr]]]],
       v: CExpr,
       t: Str,
   out ss: List[CStmt],
@@ -906,7 +900,7 @@ procedure expr_cases(
     case List() =>
       assign ss := List()
 
-    case List(Branch(_, pat, guard, e); more) =>
+    case List(Doc(_, AOk(_, Branch(pat, guard, e))); more) =>
       local bs: List[CStmt], rb: CExpr, gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env
       call   compile_expr(in defs, env_, e, out bs, rb, ref g)
       assign body := bs ++ List(CsAssign(CeVar(t), rb))
@@ -919,16 +913,20 @@ procedure expr_cases(
           skip
       end
       call   expr_cases(in defs, env, more, v, t, out rest, ref g)
-      assign ss := List(case_if(t, pattern_tests(pat, v), pat, v, body)) ++ rest
+      assign ss := List(case_if(t, pattern_tests(pat.that, v), pat, v, body)) ++ rest
+
+    // the parser and the checker make no error nodes yet
+    case _ =>
+      raise Unexpected("error node")
   end
 
 // the elements of a list literal, Cons(a, Cons(b, Nil))
-function list_literal(expr: Expr): Option[List[Expr]] :=
-  match expr
+function list_literal(expr: At[Expr]): Option[List[At[Expr]]] :=
+  match expr.that
     case ENil(_) =>
       Some(List())
 
-    case ECons(_, e, rest) =>
+    case ECons(_, _, e, rest) =>
       match list_literal(rest)
         case Some(es) =>
           Some(List(e; es))
@@ -942,15 +940,15 @@ function list_literal(expr: Expr): Option[List[Expr]] :=
 
 // the condition and the element of a function body that puts the element in front of the accumulator acc if the condition holds,
 // and returns acc otherwise
-function consing(body: Expr, acc: Name): Option[Option[Expr] * Expr] :=
-  match body
-    case EIte(cond, ECons(_, e, EName(a, _)), EName(b, _)) if a == acc and b == acc =>
+function consing(body: At[Expr], acc: Name): Option[Option[At[Expr]] * At[Expr]] :=
+  match body.that
+    case EIte(cond, AOk(_, ECons(_, _, e, AOk(_, EName(a, _)))), AOk(_, EName(b, _))) if a == acc and b == acc =>
       if contains(acc, free_vars(cond, List()) ++ free_vars(e, List())) then
         None
       else
         Some((Some(cond), e))
 
-    case ECons(_, e, EName(a, _)) if a == acc =>
+    case ECons(_, _, e, AOk(_, EName(a, _))) if a == acc =>
       if contains(acc, free_vars(e, List())) then None else Some((None, e))
 
     case _ =>
@@ -958,18 +956,18 @@ function consing(body: Expr, acc: Name): Option[Option[Expr] * Expr] :=
   end
 
 type Fusion :=
-  List[Name * Expr * Var] * Option[Expr] * Expr
+  List[Name * At[Expr] * Var] * Option[At[Expr]] * At[Expr]
 
 // a call that compiles to loops or to an array made at once, instead of a call of its function
 data Fused :=
   // array.from_list of a comprehension
   case FusedArray(fusion: Fusion)
   // array.from_list of a list literal
-  case FusedLiteral(elems: List[Expr])
+  case FusedLiteral(elems: List[At[Expr]])
   // a comprehension of lists, onto the list init
-  case FusedList(fusion: Fusion, init: Expr)
+  case FusedList(fusion: Fusion, init: At[Expr])
 
-function fusion_of(name: Name, args: List[Expr]): Option[Fused] :=
+function fusion_of(name: Name, args: List[At[Expr]]): Option[Fused] :=
   match (array_fusion(name, args), args)
     case (Some(fusion), _) =>
       Some(FusedArray(fusion))
@@ -982,7 +980,7 @@ function fusion_of(name: Name, args: List[Expr]): Option[Fused] :=
           None
       end
 
-    case (None, List(xs, init, ELam(List(PVar(x), PVar(acc)), body))) =>
+    case (None, List(xs, init, AOk(_, ELam(List(AOk(_, PVar(x)), AOk(_, PVar(acc))), body)))) =>
       match fused(name, xs, x, body, acc.name)
         case Some(fusion) =>
           Some(FusedList(fusion, init))
@@ -997,7 +995,7 @@ function fusion_of(name: Name, args: List[Expr]): Option[Fused] :=
 // the generators, the condition, and the element of a comprehension over lists and arrays, foldr(c1, init, lambda x1, acc =>
 // foldr(c2, acc, lambda x2, acc => ... if q then Cons(e, acc) else acc)), into which comprehensions translate, where each
 // generator is the fold of its container, the container, and the variable, and acc is free nowhere else
-function fused(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fusion] :=
+function fused(f: Name, c: At[Expr], x: Var, body: At[Expr], acc: Name): Option[Fusion] :=
   if f != list_foldr_name() and f != array_foldr_name() then
     None
   else
@@ -1008,11 +1006,11 @@ function fused(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fusion] 
         fused_inner(f, c, x, body, acc)
     end
 
-function fused_inner(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fusion] :=
-  match body
-    case ECall(f_, _, List(c_, EName(a, _), lam)) if a == acc and is_unused(acc, c_, lam) =>
-      match lam
-        case ELam(List(PVar(x_), PVar(acc_)), inner) =>
+function fused_inner(f: Name, c: At[Expr], x: Var, body: At[Expr], acc: Name): Option[Fusion] :=
+  match body.that
+    case ECall(_, f_, _, List(c_, AOk(_, EName(a, _)), lam)) if a == acc and is_unused(acc, c_, lam) =>
+      match lam.that
+        case ELam(List(AOk(_, PVar(x_)), AOk(_, PVar(acc_))), inner) =>
           nested(f, c, x, fused(f_, c_, x_, inner, acc_.name))
         case _ =>
           None
@@ -1022,10 +1020,10 @@ function fused_inner(f: Name, c: Expr, x: Var, body: Expr, acc: Name): Option[Fu
       None
   end
 
-function is_unused(acc: Name, c: Expr, lam: Expr): Bool :=
+function is_unused(acc: Name, c: At[Expr], lam: At[Expr]): Bool :=
   not contains(acc, free_vars(c, List()) ++ free_vars(lam, List()))
 
-function nested(f: Name, c: Expr, x: Var, inner: Option[Fusion]): Option[Fusion] :=
+function nested(f: Name, c: At[Expr], x: Var, inner: Option[Fusion]): Option[Fusion] :=
   match inner
     case Some((gs, q, e)) =>
       Some((List((f, c, x); gs), q, e))
@@ -1034,11 +1032,11 @@ function nested(f: Name, c: Expr, x: Var, inner: Option[Fusion]): Option[Fusion]
   end
 
 // the generators, condition, and element of an array comprehension Array(foldr(c, Nil, lambda x, acc => ...))
-function array_fusion(n: Name, args: List[Expr]): Option[Fusion] :=
+function array_fusion(n: Name, args: List[At[Expr]]): Option[Fusion] :=
   match args
-    case List(ECall(f, _, List(xs, ENil(_), lam))) if n == array_name() =>
-      match lam
-        case ELam(List(PVar(x), PVar(acc)), body) =>
+    case List(AOk(_, ECall(_, f, _, List(xs, AOk(_, ENil(_)), lam)))) if n == array_name() =>
+      match lam.that
+        case ELam(List(AOk(_, PVar(x)), AOk(_, PVar(acc))), body) =>
           fused(f, xs, x, body, acc.name)
         case _ =>
           None
@@ -1053,9 +1051,9 @@ function array_fusion(n: Name, args: List[Expr]): Option[Fusion] :=
 procedure compile_loops(
   in  defs: Defs,
       env: Vars,
-      gs: List[Name * Expr * Var],
-      cond: Option[Expr],
-      e: Expr,
+      gs: List[Name * At[Expr] * Var],
+      cond: Option[At[Expr]],
+      e: At[Expr],
       add: CExpr -> List[CStmt],
   out ss: List[CStmt],
   ref g: Gen
@@ -1096,10 +1094,10 @@ procedure compile_loops(
 procedure compile_list_comprehension(
   in  defs: Defs,
       env: Vars,
-      gs: List[Name * Expr * Var],
-      cond: Option[Expr],
-      e: Expr,
-      init: Expr,
+      gs: List[Name * At[Expr] * Var],
+      cond: Option[At[Expr]],
+      e: At[Expr],
+      init: At[Expr],
   out ss: List[CStmt],
       r: CExpr,
   ref g: Gen
@@ -1120,9 +1118,9 @@ procedure compile_list_comprehension(
 procedure compile_array_comprehension(
   in  defs: Defs,
       env: Vars,
-      gs: List[Name * Expr * Var],
-      cond: Option[Expr],
-      e: Expr,
+      gs: List[Name * At[Expr] * Var],
+      cond: Option[At[Expr]],
+      e: At[Expr],
   out ss: List[CStmt],
       r: CExpr,
   ref g: Gen
@@ -1130,12 +1128,12 @@ procedure compile_array_comprehension(
   local source := unqualified("(source)")
   match gs
     case List((f, c, x); rest) =>
-      local cs: List[CStmt], rc: CExpr, loops: List[CStmt], t: Str, n: Str, l: Str, scope: Vars, inner: List[Name * Expr * Var]
+      local cs: List[CStmt], rc: CExpr, loops: List[CStmt], t: Str, n: Str, l: Str, scope: Vars, inner: List[Name * At[Expr] * Var]
       call   compile_expr(in defs, env, c, out cs, rc, ref g)
       call   gen_name(in "t", out t, ref g)
       call   gen_name(in "n", out n, ref g)
       call   gen_name(in "l", out l, ref g)
-      assign scope := List((source, CeVar(l)); env), inner := List((f, EName(source, THole), x); rest)
+      assign scope := List((source, CeVar(l)); env), inner := List((f, nowhere(EName(source, THole)), x); rest)
       call   compile_loops(in defs, scope, inner, cond, e, lambda re => push_stmt(t, re), out loops, ref g)
       assign ss := cs ++ List(declare(l, rc), declare_count(n, l), declare_array(t, n)) ++ loops
       assign r := CeVar(t)
@@ -1202,8 +1200,8 @@ function make_closure(kind: Str, f: Str, caps: List[Name], env: Vars): CExpr :=
 function guarded(c: CExpr, t: Str, bs: List[CStmt], rb: CExpr): CStmt :=
   CsIf(c, bs ++ List(set_var(t, rb)), List())
 
-function case_if(flag: Str, tests: List[CExpr], pat: Pat, v: CExpr, body: List[CStmt]): CStmt :=
-  CsIf(conjunction(List(not_flag(flag)) ++ tests), pattern_binds(pat, v) ++ body, List())
+function case_if(flag: Str, tests: List[CExpr], pat: At[Pat], v: CExpr, body: List[CStmt]): CStmt :=
+  CsIf(conjunction(List(not_flag(flag)) ++ tests), pattern_binds(pat.that, v) ++ body, List())
 
 function declare_ptr(x: Str, init: CExpr): CStmt :=
   CsDecl(value_ptr(), x, Some(init))
@@ -1254,11 +1252,11 @@ function main_formals(): List[CType * Str] :=
 procedure compile_stmt(
   in  defs: Defs,
       env: Vars,
-      stmt: Stmt,
+      stmt: At[Stmt],
   out ss: List[CStmt],
   ref g: Gen
 ) :=
-  match stmt
+  match stmt.that
     case SSkip =>
       assign ss := List()
 
@@ -1313,7 +1311,7 @@ procedure compile_stmt(
         CsIf(CeUnary("!", CeVar(t)), List(CsExpr(c_call("u_no_case", List(CeVar(d))))), List()))
 
     // assertions of equations show both sides when they fail
-    case SAssert(ECall(Name(None, "=="), _, List(a, b))) =>
+    case SAssert(AOk(_, ECall(_, Name(None, "=="), _, List(a, b)))) =>
       local as: List[CStmt], bs: List[CStmt], ra: CExpr, rb: CExpr
       call   compile_expr(in defs, env, a, out as, ra, ref g)
       call   compile_expr(in defs, env, b, out bs, rb, ref g)
@@ -1345,7 +1343,7 @@ procedure compile_stmt(
       assign ss := cs ++ List(
         CsBlock(List(
           declare(l, rc),
-          CsWhile(is_cell(l), pattern_binds(pat, field(CeVar(l), 0)) ++ bs ++ List(set_var(l, field(CeVar(l), 1)))))))
+          CsWhile(is_cell(l), pattern_binds(pat.that, field(CeVar(l), 0)) ++ bs ++ List(set_var(l, field(CeVar(l), 1)))))))
 
     // the checker gives one generator over a list
     case SFor(_, _) =>
@@ -1355,14 +1353,10 @@ procedure compile_stmt(
     case SAssertRaises(typ, pat, body) =>
       local bs: List[CStmt], ps: List[CStmt], rp: CExpr
       call   compile_stmt(in defs, env, body, out bs, ref g)
-      call   compile_expr(in defs, env, ELit(LStr(format_pat(pat))), out ps, rp, ref g)
+      call   compile_expr(in defs, env, nowhere(ELit(LStr(format_pat(pat.that)))), out ps, rp, ref g)
       assign bs := bs ++ ps ++ List(
         CsExpr(c_call("u_fail_text", List(CeVar("u_text_assertion_not_raised"), rp))))
-      call   compile_try(in defs, env, body, bs, List(Catch("", typ, pat, None, SSkip)), out ss, ref g)
-
-    // the checker drops positions
-    case SAt(_, _) =>
-      raise Unexpected("position")
+      call   compile_try(in defs, env, body, bs, List(Doc(None, nowhere(Catch(typ, pat, None, nowhere(SSkip))))), out ss, ref g)
   end
 
 // the body, compiled to bs, runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if
@@ -1371,9 +1365,9 @@ procedure compile_stmt(
 procedure compile_try(
   in  defs: Defs,
       env: Vars,
-      body: Stmt,
+      body: At[Stmt],
       bs: List[CStmt],
-      catches: List[Catch],
+      catches: List[Doc[Catch]],
   out ss: List[CStmt],
   ref g: Gen
 ) :=
@@ -1392,8 +1386,8 @@ function saved_name(x: Name): Str :=
   "was_" ++ var_name(x)
 
 // the variables that s assigns, directly or as outs and refs
-function changed(stmt: Stmt): List[Name] :=
-  match stmt
+function changed(stmt: At[Stmt]): List[Name] :=
+  match stmt.that
     case SAssign(upd) =>
       var_names(firsts(upd))
 
@@ -1410,10 +1404,10 @@ function changed(stmt: Stmt): List[Name] :=
       var_names(outs ++ refs)
 
     case SMatch(_, cases) =>
-      List(for b in cases for n in changed(b.body) yield n)
+      List(for b in cases for n in changed(b.at.that.body) yield n)
 
     case STry(b, catches) =>
-      changed(b) ++ List(for h in catches for n in changed(h.body) yield n)
+      changed(b) ++ List(for h in catches for n in changed(h.at.that.body) yield n)
 
     case SFor(_, body) =>
       changed(body)
@@ -1429,16 +1423,12 @@ function changed(stmt: Stmt): List[Name] :=
 
     case SRaise(_, _) =>
       List()
-
-    // the checker drops positions
-    case SAt(_, inner) =>
-      changed(inner)
   end
 
 procedure compile_stmts(
   in  defs: Defs,
       env: Vars,
-      xs: List[Stmt],
+      xs: List[At[Stmt]],
   out ss: List[CStmt],
   ref g: Gen
 ) :=
@@ -1463,7 +1453,7 @@ function reassign(env: Vars, xs: List[Var], ts: List[CStmt]): List[CStmt] :=
 procedure handler_cases(
   in  defs: Defs,
       env: Vars,
-      hs: List[Catch],
+      hs: List[Doc[Catch]],
       h: Str,
       d: Str,
   out ss: List[CStmt],
@@ -1474,7 +1464,7 @@ procedure handler_cases(
     case List() =>
       assign ss := List()
 
-    case List(Catch(_, typ, pat, guard, s); more) =>
+    case List(Doc(_, AOk(_, Catch(typ, pat, guard, s))); more) =>
       local bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env, tests: List[CExpr]
       call   compile_stmt(in defs, env_, s, out bs, ref g)
       assign body := List(CsAssign(CeVar(d), CeNum(1))) ++ bs
@@ -1486,21 +1476,25 @@ procedure handler_cases(
         case None =>
           skip
       end
-      match pat
+      match pat.that
         case PWild =>
           assign tests := List()
         case _ =>
-          assign tests := List(c_call("u_has_type", List(CeVar(h), CeStr(type_key(typ))))) ++ pattern_tests(pat, v)
+          assign tests := List(c_call("u_has_type", List(CeVar(h), CeStr(type_key(typ))))) ++ pattern_tests(pat.that, v)
       end
       call   handler_cases(in defs, env, more, h, d, out rest, ref g)
       assign ss := List(case_if(d, tests, pat, v, body)) ++ rest
+
+    // the parser and the checker make no error nodes yet
+    case _ =>
+      raise Unexpected("error node")
   end
 
 // the cases of a match statement, which set the flag d when one applies
 procedure stmt_cases(
   in  defs: Defs,
       env: Vars,
-      cases: List[Branch[Stmt]],
+      cases: List[Doc[Branch[At[Stmt]]]],
       v: CExpr,
       d: Str,
   out ss: List[CStmt],
@@ -1510,7 +1504,7 @@ procedure stmt_cases(
     case List() =>
       assign ss := List()
 
-    case List(Branch(_, pat, guard, s); more) =>
+    case List(Doc(_, AOk(_, Branch(pat, guard, s))); more) =>
       local bs: List[CStmt], gs: List[CStmt], rg: CExpr, body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env
       call   compile_stmt(in defs, env_, s, out bs, ref g)
       assign body := List(CsAssign(CeVar(d), CeNum(1))) ++ bs
@@ -1523,7 +1517,11 @@ procedure stmt_cases(
           skip
       end
       call   stmt_cases(in defs, env, more, v, d, out rest, ref g)
-      assign ss := List(case_if(d, pattern_tests(pat, v), pat, v, body)) ++ rest
+      assign ss := List(case_if(d, pattern_tests(pat.that, v), pat, v, body)) ++ rest
+
+    // the parser and the checker make no error nodes yet
+    case _ =>
+      raise Unexpected("error node")
   end
 
 // the C functions of a command, a function of each test if tests are compiled

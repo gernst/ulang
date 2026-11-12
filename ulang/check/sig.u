@@ -24,7 +24,7 @@ data ConstrSig :=
 // a pattern alias over params, whose checked pattern pat of type typ has the formals for its variables, each once, and
 // whose constructors are qualified, so that a use in another module expands it without resolving them again
 data PatAlias :=
-  case PatAlias(params: List[Type], formals: List[Var], typ: Type, pat: Pat)
+  case PatAlias(params: List[Type], formals: List[Var], typ: Type, pat: At[Pat])
 
 // a lemma over params with the types of its formals, which only proofs cite, so that it is no value
 data LemmaSig :=

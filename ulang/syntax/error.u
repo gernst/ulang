@@ -15,6 +15,11 @@ data ErrorKind :=
 
 function error_kinds(): List[ErrorKind]
 
+// an error of a phase at its position in module, None for the main module, where code is the constructor of the error, e.g.
+// CannotUnify, and details are its parts, such as the expected and the found type
+data Diagnostic :=
+  case Diagnostic(kind: ErrorKind, code: Str, module: Option[Id], pos: Pos, message: Str, details: List[Str * Str])
+
 // "kind error: message"
 function error_text(kind: ErrorKind, message: Str): Str
 

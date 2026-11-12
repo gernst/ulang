@@ -635,14 +635,14 @@ function same_mod(d: Mod, e: Mod): Bool :=
   d.name == e.name and d.doc == e.doc and d.imports == e.imports and same_sections(d, e)
 
 function same_sections(d: Mod, e: Mod): Bool :=
-  same_tops(d.exported, e.exported) and same_tops(d.builtins, e.builtins) and same_tops(d.implemented, e.implemented)
+  same_cmds(d.exported, e.exported) and same_cmds(d.builtins, e.builtins) and same_cmds(d.implemented, e.implemented)
 
 // whether the modules have the same names, imports, and commands with their documentation, whatever their positions
 function same_mods(mods: List[Mod], others: List[Mod]): Bool :=
   size(mods) == size(others) and forall(zip(mods, others), lambda (d, e) => same_mod(d, e))
 
-function same_tops(tops: List[Top], others: List[Top]): Bool :=
-  size(tops) == size(others) and forall(zip(tops, others), lambda (top, other) => top.doc == other.doc and strip_cmd(top.cmd) == strip_cmd(other.cmd))
+function same_cmds(cmds: List[Doc[Cmd]], others: List[Doc[Cmd]]): Bool :=
+  size(cmds) == size(others) and forall(zip(cmds, others), lambda (c, other) => c.doc == other.doc and strip_cmd(c.at.that) == strip_cmd(other.at.that))
 
 // the checked program of file and the message of the error of loading it, or else "", where formatted requires each file
 // of its unit, the members of its package or file alone if it is a program, to be formatted, after the errors of parsing
