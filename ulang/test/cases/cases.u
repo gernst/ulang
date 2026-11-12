@@ -42,6 +42,13 @@ procedure check_text_partial(
       errors: List[TypeError]
 ) raises ParseError, OsError, InternalError
 
+// the checked program of the case, which holds its errors
+procedure checked_text(
+  in  path: Str,
+      lines: List[Str],
+  out q: Prog
+) raises ParseError, OsError, InternalError
+
 // load_text, then the tests of the case
 procedure run_text(
   in  path: Str,
@@ -126,6 +133,16 @@ procedure check_text_partial(
   call   parse_file_text(in path, text_of(lines), out source)
   call   check_partial(in without_unparsed(source), unparsed_names(source), out q, errors)
   assign parsing := parse_errors(source)
+
+procedure checked_text(
+  in  path: Str,
+      lines: List[Str],
+  out q: Prog
+) raises ParseError, OsError, InternalError :=
+  local source: Source, errors: List[TypeError]
+  call parse_file_text(in path, text_of(lines), out source)
+  call require_parsed(in source)
+  call check_all(in source, out q, errors)
 
 procedure run_text(
   in  path: Str,

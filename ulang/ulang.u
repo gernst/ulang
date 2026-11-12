@@ -609,43 +609,6 @@ function belongs(cmd: Cmd, modules: List[Id]): Bool :=
       false
   end
 
-// the module of cmd, None for a notation, which the checked program no longer needs
-function cmd_module(cmd: Cmd): Option[Id] :=
-  match cmd
-    case CSort(name, _, _) =>
-      name.module
-
-    case CData(name, _, _) =>
-      name.module
-
-    case CFun(name, _, _, _, _, _) =>
-      name.module
-
-    case CProc(name, _, _, _, _, _, _, _) =>
-      name.module
-
-    case CNotation(_, _, _) =>
-      None
-
-    case CTest(name, _, _) =>
-      name.module
-
-    case CFunSig(name, _, _, _, _) =>
-      name.module
-
-    case CProcSig(name, _, _, _, _, _, _) =>
-      name.module
-
-    case CAbstract(name, _) =>
-      name.module
-
-    case CPatAlias(name, _, _, _, _) =>
-      name.module
-
-    case CLemma(name, _, _, _, _, _, _) =>
-      name.module
-  end
-
 // the path of file from the root, where file is a path from the working directory and root the root from there
 function from_root(root: Str, file: Str): Str :=
   if starts_with(file, root ++ "/") then

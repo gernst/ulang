@@ -868,3 +868,14 @@ test proof_out_one_branch() :=
       "    assign y := 0",
       "  end"))
   end
+
+// a mismatch stands on the part that finds it, the call, while its diagnostic points at the argument
+test errors_on_parts() :=
+  local q: Prog
+  call checked_text(in "ulang/test/errors/errors-on-parts.u", List("function f(n: Int): Int :=", "  n + true"), out q)
+  match reverse(q.cmds)
+    case List(AOk(_, CFun(_, _, _, _, _, AErr(Pos(2, 5), EApp(_, _), List(d)))); _) =>
+      assert d.code == "Mismatch" and d.pos == Pos(2, 7)
+    case _ =>
+      assert false
+  end

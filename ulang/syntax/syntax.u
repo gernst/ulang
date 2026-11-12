@@ -357,6 +357,9 @@ function part_errors(cmd: Cmd): List[Diagnostic]
 // the errors of cmd and of its parts
 function cmd_errors(cmd: At[Cmd]): List[Diagnostic]
 
+// the module of cmd, None for a notation, which has no name
+function cmd_module(cmd: Cmd): Option[Id]
+
 // whether x parsed, though it may have parts that do not
 function is_parsed[A](x: At[A]): Bool
 
@@ -985,6 +988,42 @@ function strip_pattern(pat: Pat): Pat :=
       pat
   end
 
+function cmd_module(cmd: Cmd): Option[Id] :=
+  match cmd
+    case CSort(name, _, _) =>
+      name.module
+
+    case CData(name, _, _) =>
+      name.module
+
+    case CFun(name, _, _, _, _, _) =>
+      name.module
+
+    case CProc(name, _, _, _, _, _, _, _) =>
+      name.module
+
+    case CNotation(_, _, _) =>
+      None
+
+    case CTest(name, _, _) =>
+      name.module
+
+    case CFunSig(name, _, _, _, _) =>
+      name.module
+
+    case CProcSig(name, _, _, _, _, _, _) =>
+      name.module
+
+    case CAbstract(name, _) =>
+      name.module
+
+    case CPatAlias(name, _, _, _, _) =>
+      name.module
+
+    case CLemma(name, _, _, _, _, _, _) =>
+      name.module
+  end
+
 function cmd_errors(cmd: At[Cmd]): List[Diagnostic] :=
   match cmd
     case AUnparsed(_, _, error) =>
@@ -1008,8 +1047,8 @@ function part_errors(cmd: Cmd): List[Diagnostic] :=
     case CTest(_, _, stmt) =>
       errors_in_stmt(stmt)
 
-    case CLemma(_, _, _, _, assms, concl, _) =>
-      errors_in_exprs(assms ++ List(concl))
+    case CLemma(_, _, _, _, assms, concl, proof) =>
+      errors_in_exprs(assms ++ List(concl)) ++ List(for p in options(proof) for e in errors_in_proof(p) yield e)
 
     case CSort(_, _, _) =>
       List()
@@ -1151,6 +1190,60 @@ function generated(g: Gen): List[At[Expr]] :=
 
     case GIf(cond) =>
       List(cond)
+  end
+
+function errors_in_proof(proof: Proof): List[Diagnostic] :=
+  List(for step in proof.steps for e in errors_in_step(step) yield e) ++ List(for split in options(proof.split) for e in errors_in_split(split) yield e)
+
+function errors_in_step(step: At[Step]): List[Diagnostic] :=
+  match step
+    case AUnparsed(_, _, error) =>
+      List(error)
+
+    case AOk(_, that) =>
+      errors_in_step_node(that)
+
+    case AErr(_, that, errors) =>
+      errors ++ errors_in_step_node(that)
+  end
+
+function errors_in_step_node(step: Step): List[Diagnostic] :=
+  match step
+    case StepLocal(_, value) =>
+      errors_in_exprs(options(value))
+
+    case StepCall(_, ins, _) =>
+      errors_in_exprs(ins)
+
+    case StepAssert(cond) =>
+      errors_in_expr(cond)
+
+    case StepAssign(upd) =>
+      errors_in_exprs(List(for (_, e) in upd yield e))
+  end
+
+function errors_in_split(split: At[Split]): List[Diagnostic] :=
+  match split
+    case AUnparsed(_, _, error) =>
+      List(error)
+
+    case AOk(_, that) =>
+      errors_in_split_node(that)
+
+    case AErr(_, that, errors) =>
+      errors ++ errors_in_split_node(that)
+  end
+
+function errors_in_split_node(split: Split): List[Diagnostic] :=
+  match split
+    case SplitInduction(_, cases) =>
+      List(for c in parts(cases) for e in errors_in_exprs(options(c.guard)) ++ errors_in_proof(c.body) yield e)
+
+    case SplitMatch(arg, cases) =>
+      errors_in_expr(arg) ++ List(for c in parts(cases) for e in errors_in_exprs(options(c.guard)) ++ errors_in_proof(c.body) yield e)
+
+    case SplitIf(cond, left, right) =>
+      errors_in_expr(cond) ++ errors_in_proof(left) ++ List(for r in options(right) for e in errors_in_proof(r) yield e)
   end
 
 function errors_in_stmt(stmt: At[Stmt]): List[Diagnostic] :=

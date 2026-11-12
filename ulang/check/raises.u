@@ -25,7 +25,7 @@ data Scope :=
 function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name]): List[TypeError] :=
   let inferred := inferred_procs(cmds, hidden) in
   let scope := infer_procs(cmds, Scope(sig, written_procs(cmds, inferred), empty()), inferred) in
-  List(for cmd in cmds for (pos, e) in take(1, sort(cmd_errors(scope, cmd, inferred))) yield Located(module_of(cmd), pos, e))
+  List(for cmd in cmds for (pos, e) in take(1, sort(cmd_errors(scope, cmd, inferred))) yield Located(cmd_module(cmd), pos, e))
 
 // the private procedures without raises, whose raises are inferred
 function inferred_procs(cmds: List[Cmd], hidden: Set[Name]): Set[Name] :=
@@ -87,43 +87,6 @@ function cmd_errors(scope: Scope, cmd: Cmd, inferred: Set[Name]): List[Pos * Typ
 
 function omitted(name: Name, raised: Map[Name, Pos], allowed: Set[Name]): List[Pos * TypeError] :=
   List(for t => pos in raised if not contains(t, allowed) yield (pos, UndeclaredRaise(name, TSort(t, List()))))
-
-// the module of a checked command, whose name the checker qualifies
-function module_of(cmd: Cmd): Option[Id] :=
-  match cmd
-    case CFun(name, _, _, _, _, _) =>
-      name.module
-
-    case CProc(name, _, _, _, _, _, _, _) =>
-      name.module
-
-    case CTest(name, _, _) =>
-      name.module
-
-    case CLemma(name, _, _, _, _, _, _) =>
-      name.module
-
-    case CSort(name, _, _) =>
-      name.module
-
-    case CData(name, _, _) =>
-      name.module
-
-    case CFunSig(name, _, _, _, _) =>
-      name.module
-
-    case CProcSig(name, _, _, _, _, _, _) =>
-      name.module
-
-    case CAbstract(name, _) =>
-      name.module
-
-    case CPatAlias(name, _, _, _, _) =>
-      name.module
-
-    case CNotation(_, _, _) =>
-      None
-  end
 
 function cmd_flow(scope: Scope, cmd: Cmd): Flow :=
   match cmd

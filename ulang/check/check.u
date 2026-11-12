@@ -131,10 +131,17 @@ data Local :=
 data Pending :=
   case Pending(id: Name, name: Name, cands: List[Name * Scheme], typ: Type, pos: Pos)
 
+// a part around the errors that are reported, which tells how they read
+data Within :=
+  // the elements of a form at places, whose mismatches are of an element of the form
+  case InForm(form: Form, places: Set[Pos])
+  // the arguments of a call of name, whose mismatches may have hints of name
+  case InCall(name: Name)
+
 // where hidden and hidden_sorts are the private declarations and sorts of the members of the package being checked, which
 // the other members do not see, while sig has only the exports of the modules checked before
 data State :=
-  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool)
+  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int])
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -157,7 +164,7 @@ function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
   value_or(get(m, vs), List(m))
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
-  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false)
+  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty())
 
 function in_module(m: Id, n: Name): Name :=
   Name(Some(m), n.base)
@@ -1591,16 +1598,17 @@ procedure infer(
 ) :=
   match expr
     case AOk(pos, node) =>
-      local outer := s.at, x: Expr
+      local outer := s.at, before := size(s.errors), x: Expr, errors: List[Diagnostic]
       assign s := s with at := pos
       call   infer_node(in env, pos, node, None, out x, typ, ref s)
-      assign res := AOk(pos, x), s := s with at := outer
+      call   take_errors(in pos, before, out errors, ref s)
+      assign res := checked_at(pos, x, errors), s := s with at := outer
 
     // reported by the parser, of any type
     case AUnparsed(_, _, _) =>
       assign res := expr, typ := TError
 
-    // the checker makes no error nodes yet
+    // the checker makes error nodes of the parts that the parser read, which it checks once
     case AErr(_, _, _) =>
       raise Unexpected("error node")
   end
@@ -1618,16 +1626,17 @@ procedure infer_against(
 ) :=
   match expr
     case AOk(pos, node) =>
-      local outer := s.at, x: Expr
+      local outer := s.at, before := size(s.errors), x: Expr, errors: List[Diagnostic]
       assign s := s with at := pos
       call   infer_node(in env, pos, node, Some((t, what)), out x, typ, ref s)
-      assign res := AOk(pos, x), s := s with at := outer
+      call   take_errors(in pos, before, out errors, ref s)
+      assign res := checked_at(pos, x, errors), s := s with at := outer
 
     // reported by the parser, of any type
     case AUnparsed(_, _, _) =>
       assign res := expr, typ := TError
 
-    // the checker makes no error nodes yet
+    // the checker makes error nodes of the parts that the parser read, which it checks once
     case AErr(_, _, _) =>
       raise Unexpected("error node")
   end
@@ -1758,9 +1767,10 @@ procedure infer_node(
     // forms as the builders of the module of their name, and their generators as the folds of the modules of the
     // containers, which the checked program keeps
     case EForm(form, elems, rest) =>
-      local before := size(s.errors), places := Set(for y in elems for e in yielded_exprs(y) yield e.pos)
+      local outer := s.within, places := Set(for y in elems for e in yielded_exprs(y) yield e.pos)
+      assign s := s with within := List(InForm(form, places); outer)
       call   translated(in env, form_expr(pos, form, elems, rest), expected, out res, typ, ref s)
-      assign s := s with errors := take(before, s.errors) ++ List(for e in drop(before, s.errors) yield element_error(form, places, e))
+      assign s := s with within := outer
 
     case EFor(FArray, gens, elem, None) =>
       call translated(in env, form_app(pos, library_module("array"), "from_list", List(AOk(pos, EFor(FList, gens, elem, None)))), expected, out res, typ, ref s)
@@ -1842,8 +1852,39 @@ function component_types(s: State, expected: Option[Type * Str], n: Int): Option
 // checker continues with a fallback
 procedure report(in e: TypeError, ref s: State) :=
   if not reaches_error(s, e) then
-    assign s := s with errors := s.errors ++ List(at_use(s.at, unparsed_use(s.unparsed, e)))
+    assign s := s with errors := s.errors ++ List(within(s, at_use(s.at, unparsed_use(s.unparsed, e))))
   end
+
+// e as the parts around it read it, the innermost first
+function within(s: State, e: TypeError): TypeError :=
+  foldl(s.within, e, lambda x, w => as_within(w, x))
+
+function as_within(w: Within, e: TypeError): TypeError :=
+  match w
+    case InForm(form, places) =>
+      element_error(form, places, e)
+    case InCall(name) =>
+      argument_hint(name, e)
+  end
+
+// the errors that the part at pos takes, those reported since there were before that no part inside it took, and none for
+// a part at Pos(0, 0), of code that the parser did not read, whose errors the part around it or the command takes
+procedure take_errors(
+  in  pos: Pos,
+      before: Int,
+  out errors: List[Diagnostic],
+  ref s: State
+) :=
+  if pos == Pos(0, 0) then
+    assign errors := List()
+  else
+    local own := List(for (i, e) in zip(range(before, size(s.errors)), drop(before, s.errors)) if not contains(i, s.taken) yield (i, e))
+    assign errors := List(for (_, e) in own yield type_diagnostic(e)), s := s with taken := s.taken ++ Set(for (i, _) in own yield i)
+  end
+
+// x at pos with its errors, if it has some
+function checked_at[A](pos: Pos, x: A, errors: List[Diagnostic]): At[A] :=
+  if errors == List() then AOk(pos, x) else AErr(pos, x, errors)
 
 // whether e is of a type that a part that does not parse reaches, TError, which needs no error of its own
 function reaches_error(s: State, e: TypeError): Bool :=
@@ -2176,11 +2217,11 @@ procedure application(
         call   infers_lambdas(in env, args, ts, ref typed_args, s)
         assign typed_expr := EApp(fun with that := EVar(x), typed_args)
       else
-        local before := size(s.errors), typed_args: List[At[Expr]], typed_fun: At[Expr], u: Type
+        local outer := s.within, typed_args: List[At[Expr]], typed_fun: At[Expr], u: Type
+        assign s := s with within := List(InCall(name); outer)
         call   infer(in env, fun, out typed_fun, u, ref s)
         call   apply(in env, u, args, expected, out typed_args, t, ref s)
-        assign typed_expr := EApp(typed_fun, typed_args)
-        assign s := s with errors := take(before, s.errors) ++ List(for e in drop(before, s.errors) yield argument_hint(name, e))
+        assign typed_expr := EApp(typed_fun, typed_args), s := s with within := outer
       end
 
     case ELam(_, _) =>
@@ -2436,7 +2477,8 @@ procedure expect(in pos: Pos, what: Str, t: Type, u: Type, ref s: State) :=
   assign s := s with at := pos
   call   unify(in u, t, ref s)
   if exists(drop(size(before), s.errors), is_unify_error) then
-    assign s := s with errors := before ++ List(at_use(pos, Mismatch(zonk_type(s.sub, t), zonk_type(s.sub, u), what)))
+    assign s := s with errors := before ++ List(
+      within(s, at_use(pos, Mismatch(zonk_type(s.sub, t), zonk_type(s.sub, u), what))))
   end
   assign s := s with at := outer
 
@@ -2841,16 +2883,17 @@ procedure statement(
 ) :=
   match stmt
     case AOk(pos, node) =>
-      local outer := s.at, x: Stmt
+      local outer := s.at, before := size(s.errors), x: Stmt, errors: List[Diagnostic]
       assign s := s with at := pos
       call   statement_node(in assignable, pos, node, out x, ref env, s)
-      assign y := AOk(pos, x), s := s with at := outer
+      call   take_errors(in pos, before, out errors, ref s)
+      assign y := checked_at(pos, x, errors), s := s with at := outer
 
     // reported by the parser, which may assign every variable, so that no reads after it are errors
     case AUnparsed(_, _, _) =>
       assign y := stmt, env := assigned(env, firsts(env))
 
-    // the checker makes no error nodes yet
+    // the checker makes error nodes of the parts that the parser read, which it checks once
     case AErr(_, _, _) =>
       raise Unexpected("error node")
   end
@@ -3727,7 +3770,7 @@ procedure commands(
       assign typed_cmds := List()
 
     case List((m, cmd); more) =>
-      local typed_cmd: Cmd, zonked: Cmd, rest: List[Cmd]
+      local taken := s.taken, typed_cmd: Cmd, zonked: Cmd, rest: List[Cmd]
       assign s := enter(s, m)
       call   command(in cmd, out typed_cmd, ref s)
       call   settle(ref s)
@@ -3740,7 +3783,7 @@ procedure commands(
             skip
         end
       else
-        assign zonked := cmd
+        assign zonked := cmd, s := s with taken := taken
       end
       call   commands(in more, out rest, ref s)
       assign typed_cmds := List(zonked; rest)
@@ -4153,19 +4196,19 @@ procedure check_source(
   out q: Prog,
       errors: List[TypeError]
 ) raises InternalError :=
-  local sig: Sig := empty(), imports: List[Id * List[Id]] := List(), cmds: List[Id * At[Cmd]] := List(), checked: List[Id * At[Cmd]], shown: Sig, found: List[TypeError], placed: List[At[Cmd]]
+  local sig: Sig := empty(), imports: List[Id * List[Id]] := List(), cmds: List[Id * At[Cmd]] := List(), checked: List[Id * At[Cmd]], shown: Sig, found: List[TypeError], loose: List[TypeError] := List(), found_loose: List[TypeError], placed: List[At[Cmd]]
   assign errors := List()
   for mods in units(source.mods, source.packages) if errors == List() do
     try
-      call   check_package(in mods, source.packages, sig, imports, unparsed, partial, out checked, shown, found)
-      assign sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, errors := found
+      call   check_package(in mods, source.packages, sig, imports, unparsed, partial, out checked, shown, found, found_loose)
+      assign sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, errors := found, loose := found_loose
     catch
       case e =>
-        assign cmds := cmds ++ List(for d in mods for c in written_of(d.name, d.exported ++ d.implemented) yield c), errors := List(e)
+        assign cmds := cmds ++ List(for d in mods for c in written_of(d.name, d.exported ++ d.implemented) yield c), errors := List(e), loose := List(e)
     end
   end
   assign errors := distinct(List(for e in errors yield in_main(source.main, e)))
-  call   with_errors(in source.main, cmds ++ builtins_of(source), errors, out placed)
+  call   with_errors(in source.main, cmds ++ builtins_of(source), distinct(List(for e in loose yield in_main(source.main, e))), out placed)
   assign q := Prog(take(size(cmds), placed), drop(size(cmds), placed), source.main)
 
 // the commands of the builtin sections of source
@@ -4238,9 +4281,20 @@ function with_diagnostics(cmd: At[Cmd], ds: List[Diagnostic]): At[Cmd] :=
       cmd
   end
 
-// the errors that checking found in q, of its commands and their parts, without those of parsing, which are the source's
+// the errors that checking found in q, of its commands and their parts, by position within each command, without those of
+// parsing, which are the source's
 function diagnostics(q: Prog): List[Diagnostic] :=
-  List(for cmd in q.cmds ++ q.builtins for d in cmd_errors(cmd) if d.kind != ParseKind yield d)
+  distinct(List(for cmd in q.cmds ++ q.builtins for d in command_diagnostics(q.main, cmd) yield d))
+
+// the errors of cmd by position, where an error of a part without a module is of the module of cmd, and one of main has
+// none
+function command_diagnostics(main: Id, cmd: At[Cmd]): List[Diagnostic] :=
+  let m := if is_parsed(cmd) then cmd_module(cmd.that) else None in
+  let ds := List(for d in cmd_errors(cmd) if d.kind != ParseKind yield in_main_module(main, d with module := or_else(d.module, m))) in
+  List(for (_, _, d) in sort(List(for (i, d) in zip(range(0, size(ds)), ds) yield (d.pos, i, d))) yield d)
+
+function in_main_module(main: Id, d: Diagnostic): Diagnostic :=
+  if d.module == Some(main) then d with module := None else d
 
 function has_errors(q: Prog): Bool :=
   diagnostics(q) != List()
@@ -4333,14 +4387,15 @@ procedure check_package(
       partial: Bool,
   out cmds: List[Id * At[Cmd]],
       shown: Sig,
-      errors: List[TypeError]
+      errors: List[TypeError],
+      loose: List[TypeError]
 ) :=
   local own := List(for d in mods yield (d.name, seen_modules(d, packages))), members := List(for d in mods yield d.name), placed := List(for d in mods for p in decls_of(d) yield p), s: State, decls: List[Id * Cmd], defined: List[Id * At[Cmd]], tested: List[Id * At[Cmd]] := List(), enumerated: List[Id * At[Cmd]] := List(), hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List(), builtins := List(for d in mods for c in natives(d) yield c), private: Set[Name], private_sorts: List[Name]
   for d in mods do
     call   private_of(in d, out private, private_sorts)
     assign hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
   end
-  assign s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial), decls := seconds(placed)
+  assign s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty()), decls := seconds(placed)
   call   each_placed(in declare_datas, placed, ref s)
   call   declare_datas(in builtins, ref s)
   call   each_placed(in declare_sorts, alias_order(List(for p in placed if alias_names(p) != None), List()), ref s)
@@ -4384,9 +4439,10 @@ procedure check_package(
       skip
     end, out enumerated, ref s)
   end
-  assign cmds := with_definitions(List(for d in mods for c in written_of(d.name, d.exported ++ d.implemented) yield c), defined) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors
+  assign cmds := with_definitions(List(for d in mods for c in written_of(d.name, d.exported ++ d.implemented) yield c), defined) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors, loose := List(for (i, e) in zip(range(0, size(s.errors)), s.errors) if not contains(i, s.taken) yield e)
   if errors == List() and not partial then
     assign errors := raises_errors(List(for (_, c) in defined ++ tested yield c.that), s.sig, hidden)
+    assign loose := errors
   end
 
 // an example of the function or procedure owner, translated into the test cmd, at the position pos in module, where an
