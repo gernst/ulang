@@ -20,6 +20,10 @@ function parse_errors(source: Source): List[ParseError]
 
 function has_errors(source: Source): Bool
 
+// source without the commands that do not parse or have parts that do not parse, which the checker can check, while
+// their names are unknown to it
+function without_unparsed(source: Source): Source
+
 // raises the errors of source: the first one of an imported module, else the one of the main module, or ParseErrors of
 // several
 procedure require_parsed(in source: Source) raises ParseError
@@ -113,6 +117,12 @@ procedure require_parsed(in source: Source) raises ParseError :=
     case errors =>
       raise ParseErrors(errors)
   end
+
+function without_unparsed(source: Source): Source :=
+  source with mods := List(for m in source.mods yield m with exported := whole(m.exported), builtins := whole(m.builtins), implemented := whole(m.implemented))
+
+function whole(docs: List[Doc[Cmd]]): List[Doc[Cmd]] :=
+  List(for d in docs if cmd_errors(d.at) == List())
 
 // the errors of the parts of the commands of m that do not parse, by position
 function mod_errors(m: Mod): List[Diagnostic] :=

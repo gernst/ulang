@@ -688,7 +688,8 @@ procedure check_file(
   try
     call parse_file(in file, out source)
     if has_errors(source) then
-      assign errors := List(for e in take(20, parse_errors(source)) yield parse_diagnostic(e))
+      call   check_all(in without_unparsed(source), out q, typed)
+      assign errors := take(20, List(for e in parse_errors(source) yield parse_diagnostic(e)) ++ q.errors)
     else
       call   check_all(in source, out q, typed)
       assign errors := take(20, q.errors)
