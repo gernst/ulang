@@ -583,7 +583,7 @@ procedure compile_tests(in output: Str, out status: Int) :=
   assign status := if failed then 1 else 0
   if not failed then
     try
-      call compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), List(), "", List()), EntryTests(List(for f in files)), output)
+      call compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), List(), ""), EntryTests(List(for f in files)), output)
     catch
       case OsError(m) =>
         call   report(in output, List(diagnostic(RuntimeKind, m)), false)
@@ -739,16 +739,16 @@ procedure load_file(
       q: Prog,
       errors: List[Diagnostic]
 ) :=
-  assign source := Source(List(), List(), ""), q := Prog(List(), List(), "", List()), errors := List()
+  assign source := Source(List(), List(), ""), q := Prog(List(), List(), ""), errors := List()
   try
     local text: Str, typed: List[TypeError]
     call parse_file(in file, out source)
     if has_errors(source) then
       call   check_partial(in without_unparsed(source), unparsed_names(source), out q, typed)
-      assign errors := take(20, List(for e in parse_errors(source) yield parse_diagnostic(e)) ++ q.errors)
+      assign errors := take(20, List(for e in parse_errors(source) yield parse_diagnostic(e)) ++ diagnostics(q))
     else
       call   check_all(in source, out q, typed)
-      assign errors := take(20, q.errors)
+      assign errors := take(20, diagnostics(q))
     end
     for m in unit_modules(source) if formatted and errors == List() do
       call os_read(in os_join(os_dirname(file), module_file(m)), out text)

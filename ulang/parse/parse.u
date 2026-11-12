@@ -189,18 +189,6 @@ function mod_errors(m: Mod): List[Diagnostic] :=
   let errors := List(for d in m.exported ++ m.builtins ++ m.implemented for e in cmd_errors(d.at) yield e) in
   List(for (_, e) in sort(List(for e in errors yield (e.pos, e))) yield e)
 
-function cmd_errors(cmd: At[Cmd]): List[Diagnostic] :=
-  match cmd
-    case AUnparsed(_, _, error) =>
-      List(error)
-
-    case AOk(_, that) =>
-      unparsed_errors(that)
-
-    case AErr(_, that, _) =>
-      unparsed_errors(that)
-  end
-
 function type_ops(): Ops[List[Type]] :=
   Ops("type", starts_type, parse_type_atom, type_apply)
 

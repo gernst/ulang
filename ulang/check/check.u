@@ -94,7 +94,10 @@ procedure check_all(
       errors: List[TypeError]
 ) raises InternalError
 
-// whether checking found errors in the program, which it then holds as diagnostics
+// the errors that checking found in q, which holds them as the errors of its commands, in their order
+function diagnostics(q: Prog): List[Diagnostic]
+
+// whether checking found errors in q
 function has_errors(q: Prog): Bool
 
 // check_all of a source without its commands that do not parse, where a use of a name that one of them declares, of
@@ -3728,7 +3731,7 @@ procedure commands(
       assign s := enter(s, m)
       call   command(in cmd, out typed_cmd, ref s)
       call   settle(ref s)
-      if not s.partial or unparsed_errors(cmd) == List() then
+      if not s.partial or part_errors(cmd) == List() then
         assign zonked := zonk_cmd(s, typed_cmd)
         match unknown_in_cmd(zonked)
           case Some((pos, t)) =>
@@ -4150,22 +4153,97 @@ procedure check_source(
   out q: Prog,
       errors: List[TypeError]
 ) raises InternalError :=
-  local sig: Sig := empty(), imports: List[Id * List[Id]] := List(), cmds: List[At[Cmd]] := List(), builtins: List[At[Cmd]] := List(), checked: List[At[Cmd]], shown: Sig, found: List[TypeError]
+  local sig: Sig := empty(), imports: List[Id * List[Id]] := List(), cmds: List[Id * At[Cmd]] := List(), checked: List[Id * At[Cmd]], shown: Sig, found: List[TypeError], placed: List[At[Cmd]]
   assign errors := List()
   for mods in units(source.mods, source.packages) if errors == List() do
     try
       call   check_package(in mods, source.packages, sig, imports, unparsed, partial, out checked, shown, found)
-      assign sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, builtins := builtins ++ List(for d in mods for (_, c) in written_of(d.name, d.builtins) yield c), errors := found
+      assign sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, errors := found
     catch
       case e =>
-        assign errors := List(e)
+        assign cmds := cmds ++ List(for d in mods for c in written_of(d.name, d.exported ++ d.implemented) yield c), errors := List(e)
     end
   end
   assign errors := distinct(List(for e in errors yield in_main(source.main, e)))
-  assign q := Prog(cmds, builtins, source.main, List(for e in errors yield type_diagnostic(e)))
+  call   with_errors(in source.main, cmds ++ builtins_of(source), errors, out placed)
+  assign q := Prog(take(size(cmds), placed), drop(size(cmds), placed), source.main)
+
+// the commands of the builtin sections of source
+function builtins_of(source: Source): List[Id * At[Cmd]] :=
+  List(for d in source.mods for c in written_of(d.name, d.builtins) yield c)
+
+// cmds, each with the errors whose position it contains, as the last command of their module that starts at or before it
+procedure with_errors(
+  in  main: Id,
+      cmds: List[Id * At[Cmd]],
+      errors: List[TypeError],
+  out placed: List[At[Cmd]]
+) raises InternalError :=
+  local on: Map[Int, List[Diagnostic]] := empty(), indexed := zip(range(0, size(cmds)), cmds)
+  for e in errors do
+    match container(indexed, error_module(main, e), error_pos(e), None)
+      case Some(i) =>
+        assign on := put(i, value_or(get(i, on), List()) ++ List(type_diagnostic(e)), on)
+      case None =>
+        raise Unexpected("an error outside the commands of its module, " ++ show(e))
+    end
+  end
+  assign placed := List(for (i, (_, cmd)) in indexed yield with_diagnostics(cmd, value_or(get(i, on), List())))
+
+// the module of the error e, main for one without a module, and for one without a position, of code that the parser did
+// not read, at Pos(0, 0) as its commands
+function error_module(main: Id, e: TypeError): Id :=
+  match e
+    case Located(Some(m), _, _) =>
+      m
+    case _ =>
+      main
+  end
+
+function error_pos(e: TypeError): Pos :=
+  match e
+    case Located(_, pos, _) =>
+      pos
+    case _ =>
+      Pos(0, 0)
+  end
+
+// the index of the last command of module m in cmds that starts at or before pos, after found
+function container(cmds: List[Int * (Id * At[Cmd])], m: Id, pos: Pos, found: Option[Int * Pos]): Option[Int] :=
+  match cmds
+    case List() =>
+      map_option(found, first)
+
+    case List((i, (n, cmd)); rest) =>
+      if n == m and cmd.pos <= pos and forall(found, lambda (_, p) => p <= cmd.pos) then
+        container(rest, m, pos, Some((i, cmd.pos)))
+      else
+        container(rest, m, pos, found)
+  end
+
+// cmd with the errors ds, if there are any
+function with_diagnostics(cmd: At[Cmd], ds: List[Diagnostic]): At[Cmd] :=
+  match (cmd, ds)
+    case (_, List()) =>
+      cmd
+
+    case (AOk(pos, that), _) =>
+      AErr(pos, that, ds)
+
+    case (AErr(pos, that, errors), _) =>
+      AErr(pos, that, errors ++ ds)
+
+    // without_unparsed of ulang/parse/parse.u leaves no command that does not parse to the checker
+    case (AUnparsed(_, _, _), _) =>
+      cmd
+  end
+
+// the errors that checking found in q, of its commands and their parts, without those of parsing, which are the source's
+function diagnostics(q: Prog): List[Diagnostic] :=
+  List(for cmd in q.cmds ++ q.builtins for d in cmd_errors(cmd) if d.kind != ParseKind yield d)
 
 function has_errors(q: Prog): Bool :=
-  q.errors != List()
+  diagnostics(q) != List()
 
 // whether e stops the definitions after the declarations, as all errors do but the uses of declarations that do not parse,
 // which have no type that could mislead the checking of the definitions
@@ -4253,11 +4331,11 @@ procedure check_package(
       imports: List[Id * List[Id]],
       unparsed: Set[Id],
       partial: Bool,
-  out cmds: List[At[Cmd]],
+  out cmds: List[Id * At[Cmd]],
       shown: Sig,
       errors: List[TypeError]
 ) :=
-  local own := List(for d in mods yield (d.name, seen_modules(d, packages))), members := List(for d in mods yield d.name), placed := List(for d in mods for p in decls_of(d) yield p), s: State, decls: List[Id * Cmd], defined: List[At[Cmd]], tested: List[At[Cmd]] := List(), enumerated: List[At[Cmd]] := List(), hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List(), builtins := List(for d in mods for c in natives(d) yield c), private: Set[Name], private_sorts: List[Name]
+  local own := List(for d in mods yield (d.name, seen_modules(d, packages))), members := List(for d in mods yield d.name), placed := List(for d in mods for p in decls_of(d) yield p), s: State, decls: List[Id * Cmd], defined: List[Id * At[Cmd]], tested: List[Id * At[Cmd]] := List(), enumerated: List[Id * At[Cmd]] := List(), hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List(), builtins := List(for d in mods for c in natives(d) yield c), private: Set[Name], private_sorts: List[Name]
   for d in mods do
     call   private_of(in d, out private, private_sorts)
     assign hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
@@ -4308,7 +4386,7 @@ procedure check_package(
   end
   assign cmds := with_definitions(List(for d in mods for c in written_of(d.name, d.exported ++ d.implemented) yield c), defined) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors
   if errors == List() and not partial then
-    assign errors := raises_errors(List(for c in defined ++ tested yield c.that), s.sig, hidden)
+    assign errors := raises_errors(List(for (_, c) in defined ++ tested yield c.that), s.sig, hidden)
   end
 
 // an example of the function or procedure owner, translated into the test cmd, at the position pos in module, where an
@@ -4463,7 +4541,7 @@ function generated_list(exprs: List[At[Expr]]): At[Expr] :=
 // a module of its own, which sees what the module sees and the module itself, with their errors located at the examples
 procedure example_commands(
   in  xs: List[ExampleTest],
-  out cmds: List[At[Cmd]],
+  out cmds: List[Id * At[Cmd]],
   ref s: State
 ) :=
   assign cmds := List()
@@ -4476,7 +4554,7 @@ procedure example_commands(
       case e =>
         assign s := s with errors := s.errors ++ List(e)
     end
-    assign s := placed_errors(s, before, (x.module, x.cmd), x.pos), cmds := cmds ++ List(for c in one yield AOk(x.pos, c))
+    assign s := placed_errors(s, before, (x.module, x.cmd), x.pos), cmds := cmds ++ List(for c in one yield (x.module, AOk(x.pos, c)))
   end
 
 // the tests l.lemma of the lemmas l of the package whose formals have enumerable types, each on the values up to a depth
@@ -4798,7 +4876,7 @@ procedure each_placed(
 procedure placed_commands(
   in  placed: List[Pos * (Id * Cmd)],
       after: (in List[Cmd]) raises TypeError,
-  out cmds: List[At[Cmd]],
+  out cmds: List[Id * At[Cmd]],
   ref s: State
 ) :=
   match placed
@@ -4806,7 +4884,7 @@ procedure placed_commands(
       assign cmds := List()
 
     case List((p, d); more) =>
-      local before := size(s.errors), one: List[Cmd] := List(second(d)), rest: List[At[Cmd]]
+      local before := size(s.errors), one: List[Cmd] := List(second(d)), rest: List[Id * At[Cmd]]
       try
         call commands(in List(d), out one, ref s)
         if size(s.errors) == before then
@@ -4818,18 +4896,18 @@ procedure placed_commands(
       end
       assign s := placed_errors(s, before, d, p)
       call   placed_commands(in more, after, out rest, ref s)
-      assign cmds := List(for c in one yield AOk(p, c)) ++ rest
+      assign cmds := List(for c in one yield (first(d), AOk(p, c))) ++ rest
   end
 
 // the commands of the export and implementation sections of the modules, each at its declaration, with the checked
 // definitions in place of those that placed_definitions gives, in their order, as written where they are not checked
-function with_definitions(written: List[Id * At[Cmd]], defined: List[At[Cmd]]): List[At[Cmd]] :=
+function with_definitions(written: List[Id * At[Cmd]], defined: List[Id * At[Cmd]]): List[Id * At[Cmd]] :=
   match (written, defined)
     case (List((m, cmd); rest), List(d; more)) if is_checked(m, cmd) =>
       List(d; with_definitions(rest, more))
 
-    case (List((_, cmd); rest), _) =>
-      List(cmd; with_definitions(rest, defined))
+    case (List(c; rest), _) =>
+      List(c; with_definitions(rest, defined))
 
     case (List(), _) =>
       List()
@@ -4858,8 +4936,8 @@ function qualified_at(m: Id, cmd: At[Cmd]): Option[At[Cmd]] :=
     case AOk(pos, that) =>
       Some(AOk(pos, qualify(m, that)))
 
-    case AErr(pos, that, error) =>
-      Some(AErr(pos, qualify(m, that), error))
+    case AErr(pos, that, errors) =>
+      Some(AErr(pos, qualify(m, that), errors))
 
     case AUnparsed(_, _, _) =>
       None

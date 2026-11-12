@@ -51,8 +51,8 @@ data Var :=
 // a part of the syntax at the position of its first token, or of the token that names it, which the checker keeps
 data At[A] :=
   case AOk(pos: Pos, that: A)
-  // a part that a phase rejected, with its error
-  case AErr(pos: Pos, that: A, error: Diagnostic)
+  // a part that a phase rejected, with its errors, whose positions may be inside it
+  case AErr(pos: Pos, that: A, errors: List[Diagnostic])
   // a part that does not parse, as written from pos to where the parser resumes
   case AUnparsed(pos: Pos, text: Str, error: Diagnostic)
 
@@ -266,7 +266,7 @@ data Example :=
 // its declaration, the definitions checked and the signatures as written, then the tests of examples and lemmas, those of
 // the builtin sections apart, and the module of the file that is loaded, whose procedures run and compile call
 data Prog :=
-  case Prog(cmds: List[At[Cmd]], builtins: List[At[Cmd]], main: Id, errors: List[Diagnostic])
+  case Prog(cmds: List[At[Cmd]], builtins: List[At[Cmd]], main: Id)
 
 data Pos :=
   // line and column, both from 1
@@ -351,8 +351,11 @@ function definitions(q: Prog): List[Cmd]
 
 function commands_of(docs: List[Doc[Cmd]]): List[Cmd]
 
-// the errors of the parts of cmd that do not parse, in the order of the source
-function unparsed_errors(cmd: Cmd): List[Diagnostic]
+// the errors of the parts of cmd, of those that do not parse and of those that a phase rejected, in the order of the source
+function part_errors(cmd: Cmd): List[Diagnostic]
+
+// the errors of cmd and of its parts
+function cmd_errors(cmd: At[Cmd]): List[Diagnostic]
 
 // whether x parsed, though it may have parts that do not
 function is_parsed[A](x: At[A]): Bool
@@ -460,8 +463,8 @@ function map_at[A, B](x: At[A], f: A -> B): At[B] :=
     case AOk(pos, that) =>
       AOk(pos, f(that))
 
-    case AErr(pos, that, error) =>
-      AErr(pos, f(that), error)
+    case AErr(pos, that, errors) =>
+      AErr(pos, f(that), errors)
 
     case AUnparsed(pos, text, error) =>
       AUnparsed(pos, text, error)
@@ -982,20 +985,31 @@ function strip_pattern(pat: Pat): Pat :=
       pat
   end
 
-// the errors of the parts of cmd that do not parse, in the order of the source
-function unparsed_errors(cmd: Cmd): List[Diagnostic] :=
+function cmd_errors(cmd: At[Cmd]): List[Diagnostic] :=
+  match cmd
+    case AUnparsed(_, _, error) =>
+      List(error)
+
+    case AOk(_, that) =>
+      part_errors(that)
+
+    case AErr(_, that, errors) =>
+      errors ++ part_errors(that)
+  end
+
+function part_errors(cmd: Cmd): List[Diagnostic] :=
   match cmd
     case CFun(_, _, _, _, spec, body) =>
-      unparsed_in_spec(spec) ++ unparsed_in_expr(body)
+      errors_in_spec(spec) ++ errors_in_expr(body)
 
     case CProc(_, _, _, _, _, _, spec, stmt) =>
-      unparsed_in_spec(spec) ++ unparsed_in_stmt(stmt)
+      errors_in_spec(spec) ++ errors_in_stmt(stmt)
 
     case CTest(_, _, stmt) =>
-      unparsed_in_stmt(stmt)
+      errors_in_stmt(stmt)
 
     case CLemma(_, _, _, _, assms, concl, _) =>
-      unparsed_in_exprs(assms ++ List(concl))
+      errors_in_exprs(assms ++ List(concl))
 
     case CSort(_, _, _) =>
       List()
@@ -1007,10 +1021,10 @@ function unparsed_errors(cmd: Cmd): List[Diagnostic] :=
       List()
 
     case CFunSig(_, _, _, _, spec) =>
-      unparsed_in_spec(spec)
+      errors_in_spec(spec)
 
     case CProcSig(_, _, _, _, _, _, spec) =>
-      unparsed_in_spec(spec)
+      errors_in_spec(spec)
 
     case CAbstract(_, _) =>
       List()
@@ -1020,7 +1034,7 @@ function unparsed_errors(cmd: Cmd): List[Diagnostic] :=
   end
 
 // none, since an example that does not parse fails its test, not its declaration
-function unparsed_in_spec(spec: Spec): List[Diagnostic] :=
+function errors_in_spec(spec: Spec): List[Diagnostic] :=
   List()
 
 function example_error(x: At[Example]): Option[Diagnostic] :=
@@ -1029,10 +1043,10 @@ function example_error(x: At[Example]): Option[Diagnostic] :=
       Some(error)
 
     case AOk(_, claim) =>
-      first_error(unparsed_in_example(claim))
+      first_error(errors_in_example(claim))
 
     case AErr(_, claim, _) =>
-      first_error(unparsed_in_example(claim))
+      first_error(errors_in_example(claim))
   end
 
 function first_error(errors: List[Diagnostic]): Option[Diagnostic] :=
@@ -1043,37 +1057,37 @@ function first_error(errors: List[Diagnostic]): Option[Diagnostic] :=
       None
   end
 
-function unparsed_in_example(claim: Example): List[Diagnostic] :=
+function errors_in_example(claim: Example): List[Diagnostic] :=
   match claim
     case XHolds(expr) =>
-      unparsed_in_expr(expr)
+      errors_in_expr(expr)
 
     case XRaises(expr, _) =>
-      unparsed_in_expr(expr)
+      errors_in_expr(expr)
 
     case XCall(_, ins, outs, refs) =>
-      unparsed_in_exprs(ins ++ outs ++ List(for (a, b) in refs for e in List(a, b) yield e))
+      errors_in_exprs(ins ++ outs ++ List(for (a, b) in refs for e in List(a, b) yield e))
 
     case XCallRaises(_, ins, _, befores, _) =>
-      unparsed_in_exprs(ins ++ befores)
+      errors_in_exprs(ins ++ befores)
   end
 
-function unparsed_in_exprs(exprs: List[At[Expr]]): List[Diagnostic] :=
-  List(for expr in exprs for e in unparsed_in_expr(expr) yield e)
+function errors_in_exprs(exprs: List[At[Expr]]): List[Diagnostic] :=
+  List(for expr in exprs for e in errors_in_expr(expr) yield e)
 
-function unparsed_in_expr(expr: At[Expr]): List[Diagnostic] :=
+function errors_in_expr(expr: At[Expr]): List[Diagnostic] :=
   match expr
     case AUnparsed(_, _, error) =>
       List(error)
 
     case AOk(_, that) =>
-      unparsed_in_node(that)
+      errors_in_node(that)
 
-    case AErr(_, that, _) =>
-      unparsed_in_node(that)
+    case AErr(_, that, errors) =>
+      errors ++ errors_in_node(that)
   end
 
-function unparsed_in_node(expr: Expr): List[Diagnostic] :=
+function errors_in_node(expr: Expr): List[Diagnostic] :=
   match expr
     case ELit(_) =>
       List()
@@ -1082,38 +1096,38 @@ function unparsed_in_node(expr: Expr): List[Diagnostic] :=
       List()
 
     case EApp(fun, args) =>
-      unparsed_in_exprs(List(fun; args))
+      errors_in_exprs(List(fun; args))
 
     case EField(base, _) =>
-      unparsed_in_expr(base)
+      errors_in_expr(base)
 
     case EUpdate(base, _, value) =>
-      unparsed_in_exprs(List(base, value))
+      errors_in_exprs(List(base, value))
 
     case ELam(_, body) =>
-      unparsed_in_expr(body)
+      errors_in_expr(body)
 
     case EProc(_, _, _, _, stmt) =>
-      unparsed_in_stmt(stmt)
+      errors_in_stmt(stmt)
 
     case ELet(bindings, body) =>
-      unparsed_in_exprs(List(for (_, value) in bindings yield value) ++ List(body))
+      errors_in_exprs(List(for (_, value) in bindings yield value) ++ List(body))
 
     case EIte(cond, then_expr, else_expr) =>
-      unparsed_in_exprs(List(cond, then_expr, else_expr))
+      errors_in_exprs(List(cond, then_expr, else_expr))
 
     case EMatch(arg, cases) =>
-      unparsed_in_exprs(List(
+      errors_in_exprs(List(
         arg; List(for c in parts(cases) for e in options(c.guard) ++ List(c.body) yield e)))
 
     case ETuple(args) =>
-      unparsed_in_exprs(args)
+      errors_in_exprs(args)
 
     case EForm(_, elems, rest) =>
-      unparsed_in_exprs(List(for y in elems for e in yielded(y) yield e) ++ options(rest))
+      errors_in_exprs(List(for y in elems for e in yielded(y) yield e) ++ options(rest))
 
     case EFor(_, gens, elem, rest) =>
-      unparsed_in_exprs(List(for g in gens for e in generated(g) yield e) ++ yielded(elem) ++ options(rest))
+      errors_in_exprs(List(for g in gens for e in generated(g) yield e) ++ yielded(elem) ++ options(rest))
   end
 
 function options[A](x: Option[A]): List[A] :=
@@ -1139,56 +1153,56 @@ function generated(g: Gen): List[At[Expr]] :=
       List(cond)
   end
 
-function unparsed_in_stmt(stmt: At[Stmt]): List[Diagnostic] :=
+function errors_in_stmt(stmt: At[Stmt]): List[Diagnostic] :=
   match stmt
     case AUnparsed(_, _, error) =>
       List(error)
 
     case AOk(_, that) =>
-      unparsed_in_stmt_node(that)
+      errors_in_stmt_node(that)
 
-    case AErr(_, that, _) =>
-      unparsed_in_stmt_node(that)
+    case AErr(_, that, errors) =>
+      errors ++ errors_in_stmt_node(that)
   end
 
-function unparsed_in_stmts(stmts: List[At[Stmt]]): List[Diagnostic] :=
-  List(for stmt in stmts for e in unparsed_in_stmt(stmt) yield e)
+function errors_in_stmts(stmts: List[At[Stmt]]): List[Diagnostic] :=
+  List(for stmt in stmts for e in errors_in_stmt(stmt) yield e)
 
-function unparsed_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
+function errors_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
   match stmt
     case SSkip =>
       List()
 
     case SAssign(upd) =>
-      unparsed_in_exprs(seconds(upd))
+      errors_in_exprs(seconds(upd))
 
     case SBlock(_, stmts) =>
-      unparsed_in_stmts(stmts_of(stmts))
+      errors_in_stmts(stmts_of(stmts))
 
     case SIf(cond, left, right) =>
-      unparsed_in_expr(cond) ++ unparsed_in_stmts(List(left, right))
+      errors_in_expr(cond) ++ errors_in_stmts(List(left, right))
 
     case SWhile(cond, body) =>
-      unparsed_in_expr(cond) ++ unparsed_in_stmt(body)
+      errors_in_expr(cond) ++ errors_in_stmt(body)
 
     case SCall(_, ins, _, _) =>
-      unparsed_in_exprs(ins)
+      errors_in_exprs(ins)
 
     case SMatch(arg, cases) =>
-      unparsed_in_expr(arg) ++ List(for c in parts(cases) for e in unparsed_in_exprs(options(c.guard)) ++ unparsed_in_stmt(c.body) yield e)
+      errors_in_expr(arg) ++ List(for c in parts(cases) for e in errors_in_exprs(options(c.guard)) ++ errors_in_stmt(c.body) yield e)
 
     case SAssert(cond) =>
-      unparsed_in_expr(cond)
+      errors_in_expr(cond)
 
     case SAssertRaises(_, _, body) =>
-      unparsed_in_stmt(body)
+      errors_in_stmt(body)
 
     case SRaise(value, _) =>
-      unparsed_in_expr(value)
+      errors_in_expr(value)
 
     case STry(body, catches) =>
-      unparsed_in_stmt(body) ++ List(for c in parts(catches) for e in unparsed_in_exprs(options(c.guard)) ++ unparsed_in_stmt(c.body) yield e)
+      errors_in_stmt(body) ++ List(for c in parts(catches) for e in errors_in_exprs(options(c.guard)) ++ errors_in_stmt(c.body) yield e)
 
     case SFor(gens, body) =>
-      unparsed_in_exprs(List(for g in gens for e in generated(g) yield e)) ++ unparsed_in_stmt(body)
+      errors_in_exprs(List(for g in gens for e in generated(g) yield e)) ++ errors_in_stmt(body)
   end
