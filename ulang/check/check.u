@@ -1226,8 +1226,9 @@ procedure fresh(out t: Type, ref s: State) :=
 procedure bind_meta(in i: Int, t: Type, ref s: State) :=
   if occurs(s.sub, i, t) then
     call report(in InfiniteType(TMeta(i), zonk_type(s.sub, t)), ref s)
+  else
+    assign s := s with sub := put(i, t, s.sub)
   end
-  assign s := s with sub := put(i, t, s.sub)
 
 procedure unify(in t: Type, t_: Type, ref s: State) :=
   local a := resolve(s.sub, t), b := resolve(s.sub, t_)

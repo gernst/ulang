@@ -267,6 +267,13 @@ test if_statement_condition() :=
     call check_text(in "ulang/test/errors/if-statement-condition.u", List("procedure p(in x: Int) :=", "  if x then", "    skip", "  end"))
   end
 
+// self-application, whose infinite type is reported once, without binding the variable, which made the substitution
+// cyclic and every later lookup loop
+test infinite_type_lambda() :=
+  assert raises Located(None, Pos(2, 24), InfiniteType(_, _)) do
+    call check_text(in "ulang/test/errors/infinite-type-lambda.u", List("function f(): Int :=", "  let w := lambda x => x(x) in 1"))
+  end
+
 test lambda_monomorphic() :=
   assert raises Located(None, Pos(2, 32), Mismatch(_, _, "argument 1 of the call")) do
     call check_text(in "ulang/test/errors/lambda-monomorphic.u", List(
