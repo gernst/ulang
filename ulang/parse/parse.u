@@ -263,8 +263,58 @@ function expected(what: Str, toks: Tokens): ParseError :=
       ParseError("keyword " ++ kw ++ " is not a name", head_pos(toks))
 
     case tok =>
-      ParseError(what ++ " expected but " ++ format_token(tok) ++ " found", head_pos(toks))
+      ParseError(what ++ " expected but " ++ format_token(tok) ++ " found" ++ hint_at(what, toks), head_pos(toks))
   end
+
+// the form to write where toks start as another language would, after "; ", or ""
+function hint_at(what: Str, toks: Tokens): Str :=
+  match (head_token(toks), second_token(toks))
+    case (TName(x), TKw(":=")) =>
+      "; a statement starts with its keyword, as in assign " ++ x ++ " := e"
+
+    case (TName(x), TOp(op)) if is_update(op) =>
+      "; write assign " ++ x ++ " := " ++ x ++ " " ++ slice(op, 0, size(op) - 1) ++ " e"
+
+    case (TOp(op), _) if is_update(op) =>
+      "; write assign x := x " ++ slice(op, 0, size(op) - 1) ++ " e"
+
+    case (TName(p), TKw("(")) if what == "statement" or what == "declaration" =>
+      "; a procedure is called by call " ++ p ++ "(in a, out x), and a function only in an expression"
+
+    case (TName("return"), _) =>
+      "; a function is the value of its body, and a procedure gives its results by assigning its outs"
+
+    case (TName("break"), _) =>
+      "; a loop ends by its condition or by an exception"
+
+    case (TName("continue"), _) =>
+      "; a loop ends by its condition or by an exception"
+
+    case (TName("elif"), _) =>
+      "; write else, then if c then … end on the next line, with an end of its own"
+
+    case (TKw("local"), _) if what == "statement" =>
+      "; locals are declared at the start of a body, before its statements"
+
+    case (TKw("["), _) =>
+      "; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments"
+
+    case _ =>
+      ""
+  end
+
+// the form to write for an undeclared operator of another language, after "; ", or ""
+function operator_hint(op: Str): Str :=
+  if op == "::" then
+    "; a list is built and matched as List(x; rest)"
+  else if op == "&&" or op == "||" or op == "!" then
+    "; the operators of Bool are and, or, and not"
+  else
+    ""
+
+// an operator that updates its left side in other languages, such as +=
+function is_update(op: Str): Bool :=
+  contains(op, List("+=", "-=", "*=", "/=", "%=", "++="))
 
 function literal_at(toks: Tokens): Option[Lit] :=
   match head_token(toks)
@@ -306,6 +356,20 @@ procedure advance(ref toks: Tokens) :=
       assign toks := more
     case _ =>
       skip
+  end
+
+// the end of the construct opener at pos, whose error is at the construct, since a missing end is found only where a line
+// at its indentation or to its left starts
+procedure expect_end(in opener: Str, pos: Pos, ref toks: Tokens) :=
+  match head_token(toks)
+    case TKw("end") =>
+      call advance(ref toks)
+
+    case TDoc(_) =>
+      raise expected("end", toks)
+
+    case tok =>
+      raise ParseError("the " ++ opener ++ " has no end: end expected but " ++ format_token(tok) ++ " found at line " ++ show(head_pos(toks).line), pos)
   end
 
 procedure expect(in tok: Token, ref toks: Tokens) :=
@@ -579,7 +643,7 @@ procedure climb_operand[A](
           raise ParseError(op ++ " is not a prefix operator", pos)
 
         case None =>
-          raise ParseError("undeclared operator " ++ op, pos)
+          raise ParseError("undeclared operator " ++ op ++ operator_hint(op), pos)
       end
 
     case None if ops.starts(notation, head_token(toks)) =>
@@ -616,7 +680,7 @@ procedure climb_rest[A](
           call climb_rest(in notation, params, ops, min, b, out a, ref toks)
 
         case _ if not is_operator(notation, op) =>
-          raise ParseError("undeclared operator " ++ op, pos)
+          raise ParseError("undeclared operator " ++ op ++ operator_hint(op), pos)
 
         case _ =>
           assign a := lhs
@@ -913,7 +977,7 @@ procedure parse_expr_atom(
       local a: At[Expr], cases: List[Doc[Branch[At[Expr]]]]
       call   advance(ref toks)
       call   parse_expr(in notation, params, out a, ref toks)
-      call   parse_cases(in notation, params, parse_expr, out cases, ref toks)
+      call   parse_cases(in notation, params, parse_expr, "match", pos, out cases, ref toks)
       assign expr := AOk(pos, EMatch(a, cases))
 
     case (_, TKw("(")) =>
@@ -983,7 +1047,7 @@ procedure parse_lambda(
     call   parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
     call   expect(in TKw("=>"), ref toks)
     call   parse_body(in notation, params, out body, ref toks)
-    call   expect(in TKw("end"), ref toks)
+    call   expect_end(in "lambda", pos, ref toks)
     assign expr := AOk(pos, EProc(ins, outs, refs, THole, body))
   else
     local inner: At[Expr]
@@ -1146,6 +1210,8 @@ procedure parse_cases[B](
   in  notation: Notation,
       params: List[Id],
       body: (in Notation, List[Id], out B, ref Tokens) raises ParseError,
+      opener: Str,
+      start: Pos,
   out cases: List[Doc[Branch[B]]],
   ref toks: Tokens
 ) :=
@@ -1160,7 +1226,7 @@ procedure parse_cases[B](
     call   body(in notation, params, out b, ref toks)
     assign found := found ++ List(Doc(doc, AOk(pos, Branch(pat, g, b))))
   end
-  call   expect(in TKw("end"), ref toks)
+  call   expect_end(in opener, start, ref toks)
   assign cases := List(for c in found)
 
 // patterns, where operators are constructors, at the position of the operator
@@ -1298,7 +1364,8 @@ function starts_stmt(tok: Token): Bool :=
 function handlers(cases: List[Doc[Branch[At[Stmt]]]]): List[Doc[Catch]] :=
   List(for d in cases yield Doc(d.doc, map_at(d.at, lambda b => Catch(THole, b.pat, b.guard, b.body))))
 
-// the body of an if, while, case, or procedure, at its first token, which may declare variables first
+// the body of an if, while, case, or procedure, at its first token, which may declare variables first, and which ends at a
+// line to the left of its first token, so that a missing end is found at the next statement around it
 // where local x := e initializes x by an assignment at the start of the block, in order, such that its type can be inferred
 procedure parse_body(
   in  notation: Notation,
@@ -1312,7 +1379,7 @@ procedure parse_body(
     call   parse_separated(in notation, params, parse_local, at_comma, out decls, ref toks)
     assign xs := xs ++ firsts(decls), inits := inits ++ concat(seconds(decls))
   end
-  while at_stmt(toks) do
+  while at_stmt(toks) and head_pos(toks).col >= pos.col do
     call   parse_stmt_recovering(in notation, params, out stmt, ref toks)
     assign found := found ++ List(stmt)
   end
@@ -1401,7 +1468,7 @@ function is_opener(tok: Token): Bool :=
     TKw("assert")))
 
 function is_continuation(tok: Token): Bool :=
-  tok == TKw("else") or tok == TKw("catch")
+  tok == TKw("else") or tok == TKw("catch") or tok == TName("elif")
 
 // x: T, x := e, or x: T := e, where the checker requires a type or an initial value
 procedure parse_local(
@@ -1434,7 +1501,7 @@ procedure parse_for(
   end
   call   expect(in TKw("do"), ref toks)
   call   parse_body(in notation, params, out body, ref toks)
-  call   expect(in TKw("end"), ref toks)
+  call   expect_end(in "for", pos, ref toks)
   assign stmt := SFor(gens, body)
 
 // whether gens are one generator and an optional guard, which a for statement takes
@@ -1475,7 +1542,7 @@ procedure parse_stmt(
       call   parse_expr(in notation, params, out expr, ref toks)
       call   expect(in TKw("do"), ref toks)
       call   parse_body(in notation, params, out body, ref toks)
-      call   expect(in TKw("end"), ref toks)
+      call   expect_end(in "while", pos, ref toks)
       assign node := SWhile(expr, body)
 
     case TKw("for") =>
@@ -1488,7 +1555,7 @@ procedure parse_stmt(
       local expr: At[Expr], cases: List[Doc[Branch[At[Stmt]]]]
       call   advance(ref toks)
       call   parse_expr(in notation, params, out expr, ref toks)
-      call   parse_cases(in notation, params, parse_body, out cases, ref toks)
+      call   parse_cases(in notation, params, parse_body, "match", pos, out cases, ref toks)
       assign node := SMatch(expr, cases)
 
     case TKw("assert") =>
@@ -1509,7 +1576,7 @@ procedure parse_stmt(
       call   advance(ref toks)
       call   parse_body(in notation, params, out body, ref toks)
       call   expect(in TKw("catch"), ref toks)
-      call   parse_cases(in notation, params, parse_body, out cases, ref toks)
+      call   parse_cases(in notation, params, parse_body, "try", pos, out cases, ref toks)
       assign node := STry(body, handlers(cases))
 
     case _ =>
@@ -1525,12 +1592,12 @@ procedure parse_assert(
   ref toks: Tokens
 ) :=
   if at_kw(toks, "raises") then
-    local pat: At[Pat], body: At[Stmt]
+    local pat: At[Pat], body: At[Stmt], pos := head_pos(toks)
     call   advance(ref toks)
     call   parse_pattern(in notation, params, out pat, ref toks)
     call   expect(in TKw("do"), ref toks)
     call   parse_body(in notation, params, out body, ref toks)
-    call   expect(in TKw("end"), ref toks)
+    call   expect_end(in "assert raises", pos, ref toks)
     assign stmt := SAssertRaises(THole, pat, body)
   else
     local expr: At[Expr]
@@ -1545,19 +1612,21 @@ procedure parse_if(
   out stmt: Stmt,
   ref toks: Tokens
 ) :=
-  local cond: At[Expr], l: At[Stmt], r: At[Stmt]
+  local pos := head_pos(toks), cond: At[Expr], l: At[Stmt], r: At[Stmt]
   call advance(ref toks)
   call parse_expr(in notation, params, out cond, ref toks)
   call expect(in TKw("then"), ref toks)
   call parse_body(in notation, params, out l, ref toks)
+  if head_token(toks) == TName("elif") then
+    raise expected("else or end", toks)
+  end
   if at_kw(toks, "else") then
     call advance(ref toks)
     call parse_body(in notation, params, out r, ref toks)
-    call expect(in TKw("end"), ref toks)
   else
     assign r := AOk(head_pos(toks), SSkip)
-    call   expect(in TKw("end"), ref toks)
   end
+  call   expect_end(in "if", pos, ref toks)
   assign stmt := SIf(cond, l, r)
 
 procedure parse_assign(

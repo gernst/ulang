@@ -22,10 +22,10 @@ A minimal language with pure functional expressions, imperative statements, data
 
 ## Writing ulang
 
-Agents have almost no ulang in their training data, so what they write comes from this file, `README.md`, and the errors, which name only the token that was expected (Diagnostics 2 of `TODO.md` plans hints). The habits of other languages that fail:
+Agents have almost no ulang in their training data, so what they write comes from this file, `README.md`, and the errors, which give the form to write after `; ` for the habits below that they recognize (`hint_at` and `operator_hint` of `ulang/parse/parse.u`, `hint_of` of `ulang/check/message.u`, and `Hinted` of `ulang/check/check.u`, with the cases `habits` of `ulang/test/errors/parse.u` and `hints` of `ulang/test/errors/types.u`). The habits of other languages that fail:
 
-- Every statement starts with its keyword, `local x := e`, `assign x := e`, `call p(in a, out b)`, `raise e`, `skip`: `x := e` is `end expected but x found`, and a call without `call` is `declaration expected`; no `return`, `break`, or `+=`, so a procedure gives results by its `out` formals, and a loop ends by its condition or an exception.
-- `if c then … end` and `while c do … end` in statements, `if c then a else b` in expressions, which always has its `else`; `else if` opens an `if` of its own, with its own `end`, and no `elif`, so a missing `end` is reported only at the end of the input.
+- Every statement starts with its keyword, `local x := e`, `assign x := e`, `call p(in a, out b)`, `raise e`, `skip`: `x := e` is `statement expected but x found`, as is a call without `call`; no `return`, `break`, or `+=`, so a procedure gives results by its `out` formals, and a loop ends by its condition or an exception.
+- `if c then … end` and `while c do … end` in statements, `if c then a else b` in expressions, which always has its `else`; `else if` opens an `if` of its own, with its own `end`, and no `elif`; a body ends at a line to the left of its first statement, so a missing `end` is reported at the construct it closes, `the if has no end` (`expect_end` of `ulang/parse/parse.u`).
 - Containers are forms, `List(1, 2)`, `List(x; rest)` also in patterns, `Set(…)`, `Map(k => v)`, `Array(…)`, never `[1, 2]` or `x :: rest`; `[…]` is only for type arguments, `List[Int]`.
 - Strings join by `++`, never `+`, which is of `Int` only, and `show` gives the text of any value.
 - `//` is only a doc, a run of lines before a command, a statement, or a `case`, at its indentation, never at the end of a line, before `end`, `else`, `catch`, or a `local` line, or within an expression.

@@ -72,6 +72,8 @@ data TypeError :=
   case UntypedRaise(name: Name, typ: Type)
   // a handler, or the pattern of assert raises, of typ, which the body cannot raise
   case NeverRaised(typ: Type)
+  // an error with the form to write instead, which the checker knows from the part, e.g. ++ for + of strings
+  case Hinted(error: TypeError, hint: Str)
   // an error of the command at the position of an imported module, or of the main module for None
   case Located(module: Option[Id], pos: Pos, error: TypeError)
 
@@ -218,6 +220,75 @@ function overloads(s: State, n: Name, declared: Name -> Bool): List[Name] :=
     case _ =>
       List(for d in names_of(s.sig, n.base) if declared(d) and is_visible(s, d))
   end
+
+// an unknown name n, with the visible name that it most likely means, of the library for names of other languages,
+// else the nearest by edits, if few
+function unknown_variable(s: State, n: Name): TypeError :=
+  match get(n.base, foreign_names())
+    case Some(meant) =>
+      Hinted(UnknownVariable(n), "write " ++ meant)
+
+    case None =>
+      match nearest(n.base, List(for base => ds in s.sig.named if exists(ds, lambda d => is_visible(s, d)) yield base))
+        case Some(meant) =>
+          Hinted(UnknownVariable(n), "did you mean " ++ meant ++ "?")
+        case None =>
+          UnknownVariable(n)
+      end
+  end
+
+// the names of other languages for the functions and procedures of the library
+function foreign_names(): Map[Str, Str] :=
+  Map(
+    "length" => "size",
+    "len" => "size",
+    "count" => "size",
+    "print" => "call os_println(in text)",
+    "println" => "call os_println(in text)",
+    "append" => "xs ++ ys",
+    "concat" => "xs ++ ys",
+    "toString" => "show",
+    "to_string" => "show")
+
+// the name of names nearest to x by edits, if at most a quarter of its characters differ, so none for short names
+function nearest(x: Str, names: List[Str]): Option[Str] :=
+  let scored := List(for name in names if name != x yield (distance(x, name), name)), limit := size(x) / 4 in
+  foldl(scored, None, lambda best, (d, name) => if d <= limit and is_better(d, best, scored) then Some(name) else best)
+
+function is_better(d: Int, best: Option[Str], scored: List[Int * Str]): Bool :=
+  match best
+    case Some(b) =>
+      exists(scored, lambda (e, name) => name == b and d < e)
+    case None =>
+      true
+  end
+
+// the edit distance of a and b, by insertions, deletions, and replacements of characters
+function distance(a: Str, b: Str): Int :=
+  let bs := chars(b) in
+  value_or(last(foldl(chars(a), List(for j in range(0, size(bs) + 1)), lambda row, c => edit_row(row, c, bs))), 0)
+
+// the next row of the distances, of one more character c of the first string, from the row of the characters before it
+function edit_row(prev: List[Int], c: Char, bs: List[Char]): List[Int] :=
+  match prev
+    case List(first; _) =>
+      List(first + 1; edit_cells(prev, c, bs, first + 1))
+    case List() =>
+      List()
+  end
+
+function edit_cells(prev: List[Int], c: Char, bs: List[Char], left: Int): List[Int] :=
+  match (prev, bs)
+    case (List(diag, up; rest), List(b; more)) =>
+      let cell := least(least(up + 1, left + 1), if b == c then diag else diag + 1) in
+      List(cell; edit_cells(List(up; rest), c, more, cell))
+
+    case _ =>
+      List()
+  end
+
+function least(a: Int, b: Int): Int :=
+  if a < b then a else b
 
 // whether the module sees the declaration d, which is its own, or of a module that it sees and not private to it
 function is_visible(s: State, d: Name): Bool :=
@@ -1356,7 +1427,7 @@ procedure use_name(
       assign x := Var(n, w)
 
     case List() =>
-      call   report(in UnknownVariable(n), ref s)
+      call   report(in unknown_variable(s, n), ref s)
       assign x := Var(n, w)
 
     case List((m, sc)) =>
@@ -1889,9 +1960,11 @@ procedure application(
         call   infers_lambdas(in env, args, ts, ref typed_args, s)
         assign typed_expr := EApp(fun with that := EVar(x), typed_args)
       else
+        local before := size(s.errors)
         call   infer(in env, fun, out typed_fun, u, ref s)
         call   apply(in env, u, args, out typed_args, t, ref s)
         assign typed_expr := EApp(typed_fun, typed_args)
+        assign s := s with errors := take(before, s.errors) ++ List(for e in drop(before, s.errors) yield argument_hint(name, e))
       end
 
     case ELam(_, _) =>
@@ -2104,6 +2177,15 @@ procedure expect(in pos: Pos, what: Str, t: Type, u: Type, ref s: State) :=
     assign s := s with errors := before ++ List(at_use(pos, Mismatch(zonk_type(s.sub, t), zonk_type(s.sub, u), what)))
   end
   assign s := s with at := outer
+
+// e with the hint of a mismatch of an argument of name, ++ for + of strings
+function argument_hint(name: Name, e: TypeError): TypeError :=
+  match e
+    case Located(m, pos, Mismatch(TInt(), TStr(), what)) if name.base == "+" =>
+      Located(m, pos, Hinted(Mismatch(TInt(), TStr(), what), "strings join by ++, and + adds integers"))
+    case _ =>
+      e
+  end
 
 function is_unify_error(e: TypeError): Bool :=
   match e
@@ -2457,7 +2539,7 @@ procedure variable(
           assign y := Var(name, l.typ)
 
         case None =>
-          call   report(in UnknownVariable(name), ref s)
+          call   report(in unknown_variable(s, name), ref s)
           call   fresh(out u, ref s)
           assign y := Var(name, u)
       end

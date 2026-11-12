@@ -266,10 +266,10 @@ test wildcard_name() :=
 // statements after it are parsed
 test several_statement_errors() :=
   assert raises ParseErrors(List(
-    ParseError("statement expected but x found", Pos(3, 3)),
+    ParseError("statement expected but x found; a statement starts with its keyword, as in assign x := e", Pos(3, 3)),
     ParseError("expression expected but then found", Pos(4, 11)),
     ParseError("expression expected but while found", Pos(10, 3)),
-    ParseError("statement expected but return found", Pos(11, 5)))) do
+    ParseError("statement expected but return found; a function is the value of its body, and a procedure gives its results by assigning its outs", Pos(11, 5)))) do
     call check_text(in "ulang/test/errors/several-statement-errors.u", List(
       "procedure p() :=",
       "  local x := 1",
@@ -297,6 +297,47 @@ test several_argument_errors() :=
       "  local x := f(1 +, g(2, * 3), 4)",
       "  call os_println(in show(x +",
       "  assign x := 5"))
+  end
+
+// the hints of habits of other languages, the form to write instead, after the error
+test habits() :=
+  assert raises ParseErrors(List(
+    ParseError("statement expected but x found; a statement starts with its keyword, as in assign x := e", Pos(3, 3)),
+    ParseError(":= expected but += found; write assign x := x + e", Pos(4, 12)),
+    ParseError("statement expected but print found; a procedure is called by call print(in a, out x), and a function only in an expression", Pos(5, 3)),
+    ParseError("statement expected but return found; a function is the value of its body, and a procedure gives its results by assigning its outs", Pos(6, 3)),
+    ParseError("else or end expected but elif found; write else, then if c then … end on the next line, with an end of its own", Pos(9, 3)),
+    ParseError("expression expected but [ found; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments", Pos(12, 16)),
+    ParseError("undeclared operator ::; a list is built and matched as List(x; rest)", Pos(13, 18)),
+    ParseError("undeclared operator &&; the operators of Bool are and, or, and not", Pos(14, 24)),
+    ParseError("statement expected but break found; a loop ends by its condition or by an exception", Pos(16, 5)),
+    ParseError("statement expected but local found; locals are declared at the start of a body, before its statements", Pos(19, 3)))) do
+    call check_text(in "ulang/test/errors/habits.u", List(
+      "procedure main() :=",
+      "  local x := 1, xs := List(1)",
+      "  x := 2",
+      "  assign x += 1",
+      "  print(x)",
+      "  return x",
+      "  if x == 1 then",
+      "    skip",
+      "  elif x == 2 then",
+      "    skip",
+      "  end",
+      "  assign xs := [1, 2]",
+      "  assign xs := x :: xs",
+      "  assign x := if x > 1 && x < 3 then 1 else 2",
+      "  while x < 3 do",
+      "    break",
+      "  end",
+      "  skip",
+      "  local y := 2"))
+  end
+
+// a missing end is reported at the construct that it closes, found at the next line to the left of its body
+test missing_end() :=
+  assert raises ParseError("the if has no end: end expected but assign found at line 4", Pos(2, 3)) do
+    call check_text(in "ulang/test/errors/missing-end.u", List("procedure main() :=", "  if true then", "    skip", "  assign x := 3"))
   end
 
 test several_parse_errors() :=

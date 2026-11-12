@@ -709,6 +709,30 @@ test several_errors() :=
     "  assert f(1) == \"a\""), out errors)
   assert List(for e in errors yield error_pos(e)) == List(Pos(2, 7), Pos(5, 6), Pos(5, 13), Pos(8, 18))
 
+// the hints of habits of other languages, the form to write instead, which the messages give after their errors
+test hints() :=
+  local errors: List[TypeError]
+  call check_text_all(in "ulang/test/errors/hints.u", List(
+    "procedure twice(in n: Int, out m: Int) :=",
+    "  assign m := 2 * n",
+    "",
+    "procedure main() :=",
+    "  local s := \"a\" ++ \"b\", n := 1 + s, t := twice(2), u := sise(\"ab\"), v := length(\"a\")",
+    "  skip"), out errors)
+  assert List(for e in errors yield error_hint(e)) == List(
+    "strings join by ++, and + adds integers",
+    "",
+    "did you mean size?",
+    "write size")
+
+function error_hint(e: TypeError): Str :=
+  match e
+    case Located(_, _, Hinted(_, hint)) =>
+      hint
+    case _ =>
+      ""
+  end
+
 function error_pos(e: TypeError): Pos :=
   match e
     case Located(_, pos, _) =>
