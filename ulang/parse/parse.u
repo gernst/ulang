@@ -1777,7 +1777,7 @@ function is_test(c: Doc[Cmd]): Bool :=
     case CTest(_, _, _) =>
       true
 
-    case CLemma(_, _, _, _, _, _) =>
+    case CLemma(_, _, _, _, _, _, _) =>
       true
 
     case _ =>
@@ -2230,9 +2230,120 @@ procedure parse_lemma(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
       assign assms := assms ++ List(assm)
     end
   end
-  call   expect(in TKw("ensures"), ref toks)
-  call   parse_expr(in notation, params, out concl, ref toks)
-  assign cmd := CLemma(unqualified(name), params, ins, outs, assms, concl)
+  call expect(in TKw("ensures"), ref toks)
+  call parse_expr(in notation, params, out concl, ref toks)
+  if at_step(toks) and head_pos(toks).col > 1 then
+    local proof: Proof
+    call   parse_proof(in notation, params, out proof, ref toks)
+    assign cmd := CLemma(unqualified(name), params, ins, outs, assms, concl, Some(proof))
+  else
+    assign cmd := CLemma(unqualified(name), params, ins, outs, assms, concl, None)
+  end
+
+// whether the next token starts a step or a split of a proof
+function at_step(toks: Tokens): Bool :=
+  exists(List("local", "call", "assert", "assign", "induction", "match", "if"), lambda kw => at_kw(toks, kw))
+
+// the steps of a proof at the column of the first or deeper, the locals first, then the calls, cuts, and assignments,
+// which are parsed as statements, and at most one split, which ends the proof, see prover.md, section 3
+procedure parse_proof(
+  in  notation: Notation,
+      params: List[Id],
+  out proof: Proof,
+  ref toks: Tokens
+) :=
+  local pos := head_pos(toks), steps: Buffer[At[Step]] := empty(), split: Option[At[Split]] := None
+  while at_kw(toks, "local") and head_pos(toks).col >= pos.col do
+    local decls: List[Var * List[At[Stmt]]], at := head_pos(toks)
+    call   advance(ref toks)
+    call   parse_separated(in notation, params, parse_local, at_comma, out decls, ref toks)
+    assign steps := steps ++ List(for (x, inits) in decls yield AOk(at, StepLocal(x, initial_value(inits))))
+  end
+  while exists(List("call", "assert", "assign"), lambda kw => at_kw(toks, kw)) and head_pos(toks).col >= pos.col do
+    local stmt: At[Stmt], step: Step
+    call   parse_stmt(in notation, params, out stmt, ref toks)
+    call   step_of(in stmt, out step)
+    assign steps := steps ++ List(AOk(stmt.pos, step))
+  end
+  if exists(List("induction", "match", "if"), lambda kw => at_kw(toks, kw)) and head_pos(toks).col >= pos.col then
+    local s: At[Split]
+    call   parse_split(in notation, params, out s, ref toks)
+    assign split := Some(s)
+  end
+  if at_step(toks) and head_pos(toks).col >= pos.col then
+    raise ParseError(if split == None then
+      "the locals of a proof come before its other steps"
+    else
+      "a split ends its proof, so no step follows it", head_pos(toks))
+  end
+  assign proof := Proof(List(for step in steps), split)
+
+// the value of a local from the assignment that parse_local gives for it
+function initial_value(inits: List[At[Stmt]]): Option[At[Expr]] :=
+  match inits
+    case List(AOk(_, SAssign(List((_, e))))) =>
+      Some(e)
+    case _ =>
+      None
+  end
+
+// a statement that is a step of a proof, a call without refs, a cut, or an assignment
+procedure step_of(in stmt: At[Stmt], out step: Step) raises ParseError :=
+  match stmt.that
+    case SCall(name, ins, outs, List()) =>
+      assign step := StepCall(name, ins, outs)
+
+    case SAssert(cond) =>
+      assign step := StepAssert(cond)
+
+    case SAssign(upd) =>
+      assign step := StepAssign(upd)
+
+    case SCall(_, _, _, _) =>
+      raise ParseError("a call of a lemma has no refs", stmt.pos)
+
+    case _ =>
+      raise ParseError("assert raises is no step of a proof", stmt.pos)
+  end
+
+// induction x, match e, or if c, with their cases, each a proof
+procedure parse_split(
+  in  notation: Notation,
+      params: List[Id],
+  out split: At[Split],
+  ref toks: Tokens
+) :=
+  local pos := head_pos(toks)
+  match head_token(toks)
+    case TKw("induction") =>
+      local x: Id, cases: List[Doc[Branch[Proof]]]
+      call   advance(ref toks)
+      call   parse_name(out x, ref toks)
+      call   parse_cases(in notation, params, parse_proof, "induction", pos, out cases, ref toks)
+      assign split := AOk(pos, SplitInduction(Var(Name(None, x), THole), cases))
+
+    case TKw("match") =>
+      local expr: At[Expr], cases: List[Doc[Branch[Proof]]]
+      call   advance(ref toks)
+      call   parse_expr(in notation, params, out expr, ref toks)
+      call   parse_cases(in notation, params, parse_proof, "match", pos, out cases, ref toks)
+      assign split := AOk(pos, SplitMatch(expr, cases))
+
+    case _ =>
+      local cond: At[Expr], left: Proof, right: Option[Proof] := None
+      call advance(ref toks)
+      call parse_expr(in notation, params, out cond, ref toks)
+      call expect(in TKw("then"), ref toks)
+      call parse_proof(in notation, params, out left, ref toks)
+      if at_kw(toks, "else") then
+        local r: Proof
+        call   advance(ref toks)
+        call   parse_proof(in notation, params, out r, ref toks)
+        assign right := Some(r)
+      end
+      call   expect_end(in "if", pos, ref toks)
+      assign split := AOk(pos, SplitIf(cond, left, right))
+  end
 
 // the commands of one declaration
 procedure parse_command(
@@ -2808,7 +2919,7 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
     case (List(CTest(_, _, _); _), InExport) =>
       raise ParseError("tests belong to the implementation section", pos)
 
-    case (List(CLemma(_, _, _, _, _, _); _), InExport) =>
+    case (List(CLemma(_, _, _, _, _, _, _); _), InExport) =>
       raise ParseError("lemmas belong to the implementation section", pos)
 
     case (_, Opening) =>
@@ -3078,7 +3189,7 @@ function unparsed_errors(cmd: Cmd): List[Diagnostic] :=
     case CTest(_, _, stmt) =>
       unparsed_in_stmt(stmt)
 
-    case CLemma(_, _, _, _, assms, concl) =>
+    case CLemma(_, _, _, _, assms, concl, _) =>
       unparsed_in_exprs(assms ++ List(concl))
 
     case CSort(_, _, _) =>
