@@ -44,21 +44,6 @@ test distributive() :=
       "  ensures x * (y + z) == x * y + x * z"))
   end
 
-test division_remainder() :=
-  assert raises OpenLemma("division_remainder", "forall m => ((m % 3) + 3 * (m / 3)) == m") do
-    call prove_text(in "ulang/test/errors/division-remainder.u", List(
-      "lemma division_remainder(m: Int) :=",
-      "  ensures m == m / 3 * 3 + m % 3"))
-  end
-
-test remainder_bound() :=
-  assert raises OpenLemma("remainder_bound", "forall m => (not m < 0) ==> (m % 2) < 2") do
-    call prove_text(in "ulang/test/errors/remainder-bound.u", List(
-      "lemma remainder_bound(m: Int) :=",
-      "  requires m >= 0",
-      "  ensures  m % 2 < 2"))
-  end
-
 test integer_infeasible() :=
   assert raises OpenLemma("integer_infeasible", "forall x, y => (not (11 * x + 13 * y) < 27) and (not 45 < (11 * x + 13 * y)) and (not (7 * x - 9 * y) < (-10)) and (not 4 < (7 * x - 9 * y)) ==> false") do
     call prove_text(in "ulang/test/errors/integer-infeasible.u", List(
@@ -117,4 +102,10 @@ test nonterminating_function() :=
 test vacuous() :=
   assert raises Uncaught("Vacuous") do
     call run_text(in "ulang/test/errors/vacuous.u", List("lemma large(n: Int) :=", "  requires n > 100", "  ensures  n > 0"))
+  end
+
+// the sign of a remainder follows that of its dividend, since / truncates towards zero, so it is open without it
+test remainder_unsigned() :=
+  assert raises OpenLemma("remainder_unsigned", "forall m => (m % 3) < 0 ==> false") do
+    call prove_text(in "ulang/test/errors/remainder-unsigned.u", List("lemma remainder_unsigned(m: Int) :=", "  ensures m % 3 >= 0"))
   end

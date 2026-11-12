@@ -813,7 +813,49 @@ function is_entailed(ctx: Ctx, t: Lin): Bool :=
 // p - q that binds all variables of the rule
 function bounds(ctx: Ctx, t: Lin): List[Lin] :=
   let atoms := List(for summand in t.summands yield summand.term) ++ List(for l in ctx.ineqs for summand in l.summands yield summand.term) in
-  List(for a in atoms for r in ctx.rules for b in bound_of(r, a) yield b) ++ List(for a in atoms if is_size(a) yield Lin(0, List(Summand(a, 1)))) ++ List(for a in atoms for b in field_bound(a) yield b)
+  List(for a in atoms for r in ctx.rules for b in bound_of(r, a) yield b) ++ List(for a in atoms if is_size(a) yield Lin(0, List(Summand(a, 1)))) ++ List(for a in atoms for b in field_bound(a) yield b) ++ List(for a in atoms for b in division_bounds(ctx, a) yield b)
+
+// for m / k or m % k with a literal k other than 0, with q = m / k and r = m % k: m == k * q + r as two inequalities,
+// -|k| < r < |k|, and, since / truncates towards zero, 0 <= r where m >= 0 and r <= 0 where m <= 0 follow from the
+// inequalities alone
+function division_bounds(ctx: Ctx, a: Term): List[Lin] :=
+  match a
+    case Div(m, ELit(LInt(k))) if k != 0 =>
+      division_facts(ctx, m, k)
+
+    case Mod(m, ELit(LInt(k))) if k != 0 =>
+      division_facts(ctx, m, k)
+
+    case _ =>
+      List()
+  end
+
+function division_facts(ctx: Ctx, m: Term, k: Int): List[Lin] :=
+  let q := lin_of(Div(m, int_term(k))), r := lin_of(Mod(m, int_term(k))), n := abs(k) in
+  let eq := lin_sub(lin_of(m), lin_add(lin_scale(k, q), r)) in
+  let sign := if is_unsat(List(tighten(negated(lin_of(m))); ctx.ineqs), limits().eliminations) then
+    List(r)
+  else if is_unsat(List(tighten(negated(lin_scale(-1, lin_of(m)))); ctx.ineqs), limits().eliminations) then
+    List(lin_scale(-1, r))
+  else
+    List() in
+  List(
+    eq,
+    lin_scale(-1, eq),
+    lin_sub(Lin(n - 1, List()), r),
+    lin_add(r, Lin(n - 1, List()))) ++ sign
+
+function has_division(t: Lin): Bool :=
+  exists(t.summands, lambda summand => match summand.term
+    case Div(_, ELit(LInt(_))) =>
+      true
+
+    case Mod(_, ELit(LInt(_))) =>
+      true
+
+    case _ =>
+      false
+  end)
 
 // size(x) > size(T.f(x)) for an accessor T.f, true where x has the field f, while where it has not, the accessor raises,
 // so that a recursion on the field stops there
@@ -1102,6 +1144,8 @@ function simp_eq(ctx: Ctx, a: Term, b: Term): Term :=
     limits().probe_merges), a, b).inconsistent then
     bool_term(false)
   else if is_equal_by_rules(ctx, a, b) then
+    bool_term(true)
+  else if has_division(lin_sub(lin_of(a), lin_of(b))) and is_entailed(ctx, lin_sub(lin_of(a), lin_of(b))) and is_entailed(ctx, lin_sub(lin_of(b), lin_of(a))) then
     bool_term(true)
   else
     match oriented(ctx.decls, a, b)

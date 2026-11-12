@@ -60,3 +60,22 @@ lemma fib_evaluation() :=
 // unary minus is not recursive, though its body applies the binary minus of the same name
 lemma unary_minus(x: Int) :=
   ensures -x == 0 - x and -x + x == 0
+
+// by m == 3 * (m / 3) + m % 3 and the bounds of m % 3, which the atoms of division by a literal come with
+lemma division_remainder(m: Int) :=
+  ensures m == m / 3 * 3 + m % 3
+
+lemma remainder_bound(m: Int) :=
+  requires m >= 0
+  ensures  m % 2 < 2
+
+lemma halving(m: Int) :=
+  ensures 2 * m / 2 == m
+
+lemma remainder_sign(m: Int) :=
+  requires m >= 0
+  ensures  m % 3 >= 0
+
+lemma remainder_negative(m: Int) :=
+  requires m < 0
+  ensures  m % 3 <= 0
