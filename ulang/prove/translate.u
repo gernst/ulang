@@ -63,15 +63,20 @@ function datas_decls(datas: List[Int * (Name * List[Constr])]): Decls :=
       decls with constrs := decls.constrs ++ constr_decls, datatypes := put(t, List(for k in constrs yield k.name), decls.datatypes), ranks := decls.ranks ++ Map(for k in constrs yield k.name => rank)
   end
 
-// the definitions, each recursive if its name reaches itself by the names in the bodies, also through other functions,
-// which counts the arities of a name together, since a function may be passed without its arguments
+// the definitions, each recursive if it reaches itself by the symbols in the bodies, also through other functions, where
+// a name passed without its arguments reaches the definitions of all its arities
 function with_defs(decls: Decls, defined: List[(Name * Int) * (List[Var] * Term)], ranks: Map[Name, Int]): Decls :=
-  let calls := Map(for ((n, _), (_, body)) in defined yield n => symbols_in(body)) in
-  let defs := Map(for ((n, k), (formals, body)) in defined yield (n, k) => Def(contains(n, reachable(calls, List(for g in value_or(get(n, calls), empty())), empty())), formals, body)) in
+  let calls := Map(for ((n, k), (_, body)) in defined yield (n, k) => symbols_in(body)) in
+  let arities := Map(for ((n, _), _) in defined yield n => List(for ((m, k), _) in defined if m == n yield k)) in
+  let defs := Map(for ((n, k), (formals, body)) in defined yield (n, k) => Def(contains((n, k), reachable(calls, arities, callees(arities, value_or(get((n, k), calls), empty())), empty())), formals, body)) in
   decls with defs := defs, ranks := decls.ranks ++ ranks
 
-// the names that the names todo reach, with seen, which grows within the keys of calls, so that this ends
-function reachable(calls: Map[Name, Set[Name]], todo: List[Name], seen: Set[Name]): Set[Name] :=
+// the definitions that the symbols name, by the arities of the defined names
+function callees(arities: Map[Name, List[Int]], symbols: Set[Name * Int]): List[Name * Int] :=
+  List(for (n, k) in symbols for j in value_or(get(n, arities), List()) if k == j or k == -1 yield (n, j))
+
+// the definitions that those of todo reach, with seen, which grows within the keys of calls, so that this ends
+function reachable(calls: Map[Name * Int, Set[Name * Int]], arities: Map[Name, List[Int]], todo: List[Name * Int], seen: Set[Name * Int]): Set[Name * Int] :=
   match todo
     case List() =>
       seen
@@ -79,9 +84,9 @@ function reachable(calls: Map[Name, Set[Name]], todo: List[Name], seen: Set[Name
     case List(f; rest) =>
       match get(f, calls)
         case Some(called) if not contains(f, seen) =>
-          reachable(calls, List(for g in called) ++ rest, insert(f, seen))
+          reachable(calls, arities, callees(arities, called) ++ rest, insert(f, seen))
         case _ =>
-          reachable(calls, rest, seen)
+          reachable(calls, arities, rest, seen)
       end
   end
 

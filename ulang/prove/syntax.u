@@ -133,8 +133,9 @@ function occurs(a: Term, e: Term): Bool
 
 function loose(c: Int, e: Term): List[Int]
 
-// the symbols of the functions, constructors, and builtins that e names
-function symbols_in(e: Term): Set[Name]
+// the symbols of the functions, constructors, and builtins that e names, each with the number of its arguments, or -1
+// where it is passed without them
+function symbols_in(e: Term): Set[Name * Int]
 
 function lin_of(e: Term): Lin
 
@@ -416,7 +417,7 @@ function occurs_branch(a: Term, br: TermBranch): Bool :=
       occurs(a, body)
   end
 
-function symbols_in(e: Term): Set[Name] :=
+function symbols_in(e: Term): Set[Name * Int] :=
   match e
     case EBound(_) =>
       empty()
@@ -428,7 +429,10 @@ function symbols_in(e: Term): Set[Name] :=
       empty()
 
     case EFun(name) =>
-      Set(name)
+      Set((name, -1))
+
+    case EApp(EFun(name), args) =>
+      insert((name, size(args)), Set(for a in args for n in symbols_in(a) yield n))
 
     case EApp(fun, args) =>
       symbols_in(fun) ++ Set(for a in args for n in symbols_in(a) yield n)
@@ -446,7 +450,7 @@ function symbols_in(e: Term): Set[Name] :=
       Set(for summand in summands for n in symbols_in(summand.term) yield n)
   end
 
-function symbols_in_branch(br: TermBranch): Set[Name] :=
+function symbols_in_branch(br: TermBranch): Set[Name * Int] :=
   match br
     case TermBranch(_, Some(guard), body) =>
       symbols_in(guard) ++ symbols_in(body)

@@ -25,11 +25,6 @@ test less_by_two() :=
       "  ensures  b < a + 2"))
   end
 
-test unary_minus() :=
-  assert raises OpenLemma("unary_minus", "forall x => -(x) == (-x)") do
-    call prove_text(in "ulang/test/errors/unary-minus.u", List("lemma unary_minus(x: Int) :=", "  ensures -x == 0 - x"))
-  end
-
 test square_nonnegative() :=
   assert raises OpenLemma("square_nonnegative", "forall x => (x * x) < 0 ==> false") do
     call prove_text(in "ulang/test/errors/square-nonnegative.u", List("lemma square_nonnegative(x: Int) :=", "  ensures x * x >= 0"))

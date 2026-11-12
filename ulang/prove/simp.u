@@ -49,11 +49,24 @@ implementation
 data Rule :=
   case Rule(vars: List[Var], conds: List[Seq], lhs: Term, rhs: Term)
 
+// the limits of the simplifier, which leave a goal equivalent but not normalized where they are reached:
+// - merges: the equations that one fact may solve, also of the facts that solving it solves again, in one budget for
+//   the cycle of merge, add_pair, remerge, and add_ineq, so that a fact solves at most this many,
+// - probe_merges: the merges of a trial merge that decides an equation, and probes: the trial merges nested,
+// - splits: the internal splits nested, unfolds: the unfoldings and rewrites nested,
+// - eliminations: the variables that Fourier–Motzkin eliminates, and constraints: the inequalities it works on
+data Limits :=
+  case Limits(merges: Int, probe_merges: Int, probes: Int, splits: Int, unfolds: Int, eliminations: Int, constraints: Int)
+
+function limits(): Limits :=
+  Limits(20, 5, 2, 3, 64, 20, 60)
+
 // the variables of the opened sequents, the last one first, such that level l is at depth - 1 - l, the solved
 // equations from atoms to their values, the inequalities t >= 0, the rules, whether the facts are inconsistent, and
-// the limits of internal splits, of nested unfolding and rewriting, and of trial merges that decide equations
+// what is left of the limits: of the merges of the current fact, of internal splits, of trial merges, and the unfoldings
+// and rewrites so far
 data Ctx :=
-  case Ctx(decls: Decls, vars: List[Var], eqs: Map[Term, Term], ineqs: List[Lin], rules: List[Rule], inconsistent: Bool, splits: Int, unfolds: Int, probes: Int)
+  case Ctx(decls: Decls, vars: List[Var], eqs: Map[Term, Term], ineqs: List[Lin], rules: List[Rule], inconsistent: Bool, merges: Int, splits: Int, unfolds: Int, probes: Int)
 
 // a simplified conjunction with the context after it, or Refuted if a conjunct is false
 data Conj :=
@@ -81,10 +94,13 @@ function false_seq(): Seq :=
   Seq(List(), List(), List())
 
 function new_ctx(decls: Decls): Ctx :=
-  Ctx(decls, List(), empty(), List(), List(), false, 3, 0, 2)
+  let l := limits() in
+  Ctx(decls, List(), empty(), List(), List(), false, l.merges, l.splits, 0, l.probes)
 
-function max_unfolds(): Int :=
-  64
+// the context with a new budget of merges, for a fact or a term that the simplification of a sequent adds, not one
+// that solving adds
+function refuel(ctx: Ctx): Ctx :=
+  ctx with merges := limits().merges
 
 function depth(ctx: Ctx): Int :=
   size(ctx.vars)
@@ -213,7 +229,7 @@ function to_seq(e: Term): Seq :=
 function simp_seq(ctx: Ctx, s: Seq): Seq :=
   match s
     case Atom(expr) =>
-      let t := simp_term(ctx, expr) in
+      let t := simp_term(refuel(ctx), expr) in
       let n := to_seq(t) in
       match n
         case Atom(_) =>
@@ -400,10 +416,10 @@ function simp_concl(ctx: Ctx, c: Concl): Option[Concl] :=
 function assume(ctx: Ctx, s: Seq): Ctx :=
   match s
     case Atom(expr) =>
-      assume_term(ctx, expr, true)
+      assume_term(refuel(ctx), expr, true)
 
     case Seq(List(), List(Atom(expr)), List()) =>
-      assume_term(ctx, expr, false)
+      assume_term(refuel(ctx), expr, false)
 
     case Seq(fixed, assms, List(Concl(List(), List(Atom(expr))))) =>
       add_rule(ctx, fixed, assms, expr, true)
@@ -429,10 +445,10 @@ function assume(ctx: Ctx, s: Seq): Ctx :=
 function refute(ctx: Ctx, c: Concl): Ctx :=
   match c
     case Concl(List(), List(Atom(expr))) =>
-      assume_term(ctx, expr, false)
+      assume_term(refuel(ctx), expr, false)
 
     case Concl(List(), List(Seq(List(), List(Atom(expr)), List()))) =>
-      assume_term(ctx, expr, true)
+      assume_term(refuel(ctx), expr, true)
 
     case Concl(vars, List(Atom(expr))) =>
       add_rule(ctx, vars, List(), expr, false)
@@ -488,7 +504,7 @@ function assume_term(ctx: Ctx, e: Term, b: Bool): Ctx :=
         assume_term(assume_term(ctx, x, false), y, false)
 
       case Eq(x, y) if b =>
-        merge(ctx, x, y, 20)
+        merge(ctx, x, y)
 
       case Less(x, y) =>
         if b then
@@ -497,7 +513,7 @@ function assume_term(ctx: Ctx, e: Term, b: Bool): Ctx :=
           add_ineq(ctx, lin_sub(lin_of(x), lin_of(y)))
 
       case _ =>
-        merge(ctx, e, bool_term(b), 20)
+        merge(ctx, e, bool_term(b))
     end
 
 function is_value(decls: Decls, e: Term): Bool :=
@@ -529,16 +545,16 @@ function occurs_constr(decls: Decls, a: Term, v: Term): Bool :=
     end
 
 // the context with a == b for canonical a and b, solved by the theories into equations of atoms with their values
-function merge(ctx: Ctx, a: Term, b: Term, fuel: Int): Ctx :=
-  if fuel <= 0 or ctx.inconsistent or a == b then
+function merge(ctx: Ctx, a: Term, b: Term): Ctx :=
+  if ctx.merges <= 0 or ctx.inconsistent or a == b then
     ctx
   else if is_sum(a) or is_sum(b) then
-    merge_lin(ctx, lin_sub(lin_of(a), lin_of(b)), fuel)
+    merge_lin(ctx, lin_sub(lin_of(a), lin_of(b)))
   else
     match (constr_head(ctx.decls, a), constr_head(ctx.decls, b))
       case (Some((f, xs)), Some((g, ys))) =>
         if f == g and size(xs) == size(ys) then
-          merge_all(ctx, xs, ys, fuel)
+          merge_all(ctx, xs, ys)
         else
           contradiction(ctx)
 
@@ -549,33 +565,33 @@ function merge(ctx: Ctx, a: Term, b: Term, fuel: Int): Ctx :=
           if occurs_constr(ctx.decls, a, b) then
             contradiction(ctx)
           else
-            add_pair(ctx, a, b, fuel)
+            add_pair(ctx, a, b)
         else if is_value(ctx.decls, a) then
           if occurs_constr(ctx.decls, b, a) then
             contradiction(ctx)
           else
-            add_pair(ctx, b, a, fuel)
+            add_pair(ctx, b, a)
         else if is_greater(ctx.decls, a, b) then
-          add_pair(ctx, a, b, fuel)
+          add_pair(ctx, a, b)
         else if is_greater(ctx.decls, b, a) then
-          add_pair(ctx, b, a, fuel)
+          add_pair(ctx, b, a)
         else if compare(a, b) > 0 then
-          add_pair(ctx, a, b, fuel)
+          add_pair(ctx, a, b)
         else
-          add_pair(ctx, b, a, fuel)
+          add_pair(ctx, b, a)
     end
 
-function merge_all(ctx: Ctx, xs: List[Term], ys: List[Term], fuel: Int): Ctx :=
+function merge_all(ctx: Ctx, xs: List[Term], ys: List[Term]): Ctx :=
   match (xs, ys)
     case (List(x; xs_), List(y; ys_)) =>
-      merge_all(merge(ctx, simp_term(ctx, x), simp_term(ctx, y), fuel - 1), xs_, ys_, fuel)
+      merge_all(merge(ctx, simp_term(ctx, x), simp_term(ctx, y)), xs_, ys_)
     case _ =>
       ctx
   end
 
 // the context with d == 0, solved for its greatest atom with a coefficient 1 or -1, or else kept as the equation
 // of its atoms, divided by their greatest common divisor, with the constant
-function merge_lin(ctx: Ctx, d: Lin, fuel: Int): Ctx :=
+function merge_lin(ctx: Ctx, d: Lin): Ctx :=
   match d
     case Lin(k, List()) =>
       if k == 0 then ctx else contradiction(ctx)
@@ -584,14 +600,14 @@ function merge_lin(ctx: Ctx, d: Lin, fuel: Int): Ctx :=
       match greatest_unit(ctx.decls, summands, None)
         case Some(unit) =>
           let rest := lin_sub(d, Lin(0, List(unit))) in
-          add_pair(ctx, unit.term, sum_term(if unit.factor == 1 then lin_scale(-1, rest) else rest), fuel)
+          add_pair(ctx, unit.term, sum_term(if unit.factor == 1 then lin_scale(-1, rest) else rest))
 
         case None =>
           let g := gcd_all(summands) in
           if k % g != 0 then
             contradiction(ctx)
           else
-            add_pair(ctx, sum_term(Lin(0, divided(summands, g))), int_term(0 - k / g), fuel)
+            add_pair(ctx, sum_term(Lin(0, divided(summands, g))), int_term(0 - k / g))
       end
   end
 
@@ -625,11 +641,11 @@ function divided(summands: List[Summand], g: Int): List[Summand] :=
   List(for summand in summands yield summand with factor := summand.factor / g)
 
 // the context with the atom l solved to r, where the equations and inequalities that mention l are solved again
-function add_pair(ctx: Ctx, l: Term, r: Term, fuel: Int): Ctx :=
+function add_pair(ctx: Ctx, l: Term, r: Term): Ctx :=
   let changed := List(for a => b in ctx.eqs if occurs(l, a) or occurs(l, b)) in
   let eqs := remove_keys(changed, ctx.eqs) in
-  let base := ctx with eqs := put(l, r, eqs), ineqs := List() in
-  let next := remerge(base, List(for (a, b) in changed yield (replace(l, r, a), replace(l, r, b))), fuel - 1) in
+  let base := ctx with eqs := put(l, r, eqs), ineqs := List(), merges := ctx.merges - 1 in
+  let next := remerge(base, List(for (a, b) in changed yield (replace(l, r, a), replace(l, r, b)))) in
   readd_ineqs(next, ctx.ineqs)
 
 function remove_keys(ps: List[Term * Term], eqs: Map[Term, Term]): Map[Term, Term] :=
@@ -640,12 +656,12 @@ function remove_keys(ps: List[Term * Term], eqs: Map[Term, Term]): Map[Term, Ter
       remove_keys(rest, remove(k, eqs))
   end
 
-function remerge(ctx: Ctx, ps: List[Term * Term], fuel: Int): Ctx :=
+function remerge(ctx: Ctx, ps: List[Term * Term]): Ctx :=
   match ps
     case List() =>
       ctx
     case List((a, b); rest) =>
-      remerge(merge(ctx, simp_term(ctx, a), simp_term(ctx, b), fuel), rest, fuel)
+      remerge(merge(ctx, simp_term(ctx, a), simp_term(ctx, b)), rest)
   end
 
 function readd_ineqs(ctx: Ctx, ls: List[Lin]): Ctx :=
@@ -685,7 +701,7 @@ function is_unsat(cs: List[Lin], fuel: Int): Bool :=
         false
 
       case List(c; more) =>
-        if fuel <= 0 or size(more) > 60 then
+        if fuel <= 0 or size(more) > limits().constraints then
           false
         else
           let rest := List(c; more), x := at(0, from_list(c.summands)).term in
@@ -698,7 +714,7 @@ function combine(x: Term, p: Lin, n: Lin): Lin :=
   tighten(lin_add(lin_scale(0 - coefficient(x, n), p), lin_scale(coefficient(x, p), n)))
 
 function is_entailed(ctx: Ctx, t: Lin): Bool :=
-  ctx.inconsistent or is_unsat(List(tighten(negated(t)); ctx.ineqs ++ bounds(ctx, t)), 20)
+  ctx.inconsistent or is_unsat(List(tighten(negated(t)); ctx.ineqs ++ bounds(ctx, t)), limits().eliminations)
 
 // the instances of rules p < q without conditions, for the atoms of t and of the inequalities, with a single atom
 // p - q that binds all variables of the rule
@@ -745,12 +761,12 @@ function add_ineq(ctx: Ctx, d: Lin): Ctx :=
       case _ =>
         if is_entailed(ctx, t) then
           ctx
-        else if is_unsat(List(t; ctx.ineqs), 20) then
+        else if is_unsat(List(t; ctx.ineqs), limits().eliminations) then
           contradiction(ctx)
         else
           let next := ctx with ineqs := List(t; ctx.ineqs) in
           if is_entailed(next, lin_scale(-1, t)) then
-            merge_lin(next, t, 10)
+            merge_lin(next, t)
           else
             next
     end
@@ -955,7 +971,10 @@ function ordered(a: Term, b: Term): Term * Term :=
 function simp_eq(ctx: Ctx, a: Term, b: Term): Term :=
   if a == b then
     bool_term(true)
-  else if ctx.probes > 0 and merge(ctx with probes := ctx.probes - 1, a, b, 5).inconsistent then
+  else if ctx.probes > 0 and merge(ctx with probes := ctx.probes - 1, merges := (if ctx.merges < limits().probe_merges then
+    ctx.merges
+  else
+    limits().probe_merges), a, b).inconsistent then
     bool_term(false)
   else
     match oriented(ctx.decls, a, b)
@@ -981,7 +1000,7 @@ function simp_less(ctx: Ctx, a: Term, b: Term): Term :=
 // the application of a function to its arguments, unfolded always if it is not recursive, and else where the match or
 // if of its body is decided, which terminates since functions do
 function unfold(ctx: Ctx, t: Term, d: Def, args: List[Term]): Term :=
-  if size(d.formals) != size(args) or ctx.unfolds > max_unfolds() then
+  if size(d.formals) != size(args) or ctx.unfolds > limits().unfolds then
     rewrite(ctx, t)
   else
     let body := beta(args, d.body), inner := ctx with unfolds := ctx.unfolds + 1 in
@@ -1105,8 +1124,12 @@ function rewrite(ctx: Ctx, t: Term): Term :=
   match get(t, ctx.eqs)
     case Some(v) =>
       v
+
     case None =>
-      if ctx.unfolds > max_unfolds() then t else apply_rules(ctx, ctx.rules, t)
+      if ctx.unfolds > limits().unfolds then
+        t
+      else
+        apply_rules(ctx, ctx.rules, t)
   end
 
 function apply_rules(ctx: Ctx, rules: List[Rule], t: Term): Term :=

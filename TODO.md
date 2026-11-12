@@ -14,7 +14,7 @@ The sections are in the order of their value for the agents that write ulang, wh
 
 ## Testing
 
-1. **Properties are only tested on the examples written by hand**, and the formals of tests are reserved but rejected. Solution: tests with formals, `test append_size(xs: List[Int], ys: List[Int]) := assert …`, which the runner calls on generated values of the types of the formals, deterministically, and which report the values of a failure. They give the evidence "tested" of Verification 4.
+1. **Properties are only tested on the examples written by hand**, and the formals of tests are reserved but rejected. Solution: tests with formals, `test append_size(xs: List[Int], ys: List[Int]) := assert …`, which the runner calls on generated values of the types of the formals, deterministically, and which report the values of a failure. They give the evidence "tested" of Verification 2.
 2. **What a function does is seen only from its body or from tests elsewhere**: a signature gives the types, a doc gives prose that nothing checks and that goes stale, and the tests of a function sit apart from it, often in another file, private to their module, so neither a reader of the `export` section nor an importer, nor an agent that reads a signature or `ulang.bin sig` (Diagnostics 3), sees a concrete call with its result. Solution: examples as part of a signature, checked and run, documentation that cannot go stale:
    - **Syntax**: clauses `example` between the signature and `:=`, or after a signature without body in `export`, one per line, where `example` becomes a keyword:
      - of a function, an equation of a call and its result, `example gcd(12, 18) == 6`, or a call that raises, `example chr(-1) raises NoCharacter(-1)`;
@@ -65,7 +65,7 @@ The sections are in the order of their value for the agents that write ulang, wh
 3. **Names are compared as strings**: both backends special-case `and`, `or`, and `assert a == b` by their text, and builtins are dispatched by comparing qualified names as strings. Solution: a datatype of the builtins, or a node of the syntax for operators.
 4. **Functions sit where the import order once put them**, which packages no longer force: generic code in `ulang/` that belongs to the library, e.g. `normal_path`, `relative_path`, and `has_file` of `ulang/parse/parse.u` in `os`; `starts_at` of `ulang/parse/lex.u` in `str`; and `split_on` of `ulang/ulang.u` in `list`; and functions of `ulang/syntax/syntax.u` that one phase uses, `pattern_expr` and `subst_pat` only `ulang/check/check.u`, and `implicit_imports` and `module_dir` only `ulang/parse/parse.u`. Solution: move each to the file of its concern. The library grows only by what is clearly general, `split_on` and perhaps `starts_at`, since every module sees it, so each name there is a candidate of overloading everywhere and part of every compiled program (Build 2); the helpers of paths wait for `os` as a package of its own (Modules 1). Each move and rename updates in the same commit the references of `CLAUDE.md`, `README.md`, and `TODO.md`, by which agents find code, which `checks/docs.u` checks.
 5. **`ulang/prove/` was not reviewed for shapes spelled out by hand**, beside its aliases of the builtins in `ulang/prove/syntax.u`. Solution: a review of `ulang/prove/` like that of the rest of `ulang/`, by the rules of pattern aliases in `CLAUDE.md`, Style.
-6. **The principles behind items 1 to 4 are not written down**, also: keep information that is rebuilt later, as `Constr` now keeps its fields, keep twin code in step, as `set.u` and `map.u`, and name fuel and limits (Verification 3). Solution: once the items are done, state them in `DESIGN.md` and as rules of style in `CLAUDE.md`.
+6. **The principles behind items 1 to 4 are not written down**, also: keep information that is rebuilt later, as `Constr` now keeps its fields, keep twin code in step, as `set.u` and `map.u`, and name fuel and limits, as `Limits` of `ulang/prove/simp.u` does. Solution: once the items are done, state them in `DESIGN.md` and as rules of style in `CLAUDE.md`.
 
 ## Library
 
@@ -101,9 +101,7 @@ The sections are in the order of their value for the agents that write ulang, wh
 ## Verification
 
 1. **Contracts and proofs** are not implemented, only lemmas with the default proof, see `prove.md`, where functions have only `requires`, which states their domain, also that of the builtins, e.g. `requires d != 0` of `/`. Solution: parse specifications and proofs, and prove them with the simplifier of `prove/`.
-2. **Defects of the prover**: `merge` gets fresh fuel inside a cycle, from `add_ineq` with 10 through `add_pair` and `readd_ineqs`, so it is not bounded. Solution: one fuel for the cycle.
-3. **Fuel and limits of the prover are numbers spread over the code**, 3, 5, 10, 20, 60, and 64, and the context is built positionally, as `Ctx(…, false, 3, 0, 2)`. Solution: a record of named limits in one place.
-4. **How strongly an obligation is established is not recorded.** Ideas, which need a design of their own: a status per obligation, proven, tested (Testing 1), or open; trusted facts by `assume … why "…"`; a command `ulang.bin audit <file>` that lists the assumptions and the obligations that depend on them; and runtime checks of the obligations that are not proven.
+2. **How strongly an obligation is established is not recorded.** Ideas, which need a design of their own: a status per obligation, proven, tested (Testing 1), or open; trusted facts by `assume … why "…"`; a command `ulang.bin audit <file>` that lists the assumptions and the obligations that depend on them; and runtime checks of the obligations that are not proven.
 
 ## Later
 

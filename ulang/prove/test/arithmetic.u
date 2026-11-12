@@ -56,3 +56,7 @@ function fib(n: Int): Int :=
 
 lemma fib_evaluation() :=
   ensures fib(15) == 610
+
+// unary minus is not recursive, though its body applies the binary minus of the same name
+lemma unary_minus(x: Int) :=
+  ensures -x == 0 - x and -x + x == 0
