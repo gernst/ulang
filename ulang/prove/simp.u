@@ -253,12 +253,14 @@ function simp_seq(ctx: Ctx, s: Seq): Seq :=
       end
 
     case Seq(fixed, assms, concls) =>
-      simp_sequent(ctx, fixed, assms, concls)
+      simp_sequent(ctx, fixed, assms, concls, false)
   end
 
 // its binders are opened, its assumptions simplified as a conjunction, which may add binders, its conclusions in the
-// context of all assumptions, and the result closed again, or else split on a condition if all cases are closed
-function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Concl]): Seq :=
+// context of all assumptions, and the result closed again, or else split on a condition if all cases are closed; the
+// conclusions that are negations not A are assumptions A, since not A or R is A ==> R, so that their equations are facts
+// for all the others: the sequent is simplified again with them unless assumed says that it is that simplification
+function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Concl], assumed: Bool): Seq :=
   let d := depth(ctx), k := size(xs) in
   let cs := List(for c in concls yield rebind_concl(Open(d, k), 0, c)) in
   match conjoin(enter(ctx, xs), List(for a in assms yield rebind_seq(Open(d, k), 0, a)))
@@ -279,9 +281,33 @@ function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Co
             case Disj(goals) =>
               let levels := range(d, depth(after)), ys := vars_from(after, d) in
               let closed := List(for b in seqs yield rebind_seq(Close(levels), 0, b)), ends := List(for c in goals yield rebind_concl(Close(levels), 0, c)) in
-              let result := sequent(ys, closed, ends) in
-              split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, levels, ys, seqs, goals), result)
+              match negated_conclusions(ends)
+                case (List(), _) =>
+                  split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, levels, ys, seqs, goals), sequent(ys, closed, ends))
+
+                case (moved, rest) =>
+                  if assumed then
+                    split_on(ctx, levels, ys, closed ++ moved, rest, split_candidate(ctx.decls, levels, ys, seqs, goals), sequent(ys, closed ++ moved, rest))
+                  else
+                    simp_sequent(ctx, ys, closed ++ moved, rest, true)
+              end
           end
+      end
+  end
+
+// the assumptions of the conclusions that are negations, without existential variables, and the other conclusions
+function negated_conclusions(cs: List[Concl]): List[Seq] * List[Concl] :=
+  match cs
+    case List() =>
+      (List(), List())
+
+    case List(c; rest) =>
+      let (moved, others) := negated_conclusions(rest) in
+      match c
+        case Concl(List(), List(Seq(List(), assms, List()))) =>
+          (assms ++ moved, others)
+        case _ =>
+          (moved, List(c; others))
       end
   end
 
