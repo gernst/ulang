@@ -47,6 +47,7 @@ function keywords(): Set[Str] :=
     "else",
     "end",
     "ensures",
+    "example",
     "export",
     "false",
     "for",

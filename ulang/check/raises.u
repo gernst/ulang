@@ -123,6 +123,10 @@ function module_of(cmd: Cmd): Option[Id] :=
 
     case CNotation(_, _, _) =>
       None
+
+    // the checker translates examples into tests, so checked programs have none
+    case CExample(owner, _) =>
+      owner.module
   end
 
 function cmd_flow(scope: Scope, cmd: Cmd): Flow :=
@@ -158,6 +162,9 @@ function cmd_flow(scope: Scope, cmd: Cmd): Flow :=
       none()
 
     case CNotation(_, _, _) =>
+      none()
+
+    case CExample(_, _) =>
       none()
   end
 

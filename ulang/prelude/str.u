@@ -8,6 +8,8 @@ export
 
 // the character as an option, which is None out of range
 function get(i: Int, s: Str): Option[Char]
+  example get(1, "ab") == Some('b')
+  example get(2, "ab") == None
 
 // whether s starts with start, and whether it ends with finish
 function starts_with(s: Str, start: Str): Bool
@@ -41,16 +43,21 @@ function size(s: Str): Int
 
 // the character at index i, from 0, or else OutOfBounds
 function at(i: Int, s: Str): Char
+  example at(0, "ab") == 'a'
+  example at(2, "ab") raises OutOfBounds(2, 2)
 
 function contains(c: Char, s: Str): Bool
 
 // the characters from index i up to j, exclusively, where 0 <= i <= j <= size(s), or else OutOfBounds
 function slice(s: Str, i: Int, j: Int): Str
+  example slice("abcd", 1, 3) == "bc"
 
 // the strings of strs with sep between them, and the parts of s between the occurrences of c, including empty ones
 function join(sep: Str, strs: List[Str]): Str
+  example join(", ", List("a", "b")) == "a, b"
 
 function split(s: Str, c: Char): List[Str]
+  example split("a,,b", ',') == List("a", "", "b")
 
 // the string in double quotes, with escapes as in literals
 function quote(s: Str): Str

@@ -62,6 +62,8 @@ test sorting() :=
 - User-defined operators by `infix`, `prefix`, and `postfix` notations.
 - Modules and packages: a file with `export` and `implementation` sections is a module, and the modules of a directory are a package, whose members see each other's exports without imports, also cyclically, while their private declarations stay private to their file. `import "p"` makes the exports of the package of the directory `p` available, by its path from the root of the project, the nearest directory above with `project.u`, but not transitively; packages do not import each other cyclically. A file without sections is a program, which sees the package of its directory, and every module sees the whole library without imports.
 - Named tests `test name() := …`, whose parameters are reserved for later and must be empty, while programs start at a procedure without parameters, like `procedure main() := …`.
+- Examples of functions and procedures, lines below the signature such as `example gcd(12, 18) == 6`, `example chr(-1) raises NoCharacter(-1)`, or `example divmod(in 7, 2, out 3, 1)`, which run as tests `gcd.example.1`, … in both backends.
+- Lemmas `lemma l(x: A, …) := requires a ensures b`, which `ulang.sh prove` proves and `ulang.sh test` first tests, as `l.lemma`, on all the values of the formals up to a small depth, with `Int` for type parameters, reporting a counterexample.
 
 The library in `ulang/prelude/` contains the prelude with natural numbers, options, and lists, as well as maps, sets, and access to files.
 

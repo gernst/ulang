@@ -163,6 +163,10 @@ function cmd_names(cmd: Cmd): List[Str] :=
 
     case CLemma(name, _, _, _, _) =>
       List(name.base)
+
+    // an example names nothing, its function or procedure does
+    case CExample(_, _) =>
+      List()
   end
 
 function cmd_fields(cmd: Cmd): List[Str * Set[Str]] :=

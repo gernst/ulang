@@ -150,7 +150,9 @@ function measure_slots(decls: Decls, names: List[Name * Int]): List[Slot] :=
   let formals := List(for k in names for d in get(k, decls.defs) yield d.formals) in
   match formals
     case List(fs) =>
-      List(for m in size_measures(decls, fs) yield Slot(List(m), false)) ++ List(for m in int_measures(fs) yield Slot(List(m), true))
+      let body := List(for k in names for d in get(k, decls.defs) yield d.body) in
+      let guards := List(for b in body for m in guard_measures(fs, b) yield m) in
+      List(for m in size_measures(decls, fs) yield Slot(List(m), false)) ++ List(for m in int_measures(fs) ++ guards yield Slot(List(m), true))
 
     case _ =>
       let n := foldl(formals, 0, lambda acc, fs => if acc == 0 or size(fs) < acc then size(fs) else acc) in
@@ -165,6 +167,60 @@ function int_measures(fs: List[Var]): List[Term] :=
   let n := size(fs) in
   let ints := List(for (x, i) in zip(fs, range(0, n)) if x.typ == TInt() yield EBound(n - 1 - i)) in
   ints ++ List(for x in ints yield Minus(ELit(LInt(0)), x)) ++ List(for x in ints for y in ints if x != y yield Minus(y, x))
+
+// the differences of the sides of the comparisons in the conditions of the ifs of the body outside its matches and
+// lambdas, where the formals are the only indices, both ways, of the comparisons of which one side is an integer, as
+// limits().depth - n of n < limits().depth
+function guard_measures(fs: List[Var], body: Term): List[Term] :=
+  match body
+    case EIte(cond, then_expr, else_expr) =>
+      comparison_measures(fs, cond) ++ guard_measures(fs, then_expr) ++ guard_measures(fs, else_expr)
+    case _ =>
+      List()
+  end
+
+function comparison_measures(fs: List[Var], cond: Term): List[Term] :=
+  match cond
+    case EApp(EFun(name), List(a, b)) if is_comparison(name) and (is_int_term(fs, a) or is_int_term(fs, b)) =>
+      List(Minus(b, a), Minus(a, b))
+
+    case Not(c) =>
+      comparison_measures(fs, c)
+
+    case And(c, d) =>
+      comparison_measures(fs, c) ++ comparison_measures(fs, d)
+
+    case Or(c, d) =>
+      comparison_measures(fs, c) ++ comparison_measures(fs, d)
+
+    case _ =>
+      List()
+  end
+
+function is_comparison(name: Name): Bool :=
+  name == Name(None, "<") or name.module == Some("prelude/prelude") and contains(name.base, List("<=", ">", ">="))
+
+// a term of type Int: an Int formal, a literal, or arithmetic over them
+function is_int_term(fs: List[Var], t: Term): Bool :=
+  match t
+    case EBound(index) =>
+      index < size(fs) and at(size(fs) - 1 - index, from_list(fs)).typ == TInt()
+
+    case ELit(LInt(_)) =>
+      true
+
+    case Plus(a, b) =>
+      is_int_term(fs, a) and is_int_term(fs, b)
+
+    case Minus(a, b) =>
+      is_int_term(fs, a) and is_int_term(fs, b)
+
+    case Times(a, b) =>
+      is_int_term(fs, a) and is_int_term(fs, b)
+
+    case _ =>
+      false
+  end
 
 function is_datatype(decls: Decls, t: Type): Bool :=
   match t

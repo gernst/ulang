@@ -24,9 +24,9 @@ lemma maximum_bounds(a: Int, b: Int) :=
 lemma irreflexive(x: Int) :=
   ensures not x < x
 
+// as an implication, since its tests would be Vacuous with x < x as an assumption
 lemma irreflexive_assumption(x: Int) :=
-  requires x < x
-  ensures  false
+  ensures x < x ==> false
 
 lemma irreflexive_atoms[A](xs: List[A], x: Int, y: Int, g: Int -> Int) :=
   ensures not size(xs) < size(xs) and not x * y < x * y and not x / 2 < x / 2 and not g(x) < g(x)

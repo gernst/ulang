@@ -1,4 +1,4 @@
-// the lemmas that the default proof of ulang/prove/lemma.u leaves open, each a case, the lines of a source text at a path of this directory, which the procedures of
+// the lemmas that the default proof of ulang/prove/lemma.u leaves open, or whose tests on enumerated values fail, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
 import "ulang/syntax"
@@ -10,6 +10,13 @@ test append_commutes() :=
     call prove_text(in "ulang/test/errors/append-commutes.u", List(
       "lemma append_commutes[A](xs: List[A], ys: List[A]) :=",
       "  ensures xs ++ ys == ys ++ xs"))
+  end
+
+test falsified() :=
+  assert raises Uncaught("Falsified(\"xs = List(1, 0), ys = List()\")") do
+    call run_text(in "ulang/test/errors/falsified.u", List(
+      "lemma reverse_same(xs: List[Int], ys: List[Int]) :=",
+      "  ensures reverse(xs) ++ ys == xs ++ ys"))
   end
 
 test irreflexive() :=
@@ -99,7 +106,8 @@ test abstract_constructors() :=
 
 // the recursive functions of the library whose termination the prover does not prove: distinct recurses on a
 // comprehension, sort on take and drop of half its list, and separated on joined_pairs, which need lemmas of their
-// sizes, and gcd on a remainder, which needs its bounds (prover.md, D6)
+// sizes, gcd on a remainder, which needs its bounds (prover.md, D6), and list_count and list_values of
+// ulang/prelude/enumerate.u count n down to n == 0, so they do not terminate for a negative n
 test library_terminates() :=
   local main: Id, q: Prog, open: List[Str] := List()
   call load_text(in "ulang/test/errors/library-terminates.u", List("lemma trivial() :=", "  ensures true"), out main, q)
@@ -107,7 +115,7 @@ test library_terminates() :=
     case Translation(decls, _) =>
       assign open := List(for t in terminations(decls, Set(for k => d in decls.defs if d.recursive yield k)) if not is_terminating(t) for (n, _) in t.names yield n.base)
   end
-  assert Set(for n in open) == Set("distinct", "separated", "sort", "gcd")
+  assert Set(for n in open) == Set("distinct", "separated", "sort", "gcd", "list_count", "list_values")
 
 // a function that does not terminate is open, one that counts down to a guard terminates by its Int measure
 test terminations_of_program() :=
@@ -135,4 +143,9 @@ test nonterminating_function() :=
       "",
       "lemma loop_zero() :=",
       "  ensures loop(0) == 0"))
+  end
+
+test vacuous() :=
+  assert raises Uncaught("Vacuous") do
+    call run_text(in "ulang/test/errors/vacuous.u", List("lemma large(n: Int) :=", "  requires n > 100", "  ensures  n > 0"))
   end
