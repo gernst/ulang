@@ -515,24 +515,22 @@ procedure prove_module(
       label: Str,
   out proven: Bool
 ) :=
-  local t := translate(q, m), proofs := prove_lemmas(t.decls, lemmas_upto(t.lemmas, names))
-  assign proven := true
+  local t := translate(q, m), proofs := prove_lemmas(t.decls, lemmas_upto(t.lemmas, names)), ds: List[Diagnostic] := proof_diagnostics(with_proofs(q, m, proofs, names), m)
+  assign proven := ds == List()
   for n in names if not exists(t.lemmas, lambda l => l.name.base == n) do
     call   os_println(in label ++ error_text(RuntimeKind, "there is no lemma " ++ n))
     assign proven := false
   end
-  for site in List(for tm in proofs.terminations for s in take(1, tm.open) yield s) do
-    call   os_println(in format_diagnostic(file, termination_diagnostic(m, site)))
-    assign proven := false
+  for d in ds if d.code == "OpenTermination" do
+    call os_println(in format_diagnostic(file, d))
   end
   for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) do
     if gaps == List() then
       call os_println(in label ++ "lemma " ++ name.base ++ " proved")
     else
-      call   os_println(in label ++ "lemma " ++ name.base ++ " open")
-      assign proven := false
-      for gap in gaps do
-        call os_println(in format_diagnostic(file, gap_diagnostic(name, gap)))
+      call os_println(in label ++ "lemma " ++ name.base ++ " open")
+      for d in ds if d.code != "OpenTermination" and get("lemma", d.details) == Some(name.base) do
+        call os_println(in format_diagnostic(file, d))
       end
     end
   end

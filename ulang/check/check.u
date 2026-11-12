@@ -97,7 +97,7 @@ procedure check_all(
 // the errors that checking found in q, which holds them as the errors of its commands, in their order
 function diagnostics(q: Prog): List[Diagnostic]
 
-// whether checking found errors in q
+// whether checking found errors in q, without those of proofs, which the prover adds (with_proofs of ulang/prove/lemma.u)
 function has_errors(q: Prog): Bool
 
 // check_all of a source without its commands that do not parse, where a use of a name that one of them declares, of
@@ -4297,7 +4297,7 @@ function in_main_module(main: Id, d: Diagnostic): Diagnostic :=
   if d.module == Some(main) then d with module := None else d
 
 function has_errors(q: Prog): Bool :=
-  diagnostics(q) != List()
+  exists(diagnostics(q), lambda d => d.kind != ProofKind)
 
 // whether e stops the definitions after the declarations, as all errors do but the uses of declarations that do not parse,
 // which have no type that could mislead the checking of the definitions

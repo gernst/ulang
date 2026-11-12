@@ -35,6 +35,14 @@ function gap_diagnostic(name: Name, gap: Gap): Diagnostic
 // call that no measure decreases
 function termination_diagnostic(m: Id, site: CallSite): Diagnostic
 
+// q with the errors of the proofs on their commands: the gaps of the lemmas of the module m, all or the named ones, each
+// on its lemma, and the first call of a function whose termination is not proven on its definition, at its declaration,
+// since the terms of the prover keep no positions
+function with_proofs(q: Prog, m: Id, proofs: Proofs, names: List[Str]): Prog
+
+// the errors of the proofs that q holds, with the module of each, None for m
+function proof_diagnostics(q: Prog, m: Id): List[Diagnostic]
+
 // a lemma that its proof leaves open, with its first gap as print_gap writes it
 data OpenLemma :=
   case OpenLemma(name: Str, goal: Str)
@@ -209,6 +217,44 @@ function gap_diagnostic(name: Name, gap: Gap): Diagnostic :=
 function termination_diagnostic(m: Id, site: CallSite): Diagnostic :=
   let f := first(site.caller), call_text := print_open_call(site) in
   Diagnostic(ProofKind, "OpenTermination", if f.module == Some(m) then None else f.module, Pos(0, 0), "the termination of " ++ f.base ++ " is not proven, no measure decreases " ++ call_text, List(("function", f.base), ("call", call_text)))
+
+function with_proofs(q: Prog, m: Id, proofs: Proofs, names: List[Str]): Prog :=
+  let gaps := Map(for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) yield name => List(for gap in gaps yield gap_diagnostic(name, gap))) in
+  let open := Map(for tm in proofs.terminations for site in take(1, tm.open) yield site.caller => site) in
+  q with cmds := List(for cmd in q.cmds yield with_proof_errors(m, gaps, open, cmd))
+
+function with_proof_errors(m: Id, gaps: Map[Name, List[Diagnostic]], open: Map[Name * Int, CallSite], cmd: At[Cmd]): At[Cmd] :=
+  match cmd
+    case AOk(pos, that) =>
+      let errors := proof_errors(m, gaps, open, pos, that) in
+      if errors == List() then cmd else AErr(pos, that, errors)
+
+    case AErr(pos, that, errors) =>
+      AErr(pos, that, errors ++ proof_errors(m, gaps, open, pos, that))
+
+    // the checked program has no commands that do not parse
+    case AUnparsed(_, _, _) =>
+      cmd
+  end
+
+function proof_errors(m: Id, gaps: Map[Name, List[Diagnostic]], open: Map[Name * Int, CallSite], pos: Pos, cmd: Cmd): List[Diagnostic] :=
+  match cmd
+    case CLemma(name, _, _, _, _, _, _) =>
+      value_or(get(name, gaps), List())
+
+    case CFun(name, _, formals, _, _, _) =>
+      List(for site in get((name, size(formals)), open) yield termination_diagnostic(m, site) with pos := pos)
+
+    case _ =>
+      List()
+  end
+
+function proof_diagnostics(q: Prog, m: Id): List[Diagnostic] :=
+  List(for cmd in q.cmds if is_parsed(cmd) for d in cmd_errors(cmd) if d.kind == ProofKind yield relative_to(m, or_else(d.module, cmd_module(cmd.that)), d))
+
+// d of module n, as an error in the module m, which has no module of its own
+function relative_to(m: Id, n: Option[Id], d: Diagnostic): Diagnostic :=
+  d with module := (if n == Some(m) then None else n)
 
 // the goal with the facts as assumptions, which are closed, so that they stay valid under its binders
 function with_facts(goal: Seq, facts: List[Seq]): Seq :=
