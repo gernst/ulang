@@ -53,6 +53,21 @@ function node_term(node: ENode, args: List[Term]): Term
 // the node of t and the terms of its arguments
 function shape(t: Term): Head * List[Term]
 
+// the classes, by their representatives
+function class_ids(g: EGraph): List[Int]
+
+function node_count(g: EGraph): Int
+
+// the substitutions, extending sub, of the variables below n of the pattern p by classes, under which p is in the class
+// c, where p is a term whose variables are the indices below n, matched modulo the equations of the e-graph
+function ematch(g: EGraph, n: Int, p: Term, c: Int, sub: Map[Int, Int]): List[Map[Int, Int]]
+
+// the e-graph with the instance of the pattern p by sub, which binds its variables below n, and the class of it
+function add_instance(g: EGraph, n: Int, p: Term, sub: Map[Int, Int]): EGraph * Int
+
+// the e-graph with i and j merged, and the classes that congruence makes equal merged too, without theories
+function close_union(g: EGraph, i: Int, j: Int): EGraph
+
 implementation
 
 // the parents of the classes that were merged into others, the nodes of each class, the parent nodes of each class with
@@ -257,3 +272,99 @@ test classes() :=
   assign u := unite(u.graph, i, j)
   assert class_of(u.graph, i) == class_of(u.graph, j) and size(class_nodes(u.graph, i)) == 2
   assert lookup_term(u.graph, fy) == Some(class_of(u.graph, i))
+
+function class_ids(g: EGraph): List[Int] :=
+  List(for i => _ in g.nodes yield i)
+
+function node_count(g: EGraph): Int :=
+  g.next
+
+function ematch(g: EGraph, n: Int, p: Term, c: Int, sub: Map[Int, Int]): List[Map[Int, Int]] :=
+  match p
+    case EBound(index) if index < n =>
+      match get(index, sub)
+        case Some(d) =>
+          if class_of(g, d) == class_of(g, c) then List(sub) else List()
+        case None =>
+          List(put(index, class_of(g, c), sub))
+      end
+
+    case _ =>
+      match shape(p)
+        case (head, args) =>
+          List(for node in class_nodes(g, c) if node.head == head and size(node.args) == size(args) for s in ematch_all(g, n, args, node.args, sub) yield s)
+      end
+  end
+
+function ematch_all(g: EGraph, n: Int, ps: List[Term], cs: List[Int], sub: Map[Int, Int]): List[Map[Int, Int]] :=
+  match (ps, cs)
+    case (List(p; ps_), List(c; cs_)) =>
+      List(for s in ematch(g, n, p, c, sub) for t in ematch_all(g, n, ps_, cs_, s) yield t)
+    case _ =>
+      List(sub)
+  end
+
+function add_instance(g: EGraph, n: Int, p: Term, sub: Map[Int, Int]): EGraph * Int :=
+  match p
+    case EBound(index) if index < n =>
+      match get(index, sub)
+        case Some(c) =>
+          (g, class_of(g, c))
+
+        // the variables of the instances are those of the patterns that ematch binds, see is_valid_rule of simp.u
+        case None =>
+          add_term(g, p)
+      end
+
+    case _ =>
+      match shape(p)
+        case (head, args) =>
+          match add_instances(g, n, args, sub, List())
+            case (h, ids) =>
+              add_node(h, ENode(head, ids))
+          end
+      end
+  end
+
+function add_instances(g: EGraph, n: Int, ps: List[Term], sub: Map[Int, Int], acc: List[Int]): EGraph * List[Int] :=
+  match ps
+    case List() =>
+      (g, reverse(acc))
+
+    case List(p; rest) =>
+      match add_instance(g, n, p, sub)
+        case (h, i) =>
+          add_instances(h, n, rest, sub, List(i; acc))
+      end
+  end
+
+function close_union(g: EGraph, i: Int, j: Int): EGraph :=
+  let u := unite(g, i, j) in
+  close_pending(u.graph, u.pending)
+
+function close_pending(g: EGraph, pairs: List[Int * Int]): EGraph :=
+  match pairs
+    case List() =>
+      g
+    case List((p, q); rest) =>
+      close_pending(close_union(g, p, q), rest)
+  end
+
+test matching() :=
+  local x := ELevel(0), y := ELevel(1), f := Name(None, "f"), g := empty_graph(), c := 0, pat := EApp(EFun(f), List(EBound(0), EBound(0)))
+  match add_term(g, EApp(EFun(f), List(x, y)))
+    case (h, k) =>
+      assign g := h, c := k
+  end
+  assert ematch(g, 1, pat, c, empty()) == List()
+  match (lookup_term(g, x), lookup_term(g, y))
+    case (Some(a), Some(b)) =>
+      assign g := close_union(g, a, b)
+    case _ =>
+      assert false
+  end
+  assert size(ematch(g, 1, pat, c, empty())) == 1
+  match add_instance(g, 1, EApp(EFun(f), List(EBound(0), x)), Map(0 => class_of(g, c)))
+    case (h, k) =>
+      assert k != class_of(h, c) and node_count(h) == node_count(g) + 1
+  end

@@ -55,12 +55,13 @@ data Rule :=
 //   the cycle of merge, equate, join, and add_ineq, so that a fact solves at most this many,
 // - probe_merges: the merges of a trial merge that decides an equation, and probes: the trial merges nested,
 // - splits: the internal splits nested, unfolds: the unfoldings and rewrites nested,
-// - eliminations: the variables that Fourier–Motzkin eliminates, and constraints: the inequalities it works on
+// - eliminations: the variables that Fourier–Motzkin eliminates, and constraints: the inequalities it works on,
+// - rounds: the rounds of a saturation by the equations among the rules, and nodes: the nodes of its e-graph
 data Limits :=
-  case Limits(merges: Int, probe_merges: Int, probes: Int, splits: Int, unfolds: Int, eliminations: Int, constraints: Int)
+  case Limits(merges: Int, probe_merges: Int, probes: Int, splits: Int, unfolds: Int, eliminations: Int, constraints: Int, rounds: Int, nodes: Int)
 
 function limits(): Limits :=
-  Limits(20, 5, 2, 3, 64, 20, 60)
+  Limits(20, 5, 2, 3, 64, 20, 60, 3, 400)
 
 // the variables of the opened sequents, the last one first, such that level l is at depth - 1 - l, the e-graph of the
 // ground equations, the inequalities t >= 0, the rules, whether the facts are inconsistent, and
@@ -1069,11 +1070,89 @@ function simp_eq(ctx: Ctx, a: Term, b: Term): Term :=
   else
     limits().probe_merges), a, b).inconsistent then
     bool_term(false)
+  else if is_equal_by_rules(ctx, a, b) then
+    bool_term(true)
   else
     match oriented(ctx.decls, a, b)
       case (x, y) =>
         rewrite(ctx, Eq(x, y))
     end
+
+// an equation between patterns over the variables below vars, used from left to right
+data Equation :=
+  case Equation(vars: Int, lhs: Term, rhs: Term)
+
+// whether a == b follows from the equations among the rules, by saturating a copy of the e-graph with their instances,
+// in rounds that first match all and then add all, within the limits, so that the order of the rules does not matter;
+// rules with conditions take no part, and neither do the theories, which only the e-graph of the context has
+function is_equal_by_rules(ctx: Ctx, a: Term, b: Term): Bool :=
+  match equations(ctx.rules)
+    case List() =>
+      false
+
+    case eqs =>
+      let (g, i) := add_term(ctx.graph, a) in
+      let (h, j) := add_term(g, b) in
+      is_saturated_equal(h, eqs, i, j, limits().rounds)
+  end
+
+function is_saturated_equal(g: EGraph, eqs: List[Equation], i: Int, j: Int, rounds: Int): Bool :=
+  if class_of(g, i) == class_of(g, j) then
+    true
+  else if rounds <= 0 or node_count(g) > limits().nodes then
+    false
+  else
+    let next := apply_matches(g, matches(g, eqs)) in
+    if node_count(next) == node_count(g) and size(class_ids(next)) == size(class_ids(g)) then
+      false
+    else
+      is_saturated_equal(next, eqs, i, j, rounds - 1)
+
+// the instances of the equations in the e-graph: the class of an instance of the left side and the substitution
+function matches(g: EGraph, eqs: List[Equation]): List[Int * Equation * Map[Int, Int]] :=
+  List(for e in eqs for c in class_ids(g) for sub in ematch(g, e.vars, e.lhs, c, empty()) yield (c, e, sub))
+
+function apply_matches(g: EGraph, ms: List[Int * Equation * Map[Int, Int]]): EGraph :=
+  match ms
+    case List() =>
+      g
+
+    case List((c, e, sub); rest) =>
+      if node_count(g) > limits().nodes then
+        g
+      else
+        let (h, k) := add_instance(g, e.vars, e.rhs, sub) in
+        apply_matches(close_union(h, c, k), rest)
+  end
+
+// the unconditional rules as equations: an oriented rule from left to right, and an equation that does not orient in
+// both directions where the variables allow, while rules of atoms that are true or false are none
+function equations(rules: List[Rule]): List[Equation] :=
+  List(for r in rules if r.conds == List() for e in rule_equations(r) yield e)
+
+function rule_equations(r: Rule): List[Equation] :=
+  let n := size(r.vars) in
+  match (r.lhs, r.rhs)
+    case (Eq(l, q), ELit(LBool(true))) =>
+      List(for (x, y) in List((l, q), (q, l)) if is_pattern_of(x, y) yield Equation(n, x, y))
+
+    case (_, ELit(LBool(_))) =>
+      List()
+
+    case (l, q) =>
+      List(Equation(n, l, q))
+  end
+
+// whether lhs is a pattern that is not a variable and binds the variables of rhs
+function is_pattern_of(lhs: Term, rhs: Term): Bool :=
+  match lhs
+    case EBound(_) =>
+      false
+
+    case _ =>
+      let bound := loose(0, lhs) in
+      forall(loose(0, rhs), lambda i => contains(i, bound))
+  end
 
 function simp_less(ctx: Ctx, a: Term, b: Term): Term :=
   let d := lin_sub(lin_of(b), lin_of(a)) in
