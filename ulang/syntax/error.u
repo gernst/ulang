@@ -4,8 +4,7 @@
 
 export
 
-// the kinds of errors, which the commands report as "kind error: message" after the file, and which the first line of a
-// file that is expected to fail states, also in the regular expression errorLine of vscode/extension.js
+// the kinds of errors, the field kind of the JSON of a diagnostic, which parseDiagnostic of vscode/extension.js reads
 data ErrorKind :=
   case ParseKind
   case TypeKind
@@ -22,6 +21,16 @@ data Diagnostic :=
 
 // "kind error: message"
 function error_text(kind: ErrorKind, message: Str): Str
+
+// an error without a position, of a run or of a file, whose code is its kind
+function diagnostic(kind: ErrorKind, message: Str): Diagnostic
+
+// d of the file that was loaded as one JSON object on a line, with the fields file, module for a module other than the
+// main one, line and column if it has a position, kind, code, message, and the details, each a string but line and column
+function format_diagnostic(file: Str, d: Diagnostic): Str
+
+// the text as a JSON string, in quotes, with the escapes of JSON
+function json_text(text: Str): Str
 
 data RuntimeError :=
   case NoCase(text: Str)
@@ -125,8 +134,60 @@ function runtime_formats(): List[Str * Str] :=
     ("u_text_assertion_not_raised", runtime_message(AssertionNotRaised("%s"))),
     ("u_text_uncaught", runtime_message(Uncaught("%s"))))
 
+test diagnostics_as_json() :=
+  assert format_diagnostic("a.u", Diagnostic(TypeKind, "Mismatch", Some("m"), Pos(2, 3), "expected \"x\"\n", List(("found", "Int")))) == "{\"file\": \"a.u\", \"module\": \"m\", \"line\": 2, \"column\": 3, \"kind\": \"type\", \"code\": \"Mismatch\", \"message\": \"expected \\\"x\\\"\\n\", \"found\": \"Int\"}"
+  assert json_text(str(List(chr(1)))) == "\"\\u0001\""
+
 test formats() :=
   assert contains(("u_text_assertion_unequal", "assertion failed: %s != %s"), runtime_formats())
+
+function diagnostic(kind: ErrorKind, message: Str): Diagnostic :=
+  Diagnostic(kind, kind_name(kind), None, Pos(0, 0), message, List())
+
+function format_diagnostic(file: Str, d: Diagnostic): Str :=
+  "{" ++ join(", ", List(for (k, v) in diagnostic_fields(file, d) yield json_text(k) ++ ": " ++ v)) ++ "}"
+
+function diagnostic_fields(file: Str, d: Diagnostic): List[Str * Str] :=
+  List(("file", json_text(file))) ++ List(for m in d.module yield ("module", json_text(m))) ++ position_fields(d.pos) ++ List(
+    ("kind", json_text(kind_name(d.kind))),
+    ("code", json_text(d.code)),
+    ("message", json_text(d.message))) ++ List(for (k, v) in d.details yield (k, json_text(v)))
+
+function position_fields(pos: Pos): List[Str * Str] :=
+  if pos == Pos(0, 0) then
+    List()
+  else
+    List(("line", show(pos.line)), ("column", show(pos.col)))
+
+function json_text(text: Str): Str :=
+  "\"" ++ join("", List(for c in chars(text) yield json_char(c))) ++ "\""
+
+function json_char(c: Char): Str :=
+  match c
+    case '"' =>
+      "\\\""
+
+    case '\\' =>
+      "\\\\"
+
+    case '\n' =>
+      "\\n"
+
+    case '\t' =>
+      "\\t"
+
+    case '\r' =>
+      "\\r"
+
+    case _ if ord(c) < 32 =>
+      "\\u00" ++ hex_digit(ord(c) / 16) ++ hex_digit(ord(c) % 16)
+
+    case _ =>
+      str(List(c))
+  end
+
+function hex_digit(n: Int): Str :=
+  slice("0123456789abcdef", n, n + 1)
 
 function at_pos(p: Pos): Str :=
   " at " ++ show(p.line) ++ "." ++ show(p.col)

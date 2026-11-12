@@ -25,7 +25,7 @@ function cmd_lints(cmd: Cmd): List[Lint] :=
     case CFun(name, _, _, _, body) =>
       expr_lints(name.base, body)
 
-    case CProc(_, _, _, _, _, stmt) =>
+    case CProc(_, _, _, _, _, _, stmt) =>
       stmt_lints("", stmt)
 
     case CTest(_, _, stmt) =>
@@ -46,7 +46,7 @@ function cmd_lints(cmd: Cmd): List[Lint] :=
     case CFunSig(_, _, _, _) =>
       List()
 
-    case CProcSig(_, _, _, _, _) =>
+    case CProcSig(_, _, _, _, _, _) =>
       List()
 
     case CAbstract(_, _) =>
@@ -89,7 +89,7 @@ function part_lints(fun: Id, expr: Expr): List[Lint] :=
     case ELam(_, body) =>
       expr_lints(fun, body)
 
-    case EProc(_, _, _, stmt) =>
+    case EProc(_, _, _, _, stmt) =>
       stmt_lints(fun, stmt)
 
     case ELet(bindings, body) =>

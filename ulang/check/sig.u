@@ -15,7 +15,8 @@ data TypeAlias :=
   case TypeAlias(params: List[Id], typ: Type)
 
 data ProcSig :=
-  case ProcSig(params: List[Type], ins: List[Type], outs: List[Type], refs: List[Type])
+  // where raises are the types that the procedure declares to raise
+  case ProcSig(params: List[Type], ins: List[Type], outs: List[Type], refs: List[Type], raised: List[Type])
 
 // a constructor of the datatype typ over params, with the types of its fields in their order
 data ConstrSig :=
