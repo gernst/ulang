@@ -60,11 +60,11 @@ function cmd_lints(cmd: At[Cmd]): List[Warning] :=
 // the names of exported declarations are judged at their definitions, which repeat the signatures
 function placed_cmd_lints(pos: Pos, cmd: Cmd): List[Warning] :=
   match cmd
-    case CFun(name, _, formals, _, _, body) =>
-      decl_name_lints(pos, name.base) ++ vars_lints(pos, formals) ++ expr_lints(name.base, body)
+    case CFun(name, _, formals, typ, _, body) =>
+      decl_name_lints(pos, name.base, List(typ)) ++ vars_lints(pos, formals) ++ expr_lints(name.base, body)
 
     case CProc(name, _, ins, outs, refs, _, _, stmt) =>
-      decl_name_lints(pos, name.base) ++ vars_lints(pos, ins ++ outs ++ refs) ++ stmt_lints("", stmt)
+      decl_name_lints(pos, name.base, List(for x in outs yield x.typ)) ++ vars_lints(pos, ins ++ outs ++ refs) ++ stmt_lints("", stmt)
 
     case CTest(_, _, stmt) =>
       stmt_lints("", stmt)
@@ -73,7 +73,7 @@ function placed_cmd_lints(pos: Pos, cmd: Cmd): List[Warning] :=
       vars_lints(pos, formals) ++ exprs_lints("", assms) ++ expr_lints("", concl)
 
     case CPatAlias(name, _, formals, _, _) =>
-      decl_name_lints(pos, name.base) ++ vars_lints(pos, formals)
+      decl_name_lints(pos, name.base, List()) ++ vars_lints(pos, formals)
 
     case CSort(_, _, _) =>
       List()
@@ -681,12 +681,22 @@ function gen_pats(g: Gen): List[At[Pat]] :=
 function vars_lints(pos: Pos, xs: List[Var]): List[Warning] :=
   List(for x in xs for w in name_lints(pos, x.name.base) yield w)
 
-function decl_name_lints(pos: Pos, name: Id): List[Warning] :=
-  name_lints(pos, name) ++ (if starts_with(name, "show_") then
+// the warnings of the name of a declaration whose results are of the types results, where show_ is a name only of what
+// gives no text, as show_ref of a hook
+function decl_name_lints(pos: Pos, name: Id, results: List[Type]): List[Warning] :=
+  name_lints(pos, name) ++ (if starts_with(name, "show_") and exists(results, is_str) then
     List(
       Warning(ShowName, pos, "the name " ++ name ++ " is show if it gives text that parses back, else format_ if it prints into another language", None))
   else
     List())
+
+function is_str(typ: Type): Bool :=
+  match typ
+    case TSort(Name(None, "Str"), List()) =>
+      true
+    case _ =>
+      false
+  end
 
 function name_lints(pos: Pos, name: Id): List[Warning] :=
   if is_numbered(name) then

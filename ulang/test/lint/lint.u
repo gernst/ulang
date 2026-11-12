@@ -181,7 +181,9 @@ test lints_of_names() :=
     "function show_it(e1: Int): Str :=",
     "  show(e1)",
     "function f(x: Int): Int :=",
-    "  let y2 := x in y2"), out found)
+    "  let y2 := x in y2",
+    "function show_ref(x: Int): Int :=",
+    "  x"), out found)
   assert found == List(
     (Pos(1, 1), "the name show_it is show if it gives text that parses back, else format_ if it prints into another language"),
     (Pos(1, 1), "the name e1 has a numeric index, name it by its role"),
