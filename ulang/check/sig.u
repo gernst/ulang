@@ -27,9 +27,10 @@ data ConstrSig :=
 data PatAlias :=
   case PatAlias(params: List[Type], formals: List[Var], typ: Type, pat: At[Pat])
 
-// a lemma over params with the types of its formals, which only proofs cite, so that it is no value
+// a lemma over params with the types of its formals, which only proofs cite, so that it is no value, where a claim
+// correct p(…) is cited by none
 data LemmaSig :=
-  case LemmaSig(params: List[Type], formals: List[Type], outs: List[Type])
+  case LemmaSig(params: List[Type], formals: List[Type], outs: List[Type], claim: Bool)
 
 // named has the declarations of each base name, of any kind and module, but lemmas, which uses of names do not reach
 data Sig :=

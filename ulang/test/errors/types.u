@@ -878,6 +878,117 @@ test proof_not_inducible() :=
     call check_text(in "ulang/test/errors/proof-not-inducible.u", List("lemma a(in b: Bool) :=", "  ensures b == b", "  induction b", "  end"))
   end
 
+test claim_order() :=
+  assert raises Located(None, Pos(1, 1), ClaimOrder(Name(None, "p"))) do
+    call check_text(in "ulang/test/errors/claim-order.u", List(
+      "lemma p_correct(out y: Int) :=",
+      "  correct p(out y)",
+      "",
+      "procedure p(out y: Int) :=",
+      "  assign y := 1"))
+  end
+
+test claim_outs() :=
+  assert raises Located(None, Pos(5, 1), ClaimOuts(Name(Some("ulang/test/errors/claim-outs"), "p_correct"))) do
+    call check_text(in "ulang/test/errors/claim-outs.u", List(
+      "procedure p(out y: Int, z: Int) :=",
+      "  assign y := 1, z := 2",
+      "",
+      "// the outs of the call in another order than those of the lemma",
+      "lemma p_correct(out y: Int, z: Int) :=",
+      "  correct p(out z, y)"))
+  end
+
+test claim_step() :=
+  assert raises Located(None, Pos(4, 1), ClaimStep(Name(Some("ulang/test/errors/claim-step"), "p_correct"))) do
+    call check_text(in "ulang/test/errors/claim-step.u", List(
+      "procedure p(out y: Int) :=",
+      "  assign y := 1",
+      "",
+      "lemma p_correct(out y: Int) :=",
+      "  correct p(out y)",
+      "  assert true"))
+  end
+
+test claim_invariants() :=
+  assert raises Located(None, Pos(7, 1), CountMismatch("the proof of p_correct", "invariants", 1, 2)) do
+    call check_text(in "ulang/test/errors/claim-invariants.u", List(
+      "procedure p(out y: Int) :=",
+      "  assign y := 0",
+      "  while y < 3 do",
+      "    assign y := y + 1",
+      "  end",
+      "",
+      "lemma p_correct(out y: Int) :=",
+      "  correct p(out y)",
+      "  invariant y <= 3",
+      "  invariant y >= 0"))
+  end
+
+// an invariant sees the variables at its loop, of the procedure, not those of the lemma
+test invariant_scope() :=
+  assert raises Located(None, Pos(9, 13), UnknownVariable(Name(None, "x"))) do
+    call check_text(in "ulang/test/errors/invariant-scope.u", List(
+      "procedure p(out y: Int) :=",
+      "  assign y := 0",
+      "  while y < 3 do",
+      "    assign y := y + 1",
+      "  end",
+      "",
+      "lemma p_correct(out x: Int) :=",
+      "  correct p(out x)",
+      "  invariant x <= 3"))
+  end
+
+test invariant_type() :=
+  assert raises Located(None, Pos(9, 13), Mismatch(_, _, "the invariant")) do
+    call check_text(in "ulang/test/errors/invariant-type.u", List(
+      "procedure p(out y: Int) :=",
+      "  assign y := 0",
+      "  while y < 3 do",
+      "    assign y := y + 1",
+      "  end",
+      "",
+      "lemma p_correct(out y: Int) :=",
+      "  correct p(out y)",
+      "  invariant y"))
+  end
+
+test invariant_outside_claim() :=
+  assert raises Located(None, Pos(3, 3), InvariantOutsideClaim) do
+    call check_text(in "ulang/test/errors/invariant-outside-claim.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  invariant true"))
+  end
+
+// a claim holds only for the runs that end, so no proof calls it
+test claim_called() :=
+  assert raises Located(None, Pos(10, 3), ClaimCalled(Name(None, "p_correct"))) do
+    call check_text(in "ulang/test/errors/claim-called.u", List(
+      "procedure p(out y: Int) :=",
+      "  ensures y == 1",
+      "  assign y := 1",
+      "",
+      "lemma p_correct(out y: Int) :=",
+      "  correct p(out y)",
+      "",
+      "lemma a(out y: Int) :=",
+      "  ensures y == 1",
+      "  call p_correct(out y)"))
+  end
+
+test ensures_type() :=
+  assert raises Located(None, Pos(2, 12), Mismatch(_, _, "the ensures")) do
+    call check_text(in "ulang/test/errors/ensures-type.u", List("procedure p(out y: Int) :=", "  ensures  y", "  assign y := 1"))
+  end
+
+// the requires sees the ins and refs, not the outs, which the procedure assigns
+test requires_out() :=
+  assert raises Located(None, Pos(2, 12), UnknownVariable(Name(None, "y"))) do
+    call check_text(in "ulang/test/errors/requires-out.u", List(
+      "procedure p(in x: Int, out y: Int) :=",
+      "  requires y > x",
+      "  assign y := x"))
+  end
+
 test proof_call_argument() :=
   assert raises Located(None, Pos(3, 13), Mismatch(_, _, "lemma a")) do
     call check_text(in "ulang/test/errors/proof-call-argument.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  call a(in true)"))

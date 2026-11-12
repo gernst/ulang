@@ -54,7 +54,7 @@ test library_terminates() :=
   local main: Id, q: Prog, open: List[Str] := List()
   call load_text(in "ulang/test/errors/library-terminates.u", List("lemma trivial() :=", "  ensures true"), out main, q)
   match translate(q, main)
-    case Translation(decls, _) =>
+    case Translation(decls, _, _) =>
       assign open := List(for t in terminations(decls, Set(for k => d in decls.defs if d.recursive yield k)) if not is_terminating(t) for (n, _) in t.names yield n.base)
   end
   assert Set(for n in open) == Set("distinct", "separated", "sort", "list_count", "list_values")
@@ -69,7 +69,7 @@ test terminations_of_program() :=
     "function down(n: Int): Int :=",
     "  if n <= 0 then 0 else down(n - 1) + 1"), out main, q)
   match translate(q, main)
-    case Translation(decls, _) =>
+    case Translation(decls, _, _) =>
       local ts := terminations(decls, Set((Name(Some(main), "loop"), 1), (Name(Some(main), "down"), 1)))
       assign open := List(for t in ts if not is_terminating(t) for (n, _) in t.names yield n.base), proven := List(for t in ts if is_terminating(t) for (n, _) in t.names yield n.base)
   end
@@ -194,4 +194,73 @@ test proof_int_negative() :=
       "    case _ =>",
       "      call replicate_any(in n - 1, x)",
       "  end"))
+  end
+
+// a claim whose ensures does not follow from the invariant at the exit of the loop, open at the ensures
+test claim_wrong_ensures() :=
+  assert raises OpenLemma("sum_correct", "forall s, n, i, i' => i <= n and (-i' + (i' * i')) == (2 * s) and i' <= n and n <= i' ==> (2 * s) == (2 * s + 2 * i') at 3.18") do
+    call prove_text(in "ulang/test/errors/claim-wrong-ensures.u", List(
+      "procedure sum(in n: Int, out s: Int) :=",
+      "  requires n >= 0",
+      "  ensures  2 * s == n * (n + 1)",
+      "  local i := 0",
+      "  assign s := 0",
+      "  while i < n do",
+      "    assign s := s + i, i := i + 1",
+      "  end",
+      "",
+      "lemma sum_correct(in n: Int, out s: Int) :=",
+      "  correct sum(in n, out s)",
+      "  invariant 2 * s == i * (i - 1) and i <= n"))
+  end
+
+// an invariant that the body of its loop does not preserve, open at the invariant
+test claim_not_preserved() :=
+  assert raises OpenLemma("p_correct", "forall y, y', y'' => y' <= 3 and y' < 3 ==> y'' <= 3 at 10.15") do
+    call prove_text(in "ulang/test/errors/claim-not-preserved.u", List(
+      "procedure p(out y: Int) :=",
+      "  ensures y == 3",
+      "  assign y := 0",
+      "  while y < 3 do",
+      "    assign y := y + 2",
+      "  end",
+      "",
+      "lemma p_correct(out y: Int) :=",
+      "  correct p(out y)",
+      "  invariant y <= 3"))
+  end
+
+// the requires of a call, which the caller must establish
+test claim_call_requires() :=
+  assert raises OpenLemma("q_correct", "forall x, y => (exists y' => 0 < x) at 7.3") do
+    call prove_text(in "ulang/test/errors/claim-call-requires.u", List(
+      "procedure p(in x: Int, out y: Int) :=",
+      "  requires x > 0",
+      "  ensures  y == x",
+      "  assign y := x",
+      "",
+      "procedure q(in x: Int, out y: Int) :=",
+      "  call p(in x, out y)",
+      "",
+      "lemma q_correct(in x: Int, out y: Int) :=",
+      "  correct q(in x, out y)"))
+  end
+
+// a claim holds for the runs that end, so ensures false of a loop that does not end is proven, but is no fact of the
+// lemmas after it, which would else all be proven
+test claim_no_fact() :=
+  assert raises OpenLemma("after", "forall n => false") do
+    call prove_text(in "ulang/test/errors/claim-no-fact.u", List(
+      "procedure forever(out x: Int) :=",
+      "  ensures false",
+      "  assign x := 0",
+      "  while true do",
+      "    skip",
+      "  end",
+      "",
+      "lemma forever_correct(out x: Int) :=",
+      "  correct forever(out x)",
+      "",
+      "lemma after(in n: Int) :=",
+      "  ensures n == n + 1"))
   end

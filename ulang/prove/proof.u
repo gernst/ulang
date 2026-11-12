@@ -16,14 +16,16 @@ export
 data Gap :=
   case Gap(pos: Pos, code: Str, message: Str, goal: Option[Str])
 
-// the gaps of the proof of the lemma target, none if it proves it, where proven are the lemmas proven before
-function check_proof(decls: Decls, proven: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap]
+// the gaps of the proof of the lemma target, none if it proves it, where proven are the lemmas proven before and
+// contracts those of the procedures, which the proof of a claim calls at the calls of its procedure
+function check_proof(decls: Decls, proven: List[Lemma], contracts: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap]
 
 implementation
 
-// what a proof works with: the declarations, the lemmas proven before, and the lemma being proven
+// what a proof works with: the declarations, the lemmas proven before, the contracts of the procedures, and the lemma
+// being proven
 data Walk :=
-  case Walk(decls: Decls, proven: List[Lemma], target: Lemma)
+  case Walk(decls: Decls, proven: List[Lemma], contracts: Map[Name, Seq], target: Lemma)
 
 // the induction around a block: the position of its formal and the values of it at which the hypothesis holds, the
 // recursive fields of the case of a datatype, or n - 1 for an integer n
@@ -35,14 +37,14 @@ data Around :=
 data Scope :=
   case Scope(vars: List[Var], env: List[Int], facts: List[Seq], goal: Term, outs: List[Int], around: Option[Around])
 
-function check_proof(decls: Decls, proven: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap] :=
+function check_proof(decls: Decls, proven: List[Lemma], contracts: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap] :=
   match target.goal
     case Seq(formals, atoms, List(Concl(outs, List(Atom(concl))))) =>
       let n := size(formals), m := size(outs) in
       let levels := List(for i in range(0, n) yield ELevel(i)), all := List(for i in range(0, n + m) yield ELevel(i)) in
       let facts := List(for a in atoms for t in atom_term(a) yield Atom(beta(levels, t))) in
       let scope := Scope(formals ++ outs, reverse(range(0, n + m)), facts, beta(all, concl), range(n, n + m), None) in
-      block_gaps(Walk(decls, proven, target), scope, proof)
+      block_gaps(Walk(decls, proven, Map(for c in contracts yield c.name => c.goal), target), scope, proof)
 
     // translate gives every lemma this shape
     case _ =>
@@ -122,10 +124,13 @@ function step_gaps(w: Walk, scope: Scope, step: StepTerm): Scope * List[Gap] :=
       (scope, List(Gap(pos, "Unsupported", what ++ " is not supported yet", None)))
   end
 
-// the statement of the lemma that a call names: one proven before, or the lemma itself at a recursive field of its
-// induction, as its hypothesis
+// the statement of the lemma that a call names: the contract of a procedure, which the proof of a claim assumes at every
+// call, also of the procedure itself, since a claim is about the runs that end, which call it only finitely often, one
+// proven before, or the lemma itself at a recursive field of its induction, as its hypothesis
 function called(w: Walk, scope: Scope, name: Name, args: List[Term]): Option[Seq] :=
-  if name == w.target.name then
+  if get(name, w.contracts) != None then
+    get(name, w.contracts)
+  else if name == w.target.name then
     match scope.around
       case Some(around) if args != List() and exists(around.values, lambda v => is_same(w, scope, at(around.formal, from_list(args)), v)) =>
         Some(w.target.goal)
@@ -201,7 +206,24 @@ function split_gaps(w: Walk, scope: Scope, split: SplitTerm): List[Gap] :=
       let yes := scope with facts := scope.facts ++ List(Atom(c)) in
       let no := scope with facts := scope.facts ++ List(Seq(List(), List(Atom(c)), List())) in
       block_gaps(w, yes, left) ++ block_gaps(w, no, value_or(right, ProofTerm(List(), None, pos)))
+
+    case InvariantTerm(vars, havoc, inv, cond, body, after, pos) =>
+      invariant_gaps(w, scope, vars, havoc, inv, cond, body, after, pos)
   end
+
+// the loop with the invariant inv: inv holds at the values of vars before the loop; from new values havoc of the
+// variables that it assigns, where inv and cond hold, the body leads to values that the body proof assigns to the
+// witnesses (next)x, at which inv holds; and the proof after continues at havoc from inv and not cond
+function invariant_gaps(w: Walk, scope: Scope, vars: List[Int], havoc: List[Var], inv: Term, cond: Term, body: ProofTerm, after: ProofTerm, pos: Pos): List[Gap] :=
+  let around := List(for l in reverse(scope.env) yield ELevel(l)) in
+  let before := List(for i in vars yield ELevel(at(i, from_list(scope.env)))) in
+  let k := size(scope.vars), n := size(havoc) in
+  let fresh := List(for l in range(k, k + n) yield ELevel(l)), next := List(for l in range(k + n, k + 2 * n) yield ELevel(l)) in
+  let holds := Atom(beta(around ++ fresh, inv)), guard := beta(around ++ fresh, cond) in
+  let loop := scope with vars := scope.vars ++ havoc, env := reverse(range(k, k + n)) ++ scope.env in
+  let step := loop with vars := loop.vars ++ List(for x in havoc yield x with name := Name(None, "(next)" ++ x.name.base)), env := reverse(range(k + n, k + 2 * n)) ++ loop.env, facts := scope.facts ++ List(holds, Atom(guard)), goal := beta(around ++ next, inv), outs := range(k + n, k + 2 * n), around := None in
+  let exit := loop with facts := scope.facts ++ List(holds, Seq(List(), List(Atom(guard)), List())) in
+  closing(w, scope, beta(around ++ before, inv), pos) ++ block_gaps(w, step, body) ++ block_gaps(w, exit, after)
 
 // the cases of the value by the leaves of the patterns of the cases (ulang/prove/patterns.u), and for induction on the
 // formal at the position p of the datatype t by its constructors, with the hypotheses for their recursive fields

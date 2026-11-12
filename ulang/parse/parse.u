@@ -2014,7 +2014,7 @@ function is_test(c: Doc[Cmd]): Bool :=
     case AOk(_, CTest(_, _, _)) =>
       true
 
-    case AOk(_, CLemma(_, _, _, _, _, _, _)) =>
+    case AOk(_, CLemma(_, _, _, _, _, _)) =>
       true
 
     case _ =>
@@ -2222,7 +2222,7 @@ procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) 
     local spec: Spec
     call advance(ref toks)
     call parse_spec(in notation, params, false, out spec, ref toks)
-    if spec.examples != List() and starts_command(toks) then
+    if spec != no_spec() and starts_command(toks) then
       assign cmd := CFunSig(unqualified(name), params, xs, r, spec)
     else
       local body: At[Expr]
@@ -2283,7 +2283,7 @@ procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
     local spec: Spec
     call advance(ref toks)
     call parse_spec(in notation, params, true, out spec, ref toks)
-    if spec.examples != List() and starts_command(toks) then
+    if spec != no_spec() and starts_command(toks) then
       assign cmd := CProcSig(unqualified(name), params, ins, outs, refs, raised, spec)
     else
       local body: At[Stmt]
@@ -2308,7 +2308,8 @@ procedure parse_raises(
     call parse_separated(in notation, params, parse_type, at_raised_type, out raised, ref toks)
   end
 
-// the spec after := of a function or, if of_proc, a procedure: the lines example …, each at its keyword
+// the spec after := of a function or, if of_proc, a procedure: the contract of a procedure, requires a, … and ensures b,
+// each optional, then the lines example …, each at its keyword
 procedure parse_spec(
   in  notation: Notation,
       params: List[Id],
@@ -2316,14 +2317,27 @@ procedure parse_spec(
   out spec: Spec,
   ref toks: Tokens
 ) :=
-  local found: Buffer[At[Example]] := empty()
+  local found: Buffer[At[Example]] := empty(), pre: List[At[Expr]] := List(), post: Option[At[Expr]] := None
+  if not of_proc and (at_kw(toks, "requires") or at_kw(toks, "ensures")) then
+    raise ParseError("a function has no contract yet, its properties are lemmas", head_pos(toks))
+  end
+  if at_kw(toks, "requires") then
+    call advance(ref toks)
+    call parse_separated(in notation, params, parse_expr, at_comma, out pre, ref toks)
+  end
+  if at_kw(toks, "ensures") then
+    local concl: At[Expr]
+    call   advance(ref toks)
+    call   parse_expr(in notation, params, out concl, ref toks)
+    assign post := Some(concl)
+  end
   while at_kw(toks, "example") do
     local x: At[Example], pos: Pos := head_pos(toks)
     call   advance(ref toks)
     call   parse_example(in notation, params, of_proc, pos, out x, ref toks)
     assign found := found ++ List(x)
   end
-  assign spec := Spec(List(for x in found))
+  assign spec := Spec(pre, post, List(for x in found))
 
 // the example at pos after its keyword, as far as its expression goes, so that a body after the examples starts with
 // what cannot continue it, or one that does not parse, whose test fails, which fails no declaration, up to the next example
@@ -2514,11 +2528,10 @@ function before_after(args: List[Option[At[Expr]] * Option[At[Expr]]]): Option[L
       None
   end
 
-// lemma l[A, …](x: A, …) := requires a, … ensures b, where requires is optional
-// lemma l[A](in x: A, …) := requires …, ensures …, whose head has the modes of a procedure without refs, where outs wait
-// for proofs that give their witnesses
+// lemma l[A](in x: A, …) := requires a, … ensures b, where requires is optional, or := correct p(…), whose head has the
+// modes of a procedure without refs, where outs wait for proofs that give their witnesses
 procedure parse_lemma(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
-  local name: Id, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], assms: List[At[Expr]] := List(), concl: At[Expr], pos: Pos
+  local name: Id, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], claim: Claim, pos: Pos
   call   advance(ref toks)
   assign pos := head_pos(toks)
   call   parse_name(out name, ref toks)
@@ -2531,30 +2544,53 @@ procedure parse_lemma(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
     raise ParseError("a lemma has no ref formals, since it has no state", pos)
   end
   call expect(in TKw(":="), ref toks)
-  if head_token(toks) == TKw("requires") then
-    local assm: At[Expr]
-    call   advance(ref toks)
-    call   parse_expr(in notation, params, out assm, ref toks)
-    assign assms := List(assm)
-    while head_token(toks) == TKw(",") do
-      call   advance(ref toks)
-      call   parse_expr(in notation, params, out assm, ref toks)
-      assign assms := assms ++ List(assm)
-    end
-  end
-  call expect(in TKw("ensures"), ref toks)
-  call parse_expr(in notation, params, out concl, ref toks)
+  call parse_claim(in notation, params, out claim, ref toks)
   if at_step(toks) then
     local proof: Proof
     call   parse_proof(in notation, params, out proof, ref toks)
-    assign cmd := CLemma(unqualified(name), params, ins, outs, assms, concl, Some(proof))
+    assign cmd := CLemma(unqualified(name), params, ins, outs, claim, Some(proof))
   else
-    assign cmd := CLemma(unqualified(name), params, ins, outs, assms, concl, None)
+    assign cmd := CLemma(unqualified(name), params, ins, outs, claim, None)
+  end
+
+// requires a, … ensures b, where requires is optional, or correct p(in a, …, out y, …)
+procedure parse_claim(
+  in  notation: Notation,
+      params: List[Id],
+  out claim: Claim,
+  ref toks: Tokens
+) :=
+  if at_kw(toks, "correct") then
+    local pos := head_pos(toks), stmt: Stmt
+    call parse_call(in notation, params, out stmt, ref toks)
+    match stmt
+      case SCall(proc, ins, outs, List()) =>
+        assign claim := ClaimCorrect(proc, ins, outs)
+      case _ =>
+        raise ParseError("a claim correct p(…) has no refs, since a lemma has none", pos)
+    end
+  else
+    local assms: List[At[Expr]] := List(), concl: At[Expr]
+    if at_kw(toks, "requires") then
+      call advance(ref toks)
+      call parse_separated(in notation, params, parse_expr, at_comma, out assms, ref toks)
+    end
+    call   expect(in TKw("ensures"), ref toks)
+    call   parse_expr(in notation, params, out concl, ref toks)
+    assign claim := ClaimHolds(assms, concl)
   end
 
 // whether the next token starts a step or a split of a proof
 function at_step(toks: Tokens): Bool :=
-  exists(List("local", "call", "assert", "assign", "induction", "match", "if"), lambda kw => at_kw(toks, kw))
+  exists(List(
+    "local",
+    "call",
+    "assert",
+    "assign",
+    "invariant",
+    "induction",
+    "match",
+    "if"), lambda kw => at_kw(toks, kw))
 
 // the steps of a proof, the locals first, then the calls, cuts, and assignments, which are parsed as statements, and at
 // most one split, which ends the proof, see prove.md, section 4, where a proof ends at a token that starts no step
@@ -2571,11 +2607,18 @@ procedure parse_proof(
     call   parse_separated(in notation, params, parse_local, at_comma, out decls, ref toks)
     assign steps := steps ++ List(for (x, inits) in decls yield AOk(at, StepLocal(x, initial_value(inits))))
   end
-  while exists(List("call", "assert", "assign"), lambda kw => at_kw(toks, kw)) do
-    local stmt: At[Stmt], step: Step
-    call   parse_stmt(in notation, params, out stmt, ref toks)
-    call   step_of(in stmt, out step)
-    assign steps := steps ++ List(AOk(stmt.pos, step))
+  while exists(List("call", "assert", "assign", "invariant"), lambda kw => at_kw(toks, kw)) do
+    if at_kw(toks, "invariant") then
+      local cond: At[Expr], at := head_pos(toks)
+      call   advance(ref toks)
+      call   parse_expr(in notation, params, out cond, ref toks)
+      assign steps := steps ++ List(AOk(at, StepInvariant(cond)))
+    else
+      local stmt: At[Stmt], step: Step
+      call   parse_stmt(in notation, params, out stmt, ref toks)
+      call   step_of(in stmt, out step)
+      assign steps := steps ++ List(AOk(stmt.pos, step))
+    end
   end
   if exists(List("induction", "match", "if"), lambda kw => at_kw(toks, kw)) then
     local s: At[Split]
@@ -3250,7 +3293,7 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
     case (List(CNotation(_, _, _); _), InImplementation) =>
       raise ParseError("notations belong to the export section", pos)
 
-    case (List(CFunSig(_, _, _, _, spec); _), s) if s != InExport and spec.examples != List() =>
+    case (List(CFunSig(_, _, _, _, spec); _), s) if s != InExport and spec != no_spec() =>
       raise ParseError("signatures belong to the export section; the last example takes what continues its expression, so a body after examples cannot start with (, -, an operator, ., or with, which can be bound by a let, as in let r := -x in r", pos)
 
     case (List(CFunSig(_, _, _, _, _); _), s) if s != InExport =>
@@ -3271,7 +3314,7 @@ procedure enter_section(in cmds: List[Cmd], pos: Pos, ref section: Section) :=
     case (List(CTest(_, _, _); _), InExport) =>
       raise ParseError("tests belong to the implementation section", pos)
 
-    case (List(CLemma(_, _, _, _, _, _, _); _), InExport) =>
+    case (List(CLemma(_, _, _, _, _, _); _), InExport) =>
       raise ParseError("lemmas belong to the implementation section", pos)
 
     case (_, Opening) =>

@@ -834,8 +834,8 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
     case CTest(name, vars, stmt) =>
       Some("test " ++ name.base ++ "(" ++ formals_text(vars) ++ ") :=" ++ format_body(notation, "  ", stmt))
 
-    case CLemma(name, params, ins, outs, assms, concl, proof) =>
-      Some(proc_head("lemma", name, params, ins, outs, List(), List()) ++ " :=" ++ contract_text(notation, assms, concl) ++ match proof
+    case CLemma(name, params, ins, outs, claim, proof) =>
+      Some(proc_head("lemma", name, params, ins, outs, List(), List()) ++ " :=" ++ claim_text(notation, claim) ++ match proof
         case Some(p) =>
           proof_text(notation, "  ", p)
         case None =>
@@ -843,19 +843,51 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
       end)
   end
 
-// the lines of a proof, its steps as the statements of a body, so that they are laid out as those, then its split
+// the lines of a proof, its steps as the statements of a body, so that they are laid out as those, where an invariant
+// is a line of its own between them, then its split
 function proof_text(notation: Notation, indent: Str, proof: Proof): Str :=
   let locals := List(for step in proof.steps for x in local_of(step.that) yield x) in
-  let stmts := List(for step in proof.steps for stmt in step_stmts(step) yield Doc(None, stmt)) in
-  let body := if proof.steps == List() then
-    ""
-  else
-    format_body(notation, indent, AOk(Pos(0, 0), SBlock(locals, stmts))) in
+  let body := match leading_stmts(proof.steps)
+    case (stmts, rest) =>
+      (if locals == List() and stmts == List() then
+        ""
+      else
+        format_body(notation, indent, AOk(Pos(0, 0), SBlock(locals, stmts)))) ++ invariants_text(notation, indent, rest)
+  end in
   match proof.split
     case Some(split) =>
       body ++ "\n" ++ indent ++ split_text(notation, indent, split.that)
     case None =>
       body
+  end
+
+// the statements of the steps up to the first invariant, and the steps from it on
+function leading_stmts(steps: List[At[Step]]): List[Doc[Stmt]] * List[At[Step]] :=
+  match steps
+    case List(AOk(_, StepInvariant(_)); _) =>
+      (List(), steps)
+
+    case List(step; rest) =>
+      match leading_stmts(rest)
+        case (stmts, after) =>
+          (List(for stmt in step_stmts(step) yield Doc(None, stmt)) ++ stmts, after)
+      end
+
+    case List() =>
+      (List(), List())
+  end
+
+// each invariant of steps on a line of its own, followed by the statements of the steps up to the next one
+function invariants_text(notation: Notation, indent: Str, steps: List[At[Step]]): Str :=
+  match steps
+    case List(AOk(_, StepInvariant(cond)); rest) =>
+      match leading_stmts(rest)
+        case (stmts, after) =>
+          "\n" ++ indent ++ "invariant " ++ format_expr(notation, indent, cond) ++ format_stmts(notation, indent, stmts) ++ invariants_text(notation, indent, after)
+      end
+
+    case _ =>
+      ""
   end
 
 function local_of(step: Step): Option[Var] :=
@@ -883,6 +915,10 @@ function step_stmts(step: At[Step]): List[At[Stmt]] :=
 
     case StepAssign(upd) =>
       List(AOk(step.pos, SAssign(upd)))
+
+    // invariants_text prints it
+    case StepInvariant(_) =>
+      List()
   end
 
 function split_text(notation: Notation, indent: Str, split: Split): Str :=
@@ -907,11 +943,26 @@ function proof_cases(notation: Notation, indent: Str, cases: List[Doc[Branch[Pro
   case_chain(List(for b in cases yield branch_head(notation, indent, b) ++ proof_text(notation, deeper(indent), b.at.that.body)))
 
 // requires and ensures on lines of their own, where ensures aligns with requires
-function contract_text(notation: Notation, assms: List[At[Expr]], concl: At[Expr]): Str :=
-  if assms == List() then
-    "\n  ensures " ++ format_expr(notation, "  ", concl)
+function claim_text(notation: Notation, claim: Claim): Str :=
+  match claim
+    case ClaimHolds(assms, concl) =>
+      contract_text(notation, assms, Some(concl))
+    case ClaimCorrect(proc, ins, outs) =>
+      "\n  correct " ++ call_text(notation, "  ", proc, ins, outs, List())
+  end
+
+// the lines requires a, … and ensures b, each if it is written, where ensures is padded to the width of requires
+function contract_text(notation: Notation, assms: List[At[Expr]], concl: Option[At[Expr]]): Str :=
+  let pad := if assms == List() then " " else "  " in
+  (if assms == List() then
+    ""
   else
-    "\n  requires " ++ join(", ", List(for a in assms yield format_expr(notation, "  ", a))) ++ "\n  ensures  " ++ format_expr(notation, "  ", concl)
+    "\n  requires " ++ join(", ", List(for a in assms yield format_expr(notation, "  ", a)))) ++ match concl
+    case Some(c) =>
+      "\n  ensures" ++ pad ++ format_expr(notation, "  ", c)
+    case None =>
+      ""
+  end
 
 function data_text(name: Name, params: List[Id], constrs: List[Doc[Constr]]): Str :=
   "data " ++ name.base ++ params_text(params) ++ " :=" ++ constrs_text(constrs)
@@ -1038,11 +1089,11 @@ function example_out(notation: Notation, x: At[Example]): Str :=
   end
 
 function spec_text(notation: Notation, spec: Spec): Str :=
-  join("", List(for x in spec.examples yield "\n  example " ++ example_out(notation, x)))
+  contract_text(notation, spec.pre, spec.post) ++ join("", List(for x in spec.examples yield "\n  example " ++ example_out(notation, x)))
 
 // := and the spec of a signature, if it has one
 function signature_spec(notation: Notation, spec: Spec): Str :=
-  if spec.examples == List() then "" else " :=" ++ spec_text(notation, spec)
+  if spec == no_spec() then "" else " :=" ++ spec_text(notation, spec)
 
 function example_text(notation: Notation, indent: Str, x: Example): Str :=
   match x

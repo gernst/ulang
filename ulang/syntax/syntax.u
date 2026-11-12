@@ -144,6 +144,9 @@ data Step :=
   case StepAssert(cond: At[Expr])
   // assign q := e, …, the witnesses for the outs of the lemma being proven
   case StepAssign(upd: List[Var * At[Expr]])
+  // invariant e of a loop of the procedure of a claim correct p(…), one per while of its body in the order of the
+  // source, over the variables in scope at the loop
+  case StepInvariant(cond: At[Expr])
 
 data Split :=
   // induction x case p => … end, structural induction on the formal x
@@ -237,17 +240,24 @@ data Cmd :=
   // a pattern alias pattern C[A, …](x: A, …): T := pat, whose variables are the formals, each once, which the checker
   // expands at its uses in patterns, and which is a function of the same name where pat has no _
   case CPatAlias(name: Name, params: List[Id], formals: List[Var], typ: Type, pat: At[Pat])
-  // lemma l[A, …](in x: A, …, out y: B, …) := requires a, … ensures b, which states b for all ins that satisfy the
-  // assumptions a, …, for some outs, see prove.md, and which the prover proves, while the interpreter and the compiler
-  // skip it
-  case CLemma(name: Name, params: List[Id], ins: List[Var], outs: List[Var], assms: List[At[Expr]], concl: At[Expr], proof: Option[Proof])
+  // lemma l[A, …](in x: A, …, out y: B, …) := claim proof, see Claim and prove.md, which the prover proves, while the
+  // interpreter and the compiler skip it
+  case CLemma(name: Name, params: List[Id], ins: List[Var], outs: List[Var], claim: Claim, proof: Option[Proof])
 
-// the specification of a function or procedure, lines after := of its head and before its body, where the contracts of
-// prove.md, requires and ensures, will join the examples; on the first occurrence of a signature, the export of an
-// exported one, and empty on its definition
+// what a lemma states over its formals
+data Claim :=
+  // requires a, … ensures b: b for all ins that satisfy the assumptions a, …, for some outs
+  case ClaimHolds(assms: List[At[Expr]], concl: At[Expr])
+  // correct p(in a, …, out y, …): for all ins, every run of the call that ends normally from a state that satisfies the
+  // requires of p ends in one that satisfies its ensures, where the outs y, … are the outs of the lemma, in their order
+  case ClaimCorrect(proc: Name, ins: List[At[Expr]], outs: List[Var])
+
+// the specification of a function or procedure, lines after := of its head and before its body: the contract of a
+// procedure, requires a, … over its ins and refs as pre and ensures b over all its formals as post, see prove.md, then the
+// examples; on the first occurrence of a signature, the export of an exported one, and empty on its definition
 data Spec :=
   // the examples, each at its keyword, which the checker translates into tests
-  case Spec(examples: List[At[Example]])
+  case Spec(pre: List[At[Expr]], post: Option[At[Expr]], examples: List[At[Example]])
 
 // an example of a function or procedure
 data Example :=
@@ -354,6 +364,13 @@ function commands_of(docs: List[Doc[Cmd]]): List[Cmd]
 // the errors of the parts of cmd, of those that do not parse and of those that a phase rejected, in the order of the source
 function part_errors(cmd: Cmd): List[Diagnostic]
 
+// the expressions of a claim, the assumptions and the conclusion, or the ins of the call
+function claim_exprs(claim: Claim): List[At[Expr]]
+
+// the positions of the loops of stmt in the order of the source, by which the invariants of a claim of a procedure are
+// matched to them, without those of the procedures that lambdas make, which are values
+function loop_positions(stmt: At[Stmt]): List[Pos]
+
 // the errors of cmd and of its parts
 function cmd_errors(cmd: At[Cmd]): List[Diagnostic]
 
@@ -456,7 +473,7 @@ function arity(t: Type): Int :=
   end
 
 function no_spec(): Spec :=
-  Spec(List())
+  Spec(List(), None, List())
 
 function nowhere[A](x: A): At[A] :=
   AOk(Pos(0, 0), x)
@@ -775,8 +792,8 @@ function strip_cmd(cmd: Cmd): Cmd :=
     case CPatAlias(name, params, formals, typ, pat) =>
       CPatAlias(name, params, formals, typ, strip_pat(pat))
 
-    case CLemma(name, params, ins, outs, assms, concl, proof) =>
-      CLemma(name, params, ins, outs, List(for a in assms yield strip_expr(a)), strip_expr(concl), map_option(proof, strip_proof))
+    case CLemma(name, params, ins, outs, claim, proof) =>
+      CLemma(name, params, ins, outs, strip_claim(claim), map_option(proof, strip_proof))
 
     case CData(name, params, constrs) =>
       CData(name, params, List(for c in constrs yield Doc(c.doc, stripped(c.at, lambda x => x))))
@@ -798,7 +815,57 @@ function strip_cmd(cmd: Cmd): Cmd :=
   end
 
 function strip_spec(spec: Spec): Spec :=
-  Spec(List(for x in spec.examples yield stripped(x, strip_example)))
+  Spec(List(for a in spec.pre yield strip_expr(a)), map_option(spec.post, strip_expr), List(for x in spec.examples yield stripped(x, strip_example)))
+
+function loop_positions(stmt: At[Stmt]): List[Pos] :=
+  if not is_parsed(stmt) then List() else loop_positions_in(stmt.pos, stmt.that)
+
+function loop_positions_in(pos: Pos, stmt: Stmt): List[Pos] :=
+  match stmt
+    case SWhile(_, body) =>
+      List(pos; loop_positions(body))
+
+    case SBlock(_, stmts) =>
+      List(for d in stmts for p in loop_positions(d.at) yield p)
+
+    case SIf(_, left, right) =>
+      loop_positions(left) ++ loop_positions(right)
+
+    case SMatch(_, cases) =>
+      List(for d in cases for p in loop_positions(d.at.that.body) yield p)
+
+    case SAssertRaises(_, _, body) =>
+      loop_positions(body)
+
+    case STry(body, catches) =>
+      loop_positions(body) ++ List(for d in catches for p in loop_positions(d.at.that.body) yield p)
+
+    case SFor(_, body) =>
+      loop_positions(body)
+
+    case SSkip =>
+      List()
+
+    case SAssign(_) =>
+      List()
+
+    case SCall(_, _, _, _) =>
+      List()
+
+    case SAssert(_) =>
+      List()
+
+    case SRaise(_, _) =>
+      List()
+  end
+
+function strip_claim(claim: Claim): Claim :=
+  match claim
+    case ClaimHolds(assms, concl) =>
+      ClaimHolds(List(for a in assms yield strip_expr(a)), strip_expr(concl))
+    case ClaimCorrect(proc, ins, outs) =>
+      ClaimCorrect(proc, List(for a in ins yield strip_expr(a)), outs)
+  end
 
 function strip_example(x: Example): Example :=
   match x
@@ -951,6 +1018,9 @@ function strip_step(step: Step): Step :=
     case StepAssert(cond) =>
       StepAssert(strip_expr(cond))
 
+    case StepInvariant(cond) =>
+      StepInvariant(strip_expr(cond))
+
     case StepAssign(upd) =>
       StepAssign(List(for (x, e) in upd yield (x, strip_expr(e))))
   end
@@ -1020,7 +1090,7 @@ function cmd_module(cmd: Cmd): Option[Id] :=
     case CPatAlias(name, _, _, _, _) =>
       name.module
 
-    case CLemma(name, _, _, _, _, _, _) =>
+    case CLemma(name, _, _, _, _, _) =>
       name.module
   end
 
@@ -1047,8 +1117,8 @@ function part_errors(cmd: Cmd): List[Diagnostic] :=
     case CTest(_, _, stmt) =>
       errors_in_stmt(stmt)
 
-    case CLemma(_, _, _, _, assms, concl, proof) =>
-      errors_in_exprs(assms ++ List(concl)) ++ List(for p in options(proof) for e in errors_in_proof(p) yield e)
+    case CLemma(_, _, _, _, claim, proof) =>
+      errors_in_exprs(claim_exprs(claim)) ++ List(for p in options(proof) for e in errors_in_proof(p) yield e)
 
     case CSort(_, _, _) =>
       List()
@@ -1072,9 +1142,18 @@ function part_errors(cmd: Cmd): List[Diagnostic] :=
       List()
   end
 
-// none, since an example that does not parse fails its test, not its declaration
+// those of the contract, but none of the examples, since an example that does not parse fails its test, not its
+// declaration
 function errors_in_spec(spec: Spec): List[Diagnostic] :=
-  List()
+  errors_in_exprs(spec.pre ++ options(spec.post))
+
+function claim_exprs(claim: Claim): List[At[Expr]] :=
+  match claim
+    case ClaimHolds(assms, concl) =>
+      assms ++ List(concl)
+    case ClaimCorrect(_, ins, _) =>
+      ins
+  end
 
 function example_error(x: At[Example]): Option[Diagnostic] :=
   match x
@@ -1216,6 +1295,9 @@ function errors_in_step_node(step: Step): List[Diagnostic] :=
       errors_in_exprs(ins)
 
     case StepAssert(cond) =>
+      errors_in_expr(cond)
+
+    case StepInvariant(cond) =>
       errors_in_expr(cond)
 
     case StepAssign(upd) =>

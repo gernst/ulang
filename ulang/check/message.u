@@ -220,6 +220,24 @@ function plain_message(e: TypeError): Str :=
     case ExampleOnDefinition(name) =>
       "the examples of " ++ name.base ++ " belong to its signature in export"
 
+    case ContractOnDefinition(name) =>
+      "the contract of " ++ name.base ++ " belongs to its signature in export"
+
+    case ClaimOuts(name) =>
+      "the outs of the claim of " ++ name.base ++ " are the outs of the lemma in their order"
+
+    case ClaimOrder(proc) =>
+      "a claim of " ++ proc.base ++ " follows the definition of " ++ proc.base ++ " in its package"
+
+    case ClaimStep(name) =>
+      "the proof of the claim " ++ name.base ++ " has only invariants, one per while of the procedure"
+
+    case InvariantOutsideClaim =>
+      "an invariant belongs to the proof of a claim correct p(…)"
+
+    case ClaimCalled(name) =>
+      "the claim " ++ name.base ++ " is no lemma to call, since it holds only for the runs that end"
+
     case Unassigned(name) =>
       name.base ++ " is not assigned on every path"
 
@@ -334,6 +352,12 @@ test messages() :=
   assert located_message(Located(None, Pos(1, 1), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1))) == "sort Int expects 0 arguments, got 1 at 1.1"
   assert located_message(Located(None, Pos(1, 1), TestParams("sorted"))) == "test sorted takes parameters at 1.1"
   assert located_message(Located(None, Pos(2, 3), ExampleOnDefinition(Name(Some("m"), "f")))) == "the examples of f belong to its signature in export at 2.3"
+  assert located_message(Located(None, Pos(2, 3), ContractOnDefinition(Name(Some("m"), "p")))) == "the contract of p belongs to its signature in export at 2.3"
+  assert located_message(Located(None, Pos(1, 1), ClaimOuts(Name(None, "l")))) == "the outs of the claim of l are the outs of the lemma in their order at 1.1"
+  assert located_message(Located(None, Pos(1, 1), ClaimOrder(Name(None, "p")))) == "a claim of p follows the definition of p in its package at 1.1"
+  assert located_message(Located(None, Pos(1, 1), ClaimStep(Name(None, "l")))) == "the proof of the claim l has only invariants, one per while of the procedure at 1.1"
+  assert located_message(Located(None, Pos(1, 1), InvariantOutsideClaim)) == "an invariant belongs to the proof of a claim correct p(…) at 1.1"
+  assert located_message(Located(None, Pos(1, 1), ClaimCalled(Name(None, "l")))) == "the claim l is no lemma to call, since it holds only for the runs that end at 1.1"
   assert located_message(Located(None, Pos(1, 1), Unassigned(Name(None, "x")))) == "x is not assigned on every path at 1.1"
   assert located_message(Located(None, Pos(15, 1), UnexportedOrder(Name(Some("ulang/test/errors/unexported-order"), "compare"), Name(Some("ulang/test/errors/unexported-order"), "T")))) == "compare of the exported type T is not exported at 15.1"
   assert located_message(Located(None, Pos(1, 1), UnknownConstructor(Name(None, "f")))) == "unknown constructor f at 1.1"

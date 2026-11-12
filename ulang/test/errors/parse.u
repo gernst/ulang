@@ -378,6 +378,21 @@ test proof_call_refs() :=
     call check_text(in "ulang/test/errors/proof-call-refs.u", List("lemma a(in x: Int) :=", "  ensures x == x", "  call b(in x, ref y)"))
   end
 
+test function_contract() :=
+  assert raises ParseError("a function has no contract yet, its properties are lemmas", Pos(2, 3)) do
+    call check_text(in "ulang/test/errors/function-contract.u", List("function f(x: Int): Int :=", "  requires x > 0", "  x"))
+  end
+
+test claim_refs() :=
+  assert raises ParseError("a claim correct p(…) has no refs, since a lemma has none", Pos(5, 3)) do
+    call check_text(in "ulang/test/errors/claim-refs.u", List(
+      "procedure p(ref y: Int) :=",
+      "  assign y := 1",
+      "",
+      "lemma p_correct(in y: Int) :=",
+      "  correct p(ref y)"))
+  end
+
 test proof_assert_raises() :=
   assert raises ParseError("assert raises is no step of a proof", Pos(3, 3)) do
     call check_text(in "ulang/test/errors/proof-assert-raises.u", List(

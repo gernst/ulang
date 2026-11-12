@@ -9,10 +9,11 @@ import "ulang/check"
 
 export
 
-// a lemma as the sequent that the prover proves
-// a lemma as the sequent that the prover proves, and its proof, None for the default proof
+// a lemma as the sequent that the prover proves, and its proof, None for the default proof, where a claim correct p(…)
+// holds only for the runs that end, so that it is no fact of other lemmas, and the contract of a procedure is a lemma
+// that is assumed, not proven
 data Lemma :=
-  case Lemma(name: Name, goal: Seq, proof: Option[ProofTerm])
+  case Lemma(name: Name, goal: Seq, proof: Option[ProofTerm], claim: Bool)
 
 // a proof over the terms of the prover, whose variables are the formals, the locals, and the variables of the cases
 // around it, as indices, the innermost first, at the position where it starts, see prove.md, section 4
@@ -38,17 +39,27 @@ data SplitTerm :=
   case InductionTerm(formal: Int, cases: List[CaseTerm], pos: Pos)
   case MatchTerm(arg: Term, cases: List[CaseTerm], pos: Pos)
   case IfTerm(cond: Term, left: ProofTerm, right: Option[ProofTerm], pos: Pos)
+  // the loop while cond do … end of a procedure with the invariant inv: the variables that the loop assigns, havoc, by the
+  // indices of their values before it, inv and cond over the variables around and havoc as the innermost, body the proof
+  // that the body leads from inv and cond to inv, over the variables around, havoc, and their values after the body,
+  // which it assigns as witnesses, and after the proof of the rest from inv and not cond, over those around and havoc
+  case InvariantTerm(vars: List[Int], havoc: List[Var], inv: Term, cond: Term, body: ProofTerm, after: ProofTerm, pos: Pos)
 
 // a case of a split: its pattern, its guard, and the variables of the pattern in the order in which they bind, which
 // bind in the guard and the proof
 data CaseTerm :=
   case CaseTerm(pat: Pat, guard: Option[Term], vars: List[Var], proof: ProofTerm, pos: Pos)
 
+// the symbols, the lemmas of the module in their order, and the contracts of the procedures with the contract of raise,
+// which the proofs of claims call
 data Translation :=
-  case Translation(decls: Decls, lemmas: List[Lemma])
+  case Translation(decls: Decls, lemmas: List[Lemma], contracts: List[Lemma])
 
 // the symbols of the checked program q and the lemmas of its module m in their order
 function translate(q: Prog, m: Id): Translation
+
+// the name of the contract of raise, which ends a run that the claim of a procedure no longer covers
+function raise_name(): Name
 
 implementation
 
@@ -60,7 +71,10 @@ function translate(q: Prog, m: Id): Translation :=
   let ranks := Map(for (rank, cmd) in ranked for n in fun_name(cmd) yield n => rank) in
   let defs := defs_of(q) in
   let decls := datas_decls(datas) with abstracts := defs.abstracts, ordered := defs.abstracts ++ Set(for t => _ in defs.orders yield t) in
-  Translation(with_defs(decls, defined, ranks), List(for cmd in cmds for l in lemma_of(m, cmd) yield l))
+  let procs := Map(for cmd in cmds for (k, p) in proc_of(cmd) yield k => p) in
+  let contracts := Map(for cmd in cmds for (k, c) in contract_of(cmd) yield k => c) in
+  let known := Set(for k => _ in contracts yield k) in
+  Translation(with_defs(decls, defined, ranks), List(for cmd in cmds for l in lemma_of(m, procs, known, cmd) yield l), List(raise_contract(); List(for _ => c in contracts yield c)))
 
 function fun_name(cmd: Cmd): Option[Name] :=
   match cmd
@@ -129,16 +143,285 @@ function reachable(calls: Map[Name * Int, Set[Name * Int]], arities: Map[Name, L
       end
   end
 
-// the lemma of cmd if it belongs to module m, for all formals that satisfy its assumptions
-function lemma_of(m: Id, cmd: Cmd): Option[Lemma] :=
+// the lemma of cmd if it belongs to module m, for all formals that satisfy its assumptions, where procs are the
+// procedures with bodies and contracts the keys of those with contracts, by name and arity
+function lemma_of(m: Id, procs: Map[Name * Int, Cmd], contracts: Set[Name * Int], cmd: Cmd): Option[Lemma] :=
   match cmd
-    case CLemma(name, _, formals, outs, assms, concl, proof) if name.module == Some(m) =>
+    case CLemma(name, _, formals, outs, ClaimHolds(assms, concl), proof) if name.module == Some(m) =>
       let env := bind(formals, List()), all := bind(formals ++ outs, List()) in
       let atoms := List(for a in assms yield Atom(term_of(env, a))), goal := Atom(term_of(all, concl)) in
-      Some(Lemma(name, Seq(formals, atoms, List(Concl(outs, List(goal)))), map_option(proof, lambda p => proof_term(formals, all, p, Pos(0, 0)))))
+      Some(Lemma(name, Seq(formals, atoms, List(Concl(outs, List(goal)))), map_option(proof, lambda p => proof_term(formals, all, p, Pos(0, 0))), false))
+
+    case CLemma(name, _, formals, outs, ClaimCorrect(proc, args, _), proof) if name.module == Some(m) =>
+      Some(claim_of(name, formals, outs, args, get((proc, size(args) + size(outs)), procs), contracts, value_or(proof, Proof(List(), None))))
 
     case _ =>
       None
+  end
+
+// a procedure with a body by its name and arity
+function proc_of(cmd: Cmd): Option[(Name * Int) * Cmd] :=
+  match cmd
+    case CProc(name, _, ins, outs, refs, _, _, _) =>
+      Some(((name, size(ins) + size(outs) + size(refs)), cmd))
+    case _ =>
+      None
+  end
+
+// the contract of a procedure as a lemma, assumed, not proven, over its ins and the values of its refs before as formals,
+// and its outs and the values of its refs after as outs, where its requires sees the refs before and its ensures after
+function contract_of(cmd: Cmd): Option[(Name * Int) * Lemma] :=
+  match cmd
+    case CProc(name, _, ins, outs, refs, _, spec, _) if spec.pre != List() or spec.post != None =>
+      let before := List(for r in refs yield Var(Name(None, "(before)" ++ r.name.base), r.typ)) in
+      let pre := bind(ins ++ refs, List()), post := bind(ins ++ before ++ outs ++ refs, List()) in
+      let atoms := List(for a in spec.pre yield Atom(term_of(pre, a))) in
+      let concl := match spec.post
+        case Some(e) =>
+          term_of(post, e)
+        case None =>
+          bool_term(true)
+      end in
+      let key := (name, size(ins) + size(outs) + size(refs)) in
+      Some((key, Lemma(contract_name(key), Seq(ins ++ refs, atoms, List(Concl(outs ++ refs, List(Atom(concl))))), None, false)))
+
+    case _ =>
+      None
+  end
+
+// a name of the contract of a procedure, which users cannot write
+function contract_name(key: Name * Int): Name :=
+  match key
+    case (name, arity) =>
+      Name(name.module, "(contract)" ++ name.base ++ "/" ++ show(arity))
+  end
+
+function raise_name(): Name :=
+  Name(None, "(raise)")
+
+function raise_contract(): Lemma :=
+  Lemma(raise_name(), Seq(List(), List(), List(Concl(List(), List(Atom(bool_term(false)))))), None, false)
+
+// the claim correct p(args, out outs) of the lemma name over formals: the requires of p at the arguments as its
+// assumptions, the ensures of p at them and the outs as its conclusion, and the proof that runs the body of p from the
+// arguments, by its invariants, to the values of its outs, which are the witnesses of the outs of the lemma
+function claim_of(name: Name, formals: List[Var], outs: List[Var], args: List[At[Expr]], proc: Option[Cmd], contracts: Set[Name * Int], proof: Proof): Lemma :=
+  let env := bind(formals, List()), all := bind(formals ++ outs, List()) in
+  let at_formals := List(for a in args yield term_of(env, a)), at_all := List(for a in args yield term_of(all, a)) in
+  let results := List(for i in range(0, size(outs)) yield EBound(size(outs) - 1 - i)) in
+  match proc
+    case Some(CProc(_, _, ins, proc_outs, _, _, spec, stmt)) =>
+      let atoms := List(for a in spec.pre yield Atom(beta(at_formals, term_of(bind(ins, List()), a)))) in
+      let concl := match spec.post
+        case Some(e) =>
+          beta(at_all ++ results, term_of(bind(ins ++ proc_outs, List()), e))
+        case None =>
+          bool_term(true)
+      end in
+      let invariants := Map(for (pos, step) in zip(loop_positions(stmt), proof.steps) for e in invariant_of(step.that) yield pos => e) in
+      let exec := Exec(invariants, contracts) in
+      let start := List(for (x, (a, i)) in zip(ins, zip(at_all, range(0, size(ins)))) yield DefineTerm(x, shift(i, a), stmt.pos)) in
+      let finish := IFinish(range(size(formals), size(formals) + size(outs)), List(for x in proc_outs yield x.name), ensures_pos(spec, stmt.pos)) in
+      Lemma(name, Seq(formals, atoms, List(Concl(outs, List(Atom(concl))))), Some(run(exec, bind(ins, all), List(IStmt(stmt), finish), start, stmt.pos)), true)
+
+    // a builtin procedure, which has no body
+    case _ =>
+      Lemma(name, Seq(formals, List(), List(Concl(outs, List(Atom(bool_term(true)))))), Some(ProofTerm(List(UnsupportedTerm("a claim of a procedure without a body", Pos(0, 0))), None, Pos(0, 0))), true)
+  end
+
+function invariant_of(step: Step): Option[At[Expr]] :=
+  match step
+    case StepInvariant(cond) =>
+      Some(cond)
+    case _ =>
+      None
+  end
+
+function ensures_pos(spec: Spec, pos: Pos): Pos :=
+  match spec.post
+    case Some(e) =>
+      e.pos
+    case None =>
+      pos
+  end
+
+// what the run of the body of a procedure knows: the invariants of its loops by their positions, and the procedures with
+// contracts by name and arity
+data Exec :=
+  case Exec(invariants: Map[Pos, At[Expr]], contracts: Set[Name * Int])
+
+// what is left of a run: a statement, or the end of a body, which assigns the variables of sources to the witnesses at the
+// levels targets, the outs of the lemma at the end of the procedure, the values after the body of a loop at its end
+data Item :=
+  case IStmt(stmt: At[Stmt])
+  case IFinish(targets: List[Int], sources: List[Name], pos: Pos)
+
+// the proof of the run of items under env after steps, where each assignment is a definition of a new variable of its
+// name, so that a name stands for the last value assigned to it, and a branch of an if or a case of a match carries the
+// rest of the run, so that each path through the body is a path through the proof; a call is the call of the contract of
+// its procedure, else its outs and refs become values that nothing is known of, and a raise ends its path, since a claim
+// is about the runs that end normally
+function run(exec: Exec, env: List[Name], items: List[Item], steps: List[StepTerm], pos: Pos): ProofTerm :=
+  match items
+    case List() =>
+      ProofTerm(steps, None, pos)
+
+    case List(IFinish(targets, sources, at); _) =>
+      ProofTerm(steps ++ List(for (t, x) in zip(targets, sources) yield AssignTerm(size(env) - 1 - t, var_term(env, x), at)), None, at)
+
+    case List(IStmt(stmt); rest) =>
+      run_stmt(exec, env, stmt, rest, steps, pos)
+  end
+
+// checked programs with parts that do not parse are not proven, so stmt is parsed
+function run_stmt(exec: Exec, env: List[Name], stmt: At[Stmt], rest: List[Item], steps: List[StepTerm], pos: Pos): ProofTerm :=
+  match stmt.that
+    case SSkip =>
+      run(exec, env, rest, steps, pos)
+
+    // in parallel, so that each value is of the variables before the assignment, shifted over the definitions before it
+    case SAssign(upd) =>
+      let defs := List(for ((x, e), i) in zip(upd, range(0, size(upd))) yield DefineTerm(x, shift(i, term_of(env, e)), stmt.pos)) in
+      run(exec, bind(List(for (x, _) in upd yield x), env), rest, steps ++ defs, pos)
+
+    case SBlock(_, stmts) =>
+      run(exec, env, List(for d in stmts yield IStmt(d.at)) ++ rest, steps, pos)
+
+    case SIf(cond, left, right) =>
+      let c := term_of(env, cond) in
+      let yes := run(exec, env, List(IStmt(left); rest), List(), left.pos), no := run(exec, env, List(IStmt(right); rest), List(), right.pos) in
+      ProofTerm(steps, Some(IfTerm(c, yes, Some(no), stmt.pos)), pos)
+
+    case SMatch(arg, cases) =>
+      let a := term_of(env, arg) in
+      let typed_cases := List(for d in cases yield run_case(exec, env, d, rest)) in
+      ProofTerm(steps, Some(MatchTerm(a, typed_cases, stmt.pos)), pos)
+
+    case SWhile(cond, body) =>
+      run_loop(exec, env, stmt.pos, cond, body, rest, steps, pos)
+
+    case SCall(proc, ins, outs, refs) =>
+      let key := (proc, size(ins) + size(outs) + size(refs)), results := outs ++ refs in
+      let args := List(for a in ins yield term_of(env, a)) ++ List(for r in refs yield var_term(env, r.name)) in
+      let witnesses := List(for x in results yield WitnessTerm(x, stmt.pos)) in
+      let called := if contains(key, exec.contracts) then
+        List(
+          CallTerm(contract_name(key), List(for a in args yield shift(size(results), a)), List(for i in range(0, size(results)) yield size(results) - 1 - i), stmt.pos))
+      else
+        List() in
+      run(exec, bind(results, env), rest, steps ++ witnesses ++ called, pos)
+
+    case SAssert(cond) =>
+      run(exec, env, rest, steps ++ List(AssertTerm(term_of(env, cond), stmt.pos)), pos)
+
+    case SRaise(_, _) =>
+      ProofTerm(steps ++ List(CallTerm(raise_name(), List(), List(), stmt.pos)), None, stmt.pos)
+
+    case SAssertRaises(_, _, _) =>
+      unsupported("assert raises in a procedure", stmt.pos, steps)
+
+    case STry(_, _) =>
+      unsupported("try in a procedure", stmt.pos, steps)
+
+    case SFor(_, _) =>
+      unsupported("for in a procedure", stmt.pos, steps)
+  end
+
+// a statement that the run does not take, after which its path ends, as after a raise
+function unsupported(what: Str, pos: Pos, steps: List[StepTerm]): ProofTerm :=
+  ProofTerm(steps ++ List(UnsupportedTerm(what, pos), CallTerm(raise_name(), List(), List(), pos)), None, pos)
+
+function run_case(exec: Exec, env: List[Name], d: Doc[Branch[At[Stmt]]], rest: List[Item]): CaseTerm :=
+  let br := d.at.that, pos := d.at.pos in
+  let vars := pattern_vars(br.pat.that) in
+  let inner := bind(vars, env) in
+  CaseTerm(br.pat.that, map_option(br.guard, lambda g => term_of(inner, g)), vars, run(exec, inner, List(IStmt(br.body); rest), List(), pos), pos)
+
+// the loop at pos by its invariant, true if it has none: the variables that it assigns and that are known before it are
+// the havoc, and its body runs over them and the witnesses of their values after it, named (next)x, up to their
+// assignment at its end
+function run_loop(exec: Exec, env: List[Name], pos: Pos, cond: At[Expr], body: At[Stmt], rest: List[Item], steps: List[StepTerm], start: Pos): ProofTerm :=
+  let havoc := List(for x in distinct_vars(assigned_vars(body)) if index_of(x.name, env) != None yield x) in
+  let around := bind(havoc, env) in
+  let next := List(for x in havoc yield Var(Name(None, "(next)" ++ x.name.base), x.typ)) in
+  let inner := bind(next, around) in
+  let written := get(pos, exec.invariants) in
+  let inv := match written
+    case Some(e) =>
+      term_of(around, e)
+    case None =>
+      bool_term(true)
+  end in
+  let at := match written
+    case Some(e) =>
+      e.pos
+    case None =>
+      pos
+  end in
+  let finish := IFinish(range(size(around), size(inner)), List(for x in havoc yield x.name), at) in
+  let body_term := run(exec, inner, List(IStmt(body), finish), List(), body.pos) in
+  let after := run(exec, around, rest, List(), start) in
+  ProofTerm(steps, Some(InvariantTerm(List(for x in havoc yield value_or(index_of(x.name, env), 0)), havoc, inv, term_of(around, cond), body_term, after, at)), start)
+
+// the value of the variable x under env, which is assigned where it is read, as the checker ensures
+function var_term(env: List[Name], x: Name): Term :=
+  match index_of(x, env)
+    case Some(i) =>
+      EBound(i)
+    case None =>
+      EFun(x)
+  end
+
+// the variables that stmt assigns, also as outs and refs of calls, in its loops and branches
+function assigned_vars(stmt: At[Stmt]): List[Var] :=
+  if not is_parsed(stmt) then List() else assigned_in(stmt.that)
+
+function assigned_in(stmt: Stmt): List[Var] :=
+  match stmt
+    case SAssign(upd) =>
+      List(for (x, _) in upd yield x)
+
+    case SCall(_, _, outs, refs) =>
+      outs ++ refs
+
+    case SBlock(_, stmts) =>
+      List(for d in stmts for x in assigned_vars(d.at) yield x)
+
+    case SIf(_, left, right) =>
+      assigned_vars(left) ++ assigned_vars(right)
+
+    case SWhile(_, body) =>
+      assigned_vars(body)
+
+    case SMatch(_, cases) =>
+      List(for d in cases for x in assigned_vars(d.at.that.body) yield x)
+
+    case SAssertRaises(_, _, body) =>
+      assigned_vars(body)
+
+    case STry(body, catches) =>
+      assigned_vars(body) ++ List(for d in catches for x in assigned_vars(d.at.that.body) yield x)
+
+    case SFor(_, body) =>
+      assigned_vars(body)
+
+    case SSkip =>
+      List()
+
+    case SAssert(_) =>
+      List()
+
+    case SRaise(_, _) =>
+      List()
+  end
+
+// the variables by their first occurrence of each name
+function distinct_vars(xs: List[Var]): List[Var] :=
+  match xs
+    case List() =>
+      List()
+    case List(x; rest) =>
+      List(x; distinct_vars(List(for y in rest if y.name != x.name yield y)))
   end
 
 // a proof under env, which starts at pos if it has no steps
@@ -183,6 +466,10 @@ function steps_term(formals: List[Var], env: List[Name], steps: List[At[Step]], 
         // the assignments in parallel, of distinct outs, each a term of its own
         case StepAssign(upd) =>
           steps_term(formals, env, rest, reverse(List(for (y, e) in upd yield AssignTerm(value_or(index_of(y.name, env), 0), term_of(env, e), step.pos))) ++ acc)
+
+        // the checker allows invariants only in the proofs of claims, which claim_of translates
+        case StepInvariant(_) =>
+          steps_term(formals, env, rest, List(UnsupportedTerm("an invariant outside a claim", step.pos); acc))
       end
   end
 

@@ -86,6 +86,20 @@ test example_on_definition() :=
       "  x"))
   end
 
+test contract_on_definition() :=
+  assert raises Located(None, Pos(7, 1), ContractOnDefinition(Name(Some("ulang/test/errors/contract-on-definition"), "p"))) do
+    call check_text(in "ulang/test/errors/contract-on-definition.u", List(
+      "export",
+      "",
+      "procedure p(out y: Int)",
+      "",
+      "implementation",
+      "",
+      "procedure p(out y: Int) :=",
+      "  ensures y == 1",
+      "  assign y := 1"))
+  end
+
 test example_private() :=
   assert raises Located(None, Pos(4, 13), UnknownVariable(Name(None, "g"))) do
     call check_text(in "ulang/test/errors/example-private.u", List(

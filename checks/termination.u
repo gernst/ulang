@@ -13,7 +13,7 @@ procedure main() :=
   call require_parsed(in source)
   call check_program(in source, out q)
   match translate(q, q.main)
-    case Translation(decls, _) =>
+    case Translation(decls, _, _) =>
       assign open := List(for t in terminations(decls, Set(for k => d in decls.defs if d.recursive yield k)) for site in take(1, t.open) yield value_or(first(site.caller).module, "") ++ "." ++ first(site.caller).base ++ ": " ++ print_open_call(site))
   end
   for line in open do

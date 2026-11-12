@@ -515,7 +515,7 @@ procedure prove_module(
       label: Str,
   out proven: Bool
 ) :=
-  local t := translate(q, m), proofs := prove_lemmas(t.decls, lemmas_upto(t.lemmas, names)), ds: List[Diagnostic] := proof_diagnostics(with_proofs(q, m, proofs, names), m)
+  local t := translate(q, m), proofs := prove_lemmas(t.decls, t.contracts, lemmas_upto(t.lemmas, names)), ds: List[Diagnostic] := proof_diagnostics(with_proofs(q, m, proofs, names), m)
   assign proven := ds == List()
   for n in names if not exists(t.lemmas, lambda l => l.name.base == n) do
     call   os_println(in label ++ error_text(RuntimeKind, "there is no lemma " ++ n))

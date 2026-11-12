@@ -69,8 +69,8 @@ function placed_cmd_lints(pos: Pos, cmd: Cmd): List[Warning] :=
     case CTest(_, _, stmt) =>
       stmt_lints("", stmt)
 
-    case CLemma(_, _, ins, outs, assms, concl, _) =>
-      vars_lints(pos, ins ++ outs) ++ exprs_lints("", assms) ++ expr_lints("", concl)
+    case CLemma(_, _, ins, outs, claim, _) =>
+      vars_lints(pos, ins ++ outs) ++ exprs_lints("", claim_exprs(claim))
 
     case CPatAlias(name, _, formals, _, _) =>
       decl_name_lints(pos, name.base, List()) ++ vars_lints(pos, formals)
@@ -553,7 +553,7 @@ function is_root(cmd: Cmd): Bool :=
     case CTest(_, _, _) =>
       true
 
-    case CLemma(_, _, _, _, _, _, _) =>
+    case CLemma(_, _, _, _, _, _) =>
       true
 
     case CProc(_, _, List(), List(), List(), _, _, _) =>
@@ -618,8 +618,8 @@ function cmd_names(cmd: Cmd): Set[Id] :=
     case CTest(_, _, stmt) =>
       stmt_names(stmt)
 
-    case CLemma(_, _, _, _, assms, concl, proof) =>
-      exprs_names(assms) ++ expr_names(concl) ++ Set(for p in proof for x in proof_names(p) yield x)
+    case CLemma(_, _, _, _, claim, proof) =>
+      claim_names(claim) ++ Set(for p in proof for x in proof_names(p) yield x)
 
     case CPatAlias(_, _, _, _, pat) =>
       pat_names(pat)
@@ -629,7 +629,15 @@ function cmd_names(cmd: Cmd): Set[Id] :=
   end
 
 function spec_names(spec: Spec): Set[Id] :=
-  Set(for x in spec.examples if is_parsed(x) for n in example_names(x.that) yield n)
+  exprs_names(spec.pre ++ List(for e in spec.post yield e)) ++ Set(for x in spec.examples if is_parsed(x) for n in example_names(x.that) yield n)
+
+function claim_names(claim: Claim): Set[Id] :=
+  match claim
+    case ClaimHolds(assms, concl) =>
+      exprs_names(assms) ++ expr_names(concl)
+    case ClaimCorrect(proc, ins, _) =>
+      Set(proc.base) ++ exprs_names(ins)
+  end
 
 function example_names(x: Example): Set[Id] :=
   match x
@@ -944,6 +952,9 @@ function step_names(step: Step): Set[Id] :=
       Set(name.base) ++ exprs_names(ins)
 
     case StepAssert(cond) =>
+      expr_names(cond)
+
+    case StepInvariant(cond) =>
       expr_names(cond)
 
     case StepAssign(upd) =>

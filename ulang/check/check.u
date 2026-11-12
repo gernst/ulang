@@ -68,6 +68,18 @@ data TypeError :=
   case PrivateConstructor(name: Name, constr: Name)
   // examples on the definition of an exported function or procedure, which belong to its signature in export
   case ExampleOnDefinition(name: Name)
+  // a contract on the definition of an exported procedure, which belongs to its signature in export
+  case ContractOnDefinition(name: Name)
+  // a claim correct p(…) of the lemma name whose outs are not the outs of the lemma in their order
+  case ClaimOuts(name: Name)
+  // a claim correct p(…) of a procedure that is not defined before it in its package, whose loops the invariants take
+  case ClaimOrder(proc: Name)
+  // a step of the proof of a claim correct p(…) of the lemma name other than an invariant
+  case ClaimStep(name: Name)
+  // an invariant in the proof of a lemma that is no claim correct p(…)
+  case InvariantOutsideClaim
+  // a call in a proof of the lemma name, which is a claim correct p(…), which holds only for runs that end
+  case ClaimCalled(name: Name)
   // raise of a value, or raises of a type, that is not of a datatype without type parameters
   case NotAnException(typ: Type)
   // the procedure name raises typ, which its raises omit
@@ -141,7 +153,7 @@ data Within :=
 // where hidden and hidden_sorts are the private declarations and sorts of the members of the package being checked, which
 // the other members do not see, while sig has only the exports of the modules checked before
 data State :=
-  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int])
+  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[Pos * Env], scopes: Map[Name, List[Env]])
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -164,7 +176,7 @@ function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
   value_or(get(m, vs), List(m))
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
-  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty())
+  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty())
 
 function in_module(m: Id, n: Name): Name :=
   Name(Some(m), n.base)
@@ -195,8 +207,8 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
     case CPatAlias(name, params, formals, typ, pat) =>
       CPatAlias(in_module(m, name), params, formals, typ, pat)
 
-    case CLemma(name, params, ins, outs, assms, concl, proof) =>
-      CLemma(in_module(m, name), params, ins, outs, assms, concl, proof)
+    case CLemma(name, params, ins, outs, claim, proof) =>
+      CLemma(in_module(m, name), params, ins, outs, claim, proof)
 
     case CNotation(_, _, _) =>
       cmd
@@ -770,6 +782,9 @@ function zonk_step(s: State, step: Step): Step :=
     case StepAssert(cond) =>
       StepAssert(zonk_expr(s, cond))
 
+    case StepInvariant(cond) =>
+      StepInvariant(zonk_expr(s, cond))
+
     case StepAssign(upd) =>
       StepAssign(List(for (x, e) in upd yield (zonk_var(s, x), zonk_expr(s, e))))
   end
@@ -809,17 +824,29 @@ function zonk_cmd(s: State, cmd: Cmd): Cmd :=
     case CFun(name, params, formals, typ, _, body) =>
       CFun(name, params, zonk_vars(s, formals), zonk_type(s.sub, typ), no_spec(), zonk_expr(s, body))
 
-    case CProc(name, params, ins, outs, refs, raised, _, stmt) =>
-      CProc(name, params, zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), raised, no_spec(), zonk_stmt(s, stmt))
+    case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
+      CProc(name, params, zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), raised, zonk_contract(s, spec), zonk_stmt(s, stmt))
 
     case CTest(name, vars, stmt) =>
       CTest(name, vars, zonk_stmt(s, stmt))
 
-    case CLemma(name, params, ins, outs, assms, concl, proof) =>
-      CLemma(name, params, zonk_vars(s, ins), zonk_vars(s, outs), List(for a in assms yield zonk_expr(s, a)), zonk_expr(s, concl), map_option(proof, lambda p => zonk_proof(s, p)))
+    case CLemma(name, params, ins, outs, claim, proof) =>
+      CLemma(name, params, zonk_vars(s, ins), zonk_vars(s, outs), zonk_claim(s, claim), map_option(proof, lambda p => zonk_proof(s, p)))
 
     case _ =>
       cmd
+  end
+
+// the contract of the spec, which the checked program keeps for the prover, without the examples, which are tests
+function zonk_contract(s: State, spec: Spec): Spec :=
+  Spec(List(for a in spec.pre yield zonk_expr(s, a)), map_option(spec.post, lambda e => zonk_expr(s, e)), List())
+
+function zonk_claim(s: State, claim: Claim): Claim :=
+  match claim
+    case ClaimHolds(assms, concl) =>
+      ClaimHolds(List(for a in assms yield zonk_expr(s, a)), zonk_expr(s, concl))
+    case ClaimCorrect(proc, ins, outs) =>
+      ClaimCorrect(settled(s, proc), List(for a in ins yield zonk_expr(s, a)), zonk_vars(s, outs))
   end
 
 // exceptions are told apart by their types at runtime, which must therefore be known after checking
@@ -951,14 +978,14 @@ function unknown_in_cmd(cmd: Cmd): Option[Pos * Type] :=
     case CFun(_, _, _, _, _, body) =>
       unknown_in_expr(body)
 
-    case CProc(_, _, _, _, _, _, _, stmt) =>
-      unknown_in(stmt)
+    case CProc(_, _, _, _, _, _, spec, stmt) =>
+      or_else(unknown_in(stmt), find_map(spec.pre ++ List(for e in spec.post yield e), unknown_in_expr))
 
     case CTest(_, _, stmt) =>
       unknown_in(stmt)
 
-    case CLemma(_, _, _, _, assms, concl, _) =>
-      find_map(List(concl; assms), unknown_in_expr)
+    case CLemma(_, _, _, _, claim, _) =>
+      find_map(claim_exprs(claim), unknown_in_expr)
 
     case _ =>
       None
@@ -2947,8 +2974,10 @@ procedure statement_node(
       call   statement(in assignable, right, out r, ref other, s)
       assign y := SIf(c, l, r), env := joined(env, other)
 
+    // the scope of the loop, which the invariant of a claim of the procedure sees
     case SWhile(cond, body) =>
       local c: At[Expr], l: At[Stmt], inner: Env
+      assign s := s with loops := s.loops ++ List((pos, env))
       call   check(in env, cond, TBool(), "the condition of while", out c, ref s)
       assign inner := env
       call   statement(in assignable, body, out l, ref inner, s)
@@ -3536,6 +3565,9 @@ procedure proof_step(
     case StepCall(name, ins, outs) =>
       local qualified := in_module(s.module, name), typed_ins: List[At[Expr]] := ins, typed_outs: List[Var] := outs
       match lemma_of(s.sig, qualified)
+        case Some(lemma_sig) if lemma_sig.claim =>
+          call report(in ClaimCalled(name), ref s)
+
         case Some(lemma_sig) =>
           local m: List[Type * Type]
           call instance(in lemma_sig.params, out m, ref s)
@@ -3561,6 +3593,11 @@ procedure proof_step(
       local c: At[Expr]
       call   check(in env, cond, TBool(), "the assertion", out c, ref s)
       assign typed_step := StepAssert(c)
+
+    // claim_proof checks those of claims
+    case StepInvariant(_) =>
+      call   report(in InvariantOutsideClaim, ref s)
+      assign typed_step := step
 
     case StepAssign(upd) =>
       local ys: List[Var], exprs: List[At[Expr]]
@@ -3663,7 +3700,7 @@ procedure proof_cases(
 procedure declare_lemmas(in cs: List[Id * Cmd], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
-      case CLemma(name, ps, formals, outs, _, _, _) =>
+      case CLemma(name, ps, formals, outs, claim, _) =>
         local xs: List[Var], ys: List[Var]
         assign s := enter(s, m)
         if lemma_of(s.sig, name) != None then
@@ -3673,11 +3710,19 @@ procedure declare_lemmas(in cs: List[Id * Cmd], ref s: State) :=
         call   signature(in formals ++ outs, out xs, ref s)
         call   closed(in name, ps, List(for x in xs yield x.typ), ref s)
         assign ys := drop(size(formals), xs), xs := take(size(formals), xs)
-        assign s := with_sig(s, with_lemma(s.sig, name, LemmaSig(params(ps), List(for x in xs yield x.typ), List(for y in ys yield y.typ))))
+        assign s := with_sig(s, with_lemma(s.sig, name, LemmaSig(params(ps), List(for x in xs yield x.typ), List(for y in ys yield y.typ), is_claim(claim))))
 
       case _ =>
         skip
     end
+  end
+
+function is_claim(claim: Claim): Bool :=
+  match claim
+    case ClaimCorrect(_, _, _) =>
+      true
+    case ClaimHolds(_, _) =>
+      false
   end
 
 procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
@@ -3715,16 +3760,17 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
       call   check(in bind(xs), body, r, "the result of " ++ name.base, out b, ref s)
       assign typed_cmd := CFun(name, params, xs, r, no_spec(), b)
 
-    case CProc(name, params, ins, outs, refs, raised, _, stmt) =>
-      local is: List[Var], os: List[Var], rs: List[Var], typed_raised: List[Type], y: At[Stmt], env: Env
+    case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
+      local is: List[Var], os: List[Var], rs: List[Var], typed_raised: List[Type], y: At[Stmt], env: Env, typed_spec: Spec
       call   signature(in ins, out is, ref s)
       call   signature(in outs, out os, ref s)
       call   signature(in refs, out rs, ref s)
       call   normalizes(in raised, out typed_raised, ref s)
       assign env := bind(is) ++ unassigned(os) ++ bind(rs)
+      call   contract(in is, os, rs, spec, out typed_spec, ref s)
       call   statement(in List(for x in os ++ rs yield x.name), stmt, out y, ref env, s)
       call   outputs(in name, os, env, ref s)
-      assign typed_cmd := CProc(name, params, is, os, rs, typed_raised, no_spec(), y)
+      assign typed_cmd := CProc(name, params, is, os, rs, typed_raised, typed_spec, y)
 
     case CTest(name, List(), stmt) =>
       local y: At[Stmt], env: Env := List()
@@ -3737,7 +3783,7 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
     case CData(name, params, constrs) =>
       assign typed_cmd := CData(name, params, List(for k in constrs yield map_doc(k, lambda c => resolved_fields(s.sig, c))))
 
-    case CLemma(name, params, ins, outs, assms, concl, proof) =>
+    case CLemma(name, params, ins, outs, ClaimHolds(assms, concl), proof) =>
       local xs: List[Var], ys: List[Var], checked: List[At[Expr]] := List(), c: At[Expr], typed_proof: Option[Proof] := None
       call signature(in ins, out xs, ref s)
       call signature(in outs, out ys, ref s)
@@ -3757,10 +3803,108 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
         case None =>
           skip
       end
-      assign typed_cmd := CLemma(name, params, xs, ys, checked, c, typed_proof)
+      assign typed_cmd := CLemma(name, params, xs, ys, ClaimHolds(checked, c), typed_proof)
+
+    // the call of the claim assigns the outs of the lemma, and the invariants are over the scopes of the loops
+    case CLemma(name, params, ins, outs, ClaimCorrect(proc, args, call_outs), proof) =>
+      local xs: List[Var], ys: List[Var], env: Env, y: Stmt, claim: Claim := ClaimCorrect(proc, args, call_outs), typed_proof: Option[Proof] := None
+      call   signature(in ins, out xs, ref s)
+      call   signature(in outs, out ys, ref s)
+      assign env := bind(xs) ++ unassigned(ys)
+      call   call_declared(in env, List(for x in ys yield x.name), proc, args, call_outs, List(), out y, ref s)
+      call   solve(ref s)
+      match y
+        case SCall(q, typed_ins, typed_outs, _) =>
+          if List(for x in typed_outs yield x.name) != List(for x in ys yield x.name) then
+            call report(in ClaimOuts(name), ref s)
+          end
+          assign claim := ClaimCorrect(q, typed_ins, typed_outs)
+          match (get(settled(s, q), s.scopes), proof)
+            case (Some(scopes), Some(p)) =>
+              local typed: Proof
+              call   claim_proof(in name, scopes, p, out typed, ref s)
+              assign typed_proof := Some(typed)
+
+            // without a proof, the invariant of every loop is true
+            case (Some(_), None) =>
+              skip
+
+            case (None, _) =>
+              call report(in ClaimOrder(proc), ref s)
+          end
+
+        // call_declared reported the unknown procedure
+        case _ =>
+          skip
+      end
+      assign typed_cmd := CLemma(name, params, xs, ys, claim, typed_proof)
 
     case _ =>
       assign typed_cmd := cmd
+  end
+
+// the contract of a procedure, the requires over its ins and refs, the ensures over all its formals
+procedure contract(
+  in  ins: List[Var],
+      outs: List[Var],
+      refs: List[Var],
+      spec: Spec,
+  out typed_spec: Spec,
+  ref s: State
+) :=
+  local pre: Buffer[At[Expr]] := empty(), post: Option[At[Expr]] := None
+  for a in spec.pre do
+    local b: At[Expr]
+    call   check(in bind(ins ++ refs), a, TBool(), "the requires", out b, ref s)
+    assign pre := pre ++ List(b)
+  end
+  match spec.post
+    case Some(e) =>
+      local c: At[Expr]
+      call   check(in bind(ins ++ outs ++ refs), e, TBool(), "the ensures", out c, ref s)
+      assign post := Some(c)
+
+    case None =>
+      skip
+  end
+  assign typed_spec := Spec(List(for a in pre), post, spec.examples)
+
+// the proof of the claim name, its invariants, each over the scope of its loop, the first of scopes for the first
+procedure claim_proof(
+  in  name: Name,
+      scopes: List[Env],
+      proof: Proof,
+  out typed_proof: Proof,
+  ref s: State
+) :=
+  local invariants: Buffer[At[Step]] := empty(), written := List(for step in proof.steps if is_invariant(step.that) yield step)
+  if proof.split != None or size(written) != size(proof.steps) then
+    call report(in ClaimStep(name), ref s)
+  end
+  if size(written) != size(scopes) then
+    call report(in CountMismatch("the proof of " ++ name.base, "invariants", size(scopes), size(written)), ref s)
+  end
+  for (step, env) in zip(written, scopes) do
+    match step.that
+      case StepInvariant(cond) =>
+        local c: At[Expr], outer := s.at
+        assign s := s with at := step.pos
+        call   check(in env, cond, TBool(), "the invariant", out c, ref s)
+        assign invariants := invariants ++ List(AOk(step.pos, StepInvariant(c))), s := s with at := outer
+
+      // written has only invariants
+      case _ =>
+        skip
+    end
+  end
+  assign typed_proof := Proof(List(for step in invariants), None)
+
+function is_invariant(step: Step): Bool :=
+  match step
+    case StepInvariant(_) =>
+      true
+    case _ =>
+      false
   end
 
 // the constructor k with the types of its fields resolved, as declare_constructors declared them
@@ -3783,9 +3927,10 @@ procedure commands(
 
     case List((m, cmd); more) =>
       local taken := s.taken, typed_cmd: Cmd, zonked: Cmd, rest: List[Cmd]
-      assign s := enter(s, m)
+      assign s := enter(s, m) with loops := List()
       call   command(in cmd, out typed_cmd, ref s)
       call   settle(ref s)
+      assign s := with_scopes(s, typed_cmd)
       if not s.partial or part_errors(cmd) == List() then
         assign zonked := zonk_cmd(s, typed_cmd)
         match unknown_in_cmd(zonked)
@@ -3799,6 +3944,18 @@ procedure commands(
       end
       call   commands(in more, out rest, ref s)
       assign typed_cmds := List(zonked; rest)
+  end
+
+// s with the scopes of the loops of the checked procedure cmd, one per while of its body in the order of the source, as
+// the invariants of its claims are written, with their types, which the next command, after enter, no longer knows
+function with_scopes(s: State, cmd: Cmd): State :=
+  match cmd
+    case CProc(name, _, _, _, _, _, _, stmt) =>
+      let scopes := Map(for (pos, env) in s.loops yield pos => List(for (n, l) in env yield (n, l with typ := zonk_type(s.sub, l.typ)))) in
+      s with scopes := put(name, List(for pos in loop_positions(stmt) for env in get(pos, scopes) yield env), s.scopes)
+
+    case _ =>
+      s
   end
 
 // tests are chosen by name, so a name of a test of module d is not repeated, where the error is at the second test
@@ -3925,7 +4082,7 @@ function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
     case CPatAlias(name, _, _, _, _) =>
       List(name)
 
-    case CLemma(name, _, _, _, _, _, _) =>
+    case CLemma(name, _, _, _, _, _) =>
       List(name)
 
     case CTest(_, _, _) =>
@@ -4407,7 +4564,7 @@ procedure check_package(
     call   private_of(in d, out private, private_sorts)
     assign hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
   end
-  assign s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty()), decls := seconds(placed)
+  assign s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty()), decls := seconds(placed)
   call   each_placed(in declare_datas, placed, ref s)
   call   declare_datas(in builtins, ref s)
   call   each_placed(in declare_sorts, alias_order(List(for p in placed if alias_names(p) != None), List()), ref s)
@@ -4432,8 +4589,11 @@ procedure check_package(
   for d in mods do
     call unique_tests(in d, ref s)
   end
+  for (p, (m, name)) in List(for (p, (m, cmd)) in placed for name in contract_on_definition(placed, cmd) yield (p, (m, name))) do
+    assign s := s with errors := s.errors ++ List(Located(Some(m), p, ContractOnDefinition(name)))
+  end
   if not exists(s.errors, is_blocking) then
-    call placed_commands(in placed_definitions(placed), lambda in checked: List[Cmd] =>
+    call placed_commands(in with_contracts(placed_definitions(placed), placed), lambda in checked: List[Cmd] =>
       call check_orders(in checked, abstract_types(decls), hidden, hidden_sorts)
     end, out defined, ref s)
   else
@@ -4638,7 +4798,7 @@ procedure lemma_tests(
   local enumerated: List[Id * Name] := List(), tests: Buffer[Pos * (Id * Cmd)] := empty(), funs: Buffer[Pos * (Id * Cmd)] := empty()
   for (pos, (m, cmd)) in placed do
     match (cmd, lemma_of(s.sig, lemma_name(cmd)))
-      case (CLemma(name, _, formals, List(), assms, concl, _), Some(lemma_sig)) =>
+      case (CLemma(name, _, formals, List(), ClaimHolds(assms, concl), _), Some(lemma_sig)) =>
         local t := enter(s, m)
         match (all_some(List(for typ in lemma_sig.formals yield enum_expr(t, abstract, lambda _ => enum_call("ints", List()), typ))), datatypes_needed(t, abstract, List(for typ in lemma_sig.formals for n in datatypes_in(typ) yield n), List()))
           case (Some(enums), Some(needed)) =>
@@ -4660,7 +4820,7 @@ procedure lemma_tests(
 
 function lemma_name(cmd: Cmd): Name :=
   match cmd
-    case CLemma(name, _, _, _, _, _, _) =>
+    case CLemma(name, _, _, _, _, _) =>
       name
     case _ =>
       unqualified("")
@@ -4898,6 +5058,50 @@ function first_member(members: List[Id]): Id :=
 // the commands of module d with qualified names, with the module of each, and their positions
 function decls_of(d: Mod): List[Pos * (Id * Cmd)] :=
   List(for c in placed_of(d) yield (c.at.pos, (d.name, qualify(d.name, c.at.that))))
+
+// the contracts of the signatures of procedures of placed, by name and arity
+function declared_contracts(placed: List[Pos * (Id * Cmd)]): Map[Name * Int, Spec] :=
+  Map(for (_, (_, cmd)) in placed for (key, spec) in signature_contract(cmd) yield key => spec)
+
+function signature_contract(cmd: Cmd): Option[(Name * Int) * Spec] :=
+  match cmd
+    case CProcSig(name, _, ins, outs, refs, _, spec) =>
+      Some(((name, size(ins) + size(outs) + size(refs)), spec))
+    case _ =>
+      None
+  end
+
+// the definitions with the contracts of their signatures in export, which they do not repeat
+function with_contracts(defined: List[Pos * (Id * Cmd)], placed: List[Pos * (Id * Cmd)]): List[Pos * (Id * Cmd)] :=
+  let declared := declared_contracts(placed) in
+  List(for (p, (m, cmd)) in defined yield (p, (m, contracted(declared, cmd))))
+
+function contracted(declared: Map[Name * Int, Spec], cmd: Cmd): Cmd :=
+  match cmd
+    case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
+      match get((name, size(ins) + size(outs) + size(refs)), declared)
+        case Some(sig) =>
+          CProc(name, params, ins, outs, refs, raised, Spec(sig.pre, sig.post, spec.examples), stmt)
+        case None =>
+          cmd
+      end
+
+    case _ =>
+      cmd
+  end
+
+// the name of a definition of a procedure that export declares, if it has a contract, which belongs to the signature
+function contract_on_definition(placed: List[Pos * (Id * Cmd)], cmd: Cmd): Option[Name] :=
+  match cmd
+    case CProc(name, _, ins, outs, refs, _, spec, _) if spec.pre != List() or spec.post != None =>
+      if get((name, size(ins) + size(outs) + size(refs)), declared_contracts(placed)) != None then
+        Some(name)
+      else
+        None
+
+    case _ =>
+      None
+  end
 
 // the definitions to check, where a pattern alias is the function that builds its values, if it has one
 function placed_definitions(placed: List[Pos * (Id * Cmd)]): List[Pos * (Id * Cmd)] :=

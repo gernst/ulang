@@ -1,0 +1,100 @@
+// claims correct p(…) that procedures meet their contracts, proven by running their bodies over the invariants of their
+// loops
+
+procedure maximum(in a: Int, b: Int, out m: Int) :=
+  ensures m >= a and m >= b and (m == a or m == b)
+  if a < b then
+    assign m := b
+  else
+    assign m := a
+  end
+
+lemma maximum_correct(in a: Int, b: Int, out m: Int) :=
+  correct maximum(in a, b, out m)
+
+procedure sum(in n: Int, out s: Int) :=
+  requires n >= 0
+  ensures  2 * s == n * (n - 1)
+  local i := 0
+  assign s := 0
+  while i < n do
+    assign s := s + i, i := i + 1
+  end
+
+lemma sum_correct(in n: Int, out s: Int) :=
+  correct sum(in n, out s)
+  invariant 2 * s == i * (i - 1) and i <= n
+
+// a call is proven by the contract of its procedure, not by its body
+procedure clamp(in a: Int, out c: Int) :=
+  ensures c >= 0 and c >= a
+  local m: Int
+  call   maximum(in a, 0, out m)
+  assign c := m
+
+lemma clamp_correct(in a: Int, out c: Int) :=
+  correct clamp(in a, out c)
+
+// recursion by the contract of the procedure itself, for the runs that end
+procedure count(in n: Int, out c: Int) :=
+  requires n >= 0
+  ensures  c == n
+  if n <= 0 then
+    assign c := 0
+  else
+    local d: Int
+    call   count(in n - 1, out d)
+    assign c := d + 1
+  end
+
+lemma count_correct(in n: Int, out c: Int) :=
+  correct count(in n, out c)
+
+data Shape :=
+  case Square(side: Int)
+  case Rectangle(width: Int, height: Int)
+
+// a match splits the run by the cases, each with the rest of the body
+procedure area(in shape: Shape, out a: Int) :=
+  ensures a >= 0
+  match shape
+    case Square(side) =>
+      assign a := side * side
+    case Rectangle(_, _) =>
+      assign a := 0
+  end
+
+lemma area_correct(in shape: Shape, out a: Int) :=
+  correct area(in shape, out a)
+
+data Negative :=
+  case Negative(n: Int)
+
+// a raise ends the run, which the claim does not cover
+procedure checked_half(in n: Int, out h: Int) raises Negative :=
+  ensures 2 * h <= n
+  if n < 0 then
+    raise Negative(n)
+  end
+  assign h := n / 2
+
+lemma checked_half_correct(in n: Int, out h: Int) :=
+  correct checked_half(in n, out h)
+
+// a ref of a call has its value after the call by the ensures of the procedure
+procedure increment(ref x: Int) :=
+  ensures x >= 1
+  assign x := 1
+
+procedure positive(out y: Int) :=
+  ensures y > 0
+  assign y := 0
+  call   increment(ref y)
+
+lemma positive_correct(out y: Int) :=
+  correct positive(out y)
+
+// the claim names the arguments of the call by its own formals
+lemma sum_of_ten(out s: Int) :=
+  correct sum(in 10, out s)
+  invariant 2 * s == i * (i - 1) and i <= n

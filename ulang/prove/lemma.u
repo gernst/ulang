@@ -15,7 +15,7 @@ data Proofs :=
 // the lemmas in their order, each by simplification, else by induction on the first of its formals by which all cases
 // close, where the lemmas proven before are assumptions, and the recursive functions that they reach unfold only if
 // their termination is proven
-function prove_lemmas(decls: Decls, lemmas: List[Lemma]): Proofs
+function prove_lemmas(decls: Decls, contracts: List[Lemma], lemmas: List[Lemma]): Proofs
 
 function is_proven(proved: Proved): Bool
 
@@ -58,7 +58,7 @@ procedure prove_program(in q: Prog, m: Id) raises OpenLemma, OpenTermination
 implementation
 
 procedure prove_program(in q: Prog, m: Id) raises OpenLemma, OpenTermination :=
-  local t := translate(q, m), proofs := prove_lemmas(t.decls, t.lemmas)
+  local t := translate(q, m), proofs := prove_lemmas(t.decls, t.contracts, t.lemmas)
   for tm in proofs.terminations do
     match tm.open
       case List(site; _) =>
@@ -76,11 +76,11 @@ procedure prove_program(in q: Prog, m: Id) raises OpenLemma, OpenTermination :=
     end
   end
 
-function prove_lemmas(decls: Decls, lemmas: List[Lemma]): Proofs :=
-  let roots := Set(for l in lemmas for k in defined_in(decls, lemma_symbols(l)) yield k) in
+function prove_lemmas(decls: Decls, contracts: List[Lemma], lemmas: List[Lemma]): Proofs :=
+  let roots := Set(for l in lemmas ++ contracts for k in defined_in(decls, lemma_symbols(l)) yield k) in
   let ts := terminations(decls, roots) in
   let proven := Set(for t in ts if is_terminating(t) for k in t.names yield k) in
-  Proofs(proofs(decls with terminating := proven, lemmas, List()), ts)
+  Proofs(proofs(decls with terminating := proven, contracts, lemmas, List()), ts)
 
 function has_errors(proofs: Proofs): Bool :=
   exists(proofs.lemmas, lambda p => not is_proven(p)) or exists(proofs.terminations, lambda t => not is_terminating(t))
@@ -156,6 +156,9 @@ function split_symbols(split: SplitTerm): Set[Name * Int] :=
         case None =>
           empty()
       end
+
+    case InvariantTerm(_, _, inv, cond, body, after, _) =>
+      symbols_in(inv) ++ symbols_in(cond) ++ proof_symbols(body) ++ proof_symbols(after)
   end
 
 function cases_symbols(cases: List[CaseTerm]): Set[Name * Int] :=
@@ -169,8 +172,10 @@ function seq_symbols(s: Seq): Set[Name * Int] :=
       Set(for a in assms for k in seq_symbols(a) yield k) ++ Set(for c in concls for b in c.body for k in seq_symbols(b) yield k)
   end
 
-// the lemmas in their order, where proven are the lemmas proven before, whose goals are the facts of the default proof
-function proofs(decls: Decls, lemmas: List[Lemma], proven: List[Lemma]): List[Proved] :=
+// the lemmas in their order, where proven are the lemmas proven before, whose goals are the facts of the default proof,
+// without the claims, which hold only for the runs that end, so that ensures false of a loop that does not end would
+// prove every lemma after it
+function proofs(decls: Decls, contracts: List[Lemma], lemmas: List[Lemma], proven: List[Lemma]): List[Proved] :=
   match lemmas
     case List() =>
       List()
@@ -178,13 +183,16 @@ function proofs(decls: Decls, lemmas: List[Lemma], proven: List[Lemma]): List[Pr
     case List(target; rest) =>
       let gaps := match target.proof
         case Some(proof) =>
-          check_proof(decls, proven, target, proof)
+          check_proof(decls, proven, contracts, target, proof)
         case None =>
           default_gaps(decls, List(for l in proven yield l.goal), target.goal)
       end in
       let proved := Proved(target.name, gaps) in
       List(
-        proved; proofs(decls, rest, if is_proven(proved) then proven ++ List(target) else proven))
+        proved; proofs(decls, contracts, rest, if is_proven(proved) and not target.claim then
+          proven ++ List(target)
+        else
+          proven))
   end
 
 function default_gaps(decls: Decls, facts: List[Seq], goal: Seq): List[Gap] :=
@@ -239,7 +247,7 @@ function with_proof_errors(m: Id, gaps: Map[Name, List[Diagnostic]], open: Map[N
 
 function proof_errors(m: Id, gaps: Map[Name, List[Diagnostic]], open: Map[Name * Int, CallSite], pos: Pos, cmd: Cmd): List[Diagnostic] :=
   match cmd
-    case CLemma(name, _, _, _, _, _, _) =>
+    case CLemma(name, _, _, _, _, _) =>
       value_or(get(name, gaps), List())
 
     case CFun(name, _, formals, _, _, _) =>
