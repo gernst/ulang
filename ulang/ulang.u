@@ -286,9 +286,6 @@ procedure run_target(in target: Target, args: List[Str], out ok: Bool) :=
       case UnknownEntry(name) =>
         assign error := error_text(RuntimeKind, "there is no procedure " ++ name.base ++ " without parameters")
 
-      case OsError(m) =>
-        assign error := error_text(RuntimeKind, m)
-
       case e =>
         assign error := error_text(RuntimeKind, runtime_message(e))
 
@@ -334,7 +331,7 @@ procedure test_unit(
 // how many files passed, where ok tells whether all did
 procedure visit_units(
   in  found: List[Target],
-      visit: (in Prog, List[Target], out List[Str]),
+      visit: (in Prog, List[Target], out List[Str]) raises Thrown,
   out ok: Bool
 ) :=
   local units: List[List[Target]], q: Prog, error: Str, failed: Buffer[Str] := empty(), bad: List[Str]

@@ -88,10 +88,13 @@ test string_display() :=
   end
 
 test uncaught_shown() :=
-  assert raises Uncaught("Some(1 EUR)") do
+  assert raises Uncaught("Fine(1 EUR)") do
     call run_text(in "ulang/test/errors/uncaught-shown.u", List(
       "data Money :=",
       "  case Money(amount: Int)",
+      "",
+      "data Fine :=",
+      "  case Fine(money: Money)",
       "",
       "function show(m: Money): Str :=",
       "  match m",
@@ -100,5 +103,5 @@ test uncaught_shown() :=
       "  end",
       "",
       "test shown() :=",
-      "  raise Some(Money(1))"))
+      "  raise Fine(Money(1))"))
   end

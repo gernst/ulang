@@ -27,7 +27,7 @@ function defs_of(q: Prog): Defs
 data EntryError :=
   case UnknownEntry(name: Name)
 
-procedure require_entry(in q: Prog, n: Name)
+procedure require_entry(in q: Prog, n: Name) raises EntryError
 
 function field_names(constrs: List[Constr]): List[Id]
 
@@ -66,7 +66,7 @@ function unordered_of(defs: Defs, t: Name): Option[Name]
 
 implementation
 
-procedure require_entry(in q: Prog, n: Name) :=
+procedure require_entry(in q: Prog, n: Name) raises EntryError :=
   if not exists(q.cmds, lambda c => is_entry(c, n)) then
     raise UnknownEntry(n)
   end

@@ -14,16 +14,30 @@ import "ulang/prove"
 export
 
 // parses and checks the case as the file at path, which must be formatted, after the errors of parsing and checking
-procedure load_text(in path: Str, lines: List[Str], out main: Id, q: Prog)
+procedure load_text(
+  in  path: Str,
+      lines: List[Str],
+  out main: Id,
+      q: Prog
+) raises ParseError, TypeError, Unformatted, InternalError, OsError
 
 // load_text without its results
-procedure check_text(in path: Str, lines: List[Str])
+procedure check_text(
+  in  path: Str,
+      lines: List[Str]
+) raises ParseError, TypeError, Unformatted, InternalError, OsError
 
 // load_text, then the tests of the case
-procedure run_text(in path: Str, lines: List[Str])
+procedure run_text(
+  in  path: Str,
+      lines: List[Str]
+) raises ParseError, TypeError, Unformatted, InternalError, OsError, Thrown, RuntimeError
 
 // load_text, then the lemmas of the case
-procedure prove_text(in path: Str, lines: List[Str])
+procedure prove_text(
+  in  path: Str,
+      lines: List[Str]
+) raises ParseError, TypeError, Unformatted, InternalError, OsError, OpenLemma
 
 // load_text of several modules: the members of the package of the directory dir from the root, each its name and lines,
 // and main, the name and lines of the main file, which is one of them or a program in dir
@@ -32,21 +46,21 @@ procedure load_texts(
       members: List[Str * List[Str]],
       main: Str * List[Str],
   out q: Prog
-)
+) raises ParseError, TypeError, Unformatted, InternalError, OsError
 
 // load_texts without its result
 procedure check_texts(
   in  dir: Str,
       members: List[Str * List[Str]],
       main: Str * List[Str]
-)
+) raises ParseError, TypeError, Unformatted, InternalError, OsError
 
 // load_texts, then the tests of main
 procedure run_texts(
   in  dir: Str,
       members: List[Str * List[Str]],
       main: Str * List[Str]
-)
+) raises ParseError, TypeError, Unformatted, InternalError, OsError, Thrown, RuntimeError
 
 implementation
 
@@ -57,23 +71,37 @@ function module_in(dir: Str, name: Str): Id :=
 function text_of(lines: List[Str]): Str :=
   join("\n", lines) ++ "\n"
 
-procedure load_text(in path: Str, lines: List[Str], out main: Id, q: Prog) :=
+procedure load_text(
+  in  path: Str,
+      lines: List[Str],
+  out main: Id,
+      q: Prog
+) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
   local source: Source
   call   parse_file_text(in path, text_of(lines), out source)
   call   check_program(in source, out q)
   call   require_formatted(in source, source.main, text_of(lines))
   assign main := source.main
 
-procedure check_text(in path: Str, lines: List[Str]) :=
+procedure check_text(
+  in  path: Str,
+      lines: List[Str]
+) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
   local main: Id, q: Prog
   call load_text(in path, lines, out main, q)
 
-procedure run_text(in path: Str, lines: List[Str]) :=
+procedure run_text(
+  in  path: Str,
+      lines: List[Str]
+) raises ParseError, TypeError, Unformatted, InternalError, OsError, Thrown, RuntimeError :=
   local main: Id, q: Prog
   call load_text(in path, lines, out main, q)
   call run_program(in q)
 
-procedure prove_text(in path: Str, lines: List[Str]) :=
+procedure prove_text(
+  in  path: Str,
+      lines: List[Str]
+) raises ParseError, TypeError, Unformatted, InternalError, OsError, OpenLemma :=
   local main: Id, q: Prog
   call load_text(in path, lines, out main, q)
   call prove_program(in q, main)
@@ -83,7 +111,7 @@ procedure load_texts(
       members: List[Str * List[Str]],
       main: Str * List[Str],
   out q: Prog
-) :=
+) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
   local here: Str, root: Str, source: Source
   call os_cwd(out here)
   call project_root(in normal_path(here), out root)
@@ -98,7 +126,7 @@ procedure check_texts(
   in  dir: Str,
       members: List[Str * List[Str]],
       main: Str * List[Str]
-) :=
+) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
   local q: Prog
   call load_texts(in dir, members, main, out q)
 
@@ -106,7 +134,7 @@ procedure run_texts(
   in  dir: Str,
       members: List[Str * List[Str]],
       main: Str * List[Str]
-) :=
+) raises ParseError, TypeError, Unformatted, InternalError, OsError, Thrown, RuntimeError :=
   local q: Prog
   call load_texts(in dir, members, main, out q)
   call run_program(in q)

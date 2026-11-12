@@ -17,7 +17,11 @@ data Unformatted :=
 function format_module(source: Source, name: Id): Str
 
 // raises Unformatted if text, the source of the module name of source, is not what format_module writes of it
-procedure require_formatted(in source: Source, name: Id, text: Str)
+procedure require_formatted(
+  in  source: Source,
+      name: Id,
+      text: Str
+) raises Unformatted
 
 function format_lit(lit: Lit): Str
 
@@ -37,7 +41,11 @@ function array_text(texts: List[Str]): Str
 
 implementation
 
-procedure require_formatted(in source: Source, name: Id, text: Str) :=
+procedure require_formatted(
+  in  source: Source,
+      name: Id,
+      text: Str
+) raises Unformatted :=
   match first_difference(split(text, '\n'), split(format_module(source, name), '\n'), 1)
     case Some(line) =>
       raise Unformatted(line)
@@ -253,7 +261,7 @@ function expr_out(notation: Notation, indent: Str, expr: At[Expr]): Out :=
     case ELam(formals, body) =>
       Out("lambda " ++ format_patterns(notation, indent, formals) ++ " => " ++ format_expr(notation, indent, body), Open)
 
-    case EProc(ins, outs, refs, stmt) =>
+    case EProc(ins, outs, refs, _, stmt) =>
       Out(block_text(notation, indent, "lambda " ++ formal_sections(ins, outs, refs) ++ " =>", stmt), Atom)
 
     case ELet(bindings, body) =>

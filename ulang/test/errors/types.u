@@ -580,3 +580,91 @@ test unknown_variable() :=
   assert raises Located(None, Pos(2, 3), UnknownVariable(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/unknown-variable.u", List("function f(): Int :=", "  x"))
   end
+
+test raise_undeclared() :=
+  assert raises Located(None, Pos(8, 3), UndeclaredRaise(Name(Some("ulang/test/errors/raise-undeclared"), "p"), _)) do
+    call check_text(in "ulang/test/errors/raise-undeclared.u", List(
+      "data Failed :=",
+      "  case Failed",
+      "",
+      "data Other :=",
+      "  case Other",
+      "",
+      "procedure p() raises Failed :=",
+      "  raise Other"))
+  end
+
+// a handler that does not cover its type lets the others of that type through
+test raise_through_handler() :=
+  assert raises Located(None, Pos(9, 5), UndeclaredRaise(Name(Some("ulang/test/errors/raise-through-handler"), "p"), _)) do
+    call check_text(in "ulang/test/errors/raise-through-handler.u", List(
+      "data Failed :=",
+      "  case Failed(code: Int)",
+      "",
+      "data Other :=",
+      "  case Other",
+      "",
+      "procedure p() raises Other :=",
+      "  try",
+      "    raise Failed(1)",
+      "  catch",
+      "    case Failed(0) =>",
+      "      raise Other",
+      "  end"))
+  end
+
+test raise_untyped_value() :=
+  assert raises Located(None, Pos(11, 17), UntypedRaise(Name(Some("ulang/test/errors/raise-untyped-value"), "fail"), _)) do
+    call check_text(in "ulang/test/errors/raise-untyped-value.u", List(
+      "data Failed :=",
+      "  case Failed",
+      "",
+      "procedure fail(in n: Int) :=",
+      "  raise Failed",
+      "",
+      "procedure apply(in q: (in Int)) :=",
+      "  call q(in 1)",
+      "",
+      "test applied() :=",
+      "  call apply(in fail)"))
+  end
+
+test raise_untyped_lambda() :=
+  assert raises Located(None, Pos(9, 5), UntypedRaise(Name(None, "lambda"), _)) do
+    call check_text(in "ulang/test/errors/raise-untyped-lambda.u", List(
+      "data Failed :=",
+      "  case Failed",
+      "",
+      "procedure apply(in q: (in Int)) :=",
+      "  call q(in 1)",
+      "",
+      "test applied() :=",
+      "  call apply(in lambda in n =>",
+      "    raise Failed",
+      "  end)"))
+  end
+
+test raise_never() :=
+  assert raises Located(None, Pos(8, 5), NeverRaised(_)) do
+    call check_text(in "ulang/test/errors/raise-never.u", List(
+      "data Failed :=",
+      "  case Failed",
+      "",
+      "test never() :=",
+      "  try",
+      "    skip",
+      "  catch",
+      "    case Failed =>",
+      "      skip",
+      "  end"))
+  end
+
+test raise_not_exception() :=
+  assert raises Located(None, Pos(2, 3), NotAnException(_)) do
+    call check_text(in "ulang/test/errors/raise-not-exception.u", List("test raised() :=", "  raise Some(1)"))
+  end
+
+test raises_not_exception() :=
+  assert raises Located(None, Pos(1, 1), NotAnException(_)) do
+    call check_text(in "ulang/test/errors/raises-not-exception.u", List("procedure p() raises Option[Int] :=", "  skip"))
+  end

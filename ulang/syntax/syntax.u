@@ -73,7 +73,8 @@ data Expr :=
   // keeping those that are variables and matching the others in the body, so that the backends see only variables
   case ELam(formals: List[At[Pat]], body: At[Expr])
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
-  case EProc(ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
+  // where raised is the type of what it may raise, as of TProc, THole until the checker infers it from where it is used
+  case EProc(ins: List[Var], outs: List[Var], refs: List[Var], raised: Type, stmt: At[Stmt])
   // let p := a, … in body, which binds in parallel, by irrefutable patterns
   case ELet(bindings: List[At[Pat] * At[Expr]], body: At[Expr])
   // if c then a else b
@@ -690,8 +691,8 @@ function strip_node(expr: Expr): Expr :=
     case ELam(formals, body) =>
       ELam(List(for p in formals yield strip_pat(p)), strip_expr(body))
 
-    case EProc(ins, outs, refs, stmt) =>
-      EProc(ins, outs, refs, strip_stmt(stmt))
+    case EProc(ins, outs, refs, raised, stmt) =>
+      EProc(ins, outs, refs, raised, strip_stmt(stmt))
 
     case ELet(bindings, body) =>
       ELet(List(for (p, e) in bindings yield (strip_pat(p), strip_expr(e))), strip_expr(body))
