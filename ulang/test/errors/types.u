@@ -6,7 +6,7 @@ import "ulang/check"
 import "ulang/test/cases"
 
 test add_bool() :=
-  assert raises Located(None, Pos(2, 5), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 7), Mismatch(_, _, "argument 2 of the call")) do
     call check_text(in "ulang/test/errors/add-bool.u", List("function f(): Int :=", "  1 + true"))
   end
 
@@ -36,7 +36,7 @@ test call_output_type() :=
   end
 
 test case_types() :=
-  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(6, 7), Mismatch(_, _, "the case")) do
     call check_text(in "ulang/test/errors/case-types.u", List(
       "function f(): Int :=",
       "  match List()",
@@ -48,7 +48,7 @@ test case_types() :=
   end
 
 test catch_unknown_type() :=
-  assert raises Located(None, Pos(1, 1), UnknownException(_)) do
+  assert raises Located(None, Pos(5, 5), UnknownException(_)) do
     call check_text(in "ulang/test/errors/catch-unknown-type.u", List(
       "test catch_unknown_type() :=",
       "  try",
@@ -65,7 +65,7 @@ test comprehension_list() :=
   end
 
 test comprehension_test() :=
-  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 23), Mismatch(_, _, "the condition of if")) do
     call check_text(in "ulang/test/errors/comprehension-test.u", List("function f(xs: List[Int]): List[Int] :=", "  List(for x in xs if x)"))
   end
 
@@ -125,7 +125,7 @@ test empty_ambiguous() :=
   end
 
 test empty_tuple_argument() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 3), Mismatch(_, _, "the result of f")) do
     call check_text(in "ulang/test/errors/empty-tuple-argument.u", List("function f(g: (()) -> Int): Int :=", "  g"))
   end
 
@@ -160,7 +160,7 @@ test generator_no_fold() :=
   end
 
 test guard_type() :=
-  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(3, 15), Mismatch(_, _, "the guard")) do
     call check_text(in "ulang/test/errors/guard-type.u", List(
       "function f(n: Int): Int :=",
       "  match n",
@@ -241,29 +241,29 @@ test hidden_procedure_lambda() :=
   end
 
 test if_condition() :=
-  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 6), Mismatch(_, _, "the condition of if")) do
     call check_text(in "ulang/test/errors/if-condition.u", List("function f(): Int :=", "  if 1 then 2 else 3"))
   end
 
 test if_statement_condition() :=
-  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 6), Mismatch(_, _, "the condition of if")) do
     call check_text(in "ulang/test/errors/if-statement-condition.u", List("procedure p(in x: Int) :=", "  if x then", "    skip", "  end"))
   end
 
 test lambda_monomorphic() :=
-  assert raises Located(None, Pos(2, 30), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 32), Mismatch(_, _, "argument 1 of the call")) do
     call check_text(in "ulang/test/errors/lambda-monomorphic.u", List(
       "function f(): Bool :=",
       "  (lambda g => g(1) == 1 and g(true))(lambda y => y)"))
   end
 
 test lemma_ensures_type() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 13), Mismatch(_, _, "the conclusion")) do
     call check_text(in "ulang/test/errors/lemma-ensures-type.u", List("lemma l(x: Int) :=", "  ensures x + 1"))
   end
 
 test lemma_requires_type() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 12), Mismatch(_, _, "the assumption")) do
     call check_text(in "ulang/test/errors/lemma-requires-type.u", List("lemma l(x: Int) :=", "  requires x", "  ensures  x == x"))
   end
 
@@ -273,7 +273,7 @@ test lemma_unknown_variable() :=
   end
 
 test let_monomorphic() :=
-  assert raises Located(None, Pos(3, 17), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(3, 19), Mismatch(_, _, "argument 1 of the call")) do
     call check_text(in "ulang/test/errors/let-monomorphic.u", List(
       "function f(): Bool :=",
       "  let g := lambda y => y in",
@@ -290,7 +290,7 @@ test let_parallel() :=
   end
 
 test let_rigid() :=
-  assert raises Located(None, Pos(3, 8), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(3, 11), Mismatch(_, _, "argument 2 of the call")) do
     call check_text(in "ulang/test/errors/let-rigid.u", List(
       "function f[A](x: A): Bool :=",
       "  let g := lambda y => x in",
@@ -298,7 +298,7 @@ test let_rigid() :=
   end
 
 test list_type() :=
-  assert raises Located(None, Pos(2, 10), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 10), Mismatch(_, _, "argument 2 of the call")) do
     call check_text(in "ulang/test/errors/list-type.u", List("test list_type() :=", "  assert List(1, true) == List()"))
   end
 
@@ -473,12 +473,12 @@ test procedure_modes() :=
   end
 
 test raise_type_parameter() :=
-  assert raises Located(None, Pos(1, 1), UnknownException(_)) do
+  assert raises Located(None, Pos(2, 3), UnknownException(_)) do
     call check_text(in "ulang/test/errors/raise-type-parameter.u", List("procedure p[A](in x: A) :=", "  raise x"))
   end
 
 test raise_unknown_type() :=
-  assert raises Located(None, Pos(1, 1), UnknownException(_)) do
+  assert raises Located(None, Pos(2, 3), UnknownException(_)) do
     call check_text(in "ulang/test/errors/raise-unknown-type.u", List("test raise_unknown_type() :=", "  raise List()"))
   end
 
@@ -492,12 +492,12 @@ test raises_binds() :=
   end
 
 test rigid_param() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 3), Mismatch(_, _, "the result of f")) do
     call check_text(in "ulang/test/errors/rigid-param.u", List("function f[A](x: A): Int :=", "  x"))
   end
 
 test rigid_params() :=
-  assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 3), Mismatch(_, _, "the result of f")) do
     call check_text(in "ulang/test/errors/rigid-params.u", List("function f[A, B](x: A): B :=", "  x"))
   end
 
@@ -512,7 +512,7 @@ test test_params() :=
   end
 
 test test_types() :=
-  assert raises Located(None, Pos(2, 3), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(2, 10), Mismatch(_, _, "the assertion")) do
     call check_text(in "ulang/test/errors/test-types.u", List("test test_types() :=", "  assert 1"))
   end
 

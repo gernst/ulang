@@ -15,6 +15,8 @@ data TypeError :=
   case MissingType(name: Name)
   case UndeclaredParams(name: Name, types: List[Type])
   case CannotUnify(left: Type, right: Type)
+  // the type found of a part, which what names, where the type expected is another
+  case Mismatch(expected_type: Type, found_type: Type, what: Str)
   case InfiniteType(meta: Type, typ: Type)
   case UnknownVariable(name: Name)
   case NoOverload(name: Name, typ: Type)
@@ -672,11 +674,15 @@ function zonk_cmd(s: State, cmd: Cmd): Cmd :=
   end
 
 // exceptions are told apart by their types at runtime, which must therefore be known after checking
+// the type t of an exception at pos, if it is not known
+function unknown_at(pos: Pos, t: Type): Option[Pos * Type] :=
+  map_option(unknown_type(t), lambda u => (pos, u))
+
 function unknown_type(t: Type): Option[Type] :=
   if free(t) == List() then None else Some(t)
 
 // the type of an exception that is not known, also of those raised in expressions
-function unknown_in(stmt: At[Stmt]): Option[Type] :=
+function unknown_in(stmt: At[Stmt]): Option[Pos * Type] :=
   match stmt.that
     case SAssign(upd) =>
       unknown_in_exprs(seconds(upd))
@@ -700,10 +706,10 @@ function unknown_in(stmt: At[Stmt]): Option[Type] :=
       unknown_in_expr(cond)
 
     case SAssertRaises(typ, pat, body) =>
-      or_else(if pat.that == PWild then None else unknown_type(typ), unknown_in(body))
+      or_else(if pat.that == PWild then None else unknown_at(stmt.pos, typ), unknown_in(body))
 
     case SRaise(value, typ) =>
-      or_else(unknown_type(typ), unknown_in_expr(value))
+      or_else(unknown_at(stmt.pos, typ), unknown_in_expr(value))
 
     case STry(body, catches) =>
       or_else(unknown_in(body), unknown_in_handlers(catches))
@@ -715,7 +721,7 @@ function unknown_in(stmt: At[Stmt]): Option[Type] :=
       None
   end
 
-function unknown_in_expr(expr: At[Expr]): Option[Type] :=
+function unknown_in_expr(expr: At[Expr]): Option[Pos * Type] :=
   match expr.that
     case EApp(fun, args) =>
       unknown_in_exprs(List(fun; args))
@@ -749,7 +755,7 @@ function unknown_in_expr(expr: At[Expr]): Option[Type] :=
       None
   end
 
-function unknown_in_exprs(exprs: List[At[Expr]]): Option[Type] :=
+function unknown_in_exprs(exprs: List[At[Expr]]): Option[Pos * Type] :=
   find_map(exprs, unknown_in_expr)
 
 function branch_exprs(b: Doc[Branch[At[Expr]]]): List[At[Expr]] :=
@@ -760,30 +766,30 @@ function branch_exprs(b: Doc[Branch[At[Expr]]]): List[At[Expr]] :=
       List(body)
   end
 
-function unknown_in_all(xs: List[At[Stmt]]): Option[Type] :=
+function unknown_in_all(xs: List[At[Stmt]]): Option[Pos * Type] :=
   find_map(xs, unknown_in)
 
-function unknown_in_branches(bs: List[Doc[Branch[At[Stmt]]]]): Option[Type] :=
+function unknown_in_branches(bs: List[Doc[Branch[At[Stmt]]]]): Option[Pos * Type] :=
   find_map(bs, unknown_in_branch)
 
-function unknown_in_branch(b: Doc[Branch[At[Stmt]]]): Option[Type] :=
+function unknown_in_branch(b: Doc[Branch[At[Stmt]]]): Option[Pos * Type] :=
   match b.at.that
     case Branch(_, guard, body) =>
       or_else(unknown_in_guard(guard), unknown_in(body))
   end
 
 // handlers of _ catch exceptions of any type
-function unknown_in_handlers(hs: List[Doc[Catch]]): Option[Type] :=
+function unknown_in_handlers(hs: List[Doc[Catch]]): Option[Pos * Type] :=
   find_map(hs, unknown_in_handler)
 
-function unknown_in_handler(h: Doc[Catch]): Option[Type] :=
+function unknown_in_handler(h: Doc[Catch]): Option[Pos * Type] :=
   match h.at.that
     case Catch(typ, pat, guard, body) =>
-      let caught := if pat.that == PWild then None else unknown_type(typ) in
+      let caught := if pat.that == PWild then None else unknown_at(h.at.pos, typ) in
       or_else(caught, or_else(unknown_in_guard(guard), unknown_in(body)))
   end
 
-function unknown_in_guard(guard: Option[At[Expr]]): Option[Type] :=
+function unknown_in_guard(guard: Option[At[Expr]]): Option[Pos * Type] :=
   match guard
     case Some(g) =>
       unknown_in_expr(g)
@@ -791,7 +797,7 @@ function unknown_in_guard(guard: Option[At[Expr]]): Option[Type] :=
       None
   end
 
-function unknown_in_cmd(cmd: Cmd): Option[Type] :=
+function unknown_in_cmd(cmd: Cmd): Option[Pos * Type] :=
   match cmd
     case CFun(_, _, _, _, body) =>
       unknown_in_expr(body)
@@ -1524,9 +1530,9 @@ procedure infer_node(
 
     case EIte(cond, then_expr, else_expr) =>
       local b: At[Expr], c: At[Expr], l: At[Expr], u: Type
-      call   check(in env, cond, TBool(), out c, ref s)
+      call   check(in env, cond, TBool(), "the condition of if", out c, ref s)
       call   infer(in env, then_expr, out l, u, ref s)
-      call   check(in env, else_expr, u, out b, ref s)
+      call   check(in env, else_expr, u, "the else branch", out b, ref s)
       assign res := EIte(c, l, b), typ := u
 
     case ETuple(items) =>
@@ -1892,7 +1898,16 @@ procedure apply(
   local ts: List[Type]
   call fresh(out r, ref s)
   call infers_first(in env, args, out typed_args, ts, ref s)
-  call unify(in f, TFun(ts, r), ref s)
+  match zonk_type(s.sub, f)
+    case TFun(ps, res) if size(ps) == size(args) =>
+      for ((a, p), (t, i)) in zip(zip(args, ps), numbered(ts)) do
+        call expect(in a.pos, "argument " ++ show(i + 1) ++ " of the call", p, t, ref s)
+      end
+      call unify(in res, r, ref s)
+
+    case _ =>
+      call unify(in f, TFun(ts, r), ref s)
+  end
   call infers_lambdas(in env, args, ts, ref typed_args, s)
 
 // the arguments in order, except the lambdas, which get an unknown type and wait until the type of the function is
@@ -2000,10 +2015,12 @@ procedure infer_lambda(
   end
   call unify(in u, t, ref s)
 
+// expr of the type t, where what names it in a mismatch
 procedure check(
   in  env: Env,
       expr: At[Expr],
       t: Type,
+      what: Str,
   out typed_expr: At[Expr],
   ref s: State
 ) :=
@@ -2012,7 +2029,30 @@ procedure check(
     call infer_lambda(in env, expr, t, out typed_expr, ref s)
   else
     call infer(in env, expr, out typed_expr, u, ref s)
-    call unify(in u, t, ref s)
+    call expect(in expr.pos, what, t, u, ref s)
+  end
+
+// the type u of the part at pos, which what names, is t, else the mismatch of the whole types at the part, instead of
+// the parts of the types that do not unify
+procedure expect(in pos: Pos, what: Str, t: Type, u: Type, ref s: State) :=
+  local before := s.errors, outer := s.at
+  assign s := s with at := pos
+  call   unify(in u, t, ref s)
+  if exists(drop(size(before), s.errors), is_unify_error) then
+    assign s := s with errors := before ++ List(at_use(pos, Mismatch(zonk_type(s.sub, t), zonk_type(s.sub, u), what)))
+  end
+  assign s := s with at := outer
+
+function is_unify_error(e: TypeError): Bool :=
+  match e
+    case Located(_, _, CannotUnify(_, _)) =>
+      true
+
+    case CannotUnify(_, _) =>
+      true
+
+    case _ =>
+      false
   end
 
 // the expressions of what, checked against the types ts, as many
@@ -2027,7 +2067,7 @@ procedure checks(
   match (exprs, ts)
     case (List(expr; more), List(t; ts_)) =>
       local typed_expr: At[Expr], rest: List[At[Expr]]
-      call   check(in env, expr, t, out typed_expr, ref s)
+      call   check(in env, expr, t, what, out typed_expr, ref s)
       call   checks(in env, what, more, ts_, out rest, ref s)
       assign typed_exprs := List(typed_expr; rest)
 
@@ -2071,7 +2111,7 @@ procedure expr_branches(
       call   typed_pattern(in pat, t, out typed_pat, xs, ref s)
       call   unhidden(in env, xs, ref s)
       call   guard(in bind(xs) ++ env, g, out typed_guard, ref s)
-      call   check(in bind(xs) ++ env, body, r, out typed_body, ref s)
+      call   check(in bind(xs) ++ env, body, r, "the case", out typed_body, ref s)
       call   expr_branches(in env, more, t, r, out rest, ref s)
       assign typed_cases := List(Doc(doc, AOk(pos, Branch(typed_pat, typed_guard, typed_body))); rest)
 
@@ -2089,7 +2129,7 @@ procedure guard(
   match g
     case Some(expr) =>
       local typed_expr: At[Expr]
-      call   check(in env, expr, TBool(), out typed_expr, ref s)
+      call   check(in env, expr, TBool(), "the guard", out typed_expr, ref s)
       assign typed_guard := Some(typed_expr)
 
     case None =>
@@ -2423,7 +2463,7 @@ procedure statement_node(
 
     case SIf(cond, left, right) =>
       local c: At[Expr], l: At[Stmt], r: At[Stmt], other: Env
-      call   check(in env, cond, TBool(), out c, ref s)
+      call   check(in env, cond, TBool(), "the condition of if", out c, ref s)
       assign other := env
       call   statement(in assignable, left, out l, ref env, s)
       call   statement(in assignable, right, out r, ref other, s)
@@ -2431,7 +2471,7 @@ procedure statement_node(
 
     case SWhile(cond, body) =>
       local c: At[Expr], l: At[Stmt], inner: Env
-      call   check(in env, cond, TBool(), out c, ref s)
+      call   check(in env, cond, TBool(), "the condition of while", out c, ref s)
       assign inner := env
       call   statement(in assignable, body, out l, ref inner, s)
       assign y := SWhile(c, l)
@@ -2452,7 +2492,7 @@ procedure statement_node(
 
     case SAssert(cond) =>
       local c: At[Expr]
-      call   check(in env, cond, TBool(), out c, ref s)
+      call   check(in env, cond, TBool(), "the assertion", out c, ref s)
       assign y := SAssert(c)
       if c.that == ELit(LBool(false)) then
         assign env := unreachable(env)
@@ -2998,7 +3038,7 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
       local xs: List[Var], r: Type, b: At[Expr]
       call   signature(in formals, out xs, ref s)
       call   known(in typ, name, out r, ref s)
-      call   check(in bind(xs), body, r, out b, ref s)
+      call   check(in bind(xs), body, r, "the result of " ++ name.base, out b, ref s)
       assign typed_cmd := CFun(name, params, xs, r, b)
 
     case CProc(name, params, ins, outs, refs, stmt) =>
@@ -3027,10 +3067,10 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
       call signature(in formals, out xs, ref s)
       for a in assms do
         local b: At[Expr]
-        call   check(in bind(xs), a, TBool(), out b, ref s)
+        call   check(in bind(xs), a, TBool(), "the assumption", out b, ref s)
         assign checked := checked ++ List(b)
       end
-      call   check(in bind(xs), concl, TBool(), out c, ref s)
+      call   check(in bind(xs), concl, TBool(), "the conclusion", out c, ref s)
       assign typed_cmd := CLemma(name, params, xs, checked, c)
 
     case _ =>
@@ -3063,8 +3103,8 @@ procedure commands(
       call   reported(in s)
       assign zonked := zonk_cmd(s, typed_cmd)
       match unknown_in_cmd(zonked)
-        case Some(t) =>
-          raise UnknownException(t)
+        case Some((pos, t)) =>
+          raise at_use(pos, UnknownException(t))
         case None =>
           skip
       end
@@ -3680,13 +3720,13 @@ test inference() :=
   assert t == TBool()
   call type_of(in let_id(expr_int(2)), out t)
   assert t == TTuple(List(TInt(), TInt()))
-  assert raises CannotUnify(TInt(), TBool()) do
+  assert raises Mismatch(TInt(), TBool(), "argument 1 of the call") do
     call type_of(in let_id(nowhere(ELit(LBool(true)))), out t)
   end
   assert raises InfiniteType(_, _) do
     call type_of(in lambda_at(List(Var(unqualified("f"), THole)), expr_app("f", List(expr_var("f")))), out t)
   end
-  assert raises CannotUnify(TInt(), TBool()) do
+  assert raises Mismatch(_, _, _) do
     call type_of(in expr_app("<", List(expr_int(1), nowhere(ELit(LBool(true))))), out t)
   end
   assert raises UnknownVariable(Name(None, "x")) do
