@@ -89,7 +89,7 @@ function step_gaps(w: Walk, scope: Scope, step: StepTerm): Scope * List[Gap] :=
   match step
     case DefineTerm(x, value, _) =>
       let k := size(scope.vars) in
-      (scope with vars := scope.vars ++ List(x), env := List(k; scope.env), facts := scope.facts ++ List(Atom(Eq(ELevel(k), opened(scope, value)))), List())
+      (scope with vars := scope.vars ++ List(defined_var(x)), env := List(k; scope.env), facts := scope.facts ++ List(Atom(Eq(ELevel(k), opened(scope, value)))), List())
 
     case WitnessTerm(x, _) =>
       let k := size(scope.vars) in

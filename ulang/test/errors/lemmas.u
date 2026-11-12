@@ -113,6 +113,17 @@ test proof_open_assert() :=
       "  assert x > 0"))
   end
 
+// an open goal names the definitions of the proof where it has their values, and leaves out those that it no longer has,
+// here p, whose value a * b is folded into q first
+test proof_definitions_named() :=
+  assert raises OpenLemma("named", "forall a, b, q => b < q at 4.3") do
+    call prove_text(in "ulang/test/errors/proof-definitions-named.u", List(
+      "lemma named(in a: Int, b: Int) :=",
+      "  ensures true",
+      "  local p := a * b, q := p + a",
+      "  assert q > b"))
+  end
+
 // a call of the lemma itself outside the case of an induction
 test proof_self_call() :=
   assert raises OpenLemma("self_call", "the lemma calls itself only at a recursive field of the case of its induction at 3.3") do
