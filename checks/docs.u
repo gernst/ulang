@@ -126,7 +126,7 @@ function names_of(decls: Decls): Set[Str] :=
   end
 
 function module_decls(d: Mod): Decls :=
-  let cmds := List(for top in d.exported ++ d.builtins ++ d.implemented yield top.cmd) in
+  let cmds := commands_of(placed_of(d)) in
   DModule(Set(for c in cmds for n in cmd_names(c) yield n), Map(for c in cmds for (t, fs) in cmd_fields(c) yield t => fs))
 
 function cmd_names(cmd: Cmd): List[Str] :=
@@ -135,7 +135,7 @@ function cmd_names(cmd: Cmd): List[Str] :=
       List(name.base)
 
     case CData(name, _, constrs) =>
-      List(name.base; List(for k in constrs yield k.name.base))
+      List(name.base; List(for k in parts(constrs) yield k.name.base))
 
     case CFun(name, _, _, _, _) =>
       List(name.base)
@@ -169,7 +169,7 @@ function cmd_fields(cmd: Cmd): List[Str * Set[Str]] :=
   match cmd
     case CData(name, _, constrs) =>
       List(
-        (name.base, Set(for k in constrs for field in k.fields yield field.name)))
+        (name.base, Set(for k in parts(constrs) for field in k.fields yield field.name)))
 
     case _ =>
       List()

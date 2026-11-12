@@ -23,12 +23,18 @@ test guard_not_exhaustive() :=
   end
 
 test lambda_pattern() :=
-  assert raises Located(None, Pos(1, 1), NotExhaustive(PApp(Name(Some("prelude/option"), "None"), List()))) do
+  assert raises Located(None, Pos(2, 3), NotExhaustive(PApp(Name(Some("prelude/option"), "None"), List()))) do
     call check_text(in "ulang/test/errors/lambda-pattern.u", List("function value(): Option[Int] -> Int :=", "  lambda Some(x) => x"))
   end
 
+// a formal that names a constructor matches it, as in a case, and binds nothing
+test lambda_constructor_formal() :=
+  assert raises Located(None, Pos(2, 4), NotExhaustive(PApp(Name(Some("prelude/option"), "Some"), List(AOk(_, PWild))))) do
+    call check_text(in "ulang/test/errors/lambda-constructor-formal.u", List("function f(): Int :=", "  (lambda x, None => x)(1, Some(2))"))
+  end
+
 test missing_cons() :=
-  assert raises Located(None, Pos(2, 3), NotExhaustive(PApp(Name(Some("prelude/list"), "Cons"), List(PWild, PWild)))) do
+  assert raises Located(None, Pos(2, 3), NotExhaustive(PApp(Name(Some("prelude/list"), "Cons"), List(AOk(_, PWild), AOk(_, PWild))))) do
     call check_text(in "ulang/test/errors/missing-cons.u", List(
       "function f(x: List[Option[Int]]): Int :=",
       "  match x",
@@ -84,7 +90,7 @@ test missing_nil() :=
   end
 
 test missing_pair_case() :=
-  assert raises Located(None, Pos(2, 3), NotExhaustive(PTuple(List(PLit(LBool(false)), PLit(LBool(true)))))) do
+  assert raises Located(None, Pos(2, 3), NotExhaustive(PTuple(List(AOk(_, PLit(LBool(false))), AOk(_, PLit(LBool(true))))))) do
     call check_text(in "ulang/test/errors/missing-pair-case.u", List(
       "function f(p: Bool * Bool): Int :=",
       "  match p",
@@ -194,7 +200,7 @@ test unreachable_after_wildcard() :=
   end
 
 test unreachable_covered() :=
-  assert raises Located(None, Pos(2, 3), Unreachable(PTuple(List(PLit(LBool(true)), PLit(LBool(true)))))) do
+  assert raises Located(None, Pos(2, 3), Unreachable(PTuple(List(AOk(_, PLit(LBool(true))), AOk(_, PLit(LBool(true))))))) do
     call check_text(in "ulang/test/errors/unreachable-covered.u", List(
       "function f(p: Bool * Bool): Int :=",
       "  match p",

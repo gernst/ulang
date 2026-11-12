@@ -1,4 +1,4 @@
-// the core syntax of ulang, without positions,
+// the core syntax of ulang, whose parts carry the positions that the parser gives them (At),
 // where constructors are prefixed by their type, since they share one namespace
 
 export
@@ -44,37 +44,48 @@ data Var :=
   // x or x: T, as a formal, local, or binding, with THole for a type not written
   case Var(name: Name, typ: Type)
 
+// a part of the syntax at the position of its first token, or of the token that names it, which the checker keeps
+data At[A] :=
+  case AOk(pos: Pos, that: A)
+  // a part that a phase rejected, with its error
+  case AErr(pos: Pos, that: A, error: Diagnostic)
+  // a part that does not parse, as written from pos to where the parser resumes
+  case AUnparsed(pos: Pos, text: Str, error: Diagnostic)
+
+// a part on lines of its own after its doc of // lines, a command, a constructor, or a case of a match or catch
+data Doc[A] :=
+  case Doc(doc: Option[Str], at: At[A])
+
 data Expr :=
   // a literal
   case ELit(lit: Lit)
   // a name x of a local or a declaration, which the checker resolves
   case EVar(var: Var)
-  // f(a, …) of a function or constructor, or an operator of the notation, e.g. a + b, -a, or not a
-  case EApp(fun: Expr, args: List[Expr])
-  // e.f and e with f := a, which the checker resolves by the type of e to the accessor T.f and the updater T.f:=
-  case EField(base: Expr, field: Id)
-  case EUpdate(base: Expr, field: Id, value: Expr)
+  // f(a, …) of a function or constructor, or an operator of the notation, e.g. a + b, -a, or not a, at the position of the
+  // name or operator
+  case EApp(fun: At[Expr], args: List[At[Expr]])
+  // e.f and e with f := a, which the checker resolves by the type of e to the accessor T.f and the updater T.f:=, at the
+  // position of . and with
+  case EField(base: At[Expr], field: Id)
+  case EUpdate(base: At[Expr], field: Id, value: At[Expr])
   // lambda p, … => body, whose formals are patterns, which it matches as let does, and which the checker makes variables,
-  // lambda_vars, matching the others in the body
-  case ELam(formals: List[Pat], body: Expr)
+  // keeping those that are variables and matching the others in the body, so that the backends see only variables
+  case ELam(formals: List[At[Pat]], body: At[Expr])
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
-  case EProc(ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
+  case EProc(ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
   // let p := a, … in body, which binds in parallel, by irrefutable patterns
-  case ELet(bindings: List[Pat * Expr], body: Expr)
+  case ELet(bindings: List[At[Pat] * At[Expr]], body: At[Expr])
   // if c then a else b
-  case EIte(cond: Expr, then_expr: Expr, else_expr: Expr)
+  case EIte(cond: At[Expr], then_expr: At[Expr], else_expr: At[Expr])
   // match e case p => a … end, one case per line
-  case EMatch(arg: Expr, cases: List[Branch[Expr]])
+  case EMatch(arg: At[Expr], cases: List[Doc[Branch[At[Expr]]]])
   // a tuple (a, b, …)
-  case ETuple(args: List[Expr])
+  case ETuple(args: List[At[Expr]])
   // List(a, b; r), Set(…), Map(k => v; r), and Array(…), which the checker translates to the builders of their modules
-  case EForm(form: Form, elems: List[Yield], rest: Option[Expr])
+  case EForm(form: Form, elems: List[Yield], rest: Option[At[Expr]])
   // List(for p in c if q yield e; r) and the like, which the checker translates to the folds of the modules of the
   // containers, where elem is what each step adds, written after yield or else the value of the single generator
-  case EFor(form: Form, gens: List[Gen], elem: Yield, rest: Option[Expr])
-  // expr at the position of the token that names it, which the parser adds to the uses of names, accesses and updates of
-  // fields, and forms, and the checker drops, reporting an error inside at the innermost position
-  case EAt(pos: Pos, expr: Expr)
+  case EFor(form: Form, gens: List[Gen], elem: Yield, rest: Option[At[Expr]])
 
 data Form :=
   // the form List(…)
@@ -89,17 +100,17 @@ data Form :=
 // an element of a list, set, or array, or an entry k => v of a map
 data Yield :=
   // an element a
-  case YVal(value: Expr)
+  case YVal(value: At[Expr])
   // an entry k => v
-  case YPair(key: Expr, value: Expr)
+  case YPair(key: At[Expr], value: At[Expr])
 
 data Gen :=
   // for p in c over a list, set, or array, where p is irrefutable
-  case GVal(pat: Pat, over: Expr)
+  case GVal(pat: At[Pat], over: At[Expr])
   // for k => v in m over a map
-  case GPair(key: Pat, value: Pat, over: Expr)
+  case GPair(key: At[Pat], value: At[Pat], over: At[Expr])
   // a guard if q after a generator
-  case GIf(cond: Expr)
+  case GIf(cond: At[Expr])
 
 data Pat :=
   // the wildcard _
@@ -109,55 +120,51 @@ data Pat :=
   // a variable x, which binds x
   case PVar(var: Var)
   // a constructor C(p, …) or C, where List(p, …; r) and List() are Cons and Nil
-  case PApp(constr: Name, args: List[Pat])
+  case PApp(constr: Name, args: List[At[Pat]])
   // a tuple (p, q, …)
-  case PTuple(args: List[Pat])
-  // pat at its position, which the parser adds to constructors and the checker drops, as for EAt
-  case PAt(pos: Pos, pat: Pat)
+  case PTuple(args: List[At[Pat]])
 
 data Branch[A] :=
   // case p if g => body of a match, where if g is optional
-  case Branch(doc: Str, pat: Pat, guard: Option[Expr], body: A)
+  case Branch(pat: At[Pat], guard: Option[At[Expr]], body: A)
 
 data Stmt :=
   // skip, also an else that is not written
   case SSkip
   // assign x := a, …, which assigns in parallel
-  case SAssign(upd: List[Var * Expr])
+  case SAssign(upd: List[Var * At[Expr]])
   // statements one after another, the body of an if, while, case, or procedure, which may declare local x := e first
-  case SBlock(locals: List[Var], stmts: List[Stmt])
+  case SBlock(locals: List[Var], stmts: List[At[Stmt]])
   // if c then … else … end, or if c then … end
-  case SIf(cond: Expr, left: Stmt, right: Stmt)
+  case SIf(cond: At[Expr], left: At[Stmt], right: At[Stmt])
   // while c do … end
-  case SWhile(cond: Expr, body: Stmt)
+  case SWhile(cond: At[Expr], body: At[Stmt])
   // call p(in a, …, out x, …, ref y, …), where in is optional before the first ins
-  case SCall(proc: Name, ins: List[Expr], outs: List[Var], refs: List[Var])
+  case SCall(proc: Name, ins: List[At[Expr]], outs: List[Var], refs: List[Var])
   // match e case p => … end
-  case SMatch(arg: Expr, cases: List[Branch[Stmt]])
+  case SMatch(arg: At[Expr], cases: List[Doc[Branch[At[Stmt]]]])
   // assert c
-  case SAssert(cond: Expr)
+  case SAssert(cond: At[Expr])
   // assert raises p do … end, which fails unless body raises an exception that p matches, where typ is THole until
   // the checker infers it from p, as of a Catch
-  case SAssertRaises(typ: Type, pat: Pat, body: Stmt)
+  case SAssertRaises(typ: Type, pat: At[Pat], body: At[Stmt])
   // raise e, where typ is the type of e, which the checker infers
-  case SRaise(value: Expr, typ: Type)
+  case SRaise(value: At[Expr], typ: Type)
   // try … catch case p => … end
-  case STry(body: Stmt, catches: List[Catch])
+  case STry(body: At[Stmt], catches: List[Doc[Catch]])
   // for p in c if q do … end, or for k => v in m do … end, over the elements of any container in the order of its fold,
   // where the parser allows one generator and an optional guard, and the checker gives the backends one GVal over the list
   // of the elements and the guard as an if in the body
-  case SFor(gens: List[Gen], body: Stmt)
-  // stmt at the position of its keyword, which the parser adds to each statement and the checker drops, as for EAt
-  case SAt(pos: Pos, stmt: Stmt)
+  case SFor(gens: List[Gen], body: At[Stmt])
 
 // with the pattern PWild, a handler handles exceptions of any type
 data Catch :=
   // case p if g => body of a catch, where typ is THole until the checker infers it from p
-  case Catch(doc: Str, typ: Type, pat: Pat, guard: Option[Expr], body: Stmt)
+  case Catch(typ: Type, pat: At[Pat], guard: Option[At[Expr]], body: At[Stmt])
 
 data Constr :=
   // case C(f: A, …) of a datatype, or case C without fields
-  case Constr(doc: Str, name: Name, fields: List[Field])
+  case Constr(name: Name, fields: List[Field])
 
 data Field :=
   // a field f: A
@@ -179,15 +186,15 @@ data Cmd :=
   // an alias type T[A, …] := typ
   case CSort(name: Name, params: List[Id], typ: Type)
   // data T[A, …] := case C(f: A, …) case D, one case per line
-  case CData(name: Name, params: List[Id], constrs: List[Constr])
+  case CData(name: Name, params: List[Id], constrs: List[Doc[Constr]])
   // function f[A, …](x: A, …): T := body
-  case CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, body: Expr)
+  case CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, body: At[Expr])
   // procedure p[A, …](in x: A, …, out y: B, …, ref z: C, …) := body, where in is optional before the first ins
-  case CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
+  case CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
   // a notation, e.g. infix left 9 + -, see Fixity
   case CNotation(fixity: Fixity, prec: Int, ops: List[Id])
   // tests take no parameters, which the checker enforces
-  case CTest(name: Name, vars: List[Var], stmt: Stmt)
+  case CTest(name: Name, vars: List[Var], stmt: At[Stmt])
   // the export section of a module, with the signatures of functions and procedures, as CFun and CProc without their
   // bodies, and abstract types, which its implementation section defines by data, and its builtin section, with the
   // signatures of exported functions and procedures that the interpreter and the runtime define
@@ -197,10 +204,10 @@ data Cmd :=
   case CAbstract(name: Name, params: List[Id])
   // a pattern alias pattern C[A, …](x: A, …): T := pat, whose variables are the formals, each once, which the checker
   // expands at its uses in patterns, and which is a function of the same name where pat has no _
-  case CPatAlias(name: Name, params: List[Id], formals: List[Var], typ: Type, pat: Pat)
+  case CPatAlias(name: Name, params: List[Id], formals: List[Var], typ: Type, pat: At[Pat])
   // lemma l[A, …](x: A, …) := requires a, … ensures b, which states b for all formals that satisfy the assumptions a, …,
   // see prove.md, and which the prover proves, while the interpreter and the compiler skip it
-  case CLemma(name: Name, params: List[Id], formals: List[Var], assms: List[Expr], concl: Expr)
+  case CLemma(name: Name, params: List[Id], formals: List[Var], assms: List[At[Expr]], concl: At[Expr])
 
 // the checked program: the commands of its modules with resolved names, and the module of the file that is loaded, whose
 // procedures run and compile call
@@ -211,15 +218,10 @@ data Pos :=
   // line and column, both from 1
   case Pos(line: Int, col: Int)
 
-// a command with its position and its documentation, which is empty if there is none
-data Top :=
-  // a command after its doc of // lines
-  case Top(pos: Pos, doc: Str, cmd: Cmd)
-
 // a module without sections has all its commands implemented and exports nothing
 data Mod :=
   // a file of import "p" lines of packages, then export, builtin, and implementation, each followed by its commands
-  case Mod(name: Id, doc: Str, imports: List[Id], exported: List[Top], builtins: List[Top], implemented: List[Top])
+  case Mod(name: Id, doc: Option[Str], imports: List[Id], exported: List[Doc[Cmd]], builtins: List[Doc[Cmd]], implemented: List[Doc[Cmd]])
 
 // the files with sections of a directory, other than project.u, which see each other's exports and notations without
 // imports, known by the directory from the root, "" for the root, and prelude for the library
@@ -236,8 +238,9 @@ data Source :=
 pattern EName(name: Name, typ: Type): Expr :=
   EVar(Var(name, typ))
 
-pattern ECall(name: Name, typ: Type, args: List[Expr]): Expr :=
-  EApp(EVar(Var(name, typ)), args)
+// a call of a name, whose position is that of the name, as the parser places a call at its name
+pattern ECall(pos: Pos, name: Name, typ: Type, args: List[At[Expr]]): Expr :=
+  EApp(AOk(pos, EVar(Var(name, typ))), args)
 
 pattern PName(name: Name, typ: Type): Pat :=
   PVar(Var(name, typ))
@@ -246,22 +249,30 @@ function unqualified(x: Id): Name
 
 function arity(t: Type): Int
 
-function expr_var(n: Id): Expr
+// x at the position Pos(0, 0), of code that the parser did not read, e.g. of tests
+function nowhere[A](x: A): At[A]
 
-function expr_int(n: Int): Expr
+// the part of x mapped by f, at the position of x
+function map_at[A, B](x: At[A], f: A -> B): At[B]
 
-function expr_app(f: Id, args: List[Expr]): Expr
+function map_doc[A, B](d: Doc[A], f: A -> B): Doc[B]
 
-function pat_var(n: Id): Pat
+function expr_var(n: Id): At[Expr]
 
-function pattern_expr(p: Pat): Option[Expr]
+function expr_int(n: Int): At[Expr]
 
-function subst_pat(pat: Pat, sub: List[Name * Pat]): Pat
+function expr_app(f: Id, args: List[At[Expr]]): At[Expr]
 
-function pattern_names(pat: Pat): List[Name]
+function pat_var(n: Id): At[Pat]
+
+function pattern_expr(p: At[Pat]): Option[At[Expr]]
+
+function subst_pat(pat: At[Pat], sub: List[Name * At[Pat]]): At[Pat]
+
+function pattern_names(pat: At[Pat]): List[Name]
 
 // the variables of patterns that are all variables
-function pattern_vars(pats: List[Pat]): Option[List[Var]]
+function pattern_vars(pats: List[At[Pat]]): Option[List[Var]]
 
 // the sorts that t names, as written, unqualified or qualified
 function sorts_in(t: Type): List[Name]
@@ -270,13 +281,17 @@ function implicit_elem(form: Form, gens: List[Gen]): Option[Yield]
 
 function form_name(form: Form): Id
 
-function lambda_vars(formals: List[Pat]): List[Var]
+function lambda_vars(formals: List[At[Pat]]): List[Var]
 
-function lambda_of(xs: List[Var], body: Expr): Expr
+// a lambda of the variables xs, placed at pos
+function lambda_of(pos: Pos, xs: List[Var], body: At[Expr]): Expr
 
-function placed_of(d: Mod): List[Top]
+function placed_of(d: Mod): List[Doc[Cmd]]
 
-function commands_of(tops: List[Top]): List[Cmd]
+function commands_of(docs: List[Doc[Cmd]]): List[Cmd]
+
+// the parts of docs, without their docs and positions
+function parts[A](docs: List[Doc[A]]): List[A]
 
 // the modules that module name imports without saying so: for a module of a project the whole library, and none for a
 // module of the library, which sees the others as the members of its package
@@ -300,16 +315,16 @@ function module_dir(id: Id): Str
 // of the package of its directory, whose member it is or, for a program, not
 function seen_modules(d: Mod, packages: List[Package]): List[Id]
 
-function unplaced(cmds: List[Cmd]): List[Top]
+function unplaced(cmds: List[Cmd]): List[Doc[Cmd]]
 
-// cmd without the positions EAt, SAt, and PAt, which parsing the same text at other places gives the same
+// cmd with every position Pos(0, 0), which parsing the same text at other places gives the same
 function strip_cmd(cmd: Cmd): Cmd
 
-function strip_expr(expr: Expr): Expr
+function strip_expr(expr: At[Expr]): At[Expr]
 
-function strip_stmt(stmt: Stmt): Stmt
+function strip_stmt(stmt: At[Stmt]): At[Stmt]
 
-function strip_pat(pat: Pat): Pat
+function strip_pat(pat: At[Pat]): At[Pat]
 
 // the escapes of literals, each the character after \ with the character that it stands for, as the lexer reads them and
 // the printers write them, where a quote is escaped only in a literal that it delimits; the runtime writes them by escape
@@ -357,24 +372,45 @@ function arity(t: Type): Int :=
       -1
   end
 
-// abbreviations for the syntax, of the parser and of tests
-function expr_var(n: Id): Expr :=
-  EName(unqualified(n), THole)
+function nowhere[A](x: A): At[A] :=
+  AOk(Pos(0, 0), x)
 
-function expr_int(n: Int): Expr :=
-  ELit(LInt(n))
+function map_at[A, B](x: At[A], f: A -> B): At[B] :=
+  match x
+    case AOk(pos, that) =>
+      AOk(pos, f(that))
 
-function expr_app(f: Id, args: List[Expr]): Expr :=
-  EApp(expr_var(f), args)
+    case AErr(pos, that, error) =>
+      AErr(pos, f(that), error)
 
-function pat_var(n: Id): Pat :=
-  PName(unqualified(n), THole)
+    case AUnparsed(pos, text, error) =>
+      AUnparsed(pos, text, error)
+  end
 
-function placed_of(d: Mod): List[Top] :=
+function map_doc[A, B](d: Doc[A], f: A -> B): Doc[B] :=
+  Doc(d.doc, map_at(d.at, f))
+
+// abbreviations for the syntax, of tests
+function expr_var(n: Id): At[Expr] :=
+  nowhere(EName(unqualified(n), THole))
+
+function expr_int(n: Int): At[Expr] :=
+  nowhere(ELit(LInt(n)))
+
+function expr_app(f: Id, args: List[At[Expr]]): At[Expr] :=
+  nowhere(EApp(expr_var(f), args))
+
+function pat_var(n: Id): At[Pat] :=
+  nowhere(PName(unqualified(n), THole))
+
+function placed_of(d: Mod): List[Doc[Cmd]] :=
   d.exported ++ d.builtins ++ d.implemented
 
-function commands_of(tops: List[Top]): List[Cmd] :=
-  List(for top in tops yield top.cmd)
+function commands_of(docs: List[Doc[Cmd]]): List[Cmd] :=
+  parts(docs)
+
+function parts[A](docs: List[Doc[A]]): List[A] :=
+  List(for d in docs yield d.at.that)
 
 function module_dir(id: Id): Str :=
   match reverse(split(id, '/'))
@@ -412,15 +448,15 @@ function seen_modules(d: Mod, packages: List[Package]): List[Id] :=
   implicit_imports(d.name) ++ List(for p in packages if contains(p.id, d.imports) or p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
 
 // commands without positions and documentation, as programs that are not parsed have them
-function unplaced(cmds: List[Cmd]): List[Top] :=
-  List(for c in cmds yield Top(Pos(0, 0), "", c))
+function unplaced(cmds: List[Cmd]): List[Doc[Cmd]] :=
+  List(for c in cmds yield Doc(None, nowhere(c)))
 
 // the variables of the formals of a checked lambda, which the checker makes variables
-function lambda_vars(formals: List[Pat]): List[Var] :=
+function lambda_vars(formals: List[At[Pat]]): List[Var] :=
   value_or(pattern_vars(formals), List())
 
-function lambda_of(xs: List[Var], body: Expr): Expr :=
-  ELam(List(for x in xs yield PVar(x)), body)
+function lambda_of(pos: Pos, xs: List[Var], body: At[Expr]): Expr :=
+  ELam(List(for x in xs yield AOk(pos, PVar(x))), body)
 
 // what a form of a single generator yields without yield, the value its pattern matches, an entry of a map
 function implicit_elem(form: Form, gens: List[Gen]): Option[Yield] :=
@@ -431,12 +467,12 @@ function implicit_elem(form: Form, gens: List[Gen]): Option[Yield] :=
     case (List(GPair(k, v, _)), _) =>
       match (pattern_expr(k), pattern_expr(v))
         case (Some(a), Some(b)) =>
-          Some(YVal(ETuple(List(a, b))))
+          Some(YVal(AOk(k.pos, ETuple(List(a, b)))))
         case _ =>
           None
       end
 
-    case (List(GVal(PTuple(List(k, v)), _)), FMap) =>
+    case (List(GVal(AOk(_, PTuple(List(k, v))), _)), FMap) =>
       pair_elem(pattern_expr(k), pattern_expr(v))
 
     case (List(GVal(_, _)), FMap) =>
@@ -449,7 +485,7 @@ function implicit_elem(form: Form, gens: List[Gen]): Option[Yield] :=
       None
   end
 
-function pair_elem(k: Option[Expr], v: Option[Expr]): Option[Yield] :=
+function pair_elem(k: Option[At[Expr]], v: Option[At[Expr]]): Option[Yield] :=
   match (k, v)
     case (Some(a), Some(b)) =>
       Some(YPair(a, b))
@@ -465,8 +501,11 @@ function is_guard(g: Gen): Bool :=
       false
   end
 
-// the value that a pattern without _ matches
-function pattern_expr(p: Pat): Option[Expr] :=
+// the value that a pattern without _ matches, at the positions of the patterns
+function pattern_expr(p: At[Pat]): Option[At[Expr]] :=
+  map_option(pattern_value(p.pos, p.that), lambda e => AOk(p.pos, e))
+
+function pattern_value(pos: Pos, p: Pat): Option[Expr] :=
   match p
     case PWild =>
       None
@@ -484,26 +523,20 @@ function pattern_expr(p: Pat): Option[Expr] :=
       Some(EName(c, THole))
 
     case PApp(c, ps) =>
-      map_option(pattern_exprs(ps), lambda es => ECall(c, THole, es))
-
-    case PAt(pos, pat) =>
-      map_option(pattern_expr(pat), lambda e => EAt(pos, e))
+      map_option(pattern_exprs(ps), lambda es => ECall(pos, c, THole, es))
   end
 
 // pat with the patterns of sub for its variables
-function subst_pat(pat: Pat, sub: List[Name * Pat]): Pat :=
-  match pat
+function subst_pat(pat: At[Pat], sub: List[Name * At[Pat]]): At[Pat] :=
+  match pat.that
     case PVar(var) =>
       value_or(get(var.name, sub), pat)
 
     case PApp(constr, args) =>
-      PApp(constr, List(for a in args yield subst_pat(a, sub)))
+      pat with that := PApp(constr, List(for a in args yield subst_pat(a, sub)))
 
     case PTuple(args) =>
-      PTuple(List(for a in args yield subst_pat(a, sub)))
-
-    case PAt(pos, inner) =>
-      PAt(pos, subst_pat(inner, sub))
+      pat with that := PTuple(List(for a in args yield subst_pat(a, sub)))
 
     case _ =>
       pat
@@ -528,12 +561,12 @@ function sorts_in(t: Type): List[Name] :=
   end
 
 // the variables that pat binds, from left to right
-function pattern_vars(pats: List[Pat]): Option[List[Var]] :=
+function pattern_vars(pats: List[At[Pat]]): Option[List[Var]] :=
   match pats
     case List() =>
       Some(List())
 
-    case List(PVar(var); more) =>
+    case List(AOk(_, PVar(var)); more) =>
       match pattern_vars(more)
         case Some(xs) =>
           Some(List(var; xs))
@@ -545,8 +578,8 @@ function pattern_vars(pats: List[Pat]): Option[List[Var]] :=
       None
   end
 
-function pattern_names(pat: Pat): List[Name] :=
-  match pat
+function pattern_names(pat: At[Pat]): List[Name] :=
+  match pat.that
     case PVar(var) =>
       List(var.name)
 
@@ -561,12 +594,9 @@ function pattern_names(pat: Pat): List[Name] :=
 
     case PLit(_) =>
       List()
-
-    case PAt(_, inner) =>
-      pattern_names(inner)
   end
 
-function pattern_exprs(ps: List[Pat]): Option[List[Expr]] :=
+function pattern_exprs(ps: List[At[Pat]]): Option[List[At[Expr]]] :=
   match ps
     case List() =>
       Some(List())
@@ -612,10 +642,10 @@ function strip_cmd(cmd: Cmd): Cmd :=
     case CLemma(name, params, formals, assms, concl) =>
       CLemma(name, params, formals, List(for a in assms yield strip_expr(a)), strip_expr(concl))
 
-    case CSort(_, _, _) =>
-      cmd
+    case CData(name, params, constrs) =>
+      CData(name, params, List(for c in constrs yield Doc(c.doc, stripped(c.at, lambda x => x))))
 
-    case CData(_, _, _) =>
+    case CSort(_, _, _) =>
       cmd
 
     case CNotation(_, _, _) =>
@@ -631,7 +661,14 @@ function strip_cmd(cmd: Cmd): Cmd :=
       cmd
   end
 
-function strip_expr(expr: Expr): Expr :=
+// x at Pos(0, 0), with its part stripped by strip
+function stripped[A](x: At[A], strip: A -> A): At[A] :=
+  map_at(x, strip) with pos := Pos(0, 0)
+
+function strip_expr(expr: At[Expr]): At[Expr] :=
+  stripped(expr, strip_node)
+
+function strip_node(expr: Expr): Expr :=
   match expr
     case ELit(_) =>
       expr
@@ -661,7 +698,7 @@ function strip_expr(expr: Expr): Expr :=
       EIte(strip_expr(cond), strip_expr(then_expr), strip_expr(else_expr))
 
     case EMatch(arg, cases) =>
-      EMatch(strip_expr(arg), List(for br in cases yield strip_branch(br, strip_expr)))
+      EMatch(strip_expr(arg), List(for d in cases yield strip_case(d, strip_expr)))
 
     case ETuple(args) =>
       ETuple(List(for a in args yield strip_expr(a)))
@@ -671,9 +708,6 @@ function strip_expr(expr: Expr): Expr :=
 
     case EFor(form, gens, elem, rest) =>
       EFor(form, List(for g in gens yield strip_gen(g)), strip_yield(elem), map_option(rest, strip_expr))
-
-    case EAt(_, inner) =>
-      strip_expr(inner)
   end
 
 function strip_yield(y: Yield): Yield :=
@@ -696,10 +730,16 @@ function strip_gen(g: Gen): Gen :=
       GIf(strip_expr(cond))
   end
 
-function strip_branch[A](br: Branch[A], strip_body: A -> A): Branch[A] :=
-  Branch(br.doc, strip_pat(br.pat), map_option(br.guard, strip_expr), strip_body(br.body))
+function strip_case[A](d: Doc[Branch[A]], strip_body: A -> A): Doc[Branch[A]] :=
+  Doc(d.doc, stripped(d.at, lambda br => Branch(strip_pat(br.pat), map_option(br.guard, strip_expr), strip_body(br.body))))
 
-function strip_stmt(stmt: Stmt): Stmt :=
+function strip_handler(d: Doc[Catch]): Doc[Catch] :=
+  Doc(d.doc, stripped(d.at, lambda c => Catch(c.typ, strip_pat(c.pat), map_option(c.guard, strip_expr), strip_stmt(c.body))))
+
+function strip_stmt(stmt: At[Stmt]): At[Stmt] :=
+  stripped(stmt, strip_statement)
+
+function strip_statement(stmt: Stmt): Stmt :=
   match stmt
     case SSkip =>
       stmt
@@ -708,7 +748,7 @@ function strip_stmt(stmt: Stmt): Stmt :=
       SAssign(List(for (x, e) in upd yield (x, strip_expr(e))))
 
     case SBlock(locals, stmts) =>
-      SBlock(locals, List(for s in stmts yield strip_stmt(s)))
+      SBlock(locals, List(for y in stmts yield strip_stmt(y)))
 
     case SIf(cond, left, right) =>
       SIf(strip_expr(cond), strip_stmt(left), strip_stmt(right))
@@ -720,7 +760,7 @@ function strip_stmt(stmt: Stmt): Stmt :=
       SCall(proc, List(for a in ins yield strip_expr(a)), outs, refs)
 
     case SMatch(arg, cases) =>
-      SMatch(strip_expr(arg), List(for br in cases yield strip_branch(br, strip_stmt)))
+      SMatch(strip_expr(arg), List(for d in cases yield strip_case(d, strip_stmt)))
 
     case SAssert(cond) =>
       SAssert(strip_expr(cond))
@@ -732,25 +772,22 @@ function strip_stmt(stmt: Stmt): Stmt :=
       SRaise(strip_expr(value), typ)
 
     case STry(body, catches) =>
-      STry(strip_stmt(body), List(for c in catches yield Catch(c.doc, c.typ, strip_pat(c.pat), map_option(c.guard, strip_expr), strip_stmt(c.body))))
+      STry(strip_stmt(body), List(for d in catches yield strip_handler(d)))
 
     case SFor(gens, body) =>
       SFor(List(for g in gens yield strip_gen(g)), strip_stmt(body))
-
-    case SAt(_, inner) =>
-      strip_stmt(inner)
   end
 
-function strip_pat(pat: Pat): Pat :=
+function strip_pat(pat: At[Pat]): At[Pat] :=
+  stripped(pat, strip_pattern)
+
+function strip_pattern(pat: Pat): Pat :=
   match pat
     case PApp(constr, args) =>
       PApp(constr, List(for a in args yield strip_pat(a)))
 
     case PTuple(args) =>
       PTuple(List(for a in args yield strip_pat(a)))
-
-    case PAt(_, inner) =>
-      strip_pat(inner)
 
     case PWild =>
       pat

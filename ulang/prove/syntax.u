@@ -269,10 +269,10 @@ function pattern_vars(p: Pat): List[Var] :=
       List(var)
 
     case PApp(_, pats) =>
-      List(for q in pats for x in pattern_vars(q) yield x)
+      List(for q in pats for x in pattern_vars(q.that) yield x)
 
     case PTuple(args) =>
-      List(for q in args for x in pattern_vars(q) yield x)
+      List(for q in args for x in pattern_vars(q.that) yield x)
 
     case _ =>
       List()
@@ -762,20 +762,16 @@ function print_pat(p: Pat): Str :=
       "[]"
 
     case PApp(Name(_, "Cons"), List(a, b)) =>
-      "[" ++ print_pat(a) ++ "; " ++ print_pat(b) ++ "]"
+      "[" ++ print_pat(a.that) ++ "; " ++ print_pat(b.that) ++ "]"
 
     case PApp(Name(_, base), List()) =>
       base
 
     case PApp(Name(_, base), pats) =>
-      base ++ "(" ++ join(", ", List(for q in pats yield print_pat(q))) ++ ")"
+      base ++ "(" ++ join(", ", List(for q in pats yield print_pat(q.that))) ++ ")"
 
     case PTuple(args) =>
-      "(" ++ join(", ", List(for q in args yield print_pat(q))) ++ ")"
-
-    // the checker drops positions
-    case PAt(_, inner) =>
-      print_pat(inner)
+      "(" ++ join(", ", List(for q in args yield print_pat(q.that))) ++ ")"
   end
 
 // the atoms first, as written, then the constant

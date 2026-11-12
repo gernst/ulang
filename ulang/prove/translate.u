@@ -47,7 +47,7 @@ function definition(cmd: Cmd): Option[(Name * Int) * (List[Var] * Term)] :=
 function datatype(rank: Int, cmd: Cmd): Option[Int * (Name * List[Constr])] :=
   match cmd
     case CData(t, _, constrs) =>
-      Some((rank, (t, constrs)))
+      Some((rank, (t, parts(constrs))))
     case _ =>
       None
   end
@@ -101,8 +101,8 @@ function lemma_of(m: Id, cmd: Cmd): Option[Lemma] :=
 function bind(xs: List[Var], env: List[Name]): List[Name] :=
   reverse(List(for x in xs yield x.name)) ++ env
 
-function term_of(env: List[Name], expr: Expr): Term :=
-  match expr
+function term_of(env: List[Name], expr: At[Expr]): Term :=
+  match expr.that
     case ELit(lit) =>
       ELit(lit)
 
@@ -140,12 +140,9 @@ function term_of(env: List[Name], expr: Expr): Term :=
 
     // procedure values are atoms, told apart by their text
     case EProc(_, _, _, _) =>
-      EFun(Name(Some("(procedure)"), show(expr)))
+      EFun(Name(Some("(procedure)"), show(expr.that)))
 
-    // the checker translates accesses, updates, and forms, and drops positions, so checked programs have none
-    case EAt(_, _) =>
-      unchecked(expr)
-
+    // the checker translates accesses, updates, and forms, so checked programs have none
     case EField(_, _) =>
       unchecked(expr)
 
@@ -159,11 +156,11 @@ function term_of(env: List[Name], expr: Expr): Term :=
       unchecked(expr)
   end
 
-function unchecked(expr: Expr): Term :=
-  EFun(Name(Some("(unchecked)"), show(expr)))
+function unchecked(expr: At[Expr]): Term :=
+  EFun(Name(Some("(unchecked)"), show(expr.that)))
 
 // a let of variables by substitution, else the match of its patterns, of a tuple if there are several
-function let_term(env: List[Name], bindings: List[Pat * Expr], body: Expr): Term :=
+function let_term(env: List[Name], bindings: List[At[Pat] * At[Expr]], body: At[Expr]): Term :=
   let values := List(for (_, a) in bindings yield term_of(env, a)), pats := List(for (p, _) in bindings yield p) in
   match pattern_vars(pats)
     case Some(xs) =>
@@ -171,18 +168,19 @@ function let_term(env: List[Name], bindings: List[Pat * Expr], body: Expr): Term
       beta(values, inner)
 
     case None =>
-      let_match(env, if size(pats) == 1 then at(0, from_list(pats)) else PTuple(pats), if size(values) == 1 then
+      let_match(env, if size(pats) == 1 then at(0, from_list(pats)).that else PTuple(pats), if size(values) == 1 then
         at(0, from_list(values))
       else
         EApp(EFun(tuple_name(size(values))), values), body)
   end
 
 // the match of value against the irrefutable pat, which binds in body
-function let_match(env: List[Name], pat: Pat, value: Term, body: Expr): Term :=
+function let_match(env: List[Name], pat: Pat, value: Term, body: At[Expr]): Term :=
   let inner := term_of(bind(pattern_vars(pat), env), body) in
   EMatch(value, List(TermBranch(pat, None, inner)))
 
-function branch_term(env: List[Name], br: Branch[Expr]): TermBranch :=
-  let inner := bind(pattern_vars(br.pat), env) in
+function branch_term(env: List[Name], d: Doc[Branch[At[Expr]]]): TermBranch :=
+  let br := d.at.that in
+  let inner := bind(pattern_vars(br.pat.that), env) in
   let guard := map_option(br.guard, lambda g => term_of(inner, g)), body := term_of(inner, br.body) in
-  TermBranch(br.pat, guard, body)
+  TermBranch(br.pat.that, guard, body)

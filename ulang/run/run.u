@@ -12,12 +12,12 @@ data Val :=
   case VLit(lit: Lit)
   case VObj(constr: Name, args: List[Val])
   case VArr(values: Array[Val])
-  case VFunClos(env: Map[Name, Val], formals: List[Var], body: Expr)
+  case VFunClos(env: Map[Name, Val], formals: List[Var], body: At[Expr])
   case VFun(name: Name, arity: Int)
   case VCon(constr: Name)
   case VPrim(name: Name)
   case VProc(name: Name)
-  case VProcClos(env: Map[Name, Val], ins: List[Var], outs: List[Var], refs: List[Var], stmt: Stmt)
+  case VProcClos(env: Map[Name, Val], ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
 
 data Run :=
   case Run(defs: Defs, computing: List[Name], args: List[Str])
@@ -277,8 +277,8 @@ function bind_all(xs: List[Var], vs: List[Val], env: Bindings): Bindings :=
   end
 
 // env where the variables of p have the parts of v that they match, if p matches v
-function match_into(pat: Pat, v: Val, env: Bindings): Option[Bindings] :=
-  match (pat, v)
+function match_into(pat: At[Pat], v: Val, env: Bindings): Option[Bindings] :=
+  match (pat.that, v)
     case (PWild, _) =>
       Some(env)
 
@@ -299,13 +299,9 @@ function match_into(pat: Pat, v: Val, env: Bindings): Option[Bindings] :=
 
     case (PTuple(_), _) =>
       None
-
-    // the checker drops positions
-    case (PAt(_, inner), _) =>
-      match_into(inner, v, env)
   end
 
-function match_all_into(pats: List[Pat], vs: List[Val], env: Bindings): Option[Bindings] :=
+function match_all_into(pats: List[At[Pat]], vs: List[Val], env: Bindings): Option[Bindings] :=
   match (pats, vs)
     case (List(), List()) =>
       Some(env)
@@ -325,11 +321,11 @@ function match_all_into(pats: List[Pat], vs: List[Val], env: Bindings): Option[B
 procedure evaluate(
   in  run: Run,
       env: Bindings,
-      expr: Expr,
+      expr: At[Expr],
   out v: Val,
   ref cache: Map[Name, Val]
 ) :=
-  match expr
+  match expr.that
     case ELit(lit) =>
       assign v := VLit(lit)
 
@@ -351,12 +347,14 @@ procedure evaluate(
     case EFor(form, _, _, _) =>
       raise UntranslatedForm(form_name(form))
 
-    // the checker drops positions
-    case EAt(_, _) =>
-      raise Unexpected("position")
-
+    // the checker makes the formals variables
     case ELam(formals, body) =>
-      assign v := VFunClos(env, lambda_vars(formals), body)
+      match pattern_vars(formals)
+        case Some(xs) =>
+          assign v := VFunClos(env, xs, body)
+        case None =>
+          raise Unexpected("lambda of patterns")
+      end
 
     case EProc(ins, outs, refs, stmt) =>
       assign v := VProcClos(env, ins, outs, refs, stmt)
@@ -382,9 +380,9 @@ procedure evaluate(
       end
 
     case EMatch(arg, cases) =>
-      local w: Val, sel: Option[Expr * Bindings * List[Name]], s: Str
+      local w: Val, sel: Option[At[Expr] * Bindings * List[Name]], s: Str
       call evaluate(in run, env, arg, out w, ref cache)
-      call select(in run, env, w, cases, out sel, ref cache)
+      call select(in run, env, w, parts(cases), out sel, ref cache)
       match sel
         case Some((body, inner, _)) =>
           call evaluate(in run, inner, body, out v, ref cache)
@@ -404,7 +402,7 @@ procedure evaluate(
 procedure evaluate_all(
   in  run: Run,
       env: Bindings,
-      exprs: List[Expr],
+      exprs: List[At[Expr]],
   out vs: List[Val],
   ref cache: Map[Name, Val]
 ) :=
@@ -463,12 +461,12 @@ procedure variable_value(
 procedure apply_expr(
   in  run: Run,
       env: Bindings,
-      f: Expr,
-      args: List[Expr],
+      f: At[Expr],
+      args: List[At[Expr]],
   out v: Val,
   ref cache: Map[Name, Val]
 ) :=
-  match (f, args)
+  match (f.that, args)
     case (EName(Name(None, "and"), _), List(l, r)) =>
       local a: Val
       call evaluate(in run, env, l, out a, ref cache)
@@ -576,7 +574,7 @@ procedure apply_value(
 procedure cached(
   in  run: Run,
       n: Name,
-      body: Expr,
+      body: At[Expr],
   out v: Val,
   ref cache: Map[Name, Val]
 ) :=
@@ -940,11 +938,11 @@ procedure equal_all(
 // x updates the values of the variables in scope
 procedure exec(
   in  run: Run,
-      stmt: Stmt,
+      stmt: At[Stmt],
   ref env: Bindings,
       cache: Map[Name, Val]
 ) :=
-  match stmt
+  match stmt.that
     case SSkip =>
       skip
 
@@ -987,9 +985,9 @@ procedure exec(
       assign env := env ++ Map(for (k, u) in zip(List(for x in outs yield x.name), vs))
 
     case SMatch(arg, cases) =>
-      local v: Val, sel: Option[Stmt * Bindings * List[Name]], s: Str
+      local v: Val, sel: Option[At[Stmt] * Bindings * List[Name]], s: Str
       call evaluate(in run, env, arg, out v, ref cache)
-      call select(in run, env, v, cases, out sel, ref cache)
+      call select(in run, env, v, parts(cases), out sel, ref cache)
       match sel
         case Some((body, inner, ns)) =>
           call scoped(in run, ns, inner, List(body), ref env, cache)
@@ -1000,7 +998,7 @@ procedure exec(
       end
 
     // assertions of equations show both sides when they fail
-    case SAssert(ECall(Name(None, "=="), _, List(lhs, rhs))) =>
+    case SAssert(AOk(_, ECall(_, Name(None, "=="), _, List(lhs, rhs)))) =>
       local v: Val, w: Val, r: Bool, s: Str, t: Str
       call evaluate(in run, env, lhs, out v, ref cache)
       call evaluate(in run, env, rhs, out w, ref cache)
@@ -1025,11 +1023,11 @@ procedure exec(
         call exec(in run, body, ref inner, cache)
       catch
         case Thrown(value, t) =>
-          call   handle(in run, List(Catch("", typ, pat, None, SSkip)), value, t, ref inner, cache)
+          call   handle(in run, List(Catch(typ, pat, None, nowhere(SSkip))), value, t, ref inner, cache)
           assign raised := true
       end
       if not raised then
-        raise AssertionNotRaised(format_pat(pat))
+        raise AssertionNotRaised(format_pat(pat.that))
       end
 
     case SRaise(value, typ) =>
@@ -1042,7 +1040,7 @@ procedure exec(
         call exec(in run, body, ref env, cache)
       catch
         case Thrown(value, typ) =>
-          call handle(in run, catches, value, typ, ref env, cache)
+          call handle(in run, parts(catches), value, typ, ref env, cache)
       end
 
     // the checker gives the list of the items, and patterns that match every item
@@ -1068,15 +1066,11 @@ procedure exec(
     // the checker gives one generator over a list
     case SFor(_, _) =>
       raise Unexpected("for of other generators")
-
-    // the checker drops positions
-    case SAt(_, _) =>
-      raise Unexpected("position")
   end
 
 procedure exec_all(
   in  run: Run,
-      xs: List[Stmt],
+      xs: List[At[Stmt]],
   ref env: Bindings,
       cache: Map[Name, Val]
 ) :=
@@ -1090,7 +1084,7 @@ procedure scoped(
   in  run: Run,
       names: List[Name],
       inner: Bindings,
-      xs: List[Stmt],
+      xs: List[At[Stmt]],
   ref env: Bindings,
       cache: Map[Name, Val]
 ) :=
@@ -1133,7 +1127,7 @@ procedure select[A](
     case List() =>
       assign sel := None
 
-    case List(Branch(_, pat, guard, body); rest) =>
+    case List(Branch(pat, guard, body); rest) =>
       local ok: Bool
       match match_into(pat, v, env)
         case Some(inner) =>
@@ -1152,7 +1146,7 @@ procedure select[A](
 procedure holds(
   in  run: Run,
       env: Bindings,
-      g: Option[Expr],
+      g: Option[At[Expr]],
   out ok: Bool,
   ref cache: Map[Name, Val]
 ) :=
@@ -1179,7 +1173,7 @@ procedure handle(
     case List() =>
       raise Thrown(v, t)
 
-    case List(Catch(_, _, PWild, guard, body); rest) =>
+    case List(Catch(_, AOk(_, PWild), guard, body); rest) =>
       local ok: Bool
       call holds(in run, env, guard, out ok, ref cache)
       if ok then
@@ -1189,7 +1183,7 @@ procedure handle(
       end
 
     // the type is compared first, since the pattern and the guard assume it
-    case List(Catch(_, typ, pat, guard, body); rest) =>
+    case List(Catch(typ, pat, guard, body); rest) =>
       local ok: Bool := false
       if typ == t then
         match match_into(pat, v, env)
@@ -1264,7 +1258,7 @@ procedure run_body(
       xs: List[Var],
       ys: List[Var],
       zs: List[Var],
-      body: Stmt,
+      body: At[Stmt],
       ins: List[Val],
       refs: List[Name],
   out outs: List[Val],
@@ -1427,12 +1421,16 @@ procedure check_and_run(in cmds: List[Cmd]) :=
   call run_program(in q)
 
 // the test n that asserts that expr equals expected
-function asserting(n: Id, expr: Expr, expected: Expr): Cmd :=
-  CTest(unqualified(n), List(), SBlock(List(), List(SAssert(expr_app("==", List(expr, expected))))))
+function asserting(n: Id, expr: At[Expr], expected: At[Expr]): Cmd :=
+  CTest(unqualified(n), List(), nowhere(SBlock(List(), List(nowhere(SAssert(expr_app("==", List(expr, expected))))))))
 
 // a test that assigns expr to a local variable
-function assigning(expr: Expr): Cmd :=
-  CTest(unqualified("a"), List(), SBlock(List(hole_var("v")), List(SAssign(List((hole_var("v"), expr))))))
+function assigning(expr: At[Expr]): Cmd :=
+  CTest(unqualified("a"), List(), nowhere(SBlock(List(hole_var("v")), List(nowhere(SAssign(List((hole_var("v"), expr))))))))
+
+// statements one after another, at Pos(0, 0), with the locals xs
+function block(xs: List[Var], stmts: List[Stmt]): At[Stmt] :=
+  nowhere(SBlock(xs, List(for y in stmts yield nowhere(y))))
 
 test values() :=
   assert format_value(list_value(List(VInt(1), VStr("a\"b")))) == "List(1, \"a\\\"b\")"
@@ -1442,57 +1440,58 @@ test expressions() :=
   call check_and_run(in List(
     asserting("p1", expr_app("len", List(
       expr_app("Cons", List(expr_int(1), expr_app("Cons", List(expr_int(2), expr_var("Nil"))))))), expr_int(2)),
-    asserting("p2", ELet(List(
-      (PVar(Var(unqualified("f"), THole)), lambda_of(List(Var(unqualified("x"), THole)), expr_app("*", List(expr_var("x"), expr_var("x")))))), expr_app("+", List(expr_app("f", List(expr_int(3))), expr_app("f", List(expr_int(4)))))), expr_int(25)),
+    asserting("p2", nowhere(ELet(List(
+      (pat_var("f"), nowhere(lambda_of(Pos(0, 0), List(Var(unqualified("x"), THole)), expr_app("*", List(expr_var("x"), expr_var("x"))))))), expr_app("+", List(expr_app("f", List(expr_int(3))), expr_app("f", List(expr_int(4))))))), expr_int(25)),
     asserting("p4", expr_app("and", List(
-      ELit(LBool(false)),
-      expr_app("==", List(expr_app("/", List(expr_int(1), expr_int(0))), expr_int(0))))), ELit(LBool(false)))))
+      nowhere(ELit(LBool(false))),
+      expr_app("==", List(expr_app("/", List(expr_int(1), expr_int(0))), expr_int(0))))), nowhere(ELit(LBool(false))))))
 
 // procedure sum(in n: Int, out s: Int) with a loop, and procedure size(ref k: Int) raising Fail after an increment
 function procedures(): List[Cmd] :=
   List(
-    CData(unqualified("Fail"), List(), List(Constr("", unqualified("Fail"), List(Field("code", TInt()))))),
-    CProc(unqualified("sum"), List(), List(Var(unqualified("n"), TInt())), List(Var(unqualified("s"), TInt())), List(), SBlock(List(Var(unqualified("i"), TInt())), List(
+    CData(unqualified("Fail"), List(), List(
+      Doc(None, nowhere(Constr(unqualified("Fail"), List(Field("code", TInt()))))))),
+    CProc(unqualified("sum"), List(), List(Var(unqualified("n"), TInt())), List(Var(unqualified("s"), TInt())), List(), block(List(Var(unqualified("i"), TInt())), List(
       SAssign(List(
         (Var(unqualified("s"), THole), expr_int(0)),
         (Var(unqualified("i"), THole), expr_int(0)))),
-      SWhile(expr_app("<", List(expr_var("i"), expr_var("n"))), SBlock(List(), List(
+      SWhile(expr_app("<", List(expr_var("i"), expr_var("n"))), block(List(), List(
         SAssign(List(
           (Var(unqualified("i"), THole), expr_app("+", List(expr_var("i"), expr_int(1)))),
           (Var(unqualified("s"), THole), expr_app("+", List(expr_var("s"), expr_app("+", List(expr_var("i"), expr_int(1)))))))))))))),
-    CProc(unqualified("count"), List(), List(), List(), List(Var(unqualified("k"), TInt())), SBlock(List(), List(
+    CProc(unqualified("count"), List(), List(), List(), List(Var(unqualified("k"), TInt())), block(List(), List(
       SAssign(List(
         (Var(unqualified("k"), THole), expr_app("+", List(expr_var("k"), expr_int(1)))))),
       SRaise(expr_app("Fail", List(expr_var("k"))), THole)))))
 
 test procedures() :=
   call check_and_run(in procedures() ++ List(
-    CTest(unqualified("sum"), List(), SBlock(List(Var(unqualified("s"), TInt())), List(
+    CTest(unqualified("sum"), List(), block(List(Var(unqualified("s"), TInt())), List(
       SCall(unqualified("sum"), List(expr_int(4)), List(Var(unqualified("s"), THole)), List()),
       equals("s", 10)))),
-    CTest(unqualified("count"), List(), SBlock(List(Var(unqualified("k"), TInt()), Var(unqualified("m"), TInt())), List(
+    CTest(unqualified("count"), List(), block(List(Var(unqualified("k"), TInt()), Var(unqualified("m"), TInt())), List(
       SAssign(List(
         (Var(unqualified("k"), THole), expr_int(1)),
         (Var(unqualified("m"), THole), expr_int(0)))),
-      STry(SBlock(List(), List(
+      STry(block(List(), List(
         SCall(unqualified("count"), List(), List(), List(Var(unqualified("k"), THole))))), List(
-        Catch("", THole, PApp(unqualified("Fail"), List(pat_var("j"))), None, SBlock(List(), List(SAssign(List((Var(unqualified("m"), THole), expr_var("j"))))))))),
+        Doc(None, nowhere(Catch(THole, nowhere(PApp(unqualified("Fail"), List(pat_var("j")))), None, block(List(), List(SAssign(List((Var(unqualified("m"), THole), expr_var("j"))))))))))),
       equals("k", 1),
       equals("m", 2))))))
 
 // a declared procedure and a lambda that captures k, called through variables
 test procedure_values() :=
   call check_and_run(in procedures() ++ List(
-    CTest(unqualified("values"), List(), SBlock(List(Var(unqualified("s"), TInt()), Var(unqualified("t"), TInt())), List(
+    CTest(unqualified("values"), List(), block(List(Var(unqualified("s"), TInt()), Var(unqualified("t"), TInt())), List(
       SBlock(List(hole_var("f"), hole_var("k"), hole_var("g")), List(
-        SAssign(List((hole_var("f"), expr_var("sum")))),
-        SAssign(List((hole_var("k"), expr_int(10)))),
-        SAssign(List(
-          (hole_var("g"), EProc(List(hole_var("n")), List(hole_var("r")), List(), SBlock(List(), List(
+        nowhere(SAssign(List((hole_var("f"), expr_var("sum"))))),
+        nowhere(SAssign(List((hole_var("k"), expr_int(10))))),
+        nowhere(SAssign(List(
+          (hole_var("g"), nowhere(EProc(List(hole_var("n")), List(hole_var("r")), List(), block(List(), List(
             SAssign(List(
-              (hole_var("r"), expr_app("+", List(expr_var("n"), expr_var("k")))))))))))),
-        SCall(unqualified("f"), List(expr_int(4)), List(hole_var("s")), List()),
-        SCall(unqualified("g"), List(expr_int(4)), List(hole_var("t")), List()))),
+              (hole_var("r"), expr_app("+", List(expr_var("n"), expr_var("k")))))))))))))),
+        nowhere(SCall(unqualified("f"), List(expr_int(4)), List(hole_var("s")), List())),
+        nowhere(SCall(unqualified("g"), List(expr_int(4)), List(hole_var("t")), List())))),
       equals("s", 10),
       equals("t", 14))))))
 
@@ -1506,11 +1505,11 @@ function equals(n: Id, k: Int): Stmt :=
 test errors() :=
   assert raises Uncaught("Fail(1)") do
     call check_and_run(in procedures() ++ List(
-      CTest(unqualified("t"), List(), SBlock(List(), List(SRaise(expr_app("Fail", List(expr_int(1))), THole))))))
+      CTest(unqualified("t"), List(), block(List(), List(SRaise(expr_app("Fail", List(expr_int(1))), THole))))))
   end
   assert raises AssertionUnequal("1", "2") do
     call check_and_run(in List(
-      CTest(unqualified("t"), List(), SBlock(List(), List(SAssert(expr_app("==", List(expr_int(1), expr_int(2)))))))))
+      CTest(unqualified("t"), List(), block(List(), List(SAssert(expr_app("==", List(expr_int(1), expr_int(2)))))))))
   end
   assert raises Uncaught("DivisionByZero") do
     call check_and_run(in List(assigning(expr_app("/", List(expr_int(1), expr_int(0))))))
@@ -1524,13 +1523,13 @@ test errors() :=
 // match (1, true, 3) case (_, _, z) => z end, a flat tuple
 test tuples() :=
   call check_and_run(in List(
-    asserting("p", EMatch(ETuple(List(expr_int(1), ELit(LBool(true)), expr_int(3))), List(
-      Branch("", PTuple(List(PWild, PWild, pat_var("z"))), None, expr_var("z")))), expr_int(3))))
+    asserting("p", nowhere(EMatch(nowhere(ETuple(List(expr_int(1), nowhere(ELit(LBool(true))), expr_int(3)))), List(
+      Doc(None, nowhere(Branch(nowhere(PTuple(List(nowhere(PWild), nowhere(PWild), pat_var("z")))), None, expr_var("z"))))))), expr_int(3))))
 
 // a handler for integers skips a string without evaluating its guard, so the string is raised further
 test handler_types() :=
   assert raises Uncaught("\"x\"") do
     call check_and_run(in List(
-      CTest(unqualified("t"), List(), STry(SRaise(ELit(LStr("x")), THole), List(
-        Catch("", THole, pat_var("k"), Some(expr_app("<", List(expr_var("k"), expr_int(2)))), SSkip))))))
+      CTest(unqualified("t"), List(), nowhere(STry(nowhere(SRaise(nowhere(ELit(LStr("x"))), THole)), List(
+        Doc(None, nowhere(Catch(THole, pat_var("k"), Some(expr_app("<", List(expr_var("k"), expr_int(2)))), nowhere(SSkip))))))))))
   end

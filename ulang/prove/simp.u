@@ -1067,7 +1067,7 @@ function match_pat(decls: Decls, p: Pat, t: Term): PatMatch :=
       match constr_head(decls, t)
         case Some((f, args)) =>
           if f == constr and size(pats) == size(args) then
-            match_pats(decls, pats, args)
+            match_pats(decls, List(for q in pats yield q.that), args)
           else
             Failed
 
@@ -1077,10 +1077,6 @@ function match_pat(decls: Decls, p: Pat, t: Term): PatMatch :=
 
     case PTuple(args) =>
       match_pat(decls, PApp(tuple_name(size(args)), args), t)
-
-    // the checker drops positions
-    case PAt(_, inner) =>
-      match_pat(decls, inner, t)
   end
 
 function match_pats(decls: Decls, ps: List[Pat], ts: List[Term]): PatMatch :=
