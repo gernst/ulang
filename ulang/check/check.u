@@ -2655,7 +2655,7 @@ procedure statement_node(
 
     // the pattern over each item, irrefutable, whose variables the body sees, which may not run, as of a while
     case SFor(gens, body) =>
-      local over: At[Expr], t: Type, u: Type, typed_pat: At[Pat], xs: List[Var], typed_body: At[Stmt], inner: Env
+      local over: At[Expr], t: Type, typed_pat: At[Pat], xs: List[Var], typed_body: At[Stmt], inner: Env
       call   items(in env, pos, loop_container(pos, gens), out over, t, ref s)
       call   typed_pattern(in loop_pattern(pos, gens), t, out typed_pat, xs, ref s)
       call   solve(ref s)
@@ -3314,9 +3314,6 @@ function is_definition(d: Id * Cmd): Bool :=
     case _ =>
       true
   end
-
-function definitions(ds: List[Id * Cmd]): List[Id * Cmd] :=
-  List(for d in ds if is_definition(d))
 
 // the signatures and types of the builtin section of d as definitions to declare, whose definitions the interpreter and the
 // runtime give, where a type is a datatype without constructors, whose values the interpreter and the runtime make

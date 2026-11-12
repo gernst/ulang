@@ -261,8 +261,8 @@ test maps() :=
 test map_folds() :=
   local m := Map(for i in range(1, 51) yield i => show(i))
   assert foldr(m, List(), lambda k, v, ps => List((k, v); ps)) == List(for x in m) and foldr(m, empty(), put) == m
-  assert foldl(m, List(), lambda ps, k, v => List((k, v); ps)) == reverse(List(for x in m)) and foldl(m, 0, lambda n, k, v => n + k) == 1275
-  assert foldr(Map(1 => "a", 2 => "b"), "", lambda k, v, t => v ++ t) == "ab" and foldl(Map(1 => "a", 2 => "b"), "", lambda t, k, v => t ++ v) == "ab"
+  assert foldl(m, List(), lambda ps, k, v => List((k, v); ps)) == reverse(List(for x in m)) and foldl(m, 0, lambda n, k, _ => n + k) == 1275
+  assert foldr(Map(1 => "a", 2 => "b"), "", lambda _, v, t => v ++ t) == "ab" and foldl(Map(1 => "a", 2 => "b"), "", lambda t, _, v => t ++ v) == "ab"
   assert List(for x in Map(2 => "b", 1 => "a")) == List((1, "a"), (2, "b")) and List(for x in m) == List(for x in m)
 
 // maps of the same entries are equal, although their trees differ

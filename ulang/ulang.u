@@ -433,14 +433,23 @@ procedure check_paths(in paths: List[Str], lint: Bool, out status: Int) :=
     end
   end, out status)
 
-// prints the lints of the files of the unit, each as a warning with the expression to write instead and its position
+// prints the warnings of the lints of the files of the unit, each with its code, the expression to write instead if it has
+// one, and its position
 procedure print_lints(in source: Source, q: Prog, unit: List[Target]) :=
   for file in files_of(unit) do
     for d in find(source.mods, lambda d => d.name == sibling(q.main, file)) do
-      for l in lints(d) do
-        call os_println(in file ++ ": warning: " ++ l.message ++ ", write " ++ format_module_expr(source, d.name, l.replacement) ++ at_pos(l.pos))
+      for w in lints(d) do
+        call os_println(in file ++ ": warning[" ++ show(w.lint) ++ "]: " ++ w.message ++ replacement_text(source, d.name, w) ++ at_pos(w.pos))
       end
     end
+  end
+
+function replacement_text(source: Source, m: Id, w: Warning): Str :=
+  match w.replacement
+    case Some(r) =>
+      ", write " ++ format_module_expr(source, m, r)
+    case None =>
+      ""
   end
 
 // proves the lemmas of the targets, all or the named ones, by default of the project, each unit loaded once
@@ -917,7 +926,7 @@ function path_up(root: Str, dir: Str): Str :=
   if dir == root then
     "."
   else
-    join("/", List(for d in split(slice(dir, if root == "/" then 1 else size(root) + 1, size(dir)), '/') yield ".."))
+    join("/", List(for _ in split(slice(dir, if root == "/" then 1 else size(root) + 1, size(dir)), '/') yield ".."))
 
 test paths_up() :=
   assert path_up("/a", "/a") == "."

@@ -373,7 +373,7 @@ test lists() :=
   assert zip(List(1, 2, 3), List(true, false)) == List((1, true), (2, false))
   assert take(2, List(1, 2, 3)) == List(1, 2) and drop(2, List(1, 2, 3)) == List(3)
   assert find(List(1, 4, 6), lambda x => x > 3) == Some(4) and find(List(1, 2), lambda x => x > 3) == None
-  assert find_map(List(1, 4, 6), lambda x => if x > 3 then Some(x * 2) else None) == Some(8) and find_map(List(1), lambda x => None) == None
+  assert find_map(List(1, 4, 6), lambda x => if x > 3 then Some(x * 2) else None) == Some(8) and find_map(List(1), lambda _ => None) == None
   assert index_of(6, List(5, 6)) == Some(1) and index_of(7, List(5, 6)) == None
   assert flat_map(List(1, 2), lambda x => List(x, x)) == List(1, 1, 2, 2) and split_at(1, List(1, 2, 3)) == (List(1), List(2, 3))
   assert sort(List(3, 1, 2, 1)) == List(1, 1, 2, 3) and sort(List("b", "a")) == List("a", "b") and sort(List(1)) == List(1)
