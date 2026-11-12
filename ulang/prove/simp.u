@@ -47,6 +47,11 @@ function induct(decls: Decls, s: Seq, p: Int): Seq
 
 function print_seq(s: Seq): Str
 
+// s for printing: each term folded back into the functions that are not recursive whose bodies it has, where that is
+// smaller, as a reader wrote it, m >= 0 for not m < 0, by a short saturation of an e-graph of the term and the smallest
+// term of its class
+function printable(decls: Decls, s: Seq): Seq
+
 implementation
 
 // a fact with variables, which rewrites instances of lhs to rhs if the instances of the conditions simplify to true
@@ -1906,6 +1911,102 @@ function is_recursive(t: Name, field: Var): Bool :=
 
 function hypothesis(vars: List[Var], others: List[Int], v: Term, y: Term, assms: List[Seq], concls: List[Concl]): Seq :=
   Seq(vars, List(for a in assms yield rebind_seq(Close(others), 0, replace_seq(v, y, a))), List(for d in concls yield rebind_concl(Close(others), 0, replace_concl(v, y, d))))
+
+function printable(decls: Decls, s: Seq): Seq :=
+  let folds := List(for k => d in decls.defs for e in fold_equation(k, d) yield e) in
+  if folds == List() then s else map_terms(s, lambda t => folded(folds, t))
+
+// the body of a function that is not recursive as a pattern, its formals the variables, which folds into the call where
+// the body is larger, and where it is no binder, conditional, or match, which enter e-graphs whole
+function fold_equation(key: Name * Int, d: Def): Option[Equation] :=
+  let n := second(key) in
+  let applied := EApp(EFun(first(key)), List(for i in range(0, n) yield EBound(n - 1 - i))) in
+  if d.recursive or n == 0 or not is_plain(d.body) or term_size(d.body) <= term_size(applied) or not is_pattern_of(d.body, applied) then
+    None
+  else
+    Some(Equation(n, d.body, applied))
+
+function is_plain(t: Term): Bool :=
+  match t
+    case EApp(fun, args) =>
+      is_plain(fun) and forall(args, is_plain)
+
+    case ESum(_, summands) =>
+      forall(summands, lambda summand => is_plain(summand.term))
+
+    case ELam(_, _) =>
+      false
+
+    case EIte(_, _, _) =>
+      false
+
+    case EMatch(_, _) =>
+      false
+
+    case _ =>
+      true
+  end
+
+function term_size(t: Term): Int :=
+  match t
+    case EApp(fun, args) =>
+      foldl(args, term_size(fun), lambda acc, a => acc + term_size(a))
+
+    case ESum(_, summands) =>
+      foldl(summands, 1, lambda acc, summand => acc + term_size(summand.term))
+
+    case _ =>
+      1
+  end
+
+// the terms of s mapped by f, where a negated atom is mapped as not of it, so that it may fold into a comparison, and
+// stays a negation if it does not
+function map_terms(s: Seq, f: Term -> Term): Seq :=
+  match s
+    case Atom(t) =>
+      Atom(f(t))
+
+    case Seq(List(), List(Atom(t)), List()) =>
+      match f(Not(t))
+        case Not(u) =>
+          Seq(List(), List(Atom(u)), List())
+        case u =>
+          Atom(u)
+      end
+
+    case Seq(fixed, assms, concls) =>
+      Seq(fixed, List(for a in assms yield map_terms(a, f)), List(for c in concls yield Concl(c.vars, List(for b in c.body yield map_terms(b, f)))))
+  end
+
+function folded(folds: List[Equation], t: Term): Term :=
+  let (g, c) := add_term(empty_graph(), t) in
+  let h := apply_matches(apply_matches(g, matches(g, folds)), matches(apply_matches(g, matches(g, folds)), folds)) in
+  value_or(smallest(h, class_of(h, c), List()), t)
+
+// the smallest term of the class c, from the nodes without arguments in the classes of the stack, the first of equal size
+function smallest(g: EGraph, c: Int, stack: List[Int]): Option[Term] :=
+  let inner := List(c; stack) in
+  let terms := List(for node in class_nodes(g, c) if not exists(node.args, lambda a => contains(a, inner)) for args in all_smallest(g, node.args, inner, List()) yield node_term(node, args)) in
+  foldl(terms, None, lambda best, t => match best
+    case Some(u) =>
+      if term_size(t) < term_size(u) then Some(t) else best
+    case None =>
+      Some(t)
+  end)
+
+function all_smallest(g: EGraph, cs: List[Int], stack: List[Int], acc: List[Term]): Option[List[Term]] :=
+  match cs
+    case List() =>
+      Some(reverse(acc))
+
+    case List(c; rest) =>
+      match smallest(g, c, stack)
+        case Some(t) =>
+          all_smallest(g, rest, stack, List(t; acc))
+        case None =>
+          None
+      end
+  end
 
 function print_seq(s: Seq): Str :=
   print_open(List(), s)

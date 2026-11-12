@@ -33,7 +33,7 @@ test less_by_two() :=
   end
 
 test integer_infeasible() :=
-  assert raises OpenLemma("integer_infeasible", "forall x, y => (not (11 * x + 13 * y) < 27) and (not 45 < (11 * x + 13 * y)) and (not (7 * x - 9 * y) < (-10)) and (not 4 < (7 * x - 9 * y)) ==> false") do
+  assert raises OpenLemma("integer_infeasible", "forall x, y => 27 <= (11 * x + 13 * y) and (11 * x + 13 * y) <= 45 and (-10) <= (7 * x - 9 * y) and (7 * x - 9 * y) <= 4 ==> false") do
     call prove_text(in "ulang/test/errors/integer-infeasible.u", List(
       "lemma integer_infeasible(in x: Int, y: Int) :=",
       "  requires 27 <= 11 * x + 13 * y, 11 * x + 13 * y <= 45, (-10) <= 7 * x - 9 * y, 7 * x - 9 * y <= 4",
@@ -42,7 +42,7 @@ test integer_infeasible() :=
 
 // equal sets of different shapes, which would be refuted as distinct constructors if those of abstract types were free
 test abstract_constructors() :=
-  assert raises OpenLemma("abstract_constructors", "not Node(Node(Leaf, 1, Leaf, 1), 2, Leaf, 2) == Node(Leaf, 1, Node(Leaf, 2, Leaf, 1), 2)") do
+  assert raises OpenLemma("abstract_constructors", "Node(Node(Leaf, 1, Leaf, 1), 2, Leaf, 2) != Node(Leaf, 1, Node(Leaf, 2, Leaf, 1), 2)") do
     call prove_text(in "ulang/test/errors/abstract-constructors.u", List("lemma abstract_constructors() :=", "  ensures Set(1, 2) != Set(2, 1)"))
   end
 

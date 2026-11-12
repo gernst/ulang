@@ -117,7 +117,10 @@ function proofs(decls: Decls, lemmas: List[Lemma], proven: List[Lemma]): List[Pr
 
 function default_gaps(decls: Decls, facts: List[Seq], goal: Seq): List[Gap] :=
   let after := default_proof(decls, facts, goal) in
-  if after == true_seq() then List() else List(Gap(Pos(0, 0), print_seq(after)))
+  if after == true_seq() then
+    List()
+  else
+    List(Gap(Pos(0, 0), print_seq(printable(decls, after))))
 
 function is_proven(proved: Proved): Bool :=
   proved.gaps == List()

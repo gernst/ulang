@@ -157,7 +157,7 @@ function closing(w: Walk, scope: Scope, c: Term, pos: Pos): List[Gap] :=
   if alone == true_seq() or simplify(w.decls, with_facts(goal, facts)) == true_seq() then
     List()
   else
-    List(Gap(pos, print_seq(alone)))
+    List(Gap(pos, print_seq(printable(w.decls, alone))))
 
 // the goal c under the facts of the scope, closed over its variables, where the outs that are not assigned are existential
 function sequent(scope: Scope, c: Term): Seq :=
