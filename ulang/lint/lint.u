@@ -1,7 +1,7 @@
 // the lints of ulang: rewrites of the parsed program, each from a pattern to a simpler expression that keeps the meaning,
-// which check --lint reports as warnings, where the parsed program keeps the positions and the source that format prints,
-// and a file is linted only if it checks, so that the names of a pattern, such as Some and value_or, are those of the
-// library unless a module declares them again
+// which check --lint reports as warnings, where the parsed program keeps the source that format prints, and a file is
+// linted only if it checks, so that the names of a pattern, such as Some and value_or, are those of the library unless a
+// module declares them again
 
 import "ulang/syntax"
 
@@ -9,7 +9,7 @@ export
 
 // the expression at pos of a module is better written as replacement, for the reason of message
 data Lint :=
-  case Lint(pos: Pos, message: Str, replacement: Expr)
+  case Lint(pos: Pos, message: Str, replacement: At[Expr])
 
 // the lints of the commands of module d, in the order of the module
 function lints(d: Mod): List[Lint]
@@ -17,7 +17,7 @@ function lints(d: Mod): List[Lint]
 implementation
 
 function lints(d: Mod): List[Lint] :=
-  List(for top in d.exported ++ d.builtins ++ d.implemented for l in cmd_lints(top.cmd) yield l)
+  List(for cmd in parts(d.exported ++ d.builtins ++ d.implemented) for l in cmd_lints(cmd) yield l)
 
 // fun is the function that a body defines, whose own definition no lint replaces by a call of it, as of not or value_or
 function cmd_lints(cmd: Cmd): List[Lint] :=
@@ -56,12 +56,21 @@ function cmd_lints(cmd: Cmd): List[Lint] :=
       List()
   end
 
-// the lints of expr, where the parser places each construct that a lint rewrites, at its keyword or form, by EAt
-function expr_lints(fun: Id, expr: Expr): List[Lint] :=
+// the lints of the part expr, the construct at its position and its parts, where an unparsed part has none
+function expr_lints(fun: Id, expr: At[Expr]): List[Lint] :=
   match expr
-    case EAt(pos, inner) =>
-      placed_lints(fun, pos, inner) ++ expr_lints(fun, inner)
+    case AOk(pos, that) =>
+      placed_lints(fun, pos, that) ++ part_lints(fun, that)
 
+    case AErr(pos, that, _) =>
+      placed_lints(fun, pos, that) ++ part_lints(fun, that)
+
+    case AUnparsed(_, _, _) =>
+      List()
+  end
+
+function part_lints(fun: Id, expr: Expr): List[Lint] :=
+  match expr
     case ELit(_) =>
       List()
 
@@ -90,7 +99,7 @@ function expr_lints(fun: Id, expr: Expr): List[Lint] :=
       exprs_lints(fun, List(cond, then_expr, else_expr))
 
     case EMatch(arg, cases) =>
-      expr_lints(fun, arg) ++ List(for br in cases for l in option_lints(fun, br.guard) ++ expr_lints(fun, br.body) yield l)
+      expr_lints(fun, arg) ++ List(for br in parts(cases) for l in option_lints(fun, br.guard) ++ expr_lints(fun, br.body) yield l)
 
     case ETuple(args) =>
       exprs_lints(fun, args)
@@ -102,11 +111,11 @@ function expr_lints(fun: Id, expr: Expr): List[Lint] :=
       gens_lints(fun, gens) ++ yield_lints(fun, elem) ++ option_lints(fun, rest)
   end
 
-function exprs_lints(fun: Id, exprs: List[Expr]): List[Lint] :=
+function exprs_lints(fun: Id, exprs: List[At[Expr]]): List[Lint] :=
   List(for e in exprs for l in expr_lints(fun, e) yield l)
 
-function option_lints(fun: Id, guard: Option[Expr]): List[Lint] :=
-  List(for e in guard for l in expr_lints(fun, e) yield l)
+function option_lints(fun: Id, expr: Option[At[Expr]]): List[Lint] :=
+  List(for e in expr for l in expr_lints(fun, e) yield l)
 
 function yield_lints(fun: Id, elem: Yield): List[Lint] :=
   match elem
@@ -131,7 +140,22 @@ function gen_lints(fun: Id, g: Gen): List[Lint] :=
       expr_lints(fun, cond)
   end
 
-function stmt_lints(fun: Id, stmt: Stmt): List[Lint] :=
+function stmt_lints(fun: Id, stmt: At[Stmt]): List[Lint] :=
+  match stmt
+    case AOk(_, that) =>
+      part_stmt_lints(fun, that)
+
+    case AErr(_, that, _) =>
+      part_stmt_lints(fun, that)
+
+    case AUnparsed(_, _, _) =>
+      List()
+  end
+
+function stmts_lints(fun: Id, stmts: List[At[Stmt]]): List[Lint] :=
+  List(for s in stmts for l in stmt_lints(fun, s) yield l)
+
+function part_stmt_lints(fun: Id, stmt: Stmt): List[Lint] :=
   match stmt
     case SSkip =>
       List()
@@ -140,10 +164,10 @@ function stmt_lints(fun: Id, stmt: Stmt): List[Lint] :=
       exprs_lints(fun, List(for (_, e) in upd yield e))
 
     case SBlock(_, stmts) =>
-      List(for s in stmts for l in stmt_lints(fun, s) yield l)
+      stmts_lints(fun, stmts)
 
     case SIf(cond, left, right) =>
-      expr_lints(fun, cond) ++ stmt_lints(fun, left) ++ stmt_lints(fun, right)
+      expr_lints(fun, cond) ++ stmts_lints(fun, List(left, right))
 
     case SWhile(cond, body) =>
       expr_lints(fun, cond) ++ stmt_lints(fun, body)
@@ -152,7 +176,7 @@ function stmt_lints(fun: Id, stmt: Stmt): List[Lint] :=
       exprs_lints(fun, ins)
 
     case SMatch(arg, cases) =>
-      expr_lints(fun, arg) ++ List(for br in cases for l in option_lints(fun, br.guard) ++ stmt_lints(fun, br.body) yield l)
+      expr_lints(fun, arg) ++ List(for br in parts(cases) for l in option_lints(fun, br.guard) ++ stmt_lints(fun, br.body) yield l)
 
     case SAssert(cond) =>
       expr_lints(fun, cond)
@@ -164,30 +188,33 @@ function stmt_lints(fun: Id, stmt: Stmt): List[Lint] :=
       expr_lints(fun, value)
 
     case STry(body, catches) =>
-      stmt_lints(fun, body) ++ List(for c in catches for l in option_lints(fun, c.guard) ++ stmt_lints(fun, c.body) yield l)
+      stmt_lints(fun, body) ++ List(for c in parts(catches) for l in option_lints(fun, c.guard) ++ stmt_lints(fun, c.body) yield l)
 
     case SFor(gens, body) =>
       gens_lints(fun, gens) ++ stmt_lints(fun, body)
-
-    case SAt(_, inner) =>
-      stmt_lints(fun, inner)
   end
 
 // the lints of the construct expr at pos, which its parts do not include
 function placed_lints(fun: Id, pos: Pos, expr: Expr): List[Lint] :=
   match expr
-    case EIte(cond, ELit(LBool(true)), ELit(LBool(false))) =>
-      List(Lint(pos, "an if of true and false is its condition", cond))
+    case EIte(cond, then_expr, else_expr) =>
+      match (literal_bool(then_expr), literal_bool(else_expr))
+        case (Some(true), Some(false)) =>
+          List(Lint(pos, "an if of true and false is its condition", cond))
 
-    case EIte(cond, ELit(LBool(false)), ELit(LBool(true))) if fun != "not" =>
-      List(
-        Lint(pos, "an if of false and true is not of its condition", EApp(expr_var("not"), List(cond))))
+        case (Some(false), Some(true)) if fun != "not" =>
+          List(
+            Lint(pos, "an if of false and true is not of its condition", expr_app("not", List(cond))))
+
+        case _ =>
+          List()
+      end
 
     case EMatch(arg, cases) if fun != "value_or" =>
-      match option_default(cases)
+      match option_default(parts(cases))
         case Some(d) =>
           List(
-            Lint(pos, "a match that gives the value of an option, or else a default, is value_or", EApp(expr_var("value_or"), List(arg, d))))
+            Lint(pos, "a match that gives the value of an option, or else a default, is value_or", expr_app("value_or", List(arg, d))))
 
         case None =>
           List()
@@ -197,11 +224,19 @@ function placed_lints(fun: Id, pos: Pos, expr: Expr): List[Lint] :=
       List()
   end
 
+function literal_bool(expr: At[Expr]): Option[Bool] :=
+  match strip_expr(expr)
+    case AOk(_, ELit(LBool(b))) =>
+      Some(b)
+    case _ =>
+      None
+  end
+
 // a list that a generator iterates, which is the elements of its container in the order of its fold, as the generator
 // takes them from the container itself, where a map gives its pairs to a single pattern
-function iterated_list(over: Expr): List[Lint] :=
+function iterated_list(over: At[Expr]): List[Lint] :=
   match over
-    case EAt(pos, EFor(FList, List(g), elem, None)) if is_identity(g, elem) =>
+    case AOk(pos, EFor(FList, List(g), elem, None)) if is_identity(g, elem) =>
       List(
         Lint(pos, "a list that is only iterated, of the elements of a container, is that container", gen_over(g)))
 
@@ -213,12 +248,12 @@ function iterated_list(over: Expr): List[Lint] :=
 function is_identity(g: Gen, elem: Yield): Bool :=
   match implicit_elem(FList, List(g))
     case Some(implicit) =>
-      strip_expr(EFor(FList, List(g), implicit, None)) == strip_expr(EFor(FList, List(g), elem, None))
+      strip_expr(nowhere(EFor(FList, List(g), implicit, None))) == strip_expr(nowhere(EFor(FList, List(g), elem, None)))
     case None =>
       false
   end
 
-function gen_over(g: Gen): Expr :=
+function gen_over(g: Gen): At[Expr] :=
   match g
     case GVal(_, over) =>
       over
@@ -232,12 +267,12 @@ function gen_over(g: Gen): Expr :=
 
 // the default d of cases Some(x) => x and None => d, in either order, without guards, where d is a plain value, so that
 // value_or, which takes d evaluated, computes nothing that the match would not
-function option_default(cases: List[Branch[Expr]]): Option[Expr] :=
+function option_default(cases: List[Branch[At[Expr]]]): Option[At[Expr]] :=
   match cases
-    case List(Branch(_, some, None, x), Branch(_, none, None, d)) if is_some_of(some, x) and is_none(none) and is_plain(d) =>
+    case List(Branch(some, None, x), Branch(none, None, d)) if is_some_of(some, x) and is_none(none) and is_plain(d) =>
       Some(d)
 
-    case List(Branch(_, none, None, d), Branch(_, some, None, x)) if is_some_of(some, x) and is_none(none) and is_plain(d) =>
+    case List(Branch(none, None, d), Branch(some, None, x)) if is_some_of(some, x) and is_none(none) and is_plain(d) =>
       Some(d)
 
     case _ =>
@@ -245,37 +280,41 @@ function option_default(cases: List[Branch[Expr]]): Option[Expr] :=
   end
 
 // whether pat is Some(x) and body the variable x
-function is_some_of(pat: Pat, body: Expr): Bool :=
+function is_some_of(pat: At[Pat], body: At[Expr]): Bool :=
   match (strip_pat(pat), strip_expr(body))
-    case (PApp(Name(None, "Some"), List(PVar(v))), EVar(w)) =>
+    case (AOk(_, PApp(Name(None, "Some"), List(AOk(_, PVar(v))))), AOk(_, EVar(w))) =>
       v.name == w.name
     case _ =>
       false
   end
 
 // whether pat is None, bare, as a variable that the checker resolves, or with ()
-function is_none(pat: Pat): Bool :=
+function is_none(pat: At[Pat]): Bool :=
   match strip_pat(pat)
-    case PVar(v) =>
+    case AOk(_, PVar(v)) =>
       v.name == Name(None, "None")
-    case p =>
-      p == PApp(Name(None, "None"), List())
+
+    case AOk(_, PApp(Name(None, "None"), List())) =>
+      true
+
+    case _ =>
+      false
   end
 
 // whether expr is a literal, a variable, or a tuple or constructor of plain values, which evaluates without calling a function
-function is_plain(expr: Expr): Bool :=
+function is_plain(expr: At[Expr]): Bool :=
   match strip_expr(expr)
-    case ELit(_) =>
+    case AOk(_, ELit(_)) =>
       true
 
-    case EVar(_) =>
+    case AOk(_, EVar(_)) =>
       true
 
-    case ETuple(args) =>
+    case AOk(_, ETuple(args)) =>
       forall(args, is_plain)
 
-    case EApp(EVar(v), args) =>
-      v.name.module == None and is_capitalized(v.name.base) and forall(args, is_plain)
+    case AOk(_, ECall(_, name, _, args)) =>
+      name.module == None and is_capitalized(name.base) and forall(args, is_plain)
 
     case _ =>
       false

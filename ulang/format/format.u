@@ -20,7 +20,7 @@ function format_module(source: Source, name: Id): Str
 procedure require_formatted(in source: Source, name: Id, text: Str)
 
 // expr as format writes it in the module name of source, with the notation of all its sections, at the start of a line
-function format_module_expr(source: Source, name: Id, expr: Expr): Str
+function format_module_expr(source: Source, name: Id, expr: At[Expr]): Str
 
 function format_lit(lit: Lit): Str
 
@@ -88,7 +88,7 @@ function format_module(source: Source, name: Id): Str :=
       ""
   end
 
-function format_module_expr(source: Source, name: Id, expr: Expr): Str :=
+function format_module_expr(source: Source, name: Id, expr: At[Expr]): Str :=
   match find(source.mods, lambda d => d.name == name)
     case Some(d) =>
       format_expr(with_notation(imported_notation(source.mods, seen_modules(d, source.packages)), commands_of(d.exported ++ d.builtins ++ d.implemented)), "", expr)
