@@ -2,7 +2,7 @@
 
 Open action items, each with the problem and the desired solution.
 
-The sections are in the order of their value for the agents that write ulang, which have almost no ulang in their training data and learn the language from its documentation and its errors, while its design, one way of each construct, a canonical format, exhaustive matches, pure functions, and atomic effects, already suits them: so the feedback of a run comes first, all errors at once (Diagnostics 1), the fix (Diagnostics 2), and the resolution of names (Diagnostics 3), then a reference of the language (Documentation 1).
+The sections are in the order of their value for the agents that write ulang, which have almost no ulang in their training data and learn the language from its documentation and its errors, while its design, one way of each construct, a canonical format, exhaustive matches, pure functions, and atomic effects, already suits them: so the feedback of a run comes first, the text of what does not parse (Diagnostics 1), the fix (Diagnostics 2), and the resolution of names (Diagnostics 3), then a reference of the language (Documentation 1).
 
 ## Diagnostics and refactorings
 
@@ -86,7 +86,7 @@ The sections are in the order of their value for the agents that write ulang, wh
 
 ## Compiler
 
-1. **Runtime errors have no positions.** Solution: positions in the messages of the runtime and of the interpreter, first for uncaught exceptions and failed `assert`s, from the positions that the checked program keeps (`At` of `ulang/syntax/syntax.u`). Later, deferred errors: a program with type errors runs, and `test` runs the tests that no error reaches, where reaching a part with an error, an `AErr` or an `AUnparsed`, raises its diagnostic.
+1. **Runtime errors have no positions.** Solution: positions in the messages of the runtime and of the interpreter, first for uncaught exceptions and failed `assert`s, from the positions that the checked program keeps (`At` of `ulang/syntax/syntax.u`).
 2. **Programs need a C compiler**, and `cc -O2` takes most of the time of `make selfcompile`. Solution: a backend that writes assembly for x86-64, see `assembly.md`.
 3. **No optimizations.** Solution: passes between checking and translating to C, e.g. inlining small functions, folding constants, the rewrites of Diagnostics 5, and loops for folds of comprehensions beyond `list.foldr` into lists, such as those of sets and maps and of several generators.
 
