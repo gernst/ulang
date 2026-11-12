@@ -2,8 +2,8 @@
 //
 // The state of a block is its fixed variables as levels, the first ones the formals, the facts and the goal over them,
 // and the levels of the variables that the terms of the proof have as indices, the innermost first, which a translated
-// term is opened at; a case of a split adds the fields of its constructor as variables, also those that its pattern does
-// not name. Every step is simplified with the lemmas proven before as facts, which it may also call; the lemma itself is
+// term is opened at; a split has a case per leaf of the patterns of its cases (ulang/prove/patterns.u), which adds the
+// variables of the leaf, also those that no pattern names, and checks each case that matches the leaf. Every step is simplified with the lemmas proven before as facts, which it may also call; the lemma itself is
 // called only as an induction hypothesis, at a recursive field of the case.
 
 import "ulang/syntax"
@@ -186,8 +186,7 @@ function split_gaps(w: Walk, scope: Scope, split: SplitTerm): List[Gap] :=
 
         // a type without constructors has no cases, which would prove the lemma vacuously
         case TSort(t, _) if value_or(get(t, w.decls.datatypes), List()) != List() =>
-          let constrs := value_or(get(t, w.decls.datatypes), List()) in
-          List(for c in constrs for g in constr_gaps(w, scope, cases, ELevel(p), Some(p), t, c, pos) yield g)
+          leaves_gaps(w, scope, cases, ELevel(p), Some((p, t)), pos)
 
         case _ =>
           List(
@@ -195,15 +194,7 @@ function split_gaps(w: Walk, scope: Scope, split: SplitTerm): List[Gap] :=
       end
 
     case MatchTerm(arg, cases, pos) =>
-      let value := opened(scope, arg) in
-      match List(for c in cases for f in c.constr for d in get(f, w.decls.constrs) yield d.datatype)
-        case List(t; _) =>
-          let constrs := value_or(get(t, w.decls.datatypes), List()) in
-          List(for c in constrs for g in constr_gaps(w, scope, cases, value, None, t, c, pos) yield g)
-
-        case List() =>
-          literal_gaps(w, scope, cases, value, List(), pos)
-      end
+      leaves_gaps(w, scope, cases, opened(scope, arg), None, pos)
 
     case IfTerm(cond, left, right, pos) =>
       let c := opened(scope, cond) in
@@ -212,44 +203,71 @@ function split_gaps(w: Walk, scope: Scope, split: SplitTerm): List[Gap] :=
       block_gaps(w, yes, left) ++ block_gaps(w, no, value_or(right, ProofTerm(List(), None, pos)))
   end
 
-// the case of the constructor c of the datatype t for the value: the written case of c, else the first catch-all, else
-// the goal, which must close, with the fields of c as variables, and for induction on the formal at the position
-// formal the hypotheses for the recursive fields
-function constr_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, formal: Option[Int], t: Name, c: Name, pos: Pos): List[Gap] :=
-  match get(c, w.decls.constrs)
-    case Some(decl) =>
-      let k := size(scope.vars), n := size(decl.fields) in
-      let fields := List(for i in range(0, n) yield ELevel(k + i)) in
-      let constr_value := if n == 0 then EFun(c) else EApp(EFun(c), fields) in
-      let recursive := List(for (f, i) in zip(decl.fields, range(0, n)) if is_recursive_field(t, f) yield k + i) in
-      let hypotheses := match formal
-        case Some(p) =>
-          List(for l in recursive yield hypothesis(w.target.goal, k + n, p, ELevel(l)))
-        case None =>
-          List()
-      end in
-      let inner := scope with vars := scope.vars ++ decl.fields, facts := scope.facts ++ List(Atom(Eq(value, constr_value))) ++ hypotheses, around := map_option(formal, lambda p => Around(p, List(for l in recursive yield ELevel(l)))) in
-      match List(for case_term in cases if case_term.constr == Some(c) yield case_term) ++ List(for case_term in cases if is_catch_all(case_term) yield case_term)
-        case List(CaseTerm(Some(_), _, vars, proof, _); _) =>
-          let named := List(for (x, f) in zip(vars, decl.fields) yield if x.name == Name(None, "(field)") then f else x) in
-          block_gaps(w, inner with vars := scope.vars ++ named, env := reverse(range(k, k + n)) ++ scope.env, proof)
+// the cases of the value by the leaves of the patterns of the cases (ulang/prove/patterns.u), and for induction on the
+// formal at the position p of the datatype t by its constructors, with the hypotheses for their recursive fields
+function leaves_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, on_formal: Option[Int * Name], pos: Pos): List[Gap] :=
+  let rows := List(for c in cases yield (c.pat, c.guard != None)) in
+  let ls := leaves(w.decls, value, size(scope.vars), rows, map_option(on_formal, lambda (_, t) => t)) in
+  List(for leaf in ls for g in leaf_gaps(w, scope, cases, value, on_formal, leaf, pos) yield g)
 
-        case List(case_term; _) =>
-          catch_all_gaps(w, inner, case_term, constr_value)
-
-        case List() =>
-          closing(w, inner, inner.goal, pos)
-      end
-
+// a leaf with its variables, the equation of the value with it, its conditions, and the hypotheses of an induction for
+// the recursive fields of its constructor, which a call of the lemma itself reaches at their values
+function leaf_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, on_formal: Option[Int * Name], leaf: Leaf, pos: Pos): List[Gap] :=
+  let size_after := size(scope.vars) + size(leaf.vars) in
+  let recursive := match (on_formal, leaf.value)
+    case (Some((_, t)), EApp(EFun(c), args)) =>
+      List(for d in get(c, w.decls.constrs) for (arg, field) in zip(args, d.fields) if is_recursive_field(t, field) yield arg)
+    case _ =>
+      List()
+  end in
+  let hypotheses := match on_formal
+    case Some((p, _)) =>
+      List(for y in recursive yield hypothesis(w.target.goal, size_after, p, y))
     case None =>
-      List(Gap(pos, "Unsupported", "a constructor without a declaration", None))
+      List()
+  end in
+  let equation := if leaf.value == value then List() else List(Atom(Eq(value, leaf.value))) in
+  let facts := scope.facts ++ equation ++ List(for c in leaf.conds yield Atom(c)) ++ hypotheses in
+  let inner := scope with vars := scope.vars ++ leaf.vars, facts := facts, around := map_option(on_formal, lambda (p, _) => Around(p, recursive)) in
+  hits_gaps(w, inner, cases, leaf.hits, pos)
+
+// the cases that match a leaf, in their order, each with the values of its variables, where a guard is a fact of its case
+// and its negation one of the cases after it; a leaf that no case covers must close
+function hits_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], hits: List[Hit], pos: Pos): List[Gap] :=
+  match hits
+    case List() =>
+      closing(w, scope, scope.goal, pos)
+
+    case List(hit; rest) =>
+      let c := at(hit.row, from_list(cases)) in
+      let row := bound(scope, c.vars, hit.bindings) in
+      match c.guard
+        case Some(g) =>
+          let guard := beta(List(for l in reverse(scope.env) yield ELevel(l)) ++ hit.bindings, g) in
+          block_gaps(w, row with facts := row.facts ++ List(Atom(guard)), c.proof) ++ hits_gaps(w, scope with facts := scope.facts ++ List(Seq(List(), List(Atom(guard)), List())), cases, rest, pos)
+
+        case None =>
+          block_gaps(w, row, c.proof)
+      end
   end
 
-function is_catch_all(case_term: CaseTerm): Bool :=
-  case_term.constr == None and case_term.lit == None
+// the scope with the variables of a case at their values, a level where the value is one, else a new variable equal to it
+function bound(scope: Scope, vars: List[Var], values: List[Term]): Scope :=
+  match (vars, values)
+    case (List(_; xs), List(ELevel(l); rest)) =>
+      bound(scope with env := List(l; scope.env), xs, rest)
+
+    case (List(x; xs), List(v; rest)) =>
+      let k := size(scope.vars) in
+      bound(scope with vars := scope.vars ++ List(x), env := List(k; scope.env), facts := scope.facts ++ List(Atom(Eq(ELevel(k), v))), xs, rest)
+
+    case _ =>
+      scope
+  end
 
 // induction on the integer formal at the position p: the case n < 0, which must close, the case 0, written as case 0
-// or else closing, and the case n > 0, with the hypothesis for n - 1, written as a catch-all, whose variable is n
+// or else closing, and the case n > 0, with the hypothesis for n - 1, written as a catch-all, whose variable is n; other
+// cases are gaps
 function int_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], p: Int, pos: Pos): List[Gap] :=
   let n := ELevel(p), zero := ELit(LInt(0)) in
   let below := closing(w, scope with facts := scope.facts ++ List(Atom(Less(n, zero))), scope.goal, pos) in
@@ -258,9 +276,10 @@ function int_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], p: Int, pos: Pos
   let step := scope with facts := scope.facts ++ List(
     Atom(Less(zero, n)),
     hypothesis(w.target.goal, size(scope.vars), p, previous)), around := Some(Around(p, List(previous))) in
-  let at_zero := List(for c in cases if c.lit == Some(LInt(0)) yield c) in
+  let at_zero := List(for c in cases if c.guard == None and c.pat == PLit(LInt(0)) yield c) in
   let above := List(for c in cases if is_catch_all(c) yield c) in
-  below ++ match at_zero
+  let others := List(for c in cases if not is_catch_all(c) and not (c.guard == None and c.pat == PLit(LInt(0))) yield Gap(c.pos, "Unsupported", "a case of an induction on an integer other than case 0 and a catch-all", None)) in
+  others ++ below ++ match at_zero
     case List(c; _) =>
       block_gaps(w, base, c.proof)
     case List() =>
@@ -272,21 +291,16 @@ function int_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], p: Int, pos: Pos
       closing(w, step, step.goal, pos)
   end
 
-// the cases of a match on literals in their order, each with the equation of its literal and the negations of those
-// before, the literals, up to a catch-all, else a last case, which must close
-function literal_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, before: List[Lit], pos: Pos): List[Gap] :=
-  let others := scope with facts := scope.facts ++ List(for l in before yield Seq(List(), List(Atom(Eq(value, ELit(l)))), List())) in
-  match cases
-    case List() =>
-      closing(w, others, others.goal, pos)
+function is_catch_all(c: CaseTerm): Bool :=
+  c.guard == None and match c.pat
+    case PVar(_) =>
+      true
 
-    case List(c; rest) =>
-      match c.lit
-        case Some(l) =>
-          block_gaps(w, others with facts := others.facts ++ List(Atom(Eq(value, ELit(l)))), c.proof) ++ literal_gaps(w, scope, rest, value, before ++ List(l), pos)
-        case None =>
-          catch_all_gaps(w, others, c, value)
-      end
+    case PWild =>
+      true
+
+    case _ =>
+      false
   end
 
 // a catch-all case for the value, whose variable, if it has one, is the value
