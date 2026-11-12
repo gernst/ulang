@@ -16,10 +16,11 @@ import "ulang/lint"
 data Request :=
   case RRun(target: Target, args: List[Str])
   case RTest(targets: List[Target], args: List[Str])
-  // with lint, also the lints of the files that load, as warnings
-  case RCheck(paths: List[Str], lint: Bool)
+  case RCheck(paths: List[Str])
+  // the lints of the files that load, as warnings
+  case RLint(paths: List[Str])
   case RProve(targets: List[Target])
-  case RFormat(paths: List[Str], check_only: Bool)
+  case RFormat(paths: List[Str])
   // the procedure of the target, main by default
   case RCompile(target: Target, output: Str)
   // the tests of the project
@@ -42,14 +43,17 @@ procedure main() :=
     case RTest(targets, rest) =>
       call test_targets(in targets, rest, out status)
 
-    case RCheck(paths, lint) =>
-      call check_paths(in paths, lint, out status)
+    case RCheck(paths) =>
+      call check_paths(in paths, false, out status)
+
+    case RLint(paths) =>
+      call check_paths(in paths, true, out status)
 
     case RProve(targets) =>
       call prove_targets(in targets, out status)
 
-    case RFormat(paths, check_only) =>
-      call format_paths(in paths, check_only, out status)
+    case RFormat(paths) =>
+      call format_paths(in paths, out status)
 
     case RCompile(target, output) =>
       call compile_target(in target, output, out status)
@@ -99,20 +103,17 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
     case ("test", _) =>
       RTest(List(for w in words yield target_of(w)), rest)
 
-    case ("check", List("--lint"; paths)) =>
-      check_request(paths, true)
-
     case ("check", _) =>
-      check_request(words, false)
+      paths_request(command, words, RCheck(words))
+
+    case ("lint", _) =>
+      paths_request(command, words, RLint(words))
 
     case ("prove", _) =>
       RProve(List(for w in words yield target_of(w)))
 
-    case ("format", List("--check"; paths)) =>
-      RFormat(paths, true)
-
     case ("format", _) =>
-      RFormat(words, false)
+      paths_request(command, words, RFormat(words))
 
     case ("compile", _) =>
       compile_request(words, None, false, None)
@@ -133,11 +134,14 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
         RUsage("unknown command " ++ command)
   end
 
-function check_request(paths: List[Str], lint: Bool): Request :=
-  if exists(paths, lambda w => target_of(w).name != None) then
-    RUsage("check takes no names")
+// the request of a command that takes paths without names and no options
+function paths_request(command: Str, paths: List[Str], request: Request): Request :=
+  if exists(paths, lambda w => starts_with(w, "-")) then
+    RUsage(command ++ " takes no options")
+  else if exists(paths, lambda w => target_of(w).name != None) then
+    RUsage(command ++ " takes no names")
   else
-    RCheck(paths, lint)
+    request
 
 // the words of compile in any order, the file with its procedure or --tests, and -o with the target
 function compile_request(words: List[Str], target: Option[Target], tests: Bool, output: Option[Str]): Request :=
@@ -190,9 +194,9 @@ test requests() :=
   assert request(List("run", "a.u")) == RRun(Target("a.u", None), List())
   assert request(List("run", "a.u:go", "--", "x")) == RRun(Target("a.u", Some("go")), List("x"))
   assert request(List("test", "a.u:t", "dir", "b:c")) == RTest(List(Target("a.u", Some("t")), Target("dir", None), Target("b:c", None)), List())
-  assert request(List("check")) == RCheck(List(), false)
-  assert request(List("check", "--lint", "a.u")) == RCheck(List("a.u"), true)
-  assert request(List("format", "--check", "a.u")) == RFormat(List("a.u"), true)
+  assert request(List("check")) == RCheck(List())
+  assert request(List("lint", "a.u")) == RLint(List("a.u"))
+  assert request(List("format", "a.u")) == RFormat(List("a.u"))
   assert request(List("compile", "-o", "a.c", "--tests")) == RCompileTests("a.c")
   assert request(List("compile", "a.u:go", "-o", "a.c")) == RCompile(Target("a.u", Some("go")), "a.c")
   assert request(List("help", "prove")) == RHelp(Some("prove"))
@@ -202,13 +206,16 @@ test usage_errors() :=
   assert request(List("frobnicate")) == RUsage("unknown command frobnicate")
   assert request(List("check", "a.u", "--", "x")) == RUsage("check takes no arguments after --")
   assert request(List("check", "a.u:t")) == RUsage("check takes no names")
+  assert request(List("lint", "a.u:t")) == RUsage("lint takes no names")
+  assert request(List("check", "--lint", "a.u")) == RUsage("check takes no options")
+  assert request(List("format", "--check")) == RUsage("format takes no options")
   assert request(List("run", "dir")) == RUsage("run takes a file name.u, not dir")
   assert request(List("compile", "a.u")) == RUsage("compile takes -o <target.c>")
   assert request(List("compile", "a.u", "--tests", "-o", "a.c")) == RUsage("compile --tests takes no file, since it compiles the tests of the project")
   assert request(List("compile", "-o", "a.c")) == RUsage("compile takes a file or --tests")
 
 function commands(): List[Str] :=
-  List("run", "test", "check", "prove", "format", "compile", "help")
+  List("run", "test", "check", "lint", "prove", "format", "compile", "help")
 
 function usage(): Str :=
   "usage:\n" ++ join("\n", List(for c in commands() yield "  ulang " ++ synopsis(c)))
@@ -225,13 +232,16 @@ function synopsis(command: Str): Str :=
       "test [<path>[:<name>] ...] [-- args]"
 
     case "check" =>
-      "check [--lint] [<path> ...]"
+      "check [<path> ...]"
+
+    case "lint" =>
+      "lint [<path> ...]"
 
     case "prove" =>
       "prove [<path>[:<lemma>] ...]"
 
     case "format" =>
-      "format [--check] [<path> ...]"
+      "format [<path> ...]"
 
     case "compile" =>
       "compile (<file>[:<procedure>] | --tests) -o <target.c>"
@@ -249,13 +259,16 @@ function description(command: Str): Str :=
       "runs the tests of the files, all or the named ones, also below directories, by default the project, in the working\n" ++ "directory, printing a line per test and lemma, where a file passes if it loads and its tests pass and its lemmas are\n" ++ "proven; with several files, it prints the files that do not pass and how many do"
 
     case "check" =>
-      "checks the files, also below directories, by default the project; with --lint, it also prints the lints of the files\n" ++ "that load, as warnings with the simpler expression to write, which do not fail the check"
+      "checks the files, also below directories, by default the project"
+
+    case "lint" =>
+      "checks the files as check does and prints the lints of those that load, as warnings with the rule and, where it has\n" ++ "one, the simpler expression to write, which do not fail the check"
 
     case "prove" =>
       "proves the lemmas of the files, all or the named ones, also below directories, by default the project, where a\n" ++ "recursive function unfolds only if the prover proves that it terminates"
 
     case "format" =>
-      "rewrites the files, also below directories, by default the project, as format_program writes them; with --check, it\n" ++ "only reports the files that differ"
+      "rewrites the files, also below directories, by default the project, as format_program writes them, where lint, check,\n" ++ "and test report the files that differ"
 
     case "compile" =>
       "translates the file to C, whose main calls the procedure, main by default, or with --tests the tests of the project,\n" ++ "whose main takes the arguments of test, without lemmas, and runs them as test does, from the root of the project"
@@ -626,21 +639,15 @@ function from_root(root: Str, file: Str): Str :=
 test paths_from_root() :=
   assert from_root(".", "./ulang/ulang.u") == "ulang/ulang.u" and from_root("../..", "../../a/b.u") == "a/b.u"
 
-// the files of the paths, by default of the project, rewritten as format writes them, or for check_only reported if they
-// differ
-procedure format_paths(in paths: List[Str], check_only: Bool, out status: Int) :=
+// the files of the paths, by default of the project, rewritten as format writes them
+procedure format_paths(in paths: List[Str], out status: Int) :=
   local found: List[Target], done: Bool, errors: List[Diagnostic]
   call   targets_of(in List(for p in paths yield Target(p, None)), false, out found)
   assign status := 0
   for file in files_of(found) do
     assign errors := List(), done := false
     try
-      if check_only then
-        call   check_format(in file)
-        assign done := true
-      else
-        call format_file(in file, out done)
-      end
+      call format_file(in file, out done)
     catch
       case ParseErrors(broken) =>
         assign errors := List(for e in take(20, broken) yield parse_diagnostic(e))
@@ -650,10 +657,6 @@ procedure format_paths(in paths: List[Str], check_only: Bool, out status: Int) :
 
       case OsError(m) =>
         assign errors := List(diagnostic(RuntimeKind, m))
-
-      case Unformatted(line) =>
-        assign errors := List(
-          Diagnostic(FormatKind, "Unformatted", None, Pos(line, 1), "the file differs from what ulang format writes", List()))
     end
     if errors != List() then
       call   report(in file, errors, false)
@@ -661,14 +664,6 @@ procedure format_paths(in paths: List[Str], check_only: Bool, out status: Int) :
     end
     assign status := if done then status else worse(status, 1)
   end
-
-// raises Unformatted if format would change file
-procedure check_format(in file: Str) :=
-  local source: Source, text: Str
-  call os_read(in file, out text)
-  call parse_file_text(in file, text, out source)
-  call require_parsed(in source)
-  call require_formatted(in source, source.main, text)
 
 // rewrites file as source, if that parses to the same commands as file, so that formatting tests the parser and the printer
 procedure format_file(in file: Str, out ok: Bool) :=

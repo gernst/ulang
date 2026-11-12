@@ -1,5 +1,5 @@
 // the lints of parsed texts, with their positions and the replacements as format writes them, where the texts are not
-// checked, as check --lint checks them first
+// checked, as the command lint checks them first
 
 import "ulang/syntax"
 import "ulang/parse"

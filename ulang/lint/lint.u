@@ -1,4 +1,4 @@
-// the lints of ulang: checks of the parsed program, each a rule of Lint, which check --lint reports as warnings, where
+// the lints of ulang: checks of the parsed program, each a rule of Lint, which the command lint reports as warnings, where
 // the parsed program keeps the source that format prints, and a file is linted only if it checks, so that the names of
 // a pattern, such as Some and value_or, are those of the library unless a module declares them again; the walks judge
 // variables by their names, since no local hides another, and declarations by their base names, so overloads count as

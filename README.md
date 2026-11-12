@@ -84,7 +84,8 @@ out/ulang.sh test                         # runs the whole project, the root abo
 out/ulang.sh compile --tests -o suite.c   # compiles the tests of the whole project, whose binary runs at the root
                                           # with the arguments of test
 out/ulang.sh check file.u                 # only checks it
-out/ulang.sh check --lint file.u          # and prints simpler expressions to write, as warnings
+out/ulang.sh lint file.u                  # checks it and prints the lints, as warnings, with simpler expressions to write
+out/ulang.sh format file.u                # rewrites it in the layout that check, lint, and test require
 out/ulang.sh compile file.u -o file.c     # compiles a program to C, whose main calls the procedure main
 out/ulang.sh help                         # lists the commands
 cc -I ulang/runtime file.c ulang/runtime/ulang.c -lgmp -lgc
