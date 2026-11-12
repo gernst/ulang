@@ -1766,6 +1766,7 @@ procedure compile_file(
 ) raises ParseError, TypeError, EntryError, InternalError, OsError :=
   local parsed: Source, q: Prog
   call parse_file(in source, out parsed)
+  call require_parsed(in parsed)
   call check_program(in parsed, out q)
   call compile_prog(in q, entry, target)
 

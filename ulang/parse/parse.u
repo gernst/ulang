@@ -14,6 +14,16 @@ data ParseError :=
 
 function parse_diagnostic(e: ParseError): Diagnostic
 
+// the errors of the modules of source, the parts that do not parse, of the main module as ParseError and of the others as
+// ImportError, in load order and by position, so those of the imported modules first
+function parse_errors(source: Source): List[ParseError]
+
+function has_errors(source: Source): Bool
+
+// raises the errors of source: the first one of an imported module, else the one of the main module, or ParseErrors of
+// several
+procedure require_parsed(in source: Source) raises ParseError
+
 // the modules of the file at path, in load order, each after the modules it imports, with the module of the file last,
 // where a module of a project is known by its path from the root without .u, the root being the nearest directory above
 // it with project.u, else its own directory, and a module name.u of the library as prelude/name; loading a module loads
@@ -78,6 +88,47 @@ function parse_diagnostic(e: ParseError): Diagnostic :=
         case List() =>
           Diagnostic(ParseKind, "ParseErrors", None, Pos(0, 0), "", List())
       end
+  end
+
+function parse_errors(source: Source): List[ParseError] :=
+  List(for m in source.mods for d in mod_errors(m) yield if m.name == source.main then
+    ParseError(d.message, d.pos)
+  else
+    ImportError(m.name, d.message, d.pos))
+
+function has_errors(source: Source): Bool :=
+  exists(source.mods, lambda m => mod_errors(m) != List())
+
+procedure require_parsed(in source: Source) raises ParseError :=
+  match parse_errors(source)
+    case List() =>
+      skip
+
+    case List(ImportError(m, message, pos); _) =>
+      raise ImportError(m, message, pos)
+
+    case List(e) =>
+      raise e
+
+    case errors =>
+      raise ParseErrors(errors)
+  end
+
+// the errors of the parts of the commands of m that do not parse, by position
+function mod_errors(m: Mod): List[Diagnostic] :=
+  let errors := List(for d in m.exported ++ m.builtins ++ m.implemented for e in cmd_errors(d.at) yield e) in
+  List(for (_, e) in sort(List(for e in errors yield (e.pos, e))) yield e)
+
+function cmd_errors(cmd: At[Cmd]): List[Diagnostic] :=
+  match cmd
+    case AUnparsed(_, _, error) =>
+      List(error)
+
+    case AOk(_, that) =>
+      unparsed_errors(that)
+
+    case AErr(_, that, _) =>
+      unparsed_errors(that)
   end
 
 function type_ops(): Ops[List[Type]] :=
@@ -1893,11 +1944,11 @@ function without_examples(cmd: Cmd): Cmd :=
   end
 
 function is_test(c: Doc[Cmd]): Bool :=
-  match c.at.that
-    case CTest(_, _, _) =>
+  match c.at
+    case AOk(_, CTest(_, _, _)) =>
       true
 
-    case CLemma(_, _, _, _, _) =>
+    case AOk(_, CLemma(_, _, _, _, _)) =>
       true
 
     case _ =>
@@ -2728,7 +2779,9 @@ data Section :=
 // the module name of the tokens toks, which starts with the notation of its implicit imports and the notation of its
 // package, that its siblings export, after the packages that its imports load into source, from the directory dir of root
 // as import_package reads them, where notations apply to the commands after them, imports come first, and each command
-// has the position where it starts
+// has the position where it starts; after an error the parser resumes at the next command, from the start of this one, as
+// the handler sees the tokens, where the command stays as a part that does not parse, and a comment that documents
+// nothing is one too, so that the module holds its errors
 procedure parse_mod(
   in  name: Id,
       implicit: List[Id],
@@ -2740,7 +2793,8 @@ procedure parse_mod(
   ref source: Source,
       toks: Tokens
 ) :=
-  local imports: List[Id] := List(), notation := empty_notation(), plain: List[Doc[Cmd]] := List(), exported: List[Doc[Cmd]] := List(), builtins: List[Doc[Cmd]] := List(), implemented: List[Doc[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[Doc[Cmd]], doc: Option[Str], broken: List[ParseError] := misplaced_comments(toks), mod_doc: Option[Str]
+  local imports: List[Id] := List(), notation := empty_notation(), plain: List[Doc[Cmd]] := List(), exported: List[Doc[Cmd]] := List(), builtins: List[Doc[Cmd]] := List(), implemented: List[Doc[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[Doc[Cmd]], doc: Option[Str], mod_doc: Option[Str], text: Str
+  assign implemented := List(for (p, tok) in toks if tok == TMisplaced yield Doc(None, AUnparsed(p, "//", parse_diagnostic(ParseError(misplaced_comment(), p)))))
   assign toks := List(for (p, tok) in toks if tok != TMisplaced yield (p, tok))
   assign mod_doc := module_doc(toks)
   if mod_doc != None then
@@ -2751,58 +2805,21 @@ procedure parse_mod(
   assign notation := notation ++ package
   while head_token(toks) != TEnd do
     call   parse_doc(out doc, ref toks)
-    assign pos := head_pos(toks), more := List()
-    match head_token(toks)
-      case TKw("export") =>
-        if section == InExport or section == InBuiltin or section == InImplementation then
-          raise ParseError("a module has one export section", pos)
-        else
-          if section != Opening then
-            raise ParseError("export comes first, after the imports", pos)
-          end
+    assign pos := head_pos(toks), more := List(), placed := List()
+    try
+      call parse_section_or_command(in root, dir, loading, pos, out more, ref notation, section, imports, source, toks)
+    catch
+      case ParseError(message, at) =>
+        match head_token(toks)
+          case TKw(kw) if section_named(kw) != None =>
+            call   advance(ref toks)
+            assign section := value_or(section_named(kw), section), text := kw
+
+          case _ =>
+            call skip_command(out text, ref toks)
         end
-        call   advance(ref toks)
-        assign section := InExport
-
-      case TKw("builtin") =>
-        if section != InExport then
-          raise ParseError("builtin follows export", pos)
-        end
-        call   advance(ref toks)
-        assign section := InBuiltin
-
-      case TKw("implementation") =>
-        if section != InExport and section != InBuiltin then
-          raise ParseError("implementation follows export", pos)
-        end
-        call   advance(ref toks)
-        assign section := InImplementation
-
-      case TKw("import") if section == NoSections =>
-        raise ParseError("imports come first", pos)
-
-      case TKw("import") if section != Opening =>
-        raise ParseError("imports come before export", pos)
-
-      case TKw("import") =>
-        call   advance(ref toks)
-        call   parse_import(out imported, ref toks)
-        call   import_package(in imported, root, dir, loading, pos, ref source)
-        call   import_notation(in package_members(imported, source.packages), source.mods, pos, ref notation)
-        assign imports := imports ++ List(imported)
-
-      // after an error, at the next command, from the start of this one, as the handler sees the tokens
-      case _ =>
-        try
-          call   parse_command(in notation, out more, ref toks)
-          call   enter_section(in more, pos, ref section)
-          assign broken := broken ++ List(for cmd in more for d in unparsed_errors(cmd) yield ParseError(d.message, d.pos))
-          assign notation := with_notation(notation, more)
-        catch
-          case ParseError(message, at) =>
-            assign broken := broken ++ List(ParseError(message, at))
-            call   skip_command(ref toks)
-        end
+        assign placed := List(
+          Doc(doc, AUnparsed(pos, text, parse_diagnostic(ParseError(message, at)))))
     end
     match more
       case List(c; rest) =>
@@ -2810,7 +2827,7 @@ procedure parse_mod(
           Doc(doc, AOk(pos, c)); List(for d in rest yield Doc(None, AOk(pos, d))))
 
       case _ =>
-        assign placed := List()
+        skip
     end
     match section
       case InExport =>
@@ -2826,30 +2843,91 @@ procedure parse_mod(
         assign plain := reverse_onto(placed, plain)
     end
   end
-  assign broken := List(for (_, e) in sort(List(for e in broken yield (e.pos, e))) yield e)
-  match broken
-    case List(e) =>
-      raise e
-
-    case List() =>
-      skip
-
-    case _ =>
-      raise ParseErrors(broken)
-  end
   assign implemented := reverse(implemented) ++ reverse(plain)
   assign own := Mod(name, mod_doc, imports, reverse(exported), reverse(builtins), implemented)
 
-// the errors of the comments of toks that document nothing
-function misplaced_comments(toks: Tokens): List[ParseError] :=
-  List(for (p, tok) in toks if tok == TMisplaced yield ParseError(misplaced_comment(), p))
+// a section keyword, an import, or the commands of a declaration at pos, which more gives
+procedure parse_section_or_command(
+  in  root: Str,
+      dir: Option[Str],
+      loading: List[Id],
+      pos: Pos,
+  out more: List[Cmd],
+  ref notation: Notation,
+      section: Section,
+      imports: List[Id],
+      source: Source,
+      toks: Tokens
+) :=
+  local imported: Id
+  assign more := List()
+  match head_token(toks)
+    case TKw("export") =>
+      if section == InExport or section == InBuiltin or section == InImplementation then
+        raise ParseError("a module has one export section", pos)
+      else
+        if section != Opening then
+          raise ParseError("export comes first, after the imports", pos)
+        end
+      end
+      call   advance(ref toks)
+      assign section := InExport
 
-// the tokens from the next keyword that starts a command, or a doc of one, after the first token
-procedure skip_command(ref toks: Tokens) :=
-  call advance(ref toks)
-  while not starts_command(toks) do
-    call advance(ref toks)
+    case TKw("builtin") =>
+      if section != InExport then
+        raise ParseError("builtin follows export", pos)
+      end
+      call   advance(ref toks)
+      assign section := InBuiltin
+
+    case TKw("implementation") =>
+      if section != InExport and section != InBuiltin then
+        raise ParseError("implementation follows export", pos)
+      end
+      call   advance(ref toks)
+      assign section := InImplementation
+
+    case TKw("import") if section == NoSections =>
+      raise ParseError("imports come first", pos)
+
+    case TKw("import") if section != Opening =>
+      raise ParseError("imports come before export", pos)
+
+    case TKw("import") =>
+      call   advance(ref toks)
+      call   parse_import(out imported, ref toks)
+      call   import_package(in imported, root, dir, loading, pos, ref source)
+      call   import_notation(in package_members(imported, source.packages), source.mods, pos, ref notation)
+      assign imports := imports ++ List(imported)
+
+    case _ =>
+      call   parse_command(in notation, out more, ref toks)
+      call   enter_section(in more, pos, ref section)
+      assign notation := with_notation(notation, more)
   end
+
+// the section that the keyword kw opens, which a keyword in the wrong place opens too, so that its commands are not errors
+function section_named(kw: Str): Option[Section] :=
+  if kw == "export" then
+    Some(InExport)
+  else if kw == "builtin" then
+    Some(InBuiltin)
+  else if kw == "implementation" then
+    Some(InImplementation)
+  else
+    None
+
+// the tokens from the next keyword that starts a command, or a doc of one, after the first token, and those before, joined by
+// spaces
+procedure skip_command(out text: Str, ref toks: Tokens) :=
+  local skipped: Buffer[Str] := empty()
+  assign skipped := skipped ++ List(format_token(head_token(toks)))
+  call   advance(ref toks)
+  while not starts_command(toks) do
+    assign skipped := skipped ++ List(format_token(head_token(toks)))
+    call   advance(ref toks)
+  end
+  assign text := join(" ", List(for t in skipped))
 
 function starts_command(toks: Tokens): Bool :=
   head_token(toks) == TEnd or at_command(toks) or at_doc(toks) and at_command(rest_of(toks))
@@ -2976,6 +3054,7 @@ procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError :=
   local toks: Tokens, source := Source(List(), List(), "main")
   call lex_text(in text, out toks)
   call parse_mod(in "main", List(), empty_notation(), "", None, List(), out own, ref source, toks)
+  call require_parsed(in Source(List(own), List(), "main"))
 
 // the file of a module: its id, the root of its project, and its directory from the root, None for the library
 data Place :=

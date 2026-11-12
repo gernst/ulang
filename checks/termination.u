@@ -10,6 +10,7 @@ import "ulang/prove"
 procedure main() :=
   local source: Source, q: Prog, open: List[Str] := List()
   call parse_file(in "ulang/ulang.u", out source)
+  call require_parsed(in source)
   call check_program(in source, out q)
   match translate(q, q.main)
     case Translation(decls, _) =>
