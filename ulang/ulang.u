@@ -287,9 +287,6 @@ procedure run_target(in target: Target, args: List[Str], out ok: Bool) :=
       case UnknownEntry(name) =>
         call report(in target.path, List(no_entry(name)), false)
 
-      case OsError(m) =>
-        call report(in target.path, List(diagnostic(RuntimeKind, m)), false)
-
       case e =>
         call report(in target.path, List(diagnostic(RuntimeKind, runtime_message(e))), false)
 
@@ -335,7 +332,7 @@ procedure test_unit(
 // how many files passed, where ok tells whether all did
 procedure visit_units(
   in  found: List[Target],
-      visit: (in Prog, List[Target], out List[Str]),
+      visit: (in Prog, List[Target], out List[Str]) raises Thrown,
   out ok: Bool
 ) :=
   local units: List[List[Target]], q: Prog, errors: List[Diagnostic], failed: Buffer[Str] := empty(), bad: List[Str]
@@ -532,7 +529,7 @@ function cmd_module(cmd: Cmd): Option[Id] :=
     case CFun(name, _, _, _, _) =>
       name.module
 
-    case CProc(name, _, _, _, _, _) =>
+    case CProc(name, _, _, _, _, _, _) =>
       name.module
 
     case CNotation(_, _, _) =>
@@ -544,7 +541,7 @@ function cmd_module(cmd: Cmd): Option[Id] :=
     case CFunSig(name, _, _, _) =>
       name.module
 
-    case CProcSig(name, _, _, _, _) =>
+    case CProcSig(name, _, _, _, _, _) =>
       name.module
 
     case CAbstract(name, _) =>
@@ -676,9 +673,6 @@ procedure check_file(
 
     case OsError(m) =>
       assign errors := List(diagnostic(RuntimeKind, m))
-
-    case e =>
-      assign errors := List(type_diagnostic(e))
 
     case e =>
       assign errors := List(diagnostic(InternalKind, internal_message(e)))

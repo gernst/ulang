@@ -20,10 +20,18 @@ data Entry :=
 data TestFile :=
   case TestFile(path: Str, module: Id)
 
-procedure compile_file(in source: Str, entry: Entry, target: Str)
+procedure compile_file(
+  in  source: Str,
+      entry: Entry,
+      target: Str
+) raises ParseError, TypeError, EntryError, InternalError, OsError
 
 // compile_file of the checked program q, whose entry is a procedure of its main module or the tests of its files
-procedure compile_prog(in q: Prog, entry: Entry, target: Str)
+procedure compile_prog(
+  in  q: Prog,
+      entry: Entry,
+      target: Str
+) raises EntryError, InternalError, OsError
 
 implementation
 
@@ -356,7 +364,7 @@ function type_key(t: Type): Str :=
     case TFun(args, res) =>
       "(" ++ join(", ", List(for a in args yield type_key(a))) ++ ") -> " ++ type_key(res)
 
-    case TProc(ins, outs, refs) =>
+    case TProc(ins, outs, refs, _) =>
       "(in " ++ type_keys(ins) ++ ", out " ++ type_keys(outs) ++ ", ref " ++ type_keys(refs) ++ ")"
 
     case TTuple(types) =>
@@ -498,7 +506,7 @@ function free_vars(expr: At[Expr], bound: List[Name]): List[Name] :=
     case ELam(formals, body) =>
       free_vars(body, var_names(lambda_vars(formals)) ++ bound)
 
-    case EProc(ins, outs, refs, stmt) =>
+    case EProc(ins, outs, refs, _, stmt) =>
       free_in_stmt(stmt, var_names(ins ++ outs ++ refs) ++ bound)
 
     case ELet(bindings, body) =>
@@ -706,7 +714,7 @@ procedure compile_expr(
           raise Unexpected("lambda of patterns")
       end
 
-    case EProc(ins, outs, refs, stmt) =>
+    case EProc(ins, outs, refs, _, stmt) =>
       call compile_proc_lambda(in defs, env, ins, outs, refs, stmt, out ss, r, ref g)
 
     case ELet(bindings, body) =>
@@ -1547,7 +1555,7 @@ procedure compile_cmd(
         CdFunction(LkStatic, value_type(), fun_name(name, size(formals)), params, bs)), ms := List()
 
     // outs and refs are pointers to the variables of the caller, which the procedure assigns when it returns
-    case CProc(name, _, ins, outs, refs, stmt) =>
+    case CProc(name, _, ins, outs, refs, _, stmt) =>
       local bs: List[CStmt], params: List[CType * Str]
       call   compile_stmt(in defs, in_scope(var_names(ins ++ outs ++ refs)), stmt, out bs, ref g)
       assign params := value_formals(ins) ++ pointer_formals(outs ++ refs)
@@ -1751,13 +1759,21 @@ function text_decl(p: Str * Str): CDecl :=
 
 // checks the program of the file source, which is its module, and writes its translation to C to target, with the whole
 // library, which every module sees, so also the module list, which the runtime needs
-procedure compile_file(in source: Str, entry: Entry, target: Str) :=
+procedure compile_file(
+  in  source: Str,
+      entry: Entry,
+      target: Str
+) raises ParseError, TypeError, EntryError, InternalError, OsError :=
   local parsed: Source, q: Prog
   call parse_file(in source, out parsed)
   call check_program(in parsed, out q)
   call compile_prog(in q, entry, target)
 
-procedure compile_prog(in q: Prog, entry: Entry, target: Str) :=
+procedure compile_prog(
+  in  q: Prog,
+      entry: Entry,
+      target: Str
+) raises EntryError, InternalError, OsError :=
   local f: CFile
   call compile_program(in q, q.main, entry, out f)
   call os_write(in target, format_file(f))

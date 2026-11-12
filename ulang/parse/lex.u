@@ -29,7 +29,7 @@ data LexError :=
 
 function is_keyword(w: Str): Bool
 
-procedure lex(in text: Str, out toks: Tokens)
+procedure lex(in text: Str, out toks: Tokens) raises LexError
 
 implementation
 
@@ -285,7 +285,7 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
 
 // the tokens of text with their positions, which end with TEnd at the end of text, where line and column are those of
 // offset last
-procedure lex(in text: Str, out toks: Tokens) :=
+procedure lex(in text: Str, out toks: Tokens) raises LexError :=
   local offset := 0, found: Buffer[Pos * Token] := empty(), start: Int, tok: Token, last := 0, line := 1, column := 1, doc: Str, above: Bool, margin: Int
   while offset < size(text) do
     assign start := offset

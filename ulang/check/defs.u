@@ -27,7 +27,7 @@ function defs_of(q: Prog): Defs
 data EntryError :=
   case UnknownEntry(name: Name)
 
-procedure require_entry(in q: Prog, n: Name)
+procedure require_entry(in q: Prog, n: Name) raises EntryError
 
 function field_names(constrs: List[Constr]): List[Id]
 
@@ -66,7 +66,7 @@ function unordered_of(defs: Defs, t: Name): Option[Name]
 
 implementation
 
-procedure require_entry(in q: Prog, n: Name) :=
+procedure require_entry(in q: Prog, n: Name) raises EntryError :=
   if not exists(q.cmds, lambda c => is_entry(c, n)) then
     raise UnknownEntry(n)
   end
@@ -74,7 +74,7 @@ procedure require_entry(in q: Prog, n: Name) :=
 // a procedure without parameters
 function is_entry(cmd: Cmd, n: Name): Bool :=
   match cmd
-    case CProc(name, _, List(), List(), List(), _) =>
+    case CProc(name, _, List(), List(), List(), _, _) =>
       name == n
     case _ =>
       false
@@ -121,7 +121,7 @@ function proc_defs(cmds: List[Cmd]): List[Name * ProcDef] :=
     case List() =>
       List()
 
-    case List(CProc(name, _, ins, outs, refs, stmt); rest) =>
+    case List(CProc(name, _, ins, outs, refs, _, stmt); rest) =>
       List((name, ProcDef(ins, outs, refs, stmt)); proc_defs(rest))
 
     case List(_; rest) =>

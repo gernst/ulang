@@ -24,7 +24,8 @@ data Type :=
   // a function type A -> B, (A, B, …) -> C, or () -> C
   case TFun(args: List[Type], res: Type)
   // procedures as values, (in A, out B, ref C), whose parameters have modes as in declarations
-  case TProc(ins: List[Type], outs: List[Type], refs: List[Type])
+  // where raises is a TTuple of the types that it may raise, as written, or a TMeta of inference
+  case TProc(ins: List[Type], outs: List[Type], refs: List[Type], raised: Type)
   // a tuple type A * B * …, where a chain is one tuple type, or () for none
   case TTuple(types: List[Type])
 
@@ -72,7 +73,8 @@ data Expr :=
   // keeping those that are variables and matching the others in the body, so that the backends see only variables
   case ELam(formals: List[At[Pat]], body: At[Expr])
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
-  case EProc(ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
+  // where raised is the type of what it may raise, as of TProc, THole until the checker infers it from where it is used
+  case EProc(ins: List[Var], outs: List[Var], refs: List[Var], raised: Type, stmt: At[Stmt])
   // let p := a, … in body, which binds in parallel, by irrefutable patterns
   case ELet(bindings: List[At[Pat] * At[Expr]], body: At[Expr])
   // if c then a else b
@@ -190,7 +192,8 @@ data Cmd :=
   // function f[A, …](x: A, …): T := body
   case CFun(name: Name, params: List[Id], formals: List[Var], typ: Type, body: At[Expr])
   // procedure p[A, …](in x: A, …, out y: B, …, ref z: C, …) := body, where in is optional before the first ins
-  case CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
+  // raises T, … after the formals, where none written is none raised if it is exported, and else inferred
+  case CProc(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type], stmt: At[Stmt])
   // a notation, e.g. infix left 9 + -, see Fixity
   case CNotation(fixity: Fixity, prec: Int, ops: List[Id])
   // tests take no parameters, which the checker enforces
@@ -199,7 +202,7 @@ data Cmd :=
   // bodies, and abstract types, which its implementation section defines by data, and its builtin section, with the
   // signatures of exported functions and procedures that the interpreter and the runtime define
   case CFunSig(name: Name, params: List[Id], formals: List[Var], typ: Type)
-  case CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var])
+  case CProcSig(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type])
   // an abstract type T[A, …], without a definition
   case CAbstract(name: Name, params: List[Id])
   // a pattern alias pattern C[A, …](x: A, …): T := pat, whose variables are the formals, each once, which the checker
@@ -550,8 +553,8 @@ function sorts_in(t: Type): List[Name] :=
     case TFun(args, res) =>
       List(for a in args ++ List(res) for u in sorts_in(a) yield u)
 
-    case TProc(ins, outs, refs) =>
-      List(for a in ins ++ outs ++ refs for u in sorts_in(a) yield u)
+    case TProc(ins, outs, refs, raised) =>
+      List(for a in ins ++ outs ++ refs ++ List(raised) for u in sorts_in(a) yield u)
 
     case TTuple(types) =>
       List(for a in types for u in sorts_in(a) yield u)
@@ -630,8 +633,8 @@ function strip_cmd(cmd: Cmd): Cmd :=
     case CFun(name, params, formals, typ, body) =>
       CFun(name, params, formals, typ, strip_expr(body))
 
-    case CProc(name, params, ins, outs, refs, stmt) =>
-      CProc(name, params, ins, outs, refs, strip_stmt(stmt))
+    case CProc(name, params, ins, outs, refs, raised, stmt) =>
+      CProc(name, params, ins, outs, refs, raised, strip_stmt(stmt))
 
     case CTest(name, vars, stmt) =>
       CTest(name, vars, strip_stmt(stmt))
@@ -654,7 +657,7 @@ function strip_cmd(cmd: Cmd): Cmd :=
     case CFunSig(_, _, _, _) =>
       cmd
 
-    case CProcSig(_, _, _, _, _) =>
+    case CProcSig(_, _, _, _, _, _) =>
       cmd
 
     case CAbstract(_, _) =>
@@ -688,8 +691,8 @@ function strip_node(expr: Expr): Expr :=
     case ELam(formals, body) =>
       ELam(List(for p in formals yield strip_pat(p)), strip_expr(body))
 
-    case EProc(ins, outs, refs, stmt) =>
-      EProc(ins, outs, refs, strip_stmt(stmt))
+    case EProc(ins, outs, refs, raised, stmt) =>
+      EProc(ins, outs, refs, raised, strip_stmt(stmt))
 
     case ELet(bindings, body) =>
       ELet(List(for (p, e) in bindings yield (strip_pat(p), strip_expr(e))), strip_expr(body))

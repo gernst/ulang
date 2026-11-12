@@ -17,7 +17,11 @@ data Unformatted :=
 function format_module(source: Source, name: Id): Str
 
 // raises Unformatted if text, the source of the module name of source, is not what format_module writes of it
-procedure require_formatted(in source: Source, name: Id, text: Str)
+procedure require_formatted(
+  in  source: Source,
+      name: Id,
+      text: Str
+) raises Unformatted
 
 function format_lit(lit: Lit): Str
 
@@ -37,7 +41,11 @@ function array_text(texts: List[Str]): Str
 
 implementation
 
-procedure require_formatted(in source: Source, name: Id, text: Str) :=
+procedure require_formatted(
+  in  source: Source,
+      name: Id,
+      text: Str
+) raises Unformatted :=
   match first_difference(split(text, '\n'), split(format_module(source, name), '\n'), 1)
     case Some(line) =>
       raise Unformatted(line)
@@ -253,7 +261,7 @@ function expr_out(notation: Notation, indent: Str, expr: At[Expr]): Out :=
     case ELam(formals, body) =>
       Out("lambda " ++ format_patterns(notation, indent, formals) ++ " => " ++ format_expr(notation, indent, body), Open)
 
-    case EProc(ins, outs, refs, stmt) =>
+    case EProc(ins, outs, refs, _, stmt) =>
       Out(block_text(notation, indent, "lambda " ++ formal_sections(ins, outs, refs) ++ " =>", stmt), Atom)
 
     case ELet(bindings, body) =>
@@ -780,11 +788,11 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
     case CFunSig(name, params, formals, typ) =>
       Some(function_head(name, params, formals, typ))
 
-    case CProc(name, params, ins, outs, refs, stmt) =>
-      Some(proc_head(name, params, ins, outs, refs) ++ " :=" ++ format_body(notation, "  ", stmt))
+    case CProc(name, params, ins, outs, refs, raised, stmt) =>
+      Some(proc_head(name, params, ins, outs, refs, raised) ++ " :=" ++ format_body(notation, "  ", stmt))
 
-    case CProcSig(name, params, ins, outs, refs) =>
-      Some(proc_head(name, params, ins, outs, refs))
+    case CProcSig(name, params, ins, outs, refs, raised) =>
+      Some(proc_head(name, params, ins, outs, refs, raised))
 
     case CPatAlias(name, params, formals, typ, pat) =>
       Some("pattern " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ "): " ++ format_type(typ) ++ " :=\n  " ++ format_pattern(notation, "  ", pat))
@@ -816,10 +824,10 @@ function constr_line(c: Doc[Constr]): Str :=
   indented_doc("  ", c.doc) ++ "\n  case " ++ constr_text(c.at.that)
 
 // a head wider than the line has one formal on each line, the modes in front of the first of their group
-function proc_head(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var]): Str :=
-  let flat := "procedure " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")" in
+function proc_head(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type]): Str :=
+  let flat := "procedure " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")" ++ raised_text(empty(), TTuple(raised)) in
   if size(flat) > 80 then
-    spread_proc_head(name, params, ins, outs, refs)
+    spread_proc_head(name, params, ins, outs, refs) ++ raised_text(empty(), TTuple(raised))
   else
     flat
 
@@ -975,8 +983,8 @@ function format_type_apart(clashes: Set[Id], t: Type): Str :=
     case TFun(args, res) =>
       "(" ++ format_list_apart(clashes, args) ++ ") -> " ++ format_type_apart(clashes, res)
 
-    case TProc(ins, outs, refs) =>
-      "(" ++ join(", ", type_section(clashes, "in", ins) ++ type_section(clashes, "out", outs) ++ type_section(clashes, "ref", refs)) ++ ")"
+    case TProc(ins, outs, refs, raised) =>
+      "(" ++ join(", ", type_section(clashes, "in", ins) ++ type_section(clashes, "out", outs) ++ type_section(clashes, "ref", refs)) ++ ")" ++ raised_text(clashes, raised)
 
     case TTuple(List()) =>
       "()"
@@ -996,6 +1004,20 @@ function sort_text(clashes: Set[Id], name: Name): Str :=
 
 function format_list_apart(clashes: Set[Id], ts: List[Type]): Str :=
   join(", ", List(for t in ts yield format_type_apart(clashes, t)))
+
+// raises T, … after a procedure head or the modes of a procedure type, in the order written, and nothing if it raises
+// nothing or is an unknown of inference
+function raised_text(clashes: Set[Id], raised: Type): Str :=
+  match raised
+    case TTuple(List()) =>
+      ""
+
+    case TTuple(types) =>
+      " raises " ++ format_list_apart(clashes, types)
+
+    case _ =>
+      ""
+  end
 
 function type_section(clashes: Set[Id], mode: Str, ts: List[Type]): List[Str] :=
   if ts == List() then
@@ -1075,6 +1097,7 @@ function format_name(n: Name): Str :=
 test printing() :=
   local int_type := TSort(unqualified("Int"), List()), str_type := TSort(unqualified("Str"), List()), list_type := TSort(unqualified("List"), List(TParam("A"))), fun_type := TFun(List(TParam("A")), TParam("B")), pair_type := TTuple(List(int_type, str_type)), var_pat := PName(unqualified("x"), THole)
   assert format_type(TFun(List(fun_type, pair_type), list_type)) == "(A -> B, Int * Str) -> List[A]"
-  assert format_type(TProc(List(TParam("A")), List(), List(int_type))) == "(in A, ref Int)"
+  assert format_type(TProc(List(TParam("A")), List(), List(int_type), TTuple(List()))) == "(in A, ref Int)"
+  assert format_type(TProc(List(TParam("A")), List(), List(), TTuple(List(TSort(unqualified("E"), List()), int_type)))) == "(in A) raises E, Int"
   assert format_pat(PCons(nowhere(var_pat), nowhere(PApp(unqualified("Some"), List(nowhere(PWild)))))) == "List(x; Some(_))"
   assert format_name(cons_name()) == "prelude/list.Cons" and cons_name().base == "Cons"

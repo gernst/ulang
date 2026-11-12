@@ -29,15 +29,27 @@ function load(q: Prog): Run
 
 function format_value(v: Val): Str
 
-procedure run_proc(in run: Run, n: Name, ref cache: Map[Name, Val])
+procedure run_proc(
+  in  run: Run,
+      n: Name,
+  ref cache: Map[Name, Val]
+) raises Thrown, RuntimeError, InternalError
 
 // the value of the function n without parameters, None if there is none
-procedure constant_of(in run: Run, n: Name, out v: Option[Val])
+procedure constant_of(
+  in  run: Run,
+      n: Name,
+  out v: Option[Val]
+) raises Thrown, RuntimeError, InternalError
 
-procedure run_cmd(in run: Run, cmd: Cmd, ref cache: Map[Name, Val])
+procedure run_cmd(
+  in  run: Run,
+      cmd: Cmd,
+  ref cache: Map[Name, Val]
+) raises Thrown, RuntimeError, InternalError
 
 // runs the tests of a checked program, where failed assertions are errors
-procedure run_program(in q: Prog)
+procedure run_program(in q: Prog) raises Thrown, RuntimeError, InternalError
 
 implementation
 
@@ -356,7 +368,7 @@ procedure evaluate(
           raise Unexpected("lambda of patterns")
       end
 
-    case EProc(ins, outs, refs, stmt) =>
+    case EProc(ins, outs, refs, _, stmt) =>
       assign v := VProcClos(env, ins, outs, refs, stmt)
 
     // the patterns are bound in parallel, and match, since they are irrefutable
@@ -1364,7 +1376,11 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
 function entry_values(entries: List[Str * Bool]): List[Val] :=
   List(for (name, dir) in entries yield VTuple(List(VStr(name), VBool(dir))))
 
-procedure constant_of(in run: Run, n: Name, out v: Option[Val]) :=
+procedure constant_of(
+  in  run: Run,
+      n: Name,
+  out v: Option[Val]
+) raises Thrown, RuntimeError, InternalError :=
   local cache: Map[Name, Val] := empty(), value: Val
   match get((n, 0), run.defs.funs)
     case Some(fun) =>
@@ -1376,7 +1392,11 @@ procedure constant_of(in run: Run, n: Name, out v: Option[Val]) :=
   end
 
 // calls the procedure n without parameters
-procedure run_proc(in run: Run, n: Name, ref cache: Map[Name, Val]) :=
+procedure run_proc(
+  in  run: Run,
+      n: Name,
+  ref cache: Map[Name, Val]
+) raises Thrown, RuntimeError, InternalError :=
   local env: Bindings := empty(), outs: List[Val]
   try
     call invoke(in run, n, List(), List(), out outs, ref env, cache)
@@ -1385,7 +1405,11 @@ procedure run_proc(in run: Run, n: Name, ref cache: Map[Name, Val]) :=
       call uncaught(in run, value, ref cache)
   end
 
-procedure run_cmd(in run: Run, cmd: Cmd, ref cache: Map[Name, Val]) :=
+procedure run_cmd(
+  in  run: Run,
+      cmd: Cmd,
+  ref cache: Map[Name, Val]
+) raises Thrown, RuntimeError, InternalError :=
   local env: Bindings := empty()
   try
     match cmd
@@ -1410,7 +1434,7 @@ procedure run_all(in run: Run, cmds: List[Cmd], ref cache: Map[Name, Val]) :=
     call run_cmd(in run, c, ref cache)
   end
 
-procedure run_program(in q: Prog) :=
+procedure run_program(in q: Prog) raises Thrown, RuntimeError, InternalError :=
   local cache: Map[Name, Val] := empty()
   call run_all(in load(q), q.cmds, ref cache)
 
@@ -1451,7 +1475,7 @@ function procedures(): List[Cmd] :=
   List(
     CData(unqualified("Fail"), List(), List(
       Doc(None, nowhere(Constr(unqualified("Fail"), List(Field("code", TInt()))))))),
-    CProc(unqualified("sum"), List(), List(Var(unqualified("n"), TInt())), List(Var(unqualified("s"), TInt())), List(), block(List(Var(unqualified("i"), TInt())), List(
+    CProc(unqualified("sum"), List(), List(Var(unqualified("n"), TInt())), List(Var(unqualified("s"), TInt())), List(), List(), block(List(Var(unqualified("i"), TInt())), List(
       SAssign(List(
         (Var(unqualified("s"), THole), expr_int(0)),
         (Var(unqualified("i"), THole), expr_int(0)))),
@@ -1459,7 +1483,7 @@ function procedures(): List[Cmd] :=
         SAssign(List(
           (Var(unqualified("i"), THole), expr_app("+", List(expr_var("i"), expr_int(1)))),
           (Var(unqualified("s"), THole), expr_app("+", List(expr_var("s"), expr_app("+", List(expr_var("i"), expr_int(1)))))))))))))),
-    CProc(unqualified("count"), List(), List(), List(), List(Var(unqualified("k"), TInt())), block(List(), List(
+    CProc(unqualified("count"), List(), List(), List(), List(Var(unqualified("k"), TInt())), List(), block(List(), List(
       SAssign(List(
         (Var(unqualified("k"), THole), expr_app("+", List(expr_var("k"), expr_int(1)))))),
       SRaise(expr_app("Fail", List(expr_var("k"))), THole)))))
@@ -1487,7 +1511,7 @@ test procedure_values() :=
         nowhere(SAssign(List((hole_var("f"), expr_var("sum"))))),
         nowhere(SAssign(List((hole_var("k"), expr_int(10))))),
         nowhere(SAssign(List(
-          (hole_var("g"), nowhere(EProc(List(hole_var("n")), List(hole_var("r")), List(), block(List(), List(
+          (hole_var("g"), nowhere(EProc(List(hole_var("n")), List(hole_var("r")), List(), THole, block(List(), List(
             SAssign(List(
               (hole_var("r"), expr_app("+", List(expr_var("n"), expr_var("k")))))))))))))),
         nowhere(SCall(unqualified("f"), List(expr_int(4)), List(hole_var("s")), List())),
@@ -1527,9 +1551,10 @@ test tuples() :=
       Doc(None, nowhere(Branch(nowhere(PTuple(List(nowhere(PWild), nowhere(PWild), pat_var("z")))), None, expr_var("z"))))))), expr_int(3))))
 
 // a handler for integers skips a string without evaluating its guard, so the string is raised further
+// a handler of Int lets the Str through, which only one of the paths raises
 test handler_types() :=
   assert raises Uncaught("\"x\"") do
     call check_and_run(in List(
-      CTest(unqualified("t"), List(), nowhere(STry(nowhere(SRaise(nowhere(ELit(LStr("x"))), THole)), List(
+      CTest(unqualified("t"), List(), nowhere(STry(nowhere(SIf(nowhere(ELit(LBool(true))), nowhere(SRaise(nowhere(ELit(LStr("x"))), THole)), nowhere(SRaise(expr_int(1), THole)))), List(
         Doc(None, nowhere(Catch(THole, pat_var("k"), Some(expr_app("<", List(expr_var("k"), expr_int(2)))), nowhere(SSkip))))))))))
   end
