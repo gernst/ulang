@@ -600,10 +600,10 @@ procedure outputs(in p: Name, os: List[Var], env: Env, ref s: State) :=
   end
 
 // the pattern of a case, and whether it has no guard, such that it may cover values
-function case_of[A](b: Doc[Branch[A]]): Pat * Bool :=
+function case_of[A](b: Doc[Branch[A]]): At[Pat] * Bool :=
   match b.at.that
     case Branch(pat, guard, _) =>
-      (pat.that, guard == None)
+      (pat, guard == None)
   end
 
 function zonk_guard(s: State, g: Option[At[Expr]]): Option[At[Expr]] :=
@@ -1726,7 +1726,7 @@ procedure infer_node(
           call infer_body(in bind(xs) ++ env, body, expected, out b, typ, ref s)
           call solve(ref s)
           for (pat, t) in zip(pats, ts) do
-            call coverage(in t, List((pat.that, true)), ref s)
+            call coverage(in t, List((pat, true)), ref s)
           end
           assign res := ELet(zip(pats, exprs), b)
       end
@@ -2585,13 +2585,13 @@ procedure guard(
   end
 
 // guarded cases neither cover values for exhaustiveness nor make later cases unreachable
-procedure coverage(in t: Type, cs: List[Pat * Bool], ref s: State) :=
+procedure coverage(in t: Type, cs: List[At[Pat] * Bool], ref s: State) :=
   if zonk_type(s.sub, t) != TError then
     call coverage_known(in t, cs, ref s)
   end
 
 // coverage of a type that no error reaches, which says which values there are
-procedure coverage_known(in t: Type, cs: List[Pat * Bool], ref s: State) :=
+procedure coverage_known(in t: Type, cs: List[At[Pat] * Bool], ref s: State) :=
   call reachable(in t, List(), cs, ref s)
   match missing(s.sig, s.sub, List(for p in unguarded(cs) yield List(p)), List(t))
     case Some(List(w; _)) =>
@@ -2600,13 +2600,13 @@ procedure coverage_known(in t: Type, cs: List[Pat * Bool], ref s: State) :=
       skip
   end
 
-function unguarded(cs: List[Pat * Bool]): List[Pat] :=
-  List(for (p, g) in cs if g yield p)
+function unguarded(cs: List[At[Pat] * Bool]): List[Pat] :=
+  List(for (p, g) in cs if g yield p.that)
 
 procedure reachable(
   in  t: Type,
       before: List[Pat],
-      cs: List[Pat * Bool],
+      cs: List[At[Pat] * Bool],
   ref s: State
 ) :=
   match cs
@@ -2614,11 +2614,11 @@ procedure reachable(
       skip
 
     case List((p, open); rest) =>
-      if not is_useful(s.sig, s.sub, List(for q in before yield List(q)), List(p), List(t)) then
-        call report(in Unreachable(p), ref s)
+      if not is_useful(s.sig, s.sub, List(for q in before yield List(q)), List(p.that), List(t)) then
+        call report(in at_use(p.pos, Unreachable(p.that)), ref s)
       end
       if open then
-        call reachable(in t, before ++ List(p), rest, ref s)
+        call reachable(in t, before ++ List(p.that), rest, ref s)
       else
         call reachable(in t, before, rest, ref s)
       end
@@ -2997,7 +2997,7 @@ procedure statement_node(
       call   items(in env, pos, loop_container(pos, gens), out over, t, ref s)
       call   typed_pattern(in loop_pattern(pos, gens), t, out typed_pat, xs, ref s)
       call   solve(ref s)
-      call   coverage(in t, List((typed_pat.that, true)), ref s)
+      call   coverage(in t, List((typed_pat, true)), ref s)
       call   unhidden(in env, xs, ref s)
       assign inner := bind(xs) ++ env
       call   statement(in assignable -- List(for x in xs yield x.name), loop_body(gens, body), out typed_body, ref inner, s)
