@@ -1785,7 +1785,8 @@ procedure infer_node(
       call generator(in env, pos, form, g, more, elem, rest, out res, typ, ref s)
   end
 
-// the translation expr of an expression at the position of expr, which it has
+// the translation expr of an expression at the position of expr, which it has, checked as the node of that expression,
+// so that the errors of its top stay for the part of the expression to take, as only its node is kept
 procedure translated(
   in  env: Env,
       expr: At[Expr],
@@ -1794,9 +1795,20 @@ procedure translated(
       typ: Type,
   ref s: State
 ) :=
-  local typed_expr: At[Expr]
-  call   infer_body(in env, expr, expected, out typed_expr, typ, ref s)
-  assign res := typed_expr.that
+  match (expr, expected)
+    case (AOk(pos, node), Some((t, what))) =>
+      local u: Type
+      call   infer_node(in env, pos, node, expected, out res, u, ref s)
+      call   expect(in pos, what, t, u, ref s)
+      assign typ := t
+
+    case (AOk(pos, node), None) =>
+      call infer_node(in env, pos, node, None, out res, typ, ref s)
+
+    // the translations are built by the checker, at the position of what they translate
+    case _ =>
+      raise Unexpected("a translation that does not parse")
+  end
 
 // expr against expected, if known, else inferred
 procedure infer_body(

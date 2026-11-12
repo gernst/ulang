@@ -915,6 +915,17 @@ test proof_out_one_branch() :=
       "  end"))
   end
 
+// the errors of the translation of a form stand on the part of the form, which the diagnostics of the checked program read
+test errors_of_forms() :=
+  local q: Prog
+  call checked_text(in "ulang/test/errors/errors-of-forms.u", List(
+    "function f(): List[Int] :=",
+    "  List(true)",
+    "",
+    "function g(): Set[Int] :=",
+    "  Set(for x in List(1) yield x + true)"), out q)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("Mismatch", Pos(2, 8)), ("Mismatch", Pos(5, 34)))
+
 // a mismatch stands on the part that finds it, the call, while its diagnostic points at the argument
 test errors_on_parts() :=
   local q: Prog
