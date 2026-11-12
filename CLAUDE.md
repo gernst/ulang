@@ -22,7 +22,7 @@ A minimal language with pure functional expressions, imperative statements, data
 
 ## Writing ulang
 
-Agents have almost no ulang in their training data, so what they write comes from this file, `README.md`, and the errors, which name only the token that was expected (Diagnostics 3 of `TODO.md` plans hints). The habits of other languages that fail:
+Agents have almost no ulang in their training data, so what they write comes from this file, `README.md`, and the errors, which name only the token that was expected (Diagnostics 2 of `TODO.md` plans hints). The habits of other languages that fail:
 
 - Every statement starts with its keyword, `local x := e`, `assign x := e`, `call p(in a, out b)`, `raise e`, `skip`: `x := e` is `end expected but x found`, and a call without `call` is `declaration expected`; no `return`, `break`, or `+=`, so a procedure gives results by its `out` formals, and a loop ends by its condition or an exception.
 - `if c then … end` and `while c do … end` in statements, `if c then a else b` in expressions, which always has its `else`; `else if` opens an `if` of its own, with its own `end`, and no `elif`, so a missing `end` is reported only at the end of the input.
@@ -32,7 +32,7 @@ Agents have almost no ulang in their training data, so what they write comes fro
 - Functions are expressions without `raise`, failing only by the exceptions of builtins, so code that raises, may not terminate, or reads files is a procedure.
 - Layout is not written by hand: `ulang.sh format` gives it, and `check` rejects any other.
 
-A type error is reported at the innermost use of a name, operator, or keyword around it, e.g. `1 + true` at the `+` and `if 1 then 2 else 3` at the `if`, and a run stops at the first error (Diagnostics 2 of `TODO.md`): check after each small edit; which declaration an overloaded name such as `size` takes depends on the imports and the types, so read the `export` sections of the imported packages.
+A type error is reported at the innermost use of a name, operator, or keyword around it, e.g. `1 + true` at the `+` and `if 1 then 2 else 3` at the `if`, and a run stops at the first error (Diagnostics 1 of `TODO.md`): check after each small edit; which declaration an overloaded name such as `size` takes depends on the imports and the types, so read the `export` sections of the imported packages.
 
 ## Build
 
