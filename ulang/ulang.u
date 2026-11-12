@@ -496,11 +496,13 @@ procedure prove_module(
     call   os_println(in label ++ "termination of " ++ first(site.caller).base ++ " open: " ++ print_open_call(site))
     assign proven := false
   end
-  for Proved(name, goal) in proofs.lemmas if names == List() or contains(name.base, names) do
-    if goal == true_seq() then
+  for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) do
+    if gaps == List() then
       call os_println(in label ++ "lemma " ++ name.base ++ " proved")
     else
-      call   os_println(in label ++ "lemma " ++ name.base ++ " open: " ++ print_seq(goal))
+      for gap in gaps do
+        call os_println(in label ++ "lemma " ++ name.base ++ " open: " ++ print_gap(gap))
+      end
       assign proven := false
     end
   end
@@ -610,7 +612,7 @@ function cmd_module(cmd: Cmd): Option[Id] :=
     case CPatAlias(name, _, _, _, _) =>
       name.module
 
-    case CLemma(name, _, _, _, _) =>
+    case CLemma(name, _, _, _, _, _, _) =>
       name.module
   end
 
@@ -640,6 +642,9 @@ procedure format_paths(in paths: List[Str], check_only: Bool, out status: Int) :
         call format_file(in file, out done)
       end
     catch
+      case ParseErrors(broken) =>
+        assign errors := List(for e in take(20, broken) yield parse_diagnostic(e))
+
       case e =>
         assign errors := List(parse_diagnostic(e))
 
@@ -662,6 +667,7 @@ procedure check_format(in file: Str) :=
   local source: Source, text: Str
   call os_read(in file, out text)
   call parse_file_text(in file, text, out source)
+  call require_parsed(in source)
   call require_formatted(in source, source.main, text)
 
 // rewrites file as source, if that parses to the same commands as file, so that formatting tests the parser and the printer
@@ -669,11 +675,12 @@ procedure format_file(in file: Str, out ok: Bool) :=
   local p: Source, text: Str, source: Str
   call   os_read(in file, out text)
   call   parse_file_text(in file, text, out p)
+  call   require_parsed(in p)
   assign source := format_program(p), ok := false
   try
     local q: Source
     call parse_file_text(in file, source, out q)
-    if same_mods(p.mods, q.mods) then
+    if not has_errors(q) and same_mods(p.mods, q.mods) then
       if source != text then
         call os_write(in file, source)
       end
@@ -723,9 +730,13 @@ procedure load_file(
   assign source := Source(List(), List(), ""), q := Prog(List(), "", List()), errors := List()
   try
     local text: Str, typed: List[TypeError]
-    call   parse_file(in file, out source)
-    call   check_all(in source, out q, typed)
-    assign errors := take(20, q.errors)
+    call parse_file(in file, out source)
+    if has_errors(source) then
+      assign errors := List(for e in take(20, parse_errors(source)) yield parse_diagnostic(e))
+    else
+      call   check_all(in source, out q, typed)
+      assign errors := take(20, q.errors)
+    end
     for m in unit_modules(source) if formatted and errors == List() do
       call os_read(in os_join(os_dirname(file), module_file(m)), out text)
       try

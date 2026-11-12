@@ -205,6 +205,12 @@ function plain_message(e: TypeError): Str :=
     case UnknownProcedure(name) =>
       "unknown procedure " ++ name.base
 
+    case UnknownLemma(name) =>
+      "unknown lemma " ++ name.base
+
+    case NotInducible(name) =>
+      "induction on " ++ name.base ++ ", which is no formal of a datatype"
+
     case UnknownException(typ) =>
       "the type " ++ format_type(typ) ++ " of an exception is not fully known"
 
@@ -332,6 +338,8 @@ test messages() :=
   assert located_message(Located(None, Pos(4, 1), UnknownField(Name(Some("ulang/test/errors/unknown-field"), "Point.z")))) == "unknown field z of Point at 4.1"
   assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x"))) == "the type of the value of .x is not known there, which an annotation can give at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownProcedure(Name(None, "r")))) == "unknown procedure r at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownLemma(Name(None, "l")))) == "unknown lemma l at 1.1"
+  assert located_message(Located(None, Pos(1, 1), NotInducible(Name(None, "n")))) == "induction on n, which is no formal of a datatype at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownSort(Name(None, "A")))) == "unknown sort A at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownVariable(Name(None, "y")))) == "unknown variable y at 1.1"
   assert located_message(Located(None, Pos(1, 1), Unreachable(PWild))) == "unreachable case _ at 1.1"

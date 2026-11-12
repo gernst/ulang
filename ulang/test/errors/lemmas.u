@@ -8,26 +8,26 @@ import "ulang/test/cases"
 test append_commutes() :=
   assert raises OpenLemma("append_commutes", "forall xs, ys => (ys ++ xs) == (xs ++ ys)") do
     call prove_text(in "ulang/test/errors/append-commutes.u", List(
-      "lemma append_commutes[A](xs: List[A], ys: List[A]) :=",
+      "lemma append_commutes[A](in xs: List[A], ys: List[A]) :=",
       "  ensures xs ++ ys == ys ++ xs"))
   end
 
 test falsified() :=
   assert raises Uncaught("Falsified(\"xs = List(1, 0), ys = List()\")") do
     call run_text(in "ulang/test/errors/falsified.u", List(
-      "lemma reverse_same(xs: List[Int], ys: List[Int]) :=",
+      "lemma reverse_same(in xs: List[Int], ys: List[Int]) :=",
       "  ensures reverse(xs) ++ ys == xs ++ ys"))
   end
 
 test irreflexive() :=
   assert raises OpenLemma("irreflexive", "forall a => false") do
-    call prove_text(in "ulang/test/errors/irreflexive.u", List("lemma irreflexive(a: Int) :=", "  ensures a < a"))
+    call prove_text(in "ulang/test/errors/irreflexive.u", List("lemma irreflexive(in a: Int) :=", "  ensures a < a"))
   end
 
 test less_by_two() :=
   assert raises OpenLemma("less_by_two", "forall a, b => a < b ==> b < (a + 2)") do
     call prove_text(in "ulang/test/errors/less-by-two.u", List(
-      "lemma less_by_two(a: Int, b: Int) :=",
+      "lemma less_by_two(in a: Int, b: Int) :=",
       "  requires a < b",
       "  ensures  b < a + 2"))
   end
@@ -35,7 +35,7 @@ test less_by_two() :=
 test integer_infeasible() :=
   assert raises OpenLemma("integer_infeasible", "forall x, y => (not (11 * x + 13 * y) < 27) and (not 45 < (11 * x + 13 * y)) and (not (7 * x - 9 * y) < (-10)) and (not 4 < (7 * x - 9 * y)) ==> false") do
     call prove_text(in "ulang/test/errors/integer-infeasible.u", List(
-      "lemma integer_infeasible(x: Int, y: Int) :=",
+      "lemma integer_infeasible(in x: Int, y: Int) :=",
       "  requires 27 <= 11 * x + 13 * y, 11 * x + 13 * y <= 45, (-10) <= 7 * x - 9 * y, 7 * x - 9 * y <= 4",
       "  ensures  false"))
   end
@@ -89,17 +89,66 @@ test nonterminating_function() :=
 
 test vacuous() :=
   assert raises Uncaught("Vacuous") do
-    call run_text(in "ulang/test/errors/vacuous.u", List("lemma large(n: Int) :=", "  requires n > 100", "  ensures  n > 0"))
+    call run_text(in "ulang/test/errors/vacuous.u", List("lemma large(in n: Int) :=", "  requires n > 100", "  ensures  n > 0"))
   end
 
 // the sign of a remainder follows that of its dividend, since / truncates towards zero, so it is open without it
 test remainder_unsigned() :=
   assert raises OpenLemma("remainder_unsigned", "forall m => (m % 3) < 0 ==> false") do
-    call prove_text(in "ulang/test/errors/remainder-unsigned.u", List("lemma remainder_unsigned(m: Int) :=", "  ensures m % 3 >= 0"))
+    call prove_text(in "ulang/test/errors/remainder-unsigned.u", List("lemma remainder_unsigned(in m: Int) :=", "  ensures m % 3 >= 0"))
   end
 
 // only squares are at least 0
 test product_unsigned() :=
   assert raises OpenLemma("product_unsigned", "forall x, y => (x * y) < 0 ==> false") do
-    call prove_text(in "ulang/test/errors/product-unsigned.u", List("lemma product_unsigned(x: Int, y: Int) :=", "  ensures x * y >= 0"))
+    call prove_text(in "ulang/test/errors/product-unsigned.u", List("lemma product_unsigned(in x: Int, y: Int) :=", "  ensures x * y >= 0"))
+  end
+
+// a cut that does not follow, at its step
+test proof_open_assert() :=
+  assert raises OpenLemma("open_assert", "forall x => 0 < x at 3.3") do
+    call prove_text(in "ulang/test/errors/proof-open-assert.u", List(
+      "lemma open_assert(in x: Int) :=",
+      "  ensures x == x",
+      "  assert x > 0"))
+  end
+
+// a call of the lemma itself outside the case of an induction
+test proof_self_call() :=
+  assert raises OpenLemma("self_call", "the lemma calls itself only at a recursive field of the case of its induction at 3.3") do
+    call prove_text(in "ulang/test/errors/proof-self-call.u", List(
+      "lemma self_call(in x: Int) :=",
+      "  ensures x == x",
+      "  call self_call(in x)"))
+  end
+
+// a call of a lemma that comes after the one that calls it
+test proof_later_call() :=
+  assert raises OpenLemma("early", "the lemma late is not proven before this one at 3.3") do
+    call prove_text(in "ulang/test/errors/proof-later-call.u", List(
+      "lemma early(in x: Int) :=",
+      "  ensures x == x",
+      "  call late(in x)",
+      "",
+      "lemma late(in x: Int) :=",
+      "  ensures x == x"))
+  end
+
+// a case of an induction that is not written must close by simplification
+test proof_open_case() :=
+  assert raises OpenLemma("open_case", "forall head, tail => size(tail) == 0 ==> false at 3.3") do
+    call prove_text(in "ulang/test/errors/proof-open-case.u", List(
+      "lemma open_case(in xs: List[Int]) :=",
+      "  ensures size(xs) == 0",
+      "  induction xs",
+      "  end"))
+  end
+
+// a witness for which the ensures does not hold
+test proof_false_witness() :=
+  assert raises OpenLemma("false_witness", "forall x => false at 3.3") do
+    call prove_text(in "ulang/test/errors/proof-false-witness.u", List(
+      "lemma false_witness(in x: Int, out y: Int) :=",
+      "  ensures y == x + 1",
+      "  assign y := x"))
   end

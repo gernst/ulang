@@ -126,6 +126,30 @@ data Pat :=
   // a tuple (p, q, …)
   case PTuple(args: List[At[Pat]])
 
+// the proof of a lemma after its contract, see prover.md, section 3: steps that add facts and witnesses, then at most one
+// split, which ends it, since it replaces the goal by its cases, each a proof of its own; without steps and split, the
+// goal must close by simplification
+data Proof :=
+  case Proof(steps: List[At[Step]], split: Option[At[Split]])
+
+data Step :=
+  // local x := e, a definition, or local q: T, a witness that an out of a call binds
+  case StepLocal(var: Var, value: Option[At[Expr]])
+  // call l(in a, …, out q, …), the instance of the lemma l, whose requires are proven and whose ensures is then a fact
+  case StepCall(name: Name, ins: List[At[Expr]], outs: List[Var])
+  // assert e, a cut, which must follow by simplification and is a fact afterwards
+  case StepAssert(cond: At[Expr])
+  // assign q := e, …, the witnesses for the outs of the lemma being proven
+  case StepAssign(upd: List[Var * At[Expr]])
+
+data Split :=
+  // induction x case p => … end, structural induction on the formal x
+  case SplitInduction(formal: Var, cases: List[Doc[Branch[Proof]]])
+  // match e case p => … end, on the constructors of e
+  case SplitMatch(arg: At[Expr], cases: List[Doc[Branch[Proof]]])
+  // if c then … else … end, with None for an else that is not written
+  case SplitIf(cond: At[Expr], left: Proof, right: Option[Proof])
+
 data Branch[A] :=
   // case p if g => body of a match, where if g is optional
   case Branch(pat: At[Pat], guard: Option[At[Expr]], body: A)
@@ -210,9 +234,10 @@ data Cmd :=
   // a pattern alias pattern C[A, …](x: A, …): T := pat, whose variables are the formals, each once, which the checker
   // expands at its uses in patterns, and which is a function of the same name where pat has no _
   case CPatAlias(name: Name, params: List[Id], formals: List[Var], typ: Type, pat: At[Pat])
-  // lemma l[A, …](x: A, …) := requires a, … ensures b, which states b for all formals that satisfy the assumptions a, …,
-  // see prove.md, and which the prover proves, while the interpreter and the compiler skip it
-  case CLemma(name: Name, params: List[Id], formals: List[Var], assms: List[At[Expr]], concl: At[Expr])
+  // lemma l[A, …](in x: A, …, out y: B, …) := requires a, … ensures b, which states b for all ins that satisfy the
+  // assumptions a, …, for some outs, see prover.md, and which the prover proves, while the interpreter and the compiler
+  // skip it
+  case CLemma(name: Name, params: List[Id], ins: List[Var], outs: List[Var], assms: List[At[Expr]], concl: At[Expr], proof: Option[Proof])
 
 // the specification of a function or procedure, lines after := of its head and before its body, where the contracts of
 // prove.md, requires and ensures, will join the examples; on the first occurrence of a signature, the export of an
@@ -318,7 +343,7 @@ function placed_of(d: Mod): List[Doc[Cmd]]
 
 function commands_of(docs: List[Doc[Cmd]]): List[Cmd]
 
-// the parts of docs, without their docs and positions
+// the parts of docs, without their docs and positions, and without those that do not parse
 function parts[A](docs: List[Doc[A]]): List[A]
 
 // the statements of docs, without their docs
@@ -454,7 +479,15 @@ function block(locals: List[Var], stmts: List[At[Stmt]]): Stmt :=
   SBlock(locals, List(for stmt in stmts yield Doc(None, stmt)))
 
 function parts[A](docs: List[Doc[A]]): List[A] :=
-  List(for d in docs yield d.at.that)
+  List(for d in docs if is_parsed(d.at) yield d.at.that)
+
+function is_parsed[A](x: At[A]): Bool :=
+  match x
+    case AUnparsed(_, _, _) =>
+      false
+    case _ =>
+      true
+  end
 
 function module_dir(id: Id): Str :=
   match reverse(split(id, '/'))
@@ -687,8 +720,8 @@ function strip_cmd(cmd: Cmd): Cmd :=
     case CPatAlias(name, params, formals, typ, pat) =>
       CPatAlias(name, params, formals, typ, strip_pat(pat))
 
-    case CLemma(name, params, formals, assms, concl) =>
-      CLemma(name, params, formals, List(for a in assms yield strip_expr(a)), strip_expr(concl))
+    case CLemma(name, params, ins, outs, assms, concl, proof) =>
+      CLemma(name, params, ins, outs, List(for a in assms yield strip_expr(a)), strip_expr(concl), map_option(proof, strip_proof))
 
     case CData(name, params, constrs) =>
       CData(name, params, List(for c in constrs yield Doc(c.doc, stripped(c.at, lambda x => x))))
@@ -842,6 +875,36 @@ function strip_statement(stmt: Stmt): Stmt :=
 
     case SFor(gens, body) =>
       SFor(List(for g in gens yield strip_gen(g)), strip_stmt(body))
+  end
+
+function strip_proof(proof: Proof): Proof :=
+  Proof(List(for step in proof.steps yield stripped(step, strip_step)), map_option(proof.split, lambda split => stripped(split, strip_split)))
+
+function strip_step(step: Step): Step :=
+  match step
+    case StepLocal(x, value) =>
+      StepLocal(x, map_option(value, strip_expr))
+
+    case StepCall(name, ins, outs) =>
+      StepCall(name, List(for a in ins yield strip_expr(a)), outs)
+
+    case StepAssert(cond) =>
+      StepAssert(strip_expr(cond))
+
+    case StepAssign(upd) =>
+      StepAssign(List(for (x, e) in upd yield (x, strip_expr(e))))
+  end
+
+function strip_split(split: Split): Split :=
+  match split
+    case SplitInduction(formal, cases) =>
+      SplitInduction(formal, List(for d in cases yield strip_case(d, strip_proof)))
+
+    case SplitMatch(arg, cases) =>
+      SplitMatch(strip_expr(arg), List(for d in cases yield strip_case(d, strip_proof)))
+
+    case SplitIf(cond, left, right) =>
+      SplitIf(strip_expr(cond), strip_proof(left), map_option(right, strip_proof))
   end
 
 function strip_pat(pat: At[Pat]): At[Pat] :=

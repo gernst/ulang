@@ -1,0 +1,71 @@
+// lemmas with proofs, see prover.md, section 3: calls of lemmas proven before, cuts, definitions, and the splits induction,
+// match, and if
+
+lemma size_append[A](in xs: List[A], ys: List[A]) :=
+  ensures size(xs ++ ys) == size(xs) + size(ys)
+
+lemma append_assoc[A](in xs: List[A], ys: List[A], zs: List[A]) :=
+  ensures (xs ++ ys) ++ zs == xs ++ ys ++ zs
+
+// by two instances, which the default proof would not choose, and a cut over a definition
+lemma size_append_commutes[A](in xs: List[A], ys: List[A]) :=
+  ensures size(xs ++ ys) == size(ys ++ xs)
+  local s := size(xs ++ ys)
+  call size_append(in xs, ys)
+  call size_append(in ys, xs)
+  assert s == size(ys) + size(xs)
+
+// the induction hypothesis at another value of n
+lemma take_drop[A](in n: Int, xs: List[A]) :=
+  ensures take(n, xs) ++ drop(n, xs) == xs
+  induction xs
+    case List(x; rest) =>
+      call take_drop(in n - 1, rest)
+  end
+
+// the induction hypothesis at two values of ys, which do not orient as a rule
+lemma reverse_onto_append[A](in xs: List[A], ys: List[A]) :=
+  ensures reverse_onto(xs, ys) == reverse(xs) ++ ys
+  induction xs
+    case List(x; rest) =>
+      call reverse_onto_append(in rest, List(x; ys))
+      call reverse_onto_append(in rest, List(x))
+      call append_assoc(in reverse(rest), List(x), ys)
+  end
+
+lemma absolute(in x: Int) :=
+  ensures (if x < 0 then 0 - x else x) >= 0
+  if x < 0 then
+    assert 0 - x > 0
+  end
+
+lemma option_value(in o: Option[Int]) :=
+  ensures value_or(o, 0) == value_or(o, 0)
+  match o
+    case Some(v) =>
+      assert v == v
+  end
+
+// outs: witnesses given by assign, and bound by calls as fixed variables with the ensures of their lemma
+lemma halves(in m: Int, out q: Int, r: Int) :=
+  requires m >= 0
+  ensures  m == 2 * q + r and 0 <= r and r < 2
+  assign q := m / 2, r := m % 2
+
+lemma doubled(in x: Int, out y: Int) :=
+  ensures y == 2 * x
+  assign y := x + x
+
+lemma doubled_twice(in x: Int) :=
+  ensures 4 * x == 4 * x
+  local y: Int, z: Int
+  call doubled(in x, out y)
+  call doubled(in y, out z)
+  assert z == 4 * x
+
+lemma remainder_of_halves(in m: Int) :=
+  requires m >= 0
+  ensures  m % 2 < 2
+  local q: Int, r: Int
+  call halves(in m, out q, r)
+  assert r < 2

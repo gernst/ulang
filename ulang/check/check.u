@@ -38,6 +38,10 @@ data TypeError :=
   case Unreachable(pat: Pat)
   case NotAssignable(name: Name)
   case UnknownProcedure(name: Name)
+  // a call in a proof of a name that is no lemma of its module
+  case UnknownLemma(name: Name)
+  // induction on a name that is no formal of a datatype of the lemma
+  case NotInducible(name: Name)
   case UnknownException(typ: Type)
   case TestParams(test_name: Id)
   case Unassigned(name: Name)
@@ -170,8 +174,8 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
     case CPatAlias(name, params, formals, typ, pat) =>
       CPatAlias(in_module(m, name), params, formals, typ, pat)
 
-    case CLemma(name, params, formals, assms, concl) =>
-      CLemma(in_module(m, name), params, formals, assms, concl)
+    case CLemma(name, params, ins, outs, assms, concl, proof) =>
+      CLemma(in_module(m, name), params, ins, outs, assms, concl, proof)
 
     case CNotation(_, _, _) =>
       cmd
@@ -728,6 +732,36 @@ function zonk_statement(s: State, stmt: Stmt): Stmt :=
       SFor(List(for g in gens yield zonk_gen(s, g)), zonk_stmt(s, body))
   end
 
+function zonk_proof(s: State, proof: Proof): Proof :=
+  Proof(List(for step in proof.steps yield map_at(step, lambda node => zonk_step(s, node))), map_option(proof.split, lambda split => map_at(split, lambda node => zonk_split(s, node))))
+
+function zonk_step(s: State, step: Step): Step :=
+  match step
+    case StepLocal(x, value) =>
+      StepLocal(zonk_var(s, x), map_option(value, lambda e => zonk_expr(s, e)))
+
+    case StepCall(name, ins, outs) =>
+      StepCall(name, List(for e in ins yield zonk_expr(s, e)), zonk_vars(s, outs))
+
+    case StepAssert(cond) =>
+      StepAssert(zonk_expr(s, cond))
+
+    case StepAssign(upd) =>
+      StepAssign(List(for (x, e) in upd yield (zonk_var(s, x), zonk_expr(s, e))))
+  end
+
+function zonk_split(s: State, split: Split): Split :=
+  match split
+    case SplitInduction(formal, cases) =>
+      SplitInduction(zonk_var(s, formal), List(for b in cases yield map_doc(b, lambda br => zonk_branch(s, br, lambda p => zonk_proof(s, p)))))
+
+    case SplitMatch(arg, cases) =>
+      SplitMatch(zonk_expr(s, arg), List(for b in cases yield map_doc(b, lambda br => zonk_branch(s, br, lambda p => zonk_proof(s, p)))))
+
+    case SplitIf(cond, left, right) =>
+      SplitIf(zonk_expr(s, cond), zonk_proof(s, left), map_option(right, lambda p => zonk_proof(s, p)))
+  end
+
 function zonk_gen(s: State, g: Gen): Gen :=
   match g
     case GVal(pat, over) =>
@@ -757,8 +791,8 @@ function zonk_cmd(s: State, cmd: Cmd): Cmd :=
     case CTest(name, vars, stmt) =>
       CTest(name, vars, zonk_stmt(s, stmt))
 
-    case CLemma(name, params, formals, assms, concl) =>
-      CLemma(name, params, zonk_vars(s, formals), List(for a in assms yield zonk_expr(s, a)), zonk_expr(s, concl))
+    case CLemma(name, params, ins, outs, assms, concl, proof) =>
+      CLemma(name, params, zonk_vars(s, ins), zonk_vars(s, outs), List(for a in assms yield zonk_expr(s, a)), zonk_expr(s, concl), map_option(proof, lambda p => zonk_proof(s, p)))
 
     case _ =>
       cmd
@@ -899,7 +933,7 @@ function unknown_in_cmd(cmd: Cmd): Option[Pos * Type] :=
     case CTest(_, _, stmt) =>
       unknown_in(stmt)
 
-    case CLemma(_, _, _, assms, concl) =>
+    case CLemma(_, _, _, _, assms, concl, _) =>
       find_map(List(concl; assms), unknown_in_expr)
 
     case _ =>
@@ -1526,7 +1560,7 @@ procedure infer(
     case AOk(pos, node) =>
       local outer := s.at, x: Expr
       assign s := s with at := pos
-      call   infer_node(in env, pos, node, out x, typ, ref s)
+      call   infer_node(in env, pos, node, None, out x, typ, ref s)
       assign res := AOk(pos, x), s := s with at := outer
 
     // the parser and the checker make no error nodes yet
@@ -1534,11 +1568,37 @@ procedure infer(
       raise Unexpected("error node")
   end
 
-// the expression expr at pos, where the translations of forms, generators, and lambdas with patterns are at pos
+// expr against the type that what names, t, which it passes down to its parts, so that a part of the wrong type is
+// reported at the part, and then expects of the whole
+procedure infer_against(
+  in  env: Env,
+      expr: At[Expr],
+      t: Type,
+      what: Str,
+  out res: At[Expr],
+      typ: Type,
+  ref s: State
+) :=
+  match expr
+    case AOk(pos, node) =>
+      local outer := s.at, x: Expr
+      assign s := s with at := pos
+      call   infer_node(in env, pos, node, Some((t, what)), out x, typ, ref s)
+      assign res := AOk(pos, x), s := s with at := outer
+
+    // the parser and the checker make no error nodes yet
+    case _ =>
+      raise Unexpected("error node")
+  end
+
+// the expression expr at pos, where the translations of forms, generators, and lambdas with patterns are at pos, and
+// expected the type that a part around it expects, if known, which the parts of applications, tuples, lets, and forms
+// are checked against
 procedure infer_node(
   in  env: Env,
       pos: Pos,
       expr: Expr,
+      expected: Option[Type * Str],
   out res: Expr,
       typ: Type,
   ref s: State
@@ -1555,7 +1615,7 @@ procedure infer_node(
       assign res := EVar(z), typ := z.typ
 
     case EApp(fun, args) =>
-      call application(in env, fun, args, out res, typ, ref s)
+      call application(in env, fun, args, expected, out res, typ, ref s)
 
     case EField(base, field) =>
       call field_access(in env, pos, "." ++ field, base, List(), out res, typ, ref s)
@@ -1573,7 +1633,7 @@ procedure infer_node(
           assign res := lambda_of(pos, xs, b), typ := TFun(List(for x in xs yield x.typ), u)
 
         case None =>
-          call translated(in env, AOk(pos, lambda_match(s, pos, pats, body)), out res, typ, ref s)
+          call translated(in env, AOk(pos, lambda_match(s, pos, pats, body)), expected, out res, typ, ref s)
       end
 
     // the body sees the variables around it, but assigns only the outs and refs of the lambda
@@ -1598,7 +1658,7 @@ procedure infer_node(
           call   formals(in "binding", vars, out xs, ref s)
           call   unhidden(in env, xs, ref s)
           call   checks(in env, "the bindings", seconds(bound), List(for x in xs yield x.typ), out exprs, ref s)
-          call   infer(in bind(xs) ++ env, body, out b, u, ref s)
+          call   infer_body(in bind(xs) ++ env, body, expected, out b, u, ref s)
           assign res := ELet(zip(List(for (p, x) in zip(firsts(bound), xs) yield p with that := PVar(x)), exprs), b), typ := u
 
         // other patterns are irrefutable, checked for exhaustiveness as the cases of a match
@@ -1613,7 +1673,7 @@ procedure infer_node(
           end
           call unique(in "pattern variable", List(for x in xs yield x.name), ref s)
           call unhidden(in env, xs, ref s)
-          call infer(in bind(xs) ++ env, body, out b, typ, ref s)
+          call infer_body(in bind(xs) ++ env, body, expected, out b, typ, ref s)
           call solve(ref s)
           for (pat, t) in zip(pats, ts) do
             call coverage(in t, List((pat.that, true)), ref s)
@@ -1630,7 +1690,19 @@ procedure infer_node(
 
     case ETuple(items) =>
       local exprs: List[At[Expr]], ts: List[Type]
-      call   infers(in env, items, out exprs, ts, ref s)
+      match component_types(s, expected, size(items))
+        case Some(us) =>
+          assign exprs := List()
+          for ((item, u), i) in zip(zip(items, us), range(1, size(items) + 1)) do
+            local typed_item: At[Expr]
+            call   check(in env, item, u, "component " ++ show(i) ++ " of the tuple", out typed_item, ref s)
+            assign exprs := exprs ++ List(typed_item)
+          end
+          assign ts := us
+
+        case None =>
+          call infers(in env, items, out exprs, ts, ref s)
+      end
       assign res := ETuple(exprs), typ := TTuple(ts)
 
     case EMatch(arg, cases) =>
@@ -1645,16 +1717,18 @@ procedure infer_node(
     // forms as the builders of the module of their name, and their generators as the folds of the modules of the
     // containers, which the checked program keeps
     case EForm(form, elems, rest) =>
-      call translated(in env, form_expr(pos, form, elems, rest), out res, typ, ref s)
+      local before := size(s.errors), places := Set(for y in elems for e in yielded_exprs(y) yield e.pos)
+      call   translated(in env, form_expr(pos, form, elems, rest), expected, out res, typ, ref s)
+      assign s := s with errors := take(before, s.errors) ++ List(for e in drop(before, s.errors) yield element_error(form, places, e))
 
     case EFor(FArray, gens, elem, None) =>
-      call translated(in env, form_app(pos, library_module("array"), "from_list", List(AOk(pos, EFor(FList, gens, elem, None)))), out res, typ, ref s)
+      call translated(in env, form_app(pos, library_module("array"), "from_list", List(AOk(pos, EFor(FList, gens, elem, None)))), expected, out res, typ, ref s)
 
     case EFor(form, List(), elem, rest) =>
-      call translated(in env, step_expr(pos, form, elem, base_expr(pos, form, rest)), out res, typ, ref s)
+      call translated(in env, step_expr(pos, form, elem, base_expr(pos, form, rest)), expected, out res, typ, ref s)
 
     case EFor(form, List(GIf(cond); more), elem, rest) =>
-      call translated(in env, AOk(pos, EIte(cond, AOk(pos, EFor(form, more, elem, rest)), base_expr(pos, form, rest))), out res, typ, ref s)
+      call translated(in env, AOk(pos, EIte(cond, AOk(pos, EFor(form, more, elem, rest)), base_expr(pos, form, rest))), expected, out res, typ, ref s)
 
     case EFor(form, List(g; more), elem, rest) =>
       call generator(in env, pos, form, g, more, elem, rest, out res, typ, ref s)
@@ -1664,13 +1738,64 @@ procedure infer_node(
 procedure translated(
   in  env: Env,
       expr: At[Expr],
+      expected: Option[Type * Str],
   out res: Expr,
       typ: Type,
   ref s: State
 ) :=
   local typed_expr: At[Expr]
-  call   infer(in env, expr, out typed_expr, typ, ref s)
+  call   infer_body(in env, expr, expected, out typed_expr, typ, ref s)
   assign res := typed_expr.that
+
+// expr against expected, if known, else inferred
+procedure infer_body(
+  in  env: Env,
+      expr: At[Expr],
+      expected: Option[Type * Str],
+  out typed_expr: At[Expr],
+      typ: Type,
+  ref s: State
+) :=
+  match expected
+    case Some((t, what)) =>
+      call   check(in env, expr, t, what, out typed_expr, ref s)
+      assign typ := t
+
+    case None =>
+      call infer(in env, expr, out typed_expr, typ, ref s)
+  end
+
+// e as an error of an element of a form, at one of places, instead of an argument of the call that the form is translated to
+function element_error(form: Form, places: Set[Pos], e: TypeError): TypeError :=
+  match e
+    case Located(m, pos, Mismatch(t, u, what)) if contains(pos, places) and starts_with(what, "argument") =>
+      Located(m, pos, Mismatch(t, u, "an element of " ++ form_name(form)))
+    case _ =>
+      e
+  end
+
+function yielded_exprs(y: Yield): List[At[Expr]] :=
+  match y
+    case YVal(value) =>
+      List(value)
+    case YPair(key, value) =>
+      List(key, value)
+  end
+
+// the types of the n components of a tuple of the type expected, if known
+function component_types(s: State, expected: Option[Type * Str], n: Int): Option[List[Type]] :=
+  match expected
+    case Some((t, _)) =>
+      match zonk_type(s.sub, t)
+        case TTuple(ts) if size(ts) == n =>
+          Some(ts)
+        case _ =>
+          None
+      end
+
+    case None =>
+      None
+  end
 
 // the error e of a program at the innermost part around it, s.at, which infer, statement, and binders set, after which the
 // checker continues with a fallback
@@ -1925,6 +2050,7 @@ procedure application(
   in  env: Env,
       fun: At[Expr],
       args: List[At[Expr]],
+      expected: Option[Type * Str],
   out typed_expr: Expr,
       t: Type,
   ref s: State
@@ -1947,7 +2073,7 @@ procedure application(
       else
         local before := size(s.errors), typed_args: List[At[Expr]], typed_fun: At[Expr], u: Type
         call   infer(in env, fun, out typed_fun, u, ref s)
-        call   apply(in env, u, args, out typed_args, t, ref s)
+        call   apply(in env, u, args, expected, out typed_args, t, ref s)
         assign typed_expr := EApp(typed_fun, typed_args)
         assign s := s with errors := take(before, s.errors) ++ List(for e in drop(before, s.errors) yield argument_hint(name, e))
       end
@@ -1962,7 +2088,7 @@ procedure application(
     case _ =>
       local typed_fun: At[Expr], u: Type, typed_args: List[At[Expr]]
       call   infer(in env, fun, out typed_fun, u, ref s)
-      call   apply(in env, u, args, out typed_args, t, ref s)
+      call   apply(in env, u, args, expected, out typed_args, t, ref s)
       assign typed_expr := EApp(typed_fun, typed_args)
   end
 
@@ -2011,24 +2137,64 @@ procedure apply(
   in  env: Env,
       f: Type,
       args: List[At[Expr]],
+      expected: Option[Type * Str],
   out typed_args: List[At[Expr]],
       r: Type,
   ref s: State
 ) :=
-  local ts: List[Type]
+  local ts: List[Type], fitting := false
   call fresh(out r, ref s)
-  call infers_first(in env, args, out typed_args, ts, ref s)
-  match zonk_type(s.sub, f)
-    case TFun(ps, res) if size(ps) == size(args) =>
+  match (zonk_type(s.sub, f), expected)
+    case (TFun(ps, res), Some((t, _))) if size(ps) == size(args) =>
+      call fits(in res, t, s, out fitting)
+    case _ =>
+      skip
+  end
+  match (zonk_type(s.sub, f), expected)
+    case (TFun(ps, res), Some((t, _))) if fitting =>
+      call unify(in res, t, ref s)
+      call unify(in res, r, ref s)
+      call checks_args(in env, args, ps, out typed_args, ref s)
+
+    case (TFun(ps, res), _) if size(ps) == size(args) =>
+      call infers_first(in env, args, out typed_args, ts, ref s)
       for ((a, p), (t, i)) in zip(zip(args, ps), numbered(ts)) do
         call expect(in a.pos, "argument " ++ show(i + 1) ++ " of the call", p, t, ref s)
       end
       call unify(in res, r, ref s)
+      call infers_lambdas(in env, args, ts, ref typed_args, s)
 
     case _ =>
+      call infers_first(in env, args, out typed_args, ts, ref s)
       call unify(in f, TFun(ts, r), ref s)
+      call infers_lambdas(in env, args, ts, ref typed_args, s)
   end
-  call infers_lambdas(in env, args, ts, ref typed_args, s)
+
+// whether u unifies with t, tried on a copy of s
+procedure fits(in u: Type, t: Type, s: State, out ok: Bool) :=
+  local trial := s
+  call   unify(in u, t, ref trial)
+  assign ok := size(trial.errors) == size(s.errors)
+
+// the arguments checked against the types of the formals ps, the lambdas last, since they take the types of their formals
+// from the other arguments
+procedure checks_args(
+  in  env: Env,
+      args: List[At[Expr]],
+      ps: List[Type],
+  out typed_args: List[At[Expr]],
+  ref s: State
+) :=
+  local typed: Map[Int, At[Expr]] := Map(), x: At[Expr]
+  for ((a, p), i) in zip(zip(args, ps), range(0, size(args))) if not is_lambda(a) do
+    call   check(in env, a, p, "argument " ++ show(i + 1) ++ " of the call", out x, ref s)
+    assign typed := put(i, x, typed)
+  end
+  for ((a, p), i) in zip(zip(args, ps), range(0, size(args))) if is_lambda(a) do
+    call   check(in env, a, p, "argument " ++ show(i + 1) ++ " of the call", out x, ref s)
+    assign typed := put(i, x, typed)
+  end
+  assign typed_args := List(for (a, i) in zip(args, range(0, size(args))) yield value_or(get(i, typed), a))
 
 // the arguments in order, except the lambdas, which get an unknown type and wait until the type of the function is
 // known, so that the formals of a lambda have the types that the function expects, see infers_lambdas
@@ -2148,7 +2314,7 @@ procedure check(
     call infer_lambda(in env, expr, t, out typed_expr, ref s)
   else
     local u: Type
-    call infer(in env, expr, out typed_expr, u, ref s)
+    call infer_against(in env, expr, t, what, out typed_expr, u, ref s)
     call expect(in expr.pos, what, t, u, ref s)
   end
 
@@ -3123,20 +3289,200 @@ procedure declare_pat_aliases(in cs: List[Id * Cmd], ref s: State) :=
     end
   end
 
+// the proof of a lemma over its formals and the locals of the proof, see prover.md, section 3: the steps in their order,
+// each adding its local to env, then the split, whose cases are proofs with the variables of their patterns
+procedure check_proof(
+  in  formals: List[Var],
+      outs: List[Name],
+      proof: Proof,
+  out typed_proof: Proof,
+  ref env: Env,
+      s: State
+) :=
+  local steps: Buffer[At[Step]] := empty(), split: Option[At[Split]] := None
+  for step in proof.steps do
+    local typed_step: Step, outer := s.at
+    assign s := s with at := step.pos
+    call   proof_step(in outs, step.that, out typed_step, ref env, s)
+    assign steps := steps ++ List(AOk(step.pos, typed_step)), s := s with at := outer
+  end
+  match proof.split
+    case Some(placed) =>
+      local typed_split: Split, outer := s.at
+      assign s := s with at := placed.pos
+      call   proof_split(in formals, outs, placed.that, out typed_split, ref env, s)
+      assign split := Some(AOk(placed.pos, typed_split)), s := s with at := outer
+
+    case None =>
+      skip
+  end
+  assign typed_proof := Proof(List(for step in steps), split)
+
+// a step, where a local with a value is a definition and one without a witness that an out of a call binds, a call is of
+// a lemma of the module, and an assignment gives the witnesses of the outs of the lemma, each once
+procedure proof_step(
+  in  assignable: List[Name],
+      step: Step,
+  out typed_step: Step,
+  ref env: Env,
+      s: State
+) :=
+  match step
+    case StepLocal(x, Some(e)) =>
+      local c: At[Expr], y: Var, t: Type
+      if x.typ == THole then
+        call   infer(in env, e, out c, t, ref s)
+        assign y := Var(x.name, t)
+      else
+        local ys: List[Var]
+        call   formals(in "local", List(x), out ys, ref s)
+        assign y := at(0, from_list(ys))
+        call   check(in env, e, y.typ, "the local " ++ x.name.base, out c, ref s)
+      end
+      call   unhidden(in env, List(y), ref s)
+      assign env := bind(List(y)) ++ env, typed_step := StepLocal(y, Some(c))
+
+    case StepLocal(x, None) =>
+      local ys: List[Var]
+      if x.typ == THole then
+        call report(in MissingType(x.name), ref s)
+      end
+      call   formals(in "local", List(x), out ys, ref s)
+      call   unhidden(in env, ys, ref s)
+      assign env := List(for y in ys yield (y.name, Local(y.typ, false))) ++ env, typed_step := StepLocal(at(0, from_list(ys)), None)
+
+    case StepCall(name, ins, outs) =>
+      local qualified := in_module(s.module, name), typed_ins: List[At[Expr]] := ins, typed_outs: List[Var] := outs
+      match lemma_of(s.sig, qualified)
+        case Some(lemma_sig) =>
+          local m: List[Type * Type]
+          call instance(in lemma_sig.params, out m, ref s)
+          if size(ins) != size(lemma_sig.formals) then
+            call report(in CountMismatch("lemma " ++ name.base, "arguments", size(lemma_sig.formals), size(ins)), ref s)
+          else
+            call checks(in env, "lemma " ++ name.base, ins, List(for t in lemma_sig.formals yield subst(t, m)), out typed_ins, ref s)
+          end
+          if size(outs) != size(lemma_sig.outs) then
+            call report(in CountMismatch("lemma " ++ name.base, "outs", size(lemma_sig.outs), size(outs)), ref s)
+          else
+            call   variables(in env, unbound(env), outs, out typed_outs, ref s)
+            call   unifies(in List(for y in typed_outs yield y.typ), List(for t in lemma_sig.outs yield subst(t, m)), ref s)
+            assign env := assigned(env, List(for y in outs yield y.name))
+          end
+
+        case None =>
+          call report(in UnknownLemma(name), ref s)
+      end
+      assign typed_step := StepCall(qualified, typed_ins, typed_outs)
+
+    case StepAssert(cond) =>
+      local c: At[Expr]
+      call   check(in env, cond, TBool(), "the assertion", out c, ref s)
+      assign typed_step := StepAssert(c)
+
+    case StepAssign(upd) =>
+      local ys: List[Var], exprs: List[At[Expr]]
+      call   unique(in "assignment to", List(for x in firsts(upd) yield x.name), ref s)
+      call   variables(in env, List(for o in assignable if contains(o, unbound(env)) yield o), firsts(upd), out ys, ref s)
+      call   checks(in env, "the assignment", seconds(upd), List(for y in ys yield y.typ), out exprs, ref s)
+      assign typed_step := StepAssign(zip(ys, exprs)), env := assigned(env, List(for y in ys yield y.name))
+  end
+
+// the variables of env that are not assigned yet, the witnesses of a proof and the outs of its lemma
+function unbound(env: Env): List[Name] :=
+  List(for (n, l) in env if not l.assigned yield n)
+
+// a split of a proof, where induction is on a formal of a datatype of the lemma
+procedure proof_split(
+  in  formals: List[Var],
+      outs: List[Name],
+      split: Split,
+  out typed_split: Split,
+  ref env: Env,
+      s: State
+) :=
+  match split
+    case SplitInduction(x, cases) =>
+      local t: Type, typed_cases: List[Doc[Branch[Proof]]]
+      match List(for f in formals if f.name == x.name and is_datatype_type(s, f.typ) yield f.typ)
+        case List(u; _) =>
+          assign t := u
+
+        case List() =>
+          call report(in NotInducible(x.name), ref s)
+          call fresh(out t, ref s)
+      end
+      call   proof_cases(in formals, outs, cases, t, out typed_cases, ref env, s)
+      assign typed_split := SplitInduction(Var(x.name, t), typed_cases)
+
+    case SplitMatch(arg, cases) =>
+      local c: At[Expr], t: Type, typed_cases: List[Doc[Branch[Proof]]]
+      call   infer(in env, arg, out c, t, ref s)
+      call   proof_cases(in formals, outs, cases, t, out typed_cases, ref env, s)
+      assign typed_split := SplitMatch(c, typed_cases)
+
+    case SplitIf(cond, left, right) =>
+      local c: At[Expr], l: Proof, r: Option[Proof] := None, inner := env
+      call check(in env, cond, TBool(), "the condition", out c, ref s)
+      call check_proof(in formals, outs, left, out l, ref inner, s)
+      match right
+        case Some(p) =>
+          local q: Proof, other := env
+          call   check_proof(in formals, outs, p, out q, ref other, s)
+          assign r := Some(q)
+
+        case None =>
+          skip
+      end
+      assign typed_split := SplitIf(c, l, r)
+  end
+
+// a type of a datatype with constructors, which builtin types such as Int have none of
+function is_datatype_type(s: State, t: Type): Bool :=
+  match zonk_type(s.sub, t)
+    case TSort(name, _) =>
+      value_or(members_of(s.sig, name), List()) != List()
+    case _ =>
+      false
+  end
+
+// the cases of a split, each a proof with the variables of its pattern, from env, which they do not change
+procedure proof_cases(
+  in  formals: List[Var],
+      outs: List[Name],
+      cases: List[Doc[Branch[Proof]]],
+      t: Type,
+  out typed_cases: List[Doc[Branch[Proof]]],
+  ref env: Env,
+      s: State
+) :=
+  local found: Buffer[Doc[Branch[Proof]]] := empty()
+  for Doc(doc, placed) in cases do
+    local typed_pat: At[Pat], xs: List[Var], typed_guard: Option[At[Expr]], typed_body: Proof, inner: Env
+    call   typed_pattern(in placed.that.pat, t, out typed_pat, xs, ref s)
+    call   unhidden(in env, xs, ref s)
+    assign inner := bind(xs) ++ env
+    call   guard(in inner, placed.that.guard, out typed_guard, ref s)
+    call   check_proof(in formals, outs, placed.that.body, out typed_body, ref inner, s)
+    assign found := found ++ List(Doc(doc, AOk(placed.pos, Branch(typed_pat, typed_guard, typed_body))))
+  end
+  assign typed_cases := List(for c in found)
+
 // lemmas have names of their own, apart from the values, which they may share
 procedure declare_lemmas(in cs: List[Id * Cmd], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
-      case CLemma(name, ps, formals, _, _) =>
-        local xs: List[Var]
+      case CLemma(name, ps, formals, outs, _, _, _) =>
+        local xs: List[Var], ys: List[Var]
         assign s := enter(s, m)
         if lemma_of(s.sig, name) != None then
           raise AlreadyDefined(name)
         end
         call   unique_ids(in "type parameter", ps, ref s)
-        call   signature(in formals, out xs, ref s)
+        call   signature(in formals ++ outs, out xs, ref s)
         call   closed(in name, ps, List(for x in xs yield x.typ), ref s)
-        assign s := with_sig(s, with_lemma(s.sig, name, LemmaSig(params(ps), List(for x in xs yield x.typ))))
+        assign ys := drop(size(formals), xs), xs := take(size(formals), xs)
+        assign s := with_sig(s, with_lemma(s.sig, name, LemmaSig(params(ps), List(for x in xs yield x.typ), List(for y in ys yield y.typ))))
 
       case _ =>
         skip
@@ -3200,16 +3546,27 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
     case CData(name, params, constrs) =>
       assign typed_cmd := CData(name, params, List(for k in constrs yield map_doc(k, lambda c => resolved_fields(s.sig, c))))
 
-    case CLemma(name, params, formals, assms, concl) =>
-      local xs: List[Var], checked: List[At[Expr]] := List(), c: At[Expr]
-      call signature(in formals, out xs, ref s)
+    case CLemma(name, params, ins, outs, assms, concl, proof) =>
+      local xs: List[Var], ys: List[Var], checked: List[At[Expr]] := List(), c: At[Expr], typed_proof: Option[Proof] := None
+      call signature(in ins, out xs, ref s)
+      call signature(in outs, out ys, ref s)
       for a in assms do
         local b: At[Expr]
         call   check(in bind(xs), a, TBool(), "the assumption", out b, ref s)
         assign checked := checked ++ List(b)
       end
-      call   check(in bind(xs), concl, TBool(), "the conclusion", out c, ref s)
-      assign typed_cmd := CLemma(name, params, xs, checked, c)
+      call check(in bind(xs ++ ys), concl, TBool(), "the conclusion", out c, ref s)
+      match proof
+        case Some(p) =>
+          local env := bind(xs) ++ unassigned(ys), q: Proof
+          call   check_proof(in xs, List(for y in ys yield y.name), p, out q, ref env, s)
+          call   outputs(in name, ys, env, ref s)
+          assign typed_proof := Some(q)
+
+        case None =>
+          skip
+      end
+      assign typed_cmd := CLemma(name, params, xs, ys, checked, c, typed_proof)
 
     case _ =>
       assign typed_cmd := cmd
@@ -3388,7 +3745,7 @@ function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
     case CPatAlias(name, _, _, _, _) =>
       List(name)
 
-    case CLemma(name, _, _, _, _) =>
+    case CLemma(name, _, _, _, _, _, _) =>
       List(name)
 
     case CTest(_, _, _) =>
@@ -3763,7 +4120,7 @@ procedure check_package(
   end
   assign cmds := defined ++ tested ++ enumerated ++ abstract_decls(decls, native_types(builtins)), shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors
   if errors == List() then
-    assign errors := raises_errors(defined, s.sig, hidden)
+    assign errors := raises_errors(defined ++ tested, s.sig, hidden)
   end
 
 // an example of the function or procedure owner, translated into the test cmd, at the position pos in module, where an
@@ -3838,28 +4195,29 @@ function numbered_examples(m: Id, cmds: List[Bool * Cmd], counts: Map[Id, Int]):
   end
 
 function example_test(m: Id, pos: Pos, owner: Name, exported: Bool, n: Int, x: Example): ExampleTest :=
-  ExampleTest(pos, m, owner, exported, CTest(Name(Some(m), owner.base ++ ".example." ++ show(n)), List(), example_stmt(x)))
+  ExampleTest(pos, m, owner, exported, CTest(Name(Some(m), owner.base ++ ".example." ++ show(n)), List(), example_stmt(pos, x)))
 
 // the body of the test of the example x, which is checked as written, in the scope of its module, so that its names take
 // the declarations that overloading chooses, also another one than the owner, which the convention, an example applies
-// its function, rules out; the parts that the source does not have are at Pos(0, 0), so that their errors are located
-// at the example
-function example_stmt(x: Example): At[Stmt] :=
+// its function, rules out; the statement is at the example at pos, where the checks of the exceptions report what its
+// assert raises cannot catch, and the other parts that the source does not have are at Pos(0, 0), so that their errors
+// are located at the example too
+function example_stmt(pos: Pos, x: Example): At[Stmt] :=
   match x
     case XHolds(expr) =>
-      nowhere(SAssert(expr))
+      AOk(pos, SAssert(expr))
 
     case XRaises(expr, pat) =>
       let value := Var(generated_name("value"), THole) in
-      nowhere(SAssertRaises(THole, pat, nowhere(block(List(value), List(nowhere(SAssign(List((value, expr)))))))))
+      AOk(pos, SAssertRaises(THole, pat, nowhere(block(List(value), List(nowhere(SAssign(List((value, expr)))))))))
 
     case XCall(proc, ins, outs, refs) =>
       let out_vars := generated_vars("out", size(outs)), ref_vars := generated_vars("ref", size(refs)) in
-      nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, firsts(refs)) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars))) ++ expected_values(out_vars ++ ref_vars, outs ++ seconds(refs))))
+      AOk(pos, block(out_vars ++ ref_vars, initial_refs(ref_vars, firsts(refs)) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars))) ++ expected_values(out_vars ++ ref_vars, outs ++ seconds(refs))))
 
     case XCallRaises(proc, ins, blanks, befores, pat) =>
       let out_vars := generated_vars("out", blanks), ref_vars := generated_vars("ref", size(befores)) in
-      nowhere(SAssertRaises(THole, pat, nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, befores) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars)))))))
+      AOk(pos, SAssertRaises(THole, pat, nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, befores) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars)))))))
   end
 
 // a name of the generated code, which users cannot write
@@ -3937,7 +4295,7 @@ procedure lemma_tests(
   local enumerated: List[Id * Name] := List(), tests: Buffer[Pos * (Id * Cmd)] := empty(), funs: Buffer[Pos * (Id * Cmd)] := empty()
   for (pos, (m, cmd)) in placed do
     match (cmd, lemma_of(s.sig, lemma_name(cmd)))
-      case (CLemma(name, _, formals, assms, concl), Some(lemma_sig)) =>
+      case (CLemma(name, _, formals, List(), assms, concl, _), Some(lemma_sig)) =>
         local t := enter(s, m)
         match (all_some(List(for typ in lemma_sig.formals yield enum_expr(t, abstract, lambda _ => enum_call("ints", List()), typ))), datatypes_needed(t, abstract, List(for typ in lemma_sig.formals for n in datatypes_in(typ) yield n), List()))
           case (Some(enums), Some(needed)) =>
@@ -3959,7 +4317,7 @@ procedure lemma_tests(
 
 function lemma_name(cmd: Cmd): Name :=
   match cmd
-    case CLemma(name, _, _, _, _) =>
+    case CLemma(name, _, _, _, _, _, _) =>
       name
     case _ =>
       unqualified("")

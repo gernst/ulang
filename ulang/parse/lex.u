@@ -15,10 +15,12 @@ data Token :=
   case TNum(num: Int)
   case TStr(text: Str)
   case TChar(char: Char)
-  // the lines of a run of comments at the start of lines, without their markers, joined by newlines, directly above a line
-  // with the same indentation that starts with a letter, or at the start of the text, where the parser decides whether
-  // what follows may have a doc
+  // the lines of a run of comments at the start of lines, in any column, without their markers, joined by newlines,
+  // directly above a line that is not blank, or at the start of the text, where the parser decides by what follows whether
+  // it documents it
   case TDoc(text: Str)
+  // a comment that documents nothing, after code on its line or above a blank line, which the parser reports and ignores
+  case TMisplaced
   case TEnd
 
 // tokens with their positions
@@ -60,6 +62,7 @@ function keywords(): Set[Str] :=
     "implementation",
     "import",
     "in",
+    "induction",
     "infix",
     "lambda",
     "lemma",
@@ -219,9 +222,9 @@ function line_margin(text: Str, offset: Int): Int :=
 function next_margin(margin: Int): Int :=
   if margin < 0 then -1 else margin + 1
 
-// whether a comment starts at offset after margin spaces
-function has_comment_at(text: Str, margin: Int, offset: Int): Bool :=
-  forall(range(0, margin), lambda i => peek(text, offset + i) == ' ') and has_slashes_at(text, offset + margin)
+// the offset of the first character after the spaces at offset
+function after_spaces(text: Str, offset: Int): Int :=
+  if peek(text, offset) == ' ' then after_spaces(text, offset + 1) else offset
 
 function has_slashes_at(text: Str, offset: Int): Bool :=
   peek(text, offset) == '/' and peek(text, offset + 1) == '/'
@@ -229,16 +232,10 @@ function has_slashes_at(text: Str, offset: Int): Bool :=
 function starts_at(text: Str, offset: Int, part: Str): Bool :=
   offset + size(part) <= size(text) and slice(text, offset, offset + size(part)) == part
 
-// the lines of the run of comments at offset, which is at the start of a line after margin spaces, with the markers // and the
-// space after them removed, joined by newlines, where offset ends at the start of the line after the run, and above tells
-// whether the line that follows starts with a letter after the same margin
-procedure lex_doc(
-  in  text: Str,
-      margin: Int,
-  out doc: Str,
-      above: Bool,
-  ref offset: Int
-) :=
+// the lines of the run of comments at offset, which is at the start of a line after spaces, each line in any column, with
+// the markers // and the space after them removed, joined by newlines, where offset ends at the start of the line after
+// the run, and above tells whether that line is not blank
+procedure lex_doc(in text: Str, out doc: Str, above: Bool, ref offset: Int) :=
   local lines: List[Str] := List(), from: Int, line: Str, more := true
   while more do
     call   scan(in text, lambda c => c != '\n', out from, ref offset)
@@ -246,18 +243,26 @@ procedure lex_doc(
     assign lines := List(
       if starts_with(line, " ") then slice(line, 1, size(line)) else line; lines)
     assign offset := if offset < size(text) then offset + 1 else offset
-    assign more := has_comment_at(text, margin, offset)
+    assign more := has_slashes_at(text, after_spaces(text, offset))
     if more then
-      assign offset := offset + margin
+      assign offset := after_spaces(text, offset)
     end
   end
-  assign doc := join("\n", reverse(lines)), above := is_doc_above(text, margin, offset)
+  assign doc := join("\n", reverse(lines)), above := is_doc_above(text, offset)
 
-function is_doc_above(text: Str, margin: Int, offset: Int): Bool :=
-  starts_at(text, offset, repeat(" ", margin)) and is_letter(peek(text, offset + margin))
+function is_doc_above(text: Str, offset: Int): Bool :=
+  let first := after_spaces(text, offset) in
+  first < size(text) and at(first, text) != '\n'
+
+// the offset of the end of the line at offset
+function line_end(text: Str, offset: Int): Int :=
+  if offset < size(text) and at(offset, text) != '\n' then
+    line_end(text, offset + 1)
+  else
+    offset
 
 function misplaced_comment(): Str :=
-  "a comment is the doc of the command, statement, or case on the next line, from the start of a line with its indentation"
+  "a comment is the doc of the command, statement, or case below it, from the start of a line and without a blank line between"
 
 // the token at offset, where offset ends after it
 procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
@@ -288,23 +293,21 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
 // the tokens of text with their positions, which end with TEnd at the end of text, where line and column are those of
 // offset last
 procedure lex(in text: Str, out toks: Tokens) raises LexError :=
-  local offset := 0, found: Buffer[Pos * Token] := empty(), start: Int, tok: Token, last := 0, line := 1, column := 1, doc: Str, above: Bool, margin: Int
+  local offset := 0, found: Buffer[Pos * Token] := empty(), start: Int, tok: Token, last := 0, line := 1, column := 1, doc: Str, above: Bool
   while offset < size(text) do
     assign start := offset
     if is_space(at(offset, text)) then
       assign offset := offset + 1
     else
       if at(offset, text) == '/' and peek(text, offset + 1) == '/' then
-        assign margin := line_margin(text, offset)
-        if margin >= 0 then
-          call lex_doc(in text, margin, out doc, above, ref offset)
-          if not (above or start == 0) then
-            raise LexError(misplaced_comment(), position_of(text, start))
-          end
-          call   lex_move_position(in text, last, start, ref line, column)
-          assign found := found ++ List((Pos(line, column), TDoc(doc))), last := start
+        call lex_move_position(in text, last, start, ref line, column)
+        if line_margin(text, offset) >= 0 then
+          call   lex_doc(in text, out doc, above, ref offset)
+          assign found := found ++ List(
+            (Pos(line, column), if above or start == 0 then TDoc(doc) else TMisplaced)), last := start
         else
-          raise LexError(misplaced_comment(), position_of(text, start))
+          assign offset := line_end(text, offset)
+          assign found := found ++ List((Pos(line, column), TMisplaced)), last := start
         end
       else
         call   lex_token(in text, out tok, ref offset)
@@ -413,15 +416,19 @@ test lex_errors() :=
   call lex_error(in "'ab'", out e)
   assert e == LexError("invalid character", Pos(1, 1))
 
-// comments after code, detached by a blank line, and before a case with another indentation
+// comments after code and detached by a blank line document nothing, while a doc in any column is one
 test lex_misplaced_comments() :=
-  local e: LexError
-  call lex_error(in "x // one", out e)
-  assert e == LexError(misplaced_comment(), Pos(1, 3))
-  call lex_error(in "f\n// a\n\ng", out e)
-  assert e == LexError(misplaced_comment(), Pos(2, 1))
-  call lex_error(in "match x\n  // a\n    case 3", out e)
-  assert e == LexError(misplaced_comment(), Pos(2, 3))
+  local toks: Tokens
+  call lex(in "x // one\ny", out toks)
+  assert toks == List(
+    (Pos(1, 1), TName("x")),
+    (Pos(1, 3), TMisplaced),
+    (Pos(2, 1), TName("y")),
+    (Pos(2, 2), TEnd))
+  call lex(in "f\n// a\n\ng", out toks)
+  assert tokens(toks) == List(TName("f"), TMisplaced, TName("g"), TEnd)
+  call lex(in "match x\n  // a\n    case 3", out toks)
+  assert tokens(toks) == List(TKw("match"), TName("x"), TDoc("a"), TKw("case"), TNum(3), TEnd)
 
 test lex_position() :=
   assert position_of("ab\ncd", 4) == Pos(2, 2)

@@ -86,6 +86,7 @@ procedure load_text(
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
   local source: Source
   call   parse_file_text(in path, text_of(lines), out source)
+  call   require_parsed(in source)
   call   check_program(in source, out q)
   call   require_formatted(in source, source.main, text_of(lines))
   assign main := source.main
@@ -104,6 +105,7 @@ procedure check_text_all(
 ) raises ParseError, OsError, InternalError :=
   local source: Source, q: Prog
   call parse_file_text(in path, text_of(lines), out source)
+  call require_parsed(in source)
   call check_all(in source, out q, errors)
 
 procedure run_text(
@@ -135,6 +137,7 @@ procedure load_texts(
     case (name, lines) =>
       local source: Source
       call parse_texts(in root, dir, List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), out source)
+      call require_parsed(in source)
       call check_program(in source, out q)
       call require_formatted(in source, source.main, text_of(lines))
   end

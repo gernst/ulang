@@ -10,8 +10,39 @@ import "ulang/check"
 export
 
 // a lemma as the sequent that the prover proves
+// a lemma as the sequent that the prover proves, and its proof, None for the default proof
 data Lemma :=
-  case Lemma(name: Name, goal: Seq)
+  case Lemma(name: Name, goal: Seq, proof: Option[ProofTerm])
+
+// a proof over the terms of the prover, whose variables are the formals, the locals, and the variables of the cases
+// around it, as indices, the innermost first, at the position where it starts, see prover.md, section 3
+data ProofTerm :=
+  case ProofTerm(steps: List[StepTerm], split: Option[SplitTerm], pos: Pos)
+
+data StepTerm :=
+  // local x := e, a variable with the fact x == e
+  case DefineTerm(var: Var, value: Term, pos: Pos)
+  // local q: T, a witness
+  case WitnessTerm(var: Var, pos: Pos)
+  // call l(a, …, out q, …), the instance of the lemma l, with the witnesses as the indices of the locals q, …
+  case CallTerm(name: Name, args: List[Term], outs: List[Int], pos: Pos)
+  // assign q := e, the witness of the out q, by its index
+  case AssignTerm(witness: Int, value: Term, pos: Pos)
+  // assert e
+  case AssertTerm(cond: Term, pos: Pos)
+  // a part of a proof that the prover does not take yet, with what it is
+  case UnsupportedTerm(what: Str, pos: Pos)
+
+data SplitTerm :=
+  // induction on the formal at the position formal from the first
+  case InductionTerm(formal: Int, cases: List[CaseTerm], pos: Pos)
+  case MatchTerm(arg: Term, cases: List[CaseTerm], pos: Pos)
+  case IfTerm(cond: Term, left: ProofTerm, right: Option[ProofTerm], pos: Pos)
+
+// a case of a split: its constructor and a variable for each field, wildcards too, which bind in the proof, or None for a
+// catch-all, which binds its variable, if it has one, to the value
+data CaseTerm :=
+  case CaseTerm(constr: Option[Name], vars: List[Var], proof: ProofTerm, pos: Pos)
 
 data Translation :=
   case Translation(decls: Decls, lemmas: List[Lemma])
@@ -100,13 +131,113 @@ function reachable(calls: Map[Name * Int, Set[Name * Int]], arities: Map[Name, L
 // the lemma of cmd if it belongs to module m, for all formals that satisfy its assumptions
 function lemma_of(m: Id, cmd: Cmd): Option[Lemma] :=
   match cmd
-    case CLemma(name, _, formals, assms, concl) if name.module == Some(m) =>
-      let env := bind(formals, List()) in
-      let atoms := List(for a in assms yield Atom(term_of(env, a))), goal := Atom(term_of(env, concl)) in
-      Some(Lemma(name, Seq(formals, atoms, List(Concl(List(), List(goal))))))
+    case CLemma(name, _, formals, outs, assms, concl, proof) if name.module == Some(m) =>
+      let env := bind(formals, List()), all := bind(formals ++ outs, List()) in
+      let atoms := List(for a in assms yield Atom(term_of(env, a))), goal := Atom(term_of(all, concl)) in
+      Some(Lemma(name, Seq(formals, atoms, List(Concl(outs, List(goal)))), map_option(proof, lambda p => proof_term(formals, all, p, Pos(0, 0)))))
 
     case _ =>
       None
+  end
+
+// a proof under env, which starts at pos if it has no steps
+function proof_term(formals: List[Var], env: List[Name], proof: Proof, pos: Pos): ProofTerm :=
+  let start := match (proof.steps, proof.split)
+    case (List(step; _), _) =>
+      step.pos
+
+    case (List(), Some(split)) =>
+      split.pos
+
+    case _ =>
+      pos
+  end in
+  match steps_term(formals, env, proof.steps, List())
+    case (steps, inner) =>
+      ProofTerm(steps, map_option(proof.split, lambda split => split_term(formals, inner, split)), start)
+  end
+
+// the steps under env, each local binding inside the steps after it, and the environment after them
+function steps_term(formals: List[Var], env: List[Name], steps: List[At[Step]], acc: List[StepTerm]): List[StepTerm] * List[Name] :=
+  match steps
+    case List() =>
+      (reverse(acc), env)
+
+    case List(step; rest) =>
+      match step.that
+        case StepLocal(x, Some(value)) =>
+          steps_term(formals, List(x.name; env), rest, List(DefineTerm(x, term_of(env, value), step.pos); acc))
+
+        case StepLocal(x, None) =>
+          steps_term(formals, List(x.name; env), rest, List(WitnessTerm(x, step.pos); acc))
+
+        case StepCall(name, ins, outs) =>
+          let witnesses := List(for y in outs yield value_or(index_of(y.name, env), 0)) in
+          steps_term(formals, env, rest, List(
+            CallTerm(name, List(for a in ins yield term_of(env, a)), witnesses, step.pos); acc))
+
+        case StepAssert(cond) =>
+          steps_term(formals, env, rest, List(AssertTerm(term_of(env, cond), step.pos); acc))
+
+        // the assignments in parallel, of distinct outs, each a term of its own
+        case StepAssign(upd) =>
+          steps_term(formals, env, rest, reverse(List(for (y, e) in upd yield AssignTerm(value_or(index_of(y.name, env), 0), term_of(env, e), step.pos))) ++ acc)
+      end
+  end
+
+function split_term(formals: List[Var], env: List[Name], split: At[Split]): SplitTerm :=
+  match split.that
+    case SplitInduction(x, cases) =>
+      InductionTerm(value_or(index_of(x.name, List(for f in formals yield f.name)), 0), List(for c in cases yield case_term(formals, env, c)), split.pos)
+
+    case SplitMatch(arg, cases) =>
+      MatchTerm(term_of(env, arg), List(for c in cases yield case_term(formals, env, c)), split.pos)
+
+    case SplitIf(cond, left, right) =>
+      IfTerm(term_of(env, cond), proof_term(formals, env, left, split.pos), map_option(right, lambda p => proof_term(formals, env, p, split.pos)), split.pos)
+  end
+
+// a case, whose pattern is a constructor of variables and wildcards, or a catch-all, without a guard
+function case_term(formals: List[Var], env: List[Name], d: Doc[Branch[Proof]]): CaseTerm :=
+  let br := d.at.that, pos := d.at.pos in
+  let unsupported := lambda what => CaseTerm(None, List(), ProofTerm(List(UnsupportedTerm(what, pos)), None, pos), pos) in
+  if br.guard != None then
+    unsupported("a guard of a case of a proof")
+  else
+    match br.pat.that
+      case PApp(constr, args) if forall(args, lambda a => is_variable(a.that)) =>
+        let vars := List(for a in args yield field_var(a.that)) in
+        CaseTerm(Some(constr), vars, proof_term(formals, bind(vars, env), br.body, pos), pos)
+
+      case PVar(x) =>
+        CaseTerm(None, List(x), proof_term(formals, bind(List(x), env), br.body, pos), pos)
+
+      case PWild =>
+        CaseTerm(None, List(), proof_term(formals, env, br.body, pos), pos)
+
+      case _ =>
+        unsupported("a pattern of a case of a proof that is not a constructor of variables")
+    end
+
+function is_variable(pat: Pat): Bool :=
+  match pat
+    case PVar(_) =>
+      true
+
+    case PWild =>
+      true
+
+    case _ =>
+      false
+  end
+
+// the variable of a field, with a name that users cannot write for a wildcard
+function field_var(pat: Pat): Var :=
+  match pat
+    case PVar(x) =>
+      x
+    case _ =>
+      Var(Name(None, "(field)"), THole)
   end
 
 // the environment env with the variables xs bound inside it, the last one innermost

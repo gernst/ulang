@@ -125,7 +125,7 @@ test import_after_export() :=
 
 test lemma_in_export() :=
   assert raises ParseError("lemmas belong to the implementation section", Pos(3, 1)) do
-    call check_text(in "ulang/test/errors/lemma-in-export.u", List("export", "", "lemma l(x: Int) :=", "  ensures x == x"))
+    call check_text(in "ulang/test/errors/lemma-in-export.u", List("export", "", "lemma l(in x: Int) :=", "  ensures x == x"))
   end
 
 test library_import() :=

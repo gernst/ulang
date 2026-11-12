@@ -802,10 +802,10 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
       Some(function_head(name, params, formals, typ) ++ signature_spec(notation, spec))
 
     case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
-      Some(proc_head(name, params, ins, outs, refs, raised) ++ " :=" ++ spec_text(notation, spec) ++ format_body(notation, "  ", stmt))
+      Some(proc_head("procedure", name, params, ins, outs, refs, raised) ++ " :=" ++ spec_text(notation, spec) ++ format_body(notation, "  ", stmt))
 
     case CProcSig(name, params, ins, outs, refs, raised, spec) =>
-      Some(proc_head(name, params, ins, outs, refs, raised) ++ signature_spec(notation, spec))
+      Some(proc_head("procedure", name, params, ins, outs, refs, raised) ++ signature_spec(notation, spec))
 
     case CPatAlias(name, params, formals, typ, pat) =>
       Some("pattern " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ "): " ++ format_type(typ) ++ " :=\n  " ++ format_pattern(notation, "  ", pat))
@@ -816,9 +816,77 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
     case CTest(name, vars, stmt) =>
       Some("test " ++ name.base ++ "(" ++ formals_text(vars) ++ ") :=" ++ format_body(notation, "  ", stmt))
 
-    case CLemma(name, params, formals, assms, concl) =>
-      Some("lemma " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ ") :=" ++ contract_text(notation, assms, concl))
+    case CLemma(name, params, ins, outs, assms, concl, proof) =>
+      Some(proc_head("lemma", name, params, ins, outs, List(), List()) ++ " :=" ++ contract_text(notation, assms, concl) ++ match proof
+        case Some(p) =>
+          proof_text(notation, "  ", p)
+        case None =>
+          ""
+      end)
   end
+
+// the lines of a proof, its steps as the statements of a body, so that they are laid out as those, then its split
+function proof_text(notation: Notation, indent: Str, proof: Proof): Str :=
+  let locals := List(for step in proof.steps for x in local_of(step.that) yield x) in
+  let stmts := List(for step in proof.steps for stmt in step_stmts(step) yield Doc(None, stmt)) in
+  let body := if proof.steps == List() then
+    ""
+  else
+    format_body(notation, indent, AOk(Pos(0, 0), SBlock(locals, stmts))) in
+  match proof.split
+    case Some(split) =>
+      body ++ "\n" ++ indent ++ split_text(notation, indent, split.that)
+    case None =>
+      body
+  end
+
+function local_of(step: Step): Option[Var] :=
+  match step
+    case StepLocal(x, _) =>
+      Some(x)
+    case _ =>
+      None
+  end
+
+// the statements of a step, where a local with a value is the assignment that starts the block, as in format_body
+function step_stmts(step: At[Step]): List[At[Stmt]] :=
+  match step.that
+    case StepLocal(x, Some(e)) =>
+      List(AOk(step.pos, SAssign(List((Var(x.name, THole), e)))))
+
+    case StepLocal(_, None) =>
+      List()
+
+    case StepCall(name, ins, outs) =>
+      List(AOk(step.pos, SCall(name, ins, outs, List())))
+
+    case StepAssert(cond) =>
+      List(AOk(step.pos, SAssert(cond)))
+
+    case StepAssign(upd) =>
+      List(AOk(step.pos, SAssign(upd)))
+  end
+
+function split_text(notation: Notation, indent: Str, split: Split): Str :=
+  match split
+    case SplitInduction(formal, cases) =>
+      end_text(indent, "induction " ++ formal.name.base ++ proof_cases(notation, deeper(indent), cases))
+
+    case SplitMatch(arg, cases) =>
+      end_text(indent, "match " ++ format_expr(notation, indent, arg) ++ proof_cases(notation, deeper(indent), cases))
+
+    case SplitIf(cond, left, right) =>
+      let then_text := "if " ++ format_expr(notation, indent, cond) ++ " then" ++ proof_text(notation, deeper(indent), left) in
+      match right
+        case Some(r) =>
+          end_text(indent, then_text ++ "\n" ++ indent ++ "else" ++ proof_text(notation, deeper(indent), r))
+        case None =>
+          end_text(indent, then_text)
+      end
+  end
+
+function proof_cases(notation: Notation, indent: Str, cases: List[Doc[Branch[Proof]]]): Str :=
+  case_chain(List(for b in cases yield branch_head(notation, indent, b) ++ proof_text(notation, deeper(indent), b.at.that.body)))
 
 // requires and ensures on lines of their own, where ensures aligns with requires
 function contract_text(notation: Notation, assms: List[At[Expr]], concl: At[Expr]): Str :=
@@ -836,16 +904,17 @@ function constrs_text(constrs: List[Doc[Constr]]): Str :=
 function constr_line(c: Doc[Constr]): Str :=
   indented_doc("  ", c.doc) ++ "\n  case " ++ constr_text(c.at.that)
 
-// a head wider than the line has one formal on each line, the modes in front of the first of their group
-function proc_head(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type]): Str :=
-  let flat := "procedure " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")" ++ raised_text(empty(), TTuple(raised)) in
+// the head of a procedure or a lemma, by its keyword, where one wider than the line has one formal on each line, the modes
+// in front of the first of their group
+function proc_head(keyword: Str, name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var], raised: List[Type]): Str :=
+  let flat := keyword ++ " " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")" ++ raised_text(empty(), TTuple(raised)) in
   if size(flat) > 80 then
-    spread_proc_head(name, params, ins, outs, refs) ++ raised_text(empty(), TTuple(raised))
+    spread_proc_head(keyword, name, params, ins, outs, refs) ++ raised_text(empty(), TTuple(raised))
   else
     flat
 
-function spread_proc_head(name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var]): Str :=
-  "procedure " ++ name.base ++ params_text(params) ++ "(\n" ++ join(",\n", mode_lines("in ", ins) ++ mode_lines("out", outs) ++ mode_lines("ref", refs)) ++ "\n)"
+function spread_proc_head(keyword: Str, name: Name, params: List[Id], ins: List[Var], outs: List[Var], refs: List[Var]): Str :=
+  keyword ++ " " ++ name.base ++ params_text(params) ++ "(\n" ++ join(",\n", mode_lines("in ", ins) ++ mode_lines("out", outs) ++ mode_lines("ref", refs)) ++ "\n)"
 
 function mode_lines(mode: Str, xs: List[Var]): List[Str] :=
   match formal_texts(xs)

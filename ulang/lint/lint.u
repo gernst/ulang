@@ -69,8 +69,8 @@ function placed_cmd_lints(pos: Pos, cmd: Cmd): List[Warning] :=
     case CTest(_, _, stmt) =>
       stmt_lints("", stmt)
 
-    case CLemma(_, _, formals, assms, concl) =>
-      vars_lints(pos, formals) ++ exprs_lints("", assms) ++ expr_lints("", concl)
+    case CLemma(_, _, ins, outs, assms, concl, _) =>
+      vars_lints(pos, ins ++ outs) ++ exprs_lints("", assms) ++ expr_lints("", concl)
 
     case CPatAlias(name, _, formals, _, _) =>
       decl_name_lints(pos, name.base, List()) ++ vars_lints(pos, formals)
@@ -553,7 +553,7 @@ function is_root(cmd: Cmd): Bool :=
     case CTest(_, _, _) =>
       true
 
-    case CLemma(_, _, _, _, _) =>
+    case CLemma(_, _, _, _, _, _, _) =>
       true
 
     case CProc(_, _, List(), List(), List(), _, _, _) =>
@@ -618,8 +618,8 @@ function cmd_names(cmd: Cmd): Set[Id] :=
     case CTest(_, _, stmt) =>
       stmt_names(stmt)
 
-    case CLemma(_, _, _, assms, concl) =>
-      exprs_names(assms) ++ expr_names(concl)
+    case CLemma(_, _, _, _, assms, concl, proof) =>
+      exprs_names(assms) ++ expr_names(concl) ++ Set(for p in proof for x in proof_names(p) yield x)
 
     case CPatAlias(_, _, _, _, pat) =>
       pat_names(pat)
@@ -930,6 +930,40 @@ function part_pat_names(pat: Pat): Set[Id] :=
     case _ =>
       Set()
   end
+
+// the names that a proof reads, of its expressions and of the lemmas that it calls
+function proof_names(proof: Proof): Set[Id] :=
+  Set(for step in proof.steps for x in step_names(step.that) yield x) ++ Set(for split in proof.split for x in split_names(split.that) yield x)
+
+function step_names(step: Step): Set[Id] :=
+  match step
+    case StepLocal(_, value) =>
+      option_names(value)
+
+    case StepCall(name, ins, _) =>
+      Set(name.base) ++ exprs_names(ins)
+
+    case StepAssert(cond) =>
+      expr_names(cond)
+
+    case StepAssign(upd) =>
+      Set(for (_, e) in upd for x in expr_names(e) yield x)
+  end
+
+function split_names(split: Split): Set[Id] :=
+  match split
+    case SplitInduction(_, cases) =>
+      branches_proof_names(cases)
+
+    case SplitMatch(arg, cases) =>
+      expr_names(arg) ++ branches_proof_names(cases)
+
+    case SplitIf(cond, left, right) =>
+      expr_names(cond) ++ proof_names(left) ++ Set(for p in right for x in proof_names(p) yield x)
+  end
+
+function branches_proof_names(cases: List[Doc[Branch[Proof]]]): Set[Id] :=
+  Set(for br in parts(cases) for x in pat_names(br.pat) ++ option_names(br.guard) ++ proof_names(br.body) yield x)
 
 // the names that stmt reads, of its expressions, of the procedures it calls, and of the refs that it passes
 function stmt_names(stmt: At[Stmt]): Set[Id] :=

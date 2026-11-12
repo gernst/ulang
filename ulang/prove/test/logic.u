@@ -1,35 +1,35 @@
 // lemmas of the connectives, of equality, and of the order on values other than integers
 
-lemma excluded_middle(b: Bool) :=
+lemma excluded_middle(in b: Bool) :=
   ensures b or not b
 
-lemma equal_booleans(a: Bool, b: Bool) :=
+lemma equal_booleans(in a: Bool, b: Bool) :=
   requires a == b, a
   ensures  b
 
-lemma congruence(f: Int -> Int, x: Int, y: Int) :=
+lemma congruence(in f: Int -> Int, x: Int, y: Int) :=
   requires x == y
   ensures  f(x) == f(y)
 
-lemma congruence_closure(g: Int -> Int, a: Int) :=
+lemma congruence_closure(in g: Int -> Int, a: Int) :=
   requires g(g(g(a))) == a, g(g(g(g(g(a))))) == a
   ensures  g(a) == a
 
-lemma transitive_equality(a: Int, b: Int, c: Int) :=
+lemma transitive_equality(in a: Int, b: Int, c: Int) :=
   requires a == b, b == c
   ensures  a == c
 
-lemma conditional_same(c: Bool, x: Int) :=
+lemma conditional_same(in c: Bool, x: Int) :=
   ensures (if c then x else x) == x
 
-lemma irreflexive_values(xs: List[Int], b: Bool, x: Int) :=
+lemma irreflexive_values(in xs: List[Int], b: Bool, x: Int) :=
   ensures not xs < xs and not b < b and not (x, x) < (x, x)
 
-lemma asymmetric_lists(xs: List[Int], ys: List[Int]) :=
+lemma asymmetric_lists(in xs: List[Int], ys: List[Int]) :=
   requires xs < ys
   ensures  not ys < xs
 
-lemma irreflexive_under_lambda(xs: List[Int]) :=
+lemma irreflexive_under_lambda(in xs: List[Int]) :=
   ensures forall(xs, lambda y => not y < y) and not exists(xs, lambda y => y < y)
 
 function pick(o: Option[Int]): Bool :=
@@ -40,38 +40,38 @@ function pick(o: Option[Int]): Bool :=
       true
   end
 
-lemma irreflexive_in_case(o: Option[Int]) :=
+lemma irreflexive_in_case(in o: Option[Int]) :=
   ensures pick(o)
 
 lemma value_order() :=
   ensures List(1, 2) < List(1, 3) and false < true and compare(1, 2) == -1 and (1, false) < (1, true) and List() < List(0) and None < Some(0)
 
-lemma compare_by_context(a: Int, b: Int) :=
+lemma compare_by_context(in a: Int, b: Int) :=
   requires a < b
   ensures  compare(a, b) == -1 and compare(b, a) == 1
 
-lemma compare_reflexive[A](x: A) :=
+lemma compare_reflexive[A](in x: A) :=
   ensures compare(x, x) == 0
 
-lemma set_member(x: Int) :=
+lemma set_member(in x: Int) :=
   ensures contains(x, Set(x))
 
-lemma map_get(k: Int, v: Int) :=
+lemma map_get(in k: Int, v: Int) :=
   ensures get(k, Map(k => v)) == Some(v)
 
 // by a split on the first disjunct of the assumption, and on p
-lemma unit_clause(p: Bool, q: Bool) :=
+lemma unit_clause(in p: Bool, q: Bool) :=
   requires p or q, not p
   ensures  q
 
-lemma disjunctive_bound(a: Int) :=
+lemma disjunctive_bound(in a: Int) :=
   requires a == 1 or a == 2
   ensures  a > 0
 
 // by splits on the variables of type Bool
-lemma boolean_equivalence(a: Bool, b: Bool) :=
+lemma boolean_equivalence(in a: Bool, b: Bool) :=
   ensures (a == b) == (a and b or not a and not b)
 
-lemma boolean_below_true(b: Bool) :=
+lemma boolean_below_true(in b: Bool) :=
   requires b < true
   ensures  b == false

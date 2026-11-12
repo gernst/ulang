@@ -21,11 +21,11 @@ function mirror[A](t: Tree[A]): Tree[A] :=
       Node(mirror(r), x, mirror(l))
   end
 
-lemma mirror_size[A](t: Tree[A]) :=
+lemma mirror_size[A](in t: Tree[A]) :=
   ensures size_of(mirror(t)) == size_of(t)
 
-lemma mirror_twice[A](t: Tree[A]) :=
+lemma mirror_twice[A](in t: Tree[A]) :=
   ensures mirror(mirror(t)) == t
 
-lemma reflexive(p: Int * Bool, o: Option[Set[Int]]) :=
+lemma reflexive(in p: Int * Bool, o: Option[Set[Int]]) :=
   ensures p == p and o == o

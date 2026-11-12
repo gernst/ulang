@@ -97,10 +97,10 @@ test duplicate_formal() :=
 test duplicate_lemma() :=
   assert raises Located(None, Pos(4, 1), AlreadyDefined(Name(Some("ulang/test/errors/duplicate-lemma"), "l"))) do
     call check_text(in "ulang/test/errors/duplicate-lemma.u", List(
-      "lemma l(x: Int) :=",
+      "lemma l(in x: Int) :=",
       "  ensures x == x",
       "",
-      "lemma l(y: Bool) :=",
+      "lemma l(in y: Bool) :=",
       "  ensures y == y"))
   end
 
@@ -127,6 +127,17 @@ test empty_ambiguous() :=
 test empty_tuple_argument() :=
   assert raises Located(None, Pos(2, 3), Mismatch(_, _, "the result of f")) do
     call check_text(in "ulang/test/errors/empty-tuple-argument.u", List("function f(g: (()) -> Int): Int :=", "  g"))
+  end
+
+test example_never_raised() :=
+  assert raises Located(None, Pos(5, 3), NeverRaised(_)) do
+    call check_text(in "ulang/test/errors/example-never-raised.u", List(
+      "data Overflow :=",
+      "  case Overflow",
+      "",
+      "procedure p(in x: Int, out y: Int) :=",
+      "  example p(in 1, out _) raises Overflow",
+      "  assign y := x"))
   end
 
 test example_type() :=
@@ -264,17 +275,17 @@ test lambda_monomorphic() :=
 
 test lemma_ensures_type() :=
   assert raises Located(None, Pos(2, 13), Mismatch(_, _, "the conclusion")) do
-    call check_text(in "ulang/test/errors/lemma-ensures-type.u", List("lemma l(x: Int) :=", "  ensures x + 1"))
+    call check_text(in "ulang/test/errors/lemma-ensures-type.u", List("lemma l(in x: Int) :=", "  ensures x + 1"))
   end
 
 test lemma_requires_type() :=
   assert raises Located(None, Pos(2, 12), Mismatch(_, _, "the assumption")) do
-    call check_text(in "ulang/test/errors/lemma-requires-type.u", List("lemma l(x: Int) :=", "  requires x", "  ensures  x == x"))
+    call check_text(in "ulang/test/errors/lemma-requires-type.u", List("lemma l(in x: Int) :=", "  requires x", "  ensures  x == x"))
   end
 
 test lemma_unknown_variable() :=
   assert raises Located(None, Pos(2, 16), UnknownVariable(Name(None, "y"))) do
-    call check_text(in "ulang/test/errors/lemma-unknown-variable.u", List("lemma l(x: Int) :=", "  ensures x == y"))
+    call check_text(in "ulang/test/errors/lemma-unknown-variable.u", List("lemma l(in x: Int) :=", "  ensures x == y"))
   end
 
 test let_monomorphic() :=
@@ -302,8 +313,24 @@ test let_rigid() :=
       "  g(1) == 1"))
   end
 
+// a part of the wrong type is reported at the innermost part, since the checker passes the expected type down to the
+// components of a tuple, the elements of a form, the body of a let, and the arguments of a call of one candidate
+test innermost_mismatch() :=
+  local errors: List[TypeError]
+  call check_text_all(in "ulang/test/errors/innermost-mismatch.u", List(
+    "function g(): Int * Int :=",
+    "  (1, \"a\")",
+    "",
+    "function h(): List[Int] :=",
+    "  List(1, \"a\")",
+    "",
+    "function k(): Int :=",
+    "  let x := 1 in",
+    "  \"a\""), out errors)
+  assert List(for e in errors yield error_pos(e)) == List(Pos(2, 7), Pos(5, 11), Pos(9, 3))
+
 test list_type() :=
-  assert raises Located(None, Pos(2, 10), Mismatch(_, _, "argument 2 of the call")) do
+  assert raises Located(None, Pos(2, 18), Mismatch(_, _, "an element of List")) do
     call check_text(in "ulang/test/errors/list-type.u", List("test list_type() :=", "  assert List(1, true) == List()"))
   end
 
@@ -718,4 +745,41 @@ function error_pos(e: TypeError): Pos :=
       pos
     case _ =>
       Pos(0, 0)
+  end
+
+test proof_unknown_lemma() :=
+  assert raises Located(None, Pos(3, 3), UnknownLemma(Name(None, "b"))) do
+    call check_text(in "ulang/test/errors/proof-unknown-lemma.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  call b(in n)"))
+  end
+
+test proof_not_inducible() :=
+  assert raises Located(None, Pos(3, 3), NotInducible(Name(None, "n"))) do
+    call check_text(in "ulang/test/errors/proof-not-inducible.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  induction n", "  end"))
+  end
+
+test proof_call_argument() :=
+  assert raises Located(None, Pos(3, 13), Mismatch(_, _, "lemma a")) do
+    call check_text(in "ulang/test/errors/proof-call-argument.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  call a(in true)"))
+  end
+
+test proof_witness_unbound() :=
+  assert raises Located(None, Pos(4, 10), Unassigned(Name(None, "q"))) do
+    call check_text(in "ulang/test/errors/proof-witness-unbound.u", List(
+      "lemma a(in n: Int) :=",
+      "  ensures n == n",
+      "  local q: Int",
+      "  assert q == 1"))
+  end
+
+test proof_assign_formal() :=
+  assert raises Located(None, Pos(3, 3), NotAssignable(Name(None, "n"))) do
+    call check_text(in "ulang/test/errors/proof-assign-formal.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  assign n := 1"))
+  end
+
+test proof_out_unassigned() :=
+  assert raises Located(None, Pos(1, 1), OutputUnassigned(Name(None, "y"), Name(Some("ulang/test/errors/proof-out-unassigned"), "a"))) do
+    call check_text(in "ulang/test/errors/proof-out-unassigned.u", List(
+      "lemma a(in x: Int, out y: Int) :=",
+      "  ensures y == x",
+      "  assert x == x"))
   end
