@@ -152,17 +152,17 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
     case CData(name, params, constrs) =>
       CData(in_module(m, name), params, List(for k in constrs yield map_doc(k, lambda c => qualify_constr(m, c))))
 
-    case CFun(name, params, formals, typ, body) =>
-      CFun(in_module(m, name), params, formals, typ, body)
+    case CFun(name, params, formals, typ, spec, body) =>
+      CFun(in_module(m, name), params, formals, typ, spec, body)
 
-    case CProc(name, params, ins, outs, refs, raised, stmt) =>
-      CProc(in_module(m, name), params, ins, outs, refs, raised, stmt)
+    case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
+      CProc(in_module(m, name), params, ins, outs, refs, raised, spec, stmt)
 
-    case CFunSig(name, params, formals, typ) =>
-      CFunSig(in_module(m, name), params, formals, typ)
+    case CFunSig(name, params, formals, typ, spec) =>
+      CFunSig(in_module(m, name), params, formals, typ, spec)
 
-    case CProcSig(name, params, ins, outs, refs, raised) =>
-      CProcSig(in_module(m, name), params, ins, outs, refs, raised)
+    case CProcSig(name, params, ins, outs, refs, raised, spec) =>
+      CProcSig(in_module(m, name), params, ins, outs, refs, raised, spec)
 
     case CAbstract(name, params) =>
       CAbstract(in_module(m, name), params)
@@ -178,9 +178,6 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
 
     case CTest(name, vars, stmt) =>
       CTest(in_module(m, name), vars, stmt)
-
-    case CExample(owner, claim) =>
-      CExample(in_module(m, owner), claim)
   end
 
 function qualify_constr(m: Id, k: Constr): Constr :=
@@ -693,11 +690,11 @@ function zonk_handler(s: State, h: Catch): Catch :=
 
 function zonk_cmd(s: State, cmd: Cmd): Cmd :=
   match cmd
-    case CFun(name, params, formals, typ, body) =>
-      CFun(name, params, zonk_vars(s, formals), zonk_type(s.sub, typ), zonk_expr(s, body))
+    case CFun(name, params, formals, typ, _, body) =>
+      CFun(name, params, zonk_vars(s, formals), zonk_type(s.sub, typ), no_spec(), zonk_expr(s, body))
 
-    case CProc(name, params, ins, outs, refs, raised, stmt) =>
-      CProc(name, params, zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), raised, zonk_stmt(s, stmt))
+    case CProc(name, params, ins, outs, refs, raised, _, stmt) =>
+      CProc(name, params, zonk_vars(s, ins), zonk_vars(s, outs), zonk_vars(s, refs), raised, no_spec(), zonk_stmt(s, stmt))
 
     case CTest(name, vars, stmt) =>
       CTest(name, vars, zonk_stmt(s, stmt))
@@ -835,10 +832,10 @@ function unknown_in_guard(guard: Option[At[Expr]]): Option[Pos * Type] :=
 
 function unknown_in_cmd(cmd: Cmd): Option[Pos * Type] :=
   match cmd
-    case CFun(_, _, _, _, body) =>
+    case CFun(_, _, _, _, _, body) =>
       unknown_in_expr(body)
 
-    case CProc(_, _, _, _, _, _, stmt) =>
+    case CProc(_, _, _, _, _, _, _, stmt) =>
       unknown_in(stmt)
 
     case CTest(_, _, stmt) =>
@@ -3008,7 +3005,7 @@ function first_fields(fields: List[Id * Type]): List[Id * Type] :=
 procedure declare_funs(in cs: List[Id * Cmd], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
-      case CFun(name, ps, formals, typ, _) =>
+      case CFun(name, ps, formals, typ, _, _) =>
         local xs: List[Var], r: Type
         assign s := enter(s, m)
         call   overload(in s.sig, name, size(formals))
@@ -3078,7 +3075,7 @@ procedure declare_lemmas(in cs: List[Id * Cmd], ref s: State) :=
 procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
-      case CProc(name, ps, ins, outs, refs, raised, _) =>
+      case CProc(name, ps, ins, outs, refs, raised, _, _) =>
         local xs: List[Var], ts: List[Type], typed_raised: List[Type]
         assign s := enter(s, m)
         call   declare_name(in s.sig, name)
@@ -3103,14 +3100,14 @@ procedure declare_procs(in cs: List[Id * Cmd], ref s: State) :=
 
 procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
   match cmd
-    case CFun(name, params, formals, typ, body) =>
+    case CFun(name, params, formals, typ, _, body) =>
       local xs: List[Var], r: Type, b: At[Expr]
       call   signature(in formals, out xs, ref s)
       call   known(in typ, name, out r, ref s)
       call   check(in bind(xs), body, r, "the result of " ++ name.base, out b, ref s)
-      assign typed_cmd := CFun(name, params, xs, r, b)
+      assign typed_cmd := CFun(name, params, xs, r, no_spec(), b)
 
-    case CProc(name, params, ins, outs, refs, raised, stmt) =>
+    case CProc(name, params, ins, outs, refs, raised, _, stmt) =>
       local is: List[Var], os: List[Var], rs: List[Var], typed_raised: List[Type], y: At[Stmt], env: Env
       call   signature(in ins, out is, ref s)
       call   signature(in outs, out os, ref s)
@@ -3119,7 +3116,7 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
       assign env := bind(is) ++ unassigned(os) ++ bind(rs)
       call   statement(in List(for x in os ++ rs yield x.name), stmt, out y, ref env, s)
       call   outputs(in name, os, env, ref s)
-      assign typed_cmd := CProc(name, params, is, os, rs, typed_raised, y)
+      assign typed_cmd := CProc(name, params, is, os, rs, typed_raised, no_spec(), y)
 
     case CTest(name, List(), stmt) =>
       local y: At[Stmt], env: Env := List()
@@ -3211,7 +3208,7 @@ procedure check_orders(
         case (_, Some((HookEquality, t))) if not contains(t, abstract) =>
           raise VisibleEquality(t)
 
-        case (CFun(name, _, formals, _, _), None) =>
+        case (CFun(name, _, formals, _, _, _), None) =>
           match hook_of(name.base, size(formals))
             case Some(hook) =>
               raise MisshapenHook(name, hook)
@@ -3219,7 +3216,7 @@ procedure check_orders(
               call check_orders(in rest, abstract, hidden, hidden_sorts)
           end
 
-        case (CFun(name, _, _, _, _), Some((_, t))) if contains(name, hidden) and not contains(t, hidden_sorts) =>
+        case (CFun(name, _, _, _, _, _), Some((_, t))) if contains(name, hidden) and not contains(t, hidden_sorts) =>
           raise UnexportedOrder(name, t)
 
         case _ =>
@@ -3236,17 +3233,13 @@ function abstract_decls(ds: List[Id * Cmd], natives: List[Name]): List[Cmd] :=
 // the commands of ds without signatures and abstract types, which only the checks of sections need
 function is_definition(d: Id * Cmd): Bool :=
   match d
-    case (_, CFunSig(_, _, _, _)) =>
+    case (_, CFunSig(_, _, _, _, _)) =>
       false
 
-    case (_, CProcSig(_, _, _, _, _, _)) =>
+    case (_, CProcSig(_, _, _, _, _, _, _)) =>
       false
 
     case (_, CAbstract(_, _)) =>
-      false
-
-    // the tests of example_tests take its place
-    case (_, CExample(_, _)) =>
       false
 
     case _ =>
@@ -3263,11 +3256,11 @@ function natives(d: Mod): List[Id * Cmd] :=
 
 function native(cmd: Cmd): Cmd :=
   match cmd
-    case CFunSig(name, params, formals, typ) =>
-      CFun(name, params, formals, typ, nowhere(ELit(LUnit)))
+    case CFunSig(name, params, formals, typ, _) =>
+      CFun(name, params, formals, typ, no_spec(), nowhere(ELit(LUnit)))
 
-    case CProcSig(name, params, ins, outs, refs, raised) =>
-      CProc(name, params, ins, outs, refs, raised, nowhere(SSkip))
+    case CProcSig(name, params, ins, outs, refs, raised, _) =>
+      CProc(name, params, ins, outs, refs, raised, no_spec(), nowhere(SSkip))
 
     case CAbstract(name, params) =>
       CData(name, params, List())
@@ -3308,10 +3301,10 @@ function private_names(ex: List[Cmd], im: List[Cmd]): List[Name] :=
 
 function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
   match cmd
-    case CFun(name, _, _, _, _) =>
+    case CFun(name, _, _, _, _, _) =>
       if exists(ex, lambda e => signs(e, name)) then List() else List(name)
 
-    case CProc(name, _, _, _, _, _, _) =>
+    case CProc(name, _, _, _, _, _, _, _) =>
       if exists(ex, lambda e => signs(e, name)) then List() else List(name)
 
     case CData(t, _, constrs) =>
@@ -3356,10 +3349,10 @@ function private_sort(cmd: Cmd, ex: List[Cmd]): List[Name] :=
 
 function signs(e: Cmd, n: Name): Bool :=
   match e
-    case CFunSig(name, _, _, _) =>
+    case CFunSig(name, _, _, _, _) =>
       name == n
 
-    case CProcSig(name, _, _, _, _, _) =>
+    case CProcSig(name, _, _, _, _, _, _) =>
       name == n
 
     case _ =>
@@ -3377,7 +3370,7 @@ function abstracts(e: Cmd, t: Name): Bool :=
 // the function n of k arguments, the procedure n, and the datatype n
 function defines_fun(cmd: Cmd, n: Name, k: Int): Bool :=
   match cmd
-    case CFun(name, _, formals, _, _) =>
+    case CFun(name, _, formals, _, _, _) =>
       name == n and size(formals) == k
     case _ =>
       false
@@ -3385,7 +3378,7 @@ function defines_fun(cmd: Cmd, n: Name, k: Int): Bool :=
 
 function defines_proc(cmd: Cmd, n: Name): Bool :=
   match cmd
-    case CProc(name, _, _, _, _, _, _) =>
+    case CProc(name, _, _, _, _, _, _, _) =>
       name == n
     case _ =>
       false
@@ -3401,7 +3394,7 @@ function defines_data(cmd: Cmd, n: Name): Bool :=
 
 function signs_fun(cmd: Cmd, n: Name, k: Int): Bool :=
   match cmd
-    case CFunSig(name, _, formals, _) =>
+    case CFunSig(name, _, formals, _, _) =>
       name == n and size(formals) == k
     case _ =>
       false
@@ -3413,12 +3406,12 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
     case List() =>
       skip
 
-    case List(CFunSig(name, params, formals, typ); rest) =>
+    case List(CFunSig(name, params, formals, typ, _); rest) =>
       if exists(rest, lambda e => signs_fun(e, name, size(formals))) then
         raise AlreadyDefined(name)
       end
       match List(for c in im if defines_fun(c, name, size(formals)))
-        case List(CFun(_, params_, formals_, typ_, _)) =>
+        case List(CFun(_, params_, formals_, typ_, _, _)) =>
           if params_ != params or formals_ != formals or typ_ != typ then
             raise SignatureMismatch(name)
           end
@@ -3428,12 +3421,12 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
       end
       call check_signatures(in rest, im)
 
-    case List(CProcSig(name, params, ins, outs, refs, raised); rest) =>
+    case List(CProcSig(name, params, ins, outs, refs, raised, _); rest) =>
       if exists(rest, lambda e => signs(e, name)) then
         raise AlreadyDefined(name)
       end
       match List(for c in im if defines_proc(c, name))
-        case List(CProc(_, params_, ins_, outs_, refs_, raised_, _)) =>
+        case List(CProc(_, params_, ins_, outs_, refs_, raised_, _, _)) =>
           if params_ != params or ins_ != ins or outs_ != outs or refs_ != refs or raised_ != raised then
             raise SignatureMismatch(name)
           end
@@ -3463,7 +3456,7 @@ procedure check_signatures(in ex: List[Cmd], im: List[Cmd]) :=
 procedure check_arities(in im: List[Cmd], ex: List[Cmd]) :=
   for cmd in im do
     match cmd
-      case CFun(name, _, formals, _, _) =>
+      case CFun(name, _, formals, _, _, _) =>
         if exists(ex, lambda e => signs(e, name)) and not exists(ex, lambda e => signs_fun(e, name, size(formals))) then
           raise PartlyExported(name)
         end
@@ -3530,10 +3523,10 @@ function own_name(m: Id, n: Name): Name :=
 // the declaration of an export section with the types that it shows to importers
 function exposed(cmd: Cmd): Option[Name * List[Type]] :=
   match cmd
-    case CFunSig(name, _, formals, typ) =>
+    case CFunSig(name, _, formals, typ, _) =>
       Some((name, List(for x in formals yield x.typ) ++ List(typ)))
 
-    case CProcSig(name, _, ins, outs, refs, raised) =>
+    case CProcSig(name, _, ins, outs, refs, raised, _) =>
       Some((name, List(for x in ins ++ outs ++ refs yield x.typ) ++ raised))
 
     case CData(name, _, constrs) =>
@@ -3723,41 +3716,59 @@ procedure examples_placed(in d: Mod, ref s: State) :=
 
 function example_owner(cmd: Cmd): Option[Owner] :=
   match cmd
-    case CFun(name, _, formals, _, _) =>
+    case CFun(name, _, formals, _, _, _) =>
       Some(Owner(name, size(formals)))
 
-    case CFunSig(name, _, formals, _) =>
+    case CFunSig(name, _, formals, _, _) =>
       Some(Owner(name, size(formals)))
 
-    case CProc(name, _, ins, outs, refs, _, _) =>
+    case CProc(name, _, ins, outs, refs, _, _, _) =>
       Some(Owner(name, size(ins) + size(outs) + size(refs)))
 
-    case CProcSig(name, _, ins, outs, refs, _) =>
+    case CProcSig(name, _, ins, outs, refs, _, _) =>
       Some(Owner(name, size(ins) + size(outs) + size(refs)))
 
     case _ =>
       None
   end
 
-// the tests of the examples of module d, named f.example.N with N from 1 for each base name f in the order of the source,
-// which users cannot write, where each example follows its declaration in its section
-function example_tests(d: Mod): List[ExampleTest] :=
-  numbered_examples(d.name, List(for c in d.exported ++ d.builtins yield (true, c)) ++ List(for c in d.implemented yield (false, c)), None, empty())
+// the spec of a function or procedure, empty for other commands
+function spec_of(cmd: Cmd): Spec :=
+  match cmd
+    case CFun(_, _, _, _, spec, _) =>
+      spec
 
-function numbered_examples(m: Id, cmds: List[Bool * Doc[Cmd]], last: Option[Owner], counts: Map[Id, Int]): List[ExampleTest] :=
+    case CFunSig(_, _, _, _, spec) =>
+      spec
+
+    case CProc(_, _, _, _, _, _, spec, _) =>
+      spec
+
+    case CProcSig(_, _, _, _, _, _, spec) =>
+      spec
+
+    case _ =>
+      no_spec()
+  end
+
+// the tests of the examples of module d, named f.example.N with N from 1 for each base name f in the order of the source,
+// which users cannot write
+function example_tests(d: Mod): List[ExampleTest] :=
+  numbered_examples(d.name, List(for c in d.exported ++ d.builtins yield (true, c.at.that)) ++ List(for c in d.implemented yield (false, c.at.that)), empty())
+
+function numbered_examples(m: Id, cmds: List[Bool * Cmd], counts: Map[Id, Int]): List[ExampleTest] :=
   match cmds
     case List() =>
       List()
 
-    case List((exported, c); more) =>
-      match (c.at, last)
-        case (AOk(pos, CExample(_, x)), Some(owner)) =>
-          let n := value_or(get(owner.name.base, counts), 0) + 1 in
-          List(
-            example_test(m, pos, owner, exported, n, x); numbered_examples(m, more, last, put(owner.name.base, n, counts)))
+    case List((exported, cmd); more) =>
+      match example_owner(qualify(m, cmd))
+        case Some(owner) =>
+          let n := value_or(get(owner.name.base, counts), 0), examples := spec_of(cmd).examples in
+          List(for (i, x) in zip(range(n + 1, n + 1 + size(examples)), examples) yield example_test(m, x.pos, owner, exported, i, x.that)) ++ numbered_examples(m, more, put(owner.name.base, n + size(examples), counts))
 
-        case _ =>
-          numbered_examples(m, more, example_owner(qualify(m, c.at.that)), counts)
+        case None =>
+          numbered_examples(m, more, counts)
       end
   end
 
@@ -4113,7 +4124,7 @@ function enum_fun(s: State, abstract: List[Name], n: Name): Cmd :=
   let field_enum := (lambda t => value_or(enum_expr(s, abstract, lambda p => generated_var(generated_name(p)), t), nowhere(ELit(LInt(0))))), below := generated_op("-", List(generated_var(d), nowhere(ELit(LInt(1))))) in
   let nullary := List(for (c, k) in constrs if k.fields == List() yield generated_var(c)), applied := List(for (c, k) in constrs if k.fields != List() yield (c, k.fields)), at_zero := generated_op("==", List(generated_var(d), nowhere(ELit(LInt(0))))) in
   let counts := List(for (_, fields) in applied yield product_expr(List(for t in fields yield enum_call("count_of", List(field_enum(t), below))))), values := List(for (c, fields) in applied yield constr_values(c, List(for t in fields yield field_enum(t)), below)) in
-  CFun(enum_fun_name(s.module, n), params, List(for p in params yield Var(generated_name(p), enum_type(TParam(p)))), enum_type(TSort(n, List(for p in params yield TParam(p)))), enum_call("Enumeration", List(
+  CFun(enum_fun_name(s.module, n), params, List(for p in params yield Var(generated_name(p), enum_type(TParam(p)))), enum_type(TSort(n, List(for p in params yield TParam(p)))), no_spec(), enum_call("Enumeration", List(
     generated_lambda(d, nowhere(EIte(at_zero, nowhere(ELit(LInt(size(nullary)))), foldl(counts, nowhere(ELit(LInt(size(nullary)))), lambda a, b => generated_op("+", List(a, b)))))),
     generated_lambda(d, nowhere(EIte(at_zero, generated_list(nullary), foldl(values, generated_list(nullary), lambda a, b => generated_op("++", List(a, b)))))))))
 
@@ -4233,7 +4244,7 @@ function definition_of(cmd: Cmd): List[Cmd] :=
     case CPatAlias(name, params, formals, typ, pat) =>
       match pattern_expr(pat)
         case Some(body) =>
-          List(CFun(name, params, formals, typ, body))
+          List(CFun(name, params, formals, typ, no_spec(), body))
         case None =>
           List()
       end
@@ -4354,7 +4365,7 @@ test elaboration() :=
   match q.cmds
     case List(
       _,
-      CFun(_, _, _, _, AOk(_, EMatch(_, List(Doc(_, AOk(_, Branch(pat, _, _))); _)))),
+      CFun(_, _, _, _, _, AOk(_, EMatch(_, List(Doc(_, AOk(_, Branch(pat, _, _))); _)))),
       CTest(_, List(), AOk(_, SBlock(_, List(AOk(_, SAssign(List((_, AOk(_, ECall(_, _, typ, _))))))))))) =>
       assert pat.that == PNil()
       assert typ == TFun(List(TList(TInt())), TInt())
@@ -4367,11 +4378,11 @@ test coverage() :=
   local q: Prog
   assert raises NotExhaustive(PCons(AOk(_, PWild), AOk(_, PWild))) do
     call check_program(in with_lists(List(
-      CFun(unqualified("f"), List(), List(Var(unqualified("xs"), type_plain_list(TInt()))), TInt(), nowhere(EMatch(expr_var("xs"), List(case_at(pat_var("Nil"), expr_int(0)))))))), out q)
+      CFun(unqualified("f"), List(), List(Var(unqualified("xs"), type_plain_list(TInt()))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(case_at(pat_var("Nil"), expr_int(0)))))))), out q)
   end
   assert raises Unreachable(PNil()) do
     call check_program(in with_lists(List(
-      CFun(unqualified("f"), List(), List(Var(unqualified("xs"), type_plain_list(TInt()))), TInt(), nowhere(EMatch(expr_var("xs"), List(
+      CFun(unqualified("f"), List(), List(Var(unqualified("xs"), type_plain_list(TInt()))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(
         case_at(nowhere(PWild), expr_int(0)),
         case_at(pat_var("Nil"), expr_int(1)))))))), out q)
   end
@@ -4380,10 +4391,10 @@ test statements() :=
   local q: Prog
   assert raises NotAssignable(Name(None, "n")) do
     call check_program(in program_of(List(
-      CProc(unqualified("inc"), List(), List(), List(), List(Var(unqualified("k"), TInt())), List(), nowhere(SBlock(List(), List(
+      CProc(unqualified("inc"), List(), List(), List(), List(Var(unqualified("k"), TInt())), List(), no_spec(), nowhere(SBlock(List(), List(
         nowhere(SAssign(List(
           (Var(unqualified("k"), THole), expr_app("+", List(expr_var("k"), expr_int(1))))))))))),
-      CProc(unqualified("p"), List(), List(Var(unqualified("n"), TInt())), List(), List(), List(), nowhere(SBlock(List(), List(
+      CProc(unqualified("p"), List(), List(Var(unqualified("n"), TInt())), List(), List(), List(), no_spec(), nowhere(SBlock(List(), List(
         nowhere(SCall(unqualified("inc"), List(), List(), List(Var(unqualified("n"), THole)))))))))), out q)
   end
   assert raises UnknownException(TList(_)) do
@@ -4398,7 +4409,7 @@ function var_of(n: Id, t: Type): Var :=
   Var(unqualified(n), t)
 
 function fun_cmd(n: Id, xs: List[Var], r: Type, b: At[Expr]): Cmd :=
-  CFun(unqualified(n), List(), xs, r, b)
+  CFun(unqualified(n), List(), xs, r, no_spec(), b)
 
 function constr_at(n: Id, fields: List[Field]): Doc[Constr] :=
   Doc(None, nowhere(Constr(unqualified(n), fields)))
@@ -4414,14 +4425,14 @@ function bags(): List[Mod] :=
       CData(unqualified("Pt"), List(), List(constr_at("Pt", List(Field("x", TInt()))))),
       fun_cmd("size", List(var_of("b", tsort("Bag"))), TInt(), expr_int(1)),
       fun_cmd("compare", List(var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))), TInt(), expr_int(0)),
-      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Bag"))), List(), List(), nowhere(SAssign(List((var_of("b", THole), expr_app("Bag", List(expr_int(0)))))))))),
+      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Bag"))), List(), List(), no_spec(), nowhere(SAssign(List((var_of("b", THole), expr_app("Bag", List(expr_int(0)))))))))),
     sectioned("box", List(
       CData(unqualified("Box"), List(), List(
         constr_at("Box", List(Field("s", TStr()))),
         constr_at("Leaf", List(Field("s", TStr()))))),
       CData(unqualified("Qt"), List(), List(constr_at("Qt", List(Field("x", TStr()))))),
       fun_cmd("size", List(var_of("b", tsort("Box"))), TInt(), expr_int(2)),
-      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Box"))), List(), List(), nowhere(SAssign(List((var_of("b", THole), expr_app("Box", List(nowhere(ELit(LStr("")))))))))))))
+      CProc(unqualified("fill"), List(), List(), List(var_of("b", tsort("Box"))), List(), List(), no_spec(), nowhere(SAssign(List((var_of("b", THole), expr_app("Box", List(nowhere(ELit(LStr("")))))))))))))
 
 // the module of cmds with sections, as the parser gives it: the datatypes and the signatures of the definitions exported,
 // and the definitions implemented
@@ -4430,11 +4441,11 @@ function sectioned(name: Id, cmds: List[Cmd]): Mod :=
 
 function signature_of(cmd: Cmd): Cmd :=
   match cmd
-    case CFun(name, params, formals, typ, _) =>
-      CFunSig(name, params, formals, typ)
+    case CFun(name, params, formals, typ, _, _) =>
+      CFunSig(name, params, formals, typ, no_spec())
 
-    case CProc(name, params, ins, outs, refs, raised, _) =>
-      CProcSig(name, params, ins, outs, refs, raised)
+    case CProc(name, params, ins, outs, refs, raised, _, _) =>
+      CProcSig(name, params, ins, outs, refs, raised, no_spec())
 
     case _ =>
       cmd
@@ -4455,7 +4466,7 @@ procedure body_of(in cmd: Cmd, out b: Expr) :=
   local q: Prog
   call check_program(in with_bags(List(cmd)), out q)
   match reverse(q.cmds)
-    case List(CFun(_, _, _, _, body); _) =>
+    case List(CFun(_, _, _, _, _, body); _) =>
       assign b := body.that
     case _ =>
       assert false
@@ -4517,11 +4528,11 @@ test constructors() :=
 test procedures() :=
   local q: Prog
   call check_program(in with_bags(List(
-    CProc(unqualified("p"), List(), List(), List(), List(), List(), nowhere(SBlock(List(var_of("b", tsort("Box"))), List(
+    CProc(unqualified("p"), List(), List(), List(), List(), List(), no_spec(), nowhere(SBlock(List(var_of("b", tsort("Box"))), List(
       nowhere(SCall(unqualified("fill"), List(), List(var_of("b", THole)), List())))))))), out q)
   match reverse(q.cmds)
     case List(
-      CProc(_, _, _, _, _, _, AOk(_, SBlock(_, List(AOk(_, SCall(proc, _, _, _)))))); _) =>
+      CProc(_, _, _, _, _, _, _, AOk(_, SBlock(_, List(AOk(_, SCall(proc, _, _, _)))))); _) =>
       assert proc == in_box("fill")
 
     case _ =>
@@ -4557,7 +4568,7 @@ test builtins() :=
     case _ =>
       assert false
   end
-  call body_of(in CFun(unqualified("h"), List("A"), List(var_of("x", TParam("A"))), TBool(), expr_app("==", List(expr_var("x"), expr_var("x")))), out b)
+  call body_of(in CFun(unqualified("h"), List("A"), List(var_of("x", TParam("A"))), TBool(), no_spec(), expr_app("==", List(expr_var("x"), expr_var("x")))), out b)
   match b
     case ECall(_, name, _, _) =>
       assert name == unqualified("==")

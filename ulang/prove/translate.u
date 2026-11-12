@@ -32,7 +32,7 @@ function translate(q: Prog, m: Id): Translation :=
 
 function fun_name(cmd: Cmd): Option[Name] :=
   match cmd
-    case CFun(name, _, _, _, _) =>
+    case CFun(name, _, _, _, _, _) =>
       Some(name)
     case _ =>
       None
@@ -41,7 +41,7 @@ function fun_name(cmd: Cmd): Option[Name] :=
 // a function by its name and arity, as Defs.funs of ulang/check/defs.u, with its formals and body
 function definition(cmd: Cmd): Option[(Name * Int) * (List[Var] * Term)] :=
   match cmd
-    case CFun(name, _, formals, _, body) =>
+    case CFun(name, _, formals, _, _, body) =>
       Some(((name, size(formals)), (formals, term_of(bind(formals, List()), body))))
     case _ =>
       None
