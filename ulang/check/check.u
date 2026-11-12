@@ -84,6 +84,9 @@ procedure check_all(
       errors: List[TypeError]
 ) raises InternalError
 
+// whether checking found errors in the program, which it then holds as diagnostics
+function has_errors(q: Prog): Bool
+
 // whether the patterns pats, without guards, match every value of type t, as the cases of an exhaustive match do
 function covers_all(sig: Sig, t: Type, pats: List[Pat]): Bool
 
@@ -3579,7 +3582,11 @@ procedure check_all(
         assign errors := List(e)
     end
   end
-  assign q := Prog(cmds, source.main), errors := List(for e in errors yield in_main(source.main, e))
+  assign errors := List(for e in errors yield in_main(source.main, e))
+  assign q := Prog(cmds, source.main, List(for e in errors yield type_diagnostic(e)))
+
+function has_errors(q: Prog): Bool :=
+  q.errors != List()
 
 // e without the module if it is the main one
 function in_main(main: Id, e: TypeError): TypeError :=
