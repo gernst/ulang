@@ -61,8 +61,8 @@ function first_difference(lines: List[Str], others: List[Str], line: Int): Optio
 // programs as source, where the notation of the prelude, of the program, and of its imports decide where operators need
 // parentheses, and the translations of the parser are printed as what they translate, so that the source parses to the
 // same commands
-data Doc :=
-  case Doc(text: Str, shape: Shape)
+data Out :=
+  case Out(text: Str, shape: Shape)
 
 // an open form extends as far to the right as it can, as if, let, lambda without modes, raise, and updates do, a negative
 // literal would be read as - applied to its operand, and an operator binds its operands by its fixity and precedence
@@ -133,30 +133,30 @@ function inner_notation(notation: Notation, d: Mod): Notation :=
   with_notation(notation, commands_of(d.exported))
 
 // op applied to the operands, if it is declared as an operator of their number
-function operator_doc(notation: Notation, op: Id, args: List[Doc]): Option[Doc] :=
+function operator_out(notation: Notation, op: Id, args: List[Out]): Option[Out] :=
   match (args, infix_of(notation, op), prefix_prec(notation, op), postfix_prec(notation, op))
     case (List(l, r), Some((f, prec)), _, _) =>
-      Some(infix_doc(op, l, r, f, prec))
+      Some(infix_out(op, l, r, f, prec))
 
     case (List(a), _, Some(prec), _) =>
-      Some(Doc(prefix_text(op, prefix_operand(a, prec)), Operator(FPrefix, prec)))
+      Some(Out(prefix_text(op, prefix_operand(a, prec)), Operator(FPrefix, prec)))
 
     case (List(a), _, _, Some(prec)) =>
-      Some(Doc(postfix_operand(a) ++ " " ++ op, Operator(FPostfix, prec)))
+      Some(Out(postfix_operand(a) ++ " " ++ op, Operator(FPostfix, prec)))
 
     case _ =>
       None
   end
 
-function infix_doc(op: Id, l: Doc, r: Doc, f: Fixity, prec: Int): Doc :=
-  Doc(infix_operand(l, f, prec, FLeft) ++ " " ++ op ++ " " ++ infix_operand(r, f, prec, FRight), Operator(f, prec))
+function infix_out(op: Id, l: Out, r: Out, f: Fixity, prec: Int): Out :=
+  Out(infix_operand(l, f, prec, FLeft) ++ " " ++ op ++ " " ++ infix_operand(r, f, prec, FRight), Operator(f, prec))
 
-function parenthesized(d: Doc, needed: Bool): Str :=
+function parenthesized(d: Out, needed: Bool): Str :=
   if needed then "(" ++ d.text ++ ")" else d.text
 
 // an operand of an infix operator of fixity f and precedence prec on the side FLeft or FRight, where a prefix operator
 // would take the operators after it of its precedence or above, and a chain of an associative operator needs none
-function infix_operand(d: Doc, f: Fixity, prec: Int, side: Fixity): Str :=
+function infix_operand(d: Out, f: Fixity, prec: Int, side: Fixity): Str :=
   parenthesized(d, match d.shape
     case Atom =>
       false
@@ -178,7 +178,7 @@ function infix_operand(d: Doc, f: Fixity, prec: Int, side: Fixity): Str :=
   end)
 
 // the operand of a prefix operator, which takes the operators of its precedence or above
-function prefix_operand(d: Doc, prec: Int): Str :=
+function prefix_operand(d: Out, prec: Int): Str :=
   parenthesized(d, match d.shape
     case Atom =>
       false
@@ -193,7 +193,7 @@ function prefix_operand(d: Doc, prec: Int): Str :=
       true
   end)
 
-function postfix_operand(d: Doc): Str :=
+function postfix_operand(d: Out): Str :=
   parenthesized(d, match d.shape
     case Atom =>
       false
@@ -213,75 +213,75 @@ function prefix_text(op: Id, a: Str): Str :=
     op ++ a
 
 // the function of an application, and the record of an access
-function atom_text(d: Doc): Str :=
+function atom_text(d: Out): Str :=
   parenthesized(d, d.shape != Atom)
 
 // an expression before a comma that a name and := may follow, which would continue its updates
-function closed_text(d: Doc): Str :=
+function closed_text(d: Out): Str :=
   parenthesized(d, d.shape == Open)
 
 // expressions, at the indentation of the line they start on
 function format_expr(notation: Notation, indent: Str, expr: Expr): Str :=
-  expr_doc(notation, indent, expr).text
+  expr_out(notation, indent, expr).text
 
 function format_exprs(notation: Notation, indent: Str, exprs: List[Expr]): Str :=
   join(", ", List(for e in exprs yield format_expr(notation, indent, e)))
 
-function expr_doc(notation: Notation, indent: Str, expr: Expr): Doc :=
+function expr_out(notation: Notation, indent: Str, expr: Expr): Out :=
   match expr
     case ELit(LInt(num)) if num < 0 =>
-      Doc(show(num), Negative)
+      Out(show(num), Negative)
 
     case ELit(lit) =>
-      Doc(format_lit(lit), Atom)
+      Out(format_lit(lit), Atom)
 
     case EVar(var) =>
-      Doc(var.name.base, Atom)
+      Out(var.name.base, Atom)
 
     case EApp(fun, args) =>
-      app_doc(notation, indent, fun, args)
+      app_out(notation, indent, fun, args)
 
     case EField(e, field) =>
-      Doc(atom_text(expr_doc(notation, indent, e)) ++ "." ++ field, Atom)
+      Out(atom_text(expr_out(notation, indent, e)) ++ "." ++ field, Atom)
 
     case EUpdate(_, _, _) =>
-      updates_doc(notation, indent, expr)
+      updates_out(notation, indent, expr)
 
     case ELam(List(), body) =>
-      Doc("lambda => " ++ format_expr(notation, indent, body), Open)
+      Out("lambda => " ++ format_expr(notation, indent, body), Open)
 
     case ELam(formals, body) =>
       match patterns_of_lambda(formals, body)
         case Some((pats, inner)) =>
-          Doc("lambda " ++ format_patterns(notation, indent, pats) ++ " => " ++ format_expr(notation, indent, inner), Open)
+          Out("lambda " ++ format_patterns(notation, indent, pats) ++ " => " ++ format_expr(notation, indent, inner), Open)
         case None =>
-          Doc("lambda " ++ formals_text(formals) ++ " => " ++ format_expr(notation, indent, body), Open)
+          Out("lambda " ++ formals_text(formals) ++ " => " ++ format_expr(notation, indent, body), Open)
       end
 
     case EProc(ins, outs, refs, stmt) =>
-      Doc(block_text(notation, indent, "lambda " ++ formal_sections(ins, outs, refs) ++ " =>", stmt), Atom)
+      Out(block_text(notation, indent, "lambda " ++ formal_sections(ins, outs, refs) ++ " =>", stmt), Atom)
 
     case ELet(bindings, body) =>
-      Doc(let_text(notation, indent, bindings, body), Open)
+      Out(let_text(notation, indent, bindings, body), Open)
 
     case EIte(cond, then_expr, else_expr) =>
-      Doc(ite_text(notation, indent, cond, then_expr, else_expr), Open)
+      Out(ite_text(notation, indent, cond, then_expr, else_expr), Open)
 
     case EMatch(arg, cases) =>
-      Doc(expr_match_text(notation, indent, arg, cases), Atom)
+      Out(expr_match_text(notation, indent, arg, cases), Atom)
 
     case ETuple(args) =>
-      Doc("(" ++ format_exprs(notation, indent, args) ++ ")", Atom)
+      Out("(" ++ format_exprs(notation, indent, args) ++ ")", Atom)
 
     case EForm(form, elems, rest) =>
-      Doc(form_text(notation, indent, form, elems, rest), Atom)
+      Out(form_text(notation, indent, form, elems, rest), Atom)
 
     case EFor(form, gens, elem, rest) =>
-      Doc(for_text(notation, indent, form, gens, elem, rest), Atom)
+      Out(for_text(notation, indent, form, gens, elem, rest), Atom)
 
     // format_cmds strips the positions, so that the shapes that the printer matches are those that the parser builds
     case EAt(_, inner) =>
-      expr_doc(notation, indent, inner)
+      expr_out(notation, indent, inner)
   end
 
 // the body on the next line, at the indentation of the let
@@ -382,36 +382,36 @@ function gen_text(notation: Notation, indent: Str, g: Gen): Str :=
 function in_text(notation: Notation, indent: Str, c: Expr): Str :=
   " in " ++ format_expr(notation, indent, c)
 
-function app_doc(notation: Notation, indent: Str, f: Expr, args: List[Expr]): Doc :=
-  let docs := List(for a in args yield expr_doc(notation, indent, a)) in
+function app_out(notation: Notation, indent: Str, f: Expr, args: List[Expr]): Out :=
+  let parts := List(for a in args yield expr_out(notation, indent, a)) in
   match f
     case EName(name, _) =>
-      match operator_doc(notation, name.base, docs)
+      match operator_out(notation, name.base, parts)
         case Some(d) =>
           d
         case None =>
-          Doc(name.base ++ "(" ++ texts(docs) ++ ")", Atom)
+          Out(name.base ++ "(" ++ texts(parts) ++ ")", Atom)
       end
 
     case _ =>
-      Doc(atom_text(expr_doc(notation, indent, f)) ++ "(" ++ texts(docs) ++ ")", Atom)
+      Out(atom_text(expr_out(notation, indent, f)) ++ "(" ++ texts(parts) ++ ")", Atom)
   end
 
-function texts(docs: List[Doc]): Str :=
-  join(", ", List(for d in docs yield d.text))
+function texts(parts: List[Out]): Str :=
+  join(", ", List(for d in parts yield d.text))
 
 // e with f := a, g := b, which the parser applies from the left, where e and the values are operands without updates
-function updates_doc(notation: Notation, indent: Str, expr: Expr): Doc :=
+function updates_out(notation: Notation, indent: Str, expr: Expr): Out :=
   match updates_of(expr)
     case (r, updates) =>
-      Doc(closed_expr(notation, indent, r) ++ " with " ++ updates_text(notation, indent, updates), Open)
+      Out(closed_expr(notation, indent, r) ++ " with " ++ updates_text(notation, indent, updates), Open)
   end
 
 function updates_text(notation: Notation, indent: Str, updates: List[Id * Expr]): Str :=
   join(", ", List(for u in updates yield update_text(notation, indent, u)))
 
 function closed_expr(notation: Notation, indent: Str, expr: Expr): Str :=
-  closed_text(expr_doc(notation, indent, expr))
+  closed_text(expr_out(notation, indent, expr))
 
 function update_text(notation: Notation, indent: Str, update: Id * Expr): Str :=
   match update
@@ -485,48 +485,48 @@ function rest_text(notation: Notation, indent: Str, rest: Option[Expr]): Str :=
   end
 
 function format_pattern(notation: Notation, indent: Str, pat: Pat): Str :=
-  pattern_doc(notation, indent, pat).text
+  pattern_out(notation, indent, pat).text
 
 function format_patterns(notation: Notation, indent: Str, pats: List[Pat]): Str :=
   join(", ", List(for p in pats yield format_pattern(notation, indent, p)))
 
-function pattern_doc(notation: Notation, indent: Str, pat: Pat): Doc :=
+function pattern_out(notation: Notation, indent: Str, pat: Pat): Out :=
   match pat
     case PWild =>
-      Doc("_", Atom)
+      Out("_", Atom)
 
     case PLit(LInt(num)) if num < 0 =>
-      Doc(show(num), Negative)
+      Out(show(num), Negative)
 
     case PLit(lit) =>
-      Doc(format_lit(lit), Atom)
+      Out(format_lit(lit), Atom)
 
     case PVar(var) =>
-      Doc(var.name.base, Atom)
+      Out(var.name.base, Atom)
 
     case PTuple(args) =>
-      Doc("(" ++ format_patterns(notation, indent, args) ++ ")", Atom)
+      Out("(" ++ format_patterns(notation, indent, args) ++ ")", Atom)
 
     case PApp(Name(None, "Nil"), List()) =>
-      Doc("List()", Atom)
+      Out("List()", Atom)
 
     case PApp(Name(None, "Cons"), List(_, _)) =>
-      Doc(list_pattern_text(notation, indent, pat), Atom)
+      Out(list_pattern_text(notation, indent, pat), Atom)
 
     case PApp(constr, args) =>
-      pattern_app_doc(notation, indent, constr, args)
+      pattern_app_out(notation, indent, constr, args)
 
     case PAt(_, inner) =>
-      pattern_doc(notation, indent, inner)
+      pattern_out(notation, indent, inner)
   end
 
-function pattern_app_doc(notation: Notation, indent: Str, constr: Name, pats: List[Pat]): Doc :=
-  let docs := List(for q in pats yield pattern_doc(notation, indent, q)) in
-  match operator_doc(notation, constr.base, docs)
+function pattern_app_out(notation: Notation, indent: Str, constr: Name, pats: List[Pat]): Out :=
+  let parts := List(for q in pats yield pattern_out(notation, indent, q)) in
+  match operator_out(notation, constr.base, parts)
     case Some(d) =>
       d
     case None =>
-      Doc(constr.base ++ "(" ++ texts(docs) ++ ")", Atom)
+      Out(constr.base ++ "(" ++ texts(parts) ++ ")", Atom)
   end
 
 // a list wider than the line puts one element on each line, as the forms of expressions do
