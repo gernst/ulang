@@ -91,6 +91,17 @@ function test_name(n: Name): Str
 // the name of cmd if it is a test of the module m
 function tested_name(cmd: Cmd, m: Id): Option[Name]
 
+// the procedures of the builtin section of os
+function native_procs(): Set[Id]
+
+// the functions of the order, equality, and show of datatype t in its descriptor, which its module declares, or else the
+// structural ones of the runtime, where abstract types without an order raise by u_unordered or u_incomparable of the runtime
+function compare_symbol(t: Name, defs: Defs): Str
+
+function equals_symbol(t: Name, defs: Defs): Str
+
+function symbol_of_show(t: Name, defs: Defs): Str
+
 implementation
 
 function mangle(n: Name): Str :=
@@ -119,7 +130,6 @@ function proc_name(n: Name): Str :=
   else
     "p_" ++ mangle(n)
 
-// the procedures of the builtin section of os
 function native_procs(): Set[Id] :=
   Set(
     "os_args",
@@ -530,4 +540,36 @@ function tested_name(cmd: Cmd, m: Id): Option[Name] :=
       Some(name)
     case _ =>
       None
+  end
+
+function compare_symbol(t: Name, defs: Defs): Str :=
+  match unordered_of(defs, t)
+    case Some(e) if e == unordered_name() =>
+      "u_unordered"
+
+    case Some(_) =>
+      "u_incomparable"
+
+    case None =>
+      declared_or(get(t, defs.orders), 2, "u_con_compare")
+  end
+
+function equals_symbol(t: Name, defs: Defs): Str :=
+  match unordered_of(defs, t)
+    case Some(e) if e == incomparable_name() =>
+      "u_incomparable"
+    case _ =>
+      declared_or(get(t, defs.equalities), 2, "u_equals_by_compare")
+  end
+
+function symbol_of_show(t: Name, defs: Defs): Str :=
+  declared_or(get(t, defs.shows), 1, "u_con_show")
+
+// the C function of a declared function f with n parameters, or else the function of the runtime
+function declared_or(f: Option[Name], n: Int, default: Str): Str :=
+  match f
+    case Some(g) =>
+      fun_name(g, n)
+    case None =>
+      default
   end

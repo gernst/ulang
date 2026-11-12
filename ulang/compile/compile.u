@@ -154,38 +154,14 @@ function type_init(t: Name, defs: Defs): CExpr :=
     equals_ref(t, defs),
     show_ref(t, defs)))
 
-// abstract types without an order raise by u_unordered or u_incomparable of the runtime
 function compare_ref(t: Name, defs: Defs): CExpr :=
-  match unordered_of(defs, t)
-    case Some(e) if e == unordered_name() =>
-      CeVar("u_unordered")
-
-    case Some(_) =>
-      CeVar("u_incomparable")
-
-    case None =>
-      CeVar(declared_or(get(t, defs.orders), 2, "u_con_compare"))
-  end
+  CeVar(compare_symbol(t, defs))
 
 function equals_ref(t: Name, defs: Defs): CExpr :=
-  match unordered_of(defs, t)
-    case Some(e) if e == incomparable_name() =>
-      CeVar("u_incomparable")
-    case _ =>
-      CeVar(declared_or(get(t, defs.equalities), 2, "u_equals_by_compare"))
-  end
+  CeVar(equals_symbol(t, defs))
 
 function show_ref(t: Name, defs: Defs): CExpr :=
-  CeVar(declared_or(get(t, defs.shows), 1, "u_con_show"))
-
-// the C function of a declared function f with n parameters, or else the function of the runtime
-function declared_or(f: Option[Name], n: Int, default: Str): Str :=
-  match f
-    case Some(g) =>
-      fun_name(g, n)
-    case None =>
-      default
-  end
+  CeVar(symbol_of_show(t, defs))
 
 function constructor_decls(t: Name, ks: List[Constr], i: Int): List[CDecl] :=
   match ks
@@ -1313,6 +1289,12 @@ procedure compile_prog(
       entry: Entry,
       target: Str
 ) raises EntryError, InternalError, OsError :=
-  local f: CFile
-  call compile_program(in q, q.main, entry, out f)
-  call os_write(in target, format_file(f))
+  if ends_with(target, ".s") then
+    local a: AsmFile
+    call assemble_program(in q, q.main, entry, out a)
+    call os_write(in target, format_asm(a))
+  else
+    local f: CFile
+    call compile_program(in q, q.main, entry, out f)
+    call os_write(in target, format_file(f))
+  end

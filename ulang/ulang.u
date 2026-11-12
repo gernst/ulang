@@ -161,7 +161,7 @@ function compile_request(words: List[Str], target: Option[Target], tests: Bool, 
     case List() =>
       match (target, output)
         case (_, None) =>
-          RUsage("compile takes -o <target.c>")
+          RUsage("compile takes -o <target.c> or -o <target.s>")
 
         case (Some(_), _) if tests =>
           RUsage("compile --tests takes no file, since it compiles the tests of the project")
@@ -210,7 +210,7 @@ test usage_errors() :=
   assert request(List("check", "--lint", "a.u")) == RUsage("check takes no options")
   assert request(List("format", "--check")) == RUsage("format takes no options")
   assert request(List("run", "dir")) == RUsage("run takes a file name.u, not dir")
-  assert request(List("compile", "a.u")) == RUsage("compile takes -o <target.c>")
+  assert request(List("compile", "a.u")) == RUsage("compile takes -o <target.c> or -o <target.s>")
   assert request(List("compile", "a.u", "--tests", "-o", "a.c")) == RUsage("compile --tests takes no file, since it compiles the tests of the project")
   assert request(List("compile", "-o", "a.c")) == RUsage("compile takes a file or --tests")
 
@@ -244,7 +244,7 @@ function synopsis(command: Str): Str :=
       "format [<path> ...]"
 
     case "compile" =>
-      "compile (<file>[:<procedure>] | --tests) -o <target.c>"
+      "compile (<file>[:<procedure>] | --tests) -o <target.c|target.s>"
 
     case _ =>
       "help [<command>]"
@@ -271,7 +271,7 @@ function description(command: Str): Str :=
       "rewrites the files, also below directories, by default the project, as format_program writes them, where lint, check,\n" ++ "and test report the files that differ"
 
     case "compile" =>
-      "translates the file to C, whose main calls the procedure, main by default, or with --tests the tests of the project,\n" ++ "whose main takes the arguments of test, without lemmas, and runs them as test does, from the root of the project"
+      "translates the file to C, or to assembly for x86-64 if the target ends in .s, whose main calls the procedure, main by default, or with --tests the tests of the project,\n" ++ "whose main takes the arguments of test, without lemmas, and runs them as test does, from the root of the project"
 
     case _ =>
       "prints the usage of all commands, or of one"

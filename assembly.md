@@ -1,6 +1,6 @@
 # Assembly
 
-A plan in progress (TODO, Compiler 2): a second backend of the compiler that writes GNU assembly for x86-64 Linux instead of C, so that compiled programs need no C compiler, only `as` and a linker, while the runtime stays C. The C backend stays as the portable one and as the seed of the bootstrap.
+In progress (TODO, Compiler 2), steps 1 to 5 done: a second backend of the compiler that writes GNU assembly for x86-64 Linux instead of C, so that compiled programs need no C compiler, only `as` and a linker, while the runtime stays C. The C backend stays as the portable one and as the seed of the bootstrap.
 
 ## Why
 
@@ -41,17 +41,34 @@ The backend translates the checked program, `Prog` of `ulang/syntax/syntax.u`, d
 
 ## Difficulties
 
-1. **Debugging**: errors of the backend show as crashes. Each statement is preceded by a comment naming it, and every test runs in both backends, `make testc` and `make testasm`, with the same outcome.
+1. **Debugging**: errors of the backend show as crashes. Each statement is preceded by a comment naming it, and every test runs in both backends, `make testc` and `make testasm`, with the same outcome. If that is not enough, the fallback is an interpreter of `AsmFile` in ulang, with the runtime calls it needs, which reports a fault at its instruction instead of crashing.
 2. **Portability**: tied to x86-64 and System V; ARM64, e.g. macOS, would need a second instruction set and convention, so the C backend stays.
 3. **Speed**: the simple backend is expected about 1.35 times slower than `-O2` on the compiler; registers for locals and temporaries come only after measuring.
+
+## Results
+
+On the sources of the branch `asm`, by `out/ulang.bin` (C at `-O2`) and by the compiler built through assembly:
+
+| | time |
+|---|---|
+| `compile ulang/ulang.u` to C, by the C build | 3.1 s |
+| the same, by the assembly build | 3.4 s |
+| `compile ulang/ulang.u` to `.s` (339,000 lines), by the assembly build | 4.7 s |
+| `cc` of that `.s` with `out/asm/ulang.o`, assembling and linking | 0.7 s |
+| `cc -O2` of the C of the compiler, for comparison | about 11 s |
+| `cc` of the `.s` of `compile --tests` (506,000 lines) | 0.9 s |
+| `make testasm`, running the suite | 16 s, against 7 s of `make testc` at `-O1` |
+
+The simple backend is about 1.1 times slower than `-O2` on the compiler, less than estimated, but about twice as slow on the suite, whose tests spend more in generated code than in the runtime. The assembly build compiles itself to the same `.s` and the same C as the C build.
 
 ## Steps
 
 0. **Compiled tests**, done: `make testc`, the safety net, since every test must have the same outcome in both backends.
-1. **`lower.u`**: the shared part moved out of `compile.u`, which then writes the same C as before, byte for byte.
-2. **`asm.u`**: the datatypes and the printer, with unit tests.
-3. **`x86.u`** with the runtime object and the `_Static_assert`s: data, functions, procedures, statements, expressions, closures, wrappers, caches, `try`, then `compile … -o x.s` in the driver; first without the fusion of comprehensions (`fusion_of`), which only saves the calls of folds. Grown on small programs of `ulang/test/`, each compared with its C build.
-4. **`make testasm`**: the suite of `compile --tests` through assembly, all tests passing as with `make testc`.
-5. **Self-compile through assembly**: the compiler built from its `.s` compiles itself to the same C and the same `.s`; `make` keeps building the tool from C until this is reliable, then may switch; `bootstrap/ulang.c` stays the versioned seed.
+1. Done. **`lower.u`**: the shared part moved out of `compile.u`, which then writes the same C as before, byte for byte.
+2. Done. **`asm.u`**: the datatypes and the printer, with unit tests.
+3. Done. **`x86.u`** with the runtime object and the `_Static_assert`s: data, functions, procedures, statements, expressions, closures, wrappers, caches, `try`, then `compile … -o x.s` in the driver; first without the fusion of comprehensions (`fusion_of`), which only saves the calls of folds. Grown on small programs of `ulang/test/`, each compared with its C build.
+4. Done. **`make testasm`**: the suite of `compile --tests` through assembly, all tests passing as with `make testc`.
+5. Done by hand, not yet as a target of the Makefile. **Self-compile through assembly**: the compiler built from its `.s` compiles itself to the same C and the same `.s`; `make` keeps building the tool from C until this is reliable, then may switch; `bootstrap/ulang.c` stays the versioned seed.
 6. **Measured improvements**: the fusion of comprehensions as in C, results that stay in `%rax` instead of a slot, arguments that are variables or constants loaded directly into their registers.
-7. **Later, each a project of its own**: register allocation, ARM64, unboxed small integers.
+7. **An encoder of its own**: the instructions of `asm.u` encoded to machine code and written as an ELF relocatable object, so that neither `as` nor a C compiler is needed, only the linker. It needs bytes in files first, which `os_write` cannot write, since it writes strings as UTF-8 (Library 1 of `TODO.md`).
+8. **Later, each a project of its own**: register allocation, ARM64, unboxed small integers.

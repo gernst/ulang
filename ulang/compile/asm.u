@@ -1,0 +1,356 @@
+// the part of x86-64 assembly that compiled ulang programs need, as datatypes, and a printer to the syntax of GNU as
+// (AT&T), where every operation is on 64 bits, and the order of operands is source, then destination
+
+export
+
+data Reg :=
+  case Rax
+  case Rbx
+  case Rcx
+  case Rdx
+  case Rsi
+  case Rdi
+  case Rbp
+  case Rsp
+  case R8
+  case R9
+  case R10
+  case R11
+  case R12
+  case R13
+  case R14
+  case R15
+
+data Operand :=
+  case OReg(reg: Reg)
+  case OImm(num: Int)
+  // the 8 bytes at base + disp
+  case OMem(base: Reg, disp: Int)
+  // the bytes at base + scale * index + disp
+  case OIndex(base: Reg, index: Reg, scale: Int, disp: Int)
+  // the bytes at a symbol, relative to %rip, as position-independent code addresses them
+  case ORip(symbol: Str)
+
+// the conditions of jumps, after a cmp or test, where cmp a, b compares b to a
+data Cond :=
+  case CondE
+  case CondNe
+  case CondL
+  case CondLe
+  case CondG
+  case CondGe
+  case CondS
+  case CondNs
+
+data Instr :=
+  case IMov(src: Operand, dst: Operand)
+  // a load of a signed int of 4 bytes, extended to 8
+  case IMovslq(src: Operand, reg: Reg)
+  case ILea(src: Operand, reg: Reg)
+  case IAdd(src: Operand, dst: Operand)
+  case ISub(src: Operand, dst: Operand)
+  case ICmp(src: Operand, dst: Operand)
+  case ITest(src: Operand, dst: Operand)
+  // %eax extended to %rax, after a call of a C function that returns an int
+  case ICltq
+  case IJmp(label: Str)
+  case IJcc(cond: Cond, label: Str)
+  // a call of a symbol of the file, or of another one through the procedure linkage table
+  case ICall(symbol: Str)
+  case ICallPlt(symbol: Str)
+  case IPush(src: Operand)
+  case IPop(reg: Reg)
+  case ILeave
+  case IRet
+
+data Directive :=
+  case DText
+  case DData
+  case DRodata
+  // the section that marks the stack as not executable
+  case DNoExecStack
+  case DGlobal(symbol: Str)
+  case DAlign(bytes: Int)
+  // integers of width 1, 2, 4, or 8 bytes
+  case DInts(width: Int, nums: List[Int])
+  // the addresses of symbols, of 8 bytes each
+  case DAddrs(symbols: List[Str])
+  case DZero(bytes: Int)
+
+data Line :=
+  case LLabel(name: Str)
+  case LInstr(instr: Instr)
+  case LDirective(directive: Directive)
+  case LComment(text: Str)
+
+data AsmFile :=
+  case AsmFile(lines: List[Line])
+
+// the source of the file for GNU as
+function format_asm(file: AsmFile): Str
+
+function format_instr(instr: Instr): Str :=
+  example format_instr(IMov(OMem(Rbp, -8), OReg(Rax))) == "movq -8(%rbp), %rax"
+
+// a number that does not fit into the 32 bits of an immediate operand, which only movabsq into a register takes
+function is_wide(num: Int): Bool
+
+// the bytes of the UTF-8 encoding of text
+function utf8_bytes(text: Str): List[Int] :=
+  example utf8_bytes("aä") == List(97, 195, 164)
+
+implementation
+
+function format_reg(reg: Reg): Str :=
+  match reg
+    case Rax =>
+      "%rax"
+
+    case Rbx =>
+      "%rbx"
+
+    case Rcx =>
+      "%rcx"
+
+    case Rdx =>
+      "%rdx"
+
+    case Rsi =>
+      "%rsi"
+
+    case Rdi =>
+      "%rdi"
+
+    case Rbp =>
+      "%rbp"
+
+    case Rsp =>
+      "%rsp"
+
+    case R8 =>
+      "%r8"
+
+    case R9 =>
+      "%r9"
+
+    case R10 =>
+      "%r10"
+
+    case R11 =>
+      "%r11"
+
+    case R12 =>
+      "%r12"
+
+    case R13 =>
+      "%r13"
+
+    case R14 =>
+      "%r14"
+
+    case R15 =>
+      "%r15"
+  end
+
+function format_operand(op: Operand): Str :=
+  match op
+    case OReg(reg) =>
+      format_reg(reg)
+
+    case OImm(num) =>
+      "$" ++ show(num)
+
+    case OMem(base, 0) =>
+      "(" ++ format_reg(base) ++ ")"
+
+    case OMem(base, disp) =>
+      show(disp) ++ "(" ++ format_reg(base) ++ ")"
+
+    case OIndex(base, index, scale, disp) =>
+      (if disp == 0 then "" else show(disp)) ++ "(" ++ format_reg(base) ++ ", " ++ format_reg(index) ++ ", " ++ show(scale) ++ ")"
+
+    case ORip(symbol) =>
+      symbol ++ "(%rip)"
+  end
+
+function format_cond(cond: Cond): Str :=
+  match cond
+    case CondE =>
+      "e"
+
+    case CondNe =>
+      "ne"
+
+    case CondL =>
+      "l"
+
+    case CondLe =>
+      "le"
+
+    case CondG =>
+      "g"
+
+    case CondGe =>
+      "ge"
+
+    case CondS =>
+      "s"
+
+    case CondNs =>
+      "ns"
+  end
+
+function binary(op: Str, src: Operand, dst: Operand): Str :=
+  op ++ " " ++ format_operand(src) ++ ", " ++ format_operand(dst)
+
+function is_wide(num: Int): Bool :=
+  num < -2147483648 or num > 2147483647
+
+function format_instr(instr: Instr): Str :=
+  match instr
+    case IMov(OImm(num), OReg(reg)) if is_wide(num) =>
+      binary("movabsq", OImm(num), OReg(reg))
+
+    case IMov(src, dst) =>
+      binary("movq", src, dst)
+
+    case IMovslq(src, reg) =>
+      binary("movslq", src, OReg(reg))
+
+    case ILea(src, reg) =>
+      binary("leaq", src, OReg(reg))
+
+    case IAdd(src, dst) =>
+      binary("addq", src, dst)
+
+    case ISub(src, dst) =>
+      binary("subq", src, dst)
+
+    case ICmp(src, dst) =>
+      binary("cmpq", src, dst)
+
+    case ITest(src, dst) =>
+      binary("testq", src, dst)
+
+    case ICltq =>
+      "cltq"
+
+    case IJmp(label) =>
+      "jmp " ++ label
+
+    case IJcc(cond, label) =>
+      "j" ++ format_cond(cond) ++ " " ++ label
+
+    case ICall(symbol) =>
+      "call " ++ symbol
+
+    case ICallPlt(symbol) =>
+      "call " ++ symbol ++ "@PLT"
+
+    case IPush(src) =>
+      "pushq " ++ format_operand(src)
+
+    case IPop(reg) =>
+      "popq " ++ format_reg(reg)
+
+    case ILeave =>
+      "leave"
+
+    case IRet =>
+      "ret"
+  end
+
+function format_directive(directive: Directive): Str :=
+  match directive
+    case DText =>
+      ".text"
+
+    case DData =>
+      ".data"
+
+    case DRodata =>
+      ".section .rodata"
+
+    case DNoExecStack =>
+      ".section .note.GNU-stack,\"\",@progbits"
+
+    case DGlobal(symbol) =>
+      ".globl " ++ symbol
+
+    case DAlign(bytes) =>
+      ".balign " ++ show(bytes)
+
+    case DInts(width, nums) =>
+      int_directive(width) ++ " " ++ join(", ", List(for n in nums yield show(n)))
+
+    case DAddrs(symbols) =>
+      ".quad " ++ join(", ", symbols)
+
+    case DZero(bytes) =>
+      ".zero " ++ show(bytes)
+  end
+
+function int_directive(width: Int): Str :=
+  match width
+    case 1 =>
+      ".byte"
+
+    case 2 =>
+      ".short"
+
+    case 4 =>
+      ".long"
+
+    case _ =>
+      ".quad"
+  end
+
+function format_line(line: Line): Str :=
+  match line
+    case LLabel(name) =>
+      name ++ ":"
+
+    case LInstr(instr) =>
+      "\t" ++ format_instr(instr)
+
+    case LDirective(directive) =>
+      "\t" ++ format_directive(directive)
+
+    case LComment(text) =>
+      "\t# " ++ text
+  end
+
+function format_asm(file: AsmFile): Str :=
+  join("\n", List(for line in file.lines yield format_line(line))) ++ "\n"
+
+function utf8_bytes(text: Str): List[Int] :=
+  List(for c in chars(text) for b in utf8_char(ord(c)) yield b)
+
+function utf8_char(code: Int): List[Int] :=
+  if code < 128 then
+    List(code)
+  else if code < 2048 then
+    List(192 + code / 64, 128 + code % 64)
+  else if code < 65536 then
+    List(224 + code / 4096, 128 + code / 64 % 64, 128 + code % 64)
+  else
+    List(
+      240 + code / 262144,
+      128 + code / 4096 % 64,
+      128 + code / 64 % 64,
+      128 + code % 64)
+
+test format_asm_lines() :=
+  local f := AsmFile(List(
+    LDirective(DText),
+    LLabel("f"),
+    LInstr(IPush(OReg(Rbp))),
+    LInstr(IMov(OImm(4294967296), OReg(Rdi))),
+    LInstr(IMovslq(OIndex(Rdx, Rcx, 4, 0), Rcx)),
+    LInstr(IJcc(CondNe, ".L1")),
+    LInstr(ICallPlt("u_add")),
+    LComment("done"),
+    LDirective(DInts(1, List(97, 0)))))
+  assert format_asm(f) == "\t.text\nf:\n\tpushq %rbp\n\tmovabsq $4294967296, %rdi\n\tmovslq (%rdx, %rcx, 4), %rcx\n\tjne .L1\n\tcall u_add@PLT\n\t# done\n\t.byte 97, 0\n"
+  assert format_instr(ILea(ORip("t_x"), Rax)) == "leaq t_x(%rip), %rax"
+  assert utf8_bytes(str(List(chr(128512)))) == List(240, 159, 152, 128)
