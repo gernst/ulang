@@ -61,3 +61,8 @@ lemma evaluation_range() :=
 
 lemma identity_comprehension(xs: List[Int]) :=
   ensures List(for y in xs yield y) == xs
+
+// by splits on xs and on its tail, where the unfolding of take and drop is stuck
+lemma excluded_constructor(xs: List[Int]) :=
+  requires xs != List()
+  ensures  take(1, xs) ++ drop(1, xs) == xs

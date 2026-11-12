@@ -96,14 +96,6 @@ test deep_evaluation() :=
     call prove_text(in "ulang/test/errors/deep-evaluation.u", List("lemma deep_evaluation() :=", "  ensures size(range(0, 100)) == 100"))
   end
 
-test excluded_constructor() :=
-  assert raises OpenLemma("excluded_constructor", "forall xs => (not [] == xs) ==> (take(1, xs) ++ drop(1, xs)) == xs") do
-    call prove_text(in "ulang/test/errors/excluded-constructor.u", List(
-      "lemma excluded_constructor(xs: List[Int]) :=",
-      "  requires xs != List()",
-      "  ensures  take(1, xs) ++ drop(1, xs) == xs"))
-  end
-
 // equal sets of different shapes, which would be refuted as distinct constructors if those of abstract types were free
 test abstract_constructors() :=
   assert raises OpenLemma("abstract_constructors", "not Node(Node(Leaf, 1, Leaf, 1), 2, Leaf, 2) == Node(Leaf, 1, Node(Leaf, 2, Leaf, 1), 2)") do

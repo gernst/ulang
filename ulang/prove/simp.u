@@ -85,9 +85,11 @@ data PatMatch :=
   case Failed
   case Stuck
 
+// a split on a condition, or on the constructors of a value, which costs splits from the limit, more for one that only
+// unfolding asks for
 data Split :=
   case SplitIf(cond: Term)
-  case SplitMatch(expr: Term, datatype: Name)
+  case SplitMatch(expr: Term, datatype: Name, cost: Int)
 
 function true_seq(): Seq :=
   Seq(List(), List(), List(Concl(List(), List())))
@@ -1447,8 +1449,11 @@ function split_on(ctx: Ctx, levels: List[Int], ys: List[Var], assms: List[Seq], 
         else
           result
 
-      case Some(SplitMatch(expr, datatype)) =>
-        let t := rebind(Close(levels), 0, expr), inner := ctx with splits := ctx.splits - 1 in
+      case Some(SplitMatch(_, _, cost)) if cost > ctx.splits =>
+        result
+
+      case Some(SplitMatch(expr, datatype, cost)) =>
+        let t := rebind(Close(levels), 0, expr), inner := ctx with splits := ctx.splits - cost in
         match get(datatype, ctx.decls.datatypes)
           case Some(cs) =>
             if forall(cs, lambda c => simp_seq(inner, split_case(ctx.decls, ys, assms, concls, t, c)) == true_seq()) then
@@ -1476,8 +1481,13 @@ function split_case(decls: Decls, ys: List[Var], assms: List[Seq], concls: List[
       Seq(ys, assms, concls)
   end
 
+// the first if or match of the sequent whose condition or argument is ground, else the first application whose unfolding
+// is stuck, so that the splits that the terms ask for come before those that only unfolding would need
 function split_candidate(decls: Decls, ss: List[Seq], cs: List[Concl]): Option[Split] :=
-  or_else(first_of(List(for s in ss yield candidate_seq(decls, s))), first_of(List(for c in cs yield candidate_concl(decls, c))))
+  or_else(candidate_in(decls, false, ss, cs), candidate_in(decls, true, ss, cs))
+
+function candidate_in(decls: Decls, stuck: Bool, ss: List[Seq], cs: List[Concl]): Option[Split] :=
+  or_else(first_of(List(for s in ss yield candidate_seq(decls, stuck, s))), first_of(List(for c in cs yield candidate_concl(decls, stuck, c))))
 
 function first_of(os: List[Option[Split]]): Option[Split] :=
   match os
@@ -1491,38 +1501,67 @@ function first_of(os: List[Option[Split]]): Option[Split] :=
       first_of(rest)
   end
 
-function candidate_seq(decls: Decls, s: Seq): Option[Split] :=
+function candidate_seq(decls: Decls, stuck: Bool, s: Seq): Option[Split] :=
   match s
     case Atom(expr) =>
-      candidate(decls, expr)
+      candidate(decls, stuck, expr)
     case Seq(_, assms, concls) =>
-      split_candidate(decls, assms, concls)
+      candidate_in(decls, stuck, assms, concls)
   end
 
-function candidate_concl(decls: Decls, c: Concl): Option[Split] :=
-  first_of(List(for s in c.body yield candidate_seq(decls, s)))
+function candidate_concl(decls: Decls, stuck: Bool, c: Concl): Option[Split] :=
+  first_of(List(for s in c.body yield candidate_seq(decls, stuck, s)))
 
-function candidate(decls: Decls, e: Term): Option[Split] :=
+function candidate(decls: Decls, stuck: Bool, e: Term): Option[Split] :=
   match e
     case EIte(cond, then_expr, else_expr) =>
-      or_else(candidate(decls, cond), if loose(0, cond) == List() then
+      or_else(candidate(decls, stuck, cond), if loose(0, cond) == List() then
         Some(SplitIf(positive(cond)))
       else
-        or_else(candidate(decls, then_expr), candidate(decls, else_expr)))
+        or_else(candidate(decls, stuck, then_expr), candidate(decls, stuck, else_expr)))
 
     case EMatch(expr, cases) =>
       match (loose(0, expr), datatype_of(decls, cases))
         case (List(), Some(t)) =>
-          or_else(candidate(decls, expr), Some(SplitMatch(expr, t)))
+          or_else(candidate(decls, stuck, expr), Some(SplitMatch(expr, t, 1)))
         case _ =>
-          candidate(decls, expr)
+          candidate(decls, stuck, expr)
       end
 
     case EApp(fun, args) =>
-      first_of(List(for a in List(fun; args) yield candidate(decls, a)))
+      or_else(first_of(List(for a in List(fun; args) yield candidate(decls, stuck, a))), if stuck then stuck_split(decls, e) else None)
 
     case ESum(_, summands) =>
-      first_of(List(for summand in summands yield candidate(decls, summand.term)))
+      first_of(List(for summand in summands yield candidate(decls, stuck, summand.term)))
+
+    case _ =>
+      None
+  end
+
+// the split that would unfold an application of a recursive function, whose unfolding stopped since the argument of the
+// match of its body is a variable, where splits on other terms cost too much for the goals that they close
+function stuck_split(decls: Decls, e: Term): Option[Split] :=
+  match e
+    case EApp(EFun(name), args) =>
+      match get((name, size(args)), decls.defs)
+        case Some(d) if d.recursive =>
+          match d.body
+            case EMatch(expr, cases) =>
+              let arg := beta(args, expr) in
+              match (arg, datatype_of(decls, cases))
+                case (ELevel(_), Some(t)) =>
+                  Some(SplitMatch(arg, t, 2))
+                case _ =>
+                  None
+              end
+
+            case _ =>
+              None
+          end
+
+        case _ =>
+          None
+      end
 
     case _ =>
       None
