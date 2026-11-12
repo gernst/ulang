@@ -58,3 +58,20 @@ lemma set_member(x: Int) :=
 
 lemma map_get(k: Int, v: Int) :=
   ensures get(k, Map(k => v)) == Some(v)
+
+// by a split on the first disjunct of the assumption, and on p
+lemma unit_clause(p: Bool, q: Bool) :=
+  requires p or q, not p
+  ensures  q
+
+lemma disjunctive_bound(a: Int) :=
+  requires a == 1 or a == 2
+  ensures  a > 0
+
+// by splits on the variables of type Bool
+lemma boolean_equivalence(a: Bool, b: Bool) :=
+  ensures (a == b) == (a and b or not a and not b)
+
+lemma boolean_below_true(b: Bool) :=
+  requires b < true
+  ensures  b == false

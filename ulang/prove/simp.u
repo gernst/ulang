@@ -270,7 +270,7 @@ function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Co
               let levels := range(d, depth(after)), ys := vars_from(after, d) in
               let closed := List(for b in seqs yield rebind_seq(Close(levels), 0, b)), ends := List(for c in goals yield rebind_concl(Close(levels), 0, c)) in
               let result := sequent(ys, closed, ends) in
-              split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, seqs, goals), result)
+              split_on(ctx, levels, ys, closed, ends, split_candidate(ctx.decls, levels, ys, seqs, goals), result)
           end
       end
   end
@@ -1567,10 +1567,52 @@ function split_case(decls: Decls, ys: List[Var], assms: List[Seq], concls: List[
       Seq(ys, assms, concls)
   end
 
-// the first if or match of the sequent whose condition or argument is ground, else the first application whose unfolding
-// is stuck, so that the splits that the terms ask for come before those that only unfolding would need
-function split_candidate(decls: Decls, ss: List[Seq], cs: List[Concl]): Option[Split] :=
-  or_else(candidate_in(decls, false, ss, cs), candidate_in(decls, true, ss, cs))
+// the first if or match of the sequent whose condition or argument is ground, else the first disjunct of an assumption
+// that is a disjunction, else a variable of type Bool of the levels, the variables ys, that the sequent mentions, else
+// the first application whose unfolding is stuck, so that the splits that the terms ask for come first, and those that
+// only unfolding would need last
+function split_candidate(decls: Decls, levels: List[Int], ys: List[Var], ss: List[Seq], cs: List[Concl]): Option[Split] :=
+  match candidate_in(decls, false, ss, cs)
+    case Some(split) =>
+      Some(split)
+
+    case None =>
+      let disjunct := first_of(List(for s in ss yield disjunction_split(s))) in
+      let booleans := List(for (l, y) in zip(levels, ys) if y.typ == TBool() and (exists(ss, lambda s => occurs_seq(ELevel(l), s) and not is_literal_of(ELevel(l), s)) or exists(cs, lambda c => exists(c.body, lambda b => occurs_seq(ELevel(l), b)))) yield SplitIf(ELevel(l))) in
+      match disjunct
+        case Some(split) =>
+          Some(split)
+
+        case None =>
+          match booleans
+            case List(split; _) =>
+              Some(split)
+            case List() =>
+              candidate_in(decls, true, ss, cs)
+          end
+      end
+  end
+
+// a split on the first disjunct of an assumption c or …, where that is ground
+function disjunction_split(s: Seq): Option[Split] :=
+  match s
+    case Seq(List(), List(), List(Concl(List(), List(Atom(c))), _; _)) if loose(0, c) == List() =>
+      Some(SplitIf(c))
+    case _ =>
+      None
+  end
+
+// whether s is the assumption t or not t, as a split on t adds
+function is_literal_of(t: Term, s: Seq): Bool :=
+  s == Atom(t) or s == Seq(List(), List(Atom(t)), List())
+
+function occurs_seq(t: Term, s: Seq): Bool :=
+  match s
+    case Atom(term) =>
+      occurs(t, term)
+    case Seq(_, assms, concls) =>
+      exists(assms, lambda a => occurs_seq(t, a)) or exists(concls, lambda c => exists(c.body, lambda b => occurs_seq(t, b)))
+  end
 
 function candidate_in(decls: Decls, stuck: Bool, ss: List[Seq], cs: List[Concl]): Option[Split] :=
   or_else(first_of(List(for s in ss yield candidate_seq(decls, stuck, s))), first_of(List(for c in cs yield candidate_concl(decls, stuck, c))))

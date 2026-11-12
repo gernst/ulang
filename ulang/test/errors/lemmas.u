@@ -67,37 +67,6 @@ test integer_infeasible() :=
       "  ensures  false"))
   end
 
-test unit_clause() :=
-  assert raises OpenLemma("unit_clause", "forall p, q => (p or q) and (not p) ==> q") do
-    call prove_text(in "ulang/test/errors/unit-clause.u", List(
-      "lemma unit_clause(p: Bool, q: Bool) :=",
-      "  requires p or q, not p",
-      "  ensures  q"))
-  end
-
-test disjunctive_bound() :=
-  assert raises OpenLemma("disjunctive_bound", "forall a => (a == 1 or a == 2) ==> 0 < a") do
-    call prove_text(in "ulang/test/errors/disjunctive-bound.u", List(
-      "lemma disjunctive_bound(a: Int) :=",
-      "  requires a == 1 or a == 2",
-      "  ensures  a > 0"))
-  end
-
-test boolean_equivalence() :=
-  assert raises OpenLemma("boolean_equivalence", "forall a, b => ((a and b) or ((not a) and (not b))) == (b == a)") do
-    call prove_text(in "ulang/test/errors/boolean-equivalence.u", List(
-      "lemma boolean_equivalence(a: Bool, b: Bool) :=",
-      "  ensures (a == b) == (a and b or not a and not b)"))
-  end
-
-test boolean_below_true() :=
-  assert raises OpenLemma("boolean_below_true", "forall b => b < true ==> b == false") do
-    call prove_text(in "ulang/test/errors/boolean-below-true.u", List(
-      "lemma boolean_below_true(b: Bool) :=",
-      "  requires b < true",
-      "  ensures  b == false"))
-  end
-
 // equal sets of different shapes, which would be refuted as distinct constructors if those of abstract types were free
 test abstract_constructors() :=
   assert raises OpenLemma("abstract_constructors", "not Node(Node(Leaf, 1, Leaf, 1), 2, Leaf, 2) == Node(Leaf, 1, Node(Leaf, 2, Leaf, 1), 2)") do
