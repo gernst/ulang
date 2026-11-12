@@ -129,14 +129,6 @@ test empty_tuple_argument() :=
     call check_text(in "ulang/test/errors/empty-tuple-argument.u", List("function f(g: (()) -> Int): Int :=", "  g"))
   end
 
-test example_overload() :=
-  assert raises Located(None, Pos(2, 16), Mismatch(_, _, "argument 1 of the call")) do
-    call check_text(in "ulang/test/errors/example-overload.u", List(
-      "function size(s: Set[Int]): Int :=",
-      "  example size(List(1)) == 1",
-      "  0"))
-  end
-
 test example_type() :=
   assert raises Located(None, Pos(2, 11), Mismatch(_, _, "the assertion")) do
     call check_text(in "ulang/test/errors/example-type.u", List("function f(x: Int): Int :=", "  example f(1)", "  x"))
@@ -157,17 +149,6 @@ test for_refutable() :=
       "  for List(x; _) in List(List(1)) do",
       "    skip",
       "  end"))
-  end
-
-test foreign_example() :=
-  assert raises Located(None, Pos(2, 3), ForeignExample(Name(Some("ulang/test/errors/foreign-example"), "f"))) do
-    call check_text(in "ulang/test/errors/foreign-example.u", List(
-      "function f(x: Int): Int :=",
-      "  example g(1) == 1",
-      "  x",
-      "",
-      "function g(x: Int): Int :=",
-      "  x"))
   end
 
 test generator_no_fold() :=

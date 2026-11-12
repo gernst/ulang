@@ -60,8 +60,6 @@ data TypeError :=
   case RaisesVariables(name: Name)
   // an exported pattern alias of a constructor that importers do not see
   case PrivateConstructor(name: Name, constr: Name)
-  // an example of a function or procedure that does not apply it
-  case ForeignExample(name: Name)
   // examples on the definition of an exported function or procedure, which belong to its signature in export
   case ExampleOnDefinition(name: Name)
   // raise of a value, or raises of a type, that is not of a datatype without type parameters
@@ -3781,34 +3779,31 @@ procedure check_package(
   end
 
 // an example of the function or procedure owner, translated into the test cmd, at the position pos in module, where an
-// example of the export section is checked as an importer of module sees it, and applies tells whether it applies owner
+// example of the export section is checked as an importer of module sees it
 data ExampleTest :=
-  case ExampleTest(pos: Pos, module: Id, owner: Name, exported: Bool, applies: Bool, cmd: Cmd)
-
-// the name of a function or procedure and its number of formals, of which an example may be given
-data Owner :=
-  case Owner(name: Name, arity: Int)
+  case ExampleTest(pos: Pos, module: Id, owner: Name, exported: Bool, cmd: Cmd)
 
 // the examples on definitions in implementation of functions and procedures that export declares, as errors of s
 procedure examples_placed(in d: Mod, ref s: State) :=
   local declared := List(for c in d.exported ++ d.builtins for o in example_owner(qualify(d.name, c.at.that)) yield o)
-  for x in example_tests(d) if not x.exported and contains(x.owner, List(for o in declared yield o.name)) do
+  for x in example_tests(d) if not x.exported and contains(x.owner, declared) do
     assign s := s with errors := s.errors ++ List(Located(Some(d.name), x.pos, ExampleOnDefinition(x.owner)))
   end
 
-function example_owner(cmd: Cmd): Option[Owner] :=
+// the name of a function or procedure, of which examples may be given
+function example_owner(cmd: Cmd): Option[Name] :=
   match cmd
-    case CFun(name, _, formals, _, _, _) =>
-      Some(Owner(name, size(formals)))
+    case CFun(name, _, _, _, _, _) =>
+      Some(name)
 
-    case CFunSig(name, _, formals, _, _) =>
-      Some(Owner(name, size(formals)))
+    case CFunSig(name, _, _, _, _) =>
+      Some(name)
 
-    case CProc(name, _, ins, outs, refs, _, _, _) =>
-      Some(Owner(name, size(ins) + size(outs) + size(refs)))
+    case CProc(name, _, _, _, _, _, _, _) =>
+      Some(name)
 
-    case CProcSig(name, _, ins, outs, refs, _, _) =>
-      Some(Owner(name, size(ins) + size(outs) + size(refs)))
+    case CProcSig(name, _, _, _, _, _, _) =>
+      Some(name)
 
     case _ =>
       None
@@ -3846,52 +3841,37 @@ function numbered_examples(m: Id, cmds: List[Bool * Cmd], counts: Map[Id, Int]):
     case List((exported, cmd); more) =>
       match example_owner(qualify(m, cmd))
         case Some(owner) =>
-          let n := value_or(get(owner.name.base, counts), 0), examples := spec_of(cmd).examples in
-          List(for (i, x) in zip(range(n + 1, n + 1 + size(examples)), examples) yield example_test(m, x.pos, owner, exported, i, x.that)) ++ numbered_examples(m, more, put(owner.name.base, n + size(examples), counts))
+          let n := value_or(get(owner.base, counts), 0), examples := spec_of(cmd).examples in
+          List(for (i, x) in zip(range(n + 1, n + 1 + size(examples)), examples) yield example_test(m, x.pos, owner, exported, i, x.that)) ++ numbered_examples(m, more, put(owner.base, n + size(examples), counts))
 
         case None =>
           numbered_examples(m, more, counts)
       end
   end
 
-function example_test(m: Id, pos: Pos, owner: Owner, exported: Bool, n: Int, x: Example): ExampleTest :=
-  ExampleTest(pos, m, owner.name, exported, applies_owner(owner, x), CTest(Name(Some(m), owner.name.base ++ ".example." ++ show(n)), List(), example_stmt(owner, x)))
+function example_test(m: Id, pos: Pos, owner: Name, exported: Bool, n: Int, x: Example): ExampleTest :=
+  ExampleTest(pos, m, owner, exported, CTest(Name(Some(m), owner.base ++ ".example." ++ show(n)), List(), example_stmt(x)))
 
-// whether the example x applies owner, a function by its name and arity, or calls it, a procedure by its name
-function applies_owner(owner: Owner, x: Example): Bool :=
+// the body of the test of the example x, which is checked as written, in the scope of its module, so that its names take
+// the declarations that overloading chooses, also another one than the owner, which the convention, an example applies
+// its function, rules out; the parts that the source does not have are at Pos(0, 0), so that their errors are located
+// at the example
+function example_stmt(x: Example): At[Stmt] :=
   match x
     case XHolds(expr) =>
-      owned_calls(owner, expr) != expr
-
-    case XRaises(expr, _) =>
-      owned_calls(owner, expr) != expr
-
-    case XCall(proc, _, _, _) =>
-      proc.base == owner.name.base
-
-    case XCallRaises(proc, _, _, _, _) =>
-      proc.base == owner.name.base
-  end
-
-// the body of the test of the example x of owner, where the applications of owner by its arity are its declaration, and
-// a procedure example calls it, which examples that call another procedure, a ForeignExample, do not reach; the parts that
-// the source does not have are at Pos(0, 0), so that their errors are located at the example
-function example_stmt(owner: Owner, x: Example): At[Stmt] :=
-  match x
-    case XHolds(expr) =>
-      nowhere(SAssert(owned_calls(owner, expr)))
+      nowhere(SAssert(expr))
 
     case XRaises(expr, pat) =>
       let value := Var(generated_name("value"), THole) in
-      nowhere(SAssertRaises(THole, pat, nowhere(block(List(value), List(nowhere(SAssign(List((value, owned_calls(owner, expr))))))))))
+      nowhere(SAssertRaises(THole, pat, nowhere(block(List(value), List(nowhere(SAssign(List((value, expr)))))))))
 
-    case XCall(_, ins, outs, refs) =>
+    case XCall(proc, ins, outs, refs) =>
       let out_vars := generated_vars("out", size(outs)), ref_vars := generated_vars("ref", size(refs)) in
-      nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, firsts(refs)) ++ List(nowhere(SCall(owner.name, ins, out_vars, ref_vars))) ++ expected_values(out_vars ++ ref_vars, outs ++ seconds(refs))))
+      nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, firsts(refs)) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars))) ++ expected_values(out_vars ++ ref_vars, outs ++ seconds(refs))))
 
-    case XCallRaises(_, ins, blanks, befores, pat) =>
+    case XCallRaises(proc, ins, blanks, befores, pat) =>
       let out_vars := generated_vars("out", blanks), ref_vars := generated_vars("ref", size(befores)) in
-      nowhere(SAssertRaises(THole, pat, nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, befores) ++ List(nowhere(SCall(owner.name, ins, out_vars, ref_vars)))))))
+      nowhere(SAssertRaises(THole, pat, nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, befores) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars)))))))
   end
 
 // a name of the generated code, which users cannot write
@@ -3936,86 +3916,6 @@ function generated_lambda(d: Name, body: At[Expr]): At[Expr] :=
 function generated_list(exprs: List[At[Expr]]): At[Expr] :=
   nowhere(EForm(FList, List(for e in exprs yield YVal(e)), None))
 
-// expr with the applications of the unqualified name of owner by its arity as the qualified one, so that they take its
-// declaration, where the bodies of procedure lambdas are kept as written
-function owned_calls(owner: Owner, expr: At[Expr]): At[Expr] :=
-  map_at(expr, lambda e => owned_node(owner, e))
-
-function owned_node(owner: Owner, expr: Expr): Expr :=
-  match expr
-    case ELit(_) =>
-      expr
-
-    case EVar(_) =>
-      expr
-
-    case EApp(fun, args) =>
-      let typed_args := List(for a in args yield owned_calls(owner, a)) in
-      if size(args) == owner.arity and is_use_of(owner.name.base, fun) then
-        EApp(map_at(fun, lambda _ => EName(owner.name, THole)), typed_args)
-      else
-        EApp(owned_calls(owner, fun), typed_args)
-
-    case EField(base, field) =>
-      EField(owned_calls(owner, base), field)
-
-    case EUpdate(base, field, value) =>
-      EUpdate(owned_calls(owner, base), field, owned_calls(owner, value))
-
-    case ELam(formals, body) =>
-      ELam(formals, owned_calls(owner, body))
-
-    case EProc(_, _, _, _, _) =>
-      expr
-
-    case ELet(bindings, body) =>
-      ELet(List(for (p, e) in bindings yield (p, owned_calls(owner, e))), owned_calls(owner, body))
-
-    case EIte(cond, then_expr, else_expr) =>
-      EIte(owned_calls(owner, cond), owned_calls(owner, then_expr), owned_calls(owner, else_expr))
-
-    case EMatch(arg, cases) =>
-      EMatch(owned_calls(owner, arg), List(for c in cases yield map_doc(c, lambda br => br with body := owned_calls(owner, br.body))))
-
-    case ETuple(args) =>
-      ETuple(List(for a in args yield owned_calls(owner, a)))
-
-    case EForm(form, elems, rest) =>
-      EForm(form, List(for y in elems yield owned_yield(owner, y)), map_option(rest, lambda r => owned_calls(owner, r)))
-
-    case EFor(form, gens, elem, rest) =>
-      EFor(form, List(for g in gens yield owned_gen(owner, g)), owned_yield(owner, elem), map_option(rest, lambda r => owned_calls(owner, r)))
-  end
-
-function owned_yield(owner: Owner, y: Yield): Yield :=
-  match y
-    case YVal(value) =>
-      YVal(owned_calls(owner, value))
-    case YPair(key, value) =>
-      YPair(owned_calls(owner, key), owned_calls(owner, value))
-  end
-
-function owned_gen(owner: Owner, g: Gen): Gen :=
-  match g
-    case GVal(pat, over) =>
-      GVal(pat, owned_calls(owner, over))
-
-    case GPair(key, value, over) =>
-      GPair(key, value, owned_calls(owner, over))
-
-    case GIf(cond) =>
-      GIf(owned_calls(owner, cond))
-  end
-
-// whether fun is the name base as written
-function is_use_of(base: Id, fun: At[Expr]): Bool :=
-  match fun
-    case AOk(_, EName(Name(None, b), _)) =>
-      b == base
-    case _ =>
-      false
-  end
-
 // the tests of the examples, each checked in its module, or as an importer of its module sees it if it is exported, by
 // a module of its own, which sees what the module sees and the module itself, with their errors located at the examples
 procedure example_commands(
@@ -4026,16 +3926,12 @@ procedure example_commands(
   assign cmds := List()
   for x in xs do
     local before := size(s.errors), one: List[Cmd] := List(), viewer := (if x.exported then "(example)/" ++ x.module else x.module)
-    if x.applies then
-      assign s := s with table := List((viewer, List(x.module; sees(x.module, s.table))); s.table)
-      try
-        call commands(in List((viewer, x.cmd)), out one, ref s)
-      catch
-        case e =>
-          assign s := s with errors := s.errors ++ List(e)
-      end
-    else
-      assign s := s with errors := s.errors ++ List(ForeignExample(x.owner))
+    assign s := s with table := List((viewer, List(x.module; sees(x.module, s.table))); s.table)
+    try
+      call commands(in List((viewer, x.cmd)), out one, ref s)
+    catch
+      case e =>
+        assign s := s with errors := s.errors ++ List(e)
     end
     assign s := placed_errors(s, before, (x.module, x.cmd), x.pos), cmds := cmds ++ one
   end

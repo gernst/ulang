@@ -51,3 +51,11 @@ function halved(x: Int): Int :=
   example (let y := 8 in
     halved(y)) == 4
   x / 2
+
+// an example may pass its function as a value, since examples are checked as written
+function decrement(x: Int): Int :=
+  example apply_all(List(1, 2), decrement) == List(0, 1)
+  x - 1
+
+function apply_all(xs: List[Int], f: Int -> Int): List[Int] :=
+  List(for x in xs yield f(x))
