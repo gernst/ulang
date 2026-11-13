@@ -128,10 +128,7 @@ function fun_name(n: Name, k: Int): Str :=
   "f_" ++ mangle(n) ++ "_" ++ show(k)
 
 function proc_name(n: Name): Str :=
-  if is_native(n) then
-    "p_" ++ n.base
-  else
-    "p_" ++ mangle(n)
+  if is_native(n) then "p_" ++ n.base else "p_" ++ mangle(n)
 
 function is_native(n: Name): Bool :=
   (n.module == Some(library_module("os")) or n.module == Some(library_module("io"))) and contains(n.base, native_procs())
