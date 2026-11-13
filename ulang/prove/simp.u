@@ -582,7 +582,7 @@ function assume_term(ctx: Ctx, e: Term, b: Bool): Ctx :=
 
       case Less(x, y) =>
         if b then
-          add_ineq(ctx, lin_add(lin_sub(lin_of(y), lin_of(x)), Lin(-1, List())))
+          add_ineq(ctx, positive_ineq(lin_sub(lin_of(y), lin_of(x))))
         else
           add_ineq(ctx, lin_sub(lin_of(x), lin_of(y)))
 
@@ -590,7 +590,7 @@ function assume_term(ctx: Ctx, e: Term, b: Bool): Ctx :=
         if b then
           add_ineq(ctx, lin_sub(lin_of(y), lin_of(x)))
         else
-          add_ineq(ctx, lin_add(lin_sub(lin_of(x), lin_of(y)), Lin(-1, List())))
+          add_ineq(ctx, positive_ineq(lin_sub(lin_of(x), lin_of(y))))
 
       case _ =>
         merge(ctx, e, EBool(b))
@@ -869,9 +869,13 @@ function tighten(t: Lin): Lin :=
   let g := gcd_all(t.summands) in
   if g <= 1 then t else Lin(floor_div(t.k, g), divided(t.summands, g))
 
-// t < 0, that is -t - 1 >= 0
+// t < 0, the negation of t >= 0, that is -t - 1 >= 0
 function negated(t: Lin): Lin :=
-  lin_add(lin_scale(-1, t), Lin(-1, List()))
+  positive_ineq(lin_scale(-1, t))
+
+// t > 0 as an inequality of the form t >= 0, that is t - 1 >= 0 over the integers
+function positive_ineq(t: Lin): Lin :=
+  lin_add(t, Lin(-1, List()))
 
 function coefficient(x: Term, t: Lin): Int :=
   match List(for summand in t.summands if summand.term == x yield summand.factor)
@@ -945,8 +949,8 @@ function division_bounds(ctx: Ctx, a: Term): List[Lin] :=
 function variable_division_facts(ctx: Ctx, m: Term, n: Term): List[Lin] :=
   let q := Div(m, n), r := lin_of(Mod(m, n)), d := lin_of(n) in
   let nonzero := is_nonzero(ctx, n) in
-  let positive := is_bound(ctx, lin_add(d, Lin(-1, List()))) or nonzero and is_bound(ctx, d) in
-  let negative := is_bound(ctx, lin_add(lin_scale(-1, d), Lin(-1, List()))) or nonzero and is_bound(ctx, lin_scale(-1, d)) in
+  let positive := is_bound(ctx, positive_ineq(d)) or nonzero and is_bound(ctx, d) in
+  let negative := is_bound(ctx, negated(d)) or nonzero and is_bound(ctx, lin_scale(-1, d)) in
   if not (nonzero or positive or negative) then
     List()
   else
@@ -958,13 +962,9 @@ function variable_division_facts(ctx: Ctx, m: Term, n: Term): List[Lin] :=
     else
       List() in
     let range := if positive then
-      List(
-        lin_add(lin_sub(d, r), Lin(-1, List())),
-        lin_add(lin_add(r, d), Lin(-1, List())))
+      List(positive_ineq(lin_sub(d, r)), positive_ineq(lin_add(r, d)))
     else if negative then
-      List(
-        lin_add(lin_sub(r, d), Lin(-1, List())),
-        lin_add(lin_scale(-1, lin_add(r, d)), Lin(-1, List())))
+      List(positive_ineq(lin_sub(r, d)), negated(lin_add(r, d)))
     else
       List() in
     List(eq, lin_scale(-1, eq)) ++ range ++ sign
@@ -1074,7 +1074,7 @@ function comparison_of(t: Term): Option[Term * Term * Bool] :=
 function comparison_ineq(d: Lin, strict: Bool, b: Bool): Lin :=
   match (strict, b)
     case (true, true) =>
-      lin_add(d, Lin(-1, List()))
+      positive_ineq(d)
 
     case (true, false) =>
       lin_scale(-1, d)
@@ -1083,7 +1083,7 @@ function comparison_ineq(d: Lin, strict: Bool, b: Bool): Lin :=
       d
 
     case (false, false) =>
-      lin_add(lin_scale(-1, d), Lin(-1, List()))
+      negated(d)
   end
 
 function add_ineq(ctx: Ctx, d: Lin): Ctx :=
@@ -1472,7 +1472,7 @@ function simp_less(ctx: Ctx, a: Term, b: Term): Term :=
       EBool(c < 0)
 
     case _ =>
-      if is_entailed(ctx, lin_add(d, Lin(-1, List()))) then
+      if is_entailed(ctx, positive_ineq(d)) then
         EBool(true)
       else if is_entailed(ctx, lin_scale(-1, d)) then
         EBool(false)
@@ -1492,7 +1492,7 @@ function simp_less_eq(ctx: Ctx, a: Term, b: Term): Term :=
     case _ =>
       if is_entailed(ctx, d) then
         EBool(true)
-      else if is_entailed(ctx, lin_add(lin_scale(-1, d), Lin(-1, List()))) then
+      else if is_entailed(ctx, negated(d)) then
         EBool(false)
       else
         rewrite(ctx, LessEq(a, b))
