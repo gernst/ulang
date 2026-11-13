@@ -160,7 +160,7 @@ test proof_definitions_named() :=
 
 // a call of the lemma itself outside the case of an induction
 test proof_self_call() :=
-  assert raises OpenLemma("self_call", "the lemma calls itself only at a recursive field of the case of its induction at 3.3") do
+  assert raises OpenLemma("self_call", "the lemma calls itself only at a recursive field of the case of its induction, with the formals of the inductions before it unchanged at 3.3") do
     call prove_text(in "ulang/test/errors/proof-self-call.u", List(
       "lemma self_call(in x: Int) :=",
       "  ensures x == x",
@@ -277,4 +277,45 @@ test claim_no_fact() :=
       "",
       "lemma after(in n: Int) :=",
       "  ensures n == n + 1"))
+  end
+
+// nested inductions on different formals argue in a cycle, (List(), List(1)) from (List(1), List()) from (List(),
+// List(1)), unless the inner hypothesis keeps the formal of the outer one at its value
+test nested_inductions() :=
+  assert raises OpenLemma("nested", "the lemma calls itself only at a recursive field of the case of its induction, with the formals of the inductions before it unchanged at 7.11") do
+    call prove_text(in "ulang/test/errors/nested-inductions.u", List(
+      "lemma nested(in xs: List[Int], ys: List[Int]) :=",
+      "  ensures xs == List() and ys == List()",
+      "  induction xs",
+      "    case List() =>",
+      "      induction ys",
+      "        case List(y; t) =>",
+      "          call nested(in List(1), t)",
+      "      end",
+      "",
+      "    case List(h; t) =>",
+      "      call nested(in t, List(1))",
+      "  end"))
+  end
+
+// inductions on different formals in different cases argue in a cycle as nested ones do, so the order of the formals
+// is that of their first inductions in the whole proof
+test sibling_inductions() :=
+  assert raises OpenLemma("sibling", "the lemma calls itself only at a recursive field of the case of its induction, with the formals of the inductions before it unchanged at 13.11") do
+    call prove_text(in "ulang/test/errors/sibling-inductions.u", List(
+      "lemma sibling(in xs: List[Int], ys: List[Int]) :=",
+      "  ensures xs == List() and ys == List()",
+      "  match ys",
+      "    case List() =>",
+      "      induction xs",
+      "        case List(h; t) =>",
+      "          call sibling(in t, List(1))",
+      "      end",
+      "",
+      "    case List(y; r) =>",
+      "      induction ys",
+      "        case List(z; t) =>",
+      "          call sibling(in List(1), t)",
+      "      end",
+      "  end"))
   end

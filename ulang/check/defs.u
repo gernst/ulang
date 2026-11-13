@@ -238,7 +238,7 @@ function hook_of(f: Id, k: Int): Option[Hook] :=
 // values of T, also in generic code, where the builtins compare structurally and show the structure
 function order_of(cmd: Cmd): Option[Hook * Name] :=
   match cmd
-    case CFun(Name(Some(m), f), _, List(AOk(_, Var(_, TSort(Name(Some(k), b), args))); more), r, _, _) =>
+    case CFun(Name(Some(m), f), _, List(AOk(_, _, Var(_, TSort(Name(Some(k), b), args))); more), r, _, _) =>
       let typ := TSort(Name(Some(k), b), args) in
       match hook_of(f, 1 + size(more))
         case Some(hook) =>

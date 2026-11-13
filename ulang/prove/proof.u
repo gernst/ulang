@@ -22,20 +22,22 @@ function check_proof(decls: Decls, proven: List[Lemma], contracts: List[Lemma], 
 
 implementation
 
-// what a proof works with: the declarations, the lemmas proven before, the contracts of the procedures, and the lemma
-// being proven
+// what a proof works with: the declarations, the lemmas proven before, the contracts of the procedures, the lemma
+// being proven, and the order of its formals by their first induction in the proof (inductions)
 data Walk :=
-  case Walk(decls: Decls, proven: List[Lemma], contracts: Map[Name, Seq], target: Lemma)
+  case Walk(decls: Decls, proven: List[Lemma], contracts: Map[Name, Seq], target: Lemma, order: List[Int])
 
-// the induction around a block: the position of its formal and the values of it at which the hypothesis holds, the
-// recursive fields of the case of a datatype, or n - 1 for an integer n
+// the induction around a block: the position of its formal, the values of it at which the hypothesis holds, the
+// recursive fields of the case of a datatype, or n - 1 for an integer n, and the formals that the hypothesis keeps at
+// their values (fixed)
 data Around :=
-  case Around(formal: Int, values: List[Term])
+  case Around(formal: Int, values: List[Term], fixed: List[Int])
 
 // the variables, the levels of the variables of the terms of the proof, the facts, the goal, the levels of the outs of
-// the lemma that are not assigned yet, which are existential in the goal, and the induction around the block
+// the lemma that are not assigned yet, which are existential in the goal, and the inductions around the block, the
+// innermost first, whose hypotheses all hold in it
 data Scope :=
-  case Scope(vars: List[Var], env: List[Int], facts: List[Seq], goal: Term, outs: List[Int], around: Option[Around])
+  case Scope(vars: List[Var], env: List[Int], facts: List[Seq], goal: Term, outs: List[Int], arounds: List[Around])
 
 function check_proof(decls: Decls, proven: List[Lemma], contracts: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap] :=
   match target.goal
@@ -43,13 +45,46 @@ function check_proof(decls: Decls, proven: List[Lemma], contracts: List[Lemma], 
       let n := size(formals), m := size(outs) in
       let levels := List(for i in range(0, n) yield ELevel(i)), all := List(for i in range(0, n + m) yield ELevel(i)) in
       let facts := List(for a in atoms for t in atom_term(a) yield Atom(beta(levels, t))) in
-      let scope := Scope(formals ++ outs, reverse(range(0, n + m)), facts, beta(all, concl), range(n, n + m), None) in
-      block_gaps(Walk(decls, proven, Map(for c in contracts yield c.name => c.goal), target), scope, proof)
+      let scope := Scope(formals ++ outs, reverse(range(0, n + m)), facts, beta(all, concl), range(n, n + m), List()) in
+      block_gaps(Walk(decls, proven, Map(for c in contracts yield c.name => c.goal), target, distinct(inductions(proof))), scope, proof)
 
     // translate gives every lemma this shape
     case _ =>
       List(Gap(proof.pos, "Unsupported", "a lemma of another shape", None))
   end
+
+// the formals of the inductions of a proof in preorder: the hypotheses of all inductions decrease in the lexicographic
+// order of the formals by their first induction, and the formals after that of an induction stay arbitrary, so that
+// inductions on different formals, nested or in different cases, cannot argue in a cycle
+function inductions(proof: ProofTerm): List[Int] :=
+  match proof.split
+    case Some(InductionTerm(formal, cases, _)) =>
+      List(formal; cases_inductions(cases))
+
+    case Some(MatchTerm(_, cases, _)) =>
+      cases_inductions(cases)
+
+    case Some(IfTerm(_, left, right, _)) =>
+      inductions(left) ++ match right
+        case Some(p) =>
+          inductions(p)
+        case None =>
+          List()
+      end
+
+    case Some(InvariantTerm(_, _, _, _, body, after, _)) =>
+      inductions(body) ++ inductions(after)
+
+    case None =>
+      List()
+  end
+
+function cases_inductions(cases: List[CaseTerm]): List[Int] :=
+  List(for c in cases for p in inductions(c.proof) yield p)
+
+// the formals before p in the order of the inductions, which a hypothesis of the induction on p keeps at their values
+function fixed(w: Walk, p: Int): List[Int] :=
+  take(value_or(index_of(p, w.order), 0), w.order)
 
 function atom_term(s: Seq): Option[Term] :=
   match s
@@ -134,12 +169,10 @@ function called(w: Walk, scope: Scope, name: Name, args: List[Term]): Option[Seq
   if get(name, w.contracts) != None then
     get(name, w.contracts)
   else if name == w.target.name then
-    match scope.around
-      case Some(around) if args != List() and exists(around.values, lambda v => is_same(w, scope, at(around.formal, from_list(args)), v)) =>
-        Some(w.target.goal)
-      case _ =>
-        None
-    end
+    if args != List() and exists(scope.arounds, lambda around => is_below(w, scope, around, args)) then
+      Some(w.target.goal)
+    else
+      None
   else
     match List(for l in w.proven if l.name == name yield l.goal)
       case List(goal; _) =>
@@ -148,13 +181,18 @@ function called(w: Walk, scope: Scope, name: Name, args: List[Term]): Option[Seq
         None
     end
 
+// whether the arguments of a call of the lemma itself are those of a hypothesis of the induction
+function is_below(w: Walk, scope: Scope, around: Around, args: List[Term]): Bool :=
+  let a := from_list(args) in
+  exists(around.values, lambda v => is_same(w, scope, at(around.formal, a), v)) and forall(around.fixed, lambda q => is_same(w, scope, at(q, a), ELevel(q)))
+
 // whether the facts give a == b
 function is_same(w: Walk, scope: Scope, a: Term, b: Term): Bool :=
   a == b or closing(w, scope, Eq(a, b), Pos(0, 0)) == List()
 
 function call_gap(w: Walk, name: Name): Str :=
   if name == w.target.name then
-    "the lemma calls itself only at a recursive field of the case of its induction"
+    "the lemma calls itself only at a recursive field of the case of its induction, with the formals of the inductions before it unchanged"
   else
     "the lemma " ++ name.base ++ " is not proven before this one"
 
@@ -216,7 +254,7 @@ function invariant_gaps(w: Walk, scope: Scope, vars: List[Int], havoc: List[Var]
   let fresh := List(for l in range(k, k + n) yield ELevel(l)), next := List(for l in range(k + n, k + 2 * n) yield ELevel(l)) in
   let holds := Atom(beta(around ++ fresh, inv)), guard := beta(around ++ fresh, cond) in
   let loop := scope with vars := scope.vars ++ havoc, env := reverse(range(k, k + n)) ++ scope.env in
-  let step := loop with vars := loop.vars ++ List(for x in havoc yield x with name := Name(None, "(next)" ++ x.name.base)), env := reverse(range(k + n, k + 2 * n)) ++ loop.env, facts := scope.facts ++ List(holds, Atom(guard)), goal := beta(around ++ next, inv), outs := range(k + n, k + 2 * n), around := None in
+  let step := loop with vars := loop.vars ++ List(for x in havoc yield x with name := Name(None, "(next)" ++ x.name.base)), env := reverse(range(k + n, k + 2 * n)) ++ loop.env, facts := scope.facts ++ List(holds, Atom(guard)), goal := beta(around ++ next, inv), outs := range(k + n, k + 2 * n), arounds := List() in
   let exit := loop with facts := scope.facts ++ List(holds, Negated(Atom(guard))) in
   closing(w, scope, beta(around ++ before, inv), pos) ++ block_gaps(w, step, body) ++ block_gaps(w, exit, after)
 
@@ -239,13 +277,13 @@ function leaf_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, on
   end in
   let hypotheses := match on_formal
     case Some((p, _)) =>
-      List(for y in recursive yield hypothesis(w.target.goal, size_after, p, y))
+      List(for y in recursive yield hypothesis(w.target.goal, size_after, p, y, fixed(w, p)))
     case None =>
       List()
   end in
   let equation := if leaf.value == value then List() else List(Atom(Eq(value, leaf.value))) in
   let facts := scope.facts ++ equation ++ List(for c in leaf.conds yield Atom(c)) ++ hypotheses in
-  let inner := scope with vars := scope.vars ++ leaf.vars, facts := facts, around := map_option(on_formal, lambda (p, _) => Around(p, recursive)) in
+  let inner := scope with vars := scope.vars ++ leaf.vars, facts := facts, arounds := List(for (p, _) in on_formal yield Around(p, recursive, fixed(w, p))) ++ scope.arounds in
   hits_gaps(w, inner, cases, leaf.hits, pos)
 
 // the cases that match a leaf, in their order, each with the values of its variables, where a guard is a fact of its case
@@ -292,7 +330,7 @@ function int_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], p: Int, pos: Pos
   let previous := Minus(n, EInt(1)) in
   let step := scope with facts := scope.facts ++ List(
     Atom(Less(zero, n)),
-    hypothesis(w.target.goal, size(scope.vars), p, previous)), around := Some(Around(p, List(previous))) in
+    hypothesis(w.target.goal, size(scope.vars), p, previous, fixed(w, p))), arounds := List(Around(p, List(previous), fixed(w, p)); scope.arounds) in
   let at_zero := List(for c in cases if c.guard == None and c.pat == PLit(LInt(0)) yield c) in
   let above := List(for c in cases if is_catch_all(c) yield c) in
   let others := List(for c in cases if not is_catch_all(c) and not (c.guard == None and c.pat == PLit(LInt(0))) yield Gap(c.pos, "Unsupported", "a case of an induction on an integer other than case 0 and a catch-all", None)) in
@@ -331,18 +369,19 @@ function catch_all_gaps(w: Walk, scope: Scope, case_term: CaseTerm, value: Term)
       block_gaps(w, scope, case_term.proof)
   end
 
-// the statement of the lemma for the field y in place of its formal at the position p, for all values of the other
-// formals, whose levels from base on are bound again as the variables of the hypothesis
-function hypothesis(goal: Seq, base: Int, p: Int, y: Term): Seq :=
+// the statement of the lemma for the field y in place of its formal at the position p, with the formals fixed at their
+// values, the levels of the formals of the lemma, and for all values of the other formals, whose levels from base on
+// are bound again as the variables of the hypothesis
+function hypothesis(goal: Seq, base: Int, p: Int, y: Term, fixed: List[Int]): Seq :=
   match goal
     case Seq(formals, atoms, List(Concl(outs, List(Atom(concl))))) =>
       let n := size(formals), m := size(outs) in
-      let levels := List(for i in range(0, n + m) yield ELevel(base + i)) in
-      let others := List(for i in range(0, n) if i != p yield base + i) in
+      let levels := List(for i in range(0, n) yield if contains(i, fixed) then ELevel(i) else ELevel(base + i)) ++ List(for i in range(n, n + m) yield ELevel(base + i)) in
+      let others := List(for i in range(0, n) if i != p and not contains(i, fixed) yield base + i) in
       let instance := lambda t => replace(ELevel(base + p), y, beta(levels, t)) in
       let assms := List(for a in atoms for t in atom_term(a) yield Atom(rebind(Close(others), 0, instance(t)))) in
       let conclusion := rebind(Close(others ++ range(base + n, base + n + m)), 0, instance(concl)) in
-      Seq(List(for (x, i) in zip(formals, range(0, n)) if i != p yield x), assms, List(Concl(outs, List(Atom(conclusion)))))
+      Seq(List(for (x, i) in zip(formals, range(0, n)) if i != p and not contains(i, fixed) yield x), assms, List(Concl(outs, List(Atom(conclusion)))))
 
     case _ =>
       goal

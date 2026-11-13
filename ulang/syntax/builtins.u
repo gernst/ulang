@@ -31,8 +31,8 @@ pattern ENil(typ: Type): Expr :=
   EVar(Var(Name(Some("prelude/list"), "Nil"), typ))
 
 // at the position pos of the constructor
-pattern ECons(pos: Pos, typ: Type, head: At[Expr], tail: At[Expr]): Expr :=
-  EApp(AOk(pos, EVar(Var(Name(Some("prelude/list"), "Cons"), typ))), List(head, tail))
+pattern ECons(pos: Pos, span: Span, typ: Type, head: At[Expr], tail: At[Expr]): Expr :=
+  EApp(AOk(pos, span, EVar(Var(Name(Some("prelude/list"), "Cons"), typ))), List(head, tail))
 
 function nil_name(): Name
 
