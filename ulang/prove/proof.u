@@ -164,7 +164,7 @@ function closing(w: Walk, scope: Scope, c: Term, pos: Pos): List[Gap] :=
   let goal := sequent(scope, c) in
   let facts := List(for l in w.proven yield l.goal) in
   let alone := simplify(w.decls, goal) in
-  if alone == true_seq() or simplify(w.decls, with_facts(goal, facts)) == true_seq() then
+  if alone == TrueSeq() or simplify(w.decls, with_facts(goal, facts)) == TrueSeq() then
     List()
   else
     List(
@@ -181,7 +181,7 @@ function split_gaps(w: Walk, scope: Scope, split: SplitTerm): List[Gap] :=
   match split
     case InductionTerm(p, cases, pos) =>
       match at(p, from_list(scope.vars)).typ
-        case u if u == TInt() =>
+        case TInt() =>
           int_gaps(w, scope, cases, p, pos)
 
         // a type without constructors has no cases, which would prove the lemma vacuously
@@ -199,7 +199,7 @@ function split_gaps(w: Walk, scope: Scope, split: SplitTerm): List[Gap] :=
     case IfTerm(cond, left, right, pos) =>
       let c := opened(scope, cond) in
       let yes := scope with facts := scope.facts ++ List(Atom(c)) in
-      let no := scope with facts := scope.facts ++ List(Seq(List(), List(Atom(c)), List())) in
+      let no := scope with facts := scope.facts ++ List(Negated(Atom(c))) in
       block_gaps(w, yes, left) ++ block_gaps(w, no, value_or(right, ProofTerm(List(), None, pos)))
 
     case InvariantTerm(vars, havoc, inv, cond, body, after, pos) =>
@@ -217,7 +217,7 @@ function invariant_gaps(w: Walk, scope: Scope, vars: List[Int], havoc: List[Var]
   let holds := Atom(beta(around ++ fresh, inv)), guard := beta(around ++ fresh, cond) in
   let loop := scope with vars := scope.vars ++ havoc, env := reverse(range(k, k + n)) ++ scope.env in
   let step := loop with vars := loop.vars ++ List(for x in havoc yield x with name := Name(None, "(next)" ++ x.name.base)), env := reverse(range(k + n, k + 2 * n)) ++ loop.env, facts := scope.facts ++ List(holds, Atom(guard)), goal := beta(around ++ next, inv), outs := range(k + n, k + 2 * n), around := None in
-  let exit := loop with facts := scope.facts ++ List(holds, Seq(List(), List(Atom(guard)), List())) in
+  let exit := loop with facts := scope.facts ++ List(holds, Negated(Atom(guard))) in
   closing(w, scope, beta(around ++ before, inv), pos) ++ block_gaps(w, step, body) ++ block_gaps(w, exit, after)
 
 // the cases of the value by the leaves of the patterns of the cases (ulang/prove/patterns.u), and for induction on the
@@ -261,7 +261,7 @@ function hits_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], hits: List[Hit]
       match c.guard
         case Some(g) =>
           let guard := beta(List(for l in reverse(scope.env) yield ELevel(l)) ++ hit.bindings, g) in
-          block_gaps(w, row with facts := row.facts ++ List(Atom(guard)), c.proof) ++ hits_gaps(w, scope with facts := scope.facts ++ List(Seq(List(), List(Atom(guard)), List())), cases, rest, pos)
+          block_gaps(w, row with facts := row.facts ++ List(Atom(guard)), c.proof) ++ hits_gaps(w, scope with facts := scope.facts ++ List(Negated(Atom(guard))), cases, rest, pos)
 
         case None =>
           block_gaps(w, row, c.proof)
@@ -286,10 +286,10 @@ function bound(scope: Scope, vars: List[Var], values: List[Term]): Scope :=
 // or else closing, and the case n > 0, with the hypothesis for n - 1, written as a catch-all, whose variable is n; other
 // cases are gaps
 function int_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], p: Int, pos: Pos): List[Gap] :=
-  let n := ELevel(p), zero := ELit(LInt(0)) in
+  let n := ELevel(p), zero := EInt(0) in
   let below := closing(w, scope with facts := scope.facts ++ List(Atom(Less(n, zero))), scope.goal, pos) in
   let base := scope with facts := scope.facts ++ List(Atom(Eq(n, zero))) in
-  let previous := Minus(n, ELit(LInt(1))) in
+  let previous := Minus(n, EInt(1)) in
   let step := scope with facts := scope.facts ++ List(
     Atom(Less(zero, n)),
     hypothesis(w.target.goal, size(scope.vars), p, previous)), around := Some(Around(p, List(previous))) in

@@ -197,7 +197,7 @@ function proofs(decls: Decls, contracts: List[Lemma], lemmas: List[Lemma], prove
 
 function default_gaps(decls: Decls, facts: List[Seq], goal: Seq): List[Gap] :=
   let after := default_proof(decls, facts, goal) in
-  if after == true_seq() then
+  if after == TrueSeq() then
     List()
   else
     List(
@@ -264,16 +264,16 @@ function proof_diagnostics(q: Prog, m: Id): List[Diagnostic] :=
 function relative_to(m: Id, n: Option[Id], d: Diagnostic): Diagnostic :=
   d with module := (if n == Some(m) then None else n)
 
-// true_seq() if the goal is proven, else the goal simplified without the facts, which would only clutter it; the facts
+// TrueSeq() if the goal is proven, else the goal simplified without the facts, which would only clutter it; the facts
 // are added after induction, since in the induction hypotheses they would be conditions that never hold
 function default_proof(decls: Decls, facts: List[Seq], goal: Seq): Seq :=
   if is_true(decls, with_facts(goal, facts)) then
-    true_seq()
+    TrueSeq()
   else
     match goal
       case Seq(fixed, _, _) =>
         if exists(range(0, size(fixed)), lambda p => is_true(decls, with_facts(induct(decls, goal, p), facts))) then
-          true_seq()
+          TrueSeq()
         else
           simplify(decls, goal)
 
@@ -282,4 +282,4 @@ function default_proof(decls: Decls, facts: List[Seq], goal: Seq): Seq :=
     end
 
 function is_true(decls: Decls, goal: Seq): Bool :=
-  simplify(decls, goal) == true_seq()
+  simplify(decls, goal) == TrueSeq()
