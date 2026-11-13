@@ -8,6 +8,7 @@ A minimal language with pure functional expressions, imperative statements, data
 - Checks:
   - After a refactor that keeps behaviour, `out/ulang.sh check ulang/ulang.u` is enough.
   - Run `make test` after changes of behaviour or when asked, and say that it ran; after edits of tests, rerun only the affected files.
+  - Work split among sub-agents in worktrees is checked once, after the merge: each agent runs `check` and the test files and cases that its change affects, a case alone by `out/ulang.sh test <file>:<name>`, and the session that merges their branches runs `make test` on the merge, before it reaches `main`. A small item, a few lines in one place, is done inline rather than by an agent, which must first read this file and the code around it.
   - `make testc` only with a strong reason, e.g. changes to `ulang/compile/compile.u`, the runtime, or what the generated C depends on, and only after asking.
   - Time every phase of a run of checks and keep the output, so that questions about durations are answered from it; never rerun only to measure.
   - Redirect the output of `make` to a file, never pipe it into a command that may exit first, such as `tail -0` or `head`: `make` then dies of the broken pipe before linking, and a stale `out/ulang.bin` runs the next checks.
