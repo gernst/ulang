@@ -1139,7 +1139,7 @@ void p_os_args(u_value *result) {
   *result = args;
 }
 
-void p_os_read(u_value path, u_value *result) {
+void p_os_read_utf8(u_value path, u_value *result) {
   u_value t = read_file(u_utf8(path, NULL), path);
   if (!t) os_error("cannot read ", path);
   *result = t;
@@ -1166,18 +1166,10 @@ static FILE *open_for_writing(u_value path) {
   return f;
 }
 
-void p_os_write(u_value path, u_value contents) {
+void p_os_write_utf8(u_value path, u_value contents) {
   FILE *f = open_for_writing(path);
   int ok = write_utf8(f, contents);
   if (fclose(f) || !ok) os_error("cannot write ", path);
-}
-
-void p_os_read_utf8(u_value path, u_value *result) {
-  p_os_read(path, result);
-}
-
-void p_os_write_utf8(u_value path, u_value contents) {
-  p_os_write(path, contents);
 }
 
 void p_os_read_bytes(u_value path, u_value *result) {

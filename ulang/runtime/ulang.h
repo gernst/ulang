@@ -243,7 +243,6 @@ struct u_handler {
 
 void u_args(int argc, char **argv);
 void p_os_args(u_value *args);
-void p_os_read(u_value path, u_value *text);
 void p_os_print(u_value text);
 void p_os_print_error(u_value text);
 void p_os_exit(u_value code);
@@ -258,7 +257,6 @@ struct u_test {
 // runs the tests that the arguments select, as ulang test does, where files and tests end with NULL, and returns the
 // status of the program
 int u_run_tests(int argc, char **argv, const char *const *files, const struct u_test *tests);
-void p_os_write(u_value path, u_value text);
 void p_os_read_utf8(u_value path, u_value *text);
 void p_os_write_utf8(u_value path, u_value text);
 void p_os_read_bytes(u_value path, u_value *bytes);
