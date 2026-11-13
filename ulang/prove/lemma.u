@@ -233,15 +233,15 @@ function with_proofs(q: Prog, m: Id, proofs: Proofs, names: List[Str]): Prog :=
 
 function with_proof_errors(m: Id, gaps: Map[Name, List[Diagnostic]], open: Map[Name * Int, CallSite], cmd: At[Cmd]): At[Cmd] :=
   match cmd
-    case AOk(pos, that) =>
+    case AOk(pos, span, that) =>
       let errors := proof_errors(m, gaps, open, pos, that) in
-      if errors == List() then cmd else AErr(pos, that, errors)
+      if errors == List() then cmd else AErr(pos, span, that, errors)
 
-    case AErr(pos, that, errors) =>
-      AErr(pos, that, errors ++ proof_errors(m, gaps, open, pos, that))
+    case AErr(pos, span, that, errors) =>
+      AErr(pos, span, that, errors ++ proof_errors(m, gaps, open, pos, that))
 
     // the checked program has no commands that do not parse
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       cmd
   end
 

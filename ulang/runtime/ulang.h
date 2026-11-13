@@ -34,7 +34,7 @@ struct u_name {
 
 // the built-in types, where integers that fit into a long long are of u_int_type with num, and others of u_big_type
 // with an mpz_t, such that each integer has one representation
-extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_byte_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type,
+extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_byte_type, u_io_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type,
   u_array_type;
 
 // the datatypes whose constructors the builtins create, where the compiled program defines the descriptors of those of
@@ -79,6 +79,12 @@ struct u_object {
       const void *units;
       long long length;
       int width;
+    };
+    // a stream, NULL once it is closed, with the path it was opened with and the number of its opening, which orders streams
+    struct {
+      FILE *file;
+      u_value path;
+      long long serial;
     };
     struct {
       union {
@@ -266,6 +272,18 @@ void p_os_is_dir(u_value path, u_value *yes);
 void p_os_cwd(u_value *dir);
 void p_os_chdir(u_value dir);
 void p_os_library(u_value name, u_value *text);
+
+// the procedures of the builtin section of io.u, on objects of u_io_type
+void p_io_stdin(u_value *io);
+void p_io_stdout(u_value *io);
+void p_io_stderr(u_value *io);
+void p_io_open(u_value path, u_value mode, u_value *io);
+void p_io_read_bytes(u_value io, u_value n, u_value *bytes);
+void p_io_read_until(u_value io, u_value delimiter, u_value *bytes);
+void p_io_read_all(u_value io, u_value *bytes);
+void p_io_write_bytes(u_value io, u_value bytes);
+void p_io_close(u_value io);
+u_value u_io_path(u_value io);
 
 
 struct u_handler *u_push(void);
