@@ -217,7 +217,7 @@ procedure str_object(in text: Str, out symbol: Str, ref e: Emit) :=
 procedure str_object_named(in symbol: Str, text: Str, ref e: Emit) :=
   local units: Str, codes := List(for c in chars(text) yield ord(c)), width: Int
   call   new_label(out units, ref e)
-  assign width := unit_width(foldl(codes, 0, lambda m, c => if c > m then c else m))
+  assign width := unit_width(foldl(codes, 0, lambda m, c => max(m, c)))
   call   add_writable(in List(
     LDirective(DAlign(8)),
     LLabel(symbol),

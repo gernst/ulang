@@ -336,8 +336,6 @@ function pat_var(n: Id): At[Pat]
 
 function pattern_expr(p: At[Pat]): Option[At[Expr]]
 
-function subst_pat(pat: At[Pat], sub: List[Name * At[Pat]]): At[Pat]
-
 function pattern_names(pat: At[Pat]): List[Name]
 
 // the variables of patterns that are all variables
@@ -433,6 +431,8 @@ function strip_expr(expr: At[Expr]): At[Expr]
 function strip_stmt(stmt: At[Stmt]): At[Stmt]
 
 function strip_pat(pat: At[Pat]): At[Pat]
+
+function strip_yield(y: Yield): Yield
 
 // the escapes of literals, each the character after \ with the character that it stands for, as the lexer reads them and
 // the printers write them, where a quote is escaped only in a literal that it delimits; the runtime writes them by escape
@@ -754,22 +754,6 @@ function pattern_value(pos: Pos, p: Pat): Option[Expr] :=
 
     case PApp(c, ps) =>
       map_option(pattern_exprs(ps), lambda es => ECall(pos, c, THole, es))
-  end
-
-// pat with the patterns of sub for its variables
-function subst_pat(pat: At[Pat], sub: List[Name * At[Pat]]): At[Pat] :=
-  match pat.that
-    case PVar(var) =>
-      value_or(get(var.name, sub), pat)
-
-    case PApp(constr, args) =>
-      pat with that := PApp(constr, List(for a in args yield subst_pat(a, sub)))
-
-    case PTuple(args) =>
-      pat with that := PTuple(List(for a in args yield subst_pat(a, sub)))
-
-    case _ =>
-      pat
   end
 
 function sorts_in(t: Type): List[Name] :=
@@ -1195,7 +1179,7 @@ function part_errors(cmd: Cmd): List[Diagnostic] :=
       errors_in_stmt(stmt)
 
     case CLemma(_, _, _, _, claim, proof) =>
-      errors_in_exprs(claim_exprs(claim)) ++ List(for p in options(proof) for e in errors_in_proof(p) yield e)
+      errors_in_exprs(claim_exprs(claim)) ++ List(for p in proof for e in errors_in_proof(p) yield e)
 
     case CSort(_, _, _) =>
       List()
@@ -1222,7 +1206,7 @@ function part_errors(cmd: Cmd): List[Diagnostic] :=
 // those of the contract, but none of the examples, since an example that does not parse fails its test, not its
 // declaration
 function errors_in_spec(spec: Spec): List[Diagnostic] :=
-  errors_in_exprs(spec.pre ++ options(spec.post))
+  errors_in_exprs(spec.pre ++ List(for e in spec.post))
 
 function claim_exprs(claim: Claim): List[At[Expr]] :=
   match claim
@@ -1313,20 +1297,17 @@ function errors_in_node(expr: Expr): List[Diagnostic] :=
 
     case EMatch(arg, cases) =>
       errors_in_exprs(List(
-        arg; List(for c in parts(cases) for e in options(c.guard) ++ List(c.body) yield e)))
+        arg; List(for c in parts(cases) for e in List(for g in c.guard) ++ List(c.body) yield e)))
 
     case ETuple(args) =>
       errors_in_exprs(args)
 
     case EForm(_, elems, rest) =>
-      errors_in_exprs(List(for y in elems for e in yielded(y) yield e) ++ options(rest))
+      errors_in_exprs(List(for y in elems for e in yielded(y) yield e) ++ List(for e in rest))
 
     case EFor(_, gens, elem, rest) =>
-      errors_in_exprs(List(for g in gens for e in generated(g) yield e) ++ yielded(elem) ++ options(rest))
+      errors_in_exprs(List(for g in gens for e in generated(g) yield e) ++ yielded(elem) ++ List(for e in rest))
   end
-
-function options[A](x: Option[A]): List[A] :=
-  List(for y in x)
 
 function yielded(y: Yield): List[At[Expr]] :=
   match y
@@ -1349,7 +1330,7 @@ function generated(g: Gen): List[At[Expr]] :=
   end
 
 function errors_in_proof(proof: Proof): List[Diagnostic] :=
-  List(for step in proof.steps for e in errors_in_step(step) yield e) ++ List(for split in options(proof.split) for e in errors_in_split(split) yield e)
+  List(for step in proof.steps for e in errors_in_step(step) yield e) ++ List(for split in proof.split for e in errors_in_split(split) yield e)
 
 function errors_in_step(step: At[Step]): List[Diagnostic] :=
   match step
@@ -1366,7 +1347,7 @@ function errors_in_step(step: At[Step]): List[Diagnostic] :=
 function errors_in_step_node(step: Step): List[Diagnostic] :=
   match step
     case StepLocal(_, value) =>
-      errors_in_exprs(options(value))
+      errors_in_exprs(List(for e in value))
 
     case StepCall(_, ins, _) =>
       errors_in_exprs(ins)
@@ -1396,13 +1377,13 @@ function errors_in_split(split: At[Split]): List[Diagnostic] :=
 function errors_in_split_node(split: Split): List[Diagnostic] :=
   match split
     case SplitInduction(_, cases) =>
-      List(for c in parts(cases) for e in errors_in_exprs(options(c.guard)) ++ errors_in_proof(c.body) yield e)
+      List(for c in parts(cases) for e in errors_in_exprs(List(for g in c.guard)) ++ errors_in_proof(c.body) yield e)
 
     case SplitMatch(arg, cases) =>
-      errors_in_expr(arg) ++ List(for c in parts(cases) for e in errors_in_exprs(options(c.guard)) ++ errors_in_proof(c.body) yield e)
+      errors_in_expr(arg) ++ List(for c in parts(cases) for e in errors_in_exprs(List(for g in c.guard)) ++ errors_in_proof(c.body) yield e)
 
     case SplitIf(cond, left, right) =>
-      errors_in_expr(cond) ++ errors_in_proof(left) ++ List(for r in options(right) for e in errors_in_proof(r) yield e)
+      errors_in_expr(cond) ++ errors_in_proof(left) ++ List(for r in right for e in errors_in_proof(r) yield e)
   end
 
 function errors_in_stmt(stmt: At[Stmt]): List[Diagnostic] :=
@@ -1441,7 +1422,7 @@ function errors_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
       errors_in_exprs(ins)
 
     case SMatch(arg, cases) =>
-      errors_in_expr(arg) ++ List(for c in parts(cases) for e in errors_in_exprs(options(c.guard)) ++ errors_in_stmt(c.body) yield e)
+      errors_in_expr(arg) ++ List(for c in parts(cases) for e in errors_in_exprs(List(for g in c.guard)) ++ errors_in_stmt(c.body) yield e)
 
     case SAssert(cond) =>
       errors_in_expr(cond)
@@ -1453,7 +1434,7 @@ function errors_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
       errors_in_expr(value)
 
     case STry(body, catches) =>
-      errors_in_stmt(body) ++ List(for c in parts(catches) for e in errors_in_exprs(options(c.guard)) ++ errors_in_stmt(c.body) yield e)
+      errors_in_stmt(body) ++ List(for c in parts(catches) for e in errors_in_exprs(List(for g in c.guard)) ++ errors_in_stmt(c.body) yield e)
 
     case SFor(gens, body) =>
       errors_in_exprs(List(for g in gens for e in generated(g) yield e)) ++ errors_in_stmt(body)

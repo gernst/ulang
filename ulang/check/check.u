@@ -316,15 +316,12 @@ function edit_row(prev: List[Int], c: Char, bs: List[Char]): List[Int] :=
 function edit_cells(prev: List[Int], c: Char, bs: List[Char], left: Int): List[Int] :=
   match (prev, bs)
     case (List(diag, up; rest), List(b; more)) =>
-      let cell := least(least(up + 1, left + 1), if b == c then diag else diag + 1) in
+      let cell := min(min(up + 1, left + 1), if b == c then diag else diag + 1) in
       List(cell; edit_cells(List(up; rest), c, more, cell))
 
     case _ =>
       List()
   end
-
-function least(a: Int, b: Int): Int :=
-  if a < b then a else b
 
 // whether the module sees the declaration d, which is its own, or of a module that it sees and not private to it
 function is_visible(s: State, d: Name): Bool :=
@@ -1006,7 +1003,7 @@ function unknown_in_cmd(cmd: Cmd): Option[Pos * Type] :=
       unknown_in_expr(body)
 
     case CProc(_, _, _, _, _, _, spec, stmt) =>
-      or_else(unknown_in(stmt), find_map(spec.pre ++ List(for e in spec.post yield e), unknown_in_expr))
+      or_else(unknown_in(stmt), find_map(spec.pre ++ List(for e in spec.post), unknown_in_expr))
 
     case CTest(_, _, stmt) =>
       unknown_in(stmt)
@@ -2892,6 +2889,22 @@ procedure constructor_binders(
       assign typed_pat := subst_pat(alias.pat, zip(List(for x in alias.formals yield x.name), qs)) with pos := pos
     case None =>
       assign typed_pat := AOk(pos, PApp(k, qs))
+  end
+
+// pat with the patterns of sub for its variables
+function subst_pat(pat: At[Pat], sub: List[Name * At[Pat]]): At[Pat] :=
+  match pat.that
+    case PVar(var) =>
+      value_or(get(var.name, sub), pat)
+
+    case PApp(constr, args) =>
+      pat with that := PApp(constr, List(for a in args yield subst_pat(a, sub)))
+
+    case PTuple(args) =>
+      pat with that := PTuple(List(for a in args yield subst_pat(a, sub)))
+
+    case _ =>
+      pat
   end
 
 // the one of the constructors ks with k arguments whose datatype fits t, where open uses are solved first if

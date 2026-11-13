@@ -64,7 +64,7 @@ procedure prove_text(
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError, OpenLemma, OpenTermination
 
 // load_text of several modules: the members of the package of the directory dir from the root, each its name and lines,
-// and main, the name and lines of the main file, which is one of them or a program in dir
+// and main, the name and lines of the main file, which is one of them or a program in dir, each of them formatted
 procedure load_texts(
   in  dir: Str,
       members: List[Str * List[Str]],
@@ -176,6 +176,9 @@ procedure load_texts(
       call parse_texts(in root, dir, List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), out source)
       call require_parsed(in source)
       call check_program(in source, out q)
+      for (m, ls) in members do
+        call require_formatted(in source, module_in(dir, m), text_of(ls))
+      end
       call require_formatted(in source, source.main, text_of(lines))
   end
 
