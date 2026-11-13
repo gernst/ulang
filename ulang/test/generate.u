@@ -316,7 +316,7 @@ function counterexamples_in(values: At[Expr], stmt: Stmt): Stmt :=
 // the text of a failed assertion of cond with the values, and of an equation a == b also show(a) != show(b)
 function falsified_text(values: At[Expr], cond: At[Expr]): At[Expr] :=
   match cond.that
-    case ECall(_, Name(None, "=="), _, List(a, b)) =>
+    case ECall(_, _, Name(None, "=="), _, List(a, b)) =>
       generated_op("++", List(
         values,
         generated_op("++", List(

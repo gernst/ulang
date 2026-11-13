@@ -29,12 +29,12 @@ test lambda_pattern() :=
 
 // a formal that names a constructor matches it, as in a case, and binds nothing
 test lambda_constructor_formal() :=
-  assert raises Located(None, Pos(2, 4), NotExhaustive(PApp(Name(Some("prelude/option"), "Some"), List(AOk(_, PWild))))) do
+  assert raises Located(None, Pos(2, 4), NotExhaustive(PApp(Name(Some("prelude/option"), "Some"), List(AOk(_, _, PWild))))) do
     call check_text(in "ulang/test/errors/lambda-constructor-formal.u", List("function f(): Int :=", "  (lambda x, None => x)(1, Some(2))"))
   end
 
 test missing_cons() :=
-  assert raises Located(None, Pos(2, 3), NotExhaustive(PApp(Name(Some("prelude/list"), "Cons"), List(AOk(_, PWild), AOk(_, PWild))))) do
+  assert raises Located(None, Pos(2, 3), NotExhaustive(PApp(Name(Some("prelude/list"), "Cons"), List(AOk(_, _, PWild), AOk(_, _, PWild))))) do
     call check_text(in "ulang/test/errors/missing-cons.u", List(
       "function f(x: List[Option[Int]]): Int :=",
       "  match x",
@@ -90,7 +90,7 @@ test missing_nil() :=
   end
 
 test missing_pair_case() :=
-  assert raises Located(None, Pos(2, 3), NotExhaustive(PTuple(List(AOk(_, PLit(LBool(false))), AOk(_, PLit(LBool(true))))))) do
+  assert raises Located(None, Pos(2, 3), NotExhaustive(PTuple(List(AOk(_, _, PLit(LBool(false))), AOk(_, _, PLit(LBool(true))))))) do
     call check_text(in "ulang/test/errors/missing-pair-case.u", List(
       "function f(p: Bool * Bool): Int :=",
       "  match p",
@@ -200,7 +200,7 @@ test unreachable_after_wildcard() :=
   end
 
 test unreachable_covered() :=
-  assert raises Located(None, Pos(9, 10), Unreachable(PTuple(List(AOk(_, PLit(LBool(true))), AOk(_, PLit(LBool(true))))))) do
+  assert raises Located(None, Pos(9, 10), Unreachable(PTuple(List(AOk(_, _, PLit(LBool(true))), AOk(_, _, PLit(LBool(true))))))) do
     call check_text(in "ulang/test/errors/unreachable-covered.u", List(
       "function f(p: Bool * Bool): Int :=",
       "  match p",
