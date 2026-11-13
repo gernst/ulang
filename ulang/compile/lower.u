@@ -112,7 +112,7 @@ function mangle(n: Name): Str :=
 
 function c_text(n: Name): Str :=
   match n.module
-    case Some(m) if contains(m, library_modules()) =>
+    case Some(m) if is_library_module(m) =>
       format_name(Name(Some(library_file(m)), n.base))
     case _ =>
       format_name(n)

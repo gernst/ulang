@@ -423,12 +423,14 @@ function vars(xs: List[At[Var]]): List[Var]
 // variables of code that the parser did not read, as declarations at no position
 function unplaced_vars(xs: List[Var]): List[At[Var]]
 
-// the modules that module name imports without saying so: for a module of a project the library, and none for a module
-// of the library, which sees the others as the members of its package
-function implicit_imports(name: Id): List[Id]
+// the modules that module name imports without saying so, of packages: for a module of a project the members of the
+// library, the package prelude, and none for a module of the library, which sees the others as the members of its package
+function implicit_imports(name: Id, packages: List[Package]): List[Id]
 
-// the members of the package of the library
-function library_modules(): List[Id]
+// whether id is a module of the library, whose members are the .u files of the directory of the library
+function is_library_module(id: Id): Bool :=
+  example is_library_module("prelude/list")
+  example not is_library_module("ulang/syntax/syntax")
 
 // the module of the library of the file name.u of the library, known as prelude/name, since the library is the package prelude
 function library_module(name: Str): Id
@@ -694,21 +696,14 @@ function module_dir(id: Id): Str :=
       ""
   end
 
-function implicit_imports(name: Id): List[Id] :=
-  if contains(name, library_modules()) then List() else library_modules()
+function implicit_imports(name: Id, packages: List[Package]): List[Id] :=
+  if is_library_module(name) then
+    List()
+  else
+    List(for p in packages if p.id == "prelude" for m in p.members yield m)
 
-function library_modules(): List[Id] :=
-  List(for name in List(
-    "prelude",
-    "option",
-    "list",
-    "str",
-    "set",
-    "map",
-    "array",
-    "buffer",
-    "os",
-    "io") yield library_module(name))
+function is_library_module(id: Id): Bool :=
+  starts_with(id, "prelude/")
 
 function library_module(name: Str): Id :=
   "prelude/" ++ name
@@ -720,7 +715,7 @@ function library_name(module: Str, base: Id): Name :=
   Name(Some(library_module(module)), base)
 
 function seen_modules(d: Mod, packages: List[Package]): List[Id] :=
-  implicit_imports(d.name) ++ List(for p in packages if contains(p.id, d.imports) or p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
+  implicit_imports(d.name, packages) ++ List(for p in packages if contains(p.id, d.imports) or p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
 
 // commands without positions and documentation, as programs that are not parsed have them
 function unplaced(cmds: List[Cmd]): List[Doc[Cmd]] :=

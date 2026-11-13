@@ -54,12 +54,6 @@ procedure parse_file_text(
 // whether path names a source file, name.u with a name
 function is_source(path: Str): Bool
 
-// whether text has sections, as members of packages have, by a line that starts with export, builtin, or implementation,
-// which is known before the text is lexed, and so also of a file that does not lex, where the words of a line end at a
-// space as the lexer takes it, also \r
-function has_sections(text: Str): Bool :=
-  example has_sections("// m\r\n\r\nexport\r\n\r\nfunction f(): Int\r\n")
-
 // the module of text without implicit imports and imports, which reads no files, for the tests, parsed with the empty
 // notation, so without the operators of the library, such as +
 procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError
@@ -2888,19 +2882,25 @@ procedure import_package(
   end
   call os_is_dir(in os_join(root, id), out found)
   if not found then
-    raise ParseError(unknown_package(id), pos)
+    local in_library: Bool
+    call is_library_file(in id, out in_library)
+    raise ParseError(if in_library then library_import() else "unknown package " ++ id, pos)
   end
   call load_package(in root, Some(id), None, loading, ref source)
   if package_members(id, source.packages) == List() then
-    raise ParseError("the package " ++ id ++ " has no members, files with sections", pos)
+    raise ParseError("the package " ++ id ++ " has no members, .u files", pos)
   end
 
-// the message of an import of id that names no directory, where the names of the members of the library hint at it
-function unknown_package(id: Id): Str :=
-  if contains(library_module(id), library_modules()) then
-    library_import()
-  else
-    "unknown package " ++ id
+// whether name is the name of a file name.u of the library, which an import of name hints at
+procedure is_library_file(in name: Str, out found: Bool) :=
+  local text: Str
+  try
+    call   os_library(in name, out text)
+    assign found := true
+  catch
+    case OsError(_) =>
+      assign found := false
+  end
 
 function library_import(): Str :=
   "import of the library, which every module sees without importing it"
@@ -2921,23 +2921,9 @@ function module_id(dir: Str, name: Str): Id :=
 function package_id(dir: Option[Str]): Id :=
   value_or(dir, "prelude")
 
-function has_sections(text: Str): Bool :=
-  exists(split(text, '\n'), lambda line => contains(first_word(line), List("export", "builtin", "implementation")))
-
-function first_word(line: Str): Str :=
-  str(word_chars(chars(line)))
-
-function word_chars(cs: List[Char]): List[Char] :=
-  match cs
-    case List(c; rest) if not is_space(c) =>
-      List(c; word_chars(rest))
-    case _ =>
-      List()
-  end
-
-// the members of the package of the directory dir from root, with their texts: the files of the directory with sections
-// other than project.u, by their names, or the modules of the library for None, where main, the text of the main file,
-// replaces that of its file and comes last if it has sections
+// the members of the package of the directory dir from root, with their texts: the .u files of the directory other than
+// project.u, by their names, or those of the directory of the library for None, where main, the text of the main file,
+// replaces that of its file and comes last
 procedure package_files(
   in  root: Str,
       dir: Option[Str],
@@ -2957,34 +2943,31 @@ procedure package_files(
       call os_list(in if d == "" then root else os_join(root, d), out entries)
       for (file, is_dir) in entries do
         if not is_dir and is_source(file) and file != "project.u" and module_id(d, module_name(file)) != main_id then
-          call os_read_utf8(in os_join(os_join(root, d), file), out text)
-          if has_sections(text) then
-            assign found := found ++ List((module_id(d, module_name(file)), text))
-          end
+          call   os_read_utf8(in os_join(os_join(root, d), file), out text)
+          assign found := found ++ List((module_id(d, module_name(file)), text))
         end
       end
 
     case None =>
-      local text: Str
-      for id in library_modules() do
-        if id != main_id then
-          call   library_text(in id, Pos(1, 1), out text)
-          assign found := found ++ List((id, text))
+      local text: Str, lib: Str, entries: List[Str * Bool]
+      call os_library_dir(out lib)
+      call os_list(in lib, out entries)
+      for (file, is_dir) in entries do
+        if not is_dir and is_source(file) and library_module(module_name(file)) != main_id then
+          call   library_text(in library_module(module_name(file)), Pos(1, 1), out text)
+          assign found := found ++ List((library_module(module_name(file)), text))
         end
       end
   end
-  match main
-    case Some((id, main_text)) if has_sections(main_text) =>
-      assign found := found ++ List((id, main_text))
-    case _ =>
-      skip
+  for m in main do
+    assign found := found ++ List(m)
   end
   assign files := List(for f in found)
 
 // the package of the directory dir from root, None for the library, loaded into source unless it is loaded or being
-// loaded already, after the packages and programs that its members import: its members are lexed, the notations of
+// loaded already, after the packages that its members import: its members are lexed, the notations of
 // their export sections collected, and each parsed with those of the others, where main is the text of the main file, with
-// which all members keep their tests, while without it, for imports and the package of a program, they lose them
+// which all members keep their tests, while without it, for imports, they lose them
 procedure load_package(
   in  root: Str,
       dir: Option[Str],
@@ -3025,10 +3008,7 @@ procedure parse_texts(
   match main
     case (id, text) =>
       assign source := Source(List(), List(), id)
-      call   load_members(in root, Some(dir), members, Some(main), List(), ref source)
-      if not has_sections(text) then
-        call load_program(in id, text, root, ref source)
-      end
+      call   load_members(in root, Some(dir), List(for (m, t) in members if m != id yield (m, t)) ++ List(main), Some(main), List(), ref source)
   end
 
 procedure load_after_library(
@@ -3038,10 +3018,7 @@ procedure load_after_library(
 ) raises ParseError, OsError :=
   local before := source.mods
   call   load_members(in "", Some(dir), members, None, List(), ref source)
-  assign source := source with mods := List(for d in source.mods if is_library(d)) ++ List(for d in drop(size(before), source.mods) if not is_library(d)) ++ List(for d in before if not is_library(d))
-
-function is_library(d: Mod): Bool :=
-  contains(d.name, library_modules())
+  assign source := source with mods := List(for d in source.mods if is_library_module(d.name)) ++ List(for d in drop(size(before), source.mods) if not is_library_module(d.name)) ++ List(for d in before if not is_library_module(d.name))
 
 function is_main(id: Id, main: Option[Id * Str]): Bool :=
   match main
@@ -3128,7 +3105,10 @@ procedure parse_member(
 ) :=
   local rest := toks
   try
-    call parse_mod(in id, implicit_imports(id), notation, root, dir, loading, out own, ref source, rest)
+    if not is_library_module(id) then
+      call load_package(in root, None, None, loading, ref source)
+    end
+    call parse_mod(in id, implicit_imports(id, source.packages), notation, root, dir, loading, out own, ref source, rest)
   catch
     case ParseError(message, pos) if not main =>
       raise ImportError(id, message, pos)
@@ -3138,19 +3118,6 @@ procedure parse_member(
   if not tested then
     assign own := without_tests_of(own)
   end
-
-// the main program id of text, a file without sections, loaded into source after the package of its directory, whose
-// exports it sees and with whose notation it is parsed; no other file imports it
-procedure load_program(in id: Id, text: Str, root: Str, ref source: Source) :=
-  local dir := module_dir(id), toks: Tokens, own: Mod
-  call   load_package(in root, Some(dir), None, List(), ref source)
-  call   lex_member(in id, text, true, out toks)
-  call   parse_member(in id, toks, members_notation(package_members(dir, source.packages), source.mods), root, Some(dir), true, true, List(), out own, ref source)
-  assign source := source with mods := source.mods ++ List(own)
-
-// the notation that the modules names of mods export
-function members_notation(names: List[Id], mods: List[Mod]): Notation :=
-  foldl(List(for d in mods if contains(d.name, names)), empty_notation(), lambda notation, d => notation ++ exported_notation(d))
 
 procedure import_all(
   in  names: List[Id],
@@ -3440,11 +3407,7 @@ procedure parse_file_text(
   local place: Place
   call   place_of(in path, out place)
   assign source := Source(List(), List(), place.id)
-  if place.dir == None or has_sections(text) then
-    call load_package(in place.root, place.dir, Some((place.id, text)), List(), ref source)
-  else
-    call load_program(in place.id, text, place.root, ref source)
-  end
+  call   load_package(in place.root, place.dir, Some((place.id, text)), List(), ref source)
 
 procedure parse_file(
   in  path: Str,

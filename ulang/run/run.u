@@ -1436,6 +1436,11 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
         call   os_library(in name, out text)
         assign outs := List(VStr(text))
 
+      case ("prelude/os.os_library_dir", List()) =>
+        local path: Str
+        call   os_library_dir(out path)
+        assign outs := List(VStr(path))
+
       case ("prelude/os.os_list", List(VStr(path))) =>
         local entries: List[Str * Bool]
         call   os_list(in path, out entries)

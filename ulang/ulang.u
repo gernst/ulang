@@ -680,7 +680,7 @@ function same_cmds(cmds: List[Doc[Cmd]], others: List[Doc[Cmd]]): Bool :=
   size(cmds) == size(others) and forall(zip(cmds, others), lambda (c, other) => c.doc == other.doc and strip_cmd(c.at.that) == strip_cmd(other.at.that))
 
 // the checked program of file and the errors of loading it, at most 20, where formatted requires each file of its unit, the
-// members of its package or file alone if it is a program, to be formatted, after the errors of parsing and checking, and
+// members of its package, to be formatted, after the errors of parsing and checking, and
 // tested loads it with the tests of its lemmas and the enumeration that they call (ulang/test/generate.u)
 procedure check_file(
   in  file: Str,
@@ -739,7 +739,7 @@ procedure load_file(
       assign errors := List(diagnostic(InternalKind, internal_message(e)))
   end
 
-// the modules of the unit of the main module of source: the members of its package, or main alone if it is a program
+// the modules of the unit of the main module of source: the members of its package, or main alone if it is in none
 function unit_modules(source: Source): List[Id] :=
   match find(source.packages, lambda p => contains(source.main, p.members))
     case Some(p) =>
@@ -811,18 +811,18 @@ test missing_targets() :=
   call targets_of(in List(Target("./nosuch", None), Target("nosuch.u", Some("t"))), false, out found)
   assert found == List(Target("nosuch", None), Target("nosuch.u", Some("t")))
 
-// the targets grouped by the load that they need, in the order of their first targets: those of the members of a package,
-// the files with sections of a directory, together, and those of each program, a file without sections, apart
+// the targets grouped by the load that they need, the package of their directory, in the order of their first targets,
+// where a target that cannot be read is a unit of its own, which fails to load
 procedure units_of(in targets: List[Target], out units: List[List[Target]]) :=
   local text: Str, keyed: Buffer[Str * Target] := empty()
   for t in targets do
     try
-      call os_read_utf8(in t.path, out text)
+      call   os_read_utf8(in t.path, out text)
+      assign keyed := keyed ++ List((os_dirname(t.path) ++ "/", t))
     catch
       case OsError(_) =>
-        assign text := ""
+        assign keyed := keyed ++ List((t.path, t))
     end
-    assign keyed := keyed ++ List((if has_sections(text) then os_dirname(t.path) ++ "/" else t.path, t))
   end
   assign units := grouped(List(for k in keyed))
 
