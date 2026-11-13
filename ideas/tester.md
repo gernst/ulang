@@ -18,6 +18,6 @@ A plan: the tests that the tools generate, and the running of tests, move out of
 
 1. The layout above, done.
 2. `make selfcompile`, so that the seed no longer loads the enumeration as a member of the library, and its file in `ulang/prelude/` goes: done.
-3. A lemma whose test is falsified is reported as `lemma l falsified` and not proven.
+3. A lemma whose test is falsified is reported as `lemma l falsified` and not proven: done (`test_module` and `prove_module` of `ulang/test/runner.u`).
 4. Tests with formals (Testing 1) by the same translation, without `TestParams`.
 5. The output of Testing 2 in both backends.

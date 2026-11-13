@@ -16,10 +16,16 @@ function enumerate_module(): Id
 // lemma that reaches it; type parameters stand for Int
 function lemma_tests(c: Checked): List[Pos * (Id * Cmd)]
 
+// the suffix of the name of the test of a lemma, l.lemma of l
+function lemma_suffix(): Str
+
 implementation
 
 function enumerate_module(): Id :=
   "(test)/enumerate"
+
+function lemma_suffix(): Str :=
+  ".lemma"
 
 // the test of a lemma at pos in the module m, with the datatypes whose functions (enum)T it calls
 data LemmaTest :=
@@ -38,7 +44,7 @@ function lemma_test(c: Checked, pos: Pos, m: Id, cmd: Cmd): List[LemmaTest] :=
           match (all_some(List(for typ in lemma_sig.formals yield enum_expr(c, m, lambda _ => enum_call("ints", List()), typ))), datatypes_needed(c, m, List(for typ in lemma_sig.formals for n in datatypes_in(typ) yield n), List()))
             case (Some(enums), Some(needed)) =>
               List(
-                LemmaTest(pos, m, CTest(Name(Some(m), name.base ++ ".lemma"), List(), lemma_stmt(zip(vars(formals), enums), assms, concl)), needed))
+                LemmaTest(pos, m, CTest(Name(Some(m), name.base ++ lemma_suffix()), List(), lemma_stmt(zip(vars(formals), enums), assms, concl)), needed))
 
             case _ =>
               List()

@@ -14,8 +14,9 @@ export
 // library, read through os_library from the directory next to the library, so that no second path is compiled in
 procedure load_tester(ref source: Source) raises ParseError, OsError
 
-// runs the tests of the module m of q, all or the named ones, each on its own, also after a failed one, and then its lemmas
-// if all are run, printing a line per test and lemma after label, where passed tells whether all pass and are proven
+// runs the tests of the module m of q, all or the named ones, each on its own, also after a failed one, and then proves its
+// lemmas if all are run, but those whose tests falsify them, printing a line per test and lemma after label, where passed
+// tells whether all pass and are proven
 procedure test_module(
   in  q: Prog,
       m: Id,
@@ -27,13 +28,15 @@ procedure test_module(
 ) raises Thrown
 
 // proves the lemmas of the module m of q, of the file, all or the named ones, in their order, where those before are
-// facts, printing whether each is proven, with an error of a proof for each gap and for each function that they reach
-// whose termination is not proven, and whether all are proven
+// facts, but the falsified ones, which a test found false and which are neither proven nor facts, printing whether each
+// is proven, open, or falsified, with an error of a proof for each gap and for each function that they reach whose
+// termination is not proven, and whether all are proven
 procedure prove_module(
   in  q: Prog,
       m: Id,
       file: Str,
       names: List[Str],
+      falsified: Set[Str],
       label: Str,
   out proven: Bool
 )
@@ -54,14 +57,15 @@ procedure test_module(
       label: Str,
   out passed: Bool
 ) raises Thrown :=
-  local run := (load(q) with args := args), tests: List[Cmd], message: Str
+  local run := (load(q) with args := args), tests: List[Cmd], message: Str, refuted: Bool, falsified: Set[Str] := empty()
   assign tests := List(for c in definitions(q) if is_selected_test(c, m, names)), passed := true
   for n in names if not exists(tests, lambda c => cmd_name(c) == n) do
     call   os_println(in label ++ error_text(RuntimeKind, "there is no test " ++ n))
     assign passed := false
   end
   for c in tests do
-    call test_message(in run, c, out message)
+    call   test_message(in run, c, out message, refuted)
+    assign falsified := if refuted then Set(lemma_of_test(cmd_name(c)); falsified) else falsified
     if message == "" then
       call os_println(in label ++ "test " ++ cmd_name(c) ++ " passed")
     else
@@ -71,19 +75,24 @@ procedure test_module(
   end
   if names == List() and not has_errors(q) then
     local proven: Bool
-    call   prove_module(in q, m, file, List(), label, out proven)
+    call   prove_module(in q, m, file, List(), falsified, label, out proven)
     assign passed := passed and proven
   end
 
-// the error of the test cmd, or else ""
-procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
+// the error of the test cmd, or else "", and whether it is a test of a lemma that found a counterexample, Falsified of
+// the enumeration, which lemma_stmt of ulang/test/generate.u raises
+procedure test_message(in run: Run, cmd: Cmd, out message: Str, falsified: Bool) :=
   local cache: Map[Name, Val] := empty()
-  assign message := ""
+  assign message := "", falsified := false
   try
     call run_cmd(in run, cmd, ref cache)
   catch
+    case Uncaught(text) =>
+      assign message := error_text(RuntimeKind, runtime_message(Uncaught(text))), falsified := ends_with(cmd_name(cmd), lemma_suffix()) and starts_with(text, "Falsified(")
+
     case e =>
       assign message := error_text(RuntimeKind, runtime_message(e))
+
     case e =>
       assign message := error_text(InternalKind, internal_message(e))
   end
@@ -106,11 +115,12 @@ procedure prove_module(
       m: Id,
       file: Str,
       names: List[Str],
+      falsified: Set[Str],
       label: Str,
   out proven: Bool
 ) :=
-  local t := translate(q, m), proofs := prove_lemmas(t.decls, t.contracts, lemmas_upto(t.lemmas, names)), ds: List[Diagnostic] := proof_diagnostics(with_proofs(q, m, proofs, names), m)
-  assign proven := ds == List()
+  local t := translate(q, m), proofs := prove_lemmas(t.decls, t.contracts, List(for l in lemmas_upto(t.lemmas, names) if not contains(l.name.base, falsified))), ds: List[Diagnostic] := proof_diagnostics(with_proofs(q, m, proofs, names), m)
+  assign proven := ds == List() and not exists(t.lemmas, lambda l => contains(l.name.base, falsified) and is_named(l.name.base, names))
   for n in names if not exists(t.lemmas, lambda l => l.name.base == n) do
     call   os_println(in label ++ error_text(RuntimeKind, "there is no lemma " ++ n))
     assign proven := false
@@ -118,16 +128,30 @@ procedure prove_module(
   for d in ds if d.code == "OpenTermination" do
     call os_println(in format_diagnostic(file, d))
   end
-  for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) do
-    if gaps == List() then
-      call os_println(in label ++ "lemma " ++ name.base ++ " proved")
-    else
-      call os_println(in label ++ "lemma " ++ name.base ++ " open")
-      for d in ds if d.code != "OpenTermination" and get("lemma", d.details) == Some(name.base) do
-        call os_println(in format_diagnostic(file, d))
-      end
+  for l in lemmas_upto(t.lemmas, names) if is_named(l.name.base, names) do
+    match find(proofs.lemmas, lambda p => p.name == l.name)
+      case Some(Proved(name, List())) =>
+        call os_println(in label ++ "lemma " ++ name.base ++ " proved")
+
+      case Some(Proved(name, _)) =>
+        call os_println(in label ++ "lemma " ++ name.base ++ " open")
+        for d in ds if d.code != "OpenTermination" and get("lemma", d.details) == Some(name.base) do
+          call os_println(in format_diagnostic(file, d))
+        end
+
+      case None =>
+        call os_println(in label ++ "lemma " ++ l.name.base ++ " falsified")
     end
   end
+
+// whether names selects the lemma or test of the base name, all for List()
+function is_named(base: Id, names: List[Str]): Bool :=
+  names == List() or contains(base, names)
+
+// the lemma l of its test l.lemma
+function lemma_of_test(test_name: Str): Str :=
+  example lemma_of_test("sorted.lemma") == "sorted"
+  slice(test_name, 0, size(test_name) - size(lemma_suffix()))
 
 // whether cmd is a test of the module m that names selects, all of them for List()
 function is_selected_test(cmd: Cmd, m: Id, names: List[Str]): Bool :=
