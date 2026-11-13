@@ -155,6 +155,21 @@ $(SUITE_ASM)/suite.sh: $(SCRIPT)
 testasm: $(SUITE_ASM)/suite.bin $(SUITE_ASM)/suite.sh
 	$(SUITE_ASM)/suite.sh
 
+# out/ulang.bin compiles the sources to assembly, whose compiler, assembled and linked with the runtime, must compile them
+# to the same assembly and to the same C as out/ulang.bin, which keeps building the tool and the seed from C
+.PHONY: selfcompileasm
+selfcompileasm: out/ulang.bin out/ulang.sh $(ASM)/ulang.o
+	stage=$$(mktemp -d out/stage-XXXXXX) && \
+	out/ulang.sh compile ulang/ulang.u -o $$stage/ulang2.s && \
+	$(CC) $$stage/ulang2.s $(ASM)/ulang.o $(LIBS) -o $$stage/ulang2.bin && \
+	cp $(SCRIPT) $$stage/ulang2.sh && \
+	$$stage/ulang2.sh compile ulang/ulang.u -o $$stage/ulang3.s && \
+	cmp $$stage/ulang2.s $$stage/ulang3.s && \
+	out/ulang.sh compile ulang/ulang.u -o $$stage/ulang2.c && \
+	$$stage/ulang2.sh compile ulang/ulang.u -o $$stage/ulang3.c && \
+	cmp $$stage/ulang2.c $$stage/ulang3.c && \
+	rm -r -- "$${stage:?}"
+
 # the checks of the repository in checks/, programs that run compiled at the root, since they parse the sources of the
 # compiler, which the interpreter does too slowly: checks/docs.u, that the references of the documentation name
 # declarations of their files
