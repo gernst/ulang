@@ -69,6 +69,13 @@ function abs(n: Int): Int
 
 function gcd(a: Int, b: Int): Int
 
+// the lesser and the greater of two integers
+function min(a: Int, b: Int): Int :=
+  example min(2, -3) == -3
+
+function max(a: Int, b: Int): Int :=
+  example max(2, -3) == 2
+
 // the components of a pair
 function first[A, B](p: A * B): A
 
@@ -132,6 +139,12 @@ function abs(n: Int): Int :=
 
 function gcd(a: Int, b: Int): Int :=
   if b == 0 then abs(a) else gcd(b, a % b)
+
+function min(a: Int, b: Int): Int :=
+  if a < b then a else b
+
+function max(a: Int, b: Int): Int :=
+  if a < b then b else a
 
 function first[A, B](p: A * B): A :=
   match p

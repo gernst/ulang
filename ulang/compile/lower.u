@@ -377,7 +377,7 @@ function free_in_branch(d: Doc[Branch[At[Expr]]], bound: List[Name]): List[Name]
   end
 
 function prefix_of(text: Str): Str :=
-  slice(text, 0, if size(text) < 16 then size(text) else 16)
+  slice(text, 0, min(size(text), 16))
 
 function bound_by(pats: List[At[Pat]]): List[Name] :=
   List(for p in pats for n in pattern_names(p) yield n)

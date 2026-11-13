@@ -122,7 +122,7 @@ function format_expr(expr: CExpr): Str :=
 // u"…", or U"…" by the greatest, as the runtime reads its units, with an octal escape for each code point below 160 and
 // otherwise a universal character name, which C does not allow below 160
 function format_str(text: Str): Str :=
-  let greatest := foldl(chars(text), 0, lambda m, c => if int(c) > m then int(c) else m) in
+  let greatest := foldl(chars(text), 0, lambda m, c => max(m, int(c))) in
   if greatest < 128 then
     quote(text)
   else

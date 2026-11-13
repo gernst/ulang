@@ -192,7 +192,7 @@ function height[A](s: Set[A]): Int :=
   end
 
 function node_height[A](l: Set[A], r: Set[A]): Int :=
-  1 + (if height(l) < height(r) then height(r) else height(l))
+  1 + max(height(l), height(r))
 
 function node[A](l: Set[A], x: A, r: Set[A]): Set[A] :=
   Node(l, x, r, node_height(l, r))

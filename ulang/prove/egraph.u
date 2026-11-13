@@ -143,7 +143,7 @@ function node_term(node: ENode, args: List[Term]): Term :=
 
     // nodes of HApply have the head as their first argument, see shape
     case (HApply, List()) =>
-      EApp(ELit(LBool(false)), List())
+      EApp(EBool(false), List())
   end
 
 function sum_of(acc: Lin, factors: List[Int], args: List[Term]): Lin :=
