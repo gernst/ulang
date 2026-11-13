@@ -1,10 +1,10 @@
 # Lint on the e-graph of the prover
 
-A plan: the rules of `ulang.sh lint` that need the e-graph of the prover, `ulang/prove/egraph.u` (B1 and B2 of `prover.md`), so that each rewrite is an equality that the prover establishes. The walks of the syntax are done in `ulang/lint/lint.u`, described in `CLAUDE.md`, and those still open, with the suppression of warnings, are Diagnostics 5; edits are applied by `refactor fix`, item 4 there and `refactor.md`, never by lint. When this work is done, what holds goes into `CLAUDE.md`, what stays open into the items of `ideas/`, and this file is deleted. Its background is the sketch `nonfunctional-properties-ai-code.md`: structural quality as the cost of verifying a unit and a change to it.
+A plan: the rules of `ulang.sh lint` that need the e-graph of the prover, `ulang/prove/egraph.u` (`ideas/prove.md`, section 5), so that each rewrite is an equality that the prover establishes. The walks of the syntax are done in `ulang/lint/lint.u`, described in `CLAUDE.md`, and those still open, with the suppression of warnings, are Diagnostics 5; edits are applied by `refactor fix`, Diagnostics 4 and `ideas/refactor.md`, never by lint. When this work is done, what holds goes into `CLAUDE.md`, what stays open into the items of `ideas/`, and this file is deleted. Its background is the sketch `ideas/properties.md`: structural quality as the cost of verifying a unit and a change to it.
 
 ## 1. Why an e-graph
 
-A rewrite is an equality plus a choice of the simpler side. An e-graph separates the two, as `prover.md` separates provability from the printed goal:
+A rewrite is an equality plus a choice of the simpler side. An e-graph separates the two, as `ideas/prove.md` separates provability from the printed goal:
 
 - **Saturation finds the equalities**, over the definitions, the proven lemmas, and the facts of the context, in all directions at once.
 - **Extraction chooses** the cheapest representative by a cost, for lint the size of the source.
@@ -14,7 +14,7 @@ So lint needs no orientation of rules, no marker of rewrite lemmas, and no match
 ## 2. What enters the e-graph
 
 - **The parts of a body.** Each expression part of a function body, or of a statement of a procedure, is translated by `term_of` of `ulang/prove/translate.u`, with the formals, the binders, and in procedures the locals in scope as fresh constants. The checked program keeps the position of each part, so lint records for each class the parts of the source in it, a side table over the class ids.
-- **Definitions** as equations, one rule per case of the outermost `match` or `if`, and the non-recursive ones as abbreviations, also in reverse, a body that spells out `f` gives `f(xs)`, limited:
+- **Definitions** as equations, one rule per leaf and case of the body (`leaf_equations` of `ulang/prove/equations.u`), and the non-recursive ones as abbreviations, also in reverse, a body that spells out `f` gives `f(xs)`, limited:
   - to exported functions, first of the library;
   - to bodies that are a `match`, an `if`, a fold, or a form, so that `a + b` never folds into every function that adds;
   - never inside the definition of `f` itself, by qualified name.
@@ -47,7 +47,7 @@ The prover keeps lambdas and matches as opaque leaves, closed terms over de Brui
 
 Exported now, and enough for the side table: class ids, `class_of`, `class_nodes`, `class_ids`, `add_term`, `lookup_term`, `ematch`, `add_instance`, and the graph as a value. Missing:
 
-- **extraction by a cost given as a parameter**, the term order for goals and the size of the source for lint; the prover has no extraction yet;
+- **extraction by a cost given as a parameter**, the term order for goals and the size of the source for lint; extraction exists with a fixed cost, `term_rank` of `ulang/prove/simp.u`, and `smallest` for `printable`, while a cost given as a parameter is missing;
 - **the rule and the classes of its variables for each node that a rule added**, for printing;
 - **matching inside opaque leaves with shifting**, as above;
 - **the equations of non-recursive definitions in both directions**, the reverse one restricted as above.
@@ -76,7 +76,7 @@ Rules that wait for other items, kept here until those take them:
 
 ## 7. Order
 
-1. **Into `prover.md`:** the needs of section 5, which only this file lists, so that the session of the prover takes them before extraction is designed.
+1. **Into `ideas/prove.md`:** the needs of section 5, which only this file lists, so that the session of the prover takes them before extraction is designed.
 2. **Lint on the e-graph:** the side table of source parts per class and extraction by the size of the source; R2 by definitions; the lemmas of R5, R6, and R1 of lists, which replace the patterns of `placed_lints` and `iterated_list`. What stays: the command, `Warning`, `format_module_expr` for the representatives, the walks of statements, and the edits for `refactor fix`.
 3. **The context:** D1, D2.
 4. **Classes:** R4, N1, P1.
@@ -84,7 +84,7 @@ Rules that wait for other items, kept here until those take them:
 6. **Back to checked expressions:** `expr_of(Term)`, and extraction by the cost of evaluation for the optimizations of Compiler 3.
 7. **After their items:** F3, H1, N2, T4, T5, L1, G1, G2.
 
-When done, the items change: Diagnostics 5 keeps only what is open; item 2 gains G1 and G2; Testing 1 names N2 and H1; Compiler 3 takes the extraction by the cost of evaluation; Code 1 and Code 6 are checked by F4 and S1 rather than listed by hand; `CLAUDE.md` says which rules of Style `lint` checks, and that the lemmas of the library are also what lint suggests.
+When done, the items change: Diagnostics 5 keeps only what is open; item 2 gains G1 and G2; Testing 1 names N2 and H1; Compiler 3 takes the extraction by the cost of evaluation; Code 1 and Code 6 are checked by rules rather than listed by hand; `CLAUDE.md` says which rules of Style `lint` checks, and that the lemmas of the library are also what lint suggests.
 
 ## 8. Open questions
 

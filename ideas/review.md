@@ -1,6 +1,6 @@
 # Review of smells and cleanups
 
-A read-only review of `ulang/`, `checks/`, and the Makefile against the rules of `CLAUDE.md`, Style, and the open items of `TODO.md`, now `ideas/`, as of c319a1d. No source was changed. Findings that are instances of an item of `TODO.md` are tagged with it, e.g. **[Code 1]**; untagged findings are new. Line numbers are those of c319a1d.
+A read-only review of `ulang/`, `checks/`, and the Makefile against the rules of `CLAUDE.md`, Style, and the open items of `TODO.md`, now `ideas/`, as of c319a1d. No source was changed. Findings that are instances of an item of `TODO.md` are tagged with it, e.g. **[Code 1]**; untagged findings are new. Line numbers are those of c319a1d, and the parts of the compiler that `ulang/compile/lower.u` took since are there now. Checked again against main on 2026-11-13: the findings that were fixed since are gone, and those below still hold; the new items that section 4 proposes are in no file of `ideas/` yet.
 
 Confidence: **confirmed** means reproduced by a run, with the repro given; **likely** means read from the code and checked against it, not run.
 
@@ -53,8 +53,8 @@ Backends and runtime:
 
 Checker:
 
-12. **A wrong arity of an overloaded name gives two errors** (`application`, `ulang/check/check.u:2263-2266`): after `WrongArity`, `use_name` gets the empty candidates and reports `unknown_variable` too. The tests check only the first error.
-13. **A duplicate formal of a procedure lambda is reported twice** (`ulang/check/check.u:1727-1730`): `unique_decls` of `ins ++ outs ++ refs`, then again in each `formals`.
+12. Fixed since, by 474e902: a wrong arity of an overloaded name gives only `WrongArity`.
+13. **The duplicates of the formals of a procedure lambda are looked for twice** (`ulang/check/check.u:1727-1730`): `unique_decls` of `ins ++ outs ++ refs`, then again in each `formals`, while only one error is printed since.
 14. **`SortArity` is raised, not reported** (`arguments`, `ulang/check/check.u:1325-1328`): a `List[Int, Int]` in an annotation inside a body aborts the whole command, losing its other errors, where everything else in bodies goes through `report`.
 15. **The `:=` of an updater leaks into messages** (`ulang/check/message.u:178-182`, `ulang/check/check.u:1709, 2323, 2327`): `UnknownFieldOwner` and `UnknownFieldType` print `.x:=` for an update; only `UnknownField` strips it by `without_update`. `messages` of `ulang/check/message.u` claims one case of each kind but has none of these, nor of `InfiniteType`, `NoOverload`, `UnknownContainer`, `UnparsedDeclaration`, `SortDefined`, `UndeclaredParams`, and `Hinted`. **[Code 3]**
 16. **Trials of candidates count errors instead of testing unification** (`trials` and `fits`, `ulang/check/check.u:1570, 2379`), while `report` drops any `CannotUnify` that reaches `TError`, so every candidate fits an argument of an erroneous type. Mostly masked by `settle`; low confidence of a visible effect.
@@ -110,7 +110,7 @@ These recur in several packages and are better fixed once each than file by file
 
 - `ulang/syntax/fixtures.u` exports helpers that only the tests of `check.u` use (`lists`, `with_lists`, `program_of`, `natives_prelude`, `type_plain_list`), candidates of overloading in every phase and compiled into `ulang.bin`; and `expr_var`, `expr_int`, `expr_app`, `pat_var` carry the doc "abbreviations … of tests" but are used throughout `run.u` and `check.u`.
 - `ulang/syntax/builtins.u`: the aliases hard-code `"prelude/list"` where the functions use `library_name(…)`, with no test that they agree; `array_name()` names `array.from_list`.
-- Dead or needlessly exported: `error_kinds` (`error.u:17`, cited only by `CLAUDE.md`), `json_text`, `strip_stmt`; `errors_in_spec` always returns `List()`; `options` is `List(for y in x)`.
+- Dead or needlessly exported: `error_kinds` (`error.u:17`, cited only by `CLAUDE.md`), `json_text`, `strip_stmt`; `options` is `List(for y in x)`.
 
 ### `ulang/parse/`
 
@@ -125,7 +125,7 @@ These recur in several packages and are better fixed once each than file by file
 
 ### `ulang/format/`, `ulang/lint/`, driver, checks, Makefile
 
-- The lints still warn at the command or block, though formals and locals now have positions (`ulang/lint/lint.u:64-209`); the doc "a Var has none" (199) and the remark of `CLAUDE.md` are stale since c319a1d.
+- The doc "a Var has none" of `ulang/lint/lint.u` (199) is stale, since the lints warn at the formals and locals now (d93a281).
 - `format_cmd` never returns `None` (`format.u:805-844`), so the `None` of `format_cmds` (784) is dead; `format_module` is exported but used only in `format.u`; a nested `SBlock` prints as `skip` and its body (626), which would not round-trip and needs a doc of which phase rules it out.
 - `ite_text`, `form_text`, and `list_pattern_text` format their children flat and again when spreading (`format.u:324-360, 549-558`), exponential in the depth of spread constructs.
 - The lints strip whole subtrees to test a top shape (`literal_bool`, `is_some_of`, `is_plain`, `is_empty_list`, `lint.u:279-476`), where `.that` suffices.
@@ -161,7 +161,7 @@ Other smells:
 - Performance: `extract_in` (`simp.u:789-826`) and `smallest` (2253) enumerate every node of every class without memo, on each rewrite; `is_entailed` rebuilds the bounds per call and `variable_division_facts` runs Fourier–Motzkin up to four times per atom; `first_of(List(for s in ss yield f(s)))` (1879, 1917-1929) is `find_map`; `folded` (2249) computes the same round twice under a limit outside `Limits` (**[Code 6]**).
 - Copies: `assume_term` (573-583) and `simp_less`/`simp_less_eq` re-encode `comparison_ineq`; orientation of rules in `add_rule`, `merge`, `oriented`; the level equation in `equation_of` and `definition_in`; `division_facts` inlines `is_bound`; the `_seq` and `_concl` twins of `rebind`, `replace`, `subst`, `loose` (145-213), four "map the summands, then `lin_add`", three `*_branch` helpers for optional guards.
 - **[Code 1]** beyond `prove/syntax.u`: `case _` over `Term` in `simp_term` (1146), `head_key` (775, where `EBound` and `ELam` share a key), `args_of`, `candidate`, `is_plain`, `term_size`, `calls_in` and `accesses_in` of `termination.u`, `shape` of `egraph.u`.
-- Style: `simp_size` and `simp_summands` recurse instead of the traversal; nested tuples passed on (`translate.u:74, 84, 92, 105`, `one_point`, `matches`); `print_pat` and `print_val` of `syntax.u:921-1003` duplicate the printers of `ulang/format` under `print_`, and goals print `[]` and `[a; b]`, which is not ulang; constructors without the prefix of their type (`Open`, `Close`, `Shift`, `Refuted`, `Proven`, `Matched`, `Failed`, `Stuck`); `UnsupportedTerm` is never built; stale docs at `lemma.u:1` ("until proofs have syntax") and `translate.u:12-13` (doubled).
+- Style: `simp_size` and `simp_summands` recurse instead of the traversal; nested tuples passed on (`translate.u:74, 84, 92, 105`, `one_point`, `matches`); `print_pat` and `print_val` of `syntax.u:921-1003` duplicate the printers of `ulang/format` under `print_`, and goals print `[]` and `[a; b]`, which is not ulang; constructors without the prefix of their type (`Open`, `Close`, `Shift`, `Refuted`, `Proven`, `Matched`, `Failed`, `Stuck`); stale docs at `lemma.u:1` ("until proofs have syntax") and `translate.u:12-13` (doubled).
 
 ### `ulang/prelude/` and tests
 
@@ -182,7 +182,7 @@ Other smells:
 - **Code 5** is done by the list of section 3, `ulang/prove/`; the item can be replaced by the work it lists.
 - **Diagnostics 1**: the escaping of `format_token` (1.2.17) and the one `skip_until` of section 2 are where the text of `AUnparsed` would change.
 - **Diagnostics 5**: the lints should first use the positions of variables that c319a1d added.
-- `CLAUDE.md` statements found stale: strings sharing the folds, `put` of arrays, possibly the lemmas of named tests, "the lints still warn at the command" once fixed, and the rule of no tests at the top of a `test/` against `ulang/prove/test/`.
+- `CLAUDE.md` statements found stale: strings sharing the folds, `put` of arrays, possibly the lemmas of named tests, and the rule of no tests at the top of a `test/` against `ulang/prove/test/`.
 
 ## 5. Suggested order
 

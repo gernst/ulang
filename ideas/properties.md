@@ -125,7 +125,7 @@ The levers that a language or toolchain has for these properties, and where ulan
 ulang is a testbed for them: small enough to change, with its own checker, prover, and lints, and agents as its main writers.
 
 1. **Formalization.** Which properties have semantic definitions, and which only proxies? Hypothesis: locality, explicitness, divergent redundancy, failing loudly, and proportionate defensiveness can be defined relative to a verifier, here the checker and the prover; uniformity and proportionality stay partly metrics.
-2. **Empirics.** How does the code of models differ from code by people on these properties, e.g. more defensiveness and masking, less reuse? The findings of agents new to ulang, now items of `diagnostics.md`, `syntax.md`, and `documentation.md`, are one source.
+2. **Empirics.** How does the code of models differ from code by people on these properties, e.g. more defensiveness and masking, less reuse? The findings of agents new to ulang, now items of `diagnostics.md`, `checker.md`, `syntax.md`, and `documentation.md`, are one source.
 3. **Effect on cost.** Do the properties predict the cost downstream, the effort of verifying, defects, the success of later edits by agents? A design: the same function in structurally different variants, and how reliably a later agent or the prover changes each correctly.
 4. **The reader.** Do the properties that help people review also help models and verifiers? Hypothesis: explicitness matters more for models, and indirection hurts them more than verbosity, so some advice in favour of abstraction flips.
 5. **Trade-offs.** Non-redundancy pulls against locality, explicitness against brevity. Is there one cost model, the effort to verify, under which the optimum can be stated and computed?

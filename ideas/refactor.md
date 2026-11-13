@@ -23,7 +23,7 @@ Each of these was a commit of many mechanical edits, several with regular expres
 - functions turned into procedures when they had to raise (`8084d78`: `as_type`, `type_apply`), and `raises` written into the exported signatures (`9335b69`);
 - 211 failing files turned into cases of `ulang/test/errors/` (`15b55d4`);
 - the expansion of `case _` into named constructors, still open (Code 1);
-- exports added because another member needed a private helper (unclear.md: `covers_all`, `strip_yield`).
+- exports added because another member needed a private helper (`covers_all`, exported since, and `strip_yield`, Code 7).
 
 ## How an agent edits
 
@@ -58,7 +58,7 @@ Common to all operations:
 1. **Preconditions**: the affected units load, check, and are formatted, else the operation is refused with the errors; nothing half-applied.
 2. **Edit on the parsed tree**, at positions found in the checked program, printed by `format_program`.
 3. **Postconditions**: the edited units check, and every use outside the target resolves as before, modulo the renaming the operation declares. Positions move with the edit, so the comparison is by the sequence of resolved names in the traversal order of each command, which a rename keeps and a move maps by the old and new module; a difference is reported as the use, the name before, and the name after.
-4. **Output**: a script is one transaction, it writes all its files or none, and `--dry` reports without writing; the reply is plain text for agents (Replies, below), `--json` gives the edits and the affected sites as records, one per line, matching the planned JSON of Diagnostics 1, for the extension. Applying by default, where this file proposed a dry run by default, follows the loop of the agent, which checks the state after the edit and goes on from its diagnostics; `@undo` and the journal of Concurrent edits make it reversible.
+4. **Output**: a script is one transaction, it writes all its files or none, and `--dry` reports without writing; the reply is plain text for agents (Replies, below), `--json` gives the edits and the affected sites as records, one per line, matching the JSON lines of the diagnostics, for the extension. Applying by default, where this file proposed a dry run by default, follows the loop of the agent, which checks the state after the edit and goes on from its diagnostics; `@undo` and the journal of Concurrent edits make it reversible.
 5. **Targets** extend the existing `file.u:name`: `file.u:name/n` for a declaration of arity `n`, `module.name/arity` for an overload (`prelude/set.size/1`), `module.T.f` for a field, `module.T.C` for a constructor, `file.u:L.C` for the use at a position, a local as `file.u:proc/local`, and a handle `#n` for a node that a reply showed.
 
 ## Edit scripts
@@ -199,7 +199,7 @@ The most frequent refactoring, and the one where text tools fail by overloading,
 - `add-formal <target> <name>: <type> --arg <expr> [--at i]`: the formal in export and implementation, the argument at every call, with `<expr>` evaluated in the caller's scope, refused if it does not check there.
 - `remove-formal`, refused if the formal is used in the body; `reorder-formals`.
 - `change-mode <proc> <formal> in|out|ref`: the formal moves to its group, the arguments at each `call` too, since arguments go by mode in the order `in`, `out`, `ref`, which is the kind of reordering agents get wrong.
-- `write-raises [<target>]`: write the inferred raises of private procedures, or the reported ones of `UndeclaredRaise`, into the signatures, export and implementation alike, and into procedure types of formals that `UntypedRaise` names; this turns the error listing of Checker 1 into one command.
+- `write-raises [<target>]`: write the inferred raises of private procedures, or the reported ones of `UndeclaredRaise`, into the signatures, export and implementation alike, and into procedure types of formals that `UntypedRaise` names; this turns a listing of errors of raises into one command.
 - `function-to-procedure <fun>`: the function becomes a procedure with an `out` result, each call in a statement becomes a `call` before it into a fresh local; calls inside expressions of other functions are listed, since those functions must turn into procedures too (`--transitive` does so). This was the cost of removing `raise` from expressions.
 
 ### 4. Datatypes
@@ -213,7 +213,7 @@ The most frequent refactoring, and the one where text tools fail by overloading,
 ### 5. Moves and visibility
 
 - `move <decl> <module>`: the declaration with its doc and tests, the signature into the export section of the target if it was exported or is used outside, imports added to the users that now need the target's package and removed where unused; refused with the list of the private names it uses that the target does not see (`--with-deps` moves them along, if nothing else uses them), and refused if the imports would form a cycle of packages or break the layers (`ulang/syntax` before `ulang/format` before `ulang/parse` …). Moves within a package need no imports, since members see each other. This is Code 4.
-- `export <decl>` and `unexport <decl>`: the signature added to or removed from the export section, `unexport` refused while another module uses it; the fix for unclear.md's `covers_all` and `strip_yield`.
+- `export <decl>` and `unexport <decl>`: the signature added to or removed from the export section, `unexport` refused while another module uses it; the fix for `strip_yield` of Code 7.
 - `move-test <test> <file>`: into the file of its feature, refused on a name clash there; helpers it needs move or are listed.
 
 ### 6. Rewrites by pattern
@@ -252,22 +252,22 @@ Not every change of code belongs to a command that an agent invokes with a targe
 The tests that sort a change:
 
 - **Does it need a choice that the code does not determine** (a new name, a target module, a default argument, the body of a new case)? Then it is a refactoring.
-- **Is it the one edit that removes an error?** Then it is a fix: `write-raises` for `UndeclaredRaise` and `UntypedRaise`, `_` for an unused pattern variable once T3 is an error, the removal of an unused import (Checker 3), the removal of a handler that is `NeverRaised`, a qualified name for an `Ambiguous` use where only one candidate checks in its context, and the hints of Diagnostics 2 for the habits of other languages (`x := e` to `assign x := e`, `[1, 2]` to `List(1, 2)`, `s + t` of strings to `s ++ t`).
+- **Is it the one edit that removes an error?** Then it is a fix: `write-raises` for `UndeclaredRaise` and `UntypedRaise`, `_` for an unused pattern variable once that is an error, the removal of an unused import (Checker 3), the removal of a handler that is `NeverRaised`, a qualified name for an `Ambiguous` use where only one candidate checks in its context, and the hints of Diagnostics 2 for the habits of other languages (`x := e` to `assign x := e`, `[1, 2]` to `List(1, 2)`, `s + t` of strings to `s ++ t`).
 - **Is it determined by the code, meaning-preserving, and better by a cost that every reader shares?** Then it is a canonicalization, for lint. To be applied without review it must also be terminating (the cost strictly decreases), confluent (the order of applying rules does not matter), and idempotent, as `format` is; the e-graph of `lint.md` gives the first two by construction, since extraction picks one cheapest representative per class.
 - **Is it only faster, and less clear to read?** Then it is an optimization and never edits the sources: fusion of comprehensions, which `ulang/compile/compile.u` already does by nested loops, unrolling, constant folding, a fold that `size(List(for …))` counts instead of building the list, sharing of repeated pure subexpressions, and the extraction by the cost of evaluation (`lint.md`, step 6 of its order). Rewriting the source for speed would undo the canonical form that lint establishes.
 
-So of the operations above, two are no operations of their own, but edits that `refactor fix` applies: `hoist-locals` is `LocalTooHigh` of `ulang/lint/lint.u` (the style rule fixes the place, so no choice is left), and `write-raises` is a fix. `expand-wildcard` stays a refactoring, which F4 reports and offers as its fix, since whether a `case _` should be expanded depends on whether the datatype grows, which the project declares (below).
+So of the operations above, two are no operations of their own, but edits that `refactor fix` applies: `hoist-locals` is `LocalTooHigh` of `ulang/lint/lint.u` (the style rule fixes the place, so no choice is left), and `write-raises` is a fix. `expand-wildcard` stays a refactoring, which a lint of a `case _` over a datatype that grows (Diagnostics 5) reports and offers as its fix, since whether a `case _` should be expanded depends on whether the datatype grows, which the project declares (below).
 
 ### Canonical forms missing from `lint.u` and `lint.md`
 
-Candidates beyond R1–R7, D1–D3, and S1–S3, each determined by the code and each a rewrite with a test before and after:
+Candidates beyond the rules of `ideas/lint.md` and Diagnostics 5, each determined by the code and each a rewrite with a test before and after:
 
 - **Booleans and conditionals**: `match c case true => a case false => b end` to `if c then a else b`; `if not c then a else b` to `if c then b else a`; `if c then skip else s end` to `if not c then s end`; `if a then b else false` to `a and b`, `if a then true else b` to `a or b`; `not exists(xs, p)` and `forall(xs, not p)` to one of them.
 - **Empty containers and identities**: `size(xs) == 0` to `xs == List()`, also of sets, maps, and strings; `xs ++ List()`, `List() ++ xs`, `s ++ ""`; `e with f := e.f`; `let x := e in x` to `e`.
 - **Lambdas**: `lambda x => f(x)` to `f` where `f` is one declaration, not an overload that the lambda's type resolves, which the comparison of resolutions decides; a `foldr` or `foldl` whose step only conses or adds to a set or a map to the comprehension.
-- **Maps**: `for (k, v) in List(for x in m)` to `for k => v in m`, the rule that `CLAUDE.md`, Style, states from a mistake (`field_table_decls`); `match get(k, m) case Some(v) => v case None => d end` to `value_or` (R2, on the branch); `if contains(k, m) then … get(k, m)` (D3).
-- **Statements**: a `try` whose only handler raises what it caught, unchanged, to its body; a local whose initial value every path overwrites before reading it, to a declaration without a value; `match` over a pair of one case to the `let` of R7.
-- **Names by the rules of style**: a pattern variable that binds a field under another name, where the field's name is free, to the field's name (Style: "patterns bind the names of the fields"); numbered names (S1) are reported but not renamed, since the new name is a choice, which `rename` then carries out.
+- **Maps**: `for (k, v) in List(for x in m)` to `for k => v in m`, the rule that `CLAUDE.md`, Style, states from a mistake (`field_table_decls`); `match get(k, m) case Some(v) => v case None => d end` to `value_or` (R2, on the branch); `if contains(k, m) then … get(k, m)` (Diagnostics 5).
+- **Statements**: a `try` whose only handler raises what it caught, unchanged, to its body; a local whose initial value every path overwrites before reading it, to a declaration without a value; `match` over a pair of one case to a `let`.
+- **Names by the rules of style**: a pattern variable that binds a field under another name, where the field's name is free, to the field's name (Style: "patterns bind the names of the fields"); numbered names (`NumberedName`) are reported but not renamed, since the new name is a choice, which `rename` then carries out.
 - **Order of declarations**: the definitions of `implementation` in the order of their signatures in `export`, which keeps diffs of the two sections parallel; only if the order is not used as documentation, so opt-in.
 
 ### Smells that are reported, not rewritten
@@ -276,7 +276,7 @@ Their fix is a choice of data structure or algorithm, so lint names the site and
 
 - `contains(x, xs)` of a list inside a loop or comprehension over another container, quadratic, where a `Set` would do;
 - `at(i, xs)` or `get` of an association list in a loop;
-- `assign s := s ++ t` of strings in a loop, where `join` of a `Buffer` would do, like R3 for lists;
+- `assign s := s ++ t` of strings in a loop, where `join` of a `Buffer` would do, like the appends to lists of Diagnostics 5;
 - `foldr` over a list that grows with the input, which recurses as deep as the list (the stack is unlimited, but the depth is still memory);
 - the same `get(k, m)` repeated in one body, which is a `let` or a `match` once.
 
@@ -291,10 +291,10 @@ Their fix is a choice of data structure or algorithm, so lint names the site and
   | apply, print by `format_program`, check again, compare the resolutions, write or diff | the package of `refactor` | one safety check for every source of edits, and the hard part, safety under overloading |
   | what to show | the driver | `lint` prints a warning with its edit, `refactor fix` carries it out, and a reply of a script lists the follow-ups it applied |
 
-  So a finding of lint and a fix carry their edits as values of that datatype, instead of the one expression of `Warning.replacement` now, and `refactor fix` takes them through the same preconditions, the re-check, the comparison of resolutions, and the replay under concurrent edits; lint never writes files by a path of its own, and has no `--apply`. The rules on `walks` without a replacement show which edits come first: `LocalTooHigh` moves a declaration into the branches that use it, `UnusedPrivate` deletes a command, `UnusedVariable` writes `_` or drops a local; their warnings that came with the merge of main at `0d44ab2` stay in the sources as the first cases: `LocalTooHigh` of `ts` and `t` in `ulang/check/check.u`, of `imported` in `ulang/parse/parse.u`, and of `typed` in `ulang/ulang.u`; `UnusedPrivate` of `starts_at` in `ulang/parse/lex.u` and of `ends_body_token` in `ulang/parse/parse.u`; and `UnusedVariable` of `imported` in `parse_mod`. The script that moved 84 locals by the warnings of `LocalTooHigh` on `walks`, by the text, shows the edit: the declaration leaves its `local` line and joins, or opens, the first `local` line of each branch that names it.
+  So a finding of lint and a fix carry their edits as values of that datatype, instead of the one expression of `Warning.replacement` now, and `refactor fix` takes them through the same preconditions, the re-check, the comparison of resolutions, and the replay under concurrent edits; lint never writes files by a path of its own, and has no `--apply`. The rules on `walks` without a replacement show which edits come first: `LocalTooHigh` moves a declaration into the branches that use it, `UnusedPrivate` deletes a command, `UnusedVariable` writes `_` or drops a local; their warnings that came with the merge of main at `0d44ab2` stay in the sources as the first cases: `LocalTooHigh` of `ts` and `t` in `ulang/check/check.u`, of `imported` in `ulang/parse/parse.u`, and of `typed` in `ulang/ulang.u`; `UnusedPrivate` of `starts_at` in `ulang/parse/lex.u` and of `ends_body_token` in `ulang/parse/parse.u`; and `UnusedVariable` of `imported` in `parse_mod`; since then also `UnusedVariable` of `u` in `variable` of `ulang/check/check.u` and of `more` in `declared_names` of `ulang/parse/parse.u`, and `LocalTooHigh` of `claim` in `parse_example` of `ulang/parse/parse.u`. The script that moved 84 locals by the warnings of `LocalTooHigh` on `walks`, by the text, shows the edit: the declaration leaves its `local` line and joins, or opens, the first `local` line of each branch that names it.
 - **One matcher.** The rewrites by pattern of operation 6 are the rules of lint written in ulang syntax: the library of canonical forms is a set of rules shipped with the tool, and a project adds its own for a migration, which is a lint rule that runs once.
-- **Project policy in `project.u`.** What the rules would hard-code, the datatypes that grow (`Cmd`, `Expr`, `Stmt` for F4, Diagnostics 5), which rules are on, and the threshold of R4, are fields of `Project` of `ulang/prelude/os.u`, as the directories that run only compiled already are.
-- **An enforced tier.** Rules that are terminating, confluent, and uncontroversial can be enforced as `format` is: `check` fails on a part that is not canonical, and `make reformat` applies them by `format` and `refactor fix --apply --rule …` of those rules, so agents never chase them as warnings. The rest stays opt-in, which answers open question 4 of `lint.md` per rule rather than for all.
+- **Project policy in `project.u`.** What the rules would hard-code, the datatypes that grow (`Cmd`, `Expr`, `Stmt` for the lint of `case _`, Diagnostics 5), which rules are on, and the threshold of R4, are fields of `Project` of `ulang/prelude/os.u`, as the directories that run only compiled already are.
+- **An enforced tier.** Rules that are terminating, confluent, and uncontroversial can be enforced as `format` is: `check` fails on a part that is not canonical, and `make reformat` applies them by `format` and `refactor fix --apply --rule …` of those rules, so agents never chase them as warnings. The rest stays opt-in, which answers open question 5 of `ideas/lint.md` per rule rather than for all.
 
 ## Output for agents
 

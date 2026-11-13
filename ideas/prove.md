@@ -1,6 +1,6 @@
 # Verification
 
-Lemmas about functions with proofs, and the prover in `ulang/prove/`, are implemented; contracts of functions and procedures and claims `correct p` that a procedure meets its contract are a design. This note has both: what holds now is marked as implemented, the rest is the plan. It merges the former `prover.md`, the plan of the prover's rebuild, into the design of verification.
+Lemmas about functions with proofs, the prover in `ulang/prove/`, contracts of procedures, and claims `correct p` that a procedure meets its contract, proven by invariants, are implemented; contracts of functions are a design. This note has both: what holds now is marked as implemented, the rest is the plan. It merges the former `prover.md`, the plan of the prover's rebuild, into the design of verification.
 
 ## Contents
 
@@ -21,18 +21,16 @@ Implemented, on `main`:
 
 - **Lemmas** `lemma l[A](in x: A, …, out y: B, …) := requires a, … ensures b` with the modes of a procedure in the head, where ins are universal and outs existential, `ref` is rejected, and a proof follows the contract directly (section 4); a lemma without a proof has the default proof. `CLemma` of `ulang/syntax/syntax.u`, `parse_lemma` and `parse_proof` of `ulang/parse/parse.u`, `check_proof` of `ulang/check/check.u`.
 - **The prover** (`ulang/prove/`): an e-graph with congruence closure (`egraph.u`), contextual simplification of nested sequents with theories, rules, and internal splits (`simp.u`), the equations of definitions (`equations.u`), termination proofs (`termination.u`), the checking of proofs (`proof.u`), the translation of checked programs (`translate.u`), and the default proof and the driver of lemmas (`lemma.u`).
-- **Commands**: `ulang.sh prove [<path>[:<lemma>] …]` prints `lemma l proved` or `lemma l open`, with an error of the kind `proof` per gap, a JSON line at the step with the goal as a detail (`gap_diagnostic`), and one per function whose termination is not proven (`termination_diagnostic`); a named lemma is proven after those before it, which are its facts, and those after it are skipped. `ulang.sh test` tests each lemma on enumerated values (`l.lemma`, of main's examples work) and then proves it. `make termination` reports the recursive functions of `ulang/` whose termination is not proven. The VS Code extension shows `▶ Prove` above lemmas and the errors of proofs as warnings at their steps; after a change of `vscode/`, `make install` again.
-- **Tests**: the lemmas that prove are in `ulang/prove/test/` (`arithmetic.u`, `lists.u`, `logic.u`, `naturals.u`, `trees.u`, `proofs.u`), those that stay open, by intent or as a guard of soundness, are cases of `ulang/test/errors/lemmas.u`, and the errors of proofs are cases of `ulang/test/errors/parse.u` and `types.u`.
+- **Commands**: `ulang.sh prove [<path>[:<lemma>] …]` prints `lemma l proved` or `lemma l open`, with an error of the kind `proof` per gap, a JSON line at the step with the goal as a detail (`gap_diagnostic`), and one per function whose termination is not proven (`termination_diagnostic`); a named lemma is proven after those before it, which are its facts, and those after it are skipped. `ulang.sh test` tests each lemma on enumerated values (`l.lemma`, which claims do not get) and then proves it. `make termination` reports the recursive functions of `ulang/` whose termination is not proven. The VS Code extension shows `▶ Prove` above lemmas and the errors of proofs as warnings at their steps; after a change of `vscode/`, `make install` again.
+- **Tests**: the lemmas that prove are in `ulang/prove/test/` (`arithmetic.u`, `lists.u`, `logic.u`, `naturals.u`, `trees.u`, `proofs.u`, `procedures.u`, and `contracts/`), those that stay open, by intent or as a guard of soundness, are cases of `ulang/test/errors/lemmas.u`, also the claims `claim_*` that stay open, and the errors of proofs and claims are cases of `ulang/test/errors/parse.u` and `types.u`.
+- **Contracts of procedures** `requires a, …` and `ensures b` after `:=`, on the signature in `export` of an exported procedure, and **claims** `lemma l(in x: A, …, out y: B, …) := correct p(in a, …, out y, …)`, whose proof is an `invariant e` per `while` of the body in the order of the source, each over the variables at its loop; none is the invariant `true`. The claim does not restate the contract, and invariants are not in the code (section 2). The translation runs the body symbolically into the proof terms of section 4 (`claim_of`, `run`, `run_loop` of `ulang/prove/translate.u`): assignments are definitions, `if` and `match` splits that carry the rest of the body, calls the calls of the contracts, which proofs of claims may call at any time, also recursively (section 3, point 3), `raise` the call of a contract `ensures false`, and loops the split `InvariantTerm`, checked by `invariant_gaps` of `ulang/prove/proof.u` (section 3, loops, point 1). Claims are no facts and no lemmas to call, since they hold only for runs that end. The simplifier is unchanged.
 
-On the branch `procedures` (worktree `.claude/worktrees/procedures`, plan `procedures.md` there), not yet on `main`:
+Not implemented:
 
-- **Contracts of procedures** `requires a, …` and `ensures b` after `:=`, on the signature in `export` of an exported procedure, and **claims** `lemma l(in x: A, …, out y: B, …) := correct p(in a, …, out y, …)`, whose proof is an `invariant e` per `while` of the body in the order of the source, each over the variables at its loop; none is the invariant `true`. The claim does not restate the contract, and invariants are not in the code (section 2). The translation runs the body symbolically into the proof terms of section 4 (`claim_of`, `run`, `run_loop` of `ulang/prove/translate.u`): assignments are definitions, `if` and `match` splits that carry the rest of the body, calls the calls of the contracts, which proofs of claims may call at any time, also recursively (section 3, point 3), `raise` the call of a contract `ensures false`, and loops the split `InvariantTerm`, checked by `invariant_gaps` of `ulang/prove/proof.u` (section 3, loops, point 1). Claims are no facts and no lemmas to call, since they hold only for runs that end. The simplifier is unchanged. Tests: `ulang/prove/test/procedures.u`, `ulang/prove/test/contracts/`, and the cases `claim_*` of `ulang/test/errors/`.
-- **Not yet**: `old(x)` of refs and claims of procedures with refs (open point 10); `for`, `try`, and `assert raises` in bodies, which are gaps `Unsupported`; loop contracts (section 3, loops, point 2); other steps than invariants in proofs of claims, and the points `at …` of the code (open point 1); definedness (section 3, point 6); claims of procedures of other packages; tests of claims by running the procedure, which may raise or not end.
-- **Found on the way**, in the prover of `main`: `lemma via_direct(in n: Int, k: Int, out t: Int) := requires 2 * k == n * (n - 1) ensures 2 * t == n * (n - 1)` with the proof `local s: Int`, `call half(in n, k, out s)`, `assign t := s`, where `half` gives `2 * s == n * (n - 1)`, stays open at `… and (2 * t) == (2 * k) ==> (2 * t) == (2 * k)`, while `n * n` in place of `n * (n - 1)` proves; and printed goals fold a literal into the name of every definition of that value, so that after `local i := 0` and `assign s := 0` every 0 prints as `i` or `s` (`named_definitions` of `ulang/prove/simp.u`), which makes the goals of claims hard to read.
+- **Of claims**: `old(x)` of refs and claims of procedures with refs (open point 10); `for`, `try`, and `assert raises` in bodies, which are gaps `Unsupported`; loop contracts (section 3, loops, point 2); other steps than invariants in proofs of claims, and the points `at …` of the code (open point 1); definedness (section 3, point 6); claims of procedures of other packages; tests of claims by running the procedure, which may raise or not end; the gaps that the prover leaves in claims, `via_direct` and the printing of goals, are Verification 5 and 8 of `ideas/verification.md`.
+- **Otherwise**: contracts of functions, quantifiers in statements, exported lemmas, and the proof forms of version 2.
 
-Not implemented: contracts of functions, quantifiers in statements, exported lemmas, and the proof forms of version 2.
-
-## 2. Specifications (design)
+## 2. Specifications (implemented for procedures, a design for the rest)
 
 - **Contracts follow `:=`**, before the body. Functions have only `requires`, which states their domain, and facts about their results are lemmas. Procedures have `requires` and `ensures`, one contract each for now, where `ensures` sees the outs and refs, and `old(x)` is the initial value of a ref (ins cannot be assigned):
 
@@ -47,18 +45,18 @@ Not implemented: contracts of functions, quantifiers in statements, exported lem
     local i := 0
 
     assign s := 0
-    while i < n
+    while i < n do
       assign s := s + i, i := i + 1
     end
   ```
 
 - **Quantifiers** are written like lambdas, `forall x: T => e` and `exists x, y => e`, where the types may be omitted and are inferred, and only occur in specifications and lemmas; the functions `exists` and `forall` of the containers share the names (open point 15).
-- **Lemmas** are implemented (section 4) with ins and outs as modes. The claim `correct p(in a, out b)` with the arguments of a call is the design for procedures: a lemma whose statement is that the call meets the contract of `p`.
+- **Lemmas** are implemented (section 4) with ins and outs as modes. The claim `correct p(in a, out b)` with the arguments of a call is implemented for procedures: a lemma whose statement is that the call meets the contract of `p`.
 - **Outs of lemmas** are implemented: a lemma with outs states that for all ins that satisfy the `requires` there are outs that satisfy the `ensures`; its proof gives them by `assign`, and a proof that uses it binds them to witnesses by the outs of a `call`. In a claim `correct p(…)` the outs of the lemma are those of the call, which the run determines, not the proof: under partial correctness the claim holds for the outs of every run that ends normally, and under total correctness this is exactly the existential, since a run exists and gives them.
 - **Scopes are explicit.** A proof sees only names that it or its lemma binds: the formals of the lemma, which name every argument of the call in the claim, and at a point `at …` of the body its locals in scope there, which the quoted code names. The names of the lemma may differ from the formals of the procedure, whose contract is renamed to them.
 - **No invariants in the code.** Loops are specified in the proofs of the procedures, see below.
 
-## 3. Meaning, obligations, loops, and points of the code (design)
+## 3. Meaning, obligations, loops, and points of the code (in part implemented)
 
 **Meaning.**
 
@@ -197,9 +195,9 @@ In the order I would take them, each with the problem, the solution, and where.
 2. **Termination of the rest of `ulang/`.** *Problem*: 82 functions are open in `make termination`, mostly passed as values or called under lambdas of other functions, recursion on filtered lists, and recursion on results of functions. *Solution*: calls through functions passed as values, by their uses; lemmas of sizes (`size` of a filter, of `take`) as facts of the obligations; case splits in obligations on results such as `shape(t)`; and `decreases` for the rest (Checker 2 of `ideas/checker.md`), until `make termination` can become a check of `make test`.
 3. **The Omega test** (D7). *Problem*: Fourier–Motzkin misses `27 <= 11x + 13y <= 45, -10 <= 7x - 9y <= 4`. *Solution*: the dark and grey shadows of Pugh, or branch and bound on the rational solution. *Where*: `is_unsat` of `ulang/prove/simp.u`.
 4. **Arithmetic over classes** (B3). *Problem*: the inequalities are terms, simplified again after each union. *Solution*: sums and inequalities over class ids, entailed equalities fed back to the e-graph. *Where*: `simp.u`, `egraph.u`.
-5. **Exhausted limits in reports.** *Problem*: a goal open for lack of budget looks like one open for lack of facts. *Solution*: the limits record which was reached, and the gap says so.
+5. **Exhausted limits in reports**: Verification 7 of `ideas/verification.md`.
 6. **Version 2 of the proof language**, deferred (section 4).
-7. **Contracts, `correct p`, and exported lemmas** (sections 2, 3; Verification 1 of `ideas/verification.md`): after version 2, with abstract types uninterpreted for lemmas of other modules.
+7. **Contracts of functions and exported lemmas** (section 2; Verification 1 of `ideas/verification.md`): with abstract types uninterpreted for lemmas of other modules.
 
 ## 9. Proposals
 
@@ -209,12 +207,12 @@ In the order I would take them, each with the problem, the solution, and where.
 
 ## 10. Open points
 
-1. **Proofs of programs**: the steps inside the points `at …` of loops and calls, and which of the ways to refer to points of the code.
+1. **Proofs of programs**: proofs of claims are invariants by the order of the source; open are the steps inside the points `at …` of loops and calls (Verification 3 of `ideas/verification.md`), and which of the ways to refer to points of the code.
 2. **Arithmetic**: settled for now, Fourier–Motzkin with tightening, with the Omega test as a next step (section 8, step 3).
 3. **Orientation**: rewrite rules only from left to right, or also `using <- l`; settled for equations that do not orient, which saturation uses in both directions.
 4. **More induction**: settled for integers; computation induction `induction f(xs, ys)`, whose cases follow the `match` of `f`, is open.
 5. **`calc` chains** for equational proofs, which cuts cover for now.
-6. **Names**: settled, the keyword `induction` and the statements as steps.
+6. **Names**: settled, the keywords `induction`, `correct`, and `invariant`, and the statements as steps.
 7. **Partial instantiation** `h(a, _)`, with version 2.
 8. **Facts kept from simplification**, used only when cited.
 9. **Unfolding functions that are not recursive** always may break abstractions, e.g. `max`; open goals keep their calls where the body stays undecided (section 5), and printing folds the rest back.

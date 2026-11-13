@@ -17,6 +17,7 @@ The areas are in the order of their value for the agents that write ulang, which
 - `ideas/verification.md`
 - `ideas/later.md`
 - `ideas/rejected.md`: what was rejected or decided, with the reasons
+- `ideas/examples.md`: programs that would show ulang on tasks of real software, in `examples/`
 - `ideas/properties.md`: the properties that make code cheap to check, and the items of the other files that give them
 
 Plans of work in progress, each deleted when its work is done:
