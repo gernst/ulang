@@ -1,0 +1,86 @@
+// helpers on lines and characters for the parsers, and the escaping of HTML
+
+export
+
+function is_blank(s: Str): Bool
+
+// the number of spaces before the first other character
+function indent_of(s: Str): Int
+
+// s without up to n spaces at its start
+function dedent(n: Int, s: Str): Str
+
+function trim(s: Str): Str
+
+function trim_end(s: Str): Str
+
+// the longest prefix of xs whose elements satisfy p, and the rest
+function span[A](xs: List[A], p: A -> Bool): List[A] * List[A]
+
+// the characters of s escaped for the text and attributes of HTML
+function escape_html(s: Str): Str
+
+// the first non-blank line of the lines, if any
+function next_nonblank(lines: List[Str]): Option[Str]
+
+function is_punctuation(c: Char): Bool
+
+implementation
+
+function is_blank(s: Str): Bool :=
+  forall(chars(s), is_space)
+
+function indent_of(s: Str): Int :=
+  let (spaces, _) := span(chars(s), lambda c => c == ' ') in
+  size(spaces)
+
+function dedent(n: Int, s: Str): Str :=
+  let k := if indent_of(s) < n then indent_of(s) else n in
+  slice(s, k, size(s))
+
+function trim(s: Str): Str :=
+  trim_end(slice(s, indent_of(s), size(s)))
+
+function trim_end(s: Str): Str :=
+  let (_, kept) := span(reverse(chars(s)), is_space) in
+  str(reverse(kept))
+
+function span[A](xs: List[A], p: A -> Bool): List[A] * List[A] :=
+  match xs
+    case List(x; rest) =>
+      if p(x) then
+        let (taken, left) := span(rest, p) in
+        (List(x; taken), left)
+      else
+        (List(), xs)
+
+    case List() =>
+      (List(), List())
+  end
+
+function escape_html(s: Str): Str :=
+  join("", List(for c in chars(s) yield escape_char(c)))
+
+function escape_char(c: Char): Str :=
+  if c == '&' then
+    "&amp;"
+  else if c == '<' then
+    "&lt;"
+  else if c == '>' then
+    "&gt;"
+  else if c == '"' then
+    "&quot;"
+  else
+    str(List(c))
+
+function next_nonblank(lines: List[Str]): Option[Str] :=
+  find(lines, lambda l => not is_blank(l))
+
+function is_punctuation(c: Char): Bool :=
+  contains(c, chars("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"))
+
+test helpers() :=
+  assert indent_of("   x ") == 3 and dedent(2, "   x") == " x" and dedent(5, "  x") == "x"
+  assert trim("  a b  ") == "a b" and trim_end("ab \t") == "ab" and is_blank(" \t") and not is_blank(" a")
+  assert span(List(1, 2, 3, 1), lambda n => n < 3) == (List(1, 2), List(3, 1))
+  assert escape_html("<a href=\"x\">&</a>") == "&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;"

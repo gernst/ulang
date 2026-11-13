@@ -1,0 +1,116 @@
+// HTML of Markdown, in the layout of the reference implementations, one block per line
+
+export
+
+function to_html(text: Str): Str
+
+// the plain text of the first heading, if any, as the title of a page
+function title_of(text: Str): Option[Str]
+
+implementation
+
+function to_html(text: Str): Str :=
+  render_blocks(parse_blocks(text))
+
+function title_of(text: Str): Option[Str] :=
+  find_map(parse_blocks(text), lambda b => match b
+    case Heading(_, t) =>
+      Some(plain_text(parse_inlines(t)))
+    case _ =>
+      None
+  end)
+
+function render_blocks(bs: List[Block]): Str :=
+  join("", List(for b in bs yield render_block(b)))
+
+function render_block(b: Block): Str :=
+  match b
+    case Heading(n, t) =>
+      "<h" ++ show(n) ++ ">" ++ inline(t) ++ "</h" ++ show(n) ++ ">\n"
+
+    case Paragraph(t) =>
+      "<p>" ++ inline(t) ++ "</p>\n"
+
+    case CodeBlock(info, t) =>
+      "<pre><code" ++ language(info) ++ ">" ++ escape_html(t) ++ "</code></pre>\n"
+
+    case Quote(body) =>
+      "<blockquote>\n" ++ render_blocks(body) ++ "</blockquote>\n"
+
+    case Bullets(tight, items) =>
+      "<ul>\n" ++ render_items(items, tight) ++ "</ul>\n"
+
+    case Numbered(start, tight, items) =>
+      "<ol" ++ (if start != 1 then " start=\"" ++ show(start) ++ "\"" else "") ++ ">\n" ++ render_items(items, tight) ++ "</ol>\n"
+
+    case Rule =>
+      "<hr />\n"
+
+    case Table(aligns, header, rows) =>
+      "<table>\n<thead>\n" ++ row("th", aligns, header) ++ "</thead>\n" ++ (if rows == List() then
+        ""
+      else
+        "<tbody>\n" ++ join("", List(for r in rows yield row("td", aligns, r))) ++ "</tbody>\n") ++ "</table>\n"
+  end
+
+function inline(t: Str): Str :=
+  render_inlines(parse_inlines(t))
+
+// the class of the first word of the info string of a fence
+function language(info: Str): Str :=
+  match split(info, ' ')
+    case List(word; _) =>
+      if word == "" then
+        ""
+      else
+        " class=\"language-" ++ escape_html(word) ++ "\""
+
+    case List() =>
+      ""
+  end
+
+function render_items(items: List[List[Block]], tight: Bool): Str :=
+  join("", List(for it in items yield "<li>" ++ render_item(it, tight, "") ++ "</li>\n"))
+
+// the blocks of an item, where a tight item shows its paragraphs without <p>, and other blocks start on a line of their
+// own
+function render_item(bs: List[Block], tight: Bool, done: Str): Str :=
+  match bs
+    case List() =>
+      done
+
+    case List(Paragraph(t); rest) =>
+      if tight then
+        render_item(rest, tight, done ++ inline(t))
+      else
+        render_item(rest, tight, newline(done) ++ render_block(Paragraph(t)))
+
+    case List(b; rest) =>
+      render_item(rest, tight, newline(done) ++ render_block(b))
+  end
+
+function newline(done: Str): Str :=
+  if ends_with(done, "\n") then done else done ++ "\n"
+
+function row(tag: Str, aligns: List[Align], cs: List[Str]): Str :=
+  "<tr>\n" ++ join("", List(for (a, c) in zip(aligns, cs) yield "<" ++ tag ++ style(a) ++ ">" ++ inline(c) ++ "</" ++ tag ++ ">\n")) ++ "</tr>\n"
+
+function style(a: Align): Str :=
+  match a
+    case AlignNone =>
+      ""
+
+    case AlignLeft =>
+      " style=\"text-align:left\""
+
+    case AlignCenter =>
+      " style=\"text-align:center\""
+
+    case AlignRight =>
+      " style=\"text-align:right\""
+  end
+
+test items() :=
+  assert to_html("- a\n  - b\n- c") == "<ul>\n<li>a\n<ul>\n<li>b</li>\n</ul>\n</li>\n<li>c</li>\n</ul>\n"
+  assert to_html("1. a\n\n   b") == "<ol>\n<li>\n<p>a</p>\n<p>b</p>\n</li>\n</ol>\n"
+  assert title_of("text\n\n## The *title*") == Some("The title")
