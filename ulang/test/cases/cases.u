@@ -1,8 +1,8 @@
 // the phases of ulang over cases, source texts given by their lines, for the tests of errors in ulang/test/errors/, which
 // assert by assert raises the exception of the phase where a case fails: parse_file_text and parse_texts raise ParseError,
-// check_program Located, require_formatted Unformatted, run_program the RuntimeError of a test, and prove_program
+// check_tested Located, require_formatted Unformatted, run_program the RuntimeError of a test, and prove_program
 // OpenTermination or OpenLemma; a case sits at a path from the working directory, the root, where the tests run, so that it imports the
-// packages of the project as files
+// packages of the project as files; each case is loaded as test loads a file, with the tests of its lemmas
 
 import "ulang/syntax"
 import "ulang/parse"
@@ -10,6 +10,7 @@ import "ulang/check"
 import "ulang/format"
 import "ulang/run"
 import "ulang/prove"
+import "ulang/test"
 
 export
 
@@ -97,6 +98,26 @@ implementation
 function module_in(dir: Str, name: Str): Id :=
   dir ++ "/" ++ slice(name, 0, size(name) - 2)
 
+// the source of the case as the file at path, with the enumeration that the tests of its lemmas call
+procedure parse_case(
+  in  path: Str,
+      text: Str,
+  out source: Source
+) raises ParseError, OsError :=
+  call parse_file_text(in path, text, out source)
+  call load_tester(ref source)
+
+// check_program with the tests of the lemmas
+procedure check_tested(
+  in  source: Source,
+  out q: Prog
+) raises TypeError, InternalError :=
+  local errors: List[TypeError]
+  call check_all(in source, lemma_tests, out q, errors)
+  for e in take(1, errors) do
+    raise e
+  end
+
 function text_of(lines: List[Str]): Str :=
   join("\n", lines) ++ "\n"
 
@@ -107,9 +128,9 @@ procedure load_text(
       q: Prog
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
   local source: Source
-  call   parse_file_text(in path, text_of(lines), out source)
+  call   parse_case(in path, text_of(lines), out source)
   call   require_parsed(in source)
-  call   check_program(in source, out q)
+  call   check_tested(in source, out q)
   call   require_formatted(in source, source.main, text_of(lines))
   assign main := source.main
 
@@ -126,9 +147,9 @@ procedure check_text_all(
   out errors: List[TypeError]
 ) raises ParseError, OsError, InternalError :=
   local source: Source, q: Prog
-  call parse_file_text(in path, text_of(lines), out source)
+  call parse_case(in path, text_of(lines), out source)
   call require_parsed(in source)
-  call check_all(in source, out q, errors)
+  call check_all(in source, lemma_tests, out q, errors)
 
 procedure check_text_partial(
   in  path: Str,
@@ -137,8 +158,8 @@ procedure check_text_partial(
       errors: List[TypeError]
 ) raises ParseError, OsError, InternalError :=
   local source: Source, q: Prog
-  call   parse_file_text(in path, text_of(lines), out source)
-  call   check_partial(in without_unparsed(source), unparsed_names(source), out q, errors)
+  call   parse_case(in path, text_of(lines), out source)
+  call   check_partial(in without_unparsed(source), unparsed_names(source), lemma_tests, out q, errors)
   assign parsing := parse_errors(source)
 
 procedure checked_text(
@@ -147,9 +168,9 @@ procedure checked_text(
   out q: Prog
 ) raises ParseError, OsError, InternalError :=
   local source: Source, errors: List[TypeError]
-  call parse_file_text(in path, text_of(lines), out source)
+  call parse_case(in path, text_of(lines), out source)
   call require_parsed(in source)
-  call check_all(in source, out q, errors)
+  call check_all(in source, lemma_tests, out q, errors)
 
 procedure run_text(
   in  path: Str,
@@ -189,7 +210,8 @@ procedure load_texts(
       local source: Source
       call parse_texts(in root, dir, List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), out source)
       call require_parsed(in source)
-      call check_program(in source, out q)
+      call load_tester(ref source)
+      call check_tested(in source, out q)
       call require_formatted(in source, source.main, text_of(lines))
   end
 

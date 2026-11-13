@@ -1,0 +1,147 @@
+// the running of tests: the tests of a module, each on its own in the interpreter of ulang/run/run.u, then the proofs of
+// its lemmas by ulang/prove/lemma.u, and the enumeration that the tests of lemmas of ulang/test/generate.u call, which
+// load_tester loads into the program under test
+
+import "ulang/syntax"
+import "ulang/parse"
+import "ulang/check"
+import "ulang/run"
+import "ulang/prove"
+
+export
+
+// loads the enumeration of ulang/test/enumerate/enumerate.u into source, as the module enumerate_module, after the
+// library, read through os_library from the directory next to the library, so that no second path is compiled in
+procedure load_tester(ref source: Source) raises ParseError, OsError
+
+// runs the tests of the module m of q, all or the named ones, each on its own, also after a failed one, and then its lemmas
+// if all are run, printing a line per test and lemma after label, where passed tells whether all pass and are proven
+procedure test_module(
+  in  q: Prog,
+      m: Id,
+      file: Str,
+      names: List[Str],
+      args: List[Str],
+      label: Str,
+  out passed: Bool
+) raises Thrown
+
+// proves the lemmas of the module m of q, of the file, all or the named ones, in their order, where those before are
+// facts, printing whether each is proven, with an error of a proof for each gap and for each function that they reach
+// whose termination is not proven, and whether all are proven
+procedure prove_module(
+  in  q: Prog,
+      m: Id,
+      file: Str,
+      names: List[Str],
+      label: Str,
+  out proven: Bool
+)
+
+implementation
+
+procedure load_tester(ref source: Source) raises ParseError, OsError :=
+  local text: Str
+  call os_library(in "../test/enumerate/enumerate", out text)
+  call load_after_library(in module_dir(enumerate_module()), List((enumerate_module(), text)), ref source)
+
+procedure test_module(
+  in  q: Prog,
+      m: Id,
+      file: Str,
+      names: List[Str],
+      args: List[Str],
+      label: Str,
+  out passed: Bool
+) raises Thrown :=
+  local run := (load(q) with args := args), tests: List[Cmd], message: Str
+  assign tests := List(for c in definitions(q) if is_selected_test(c, m, names)), passed := true
+  for n in names if not exists(tests, lambda c => cmd_name(c) == n) do
+    call   os_println(in label ++ error_text(RuntimeKind, "there is no test " ++ n))
+    assign passed := false
+  end
+  for c in tests do
+    call test_message(in run, c, out message)
+    if message == "" then
+      call os_println(in label ++ "test " ++ cmd_name(c) ++ " passed")
+    else
+      call   os_println(in label ++ "test " ++ cmd_name(c) ++ " failed: " ++ message)
+      assign passed := false
+    end
+  end
+  if names == List() and not has_errors(q) then
+    local proven: Bool
+    call   prove_module(in q, m, file, List(), label, out proven)
+    assign passed := passed and proven
+  end
+
+// the error of the test cmd, or else ""
+procedure test_message(in run: Run, cmd: Cmd, out message: Str) :=
+  local cache: Map[Name, Val] := empty()
+  assign message := ""
+  try
+    call run_cmd(in run, cmd, ref cache)
+  catch
+    case e =>
+      assign message := error_text(RuntimeKind, runtime_message(e))
+    case e =>
+      assign message := error_text(InternalKind, internal_message(e))
+  end
+
+// the lemmas up to the last of the named ones, all if none are named, since those before are the facts of the named ones,
+// while those after are not needed
+function lemmas_upto(lemmas: List[Lemma], names: List[Str]): List[Lemma] :=
+  if names == List() then
+    lemmas
+  else
+    match index_of(true, reverse(List(for l in lemmas yield contains(l.name.base, names))))
+      case Some(i) =>
+        take(size(lemmas) - i, lemmas)
+      case None =>
+        lemmas
+    end
+
+procedure prove_module(
+  in  q: Prog,
+      m: Id,
+      file: Str,
+      names: List[Str],
+      label: Str,
+  out proven: Bool
+) :=
+  local t := translate(q, m), proofs := prove_lemmas(t.decls, t.contracts, lemmas_upto(t.lemmas, names)), ds: List[Diagnostic] := proof_diagnostics(with_proofs(q, m, proofs, names), m)
+  assign proven := ds == List()
+  for n in names if not exists(t.lemmas, lambda l => l.name.base == n) do
+    call   os_println(in label ++ error_text(RuntimeKind, "there is no lemma " ++ n))
+    assign proven := false
+  end
+  for d in ds if d.code == "OpenTermination" do
+    call os_println(in format_diagnostic(file, d))
+  end
+  for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) do
+    if gaps == List() then
+      call os_println(in label ++ "lemma " ++ name.base ++ " proved")
+    else
+      call os_println(in label ++ "lemma " ++ name.base ++ " open")
+      for d in ds if d.code != "OpenTermination" and get("lemma", d.details) == Some(name.base) do
+        call os_println(in format_diagnostic(file, d))
+      end
+    end
+  end
+
+// whether cmd is a test of the module m that names selects, all of them for List()
+function is_selected_test(cmd: Cmd, m: Id, names: List[Str]): Bool :=
+  match cmd
+    case CTest(name, _, _) =>
+      name.module == Some(m) and (names == List() or contains(name.base, names))
+    case _ =>
+      false
+  end
+
+function cmd_name(cmd: Cmd): Str :=
+  match cmd
+    case CTest(name, _, _) =>
+      name.base
+    case _ =>
+      ""
+  end

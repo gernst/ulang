@@ -1,0 +1,260 @@
+// the tests that the tester generates of the lemmas of a package, over the values of the enumeration of
+// ulang/test/enumerate/enumerate.u, which the tester loads as enumerate_module into the programs under test, as source with
+// qualified names, which the checker checks after the definitions of the package (check_all of ulang/check/check.u)
+
+import "ulang/syntax"
+import "ulang/check"
+
+export
+
+// the module of the enumeration in a program under test, whose name no path gives, so that no module sees it and the
+// generated tests name its declarations by qualified names
+function enumerate_module(): Id
+
+// the tests l.lemma of the lemmas l of the package whose formals have enumerable types, each on the values up to a depth
+// of the enumeration, with the functions (enum)T of the datatypes T that they reach, one per module, placed at the first
+// lemma that reaches it; type parameters stand for Int
+function lemma_tests(c: Checked): List[Pos * (Id * Cmd)]
+
+implementation
+
+function enumerate_module(): Id :=
+  "(test)/enumerate"
+
+// the test of a lemma at pos in the module m, with the datatypes whose functions (enum)T it calls
+data LemmaTest :=
+  case LemmaTest(pos: Pos, module: Id, cmd: Cmd, needed: List[Name])
+
+function lemma_tests(c: Checked): List[Pos * (Id * Cmd)] :=
+  let found := List(for (pos, (m, cmd)) in c.placed for t in lemma_test(c, pos, m, cmd) yield t) in
+  List(for (pos, (m, n)) in first_uses(List(for t in found for n in t.needed yield (t.pos, (t.module, n))), Set()) yield (pos, (m, enum_fun(c, m, n)))) ++ List(for t in found yield (t.pos, (t.module, t.cmd)))
+
+// the test of cmd at pos in the module m, if it is a lemma whose formals have enumerable types
+function lemma_test(c: Checked, pos: Pos, m: Id, cmd: Cmd): List[LemmaTest] :=
+  match cmd
+    case CLemma(name, _, formals, List(), ClaimHolds(assms, concl), _) =>
+      match lemma_of(c.sig, name)
+        case Some(lemma_sig) =>
+          match (all_some(List(for typ in lemma_sig.formals yield enum_expr(c, m, lambda _ => enum_call("ints", List()), typ))), datatypes_needed(c, m, List(for typ in lemma_sig.formals for n in datatypes_in(typ) yield n), List()))
+            case (Some(enums), Some(needed)) =>
+              List(
+                LemmaTest(pos, m, CTest(Name(Some(m), name.base ++ ".lemma"), List(), lemma_stmt(zip(vars(formals), enums), assms, concl)), needed))
+
+            case _ =>
+              List()
+          end
+
+        case None =>
+          List()
+      end
+
+    case _ =>
+      List()
+  end
+
+// the uses of datatypes by modules, each pair of a module and a datatype once, at its first use, where seen are those
+// before
+function first_uses(uses: List[Pos * (Id * Name)], seen: Set[Id * Name]): List[Pos * (Id * Name)] :=
+  match uses
+    case List() =>
+      List()
+
+    case List((pos, key); rest) =>
+      if contains(key, seen) then
+        first_uses(rest, seen)
+      else
+        List((pos, key); first_uses(rest, Set(key; seen)))
+  end
+
+function all_some[A](os: List[Option[A]]): Option[List[A]] :=
+  match os
+    case List() =>
+      Some(List())
+
+    case List(Some(x); rest) =>
+      map_option(all_some(rest), lambda xs => List(x; xs))
+
+    case List(None; _) =>
+      None
+  end
+
+function enum_name(base: Id): Name :=
+  Name(Some(enumerate_module()), base)
+
+function enum_call(base: Id, args: List[At[Expr]]): At[Expr] :=
+  generated_call(enum_name(base), args)
+
+// the sorts that enum_expr enumerates itself, each with the function of the enumeration that enumerates it
+function enumerated_sorts(): List[Name * Id] :=
+  List(
+    (library_name("prelude", "Int"), "ints"),
+    (library_name("prelude", "Bool"), "bools"),
+    (library_name("prelude", "Char"), "chars"),
+    (library_name("prelude", "Str"), "strs"),
+    (library_name("list", "List"), "lists"),
+    (library_name("set", "Set"), "sets"),
+    (library_name("map", "Map"), "maps"),
+    (library_name("array", "Array"), "arrays"))
+
+// the enumeration of the values of typ, where param gives those of the type parameters, and a datatype the function
+// (enum)T of its module, if datatypes_needed finds it enumerable
+function enum_expr(c: Checked, m: Id, param: Id -> At[Expr], typ: Type): Option[At[Expr]] :=
+  match typ
+    case TParam(p) =>
+      Some(param(p))
+
+    case TSort(name, args) =>
+      match (all_some(List(for a in args yield enum_expr(c, m, param, a))), get(name, enumerated_sorts()))
+        case (Some(es), Some(base)) =>
+          Some(enum_call(base, es))
+
+        case (Some(es), None) =>
+          if is_enumerable_data(c, m, name) then
+            Some(generated_call(enum_fun_name(m, name), es))
+          else
+            None
+
+        case (None, _) =>
+          None
+      end
+
+    case TTuple(types) if size(types) >= 2 =>
+      map_option(all_some(List(for t in types yield enum_expr(c, m, param, t))), tuple_enum)
+
+    case _ =>
+      None
+  end
+
+function enum_fun_name(m: Id, sort: Name): Name :=
+  Name(Some(m), "(enum)" ++ value_or(sort.module, "") ++ "." ++ sort.base)
+
+// a datatype with constructors that the module sees, which is not abstract
+function is_enumerable_data(c: Checked, m: Id, name: Name): Bool :=
+  match members_of(c.sig, name)
+    case Some(List(k; ks)) =>
+      not contains(name, c.abstract) and forall(List(k; ks), lambda constr => is_seen(c, m, constr) and constr_of(c.sig, constr) != None)
+    case _ =>
+      false
+  end
+
+// the datatypes that typ names, but those that enum_expr enumerates itself
+function datatypes_in(typ: Type): List[Name] :=
+  match typ
+    case TSort(name, args) =>
+      (if get(name, enumerated_sorts()) != None then List() else List(name)) ++ List(for a in args for n in datatypes_in(a) yield n)
+
+    case TTuple(types) =>
+      List(for t in types for n in datatypes_in(t) yield n)
+
+    case TFun(args, res) =>
+      List(for t in args for n in datatypes_in(t) yield n) ++ datatypes_in(res)
+
+    case _ =>
+      List()
+  end
+
+// the datatypes of todo and those that their fields name, if each is enumerable, with done the ones found so far
+function datatypes_needed(c: Checked, m: Id, todo: List[Name], done: List[Name]): Option[List[Name]] :=
+  match todo
+    case List() =>
+      Some(done)
+
+    case List(n; rest) =>
+      if contains(n, done) then
+        datatypes_needed(c, m, rest, done)
+      else
+        let fields := List(for constr in value_or(members_of(c.sig, n), List()) for k in constr_of(c.sig, constr) for t in k.fields yield t) in
+        if is_enumerable_data(c, m, n) and forall(fields, lambda t => enum_expr(c, m, lambda p => generated_var(generated_name(p)), t) != None) then
+          datatypes_needed(c, m, rest ++ List(for t in fields for d in datatypes_in(t) yield d), List(n; done))
+        else
+          None
+  end
+
+function enum_type(typ: Type): Type :=
+  TSort(enum_name("Enumeration"), List(typ))
+
+function product_expr(factors: List[At[Expr]]): At[Expr] :=
+  foldl(factors, nowhere(ELit(LInt(1))), lambda p, c => generated_op("*", List(p, c)))
+
+// the enumeration of the tuples of the enumerations es
+function tuple_enum(es: List[At[Expr]]): At[Expr] :=
+  let d := generated_name("depth"), ys := List(for i in range(1, size(es) + 1) yield generated_name("y" ++ show(i))) in
+  enum_call("Enumeration", List(
+    generated_lambda(d, product_expr(List(for e in es yield enum_call("count_of", List(e, generated_var(d)))))),
+    generated_lambda(d, nowhere(EFor(FList, List(for (y, e) in zip(ys, es) yield GVal(nowhere(PName(y, THole)), enum_call("values_of", List(e, generated_var(d))))), YVal(nowhere(ETuple(List(for y in ys yield generated_var(y))))), None)))))
+
+// the function (enum)T of the datatype n, whose formals enumerate its type parameters, which counts and builds the values
+// of each depth from those of the fields one less deep
+function enum_fun(c: Checked, m: Id, n: Name): Cmd :=
+  let constrs := List(for constr in value_or(members_of(c.sig, n), List()) for k in constr_of(c.sig, constr) yield (constr, k)) in
+  let params := List(for (_, k) in take(1, constrs) for t in k.params yield param_id(t)), d := generated_name("depth") in
+  let field_enum := (lambda t => value_or(enum_expr(c, m, lambda p => generated_var(generated_name(p)), t), nowhere(ELit(LInt(0))))), below := generated_op("-", List(generated_var(d), nowhere(ELit(LInt(1))))) in
+  let nullary := List(for (constr, k) in constrs if k.fields == List() yield generated_var(constr)), applied := List(for (constr, k) in constrs if k.fields != List() yield (constr, k.fields)), at_zero := generated_op("==", List(generated_var(d), nowhere(ELit(LInt(0))))) in
+  let counts := List(for (_, fields) in applied yield product_expr(List(for t in fields yield enum_call("count_of", List(field_enum(t), below))))), values := List(for (constr, fields) in applied yield constr_values(constr, List(for t in fields yield field_enum(t)), below)) in
+  CFun(enum_fun_name(m, n), params, unplaced_vars(List(for p in params yield Var(generated_name(p), enum_type(TParam(p))))), enum_type(TSort(n, List(for p in params yield TParam(p)))), no_spec(), enum_call("Enumeration", List(
+    generated_lambda(d, nowhere(EIte(at_zero, nowhere(ELit(LInt(size(nullary)))), foldl(counts, nowhere(ELit(LInt(size(nullary)))), lambda a, b => generated_op("+", List(a, b)))))),
+    generated_lambda(d, nowhere(EIte(at_zero, generated_list(nullary), foldl(values, generated_list(nullary), lambda a, b => generated_op("++", List(a, b)))))))))
+
+function param_id(t: Type): Id :=
+  match t
+    case TParam(p) =>
+      p
+    case _ =>
+      ""
+  end
+
+// the values of constructor c over the values of its fields, of the enumerations es, at the depth below
+function constr_values(c: Name, es: List[At[Expr]], below: At[Expr]): At[Expr] :=
+  let vs := List(for i in range(1, size(es) + 1) yield generated_name("v" ++ show(i))), fs := List(for i in range(1, size(es) + 1) yield generated_name("f" ++ show(i))) in
+  nowhere(ELet(List(for (v, e) in zip(vs, es) yield (nowhere(PName(v, THole)), enum_call("values_of", List(e, below)))), nowhere(EFor(FList, List(for (f, v) in zip(fs, vs) yield GVal(nowhere(PName(f, THole)), generated_var(v))), YVal(generated_call(c, List(for f in fs yield generated_var(f)))), None))))
+
+// the body of the test of a lemma with the formals and their enumerations, which runs the cases of the formals up to the
+// depth that depth_of chooses, in nested loops, the first formal outermost, and raises Falsified at the first case that
+// satisfies the assumptions assms but not concl, and Vacuous if no case satisfies them
+function lemma_stmt(formals: List[Var * At[Expr]], assms: List[At[Expr]], concl: At[Expr]): At[Stmt] :=
+  let es := List(for i in range(1, size(formals) + 1) yield Var(generated_name("e" ++ show(i)), THole)), n := Var(generated_name("depth"), THole), held := Var(generated_name("held"), THole), d := generated_name("d") in
+  let raised := nowhere(SRaise(enum_call("Falsified", List(bindings_text(firsts(formals)))), THole)), counted := nowhere(SAssign(List(
+    (held, generated_op("+", List(nowhere(EVar(held)), nowhere(ELit(LInt(1))))))))) in
+  let check := nowhere(SIf(conjunction(assms), nowhere(block(List(), List(
+    nowhere(SIf(generated_op("not", List(concl)), raised, nowhere(SSkip))),
+    counted))), nowhere(SSkip))) in
+  nowhere(block(es ++ List(n, held), List(for (e, (_, enum)) in zip(es, formals) yield nowhere(SAssign(List((e, enum))))) ++ List(
+    nowhere(SAssign(List(
+      (n, enum_call("depth_of", List(
+        generated_list(List(for e in es yield generated_lambda(d, enum_call("count_of", List(nowhere(EVar(e)), generated_var(d)))))))))))),
+    nowhere(SAssign(List((held, nowhere(ELit(LInt(0))))))),
+    foldr(zip(firsts(formals), es), check, lambda (x, e), body => nowhere(SFor(List(
+      GVal(nowhere(PName(x.name, THole)), enum_call("values_of", List(nowhere(EVar(e)), nowhere(EVar(n)))))), body))),
+    nowhere(SIf(generated_op("==", List(nowhere(EVar(held)), nowhere(ELit(LInt(0))))), nowhere(SRaise(generated_var(enum_name("Vacuous")), THole)), nowhere(SSkip))))))
+
+function conjunction(assms: List[At[Expr]]): At[Expr] :=
+  match assms
+    case List() =>
+      nowhere(ELit(LBool(true)))
+
+    case List(a) =>
+      a
+
+    case List(a; rest) =>
+      generated_op("and", List(a, conjunction(rest)))
+  end
+
+// x = …, y = … of the values of the formals xs
+function bindings_text(xs: List[Var]): At[Expr] :=
+  match xs
+    case List() =>
+      nowhere(ELit(LStr("")))
+
+    case List(x) =>
+      binding_text(x)
+
+    case List(x; rest) =>
+      generated_op("++", List(
+        binding_text(x),
+        generated_op("++", List(nowhere(ELit(LStr(", "))), bindings_text(rest)))))
+  end
+
+function binding_text(x: Var): At[Expr] :=
+  generated_op("++", List(
+    nowhere(ELit(LStr(x.name.base ++ " = "))),
+    generated_op("show", List(generated_var(x.name)))))

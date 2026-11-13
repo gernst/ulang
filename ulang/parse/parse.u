@@ -73,6 +73,15 @@ procedure parse_texts(
   out source: Source
 ) raises ParseError, OsError
 
+// the package dir of the members, each its module and text, read elsewhere, loaded into source without their tests, and
+// placed right after the library, which is all they see, so that the modules loaded before see them as packages checked
+// before, e.g. the enumeration that the tests of lemmas call, which no path names
+procedure load_after_library(
+  in  dir: Str,
+      members: List[Id * Str],
+  ref source: Source
+) raises ParseError, OsError
+
 // the nearest directory from dir upward with project.u, or else dir, where dir is absolute and normal
 procedure project_root(in dir: Str, out root: Str) raises OsError
 
@@ -2950,6 +2959,18 @@ procedure parse_texts(
         call load_program(in id, text, root, ref source)
       end
   end
+
+procedure load_after_library(
+  in  dir: Str,
+      members: List[Id * Str],
+  ref source: Source
+) raises ParseError, OsError :=
+  local before := source.mods
+  call   load_members(in "", Some(dir), members, None, List(), ref source)
+  assign source := source with mods := List(for d in source.mods if is_library(d)) ++ List(for d in drop(size(before), source.mods) if not is_library(d)) ++ List(for d in before if not is_library(d))
+
+function is_library(d: Mod): Bool :=
+  contains(d.name, library_modules())
 
 function is_main(id: Id, main: Option[Id * Str]): Bool :=
   match main

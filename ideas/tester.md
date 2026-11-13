@@ -8,15 +8,15 @@ A plan: the tests that the tools generate, and the running of tests, move out of
 - So only `test` and `compile --tests` need them, while today `check_package` of `ulang/check/check.u` generates them on every check without errors, and every load of every command parses and checks `ulang/prelude/enumerate.u`, a member of the library that no module but the generated tests sees, hidden by a special case of `implicit_imports` of `ulang/syntax/syntax.u`.
 - The tests with formals of Testing 1, property-based tests, are the general form: the test of a lemma `requires a ensures b` is the test with the formals of the lemma whose body is `if a then assert b`, with a count for `Vacuous`. One translation serves both, and the enumeration is the library of the tester, not of the language.
 
-## Layout
+## Layout (step 1, done)
 
-- `ulang/test/generate.u`: the translation of lemmas, later of tests with formals, into tests over enumerated values, moved from `ulang/check/check.u`. The checker takes it as a hook, a function from what a package declares (`Checked` in `ulang/check/check.u`) to generated commands, which it checks after the definitions of the package as now; the driver passes it for `test` and `compile --tests`, and `ulang/compile` and `ulang/check` do not import `ulang/test`.
-- `ulang/test/runner.u`: the running of the tests of a module, each on its own, and then the proofs of its lemmas, moved from `test_module` and `test_message` of `ulang/ulang.u`; the walk of targets and the lines per file stay in the driver, as they serve `check`, `lint`, and `prove` too. `ulang/test` comes after `ulang/run` and `ulang/prove`, which it imports, as `ulang/test/cases` does.
-- `ulang/test/enumerate/enumerate.u`: the enumeration, moved from `ulang/prelude/enumerate.u`. In this project it is a package of its own, whose examples `make test` runs; into a program under test the tester loads it as the package `(test)` of one member `(test)/enumerate`, a name that no path can give, which no module sees and the generated tests name by qualified names, read by `os_library` from `ULANG_LIB/../test/enumerate/enumerate.u`, so that no second path is compiled in.
+- `ulang/test/generate.u`: the translation of lemmas, later of tests with formals, into tests over enumerated values (`lemma_tests`), which `check_all` of `ulang/check/check.u` takes as a hook, a function from what a package declares (`Checked` of `ulang/check/check.u`) to generated commands, which it checks after the definitions of the package; the driver passes it for `test` and `compile --tests` and `no_tests` else, and `ulang/compile` and `ulang/check` do not import `ulang/test`.
+- `ulang/test/runner.u`: the running of the tests of a module, each on its own, and then the proofs of its lemmas (`test_module` and `prove_module`), while the walk of targets and the lines per file stay in the driver, as they serve `check`, `lint`, and `prove` too. `ulang/test` comes after `ulang/run` and `ulang/prove`, which it imports, as `ulang/test/cases` does.
+- `ulang/test/enumerate/enumerate.u`: the enumeration. In this project it is a package of its own, whose examples `make test` runs; into a program under test the tester loads it as the package `(test)` of one member `(test)/enumerate`, a name that no path can give, which no module sees and the generated tests name by qualified names, read by `os_library` from `ULANG_LIB/../test/enumerate/enumerate.u`, so that no second path is compiled in (`load_tester` of `ulang/test/runner.u`).
 
 ## Steps
 
-1. The layout above, with `ulang/prelude/enumerate.u` kept for the seed, which still loads it as a member of the library.
+1. The layout above, done, with `ulang/prelude/enumerate.u` kept for the seed, which still loads it as a member of the library.
 2. `make selfcompile`, then `ulang/prelude/enumerate.u` goes, with its special cases of `ulang/syntax/syntax.u`, and `CLAUDE.md` follows.
 3. A lemma whose test is falsified is reported as `lemma l falsified` and not proven.
 4. Tests with formals (Testing 1) by the same translation, without `TestParams`.

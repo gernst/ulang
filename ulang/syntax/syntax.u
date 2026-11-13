@@ -316,6 +316,20 @@ function arity(t: Type): Int
 // x at the position Pos(0, 0), of code that the parser did not read, e.g. of tests
 function nowhere[A](x: A): At[A]
 
+// a name of the generated code, which users cannot write
+function generated_name(base: Id): Name
+
+// the parts of generated code, at no position, with the names as written, which the checker resolves
+function generated_call(name: Name, args: List[At[Expr]]): At[Expr]
+
+function generated_op(op: Id, args: List[At[Expr]]): At[Expr]
+
+function generated_var(name: Name): At[Expr]
+
+function generated_lambda(d: Name, body: At[Expr]): At[Expr]
+
+function generated_list(exprs: List[At[Expr]]): At[Expr]
+
 // the spec of a head without :=, and of the checked program, whose examples are tests
 function no_spec(): Spec
 
@@ -398,9 +412,8 @@ function vars(xs: List[At[Var]]): List[Var]
 // variables of code that the parser did not read, as declarations at no position
 function unplaced_vars(xs: List[Var]): List[At[Var]]
 
-// the modules that module name imports without saying so: for a module of a project the library but enumerate, which only
-// the generated tests of lemmas name, and none for a module of the library, which sees the others as the members of its
-// package
+// the modules that module name imports without saying so: for a module of a project the library, and none for a module
+// of the library, which sees the others as the members of its package
 function implicit_imports(name: Id): List[Id]
 
 // the members of the package of the library
@@ -483,6 +496,24 @@ function no_spec(): Spec :=
 
 function nowhere[A](x: A): At[A] :=
   AOk(Pos(0, 0), x)
+
+function generated_name(base: Id): Name :=
+  unqualified("(" ++ base ++ ")")
+
+function generated_call(name: Name, args: List[At[Expr]]): At[Expr] :=
+  nowhere(ECall(Pos(0, 0), name, THole, args))
+
+function generated_op(op: Id, args: List[At[Expr]]): At[Expr] :=
+  generated_call(unqualified(op), args)
+
+function generated_var(name: Name): At[Expr] :=
+  nowhere(EName(name, THole))
+
+function generated_lambda(d: Name, body: At[Expr]): At[Expr] :=
+  nowhere(ELam(List(nowhere(PName(d, THole))), body))
+
+function generated_list(exprs: List[At[Expr]]): At[Expr] :=
+  nowhere(EForm(FList, List(for e in exprs yield YVal(e)), None))
 
 function map_at[A, B](x: At[A], f: A -> B): At[B] :=
   match x
@@ -632,10 +663,7 @@ function module_dir(id: Id): Str :=
   end
 
 function implicit_imports(name: Id): List[Id] :=
-  if contains(name, library_modules()) then
-    List()
-  else
-    List(for m in library_modules() if m != library_module("enumerate"))
+  if contains(name, library_modules()) then List() else library_modules()
 
 function library_modules(): List[Id] :=
   List(for name in List(
@@ -647,8 +675,7 @@ function library_modules(): List[Id] :=
     "map",
     "array",
     "buffer",
-    "os",
-    "enumerate") yield library_module(name))
+    "os") yield library_module(name))
 
 function library_module(name: Str): Id :=
   "prelude/" ++ name
