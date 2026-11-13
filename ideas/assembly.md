@@ -70,5 +70,5 @@ The simple backend is about 1.1 times slower than `-O2` on the compiler, less th
 4. Done. **`make testasm`**: the suite of `compile --tests` through assembly, all tests passing as with `make testc`.
 5. Done by hand, not yet as a target of the Makefile. **Self-compile through assembly**: the compiler built from its `.s` compiles itself to the same C and the same `.s`; `make` keeps building the tool from C until this is reliable, then may switch; `bootstrap/ulang.c` stays the versioned seed.
 6. **Measured improvements**: the fusion of comprehensions as in C, results that stay in `%rax` instead of a slot, arguments that are variables or constants loaded directly into their registers.
-7. **An encoder of its own**: the instructions of `asm.u` encoded to machine code and written as an ELF relocatable object, so that neither `as` nor a C compiler is needed, only the linker. It needs bytes in files first, which `os_write` cannot write, since it writes strings as UTF-8 (Library 1 of `ideas/library.md`).
+7. **An encoder of its own**: the instructions of `asm.u` encoded to machine code and written as an ELF relocatable object, so that neither `as` nor a C compiler is needed, only the linker. It writes the object by `os_write_bytes`.
 8. **Later, each a project of its own**: register allocation, ARM64, unboxed small integers.

@@ -215,8 +215,8 @@ function json_char(c: Char): Str :=
     case '\r' =>
       "\\r"
 
-    case _ if ord(c) < 32 =>
-      "\\u00" ++ hex_digit(ord(c) / 16) ++ hex_digit(ord(c) % 16)
+    case _ if int(c) < 32 =>
+      "\\u00" ++ hex_digit(int(c) / 16) ++ hex_digit(int(c) % 16)
 
     case _ =>
       str(List(c))

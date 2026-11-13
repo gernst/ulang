@@ -119,7 +119,7 @@ function mangle_char(c: Char): List[Char] :=
   if is_letter(c) or is_digit(c) or c == '_' then
     List(c)
   else
-    chars("_" ++ show(ord(c)) ++ "_")
+    chars("_" ++ show(int(c)) ++ "_")
 
 function fun_name(n: Name, k: Int): Str :=
   "f_" ++ mangle(n) ++ "_" ++ show(k)
@@ -133,8 +133,10 @@ function proc_name(n: Name): Str :=
 function native_procs(): Set[Id] :=
   Set(
     "os_args",
-    "os_read",
-    "os_write",
+    "os_read_utf8",
+    "os_write_utf8",
+    "os_read_bytes",
+    "os_write_bytes",
     "os_library",
     "os_print",
     "os_print_error",
@@ -157,8 +159,12 @@ function builtin_functions(): Map[Name, Str * Int] :=
     unqualified("show") => ("u_show", 1),
     library_name("str", "chars") => ("u_chars", 1),
     library_name("str", "str") => ("u_string", 1),
-    library_name("str", "ord") => ("u_ord", 1),
     library_name("str", "chr") => ("u_chr", 1),
+    library_name("str", "int") => ("u_ord", 1),
+    library_name("prelude", "byte") => ("u_byte", 1),
+    library_name("prelude", "int") => ("u_byte_int", 1),
+    library_name("str", "encode_utf8") => ("u_encode_utf8", 1),
+    library_name("str", "decode_utf8") => ("u_decode_utf8", 1),
     library_name("prelude", "++") => ("u_concat", 2),
     library_name("str", "is_digit") => ("u_is_digit", 1),
     library_name("str", "is_letter") => ("u_is_letter", 1),
@@ -191,6 +197,7 @@ function runtime_referenced(): Set[Name] :=
     division_by_zero_name(),
     out_of_bounds_name(),
     no_character_name(),
+    no_byte_name(),
     missing_field_name(),
     unordered_name(),
     incomparable_name())

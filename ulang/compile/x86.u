@@ -215,7 +215,7 @@ procedure str_object(in text: Str, out symbol: Str, ref e: Emit) :=
   end
 
 procedure str_object_named(in symbol: Str, text: Str, ref e: Emit) :=
-  local units: Str, codes := List(for c in chars(text) yield ord(c)), width: Int
+  local units: Str, codes := List(for c in chars(text) yield int(c)), width: Int
   call   new_label(out units, ref e)
   assign width := unit_width(foldl(codes, 0, lambda m, c => max(m, c)))
   call   add_writable(in List(
@@ -271,7 +271,7 @@ procedure literal(in lit: Lit, ref e: Emit) :=
       call emit(in ILea(ORip(symbol), Rax), ref e)
 
     case LChar(char) =>
-      call call_runtime(in "u_mk_char", List(AVal(OImm(ord(char)))), ref e)
+      call call_runtime(in "u_mk_char", List(AVal(OImm(int(char)))), ref e)
   end
 
 // a jump to label if the boolean in %rax is false, or true
