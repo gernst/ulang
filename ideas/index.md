@@ -28,4 +28,3 @@ Plans of work in progress, each deleted when its work is done:
 - `ideas/archives.md`: packages compiled separately into static archives (Build 2)
 - `ideas/assembly.md`: the backend of x86-64 assembly (Compiler 2)
 - `ideas/refactor.md`: the command `refactor`, its edit scripts and operations (Diagnostics 3 and 4)
-- `ideas/tester.md`: the tests that the tools generate and the running of tests, as the package `ulang/test` (Testing 1 and 2)
