@@ -302,7 +302,7 @@ function iterated_list(over: At[Expr]): List[Warning] :=
 function is_identity(g: Gen, elem: Yield): Bool :=
   match implicit_elem(FList, List(g))
     case Some(implicit) =>
-      strip_expr(nowhere(EFor(FList, List(g), implicit, None))) == strip_expr(nowhere(EFor(FList, List(g), elem, None)))
+      strip_yield(implicit) == strip_yield(elem)
     case None =>
       false
   end
@@ -375,7 +375,7 @@ function is_plain(expr: At[Expr]): Bool :=
   end
 
 function is_capitalized(name: Id): Bool :=
-  size(name) > 0 and ord(at(0, name)) >= ord('A') and ord(at(0, name)) <= ord('Z')
+  size(name) > 0 and int(at(0, name)) >= int('A') and int(at(0, name)) <= int('Z')
 
 // the handler at pos swallows what it catches if its body is skip
 function swallowed(pos: Pos, body: At[Stmt]): List[Warning] :=
@@ -683,7 +683,7 @@ function cmd_names(cmd: Cmd): Set[Id] :=
   end
 
 function spec_names(spec: Spec): Set[Id] :=
-  exprs_names(spec.pre ++ List(for e in spec.post yield e)) ++ Set(for x in spec.examples if is_parsed(x) for n in example_names(x.that) yield n)
+  exprs_names(spec.pre ++ List(for e in spec.post)) ++ Set(for x in spec.examples if is_parsed(x) for n in example_names(x.that) yield n)
 
 function claim_names(claim: Claim): Set[Id] :=
   match claim

@@ -12,7 +12,7 @@ test add_bool() :=
   end
 
 test alias_arity() :=
-  assert raises Located(None, Pos(4, 1), SortArity(Name(Some("ulang/test/errors/alias-arity"), "P"), 1, 0)) do
+  assert raises Located(None, Pos(4, 12), SortArity(Name(Some("ulang/test/errors/alias-arity"), "P"), 1, 0)) do
     call check_text(in "ulang/test/errors/alias-arity.u", List("type P[A] :=", "  A -> A", "", "function f(x: P): Int :=", "  0"))
   end
 
@@ -93,6 +93,17 @@ test duplicate_constructor() :=
 test duplicate_formal() :=
   assert raises Located(None, Pos(1, 20), Duplicate("formal", "a")) do
     call check_text(in "ulang/test/errors/duplicate-formal.u", List("function f(a: Int, a: Int): Int :=", "  a"))
+  end
+
+// a formal of a procedure lambda repeated in another mode
+test duplicate_lambda_formal() :=
+  assert raises Located(None, Pos(2, 36), Duplicate("formal", "x")) do
+    call check_text(in "ulang/test/errors/duplicate-lambda-formal.u", List(
+      "procedure main() :=",
+      "  local p := lambda in x: Int, out x: Int =>",
+      "      assign x := 1",
+      "    end",
+      "  skip"))
   end
 
 test duplicate_lemma() :=
@@ -333,8 +344,8 @@ test let_rigid() :=
 // a part of the wrong type is reported at the innermost part, since the checker passes the expected type down to the
 // components of a tuple, the elements of a form, the body of a let, and the arguments of a call of one candidate
 test innermost_mismatch() :=
-  local errors: List[TypeError]
-  call check_text_all(in "ulang/test/errors/innermost-mismatch.u", List(
+  local q: Prog, errors: List[TypeError]
+  call checked_text(in "ulang/test/errors/innermost-mismatch.u", List(
     "function g(): Int * Int :=",
     "  (1, \"a\")",
     "",
@@ -343,7 +354,7 @@ test innermost_mismatch() :=
     "",
     "function k(): Int :=",
     "  let x := 1 in",
-    "  \"a\""), out errors)
+    "  \"a\""), out q, errors)
   assert List(for e in errors yield error_pos(e)) == List(Pos(2, 7), Pos(5, 11), Pos(9, 3))
 
 test list_type() :=
@@ -561,9 +572,18 @@ test rigid_params() :=
   end
 
 test sort_arity() :=
-  assert raises Located(None, Pos(1, 1), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1)) do
+  assert raises Located(None, Pos(1, 12), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1)) do
     call check_text(in "ulang/test/errors/sort-arity.u", List("function f(x: Int[Int]): Int :=", "  0"))
   end
+
+// a type of the wrong arity in a body is reported, and the command checked on
+test sort_arity_in_body() :=
+  local q: Prog, errors: List[TypeError]
+  call checked_text(in "ulang/test/errors/sort-arity-in-body.u", List(
+    "procedure p() :=",
+    "  local x: List[Int, Int] := List(1), y := 1 + true",
+    "  assign x := x"), out q, errors)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("SortArity", Pos(2, 9)), ("Mismatch", Pos(2, 48)))
 
 test test_params() :=
   assert raises Located(None, Pos(1, 1), TestParams("sorted")) do
@@ -730,8 +750,8 @@ test raises_not_exception() :=
 
 // the checker reports every error of the commands, each once, where a part that fails stands for what it should be
 test several_errors() :=
-  local errors: List[TypeError]
-  call check_text_all(in "ulang/test/errors/several-errors.u", List(
+  local q: Prog, errors: List[TypeError]
+  call checked_text(in "ulang/test/errors/several-errors.u", List(
     "function f(n: Int): Int :=",
     "  n + true",
     "",
@@ -739,14 +759,14 @@ test several_errors() :=
     "  if 1 then x else false",
     "",
     "test t() :=",
-    "  assert f(1) == \"a\""), out errors)
+    "  assert f(1) == \"a\""), out q, errors)
   assert List(for e in errors yield error_pos(e)) == List(Pos(2, 7), Pos(5, 6), Pos(5, 13), Pos(8, 18))
 
 // the errors of raises are reported next to the type errors, of the commands without errors, where a procedure with errors
 // counts as raising what its signature declares, so that its callers make no follow-ups
 test raises_besides_types() :=
-  local errors: List[TypeError]
-  call check_text_all(in "ulang/test/errors/raises-besides-types.u", List(
+  local q: Prog, errors: List[TypeError]
+  call checked_text(in "ulang/test/errors/raises-besides-types.u", List(
     "data Fail :=",
     "  case Fail",
     "",
@@ -764,7 +784,7 @@ test raises_besides_types() :=
     "  raise Fail",
     "",
     "procedure t() raises Str :=",
-    "  call r()"), out errors)
+    "  call r()"), out q, errors)
   assert List(for e in errors yield error_pos(e)) == List(Pos(5, 7), Pos(14, 19), Pos(11, 3))
   match reverse(errors)
     case List(Located(None, _, UndeclaredRaise(name, _)); _) =>
@@ -854,6 +874,27 @@ test checked_around_unparsed() :=
   assert List(for e in parsing yield e.pos) == List(Pos(6, 19), Pos(7, 3))
   assert List(for e in errors yield error_pos(e)) == List(Pos(6, 14), Pos(8, 23), Pos(15, 3))
 
+// a callee, a condition, and a container that do not parse are of the type TError, and a container of an error keeps it
+test checked_around_unparsed_parts() :=
+  local parsing: List[ParseError], errors: List[TypeError]
+  call check_text_partial(in "ulang/test/errors/checked-around-unparsed-parts.u", List(
+    "function f(): Int :=",
+    "  (lambda x: Int => x)(1)",
+    "",
+    "function g(): Int :=",
+    "  (1 +)(1)",
+    "",
+    "function h(): List[Int] :=",
+    "  List(for x in (1 +) yield x)",
+    "",
+    "procedure p() :=",
+    "  assert (1 +)",
+    "  for x in ys do",
+    "    skip",
+    "  end"), out parsing, errors)
+  assert List(for e in parsing yield e.pos) == List(Pos(2, 12), Pos(5, 7), Pos(8, 21), Pos(11, 14))
+  assert List(for e in errors yield error_pos(e)) == List(Pos(12, 12))
+
 function is_unparsed_use(e: TypeError): Bool :=
   match e
     case Located(_, _, UnparsedDeclaration(_)) =>
@@ -864,19 +905,45 @@ function is_unparsed_use(e: TypeError): Bool :=
 
 // the hints of habits of other languages, the form to write instead, which the messages give after their errors
 test hints() :=
-  local errors: List[TypeError]
-  call check_text_all(in "ulang/test/errors/hints.u", List(
+  local q: Prog, errors: List[TypeError]
+  call checked_text(in "ulang/test/errors/hints.u", List(
     "procedure twice(in n: Int, out m: Int) :=",
     "  assign m := 2 * n",
     "",
     "procedure main() :=",
     "  local s := \"a\" ++ \"b\", n := 1 + s, t := twice(2), u := sise(\"ab\"), v := length(\"a\")",
-    "  skip"), out errors)
+    "  skip"), out q, errors)
   assert List(for e in errors yield error_hint(e)) == List(
     "strings join by ++, and + adds integers",
     "",
     "did you mean size?",
     "write size")
+  call checked_text(in "ulang/test/errors/more-hints.u", List(
+    "data Failed :=",
+    "  case Failed",
+    "",
+    "data State :=",
+    "  case State(errors: Int)",
+    "",
+    "procedure fail() raises Failed :=",
+    "  raise Failed()",
+    "",
+    "function mapped(xs: List[Int]): List[Int] :=",
+    "  map(xs, lambda x => x + 1)",
+    "",
+    "function filtered(xs: List[Int]): List[Int] :=",
+    "  filter(xs, lambda x => x > 1)",
+    "",
+    "procedure update(ref s: State) :=",
+    "  local found := false",
+    "  assign s := s with errors := 1, found := true"), out q, errors)
+  assert List(for e in errors yield (error_pos(e), error_hint(e))) == List(
+    (Pos(8, 9), ""),
+    (Pos(11, 3), "write List(for x in xs yield f(x))"),
+    (Pos(14, 3), "write List(for x in xs if p(x))"),
+    (Pos(18, 17), "a comma after with continues the update, so an assignment of found takes an assign of its own"))
+  assert List(for e in take(1, errors) yield located_message(e)) == List(
+    "cannot unify Failed and () -> ?2; a value that is no function, such as a constructor without fields, is written without () at 8.9")
 
 function error_hint(e: TypeError): Str :=
   match e
@@ -893,6 +960,12 @@ function error_pos(e: TypeError): Pos :=
     case _ =>
       Pos(0, 0)
   end
+
+// an unknown type, of a type parameter that the declaration omits, once per declaration
+test unknown_sort_once() :=
+  local q: Prog, errors: List[TypeError]
+  call checked_text(in "ulang/test/errors/unknown-sort-once.u", List("function f(x: A, y: A): A :=", "  x"), out q, errors)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("UnknownSort", Pos(1, 12)))
 
 test proof_unknown_lemma() :=
   assert raises Located(None, Pos(3, 3), UnknownLemma(Name(None, "b"))) do
@@ -1054,7 +1127,7 @@ test proof_out_one_branch() :=
 
 // a call that no declaration fits has the type TError, so that the access of a field on it makes no follow-up
 test no_follow_ups() :=
-  local q: Prog
+  local q: Prog, errors: List[TypeError]
   call checked_text(in "ulang/test/errors/no-follow-ups.u", List(
     "data P :=",
     "  case P(x: Int)",
@@ -1063,24 +1136,24 @@ test no_follow_ups() :=
     "  size(n, n, n).x",
     "",
     "function g(n: Int): Int :=",
-    "  size(n).x"), out q)
+    "  size(n).x"), out q, errors)
   assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("WrongArity", Pos(5, 3)), ("NoOverload", Pos(8, 3)))
 
 // the errors of the translation of a form stand on the part of the form, which the diagnostics of the checked program read
 test errors_of_forms() :=
-  local q: Prog
+  local q: Prog, errors: List[TypeError]
   call checked_text(in "ulang/test/errors/errors-of-forms.u", List(
     "function f(): List[Int] :=",
     "  List(true)",
     "",
     "function g(): Set[Int] :=",
-    "  Set(for x in List(1) yield x + true)"), out q)
+    "  Set(for x in List(1) yield x + true)"), out q, errors)
   assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("Mismatch", Pos(2, 8)), ("Mismatch", Pos(5, 34)))
 
 // a mismatch stands on the part that finds it, the call, while its diagnostic points at the argument
 test errors_on_parts() :=
-  local q: Prog
-  call checked_text(in "ulang/test/errors/errors-on-parts.u", List("function f(n: Int): Int :=", "  n + true"), out q)
+  local q: Prog, errors: List[TypeError]
+  call checked_text(in "ulang/test/errors/errors-on-parts.u", List("function f(n: Int): Int :=", "  n + true"), out q, errors)
   match reverse(q.cmds)
     case List(AOk(_, CFun(_, _, _, _, _, AErr(Pos(2, 5), EApp(_, _), List(d)))); _) =>
       assert d.code == "Mismatch" and d.pos == Pos(2, 7)

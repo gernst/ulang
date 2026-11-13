@@ -139,6 +139,32 @@ test unassigned_output() :=
       "  call p(out x)"))
   end
 
+// an out assigned only in the body of a while, which the checker assumes may not run
+test unassigned_output_in_while() :=
+  assert raises Located(None, Pos(1, 1), Hinted(OutputUnassigned(Name(None, "y"), Name(Some("ulang/test/errors/unassigned-output-in-while"), "p")), _)) do
+    call check_text(in "ulang/test/errors/unassigned-output-in-while.u", List(
+      "procedure p(out y: Int) :=",
+      "  local i := 0",
+      "  while i < 3 do",
+      "    assign y := i, i := i + 1",
+      "  end"))
+  end
+
+test unassigned_output_after_lambda() :=
+  assert raises Located(None, Pos(7, 24), OutputUnassigned(Name(None, "z"), Name(None, "lambda"))) do
+    call check_text(in "ulang/test/errors/unassigned-output-after-lambda.u", List(
+      "test leak() :=",
+      "  local f: (out Int) := lambda out z =>",
+      "    while false do",
+      "      assign z := 1",
+      "    end",
+      "    assign z := 2",
+      "  end, g: (out Int) := lambda out z =>",
+      "    skip",
+      "  end",
+      "  skip"))
+  end
+
 test unassigned_ref() :=
   assert raises Located(None, Pos(6, 3), Unassigned(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/unassigned-ref.u", List(

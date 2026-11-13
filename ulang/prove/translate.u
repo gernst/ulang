@@ -183,7 +183,7 @@ function contract_of(cmd: Cmd): Option[(Name * Int) * Lemma] :=
         case Some(e) =>
           term_of(post, e)
         case None =>
-          bool_term(true)
+          EBool(true)
       end in
       let key := (name, size(ins) + size(outs) + size(refs)) in
       Some((key, Lemma(contract_name(key), Seq(ins ++ refs, atoms, List(Concl(outs ++ refs, List(Atom(concl))))), None, false)))
@@ -203,7 +203,7 @@ function raise_name(): Name :=
   Name(None, "(raise)")
 
 function raise_contract(): Lemma :=
-  Lemma(raise_name(), Seq(List(), List(), List(Concl(List(), List(Atom(bool_term(false)))))), None, false)
+  Lemma(raise_name(), Seq(List(), List(), List(Holds(Atom(EBool(false))))), None, false)
 
 // the claim correct p(args, out outs) of the lemma name over formals: the requires of p at the arguments as its
 // assumptions, the ensures of p at them and the outs as its conclusion, and the proof that runs the body of p from the
@@ -220,7 +220,7 @@ function claim_of(name: Name, formals: List[Var], outs: List[Var], args: List[At
         case Some(e) =>
           beta(at_all ++ results, term_of(bind(ins ++ proc_outs, List()), e))
         case None =>
-          bool_term(true)
+          EBool(true)
       end in
       let invariants := Map(for (pos, step) in zip(loop_positions(stmt), proof.steps) for e in invariant_of(step.that) yield pos => e) in
       let exec := Exec(invariants, contracts) in
@@ -230,7 +230,7 @@ function claim_of(name: Name, formals: List[Var], outs: List[Var], args: List[At
 
     // a builtin procedure, which has no body
     case _ =>
-      Lemma(name, Seq(formals, List(), List(Concl(outs, List(Atom(bool_term(true)))))), Some(ProofTerm(List(UnsupportedTerm("a claim of a procedure without a body", Pos(0, 0))), None, Pos(0, 0))), true)
+      Lemma(name, Seq(formals, List(), List(Concl(outs, List(Atom(EBool(true)))))), Some(ProofTerm(List(UnsupportedTerm("a claim of a procedure without a body", Pos(0, 0))), None, Pos(0, 0))), true)
   end
 
 function invariant_of(step: Step): Option[At[Expr]] :=
@@ -358,7 +358,7 @@ function run_loop(exec: Exec, env: List[Name], pos: Pos, cond: At[Expr], body: A
     case Some(e) =>
       term_of(around, e)
     case None =>
-      bool_term(true)
+      EBool(true)
   end in
   let at := match written
     case Some(e) =>
@@ -542,7 +542,7 @@ function term_of(env: List[Name], expr: At[Expr]): Term :=
 
     case ETuple(args) =>
       let terms := List(for a in args yield term_of(env, a)) in
-      EApp(EFun(tuple_name(size(args))), terms)
+      tuple_term(terms)
 
     // procedure values are atoms, told apart by their text
     case EProc(_, _, _, _, _) =>
@@ -574,10 +574,7 @@ function let_term(env: List[Name], bindings: List[At[Pat] * At[Expr]], body: At[
       beta(values, inner)
 
     case None =>
-      let_match(env, if size(pats) == 1 then at(0, from_list(pats)).that else PTuple(pats), if size(values) == 1 then
-        at(0, from_list(values))
-      else
-        EApp(EFun(tuple_name(size(values))), values), body)
+      let_match(env, if size(pats) == 1 then at(0, from_list(pats)).that else PTuple(pats), if size(values) == 1 then at(0, from_list(values)) else tuple_term(values), body)
   end
 
 // the match of value against the irrefutable pat, which binds in body
