@@ -23,9 +23,10 @@ data Token :=
   case TMisplaced
   case TEnd
 
-// tokens with their positions
+// tokens with their positions, each with the stop of the token of code before it, which is where a part ends that ends
+// before the token, where docs and comments are no code, and Pos(1, 1) before the first
 type Tokens :=
-  List[Pos * Token]
+  List[Pos * Token * Pos]
 
 data LexError :=
   case LexError(message: Str, pos: Pos)
@@ -293,9 +294,9 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
   end
 
 // the tokens of text with their positions, which end with TEnd at the end of text, where line and column are those of
-// offset last
+// offset last, and stop is the end of the last token of code, which has no newline
 procedure lex(in text: Str, out toks: Tokens) raises LexError :=
-  local offset := 0, found: Buffer[Pos * Token] := empty(), start: Int, tok: Token, last := 0, line := 1, column := 1, doc: Str, above: Bool
+  local offset := 0, found: Buffer[Pos * Token * Pos] := empty(), start: Int, tok: Token, last := 0, line := 1, column := 1, doc: Str, above: Bool, stop := Pos(1, 1)
   while offset < size(text) do
     assign start := offset
     if is_space(at(offset, text)) then
@@ -306,49 +307,53 @@ procedure lex(in text: Str, out toks: Tokens) raises LexError :=
         if line_margin(text, offset) >= 0 then
           call   lex_doc(in text, out doc, above, ref offset)
           assign found := found ++ List(
-            (Pos(line, column), if above or start == 0 then TDoc(doc) else TMisplaced)), last := start
+            (Pos(line, column), if above or start == 0 then TDoc(doc) else TMisplaced, stop)), last := start
         else
           assign offset := line_end(text, offset)
-          assign found := found ++ List((Pos(line, column), TMisplaced)), last := start
+          assign found := found ++ List((Pos(line, column), TMisplaced, stop)), last := start
         end
       else
         call   lex_token(in text, out tok, ref offset)
         call   lex_move_position(in text, last, start, ref line, column)
-        assign found := found ++ List((Pos(line, column), tok)), last := start
+        assign found := found ++ List((Pos(line, column), tok, stop)), last := start
+        assign stop := Pos(line, column + offset - start)
       end
     end
   end
   call   lex_move_position(in text, last, offset, ref line, column)
-  assign toks := List(for t in found ++ List((Pos(line, column), TEnd)))
+  assign toks := List(for t in found ++ List((Pos(line, column), TEnd, stop)))
 
 function tokens(toks: Tokens): List[Token] :=
-  seconds(toks)
+  List(for (_, tok, _) in toks yield tok)
+
+function token_positions(toks: Tokens): List[Pos] :=
+  List(for (pos, _, _) in toks yield pos)
 
 test lex_tokens() :=
   local toks: Tokens
   call lex(in "function f(x: Int): Int := x+-1\n  y", out toks)
   assert toks == List(
-    (Pos(1, 1), TKw("function")),
-    (Pos(1, 10), TName("f")),
-    (Pos(1, 11), TKw("(")),
-    (Pos(1, 12), TName("x")),
-    (Pos(1, 13), TKw(":")),
-    (Pos(1, 15), TName("Int")),
-    (Pos(1, 18), TKw(")")),
-    (Pos(1, 19), TKw(":")),
-    (Pos(1, 21), TName("Int")),
-    (Pos(1, 25), TKw(":=")),
-    (Pos(1, 28), TName("x")),
-    (Pos(1, 29), TOp("+-")),
-    (Pos(1, 31), TNum(1)),
-    (Pos(2, 3), TName("y")),
-    (Pos(2, 4), TEnd))
+    (Pos(1, 1), TKw("function"), Pos(1, 1)),
+    (Pos(1, 10), TName("f"), Pos(1, 9)),
+    (Pos(1, 11), TKw("("), Pos(1, 11)),
+    (Pos(1, 12), TName("x"), Pos(1, 12)),
+    (Pos(1, 13), TKw(":"), Pos(1, 13)),
+    (Pos(1, 15), TName("Int"), Pos(1, 14)),
+    (Pos(1, 18), TKw(")"), Pos(1, 18)),
+    (Pos(1, 19), TKw(":"), Pos(1, 19)),
+    (Pos(1, 21), TName("Int"), Pos(1, 20)),
+    (Pos(1, 25), TKw(":="), Pos(1, 24)),
+    (Pos(1, 28), TName("x"), Pos(1, 27)),
+    (Pos(1, 29), TOp("+-"), Pos(1, 29)),
+    (Pos(1, 31), TNum(1), Pos(1, 31)),
+    (Pos(2, 3), TName("y"), Pos(1, 32)),
+    (Pos(2, 4), TEnd, Pos(2, 4)))
 
 test lex_docs() :=
   local toks: Tokens
   call lex(in "// a\n//  b\n//\nf\n\n\n\ng\n\nh\ni", out toks)
   assert tokens(toks) == List(TDoc("a\n b\n"), TName("f"), TName("g"), TName("h"), TName("i"), TEnd)
-  assert firsts(toks) == List(Pos(1, 1), Pos(4, 1), Pos(8, 1), Pos(10, 1), Pos(11, 1), Pos(11, 2))
+  assert token_positions(toks) == List(Pos(1, 1), Pos(4, 1), Pos(8, 1), Pos(10, 1), Pos(11, 1), Pos(11, 2))
 
 function rest_of_docs(): List[Token] :=
   List(TName("C"), TName("g"), TKw("case"), TName("D"), TEnd)
@@ -423,10 +428,10 @@ test lex_misplaced_comments() :=
   local toks: Tokens
   call lex(in "x // one\ny", out toks)
   assert toks == List(
-    (Pos(1, 1), TName("x")),
-    (Pos(1, 3), TMisplaced),
-    (Pos(2, 1), TName("y")),
-    (Pos(2, 2), TEnd))
+    (Pos(1, 1), TName("x"), Pos(1, 1)),
+    (Pos(1, 3), TMisplaced, Pos(1, 2)),
+    (Pos(2, 1), TName("y"), Pos(1, 2)),
+    (Pos(2, 2), TEnd, Pos(2, 2)))
   call lex(in "f\n// a\n\ng", out toks)
   assert tokens(toks) == List(TName("f"), TMisplaced, TName("g"), TEnd)
   call lex(in "match x\n  // a\n    case 3", out toks)

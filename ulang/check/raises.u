@@ -200,13 +200,13 @@ function is_tracked(sig: Sig, t: Type): Bool :=
 
 function stmt_flow(scope: Scope, stmt: At[Stmt]): Flow :=
   match stmt
-    case AOk(pos, that) =>
+    case AOk(pos, _, that) =>
       part_flow(scope, pos, that)
 
-    case AErr(pos, that, _) =>
+    case AErr(pos, _, that, _) =>
       part_flow(scope, pos, that)
 
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       none()
   end
 
@@ -321,13 +321,13 @@ function exprs_errors(scope: Scope, exprs: List[At[Expr]]): List[Pos * TypeError
 // the errors of procedure values in expr, which raise nothing themselves
 function expr_errors(scope: Scope, expr: At[Expr]): List[Pos * TypeError] :=
   match expr
-    case AOk(pos, that) =>
+    case AOk(pos, _, that) =>
       part_errors(scope, pos, that)
 
-    case AErr(pos, that, _) =>
+    case AErr(pos, _, that, _) =>
       part_errors(scope, pos, that)
 
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       List()
   end
 

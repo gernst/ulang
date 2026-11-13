@@ -334,13 +334,13 @@ function match_all_into(pats: List[At[Pat]], vs: List[Val], env: Bindings): Opti
 // errors, whose other parts it runs
 procedure require_checked[A](in x: At[A]) raises RuntimeError :=
   match x
-    case AOk(_, _) =>
+    case AOk(_, _, _) =>
       skip
 
-    case AErr(_, _, errors) =>
+    case AErr(_, _, _, errors) =>
       raise Deferred(deferred_text(errors))
 
-    case AUnparsed(_, _, error) =>
+    case AUnparsed(_, _, _, error) =>
       raise Deferred(deferred_text(List(error)))
   end
 
@@ -1034,7 +1034,7 @@ procedure exec(
       end
 
     // assertions of equations show both sides when they fail
-    case SAssert(AOk(_, ECall(_, Name(None, "=="), _, List(lhs, rhs)))) =>
+    case SAssert(AOk(_, _, ECall(_, _, Name(None, "=="), _, List(lhs, rhs)))) =>
       local v: Val, w: Val, r: Bool
       call evaluate(in run, env, lhs, out v, ref cache)
       call evaluate(in run, env, rhs, out w, ref cache)
@@ -1210,7 +1210,7 @@ procedure handle(
     case List() =>
       raise Thrown(v, t)
 
-    case List(Catch(_, AOk(_, PWild), guard, body); rest) =>
+    case List(Catch(_, AOk(_, _, PWild), guard, body); rest) =>
       local ok: Bool
       call holds(in run, env, guard, out ok, ref cache)
       if ok then
@@ -1492,7 +1492,7 @@ test expressions() :=
     asserting("p1", expr_app("len", List(
       expr_app("Cons", List(expr_int(1), expr_app("Cons", List(expr_int(2), expr_var("Nil"))))))), expr_int(2)),
     asserting("p2", nowhere(ELet(List(
-      (pat_var("f"), nowhere(lambda_of(Pos(0, 0), List(Var(unqualified("x"), THole)), expr_app("*", List(expr_var("x"), expr_var("x"))))))), expr_app("+", List(expr_app("f", List(expr_int(3))), expr_app("f", List(expr_int(4))))))), expr_int(25)),
+      (pat_var("f"), nowhere(lambda_of(Pos(0, 0), span_at(Pos(0, 0)), List(Var(unqualified("x"), THole)), expr_app("*", List(expr_var("x"), expr_var("x"))))))), expr_app("+", List(expr_app("f", List(expr_int(3))), expr_app("f", List(expr_int(4))))))), expr_int(25)),
     asserting("p4", expr_app("and", List(
       nowhere(ELit(LBool(false))),
       expr_app("==", List(expr_app("/", List(expr_int(1), expr_int(0))), expr_int(0))))), nowhere(ELit(LBool(false))))))

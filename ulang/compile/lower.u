@@ -381,7 +381,7 @@ function list_literal(expr: At[Expr]): Option[List[At[Expr]]] :=
     case ENil(_) =>
       Some(List())
 
-    case ECons(_, _, e, rest) =>
+    case ECons(_, _, _, e, rest) =>
       match list_literal(rest)
         case Some(es) =>
           Some(List(e; es))
@@ -397,13 +397,13 @@ function list_literal(expr: At[Expr]): Option[List[At[Expr]]] :=
 // and returns acc otherwise
 function consing(body: At[Expr], acc: Name): Option[Option[At[Expr]] * At[Expr]] :=
   match body.that
-    case EIte(cond, AOk(_, ECons(_, _, e, AOk(_, EName(a, _)))), AOk(_, EName(b, _))) if a == acc and b == acc =>
+    case EIte(cond, AOk(_, _, ECons(_, _, _, e, AOk(_, _, EName(a, _)))), AOk(_, _, EName(b, _))) if a == acc and b == acc =>
       if contains(acc, free_vars(cond, List()) ++ free_vars(e, List())) then
         None
       else
         Some((Some(cond), e))
 
-    case ECons(_, _, e, AOk(_, EName(a, _))) if a == acc =>
+    case ECons(_, _, _, e, AOk(_, _, EName(a, _))) if a == acc =>
       if contains(acc, free_vars(e, List())) then None else Some((None, e))
 
     case _ =>
@@ -423,7 +423,10 @@ function fusion_of(name: Name, args: List[At[Expr]]): Option[Fused] :=
           None
       end
 
-    case (None, List(xs, init, AOk(_, ELam(List(AOk(_, PVar(x)), AOk(_, PVar(acc))), body)))) =>
+    case (None, List(
+      xs,
+      init,
+      AOk(_, _, ELam(List(AOk(_, _, PVar(x)), AOk(_, _, PVar(acc))), body)))) =>
       match fused(name, xs, x, body, acc.name)
         case Some(fusion) =>
           Some(FusedList(fusion, init))
@@ -451,9 +454,9 @@ function fused(f: Name, c: At[Expr], x: Var, body: At[Expr], acc: Name): Option[
 
 function fused_inner(f: Name, c: At[Expr], x: Var, body: At[Expr], acc: Name): Option[Fusion] :=
   match body.that
-    case ECall(_, f_, _, List(c_, AOk(_, EName(a, _)), lam)) if a == acc and is_unused(acc, c_, lam) =>
+    case ECall(_, _, f_, _, List(c_, AOk(_, _, EName(a, _)), lam)) if a == acc and is_unused(acc, c_, lam) =>
       match lam.that
-        case ELam(List(AOk(_, PVar(x_)), AOk(_, PVar(acc_))), inner) =>
+        case ELam(List(AOk(_, _, PVar(x_)), AOk(_, _, PVar(acc_))), inner) =>
           nested(f, c, x, fused(f_, c_, x_, inner, acc_.name))
         case _ =>
           None
@@ -477,9 +480,9 @@ function nested(f: Name, c: At[Expr], x: Var, inner: Option[Fusion]): Option[Fus
 // the generators, condition, and element of an array comprehension Array(foldr(c, Nil, lambda x, acc => ...))
 function array_fusion(n: Name, args: List[At[Expr]]): Option[Fusion] :=
   match args
-    case List(AOk(_, ECall(_, f, _, List(xs, AOk(_, ENil(_)), lam)))) if n == array_name() =>
+    case List(AOk(_, _, ECall(_, _, f, _, List(xs, AOk(_, _, ENil(_)), lam)))) if n == array_name() =>
       match lam.that
-        case ELam(List(AOk(_, PVar(x)), AOk(_, PVar(acc))), body) =>
+        case ELam(List(AOk(_, _, PVar(x)), AOk(_, _, PVar(acc))), body) =>
           fused(f, xs, x, body, acc.name)
         case _ =>
           None

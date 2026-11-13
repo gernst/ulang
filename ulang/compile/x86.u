@@ -458,7 +458,7 @@ procedure compile_expr(in defs: Defs, env: Slots, expr: At[Expr], ref e: Emit) :
           call global_value(in defs, name, typ, ref e)
       end
 
-    case ECall(_, name, typ, args) if get(name, env) == None =>
+    case ECall(_, _, name, typ, args) if get(name, env) == None =>
       call compile_named(in defs, env, name, typ, args, ref e)
 
     case EField(_, field) =>
@@ -536,7 +536,7 @@ procedure expr_cases(
 ) :=
   for d in cases do
     match d.at
-      case AOk(_, Branch(pat, guard, body)) =>
+      case AOk(_, _, Branch(pat, guard, body)) =>
         local next: Str, binds: Slots
         call new_label(out next, ref e)
         call test_pat(in pat.that, s, List(), next, ref e)
@@ -814,7 +814,7 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
       call place(in done, ref e)
 
     // assertions of equations show both sides when they fail
-    case SAssert(AOk(_, ECall(_, Name(None, "=="), _, List(a, b)))) =>
+    case SAssert(AOk(_, _, ECall(_, _, Name(None, "=="), _, List(a, b)))) =>
       local slots: List[Int]
       call compile_args(in defs, env, List(a, b), out slots, ref e)
       call call_runtime(in "u_assert_equal", vals(slots), ref e)
@@ -925,7 +925,7 @@ procedure handler_cases(
 ) :=
   for d in hs do
     match d.at
-      case AOk(_, Catch(typ, pat, guard, s)) =>
+      case AOk(_, _, Catch(typ, pat, guard, s)) =>
         local next: Str, v: Int, binds: Slots
         call new_label(out next, ref e)
         match pat.that
@@ -964,7 +964,7 @@ procedure stmt_cases(
 ) :=
   for d in cases do
     match d.at
-      case AOk(_, Branch(pat, guard, body)) =>
+      case AOk(_, _, Branch(pat, guard, body)) =>
         local next: Str, binds: Slots
         call new_label(out next, ref e)
         call test_pat(in pat.that, s, List(), next, ref e)

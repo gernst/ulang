@@ -249,7 +249,7 @@ function format_exprs(notation: Notation, indent: Str, exprs: List[At[Expr]]): S
 // expr, as written if it does not parse
 function expr_out(notation: Notation, indent: Str, expr: At[Expr]): Out :=
   match expr
-    case AUnparsed(_, text, _) =>
+    case AUnparsed(_, _, text, _) =>
       Out(text, Atom)
     case _ =>
       node_out(notation, indent, expr)
@@ -585,7 +585,7 @@ function cons_pattern_rest(pat: Pat): Pat :=
 // stmt, as written if it does not parse
 function format_stmt(notation: Notation, indent: Str, stmt: At[Stmt]): Str :=
   match stmt
-    case AUnparsed(_, text, _) =>
+    case AUnparsed(_, _, text, _) =>
       text
     case _ =>
       format_stmt_node(notation, indent, stmt)
@@ -685,7 +685,7 @@ function format_stmts(notation: Notation, indent: Str, ss: List[Doc[Stmt]]): Str
 // a statement after its doc and a newline, where a call is padded to the width of assign next to an assign
 function stmt_line(notation: Notation, indent: Str, padded: Bool, stmt: Doc[Stmt]): Str :=
   match stmt.at
-    case AOk(_, SCall(proc, ins, outs, refs)) if padded =>
+    case AOk(_, _, SCall(proc, ins, outs, refs)) if padded =>
       indented_doc(indent, stmt.doc) ++ "\n" ++ indent ++ "call   " ++ call_text(notation, indent, proc, ins, outs, refs)
     case _ =>
       indented_doc(indent, stmt.doc) ++ "\n" ++ indent ++ format_stmt(notation, indent, stmt.at)
@@ -710,10 +710,10 @@ function runs(ss: List[Doc[Stmt]]): List[List[Doc[Stmt]]] :=
 
 function is_simple(stmt: At[Stmt]): Bool :=
   match stmt
-    case AOk(_, SCall(_, _, _, _)) =>
+    case AOk(_, _, SCall(_, _, _, _)) =>
       true
 
-    case AOk(_, SAssign(_)) =>
+    case AOk(_, _, SAssign(_)) =>
       true
 
     case _ =>
@@ -722,7 +722,7 @@ function is_simple(stmt: At[Stmt]): Bool :=
 
 function has_assign(run: List[At[Stmt]]): Bool :=
   exists(run, lambda s => match s
-    case AOk(_, SAssign(_)) =>
+    case AOk(_, _, SAssign(_)) =>
       true
     case _ =>
       false
@@ -734,7 +734,7 @@ function local_decls(notation: Notation, indent: Str, xs: List[At[Var]], ss: Lis
     case (List(), _) =>
       (List(), ss)
 
-    case (List(x; more), List(Doc(None, AOk(_, SAssign(List((y, a))))); rest)) if y == Var(x.that.name, THole) =>
+    case (List(x; more), List(Doc(None, AOk(_, _, SAssign(List((y, a))))); rest)) if y == Var(x.that.name, THole) =>
       match local_decls(notation, indent, more, rest)
         case (decls, after) =>
           (List(
@@ -852,7 +852,7 @@ function proof_text(notation: Notation, indent: Str, proof: Proof): Str :=
       (if locals == List() and stmts == List() then
         ""
       else
-        format_body(notation, indent, AOk(Pos(0, 0), SBlock(locals, stmts)))) ++ invariants_text(notation, indent, rest)
+        format_body(notation, indent, nowhere(SBlock(locals, stmts)))) ++ invariants_text(notation, indent, rest)
   end in
   match proof.split
     case Some(split) =>
@@ -864,7 +864,7 @@ function proof_text(notation: Notation, indent: Str, proof: Proof): Str :=
 // the statements of the steps up to the first invariant, and the steps from it on
 function leading_stmts(steps: List[At[Step]]): List[Doc[Stmt]] * List[At[Step]] :=
   match steps
-    case List(AOk(_, StepInvariant(_)); _) =>
+    case List(AOk(_, _, StepInvariant(_)); _) =>
       (List(), steps)
 
     case List(step; rest) =>
@@ -880,7 +880,7 @@ function leading_stmts(steps: List[At[Step]]): List[Doc[Stmt]] * List[At[Step]] 
 // each invariant of steps on a line of its own, followed by the statements of the steps up to the next one
 function invariants_text(notation: Notation, indent: Str, steps: List[At[Step]]): Str :=
   match steps
-    case List(AOk(_, StepInvariant(cond)); rest) =>
+    case List(AOk(_, _, StepInvariant(cond)); rest) =>
       match leading_stmts(rest)
         case (stmts, after) =>
           "\n" ++ indent ++ "invariant " ++ format_expr(notation, indent, cond) ++ format_stmts(notation, indent, stmts) ++ invariants_text(notation, indent, after)
@@ -902,19 +902,20 @@ function local_of(step: Step): Option[At[Var]] :=
 function step_stmts(step: At[Step]): List[At[Stmt]] :=
   match step.that
     case StepLocal(x, Some(e)) =>
-      List(AOk(step.pos, SAssign(List((Var(x.that.name, THole), e)))))
+      List(
+        AOk(step.pos, step.span, SAssign(List((Var(x.that.name, THole), e)))))
 
     case StepLocal(_, None) =>
       List()
 
     case StepCall(name, ins, outs) =>
-      List(AOk(step.pos, SCall(name, ins, outs, List())))
+      List(AOk(step.pos, step.span, SCall(name, ins, outs, List())))
 
     case StepAssert(cond) =>
-      List(AOk(step.pos, SAssert(cond)))
+      List(AOk(step.pos, step.span, SAssert(cond)))
 
     case StepAssign(upd) =>
-      List(AOk(step.pos, SAssign(upd)))
+      List(AOk(step.pos, step.span, SAssign(upd)))
 
     // invariants_text prints it
     case StepInvariant(_) =>
@@ -1082,7 +1083,7 @@ test bodies() :=
 // the text of x, as written if it does not parse
 function example_out(notation: Notation, x: At[Example]): Str :=
   match x
-    case AUnparsed(_, text, _) =>
+    case AUnparsed(_, _, text, _) =>
       text
     case _ =>
       example_text(notation, "    ", x.that)

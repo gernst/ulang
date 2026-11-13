@@ -48,13 +48,14 @@ data Var :=
   // x or x: T, as a formal, local, or binding, with THole for a type not written
   case Var(name: Name, typ: Type)
 
-// a part of the syntax at the position of its first token, or of the token that names it, which the checker keeps
+// a part of the syntax at the position of its first token, or of the token that names it, and with its span, from its
+// first token to the end of its last, which the checker keeps
 data At[A] :=
-  case AOk(pos: Pos, that: A)
+  case AOk(pos: Pos, span: Span, that: A)
   // a part that a phase rejected, with its errors, whose positions may be inside it
-  case AErr(pos: Pos, that: A, errors: List[Diagnostic])
-  // a part that does not parse, as written from pos to where the parser resumes
-  case AUnparsed(pos: Pos, text: Str, error: Diagnostic)
+  case AErr(pos: Pos, span: Span, that: A, errors: List[Diagnostic])
+  // a part that does not parse, as written over span, from pos to where the parser resumes
+  case AUnparsed(pos: Pos, span: Span, text: Str, error: Diagnostic)
 
 // a part on lines of its own after its doc of // lines, a command, a constructor, or a case of a match or catch
 data Doc[A] :=
@@ -282,6 +283,10 @@ data Pos :=
   // line and column, both from 1
   case Pos(line: Int, col: Int)
 
+// the text from start to stop, which is the position after its last character, so that an empty span has start == stop
+data Span :=
+  case Span(start: Pos, stop: Pos)
+
 // a module without sections has all its commands implemented and exports nothing
 data Mod :=
   // a file of import "p" lines of packages, then export, builtin, and implementation, each followed by its commands
@@ -303,8 +308,8 @@ pattern EName(name: Name, typ: Type): Expr :=
   EVar(Var(name, typ))
 
 // a call of a name, whose position is that of the name, as the parser places a call at its name
-pattern ECall(pos: Pos, name: Name, typ: Type, args: List[At[Expr]]): Expr :=
-  EApp(AOk(pos, EVar(Var(name, typ))), args)
+pattern ECall(pos: Pos, span: Span, name: Name, typ: Type, args: List[At[Expr]]): Expr :=
+  EApp(AOk(pos, span, EVar(Var(name, typ))), args)
 
 pattern PName(name: Name, typ: Type): Pat :=
   PVar(Var(name, typ))
@@ -315,6 +320,12 @@ function arity(t: Type): Int
 
 // x at the position Pos(0, 0), of code that the parser did not read, e.g. of tests
 function nowhere[A](x: A): At[A]
+
+// the empty span at pos, of code that a phase makes at the position of a part whose span it does not have
+function span_at(pos: Pos): Span
+
+// the span from the start of first to the stop of last
+function span_over[A, B](first: At[A], last: At[B]): Span
 
 // the spec of a head without :=, and of the checked program, whose examples are tests
 function no_spec(): Spec
@@ -351,7 +362,7 @@ function form_name(form: Form): Id
 function lambda_vars(formals: List[At[Pat]]): List[Var]
 
 // a lambda of the variables xs, placed at pos
-function lambda_of(pos: Pos, xs: List[Var], body: At[Expr]): Expr
+function lambda_of(pos: Pos, span: Span, xs: List[Var], body: At[Expr]): Expr
 
 function placed_of(d: Mod): List[Doc[Cmd]]
 
@@ -482,18 +493,24 @@ function no_spec(): Spec :=
   Spec(List(), None, List())
 
 function nowhere[A](x: A): At[A] :=
-  AOk(Pos(0, 0), x)
+  AOk(Pos(0, 0), span_at(Pos(0, 0)), x)
+
+function span_at(pos: Pos): Span :=
+  Span(pos, pos)
+
+function span_over[A, B](first: At[A], last: At[B]): Span :=
+  Span(first.span.start, last.span.stop)
 
 function map_at[A, B](x: At[A], f: A -> B): At[B] :=
   match x
-    case AOk(pos, that) =>
-      AOk(pos, f(that))
+    case AOk(pos, span, that) =>
+      AOk(pos, span, f(that))
 
-    case AErr(pos, that, errors) =>
-      AErr(pos, f(that), errors)
+    case AErr(pos, span, that, errors) =>
+      AErr(pos, span, f(that), errors)
 
-    case AUnparsed(pos, text, error) =>
-      AUnparsed(pos, text, error)
+    case AUnparsed(pos, span, text, error) =>
+      AUnparsed(pos, span, text, error)
   end
 
 function map_doc[A, B](d: Doc[A], f: A -> B): Doc[B] :=
@@ -520,7 +537,7 @@ function definitions(q: Prog): List[Cmd] :=
 
 function definition_in(cmd: At[Cmd]): Option[Cmd] :=
   match cmd
-    case AOk(_, that) =>
+    case AOk(_, _, that) =>
       if is_signature(that) then
         None
       else if has_unparsed(that) then
@@ -528,7 +545,7 @@ function definition_in(cmd: At[Cmd]): Option[Cmd] :=
       else
         Some(that)
 
-    case AErr(_, that, errors) =>
+    case AErr(_, _, that, errors) =>
       if is_signature(that) then
         None
       else if errors == List() or exists(errors, blocks_run) or has_unparsed(that) then
@@ -537,7 +554,7 @@ function definition_in(cmd: At[Cmd]): Option[Cmd] :=
         Some(that)
 
     // without_unparsed of ulang/parse/parse.u leaves none to the checker
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       None
   end
 
@@ -568,13 +585,13 @@ function rejected(cmd: Cmd, errors: List[Diagnostic]): Cmd :=
 
 function with_body_errors[A](x: At[A], errors: List[Diagnostic]): At[A] :=
   match x
-    case AOk(pos, that) =>
-      AErr(pos, that, errors)
+    case AOk(pos, span, that) =>
+      AErr(pos, span, that, errors)
 
-    case AErr(pos, that, own) =>
-      AErr(pos, that, errors ++ own)
+    case AErr(pos, span, that, own) =>
+      AErr(pos, span, that, errors ++ own)
 
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       x
   end
 
@@ -617,7 +634,7 @@ function parts[A](docs: List[Doc[A]]): List[A] :=
 
 function is_parsed[A](x: At[A]): Bool :=
   match x
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       false
     case _ =>
       true
@@ -670,8 +687,8 @@ function unplaced(cmds: List[Cmd]): List[Doc[Cmd]] :=
 function lambda_vars(formals: List[At[Pat]]): List[Var] :=
   value_or(pattern_vars(formals), List())
 
-function lambda_of(pos: Pos, xs: List[Var], body: At[Expr]): Expr :=
-  ELam(List(for x in xs yield AOk(pos, PVar(x))), body)
+function lambda_of(pos: Pos, span: Span, xs: List[Var], body: At[Expr]): Expr :=
+  ELam(List(for x in xs yield AOk(pos, span, PVar(x))), body)
 
 // what a form of a single generator yields without yield, the value its pattern matches, an entry of a map
 function implicit_elem(form: Form, gens: List[Gen]): Option[Yield] :=
@@ -682,12 +699,12 @@ function implicit_elem(form: Form, gens: List[Gen]): Option[Yield] :=
     case (List(GPair(k, v, _)), _) =>
       match (pattern_expr(k), pattern_expr(v))
         case (Some(a), Some(b)) =>
-          Some(YVal(AOk(k.pos, ETuple(List(a, b)))))
+          Some(YVal(AOk(k.pos, span_over(k, v), ETuple(List(a, b)))))
         case _ =>
           None
       end
 
-    case (List(GVal(AOk(_, PTuple(List(k, v))), _)), FMap) =>
+    case (List(GVal(AOk(_, _, PTuple(List(k, v))), _)), FMap) =>
       pair_elem(pattern_expr(k), pattern_expr(v))
 
     case (List(GVal(_, _)), FMap) =>
@@ -718,9 +735,10 @@ function is_guard(g: Gen): Bool :=
 
 // the value that a pattern without _ matches, at the positions of the patterns
 function pattern_expr(p: At[Pat]): Option[At[Expr]] :=
-  map_option(pattern_value(p.pos, p.that), lambda e => AOk(p.pos, e))
+  map_option(pattern_value(p.pos, p.span, p.that), lambda e => AOk(p.pos, p.span, e))
 
-function pattern_value(pos: Pos, p: Pat): Option[Expr] :=
+// a call of a constructor at pos and over span, those of its pattern
+function pattern_value(pos: Pos, span: Span, p: Pat): Option[Expr] :=
   match p
     case PWild =>
       None
@@ -738,7 +756,7 @@ function pattern_value(pos: Pos, p: Pat): Option[Expr] :=
       Some(EName(c, THole))
 
     case PApp(c, ps) =>
-      map_option(pattern_exprs(ps), lambda es => ECall(pos, c, THole, es))
+      map_option(pattern_exprs(ps), lambda es => ECall(pos, span, c, THole, es))
   end
 
 // pat with the patterns of sub for its variables
@@ -781,7 +799,7 @@ function pattern_vars(pats: List[At[Pat]]): Option[List[Var]] :=
     case List() =>
       Some(List())
 
-    case List(AOk(_, PVar(var)); more) =>
+    case List(AOk(_, _, PVar(var)); more) =>
       match pattern_vars(more)
         case Some(xs) =>
           Some(List(var; xs))
@@ -947,10 +965,10 @@ function strip_example(x: Example): Example :=
 // x at Pos(0, 0), with its part stripped by strip
 function stripped[A](x: At[A], strip: A -> A): At[A] :=
   match x
-    case AUnparsed(_, text, error) =>
-      AUnparsed(Pos(0, 0), text, error with pos := Pos(0, 0))
+    case AUnparsed(_, _, text, error) =>
+      AUnparsed(Pos(0, 0), span_at(Pos(0, 0)), text, error with pos := Pos(0, 0))
     case _ =>
-      map_at(x, strip) with pos := Pos(0, 0)
+      map_at(x, strip) with pos := Pos(0, 0), span := span_at(Pos(0, 0))
   end
 
 function strip_expr(expr: At[Expr]): At[Expr] :=
@@ -1158,13 +1176,13 @@ function cmd_module(cmd: Cmd): Option[Id] :=
 
 function cmd_errors(cmd: At[Cmd]): List[Diagnostic] :=
   match cmd
-    case AUnparsed(_, _, error) =>
+    case AUnparsed(_, _, _, error) =>
       List(error)
 
-    case AOk(_, that) =>
+    case AOk(_, _, that) =>
       part_errors(that)
 
-    case AErr(_, that, errors) =>
+    case AErr(_, _, that, errors) =>
       errors ++ part_errors(that)
   end
 
@@ -1219,13 +1237,13 @@ function claim_exprs(claim: Claim): List[At[Expr]] :=
 
 function example_error(x: At[Example]): Option[Diagnostic] :=
   match x
-    case AUnparsed(_, _, error) =>
+    case AUnparsed(_, _, _, error) =>
       Some(error)
 
-    case AOk(_, claim) =>
+    case AOk(_, _, claim) =>
       first_error(errors_in_example(claim))
 
-    case AErr(_, claim, _) =>
+    case AErr(_, _, claim, _) =>
       first_error(errors_in_example(claim))
   end
 
@@ -1257,13 +1275,13 @@ function errors_in_exprs(exprs: List[At[Expr]]): List[Diagnostic] :=
 
 function errors_in_expr(expr: At[Expr]): List[Diagnostic] :=
   match expr
-    case AUnparsed(_, _, error) =>
+    case AUnparsed(_, _, _, error) =>
       List(error)
 
-    case AOk(_, that) =>
+    case AOk(_, _, that) =>
       errors_in_node(that)
 
-    case AErr(_, that, errors) =>
+    case AErr(_, _, that, errors) =>
       errors ++ errors_in_node(that)
   end
 
@@ -1338,13 +1356,13 @@ function errors_in_proof(proof: Proof): List[Diagnostic] :=
 
 function errors_in_step(step: At[Step]): List[Diagnostic] :=
   match step
-    case AUnparsed(_, _, error) =>
+    case AUnparsed(_, _, _, error) =>
       List(error)
 
-    case AOk(_, that) =>
+    case AOk(_, _, that) =>
       errors_in_step_node(that)
 
-    case AErr(_, that, errors) =>
+    case AErr(_, _, that, errors) =>
       errors ++ errors_in_step_node(that)
   end
 
@@ -1368,13 +1386,13 @@ function errors_in_step_node(step: Step): List[Diagnostic] :=
 
 function errors_in_split(split: At[Split]): List[Diagnostic] :=
   match split
-    case AUnparsed(_, _, error) =>
+    case AUnparsed(_, _, _, error) =>
       List(error)
 
-    case AOk(_, that) =>
+    case AOk(_, _, that) =>
       errors_in_split_node(that)
 
-    case AErr(_, that, errors) =>
+    case AErr(_, _, that, errors) =>
       errors ++ errors_in_split_node(that)
   end
 
@@ -1392,13 +1410,13 @@ function errors_in_split_node(split: Split): List[Diagnostic] :=
 
 function errors_in_stmt(stmt: At[Stmt]): List[Diagnostic] :=
   match stmt
-    case AUnparsed(_, _, error) =>
+    case AUnparsed(_, _, _, error) =>
       List(error)
 
-    case AOk(_, that) =>
+    case AOk(_, _, that) =>
       errors_in_stmt_node(that)
 
-    case AErr(_, that, errors) =>
+    case AErr(_, _, that, errors) =>
       errors ++ errors_in_stmt_node(that)
   end
 
