@@ -1,6 +1,6 @@
 # Assembly
 
-In progress (Compiler 2 of `ideas/compiler.md`), steps 0 to 4 done and 5 by hand: a second backend of the compiler that writes GNU assembly for x86-64 Linux instead of C, so that compiled programs need no C compiler, only `as` and a linker, while the runtime stays C. The C backend stays as the portable one and as the seed of the bootstrap.
+In progress (Compiler 2 of `ideas/compiler.md`), steps 0 to 6 done: a second backend of the compiler that writes GNU assembly for x86-64 Linux instead of C, so that compiled programs need no C compiler, only `as` and a linker, while the runtime stays C. The C backend stays as the portable one and as the seed of the bootstrap.
 
 ## Why
 
@@ -66,9 +66,9 @@ The simple backend is about 1.1 times slower than `-O2` on the compiler, less th
 0. **Compiled tests**, done: `make testc`, the safety net, since every test must have the same outcome in both backends.
 1. Done. **`lower.u`**: the shared part moved out of `compile.u`, which then writes the same C as before, byte for byte.
 2. Done. **`asm.u`**: the datatypes and the printer, with a test.
-3. Done. **`x86.u`** with the runtime object and the `_Static_assert`s: data, functions, procedures, statements, expressions, closures, wrappers, caches, `try`, then `compile … -o x.s` in the driver; first without the fusion of comprehensions (`fusion_of`), which only saves the calls of folds. Grown on small programs of `ulang/test/`, each compared with its C build.
+3. Done. **`x86.u`** with the runtime object and the `_Static_assert`s: data, functions, procedures, statements, expressions, closures, wrappers, caches, `try`, then `compile … -o x.s` in the driver; first without the fusion of comprehensions (`fusion_of`), which step 6 added. Grown on small programs of `ulang/test/`, each compared with its C build.
 4. Done. **`make testasm`**: the suite of `compile --tests` through assembly, all tests passing as with `make testc`.
-5. Done by hand, not yet as a target of the Makefile. **Self-compile through assembly**: the compiler built from its `.s` compiles itself to the same C and the same `.s`; `make` keeps building the tool from C until this is reliable, then may switch; `bootstrap/ulang.c` stays the versioned seed.
-6. **Measured improvements**: the fusion of comprehensions as in C, results that stay in `%rax` instead of a slot, arguments that are variables or constants loaded directly into their registers.
+5. Done. **Self-compile through assembly**, `make selfcompileasm`: the compiler built from its `.s` compiles itself to the same C and the same `.s`; `make` keeps building the tool from C until this is reliable, then may switch; `bootstrap/ulang.c` stays the versioned seed.
+6. Done, not yet measured, since the machine was loaded. **Improvements**: the fusion of comprehensions as in C (`comprehension_loops`, `list_comprehension`, and `array_comprehension` of `ulang/compile/x86.u`); the last argument of a call stays in `%rax` instead of a slot, and arguments that are local variables, string literals, or constructors without fields are loaded directly into their registers (`compile_args` and `operand_of`); a single assignment and the scrutinee of a `match` on a local variable take no slot of their own (`compile_slot`). The `.s` of `compile --tests` shrank from 553,000 to 455,000 lines.
 7. **An encoder of its own**: the instructions of `asm.u` encoded to machine code and written as an ELF relocatable object, so that neither `as` nor a C compiler is needed, only the linker. It needs bytes in files first, which `os_write` cannot write, since it writes strings as UTF-8 (Library 1 of `ideas/library.md`).
 8. **Later, each a project of its own**: register allocation, ARM64, unboxed small integers.
