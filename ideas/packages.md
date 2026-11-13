@@ -38,6 +38,6 @@ Three choices compound there: a file without sections is a program, a module of 
 
 Each step is a branch of its own; step 1 alone already makes `ulang/test/errors/` one load instead of seven.
 
-## 6. Open
+## 6. Subdirectories
 
-- Whether a package spans its subdirectories, so that all of `ulang/test/` is one package; with one load per run this is a question of names and visibility, not of speed, to decide with Modules 3.
+A package is exactly its directory, as in Go, and spans no subdirectories: `ulang/` is split into packages so that the imports check the layers of the phases, which a package spanning its subdirectories would merge, and with one load per run many small packages cost one load each. So `ulang/test` is the package of the tester, and each directory of tests below it a package of its own. Whether a package declares itself in a file inside it stays with Modules 3.
