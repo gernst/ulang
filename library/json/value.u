@@ -100,8 +100,8 @@ function escape(c: Char): Str :=
     "\\t"
   else if c == '\r' then
     "\\r"
-  else if ord(c) < 32 then
-    "\\u" ++ hex_unit(ord(c))
+  else if int(c) < 32 then
+    "\\u" ++ hex_unit(int(c))
   else
     str(List(c))
 
@@ -113,7 +113,7 @@ function hex_unit(n: Int): Str :=
     hex_digit(n % 16)))
 
 function hex_digit(d: Int): Char :=
-  if d < 10 then chr(ord('0') + d) else chr(ord('a') + d - 10)
+  if d < 10 then chr(int('0') + d) else chr(int('a') + d - 10)
 
 test numbers() :=
   assert show(decimal(150, -2)) == "1.5"

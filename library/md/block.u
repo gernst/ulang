@@ -266,7 +266,7 @@ function marker_after(m: Marker, after: List[Char], l: Str): Option[Marker] :=
     Some(m with width := m.width + size(spaces))
 
 function to_int(ds: List[Char]): Int :=
-  foldl(ds, 0, lambda n, d => 10 * n + ord(d) - ord('0'))
+  foldl(ds, 0, lambda n, d => 10 * n + int(d) - int('0'))
 
 function same_kind(a: Marker, b: Marker): Bool :=
   a.ordered == b.ordered and a.delim == b.delim

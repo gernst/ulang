@@ -28,9 +28,14 @@ function str(cs: List[Char]): Str
 
 // the code point of a character, and the character of a code point from 0 to 0x10FFFF other than the surrogates 0xD800
 // to 0xDFFF of UTF-16, or else NoCharacter
-function ord(c: Char): Int
+function int(c: Char): Int
 
 function chr(n: Int): Char
+
+// the bytes of the UTF-8 of a string, and the string of bytes of UTF-8, which is None if they are not valid UTF-8
+function encode_utf8(s: Str): Array[Byte]
+
+function decode_utf8(bytes: Array[Byte]): Option[Str]
 
 function is_digit(c: Char): Bool
 
