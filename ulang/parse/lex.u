@@ -177,12 +177,36 @@ procedure lex_name(in text: Str, out tok: Token, ref offset: Int) :=
 procedure lex_number(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
   call scan(in text, is_digit, out from, ref offset)
+  if slice(text, from, offset) == "0" and peek(text, offset) == 'x' and hex_digit(peek(text, offset + 1)) != None then
+    local digits: Int
+    assign offset := offset + 1
+    call   scan(in text, lambda c => hex_digit(c) != None, out digits, ref offset)
+    raise LexError("invalid number; numbers are decimal, as in " ++ show(hex_value(slice(text, digits, offset))), position_of(text, from))
+  end
   match number(slice(text, from, offset))
     case Some(n) =>
       assign tok := TNum(n)
     case None =>
       raise LexError("invalid number", position_of(text, from))
   end
+
+// the value of a hexadecimal digit, of either case, if c is one
+function hex_digit(c: Char): Option[Int] :=
+  example hex_digit('B') == Some(11)
+  or_else(index_of(c, chars("0123456789abcdef")), index_of(c, chars("0123456789ABCDEF")))
+
+function hex_value(digits: Str): Int :=
+  example hex_value("D800") == 55296
+  foldl(chars(digits), 0, lambda n, c => 16 * n + value_or(hex_digit(c), 0))
+
+// the hint for an unexpected character c before next, after "; ", or ""
+function character_hint(c: Char, next: Char): Str :=
+  if c == '|' and next == '|' then
+    "; the operators of Bool are and, or, and not"
+  else if c == '|' then
+    "; an operator consists of the characters " ++ str(List(for i in range(33, 127) if is_op_char(chr(i)) yield chr(i)))
+  else
+    ""
 
 procedure lex_symbol(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
@@ -295,7 +319,7 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
       assign tok := TKw(str(List(c))), offset := offset + 1
 
     case _ =>
-      raise LexError("unexpected character", position_of(text, offset))
+      raise LexError("unexpected character" ++ character_hint(c, peek(text, offset + 1)), position_of(text, offset))
   end
 
 // the tokens of text with their positions, which end with TEnd at the end of text, where line and column are those of

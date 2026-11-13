@@ -410,6 +410,12 @@ function hint_at(what: Str, toks: Tokens): Str :=
     case (TKw("local"), _) if what == "statement" =>
       "; locals are declared at the start of a body, before its statements"
 
+    case (TKw("raise"), _) if what == "expression" =>
+      "; functions do not raise, so code that raises is a procedure"
+
+    case (TKw(","), tok) if contains(tok, List(TKw("in"), TKw("out"), TKw("ref"))) =>
+      "; modes come in the order in, out, ref, each once before its group, as in ref a, b"
+
     case (TKw("["), _) =>
       "; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments"
 
@@ -421,8 +427,10 @@ function hint_at(what: Str, toks: Tokens): Str :=
 function operator_hint(op: Str): Str :=
   if op == "::" then
     "; a list is built and matched as List(x; rest)"
-  else if op == "&&" or op == "||" or op == "!" then
+  else if op == "&&" or op == "!" then
     "; the operators of Bool are and, or, and not"
+  else if op == "=" then
+    "; equality is =="
   else
     ""
 
@@ -484,6 +492,20 @@ procedure expect_end(in opener: Str, pos: Pos, ref toks: Tokens) :=
 
     case tok =>
       raise ParseError("the " ++ opener ++ ", or a construct inside it, has no end: end expected but " ++ format_token(tok) ++ " found", pos)
+  end
+
+// the else of the if expression at pos, whose error is at the if, as expect_end reports a missing end, where the else that
+// is missing may be of an if inside it, which took the else of this one
+procedure expect_else(in pos: Pos, ref toks: Tokens) :=
+  match head_token(toks)
+    case TKw("else") =>
+      call advance(ref toks)
+
+    case TDoc(_) =>
+      raise expected("else", toks)
+
+    case tok =>
+      raise ParseError("the if, or an if inside it, has no else: else expected but " ++ format_token(tok) ++ " found; an if expression always has its else", pos)
   end
 
 procedure expect(in tok: Token, ref toks: Tokens) :=
@@ -1078,7 +1100,7 @@ procedure parse_expr_atom(
       call   parse_expr(in notation, params, out a, ref toks)
       call   expect(in TKw("then"), ref toks)
       call   parse_expr(in notation, params, out l, ref toks)
-      call   expect(in TKw("else"), ref toks)
+      call   expect_else(in pos, ref toks)
       call   parse_expr(in notation, params, out r, ref toks)
       assign expr := AOk(pos, EIte(a, l, r))
 
@@ -1271,6 +1293,9 @@ procedure parse_elem(
   call parse_expr(in notation, params, out k, ref toks)
   if form == FMap then
     local v: At[Expr]
+    if not at_kw(toks, "=>") and not at_doc(toks) then
+      raise ParseError("=> expected but " ++ format_token(head_token(toks)) ++ " found; a Map yields entries k => v", head_pos(toks))
+    end
     call   expect(in TKw("=>"), ref toks)
     call   parse_expr(in notation, params, out v, ref toks)
     assign elem := YPair(k, v)
@@ -1899,9 +1924,9 @@ function section_starts(toks: Tokens, w: Str, first: Bool): Bool :=
   else
     at_kw(toks, ",") and second_token(toks) == TKw(w)
 
-// a comma before another item of a section, not before the keyword of the next section
+// a comma before another item of a section, not before the keyword of a section, which may be out of order
 function section_continues(toks: Tokens): Bool :=
-  at_kw(toks, ",") and second_token(toks) != TKw("out") and second_token(toks) != TKw("ref")
+  at_kw(toks, ",") and not contains(second_token(toks), List(TKw("in"), TKw("out"), TKw("ref")))
 
 // call p(in ins, out outs, ref refs)
 procedure parse_call(
