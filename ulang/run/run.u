@@ -12,6 +12,8 @@ data Val :=
   case VLit(lit: Lit)
   // a byte, from 0 to 255, which has no literal
   case VByte(num: Int)
+  // a stream of the interpreter itself, which the program reads and writes
+  case VIO(io: IO)
   case VObj(constr: Name, args: List[Val])
   case VArr(values: Array[Val])
   case VFunClos(env: Map[Name, Val], formals: List[Var], body: At[Expr])
@@ -94,6 +96,9 @@ function format_value(v: Val): Str :=
 
     case VByte(num) =>
       "byte(" ++ show(num) ++ ")"
+
+    case VIO(io) =>
+      show(io)
 
     case VTuple(args) =>
       "(" ++ format_values(args) ++ ")"
@@ -222,6 +227,7 @@ function builtin_names(): Set[Name] :=
     library_name("str", "int"),
     library_name("str", "encode_utf8"),
     library_name("str", "decode_utf8"),
+    library_name("io", "io_path"),
     library_name("prelude", "byte"),
     library_name("prelude", "int"),
     library_name("str", "is_digit"),
@@ -258,6 +264,9 @@ procedure incomparable(in v: Val) :=
       skip
 
     case VByte(_) =>
+      skip
+
+    case VIO(_) =>
       skip
 
     case VObj(_, _) =>
@@ -725,6 +734,9 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
           assign v := VNone()
       end
 
+    case ("prelude/io.io_path", List(VIO(io))) =>
+      assign v := VStr(io_path(io))
+
     case ("prelude/str.int", List(VChar(char))) =>
       assign v := VInt(int(char))
 
@@ -894,6 +906,9 @@ procedure compare_values(
 
     case (VByte(x), VByte(y)) =>
       assign r := order(x, y)
+
+    case (VIO(x), VIO(y)) =>
+      assign r := compare(x, y)
 
     case (VBool(x), VBool(y)) =>
       assign r := order(if x then 1 else 0, if y then 1 else 0)
@@ -1448,6 +1463,49 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
         call   os_exit(in num)
         assign outs := List()
 
+      case ("prelude/io.io_stdin", List()) =>
+        local io: IO
+        call   io_stdin(out io)
+        assign outs := List(VIO(io))
+
+      case ("prelude/io.io_stdout", List()) =>
+        local io: IO
+        call   io_stdout(out io)
+        assign outs := List(VIO(io))
+
+      case ("prelude/io.io_stderr", List()) =>
+        local io: IO
+        call   io_stderr(out io)
+        assign outs := List(VIO(io))
+
+      case ("prelude/io.io_open", List(VStr(path), VObj(mode, List()))) =>
+        local io: IO
+        call   io_open(in path, mode_of(mode), out io)
+        assign outs := List(VIO(io))
+
+      case ("prelude/io.io_read_bytes", List(VIO(io), VInt(num))) =>
+        local bytes: Array[Byte]
+        call   io_read_bytes(in io, num, out bytes)
+        assign outs := List(byte_values(bytes))
+
+      case ("prelude/io.io_read_until", List(VIO(io), VByte(num))) =>
+        local bytes: Array[Byte]
+        call   io_read_until(in io, byte(num), out bytes)
+        assign outs := List(byte_values(bytes))
+
+      case ("prelude/io.io_read_all", List(VIO(io))) =>
+        local bytes: Array[Byte]
+        call   io_read_all(in io, out bytes)
+        assign outs := List(byte_values(bytes))
+
+      case ("prelude/io.io_write_bytes", List(VIO(io), VArr(values))) =>
+        call   io_write_bytes(in io, bytes_of(values))
+        assign outs := List()
+
+      case ("prelude/io.io_close", List(VIO(io))) =>
+        call   io_close(in io)
+        assign outs := List()
+
       case _ =>
         raise UnknownProc(n)
     end
@@ -1455,6 +1513,15 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
     case OsError(message) =>
       raise Thrown(VOsError(message), TSort(os_error_name(), List()))
   end
+
+// the mode of the constructor of IoMode that checking has typed
+function mode_of(mode: Name): IoMode :=
+  if mode.base == "IoRead" then
+    IoRead
+  else if mode.base == "IoWrite" then
+    IoWrite
+  else
+    IoAppend
 
 // the entries of a directory as values of the program
 function entry_values(entries: List[Str * Bool]): List[Val] :=
@@ -1499,8 +1566,10 @@ procedure run_cmd(
   local env: Bindings := empty()
   try
     match cmd
-      case CTest(_, _, stmt) =>
+      // a test with formals runs as the test that the tester generates of it
+      case CTest(_, List(), stmt) =>
         call exec(in run, stmt, ref env, cache)
+
       case _ =>
         skip
     end

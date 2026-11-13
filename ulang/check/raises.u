@@ -9,8 +9,11 @@ import "ulang/syntax"
 export
 
 // the first error of the exceptions of each of the checked commands cmds of a package, whose private names are hidden, at
-// its position in the module of the command
-function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name]): List[TypeError]
+// its position in the module of the command, and the raises of the private procedures without raises, as inferred
+data Exceptions :=
+  case Exceptions(errors: List[TypeError], inferred: Map[Name, List[Type]])
+
+function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name]): Exceptions
 
 implementation
 
@@ -22,10 +25,10 @@ data Flow :=
 data Scope :=
   case Scope(sig: Sig, procs: Map[Name, Set[Name]], locals: Map[Name, Type])
 
-function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name]): List[TypeError] :=
+function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name]): Exceptions :=
   let inferred := inferred_procs(cmds, hidden) in
   let scope := infer_procs(cmds, Scope(sig, written_procs(cmds, inferred), empty()), inferred) in
-  List(for cmd in cmds for (pos, e) in take(1, sort(cmd_errors(scope, cmd, inferred))) yield Located(cmd_module(cmd), pos, e))
+  Exceptions(List(for cmd in cmds for (pos, e) in take(1, sort(cmd_errors(scope, cmd, inferred))) yield Located(cmd_module(cmd), pos, e)), Map(for name in inferred yield name => List(for t in proc_raises(scope, name) yield TSort(t, List()))))
 
 // the private procedures without raises, whose raises are inferred
 function inferred_procs(cmds: List[Cmd], hidden: Set[Name]): Set[Name] :=

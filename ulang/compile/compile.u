@@ -1092,7 +1092,8 @@ procedure compile_cmd(
       assign bs := copy_in(vars(outs), vars(refs)) ++ bs ++ copy_out(vars(outs ++ refs))
       assign ds := List(CdFunction(LkStatic, CtVoid, proc_name(name), params, bs)), ms := List()
 
-    case CTest(name, _, stmt) if tests =>
+    // a test with formals runs as the test that the tester generates of it
+    case CTest(name, List(), stmt) if tests =>
       local bs: List[CStmt]
       call   compile_stmt(in defs, List(), stmt, out bs, ref g)
       assign ds := List(CdFunction(LkStatic, CtVoid, test_name(name), List(), bs)), ms := List()
@@ -1298,7 +1299,14 @@ procedure compile_prog(
     call assemble_program(in q, q.main, entry, out a)
     call os_write_utf8(in target, format_asm(a))
   else
-    local f: CFile
-    call compile_program(in q, q.main, entry, out f)
-    call os_write_utf8(in target, format_file(f))
+    if ends_with(target, ".o") then
+      local a: AsmFile, bytes: Array[Byte]
+      call assemble_program(in q, q.main, entry, out a)
+      call encode_object(in a, out bytes)
+      call os_write_bytes(in target, bytes)
+    else
+      local f: CFile
+      call compile_program(in q, q.main, entry, out f)
+      call os_write_utf8(in target, format_file(f))
+    end
   end

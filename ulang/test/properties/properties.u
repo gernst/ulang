@@ -1,0 +1,39 @@
+// tests with formals, which the tester runs on the enumerated values of their formals (enumerated_tests of
+// ulang/test/generate.u)
+
+data Tree :=
+  case Leaf
+  case Node(left: Tree, key: Int, right: Tree)
+
+function mirror(t: Tree): Tree :=
+  match t
+    case Leaf =>
+      Leaf
+    case Node(l, k, r) =>
+      Node(mirror(r), k, mirror(l))
+  end
+
+function keys(t: Tree): List[Int] :=
+  match t
+    case Leaf =>
+      List()
+    case Node(l, k, r) =>
+      keys(l) ++ List(k) ++ keys(r)
+  end
+
+test append_size(xs: List[Int], ys: List[Int]) :=
+  assert size(xs ++ ys) == size(xs) + size(ys)
+
+test mirror_twice(t: Tree) :=
+  assert mirror(mirror(t)) == t
+
+test mirror_reverses(t: Tree) :=
+  assert keys(mirror(t)) == reverse(keys(t))
+
+// an assertion in a loop and a branch fails with the values of the formals too
+test positive_squares(xs: List[Int]) :=
+  for x in xs do
+    if x != 0 then
+      assert x * x > 0
+    end
+  end

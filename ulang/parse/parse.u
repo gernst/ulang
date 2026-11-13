@@ -64,6 +64,12 @@ function has_sections(text: Str): Bool :=
 // notation, so without the operators of the library, such as +
 procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError
 
+// the source of the module main of text as parse_text parses it, with its errors as its parts that do not parse
+procedure parse_text_recovering(
+  in  text: Str,
+  out source: Source
+) raises ParseError, OsError
+
 // the source of texts instead of files, for the tests: the members of the package of the directory dir from the root,
 // each its module and text, and main, the module and text of the main file, which is one of them or a program in dir,
 // where the library and the imported packages are read from their files
@@ -73,6 +79,15 @@ procedure parse_texts(
       members: List[Id * Str],
       main: Id * Str,
   out source: Source
+) raises ParseError, OsError
+
+// the package dir of the members, each its module and text, read elsewhere, loaded into source without their tests, and
+// placed right after the library, which is all they see, so that the modules loaded before see them as packages checked
+// before, e.g. the enumeration that the tests of lemmas call, which no path names
+procedure load_after_library(
+  in  dir: Str,
+      members: List[Id * Str],
+  ref source: Source
 ) raises ParseError, OsError
 
 // the nearest directory from dir upward with project.u, or else dir, where dir is absolute and normal
@@ -2939,6 +2954,18 @@ procedure parse_texts(
       end
   end
 
+procedure load_after_library(
+  in  dir: Str,
+      members: List[Id * Str],
+  ref source: Source
+) raises ParseError, OsError :=
+  local before := source.mods
+  call   load_members(in "", Some(dir), members, None, List(), ref source)
+  assign source := source with mods := List(for d in source.mods if is_library(d)) ++ List(for d in drop(size(before), source.mods) if not is_library(d)) ++ List(for d in before if not is_library(d))
+
+function is_library(d: Mod): Bool :=
+  contains(d.name, library_modules())
+
 function is_main(id: Id, main: Option[Id * Str]): Bool :=
   match main
     case Some((m, _)) =>
@@ -3343,10 +3370,19 @@ procedure parse_file(
   call parse_file_text(in path, text, out source)
 
 procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError :=
-  local toks: Tokens, comments: List[Comment], source := Source(List(), List(), "main")
-  call lex_text(in text, out toks, comments)
-  call parse_mod(in "main", comments, List(), empty_notation(), "", None, List(), out own, ref source, toks)
-  call require_parsed(in Source(List(own), List(), "main"))
+  local source: Source
+  call   parse_text_recovering(in text, out source)
+  call   require_parsed(in source)
+  assign own := source.mods.head
+
+procedure parse_text_recovering(
+  in  text: Str,
+  out source: Source
+) raises ParseError, OsError :=
+  local toks: Tokens, comments: List[Comment], own: Mod, loaded := Source(List(), List(), "main")
+  call   lex_text(in text, out toks, comments)
+  call   parse_mod(in "main", comments, List(), empty_notation(), "", None, List(), out own, ref loaded, toks)
+  assign source := Source(List(own), List(), "main")
 
 // the file of a module: its id, the root of its project, and its directory from the root, None for the library
 data Place :=

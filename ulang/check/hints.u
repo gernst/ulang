@@ -1,0 +1,518 @@
+// the findings of one check, a table apart from the checked program, by the spans of the parts of its main module, for
+// the hover and the inlay hints of an editor, read from the checked program, which keeps the resolved names, the types
+// after the pending uses are solved, and the spans, where a part counts only if the parser placed it there, as the text
+// of the main module tells: a name over its span as written, so that the parts that translations make, at the span of
+// what they translate, and the parts of pattern aliases, at the spans of their declarations, are none
+
+import "ulang/syntax"
+import "ulang/format"
+import "ulang/parse"
+
+export
+
+data Hint :=
+  // a use of a name over span, resolved to name, of the type typ at the use, THole where the checked program has none
+  case HUse(span: Span, name: Name, typ: Type)
+  // a local, formal, or pattern variable declared over span, of the type typ, which the source writes if written
+  case HDecl(span: Span, name: Name, typ: Type, written: Bool)
+  // the inferred raises of a private procedure without raises, at pos after its formals
+  case HRaises(pos: Pos, proc: Name, raised: List[Type])
+
+// the findings of the checked program q in its main module, whose source is text, in the order of their spans
+function hints(text: Str, q: Prog): List[Hint]
+
+// h as JSON objects on lines, in the shapes of Hover and InlayHint of LSP: a hover over the span of a use or declaration,
+// an inlay of the type after a declared name whose type is not written, and an inlay of the inferred raises after the
+// formals, where columns count code points from 1, as those of diagnostics, and an end is just after the span
+function format_hint(h: Hint): List[Str]
+
+implementation
+
+// the types of the constructors and procedures of the checked program, which its patterns and calls do not keep
+data Decls :=
+  case Decls(constrs: Map[Name, Type], procs: Map[Name, Type])
+
+function hints(text: Str, q: Prog): List[Hint] :=
+  let lines := Array(for line in split(text, '\n')) in
+  let decls := decls_of(q.cmds ++ q.builtins) in
+  let found := List(for cmd in q.cmds if cmd_module(cmd.that) == Some(q.main) for h in cmd_hints(lines, decls, cmd) yield h) in
+  List(for _ => h in Map(for h in found yield hint_key(h) => h) yield h)
+
+// the key of h in the table, by which the hints are ordered, one of each kind per span
+function hint_key(h: Hint): Span * Int :=
+  match h
+    case HUse(span, _, _) =>
+      (span, 0)
+
+    case HDecl(span, _, _, _) =>
+      (span, 1)
+
+    case HRaises(pos, _, _) =>
+      (span_at(pos), 2)
+  end
+
+function decls_of(cmds: List[At[Cmd]]): Decls :=
+  Decls(Map(for cmd in cmds for (name, typ) in constr_types(cmd) yield name => typ), Map(for cmd in cmds for (name, typ) in proc_type(cmd) yield name => typ))
+
+function constr_types(cmd: At[Cmd]): List[Name * Type] :=
+  match that_of(cmd)
+    case Some(CData(name, params, constrs)) =>
+      let typ := TSort(name, List(for p in params yield TParam(p))) in
+      List(for c in parts(constrs) yield (c.name, if c.fields == List() then
+        typ
+      else
+        TFun(List(for f in c.fields yield f.typ), typ)))
+
+    case _ =>
+      List()
+  end
+
+// the type of a procedure as a value, where a definition follows its signature, so that its raises count, also inferred
+function proc_type(cmd: At[Cmd]): Option[Name * Type] :=
+  match that_of(cmd)
+    case Some(CProc(name, _, ins, outs, refs, raised, _, _)) =>
+      Some((name, TProc(types_of(ins), types_of(outs), types_of(refs), TTuple(raised))))
+
+    case Some(CProcSig(name, _, ins, outs, refs, raised, _)) =>
+      Some((name, TProc(types_of(ins), types_of(outs), types_of(refs), TTuple(raised))))
+
+    case _ =>
+      None
+  end
+
+function types_of(xs: List[At[Var]]): List[Type] :=
+  List(for x in vars(xs) yield x.typ)
+
+function that_of[A](x: At[A]): Option[A] :=
+  match x
+    case AOk(_, _, that) =>
+      Some(that)
+
+    case AErr(_, _, that, _) =>
+      Some(that)
+
+    case AUnparsed(_, _, _, _) =>
+      None
+  end
+
+function cmd_hints(lines: Array[Str], decls: Decls, cmd: At[Cmd]): List[Hint] :=
+  match that_of(cmd)
+    case Some(CFun(_, _, formals, _, _, body)) =>
+      decl_hints(lines, formals) ++ expr_hints(lines, decls, body)
+
+    case Some(CProc(name, _, ins, outs, refs, raised, _, stmt)) =>
+      decl_hints(lines, ins ++ outs ++ refs) ++ raises_hints(lines, cmd.pos, name, ins ++ outs ++ refs, raised) ++ stmt_hints(lines, decls, stmt)
+
+    case Some(CTest(_, _, stmt)) =>
+      stmt_hints(lines, decls, stmt)
+
+    case Some(CLemma(_, _, ins, outs, claim, _)) =>
+      decl_hints(lines, ins ++ outs) ++ exprs_hints(lines, decls, claim_exprs(claim))
+
+    case Some(CSort(_, _, _)) =>
+      List()
+
+    case Some(CData(_, _, _)) =>
+      List()
+
+    case Some(CFunSig(_, _, _, _, _)) =>
+      List()
+
+    case Some(CProcSig(_, _, _, _, _, _, _)) =>
+      List()
+
+    case Some(CAbstract(_, _)) =>
+      List()
+
+    case Some(CPatAlias(_, _, _, _, _)) =>
+      List()
+
+    case Some(CNotation(_, _, _)) =>
+      List()
+
+    case None =>
+      List()
+  end
+
+// the inferred raises of the procedure name after the closing parenthesis of its formals, which follows the last formal,
+// or the first one after the command at pos, unless the source writes raises there
+function raises_hints(lines: Array[Str], pos: Pos, name: Name, formals: List[At[Var]], raised: List[Type]): List[Hint] :=
+  let from := match last(formals)
+    case Some(x) =>
+      x.span.stop
+    case None =>
+      pos
+  end in
+  match after_char(lines, from, ')')
+    case Some(p) if raised != List() and not starts_with(trimmed(rest_of(lines, p)), "raises") =>
+      List(HRaises(p, name, raised))
+    case _ =>
+      List()
+  end
+
+function decl_hints(lines: Array[Str], xs: List[At[Var]]): List[Hint] :=
+  List(for x in xs for h in decl_hint(lines, x.span.start, x.that) yield h)
+
+// the declaration x if its name is written at pos, as the parser places it, where the checker's own formals have names
+// that users cannot write
+function decl_hint(lines: Array[Str], pos: Pos, x: Var): Option[Hint] :=
+  let span := name_span(pos, x.name.base) in
+  if is_written(lines, span, x.name.base) and x.typ != THole then
+    let after := trimmed(rest_of(lines, span.stop)) in
+    Some(HDecl(span, x.name, x.typ, starts_with(after, ":") and not starts_with(after, ":=")))
+  else
+    None
+
+function exprs_hints(lines: Array[Str], decls: Decls, exprs: List[At[Expr]]): List[Hint] :=
+  List(for e in exprs for h in expr_hints(lines, decls, e) yield h)
+
+function expr_hints(lines: Array[Str], decls: Decls, expr: At[Expr]): List[Hint] :=
+  match that_of(expr)
+    case Some(node) =>
+      node_hints(lines, decls, expr.pos, expr.span, node)
+    case None =>
+      List()
+  end
+
+function node_hints(lines: Array[Str], decls: Decls, pos: Pos, span: Span, expr: Expr): List[Hint] :=
+  match expr
+    case ELit(_) =>
+      List()
+
+    case EVar(var) =>
+      List(for h in use_hint(lines, pos, span, var) yield h)
+
+    case EApp(fun, args) =>
+      expr_hints(lines, decls, fun) ++ exprs_hints(lines, decls, args)
+
+    case EField(base, _) =>
+      expr_hints(lines, decls, base)
+
+    case EUpdate(base, _, value) =>
+      expr_hints(lines, decls, base) ++ expr_hints(lines, decls, value)
+
+    case ELam(formals, body) =>
+      pats_hints(lines, decls, formals) ++ expr_hints(lines, decls, body)
+
+    case EProc(ins, outs, refs, _, stmt) =>
+      decl_hints(lines, ins ++ outs ++ refs) ++ stmt_hints(lines, decls, stmt)
+
+    case ELet(bindings, body) =>
+      List(for (p, e) in bindings for h in pat_hints(lines, decls, p) ++ expr_hints(lines, decls, e) yield h) ++ expr_hints(lines, decls, body)
+
+    case EIte(cond, then_expr, else_expr) =>
+      exprs_hints(lines, decls, List(cond, then_expr, else_expr))
+
+    case EMatch(arg, cases) =>
+      expr_hints(lines, decls, arg) ++ List(for b in parts(cases) for h in branch_hints(lines, decls, b) ++ expr_hints(lines, decls, b.body) yield h)
+
+    case ETuple(args) =>
+      exprs_hints(lines, decls, args)
+
+    // of commands that are not checked, whose names are not resolved
+    case EForm(_, elems, rest) =>
+      List(for y in elems for h in yield_hints(lines, decls, y) yield h) ++ exprs_hints(lines, decls, List(for r in rest yield r))
+
+    case EFor(_, gens, elem, rest) =>
+      List(for g in gens for h in gen_hints(lines, decls, g) yield h) ++ yield_hints(lines, decls, elem) ++ exprs_hints(lines, decls, List(for r in rest yield r))
+  end
+
+// the use var at pos over span, if the parser placed its name there, or the accessor or updater of a field at its . or
+// with, whose span is that of the whole access
+function use_hint(lines: Array[Str], pos: Pos, span: Span, var: Var): Option[Hint] :=
+  let base := var.name.base in
+  if var.typ == THole then
+    None
+  else if is_written(lines, span, base) then
+    Some(HUse(span, var.name, var.typ))
+  else if var.name.module != None and contains('.', base) then
+    match field_span(lines, pos, base)
+      case Some(s) =>
+        Some(HUse(s, var.name, var.typ))
+      case None =>
+        None
+    end
+  else
+    None
+
+// the span of .f, of with, or of f of a continued update, of the accessor T.f or the updater T.f:= at pos
+function field_span(lines: Array[Str], pos: Pos, base: Id): Option[Span] :=
+  let field := field_of(base) in
+  if written(lines, pos, size(field) + 1) == "." ++ field then
+    Some(name_span(pos, "." ++ field))
+  else if written(lines, pos, 4) == "with" then
+    Some(name_span(pos, "with"))
+  else if written(lines, pos, size(field)) == field then
+    Some(name_span(pos, field))
+  else
+    None
+
+// the field of the accessor T.f or the updater T.f:=
+function field_of(base: Id): Id :=
+  example field_of("Point.x:=") == "x"
+  example field_of("Point.x") == "x"
+  let f := value_or(last(split(base, '.')), base) in
+  if ends_with(f, ":=") then slice(f, 0, size(f) - 2) else f
+
+function pats_hints(lines: Array[Str], decls: Decls, pats: List[At[Pat]]): List[Hint] :=
+  List(for p in pats for h in pat_hints(lines, decls, p) yield h)
+
+function pat_hints(lines: Array[Str], decls: Decls, pat: At[Pat]): List[Hint] :=
+  pattern_hints(lines, decls, pat.span, pat)
+
+// the hints of pat inside the pattern over outer, where the parts of the expansion of a pattern alias are outside, at its
+// declaration, and only their parts that the use gives count
+function pattern_hints(lines: Array[Str], decls: Decls, outer: Span, pat: At[Pat]): List[Hint] :=
+  let inside := is_within(pat.span, outer) in
+  let here := if inside then pat.span else outer in
+  match that_of(pat)
+    case Some(PVar(var)) if inside =>
+      List(for h in decl_hint(lines, pat.span.start, var) yield h)
+
+    case Some(PApp(constr, args)) =>
+      let span := name_span(pat.span.start, constr.base) in
+      let own := if inside and is_written(lines, span, constr.base) then
+        List(HUse(span, constr, value_or(get(constr, decls.constrs), THole)))
+      else
+        List() in
+      own ++ List(for a in args for h in pattern_hints(lines, decls, here, a) yield h)
+
+    case Some(PTuple(args)) =>
+      List(for a in args for h in pattern_hints(lines, decls, here, a) yield h)
+
+    case _ =>
+      List()
+  end
+
+function branch_hints[A](lines: Array[Str], decls: Decls, b: Branch[A]): List[Hint] :=
+  pat_hints(lines, decls, b.pat) ++ exprs_hints(lines, decls, List(for g in b.guard yield g))
+
+function yield_hints(lines: Array[Str], decls: Decls, y: Yield): List[Hint] :=
+  match y
+    case YVal(value) =>
+      expr_hints(lines, decls, value)
+    case YPair(key, value) =>
+      expr_hints(lines, decls, key) ++ expr_hints(lines, decls, value)
+  end
+
+function gen_hints(lines: Array[Str], decls: Decls, g: Gen): List[Hint] :=
+  match g
+    case GVal(pat, over) =>
+      pat_hints(lines, decls, pat) ++ expr_hints(lines, decls, over)
+
+    case GPair(key, value, over) =>
+      pat_hints(lines, decls, key) ++ pat_hints(lines, decls, value) ++ expr_hints(lines, decls, over)
+
+    case GIf(cond) =>
+      expr_hints(lines, decls, cond)
+  end
+
+function stmts_hints(lines: Array[Str], decls: Decls, stmts: List[At[Stmt]]): List[Hint] :=
+  List(for stmt in stmts for h in stmt_hints(lines, decls, stmt) yield h)
+
+function stmt_hints(lines: Array[Str], decls: Decls, stmt: At[Stmt]): List[Hint] :=
+  match that_of(stmt)
+    case Some(SSkip) =>
+      List()
+
+    case Some(SAssign(upd)) =>
+      exprs_hints(lines, decls, seconds(upd))
+
+    case Some(SBlock(locals, stmts)) =>
+      decl_hints(lines, locals) ++ stmts_hints(lines, decls, stmts)
+
+    case Some(SIf(cond, left, right)) =>
+      expr_hints(lines, decls, cond) ++ stmts_hints(lines, decls, List(left, right))
+
+    case Some(SWhile(cond, body)) =>
+      expr_hints(lines, decls, cond) ++ stmt_hints(lines, decls, body)
+
+    case Some(SCall(proc, ins, _, _)) =>
+      List(for h in call_hint(lines, decls, stmt.pos, proc) yield h) ++ exprs_hints(lines, decls, ins)
+
+    case Some(SMatch(arg, cases)) =>
+      expr_hints(lines, decls, arg) ++ List(for b in parts(cases) for h in branch_hints(lines, decls, b) ++ stmt_hints(lines, decls, b.body) yield h)
+
+    case Some(SAssert(cond)) =>
+      expr_hints(lines, decls, cond)
+
+    case Some(SAssertRaises(_, pat, body)) =>
+      pat_hints(lines, decls, pat) ++ stmt_hints(lines, decls, body)
+
+    case Some(SRaise(value, _)) =>
+      expr_hints(lines, decls, value)
+
+    case Some(STry(body, catches)) =>
+      stmt_hints(lines, decls, body) ++ List(for c in parts(catches) for h in pat_hints(lines, decls, c.pat) ++ exprs_hints(lines, decls, List(for g in c.guard yield g)) ++ stmt_hints(lines, decls, c.body) yield h)
+
+    case Some(SFor(gens, body)) =>
+      List(for g in gens for h in gen_hints(lines, decls, g) yield h) ++ stmt_hints(lines, decls, body)
+
+    case None =>
+      List()
+  end
+
+// the procedure of call p(…) at pos, whose name follows call, which has no position of its own
+function call_hint(lines: Array[Str], decls: Decls, pos: Pos, proc: Name): Option[Hint] :=
+  if written(lines, pos, 4) == "call" then
+    let rest := rest_of(lines, Pos(pos.line, pos.col + 4)) in
+    let start := Pos(pos.line, pos.col + 4 + size(rest) - size(trimmed(rest))) in
+    let span := name_span(start, proc.base) in
+    if is_written(lines, span, proc.base) then
+      Some(HUse(span, proc, value_or(get(proc, decls.procs), THole)))
+    else
+      None
+  else
+    None
+
+// the span of the name base written at pos
+function name_span(pos: Pos, base: Id): Span :=
+  Span(pos, Pos(pos.line, pos.col + size(base)))
+
+// whether base is written over span, as the parser places a name
+function is_written(lines: Array[Str], span: Span, base: Id): Bool :=
+  span.start.line == span.stop.line and span.stop.col - span.start.col == size(base) and written(lines, span.start, size(base)) == base
+
+// the n characters of the text from pos, or fewer at the end of its line, and none at no line
+function written(lines: Array[Str], pos: Pos, n: Int): Str :=
+  let rest := rest_of(lines, pos) in
+  slice(rest, 0, if n < size(rest) then n else size(rest))
+
+// the line of pos from pos on
+function rest_of(lines: Array[Str], pos: Pos): Str :=
+  match get(pos.line - 1, lines)
+    case Some(line) if 1 <= pos.col and pos.col <= size(line) + 1 =>
+      slice(line, pos.col - 1, size(line))
+    case _ =>
+      ""
+  end
+
+function trimmed(s: Str): Str :=
+  example trimmed("  a b") == "a b"
+  if size(s) > 0 and is_space(at(0, s)) then
+    trimmed(slice(s, 1, size(s)))
+  else
+    s
+
+// the position after the first c from pos on, on its line or on the lines after it
+function after_char(lines: Array[Str], pos: Pos, c: Char): Option[Pos] :=
+  match get(pos.line - 1, lines)
+    case Some(line) =>
+      match index_of(c, drop(pos.col - 1, chars(line)))
+        case Some(i) =>
+          Some(Pos(pos.line, pos.col + i + 1))
+
+        case None =>
+          if pos.line < size(lines) then
+            after_char(lines, Pos(pos.line + 1, 1), c)
+          else
+            None
+      end
+
+    case None =>
+      None
+  end
+
+// whether span lies within outer
+function is_within(span: Span, outer: Span): Bool :=
+  compare(outer.start, span.start) <= 0 and compare(span.stop, outer.stop) <= 0
+
+function format_hint(h: Hint): List[Str] :=
+  match h
+    case HUse(span, name, typ) =>
+      List(hover(span, format_name(name) ++ typed(typ)))
+
+    case HDecl(span, name, typ, written) =>
+      List(hover(span, format_name(name) ++ typed(typ))) ++ (if written then List() else List(inlay(span.stop, typed(typ))))
+
+    case HRaises(pos, _, raised) =>
+      List(inlay(pos, " raises " ++ format_types(raised)))
+  end
+
+function typed(typ: Type): Str :=
+  if typ == THole then "" else ": " ++ format_type(typ)
+
+function hover(span: Span, text: Str): Str :=
+  json_object(List(
+    ("kind", json_text("hover")),
+    ("line", show(span.start.line)),
+    ("column", show(span.start.col)),
+    ("end_line", show(span.stop.line)),
+    ("end_column", show(span.stop.col)),
+    ("text", json_text(text))))
+
+function inlay(pos: Pos, label: Str): Str :=
+  json_object(List(
+    ("kind", json_text("inlay")),
+    ("line", show(pos.line)),
+    ("column", show(pos.col)),
+    ("label", json_text(label))))
+
+function json_object(fields: List[Str * Str]): Str :=
+  "{" ++ join(", ", List(for (k, v) in fields yield json_text(k) ++ ": " ++ v)) ++ "}"
+
+// the lines of a program without the library, whose private procedures raise what they infer
+function sample(): List[Str] :=
+  List(
+    "data Nat :=",
+    "  case Zero",
+    "  case Succ(n: Nat)",
+    "",
+    "data Oops :=",
+    "  case Oops",
+    "",
+    "function pred(m: Nat): Nat :=",
+    "  match m",
+    "    case Zero =>",
+    "      Zero",
+    "    case Succ(k) =>",
+    "      k",
+    "  end",
+    "",
+    "procedure fail() :=",
+    "  raise Oops",
+    "",
+    "procedure step(in m: Nat, out r: Nat) :=",
+    "  local k := pred(m), f := lambda x => pred(x)",
+    "",
+    "  call   fail()",
+    "  assign r := f(Succ(k).n)")
+
+// the hover of a use resolved, of a local with its inlay, of a field, of a pattern, of a call, and the inferred raises,
+// which a call of a private procedure inherits
+test sample_hints() :=
+  local own: Mod, q: Prog, found: List[Hint], text := join("\n", sample()) ++ "\n"
+  call   parse_text(in text, out own)
+  call   check_program(in Source(List(own), List(), "main"), out q)
+  assign found := hints(text, q)
+  assert contains(HUse(Span(Pos(20, 14), Pos(20, 18)), Name(Some("main"), "pred"), TFun(List(TSort(Name(Some("main"), "Nat"), List())), TSort(Name(Some("main"), "Nat"), List()))), found)
+  assert contains(HRaises(Pos(16, 17), Name(Some("main"), "fail"), List(TSort(Name(Some("main"), "Oops"), List()))), found)
+  assert List(for h in found for line in format_hint(h) yield line) == List(
+    "{\"kind\": \"hover\", \"line\": 8, \"column\": 15, \"end_line\": 8, \"end_column\": 16, \"text\": \"m: Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 9, \"column\": 9, \"end_line\": 9, \"end_column\": 10, \"text\": \"m: Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 10, \"column\": 10, \"end_line\": 10, \"end_column\": 14, \"text\": \"main.Zero: Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 11, \"column\": 7, \"end_line\": 11, \"end_column\": 11, \"text\": \"main.Zero: Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 12, \"column\": 10, \"end_line\": 12, \"end_column\": 14, \"text\": \"main.Succ: Nat -> Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 12, \"column\": 15, \"end_line\": 12, \"end_column\": 16, \"text\": \"k: Nat\"}",
+    "{\"kind\": \"inlay\", \"line\": 12, \"column\": 16, \"label\": \": Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 13, \"column\": 7, \"end_line\": 13, \"end_column\": 8, \"text\": \"k: Nat\"}",
+    "{\"kind\": \"inlay\", \"line\": 16, \"column\": 17, \"label\": \" raises Oops\"}",
+    "{\"kind\": \"hover\", \"line\": 17, \"column\": 9, \"end_line\": 17, \"end_column\": 13, \"text\": \"main.Oops: Oops\"}",
+    "{\"kind\": \"hover\", \"line\": 19, \"column\": 19, \"end_line\": 19, \"end_column\": 20, \"text\": \"m: Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 19, \"column\": 31, \"end_line\": 19, \"end_column\": 32, \"text\": \"r: Nat\"}",
+    "{\"kind\": \"inlay\", \"line\": 19, \"column\": 38, \"label\": \" raises Oops\"}",
+    "{\"kind\": \"hover\", \"line\": 20, \"column\": 9, \"end_line\": 20, \"end_column\": 10, \"text\": \"k: Nat\"}",
+    "{\"kind\": \"inlay\", \"line\": 20, \"column\": 10, \"label\": \": Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 20, \"column\": 14, \"end_line\": 20, \"end_column\": 18, \"text\": \"main.pred: Nat -> Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 20, \"column\": 19, \"end_line\": 20, \"end_column\": 20, \"text\": \"m: Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 20, \"column\": 23, \"end_line\": 20, \"end_column\": 24, \"text\": \"f: Nat -> Nat\"}",
+    "{\"kind\": \"inlay\", \"line\": 20, \"column\": 24, \"label\": \": Nat -> Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 20, \"column\": 35, \"end_line\": 20, \"end_column\": 36, \"text\": \"x: Nat\"}",
+    "{\"kind\": \"inlay\", \"line\": 20, \"column\": 36, \"label\": \": Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 20, \"column\": 40, \"end_line\": 20, \"end_column\": 44, \"text\": \"main.pred: Nat -> Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 20, \"column\": 45, \"end_line\": 20, \"end_column\": 46, \"text\": \"x: Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 22, \"column\": 10, \"end_line\": 22, \"end_column\": 14, \"text\": \"main.fail: () raises Oops\"}",
+    "{\"kind\": \"hover\", \"line\": 23, \"column\": 15, \"end_line\": 23, \"end_column\": 16, \"text\": \"f: Nat -> Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 23, \"column\": 17, \"end_line\": 23, \"end_column\": 21, \"text\": \"main.Succ: Nat -> Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 23, \"column\": 22, \"end_line\": 23, \"end_column\": 23, \"text\": \"k: Nat\"}",
+    "{\"kind\": \"hover\", \"line\": 23, \"column\": 24, \"end_line\": 23, \"end_column\": 26, \"text\": \"main.Nat.n: Nat -> Nat\"}")

@@ -57,7 +57,7 @@ test sorting() :=
 - Checked exceptions: `raises T, …` after an exported procedure and in procedure types, inferred for private procedures, where a `try` removes the types that its handlers cover, and a handler of a type that its body cannot raise is an error.
   Builtins raise `DivisionByZero`, `OutOfBounds`, `NoCharacter`, and `NoByte`, which no `raises` counts, whereas a failed `assert` ends the program.
 - Unbounded integers, characters, which are Unicode code points, strings of them, which files hold as UTF-8, and bytes, `byte(n)` from 0 to 255.
-- Programs read their arguments with `os_args`, files with `os_read_utf8` and `os_write_utf8` as text, or with `os_read_bytes` and `os_write_bytes` as an `Array[Byte]`, and print strings with `os_print`, all of the module `os`, where the builtin `show` gives the text of any value, which a datatype may declare for itself by a function `show`.
+- Programs read their arguments with `os_args`, files with `os_read_utf8` and `os_write_utf8` as text, or with `os_read_bytes` and `os_write_bytes` as an `Array[Byte]`, streams such as standard input by lines or bytes with `io_open`, `io_stdin`, `io_read_line`, and `io_read_bytes` of the module `io`, and print strings with `os_print`, all of the module `os`, where the builtin `show` gives the text of any value, which a datatype may declare for itself by a function `show`.
 - The forms `List(1, 2)`, `Set(a, b)`, `Map(k => v)`, and `Array(a, b)`, and their generators `List(for x in xs if x > 0 yield x * x)`, `Set(for x in c yield f(x))`, `Map(for k => v in m yield k => f(v))`, which range over lists, sets, arrays, or maps by their folds, and `==` compares their elements and entries; and the statement `for x in xs if p do … end`, which runs its body for the elements of any container.
 - User-defined operators by `infix`, `prefix`, and `postfix` notations.
 - Comments from `//` to the end of the line, anywhere, which `out/ulang.sh format` keeps where they stand, where the comments right above a declaration are its doc.
@@ -84,10 +84,12 @@ out/ulang.sh test dir                     # runs the files below dir, which must
 out/ulang.sh test                         # runs the whole project, the root above with project.u, but
                                           # ulang/test/errors/, which project.u declares to run only compiled
 out/ulang.sh compile --tests -o suite.c   # compiles the tests of the whole project, whose binary runs at the root
-                                          # with the arguments of test
+                                          # with the arguments of test; --tests dir those below dir, not a file
 out/ulang.sh check file.u                 # only checks it
 out/ulang.sh lint file.u                  # checks it and prints the lints, as warnings, with simpler expressions to write
 out/ulang.sh format file.u                # rewrites it in the layout that check, lint, and test require
+out/ulang.sh hints file.u                 # checks it and prints the resolved names and types of its parts and the inferred
+                                          # raises, as JSON lines of hover and inlay hints, which the VS Code extension shows
 out/ulang.sh compile file.u -o file.c     # compiles a program to C, whose main calls the procedure main
 out/ulang.sh help                         # lists the commands
 cc -I ulang/runtime file.c ulang/runtime/ulang.c -lgmp -lgc

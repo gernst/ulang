@@ -217,9 +217,6 @@ function plain_message(e: TypeError): Str :=
     case UnknownException(typ) =>
       "the type " ++ format_type(typ) ++ " of an exception is not fully known"
 
-    case TestParams(test_name) =>
-      "test " ++ test_name ++ " takes parameters"
-
     case ExampleOnDefinition(name) =>
       "the examples of " ++ name.base ++ " belong to its signature in export"
 
@@ -353,7 +350,6 @@ test messages() :=
   assert located_message(Located(None, Pos(2, 3), NeverRaised(TSort(Name(Some("a"), "Failed"), List())))) == "the handler of Failed is unreachable, since nothing in the body raises Failed at 2.3"
   assert located_message(SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T"))) == "the definition of T differs from its signature"
   assert located_message(Located(None, Pos(1, 1), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1))) == "type Int expects 0 arguments, got 1 at 1.1"
-  assert located_message(Located(None, Pos(1, 1), TestParams("sorted"))) == "test sorted takes parameters at 1.1"
   assert located_message(Located(None, Pos(2, 3), ExampleOnDefinition(Name(Some("m"), "f")))) == "the examples of f belong to its signature in export at 2.3"
   assert located_message(Located(None, Pos(2, 3), ContractOnDefinition(Name(Some("m"), "p")))) == "the contract of p belongs to its signature in export at 2.3"
   assert located_message(Located(None, Pos(1, 1), ClaimOuts(Name(None, "l")))) == "the outs of the claim of l are the outs of the lemma in their order at 1.1"

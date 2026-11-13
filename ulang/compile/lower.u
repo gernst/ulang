@@ -94,6 +94,9 @@ function tested_name(cmd: Cmd, m: Id): Option[Name]
 // the procedures of the builtin section of os
 function native_procs(): Set[Id]
 
+// whether the runtime defines the procedure n, of the builtin sections of os and io
+function is_native(n: Name): Bool
+
 // the functions of the order, equality, and show of datatype t in its descriptor, which its module declares, or else the
 // structural ones of the runtime, where abstract types without an order raise by u_unordered or u_incomparable of the runtime
 function compare_symbol(t: Name, defs: Defs): Str
@@ -125,10 +128,10 @@ function fun_name(n: Name, k: Int): Str :=
   "f_" ++ mangle(n) ++ "_" ++ show(k)
 
 function proc_name(n: Name): Str :=
-  if n.module == Some(library_module("os")) and contains(n.base, native_procs()) then
-    "p_" ++ n.base
-  else
-    "p_" ++ mangle(n)
+  if is_native(n) then "p_" ++ n.base else "p_" ++ mangle(n)
+
+function is_native(n: Name): Bool :=
+  (n.module == Some(library_module("os")) or n.module == Some(library_module("io"))) and contains(n.base, native_procs())
 
 function native_procs(): Set[Id] :=
   Set(
@@ -144,7 +147,16 @@ function native_procs(): Set[Id] :=
     "os_list",
     "os_is_dir",
     "os_cwd",
-    "os_chdir")
+    "os_chdir",
+    "io_stdin",
+    "io_stdout",
+    "io_stderr",
+    "io_open",
+    "io_read_bytes",
+    "io_read_until",
+    "io_read_all",
+    "io_write_bytes",
+    "io_close")
 
 function builtin_functions(): Map[Name, Str * Int] :=
   Map(
@@ -165,6 +177,7 @@ function builtin_functions(): Map[Name, Str * Int] :=
     library_name("prelude", "int") => ("u_byte_int", 1),
     library_name("str", "encode_utf8") => ("u_encode_utf8", 1),
     library_name("str", "decode_utf8") => ("u_decode_utf8", 1),
+    library_name("io", "io_path") => ("u_io_path", 1),
     library_name("prelude", "++") => ("u_concat", 2),
     library_name("str", "is_digit") => ("u_is_digit", 1),
     library_name("str", "is_letter") => ("u_is_letter", 1),
@@ -546,8 +559,10 @@ function test_name(n: Name): Str :=
 
 function tested_name(cmd: Cmd, m: Id): Option[Name] :=
   match cmd
-    case CTest(name, _, _) if name.module == Some(m) =>
+    // a test with formals runs as the test that the tester generates of it
+    case CTest(name, List(), _) if name.module == Some(m) =>
       Some(name)
+
     case _ =>
       None
   end

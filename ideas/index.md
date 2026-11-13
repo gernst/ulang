@@ -28,3 +28,4 @@ Plans of work in progress, each deleted when its work is done:
 - `ideas/archives.md`: packages compiled separately into static archives (Build 2)
 - `ideas/assembly.md`: the backend of x86-64 assembly (Compiler 2)
 - `ideas/refactor.md`: the command `refactor`, its edit scripts and operations (Diagnostics 3 and 4)
+- `ideas/packages.md`: every file a member of the package of its directory, and one load of each package per run (Diagnostics 6, part of Modules 3)

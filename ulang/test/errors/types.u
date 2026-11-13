@@ -576,9 +576,10 @@ test sort_arity_in_body() :=
     "  assign x := x"), out q, errors)
   assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("SortArity", Pos(2, 9)), ("Mismatch", Pos(2, 48)))
 
-test test_params() :=
-  assert raises Located(None, Pos(1, 1), TestParams("sorted")) do
-    call check_text(in "ulang/test/errors/test-params.u", List("test sorted(xs: List[Int]) :=", "  assert xs == xs"))
+// the formals of a test have their declared types in its body
+test test_formals() :=
+  assert raises Located(None, Pos(2, 16), Mismatch(_, _, "argument 2 of the call")) do
+    call check_text(in "ulang/test/errors/test-formals.u", List("test sorted(xs: List[Int]) :=", "  assert xs == 1"))
   end
 
 test test_types() :=

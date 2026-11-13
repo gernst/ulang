@@ -18,6 +18,26 @@ function parseDiagnostic(line) {
 }
 const testLine = /^test (\S+) (passed|failed: (.*))$/;
 
+// a finding of ulang hints is one JSON object on a line, as format_hint of ulang/check/hints.u writes it, a hover with
+// line, column, end_line, end_column, and text, or an inlay with line, column, and label, where columns count code points
+function parseHint(line) {
+  if (!line.startsWith("{")) return undefined;
+  try {
+    const h = JSON.parse(line);
+    return h.kind === "hover" || h.kind === "inlay" ? h : undefined;
+  } catch (e) {
+    return undefined;
+  }
+}
+
+// the position of line and column of ulang, both from 1 and column in code points, in document, whose columns count UTF-16
+// units
+function position(document, line, column) {
+  if (line < 1 || line > document.lineCount) return undefined;
+  const points = [...document.lineAt(line - 1).text].slice(0, column - 1);
+  return new vscode.Position(line - 1, points.reduce((units, c) => units + c.length, 0));
+}
+
 function binary() {
   const configured = vscode.workspace.getConfiguration("ulang").get("binary");
   if (configured) return configured;
@@ -242,6 +262,67 @@ function activate(context) {
     return vscode.window.activeTextEditor && vscode.window.activeTextEditor.document;
   }
 
+  // the hints of each document by its version, from ulang hints of the saved file, refreshed on save, and none for a
+  // version that is not saved, whose positions they would miss
+  const hints = new Map();
+  const hintsChanged = new vscode.EventEmitter();
+  context.subscriptions.push(hintsChanged);
+
+  function hintsOf(doc) {
+    if (doc.languageId !== "ulang" || doc.uri.scheme !== "file" || doc.isDirty) return Promise.resolve([]);
+    const key = doc.uri.toString();
+    const cached = hints.get(key);
+    if (cached && cached.version === doc.version) return cached.found;
+    const file = doc.uri.fsPath;
+    const found = ulang(["hints", file], file).then((result) => (result ? result.stdout.split("\n").map(parseHint).filter((h) => h) : []));
+    hints.set(key, { version: doc.version, found });
+    return found;
+  }
+
+  function refreshHints(doc) {
+    hints.delete(doc.uri.toString());
+    hintsChanged.fire();
+  }
+
+  context.subscriptions.push(
+    vscode.languages.registerInlayHintsProvider(
+      { language: "ulang" },
+      {
+        onDidChangeInlayHints: hintsChanged.event,
+        async provideInlayHints(doc, range) {
+          const found = await hintsOf(doc);
+          const result = [];
+          for (const h of found) {
+            if (h.kind !== "inlay") continue;
+            const at = position(doc, h.line, h.column);
+            if (!at || !range.contains(at)) continue;
+            const hint = new vscode.InlayHint(at, h.label, h.label.startsWith(":") ? vscode.InlayHintKind.Type : undefined);
+            result.push(hint);
+          }
+          return result;
+        },
+      }
+    ),
+    // the innermost hover around the position
+    vscode.languages.registerHoverProvider(
+      { language: "ulang" },
+      {
+        async provideHover(doc, at) {
+          let best;
+          for (const h of await hintsOf(doc)) {
+            if (h.kind !== "hover") continue;
+            const start = position(doc, h.line, h.column), end = position(doc, h.end_line, h.end_column);
+            if (!start || !end) continue;
+            const range = new vscode.Range(start, end);
+            if (range.contains(at) && (!best || best.range.contains(range))) best = { range, text: h.text };
+          }
+          return best && new vscode.Hover(new vscode.MarkdownString().appendCodeblock(best.text, "ulang"), best.range);
+        },
+      }
+    ),
+    vscode.workspace.onDidCloseTextDocument((doc) => hints.delete(doc.uri.toString()))
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand("ulang.runFile", async (uri) => {
       const doc = await document(uri);
@@ -252,7 +333,9 @@ function activate(context) {
       if (doc) await execute(doc, kind, [name], true);
     }),
     vscode.workspace.onDidSaveTextDocument((doc) => {
-      if (doc.languageId === "ulang" && vscode.workspace.getConfiguration("ulang").get("checkOnSave")) execute(doc, "check", [], false);
+      if (doc.languageId !== "ulang") return;
+      refreshHints(doc);
+      if (vscode.workspace.getConfiguration("ulang").get("checkOnSave")) execute(doc, "check", [], false);
     }),
     vscode.languages.registerCodeLensProvider(
       { language: "ulang" },
