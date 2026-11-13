@@ -45,6 +45,18 @@ procedure parse_file(
   out source: Source
 ) raises ParseError, OsError
 
+// the packages that the files of a run before have loaded without their tests, of the project at root, in load order
+data Loaded :=
+  case Loaded(root: Str, source: Source)
+
+// parse_file with the packages of loaded instead of their files, but for the package of the file and those that import
+// it, so that a run over many files reads and parses each package that they import once, which loaded then holds too
+procedure parse_file_loaded(
+  in  path: Str,
+  out source: Source,
+  ref loaded: Loaded
+) raises ParseError, OsError
+
 procedure parse_file_text(
   in  path: Str,
       text: Str,
@@ -3399,6 +3411,76 @@ procedure parse_file(
   var text: Str
   os_read_utf8(in path, out text)
   parse_file_text(in path, text, out source)
+
+procedure parse_file_loaded(
+  in  path: Str,
+  out source: Source,
+  ref loaded: Loaded
+) raises ParseError, OsError :=
+  var text: Str, place: Place
+  os_read_utf8(in path, out text)
+  place_of(in path, out place)
+  let own := package_id(place.dir)
+  let before := if loaded.root == place.root then
+    without_dependents(loaded.source, own)
+  else
+    Source(List(), List(), "")
+  source := before with main := place.id
+  load_package(in place.root, place.dir, Some((place.id, text)), List(), ref source)
+  source := reached(source, own)
+  loaded := Loaded(place.root, with_loaded(before, source, own))
+
+// the packages of source that import the package own, also through others, it, and for the library all
+function dependents(source: Source, own: Id): Set[Id] :=
+  if own == "prelude" then
+    Set(for p in source.packages yield p.id)
+  else
+    foldl(source.packages, Set(own), lambda found, p => if exists(imports_of(source, p), lambda i => contains(i, found)) then
+      insert(p.id, found)
+    else
+      found)
+
+// the packages that the members of p import, the library besides
+function imports_of(source: Source, p: Package): List[Id] :=
+  List(
+    "prelude"; List(for d in source.mods if contains(d.name, p.members) for i in d.imports yield i))
+
+// source without the package own and those that import it, which a load of a file of own loads again
+function without_dependents(source: Source, own: Id): Source :=
+  let gone := dependents(source, own) in
+  Source(List(for d in source.mods if not contains(module_package(source, d.name), gone)), List(for p in source.packages if not contains(p.id, gone)), source.main)
+
+// the package of the module m in source, the empty id for none
+function module_package(source: Source, m: Id): Id :=
+  match find(source.packages, lambda p => contains(m, p.members))
+    case Some(p) =>
+      p.id
+    case None =>
+      ""
+  end
+
+// source with the packages that the package own reaches by its imports, and the library, in load order
+function reached(source: Source, own: Id): Source :=
+  let ids := reach(source, List(own, "prelude"), Set()) in
+  Source(List(for d in source.mods if contains(module_package(source, d.name), ids)), List(for p in source.packages if contains(p.id, ids)), source.main)
+
+// the packages of source that the packages of todo reach, besides those of done
+function reach(source: Source, todo: List[Id], done: Set[Id]): Set[Id] :=
+  match todo
+    case List() =>
+      done
+
+    case List(id; rest) =>
+      if contains(id, done) then
+        reach(source, rest, done)
+      else
+        reach(source, rest ++ List(for p in source.packages if p.id == id for i in imports_of(source, p) yield i), insert(id, done))
+  end
+
+// the packages of before with those that source loaded besides, but for own, which it loaded with its tests
+function with_loaded(before: Source, source: Source, own: Id): Source :=
+  let fresh := List(for p in source.packages if p.id != own and not exists(before.packages, lambda q => q.id == p.id) yield p) in
+  Source(before.mods ++ List(for d in source.mods if exists(fresh, lambda p => contains(d.name, p.members))), before.packages ++ fresh, "")
 
 procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError :=
   var source: Source

@@ -412,11 +412,11 @@ procedure visit_units(
       visit: (in Source, Prog, List[Target], out List[Str]) raises Thrown,
   out status: Int
 ) :=
-  var units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], failed: Buffer[Str] := empty(), bad: List[Str]
+  var units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], failed: Buffer[Str] := empty(), bad: List[Str], cache := no_cache()
   units_of(in found, out units)
   status := 0
   for unit in units do
-    load_file(in first_path(unit), true, tested, out source, q, errors)
+    load_file(in first_path(unit), true, tested, out source, q, errors, ref cache)
     if errors != List() then
       report(in first_path(unit), errors, size(files_of(found)) > 1)
       failed := failed ++ files_of(unit), status := max(status, load_status(q, errors))
@@ -434,8 +434,8 @@ procedure visit_units(
 // prints the errors of checking file, as check does, and the findings of the check in it, hints of ulang/check/hints.u,
 // as far as it is checked
 procedure print_hints(in file: Str, out status: Int) :=
-  var source: Source, q: Prog, errors: List[Diagnostic], text: Str
-  load_file(in file, false, false, out source, q, errors)
+  var source: Source, q: Prog, errors: List[Diagnostic], text: Str, cache := no_cache()
+  load_file(in file, false, false, out source, q, errors, ref cache)
   report(in file, errors, false)
   status := load_status(q, errors)
   if q.main != "" then
@@ -536,13 +536,13 @@ procedure compile_target(in target: Target, output: Str, out status: Int) :=
 // commands of each module are taken from the unit that it is a member of, with its tests, or else from the first unit that
 // loads it
 procedure compile_tests(in dir: Option[Str], output: Str, out status: Int) :=
-  var root: Str, found: List[Target], units: List[List[Target]], q: Prog, errors: List[Diagnostic], files: Buffer[TestFile] := empty(), own: Buffer[At[Cmd]] := empty(), others: Map[Id, List[At[Cmd]]] := empty(), members: Set[Id] := empty()
+  var root: Str, found: List[Target], units: List[List[Target]], q: Prog, source: Source, errors: List[Diagnostic], files: Buffer[TestFile] := empty(), own: Buffer[At[Cmd]] := empty(), others: Map[Id, List[At[Cmd]]] := empty(), members: Set[Id] := empty(), cache := no_cache()
   status := 0
   default_path(out root)
   targets_of(in List(for d in dir yield Target(d, None)), false, out found)
   units_of(in found, out units)
   for unit in units do
-    check_file(in first_path(unit), true, true, out q, errors)
+    load_file(in first_path(unit), true, true, out source, q, errors, ref cache)
     if errors != List() then
       report(in first_path(unit), errors, true)
       status := max(status, load_status(q, errors))
@@ -765,8 +765,15 @@ procedure check_file(
   out q: Prog,
       errors: List[Diagnostic]
 ) :=
-  var source: Source
-  load_file(in file, formatted, tested, out source, q, errors)
+  var source: Source, cache := no_cache()
+  load_file(in file, formatted, tested, out source, q, errors, ref cache)
+
+// what the files of a run before have parsed and checked of the packages that they import, which load_file reuses
+data Cache :=
+  case Cache(loaded: Loaded, checks: Checks)
+
+function no_cache(): Cache :=
+  Cache(Loaded("", Source(List(), List(), "")), no_checks())
 
 // check_file with the parsed source, which has no modules if file does not parse
 procedure load_file(
@@ -775,22 +782,27 @@ procedure load_file(
       tested: Bool,
   out source: Source,
       q: Prog,
-      errors: List[Diagnostic]
+      errors: List[Diagnostic],
+  ref cache: Cache
 ) :=
   source := Source(List(), List(), ""), q := Prog(List(), List(), ""), errors := List()
   try
-    var text: Str, typed: List[TypeError]
-    parse_file(in file, out source)
+    var text: Str, typed: List[TypeError], loaded := cache.loaded, checks := cache.checks
+    parse_file_loaded(in file, out source, ref loaded)
+    if loaded.root != cache.loaded.root then
+      checks := no_checks()
+    end
     if tested then
       load_tester(ref source)
     end
     if has_errors(source) then
-      check_partial(in without_unparsed(source), unparsed_names(source), if tested then enumerated_tests else no_tests, out q, typed)
+      check_cached(in without_unparsed(source), unparsed_names(source), true, if tested then enumerated_tests else no_tests, out q, typed, ref checks)
       errors := take(20, List(for e in parse_errors(source) yield parse_diagnostic(e)) ++ diagnostics(q))
     else
-      check_all(in source, if tested then enumerated_tests else no_tests, out q, typed)
+      check_cached(in source, empty(), false, if tested then enumerated_tests else no_tests, out q, typed, ref checks)
       errors := take(20, diagnostics(q))
     end
+    cache := Cache(loaded, checks)
     for m in unit_modules(source) if formatted and errors == List() do
       os_read_utf8(in os_join(os_dirname(file), module_file(m)), out text)
       try

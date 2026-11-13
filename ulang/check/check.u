@@ -123,6 +123,23 @@ procedure check_partial(
       errors: List[TypeError]
 ) raises InternalError
 
+// the packages that the checks of a run before have checked without errors, as imports, without their tests, by id
+type Checks
+
+function no_checks(): Checks
+
+// check_all, or check_partial if partial, which takes the packages of checks instead of checking them again, but for the
+// package of the main module of source, and adds those that it checks without errors to checks
+procedure check_cached(
+  in  source: Source,
+      unparsed: Set[Id],
+      partial: Bool,
+      generate: Checked -> List[Pos * (Id * Cmd)],
+  out q: Prog,
+      errors: List[TypeError],
+  ref checks: Checks
+) raises InternalError
+
 // what the generated tests of a package see of it once its definitions check without errors: its commands at their
 // positions, as written, and checked, its abstract types, the signature with the private declarations of its members,
 // which modules each module sees, and the private declarations, which the other members do not see
@@ -3439,8 +3456,7 @@ function rest_of(at: Pos, at_span: Span, mutable: Bool, decls: List[At[Pat] * Op
     if size(before) == size(rest) then
       before
     else
-      before ++ List(
-        AOk(at, at_span, SBlock(List(), drop(size(before), rest))))
+      before ++ List(AOk(at, at_span, SBlock(List(), drop(size(before), rest))))
   else
     List(
       AOk(at, at_span, SBlock(List(), List(AOk(at, at_span, SLocal(mutable, decls)); rest))))
@@ -4734,7 +4750,29 @@ procedure check_all(
   out q: Prog,
       errors: List[TypeError]
 ) raises InternalError :=
-  check_source(in source, empty(), false, generate, out q, errors)
+  var checks := no_checks()
+  check_source(in source, empty(), false, generate, out q, errors, ref checks)
+
+data Checks :=
+  case Checks(packages: Map[Id, CheckedPackage])
+
+// the checked commands of a package, by their modules, and the signature that it shows to the packages after it
+data CheckedPackage :=
+  case CheckedPackage(cmds: List[Id * At[Cmd]], shown: Sig)
+
+function no_checks(): Checks :=
+  Checks(empty())
+
+procedure check_cached(
+  in  source: Source,
+      unparsed: Set[Id],
+      partial: Bool,
+      generate: Checked -> List[Pos * (Id * Cmd)],
+  out q: Prog,
+      errors: List[TypeError],
+  ref checks: Checks
+) raises InternalError :=
+  check_source(in source, unparsed, partial, generate, out q, errors, ref checks)
 
 procedure check_partial(
   in  source: Source,
@@ -4743,7 +4781,8 @@ procedure check_partial(
   out q: Prog,
       errors: List[TypeError]
 ) raises InternalError :=
-  check_source(in source, unparsed, true, generate, out q, errors)
+  var checks := no_checks()
+  check_source(in source, unparsed, true, generate, out q, errors, ref checks)
 
 function is_seen(c: Checked, m: Id, d: Name): Bool :=
   is_visible(start(m, c.table) with hidden := c.hidden, d)
@@ -4758,22 +4797,43 @@ procedure check_source(
       partial: Bool,
       generate: Checked -> List[Pos * (Id * Cmd)],
   out q: Prog,
-      errors: List[TypeError]
+      errors: List[TypeError],
+  ref checks: Checks
 ) raises InternalError :=
   var sig: Sig := empty(), imports: List[Id * List[Id]] := List(), cmds: List[Id * At[Cmd]] := List(), checked: List[Id * At[Cmd]], shown: Sig, found: List[TypeError], loose: List[TypeError] := List(), found_loose: List[TypeError], placed: List[At[Cmd]]
   errors := List()
+  let own := module_dir(source.main)
   for mods in units(source.mods, source.packages) if errors == List() do
-    try
-      check_package(in mods, source.packages, sig, imports, unparsed, partial, generate, out checked, shown, found, found_loose)
-      sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, errors := found, loose := found_loose
-    catch
-      case e =>
-        cmds := cmds ++ List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, unchecked(c))), errors := List(e), loose := List(e)
+    let id := package_of(mods)
+    match get(id, checks.packages)
+      case Some(done) if id != own =>
+        sig := union(sig, done.shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ done.cmds
+
+      case _ =>
+        try
+          check_package(in mods, source.packages, sig, imports, unparsed, partial, generate, out checked, shown, found, found_loose)
+          sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, errors := found, loose := found_loose
+          if id != own and found == List() and found_loose == List() and not partial then
+            checks := checks with packages := put(id, CheckedPackage(checked, shown), checks.packages)
+          end
+        catch
+          case e =>
+            cmds := cmds ++ List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, unchecked(c))), errors := List(e), loose := List(e)
+        end
     end
   end
   errors := distinct(List(for e in errors yield in_main(source.main, e)))
   with_errors(in source.main, cmds ++ builtins_of(source), distinct(List(for e in loose yield in_main(source.main, e))), out placed)
   q := Prog(take(size(cmds), placed), drop(size(cmds), placed), source.main)
+
+// the package of the modules mods of one package, by the directory of the first
+function package_of(mods: List[Mod]): Id :=
+  match mods
+    case List(d; _) =>
+      module_dir(d.name)
+    case List() =>
+      ""
+  end
 
 // a command of a package whose check failed, as written, which is an error node without errors of its own, so that no run
 // takes it for checked code (rejected of ulang/syntax/syntax.u), while the error of the package stands on its command
