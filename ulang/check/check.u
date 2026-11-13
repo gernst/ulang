@@ -1006,7 +1006,7 @@ function unknown_in_cmd(cmd: Cmd): Option[Pos * Type] :=
       unknown_in_expr(body)
 
     case CProc(_, _, _, _, _, _, spec, stmt) =>
-      or_else(unknown_in(stmt), find_map(spec.pre ++ List(for e in spec.post yield e), unknown_in_expr))
+      or_else(unknown_in(stmt), find_map(spec.pre ++ List(for e in spec.post), unknown_in_expr))
 
     case CTest(_, _, stmt) =>
       unknown_in(stmt)
