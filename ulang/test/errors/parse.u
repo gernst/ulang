@@ -10,38 +10,6 @@ test argument_list() :=
     check_text(in "ulang/test/errors/argument-list.u", List("function f(p: (Int, Int)): Int :=", "  1"))
   end
 
-// a doc stands before a statement, but not before what ends a body, a local line, or a part of an expression
-test comment_before_end() :=
-  assert raises ParseError("a comment is the doc of the command, statement, or case below it, from the start of a line and without a blank line between", Pos(4, 3)) do
-    check_text(in "ulang/test/errors/comment-before-end.u", List(
-      "procedure main() :=",
-      "  if true then",
-      "    skip",
-      "  // the end",
-      "  end"))
-  end
-
-test comment_before_else() :=
-  assert raises ParseError("a comment is the doc of the command, statement, or case below it, from the start of a line and without a blank line between", Pos(4, 3)) do
-    check_text(in "ulang/test/errors/comment-before-else.u", List(
-      "procedure main() :=",
-      "  if true then",
-      "    skip",
-      "  // otherwise",
-      "  else",
-      "    skip",
-      "  end"))
-  end
-
-test comment_in_argument() :=
-  assert raises ParseError("a comment is the doc of the command, statement, or case below it, from the start of a line and without a blank line between", Pos(3, 0)) do
-    check_text(in "ulang/test/errors/comment-in-argument.u", List(
-      "procedure main() :=",
-      "  os_println(in show(1,",
-      "    // two",
-      "    2))"))
-  end
-
 // a character is shown with its escape, as a literal is written
 test character_token() :=
   assert raises ParseError("declaration expected but '\\n' found", Pos(1, 27)) do
@@ -55,16 +23,6 @@ test data_bar() :=
       "data Shape :=",
       "  Array( Circle(radius: Int)",
       "  ) Square(side: Int)"))
-  end
-
-test detached_comment() :=
-  assert raises ParseError("a comment is the doc of the command, statement, or case below it, from the start of a line and without a blank line between", Pos(3, 1)) do
-    check_text(in "ulang/test/errors/detached-comment.u", List(
-      "function f(): Int := 1",
-      "",
-      "// detached",
-      "",
-      "function g(): Int := 2"))
   end
 
 test duplicate_notation() :=
@@ -237,11 +195,6 @@ test statement_as_declaration() :=
 test string_escape() :=
   assert raises ParseError("invalid escape", Pos(2, 12)) do
     check_text(in "ulang/test/errors/string-escape.u", List("test bad_escape() :=", "  assert \"a\\qb\" == \"\""))
-  end
-
-test trailing_comment() :=
-  assert raises ParseError("a comment is the doc of the command, statement, or case below it, from the start of a line and without a blank line between", Pos(1, 24)) do
-    check_text(in "ulang/test/errors/trailing-comment.u", List("function f(): Int := 1 // one"))
   end
 
 test undeclared_operator() :=

@@ -657,6 +657,79 @@ function reformat_error(p: Source, q: Source): Option[Diagnostic] :=
 function unparsable(message: Str): Diagnostic :=
   Diagnostic(FormatKind, "Unparsable", None, Pos(0, 0), "the source does not parse: " ++ message, List())
 
+// comments stand anywhere, and format keeps them where they are, at the end of a line, before end, else, and catch, on
+// a local line, between arguments, elements, and cases, and above a blank line
+test formatted_comments() :=
+  var p: Source
+  let text := join("\n", List(
+    "// the module",
+    "",
+    "// a function",
+    "function f(x: Int): Int := // after the head",
+    "  g(",
+    "    x, // between arguments",
+    "    2)",
+    "",
+    "data T := // after data",
+    "  // A",
+    "  case A // after A",
+    "  case B(x: Int)",
+    "",
+    "function g(x: Int, y: Int): Int :=",
+    "  example g(1, 2) == 3 // after an example",
+    "  let z := x + y in",
+    "  // the body",
+    "  match z",
+    "    // zero",
+    "    case 0 =>",
+    "      1 // one",
+    "",
+    "    // between cases",
+    "    case _ =>",
+    "      List(",
+    "        1, // between elements",
+    "        2,",
+    "        // before an element",
+    "        3)",
+    "  end",
+    "",
+    "// detached",
+    "",
+    "procedure main() :=",
+    "  local x := 1 // on a local line",
+    "  if x == 1 then // after then",
+    "    call os_println(in \"a\") // after a call",
+    "    // before else",
+    "  else",
+    "    // after else",
+    "",
+    "    skip",
+    "  end",
+    "  while x > 1 do",
+    "    skip",
+    "    // before the end of a while",
+    "  end",
+    "  try",
+    "    skip",
+    "    // before catch",
+    "  catch",
+    "    case _ =>",
+    "      skip",
+    "    // before the end of a try",
+    "  end",
+    "// at the end")) ++ "\n"
+  parse_file_text(in "a.u", text, out p)
+  assert format_program(p) == text
+
+// a comment that the layout of its part has no place for stands above the line of the part, from where it stays
+test moved_comments() :=
+  var p: Source
+  let text := "procedure main() :=\n  assign x := 1 + // inner\n  2\n", moved := "procedure main() :=\n  // inner\n  assign x := 1 + 2\n"
+  parse_file_text(in "a.u", text, out p)
+  assert format_program(p) == moved
+  parse_file_text(in "a.u", moved, out p)
+  assert format_program(p) == moved
+
 test reformat_errors() :=
   var p: Source, q: Source, other: Source
   parse_text_recovering(in "procedure main() :=\n  skip\n", out p)
@@ -667,17 +740,20 @@ test reformat_errors() :=
   assert map_option(reformat_error(p, other), lambda d => d.code) == Some("ParsesDifferently")
 
 function same_mod(d: Mod, e: Mod): Bool :=
-  d.name == e.name and d.doc == e.doc and d.imports == e.imports and same_sections(d, e)
+  d.name == e.name and d.imports == e.imports and same_sections(d, e) and comment_texts(d) == comment_texts(e)
 
 function same_sections(d: Mod, e: Mod): Bool :=
   same_cmds(d.exported, e.exported) and same_cmds(d.builtins, e.builtins) and same_cmds(d.implemented, e.implemented)
 
-// whether the modules have the same names, imports, and commands with their documentation, whatever their positions
+// whether the modules have the same names, imports, commands, and comments, whatever their positions
 function same_mods(mods: List[Mod], others: List[Mod]): Bool :=
   size(mods) == size(others) and forall(zip(mods, others), lambda (d, e) => same_mod(d, e))
 
-function same_cmds(cmds: List[Doc[Cmd]], others: List[Doc[Cmd]]): Bool :=
-  size(cmds) == size(others) and forall(zip(cmds, others), lambda (c, other) => c.doc == other.doc and strip_cmd(c.at.that) == strip_cmd(other.at.that))
+function same_cmds(cmds: List[At[Cmd]], others: List[At[Cmd]]): Bool :=
+  size(cmds) == size(others) and forall(zip(cmds, others), lambda (c, other) => strip_cmd(c.that) == strip_cmd(other.that))
+
+function comment_texts(d: Mod): List[Str] :=
+  List(for c in d.comments yield c.text)
 
 // the checked program of file and the errors of loading it, at most 20, where formatted requires each file of its unit, the
 // members of its package or file alone if it is a program, to be formatted, after the errors of parsing and checking, and

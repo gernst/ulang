@@ -319,7 +319,7 @@ function stmt_hints(lines: Array[Str], decls: Decls, stmt: At[Stmt]): List[Hint]
       exprs_hints(lines, decls, seconds(upd))
 
     case Some(SBlock(locals, stmts)) =>
-      decl_hints(lines, locals) ++ stmts_hints(lines, decls, stmts_of(stmts))
+      decl_hints(lines, locals) ++ stmts_hints(lines, decls, stmts)
 
     // the checker gives no SLocal
     case Some(SLocal(_, _)) =>
