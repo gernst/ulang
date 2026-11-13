@@ -96,12 +96,11 @@ bootstrap: bootstrap/ulang.bin
 
 # every .u file of the project, also of the library and of the tests of the packages in their subfolders test/, but those of
 # ulang/test/errors/, which project.u declares to run only compiled, run by out/ulang.bin with all its tests in the
-# working directory, the root, must succeed
+# working directory, the root, must succeed; interpreted only, so that nothing is compiled but the tool, while testerrors,
+# testc, testasm, testelf, and testdocs compile tests or checks of their own
 .PHONY: test
 test: out/ulang.bin out/ulang.sh
 	out/ulang.sh test
-	$(MAKE) --no-print-directory testerrors
-	$(MAKE) --no-print-directory testdocs
 
 # the tests of the project compiled into one binary by compile --tests, whose main runs those that its arguments select, as
 # test does, at the root, by a copy of the script; at -O1, which cc compiles in half the time of -O2; its C depends on every
@@ -121,10 +120,24 @@ $(SUITE)/suite.sh: $(SCRIPT)
 	cp $(SCRIPT) $@
 
 # the tests of the errors of the phases in ulang/test/errors/, whose cases each load the library, which the interpreted
-# parser and checker do too slowly, so they run only compiled
+# parser and checker do too slowly, so they run only compiled, into a binary of that directory alone, by compile --tests of
+# it, which is smaller than the suite of the whole project
+ERRORS = out/errors
+
+$(ERRORS)/errors.c: out/ulang.bin out/ulang.sh $(PROJECT_SOURCES)
+	mkdir -p $(ERRORS)
+	out/ulang.sh compile --tests ulang/test/errors -o $@
+
+$(ERRORS)/errors.bin: $(ERRORS)/errors.c $(RUNTIME) Makefile
+	$(CC) $(subst -O2,-O1,$(CFLAGS)) $< ulang/runtime/ulang.c $(LIBS) -o $@
+
+$(ERRORS)/errors.sh: $(SCRIPT)
+	mkdir -p $(ERRORS)
+	cp $(SCRIPT) $@
+
 .PHONY: testerrors
-testerrors: $(SUITE)/suite.bin $(SUITE)/suite.sh
-	$(SUITE)/suite.sh ulang/test/errors
+testerrors: $(ERRORS)/errors.bin $(ERRORS)/errors.sh
+	$(ERRORS)/errors.sh ulang/test/errors
 
 # all tests of the project compiled, which have the same outcome as interpreted, but without lemmas
 .PHONY: testc
@@ -165,6 +178,40 @@ selfcompileasm: out/ulang.bin out/ulang.sh $(ASM)/ulang.o
 	cp $(SCRIPT) $$stage/ulang2.sh && \
 	$$stage/ulang2.sh compile ulang/ulang.u -o $$stage/ulang3.s && \
 	cmp $$stage/ulang2.s $$stage/ulang3.s && \
+	out/ulang.sh compile ulang/ulang.u -o $$stage/ulang2.c && \
+	$$stage/ulang2.sh compile ulang/ulang.u -o $$stage/ulang3.c && \
+	cmp $$stage/ulang2.c $$stage/ulang3.c && \
+	rm -r -- "$${stage:?}"
+
+# the tests of the project as testasm runs them, but encoded to an object by ulang/compile/elf.u, which only the linker
+# turns into a binary, without as
+SUITE_ELF = out/suite-elf
+
+$(SUITE_ELF)/suite.o: out/ulang.bin out/ulang.sh $(PROJECT_SOURCES)
+	mkdir -p $(SUITE_ELF)
+	out/ulang.sh compile --tests -o $@
+
+$(SUITE_ELF)/suite.bin: $(SUITE_ELF)/suite.o $(ASM)/ulang.o
+	$(CC) $< $(ASM)/ulang.o $(LIBS) -o $@
+
+$(SUITE_ELF)/suite.sh: $(SCRIPT)
+	mkdir -p $(SUITE_ELF)
+	cp $(SCRIPT) $@
+
+.PHONY: testelf
+testelf: $(SUITE_ELF)/suite.bin $(SUITE_ELF)/suite.sh
+	$(SUITE_ELF)/suite.sh
+
+# as selfcompileasm, through the objects of ulang/compile/elf.u: the compiler of the object of the sources compiles them to
+# the same object and to the same C as out/ulang.bin
+.PHONY: selfcompileelf
+selfcompileelf: out/ulang.bin out/ulang.sh $(ASM)/ulang.o
+	stage=$$(mktemp -d out/stage-XXXXXX) && \
+	out/ulang.sh compile ulang/ulang.u -o $$stage/ulang2.o && \
+	$(CC) $$stage/ulang2.o $(ASM)/ulang.o $(LIBS) -o $$stage/ulang2.bin && \
+	cp $(SCRIPT) $$stage/ulang2.sh && \
+	$$stage/ulang2.sh compile ulang/ulang.u -o $$stage/ulang3.o && \
+	cmp $$stage/ulang2.o $$stage/ulang3.o && \
 	out/ulang.sh compile ulang/ulang.u -o $$stage/ulang2.c && \
 	$$stage/ulang2.sh compile ulang/ulang.u -o $$stage/ulang3.c && \
 	cmp $$stage/ulang2.c $$stage/ulang3.c && \

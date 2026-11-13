@@ -585,9 +585,10 @@ test sort_arity_in_body() :=
     "  x := x"), out q, errors)
   assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("SortArity", Pos(2, 9)), ("Mismatch", Pos(2, 48)))
 
-test test_params() :=
-  assert raises Located(None, Pos(1, 1), TestParams("sorted")) do
-    check_text(in "ulang/test/errors/test-params.u", List("test sorted(xs: List[Int]) :=", "  assert xs == xs"))
+// the formals of a test have their declared types in its body
+test test_formals() :=
+  assert raises Located(None, Pos(2, 16), Mismatch(_, _, "argument 2 of the call")) do
+    check_text(in "ulang/test/errors/test-formals.u", List("test sorted(xs: List[Int]) :=", "  assert xs == 1"))
   end
 
 test test_types() :=
@@ -1155,8 +1156,10 @@ test errors_on_parts() :=
   var q: Prog, errors: List[TypeError]
   checked_text(in "ulang/test/errors/errors-on-parts.u", List("function f(n: Int): Int :=", "  n + true"), out q, errors)
   match reverse(q.cmds)
-    case List(AOk(_, CFun(_, _, _, _, _, AErr(Pos(2, 5), EApp(_, _), List(d)))); _) =>
+    case List(
+      AOk(_, _, CFun(_, _, _, _, _, AErr(Pos(2, 5), _, EApp(_, _), List(d)))); _) =>
       assert d.code == "Mismatch" and d.pos == Pos(2, 7)
+
     case _ =>
       assert false
   end

@@ -1,0 +1,639 @@
+// an assembler of the files of ulang/compile/asm.u to ELF relocatable objects for x86-64 Linux, which the linker takes as it
+// takes the objects of GNU as, so that compiled programs need neither as nor a C compiler; every jump, call, and
+// displacement relative to %rip has 4 bytes, so that the size of an instruction does not depend on the labels, which a
+// first pass over the file places, and the second encodes with them
+
+import "ulang/syntax"
+
+export
+
+// the object of the assembly f
+procedure encode_object(
+  in  f: AsmFile,
+  out bytes: Array[Byte]
+) raises InternalError
+
+implementation
+
+// the sections of the object that hold code and data, where .note.GNU-stack holds nothing
+data Sec :=
+  case SecText
+  case SecData
+  case SecRodata
+  case SecNote
+
+// a field of 4 bytes at offset at of an instruction, followed by tail bytes up to its end, that holds the distance from the
+// end of the instruction to symbol, through the procedure linkage table if plt
+data Ref :=
+  case Ref(at: Int, symbol: Str, plt: Bool, tail: Int)
+
+data Code :=
+  case Code(bytes: List[Int], refs: List[Ref])
+
+// what a relocation refers to: the start of a section of the object, or a symbol that another object defines
+data RelaTarget :=
+  case RelaSection(sec: Sec)
+  case RelaSymbol(name: Str)
+
+// a relocation at offset of its section, of the ELF type kind, with the addend
+data Rela :=
+  case Rela(offset: Int, target: RelaTarget, kind: Int, addend: Int)
+
+// the object while the lines are encoded: the current section, the bytes, relocations, and alignment of each section, the
+// labels at their sections and offsets, and the global symbols
+data Obj :=
+  case Obj(sec: Sec, offsets: Map[Sec, Int], bytes: Map[Sec, Buffer[Int]], relas: Map[Sec, Buffer[Rela]], aligns: Map[Sec, Int], labels: Map[Str, Sec * Int], globals: Set[Str])
+
+// the ELF types of relocations of x86-64: an address of 8 bytes, a distance of 4 bytes, and one to a procedure linkage
+// table entry
+function r_64(): Int :=
+  1
+
+function r_pc32(): Int :=
+  2
+
+function r_plt32(): Int :=
+  4
+
+// the n bytes of num, the least significant first, in two's complement if it is negative
+function le(num: Int, n: Int): List[Int] :=
+  example le(258, 2) == List(2, 1)
+  example le(-2, 2) == List(254, 255)
+  digits(if num < 0 then num + power(256, n) else num, n)
+
+function digits(num: Int, n: Int): List[Int] :=
+  if n <= 0 then List() else List(num % 256; digits(num / 256, n - 1))
+
+function power(base: Int, n: Int): Int :=
+  if n <= 0 then 1 else base * power(base, n - 1)
+
+function zeros(n: Int): List[Int] :=
+  List(for _ in range(0, n) yield 0)
+
+function is_byte(num: Int): Bool :=
+  num >= -128 and num <= 127
+
+function reg_num(reg: Reg): Int :=
+  match reg
+    case Rax =>
+      0
+
+    case Rcx =>
+      1
+
+    case Rdx =>
+      2
+
+    case Rbx =>
+      3
+
+    case Rsp =>
+      4
+
+    case Rbp =>
+      5
+
+    case Rsi =>
+      6
+
+    case Rdi =>
+      7
+
+    case R8 =>
+      8
+
+    case R9 =>
+      9
+
+    case R10 =>
+      10
+
+    case R11 =>
+      11
+
+    case R12 =>
+      12
+
+    case R13 =>
+      13
+
+    case R14 =>
+      14
+
+    case R15 =>
+      15
+  end
+
+function cond_num(cond: Cond): Int :=
+  match cond
+    case CondE =>
+      4
+
+    case CondNe =>
+      5
+
+    case CondL =>
+      12
+
+    case CondLe =>
+      14
+
+    case CondG =>
+      15
+
+    case CondGe =>
+      13
+
+    case CondS =>
+      8
+
+    case CondNs =>
+      9
+  end
+
+function scale_bits(scale: Int): Int :=
+  match scale
+    case 1 =>
+      0
+
+    case 2 =>
+      1
+
+    case 4 =>
+      2
+
+    case _ =>
+      3
+  end
+
+// the operand of an instruction as its ModRM byte with the field r, its SIB byte and displacement, the bits X and B of the
+// REX prefix, and the symbol of a displacement relative to %rip, which is its last 4 bytes; an immediate has none
+data Modrm :=
+  case Modrm(rex: Int, bytes: List[Int], symbol: Option[Str])
+
+function modrm(r: Int, op: Operand): Option[Modrm] :=
+  match op
+    case OReg(reg) =>
+      let b := reg_num(reg) in
+      Some(Modrm(b / 8, List(192 + r % 8 * 8 + b % 8), None))
+
+    case OMem(base, disp) =>
+      let b := reg_num(base) in
+      Some(Modrm(b / 8, based(r, b % 8, if b % 8 == 4 then List(36) else List(), b % 8, disp), None))
+
+    case OIndex(base, index, scale, disp) =>
+      let b := reg_num(base), x := reg_num(index) in
+      Some(Modrm(x / 8 * 2 + b / 8, based(r, 4, List(scale_bits(scale) * 64 + x % 8 * 8 + b % 8), b % 8, disp), None))
+
+    case ORip(symbol) =>
+      Some(Modrm(0, List(r % 8 * 8 + 5, 0, 0, 0, 0), Some(symbol)))
+
+    case OImm(_) =>
+      None
+  end
+
+// the ModRM byte of a memory operand rm with the SIB bytes sib, whose displacement has no byte if it is 0, unless the low
+// bits of the base are those of %rbp, which mean %rip or no base without one, one byte if it fits, and else 4
+function based(r: Int, rm: Int, sib: List[Int], low: Int, disp: Int): List[Int] :=
+  if disp == 0 and low != 5 then
+    List(r % 8 * 8 + rm) ++ sib
+  else if is_byte(disp) then
+    List(64 + r % 8 * 8 + rm) ++ sib ++ le(disp, 1)
+  else
+    List(128 + r % 8 * 8 + rm) ++ sib ++ le(disp, 4)
+
+// an instruction on 64 bits of the opcode with the field r and the operand op, followed by the bytes of an immediate
+procedure op_rm(
+  in  opcode: List[Int],
+      r: Int,
+      op: Operand,
+      imm: List[Int],
+  out code: Code
+) raises InternalError :=
+  match modrm(r, op)
+    case Some(m) =>
+      let bytes := List(72 + r / 8 * 4 + m.rex) ++ opcode ++ m.bytes ++ imm
+      match m.symbol
+        case Some(symbol) =>
+          code := Code(bytes, List(
+            Ref(1 + size(opcode) + size(m.bytes) - 4, symbol, false, size(imm))))
+
+        case None =>
+          code := Code(bytes, List())
+      end
+
+    case None =>
+      raise Unexpected("immediate as operand " ++ format_operand(op))
+  end
+
+// an instruction without REX.W, as push, which has a REX prefix only for the registers %r8 to %r15
+procedure op_rm_short(
+  in  opcode: List[Int],
+      r: Int,
+      op: Operand,
+  out code: Code
+) raises InternalError :=
+  match modrm(r, op)
+    case Some(Modrm(0, bytes, None)) =>
+      code := Code(opcode ++ bytes, List())
+
+    case Some(Modrm(rex, bytes, None)) =>
+      code := Code(List(64 + rex) ++ opcode ++ bytes, List())
+
+    case Some(Modrm(_, bytes, Some(symbol))) =>
+      code := Code(opcode ++ bytes, List(Ref(size(opcode) + size(bytes) - 4, symbol, false, 0)))
+
+    case None =>
+      raise Unexpected("immediate as operand " ++ format_operand(op))
+  end
+
+// an arithmetic instruction of src and dst, whose opcode is base from a register, base + 2 to a register, and 0x81 or
+// 0x83 with the extension ext from an immediate
+procedure arith(
+  in  base: Int,
+      ext: Int,
+      src: Operand,
+      dst: Operand,
+  out code: Code
+) raises InternalError :=
+  match (src, dst)
+    case (OImm(num), _) if is_byte(num) =>
+      op_rm(in List(131), ext, dst, le(num, 1), out code)
+
+    case (OImm(num), _) =>
+      op_rm(in List(129), ext, dst, le(num, 4), out code)
+
+    case (OReg(reg), _) =>
+      op_rm(in List(base), reg_num(reg), dst, List(), out code)
+
+    case (_, OReg(reg)) =>
+      op_rm(in List(base + 2), reg_num(reg), src, List(), out code)
+
+    case _ =>
+      raise Unexpected("operands " ++ format_operand(src) ++ ", " ++ format_operand(dst))
+  end
+
+// a jump or call of the opcode to symbol
+function relative(opcode: List[Int], symbol: Str, plt: Bool): Code :=
+  Code(opcode ++ zeros(4), List(Ref(size(opcode), symbol, plt, 0)))
+
+procedure encode_instr(in instr: Instr, out code: Code) raises InternalError :=
+  match instr
+    case IMov(OImm(num), OReg(reg)) if is_wide(num) =>
+      let r := reg_num(reg)
+      code := Code(List(72 + r / 8, 184 + r % 8) ++ le(num, 8), List())
+
+    case IMov(OImm(num), dst) =>
+      op_rm(in List(199), 0, dst, le(num, 4), out code)
+
+    case IMov(OReg(reg), dst) =>
+      op_rm(in List(137), reg_num(reg), dst, List(), out code)
+
+    case IMov(src, OReg(reg)) =>
+      op_rm(in List(139), reg_num(reg), src, List(), out code)
+
+    case IMov(src, dst) =>
+      raise Unexpected("movq " ++ format_operand(src) ++ ", " ++ format_operand(dst))
+
+    case IMovslq(src, reg) =>
+      op_rm(in List(99), reg_num(reg), src, List(), out code)
+
+    case ILea(src, reg) =>
+      op_rm(in List(141), reg_num(reg), src, List(), out code)
+
+    case IAdd(src, dst) =>
+      arith(in 1, 0, src, dst, out code)
+
+    case ISub(src, dst) =>
+      arith(in 41, 5, src, dst, out code)
+
+    case ICmp(src, dst) =>
+      arith(in 57, 7, src, dst, out code)
+
+    case ITest(OImm(num), dst) =>
+      op_rm(in List(247), 0, dst, le(num, 4), out code)
+
+    case ITest(OReg(reg), dst) =>
+      op_rm(in List(133), reg_num(reg), dst, List(), out code)
+
+    case ITest(src, OReg(reg)) =>
+      op_rm(in List(133), reg_num(reg), src, List(), out code)
+
+    case ITest(src, dst) =>
+      raise Unexpected("testq " ++ format_operand(src) ++ ", " ++ format_operand(dst))
+
+    case ICltq =>
+      code := Code(List(72, 152), List())
+
+    case IJmp(label) =>
+      code := relative(List(233), label, false)
+
+    case IJcc(cond, label) =>
+      code := relative(List(15, 128 + cond_num(cond)), label, false)
+
+    case ICall(symbol) =>
+      code := relative(List(232), symbol, true)
+
+    case ICallPlt(symbol) =>
+      code := relative(List(232), symbol, true)
+
+    case IPush(OReg(reg)) =>
+      let r := reg_num(reg)
+      code := Code((if r >= 8 then List(65) else List()) ++ List(80 + r % 8), List())
+
+    case IPush(OImm(num)) =>
+      code := Code(if is_byte(num) then List(106) ++ le(num, 1) else List(104) ++ le(num, 4), List())
+
+    case IPush(src) =>
+      op_rm_short(in List(255), 6, src, out code)
+
+    case IPop(reg) =>
+      let r := reg_num(reg)
+      code := Code((if r >= 8 then List(65) else List()) ++ List(88 + r % 8), List())
+
+    case ILeave =>
+      code := Code(List(201), List())
+
+    case IRet =>
+      code := Code(List(195), List())
+  end
+
+function offset_of(obj: Obj): Int :=
+  value_or(get(obj.sec, obj.offsets), 0)
+
+procedure add_bytes(in bytes: List[Int], ref obj: Obj) :=
+  obj := obj with offsets := put(obj.sec, offset_of(obj) + size(bytes), obj.offsets), bytes := put(obj.sec, value_or(get(obj.sec, obj.bytes), empty()) ++ bytes, obj.bytes)
+
+procedure add_rela(in rela: Rela, ref obj: Obj) :=
+  obj := obj with relas := put(obj.sec, value_or(get(obj.sec, obj.relas), empty()) ++ List(rela), obj.relas)
+
+// the bytes with field at offset at
+function patch(bytes: List[Int], at: Int, field: List[Int]): List[Int] :=
+  take(at, bytes) ++ field ++ drop(at + size(field), bytes)
+
+// the code at the offset of its section, whose references to the labels of that section are distances, and the others
+// relocations
+procedure add_code(in code: Code, labels: Map[Str, Sec * Int], ref obj: Obj) :=
+  var bytes := code.bytes
+  let start := offset_of(obj)
+  for r in code.refs do
+    let field := start + r.at, next := start + r.at + 4 + r.tail
+    match get(r.symbol, labels)
+      case Some((sec, offset)) if sec == obj.sec =>
+        bytes := patch(bytes, r.at, le(offset - next, 4))
+
+      case Some((sec, offset)) =>
+        add_rela(in Rela(field, RelaSection(sec), r_pc32(), offset + field - next), ref obj)
+
+      case None =>
+        add_rela(in Rela(field, RelaSymbol(r.symbol), if r.plt then r_plt32() else r_pc32(), field - next), ref obj)
+    end
+  end
+  add_bytes(in bytes, ref obj)
+
+// the addresses of symbols, of which 0 is none
+procedure add_addrs(
+  in  symbols: List[Str],
+      labels: Map[Str, Sec * Int],
+  ref obj: Obj
+) :=
+  for symbol in symbols do
+    if symbol != "0" then
+      match get(symbol, labels)
+        case Some((sec, offset)) =>
+          add_rela(in Rela(offset_of(obj), RelaSection(sec), r_64(), offset), ref obj)
+        case None =>
+          add_rela(in Rela(offset_of(obj), RelaSymbol(symbol), r_64(), 0), ref obj)
+      end
+    end
+    add_bytes(in zeros(8), ref obj)
+  end
+
+procedure add_line(
+  in  line: Line,
+      labels: Map[Str, Sec * Int],
+  ref obj: Obj
+) raises InternalError :=
+  match line
+    case LLabel(name) =>
+      obj := obj with labels := put(name, (obj.sec, offset_of(obj)), obj.labels)
+
+    case LInstr(instr) =>
+      var code: Code
+      encode_instr(in instr, out code)
+      add_code(in code, labels, ref obj)
+
+    case LDirective(DText) =>
+      obj := obj with sec := SecText
+
+    case LDirective(DData) =>
+      obj := obj with sec := SecData
+
+    case LDirective(DRodata) =>
+      obj := obj with sec := SecRodata
+
+    case LDirective(DNoExecStack) =>
+      obj := obj with sec := SecNote
+
+    case LDirective(DGlobal(symbol)) =>
+      obj := obj with globals := insert(symbol, obj.globals)
+
+    case LDirective(DAlign(n)) =>
+      let fill := if obj.sec == SecText then 144 else 0
+      add_bytes(in List(for _ in range(0, (n - offset_of(obj) % n) % n) yield fill), ref obj)
+      obj := obj with aligns := put(obj.sec, max(n, value_or(get(obj.sec, obj.aligns), 1)), obj.aligns)
+
+    case LDirective(DInts(width, nums)) =>
+      add_bytes(in List(for n in nums for b in le(n, width) yield b), ref obj)
+
+    case LDirective(DAddrs(symbols)) =>
+      add_addrs(in symbols, labels, ref obj)
+
+    case LDirective(DZero(n)) =>
+      add_bytes(in zeros(n), ref obj)
+
+    case LComment(_) =>
+      skip
+  end
+
+procedure encode_lines(
+  in  lines: List[Line],
+      labels: Map[Str, Sec * Int],
+  out obj: Obj
+) raises InternalError :=
+  obj := Obj(SecText, empty(), empty(), empty(), Map(SecText => 16, SecData => 8, SecRodata => 8), empty(), empty())
+  for line in lines do
+    add_line(in line, labels, ref obj)
+  end
+
+// the sections of the object with their headers, in the order of their indices from 1, after the null section
+data Header :=
+  case Header(name: Str, kind: Int, flags: Int, link: Int, info: Int, align: Int, entsize: Int, content: List[Int])
+
+// the index of the section header of sec, and of its symbol in the symbol table
+function sec_index(sec: Sec): Int :=
+  match sec
+    case SecText =>
+      1
+
+    case SecData =>
+      2
+
+    case SecRodata =>
+      3
+
+    case SecNote =>
+      4
+  end
+
+// a symbol of the symbol table, of the binding and type info, in section shndx at value
+data Sym :=
+  case Sym(name: Str, info: Int, shndx: Int, value: Int)
+
+// the symbols of the object: the null symbol, those of the sections, the labels that are neither local labels .L nor
+// global, the global labels, and the symbols of other objects
+function symbols(obj: Obj, undefined: List[Str]): List[Sym] :=
+  let named := List(for name => (sec, offset) in obj.labels if not starts_with(name, ".L") and sec != SecNote yield (name, sec, offset)) in
+  List(Sym("", 0, 0, 0)) ++ List(for sec in code_secs() yield Sym("", 3, sec_index(sec), 0)) ++ List(for (name, sec, offset) in named if not contains(name, obj.globals) yield Sym(name, 0, sec_index(sec), offset)) ++ List(for (name, sec, offset) in named if contains(name, obj.globals) yield Sym(name, 16, sec_index(sec), offset)) ++ List(for name in undefined yield Sym(name, 16, 0, 0))
+
+function code_secs(): List[Sec] :=
+  List(SecText, SecData, SecRodata)
+
+// a table of the texts, each ended by 0, with the offset of each text in it
+function string_table(texts: List[Str]): List[Int] * Map[Str, Int] :=
+  let (bytes, _, offsets) := foldl(texts, (buffer_of(List(0)), 1, Map("" => 0)), lambda (bytes, n, offsets), text => if get(text, offsets) != None then
+    (bytes, n, offsets)
+  else
+    let code := utf8_bytes(text) ++ List(0) in
+    (bytes ++ code, n + size(code), put(text, n, offsets))) in
+  (List(for b in bytes), offsets)
+
+function buffer_of(bytes: List[Int]): Buffer[Int] :=
+  empty() ++ bytes
+
+function rela_bytes(rela: Rela, index: Map[Str, Int]): List[Int] :=
+  let sym := match rela.target
+    case RelaSection(sec) =>
+      sec_index(sec)
+    case RelaSymbol(name) =>
+      value_or(get(name, index), 0)
+  end in
+  le(rela.offset, 8) ++ le(sym * power(2, 32) + rela.kind, 8) ++ le(rela.addend, 8)
+
+function sym_bytes(sym: Sym, names: Map[Str, Int]): List[Int] :=
+  le(value_or(get(sym.name, names), 0), 4) ++ List(sym.info, 0) ++ le(sym.shndx, 2) ++ le(sym.value, 8) ++ zeros(8)
+
+function sec_bytes(obj: Obj, sec: Sec): List[Int] :=
+  List(for b in value_or(get(sec, obj.bytes), empty()))
+
+function sec_relas(obj: Obj, sec: Sec): List[Rela] :=
+  List(for r in value_or(get(sec, obj.relas), empty()))
+
+// the names of the symbols of other objects that the relocations refer to
+function undefined_of(obj: Obj): List[Str] :=
+  List(for name in Set(for sec in code_secs() for r in sec_relas(obj, sec) for name in symbol_of(r.target) yield name))
+
+function symbol_of(target: RelaTarget): Option[Str] :=
+  match target
+    case RelaSymbol(name) =>
+      Some(name)
+    case RelaSection(_) =>
+      None
+  end
+
+function headers(obj: Obj): List[Header] :=
+  let syms := symbols(obj, undefined_of(obj)) in
+  let locals := size(List(for s in syms if s.info < 16)), (strtab, names) := string_table(List(for s in syms yield s.name)), index := Map(for (s, i) in numbered(syms) if s.shndx == 0 and s.info == 16 yield s.name => i) in
+  List(
+    Header(".text", 1, 6, 0, 0, align_of(obj, SecText), 0, sec_bytes(obj, SecText)),
+    Header(".data", 1, 3, 0, 0, align_of(obj, SecData), 0, sec_bytes(obj, SecData)),
+    Header(".rodata", 1, 2, 0, 0, align_of(obj, SecRodata), 0, sec_bytes(obj, SecRodata)),
+    Header(".note.GNU-stack", 1, 0, 0, 0, 1, 0, List())) ++ List(for sec in code_secs() yield Header(".rela" ++ name_of(sec), 4, 64, 8, sec_index(sec), 8, 24, List(for r in sec_relas(obj, sec) for b in rela_bytes(r, index) yield b))) ++ List(
+    Header(".symtab", 2, 0, 9, locals, 8, 24, List(for s in syms for b in sym_bytes(s, names) yield b)),
+    Header(".strtab", 3, 0, 0, 0, 1, 0, strtab))
+
+function name_of(sec: Sec): Str :=
+  match sec
+    case SecText =>
+      ".text"
+
+    case SecData =>
+      ".data"
+
+    case SecRodata =>
+      ".rodata"
+
+    case SecNote =>
+      ".note.GNU-stack"
+  end
+
+function align_of(obj: Obj, sec: Sec): Int :=
+  value_or(get(sec, obj.aligns), 1)
+
+// the ELF file of the headers, followed by .shstrtab, the contents at offsets aligned as each section wants, and the
+// section headers
+function elf_file(hs: List[Header]): List[Int] :=
+  let (shstrtab, names) := string_table(List(for h in hs yield h.name) ++ List(".shstrtab")) in
+  let all := hs ++ List(Header(".shstrtab", 3, 0, 0, 0, 1, 0, shstrtab)) in
+  let (body, next, offsets) := foldl(all, (buffer_of(List()), 64, List()), lambda (bytes, at, offsets), h => let pad := (h.align - at % h.align) % h.align in
+  (bytes ++ zeros(pad) ++ h.content, at + pad + size(h.content), offsets ++ List(at + pad))) in
+  let pad := (8 - next % 8) % 8 in
+  List(127, 69, 76, 70, 2, 1, 1, 0) ++ zeros(8) ++ le(1, 2) ++ le(62, 2) ++ le(1, 4) ++ zeros(16) ++ le(next + pad, 8) ++ le(0, 4) ++ le(64, 2) ++ zeros(4) ++ le(64, 2) ++ le(size(all) + 1, 2) ++ le(size(all), 2) ++ List(for b in body) ++ zeros(pad) ++ zeros(64) ++ List(for (h, offset) in zip(all, offsets) for b in header_bytes(h, value_or(get(h.name, names), 0), offset) yield b)
+
+function header_bytes(h: Header, name: Int, offset: Int): List[Int] :=
+  le(name, 4) ++ le(h.kind, 4) ++ le(h.flags, 8) ++ zeros(8) ++ le(offset, 8) ++ le(size(h.content), 8) ++ le(h.link, 4) ++ le(h.info, 4) ++ le(h.align, 8) ++ le(h.entsize, 8)
+
+procedure encode_object(
+  in  f: AsmFile,
+  out bytes: Array[Byte]
+) raises InternalError :=
+  var placed: Obj, obj: Obj
+  encode_lines(in f.lines, empty(), out placed)
+  encode_lines(in f.lines, placed.labels, out obj)
+  bytes := Array(for b in elf_file(headers(obj)) yield byte(b))
+
+// the encodings of the forms of operands that need care, as GNU as encodes them: %rsp and %r12 as bases, which take a SIB
+// byte, %rbp and %r13 with a displacement of 0, which take one byte, the registers %r8 to %r15, and immediates of 1 and 4
+// bytes
+test encodings() :=
+  var code: Code
+  for (instr, bytes) in List(
+    (IMov(OReg(Rax), OMem(Rsp, 0)), List(72, 137, 4, 36)),
+    (IMov(OMem(R12, 8), OReg(R9)), List(77, 139, 76, 36, 8)),
+    (IMov(OMem(Rbp, 0), OReg(Rax)), List(72, 139, 69, 0)),
+    (IMov(OMem(R13, 0), OReg(R11)), List(77, 139, 93, 0)),
+    (IMov(OMem(Rbp, -200), OReg(Rdx)), List(72, 139, 149, 56, 255, 255, 255)),
+    (IMov(OIndex(Rax, R10, 8, 0), OReg(Rax)), List(74, 139, 4, 208)),
+    (IMovslq(OIndex(Rdx, Rcx, 4, 0), Rcx), List(72, 99, 12, 138)),
+    (IMov(OImm(-1), OMem(Rbp, -8)), List(72, 199, 69, 248, 255, 255, 255, 255)),
+    (IMov(OImm(4294967296), OReg(R10)), List(73, 186, 0, 0, 0, 0, 1, 0, 0, 0)),
+    (ILea(OMem(Rbp, -16), Rsi), List(72, 141, 117, 240)),
+    (IAdd(OImm(1), OMem(Rbp, -24)), List(72, 131, 69, 232, 1)),
+    (ISub(OImm(4096), OReg(Rsp)), List(72, 129, 236, 0, 16, 0, 0)),
+    (ICmp(OReg(Rcx), OMem(Rax, 8)), List(72, 57, 72, 8)),
+    (ICmp(OMem(Rbp, -32), OReg(Rax)), List(72, 59, 69, 224)),
+    (ICmp(OImm(0), OMem(Rax, 8)), List(72, 131, 120, 8, 0)),
+    (ITest(OReg(Rax), OReg(Rax)), List(72, 133, 192)),
+    (ICltq, List(72, 152)),
+    (IPush(OReg(R15)), List(65, 87)),
+    (IPush(OImm(1000)), List(104, 232, 3, 0, 0)),
+    (IPush(OMem(R11, 16)), List(65, 255, 115, 16)),
+    (IPop(Rbx), List(91)),
+    (ILeave, List(201)),
+    (IRet, List(195))) do
+    encode_instr(in instr, out code)
+    assert (instr, code.bytes) == (instr, bytes)
+  end
+
+// a jump back to a label of its section is a distance, and a call of a symbol of another object a relocation
+test references() :=
+  var obj: Obj
+  let lines := List(
+    LDirective(DText),
+    LLabel("f"),
+    LInstr(IJmp("f")),
+    LInstr(ICallPlt("u_add")))
+  encode_lines(in lines, empty(), out obj)
+  encode_lines(in lines, obj.labels, out obj)
+  assert sec_bytes(obj, SecText) == List(233, 251, 255, 255, 255, 232, 0, 0, 0, 0)
+  assert sec_relas(obj, SecText) == List(Rela(6, RelaSymbol("u_add"), r_plt32(), -4))

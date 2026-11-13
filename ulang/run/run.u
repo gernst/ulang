@@ -12,6 +12,8 @@ data Val :=
   case VLit(lit: Lit)
   // a byte, from 0 to 255, which has no literal
   case VByte(num: Int)
+  // a stream of the interpreter itself, which the program reads and writes
+  case VIO(io: IO)
   case VObj(constr: Name, args: List[Val])
   case VArr(values: Array[Val])
   case VFunClos(env: Map[Name, Val], formals: List[Var], body: At[Expr])
@@ -94,6 +96,9 @@ function format_value(v: Val): Str :=
 
     case VByte(num) =>
       "byte(" ++ show(num) ++ ")"
+
+    case VIO(io) =>
+      show(io)
 
     case VTuple(args) =>
       "(" ++ format_values(args) ++ ")"
@@ -222,6 +227,7 @@ function builtin_names(): Set[Name] :=
     library_name("str", "int"),
     library_name("str", "encode_utf8"),
     library_name("str", "decode_utf8"),
+    library_name("io", "io_path"),
     library_name("prelude", "byte"),
     library_name("prelude", "int"),
     library_name("str", "is_digit"),
@@ -258,6 +264,9 @@ procedure incomparable(in v: Val) :=
       skip
 
     case VByte(_) =>
+      skip
+
+    case VIO(_) =>
       skip
 
     case VObj(_, _) =>
@@ -365,13 +374,13 @@ function match_all_into(pats: List[At[Pat]], vs: List[Val], env: Bindings): Opti
 // errors, whose other parts it runs
 procedure require_checked[A](in x: At[A]) raises RuntimeError :=
   match x
-    case AOk(_, _) =>
+    case AOk(_, _, _) =>
       skip
 
-    case AErr(_, _, errors) =>
+    case AErr(_, _, _, errors) =>
       raise Deferred(deferred_text(errors))
 
-    case AUnparsed(_, _, error) =>
+    case AUnparsed(_, _, _, error) =>
       raise Deferred(deferred_text(List(error)))
   end
 
@@ -729,6 +738,9 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
           v := VNone()
       end
 
+    case ("prelude/io.io_path", List(VIO(io))) =>
+      v := VStr(io_path(io))
+
     case ("prelude/str.int", List(VChar(char))) =>
       v := VInt(int(char))
 
@@ -898,6 +910,9 @@ procedure compare_values(
 
     case (VByte(x), VByte(y)) =>
       r := order(x, y)
+
+    case (VIO(x), VIO(y)) =>
+      r := compare(x, y)
 
     case (VBool(x), VBool(y)) =>
       r := order(if x then 1 else 0, if y then 1 else 0)
@@ -1092,7 +1107,7 @@ procedure exec(
       end
 
     // assertions of equations show both sides when they fail
-    case SAssert(AOk(_, ECall(_, Name(None, "=="), _, List(lhs, rhs)))) =>
+    case SAssert(AOk(_, _, ECall(_, _, Name(None, "=="), _, List(lhs, rhs)))) =>
       var v: Val, w: Val, r: Bool
       evaluate(in run, env, lhs, out v, ref cache)
       evaluate(in run, env, rhs, out w, ref cache)
@@ -1268,7 +1283,7 @@ procedure handle(
     case List() =>
       raise Thrown(v, t)
 
-    case List(Catch(_, AOk(_, PWild), guard, body); rest) =>
+    case List(Catch(_, AOk(_, _, PWild), guard, body); rest) =>
       var ok: Bool
       holds(in run, env, guard, out ok, ref cache)
       if ok then
@@ -1456,6 +1471,49 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
         os_exit(in num)
         outs := List()
 
+      case ("prelude/io.io_stdin", List()) =>
+        var io: IO
+        io_stdin(out io)
+        outs := List(VIO(io))
+
+      case ("prelude/io.io_stdout", List()) =>
+        var io: IO
+        io_stdout(out io)
+        outs := List(VIO(io))
+
+      case ("prelude/io.io_stderr", List()) =>
+        var io: IO
+        io_stderr(out io)
+        outs := List(VIO(io))
+
+      case ("prelude/io.io_open", List(VStr(path), VObj(mode, List()))) =>
+        var io: IO
+        io_open(in path, mode_of(mode), out io)
+        outs := List(VIO(io))
+
+      case ("prelude/io.io_read_bytes", List(VIO(io), VInt(num))) =>
+        var bytes: Array[Byte]
+        io_read_bytes(in io, num, out bytes)
+        outs := List(byte_values(bytes))
+
+      case ("prelude/io.io_read_until", List(VIO(io), VByte(num))) =>
+        var bytes: Array[Byte]
+        io_read_until(in io, byte(num), out bytes)
+        outs := List(byte_values(bytes))
+
+      case ("prelude/io.io_read_all", List(VIO(io))) =>
+        var bytes: Array[Byte]
+        io_read_all(in io, out bytes)
+        outs := List(byte_values(bytes))
+
+      case ("prelude/io.io_write_bytes", List(VIO(io), VArr(values))) =>
+        io_write_bytes(in io, bytes_of(values))
+        outs := List()
+
+      case ("prelude/io.io_close", List(VIO(io))) =>
+        io_close(in io)
+        outs := List()
+
       case _ =>
         raise UnknownProc(n)
     end
@@ -1463,6 +1521,15 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
     case OsError(message) =>
       raise Thrown(VOsError(message), TSort(os_error_name(), List()))
   end
+
+// the mode of the constructor of IoMode that checking has typed
+function mode_of(mode: Name): IoMode :=
+  if mode.base == "IoRead" then
+    IoRead
+  else if mode.base == "IoWrite" then
+    IoWrite
+  else
+    IoAppend
 
 // the entries of a directory as values of the program
 function entry_values(entries: List[Str * Bool]): List[Val] :=
@@ -1507,8 +1574,10 @@ procedure run_cmd(
   var env: Bindings := empty()
   try
     match cmd
-      case CTest(_, _, stmt) =>
+      // a test with formals runs as the test that the tester generates of it
+      case CTest(_, List(), stmt) =>
         exec(in run, stmt, ref env, cache)
+
       case _ =>
         skip
     end
@@ -1559,7 +1628,7 @@ test expressions() :=
     asserting("p1", expr_app("len", List(
       expr_app("Cons", List(expr_int(1), expr_app("Cons", List(expr_int(2), expr_var("Nil"))))))), expr_int(2)),
     asserting("p2", nowhere(ELet(List(
-      (pat_var("f"), nowhere(lambda_of(Pos(0, 0), List(Var(unqualified("x"), THole)), expr_app("*", List(expr_var("x"), expr_var("x"))))))), expr_app("+", List(expr_app("f", List(expr_int(3))), expr_app("f", List(expr_int(4))))))), expr_int(25)),
+      (pat_var("f"), nowhere(lambda_of(Pos(0, 0), span_at(Pos(0, 0)), List(Var(unqualified("x"), THole)), expr_app("*", List(expr_var("x"), expr_var("x"))))))), expr_app("+", List(expr_app("f", List(expr_int(3))), expr_app("f", List(expr_int(4))))))), expr_int(25)),
     asserting("p4", expr_app("and", List(
       nowhere(ELit(LBool(false))),
       expr_app("==", List(expr_app("/", List(expr_int(1), expr_int(0))), expr_int(0))))), nowhere(ELit(LBool(false))))))

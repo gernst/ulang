@@ -365,7 +365,7 @@ procedure compile_expr(
           ss := List(), r := global_value(defs, name, typ)
       end
 
-    case ECall(_, name, typ, args) if get(name, env) == None =>
+    case ECall(_, _, name, typ, args) if get(name, env) == None =>
       match fusion_of(name, args)
         case Some(FusedArray((gs, q, e))) =>
           compile_array_comprehension(in defs, env, gs, q, e, out ss, r, ref g)
@@ -605,7 +605,7 @@ procedure expr_cases(
     case List() =>
       ss := List()
 
-    case List(Doc(_, AOk(_, Branch(pat, guard, e))); more) =>
+    case List(Doc(_, AOk(_, _, Branch(pat, guard, e))); more) =>
       var bs: List[CStmt], rb: CExpr, body: List[CStmt], rest: List[CStmt]
       let env_: Vars := in_scope(pattern_names(pat)) ++ env
       compile_expr(in defs, env_, e, out bs, rb, ref g)
@@ -895,7 +895,7 @@ procedure compile_stmt(
         CsIf(CeUnary("!", CeVar(t)), List(CsExpr(c_call("u_no_case", List(CeVar(d))))), List()))
 
     // assertions of equations show both sides when they fail
-    case SAssert(AOk(_, ECall(_, Name(None, "=="), _, List(a, b)))) =>
+    case SAssert(AOk(_, _, ECall(_, _, Name(None, "=="), _, List(a, b)))) =>
       var as: List[CStmt], bs: List[CStmt], ra: CExpr, rb: CExpr
       compile_expr(in defs, env, a, out as, ra, ref g)
       compile_expr(in defs, env, b, out bs, rb, ref g)
@@ -1008,7 +1008,7 @@ procedure handler_cases(
     case List() =>
       ss := List()
 
-    case List(Doc(_, AOk(_, Catch(typ, pat, guard, s))); more) =>
+    case List(Doc(_, AOk(_, _, Catch(typ, pat, guard, s))); more) =>
       var bs: List[CStmt], body: List[CStmt], rest: List[CStmt]
       let env_: Vars := in_scope(pattern_names(pat)) ++ env
       var tests: List[CExpr]
@@ -1051,7 +1051,7 @@ procedure stmt_cases(
     case List() =>
       ss := List()
 
-    case List(Doc(_, AOk(_, Branch(pat, guard, s))); more) =>
+    case List(Doc(_, AOk(_, _, Branch(pat, guard, s))); more) =>
       var bs: List[CStmt], body: List[CStmt], rest: List[CStmt]
       let env_: Vars := in_scope(pattern_names(pat)) ++ env
       compile_stmt(in defs, env_, s, out bs, ref g)
@@ -1103,7 +1103,8 @@ procedure compile_cmd(
       bs := copy_in(vars(outs), vars(refs)) ++ bs ++ copy_out(vars(outs ++ refs))
       ds := List(CdFunction(LkStatic, CtVoid, proc_name(name), params, bs)), ms := List()
 
-    case CTest(name, _, stmt) if tests =>
+    // a test with formals runs as the test that the tester generates of it
+    case CTest(name, List(), stmt) if tests =>
       var bs: List[CStmt]
       compile_stmt(in defs, List(), stmt, out bs, ref g)
       ds := List(CdFunction(LkStatic, CtVoid, test_name(name), List(), bs)), ms := List()
@@ -1311,7 +1312,14 @@ procedure compile_prog(
     assemble_program(in q, q.main, entry, out a)
     os_write_utf8(in target, format_asm(a))
   else
-    var f: CFile
-    compile_program(in q, q.main, entry, out f)
-    os_write_utf8(in target, format_file(f))
+    if ends_with(target, ".o") then
+      var a: AsmFile, bytes: Array[Byte]
+      assemble_program(in q, q.main, entry, out a)
+      encode_object(in a, out bytes)
+      os_write_bytes(in target, bytes)
+    else
+      var f: CFile
+      compile_program(in q, q.main, entry, out f)
+      os_write_utf8(in target, format_file(f))
+    end
   end

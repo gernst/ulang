@@ -48,13 +48,13 @@ function lints(d: Mod): List[Warning] :=
 
 function cmd_lints(cmd: At[Cmd]): List[Warning] :=
   match cmd
-    case AOk(pos, that) =>
+    case AOk(pos, _, that) =>
       placed_cmd_lints(pos, that)
 
-    case AErr(pos, that, _) =>
+    case AErr(pos, _, that, _) =>
       placed_cmd_lints(pos, that)
 
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       List()
   end
 
@@ -99,13 +99,13 @@ function placed_cmd_lints(pos: Pos, cmd: Cmd): List[Warning] :=
 // the lints of the part expr, the construct at its position and its parts, where an unparsed part has none
 function expr_lints(fun: Id, expr: At[Expr]): List[Warning] :=
   match expr
-    case AOk(pos, that) =>
+    case AOk(pos, _, that) =>
       placed_lints(fun, pos, that) ++ part_lints(fun, that)
 
-    case AErr(pos, that, _) =>
+    case AErr(pos, _, that, _) =>
       placed_lints(fun, pos, that) ++ part_lints(fun, that)
 
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       List()
   end
 
@@ -185,13 +185,13 @@ function gen_lints(fun: Id, g: Gen): List[Warning] :=
 
 function stmt_lints(fun: Id, stmt: At[Stmt]): List[Warning] :=
   match stmt
-    case AOk(pos, that) =>
+    case AOk(pos, _, that) =>
       part_stmt_lints(fun, pos, that)
 
-    case AErr(pos, that, _) =>
+    case AErr(pos, _, that, _) =>
       part_stmt_lints(fun, pos, that)
 
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       List()
   end
 
@@ -282,7 +282,7 @@ function placed_lints(fun: Id, pos: Pos, expr: Expr): List[Warning] :=
 
 function literal_bool(expr: At[Expr]): Option[Bool] :=
   match strip_expr(expr)
-    case AOk(_, ELit(LBool(b))) =>
+    case AOk(_, _, ELit(LBool(b))) =>
       Some(b)
     case _ =>
       None
@@ -292,7 +292,7 @@ function literal_bool(expr: At[Expr]): Option[Bool] :=
 // takes them from the container itself, where a map gives its pairs to a single pattern
 function iterated_list(over: At[Expr]): List[Warning] :=
   match over
-    case AOk(pos, EFor(FList, List(g), elem, None)) if is_identity(g, elem) =>
+    case AOk(pos, _, EFor(FList, List(g), elem, None)) if is_identity(g, elem) =>
       List(
         Warning(CopiedContainer, pos, "a list that is only iterated, of the elements of a container, is that container", Some(gen_over(g))))
 
@@ -338,7 +338,7 @@ function option_default(cases: List[Branch[At[Expr]]]): Option[At[Expr]] :=
 // whether pat is Some(x) and body the variable x
 function is_some_of(pat: At[Pat], body: At[Expr]): Bool :=
   match (strip_pat(pat), strip_expr(body))
-    case (AOk(_, PApp(Name(None, "Some"), List(AOk(_, PVar(v))))), AOk(_, EVar(w))) =>
+    case (AOk(_, _, PApp(Name(None, "Some"), List(AOk(_, _, PVar(v))))), AOk(_, _, EVar(w))) =>
       v.name == w.name
     case _ =>
       false
@@ -347,10 +347,10 @@ function is_some_of(pat: At[Pat], body: At[Expr]): Bool :=
 // whether pat is None, bare, as a variable that the checker resolves, or with ()
 function is_none(pat: At[Pat]): Bool :=
   match strip_pat(pat)
-    case AOk(_, PVar(v)) =>
+    case AOk(_, _, PVar(v)) =>
       v.name == Name(None, "None")
 
-    case AOk(_, PApp(Name(None, "None"), List())) =>
+    case AOk(_, _, PApp(Name(None, "None"), List())) =>
       true
 
     case _ =>
@@ -360,16 +360,16 @@ function is_none(pat: At[Pat]): Bool :=
 // whether expr is a literal, a variable, or a tuple or constructor of plain values, which evaluates without calling a function
 function is_plain(expr: At[Expr]): Bool :=
   match strip_expr(expr)
-    case AOk(_, ELit(_)) =>
+    case AOk(_, _, ELit(_)) =>
       true
 
-    case AOk(_, EVar(_)) =>
+    case AOk(_, _, EVar(_)) =>
       true
 
-    case AOk(_, ETuple(args)) =>
+    case AOk(_, _, ETuple(args)) =>
       forall(args, is_plain)
 
-    case AOk(_, ECall(_, name, _, args)) =>
+    case AOk(_, _, ECall(_, _, name, _, args)) =>
       name.module == None and is_capitalized(name.base) and forall(args, is_plain)
 
     case _ =>
@@ -464,7 +464,7 @@ function is_variable(pat: At[Pat]): Bool :=
 // the locals of xs that the assignments at the start of stmts initialize, as format_body prints them
 function initialized(xs: List[Var], stmts: List[Doc[Stmt]]): Set[Id] :=
   match (xs, stmts)
-    case (List(x; more), List(Doc(None, AOk(_, SAssign(List((y, _))))); rest)) if y == Var(x.name, THole) =>
+    case (List(x; more), List(Doc(None, AOk(_, _, SAssign(List((y, _))))); rest)) if y == Var(x.name, THole) =>
       Set(x.name.base) ++ initialized(more, rest)
 
     case (List(_; more), _) =>
@@ -535,7 +535,7 @@ function emptied(stmt: Stmt): List[Id] :=
 
 function is_empty_list(expr: At[Expr]): Bool :=
   match strip_expr(expr)
-    case AOk(_, EForm(FList, List(), None)) =>
+    case AOk(_, _, EForm(FList, List(), None)) =>
       true
     case _ =>
       false
@@ -544,8 +544,8 @@ function is_empty_list(expr: At[Expr]): Bool :=
 // the warning of the first statement of stmts that names x, if it is a loop that only appends to x
 function collecting_loop(x: Id, stmts: List[At[Stmt]]): List[Warning] :=
   match List(for s in stmts if is_named(x, s))
-    case List(AOk(pos, SFor(gens, body)); _) if not contains(x, gens_names(gens)) =>
-      List(for elem in appended(x, body) yield collected(pos, x, AOk(pos, EFor(FList, gens, YVal(elem), None))))
+    case List(AOk(pos, span, SFor(gens, body)); _) if not contains(x, gens_names(gens)) =>
+      List(for elem in appended(x, body) yield collected(pos, x, AOk(pos, span, EFor(FList, gens, YVal(elem), None))))
     case _ =>
       List()
   end
@@ -560,7 +560,7 @@ function appended(x: Id, body: At[Stmt]): Option[At[Expr]] :=
       appended(x, only.at)
 
     case SAssign(List(
-      (y, AOk(_, ECall(_, Name(None, "++"), _, List(AOk(_, EVar(z)), AOk(_, EForm(FList, List(YVal(e)), None)))))))) if y.name.base == x and z.name.base == x and not contains(x, expr_names(e)) =>
+      (y, AOk(_, _, ECall(_, _, Name(None, "++"), _, List(AOk(_, _, EVar(z)), AOk(_, _, EForm(FList, List(YVal(e)), None)))))))) if y.name.base == x and z.name.base == x and not contains(x, expr_names(e)) =>
       Some(e)
 
     case _ =>
@@ -654,13 +654,13 @@ function declared_name(cmd: Cmd): Option[Id] :=
 // the kind and name of a declaration that may be private
 function private_decl(cmd: At[Cmd]): Option[Str * Id] :=
   match cmd
-    case AOk(_, CFun(name, _, _, _, _, _)) =>
+    case AOk(_, _, CFun(name, _, _, _, _, _)) =>
       Some(("function", name.base))
 
-    case AOk(_, CProc(name, _, _, _, _, _, _, _)) =>
+    case AOk(_, _, CProc(name, _, _, _, _, _, _, _)) =>
       Some(("procedure", name.base))
 
-    case AOk(_, CPatAlias(name, _, _, _, _)) =>
+    case AOk(_, _, CPatAlias(name, _, _, _, _)) =>
       Some(("pattern alias", name.base))
 
     case _ =>
@@ -792,13 +792,13 @@ function is_numbered(name: Id): Bool :=
 // formals
 function pat_vars(pat: At[Pat]): List[Pos * Id] :=
   match pat
-    case AOk(pos, that) =>
+    case AOk(pos, _, that) =>
       placed_pat_vars(pos, that)
 
-    case AErr(pos, that, _) =>
+    case AErr(pos, _, that, _) =>
       placed_pat_vars(pos, that)
 
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       List()
   end
 
@@ -822,13 +822,13 @@ function placed_pat_vars(pos: Pos, pat: Pat): List[Pos * Id] :=
 
 function stmt_part(stmt: At[Stmt]): Stmt :=
   match stmt
-    case AOk(_, that) =>
+    case AOk(_, _, that) =>
       that
 
-    case AErr(_, that, _) =>
+    case AErr(_, _, that, _) =>
       that
 
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       SSkip
   end
 
@@ -902,13 +902,13 @@ function assigned(stmt: At[Stmt]): Set[Id] :=
 // aliases that its patterns name
 function expr_names(expr: At[Expr]): Set[Id] :=
   match expr
-    case AOk(_, that) =>
+    case AOk(_, _, that) =>
       part_names(that)
 
-    case AErr(_, that, _) =>
+    case AErr(_, _, that, _) =>
       part_names(that)
 
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       Set()
   end
 
@@ -986,13 +986,13 @@ function gen_names(g: Gen): Set[Id] :=
 // the constructors and aliases that pat names, without the variables that it binds
 function pat_names(pat: At[Pat]): Set[Id] :=
   match pat
-    case AOk(_, that) =>
+    case AOk(_, _, that) =>
       part_pat_names(that)
 
-    case AErr(_, that, _) =>
+    case AErr(_, _, that, _) =>
       part_pat_names(that)
 
-    case AUnparsed(_, _, _) =>
+    case AUnparsed(_, _, _, _) =>
       Set()
   end
 

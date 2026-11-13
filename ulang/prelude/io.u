@@ -1,0 +1,91 @@
+// streams of bytes, of files and of standard input, output, and error, which the builtin section reads and writes, and
+// the text of UTF-8 in lines over them; a stream is passed in, since its state is the system's, which a try does not
+// undo, as it does not undo a written file, and it stays open until io_close, or until the collector finds it unreachable
+
+export
+
+data IoMode :=
+  // from the start, and else OsError
+  case IoRead
+  // from the start, emptied or created with its missing directories
+  case IoWrite
+  // at the end, created with its missing directories
+  case IoAppend
+
+// the next line without its newline, the rest of the stream at its end, and None after it, where invalid UTF-8 raises
+// OsError
+procedure io_read_line(in io: IO, out line: Option[Str]) raises OsError
+
+// the rest of the stream, all of a file just opened, where invalid UTF-8 raises OsError
+procedure io_read_utf8(in io: IO, out text: Str) raises OsError
+
+procedure io_write_utf8(in io: IO, text: Str) raises OsError
+
+builtin
+
+type IO
+
+procedure io_stdin(out io: IO)
+
+procedure io_stdout(out io: IO)
+
+procedure io_stderr(out io: IO)
+
+procedure io_open(in path: Str, mode: IoMode, out io: IO) raises OsError
+
+// at most n bytes, fewer only at the end, and none after it
+procedure io_read_bytes(
+  in  io: IO,
+      n: Int,
+  out bytes: Array[Byte]
+) raises OsError
+
+// the bytes up to and with the next delimiter, or the rest of the stream if it has none, and none after the end
+procedure io_read_until(
+  in  io: IO,
+      delimiter: Byte,
+  out bytes: Array[Byte]
+) raises OsError
+
+// the rest of the stream
+procedure io_read_all(in io: IO, out bytes: Array[Byte]) raises OsError
+
+procedure io_write_bytes(in io: IO, bytes: Array[Byte]) raises OsError
+
+// writes what is buffered, where a closed stream raises OsError on every use
+procedure io_close(in io: IO) raises OsError
+
+// the path that the stream was opened with, or stdin, stdout, or stderr
+function io_path(io: IO): Str
+
+implementation
+
+procedure io_read_line(in io: IO, out line: Option[Str]) raises OsError :=
+  var bytes: Array[Byte]
+  io_read_until(in io, byte(10), out bytes)
+  if size(bytes) == 0 then
+    line := None
+  else
+    match decode_utf8(if at(size(bytes) - 1, bytes) == byte(10) then
+      slice(bytes, 0, size(bytes) - 1)
+    else
+      bytes)
+      case Some(text) =>
+        line := Some(text)
+      case None =>
+        raise OsError("invalid UTF-8 in " ++ io_path(io))
+    end
+  end
+
+procedure io_read_utf8(in io: IO, out text: Str) raises OsError :=
+  var bytes: Array[Byte]
+  io_read_all(in io, out bytes)
+  match decode_utf8(bytes)
+    case Some(t) =>
+      text := t
+    case None =>
+      raise OsError("invalid UTF-8 in " ++ io_path(io))
+  end
+
+procedure io_write_utf8(in io: IO, text: Str) raises OsError :=
+  io_write_bytes(in io, encode_utf8(text))

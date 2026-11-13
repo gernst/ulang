@@ -167,12 +167,9 @@ procedure push_arg(in a: Arg, ref e: Emit) :=
 procedure call_runtime(in f: Str, args: List[Arg], ref e: Emit) :=
   emit_call(in ICallPlt(f), args, contains(f, variadics()), ref e)
 
-// the procedure n, which the runtime defines if it is of the builtin section of os
+// the procedure n, which the runtime defines if it is of the builtin sections of os and io
 function proc_callee(n: Name): Instr :=
-  if n.module == Some(library_module("os")) and contains(n.base, native_procs()) then
-    ICallPlt(proc_name(n))
-  else
-    ICall(proc_name(n))
+  if is_native(n) then ICallPlt(proc_name(n)) else ICall(proc_name(n))
 
 // the code of a new function, whose slots start again, with the code and slots of the one around it
 procedure begin_function(out outer: Buffer[Line] * Int, ref e: Emit) :=
@@ -480,7 +477,7 @@ procedure operand_of(
           arg := unit_operand(defs, name, arity(typ))
       end
 
-    case ECall(_, name, _, List()) if get(name, env) == None =>
+    case ECall(_, _, name, _, List()) if get(name, env) == None =>
       arg := unit_operand(defs, name, 0)
 
     case ELit(LStr(text)) =>
@@ -583,7 +580,7 @@ procedure compile_expr(in defs: Defs, env: Slots, expr: At[Expr], ref e: Emit) :
           global_value(in defs, name, typ, ref e)
       end
 
-    case ECall(_, name, typ, args) if get(name, env) == None =>
+    case ECall(_, _, name, typ, args) if get(name, env) == None =>
       match fusion_of(name, args)
         case Some(FusedArray((gs, cond, elem))) =>
           array_comprehension(in defs, env, gs, cond, elem, ref e)
@@ -809,7 +806,7 @@ procedure expr_cases(
 ) :=
   for d in cases do
     match d.at
-      case AOk(_, Branch(pat, guard, body)) =>
+      case AOk(_, _, Branch(pat, guard, body)) =>
         var next: Str, binds: Slots
         new_label(out next, ref e)
         test_pat(in pat.that, s, List(), next, ref e)
@@ -1100,7 +1097,7 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
       place(in done, ref e)
 
     // assertions of equations show both sides when they fail
-    case SAssert(AOk(_, ECall(_, Name(None, "=="), _, List(a, b)))) =>
+    case SAssert(AOk(_, _, ECall(_, _, Name(None, "=="), _, List(a, b)))) =>
       var as: List[Arg]
       compile_args(in defs, env, List(a, b), out as, ref e)
       call_runtime(in "u_assert_equal", as, ref e)
@@ -1212,7 +1209,7 @@ procedure handler_cases(
 ) :=
   for d in hs do
     match d.at
-      case AOk(_, Catch(typ, pat, guard, s)) =>
+      case AOk(_, _, Catch(typ, pat, guard, s)) =>
         var next: Str, v: Int, binds: Slots
         new_label(out next, ref e)
         match pat.that
@@ -1251,7 +1248,7 @@ procedure stmt_cases(
 ) :=
   for d in cases do
     match d.at
-      case AOk(_, Branch(pat, guard, body)) =>
+      case AOk(_, _, Branch(pat, guard, body)) =>
         var next: Str, binds: Slots
         new_label(out next, ref e)
         test_pat(in pat.that, s, List(), next, ref e)
@@ -1338,7 +1335,8 @@ procedure compile_cmd(in defs: Defs, tests: Bool, cmd: Cmd, ref e: Emit) :=
       copy_out(in var_names(vars(outs ++ refs)), ps, vs, ref e)
       end_function(in proc_name(name), false, outer, ref e)
 
-    case CTest(name, _, stmt) if tests =>
+    // a test with formals runs as the test that the tester generates of it
+    case CTest(name, List(), stmt) if tests =>
       var outer: Buffer[Line] * Int
       begin_function(out outer, ref e)
       compile_stmt(in defs, List(), stmt, ref e)

@@ -1,4 +1,5 @@
-// the lemmas that the default proof of ulang/prove/lemma.u leaves open, or whose tests on enumerated values fail, each a case, the lines of a source text at a path of this directory, which the procedures of
+// the lemmas that the default proof of ulang/prove/lemma.u leaves open, or whose tests on enumerated values fail, and the
+// tests with formals that fail on enumerated values, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
 import "ulang/syntax"
@@ -17,6 +18,32 @@ test falsified() :=
     run_text(in "ulang/test/errors/falsified.u", List(
       "lemma reverse_same(in xs: List[Int], ys: List[Int]) :=",
       "  ensures reverse(xs) ++ ys == xs ++ ys"))
+  end
+
+// a test with formals fails with the values of its formals and both sides of the equation
+test falsified_test() :=
+  assert raises Uncaught("Falsified(\"xs = List(0, 0, 1): List(1, 0, 0) != List(0, 0, 1)\")") do
+    run_text(in "ulang/test/errors/falsified-test.u", List("test reverse_same(xs: List[Int]) :=", "  assert reverse(xs) == xs"))
+  end
+
+// an assertion in the body of a try fails as an assertion, which the handler cannot catch, without the values
+test falsified_in_try() :=
+  assert raises AssertionUnequal("1", "0") do
+    run_text(in "ulang/test/errors/falsified-in-try.u", List(
+      "test caught(n: Int) :=",
+      "  try",
+      "    assert n == 0",
+      "    raise n",
+      "  catch",
+      "    case _ =>",
+      "      skip",
+      "  end"))
+  end
+
+// a test with a formal of a type without enumeration fails with those formals
+test unenumerable() :=
+  assert raises Uncaught("Unenumerable(\"f\")") do
+    run_text(in "ulang/test/errors/unenumerable.u", List("test applied(f: Int -> Int, n: Int) :=", "  assert f(n) == f(n)"))
   end
 
 // an out of the lemma bound by a call is no longer existential, so that its fact does not hold of another variable
@@ -62,8 +89,8 @@ test abstract_constructors() :=
 
 // the recursive functions of the library whose termination the prover does not prove: distinct recurses on a
 // comprehension, sort on take and drop of half its list, and separated on joined_pairs, which need lemmas of their
-// sizes, and list_count and list_values of ulang/prelude/enumerate.u count n down to n == 0, so they do not terminate
-// for a negative n, while gcd terminates by the absolute value of its divisor
+// sizes, and list_count and list_values of the enumeration, which load_text loads with the library, count n down to
+// n == 0, so they do not terminate for a negative n, while gcd terminates by the absolute value of its divisor
 test library_terminates() :=
   var main: Id, q: Prog, open: List[Str] := List()
   load_text(in "ulang/test/errors/library-terminates.u", List("lemma trivial() :=", "  ensures true"), out main, q)
@@ -160,7 +187,7 @@ test proof_definitions_named() :=
 
 // a call of the lemma itself outside the case of an induction
 test proof_self_call() :=
-  assert raises OpenLemma("self_call", "the lemma calls itself only at a recursive field of the case of its induction at 3.3") do
+  assert raises OpenLemma("self_call", "the lemma calls itself only at a recursive field of the case of its induction, with the formals of the inductions before it unchanged at 3.3") do
     prove_text(in "ulang/test/errors/proof-self-call.u", List(
       "lemma self_call(in x: Int) :=",
       "  ensures x == x",
@@ -277,4 +304,45 @@ test claim_no_fact() :=
       "",
       "lemma after(in n: Int) :=",
       "  ensures n == n + 1"))
+  end
+
+// nested inductions on different formals argue in a cycle, (List(), List(1)) from (List(1), List()) from (List(),
+// List(1)), unless the inner hypothesis keeps the formal of the outer one at its value
+test nested_inductions() :=
+  assert raises OpenLemma("nested", "the lemma calls itself only at a recursive field of the case of its induction, with the formals of the inductions before it unchanged at 7.11") do
+    prove_text(in "ulang/test/errors/nested-inductions.u", List(
+      "lemma nested(in xs: List[Int], ys: List[Int]) :=",
+      "  ensures xs == List() and ys == List()",
+      "  induction xs",
+      "    case List() =>",
+      "      induction ys",
+      "        case List(y; t) =>",
+      "          nested(in List(1), t)",
+      "      end",
+      "",
+      "    case List(h; t) =>",
+      "      nested(in t, List(1))",
+      "  end"))
+  end
+
+// inductions on different formals in different cases argue in a cycle as nested ones do, so the order of the formals
+// is that of their first inductions in the whole proof
+test sibling_inductions() :=
+  assert raises OpenLemma("sibling", "the lemma calls itself only at a recursive field of the case of its induction, with the formals of the inductions before it unchanged at 13.11") do
+    prove_text(in "ulang/test/errors/sibling-inductions.u", List(
+      "lemma sibling(in xs: List[Int], ys: List[Int]) :=",
+      "  ensures xs == List() and ys == List()",
+      "  match ys",
+      "    case List() =>",
+      "      induction xs",
+      "        case List(h; t) =>",
+      "          sibling(in t, List(1))",
+      "      end",
+      "",
+      "    case List(y; r) =>",
+      "      induction ys",
+      "        case List(z; t) =>",
+      "          sibling(in List(1), t)",
+      "      end",
+      "  end"))
   end

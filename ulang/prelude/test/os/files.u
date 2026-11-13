@@ -34,6 +34,52 @@ test bytes() :=
   end
   os_chdir(in home)
 
+// streams in the three modes, read by lines, bytes, and to the end, which are equal by identity and shown by their paths
+test streams() :=
+  var io: IO, other: IO, line: Option[Str], text: Str, bytes: Array[Byte], home: Str
+  enter_scratch(out home)
+  io_open(in "streams/a.txt", IoWrite, out io)
+  io_write_utf8(in io, "one\nzwei ä\n")
+  io_close(in io)
+  io_open(in "streams/a.txt", IoAppend, out io)
+  io_write_bytes(in io, Array(byte(51), byte(10), byte(52)))
+  io_close(in io)
+  io_open(in "streams/a.txt", IoRead, out io)
+  assert io_path(io) == "streams/a.txt" and show(io) == "<io streams/a.txt>"
+  io_read_line(in io, out line)
+  assert line == Some("one")
+  io_read_bytes(in io, 2, out bytes)
+  assert bytes == Array(byte(122), byte(119))
+  io_read_until(in io, byte(10), out bytes)
+  assert decode_utf8(bytes) == Some("ei ä\n")
+  io_read_utf8(in io, out text)
+  assert text == "3\n4"
+  io_read_line(in io, out line)
+  assert line == None
+  io_read_bytes(in io, 5, out bytes)
+  assert bytes == Array()
+  io_open(in "streams/a.txt", IoRead, out other)
+  assert io == io and io != other and compare(io, other) == -1
+  io_read_line(in other, out line)
+  assert line == Some("one")
+  io_close(in io)
+  io_close(in other)
+  assert raises OsError("closed stream streams/a.txt") do
+    io_read_line(in io, out line)
+  end
+  io_open(in "streams/b.bin", IoWrite, out io)
+  io_write_bytes(in io, Array(byte(97), byte(255), byte(10)))
+  io_close(in io)
+  io_open(in "streams/b.bin", IoRead, out io)
+  assert raises OsError("invalid UTF-8 in streams/b.bin") do
+    io_read_line(in io, out line)
+  end
+  io_close(in io)
+  assert raises OsError("cannot read streams/missing.txt") do
+    io_open(in "streams/missing.txt", IoRead, out io)
+  end
+  os_chdir(in home)
+
 test library() :=
   var t: Str
   os_library(in "option", out t)

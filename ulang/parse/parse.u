@@ -64,6 +64,12 @@ function has_sections(text: Str): Bool :=
 // notation, so without the operators of the library, such as +
 procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError
 
+// the source of the module main of text as parse_text parses it, with its errors as its parts that do not parse
+procedure parse_text_recovering(
+  in  text: Str,
+  out source: Source
+) raises ParseError, OsError
+
 // the source of texts instead of files, for the tests: the members of the package of the directory dir from the root,
 // each its module and text, and main, the module and text of the main file, which is one of them or a program in dir,
 // where the library and the imported packages are read from their files
@@ -73,6 +79,15 @@ procedure parse_texts(
       members: List[Id * Str],
       main: Id * Str,
   out source: Source
+) raises ParseError, OsError
+
+// the package dir of the members, each its module and text, read elsewhere, loaded into source without their tests, and
+// placed right after the library, which is all they see, so that the modules loaded before see them as packages checked
+// before, e.g. the enumeration that the tests of lemmas call, which no path names
+procedure load_after_library(
+  in  dir: Str,
+      members: List[Id * Str],
+  ref source: Source
 ) raises ParseError, OsError
 
 // the nearest directory from dir upward with project.u, or else dir, where dir is absolute and normal
@@ -132,7 +147,7 @@ function unparsed_names(source: Source): Set[Id] :=
 
 function declared_by(cmd: At[Cmd]): List[Id] :=
   match cmd
-    case AUnparsed(_, _, error) =>
+    case AUnparsed(_, _, _, error) =>
       List(for (k, v) in error.details if k == "declares" for x in split(v, ',') yield x)
     case _ =>
       List()
@@ -142,10 +157,10 @@ function declared_by(cmd: At[Cmd]): List[Id] :=
 // name after its keyword and in a datatype those after case
 function declared_names(toks: Tokens): List[Id] :=
   match toks
-    case List((_, TKw(kw)), (_, TName(name)); more) if contains(kw, List("function", "procedure", "pattern", "type")) =>
+    case List((_, TKw(kw), _), (_, TName(name), _); more) if contains(kw, List("function", "procedure", "pattern", "type")) =>
       List(name)
 
-    case List((_, TKw("data")), (_, TName(name)); more) =>
+    case List((_, TKw("data"), _), (_, TName(name), _); more) =>
       List(name; constructor_names(more))
 
     case _ =>
@@ -154,10 +169,10 @@ function declared_names(toks: Tokens): List[Id] :=
 
 function constructor_names(toks: Tokens): List[Id] :=
   match toks
-    case List((_, TKw("case")), (_, TName(name)); more) =>
+    case List((_, TKw("case"), _), (_, TName(name), _); more) =>
       List(name; constructor_names(more))
 
-    case List((_, tok); more) if not is_command_token(tok) =>
+    case List((_, tok, _); more) if not is_command_token(tok) =>
       constructor_names(more)
 
     case _ =>
@@ -259,7 +274,7 @@ procedure check_imported(in notation: Notation, imported: Notation, pos: Pos) :=
 
 function head_token(toks: Tokens): Token :=
   match toks
-    case List((_, tok); _) =>
+    case List((_, tok, _); _) =>
       tok
     case _ =>
       TEnd
@@ -268,7 +283,7 @@ function head_token(toks: Tokens): Token :=
 // the comment at the start of the tokens, if it documents the module: a blank line, an import, export, or the end follows it
 function module_doc(toks: Tokens): Option[Str] :=
   match toks
-    case List((Pos(line, _), TDoc(text)), (Pos(next, _), tok); _) =>
+    case List((Pos(line, _), TDoc(text), _), (Pos(next, _), tok, _); _) =>
       if documents_module(text, line, next, tok) then Some(text) else None
     case _ =>
       None
@@ -279,7 +294,7 @@ function documents_module(text: Str, line: Int, next: Int, tok: Token): Bool :=
 
 function second_token(toks: Tokens): Token :=
   match toks
-    case List(_, (_, tok); _) =>
+    case List(_, (_, tok, _); _) =>
       tok
     case _ =>
       TEnd
@@ -287,11 +302,32 @@ function second_token(toks: Tokens): Token :=
 
 function head_pos(toks: Tokens): Pos :=
   match toks
-    case List((p, _); _) =>
+    case List((p, _, _); _) =>
       p
     case _ =>
       Pos(0, 0)
   end
+
+// the stop of the last token of code before toks, where the part ends that the parser read up to toks
+function stop_pos(toks: Tokens): Pos :=
+  match toks
+    case List((_, _, stop); _) =>
+      stop
+    case _ =>
+      Pos(0, 0)
+  end
+
+// the span of the part that starts at start and that the parser read up to toks
+function span_from(start: Pos, toks: Tokens): Span :=
+  Span(start, stop_pos(toks))
+
+// the span of a token of op at pos, which has no newline
+function op_span(op: Id, pos: Pos): Span :=
+  Span(pos, Pos(pos.line, pos.col + size(op)))
+
+// the span from the earlier start to the later stop
+function span_union(a: Span, b: Span): Span :=
+  Span(if b.start < a.start then b.start else a.start, if a.stop < b.stop then b.stop else a.stop)
 
 function at_kw(toks: Tokens, w: Str): Bool :=
   head_token(toks) == TKw(w)
@@ -317,10 +353,10 @@ function at_mode(toks: Tokens): Bool :=
 // a comma before another raised type, unless name : of the next formal follows it
 function at_raised_type(toks: Tokens): Bool :=
   match toks
-    case List((_, TKw(",")), (_, TName(_)), (_, TKw(":")); _) =>
+    case List((_, TKw(","), _), (_, TName(_), _), (_, TKw(":"), _); _) =>
       false
 
-    case List((_, TKw(",")), (_, TName(_)); _) =>
+    case List((_, TKw(","), _), (_, TName(_), _); _) =>
       true
 
     case _ =>
@@ -330,7 +366,7 @@ function at_raised_type(toks: Tokens): Bool :=
 // a comma before another update
 function at_update(toks: Tokens): Bool :=
   match toks
-    case List((_, TKw(",")), (_, TName(_)), (_, TKw(":=")); _) =>
+    case List((_, TKw(","), _), (_, TName(_), _), (_, TKw(":="), _); _) =>
       true
     case _ =>
       false
@@ -645,7 +681,7 @@ procedure parse_arg(
       if not ends then
         raise ParseError(message, at)
       end
-      expr := AUnparsed(pos, text, parse_diagnostic(ParseError(message, at)))
+      expr := AUnparsed(pos, span_from(pos, toks), text, parse_diagnostic(ParseError(message, at)))
   end
 
 // the tokens of an argument up to the next , ) ; out or ref outside its brackets and blocks, joined by spaces, and whether
@@ -994,20 +1030,20 @@ procedure parse_type_atom(
 // -n for a number n is the negative literal, in patterns and expressions, and otherwise an operator is applied
 function expr_apply(f: Fixity, op: Id, pos: Pos, args: List[At[Expr]]): At[Expr] :=
   match args
-    case List(AOk(_, ELit(LInt(num)))) if f == FPrefix and op == "-" =>
-      AOk(pos, ELit(LInt(0 - num)))
+    case List(AOk(_, span, ELit(LInt(num)))) if f == FPrefix and op == "-" =>
+      AOk(pos, span_union(op_span(op, pos), span), ELit(LInt(0 - num)))
 
-    case List(AOk(_, ELit(LHex(num)))) if f == FPrefix and op == "-" =>
-      AOk(pos, ELit(LHex(0 - num)))
+    case List(AOk(_, span, ELit(LHex(num)))) if f == FPrefix and op == "-" =>
+      AOk(pos, span_union(op_span(op, pos), span), ELit(LHex(0 - num)))
 
     case List(a) =>
-      AOk(pos, ECall(pos, unqualified(op), THole, List(a)))
+      AOk(pos, span_union(op_span(op, pos), a.span), ECall(pos, op_span(op, pos), unqualified(op), THole, List(a)))
 
     case List(a; more) =>
       expr_infix(op, pos, a, more)
 
     case List() =>
-      AOk(pos, ECall(pos, unqualified(op), THole, List()))
+      AOk(pos, op_span(op, pos), ECall(pos, op_span(op, pos), unqualified(op), THole, List()))
   end
 
 // lhs and the operands rs, applied from the left, where op is at pos
@@ -1016,7 +1052,7 @@ function expr_infix(op: Id, pos: Pos, lhs: At[Expr], rs: List[At[Expr]]): At[Exp
     case List() =>
       lhs
     case List(r; more) =>
-      expr_infix(op, pos, AOk(pos, ECall(pos, unqualified(op), THole, List(lhs, r))), more)
+      expr_infix(op, pos, AOk(pos, span_over(lhs, r), ECall(pos, op_span(op, pos), unqualified(op), THole, List(lhs, r))), more)
   end
 
 function starts_expr(notation: Notation, tok: Token): Bool :=
@@ -1077,7 +1113,7 @@ function apply_updates(pos: Pos, expr: At[Expr], updates: List[Id * At[Expr]]): 
     case List() =>
       expr
     case List((f, a); more) =>
-      apply_updates(pos, AOk(pos, EUpdate(expr, f, a)), more)
+      apply_updates(pos, AOk(pos, span_over(expr, a), EUpdate(expr, f, a)), more)
   end
 
 // f(x) at the position of f, and e.f at the position of .
@@ -1093,12 +1129,12 @@ procedure parse_app(
     if at_kw(toks, "(") then
       advance(ref toks)
       parse_enclosed(in notation, params, parse_arg, ")", out args, ref toks)
-      expr := AOk(expr.pos, EApp(expr, args))
+      expr := AOk(expr.pos, span_from(expr.span.start, toks), EApp(expr, args))
     else
       pos := head_pos(toks)
       advance(ref toks)
       parse_name(out f, ref toks)
-      expr := AOk(pos, EField(expr, f))
+      expr := AOk(pos, span_from(expr.span.start, toks), EField(expr, f))
     end
   end
 
@@ -1112,7 +1148,7 @@ procedure parse_expr_atom(
   match (literal_at(toks), head_token(toks))
     case (Some(v), _) =>
       advance(ref toks)
-      expr := AOk(pos, ELit(v))
+      expr := AOk(pos, span_from(pos, toks), ELit(v))
 
     case (_, TKw("let")) =>
       parse_let(in notation, params, out expr, ref toks)
@@ -1125,7 +1161,7 @@ procedure parse_expr_atom(
       parse_expr(in notation, params, out l, ref toks)
       expect_else(in pos, ref toks)
       parse_expr(in notation, params, out r, ref toks)
-      expr := AOk(pos, EIte(a, l, r))
+      expr := AOk(pos, span_from(pos, toks), EIte(a, l, r))
 
     case (_, TKw("lambda")) =>
       parse_lambda(in notation, params, out expr, ref toks)
@@ -1135,7 +1171,7 @@ procedure parse_expr_atom(
       advance(ref toks)
       parse_expr(in notation, params, out a, ref toks)
       parse_cases(in notation, params, parse_expr, "match", pos, out cases, ref toks)
-      expr := AOk(pos, EMatch(a, cases))
+      expr := AOk(pos, span_from(pos, toks), EMatch(a, cases))
 
     case (_, TKw("(")) =>
       var exprs: List[At[Expr]]
@@ -1145,7 +1181,7 @@ procedure parse_expr_atom(
         case List(inner) =>
           expr := inner
         case _ =>
-          expr := AOk(pos, ETuple(exprs))
+          expr := AOk(pos, span_from(pos, toks), ETuple(exprs))
       end
 
     case _ if form_at(toks) != None =>
@@ -1156,7 +1192,7 @@ procedure parse_expr_atom(
 
     case (_, TName(name)) if not is_operator(notation, name) =>
       advance(ref toks)
-      expr := AOk(pos, EName(unqualified(name), THole))
+      expr := AOk(pos, span_from(pos, toks), EName(unqualified(name), THole))
 
     case _ =>
       raise expected("expression", toks)
@@ -1175,7 +1211,7 @@ procedure parse_let(
   parse_separated(in notation, params, parse_binding, at_comma, out bindings, ref toks)
   expect(in TKw("in"), ref toks)
   parse_expr(in notation, params, out body, ref toks)
-  expr := AOk(pos, ELet(bindings, body))
+  expr := AOk(pos, span_from(pos, toks), ELet(bindings, body))
 
 // p := e
 procedure parse_binding(
@@ -1206,19 +1242,19 @@ procedure parse_lambda(
     expect(in TKw("=>"), ref toks)
     parse_body(in notation, params, out body, ref toks)
     expect_end(in "lambda", pos, ref toks)
-    expr := AOk(pos, EProc(ins, outs, refs, THole, body))
+    expr := AOk(pos, span_from(pos, toks), EProc(ins, outs, refs, THole, body))
   else
     if head_token(toks) == TKw("=>") then
       var inner: At[Expr]
       expect(in TKw("=>"), ref toks)
       parse_expr(in notation, params, out inner, ref toks)
-      expr := AOk(pos, ELam(List(), inner))
+      expr := AOk(pos, span_from(pos, toks), ELam(List(), inner))
     else
       var pats: List[At[Pat]], inner: At[Expr]
       parse_separated(in notation, params, parse_pattern, at_comma, out pats, ref toks)
       expect(in TKw("=>"), ref toks)
       parse_expr(in notation, params, out inner, ref toks)
-      expr := AOk(pos, ELam(pats, inner))
+      expr := AOk(pos, span_from(pos, toks), ELam(pats, inner))
     end
   end
 
@@ -1288,7 +1324,7 @@ procedure parse_form(
       end
     end
     parse_optional(in notation, params, TKw(";"), parse_expr, out rest, ref toks)
-    expr := AOk(pos, EFor(form, gens, elem, rest))
+    expr := AOk(pos, span_from(pos, toks), EFor(form, gens, elem, rest))
   else
     var elems: List[Yield]
     if at_kw(toks, ")") then
@@ -1299,7 +1335,7 @@ procedure parse_form(
       end, at_comma, out elems, ref toks)
       parse_optional(in notation, params, TKw(";"), parse_expr, out rest, ref toks)
     end
-    expr := AOk(pos, EForm(form, elems, rest))
+    expr := AOk(pos, span_from(pos, toks), EForm(form, elems, rest))
   end
   if form == FArray and rest != None then
     raise ParseError("arrays have no rest", pos)
@@ -1389,7 +1425,7 @@ procedure parse_cases[B](
     parse_optional(in notation, params, TKw("if"), parse_expr, out g, ref toks)
     expect(in TKw("=>"), ref toks)
     body(in notation, params, out b, ref toks)
-    found := found ++ List(Doc(doc, AOk(pos, Branch(pat, g, b))))
+    found := found ++ List(Doc(doc, AOk(pos, span_from(pos, toks), Branch(pat, g, b))))
   end
   expect_end(in opener, start, ref toks)
   cases := List(for c in found)
@@ -1397,20 +1433,20 @@ procedure parse_cases[B](
 // patterns, where operators are constructors, at the position of the operator
 function pat_apply(f: Fixity, op: Id, pos: Pos, args: List[At[Pat]]): At[Pat] :=
   match args
-    case List(AOk(_, PLit(LInt(num)))) if f == FPrefix and op == "-" =>
-      AOk(pos, PLit(LInt(0 - num)))
+    case List(AOk(_, span, PLit(LInt(num)))) if f == FPrefix and op == "-" =>
+      AOk(pos, span_union(op_span(op, pos), span), PLit(LInt(0 - num)))
 
-    case List(AOk(_, PLit(LHex(num)))) if f == FPrefix and op == "-" =>
-      AOk(pos, PLit(LHex(0 - num)))
+    case List(AOk(_, span, PLit(LHex(num)))) if f == FPrefix and op == "-" =>
+      AOk(pos, span_union(op_span(op, pos), span), PLit(LHex(0 - num)))
 
     case List(pat) =>
-      AOk(pos, PApp(unqualified(op), List(pat)))
+      AOk(pos, span_union(op_span(op, pos), pat.span), PApp(unqualified(op), List(pat)))
 
     case List(pat; more) =>
       pat_infix(op, pos, pat, more)
 
     case List() =>
-      AOk(pos, PApp(unqualified(op), List()))
+      AOk(pos, op_span(op, pos), PApp(unqualified(op), List()))
   end
 
 // lhs and the operands rs, applied from the left
@@ -1419,15 +1455,15 @@ function pat_infix(op: Id, pos: Pos, lhs: At[Pat], rs: List[At[Pat]]): At[Pat] :
     case List() =>
       lhs
     case List(r; more) =>
-      pat_infix(op, pos, AOk(pos, PApp(unqualified(op), List(lhs, r))), more)
+      pat_infix(op, pos, AOk(pos, span_over(lhs, r), PApp(unqualified(op), List(lhs, r))), more)
   end
 
-// the cells of a list pattern, at the position of its form List
-function pat_cons(pos: Pos): (At[Pat], At[Pat]) -> At[Pat] :=
-  lambda a, b => AOk(pos, PApp(unqualified("Cons"), List(a, b)))
+// the cells of a list pattern, at the position of its form List and over its span
+function pat_cons(pos: Pos, span: Span): (At[Pat], At[Pat]) -> At[Pat] :=
+  lambda a, b => AOk(pos, span, PApp(unqualified("Cons"), List(a, b)))
 
-function pat_nil(pos: Pos): At[Pat] :=
-  AOk(pos, PApp(unqualified("Nil"), List()))
+function pat_nil(pos: Pos, span: Span): At[Pat] :=
+  AOk(pos, span, PApp(unqualified("Nil"), List()))
 
 function starts_pattern(notation: Notation, tok: Token): Bool :=
   match tok
@@ -1465,7 +1501,7 @@ procedure parse_pattern(
     var typ: Type
     advance(ref toks)
     parse_type(in notation, params, out typ, ref toks)
-    pat := AOk(pos, PAnnotated(pat, typ))
+    pat := AOk(pos, span_from(pos, toks), PAnnotated(pat, typ))
   end
 
 procedure parse_pattern_atom(
@@ -1478,11 +1514,11 @@ procedure parse_pattern_atom(
   match (literal_at(toks), head_token(toks))
     case (Some(v), _) =>
       advance(ref toks)
-      pat := AOk(pos, PLit(v))
+      pat := AOk(pos, span_from(pos, toks), PLit(v))
 
     case (_, TKw("_")) =>
       advance(ref toks)
-      pat := AOk(pos, PWild)
+      pat := AOk(pos, span_from(pos, toks), PWild)
 
     case (_, TKw("(")) =>
       var pats: List[At[Pat]]
@@ -1492,7 +1528,7 @@ procedure parse_pattern_atom(
         case List(inner) =>
           pat := inner
         case _ =>
-          pat := AOk(pos, PTuple(pats))
+          pat := AOk(pos, span_from(pos, toks), PTuple(pats))
       end
 
     // List(), List(a, b), and List(a, b; rest), since only lists have free constructors
@@ -1500,13 +1536,14 @@ procedure parse_pattern_atom(
       advance(ref toks)
       expect(in TKw("("), ref toks)
       if at_kw(toks, ")") then
-        pat := pat_nil(pos)
+        advance(ref toks)
+        pat := pat_nil(pos, span_from(pos, toks))
       else
         var pats: List[At[Pat]], rest: Option[At[Pat]]
         parse_display(in notation, params, parse_pattern, out pats, rest, ref toks)
-        pat := cons_all(pat_cons(pos), pats, value_or(rest, pat_nil(pos)))
+        expect(in TKw(")"), ref toks)
+        pat := cons_all(pat_cons(pos, span_from(pos, toks)), pats, value_or(rest, pat_nil(pos, span_from(pos, toks))))
       end
-      expect(in TKw(")"), ref toks)
 
     case _ =>
       var name: Id
@@ -1515,9 +1552,9 @@ procedure parse_pattern_atom(
         var pats: List[At[Pat]]
         advance(ref toks)
         parse_enclosed(in notation, params, parse_pattern, ")", out pats, ref toks)
-        pat := AOk(pos, PApp(unqualified(name), pats))
+        pat := AOk(pos, span_from(pos, toks), PApp(unqualified(name), pats))
       else
-        pat := AOk(pos, PName(unqualified(name), THole))
+        pat := AOk(pos, span_from(pos, toks), PName(unqualified(name), THole))
       end
   end
 
@@ -1557,7 +1594,7 @@ procedure parse_body(
     parse_stmt_recovering(in notation, params, out stmt, ref toks)
     found := found ++ List(stmt)
   end
-  body := AOk(pos, SBlock(List(), List(for t in found)))
+  body := AOk(pos, span_from(pos, toks), SBlock(List(), List(for t in found)))
 
 // whether the next token starts a statement, or something else that is neither a command nor ends a body, which a
 // statement that does not parse then is, also after a doc, which may document a statement but not what ends a body,
@@ -1624,7 +1661,7 @@ procedure parse_stmt_recovering(
     case ParseError(message, at) =>
       var text: Str
       skip_stmt(in notation, out text, ref toks)
-      stmt := Doc(doc, AUnparsed(pos, text, parse_diagnostic(ParseError(message, at))))
+      stmt := Doc(doc, AUnparsed(pos, span_from(pos, toks), text, parse_diagnostic(ParseError(message, at))))
   end
 
 // the tokens of a statement, at least its first, up to the next statement, a doc, what ends the body, or a command, outside
@@ -1814,7 +1851,9 @@ procedure parse_local(
   parse_optional(in notation, params, TKw(":="), parse_expr, out init, ref toks)
   match init
     case Some(expr) =>
-      decl := (x, List(AOk(pos, SAssign(List((Var(x.that.name, THole), expr))))))
+      decl := (x, List(
+        AOk(pos, span_from(pos, toks), SAssign(List((Var(x.that.name, THole), expr))))))
+
     case None =>
       decl := (x, List())
   end
@@ -1930,7 +1969,7 @@ procedure parse_stmt(
     case _ =>
       raise expected("statement", toks)
   end
-  stmt := AOk(pos, node)
+  stmt := AOk(pos, span_from(pos, toks), node)
 
 // assert c, or assert raises p do … end
 procedure parse_assert(
@@ -1974,7 +2013,7 @@ procedure parse_if(
     advance(ref toks)
     parse_body(in notation, params, out r, ref toks)
   else
-    r := AOk(head_pos(toks), SSkip)
+    r := AOk(head_pos(toks), span_at(head_pos(toks)), SSkip)
   end
   expect_end(in "if", pos, ref toks)
   stmt := SIf(cond, l, r)
@@ -2074,7 +2113,7 @@ procedure parse_formal(
   var name: Id, typ: Option[Type]
   parse_plain_name(in notation, params, out name, ref toks)
   parse_optional(in notation, params, TKw(":"), parse_type, out typ, ref toks)
-  x := AOk(pos, Var(unqualified(name), value_or(typ, THole)))
+  x := AOk(pos, span_from(pos, toks), Var(unqualified(name), value_or(typ, THole)))
 
 // formals in parentheses, which may be empty
 procedure parse_formals(
@@ -2113,10 +2152,10 @@ function without_examples(cmd: Cmd): Cmd :=
 
 function is_test(c: Doc[Cmd]): Bool :=
   match c.at
-    case AOk(_, CTest(_, _, _)) =>
+    case AOk(_, _, CTest(_, _, _)) =>
       true
 
-    case AOk(_, CLemma(_, _, _, _, _, _)) =>
+    case AOk(_, _, CLemma(_, _, _, _, _, _)) =>
       true
 
     case _ =>
@@ -2283,13 +2322,14 @@ procedure parse_constrs(
   ref toks: Tokens
 ) :=
   if at_case(toks) then
-    var constr: Constr, doc: Option[Str], pos: Pos, rest: List[Doc[Constr]]
+    var constr: Constr, doc: Option[Str], pos: Pos, span: Span, rest: List[Doc[Constr]]
     parse_doc(out doc, ref toks)
     pos := head_pos(toks)
     advance(ref toks)
     parse_constr(in notation, params, datatype, seen, out constr, ref toks)
+    span := span_from(pos, toks)
     parse_constrs(in notation, params, datatype, seen ++ constr.fields, out rest, ref toks)
-    constrs := List(Doc(doc, AOk(pos, constr)); rest)
+    constrs := List(Doc(doc, AOk(pos, span, constr)); rest)
   else
     constrs := List()
   end
@@ -2344,7 +2384,7 @@ procedure parse_expr_recovering(
         skipped := skipped ++ List(format_token(head_token(toks)))
         advance(ref toks)
       end
-      expr := AUnparsed(pos, joined(List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
+      expr := AUnparsed(pos, span_from(pos, toks), joined(List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
   end
 
 procedure parse_pat_alias(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
@@ -2456,9 +2496,9 @@ procedure parse_example(
     end
     match invalid
       case Some(e) =>
-        x := AUnparsed(pos, joined(List(for (_, tok) in take(size(start) - size(toks), start) yield format_token(tok))), parse_diagnostic(e))
+        x := AUnparsed(pos, span_from(pos, toks), joined(List(for (_, tok, _) in take(size(start) - size(toks), start) yield format_token(tok))), parse_diagnostic(e))
       case None =>
-        x := AOk(pos, claim)
+        x := AOk(pos, span_from(pos, toks), claim)
     end
   catch
     case ParseError(message, at) =>
@@ -2466,16 +2506,16 @@ procedure parse_example(
         skipped := skipped ++ List(format_token(head_token(toks)))
         advance(ref toks)
       end
-      x := AUnparsed(pos, joined(List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
+      x := AUnparsed(pos, span_from(pos, toks), joined(List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
   end
 
 // whether another example follows before the next command
 function has_next_example(toks: Tokens): Bool :=
   match toks
-    case List((_, TKw("example")); _) =>
+    case List((_, TKw("example"), _); _) =>
       true
 
-    case List((_, tok); more) if not is_command_token(tok) =>
+    case List((_, tok, _); more) if not is_command_token(tok) =>
       has_next_example(more)
 
     case _ =>
@@ -2706,7 +2746,7 @@ procedure parse_proof(
     let at := head_pos(toks)
     advance(ref toks)
     parse_separated(in notation, params, parse_local, at_comma, out decls, ref toks)
-    steps := steps ++ List(for (x, inits) in decls yield AOk(at, StepLocal(x, initial_value(inits))))
+    steps := steps ++ List(for (x, inits) in decls yield AOk(at, span_from(at, toks), StepLocal(x, initial_value(inits))))
   end
   while at_kw(toks, "assert") or at_kw(toks, "invariant") or at_name_stmt(toks) do
     if at_kw(toks, "invariant") then
@@ -2714,12 +2754,12 @@ procedure parse_proof(
       let at := head_pos(toks)
       advance(ref toks)
       parse_expr(in notation, params, out cond, ref toks)
-      steps := steps ++ List(AOk(at, StepInvariant(cond)))
+      steps := steps ++ List(AOk(at, span_from(at, toks), StepInvariant(cond)))
     else
       var stmt: At[Stmt], step: Step
       parse_stmt(in notation, params, out stmt, ref toks)
       step_of(in stmt, out step)
-      steps := steps ++ List(AOk(stmt.pos, step))
+      steps := steps ++ List(AOk(stmt.pos, stmt.span, step))
     end
   end
   if exists(List("induction", "match", "if"), lambda kw => at_kw(toks, kw)) then
@@ -2738,7 +2778,7 @@ procedure parse_proof(
 // the value of a local from the assignment that parse_local gives for it
 function initial_value(inits: List[At[Stmt]]): Option[At[Expr]] :=
   match inits
-    case List(AOk(_, SAssign(List((_, e))))) =>
+    case List(AOk(_, _, SAssign(List((_, e))))) =>
       Some(e)
     case _ =>
       None
@@ -2777,14 +2817,14 @@ procedure parse_split(
       advance(ref toks)
       parse_name(out x, ref toks)
       parse_cases(in notation, params, parse_proof, "induction", pos, out cases, ref toks)
-      split := AOk(pos, SplitInduction(Var(Name(None, x), THole), cases))
+      split := AOk(pos, span_from(pos, toks), SplitInduction(Var(Name(None, x), THole), cases))
 
     case TKw("match") =>
       var expr: At[Expr], cases: List[Doc[Branch[Proof]]]
       advance(ref toks)
       parse_expr(in notation, params, out expr, ref toks)
       parse_cases(in notation, params, parse_proof, "match", pos, out cases, ref toks)
-      split := AOk(pos, SplitMatch(expr, cases))
+      split := AOk(pos, span_from(pos, toks), SplitMatch(expr, cases))
 
     case _ =>
       var cond: At[Expr], left: Proof, right: Option[Proof] := None
@@ -2799,7 +2839,7 @@ procedure parse_split(
         right := Some(r)
       end
       expect_end(in "if", pos, ref toks)
-      split := AOk(pos, SplitIf(cond, left, right))
+      split := AOk(pos, span_from(pos, toks), SplitIf(cond, left, right))
   end
 
 // the commands of one declaration
@@ -3058,6 +3098,18 @@ procedure parse_texts(
       end
   end
 
+procedure load_after_library(
+  in  dir: Str,
+      members: List[Id * Str],
+  ref source: Source
+) raises ParseError, OsError :=
+  let before := source.mods
+  load_members(in "", Some(dir), members, None, List(), ref source)
+  source := source with mods := List(for d in source.mods if is_library(d)) ++ List(for d in drop(size(before), source.mods) if not is_library(d)) ++ List(for d in before if not is_library(d))
+
+function is_library(d: Mod): Bool :=
+  contains(d.name, library_modules())
+
 function is_main(id: Id, main: Option[Id * Str]): Bool :=
   match main
     case Some((m, _)) =>
@@ -3210,8 +3262,8 @@ procedure parse_mod(
       toks: Tokens
 ) :=
   var imports: List[Id] := List(), notation := empty_notation(), plain: List[Doc[Cmd]] := List(), exported: List[Doc[Cmd]] := List(), builtins: List[Doc[Cmd]] := List(), implemented: List[Doc[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[Doc[Cmd]], doc: Option[Str], mod_doc: Option[Str], text: Str, names: List[Id] := List()
-  implemented := List(for (p, tok) in toks if tok == TMisplaced yield Doc(None, AUnparsed(p, "//", parse_diagnostic(ParseError(misplaced_comment(), p)))))
-  toks := List(for (p, tok) in toks if tok != TMisplaced yield (p, tok))
+  implemented := List(for (p, tok, _) in toks if tok == TMisplaced yield Doc(None, AUnparsed(p, op_span("//", p), "//", parse_diagnostic(ParseError(misplaced_comment(), p)))))
+  toks := List(for (p, tok, stop) in toks if tok != TMisplaced yield (p, tok, stop))
   mod_doc := module_doc(toks)
   if mod_doc != None then
     advance(ref toks)
@@ -3236,12 +3288,12 @@ procedure parse_mod(
             skip_command(out text, ref toks)
         end
         placed := List(
-          Doc(doc, AUnparsed(pos, text, declaring(parse_diagnostic(ParseError(message, at)), names))))
+          Doc(doc, AUnparsed(pos, span_from(pos, toks), text, declaring(parse_diagnostic(ParseError(message, at)), names))))
     end
     match more
       case List(c; rest) =>
         placed := List(
-          Doc(doc, AOk(pos, c)); List(for d in rest yield Doc(None, AOk(pos, d))))
+          Doc(doc, AOk(pos, span_from(pos, toks), c)); List(for d in rest yield Doc(None, AOk(pos, span_from(pos, toks), d))))
 
       case _ =>
         skip
@@ -3471,10 +3523,19 @@ procedure parse_file(
   parse_file_text(in path, text, out source)
 
 procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError :=
-  var toks: Tokens, source := Source(List(), List(), "main")
+  var source: Source
+  parse_text_recovering(in text, out source)
+  require_parsed(in source)
+  own := source.mods.head
+
+procedure parse_text_recovering(
+  in  text: Str,
+  out source: Source
+) raises ParseError, OsError :=
+  var toks: Tokens, own: Mod, loaded := Source(List(), List(), "main")
   lex_text(in text, out toks)
-  parse_mod(in "main", List(), empty_notation(), "", None, List(), out own, ref source, toks)
-  require_parsed(in Source(List(own), List(), "main"))
+  parse_mod(in "main", List(), empty_notation(), "", None, List(), out own, ref loaded, toks)
+  source := Source(List(own), List(), "main")
 
 // the file of a module: its id, the root of its project, and its directory from the root, None for the library
 data Place :=
@@ -3584,13 +3645,35 @@ procedure parsed_placed(in e: Str, out body: At[Expr]) :=
       skip
   end
 
-// the uses of names, also of operators, and accesses of fields are at the token that names them, and a call at its name
+// the span on line from column start to column stop
+function span_in(line: Int, start: Int, stop: Int): Span :=
+  example span_in(8, 3, 7) == Span(Pos(8, 3), Pos(8, 7))
+  Span(Pos(line, start), Pos(line, stop))
+
+// the uses of names, also of operators, and accesses of fields are at the token that names them, and a call at its name,
+// while the span of each goes from its first token to the end of its last
 test parsed_positions() :=
   var expr: At[Expr]
   parsed_placed(in "f(a) + b.g", out expr)
-  assert expr == AOk(Pos(8, 8), ECall(Pos(8, 8), unqualified("+"), THole, List(
-    AOk(Pos(8, 3), EApp(AOk(Pos(8, 3), EName(unqualified("f"), THole)), List(AOk(Pos(8, 5), EName(unqualified("a"), THole))))),
-    AOk(Pos(8, 11), EField(AOk(Pos(8, 10), EName(unqualified("b"), THole)), "g")))))
+  assert expr == AOk(Pos(8, 8), span_in(8, 3, 13), ECall(Pos(8, 8), span_in(8, 8, 9), unqualified("+"), THole, List(
+    AOk(Pos(8, 3), span_in(8, 3, 7), EApp(AOk(Pos(8, 3), span_in(8, 3, 4), EName(unqualified("f"), THole)), List(AOk(Pos(8, 5), span_in(8, 5, 6), EName(unqualified("a"), THole))))),
+    AOk(Pos(8, 11), span_in(8, 10, 13), EField(AOk(Pos(8, 10), span_in(8, 10, 11), EName(unqualified("b"), THole)), "g")))))
+
+// a command and a statement span from their first token to the end of their last, also of the end of a block
+test parsed_spans() :=
+  var d: Mod
+  parse_text(in "procedure p(in x: Int, out y: Int) :=\n  if x then\n    y := x\n  else\n    y := 0\n  end\n\nfunction f(x: Int): Int :=\n  g(x).h", out d)
+  match placed_of(d)
+    case List(
+      Doc(_, AOk(_, proc_span, CProc(_, _, _, _, _, _, _, AOk(_, block_span, SBlock(_, List(Doc(_, stmt))))))),
+      Doc(_, AOk(_, fun_span, CFun(_, _, _, _, _, body)))) =>
+      assert proc_span == Span(Pos(1, 1), Pos(6, 6)) and block_span == Span(Pos(2, 3), Pos(6, 6))
+      assert stmt.span == Span(Pos(2, 3), Pos(6, 6))
+      assert fun_span == Span(Pos(8, 1), Pos(9, 9)) and body.span == Span(Pos(9, 3), Pos(9, 9))
+
+    case _ =>
+      assert false
+  end
 
 // a comma followed by name : ends the types that a procedure type raises, since it starts the next formal
 test parsed_raises() :=
@@ -3628,7 +3711,7 @@ test parsed_docs_of_modules_and_constructors() :=
   assert d.doc == Some("the module")
   parse_text(in "data T :=\n  // first\n  // line\n  case A\n  case B(x: Int)\n\n" ++ then_f, out d)
   match d.implemented
-    case List(Doc(_, AOk(_, CData(_, _, constrs))), Doc(doc, _)) =>
+    case List(Doc(_, AOk(_, _, CData(_, _, constrs))), Doc(doc, _)) =>
       docs := List(for k in constrs yield k.doc) ++ List(doc)
     case _ =>
       skip
@@ -3641,8 +3724,8 @@ test parsed_docs_of_cases() :=
   parse_text(in fun_f ++ proc_p, out d)
   match commands_of(d.implemented)
     case List(
-      CFun(_, _, _, _, _, AOk(_, EMatch(_, bs))),
-      CProc(_, _, _, _, _, _, _, AOk(_, SBlock(_, List(Doc(_, AOk(_, SMatch(_, cs))), Doc(_, AOk(_, STry(_, hs)))))))) =>
+      CFun(_, _, _, _, _, AOk(_, _, EMatch(_, bs))),
+      CProc(_, _, _, _, _, _, _, AOk(_, _, SBlock(_, List(Doc(_, AOk(_, _, SMatch(_, cs))), Doc(_, AOk(_, _, STry(_, hs)))))))) =>
       docs := List(for b in bs yield b.doc) ++ List(for c in cs yield c.doc) ++ List(for h in hs yield h.doc)
 
     case _ =>

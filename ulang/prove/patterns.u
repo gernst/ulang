@@ -279,9 +279,9 @@ function hole_term(holes: Holes, free: List[Int], value: Term, base: Int, h: Int
 // the leaves of List(x, y; rest) and List(x; rest) after it, over the value at the level 0: Nil without a row, Cons of
 // Nil for the second row, and Cons of Cons for the first, whose y and rest are new variables
 test nested_leaves() :=
-  let list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), var_of := (lambda base => Var(Name(None, base), THole)), pvar := (lambda base => AOk(Pos(0, 0), PVar(var_of(base)))), decls := (empty_decls() with constrs := Map(
+  let list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), var_of := (lambda base => Var(Name(None, base), THole)), pvar := (lambda base => nowhere(PVar(var_of(base)))), decls := (empty_decls() with constrs := Map(
     nil => ConstrDecl(list, List()),
-    cons => ConstrDecl(list, List(var_of("head"), var_of("tail")))), datatypes := Map(list => List(nil, cons))), two := PApp(cons, List(pvar("x"), AOk(Pos(0, 0), PApp(cons, List(pvar("y"), pvar("rest")))))), one := PApp(cons, List(pvar("x"), pvar("rest")))
+    cons => ConstrDecl(list, List(var_of("head"), var_of("tail")))), datatypes := Map(list => List(nil, cons))), two := PApp(cons, List(pvar("x"), nowhere(PApp(cons, List(pvar("y"), pvar("rest")))))), one := PApp(cons, List(pvar("x"), pvar("rest")))
   match leaves(decls, ELevel(0), 1, List((two, false), (one, false)), None)
     case List(empty, single, double) =>
       assert empty.value == EFun(nil) and empty.hits == List()
@@ -296,7 +296,7 @@ test nested_leaves() :=
 
 // literals split into the literal and the rest, where a guarded row lets the leaf through to the next
 test literal_leaves() :=
-  let x := AOk(Pos(0, 0), PVar(Var(Name(None, "x"), THole)))
+  let x := nowhere(PVar(Var(Name(None, "x"), THole)))
   match leaves(empty_decls(), ELevel(0), 1, List((PLit(LInt(0)), true), (PLit(LInt(0)), false), (x.that, false)), None)
     case List(zero, other) =>
       assert zero.value == EInt(0) and zero.hits == List(Hit(0, List()), Hit(1, List()))

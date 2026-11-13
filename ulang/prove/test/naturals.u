@@ -24,3 +24,25 @@ lemma add_commutes(in m: Nat, n: Nat) :=
 
 lemma add_commutes_inside(in a: Nat, b: Nat, c: Nat) :=
   ensures add(c, add(a, b)) == add(add(b, a), c)
+
+// nested inductions, whose inner hypothesis keeps m, the formal of the outer one, at its value, Zero or Succ(p)
+lemma add_commutes_nested(in m: Nat, n: Nat) :=
+  ensures add(m, n) == add(n, m)
+  induction m
+    case Zero =>
+      induction n
+        case Succ(k) =>
+          add_commutes_nested(in Zero, k)
+      end
+
+    case Succ(p) =>
+      induction n
+        case Zero =>
+          add_commutes_nested(in p, Zero)
+
+        case Succ(k) =>
+          add_commutes_nested(in p, Succ(k))
+          add_commutes_nested(in Succ(p), k)
+          add_commutes_nested(in p, k)
+      end
+  end

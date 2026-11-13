@@ -8,22 +8,7 @@ Confidence: **confirmed** means reproduced by a run, with the repro given; **lik
 
 ### 1.1 Confirmed
 
-1. **The prover proves false lemmas by nested inductions** (`ulang/prove/proof.u:127-141`, `leaf_gaps` and `hypothesis` at 215-232, 327). An induction hypothesis holds for all values of the other formals, even inside a case of an outer split that fixes one of them, so two inductions on different formals argue in a cycle, (Nil, [1]) ← ([1], Nil) ← (Nil, [1]). Repro, which `prove` reports as `lemma bad proved`:
-   ```
-   lemma bad(in xs: List[Int], ys: List[Int]) :=
-     ensures xs == List() and ys == List()
-     induction xs
-       case List() =>
-         induction ys
-           case List(y; t) =>
-             bad(in List(1), t)
-         end
-
-       case List(h; t) =>
-         bad(in t, List(1))
-     end
-   ```
-   Fix: an inner hypothesis keeps the formals of the enclosing inductions fixed (a lexicographic order of the inductions), or takes the facts of its scope as premises; `int_gaps` (271) has the same shape.
+1. Fixed since, by the lexicographic order of inductions of `ulang/prove/proof.u`.
 2. Fixed since, by 6c1aced.
 3. **Sets and maps take any result of `compare` other than -1 and 1 as equal** (`ulang/prelude/set.u:59-105`, `ulang/prelude/map.u:60-204`, `case -1`, `case 1`, `case _`), while both backends pass the result of a declared `compare` hook through unchanged (`compare_in` of `ulang/run/run.u:842-846`, `compare` of `ulang/runtime/ulang.c:397`). With `function compare(a: V, b: V): Int := a.n - b.n`, `contains(V(1), Set(V(5)))` is true and `put`/`remove` hit the wrong entry. `CLAUDE.md` promises -1, 0, 1, but nothing enforces it. Fix: normalize the hook's result by its sign in both backends, with a case in `ulang/test/datatypes/orders.u`.
 4. Fixed since, by b4dc673.
