@@ -141,6 +141,7 @@ function native_procs(): Set[Id] :=
     "os_read_bytes",
     "os_write_bytes",
     "os_library",
+    "os_library_dir",
     "os_print",
     "os_print_error",
     "os_exit",

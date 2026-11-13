@@ -1421,6 +1421,10 @@ void p_os_exit(u_value code) {
   exit(code->type == &u_int_type ? (int)code->num : 1);
 }
 
+void p_os_library_dir(u_value *result) {
+  *result = u_from_utf8(ULANG_LIB, strlen(ULANG_LIB));
+}
+
 void p_os_library(u_value name, u_value *result) {
   const char *base = u_utf8(name, NULL);
   char *path = text(u_strlen(ULANG_LIB) + u_strlen(base) + 3);

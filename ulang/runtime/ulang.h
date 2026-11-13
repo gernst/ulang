@@ -272,6 +272,7 @@ void p_os_is_dir(u_value path, u_value *yes);
 void p_os_cwd(u_value *dir);
 void p_os_chdir(u_value dir);
 void p_os_library(u_value name, u_value *text);
+void p_os_library_dir(u_value *path);
 
 // the procedures of the builtin section of io.u, on objects of u_io_type
 void p_io_stdin(u_value *io);

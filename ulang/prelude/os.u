@@ -56,6 +56,9 @@ procedure os_write_bytes(in path: Str, bytes: Array[Byte]) raises OsError
 // the source of a module of the library
 procedure os_library(in name: Str, out text: Str) raises OsError
 
+// the directory of the library, whose .u files are its members
+procedure os_library_dir(out path: Str)
+
 // print a string as it is, to the output, and with a newline to the error output, where show gives the text of any value
 procedure os_print(in text: Str)
 
