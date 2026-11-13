@@ -663,6 +663,7 @@ function library_modules(): List[Id] :=
     "array",
     "buffer",
     "os",
+    "io",
     "enumerate") yield library_module(name))
 
 function library_module(name: Str): Id :=

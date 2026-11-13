@@ -33,6 +33,52 @@ test bytes() :=
   end
   call os_chdir(in home)
 
+// streams in the three modes, read by lines, bytes, and to the end, which are equal by identity and shown by their paths
+test streams() :=
+  local io: IO, other: IO, line: Option[Str], text: Str, bytes: Array[Byte], home: Str
+  call enter_scratch(out home)
+  call io_open(in "streams/a.txt", IoWrite, out io)
+  call io_write_utf8(in io, "one\nzwei ä\n")
+  call io_close(in io)
+  call io_open(in "streams/a.txt", IoAppend, out io)
+  call io_write_bytes(in io, Array(byte(51), byte(10), byte(52)))
+  call io_close(in io)
+  call io_open(in "streams/a.txt", IoRead, out io)
+  assert io_path(io) == "streams/a.txt" and show(io) == "<io streams/a.txt>"
+  call io_read_line(in io, out line)
+  assert line == Some("one")
+  call io_read_bytes(in io, 2, out bytes)
+  assert bytes == Array(byte(122), byte(119))
+  call io_read_until(in io, byte(10), out bytes)
+  assert decode_utf8(bytes) == Some("ei ä\n")
+  call io_read_utf8(in io, out text)
+  assert text == "3\n4"
+  call io_read_line(in io, out line)
+  assert line == None
+  call io_read_bytes(in io, 5, out bytes)
+  assert bytes == Array()
+  call io_open(in "streams/a.txt", IoRead, out other)
+  assert io == io and io != other and compare(io, other) == -1
+  call io_read_line(in other, out line)
+  assert line == Some("one")
+  call io_close(in io)
+  call io_close(in other)
+  assert raises OsError("closed stream streams/a.txt") do
+    call io_read_line(in io, out line)
+  end
+  call io_open(in "streams/b.bin", IoWrite, out io)
+  call io_write_bytes(in io, Array(byte(97), byte(255), byte(10)))
+  call io_close(in io)
+  call io_open(in "streams/b.bin", IoRead, out io)
+  assert raises OsError("invalid UTF-8 in streams/b.bin") do
+    call io_read_line(in io, out line)
+  end
+  call io_close(in io)
+  assert raises OsError("cannot read streams/missing.txt") do
+    call io_open(in "streams/missing.txt", IoRead, out io)
+  end
+  call os_chdir(in home)
+
 test library() :=
   local t: Str
   call os_library(in "option", out t)
