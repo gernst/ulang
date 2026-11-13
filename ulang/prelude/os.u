@@ -17,10 +17,11 @@ data Project :=
 // where each path is that of its directory, /, and its name
 procedure os_walk(in path: Str, out files: List[Str]) raises OsError
 
-// the path of name in dir, which may end with /
+// the path of name in dir, which may end with /, and name itself if dir is empty
 function os_join(dir: Str, name: Str): Str :=
   example os_join("a", "b") == "a/b"
   example os_join("a/", "b") == "a/b"
+  example os_join("", "b") == "b"
 
 // the last part of a path, after its last /
 function os_basename(path: Str): Str :=
@@ -42,10 +43,15 @@ builtin
 // the arguments of the program, after -- for the interpreter
 procedure os_args(out args: List[Str]) raises OsError
 
-// read and write files, where relative paths start from the working directory, and failures raise OsError
-procedure os_read(in path: Str, out text: Str) raises OsError
+// read and write files as text in UTF-8, where invalid UTF-8 raises OsError, and as bytes, where relative paths start
+// from the working directory, and failures raise OsError
+procedure os_read_utf8(in path: Str, out text: Str) raises OsError
 
-procedure os_write(in path: Str, text: Str) raises OsError
+procedure os_write_utf8(in path: Str, text: Str) raises OsError
+
+procedure os_read_bytes(in path: Str, out bytes: Array[Byte]) raises OsError
+
+procedure os_write_bytes(in path: Str, bytes: Array[Byte]) raises OsError
 
 // the source of a module of the library
 procedure os_library(in name: Str, out text: Str) raises OsError
@@ -111,10 +117,7 @@ procedure os_walk_entries(
   end
 
 function os_join(dir: Str, name: Str): Str :=
-  if size(dir) > 0 and at(size(dir) - 1, dir) == '/' then
-    dir ++ name
-  else
-    dir ++ "/" ++ name
+  if dir == "" or ends_with(dir, "/") then dir ++ name else dir ++ "/" ++ name
 
 function os_basename(path: Str): Str :=
   value_or(last(split(path, '/')), path)

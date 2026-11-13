@@ -1,7 +1,7 @@
 # Ideas for examples
 
 Programs that show ulang on tasks of real software, beside `examples/words.u`, the most frequent words of files, `examples/csv.u`, the relational algebra on CSV files over `library/csv`, and `examples/grep.u`, over the regular expressions of `library/regex`.
-What `os` offers bounds them: files, arguments, printing, and directories, but no processes, clock, network, or bytes (Library 1 of `ideas/library.md`), so most are tools from text to text.
+What `os` offers bounds them: files, arguments, printing, and directories, and bytes, but no processes, clock, or network, so most are tools from text or bytes to text.
 
 ## Within the language as it is
 
@@ -26,6 +26,6 @@ What `os` offers bounds them: files, arguments, printing, and directories, but n
 
 The language has no sockets and no reading from stdin, and strings are code points, not bytes. In the order of what it takes:
 
-1. **Behind inetd**: `socat TCP-LISTEN:8080,fork EXEC:'out/ulang.sh run examples/http.u'` gives each connection a process whose stdin and stdout are the socket, and the program parses the request, routes it, and serves files or a generated page: a parser of requests, a `Map` of headers, routing by `match` on `(method, path)`, `OsError` as 404 or 500, and listings by `os_list`. About 150 lines. It needs one builtin, `os_read_line(out line: Option[Str])` of stdin, since `os_read("/dev/stdin")` reads to the end of the file, which a client that waits for its answer never closes. Limits: a process per request, text files only until `Byte`, and the start of the interpreter, seconds per request since it loads the library, milliseconds compiled.
+1. **Behind inetd**: `socat TCP-LISTEN:8080,fork EXEC:'out/ulang.sh run examples/http.u'` gives each connection a process whose stdin and stdout are the socket, and the program parses the request, routes it, and serves files or a generated page: a parser of requests, a `Map` of headers, routing by `match` on `(method, path)`, `OsError` as 404 or 500, and listings by `os_list`. About 150 lines. It needs one builtin, `os_read_line(out line: Option[Str])` of stdin, since `os_read_utf8("/dev/stdin")` reads to the end of the file, which a client that waits for its answer never closes. Limits: a process per request, and the start of the interpreter, seconds per request since it loads the library, milliseconds compiled.
 2. **A server of its own**: builtins `os_listen(in port, out server)`, `os_accept(in server, out conn)`, `os_read_line(in conn, …)`, `os_send(in conn, text)`, and `os_close(in conn)`, with abstract types `Socket` and `Conn` in the `builtin` section of `os.u`, and a loop that accepts, serves, and closes, one connection at a time. Each builtin is added in all the places of Code 2 of `ideas/code.md`, `builtin_names` of `ulang/run/run.u`, `builtin_functions` and `native_procs` of `ulang/compile/lower.u`, their uses in `ulang/compile/x86.u`, the runtime, and `ulang.h`, and needs `make testc`. Networking is a new kind of effect that signatures do not show (Later 1). Best after Code 2 has reduced those places.
 3. **A web app on top of 2**: notes or todos with HTML forms and a JSON API, kept in a file, which the semantics of `try` keep consistent on errors; it shares `json/` with `json.u` as a package that both import.

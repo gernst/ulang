@@ -13,6 +13,8 @@ data Token :=
   // names and symbols with a fixed meaning, and punctuation
   case TKw(kw: Str)
   case TNum(num: Int)
+  // 0x and hexadecimal digits of either case
+  case THex(num: Int)
   case TStr(text: Str)
   case TChar(char: Char)
   // the lines of a run of comments at the start of lines, in any column, without their markers, joined by newlines,
@@ -178,12 +180,40 @@ procedure lex_name(in text: Str, out tok: Token, ref offset: Int) :=
 procedure lex_number(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
   call scan(in text, is_digit, out from, ref offset)
-  match number(slice(text, from, offset))
-    case Some(n) =>
-      assign tok := TNum(n)
-    case None =>
-      raise LexError("invalid number", position_of(text, from))
+  if slice(text, from, offset) == "0" and peek(text, offset) == 'x' then
+    local digits: Int
+    assign offset := offset + 1
+    call   scan(in text, lambda c => hex_digit(c) != None, out digits, ref offset)
+    if digits == offset then
+      raise LexError("invalid number; a hexadecimal number has digits after 0x, as in 0xFF", position_of(text, from))
+    end
+    assign tok := THex(hex_value(slice(text, digits, offset)))
+  else
+    match number(slice(text, from, offset))
+      case Some(n) =>
+        assign tok := TNum(n)
+      case None =>
+        raise LexError("invalid number", position_of(text, from))
+    end
   end
+
+// the value of a hexadecimal digit, of either case, if c is one
+function hex_digit(c: Char): Option[Int] :=
+  example hex_digit('B') == Some(11)
+  or_else(index_of(c, chars("0123456789abcdef")), index_of(c, chars("0123456789ABCDEF")))
+
+function hex_value(digits: Str): Int :=
+  example hex_value("D800") == 55296
+  foldl(chars(digits), 0, lambda n, c => 16 * n + value_or(hex_digit(c), 0))
+
+// the hint for an unexpected character c before next, after "; ", or ""
+function character_hint(c: Char, next: Char): Str :=
+  if c == '|' and next == '|' then
+    "; the operators of Bool are and, or, and not"
+  else if c == '|' then
+    "; an operator consists of the characters " ++ str(List(for i in range(33, 127) if is_op_char(chr(i)) yield chr(i)))
+  else
+    ""
 
 procedure lex_symbol(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
@@ -242,7 +272,7 @@ procedure lex_doc(in text: Str, out doc: Str, above: Bool, ref offset: Int) :=
   local lines: List[Str] := List(), from: Int, line: Str, more := true
   while more do
     call   scan(in text, lambda c => c != '\n', out from, ref offset)
-    assign line := slice(text, from + 2, offset)
+    assign line := without_return(slice(text, from + 2, offset))
     assign lines := List(
       if starts_with(line, " ") then slice(line, 1, size(line)) else line; lines)
     assign offset := if offset < size(text) then offset + 1 else offset
@@ -253,9 +283,20 @@ procedure lex_doc(in text: Str, out doc: Str, above: Bool, ref offset: Int) :=
   end
   assign doc := join("\n", reverse(lines)), above := is_doc_above(text, offset)
 
+// the line without the \r of a CRLF line end, so that a file with CRLF line ends has the docs of one with LF
+function without_return(line: Str): Str :=
+  example without_return(" a\r") == " a"
+  if ends_with(line, "\r") then slice(line, 0, size(line) - 1) else line
+
+// whether the line at offset is not blank, where the lexer takes \r and \t for spaces
 function is_doc_above(text: Str, offset: Int): Bool :=
-  let first := after_spaces(text, offset) in
+  let first := after_blanks(text, offset) in
   first < size(text) and at(first, text) != '\n'
+
+// the offset of the first character after the spaces at offset within its line
+function after_blanks(text: Str, offset: Int): Int :=
+  let c := peek(text, offset) in
+  if c != '\n' and is_space(c) then after_blanks(text, offset + 1) else offset
 
 // the offset of the end of the line at offset
 function line_end(text: Str, offset: Int): Int :=
@@ -290,7 +331,7 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
       assign tok := TKw(str(List(c))), offset := offset + 1
 
     case _ =>
-      raise LexError("unexpected character", position_of(text, offset))
+      raise LexError("unexpected character" ++ character_hint(c, peek(text, offset + 1)), position_of(text, offset))
   end
 
 // the tokens of text with their positions, which end with TEnd at the end of text, where line and column are those of
@@ -355,6 +396,12 @@ test lex_docs() :=
   assert tokens(toks) == List(TDoc("a\n b\n"), TName("f"), TName("g"), TName("h"), TName("i"), TEnd)
   assert token_positions(toks) == List(Pos(1, 1), Pos(4, 1), Pos(8, 1), Pos(10, 1), Pos(11, 1), Pos(11, 2))
 
+test lex_docs_of_crlf() :=
+  local lf: Tokens, crlf: Tokens
+  call lex(in "// a\n//  b\n//\nf\n", out lf)
+  call lex(in "// a\r\n//  b\r\n//\r\nf\r\n", out crlf)
+  assert crlf == lf
+
 function rest_of_docs(): List[Token] :=
   List(TName("C"), TName("g"), TKw("case"), TName("D"), TEnd)
 
@@ -391,6 +438,8 @@ test lex_literals() :=
   local toks: Tokens
   call lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' List(x; xs)", out toks)
   assert tokens(toks) == List(TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\'')) ++ list_tokens()
+  call lex(in "0xD800 0x00ff 0x0 0", out toks)
+  assert tokens(toks) == List(THex(55296), THex(255), THex(0), TNum(0), TEnd)
 
 // every escape as show writes it, in the interpreter by format_lit of ulang/format/format.u and quote, in compiled programs by
 // the runtime, and read back by the lexer
@@ -422,6 +471,8 @@ test lex_errors() :=
   assert e == LexError("invalid escape", Pos(1, 2))
   call lex_error(in "'ab'", out e)
   assert e == LexError("invalid character", Pos(1, 1))
+  call lex_error(in "x := 0x", out e)
+  assert e == LexError("invalid number; a hexadecimal number has digits after 0x, as in 0xFF", Pos(1, 6))
 
 // comments after code and detached by a blank line document nothing, while a doc in any column is one
 test lex_misplaced_comments() :=
@@ -433,6 +484,8 @@ test lex_misplaced_comments() :=
     (Pos(2, 1), TName("y"), Pos(1, 2)),
     (Pos(2, 2), TEnd, Pos(2, 2)))
   call lex(in "f\n// a\n\ng", out toks)
+  assert tokens(toks) == List(TName("f"), TMisplaced, TName("g"), TEnd)
+  call lex(in "f\r\n// a\r\n \r\ng", out toks)
   assert tokens(toks) == List(TName("f"), TMisplaced, TName("g"), TEnd)
   call lex(in "match x\n  // a\n    case 3", out toks)
   assert tokens(toks) == List(TKw("match"), TName("x"), TDoc("a"), TKw("case"), TNum(3), TEnd)

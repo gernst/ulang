@@ -16,7 +16,7 @@ procedure main() :=
       case List(text, path) =>
         local q: Query, source: Str, j: Json, results: List[Json]
         call parse_query(in text, out q)
-        call os_read(in path, out source)
+        call os_read_utf8(in path, out source)
         try
           call parse_json(in source, out j)
         catch

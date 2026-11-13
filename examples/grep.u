@@ -15,7 +15,7 @@ procedure main() :=
         call parse_regex(in source, out regex)
         for file in List(path; paths) do
           local text: Str
-          call os_read(in file, out text)
+          call os_read_utf8(in file, out text)
           for line in lines_of(text) if occurs(regex, line) do
             call   os_println(in if paths == List() then line else file ++ ":" ++ line)
             assign found := true

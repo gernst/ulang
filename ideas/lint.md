@@ -84,7 +84,7 @@ Rules that wait for other items, kept here until those take them:
 6. **Back to checked expressions:** `expr_of(Term)`, and extraction by the cost of evaluation for the optimizations of Compiler 3.
 7. **After their items:** F3, H1, N2, T4, T5, L1, G1, G2.
 
-When done, the items change: Diagnostics 5 keeps only what is open; item 2 gains G1 and G2; Testing 1 names N2 and H1; Compiler 3 takes the extraction by the cost of evaluation; Code 1 and Code 6 are checked by rules rather than listed by hand; `CLAUDE.md` says which rules of Style `lint` checks, and that the lemmas of the library are also what lint suggests.
+When done, the items change: Diagnostics 5 keeps only what is open; item 2 gains G1 and G2; Testing 1 names N2 and H1; Compiler 3 takes the extraction by the cost of evaluation; Code 1 and Code 5 are checked by rules rather than listed by hand; `CLAUDE.md` says which rules of Style `lint` checks, and that the lemmas of the library are also what lint suggests.
 
 ## 8. Open questions
 

@@ -14,6 +14,9 @@ data OutOfBounds :=
 data NoCharacter :=
   case NoCharacter(code: Int)
 
+data NoByte :=
+  case NoByte(code: Int)
+
 data MissingField :=
   case MissingField(field: Str)
 
@@ -66,6 +69,13 @@ function abs(n: Int): Int
 
 function gcd(a: Int, b: Int): Int
 
+// the lesser and the greater of two integers
+function min(a: Int, b: Int): Int :=
+  example min(2, -3) == -3
+
+function max(a: Int, b: Int): Int :=
+  example max(2, -3) == 2
+
 // the components of a pair
 function first[A, B](p: A * B): A
 
@@ -80,6 +90,14 @@ type Int
 type Str
 
 type Char
+
+// the bytes 0 to 255, of the files that os_read_bytes reads
+type Byte
+
+// the byte of an integer from 0 to 255, or else NoByte, and the integer of a byte
+function byte(n: Int): Byte
+
+function int(b: Byte): Int
 
 function +(a: Int, b: Int): Int
 
@@ -121,6 +139,12 @@ function abs(n: Int): Int :=
 
 function gcd(a: Int, b: Int): Int :=
   if b == 0 then abs(a) else gcd(b, a % b)
+
+function min(a: Int, b: Int): Int :=
+  if a < b then a else b
+
+function max(a: Int, b: Int): Int :=
+  if a < b then b else a
 
 function first[A, B](p: A * B): A :=
   match p
