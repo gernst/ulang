@@ -283,6 +283,21 @@ function str_values(vs: List[Val]): List[Str] :=
       List()
   end
 
+function byte_values(bytes: Array[Byte]): Val :=
+  VArr(Array(for b in bytes yield VByte(int(b))))
+
+// the bytes of values that checking has typed as bytes, from 0 to 255
+function bytes_of(values: Array[Val]): Array[Byte] :=
+  Array(for v in values for num in byte_num(v) yield byte(num))
+
+function byte_num(v: Val): Option[Int] :=
+  match v
+    case VByte(num) =>
+      Some(num)
+    case _ =>
+      None
+  end
+
 function char_values(vs: List[Val]): List[Char] :=
   match vs
     case List(VChar(char); rest) =>
@@ -1385,11 +1400,20 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
 
       case ("prelude/os.os_read_utf8", List(VStr(path))) =>
         local text: Str
-        call   os_read(in path, out text)
+        call   os_read_utf8(in path, out text)
         assign outs := List(VStr(text))
 
       case ("prelude/os.os_write_utf8", List(VStr(path), VStr(t))) =>
-        call   os_write(in path, t)
+        call   os_write_utf8(in path, t)
+        assign outs := List()
+
+      case ("prelude/os.os_read_bytes", List(VStr(path))) =>
+        local bytes: Array[Byte]
+        call   os_read_bytes(in path, out bytes)
+        assign outs := List(byte_values(bytes))
+
+      case ("prelude/os.os_write_bytes", List(VStr(path), VArr(values))) =>
+        call   os_write_bytes(in path, bytes_of(values))
         assign outs := List()
 
       case ("prelude/os.os_library", List(VStr(name))) =>

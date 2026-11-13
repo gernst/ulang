@@ -32,6 +32,11 @@ function ord(c: Char): Int
 
 function int(c: Char): Int
 
+// the bytes of the UTF-8 of a string, and the string of bytes of UTF-8, which is None if they are not valid UTF-8
+function encode_utf8(s: Str): Array[Byte]
+
+function decode_utf8(bytes: Array[Byte]): Option[Str]
+
 function chr(n: Int): Char
 
 function is_digit(c: Char): Bool

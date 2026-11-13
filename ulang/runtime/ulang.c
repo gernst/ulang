@@ -584,9 +584,6 @@ u_value u_chr(u_value n) {
   return u_mk_char(n->num);
 }
 
-// the exception of byte, declared here and weak while the seed, which compiled the compiler before NoByte, keeps it static
-extern const struct u_name n_prelude_46_NoByte __attribute__((weak));
-
 u_value u_mk_byte(long long b) {
   return &byte_objects[b];
 }
@@ -1199,6 +1196,22 @@ void p_os_write_bytes(u_value path, u_value contents) {
   for (int i = 0; i < contents->size; i++) s[i] = (unsigned char)contents->items[i]->num;
   int ok = fwrite(s, 1, contents->size, f) == (size_t)contents->size;
   if (fclose(f) || !ok) os_error("cannot write ", path);
+}
+
+u_value u_encode_utf8(u_value s) {
+  size_t n;
+  const unsigned char *p = (const unsigned char *)u_utf8(s, &n);
+  u_value a = u_array_new((int)n);
+  for (size_t i = 0; i < n; i++) a->items[i] = &byte_objects[p[i]];
+  a->size = (int)n;
+  return a;
+}
+
+u_value u_decode_utf8(u_value bytes) {
+  char *s = text(bytes->size);
+  for (int i = 0; i < bytes->size; i++) s[i] = (char)bytes->items[i]->num;
+  u_value t = decode(s, bytes->size, 1);
+  return t ? u_mk_con(&n_option_46_Some, 1, t) : &o_option_46_None;
 }
 
 static int compare_names(const void *a, const void *b) {
