@@ -1,0 +1,128 @@
+// JSON values, printed compactly by show and indented by pretty
+
+export
+
+// a number is mantissa * 10 ^ exponent, exactly, normalized so that the mantissa has no trailing zeros, and the
+// fields of an object keep their order and duplicates
+data Json :=
+  case Null
+  case Boolean(b: Bool)
+  case Number(mantissa: Int, exponent: Int)
+  case String(s: Str)
+  case Elements(items: List[Json])
+  case Object(fields: List[Str * Json])
+
+// the number m * 10 ^ e, normalized
+function decimal(m: Int, e: Int): Json
+
+function show(j: Json): Str
+
+function pretty(j: Json): Str
+
+// the text of a string as a JSON literal, with its quotes
+function json_quote(s: Str): Str
+
+implementation
+
+function decimal(m: Int, e: Int): Json :=
+  if m == 0 then
+    Number(0, 0)
+  else if m % 10 == 0 then
+    decimal(m / 10, e + 1)
+  else
+    Number(m, e)
+
+function show(j: Json): Str :=
+  match j
+    case Null =>
+      "null"
+
+    case Boolean(b) =>
+      if b then "true" else "false"
+
+    case Number(m, e) =>
+      show_number(m, e)
+
+    case String(s) =>
+      json_quote(s)
+
+    case Elements(items) =>
+      "[" ++ join(",", List(for i in items yield show(i))) ++ "]"
+
+    case Object(fields) =>
+      "{" ++ join(",", List(for (k, v) in fields yield json_quote(k) ++ ":" ++ show(v))) ++ "}"
+  end
+
+function pretty(j: Json): Str :=
+  pretty_at(j, "")
+
+function pretty_at(j: Json, indent: Str): Str :=
+  match j
+    case Elements(items) =>
+      if items == List() then
+        "[]"
+      else
+        "[\n" ++ join(",\n", List(for i in items yield indent ++ "  " ++ pretty_at(i, indent ++ "  "))) ++ "\n" ++ indent ++ "]"
+
+    case Object(fields) =>
+      if fields == List() then
+        "{}"
+      else
+        "{\n" ++ join(",\n", List(for (k, v) in fields yield indent ++ "  " ++ json_quote(k) ++ ": " ++ pretty_at(v, indent ++ "  "))) ++ "\n" ++ indent ++ "}"
+
+    case _ =>
+      show(j)
+  end
+
+// integers in full while they have at most 21 digits, else in scientific notation, and fractions with a point
+function show_number(m: Int, e: Int): Str :=
+  let digits := show(abs(m)), sign := if m < 0 then "-" else "" in
+  if e >= 0 and size(digits) + e <= 21 then
+    sign ++ digits ++ repeat("0", e)
+  else if e < 0 and -e < size(digits) then
+    sign ++ slice(digits, 0, size(digits) + e) ++ "." ++ slice(digits, size(digits) + e, size(digits))
+  else if e < 0 and -e - size(digits) < 6 then
+    sign ++ "0." ++ repeat("0", -e - size(digits)) ++ digits
+  else
+    sign ++ slice(digits, 0, 1) ++ (if size(digits) > 1 then "." ++ slice(digits, 1, size(digits)) else "") ++ "e" ++ show(e + size(digits) - 1)
+
+function json_quote(s: Str): Str :=
+  "\"" ++ join("", List(for c in chars(s) yield escape(c))) ++ "\""
+
+function escape(c: Char): Str :=
+  if c == '"' then
+    "\\\""
+  else if c == '\\' then
+    "\\\\"
+  else if c == '\n' then
+    "\\n"
+  else if c == '\t' then
+    "\\t"
+  else if c == '\r' then
+    "\\r"
+  else if ord(c) < 32 then
+    "\\u" ++ hex4(ord(c))
+  else
+    str(List(c))
+
+function hex4(n: Int): Str :=
+  str(List(
+    hex_digit(n / 4096 % 16),
+    hex_digit(n / 256 % 16),
+    hex_digit(n / 16 % 16),
+    hex_digit(n % 16)))
+
+function hex_digit(d: Int): Char :=
+  if d < 10 then chr(ord('0') + d) else chr(ord('a') + d - 10)
+
+test numbers() :=
+  assert show(decimal(150, -2)) == "1.5"
+  assert show(decimal(-5, -3)) == "-0.005"
+  assert show(decimal(42, 3)) == "42000"
+  assert show(decimal(1, 30)) == "1e30"
+  assert show(decimal(123, -20)) == "1.23e-18"
+  assert decimal(1500, 0) == Number(15, 2)
+
+test strings() :=
+  assert json_quote("a\"b\\c\nd") == "\"a\\\"b\\\\c\\nd\""
+  assert json_quote(str(List(chr(1)))) == "\"\\u0001\""
