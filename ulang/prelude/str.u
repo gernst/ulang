@@ -30,6 +30,8 @@ function str(cs: List[Char]): Str
 // to 0xDFFF of UTF-16, or else NoCharacter
 function ord(c: Char): Int
 
+function int(c: Char): Int
+
 function chr(n: Int): Char
 
 function is_digit(c: Char): Bool

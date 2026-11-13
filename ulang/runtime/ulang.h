@@ -34,7 +34,7 @@ struct u_name {
 
 // the built-in types, where integers that fit into a long long are of u_int_type with num, and others of u_big_type
 // with an mpz_t, such that each integer has one representation
-extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type,
+extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_byte_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type,
   u_array_type;
 
 // the datatypes whose constructors the builtins create, where the compiled program defines the descriptors of those of
@@ -177,6 +177,10 @@ u_value u_chars(u_value s);
 u_value u_string(u_value cs);
 u_value u_ord(u_value c);
 u_value u_chr(u_value n);
+// the bytes, which exist once each
+u_value u_mk_byte(long long b);
+u_value u_byte(u_value n);
+u_value u_byte_int(u_value b);
 u_value *u_append(u_value *end, u_value x);
 u_value u_concat(u_value s, u_value t);
 // the functions of the builtin section of str.u
@@ -252,6 +256,10 @@ struct u_test {
 // status of the program
 int u_run_tests(int argc, char **argv, const char *const *files, const struct u_test *tests);
 void p_os_write(u_value path, u_value text);
+void p_os_read_utf8(u_value path, u_value *text);
+void p_os_write_utf8(u_value path, u_value text);
+void p_os_read_bytes(u_value path, u_value *bytes);
+void p_os_write_bytes(u_value path, u_value bytes);
 void p_os_list(u_value dir, u_value *entries);
 void p_os_is_dir(u_value path, u_value *yes);
 void p_os_cwd(u_value *dir);

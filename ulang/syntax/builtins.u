@@ -46,6 +46,8 @@ function out_of_bounds_name(): Name
 
 function no_character_name(): Name
 
+function no_byte_name(): Name
+
 function missing_field_name(): Name
 
 function unordered_name(): Name
@@ -83,6 +85,9 @@ function out_of_bounds_name(): Name :=
 function no_character_name(): Name :=
   library_name("prelude", "NoCharacter")
 
+function no_byte_name(): Name :=
+  library_name("prelude", "NoByte")
+
 function missing_field_name(): Name :=
   library_name("prelude", "MissingField")
 
@@ -98,6 +103,7 @@ function unchecked_exceptions(): List[Name] :=
     division_by_zero_name(),
     out_of_bounds_name(),
     no_character_name(),
+    no_byte_name(),
     missing_field_name(),
     unordered_name(),
     incomparable_name())

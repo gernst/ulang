@@ -65,6 +65,7 @@ static void gc_free(void *p, size_t size) {
 #define SMALL_MAX 255
 static struct u_object small_ints[SMALL_MAX - SMALL_MIN + 1];
 static struct u_object small_chars[256];
+static struct u_object byte_objects[256];
 
 // the collector also manages the memory of GMP
 __attribute__((constructor)) static void init(void) {
@@ -79,6 +80,8 @@ __attribute__((constructor)) static void init(void) {
   for (int i = 0; i < 256; i++) {
     small_chars[i].type = &u_char_type;
     small_chars[i].num = i;
+    byte_objects[i].type = &u_byte_type;
+    byte_objects[i].num = i;
   }
 }
 
@@ -581,6 +584,22 @@ u_value u_chr(u_value n) {
   return u_mk_char(n->num);
 }
 
+// the exception of byte, declared here and weak while the seed, which compiled the compiler before NoByte, keeps it static
+extern const struct u_name n_prelude_46_NoByte __attribute__((weak));
+
+u_value u_mk_byte(long long b) {
+  return &byte_objects[b];
+}
+
+u_value u_byte(u_value n) {
+  if (n->type != &u_int_type || n->num < 0 || n->num > 255) u_raise(u_mk_con(&n_prelude_46_NoByte, 1, n), "prelude.NoByte");
+  return &byte_objects[n->num];
+}
+
+u_value u_byte_int(u_value b) {
+  return u_mk_int(b->num);
+}
+
 // a cell with x at the place end of a list being built, whose tail is the place of the next cell,
 // which changes the list only before it is visible to the program
 u_value *u_append(u_value *end, u_value x) {
@@ -891,6 +910,15 @@ static u_value show_char(u_value v) {
   return text_value(&t);
 }
 
+// as the call that makes the byte
+static u_value show_byte(u_value v) {
+  struct u_text t = {NULL, 0, 0, 1};
+  append(&t, "byte(");
+  append(&t, u_utf8(show_int(u_mk_int(v->num)), NULL));
+  append(&t, ")");
+  return text_value(&t);
+}
+
 static u_value show_str(u_value v) {
   return u_quote(v);
 }
@@ -939,6 +967,7 @@ const struct u_type u_int_type = {"Int", compare_ints, u_equals_by_compare, show
 const struct u_type u_big_type = {"Int", compare_ints, u_equals_by_compare, show_int};
 const struct u_type u_bool_type = {"Bool", compare_nums, u_equals_by_compare, show_bool};
 const struct u_type u_char_type = {"Char", compare_nums, u_equals_by_compare, show_char};
+const struct u_type u_byte_type = {"Byte", compare_nums, u_equals_by_compare, show_byte};
 const struct u_type u_str_type = {"Str", compare_strs, equal_strs, show_str};
 const struct u_type u_tuple_type = {"*", compare_by_items, u_equals_by_compare, show_tuple};
 const struct u_type u_array_type = {"array.Array", compare_by_items, u_equals_by_compare, show_array};
@@ -1069,8 +1098,8 @@ static u_value system_str(const char *bytes, const char *what) {
   return s;
 }
 
-// the contents of a file as UTF-8, or else NULL, where invalid UTF-8 raises OsError
-static u_value read_file(const char *path, u_value name) {
+// the contents of a regular file with their number of bytes in n, or else NULL
+static char *read_bytes(const char *path, size_t *n) {
   FILE *f = fopen(path, "rb");
   if (!f) return NULL;
   struct stat st;
@@ -1079,9 +1108,16 @@ static u_value read_file(const char *path, u_value name) {
     return NULL;
   }
   char *s = text(st.st_size);
-  size_t n = fread(s, 1, st.st_size, f);
+  *n = fread(s, 1, st.st_size, f);
   fclose(f);
-  if (n != (size_t)st.st_size) return NULL;
+  return *n == (size_t)st.st_size ? s : NULL;
+}
+
+// the contents of a file as UTF-8, or else NULL, where invalid UTF-8 raises OsError
+static u_value read_file(const char *path, u_value name) {
+  size_t n;
+  char *s = read_bytes(path, &n);
+  if (!s) return NULL;
   u_value t = decode(s, n, 1);
   if (!t) os_error("invalid UTF-8 in ", name);
   return t;
@@ -1119,8 +1155,8 @@ static int write_utf8(FILE *f, u_value s) {
   return fwrite(bytes, 1, n, f) == n;
 }
 
-// creates the missing directories of path, as the interpreter does
-void p_os_write(u_value path, u_value contents) {
+// the file of path, opened for writing, after creating the missing directories of path, as the interpreter does
+static FILE *open_for_writing(u_value path) {
   const char *file = u_utf8(path, NULL);
   char *dir = strcpy(text(u_strlen(file)), file);
   for (char *p = strchr(dir + 1, '/'); p; p = strchr(p + 1, '/')) {
@@ -1130,7 +1166,38 @@ void p_os_write(u_value path, u_value contents) {
   }
   FILE *f = fopen(file, "wb");
   if (!f) os_error("cannot write ", path);
+  return f;
+}
+
+void p_os_write(u_value path, u_value contents) {
+  FILE *f = open_for_writing(path);
   int ok = write_utf8(f, contents);
+  if (fclose(f) || !ok) os_error("cannot write ", path);
+}
+
+void p_os_read_utf8(u_value path, u_value *result) {
+  p_os_read(path, result);
+}
+
+void p_os_write_utf8(u_value path, u_value contents) {
+  p_os_write(path, contents);
+}
+
+void p_os_read_bytes(u_value path, u_value *result) {
+  size_t n;
+  const unsigned char *s = (const unsigned char *)read_bytes(u_utf8(path, NULL), &n);
+  if (!s) os_error("cannot read ", path);
+  u_value a = u_array_new((int)n);
+  for (size_t i = 0; i < n; i++) a->items[i] = &byte_objects[s[i]];
+  a->size = (int)n;
+  *result = a;
+}
+
+void p_os_write_bytes(u_value path, u_value contents) {
+  FILE *f = open_for_writing(path);
+  unsigned char *s = (unsigned char *)text(contents->size);
+  for (int i = 0; i < contents->size; i++) s[i] = (unsigned char)contents->items[i]->num;
+  int ok = fwrite(s, 1, contents->size, f) == (size_t)contents->size;
   if (fclose(f) || !ok) os_error("cannot write ", path);
 }
 

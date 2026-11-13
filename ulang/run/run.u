@@ -10,6 +10,8 @@ export
 
 data Val :=
   case VLit(lit: Lit)
+  // a byte, from 0 to 255, which has no literal
+  case VByte(num: Int)
   case VObj(constr: Name, args: List[Val])
   case VArr(values: Array[Val])
   case VFunClos(env: Map[Name, Val], formals: List[Var], body: At[Expr])
@@ -89,6 +91,9 @@ function format_value(v: Val): Str :=
   match v
     case VLit(lit) =>
       format_lit(lit)
+
+    case VByte(num) =>
+      "byte(" ++ show(num) ++ ")"
 
     case VTuple(args) =>
       "(" ++ format_values(args) ++ ")"
@@ -215,6 +220,9 @@ function builtin_names(): Set[Name] :=
     library_name("str", "str"),
     library_name("str", "ord"),
     library_name("str", "chr"),
+    library_name("str", "int"),
+    library_name("prelude", "byte"),
+    library_name("prelude", "int"),
     library_name("str", "is_digit"),
     library_name("str", "is_letter"),
     library_name("str", "is_space"),
@@ -246,6 +254,9 @@ procedure incomparable(in v: Val) :=
       raise CompareProcedures
 
     case VLit(_) =>
+      skip
+
+    case VByte(_) =>
       skip
 
     case VObj(_, _) =>
@@ -690,6 +701,18 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
     case ("prelude/str.ord", List(VChar(char))) =>
       assign v := VInt(ord(char))
 
+    case ("prelude/str.int", List(VChar(char))) =>
+      assign v := VInt(ord(char))
+
+    case ("prelude/prelude.byte", List(VInt(num))) =>
+      if num < 0 or num > 255 then
+        raise failure(no_byte_name(), List(VInt(num)))
+      end
+      assign v := VByte(num)
+
+    case ("prelude/prelude.int", List(VByte(num))) =>
+      assign v := VInt(num)
+
     case ("prelude/str.chr", List(VInt(num))) =>
       if not is_code_point(num) then
         raise failure(no_character_name(), List(VInt(num)))
@@ -844,6 +867,9 @@ procedure compare_values(
 
     case (VChar(x), VChar(y)) =>
       assign r := order(ord(x), ord(y))
+
+    case (VByte(x), VByte(y)) =>
+      assign r := order(x, y)
 
     case (VBool(x), VBool(y)) =>
       assign r := order(if x then 1 else 0, if y then 1 else 0)
@@ -1354,6 +1380,15 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
         assign outs := List(VStr(text))
 
       case ("prelude/os.os_write", List(VStr(path), VStr(t))) =>
+        call   os_write(in path, t)
+        assign outs := List()
+
+      case ("prelude/os.os_read_utf8", List(VStr(path))) =>
+        local text: Str
+        call   os_read(in path, out text)
+        assign outs := List(VStr(text))
+
+      case ("prelude/os.os_write_utf8", List(VStr(path), VStr(t))) =>
         call   os_write(in path, t)
         assign outs := List()
 

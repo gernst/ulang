@@ -47,6 +47,15 @@ procedure os_read(in path: Str, out text: Str) raises OsError
 
 procedure os_write(in path: Str, text: Str) raises OsError
 
+// read and write files as text in UTF-8, where invalid UTF-8 raises OsError, and as bytes
+procedure os_read_utf8(in path: Str, out text: Str) raises OsError
+
+procedure os_write_utf8(in path: Str, text: Str) raises OsError
+
+procedure os_read_bytes(in path: Str, out bytes: Array[Byte]) raises OsError
+
+procedure os_write_bytes(in path: Str, bytes: Array[Byte]) raises OsError
+
 // the source of a module of the library
 procedure os_library(in name: Str, out text: Str) raises OsError
 
