@@ -2103,12 +2103,12 @@ procedure generator(
     case TSort(Name(Some(_), _), _) =>
       call   report(in NoFold(w, fold_name(form)), ref s)
       call   fresh(out t, ref s)
-      assign typed_fold := c
+      assign typed_fold := standing_for(pos, x, c)
 
     case _ =>
       call   report(in UnknownContainer(w), ref s)
       call   fresh(out t, ref s)
-      assign typed_fold := c
+      assign typed_fold := standing_for(pos, x, c)
   end
   assign typed_expr := with_container(typed_fold, c).that
 
@@ -2291,8 +2291,8 @@ procedure application(
       t: Type,
   ref s: State
 ) :=
-  match fun.that
-    case EName(name, typ) =>
+  match fun
+    case AOk(_, EName(name, typ)) =>
       local cs: List[Name * Scheme] := candidates(s, env, name)
       if size(cs) > 1 then
         local ts: List[Type], typed_args: List[At[Expr]], w: Type, x: Var
@@ -2317,13 +2317,14 @@ procedure application(
         assign typed_expr := EApp(typed_fun, typed_args), s := s with within := outer
       end
 
-    case ELam(_, _) =>
+    case AOk(_, ELam(_, _)) =>
       local typed_fun: At[Expr], typed_args: List[At[Expr]], ts: List[Type]
       call   infers(in env, args, out typed_args, ts, ref s)
       call   fresh(out t, ref s)
       call   infer_lambda(in env, fun, TFun(ts, t), out typed_fun, ref s)
       assign typed_expr := EApp(typed_fun, typed_args)
 
+    // also a callee that does not parse, of the type TError
     case _ =>
       local typed_fun: At[Expr], u: Type, typed_args: List[At[Expr]]
       call   infer(in env, fun, out typed_fun, u, ref s)
@@ -3055,7 +3056,7 @@ procedure statement_node(
       local c: At[Expr]
       call   check(in env, cond, TBool(), "the assertion", out c, ref s)
       assign y := SAssert(c)
-      if c.that == ELit(LBool(false)) then
+      if is_parsed(c) and c.that == ELit(LBool(false)) then
         assign env := unreachable(env)
       end
 
@@ -3125,11 +3126,21 @@ procedure items(
       assign list := with_container(typed_list, typed_c)
   end
 
-// the fold of a generator over the variable of its container, applied to the container instead
+// the container c of a generator without a fold, as the variable x bound to it, which keeps c with its errors and its parts
+// that do not parse, which a run reaches
+function standing_for(pos: Pos, x: Var, c: At[Expr]): At[Expr] :=
+  AOk(pos, ELet(List((AOk(pos, PVar(x)), c)), AOk(pos, EVar(x))))
+
+// the fold of a generator over the variable of its container, applied to the container instead, as is the container that
+// stands for a generator without a fold
 function with_container(fold: At[Expr], c: At[Expr]): At[Expr] :=
   match fold.that
     case EApp(f, List(_; args)) =>
       fold with that := EApp(f, List(c; args))
+
+    case ELet(List((x, _)), body) =>
+      fold with that := ELet(List((x, c)), body)
+
     case _ =>
       fold
   end
