@@ -12,7 +12,7 @@ test add_bool() :=
   end
 
 test alias_arity() :=
-  assert raises Located(None, Pos(4, 1), SortArity(Name(Some("ulang/test/errors/alias-arity"), "P"), 1, 0)) do
+  assert raises Located(None, Pos(4, 12), SortArity(Name(Some("ulang/test/errors/alias-arity"), "P"), 1, 0)) do
     call check_text(in "ulang/test/errors/alias-arity.u", List("type P[A] :=", "  A -> A", "", "function f(x: P): Int :=", "  0"))
   end
 
@@ -93,6 +93,17 @@ test duplicate_constructor() :=
 test duplicate_formal() :=
   assert raises Located(None, Pos(1, 20), Duplicate("formal", "a")) do
     call check_text(in "ulang/test/errors/duplicate-formal.u", List("function f(a: Int, a: Int): Int :=", "  a"))
+  end
+
+// a formal of a procedure lambda repeated in another mode
+test duplicate_lambda_formal() :=
+  assert raises Located(None, Pos(2, 36), Duplicate("formal", "x")) do
+    call check_text(in "ulang/test/errors/duplicate-lambda-formal.u", List(
+      "procedure main() :=",
+      "  local p := lambda in x: Int, out x: Int =>",
+      "      assign x := 1",
+      "    end",
+      "  skip"))
   end
 
 test duplicate_lemma() :=
@@ -552,9 +563,18 @@ test rigid_params() :=
   end
 
 test sort_arity() :=
-  assert raises Located(None, Pos(1, 1), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1)) do
+  assert raises Located(None, Pos(1, 12), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1)) do
     call check_text(in "ulang/test/errors/sort-arity.u", List("function f(x: Int[Int]): Int :=", "  0"))
   end
+
+// a type of the wrong arity in a body is reported, and the command checked on
+test sort_arity_in_body() :=
+  local q: Prog, errors: List[TypeError]
+  call checked_text(in "ulang/test/errors/sort-arity-in-body.u", List(
+    "procedure p() :=",
+    "  local x: List[Int, Int] := List(1), y := 1 + true",
+    "  assign x := x"), out q, errors)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("SortArity", Pos(2, 9)), ("Mismatch", Pos(2, 48)))
 
 test test_params() :=
   assert raises Located(None, Pos(1, 1), TestParams("sorted")) do
@@ -845,6 +865,27 @@ test checked_around_unparsed() :=
   assert List(for e in parsing yield e.pos) == List(Pos(6, 19), Pos(7, 3))
   assert List(for e in errors yield error_pos(e)) == List(Pos(6, 14), Pos(8, 23), Pos(15, 3))
 
+// a callee, a condition, and a container that do not parse are of the type TError, and a container of an error keeps it
+test checked_around_unparsed_parts() :=
+  local parsing: List[ParseError], errors: List[TypeError]
+  call check_text_partial(in "ulang/test/errors/checked-around-unparsed-parts.u", List(
+    "function f(): Int :=",
+    "  (lambda x: Int => x)(1)",
+    "",
+    "function g(): Int :=",
+    "  (1 +)(1)",
+    "",
+    "function h(): List[Int] :=",
+    "  List(for x in (1 +) yield x)",
+    "",
+    "procedure p() :=",
+    "  assert (1 +)",
+    "  for x in ys do",
+    "    skip",
+    "  end"), out parsing, errors)
+  assert List(for e in parsing yield e.pos) == List(Pos(2, 12), Pos(5, 7), Pos(8, 21), Pos(11, 14))
+  assert List(for e in errors yield error_pos(e)) == List(Pos(12, 12))
+
 function is_unparsed_use(e: TypeError): Bool :=
   match e
     case Located(_, _, UnparsedDeclaration(_)) =>
@@ -868,6 +909,32 @@ test hints() :=
     "",
     "did you mean size?",
     "write size")
+  call checked_text(in "ulang/test/errors/more-hints.u", List(
+    "data Failed :=",
+    "  case Failed",
+    "",
+    "data State :=",
+    "  case State(errors: Int)",
+    "",
+    "procedure fail() raises Failed :=",
+    "  raise Failed()",
+    "",
+    "function mapped(xs: List[Int]): List[Int] :=",
+    "  map(xs, lambda x => x + 1)",
+    "",
+    "function filtered(xs: List[Int]): List[Int] :=",
+    "  filter(xs, lambda x => x > 1)",
+    "",
+    "procedure update(ref s: State) :=",
+    "  local found := false",
+    "  assign s := s with errors := 1, found := true"), out q, errors)
+  assert List(for e in errors yield (error_pos(e), error_hint(e))) == List(
+    (Pos(8, 9), ""),
+    (Pos(11, 3), "write List(for x in xs yield f(x))"),
+    (Pos(14, 3), "write List(for x in xs if p(x))"),
+    (Pos(18, 17), "a comma after with continues the update, so an assignment of found takes an assign of its own"))
+  assert List(for e in take(1, errors) yield located_message(e)) == List(
+    "cannot unify Failed and () -> ?2; a value that is no function, such as a constructor without fields, is written without () at 8.9")
 
 function error_hint(e: TypeError): Str :=
   match e
@@ -884,6 +951,12 @@ function error_pos(e: TypeError): Pos :=
     case _ =>
       Pos(0, 0)
   end
+
+// an unknown type, of a type parameter that the declaration omits, once per declaration
+test unknown_sort_once() :=
+  local q: Prog, errors: List[TypeError]
+  call checked_text(in "ulang/test/errors/unknown-sort-once.u", List("function f(x: A, y: A): A :=", "  x"), out q, errors)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("UnknownSort", Pos(1, 12)))
 
 test proof_unknown_lemma() :=
   assert raises Located(None, Pos(3, 3), UnknownLemma(Name(None, "b"))) do
