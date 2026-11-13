@@ -1,7 +1,7 @@
 {
   "name": "ulang",
   "displayName": "ulang",
-  "description": "Syntax highlighting, running, tests, and lemmas for ulang",
+  "description": "Syntax highlighting, running, tests, lemmas, hover, and inlay hints for ulang",
   "version": "0.1.0",
   "publisher": "ulang",
   "engines": {
