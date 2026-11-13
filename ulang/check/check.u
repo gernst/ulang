@@ -1765,9 +1765,9 @@ procedure infer_node(
     case EProc(ins, outs, refs, _, stmt) =>
       local xs: List[Var], ys: List[Var], zs: List[Var], r: Type, y: At[Stmt], inner: Env
       call   unique_decls(in "formal", ins ++ outs ++ refs, ref s)
-      call   formals(in "formal", ins, out xs, ref s)
-      call   formals(in "formal", outs, out ys, ref s)
-      call   formals(in "formal", refs, out zs, ref s)
+      call   map_state(in ins, normalize_var, out xs, ref s)
+      call   map_state(in outs, normalize_var, out ys, ref s)
+      call   map_state(in refs, normalize_var, out zs, ref s)
       call   unhidden(in env, xs ++ ys ++ zs, ref s)
       assign inner := bind(xs) ++ unassigned(ys) ++ bind(zs) ++ env
       call   statement(in List(for x in ys ++ zs yield x.name), stmt, out y, ref inner, s)

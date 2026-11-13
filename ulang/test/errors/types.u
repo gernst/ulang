@@ -95,6 +95,17 @@ test duplicate_formal() :=
     call check_text(in "ulang/test/errors/duplicate-formal.u", List("function f(a: Int, a: Int): Int :=", "  a"))
   end
 
+// a formal of a procedure lambda repeated in another mode
+test duplicate_lambda_formal() :=
+  assert raises Located(None, Pos(2, 36), Duplicate("formal", "x")) do
+    call check_text(in "ulang/test/errors/duplicate-lambda-formal.u", List(
+      "procedure main() :=",
+      "  local p := lambda in x: Int, out x: Int =>",
+      "      assign x := 1",
+      "    end",
+      "  skip"))
+  end
+
 test duplicate_lemma() :=
   assert raises Located(None, Pos(4, 1), AlreadyDefined(Name(Some("ulang/test/errors/duplicate-lemma"), "l"))) do
     call check_text(in "ulang/test/errors/duplicate-lemma.u", List(
