@@ -306,7 +306,7 @@ function drop[A](n: Int, xs: List[A]): List[A] :=
   end
 
 function slice[A](xs: List[A], i: Int, j: Int): List[A] :=
-  let k := if i < 0 then 0 else i in
+  let k := max(i, 0) in
   take(j - k, drop(k, xs))
 
 function split_at[A](n: Int, xs: List[A]): List[A] * List[A] :=

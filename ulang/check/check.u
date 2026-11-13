@@ -316,15 +316,12 @@ function edit_row(prev: List[Int], c: Char, bs: List[Char]): List[Int] :=
 function edit_cells(prev: List[Int], c: Char, bs: List[Char], left: Int): List[Int] :=
   match (prev, bs)
     case (List(diag, up; rest), List(b; more)) =>
-      let cell := least(least(up + 1, left + 1), if b == c then diag else diag + 1) in
+      let cell := min(min(up + 1, left + 1), if b == c then diag else diag + 1) in
       List(cell; edit_cells(List(up; rest), c, more, cell))
 
     case _ =>
       List()
   end
-
-function least(a: Int, b: Int): Int :=
-  if a < b then a else b
 
 // whether the module sees the declaration d, which is its own, or of a module that it sees and not private to it
 function is_visible(s: State, d: Name): Bool :=

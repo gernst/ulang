@@ -299,11 +299,11 @@ procedure run_target(in target: Target, args: List[Str], out status: Int) :=
     catch
       case UnknownEntry(name) =>
         call   report(in target.path, List(no_entry(name)), false)
-        assign status := worse(status, 1)
+        assign status := max(status, 1)
 
       case e =>
         call   report(in target.path, List(diagnostic(RuntimeKind, runtime_message(e))), false)
-        assign status := worse(status, 3)
+        assign status := max(status, 3)
 
       case e =>
         call   report(in target.path, List(diagnostic(InternalKind, internal_message(e))), false)
@@ -326,10 +326,6 @@ function load_status(q: Prog, errors: List[Diagnostic]): Int :=
     1
   else
     0
-
-// the greater of two exit statuses, the worse
-function worse(status: Int, other: Int): Int :=
-  if status > other then status else other
 
 function no_entry(name: Name): Diagnostic :=
   Diagnostic(RuntimeKind, "UnknownEntry", None, Pos(0, 0), "there is no procedure " ++ name.base ++ " without parameters", List())
@@ -384,14 +380,14 @@ procedure visit_units(
     call load_file(in first_path(unit), true, out source, q, errors)
     if errors != List() then
       call   report(in first_path(unit), errors, size(files_of(found)) > 1)
-      assign failed := failed ++ files_of(unit), status := worse(status, load_status(q, errors))
+      assign failed := failed ++ files_of(unit), status := max(status, load_status(q, errors))
       if deferred and is_runnable(q, errors) then
         call   visit(in source, q, unit, out bad)
-        assign status := if bad == List() then status else worse(status, 3)
+        assign status := if bad == List() then status else max(status, 3)
       end
     else
       call   visit(in source, q, unit, out bad)
-      assign failed := failed ++ bad, status := if bad == List() then status else worse(status, 3)
+      assign failed := failed ++ bad, status := if bad == List() then status else max(status, 3)
     end
   end
   call summarize(in files_of(found), List(for f in failed))
@@ -576,7 +572,7 @@ procedure compile_tests(in output: Str, out status: Int) :=
     call check_file(in first_path(unit), true, out q, errors)
     if errors != List() then
       call   report(in first_path(unit), errors, true)
-      assign status := worse(status, load_status(q, errors))
+      assign status := max(status, load_status(q, errors))
     else
       local modules := List(for file in files_of(unit) yield sibling(q.main, file))
       assign files := files ++ List(for file in files_of(unit) yield TestFile(from_root(root, file), sibling(q.main, file))), own := own ++ List(for c in q.cmds if belongs(c.that, modules)), members := members ++ Set(for m in modules)
@@ -644,7 +640,7 @@ procedure format_paths(in paths: List[Str], out status: Int) :=
       call   report(in file, errors, false)
       assign done := false
     end
-    assign status := if done then status else worse(status, 1)
+    assign status := if done then status else max(status, 1)
   end
 
 // rewrites file as source, if that parses to the same commands as file, so that formatting tests the parser and the printer
