@@ -797,13 +797,13 @@ procedure array_comprehension(
 procedure expr_cases(
   in  defs: Defs,
       env: Slots,
-      cases: List[Doc[Branch[At[Expr]]]],
+      cases: List[At[Branch[At[Expr]]]],
       s: Int,
       done: Str,
   ref e: Emit
 ) :=
   for d in cases do
-    match d.at
+    match d
       case AOk(_, _, Branch(pat, guard, body)) =>
         local next: Str, binds: Slots
         call new_label(out next, ref e)
@@ -1036,7 +1036,7 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
         call   emit(in IMov(OImm(0), slot(t)), ref e)
         assign binds := binds ++ List((x, t))
       end
-      for s in stmts_of(stmts) do
+      for s in stmts do
         call compile_stmt(in defs, binds ++ env, s, ref e)
       end
 
@@ -1136,7 +1136,7 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
 
     // a try of one handler, whose body fails with the text of the pattern if it gets to its end
     case SAssertRaises(typ, pat, body) =>
-      call compile_try(in defs, env, body, List(Doc(None, nowhere(Catch(typ, pat, None, nowhere(SSkip))))), Some(format_pat(pat.that)), ref e)
+      call compile_try(in defs, env, body, List(nowhere(Catch(typ, pat, None, nowhere(SSkip)))), Some(format_pat(pat.that)), ref e)
   end
 
 // the body runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if none applies,
@@ -1146,7 +1146,7 @@ procedure compile_try(
   in  defs: Defs,
       env: Slots,
       body: At[Stmt],
-      catches: List[Doc[Catch]],
+      catches: List[At[Catch]],
       not_raised: Option[Str],
   ref e: Emit
 ) :=
@@ -1191,13 +1191,13 @@ procedure compile_try(
 procedure handler_cases(
   in  defs: Defs,
       env: Slots,
-      hs: List[Doc[Catch]],
+      hs: List[At[Catch]],
       h: Int,
       done: Str,
   ref e: Emit
 ) :=
   for d in hs do
-    match d.at
+    match d
       case AOk(_, _, Catch(typ, pat, guard, s)) =>
         local next: Str, v: Int, binds: Slots
         call new_label(out next, ref e)
@@ -1230,13 +1230,13 @@ procedure handler_cases(
 procedure stmt_cases(
   in  defs: Defs,
       env: Slots,
-      cases: List[Doc[Branch[At[Stmt]]]],
+      cases: List[At[Branch[At[Stmt]]]],
       s: Int,
       done: Str,
   ref e: Emit
 ) :=
   for d in cases do
-    match d.at
+    match d
       case AOk(_, _, Branch(pat, guard, body)) =>
         local next: Str, binds: Slots
         call new_label(out next, ref e)

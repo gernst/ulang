@@ -313,7 +313,7 @@ function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
       unbound(var_names(firsts(upd)), bound) ++ free_in_all(seconds(upd), bound)
 
     case SBlock(locals, stmts) =>
-      List(for y in stmts_of(stmts) for n in free_in_stmt(y, var_names(vars(locals)) ++ bound) yield n)
+      List(for y in stmts for n in free_in_stmt(y, var_names(vars(locals)) ++ bound) yield n)
 
     case SIf(cond, left, right) =>
       free_vars(cond, bound) ++ free_in_stmt(left, bound) ++ free_in_stmt(right, bound)
@@ -347,8 +347,8 @@ function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
       free_in_stmt(body, bound)
   end
 
-function free_in_stmt_branch(d: Doc[Branch[At[Stmt]]], bound: List[Name]): List[Name] :=
-  match d.at.that
+function free_in_stmt_branch(d: At[Branch[At[Stmt]]], bound: List[Name]): List[Name] :=
+  match d.that
     case Branch(pat, Some(g), body) =>
       let inner := pattern_names(pat) ++ bound in
       free_vars(g, inner) ++ free_in_stmt(body, inner)
@@ -357,8 +357,8 @@ function free_in_stmt_branch(d: Doc[Branch[At[Stmt]]], bound: List[Name]): List[
       free_in_stmt(body, pattern_names(pat) ++ bound)
   end
 
-function free_in_handler(d: Doc[Catch], bound: List[Name]): List[Name] :=
-  let h := d.at.that, inner := pattern_names(d.at.that.pat) ++ bound in
+function free_in_handler(d: At[Catch], bound: List[Name]): List[Name] :=
+  let h := d.that, inner := pattern_names(d.that.pat) ++ bound in
   free_in_stmt(h.body, inner) ++ match h.guard
     case Some(g) =>
       free_vars(g, inner)
@@ -366,8 +366,8 @@ function free_in_handler(d: Doc[Catch], bound: List[Name]): List[Name] :=
       List()
   end
 
-function free_in_branch(d: Doc[Branch[At[Expr]]], bound: List[Name]): List[Name] :=
-  match d.at.that
+function free_in_branch(d: At[Branch[At[Expr]]], bound: List[Name]): List[Name] :=
+  match d.that
     case Branch(pat, Some(g), body) =>
       let inner := pattern_names(pat) ++ bound in
       free_vars(g, inner) ++ free_vars(body, inner)
@@ -508,7 +508,7 @@ function changed(stmt: At[Stmt]): List[Name] :=
       var_names(firsts(upd))
 
     case SBlock(_, stmts) =>
-      List(for y in stmts_of(stmts) for n in changed(y) yield n)
+      List(for y in stmts for n in changed(y) yield n)
 
     case SIf(_, left, right) =>
       changed(left) ++ changed(right)
@@ -520,10 +520,10 @@ function changed(stmt: At[Stmt]): List[Name] :=
       var_names(outs ++ refs)
 
     case SMatch(_, cases) =>
-      List(for b in cases for n in changed(b.at.that.body) yield n)
+      List(for b in cases for n in changed(b.that.body) yield n)
 
     case STry(b, catches) =>
-      changed(b) ++ List(for h in catches for n in changed(h.at.that.body) yield n)
+      changed(b) ++ List(for h in catches for n in changed(h.that.body) yield n)
 
     case SFor(_, body) =>
       changed(body)

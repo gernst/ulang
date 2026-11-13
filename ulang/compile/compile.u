@@ -592,7 +592,7 @@ function unpack(xs: List[Name * Int], a: Str): List[CStmt] :=
 procedure expr_cases(
   in  defs: Defs,
       env: Vars,
-      cases: List[Doc[Branch[At[Expr]]]],
+      cases: List[At[Branch[At[Expr]]]],
       v: CExpr,
       t: Str,
   out ss: List[CStmt],
@@ -602,7 +602,7 @@ procedure expr_cases(
     case List() =>
       assign ss := List()
 
-    case List(Doc(_, AOk(_, _, Branch(pat, guard, e))); more) =>
+    case List(AOk(_, _, Branch(pat, guard, e)); more) =>
       local bs: List[CStmt], rb: CExpr, body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env
       call   compile_expr(in defs, env_, e, out bs, rb, ref g)
       assign body := bs ++ List(CsAssign(CeVar(t), rb))
@@ -844,7 +844,7 @@ procedure compile_stmt(
 
     case SBlock(locals, stmts) =>
       local bs: List[CStmt]
-      call   compile_stmts(in defs, in_scope(var_names(vars(locals))) ++ env, stmts_of(stmts), out bs, ref g)
+      call   compile_stmts(in defs, in_scope(var_names(vars(locals))) ++ env, stmts, out bs, ref g)
       assign ss := List(CsBlock(null_decls(vars(locals)) ++ bs))
 
     case SIf(cond, left, right) =>
@@ -932,7 +932,7 @@ procedure compile_stmt(
       call   compile_expr(in defs, env, nowhere(ELit(LStr(format_pat(pat.that)))), out ps, rp, ref g)
       assign bs := bs ++ ps ++ List(
         CsExpr(c_call("u_fail_text", List(CeVar("u_text_assertion_not_raised"), rp))))
-      call   compile_try(in defs, env, body, bs, List(Doc(None, nowhere(Catch(typ, pat, None, nowhere(SSkip))))), out ss, ref g)
+      call   compile_try(in defs, env, body, bs, List(nowhere(Catch(typ, pat, None, nowhere(SSkip)))), out ss, ref g)
   end
 
 // the body, compiled to bs, runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if
@@ -943,7 +943,7 @@ procedure compile_try(
       env: Vars,
       body: At[Stmt],
       bs: List[CStmt],
-      catches: List[Doc[Catch]],
+      catches: List[At[Catch]],
   out ss: List[CStmt],
   ref g: Gen
 ) :=
@@ -989,7 +989,7 @@ function reassign(env: Vars, xs: List[Var], ts: List[CStmt]): List[CStmt] :=
 procedure handler_cases(
   in  defs: Defs,
       env: Vars,
-      hs: List[Doc[Catch]],
+      hs: List[At[Catch]],
       h: Str,
       d: Str,
   out ss: List[CStmt],
@@ -1000,7 +1000,7 @@ procedure handler_cases(
     case List() =>
       assign ss := List()
 
-    case List(Doc(_, AOk(_, _, Catch(typ, pat, guard, s))); more) =>
+    case List(AOk(_, _, Catch(typ, pat, guard, s)); more) =>
       local bs: List[CStmt], body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env, tests: List[CExpr]
       call   compile_stmt(in defs, env_, s, out bs, ref g)
       assign body := List(CsAssign(CeVar(d), CeNum(1))) ++ bs
@@ -1031,7 +1031,7 @@ procedure handler_cases(
 procedure stmt_cases(
   in  defs: Defs,
       env: Vars,
-      cases: List[Doc[Branch[At[Stmt]]]],
+      cases: List[At[Branch[At[Stmt]]]],
       v: CExpr,
       d: Str,
   out ss: List[CStmt],
@@ -1041,7 +1041,7 @@ procedure stmt_cases(
     case List() =>
       assign ss := List()
 
-    case List(Doc(_, AOk(_, _, Branch(pat, guard, s))); more) =>
+    case List(AOk(_, _, Branch(pat, guard, s)); more) =>
       local bs: List[CStmt], body: List[CStmt], rest: List[CStmt], env_: Vars := in_scope(pattern_names(pat)) ++ env
       call   compile_stmt(in defs, env_, s, out bs, ref g)
       assign body := List(CsAssign(CeVar(d), CeNum(1))) ++ bs

@@ -59,10 +59,6 @@ data At[A] :=
   // a part that does not parse, as written over span, from pos to where the parser resumes
   case AUnparsed(pos: Pos, span: Span, text: Str, error: Diagnostic)
 
-// a part on lines of its own after its doc of // lines, a command, a constructor, or a case of a match or catch
-data Doc[A] :=
-  case Doc(doc: Option[Str], at: At[A])
-
 data Expr :=
   // a literal
   case ELit(lit: Lit)
@@ -86,7 +82,7 @@ data Expr :=
   // if c then a else b
   case EIte(cond: At[Expr], then_expr: At[Expr], else_expr: At[Expr])
   // match e case p => a … end, one case per line
-  case EMatch(arg: At[Expr], cases: List[Doc[Branch[At[Expr]]]])
+  case EMatch(arg: At[Expr], cases: List[At[Branch[At[Expr]]]])
   // a tuple (a, b, …)
   case ETuple(args: List[At[Expr]])
   // List(a, b; r), Set(…), Map(k => v; r), and Array(…), which the checker translates to the builders of their modules
@@ -153,9 +149,9 @@ data Step :=
 
 data Split :=
   // induction x case p => … end, structural induction on the formal x
-  case SplitInduction(formal: Var, cases: List[Doc[Branch[Proof]]])
+  case SplitInduction(formal: Var, cases: List[At[Branch[Proof]]])
   // match e case p => … end, on the constructors of e
-  case SplitMatch(arg: At[Expr], cases: List[Doc[Branch[Proof]]])
+  case SplitMatch(arg: At[Expr], cases: List[At[Branch[Proof]]])
   // if c then … else … end, with None for an else that is not written
   case SplitIf(cond: At[Expr], left: Proof, right: Option[Proof])
 
@@ -168,9 +164,9 @@ data Stmt :=
   case SSkip
   // assign x := a, …, which assigns in parallel
   case SAssign(upd: List[Var * At[Expr]])
-  // statements one after another, each after its doc, the body of an if, while, case, or procedure, which may declare
-  // local x := e first, as assignments without docs that start stmts
-  case SBlock(locals: List[At[Var]], stmts: List[Doc[Stmt]])
+  // statements one after another, the body of an if, while, case, or procedure, which may declare local x := e first, as
+  // assignments that start stmts
+  case SBlock(locals: List[At[Var]], stmts: List[At[Stmt]])
   // if c then … else … end, or if c then … end
   case SIf(cond: At[Expr], left: At[Stmt], right: At[Stmt])
   // while c do … end
@@ -178,7 +174,7 @@ data Stmt :=
   // call p(in a, …, out x, …, ref y, …), where in is optional before the first ins
   case SCall(proc: Name, ins: List[At[Expr]], outs: List[Var], refs: List[Var])
   // match e case p => … end
-  case SMatch(arg: At[Expr], cases: List[Doc[Branch[At[Stmt]]]])
+  case SMatch(arg: At[Expr], cases: List[At[Branch[At[Stmt]]]])
   // assert c
   case SAssert(cond: At[Expr])
   // assert raises p do … end, which fails unless body raises an exception that p matches, where typ is THole until
@@ -187,7 +183,7 @@ data Stmt :=
   // raise e, where typ is the type of e, which the checker infers
   case SRaise(value: At[Expr], typ: Type)
   // try … catch case p => … end
-  case STry(body: At[Stmt], catches: List[Doc[Catch]])
+  case STry(body: At[Stmt], catches: List[At[Catch]])
   // for p in c if q do … end, or for k => v in m do … end, over the elements of any container in the order of its fold,
   // where the parser allows one generator and an optional guard, and the checker gives the backends one GVal over the list
   // of the elements and the guard as an if in the body
@@ -222,7 +218,7 @@ data Cmd :=
   // an alias type T[A, …] := typ
   case CSort(name: Name, params: List[Id], typ: Type)
   // data T[A, …] := case C(f: A, …) case D, one case per line
-  case CData(name: Name, params: List[Id], constrs: List[Doc[Constr]])
+  case CData(name: Name, params: List[Id], constrs: List[At[Constr]])
   // function f[A, …](x: A, …): T := spec body, where spec is the lines after :=, see Spec
   case CFun(name: Name, params: List[Id], formals: List[At[Var]], typ: Type, spec: Spec, body: At[Expr])
   // procedure p[A, …](in x: A, …, out y: B, …, ref z: C, …) := spec body, where in is optional before the first ins
@@ -292,7 +288,14 @@ data Span :=
 // a module without sections has all its commands implemented and exports nothing
 data Mod :=
   // a file of import "p" lines of packages, then export, builtin, and implementation, each followed by its commands
-  case Mod(name: Id, doc: Option[Str], imports: List[Id], exported: List[Doc[Cmd]], builtins: List[Doc[Cmd]], implemented: List[Doc[Cmd]])
+  case Mod(name: Id, imports: List[Id], exported: List[At[Cmd]], builtins: List[At[Cmd]], implemented: List[At[Cmd]], comments: List[Comment])
+
+// a line of a comment, from // to the end of the line, which the tree does not hold, since format places it back by the
+// spans of the parts: its text without // and the space after it, whether only spaces come before it on its line, whether
+// a blank line follows it, and the position of the next token of code, or of the end of the input, with its text if it is
+// a keyword, a name, or an operator, else ""
+data Comment :=
+  case Comment(pos: Pos, text: Str, own_line: Bool, blank_after: Bool, next: Pos, next_word: Str)
 
 // the files with sections of a directory, other than project.u, which see each other's exports and notations without
 // imports, known by the directory from the root, "" for the root, and prelude for the library
@@ -335,8 +338,6 @@ function no_spec(): Spec
 // the part of x mapped by f, at the position of x
 function map_at[A, B](x: At[A], f: A -> B): At[B]
 
-function map_doc[A, B](d: Doc[A], f: A -> B): Doc[B]
-
 function expr_var(n: Id): At[Expr]
 
 function expr_int(n: Int): At[Expr]
@@ -364,13 +365,17 @@ function lambda_vars(formals: List[At[Pat]]): List[Var]
 // a lambda of the variables xs, placed at pos
 function lambda_of(pos: Pos, span: Span, xs: List[Var], body: At[Expr]): Expr
 
-function placed_of(d: Mod): List[Doc[Cmd]]
+function placed_of(d: Mod): List[At[Cmd]]
+
+// the doc of the part at span, the run of comments on the lines right above it, each on a line of its own, without a
+// blank line between them or below them, joined by newlines, as hover shows it
+function doc_of(comments: List[Comment], span: Span): Option[Str]
 
 // the commands of q that the backends run and the prover translates, without the signatures and the pattern aliases, which
 // only the checker needs, where a definition that errors make unsafe to run has an error node of them as its body
 function definitions(q: Prog): List[Cmd]
 
-function commands_of(docs: List[Doc[Cmd]]): List[Cmd]
+function commands_of(cmds: List[At[Cmd]]): List[Cmd]
 
 // the errors of the parts of cmd, of those that do not parse and of those that a phase rejected, in the order of the source
 function part_errors(cmd: Cmd): List[Diagnostic]
@@ -394,13 +399,9 @@ function is_parsed[A](x: At[A]): Bool
 // the first error of the parts of the example x that do not parse, which its test reports
 function example_error(x: At[Example]): Option[Diagnostic]
 
-// the parts of docs, without their docs and positions, and without those that do not parse
-function parts[A](docs: List[Doc[A]]): List[A]
+// the parts of xs, without their positions, and without those that do not parse
+function parts[A](xs: List[At[A]]): List[A]
 
-// the statements of docs, without their docs
-function stmts_of(docs: List[Doc[Stmt]]): List[At[Stmt]]
-
-// a block of stmts without docs
 function block(locals: List[Var], stmts: List[At[Stmt]]): Stmt
 
 // the variables of declarations, without their positions
@@ -432,7 +433,7 @@ function module_dir(id: Id): Str
 // of the package of its directory, whose member it is or, for a program, not
 function seen_modules(d: Mod, packages: List[Package]): List[Id]
 
-function unplaced(cmds: List[Cmd]): List[Doc[Cmd]]
+function unplaced(cmds: List[Cmd]): List[At[Cmd]]
 
 // cmd with every position Pos(0, 0), which parsing the same text at other places gives the same
 function strip_cmd(cmd: Cmd): Cmd
@@ -528,9 +529,6 @@ function map_at[A, B](x: At[A], f: A -> B): At[B] :=
       AUnparsed(pos, span, text, error)
   end
 
-function map_doc[A, B](d: Doc[A], f: A -> B): Doc[B] :=
-  Doc(d.doc, map_at(d.at, f))
-
 // abbreviations for the syntax, of tests
 function expr_var(n: Id): At[Expr] :=
   nowhere(EName(unqualified(n), THole))
@@ -544,8 +542,26 @@ function expr_app(f: Id, args: List[At[Expr]]): At[Expr] :=
 function pat_var(n: Id): At[Pat] :=
   nowhere(PName(unqualified(n), THole))
 
-function placed_of(d: Mod): List[Doc[Cmd]] :=
+function placed_of(d: Mod): List[At[Cmd]] :=
   d.exported ++ d.builtins ++ d.implemented
+
+function doc_of(comments: List[Comment], span: Span): Option[Str] :=
+  match doc_lines(reverse(List(for c in comments if c.own_line and c.next == span.start yield c)), span.start.line - 1)
+    case List() =>
+      None
+    case lines =>
+      Some(join("\n", reverse(lines)))
+  end
+
+// the texts of the comments, the last first, as long as each is on the line before the one after it, from line up, and
+// no blank line follows it
+function doc_lines(comments: List[Comment], line: Int): List[Str] :=
+  match comments
+    case List(c; rest) if c.pos.line == line and not c.blank_after =>
+      List(c.text; doc_lines(rest, line - 1))
+    case _ =>
+      List()
+  end
 
 function definitions(q: Prog): List[Cmd] :=
   List(for cmd in q.cmds for c in definition_in(cmd) yield c)
@@ -626,14 +642,11 @@ function is_signature(cmd: Cmd): Bool :=
       false
   end
 
-function commands_of(docs: List[Doc[Cmd]]): List[Cmd] :=
-  parts(docs)
-
-function stmts_of(docs: List[Doc[Stmt]]): List[At[Stmt]] :=
-  List(for d in docs yield d.at)
+function commands_of(cmds: List[At[Cmd]]): List[Cmd] :=
+  parts(cmds)
 
 function block(locals: List[Var], stmts: List[At[Stmt]]): Stmt :=
-  SBlock(unplaced_vars(locals), List(for stmt in stmts yield Doc(None, stmt)))
+  SBlock(unplaced_vars(locals), List(for stmt in stmts yield stmt))
 
 function vars(xs: List[At[Var]]): List[Var] :=
   List(for x in xs yield x.that)
@@ -644,8 +657,8 @@ function unplaced_vars(xs: List[Var]): List[At[Var]] :=
 function strip_vars(xs: List[At[Var]]): List[At[Var]] :=
   unplaced_vars(vars(xs))
 
-function parts[A](docs: List[Doc[A]]): List[A] :=
-  List(for d in docs if is_parsed(d.at) yield d.at.that)
+function parts[A](xs: List[At[A]]): List[A] :=
+  List(for x in xs if is_parsed(x) yield x.that)
 
 function is_parsed[A](x: At[A]): Bool :=
   match x
@@ -694,9 +707,9 @@ function library_name(module: Str, base: Id): Name :=
 function seen_modules(d: Mod, packages: List[Package]): List[Id] :=
   implicit_imports(d.name) ++ List(for p in packages if contains(p.id, d.imports) or p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
 
-// commands without positions and documentation, as programs that are not parsed have them
-function unplaced(cmds: List[Cmd]): List[Doc[Cmd]] :=
-  List(for c in cmds yield Doc(None, nowhere(c)))
+// commands without positions, as programs that are not parsed have them
+function unplaced(cmds: List[Cmd]): List[At[Cmd]] :=
+  List(for c in cmds yield nowhere(c))
 
 // the variables of the formals of a checked lambda, which the checker makes variables
 function lambda_vars(formals: List[At[Pat]]): List[Var] :=
@@ -875,7 +888,7 @@ function strip_cmd(cmd: Cmd): Cmd :=
       CLemma(name, params, strip_vars(ins), strip_vars(outs), strip_claim(claim), map_option(proof, strip_proof))
 
     case CData(name, params, constrs) =>
-      CData(name, params, List(for c in constrs yield Doc(c.doc, stripped(c.at, lambda x => x))))
+      CData(name, params, List(for c in constrs yield stripped(c, lambda x => x)))
 
     case CSort(_, _, _) =>
       cmd
@@ -905,19 +918,19 @@ function loop_positions_in(pos: Pos, stmt: Stmt): List[Pos] :=
       List(pos; loop_positions(body))
 
     case SBlock(_, stmts) =>
-      List(for d in stmts for p in loop_positions(d.at) yield p)
+      List(for d in stmts for p in loop_positions(d) yield p)
 
     case SIf(_, left, right) =>
       loop_positions(left) ++ loop_positions(right)
 
     case SMatch(_, cases) =>
-      List(for d in cases for p in loop_positions(d.at.that.body) yield p)
+      List(for d in cases for p in loop_positions(d.that.body) yield p)
 
     case SAssertRaises(_, _, body) =>
       loop_positions(body)
 
     case STry(body, catches) =>
-      loop_positions(body) ++ List(for d in catches for p in loop_positions(d.at.that.body) yield p)
+      loop_positions(body) ++ List(for d in catches for p in loop_positions(d.that.body) yield p)
 
     case SFor(_, body) =>
       loop_positions(body)
@@ -1035,11 +1048,11 @@ function strip_gen(g: Gen): Gen :=
       GIf(strip_expr(cond))
   end
 
-function strip_case[A](d: Doc[Branch[A]], strip_body: A -> A): Doc[Branch[A]] :=
-  Doc(d.doc, stripped(d.at, lambda br => Branch(strip_pat(br.pat), map_option(br.guard, strip_expr), strip_body(br.body))))
+function strip_case[A](d: At[Branch[A]], strip_body: A -> A): At[Branch[A]] :=
+  stripped(d, lambda br => Branch(strip_pat(br.pat), map_option(br.guard, strip_expr), strip_body(br.body)))
 
-function strip_handler(d: Doc[Catch]): Doc[Catch] :=
-  Doc(d.doc, stripped(d.at, lambda c => Catch(c.typ, strip_pat(c.pat), map_option(c.guard, strip_expr), strip_stmt(c.body))))
+function strip_handler(d: At[Catch]): At[Catch] :=
+  stripped(d, lambda c => Catch(c.typ, strip_pat(c.pat), map_option(c.guard, strip_expr), strip_stmt(c.body)))
 
 function strip_stmt(stmt: At[Stmt]): At[Stmt] :=
   stripped(stmt, strip_statement)
@@ -1053,7 +1066,7 @@ function strip_statement(stmt: Stmt): Stmt :=
       SAssign(List(for (x, e) in upd yield (x, strip_expr(e))))
 
     case SBlock(locals, stmts) =>
-      SBlock(strip_vars(locals), List(for d in stmts yield Doc(d.doc, strip_stmt(d.at))))
+      SBlock(strip_vars(locals), List(for d in stmts yield strip_stmt(d)))
 
     case SIf(cond, left, right) =>
       SIf(strip_expr(cond), strip_stmt(left), strip_stmt(right))
@@ -1428,7 +1441,7 @@ function errors_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
       errors_in_exprs(seconds(upd))
 
     case SBlock(_, stmts) =>
-      errors_in_stmts(stmts_of(stmts))
+      errors_in_stmts(stmts)
 
     case SIf(cond, left, right) =>
       errors_in_expr(cond) ++ errors_in_stmts(List(left, right))

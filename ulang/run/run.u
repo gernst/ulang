@@ -1038,7 +1038,7 @@ procedure exec(
       assign env := env ++ Map(for (k, u) in zip(List(for x in firsts(upd) yield x.name), vs))
 
     case SBlock(locals, stmts) =>
-      call scoped(in run, List(for x in locals yield x.that.name), env -- Set(for x in locals yield x.that.name), stmts_of(stmts), ref env, cache)
+      call scoped(in run, List(for x in locals yield x.that.name), env -- Set(for x in locals yield x.that.name), stmts, ref env, cache)
 
     case SIf(cond, left, right) =>
       local v: Val
@@ -1540,7 +1540,7 @@ function assigning(expr: At[Expr]): Cmd :=
 
 // statements one after another, at Pos(0, 0), with the locals xs
 function block(xs: List[Var], stmts: List[Stmt]): At[Stmt] :=
-  nowhere(SBlock(unplaced_vars(xs), List(for y in stmts yield Doc(None, nowhere(y)))))
+  nowhere(SBlock(unplaced_vars(xs), List(for y in stmts yield nowhere(y))))
 
 test values() :=
   assert format_value(list_value(List(VInt(1), VStr("a\"b")))) == "List(1, \"a\\\"b\")"
@@ -1559,8 +1559,7 @@ test expressions() :=
 // procedure sum(in n: Int, out s: Int) with a loop, and procedure size(ref k: Int) raising Fail after an increment
 function procedures(): List[Cmd] :=
   List(
-    CData(unqualified("Fail"), List(), List(
-      Doc(None, nowhere(Constr(unqualified("Fail"), List(Field("code", TInt()))))))),
+    CData(unqualified("Fail"), List(), List(nowhere(Constr(unqualified("Fail"), List(Field("code", TInt())))))),
     CProc(unqualified("sum"), List(), unplaced_vars(List(Var(unqualified("n"), TInt()))), unplaced_vars(List(Var(unqualified("s"), TInt()))), List(), List(), no_spec(), block(List(Var(unqualified("i"), TInt())), List(
       SAssign(List(
         (Var(unqualified("s"), THole), expr_int(0)),
@@ -1585,7 +1584,7 @@ test procedures() :=
         (Var(unqualified("m"), THole), expr_int(0)))),
       STry(block(List(), List(
         SCall(unqualified("count"), List(), List(), List(Var(unqualified("k"), THole))))), List(
-        Doc(None, nowhere(Catch(THole, nowhere(PApp(unqualified("Fail"), List(pat_var("j")))), None, block(List(), List(SAssign(List((Var(unqualified("m"), THole), expr_var("j"))))))))))),
+        nowhere(Catch(THole, nowhere(PApp(unqualified("Fail"), List(pat_var("j")))), None, block(List(), List(SAssign(List((Var(unqualified("m"), THole), expr_var("j")))))))))),
       equals("k", 1),
       equals("m", 2))))))
 
@@ -1634,7 +1633,7 @@ test errors() :=
 test tuples() :=
   call check_and_run(in List(
     asserting("p", nowhere(EMatch(nowhere(ETuple(List(expr_int(1), nowhere(ELit(LBool(true))), expr_int(3)))), List(
-      Doc(None, nowhere(Branch(nowhere(PTuple(List(nowhere(PWild), nowhere(PWild), pat_var("z")))), None, expr_var("z"))))))), expr_int(3))))
+      nowhere(Branch(nowhere(PTuple(List(nowhere(PWild), nowhere(PWild), pat_var("z")))), None, expr_var("z")))))), expr_int(3))))
 
 // a handler for integers skips a string without evaluating its guard, so the string is raised further
 // a handler of Int lets the Str through, which only one of the paths raises
@@ -1642,5 +1641,5 @@ test handler_types() :=
   assert raises Uncaught("\"x\"") do
     call check_and_run(in List(
       CTest(unqualified("t"), List(), nowhere(STry(nowhere(SIf(nowhere(ELit(LBool(true))), nowhere(SRaise(nowhere(ELit(LStr("x"))), THole)), nowhere(SRaise(expr_int(1), THole)))), List(
-        Doc(None, nowhere(Catch(THole, pat_var("k"), Some(expr_app("<", List(expr_var("k"), expr_int(2)))), nowhere(SSkip))))))))))
+        nowhere(Catch(THole, pat_var("k"), Some(expr_app("<", List(expr_var("k"), expr_int(2)))), nowhere(SSkip)))))))))
   end
