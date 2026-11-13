@@ -23,6 +23,8 @@ data Request :=
   case RLint(paths: List[Str])
   case RProve(targets: List[Target])
   case RFormat(paths: List[Str])
+  // the findings of checking the file, as hover and inlay hints
+  case RHints(path: Str)
   // the procedure of the target, main by default
   case RCompile(target: Target, output: Str)
   // the tests of the .u files below the directory, by default the root of the project
@@ -56,6 +58,9 @@ procedure main() :=
 
     case RFormat(paths) =>
       call format_paths(in paths, out status)
+
+    case RHints(path) =>
+      call print_hints(in path, out status)
 
     case RCompile(target, output) =>
       call compile_target(in target, output, out status)
@@ -116,6 +121,15 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
 
     case ("format", _) =>
       paths_request(command, words, RFormat(words))
+
+    case ("hints", List(word)) =>
+      if is_source(word) then
+        RHints(word)
+      else
+        RUsage("hints takes a file name.u, not " ++ word)
+
+    case ("hints", _) =>
+      RUsage("hints takes one file")
 
     case ("compile", _) =>
       compile_request(words, None, false, None)
@@ -211,6 +225,7 @@ test requests() :=
   assert request(List("compile", "--tests", "ulang/test", "-o", "a.c")) == RCompileTests(Some("ulang/test"), "a.c")
   assert request(List("compile", "a.u:go", "-o", "a.c")) == RCompile(Target("a.u", Some("go")), "a.c")
   assert request(List("help", "prove")) == RHelp(Some("prove"))
+  assert request(List("hints", "a.u")) == RHints("a.u")
 
 test usage_errors() :=
   assert request(List()) == RUsage("no command")
@@ -228,9 +243,20 @@ test usage_errors() :=
   assert request(List("compile", "a.u", "--tests", "-o", "a.c")) == RUsage("compile --tests takes a directory, whose packages and programs it compiles, not a file")
   assert request(List("compile", "a.u:t", "--tests", "-o", "a.c")) == RUsage("compile --tests takes a directory, whose packages and programs it compiles, not a file")
   assert request(List("compile", "-o", "a.c")) == RUsage("compile takes a file or --tests")
+  assert request(List("hints", "a.u", "b.u")) == RUsage("hints takes one file")
+  assert request(List("hints", "a.u:f")) == RUsage("hints takes a file name.u, not a.u:f")
 
 function commands(): List[Str] :=
-  List("run", "test", "check", "lint", "prove", "format", "compile", "help")
+  List(
+    "run",
+    "test",
+    "check",
+    "lint",
+    "prove",
+    "format",
+    "hints",
+    "compile",
+    "help")
 
 function usage(): Str :=
   "usage:\n" ++ join("\n", List(for c in commands() yield "  ulang " ++ synopsis(c)))
@@ -258,6 +284,9 @@ function synopsis(command: Str): Str :=
     case "format" =>
       "format [<path> ...]"
 
+    case "hints" =>
+      "hints <file>"
+
     case "compile" =>
       "compile (<file>[:<procedure>] | --tests [<dir>]) -o <target.c|target.s>"
 
@@ -284,6 +313,9 @@ function description(command: Str): Str :=
 
     case "format" =>
       "rewrites the files, also below directories, by default the project, as format_program writes them, where lint, check,\n" ++ "and test report the files that differ"
+
+    case "hints" =>
+      "checks the file as check does and prints what the check found in it, as JSON lines of the hover and the inlay hints\n" ++ "of LSP: the qualified name and the type of each use of a name, the type of each local, formal, and pattern variable,\n" ++ "with an inlay where the source does not write it, and the inferred raises of private procedures, after the errors"
 
     case "compile" =>
       "translates the file to C, or to assembly for x86-64 if the target ends in .s, whose main calls the procedure, main by default, or with --tests the tests of the .u files below the directory, by default the root of the project, with its packages and programs,\n" ++ "whose main takes the arguments of test, without lemmas, and runs them as test does, from the root of the project"
@@ -398,6 +430,28 @@ procedure visit_units(
     end
   end
   call summarize(in files_of(found), List(for f in failed))
+
+// prints the errors of checking file, as check does, and the findings of the check in it, hints of ulang/check/hints.u,
+// as far as it is checked
+procedure print_hints(in file: Str, out status: Int) :=
+  local source: Source, q: Prog, errors: List[Diagnostic], text: Str
+  call   load_file(in file, false, false, out source, q, errors)
+  call   report(in file, errors, false)
+  assign status := load_status(q, errors)
+  if q.main != "" then
+    try
+      call os_read_utf8(in file, out text)
+      for h in hints(text, q) do
+        for line in format_hint(h) do
+          call os_println(in line)
+        end
+      end
+    catch
+      case OsError(m) =>
+        call   os_print_error(in format_diagnostic(file, diagnostic(RuntimeKind, m)))
+        assign status := 1
+    end
+  end
 
 // checks the files of the paths, by default of the project, each unit once, where each file must be formatted
 procedure check_paths(in paths: List[Str], lint: Bool, out status: Int) :=
