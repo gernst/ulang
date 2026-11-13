@@ -101,7 +101,7 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
       RUsage("run takes one file")
 
     case ("test", _) =>
-      RTest(List(for w in words yield target_of(w)), rest)
+      options_request(command, words, RTest(List(for w in words yield target_of(w)), rest))
 
     case ("check", _) =>
       paths_request(command, words, RCheck(words))
@@ -110,7 +110,7 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
       paths_request(command, words, RLint(words))
 
     case ("prove", _) =>
-      RProve(List(for w in words yield target_of(w)))
+      options_request(command, words, RProve(List(for w in words yield target_of(w))))
 
     case ("format", _) =>
       paths_request(command, words, RFormat(words))
@@ -136,10 +136,15 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
 
 // the request of a command that takes paths without names and no options
 function paths_request(command: Str, paths: List[Str], request: Request): Request :=
-  if exists(paths, lambda w => starts_with(w, "-")) then
-    RUsage(command ++ " takes no options")
-  else if exists(paths, lambda w => target_of(w).name != None) then
+  options_request(command, paths, if exists(paths, lambda w => target_of(w).name != None) then
     RUsage(command ++ " takes no names")
+  else
+    request)
+
+// the request of a command that takes no options, where words are its arguments before --
+function options_request(command: Str, words: List[Str], request: Request): Request :=
+  if exists(words, lambda w => starts_with(w, "-")) then
+    RUsage(command ++ " takes no options")
   else
     request
 
@@ -209,6 +214,9 @@ test usage_errors() :=
   assert request(List("lint", "a.u:t")) == RUsage("lint takes no names")
   assert request(List("check", "--lint", "a.u")) == RUsage("check takes no options")
   assert request(List("format", "--check")) == RUsage("format takes no options")
+  assert request(List("test", "-v")) == RUsage("test takes no options")
+  assert request(List("prove", "a.u", "--x")) == RUsage("prove takes no options")
+  assert request(List("test", "a.u", "--", "-v")) == RTest(List(Target("a.u", None)), List("-v"))
   assert request(List("run", "dir")) == RUsage("run takes a file name.u, not dir")
   assert request(List("compile", "a.u")) == RUsage("compile takes -o <target.c> or -o <target.s>")
   assert request(List("compile", "a.u", "--tests", "-o", "a.c")) == RUsage("compile --tests takes no file, since it compiles the tests of the project")
@@ -575,23 +583,23 @@ procedure compile_target(in target: Target, output: Str, out status: Int) :=
 // it, and the commands of each module are taken from the unit that it is a member of, with its tests, or else from the
 // first unit that loads it
 procedure compile_tests(in output: Str, out status: Int) :=
-  local root: Str, found: List[Target], units: List[List[Target]], q: Prog, errors: List[Diagnostic], failed := false, files: Buffer[TestFile] := empty(), own: Buffer[At[Cmd]] := empty(), others: Map[Id, List[At[Cmd]]] := empty(), members: Set[Id] := empty()
-  call default_path(out root)
-  call targets_of(in List(), false, out found)
-  call units_of(in found, out units)
+  local root: Str, found: List[Target], units: List[List[Target]], q: Prog, errors: List[Diagnostic], files: Buffer[TestFile] := empty(), own: Buffer[At[Cmd]] := empty(), others: Map[Id, List[At[Cmd]]] := empty(), members: Set[Id] := empty()
+  assign status := 0
+  call   default_path(out root)
+  call   targets_of(in List(), false, out found)
+  call   units_of(in found, out units)
   for unit in units do
     call check_file(in first_path(unit), true, out q, errors)
     if errors != List() then
       call   report(in first_path(unit), errors, true)
-      assign failed := true
+      assign status := worse(status, load_status(q, errors))
     else
       local modules := List(for file in files_of(unit) yield sibling(q.main, file))
       assign files := files ++ List(for file in files_of(unit) yield TestFile(from_root(root, file), sibling(q.main, file))), own := own ++ List(for c in q.cmds if belongs(c.that, modules)), members := members ++ Set(for m in modules)
       assign others := others_of(q.cmds, modules, others)
     end
   end
-  assign status := if failed then 1 else 0
-  if not failed then
+  if status == 0 then
     try
       call compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), List(), ""), EntryTests(List(for f in files)), output)
     catch
@@ -665,20 +673,45 @@ procedure format_file(in file: Str, out ok: Bool) :=
   try
     local q: Source
     call parse_file_text(in file, source, out q)
-    if not has_errors(q) and same_mods(p.mods, q.mods) then
-      if source != text then
-        call os_write(in file, source)
-      end
-      assign ok := true
-    else
-      call report(in file, List(
-        Diagnostic(FormatKind, "ParsesDifferently", None, Pos(0, 0), "the source parses differently", List())), false)
+    match reformat_error(p, q)
+      case Some(d) =>
+        call report(in file, List(d), false)
+
+      case None =>
+        if source != text then
+          call os_write(in file, source)
+        end
+        assign ok := true
     end
   catch
     case ParseError(message, _) =>
-      call report(in file, List(
-        Diagnostic(FormatKind, "Unparsable", None, Pos(0, 0), "the source does not parse: " ++ message, List())), false)
+      call report(in file, List(unparsable(message)), false)
   end
+
+// the error of formatting the source p to the text whose parse is q, if q has errors or other commands than p
+function reformat_error(p: Source, q: Source): Option[Diagnostic] :=
+  match parse_errors(q)
+    case List(e; _) =>
+      Some(unparsable(e.message))
+
+    case List() =>
+      if same_mods(p.mods, q.mods) then
+        None
+      else
+        Some(Diagnostic(FormatKind, "ParsesDifferently", None, Pos(0, 0), "the source parses differently", List()))
+  end
+
+function unparsable(message: Str): Diagnostic :=
+  Diagnostic(FormatKind, "Unparsable", None, Pos(0, 0), "the source does not parse: " ++ message, List())
+
+test reformat_errors() :=
+  local p: Source, q: Source, other: Source
+  call parse_file_text(in "a.u", "procedure main() :=\n  skip\n", out p)
+  call parse_file_text(in "a.u", "procedure main() :=\n  x := 1\n", out q)
+  call parse_file_text(in "a.u", "procedure go() :=\n  skip\n", out other)
+  assert reformat_error(p, p) == None
+  assert map_option(reformat_error(p, q), lambda d => d.code) == Some("Unparsable")
+  assert map_option(reformat_error(p, other), lambda d => d.code) == Some("ParsesDifferently")
 
 function same_mod(d: Mod, e: Mod): Bool :=
   d.name == e.name and d.doc == e.doc and d.imports == e.imports and same_sections(d, e)
@@ -783,7 +816,8 @@ procedure summarize(in files: List[Str], failed: List[Str]) :=
   end
 
 // the targets of the targets, by default the root of the project, where a directory is a target without a name for each of
-// the .u files below it, without those of the directories that the project runs only compiled if compiled_only is set
+// the .u files below it, without those of the directories that the project runs only compiled if compiled_only is set, and
+// any other path a target of its own, so that one that is no file fails to load as a missing file name.u does
 procedure targets_of(
   in  targets: List[Target],
       compiled_only: Bool,
@@ -797,15 +831,26 @@ procedure targets_of(
         assign buffer := buffer ++ List(Target(path, name))
 
       case None =>
-        assign skipped := List()
-        if compiled_only then
-          call compiled_only_of(in path, out skipped)
+        local dir: Bool
+        call os_is_dir(in path, out dir)
+        if dir then
+          assign skipped := List()
+          if compiled_only then
+            call compiled_only_of(in path, out skipped)
+          end
+          call   walk_all(in List(path), skipped, out files)
+          assign buffer := buffer ++ List(for f in files if is_source(f) yield Target(f, None))
+        else
+          assign buffer := buffer ++ List(Target(without_dot(path), None))
         end
-        call   walk_all(in List(path), skipped, out files)
-        assign buffer := buffer ++ List(for f in files if is_source(f) yield Target(f, None))
     end
   end
   assign found := List(for t in buffer)
+
+test missing_targets() :=
+  local found: List[Target]
+  call targets_of(in List(Target("./nosuch", None), Target("nosuch.u", Some("t"))), false, out found)
+  assert found == List(Target("nosuch", None), Target("nosuch.u", Some("t")))
 
 // the targets grouped by the load that they need, in the order of their first targets: those of the members of a package,
 // the files with sections of a directory, together, and those of each program, a file without sections, apart
