@@ -79,6 +79,11 @@ function slice[A](xs: List[A], i: Int, j: Int): List[A]
 function split_at[A](n: Int, xs: List[A]): List[A] * List[A] :=
   example split_at(1, List(1, 2, 3)) == (List(1), List(2, 3))
 
+// the elements before the first sep and those after it, all and none if xs has no sep
+function split_on[A](xs: List[A], sep: A): List[A] * List[A] :=
+  example split_on(List(1, 0, 2, 0), 0) == (List(1), List(2, 0))
+  example split_on(List(1, 2), 0) == (List(1, 2), List())
+
 function replicate[A](n: Int, x: A): List[A]
 
 // the integers from i up to j, exclusively
@@ -306,6 +311,21 @@ function slice[A](xs: List[A], i: Int, j: Int): List[A] :=
 
 function split_at[A](n: Int, xs: List[A]): List[A] * List[A] :=
   (take(n, xs), drop(n, xs))
+
+function split_on[A](xs: List[A], sep: A): List[A] * List[A] :=
+  match xs
+    case List() =>
+      (List(), List())
+
+    case List(x; more) =>
+      if x == sep then
+        (List(), more)
+      else
+        match split_on(more, sep)
+          case (before, after) =>
+            (List(x; before), after)
+        end
+  end
 
 function replicate[A](n: Int, x: A): List[A] :=
   if n <= 0 then List() else List(x; replicate(n - 1, x))

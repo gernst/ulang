@@ -2894,6 +2894,22 @@ procedure constructor_binders(
       assign typed_pat := AOk(pos, PApp(k, qs))
   end
 
+// pat with the patterns of sub for its variables
+function subst_pat(pat: At[Pat], sub: List[Name * At[Pat]]): At[Pat] :=
+  match pat.that
+    case PVar(var) =>
+      value_or(get(var.name, sub), pat)
+
+    case PApp(constr, args) =>
+      pat with that := PApp(constr, List(for a in args yield subst_pat(a, sub)))
+
+    case PTuple(args) =>
+      pat with that := PTuple(List(for a in args yield subst_pat(a, sub)))
+
+    case _ =>
+      pat
+  end
+
 // the one of the constructors ks with k arguments whose datatype fits t, where open uses are solved first if
 // several fit, since the variables of the pattern need their types, and None after the error if none or several fit
 procedure pattern_constructor(

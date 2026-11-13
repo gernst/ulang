@@ -336,8 +336,6 @@ function pat_var(n: Id): At[Pat]
 
 function pattern_expr(p: At[Pat]): Option[At[Expr]]
 
-function subst_pat(pat: At[Pat], sub: List[Name * At[Pat]]): At[Pat]
-
 function pattern_names(pat: At[Pat]): List[Name]
 
 // the variables of patterns that are all variables
@@ -756,22 +754,6 @@ function pattern_value(pos: Pos, p: Pat): Option[Expr] :=
 
     case PApp(c, ps) =>
       map_option(pattern_exprs(ps), lambda es => ECall(pos, c, THole, es))
-  end
-
-// pat with the patterns of sub for its variables
-function subst_pat(pat: At[Pat], sub: List[Name * At[Pat]]): At[Pat] :=
-  match pat.that
-    case PVar(var) =>
-      value_or(get(var.name, sub), pat)
-
-    case PApp(constr, args) =>
-      pat with that := PApp(constr, List(for a in args yield subst_pat(a, sub)))
-
-    case PTuple(args) =>
-      pat with that := PTuple(List(for a in args yield subst_pat(a, sub)))
-
-    case _ =>
-      pat
   end
 
 function sorts_in(t: Type): List[Name] :=

@@ -285,22 +285,6 @@ function description(command: Str): Str :=
       "prints the usage of all commands, or of one"
   end
 
-// the elements before the first sep, and those after it, none if xs has no sep
-function split_on[A](xs: List[A], sep: A): List[A] * List[A] :=
-  match xs
-    case List() =>
-      (List(), List())
-
-    case List(x; more) =>
-      if x == sep then
-        (List(), more)
-      else
-        match split_on(more, sep)
-          case (before, after) =>
-            (List(x; before), after)
-        end
-  end
-
 // calls the procedure of the target, main by default, without parameters, where os_args gives args
 procedure run_target(in target: Target, args: List[Str], out status: Int) :=
   local q: Prog, errors: List[Diagnostic], entry := Name(None, value_or(target.name, "main")), cache: Map[Name, Val] := empty()
