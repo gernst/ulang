@@ -99,7 +99,7 @@ These recur in several packages and are better fixed once each than file by file
 
 - `ulang/syntax/fixtures.u` exports helpers that only the tests of `check.u` use (`lists`, `with_lists`, `program_of`, `natives_prelude`, `type_plain_list`), candidates of overloading in every phase and compiled into `ulang.bin`; and `expr_var`, `expr_int`, `expr_app`, `pat_var` carry the doc "abbreviations … of tests" but are used throughout `run.u` and `check.u`.
 - `ulang/syntax/builtins.u`: the aliases hard-code `"prelude/list"` where the functions use `library_name(…)`, with no test that they agree; `array_name()` names `array.from_list`.
-- Dead or needlessly exported: `error_kinds` (`error.u:17`, cited only by `CLAUDE.md`), `json_text`, `strip_stmt`; `options` is `List(for y in x)`.
+- Dead or needlessly exported: `error_kinds` (`error.u:17`, cited only by `CLAUDE.md`), `json_text`, `strip_stmt`.
 
 ### `ulang/parse/`
 
@@ -136,7 +136,7 @@ These recur in several packages and are better fixed once each than file by file
 
 ### `ulang/prove/`
 
-The review of the shapes spelled out by hand is fixed since, by f798c04, but for an alias of `Lin(-1, List())`, which is only built.
+The review of the shapes spelled out by hand is fixed since, by f798c04 and 10df7bf.
 
 Other smells:
 
@@ -150,7 +150,7 @@ Other smells:
 - `CLAUDE.md`, Library, says strings share `exists`, `forall`, and the folds; they have none, `List(for c in "ab")` is `NoFold`. Either give `Str` the folds or narrow the sentence, also in `containers.u:1`.
 - Argument orders: `repeat(s, n)` of `str.u:20` against `replicate(n, x)`, which implements it; `join(sep, strs)` against `split(s, c)`; `slice` clamps for lists but is strict for strings and arrays, with no example on `list.slice`, and is re-implemented by `prefix_of` of `compile.u:639`.
 - **[Code 5]** twins out of step: `set.u` and `map.u` order their definitions differently, each states half of the precondition of `join`, name their balance tests differently (`map.u`'s `balance` is also a function), and only `map.u` tests rebalancing after removal; the private tree `join` of both overloads `str.join` in the same file.
-- Missing helpers that are re-implemented: `min`/`max` (`least` of `check.u:309`, `worse` of `ulang.u:333`, `node_height`, `c.u:125`, `compile.u:640`, `arithmetic.u:18`); dropping a suffix after `ends_with` (`cases.u:91`, `parse.u:3407`, `message.u:302`, `checks/docs.u:83, 100, 118`); `keys(m)` (`raises.u:75`, `translate.u:62`, `egraph.u:281`); `path_up` of `ulang.u:912` re-does `relative_path`, and `module_dir` is `os_dirname`. **[Code 4]**
+- Missing helpers that are re-implemented: dropping a suffix after `ends_with` (`cases.u:91`, `parse.u:3407`, `message.u:302`, `checks/docs.u:83, 100, 118`); `keys(m)` (`raises.u:75`, `translate.u:62`, `egraph.u:281`); `path_up` of `ulang.u:912` re-does `relative_path`, and `module_dir` is `os_dirname`. **[Code 4]**
 - Missing examples where order or edges are open: `starts_with`, `ends_with`, `take`, `drop`, `zip`, `range`, `index_of`, `remove`, `distinct`, `repeated`, `put`, `insert`, `gcd`, whose example `CLAUDE.md` quotes.
 - Stale docs: the module doc of `prelude.u:1-2` names three of the members; `str.u:259` and `list.u:335` say `list.u` cannot use `join` of `str.u`, which members of a package can, so `separated` and `joined_pairs` might become `join`.
 - Tests: duplicates (`arrays` of `array.u` repeats its line 55 at 56, `array.u:54` and `containers.u:118`, `set.u:258` and `containers.u:6`, `string_functions` of `expressions.u` and `strings` of `str.u`, the last entry of a key in three places, `List() == List()`); tests in the wrong file or misnamed (`association_lists` and `ranges` of `datatypes.u`, `parse_errors` of `statements.u:395`, `sum_pairs` that sums products, `comparisons` in two files of one feature, `size_positive` that states `>= 0`); `range` of `datatypes.u` and `countdown` of `containers.u` are one helper; `ulang/prove/test/proofs.u` repeats lemmas of `lists.u` without saying that they are facts for later proofs, and the files of `ulang/prove/test/` sit at the top of a `test/`, which `CLAUDE.md`, Tests, forbids while listing the directory, so the rule needs rewording.

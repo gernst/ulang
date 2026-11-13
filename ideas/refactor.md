@@ -23,7 +23,7 @@ Each of these was a commit of many mechanical edits, several with regular expres
 - functions turned into procedures when they had to raise (`8084d78`: `as_type`, `type_apply`), and `raises` written into the exported signatures (`9335b69`);
 - 211 failing files turned into cases of `ulang/test/errors/` (`15b55d4`);
 - the expansion of `case _` into named constructors, still open (Code 1);
-- exports added because another member needed a private helper (`covers_all`, exported since, and `strip_yield`, Code 6).
+- exports added because another member needed a private helper (`covers_all` and `strip_yield`, both exported since).
 
 ## How an agent edits
 
