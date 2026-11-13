@@ -1,5 +1,5 @@
 // the leaves of the patterns of a match, one case of a proof, an equation of a definition, or a path of the termination
-// analysis each, see prove.md, section 9, which is not versioned
+// analysis each, see ideas/prove.md, section 9
 //
 // The rows are the patterns of the cases in their order, matched column by column, where the arguments of a constructor
 // replace its column at the front, so that the variables bind in their order. A column that a row matches by a

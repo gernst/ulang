@@ -253,10 +253,14 @@ test checked() :=
   assert not is_declared("T.g", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("u_*", DWords(Set("u_text")))
 
 // prints the references of the documents that are not declared in their files, run at the root of the project, and fails
-// if there is one
+// if there is one; the documents are CLAUDE.md, README.md, and those of ideas/ but review.md, whose references are those of
+// the commit that it reviewed
 procedure main() :=
-  local cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List()
-  for doc in List("CLAUDE.md", "README.md", "TODO.md") do
+  local cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[Str * Bool]
+  call os_list(in "ideas", out entries)
+  for doc in List(
+    "CLAUDE.md",
+    "README.md"; List(for (name, is_dir) in entries if not is_dir and ends_with(name, ".md") and name != "review.md" yield "ideas/" ++ name)) do
     local problems: List[Str]
     call   problems_of(in doc, out problems, ref cache)
     assign found := found ++ problems

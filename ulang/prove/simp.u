@@ -1,4 +1,4 @@
-// contextual simplification of sequents, see Simplification in prove.md, which is not versioned
+// contextual simplification of sequents, see Simplification in ideas/prove.md
 //
 // Every part of a sequent is replaced by one that is equivalent to it in its context, for all values of the
 // variables bound around it. Hence simplifying never turns a provable goal into an unprovable one, and the same

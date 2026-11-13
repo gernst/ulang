@@ -129,7 +129,7 @@ data Pat :=
   // a tuple (p, q, …)
   case PTuple(args: List[At[Pat]])
 
-// the proof of a lemma after its contract, see prove.md, section 4: steps that add facts and witnesses, then at most one
+// the proof of a lemma after its contract, see ideas/prove.md, section 4: steps that add facts and witnesses, then at most one
 // split, which ends it, since it replaces the goal by its cases, each a proof of its own; without steps and split, the
 // goal must close by simplification
 data Proof :=
@@ -240,7 +240,7 @@ data Cmd :=
   // a pattern alias pattern C[A, …](x: A, …): T := pat, whose variables are the formals, each once, which the checker
   // expands at its uses in patterns, and which is a function of the same name where pat has no _
   case CPatAlias(name: Name, params: List[Id], formals: List[At[Var]], typ: Type, pat: At[Pat])
-  // lemma l[A, …](in x: A, …, out y: B, …) := claim proof, see Claim and prove.md, which the prover proves, while the
+  // lemma l[A, …](in x: A, …, out y: B, …) := claim proof, see Claim and ideas/prove.md, which the prover proves, while the
   // interpreter and the compiler skip it
   case CLemma(name: Name, params: List[Id], ins: List[At[Var]], outs: List[At[Var]], claim: Claim, proof: Option[Proof])
 
@@ -253,7 +253,7 @@ data Claim :=
   case ClaimCorrect(proc: Name, ins: List[At[Expr]], outs: List[Var])
 
 // the specification of a function or procedure, lines after := of its head and before its body: the contract of a
-// procedure, requires a, … over its ins and refs as pre and ensures b over all its formals as post, see prove.md, then the
+// procedure, requires a, … over its ins and refs as pre and ensures b over all its formals as post, see ideas/prove.md, then the
 // examples; on the first occurrence of a signature, the export of an exported one, and empty on its definition
 data Spec :=
   // the examples, each at its keyword, which the checker translates into tests

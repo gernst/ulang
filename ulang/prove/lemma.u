@@ -1,4 +1,4 @@
-// the default proof of lemmas, until proofs have syntax, see prove.md, which is not versioned
+// the default proof of lemmas, until proofs have syntax, see ideas/prove.md
 
 import "ulang/syntax"
 

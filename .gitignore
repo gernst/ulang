@@ -15,8 +15,3 @@ ulang.vsix
 /bootstrap/*/ulang.bin
 /ulang.bin
 /ulang.sh
-
-# notes on refactorings and plans, not versioned
-unclear.md
-prove.md
-archives.md

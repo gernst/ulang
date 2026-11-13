@@ -1,6 +1,6 @@
 # Assembly
 
-In progress (TODO, Compiler 2), steps 1 to 5 done: a second backend of the compiler that writes GNU assembly for x86-64 Linux instead of C, so that compiled programs need no C compiler, only `as` and a linker, while the runtime stays C. The C backend stays as the portable one and as the seed of the bootstrap.
+In progress (Compiler 2 of `ideas/compiler.md`), steps 1 to 5 done: a second backend of the compiler that writes GNU assembly for x86-64 Linux instead of C, so that compiled programs need no C compiler, only `as` and a linker, while the runtime stays C. The C backend stays as the portable one and as the seed of the bootstrap.
 
 ## Why
 
@@ -70,5 +70,5 @@ The simple backend is about 1.1 times slower than `-O2` on the compiler, less th
 4. Done. **`make testasm`**: the suite of `compile --tests` through assembly, all tests passing as with `make testc`.
 5. Done by hand, not yet as a target of the Makefile. **Self-compile through assembly**: the compiler built from its `.s` compiles itself to the same C and the same `.s`; `make` keeps building the tool from C until this is reliable, then may switch; `bootstrap/ulang.c` stays the versioned seed.
 6. **Measured improvements**: the fusion of comprehensions as in C, results that stay in `%rax` instead of a slot, arguments that are variables or constants loaded directly into their registers.
-7. **An encoder of its own**: the instructions of `asm.u` encoded to machine code and written as an ELF relocatable object, so that neither `as` nor a C compiler is needed, only the linker. It needs bytes in files first, which `os_write` cannot write, since it writes strings as UTF-8 (Library 1 of `TODO.md`).
+7. **An encoder of its own**: the instructions of `asm.u` encoded to machine code and written as an ELF relocatable object, so that neither `as` nor a C compiler is needed, only the linker. It needs bytes in files first, which `os_write` cannot write, since it writes strings as UTF-8 (Library 1 of `ideas/library.md`).
 8. **Later, each a project of its own**: register allocation, ARM64, unboxed small integers.

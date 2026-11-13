@@ -103,4 +103,4 @@ make test                                 # runs all tests
 - `ulang/prelude/` is the library.
 - The tests of each package are in its subfolder `test/`: `ulang/test/` of the language, `ulang/prove/test/` of the prover, and `ulang/prelude/test/` of the library. No file fails: the errors of the phases are tested in `ulang/test/errors/`, by cases, source texts in tests, whose exceptions `assert raises` expects.
 - `vscode/` is an extension for VS Code and VSCodium, installed by `make install`.
-- `TODO.md` lists the open work, and `DESIGN.md` the design notes.
+- `ideas/` holds the open work and the plans, listed in `ideas/index.md`, and `DESIGN.md` the design notes.

@@ -1,0 +1,141 @@
+\begin{thebibliography}{22}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Barnes(2003)]{barnes2003spark}
+John Barnes.
+\newblock \emph{High Integrity Software: The {SPARK} Approach to Safety and
+  Security}.
+\newblock Addison-Wesley, 2003.
+
+\bibitem[Claessen and Hughes(2000)]{claessen2000quickcheck}
+Koen Claessen and John Hughes.
+\newblock {QuickCheck}: A lightweight tool for random testing of {Haskell}
+  programs.
+\newblock In \emph{International Conference on Functional Programming (ICFP)},
+  2000.
+
+\bibitem[Conchon et~al.(2008)Conchon, Contejean, Kanig, and
+  Lescuyer]{conchon2008ccx}
+Sylvain Conchon, Evelyne Contejean, Johannes Kanig, and St{\'e}phane Lescuyer.
+\newblock {CC(X)}: Semantic combination of congruence closure with solvable
+  theories.
+\newblock \emph{Electronic Notes in Theoretical Computer Science}, 198\penalty0
+  (2):\penalty0 51--69, 2008.
+
+\bibitem[de~Moura and Ullrich(2021)]{demoura2021lean4}
+Leonardo de~Moura and Sebastian Ullrich.
+\newblock The {Lean 4} theorem prover and programming language.
+\newblock In \emph{Conference on Automated Deduction (CADE)}, volume 12699 of
+  \emph{LNCS}, 2021.
+
+\bibitem[Donovan and Kernighan(2015)]{donovan2015go}
+Alan A.~A. Donovan and Brian~W. Kernighan.
+\newblock \emph{The {Go} Programming Language}.
+\newblock Addison-Wesley, 2015.
+
+\bibitem[Ernst(2022)]{ernst2022loops}
+Gidon Ernst.
+\newblock Loop verification with invariants and contracts.
+\newblock In \emph{Verification, Model Checking, and Abstract Interpretation
+  (VMCAI)}, volume 13182 of \emph{LNCS}. Springer, 2022.
+
+\bibitem[Filli{\^a}tre and Paskevich(2013)]{filliatre2013why3}
+Jean-Christophe Filli{\^a}tre and Andrei Paskevich.
+\newblock {Why3} --- where programs meet provers.
+\newblock In \emph{European Symposium on Programming (ESOP)}, volume 7792 of
+  \emph{LNCS}, 2013.
+
+\bibitem[Gosling et~al.(1996)Gosling, Joy, and Steele]{gosling1996}
+James Gosling, Bill Joy, and Guy Steele.
+\newblock The {Java} language specification.
+\newblock Addison-Wesley, 1996.
+
+\bibitem[Hoare(1971)]{hoare1971procedures}
+C.~A.~R. Hoare.
+\newblock Procedures and parameters: An axiomatic approach.
+\newblock In \emph{Symposium on Semantics of Algorithmic Languages}, volume 188
+  of \emph{Lecture Notes in Mathematics}. Springer, 1971.
+
+\bibitem[Leijen(2014)]{leijen2014koka}
+Daan Leijen.
+\newblock Koka: Programming with row polymorphic effect types.
+\newblock In \emph{Mathematically Structured Functional Programming (MSFP)},
+  2014.
+
+\bibitem[Leino(2010)]{leino2010dafny}
+K.~Rustan~M. Leino.
+\newblock Dafny: An automatic program verifier for functional correctness.
+\newblock In \emph{Logic for Programming, Artificial Intelligence, and
+  Reasoning (LPAR)}, volume 6355 of \emph{LNCS}, 2010.
+
+\bibitem[Meyer(1997)]{meyer1997oosc}
+Bertrand Meyer.
+\newblock \emph{Object-Oriented Software Construction}.
+\newblock Prentice Hall, 2nd edition, 1997.
+
+\bibitem[Miller(1991)]{miller1991}
+Dale Miller.
+\newblock A logic programming language with lambda-abstraction, function
+  variables, and simple unification.
+\newblock \emph{Journal of Logic and Computation}, 1\penalty0 (4):\penalty0
+  497--536, 1991.
+
+\bibitem[Milner(1978)]{milner1978}
+Robin Milner.
+\newblock A theory of type polymorphism in programming.
+\newblock \emph{Journal of Computer and System Sciences}, 17\penalty0
+  (3):\penalty0 348--375, 1978.
+
+\bibitem[Nelson and Oppen(1979)]{nelson1979}
+Greg Nelson and Derek~C. Oppen.
+\newblock Simplification by cooperating decision procedures.
+\newblock \emph{ACM Transactions on Programming Languages and Systems},
+  1\penalty0 (2):\penalty0 245--257, 1979.
+
+\bibitem[Nipkow et~al.(2002)Nipkow, Paulson, and Wenzel]{nipkow2002isabelle}
+Tobias Nipkow, Lawrence~C. Paulson, and Markus Wenzel.
+\newblock \emph{{Isabelle/HOL}: A Proof Assistant for Higher-Order Logic},
+  volume 2283 of \emph{LNCS}.
+\newblock Springer, 2002.
+
+\bibitem[Pugh(1991)]{pugh1991omega}
+William Pugh.
+\newblock The {Omega} test: A fast and practical integer programming algorithm
+  for dependence analysis.
+\newblock In \emph{Supercomputing}, 1991.
+
+\bibitem[Runciman et~al.(2008)Runciman, Naylor, and
+  Lindblad]{runciman2008smallcheck}
+Colin Runciman, Matthew Naylor, and Fredrik Lindblad.
+\newblock {SmallCheck} and {Lazy SmallCheck}: Automatic exhaustive testing for
+  small values.
+\newblock In \emph{Haskell Symposium}, 2008.
+
+\bibitem[Shostak(1984)]{shostak1984}
+Robert~E. Shostak.
+\newblock Deciding combinations of theories.
+\newblock \emph{Journal of the ACM}, 31\penalty0 (1):\penalty0 1--12, 1984.
+
+\bibitem[Tuerk(2010)]{tuerk2010loops}
+Thomas Tuerk.
+\newblock Local reasoning about while-loops.
+\newblock In \emph{VSTTE Theory Workshop}, 2010.
+
+\bibitem[{Unison Computing}()]{unison}
+{Unison Computing}.
+\newblock The {Unison} language.
+\newblock \url{https://www.unison-lang.org}.
+
+\bibitem[Willsey et~al.(2021)Willsey, Nandi, Wang, Flatt, Tatlock, and
+  Panchekha]{willsey2021egg}
+Max Willsey, Chandrakana Nandi, Yisu~Remy Wang, Oliver Flatt, Zachary Tatlock,
+  and Pavel Panchekha.
+\newblock egg: Fast and extensible equality saturation.
+\newblock \emph{Proceedings of the ACM on Programming Languages}, 5\penalty0
+  (POPL), 2021.
+
+\end{thebibliography}

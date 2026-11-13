@@ -1,6 +1,6 @@
 // the equations of a definition, one per case of its outer matches and conditionals, as Isabelle's function package
-// makes them, so that a recursive function rewrites where the class of its argument has a constructor, see prove.md,
-// section 6, which is not versioned
+// makes them, so that a recursive function rewrites where the class of its argument has a constructor, see ideas/prove.md,
+// section 6
 //
 // The walk keeps the variables of the equation as levels, the formals first, so that the value of a leaf replaces the
 // variable that a match takes apart by plain replace, and closes them at the end. A match on a variable, or on a tuple of

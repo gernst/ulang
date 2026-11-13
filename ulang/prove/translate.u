@@ -1,5 +1,4 @@
-// the translation of the programs that ulang/check/check.u checks into the terms of the prover, see prove.md, which is not
-// versioned
+// the translation of the programs that ulang/check/check.u checks into the terms of the prover, see ideas/prove.md
 //
 // Checked programs have resolved names, which the terms keep: only the formals and the variables of lambdas, lets, and
 // patterns become indices, by an environment of their names, the innermost first.
@@ -16,7 +15,7 @@ data Lemma :=
   case Lemma(name: Name, goal: Seq, proof: Option[ProofTerm], claim: Bool)
 
 // a proof over the terms of the prover, whose variables are the formals, the locals, and the variables of the cases
-// around it, as indices, the innermost first, at the position where it starts, see prove.md, section 4
+// around it, as indices, the innermost first, at the position where it starts, see ideas/prove.md, section 4
 data ProofTerm :=
   case ProofTerm(steps: List[StepTerm], split: Option[SplitTerm], pos: Pos)
 
