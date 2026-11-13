@@ -2107,43 +2107,49 @@ procedure parse_operator(
     raise expected("operator", toks)
   end
 
-// C or C(name: T, rest: U), whose arguments are named fields
+// C or C(name: T, rest: U), whose arguments are named fields, a constructor of the datatype after the constructors
+// with the fields seen, whose errors are at the field
 procedure parse_constr(
   in  notation: Notation,
       params: List[Id],
+      datatype: Id,
+      seen: List[Field],
   out constr: Constr,
   ref toks: Tokens
 ) :=
-  local name: Id, fields: List[Field] := List(), pos := head_pos(toks)
+  local name: Id, placed: List[Pos * Field] := List(), before: List[Field] := List(), pos := head_pos(toks)
   call parse_name_or_op(out name, ref toks)
   call check_value_name(in name, pos)
   if at_kw(toks, "(") then
     call advance(ref toks)
-    call parse_enclosed(in notation, params, parse_field, ")", out fields, ref toks)
+    call parse_enclosed(in notation, params, parse_field, ")", out placed, ref toks)
   end
-  assign constr := Constr(unqualified(name), fields)
-  match repeated(List(for field in fields yield field.name))
-    case Some(f) =>
-      raise ParseError("repeated field " ++ f ++ " of " ++ name, head_pos(toks))
-    case None =>
-      skip
+  for (at, field) in placed do
+    if exists(before, lambda other => other.name == field.name) then
+      raise ParseError("repeated field " ++ field.name ++ " of " ++ name, at)
+    end
+    if exists(seen, lambda other => conflicts(field, other)) then
+      raise ParseError("field " ++ field.name ++ " of " ++ datatype ++ " has different types", at)
+    end
+    assign before := before ++ List(field)
   end
+  assign constr := Constr(unqualified(name), before)
 
-// a field of a constructor, name: T
+// a field of a constructor, name: T, at its name
 procedure parse_field(
   in  notation: Notation,
       params: List[Id],
-  out field: Field,
+  out placed: Pos * Field,
   ref toks: Tokens
 ) :=
-  local name: Id, typ: Type
+  local name: Id, typ: Type, pos := head_pos(toks)
   if second_token(toks) != TKw(":") then
-    raise ParseError("fields of constructors have names, as in C(name: T)", head_pos(toks))
+    raise ParseError("fields of constructors have names, as in C(name: T)", pos)
   end
   call   parse_name(out name, ref toks)
   call   advance(ref toks)
   call   parse_type(in notation, params, out typ, ref toks)
-  assign field := Field(name, typ)
+  assign placed := (pos, Field(name, typ))
 
 // data T[A] := case C(f: A) case D, with at least one constructor, as the cases of a match over T, whose fields the
 // checker gives the accessors T.f and the updaters T.f:=
@@ -2160,19 +2166,15 @@ procedure parse_data(
   if not at_case(toks) then
     raise ParseError("each constructor follows case, as in data T := case C", head_pos(toks))
   end
-  call parse_constrs(in notation, params, out constrs, ref toks)
-  match differing_field(List(for k in constrs for field in k.at.that.fields yield field))
-    case Some(f) =>
-      raise ParseError("field " ++ f ++ " of " ++ name ++ " has different types", head_pos(toks))
-    case None =>
-      skip
-  end
+  call   parse_constrs(in notation, params, name, List(), out constrs, ref toks)
   assign cmds := List(CData(unqualified(name), params, constrs))
 
-// the constructors of a datatype, each after case, at its keyword case
+// the constructors of the datatype after those with the fields seen, each after case, at its keyword case
 procedure parse_constrs(
   in  notation: Notation,
       params: List[Id],
+      datatype: Id,
+      seen: List[Field],
   out constrs: List[Doc[Constr]],
   ref toks: Tokens
 ) :=
@@ -2181,8 +2183,8 @@ procedure parse_constrs(
     call   parse_doc(out doc, ref toks)
     assign pos := head_pos(toks)
     call   advance(ref toks)
-    call   parse_constr(in notation, params, out constr, ref toks)
-    call   parse_constrs(in notation, params, out rest, ref toks)
+    call   parse_constr(in notation, params, datatype, seen, out constr, ref toks)
+    call   parse_constrs(in notation, params, datatype, seen ++ constr.fields, out rest, ref toks)
     assign constrs := List(Doc(doc, AOk(pos, constr)); rest)
   else
     assign constrs := List()
@@ -2190,19 +2192,6 @@ procedure parse_constrs(
 
 function conflicts(field: Field, other: Field): Bool :=
   other.name == field.name and other.typ != field.typ
-
-// a field with different types in different constructors, if any
-function differing_field(fields: List[Field]): Option[Id] :=
-  match fields
-    case List() =>
-      None
-
-    case List(field; rest) =>
-      if exists(rest, lambda other => conflicts(field, other)) then
-        Some(field.name)
-      else
-        differing_field(rest)
-  end
 
 // a function, which is a signature without :=, or with := and a spec that the next command follows
 procedure parse_function(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=

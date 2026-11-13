@@ -78,7 +78,7 @@ test duplicate_notation() :=
   end
 
 test field_types() :=
-  assert raises ParseError("field v of T has different types", Pos(4, 1)) do
+  assert raises ParseError("field v of T has different types", Pos(3, 10)) do
     call check_text(in "ulang/test/errors/field-types.u", List("data T :=", "  case A(v: Int)", "  case B(v: Str)"))
   end
 
@@ -208,7 +208,7 @@ test raises_without_do() :=
   end
 
 test repeated_field() :=
-  assert raises ParseError("repeated field v of A", Pos(3, 3)) do
+  assert raises ParseError("repeated field v of A", Pos(2, 18)) do
     call check_text(in "ulang/test/errors/repeated-field.u", List("data T :=", "  case A(v: Int, v: Int)", "  case B"))
   end
 
