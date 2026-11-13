@@ -47,6 +47,12 @@ test comment_in_argument() :=
       "    2))"))
   end
 
+// a character is shown with its escape, as a literal is written
+test character_token() :=
+  assert raises ParseError("declaration expected but '\\n' found", Pos(1, 27)) do
+    call check_text(in "ulang/test/errors/character-token.u", List("function f(): Char := 'a' '\\n'"))
+  end
+
 test data_bar() :=
   assert raises ParseError("each constructor follows case, as in data T := case C", Pos(3, 3)) do
     call check_text(in "ulang/test/errors/data-bar.u", List(
@@ -72,7 +78,7 @@ test duplicate_notation() :=
   end
 
 test field_types() :=
-  assert raises ParseError("field v of T has different types", Pos(4, 1)) do
+  assert raises ParseError("field v of T has different types", Pos(3, 10)) do
     call check_text(in "ulang/test/errors/field-types.u", List("data T :=", "  case A(v: Int)", "  case B(v: Str)"))
   end
 
@@ -89,6 +95,11 @@ test form_value() :=
 test formal_lists() :=
   assert raises ParseError("a function has one list of formals", Pos(1, 19)) do
     call check_text(in "ulang/test/errors/formal-lists.u", List("function f(a: Int)(b: Int): Int :=", "  a + b"))
+  end
+
+test hex_number() :=
+  assert raises ParseError("invalid number; numbers are decimal, as in 55296", Pos(2, 3)) do
+    call check_text(in "ulang/test/errors/hex-number.u", List("function f(): Int :=", "  0xD800"))
   end
 
 test if_without_then() :=
@@ -146,7 +157,7 @@ test list_without_elements() :=
   end
 
 test mixed_literal() :=
-  assert raises ParseError("=> expected but , found", Pos(2, 19)) do
+  assert raises ParseError("=> expected but , found; a Map yields entries k => v", Pos(2, 19)) do
     call check_text(in "ulang/test/errors/mixed-literal.u", List("test r() :=", "  local v := Map(1, 2 => 3)"))
   end
 
@@ -168,6 +179,16 @@ test notation_without_precedence() :=
 test number_as_name() :=
   assert raises ParseError("name expected but 1 found", Pos(1, 10)) do
     call check_text(in "ulang/test/errors/number-as-name.u", List("function 1(): Int :=", "  1"))
+  end
+
+test operator_character() :=
+  assert raises ParseError("unexpected character; an operator consists of the characters !#$%&*+-/:<=>?@^~", Pos(2, 6)) do
+    call check_text(in "ulang/test/errors/operator-character.u", List("function f(): Int :=", "  1 <|> 2"))
+  end
+
+test operator_or() :=
+  assert raises ParseError("unexpected character; the operators of Bool are and, or, and not", Pos(2, 5)) do
+    call check_text(in "ulang/test/errors/operator-or.u", List("function f(b: Bool): Bool :=", "  b || b"))
   end
 
 test operator_before_declaration() :=
@@ -202,7 +223,7 @@ test raises_without_do() :=
   end
 
 test repeated_field() :=
-  assert raises ParseError("repeated field v of A", Pos(3, 3)) do
+  assert raises ParseError("repeated field v of A", Pos(2, 18)) do
     call check_text(in "ulang/test/errors/repeated-field.u", List("data T :=", "  case A(v: Int, v: Int)", "  case B"))
   end
 
@@ -298,7 +319,13 @@ test habits() :=
     ParseError("undeclared operator ::; a list is built and matched as List(x; rest)", Pos(13, 18)),
     ParseError("undeclared operator &&; the operators of Bool are and, or, and not", Pos(14, 24)),
     ParseError("statement expected but break found; a loop ends by its condition or by an exception", Pos(16, 5)),
-    ParseError("statement expected but local found; locals are declared at the start of a body, before its statements", Pos(19, 3)))) do
+    ParseError("statement expected but local found; locals are declared at the start of a body, before its statements", Pos(19, 3)),
+    ParseError("undeclared operator =; equality is ==", Pos(21, 5)),
+    ParseError("expression expected but raise found; functions do not raise, so code that raises is a procedure", Pos(23, 3)),
+    ParseError("the if, or an if inside it, has no else: else expected but function found; an if expression always has its else", Pos(25, 3)),
+    ParseError("=> expected but ) found; a Map yields entries k => v", Pos(27, 26)),
+    ParseError(") expected but , found; modes come in the order in, out, ref, each once before its group, as in ref a, b", Pos(28, 27)),
+    ParseError(") expected but , found; modes come in the order in, out, ref, each once before its group, as in ref a, b", Pos(32, 18)))) do
     call check_text(in "ulang/test/errors/habits.u", List(
       "procedure main() :=",
       "  local x := 1, xs := List(1)",
@@ -318,7 +345,20 @@ test habits() :=
       "    break",
       "  end",
       "  skip",
-      "  local y := 2"))
+      "  local y := 2",
+      "function equals(n: Int): Bool :=",
+      "  n = 1",
+      "function fails(n: Int): Int :=",
+      "  raise n",
+      "function choice(n: Int): Int :=",
+      "  if n == 1 then 2",
+      "function entries(ps: List[Int * Int]): Map[Int, Int] :=",
+      "  Map(for p in ps yield p)",
+      "procedure modes(ref a: Int, out b: Int) :=",
+      "  skip",
+      "procedure calls() :=",
+      "  local a := 1, b := 2",
+      "  call swap(ref a, ref b)"))
   end
 
 // a missing end is reported at the construct that is still open where the parse ends, which the indentation does not
