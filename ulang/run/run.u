@@ -1444,6 +1444,11 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
         os_library(in name, out text)
         outs := List(VStr(text))
 
+      case ("prelude/os.os_library_dir", List()) =>
+        var path: Str
+        os_library_dir(out path)
+        outs := List(VStr(path))
+
       case ("prelude/os.os_list", List(VStr(path))) =>
         var entries: List[Str * Bool]
         os_list(in path, out entries)

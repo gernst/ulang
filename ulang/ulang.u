@@ -696,9 +696,9 @@ test formatted_comments() :=
     "// detached",
     "",
     "procedure main() :=",
-    "  local x := 1 // on a local line",
+    "  let x := 1 // on a local line",
     "  if x == 1 then // after then",
-    "    call os_println(in \"a\") // after a call",
+    "    os_println(in \"a\") // after a call",
     "    // before else",
     "  else",
     "    // after else",
@@ -724,7 +724,7 @@ test formatted_comments() :=
 // a comment that the layout of its part has no place for stands above the line of the part, from where it stays
 test moved_comments() :=
   var p: Source
-  let text := "procedure main() :=\n  assign x := 1 + // inner\n  2\n", moved := "procedure main() :=\n  // inner\n  assign x := 1 + 2\n"
+  let text := "procedure main() :=\n  x := 1 + // inner\n  2\n", moved := "procedure main() :=\n  // inner\n  x := 1 + 2\n"
   parse_file_text(in "a.u", text, out p)
   assert format_program(p) == moved
   parse_file_text(in "a.u", moved, out p)
@@ -756,7 +756,7 @@ function comment_texts(d: Mod): List[Str] :=
   List(for c in d.comments yield c.text)
 
 // the checked program of file and the errors of loading it, at most 20, where formatted requires each file of its unit, the
-// members of its package or file alone if it is a program, to be formatted, after the errors of parsing and checking, and
+// members of its package, to be formatted, after the errors of parsing and checking, and
 // tested loads it with the tests of its lemmas and the enumeration that they call (ulang/test/generate.u)
 procedure check_file(
   in  file: Str,
@@ -815,7 +815,7 @@ procedure load_file(
       errors := List(diagnostic(InternalKind, internal_message(e)))
   end
 
-// the modules of the unit of the main module of source: the members of its package, or main alone if it is a program
+// the modules of the unit of the main module of source: the members of its package, or main alone if it is in none
 function unit_modules(source: Source): List[Id] :=
   match find(source.packages, lambda p => contains(source.main, p.members))
     case Some(p) =>
@@ -887,18 +887,18 @@ test missing_targets() :=
   targets_of(in List(Target("./nosuch", None), Target("nosuch.u", Some("t"))), false, out found)
   assert found == List(Target("nosuch", None), Target("nosuch.u", Some("t")))
 
-// the targets grouped by the load that they need, in the order of their first targets: those of the members of a package,
-// the files with sections of a directory, together, and those of each program, a file without sections, apart
+// the targets grouped by the load that they need, the package of their directory, in the order of their first targets,
+// where a target that cannot be read is a unit of its own, which fails to load
 procedure units_of(in targets: List[Target], out units: List[List[Target]]) :=
   var text: Str, keyed: Buffer[Str * Target] := empty()
   for t in targets do
     try
       os_read_utf8(in t.path, out text)
+      keyed := keyed ++ List((os_dirname(t.path) ++ "/", t))
     catch
       case OsError(_) =>
-        text := ""
+        keyed := keyed ++ List((t.path, t))
     end
-    keyed := keyed ++ List((if has_sections(text) then os_dirname(t.path) ++ "/" else t.path, t))
   end
   units := grouped(List(for k in keyed))
 

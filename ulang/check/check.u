@@ -5536,7 +5536,10 @@ function signature_of(cmd: Cmd): Cmd :=
 
 // the program of the commands cmds of the module main, which imports bag and box, each a package of its own
 function with_bags(cmds: List[Cmd]): Source :=
-  Source(List(natives_prelude(); bags()) ++ List(Mod("main", List("bag", "box"), List(), List(), unplaced(cmds), List())), List(Package("bag", List("bag")), Package("box", List("box"))), "main")
+  Source(List(natives_prelude(); bags()) ++ List(Mod("main", List("bag", "box"), List(), List(), unplaced(cmds), List())), List(
+    Package("prelude", List(library_module("prelude"))),
+    Package("bag", List("bag")),
+    Package("box", List("box"))), "main")
 
 function in_bag(n: Id): Name :=
   Name(Some("bag"), n)

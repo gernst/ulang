@@ -93,13 +93,17 @@ implementation
 function module_in(dir: Str, name: Str): Id :=
   dir ++ "/" ++ slice(name, 0, size(name) - 2)
 
-// the source of the case as the file at path, with the enumeration that the tests of its lemmas call
+// the source of the case as the file at path, the only member of the package of its directory, so that the other files
+// there are not loaded, with the enumeration that the tests of its lemmas call
 procedure parse_case(
   in  path: Str,
       text: Str,
   out source: Source
 ) raises ParseError, OsError :=
-  parse_file_text(in path, text, out source)
+  var here: Str, root: Str
+  os_cwd(out here)
+  project_root(in normal_path(here), out root)
+  parse_texts(in root, os_dirname(path), List(), (module_in(os_dirname(path), os_basename(path)), text), out source)
   load_tester(ref source)
 
 // check_program with the tests of the lemmas

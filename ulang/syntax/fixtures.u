@@ -31,7 +31,8 @@ function lists(): List[Mod] :=
 // the program of the commands cmds after len of the module main, which imports lists
 function with_lists(cmds: List[Cmd]): Source :=
   Source(List(natives_prelude(); lists()) ++ List(
-    Mod("main", List(library_module("list")), List(), List(), unplaced(List(len_fun(); cmds)), List())), List(), "main")
+    Mod("main", List(library_module("list")), List(), List(), unplaced(List(len_fun(); cmds)), List())), List(
+    Package("prelude", List(library_module("prelude"), library_module("list")))), "main")
 
 function len_fun(): Cmd :=
   CFun(unqualified("len"), List("A"), unplaced_vars(List(Var(unqualified("xs"), type_plain_list(TParam("A"))))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(
@@ -47,4 +48,4 @@ function natives_prelude(): Mod :=
 function program_of(cmds: List[Cmd]): Source :=
   Source(List(
     natives_prelude(),
-    Mod("main", List(), List(), List(), unplaced(cmds), List())), List(), "main")
+    Mod("main", List(), List(), List(), unplaced(cmds), List())), List(Package("prelude", List(library_module("prelude")))), "main")
