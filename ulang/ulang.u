@@ -23,8 +23,8 @@ data Request :=
   case RFormat(paths: List[Str])
   // the procedure of the target, main by default
   case RCompile(target: Target, output: Str)
-  // the tests of the project
-  case RCompileTests(output: Str)
+  // the tests of the .u files below the directory, by default the root of the project
+  case RCompileTests(dir: Option[Str], output: Str)
   case RHelp(command: Option[Str])
   // arguments that request does not read, with what is wrong with them
   case RUsage(problem: Str)
@@ -58,8 +58,8 @@ procedure main() :=
     case RCompile(target, output) =>
       call compile_target(in target, output, out status)
 
-    case RCompileTests(output) =>
-      call compile_tests(in output, out status)
+    case RCompileTests(dir, output) =>
+      call compile_tests(in dir, output, out status)
 
     case RHelp(None) =>
       call os_println(in usage())
@@ -148,7 +148,7 @@ function options_request(command: Str, words: List[Str], request: Request): Requ
   else
     request
 
-// the words of compile in any order, the file with its procedure or --tests, and -o with the target
+// the words of compile in any order, the file with its procedure or --tests with a directory, and -o with the target
 function compile_request(words: List[Str], target: Option[Target], tests: Bool, output: Option[Str]): Request :=
   match words
     case List("-o", path; more) =>
@@ -168,12 +168,15 @@ function compile_request(words: List[Str], target: Option[Target], tests: Bool, 
         case (_, None) =>
           RUsage("compile takes -o <target.c> or -o <target.s>")
 
-        case (Some(_), _) if tests =>
-          RUsage("compile --tests takes no file, since it compiles the tests of the project")
+        case (Some(t), Some(path)) if tests =>
+          if t.name == None and not is_source(t.path) then
+            RCompileTests(Some(t.path), path)
+          else
+            RUsage("compile --tests takes a directory, whose packages and programs it compiles, not a file")
 
         case (None, Some(path)) =>
           if tests then
-            RCompileTests(path)
+            RCompileTests(None, path)
           else
             RUsage("compile takes a file or --tests")
 
@@ -202,7 +205,8 @@ test requests() :=
   assert request(List("check")) == RCheck(List())
   assert request(List("lint", "a.u")) == RLint(List("a.u"))
   assert request(List("format", "a.u")) == RFormat(List("a.u"))
-  assert request(List("compile", "-o", "a.c", "--tests")) == RCompileTests("a.c")
+  assert request(List("compile", "-o", "a.c", "--tests")) == RCompileTests(None, "a.c")
+  assert request(List("compile", "--tests", "ulang/test", "-o", "a.c")) == RCompileTests(Some("ulang/test"), "a.c")
   assert request(List("compile", "a.u:go", "-o", "a.c")) == RCompile(Target("a.u", Some("go")), "a.c")
   assert request(List("help", "prove")) == RHelp(Some("prove"))
 
@@ -219,7 +223,8 @@ test usage_errors() :=
   assert request(List("test", "a.u", "--", "-v")) == RTest(List(Target("a.u", None)), List("-v"))
   assert request(List("run", "dir")) == RUsage("run takes a file name.u, not dir")
   assert request(List("compile", "a.u")) == RUsage("compile takes -o <target.c> or -o <target.s>")
-  assert request(List("compile", "a.u", "--tests", "-o", "a.c")) == RUsage("compile --tests takes no file, since it compiles the tests of the project")
+  assert request(List("compile", "a.u", "--tests", "-o", "a.c")) == RUsage("compile --tests takes a directory, whose packages and programs it compiles, not a file")
+  assert request(List("compile", "a.u:t", "--tests", "-o", "a.c")) == RUsage("compile --tests takes a directory, whose packages and programs it compiles, not a file")
   assert request(List("compile", "-o", "a.c")) == RUsage("compile takes a file or --tests")
 
 function commands(): List[Str] :=
@@ -252,7 +257,7 @@ function synopsis(command: Str): Str :=
       "format [<path> ...]"
 
     case "compile" =>
-      "compile (<file>[:<procedure>] | --tests) -o <target.c|target.s>"
+      "compile (<file>[:<procedure>] | --tests [<dir>]) -o <target.c|target.s>"
 
     case _ =>
       "help [<command>]"
@@ -279,7 +284,7 @@ function description(command: Str): Str :=
       "rewrites the files, also below directories, by default the project, as format_program writes them, where lint, check,\n" ++ "and test report the files that differ"
 
     case "compile" =>
-      "translates the file to C, or to assembly for x86-64 if the target ends in .s, whose main calls the procedure, main by default, or with --tests the tests of the project,\n" ++ "whose main takes the arguments of test, without lemmas, and runs them as test does, from the root of the project"
+      "translates the file to C, or to assembly for x86-64 if the target ends in .s, whose main calls the procedure, main by default, or with --tests the tests of the .u files below the directory, by default the root of the project, with its packages and programs,\n" ++ "whose main takes the arguments of test, without lemmas, and runs them as test does, from the root of the project"
 
     case _ =>
       "prints the usage of all commands, or of one"
@@ -559,14 +564,15 @@ procedure compile_target(in target: Target, output: Str, out status: Int) :=
     end
   end
 
-// translates the tests of the project to C, whose main runs them as test does, where each unit is checked as test checks
-// it, and the commands of each module are taken from the unit that it is a member of, with its tests, or else from the
-// first unit that loads it
-procedure compile_tests(in output: Str, out status: Int) :=
+// translates the tests of the .u files below the directory, by default the root of the project, also of those that test
+// runs only compiled, to C, whose main runs them as test does, where each unit is checked as test checks it, and the
+// commands of each module are taken from the unit that it is a member of, with its tests, or else from the first unit that
+// loads it
+procedure compile_tests(in dir: Option[Str], output: Str, out status: Int) :=
   local root: Str, found: List[Target], units: List[List[Target]], q: Prog, errors: List[Diagnostic], files: Buffer[TestFile] := empty(), own: Buffer[At[Cmd]] := empty(), others: Map[Id, List[At[Cmd]]] := empty(), members: Set[Id] := empty()
   assign status := 0
   call   default_path(out root)
-  call   targets_of(in List(), false, out found)
+  call   targets_of(in List(for d in dir yield Target(d, None)), false, out found)
   call   units_of(in found, out units)
   for unit in units do
     call check_file(in first_path(unit), true, out q, errors)
@@ -686,9 +692,9 @@ function unparsable(message: Str): Diagnostic :=
 
 test reformat_errors() :=
   local p: Source, q: Source, other: Source
-  call parse_file_text(in "a.u", "procedure main() :=\n  skip\n", out p)
-  call parse_file_text(in "a.u", "procedure main() :=\n  x := 1\n", out q)
-  call parse_file_text(in "a.u", "procedure go() :=\n  skip\n", out other)
+  call parse_text_recovering(in "procedure main() :=\n  skip\n", out p)
+  call parse_text_recovering(in "procedure main() :=\n  x := 1\n", out q)
+  call parse_text_recovering(in "procedure go() :=\n  skip\n", out other)
   assert reformat_error(p, p) == None
   assert map_option(reformat_error(p, q), lambda d => d.code) == Some("Unparsable")
   assert map_option(reformat_error(p, other), lambda d => d.code) == Some("ParsesDifferently")
