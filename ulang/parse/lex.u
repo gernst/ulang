@@ -13,6 +13,8 @@ data Token :=
   // names and symbols with a fixed meaning, and punctuation
   case TKw(kw: Str)
   case TNum(num: Int)
+  // 0x and hexadecimal digits of either case
+  case THex(num: Int)
   case TStr(text: Str)
   case TChar(char: Char)
   // the lines of a run of comments at the start of lines, in any column, without their markers, joined by newlines,
@@ -177,17 +179,21 @@ procedure lex_name(in text: Str, out tok: Token, ref offset: Int) :=
 procedure lex_number(in text: Str, out tok: Token, ref offset: Int) :=
   local from: Int
   call scan(in text, is_digit, out from, ref offset)
-  if slice(text, from, offset) == "0" and peek(text, offset) == 'x' and hex_digit(peek(text, offset + 1)) != None then
+  if slice(text, from, offset) == "0" and peek(text, offset) == 'x' then
     local digits: Int
     assign offset := offset + 1
     call   scan(in text, lambda c => hex_digit(c) != None, out digits, ref offset)
-    raise LexError("invalid number; numbers are decimal, as in " ++ show(hex_value(slice(text, digits, offset))), position_of(text, from))
-  end
-  match number(slice(text, from, offset))
-    case Some(n) =>
-      assign tok := TNum(n)
-    case None =>
-      raise LexError("invalid number", position_of(text, from))
+    if digits == offset then
+      raise LexError("invalid number; a hexadecimal number has digits after 0x, as in 0xFF", position_of(text, from))
+    end
+    assign tok := THex(hex_value(slice(text, digits, offset)))
+  else
+    match number(slice(text, from, offset))
+      case Some(n) =>
+        assign tok := TNum(n)
+      case None =>
+        raise LexError("invalid number", position_of(text, from))
+    end
   end
 
 // the value of a hexadecimal digit, of either case, if c is one
@@ -416,6 +422,8 @@ test lex_literals() :=
   local toks: Tokens
   call lex(in "\"a\\\"b\\n\" \"\" 'c' '\\'' List(x; xs)", out toks)
   assert tokens(toks) == List(TStr("a\"b\n"), TStr(""), TChar('c'), TChar('\'')) ++ list_tokens()
+  call lex(in "0xD800 0x00ff 0x0 0", out toks)
+  assert tokens(toks) == List(THex(55296), THex(255), THex(0), TNum(0), TEnd)
 
 // every escape as show writes it, in the interpreter by format_lit of ulang/format/format.u and quote, in compiled programs by
 // the runtime, and read back by the lexer
@@ -447,6 +455,8 @@ test lex_errors() :=
   assert e == LexError("invalid escape", Pos(1, 2))
   call lex_error(in "'ab'", out e)
   assert e == LexError("invalid character", Pos(1, 1))
+  call lex_error(in "x := 0x", out e)
+  assert e == LexError("invalid number; a hexadecimal number has digits after 0x, as in 0xFF", Pos(1, 6))
 
 // comments after code and detached by a blank line document nothing, while a doc in any column is one
 test lex_misplaced_comments() :=

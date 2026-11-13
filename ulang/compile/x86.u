@@ -261,6 +261,10 @@ procedure literal(in lit: Lit, ref e: Emit) :=
         call call_runtime(in "u_mk_int_str", List(AAddr(ORip(digits))), ref e)
       end
 
+    // check translates hexadecimal numbers to LInt
+    case LHex(_) =>
+      raise Unexpected("hexadecimal literal")
+
     case LStr(text) =>
       local symbol: Str
       call str_object(in text, out symbol, ref e)

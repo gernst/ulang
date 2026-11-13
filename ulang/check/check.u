@@ -357,11 +357,23 @@ function literal(v: Lit): Type :=
     case LInt(_) =>
       TInt()
 
+    case LHex(_) =>
+      TInt()
+
     case LStr(_) =>
       TStr()
 
     case LChar(_) =>
       TChar()
+  end
+
+// the literal as the checked program has it, where a hexadecimal number is an LInt
+function checked_lit(lit: Lit): Lit :=
+  match lit
+    case LHex(num) =>
+      LInt(num)
+    case _ =>
+      lit
   end
 
 function logic(): Scheme :=
@@ -1749,7 +1761,7 @@ procedure infer_node(
 ) :=
   match expr
     case ELit(lit) =>
-      assign res := expr, typ := literal(lit)
+      assign res := ELit(checked_lit(lit)), typ := literal(lit)
 
     case EName(name, a) =>
       local z: Var, w: Type
@@ -2799,7 +2811,7 @@ procedure pattern_binders(
 
     case PLit(lit) =>
       call   unify(in literal(lit), t, ref s)
-      assign typed_pat := AOk(pos, pat), xs := List()
+      assign typed_pat := AOk(pos, PLit(checked_lit(lit))), xs := List()
 
     case PName(name, typ) =>
       if overloads(s, name, lambda n => is_pattern_name(s.sig, n)) != List() then

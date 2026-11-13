@@ -1024,6 +1024,10 @@ function print_val(v: Lit): Str :=
     case LInt(num) =>
       show(num)
 
+    // check translates hexadecimal numbers to LInt, and a function cannot raise Unexpected
+    case LHex(num) =>
+      show(num)
+
     case LStr(text) =>
       quote(text)
 
