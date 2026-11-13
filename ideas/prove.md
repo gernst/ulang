@@ -126,7 +126,7 @@ lemma remainder_of_halves(in m: Int) :=
 
 | Split | Cases |
 |---|---|
-| `induction x case p => … end` | on a formal of a datatype: a case per constructor, with the fields as variables and the hypothesis for each recursive field, generalized over the other formals; on a formal of type `Int`: the case `n < 0`, which must close, `case 0`, and a catch-all for `n > 0` with the hypothesis for `n - 1`; the hypothesis is called at any argument that the facts make the field or `n - 1` |
+| `induction x case p => … end` | on a formal of a datatype: a case per constructor, with the fields as variables and the hypothesis for each recursive field; on a formal of type `Int`: the case `n < 0`, which must close, `case 0`, and a catch-all for `n > 0` with the hypothesis for `n - 1`; the hypotheses decrease in the lexicographic order of the formals by their first induction in the proof, so a hypothesis keeps the formals before its own at their values and is generalized over those after it, which rules out cycles of inductions on different formals, nested or in different cases (`inductions`, `fixed`, and `hypothesis` of `ulang/prove/proof.u`); the hypothesis of each induction around a step is called at any argument that the facts make the field or `n - 1`, with the formals before its own unchanged |
 | `match e case p => … end` | a case per constructor of the type of `e` with the fact `e == p`, or per literal with the negations of those before |
 | `if c then … else … end` | `c` and `not c`; the `else` may be left out if that case closes |
 
