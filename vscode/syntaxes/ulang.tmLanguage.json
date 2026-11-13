@@ -246,7 +246,7 @@
         },
         {
           "name": "constant.numeric.ulang",
-          "match": "\\b[0-9]+\\b"
+          "match": "\\b(0x[0-9A-Fa-f]+|[0-9]+)\\b"
         },
         {
           "name": "variable.language.wildcard.ulang",

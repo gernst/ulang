@@ -260,6 +260,9 @@ function node_out(notation: Notation, indent: Str, expr: At[Expr]): Out :=
     case ELit(LInt(num)) if num < 0 =>
       Out(show(num), Negative)
 
+    case ELit(LHex(num)) if num < 0 =>
+      Out(hex_text(num), Negative)
+
     case ELit(lit) =>
       Out(format_lit(lit), Atom)
 
@@ -516,6 +519,9 @@ function pattern_out(notation: Notation, indent: Str, pat: Pat): Out :=
 
     case PLit(LInt(num)) if num < 0 =>
       Out(show(num), Negative)
+
+    case PLit(LHex(num)) if num < 0 =>
+      Out(hex_text(num), Negative)
 
     case PLit(lit) =>
       Out(format_lit(lit), Atom)
@@ -1056,6 +1062,8 @@ test operators_parenthesized() :=
   assert source(expr_app("-", List(expr_app("not", List(a))))) == "-(not a)"
   assert source(expr_app("*", List(a, expr_app("not", List(b))))) == "a * (not b)"
   assert source(expr_app("-", List(a, expr_int(-1)))) == "a - -1"
+  assert source(expr_app("-", List(a, nowhere(ELit(LHex(-16)))))) == "a - -0x10"
+  assert source(expr_app("+", List(nowhere(ELit(LHex(255))), a))) == "0xFF + a"
   assert source(nowhere(EField(expr_int(-1), "f"))) == "(-1).f"
   assert source(expr_app("+", List(nowhere(EIte(a, b, c)), expr_int(1)))) == "(if a then b else c) + 1"
 
@@ -1124,6 +1132,9 @@ function format_lit(lit: Lit): Str :=
 
     case LInt(num) =>
       show(num)
+
+    case LHex(num) =>
+      hex_text(num)
 
     case LStr(text) =>
       quote(text)

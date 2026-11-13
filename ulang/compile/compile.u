@@ -246,6 +246,10 @@ function literal_value(l: Lit): CExpr :=
     case LInt(num) =>
       int_value(num)
 
+    // check translates hexadecimal numbers to LInt, and a function cannot raise Unexpected
+    case LHex(num) =>
+      int_value(num)
+
     case LStr(text) =>
       c_call("u_mk_lit", List(CeStr(text)))
 

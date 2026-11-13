@@ -166,6 +166,24 @@ test negative_literals() :=
   assert (-2) + 5 == 3 and 2 * -3 == -6 and -x == -3 and -(1 + 2) == -3
   assert List(sign_name(-5), sign_name(0), sign_name(7)) == List("negative", "zero", "positive")
 
+// 0x and hexadecimal digits of either case are a number, also negative and in patterns, which show writes in decimal
+function hex_name(n: Int): Str :=
+  match n
+    case 0xFF =>
+      "byte"
+
+    case -0x10 =>
+      "minus sixteen"
+
+    case _ =>
+      show(n)
+  end
+
+test hex_literals() :=
+  assert 0xFF == 255 and 0xD800 == 55296 and 0x0 == 0 and (-0x10) == -16 and 0x10 - 1 == 15
+  assert List(hex_name(255), hex_name(-16), hex_name(0x11)) == List("byte", "minus sixteen", "17")
+  assert 0xFFFFFFFFFFFFFFFFFF == 4722366482869645213695
+
 function fact(n: Int): Int :=
   if n == 0 then 1 else n * fact(n - 1)
 

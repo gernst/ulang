@@ -17,10 +17,11 @@ data Project :=
 // where each path is that of its directory, /, and its name
 procedure os_walk(in path: Str, out files: List[Str]) raises OsError
 
-// the path of name in dir, which may end with /
+// the path of name in dir, which may end with /, and name itself if dir is empty
 function os_join(dir: Str, name: Str): Str :=
   example os_join("a", "b") == "a/b"
   example os_join("a/", "b") == "a/b"
+  example os_join("", "b") == "b"
 
 // the last part of a path, after its last /
 function os_basename(path: Str): Str :=
@@ -111,10 +112,7 @@ procedure os_walk_entries(
   end
 
 function os_join(dir: Str, name: Str): Str :=
-  if size(dir) > 0 and at(size(dir) - 1, dir) == '/' then
-    dir ++ name
-  else
-    dir ++ "/" ++ name
+  if dir == "" or ends_with(dir, "/") then dir ++ name else dir ++ "/" ++ name
 
 function os_basename(path: Str): Str :=
   value_or(last(split(path, '/')), path)

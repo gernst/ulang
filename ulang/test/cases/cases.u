@@ -27,13 +27,6 @@ procedure check_text(
       lines: List[Str]
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError
 
-// the errors of checking the case, all of them, in the order of the commands
-procedure check_text_all(
-  in  path: Str,
-      lines: List[Str],
-  out errors: List[TypeError]
-) raises ParseError, OsError, InternalError
-
 // the errors of parsing the case and of checking its commands that parse, as check does for a file with parse errors
 procedure check_text_partial(
   in  path: Str,
@@ -42,11 +35,13 @@ procedure check_text_partial(
       errors: List[TypeError]
 ) raises ParseError, OsError, InternalError
 
-// the checked program of the case, which holds its errors
+// the checked program of the case, which holds its errors, and the errors of checking it, all of them, in the order of the
+// commands
 procedure checked_text(
   in  path: Str,
       lines: List[Str],
-  out q: Prog
+  out q: Prog,
+      errors: List[TypeError]
 ) raises ParseError, OsError, InternalError
 
 // load_text, then the tests of the case
@@ -69,7 +64,7 @@ procedure prove_text(
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError, OpenLemma, OpenTermination
 
 // load_text of several modules: the members of the package of the directory dir from the root, each its name and lines,
-// and main, the name and lines of the main file, which is one of them or a program in dir
+// and main, the name and lines of the main file, which is one of them or a program in dir, each of them formatted
 procedure load_texts(
   in  dir: Str,
       members: List[Str * List[Str]],
@@ -120,16 +115,6 @@ procedure check_text(
   local main: Id, q: Prog
   call load_text(in path, lines, out main, q)
 
-procedure check_text_all(
-  in  path: Str,
-      lines: List[Str],
-  out errors: List[TypeError]
-) raises ParseError, OsError, InternalError :=
-  local source: Source, q: Prog
-  call parse_file_text(in path, text_of(lines), out source)
-  call require_parsed(in source)
-  call check_all(in source, out q, errors)
-
 procedure check_text_partial(
   in  path: Str,
       lines: List[Str],
@@ -144,9 +129,10 @@ procedure check_text_partial(
 procedure checked_text(
   in  path: Str,
       lines: List[Str],
-  out q: Prog
+  out q: Prog,
+      errors: List[TypeError]
 ) raises ParseError, OsError, InternalError :=
-  local source: Source, errors: List[TypeError]
+  local source: Source
   call parse_file_text(in path, text_of(lines), out source)
   call require_parsed(in source)
   call check_all(in source, out q, errors)
@@ -163,8 +149,8 @@ procedure run_text_despite_errors(
   in  path: Str,
       lines: List[Str]
 ) raises ParseError, InternalError, OsError, Thrown, RuntimeError :=
-  local q: Prog
-  call checked_text(in path, lines, out q)
+  local q: Prog, errors: List[TypeError]
+  call checked_text(in path, lines, out q, errors)
   call run_program(in q)
 
 procedure prove_text(
@@ -190,6 +176,9 @@ procedure load_texts(
       call parse_texts(in root, dir, List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), out source)
       call require_parsed(in source)
       call check_program(in source, out q)
+      for (m, ls) in members do
+        call require_formatted(in source, module_in(dir, m), text_of(ls))
+      end
       call require_formatted(in source, source.main, text_of(lines))
   end
 

@@ -194,14 +194,14 @@ function measure_slots(decls: Decls, names: List[Name * Int]): List[Slot] :=
       let common := List(for i in range(0, n) if forall(formals, lambda fs => is_datatype(decls, at(i, from_list(fs)).typ)) yield Slot(List(for fs in formals yield Size(EBound(size(fs) - 1 - i))), false)) in
       let k := size(formals) in
       let ranks := List(
-        Slot(List(for i in range(0, k) yield int_term(i + 1)), true),
-        Slot(List(for i in range(0, k) yield int_term(k - i)), true)) in
+        Slot(List(for i in range(0, k) yield EInt(i + 1)), true),
+        Slot(List(for i in range(0, k) yield EInt(k - i)), true)) in
       List(Slot(List(for fs in formals yield sizes_sum(decls, fs)), false)) ++ common ++ ranks
   end
 
 // the sum of the sizes of the formals of datatypes, for mutual recursions whose functions take them at different places
 function sizes_sum(decls: Decls, fs: List[Var]): Term :=
-  foldl(size_measures(decls, fs), int_term(0), lambda acc, m => Plus(acc, m))
+  foldl(size_measures(decls, fs), EInt(0), lambda acc, m => Plus(acc, m))
 
 function size_measures(decls: Decls, fs: List[Var]): List[Term] :=
   let n := size(fs) in
@@ -210,7 +210,7 @@ function size_measures(decls: Decls, fs: List[Var]): List[Term] :=
 function int_measures(fs: List[Var]): List[Term] :=
   let n := size(fs) in
   let ints := List(for (x, i) in zip(fs, range(0, n)) if x.typ == TInt() yield EBound(n - 1 - i)) in
-  ints ++ List(for x in ints yield Minus(ELit(LInt(0)), x)) ++ List(for x in ints for y in ints if x != y yield Minus(y, x)) ++ List(for x in ints yield EApp(EFun(Name(Some("prelude/prelude"), "abs")), List(x)))
+  ints ++ List(for x in ints yield Minus(EInt(0), x)) ++ List(for x in ints for y in ints if x != y yield Minus(y, x)) ++ List(for x in ints yield Abs(x))
 
 // the differences of the sides of the comparisons in the conditions of the ifs of the body outside its matches and
 // lambdas, where the formals are the only indices, both ways, of the comparisons of which one side is an integer, as
@@ -225,9 +225,6 @@ function guard_measures(fs: List[Var], body: Term): List[Term] :=
 
 function comparison_measures(fs: List[Var], cond: Term): List[Term] :=
   match cond
-    case EApp(EFun(name), List(a, b)) if is_comparison(name) and (is_int_term(fs, a) or is_int_term(fs, b)) =>
-      List(Minus(b, a), Minus(a, b))
-
     case Not(c) =>
       comparison_measures(fs, c)
 
@@ -238,11 +235,31 @@ function comparison_measures(fs: List[Var], cond: Term): List[Term] :=
       comparison_measures(fs, c) ++ comparison_measures(fs, d)
 
     case _ =>
-      List()
+      match comparison_sides(cond)
+        case Some((a, b)) if is_int_term(fs, a) or is_int_term(fs, b) =>
+          List(Minus(b, a), Minus(a, b))
+        case _ =>
+          List()
+      end
   end
 
-function is_comparison(name: Name): Bool :=
-  name == Name(None, "<") or name.module == Some("prelude/prelude") and contains(name.base, List("<=", ">", ">="))
+function comparison_sides(t: Term): Option[Term * Term] :=
+  match t
+    case Less(a, b) =>
+      Some((a, b))
+
+    case LessEq(a, b) =>
+      Some((a, b))
+
+    case Greater(a, b) =>
+      Some((a, b))
+
+    case GreaterEq(a, b) =>
+      Some((a, b))
+
+    case _ =>
+      None
+  end
 
 // a term of type Int: an Int formal, a literal, or arithmetic over them
 function is_int_term(fs: List[Var], t: Term): Bool :=
@@ -250,7 +267,7 @@ function is_int_term(fs: List[Var], t: Term): Bool :=
     case EBound(index) =>
       index < size(fs) and at(size(fs) - 1 - index, from_list(fs)).typ == TInt()
 
-    case ELit(LInt(_)) =>
+    case EInt(_) =>
       true
 
     case Plus(a, b) =>
@@ -305,7 +322,7 @@ function first_slot(decls: Decls, names: List[Name * Int], slots: List[Slot], si
 function is_strict(decls: Decls, names: List[Name * Int], slot: Slot, site: CallSite): Bool :=
   match measures_at(names, slot, site)
     case Some((before, after)) =>
-      is_valid(decls, site, List(Less(after, before)) ++ (if slot.int then List(Less(ELit(LInt(0)), before)) else List()))
+      is_valid(decls, site, List(Less(after, before)) ++ (if slot.int then List(Less(EInt(0), before)) else List()))
     case None =>
       false
   end
@@ -313,7 +330,7 @@ function is_strict(decls: Decls, names: List[Name * Int], slot: Slot, site: Call
 function is_weak(decls: Decls, names: List[Name * Int], slot: Slot, site: CallSite): Bool :=
   match measures_at(names, slot, site)
     case Some((before, after)) =>
-      is_valid(decls, site, List(Not(Less(before, after))))
+      is_valid(decls, site, List(LessEq(after, before)))
     case None =>
       false
   end
@@ -377,4 +394,4 @@ function is_valid(decls: Decls, site: CallSite, goals: List[Term]): Bool :=
   let accesses := Set(for t in r.path ++ goals for a in accesses_in(t) yield a) in
   let fields := List(for a in accesses for x in accessed(a) yield Less(Size(a), Size(x))) in
   let assms := List(for c in r.path ++ fields yield Atom(rebind(op, 0, c))) in
-  simplify(decls, Seq(r.vars, assms, List(Concl(List(), List(for g in goals yield Atom(rebind(op, 0, g))))))) == true_seq()
+  simplify(decls, Seq(r.vars, assms, List(Concl(List(), List(for g in goals yield Atom(rebind(op, 0, g))))))) == TrueSeq()
