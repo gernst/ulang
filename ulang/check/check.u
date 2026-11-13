@@ -1350,11 +1350,6 @@ procedure same_length(in owner: Str, unit: Str, m: Int, n: Int, ref s: State) :=
     call report(in CountMismatch(owner, unit, m, n), ref s)
   end
 
-procedure arguments(in n: Name, k: Int, args: List[Type]) :=
-  if size(args) != k then
-    raise SortArity(n, k, size(args))
-  end
-
 // expands type definitions and replaces holes by fresh unknowns
 procedure normalize(in t: Type, out u: Type, ref s: State) :=
   match t
@@ -1415,17 +1410,23 @@ procedure normalize_sort(
   ref s: State
 ) :=
   match data_of(s.sig, n)
-    case Some(k) =>
+    case Some(k) if size(args) != k =>
+      call   report(in SortArity(n, k, size(args)), ref s)
+      assign u := TError
+
+    case Some(_) =>
       local us: List[Type]
-      call   arguments(in n, k, args)
       call   normalizes(in args, out us, ref s)
       assign u := TSort(n, us)
 
     case None =>
       match type_alias_of(s.sig, n)
+        case Some(alias) if size(args) != size(alias.params) =>
+          call   report(in SortArity(n, size(alias.params), size(args)), ref s)
+          assign u := TError
+
         case Some(alias) =>
           local us: List[Type]
-          call   arguments(in n, size(alias.params), args)
           call   normalizes(in args, out us, ref s)
           assign u := subst(alias.typ, zip(params(alias.params), us))
 

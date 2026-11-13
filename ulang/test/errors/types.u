@@ -12,7 +12,7 @@ test add_bool() :=
   end
 
 test alias_arity() :=
-  assert raises Located(None, Pos(4, 1), SortArity(Name(Some("ulang/test/errors/alias-arity"), "P"), 1, 0)) do
+  assert raises Located(None, Pos(4, 12), SortArity(Name(Some("ulang/test/errors/alias-arity"), "P"), 1, 0)) do
     call check_text(in "ulang/test/errors/alias-arity.u", List("type P[A] :=", "  A -> A", "", "function f(x: P): Int :=", "  0"))
   end
 
@@ -552,9 +552,18 @@ test rigid_params() :=
   end
 
 test sort_arity() :=
-  assert raises Located(None, Pos(1, 1), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1)) do
+  assert raises Located(None, Pos(1, 12), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1)) do
     call check_text(in "ulang/test/errors/sort-arity.u", List("function f(x: Int[Int]): Int :=", "  0"))
   end
+
+// a type of the wrong arity in a body is reported, and the command checked on
+test sort_arity_in_body() :=
+  local q: Prog, errors: List[TypeError]
+  call checked_text(in "ulang/test/errors/sort-arity-in-body.u", List(
+    "procedure p() :=",
+    "  local x: List[Int, Int] := List(1), y := 1 + true",
+    "  assign x := x"), out q, errors)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("SortArity", Pos(2, 9)), ("Mismatch", Pos(2, 48)))
 
 test test_params() :=
   assert raises Located(None, Pos(1, 1), TestParams("sorted")) do
