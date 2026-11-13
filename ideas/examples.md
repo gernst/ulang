@@ -1,7 +1,7 @@
 # Ideas for examples
 
 Programs that show ulang on tasks of real software, beside `examples/words.u`, the most frequent words of files, `examples/csv.u`, the relational algebra on CSV files over `library/csv`, and `examples/grep.u`, over the regular expressions of `library/regex`.
-What `os` offers bounds them: files, arguments, printing, and directories, but no processes, clock, network, or bytes (Library 1 of `ideas/library.md`), so most are tools from text to text.
+What `os` offers bounds them: files, arguments, printing, and directories, and bytes, but no processes, clock, or network, so most are tools from text or bytes to text.
 
 ## Within the language as it is
 

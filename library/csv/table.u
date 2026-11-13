@@ -62,7 +62,7 @@ procedure parse_table(in text: Str, out table: Table) raises CsvError :=
 
 procedure read_table(in path: Str, out table: Table) raises OsError, CsvError :=
   local text: Str
-  call os_read(in path, out text)
+  call os_read_utf8(in path, out text)
   call parse_table(in text, out table)
 
 function format_table(table: Table): Str :=

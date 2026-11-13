@@ -219,7 +219,7 @@ test notations() :=
 
 // characters, escapes, and the builtins on strings and characters
 test characters() :=
-  assert ord('a') == 97
+  assert int('a') == 97
   assert chr(98) == 'b'
   assert chars("ab") == List('a', 'b')
   assert str(List('h', 'i')) == "hi"
@@ -260,7 +260,7 @@ test string_functions() :=
 // strings are sequences of code points, of which a character is one, in UTF-8 in files
 test code_points() :=
   assert size("ä→") == 2 and at(0, "ä→") == 'ä' and at(1, "ä→") == '→' and get(1, "ä→") == Some('→')
-  assert ord('ä') == 228 and ord('→') == 8594 and chr(8594) == '→' and ord(chr(128512)) == 128512
+  assert int('ä') == 228 and int('→') == 8594 and chr(8594) == '→' and int(chr(128512)) == 128512
   assert chars("aä→") == List('a', 'ä', '→') and str(chars("aä→😀")) == "aä→😀" and str(List(chr(1000))) == "Ϩ"
   assert slice("aä→😀b", 1, 4) == "ä→😀" and slice("a→b", 2, 3) == "b" and slice("→b", 1, 2) == "b"
   assert contains('→', "a→") and not contains('ä', "a→") and split("a→b→", '→') == List("a", "b", "")
@@ -276,7 +276,22 @@ test no_characters() :=
   assert raises NoCharacter(1114112) do
     local c := chr(1114112)
   end
-  assert ord(chr(1114111)) == 1114111 and ord(chr(57344)) == 57344
+  assert int(chr(1114111)) == 1114111 and int(chr(57344)) == 57344
+
+// bytes, made from and read as integers, and the UTF-8 of strings
+test bytes() :=
+  assert int(byte(0)) == 0 and int(byte(255)) == 255 and byte(1) < byte(2) and compare(byte(7), byte(7)) == 0
+  assert show(byte(65)) == "byte(65)" and show(Array(byte(1), byte(2))) == "Array(byte(1), byte(2))"
+  assert encode_utf8("aä→😀") == Array(for n in List(97, 195, 164, 226, 134, 146, 240, 159, 152, 128) yield byte(n))
+  assert decode_utf8(encode_utf8("aä→😀")) == Some("aä→😀") and decode_utf8(Array()) == Some("")
+  assert decode_utf8(Array(byte(255))) == None and decode_utf8(Array(byte(195))) == None
+  assert decode_utf8(Array(byte(237), byte(160), byte(128))) == None
+  assert raises NoByte(256) do
+    local b := byte(256)
+  end
+  assert raises NoByte(-1) do
+    local b := byte(-1)
+  end
 
 test division_by_zero() :=
   assert raises DivisionByZero do

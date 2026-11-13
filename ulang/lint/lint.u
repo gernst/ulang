@@ -372,7 +372,7 @@ function is_plain(expr: At[Expr]): Bool :=
   end
 
 function is_capitalized(name: Id): Bool :=
-  size(name) > 0 and ord(at(0, name)) >= ord('A') and ord(at(0, name)) <= ord('Z')
+  size(name) > 0 and int(at(0, name)) >= int('A') and int(at(0, name)) <= int('Z')
 
 // the handler at pos swallows what it catches if its body is skip
 function swallowed(pos: Pos, body: At[Stmt]): List[Warning] :=

@@ -185,7 +185,7 @@ procedure digits(out ds: List[Char], ref s: Cursor) :=
   assign ds := reverse(acc)
 
 function to_int(ds: List[Char]): Int :=
-  foldl(ds, 0, lambda n, d => 10 * n + ord(d) - ord('0'))
+  foldl(ds, 0, lambda n, d => 10 * n + int(d) - int('0'))
 
 // -? (0 | [1-9][0-9]*) (. [0-9]+)? ([eE] [+-]? [0-9]+)?
 procedure number(out j: Json, ref s: Cursor) :=
@@ -226,13 +226,13 @@ procedure hex4(out n: Int, ref s: Cursor) :=
     match peek(s)
       case Some(c) =>
         if is_digit(c) then
-          assign n := 16 * n + ord(c) - ord('0')
+          assign n := 16 * n + int(c) - int('0')
         else
           if 'a' <= c and c <= 'f' then
-            assign n := 16 * n + ord(c) - ord('a') + 10
+            assign n := 16 * n + int(c) - int('a') + 10
           else
             if 'A' <= c and c <= 'F' then
-              assign n := 16 * n + ord(c) - ord('A') + 10
+              assign n := 16 * n + int(c) - int('A') + 10
             else
               raise Failed("hex digit expected", s.pos)
             end
@@ -283,7 +283,7 @@ procedure string(out t: Str, ref s: Cursor) :=
         assign acc := List(c; acc)
 
       case Some(c) =>
-        if ord(c) < 32 then
+        if int(c) < 32 then
           raise Failed("control character in string", s.pos)
         end
         assign acc := List(c; acc)

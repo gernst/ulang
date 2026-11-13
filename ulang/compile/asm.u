@@ -324,7 +324,7 @@ function format_asm(file: AsmFile): Str :=
   join("\n", List(for line in file.lines yield format_line(line))) ++ "\n"
 
 function utf8_bytes(text: Str): List[Int] :=
-  List(for c in chars(text) for b in utf8_char(ord(c)) yield b)
+  List(for c in chars(text) for b in utf8_char(int(c)) yield b)
 
 function utf8_char(code: Int): List[Int] :=
   if code < 128 then

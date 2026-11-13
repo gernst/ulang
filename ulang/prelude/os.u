@@ -42,12 +42,8 @@ builtin
 // the arguments of the program, after -- for the interpreter
 procedure os_args(out args: List[Str]) raises OsError
 
-// read and write files, where relative paths start from the working directory, and failures raise OsError
-procedure os_read(in path: Str, out text: Str) raises OsError
-
-procedure os_write(in path: Str, text: Str) raises OsError
-
-// read and write files as text in UTF-8, where invalid UTF-8 raises OsError, and as bytes
+// read and write files as text in UTF-8, where invalid UTF-8 raises OsError, and as bytes, where relative paths start
+// from the working directory, and failures raise OsError
 procedure os_read_utf8(in path: Str, out text: Str) raises OsError
 
 procedure os_write_utf8(in path: Str, text: Str) raises OsError
