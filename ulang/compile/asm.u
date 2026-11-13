@@ -89,6 +89,9 @@ data AsmFile :=
 // the source of the file for GNU as
 function format_asm(file: AsmFile): Str
 
+function format_operand(op: Operand): Str :=
+  example format_operand(OIndex(Rdx, Rcx, 8, 0)) == "(%rdx, %rcx, 8)"
+
 function format_instr(instr: Instr): Str :=
   example format_instr(IMov(OMem(Rbp, -8), OReg(Rax))) == "movq -8(%rbp), %rax"
 
