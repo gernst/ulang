@@ -177,14 +177,6 @@ function sequent(scope: Scope, c: Term): Seq :=
   Seq(List(for l in fixed yield at(l, names)), List(for f in scope.facts yield rebind_seq(Close(fixed), 0, f)), List(
     Concl(List(for l in scope.outs yield at(l, names)), List(Atom(rebind(Close(fixed ++ scope.outs), 0, c))))))
 
-function with_facts(goal: Seq, facts: List[Seq]): Seq :=
-  match goal
-    case Seq(fixed, assms, concls) =>
-      Seq(fixed, facts ++ assms, concls)
-    case Atom(_) =>
-      Seq(List(), facts, List(Concl(List(), List(goal))))
-  end
-
 function split_gaps(w: Walk, scope: Scope, split: SplitTerm): List[Gap] :=
   match split
     case InductionTerm(p, cases, pos) =>
@@ -241,7 +233,7 @@ function leaf_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, on
   let size_after := size(scope.vars) + size(leaf.vars) in
   let recursive := match (on_formal, leaf.value)
     case (Some((_, t)), EApp(EFun(c), args)) =>
-      List(for d in get(c, w.decls.constrs) for (arg, field) in zip(args, d.fields) if is_recursive_field(t, field) yield arg)
+      List(for d in get(c, w.decls.constrs) for (arg, field) in zip(args, d.fields) if is_recursive(t, field) yield arg)
     case _ =>
       List()
   end in
@@ -337,14 +329,6 @@ function catch_all_gaps(w: Walk, scope: Scope, case_term: CaseTerm, value: Term)
 
     case _ =>
       block_gaps(w, scope, case_term.proof)
-  end
-
-function is_recursive_field(t: Name, field: Var): Bool :=
-  match field.typ
-    case TSort(name, _) =>
-      name == t
-    case _ =>
-      false
   end
 
 // the statement of the lemma for the field y in place of its formal at the position p, for all values of the other

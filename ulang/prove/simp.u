@@ -36,6 +36,12 @@ function true_seq(): Seq
 
 function false_seq(): Seq
 
+// the goal with the facts as assumptions, which are closed, so that they stay valid under its binders
+function with_facts(goal: Seq, facts: List[Seq]): Seq
+
+// whether the field is of the datatype t, whose induction has a hypothesis for it
+function is_recursive(t: Name, field: Var): Bool
+
 function simplify(decls: Decls, s: Seq): Seq
 
 // the open goal s for printing, given its simplification simplified: s simplified again, but where a call of a function
@@ -2112,6 +2118,14 @@ function first_field(f: Id, fields: List[Var], args: List[Term]): Option[Term] :
       if field.name.base == f then Some(arg) else first_field(f, fields_, args_)
     case _ =>
       None
+  end
+
+function with_facts(goal: Seq, facts: List[Seq]): Seq :=
+  match goal
+    case Seq(fixed, assms, concls) =>
+      Seq(fixed, facts ++ assms, concls)
+    case Atom(_) =>
+      Seq(List(), facts, List(Concl(List(), List(goal))))
   end
 
 function is_recursive(t: Name, field: Var): Bool :=

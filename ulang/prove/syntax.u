@@ -288,7 +288,7 @@ function constr_position(decls: Decls, f: Name): Option[Int] :=
       else
         match get(decl.datatype, decls.datatypes)
           case Some(constrs) =>
-            index_in(f, constrs, 0)
+            index_of(f, constrs)
           case None =>
             None
         end
@@ -299,14 +299,6 @@ function constr_position(decls: Decls, f: Name): Option[Int] :=
 
 function base_is_tuple(f: Name): Bool :=
   f.module == None and starts_with(f.base, "(")
-
-function index_in(f: Name, names: List[Name], i: Int): Option[Int] :=
-  match names
-    case List() =>
-      None
-    case List(g; rest) =>
-      if f == g then Some(i) else index_in(f, rest, i + 1)
-  end
 
 // the lexicographic order of the arguments, decided as soon as a pair is unequal
 function values_order(decls: Decls, xs: List[Term], ys: List[Term]): Option[Int] :=
