@@ -690,7 +690,8 @@ function library_modules(): List[Id] :=
     "map",
     "array",
     "buffer",
-    "os") yield library_module(name))
+    "os",
+    "io") yield library_module(name))
 
 function library_module(name: Str): Id :=
   "prelude/" ++ name

@@ -166,12 +166,9 @@ procedure push_arg(in a: Arg, ref e: Emit) :=
 procedure call_runtime(in f: Str, args: List[Arg], ref e: Emit) :=
   call emit_call(in ICallPlt(f), args, contains(f, variadics()), ref e)
 
-// the procedure n, which the runtime defines if it is of the builtin section of os
+// the procedure n, which the runtime defines if it is of the builtin sections of os and io
 function proc_callee(n: Name): Instr :=
-  if n.module == Some(library_module("os")) and contains(n.base, native_procs()) then
-    ICallPlt(proc_name(n))
-  else
-    ICall(proc_name(n))
+  if is_native(n) then ICallPlt(proc_name(n)) else ICall(proc_name(n))
 
 // the code of a new function, whose slots start again, with the code and slots of the one around it
 procedure begin_function(out outer: Buffer[Line] * Int, ref e: Emit) :=
