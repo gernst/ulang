@@ -1,6 +1,6 @@
 # Review of smells and cleanups
 
-A read-only review of `ulang/`, `checks/`, and the Makefile against the rules of `CLAUDE.md`, Style, and the open items of `TODO.md`, now `ideas/`, as of c319a1d. No source was changed. Findings that are instances of an item of `TODO.md` are tagged with it, e.g. **[Code 1]**; untagged findings are new. Line numbers are those of c319a1d, and the parts of the compiler that `ulang/compile/lower.u` took since are there now. Checked again against main on 2026-11-13: the findings that were fixed since are gone, and those below still hold; the new items that section 4 proposes are in no file of `ideas/` yet.
+A read-only review of `ulang/`, `checks/`, and the Makefile against the rules of `CLAUDE.md`, Style, and the open items of `TODO.md`, now `ideas/`, as of c319a1d. No source was changed. Findings that are instances of an item of `TODO.md` are tagged with it, e.g. **[Code 1]**; untagged findings are new. Line numbers are those of c319a1d, and the parts of the compiler that `ulang/compile/lower.u` took since are there now. Checked again against main on 2026-11-13: the findings that were fixed since are gone, and those below still hold, but for those marked as fixed since; the new items that section 4 proposes are Verification 9 and Compiler 5 to 8.
 
 Confidence: **confirmed** means reproduced by a run, with the repro given; **likely** means read from the code and checked against it, not run.
 
@@ -24,21 +24,10 @@ Confidence: **confirmed** means reproduced by a run, with the repro given; **lik
      end
    ```
    Fix: an inner hypothesis keeps the formals of the enclosing inductions fixed (a lexicographic order of the inductions), or takes the facts of its scope as premises; `int_gaps` (271) has the same shape.
-2. **A call that binds an out of the lemma itself leaves a dangling de Bruijn level** (`ulang/prove/proof.u:102-108`, `sequent` 166-170). `CallTerm` adds `C(ELevel(o))` without removing `o` from `scope.outs`, so the level is reopened as another variable. Repro, both reported `proved`:
-   ```
-   lemma helper(in x: Int, out y: Int) :=
-     ensures y == x + 5
-     assign y := x + 5
-
-   lemma bad2(in x: Int, out y: Int) :=
-     ensures y != y
-     local z := x + 1
-     call helper(in x, out y)
-   ```
-   Fix: treat it like `AssignTerm`, which moves the out to the fixed witnesses, or reject the lemma's outs as outs of a call.
+2. Fixed since, by 6c1aced.
 3. **Sets and maps take any result of `compare` other than -1 and 1 as equal** (`ulang/prelude/set.u:59-105`, `ulang/prelude/map.u:60-204`, `case -1`, `case 1`, `case _`), while both backends pass the result of a declared `compare` hook through unchanged (`compare_in` of `ulang/run/run.u:842-846`, `compare` of `ulang/runtime/ulang.c:397`). With `function compare(a: V, b: V): Int := a.n - b.n`, `contains(V(1), Set(V(5)))` is true and `put`/`remove` hit the wrong entry. `CLAUDE.md` promises -1, 0, 1, but nothing enforces it. Fix: normalize the hook's result by its sign in both backends, with a case in `ulang/test/datatypes/orders.u`.
-4. **A path that is neither a directory nor a `.u` file passes silently** (`walk_all` of `ulang/ulang.u:775-796`): `out/ulang.sh check nosuchdir` prints nothing and exits 0, as do `test -v` and `prove --x`, which take the option as a path; `check nosuch.u` gives 1. Fix: an error for such a target, and the options of `test` and `prove` through the checks of `paths_request`, with status 2.
-5. **`os_join("", "b")` is `"/b"`**, an absolute path (`ulang/prelude/os.u:231-235`); latent, since the driver never passes an empty directory. Fix: `name` for an empty `dir`, with an example.
+4. Fixed since, by b4dc673.
+5. Fixed since, by 936711b.
 
 ### 1.2 Likely
 
@@ -47,24 +36,24 @@ Backends and runtime:
 6. **`==` differs between the backends inside values of an abstract type that declares `==` but no `compare`** (`equals_ref` of `ulang/compile/compile.u:287-292`, `u_equals_by_compare` and `compare_items` of `ulang/runtime/ulang.c:405, 439-461`, `equal_all` of `ulang/run/run.u:776-795`). Compiled, a tuple, list, or datatype without its own `==` equates by `compare` of its fields, which raises `Unordered` at such a field, e.g. `Tally` of `ulang/test/modules/exported.u`; interpreted, it equates by `==` of the fields and succeeds. Fix: a structural `u_con_equals` by `u_equals`, with a case of a `Tally` in a `List`.
 7. **The binary of the tests exits 1 for failed tests** (`u_run_tests`, `ulang/runtime/ulang.c:1318`), where `ulang.sh test` exits 3, and `CLAUDE.md` says `make testc` has the outcome of `make test`.
 8. **Fused comprehensions evaluate in another order than `list.foldr`** (`ulang/compile/compile.u:1104-1118`): the elements first to last, then the initial value, against `init` first, then last to first. It shows only when two parts raise different builtin exceptions, but it is a divergence of the backends.
-9. **`compile --tests` exits 1 where it should exit 4** (`ulang/ulang.u:581`), ignoring the internal-error status of `load_status`, which `visit_units` respects.
+9. Fixed since, by b4dc673.
 10. **NUL in paths and `os_write("")`** (`ulang/runtime/ulang.c:240-244, 1098-1158`): a path with a code point 0 is cut at it, so `os_read("a\0b")` opens `a` instead of raising `OsError`; `p_os_write` of an empty path reads `dir[1]` of a one-byte buffer.
 11. **`format_str` writes control characters raw into C literals** (`ulang/compile/c.u:124-127`), only the escapes of ulang are applied; `chr(27)` or `chr(0)` in a literal reach the C source as is. Fix: octal escapes below 32 and for 127.
 
 Checker:
 
 12. Fixed since, by 474e902: a wrong arity of an overloaded name gives only `WrongArity`.
-13. **The duplicates of the formals of a procedure lambda are looked for twice** (`ulang/check/check.u:1727-1730`): `unique_decls` of `ins ++ outs ++ refs`, then again in each `formals`, while only one error is printed since.
-14. **`SortArity` is raised, not reported** (`arguments`, `ulang/check/check.u:1325-1328`): a `List[Int, Int]` in an annotation inside a body aborts the whole command, losing its other errors, where everything else in bodies goes through `report`.
-15. **The `:=` of an updater leaks into messages** (`ulang/check/message.u:178-182`, `ulang/check/check.u:1709, 2323, 2327`): `UnknownFieldOwner` and `UnknownFieldType` print `.x:=` for an update; only `UnknownField` strips it by `without_update`. `messages` of `ulang/check/message.u` claims one case of each kind but has none of these, nor of `InfiniteType`, `NoOverload`, `UnknownContainer`, `UnparsedDeclaration`, `SortDefined`, `UndeclaredParams`, and `Hinted`. **[Code 3]**
+13. Fixed since, by bce0755.
+14. Fixed since, by 6e845c5.
+15. Fixed since, by 26716fe.
 16. **Trials of candidates count errors instead of testing unification** (`trials` and `fits`, `ulang/check/check.u:1570, 2379`), while `report` drops any `CannotUnify` that reaches `TError`, so every candidate fits an argument of an erroneous type. Mostly masked by `settle`; low confidence of a visible effect.
 
 Parser and driver:
 
-17. **`format_token` does not escape characters** (`ulang/parse/parse.u:354-355`): `'\''` becomes `'''` and `'\n'` a raw newline, in the text of `AUnparsed` that `format` prints for an example that does not parse, and in messages. Fix: `escape` as for `TStr`. **[Diagnostics 1]**
-18. **Errors of a datatype stand at the token after it** (`ulang/parse/parse.u:2111-2116, 2138-2142`): `repeated field` and the field of different types are reported at `head_pos(toks)` after the parse; the cases `field_types` and `repeated_field` of `ulang/test/errors/parse.u` pin positions past the end of the text and at the next `case`. Fix: at the field.
-19. **`format` reports `ParsesDifferently` where the formatted text does not parse** (`ulang/ulang.u:653-669`): the recovering parser returns a source with errors rather than raising, so `Unparsable` is reached only by a raised `ParseError`. Fix: test `has_errors(q)` first.
-20. **CRLF files load as programs** (`has_sections`, `ulang/parse/parse.u:2780`): `export\r` is no section keyword, while the lexer takes `\r` as space; `is_doc_above` of `ulang/parse/lex.u` likewise.
+17. Fixed since, by 2a083fb.
+18. Fixed since, by 3beba00.
+19. Fixed since, by b4dc673.
+20. Fixed since, by 5442849.
 21. **`load_texts` of `ulang/test/cases/cases.u:172-179` requires only the main text formatted**, so the members of a case of several modules may be unformatted, unlike `check`, which requires it of every member of the unit.
 
 Prover, latent:
@@ -78,7 +67,7 @@ Prover, latent:
 
 These recur in several packages and are better fixed once each than file by file.
 
-- **Several ways to report an error in the checker**: `report`, direct `s.errors ++ …` (`ulang/check/check.u:1599, 1620, 3830, 3849, 4463, 4504`), `raise` (`declare_name`, `overload`, `declare_sort`, `arguments`, `check_signatures`, `once`, `check_orders`, `exported_aliases`, 3707, 3772), the rewrite in `expect`, which drops all errors since `before`, not only those of unification (2529-2531), and the catch-alls of `each_placed` and `placed_commands`. The direct appends bypass `reaches_error`, `within`, and `unparsed_use`. One `report_at(pos, e)`, and `report` wherever checking can go on.
+- **Several ways to report an error in the checker**: `report`, direct `s.errors ++ …` (`ulang/check/check.u:1599, 1620, 3830, 3849, 4463, 4504`), `raise` (`declare_name`, `overload`, `declare_sort`, `check_signatures`, `once`, `check_orders`, `exported_aliases`, 3707, 3772), the rewrite in `expect`, which drops all errors since `before`, not only those of unification (2529-2531), and the catch-alls of `each_placed` and `placed_commands`. The direct appends bypass `reaches_error`, `within`, and `unparsed_use`. One `report_at(pos, e)`, and `report` wherever checking can go on.
 - **Names encoded in strings**: accessors and updaters `T.f` / `T.f:=` are built and taken apart in five places (`accessor_name`, `updater_name`, `field_of` of `ulang/check/defs.u:178-186`, `without_update` and `field_message` of `ulang/check/message.u:289-302`, `ulang/check/check.u:2312`, `ulang/prove/syntax.u:229`), `field_of` and `without_update` being the same function; `declaring` joins names by `","` into a detail that `declared_by` splits (`ulang/parse/parse.u:131-137, 191-195`); `Name(None, "lambda")` as a sentinel (`ulang/check/raises.u:359`); placeholder modules `Some("?")` and generated names `"(raised)"`, `"(container)"` spelled inline (`ulang/check/check.u:518, 633, 1554, 2058, 3076`) beside `generated_name`. **[Code 3]**
 - **Skip-until loops written six times in the parser**: `skip_arg` (612-635) and `skip_stmt` (1574-1588) are near copies, and `parse_expr_recovering`, `parse_example` (by `take(size(start) - size(toks), start)`), and `skip_command` collect `format_token` until a stop. One `skip_until(stop, out text, ref toks)`, which is also where the text cut from the source of **[Diagnostics 1]** would go.
 - **The cases of a match, of a handler, and of a split are checked and compiled by copies**: `expr_branches`, `stmt_branches`, `handler_list`, and `proof_cases` of `ulang/check/check.u` (2595, 3279, 3307, 3674); `expr_cases`, `stmt_cases`, and `handler_cases` of `ulang/compile/compile.u` (902-936, 1462-1532). One helper per phase for the scope of a case.
@@ -102,7 +91,7 @@ These recur in several packages and are better fixed once each than file by file
 - `exported(sig, values, sorts)` of `sig.u:44, 136` takes the names it removes, `hidden` and `hidden_sorts`, under names that say the opposite; `restrict` and `union` of `sig.u:99-159` make lists of the entries of maps, against Style, and `restrict` drops empty `named` entries that `exported` keeps.
 - `defs_of` (`defs.u:85`) runs `ordered_by` three times over all commands; `ordered_by` covers `show` too and is exported but used only inside `defs.u`; `ks`/`k` for constructors (146-176).
 - `raises.u`: private `cmd_errors`, `part_errors`, `with_errors` reuse the names of the exported error walks with other meanings; `unchecked_exceptions` filtered in two places (177, 199); `take(1, sort(…))` for a minimum (28); `TSort(t, List())` spelled out five times, an alias `TException(name)`.
-- Messages say "sort" to users (`unknown sort A`, `sort T is already defined`), who write "type"; `UnknownProc`/`UnassignedOutput` of `InternalError` against `UnknownProcedure`/`OutputUnassigned` of `TypeError`; the doc of `located_message` (`message.u:8`) still speaks of the position of the command.
+- `UnknownProc`/`UnassignedOutput` of `InternalError` against `UnknownProcedure`/`OutputUnassigned` of `TypeError`; the doc of `located_message` (`message.u:8`) still speaks of the position of the command.
 - Small: a dead local `u` in `variable` (2909), `LocalTooHigh` of `ts` in `apply` (2341) and `t` in `proof_step` (3551); `nearest`/`is_better` quadratic (274-284); sentinels `unqualified("")` and `""` in `lemma_name`, `first_member`, `param_id` where options fit; `outputs` and `untyped` recurse by hand where a `for` does; the split of formals by mode written twice (1360-1366, 3733-3739); `free` calls `distinct` at every level.
 - **[Code 1]**, beyond those listed: `case _` over `Cmd` in `zonk_cmd` (824), `unknown_in_cmd` (966), `command` (3799), `private_in` (3972); over `Expr` in `unknown_in_expr` (906); over `Type` in `has_error_type` (1994), `zonk_type` (626), `datatypes_in` (4789); `subst_pat` of `ulang/syntax/syntax.u` over `Pat`.
 
@@ -147,18 +136,11 @@ These recur in several packages and are better fixed once each than file by file
 
 ### `ulang/prove/`
 
-The review of **[Code 5]**, shapes spelled out by hand:
-
-- Literals: 18 matches of `ELit(LBool(…))` and 23 builds by `bool_term`, about 33 sites of `ELit(LInt(…))` and `int_term`: aliases `EBool(b)` and `EInt(n)`.
-- Sequents: `true_seq` and `false_seq` are functions whose shapes are matched by hand (`simp.u:399, 402, 2298, 2301`); the negation `Seq(List(), List(s), List())` at about 10 sites (`simp.u:230, 344, 485, 491, 514, 1832, 1906, 2235`, `proof.u:202, 247`), an alias `Negated(s)`; `Concl(List(), List(s))` 21 times; `Lin(-1, List())` 13 times.
-- Builtins by base name: `syntax.u:841, 847` print `Nil`/`Cons` terms as lists by base name, so a user's `Cons` prints as a list; `syntax.u:850-889` match `not`, `forall`, `exists`, which have the aliases `Not`, `Forall`, `Exists`; `syntax.u:932, 935` match `PApp(Name(_, "Nil"), …)` where `PNil()`/`PCons` exist; `simp.u:2086` `++` and `termination.u:213` `abs` want `Append` and `Abs`; `is_comparison` (`termination.u:228, 244`) compares names where cases on `Less` and the like do; `Not(Less(before, after))` (316) is `LessEq(after, before)` by the convention that no comparison is negated; `case u if u == TInt()` (`proof.u:184`).
-- Constructor terms `if n == 0 then EFun(c) else EApp(EFun(c), args)` at `simp.u:1859, 2060`, `patterns.u:269-273`, and tuple terms by `tuple_name(size(args))` at `syntax.u:219`, `equations.u:56, 82`, want one function each.
-- Six tests rebuild the declarations of lists from `Name(Some("prelude/list"), "Nil")` (`simp.u:2348`, `equations.u:119, 144, 161`, `patterns.u:285, 314`) instead of `nil_name()`, `cons_name()`, `TList`; `simp.u:2348` types variables as `TSort(Name(None, "Int"), …)`, which is not `TInt()`.
+The review of the shapes spelled out by hand is fixed since, by f798c04, but for an alias of `Lin(-1, List())`, which is only built.
 
 Other smells:
 
-- `with_facts` is duplicated verbatim (`lemma.u:260`, `proof.u:172`), `is_recursive_field` (`proof.u:317`) is `is_recursive` (`simp.u:2117`), `index_in` (`syntax.u:304`) is `index_of`.
-- Performance: `extract_in` (`simp.u:789-826`) and `smallest` (2253) enumerate every node of every class without memo, on each rewrite; `is_entailed` rebuilds the bounds per call and `variable_division_facts` runs Fourier–Motzkin up to four times per atom; `first_of(List(for s in ss yield f(s)))` (1879, 1917-1929) is `find_map`; `folded` (2249) computes the same round twice under a limit outside `Limits` (**[Code 6]**).
+- Performance: `extract_in` (`simp.u:789-826`) and `smallest` (2253) enumerate every node of every class without memo, on each rewrite; `is_entailed` rebuilds the bounds per call and `variable_division_facts` runs Fourier–Motzkin up to four times per atom; `first_of(List(for s in ss yield f(s)))` (1879, 1917-1929) is `find_map`; `folded` (2249) computes the same round twice under a limit outside `Limits` (**[Code 5]**).
 - Copies: `assume_term` (573-583) and `simp_less`/`simp_less_eq` re-encode `comparison_ineq`; orientation of rules in `add_rule`, `merge`, `oriented`; the level equation in `equation_of` and `definition_in`; `division_facts` inlines `is_bound`; the `_seq` and `_concl` twins of `rebind`, `replace`, `subst`, `loose` (145-213), four "map the summands, then `lin_add`", three `*_branch` helpers for optional guards.
 - **[Code 1]** beyond `prove/syntax.u`: `case _` over `Term` in `simp_term` (1146), `head_key` (775, where `EBound` and `ELam` share a key), `args_of`, `candidate`, `is_plain`, `term_size`, `calls_in` and `accesses_in` of `termination.u`, `shape` of `egraph.u`.
 - Style: `simp_size` and `simp_summands` recurse instead of the traversal; nested tuples passed on (`translate.u:74, 84, 92, 105`, `one_point`, `matches`); `print_pat` and `print_val` of `syntax.u:921-1003` duplicate the printers of `ulang/format` under `print_`, and goals print `[]` and `[a; b]`, which is not ulang; constructors without the prefix of their type (`Open`, `Close`, `Shift`, `Refuted`, `Proven`, `Matched`, `Failed`, `Stuck`); stale docs at `lemma.u:1` ("until proofs have syntax") and `translate.u:12-13` (doubled).
@@ -167,11 +149,11 @@ Other smells:
 
 - `CLAUDE.md`, Library, says strings share `exists`, `forall`, and the folds; they have none, `List(for c in "ab")` is `NoFold`. Either give `Str` the folds or narrow the sentence, also in `containers.u:1`.
 - Argument orders: `repeat(s, n)` of `str.u:20` against `replicate(n, x)`, which implements it; `join(sep, strs)` against `split(s, c)`; `slice` clamps for lists but is strict for strings and arrays, with no example on `list.slice`, and is re-implemented by `prefix_of` of `compile.u:639`.
-- **[Code 6]** twins out of step: `set.u` and `map.u` order their definitions differently, each states half of the precondition of `join`, name their balance tests differently (`map.u`'s `balance` is also a function), and only `map.u` tests rebalancing after removal; the private tree `join` of both overloads `str.join` in the same file.
+- **[Code 5]** twins out of step: `set.u` and `map.u` order their definitions differently, each states half of the precondition of `join`, name their balance tests differently (`map.u`'s `balance` is also a function), and only `map.u` tests rebalancing after removal; the private tree `join` of both overloads `str.join` in the same file.
 - Missing helpers that are re-implemented: `min`/`max` (`least` of `check.u:309`, `worse` of `ulang.u:333`, `node_height`, `c.u:125`, `compile.u:640`, `arithmetic.u:18`); dropping a suffix after `ends_with` (`cases.u:91`, `parse.u:3407`, `message.u:302`, `checks/docs.u:83, 100, 118`); `keys(m)` (`raises.u:75`, `translate.u:62`, `egraph.u:281`); `path_up` of `ulang.u:912` re-does `relative_path`, and `module_dir` is `os_dirname`. **[Code 4]**
 - Missing examples where order or edges are open: `starts_with`, `ends_with`, `take`, `drop`, `zip`, `range`, `index_of`, `remove`, `distinct`, `repeated`, `put`, `insert`, `gcd`, whose example `CLAUDE.md` quotes.
 - Stale docs: the module doc of `prelude.u:1-2` names three of the members; `str.u:259` and `list.u:335` say `list.u` cannot use `join` of `str.u`, which members of a package can, so `separated` and `joined_pairs` might become `join`.
-- Tests: duplicates (`arrays` of `array.u` repeats its line 55 at 56, `array.u:54` and `containers.u:118`, `set.u:258` and `containers.u:6`, `string_functions` of `expressions.u` and `strings` of `str.u`, the last entry of a key in three places, `List() == List()`); tests in the wrong file or misnamed (`association_lists` and `ranges` of `datatypes.u`, `parse_errors` of `statements.u:395`, `sum_pairs` that sums products, `comparisons` in two files of one feature, `size_positive` that states `>= 0`); `check_text_all` and `checked_text` of `cases.u:116-145` are one procedure; `range` of `datatypes.u` and `countdown` of `containers.u` are one helper; `ulang/prove/test/proofs.u` repeats lemmas of `lists.u` without saying that they are facts for later proofs, and the files of `ulang/prove/test/` sit at the top of a `test/`, which `CLAUDE.md`, Tests, forbids while listing the directory, so the rule needs rewording.
+- Tests: duplicates (`arrays` of `array.u` repeats its line 55 at 56, `array.u:54` and `containers.u:118`, `set.u:258` and `containers.u:6`, `string_functions` of `expressions.u` and `strings` of `str.u`, the last entry of a key in three places, `List() == List()`); tests in the wrong file or misnamed (`association_lists` and `ranges` of `datatypes.u`, `parse_errors` of `statements.u:395`, `sum_pairs` that sums products, `comparisons` in two files of one feature, `size_positive` that states `>= 0`); `range` of `datatypes.u` and `countdown` of `containers.u` are one helper; `ulang/prove/test/proofs.u` repeats lemmas of `lists.u` without saying that they are facts for later proofs, and the files of `ulang/prove/test/` sit at the top of a `test/`, which `CLAUDE.md`, Tests, forbids while listing the directory, so the rule needs rewording.
 
 ## 4. Relation to `TODO.md`
 
@@ -179,7 +161,6 @@ Other smells:
 - **Code 1** lists too few places: the `case _` over `Cmd`, `Expr`, `Type`, `Pat`, and `Term` of section 3 should join it, or the item should say "e.g." and rely on the lint planned in Diagnostics 5.
 - **Code 2** and **Code 3** gain the encodings of section 2, of fields, modes, keywords, and generated names, as concrete first steps that need no design.
 - **Code 4**: `starts_at` is dead and can go, not move; `min`, `max`, a suffix helper, and `keys` are candidates for the library by the same rule as `split_on`.
-- **Code 5** is done by the list of section 3, `ulang/prove/`; the item can be replaced by the work it lists.
 - **Diagnostics 1**: the escaping of `format_token` (1.2.17) and the one `skip_until` of section 2 are where the text of `AUnparsed` would change.
 - **Diagnostics 5**: the lints should first use the positions of variables that c319a1d added.
 - `CLAUDE.md` statements found stale: strings sharing the folds, `put` of arrays, possibly the lemmas of named tests, and the rule of no tests at the top of a `test/` against `ulang/prove/test/`.
@@ -191,5 +172,5 @@ Other smells:
 3. The exit statuses and silent paths of the driver and the runtime (1.1.4, 1.2.7, 1.2.9).
 4. The small checker and parser bugs (1.2.12-1.2.21), each a few lines with its case.
 5. One error-reporting path in the checker, and the string encodings of names (section 2), before Diagnostics 3, which would otherwise build on them.
-6. The pattern aliases of `ulang/prove/` (Code 5), then the copies and `case _` of section 3, file by file, each checked by `out/ulang.sh check ulang/ulang.u`.
+6. The copies and `case _` of section 3, file by file, each checked by `out/ulang.sh check ulang/ulang.u`.
 7. Stale and misplaced docs and the library examples, in one sweep with `checks/docs.u`.

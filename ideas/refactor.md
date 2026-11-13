@@ -23,7 +23,7 @@ Each of these was a commit of many mechanical edits, several with regular expres
 - functions turned into procedures when they had to raise (`8084d78`: `as_type`, `type_apply`), and `raises` written into the exported signatures (`9335b69`);
 - 211 failing files turned into cases of `ulang/test/errors/` (`15b55d4`);
 - the expansion of `case _` into named constructors, still open (Code 1);
-- exports added because another member needed a private helper (`covers_all`, exported since, and `strip_yield`, Code 7).
+- exports added because another member needed a private helper (`covers_all`, exported since, and `strip_yield`, Code 6).
 
 ## How an agent edits
 
@@ -213,7 +213,7 @@ The most frequent refactoring, and the one where text tools fail by overloading,
 ### 5. Moves and visibility
 
 - `move <decl> <module>`: the declaration with its doc and tests, the signature into the export section of the target if it was exported or is used outside, imports added to the users that now need the target's package and removed where unused; refused with the list of the private names it uses that the target does not see (`--with-deps` moves them along, if nothing else uses them), and refused if the imports would form a cycle of packages or break the layers (`ulang/syntax` before `ulang/format` before `ulang/parse` …). Moves within a package need no imports, since members see each other. This is Code 4.
-- `export <decl>` and `unexport <decl>`: the signature added to or removed from the export section, `unexport` refused while another module uses it; the fix for `strip_yield` of Code 7.
+- `export <decl>` and `unexport <decl>`: the signature added to or removed from the export section, `unexport` refused while another module uses it; the fix for `strip_yield` of Code 6.
 - `move-test <test> <file>`: into the file of its feature, refused on a name clash there; helpers it needs move or are listed.
 
 ### 6. Rewrites by pattern
