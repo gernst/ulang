@@ -97,9 +97,9 @@ test formal_lists() :=
     call check_text(in "ulang/test/errors/formal-lists.u", List("function f(a: Int)(b: Int): Int :=", "  a + b"))
   end
 
-test hex_number() :=
-  assert raises ParseError("invalid number; numbers are decimal, as in 55296", Pos(2, 3)) do
-    call check_text(in "ulang/test/errors/hex-number.u", List("function f(): Int :=", "  0xD800"))
+test hex_without_digits() :=
+  assert raises ParseError("invalid number; a hexadecimal number has digits after 0x, as in 0xFF", Pos(2, 3)) do
+    call check_text(in "ulang/test/errors/hex-without-digits.u", List("function f(): Int :=", "  0xG"))
   end
 
 test if_without_then() :=

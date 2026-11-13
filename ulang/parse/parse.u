@@ -350,6 +350,9 @@ function format_token(tok: Token): Str :=
     case TNum(num) =>
       show(num)
 
+    case THex(num) =>
+      hex_text(num)
+
     case TStr(text) =>
       quote(text)
 
@@ -448,6 +451,9 @@ function literal_at(toks: Tokens): Option[Lit] :=
 
     case TNum(num) =>
       Some(LInt(num))
+
+    case THex(num) =>
+      Some(LHex(num))
 
     case TStr(text) =>
       Some(LStr(text))
@@ -981,6 +987,9 @@ function expr_apply(f: Fixity, op: Id, pos: Pos, args: List[At[Expr]]): At[Expr]
     case List(AOk(_, ELit(LInt(num)))) if f == FPrefix and op == "-" =>
       AOk(pos, ELit(LInt(0 - num)))
 
+    case List(AOk(_, ELit(LHex(num)))) if f == FPrefix and op == "-" =>
+      AOk(pos, ELit(LHex(0 - num)))
+
     case List(a) =>
       AOk(pos, ECall(pos, unqualified(op), THole, List(a)))
 
@@ -1009,6 +1018,9 @@ function starts_expr(notation: Notation, tok: Token): Bool :=
       contains(kw, List("let", "if", "lambda", "match", "true", "false", "("))
 
     case TNum(_) =>
+      true
+
+    case THex(_) =>
       true
 
     case TStr(_) =>
@@ -1375,6 +1387,9 @@ function pat_apply(f: Fixity, op: Id, pos: Pos, args: List[At[Pat]]): At[Pat] :=
     case List(AOk(_, PLit(LInt(num)))) if f == FPrefix and op == "-" =>
       AOk(pos, PLit(LInt(0 - num)))
 
+    case List(AOk(_, PLit(LHex(num)))) if f == FPrefix and op == "-" =>
+      AOk(pos, PLit(LHex(0 - num)))
+
     case List(pat) =>
       AOk(pos, PApp(unqualified(op), List(pat)))
 
@@ -1410,6 +1425,9 @@ function starts_pattern(notation: Notation, tok: Token): Bool :=
       contains(kw, List("_", "true", "false", "("))
 
     case TNum(_) =>
+      true
+
+    case THex(_) =>
       true
 
     case TStr(_) =>
@@ -1667,6 +1685,9 @@ function ends_expr(tok: Token): Bool :=
       true
 
     case TNum(_) =>
+      true
+
+    case THex(_) =>
       true
 
     case TStr(_) =>
@@ -3570,6 +3591,8 @@ test parsed_operators() :=
   assert expr == expr_app("*", List(expr_app("-", List(a)), b))
   call parsed(in "a - -1", out expr)
   assert expr == expr_app("-", List(a, expr_int(-1)))
+  call parsed(in "a - -0x10", out expr)
+  assert expr == expr_app("-", List(a, nowhere(ELit(LHex(-16)))))
   call parsed(in "- -a", out expr)
   assert expr == expr_app("-", List(expr_app("-", List(a))))
   call parsed(in "-a.f", out expr)

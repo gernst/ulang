@@ -39,6 +39,8 @@ data Lit :=
   case LBool(bool: Bool)
   // a number, e.g. 42, or a negative one, e.g. -1
   case LInt(num: Int)
+  // a hexadecimal number, e.g. 0xFF, or a negative one, e.g. -0x10, which the checker translates to LInt
+  case LHex(num: Int)
   // a string in double quotes, e.g. "text", with escapes, e.g. \\, \", and \n
   case LStr(text: Str)
   // a character in single quotes, e.g. 'c'
@@ -443,6 +445,12 @@ function escape(c: Char, delimiter: Char): Str
 // the characters of operators, as the lexer reads them and the printer separates them
 function is_op_char(c: Char): Bool
 
+// num as a hexadecimal literal, with the digits in upper case, as the printers write LHex
+function hex_text(num: Int): Str :=
+  example hex_text(55296) == "0xD800"
+  example hex_text(-16) == "-0x10"
+  example hex_text(0) == "0x0"
+
 implementation
 
 function escapes(): List[Char * Char] :=
@@ -456,6 +464,13 @@ function escapes(): List[Char * Char] :=
 
 function is_op_char(c: Char): Bool :=
   contains(c, "-+*/%<>=!&:^~?@#$")
+
+function hex_text(num: Int): Str :=
+  if num < 0 then "-" ++ hex_text(0 - num) else "0x" ++ hex_digits(num)
+
+function hex_digits(num: Int): Str :=
+  let digit := slice("0123456789ABCDEF", num % 16, num % 16 + 1) in
+  if num < 16 then digit else hex_digits(num / 16) ++ digit
 
 function escape(c: Char, delimiter: Char): Str :=
   match find(escapes(), lambda (_, d) => d == c)
