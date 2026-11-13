@@ -34,14 +34,14 @@ struct u_name {
 
 // the built-in types, where integers that fit into a long long are of u_int_type with num, and others of u_big_type
 // with an mpz_t, such that each integer has one representation
-extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type,
+extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_byte_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type,
   u_array_type;
 
 // the datatypes whose constructors the builtins create, where the compiled program defines the descriptors of those of
 // the prelude and its modules, which every program has, and the runtime that of OsError, which programs need not import
 extern const struct u_type t_list_46_List, t_option_46_Option, t_os_46_OsError;
 extern const struct u_type t_prelude_46_DivisionByZero, t_prelude_46_OutOfBounds, t_prelude_46_NoCharacter,
-  t_prelude_46_MissingField, t_prelude_46_Unordered, t_prelude_46_Incomparable;
+  t_prelude_46_NoByte, t_prelude_46_MissingField, t_prelude_46_Unordered, t_prelude_46_Incomparable;
 
 // the order, equality, and text of datatypes by their constructors and then their fields, which the descriptors
 // of datatypes use unless their module declares compare, ==, or show, and the equality of an order
@@ -59,7 +59,7 @@ extern const struct u_name n_list_46_Nil, n_list_46_Cons, n_option_46_None, n_op
 
 // the exceptions of the builtins and of accessors of fields, which the prelude declares
 extern const struct u_name n_prelude_46_DivisionByZero, n_prelude_46_OutOfBounds, n_prelude_46_NoCharacter,
-  n_prelude_46_MissingField, n_prelude_46_Unordered, n_prelude_46_Incomparable;
+  n_prelude_46_NoByte, n_prelude_46_MissingField, n_prelude_46_Unordered, n_prelude_46_Incomparable;
 
 // the code of a closure, with its captured values and its arguments
 typedef u_value (*code)(u_value *env, u_value *args);
@@ -177,6 +177,13 @@ u_value u_chars(u_value s);
 u_value u_string(u_value cs);
 u_value u_ord(u_value c);
 u_value u_chr(u_value n);
+// the bytes, which exist once each
+u_value u_mk_byte(long long b);
+u_value u_byte(u_value n);
+u_value u_byte_int(u_value b);
+// the bytes of the UTF-8 of a string, and the string of bytes of UTF-8 as an option, None if they are not valid
+u_value u_encode_utf8(u_value s);
+u_value u_decode_utf8(u_value bytes);
 u_value *u_append(u_value *end, u_value x);
 u_value u_concat(u_value s, u_value t);
 // the functions of the builtin section of str.u
@@ -236,7 +243,6 @@ struct u_handler {
 
 void u_args(int argc, char **argv);
 void p_os_args(u_value *args);
-void p_os_read(u_value path, u_value *text);
 void p_os_print(u_value text);
 void p_os_print_error(u_value text);
 void p_os_exit(u_value code);
@@ -251,7 +257,10 @@ struct u_test {
 // runs the tests that the arguments select, as ulang test does, where files and tests end with NULL, and returns the
 // status of the program
 int u_run_tests(int argc, char **argv, const char *const *files, const struct u_test *tests);
-void p_os_write(u_value path, u_value text);
+void p_os_read_utf8(u_value path, u_value *text);
+void p_os_write_utf8(u_value path, u_value text);
+void p_os_read_bytes(u_value path, u_value *bytes);
+void p_os_write_bytes(u_value path, u_value bytes);
 void p_os_list(u_value dir, u_value *entries);
 void p_os_is_dir(u_value path, u_value *yes);
 void p_os_cwd(u_value *dir);

@@ -202,7 +202,7 @@ procedure file_decls(
           end
         else
           local text: Str
-          call   os_read(in file, out text)
+          call   os_read_utf8(in file, out text)
           assign decls := Some(DWords(words_of(text)))
         end
       catch
@@ -219,7 +219,7 @@ procedure problems_of(
   ref cache: Map[Str, Option[Decls]]
 ) :=
   local text: Str, found: Buffer[Str] := empty()
-  call os_read(in doc, out text)
+  call os_read_utf8(in doc, out text)
   for r in refs_of(text) if is_checked(r.name) do
     local decls: Option[Decls]
     call file_decls(in r.file, out decls, ref cache)

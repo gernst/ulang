@@ -15,13 +15,13 @@ procedure main() :=
     match rest
       case List(input) =>
         local text: Str
-        call os_read(in input, out text)
+        call os_read_utf8(in input, out text)
         call os_print(in page(text, standalone))
 
       case List(input, output) =>
         local text: Str
-        call os_read(in input, out text)
-        call os_write(in output, page(text, standalone))
+        call os_read_utf8(in input, out text)
+        call os_write_utf8(in output, page(text, standalone))
 
       case _ =>
         raise OsError("usage: md2html [--standalone] input.md [output.html]")

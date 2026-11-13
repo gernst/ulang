@@ -8,7 +8,7 @@ function words(text: Str): List[Str] :=
   List(for w in split(str(List(for c in chars(text) yield if is_letter(c) then lower(c) else ' ')), ' ') if w != "")
 
 function lower(c: Char): Char :=
-  if 'A' <= c and c <= 'Z' then chr(ord(c) + 32) else c
+  if 'A' <= c and c <= 'Z' then chr(int(c) + 32) else c
 
 // adds the words to the counts in m
 procedure count(in ws: List[Str], ref m: Map[Str, Int]) :=
@@ -26,7 +26,7 @@ procedure main() :=
   for path in args do
     try
       local text: Str
-      call os_read(in path, out text)
+      call os_read_utf8(in path, out text)
       call count(in words(text), ref m)
     catch
       case OsError(message) =>

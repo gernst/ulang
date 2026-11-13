@@ -2917,7 +2917,7 @@ procedure package_files(
       call os_list(in if d == "" then root else os_join(root, d), out entries)
       for (file, is_dir) in entries do
         if not is_dir and is_source(file) and file != "project.u" and module_id(d, module_name(file)) != main_id then
-          call os_read(in os_join(os_join(root, d), file), out text)
+          call os_read_utf8(in os_join(os_join(root, d), file), out text)
           if has_sections(text) then
             assign found := found ++ List((module_id(d, module_name(file)), text))
           end
@@ -3399,7 +3399,7 @@ procedure parse_file(
   out source: Source
 ) raises ParseError, OsError :=
   local text: Str
-  call os_read(in path, out text)
+  call os_read_utf8(in path, out text)
   call parse_file_text(in path, text, out source)
 
 procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError :=

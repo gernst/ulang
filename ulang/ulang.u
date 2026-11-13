@@ -646,7 +646,7 @@ procedure format_paths(in paths: List[Str], out status: Int) :=
 // rewrites file as source, if that parses to the same commands as file, so that formatting tests the parser and the printer
 procedure format_file(in file: Str, out ok: Bool) :=
   local p: Source, text: Str, source: Str
-  call   os_read(in file, out text)
+  call   os_read_utf8(in file, out text)
   call   parse_file_text(in file, text, out p)
   call   require_parsed(in p)
   assign source := format_program(p), ok := false
@@ -659,7 +659,7 @@ procedure format_file(in file: Str, out ok: Bool) :=
 
       case None =>
         if source != text then
-          call os_write(in file, source)
+          call os_write_utf8(in file, source)
         end
         assign ok := true
     end
@@ -737,7 +737,7 @@ procedure load_file(
       assign errors := take(20, diagnostics(q))
     end
     for m in unit_modules(source) if formatted and errors == List() do
-      call os_read(in os_join(os_dirname(file), module_file(m)), out text)
+      call os_read_utf8(in os_join(os_dirname(file), module_file(m)), out text)
       try
         call require_formatted(in source, m, text)
       catch
@@ -838,7 +838,7 @@ procedure units_of(in targets: List[Target], out units: List[List[Target]]) :=
   local text: Str, keyed: Buffer[Str * Target] := empty()
   for t in targets do
     try
-      call os_read(in t.path, out text)
+      call os_read_utf8(in t.path, out text)
     catch
       case OsError(_) =>
         assign text := ""
