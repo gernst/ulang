@@ -4,6 +4,7 @@
 import "ulang/syntax"
 import "ulang/parse"
 import "ulang/check"
+import "ulang/format"
 import "ulang/test/cases"
 
 test abstract_arity() :=
@@ -428,6 +429,38 @@ test sibling_constructor() :=
       "",
       "function other(): Box :=",
       "  Box(0)")))
+  end
+
+// a member of a package other than the main file is not formatted, which check rejects as it rejects the main file
+test sibling_unformatted() :=
+  assert raises Unformatted(8) do
+    call check_texts(in "ulang/test/errors/sibling-unformatted", List(
+      ("ones.u", List(
+        "export",
+        "",
+        "function one(): Int",
+        "",
+        "implementation",
+        "",
+        "function one(): Int :=",
+        "    1")),
+      ("sibling-unformatted.u", List(
+        "export",
+        "",
+        "function two(): Int",
+        "",
+        "implementation",
+        "",
+        "function two(): Int :=",
+        "  one() + one()"))), ("sibling-unformatted.u", List(
+      "export",
+      "",
+      "function two(): Int",
+      "",
+      "implementation",
+      "",
+      "function two(): Int :=",
+      "  one() + one()")))
   end
 
 // a member of a package uses the private function of its sibling

@@ -63,6 +63,12 @@ lemma doubled_twice(in x: Int) :=
   call doubled(in y, out z)
   assert z == 4 * x
 
+// an out of the lemma bound by a call, at the witness that the called lemma gives
+lemma doubled_above(in x: Int, out y: Int) :=
+  requires x > 0
+  ensures  y > x
+  call doubled(in x, out y)
+
 lemma remainder_of_halves(in m: Int) :=
   requires m >= 0
   ensures  m % 2 < 2

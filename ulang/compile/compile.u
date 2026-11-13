@@ -246,11 +246,15 @@ function literal_value(l: Lit): CExpr :=
     case LInt(num) =>
       int_value(num)
 
+    // check translates hexadecimal numbers to LInt, and a function cannot raise Unexpected
+    case LHex(num) =>
+      int_value(num)
+
     case LStr(text) =>
       c_call("u_mk_lit", List(CeStr(text)))
 
     case LChar(char) =>
-      c_call("u_mk_char", List(CeNum(ord(char))))
+      c_call("u_mk_char", List(CeNum(int(char))))
   end
 
 // the tests that v matches pat, in an order that checks a constructor before its fields
@@ -1293,9 +1297,9 @@ procedure compile_prog(
   if ends_with(target, ".s") then
     local a: AsmFile
     call assemble_program(in q, q.main, entry, out a)
-    call os_write(in target, format_asm(a))
+    call os_write_utf8(in target, format_asm(a))
   else
     local f: CFile
     call compile_program(in q, q.main, entry, out f)
-    call os_write(in target, format_file(f))
+    call os_write_utf8(in target, format_file(f))
   end

@@ -46,6 +46,20 @@ test unenumerable() :=
     call run_text(in "ulang/test/errors/unenumerable.u", List("test applied(f: Int -> Int, n: Int) :=", "  assert f(n) == f(n)"))
   end
 
+// an out of the lemma bound by a call is no longer existential, so that its fact does not hold of another variable
+test call_binds_out() :=
+  assert raises OpenLemma("bound_out", "forall x => false at 7.3") do
+    call prove_text(in "ulang/test/errors/call-binds-out.u", List(
+      "lemma shifted(in x: Int, out y: Int) :=",
+      "  ensures y == x + 5",
+      "  assign y := x + 5",
+      "",
+      "lemma bound_out(in x: Int, out y: Int) :=",
+      "  ensures y != y",
+      "  local z := x + 1",
+      "  call shifted(in x, out y)"))
+  end
+
 test irreflexive() :=
   assert raises OpenLemma("irreflexive", "forall a => false") do
     call prove_text(in "ulang/test/errors/irreflexive.u", List("lemma irreflexive(in a: Int) :=", "  ensures a < a"))

@@ -183,7 +183,7 @@ function balanced[K, V](m: Map[K, V]): Bool :=
   end
 
 function node_height[K, V](l: Map[K, V], r: Map[K, V]): Int :=
-  1 + (if height(l) < height(r) then height(r) else height(l))
+  1 + max(height(l), height(r))
 
 // m without k
 function remove[K, V](k: K, m: Map[K, V]): Map[K, V] :=

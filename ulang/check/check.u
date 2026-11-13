@@ -165,9 +165,11 @@ data Within :=
   case InCall(name: Name)
 
 // where hidden and hidden_sorts are the private declarations and sorts of the members of the package being checked, which
-// the other members do not see, while sig has only the exports of the modules checked before
+// the other members do not see, while sig has only the exports of the modules checked before, and unknown_sorts and
+// loop_assigned are of the command being checked, the unknown types reported, each once, and the variables that the body
+// of a while assigns which are not assigned before it, the latter of the procedure or procedure lambda being checked
 data State :=
-  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[Pos * Env], scopes: Map[Name, List[Env]])
+  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[Pos * Env], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name])
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -184,13 +186,13 @@ function with_sig(s: State, sig: Sig): State :=
 // the state for checking a declaration of module m, where the substitution starts empty and unknowns are numbered
 // from 1 again, since unknowns do not outlive the command that introduces them
 function enter(s: State, m: Id): State :=
-  s with sub := empty(), count := 0, module := m, visible := sees(m, s.table), pending := List(), chosen := empty(), at := Pos(0, 0)
+  s with sub := empty(), count := 0, module := m, visible := sees(m, s.table), pending := List(), chosen := empty(), at := Pos(0, 0), unknown_sorts := empty(), loop_assigned := empty()
 
 function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
   value_or(get(m, vs), List(m))
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
-  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty())
+  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty(), empty(), empty())
 
 function in_module(m: Id, n: Name): Name :=
   Name(Some(m), n.base)
@@ -294,7 +296,9 @@ function foreign_names(): Map[Str, Str] :=
     "append" => "xs ++ ys",
     "concat" => "xs ++ ys",
     "toString" => "show",
-    "to_string" => "show")
+    "to_string" => "show",
+    "map" => "List(for x in xs yield f(x))",
+    "filter" => "List(for x in xs if p(x))")
 
 // the name of names nearest to x by edits, if at most a quarter of its characters differ, so none for short names
 function nearest(x: Str, names: List[Str]): Option[Str] :=
@@ -326,15 +330,12 @@ function edit_row(prev: List[Int], c: Char, bs: List[Char]): List[Int] :=
 function edit_cells(prev: List[Int], c: Char, bs: List[Char], left: Int): List[Int] :=
   match (prev, bs)
     case (List(diag, up; rest), List(b; more)) =>
-      let cell := least(least(up + 1, left + 1), if b == c then diag else diag + 1) in
+      let cell := min(min(up + 1, left + 1), if b == c then diag else diag + 1) in
       List(cell; edit_cells(List(up; rest), c, more, cell))
 
     case _ =>
       List()
   end
-
-function least(a: Int, b: Int): Int :=
-  if a < b then a else b
 
 // whether the module sees the declaration d, which is its own, or of a module that it sees and not private to it
 function is_visible(s: State, d: Name): Bool :=
@@ -367,11 +368,23 @@ function literal(v: Lit): Type :=
     case LInt(_) =>
       TInt()
 
+    case LHex(_) =>
+      TInt()
+
     case LStr(_) =>
       TStr()
 
     case LChar(_) =>
       TChar()
+  end
+
+// the literal as the checked program has it, where a hexadecimal number is an LInt
+function checked_lit(lit: Lit): Lit :=
+  match lit
+    case LHex(num) =>
+      LInt(num)
+    case _ =>
+      lit
   end
 
 function logic(): Scheme :=
@@ -617,13 +630,21 @@ procedure outputs(in p: Name, os: List[Var], env: Env, ref s: State) :=
 
     case List(o; more) =>
       match get(o.name, env)
+        case Some(Local(_, false)) if contains(o.name, s.loop_assigned) =>
+          call report(in Hinted(OutputUnassigned(o.name, p), "the checker assumes that a while may not run its body, so assign " ++ o.name.base ++ " also before it"), ref s)
+
         case Some(Local(_, false)) =>
           call report(in OutputUnassigned(o.name, p), ref s)
+
         case _ =>
           skip
       end
       call outputs(in p, more, env, ref s)
   end
+
+// the variables of before that are not assigned there but are in after, the variables after a body
+function newly_assigned(before: Env, after: Env): Set[Name] :=
+  Set(for (n, l) in before if not l.assigned and exists(get(n, after), lambda x => x.assigned) yield n)
 
 // the pattern of a case, and whether it has no guard, such that it may cover values
 function case_of[A](b: Doc[Branch[A]]): At[Pat] * Bool :=
@@ -996,7 +1017,7 @@ function unknown_in_cmd(cmd: Cmd): Option[Pos * Type] :=
       unknown_in_expr(body)
 
     case CProc(_, _, _, _, _, _, spec, stmt) =>
-      or_else(unknown_in(stmt), find_map(spec.pre ++ List(for e in spec.post yield e), unknown_in_expr))
+      or_else(unknown_in(stmt), find_map(spec.pre ++ List(for e in spec.post), unknown_in_expr))
 
     case CTest(_, _, stmt) =>
       unknown_in(stmt)
@@ -1364,11 +1385,6 @@ procedure same_length(in owner: Str, unit: Str, m: Int, n: Int, ref s: State) :=
     call report(in CountMismatch(owner, unit, m, n), ref s)
   end
 
-procedure arguments(in n: Name, k: Int, args: List[Type]) :=
-  if size(args) != k then
-    raise SortArity(n, k, size(args))
-  end
-
 // expands type definitions and replaces holes by fresh unknowns
 procedure normalize(in t: Type, out u: Type, ref s: State) :=
   match t
@@ -1413,13 +1429,20 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
           call normalize_sort(in m, args, out u, ref s)
 
         case List() =>
-          call   report(in UnknownSort(name), ref s)
+          call   unknown_sort(in name, ref s)
           assign u := TError
 
         case ms =>
           call report(in Ambiguous(name, List(for m in ms yield (m, Scheme(List(), THole)))), ref s)
           call fresh(out u, ref s)
       end
+  end
+
+// reported once per command, e.g. a type parameter that its declaration omits
+procedure unknown_sort(in n: Name, ref s: State) :=
+  if not contains(n, s.unknown_sorts) then
+    call   report(in UnknownSort(n), ref s)
+    assign s := s with unknown_sorts := Set(n; s.unknown_sorts)
   end
 
 procedure normalize_sort(
@@ -1429,22 +1452,28 @@ procedure normalize_sort(
   ref s: State
 ) :=
   match data_of(s.sig, n)
-    case Some(k) =>
+    case Some(k) if size(args) != k =>
+      call   report(in SortArity(n, k, size(args)), ref s)
+      assign u := TError
+
+    case Some(_) =>
       local us: List[Type]
-      call   arguments(in n, k, args)
       call   normalizes(in args, out us, ref s)
       assign u := TSort(n, us)
 
     case None =>
       match type_alias_of(s.sig, n)
+        case Some(alias) if size(args) != size(alias.params) =>
+          call   report(in SortArity(n, size(alias.params), size(args)), ref s)
+          assign u := TError
+
         case Some(alias) =>
           local us: List[Type]
-          call   arguments(in n, size(alias.params), args)
           call   normalizes(in args, out us, ref s)
           assign u := subst(alias.typ, zip(params(alias.params), us))
 
         case None =>
-          call report(in UnknownSort(n), ref s)
+          call unknown_sort(in n, ref s)
           call fresh(out u, ref s)
       end
   end
@@ -1743,7 +1772,7 @@ procedure infer_node(
 ) :=
   match expr
     case ELit(lit) =>
-      assign res := expr, typ := literal(lit)
+      assign res := ELit(checked_lit(lit)), typ := literal(lit)
 
     case EName(name, a) =>
       local z: Var, w: Type
@@ -1774,17 +1803,19 @@ procedure infer_node(
           call translated(in env, AOk(pos, lambda_match(s, pos, pats, body)), expected, out res, typ, ref s)
       end
 
-    // the body sees the variables around it, but assigns only the outs and refs of the lambda
+    // the body sees the variables around it, but assigns only the outs and refs of the lambda, and its loops are its
+    // own, so the hint of outputs sees only those of the lambda
     case EProc(ins, outs, refs, _, stmt) =>
-      local xs: List[Var], ys: List[Var], zs: List[Var], r: Type, y: At[Stmt], inner: Env
+      local loop_assigned := s.loop_assigned, xs: List[Var], ys: List[Var], zs: List[Var], r: Type, y: At[Stmt], inner: Env
       call   unique_decls(in "formal", ins ++ outs ++ refs, ref s)
-      call   formals(in "formal", ins, out xs, ref s)
-      call   formals(in "formal", outs, out ys, ref s)
-      call   formals(in "formal", refs, out zs, ref s)
+      call   map_state(in ins, normalize_var, out xs, ref s)
+      call   map_state(in outs, normalize_var, out ys, ref s)
+      call   map_state(in refs, normalize_var, out zs, ref s)
       call   unhidden(in env, xs ++ ys ++ zs, ref s)
-      assign inner := bind(xs) ++ unassigned(ys) ++ bind(zs) ++ env
+      assign inner := bind(xs) ++ unassigned(ys) ++ bind(zs) ++ env, s := s with loop_assigned := empty()
       call   statement(in List(for x in ys ++ zs yield x.name), stmt, out y, ref inner, s)
       call   outputs(in unqualified("lambda"), ys, inner, ref s)
+      assign s := s with loop_assigned := loop_assigned
       call   fresh(out r, ref s)
       assign res := EProc(retyped(ins, xs), retyped(outs, ys), retyped(refs, zs), r, y), typ := TProc(List(for x in xs yield x.typ), List(for x in ys yield x.typ), List(for x in zs yield x.typ), r)
 
@@ -2117,12 +2148,12 @@ procedure generator(
     case TSort(Name(Some(_), _), _) =>
       call   report(in NoFold(w, fold_name(form)), ref s)
       call   fresh(out t, ref s)
-      assign typed_fold := c
+      assign typed_fold := standing_for(pos, x, c)
 
     case _ =>
       call   report(in UnknownContainer(w), ref s)
       call   fresh(out t, ref s)
-      assign typed_fold := c
+      assign typed_fold := standing_for(pos, x, c)
   end
   assign typed_expr := with_container(typed_fold, c).that
 
@@ -2305,8 +2336,8 @@ procedure application(
       t: Type,
   ref s: State
 ) :=
-  match fun.that
-    case EName(name, typ) =>
+  match fun
+    case AOk(_, EName(name, typ)) =>
       local cs: List[Name * Scheme] := candidates(s, env, name)
       if size(cs) > 1 then
         local ts: List[Type], typed_args: List[At[Expr]], w: Type, x: Var
@@ -2331,13 +2362,14 @@ procedure application(
         assign typed_expr := EApp(typed_fun, typed_args), s := s with within := outer
       end
 
-    case ELam(_, _) =>
+    case AOk(_, ELam(_, _)) =>
       local typed_fun: At[Expr], typed_args: List[At[Expr]], ts: List[Type]
       call   infers(in env, args, out typed_args, ts, ref s)
       call   fresh(out t, ref s)
       call   infer_lambda(in env, fun, TFun(ts, t), out typed_fun, ref s)
       assign typed_expr := EApp(typed_fun, typed_args)
 
+    // also a callee that does not parse, of the type TError
     case _ =>
       local typed_fun: At[Expr], u: Type, typed_args: List[At[Expr]]
       call   infer(in env, fun, out typed_fun, u, ref s)
@@ -2372,7 +2404,7 @@ procedure field_access(
           call use(in accessor, w, sc, out x, ref s)
 
         case _ =>
-          call   report(in UnknownField(accessor), ref s)
+          call   report(in continued_update(suffix, expr, UnknownField(accessor)), ref s)
           assign x := Var(accessor, w)
       end
 
@@ -2385,6 +2417,16 @@ procedure field_access(
       assign x := Var(unqualified(suffix), w)
   end
   assign typed_expr := EApp(AOk(pos, EVar(x)), List(c; typed_rest))
+
+// e of an unknown field of the update by suffix .f:= of the update expr, with the hint that the comma before f continued the
+// update, where the source likely meant an assignment of a variable f
+function continued_update(suffix: Id, expr: At[Expr], e: TypeError): TypeError :=
+  match expr
+    case AOk(_, EUpdate(_, _, _)) if ends_with(suffix, ":=") =>
+      Hinted(e, "a comma after with continues the update, so an assignment of " ++ slice(suffix, 1, size(suffix) - 2) ++ " takes an assign of its own")
+    case _ =>
+      e
+  end
 
 procedure apply(
   in  env: Env,
@@ -2423,10 +2465,16 @@ procedure apply(
       call unify(in res, r, ref s)
       call infers_lambdas(in env, args, ts, ref typed_args, s)
 
+    // of a value that no function type fits, whose result is TError, so that its uses make no follow-ups
     case _ =>
+      local applicable: Bool
       call infers_first(in env, args, out typed_args, ts, ref s)
+      call fits(in f, TFun(ts, r), s, out applicable)
       call unify(in f, TFun(ts, r), ref s)
       call infers_lambdas(in env, args, ts, ref typed_args, s)
+      if not applicable then
+        call unify(in r, TError, ref s)
+      end
   end
 
 // whether u unifies with t, tried on a copy of s
@@ -2776,7 +2824,7 @@ procedure pattern_binders(
 
     case PLit(lit) =>
       call   unify(in literal(lit), t, ref s)
-      assign typed_pat := AOk(pos, pat), xs := List()
+      assign typed_pat := AOk(pos, PLit(checked_lit(lit))), xs := List()
 
     case PName(name, typ) =>
       if overloads(s, name, lambda n => is_pattern_name(s.sig, n)) != List() then
@@ -2857,6 +2905,22 @@ procedure constructor_binders(
       assign typed_pat := subst_pat(alias.pat, zip(List(for x in alias.formals yield x.name), qs)) with pos := pos
     case None =>
       assign typed_pat := AOk(pos, PApp(k, qs))
+  end
+
+// pat with the patterns of sub for its variables
+function subst_pat(pat: At[Pat], sub: List[Name * At[Pat]]): At[Pat] :=
+  match pat.that
+    case PVar(var) =>
+      value_or(get(var.name, sub), pat)
+
+    case PApp(constr, args) =>
+      pat with that := PApp(constr, List(for a in args yield subst_pat(a, sub)))
+
+    case PTuple(args) =>
+      pat with that := PTuple(List(for a in args yield subst_pat(a, sub)))
+
+    case _ =>
+      pat
   end
 
 // the one of the constructors ks with k arguments whose datatype fits t, where open uses are solved first if
@@ -3049,7 +3113,7 @@ procedure statement_node(
       call   check(in env, cond, TBool(), "the condition of while", out c, ref s)
       assign inner := env
       call   statement(in assignable, body, out l, ref inner, s)
-      assign y := SWhile(c, l)
+      assign y := SWhile(c, l), s := s with loop_assigned := s.loop_assigned ++ newly_assigned(env, inner)
 
     // a procedure that a variable holds and the refs are read
     case SCall(proc, ins, outs, refs) =>
@@ -3069,7 +3133,7 @@ procedure statement_node(
       local c: At[Expr]
       call   check(in env, cond, TBool(), "the assertion", out c, ref s)
       assign y := SAssert(c)
-      if c.that == ELit(LBool(false)) then
+      if is_parsed(c) and c.that == ELit(LBool(false)) then
         assign env := unreachable(env)
       end
 
@@ -3139,11 +3203,21 @@ procedure items(
       assign list := with_container(typed_list, typed_c)
   end
 
-// the fold of a generator over the variable of its container, applied to the container instead
+// the container c of a generator without a fold, as the variable x bound to it, which keeps c with its errors and its parts
+// that do not parse, which a run reaches
+function standing_for(pos: Pos, x: Var, c: At[Expr]): At[Expr] :=
+  AOk(pos, ELet(List((AOk(pos, PVar(x)), c)), AOk(pos, EVar(x))))
+
+// the fold of a generator over the variable of its container, applied to the container instead, as is the container that
+// stands for a generator without a fold
 function with_container(fold: At[Expr], c: At[Expr]): At[Expr] :=
   match fold.that
     case EApp(f, List(_; args)) =>
       fold with that := EApp(f, List(c; args))
+
+    case ELet(List((x, _)), body) =>
+      fold with that := ELet(List((x, c)), body)
+
     case _ =>
       fold
   end
@@ -4650,7 +4724,7 @@ procedure check_package(
     call   private_of(in d, out private, private_sorts)
     assign hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
   end
-  assign s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty()), decls := seconds(placed)
+  assign s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty(), empty(), empty()), decls := seconds(placed)
   call   each_placed(in declare_datas, placed, ref s)
   call   declare_datas(in builtins, ref s)
   call   each_placed(in declare_sorts, alias_order(List(for p in placed if alias_names(p) != None), List()), ref s)
