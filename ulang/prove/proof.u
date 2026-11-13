@@ -101,13 +101,16 @@ function step_gaps(w: Walk, scope: Scope, step: StepTerm): Scope * List[Gap] :=
       let c := opened(scope, cond) in
       (scope with facts := scope.facts ++ List(Atom(c)), closing(w, scope, c, pos))
 
+    // an out of the lemma that the call binds is no longer existential, as after an assignment, since the call gives it
+    // a value
     case CallTerm(name, args, outs, pos) =>
       let terms := List(for a in args yield opened(scope, a)) in
-      let witnesses := List(for i in outs yield ELevel(at(i, from_list(scope.env)))) in
+      let levels := List(for i in outs yield at(i, from_list(scope.env))) in
       match called(w, scope, name, terms)
         case Some(Seq(_, atoms, List(Concl(_, List(Atom(concl)))))) =>
           let required := List(for a in atoms for t in atom_term(a) for g in closing(w, scope, beta(terms, t), pos) yield g) in
-          (scope with facts := scope.facts ++ List(Atom(beta(terms ++ witnesses, concl))), required)
+          let fact := Atom(beta(terms ++ List(for l in levels yield ELevel(l)), concl)) in
+          (scope with facts := scope.facts ++ List(fact), outs := List(for o in scope.outs if not contains(o, levels) yield o), required)
 
         case Some(_) =>
           (scope, List(Gap(pos, "Unsupported", "a lemma of another shape", None)))
