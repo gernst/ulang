@@ -7,16 +7,19 @@
 import "library/md"
 
 procedure main() :=
-  local args: List[Str], standalone := false, rest: List[Str], ok := true, text: Str
+  local ok := true
   try
+    local args: List[Str], standalone: Bool, rest: List[Str]
     call   os_args(out args)
     assign standalone := contains("--standalone", args), rest := remove("--standalone", args)
     match rest
       case List(input) =>
+        local text: Str
         call os_read(in input, out text)
         call os_print(in page(text, standalone))
 
       case List(input, output) =>
+        local text: Str
         call os_read(in input, out text)
         call os_write(in output, page(text, standalone))
 

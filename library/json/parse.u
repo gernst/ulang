@@ -219,7 +219,7 @@ procedure number(out j: Json, ref s: Cursor) :=
   assign m := to_int(whole ++ fraction)
   assign j := decimal(if negative then -m else m, exponent - size(fraction))
 
-procedure hex4(out n: Int, ref s: Cursor) :=
+procedure parse_hex_unit(out n: Int, ref s: Cursor) :=
   local i := 0
   assign n := 0
   while i < 4 do
@@ -250,12 +250,12 @@ procedure hex4(out n: Int, ref s: Cursor) :=
 procedure unicode(out c: Char, ref s: Cursor) :=
   local n: Int, start := s.pos
   call expect(in 'u', ref s)
-  call hex4(out n, ref s)
+  call parse_hex_unit(out n, ref s)
   if 55296 <= n and n <= 56319 then
     local low: Int
     call expect(in '\\', ref s)
     call expect(in 'u', ref s)
-    call hex4(out low, ref s)
+    call parse_hex_unit(out low, ref s)
     if not (56320 <= low and low <= 57343) then
       raise Failed("low surrogate expected", start)
     end

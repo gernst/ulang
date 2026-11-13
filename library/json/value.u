@@ -41,7 +41,7 @@ function show(j: Json): Str :=
       if b then "true" else "false"
 
     case Number(m, e) =>
-      show_number(m, e)
+      format_number(m, e)
 
     case String(s) =>
       json_quote(s)
@@ -75,7 +75,7 @@ function pretty_at(j: Json, indent: Str): Str :=
   end
 
 // integers in full while they have at most 21 digits, else in scientific notation, and fractions with a point
-function show_number(m: Int, e: Int): Str :=
+function format_number(m: Int, e: Int): Str :=
   let digits := show(abs(m)), sign := if m < 0 then "-" else "" in
   if e >= 0 and size(digits) + e <= 21 then
     sign ++ digits ++ repeat("0", e)
@@ -101,11 +101,11 @@ function escape(c: Char): Str :=
   else if c == '\r' then
     "\\r"
   else if ord(c) < 32 then
-    "\\u" ++ hex4(ord(c))
+    "\\u" ++ hex_unit(ord(c))
   else
     str(List(c))
 
-function hex4(n: Int): Str :=
+function hex_unit(n: Int): Str :=
   str(List(
     hex_digit(n / 4096 % 16),
     hex_digit(n / 256 % 16),

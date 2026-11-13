@@ -229,11 +229,11 @@ function destination(cs: List[Char]): Option[Str * Str * List[Char]] :=
         case List('"'; tail) =>
           let (title, after_title) := span(tail, lambda c => c != '"') in
           match after_title
-            case List('"'; tail2) =>
-              let (_, last) := span(tail2, is_space) in
+            case List('"'; after_quote) =>
+              let (_, last) := span(after_quote, is_space) in
               match last
-                case List(')'; tail3) =>
-                  Some((str(url), str(title), tail3))
+                case List(')'; after_paren) =>
+                  Some((str(url), str(title), after_paren))
                 case _ =>
                   None
               end

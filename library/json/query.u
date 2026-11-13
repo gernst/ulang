@@ -82,12 +82,12 @@ procedure word(out w: Str, ref cs: List[Char]) :=
   assign w := str(reverse(acc))
 
 procedure term(out q: Query, ref cs: List[Char]) raises QueryError :=
-  local w: Str
   match cs
     case List('.'; _) =>
       call path(out q, ref cs)
 
     case _ =>
+      local w: Str
       call word(out w, ref cs)
       if w == "length" then
         assign q := Length
@@ -129,12 +129,13 @@ procedure path(out q: Query, ref cs: List[Char]) raises QueryError :=
   end
 
 procedure bracket(out q: Query, ref cs: List[Char]) raises QueryError :=
-  local sign := 1, ds: Str
+  local sign := 1
   match cs
     case List(']'; rest) =>
       assign q := Iterate, cs := rest
 
     case _ =>
+      local ds: Str
       match cs
         case List('-'; rest) =>
           assign sign := -1, cs := rest

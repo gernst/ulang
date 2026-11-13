@@ -7,8 +7,9 @@
 import "library/json"
 
 procedure main() :=
-  local args: List[Str], compact := false, rest: List[Str], ok := true
+  local ok := true
   try
+    local args: List[Str], compact: Bool, rest: List[Str]
     call   os_args(out args)
     assign compact := contains("-c", args), rest := remove("-c", args)
     match rest

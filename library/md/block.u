@@ -239,9 +239,9 @@ function list_marker(l: Str): Option[Marker] :=
       else
         let (ds, more) := span(cs, is_digit) in
         match more
-          case List(d; after2) =>
+          case List(d; after_marker) =>
             if 1 <= size(ds) and size(ds) <= 9 and (d == '.' or d == ')') then
-              marker_after(Marker(true, d, to_int(ds), k + size(ds) + 1), after2, l)
+              marker_after(Marker(true, d, to_int(ds), k + size(ds) + 1), after_marker, l)
             else
               None
 
@@ -288,9 +288,9 @@ function list_items(m: Marker, l: Str, rest: List[Str]): List[List[Str]] * Bool 
   match next
     case List(n; more) =>
       match list_marker(n)
-        case Some(m2) =>
-          if same_kind(m, m2) and classify(n) != RuleStart then
-            let (items, loose, tail) := list_items(m2 with start := m.start, n, more) in
+        case Some(sibling) =>
+          if same_kind(m, sibling) and classify(n) != RuleStart then
+            let (items, loose, tail) := list_items(sibling with start := m.start, n, more) in
             (List(List(first; body); items), loose or blanks != List(), tail)
           else
             (List(List(first; body)), false, after)
@@ -447,7 +447,7 @@ function table(aligns: List[Align], header: List[Str], lines: List[Str], rows: L
 
 // a row cut or filled up with empty cells to n
 function fit(row: List[Str], n: Int): List[Str] :=
-  take(n, row ++ List(for i in range(0, n) yield ""))
+  take(n, row ++ List(for _ in range(0, n) yield ""))
 
 test headings_and_code() :=
   assert parse_blocks("# A #\n\nB\n===\n\n```ulang x\n  code\n```\n\n    four\n") == List(
