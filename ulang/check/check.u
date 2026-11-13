@@ -151,9 +151,11 @@ data Within :=
   case InCall(name: Name)
 
 // where hidden and hidden_sorts are the private declarations and sorts of the members of the package being checked, which
-// the other members do not see, while sig has only the exports of the modules checked before
+// the other members do not see, while sig has only the exports of the modules checked before, and unknown_sorts and
+// loop_assigned are of the command being checked, the unknown types reported, each once, and the variables that the body
+// of a while assigns which are not assigned before it
 data State :=
-  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[Pos * Env], scopes: Map[Name, List[Env]])
+  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[Pos * Env], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name])
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -170,13 +172,13 @@ function with_sig(s: State, sig: Sig): State :=
 // the state for checking a declaration of module m, where the substitution starts empty and unknowns are numbered
 // from 1 again, since unknowns do not outlive the command that introduces them
 function enter(s: State, m: Id): State :=
-  s with sub := empty(), count := 0, module := m, visible := sees(m, s.table), pending := List(), chosen := empty(), at := Pos(0, 0)
+  s with sub := empty(), count := 0, module := m, visible := sees(m, s.table), pending := List(), chosen := empty(), at := Pos(0, 0), unknown_sorts := empty(), loop_assigned := empty()
 
 function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
   value_or(get(m, vs), List(m))
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
-  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty())
+  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty(), empty(), empty())
 
 function in_module(m: Id, n: Name): Name :=
   Name(Some(m), n.base)
@@ -280,7 +282,9 @@ function foreign_names(): Map[Str, Str] :=
     "append" => "xs ++ ys",
     "concat" => "xs ++ ys",
     "toString" => "show",
-    "to_string" => "show")
+    "to_string" => "show",
+    "map" => "List(for x in xs yield f(x))",
+    "filter" => "List(for x in xs if p(x))")
 
 // the name of names nearest to x by edits, if at most a quarter of its characters differ, so none for short names
 function nearest(x: Str, names: List[Str]): Option[Str] :=
@@ -603,13 +607,21 @@ procedure outputs(in p: Name, os: List[Var], env: Env, ref s: State) :=
 
     case List(o; more) =>
       match get(o.name, env)
+        case Some(Local(_, false)) if contains(o.name, s.loop_assigned) =>
+          call report(in Hinted(OutputUnassigned(o.name, p), "the checker assumes that a while may not run its body, so assign " ++ o.name.base ++ " also before it"), ref s)
+
         case Some(Local(_, false)) =>
           call report(in OutputUnassigned(o.name, p), ref s)
+
         case _ =>
           skip
       end
       call outputs(in p, more, env, ref s)
   end
+
+// the variables of before that are not assigned there but are in after, the variables after a body
+function newly_assigned(before: Env, after: Env): Set[Name] :=
+  Set(for (n, l) in before if not l.assigned and exists(get(n, after), lambda x => x.assigned) yield n)
 
 // the pattern of a case, and whether it has no guard, such that it may cover values
 function case_of[A](b: Doc[Branch[A]]): At[Pat] * Bool :=
@@ -1394,13 +1406,20 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
           call normalize_sort(in m, args, out u, ref s)
 
         case List() =>
-          call   report(in UnknownSort(name), ref s)
+          call   unknown_sort(in name, ref s)
           assign u := TError
 
         case ms =>
           call report(in Ambiguous(name, List(for m in ms yield (m, Scheme(List(), THole)))), ref s)
           call fresh(out u, ref s)
       end
+  end
+
+// reported once per command, e.g. a type parameter that its declaration omits
+procedure unknown_sort(in n: Name, ref s: State) :=
+  if not contains(n, s.unknown_sorts) then
+    call   report(in UnknownSort(n), ref s)
+    assign s := s with unknown_sorts := Set(n; s.unknown_sorts)
   end
 
 procedure normalize_sort(
@@ -1431,7 +1450,7 @@ procedure normalize_sort(
           assign u := subst(alias.typ, zip(params(alias.params), us))
 
         case None =>
-          call report(in UnknownSort(n), ref s)
+          call unknown_sort(in n, ref s)
           call fresh(out u, ref s)
       end
   end
@@ -2360,7 +2379,7 @@ procedure field_access(
           call use(in accessor, w, sc, out x, ref s)
 
         case _ =>
-          call   report(in UnknownField(accessor), ref s)
+          call   report(in continued_update(suffix, expr, UnknownField(accessor)), ref s)
           assign x := Var(accessor, w)
       end
 
@@ -2373,6 +2392,16 @@ procedure field_access(
       assign x := Var(unqualified(suffix), w)
   end
   assign typed_expr := EApp(AOk(pos, EVar(x)), List(c; typed_rest))
+
+// e of an unknown field of the update by suffix .f:= of the update expr, with the hint that the comma before f continued the
+// update, where the source likely meant an assignment of a variable f
+function continued_update(suffix: Id, expr: At[Expr], e: TypeError): TypeError :=
+  match expr
+    case AOk(_, EUpdate(_, _, _)) if ends_with(suffix, ":=") =>
+      Hinted(e, "a comma after with continues the update, so an assignment of " ++ slice(suffix, 1, size(suffix) - 2) ++ " takes an assign of its own")
+    case _ =>
+      e
+  end
 
 procedure apply(
   in  env: Env,
@@ -2411,10 +2440,16 @@ procedure apply(
       call unify(in res, r, ref s)
       call infers_lambdas(in env, args, ts, ref typed_args, s)
 
+    // of a value that no function type fits, whose result is TError, so that its uses make no follow-ups
     case _ =>
+      local applicable: Bool
       call infers_first(in env, args, out typed_args, ts, ref s)
+      call fits(in f, TFun(ts, r), s, out applicable)
       call unify(in f, TFun(ts, r), ref s)
       call infers_lambdas(in env, args, ts, ref typed_args, s)
+      if not applicable then
+        call unify(in r, TError, ref s)
+      end
   end
 
 // whether u unifies with t, tried on a copy of s
@@ -3037,7 +3072,7 @@ procedure statement_node(
       call   check(in env, cond, TBool(), "the condition of while", out c, ref s)
       assign inner := env
       call   statement(in assignable, body, out l, ref inner, s)
-      assign y := SWhile(c, l)
+      assign y := SWhile(c, l), s := s with loop_assigned := s.loop_assigned ++ newly_assigned(env, inner)
 
     // a procedure that a variable holds and the refs are read
     case SCall(proc, ins, outs, refs) =>
@@ -4637,7 +4672,7 @@ procedure check_package(
     call   private_of(in d, out private, private_sorts)
     assign hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
   end
-  assign s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty()), decls := seconds(placed)
+  assign s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty(), empty(), empty()), decls := seconds(placed)
   call   each_placed(in declare_datas, placed, ref s)
   call   declare_datas(in builtins, ref s)
   call   each_placed(in declare_sorts, alias_order(List(for p in placed if alias_names(p) != None), List()), ref s)

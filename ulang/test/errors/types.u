@@ -909,6 +909,32 @@ test hints() :=
     "",
     "did you mean size?",
     "write size")
+  call checked_text(in "ulang/test/errors/more-hints.u", List(
+    "data Failed :=",
+    "  case Failed",
+    "",
+    "data State :=",
+    "  case State(errors: Int)",
+    "",
+    "procedure fail() raises Failed :=",
+    "  raise Failed()",
+    "",
+    "function mapped(xs: List[Int]): List[Int] :=",
+    "  map(xs, lambda x => x + 1)",
+    "",
+    "function filtered(xs: List[Int]): List[Int] :=",
+    "  filter(xs, lambda x => x > 1)",
+    "",
+    "procedure update(ref s: State) :=",
+    "  local found := false",
+    "  assign s := s with errors := 1, found := true"), out q, errors)
+  assert List(for e in errors yield (error_pos(e), error_hint(e))) == List(
+    (Pos(8, 9), ""),
+    (Pos(11, 3), "write List(for x in xs yield f(x))"),
+    (Pos(14, 3), "write List(for x in xs if p(x))"),
+    (Pos(18, 17), "a comma after with continues the update, so an assignment of found takes an assign of its own"))
+  assert List(for e in take(1, errors) yield located_message(e)) == List(
+    "cannot unify Failed and () -> ?2; a value that is no function, such as a constructor without fields, is written without () at 8.9")
 
 function error_hint(e: TypeError): Str :=
   match e
@@ -925,6 +951,12 @@ function error_pos(e: TypeError): Pos :=
     case _ =>
       Pos(0, 0)
   end
+
+// an unknown type, of a type parameter that the declaration omits, once per declaration
+test unknown_sort_once() :=
+  local q: Prog, errors: List[TypeError]
+  call checked_text(in "ulang/test/errors/unknown-sort-once.u", List("function f(x: A, y: A): A :=", "  x"), out q, errors)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("UnknownSort", Pos(1, 12)))
 
 test proof_unknown_lemma() :=
   assert raises Located(None, Pos(3, 3), UnknownLemma(Name(None, "b"))) do
