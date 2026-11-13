@@ -64,6 +64,12 @@ function has_sections(text: Str): Bool :=
 // notation, so without the operators of the library, such as +
 procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError
 
+// the source of the module main of text as parse_text parses it, with its errors as its parts that do not parse
+procedure parse_text_recovering(
+  in  text: Str,
+  out source: Source
+) raises ParseError, OsError
+
 // the source of texts instead of files, for the tests: the members of the package of the directory dir from the root,
 // each its module and text, and main, the module and text of the main file, which is one of them or a program in dir,
 // where the library and the imported packages are read from their files
@@ -3403,10 +3409,19 @@ procedure parse_file(
   call parse_file_text(in path, text, out source)
 
 procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError :=
-  local toks: Tokens, source := Source(List(), List(), "main")
-  call lex_text(in text, out toks)
-  call parse_mod(in "main", List(), empty_notation(), "", None, List(), out own, ref source, toks)
-  call require_parsed(in Source(List(own), List(), "main"))
+  local source: Source
+  call   parse_text_recovering(in text, out source)
+  call   require_parsed(in source)
+  assign own := source.mods.head
+
+procedure parse_text_recovering(
+  in  text: Str,
+  out source: Source
+) raises ParseError, OsError :=
+  local toks: Tokens, own: Mod, loaded := Source(List(), List(), "main")
+  call   lex_text(in text, out toks)
+  call   parse_mod(in "main", List(), empty_notation(), "", None, List(), out own, ref loaded, toks)
+  assign source := Source(List(own), List(), "main")
 
 // the file of a module: its id, the root of its project, and its directory from the root, None for the library
 data Place :=
