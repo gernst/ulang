@@ -47,6 +47,12 @@ test comment_in_argument() :=
       "    2))"))
   end
 
+// a character is shown with its escape, as a literal is written
+test character_token() :=
+  assert raises ParseError("declaration expected but '\\n' found", Pos(1, 27)) do
+    call check_text(in "ulang/test/errors/character-token.u", List("function f(): Char := 'a' '\\n'"))
+  end
+
 test data_bar() :=
   assert raises ParseError("each constructor follows case, as in data T := case C", Pos(3, 3)) do
     call check_text(in "ulang/test/errors/data-bar.u", List(

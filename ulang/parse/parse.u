@@ -352,7 +352,7 @@ function format_token(tok: Token): Str :=
       quote(text)
 
     case TChar(char) =>
-      "'" ++ str(List(char)) ++ "'"
+      "'" ++ escape(char, '\'') ++ "'"
 
     case TDoc(_) =>
       "a comment"
