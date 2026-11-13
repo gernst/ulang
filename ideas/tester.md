@@ -5,7 +5,7 @@ A plan: the tests that the tools generate, and the running of tests, move out of
 ## Why
 
 - Whether a lemma holds is for `prove` alone: enumerating values can falsify a lemma, never establish it. So the tests `l.lemma` are no check of validity, which the checker would need, but a step before the proof: a counterexample tells an agent more than an open goal, a falsified lemma needs no proof, and a lemma whose proof stays open is at least tested (Verification 2).
-- So only `test` and `compile --tests` need them, while today `check_package` of `ulang/check/check.u` generates them on every check without errors, and every load of every command parses and checks `ulang/prelude/enumerate.u`, a member of the library that no module but the generated tests sees, hidden by a special case of `implicit_imports` of `ulang/syntax/syntax.u`.
+- So only `test` and `compile --tests` need them, while before, `check_package` of `ulang/check/check.u` generated them on every check without errors, and every load of every command parsed and checked the enumeration as a member of the library that no module but the generated tests saw, hidden by a special case of `implicit_imports` of `ulang/syntax/syntax.u`.
 - The tests with formals of Testing 1, property-based tests, are the general form: the test of a lemma `requires a ensures b` is the test with the formals of the lemma whose body is `if a then assert b`, with a count for `Vacuous`. One translation serves both, and the enumeration is the library of the tester, not of the language.
 
 ## Layout (step 1, done)
@@ -16,8 +16,8 @@ A plan: the tests that the tools generate, and the running of tests, move out of
 
 ## Steps
 
-1. The layout above, done, with `ulang/prelude/enumerate.u` kept for the seed, which still loads it as a member of the library.
-2. `make selfcompile`, then `ulang/prelude/enumerate.u` goes, with its special cases of `ulang/syntax/syntax.u`, and `CLAUDE.md` follows.
+1. The layout above, done.
+2. `make selfcompile`, so that the seed no longer loads the enumeration as a member of the library, and its file in `ulang/prelude/` goes: done.
 3. A lemma whose test is falsified is reported as `lemma l falsified` and not proven.
 4. Tests with formals (Testing 1) by the same translation, without `TestParams`.
 5. The output of Testing 2 in both backends.

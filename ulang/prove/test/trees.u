@@ -1,5 +1,5 @@
 // lemmas over a datatype of the program, which the tests of lemmas enumerate by the function that the checker generates
-// for it, and of tuples, options, and sets, which prelude/enumerate enumerates
+// for it, and of tuples, options, and sets, which the enumeration of ulang/test/enumerate/ enumerates
 
 data Tree[A] :=
   case Leaf
