@@ -55,8 +55,10 @@ procedure parse_file_text(
 function is_source(path: Str): Bool
 
 // whether text has sections, as members of packages have, by a line that starts with export, builtin, or implementation,
-// which is known before the text is lexed, and so also of a file that does not lex
-function has_sections(text: Str): Bool
+// which is known before the text is lexed, and so also of a file that does not lex, where the words of a line end at a
+// space as the lexer takes it, also \r
+function has_sections(text: Str): Bool :=
+  example has_sections("// m\r\n\r\nexport\r\n\r\nfunction f(): Int\r\n")
 
 // the module of text without implicit imports and imports, which reads no files, for the tests, parsed with the empty
 // notation, so without the operators of the library, such as +
@@ -2837,11 +2839,14 @@ function has_sections(text: Str): Bool :=
   exists(split(text, '\n'), lambda line => contains(first_word(line), List("export", "builtin", "implementation")))
 
 function first_word(line: Str): Str :=
-  match split(line, ' ')
-    case List(word; _) =>
-      word
-    case List() =>
-      ""
+  str(word_chars(chars(line)))
+
+function word_chars(cs: List[Char]): List[Char] :=
+  match cs
+    case List(c; rest) if not is_space(c) =>
+      List(c; word_chars(rest))
+    case _ =>
+      List()
   end
 
 // the members of the package of the directory dir from root, with their texts: the files of the directory with sections

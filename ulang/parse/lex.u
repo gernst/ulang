@@ -252,9 +252,15 @@ procedure lex_doc(in text: Str, out doc: Str, above: Bool, ref offset: Int) :=
   end
   assign doc := join("\n", reverse(lines)), above := is_doc_above(text, offset)
 
+// whether the line at offset is not blank, where the lexer takes \r and \t for spaces
 function is_doc_above(text: Str, offset: Int): Bool :=
-  let first := after_spaces(text, offset) in
+  let first := after_blanks(text, offset) in
   first < size(text) and at(first, text) != '\n'
+
+// the offset of the first character after the spaces at offset within its line
+function after_blanks(text: Str, offset: Int): Int :=
+  let c := peek(text, offset) in
+  if c != '\n' and is_space(c) then after_blanks(text, offset + 1) else offset
 
 // the offset of the end of the line at offset
 function line_end(text: Str, offset: Int): Int :=
@@ -428,6 +434,8 @@ test lex_misplaced_comments() :=
     (Pos(2, 1), TName("y")),
     (Pos(2, 2), TEnd))
   call lex(in "f\n// a\n\ng", out toks)
+  assert tokens(toks) == List(TName("f"), TMisplaced, TName("g"), TEnd)
+  call lex(in "f\r\n// a\r\n \r\ng", out toks)
   assert tokens(toks) == List(TName("f"), TMisplaced, TName("g"), TEnd)
   call lex(in "match x\n  // a\n    case 3", out toks)
   assert tokens(toks) == List(TKw("match"), TName("x"), TDoc("a"), TKw("case"), TNum(3), TEnd)
