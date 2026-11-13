@@ -150,6 +150,21 @@ test unassigned_output_in_while() :=
       "  end"))
   end
 
+test unassigned_output_after_lambda() :=
+  assert raises Located(None, Pos(7, 24), OutputUnassigned(Name(None, "z"), Name(None, "lambda"))) do
+    call check_text(in "ulang/test/errors/unassigned-output-after-lambda.u", List(
+      "test leak() :=",
+      "  local f: (out Int) := lambda out z =>",
+      "    while false do",
+      "      assign z := 1",
+      "    end",
+      "    assign z := 2",
+      "  end, g: (out Int) := lambda out z =>",
+      "    skip",
+      "  end",
+      "  skip"))
+  end
+
 test unassigned_ref() :=
   assert raises Located(None, Pos(6, 3), Unassigned(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/unassigned-ref.u", List(

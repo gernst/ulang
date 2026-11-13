@@ -153,7 +153,7 @@ data Within :=
 // where hidden and hidden_sorts are the private declarations and sorts of the members of the package being checked, which
 // the other members do not see, while sig has only the exports of the modules checked before, and unknown_sorts and
 // loop_assigned are of the command being checked, the unknown types reported, each once, and the variables that the body
-// of a while assigns which are not assigned before it
+// of a while assigns which are not assigned before it, the latter of the procedure or procedure lambda being checked
 data State :=
   case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[Pos * Env], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name])
 
@@ -1789,17 +1789,19 @@ procedure infer_node(
           call translated(in env, AOk(pos, lambda_match(s, pos, pats, body)), expected, out res, typ, ref s)
       end
 
-    // the body sees the variables around it, but assigns only the outs and refs of the lambda
+    // the body sees the variables around it, but assigns only the outs and refs of the lambda, and its loops are its
+    // own, so the hint of outputs sees only those of the lambda
     case EProc(ins, outs, refs, _, stmt) =>
-      local xs: List[Var], ys: List[Var], zs: List[Var], r: Type, y: At[Stmt], inner: Env
+      local loop_assigned := s.loop_assigned, xs: List[Var], ys: List[Var], zs: List[Var], r: Type, y: At[Stmt], inner: Env
       call   unique_decls(in "formal", ins ++ outs ++ refs, ref s)
       call   map_state(in ins, normalize_var, out xs, ref s)
       call   map_state(in outs, normalize_var, out ys, ref s)
       call   map_state(in refs, normalize_var, out zs, ref s)
       call   unhidden(in env, xs ++ ys ++ zs, ref s)
-      assign inner := bind(xs) ++ unassigned(ys) ++ bind(zs) ++ env
+      assign inner := bind(xs) ++ unassigned(ys) ++ bind(zs) ++ env, s := s with loop_assigned := empty()
       call   statement(in List(for x in ys ++ zs yield x.name), stmt, out y, ref inner, s)
       call   outputs(in unqualified("lambda"), ys, inner, ref s)
+      assign s := s with loop_assigned := loop_assigned
       call   fresh(out r, ref s)
       assign res := EProc(retyped(ins, xs), retyped(outs, ys), retyped(refs, zs), r, y), typ := TProc(List(for x in xs yield x.typ), List(for x in ys yield x.typ), List(for x in zs yield x.typ), r)
 
