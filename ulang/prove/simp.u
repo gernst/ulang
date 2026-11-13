@@ -2366,7 +2366,7 @@ function print_concl(names: List[Id], several: Bool, c: Concl): Str :=
 test sizes() :=
   local list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), int_var := (lambda base => Var(Name(None, base), TInt())), list_var := (lambda base => Var(Name(None, base), TList(TInt()))), decls := (empty_decls() with constrs := Map(
     nil => ConstrDecl(list, List()),
-    cons => ConstrDecl(list, List(int_var("head"), list_var("tail")))), datatypes := Map(list => List(nil, cons))), two := EApp(EFun(cons), List(EInt(1), EApp(EFun(cons), List(EInt(2), EFun(nil))))), goal := (lambda e => Seq(List(int_var("y"), list_var("ys")), List(), List(Holds(Atom(e)))))
+    cons => ConstrDecl(list, List(int_var("head"), list_var("tail")))), datatypes := Map(list => List(nil, cons))), two := EApp(EFun(cons), List(EInt(1), EApp(EFun(cons), List(EInt(2), EFun(nil))))), goal := lambda e => Seq(List(int_var("y"), list_var("ys")), List(), List(Holds(Atom(e))))
   assert simplify(decls, goal(Eq(Size(two), EInt(2)))) == TrueSeq()
   assert simplify(decls, goal(Less(Size(EBound(0)), Size(EApp(EFun(cons), List(EBound(1), EBound(0))))))) == TrueSeq()
   assert simplify(decls, goal(Not(Less(Size(EBound(0)), EInt(0))))) == TrueSeq()
