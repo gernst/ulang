@@ -83,7 +83,7 @@ out/ulang.sh test dir                     # runs the files below dir, which must
 out/ulang.sh test                         # runs the whole project, the root above with project.u, but
                                           # ulang/test/errors/, which project.u declares to run only compiled
 out/ulang.sh compile --tests -o suite.c   # compiles the tests of the whole project, whose binary runs at the root
-                                          # with the arguments of test
+                                          # with the arguments of test; --tests dir those below dir, not a file
 out/ulang.sh check file.u                 # only checks it
 out/ulang.sh lint file.u                  # checks it and prints the lints, as warnings, with simpler expressions to write
 out/ulang.sh format file.u                # rewrites it in the layout that check, lint, and test require
