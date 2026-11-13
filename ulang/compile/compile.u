@@ -1299,7 +1299,14 @@ procedure compile_prog(
     call assemble_program(in q, q.main, entry, out a)
     call os_write_utf8(in target, format_asm(a))
   else
-    local f: CFile
-    call compile_program(in q, q.main, entry, out f)
-    call os_write_utf8(in target, format_file(f))
+    if ends_with(target, ".o") then
+      local a: AsmFile, bytes: Array[Byte]
+      call assemble_program(in q, q.main, entry, out a)
+      call encode_object(in a, out bytes)
+      call os_write_bytes(in target, bytes)
+    else
+      local f: CFile
+      call compile_program(in q, q.main, entry, out f)
+      call os_write_utf8(in target, format_file(f))
+    end
   end
