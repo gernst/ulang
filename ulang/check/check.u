@@ -1784,7 +1784,7 @@ procedure infer_node(
           call   formals(in "formal", bound, out xs, ref s)
           call   unhidden(in env, xs, ref s)
           call   infer(in bind(xs) ++ env, body, out b, u, ref s)
-          assign res := lambda_of(pos, span, xs, b), typ := TFun(List(for x in xs yield x.typ), u)
+          assign res := ELam(List(for (p, x) in zip(bound, xs) yield AOk(p.pos, p.span, PVar(x))), b), typ := TFun(List(for x in xs yield x.typ), u)
 
         case None =>
           call translated(in env, AOk(pos, span, lambda_match(s, pos, span, pats, body)), expected, out res, typ, ref s)
@@ -2239,7 +2239,10 @@ function fold_expr(s: State, pos: Pos, span: Span, form: Form, m: Id, targs: Lis
       form_app(pos, span, m, fold, List(
         c,
         base,
-        AOk(pos, span, lambda_of(pos, span, if fold == "foldr" then List(kx, vx, acc) else List(acc, kx, vx), matched(s, pos, span, List((kx, k), (vx, v)), body)))))
+        AOk(pos, span, ELam(if fold == "foldr" then
+          List(formal_at(k, kx), formal_at(v, vx), formal_at(c, acc))
+        else
+          List(formal_at(c, acc), formal_at(k, kx), formal_at(v, vx)), matched(s, pos, span, List((kx, k), (vx, v)), body)))))
 
     case GVal(p, _) if m == library_module("map") =>
       let kx := Var(unqualified("(key)"), key_type(targs)), vx := Var(unqualified("(value)"), value_type(targs)) in
@@ -2253,7 +2256,10 @@ function fold_expr(s: State, pos: Pos, span: Span, form: Form, m: Id, targs: Lis
       form_app(pos, span, m, fold, List(
         c,
         base,
-        AOk(pos, span, lambda_of(pos, span, if fold == "foldr" then List(x, acc) else List(acc, x), matched(s, pos, span, List((x, p)), body)))))
+        AOk(pos, span, ELam(if fold == "foldr" then
+          List(formal_at(p, x), formal_at(c, acc))
+        else
+          List(formal_at(c, acc), formal_at(p, x)), matched(s, pos, span, List((x, p)), body)))))
 
     case GIf(_) =>
       body
@@ -2517,7 +2523,12 @@ procedure infers_first(
 // users cannot write for the patterns, which are matched in the body as the formals of folds are
 function lambda_match(s: State, pos: Pos, span: Span, pats: List[At[Pat]], body: At[Expr]): Expr :=
   let xs := List(for (p, i) in numbered(pats) yield formal_of(s, p, "(" ++ show(i) ++ ")", THole)) in
-  lambda_of(pos, span, xs, matched(s, pos, span, zip(xs, pats), body))
+  ELam(List(for (p, x) in zip(pats, xs) yield formal_at(p, x)), matched(s, pos, span, zip(xs, pats), body))
+
+// the formal x of a lambda that a translation makes, at the part p that it binds, the pattern that it names or the
+// container of a fold, so that a formal keeps the span of its pattern
+function formal_at[A](p: At[A], x: Var): At[Pat] :=
+  AOk(p.pos, p.span, PVar(x))
 
 function matched_pattern(pos: Pos, span: Span, pats: List[At[Pat]]): At[Pat] :=
   match pats
@@ -4704,7 +4715,7 @@ procedure check_package(
       errors: List[TypeError],
       loose: List[TypeError]
 ) :=
-  local own := List(for d in mods yield (d.name, seen_modules(d, packages))), members := List(for d in mods yield d.name), placed := List(for d in mods for p in decls_of(d) yield p), s: State, decls: List[Id * Cmd], defined: List[Id * At[Cmd]], tested: List[Id * At[Cmd]] := List(), enumerated: List[Id * At[Cmd]] := List(), hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List(), builtins := List(for d in mods for c in natives(d) yield c), private: Set[Name], private_sorts: List[Name]
+  local own := List(for d in mods yield (d.name, seen_modules(d, packages))), members := List(for d in mods yield d.name), placed := List(for d in mods for p in decls_of(d) yield p), s: State, decls: List[Id * Cmd], defined: List[Id * At[Cmd]], tested: List[Id * At[Cmd]] := List(), enumerated: List[Id * At[Cmd]] := List(), hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List(), builtins := List(for d in mods for c in natives(d) yield c), private: Set[Name], private_sorts: List[Name], exceptions: Exceptions
   for d in mods do
     call   private_of(in d, out private, private_sorts)
     assign hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
@@ -4757,8 +4768,18 @@ procedure check_package(
     end, out enumerated, ref s)
   end
   assign cmds := with_definitions(List(for d in mods for c in written_of(d.name, d.exported ++ d.implemented) yield c), defined) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors, loose := List(for (i, e) in zip(range(0, size(s.errors)), s.errors) if not contains(i, s.taken) yield e)
-  assign errors := errors ++ raises_errors(List(for (_, c) in defined ++ tested if cmd_errors(c) == List() yield c.that), s.sig, hidden)
+  assign exceptions := raises_errors(List(for (_, c) in defined ++ tested if cmd_errors(c) == List() yield c.that), s.sig, hidden)
+  assign errors := errors ++ exceptions.errors, cmds := List(for (m, c) in cmds yield (m, map_at(c, lambda cmd => with_inferred(cmd, exceptions.inferred))))
   assign loose := loose ++ drop(size(s.errors), errors)
+
+// cmd with the raises inferred of it if it is a private procedure without raises, which the checked program keeps
+function with_inferred(cmd: Cmd, inferred: Map[Name, List[Type]]): Cmd :=
+  match cmd
+    case CProc(name, params, ins, outs, refs, List(), spec, stmt) =>
+      CProc(name, params, ins, outs, refs, value_or(get(name, inferred), List()), spec, stmt)
+    case _ =>
+      cmd
+  end
 
 // an example of the function or procedure owner, translated into the test cmd, at the position pos in module, where an
 // example of the export section is checked as an importer of module sees it
