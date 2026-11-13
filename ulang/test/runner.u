@@ -153,10 +153,11 @@ function lemma_of_test(test_name: Str): Str :=
   example lemma_of_test("sorted.lemma") == "sorted"
   slice(test_name, 0, size(test_name) - size(lemma_suffix()))
 
-// whether cmd is a test of the module m that names selects, all of them for List()
+// whether cmd is a test of the module m that names selects, all of them for List(), where a test with formals runs as
+// the test that the tester generates of it
 function is_selected_test(cmd: Cmd, m: Id, names: List[Str]): Bool :=
   match cmd
-    case CTest(name, _, _) =>
+    case CTest(name, List(), _) =>
       name.module == Some(m) and (names == List() or contains(name.base, names))
     case _ =>
       false

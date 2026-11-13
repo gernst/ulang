@@ -1440,8 +1440,10 @@ procedure run_cmd(
   local env: Bindings := empty()
   try
     match cmd
-      case CTest(_, _, stmt) =>
+      // a test with formals runs as the test that the tester generates of it
+      case CTest(_, List(), stmt) =>
         call exec(in run, stmt, ref env, cache)
+
       case _ =>
         skip
     end

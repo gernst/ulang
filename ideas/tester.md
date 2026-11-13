@@ -10,7 +10,7 @@ A plan: the tests that the tools generate, and the running of tests, move out of
 
 ## Layout (step 1, done)
 
-- `ulang/test/generate.u`: the translation of lemmas, later of tests with formals, into tests over enumerated values (`lemma_tests`), which `check_all` of `ulang/check/check.u` takes as a hook, a function from what a package declares (`Checked` of `ulang/check/check.u`) to generated commands, which it checks after the definitions of the package; the driver passes it for `test` and `compile --tests` and `no_tests` else, and `ulang/compile` and `ulang/check` do not import `ulang/test`.
+- `ulang/test/generate.u`: the translation of lemmas and of tests with formals into tests over enumerated values (`enumerated_tests`), which `check_all` of `ulang/check/check.u` takes as a hook, a function from what a package declares (`Checked` of `ulang/check/check.u`) to generated commands, which it checks after the definitions of the package; the driver passes it for `test` and `compile --tests` and `no_tests` else, and `ulang/compile` and `ulang/check` do not import `ulang/test`.
 - `ulang/test/runner.u`: the running of the tests of a module, each on its own, and then the proofs of its lemmas (`test_module` and `prove_module`), while the walk of targets and the lines per file stay in the driver, as they serve `check`, `lint`, and `prove` too. `ulang/test` comes after `ulang/run` and `ulang/prove`, which it imports, as `ulang/test/cases` does.
 - `ulang/test/enumerate/enumerate.u`: the enumeration. In this project it is a package of its own, whose examples `make test` runs; into a program under test the tester loads it as the package `(test)` of one member `(test)/enumerate`, a name that no path can give, which no module sees and the generated tests name by qualified names, read by `os_library` from `ULANG_LIB/../test/enumerate/enumerate.u`, so that no second path is compiled in (`load_tester` of `ulang/test/runner.u`).
 
@@ -19,5 +19,5 @@ A plan: the tests that the tools generate, and the running of tests, move out of
 1. The layout above, done.
 2. `make selfcompile`, so that the seed no longer loads the enumeration as a member of the library, and its file in `ulang/prelude/` goes: done.
 3. A lemma whose test is falsified is reported as `lemma l falsified` and not proven: done (`test_module` and `prove_module` of `ulang/test/runner.u`).
-4. Tests with formals (Testing 1) by the same translation, without `TestParams`.
+4. Tests with formals (Testing 1) by the same translation, without `TestParams`: done (`property_stmt` of `ulang/test/generate.u`, `ulang/test/properties/`).
 5. The output of Testing 2 in both backends.

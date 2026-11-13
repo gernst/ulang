@@ -1,4 +1,4 @@
-// the tests that the tester generates of the lemmas of a package, over the values of the enumeration of
+// the tests that the tester generates of the lemmas and the tests with formals of a package, over the values of the enumeration of
 // ulang/test/enumerate/enumerate.u, which the tester loads as enumerate_module into the programs under test, as source with
 // qualified names, which the checker checks after the definitions of the package (check_all of ulang/check/check.u)
 
@@ -11,10 +11,11 @@ export
 // generated tests name its declarations by qualified names
 function enumerate_module(): Id
 
-// the tests l.lemma of the lemmas l of the package whose formals have enumerable types, each on the values up to a depth
-// of the enumeration, with the functions (enum)T of the datatypes T that they reach, one per module, placed at the first
-// lemma that reaches it; type parameters stand for Int
-function lemma_tests(c: Checked): List[Pos * (Id * Cmd)]
+// the tests over the values of the enumeration up to a depth, of the lemmas l of the package whose formals have
+// enumerable types, l.lemma, and of its tests with formals, t of t, which the runners take for the test with formals,
+// with the functions (enum)T of the datatypes T that they reach, one per module, placed at the first test that reaches it;
+// type parameters stand for Int, and a test with a formal of a type that is not enumerable raises Unenumerable
+function enumerated_tests(c: Checked): List[Pos * (Id * Cmd)]
 
 // the suffix of the name of the test of a lemma, l.lemma of l
 function lemma_suffix(): Str
@@ -27,36 +28,62 @@ function enumerate_module(): Id :=
 function lemma_suffix(): Str :=
   ".lemma"
 
-// the test of a lemma at pos in the module m, with the datatypes whose functions (enum)T it calls
-data LemmaTest :=
-  case LemmaTest(pos: Pos, module: Id, cmd: Cmd, needed: List[Name])
+// a generated test at pos in the module m, with the datatypes whose functions (enum)T it calls
+data Enumerated :=
+  case Enumerated(pos: Pos, module: Id, cmd: Cmd, needed: List[Name])
 
-function lemma_tests(c: Checked): List[Pos * (Id * Cmd)] :=
-  let found := List(for (pos, (m, cmd)) in c.placed for t in lemma_test(c, pos, m, cmd) yield t) in
+// the enumerations of the types, each of a type parameter that of Int, and the datatypes whose functions (enum)T they
+// call, if all are enumerable
+function enumerations(c: Checked, m: Id, types: List[Type]): Option[List[At[Expr]] * List[Name]] :=
+  match (all_some(List(for typ in types yield enum_expr(c, m, lambda _ => enum_call("ints", List()), typ))), datatypes_needed(c, m, List(for typ in types for n in datatypes_in(typ) yield n), List()))
+    case (Some(enums), Some(needed)) =>
+      Some((enums, needed))
+    case _ =>
+      None
+  end
+
+function enumerated_tests(c: Checked): List[Pos * (Id * Cmd)] :=
+  let found := List(for (pos, (m, cmd)) in c.placed for t in enumerated_test(c, pos, m, cmd) yield t) in
   List(for (pos, (m, n)) in first_uses(List(for t in found for n in t.needed yield (t.pos, (t.module, n))), Set()) yield (pos, (m, enum_fun(c, m, n)))) ++ List(for t in found yield (t.pos, (t.module, t.cmd)))
 
-// the test of cmd at pos in the module m, if it is a lemma whose formals have enumerable types
-function lemma_test(c: Checked, pos: Pos, m: Id, cmd: Cmd): List[LemmaTest] :=
+// the test of cmd at pos in the module m, if it is a lemma whose formals have enumerable types or a test with formals
+function enumerated_test(c: Checked, pos: Pos, m: Id, cmd: Cmd): List[Enumerated] :=
   match cmd
     case CLemma(name, _, formals, List(), ClaimHolds(assms, concl), _) =>
-      match lemma_of(c.sig, name)
-        case Some(lemma_sig) =>
-          match (all_some(List(for typ in lemma_sig.formals yield enum_expr(c, m, lambda _ => enum_call("ints", List()), typ))), datatypes_needed(c, m, List(for typ in lemma_sig.formals for n in datatypes_in(typ) yield n), List()))
-            case (Some(enums), Some(needed)) =>
-              List(
-                LemmaTest(pos, m, CTest(Name(Some(m), name.base ++ lemma_suffix()), List(), lemma_stmt(zip(vars(formals), enums), assms, concl)), needed))
+      List(for lemma_sig in lemma_of(c.sig, name) for (enums, needed) in enumerations(c, m, lemma_sig.formals) yield Enumerated(pos, m, CTest(Name(Some(m), name.base ++ lemma_suffix()), List(), lemma_stmt(zip(vars(formals), enums), assms, concl)), needed))
 
-            case _ =>
-              List()
-          end
+    case CTest(name, List(_; _), body) =>
+      let xs := checked_formals(c, m, name), test_name := Name(Some(m), name.base) in
+      match enumerations(c, m, List(for x in xs yield x.typ))
+        case Some((enums, needed)) =>
+          List(
+            Enumerated(pos, m, CTest(test_name, List(), property_stmt(zip(xs, enums), body)), needed))
 
         case None =>
-          List()
+          List(
+            Enumerated(pos, m, CTest(test_name, List(), unenumerable(List(for x in xs if enumerations(c, m, List(x.typ)) == None yield x))), List()))
       end
 
     case _ =>
       List()
   end
+
+// the formals of the test name of the module m with their types, as the checker found them
+function checked_formals(c: Checked, m: Id, name: Name): List[Var] :=
+  List(for (n, cmd) in c.defined if n == m for x in test_formals(cmd.that, name.base) yield x)
+
+function test_formals(cmd: Cmd, base: Id): List[Var] :=
+  match cmd
+    case CTest(name, formals, _) if name.base == base =>
+      vars(formals)
+    case _ =>
+      List()
+  end
+
+// the body of a test with formals of types that are not enumerable, which fails with them
+function unenumerable(formals: List[Var]): At[Stmt] :=
+  nowhere(SRaise(enum_call("Unenumerable", List(
+    nowhere(ELit(LStr(join(", ", List(for x in formals yield x.name.base))))))), THole))
 
 // the uses of datatypes by modules, each pair of a module and a datatype once, at its first use, where seen are those
 // before
@@ -214,24 +241,93 @@ function constr_values(c: Name, es: List[At[Expr]], below: At[Expr]): At[Expr] :
   let vs := List(for i in range(1, size(es) + 1) yield generated_name("v" ++ show(i))), fs := List(for i in range(1, size(es) + 1) yield generated_name("f" ++ show(i))) in
   nowhere(ELet(List(for (v, e) in zip(vs, es) yield (nowhere(PName(v, THole)), enum_call("values_of", List(e, below)))), nowhere(EFor(FList, List(for (f, v) in zip(fs, vs) yield GVal(nowhere(PName(f, THole)), generated_var(v))), YVal(generated_call(c, List(for f in fs yield generated_var(f)))), None))))
 
-// the body of the test of a lemma with the formals and their enumerations, which runs the cases of the formals up to the
-// depth that depth_of chooses, in nested loops, the first formal outermost, and raises Falsified at the first case that
+// the body of the test of a lemma with the formals and their enumerations, which raises Falsified at the first case that
 // satisfies the assumptions assms but not concl, and Vacuous if no case satisfies them
 function lemma_stmt(formals: List[Var * At[Expr]], assms: List[At[Expr]], concl: At[Expr]): At[Stmt] :=
-  let es := List(for i in range(1, size(formals) + 1) yield Var(generated_name("e" ++ show(i)), THole)), n := Var(generated_name("depth"), THole), held := Var(generated_name("held"), THole), d := generated_name("d") in
+  let held := Var(generated_name("held"), THole) in
   let raised := nowhere(SRaise(enum_call("Falsified", List(bindings_text(firsts(formals)))), THole)), counted := nowhere(SAssign(List(
     (held, generated_op("+", List(nowhere(EVar(held)), nowhere(ELit(LInt(1))))))))) in
   let check := nowhere(SIf(conjunction(assms), nowhere(block(List(), List(
     nowhere(SIf(generated_op("not", List(concl)), raised, nowhere(SSkip))),
     counted))), nowhere(SSkip))) in
-  nowhere(block(es ++ List(n, held), List(for (e, (_, enum)) in zip(es, formals) yield nowhere(SAssign(List((e, enum))))) ++ List(
+  cases_stmt(formals, List(held), List(nowhere(SAssign(List((held, nowhere(ELit(LInt(0)))))))), check, List(
+    nowhere(SIf(generated_op("==", List(nowhere(EVar(held)), nowhere(ELit(LInt(0))))), nowhere(SRaise(generated_var(enum_name("Vacuous")), THole)), nowhere(SSkip)))))
+
+// the body of a test with formals, their enumerations, which runs body on each case, where an assertion that fails
+// raises Falsified with the values of the formals
+function property_stmt(formals: List[Var * At[Expr]], body: At[Stmt]): At[Stmt] :=
+  cases_stmt(formals, List(), List(), with_counterexamples(bindings_text(firsts(formals)), body), List())
+
+// the statements before, the cases of the formals with their enumerations up to the depth that depth_of chooses, in nested
+// loops, the first formal outermost, each running check, and the statements after, in a block that declares locals
+function cases_stmt(formals: List[Var * At[Expr]], locals: List[Var], before: List[At[Stmt]], check: At[Stmt], after: List[At[Stmt]]): At[Stmt] :=
+  let es := List(for i in range(1, size(formals) + 1) yield Var(generated_name("e" ++ show(i)), THole)), n := Var(generated_name("depth"), THole), d := generated_name("d") in
+  nowhere(block(es ++ List(n) ++ locals, List(for (e, (_, enum)) in zip(es, formals) yield nowhere(SAssign(List((e, enum))))) ++ List(
     nowhere(SAssign(List(
       (n, enum_call("depth_of", List(
-        generated_list(List(for e in es yield generated_lambda(d, enum_call("count_of", List(nowhere(EVar(e)), generated_var(d)))))))))))),
-    nowhere(SAssign(List((held, nowhere(ELit(LInt(0))))))),
+        generated_list(List(for e in es yield generated_lambda(d, enum_call("count_of", List(nowhere(EVar(e)), generated_var(d))))))))))))) ++ before ++ List(
     foldr(zip(firsts(formals), es), check, lambda (x, e), body => nowhere(SFor(List(
-      GVal(nowhere(PName(x.name, THole)), enum_call("values_of", List(nowhere(EVar(e)), nowhere(EVar(n)))))), body))),
-    nowhere(SIf(generated_op("==", List(nowhere(EVar(held)), nowhere(ELit(LInt(0))))), nowhere(SRaise(generated_var(enum_name("Vacuous")), THole)), nowhere(SSkip))))))
+      GVal(nowhere(PName(x.name, THole)), enum_call("values_of", List(nowhere(EVar(e)), nowhere(EVar(n)))))), body)))) ++ after))
+
+// stmt where each assertion raises Falsified with the text values and, of an equation, both sides when it fails, but in
+// the body of a try or an assert raises, whose handlers could catch it, while a failed assertion cannot be caught
+function with_counterexamples(values: At[Expr], stmt: At[Stmt]): At[Stmt] :=
+  map_at(stmt, lambda that => counterexamples_in(values, that))
+
+function counterexamples_in(values: At[Expr], stmt: Stmt): Stmt :=
+  match stmt
+    case SAssert(cond) =>
+      SIf(generated_op("not", List(cond)), nowhere(SRaise(enum_call("Falsified", List(falsified_text(values, cond))), THole)), nowhere(SSkip))
+
+    case SBlock(locals, stmts) =>
+      SBlock(locals, List(for d in stmts yield map_doc(d, lambda x => counterexamples_in(values, x))))
+
+    case SIf(cond, left, right) =>
+      SIf(cond, with_counterexamples(values, left), with_counterexamples(values, right))
+
+    case SWhile(cond, body) =>
+      SWhile(cond, with_counterexamples(values, body))
+
+    case SMatch(arg, cases) =>
+      SMatch(arg, List(for d in cases yield map_doc(d, lambda b => b with body := with_counterexamples(values, b.body))))
+
+    case SFor(gens, body) =>
+      SFor(gens, with_counterexamples(values, body))
+
+    case SAssertRaises(_, _, _) =>
+      stmt
+
+    case STry(_, _) =>
+      stmt
+
+    case SSkip =>
+      stmt
+
+    case SAssign(_) =>
+      stmt
+
+    case SCall(_, _, _, _) =>
+      stmt
+
+    case SRaise(_, _) =>
+      stmt
+  end
+
+// the text of a failed assertion of cond with the values, and of an equation a == b also show(a) != show(b)
+function falsified_text(values: At[Expr], cond: At[Expr]): At[Expr] :=
+  match cond.that
+    case ECall(_, Name(None, "=="), _, List(a, b)) =>
+      generated_op("++", List(
+        values,
+        generated_op("++", List(
+          nowhere(ELit(LStr(": "))),
+          generated_op("++", List(
+            generated_op("show", List(a)),
+            generated_op("++", List(nowhere(ELit(LStr(" != "))), generated_op("show", List(b))))))))))
+
+    case _ =>
+      values
+  end
 
 function conjunction(assms: List[At[Expr]]): At[Expr] :=
   match assms

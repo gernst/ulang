@@ -113,7 +113,7 @@ procedure check_tested(
   out q: Prog
 ) raises TypeError, InternalError :=
   local errors: List[TypeError]
-  call check_all(in source, lemma_tests, out q, errors)
+  call check_all(in source, enumerated_tests, out q, errors)
   for e in take(1, errors) do
     raise e
   end
@@ -149,7 +149,7 @@ procedure check_text_all(
   local source: Source, q: Prog
   call parse_case(in path, text_of(lines), out source)
   call require_parsed(in source)
-  call check_all(in source, lemma_tests, out q, errors)
+  call check_all(in source, enumerated_tests, out q, errors)
 
 procedure check_text_partial(
   in  path: Str,
@@ -159,7 +159,7 @@ procedure check_text_partial(
 ) raises ParseError, OsError, InternalError :=
   local source: Source, q: Prog
   call   parse_case(in path, text_of(lines), out source)
-  call   check_partial(in without_unparsed(source), unparsed_names(source), lemma_tests, out q, errors)
+  call   check_partial(in without_unparsed(source), unparsed_names(source), enumerated_tests, out q, errors)
   assign parsing := parse_errors(source)
 
 procedure checked_text(
@@ -170,7 +170,7 @@ procedure checked_text(
   local source: Source, errors: List[TypeError]
   call parse_case(in path, text_of(lines), out source)
   call require_parsed(in source)
-  call check_all(in source, lemma_tests, out q, errors)
+  call check_all(in source, enumerated_tests, out q, errors)
 
 procedure run_text(
   in  path: Str,

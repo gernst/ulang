@@ -636,10 +636,10 @@ procedure load_file(
       call load_tester(ref source)
     end
     if has_errors(source) then
-      call   check_partial(in without_unparsed(source), unparsed_names(source), if tested then lemma_tests else no_tests, out q, typed)
+      call   check_partial(in without_unparsed(source), unparsed_names(source), if tested then enumerated_tests else no_tests, out q, typed)
       assign errors := take(20, List(for e in parse_errors(source) yield parse_diagnostic(e)) ++ diagnostics(q))
     else
-      call   check_all(in source, if tested then lemma_tests else no_tests, out q, typed)
+      call   check_all(in source, if tested then enumerated_tests else no_tests, out q, typed)
       assign errors := take(20, diagnostics(q))
     end
     for m in unit_modules(source) if formatted and errors == List() do

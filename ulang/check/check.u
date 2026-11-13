@@ -45,7 +45,6 @@ data TypeError :=
   // induction on a name that is no formal of a datatype of the lemma
   case NotInducible(name: Name)
   case UnknownException(typ: Type)
-  case TestParams(test_name: Id)
   case Unassigned(name: Name)
   case OutputUnassigned(output: Name, proc: Name)
   case MissingDefinition(name: Name)
@@ -125,10 +124,10 @@ procedure check_partial(
 ) raises InternalError
 
 // what the generated tests of a package see of it once its definitions check without errors: its commands at their
-// positions, its abstract types, the signature with the private declarations of its members, which modules each module
-// sees, and the private declarations, which the other members do not see
+// positions, as written, and checked, its abstract types, the signature with the private declarations of its members,
+// which modules each module sees, and the private declarations, which the other members do not see
 data Checked :=
-  case Checked(placed: List[Pos * (Id * Cmd)], abstract: List[Name], sig: Sig, table: List[Id * List[Id]], hidden: Set[Name])
+  case Checked(placed: List[Pos * (Id * Cmd)], defined: List[Id * At[Cmd]], abstract: List[Name], sig: Sig, table: List[Id * List[Id]], hidden: Set[Name])
 
 // whether the module m of the package c sees the declaration d
 function is_seen(c: Checked, m: Id, d: Name): Bool
@@ -3838,13 +3837,14 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
       call   outputs(in name, os, env, ref s)
       assign typed_cmd := CProc(name, params, retyped(ins, is), retyped(outs, os), retyped(refs, rs), typed_raised, typed_spec, y)
 
-    case CTest(name, List(), stmt) =>
-      local y: At[Stmt], env: Env := List()
+    // a test with formals runs as the test over their enumerated values that the tester generates of it
+    // (enumerated_tests of ulang/test/generate.u)
+    case CTest(name, formals, stmt) =>
+      local xs: List[Var], y: At[Stmt], env: Env
+      call   signature(in formals, out xs, ref s)
+      assign env := bind(xs)
       call   statement(in List(), stmt, out y, ref env, s)
-      assign typed_cmd := CTest(name, List(), y)
-
-    case CTest(name, _, _) =>
-      raise TestParams(name.base)
+      assign typed_cmd := CTest(name, retyped(formals, xs), y)
 
     case CData(name, params, constrs) =>
       assign typed_cmd := CData(name, params, List(for k in constrs yield map_doc(k, lambda c => resolved_fields(s.sig, c))))
@@ -4686,7 +4686,7 @@ procedure check_package(
     assign defined := List()
   end
   if s.errors == List() then
-    local generated := generate(Checked(placed, abstract_types(decls), s.sig, s.table, s.hidden))
+    local generated := generate(Checked(placed, defined, abstract_types(decls), s.sig, s.table, s.hidden))
     for d in mods do
       call examples_placed(in d, ref s)
     end

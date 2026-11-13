@@ -556,9 +556,10 @@ test sort_arity() :=
     call check_text(in "ulang/test/errors/sort-arity.u", List("function f(x: Int[Int]): Int :=", "  0"))
   end
 
-test test_params() :=
-  assert raises Located(None, Pos(1, 1), TestParams("sorted")) do
-    call check_text(in "ulang/test/errors/test-params.u", List("test sorted(xs: List[Int]) :=", "  assert xs == xs"))
+// the formals of a test have their declared types in its body
+test test_formals() :=
+  assert raises Located(None, Pos(2, 16), Mismatch(_, _, "argument 2 of the call")) do
+    call check_text(in "ulang/test/errors/test-formals.u", List("test sorted(xs: List[Int]) :=", "  assert xs == 1"))
   end
 
 test test_types() :=

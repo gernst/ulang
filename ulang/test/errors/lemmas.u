@@ -1,4 +1,5 @@
-// the lemmas that the default proof of ulang/prove/lemma.u leaves open, or whose tests on enumerated values fail, each a case, the lines of a source text at a path of this directory, which the procedures of
+// the lemmas that the default proof of ulang/prove/lemma.u leaves open, or whose tests on enumerated values fail, and the
+// tests with formals that fail on enumerated values, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
 import "ulang/syntax"
@@ -17,6 +18,32 @@ test falsified() :=
     call run_text(in "ulang/test/errors/falsified.u", List(
       "lemma reverse_same(in xs: List[Int], ys: List[Int]) :=",
       "  ensures reverse(xs) ++ ys == xs ++ ys"))
+  end
+
+// a test with formals fails with the values of its formals and both sides of the equation
+test falsified_test() :=
+  assert raises Uncaught("Falsified(\"xs = List(0, 0, 1): List(1, 0, 0) != List(0, 0, 1)\")") do
+    call run_text(in "ulang/test/errors/falsified-test.u", List("test reverse_same(xs: List[Int]) :=", "  assert reverse(xs) == xs"))
+  end
+
+// an assertion in the body of a try fails as an assertion, which the handler cannot catch, without the values
+test falsified_in_try() :=
+  assert raises AssertionUnequal("1", "0") do
+    call run_text(in "ulang/test/errors/falsified-in-try.u", List(
+      "test caught(n: Int) :=",
+      "  try",
+      "    assert n == 0",
+      "    raise n",
+      "  catch",
+      "    case _ =>",
+      "      skip",
+      "  end"))
+  end
+
+// a test with a formal of a type without enumeration fails with those formals
+test unenumerable() :=
+  assert raises Uncaught("Unenumerable(\"f\")") do
+    call run_text(in "ulang/test/errors/unenumerable.u", List("test applied(f: Int -> Int, n: Int) :=", "  assert f(n) == f(n)"))
   end
 
 test irreflexive() :=

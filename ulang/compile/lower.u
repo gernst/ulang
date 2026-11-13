@@ -536,8 +536,10 @@ function test_name(n: Name): Str :=
 
 function tested_name(cmd: Cmd, m: Id): Option[Name] :=
   match cmd
-    case CTest(name, _, _) if name.module == Some(m) =>
+    // a test with formals runs as the test that the tester generates of it
+    case CTest(name, List(), _) if name.module == Some(m) =>
       Some(name)
+
     case _ =>
       None
   end

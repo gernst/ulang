@@ -1047,7 +1047,8 @@ procedure compile_cmd(in defs: Defs, tests: Bool, cmd: Cmd, ref e: Emit) :=
       call   copy_out(in var_names(vars(outs ++ refs)), ps, vs, ref e)
       call   end_function(in proc_name(name), false, outer, ref e)
 
-    case CTest(name, _, stmt) if tests =>
+    // a test with formals runs as the test that the tester generates of it
+    case CTest(name, List(), stmt) if tests =>
       local outer: Buffer[Line] * Int
       call begin_function(out outer, ref e)
       call compile_stmt(in defs, List(), stmt, ref e)

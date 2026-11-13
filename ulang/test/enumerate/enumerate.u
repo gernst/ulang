@@ -1,4 +1,4 @@
-// the values of types up to a depth, which the tests of lemmas enumerate (lemma_tests of ulang/test/generate.u): a package
+// the values of types up to a depth, which the tests of lemmas and the tests with formals enumerate (enumerated_tests of ulang/test/generate.u): a package
 // of this project, whose examples are its tests, which the tester loads into the programs under test as the module
 // enumerate_module of ulang/test/generate.u, which no module sees, and whose declarations the generated tests name by
 // their qualified names, so that they are no candidates of overloading
@@ -10,12 +10,15 @@ export
 data Enumeration[A] :=
   case Enumeration(count: Int -> Int, values: Int -> List[A])
 
-// why the test of a lemma fails
-data LemmaFailure :=
-  // the formals of a case that satisfies the assumptions but not the conclusion, as name = value, …
+// why a test over enumerated values fails
+data TestFailure :=
+  // the formals of a case that satisfies the assumptions of a lemma but not its conclusion, or for which an assertion of a
+  // test fails, as name = value, …, and after an assertion a == b that fails, : and both sides
   case Falsified(values: Str)
-  // no case satisfies the assumptions
+  // no case satisfies the assumptions of a lemma
   case Vacuous
+  // the formals of a test whose types are not enumerable
+  case Unenumerable(formals: Str)
 
 function count_of[A](e: Enumeration[A], n: Int): Int :=
   example count_of(ints(), 2) == 5
