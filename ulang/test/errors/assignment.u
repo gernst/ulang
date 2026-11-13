@@ -6,27 +6,27 @@ import "ulang/check"
 import "ulang/test/cases"
 
 test assign_captured() :=
-  assert raises Located(None, Pos(3, 5), NotAssignable(Name(None, "k"))) do
-    call check_text(in "ulang/test/errors/assign-captured.u", List(
+  assert raises Located(None, Pos(3, 3), NotAssignable(Name(None, "k"))) do
+    check_text(in "ulang/test/errors/assign-captured.u", List(
       "test capture() :=",
-      "  local k := 0, p := lambda in x =>",
-      "    assign k := x",
+      "  var k := 0, p := lambda in x =>",
+      "    k := x",
       "  end",
-      "  call p(in 1)"))
+      "  p(in 1)"))
   end
 
 test assign_input() :=
   assert raises Located(None, Pos(2, 3), NotAssignable(Name(None, "x"))) do
-    call check_text(in "ulang/test/errors/assign-input.u", List("procedure p(in x: Int) :=", "  assign x := 1"))
+    check_text(in "ulang/test/errors/assign-input.u", List("procedure p(in x: Int) :=", "  x := 1"))
   end
 
 test assign_pattern_variable() :=
   assert raises Located(None, Pos(4, 7), NotAssignable(Name(None, "x"))) do
-    call check_text(in "ulang/test/errors/assign-pattern-variable.u", List(
+    check_text(in "ulang/test/errors/assign-pattern-variable.u", List(
       "procedure p(out r: Int) :=",
       "  match List(1)",
       "    case List(x; _) =>",
-      "      assign x := 1",
+      "      x := 1",
       "    case List() =>",
       "      skip",
       "  end"))
@@ -34,56 +34,56 @@ test assign_pattern_variable() :=
 
 test assign_twice() :=
   assert raises Located(None, Pos(2, 3), Duplicate("assignment to", "x")) do
-    call check_text(in "ulang/test/errors/assign-twice.u", List("procedure p(out x: Int) :=", "  assign x := 1, x := 2"))
+    check_text(in "ulang/test/errors/assign-twice.u", List("procedure p(out x: Int) :=", "  x := 1, x := 2"))
   end
 
 test assign_type() :=
-  assert raises Located(None, Pos(2, 15), Mismatch(_, _, "the assignment")) do
-    call check_text(in "ulang/test/errors/assign-type.u", List("procedure p(out x: Int) :=", "  assign x := true"))
+  assert raises Located(None, Pos(2, 8), Mismatch(_, _, "the assignment")) do
+    check_text(in "ulang/test/errors/assign-type.u", List("procedure p(out x: Int) :=", "  x := true"))
   end
 
 test call_aliasing() :=
   assert raises Located(None, Pos(5, 3), Duplicate("out or ref", "z")) do
-    call check_text(in "ulang/test/errors/call-aliasing.u", List(
+    check_text(in "ulang/test/errors/call-aliasing.u", List(
       "procedure p(ref x: Int, y: Int) :=",
       "  skip",
       "",
       "procedure q(out z: Int) :=",
-      "  call p(ref z, z)"))
+      "  p(ref z, z)"))
   end
 
 test local_scope() :=
   assert raises Located(None, Pos(5, 3), NotAssignable(Name(None, "y"))) do
-    call check_text(in "ulang/test/errors/local-scope.u", List(
+    check_text(in "ulang/test/errors/local-scope.u", List(
       "procedure p(in x: Int) :=",
       "  if x > 0 then",
-      "    local y: Int := x",
+      "    var y: Int := x",
       "  end",
-      "  assign y := 1"))
+      "  y := 1"))
   end
 
 test unassigned_after_if() :=
   assert raises Located(None, Pos(6, 10), Unassigned(Name(None, "x"))) do
-    call check_text(in "ulang/test/errors/unassigned-after-if.u", List(
+    check_text(in "ulang/test/errors/unassigned-after-if.u", List(
       "test unassigned_after_if() :=",
-      "  local x: Int, y := 1",
+      "  var x: Int, y := 1",
       "  if y > 0 then",
-      "    assign x := 1",
+      "    x := 1",
       "  end",
       "  assert x == 1"))
   end
 
 test unassigned_after_raises() :=
   assert raises Located(None, Pos(11, 10), Unassigned(Name(None, "n"))) do
-    call check_text(in "ulang/test/errors/unassigned-after-raises.u", List(
+    check_text(in "ulang/test/errors/unassigned-after-raises.u", List(
       "data Fail :=",
       "  case Fail",
       "",
       "// the body of assert raises raises if the test passes, so its assignments do not count after it",
       "test after() :=",
-      "  local n: Int",
+      "  var n: Int",
       "  assert raises Fail do",
-      "    assign n := 1",
+      "    n := 1",
       "    raise Fail",
       "  end",
       "  assert n == 1"))
@@ -91,14 +91,14 @@ test unassigned_after_raises() :=
 
 test unassigned_after_try() :=
   assert raises Located(None, Pos(12, 10), Unassigned(Name(None, "x"))) do
-    call check_text(in "ulang/test/errors/unassigned-after-try.u", List(
+    check_text(in "ulang/test/errors/unassigned-after-try.u", List(
       "data Fail :=",
       "  case Fail",
       "",
       "test unassigned_after_try() :=",
-      "  local x: Int",
+      "  var x: Int",
       "  try",
-      "    assign x := 1",
+      "    x := 1",
       "  catch",
       "    case Fail =>",
       "      skip",
@@ -108,57 +108,57 @@ test unassigned_after_try() :=
 
 test unassigned_after_while() :=
   assert raises Located(None, Pos(6, 10), Unassigned(Name(None, "x"))) do
-    call check_text(in "ulang/test/errors/unassigned-after-while.u", List(
+    check_text(in "ulang/test/errors/unassigned-after-while.u", List(
       "test unassigned_after_while() :=",
-      "  local x: Int, n := 0",
+      "  var x: Int, n := 0",
       "  while n < 3 do",
-      "    assign x := n, n := n + 1",
+      "    x := n, n := n + 1",
       "  end",
       "  assert x == 2"))
   end
 
 test unassigned_lambda_output() :=
   assert raises Located(None, Pos(2, 14), OutputUnassigned(Name(None, "y"), Name(None, "lambda"))) do
-    call check_text(in "ulang/test/errors/unassigned-lambda-output.u", List(
+    check_text(in "ulang/test/errors/unassigned-lambda-output.u", List(
       "test unassigned_lambda_output() :=",
-      "  local p := lambda in x: Int, out y: Int =>",
+      "  var p := lambda in x: Int, out y: Int =>",
       "    if x > 0 then",
-      "      assign y := x",
+      "      y := x",
       "    end",
       "  end"))
   end
 
 test unassigned_output() :=
   assert raises Located(None, Pos(1, 1), OutputUnassigned(Name(None, "r"), Name(Some("ulang/test/errors/unassigned-output"), "p"))) do
-    call check_text(in "ulang/test/errors/unassigned-output.u", List(
+    check_text(in "ulang/test/errors/unassigned-output.u", List(
       "procedure p(out r: Int) :=",
       "  skip",
       "",
       "test unassigned_output() :=",
-      "  local x: Int",
-      "  call p(out x)"))
+      "  var x: Int",
+      "  p(out x)"))
   end
 
 // an out assigned only in the body of a while, which the checker assumes may not run
 test unassigned_output_in_while() :=
   assert raises Located(None, Pos(1, 1), Hinted(OutputUnassigned(Name(None, "y"), Name(Some("ulang/test/errors/unassigned-output-in-while"), "p")), _)) do
-    call check_text(in "ulang/test/errors/unassigned-output-in-while.u", List(
+    check_text(in "ulang/test/errors/unassigned-output-in-while.u", List(
       "procedure p(out y: Int) :=",
-      "  local i := 0",
+      "  var i := 0",
       "  while i < 3 do",
-      "    assign y := i, i := i + 1",
+      "    y := i, i := i + 1",
       "  end"))
   end
 
 test unassigned_output_after_lambda() :=
-  assert raises Located(None, Pos(7, 24), OutputUnassigned(Name(None, "z"), Name(None, "lambda"))) do
-    call check_text(in "ulang/test/errors/unassigned-output-after-lambda.u", List(
+  assert raises Located(None, Pos(7, 17), OutputUnassigned(Name(None, "z"), Name(None, "lambda"))) do
+    check_text(in "ulang/test/errors/unassigned-output-after-lambda.u", List(
       "test leak() :=",
-      "  local f: (out Int) := lambda out z =>",
+      "  let f: (out Int) := lambda out z =>",
       "    while false do",
-      "      assign z := 1",
+      "      z := 1",
       "    end",
-      "    assign z := 2",
+      "    z := 2",
       "  end, g: (out Int) := lambda out z =>",
       "    skip",
       "  end",
@@ -167,16 +167,16 @@ test unassigned_output_after_lambda() :=
 
 test unassigned_ref() :=
   assert raises Located(None, Pos(6, 3), Unassigned(Name(None, "x"))) do
-    call check_text(in "ulang/test/errors/unassigned-ref.u", List(
+    check_text(in "ulang/test/errors/unassigned-ref.u", List(
       "procedure increment(ref n: Int) :=",
-      "  assign n := n + 1",
+      "  n := n + 1",
       "",
       "test unassigned_ref() :=",
-      "  local x: Int",
-      "  call increment(ref x)"))
+      "  var x: Int",
+      "  increment(ref x)"))
   end
 
 test uninitialized() :=
-  assert raises Located(None, Pos(2, 27), Unassigned(Name(None, "x"))) do
-    call check_text(in "ulang/test/errors/uninitialized.u", List("test uninitialized() :=", "  local x: Int, y: Int := x"))
+  assert raises Located(None, Pos(2, 25), Unassigned(Name(None, "x"))) do
+    check_text(in "ulang/test/errors/uninitialized.u", List("test uninitialized() :=", "  var x: Int, y: Int := x"))
   end

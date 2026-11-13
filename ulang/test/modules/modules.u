@@ -27,8 +27,8 @@ test imported_notations() :=
   assert peek(Empty, 3) == 3
 
 test exported_declarations() :=
-  local c := start()
-  call bump(ref c)
+  var c := start()
+  bump(ref c)
   assert count(next(c)) == 2 and 2 ** 3 ** 2 == 512 and level(Green(3)) == 3 and level(Red) == 0
 
 // the helper of counter, since that of exported is private, although it has the same type
@@ -40,7 +40,7 @@ function counted(c: Counter): Int :=
   count(c)
 
 test abstract_annotations() :=
-  local t: Tally := tally(List(1, 2))
+  let t: Tally := tally(List(1, 2))
   assert counted(next(start())) == 1 and t == tally(List(3))
 
 test exported_fields() :=
@@ -49,19 +49,19 @@ test exported_fields() :=
 test equality_without_order() :=
   assert tally(List(1, 2)) == tally(List(3)) and tally(List(1)) != tally(List(2)) and contains(tally(List(4)), List(tally(List(1, 3))))
   assert raises Unordered("ulang/test/modules/exported.Tally") do
-    local r := compare(tally(List(1)), tally(List(2)))
+    let r := compare(tally(List(1)), tally(List(2)))
   end
   assert raises Unordered("ulang/test/modules/exported.Tally") do
-    local r := tally(List(1)) < tally(List(2))
+    let r := tally(List(1)) < tally(List(2))
   end
 
 test incomparable() :=
   assert raises Incomparable("ulang/test/modules/exported.Counter") do
-    local r := start() == start()
+    let r := start() == start()
   end
 
 // also in the module of the type, and inside other values
 test incomparable_inside() :=
   assert raises Incomparable("ulang/test/modules/modules.Pair") do
-    local r := List(Pair(1, 2)) == List(pair(1, 2))
+    let r := List(Pair(1, 2)) == List(pair(1, 2))
   end

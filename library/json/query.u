@@ -26,22 +26,22 @@ procedure run_query(
 implementation
 
 procedure parse_query(in text: Str, out q: Query) raises QueryError :=
-  local cs := chars(text), more := true
-  call skip_spaces(ref cs)
-  call term(out q, ref cs)
-  call skip_spaces(ref cs)
+  var cs := chars(text), more := true
+  skip_spaces(ref cs)
+  term(out q, ref cs)
+  skip_spaces(ref cs)
   while more do
     match cs
       case List('|'; rest) =>
-        local next: Query
-        assign cs := rest
-        call   skip_spaces(ref cs)
-        call   term(out next, ref cs)
-        call   skip_spaces(ref cs)
-        assign q := Pipe(q, next)
+        var next: Query
+        cs := rest
+        skip_spaces(ref cs)
+        term(out next, ref cs)
+        skip_spaces(ref cs)
+        q := Pipe(q, next)
 
       case List() =>
-        assign more := false
+        more := false
 
       case List(c; _) =>
         raise QueryError("unexpected " ++ quote(str(List(c))))
@@ -49,51 +49,51 @@ procedure parse_query(in text: Str, out q: Query) raises QueryError :=
   end
 
 procedure skip_spaces(ref cs: List[Char]) :=
-  local more := true
+  var more := true
   while more do
     match cs
       case List(c; rest) =>
         if is_space(c) then
-          assign cs := rest
+          cs := rest
         else
-          assign more := false
+          more := false
         end
 
       case List() =>
-        assign more := false
+        more := false
     end
   end
 
 procedure word(out w: Str, ref cs: List[Char]) :=
-  local acc := List(), more := true
+  var acc := List(), more := true
   while more do
     match cs
       case List(c; rest) =>
         if is_letter(c) or is_digit(c) or c == '_' then
-          assign acc := List(c; acc), cs := rest
+          acc := List(c; acc), cs := rest
         else
-          assign more := false
+          more := false
         end
 
       case List() =>
-        assign more := false
+        more := false
     end
   end
-  assign w := str(reverse(acc))
+  w := str(reverse(acc))
 
 procedure term(out q: Query, ref cs: List[Char]) raises QueryError :=
   match cs
     case List('.'; _) =>
-      call path(out q, ref cs)
+      path(out q, ref cs)
 
     case _ =>
-      local w: Str
-      call word(out w, ref cs)
+      var w: Str
+      word(out w, ref cs)
       if w == "length" then
-        assign q := Length
+        q := Length
       else
         if w == "keys" then
-          assign q := Keys
+          q := Keys
         else
           raise QueryError("path, length, or keys expected")
         end
@@ -102,50 +102,50 @@ procedure term(out q: Query, ref cs: List[Char]) raises QueryError :=
 
 // a path of fields and indexes after a dot, which alone is the identity
 procedure path(out q: Query, ref cs: List[Char]) raises QueryError :=
-  local more := true
-  assign q := Identity
+  var more := true
+  q := Identity
   while more do
     match cs
       case List('.', '['; rest) =>
-        assign cs := List('['; rest)
+        cs := List('['; rest)
 
       case List('.'; rest) =>
-        local name: Str
-        assign cs := rest
-        call   word(out name, ref cs)
+        var name: Str
+        cs := rest
+        word(out name, ref cs)
         if name != "" then
-          assign q := chain(q, Field(name))
+          q := chain(q, Field(name))
         end
 
       case List('['; rest) =>
-        local index: Query
-        assign cs := rest
-        call   bracket(out index, ref cs)
-        assign q := chain(q, index)
+        var index: Query
+        cs := rest
+        bracket(out index, ref cs)
+        q := chain(q, index)
 
       case _ =>
-        assign more := false
+        more := false
     end
   end
 
 procedure bracket(out q: Query, ref cs: List[Char]) raises QueryError :=
-  local sign := 1
+  var sign := 1
   match cs
     case List(']'; rest) =>
-      assign q := Iterate, cs := rest
+      q := Iterate, cs := rest
 
     case _ =>
-      local ds: Str
+      var ds: Str
       match cs
         case List('-'; rest) =>
-          assign sign := -1, cs := rest
+          sign := -1, cs := rest
         case _ =>
           skip
       end
-      call word(out ds, ref cs)
+      word(out ds, ref cs)
       match (number(ds), cs)
         case (Some(n), List(']'; rest)) =>
-          assign q := Index(sign * n), cs := rest
+          q := Index(sign * n), cs := rest
         case _ =>
           raise QueryError("index or ] expected")
       end
@@ -161,15 +161,15 @@ procedure run_query(
 ) raises QueryError :=
   match q
     case Identity =>
-      assign results := List(j)
+      results := List(j)
 
     case Field(name) =>
       match j
         case Object(fields) =>
-          assign results := List(value_or(get(name, fields), Null))
+          results := List(value_or(get(name, fields), Null))
 
         case Null =>
-          assign results := List(Null)
+          results := List(Null)
 
         case _ =>
           raise QueryError("cannot index " ++ kind(j) ++ " with " ++ json_quote(name))
@@ -178,11 +178,11 @@ procedure run_query(
     case Index(i) =>
       match j
         case Elements(items) =>
-          local k := if i < 0 then size(items) + i else i
-          assign results := List(if 0 <= k then nth(k, items) else Null)
+          let k := if i < 0 then size(items) + i else i
+          results := List(if 0 <= k then nth(k, items) else Null)
 
         case Null =>
-          assign results := List(Null)
+          results := List(Null)
 
         case _ =>
           raise QueryError("cannot index " ++ kind(j) ++ " with a number")
@@ -191,38 +191,38 @@ procedure run_query(
     case Iterate =>
       match j
         case Elements(items) =>
-          assign results := items
+          results := items
 
         case Object(fields) =>
-          assign results := seconds(fields)
+          results := seconds(fields)
 
         case _ =>
           raise QueryError("cannot iterate over " ++ kind(j))
       end
 
     case Pipe(a, b) =>
-      local first: List[Json]
-      call   run_query(in a, j, out first)
-      assign results := List()
+      var first: List[Json]
+      run_query(in a, j, out first)
+      results := List()
       for x in first do
-        local more: List[Json]
-        call   run_query(in b, x, out more)
-        assign results := results ++ more
+        var more: List[Json]
+        run_query(in b, x, out more)
+        results := results ++ more
       end
 
     case Length =>
       match j
         case Elements(items) =>
-          assign results := List(decimal(size(items), 0))
+          results := List(decimal(size(items), 0))
 
         case Object(fields) =>
-          assign results := List(decimal(size(fields), 0))
+          results := List(decimal(size(fields), 0))
 
         case String(t) =>
-          assign results := List(decimal(size(t), 0))
+          results := List(decimal(size(t), 0))
 
         case Null =>
-          assign results := List(decimal(0, 0))
+          results := List(decimal(0, 0))
 
         case _ =>
           raise QueryError(kind(j) ++ " has no length")
@@ -231,7 +231,7 @@ procedure run_query(
     case Keys =>
       match j
         case Object(fields) =>
-          assign results := List(Elements(List(for k in sort(firsts(fields)) yield String(k))))
+          results := List(Elements(List(for k in sort(firsts(fields)) yield String(k))))
         case _ =>
           raise QueryError(kind(j) ++ " has no keys")
       end
@@ -267,26 +267,27 @@ function kind(j: Json): Str :=
   end
 
 procedure query(in text: Str, json: Str, out shown: List[Str]) :=
-  local q: Query, j: Json, rs: List[Json]
-  call   parse_query(in text, out q)
-  call   parse_json(in json, out j)
-  call   run_query(in q, j, out rs)
-  assign shown := List(for r in rs yield show(r))
+  var q: Query, j: Json, rs: List[Json]
+  parse_query(in text, out q)
+  parse_json(in json, out j)
+  run_query(in q, j, out rs)
+  shown := List(for r in rs yield show(r))
 
 test queries() :=
-  local r: List[Str], doc := "{\"users\": [{\"name\": \"ada\", \"langs\": [\"ml\", \"c\"]}, {\"name\": \"bob\", \"langs\": []}], \"n\": 2}"
-  call query(in ".users[0].name", doc, out r)
+  var r: List[Str]
+  let doc := "{\"users\": [{\"name\": \"ada\", \"langs\": [\"ml\", \"c\"]}, {\"name\": \"bob\", \"langs\": []}], \"n\": 2}"
+  query(in ".users[0].name", doc, out r)
   assert r == List("\"ada\"")
-  call query(in ".users[].name", doc, out r)
+  query(in ".users[].name", doc, out r)
   assert r == List("\"ada\"", "\"bob\"")
-  call query(in ".users[] | .langs | length", doc, out r)
+  query(in ".users[] | .langs | length", doc, out r)
   assert r == List("2", "0")
-  call query(in ".users[-1].langs[0]", doc, out r)
+  query(in ".users[-1].langs[0]", doc, out r)
   assert r == List("null")
-  call query(in "keys", doc, out r)
+  query(in "keys", doc, out r)
   assert r == List("[\"n\",\"users\"]")
-  call query(in ".", "[]", out r)
+  query(in ".", "[]", out r)
   assert r == List("[]")
   assert raises QueryError("cannot index number with \"x\"") do
-    call query(in ".n.x", doc, out r)
+    query(in ".n.x", doc, out r)
   end

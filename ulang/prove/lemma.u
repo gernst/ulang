@@ -58,7 +58,7 @@ procedure prove_program(in q: Prog, m: Id) raises OpenLemma, OpenTermination
 implementation
 
 procedure prove_program(in q: Prog, m: Id) raises OpenLemma, OpenTermination :=
-  local t := translate(q, m), proofs := prove_lemmas(t.decls, t.contracts, t.lemmas)
+  let t := translate(q, m), proofs := prove_lemmas(t.decls, t.contracts, t.lemmas)
   for tm in proofs.terminations do
     match tm.open
       case List(site; _) =>

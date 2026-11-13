@@ -79,7 +79,7 @@ A script is a sequence of actions. An action starts with a line beginning with `
 
 - **Declarations, without placement**: each declaration of the fragment replaces the one of the same name and arity in the file `F`, or is added at the end of its section if there is none; `@put F after file.u:name/n` places new ones after a given declaration. An `export` in front of a definition (Changes to ulang, 6) puts its signature into the `export` section; without that change, the tool keeps the signature in `export` and the definition in `implementation` in step itself, also the contracts and examples, which stand on the signature of an exported name.
 - **Code into a declaration**: `@put #h` replaces the node `#h` by the fragment, which must be of the same kind, a statement, a case, or an expression; `@put after #h`, `@put before #h`, and `@put into #h`, as its last statement or case, insert new nodes.
-- **Hoisting**: a `local x := e` among the statements of a fragment becomes a declaration of `x` on the `local` line of the innermost body that uses it and `assign x := e` in its place, so the rule of style on locals costs nothing; this is the edit of `LocalTooHigh`.
+- **Placing locals**: a `var` of a fragment that only the branches of one statement after it use moves into each branch that uses it, where it is first needed, so the rule of style on locals costs nothing; this is the edit of `LocalTooHigh`.
 
 Nothing else is needed for writing code: a case is added to a match by `@put into #h`, statements are wrapped in a `try` by `@put #h` of the `try` written around them, and a function is extracted by an `@put` of the function and an `@put` of the call in its place. Every fragment goes through the preconditions and postconditions above and is printed by `format_program`, so a fragment never needs to be formatted by hand.
 
@@ -100,12 +100,12 @@ Handles stand in a left margin, which the tool strips again when code with handl
 ```
 @show json/query.u:term/2
    procedure term(out q: Query, ref cs: List[Char]) raises QueryError :=
-#7   local w: Str
+#7   var w: Str
 #8   match cs
 #9     case List('.'; _) =>
-#10      call path(out q, ref cs)
+#10      path(out q, ref cs)
 #11    case _ =>
-#12      call word(out w, ref cs)
+#12      word(out w, ref cs)
          …
 ```
 
@@ -155,12 +155,12 @@ A fragment that does not parse is reported at its own line and column, with the 
 
 ```
 rejected
-@put #12, fragment 1.3: an assignment starts with assign
-  corrected:  assign x := 2
+@put #12, fragment 1.3: an assignment is written x := e, without assign
+  corrected:  x := 2
   @retry applies the corrections
 ```
 
-So also for a call without `call`, `return`, `break`, `+` of strings, `[1, 2]`, modes out of order, a keyword as a name, a `local` after statements, which the tool hoists anyway, and an `else if` without its own `end`. The tool is the cheapest place for these hints, since it sees every piece of code an agent writes before it reaches a file; `@retry` is the one action beyond the seven, and exists only for them.
+So also for `call`, `assign`, and `local`, which earlier versions had, `return`, `break`, `+=`, `+` of strings, `[1, 2]`, modes out of order, a keyword as a name, and an `else if` without its own `end`. The tool is the cheapest place for these hints, since it sees every piece of code an agent writes before it reaches a file; `@retry` is the one action beyond the seven, and exists only for them.
 
 ## Queries first
 
@@ -200,7 +200,7 @@ The most frequent refactoring, and the one where text tools fail by overloading,
 - `remove-formal`, refused if the formal is used in the body; `reorder-formals`.
 - `change-mode <proc> <formal> in|out|ref`: the formal moves to its group, the arguments at each `call` too, since arguments go by mode in the order `in`, `out`, `ref`, which is the kind of reordering agents get wrong.
 - `write-raises [<target>]`: write the inferred raises of private procedures, or the reported ones of `UndeclaredRaise`, into the signatures, export and implementation alike, and into procedure types of formals that `UntypedRaise` names; this turns a listing of errors of raises into one command.
-- `function-to-procedure <fun>`: the function becomes a procedure with an `out` result, each call in a statement becomes a `call` before it into a fresh local; calls inside expressions of other functions are listed, since those functions must turn into procedures too (`--transitive` does so). This was the cost of removing `raise` from expressions.
+- `function-to-procedure <fun>`: the function becomes a procedure with an `out` result, each call in a statement becomes a call of the procedure before it, into a fresh `var`; calls inside expressions of other functions are listed, since those functions must turn into procedures too (`--transitive` does so). This was the cost of removing `raise` from expressions.
 
 ### 4. Datatypes
 
@@ -222,14 +222,14 @@ A structural search and replace on the parsed tree, with metavariables that may 
 
 ```
 ulang.sh refactor rewrite 'List(for $x in List(for $e in $m)) $rest' '…' --where '$m: Map[_, _]'
-ulang.sh refactor rewrite 'assign $xs := $xs ++ List($v)' 'assign $xs := $xs ++ List($v)' --where '$xs: Buffer[_]'
+ulang.sh refactor rewrite '$xs := $xs ++ List($v)' '$xs := $xs ++ List($v)' --where '$xs: Buffer[_]'
 ```
 
 Patterns are written in ulang syntax and parsed by the parser of their context (expression, statement, pattern, type), metavariables `$x` match a part, `$x...` a list of arguments or statements, and `--where` constrains their types from the checked program. The rewrites of Diagnostics 5 (`lint.md`) are then a library of such rules with tests, and an agent writes its own for a migration instead of a regular expression. A rewrite whose result does not check, or changes another use's resolution, is refused per site, and the others are applied.
 
 ### 7. Statements and locals
 
-- `hoist-locals <proc>` per the style rule that each `local` stands at the start of the innermost body that uses it, in each case that uses it: mechanical, checkable, and a frequent review comment.
+- `hoist-locals <proc>` per the style rule that each `let` and `var` stands in the innermost body that uses it, where it is first needed, in each case that uses it: mechanical, checkable, and a frequent review comment.
 - `extract-procedure file.u:L.C-L.C <name>`: the statements become a procedure whose `in`, `out`, and `ref` formals are computed from what the block reads, assigns, and must define on every path, and whose `raises` from what it raises; Diagnostics 4 rejects extraction because text edits do it well, which holds for functions but not here, where the modes and definite assignment are the analysis an agent gets wrong; worth reconsidering for procedures only.
 - `inline <fun>` at one call or all: for the opposite direction, where the call becomes a `let` of the formals, and refused for functions without parameters, which are computed once.
 
@@ -252,7 +252,7 @@ Not every change of code belongs to a command that an agent invokes with a targe
 The tests that sort a change:
 
 - **Does it need a choice that the code does not determine** (a new name, a target module, a default argument, the body of a new case)? Then it is a refactoring.
-- **Is it the one edit that removes an error?** Then it is a fix: `write-raises` for `UndeclaredRaise` and `UntypedRaise`, `_` for an unused pattern variable once that is an error, the removal of an unused import (Checker 3), the removal of a handler that is `NeverRaised`, a qualified name for an `Ambiguous` use where only one candidate checks in its context, and the hints of Diagnostics 2 for the habits of other languages (`x := e` to `assign x := e`, `[1, 2]` to `List(1, 2)`, `s + t` of strings to `s ++ t`).
+- **Is it the one edit that removes an error?** Then it is a fix: `write-raises` for `UndeclaredRaise` and `UntypedRaise`, `_` for an unused pattern variable once that is an error, the removal of an unused import (Checker 3), the removal of a handler that is `NeverRaised`, a qualified name for an `Ambiguous` use where only one candidate checks in its context, and the hints of Diagnostics 2 for the habits of other languages (`x += e` to `x := x + e`, `[1, 2]` to `List(1, 2)`, `s + t` of strings to `s ++ t`).
 - **Is it determined by the code, meaning-preserving, and better by a cost that every reader shares?** Then it is a canonicalization, for lint. To be applied without review it must also be terminating (the cost strictly decreases), confluent (the order of applying rules does not matter), and idempotent, as `format` is; the e-graph of `lint.md` gives the first two by construction, since extraction picks one cheapest representative per class.
 - **Is it only faster, and less clear to read?** Then it is an optimization and never edits the sources: fusion of comprehensions, which `ulang/compile/compile.u` already does by nested loops, unrolling, constant folding, a fold that `size(List(for …))` counts instead of building the list, sharing of repeated pure subexpressions, and the extraction by the cost of evaluation (`lint.md`, step 6 of its order). Rewriting the source for speed would undo the canonical form that lint establishes.
 
@@ -276,7 +276,7 @@ Their fix is a choice of data structure or algorithm, so lint names the site and
 
 - `contains(x, xs)` of a list inside a loop or comprehension over another container, quadratic, where a `Set` would do;
 - `at(i, xs)` or `get` of an association list in a loop;
-- `assign s := s ++ t` of strings in a loop, where `join` of a `Buffer` would do, like the appends to lists of Diagnostics 5;
+- `s := s ++ t` of strings in a loop, where `join` of a `Buffer` would do, like the appends to lists of Diagnostics 5;
 - `foldr` over a list that grows with the input, which recurses as deep as the list (the stack is unlimited, but the depth is still memory);
 - the same `get(k, m)` repeated in one body, which is a `let` or a `match` once.
 
@@ -337,14 +337,14 @@ For drafting:
 5. **A hole, `todo`**, an expression of any type and a statement, which raises `Todo` at runtime, is an open goal for the prover, and whose remaining uses `test` lists, so a draft checks before every case is written, and a new constructor is stubbed in each match by `@put into #h` of `case Scroll(_) => todo`.
 6. **An optional inline export**, `export function f(…): T := …` beside the sections, so that a fragment is the whole truth of a declaration; optional, since the tool keeps the sections in step anyway.
 
-What can stay strict: with the tool, locals before statements, the canonical format, the signatures that `implementation` repeats, and the order of modes cost an agent nothing, so they stay, and docs that are nodes of the tree move with their declaration, so no structural edit loses them.
+What can stay strict: with the tool, locals in the innermost body that uses them, the canonical format, the signatures that `implementation` repeats, and the order of modes cost an agent nothing, so they stay, and docs that are nodes of the tree move with their declaration, so no structural edit loses them.
 
 ## Order of implementation
 
 1. `resolve`, `refs`, `outline`, `names`: queries only, by position on the checked program; useful at once and the base of everything else.
 2. The frame of `refactor`: the datatype of edits, preconditions, tree edit, `format_program`, re-check, comparison of resolutions, the script as one transaction with `--dry`, replies with handles in `@show` and in diagnostics, with actions addressed by names and replayed on hashes that changed, the lock, and the journal; with it `@show`, `@put` of whole declarations, `@drop`, `@patch`, `@check`, and `@undo`, which carry most of the value: no failed text matches, no unformatted code, follow-ups as a list. Needs Changes to ulang, 2.
-3. `@put` of nodes by handle, with the hoisting of locals.
-4. `refactor fix` for the lints: `Warning` carries edits instead of a replacement, the expression rewrites first, then the edits of statements and commands of `LocalTooHigh`, `UnusedPrivate`, and `UnusedVariable`, tested on the warnings left in the sources; this needs only the frame, not the queries of step 1 beyond the check.
+3. `@put` of nodes by handle, with the placing of locals.
+4. `refactor fix` for the lints: `Warning` carries edits instead of a replacement, the expression rewrites first, then the edits of statements and commands of `LocalTooHigh`, `UnassignedVar`, `UnusedPrivate`, and `UnusedVariable`, tested on the warnings left in the sources; this needs only the frame, not the queries of step 1 beyond the check.
 5. The record of resolutions, Changes to ulang, 1, then `@rename` of declarations, fields, locals; then of modules with docs.
 6. The mechanical follow-ups, the hints of fragments with `@retry`, `expand-wildcard`, and the fixes of errors in `refactor fix`, `write-raises` and the others: small, and each the fix of an existing error.
 7. The changes of ulang 3 to 6, at any time, each making step 6 smaller.

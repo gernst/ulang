@@ -17,11 +17,11 @@ data Failed :=
   case Failed(message: Str, pos: Int)
 
 procedure parse_json(in text: Str, out j: Json) raises JsonError :=
-  local s := Cursor(text, 0)
+  var s := Cursor(text, 0)
   try
-    call skip_space(ref s)
-    call value(out j, ref s)
-    call skip_space(ref s)
+    skip_space(ref s)
+    value(out j, ref s)
+    skip_space(ref s)
     if s.pos < size(text) then
       raise Failed("end of input expected", s.pos)
     end
@@ -44,27 +44,27 @@ function peek(s: Cursor): Option[Char] :=
   get(s.pos, s.text)
 
 procedure advance(ref s: Cursor) :=
-  assign s := s with pos := s.pos + 1
+  s := s with pos := s.pos + 1
 
 procedure skip_space(ref s: Cursor) :=
-  local more := true
+  var more := true
   while more do
     match peek(s)
       case Some(c) =>
         if c == ' ' or c == '\n' or c == '\t' or c == '\r' then
-          call advance(ref s)
+          advance(ref s)
         else
-          assign more := false
+          more := false
         end
 
       case None =>
-        assign more := false
+        more := false
     end
   end
 
 procedure expect(in c: Char, ref s: Cursor) :=
   if peek(s) == Some(c) then
-    call advance(ref s)
+    advance(ref s)
   else
     raise Failed(quote(str(List(c))) ++ " expected", s.pos)
   end
@@ -72,7 +72,7 @@ procedure expect(in c: Char, ref s: Cursor) :=
 // the word w, such as true, at the cursor
 procedure keyword(in w: Str, ref s: Cursor) :=
   if s.pos + size(w) <= size(s.text) and slice(s.text, s.pos, s.pos + size(w)) == w then
-    assign s := s with pos := s.pos + size(w)
+    s := s with pos := s.pos + size(w)
   else
     raise Failed("value expected", s.pos)
   end
@@ -80,31 +80,31 @@ procedure keyword(in w: Str, ref s: Cursor) :=
 procedure value(out j: Json, ref s: Cursor) :=
   match peek(s)
     case Some('{') =>
-      call object(out j, ref s)
+      object(out j, ref s)
 
     case Some('[') =>
-      call elements(out j, ref s)
+      elements(out j, ref s)
 
     case Some('"') =>
-      local t: Str
-      call   string(out t, ref s)
-      assign j := String(t)
+      var t: Str
+      string(out t, ref s)
+      j := String(t)
 
     case Some('t') =>
-      call   keyword(in "true", ref s)
-      assign j := Boolean(true)
+      keyword(in "true", ref s)
+      j := Boolean(true)
 
     case Some('f') =>
-      call   keyword(in "false", ref s)
-      assign j := Boolean(false)
+      keyword(in "false", ref s)
+      j := Boolean(false)
 
     case Some('n') =>
-      call   keyword(in "null", ref s)
-      assign j := Null
+      keyword(in "null", ref s)
+      j := Null
 
     case Some(c) =>
       if c == '-' or is_digit(c) then
-        call number(out j, ref s)
+        number(out j, ref s)
       else
         raise Failed("value expected", s.pos)
       end
@@ -114,125 +114,127 @@ procedure value(out j: Json, ref s: Cursor) :=
   end
 
 procedure object(out j: Json, ref s: Cursor) :=
-  local fields := List(), more := true
-  call expect(in '{', ref s)
-  call skip_space(ref s)
+  var fields := List(), more := true
+  expect(in '{', ref s)
+  skip_space(ref s)
   if peek(s) == Some('}') then
-    call advance(ref s)
+    advance(ref s)
   else
     while more do
-      local k: Str, v: Json
-      call   skip_space(ref s)
-      call   string(out k, ref s)
-      call   skip_space(ref s)
-      call   expect(in ':', ref s)
-      call   skip_space(ref s)
-      call   value(out v, ref s)
-      call   skip_space(ref s)
-      assign fields := List((k, v); fields)
+      var k: Str, v: Json
+      skip_space(ref s)
+      string(out k, ref s)
+      skip_space(ref s)
+      expect(in ':', ref s)
+      skip_space(ref s)
+      value(out v, ref s)
+      skip_space(ref s)
+      fields := List((k, v); fields)
       if peek(s) == Some(',') then
-        call advance(ref s)
+        advance(ref s)
       else
-        call   expect(in '}', ref s)
-        assign more := false
+        expect(in '}', ref s)
+        more := false
       end
     end
   end
-  assign j := Object(reverse(fields))
+  j := Object(reverse(fields))
 
 procedure elements(out j: Json, ref s: Cursor) :=
-  local items := List(), more := true
-  call expect(in '[', ref s)
-  call skip_space(ref s)
+  var items := List(), more := true
+  expect(in '[', ref s)
+  skip_space(ref s)
   if peek(s) == Some(']') then
-    call advance(ref s)
+    advance(ref s)
   else
     while more do
-      local v: Json
-      call   skip_space(ref s)
-      call   value(out v, ref s)
-      call   skip_space(ref s)
-      assign items := List(v; items)
+      var v: Json
+      skip_space(ref s)
+      value(out v, ref s)
+      skip_space(ref s)
+      items := List(v; items)
       if peek(s) == Some(',') then
-        call advance(ref s)
+        advance(ref s)
       else
-        call   expect(in ']', ref s)
-        assign more := false
+        expect(in ']', ref s)
+        more := false
       end
     end
   end
-  assign j := Elements(reverse(items))
+  j := Elements(reverse(items))
 
 procedure digits(out ds: List[Char], ref s: Cursor) :=
-  local acc := List(), more := true
+  var acc := List(), more := true
   while more do
     match peek(s)
       case Some(c) =>
         if is_digit(c) then
-          assign acc := List(c; acc)
-          call   advance(ref s)
+          acc := List(c; acc)
+          advance(ref s)
         else
-          assign more := false
+          more := false
         end
 
       case None =>
-        assign more := false
+        more := false
     end
   end
   if acc == List() then
     raise Failed("digit expected", s.pos)
   end
-  assign ds := reverse(acc)
+  ds := reverse(acc)
 
 function to_int(ds: List[Char]): Int :=
   foldl(ds, 0, lambda n, d => 10 * n + int(d) - int('0'))
 
 // -? (0 | [1-9][0-9]*) (. [0-9]+)? ([eE] [+-]? [0-9]+)?
 procedure number(out j: Json, ref s: Cursor) :=
-  local negative := false, whole: List[Char], fraction := List(), exponent := 0, start := s.pos, m: Int
+  var negative := false, whole: List[Char], fraction := List(), exponent := 0
+  let start := s.pos
+  var m: Int
   if peek(s) == Some('-') then
-    assign negative := true
-    call   advance(ref s)
+    negative := true
+    advance(ref s)
   end
-  call digits(out whole, ref s)
+  digits(out whole, ref s)
   if size(whole) > 1 and take(1, whole) == List('0') then
     raise Failed("leading zero", start)
   end
   if peek(s) == Some('.') then
-    call advance(ref s)
-    call digits(out fraction, ref s)
+    advance(ref s)
+    digits(out fraction, ref s)
   end
   if peek(s) == Some('e') or peek(s) == Some('E') then
-    local sign := 1, ds: List[Char]
-    call advance(ref s)
+    var sign := 1, ds: List[Char]
+    advance(ref s)
     if peek(s) == Some('-') then
-      assign sign := -1
-      call   advance(ref s)
+      sign := -1
+      advance(ref s)
     else
       if peek(s) == Some('+') then
-        call advance(ref s)
+        advance(ref s)
       end
     end
-    call   digits(out ds, ref s)
-    assign exponent := sign * to_int(ds)
+    digits(out ds, ref s)
+    exponent := sign * to_int(ds)
   end
-  assign m := to_int(whole ++ fraction)
-  assign j := decimal(if negative then -m else m, exponent - size(fraction))
+  m := to_int(whole ++ fraction)
+  j := decimal(if negative then -m else m, exponent - size(fraction))
 
 procedure parse_hex_unit(out n: Int, ref s: Cursor) :=
-  local i := 0
-  assign n := 0
+  var i := 0
+  n := 0
   while i < 4 do
     match peek(s)
       case Some(c) =>
         if is_digit(c) then
-          assign n := 16 * n + int(c) - int('0')
+          n := 16 * n + int(c) - int('0')
         else
           if 'a' <= c and c <= 'f' then
-            assign n := 16 * n + int(c) - int('a') + 10
+            n := 16 * n + int(c) - int('a') + 10
           else
             if 'A' <= c and c <= 'F' then
-              assign n := 16 * n + int(c) - int('A') + 10
+              n := 16 * n + int(c) - int('A') + 10
             else
               raise Failed("hex digit expected", s.pos)
             end
@@ -242,66 +244,67 @@ procedure parse_hex_unit(out n: Int, ref s: Cursor) :=
       case None =>
         raise Failed("hex digit expected", s.pos)
     end
-    call   advance(ref s)
-    assign i := i + 1
+    advance(ref s)
+    i := i + 1
   end
 
 // a \u escape after its backslash, with a following low surrogate if it is a high one
 procedure unicode(out c: Char, ref s: Cursor) :=
-  local n: Int, start := s.pos
-  call expect(in 'u', ref s)
-  call parse_hex_unit(out n, ref s)
+  var n: Int
+  let start := s.pos
+  expect(in 'u', ref s)
+  parse_hex_unit(out n, ref s)
   if 55296 <= n and n <= 56319 then
-    local low: Int
-    call expect(in '\\', ref s)
-    call expect(in 'u', ref s)
-    call parse_hex_unit(out low, ref s)
+    var low: Int
+    expect(in '\\', ref s)
+    expect(in 'u', ref s)
+    parse_hex_unit(out low, ref s)
     if not (56320 <= low and low <= 57343) then
       raise Failed("low surrogate expected", start)
     end
-    assign n := 65536 + (n - 55296) * 1024 + low - 56320
+    n := 65536 + (n - 55296) * 1024 + low - 56320
   else
     if 56320 <= n and n <= 57343 then
       raise Failed("lone low surrogate", start)
     end
   end
-  assign c := chr(n)
+  c := chr(n)
 
 procedure string(out t: Str, ref s: Cursor) :=
-  local acc := List(), more := true
-  call expect(in '"', ref s)
+  var acc := List(), more := true
+  expect(in '"', ref s)
   while more do
     match peek(s)
       case Some('"') =>
-        call   advance(ref s)
-        assign more := false
+        advance(ref s)
+        more := false
 
       case Some('\\') =>
-        local c: Char
-        call   advance(ref s)
-        call   escaped(out c, ref s)
-        assign acc := List(c; acc)
+        var c: Char
+        advance(ref s)
+        escaped(out c, ref s)
+        acc := List(c; acc)
 
       case Some(c) =>
         if int(c) < 32 then
           raise Failed("control character in string", s.pos)
         end
-        assign acc := List(c; acc)
-        call   advance(ref s)
+        acc := List(c; acc)
+        advance(ref s)
 
       case None =>
         raise Failed("unterminated string", s.pos)
     end
   end
-  assign t := str(reverse(acc))
+  t := str(reverse(acc))
 
 procedure escaped(out c: Char, ref s: Cursor) :=
   match peek(s)
     case Some('u') =>
-      call unicode(out c, ref s)
+      unicode(out c, ref s)
 
     case Some(e) =>
-      local m := get(e, List(
+      let m := get(e, List(
         ('"', '"'),
         ('\\', '\\'),
         ('/', '/'),
@@ -312,8 +315,8 @@ procedure escaped(out c: Char, ref s: Cursor) :=
         ('t', '\t')))
       match m
         case Some(d) =>
-          assign c := d
-          call   advance(ref s)
+          c := d
+          advance(ref s)
 
         case None =>
           raise Failed("unknown escape", s.pos)
@@ -324,26 +327,26 @@ procedure escaped(out c: Char, ref s: Cursor) :=
   end
 
 test values() :=
-  local j: Json
-  call parse_json(in " {\"a\": [1, -2.50, 3e2, true, null], \"b\": \"x\\ny\"} ", out j)
+  var j: Json
+  parse_json(in " {\"a\": [1, -2.50, 3e2, true, null], \"b\": \"x\\ny\"} ", out j)
   assert j == Object(List(
     ("a", Elements(List(Number(1, 0), Number(-25, -1), Number(3, 2), Boolean(true), Null))),
     ("b", String("x\ny"))))
   assert show(j) == "{\"a\":[1,-2.5,300,true,null],\"b\":\"x\\ny\"}"
 
 test unicode_escapes() :=
-  local j: Json
-  call parse_json(in "\"\\u00e9\\ud83d\\ude00\"", out j)
+  var j: Json
+  parse_json(in "\"\\u00e9\\ud83d\\ude00\"", out j)
   assert j == String(str(List(chr(233), chr(128512))))
 
 test errors() :=
-  local j: Json
+  var j: Json
   assert raises JsonError("\":\" expected", 2, 7) do
-    call parse_json(in "{\n  \"a\" 1}", out j)
+    parse_json(in "{\n  \"a\" 1}", out j)
   end
   assert raises JsonError("leading zero", 1, 2) do
-    call parse_json(in "[01]", out j)
+    parse_json(in "[01]", out j)
   end
   assert raises JsonError("lone low surrogate", 1, 3) do
-    call parse_json(in "\"\\udc00\"", out j)
+    parse_json(in "\"\\udc00\"", out j)
   end

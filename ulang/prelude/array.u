@@ -50,7 +50,7 @@ function contains[A](x: A, a: Array[A]): Bool :=
   foldl(a, false, lambda found, y => found or x == y)
 
 test arrays() :=
-  local a := Array(1, 2, 3)
+  let a := Array(1, 2, 3)
   assert size(a) == 3 and at(0, a) == 1 and at(2, a) == 3 and get(1, a) == Some(2) and get(3, a) == None and get(-1, a) == None
   assert List(for x in a) == List(1, 2, 3) and List(for x in Array(for x in List())) == List() and contains(2, a) and not contains(4, a)
   assert List(for x in a) == List(1, 2, 3)

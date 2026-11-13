@@ -10,12 +10,12 @@ procedure double(in x: Int, out y: Int) :=
 implementation
 
 procedure double(in x: Int, out y: Int) :=
-  assign y := x + x
+  y := x + x
 
 lemma double_correct(in x: Int, out y: Int) :=
   correct double(in x, out y)
 
 test double_three() :=
-  local y: Int
-  call double(in 3, out y)
+  var y: Int
+  double(in 3, out y)
   assert y == 6

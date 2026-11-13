@@ -225,7 +225,7 @@ function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
       stmts_flow(bound(scope, vars(locals)), stmts_of(stmts))
 
     // the checker gives no SLocal
-    case SLocal(_) =>
+    case SLocal(_, _) =>
       none()
 
     case SIf(cond, left, right) =>

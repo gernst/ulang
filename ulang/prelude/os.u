@@ -78,22 +78,22 @@ procedure os_chdir(in dir: Str) raises OsError
 implementation
 
 procedure os_println(in text: Str) :=
-  call os_print(in text)
-  call os_print(in "\n")
+  os_print(in text)
+  os_print(in "\n")
 
 procedure os_walk(in path: Str, out files: List[Str]) raises OsError :=
-  local dir: Bool
-  call os_is_dir(in path, out dir)
+  var dir: Bool
+  os_is_dir(in path, out dir)
   if dir then
-    call os_walk_dir(in path, out files)
+    os_walk_dir(in path, out files)
   else
-    assign files := List(path)
+    files := List(path)
   end
 
 procedure os_walk_dir(in dir: Str, out files: List[Str]) :=
-  local entries: List[Str * Bool]
-  call os_list(in dir, out entries)
-  call os_walk_entries(in dir, entries, out files)
+  var entries: List[Str * Bool]
+  os_list(in dir, out entries)
+  os_walk_entries(in dir, entries, out files)
 
 procedure os_walk_entries(
   in  dir: Str,
@@ -102,18 +102,18 @@ procedure os_walk_entries(
 ) :=
   match entries
     case List() =>
-      assign files := List()
+      files := List()
 
     case List((name, true); more) =>
-      local below: List[Str], rest: List[Str]
-      call   os_walk_dir(in os_join(dir, name), out below)
-      call   os_walk_entries(in dir, more, out rest)
-      assign files := below ++ rest
+      var below: List[Str], rest: List[Str]
+      os_walk_dir(in os_join(dir, name), out below)
+      os_walk_entries(in dir, more, out rest)
+      files := below ++ rest
 
     case List((name, false); more) =>
-      local rest: List[Str]
-      call   os_walk_entries(in dir, more, out rest)
-      assign files := List(os_join(dir, name); rest)
+      var rest: List[Str]
+      os_walk_entries(in dir, more, out rest)
+      files := List(os_join(dir, name); rest)
   end
 
 function os_join(dir: Str, name: Str): Str :=

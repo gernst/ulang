@@ -255,25 +255,26 @@ function rehash(g: EGraph, todo: List[ENode * Int], pending: List[Int * Int], pa
   end
 
 test classes() :=
-  local x := ELevel(0), y := ELevel(1), f := Name(None, "f"), fx := EApp(EFun(f), List(x)), fy := EApp(EFun(f), List(y)), g := empty_graph(), i := 0, j := 0, u := Union(empty_graph(), List(), List())
+  let x := ELevel(0), y := ELevel(1), f := Name(None, "f"), fx := EApp(EFun(f), List(x)), fy := EApp(EFun(f), List(y))
+  var g := empty_graph(), i := 0, j := 0, u := Union(empty_graph(), List(), List())
   match add_term(g, fx)
     case (h, k) =>
-      assign g := h, i := k
+      g := h, i := k
   end
   match add_term(g, fy)
     case (h, k) =>
-      assign g := h, j := k
+      g := h, j := k
   end
   assert i != j and lookup_term(g, ELevel(2)) == None
   match (lookup_term(g, x), lookup_term(g, y))
     case (Some(a), Some(b)) =>
-      assign u := unite(g, a, b)
+      u := unite(g, a, b)
     case _ =>
       assert false
   end
   assert size(u.pending) == 1 and size(u.parents) == 1
   assert class_of(u.graph, i) != class_of(u.graph, j)
-  assign u := unite(u.graph, i, j)
+  u := unite(u.graph, i, j)
   assert class_of(u.graph, i) == class_of(u.graph, j) and size(class_nodes(u.graph, i)) == 2
   assert lookup_term(u.graph, fy) == Some(class_of(u.graph, i))
 
@@ -355,15 +356,17 @@ function close_pending(g: EGraph, pairs: List[Int * Int]): EGraph :=
   end
 
 test matching() :=
-  local x := ELevel(0), y := ELevel(1), f := Name(None, "f"), g := empty_graph(), c := 0, pat := EApp(EFun(f), List(EBound(0), EBound(0)))
+  let x := ELevel(0), y := ELevel(1), f := Name(None, "f")
+  var g := empty_graph(), c := 0
+  let pat := EApp(EFun(f), List(EBound(0), EBound(0)))
   match add_term(g, EApp(EFun(f), List(x, y)))
     case (h, k) =>
-      assign g := h, c := k
+      g := h, c := k
   end
   assert ematch(g, 1, pat, c, empty()) == List()
   match (lookup_term(g, x), lookup_term(g, y))
     case (Some(a), Some(b)) =>
-      assign g := close_union(g, a, b)
+      g := close_union(g, a, b)
     case _ =>
       assert false
   end

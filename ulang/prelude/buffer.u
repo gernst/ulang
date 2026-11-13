@@ -50,10 +50,10 @@ function foldl[A, R](b: Buffer[A], acc: R, f: (R, A) -> R): R :=
   end
 
 test buffers() :=
-  local b: Buffer[Int] := empty()
+  var b: Buffer[Int] := empty()
   assert size(b) == 0 and List(for x in b) == List()
-  assign b := b ++ List(1) ++ List(2, 3)
-  assign b := b ++ List()
+  b := b ++ List(1) ++ List(2, 3)
+  b := b ++ List()
   assert size(b) == 3 and List(for x in b) == List(1, 2, 3)
   assert foldr(b, List(), Cons) == List(1, 2, 3) and foldl(b, List(), lambda xs, x => List(x; xs)) == List(3, 2, 1)
   assert foldr(b, 0, lambda x, n => 10 * n + x) == 321 and foldl(b, 0, lambda n, x => 10 * n + x) == 123

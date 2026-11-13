@@ -101,19 +101,19 @@ procedure load_text(
   out main: Id,
       q: Prog
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
-  local source: Source
-  call   parse_file_text(in path, text_of(lines), out source)
-  call   require_parsed(in source)
-  call   check_program(in source, out q)
-  call   require_formatted(in source, source.main, text_of(lines))
-  assign main := source.main
+  var source: Source
+  parse_file_text(in path, text_of(lines), out source)
+  require_parsed(in source)
+  check_program(in source, out q)
+  require_formatted(in source, source.main, text_of(lines))
+  main := source.main
 
 procedure check_text(
   in  path: Str,
       lines: List[Str]
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
-  local main: Id, q: Prog
-  call load_text(in path, lines, out main, q)
+  var main: Id, q: Prog
+  load_text(in path, lines, out main, q)
 
 procedure check_text_partial(
   in  path: Str,
@@ -121,10 +121,10 @@ procedure check_text_partial(
   out parsing: List[ParseError],
       errors: List[TypeError]
 ) raises ParseError, OsError, InternalError :=
-  local source: Source, q: Prog
-  call   parse_file_text(in path, text_of(lines), out source)
-  call   check_partial(in without_unparsed(source), unparsed_names(source), out q, errors)
-  assign parsing := parse_errors(source)
+  var source: Source, q: Prog
+  parse_file_text(in path, text_of(lines), out source)
+  check_partial(in without_unparsed(source), unparsed_names(source), out q, errors)
+  parsing := parse_errors(source)
 
 procedure checked_text(
   in  path: Str,
@@ -132,34 +132,34 @@ procedure checked_text(
   out q: Prog,
       errors: List[TypeError]
 ) raises ParseError, OsError, InternalError :=
-  local source: Source
-  call parse_file_text(in path, text_of(lines), out source)
-  call require_parsed(in source)
-  call check_all(in source, out q, errors)
+  var source: Source
+  parse_file_text(in path, text_of(lines), out source)
+  require_parsed(in source)
+  check_all(in source, out q, errors)
 
 procedure run_text(
   in  path: Str,
       lines: List[Str]
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError, Thrown, RuntimeError :=
-  local main: Id, q: Prog
-  call load_text(in path, lines, out main, q)
-  call run_program(in q)
+  var main: Id, q: Prog
+  load_text(in path, lines, out main, q)
+  run_program(in q)
 
 procedure run_text_despite_errors(
   in  path: Str,
       lines: List[Str]
 ) raises ParseError, InternalError, OsError, Thrown, RuntimeError :=
-  local q: Prog, errors: List[TypeError]
-  call checked_text(in path, lines, out q, errors)
-  call run_program(in q)
+  var q: Prog, errors: List[TypeError]
+  checked_text(in path, lines, out q, errors)
+  run_program(in q)
 
 procedure prove_text(
   in  path: Str,
       lines: List[Str]
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError, OpenLemma, OpenTermination :=
-  local main: Id, q: Prog
-  call load_text(in path, lines, out main, q)
-  call prove_program(in q, main)
+  var main: Id, q: Prog
+  load_text(in path, lines, out main, q)
+  prove_program(in q, main)
 
 procedure load_texts(
   in  dir: Str,
@@ -167,19 +167,19 @@ procedure load_texts(
       main: Str * List[Str],
   out q: Prog
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
-  local here: Str, root: Str
-  call os_cwd(out here)
-  call project_root(in normal_path(here), out root)
+  var here: Str, root: Str
+  os_cwd(out here)
+  project_root(in normal_path(here), out root)
   match main
     case (name, lines) =>
-      local source: Source
-      call parse_texts(in root, dir, List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), out source)
-      call require_parsed(in source)
-      call check_program(in source, out q)
+      var source: Source
+      parse_texts(in root, dir, List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), out source)
+      require_parsed(in source)
+      check_program(in source, out q)
       for (m, ls) in members do
-        call require_formatted(in source, module_in(dir, m), text_of(ls))
+        require_formatted(in source, module_in(dir, m), text_of(ls))
       end
-      call require_formatted(in source, source.main, text_of(lines))
+      require_formatted(in source, source.main, text_of(lines))
   end
 
 procedure check_texts(
@@ -187,14 +187,14 @@ procedure check_texts(
       members: List[Str * List[Str]],
       main: Str * List[Str]
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
-  local q: Prog
-  call load_texts(in dir, members, main, out q)
+  var q: Prog
+  load_texts(in dir, members, main, out q)
 
 procedure run_texts(
   in  dir: Str,
       members: List[Str * List[Str]],
       main: Str * List[Str]
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError, Thrown, RuntimeError :=
-  local q: Prog
-  call load_texts(in dir, members, main, out q)
-  call run_program(in q)
+  var q: Prog
+  load_texts(in dir, members, main, out q)
+  run_program(in q)

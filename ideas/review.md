@@ -16,11 +16,11 @@ Confidence: **confirmed** means reproduced by a run, with the repro given; **lik
        case List() =>
          induction ys
            case List(y; t) =>
-             call bad(in List(1), t)
+             bad(in List(1), t)
          end
 
        case List(h; t) =>
-         call bad(in t, List(1))
+         bad(in t, List(1))
      end
    ```
    Fix: an inner hypothesis keeps the formals of the enclosing inductions fixed (a lexicographic order of the inductions), or takes the facts of its scope as premises; `int_gaps` (271) has the same shape.

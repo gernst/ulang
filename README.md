@@ -29,25 +29,25 @@ function keys[A](t: Tree[A]): List[A] :=
 // inserts the elements of xs into the search tree t, one at a time
 procedure insert_all(in xs: List[Int], ref t: Tree[Int]) :=
   for x in xs do
-    assign t := insert(x, t)
+    t := insert(x, t)
   end
 
 procedure main() :=
-  local t := Leaf
-
-  call insert_all(in List(3, 1, 2, 1), ref t)
-  call os_println(in show(keys(t)))
+  var t := Leaf
+  insert_all(in List(3, 1, 2, 1), ref t)
+  os_println(in show(keys(t)))
 
 test sorting() :=
-  local t := Node(Leaf, 2, Leaf)
-
-  call   insert_all(in List(3, 1, 2), ref t)
+  var t := Node(Leaf, 2, Leaf)
+  insert_all(in List(3, 1, 2), ref t)
   assert keys(t) == List(1, 2, 3)
 ```
 
 ## Language
 
 - Functions are pure expressions, procedures are statements with `in`, `out`, and `ref` parameters.
+- In a body, `let p := e, …` binds names once, where patterns take values apart, `let (q, r) := (n / 2, n % 2)`, and `var x := e, y: T` declares variables, also without a value, both anywhere in the body and each seeing those before it, as the bindings of a `let … in e` do; a call is `p(in a, out b, ref c)` and an assignment `x := e, y := f`, whose right sides are all read before any is assigned.
+- Every pattern may carry its type, `lambda p: Point => p.x`, `case Some(n: Int) =>`.
 - Functions and procedures are values: `lambda x => e`, whose formals may be patterns, as in `lambda n, (a, b) => n + a * b`, and `lambda in x, out y => statements end` of a type `(in A, out B)`, which sees the variables around it but assigns only its outs and refs.
 - `if` always nests: an `if` after `else` is an `if` in its body, which has its own `end`.
 - Datatypes with pattern matching, guards, and checks that matches are exhaustive and cases reachable.

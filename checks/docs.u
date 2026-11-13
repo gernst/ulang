@@ -188,28 +188,28 @@ procedure file_decls(
 ) :=
   match get(file, cache)
     case Some(cached) =>
-      assign decls := cached
+      decls := cached
 
     case None =>
-      assign decls := None
+      decls := None
       try
         if ends_with(file, ".u") then
-          local source: Source
-          call parse_file(in file, out source)
-          call require_parsed(in source)
+          var source: Source
+          parse_file(in file, out source)
+          require_parsed(in source)
           for d in source.mods if d.name == source.main do
-            assign decls := Some(module_decls(d))
+            decls := Some(module_decls(d))
           end
         else
-          local text: Str
-          call   os_read_utf8(in file, out text)
-          assign decls := Some(DWords(words_of(text)))
+          var text: Str
+          os_read_utf8(in file, out text)
+          decls := Some(DWords(words_of(text)))
         end
       catch
         case _ =>
           skip
       end
-      assign cache := put(file, decls, cache)
+      cache := put(file, decls, cache)
   end
 
 // the references of the document at its path from the root whose names are not declared in their files
@@ -218,24 +218,24 @@ procedure problems_of(
   out problems: List[Str],
   ref cache: Map[Str, Option[Decls]]
 ) :=
-  local text: Str, found: Buffer[Str] := empty()
-  call os_read_utf8(in doc, out text)
+  var text: Str, found: Buffer[Str] := empty()
+  os_read_utf8(in doc, out text)
   for r in refs_of(text) if is_checked(r.name) do
-    local decls: Option[Decls]
-    call file_decls(in r.file, out decls, ref cache)
+    var decls: Option[Decls]
+    file_decls(in r.file, out decls, ref cache)
     match decls
       case Some(d) =>
         if not is_declared(r.name, d) then
-          assign found := found ++ List(
+          found := found ++ List(
             doc ++ ":" ++ show(r.line) ++ ": `" ++ r.name ++ "` is not declared in " ++ r.file)
         end
 
       case None =>
-        assign found := found ++ List(
+        found := found ++ List(
           doc ++ ":" ++ show(r.line) ++ ": " ++ r.file ++ " cannot be read or parsed")
     end
   end
-  assign problems := List(for p in found)
+  problems := List(for p in found)
 
 test recognized() :=
   assert refs_in(1, "(`a` and `b` of `x/y.u`), `p/q.u`, `c` of `z.u`, `d` in `w.u`") == List(DocRef(1, "a", "x/y.u"), DocRef(1, "b", "x/y.u"), DocRef(1, "c", "z.u"))
@@ -256,18 +256,18 @@ test checked() :=
 // if there is one; the documents are CLAUDE.md, README.md, and those of ideas/ but review.md, whose references are those of
 // the commit that it reviewed
 procedure main() :=
-  local cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[Str * Bool]
-  call os_list(in "ideas", out entries)
+  var cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[Str * Bool]
+  os_list(in "ideas", out entries)
   for doc in List(
     "CLAUDE.md",
     "README.md"; List(for (name, is_dir) in entries if not is_dir and ends_with(name, ".md") and name != "review.md" yield "ideas/" ++ name)) do
-    local problems: List[Str]
-    call   problems_of(in doc, out problems, ref cache)
-    assign found := found ++ problems
+    var problems: List[Str]
+    problems_of(in doc, out problems, ref cache)
+    found := found ++ problems
   end
   for problem in found do
-    call os_println(in problem)
+    os_println(in problem)
   end
   if found != List() then
-    call os_exit(in 1)
+    os_exit(in 1)
   end

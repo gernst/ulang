@@ -13,9 +13,9 @@ procedure linted(
       lines: List[Str],
   out found: List[Pos * Str]
 ) :=
-  local d: Mod
-  call   parse_text(in join("\n", lines) ++ "\n", out d)
-  assign found := List(for w in lints(d) if contains(w.lint, selected) yield (w.pos, warning_text(d, w)))
+  var d: Mod
+  parse_text(in join("\n", lines) ++ "\n", out d)
+  found := List(for w in lints(d) if contains(w.lint, selected) yield (w.pos, warning_text(d, w)))
 
 function warning_text(d: Mod, w: Warning): Str :=
   match w.replacement
@@ -26,8 +26,8 @@ function warning_text(d: Mod, w: Warning): Str :=
   end
 
 test lints_of_ifs() :=
-  local found: List[Pos * Str]
-  call linted(in List(BoolIte), List(
+  var found: List[Pos * Str]
+  linted(in List(BoolIte), List(
     "prefix 5 not",
     "function f(c: Bool): Bool :=",
     "  if c then true else false",
@@ -38,8 +38,8 @@ test lints_of_ifs() :=
   assert found == List((Pos(3, 3), "c"), (Pos(5, 3), "not c"))
 
 test lints_of_matches() :=
-  local found: List[Pos * Str]
-  call linted(in List(Folded), List(
+  var found: List[Pos * Str]
+  linted(in List(Folded), List(
     "function h(o: Option[Int], d: Int): Int :=",
     "  match o",
     "    case None =>",
@@ -64,8 +64,8 @@ test lints_of_matches() :=
   assert found == List((Pos(2, 3), "value_or(o, d)"))
 
 test lints_of_iterated_lists() :=
-  local found: List[Pos * Str]
-  call linted(in List(CopiedContainer), List(
+  var found: List[Pos * Str]
+  linted(in List(CopiedContainer), List(
     "function l(xs: Set[Int]): List[Int] :=",
     "  List(for y in List(for x in xs) yield y)",
     "function m(xs: Set[Int]): List[Int] :=",
@@ -73,15 +73,15 @@ test lints_of_iterated_lists() :=
     "function n(m: Map[Int, Str]): List[Int] :=",
     "  List(for (k, v) in List(for k => v in m) yield k)",
     "procedure p(in xs: Set[Int], out n: Int) :=",
-    "  assign n := 0",
+    "  n := 0",
     "  for y in List(for x in xs yield x) do",
-    "    assign n := plus(n, y)",
+    "    n := plus(n, y)",
     "  end"), out found)
   assert found == List((Pos(2, 17), "xs"), (Pos(6, 22), "m"), (Pos(9, 12), "xs"))
 
 test lints_of_variables() :=
-  local found: List[Pos * Str]
-  call linted(in List(UnusedVariable), List(
+  var found: List[Pos * Str]
+  linted(in List(UnusedVariable), List(
     "infix 6 >",
     "function f(o: Option[List[Int]]): Int :=",
     "  match o",
@@ -91,68 +91,68 @@ test lints_of_variables() :=
     "      let (c, d) := (1, 2) in exists(List(1), lambda x => c > 0)",
     "  end",
     "procedure p(in xs: List[Int], out n: Int) :=",
-    "  local unread := 1, written: Int, passed: Int",
-    "  assign n := 0, written := 2",
-    "  call   q(in 1, out passed)",
+    "  var unread := 1, written: Int, passed: Int",
+    "  n := 0, written := 2",
+    "  q(in 1, out passed)",
     "  for x in xs do",
-    "    assign n := n",
+    "    n := n",
     "  end"), out found)
   assert found == List(
     (Pos(4, 23), "the variable b is never read, write _"),
     (Pos(7, 15), "the variable d is never read, write _"),
     (Pos(7, 54), "the variable x is never read, write _"),
-    (Pos(10, 9), "the local unread is never read"),
-    (Pos(10, 22), "the local written is never read"),
+    (Pos(10, 7), "the local unread is never read"),
+    (Pos(10, 20), "the local written is never read"),
     (Pos(13, 7), "the variable x is never read, write _"))
 
 test lints_of_locals_too_high() :=
-  local found: List[Pos * Str]
-  call linted(in List(LocalTooHigh), List(
+  var found: List[Pos * Str]
+  linted(in List(LocalTooHigh), List(
     "procedure p(in c: Bool, out n: Int) :=",
-    "  local a: Int, b: Int",
+    "  var a: Int, b: Int",
     "  if c then",
-    "    assign a := 1, n := a",
+    "    a := 1, n := a",
     "  else",
-    "    assign n := 2",
+    "    n := 2",
     "  end",
-    "  assign b := n, n := b"), out found)
+    "  b := n, n := b"), out found)
   assert found == List(
-    (Pos(2, 9), "the local a is used only in the branches of one statement, which declare it where they use it"))
+    (Pos(2, 7), "the local a is used only in the branches of one statement, which declare it where they use it"))
 
 test lints_of_collecting_loops() :=
-  local found: List[Pos * Str]
-  call linted(in List(CollectingLoop), List(
+  var found: List[Pos * Str]
+  linted(in List(CollectingLoop), List(
     "infix 6 >",
     "infix left 9 +",
     "infix right 8 ++",
     "procedure p(in xs: List[Int], out ys: List[Int], zs: List[Int]) :=",
-    "  assign ys := List(), zs := List()",
+    "  ys := List(), zs := List()",
     "  for x in xs if x > 0 do",
-    "    assign ys := ys ++ List(x + 1)",
+    "    ys := ys ++ List(x + 1)",
     "  end",
     "  for x in xs do",
-    "    assign zs := zs ++ List(x)",
-    "    call   r(in zs)",
+    "    zs := zs ++ List(x)",
+    "    r(in zs)",
     "  end"), out found)
   assert found == List((Pos(6, 3), "List(for x in xs if x > 0 yield x + 1)"))
 
 test lints_of_handlers() :=
-  local found: List[Pos * Str]
-  call linted(in List(SwallowedException), List(
+  var found: List[Pos * Str]
+  linted(in List(SwallowedException), List(
     "procedure p() :=",
     "  try",
-    "    call q()",
+    "    q()",
     "  catch",
     "    case Fail =>",
     "      skip",
     "    case _ =>",
-    "      call r()",
+    "      r()",
     "  end"), out found)
   assert found == List((Pos(5, 5), "a handler that only skips swallows what it catches"))
 
 test lints_of_privates() :=
-  local found: List[Pos * Str]
-  call linted(in List(UnusedPrivate), List(
+  var found: List[Pos * Str]
+  linted(in List(UnusedPrivate), List(
     "export",
     "infix 6 ==",
     "function f(x: Int): Int",
@@ -176,8 +176,8 @@ test lints_of_privates() :=
     (Pos(11, 1), "nothing reaches the private function k"))
 
 test lints_of_names() :=
-  local found: List[Pos * Str]
-  call linted(in List(NumberedName, ShowName), List(
+  var found: List[Pos * Str]
+  linted(in List(NumberedName, ShowName), List(
     "function show_it(e1: Int): Str :=",
     "  show(e1)",
     "function f(x: Int): Int :=",

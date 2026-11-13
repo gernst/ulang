@@ -253,13 +253,13 @@ function show[K, V](m: Map[K, V]): Str :=
   "Map(" ++ join(", ", List(for k => v in m yield show(k) ++ " => " ++ show(v))) ++ ")"
 
 test maps() :=
-  local m := Map("a" => 1, "b" => 2)
+  var m := Map("a" => 1, "b" => 2)
   assert get("a", m) == Some(1) and get("c", m) == None and contains("b", m) and not contains("c", m)
-  assign m := put("a", 3, m)
+  m := put("a", 3, m)
   assert List(for x in m) == List(("a", 3), ("b", 2)) and size(m) == 2 and List(for x in Map("b" => 2, "a" => 1, "a" => 3)) == List(for x in m)
 
 test map_folds() :=
-  local m := Map(for i in range(1, 51) yield i => show(i))
+  let m := Map(for i in range(1, 51) yield i => show(i))
   assert foldr(m, List(), lambda k, v, ps => List((k, v); ps)) == List(for x in m) and foldr(m, empty(), put) == m
   assert foldl(m, List(), lambda ps, k, v => List((k, v); ps)) == reverse(List(for x in m)) and foldl(m, 0, lambda n, k, _ => n + k) == 1275
   assert foldr(Map(1 => "a", 2 => "b"), "", lambda _, v, t => v ++ t) == "ab" and foldl(Map(1 => "a", 2 => "b"), "", lambda t, _, v => t ++ v) == "ab"
@@ -271,9 +271,9 @@ test map_equality() :=
 
 // ascending keys would make a list of an unbalanced tree
 test balance() :=
-  local m := Map(for i in range(1, 201) yield show(1000 + i) => i)
+  var m := Map(for i in range(1, 201) yield show(1000 + i) => i)
   assert balanced(m) and size(m) == 200 and height(m) <= 11
   assert get("1100", m) == Some(100) and get("1201", m) == None
   assert List(for x in m) == List(for i in range(1, 201) yield (show(1000 + i), i))
-  assign m := m -- Set(for x in List(for i in range(1, 101) yield show(1000 + 2 * i)) ++ List("none"))
+  m := m -- Set(for x in List(for i in range(1, 101) yield show(1000 + 2 * i)) ++ List("none"))
   assert balanced(m) and size(m) == 100 and List(for x in m) == List(for i in range(1, 101) yield (show(999 + 2 * i), 2 * i - 1))

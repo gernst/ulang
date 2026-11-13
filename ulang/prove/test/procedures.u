@@ -4,9 +4,9 @@
 procedure maximum(in a: Int, b: Int, out m: Int) :=
   ensures m >= a and m >= b and (m == a or m == b)
   if a < b then
-    assign m := b
+    m := b
   else
-    assign m := a
+    m := a
   end
 
 lemma maximum_correct(in a: Int, b: Int, out m: Int) :=
@@ -15,10 +15,10 @@ lemma maximum_correct(in a: Int, b: Int, out m: Int) :=
 procedure sum(in n: Int, out s: Int) :=
   requires n >= 0
   ensures  2 * s == n * (n - 1)
-  local i := 0
-  assign s := 0
+  var i := 0
+  s := 0
   while i < n do
-    assign s := s + i, i := i + 1
+    s := s + i, i := i + 1
   end
 
 lemma sum_correct(in n: Int, out s: Int) :=
@@ -28,9 +28,9 @@ lemma sum_correct(in n: Int, out s: Int) :=
 // a call is proven by the contract of its procedure, not by its body
 procedure clamp(in a: Int, out c: Int) :=
   ensures c >= 0 and c >= a
-  local m: Int
-  call   maximum(in a, 0, out m)
-  assign c := m
+  var m: Int
+  maximum(in a, 0, out m)
+  c := m
 
 lemma clamp_correct(in a: Int, out c: Int) :=
   correct clamp(in a, out c)
@@ -40,11 +40,11 @@ procedure count(in n: Int, out c: Int) :=
   requires n >= 0
   ensures  c == n
   if n <= 0 then
-    assign c := 0
+    c := 0
   else
-    local d: Int
-    call   count(in n - 1, out d)
-    assign c := d + 1
+    var d: Int
+    count(in n - 1, out d)
+    c := d + 1
   end
 
 lemma count_correct(in n: Int, out c: Int) :=
@@ -59,9 +59,9 @@ procedure area(in shape: Shape, out a: Int) :=
   ensures a >= 0
   match shape
     case Square(side) =>
-      assign a := side * side
+      a := side * side
     case Rectangle(_, _) =>
-      assign a := 0
+      a := 0
   end
 
 lemma area_correct(in shape: Shape, out a: Int) :=
@@ -76,7 +76,7 @@ procedure checked_half(in n: Int, out h: Int) raises Negative :=
   if n < 0 then
     raise Negative(n)
   end
-  assign h := n / 2
+  h := n / 2
 
 lemma checked_half_correct(in n: Int, out h: Int) :=
   correct checked_half(in n, out h)
@@ -84,12 +84,12 @@ lemma checked_half_correct(in n: Int, out h: Int) :=
 // a ref of a call has its value after the call by the ensures of the procedure
 procedure increment(ref x: Int) :=
   ensures x >= 1
-  assign x := 1
+  x := 1
 
 procedure positive(out y: Int) :=
   ensures y > 0
-  assign y := 0
-  call   increment(ref y)
+  y := 0
+  increment(ref y)
 
 lemma positive_correct(out y: Int) :=
   correct positive(out y)

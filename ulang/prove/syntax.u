@@ -442,8 +442,8 @@ function binders(p: Pat): Int :=
 
 function pattern_vars(p: Pat): List[Var] :=
   match p
-    case PVar(var) =>
-      List(var)
+    case PVar(x) =>
+      List(x)
 
     case PApp(_, pats) =>
       List(for q in pats for x in pattern_vars(q.that) yield x)
@@ -955,8 +955,8 @@ function print_pat(p: Pat): Str :=
     case PLit(lit) =>
       print_val(lit)
 
-    case PVar(var) =>
-      var.name.base
+    case PVar(x) =>
+      x.name.base
 
     case PNil() =>
       "[]"

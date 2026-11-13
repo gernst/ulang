@@ -104,16 +104,16 @@ function hint_of(e: TypeError): Str :=
       "; add case " ++ format_pat(pat) ++ " =>"
 
     case Ambiguous(_, candidates) if are_apart(candidates) =>
-      "; a type of the local, the formal, or the result that holds the value decides, as in local s: Set[Int] := empty()"
+      "; a type of the local, the formal, or the result that holds the value decides, as in let s: Set[Int] := empty()"
 
     case CannotUnify(TSort(_, _), TFun(List(), _)) =>
       "; a value that is no function, such as a constructor without fields, is written without ()"
 
     case CannotUnify(TProc(_, _, _, _), TFun(_, _)) =>
-      "; a procedure is called by call p(in a, out x), not in an expression"
+      "; a procedure is called by a statement p(in a, out x), not in an expression"
 
     case CannotUnify(TFun(_, _), TProc(_, _, _, _)) =>
-      "; a procedure is called by call p(in a, out x), not in an expression"
+      "; a procedure is called by a statement p(in a, out x), not in an expression"
 
     case _ =>
       ""

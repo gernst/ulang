@@ -50,7 +50,7 @@ procedure parse_table(in text: Str, out table: Table) raises CsvError :=
       raise CsvError("no header")
 
     case List(header; lines) =>
-      local columns := split(header, ',')
+      let columns := split(header, ',')
       if repeated(columns) != None then
         raise CsvError("repeated column in " ++ header)
       end
@@ -58,12 +58,12 @@ procedure parse_table(in text: Str, out table: Table) raises CsvError :=
         raise CsvError("expected " ++ show(size(columns)) ++ " fields: " ++ line)
       end
   end
-  assign table := table_of(text)
+  table := table_of(text)
 
 procedure read_table(in path: Str, out table: Table) raises OsError, CsvError :=
-  local text: Str
-  call os_read_utf8(in path, out text)
-  call parse_table(in text, out table)
+  var text: Str
+  os_read_utf8(in path, out text)
+  parse_table(in text, out table)
 
 function format_table(table: Table): Str :=
   let lines := sort(List(for row in table.rows yield fields_of(table.columns, row))) in
@@ -86,13 +86,13 @@ test parsing() :=
   assert format_table(table_of("name,city\nalan,london\nada,london\n")) == "name,city\nada,london\nalan,london\n"
 
 test parse_errors() :=
-  local table: Table
+  var table: Table
   assert raises CsvError("no header") do
-    call parse_table(in "", out table)
+    parse_table(in "", out table)
   end
   assert raises CsvError("repeated column in a,a") do
-    call parse_table(in "a,a\n", out table)
+    parse_table(in "a,a\n", out table)
   end
   assert raises CsvError("expected 2 fields: x") do
-    call parse_table(in "a,b\nx\n", out table)
+    parse_table(in "a,b\nx\n", out table)
   end

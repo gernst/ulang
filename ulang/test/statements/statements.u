@@ -1,20 +1,20 @@
 // procedures, statements, and locals, the statement for over containers, and exceptions, raised and caught
 
 procedure sum(in n: Int, out s: Int) :=
-  local i: Int
-  assign i := 0, s := 0
+  var i: Int
+  i := 0, s := 0
   while i < n do
-    assign i := i + 1, s := s + i
+    i := i + 1, s := s + i
   end
 
 procedure total(in xs: List[Int], out s: Int) :=
-  local ys: List[Int]
-  assign s := 0, ys := xs
+  var ys: List[Int]
+  s := 0, ys := xs
   while ys != List() do
     match ys
       case List(y; zs) =>
-        assign s := s + y
-        assign ys := zs
+        s := s + y
+        ys := zs
 
       case List() =>
         skip
@@ -22,87 +22,88 @@ procedure total(in xs: List[Int], out s: Int) :=
   end
 
 procedure swap[A](ref x: A, y: A) :=
-  assign x := y, y := x
+  x := y, y := x
 
 procedure inc(ref x: Int) :=
-  assign x := x + 1
+  x := x + 1
 
 procedure main(out a: Int, b: Int, c: Int) :=
-  local f: Int -> Int
-  assign a := 1, b := 2
-  call   swap(ref a, b)
-  call   inc(ref a)
-  call   sum(in a, out c)
-  assign f := lambda x => x + a
+  var f: Int -> Int
+  a := 1, b := 2
+  swap(ref a, b)
+  inc(ref a)
+  sum(in a, out c)
+  f := lambda x => x + a
   if a > b then
-    assign c := f(c)
+    c := f(c)
   else
     if a == b then
       skip
     else
-      assign c := 0
+      c := 0
     end
   end
 
 procedure capture(out r: Int) :=
-  local i := 1, f := lambda x => x + i
-  assign i := 10
-  assign r := f(0)
+  var i := 1
+  let f := lambda x => x + i
+  i := 10
+  r := f(0)
 
 test procedures() :=
-  local a: Int, b: Int, c: Int
-  call sum(in 10, out c)
+  var a: Int, b: Int, c: Int
+  sum(in 10, out c)
   assert c == 45
-  call total(in List(1, 2, 3), out c)
+  total(in List(1, 2, 3), out c)
   assert c == 6
-  assign a := 1, b := 2
-  call   swap(ref a, b)
+  a := 1, b := 2
+  swap(ref a, b)
   assert (a, b) == (2, 1)
-  call inc(ref a)
+  inc(ref a)
   assert a == 3
-  call main(out a, b, c)
+  main(out a, b, c)
   assert (a, b, c) == (3, 1, 6)
 
 // closures capture values, not variables
 test closures_capture_values() :=
-  local r: Int
-  call capture(out r)
+  var r: Int
+  capture(out r)
   assert r == 1
 
 test sums() :=
-  local x: Int, y: Int
-  call   sum(in 4, out x)
-  assign y := x * 2
+  var x: Int, y: Int
+  sum(in 4, out x)
+  y := x * 2
   assert (x, y) == (6, 12)
 
 // the bodies of cases may declare variables, like those of if and while
 test locals_in_cases() :=
-  local n: Int
+  var n: Int
   match Some(3)
     case Some(m) =>
-      local k := m * 2
-      assign n := k + 1
+      let k := m * 2
+      n := k + 1
 
     case None =>
-      assign n := 0
+      n := 0
   end
   assert n == 7
   try
     raise "x"
   catch
     case s =>
-      local t := s
+      let t := s
       assert t == "x"
   end
 
 // procedures as values of the types (in A, out B, ref C), named or as lambdas
 procedure double(in x: Int, out y: Int) :=
-  assign y := 2 * x
+  y := 2 * x
 
 procedure twice(in p: (in Int, out Int), x: Int, out z: Int) :=
-  local y: Int
-  call p(in x, out y)
-  call p(in y, out z)
+  var y: Int
+  p(in x, out y)
+  p(in y, out z)
 
 procedure each[A](in p: (in A, ref Int), xs: List[A], ref n: Int) :=
   match xs
@@ -110,8 +111,8 @@ procedure each[A](in p: (in A, ref Int), xs: List[A], ref n: Int) :=
       skip
 
     case List(x; rest) =>
-      call p(in x, ref n)
-      call each(in p, rest, ref n)
+      p(in x, ref n)
+      each(in p, rest, ref n)
   end
 
 function step(by_two: Bool): (in Int, out Int) :=
@@ -119,47 +120,48 @@ function step(by_two: Bool): (in Int, out Int) :=
     double
   else
     lambda in x, out y =>
-      assign y := x + 1
+      y := x + 1
     end
 
 test procedure_values() :=
-  local z: Int, n := 0, k := 10, p := step(false)
-  call twice(in double, 3, out z)
+  var z: Int, n := 0
+  let k := 10, p := step(false)
+  twice(in double, 3, out z)
   assert z == 12
-  call twice(in lambda in x, out y =>
-    assign y := x + k
+  twice(in lambda in x, out y =>
+    y := x + k
   end, 1, out z)
   assert z == 21
-  call each(in lambda in s, ref m =>
-    assign m := m + size(s)
+  each(in lambda in s, ref m =>
+    m := m + size(s)
   end, List("a", "bc"), ref n)
   assert n == 3
-  call p(in 1, out z)
+  p(in 1, out z)
   assert z == 2
-  call twice(in step(true), 1, out z)
+  twice(in step(true), 1, out z)
   assert z == 4
 
 procedure sum_all(in xs: List[Int], out t: Int) :=
-  local rest := xs, sum := 0
+  var rest := xs, sum := 0
   while rest != List() do
     match rest
       case List(x; more) =>
-        assign sum := sum + x, rest := more
+        sum := sum + x, rest := more
       case List() =>
         skip
     end
   end
-  assign t := sum
+  t := sum
 
 // the initial values are assigned in order, so each may refer to the locals before it
 // a doc stands before a statement, also in a case and after else, at its indentation
 procedure documented(in n: Int, out s: Int) :=
-  local m := n
+  let m := n
   // the first value
-  assign s := 1
+  s := 1
   if m > 0 then
     // a positive n
-    assign s := 2
+    s := 2
   else
     // nested, below else
     if m == 0 then
@@ -169,24 +171,25 @@ procedure documented(in n: Int, out s: Int) :=
   match m
     case 3 =>
       // the third
-      assign s := 3
+      s := 3
 
     case _ =>
       skip
   end
 
 test documented_statements() :=
-  local s: Int
-  call documented(in 3, out s)
+  var s: Int
+  documented(in 3, out s)
   assert s == 3
 
 test initialized_locals() :=
-  local a := 1, b := a + 1, c: Int := b * 2, s := "x", t: Int
-  call sum_all(in List(a, b, c), out t)
+  let a := 1, b := a + 1, c: Int := b * 2, s := "x"
+  var t: Int
+  sum_all(in List(a, b, c), out t)
   assert (a, b, c, s, t) == (1, 2, 4, "x", 7)
 
 test inferred_types() :=
-  local xs := List(Some(1), None), m := get("a", List(("a", true)))
+  let xs := List(Some(1), None), m := get("a", List(("a", true)))
   assert size(xs) == 2 and m == Some(true)
 
 data Failed :=
@@ -195,19 +198,19 @@ data Failed :=
 // the outs of sign are assigned on every path, where a path that raises does not continue
 procedure sign(in n: Int, out s: Int) raises Failed :=
   if n < 0 then
-    assign s := -1
+    s := -1
   else
     if n == 0 then
       raise Failed
     else
-      assign s := 1
+      s := 1
     end
   end
 
 procedure first(in xs: List[Int], out x: Int) raises Failed :=
   match xs
     case List(y; _) =>
-      assign x := y
+      x := y
     case List() =>
       raise Failed
   end
@@ -215,60 +218,60 @@ procedure first(in xs: List[Int], out x: Int) raises Failed :=
 // an if after else is nested, with an end of its own, and statements may follow it in the else
 procedure classify(in n: Int, out c: Str) :=
   if n < 0 then
-    assign c := "negative"
+    c := "negative"
   else
     if n == 0 then
-      assign c := "zero"
+      c := "zero"
     else
-      assign c := "positive"
+      c := "positive"
     end
-    assign c := c ++ "!"
+    c := c ++ "!"
   end
 
 test nested_ifs() :=
-  local a: Str, b: Str, c: Str
-  call classify(in -1, out a)
-  call classify(in 0, out b)
-  call classify(in 12, out c)
+  var a: Str, b: Str, c: Str
+  classify(in -1, out a)
+  classify(in 0, out b)
+  classify(in 12, out c)
   assert (a, b, c) == ("negative", "zero!", "positive!")
 
 // a variable may be read where it is assigned on every path to the read
 test definite_assignment() :=
-  local a: Int, b: Int, c: Int, d: Int
-  call sign(in -5, out a)
-  call first(in List(7, 8), out b)
+  var a: Int, b: Int, c: Int, d: Int
+  sign(in -5, out a)
+  first(in List(7, 8), out b)
   try
-    call sign(in 0, out c)
+    sign(in 0, out c)
   catch
     case Failed =>
-      assign c := 0
+      c := 0
   end
   if a < 0 then
-    assign d := 1
+    d := 1
   else
-    assign d := 2
+    d := 2
   end
   assert (a, b, c, d) == (-1, 7, 0, 1)
 
 test keywords_after_conditions() :=
-  local n := 0, m := 0
+  var n := 0, m := 0
   while n < 3 do
-    assign n := n + 1
+    n := n + 1
   end
   while m < 2 do
-    assign m := m + 1
+    m := m + 1
   end
   if n == 3 then
-    assign n := 10
+    n := 10
   else
     if m == 1 then
-      assign n := 20
+      n := 20
     else
-      assign n := 30
+      n := 30
     end
   end
   if n == 10 then
-    assign m := 0
+    m := 0
   end
   assert n == 10 and m == 0
 
@@ -278,75 +281,75 @@ procedure split_at(
   out before: List[Int],
       after: List[Int]
 ) :=
-  assign before := take(n, xs), after := drop(n, xs)
+  before := take(n, xs), after := drop(n, xs)
 
 // a local is declared where it stands, to the end of its body, each of a line in scope of those before it, and a pattern
 // destructures its value
 test locals_anywhere() :=
-  local n := 1
-  assign n := n + 1
-  local m := n * 2, k: Int := m + 1
+  var n := 1
+  n := n + 1
+  let m := n * 2, k: Int := m + 1
   assert (n, m, k) == (2, 4, 5)
   if n > 1 then
-    assign n := 0
+    n := 0
     // a doc of a local
-    local (a, b) := (m, k), (c, _): Int * Int := (a + b, 0)
+    let (a, b) := (m, k), (c, _): Int * Int := (a + b, 0)
     assert c == 9
   end
-  local xs, ys
-  call split_at(in 1, List(1, 2, 3), out xs, ys)
+  var xs, ys
+  split_at(in 1, List(1, 2, 3), out xs, ys)
   assert (xs, ys, n) == (List(1), List(2, 3), 0)
 
 // for p in c if q do … end runs its body for the elements of a container in the order of its fold
 test for_lists() :=
-  local sum := 0, seen: List[Int] := List()
+  var sum := 0, seen: List[Int] := List()
   for x in List(1, 2, 3) do
-    assign sum := sum + x
+    sum := sum + x
   end
   for x in List(1, 2, 3, 4) if x % 2 == 0 do
-    assign seen := List(x; seen)
+    seen := List(x; seen)
   end
   assert sum == 6 and seen == List(4, 2)
 
 test for_patterns() :=
-  local total := 0
+  var total := 0
   for (a, b) in List((1, 2), (3, 4)) do
-    assign total := total + a * b
+    total := total + a * b
   end
   for (x, _) in List((5, 0), (6, 7)) do
-    assign total := total + x
+    total := total + x
   end
   assert total == 2 + 12 + 5 + 6
 
 test for_sets_and_maps() :=
-  local text := "", sum := 0
+  var text := "", sum := 0
   for x in Set(3, 1, 2) do
-    assign text := text ++ show(x)
+    text := text ++ show(x)
   end
   for (k, v) in Map(1 => 10, 2 => 20) if k > 1 do
-    assign sum := sum + v
+    sum := sum + v
   end
   assert text == "123" and sum == 20
 
 // for k => v in m binds key and value, and format keeps it so
 test for_keys_arrays_and_options() :=
-  local sum := 0, text := ""
+  var sum := 0, text := ""
   for k => v in Map(1 => 10, 2 => 20) if k > 1 do
-    assign sum := sum + k + v
+    sum := sum + k + v
   end
   for c in Array('a', 'b') do
-    assign text := text ++ str(List(c))
+    text := text ++ str(List(c))
   end
   for x in Some(5) do
-    assign sum := sum + x
+    sum := sum + x
   end
   assert sum == 27 and text == "ab"
 
 test for_nested() :=
-  local pairs: List[Int * Int] := List()
+  var pairs: List[Int * Int] := List()
   for x in List(1, 2) do
     for y in Set(5, 6) do
-      assign pairs := List((x, y); pairs)
+      pairs := List((x, y); pairs)
     end
   end
   assert pairs == List((2, 6), (2, 5), (1, 6), (1, 5))
@@ -363,7 +366,7 @@ procedure accept(in s: Str, ref ts: List[Token]) raises ParseError :=
   match ts
     case List(Sym(op); us) =>
       if op == s then
-        assign ts := us
+        ts := us
       else
         raise Expected(s)
       end
@@ -375,7 +378,7 @@ procedure accept(in s: Str, ref ts: List[Token]) raises ParseError :=
 procedure number(out n: Int, ref ts: List[Token]) :=
   match ts
     case List(Num(num); us) =>
-      assign n := num, ts := us
+      n := num, ts := us
     case _ =>
       raise Expected("number")
   end
@@ -383,17 +386,17 @@ procedure number(out n: Int, ref ts: List[Token]) :=
 // (n), where the parentheses are optional
 procedure atom(out n: Int, ref ts: List[Token]) :=
   try
-    call number(out n, ref ts)
+    number(out n, ref ts)
   catch
     case Expected(_) =>
-      call accept(in "(", ref ts)
-      call atom(out n, ref ts)
-      call accept(in ")", ref ts)
+      accept(in "(", ref ts)
+      atom(out n, ref ts)
+      accept(in ")", ref ts)
   end
 
 procedure parse(in ts: List[Token], out n: Int) :=
-  local rest := ts
-  call atom(out n, ref rest)
+  var rest := ts
+  atom(out n, ref rest)
   if rest != List() then
     raise Trailing(rest)
   end
@@ -401,12 +404,12 @@ procedure parse(in ts: List[Token], out n: Int) :=
 // the result, or 0 if ts is not a number
 procedure value(in ts: List[Token], out n: Int) :=
   try
-    call parse(in ts, out n)
+    parse(in ts, out n)
   catch
     case Expected(_) =>
-      assign n := 0
+      n := 0
     case Trailing(_) =>
-      assign n := 0
+      n := 0
   end
 
 data Fail :=
@@ -414,23 +417,23 @@ data Fail :=
 
 // the assignment to k does not reach the caller, which gets refs and outs only when a procedure returns
 procedure count(ref k: Int) :=
-  assign k := k + 1
+  k := k + 1
   raise Fail
 
 test parse_errors() :=
-  local n: Int, k := 0
-  call parse(in List(Sym("("), Sym("("), Num(3), Sym(")"), Sym(")")), out n)
+  var n: Int, k := 0
+  parse(in List(Sym("("), Sym("("), Num(3), Sym(")"), Sym(")")), out n)
   assert n == 3
   assert raises Expected(")") do
-    call parse(in List(Sym("("), Num(3)), out n)
+    parse(in List(Sym("("), Num(3)), out n)
   end
   assert raises Trailing(List(Num(2))) do
-    call parse(in List(Num(1), Num(2)), out n)
+    parse(in List(Num(1), Num(2)), out n)
   end
-  call value(in List(Sym(")")), out n)
+  value(in List(Sym(")")), out n)
   assert n == 0
   assert raises Fail do
-    call count(ref k)
+    count(ref k)
   end
   assert k == 0
 
@@ -438,10 +441,10 @@ test parse_errors() :=
 // after it are those before it, as in a handler, an exception that a try inside handles does not count, and one that
 // the pattern does not match is raised further
 test assert_raises() :=
-  local k := 0, s := "a"
+  var k := 0, s := "a"
   assert raises Fail do
-    assign k := 1, s := "b"
-    call   count(ref k)
+    k := 1, s := "b"
+    count(ref k)
   end
   assert (k, s) == (0, "a")
   assert raises "x" do
@@ -469,47 +472,47 @@ function failing_constant(): Int :=
   1 / 0
 
 test constant_raises_again() :=
-  local n := 0
+  var n := 0
   assert raises DivisionByZero do
-    assign n := failing_constant()
+    n := failing_constant()
   end
   assert raises DivisionByZero do
-    assign n := failing_constant()
+    n := failing_constant()
   end
 
 // handlers see the variables as they were before the try, also when compiled with optimizations
 test restored_by_raise() :=
-  local k := 0, n := 0
+  var k := 0, n := 0
   try
-    assign k := 1
+    k := 1
     while n < 3 do
-      assign n := n + 1
+      n := n + 1
     end
-    call count(ref k)
+    count(ref k)
   catch
     case Fail =>
-      assign k := k + 10
+      k := k + 10
   end
   assert (k, n) == (10, 0)
 
 procedure half(out r: Int) :=
-  assign r := 1
+  r := 1
   raise Fail
 
 procedure through(ref z: Int) :=
-  call half(out z)
+  half(out z)
 
 // outs and refs assigned before an exception do not reach the caller
 test atomic_outs_and_refs() :=
-  local x := 0, y := 5
+  var x := 0, y := 5
   try
-    call through(ref x)
+    through(ref x)
   catch
     case Fail =>
       skip
   end
   try
-    call half(out y)
+    half(out y)
   catch
     case Fail =>
       skip
@@ -518,17 +521,17 @@ test atomic_outs_and_refs() :=
 
 // an exception that no case matches is raised further
 test unmatched_raised_further() :=
-  local e: Str
+  var e: Str
   try
     try
       raise Expected("x")
     catch
       case Expected("y") =>
-        assign e := "y"
+        e := "y"
     end
   catch
     case Expected(what) =>
-      assign e := what
+      e := what
   end
   assert e == "x"
 
@@ -541,65 +544,66 @@ procedure positive(in n: Int) :=
 
 // exceptions of any type, which cases catch only if the types agree, while _ catches all
 test any_type() :=
-  local n: Int, s: Str
+  var n: Int, s: Str
   try
     raise 42
   catch
     case k =>
-      assign n := k
+      n := k
   end
   assert n == 42
   try
     try
-      call positive(in 1)
+      positive(in 1)
     catch
       case t =>
-        assign s := t ++ "!"
+        s := t ++ "!"
     end
   catch
     case k =>
-      assign n := k + 1
+      n := k + 1
   end
   assert n == 2
   try
     raise "x"
   catch
     case _ =>
-      assign s := "caught"
+      s := "caught"
   end
   assert s == "caught"
 
 // a procedure value raises what its type allows, which a lambda takes from the formal it is given to
 procedure attempt(in step: (in Int) raises Failed, n: Int, out ok: Bool) :=
   try
-    call   step(in n)
-    assign ok := true
+    step(in n)
+    ok := true
   catch
     case Failed =>
-      assign ok := false
+      ok := false
   end
 
 test procedure_values_raise() :=
-  local ok: Bool, fails_below := lambda in n =>
+  var ok: Bool
+  let fails_below := lambda in n =>
     if n < 0 then
       raise Failed
     end
   end
-  call attempt(in fails_below, -1, out ok)
+  attempt(in fails_below, -1, out ok)
   assert not ok
-  call attempt(in fails_below, 1, out ok)
+  attempt(in fails_below, 1, out ok)
   assert ok
 
 // handlers apply if their guards hold
 test guarded_handlers() :=
-  local n: Int
+  var n: Int
   try
     raise 2
   catch
     case k if k < 2 =>
-      assign n := 0
+      n := 0
     case k =>
-      assign n := k
+      n := k
   end
   assert n == 2
 
@@ -609,62 +613,62 @@ data Shape :=
 
 // builtins and accessors of fields raise exceptions of the prelude
 procedure failure(in k: Int, out m: Str) :=
-  local x := 0
-  assign m := "none"
+  var x := 0
+  m := "none"
   try
     match k
       case 0 =>
-        assign x := 1 / 0
+        x := 1 / 0
 
       case 1 =>
-        assign x := 1 % 0
+        x := 1 % 0
 
       case 2 =>
-        assign x := int(at(2, "ab"))
+        x := int(at(2, "ab"))
 
       case 3 =>
-        assign x := size(slice("ab", 1, 3))
+        x := size(slice("ab", 1, 3))
 
       case 4 =>
-        assign x := size(slice("ab", 2, 1))
+        x := size(slice("ab", 2, 1))
 
       case 5 =>
-        assign x := int(chr(-1))
+        x := int(chr(-1))
 
       case _ =>
-        assign x := Box("b").radius
+        x := Box("b").radius
     end
   catch
     case DivisionByZero =>
-      assign m := "division"
+      m := "division"
 
     case OutOfBounds(index, count) =>
-      assign m := show(index) ++ " of " ++ show(count)
+      m := show(index) ++ " of " ++ show(count)
 
     case NoCharacter(code) =>
-      assign m := show(code)
+      m := show(code)
 
     case MissingField(field) =>
-      assign m := field
+      m := field
   end
   if m == "none" then
-    assign m := show(x)
+    m := show(x)
   end
 
 test builtin_exceptions() :=
-  local m: Str
-  call failure(in 0, out m)
+  var m: Str
+  failure(in 0, out m)
   assert m == "division"
-  call failure(in 1, out m)
+  failure(in 1, out m)
   assert m == "division"
-  call failure(in 2, out m)
+  failure(in 2, out m)
   assert m == "2 of 2"
-  call failure(in 3, out m)
+  failure(in 3, out m)
   assert m == "3 of 2"
-  call failure(in 4, out m)
+  failure(in 4, out m)
   assert m == "2 of 2"
-  call failure(in 5, out m)
+  failure(in 5, out m)
   assert m == "-1"
-  call failure(in 6, out m)
+  failure(in 6, out m)
   assert m == "Shape.radius"
   assert slice("ab", 0, 2) == "ab" and slice("ab", 2, 2) == ""

@@ -279,15 +279,15 @@ function hole_term(holes: Holes, free: List[Int], value: Term, base: Int, h: Int
 // the leaves of List(x, y; rest) and List(x; rest) after it, over the value at the level 0: Nil without a row, Cons of
 // Nil for the second row, and Cons of Cons for the first, whose y and rest are new variables
 test nested_leaves() :=
-  local list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), var := (lambda base => Var(Name(None, base), THole)), pvar := (lambda base => AOk(Pos(0, 0), PVar(var(base)))), decls := (empty_decls() with constrs := Map(
+  let list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), var_of := (lambda base => Var(Name(None, base), THole)), pvar := (lambda base => AOk(Pos(0, 0), PVar(var_of(base)))), decls := (empty_decls() with constrs := Map(
     nil => ConstrDecl(list, List()),
-    cons => ConstrDecl(list, List(var("head"), var("tail")))), datatypes := Map(list => List(nil, cons))), two := PApp(cons, List(pvar("x"), AOk(Pos(0, 0), PApp(cons, List(pvar("y"), pvar("rest")))))), one := PApp(cons, List(pvar("x"), pvar("rest")))
+    cons => ConstrDecl(list, List(var_of("head"), var_of("tail")))), datatypes := Map(list => List(nil, cons))), two := PApp(cons, List(pvar("x"), AOk(Pos(0, 0), PApp(cons, List(pvar("y"), pvar("rest")))))), one := PApp(cons, List(pvar("x"), pvar("rest")))
   match leaves(decls, ELevel(0), 1, List((two, false), (one, false)), None)
     case List(empty, single, double) =>
       assert empty.value == EFun(nil) and empty.hits == List()
       assert single.value == EApp(EFun(cons), List(ELevel(1), EFun(nil)))
       assert single.hits == List(Hit(1, List(ELevel(1), EFun(nil))))
-      assert double.vars == List(var("x"), var("y"), var("rest"))
+      assert double.vars == List(var_of("x"), var_of("y"), var_of("rest"))
       assert double.hits == List(Hit(0, List(ELevel(1), ELevel(2), ELevel(3))))
 
     case _ =>
@@ -296,7 +296,7 @@ test nested_leaves() :=
 
 // literals split into the literal and the rest, where a guarded row lets the leaf through to the next
 test literal_leaves() :=
-  local x := AOk(Pos(0, 0), PVar(Var(Name(None, "x"), THole)))
+  let x := AOk(Pos(0, 0), PVar(Var(Name(None, "x"), THole)))
   match leaves(empty_decls(), ELevel(0), 1, List((PLit(LInt(0)), true), (PLit(LInt(0)), false), (x.that, false)), None)
     case List(zero, other) =>
       assert zero.value == EInt(0) and zero.hits == List(Hit(0, List()), Hit(1, List()))
@@ -308,13 +308,13 @@ test literal_leaves() :=
 
 // a split that induction asks for, also where the only row is a catch-all, which binds the constructor terms
 test forced_leaves() :=
-  local list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), var := (lambda base => Var(Name(None, base), THole)), decls := empty_decls() with constrs := Map(
+  let list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), var_of := (lambda base => Var(Name(None, base), THole)), decls := empty_decls() with constrs := Map(
     nil => ConstrDecl(list, List()),
-    cons => ConstrDecl(list, List(var("head"), var("tail")))), datatypes := Map(list => List(nil, cons))
-  match leaves(decls, ELevel(0), 1, List((PVar(var("ys")), false)), Some(list))
+    cons => ConstrDecl(list, List(var_of("head"), var_of("tail")))), datatypes := Map(list => List(nil, cons))
+  match leaves(decls, ELevel(0), 1, List((PVar(var_of("ys")), false)), Some(list))
     case List(empty, nonempty) =>
       assert empty.hits == List(Hit(0, List(EFun(nil))))
-      assert nonempty.vars == List(var("head"), var("tail")) and nonempty.hits == List(Hit(0, List(EApp(EFun(cons), List(ELevel(1), ELevel(2))))))
+      assert nonempty.vars == List(var_of("head"), var_of("tail")) and nonempty.hits == List(Hit(0, List(EApp(EFun(cons), List(ELevel(1), ELevel(2))))))
 
     case _ =>
       assert false

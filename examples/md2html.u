@@ -7,32 +7,32 @@
 import "library/md"
 
 procedure main() :=
-  local ok := true
+  var ok := true
   try
-    local args: List[Str], standalone: Bool, rest: List[Str]
-    call   os_args(out args)
-    assign standalone := contains("--standalone", args), rest := remove("--standalone", args)
+    var args: List[Str], standalone: Bool, rest: List[Str]
+    os_args(out args)
+    standalone := contains("--standalone", args), rest := remove("--standalone", args)
     match rest
       case List(input) =>
-        local text: Str
-        call os_read_utf8(in input, out text)
-        call os_print(in page(text, standalone))
+        var text: Str
+        os_read_utf8(in input, out text)
+        os_print(in page(text, standalone))
 
       case List(input, output) =>
-        local text: Str
-        call os_read_utf8(in input, out text)
-        call os_write_utf8(in output, page(text, standalone))
+        var text: Str
+        os_read_utf8(in input, out text)
+        os_write_utf8(in output, page(text, standalone))
 
       case _ =>
         raise OsError("usage: md2html [--standalone] input.md [output.html]")
     end
   catch
     case OsError(message) =>
-      call   os_print_error(in message)
-      assign ok := false
+      os_print_error(in message)
+      ok := false
   end
   if not ok then
-    call os_exit(in 1)
+    os_exit(in 1)
   end
 
 function page(text: Str, standalone: Bool): Str :=

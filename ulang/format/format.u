@@ -266,8 +266,8 @@ function node_out(notation: Notation, indent: Str, expr: At[Expr]): Out :=
     case ELit(lit) =>
       Out(format_lit(lit), Atom)
 
-    case EVar(var) =>
-      Out(var.name.base, Atom)
+    case EVar(x) =>
+      Out(x.name.base, Atom)
 
     case EApp(fun, args) =>
       app_out(notation, indent, fun, args)
@@ -526,8 +526,8 @@ function pattern_out(notation: Notation, indent: Str, pat: Pat): Out :=
     case PLit(lit) =>
       Out(format_lit(lit), Atom)
 
-    case PVar(var) =>
-      Out(var.name.base, Atom)
+    case PVar(x) =>
+      Out(x.name.base, Atom)
 
     case PTuple(args) =>
       Out("(" ++ format_patterns(notation, indent, args) ++ ")", Atom)
@@ -606,7 +606,7 @@ function format_stmt_node(notation: Notation, indent: Str, stmt: At[Stmt]): Str 
       "skip"
 
     case SAssign(upd) =>
-      "assign " ++ assignments_text(notation, indent, upd)
+      assignments_text(notation, indent, upd)
 
     case SIf(cond, left, right) =>
       cond_text(notation, indent, "if", "then", cond, left) ++ else_text(notation, indent, right)
@@ -615,7 +615,7 @@ function format_stmt_node(notation: Notation, indent: Str, stmt: At[Stmt]): Str 
       end_text(indent, cond_text(notation, indent, "while", "do", cond, body))
 
     case SCall(proc, ins, outs, refs) =>
-      "call " ++ call_text(notation, indent, proc, ins, outs, refs)
+      call_text(notation, indent, proc, ins, outs, refs)
 
     case SMatch(arg, cases) =>
       end_text(indent, "match " ++ format_expr(notation, indent, arg) ++ stmt_cases(notation, deeper(indent), cases))
@@ -635,8 +635,8 @@ function format_stmt_node(notation: Notation, indent: Str, stmt: At[Stmt]): Str 
     case SBlock(_, _) =>
       "skip" ++ format_body(notation, indent, stmt)
 
-    case SLocal(decls) =>
-      "local " ++ decls_text(notation, indent, decls)
+    case SLocal(mutable, decls) =>
+      (if mutable then "var " else "let ") ++ decls_text(notation, indent, decls)
 
     case SFor(gens, body) =>
       end_text(indent, gens_text(notation, indent, gens) ++ " do" ++ format_body(notation, deeper(indent), body))
@@ -696,90 +696,25 @@ function init_text(init: Option[At[Expr]], text: At[Expr] -> Str): Str :=
       ""
   end
 
+function local_pattern(x: At[Var]): At[Pat] :=
+  if x.that.typ == THole then
+    AOk(x.pos, PName(x.that.name, THole))
+  else
+    AOk(x.pos, PAnnotated(AOk(x.pos, PName(x.that.name, THole)), x.that.typ))
+
 // the lines of a body, each after a newline, where local x := e is x with the assignment that starts the block
 function format_body(notation: Notation, indent: Str, body: At[Stmt]): Str :=
   match body.that
-    case SBlock(List(), stmts) =>
+    // the parser gives no locals of a block but SLocal statements
+    case SBlock(_, stmts) =>
       format_stmts(notation, indent, stmts)
-
-    case SBlock(locals, stmts) =>
-      match local_decls(notation, indent, locals, stmts)
-        case (decls, rest) =>
-          "\n" ++ indent ++ "local " ++ join(", ", decls) ++ format_stmts(notation, indent, rest)
-      end
 
     case _ =>
       format_stmts(notation, indent, List(Doc(None, body)))
   end
 
 function format_stmts(notation: Notation, indent: Str, ss: List[Doc[Stmt]]): Str :=
-  join("", List(for run in runs(ss) for s in run yield stmt_line(notation, indent, has_assign(stmts_of(run)), s)))
-
-// a statement after its doc and a newline, where a call is padded to the width of assign next to an assign
-function stmt_line(notation: Notation, indent: Str, padded: Bool, stmt: Doc[Stmt]): Str :=
-  match stmt.at
-    case AOk(_, SCall(proc, ins, outs, refs)) if padded =>
-      indented_doc(indent, stmt.doc) ++ "\n" ++ indent ++ "call   " ++ call_text(notation, indent, proc, ins, outs, refs)
-    case _ =>
-      indented_doc(indent, stmt.doc) ++ "\n" ++ indent ++ format_stmt(notation, indent, stmt.at)
-  end
-
-// the statements in groups, where the calls and assignments in a row are one group, which a doc starts, and any other
-// statement is alone
-function runs(ss: List[Doc[Stmt]]): List[List[Doc[Stmt]]] :=
-  match ss
-    case List() =>
-      List()
-
-    case List(s; rest) =>
-      let more := runs(rest) in
-      match more
-        case List(List(t; same); others) if is_simple(s.at) and is_simple(t.at) and t.doc == None =>
-          List(List(s, t; same); others)
-        case _ =>
-          List(List(s); more)
-      end
-  end
-
-function is_simple(stmt: At[Stmt]): Bool :=
-  match stmt
-    case AOk(_, SCall(_, _, _, _)) =>
-      true
-
-    case AOk(_, SAssign(_)) =>
-      true
-
-    case _ =>
-      false
-  end
-
-function has_assign(run: List[At[Stmt]]): Bool :=
-  exists(run, lambda s => match s
-    case AOk(_, SAssign(_)) =>
-      true
-    case _ =>
-      false
-  end)
-
-// the declarations of the locals xs, with the assignments at the start of ss that initialize them, and the statements after
-function local_decls(notation: Notation, indent: Str, xs: List[At[Var]], ss: List[Doc[Stmt]]): List[Str] * List[Doc[Stmt]] :=
-  match (xs, ss)
-    case (List(), _) =>
-      (List(), ss)
-
-    case (List(x; more), List(Doc(None, AOk(_, SAssign(List((y, a))))); rest)) if y == Var(x.that.name, THole) =>
-      match local_decls(notation, indent, more, rest)
-        case (decls, after) =>
-          (List(
-            formal_text(x.that) ++ " := " ++ closed_expr(notation, indent, a); decls), after)
-      end
-
-    case (List(x; more), _) =>
-      match local_decls(notation, indent, more, ss)
-        case (decls, after) =>
-          (List(formal_text(x.that); decls), after)
-      end
-  end
+  join("", List(for s in ss yield indented_doc(indent, s.doc) ++ "\n" ++ indent ++ format_stmt(notation, indent, s.at)))
 
 // in a, b, out c, ref d, without the empty sections
 function sections_text(ins: List[Str], outs: List[Str], refs: List[Str]): Str :=
@@ -879,13 +814,9 @@ function format_cmd(notation: Notation, cmd: Cmd): Option[Str] :=
 // the lines of a proof, its steps as the statements of a body, so that they are laid out as those, where an invariant
 // is a line of its own between them, then its split
 function proof_text(notation: Notation, indent: Str, proof: Proof): Str :=
-  let locals := List(for step in proof.steps for x in local_of(step.that) yield x) in
   let body := match leading_stmts(proof.steps)
     case (stmts, rest) =>
-      (if locals == List() and stmts == List() then
-        ""
-      else
-        format_body(notation, indent, AOk(Pos(0, 0), SBlock(locals, stmts)))) ++ invariants_text(notation, indent, rest)
+      format_stmts(notation, indent, stmts) ++ invariants_text(notation, indent, rest)
   end in
   match proof.split
     case Some(split) =>
@@ -923,22 +854,11 @@ function invariants_text(notation: Notation, indent: Str, steps: List[At[Step]])
       ""
   end
 
-function local_of(step: Step): Option[At[Var]] :=
-  match step
-    case StepLocal(x, _) =>
-      Some(x)
-    case _ =>
-      None
-  end
-
-// the statements of a step, where a local with a value is the assignment that starts the block, as in format_body
+// the statements of a step, where a local with a value is a let, and one without a var
 function step_stmts(step: At[Step]): List[At[Stmt]] :=
   match step.that
-    case StepLocal(x, Some(e)) =>
-      List(AOk(step.pos, SAssign(List((Var(x.that.name, THole), e)))))
-
-    case StepLocal(_, None) =>
-      List()
+    case StepLocal(x, init) =>
+      List(AOk(step.pos, SLocal(init == None, List((local_pattern(x), init)))))
 
     case StepCall(name, ins, outs) =>
       List(AOk(step.pos, SCall(name, ins, outs, List())))
@@ -1074,7 +994,7 @@ function source(expr: At[Expr]): Str :=
   format_expr(test_operators(), "", expr)
 
 test operators_parenthesized() :=
-  local a := expr_var("a"), b := expr_var("b"), c := expr_var("c")
+  let a := expr_var("a"), b := expr_var("b"), c := expr_var("c")
   assert source(expr_app("*", List(expr_app("+", List(a, b)), c))) == "(a + b) * c"
   assert source(expr_app("+", List(a, expr_app("*", List(b, c))))) == "a + b * c"
   assert source(expr_app("-", List(expr_app("-", List(a, b)), c))) == "a - b - c"
@@ -1095,18 +1015,20 @@ test operators_parenthesized() :=
   assert source(expr_app("+", List(nowhere(EIte(a, b, c)), expr_int(1)))) == "(if a then b else c) + 1"
 
 test updates_closed() :=
-  local r := nowhere(EUpdate(nowhere(EUpdate(expr_var("r"), "f", expr_int(1))), "g", nowhere(EIte(expr_var("c"), expr_int(2), expr_int(3))))), assignment := nowhere(SAssign(List(
+  let r := nowhere(EUpdate(nowhere(EUpdate(expr_var("r"), "f", expr_int(1))), "g", nowhere(EIte(expr_var("c"), expr_int(2), expr_int(3))))), assignment := nowhere(SAssign(List(
     (Var(unqualified("x"), THole), r),
     (Var(unqualified("y"), THole), expr_int(2))))), sum := expr_app("+", List(expr_var("a"), expr_var("b")))
   assert source(r) == "r with f := 1, g := (if c then 2 else 3)"
-  assert format_stmt(test_operators(), "", assignment) == "assign x := (" ++ source(r) ++ "), y := 2"
+  assert format_stmt(test_operators(), "", assignment) == "x := (" ++ source(r) ++ "), y := 2"
   assert source(expr_app("+", List(nowhere(EField(sum, "f")), r))) == "(a + b).f + (" ++ source(r) ++ ")"
 
 test bodies() :=
-  local x := Var(unqualified("x"), TInt()), y := Var(unqualified("y"), THole), body := nowhere(block(List(x, y), List(
-    nowhere(SAssign(List((Var(x.name, THole), expr_int(1))))),
+  let x := Var(unqualified("x"), TInt()), y := Var(unqualified("y"), THole), body := nowhere(block(List(), List(
+    nowhere(SLocal(true, List(
+      (nowhere(PAnnotated(nowhere(PName(x.name, THole)), TInt())), Some(expr_int(1))),
+      (nowhere(PName(y.name, THole)), None)))),
     nowhere(SIf(nowhere(EVar(y)), nowhere(block(List(), List(nowhere(SSkip)))), nowhere(SIf(nowhere(EVar(x)), nowhere(block(List(), List())), nowhere(SSkip)))))))), noted := Doc(Some("note"), nowhere(CNotation(FLeft, 9, List("+")))), plain := Doc(None, nowhere(CNotation(FLeft, 8, List("-"))))
-  assert format_body(test_operators(), "", body) == "\nlocal x: Int := 1, y\nif y then\n  skip\nelse\n  if x then\n  end\nend"
+  assert format_body(test_operators(), "", body) == "\nvar x: Int := 1, y\nif y then\n  skip\nelse\n  if x then\n  end\nend"
   assert format_cmd(test_operators(), CNotation(FLeft, 9, List("+", "-"))) == Some("infix left 9 + -")
   assert doc_text(None) == "" and doc_text(Some("a\n b\n")) == "// a\n//  b\n//\n" and doc_text(Some("")) == "//\n"
   assert format_cmds(test_operators(), List(noted, plain)) == List("// note\ninfix left 9 +", "infix left 8 -")
@@ -1328,7 +1250,7 @@ function format_name(n: Name): Str :=
   end
 
 test printing() :=
-  local int_type := TSort(unqualified("Int"), List()), str_type := TSort(unqualified("Str"), List()), list_type := TSort(unqualified("List"), List(TParam("A"))), fun_type := TFun(List(TParam("A")), TParam("B")), pair_type := TTuple(List(int_type, str_type)), var_pat := PName(unqualified("x"), THole)
+  let int_type := TSort(unqualified("Int"), List()), str_type := TSort(unqualified("Str"), List()), list_type := TSort(unqualified("List"), List(TParam("A"))), fun_type := TFun(List(TParam("A")), TParam("B")), pair_type := TTuple(List(int_type, str_type)), var_pat := PName(unqualified("x"), THole)
   assert format_type(TFun(List(fun_type, pair_type), list_type)) == "(A -> B, Int * Str) -> List[A]"
   assert format_type(TProc(List(TParam("A")), List(), List(int_type), TTuple(List()))) == "(in A, ref Int)"
   assert format_type(TProc(List(TParam("A")), List(), List(), TTuple(List(TSort(unqualified("E"), List()), int_type)))) == "(in A) raises E, Int"

@@ -85,34 +85,34 @@ function variadics(): Set[Str] :=
     "u_mk_array")
 
 procedure emit(in instr: Instr, ref e: Emit) :=
-  assign e := e with code := e.code ++ List(LInstr(instr))
+  e := e with code := e.code ++ List(LInstr(instr))
 
 procedure emit_all(in instrs: List[Instr], ref e: Emit) :=
-  assign e := e with code := e.code ++ List(for i in instrs yield LInstr(i))
+  e := e with code := e.code ++ List(for i in instrs yield LInstr(i))
 
 procedure place(in label: Str, ref e: Emit) :=
-  assign e := e with code := e.code ++ List(LLabel(label))
+  e := e with code := e.code ++ List(LLabel(label))
 
 procedure new_label(out label: Str, ref e: Emit) :=
-  assign label := ".L" ++ show(e.labels), e := e with labels := e.labels + 1
+  label := ".L" ++ show(e.labels), e := e with labels := e.labels + 1
 
 // a symbol of a lifted function, numbered as the labels
 procedure new_symbol(in stem: Str, out symbol: Str, ref e: Emit) :=
-  assign symbol := stem ++ "_" ++ show(e.labels), e := e with labels := e.labels + 1
+  symbol := stem ++ "_" ++ show(e.labels), e := e with labels := e.labels + 1
 
 procedure new_slot(out s: Int, ref e: Emit) :=
-  assign s := (-8) * (e.slots + 1), e := e with slots := e.slots + 1
+  s := (-8) * (e.slots + 1), e := e with slots := e.slots + 1
 
 // %rax in a new slot
 procedure spill(out s: Int, ref e: Emit) :=
-  call new_slot(out s, ref e)
-  call emit(in IMov(OReg(Rax), slot(s)), ref e)
+  new_slot(out s, ref e)
+  emit(in IMov(OReg(Rax), slot(s)), ref e)
 
 procedure add_writable(in lines: List[Line], ref e: Emit) :=
-  assign e := e with writable := e.writable ++ lines
+  e := e with writable := e.writable ++ lines
 
 procedure add_readonly(in lines: List[Line], ref e: Emit) :=
-  assign e := e with readonly := e.readonly ++ lines
+  e := e with readonly := e.readonly ++ lines
 
 // a call by the System V convention, with the first six arguments in registers and the others on the stack, which stays
 // aligned to 16 bytes, where the registers are loaded after the pushes, which use %rax, so that an argument in %rax moves
@@ -123,48 +123,49 @@ procedure emit_call(
       variadic: Bool,
   ref e: Emit
 ) :=
-  local all := args, stack: List[Arg], pad := size(drop(6, args)) % 2
+  var all := args, stack: List[Arg]
+  let pad := size(drop(6, args)) % 2
   if size(args) > 6 and contains(AVal(OReg(Rax)), args) then
-    call   emit(in IMov(OReg(Rax), OReg(R11)), ref e)
-    assign all := List(for a in args yield if a == AVal(OReg(Rax)) then AVal(OReg(R11)) else a)
+    emit(in IMov(OReg(Rax), OReg(R11)), ref e)
+    all := List(for a in args yield if a == AVal(OReg(Rax)) then AVal(OReg(R11)) else a)
   end
-  assign stack := drop(6, all)
+  stack := drop(6, all)
   if pad == 1 then
-    call emit(in ISub(OImm(8), OReg(Rsp)), ref e)
+    emit(in ISub(OImm(8), OReg(Rsp)), ref e)
   end
   for a in reverse(stack) do
-    call push_arg(in a, ref e)
+    push_arg(in a, ref e)
   end
   for (a, r) in zip(take(6, all), arg_regs()) do
     match a
       case AVal(op) =>
-        call emit(in IMov(op, OReg(r)), ref e)
+        emit(in IMov(op, OReg(r)), ref e)
       case AAddr(op) =>
-        call emit(in ILea(op, r), ref e)
+        emit(in ILea(op, r), ref e)
     end
   end
   if variadic then
-    call emit(in IMov(OImm(0), OReg(Rax)), ref e)
+    emit(in IMov(OImm(0), OReg(Rax)), ref e)
   end
-  call emit(in callee, ref e)
+  emit(in callee, ref e)
   if stack != List() then
-    call emit(in IAdd(OImm(8 * (size(stack) + pad)), OReg(Rsp)), ref e)
+    emit(in IAdd(OImm(8 * (size(stack) + pad)), OReg(Rsp)), ref e)
   end
 
 procedure push_arg(in a: Arg, ref e: Emit) :=
   match a
     case AVal(OImm(num)) if is_wide(num) =>
-      call emit_all(in List(IMov(OImm(num), OReg(Rax)), IPush(OReg(Rax))), ref e)
+      emit_all(in List(IMov(OImm(num), OReg(Rax)), IPush(OReg(Rax))), ref e)
 
     case AVal(op) =>
-      call emit(in IPush(op), ref e)
+      emit(in IPush(op), ref e)
 
     case AAddr(op) =>
-      call emit_all(in List(ILea(op, Rax), IPush(OReg(Rax))), ref e)
+      emit_all(in List(ILea(op, Rax), IPush(OReg(Rax))), ref e)
   end
 
 procedure call_runtime(in f: Str, args: List[Arg], ref e: Emit) :=
-  call emit_call(in ICallPlt(f), args, contains(f, variadics()), ref e)
+  emit_call(in ICallPlt(f), args, contains(f, variadics()), ref e)
 
 // the procedure n, which the runtime defines if it is of the builtin section of os
 function proc_callee(n: Name): Instr :=
@@ -175,7 +176,7 @@ function proc_callee(n: Name): Instr :=
 
 // the code of a new function, whose slots start again, with the code and slots of the one around it
 procedure begin_function(out outer: Buffer[Line] * Int, ref e: Emit) :=
-  assign outer := (e.code, e.slots), e := e with code := empty(), slots := 0
+  outer := (e.code, e.slots), e := e with code := empty(), slots := 0
 
 // the function of the code since begin_function, with its prologue, which allocates the slots, and its epilogue, where
 // %rsp is aligned to 16 bytes after the push of %rbp
@@ -185,56 +186,59 @@ procedure end_function(
       outer: Buffer[Line] * Int,
   ref e: Emit
 ) :=
-  local frame := (8 * e.slots + 15) / 16 * 16, head: List[Line] := List(
+  let frame := (8 * e.slots + 15) / 16 * 16
+  var head: List[Line] := List(
     LLabel(symbol),
     LInstr(IPush(OReg(Rbp))),
     LInstr(IMov(OReg(Rsp), OReg(Rbp))))
   if global then
-    assign head := List(LDirective(DGlobal(symbol)); head)
+    head := List(LDirective(DGlobal(symbol)); head)
   end
   if frame > 0 then
-    assign head := head ++ List(LInstr(ISub(OImm(frame), OReg(Rsp))))
+    head := head ++ List(LInstr(ISub(OImm(frame), OReg(Rsp))))
   end
-  assign e := e with funs := e.funs ++ head ++ List(for line in e.code) ++ List(LInstr(ILeave), LInstr(IRet))
-  assign e := e with code := first(outer), slots := second(outer)
+  e := e with funs := e.funs ++ head ++ List(for line in e.code) ++ List(LInstr(ILeave), LInstr(IRet))
+  e := e with code := first(outer), slots := second(outer)
 
 // the slots of the first n formals of a function, those in registers stored into slots of the frame and the others
 // where the caller pushed them, above the return address
 procedure formal_slots(in n: Int, out slots: List[Int], ref e: Emit) :=
-  local s: Int, found: Buffer[Int] := empty()
+  var s: Int, found: Buffer[Int] := empty()
   for r in take(n, arg_regs()) do
-    call   spill_reg(in r, out s, ref e)
-    assign found := found ++ List(s)
+    spill_reg(in r, out s, ref e)
+    found := found ++ List(s)
   end
-  assign slots := List(for x in found) ++ List(for i in range(0, n - 6) yield 16 + 8 * i)
+  slots := List(for x in found) ++ List(for i in range(0, n - 6) yield 16 + 8 * i)
 
 procedure spill_reg(in r: Reg, out s: Int, ref e: Emit) :=
-  call new_slot(out s, ref e)
-  call emit(in IMov(OReg(r), slot(s)), ref e)
+  new_slot(out s, ref e)
+  emit(in IMov(OReg(r), slot(s)), ref e)
 
 // the object of a string literal, whose units of 1, 2, or 4 bytes, the narrowest that holds its code points, end with a 0
 procedure str_object(in text: Str, out symbol: Str, ref e: Emit) :=
   match get(text, e.strs)
     case Some(s) =>
-      assign symbol := s
+      symbol := s
 
     case None =>
-      call   new_label(out symbol, ref e)
-      call   str_object_named(in symbol, text, ref e)
-      assign e := e with strs := put(text, symbol, e.strs)
+      new_label(out symbol, ref e)
+      str_object_named(in symbol, text, ref e)
+      e := e with strs := put(text, symbol, e.strs)
   end
 
 procedure str_object_named(in symbol: Str, text: Str, ref e: Emit) :=
-  local units: Str, codes := List(for c in chars(text) yield int(c)), width: Int
-  call   new_label(out units, ref e)
-  assign width := unit_width(foldl(codes, 0, lambda m, c => max(m, c)))
-  call   add_writable(in List(
+  var units: Str
+  let codes := List(for c in chars(text) yield int(c))
+  var width: Int
+  new_label(out units, ref e)
+  width := unit_width(foldl(codes, 0, lambda m, c => max(m, c)))
+  add_writable(in List(
     LDirective(DAlign(8)),
     LLabel(symbol),
     LDirective(DAddrs(List("u_str_type", units))),
     LDirective(DInts(8, List(size(codes)))),
     LDirective(DInts(4, List(width, 0)))), ref e)
-  call   add_readonly(in List(
+  add_readonly(in List(
     LDirective(DAlign(width)),
     LLabel(units),
     LDirective(DInts(width, codes ++ List(0)))), ref e)
@@ -246,29 +250,29 @@ function unit_width(greatest: Int): Int :=
 procedure c_string(in text: Str, out symbol: Str, ref e: Emit) :=
   match get(text, e.cstrs)
     case Some(s) =>
-      assign symbol := s
+      symbol := s
 
     case None =>
-      call   new_label(out symbol, ref e)
-      call   add_readonly(in List(LLabel(symbol), LDirective(DInts(1, utf8_bytes(text) ++ List(0)))), ref e)
-      assign e := e with cstrs := put(text, symbol, e.cstrs)
+      new_label(out symbol, ref e)
+      add_readonly(in List(LLabel(symbol), LDirective(DInts(1, utf8_bytes(text) ++ List(0)))), ref e)
+      e := e with cstrs := put(text, symbol, e.cstrs)
   end
 
 procedure literal(in lit: Lit, ref e: Emit) :=
   match lit
     case LUnit =>
-      call call_runtime(in "u_mk_tuple", List(AVal(OImm(0))), ref e)
+      call_runtime(in "u_mk_tuple", List(AVal(OImm(0))), ref e)
 
     case LBool(bool) =>
-      call call_runtime(in "u_mk_bool", List(AVal(OImm(if bool then 1 else 0))), ref e)
+      call_runtime(in "u_mk_bool", List(AVal(OImm(if bool then 1 else 0))), ref e)
 
     case LInt(num) =>
       if is_small(num) then
-        call call_runtime(in "u_mk_int", List(AVal(OImm(num))), ref e)
+        call_runtime(in "u_mk_int", List(AVal(OImm(num))), ref e)
       else
-        local digits: Str
-        call c_string(in show(num), out digits, ref e)
-        call call_runtime(in "u_mk_int_str", List(AAddr(ORip(digits))), ref e)
+        var digits: Str
+        c_string(in show(num), out digits, ref e)
+        call_runtime(in "u_mk_int_str", List(AAddr(ORip(digits))), ref e)
       end
 
     // check translates hexadecimal numbers to LInt
@@ -276,30 +280,30 @@ procedure literal(in lit: Lit, ref e: Emit) :=
       raise Unexpected("hexadecimal literal")
 
     case LStr(text) =>
-      local symbol: Str
-      call str_object(in text, out symbol, ref e)
-      call emit(in ILea(ORip(symbol), Rax), ref e)
+      var symbol: Str
+      str_object(in text, out symbol, ref e)
+      emit(in ILea(ORip(symbol), Rax), ref e)
 
     case LChar(char) =>
-      call call_runtime(in "u_mk_char", List(AVal(OImm(int(char)))), ref e)
+      call_runtime(in "u_mk_char", List(AVal(OImm(int(char)))), ref e)
   end
 
 // a jump to label if the boolean in %rax is false, or true
 procedure jump_unless(in label: Str, ref e: Emit) :=
-  call emit_all(in List(ICmp(OImm(0), OMem(Rax, num_offset())), IJcc(CondE, label)), ref e)
+  emit_all(in List(ICmp(OImm(0), OMem(Rax, num_offset())), IJcc(CondE, label)), ref e)
 
 procedure jump_if(in label: Str, ref e: Emit) :=
-  call emit_all(in List(ICmp(OImm(0), OMem(Rax, num_offset())), IJcc(CondNe, label)), ref e)
+  emit_all(in List(ICmp(OImm(0), OMem(Rax, num_offset())), IJcc(CondNe, label)), ref e)
 
 // a jump to label if the int that a C function returned in %eax is 0
 procedure jump_unless_int(in label: Str, ref e: Emit) :=
-  call emit_all(in List(ICltq, ITest(OReg(Rax), OReg(Rax)), IJcc(CondE, label)), ref e)
+  emit_all(in List(ICltq, ITest(OReg(Rax), OReg(Rax)), IJcc(CondE, label)), ref e)
 
 // the value in slot s, or its field at the indices of path, into %rax
 procedure load_path(in s: Int, path: List[Int], ref e: Emit) :=
-  call emit(in IMov(slot(s), OReg(Rax)), ref e)
+  emit(in IMov(slot(s), OReg(Rax)), ref e)
   for i in path do
-    call emit_all(in List(
+    emit_all(in List(
       IMov(OMem(Rax, items_offset()), OReg(Rax)),
       IMov(OMem(Rax, 8 * i), OReg(Rax))), ref e)
   end
@@ -309,23 +313,23 @@ procedure load_path(in s: Int, path: List[Int], ref e: Emit) :=
 procedure test_pat(in pat: Pat, s: Int, path: List[Int], fail: Str, ref e: Emit) :=
   match pat
     case PLit(lit) =>
-      local t: Int
-      call literal(in lit, ref e)
-      call spill(out t, ref e)
-      call load_path(in s, path, ref e)
-      call call_runtime(in "u_equals", List(AVal(OReg(Rax)), AVal(slot(t))), ref e)
-      call jump_unless_int(in fail, ref e)
+      var t: Int
+      literal(in lit, ref e)
+      spill(out t, ref e)
+      load_path(in s, path, ref e)
+      call_runtime(in "u_equals", List(AVal(OReg(Rax)), AVal(slot(t))), ref e)
+      jump_unless_int(in fail, ref e)
 
     case PApp(constr, args) =>
-      call load_path(in s, path, ref e)
-      call emit_all(in List(
+      load_path(in s, path, ref e)
+      emit_all(in List(
         ILea(ORip(descriptor_name(constr)), Rcx),
         ICmp(OReg(Rcx), OMem(Rax, name_offset())),
         IJcc(CondNe, fail)), ref e)
-      call test_fields(in numbered(args), s, path, fail, ref e)
+      test_fields(in numbered(args), s, path, fail, ref e)
 
     case PTuple(args) =>
-      call test_fields(in numbered(args), s, path, fail, ref e)
+      test_fields(in numbered(args), s, path, fail, ref e)
 
     case _ =>
       skip
@@ -339,7 +343,7 @@ procedure test_fields(
   ref e: Emit
 ) :=
   for (p, i) in ps do
-    call test_pat(in p.that, s, path ++ List(i), fail, ref e)
+    test_pat(in p.that, s, path ++ List(i), fail, ref e)
   end
 
 // the slots of the variables of pat, where the value at path of slot s matches pat
@@ -352,19 +356,19 @@ procedure bind_pat(
 ) :=
   match pat
     case PName(name, _) =>
-      local t: Int
-      call   load_path(in s, path, ref e)
-      call   spill(out t, ref e)
-      assign binds := List((name, t))
+      var t: Int
+      load_path(in s, path, ref e)
+      spill(out t, ref e)
+      binds := List((name, t))
 
     case PApp(_, args) =>
-      call bind_fields(in numbered(args), s, path, out binds, ref e)
+      bind_fields(in numbered(args), s, path, out binds, ref e)
 
     case PTuple(args) =>
-      call bind_fields(in numbered(args), s, path, out binds, ref e)
+      bind_fields(in numbered(args), s, path, out binds, ref e)
 
     case _ =>
-      assign binds := List()
+      binds := List()
   end
 
 procedure bind_fields(
@@ -374,11 +378,11 @@ procedure bind_fields(
   out binds: Slots,
   ref e: Emit
 ) :=
-  local found: Slots
-  assign binds := List()
+  var found: Slots
+  binds := List()
   for (p, i) in ps do
-    call   bind_pat(in p.that, s, path ++ List(i), out found, ref e)
-    assign binds := binds ++ found
+    bind_pat(in p.that, s, path ++ List(i), out found, ref e)
+    binds := binds ++ found
   end
 
 procedure bind_all(
@@ -387,11 +391,11 @@ procedure bind_all(
   out binds: Slots,
   ref e: Emit
 ) :=
-  local found: Slots
-  assign binds := List()
+  var found: Slots
+  binds := List()
   for (p, s) in zip(pats, slots) do
-    call   bind_pat(in p.that, s, List(), out found, ref e)
-    assign binds := binds ++ found
+    bind_pat(in p.that, s, List(), out found, ref e)
+    binds := binds ++ found
   end
 
 // a jump to fail unless the guard holds
@@ -404,8 +408,8 @@ procedure guard_test(
 ) :=
   match guard
     case Some(c) =>
-      call compile_expr(in defs, env, c, ref e)
-      call jump_unless(in fail, ref e)
+      compile_expr(in defs, env, c, ref e)
+      jump_unless(in fail, ref e)
 
     case None =>
       skip
@@ -419,13 +423,13 @@ procedure compile_spilled(
   out slots: List[Int],
   ref e: Emit
 ) :=
-  local s: Int, found: Buffer[Int] := empty()
+  var s: Int, found: Buffer[Int] := empty()
   for x in exprs do
-    call   compile_expr(in defs, env, x, ref e)
-    call   spill(out s, ref e)
-    assign found := found ++ List(s)
+    compile_expr(in defs, env, x, ref e)
+    spill(out s, ref e)
+    found := found ++ List(s)
   end
-  assign slots := List(for x in found)
+  slots := List(for x in found)
 
 // the arguments of the values of exprs for a call that follows at once: an operand where the value needs no code, and
 // else a slot, but %rax for the last, which no later code overwrites; slots of variables serve, since expressions assign
@@ -437,25 +441,26 @@ procedure compile_args(
   out args: List[Arg],
   ref e: Emit
 ) :=
-  local found: Buffer[Arg] := empty(), operand: Option[Arg], last := size(exprs) - 1
+  var found: Buffer[Arg] := empty(), operand: Option[Arg]
+  let last := size(exprs) - 1
   for (x, i) in numbered(exprs) do
-    call operand_of(in defs, env, x, out operand, ref e)
+    operand_of(in defs, env, x, out operand, ref e)
     match operand
       case Some(arg) =>
-        assign found := found ++ List(arg)
+        found := found ++ List(arg)
 
       case None =>
-        call compile_expr(in defs, env, x, ref e)
+        compile_expr(in defs, env, x, ref e)
         if i == last then
-          assign found := found ++ List(AVal(OReg(Rax)))
+          found := found ++ List(AVal(OReg(Rax)))
         else
-          local s: Int
-          call   spill(out s, ref e)
-          assign found := found ++ List(AVal(slot(s)))
+          var s: Int
+          spill(out s, ref e)
+          found := found ++ List(AVal(slot(s)))
         end
     end
   end
-  assign args := List(for a in found)
+  args := List(for a in found)
 
 // the argument of an expression whose value needs no code: a local variable, a string literal, or a constructor without
 // fields
@@ -470,21 +475,21 @@ procedure operand_of(
     case EName(name, typ) =>
       match get(name, env)
         case Some(s) =>
-          assign arg := Some(AVal(slot(s)))
+          arg := Some(AVal(slot(s)))
         case None =>
-          assign arg := unit_operand(defs, name, arity(typ))
+          arg := unit_operand(defs, name, arity(typ))
       end
 
     case ECall(_, name, _, List()) if get(name, env) == None =>
-      assign arg := unit_operand(defs, name, 0)
+      arg := unit_operand(defs, name, 0)
 
     case ELit(LStr(text)) =>
-      local symbol: Str
-      call   str_object(in text, out symbol, ref e)
-      assign arg := Some(AAddr(ORip(symbol)))
+      var symbol: Str
+      str_object(in text, out symbol, ref e)
+      arg := Some(AAddr(ORip(symbol)))
 
     case _ =>
-      assign arg := None
+      arg := None
   end
 
 // the value of a constructor without fields, which global_value and compile_named take for n of arity k
@@ -501,19 +506,19 @@ procedure load_arg(in arg: Arg, ref e: Emit) :=
       skip
 
     case AVal(op) =>
-      call emit(in IMov(op, OReg(Rax)), ref e)
+      emit(in IMov(op, OReg(Rax)), ref e)
 
     case AAddr(op) =>
-      call emit(in ILea(op, Rax), ref e)
+      emit(in ILea(op, Rax), ref e)
   end
 
 // the arguments with %rax in a slot, before code that overwrites it
 procedure secure(in args: List[Arg], out secured: List[Arg], ref e: Emit) :=
-  assign secured := args
+  secured := args
   if contains(AVal(OReg(Rax)), args) then
-    local s: Int
-    call   spill(out s, ref e)
-    assign secured := List(for a in args yield if a == AVal(OReg(Rax)) then AVal(slot(s)) else a)
+    var s: Int
+    spill(out s, ref e)
+    secured := List(for a in args yield if a == AVal(OReg(Rax)) then AVal(slot(s)) else a)
   end
 
 // the slot of the value of expr, that of the variable if expr is a local variable
@@ -526,37 +531,37 @@ procedure compile_slot(
 ) :=
   match expr.that
     case EName(name, _) if get(name, env) != None =>
-      assign s := slot_of(env, name)
+      s := slot_of(env, name)
 
     case _ =>
-      call compile_expr(in defs, env, expr, ref e)
-      call spill(out s, ref e)
+      compile_expr(in defs, env, expr, ref e)
+      spill(out s, ref e)
   end
 
 // a closure of the code w without captured values
 procedure closure(in w: Str, ref e: Emit) :=
-  call call_runtime(in "u_mk_closure", List(AAddr(ORip(w)), AVal(OImm(0))), ref e)
+  call_runtime(in "u_mk_closure", List(AAddr(ORip(w)), AVal(OImm(0))), ref e)
 
 // a function, constructor, or builtin of name n with type t as a value, which is a closure of its wrapper
 procedure global_value(in defs: Defs, n: Name, t: Type, ref e: Emit) :=
   if is_global_fun(defs, n, arity(t)) then
-    call closure(in "w_" ++ fun_name(n, arity(t)), ref e)
+    closure(in "w_" ++ fun_name(n, arity(t)), ref e)
   else
     match fields_count(defs, n)
       case Some(0) =>
-        call emit(in ILea(ORip(unit_name(n)), Rax), ref e)
+        emit(in ILea(ORip(unit_name(n)), Rax), ref e)
 
       case Some(_) =>
-        call closure(in "wc_" ++ mangle(n), ref e)
+        closure(in "wc_" ++ mangle(n), ref e)
 
       case None =>
         match get(n, builtin_functions())
           case Some((f, _)) =>
-            call closure(in "w" ++ f, ref e)
+            closure(in "w" ++ f, ref e)
 
           // a procedure, since the checker resolves every other name
           case None =>
-            call call_runtime(in "u_mk_proc", List(AAddr(ORip("wp_" ++ mangle(n))), AVal(OImm(0))), ref e)
+            call_runtime(in "u_mk_proc", List(AAddr(ORip("wp_" ++ mangle(n))), AVal(OImm(0))), ref e)
         end
     end
   end
@@ -568,31 +573,31 @@ function unit_name(n: Name): Str :=
 procedure compile_expr(in defs: Defs, env: Slots, expr: At[Expr], ref e: Emit) :=
   match expr.that
     case ELit(lit) =>
-      call literal(in lit, ref e)
+      literal(in lit, ref e)
 
     case EName(name, typ) =>
       match get(name, env)
         case Some(s) =>
-          call emit(in IMov(slot(s), OReg(Rax)), ref e)
+          emit(in IMov(slot(s), OReg(Rax)), ref e)
         case None =>
-          call global_value(in defs, name, typ, ref e)
+          global_value(in defs, name, typ, ref e)
       end
 
     case ECall(_, name, typ, args) if get(name, env) == None =>
       match fusion_of(name, args)
         case Some(FusedArray((gs, cond, elem))) =>
-          call array_comprehension(in defs, env, gs, cond, elem, ref e)
+          array_comprehension(in defs, env, gs, cond, elem, ref e)
 
         case Some(FusedLiteral(elems)) =>
-          local as: List[Arg]
-          call compile_args(in defs, env, elems, out as, ref e)
-          call call_runtime(in "u_mk_array", List(AVal(OImm(size(elems)))) ++ as, ref e)
+          var as: List[Arg]
+          compile_args(in defs, env, elems, out as, ref e)
+          call_runtime(in "u_mk_array", List(AVal(OImm(size(elems)))) ++ as, ref e)
 
         case Some(FusedList((gs, cond, elem), init)) =>
-          call list_comprehension(in defs, env, gs, cond, elem, init, ref e)
+          list_comprehension(in defs, env, gs, cond, elem, init, ref e)
 
         case None =>
-          call compile_named(in defs, env, name, typ, args, ref e)
+          compile_named(in defs, env, name, typ, args, ref e)
       end
 
     case EField(_, field) =>
@@ -608,52 +613,52 @@ procedure compile_expr(in defs: Defs, env: Slots, expr: At[Expr], ref e: Emit) :
       raise UntranslatedForm(form_name(form))
 
     case EApp(fun, args) =>
-      local all: List[Arg]
-      call compile_args(in defs, env, List(fun; args), out all, ref e)
-      call call_runtime(in "u_apply", take(1, all) ++ List(AVal(OImm(size(args)))) ++ drop(1, all), ref e)
+      var all: List[Arg]
+      compile_args(in defs, env, List(fun; args), out all, ref e)
+      call_runtime(in "u_apply", take(1, all) ++ List(AVal(OImm(size(args)))) ++ drop(1, all), ref e)
 
     // the checker makes the formals variables
     case ELam(formals, body) =>
       match pattern_vars(formals)
         case Some(xs) =>
-          call compile_lambda(in defs, env, xs, body, ref e)
+          compile_lambda(in defs, env, xs, body, ref e)
         case None =>
           raise Unexpected("lambda of patterns")
       end
 
     case EProc(ins, outs, refs, _, stmt) =>
-      call compile_proc_lambda(in defs, env, vars(ins), vars(outs), vars(refs), stmt, ref e)
+      compile_proc_lambda(in defs, env, vars(ins), vars(outs), vars(refs), stmt, ref e)
 
     case ELet(bindings, body) =>
-      local slots: List[Int], binds: Slots
-      call compile_spilled(in defs, env, seconds(bindings), out slots, ref e)
-      call bind_all(in firsts(bindings), slots, out binds, ref e)
-      call compile_expr(in defs, binds ++ env, body, ref e)
+      var slots: List[Int], binds: Slots
+      compile_spilled(in defs, env, seconds(bindings), out slots, ref e)
+      bind_all(in firsts(bindings), slots, out binds, ref e)
+      compile_expr(in defs, binds ++ env, body, ref e)
 
     case EIte(cond, then_expr, else_expr) =>
-      local other: Str, done: Str
-      call new_label(out other, ref e)
-      call new_label(out done, ref e)
-      call compile_expr(in defs, env, cond, ref e)
-      call jump_unless(in other, ref e)
-      call compile_expr(in defs, env, then_expr, ref e)
-      call emit(in IJmp(done), ref e)
-      call place(in other, ref e)
-      call compile_expr(in defs, env, else_expr, ref e)
-      call place(in done, ref e)
+      var other: Str, done: Str
+      new_label(out other, ref e)
+      new_label(out done, ref e)
+      compile_expr(in defs, env, cond, ref e)
+      jump_unless(in other, ref e)
+      compile_expr(in defs, env, then_expr, ref e)
+      emit(in IJmp(done), ref e)
+      place(in other, ref e)
+      compile_expr(in defs, env, else_expr, ref e)
+      place(in done, ref e)
 
     case EMatch(arg, cases) =>
-      local s: Int, done: Str
-      call compile_slot(in defs, env, arg, out s, ref e)
-      call new_label(out done, ref e)
-      call expr_cases(in defs, env, cases, s, done, ref e)
-      call call_runtime(in "u_no_case", List(AVal(slot(s))), ref e)
-      call place(in done, ref e)
+      var s: Int, done: Str
+      compile_slot(in defs, env, arg, out s, ref e)
+      new_label(out done, ref e)
+      expr_cases(in defs, env, cases, s, done, ref e)
+      call_runtime(in "u_no_case", List(AVal(slot(s))), ref e)
+      place(in done, ref e)
 
     case ETuple(args) =>
-      local as: List[Arg]
-      call compile_args(in defs, env, args, out as, ref e)
-      call call_runtime(in "u_mk_tuple", List(AVal(OImm(size(args)))) ++ as, ref e)
+      var as: List[Arg]
+      compile_args(in defs, env, args, out as, ref e)
+      call_runtime(in "u_mk_tuple", List(AVal(OImm(size(args)))) ++ as, ref e)
   end
 
 // how the loops of a comprehension add the element in %rax: as a cell at the place that the slot points to, which then
@@ -665,12 +670,12 @@ data Adder :=
 procedure add_elem(in add: Adder, ref e: Emit) :=
   match add
     case AddCell(d) =>
-      call call_runtime(in "u_append", List(AVal(slot(d)), AVal(OReg(Rax))), ref e)
-      call emit(in IMov(OReg(Rax), slot(d)), ref e)
+      call_runtime(in "u_append", List(AVal(slot(d)), AVal(OReg(Rax))), ref e)
+      emit(in IMov(OReg(Rax), slot(d)), ref e)
 
     case AddPush(t) =>
-      call call_runtime(in "u_array_push", List(AVal(slot(t)), AVal(OReg(Rax))), ref e)
-      call emit(in IMov(OReg(Rax), slot(t)), ref e)
+      call_runtime(in "u_array_push", List(AVal(slot(t)), AVal(OReg(Rax))), ref e)
+      emit(in IMov(OReg(Rax), slot(t)), ref e)
   end
 
 // the nested loops of the generators gs over lists and arrays, as compile_loops of ulang/compile/compile.u writes them,
@@ -686,51 +691,51 @@ procedure comprehension_loops(
 ) :=
   match gs
     case List() =>
-      local next: Str
-      call new_label(out next, ref e)
-      call guard_test(in defs, env, cond, next, ref e)
-      call compile_expr(in defs, env, elem, ref e)
-      call add_elem(in add, ref e)
-      call place(in next, ref e)
+      var next: Str
+      new_label(out next, ref e)
+      guard_test(in defs, env, cond, next, ref e)
+      compile_expr(in defs, env, elem, ref e)
+      add_elem(in add, ref e)
+      place(in next, ref e)
 
     case List((f, c, x); rest) =>
-      local l: Int, top: Str, done: Str
-      call compile_expr(in defs, env, c, ref e)
-      call spill(out l, ref e)
-      call new_label(out top, ref e)
-      call new_label(out done, ref e)
+      var l: Int, top: Str, done: Str
+      compile_expr(in defs, env, c, ref e)
+      spill(out l, ref e)
+      new_label(out top, ref e)
+      new_label(out done, ref e)
       if f == list_foldr_name() then
-        local item: Int
-        call place(in top, ref e)
-        call emit_all(in List(
+        var item: Int
+        place(in top, ref e)
+        emit_all(in List(
           IMov(slot(l), OReg(Rax)),
           ILea(ORip(descriptor_name(cons_name())), Rcx),
           ICmp(OReg(Rcx), OMem(Rax, name_offset())),
           IJcc(CondNe, done)), ref e)
-        call load_path(in l, List(0), ref e)
-        call spill(out item, ref e)
-        call comprehension_loops(in defs, List((x.name, item); env), rest, cond, elem, add, ref e)
-        call load_path(in l, List(1), ref e)
-        call emit_all(in List(IMov(OReg(Rax), slot(l)), IJmp(top)), ref e)
+        load_path(in l, List(0), ref e)
+        spill(out item, ref e)
+        comprehension_loops(in defs, List((x.name, item); env), rest, cond, elem, add, ref e)
+        load_path(in l, List(1), ref e)
+        emit_all(in List(IMov(OReg(Rax), slot(l)), IJmp(top)), ref e)
       else
-        local n: Int, i: Int, item: Int
-        call emit(in IMovslq(OMem(Rax, size_offset()), Rax), ref e)
-        call spill(out n, ref e)
-        call new_slot(out i, ref e)
-        call emit(in IMov(OImm(0), slot(i)), ref e)
-        call place(in top, ref e)
-        call emit_all(in List(
+        var n: Int, i: Int, item: Int
+        emit(in IMovslq(OMem(Rax, size_offset()), Rax), ref e)
+        spill(out n, ref e)
+        new_slot(out i, ref e)
+        emit(in IMov(OImm(0), slot(i)), ref e)
+        place(in top, ref e)
+        emit_all(in List(
           IMov(slot(i), OReg(Rax)),
           ICmp(slot(n), OReg(Rax)),
           IJcc(CondGe, done),
           IMov(slot(l), OReg(Rcx)),
           IMov(OMem(Rcx, items_offset()), OReg(Rcx)),
           IMov(OIndex(Rcx, Rax, 8, 0), OReg(Rax))), ref e)
-        call spill(out item, ref e)
-        call comprehension_loops(in defs, List((x.name, item); env), rest, cond, elem, add, ref e)
-        call emit_all(in List(IAdd(OImm(1), slot(i)), IJmp(top)), ref e)
+        spill(out item, ref e)
+        comprehension_loops(in defs, List((x.name, item); env), rest, cond, elem, add, ref e)
+        emit_all(in List(IAdd(OImm(1), slot(i)), IJmp(top)), ref e)
       end
-      call place(in done, ref e)
+      place(in done, ref e)
   end
 
 // the list of a comprehension, built in order, where the slot d points to the place of the next cell, first the slot t
@@ -744,14 +749,14 @@ procedure list_comprehension(
       init: At[Expr],
   ref e: Emit
 ) :=
-  local t: Int, d: Int
-  call emit(in ILea(ORip(unit_name(nil_name())), Rax), ref e)
-  call spill(out t, ref e)
-  call emit(in ILea(slot(t), Rax), ref e)
-  call spill(out d, ref e)
-  call comprehension_loops(in defs, env, gs, cond, elem, AddCell(d), ref e)
-  call compile_expr(in defs, env, init, ref e)
-  call emit_all(in List(
+  var t: Int, d: Int
+  emit(in ILea(ORip(unit_name(nil_name())), Rax), ref e)
+  spill(out t, ref e)
+  emit(in ILea(slot(t), Rax), ref e)
+  spill(out d, ref e)
+  comprehension_loops(in defs, env, gs, cond, elem, AddCell(d), ref e)
+  compile_expr(in defs, env, init, ref e)
+  emit_all(in List(
     IMov(slot(d), OReg(Rcx)),
     IMov(OReg(Rax), OMem(Rcx, 0)),
     IMov(slot(t), OReg(Rax))), ref e)
@@ -766,28 +771,28 @@ procedure array_comprehension(
       elem: At[Expr],
   ref e: Emit
 ) :=
-  local source := unqualified("(source)")
+  let source := unqualified("(source)")
   match gs
     case List((f, c, x); rest) =>
-      local l: Int, n: Int, t: Int
-      call compile_expr(in defs, env, c, ref e)
-      call spill(out l, ref e)
-      call call_runtime(in "u_count", List(AVal(slot(l))), ref e)
-      call emit(in ICltq, ref e)
-      call spill(out n, ref e)
-      call call_runtime(in "u_array_new", List(AVal(slot(n))), ref e)
-      call spill(out t, ref e)
-      call comprehension_loops(in defs, List((source, l); env), List((f, nowhere(EName(source, THole)), x); rest), cond, elem, AddPush(t), ref e)
+      var l: Int, n: Int, t: Int
+      compile_expr(in defs, env, c, ref e)
+      spill(out l, ref e)
+      call_runtime(in "u_count", List(AVal(slot(l))), ref e)
+      emit(in ICltq, ref e)
+      spill(out n, ref e)
+      call_runtime(in "u_array_new", List(AVal(slot(n))), ref e)
+      spill(out t, ref e)
+      comprehension_loops(in defs, List((source, l); env), List((f, nowhere(EName(source, THole)), x); rest), cond, elem, AddPush(t), ref e)
       if rest != List() then
-        call call_runtime(in "u_array_done", List(AVal(slot(t)), AVal(OImm(-1))), ref e)
-        call emit(in IMov(OReg(Rax), slot(t)), ref e)
+        call_runtime(in "u_array_done", List(AVal(slot(t)), AVal(OImm(-1))), ref e)
+        emit(in IMov(OReg(Rax), slot(t)), ref e)
       else
         if cond != None then
-          call call_runtime(in "u_array_done", List(AVal(slot(t)), AVal(slot(n))), ref e)
-          call emit(in IMov(OReg(Rax), slot(t)), ref e)
+          call_runtime(in "u_array_done", List(AVal(slot(t)), AVal(slot(n))), ref e)
+          emit(in IMov(OReg(Rax), slot(t)), ref e)
         end
       end
-      call emit(in IMov(slot(t), OReg(Rax)), ref e)
+      emit(in IMov(slot(t), OReg(Rax)), ref e)
 
     case List() =>
       raise Unexpected("comprehension without generators")
@@ -805,14 +810,14 @@ procedure expr_cases(
   for d in cases do
     match d.at
       case AOk(_, Branch(pat, guard, body)) =>
-        local next: Str, binds: Slots
-        call new_label(out next, ref e)
-        call test_pat(in pat.that, s, List(), next, ref e)
-        call bind_pat(in pat.that, s, List(), out binds, ref e)
-        call guard_test(in defs, binds ++ env, guard, next, ref e)
-        call compile_expr(in defs, binds ++ env, body, ref e)
-        call emit(in IJmp(done), ref e)
-        call place(in next, ref e)
+        var next: Str, binds: Slots
+        new_label(out next, ref e)
+        test_pat(in pat.that, s, List(), next, ref e)
+        bind_pat(in pat.that, s, List(), out binds, ref e)
+        guard_test(in defs, binds ++ env, guard, next, ref e)
+        compile_expr(in defs, binds ++ env, body, ref e)
+        emit(in IJmp(done), ref e)
+        place(in next, ref e)
 
       // the parser and the checker make no error nodes in programs that compile
       case _ =>
@@ -832,42 +837,43 @@ procedure compile_named(
   match args
     // and, or are not strict
     case List(a, b) if n == unqualified("and") or n == unqualified("or") =>
-      local done: Str
-      call new_label(out done, ref e)
-      call compile_expr(in defs, env, a, ref e)
+      var done: Str
+      new_label(out done, ref e)
+      compile_expr(in defs, env, a, ref e)
       if n == unqualified("and") then
-        call jump_unless(in done, ref e)
+        jump_unless(in done, ref e)
       else
-        call jump_if(in done, ref e)
+        jump_if(in done, ref e)
       end
-      call compile_expr(in defs, env, b, ref e)
-      call place(in done, ref e)
+      compile_expr(in defs, env, b, ref e)
+      place(in done, ref e)
 
     case _ =>
-      local as: List[Arg], k := size(args)
-      call compile_args(in defs, env, args, out as, ref e)
+      var as: List[Arg]
+      let k := size(args)
+      compile_args(in defs, env, args, out as, ref e)
       if is_global_fun(defs, n, k) and arity(ty) == k then
-        call emit_call(in ICall(fun_name(n, k)), as, false, ref e)
+        emit_call(in ICall(fun_name(n, k)), as, false, ref e)
       else
         if contains((n, k), defs.fields) then
-          call field_code(in n, positions_of(defs, n, k), as, ref e)
+          field_code(in n, positions_of(defs, n, k), as, ref e)
         else
           if fields_count(defs, n) == Some(0) and k == 0 then
-            call emit(in ILea(ORip(unit_name(n)), Rax), ref e)
+            emit(in ILea(ORip(unit_name(n)), Rax), ref e)
           else
             if fields_count(defs, n) == Some(k) then
-              call call_runtime(in "u_mk_con", List(AAddr(ORip(descriptor_name(n))), AVal(OImm(k))) ++ as, ref e)
+              call_runtime(in "u_mk_con", List(AAddr(ORip(descriptor_name(n))), AVal(OImm(k))) ++ as, ref e)
             else
               match get(n, builtin_functions())
                 case Some((b, j)) if j == k =>
-                  call call_runtime(in b, as, ref e)
+                  call_runtime(in b, as, ref e)
 
                 case _ =>
-                  local f: Int, secured: List[Arg]
-                  call secure(in as, out secured, ref e)
-                  call global_value(in defs, n, ty, ref e)
-                  call spill(out f, ref e)
-                  call call_runtime(in "u_apply", List(AVal(slot(f)), AVal(OImm(k))) ++ secured, ref e)
+                  var f: Int, secured: List[Arg]
+                  secure(in as, out secured, ref e)
+                  global_value(in defs, n, ty, ref e)
+                  spill(out f, ref e)
+                  call_runtime(in "u_apply", List(AVal(slot(f)), AVal(OImm(k))) ++ secured, ref e)
               end
             end
           end
@@ -881,28 +887,28 @@ procedure compile_named(
 procedure field_code(in n: Name, ps: List[Int], args: List[Arg], ref e: Emit) :=
   match (args, distinct(ps))
     case (List(a), List(p)) if p >= 0 =>
-      call load_arg(in a, ref e)
-      call emit_all(in List(
+      load_arg(in a, ref e)
+      emit_all(in List(
         IMov(OMem(Rax, items_offset()), OReg(Rax)),
         IMov(OMem(Rax, 8 * p), OReg(Rax))), ref e)
 
     case (List(a, y), _) =>
-      call call_runtime(in "u_update", List(a, AAddr(ORip(table_name(n))), AAddr(ORip(field_text_name(n))), y), ref e)
+      call_runtime(in "u_update", List(a, AAddr(ORip(table_name(n))), AAddr(ORip(field_text_name(n))), y), ref e)
 
     case (List(a), _) =>
-      local found: Str
-      call new_label(out found, ref e)
-      call load_arg(in a, ref e)
-      call emit_all(in List(
+      var found: Str
+      new_label(out found, ref e)
+      load_arg(in a, ref e)
+      emit_all(in List(
         IMov(OMem(Rax, name_offset()), OReg(Rcx)),
         IMovslq(OMem(Rcx, index_offset()), Rcx),
         ILea(ORip(table_name(n)), Rdx),
         IMovslq(OIndex(Rdx, Rcx, 4, 0), Rcx),
         ITest(OReg(Rcx), OReg(Rcx)),
         IJcc(CondNs, found)), ref e)
-      call call_runtime(in "u_missing_field", List(AAddr(ORip(field_text_name(n)))), ref e)
-      call place(in found, ref e)
-      call emit_all(in List(
+      call_runtime(in "u_missing_field", List(AAddr(ORip(field_text_name(n)))), ref e)
+      place(in found, ref e)
+      emit_all(in List(
         IMov(OMem(Rax, items_offset()), OReg(Rax)),
         IMov(OIndex(Rax, Rcx, 8, 0), OReg(Rax))), ref e)
 
@@ -917,12 +923,12 @@ function captured(env: Slots, names: List[Name]): List[Name] :=
 
 // the variables xs, in new slots, with the values of the array that slot base points to
 procedure unpack(in xs: List[Name], base: Int, out binds: Slots, ref e: Emit) :=
-  local t: Int
-  assign binds := List()
+  var t: Int
+  binds := List()
   for (x, i) in numbered(xs) do
-    call   emit_all(in List(IMov(slot(base), OReg(Rax)), IMov(OMem(Rax, 8 * i), OReg(Rax))), ref e)
-    call   spill(out t, ref e)
-    assign binds := binds ++ List((x, t))
+    emit_all(in List(IMov(slot(base), OReg(Rax)), IMov(OMem(Rax, 8 * i), OReg(Rax))), ref e)
+    spill(out t, ref e)
+    binds := binds ++ List((x, t))
   end
 
 function captured_args(env: Slots, caps: List[Name]): List[Arg] :=
@@ -936,15 +942,16 @@ procedure compile_lambda(
       body: At[Expr],
   ref e: Emit
 ) :=
-  local names := var_names(xs), caps: List[Name] := captured(env, free_vars(body, names)), f: Str, outer: Buffer[Line] * Int, fs: List[Int], cs: Slots, as: Slots
-  call new_symbol(in "lam", out f, ref e)
-  call begin_function(out outer, ref e)
-  call formal_slots(in 2, out fs, ref e)
-  call unpack(in caps, nth(0, fs), out cs, ref e)
-  call unpack(in names, nth(1, fs), out as, ref e)
-  call compile_expr(in defs, cs ++ as, body, ref e)
-  call end_function(in f, false, outer, ref e)
-  call call_runtime(in "u_mk_closure", List(AAddr(ORip(f)), AVal(OImm(size(caps)))) ++ captured_args(env, caps), ref e)
+  let names := var_names(xs), caps: List[Name] := captured(env, free_vars(body, names))
+  var f: Str, outer: Buffer[Line] * Int, fs: List[Int], cs: Slots, as: Slots
+  new_symbol(in "lam", out f, ref e)
+  begin_function(out outer, ref e)
+  formal_slots(in 2, out fs, ref e)
+  unpack(in caps, nth(0, fs), out cs, ref e)
+  unpack(in names, nth(1, fs), out as, ref e)
+  compile_expr(in defs, cs ++ as, body, ref e)
+  end_function(in f, false, outer, ref e)
+  call_runtime(in "u_mk_closure", List(AAddr(ORip(f)), AVal(OImm(size(caps)))) ++ captured_args(env, caps), ref e)
 
 // outs and refs are copies in slots of the procedure, which start as NULL and as the value of the caller, and which go back
 // to the caller only when it returns, so that an exception leaves the variables of the caller as they were
@@ -955,19 +962,19 @@ procedure copy_in(
   out binds: Slots,
   ref e: Emit
 ) :=
-  local t: Int
-  assign binds := List()
+  var t: Int
+  binds := List()
   for x in outs do
-    call   new_slot(out t, ref e)
-    call   emit(in IMov(OImm(0), slot(t)), ref e)
-    assign binds := binds ++ List((x, t))
+    new_slot(out t, ref e)
+    emit(in IMov(OImm(0), slot(t)), ref e)
+    binds := binds ++ List((x, t))
   end
   for x in refs do
-    call   emit_all(in List(
+    emit_all(in List(
       IMov(slot(slot_of(pointers, x)), OReg(Rax)),
       IMov(OMem(Rax, 0), OReg(Rax))), ref e)
-    call   spill(out t, ref e)
-    assign binds := binds ++ List((x, t))
+    spill(out t, ref e)
+    binds := binds ++ List((x, t))
   end
 
 procedure copy_out(
@@ -977,7 +984,7 @@ procedure copy_out(
   ref e: Emit
 ) :=
   for x in xs do
-    call emit_all(in List(
+    emit_all(in List(
       IMov(slot(slot_of(values, x)), OReg(Rcx)),
       IMov(slot(slot_of(pointers, x)), OReg(Rax)),
       IMov(OReg(Rcx), OMem(Rax, 0))), ref e)
@@ -993,18 +1000,19 @@ procedure compile_proc_lambda(
       stmt: At[Stmt],
   ref e: Emit
 ) :=
-  local in_names := var_names(ins), pointer_names := var_names(outs ++ refs), caps: List[Name] := captured(env, free_in_stmt(stmt, in_names ++ pointer_names)), f: Str, outer: Buffer[Line] * Int, fs: List[Int], cs: Slots, is: Slots, ps: Slots, vs: Slots
-  call new_symbol(in "proc", out f, ref e)
-  call begin_function(out outer, ref e)
-  call formal_slots(in 3, out fs, ref e)
-  call unpack(in caps, nth(0, fs), out cs, ref e)
-  call unpack(in in_names, nth(1, fs), out is, ref e)
-  call unpack(in pointer_names, nth(2, fs), out ps, ref e)
-  call copy_in(in var_names(outs), var_names(refs), ps, out vs, ref e)
-  call compile_stmt(in defs, cs ++ is ++ vs, stmt, ref e)
-  call copy_out(in pointer_names, ps, vs, ref e)
-  call end_function(in f, false, outer, ref e)
-  call call_runtime(in "u_mk_proc", List(AAddr(ORip(f)), AVal(OImm(size(caps)))) ++ captured_args(env, caps), ref e)
+  let in_names := var_names(ins), pointer_names := var_names(outs ++ refs), caps: List[Name] := captured(env, free_in_stmt(stmt, in_names ++ pointer_names))
+  var f: Str, outer: Buffer[Line] * Int, fs: List[Int], cs: Slots, is: Slots, ps: Slots, vs: Slots
+  new_symbol(in "proc", out f, ref e)
+  begin_function(out outer, ref e)
+  formal_slots(in 3, out fs, ref e)
+  unpack(in caps, nth(0, fs), out cs, ref e)
+  unpack(in in_names, nth(1, fs), out is, ref e)
+  unpack(in pointer_names, nth(2, fs), out ps, ref e)
+  copy_in(in var_names(outs), var_names(refs), ps, out vs, ref e)
+  compile_stmt(in defs, cs ++ is ++ vs, stmt, ref e)
+  copy_out(in pointer_names, ps, vs, ref e)
+  end_function(in f, false, outer, ref e)
+  call_runtime(in "u_mk_proc", List(AAddr(ORip(f)), AVal(OImm(size(caps)))) ++ captured_args(env, caps), ref e)
 
 // statements, whose variables are in slots, where procedures copy outs and refs back at their end
 procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :=
@@ -1013,126 +1021,127 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
       skip
 
     // the checker turns each SLocal into a block
-    case SLocal(_) =>
+    case SLocal(_, _) =>
       raise Unexpected("local")
 
     // simultaneous, so all values are computed before the first is assigned
     case SAssign(upd) =>
       match upd
         case List((x, value)) =>
-          call compile_expr(in defs, env, value, ref e)
-          call emit(in IMov(OReg(Rax), slot(slot_of(env, x.name))), ref e)
+          compile_expr(in defs, env, value, ref e)
+          emit(in IMov(OReg(Rax), slot(slot_of(env, x.name))), ref e)
 
         case _ =>
-          local slots: List[Int]
-          call compile_spilled(in defs, env, seconds(upd), out slots, ref e)
+          var slots: List[Int]
+          compile_spilled(in defs, env, seconds(upd), out slots, ref e)
           for (x, s) in zip(var_names(firsts(upd)), slots) do
-            call emit_all(in List(
+            emit_all(in List(
               IMov(slot(s), OReg(Rax)),
               IMov(OReg(Rax), slot(slot_of(env, x)))), ref e)
           end
       end
 
     case SBlock(locals, stmts) =>
-      local binds: Slots := List(), t: Int
+      var binds: Slots := List(), t: Int
       for x in var_names(vars(locals)) do
-        call   new_slot(out t, ref e)
-        call   emit(in IMov(OImm(0), slot(t)), ref e)
-        assign binds := binds ++ List((x, t))
+        new_slot(out t, ref e)
+        emit(in IMov(OImm(0), slot(t)), ref e)
+        binds := binds ++ List((x, t))
       end
       for s in stmts_of(stmts) do
-        call compile_stmt(in defs, binds ++ env, s, ref e)
+        compile_stmt(in defs, binds ++ env, s, ref e)
       end
 
     case SIf(cond, left, right) =>
-      local other: Str, done: Str
-      call new_label(out other, ref e)
-      call new_label(out done, ref e)
-      call compile_expr(in defs, env, cond, ref e)
-      call jump_unless(in other, ref e)
-      call compile_stmt(in defs, env, left, ref e)
-      call emit(in IJmp(done), ref e)
-      call place(in other, ref e)
-      call compile_stmt(in defs, env, right, ref e)
-      call place(in done, ref e)
+      var other: Str, done: Str
+      new_label(out other, ref e)
+      new_label(out done, ref e)
+      compile_expr(in defs, env, cond, ref e)
+      jump_unless(in other, ref e)
+      compile_stmt(in defs, env, left, ref e)
+      emit(in IJmp(done), ref e)
+      place(in other, ref e)
+      compile_stmt(in defs, env, right, ref e)
+      place(in done, ref e)
 
     case SWhile(cond, body) =>
-      local top: Str, done: Str
-      call new_label(out top, ref e)
-      call new_label(out done, ref e)
-      call place(in top, ref e)
-      call compile_expr(in defs, env, cond, ref e)
-      call jump_unless(in done, ref e)
-      call compile_stmt(in defs, env, body, ref e)
-      call emit(in IJmp(top), ref e)
-      call place(in done, ref e)
+      var top: Str, done: Str
+      new_label(out top, ref e)
+      new_label(out done, ref e)
+      place(in top, ref e)
+      compile_expr(in defs, env, cond, ref e)
+      jump_unless(in done, ref e)
+      compile_stmt(in defs, env, body, ref e)
+      emit(in IJmp(top), ref e)
+      place(in done, ref e)
 
     // a variable of a procedure type hides the procedures of that name
     case SCall(proc, ins, outs, refs) =>
-      local as: List[Arg], ps := List(for x in var_names(outs ++ refs) yield AAddr(slot(slot_of(env, x))))
-      call compile_args(in defs, env, ins, out as, ref e)
+      var as: List[Arg]
+      let ps := List(for x in var_names(outs ++ refs) yield AAddr(slot(slot_of(env, x))))
+      compile_args(in defs, env, ins, out as, ref e)
       match get(proc, env)
         case Some(p) =>
-          call call_runtime(in "u_call_proc", List(
+          call_runtime(in "u_call_proc", List(
             AVal(slot(p)),
             AVal(OImm(size(ins))),
             AVal(OImm(size(outs ++ refs)))) ++ as ++ ps, ref e)
 
         case None =>
-          call emit_call(in proc_callee(proc), as ++ ps, false, ref e)
+          emit_call(in proc_callee(proc), as ++ ps, false, ref e)
       end
 
     case SMatch(arg, cases) =>
-      local s: Int, done: Str
-      call compile_slot(in defs, env, arg, out s, ref e)
-      call new_label(out done, ref e)
-      call stmt_cases(in defs, env, cases, s, done, ref e)
-      call call_runtime(in "u_no_case", List(AVal(slot(s))), ref e)
-      call place(in done, ref e)
+      var s: Int, done: Str
+      compile_slot(in defs, env, arg, out s, ref e)
+      new_label(out done, ref e)
+      stmt_cases(in defs, env, cases, s, done, ref e)
+      call_runtime(in "u_no_case", List(AVal(slot(s))), ref e)
+      place(in done, ref e)
 
     // assertions of equations show both sides when they fail
     case SAssert(AOk(_, ECall(_, Name(None, "=="), _, List(a, b)))) =>
-      local as: List[Arg]
-      call compile_args(in defs, env, List(a, b), out as, ref e)
-      call call_runtime(in "u_assert_equal", as, ref e)
+      var as: List[Arg]
+      compile_args(in defs, env, List(a, b), out as, ref e)
+      call_runtime(in "u_assert_equal", as, ref e)
 
     case SAssert(cond) =>
-      call compile_expr(in defs, env, cond, ref e)
-      call call_runtime(in "u_assert_true", List(AVal(OReg(Rax))), ref e)
+      compile_expr(in defs, env, cond, ref e)
+      call_runtime(in "u_assert_true", List(AVal(OReg(Rax))), ref e)
 
     // exceptions carry their type, which handlers compare
     case SRaise(value, typ) =>
-      local key: Str
-      call c_string(in type_key(typ), out key, ref e)
-      call compile_expr(in defs, env, value, ref e)
-      call call_runtime(in "u_raise", List(AVal(OReg(Rax)), AAddr(ORip(key))), ref e)
+      var key: Str
+      c_string(in type_key(typ), out key, ref e)
+      compile_expr(in defs, env, value, ref e)
+      call_runtime(in "u_raise", List(AVal(OReg(Rax)), AAddr(ORip(key))), ref e)
 
     case STry(body, catches) =>
-      call compile_try(in defs, env, body, catches, None, ref e)
+      compile_try(in defs, env, body, catches, None, ref e)
 
     // the checker gives the list of the items and patterns that match every item, so that the loop walks the list and binds
     // the pattern to each item
     case SFor(List(GVal(pat, over)), body) =>
-      local l: Int, top: Str, done: Str, binds: Slots
-      call compile_expr(in defs, env, over, ref e)
-      call spill(out l, ref e)
-      call new_label(out top, ref e)
-      call new_label(out done, ref e)
-      call place(in top, ref e)
-      call emit_all(in List(
+      var l: Int, top: Str, done: Str, binds: Slots
+      compile_expr(in defs, env, over, ref e)
+      spill(out l, ref e)
+      new_label(out top, ref e)
+      new_label(out done, ref e)
+      place(in top, ref e)
+      emit_all(in List(
         IMov(slot(l), OReg(Rax)),
         ILea(ORip(descriptor_name(cons_name())), Rcx),
         ICmp(OReg(Rcx), OMem(Rax, name_offset())),
         IJcc(CondNe, done)), ref e)
-      call bind_pat(in pat.that, l, List(0), out binds, ref e)
-      call compile_stmt(in defs, binds ++ env, body, ref e)
-      call emit_all(in List(
+      bind_pat(in pat.that, l, List(0), out binds, ref e)
+      compile_stmt(in defs, binds ++ env, body, ref e)
+      emit_all(in List(
         IMov(slot(l), OReg(Rax)),
         IMov(OMem(Rax, items_offset()), OReg(Rax)),
         IMov(OMem(Rax, 8), OReg(Rax)),
         IMov(OReg(Rax), slot(l)),
         IJmp(top)), ref e)
-      call place(in done, ref e)
+      place(in done, ref e)
 
     // the checker gives one generator over a list
     case SFor(_, _) =>
@@ -1140,7 +1149,7 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
 
     // a try of one handler, whose body fails with the text of the pattern if it gets to its end
     case SAssertRaises(typ, pat, body) =>
-      call compile_try(in defs, env, body, List(Doc(None, nowhere(Catch(typ, pat, None, nowhere(SSkip))))), Some(format_pat(pat.that)), ref e)
+      compile_try(in defs, env, body, List(Doc(None, nowhere(Catch(typ, pat, None, nowhere(SSkip))))), Some(format_pat(pat.that)), ref e)
   end
 
 // the body runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if none applies,
@@ -1154,42 +1163,43 @@ procedure compile_try(
       not_raised: Option[Str],
   ref e: Emit
 ) :=
-  local xs := List(for x in distinct(changed(body)) if get(x, env) != None), saved: Slots := List(), t: Int, h: Int, handler: Str, done: Str
+  let xs := List(for x in distinct(changed(body)) if get(x, env) != None)
+  var saved: Slots := List(), t: Int, h: Int, handler: Str, done: Str
   for x in xs do
-    call   emit(in IMov(slot(slot_of(env, x)), OReg(Rax)), ref e)
-    call   spill(out t, ref e)
-    assign saved := saved ++ List((x, t))
+    emit(in IMov(slot(slot_of(env, x)), OReg(Rax)), ref e)
+    spill(out t, ref e)
+    saved := saved ++ List((x, t))
   end
-  call call_runtime(in "u_push", List(), ref e)
-  call spill(out h, ref e)
-  call new_label(out handler, ref e)
-  call new_label(out done, ref e)
-  call emit_all(in List(
+  call_runtime(in "u_push", List(), ref e)
+  spill(out h, ref e)
+  new_label(out handler, ref e)
+  new_label(out done, ref e)
+  emit_all(in List(
     IMov(slot(h), OReg(Rdi)),
     ICallPlt("_setjmp"),
     ICltq,
     ITest(OReg(Rax), OReg(Rax)),
     IJcc(CondNe, handler)), ref e)
-  call compile_stmt(in defs, env, body, ref e)
+  compile_stmt(in defs, env, body, ref e)
   match not_raised
     case Some(text) =>
-      local symbol: Str
-      call str_object(in text, out symbol, ref e)
-      call call_runtime(in "u_fail_text", List(AVal(ORip("u_text_assertion_not_raised")), AAddr(ORip(symbol))), ref e)
+      var symbol: Str
+      str_object(in text, out symbol, ref e)
+      call_runtime(in "u_fail_text", List(AVal(ORip("u_text_assertion_not_raised")), AAddr(ORip(symbol))), ref e)
 
     case None =>
       skip
   end
-  call call_runtime(in "u_pop", List(AVal(slot(h))), ref e)
-  call emit(in IJmp(done), ref e)
-  call place(in handler, ref e)
-  call call_runtime(in "u_pop", List(AVal(slot(h))), ref e)
+  call_runtime(in "u_pop", List(AVal(slot(h))), ref e)
+  emit(in IJmp(done), ref e)
+  place(in handler, ref e)
+  call_runtime(in "u_pop", List(AVal(slot(h))), ref e)
   for (x, s) in saved do
-    call emit_all(in List(IMov(slot(s), OReg(Rax)), IMov(OReg(Rax), slot(slot_of(env, x)))), ref e)
+    emit_all(in List(IMov(slot(s), OReg(Rax)), IMov(OReg(Rax), slot(slot_of(env, x)))), ref e)
   end
-  call handler_cases(in defs, env, catches, h, done, ref e)
-  call call_runtime(in "u_reraise", List(AVal(slot(h))), ref e)
-  call place(in done, ref e)
+  handler_cases(in defs, env, catches, h, done, ref e)
+  call_runtime(in "u_reraise", List(AVal(slot(h))), ref e)
+  place(in done, ref e)
 
 // the handlers of an exception caught by the handler in slot h, each of which jumps to done, where _ handles all types
 procedure handler_cases(
@@ -1203,26 +1213,26 @@ procedure handler_cases(
   for d in hs do
     match d.at
       case AOk(_, Catch(typ, pat, guard, s)) =>
-        local next: Str, v: Int, binds: Slots
-        call new_label(out next, ref e)
+        var next: Str, v: Int, binds: Slots
+        new_label(out next, ref e)
         match pat.that
           case PWild =>
             skip
 
           case _ =>
-            local key: Str
-            call c_string(in type_key(typ), out key, ref e)
-            call call_runtime(in "u_has_type", List(AVal(slot(h)), AAddr(ORip(key))), ref e)
-            call jump_unless_int(in next, ref e)
+            var key: Str
+            c_string(in type_key(typ), out key, ref e)
+            call_runtime(in "u_has_type", List(AVal(slot(h)), AAddr(ORip(key))), ref e)
+            jump_unless_int(in next, ref e)
         end
-        call call_runtime(in "u_caught", List(AVal(slot(h))), ref e)
-        call spill(out v, ref e)
-        call test_pat(in pat.that, v, List(), next, ref e)
-        call bind_pat(in pat.that, v, List(), out binds, ref e)
-        call guard_test(in defs, binds ++ env, guard, next, ref e)
-        call compile_stmt(in defs, binds ++ env, s, ref e)
-        call emit(in IJmp(done), ref e)
-        call place(in next, ref e)
+        call_runtime(in "u_caught", List(AVal(slot(h))), ref e)
+        spill(out v, ref e)
+        test_pat(in pat.that, v, List(), next, ref e)
+        bind_pat(in pat.that, v, List(), out binds, ref e)
+        guard_test(in defs, binds ++ env, guard, next, ref e)
+        compile_stmt(in defs, binds ++ env, s, ref e)
+        emit(in IJmp(done), ref e)
+        place(in next, ref e)
 
       // the parser and the checker make no error nodes in programs that compile
       case _ =>
@@ -1242,14 +1252,14 @@ procedure stmt_cases(
   for d in cases do
     match d.at
       case AOk(_, Branch(pat, guard, body)) =>
-        local next: Str, binds: Slots
-        call new_label(out next, ref e)
-        call test_pat(in pat.that, s, List(), next, ref e)
-        call bind_pat(in pat.that, s, List(), out binds, ref e)
-        call guard_test(in defs, binds ++ env, guard, next, ref e)
-        call compile_stmt(in defs, binds ++ env, body, ref e)
-        call emit(in IJmp(done), ref e)
-        call place(in next, ref e)
+        var next: Str, binds: Slots
+        new_label(out next, ref e)
+        test_pat(in pat.that, s, List(), next, ref e)
+        bind_pat(in pat.that, s, List(), out binds, ref e)
+        guard_test(in defs, binds ++ env, guard, next, ref e)
+        compile_stmt(in defs, binds ++ env, body, ref e)
+        emit(in IJmp(done), ref e)
+        place(in next, ref e)
 
       // the parser and the checker make no error nodes in programs that compile
       case _ =>
@@ -1266,69 +1276,73 @@ procedure cached_body(
       body: At[Expr],
   ref e: Emit
 ) :=
-  local cache := "cache_" ++ f, message: Str, h: Int, computed: Int, fresh: Str, missing: Str, start: Str
-  call c_string(in runtime_message(RecursiveInitialization(format_name(name))), out message, ref e)
-  call add_writable(in List(LDirective(DAlign(8)), LLabel(cache), LDirective(DInts(8, List(0)))), ref e)
-  call new_label(out fresh, ref e)
-  call new_label(out missing, ref e)
-  call new_label(out start, ref e)
-  call emit_all(in List(
+  let cache := "cache_" ++ f
+  var message: Str, h: Int, computed: Int, fresh: Str, missing: Str, start: Str
+  c_string(in runtime_message(RecursiveInitialization(format_name(name))), out message, ref e)
+  add_writable(in List(LDirective(DAlign(8)), LLabel(cache), LDirective(DInts(8, List(0)))), ref e)
+  new_label(out fresh, ref e)
+  new_label(out missing, ref e)
+  new_label(out start, ref e)
+  emit_all(in List(
     IMov(ORip(cache), OReg(Rax)),
     ICmp(OImm(-1), OReg(Rax)),
     IJcc(CondNe, fresh)), ref e)
-  call call_runtime(in "u_fail", List(AAddr(ORip(message))), ref e)
-  call place(in fresh, ref e)
-  call emit_all(in List(ITest(OReg(Rax), OReg(Rax)), IJcc(CondE, missing), ILeave, IRet), ref e)
-  call place(in missing, ref e)
-  call emit(in IMov(OImm(-1), ORip(cache)), ref e)
-  call call_runtime(in "u_push_cache", List(AAddr(ORip(cache))), ref e)
-  call spill(out h, ref e)
-  call emit_all(in List(
+  call_runtime(in "u_fail", List(AAddr(ORip(message))), ref e)
+  place(in fresh, ref e)
+  emit_all(in List(ITest(OReg(Rax), OReg(Rax)), IJcc(CondE, missing), ILeave, IRet), ref e)
+  place(in missing, ref e)
+  emit(in IMov(OImm(-1), ORip(cache)), ref e)
+  call_runtime(in "u_push_cache", List(AAddr(ORip(cache))), ref e)
+  spill(out h, ref e)
+  emit_all(in List(
     IMov(slot(h), OReg(Rdi)),
     ICallPlt("_setjmp"),
     ICltq,
     ITest(OReg(Rax), OReg(Rax)),
     IJcc(CondE, start)), ref e)
-  call call_runtime(in "u_pop", List(AVal(slot(h))), ref e)
-  call emit(in IMov(OImm(0), ORip(cache)), ref e)
-  call call_runtime(in "u_reraise", List(AVal(slot(h))), ref e)
-  call place(in start, ref e)
-  call compile_expr(in defs, List(), body, ref e)
-  call spill(out computed, ref e)
-  call call_runtime(in "u_pop", List(AVal(slot(h))), ref e)
-  call emit_all(in List(IMov(slot(computed), OReg(Rax)), IMov(OReg(Rax), ORip(cache))), ref e)
+  call_runtime(in "u_pop", List(AVal(slot(h))), ref e)
+  emit(in IMov(OImm(0), ORip(cache)), ref e)
+  call_runtime(in "u_reraise", List(AVal(slot(h))), ref e)
+  place(in start, ref e)
+  compile_expr(in defs, List(), body, ref e)
+  spill(out computed, ref e)
+  call_runtime(in "u_pop", List(AVal(slot(h))), ref e)
+  emit_all(in List(IMov(slot(computed), OReg(Rax)), IMov(OReg(Rax), ORip(cache))), ref e)
 
 // the functions of a command, a function of each test if tests are compiled
 procedure compile_cmd(in defs: Defs, tests: Bool, cmd: Cmd, ref e: Emit) :=
   match cmd
     case CFun(name, _, formals, _, _, body) =>
-      local f := fun_name(name, size(formals)), outer: Buffer[Line] * Int
-      call begin_function(out outer, ref e)
+      let f := fun_name(name, size(formals))
+      var outer: Buffer[Line] * Int
+      begin_function(out outer, ref e)
       if formals == List() then
-        call cached_body(in defs, name, f, body, ref e)
+        cached_body(in defs, name, f, body, ref e)
       else
-        local fs: List[Int]
-        call formal_slots(in size(formals), out fs, ref e)
-        call compile_expr(in defs, zip(var_names(vars(formals)), fs), body, ref e)
+        var fs: List[Int]
+        formal_slots(in size(formals), out fs, ref e)
+        compile_expr(in defs, zip(var_names(vars(formals)), fs), body, ref e)
       end
-      call end_function(in f, false, outer, ref e)
+      end_function(in f, false, outer, ref e)
 
     // outs and refs are pointers to the variables of the caller, which the procedure assigns when it returns
     case CProc(name, _, ins, outs, refs, _, _, stmt) =>
-      local fs: List[Int], vs: Slots, ps: Slots, k := size(ins), outer: Buffer[Line] * Int
-      call   begin_function(out outer, ref e)
-      call   formal_slots(in k + size(outs ++ refs), out fs, ref e)
-      assign ps := zip(var_names(vars(outs ++ refs)), drop(k, fs))
-      call   copy_in(in var_names(vars(outs)), var_names(vars(refs)), ps, out vs, ref e)
-      call   compile_stmt(in defs, zip(var_names(vars(ins)), take(k, fs)) ++ vs, stmt, ref e)
-      call   copy_out(in var_names(vars(outs ++ refs)), ps, vs, ref e)
-      call   end_function(in proc_name(name), false, outer, ref e)
+      var fs: List[Int], vs: Slots, ps: Slots
+      let k := size(ins)
+      var outer: Buffer[Line] * Int
+      begin_function(out outer, ref e)
+      formal_slots(in k + size(outs ++ refs), out fs, ref e)
+      ps := zip(var_names(vars(outs ++ refs)), drop(k, fs))
+      copy_in(in var_names(vars(outs)), var_names(vars(refs)), ps, out vs, ref e)
+      compile_stmt(in defs, zip(var_names(vars(ins)), take(k, fs)) ++ vs, stmt, ref e)
+      copy_out(in var_names(vars(outs ++ refs)), ps, vs, ref e)
+      end_function(in proc_name(name), false, outer, ref e)
 
     case CTest(name, _, stmt) if tests =>
-      local outer: Buffer[Line] * Int
-      call begin_function(out outer, ref e)
-      call compile_stmt(in defs, List(), stmt, ref e)
-      call end_function(in test_name(name), false, outer, ref e)
+      var outer: Buffer[Line] * Int
+      begin_function(out outer, ref e)
+      compile_stmt(in defs, List(), stmt, ref e)
+      end_function(in test_name(name), false, outer, ref e)
 
     case _ =>
       skip
@@ -1336,43 +1350,43 @@ procedure compile_cmd(in defs: Defs, tests: Bool, cmd: Cmd, ref e: Emit) :=
 
 // a wrapper w of the closure code (env, args), which calls the function callee of k arguments with the elements of args
 procedure fun_wrapper(in w: Str, callee: Instr, k: Int, ref e: Emit) :=
-  local outer: Buffer[Line] * Int
-  call begin_function(out outer, ref e)
-  call emit(in IMov(OReg(Rsi), OReg(R11)), ref e)
-  call emit_call(in callee, List(for i in range(0, k) yield AVal(OMem(R11, 8 * i))), false, ref e)
-  call end_function(in w, false, outer, ref e)
+  var outer: Buffer[Line] * Int
+  begin_function(out outer, ref e)
+  emit(in IMov(OReg(Rsi), OReg(R11)), ref e)
+  emit_call(in callee, List(for i in range(0, k) yield AVal(OMem(R11, 8 * i))), false, ref e)
+  end_function(in w, false, outer, ref e)
 
 // procedures as values call the procedure with the values of the array ins and the pointers of the array outs
 procedure proc_wrapper(in n: Name, k: Int, m: Int, ref e: Emit) :=
-  local outer: Buffer[Line] * Int
-  call begin_function(out outer, ref e)
-  call emit_all(in List(IMov(OReg(Rsi), OReg(R10)), IMov(OReg(Rdx), OReg(R11))), ref e)
-  call emit_call(in proc_callee(n), List(for i in range(0, k) yield AVal(OMem(R10, 8 * i))) ++ List(for i in range(0, m) yield AVal(OMem(R11, 8 * i))), false, ref e)
-  call end_function(in "wp_" ++ mangle(n), false, outer, ref e)
+  var outer: Buffer[Line] * Int
+  begin_function(out outer, ref e)
+  emit_all(in List(IMov(OReg(Rsi), OReg(R10)), IMov(OReg(Rdx), OReg(R11))), ref e)
+  emit_call(in proc_callee(n), List(for i in range(0, k) yield AVal(OMem(R10, 8 * i))) ++ List(for i in range(0, m) yield AVal(OMem(R11, 8 * i))), false, ref e)
+  end_function(in "wp_" ++ mangle(n), false, outer, ref e)
 
 // constructors without fields are no functions
 procedure constr_wrapper(in n: Name, k: Int, ref e: Emit) :=
   if k > 0 then
-    local outer: Buffer[Line] * Int
-    call begin_function(out outer, ref e)
-    call emit(in IMov(OReg(Rsi), OReg(R11)), ref e)
-    call call_runtime(in "u_mk_con_array", List(AAddr(ORip(descriptor_name(n))), AVal(OImm(k)), AVal(OReg(R11))), ref e)
-    call end_function(in "wc_" ++ mangle(n), false, outer, ref e)
+    var outer: Buffer[Line] * Int
+    begin_function(out outer, ref e)
+    emit(in IMov(OReg(Rsi), OReg(R11)), ref e)
+    call_runtime(in "u_mk_con_array", List(AAddr(ORip(descriptor_name(n))), AVal(OImm(k)), AVal(OReg(R11))), ref e)
+    end_function(in "wc_" ++ mangle(n), false, outer, ref e)
   end
 
 // closures of functions, constructors, and builtins, which take their arguments from an array
 procedure wrappers(in defs: Defs, ref e: Emit) :=
   for (n, k) in firsts(List(for x in defs.funs)) do
-    call fun_wrapper(in "w_" ++ fun_name(n, k), ICall(fun_name(n, k)), k, ref e)
+    fun_wrapper(in "w_" ++ fun_name(n, k), ICall(fun_name(n, k)), k, ref e)
   end
   for (n, k) in constr_arities(defs) do
-    call constr_wrapper(in n, k, ref e)
+    constr_wrapper(in n, k, ref e)
   end
   for (f, k) in distinct(seconds(List(for x in builtin_functions()))) do
-    call fun_wrapper(in "w" ++ f, ICallPlt(f), k, ref e)
+    fun_wrapper(in "w" ++ f, ICallPlt(f), k, ref e)
   end
   for (n, (k, m)) in proc_arities(defs) do
-    call proc_wrapper(in n, k, m, ref e)
+    proc_wrapper(in n, k, m, ref e)
   end
 
 // a label of data, global if the runtime refers to it
@@ -1385,11 +1399,11 @@ procedure data_decls(in defs: Defs, cmds: List[Cmd], ref e: Emit) :=
   for cmd in cmds do
     match cmd
       case CData(t, _, constrs) =>
-        local global := contains(t, runtime_referenced())
+        let global := contains(t, runtime_referenced())
         if not contains(t, runtime_types()) then
-          local text: Str
-          call c_string(in c_text(t), out text, ref e)
-          call add_writable(in data_label(type_name(t), global) ++ List(
+          var text: Str
+          c_string(in c_text(t), out text, ref e)
+          add_writable(in data_label(type_name(t), global) ++ List(
             LDirective(DAddrs(List(
               text,
               compare_symbol(t, defs),
@@ -1398,7 +1412,7 @@ procedure data_decls(in defs: Defs, cmds: List[Cmd], ref e: Emit) :=
         end
         for (k, i) in numbered(parts(constrs)) do
           if not contains(k.name, runtime_constructors()) then
-            call constr_decls(in k, i, t, global, ref e)
+            constr_decls(in k, i, t, global, ref e)
           end
         end
 
@@ -1409,20 +1423,20 @@ procedure data_decls(in defs: Defs, cmds: List[Cmd], ref e: Emit) :=
 
 // the descriptor of constructor k at position i of its declaration, of datatype t, and its value if it has no fields
 procedure constr_decls(in k: Constr, i: Int, t: Name, global: Bool, ref e: Emit) :=
-  local module := "0", base: Str
+  var module := "0", base: Str
   match k.name.module
     case Some(m) =>
-      call c_string(in m, out module, ref e)
+      c_string(in m, out module, ref e)
     case None =>
       skip
   end
-  call c_string(in k.name.base, out base, ref e)
-  call add_writable(in data_label(descriptor_name(k.name), global) ++ List(
+  c_string(in k.name.base, out base, ref e)
+  add_writable(in data_label(descriptor_name(k.name), global) ++ List(
     LDirective(DAddrs(List(module, base))),
     LDirective(DInts(4, List(i, 0))),
     LDirective(DAddrs(List(type_name(t))))), ref e)
   if k.fields == List() then
-    call add_writable(in data_label(unit_name(k.name), global) ++ List(
+    add_writable(in data_label(unit_name(k.name), global) ++ List(
       LDirective(DAddrs(List(type_name(t), descriptor_name(k.name)))),
       LDirective(DInts(4, List(0, 0))),
       LDirective(DInts(8, List(0)))), ref e)
@@ -1434,11 +1448,11 @@ procedure field_tables(in defs: Defs, ref e: Emit) :=
   for key => ps in defs.fields do
     match key
       case (n, 1) =>
-        call add_readonly(in List(
+        add_readonly(in List(
           LDirective(DAlign(4)),
           LLabel(table_name(n)),
           LDirective(DInts(4, ps))), ref e)
-        call str_object_named(in field_text_name(n), field_of(n), ref e)
+        str_object_named(in field_text_name(n), field_of(n), ref e)
 
       case _ =>
         skip
@@ -1447,48 +1461,48 @@ procedure field_tables(in defs: Defs, ref e: Emit) :=
 
 // the texts of the runtime errors that ulang/runtime/ulang.c prints
 procedure texts(ref e: Emit) :=
-  local text: Str
+  var text: Str
   for (name, format) in runtime_formats() do
-    call c_string(in format, out text, ref e)
-    call add_writable(in data_label(name, true) ++ List(LDirective(DAddrs(List(text)))), ref e)
+    c_string(in format, out text, ref e)
+    add_writable(in data_label(name, true) ++ List(LDirective(DAddrs(List(text)))), ref e)
   end
 
 // the paths of the files and their tests, each with the index of its file, in the order of the files and then of the
 // commands, both ended by NULL, as u_run_tests of ulang/runtime/ulang.c takes them
 procedure test_tables(in files: List[TestFile], cmds: List[Cmd], ref e: Emit) :=
-  local paths: Buffer[Str] := empty(), rows: Buffer[Line] := empty(), text: Str
+  var paths: Buffer[Str] := empty(), rows: Buffer[Line] := empty(), text: Str
   for file in files do
-    call   c_string(in file.path, out text, ref e)
-    assign paths := paths ++ List(text)
+    c_string(in file.path, out text, ref e)
+    paths := paths ++ List(text)
   end
   for (file, i) in numbered(files) do
     for c in cmds do
       for name in tested_name(c, file.module) do
-        call   c_string(in name.base, out text, ref e)
-        assign rows := rows ++ List(
+        c_string(in name.base, out text, ref e)
+        rows := rows ++ List(
           LDirective(DInts(4, List(i, 0))),
           LDirective(DAddrs(List(text, test_name(name)))))
       end
     end
   end
-  call add_writable(in data_label("u_files", false) ++ List(LDirective(DAddrs(List(for p in paths) ++ List("0")))), ref e)
-  call add_writable(in data_label("u_tests", false) ++ List(for r in rows) ++ List(LDirective(DZero(24))), ref e)
+  add_writable(in data_label("u_files", false) ++ List(LDirective(DAddrs(List(for p in paths) ++ List("0")))), ref e)
+  add_writable(in data_label("u_tests", false) ++ List(for r in rows) ++ List(LDirective(DZero(24))), ref e)
 
 // main(argc, argv), which gives the arguments to the runtime and calls the procedure of the entry or runs the tests
 procedure main_function(in m: Id, entry: Entry, ref e: Emit) :=
-  local outer: Buffer[Line] * Int, fs: List[Int]
-  call begin_function(out outer, ref e)
-  call formal_slots(in 2, out fs, ref e)
-  call call_runtime(in "u_args", vals(fs), ref e)
+  var outer: Buffer[Line] * Int, fs: List[Int]
+  begin_function(out outer, ref e)
+  formal_slots(in 2, out fs, ref e)
+  call_runtime(in "u_args", vals(fs), ref e)
   match entry
     case EntryProc(proc) =>
-      call emit_call(in ICall(proc_name(Name(Some(m), proc))), List(), false, ref e)
-      call emit(in IMov(OImm(0), OReg(Rax)), ref e)
+      emit_call(in ICall(proc_name(Name(Some(m), proc))), List(), false, ref e)
+      emit(in IMov(OImm(0), OReg(Rax)), ref e)
 
     case EntryTests(_) =>
-      call call_runtime(in "u_run_tests", vals(fs) ++ List(AAddr(ORip("u_files")), AAddr(ORip("u_tests"))), ref e)
+      call_runtime(in "u_run_tests", vals(fs) ++ List(AAddr(ORip("u_files")), AAddr(ORip("u_tests"))), ref e)
   end
-  call end_function(in "main", true, outer, ref e)
+  end_function(in "main", true, outer, ref e)
 
 procedure assemble_program(
   in  q: Prog,
@@ -1496,23 +1510,24 @@ procedure assemble_program(
       entry: Entry,
   out f: AsmFile
 ) raises EntryError, InternalError :=
-  local e := Emit(empty(), 0, empty(), empty(), empty(), 0, empty(), empty()), defs := defs_of(q), cmds := definitions(q)
+  var e := Emit(empty(), 0, empty(), empty(), empty(), 0, empty(), empty())
+  let defs := defs_of(q), cmds := definitions(q)
   match entry
     case EntryProc(proc) =>
-      call require_entry(in q, Name(Some(m), proc))
+      require_entry(in q, Name(Some(m), proc))
       for cmd in cmds do
-        call compile_cmd(in defs, false, cmd, ref e)
+        compile_cmd(in defs, false, cmd, ref e)
       end
 
     case EntryTests(files) =>
       for cmd in cmds do
-        call compile_cmd(in defs, true, cmd, ref e)
+        compile_cmd(in defs, true, cmd, ref e)
       end
-      call test_tables(in files, cmds, ref e)
+      test_tables(in files, cmds, ref e)
   end
-  call   main_function(in m, entry, ref e)
-  call   wrappers(in defs, ref e)
-  call   data_decls(in defs, cmds, ref e)
-  call   field_tables(in defs, ref e)
-  call   texts(ref e)
-  assign f := AsmFile(List(LDirective(DText)) ++ List(for line in e.funs) ++ List(LDirective(DData)) ++ List(for line in e.writable) ++ List(LDirective(DRodata)) ++ List(for line in e.readonly) ++ List(LDirective(DNoExecStack)))
+  main_function(in m, entry, ref e)
+  wrappers(in defs, ref e)
+  data_decls(in defs, cmds, ref e)
+  field_tables(in defs, ref e)
+  texts(ref e)
+  f := AsmFile(List(LDirective(DText)) ++ List(for line in e.funs) ++ List(LDirective(DData)) ++ List(for line in e.writable) ++ List(LDirective(DRodata)) ++ List(for line in e.readonly) ++ List(LDirective(DNoExecStack)))

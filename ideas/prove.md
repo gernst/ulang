@@ -42,17 +42,16 @@ Not implemented:
   procedure sum(in n: Int, out s: Int) :=
     requires n >= 0
     ensures  2 * s == n * (n - 1)
-    local i := 0
-
-    assign s := 0
+    var i := 0
+    s := 0
     while i < n do
-      assign s := s + i, i := i + 1
+      s := s + i, i := i + 1
     end
   ```
 
 - **Quantifiers** are written like lambdas, `forall x: T => e` and `exists x, y => e`, where the types may be omitted and are inferred, and only occur in specifications and lemmas; the functions `exists` and `forall` of the containers share the names (open point 15).
 - **Lemmas** are implemented (section 4) with ins and outs as modes. The claim `correct p(in a, out b)` with the arguments of a call is implemented for procedures: a lemma whose statement is that the call meets the contract of `p`.
-- **Outs of lemmas** are implemented: a lemma with outs states that for all ins that satisfy the `requires` there are outs that satisfy the `ensures`; its proof gives them by `assign`, and a proof that uses it binds them to witnesses by the outs of a `call`. In a claim `correct p(…)` the outs of the lemma are those of the call, which the run determines, not the proof: under partial correctness the claim holds for the outs of every run that ends normally, and under total correctness this is exactly the existential, since a run exists and gives them.
+- **Outs of lemmas** are implemented: a lemma with outs states that for all ins that satisfy the `requires` there are outs that satisfy the `ensures`; its proof gives them by assignments, `q := e`, and a proof that uses it binds them to witnesses by the outs of a call. In a claim `correct p(…)` the outs of the lemma are those of the call, which the run determines, not the proof: under partial correctness the claim holds for the outs of every run that ends normally, and under total correctness this is exactly the existential, since a run exists and gives them.
 - **Scopes are explicit.** A proof sees only names that it or its lemma binds: the formals of the lemma, which name every argument of the call in the claim, and at a point `at …` of the body its locals in scope there, which the quoted code names. The names of the lemma may differ from the formals of the procedure, whose contract is renamed to them.
 - **No invariants in the code.** Loops are specified in the proofs of the procedures, see below.
 
@@ -61,7 +60,7 @@ Not implemented:
 **Meaning.**
 
 1. **`correct p`** states for all ins and initial refs: if the `requires` hold, every run of the body that ends normally satisfies the `ensures`. The claim does not restate the contract.
-2. **Calls use contracts**: at `call q(...)`, the `requires` of `q` are proven, the outs and refs havocked, and the `ensures` assumed. Callers depend only on the contract, not on whether or how it is proven. The `call` of a lemma in a proof is the same rule over values, which is why proofs write it so.
+2. **Calls use contracts**: at a call `q(...)`, the `requires` of `q` are proven, the outs and refs havocked, and the `ensures` assumed. Callers depend only on the contract, not on whether or how it is proven. The call of a lemma in a proof is the same rule over values, which is why proofs write it as a call.
 3. **Recursion.** Each body is proven assuming all contracts, including its own and those of procedures that call it back, which is sound for partial correctness for all of them at once by induction on the depth of calls (Hoare's recursion rule, generalized to mutual recursion). Proofs have no order and no cycles. Lemmas, unlike this, are proven in their order, and a lemma calls only those before it and itself as an induction hypothesis.
 4. **Unproven contracts** make this conditional: if the contract of `q` is not proven, the proofs that use it hold only under it, which `ulang verify <file>` reports, e.g. `sum proved, assuming q`.
 5. **Every contract is an obligation.** Without a `correct` lemma, the verifier tries a default proof and reports the remaining goals, including those at loops.
@@ -73,7 +72,7 @@ Not implemented:
 **Loops.** The proof of a procedure gives each loop an invariant or a loop contract.
 
 1. **Invariant `I`**: it holds on entry, `I` and the test lead through the body to `I`, and `I` and the negated test hold after the loop, where only the variables the loop assigns are havocked.
-2. **Loop contract `requires P ensures Q`**: a loop is the recursive procedure `if b then body; call loop(ref vs) end` over the variables it assigns, and the contract is its contract, proven by assuming it for the remaining iterations. `P` holds at every test of the loop, and `Q` relates that state, as `old(v)`, to the state at the exit: exit, `P` and not `b` imply `Q` with `old(v)` as `v`; step, from `P` and `b` the body leads to a state where `P` holds and `Q` up to the exit implies `Q` from before the body; use, `P` holds on entry, then the assigned variables are havocked and `Q` assumed with `old(v)` as the values on entry.
+2. **Loop contract `requires P ensures Q`**: a loop is the recursive procedure `if b then body; loop(ref vs) end` over the variables it assigns, and the contract is its contract, proven by assuming it for the remaining iterations. `P` holds at every test of the loop, and `Q` relates that state, as `old(v)`, to the state at the exit: exit, `P` and not `b` imply `Q` with `old(v)` as `v`; step, from `P` and `b` the body leads to a state where `P` holds and `Q` up to the exit implies `Q` from before the body; use, `P` holds on entry, then the assigned variables are havocked and `Q` assumed with `old(v)` as the values on entry.
 3. **Invariants are a special case**, `requires I ensures I and not b`. An invariant relates the start of the loop to the current state, which may need ghost variables, while `Q` relates the current state to the end, for which `old` suffices: reversing a list into `ys` has the invariant `rev(xs) ++ ys == rev(xs0)` with the initial `xs0`, but the contract `ensures ys == rev(old(xs)) ++ old(ys)`.
 
 **Points of the code in proofs.** A proof of `correct p` refers to the loops, branches, and calls of the body: by the order of goals (KIV, KeY), by matching the code, quoted modulo positions, `at while i < n invariant …`, by labels in the code, or by proof outlines. Matching the code, with the order as the fallback, is the candidate. The steps of section 4 are what such a point holds.
@@ -86,7 +85,7 @@ References: G. Ernst, Loop Verification with Invariants and Contracts, VMCAI 202
 
 - **Simplification does the routine work.** The goal is simplified after every step and at the end of every block, with every fact in scope and the lemmas proven before, so a proof only says what the simplifier does not find: which split, which lemma at which arguments, which intermediate fact, which witness. A written case that simplification would close is allowed, so that proofs survive a stronger simplifier.
 - **A tree of blocks, not a tactic script.** A block has one goal; its steps add facts and witnesses, and at most one split, its last step, replaces the goal by its cases, each a block of its own. No goal stack, no focusing, no step that leaves goals for later, so an open goal is reported at the block where it stays open.
-- **Steps are statements.** `local`, `call`, `assert`, `assign`, `match`, and `if` mean in a proof what they mean in a procedure, over values: a lemma is used as a procedure with a contract is called, a cut is an assertion, and the outs of a lemma are assigned. The only keyword of proofs is `induction`.
+- **Steps are statements.** `let`, `var`, calls, `assert`, assignments, `match`, and `if` mean in a proof what they mean in a procedure, over values: a lemma is used as a procedure with a contract is called, a cut is an assertion, and the outs of a lemma are assigned. The only keyword of proofs is `induction`.
 - **No nesting of declarations.** No lemmas inside proofs and no proofs inside cuts; what needs a proof of its own is a lemma at the top level, called where it is used.
 - **Facts are not named**: simplification uses every fact in scope, and the facts of a proof are ground, so a name would only cite what is used anyway. Names come back with quantifiers (version 2).
 
@@ -97,32 +96,32 @@ lemma take_drop[A](in n: Int, xs: List[A]) :=
   ensures take(n, xs) ++ drop(n, xs) == xs
   induction xs
     case List(x; rest) =>
-      call take_drop(in n - 1, rest)
+      take_drop(in n - 1, rest)
   end
 
 lemma halves(in m: Int, out q: Int, r: Int) :=
   requires m >= 0
   ensures  m == 2 * q + r and 0 <= r and r < 2
-  assign q := m / 2, r := m % 2
+  q := m / 2, r := m % 2
 
 lemma remainder_of_halves(in m: Int) :=
   requires m >= 0
   ensures  m % 2 < 2
-  local q: Int, r: Int
-
-  call halves(in m, out q, r)
+  var q: Int
+  var r: Int
+  halves(in m, out q, r)
   assert r < 2
 ```
 
-`Proof(steps: List[At[Step]], split: Option[At[Split]])` of `ulang/syntax/syntax.u`, a datatype of its own, so that a split is last by its type; `parse_proof` ends a proof at a token that starts no step, and `format` prints the steps as the statements of a body (`proof_text` of `ulang/format/format.u`).
+`Proof(steps: List[At[Step]], split: Option[At[Split]])` of `ulang/syntax/syntax.u`, a datatype of its own, so that a split is last by its type; `parse_proof` takes the `let` and `var` lines first, one variable per step, and ends a proof at a token that starts no step, and `format` prints the steps as the statements of a body (`proof_text` of `ulang/format/format.u`).
 
 | Step | Meaning |
 |---|---|
-| `local x := e` | a definition: a fixed variable `x` with the fact `x == e`, which an open goal names where it has `e` |
-| `local q: T` | a witness, bound by an out of a `call` |
-| `call l(in a, …, out q, …)` | the instance of the lemma `l`: its `requires` must simplify to true, else each is a gap, and its `ensures` is then a fact, at the witnesses for its outs; `l` is a lemma proven before, or the lemma itself as an induction hypothesis |
+| `let x := e` | a definition: a fixed variable `x` with the fact `x == e`, which an open goal names where it has `e` |
+| `var q: T` | a witness, bound by an out of a call |
+| `l(in a, …, out q, …)` | the instance of the lemma `l`: its `requires` must simplify to true, else each is a gap, and its `ensures` is then a fact, at the witnesses for its outs; `l` is a lemma proven before, or the lemma itself as an induction hypothesis |
 | `assert e` | a cut: `e` must follow by simplification, and is a fact afterwards |
-| `assign q := e, …` | the witnesses of the outs of the lemma, each once, on every path, also in the cases of a split |
+| `q := e, …` | the witnesses of the outs of the lemma, each once, on every path, also in the cases of a split |
 
 | Split | Cases |
 |---|---|
@@ -201,7 +200,7 @@ In the order I would take them, each with the problem, the solution, and where.
 
 ## 9. Proposals
 
-**Definitions kept as names** (implemented). A variable of `local x := e` is marked as defined (`defined_var` of `ulang/prove/syntax.u`, a module that no program has, so that the mark survives rebinding), and the simplifier keeps it: `one_point` does not eliminate it, the arithmetic solves an equation for it before any other atom (`is_solved_before`), so that it stays equal to its value, and extraction takes it last (`term_rank`), so that no term is rewritten to it and the rules still see its value; reasoning sees `e` wherever `x` was, as after the elimination. Printing (`named_definitions` of `ulang/prove/simp.u`) folds the value of each defined variable, as its equation in the simplified sequent has it, into its name, the last definition first, so that a value inside another one folds after it, and leaves out the equation and the variable where it no longer occurs (`proof_definitions_named` of `ulang/test/errors/lemmas.u`). *Open*: a value that the simplifier combines with other terms, as `x + 1` in a sum, is printed expanded, since folding is syntactic.
+**Definitions kept as names** (implemented). A variable of `let x := e` is marked as defined (`defined_var` of `ulang/prove/syntax.u`, a module that no program has, so that the mark survives rebinding), and the simplifier keeps it: `one_point` does not eliminate it, the arithmetic solves an equation for it before any other atom (`is_solved_before`), so that it stays equal to its value, and extraction takes it last (`term_rank`), so that no term is rewritten to it and the rules still see its value; reasoning sees `e` wherever `x` was, as after the elimination. Printing (`named_definitions` of `ulang/prove/simp.u`) folds the value of each defined variable, as its equation in the simplified sequent has it, into its name, the last definition first, so that a value inside another one folds after it, and leaves out the equation and the variable where it no longer occurs (`proof_definitions_named` of `ulang/test/errors/lemmas.u`). *Open*: a value that the simplifier combines with other terms, as `x + 1` in a sum, is printed expanded, since folding is syntactic.
 
 **Nested patterns and guards in splits** (implemented). A case may cover only part of a constructor: after `case List(x, y; rest)`, a case `List(x; rest)` means `Cons(x, Nil)`. `leaves` of `ulang/prove/patterns.u` compiles the patterns of a match into a decision tree (Wadler 1987, Maranget 2008), as the exhaustiveness check of the checker, `missing` and `is_useful` of `ulang/check/check.u`, specializes the rows: the first column is split on the constructors of its datatype where a row has a constructor, a row with a variable or wildcard going to every branch, on a literal into the literal and the rest with its negation, and else dropped, where a first row of variables without a guard ends the split. A leaf is a value over new variables, named as the first row that binds them or else as their fields, with the conditions of the literals and the rows that match it, up to the first one without a guard, each with the values of its variables. Proofs check each case once per leaf that it matches (`leaves_gaps` of `ulang/prove/proof.u`), with the equation of the leaf as a fact, the guard as a fact of its case and negated for the cases after it, and a leaf without a case must close; induction splits the formal on all its constructors, also where only catch-alls are written, and has the hypotheses for the recursive fields of the constructor of the leaf. The equations of definitions are one per leaf and case (`leaf_equations` of `ulang/prove/equations.u`), also of a match on a tuple of formals, and the termination analysis takes the leaves for the matches in bodies (`leaf_calls` of `ulang/prove/termination.u`), with the negated guards of the cases before. *Open*: a case checked at several leaves is reported at each one that it leaves open, without the leaf in the message; `expand` and `hole_term` of `ulang/prove/patterns.u`, `hits_equations`, and `hits_gaps` are not proven to terminate.
 

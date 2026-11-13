@@ -7,25 +7,25 @@
 import "library/json"
 
 procedure main() :=
-  local ok := true
+  var ok := true
   try
-    local args: List[Str], compact: Bool, rest: List[Str]
-    call   os_args(out args)
-    assign compact := contains("-c", args), rest := remove("-c", args)
+    var args: List[Str], compact: Bool, rest: List[Str]
+    os_args(out args)
+    compact := contains("-c", args), rest := remove("-c", args)
     match rest
       case List(text, path) =>
-        local q: Query, source: Str, j: Json, results: List[Json]
-        call parse_query(in text, out q)
-        call os_read_utf8(in path, out source)
+        var q: Query, source: Str, j: Json, results: List[Json]
+        parse_query(in text, out q)
+        os_read_utf8(in path, out source)
         try
-          call parse_json(in source, out j)
+          parse_json(in source, out j)
         catch
           case JsonError(message, line, column) =>
             raise OsError(path ++ ":" ++ show(line) ++ ":" ++ show(column) ++ ": " ++ message)
         end
-        call run_query(in q, j, out results)
+        run_query(in q, j, out results)
         for r in results do
-          call os_println(in if compact then show(r) else pretty(r))
+          os_println(in if compact then show(r) else pretty(r))
         end
 
       case _ =>
@@ -33,13 +33,13 @@ procedure main() :=
     end
   catch
     case OsError(message) =>
-      call   os_print_error(in message)
-      assign ok := false
+      os_print_error(in message)
+      ok := false
 
     case QueryError(message) =>
-      call   os_print_error(in "query: " ++ message)
-      assign ok := false
+      os_print_error(in "query: " ++ message)
+      ok := false
   end
   if not ok then
-    call os_exit(in 1)
+    os_exit(in 1)
   end

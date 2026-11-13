@@ -174,79 +174,79 @@ function peek(s: Cursor): Option[Char] :=
   get(s.pos, s.text)
 
 procedure advance(ref s: Cursor) :=
-  assign s := s with pos := s.pos + 1
+  s := s with pos := s.pos + 1
 
 procedure parse_regex(in text: Str, out regex: Regex) raises RegexError :=
-  local s := Cursor(text, 0)
-  call parse_alt(out regex, ref s)
+  var s := Cursor(text, 0)
+  parse_alt(out regex, ref s)
   if s.pos < size(text) then
     raise RegexError("unmatched )", s.pos + 1)
   end
 
 procedure parse_alt(out regex: Regex, ref s: Cursor) :=
-  call parse_seq(out regex, ref s)
+  parse_seq(out regex, ref s)
   while peek(s) == Some('|') do
-    local branch: Regex
-    call   advance(ref s)
-    call   parse_seq(out branch, ref s)
-    assign regex := alt(regex, branch)
+    var branch: Regex
+    advance(ref s)
+    parse_seq(out branch, ref s)
+    regex := alt(regex, branch)
   end
 
 procedure parse_seq(out regex: Regex, ref s: Cursor) :=
-  assign regex := Epsilon
+  regex := Epsilon
   while peek(s) != None and peek(s) != Some('|') and peek(s) != Some(')') do
-    local item: Regex
-    call   parse_repeat(out item, ref s)
-    assign regex := seq(regex, item)
+    var item: Regex
+    parse_repeat(out item, ref s)
+    regex := seq(regex, item)
   end
 
 procedure parse_repeat(out regex: Regex, ref s: Cursor) :=
-  local more := true
-  call parse_atom(out regex, ref s)
+  var more := true
+  parse_atom(out regex, ref s)
   while more do
     match peek(s)
       case Some('*') =>
-        call   advance(ref s)
-        assign regex := star(regex)
+        advance(ref s)
+        regex := star(regex)
 
       case Some('+') =>
-        call   advance(ref s)
-        assign regex := seq(regex, star(regex))
+        advance(ref s)
+        regex := seq(regex, star(regex))
 
       case Some('?') =>
-        call   advance(ref s)
-        assign regex := alt(regex, Epsilon)
+        advance(ref s)
+        regex := alt(regex, Epsilon)
 
       case _ =>
-        assign more := false
+        more := false
     end
   end
 
 procedure parse_atom(out regex: Regex, ref s: Cursor) :=
   match peek(s)
     case Some('(') =>
-      local start := s.pos
-      call advance(ref s)
-      call parse_alt(out regex, ref s)
+      let start := s.pos
+      advance(ref s)
+      parse_alt(out regex, ref s)
       if peek(s) != Some(')') then
         raise RegexError("unmatched (", start + 1)
       end
-      call advance(ref s)
+      advance(ref s)
 
     case Some('[') =>
-      call advance(ref s)
-      call parse_class(out regex, ref s)
+      advance(ref s)
+      parse_class(out regex, ref s)
 
     case Some('.') =>
-      call   advance(ref s)
-      assign regex := any_char()
+      advance(ref s)
+      regex := any_char()
 
     case Some('\\') =>
-      call advance(ref s)
+      advance(ref s)
       match peek(s)
         case Some(c) =>
-          call   advance(ref s)
-          assign regex := escaped(c)
+          advance(ref s)
+          regex := escaped(c)
 
         case None =>
           raise RegexError("escape at the end", s.pos)
@@ -256,8 +256,8 @@ procedure parse_atom(out regex: Regex, ref s: Cursor) :=
       if contains(c, "*+?") then
         raise RegexError("nothing to repeat", s.pos + 1)
       end
-      call   advance(ref s)
-      assign regex := char_of(c)
+      advance(ref s)
+      regex := char_of(c)
 
     // parse_seq stops at the end
     case None =>
@@ -309,52 +309,53 @@ function spaces(): List[Char * Char] :=
 
 // after the [, where a ] right after [ or [^ is a character of the class
 procedure parse_class(out regex: Regex, ref s: Cursor) :=
-  local start := s.pos, negated := false, ranges := List(), first := true, more := true
+  let start := s.pos
+  var negated := false, ranges := List(), first := true, more := true
   if peek(s) == Some('^') then
-    assign negated := true
-    call   advance(ref s)
+    negated := true
+    advance(ref s)
   end
   while more do
     match peek(s)
       case Some(']') if not first =>
-        call   advance(ref s)
-        assign more := false
+        advance(ref s)
+        more := false
 
       case Some(_) =>
-        local low: Char, high: Char
-        call   parse_class_char(out low, ref s)
-        assign high := low
+        var low: Char, high: Char
+        parse_class_char(out low, ref s)
+        high := low
         if peek(s) == Some('-') and get(s.pos + 1, s.text) != Some(']') and get(s.pos + 1, s.text) != None then
-          call advance(ref s)
-          call parse_class_char(out high, ref s)
+          advance(ref s)
+          parse_class_char(out high, ref s)
           if high < low then
             raise RegexError("empty range", s.pos)
           end
         end
-        assign ranges := List((low, high); ranges), first := false
+        ranges := List((low, high); ranges), first := false
 
       case None =>
         raise RegexError("unmatched [", start)
     end
   end
-  assign regex := Class(reverse(ranges), negated)
+  regex := Class(reverse(ranges), negated)
 
 procedure parse_class_char(out c: Char, ref s: Cursor) :=
   match peek(s)
     case Some('\\') =>
-      call advance(ref s)
+      advance(ref s)
       match peek(s)
         case Some(e) =>
-          call   advance(ref s)
-          assign c := escaped_char(e)
+          advance(ref s)
+          c := escaped_char(e)
 
         case None =>
           raise RegexError("escape at the end", s.pos)
       end
 
     case Some(d) =>
-      call   advance(ref s)
-      assign c := d
+      advance(ref s)
+      c := d
 
     // parse_class stops at the end
     case None =>
@@ -366,12 +367,12 @@ procedure matches_text(
       text: Str,
   out matched: Bool
 ) raises RegexError :=
-  local regex: Regex
-  call   parse_regex(in source, out regex)
-  assign matched := matches(regex, text)
+  var regex: Regex
+  parse_regex(in source, out regex)
+  matched := matches(regex, text)
 
 test matching() :=
-  local cases := List(
+  let cases := List(
     ("a(b|c)*d", "abcbd", true),
     ("a(b|c)*d", "abxd", false),
     ("a+", "", false),
@@ -388,14 +389,14 @@ test matching() :=
     ("(a*)*b", "aaab", true),
     ("", "", true))
   for (source, text, expected) in cases do
-    local matched: Bool
-    call matches_text(in source, text, out matched)
+    var matched: Bool
+    matches_text(in source, text, out matched)
     assert (source, text, matched) == (source, text, expected)
   end
 
 test occurring() :=
-  local regex: Regex
-  call parse_regex(in "b+c", out regex)
+  var regex: Regex
+  parse_regex(in "b+c", out regex)
   assert occurs(regex, "abbbcd")
   assert not occurs(regex, "abd")
 
@@ -405,16 +406,16 @@ test finite_derivatives() :=
   assert derivative('a', alt(star(literal("a")), star(literal("a")))) == star(literal("a"))
 
 test errors() :=
-  local regex: Regex
+  var regex: Regex
   assert raises RegexError("unmatched (", 2) do
-    call parse_regex(in "a(b", out regex)
+    parse_regex(in "a(b", out regex)
   end
   assert raises RegexError("unmatched [", 2) do
-    call parse_regex(in "a[b", out regex)
+    parse_regex(in "a[b", out regex)
   end
   assert raises RegexError("nothing to repeat", 1) do
-    call parse_regex(in "*a", out regex)
+    parse_regex(in "*a", out regex)
   end
   assert raises RegexError("empty range", 4) do
-    call parse_regex(in "[z-a]", out regex)
+    parse_regex(in "[z-a]", out regex)
   end

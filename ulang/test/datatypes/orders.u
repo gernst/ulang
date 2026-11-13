@@ -77,6 +77,6 @@ test declared_show() :=
   assert show(Pair(Pair(1, 2), List(Pair(3, 'x')))) == "<<1 | 2> | List(<3 | 'x'>)>"
 
 test library_shows() :=
-  local s := Set(3, 1, 2), m := Map("b" => List(1), "a" => List()), e: Set[Int] := Set()
+  let s := Set(3, 1, 2), m := Map("b" => List(1), "a" => List()), e: Set[Int] := Set()
   assert show(s) == "Set(1, 2, 3)" and show(e) == "Set()" and show(m) == "Map(\"a\" => List(), \"b\" => List(1))"
   assert show(List(Some(s))) == "List(Some(Set(1, 2, 3)))" and show(Pair(m, e)) == "<Map(\"a\" => List(), \"b\" => List(1)) | Set()>"

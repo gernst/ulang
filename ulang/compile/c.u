@@ -264,7 +264,7 @@ function c_call(fun: Str, args: List[CExpr]): CExpr :=
   CeCall(CeVar(fun), args)
 
 test format_c() :=
-  local value := CtNamed("value"), one := c_call("make_int", List(CeNum(1))), fact := CdFunction(LkStatic, value, "fact", List((value, "n")), List(
+  let value := CtNamed("value"), one := c_call("make_int", List(CeNum(1))), fact := CdFunction(LkStatic, value, "fact", List((value, "n")), List(
     CsIf(c_call("is_zero", List(CeVar("n"))), List(CsReturn(Some(one))), List()),
     CsDecl(value, "m", Some(c_call("fact", List(c_call("sub", List(CeVar("n"), one)))))),
     CsReturn(Some(c_call("mul", List(CeVar("n"), CeVar("m"))))))), main := CdFunction(LkExtern, CtInt, "main", List(), List(

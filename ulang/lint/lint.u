@@ -31,6 +31,8 @@ data Lint :=
   case ShowName
   // a local without an initial value that only one if, match, or try uses, so that its branches declare it
   case LocalTooHigh
+  // a var with a value that no statement after it assigns, which is a let
+  case UnassignedVar
 
 // a warning of lint at pos of a module, with the expression to write instead if there is one
 data Warning :=
@@ -208,7 +210,7 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
     case SBlock(locals, stmts) =>
       locals_lints(pos, locals, stmts) ++ declared_lints(stmts_of(stmts)) ++ collecting_loops(stmts_of(stmts)) ++ stmts_lints(fun, stmts_of(stmts))
 
-    case SLocal(decls) =>
+    case SLocal(_, decls) =>
       exprs_lints(fun, List(for (_, init) in decls for e in init yield e))
 
     case SIf(cond, left, right) =>
@@ -413,12 +415,17 @@ function declared_lints(stmts: List[At[Stmt]]): List[Warning] :=
 
     case List(stmt; rest) =>
       match stmt_part(stmt)
-        case SLocal(decls) =>
-          decls_lints(decls, rest) ++ declared_lints(rest)
+        case SLocal(mutable, decls) =>
+          decls_lints(decls, rest) ++ (if mutable then unassigned_vars(decls, rest) else List()) ++ declared_lints(rest)
         case _ =>
           declared_lints(rest)
       end
   end
+
+// the declarations with values of a var whose variables no statement in rest assigns
+function unassigned_vars(decls: List[At[Pat] * Option[At[Expr]]], rest: List[At[Stmt]]): List[Warning] :=
+  let changed := Set(for s in rest for x in assigned(s) ++ call_outs(s) yield x) in
+  List(for (pat, init) in decls if init != None and forall(pat_vars(pat), lambda (_, x) => not contains(x, changed)) yield Warning(UnassignedVar, pat.pos, "the var " ++ join(", ", List(for (_, x) in pat_vars(pat) yield x)) ++ " is never assigned after its value, declare it by let", None))
 
 function decls_lints(decls: List[At[Pat] * Option[At[Expr]]], rest: List[At[Stmt]]): List[Warning] :=
   match decls
@@ -838,7 +845,7 @@ function child_stmts(stmt: Stmt): List[At[Stmt]] :=
     case SBlock(_, stmts) =>
       stmts_of(stmts)
 
-    case SLocal(_) =>
+    case SLocal(_, _) =>
       List()
 
     case SIf(_, left, right) =>
@@ -1061,7 +1068,7 @@ function own_names(stmt: Stmt): Set[Id] :=
     case SBlock(_, _) =>
       Set()
 
-    case SLocal(decls) =>
+    case SLocal(_, decls) =>
       exprs_names(List(for (_, init) in decls for e in init yield e))
 
     case SIf(cond, _, _) =>

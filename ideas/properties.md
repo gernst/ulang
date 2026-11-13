@@ -32,7 +32,7 @@ Each property has a definition, a formal handle, what ulang does, and what is op
 
 **Formal handle.** A non-interference property: the observable behaviour of a unit is a function of its declared inputs, declared effects, and text alone. Locality is about the size of that context, explicitness about whether it is declared.
 
-**In ulang.** Every statement starts with its keyword, `call`, `assign`, `raise`; the modes show at every call, `call p(in a, out b, ref c)`; what a procedure raises is checked and, if exported, declared (`UndeclaredRaise`); no formal or local hides another (`HiddenLocal`); and there are no implicit conversions. The hooks `show`, `compare`, and `==` are the one convention that changes the meaning of a builtin from elsewhere, bounded by their fixed shape (`MisshapenHook`) and by their module being that of the datatype.
+**In ulang.** Every variable is declared, by `let` if it is bound once and by `var` if it is assigned; the modes show at every call, `p(in a, out b, ref c)`; what a procedure raises is checked and, if exported, declared (`UndeclaredRaise`); no formal or local hides another (`HiddenLocal`); and there are no implicit conversions. The hooks `show`, `compare`, and `==` are the one convention that changes the meaning of a builtin from elsewhere, bounded by their fixed shape (`MisshapenHook`) and by their module being that of the datatype.
 
 **Open.** The effects of `os` (Later 1); the polymorphism over raised sets, without which a generic `retry` must fix what its argument raises (Checker 4); and the hooks of `compare`, which must agree with structural equality unchecked (`H1 HookAgreement` of `ideas/lint.md`).
 

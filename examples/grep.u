@@ -6,37 +6,37 @@
 import "library/regex"
 
 procedure main() :=
-  local args: List[Str]
-  call os_args(out args)
+  var args: List[Str]
+  os_args(out args)
   match args
     case List(source, path; paths) =>
       try
-        local regex: Regex, found := false
-        call parse_regex(in source, out regex)
+        var regex: Regex, found := false
+        parse_regex(in source, out regex)
         for file in List(path; paths) do
-          local text: Str
-          call os_read_utf8(in file, out text)
+          var text: Str
+          os_read_utf8(in file, out text)
           for line in lines_of(text) if occurs(regex, line) do
-            call   os_println(in if paths == List() then line else file ++ ":" ++ line)
-            assign found := true
+            os_println(in if paths == List() then line else file ++ ":" ++ line)
+            found := true
           end
         end
         if not found then
-          call os_exit(in 1)
+          os_exit(in 1)
         end
       catch
         case RegexError(message, column) =>
-          call os_print_error(in "grep: " ++ message ++ " at column " ++ show(column))
-          call os_exit(in 2)
+          os_print_error(in "grep: " ++ message ++ " at column " ++ show(column))
+          os_exit(in 2)
 
         case OsError(message) =>
-          call os_print_error(in "grep: " ++ message)
-          call os_exit(in 2)
+          os_print_error(in "grep: " ++ message)
+          os_exit(in 2)
       end
 
     case _ =>
-      call os_print_error(in "usage: grep <regex> <file> …")
-      call os_exit(in 2)
+      os_print_error(in "usage: grep <regex> <file> …")
+      os_exit(in 2)
   end
 
 function lines_of(text: Str): List[Str] :=

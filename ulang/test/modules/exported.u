@@ -60,7 +60,7 @@ function next(c: Counter): Counter :=
   Counter(c.value + helper(0))
 
 procedure bump(ref c: Counter) :=
-  assign c := next(c)
+  c := next(c)
 
 function helper(n: Int): Int :=
   n + 1

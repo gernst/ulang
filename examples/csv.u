@@ -25,74 +25,75 @@ function usage(): Str :=
 procedure query(in args: List[Str], out result: Table) :=
   match args
     case List("join", path; paths) =>
-      call read_table(in path, out result)
+      read_table(in path, out result)
       for other in paths do
-        local table: Table
-        call   read_table(in other, out table)
-        assign result := join(result, table)
+        var table: Table
+        read_table(in other, out table)
+        result := join(result, table)
       end
 
     case List("project"; rest) if size(rest) >= 2 =>
-      local table: Table, cols: List[Str] := take(size(rest) - 1, rest)
-      call   read_table(in at(size(rest) - 1, from_list(rest)), out table)
-      call   require_columns(in cols, table)
-      assign result := project(cols, table)
+      var table: Table
+      let cols: List[Str] := take(size(rest) - 1, rest)
+      read_table(in at(size(rest) - 1, from_list(rest)), out table)
+      require_columns(in cols, table)
+      result := project(cols, table)
 
     case List("rename", old, new, path) =>
-      local table: Table
-      call read_table(in path, out table)
-      call require_columns(in List(old), table)
+      var table: Table
+      read_table(in path, out table)
+      require_columns(in List(old), table)
       if contains(new, table.columns) then
         raise CsvError("column " ++ new ++ " exists")
       end
-      assign result := rename(old, new, table)
+      result := rename(old, new, table)
 
     case List("select", col, value, path) =>
-      local table: Table
-      call   read_table(in path, out table)
-      call   require_columns(in List(col), table)
-      assign result := select(col, value, table)
+      var table: Table
+      read_table(in path, out table)
+      require_columns(in List(col), table)
+      result := select(col, value, table)
 
     case List("union", path, other) =>
-      local a: Table, b: Table
-      call   read_table(in path, out a)
-      call   read_table(in other, out b)
-      call   require_same_columns(in a, b)
-      assign result := union(a, b)
+      var a: Table, b: Table
+      read_table(in path, out a)
+      read_table(in other, out b)
+      require_same_columns(in a, b)
+      result := union(a, b)
 
     case List("diff", path, other) =>
-      local a: Table, b: Table
-      call   read_table(in path, out a)
-      call   read_table(in other, out b)
-      call   require_same_columns(in a, b)
-      assign result := diff(a, b)
+      var a: Table, b: Table
+      read_table(in path, out a)
+      read_table(in other, out b)
+      require_same_columns(in a, b)
+      result := diff(a, b)
 
     case List("count", col, path) =>
-      local table: Table
-      call read_table(in path, out table)
-      call require_columns(in List(col), table)
+      var table: Table
+      read_table(in path, out table)
+      require_columns(in List(col), table)
       if col == "count" then
         raise CsvError("column count is the result")
       end
-      assign result := count(col, table)
+      result := count(col, table)
 
     case _ =>
       raise CsvError(usage())
   end
 
 procedure main() :=
-  local args: List[Str]
-  call os_args(out args)
+  var args: List[Str]
+  os_args(out args)
   try
-    local result: Table
-    call query(in args, out result)
-    call os_print(in format_table(result))
+    var result: Table
+    query(in args, out result)
+    os_print(in format_table(result))
   catch
     case CsvError(message) =>
-      call os_print_error(in "csv: " ++ message)
-      call os_exit(in 1)
+      os_print_error(in "csv: " ++ message)
+      os_exit(in 1)
 
     case OsError(message) =>
-      call os_print_error(in "csv: " ++ message)
-      call os_exit(in 1)
+      os_print_error(in "csv: " ++ message)
+      os_exit(in 1)
   end

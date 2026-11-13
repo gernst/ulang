@@ -154,7 +154,7 @@ function pick(x: Int, y: Int): Int :=
   2
 
 test overloads_by_parameters() :=
-  local p := (3, 4)
+  let p := (3, 4)
   assert pick(p) == 1
   assert pick(3, 4) == 2
   assert pick((3, 4)) == 1
@@ -173,7 +173,7 @@ function sign_name(n: Int): Str :=
   end
 
 test negative_literals() :=
-  local x := 3
+  let x := 3
   assert (-2) + 5 == 3 and 2 * -3 == -6 and -x == -3 and -(1 + 2) == -3
   assert List(sign_name(-5), sign_name(0), sign_name(7)) == List("negative", "zero", "positive")
 
@@ -300,10 +300,10 @@ test code_points() :=
 
 test no_characters() :=
   assert raises NoCharacter(55296) do
-    local c := chr(55296)
+    let c := chr(55296)
   end
   assert raises NoCharacter(1114112) do
-    local c := chr(1114112)
+    let c := chr(1114112)
   end
   assert int(chr(1114111)) == 1114111 and int(chr(57344)) == 57344
 
@@ -316,16 +316,16 @@ test bytes() :=
   assert decode_utf8(Array(byte(255))) == None and decode_utf8(Array(byte(195))) == None
   assert decode_utf8(Array(byte(237), byte(160), byte(128))) == None
   assert raises NoByte(256) do
-    local b := byte(256)
+    let b := byte(256)
   end
   assert raises NoByte(-1) do
-    local b := byte(-1)
+    let b := byte(-1)
   end
 
 test division_by_zero() :=
   assert raises DivisionByZero do
-    local n := 1 / 0
+    let n := 1 / 0
   end
   assert raises DivisionByZero do
-    local n := 1 % 0
+    let n := 1 % 0
   end

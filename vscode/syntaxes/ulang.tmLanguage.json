@@ -222,11 +222,11 @@
       "patterns": [
         {
           "name": "keyword.control.ulang",
-          "match": "\\b(if|then|else|while|match|induction|case|end|let|in|lambda|for|do|yield|call|assign|skip|assert|raises|raise|try|catch|out|ref|with)\\b"
+          "match": "\\b(if|then|else|while|match|induction|case|end|let|var|in|lambda|for|do|yield|skip|assert|raises|raise|try|catch|out|ref|with)\\b"
         },
         {
           "name": "keyword.other.ulang",
-          "match": "\\b(test|pattern|requires|ensures|example)\\b"
+          "match": "\\b(test|pattern|requires|ensures|example|correct|invariant)\\b"
         },
         {
           "name": "keyword.other.ulang",
@@ -263,11 +263,12 @@
       "match": "[-+*/%<>=!&|:^~?@#$]+"
     },
     "local": {
-      "begin": "\\b(local)\\b",
+      "comment": "let and var, where the types after : until the end of the line are types",
+      "begin": "\\b(let|var)\\b",
       "end": "$",
       "beginCaptures": {
         "1": {
-          "name": "keyword.other.ulang"
+          "name": "keyword.control.ulang"
         }
       },
       "patterns": [

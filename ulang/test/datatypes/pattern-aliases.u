@@ -85,12 +85,12 @@ test aliases_bind() :=
   assert (lambda Both(x, y) => x * y)((3, 4)) == 12
 
 test aliases_catch() :=
-  local r := Num(0)
+  var r := Num(0)
   try
     raise Not(Num(7))
   catch
     case Not(a) =>
-      assign r := a
+      r := a
   end
   assert r == Num(7)
 

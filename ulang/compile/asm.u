@@ -341,7 +341,7 @@ function utf8_char(code: Int): List[Int] :=
       128 + code % 64)
 
 test format_asm_lines() :=
-  local f := AsmFile(List(
+  let f := AsmFile(List(
     LDirective(DText),
     LLabel("f"),
     LInstr(IPush(OReg(Rbp))),

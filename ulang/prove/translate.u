@@ -21,9 +21,9 @@ data ProofTerm :=
 
 data StepTerm :=
   // local x := e, a variable with the fact x == e
-  case DefineTerm(var: Var, value: Term, pos: Pos)
+  case DefineTerm(variable: Var, value: Term, pos: Pos)
   // local q: T, a witness
-  case WitnessTerm(var: Var, pos: Pos)
+  case WitnessTerm(variable: Var, pos: Pos)
   // call l(a, …, out q, …), the instance of the lemma l, with the witnesses as the indices of the locals q, …
   case CallTerm(name: Name, args: List[Term], outs: List[Int], pos: Pos)
   // assign q := e, the witness of the out q, by its index
@@ -292,7 +292,7 @@ function run_stmt(exec: Exec, env: List[Name], stmt: At[Stmt], rest: List[Item],
       run(exec, env, List(for d in stmts yield IStmt(d.at)) ++ rest, steps, pos)
 
     // the checker gives no SLocal
-    case SLocal(_) =>
+    case SLocal(_, _) =>
       unsupported("local", stmt.pos, steps)
 
     case SIf(cond, left, right) =>
@@ -396,7 +396,7 @@ function assigned_in(stmt: Stmt): List[Var] :=
       List(for d in stmts for x in assigned_vars(d.at) yield x)
 
     // the checker gives no SLocal
-    case SLocal(_) =>
+    case SLocal(_, _) =>
       List()
 
     case SIf(_, left, right) =>

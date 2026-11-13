@@ -66,7 +66,7 @@ data Expr :=
   // a literal
   case ELit(lit: Lit)
   // a name x of a local or a declaration, which the checker resolves
-  case EVar(var: Var)
+  case EVar(variable: Var)
   // f(a, …) of a function or constructor, or an operator of the notation, e.g. a + b, -a, or not a, at the position of the
   // name or operator
   case EApp(fun: At[Expr], args: List[At[Expr]])
@@ -125,7 +125,7 @@ data Pat :=
   // a literal, e.g. -1 or "a"
   case PLit(lit: Lit)
   // a variable x, which binds x
-  case PVar(var: Var)
+  case PVar(variable: Var)
   // a constructor C(p, …) or C, where List(p, …; r) and List() are Cons and Nil
   case PApp(constr: Name, args: List[At[Pat]])
   // a tuple (p, q, …)
@@ -141,7 +141,7 @@ data Proof :=
 
 data Step :=
   // local x := e, a definition, or local q: T, a witness that an out of a call binds
-  case StepLocal(var: At[Var], value: Option[At[Expr]])
+  case StepLocal(variable: At[Var], value: Option[At[Expr]])
   // call l(in a, …, out q, …), the instance of the lemma l, whose requires are proven and whose ensures is then a fact
   case StepCall(name: Name, ins: List[At[Expr]], outs: List[Var])
   // assert e, a cut, which must follow by simplification and is a fact afterwards
@@ -173,9 +173,10 @@ data Stmt :=
   // gives no locals but SLocal statements, and the checker gives no SLocal but blocks whose locals the assignments at
   // the start of stmts initialize
   case SBlock(locals: List[At[Var]], stmts: List[Doc[Stmt]])
-  // local p := e, x: T, …, which declares the variables of its patterns to the end of the block, each in the scope of
-  // those before it, where a declaration without a value is a variable, which the checker turns into a block of the rest
-  case SLocal(decls: List[At[Pat] * Option[At[Expr]]])
+  // let p := e, … or var p := e, x: T, …, which declares the variables of its patterns to the end of the block, each in
+  // the scope of those before it, where only those of a var are assigned after their values, and a declaration without a
+  // value is a variable of a var, which the checker turns into a block of the rest
+  case SLocal(mutable: Bool, decls: List[At[Pat] * Option[At[Expr]]])
   // if c then … else … end, or if c then … end
   case SIf(cond: At[Expr], left: At[Stmt], right: At[Stmt])
   // while c do … end
@@ -789,10 +790,10 @@ function pattern_vars(pats: List[At[Pat]]): Option[List[Var]] :=
     case List() =>
       Some(List())
 
-    case List(AOk(_, PVar(var)); more) =>
+    case List(AOk(_, PVar(x)); more) =>
       match pattern_vars(more)
         case Some(xs) =>
-          Some(List(var; xs))
+          Some(List(x; xs))
         case None =>
           None
       end
@@ -803,8 +804,8 @@ function pattern_vars(pats: List[At[Pat]]): Option[List[Var]] :=
 
 function pattern_names(pat: At[Pat]): List[Name] :=
   match pat.that
-    case PVar(var) =>
-      List(var.name)
+    case PVar(x) =>
+      List(x.name)
 
     case PApp(_, args) =>
       List(for arg in args for name in pattern_names(arg) yield name)
@@ -901,7 +902,7 @@ function loop_positions_in(pos: Pos, stmt: Stmt): List[Pos] :=
     case SBlock(_, stmts) =>
       List(for d in stmts for p in loop_positions(d.at) yield p)
 
-    case SLocal(_) =>
+    case SLocal(_, _) =>
       List()
 
     case SIf(_, left, right) =>
@@ -1052,8 +1053,8 @@ function strip_statement(stmt: Stmt): Stmt :=
     case SBlock(locals, stmts) =>
       SBlock(strip_vars(locals), List(for d in stmts yield Doc(d.doc, strip_stmt(d.at))))
 
-    case SLocal(decls) =>
-      SLocal(List(for (p, init) in decls yield (strip_pat(p), map_option(init, strip_expr))))
+    case SLocal(mutable, decls) =>
+      SLocal(mutable, List(for (p, init) in decls yield (strip_pat(p), map_option(init, strip_expr))))
 
     case SIf(cond, left, right) =>
       SIf(strip_expr(cond), strip_stmt(left), strip_stmt(right))
@@ -1433,7 +1434,7 @@ function errors_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
     case SBlock(_, stmts) =>
       errors_in_stmts(stmts_of(stmts))
 
-    case SLocal(decls) =>
+    case SLocal(_, decls) =>
       errors_in_exprs(List(for (_, init) in decls for e in init yield e))
 
     case SIf(cond, left, right) =>

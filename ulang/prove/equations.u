@@ -116,11 +116,11 @@ function hits_equations(decls: Decls, q: Partial, values: List[Int * Term], case
 // take, match xs case Nil => Nil case Cons(y, ys) => if n <= 0 then Nil else Cons(y, take(n - 1, ys)), where ys is
 // the index 0, y 1, xs 2, and n 3 in the second case
 test take_equations() :=
-  local list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), take := Name(Some("prelude/list"), "take"), le := Name(Some("prelude/prelude"), "<="), var := (lambda base => Var(Name(None, base), THole)), decls := (empty_decls() with constrs := Map(
+  let list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), take := Name(Some("prelude/list"), "take"), le := Name(Some("prelude/prelude"), "<="), var_of := (lambda base => Var(Name(None, base), THole)), decls := (empty_decls() with constrs := Map(
     nil => ConstrDecl(list, List()),
-    cons => ConstrDecl(list, List(var("head"), var("tail")))), datatypes := Map(list => List(nil, cons))), pvar := (lambda base => AOk(Pos(0, 0), PVar(var(base)))), step := EApp(EFun(cons), List(EBound(1), EApp(EFun(take), List(Minus(EBound(3), EInt(1)), EBound(0))))), body := EMatch(EBound(0), List(
+    cons => ConstrDecl(list, List(var_of("head"), var_of("tail")))), datatypes := Map(list => List(nil, cons))), pvar := (lambda base => AOk(Pos(0, 0), PVar(var_of(base)))), step := EApp(EFun(cons), List(EBound(1), EApp(EFun(take), List(Minus(EBound(3), EInt(1)), EBound(0))))), body := EMatch(EBound(0), List(
     TermBranch(PApp(nil, List()), None, EFun(nil)),
-    TermBranch(PApp(cons, List(pvar("y"), pvar("ys"))), None, EIte(EApp(EFun(le), List(EBound(3), EInt(0))), EFun(nil), step)))), eqs := def_equations(decls, List(var("n"), var("xs")), body)
+    TermBranch(PApp(cons, List(pvar("y"), pvar("ys"))), None, EIte(EApp(EFun(le), List(EBound(3), EInt(0))), EFun(nil), step)))), eqs := def_equations(decls, List(var_of("n"), var_of("xs")), body)
   assert size(eqs) == 3 and forall(eqs, lambda eq => not eq.decided)
   match eqs
     case List(empty, short, long) =>
@@ -139,9 +139,9 @@ test take_equations() :=
 // match xs case Cons(y, _) if p(y) => 1 case _ => 2, where y is the index 0 in the first case: the catch-all at Nil,
 // then at Cons the guarded case and the catch-all with the negated guard, over the variables xs, y, and tail
 test completed_equations() :=
-  local list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), p := Name(None, "p"), var := (lambda base => Var(Name(None, base), THole)), decls := (empty_decls() with constrs := Map(
+  let list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), p := Name(None, "p"), var_of := (lambda base => Var(Name(None, base), THole)), decls := (empty_decls() with constrs := Map(
     nil => ConstrDecl(list, List()),
-    cons => ConstrDecl(list, List(var("head"), var("tail")))), datatypes := Map(list => List(nil, cons))), guarded := TermBranch(PApp(cons, List(AOk(Pos(0, 0), PVar(var("y"))), AOk(Pos(0, 0), PWild))), Some(EApp(EFun(p), List(EBound(0)))), EInt(1)), eqs := def_equations(decls, List(var("xs")), EMatch(EBound(0), List(guarded, TermBranch(PWild, None, EInt(2)))))
+    cons => ConstrDecl(list, List(var_of("head"), var_of("tail")))), datatypes := Map(list => List(nil, cons))), guarded := TermBranch(PApp(cons, List(AOk(Pos(0, 0), PVar(var_of("y"))), AOk(Pos(0, 0), PWild))), Some(EApp(EFun(p), List(EBound(0)))), EInt(1)), eqs := def_equations(decls, List(var_of("xs")), EMatch(EBound(0), List(guarded, TermBranch(PWild, None, EInt(2)))))
   assert size(eqs) == 3
   match eqs
     case List(at_nil, first, at_cons) =>
@@ -156,11 +156,11 @@ test completed_equations() :=
 // match (xs, n) case (Nil, _) => 0 case (Cons(_, t), m) => m: an equation per leaf, where the components of the tuple
 // replace both formals, the second one by a new variable, in the second equation head, t, and m, of which m is the index 0
 test tuple_equations() :=
-  local list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), var := (lambda base => Var(Name(None, base), THole)), pat := (lambda p => AOk(Pos(0, 0), p)), decls := (empty_decls() with constrs := Map(
+  let list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), var_of := (lambda base => Var(Name(None, base), THole)), pat := (lambda p => AOk(Pos(0, 0), p)), decls := (empty_decls() with constrs := Map(
     nil => ConstrDecl(list, List()),
-    cons => ConstrDecl(list, List(var("head"), var("tail")))), datatypes := Map(list => List(nil, cons))), empty := TermBranch(PTuple(List(pat(PApp(nil, List())), pat(PWild))), None, EInt(0)), nonempty := TermBranch(PTuple(List(
-    pat(PApp(cons, List(pat(PWild), pat(PVar(var("t")))))),
-    pat(PVar(var("m"))))), None, EBound(0)), eqs := def_equations(decls, List(var("xs"), var("n")), EMatch(tuple_term(List(EBound(1), EBound(0))), List(empty, nonempty)))
+    cons => ConstrDecl(list, List(var_of("head"), var_of("tail")))), datatypes := Map(list => List(nil, cons))), empty := TermBranch(PTuple(List(pat(PApp(nil, List())), pat(PWild))), None, EInt(0)), nonempty := TermBranch(PTuple(List(
+    pat(PApp(cons, List(pat(PWild), pat(PVar(var_of("t")))))),
+    pat(PVar(var_of("m"))))), None, EBound(0)), eqs := def_equations(decls, List(var_of("xs"), var_of("n")), EMatch(tuple_term(List(EBound(1), EBound(0))), List(empty, nonempty)))
   match eqs
     case List(at_nil, at_cons) =>
       assert at_nil.args == List(EFun(nil), EBound(0)) and at_nil.rhs == EInt(0)

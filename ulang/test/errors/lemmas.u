@@ -7,14 +7,14 @@ import "ulang/test/cases"
 
 test append_commutes() :=
   assert raises OpenLemma("append_commutes", "forall xs, ys => (ys ++ xs) == (xs ++ ys)") do
-    call prove_text(in "ulang/test/errors/append-commutes.u", List(
+    prove_text(in "ulang/test/errors/append-commutes.u", List(
       "lemma append_commutes[A](in xs: List[A], ys: List[A]) :=",
       "  ensures xs ++ ys == ys ++ xs"))
   end
 
 test falsified() :=
   assert raises Uncaught("Falsified(\"xs = List(1, 0), ys = List()\")") do
-    call run_text(in "ulang/test/errors/falsified.u", List(
+    run_text(in "ulang/test/errors/falsified.u", List(
       "lemma reverse_same(in xs: List[Int], ys: List[Int]) :=",
       "  ensures reverse(xs) ++ ys == xs ++ ys"))
   end
@@ -22,25 +22,25 @@ test falsified() :=
 // an out of the lemma bound by a call is no longer existential, so that its fact does not hold of another variable
 test call_binds_out() :=
   assert raises OpenLemma("bound_out", "forall x => false at 7.3") do
-    call prove_text(in "ulang/test/errors/call-binds-out.u", List(
+    prove_text(in "ulang/test/errors/call-binds-out.u", List(
       "lemma shifted(in x: Int, out y: Int) :=",
       "  ensures y == x + 5",
-      "  assign y := x + 5",
+      "  y := x + 5",
       "",
       "lemma bound_out(in x: Int, out y: Int) :=",
       "  ensures y != y",
-      "  local z := x + 1",
-      "  call shifted(in x, out y)"))
+      "  let z := x + 1",
+      "  shifted(in x, out y)"))
   end
 
 test irreflexive() :=
   assert raises OpenLemma("irreflexive", "forall a => false") do
-    call prove_text(in "ulang/test/errors/irreflexive.u", List("lemma irreflexive(in a: Int) :=", "  ensures a < a"))
+    prove_text(in "ulang/test/errors/irreflexive.u", List("lemma irreflexive(in a: Int) :=", "  ensures a < a"))
   end
 
 test less_by_two() :=
   assert raises OpenLemma("less_by_two", "forall a, b => a < b ==> b < (a + 2)") do
-    call prove_text(in "ulang/test/errors/less-by-two.u", List(
+    prove_text(in "ulang/test/errors/less-by-two.u", List(
       "lemma less_by_two(in a: Int, b: Int) :=",
       "  requires a < b",
       "  ensures  b < a + 2"))
@@ -48,7 +48,7 @@ test less_by_two() :=
 
 test integer_infeasible() :=
   assert raises OpenLemma("integer_infeasible", "forall x, y => 27 <= (11 * x + 13 * y) and (11 * x + 13 * y) <= 45 and (-10) <= (7 * x - 9 * y) and (7 * x - 9 * y) <= 4 ==> false") do
-    call prove_text(in "ulang/test/errors/integer-infeasible.u", List(
+    prove_text(in "ulang/test/errors/integer-infeasible.u", List(
       "lemma integer_infeasible(in x: Int, y: Int) :=",
       "  requires 27 <= 11 * x + 13 * y, 11 * x + 13 * y <= 45, (-10) <= 7 * x - 9 * y, 7 * x - 9 * y <= 4",
       "  ensures  false"))
@@ -57,7 +57,7 @@ test integer_infeasible() :=
 // equal sets of different shapes, which would be refuted as distinct constructors if those of abstract types were free
 test abstract_constructors() :=
   assert raises OpenLemma("abstract_constructors", "Node(Node(Leaf, 1, Leaf, 1), 2, Leaf, 2) != Node(Leaf, 1, Node(Leaf, 2, Leaf, 1), 2)") do
-    call prove_text(in "ulang/test/errors/abstract-constructors.u", List("lemma abstract_constructors() :=", "  ensures Set(1, 2) != Set(2, 1)"))
+    prove_text(in "ulang/test/errors/abstract-constructors.u", List("lemma abstract_constructors() :=", "  ensures Set(1, 2) != Set(2, 1)"))
   end
 
 // the recursive functions of the library whose termination the prover does not prove: distinct recurses on a
@@ -65,18 +65,18 @@ test abstract_constructors() :=
 // sizes, and list_count and list_values of ulang/prelude/enumerate.u count n down to n == 0, so they do not terminate
 // for a negative n, while gcd terminates by the absolute value of its divisor
 test library_terminates() :=
-  local main: Id, q: Prog, open: List[Str] := List()
-  call load_text(in "ulang/test/errors/library-terminates.u", List("lemma trivial() :=", "  ensures true"), out main, q)
+  var main: Id, q: Prog, open: List[Str] := List()
+  load_text(in "ulang/test/errors/library-terminates.u", List("lemma trivial() :=", "  ensures true"), out main, q)
   match translate(q, main)
     case Translation(decls, _, _) =>
-      assign open := List(for t in terminations(decls, Set(for k => d in decls.defs if d.recursive yield k)) if not is_terminating(t) for (n, _) in t.names yield n.base)
+      open := List(for t in terminations(decls, Set(for k => d in decls.defs if d.recursive yield k)) if not is_terminating(t) for (n, _) in t.names yield n.base)
   end
   assert Set(for n in open) == Set("distinct", "separated", "sort", "list_count", "list_values")
 
 // a function that does not terminate is open, one that counts down to a guard terminates by its Int measure
 test terminations_of_program() :=
-  local main: Id, q: Prog, open: List[Str] := List(), proven: List[Str] := List()
-  call load_text(in "ulang/test/errors/terminations-of-program.u", List(
+  var main: Id, q: Prog, open: List[Str] := List(), proven: List[Str] := List()
+  load_text(in "ulang/test/errors/terminations-of-program.u", List(
     "function loop(x: Int): Int :=",
     "  loop(x) + 1",
     "",
@@ -84,8 +84,8 @@ test terminations_of_program() :=
     "  if n <= 0 then 0 else down(n - 1) + 1"), out main, q)
   match translate(q, main)
     case Translation(decls, _, _) =>
-      local ts := terminations(decls, Set((Name(Some(main), "loop"), 1), (Name(Some(main), "down"), 1)))
-      assign open := List(for t in ts if not is_terminating(t) for (n, _) in t.names yield n.base), proven := List(for t in ts if is_terminating(t) for (n, _) in t.names yield n.base)
+      let ts := terminations(decls, Set((Name(Some(main), "loop"), 1), (Name(Some(main), "down"), 1)))
+      open := List(for t in ts if not is_terminating(t) for (n, _) in t.names yield n.base), proven := List(for t in ts if is_terminating(t) for (n, _) in t.names yield n.base)
   end
   assert open == List("loop") and proven == List("down")
 
@@ -93,7 +93,7 @@ test terminations_of_program() :=
 // and stays uninterpreted for the lemma, though the if of its body is decided, so that loop(0) == 0 stays open
 test nonterminating_function() :=
   assert raises OpenTermination("loop", "loop(x) where x == x") do
-    call prove_text(in "ulang/test/errors/nonterminating-function.u", List(
+    prove_text(in "ulang/test/errors/nonterminating-function.u", List(
       "function loop(x: Int): Int :=",
       "  if x == x then loop(x) + 1 else 0",
       "",
@@ -103,26 +103,26 @@ test nonterminating_function() :=
 
 test vacuous() :=
   assert raises Uncaught("Vacuous") do
-    call run_text(in "ulang/test/errors/vacuous.u", List("lemma large(in n: Int) :=", "  requires n > 100", "  ensures  n > 0"))
+    run_text(in "ulang/test/errors/vacuous.u", List("lemma large(in n: Int) :=", "  requires n > 100", "  ensures  n > 0"))
   end
 
 // the sign of a remainder follows that of its dividend, since / truncates towards zero, so it is open without it
 test remainder_unsigned() :=
   assert raises OpenLemma("remainder_unsigned", "forall m => 0 <= (m % 3)") do
-    call prove_text(in "ulang/test/errors/remainder-unsigned.u", List("lemma remainder_unsigned(in m: Int) :=", "  ensures m % 3 >= 0"))
+    prove_text(in "ulang/test/errors/remainder-unsigned.u", List("lemma remainder_unsigned(in m: Int) :=", "  ensures m % 3 >= 0"))
   end
 
 // only squares are at least 0
 test product_unsigned() :=
   assert raises OpenLemma("product_unsigned", "forall x, y => 0 <= (x * y)") do
-    call prove_text(in "ulang/test/errors/product-unsigned.u", List("lemma product_unsigned(in x: Int, y: Int) :=", "  ensures x * y >= 0"))
+    prove_text(in "ulang/test/errors/product-unsigned.u", List("lemma product_unsigned(in x: Int, y: Int) :=", "  ensures x * y >= 0"))
   end
 
 // disequalities in conclusions are assumptions, also in a disjunction, where the one-point rule then eliminates the
 // variables that their equations give, so that the counterexample a == b, xs == List() leaves false
 test distinct_open() :=
   assert raises OpenLemma("distinct_open", "forall a => false") do
-    call prove_text(in "ulang/test/errors/distinct-open.u", List(
+    prove_text(in "ulang/test/errors/distinct-open.u", List(
       "lemma distinct_open(in a: Int, b: Int, xs: List[Int]) :=",
       "  ensures a != b or xs != List()"))
   end
@@ -130,7 +130,7 @@ test distinct_open() :=
 // an open goal keeps the call of a function that is not recursive whose body stays undecided, while the proof unfolds it
 test lazy_goal() :=
   assert raises OpenLemma("maximum_open", "forall a, b, c => c <= maximum(a, b)") do
-    call prove_text(in "ulang/test/errors/lazy-goal.u", List(
+    prove_text(in "ulang/test/errors/lazy-goal.u", List(
       "function maximum(a: Int, b: Int): Int :=",
       "  if a < b then b else a",
       "",
@@ -141,7 +141,7 @@ test lazy_goal() :=
 // a cut that does not follow, at its step
 test proof_open_assert() :=
   assert raises OpenLemma("open_assert", "forall x => 0 < x at 3.3") do
-    call prove_text(in "ulang/test/errors/proof-open-assert.u", List(
+    prove_text(in "ulang/test/errors/proof-open-assert.u", List(
       "lemma open_assert(in x: Int) :=",
       "  ensures x == x",
       "  assert x > 0"))
@@ -151,29 +151,29 @@ test proof_open_assert() :=
 // here p, whose value a * b is folded into q first
 test proof_definitions_named() :=
   assert raises OpenLemma("named", "forall a, b, q => b < q at 4.3") do
-    call prove_text(in "ulang/test/errors/proof-definitions-named.u", List(
+    prove_text(in "ulang/test/errors/proof-definitions-named.u", List(
       "lemma named(in a: Int, b: Int) :=",
       "  ensures true",
-      "  local p := a * b, q := p + a",
+      "  let p := a * b, q := p + a",
       "  assert q > b"))
   end
 
 // a call of the lemma itself outside the case of an induction
 test proof_self_call() :=
   assert raises OpenLemma("self_call", "the lemma calls itself only at a recursive field of the case of its induction at 3.3") do
-    call prove_text(in "ulang/test/errors/proof-self-call.u", List(
+    prove_text(in "ulang/test/errors/proof-self-call.u", List(
       "lemma self_call(in x: Int) :=",
       "  ensures x == x",
-      "  call self_call(in x)"))
+      "  self_call(in x)"))
   end
 
 // a call of a lemma that comes after the one that calls it
 test proof_later_call() :=
   assert raises OpenLemma("early", "the lemma late is not proven before this one at 3.3") do
-    call prove_text(in "ulang/test/errors/proof-later-call.u", List(
+    prove_text(in "ulang/test/errors/proof-later-call.u", List(
       "lemma early(in x: Int) :=",
       "  ensures x == x",
-      "  call late(in x)",
+      "  late(in x)",
       "",
       "lemma late(in x: Int) :=",
       "  ensures x == x"))
@@ -182,7 +182,7 @@ test proof_later_call() :=
 // a case of an induction that is not written must close by simplification
 test proof_open_case() :=
   assert raises OpenLemma("open_case", "forall head, tail => size(tail) == 0 ==> false at 3.3") do
-    call prove_text(in "ulang/test/errors/proof-open-case.u", List(
+    prove_text(in "ulang/test/errors/proof-open-case.u", List(
       "lemma open_case(in xs: List[Int]) :=",
       "  ensures size(xs) == 0",
       "  induction xs",
@@ -192,35 +192,35 @@ test proof_open_case() :=
 // a witness for which the ensures does not hold
 test proof_false_witness() :=
   assert raises OpenLemma("false_witness", "forall x => false at 3.3") do
-    call prove_text(in "ulang/test/errors/proof-false-witness.u", List(
+    prove_text(in "ulang/test/errors/proof-false-witness.u", List(
       "lemma false_witness(in x: Int, out y: Int) :=",
       "  ensures y == x + 1",
-      "  assign y := x"))
+      "  y := x"))
   end
 
 // induction on an integer without the requires that n >= 0 leaves the case n < 0
 test proof_int_negative() :=
   assert raises OpenLemma("replicate_any", "forall n, x => n < 0 ==> false at 3.3") do
-    call prove_text(in "ulang/test/errors/proof-int-negative.u", List(
+    prove_text(in "ulang/test/errors/proof-int-negative.u", List(
       "lemma replicate_any(in n: Int, x: Int) :=",
       "  ensures size(replicate(n, x)) == n",
       "  induction n",
       "    case _ =>",
-      "      call replicate_any(in n - 1, x)",
+      "      replicate_any(in n - 1, x)",
       "  end"))
   end
 
 // a claim whose ensures does not follow from the invariant at the exit of the loop, open at the ensures
 test claim_wrong_ensures() :=
   assert raises OpenLemma("sum_correct", "forall s, n, i, i' => i <= n and (-i' + (i' * i')) == (2 * s) and i' <= n and n <= i' ==> (2 * s) == (2 * s + 2 * i') at 3.18") do
-    call prove_text(in "ulang/test/errors/claim-wrong-ensures.u", List(
+    prove_text(in "ulang/test/errors/claim-wrong-ensures.u", List(
       "procedure sum(in n: Int, out s: Int) :=",
       "  requires n >= 0",
       "  ensures  2 * s == n * (n + 1)",
-      "  local i := 0",
-      "  assign s := 0",
+      "  var i := 0",
+      "  s := 0",
       "  while i < n do",
-      "    assign s := s + i, i := i + 1",
+      "    s := s + i, i := i + 1",
       "  end",
       "",
       "lemma sum_correct(in n: Int, out s: Int) :=",
@@ -231,12 +231,12 @@ test claim_wrong_ensures() :=
 // an invariant that the body of its loop does not preserve, open at the invariant
 test claim_not_preserved() :=
   assert raises OpenLemma("p_correct", "forall y, y', y'' => y' <= 3 and y' < 3 ==> y'' <= 3 at 10.15") do
-    call prove_text(in "ulang/test/errors/claim-not-preserved.u", List(
+    prove_text(in "ulang/test/errors/claim-not-preserved.u", List(
       "procedure p(out y: Int) :=",
       "  ensures y == 3",
-      "  assign y := 0",
+      "  y := 0",
       "  while y < 3 do",
-      "    assign y := y + 2",
+      "    y := y + 2",
       "  end",
       "",
       "lemma p_correct(out y: Int) :=",
@@ -247,14 +247,14 @@ test claim_not_preserved() :=
 // the requires of a call, which the caller must establish
 test claim_call_requires() :=
   assert raises OpenLemma("q_correct", "forall x, y => (exists y' => 0 < x) at 7.3") do
-    call prove_text(in "ulang/test/errors/claim-call-requires.u", List(
+    prove_text(in "ulang/test/errors/claim-call-requires.u", List(
       "procedure p(in x: Int, out y: Int) :=",
       "  requires x > 0",
       "  ensures  y == x",
-      "  assign y := x",
+      "  y := x",
       "",
       "procedure q(in x: Int, out y: Int) :=",
-      "  call p(in x, out y)",
+      "  p(in x, out y)",
       "",
       "lemma q_correct(in x: Int, out y: Int) :=",
       "  correct q(in x, out y)"))
@@ -264,10 +264,10 @@ test claim_call_requires() :=
 // lemmas after it, which would else all be proven
 test claim_no_fact() :=
   assert raises OpenLemma("after", "forall n => false") do
-    call prove_text(in "ulang/test/errors/claim-no-fact.u", List(
+    prove_text(in "ulang/test/errors/claim-no-fact.u", List(
       "procedure forever(out x: Int) :=",
       "  ensures false",
-      "  assign x := 0",
+      "  x := 0",
       "  while true do",
       "    skip",
       "  end",
