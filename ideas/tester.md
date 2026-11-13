@@ -1,0 +1,23 @@
+# The tester
+
+A plan: the tests that the tools generate, and the running of tests, move out of the checker, the driver, and the library into the package `ulang/test`, the files at the top of `ulang/test/`, whose subdirectories keep the tests of the language. When this work is done, what holds goes into `CLAUDE.md`, what stays open into the items of `ideas/testing.md`, and this file is deleted.
+
+## Why
+
+- Whether a lemma holds is for `prove` alone: enumerating values can falsify a lemma, never establish it. So the tests `l.lemma` are no check of validity, which the checker would need, but a step before the proof: a counterexample tells an agent more than an open goal, a falsified lemma needs no proof, and a lemma whose proof stays open is at least tested (Verification 2).
+- So only `test` and `compile --tests` need them, while today `check_package` of `ulang/check/check.u` generates them on every check without errors, and every load of every command parses and checks `ulang/prelude/enumerate.u`, a member of the library that no module but the generated tests sees, hidden by a special case of `implicit_imports` of `ulang/syntax/syntax.u`.
+- The tests with formals of Testing 1, property-based tests, are the general form: the test of a lemma `requires a ensures b` is the test with the formals of the lemma whose body is `if a then assert b`, with a count for `Vacuous`. One translation serves both, and the enumeration is the library of the tester, not of the language.
+
+## Layout
+
+- `ulang/test/generate.u`: the translation of lemmas, later of tests with formals, into tests over enumerated values, moved from `ulang/check/check.u`. The checker takes it as a hook, a function from what a package declares (`Checked` in `ulang/check/check.u`) to generated commands, which it checks after the definitions of the package as now; the driver passes it for `test` and `compile --tests`, and `ulang/compile` and `ulang/check` do not import `ulang/test`.
+- `ulang/test/runner.u`: the running of the tests of a module, each on its own, and then the proofs of its lemmas, moved from `test_module` and `test_message` of `ulang/ulang.u`; the walk of targets and the lines per file stay in the driver, as they serve `check`, `lint`, and `prove` too. `ulang/test` comes after `ulang/run` and `ulang/prove`, which it imports, as `ulang/test/cases` does.
+- `ulang/test/enumerate/enumerate.u`: the enumeration, moved from `ulang/prelude/enumerate.u`. In this project it is a package of its own, whose examples `make test` runs; into a program under test the tester loads it as the package `(test)` of one member `(test)/enumerate`, a name that no path can give, which no module sees and the generated tests name by qualified names, read by `os_library` from `ULANG_LIB/../test/enumerate/enumerate.u`, so that no second path is compiled in.
+
+## Steps
+
+1. The layout above, with `ulang/prelude/enumerate.u` kept for the seed, which still loads it as a member of the library.
+2. `make selfcompile`, then `ulang/prelude/enumerate.u` goes, with its special cases of `ulang/syntax/syntax.u`, and `CLAUDE.md` follows.
+3. A lemma whose test is falsified is reported as `lemma l falsified` and not proven.
+4. Tests with formals (Testing 1) by the same translation, without `TestParams`.
+5. The output of Testing 2 in both backends.
