@@ -189,7 +189,9 @@ function shift(n: Int, e: Term): Term
 
 function subst(c: Int, t: Term, e: Term): Term
 
-function beta(args: List[Term], e: Term): Term
+// the body of as many binders as there are arguments, applied to them
+function beta(args: List[Term], e: Term): Term :=
+  example beta(List(EInt(1), EInt(2)), Minus(EBound(1), EBound(0))) == Minus(EInt(1), EInt(2))
 
 function replace(a: Term, b: Term, e: Term): Term
 
@@ -506,7 +508,6 @@ function subst_branch(c: Int, t: Term, br: TermBranch): TermBranch :=
       end
   end
 
-// the body of as many binders as there are arguments, applied to them, where the last argument is EBound(0)
 function beta(args: List[Term], e: Term): Term :=
   match reverse(args)
     case List() =>
