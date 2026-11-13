@@ -42,7 +42,7 @@ function lints(d: Mod): List[Warning]
 implementation
 
 function lints(d: Mod): List[Warning] :=
-  List(for cmd in d.exported ++ d.builtins ++ d.implemented for w in cmd_lints(cmd.at) yield w) ++ unused_privates(d)
+  List(for cmd in d.exported ++ d.builtins ++ d.implemented for w in cmd_lints(cmd) yield w) ++ unused_privates(d)
 
 function cmd_lints(cmd: At[Cmd]): List[Warning] :=
   match cmd
@@ -206,7 +206,7 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
       exprs_lints(fun, List(for (_, e) in upd yield e))
 
     case SBlock(locals, stmts) =>
-      locals_lints(pos, locals, stmts) ++ collecting_loops(stmts_of(stmts)) ++ stmts_lints(fun, stmts_of(stmts))
+      locals_lints(pos, locals, stmts) ++ collecting_loops(stmts) ++ stmts_lints(fun, stmts)
 
     case SIf(cond, left, right) =>
       expr_lints(fun, cond) ++ stmts_lints(fun, List(left, right))
@@ -239,10 +239,10 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
 function stmt_branch_lints(fun: Id, br: Branch[At[Stmt]]): List[Warning] :=
   binder_lints(List(br.pat), option_names(br.guard) ++ stmt_names(br.body)) ++ option_lints(fun, br.guard) ++ stmt_lints(fun, br.body)
 
-function catch_lints(fun: Id, c: Doc[Catch]): List[Warning] :=
-  let handler := c.at.that in
+function catch_lints(fun: Id, c: At[Catch]): List[Warning] :=
+  let handler := c.that in
   let scope := option_names(handler.guard) ++ stmt_names(handler.body) in
-  swallowed(c.at.pos, handler.body) ++ binder_lints(List(handler.pat), scope) ++ option_lints(fun, handler.guard) ++ stmt_lints(fun, handler.body)
+  swallowed(c.pos, handler.body) ++ binder_lints(List(handler.pat), scope) ++ option_lints(fun, handler.guard) ++ stmt_lints(fun, handler.body)
 
 // the lints of the construct expr at pos, which its parts do not include
 function placed_lints(fun: Id, pos: Pos, expr: Expr): List[Warning] :=
@@ -388,7 +388,7 @@ function is_skip(stmt: At[Stmt]): Bool :=
       true
 
     case SBlock(List(), stmts) =>
-      forall(stmts_of(stmts), is_skip)
+      forall(stmts, is_skip)
 
     case _ =>
       false
@@ -397,14 +397,14 @@ function is_skip(stmt: At[Stmt]): Bool :=
 // the warnings of the locals xs of a block at pos, whose statements are stmts, starting with the assignments of the locals
 // that have initial values
 // the warnings of the locals xs of a block at pos, each at its declaration
-function locals_lints(pos: Pos, xs: List[At[Var]], stmts: List[Doc[Stmt]]): List[Warning] :=
+function locals_lints(pos: Pos, xs: List[At[Var]], stmts: List[At[Stmt]]): List[Warning] :=
   let inits := initialized(vars(xs), stmts) in
-  List(for x in xs for w in local_lints(decl_pos(pos, x.pos), x.that.name.base, contains(x.that.name.base, inits), stmts_of(stmts)) yield w)
+  List(for x in xs for w in local_lints(decl_pos(pos, x.pos), x.that.name.base, contains(x.that.name.base, inits), stmts) yield w)
 
 // the locals of xs that the assignments at the start of stmts initialize, as format_body prints them
-function initialized(xs: List[Var], stmts: List[Doc[Stmt]]): Set[Id] :=
+function initialized(xs: List[Var], stmts: List[At[Stmt]]): Set[Id] :=
   match (xs, stmts)
-    case (List(x; more), List(Doc(None, AOk(_, _, SAssign(List((y, _))))); rest)) if y == Var(x.name, THole) =>
+    case (List(x; more), List(AOk(_, _, SAssign(List((y, _)))); rest)) if y == Var(x.name, THole) =>
       Set(x.name.base) ++ initialized(more, rest)
 
     case (List(_; more), _) =>
@@ -497,7 +497,7 @@ function collected(pos: Pos, x: Id, list: At[Expr]): Warning :=
 function appended(x: Id, body: At[Stmt]): Option[At[Expr]] :=
   match stmt_part(body)
     case SBlock(List(), List(only)) =>
-      appended(x, only.at)
+      appended(x, only)
 
     case SAssign(List(
       (y, AOk(_, _, ECall(_, _, Name(None, "++"), _, List(AOk(_, _, EVar(z)), AOk(_, _, EForm(FList, List(YVal(e)), None)))))))) if y.name.base == x and z.name.base == x and not contains(x, expr_names(e)) =>
@@ -512,7 +512,7 @@ function appended(x: Id, body: At[Stmt]): Option[At[Expr]] :=
 function unused_privates(d: Mod): List[Warning] :=
   let exported := exported_names(d), cmds := commands_of(d.implemented) in
   let reached := reach(uses_graph(cmds), List(for x in exported ++ conventional(d.name) ++ root_names(cmds)), Set()) in
-  List(for c in d.implemented for (kind, name) in private_decl(c.at) if not contains(name, exported ++ reached) yield unused(c.at.pos, kind, name))
+  List(for c in d.implemented for (kind, name) in private_decl(c) if not contains(name, exported ++ reached) yield unused(c.pos, kind, name))
 
 function unused(pos: Pos, kind: Str, name: Id): Warning :=
   Warning(UnusedPrivate, pos, "nothing reaches the private " ++ kind ++ " " ++ name, None)
@@ -780,7 +780,7 @@ function child_stmts(stmt: Stmt): List[At[Stmt]] :=
       List()
 
     case SBlock(_, stmts) =>
-      stmts_of(stmts)
+      stmts
 
     case SIf(_, left, right) =>
       List(left, right)
@@ -979,7 +979,7 @@ function split_names(split: Split): Set[Id] :=
       expr_names(cond) ++ proof_names(left) ++ Set(for p in right for x in proof_names(p) yield x)
   end
 
-function branches_proof_names(cases: List[Doc[Branch[Proof]]]): Set[Id] :=
+function branches_proof_names(cases: List[At[Branch[Proof]]]): Set[Id] :=
   Set(for br in parts(cases) for x in pat_names(br.pat) ++ option_names(br.guard) ++ proof_names(br.body) yield x)
 
 // the names that stmt reads, of its expressions, of the procedures it calls, and of the refs that it passes

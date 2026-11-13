@@ -225,7 +225,7 @@ function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
       Flow(empty(), exprs_errors(scope, List(for (_, e) in upd yield e)))
 
     case SBlock(locals, stmts) =>
-      stmts_flow(bound(scope, vars(locals)), stmts_of(stmts))
+      stmts_flow(bound(scope, vars(locals)), stmts)
 
     case SIf(cond, left, right) =>
       with_errors(stmts_flow(scope, List(left, right)), expr_errors(scope, cond))
@@ -252,7 +252,7 @@ function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
         List((pos, NotAnException(typ)))) ++ expr_errors(scope, value))
 
     case STry(body, catches) =>
-      handled(scope, stmt_flow(scope, body), List(for c in catches yield (c.at.pos, c.at.that)))
+      handled(scope, stmt_flow(scope, body), List(for c in catches yield (c.pos, c.that)))
 
     case SFor(gens, body) =>
       gens_flow(scope, gens, lambda inner => stmt_flow(inner, body))

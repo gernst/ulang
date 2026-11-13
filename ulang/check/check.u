@@ -203,7 +203,7 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
       CSort(in_module(m, name), params, typ)
 
     case CData(name, params, constrs) =>
-      CData(in_module(m, name), params, List(for k in constrs yield map_doc(k, lambda c => qualify_constr(m, c))))
+      CData(in_module(m, name), params, List(for k in constrs yield map_at(k, lambda c => qualify_constr(m, c))))
 
     case CFun(name, params, formals, typ, spec, body) =>
       CFun(in_module(m, name), params, formals, typ, spec, body)
@@ -647,8 +647,8 @@ function newly_assigned(before: Env, after: Env): Set[Name] :=
   Set(for (n, l) in before if not l.assigned and exists(get(n, after), lambda x => x.assigned) yield n)
 
 // the pattern of a case, and whether it has no guard, such that it may cover values
-function case_of[A](b: Doc[Branch[A]]): At[Pat] * Bool :=
-  match b.at.that
+function case_of[A](b: At[Branch[A]]): At[Pat] * Bool :=
+  match b.that
     case Branch(pat, guard, _) =>
       (pat, guard == None)
   end
@@ -725,7 +725,7 @@ function zonk_node(s: State, expr: Expr): Expr :=
       EIte(zonk_expr(s, cond), zonk_expr(s, then_expr), zonk_expr(s, else_expr))
 
     case EMatch(arg, cases) =>
-      EMatch(zonk_expr(s, arg), List(for b in cases yield map_doc(b, lambda br => zonk_branch(s, br, lambda e => zonk_expr(s, e)))))
+      EMatch(zonk_expr(s, arg), List(for b in cases yield map_at(b, lambda br => zonk_branch(s, br, lambda e => zonk_expr(s, e)))))
 
     case ETuple(args) =>
       ETuple(List(for arg in args yield zonk_expr(s, arg)))
@@ -776,7 +776,7 @@ function zonk_statement(s: State, stmt: Stmt): Stmt :=
       SAssign(List(for p in upd yield zonk_binding(s, p)))
 
     case SBlock(locals, stmts) =>
-      SBlock(zonk_decls(s, locals), List(for d in stmts yield Doc(d.doc, zonk_stmt(s, d.at))))
+      SBlock(zonk_decls(s, locals), List(for d in stmts yield zonk_stmt(s, d)))
 
     case SIf(cond, left, right) =>
       SIf(zonk_expr(s, cond), zonk_stmt(s, left), zonk_stmt(s, right))
@@ -788,7 +788,7 @@ function zonk_statement(s: State, stmt: Stmt): Stmt :=
       SCall(settled(s, proc), List(for e in ins yield zonk_expr(s, e)), zonk_vars(s, outs), zonk_vars(s, refs))
 
     case SMatch(arg, cases) =>
-      SMatch(zonk_expr(s, arg), List(for b in cases yield map_doc(b, lambda br => zonk_branch(s, br, lambda y => zonk_stmt(s, y)))))
+      SMatch(zonk_expr(s, arg), List(for b in cases yield map_at(b, lambda br => zonk_branch(s, br, lambda y => zonk_stmt(s, y)))))
 
     case SAssert(cond) =>
       SAssert(zonk_expr(s, cond))
@@ -800,7 +800,7 @@ function zonk_statement(s: State, stmt: Stmt): Stmt :=
       SRaise(zonk_expr(s, value), zonk_type(s.sub, typ))
 
     case STry(body, catches) =>
-      STry(zonk_stmt(s, body), List(for h in catches yield map_doc(h, lambda c => zonk_handler(s, c))))
+      STry(zonk_stmt(s, body), List(for h in catches yield map_at(h, lambda c => zonk_handler(s, c))))
 
     case SFor(gens, body) =>
       SFor(List(for g in gens yield zonk_gen(s, g)), zonk_stmt(s, body))
@@ -830,10 +830,10 @@ function zonk_step(s: State, step: Step): Step :=
 function zonk_split(s: State, split: Split): Split :=
   match split
     case SplitInduction(formal, cases) =>
-      SplitInduction(zonk_var(s, formal), List(for b in cases yield map_doc(b, lambda br => zonk_branch(s, br, lambda p => zonk_proof(s, p)))))
+      SplitInduction(zonk_var(s, formal), List(for b in cases yield map_at(b, lambda br => zonk_branch(s, br, lambda p => zonk_proof(s, p)))))
 
     case SplitMatch(arg, cases) =>
-      SplitMatch(zonk_expr(s, arg), List(for b in cases yield map_doc(b, lambda br => zonk_branch(s, br, lambda p => zonk_proof(s, p)))))
+      SplitMatch(zonk_expr(s, arg), List(for b in cases yield map_at(b, lambda br => zonk_branch(s, br, lambda p => zonk_proof(s, p)))))
 
     case SplitIf(cond, left, right) =>
       SplitIf(zonk_expr(s, cond), zonk_proof(s, left), map_option(right, lambda p => zonk_proof(s, p)))
@@ -902,7 +902,7 @@ function unknown_in(stmt: At[Stmt]): Option[Pos * Type] :=
       unknown_in_exprs(seconds(upd))
 
     case SBlock(_, stmts) =>
-      unknown_in_all(stmts_of(stmts))
+      unknown_in_all(stmts)
 
     case SIf(cond, left, right) =>
       or_else(unknown_in_expr(cond), or_else(unknown_in(left), unknown_in(right)))
@@ -972,8 +972,8 @@ function unknown_in_expr(expr: At[Expr]): Option[Pos * Type] :=
 function unknown_in_exprs(exprs: List[At[Expr]]): Option[Pos * Type] :=
   find_map(exprs, unknown_in_expr)
 
-function branch_exprs(b: Doc[Branch[At[Expr]]]): List[At[Expr]] :=
-  match b.at.that
+function branch_exprs(b: At[Branch[At[Expr]]]): List[At[Expr]] :=
+  match b.that
     case Branch(_, Some(g), body) =>
       List(g, body)
     case Branch(_, None, body) =>
@@ -983,23 +983,23 @@ function branch_exprs(b: Doc[Branch[At[Expr]]]): List[At[Expr]] :=
 function unknown_in_all(xs: List[At[Stmt]]): Option[Pos * Type] :=
   find_map(xs, unknown_in)
 
-function unknown_in_branches(bs: List[Doc[Branch[At[Stmt]]]]): Option[Pos * Type] :=
+function unknown_in_branches(bs: List[At[Branch[At[Stmt]]]]): Option[Pos * Type] :=
   find_map(bs, unknown_in_branch)
 
-function unknown_in_branch(b: Doc[Branch[At[Stmt]]]): Option[Pos * Type] :=
-  match b.at.that
+function unknown_in_branch(b: At[Branch[At[Stmt]]]): Option[Pos * Type] :=
+  match b.that
     case Branch(_, guard, body) =>
       or_else(unknown_in_guard(guard), unknown_in(body))
   end
 
 // handlers of _ catch exceptions of any type
-function unknown_in_handlers(hs: List[Doc[Catch]]): Option[Pos * Type] :=
+function unknown_in_handlers(hs: List[At[Catch]]): Option[Pos * Type] :=
   find_map(hs, unknown_in_handler)
 
-function unknown_in_handler(h: Doc[Catch]): Option[Pos * Type] :=
-  match h.at.that
+function unknown_in_handler(h: At[Catch]): Option[Pos * Type] :=
+  match h.that
     case Catch(typ, pat, guard, body) =>
-      let caught := if pat.that == PWild then None else unknown_at(h.at.pos, typ) in
+      let caught := if pat.that == PWild then None else unknown_at(h.pos, typ) in
       or_else(caught, or_else(unknown_in_guard(guard), unknown_in(body)))
   end
 
@@ -1876,7 +1876,7 @@ procedure infer_node(
       assign res := ETuple(exprs), typ := TTuple(ts)
 
     case EMatch(arg, cases) =>
-      local c: At[Expr], u: Type, bs: List[Doc[Branch[At[Expr]]]]
+      local c: At[Expr], u: Type, bs: List[At[Branch[At[Expr]]]]
       call   fresh(out typ, ref s)
       call   infer(in env, arg, out c, u, ref s)
       call   expr_branches(in env, cases, u, typ, out bs, ref s)
@@ -2263,7 +2263,7 @@ function fold_expr(s: State, pos: Pos, span: Span, form: Form, m: Id, targs: Lis
       form_app(pos, span, m, fold, List(
         c,
         base,
-        AOk(pos, span, lambda_of(pos, span, if fold == "foldr" then List(kx, vx, acc) else List(acc, kx, vx), AOk(pos, span, EMatch(scrutinee(pos, span, List(kx, vx)), List(Doc(None, AOk(pos, span, Branch(p, None, body))))))))))
+        AOk(pos, span, lambda_of(pos, span, if fold == "foldr" then List(kx, vx, acc) else List(acc, kx, vx), AOk(pos, span, EMatch(scrutinee(pos, span, List(kx, vx)), List(AOk(pos, span, Branch(p, None, body)))))))))
 
     case GVal(p, _) =>
       let x := formal_of(s, p, "(element)", key_type(targs)) in
@@ -2313,7 +2313,7 @@ function matched(s: State, pos: Pos, span: Span, pairs: List[Var * At[Pat]], bod
 
     case ps =>
       AOk(pos, span, EMatch(scrutinee(pos, span, firsts(ps)), List(
-        Doc(None, AOk(pos, span, Branch(matched_pattern(pos, span, seconds(ps)), None, body))))))
+        AOk(pos, span, Branch(matched_pattern(pos, span, seconds(ps)), None, body)))))
   end
 
 // a pattern that is a variable, which a name of a constructor or pattern alias is not, as binders resolves it
@@ -2713,25 +2713,24 @@ procedure infers(
 
 procedure expr_branches(
   in  env: Env,
-      cases: List[Doc[Branch[At[Expr]]]],
+      cases: List[At[Branch[At[Expr]]]],
       t: Type,
       r: Type,
-  out typed_cases: List[Doc[Branch[At[Expr]]]],
+  out typed_cases: List[At[Branch[At[Expr]]]],
   ref s: State
 ) :=
   match cases
     case List() =>
       assign typed_cases := List()
 
-    case List(Doc(doc, AOk(pos, span, Branch(pat, g, body))); more) =>
-      local typed_pat: At[Pat], xs: List[Var], typed_guard: Option[At[Expr]], typed_body: At[Expr], rest: List[Doc[Branch[At[Expr]]]]
+    case List(AOk(pos, span, Branch(pat, g, body)); more) =>
+      local typed_pat: At[Pat], xs: List[Var], typed_guard: Option[At[Expr]], typed_body: At[Expr], rest: List[At[Branch[At[Expr]]]]
       call   typed_pattern(in pat, t, out typed_pat, xs, ref s)
       call   unhidden(in env, xs, ref s)
       call   guard(in bind(xs) ++ env, g, out typed_guard, ref s)
       call   check(in bind(xs) ++ env, body, r, "the case", out typed_body, ref s)
       call   expr_branches(in env, more, t, r, out rest, ref s)
-      assign typed_cases := List(
-        Doc(doc, AOk(pos, span, Branch(typed_pat, typed_guard, typed_body))); rest)
+      assign typed_cases := List(AOk(pos, span, Branch(typed_pat, typed_guard, typed_body)); rest)
 
     // the parser makes no error nodes yet
     case _ =>
@@ -3109,12 +3108,12 @@ procedure statement_node(
     // the types of locals that are initialized at the start of the block may be inferred
     case SBlock(locals, stmts) =>
       local ys: List[Var], xs: List[At[Stmt]], inner: Env
-      call   untyped(in locals, initialized(stmts_of(stmts)), ref s)
+      call   untyped(in locals, initialized(stmts), ref s)
       call   formals(in "local", locals, out ys, ref s)
       call   unhidden(in env, ys, ref s)
       assign inner := unassigned(ys) ++ env
-      call   statements(in List(for x in ys yield x.name) ++ assignable, stmts_of(stmts), out xs, ref inner, s)
-      assign y := SBlock(retyped(locals, ys), List(for (d, x) in zip(stmts, xs) yield Doc(d.doc, x))), env := drop(size(ys), inner)
+      call   statements(in List(for x in ys yield x.name) ++ assignable, stmts, out xs, ref inner, s)
+      assign y := SBlock(retyped(locals, ys), xs), env := drop(size(ys), inner)
 
     case SIf(cond, left, right) =>
       local c: At[Expr], l: At[Stmt], r: At[Stmt], other: Env
@@ -3140,7 +3139,7 @@ procedure statement_node(
       assign env := assigned(env, List(for x in outs ++ refs yield x.name))
 
     case SMatch(arg, cases) =>
-      local c: At[Expr], t: Type, bs: List[Doc[Branch[At[Stmt]]]]
+      local c: At[Expr], t: Type, bs: List[At[Branch[At[Stmt]]]]
       call   infer(in env, arg, out c, t, ref s)
       call   stmt_branches(in assignable, cases, t, out bs, ref env, s)
       call   solve(ref s)
@@ -3177,7 +3176,7 @@ procedure statement_node(
       assign y := SRaise(c, t), env := unreachable(env)
 
     case STry(body, catches) =>
-      local l: At[Stmt], hs: List[Doc[Catch]], other: Env := env
+      local l: At[Stmt], hs: List[At[Catch]], other: Env := env
       call   statement(in assignable, body, out l, ref env, s)
       call   handler_list(in assignable, catches, out hs, ref other, s)
       assign y := STry(l, hs), env := joined(env, other)
@@ -3430,9 +3429,9 @@ procedure declared_call(
 // env joins what the cases assign, where a match that no case fits raises
 procedure stmt_branches(
   in  assignable: List[Name],
-      cases: List[Doc[Branch[At[Stmt]]]],
+      cases: List[At[Branch[At[Stmt]]]],
       t: Type,
-  out typed_cases: List[Doc[Branch[At[Stmt]]]],
+  out typed_cases: List[At[Branch[At[Stmt]]]],
   ref env: Env,
       s: State
 ) :=
@@ -3440,16 +3439,15 @@ procedure stmt_branches(
     case List() =>
       assign typed_cases := List(), env := unreachable(env)
 
-    case List(Doc(doc, AOk(pos, span, Branch(pat, g, body))); more) =>
-      local typed_pat: At[Pat], xs: List[Var], typed_guard: Option[At[Expr]], typed_body: At[Stmt], rest: List[Doc[Branch[At[Stmt]]]], inner: Env
+    case List(AOk(pos, span, Branch(pat, g, body)); more) =>
+      local typed_pat: At[Pat], xs: List[Var], typed_guard: Option[At[Expr]], typed_body: At[Stmt], rest: List[At[Branch[At[Stmt]]]], inner: Env
       call   typed_pattern(in pat, t, out typed_pat, xs, ref s)
       call   unhidden(in env, xs, ref s)
       assign inner := bind(xs) ++ env
       call   guard(in inner, g, out typed_guard, ref s)
       call   statement(in assignable -- List(for x in xs yield x.name), body, out typed_body, ref inner, s)
       call   stmt_branches(in assignable, more, t, out rest, ref env, s)
-      assign typed_cases := List(
-        Doc(doc, AOk(pos, span, Branch(typed_pat, typed_guard, typed_body))); rest), env := joined(drop(size(xs), inner), env)
+      assign typed_cases := List(AOk(pos, span, Branch(typed_pat, typed_guard, typed_body)); rest), env := joined(drop(size(xs), inner), env)
 
     // the parser makes no error nodes yet
     case _ =>
@@ -3459,8 +3457,8 @@ procedure stmt_branches(
 // handlers start from the variables before the try, which an exception restores
 procedure handler_list(
   in  assignable: List[Name],
-      handlers: List[Doc[Catch]],
-  out typed_handlers: List[Doc[Catch]],
+      handlers: List[At[Catch]],
+  out typed_handlers: List[At[Catch]],
   ref env: Env,
       s: State
 ) :=
@@ -3468,8 +3466,8 @@ procedure handler_list(
     case List() =>
       assign typed_handlers := List(), env := unreachable(env)
 
-    case List(Doc(doc, AOk(pos, span, Catch(typ, pat, g, body))); more) =>
-      local u: Type, typed_pat: At[Pat], xs: List[Var], typed_guard: Option[At[Expr]], typed_body: At[Stmt], rest: List[Doc[Catch]], inner: Env
+    case List(AOk(pos, span, Catch(typ, pat, g, body)); more) =>
+      local u: Type, typed_pat: At[Pat], xs: List[Var], typed_guard: Option[At[Expr]], typed_body: At[Stmt], rest: List[At[Catch]], inner: Env
       call   normalize(in typ, out u, ref s)
       call   typed_pattern(in pat, u, out typed_pat, xs, ref s)
       call   unhidden(in env, xs, ref s)
@@ -3477,8 +3475,7 @@ procedure handler_list(
       call   guard(in inner, g, out typed_guard, ref s)
       call   statement(in assignable -- List(for x in xs yield x.name), body, out typed_body, ref inner, s)
       call   handler_list(in assignable, more, out rest, ref env, s)
-      assign typed_handlers := List(
-        Doc(doc, AOk(pos, span, Catch(u, typed_pat, typed_guard, typed_body))); rest), env := joined(drop(size(xs), inner), env)
+      assign typed_handlers := List(AOk(pos, span, Catch(u, typed_pat, typed_guard, typed_body)); rest), env := joined(drop(size(xs), inner), env)
 
     // the parser makes no error nodes yet
     case _ =>
@@ -3566,16 +3563,16 @@ procedure declare_constrs(in cs: List[Id * Cmd], ref s: State) :=
 procedure declare_constructors(
   in  n: Name,
       ps: List[Id],
-      ks: List[Doc[Constr]],
+      ks: List[At[Constr]],
   ref s: State
 ) :=
   for k in ks do
     try
-      assign s := s with at := k.at.pos
-      call   declare_constructor(in n, ps, k.at.that, ref s)
+      assign s := s with at := k.pos
+      call   declare_constructor(in n, ps, k.that, ref s)
     catch
       case e =>
-        raise at_use(k.at.pos, e)
+        raise at_use(k.pos, e)
     end
   end
 
@@ -3781,7 +3778,7 @@ procedure proof_split(
 ) :=
   match split
     case SplitInduction(x, cases) =>
-      local t: Type, typed_cases: List[Doc[Branch[Proof]]]
+      local t: Type, typed_cases: List[At[Branch[Proof]]]
       match List(for f in formals if f.name == x.name and (is_datatype_type(s, f.typ) or zonk_type(s.sub, f.typ) == TInt()) yield f.typ)
         case List(u; _) =>
           assign t := u
@@ -3794,7 +3791,7 @@ procedure proof_split(
       assign typed_split := SplitInduction(Var(x.name, t), typed_cases)
 
     case SplitMatch(arg, cases) =>
-      local c: At[Expr], t: Type, typed_cases: List[Doc[Branch[Proof]]]
+      local c: At[Expr], t: Type, typed_cases: List[At[Branch[Proof]]]
       call   infer(in env, arg, out c, t, ref s)
       call   proof_cases(in formals, outs, cases, t, out typed_cases, ref env, s)
       assign typed_split := SplitMatch(c, typed_cases)
@@ -3833,14 +3830,14 @@ function is_datatype_type(s: State, t: Type): Bool :=
 procedure proof_cases(
   in  formals: List[Var],
       outs: List[Name],
-      cases: List[Doc[Branch[Proof]]],
+      cases: List[At[Branch[Proof]]],
       t: Type,
-  out typed_cases: List[Doc[Branch[Proof]]],
+  out typed_cases: List[At[Branch[Proof]]],
   ref env: Env,
       s: State
 ) :=
-  local found: Buffer[Doc[Branch[Proof]]] := empty(), after := unreachable(env)
-  for Doc(doc, placed) in cases do
+  local found: Buffer[At[Branch[Proof]]] := empty(), after := unreachable(env)
+  for placed in cases do
     local typed_pat: At[Pat], xs: List[Var], typed_guard: Option[At[Expr]], typed_body: Proof, inner: Env
     call   typed_pattern(in placed.that.pat, t, out typed_pat, xs, ref s)
     call   unhidden(in env, xs, ref s)
@@ -3848,10 +3845,10 @@ procedure proof_cases(
     call   guard(in inner, placed.that.guard, out typed_guard, ref s)
     call   check_proof(in formals, outs, placed.that.body, out typed_body, ref inner, s)
     assign found := found ++ List(
-      Doc(doc, AOk(placed.pos, placed.span, Branch(typed_pat, typed_guard, typed_body)))), after := joined(after, outer_part(inner, env))
+      AOk(placed.pos, placed.span, Branch(typed_pat, typed_guard, typed_body))), after := joined(after, outer_part(inner, env))
   end
   assign typed_cases := List(for c in found)
-  if not covers_all(s.sig, zonk_type(s.sub, t), List(for c in found if c.at.that.guard == None yield strip_pat(c.at.that.pat).that)) then
+  if not covers_all(s.sig, zonk_type(s.sub, t), List(for c in found if c.that.guard == None yield strip_pat(c.that.pat).that)) then
     assign after := joined(after, env)
   end
   assign env := after
@@ -3942,7 +3939,7 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
       assign typed_cmd := CTest(name, retyped(formals, xs), y)
 
     case CData(name, params, constrs) =>
-      assign typed_cmd := CData(name, params, List(for k in constrs yield map_doc(k, lambda c => resolved_fields(s.sig, c))))
+      assign typed_cmd := CData(name, params, List(for k in constrs yield map_at(k, lambda c => resolved_fields(s.sig, c))))
 
     case CLemma(name, params, ins, outs, ClaimHolds(assms, concl), proof) =>
       local xs: List[Var], ys: List[Var], checked: List[At[Expr]] := List(), c: At[Expr], typed_proof: Option[Proof] := None
@@ -4482,8 +4479,8 @@ procedure private_of(in d: Mod, out hidden: Set[Name], hidden_sorts: List[Name])
   assign hidden := Set(for x in private_names(ex, im)), hidden_sorts := private_sorts(ex, im)
 
 // the commands of docs of the module m with qualified names, at their declarations
-function placed_cmds(m: Id, docs: List[Doc[Cmd]]): List[Pos * Cmd] :=
-  List(for c in docs if is_parsed(c.at) yield (c.at.pos, qualify(m, c.at.that)))
+function placed_cmds(m: Id, docs: List[At[Cmd]]): List[Pos * Cmd] :=
+  List(for c in docs if is_parsed(c) yield (c.pos, qualify(m, c.that)))
 
 function exported_cmds(d: Mod): List[Cmd] :=
   List(for c in commands_of(d.exported) yield qualify(d.name, c))
@@ -4812,7 +4809,7 @@ data ExampleTest :=
 
 // the examples on definitions in implementation of functions and procedures that export declares, as errors of s
 procedure examples_placed(in d: Mod, ref s: State) :=
-  local declared := List(for c in d.exported ++ d.builtins for o in example_owner(qualify(d.name, c.at.that)) yield o)
+  local declared := List(for c in d.exported ++ d.builtins for o in example_owner(qualify(d.name, c.that)) yield o)
   for x in example_tests(d) if not x.exported and contains(x.owner, declared) do
     assign s := s with errors := s.errors ++ List(Located(Some(d.name), x.pos, ExampleOnDefinition(x.owner)))
   end
@@ -4858,7 +4855,7 @@ function spec_of(cmd: Cmd): Spec :=
 // the tests of the examples of module d, named f.example.N with N from 1 for each base name f in the order of the source,
 // which users cannot write
 function example_tests(d: Mod): List[ExampleTest] :=
-  numbered_examples(d.name, List(for c in d.exported ++ d.builtins yield (true, c.at.that)) ++ List(for c in d.implemented yield (false, c.at.that)), empty())
+  numbered_examples(d.name, List(for c in d.exported ++ d.builtins yield (true, c.that)) ++ List(for c in d.implemented yield (false, c.that)), empty())
 
 function numbered_examples(m: Id, cmds: List[Bool * Cmd], counts: Map[Id, Int]): List[ExampleTest] :=
   match cmds
@@ -4994,7 +4991,7 @@ function first_member(members: List[Id]): Id :=
 
 // the commands of module d with qualified names, with the module of each, and their positions
 function decls_of(d: Mod): List[Pos * (Id * Cmd)] :=
-  List(for c in placed_of(d) yield (c.at.pos, (d.name, qualify(d.name, c.at.that))))
+  List(for c in placed_of(d) yield (c.pos, (d.name, qualify(d.name, c.that))))
 
 // the contracts of the signatures of procedures of placed, by name and arity
 function declared_contracts(placed: List[Pos * (Id * Cmd)]): Map[Name * Int, Spec] :=
@@ -5137,8 +5134,8 @@ function is_checked(m: Id, cmd: At[Cmd]): Bool :=
   end
 
 // the commands of docs of the module m with qualified names, at their declarations
-function written_of(m: Id, docs: List[Doc[Cmd]]): List[Id * At[Cmd]] :=
-  List(for c in docs for x in qualified_at(m, c.at) yield (m, x))
+function written_of(m: Id, docs: List[At[Cmd]]): List[Id * At[Cmd]] :=
+  List(for c in docs for x in qualified_at(m, c) yield (m, x))
 
 // without_unparsed of ulang/parse/parse.u leaves no command that does not parse to the checker
 function qualified_at(m: Id, cmd: At[Cmd]): Option[At[Cmd]] :=
@@ -5203,8 +5200,8 @@ test inference() :=
   end
 
 // a case of a match at Pos(0, 0), without a doc
-function case_at[A](pat: At[Pat], body: A): Doc[Branch[A]] :=
-  Doc(None, nowhere(Branch(pat, None, body)))
+function case_at[A](pat: At[Pat], body: A): At[Branch[A]] :=
+  nowhere(Branch(pat, None, body))
 
 test elaboration() :=
   local q: Prog
@@ -5215,9 +5212,8 @@ test elaboration() :=
   match definitions(q)
     case List(
       _,
-      CFun(_, _, _, _, _, AOk(_, _, EMatch(_, List(Doc(_, AOk(_, _, Branch(pat, _, _))); _)))),
-      CTest(_, List(), AOk(_, _, SBlock(_, List(
-        Doc(_, AOk(_, _, SAssign(List((_, AOk(_, _, ECall(_, _, _, typ, _)))))))))))) =>
+      CFun(_, _, _, _, _, AOk(_, _, EMatch(_, List(AOk(_, _, Branch(pat, _, _)); _)))),
+      CTest(_, List(), AOk(_, _, SBlock(_, List(AOk(_, _, SAssign(List((_, AOk(_, _, ECall(_, _, _, typ, _))))))))))) =>
       assert pat.that == PNil()
       assert typ == TFun(List(TList(TInt())), TInt())
 
@@ -5262,8 +5258,8 @@ function var_of(n: Id, t: Type): Var :=
 function fun_cmd(n: Id, xs: List[Var], r: Type, b: At[Expr]): Cmd :=
   CFun(unqualified(n), List(), unplaced_vars(xs), r, no_spec(), b)
 
-function constr_at(n: Id, fields: List[Field]): Doc[Constr] :=
-  Doc(None, nowhere(Constr(unqualified(n), fields)))
+function constr_at(n: Id, fields: List[Field]): At[Constr] :=
+  nowhere(Constr(unqualified(n), fields))
 
 // the modules bag and box, which both export a function size, a constructor Leaf, a procedure fill, and a field x,
 // and that the program imports
@@ -5288,7 +5284,7 @@ function bags(): List[Mod] :=
 // the module of cmds with sections, as the parser gives it: the datatypes and the signatures of the definitions exported,
 // and the definitions implemented
 function sectioned(name: Id, cmds: List[Cmd]): Mod :=
-  Mod(name, None, List(), unplaced(List(for c in cmds yield signature_of(c))), List(), unplaced(List(for c in cmds if signature_of(c) != c)))
+  Mod(name, List(), unplaced(List(for c in cmds yield signature_of(c))), List(), unplaced(List(for c in cmds if signature_of(c) != c)), List())
 
 function signature_of(cmd: Cmd): Cmd :=
   match cmd
@@ -5304,7 +5300,7 @@ function signature_of(cmd: Cmd): Cmd :=
 
 // the program of the commands cmds of the module main, which imports bag and box, each a package of its own
 function with_bags(cmds: List[Cmd]): Source :=
-  Source(List(natives_prelude(); bags()) ++ List(Mod("main", None, List("bag", "box"), List(), List(), unplaced(cmds))), List(
+  Source(List(natives_prelude(); bags()) ++ List(Mod("main", List("bag", "box"), List(), List(), unplaced(cmds), List())), List(
     Package("prelude", List(library_module("prelude"))),
     Package("bag", List("bag")),
     Package("box", List("box"))), "main")
@@ -5372,7 +5368,7 @@ test constructors() :=
     case_at(nowhere(PApp(unqualified("Leaf"), List(pat_var("n")))), expr_var("n")),
     case_at(nowhere(PApp(unqualified("Bag"), List(pat_var("n")))), expr_var("n")))))), out b)
   match b
-    case EMatch(_, List(Doc(_, AOk(_, _, Branch(AOk(_, _, PApp(constr, _)), _, _))); _)) =>
+    case EMatch(_, List(AOk(_, _, Branch(AOk(_, _, PApp(constr, _)), _, _)); _)) =>
       assert constr == in_bag("Leaf")
     case _ =>
       assert false
@@ -5386,7 +5382,7 @@ test procedures() :=
       nowhere(SCall(unqualified("fill"), List(), List(var_of("b", THole)), List())))))))), out q)
   match reverse(definitions(q))
     case List(
-      CProc(_, _, _, _, _, _, _, AOk(_, _, SBlock(_, List(Doc(_, AOk(_, _, SCall(proc, _, _, _))))))); _) =>
+      CProc(_, _, _, _, _, _, _, AOk(_, _, SBlock(_, List(AOk(_, _, SCall(proc, _, _, _)))))); _) =>
       assert proc == in_box("fill")
 
     case _ =>

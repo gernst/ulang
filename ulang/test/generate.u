@@ -280,7 +280,7 @@ function counterexamples_in(values: At[Expr], stmt: Stmt): Stmt :=
       SIf(generated_op("not", List(cond)), nowhere(SRaise(enum_call("Falsified", List(falsified_text(values, cond))), THole)), nowhere(SSkip))
 
     case SBlock(locals, stmts) =>
-      SBlock(locals, List(for d in stmts yield map_doc(d, lambda x => counterexamples_in(values, x))))
+      SBlock(locals, List(for d in stmts yield map_at(d, lambda x => counterexamples_in(values, x))))
 
     case SIf(cond, left, right) =>
       SIf(cond, with_counterexamples(values, left), with_counterexamples(values, right))
@@ -289,7 +289,7 @@ function counterexamples_in(values: At[Expr], stmt: Stmt): Stmt :=
       SWhile(cond, with_counterexamples(values, body))
 
     case SMatch(arg, cases) =>
-      SMatch(arg, List(for d in cases yield map_doc(d, lambda b => b with body := with_counterexamples(values, b.body))))
+      SMatch(arg, List(for d in cases yield map_at(d, lambda b => b with body := with_counterexamples(values, b.body))))
 
     case SFor(gens, body) =>
       SFor(gens, with_counterexamples(values, body))

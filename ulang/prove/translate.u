@@ -289,7 +289,7 @@ function run_stmt(exec: Exec, env: List[Name], stmt: At[Stmt], rest: List[Item],
       run(exec, bind(List(for (x, _) in upd yield x), env), rest, steps ++ defs, pos)
 
     case SBlock(_, stmts) =>
-      run(exec, env, List(for d in stmts yield IStmt(d.at)) ++ rest, steps, pos)
+      run(exec, env, List(for d in stmts yield IStmt(d)) ++ rest, steps, pos)
 
     case SIf(cond, left, right) =>
       let c := term_of(env, cond) in
@@ -335,8 +335,8 @@ function run_stmt(exec: Exec, env: List[Name], stmt: At[Stmt], rest: List[Item],
 function unsupported(what: Str, pos: Pos, steps: List[StepTerm]): ProofTerm :=
   ProofTerm(steps ++ List(UnsupportedTerm(what, pos), CallTerm(raise_name(), List(), List(), pos)), None, pos)
 
-function run_case(exec: Exec, env: List[Name], d: Doc[Branch[At[Stmt]]], rest: List[Item]): CaseTerm :=
-  let br := d.at.that, pos := d.at.pos in
+function run_case(exec: Exec, env: List[Name], d: At[Branch[At[Stmt]]], rest: List[Item]): CaseTerm :=
+  let br := d.that, pos := d.pos in
   let vars := pattern_vars(br.pat.that) in
   let inner := bind(vars, env) in
   CaseTerm(br.pat.that, map_option(br.guard, lambda g => term_of(inner, g)), vars, run(exec, inner, List(IStmt(br.body); rest), List(), pos), pos)
@@ -389,7 +389,7 @@ function assigned_in(stmt: Stmt): List[Var] :=
       outs ++ refs
 
     case SBlock(_, stmts) =>
-      List(for d in stmts for x in assigned_vars(d.at) yield x)
+      List(for d in stmts for x in assigned_vars(d) yield x)
 
     case SIf(_, left, right) =>
       assigned_vars(left) ++ assigned_vars(right)
@@ -398,13 +398,13 @@ function assigned_in(stmt: Stmt): List[Var] :=
       assigned_vars(body)
 
     case SMatch(_, cases) =>
-      List(for d in cases for x in assigned_vars(d.at.that.body) yield x)
+      List(for d in cases for x in assigned_vars(d.that.body) yield x)
 
     case SAssertRaises(_, _, body) =>
       assigned_vars(body)
 
     case STry(body, catches) =>
-      assigned_vars(body) ++ List(for d in catches for x in assigned_vars(d.at.that.body) yield x)
+      assigned_vars(body) ++ List(for d in catches for x in assigned_vars(d.that.body) yield x)
 
     case SFor(_, body) =>
       assigned_vars(body)
@@ -489,8 +489,8 @@ function split_term(formals: List[Var], env: List[Name], split: At[Split]): Spli
       IfTerm(term_of(env, cond), proof_term(formals, env, left, split.pos), map_option(right, lambda p => proof_term(formals, env, p, split.pos)), split.pos)
   end
 
-function case_term(formals: List[Var], env: List[Name], d: Doc[Branch[Proof]]): CaseTerm :=
-  let br := d.at.that, pos := d.at.pos in
+function case_term(formals: List[Var], env: List[Name], d: At[Branch[Proof]]): CaseTerm :=
+  let br := d.that, pos := d.pos in
   let vars := pattern_vars(br.pat.that) in
   let inner := bind(vars, env) in
   CaseTerm(br.pat.that, map_option(br.guard, lambda g => term_of(inner, g)), vars, proof_term(formals, inner, br.body, pos), pos)
@@ -574,8 +574,8 @@ function let_match(env: List[Name], pat: Pat, value: Term, body: At[Expr]): Term
   let inner := term_of(bind(pattern_vars(pat), env), body) in
   EMatch(value, List(TermBranch(pat, None, inner)))
 
-function branch_term(env: List[Name], d: Doc[Branch[At[Expr]]]): TermBranch :=
-  let br := d.at.that in
+function branch_term(env: List[Name], d: At[Branch[At[Expr]]]): TermBranch :=
+  let br := d.that in
   let inner := bind(pattern_vars(br.pat.that), env) in
   let guard := map_option(br.guard, lambda g => term_of(inner, g)), body := term_of(inner, br.body) in
   TermBranch(br.pat.that, guard, body)
