@@ -1,0 +1,471 @@
+// the blocks of CommonMark, in a subset: ATX and setext headings, paragraphs, fenced and indented code, block quotes,
+// bullet and ordered lists, nested and tight or loose, thematic breaks, and the tables of GitHub, where the text of a
+// heading, a paragraph, or a cell is left for the inline parser
+
+export
+
+data Align :=
+  case AlignNone
+  case AlignLeft
+  case AlignCenter
+  case AlignRight
+
+data Block :=
+  case Heading(level: Int, text: Str)
+  case Paragraph(text: Str)
+  case CodeBlock(info: Str, text: Str)
+  case Quote(body: List[Block])
+  case Bullets(tight: Bool, items: List[List[Block]])
+  case Numbered(start: Int, tight: Bool, items: List[List[Block]])
+  case Rule
+  case Table(aligns: List[Align], header: List[Str], rows: List[List[Str]])
+
+function parse_blocks(text: Str): List[Block]
+
+implementation
+
+// a list marker: ordered or not, its character (-, *, +, or the . or ) after the number), its number, and the column of
+// its content
+data Marker :=
+  case Marker(ordered: Bool, delim: Char, start: Int, width: Int)
+
+// how a line can start a block, decided once per line
+data Start :=
+  case Indented
+  case AtxStart(level: Int, text: Str)
+  case FenceStart(fence: Char, length: Int, indent: Int, info: Str)
+  case RuleStart
+  case QuoteStart(rest: Str)
+  case ItemStart(marker: Marker)
+  case TextStart
+
+function parse_blocks(text: Str): List[Block] :=
+  blocks(split(str(List(for c in chars(text) if c != '\r' yield c)), '\n'))
+
+function blocks(lines: List[Str]): List[Block] :=
+  let (bs, _) := blocks_gap(lines, false, false) in
+  bs
+
+// the blocks of the lines, and whether a blank line separates two of them, which makes the item of a list loose
+function blocks_gap(lines: List[Str], seen: Bool, gap: Bool): List[Block] * Bool :=
+  match lines
+    case List() =>
+      (List(), gap)
+
+    case List(l; rest) =>
+      if is_blank(l) then
+        blocks_gap(rest, seen, gap or seen and next_nonblank(rest) != None)
+      else
+        let (b, more) := block(l, rest) in
+        let (bs, g) := blocks_gap(more, true, gap) in
+        (List(b; bs), g)
+  end
+
+function classify(l: Str): Start :=
+  if indent_of(l) >= 4 then
+    Indented
+  else
+    match atx(trim(l))
+      case Some((n, t)) =>
+        AtxStart(n, t)
+
+      case None =>
+        match fence(l)
+          case Some(f) =>
+            f
+
+          case None =>
+            if is_rule(l) then
+              RuleStart
+            else
+              match quote_line(l)
+                case Some(t) =>
+                  QuoteStart(t)
+
+                case None =>
+                  match list_marker(l)
+                    case Some(m) =>
+                      ItemStart(m)
+                    case None =>
+                      TextStart
+                  end
+              end
+        end
+    end
+
+function block(l: Str, rest: List[Str]): Block * List[Str] :=
+  match classify(l)
+    case Indented =>
+      indented_code(List(dedent(4, l)), rest)
+
+    case AtxStart(n, t) =>
+      (Heading(n, t), rest)
+
+    case FenceStart(c, n, k, info) =>
+      let (body, more) := fence_body(c, n, k, rest, List()) in
+      (CodeBlock(info, join("", List(for b in body yield b ++ "\n"))), more)
+
+    case RuleStart =>
+      (Rule, rest)
+
+    case QuoteStart(t) =>
+      let (body, more) := quote_lines(rest, List(t)) in
+      (Quote(blocks(body)), more)
+
+    case ItemStart(m) =>
+      list(m, l, rest)
+
+    case TextStart =>
+      match (table_start(l, rest), rest)
+        case (Some(aligns), List(_; body)) =>
+          table(aligns, cells(l), body, List())
+        case _ =>
+          paragraph(List(l), rest)
+      end
+  end
+
+// # to ###### and a space, without a closing sequence of #
+function atx(t: Str): Option[Int * Str] :=
+  let (hashes, after) := span(chars(t), lambda c => c == '#') in
+  if 1 <= size(hashes) and size(hashes) <= 6 and (after == List() or after.head == ' ') then
+    Some((size(hashes), strip_closing(trim(str(after)))))
+  else
+    None
+
+function strip_closing(t: Str): Str :=
+  let (closing, before) := span(reverse(chars(t)), lambda c => c == '#') in
+  if closing == List() then
+    t
+  else if before == List() then
+    ""
+  else if before.head == ' ' then
+    trim(str(reverse(before)))
+  else
+    t
+
+function fence(l: Str): Option[Start] :=
+  let t := trim(l) in
+  let (run, after) := span(chars(t), lambda c => c == '`' or c == '~') in
+  match run
+    case List(c; _) =>
+      if size(run) >= 3 and forall(run, lambda d => d == c) and not (c == '`' and contains('`', after)) then
+        Some(FenceStart(c, size(run), indent_of(l), trim(str(after))))
+      else
+        None
+
+    case List() =>
+      None
+  end
+
+// the lines up to a closing fence of the same character and at least the length, without the indentation of the
+// opening fence, and the lines after it
+function fence_body(c: Char, n: Int, k: Int, lines: List[Str], acc: List[Str]): List[Str] * List[Str] :=
+  match lines
+    case List() =>
+      (reverse(acc), List())
+
+    case List(l; rest) =>
+      let (run, after) := span(chars(trim(l)), lambda d => d == c) in
+      if indent_of(l) <= 3 and size(run) >= n and after == List() then
+        (reverse(acc), rest)
+      else
+        fence_body(c, n, k, rest, List(dedent(k, l); acc))
+  end
+
+function indented_code(acc: List[Str], lines: List[Str]): Block * List[Str] :=
+  match lines
+    case List(l; rest) =>
+      if indent_of(l) >= 4 or is_blank(l) and match next_nonblank(rest)
+        case Some(n) =>
+          indent_of(n) >= 4
+        case None =>
+          false
+      end then
+        indented_code(List(dedent(4, l); acc), rest)
+      else
+        (CodeBlock("", join("", List(for a in reverse(acc) yield a ++ "\n"))), lines)
+
+    case List() =>
+      (CodeBlock("", join("", List(for a in reverse(acc) yield a ++ "\n"))), List())
+  end
+
+// three or more of -, *, or _, the same, with spaces between
+function is_rule(l: Str): Bool :=
+  let cs := List(for c in chars(l) if c != ' ' yield c) in
+  match cs
+    case List(c; _) =>
+      (c == '-' or c == '*' or c == '_') and size(cs) >= 3 and forall(cs, lambda d => d == c)
+    case List() =>
+      false
+  end
+
+function quote_line(l: Str): Option[Str] :=
+  match chars(trim(l))
+    case List('>', ' '; rest) =>
+      Some(str(rest))
+
+    case List('>'; rest) =>
+      Some(str(rest))
+
+    case _ =>
+      None
+  end
+
+// the lines of a block quote without their markers, with lazy continuations of its paragraphs
+function quote_lines(lines: List[Str], acc: List[Str]): List[Str] * List[Str] :=
+  match lines
+    case List(l; rest) =>
+      match quote_line(l)
+        case Some(t) =>
+          quote_lines(rest, List(t; acc))
+
+        case None =>
+          if not is_blank(l) and classify(l) == TextStart and acc != List() and not is_blank(acc.head) then
+            quote_lines(rest, List(l; acc))
+          else
+            (reverse(acc), lines)
+      end
+
+    case List() =>
+      (reverse(acc), List())
+  end
+
+function list_marker(l: Str): Option[Marker] :=
+  let k := indent_of(l), cs := chars(trim(l)) in
+  match cs
+    case List(c; after) =>
+      if c == '-' or c == '*' or c == '+' then
+        marker_after(Marker(false, c, 1, k + 1), after, l)
+      else
+        let (ds, more) := span(cs, is_digit) in
+        match more
+          case List(d; after2) =>
+            if 1 <= size(ds) and size(ds) <= 9 and (d == '.' or d == ')') then
+              marker_after(Marker(true, d, to_int(ds), k + size(ds) + 1), after2, l)
+            else
+              None
+
+          case List() =>
+            None
+        end
+
+    case List() =>
+      None
+  end
+
+// the marker if a space or the end of the line follows, with the spaces before the content in its width
+function marker_after(m: Marker, after: List[Char], l: Str): Option[Marker] :=
+  let (spaces, content) := span(after, lambda c => c == ' ') in
+  if after == List() or content == List() then
+    Some(m with width := m.width + 1)
+  else if spaces == List() then
+    None
+  else if size(spaces) > 4 then
+    Some(m with width := m.width + 1)
+  else
+    Some(m with width := m.width + size(spaces))
+
+function to_int(ds: List[Char]): Int :=
+  foldl(ds, 0, lambda n, d => 10 * n + ord(d) - ord('0'))
+
+function same_kind(a: Marker, b: Marker): Bool :=
+  a.ordered == b.ordered and a.delim == b.delim
+
+function list(m: Marker, l: Str, rest: List[Str]): Block * List[Str] :=
+  let (items, loose, more) := list_items(m, l, rest) in
+  let parsed := List(for it in items yield blocks_gap(it, false, false)) in
+  let tight := not loose and forall(parsed, lambda (_, g) => not g), bodies := List(for (bs, _) in parsed yield bs) in
+  if m.ordered then
+    (Numbered(m.start, tight, bodies), more)
+  else
+    (Bullets(tight, bodies), more)
+
+// the lines of each item, whether a blank line separates two items, and the lines after the list
+function list_items(m: Marker, l: Str, rest: List[Str]): List[List[Str]] * Bool * List[Str] :=
+  let first := if size(l) > m.width then slice(l, m.width, size(l)) else "" in
+  let (body, after) := item_lines(m.width, rest, is_blank(first)) in
+  let (blanks, next) := span(after, is_blank) in
+  match next
+    case List(n; more) =>
+      match list_marker(n)
+        case Some(m2) =>
+          if same_kind(m, m2) and classify(n) != RuleStart then
+            let (items, loose, tail) := list_items(m2 with start := m.start, n, more) in
+            (List(List(first; body); items), loose or blanks != List(), tail)
+          else
+            (List(List(first; body)), false, after)
+
+        case None =>
+          (List(List(first; body)), false, after)
+      end
+
+    case List() =>
+      (List(List(first; body)), false, after)
+  end
+
+// the lines after the first of an item: those indented to its content, blank lines before such, and lazy
+// continuations of a paragraph
+function item_lines(w: Int, lines: List[Str], prev_blank: Bool): List[Str] * List[Str] :=
+  match lines
+    case List() =>
+      (List(), List())
+
+    case List(n; more) =>
+      if is_blank(n) then
+        match next_nonblank(more)
+          case Some(x) =>
+            if indent_of(x) >= w then
+              let (taken, rest) := item_lines(w, more, true) in
+              (List(""; taken), rest)
+            else
+              (List(), lines)
+
+          case None =>
+            (List(), lines)
+        end
+      else if indent_of(n) >= w then
+        let (taken, rest) := item_lines(w, more, false) in
+        (List(slice(n, w, size(n)); taken), rest)
+      else if not prev_blank and classify(n) == TextStart then
+        let (taken, rest) := item_lines(w, more, false) in
+        (List(n; taken), rest)
+      else
+        (List(), lines)
+  end
+
+// a line that continues a paragraph: not blank, and no start of a block that interrupts one, where an ordered list
+// interrupts only from 1 and an empty item not at all
+function continues(l: Str): Bool :=
+  not is_blank(l) and match classify(l)
+    case TextStart =>
+      true
+
+    case Indented =>
+      true
+
+    case ItemStart(m) =>
+      m.ordered and m.start != 1 or size(trim(l)) < m.width - indent_of(l)
+
+    case _ =>
+      false
+  end
+
+function setext(l: Str): Option[Int] :=
+  let t := trim(l) in
+  if indent_of(l) <= 3 and t != "" and forall(chars(t), lambda c => c == '=') then
+    Some(1)
+  else if indent_of(l) <= 3 and t != "" and forall(chars(t), lambda c => c == '-') then
+    Some(2)
+  else
+    None
+
+function paragraph(acc: List[Str], lines: List[Str]): Block * List[Str] :=
+  match lines
+    case List(n; more) =>
+      match setext(n)
+        case Some(level) =>
+          (Heading(level, join("\n", reverse(acc))), more)
+
+        case None =>
+          if continues(n) then
+            paragraph(List(n; acc), more)
+          else
+            (Paragraph(join("\n", reverse(acc))), lines)
+      end
+
+    case List() =>
+      (Paragraph(join("\n", reverse(acc))), List())
+  end
+
+// the cells of a row of a table, split at the | that are not escaped
+function cells(l: Str): List[Str] :=
+  let t := trim(l) in
+  let inner := if starts_with(t, "|") then slice(t, 1, size(t)) else t in
+  let body := if ends_with(inner, "|") and not ends_with(inner, "\\|") then
+    slice(inner, 0, size(inner) - 1)
+  else
+    inner in
+  List(for c in split_cells(chars(body), List(), List()) yield trim(c))
+
+function split_cells(cs: List[Char], cell: List[Char], acc: List[Str]): List[Str] :=
+  match cs
+    case List() =>
+      reverse(List(str(reverse(cell)); acc))
+
+    case List('\\', '|'; rest) =>
+      split_cells(rest, List('|'; cell), acc)
+
+    case List('|'; rest) =>
+      split_cells(rest, List(), List(str(reverse(cell)); acc))
+
+    case List(c; rest) =>
+      split_cells(rest, List(c; cell), acc)
+  end
+
+// the alignments of a table whose header is l, if the next line is its delimiter row with as many cells
+function table_start(l: Str, rest: List[Str]): Option[List[Align]] :=
+  match rest
+    case List(d; _) =>
+      if contains('|', chars(l)) and contains('-', chars(d)) then
+        let header := cells(l), delims := cells(d) in
+        if size(header) == size(delims) and forall(delims, is_delimiter) then
+          Some(List(for c in delims yield align_of(c)))
+        else
+          None
+      else
+        None
+
+    case List() =>
+      None
+  end
+
+function is_delimiter(c: Str): Bool :=
+  let cs := chars(c) in
+  size(cs) >= 1 and forall(cs, lambda d => d == '-' or d == ':') and contains('-', cs) and forall(drop(1, take(size(cs) - 1, cs)), lambda d => d == '-')
+
+function align_of(c: Str): Align :=
+  if starts_with(c, ":") and ends_with(c, ":") then
+    AlignCenter
+  else if ends_with(c, ":") then
+    AlignRight
+  else if starts_with(c, ":") then
+    AlignLeft
+  else
+    AlignNone
+
+function table(aligns: List[Align], header: List[Str], lines: List[Str], rows: List[List[Str]]): Block * List[Str] :=
+  match lines
+    case List(l; rest) =>
+      if not is_blank(l) and classify(l) == TextStart then
+        table(aligns, header, rest, List(fit(cells(l), size(aligns)); rows))
+      else
+        (Table(aligns, header, reverse(rows)), lines)
+
+    case List() =>
+      (Table(aligns, header, reverse(rows)), List())
+  end
+
+// a row cut or filled up with empty cells to n
+function fit(row: List[Str], n: Int): List[Str] :=
+  take(n, row ++ List(for i in range(0, n) yield ""))
+
+test headings_and_code() :=
+  assert parse_blocks("# A #\n\nB\n===\n\n```ulang x\n  code\n```\n\n    four\n") == List(
+    Heading(1, "A"),
+    Heading(1, "B"),
+    CodeBlock("ulang x", "  code\n"),
+    CodeBlock("", "four\n"))
+  assert parse_blocks("#nope\n***\n> q\nlazy") == List(Paragraph("#nope"), Rule, Quote(List(Paragraph("q\nlazy"))))
+
+test lists() :=
+  assert parse_blocks("- a\n- b\n  - c\n\n1. x\n2. y") == List(
+    Bullets(true, List(
+      List(Paragraph("a")),
+      List(Paragraph("b"), Bullets(true, List(List(Paragraph("c"))))))),
+    Numbered(1, true, List(List(Paragraph("x")), List(Paragraph("y")))))
+  assert parse_blocks("- a\n\n- b") == List(Bullets(false, List(List(Paragraph("a")), List(Paragraph("b")))))
+  assert parse_blocks("3) a\nb") == List(Numbered(3, true, List(List(Paragraph("a\nb")))))
+
+test tables() :=
+  assert parse_blocks("| a | b |\n|:--|--:|\n| 1 | 2 \\| 3 |\n| 4 |") == List(
+    Table(List(AlignLeft, AlignRight), List("a", "b"), List(List("1", "2 | 3"), List("4", ""))))

@@ -1,0 +1,386 @@
+// the inlines of CommonMark, in a subset: code spans, emphasis and strong emphasis by * and _, links and images with
+// inline destinations, autolinks, backslash escapes, and hard and soft line breaks, where raw HTML is escaped
+
+export
+
+data Inline :=
+  case Text(s: Str)
+  case CodeSpan(s: Str)
+  case Emph(body: List[Inline])
+  case Strong(body: List[Inline])
+  case Link(body: List[Inline], url: Str, title: Str)
+  case Image(alt: Str, url: Str)
+  case HardBreak
+  case SoftBreak
+
+function parse_inlines(text: Str): List[Inline]
+
+function render_inlines(xs: List[Inline]): Str
+
+// the text of inlines without their markup, as in the alt of an image
+function plain_text(xs: List[Inline]): Str
+
+implementation
+
+function parse_inlines(text: Str): List[Inline] :=
+  inlines(chars(trim(text)), '\n')
+
+// the characters at which an inline other than text may start
+function special(c: Char): Bool :=
+  contains(c, chars("\\`*_[]!< \n"))
+
+function inlines(cs: List[Char], prev: Char): List[Inline] :=
+  match cs
+    case List() =>
+      List()
+
+    case List('\\', c; rest) =>
+      if c == '\n' then
+        List(HardBreak; inlines(rest, c))
+      else if is_punctuation(c) then
+        List(Text(str(List(c))); inlines(rest, c))
+      else
+        List(Text("\\"); inlines(List(c; rest), '\\'))
+
+    case List('`'; _) =>
+      code_span(cs)
+
+    case List('*'; _) =>
+      emphasis(cs, prev, '*')
+
+    case List('_'; _) =>
+      emphasis(cs, prev, '_')
+
+    case List('!', '['; rest) =>
+      image(rest)
+
+    case List('['; rest) =>
+      link(rest)
+
+    case List('<'; rest) =>
+      autolink(rest)
+
+    case List('\n'; rest) =>
+      let (_, after) := span(rest, lambda c => c == ' ') in
+      List(SoftBreak; inlines(after, '\n'))
+
+    case List(' '; _) =>
+      let (spaces, after) := span(cs, lambda c => c == ' ') in
+      match after
+        case List('\n'; rest) =>
+          let (_, next) := span(rest, lambda c => c == ' ') in
+          List(
+            if size(spaces) >= 2 then HardBreak else SoftBreak; inlines(next, '\n'))
+
+        case List() =>
+          List()
+
+        case _ =>
+          List(Text(str(spaces)); inlines(after, ' '))
+      end
+
+    case List(c; rest) =>
+      if special(c) then
+        List(Text(str(List(c))); inlines(rest, c))
+      else
+        let (plain, after) := span(cs, lambda d => not special(d)) in
+        List(Text(str(plain)); inlines(after, last_of(plain, c)))
+  end
+
+function last_of(cs: List[Char], default: Char): Char :=
+  foldl(cs, default, lambda _, c => c)
+
+// a code span closed by a run of as many backticks, else the run as text
+function code_span(cs: List[Char]): List[Inline] :=
+  let (run, after) := span(cs, lambda c => c == '`') in
+  match close_run(after, size(run), List())
+    case Some((content, rest)) =>
+      List(
+        CodeSpan(strip_code(str(List(for c in content yield if c == '\n' then ' ' else c)))); inlines(rest, '`'))
+
+    case None =>
+      List(Text(str(run)); inlines(after, '`'))
+  end
+
+// the characters up to a run of exactly n backticks, and those after it
+function close_run(cs: List[Char], n: Int, acc: List[Char]): Option[List[Char] * List[Char]] :=
+  match cs
+    case List() =>
+      None
+
+    case List('`'; _) =>
+      let (run, after) := span(cs, lambda c => c == '`') in
+      if size(run) == n then
+        Some((reverse(acc), after))
+      else
+        close_run(after, n, reverse(run) ++ acc)
+
+    case List(c; rest) =>
+      close_run(rest, n, List(c; acc))
+  end
+
+function strip_code(s: Str): Str :=
+  if size(s) >= 2 and starts_with(s, " ") and ends_with(s, " ") and not is_blank(s) then
+    slice(s, 1, size(s) - 1)
+  else
+    s
+
+// emphasis by one delimiter, strong emphasis by two, if the run can open and a closer follows, else the run as text
+function emphasis(cs: List[Char], prev: Char, d: Char): List[Inline] :=
+  let (run, after) := span(cs, lambda c => c == d) in
+  let k := if size(run) >= 2 then 2 else 1 in
+  if can_open(prev, after, d) then
+    match close_emphasis(drop(k, run) ++ after, d, k, d, List())
+      case Some((inner, rest)) =>
+        if inner == List() then
+          List(Text(str(run)); inlines(after, d))
+        else
+          List(
+            if k == 2 then
+              Strong(inlines(inner, d))
+            else
+              Emph(inlines(inner, d)); inlines(rest, d))
+
+      case None =>
+        List(Text(str(run)); inlines(after, d))
+    end
+  else
+    List(Text(str(run)); inlines(after, d))
+
+// whether a run of d after prev, followed by after, is left-flanking, and for _ not inside a word
+function can_open(prev: Char, after: List[Char], d: Char): Bool :=
+  match after
+    case List(next; _) =>
+      not is_space(next) and (not is_punctuation(next) or is_space(prev) or is_punctuation(prev)) and (d == '*' or not (is_letter(prev) or is_digit(prev)))
+    case List() =>
+      false
+  end
+
+// the characters up to a closing run of k delimiters d, skipping escapes and code spans, and those after it
+function close_emphasis(cs: List[Char], d: Char, k: Int, prev: Char, acc: List[Char]): Option[List[Char] * List[Char]] :=
+  match cs
+    case List() =>
+      None
+
+    case List('\\', c; rest) =>
+      close_emphasis(rest, d, k, c, List(c, '\\'; acc))
+
+    case List('`'; _) =>
+      let (run, after) := span(cs, lambda c => c == '`') in
+      match close_run(after, size(run), List())
+        case Some((content, rest)) =>
+          close_emphasis(rest, d, k, '`', reverse(run ++ content ++ run) ++ acc)
+        case None =>
+          close_emphasis(after, d, k, '`', reverse(run) ++ acc)
+      end
+
+    case List(c; rest) =>
+      if c == d then
+        let (run, after) := span(cs, lambda e => e == d) in
+        if size(run) == k and not is_space(prev) and (d == '*' or not starts_word(after)) then
+          Some((reverse(acc), after))
+        else
+          close_emphasis(after, d, k, d, reverse(run) ++ acc)
+      else
+        close_emphasis(rest, d, k, c, List(c; acc))
+  end
+
+function starts_word(cs: List[Char]): Bool :=
+  match cs
+    case List(c; _) =>
+      is_letter(c) or is_digit(c)
+    case List() =>
+      false
+  end
+
+// the text of a link up to its matching ], with nested brackets, and the characters after it
+function close_bracket(cs: List[Char], depth: Int, acc: List[Char]): Option[List[Char] * List[Char]] :=
+  match cs
+    case List() =>
+      None
+
+    case List('\\', c; rest) =>
+      close_bracket(rest, depth, List(c, '\\'; acc))
+
+    case List(']'; rest) =>
+      if depth == 0 then
+        Some((reverse(acc), rest))
+      else
+        close_bracket(rest, depth - 1, List(']'; acc))
+
+    case List('['; rest) =>
+      close_bracket(rest, depth + 1, List('['; acc))
+
+    case List(c; rest) =>
+      close_bracket(rest, depth, List(c; acc))
+  end
+
+// an inline destination (url "title") after the ], and the characters after its )
+function destination(cs: List[Char]): Option[Str * Str * List[Char]] :=
+  match cs
+    case List('('; rest) =>
+      let (_, start) := span(rest, is_space) in
+      let (url, after) := span(start, lambda c => not is_space(c) and c != ')') in
+      let (_, more) := span(after, is_space) in
+      match more
+        case List(')'; tail) =>
+          Some((str(url), "", tail))
+
+        case List('"'; tail) =>
+          let (title, after_title) := span(tail, lambda c => c != '"') in
+          match after_title
+            case List('"'; tail2) =>
+              let (_, last) := span(tail2, is_space) in
+              match last
+                case List(')'; tail3) =>
+                  Some((str(url), str(title), tail3))
+                case _ =>
+                  None
+              end
+
+            case _ =>
+              None
+          end
+
+        case _ =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+function link(cs: List[Char]): List[Inline] :=
+  match close_bracket(cs, 0, List())
+    case Some((text, after)) =>
+      match destination(after)
+        case Some((url, title, rest)) =>
+          List(Link(inlines(text, '['), url, title); inlines(rest, ')'))
+        case None =>
+          List(Text("["); inlines(cs, '['))
+      end
+
+    case None =>
+      List(Text("["); inlines(cs, '['))
+  end
+
+function image(cs: List[Char]): List[Inline] :=
+  match close_bracket(cs, 0, List())
+    case Some((text, after)) =>
+      match destination(after)
+        case Some((url, _, rest)) =>
+          List(Image(plain_text(inlines(text, '[')), url); inlines(rest, ')'))
+        case None =>
+          List(Text("!["); inlines(cs, '['))
+      end
+
+    case None =>
+      List(Text("!["); inlines(cs, '['))
+  end
+
+// <scheme:rest> with a scheme of letters and no spaces or angle brackets
+function autolink(cs: List[Char]): List[Inline] :=
+  let (scheme, after) := span(cs, lambda c => is_letter(c) or is_digit(c) or c == '+' or c == '.' or c == '-') in
+  match after
+    case List(':'; rest) =>
+      let (body, tail) := span(rest, lambda c => not is_space(c) and c != '<' and c != '>') in
+      match tail
+        case List('>'; more) =>
+          if size(scheme) >= 2 then
+            let url := str(scheme) ++ ":" ++ str(body) in
+            List(Link(List(Text(url)), url, ""); inlines(more, '>'))
+          else
+            List(Text("<"); inlines(cs, '<'))
+
+        case _ =>
+          List(Text("<"); inlines(cs, '<'))
+      end
+
+    case _ =>
+      List(Text("<"); inlines(cs, '<'))
+  end
+
+function render_inlines(xs: List[Inline]): Str :=
+  join("", List(for x in xs yield render_inline(x)))
+
+function render_inline(x: Inline): Str :=
+  match x
+    case Text(s) =>
+      escape_html(s)
+
+    case CodeSpan(s) =>
+      "<code>" ++ escape_html(s) ++ "</code>"
+
+    case Emph(body) =>
+      "<em>" ++ render_inlines(body) ++ "</em>"
+
+    case Strong(body) =>
+      "<strong>" ++ render_inlines(body) ++ "</strong>"
+
+    case Link(body, url, title) =>
+      "<a href=\"" ++ escape_html(url) ++ "\"" ++ (if title == "" then "" else " title=\"" ++ escape_html(title) ++ "\"") ++ ">" ++ render_inlines(body) ++ "</a>"
+
+    case Image(alt, url) =>
+      "<img src=\"" ++ escape_html(url) ++ "\" alt=\"" ++ escape_html(alt) ++ "\" />"
+
+    case HardBreak =>
+      "<br />\n"
+
+    case SoftBreak =>
+      "\n"
+  end
+
+function plain_text(xs: List[Inline]): Str :=
+  join("", List(for x in xs yield plain_inline(x)))
+
+function plain_inline(x: Inline): Str :=
+  match x
+    case Text(s) =>
+      s
+
+    case CodeSpan(s) =>
+      s
+
+    case Emph(body) =>
+      plain_text(body)
+
+    case Strong(body) =>
+      plain_text(body)
+
+    case Link(body, _, _) =>
+      plain_text(body)
+
+    case Image(alt, _) =>
+      alt
+
+    case HardBreak =>
+      "\n"
+
+    case SoftBreak =>
+      "\n"
+  end
+
+function html(text: Str): Str :=
+  render_inlines(parse_inlines(text))
+
+test spans() :=
+  assert html("a `b <c>` d") == "a <code>b &lt;c&gt;</code> d"
+  assert html("``a ` b``") == "<code>a ` b</code>"
+  assert html("`open") == "`open"
+
+test emphasis() :=
+  assert html("*a* and **b** and _c_") == "<em>a</em> and <strong>b</strong> and <em>c</em>"
+  assert html("**a *b* c**") == "<strong>a <em>b</em> c</strong>"
+  assert html("2 * 3 * 4") == "2 * 3 * 4"
+  assert html("snake_case_name") == "snake_case_name"
+  assert html("**`x*`**") == "<strong><code>x*</code></strong>"
+
+test links() :=
+  assert html("[a *b*](http://x.y/z \"t\") c") == "<a href=\"http://x.y/z\" title=\"t\">a <em>b</em></a> c"
+  assert html("![alt **x**](i.png)") == "<img src=\"i.png\" alt=\"alt x\" />"
+  assert html("<https://a.b> and <b>") == "<a href=\"https://a.b\">https://a.b</a> and &lt;b&gt;"
+  assert html("[not a link] (x)") == "[not a link] (x)"
+
+test breaks() :=
+  assert html("a  \nb\nc\\\nd") == "a<br />\nb\nc<br />\nd"
+  assert html("\\*not\\*") == "*not*"

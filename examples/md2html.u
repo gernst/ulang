@@ -1,0 +1,39 @@
+// md2html: converts a Markdown file to HTML, printed or written to a file, as a whole page with --standalone
+//
+//   out/ulang.sh run examples/md2html.u -- [--standalone] input.md [output.html]
+//
+// the command line of the package library/md
+
+import "library/md"
+
+procedure main() :=
+  local args: List[Str], standalone := false, rest: List[Str], ok := true, text: Str
+  try
+    call   os_args(out args)
+    assign standalone := contains("--standalone", args), rest := remove("--standalone", args)
+    match rest
+      case List(input) =>
+        call os_read(in input, out text)
+        call os_print(in page(text, standalone))
+
+      case List(input, output) =>
+        call os_read(in input, out text)
+        call os_write(in output, page(text, standalone))
+
+      case _ =>
+        raise OsError("usage: md2html [--standalone] input.md [output.html]")
+    end
+  catch
+    case OsError(message) =>
+      call   os_print_error(in message)
+      assign ok := false
+  end
+  if not ok then
+    call os_exit(in 1)
+  end
+
+function page(text: Str, standalone: Bool): Str :=
+  if standalone then
+    "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>" ++ escape_html(value_or(title_of(text), "")) ++ "</title>\n</head>\n<body>\n" ++ to_html(text) ++ "</body>\n</html>\n"
+  else
+    to_html(text)
