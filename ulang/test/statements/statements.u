@@ -45,7 +45,7 @@ procedure main(out a: Int, b: Int, c: Int) :=
   end
 
 procedure capture(out r: Int) :=
-  local i := 1, f := (lambda x => x + i)
+  local i := 1, f := lambda x => x + i
   assign i := 10
   assign r := f(0)
 
@@ -271,6 +271,31 @@ test keywords_after_conditions() :=
     assign m := 0
   end
   assert n == 10 and m == 0
+
+procedure split_at(
+  in  n: Int,
+      xs: List[Int],
+  out before: List[Int],
+      after: List[Int]
+) :=
+  assign before := take(n, xs), after := drop(n, xs)
+
+// a local is declared where it stands, to the end of its body, each of a line in scope of those before it, and a pattern
+// destructures its value
+test locals_anywhere() :=
+  local n := 1
+  assign n := n + 1
+  local m := n * 2, k: Int := m + 1
+  assert (n, m, k) == (2, 4, 5)
+  if n > 1 then
+    assign n := 0
+    // a doc of a local
+    local (a, b) := (m, k), (c, _): Int * Int := (a + b, 0)
+    assert c == 9
+  end
+  local xs, ys
+  call split_at(in 1, List(1, 2, 3), out xs, ys)
+  assert (xs, ys, n) == (List(1), List(2, 3), 0)
 
 // for p in c if q do … end runs its body for the elements of a container in the order of its fold
 test for_lists() :=

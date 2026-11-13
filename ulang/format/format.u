@@ -526,6 +526,9 @@ function pattern_out(notation: Notation, indent: Str, pat: Pat): Out :=
     case PTuple(args) =>
       Out("(" ++ format_patterns(notation, indent, args) ++ ")", Atom)
 
+    case PAnnotated(inner, typ) =>
+      Out(format_pattern(notation, indent, inner) ++ ": " ++ format_type(typ), Open)
+
     case PApp(Name(None, "Nil"), List()) =>
       Out("List()", Atom)
 
@@ -626,6 +629,9 @@ function format_stmt_node(notation: Notation, indent: Str, stmt: At[Stmt]): Str 
     case SBlock(_, _) =>
       "skip" ++ format_body(notation, indent, stmt)
 
+    case SLocal(decls) =>
+      "local " ++ decls_text(notation, indent, decls)
+
     case SFor(gens, body) =>
       end_text(indent, gens_text(notation, indent, gens) ++ " do" ++ format_body(notation, deeper(indent), body))
   end
@@ -662,6 +668,27 @@ function stmt_cases(notation: Notation, indent: Str, branches: List[Doc[Branch[A
 
 function stmt_case(notation: Notation, indent: Str, b: Doc[Branch[At[Stmt]]]): Str :=
   branch_head(notation, indent, b) ++ format_body(notation, deeper(indent), b.at.that.body)
+
+// the declarations of a local, where a value that a declaration follows is closed, as in assignments
+function decls_text(notation: Notation, indent: Str, decls: List[At[Pat] * Option[At[Expr]]]): Str :=
+  match decls
+    case List() =>
+      ""
+
+    case List((pat, init)) =>
+      format_pattern(notation, indent, pat) ++ init_text(init, lambda e => format_expr(notation, indent, e))
+
+    case List((pat, init); more) =>
+      format_pattern(notation, indent, pat) ++ init_text(init, lambda e => closed_expr(notation, indent, e)) ++ ", " ++ decls_text(notation, indent, more)
+  end
+
+function init_text(init: Option[At[Expr]], text: At[Expr] -> Str): Str :=
+  match init
+    case Some(expr) =>
+      " := " ++ text(expr)
+    case None =>
+      ""
+  end
 
 // the lines of a body, each after a newline, where local x := e is x with the assignment that starts the block
 function format_body(notation: Notation, indent: Str, body: At[Stmt]): Str :=
@@ -1259,6 +1286,9 @@ function source_pattern(pat: Pat): Pat :=
 
     case PTuple(args) =>
       PTuple(List(for p in args yield map_at(p, source_pattern)))
+
+    case PAnnotated(inner, typ) =>
+      PAnnotated(map_at(inner, source_pattern), typ)
 
     case PCons(x, xs) =>
       PApp(Name(None, "Cons"), List(map_at(x, source_pattern), map_at(xs, source_pattern)))

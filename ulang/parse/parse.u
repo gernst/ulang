@@ -405,9 +405,6 @@ function hint_at(what: Str, toks: Tokens): Str :=
     case (TName("elif"), _) =>
       "; write else, then if c then … end on the next line, with an end of its own"
 
-    case (TKw("local"), _) if what == "statement" =>
-      "; locals are declared at the start of a body, before its statements"
-
     case (TKw("["), _) =>
       "; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments"
 
@@ -812,7 +809,7 @@ procedure climb_infix[A](
   out args: List[A],
   ref toks: Tokens
 ) :=
-  local next := (if f == FRight then prec else prec + 1)
+  local next := if f == FRight then prec else prec + 1
   call parse_separated(in notation, params, lambda in ns, ps, out b, ref ts =>
     call climb(in ns, ps, ops, next, out b, ref ts)
   end, lambda ts => f == FLeft and operator_at(notation, ts) == Some(op), out args, ref toks)
@@ -1401,7 +1398,14 @@ procedure parse_pattern(
   out pat: At[Pat],
   ref toks: Tokens
 ) :=
+  local pos := head_pos(toks)
   call parse_operators(in notation, params, pat_ops(), out pat, ref toks)
+  if at_kw(toks, ":") then
+    local typ: Type
+    call   advance(ref toks)
+    call   parse_type(in notation, params, out typ, ref toks)
+    assign pat := AOk(pos, PAnnotated(pat, typ))
+  end
 
 procedure parse_pattern_atom(
   in  notation: Notation,
@@ -1461,6 +1465,7 @@ function starts_stmt(tok: Token): Bool :=
     case TKw(kw) =>
       contains(kw, List(
         "skip",
+        "local",
         "if",
         "while",
         "for",
@@ -1478,26 +1483,20 @@ function starts_stmt(tok: Token): Bool :=
 function handlers(cases: List[Doc[Branch[At[Stmt]]]]): List[Doc[Catch]] :=
   List(for d in cases yield Doc(d.doc, map_at(d.at, lambda b => Catch(THole, b.pat, b.guard, b.body))))
 
-// the body of an if, while, case, or procedure, at its first token, which may declare variables first, up to what ends it,
-// end, else, catch, case, or a command
-// where local x := e initializes x by an assignment at the start of the block, in order, such that its type can be inferred
+// the body of an if, while, case, or procedure, at its first token, up to what ends it, end, else, catch, case, or a
+// command, whose locals are SLocal statements among the others
 procedure parse_body(
   in  notation: Notation,
       params: List[Id],
   out body: At[Stmt],
   ref toks: Tokens
 ) :=
-  local pos := head_pos(toks), xs: List[At[Var]] := List(), inits: List[At[Stmt]] := List(), decls: List[At[Var] * List[At[Stmt]]], found: Buffer[Doc[Stmt]] := empty(), stmt: Doc[Stmt]
-  while at_kw(toks, "local") do
-    call   advance(ref toks)
-    call   parse_separated(in notation, params, parse_local, at_comma, out decls, ref toks)
-    assign xs := xs ++ firsts(decls), inits := inits ++ concat(seconds(decls))
-  end
+  local pos := head_pos(toks), found: Buffer[Doc[Stmt]] := empty(), stmt: Doc[Stmt]
   while at_stmt(toks) do
     call   parse_stmt_recovering(in notation, params, out stmt, ref toks)
     assign found := found ++ List(stmt)
   end
-  assign body := AOk(pos, SBlock(xs, List(for init in inits yield Doc(None, init)) ++ List(for t in found)))
+  assign body := AOk(pos, SBlock(List(), List(for t in found)))
 
 // whether the next token starts a statement, or something else that is neither a command nor ends a body, which a
 // statement that does not parse then is, also after a doc, which may document a statement but not what ends a body,
@@ -1707,7 +1706,34 @@ procedure nest(
 function is_mode(tok: Token): Bool :=
   tok == TKw("in") or tok == TKw("out") or tok == TKw("ref")
 
-// x: T, x := e, or x: T := e, where the checker requires a type or an initial value
+// p := e, or a variable x or x: T without a value, where the checker requires a type or a value
+procedure parse_decl(
+  in  notation: Notation,
+      params: List[Id],
+  out decl: At[Pat] * Option[At[Expr]],
+  ref toks: Tokens
+) :=
+  local pat: At[Pat], init: Option[At[Expr]]
+  call parse_pattern(in notation, params, out pat, ref toks)
+  call parse_optional(in notation, params, TKw(":="), parse_expr, out init, ref toks)
+  if init == None and not is_name_pattern(pat) then
+    raise ParseError("a local without a value is a name, which may have a type, x or x: T", pat.pos)
+  end
+  assign decl := (pat, init)
+
+function is_name_pattern(pat: At[Pat]): Bool :=
+  match pat.that
+    case PName(_, _) =>
+      true
+
+    case PAnnotated(inner, _) =>
+      is_name_pattern(inner)
+
+    case _ =>
+      false
+  end
+
+// x: T, x := e, or x: T := e of a proof, where the checker requires a type or an initial value
 procedure parse_local(
   in  notation: Notation,
       params: List[Id],
@@ -1784,6 +1810,12 @@ procedure parse_stmt(
 
     case TKw("for") =>
       call parse_for(in notation, params, out node, ref toks)
+
+    case TKw("local") =>
+      local decls: List[At[Pat] * Option[At[Expr]]]
+      call   advance(ref toks)
+      call   parse_separated(in notation, params, parse_decl, at_comma, out decls, ref toks)
+      assign node := SLocal(decls)
 
     case TKw("call") =>
       call parse_call(in notation, params, out node, ref toks)

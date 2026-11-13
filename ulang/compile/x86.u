@@ -747,6 +747,10 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
     case SSkip =>
       skip
 
+    // the checker turns each SLocal into a block
+    case SLocal(_) =>
+      raise Unexpected("local")
+
     // simultaneous, so all values are computed before the first is assigned
     case SAssign(upd) =>
       local slots: List[Int]

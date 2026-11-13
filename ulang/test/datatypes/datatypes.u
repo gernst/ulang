@@ -228,7 +228,7 @@ test lambda_arguments() :=
   assert exists(ps, lambda q => q.x == 3) and not forall(ps, lambda q => q.y < 4) and List(for q in ps yield q.y) == List(2, 4)
 
 test annotated_lambda() :=
-  local g: Point -> Int := (lambda p => p.x)
+  local g: Point -> Int := lambda p => p.x
   assert g(Point(5, 6)) == 5
 
 test generic_fields() :=

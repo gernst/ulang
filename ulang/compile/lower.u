@@ -308,6 +308,10 @@ function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
     case SBlock(locals, stmts) =>
       List(for y in stmts_of(stmts) for n in free_in_stmt(y, var_names(vars(locals)) ++ bound) yield n)
 
+    // the checker gives no SLocal
+    case SLocal(_) =>
+      List()
+
     case SIf(cond, left, right) =>
       free_vars(cond, bound) ++ free_in_stmt(left, bound) ++ free_in_stmt(right, bound)
 
@@ -499,6 +503,10 @@ function changed(stmt: At[Stmt]): List[Name] :=
 
     case SBlock(_, stmts) =>
       List(for y in stmts_of(stmts) for n in changed(y) yield n)
+
+    // the checker gives no SLocal
+    case SLocal(_) =>
+      List()
 
     case SIf(_, left, right) =>
       changed(left) ++ changed(right)

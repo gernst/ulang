@@ -743,6 +743,10 @@ function zonk_statement(s: State, stmt: Stmt): Stmt :=
     case SBlock(locals, stmts) =>
       SBlock(zonk_decls(s, locals), List(for d in stmts yield Doc(d.doc, zonk_stmt(s, d.at))))
 
+    // the checker gives no SLocal
+    case SLocal(_) =>
+      stmt
+
     case SIf(cond, left, right) =>
       SIf(zonk_expr(s, cond), zonk_stmt(s, left), zonk_stmt(s, right))
 
@@ -868,6 +872,10 @@ function unknown_in(stmt: At[Stmt]): Option[Pos * Type] :=
 
     case SBlock(_, stmts) =>
       unknown_in_all(stmts_of(stmts))
+
+    // the checker gives no SLocal
+    case SLocal(_) =>
+      None
 
     case SIf(cond, left, right) =>
       or_else(unknown_in_expr(cond), or_else(unknown_in(left), unknown_in(right)))
@@ -1773,6 +1781,12 @@ procedure infer_node(
       call   outputs(in unqualified("lambda"), ys, inner, ref s)
       call   fresh(out r, ref s)
       assign res := EProc(retyped(ins, xs), retyped(outs, ys), retyped(refs, zs), r, y), typ := TProc(List(for x in xs yield x.typ), List(for x in ys yield x.typ), List(for x in zs yield x.typ), r)
+
+    // the bindings of a let are sequential, each in scope of those before it, so the checked program has one binding
+    // per let, a let of the rest for the body of the first, at the pattern of its first binding
+    case ELet(List(binding, (pat, bound); more), body) =>
+      local inner := AOk(pat.pos, ELet(List((pat, bound); more), body))
+      call infer_node(in env, pos, ELet(List(binding), inner), expected, out res, typ, ref s)
 
     // lets do not generalize, only declarations have type parameters
     case ELet(bound, body) =>
@@ -2820,6 +2834,14 @@ procedure pattern_binders(
       call   unify(in TTuple(ts), t, ref s)
       call   binder_list(in args, ts, out qs, xs, ref s)
       assign typed_pat := AOk(pos, PTuple(qs))
+
+    // the annotation is unified before the pattern is checked, so that it resolves what the pattern holds, and the
+    // checked pattern does not keep it
+    case PAnnotated(inner, typ) =>
+      local u: Type
+      call normalize(in typ, out u, ref s)
+      call unify(in u, t, ref s)
+      call binders(in inner, u, out typed_pat, xs, ref s)
   end
 
 // the constructor or pattern alias k with its head applied to the patterns args, matching t
@@ -3010,6 +3032,12 @@ procedure statement_node(
       call   checks(in env, "the assignment", seconds(upd), List(for x in ys yield x.typ), out exprs, ref s)
       assign y := SAssign(zip(ys, exprs)), env := assigned(env, List(for x in ys yield x.name))
 
+    // the locals of the parser are SLocal statements, each a block of the rest of its body
+    case SBlock(locals, stmts) if exists(stmts, lambda d => is_local(d.at)) =>
+      local block: Stmt
+      call declared(in pos, locals, stmts, out block, ref s)
+      call statement_node(in assignable, pos, block, out y, ref env, s)
+
     // the types of locals that are initialized at the start of the block may be inferred
     case SBlock(locals, stmts) =>
       local ys: List[Var], xs: List[At[Stmt]], inner: Env
@@ -3019,6 +3047,10 @@ procedure statement_node(
       assign inner := unassigned(ys) ++ env
       call   statements(in List(for x in ys yield x.name) ++ assignable, stmts_of(stmts), out xs, ref inner, s)
       assign y := SBlock(retyped(locals, ys), List(for (d, x) in zip(stmts, xs) yield Doc(d.doc, x))), env := drop(size(ys), inner)
+
+    // the parser gives an SLocal only in a block, which the case of SBlock declares
+    case SLocal(_) =>
+      raise Unexpected("local outside a block")
 
     case SIf(cond, left, right) =>
       local c: At[Expr], l: At[Stmt], r: At[Stmt], other: Env
@@ -3189,6 +3221,153 @@ procedure untyped(in xs: List[At[Var]], inits: List[Name], ref s: State) :=
         call report(in at_use(decl_pos(s.at, x.pos), MissingType(x.that.name)), ref s)
       end
       call untyped(in rest, inits, ref s)
+  end
+
+function is_local(stmt: At[Stmt]): Bool :=
+  match stmt
+    case AOk(_, SLocal(_)) =>
+      true
+    case _ =>
+      false
+  end
+
+// the block of locals and stmts as blocks that declare their locals at their start: the statements before the first
+// SLocal, then a block of its declarations, where a run of variables is one block, whose values are the assignments at
+// its start, as the checker infers their types from them, and a pattern is a block of its variables, of unknown types,
+// assigned by a match of the value, which checks that the pattern is irrefutable, under names that users cannot write
+procedure declared(
+  in  pos: Pos,
+      locals: List[At[Var]],
+      stmts: List[Doc[Stmt]],
+  out block: Stmt,
+  ref s: State
+) :=
+  match stmts
+    case List(Doc(_, AOk(at, SLocal(decls))); rest) =>
+      local vars := declared_vars(s, decls)
+      if vars != List() then
+        local inits := List(for (x, (_, init)) in zip(vars, decls) for e in init yield Doc(None, AOk(x.pos, SAssign(List((x.that, e))))))
+        assign block := SBlock(locals ++ vars, inits ++ rest_of(at, drop(size(vars), decls), rest))
+      else
+        match decls
+          case List((pat, Some(e)); more) =>
+            local xs: List[At[Var]] := List(), assigned: At[Stmt]
+            for x in placed_pattern_vars(s, pat) do
+              local u: Type
+              call   fresh(out u, ref s)
+              assign xs := xs ++ List(x with that := Var(x.that.name, u))
+            end
+            assign assigned := AOk(pat.pos, SAssign(List(for x in xs yield (x.that, AOk(x.pos, EVar(Var(generated_name(x.that.name.base), THole)))))))
+            assign block := SBlock(locals ++ xs, List(
+              Doc(None, AOk(pat.pos, SMatch(e, List(
+                Doc(None, AOk(pat.pos, Branch(generated_pat(s, pat), None, assigned)))))))) ++ rest_of(at, more, rest))
+
+          // the parser gives a value to every declaration that is no variable, and no SLocal without declarations
+          case _ =>
+            raise Unexpected("local of a pattern without a value")
+        end
+      end
+
+    case _ =>
+      local before := before_local(stmts)
+      match drop(size(before), stmts)
+        case List(Doc(doc, AOk(at, SLocal(decls))); rest) =>
+          assign block := SBlock(locals, before ++ List(
+            Doc(doc, AOk(at, SBlock(List(), List(Doc(None, AOk(at, SLocal(decls)))) ++ rest)))))
+
+        case _ =>
+          assign block := SBlock(locals, stmts)
+      end
+  end
+
+function before_local(stmts: List[Doc[Stmt]]): List[Doc[Stmt]] :=
+  match stmts
+    case List(d; rest) if not is_local(d.at) =>
+      List(d; before_local(rest))
+    case _ =>
+      List()
+  end
+
+// the statements after a declaration, which start with a local of the declarations after it, if there are any
+function rest_of(at: Pos, decls: List[At[Pat] * Option[At[Expr]]], rest: List[Doc[Stmt]]): List[Doc[Stmt]] :=
+  if decls == List() then
+    rest
+  else
+    List(
+      Doc(None, AOk(at, SBlock(List(), List(Doc(None, AOk(at, SLocal(decls))); rest)))))
+
+// the declarations at the start of decls that are variables, with their annotations
+function declared_vars(s: State, decls: List[At[Pat] * Option[At[Expr]]]): List[At[Var]] :=
+  match decls
+    case List((pat, _); more) =>
+      match declared_var(s, pat)
+        case Some(x) =>
+          List(x; declared_vars(s, more))
+        case None =>
+          List()
+      end
+
+    case List() =>
+      List()
+  end
+
+function declared_var(s: State, pat: At[Pat]): Option[At[Var]] :=
+  match pat.that
+    case PVar(x) if is_pvar(s, pat) =>
+      Some(AOk(pat.pos, x))
+
+    case PAnnotated(inner, typ) =>
+      map_option(declared_var(s, inner), lambda x => x with that := Var(x.that.name, typ))
+
+    case _ =>
+      None
+  end
+
+// the variables of a pattern at their positions
+function placed_pattern_vars(s: State, pat: At[Pat]): List[At[Var]] :=
+  match pat.that
+    case PVar(x) =>
+      if is_pvar(s, pat) then List(AOk(pat.pos, x)) else List()
+
+    case PApp(_, args) =>
+      List(for p in args for x in placed_pattern_vars(s, p) yield x)
+
+    case PTuple(args) =>
+      List(for p in args for x in placed_pattern_vars(s, p) yield x)
+
+    case PAnnotated(inner, _) =>
+      placed_pattern_vars(s, inner)
+
+    case PWild =>
+      List()
+
+    case PLit(_) =>
+      List()
+  end
+
+// the pattern with the generated names of its variables
+function generated_pat(s: State, pat: At[Pat]): At[Pat] :=
+  match pat.that
+    case PVar(x) =>
+      if is_pvar(s, pat) then
+        pat with that := PVar(Var(generated_name(x.name.base), THole))
+      else
+        pat
+
+    case PApp(constr, args) =>
+      pat with that := PApp(constr, List(for p in args yield generated_pat(s, p)))
+
+    case PTuple(args) =>
+      pat with that := PTuple(List(for p in args yield generated_pat(s, p)))
+
+    case PAnnotated(inner, typ) =>
+      pat with that := PAnnotated(generated_pat(s, inner), typ)
+
+    case PWild =>
+      pat
+
+    case PLit(_) =>
+      pat
   end
 
 procedure statements(
@@ -4833,7 +5012,7 @@ procedure example_commands(
 ) :=
   assign cmds := List()
   for x in xs do
-    local errors: List[Diagnostic], before := size(s.errors), one: List[Cmd] := List(x.cmd), viewer := (if x.exported then "(example)/" ++ x.module else x.module)
+    local errors: List[Diagnostic], before := size(s.errors), one: List[Cmd] := List(x.cmd), viewer := if x.exported then "(example)/" ++ x.module else x.module
     assign s := s with table := List((viewer, List(x.module; sees(x.module, s.table))); s.table)
     try
       call commands(in List((viewer, x.cmd)), out one, ref s)

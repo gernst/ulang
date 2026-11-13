@@ -291,6 +291,10 @@ function run_stmt(exec: Exec, env: List[Name], stmt: At[Stmt], rest: List[Item],
     case SBlock(_, stmts) =>
       run(exec, env, List(for d in stmts yield IStmt(d.at)) ++ rest, steps, pos)
 
+    // the checker gives no SLocal
+    case SLocal(_) =>
+      unsupported("local", stmt.pos, steps)
+
     case SIf(cond, left, right) =>
       let c := term_of(env, cond) in
       let yes := run(exec, env, List(IStmt(left); rest), List(), left.pos), no := run(exec, env, List(IStmt(right); rest), List(), right.pos) in
@@ -390,6 +394,10 @@ function assigned_in(stmt: Stmt): List[Var] :=
 
     case SBlock(_, stmts) =>
       List(for d in stmts for x in assigned_vars(d.at) yield x)
+
+    // the checker gives no SLocal
+    case SLocal(_) =>
+      List()
 
     case SIf(_, left, right) =>
       assigned_vars(left) ++ assigned_vars(right)

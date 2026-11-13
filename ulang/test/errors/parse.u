@@ -33,11 +33,6 @@ test comment_before_else() :=
       "  end"))
   end
 
-test comment_before_local() :=
-  assert raises ParseError("a comment is the doc of the command, statement, or case below it, from the start of a line and without a blank line between", Pos(2, 3)) do
-    call check_text(in "ulang/test/errors/comment-before-local.u", List("procedure main() :=", "  // one", "  local x := 1", "  skip"))
-  end
-
 test comment_in_argument() :=
   assert raises ParseError("a comment is the doc of the command, statement, or case below it, from the start of a line and without a blank line between", Pos(3, 5)) do
     call check_text(in "ulang/test/errors/comment-in-argument.u", List(
@@ -297,8 +292,7 @@ test habits() :=
     ParseError("expression expected but [ found; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments", Pos(12, 16)),
     ParseError("undeclared operator ::; a list is built and matched as List(x; rest)", Pos(13, 18)),
     ParseError("undeclared operator &&; the operators of Bool are and, or, and not", Pos(14, 24)),
-    ParseError("statement expected but break found; a loop ends by its condition or by an exception", Pos(16, 5)),
-    ParseError("statement expected but local found; locals are declared at the start of a body, before its statements", Pos(19, 3)))) do
+    ParseError("statement expected but break found; a loop ends by its condition or by an exception", Pos(16, 5)))) do
     call check_text(in "ulang/test/errors/habits.u", List(
       "procedure main() :=",
       "  local x := 1, xs := List(1)",
@@ -316,9 +310,7 @@ test habits() :=
       "  assign x := if x > 1 && x < 3 then 1 else 2",
       "  while x < 3 do",
       "    break",
-      "  end",
-      "  skip",
-      "  local y := 2"))
+      "  end"))
   end
 
 // a missing end is reported at the construct that is still open where the parse ends, which the indentation does not
@@ -338,7 +330,7 @@ test several_parse_errors() :=
   assert raises ParseErrors(List(
     ParseError(_, Pos(4, 1)),
     ParseError(_, Pos(5, 3)),
-    ParseError(_, Pos(9, 3)))) do
+    ParseError(_, Pos(9, 9)))) do
     call check_text(in "ulang/test/errors/several-parse-errors.u", List(
       "function f(n: Int): Int :=",
       "  n +",
@@ -348,7 +340,7 @@ test several_parse_errors() :=
       "",
       "procedure p() :=",
       "  skip",
-      "  local x := 1",
+      "  local (x, y)",
       "",
       "function h(): Int :=",
       "  1"))

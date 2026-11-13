@@ -311,9 +311,9 @@ test literal_leaves() :=
 
 // a split that induction asks for, also where the only row is a catch-all, which binds the constructor terms
 test forced_leaves() :=
-  local list := Name(Some("prelude/list"), "List"), nil := Name(Some("prelude/list"), "Nil"), cons := Name(Some("prelude/list"), "Cons"), var := (lambda base => Var(Name(None, base), THole)), decls := (empty_decls() with constrs := Map(
+  local list := Name(Some("prelude/list"), "List"), nil := Name(Some("prelude/list"), "Nil"), cons := Name(Some("prelude/list"), "Cons"), var := (lambda base => Var(Name(None, base), THole)), decls := empty_decls() with constrs := Map(
     nil => ConstrDecl(list, List()),
-    cons => ConstrDecl(list, List(var("head"), var("tail")))), datatypes := Map(list => List(nil, cons)))
+    cons => ConstrDecl(list, List(var("head"), var("tail")))), datatypes := Map(list => List(nil, cons))
   match leaves(decls, ELevel(0), 1, List((PVar(var("ys")), false)), Some(list))
     case List(empty, nonempty) =>
       assert empty.hits == List(Hit(0, List(EFun(nil))))

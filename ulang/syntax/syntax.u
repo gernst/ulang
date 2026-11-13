@@ -128,6 +128,8 @@ data Pat :=
   case PApp(constr: Name, args: List[At[Pat]])
   // a tuple (p, q, …)
   case PTuple(args: List[At[Pat]])
+  // p: T, whose type the checker unifies with T and which checked patterns do not have
+  case PAnnotated(pat: At[Pat], typ: Type)
 
 // the proof of a lemma after its contract, see ideas/prove.md, section 4: steps that add facts and witnesses, then at most one
 // split, which ends it, since it replaces the goal by its cases, each a proof of its own; without steps and split, the
@@ -165,9 +167,13 @@ data Stmt :=
   case SSkip
   // assign x := a, …, which assigns in parallel
   case SAssign(upd: List[Var * At[Expr]])
-  // statements one after another, each after its doc, the body of an if, while, case, or procedure, which may declare
-  // local x := e first, as assignments without docs that start stmts
+  // statements one after another, each after its doc, the body of an if, while, case, or procedure, where the parser
+  // gives no locals but SLocal statements, and the checker gives no SLocal but blocks whose locals the assignments at
+  // the start of stmts initialize
   case SBlock(locals: List[At[Var]], stmts: List[Doc[Stmt]])
+  // local p := e, x: T, …, which declares the variables of its patterns to the end of the block, each in the scope of
+  // those before it, where a declaration without a value is a variable, which the checker turns into a block of the rest
+  case SLocal(decls: List[At[Pat] * Option[At[Expr]]])
   // if c then … else … end, or if c then … end
   case SIf(cond: At[Expr], left: At[Stmt], right: At[Stmt])
   // while c do … end
@@ -739,6 +745,9 @@ function pattern_value(pos: Pos, p: Pat): Option[Expr] :=
 
     case PApp(c, ps) =>
       map_option(pattern_exprs(ps), lambda es => ECall(pos, c, THole, es))
+
+    case PAnnotated(inner, _) =>
+      pattern_value(inner.pos, inner.that)
   end
 
 // pat with the patterns of sub for its variables
@@ -803,6 +812,9 @@ function pattern_names(pat: At[Pat]): List[Name] :=
 
     case PTuple(args) =>
       List(for arg in args for name in pattern_names(arg) yield name)
+
+    case PAnnotated(inner, _) =>
+      pattern_names(inner)
 
     case PWild =>
       List()
@@ -889,6 +901,9 @@ function loop_positions_in(pos: Pos, stmt: Stmt): List[Pos] :=
 
     case SBlock(_, stmts) =>
       List(for d in stmts for p in loop_positions(d.at) yield p)
+
+    case SLocal(_) =>
+      List()
 
     case SIf(_, left, right) =>
       loop_positions(left) ++ loop_positions(right)
@@ -1038,6 +1053,9 @@ function strip_statement(stmt: Stmt): Stmt :=
     case SBlock(locals, stmts) =>
       SBlock(strip_vars(locals), List(for d in stmts yield Doc(d.doc, strip_stmt(d.at))))
 
+    case SLocal(decls) =>
+      SLocal(List(for (p, init) in decls yield (strip_pat(p), map_option(init, strip_expr))))
+
     case SIf(cond, left, right) =>
       SIf(strip_expr(cond), strip_stmt(left), strip_stmt(right))
 
@@ -1109,6 +1127,9 @@ function strip_pattern(pat: Pat): Pat :=
 
     case PTuple(args) =>
       PTuple(List(for a in args yield strip_pat(a)))
+
+    case PAnnotated(inner, typ) =>
+      PAnnotated(strip_pat(inner), typ)
 
     case PWild =>
       pat
@@ -1415,6 +1436,9 @@ function errors_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
 
     case SBlock(_, stmts) =>
       errors_in_stmts(stmts_of(stmts))
+
+    case SLocal(decls) =>
+      errors_in_exprs(List(for (_, init) in decls for e in init yield e))
 
     case SIf(cond, left, right) =>
       errors_in_expr(cond) ++ errors_in_stmts(List(left, right))

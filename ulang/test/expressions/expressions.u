@@ -25,10 +25,13 @@ test big_integers() :=
   assert 9223372036854775808 > 9223372036854775807 and (-9223372036854775809) < 0
   assert show(100000000000000000000) == "100000000000000000000"
 
-// let binds in parallel
-test let_parallel() :=
-  assert (let x := 1, y := 2 in
+// the bindings of a let are sequential, each in scope of those before it, and a tuple binds in parallel
+test let_sequential() :=
+  assert (let x := 1, y := x + 1 in
   x + y * 3) == 7
+  assert (let x := 1, y := 2 in
+  let (a, b) := (y, x) in
+  a * 10 + b) == 21
 
 test conditionals() :=
   assert (if not 1 < 2 then 0 else 1) == 1
@@ -53,6 +56,14 @@ test lambda_patterns() :=
   assert foldl(List((1, 2), (3, 4)), 0, lambda n, (a, b) => n + a * b) == 14
   assert (lambda (a, b), c => a + b + c)((1, 2), 3) == 6
   assert (lambda (a, _) => a)((1, "b")) == 1
+
+// a pattern may have a type, also inside, which the checker unifies with the type it matches
+test annotated_patterns() :=
+  assert (lambda p: Int * Int => first(p))((1, 2)) == 1
+  assert (lambda (a: Int, b), c: Str => a + b + size(c))((1, 2), "ab") == 5
+  assert List(for (x: Int, s) in List((1, "a")) yield show(x) ++ s) == List("1a")
+  assert (let n: Int := 2, (a, b): Int * Int := (n, 3) in
+  a * b) == 6
 
 test literals() :=
   assert "a" == "a"

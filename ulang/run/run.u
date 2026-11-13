@@ -311,6 +311,10 @@ function match_into(pat: At[Pat], v: Val, env: Bindings): Option[Bindings] :=
 
     case (PTuple(_), _) =>
       None
+
+    // checked patterns have no annotations
+    case (PAnnotated(inner, _), _) =>
+      match_into(inner, v, env)
   end
 
 function match_all_into(pats: List[At[Pat]], vs: List[Val], env: Bindings): Option[Bindings] :=
@@ -989,6 +993,10 @@ procedure exec(
 
     case SBlock(locals, stmts) =>
       call scoped(in run, List(for x in locals yield x.that.name), env -- Set(for x in locals yield x.that.name), stmts_of(stmts), ref env, cache)
+
+    // the checker turns each SLocal into a block
+    case SLocal(_) =>
+      raise Unexpected("local")
 
     case SIf(cond, left, right) =>
       local v: Val

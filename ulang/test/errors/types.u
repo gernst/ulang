@@ -105,8 +105,9 @@ test duplicate_lemma() :=
       "  ensures y == y"))
   end
 
+// the bindings of a let are sequential, so the second x hides the first
 test duplicate_let() :=
-  assert raises Located(None, Pos(2, 15), Duplicate("binding", "x")) do
+  assert raises Located(None, Pos(2, 15), HiddenLocal(Name(None, "x"))) do
     call check_text(in "ulang/test/errors/duplicate-let.u", List("function f(): Int :=", "  let x := 1, x := 2 in", "  x"))
   end
 
@@ -304,13 +305,21 @@ test let_monomorphic() :=
       "  g(1) == 1 and g(true)"))
   end
 
-test let_parallel() :=
-  assert raises Located(None, Pos(3, 20), UnknownVariable(Name(None, "x"))) do
-    call check_text(in "ulang/test/errors/let-parallel.u", List(
-      "// the bindings of a let are parallel, so y := x does not see x := 1",
-      "function f(): Int :=",
-      "  let x := 1, y := x in",
-      "  y"))
+// a local of a pattern is irrefutable, which the match that assigns its variables checks
+test refutable_local() :=
+  assert raises Located(None, Pos(2, 9), NotExhaustive(_)) do
+    call check_text(in "ulang/test/errors/refutable-local.u", List(
+      "procedure p(in o: Option[Int], out x: Int) :=",
+      "  local Some(y) := o",
+      "  assign x := y"))
+  end
+
+// an annotation of a pattern is unified with the type that the pattern matches
+test annotated_lambda() :=
+  assert raises Located(None, Pos(2, 34), CannotUnify(_, _)) do
+    call check_text(in "ulang/test/errors/annotated-lambda.u", List(
+      "function f(xs: List[Str]): List[Int] :=",
+      "  List(for x in xs yield (lambda y: Int => y + 1)(x))"))
   end
 
 test let_rigid() :=

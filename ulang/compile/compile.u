@@ -832,6 +832,10 @@ procedure compile_stmt(
     case SSkip =>
       assign ss := List()
 
+    // the checker turns each SLocal into a block
+    case SLocal(_) =>
+      raise Unexpected("local")
+
     case SAssign(upd) =>
       local as: List[CStmt], cs: List[CStmt], rs: List[CExpr]
       call   compile_exprs(in defs, env, seconds(upd), out as, rs, ref g)

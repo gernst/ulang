@@ -224,6 +224,10 @@ function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
     case SBlock(locals, stmts) =>
       stmts_flow(bound(scope, vars(locals)), stmts_of(stmts))
 
+    // the checker gives no SLocal
+    case SLocal(_) =>
+      none()
+
     case SIf(cond, left, right) =>
       with_errors(stmts_flow(scope, List(left, right)), expr_errors(scope, cond))
 
@@ -307,6 +311,9 @@ function pattern_variables(pat: At[Pat]): List[Var] :=
 
     case PTuple(args) =>
       List(for a in args for v in pattern_variables(a) yield v)
+
+    case PAnnotated(inner, _) =>
+      pattern_variables(inner)
 
     case PWild =>
       List()

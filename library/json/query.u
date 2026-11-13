@@ -178,7 +178,7 @@ procedure run_query(
     case Index(i) =>
       match j
         case Elements(items) =>
-          local k := (if i < 0 then size(items) + i else i)
+          local k := if i < 0 then size(items) + i else i
           assign results := List(if 0 <= k then nth(k, items) else Null)
 
         case Null =>

@@ -206,7 +206,10 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
       exprs_lints(fun, List(for (_, e) in upd yield e))
 
     case SBlock(locals, stmts) =>
-      locals_lints(pos, locals, stmts) ++ collecting_loops(stmts_of(stmts)) ++ stmts_lints(fun, stmts_of(stmts))
+      locals_lints(pos, locals, stmts) ++ declared_lints(stmts_of(stmts)) ++ collecting_loops(stmts_of(stmts)) ++ stmts_lints(fun, stmts_of(stmts))
+
+    case SLocal(decls) =>
+      exprs_lints(fun, List(for (_, init) in decls for e in init yield e))
 
     case SIf(cond, left, right) =>
       expr_lints(fun, cond) ++ stmts_lints(fun, List(left, right))
@@ -400,6 +403,56 @@ function is_skip(stmt: At[Stmt]): Bool :=
 function locals_lints(pos: Pos, xs: List[At[Var]], stmts: List[Doc[Stmt]]): List[Warning] :=
   let inits := initialized(vars(xs), stmts) in
   List(for x in xs for w in local_lints(decl_pos(pos, x.pos), x.that.name.base, contains(x.that.name.base, inits), stmts_of(stmts)) yield w)
+
+// the warnings of the locals that the SLocal statements of stmts declare, each read by the declarations after it in its
+// statement and by the statements after that
+function declared_lints(stmts: List[At[Stmt]]): List[Warning] :=
+  match stmts
+    case List() =>
+      List()
+
+    case List(stmt; rest) =>
+      match stmt_part(stmt)
+        case SLocal(decls) =>
+          decls_lints(decls, rest) ++ declared_lints(rest)
+        case _ =>
+          declared_lints(rest)
+      end
+  end
+
+function decls_lints(decls: List[At[Pat] * Option[At[Expr]]], rest: List[At[Stmt]]): List[Warning] :=
+  match decls
+    case List() =>
+      List()
+    case List((pat, init); more) =>
+      decl_lints(pat, init != None, exprs_names(List(for (_, i) in more for e in i yield e)), rest) ++ decls_lints(more, rest)
+  end
+
+// a local that is a variable, also with an annotation, as a local of a block, and the variables of a pattern as those of
+// other patterns
+function decl_lints(pat: At[Pat], has_init: Bool, later: Set[Id], rest: List[At[Stmt]]): List[Warning] :=
+  match pat_vars(pat)
+    case List((pos, name)) if is_variable(pat) =>
+      if contains(name, later) then
+        name_lints(pos, name)
+      else
+        local_lints(pos, name, has_init, rest)
+
+    case xs =>
+      List(for (pos, name) in xs for w in var_lints(pos, name, later ++ Set(for s in rest for x in stmt_names(s) ++ call_outs(s) yield x)) yield w)
+  end
+
+function is_variable(pat: At[Pat]): Bool :=
+  match pat.that
+    case PVar(_) =>
+      true
+
+    case PAnnotated(inner, _) =>
+      is_variable(inner)
+
+    case _ =>
+      false
+  end
 
 // the locals of xs that the assignments at the start of stmts initialize, as format_body prints them
 function initialized(xs: List[Var], stmts: List[Doc[Stmt]]): Set[Id] :=
@@ -753,6 +806,9 @@ function placed_pat_vars(pos: Pos, pat: Pat): List[Pos * Id] :=
     case PTuple(args) =>
       List(for p in args for x in pat_vars(p) yield x)
 
+    case PAnnotated(inner, _) =>
+      pat_vars(inner)
+
     case _ =>
       List()
   end
@@ -781,6 +837,9 @@ function child_stmts(stmt: Stmt): List[At[Stmt]] :=
 
     case SBlock(_, stmts) =>
       stmts_of(stmts)
+
+    case SLocal(_) =>
+      List()
 
     case SIf(_, left, right) =>
       List(left, right)
@@ -941,6 +1000,9 @@ function part_pat_names(pat: Pat): Set[Id] :=
     case PTuple(args) =>
       Set(for p in args for x in pat_names(p) yield x)
 
+    case PAnnotated(inner, _) =>
+      pat_names(inner)
+
     case _ =>
       Set()
   end
@@ -998,6 +1060,9 @@ function own_names(stmt: Stmt): Set[Id] :=
 
     case SBlock(_, _) =>
       Set()
+
+    case SLocal(decls) =>
+      exprs_names(List(for (_, init) in decls for e in init yield e))
 
     case SIf(cond, _, _) =>
       expr_names(cond)

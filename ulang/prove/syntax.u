@@ -942,6 +942,10 @@ function print_pat(p: Pat): Str :=
 
     case PTuple(args) =>
       "(" ++ join(", ", List(for q in args yield print_pat(q.that))) ++ ")"
+
+    // checked patterns have no annotations
+    case PAnnotated(inner, _) =>
+      print_pat(inner.that)
   end
 
 // the atoms first, as written, then the constant
