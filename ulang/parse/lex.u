@@ -271,7 +271,7 @@ procedure lex_doc(in text: Str, out doc: Str, above: Bool, ref offset: Int) :=
   local lines: List[Str] := List(), from: Int, line: Str, more := true
   while more do
     call   scan(in text, lambda c => c != '\n', out from, ref offset)
-    assign line := slice(text, from + 2, offset)
+    assign line := without_return(slice(text, from + 2, offset))
     assign lines := List(
       if starts_with(line, " ") then slice(line, 1, size(line)) else line; lines)
     assign offset := if offset < size(text) then offset + 1 else offset
@@ -281,6 +281,11 @@ procedure lex_doc(in text: Str, out doc: Str, above: Bool, ref offset: Int) :=
     end
   end
   assign doc := join("\n", reverse(lines)), above := is_doc_above(text, offset)
+
+// the line without the \r of a CRLF line end, so that a file with CRLF line ends has the docs of one with LF
+function without_return(line: Str): Str :=
+  example without_return(" a\r") == " a"
+  if ends_with(line, "\r") then slice(line, 0, size(line) - 1) else line
 
 // whether the line at offset is not blank, where the lexer takes \r and \t for spaces
 function is_doc_above(text: Str, offset: Int): Bool :=
@@ -385,6 +390,12 @@ test lex_docs() :=
   call lex(in "// a\n//  b\n//\nf\n\n\n\ng\n\nh\ni", out toks)
   assert tokens(toks) == List(TDoc("a\n b\n"), TName("f"), TName("g"), TName("h"), TName("i"), TEnd)
   assert firsts(toks) == List(Pos(1, 1), Pos(4, 1), Pos(8, 1), Pos(10, 1), Pos(11, 1), Pos(11, 2))
+
+test lex_docs_of_crlf() :=
+  local lf: Tokens, crlf: Tokens
+  call lex(in "// a\n//  b\n//\nf\n", out lf)
+  call lex(in "// a\r\n//  b\r\n//\r\nf\r\n", out crlf)
+  assert crlf == lf
 
 function rest_of_docs(): List[Token] :=
   List(TName("C"), TName("g"), TKw("case"), TName("D"), TEnd)
