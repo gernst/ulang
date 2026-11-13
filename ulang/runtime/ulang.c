@@ -1152,8 +1152,8 @@ static int write_utf8(FILE *f, u_value s) {
   return fwrite(bytes, 1, n, f) == n;
 }
 
-// the file of path, opened for writing, after creating the missing directories of path, as the interpreter does
-static FILE *open_for_writing(u_value path) {
+// the file of path, opened for writing by mode, after creating the missing directories of path, as the interpreter does
+static FILE *open_for(u_value path, const char *mode) {
   const char *file = u_utf8(path, NULL);
   char *dir = strcpy(text(u_strlen(file)), file);
   for (char *p = strchr(dir + 1, '/'); p; p = strchr(p + 1, '/')) {
@@ -1161,9 +1161,13 @@ static FILE *open_for_writing(u_value path) {
     mkdir(dir, 0777);
     *p = '/';
   }
-  FILE *f = fopen(file, "wb");
+  FILE *f = fopen(file, mode);
   if (!f) os_error("cannot write ", path);
   return f;
+}
+
+static FILE *open_for_writing(u_value path) {
+  return open_for(path, "wb");
 }
 
 void p_os_write_utf8(u_value path, u_value contents) {
@@ -1425,3 +1429,151 @@ void p_os_library(u_value name, u_value *result) {
   if (!t) os_error("unknown module ", name);
   *result = t;
 }
+
+// streams, numbered by their openings, where those of the system exist once each
+static long long openings = 0;
+static u_value std_streams[3];
+
+static u_value stream(FILE *file, u_value path) {
+  u_value io = object(&u_io_type);
+  io->file = file;
+  io->path = path;
+  io->serial = openings++;
+  return io;
+}
+
+static u_value std_stream(int k, FILE *file, const char *name) {
+  if (!std_streams[k]) std_streams[k] = stream(file, u_mk_str(name));
+  return std_streams[k];
+}
+
+void p_io_stdin(u_value *io) {
+  *io = std_stream(0, stdin, "stdin");
+}
+
+void p_io_stdout(u_value *io) {
+  *io = std_stream(1, stdout, "stdout");
+}
+
+void p_io_stderr(u_value *io) {
+  *io = std_stream(2, stderr, "stderr");
+}
+
+// closes a stream that the program can no longer reach
+static void close_unreachable(void *obj, void *data) {
+  (void)data;
+  u_value io = obj;
+  if (io->file) fclose(io->file);
+}
+
+// the mode by the position of its constructor in IoMode of io.u: IoRead, IoWrite, IoAppend
+void p_io_open(u_value path, u_value mode, u_value *io) {
+  FILE *f;
+  if (mode->name->index == 0) {
+    f = fopen(u_utf8(path, NULL), "rb");
+    if (!f) os_error("cannot read ", path);
+  } else {
+    f = open_for(path, mode->name->index == 1 ? "wb" : "ab");
+  }
+  *io = stream(f, path);
+  GC_REGISTER_FINALIZER(*io, close_unreachable, NULL, NULL, NULL);
+}
+
+static FILE *open_file(u_value io) {
+  if (!io->file) os_error("closed stream ", io->path);
+  return io->file;
+}
+
+// the array of the n bytes of s
+static u_value byte_array(const unsigned char *s, size_t n) {
+  u_value a = u_array_new((int)n);
+  for (size_t i = 0; i < n; i++) a->items[i] = &byte_objects[s[i]];
+  a->size = (int)n;
+  return a;
+}
+
+static void read_failed(FILE *f, u_value io) {
+  if (ferror(f)) os_error("cannot read ", io->path);
+}
+
+void p_io_read_bytes(u_value io, u_value n, u_value *bytes) {
+  FILE *f = open_file(io);
+  long long k = n->type == &u_int_type && n->num > 0 ? n->num : 0;
+  unsigned char *s = (unsigned char *)text(k);
+  size_t m = fread(s, 1, k, f);
+  read_failed(f, io);
+  *bytes = byte_array(s, m);
+}
+
+void p_io_read_until(u_value io, u_value delimiter, u_value *bytes) {
+  FILE *f = open_file(io);
+  size_t room = 64, n = 0;
+  unsigned char *s = (unsigned char *)text(room);
+  int c;
+  while ((c = getc(f)) != EOF) {
+    if (n == room) {
+      unsigned char *t = (unsigned char *)text(2 * room);
+      memcpy(t, s, n);
+      s = t;
+      room *= 2;
+    }
+    s[n++] = (unsigned char)c;
+    if (c == delimiter->num) break;
+  }
+  read_failed(f, io);
+  *bytes = byte_array(s, n);
+}
+
+void p_io_read_all(u_value io, u_value *bytes) {
+  FILE *f = open_file(io);
+  size_t room = 4096, n = 0, m;
+  unsigned char *s = (unsigned char *)text(room);
+  while ((m = fread(s + n, 1, room - n, f)) > 0) {
+    n += m;
+    if (n == room) {
+      unsigned char *t = (unsigned char *)text(2 * room);
+      memcpy(t, s, n);
+      s = t;
+      room *= 2;
+    }
+  }
+  read_failed(f, io);
+  *bytes = byte_array(s, n);
+}
+
+void p_io_write_bytes(u_value io, u_value bytes) {
+  FILE *f = open_file(io);
+  unsigned char *s = (unsigned char *)text(bytes->size);
+  for (int i = 0; i < bytes->size; i++) s[i] = (unsigned char)bytes->items[i]->num;
+  if (fwrite(s, 1, bytes->size, f) != (size_t)bytes->size) os_error("cannot write ", io->path);
+  if (f == stdout || f == stderr) fflush(f);
+}
+
+// the streams of the system stay open
+void p_io_close(u_value io) {
+  FILE *f = open_file(io);
+  if (f == stdin || f == stdout || f == stderr) {
+    fflush(f);
+    return;
+  }
+  io->file = NULL;
+  if (fclose(f)) os_error("cannot close ", io->path);
+}
+
+u_value u_io_path(u_value io) {
+  return io->path;
+}
+
+static u_value compare_streams(u_value a, u_value b) {
+  return ordering(a->serial < b->serial ? -1 : a->serial > b->serial);
+}
+
+static u_value show_stream(u_value v) {
+  struct u_text t = {NULL, 0, 0, 1};
+  append(&t, "<io ");
+  append(&t, u_utf8(v->path, NULL));
+  append(&t, ">");
+  return text_value(&t);
+}
+
+const struct u_type u_io_type = {"io.IO", compare_streams, u_equals_by_compare, show_stream};
