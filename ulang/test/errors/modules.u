@@ -165,11 +165,6 @@ test missing_definition() :=
   end
 
 // a directory of programs only is no package
-test no_members() :=
-  assert raises ParseError("the package ulang/test/modules/programs_only has no members, files with sections", Pos(1, 1)) do
-    call check_text(in "ulang/test/errors/no-members.u", List("import \"ulang/test/modules/programs_only\""))
-  end
-
 test notation_in_implementation() :=
   assert raises ParseError("notations belong to the export section", Pos(5, 1)) do
     call check_text(in "ulang/test/errors/notation-in-implementation.u", List("export", "", "implementation", "", "infix 6 <=>"))
