@@ -1,0 +1,48 @@
+// grep: the lines of files in which a regular expression of library/regex occurs, each after its file if there are
+// several, with status 1 if no line matches and 2 on errors
+//
+//   out/ulang.sh run examples/grep.u -- <regex> <file> …
+
+import "library/regex"
+
+procedure main() :=
+  local args: List[Str]
+  call os_args(out args)
+  match args
+    case List(source, path; paths) =>
+      try
+        local regex: Regex, found := false
+        call parse_regex(in source, out regex)
+        for file in List(path; paths) do
+          local text: Str
+          call os_read(in file, out text)
+          for line in lines_of(text) if occurs(regex, line) do
+            call   os_println(in if paths == List() then line else file ++ ":" ++ line)
+            assign found := true
+          end
+        end
+        if not found then
+          call os_exit(in 1)
+        end
+      catch
+        case RegexError(message, column) =>
+          call os_print_error(in "grep: " ++ message ++ " at column " ++ show(column))
+          call os_exit(in 2)
+
+        case OsError(message) =>
+          call os_print_error(in "grep: " ++ message)
+          call os_exit(in 2)
+      end
+
+    case _ =>
+      call os_print_error(in "usage: grep <regex> <file> …")
+      call os_exit(in 2)
+  end
+
+function lines_of(text: Str): List[Str] :=
+  let lines := split(text, '\n') in
+  if ends_with(text, "\n") then take(size(lines) - 1, lines) else lines
+
+test lines() :=
+  assert lines_of("a\nb\n") == List("a", "b")
+  assert lines_of("a\n\nb") == List("a", "", "b")

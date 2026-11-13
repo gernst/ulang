@@ -1,0 +1,45 @@
+// jq: prints the results of a query on a JSON file, indented, or compactly with -c
+//
+//   out/ulang.sh run examples/jq.u -- [-c] query file
+//
+// the command line of the package library/json
+
+import "library/json"
+
+procedure main() :=
+  local ok := true
+  try
+    local args: List[Str], compact: Bool, rest: List[Str]
+    call   os_args(out args)
+    assign compact := contains("-c", args), rest := remove("-c", args)
+    match rest
+      case List(text, path) =>
+        local q: Query, source: Str, j: Json, results: List[Json]
+        call parse_query(in text, out q)
+        call os_read(in path, out source)
+        try
+          call parse_json(in source, out j)
+        catch
+          case JsonError(message, line, column) =>
+            raise OsError(path ++ ":" ++ show(line) ++ ":" ++ show(column) ++ ": " ++ message)
+        end
+        call run_query(in q, j, out results)
+        for r in results do
+          call os_println(in if compact then show(r) else pretty(r))
+        end
+
+      case _ =>
+        raise OsError("usage: jq [-c] query file")
+    end
+  catch
+    case OsError(message) =>
+      call   os_print_error(in message)
+      assign ok := false
+
+    case QueryError(message) =>
+      call   os_print_error(in "query: " ++ message)
+      assign ok := false
+  end
+  if not ok then
+    call os_exit(in 1)
+  end

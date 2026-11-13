@@ -1,0 +1,90 @@
+// the relational algebra on tables, whose operations assume the columns that require_columns and require_same_columns
+// check
+
+export
+
+function project(cols: List[Str], table: Table): Table
+
+function rename(old: Str, new: Str, table: Table): Table
+
+function select(col: Str, value: Str, table: Table): Table
+
+function union(a: Table, b: Table): Table
+
+function diff(a: Table, b: Table): Table
+
+// the natural join
+function join(a: Table, b: Table): Table
+
+// the number of rows per value of col, in a column count
+function count(col: Str, table: Table): Table
+
+implementation
+
+function project(cols: List[Str], table: Table): Table :=
+  Table(cols, Set(for row in table.rows yield Map(for col in cols yield col => value_or(get(col, row), ""))))
+
+function rename(old: Str, new: Str, table: Table): Table :=
+  let columns := List(for col in table.columns yield renamed(old, new, col)) in
+  Table(columns, Set(for row in table.rows yield Map(for col => v in row yield renamed(old, new, col) => v)))
+
+function renamed(old: Str, new: Str, col: Str): Str :=
+  if col == old then new else col
+
+function select(col: Str, value: Str, table: Table): Table :=
+  table with rows := Set(for row in table.rows if get(col, row) == Some(value))
+
+function union(a: Table, b: Table): Table :=
+  a with rows := a.rows ++ b.rows
+
+function diff(a: Table, b: Table): Table :=
+  a with rows := a.rows -- b.rows
+
+// indexes the rows of b by the values of the shared columns
+function join(a: Table, b: Table): Table :=
+  let shared := List(for col in a.columns if contains(col, b.columns)) in
+  let index := foldl(b.rows, Map(), lambda index, row => indexed(shared, row, index)) in
+  let rows := Set(for row in a.rows for other in partners(shared, row, index) yield row ++ other) in
+  Table(a.columns ++ List(for col in b.columns if not contains(col, a.columns)), rows)
+
+function partners(cols: List[Str], row: Row, index: Map[List[Str], List[Row]]): List[Row] :=
+  value_or(get(fields_of(cols, row), index), List())
+
+function indexed(cols: List[Str], row: Row, index: Map[List[Str], List[Row]]): Map[List[Str], List[Row]] :=
+  let key := fields_of(cols, row) in
+  put(key, List(row; value_or(get(key, index), List())), index)
+
+function count(col: Str, table: Table): Table :=
+  let counts := foldl(table.rows, Map(), lambda counts, row => increment(col, row, counts)) in
+  Table(List(col, "count"), Set(for v => n in counts yield Map(col => v, "count" => show(n))))
+
+function increment(col: Str, row: Row, counts: Map[Str, Int]): Map[Str, Int] :=
+  let v := value_or(get(col, row), "") in
+  put(v, value_or(get(v, counts), 0) + 1, counts)
+
+function people(): Table :=
+  table_of("name,city\nada,london\nalan,london\nedsger,nuenen\n")
+
+function cities(): Table :=
+  table_of("city,country\nlondon,uk\nnuenen,nl\n")
+
+test joining() :=
+  assert join(people(), cities()) == table_of("name,city,country\nada,london,uk\nalan,london,uk\nedsger,nuenen,nl\n")
+
+test join_with_own_projection() :=
+  assert join(people(), project(List("city"), people())) == people()
+
+test projection_drops_duplicates() :=
+  assert size(project(List("city"), people()).rows) == 2
+
+test selection() :=
+  assert select("country", "nl", join(people(), cities())) == table_of("name,city,country\nedsger,nuenen,nl\n")
+
+test renaming() :=
+  assert format_table(rename("city", "town", cities())) == "town,country\nlondon,uk\nnuenen,nl\n"
+
+test union_and_diff() :=
+  assert diff(union(people(), people()), people()).rows == Set()
+
+test counting() :=
+  assert count("city", people()) == table_of("city,count\nlondon,2\nnuenen,1\n")

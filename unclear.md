@@ -11,3 +11,4 @@ documentation is fixed from them (see the working rules of `CLAUDE.md`), when th
 - The message of `OpenLemma` of a gap at a step of a proof ends with ` at L.C`, which only the cases of `ulang/test/errors/lemmas.u` show.
 - `Seq` and `Concl`, the sequents of the prover, are declared in `ulang/prove/simp.u`, not in `ulang/prove/syntax.u` with the terms.
 - A target that is not a directory was dropped by `targets_of` of `ulang/ulang.u`, by its filter of sources, not by `walk_all`, which the review named.
+- `pattern` as the name of a variable, the text of a regular expression in `library/regex/regex.u`, is `keyword pattern is not a name`, a parse error at each use: the keywords that are common English words, `pattern`, `example`, `correct`, `invariant`, `induction`, `requires`, and `ensures`, are listed nowhere in one place, and the message gives no other name to write.

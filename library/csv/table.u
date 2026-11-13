@@ -1,0 +1,98 @@
+// tables of CSV text, whose first line is the header, with fields split at commas, without quoting
+
+export
+
+type Row :=
+  Map[Str, Str]
+
+// the rows are a set, so that duplicates vanish as in the algebra, and equal tables are ==
+data Table :=
+  case Table(columns: List[Str], rows: Set[Row])
+
+data CsvError :=
+  case CsvError(message: Str)
+
+// the table of text without the checks of parse_table
+function table_of(text: Str): Table
+
+procedure parse_table(in text: Str, out table: Table) raises CsvError
+
+procedure read_table(in path: Str, out table: Table) raises OsError, CsvError
+
+// the rows in the order of their fields, column by column as in the header
+function format_table(table: Table): Str
+
+// the fields of a row in the order of cols, empty where it has none
+function fields_of(cols: List[Str], row: Row): List[Str]
+
+procedure require_columns(in cols: List[Str], table: Table) raises CsvError
+
+procedure require_same_columns(in a: Table, b: Table) raises CsvError
+
+implementation
+
+function table_of(text: Str): Table :=
+  match lines_of(text)
+    case List() =>
+      Table(List(), Set())
+
+    case List(header; lines) =>
+      let columns := split(header, ',') in
+      Table(columns, Set(for line in lines yield Map(for (col, field) in zip(columns, split(line, ',')))))
+  end
+
+function lines_of(text: Str): List[Str] :=
+  List(for line in split(text, '\n') if line != "")
+
+procedure parse_table(in text: Str, out table: Table) raises CsvError :=
+  match lines_of(text)
+    case List() =>
+      raise CsvError("no header")
+
+    case List(header; lines) =>
+      local columns := split(header, ',')
+      if repeated(columns) != None then
+        raise CsvError("repeated column in " ++ header)
+      end
+      for line in lines if size(split(line, ',')) != size(columns) do
+        raise CsvError("expected " ++ show(size(columns)) ++ " fields: " ++ line)
+      end
+  end
+  assign table := table_of(text)
+
+procedure read_table(in path: Str, out table: Table) raises OsError, CsvError :=
+  local text: Str
+  call os_read(in path, out text)
+  call parse_table(in text, out table)
+
+function format_table(table: Table): Str :=
+  let lines := sort(List(for row in table.rows yield fields_of(table.columns, row))) in
+  join("\n", List(for fields in List(table.columns; lines) yield join(",", fields))) ++ "\n"
+
+function fields_of(cols: List[Str], row: Row): List[Str] :=
+  List(for col in cols yield value_or(get(col, row), ""))
+
+procedure require_columns(in cols: List[Str], table: Table) raises CsvError :=
+  for col in cols if not contains(col, table.columns) do
+    raise CsvError("no column " ++ col ++ " in " ++ join(",", table.columns))
+  end
+
+procedure require_same_columns(in a: Table, b: Table) raises CsvError :=
+  if Set(for col in a.columns) != Set(for col in b.columns) then
+    raise CsvError("different columns " ++ join(",", a.columns) ++ " and " ++ join(",", b.columns))
+  end
+
+test parsing() :=
+  assert format_table(table_of("name,city\nalan,london\nada,london\n")) == "name,city\nada,london\nalan,london\n"
+
+test parse_errors() :=
+  local table: Table
+  assert raises CsvError("no header") do
+    call parse_table(in "", out table)
+  end
+  assert raises CsvError("repeated column in a,a") do
+    call parse_table(in "a,a\n", out table)
+  end
+  assert raises CsvError("expected 2 fields: x") do
+    call parse_table(in "a,b\nx\n", out table)
+  end
