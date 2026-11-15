@@ -636,6 +636,35 @@ test broken_sibling() :=
       "  f()")))
   end
 
+// a program that imports a package with errors is checked against its signature and runs what the errors do not touch,
+// here the first test, and raises Deferred where it reaches a definition that checking rejected, of the second test
+test imports_errors() :=
+  assert raises Deferred("the type error at 13.7, expected Int but found Bool in argument 2 of the call") do
+    run_texts_despite_errors(in "ulang/test/errors/imports_errors", List(
+      ("ulang/test/errors/imports_errors/broken", List(
+        ("broken.u", List(
+          "export",
+          "",
+          "function good(x: Int): Int",
+          "",
+          "function bad(x: Int): Int",
+          "",
+          "implementation",
+          "",
+          "function good(x: Int): Int :=",
+          "  x + 1",
+          "",
+          "function bad(x: Int): Int :=",
+          "  x + true"))))), ("importer.u", List(
+      "import \"ulang/test/errors/imports_errors/broken\"",
+      "",
+      "test good_runs() :=",
+      "  assert good(1) == 2",
+      "",
+      "test bad_defers() :=",
+      "  assert bad(1) == 2")))
+  end
+
 // the test of a member of a package fails
 test failing_member() :=
   assert raises AssertionUnequal("3", "4") do
