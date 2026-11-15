@@ -1,6 +1,6 @@
 # Review of smells and cleanups
 
-A read-only review of `ulang/`, `checks/`, and the Makefile against the rules of `CLAUDE.md`, Style, and the open items of `TODO.md`, now `ideas/`, as of c319a1d. No source was changed. Findings that are instances of an item of `TODO.md` are tagged with it, e.g. **[Code 1]**; untagged findings are new. Line numbers are those of c319a1d, and the parts of the compiler that `ulang/compile/lower.u` took since are there now. Checked again against main on 2026-11-13: the findings that were fixed since are gone, and those below still hold, but for those marked as fixed since; the new items that section 4 proposes are Verification 9 and Compiler 5 to 8.
+A read-only review of `ulang/`, `checks/`, and the Makefile against the rules of `CLAUDE.md`, Style, and the open items of `TODO.md`, now `ideas/`, as of c319a1d. No source was changed. Findings that are instances of an item of `TODO.md` are tagged with it, e.g. **[Code 1]**; untagged findings are new. Line numbers are those of c319a1d, and the parts of the compiler that `ulang/compile/lower.u` took since are there now. Checked again against main on 2026-11-13: the findings that were fixed since are gone, and those below still hold, but for those marked as fixed since; the new items that section 4 proposes are Verification 9 and Compiler 5 to 8, of which the latter are done.
 
 Confidence: **confirmed** means reproduced by a run, with the repro given; **likely** means read from the code and checked against it, not run.
 
