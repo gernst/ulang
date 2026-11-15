@@ -26,3 +26,5 @@ documentation is fixed from them (see the working rules of `CLAUDE.md`), when th
 - **An interpreted run of one case of `ulang/test/errors/` loads its whole file**, 1.5 to 3.5 minutes per case on a loaded machine, not the cheap run that CLAUDE.md suggests.
 - **`pgrep -f` with a pattern that the waiting command contains matches itself**, so a loop that waits on it never ends.
 - **The scratchpad of a session is shared by its agents**, so a scratch project of one is written by another unless its name carries the agent's id.
+- **A walk named `sorts_in` in `ulang/prove/translate.u` was ambiguous** with `sorts_in` of `ulang/syntax/syntax.u`, which the prover imports and which already gives the names of the types in a type, as a list; overloading by type made each use ambiguous instead of hiding the import.
+- **A regression test of an order passed without the fix**: `measure_slots` of `ulang/prove/termination.u` only fails when the function without formals comes first in the component, which the names order, so the case names it `base` before `count`; a case of a bug that depends on an order is checked against the code before the fix.

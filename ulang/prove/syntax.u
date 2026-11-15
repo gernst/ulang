@@ -61,9 +61,10 @@ data ConstrDecl :=
 // declarations, the precedence of the term order, the abstract types, whose constructors are a representation that
 // == need not respect, so that they are neither injective nor distinct, and the datatypes that are not ordered by
 // their structure, the abstract types and those with a declared compare, and the recursive functions whose termination
-// is proven, the only recursive ones that unfold
+// is proven, the only recursive ones that unfold, and the definitions that an application of a function value may call,
+// of the functions that values of reflexive datatypes may hold (reflexive_sorts of ulang/prove/translate.u)
 data Decls :=
-  case Decls(defs: Map[(Name, Int), Def], constrs: Map[Name, ConstrDecl], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int], abstracts: Set[Name], ordered: Set[Name], terminating: Set[(Name, Int)])
+  case Decls(defs: Map[(Name, Int), Def], constrs: Map[Name, ConstrDecl], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int], abstracts: Set[Name], ordered: Set[Name], terminating: Set[(Name, Int)], indirect: Set[(Name, Int)])
 
 data Rebind :=
   // the count outermost binders at depth become the levels from depth on
@@ -244,7 +245,7 @@ function is_tuple_term(t: Term): Bool :=
   end
 
 function empty_decls(): Decls :=
-  Decls(empty(), empty(), empty(), empty(), empty(), empty(), empty())
+  Decls(empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
 function is_constr(decls: Decls, f: Name): Bool :=
   contains(f, decls.constrs)
