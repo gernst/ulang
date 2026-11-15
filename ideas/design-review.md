@@ -133,7 +133,7 @@ For each item: keep, with its rank, cut to a part, park until a condition, merge
 ### Compiler
 
 1. **Keep, A**: a runtime error without a position is the worst feedback an agent gets from a run.
-2. **Decide the path now**: two backends double every change of the translation, 22 functions of the same names and 7 of 9 commits that changed both, as `ideas/assembly.md` counts. Either `make` switches to the objects and the C backend stays only for the seed, or the assembly backend is frozen at step 9 and its later steps, registers, ARM64, and unboxed integers, are dropped; for an agent-first language the second is cheaper.
+2. **Decided** on 2026-11-15: the backend stays and grows with the language, `make testelf` next to `make testc` keeps both backends in step, the object is its path, and `make` switches from C once the assembly build is as fast, see The path of `ideas/assembly.md`.
 3. **Park**: no optimization is needed until a program is too slow.
 4. **Park**: the memory of the compiler matters only for self-compilation, which takes seconds.
 
