@@ -702,29 +702,142 @@ procedure refactor(
     end
     var state: Str
     state_dir(out state)
-    var tested: List[Str]
-    run_script(in text, dry, state, checked_diagnostics, out reply, status, tested)
+    run_tested_script(in text, dry, state, checked_diagnostics, refactor_tests, out reply, status)
     os_println(in join("\n", reply))
-    if tested != List() then
-      var tests_status: Int
-      check_targets(in List(for path in tested yield Target(path, None)), Phases(false, true, false), List(), out tests_status)
-      status := max(status, tests_status)
-    end
   catch
     case OsError(m) =>
       report(in "", List(diagnostic(RuntimeKind, m)), false)
       status := 1
   end
 
-// the errors of checking file, each with the file to edit, and the warnings of its lints, whose code is warning[Rule]
+// the errors of checking file, each with the file to edit, and the warnings of its lints, whose code is warning[Rule],
+// where the format of each member of its unit is checked whatever its other errors, unlike load_file, so that a reply
+// compares the format before and after alike, unless a member does not parse
 procedure checked_diagnostics(in file: Str, out found: List[(Str, Diagnostic)]) :=
   var source: Source, errors: List[Diagnostic], path: Str, cache := no_cache()
-  load_file(in file, true, false, out source, _, errors, ref cache)
+  load_file(in file, false, false, out source, _, errors, ref cache)
+  if source.main != "" and not has_errors(source) then
+    var unformatted: List[Diagnostic]
+    try
+      format_errors(in file, source, out unformatted)
+    catch
+      case OsError(m) =>
+        unformatted := List(diagnostic(RuntimeKind, m))
+    end
+    errors := errors ++ unformatted
+  end
   let warnings := List(for d in find(source.mods, lambda d => d.name == source.main) for w in lints(d) yield Diagnostic(FormatKind, "warning[" ++ show(w.lint) ++ "]", None, w.pos, w.message ++ replacement_text(source, d.name, w), List()))
   found := List()
   for d in errors ++ warnings do
     diagnostic_file(in file, d, out path)
     found := found ++ List((path, d))
+  end
+
+// the tests of the files of a refactor script, run as check --test runs them, also with deferred errors, where a test that
+// fails only by reaching an error of listed, which the reply lists, is counted, not repeated, and the tests that the
+// errors leave out of the program, the declared tests and examples that the checker generates only for a package without
+// errors, and all tests of a unit that does not run, are counted as not run, with the reason
+procedure refactor_tests(
+  in  paths: List[Str],
+      listed: List[(Str, Diagnostic)],
+  out tests: Tests
+) :=
+  var units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], outcomes: List[Outcome], cache := no_cache()
+  var lines: Buffer[Str] := empty(), passed := 0, failed := 0, skipped := 0
+  try
+    var found: List[Target]
+    targets_of(in List(for path in paths yield Target(path, None)), true, out found)
+    units_of(in found, out units)
+  catch
+    case OsError(m) =>
+      units := List(), lines := lines ++ List("no test ran: " ++ m)
+  end
+  for unit in units do
+    load_file(in first_path(unit), false, true, out source, q, errors, ref cache)
+    for file in files_of(unit) do
+      let m := sibling(source.main, file)
+      let declared := List(for d in find(source.mods, lambda d => d.name == m) for name in declared_tests(d) yield name), examples := sum(List(for d in find(source.mods, lambda d => d.name == m) yield example_count(d)))
+      if not is_runnable(q, errors) then
+        skipped := skipped + size(declared) + examples
+        lines := lines ++ List(
+          "no test of " ++ file ++ " ran, since its unit does not load far enough to run")
+      else
+        test_outcomes(in q, m, List(), List(), out outcomes)
+        let names := List(for o in outcomes yield o.name), failures := List(for o in outcomes if o.message != "" yield failure_text(o, listed))
+        let missing := List(for name in declared if not contains(name, names)), absent := examples - size(List(for name in names if index_of(".example.", name) != None yield name))
+        let not_run := List(for name in missing yield "test " ++ name) ++ (if absent > 0 then List(counted_text(absent, "example")) else List()), left := size(missing) + max(absent, 0)
+        passed := passed + size(outcomes) - size(failures), failed := failed + size(failures), skipped := skipped + left
+        let counts := show(size(outcomes) - size(failures)) ++ " passed, " ++ show(size(failures)) ++ " failed" ++ (if left == 0 then "" else ", " ++ show(left) ++ " not run")
+        lines := lines ++ List("tested " ++ file ++ ": " ++ counts) ++ List(for f in failures yield "  " ++ f)
+        if not_run != List() then
+          lines := lines ++ List(
+            "  not run, since the errors leave them out of the program: " ++ join(", ", not_run))
+        end
+      end
+    end
+  end
+  tests := Tests(List(for line in lines), passed, failed, skipped)
+
+// the line of a test that failed, which names only the position of the error that it reached if the reply lists it
+function failure_text(o: Outcome, listed: List[(Str, Diagnostic)]): Str :=
+  match find(listed, lambda (path, d) => reaches(o.reached, path, d))
+    case Some((path, d)) =>
+      "test " ++ o.name ++ " failed by reaching " ++ path ++ ":" ++ show(d.pos.line) ++ "." ++ show(d.pos.col) ++ ", listed above"
+    case None =>
+      "test " ++ o.name ++ " failed: " ++ o.message
+  end
+
+// whether reached, the text of the error that a run reached, is that of d, of the file path, which a run names without its
+// module if it is in the main module of the run, and else with it
+function reaches(reached: Option[Str], path: Str, d: Diagnostic): Bool :=
+  match reached
+    case Some(text) =>
+      text == deferred_text(List(d with module := None)) or text == deferred_text(List(
+        d with module := Some(value_or(d.module, slice(path, 0, size(path) - 2)))))
+
+    case None =>
+      false
+  end
+
+function counted_text(n: Int, noun: Str): Str :=
+  example counted_text(2, "example") == "2 examples"
+  show(n) ++ " " ++ noun ++ (if n == 1 then "" else "s")
+
+function sum(ns: List[Int]): Int :=
+  foldl(ns, 0, lambda a, b => a + b)
+
+// the names of the tests that the module d declares
+function declared_tests(d: Mod): List[Str] :=
+  List(for c in d.implemented if is_parsed(c) for name in test_of(c.that) yield name)
+
+function test_of(cmd: Cmd): Option[Str] :=
+  match cmd
+    case CTest(name, _, _) =>
+      Some(name.base)
+    case _ =>
+      None
+  end
+
+// the number of examples of the declarations of d, each of which the checker makes a test
+function example_count(d: Mod): Int :=
+  sum(List(for c in d.exported ++ d.builtins ++ d.implemented if is_parsed(c) yield size(examples_of(c.that))))
+
+function examples_of(cmd: Cmd): List[At[Example]] :=
+  match cmd
+    case CFun(_, _, _, _, spec, _) =>
+      spec.examples
+
+    case CProc(_, _, _, _, _, _, spec, _) =>
+      spec.examples
+
+    case CFunSig(_, _, _, _, spec) =>
+      spec.examples
+
+    case CProcSig(_, _, _, _, _, _, spec) =>
+      spec.examples
+
+    case _ =>
+      List()
   end
 
 // the files of the paths, by default of the project, rewritten as format writes them
@@ -924,7 +1037,7 @@ procedure load_file(
 ) :=
   source := Source(List(), List(), ""), q := Prog(List(), List(), ""), errors := List()
   try
-    var text: Str, loaded := cache.loaded, checks := cache.checks
+    var loaded := cache.loaded, checks := cache.checks
     parse_file_loaded(in file, out source, ref loaded)
     if loaded.root != cache.loaded.root then
       checks := no_checks()
@@ -940,15 +1053,10 @@ procedure load_file(
       errors := take(20, diagnostics(q))
     end
     cache := Cache(loaded, checks)
-    for m in unit_modules(source) if formatted and errors == List() do
-      os_read_utf8(in os_join(os_dirname(file), module_file(m)), out text)
-      try
-        require_formatted(in source, m, text)
-      catch
-        case Unformatted(line) =>
-          errors := List(
-            Diagnostic(FormatKind, "Unformatted", if m == source.main then None else Some(m), Pos(line, 1), "the file differs from what ulang format writes", List()))
-      end
+    if formatted and errors == List() then
+      var unformatted: List[Diagnostic]
+      format_errors(in file, source, out unformatted)
+      errors := take(1, unformatted)
     end
   catch
     case ParseErrors(found) =>
@@ -963,6 +1071,25 @@ procedure load_file(
     case e =>
       errors := List(diagnostic(InternalKind, internal_message(e)))
   end
+
+// the errors of the members of the unit of the main module of source, of the file file, that format would change
+procedure format_errors(
+  in  file: Str,
+      source: Source,
+  out errors: List[Diagnostic]
+) raises OsError :=
+  var text: Str, found: Buffer[Diagnostic] := empty()
+  for m in unit_modules(source) do
+    os_read_utf8(in os_join(os_dirname(file), module_file(m)), out text)
+    try
+      require_formatted(in source, m, text)
+    catch
+      case Unformatted(line) =>
+        found := found ++ List(
+          Diagnostic(FormatKind, "Unformatted", if m == source.main then None else Some(m), Pos(line, 1), "the file differs from what ulang format writes", List()))
+    end
+  end
+  errors := List(for d in found)
 
 // the modules of the unit of the main module of source: the members of its package, or main alone if it is in none
 function unit_modules(source: Source): List[Id] :=

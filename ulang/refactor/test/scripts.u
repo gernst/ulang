@@ -18,7 +18,7 @@ test put_and_drop() :=
   assert status == 0
   assert text == "export\n\nfunction f(y: Int): Int\n\nimplementation\n\n// one more\nfunction f(y: Int): Int :=\n  y + 2\n"
   assert take(3, reply) == List(
-    "ok",
+    "applied, clean",
     path ++ ": replaced f/1, added g/0, with the signature of f/1",
     path ++ ": dropped g/0")
 
@@ -32,7 +32,9 @@ test refused_fragment() :=
   end, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 1 and text == "function f(x: Int): Int :=\n  x\n"
-  assert reply == List("rejected", "fragment 2.6: expression expected but end of input found")
+  assert reply == List(
+    "rejected",
+    "fragment 2.6, script 3.6: expression expected but end of input found")
 
 // handles of @show name the nodes of a declaration, which @put replaces and inserts before, and @patch edits, in one
 // script, since each edit moves the handles of its declaration, and @undo restores the file
@@ -44,7 +46,7 @@ test handles() :=
   os_write_utf8(in path, original)
   run_script(in "@show " ++ path ++ ":f", false, state, nothing_found, out reply, status, _)
   let shown := "      function f(x: Int): Int :=\n#1      match x\n#2        case 0 =>\n#3          1\n#4        case _ =>\n#5          x\n        end"
-  assert reply == List("ok", "@show " ++ path ++ ":f\n" ++ shown)
+  assert reply == List("applied", "@show " ++ path ++ ":f\n" ++ shown)
   run_script(in "@put #3\n2\n@put before #4\n      case 1 =>\n        3\n@patch #5\nx => x + 1\n", false, state, nothing_found, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
