@@ -540,12 +540,13 @@ procedure visit_units(
 // prints the errors of checking file, as check does, and the findings of the check in it, hints of ulang/check/hints.u,
 // as far as it is checked
 procedure print_hints(in file: Str, out status: Int) :=
-  var source: Source, q: Prog, errors: List[Diagnostic], text: Str, cache := no_cache()
+  var source: Source, q: Prog, errors: List[Diagnostic], cache := no_cache()
   load_file(in file, false, false, out source, q, errors, ref cache)
   report(in file, errors, false)
   status := load_status(q, errors)
   if q.main != "" then
     try
+      var text: Str
       os_read_utf8(in file, out text)
       for h in hints(text, q) do
         for line in format_hint(h) do
@@ -923,7 +924,7 @@ procedure load_file(
 ) :=
   source := Source(List(), List(), ""), q := Prog(List(), List(), ""), errors := List()
   try
-    var text: Str, typed: List[TypeError], loaded := cache.loaded, checks := cache.checks
+    var text: Str, loaded := cache.loaded, checks := cache.checks
     parse_file_loaded(in file, out source, ref loaded)
     if loaded.root != cache.loaded.root then
       checks := no_checks()
@@ -932,9 +933,11 @@ procedure load_file(
       load_tester(ref source)
     end
     if has_errors(source) then
+      var typed: List[TypeError]
       check_cached(in without_unparsed(source), unparsed_names(source), true, if tested then enumerated_tests else no_tests, out q, typed, ref checks)
       errors := take(20, List(for e in parse_errors(source) yield parse_diagnostic(e)) ++ diagnostics(q))
     else
+      var typed: List[TypeError]
       check_cached(in source, empty(), false, if tested then enumerated_tests else no_tests, out q, typed, ref checks)
       errors := take(20, diagnostics(q))
     end

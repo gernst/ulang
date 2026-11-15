@@ -542,7 +542,7 @@ function occurs(su: Subst, i: Int, t: Type): Bool :=
     case TFun(args, res) =>
       exists(args, lambda a => occurs(su, i, a)) or occurs(su, i, res)
 
-    case TProc(ins, outs, refs, raised) =>
+    case TProc(ins, outs, refs, _) =>
       exists(ins ++ outs ++ refs, lambda a => occurs(su, i, a))
 
     case TTuple(types) =>
@@ -2787,7 +2787,7 @@ procedure apply(
       r: Type,
   ref s: State
 ) :=
-  var ts: List[Type], fitting := false
+  var fitting := false
   fresh(out r, ref s)
   match (zonk_type(s.sub, f), expected)
     case (TFun(ps, res), Some((t, _))) if size(ps) == size(args) =>
@@ -2798,6 +2798,7 @@ procedure apply(
   match (zonk_type(s.sub, f), expected)
     // of an unknown function, whose arguments are still checked
     case (TError, _) =>
+      var ts: List[Type]
       infers_first(in env, args, out typed_args, ts, ref s)
       infers_lambdas(in env, args, ts, ref typed_args, s)
       unify(in r, TError, ref s)
@@ -2808,6 +2809,7 @@ procedure apply(
       checks_args(in env, args, ps, out typed_args, ref s)
 
     case (TFun(ps, res), _) if size(ps) == size(args) =>
+      var ts: List[Type]
       infers_first(in env, args, out typed_args, ts, ref s)
       for ((a, p), (t, i)) in zip(zip(args, ps), numbered(ts)) do
         expect(in a.pos, "argument " ++ show(i + 1) ++ " of the call", p, t, ref s)
@@ -2817,6 +2819,7 @@ procedure apply(
 
     // of a value that no function type fits, whose result is TError, so that its uses make no follow-ups
     case _ =>
+      var ts: List[Type]
       var applicable: Bool
       infers_first(in env, args, out typed_args, ts, ref s)
       fits(in f, TFun(ts, r), s, out applicable)
@@ -3480,7 +3483,6 @@ procedure variable(
           y := Var(name, l.typ)
 
         case None =>
-          var u: Type
           report(in unknown_variable(s, name), ref s)
           y := Var(name, TError)
       end
@@ -4336,8 +4338,9 @@ procedure proof_step(
 ) :=
   match step
     case StepLocal(x, Some(e)) =>
-      var c: At[Expr], y: Var, t: Type
+      var c: At[Expr], y: Var
       if x.that.typ == THole then
+        var t: Type
         infer(in env, e, out c, t, ref s)
         y := Var(x.that.name, t)
       else

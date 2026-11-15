@@ -176,7 +176,7 @@ function declared_by(cmd: At[Cmd]): List[Id] :=
 // name after its keyword and in a datatype those after case
 function declared_names(toks: Tokens): List[Id] :=
   match toks
-    case List((_, TKw(kw), _), (_, TName(name), _); more) if contains(kw, List("function", "procedure", "pattern", "type")) =>
+    case List((_, TKw(kw), _), (_, TName(name), _); _) if contains(kw, List("function", "procedure", "pattern", "type")) =>
       List(name)
 
     case List((_, TKw("data"), _), (_, TName(name), _); more) =>
@@ -1577,14 +1577,6 @@ function ends_body(kw: Str): Bool :=
 function is_elif(tok: Token): Bool :=
   tok == TName("elif")
 
-function ends_body_token(tok: Token): Bool :=
-  match tok
-    case TKw(kw) =>
-      ends_body(kw)
-    case _ =>
-      false
-  end
-
 // a statement, or after an error the statement as written up to the next line at its column or to its left, from the
 // start of the statement, as the handler sees the tokens
 procedure parse_stmt_recovering(
@@ -2463,10 +2455,11 @@ procedure parse_example(
   out x: At[Example],
   ref toks: Tokens
 ) :=
-  var claim: Example, skipped: Buffer[Str] := empty()
+  var skipped: Buffer[Str] := empty()
   let next := has_next_example(toks), start := toks
   var invalid: Option[ParseError] := None
   try
+    var claim: Example
     if of_proc then
       parse_proc_example(in notation, params, pos, out claim, invalid, ref toks)
     else
@@ -2948,8 +2941,8 @@ procedure import_package(
 
 // whether name is the name of a file name.u of the library, which an import of name hints at
 procedure is_library_file(in name: Str, out found: Bool) :=
-  var text: Str
   try
+    var text: Str
     os_library(in name, out text)
     found := true
   catch
@@ -3063,7 +3056,7 @@ procedure parse_texts(
   out source: Source
 ) raises ParseError, OsError :=
   match main
-    case (id, text) =>
+    case (id, _) =>
       source := Source(List(), List(), id)
       for (d, files) in imported do
         load_members(in root, Some(d), files, None, List(), ref source)
@@ -3227,7 +3220,7 @@ procedure parse_mod(
   ref source: Source,
       toks: Tokens
 ) :=
-  var imports: List[At[Id]] := List(), notation := empty_notation(), plain: List[At[Cmd]] := List(), exported: List[At[Cmd]] := List(), builtins: List[At[Cmd]] := List(), implemented: List[At[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[At[Cmd]], text: Str, names: List[Id] := List()
+  var imports: List[At[Id]] := List(), notation := empty_notation(), plain: List[At[Cmd]] := List(), exported: List[At[Cmd]] := List(), builtins: List[At[Cmd]] := List(), implemented: List[At[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, placed: List[At[Cmd]], text: Str, names: List[Id] := List()
   import_all(in implicit, root, loading, ref source)
   import_notations(in implicit, source.mods, ref notation)
   notation := notation ++ package
@@ -3287,7 +3280,6 @@ procedure parse_section_or_command(
       source: Source,
       toks: Tokens
 ) :=
-  var imported: Id
   more := List()
   match head_token(toks)
     case TKw("export") =>
@@ -3322,6 +3314,7 @@ procedure parse_section_or_command(
       raise ParseError("imports come before export", pos)
 
     case TKw("import") =>
+      var imported: Id
       advance(ref toks)
       parse_import(out imported, ref toks)
       import_package(in imported, root, dir, loading, pos, ref source)
