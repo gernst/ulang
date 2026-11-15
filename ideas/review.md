@@ -43,10 +43,10 @@ Parser and driver:
 
 Prover, latent:
 
-22. **Congruence over abstract types** (`merge` of `ulang/prove/simp.u:618-652`): the e-graph treats the declared `==` as identity, so observers, matches on the representation, and `Size` follow by congruence; a non-structural `==` could prove a false lemma or termination inside its module.
-23. **Recursion through a function-valued field is not seen** (`ulang/prove/translate.u:105-117`), so such a function unfolds without a proof of termination, bounded only by the 256 unfoldings.
+22. Moved to Verification 10 of `ideas/verification.md`.
+23. Moved to Verification 9 of `ideas/verification.md`.
 24. **Fallbacks that build fake terms** where an `Unexpected` belongs: `extract` gives `ELevel(i)` of a class id (`ulang/prove/simp.u:785`), `node_term` a `false` application (`ulang/prove/egraph.u:146`), and `value_or(…, 0)` at `ulang/prove/translate.u:179, 188, 195` and `ulang/prove/patterns.u:279`.
-25. **`measure_slots` takes `acc == 0` as unset** (`ulang/prove/termination.u:193`), so a component with a recursive function of no formals gives a wrong minimum and an `OutOfBounds` in a function.
+25. Moved to Verification 11 of `ideas/verification.md`.
 
 ## 2. Cross-cutting themes
 
