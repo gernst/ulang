@@ -166,6 +166,13 @@ function covers_all(sig: Sig, t: Type, pats: List[Pat]): Bool :=
 type Subst :=
   Map[Int, Type]
 
+// how the values of the first of two unified types relate to those of the second: the same, flowing into them, or
+// coming from them, which decides the bounds of their raises
+data Direction :=
+  case Both
+  case Into
+  case From
+
 type Env :=
   List[Name * Local]
 
@@ -1297,6 +1304,12 @@ procedure bind_meta(in i: Int, t: Type, ref s: State) :=
   end
 
 procedure unify(in t: Type, t_: Type, ref s: State) :=
+  unify_toward(in Both, t, t_, ref s)
+
+// t and t_ are the same type, but for the raises of their procedure types, which are bounds of how values of t relate
+// to those of t_ in the direction d, flipped for the arguments of functions and the ins of procedures, and the same both
+// ways for refs and the arguments of datatypes, whose params a field of a procedure type may take as ins
+procedure unify_toward(in d: Direction, t: Type, t_: Type, ref s: State) :=
   let a := resolve(s.sub, t), b := resolve(s.sub, t_)
   match (a, b)
     case (TError, TMeta(meta)) =>
@@ -1336,22 +1349,25 @@ procedure unify(in t: Type, t_: Type, ref s: State) :=
 
     case (TFun(xs, r), TFun(ys, r_)) =>
       if size(xs) == size(ys) then
-        unifies(in xs ++ List(r), ys ++ List(r_), ref s)
+        unifies_toward(in flipped(d), xs, ys, ref s)
+        unify_toward(in d, r, r_, ref s)
       else
         report(in CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_)), ref s)
       end
 
     case (TTuple(xs), TTuple(ys)) =>
       if size(xs) == size(ys) then
-        unifies(in xs, ys, ref s)
+        unifies_toward(in d, xs, ys, ref s)
       else
         report(in CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_)), ref s)
       end
 
     case (TProc(xs, ys, zs, r), TProc(us, vs, ws, r_)) =>
       if size(xs) == size(us) and size(ys) == size(vs) and size(zs) == size(ws) then
-        unifies(in xs ++ ys ++ zs, us ++ vs ++ ws, ref s)
-        unify_raises(in r, r_, t, t_, ref s)
+        unifies_toward(in flipped(d), xs, us, ref s)
+        unifies_toward(in d, ys, vs, ref s)
+        unifies(in zs, ws, ref s)
+        unify_raises(in d, r, r_, t, t_, ref s)
       else
         report(in CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_)), ref s)
       end
@@ -1360,10 +1376,12 @@ procedure unify(in t: Type, t_: Type, ref s: State) :=
       report(in CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_)), ref s)
   end
 
-// the raises r and r_ of the procedure types t and t_ are equal, where two sets are compared at once, and other pairs are
-// bounds both ways, which the raises pass checks, and RUnknown(0) is the raises of the type of a call, which take none
+// the raises r and r_ of the procedure types t and t_ relate in the direction d, where two sets are compared at once,
+// and the other pairs are bounds, which the raises pass checks, while RUnknown(0) is the raises of the type of a call,
+// which take none
 procedure unify_raises(
-  in  r: Raises,
+  in  d: Direction,
+      r: Raises,
       r_: Raises,
       t: Type,
       t_: Type,
@@ -1377,21 +1395,66 @@ procedure unify_raises(
       skip
 
     case (RSet(names), RSet(names_)) =>
-      if names != names_ then
+      if not relates(d, names, names_) then
         report(in CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_)), ref s)
       end
 
     case _ =>
       if r != r_ then
-        s := s with bounds := s.bounds ++ List(Bound(s.module, s.at, r, r_), Bound(s.module, s.at, r_, r))
+        s := s with bounds := s.bounds ++ bounds_toward(d, s.module, s.at, r, r_)
       end
   end
 
+// whether the sets names and names_ relate in the direction d
+function relates(d: Direction, names: Set[Name], names_: Set[Name]): Bool :=
+  match d
+    case Both =>
+      names == names_
+
+    case Into =>
+      names -- names_ == empty()
+
+    case From =>
+      names_ -- names == empty()
+  end
+
+function bounds_toward(d: Direction, m: Id, pos: Pos, r: Raises, r_: Raises): List[Bound] :=
+  match d
+    case Both =>
+      List(Bound(m, pos, r, r_), Bound(m, pos, r_, r))
+
+    case Into =>
+      List(Bound(m, pos, r, r_))
+
+    case From =>
+      List(Bound(m, pos, r_, r))
+  end
+
+function flipped(d: Direction): Direction :=
+  match d
+    case Both =>
+      Both
+
+    case Into =>
+      From
+
+    case From =>
+      Into
+  end
+
 procedure unifies(in xs: List[Type], ys: List[Type], ref s: State) :=
+  unifies_toward(in Both, xs, ys, ref s)
+
+procedure unifies_toward(
+  in  d: Direction,
+      xs: List[Type],
+      ys: List[Type],
+  ref s: State
+) :=
   match (xs, ys)
     case (List(x; xs_), List(y; ys_)) =>
-      unify(in x, y, ref s)
-      unifies(in xs_, ys_, ref s)
+      unify_toward(in d, x, y, ref s)
+      unifies_toward(in d, xs_, ys_, ref s)
 
     case (List(), List()) =>
       skip
@@ -2727,7 +2790,7 @@ procedure check(
 procedure expect(in pos: Pos, what: Str, t: Type, u: Type, ref s: State) :=
   let before := s.errors, outer := s.at
   s := s with at := pos
-  unify(in u, t, ref s)
+  unify_toward(in Into, u, t, ref s)
   if exists(drop(size(before), s.errors), is_unify_error) then
     s := s with errors := before ++ List(
       within(s, at_use(pos, Mismatch(zonk_type(s.sub, t), zonk_type(s.sub, u), what))))
@@ -3634,7 +3697,8 @@ procedure call_variable(
   checks(in env, "procedure " ++ p.base, ins, is, out typed_ins, ref s)
   variables(in env, assignable, outs, out typed_outs, ref s)
   variables(in env, assignable, refs, out typed_refs, ref s)
-  unifies(in List(for y in typed_outs ++ typed_refs yield y.typ), os ++ rs, ref s)
+  unifies_toward(in From, List(for y in typed_outs yield y.typ), os, ref s)
+  unifies(in List(for y in typed_refs yield y.typ), rs, ref s)
   stmt := SCall(p, typed_ins, typed_outs, typed_refs)
 
 procedure call_declared(
@@ -3700,7 +3764,8 @@ procedure declared_call(
       checks(in env, "procedure " ++ q.base, ins, List(for t in proc.ins yield subst(t, m)), out typed_ins, ref s)
       variables(in env, assignable, outs, out typed_outs, ref s)
       variables(in env, assignable, refs, out typed_refs, ref s)
-      unifies(in List(for x in typed_outs ++ typed_refs yield x.typ), List(for t in proc.outs ++ proc.refs yield subst(t, m)), ref s)
+      unifies_toward(in From, List(for x in typed_outs yield x.typ), List(for t in proc.outs yield subst(t, m)), ref s)
+      unifies(in List(for x in typed_refs yield x.typ), List(for t in proc.refs yield subst(t, m)), ref s)
       stmt := SCall(q, typed_ins, typed_outs, typed_refs)
 
     // a call that does nothing, of an unknown procedure

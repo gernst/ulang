@@ -615,6 +615,15 @@ test procedure_values_raise_inferred() :=
   end
   assert caught == 2
 
+// a procedure value of a type that raises less fits a formal that allows more
+test procedure_values_raise_less() :=
+  var ok: Bool
+  let never: (in Int) := lambda in n =>
+    skip
+  end
+  attempt(in never, 1, out ok)
+  assert ok
+
 // handlers apply if their guards hold
 test guarded_handlers() :=
   var n: Int
