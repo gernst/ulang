@@ -29,6 +29,9 @@ data LexError :=
 
 function is_keyword(w: Str): Bool
 
+// the words that are no names, which CLAUDE.md lists, as checks/docs.u checks
+function keywords(): Set[Str]
+
 procedure lex(in text: Str, out toks: Tokens) raises LexError
 
 // the tokens of text and its comments, which the tokens do not hold, in the order of the text

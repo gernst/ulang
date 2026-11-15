@@ -252,9 +252,42 @@ test checked() :=
   assert is_declared("T.f:=", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("T.compare", DModule(Set("T"), Map()))
   assert not is_declared("T.g", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("u_*", DWords(Set("u_text")))
 
+// the start of the line of CLAUDE.md that lists the keywords, in backticks after this, up to the one before a semicolon
+function keywords_start(): Str :=
+  "- The keywords, `keywords` of `ulang/parse/lex.u`,"
+
+// the spans in backticks of a line split at its backticks from i on, up to the one that a semicolon follows
+function listed_from(spans: Array[Str], i: Int): List[Str] :=
+  if i >= size(spans) then
+    List()
+  else if i + 1 < size(spans) and contains(';', at(i + 1, spans)) then
+    List(at(i, spans))
+  else
+    List(at(i, spans); listed_from(spans, i + 2))
+
+// the keywords that a line listing them gives, the spans after those of keywords_start
+function listed_keywords(line: Str): Set[Str] :=
+  Set(for k in listed_from(from_list(split(line, '`')), 5))
+
+test listed() :=
+  assert listed_keywords("- The keywords, `keywords` of `ulang/parse/lex.u`, are: `_`, `if`, and `end`; `and` is a name") == Set("_", "if", "end")
+
+// the keywords of the lexer that the document does not list, and the words that it lists that are none
+procedure keyword_problems(in doc: Str, out problems: List[Str]) :=
+  var text: Str
+  os_read_utf8(in doc, out text)
+  match List(for line in split(text, '\n') if starts_with(line, keywords_start()))
+    case List(line) =>
+      let listed := listed_keywords(line)
+      problems := List(for k in keywords() -- listed yield doc ++ ": the keyword `" ++ k ++ "` is not listed") ++ List(for k in listed -- keywords() yield doc ++ ": `" ++ k ++ "` is listed as a keyword but is none")
+
+    case _ =>
+      problems := List(doc ++ ": not one line starts with " ++ keywords_start())
+  end
+
 // prints the references of the documents that are not declared in their files, run at the root of the project, and fails
 // if there is one; the documents are CLAUDE.md, README.md, and those of ideas/ but review.md, whose references are those of
-// the commit that it reviewed
+// the commit that it reviewed; and the keywords of the lexer that CLAUDE.md does not list as such
 procedure main() raises OsError :=
   var cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[Str * Bool]
   os_list(in "ideas", out entries)
@@ -265,6 +298,9 @@ procedure main() raises OsError :=
     problems_of(in doc, out problems, ref cache)
     found := found ++ problems
   end
+  var missing: List[Str]
+  keyword_problems(in "CLAUDE.md", out missing)
+  found := found ++ missing
   for problem in found do
     os_println(in problem)
   end
