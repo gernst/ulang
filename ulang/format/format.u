@@ -1588,8 +1588,10 @@ function source_pattern(pat: Pat): Pat :=
     case PTuple(args) =>
       PTuple(List(for p in args yield map_at(p, source_pattern)))
 
-    case PAnnotated(inner, typ) =>
-      PAnnotated(map_at(inner, source_pattern), typ)
+    // the type of an alternative of a handler, which the checker annotates, see handler_pattern of
+    // ulang/check/check.u
+    case PAnnotated(inner, _) =>
+      source_pattern(inner.that)
 
     case POr(alts) =>
       POr(List(for p in alts yield map_at(p, source_pattern)))
