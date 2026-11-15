@@ -360,15 +360,27 @@ pattern PName(name: Name, typ: Type): Pat :=
 
 // the signatures of functions and procedures, without bodies
 pattern CSig(): Cmd :=
-  CFunSig(_, _, _, _, _) | CProcSig(_, _, _, _, _, _, _)
+  case CFunSig(_, _, _, _, _)
+  case CProcSig(_, _, _, _, _, _, _)
 
 // the commands without a body, which only declare
 pattern CNoCode(): Cmd :=
-  CSort(_, _, _) | CData(_, _, _) | CAbstract(_, _) | CNotation(_, _, _) | CSig | CPatAlias(_, _, _, _, _)
+  case CSort(_, _, _)
+  case CData(_, _, _)
+  case CAbstract(_, _)
+  case CNotation(_, _, _)
+  case CSig
+  case CPatAlias(_, _, _, _, _)
 
 // the commands without a spec, so without examples and contracts
 pattern CNoSpec(): Cmd :=
-  CSort(_, _, _) | CData(_, _, _) | CAbstract(_, _) | CNotation(_, _, _) | CTest(_, _, _) | CPatAlias(_, _, _, _, _) | CLemma(_, _, _, _, _, _)
+  case CSort(_, _, _)
+  case CData(_, _, _)
+  case CAbstract(_, _)
+  case CNotation(_, _, _)
+  case CTest(_, _, _)
+  case CPatAlias(_, _, _, _, _)
+  case CLemma(_, _, _, _, _, _)
 
 function unqualified(x: Id): Name
 

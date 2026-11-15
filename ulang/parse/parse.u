@@ -2352,6 +2352,7 @@ procedure parse_pat_alias(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
     pat := AOk(at, span_from(at, toks), POr(alts))
   else
     parse_pattern(in notation, params, out pat, ref toks)
+    require_cases(in pat)
   end
   cmd := CPatAlias(unqualified(name), params, xs, r, pat)
 
@@ -2367,7 +2368,17 @@ procedure parse_alias_cases(
     var alt: At[Pat]
     advance(ref toks)
     parse_pattern(in notation, params, out alt, ref toks)
+    require_cases(in alt)
     alts := alts ++ List(alt)
+  end
+
+// a pattern of an alias without alternatives at its top, which follow case each
+procedure require_cases(in pat: At[Pat]) raises ParseError :=
+  match pat.that
+    case POr(_) =>
+      raise ParseError("the alternatives of a pattern alias follow case, one on each line, as in pattern P(): T := case A case B", pat.pos)
+    case _ =>
+      skip
   end
 
 // a procedure, which is a signature without :=, or with := and a spec that the next command follows
@@ -3782,12 +3793,19 @@ test parsed_tuple_types() :=
     TFun(List(pair), int),
     TTuple(List()))
 
-// the alternatives of a pattern alias after case, one on each line, are those of the pattern written with |
+// the alternatives of a pattern alias after case, one on each line, are one pattern of alternatives
 test parsed_alias_cases() :=
-  var by_case: Mod, by_bar: Mod
-  parse_text(in "pattern Small(): Int :=\n  case 0\n  case 1\n  case Some(2 | 3)\n", out by_case)
-  parse_text(in "pattern Small(): Int :=\n  0 | 1 | Some(2 | 3)\n", out by_bar)
-  assert List(for c in commands_of(by_case.implemented) yield strip_cmd(c)) == List(for c in commands_of(by_bar.implemented) yield strip_cmd(c))
+  var d: Mod, found: List[Pat] := List()
+  parse_text(in "pattern Small(): Option[Int] :=\n  case None\n  case Some(1)\n  case Some(2 | 3)\n", out d)
+  for c in commands_of(d.implemented) do
+    match c
+      case CPatAlias(_, _, _, _, AOk(_, _, POr(alts))) =>
+        found := List(for a in alts yield strip_pat(a).that)
+      case _ =>
+        skip
+    end
+  end
+  assert size(found) == 3
 
 // the doc of a declaration is the run of comments right above it, without a blank line between
 test parsed_docs() :=

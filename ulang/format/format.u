@@ -1101,7 +1101,7 @@ function format_cmd(notation: Notation, notes: List[Comment], cmd: Cmd): Option[
       Some(proc_head("procedure", name, params, ins, outs, refs, raised) ++ signature_spec(notation, notes, spec))
 
     case CPatAlias(name, params, formals, typ, pat) =>
-      Some("pattern " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ "): " ++ format_type(typ) ++ " :=\n  " ++ format_pattern(notation, "  ", pat))
+      Some("pattern " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ "): " ++ format_type(typ) ++ " :=" ++ alias_pattern_text(notation, notes, pat))
 
     case CNotation(fixity, prec, ops) =>
       Some(fixity_text(fixity) ++ " " ++ show(prec) ++ " " ++ join(" ", ops))
@@ -1296,6 +1296,16 @@ function contract_items(notation: Notation, notes: List[Comment], assms: List[At
   else
     List(
       Item(exprs_span(assms), "requires " ++ join(", ", List(for a in assms yield format_expr(notation, notes, "  ", a)))))) ++ List(for c in concl yield Item(c.span, "ensures" ++ pad ++ format_expr(notation, notes, "  ", c)))
+
+// the pattern of a pattern alias on the line after :=, where the alternatives at its top follow case, one on each line, as
+// the constructors of a datatype do
+function alias_pattern_text(notation: Notation, notes: List[Comment], pat: At[Pat]): Str :=
+  match pat.that
+    case POr(alts) =>
+      lined_text(notes, "  ", List(for a in alts yield Item(a.span, "case " ++ format_pattern(notation, "  ", a))), false)
+    case _ =>
+      lined_text(notes, "  ", List(Item(pat.span, format_pattern(notation, "  ", pat))), false)
+  end
 
 function data_text(notes: List[Comment], name: Name, params: List[Id], constrs: List[At[Constr]]): Str :=
   "data " ++ name.base ++ params_text(params) ++ " :=" ++ lined_text(notes, "  ", List(for c in constrs yield Item(c.span, "case " ++ constr_text(c.that))), false)
