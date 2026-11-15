@@ -8,18 +8,13 @@ Confidence: **confirmed** means reproduced by a run, with the repro given; **lik
 
 All likely, none reproduced.
 
-Backends and runtime:
-
-1. **NUL in paths and `os_write("")`** (`ulang/runtime/ulang.c:240-244, 1098-1158`): a path with a code point 0 is cut at it, so `os_read("a\0b")` opens `a` instead of raising `OsError`; `p_os_write` of an empty path reads `dir[1]` of a one-byte buffer.
-2. **`format_str` writes control characters raw into C literals** (`ulang/compile/c.u:124-127`), only the escapes of ulang are applied; `chr(27)` or `chr(0)` in a literal reach the C source as is. Fix: octal escapes below 32 and for 127.
-
 Checker:
 
-3. **Trials of candidates count errors instead of testing unification** (`trials` and `fits`, `ulang/check/check.u:1570, 2379`), while `report` drops any `CannotUnify` that reaches `TError`, so every candidate fits an argument of an erroneous type. Mostly masked by `settle`; low confidence of a visible effect.
+1. **Trials of candidates count errors instead of testing unification** (`trials` and `fits`, `ulang/check/check.u:1570, 2379`), while `report` drops any `CannotUnify` that reaches `TError`, so every candidate fits an argument of an erroneous type. Mostly masked by `settle`; low confidence of a visible effect.
 
 Prover, latent:
 
-4. **Fallbacks that build fake terms** where an `Unexpected` belongs: `extract` gives `ELevel(i)` of a class id (`ulang/prove/simp.u:785`), `node_term` a `false` application (`ulang/prove/egraph.u:146`), and `value_or(…, 0)` at `ulang/prove/translate.u:179, 188, 195` and `ulang/prove/patterns.u:279`.
+2. **Fallbacks that build fake terms** where an `Unexpected` belongs: `extract` gives `ELevel(i)` of a class id (`ulang/prove/simp.u:785`), `node_term` a `false` application (`ulang/prove/egraph.u:146`), and `value_or(…, 0)` at `ulang/prove/translate.u:179, 188, 195` and `ulang/prove/patterns.u:279`.
 
 ## 2. Cross-cutting themes
 
