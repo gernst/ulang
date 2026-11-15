@@ -2,10 +2,10 @@
 // style that code that may not terminate is a procedure is checked also where no lemma reaches the code; the program is
 // the driver ulang/ulang.u, which loads every package of ulang/
 
-import "ulang/syntax"
-import "ulang/parse"
-import "ulang/check"
-import "ulang/prove"
+import ulang.syntax
+import ulang.parse
+import ulang.check
+import ulang.prove
 
 procedure main() raises OsError, ParseError, TypeError, InternalError :=
   var source: Source, q: Prog, open: List[Str] := List()
@@ -14,7 +14,7 @@ procedure main() raises OsError, ParseError, TypeError, InternalError :=
   check_program(in source, out q)
   match translate(q, q.main)
     case Translation(decls, _, _) =>
-      open := List(for t in terminations(decls, Set(for k => d in decls.defs if d.recursive yield k)) for site in take(1, t.open) yield value_or(first(site.caller).module, "") ++ "." ++ first(site.caller).base ++ ": " ++ print_open_call(site))
+      open := List(for t in terminations(decls, Set(for k => d in decls.defs if d.recursive yield k)) for site in take(1, t.open) yield path_text(first(site.caller).path) ++ "." ++ first(site.caller).base ++ ": " ++ print_open_call(site))
   end
   for line in open do
     os_println(in line)

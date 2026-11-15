@@ -3,7 +3,7 @@
 // displacement relative to %rip has 4 bytes, so that the size of an instruction does not depend on the labels, which a
 // first pass over the file places, and the second encodes with them
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 

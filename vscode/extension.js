@@ -148,7 +148,7 @@ function decorateSections(context) {
 }
 
 // the root of the project of file, as the parser finds it: the nearest directory above it with project.u, else its own
-// directory, where the modules of a directory with prelude.u, the library, are known as prelude/name, as from its parent
+// directory, where the modules of a directory with prelude.u, the library, are known as prelude.name, as from its parent
 function projectRoot(file) {
   const home = path.dirname(path.resolve(file));
   if (fs.existsSync(path.join(home, "prelude.u"))) return path.dirname(home);
@@ -175,7 +175,11 @@ function activate(context) {
       if (!d) continue;
       const warning = d.severity === "warning";
       const message = d.kind + (warning ? " warning: " : " error: ") + d.message;
+      // the module by its path, ulang.check.check, of the file ulang/check/check.u from the root, and its package by the
+      // path that its import writes, ulang.check
       const module = d.module;
+      const moduleFile = module ? module.split(".").join("/") : undefined;
+      const modulePackage = module ? module.split(".").slice(0, -1).join(".") : undefined;
       const row = d.line, column = d.column;
       // an error of a proof is a warning, at its step, else at its lemma or at the function whose termination is open, as
       // is a diagnostic of the severity warning
@@ -191,13 +195,13 @@ function activate(context) {
       }
       const root = projectRoot(file);
       const imported = lines.findIndex((l) => {
-        const named = /^import "(.*)"$/.exec(l.trim());
-        return named && named[1] === path.posix.dirname(module);
+        const named = /^import ([\w.]+)$/.exec(l.trim());
+        return named && named[1] === modulePackage;
       });
       const position = new vscode.Position(Math.max(imported, 0), 0);
       const text = message + " in " + module + (row ? " at " + row + "." + column : "");
       const diagnostic = new vscode.Diagnostic(new vscode.Range(position, position.translate(0, 1)), text, vscode.DiagnosticSeverity.Error);
-      const source = [path.join(root, module + ".u")].find((f) => fs.existsSync(f)) || "";
+      const source = [path.join(root, moduleFile + ".u")].find((f) => fs.existsSync(f)) || "";
       if (row && source) {
         diagnostic.relatedInformation = [new vscode.DiagnosticRelatedInformation(new vscode.Location(vscode.Uri.file(source), at), message)];
       }

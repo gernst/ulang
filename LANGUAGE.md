@@ -22,6 +22,7 @@ Check after each small edit, `ulang.sh check --test file.u`, and let `ulang.sh f
 - Functions cannot `raise`, loop, or read files: such code is a procedure.
 - A `try` restores every variable that its body changed, also a counter passed by `ref`, so what a failed attempt learned leaves only in the fields of its exception.
 - Arrays are immutable, and building one copies it: state that changes by index or key belongs in a `Map`.
+- A local, formal, or out hides every function of its name, so `out lines: List[Str]` cannot call `lines(text)`, as the error of such a call says: rename the variable.
 - `split(text, '\n')` of a text that ends with a newline gives a last empty string; `lines(text)` gives the lines.
 - Keywords are no names, also not of fields, formals, or locals: `_`, `assert`, `builtin`, `case`, `catch`, `correct`, `data`, `do`, `else`, `end`, `ensures`, `example`, `export`, `false`, `for`, `function`, `if`, `implementation`, `import`, `in`, `induction`, `invariant`, `infix`, `lambda`, `lemma`, `let`, `match`, `out`, `pattern`, `postfix`, `prefix`, `procedure`, `raise`, `raises`, `ref`, `requires`, `skip`, `test`, `then`, `true`, `type`, `try`, `var`, `while`, `with`, and `yield`, where the error of one that is a common word names one to write instead, `keyword raises is not a name; write a name such as raised`; `and`, `or`, `not`, `show`, and `compare` are names, and `List`, `Set`, `Map`, and `Array` name types, and are forms only before `(`.
 
@@ -67,7 +68,7 @@ Other declarations: a type alias, `type Pairs := List[(Str, Int)]`; an operator,
 
 A procedure has formals of the modes `in`, `out`, and `ref`, where a mode covers the formals after it up to the next mode, `in a: Int, b: Int, out q: Int, r: Int`. The arguments of a call go by mode in the same order, `divmod(in 7, 2, out q, r)`, and `out _` drops an out that nothing needs. A procedure works on copies of its outs and refs, which reach the caller only when it returns.
 
-Statements: `let` and `var`, assignments, calls, `if`, `while`, `for x in c if guard do … end` over any container, `match`, `try`, `raise e`, `assert`, and `skip`. A variable is read only where every path assigned it, and every path that does not raise assigns the outs. A `var` without a type gets it from its value, or as an out of the call right after it, `var q, r`.
+Statements: `let` and `var`, assignments, calls, `if`, `while`, `for x in c if guard do … end` over any container, `match`, `try`, `raise e`, `assert`, and `skip`. A variable is read only where every path assigned it, and every path that does not raise assigns the outs. A `var` without a type gets it from its value, or as an out of the call right after it, `var q, r`, so locals that are outs of several calls are each declared right before their call or with their types.
 
 ```u
 procedure divmod(in a: Int, b: Int, out q: Int, r: Int) :=
@@ -197,7 +198,7 @@ The containers share names and the order of their arguments, the element or key 
 A file without sections is a program: its commands are private, and its procedures without formals are entries, `ulang.sh run file.u` calls `main`, `run file.u:go` calls `go`. A module that others use has sections: imports, then `export` with the datatypes, notations, and signatures without bodies that others see, and `implementation` with the definitions, which repeat the exported signatures exactly, and the private declarations and tests. `type T[A]` in `export` is abstract, defined by a `data` in `implementation`, so others see neither its constructors nor its fields.
 
 ```
-import "app/store"
+import app.store
 
 export
 
@@ -214,7 +215,7 @@ procedure load(in path: Str, out inbox: Inbox) raises OsError :=
   …
 ```
 
-The `.u` files of a directory are one package: they see each other's exports without imports, also cyclically, while the private declarations of each stay in its file. `import "app/store"` loads the package of the directory `app/store` by its path from the root of the project, the nearest directory above with a file `project.u`. Imports are not transitive, so a module imports each package whose names it uses, also for the types it names; an import of which nothing is used is an error, and so is a cycle of packages. A type of a module hides one of the same name that it imports.
+The `.u` files of a directory are one package: they see each other's exports without imports, also cyclically, while the private declarations of each stay in its file. `import app.store` loads the package of the directory `app/store` by its path from the root of the project, the nearest directory above with a file `project.u`. A use may write the path of a package or a module before a name, `app.store.load(in path, out inbox)`, also in types, `app.store.Inbox`, and patterns, `case prelude.option.Some(n) =>`, where it means the exports of that package, or of the module of that path, among which the types decide as everywhere; no type hides another, also not one of the module a type of the library, so two visible types of one name make an unqualified use ambiguous, and it writes the path of the one it means; and no local may be named as the first name of a path that the module sees, such as `app` or `prelude`. Imports are not transitive, so a module imports each package whose names it uses, also for the types it names; an import of which nothing is used is an error, and so is a cycle of packages. A type of a module hides one of the same name that it imports.
 
 ## Tests and specifications
 

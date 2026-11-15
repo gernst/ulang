@@ -1,10 +1,14 @@
 // @patch of nodes, the normal paths of handles and files, and the messages of @rename, on files below
 // out/test/refactor/small/ of the root, which run only compiled, as the scripts of scripts.u do
 
-import "ulang/syntax"
-import "ulang/refactor"
+import ulang.syntax
+import ulang.refactor
 
-procedure unchecked(in file: Str, out found: List[(Str, Diagnostic)]) :=
+procedure unchecked(
+  in  file: Str,
+      overlays: Map[Str, Str],
+  out found: List[(Str, Diagnostic)]
+) :=
   found := List()
 
 // a file of a procedure of an if in a directory of its own with a fresh table of handles, and its path
@@ -64,4 +68,4 @@ test rename_messages() :=
     "@refs " ++ dir ++ "/p/a.u:f: 1 use of " ++ dir ++ "/p/a.f/1 in 1 file\n  " ++ dir ++ "/p/b.u:6.3 in h/1 #1: f(y)")
   run_script(in "@rename " ++ dir ++ "/m.u:shout max", false, dir, unchecked, out reply, status, _)
   assert status == 0
-  assert exists(reply, lambda line => starts_with(line, "warning: the uses of max/1 also see ") and index_of("prelude/prelude.max: (Int, Int) -> Int", line) != None)
+  assert exists(reply, lambda line => starts_with(line, "warning: the uses of max/1 also see ") and index_of("prelude.prelude.max: (Int, Int) -> Int", line) != None)

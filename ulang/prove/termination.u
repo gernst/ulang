@@ -8,15 +8,16 @@
 // weakly and some strictly is taken, and the calls that it decreases strictly are done. A strict decrease of an Int
 // measure also needs it positive before the call, so that it stays a natural number.
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 
 // a recursive call: the function, the variables around it, those of its equation and of the leaves of the matches
-// around it, which the other fields have as levels, its arguments, or None where it is not analysed, under a lambda or
-// in a condition of its equation, and the path to it: the conditions of the equation and of the ifs around it, and for
-// each match around it, the equation of its argument with the value of the leaf (ulang/prove/patterns.u), the
-// conditions of the leaf, the guard of the case, and the negated guards of the cases before it
+// around it, which the other fields have as levels, its arguments, or None where it is not analysed, under a lambda, in
+// a condition of its equation, or through a function value, and the path to it: the conditions of the equation and of
+// the ifs around it, and for each match around it, the equation of its argument with the value of the leaf
+// (ulang/prove/patterns.u), the conditions of the leaf, the guard of the case, and the negated guards of the cases
+// before it
 data Call :=
   case Call(name: (Name, Int), vars: List[Var], args: Option[List[Term]], path: List[Term])
 
@@ -82,8 +83,13 @@ function calls_in(decls: Decls, names: List[(Name, Int)], t: Term, vars: List[Va
           here ++ List(for a in args for c in calls_in(decls, names, a, vars, path) yield c)
       end
 
+    case EApp(ELam(formals, body), args) =>
+      List(for a in List(ELam(formals, body); args) for c in calls_in(decls, names, a, vars, path) yield c)
+
+    // a function value may be any that the program passes, a call that is not analysed
     case EApp(fun, args) =>
-      List(for a in List(fun; args) for c in calls_in(decls, names, a, vars, path) yield c)
+      let indirect := List(for k in names if contains(k, decls.indirect) and second(k) == size(args) yield Call(k, vars, None, path)) in
+      indirect ++ List(for a in List(fun; args) for c in calls_in(decls, names, a, vars, path) yield c)
 
     case EIte(cond, then_expr, else_expr) =>
       calls_in(decls, names, cond, vars, path) ++ calls_in(decls, names, then_expr, vars, path ++ List(cond)) ++ calls_in(decls, names, else_expr, vars, path ++ List(Not(cond)))
@@ -102,13 +108,8 @@ function calls_in(decls: Decls, names: List[(Name, Int)], t: Term, vars: List[Va
 // the container, the position of the lambda among the arguments, and the positions of its formals that are elements of
 // the container, for the folds, exists, and forall of the containers of the library that are datatypes
 function element_lambda(name: Name, args: List[Term]): Option[(Term, Int, List[Int])] :=
-  match (name.module, args)
-    case (Some(m), List(c; _)) if contains(m, List(
-      "prelude/list",
-      "prelude/set",
-      "prelude/map",
-      "prelude/option",
-      "prelude/buffer")) =>
+  match (name_module(name), args)
+    case (Some(m), List(c; _)) if contains(m, List(for file in List("list", "set", "map", "option", "buffer") yield library_module(file))) =>
       match (name.base, args)
         case ("foldr", List(_, _, ELam(formals, _))) =>
           Some((c, 2, range(0, size(formals) - 1)))
@@ -190,7 +191,7 @@ function measure_slots(decls: Decls, names: List[(Name, Int)]): List[Slot] :=
       List(for m in size_measures(decls, fs) yield Slot(List(m), false)) ++ List(for m in int_measures(fs) ++ guards yield Slot(List(m), true))
 
     case _ =>
-      let n := foldl(formals, 0, lambda acc, fs => if acc == 0 or size(fs) < acc then size(fs) else acc) in
+      let n := value_or(foldl(formals, None, lambda least, fs => Some(min(value_or(least, size(fs)), size(fs)))), 0) in
       let common := List(for i in range(0, n) if forall(formals, lambda fs => is_datatype(decls, at(i, from_list(fs)).typ)) yield Slot(List(for fs in formals yield Size(EBound(size(fs) - 1 - i))), false)) in
       let k := size(formals) in
       let ranks := List(

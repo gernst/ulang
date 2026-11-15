@@ -1,10 +1,10 @@
 // the lints of parsed texts, with their positions and the replacements as format writes them, where the texts are not
 // checked, as the command lint checks them first
 
-import "ulang/syntax"
-import "ulang/parse"
-import "ulang/format"
-import "ulang/lint"
+import ulang.syntax
+import ulang.parse
+import ulang.format
+import ulang.lint
 
 // the warnings of the selected lints of the program of the lines, each its position and the text of its replacement, else
 // its message
@@ -90,6 +90,8 @@ test lints_of_variables() :=
     "    case None =>",
     "      let (c, d) := (1, 2) in exists(List(1), lambda x => c > 0)",
     "  end",
+    "function g(n: Int): Int :=",
+    "  let a := n, b := a, e := 0 in b",
     "procedure p(in xs: List[Int], out n: Int) :=",
     "  var unread := 1, written: Int, passed: Int",
     "  n := 0, written := 2",
@@ -104,10 +106,11 @@ test lints_of_variables() :=
     (Pos(4, 23), "the variable b is never read, write _"),
     (Pos(7, 15), "the variable d is never read, write _"),
     (Pos(7, 54), "the variable x is never read, write _"),
-    (Pos(10, 7), "the local unread is never read"),
-    (Pos(10, 20), "the local written is never read"),
-    (Pos(10, 34), "the local passed is never read, write _ at the outs that receive it"),
-    (Pos(13, 7), "the variable x is never read, write _"))
+    (Pos(10, 23), "the variable e is never read, write _"),
+    (Pos(12, 7), "the local unread is never read"),
+    (Pos(12, 20), "the local written is never read"),
+    (Pos(12, 34), "the local passed is never read, write _ at the outs that receive it"),
+    (Pos(15, 7), "the variable x is never read, write _"))
 
 // an in of a procedure lambda that its body never reads may be _, also in a lambda inside another, which may read it
 test lints_of_lambda_ins() :=

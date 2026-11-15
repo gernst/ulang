@@ -6,7 +6,7 @@
 // variables of the leaf, also those that no pattern names, and checks each case that matches the leaf. Every step is simplified with the lemmas proven before as facts, which it may also call; the lemma itself is
 // called only as an induction hypothesis, at a recursive field of the case.
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 
@@ -254,7 +254,7 @@ function invariant_gaps(w: Walk, scope: Scope, vars: List[Int], havoc: List[Var]
   let fresh := List(for l in range(k, k + n) yield ELevel(l)), next := List(for l in range(k + n, k + 2 * n) yield ELevel(l)) in
   let holds := Atom(beta(around ++ fresh, inv)), guard := beta(around ++ fresh, cond) in
   let loop := scope with vars := scope.vars ++ havoc, env := reverse(range(k, k + n)) ++ scope.env in
-  let step := loop with vars := loop.vars ++ List(for x in havoc yield x with name := Name(None, "(next)" ++ x.name.base)), env := reverse(range(k + n, k + 2 * n)) ++ loop.env, facts := scope.facts ++ List(holds, Atom(guard)), goal := beta(around ++ next, inv), outs := range(k + n, k + 2 * n), arounds := List() in
+  let step := loop with vars := loop.vars ++ List(for x in havoc yield x with name := Name(List(), "(next)" ++ x.name.base)), env := reverse(range(k + n, k + 2 * n)) ++ loop.env, facts := scope.facts ++ List(holds, Atom(guard)), goal := beta(around ++ next, inv), outs := range(k + n, k + 2 * n), arounds := List() in
   let exit := loop with facts := scope.facts ++ List(holds, Negated(Atom(guard))) in
   closing(w, scope, beta(around ++ before, inv), pos) ++ block_gaps(w, step, body) ++ block_gaps(w, exit, after)
 

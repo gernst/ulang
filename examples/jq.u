@@ -4,7 +4,7 @@
 //
 // the command line of the package library/json
 
-import "library/json"
+import library.json
 
 procedure main() :=
   var ok := true

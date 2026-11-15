@@ -2,39 +2,39 @@
 // ulang/test/enumerate/enumerate.u, which the tester loads as enumerate_module into the programs under test, as source with
 // qualified names, which the checker checks after the definitions of the package (check_all of ulang/check/check.u)
 
-import "ulang/syntax"
-import "ulang/check"
+import ulang.syntax
+import ulang.check
 
 export
 
 // the module of the enumeration in a program under test, whose name no path gives, so that no module sees it and the
 // generated tests name its declarations by qualified names
-function enumerate_module(): Id
+function enumerate_module(): Path
 
 // the tests over the values of the enumeration up to a depth, of the lemmas l of the package whose formals have
 // enumerable types, l.lemma, and of its tests with formals, t of t, which the runners take for the test with formals,
 // with the functions (enum)T of the datatypes T that they reach, one per module, placed at the first test that reaches it;
 // type parameters stand for Int, and a test with a formal of a type that is not enumerable raises Unenumerable
-function enumerated_tests(c: Checked): List[(Pos, (Id, Cmd))]
+function enumerated_tests(c: Checked): List[(Pos, (Path, Cmd))]
 
 // the suffix of the name of the test of a lemma, l.lemma of l
 function lemma_suffix(): Str
 
 implementation
 
-function enumerate_module(): Id :=
-  "(test)/enumerate"
+function enumerate_module(): Path :=
+  List("(test)", "enumerate")
 
 function lemma_suffix(): Str :=
   ".lemma"
 
 // a generated test at pos in the module m, with the datatypes whose functions (enum)T it calls
 data Enumerated :=
-  case Enumerated(pos: Pos, module: Id, cmd: Cmd, needed: List[Name])
+  case Enumerated(pos: Pos, module: Path, cmd: Cmd, needed: List[Name])
 
 // the enumerations of the types, each of a type parameter that of Int, and the datatypes whose functions (enum)T they
 // call, if all are enumerable
-function enumerations(c: Checked, m: Id, types: List[Type]): Option[(List[At[Expr]], List[Name])] :=
+function enumerations(c: Checked, m: Path, types: List[Type]): Option[(List[At[Expr]], List[Name])] :=
   match (all_some(List(for typ in types yield enum_expr(c, m, lambda _ => enum_call("ints", List()), typ))), datatypes_needed(c, m, List(for typ in types for n in datatypes_in(typ) yield n), List()))
     case (Some(enums), Some(needed)) =>
       Some((enums, needed))
@@ -42,18 +42,18 @@ function enumerations(c: Checked, m: Id, types: List[Type]): Option[(List[At[Exp
       None
   end
 
-function enumerated_tests(c: Checked): List[(Pos, (Id, Cmd))] :=
+function enumerated_tests(c: Checked): List[(Pos, (Path, Cmd))] :=
   let found := List(for (pos, (m, cmd)) in c.placed for t in enumerated_test(c, pos, m, cmd) yield t) in
   List(for (pos, (m, n)) in first_uses(List(for t in found for n in t.needed yield (t.pos, (t.module, n))), Set()) yield (pos, (m, enum_fun(c, m, n)))) ++ List(for t in found yield (t.pos, (t.module, t.cmd)))
 
 // the test of cmd at pos in the module m, if it is a lemma whose formals have enumerable types or a test with formals
-function enumerated_test(c: Checked, pos: Pos, m: Id, cmd: Cmd): List[Enumerated] :=
+function enumerated_test(c: Checked, pos: Pos, m: Path, cmd: Cmd): List[Enumerated] :=
   match cmd
     case CLemma(name, _, formals, List(), ClaimHolds(assms, concl), _) =>
-      List(for lemma_sig in lemma_of(c.sig, name) for (enums, needed) in enumerations(c, m, lemma_sig.formals) yield Enumerated(pos, m, CTest(Name(Some(m), name.base ++ lemma_suffix()), List(), lemma_stmt(zip(vars(formals), enums), assms, concl)), needed))
+      List(for lemma_sig in lemma_of(c.sig, name) for (enums, needed) in enumerations(c, m, lemma_sig.formals) yield Enumerated(pos, m, CTest(Name(m, name.base ++ lemma_suffix()), List(), lemma_stmt(zip(vars(formals), enums), assms, concl)), needed))
 
     case CTest(name, List(_; _), body) =>
-      let xs := checked_formals(c, m, name), test_name := Name(Some(m), name.base) in
+      let xs := checked_formals(c, m, name), test_name := Name(m, name.base) in
       match enumerations(c, m, List(for x in xs yield x.typ))
         case Some((enums, needed)) =>
           List(
@@ -69,7 +69,7 @@ function enumerated_test(c: Checked, pos: Pos, m: Id, cmd: Cmd): List[Enumerated
   end
 
 // the formals of the test name of the module m with their types, as the checker found them
-function checked_formals(c: Checked, m: Id, name: Name): List[Var] :=
+function checked_formals(c: Checked, m: Path, name: Name): List[Var] :=
   List(for (n, cmd) in c.defined if n == m for x in test_formals(cmd.that, name.base) yield x)
 
 function test_formals(cmd: Cmd, base: Id): List[Var] :=
@@ -87,7 +87,7 @@ function unenumerable(formals: List[Var]): At[Stmt] :=
 
 // the uses of datatypes by modules, each pair of a module and a datatype once, at its first use, where seen are those
 // before
-function first_uses(uses: List[(Pos, (Id, Name))], seen: Set[(Id, Name)]): List[(Pos, (Id, Name))] :=
+function first_uses(uses: List[(Pos, (Path, Name))], seen: Set[(Path, Name)]): List[(Pos, (Path, Name))] :=
   match uses
     case List() =>
       List()
@@ -112,7 +112,7 @@ function all_some[A](os: List[Option[A]]): Option[List[A]] :=
   end
 
 function enum_name(base: Id): Name :=
-  Name(Some(enumerate_module()), base)
+  Name(enumerate_module(), base)
 
 function enum_call(base: Id, args: List[At[Expr]]): At[Expr] :=
   generated_call(enum_name(base), args)
@@ -131,7 +131,7 @@ function enumerated_sorts(): List[(Name, Id)] :=
 
 // the enumeration of the values of typ, where param gives those of the type parameters, and a datatype the function
 // (enum)T of its module, if datatypes_needed finds it enumerable
-function enum_expr(c: Checked, m: Id, param: Id -> At[Expr], typ: Type): Option[At[Expr]] :=
+function enum_expr(c: Checked, m: Path, param: Id -> At[Expr], typ: Type): Option[At[Expr]] :=
   match typ
     case TParam(p) =>
       Some(param(p))
@@ -158,11 +158,11 @@ function enum_expr(c: Checked, m: Id, param: Id -> At[Expr], typ: Type): Option[
       None
   end
 
-function enum_fun_name(m: Id, sort: Name): Name :=
-  Name(Some(m), "(enum)" ++ value_or(sort.module, "") ++ "." ++ sort.base)
+function enum_fun_name(m: Path, sort: Name): Name :=
+  Name(m, "(enum)" ++ path_text(sort.path) ++ "." ++ sort.base)
 
 // a datatype with constructors that the module sees, which is not abstract
-function is_enumerable_data(c: Checked, m: Id, name: Name): Bool :=
+function is_enumerable_data(c: Checked, m: Path, name: Name): Bool :=
   match members_of(c.sig, name)
     case Some(List(k; ks)) =>
       not contains(name, c.abstract) and forall(List(k; ks), lambda constr => is_seen(c, m, constr) and constr_of(c.sig, constr) != None)
@@ -187,7 +187,7 @@ function datatypes_in(typ: Type): List[Name] :=
   end
 
 // the datatypes of todo and those that their fields name, if each is enumerable, with done the ones found so far
-function datatypes_needed(c: Checked, m: Id, todo: List[Name], done: List[Name]): Option[List[Name]] :=
+function datatypes_needed(c: Checked, m: Path, todo: List[Name], done: List[Name]): Option[List[Name]] :=
   match todo
     case List() =>
       Some(done)
@@ -218,7 +218,7 @@ function tuple_enum(es: List[At[Expr]]): At[Expr] :=
 
 // the function (enum)T of the datatype n, whose formals enumerate its type parameters, which counts and builds the values
 // of each depth from those of the fields one less deep
-function enum_fun(c: Checked, m: Id, n: Name): Cmd :=
+function enum_fun(c: Checked, m: Path, n: Name): Cmd :=
   let constrs := List(for constr in value_or(members_of(c.sig, n), List()) for k in constr_of(c.sig, constr) yield (constr, k)) in
   let params := List(for (_, k) in take(1, constrs) for t in k.params yield param_id(t)), d := generated_name("depth") in
   let field_enum := (lambda t => value_or(enum_expr(c, m, lambda p => generated_var(generated_name(p)), t), nowhere(ELit(LInt(0))))), below := generated_op("-", List(generated_var(d), nowhere(ELit(LInt(1))))) in
@@ -319,7 +319,7 @@ function counterexamples_in(values: At[Expr], stmt: Stmt): Stmt :=
 // the text of a failed assertion of cond with the values, and of an equation a == b also show(a) != show(b)
 function falsified_text(values: At[Expr], cond: At[Expr]): At[Expr] :=
   match cond.that
-    case ECall(_, _, Name(None, "=="), _, List(a, b)) =>
+    case ECall(_, _, Name(List(), "=="), _, List(a, b)) =>
       generated_op("++", List(
         values,
         generated_op("++", List(

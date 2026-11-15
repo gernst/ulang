@@ -4,7 +4,7 @@
 // and de Bruijn levels for the variables of the opened sequents, counted from the root.
 // A list of binders binds from left to right, the last one is EBound(0).
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 
@@ -61,9 +61,10 @@ data ConstrDecl :=
 // declarations, the precedence of the term order, the abstract types, whose constructors are a representation that
 // == need not respect, so that they are neither injective nor distinct, and the datatypes that are not ordered by
 // their structure, the abstract types and those with a declared compare, and the recursive functions whose termination
-// is proven, the only recursive ones that unfold
+// is proven, the only recursive ones that unfold, and the definitions that an application of a function value may call,
+// of the functions that values of reflexive datatypes may hold (reflexive_sorts of ulang/prove/translate.u)
 data Decls :=
-  case Decls(defs: Map[(Name, Int), Def], constrs: Map[Name, ConstrDecl], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int], abstracts: Set[Name], ordered: Set[Name], terminating: Set[(Name, Int)])
+  case Decls(defs: Map[(Name, Int), Def], constrs: Map[Name, ConstrDecl], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int], abstracts: Set[Name], ordered: Set[Name], terminating: Set[(Name, Int)], indirect: Set[(Name, Int)])
 
 data Rebind :=
   // the count outermost binders at depth become the levels from depth on
@@ -78,55 +79,55 @@ data Rebind :=
 // to these, while <=, >, and >= are functions of the prelude that the prover takes as builtins, so that no comparison is
 // negated: > and >= are < and <= with their sides swapped, and a negation moves into the comparison
 pattern Not(a: Term): Term :=
-  EApp(EFun(Name(Some("prelude/prelude"), "not")), List(a))
+  EApp(EFun(Name(List("prelude", "prelude"), "not")), List(a))
 
 pattern Implies(a: Term, b: Term): Term :=
-  EApp(EFun(Name(Some("prelude/prelude"), "==>")), List(a, b))
+  EApp(EFun(Name(List("prelude", "prelude"), "==>")), List(a, b))
 
 pattern And(a: Term, b: Term): Term :=
-  EApp(EFun(Name(None, "and")), List(a, b))
+  EApp(EFun(Name(List(), "and")), List(a, b))
 
 pattern Or(a: Term, b: Term): Term :=
-  EApp(EFun(Name(None, "or")), List(a, b))
+  EApp(EFun(Name(List(), "or")), List(a, b))
 
 pattern Eq(a: Term, b: Term): Term :=
-  EApp(EFun(Name(None, "==")), List(a, b))
+  EApp(EFun(Name(List(), "==")), List(a, b))
 
 // on integers only
 pattern Less(a: Term, b: Term): Term :=
-  EApp(EFun(Name(None, "<")), List(a, b))
+  EApp(EFun(Name(List(), "<")), List(a, b))
 
 pattern LessEq(a: Term, b: Term): Term :=
-  EApp(EFun(Name(Some("prelude/prelude"), "<=")), List(a, b))
+  EApp(EFun(Name(List("prelude", "prelude"), "<=")), List(a, b))
 
 pattern Greater(a: Term, b: Term): Term :=
-  EApp(EFun(Name(Some("prelude/prelude"), ">")), List(a, b))
+  EApp(EFun(Name(List("prelude", "prelude"), ">")), List(a, b))
 
 pattern GreaterEq(a: Term, b: Term): Term :=
-  EApp(EFun(Name(Some("prelude/prelude"), ">=")), List(a, b))
+  EApp(EFun(Name(List("prelude", "prelude"), ">=")), List(a, b))
 
 pattern Compare(a: Term, b: Term): Term :=
-  EApp(EFun(Name(None, "compare")), List(a, b))
+  EApp(EFun(Name(List(), "compare")), List(a, b))
 
 // the structural size of a value of any datatype, a builtin of the prover only, without a module, so that no checked
 // program carries it and the size functions of the library stay apart, the measure of termination proofs
 pattern Size(a: Term): Term :=
-  EApp(EFun(Name(None, "size")), List(a))
+  EApp(EFun(Name(List(), "size")), List(a))
 
 pattern Plus(a: Term, b: Term): Term :=
-  EApp(EFun(Name(Some("prelude/prelude"), "+")), List(a, b))
+  EApp(EFun(Name(List("prelude", "prelude"), "+")), List(a, b))
 
 pattern Minus(a: Term, b: Term): Term :=
-  EApp(EFun(Name(Some("prelude/prelude"), "-")), List(a, b))
+  EApp(EFun(Name(List("prelude", "prelude"), "-")), List(a, b))
 
 pattern Times(a: Term, b: Term): Term :=
-  EApp(EFun(Name(Some("prelude/prelude"), "*")), List(a, b))
+  EApp(EFun(Name(List("prelude", "prelude"), "*")), List(a, b))
 
 pattern Div(a: Term, b: Term): Term :=
-  EApp(EFun(Name(Some("prelude/prelude"), "/")), List(a, b))
+  EApp(EFun(Name(List("prelude", "prelude"), "/")), List(a, b))
 
 pattern Mod(a: Term, b: Term): Term :=
-  EApp(EFun(Name(Some("prelude/prelude"), "%")), List(a, b))
+  EApp(EFun(Name(List("prelude", "prelude"), "%")), List(a, b))
 
 pattern EBool(b: Bool): Term :=
   ELit(LBool(b))
@@ -135,24 +136,24 @@ pattern EInt(n: Int): Term :=
   ELit(LInt(n))
 
 pattern Abs(a: Term): Term :=
-  EApp(EFun(Name(Some("prelude/prelude"), "abs")), List(a))
+  EApp(EFun(Name(List("prelude", "prelude"), "abs")), List(a))
 
 // the constructors of lists and their concatenation, as checked programs name them
 pattern ENil(): Term :=
-  EFun(Name(Some("prelude/list"), "Nil"))
+  EFun(Name(List("prelude", "list"), "Nil"))
 
 pattern ECons(head: Term, tail: Term): Term :=
-  EApp(EFun(Name(Some("prelude/list"), "Cons")), List(head, tail))
+  EApp(EFun(Name(List("prelude", "list"), "Cons")), List(head, tail))
 
 pattern Append(xs: Term, ys: Term): Term :=
-  EApp(EFun(Name(Some("prelude/list"), "++")), List(xs, ys))
+  EApp(EFun(Name(List("prelude", "list"), "++")), List(xs, ys))
 
 // the quantifiers, which checked programs do not have yet
 pattern Forall(formals: List[Var], body: Term): Term :=
-  EApp(EFun(Name(None, "forall")), List(ELam(formals, body)))
+  EApp(EFun(Name(List(), "forall")), List(ELam(formals, body)))
 
 pattern Exists(formals: List[Var], body: Term): Term :=
-  EApp(EFun(Name(None, "exists")), List(ELam(formals, body)))
+  EApp(EFun(Name(List(), "exists")), List(ELam(formals, body)))
 
 // the constructor of tuples of n components, as which ETuple is translated and PTuple matched, by a name that users
 // cannot write
@@ -227,7 +228,7 @@ function print_term(names: List[Id], e: Term): Str
 implementation
 
 function tuple_name(n: Int): Name :=
-  Name(None, "(" ++ str(List(for _ in range(1, n) yield ',')) ++ ")")
+  Name(List(), "(" ++ str(List(for _ in range(1, n) yield ',')) ++ ")")
 
 function constr_term(c: Name, args: List[Term]): Term :=
   if args == List() then EFun(c) else EApp(EFun(c), args)
@@ -244,7 +245,7 @@ function is_tuple_term(t: Term): Bool :=
   end
 
 function empty_decls(): Decls :=
-  Decls(empty(), empty(), empty(), empty(), empty(), empty(), empty())
+  Decls(empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
 function is_constr(decls: Decls, f: Name): Bool :=
   contains(f, decls.constrs)
@@ -338,7 +339,7 @@ function constr_position(decls: Decls, f: Name): Option[Int] :=
   end
 
 function base_is_tuple(f: Name): Bool :=
-  f.module == None and starts_with(f.base, "(")
+  f.path == List() and starts_with(f.base, "(")
 
 // the lexicographic order of the arguments, decided as soon as a pair is unequal
 function values_order(decls: Decls, xs: List[Term], ys: List[Term]): Option[Int] :=
@@ -439,10 +440,10 @@ function rebind_branch(op: Rebind, c: Int, br: TermBranch): TermBranch :=
   end
 
 function defined_var(x: Var): Var :=
-  x with name := Name(Some("(definition)"), x.name.base)
+  x with name := Name(List("(definition)"), x.name.base)
 
 function is_defined_var(x: Var): Bool :=
-  x.name.module == Some("(definition)")
+  x.name.path == List("(definition)")
 
 function binders(p: Pat): Int :=
   size(pattern_vars(p))

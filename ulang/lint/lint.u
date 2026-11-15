@@ -4,7 +4,7 @@
 // variables by their names, since no local hides another, and declarations by their base names, so overloads count as
 // one
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 
@@ -134,7 +134,7 @@ function part_lints(fun: Id, expr: Expr): List[Warning] :=
       ins_lints(ins, stmt_names(stmt)) ++ stmt_lints(fun, stmt)
 
     case ELet(bindings, body) =>
-      binder_lints(List(for (p, _) in bindings yield p), expr_names(body)) ++ exprs_lints(fun, List(for (_, e) in bindings yield e)) ++ expr_lints(fun, body)
+      let_binder_lints(bindings, body) ++ exprs_lints(fun, List(for (_, e) in bindings yield e)) ++ expr_lints(fun, body)
 
     case EIte(cond, then_expr, else_expr) =>
       exprs_lints(fun, List(cond, then_expr, else_expr))
@@ -153,6 +153,15 @@ function part_lints(fun: Id, expr: Expr): List[Warning] :=
 
     case EFor(_, gens, elem, rest) =>
       gens_binder_lints(gens, yield_names(elem)) ++ gens_lints(fun, gens) ++ yield_lints(fun, elem) ++ option_lints(fun, rest)
+  end
+
+// the warnings of the variables of the bindings of a let, each read by the values of the bindings after it or by the body
+function let_binder_lints(bindings: List[(At[Pat], At[Expr])], body: At[Expr]): List[Warning] :=
+  match bindings
+    case List() =>
+      List()
+    case List((pat, _); more) =>
+      binder_lints(List(pat), exprs_names(List(for (_, e) in more yield e)) ++ expr_names(body)) ++ let_binder_lints(more, body)
   end
 
 function expr_branch_lints(fun: Id, br: Branch[At[Expr]]): List[Warning] :=
@@ -346,7 +355,7 @@ function option_default(cases: List[Branch[At[Expr]]]): Option[At[Expr]] :=
 // whether pat is Some(x) and body the variable x
 function is_some_of(pat: At[Pat], body: At[Expr]): Bool :=
   match (strip_pat(pat), strip_expr(body))
-    case (AOk(_, _, PApp(Name(None, "Some"), List(AOk(_, _, PVar(v))))), AOk(_, _, EVar(w))) =>
+    case (AOk(_, _, PApp(Name(List(), "Some"), List(AOk(_, _, PVar(v))))), AOk(_, _, EVar(w))) =>
       v.name == w.name
     case _ =>
       false
@@ -356,9 +365,9 @@ function is_some_of(pat: At[Pat], body: At[Expr]): Bool :=
 function is_none(pat: At[Pat]): Bool :=
   match strip_pat(pat)
     case AOk(_, _, PVar(v)) =>
-      v.name == Name(None, "None")
+      v.name == Name(List(), "None")
 
-    case AOk(_, _, PApp(Name(None, "None"), List())) =>
+    case AOk(_, _, PApp(Name(List(), "None"), List())) =>
       true
 
     case _ =>
@@ -378,7 +387,7 @@ function is_plain(expr: At[Expr]): Bool :=
       forall(args, is_plain)
 
     case AOk(_, _, ECall(_, _, name, _, args)) =>
-      name.module == None and is_capitalized(name.base) and forall(args, is_plain)
+      name.path == List() and is_capitalized(name.base) and forall(args, is_plain)
 
     case _ =>
       false
@@ -607,7 +616,7 @@ function appended(x: Id, body: At[Stmt]): Option[At[Expr]] :=
       appended(x, only)
 
     case SAssign(List(
-      (y, AOk(_, _, ECall(_, _, Name(None, "++"), _, List(AOk(_, _, EVar(z)), AOk(_, _, EForm(FList, List(YVal(e)), None)))))))) if y.name.base == x and z.name.base == x and not contains(x, expr_names(e)) =>
+      (y, AOk(_, _, ECall(_, _, Name(List(), "++"), _, List(AOk(_, _, EVar(z)), AOk(_, _, EForm(FList, List(YVal(e)), None)))))))) if y.name.base == x and z.name.base == x and not contains(x, expr_names(e)) =>
       Some(e)
 
     case _ =>
@@ -651,8 +660,8 @@ function reach(graph: Map[Id, Set[Id]], todo: List[Id], seen: Set[Id]): Set[Id] 
   end
 
 // the names that the language uses without a use in the module: the hooks, and project of project.u
-function conventional(m: Id): Set[Id] :=
-  Set("show", "compare", "==") ++ (if m == "project" then Set("project") else Set())
+function conventional(m: Path): Set[Id] :=
+  Set("show", "compare", "==") ++ (if m == List("project") then Set("project") else Set())
 
 // whether cmd is used where it is, as a test, a lemma, a declaration with examples, which are tests, or a procedure without
 // formals, which run and test may call
@@ -829,7 +838,7 @@ function decl_name_lints(pos: Pos, name: Id, results: List[Type]): List[Warning]
 
 function is_str(typ: Type): Bool :=
   match typ
-    case TSort(Name(None, "Str"), List()) =>
+    case TSort(Name(List(), "Str"), List()) =>
       true
     case _ =>
       false
@@ -842,14 +851,31 @@ function name_lints(pos: Pos, name: Id): List[Warning] :=
   else
     List()
 
-// whether name ends in a digit after a letter, as e1 or stmt2
+// whether name ends in a digit after a letter, as e1 or stmt2, but in a standard name after its last _, whose digit is no
+// index, as os_read_utf8, while those of more digits, as sha256 or x86, end in no digit after a letter
 function is_numbered(name: Id): Bool :=
+  example is_numbered("stmt2")
+  example is_numbered("os_read_utf8") == false
   match reverse(chars(name))
     case List(c, d; _) =>
-      is_digit(c) and is_letter(d)
+      is_digit(c) and is_letter(d) and not contains(value_or(last(split(name, '_')), name), standard_names())
     case _ =>
       false
   end
+
+// the names of encodings, hashes, and protocols that end in a digit after a letter
+function standard_names(): Set[Id] :=
+  Set(
+    "utf8",
+    "md5",
+    "sha1",
+    "ipv4",
+    "ipv6",
+    "pop3",
+    "http2",
+    "http3",
+    "int8",
+    "uint8")
 
 // the variables that pat binds, each at its position, where a capitalized name is a constructor or an alias without
 // formals

@@ -4,9 +4,9 @@
 // modules, and abstract types are compared only through their modules, where comparing a type whose module declares no
 // order raises Unordered, and comparing one without an equality either raises Incomparable
 
-import "ulang/test/modules/counter"
-import "ulang/test/modules/counter"
-import "ulang/test/modules/aliases"
+import ulang.test.modules.counter
+import ulang.test.modules.counter
+import ulang.test.modules.aliases
 
 export
 
@@ -62,20 +62,20 @@ test equality_without_order() :=
   // inside lists, tuples, options, and arrays, which equate their elements by their ==, without an order
   assert List(tally(List(1, 2))) == List(tally(List(3))) and (tally(List(1)), 1) == (tally(List(1)), 1)
   assert Some(tally(List(2))) != Some(tally(List(5))) and Array(tally(List(1))) == Array(tally(List(1)))
-  assert raises Unordered("ulang/test/modules/exported.Tally") do
+  assert raises Unordered("ulang.test.modules.exported.Tally") do
     let r := compare(tally(List(1)), tally(List(2)))
   end
-  assert raises Unordered("ulang/test/modules/exported.Tally") do
+  assert raises Unordered("ulang.test.modules.exported.Tally") do
     let r := tally(List(1)) < tally(List(2))
   end
 
 test incomparable() :=
-  assert raises Incomparable("ulang/test/modules/exported.Counter") do
+  assert raises Incomparable("ulang.test.modules.exported.Counter") do
     let r := start() == start()
   end
 
 // also in the module of the type, and inside other values
 test incomparable_inside() :=
-  assert raises Incomparable("ulang/test/modules/modules.Pair") do
+  assert raises Incomparable("ulang.test.modules.modules.Pair") do
     let r := List(Pair(1, 2)) == List(pair(1, 2))
   end

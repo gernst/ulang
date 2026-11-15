@@ -2,10 +2,10 @@
 // lemmas by ulang/prove/lemma.u, and the enumeration that the tests of lemmas of ulang/test/generate.u call, which
 // load_tester loads into the program under test
 
-import "ulang/syntax"
-import "ulang/parse"
-import "ulang/run"
-import "ulang/prove"
+import ulang.syntax
+import ulang.parse
+import ulang.run
+import ulang.prove
 
 export
 
@@ -15,13 +15,17 @@ procedure load_tester(ref source: Source) raises ParseError, OsError
 
 // runs the tests of the module m of q, all or the named ones, each on its own, also after a failed one, printing a line per
 // test after label, where passed tells whether all pass, and falsified are the lemmas whose tests found a counterexample,
-// which prove_module neither proves nor takes as facts
+// which prove_module neither proves nor takes as facts, and the line of a test that fails only by reaching an error of
+// listed, the errors already printed with their files, names only its position (failure_text), and a test fails with
+// TimedOut of ulang/syntax/error.u when it runs longer than timeout, its seconds
 procedure test_module(
   in  q: Prog,
-      m: Id,
+      m: Path,
       names: List[Str],
       args: List[Str],
+      timeout: Option[Int],
       label: Str,
+      listed: List[(Str, Diagnostic)],
   out passed: Bool,
       falsified: Set[Str]
 )
@@ -34,11 +38,15 @@ data Outcome :=
 // the outcomes of the tests of the module m of q, all or the named ones, run as test_module runs them, without printing
 procedure test_outcomes(
   in  q: Prog,
-      m: Id,
+      m: Path,
       names: List[Str],
       args: List[Str],
   out outcomes: List[Outcome]
 )
+
+// the line of a test that failed, which names only the position of the error that it reached if listed, the errors
+// printed before with their files, has it
+function failure_text(o: Outcome, listed: List[(Str, Diagnostic)]): Str
 
 // proves the lemmas of the module m of q, of the file, all or the named ones, in their order, where those before are
 // facts, but the falsified ones, which a test found false and which are neither proven nor facts, printing whether each
@@ -46,7 +54,7 @@ procedure test_outcomes(
 // termination is not proven, and whether all are proven
 procedure prove_module(
   in  q: Prog,
-      m: Id,
+      m: Path,
       file: Str,
       names: List[Str],
       falsified: Set[Str],
@@ -59,38 +67,62 @@ implementation
 procedure load_tester(ref source: Source) raises ParseError, OsError :=
   var text: Str
   os_library(in "../test/enumerate/enumerate", out text)
-  load_after_library(in module_dir(enumerate_module()), List((enumerate_module(), text)), ref source)
+  load_after_library(in join("/", module_dir(enumerate_module())), List((enumerate_module(), text)), ref source)
 
 procedure test_module(
   in  q: Prog,
-      m: Id,
+      m: Path,
       names: List[Str],
       args: List[Str],
+      timeout: Option[Int],
       label: Str,
+      listed: List[(Str, Diagnostic)],
   out passed: Bool,
       falsified: Set[Str]
 ) :=
   let run := load(q) with args := args
-  var tests: List[Cmd], message: Str, refuted: Bool
+  var tests: List[Cmd], message: Str, refuted: Bool, reached: Option[Str]
   tests := List(for c in definitions(q) if is_selected_test(c, m, names)), passed := true, falsified := empty()
   for n in names if not exists(tests, lambda c => cmd_name(c) == n) do
     os_println(in label ++ error_text(RuntimeKind, "there is no test " ++ n))
     passed := false
   end
   for c in tests do
-    test_message(in run, c, out message, refuted, _)
+    var now: Int
+    os_clock(out now)
+    test_message(in run with deadline := map_option(timeout, lambda s => Deadline(now + s * 1000000000, s)), c, out message, refuted, reached)
     falsified := if refuted then Set(lemma_of_test(cmd_name(c)); falsified) else falsified
     if message == "" then
       os_println(in label ++ "test " ++ cmd_name(c) ++ " passed")
     else
-      os_println(in label ++ "test " ++ cmd_name(c) ++ " failed: " ++ message)
+      os_println(in label ++ failure_text(Outcome(cmd_name(c), message, reached), listed))
       passed := false
     end
   end
 
+function failure_text(o: Outcome, listed: List[(Str, Diagnostic)]): Str :=
+  match find(listed, lambda (path, d) => reaches(o.reached, path, d))
+    case Some((path, d)) =>
+      "test " ++ o.name ++ " failed by reaching " ++ path ++ ":" ++ show(d.pos.line) ++ "." ++ show(d.pos.col) ++ ", listed above"
+    case None =>
+      "test " ++ o.name ++ " failed: " ++ o.message
+  end
+
+// whether reached, the text of the error that a run reached, is that of d, of the file path, which a run names without its
+// module if it is in the main module of the run, and else with it
+function reaches(reached: Option[Str], path: Str, d: Diagnostic): Bool :=
+  match reached
+    case Some(text) =>
+      text == deferred_text(List(d with module := None)) or text == deferred_text(List(
+        d with module := Some(value_or(d.module, dir_path(slice(path, 0, size(path) - 2))))))
+
+    case None =>
+      false
+  end
+
 procedure test_outcomes(
   in  q: Prog,
-      m: Id,
+      m: Path,
       names: List[Str],
       args: List[Str],
   out outcomes: List[Outcome]
@@ -145,7 +177,7 @@ function lemmas_upto(lemmas: List[Lemma], names: List[Str]): List[Lemma] :=
 
 procedure prove_module(
   in  q: Prog,
-      m: Id,
+      m: Path,
       file: Str,
       names: List[Str],
       falsified: Set[Str],
@@ -188,10 +220,10 @@ function lemma_of_test(test_name: Str): Str :=
 
 // whether cmd is a test of the module m that names selects, all of them for List(), where a test with formals runs as
 // the test that the tester generates of it
-function is_selected_test(cmd: Cmd, m: Id, names: List[Str]): Bool :=
+function is_selected_test(cmd: Cmd, m: Path, names: List[Str]): Bool :=
   match cmd
     case CTest(name, List(), _) =>
-      name.module == Some(m) and (names == List() or contains(name.base, names))
+      name.path == m and (names == List() or contains(name.base, names))
     case _ =>
       false
   end

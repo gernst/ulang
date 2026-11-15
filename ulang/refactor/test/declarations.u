@@ -1,10 +1,14 @@
 // the scripts of ulang/refactor/refactor.u that place, replace, drop, and patch declarations, on files below
 // out/test/refactor/declarations/ of the root, which run only compiled, as those of scripts.u
 
-import "ulang/syntax"
-import "ulang/refactor"
+import ulang.syntax
+import ulang.refactor
 
-procedure no_diagnostics(in file: Str, out found: List[(Str, Diagnostic)]) :=
+procedure no_diagnostics(
+  in  file: Str,
+      overlays: Map[Str, Str],
+  out found: List[(Str, Diagnostic)]
+) :=
   found := List()
 
 // @drop of a name that both sections declare drops both and says so

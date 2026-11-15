@@ -10,7 +10,7 @@
 //
 // the command line of the package library/csv
 
-import "library/csv"
+import library.csv
 
 function usage(): Str :=
   "usage: csv " ++ join(" | ", List(
