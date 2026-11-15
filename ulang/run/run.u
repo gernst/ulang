@@ -201,7 +201,7 @@ procedure unordered(in run: Run, k: Name, equating: Bool) :=
   end
 
 function load(q: Prog): Run :=
-  Run(defs_of(q), List(), List(), q.main)
+  Run(defs_of(expanded(q)), List(), List(), q.main)
 
 // the contents of a string, as printing and declared shows give them, and the source of any other value
 function text_of(v: Val): Str :=
@@ -1643,7 +1643,7 @@ procedure run_cmd(
 ) raises RuntimeError, InternalError :=
   var env: Bindings := empty()
   try
-    match cmd
+    match expanded_cmd(cmd)
       // a test with formals runs as the test that the tester generates of it
       case CTest(_, List(), stmt) =>
         exec(in run, stmt, ref env, cache)

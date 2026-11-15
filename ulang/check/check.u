@@ -3731,6 +3731,24 @@ procedure variable(
       end
   end
 
+// the outs of a call, where an out _, which the checked call keeps, gets the type of its out, which nothing reads
+procedure out_variables(
+  in  env: Env,
+      assignable: List[Name],
+      xs: List[Var],
+  out ys: List[Var],
+  ref s: State
+) :=
+  map_state(in xs, lambda in x: Var, out y: Var, ref r: State =>
+    if is_dropped(x) then
+      var u: Type
+      fresh(out u, ref r)
+      y := Var(x.name, u)
+    else
+      variable(in env, assignable, x, out y, ref r)
+    end
+  end, out ys, ref s)
+
 procedure variables(
   in  env: Env,
       assignable: List[Name],
@@ -3824,12 +3842,6 @@ procedure statement_node(
       inner := env
       statement(in assignable, body, out l, ref inner, s)
       y := SWhile(c, l), s := s with loop_assigned := s.loop_assigned ++ newly_assigned(env, inner)
-
-    // each out _ is a local of a block around the call, which nothing reads
-    case SCall(proc, ins, outs, refs) if exists(outs, is_dropped) =>
-      let kept := kept_outs(outs, 1)
-      let locals := List(for (x, local) in zip(outs, kept) if is_dropped(x) yield AOk(pos, span_at(pos), local))
-      block_statement(in assignable, locals, List(AOk(pos, span, SCall(proc, ins, kept, refs))), None, out y, ref env, s)
 
     // a procedure that a variable holds and the refs are read
     case SCall(proc, ins, outs, refs) =>
@@ -3971,20 +3983,6 @@ function loop_body(gens: List[Gen], body: At[Stmt]): At[Stmt] :=
       AOk(body.pos, body.span, SIf(cond, body, AOk(body.pos, span_at(body.span.stop), SSkip)))
     case _ =>
       body
-  end
-
-// outs with a local for each out _, under a name that users cannot write, numbered from i
-function kept_outs(outs: List[Var], i: Int): List[Var] :=
-  match outs
-    case List() =>
-      List()
-
-    case List(x; rest) =>
-      if is_dropped(x) then
-        let local := Var(generated_name("out " ++ show(i)), THole) in
-        List(local; kept_outs(rest, i + 1))
-      else
-        List(x; kept_outs(rest, i))
   end
 
 // the variables that the leading assignments of a block assign one at a time, as local x := e does
@@ -4250,9 +4248,9 @@ procedure call_variable(
   fresh_list(in outs, out os, ref s)
   fresh_list(in refs, out rs, ref s)
   unify(in typ, TProc(is, os, rs, RPending), ref s)
-  unique(in "out or ref", List(for y in outs ++ refs yield y.name), ref s)
+  unique(in "out or ref", List(for y in outs ++ refs if not is_dropped(y) yield y.name), ref s)
   checks(in env, "procedure " ++ p.base, ins, is, out typed_ins, ref s)
-  variables(in env, assignable, outs, out typed_outs, ref s)
+  out_variables(in env, assignable, outs, out typed_outs, ref s)
   variables(in env, assignable, refs, out typed_refs, ref s)
   unifies_toward(in From, List(for y in typed_outs yield y.typ), os, ref s)
   unifies(in List(for y in typed_refs yield y.typ), rs, ref s)
@@ -4292,9 +4290,9 @@ procedure overloaded_call(
   ref s: State
 ) :=
   var typed_ins: List[At[Expr]], is: List[Type], typed_outs: List[Var], typed_refs: List[Var], m: Name
-  unique(in "out or ref", List(for x in outs ++ refs yield x.name), ref s)
+  unique(in "out or ref", List(for x in outs ++ refs if not is_dropped(x) yield x.name), ref s)
   infers(in env, ins, out typed_ins, is, ref s)
-  variables(in env, assignable, outs, out typed_outs, ref s)
+  out_variables(in env, assignable, outs, out typed_outs, ref s)
   variables(in env, assignable, refs, out typed_refs, ref s)
   choose(in p, List(for q in qs yield (q, proc_scheme(s.sig, q))), TProc(is, List(for x in typed_outs yield x.typ), List(for x in typed_refs yield x.typ), RPending), out m, ref s)
   stmt := SCall(m, typed_ins, typed_outs, typed_refs)
@@ -4317,9 +4315,9 @@ procedure declared_call(
       same_length(in "procedure " ++ q.base, "ins", size(proc.ins), size(ins), ref s)
       same_length(in "procedure " ++ q.base, "outs", size(proc.outs), size(outs), ref s)
       same_length(in "procedure " ++ q.base, "refs", size(proc.refs), size(refs), ref s)
-      unique(in "out or ref", List(for x in outs ++ refs yield x.name), ref s)
+      unique(in "out or ref", List(for x in outs ++ refs if not is_dropped(x) yield x.name), ref s)
       checks(in env, "procedure " ++ q.base, ins, List(for t in proc.ins yield subst(t, m)), out typed_ins, ref s)
-      variables(in env, assignable, outs, out typed_outs, ref s)
+      out_variables(in env, assignable, outs, out typed_outs, ref s)
       variables(in env, assignable, refs, out typed_refs, ref s)
       unifies_toward(in From, List(for x in typed_outs yield x.typ), List(for t in proc.outs yield subst(t, m)), ref s)
       unifies(in List(for x in typed_refs yield x.typ), List(for t in proc.refs yield subst(t, m)), ref s)

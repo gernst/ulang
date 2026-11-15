@@ -1616,7 +1616,8 @@ procedure assemble_program(
   out f: AsmFile
 ) raises EntryError, InternalError :=
   var e := Emit(empty(), 0, empty(), empty(), empty(), 0, empty(), empty())
-  let defs := defs_of(q), cmds := definitions(q)
+  let lowered := expanded(q)
+  let defs := defs_of(lowered), cmds := definitions(lowered)
   match entry
     case EntryProc(proc) =>
       require_entry(in q, Name(Some(m), proc))
