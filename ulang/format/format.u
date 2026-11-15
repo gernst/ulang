@@ -387,7 +387,7 @@ function infix_operand(d: Out, f: Fixity, prec: Int, side: Fixity): Str :=
     case Negative =>
       side == FLeft
 
-    case _ =>
+    case Open =>
       true
   end)
 
@@ -403,10 +403,11 @@ function prefix_operand(d: Out, prec: Int): Str :=
     case Operator(_, q) =>
       q < prec
 
-    case _ =>
+    case Open | Negative =>
       true
   end)
 
+// the operand of a postfix operator, which takes only the postfix operators
 function postfix_operand(d: Out): Str :=
   parenthesized(d, match d.shape
     case Atom =>
@@ -415,7 +416,7 @@ function postfix_operand(d: Out): Str :=
     case Operator(FPostfix, _) =>
       false
 
-    case _ =>
+    case Open | Negative | Operator(_, _) =>
       true
   end)
 
