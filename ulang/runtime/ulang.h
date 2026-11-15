@@ -35,7 +35,7 @@ struct u_name {
 // the built-in types, where integers that fit into a long long are of u_int_type with num, and others of u_big_type
 // with an mpz_t, such that each integer has one representation
 extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_byte_type, u_io_type, u_socket_type,
-  u_listener_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type, u_array_type;
+  u_listener_type, u_window_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type, u_array_type;
 
 // the datatypes whose constructors the builtins create, where the compiled program defines the descriptors of those of
 // the prelude and its modules, which every program has, and the runtime that of OsError, which programs need not import
@@ -298,6 +298,14 @@ void p_io_listen(u_value host, u_value port, u_value *listener);
 void p_io_accept(u_value listener, u_value *io);
 void p_io_port(u_value listener, u_value *port);
 void p_io_close_listener(u_value listener);
+
+// the procedures of the builtin section of window.u, on objects of u_window_type, whose FILE is the state of the
+// window, in ulang/runtime/window.c
+void p_window_open(u_value title, u_value width, u_value height, u_value *window);
+void p_window_apply(u_value window, u_value patches);
+void p_window_next(u_value window, u_value *event);
+void p_window_shot(u_value window, u_value path);
+void p_window_close(u_value window);
 u_value u_io_path(u_value io);
 
 

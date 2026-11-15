@@ -1,0 +1,31 @@
+// windows of GTK 4, which the runtime loads when the first window opens, raising OsError where GTK or a display is
+// missing; a window is patched by lines of fields separated by tabs and queues the events of its widgets as lines of
+// the same kind, the protocol of gui/protocol.u, so that no code of ulang runs inside the toolkit
+
+export
+
+builtin
+
+// ordered by opening, and shown with its title
+type Window
+
+procedure window_open(
+  in  title: Str,
+      width: Int,
+      height: Int,
+  out window: Window
+) raises OsError
+
+// creates, sets, and removes widgets by the lines of the patches, where a line that names no widget, kind, or
+// property of its widget raises OsError
+procedure window_apply(in window: Window, patches: Str) raises OsError
+
+// waits for the next event of the window, also "close" when it is asked to close, which it does only by window_close;
+// with ULANG_WINDOW_SCRIPT of the environment, the commands of that file make the events, one when the queue is empty,
+// as those of gui/host/host.py, for runs without a person
+procedure window_next(in window: Window, out event: Str) raises OsError
+
+// writes the window as PNG to the path
+procedure window_shot(in window: Window, path: Str) raises OsError
+
+procedure window_close(in window: Window)
