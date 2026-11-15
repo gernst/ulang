@@ -1,10 +1,10 @@
 // the type errors of the language, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
-import "ulang/syntax"
-import "ulang/check"
-import "ulang/parse"
-import "ulang/test/cases"
+import ulang.syntax
+import ulang.check
+import ulang.parse
+import ulang.test.cases
 
 test add_bool() :=
   assert raises Located(None, Pos(2, 7), Mismatch(_, _, "argument 2 of the call")) do

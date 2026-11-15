@@ -6,7 +6,7 @@
 // arguments it merged, which the simplifier simplifies again, and the pairs of classes that congruence makes equal,
 // which it merges by its theories, so that the e-graph itself knows no theory.
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 

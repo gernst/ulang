@@ -3,8 +3,8 @@
 // Checked programs have resolved names, which the terms keep: only the formals and the variables of lambdas, lets, and
 // patterns become indices, by an environment of their names, the innermost first.
 
-import "ulang/syntax"
-import "ulang/check"
+import ulang.syntax
+import ulang.check
 
 export
 

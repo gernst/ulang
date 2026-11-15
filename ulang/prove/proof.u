@@ -6,7 +6,7 @@
 // variables of the leaf, also those that no pattern names, and checks each case that matches the leaf. Every step is simplified with the lemmas proven before as facts, which it may also call; the lemma itself is
 // called only as an induction hypothesis, at a recursive field of the case.
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 

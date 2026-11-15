@@ -2,8 +2,8 @@
 // tell what an edit added and what a new name meets, on files below out/test/refactor/queries/ of the root, which run
 // only compiled, as the scripts of scripts.u do
 
-import "ulang/syntax"
-import "ulang/refactor"
+import ulang.syntax
+import ulang.refactor
 
 procedure no_diagnostics(in file: Str, out found: List[(Str, Diagnostic)]) :=
   found := List()

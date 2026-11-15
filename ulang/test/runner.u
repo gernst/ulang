@@ -2,10 +2,10 @@
 // lemmas by ulang/prove/lemma.u, and the enumeration that the tests of lemmas of ulang/test/generate.u call, which
 // load_tester loads into the program under test
 
-import "ulang/syntax"
-import "ulang/parse"
-import "ulang/run"
-import "ulang/prove"
+import ulang.syntax
+import ulang.parse
+import ulang.run
+import ulang.prove
 
 export
 

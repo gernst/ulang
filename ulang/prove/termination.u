@@ -8,7 +8,7 @@
 // weakly and some strictly is taken, and the calls that it decreases strictly are done. A strict decrease of an Int
 // measure also needs it positive before the call, so that it stays a natural number.
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 

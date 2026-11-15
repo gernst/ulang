@@ -3,9 +3,9 @@
 // ulang/compile/compile.u does; every variable and temporary has a slot of its own in the frame of its function, below
 // %rbp, so that no value stays in a register across a call or a setjmp, and expressions leave their values in %rax
 
-import "ulang/syntax"
-import "ulang/format"
-import "ulang/check"
+import ulang.syntax
+import ulang.format
+import ulang.check
 
 export
 

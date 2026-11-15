@@ -16,7 +16,7 @@
 // as the sum, and inequalities over sums, decided by Fourier–Motzkin, as the CC(X) of the plan. A term is rewritten to
 // the best term of its class. Facts with variables are rewrite rules.
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 

@@ -2,9 +2,9 @@
 // tests with formals that fail on enumerated values, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
-import "ulang/syntax"
-import "ulang/prove"
-import "ulang/test/cases"
+import ulang.syntax
+import ulang.prove
+import ulang.test.cases
 
 test append_commutes() :=
   assert raises OpenLemma("append_commutes", "forall xs, ys => (ys ++ xs) == (xs ++ ys)") do

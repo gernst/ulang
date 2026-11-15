@@ -1,7 +1,7 @@
 // the messages of type errors
 
-import "ulang/syntax"
-import "ulang/format"
+import ulang.syntax
+import ulang.format
 
 export
 

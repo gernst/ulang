@@ -4,9 +4,9 @@
 // of the main module tells: a name over its span as written, so that the parts that translations make, at the span of
 // what they translate, and the parts of pattern aliases, at the spans of their declarations, are none
 
-import "ulang/syntax"
-import "ulang/format"
-import "ulang/parse"
+import ulang.syntax
+import ulang.format
+import ulang.parse
 
 export
 

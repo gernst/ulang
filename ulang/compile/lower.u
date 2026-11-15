@@ -1,8 +1,8 @@
 // the part of the compilers that does not depend on their target: the names of the symbols that compiled code and the
 // runtime share, the tables of the runtime, and analyses of checked programs
 
-import "ulang/syntax"
-import "ulang/check"
+import ulang.syntax
+import ulang.check
 
 export
 

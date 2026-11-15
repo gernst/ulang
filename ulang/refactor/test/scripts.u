@@ -1,8 +1,8 @@
 // the scripts of ulang/refactor/refactor.u on files below out/test/refactor/ of the root, which run only compiled, since
 // each parse loads the library, too slowly for the interpreter
 
-import "ulang/syntax"
-import "ulang/refactor"
+import ulang.syntax
+import ulang.refactor
 
 // a put that replaces a definition and its signature, keeping its doc, and adds a function, then a drop, on a file below
 // out/test/refactor/ of the root, with a check that finds nothing
@@ -127,9 +127,9 @@ test writes_modules() :=
   run_script(in "@put " ++ dir ++ "/tools.u\nexport\nfunction thrice(n: Int): Int\nimplementation\nfunction thrice(n: Int): Int := 3 * n\n", false, state, nothing_found, out reply, status, _)
   os_read_utf8(in os_join(dir, "tools.u"), out text)
   assert text == "// tools\n\nexport\n\nfunction thrice(n: Int): Int\n\nimplementation\n\nfunction twice(n: Int): Int :=\n  2 * n\n\nfunction thrice(n: Int): Int :=\n  3 * n\n"
-  run_script(in "@put out/test/refactor/modules/prog.u\nimport \"out/test/refactor/modules/m\"\nprocedure go() :=\n  skip\n", false, state, nothing_found, out reply, status, _)
+  run_script(in "@put out/test/refactor/modules/prog.u\nimport out.test.refactor.modules.m\nprocedure go() :=\n  skip\n", false, state, nothing_found, out reply, status, _)
   os_read_utf8(in "out/test/refactor/modules/prog.u", out text)
-  assert text == "import \"out/test/refactor/modules/m\"\n\nprocedure main() :=\n  skip\n\nprocedure go() :=\n  skip\n"
+  assert text == "import out.test.refactor.modules.m\n\nprocedure main() :=\n  skip\n\nprocedure go() :=\n  skip\n"
   run_script(in "@put " ++ dir ++ "/tools.u\n// a header\n\nfunction four(n: Int): Int := 4 * n\n", false, state, nothing_found, out reply, status, _)
   assert status == 1 and take(1, reply) == List("rejected")
 

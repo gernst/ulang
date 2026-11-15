@@ -4,15 +4,15 @@
 // ulang/format/format.u, and compile to C, where a file passes if it loads and the phases pass, and the errors that the
 // phases must raise are tested by the cases of ulang/test/errors/
 
-import "ulang/syntax"
-import "ulang/format"
-import "ulang/parse"
-import "ulang/check"
-import "ulang/run"
-import "ulang/compile"
-import "ulang/lint"
-import "ulang/test"
-import "ulang/refactor"
+import ulang.syntax
+import ulang.format
+import ulang.parse
+import ulang.check
+import ulang.run
+import ulang.compile
+import ulang.lint
+import ulang.test
+import ulang.refactor
 
 // the command of the arguments, as request reads them
 data Request :=

@@ -175,9 +175,11 @@ function activate(context) {
       if (!d) continue;
       const warning = d.severity === "warning";
       const message = d.kind + (warning ? " warning: " : " error: ") + d.message;
-      // the module by its path, ulang.check.check, of the file ulang/check/check.u from the root
+      // the module by its path, ulang.check.check, of the file ulang/check/check.u from the root, and its package by the
+      // path that its import writes, ulang.check
       const module = d.module;
       const moduleFile = module ? module.split(".").join("/") : undefined;
+      const modulePackage = module ? module.split(".").slice(0, -1).join(".") : undefined;
       const row = d.line, column = d.column;
       // an error of a proof is a warning, at its step, else at its lemma or at the function whose termination is open, as
       // is a diagnostic of the severity warning
@@ -193,8 +195,8 @@ function activate(context) {
       }
       const root = projectRoot(file);
       const imported = lines.findIndex((l) => {
-        const named = /^import "(.*)"$/.exec(l.trim());
-        return named && named[1] === path.posix.dirname(moduleFile);
+        const named = /^import ([\w.]+)$/.exec(l.trim());
+        return named && named[1] === modulePackage;
       });
       const position = new vscode.Position(Math.max(imported, 0), 0);
       const text = message + " in " + module + (row ? " at " + row + "." + column : "");

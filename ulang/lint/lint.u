@@ -4,7 +4,7 @@
 // variables by their names, since no local hides another, and declarations by their base names, so overloads count as
 // one
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 

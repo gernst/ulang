@@ -9,7 +9,7 @@
 // matching into a decision tree (Wadler 1987, Maranget 2008), so the leaves are disjoint and cover the type, and the
 // exhaustiveness check of ulang/check/check.u, missing and is_useful, specializes the rows in the same way.
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 

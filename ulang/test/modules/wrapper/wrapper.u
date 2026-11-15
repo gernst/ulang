@@ -2,7 +2,7 @@
 // which imports
 // the package ulang/test/modules/inner and exports only its own functions, one with a result of a type of inner.u
 
-import "ulang/test/modules/inner"
+import ulang.test.modules.inner
 
 export
 

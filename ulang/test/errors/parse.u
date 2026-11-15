@@ -1,9 +1,9 @@
 // the parse errors of the language, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
-import "ulang/syntax"
-import "ulang/parse"
-import "ulang/test/cases"
+import ulang.syntax
+import ulang.parse
+import ulang.test.cases
 
 // the tuple type of ML, which is written (A, B)
 test tuple_star() :=
@@ -73,10 +73,16 @@ test import_file_name() :=
     check_text(in "ulang/test/errors/import-file-name.u", List("import \"my-set\""))
   end
 
-// imports name packages by strings, so that their names may be keywords
+// a package of the library is no import, also by its path
 test import_name() :=
-  assert raises ParseError("package expected but set found", Pos(1, 8)) do
+  assert raises ParseError("import of the library, which every module sees without importing it", Pos(1, 1)) do
     check_text(in "ulang/test/errors/import-name.u", List("import set"))
+  end
+
+// an import names its package by its path, no longer by a string
+test import_string() :=
+  assert raises ParseError("an import names its package by its path, not by a string; write import ulang.test.modules.left", Pos(1, 8)) do
+    check_text(in "ulang/test/errors/import-string.u", List("import \"ulang/test/modules/left\""))
   end
 
 // an import names a path from the root of the project, without .. segments

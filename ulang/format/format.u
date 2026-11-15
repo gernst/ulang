@@ -3,7 +3,7 @@
 // formats values, and programs with the notation in effect, as out/ulang.bin format prints them, which parses to the same
 // commands
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 
@@ -126,7 +126,7 @@ function format_mod(notation: Notation, d: Mod): List[Entry] :=
 
 // one block of the imported packages, in their order, which is the order of loading
 function import_lines(d: Mod): List[Entry] :=
-  let is := List(for p in d.imports yield "import " ++ quote(join("/", p.that))) in
+  let is := List(for p in d.imports yield "import " ++ path_text(p.that)) in
   if d.imports == List() then
     List()
   else

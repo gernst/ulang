@@ -1,7 +1,7 @@
 // the parser of ulang, which parses the tokens of ulang/parse/lex.u into programs of ulang/syntax/syntax.u,
 // where notation apply to the commands after them, and imports load the packages of directories of the project
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 
@@ -613,7 +613,7 @@ procedure parse_path_name(out name: Id, ref toks: Tokens) :=
   end
 
 // the package of import p.q, the path of its directory from the root of the project, of names of letters, digits, and _,
-// also keywords, or of the import "p/q" before it
+// also keywords, where a string, the import "p/q" before paths, is an error
 procedure parse_import(out name: Path, ref toks: Tokens) :=
   let pos := head_pos(toks)
   match head_token(toks)
@@ -627,8 +627,7 @@ procedure parse_import(out name: Path, ref toks: Tokens) :=
       raise ParseError("an import names the directory of a package, not a file", pos)
 
     case TStr(path) if is_package_path(path) =>
-      name := dir_path(path)
-      advance(ref toks)
+      raise ParseError("an import names its package by its path, not by a string; write import " ++ path_text(dir_path(path)), pos)
 
     case TStr(_) =>
       raise ParseError("an import names a package by its path from the root, of names of letters, digits, and _ only", pos)

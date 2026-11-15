@@ -2,8 +2,8 @@
 // ulang/test/enumerate/enumerate.u, which the tester loads as enumerate_module into the programs under test, as source with
 // qualified names, which the checker checks after the definitions of the package (check_all of ulang/check/check.u)
 
-import "ulang/syntax"
-import "ulang/check"
+import ulang.syntax
+import ulang.check
 
 export
 

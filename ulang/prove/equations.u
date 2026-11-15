@@ -8,7 +8,7 @@
 // that matches the leaf, whose guard is a condition, negated in the cases after it; an if gives its condition and its
 // negation; anything else ends the walk.
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 

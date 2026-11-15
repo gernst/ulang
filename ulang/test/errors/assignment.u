@@ -1,9 +1,9 @@
 // the errors of assignments: variables that are not assignable or not assigned on every path, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
-import "ulang/syntax"
-import "ulang/check"
-import "ulang/test/cases"
+import ulang.syntax
+import ulang.check
+import ulang.test.cases
 
 test assign_captured() :=
   assert raises Located(None, Pos(3, 5), NotAssignable(Name(List(), "k"))) do

@@ -4,9 +4,9 @@
 // modules, and abstract types are compared only through their modules, where comparing a type whose module declares no
 // order raises Unordered, and comparing one without an equality either raises Incomparable
 
-import "ulang/test/modules/counter"
-import "ulang/test/modules/counter"
-import "ulang/test/modules/aliases"
+import ulang.test.modules.counter
+import ulang.test.modules.counter
+import ulang.test.modules.aliases
 
 export
 

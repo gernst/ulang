@@ -1,9 +1,9 @@
 // the errors of patterns and matches: cases that are missing, useless, or of the wrong type, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
-import "ulang/syntax"
-import "ulang/check"
-import "ulang/test/cases"
+import ulang.syntax
+import ulang.check
+import ulang.test.cases
 
 test empty_match() :=
   assert raises Located(None, Pos(2, 3), NotExhaustive(PWild)) do

@@ -3,11 +3,11 @@
 // verbatim; the edits splice the text of whole declarations by the spans of the parsed file, since comments are not in
 // the tree, and every edited file is printed by format_program, so that a fragment needs no layout of its own
 
-import "ulang/syntax"
-import "ulang/format"
-import "ulang/parse"
-import "ulang/check"
-import "ulang/lint"
+import ulang.syntax
+import ulang.format
+import ulang.parse
+import ulang.check
+import ulang.lint
 
 export
 
@@ -2117,7 +2117,7 @@ procedure user_files(
   source_files(in os_dirname(path), out below)
   let project := List(for file in walked yield normal_file(here, here, file))
   let own := List(for f in List(for file in below yield normal_file(here, here, file)) if os_dirname(f) == os_dirname(path))
-  let import_line := "import \"" ++ join("/", module_dir(d.name)) ++ "\""
+  let import_line := "import " ++ path_text(module_dir(d.name))
   found := List()
   for file in distinct(List(for f in own if not contains(f, project)) ++ project) do
     var text: Str

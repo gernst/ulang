@@ -4,7 +4,7 @@
 // and each use resolves to the one whose type fits, at once if only one fits, or else at the end of the command,
 // when the uses that are still open are solved together
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 

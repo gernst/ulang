@@ -1,8 +1,8 @@
 // @patch of nodes, the normal paths of handles and files, and the messages of @rename, on files below
 // out/test/refactor/small/ of the root, which run only compiled, as the scripts of scripts.u do
 
-import "ulang/syntax"
-import "ulang/refactor"
+import ulang.syntax
+import ulang.refactor
 
 procedure unchecked(in file: Str, out found: List[(Str, Diagnostic)]) :=
   found := List()

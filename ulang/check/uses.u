@@ -3,7 +3,7 @@
 // UnusedImport of ulang/check/check.u compares with the imports of its module; the pattern and type aliases that checking
 // expands leave no name of theirs behind, so check.u records their uses apart
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 

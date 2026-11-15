@@ -6,7 +6,7 @@
 // its raises declare it, and a procedure value raises none that its type omits, which the place of its use gives it, where the
 // raises of the types of values that inference left unknown are the least that their bounds allow
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 

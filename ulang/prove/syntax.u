@@ -4,7 +4,7 @@
 // and de Bruijn levels for the variables of the opened sequents, counted from the root.
 // A list of binders binds from left to right, the last one is EBound(0).
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 
