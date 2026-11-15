@@ -90,7 +90,7 @@ out/ulang.sh check --test dir             # the files below dir, which must pass
 out/ulang.sh check --test --prove         # the whole project, the root above with project.u, but
                                           # ulang/test/errors/, which project.u declares to run only compiled
 out/ulang.sh compile --tests -o suite.c   # compiles the tests of the whole project, whose binary runs at the root
-                                          # with the arguments of check --test; --tests dir those below dir, not a file
+                                          # with the targets of check --test, not its options; --tests dir those below dir, not a file
 out/ulang.sh format file.u                # rewrites it in the layout that check requires
 out/ulang.sh hints file.u                 # checks it and prints the resolved names and types of its parts and the inferred
                                           # raises, as JSON lines of hover and inlay hints, which the VS Code extension shows

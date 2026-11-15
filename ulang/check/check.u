@@ -5873,19 +5873,29 @@ procedure check_package(
   for (p, (m, name)) in List(for (p, (m, cmd)) in placed for name in contract_on_definition(placed, cmd) yield (p, (m, name))) do
     s := s with errors := s.errors ++ List(Located(Some(m), p, ContractOnDefinition(name)))
   end
-  if not exists(s.errors, is_blocking) then
+  let definable := not exists(s.errors, is_blocking)
+  if definable then
     placed_commands(in with_contracts(placed_definitions(placed), placed), lambda in checked: List[Cmd] =>
       check_orders(in checked, abstract_types(decls), hidden, hidden_sorts)
     end, out defined, ref s)
   else
     defined := List()
   end
-  if s.errors == List() then
-    let generated := generate(Checked(placed, defined, abstract_types(decls), s.sig, s.table, s.hidden))
+  // the generated tests only of a package without errors, while the examples of each definition that checks are checked
+  // with the errors of the others, since a change that breaks a definition may make an example stale, too
+  let clean := s.errors == List()
+  let generated := if clean then
+    generate(Checked(placed, defined, abstract_types(decls), s.sig, s.table, s.hidden))
+  else
+    List()
+  if definable then
+    let failed := failed_owners(defined)
     for d in mods do
       examples_placed(in d, ref s)
     end
-    example_commands(in List(for d in mods for x in example_tests(d) yield x), out tested, ref s)
+    example_commands(in List(for d in mods for x in example_tests(d) if not contains(x.owner, failed) yield x), out tested, ref s)
+  end
+  if clean then
     each_placed(in declare_funs, generated, ref s)
     placed_commands(in generated, lambda in _: List[Cmd] =>
       skip
@@ -5947,6 +5957,11 @@ procedure examples_placed(in d: Mod, ref s: State) :=
   for x in example_tests(d) if not x.exported and contains(x.owner, declared) do
     s := s with errors := s.errors ++ List(Located(Some(d.name), x.pos, ExampleOnDefinition(x.owner)))
   end
+
+// the functions and procedures whose definitions have errors, whose examples would be follow-ups of them, also of an
+// overload of the same name in its module
+function failed_owners(defined: List[(Path, At[Cmd])]): Set[Name] :=
+  Set(for (_, c) in defined if is_parsed(c) if cmd_errors(c) != List() for n in example_owner(c.that) yield n)
 
 // the name of a function or procedure, of which examples may be given
 function example_owner(cmd: Cmd): Option[Name] :=
