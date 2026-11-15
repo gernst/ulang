@@ -1221,7 +1221,7 @@ procedure parse_lambda(
     expect(in TKw("=>"), ref toks)
     parse_body(in notation, params, out body, ref toks)
     expect_end(in "lambda", pos, ref toks)
-    expr := AOk(pos, span_from(pos, toks), EProc(ins, outs, refs, RUnknown(0), body))
+    expr := AOk(pos, span_from(pos, toks), EProc(ins, outs, refs, RPending, body))
   else
     if head_token(toks) == TKw("=>") then
       var inner: At[Expr]

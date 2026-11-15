@@ -106,6 +106,9 @@ function hint_of(e: TypeError): Str :=
     case Ambiguous(_, candidates) if are_apart(candidates) =>
       "; a type of the local, the formal, or the result that holds the value decides, as in let s: Set[Int] := empty()"
 
+    case WiderRaise(typ) =>
+      "; add raises " ++ format_type(typ) ++ " to the procedure type that omits it, or catch " ++ format_type(typ) ++ " in the procedure"
+
     case CannotUnify(TSort(_, _), TFun(List(), _)) =>
       "; a value that is no function, such as a constructor without fields, is written without ()"
 
@@ -284,7 +287,7 @@ function plain_message(e: TypeError): Str :=
       "the procedure value " ++ name.base ++ " raises " ++ format_type(typ) ++ ", which its type omits"
 
     case WiderRaise(typ) =>
-      "a procedure value here raises " ++ format_type(typ) ++ ", which the type of a place that it reaches omits"
+      "this procedure value may raise " ++ format_type(typ) ++ " by its type, but it reaches a place whose type omits " ++ format_type(typ)
 
     case NeverRaised(typ) =>
       "the handler of " ++ format_type(typ) ++ " is unreachable, since nothing in the body raises " ++ format_type(typ)
@@ -350,7 +353,7 @@ test messages() :=
   assert located_message(Located(None, Pos(2, 3), NotAnException(TSort(Name(Some("prelude/prelude"), "Int"), List())))) == "only values of datatypes without type parameters are raised, not of Int at 2.3"
   assert located_message(Located(None, Pos(2, 3), UndeclaredRaise(Name(Some("a"), "p"), TSort(Name(Some("a"), "Failed"), List())))) == "p raises Failed, which its raises omit at 2.3"
   assert located_message(Located(None, Pos(2, 3), UntypedRaise(Name(None, "lambda"), TSort(Name(Some("a"), "Failed"), List())))) == "the procedure value lambda raises Failed, which its type omits at 2.3"
-  assert located_message(Located(None, Pos(2, 3), WiderRaise(TSort(Name(Some("a"), "Failed"), List())))) == "a procedure value here raises Failed, which the type of a place that it reaches omits at 2.3"
+  assert located_message(Located(None, Pos(2, 3), WiderRaise(TSort(Name(Some("a"), "Failed"), List())))) == "this procedure value may raise Failed by its type, but it reaches a place whose type omits Failed; add raises Failed to the procedure type that omits it, or catch Failed in the procedure at 2.3"
   assert located_message(Located(None, Pos(2, 3), NeverRaised(TSort(Name(Some("a"), "Failed"), List())))) == "the handler of Failed is unreachable, since nothing in the body raises Failed at 2.3"
   assert located_message(SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T"))) == "the definition of T differs from its signature"
   assert located_message(Located(None, Pos(1, 1), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1))) == "type Int expects 0 arguments, got 1 at 1.1"

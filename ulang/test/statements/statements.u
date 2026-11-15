@@ -668,6 +668,49 @@ test procedure_values_raise_less() :=
   attempt(in never, 1, out ok)
   assert ok
 
+// the params of datatypes are covariant, so a list of procedure values that raise less fits one that allows more
+procedure attempt_all(in steps: List[(in Int) raises Failed], out failed: Int) :=
+  failed := 0
+  for step in steps do
+    try
+      step(in 0)
+    catch
+      case Failed =>
+        failed := failed + 1
+    end
+  end
+
+test procedure_values_raise_less_in_lists() :=
+  var failed: Int
+  let never: (in Int) := lambda in n =>
+    skip
+  end
+  let quiet: List[(in Int)] := List(never, never)
+  attempt_all(in quiet, out failed)
+  assert failed == 0
+
+// a value of one of several branches, or of several elements, raises what each of them raises
+test procedure_values_joined() :=
+  var caught := 0
+  let failing: (in Int) raises Failed := lambda in n =>
+    raise Failed
+  end
+  let failing_otherwise: (in Int) raises Fail := lambda in n =>
+    raise Fail
+  end
+  let either := if caught == 0 then failing else failing_otherwise
+  for step in List(failing, failing_otherwise, either) do
+    try
+      step(in 0)
+    catch
+      case Failed =>
+        caught := caught + 1
+      case Fail =>
+        caught := caught + 1
+    end
+  end
+  assert caught == 3
+
 // handlers apply if their guards hold
 test guarded_handlers() :=
   var n: Int

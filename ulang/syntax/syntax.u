@@ -39,6 +39,9 @@ data Raises :=
   case RSet(names: Set[Name])
   // an unknown of inference, numbered across a package, whose bounds the raises pass of ulang/check/raises.u solves
   case RUnknown(id: Int)
+  // an unknown not numbered yet: of a lambda as parsed and of a procedure in its scheme, which the checker numbers, and
+  // of the type that a call matches, which unify takes no bound of
+  case RPending
 
 data Lit :=
   // ()
@@ -83,7 +86,7 @@ data Expr :=
   // keeping those that are variables and matching the others in the body, so that the backends see only variables
   case ELam(formals: List[At[Pat]], body: At[Expr])
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
-  // where raised is what it may raise, as of TProc, RUnknown(0) until the checker gives it an unknown of its own
+  // where raised is what it may raise, as of TProc, RPending until the checker gives it an unknown of its own
   case EProc(ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], raised: Raises, stmt: At[Stmt])
   // let p := a, … in body, which binds in parallel, by irrefutable patterns
   case ELet(bindings: List[At[Pat] * At[Expr]], body: At[Expr])
@@ -835,6 +838,9 @@ function raised_types(raised: Raises): List[Type] :=
       List(for name in names yield TSort(name, List()))
 
     case RUnknown(_) =>
+      List()
+
+    case RPending =>
       List()
   end
 
