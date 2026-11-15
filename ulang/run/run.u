@@ -1507,6 +1507,10 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
         os_is_dir(in path, out yes)
         outs := List(VBool(yes))
 
+      case ("prelude.os.os_remove", List(VStr(path))) =>
+        os_remove(in path)
+        outs := List()
+
       case ("prelude.os.os_cwd", List()) =>
         var text: Str
         os_cwd(out text)

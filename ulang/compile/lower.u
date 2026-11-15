@@ -168,6 +168,7 @@ function native_procs(): Set[Id] :=
     "os_exit",
     "os_list",
     "os_is_dir",
+    "os_remove",
     "os_cwd",
     "os_chdir",
     "os_env",
