@@ -1366,11 +1366,11 @@ procedure parse_gens(
         parse_pattern(in notation, params, out v, ref toks)
         expect(in TKw("in"), ref toks)
         parse_expr(in notation, params, out c, ref toks)
-        found := found ++ List(GPair(p, v, c))
+        found := found ++ List(GPair(p, v, c, THole))
       else
         expect(in TKw("in"), ref toks)
         parse_expr(in notation, params, out c, ref toks)
-        found := found ++ List(GVal(p, c))
+        found := found ++ List(GVal(p, c, THole))
       end
     else
       advance(ref toks)
@@ -3911,9 +3911,9 @@ test parsed_forms() :=
   parsed(in "Map(a => b, a => c)", out expr)
   assert expr == nowhere(EForm(FMap, List(YPair(a, b), YPair(a, c)), None))
   parsed(in "Array(for x in a if x yield b)", out expr)
-  assert expr == nowhere(EFor(FArray, List(GVal(pat_var("x"), a), GIf(expr_var("x"))), YVal(b), None))
+  assert expr == nowhere(EFor(FArray, List(GVal(pat_var("x"), a, THole), GIf(expr_var("x"))), YVal(b), None))
   parsed(in "Map(for k => v in a)", out expr)
-  assert expr == nowhere(EFor(FMap, List(GPair(pat_var("k"), pat_var("v"), a)), YPair(expr_var("k"), expr_var("v")), None))
+  assert expr == nowhere(EFor(FMap, List(GPair(pat_var("k"), pat_var("v"), a, THole)), YPair(expr_var("k"), expr_var("v")), None))
 
 test code_free_parse_errors_of_lemmas() :=
   var source: Source

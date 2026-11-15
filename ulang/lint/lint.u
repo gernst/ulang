@@ -174,10 +174,10 @@ function gens_lints(fun: Id, gens: List[Gen]): List[Warning] :=
 
 function gen_lints(fun: Id, g: Gen): List[Warning] :=
   match g
-    case GVal(_, over) =>
+    case GVal(_, over, _) =>
       iterated_list(over) ++ expr_lints(fun, over)
 
-    case GPair(_, _, over) =>
+    case GPair(_, _, over, _) =>
       expr_lints(fun, over)
 
     case GIf(cond) =>
@@ -316,10 +316,10 @@ function is_identity(g: Gen, elem: Yield): Bool :=
 
 function gen_over(g: Gen): At[Expr] :=
   match g
-    case GVal(_, over) =>
+    case GVal(_, over, _) =>
       over
 
-    case GPair(_, _, over) =>
+    case GPair(_, _, over, _) =>
       over
 
     case GIf(cond) =>
@@ -797,10 +797,10 @@ function gens_binder_lints(gens: List[Gen], scope: Set[Id]): List[Warning] :=
 
 function gen_pats(g: Gen): List[At[Pat]] :=
   match g
-    case GVal(pat, _) =>
+    case GVal(pat, _, _) =>
       List(pat)
 
-    case GPair(key, value, _) =>
+    case GPair(key, value, _, _) =>
       List(key, value)
 
     case GIf(_) =>
@@ -1052,10 +1052,10 @@ function gens_names(gens: List[Gen]): Set[Id] :=
 
 function gen_names(g: Gen): Set[Id] :=
   match g
-    case GVal(pat, over) =>
+    case GVal(pat, over, _) =>
       pat_names(pat) ++ expr_names(over)
 
-    case GPair(key, value, over) =>
+    case GPair(key, value, over, _) =>
       pat_names(key) ++ pat_names(value) ++ expr_names(over)
 
     case GIf(cond) =>

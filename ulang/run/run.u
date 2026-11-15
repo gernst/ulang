@@ -1160,7 +1160,7 @@ procedure exec(
       end
 
     // the checker gives the list of the items, and patterns that match every item
-    case SFor(List(GVal(pat, over)), body) =>
+    case SFor(List(GVal(pat, over, _)), body) =>
       var items: Val, more := true
       evaluate(in run, env, over, out items, ref cache)
       while more do

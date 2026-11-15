@@ -214,7 +214,7 @@ function tuple_enum(es: List[At[Expr]]): At[Expr] :=
   let d := generated_name("depth"), ys := List(for i in range(1, size(es) + 1) yield generated_name("y" ++ show(i))) in
   enum_call("Enumeration", List(
     generated_lambda(d, product_expr(List(for e in es yield enum_call("count_of", List(e, generated_var(d)))))),
-    generated_lambda(d, nowhere(EFor(FList, List(for (y, e) in zip(ys, es) yield GVal(nowhere(PName(y, THole)), enum_call("values_of", List(e, generated_var(d))))), YVal(nowhere(ETuple(List(for y in ys yield generated_var(y))))), None)))))
+    generated_lambda(d, nowhere(EFor(FList, List(for (y, e) in zip(ys, es) yield GVal(nowhere(PName(y, THole)), enum_call("values_of", List(e, generated_var(d))), THole)), YVal(nowhere(ETuple(List(for y in ys yield generated_var(y))))), None)))))
 
 // the function (enum)T of the datatype n, whose formals enumerate its type parameters, which counts and builds the values
 // of each depth from those of the fields one less deep
@@ -239,7 +239,7 @@ function param_id(t: Type): Id :=
 // the values of constructor c over the values of its fields, of the enumerations es, at the depth below
 function constr_values(c: Name, es: List[At[Expr]], below: At[Expr]): At[Expr] :=
   let vs := List(for i in range(1, size(es) + 1) yield generated_name("v" ++ show(i))), fs := List(for i in range(1, size(es) + 1) yield generated_name("f" ++ show(i))) in
-  nowhere(ELet(List(for (v, e) in zip(vs, es) yield (nowhere(PName(v, THole)), enum_call("values_of", List(e, below)))), nowhere(EFor(FList, List(for (f, v) in zip(fs, vs) yield GVal(nowhere(PName(f, THole)), generated_var(v))), YVal(generated_call(c, List(for f in fs yield generated_var(f)))), None))))
+  nowhere(ELet(List(for (v, e) in zip(vs, es) yield (nowhere(PName(v, THole)), enum_call("values_of", List(e, below)))), nowhere(EFor(FList, List(for (f, v) in zip(fs, vs) yield GVal(nowhere(PName(f, THole)), generated_var(v), THole)), YVal(generated_call(c, List(for f in fs yield generated_var(f)))), None))))
 
 // the body of the test of a lemma with the formals and their enumerations, which raises Falsified at the first case that
 // satisfies the assumptions assms but not concl, and Vacuous if no case satisfies them
@@ -267,7 +267,7 @@ function cases_stmt(formals: List[(Var, At[Expr])], locals: List[Var], before: L
       (n, enum_call("depth_of", List(
         generated_list(List(for e in es yield generated_lambda(d, enum_call("count_of", List(nowhere(EVar(e)), generated_var(d))))))))))))) ++ before ++ List(
     foldr(zip(firsts(formals), es), check, lambda (x, e), body => nowhere(SFor(List(
-      GVal(nowhere(PName(x.name, THole)), enum_call("values_of", List(nowhere(EVar(e)), nowhere(EVar(n)))))), body)))) ++ after))
+      GVal(nowhere(PName(x.name, THole)), enum_call("values_of", List(nowhere(EVar(e)), nowhere(EVar(n)))), THole)), body)))) ++ after))
 
 // stmt where each assertion raises Falsified with the text values and, of an equation, both sides when it fails, but in
 // the body of a try or an assert raises, whose handlers could catch it, while a failed assertion cannot be caught

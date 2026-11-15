@@ -304,10 +304,10 @@ function yield_hints(lines: Array[Str], decls: Decls, y: Yield): List[Hint] :=
 
 function gen_hints(lines: Array[Str], decls: Decls, g: Gen): List[Hint] :=
   match g
-    case GVal(pat, over) =>
+    case GVal(pat, over, _) =>
       pat_hints(lines, decls, pat) ++ expr_hints(lines, decls, over)
 
-    case GPair(key, value, over) =>
+    case GPair(key, value, over, _) =>
       pat_hints(lines, decls, key) ++ pat_hints(lines, decls, value) ++ expr_hints(lines, decls, over)
 
     case GIf(cond) =>

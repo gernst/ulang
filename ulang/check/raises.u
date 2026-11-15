@@ -356,10 +356,10 @@ function gens_flow(scope: Scope, gens: List[Gen], body: Scope -> Flow): Flow :=
     case List() =>
       body(scope)
 
-    case List(GVal(pat, over); rest) =>
+    case List(GVal(pat, over, _); rest) =>
       with_expr(gens_flow(bound(scope, pattern_variables(pat)), rest, body), expr_flow(scope, over))
 
-    case List(GPair(key, value, over); rest) =>
+    case List(GPair(key, value, over, _); rest) =>
       with_expr(gens_flow(bound(scope, pattern_variables(key) ++ pattern_variables(value)), rest, body), expr_flow(scope, over))
 
     case List(GIf(cond); rest) =>

@@ -953,7 +953,7 @@ procedure compile_stmt(
 
     // the checker gives the list of the items and patterns that match every item, so that the loop walks the list and binds
     // the pattern to each item, where a pattern with alternatives is a match of the item with a case for each
-    case SFor(List(GVal(pat, over)), body) =>
+    case SFor(List(GVal(pat, over, _)), body) =>
       var cs: List[CStmt], rc: CExpr, bs: List[CStmt], l: Str
       compile_expr(in defs, env, over, out cs, rc, ref g)
       gen_name(in "l", out l, ref g)

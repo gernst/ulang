@@ -1136,7 +1136,7 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
 
     // the checker gives the list of the items and patterns that match every item, so that the loop walks the list and binds
     // the pattern to each item
-    case SFor(List(GVal(pat, over)), body) =>
+    case SFor(List(GVal(pat, over, _)), body) =>
       var l: Int, top: Str, done: Str
       compile_expr(in defs, env, over, ref e)
       spill(out l, ref e)
