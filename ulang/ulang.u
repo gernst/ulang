@@ -1,8 +1,8 @@
-// the driver of ulang, out/ulang.bin, with the commands of usage: run and check with the interpreter of ulang/run/run.u,
-// test by the tester of ulang/test/runner.u, prove by the default proof of ulang/prove/lemma.u, as test does after the
-// tests, format by
-// format_program of ulang/format/format.u, and compile to C, where a file passes if it loads, its tests pass, and its
-// lemmas are proven, and the errors that the phases must raise are tested by the cases of ulang/test/errors/
+// the driver of ulang, out/ulang.bin, with the commands of usage: run with the interpreter of ulang/run/run.u, check, which
+// loads each unit once and adds the phases of its options, the lints of ulang/lint/lint.u, the tests by the tester of
+// ulang/test/runner.u, and the proofs by the default proof of ulang/prove/lemma.u, format by format_program of
+// ulang/format/format.u, and compile to C, where a file passes if it loads and the phases pass, and the errors that the
+// phases must raise are tested by the cases of ulang/test/errors/
 
 import "ulang/syntax"
 import "ulang/format"
@@ -17,11 +17,8 @@ import "ulang/test"
 // the command of the arguments, as request reads them
 data Request :=
   case RRun(target: Target, args: List[Str])
-  case RTest(targets: List[Target], args: List[Str])
-  case RCheck(paths: List[Str])
-  // the lints of the files that load, as warnings
-  case RLint(paths: List[Str])
-  case RProve(targets: List[Target])
+  // the phases after loading, where names select tests and lemmas, and args are those of the tests
+  case RCheck(targets: List[Target], phases: Phases, args: List[Str])
   case RFormat(paths: List[Str])
   // the findings of checking the file, as hover and inlay hints
   case RHints(path: Str)
@@ -32,6 +29,10 @@ data Request :=
   case RHelp(command: Option[Str])
   // arguments that request does not read, with what is wrong with them
   case RUsage(problem: Str)
+
+// the phases of check after loading: the lints of the files that load, as warnings, the tests, and the proofs of the lemmas
+data Phases :=
+  case Phases(lints: Bool, tests: Bool, proofs: Bool)
 
 // a file or a directory, or a file name.u with the name of a declaration after its last :
 data Target :=
@@ -44,17 +45,8 @@ procedure main() :=
     case RRun(target, rest) =>
       run_target(in target, rest, out status)
 
-    case RTest(targets, rest) =>
-      test_targets(in targets, rest, out status)
-
-    case RCheck(paths) =>
-      check_paths(in paths, false, out status)
-
-    case RLint(paths) =>
-      check_paths(in paths, true, out status)
-
-    case RProve(targets) =>
-      prove_targets(in targets, out status)
+    case RCheck(targets, phases, rest) =>
+      check_targets(in targets, phases, rest, out status)
 
     case RFormat(paths) =>
       format_paths(in paths, out status)
@@ -82,11 +74,11 @@ procedure main() :=
     os_exit(in status)
   end
 
-// the arguments after -- are those of the program, for run and test
+// the arguments after -- are those of the program, for run and the tests of check
 function request(args: List[Str]): Request :=
   match split_on(args, "--")
     case (List(command; words), rest) =>
-      if rest != List() and command != "run" and command != "test" then
+      if rest != List() and command != "run" and command != "check" then
         RUsage(command ++ " takes no arguments after --")
       else
         command_request(command, words, rest)
@@ -107,17 +99,8 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
     case ("run", _) =>
       RUsage("run takes one file")
 
-    case ("test", _) =>
-      options_request(command, words, RTest(List(for w in words yield target_of(w)), rest))
-
     case ("check", _) =>
-      paths_request(command, words, RCheck(words))
-
-    case ("lint", _) =>
-      paths_request(command, words, RLint(words))
-
-    case ("prove", _) =>
-      options_request(command, words, RProve(List(for w in words yield target_of(w))))
+      check_request(words, Phases(false, false, false), List(), rest)
 
     case ("format", _) =>
       paths_request(command, words, RFormat(words))
@@ -163,6 +146,33 @@ function options_request(command: Str, words: List[Str], request: Request): Requ
     RUsage(command ++ " takes no options")
   else
     request
+
+// the words of check in any order, the options of its phases and the targets, where names select only tests and lemmas
+function check_request(words: List[Str], phases: Phases, targets: List[Target], rest: List[Str]): Request :=
+  match words
+    case List("--lint"; more) =>
+      check_request(more, phases with lints := true, targets, rest)
+
+    case List("--test"; more) =>
+      check_request(more, phases with tests := true, targets, rest)
+
+    case List("--prove"; more) =>
+      check_request(more, phases with proofs := true, targets, rest)
+
+    case List(word; more) =>
+      if starts_with(word, "-") then
+        RUsage("check does not take " ++ word)
+      else
+        check_request(more, phases, targets ++ List(target_of(word)), rest)
+
+    case List() =>
+      if rest != List() and not phases.tests then
+        RUsage("check takes arguments after -- only with --test")
+      else if exists(targets, lambda t => t.name != None) and not (phases.tests or phases.proofs) then
+        RUsage("check takes names only with --test or --prove")
+      else
+        RCheck(targets, phases, rest)
+  end
 
 // the words of compile in any order, the file with its procedure or --tests with a directory, and -o with the target
 function compile_request(words: List[Str], target: Option[Target], tests: Bool, output: Option[Str]): Request :=
@@ -217,27 +227,28 @@ function target_of(word: Str): Target :=
 test requests() :=
   assert request(List("run", "a.u")) == RRun(Target("a.u", None), List())
   assert request(List("run", "a.u:go", "--", "x")) == RRun(Target("a.u", Some("go")), List("x"))
-  assert request(List("test", "a.u:t", "dir", "b:c")) == RTest(List(Target("a.u", Some("t")), Target("dir", None), Target("b:c", None)), List())
-  assert request(List("check")) == RCheck(List())
-  assert request(List("lint", "a.u")) == RLint(List("a.u"))
+  assert request(List("check", "--test", "a.u:t", "dir", "b:c")) == RCheck(List(Target("a.u", Some("t")), Target("dir", None), Target("b:c", None)), Phases(false, true, false), List())
+  assert request(List("check")) == RCheck(List(), Phases(false, false, false), List())
+  assert request(List("check", "a.u", "--lint")) == RCheck(List(Target("a.u", None)), Phases(true, false, false), List())
+  assert request(List("check", "--prove", "a.u:l", "--test")) == RCheck(List(Target("a.u", Some("l"))), Phases(false, true, true), List())
   assert request(List("format", "a.u")) == RFormat(List("a.u"))
   assert request(List("compile", "-o", "a.c", "--tests")) == RCompileTests(None, "a.c")
   assert request(List("compile", "--tests", "ulang/test", "-o", "a.c")) == RCompileTests(Some("ulang/test"), "a.c")
   assert request(List("compile", "a.u:go", "-o", "a.c")) == RCompile(Target("a.u", Some("go")), "a.c")
-  assert request(List("help", "prove")) == RHelp(Some("prove"))
+  assert request(List("help", "check")) == RHelp(Some("check"))
   assert request(List("hints", "a.u")) == RHints("a.u")
 
 test usage_errors() :=
   assert request(List()) == RUsage("no command")
   assert request(List("frobnicate")) == RUsage("unknown command frobnicate")
-  assert request(List("check", "a.u", "--", "x")) == RUsage("check takes no arguments after --")
-  assert request(List("check", "a.u:t")) == RUsage("check takes no names")
-  assert request(List("lint", "a.u:t")) == RUsage("lint takes no names")
-  assert request(List("check", "--lint", "a.u")) == RUsage("check takes no options")
+  assert request(List("test", "a.u")) == RUsage("unknown command test")
+  assert request(List("check", "a.u", "--", "x")) == RUsage("check takes arguments after -- only with --test")
+  assert request(List("check", "a.u:t")) == RUsage("check takes names only with --test or --prove")
+  assert request(List("check", "--lint", "a.u:t")) == RUsage("check takes names only with --test or --prove")
+  assert request(List("check", "-v", "a.u")) == RUsage("check does not take -v")
   assert request(List("format", "--check")) == RUsage("format takes no options")
-  assert request(List("test", "-v")) == RUsage("test takes no options")
-  assert request(List("prove", "a.u", "--x")) == RUsage("prove takes no options")
-  assert request(List("test", "a.u", "--", "-v")) == RTest(List(Target("a.u", None)), List("-v"))
+  assert request(List("format", "a.u", "--", "x")) == RUsage("format takes no arguments after --")
+  assert request(List("check", "--test", "a.u", "--", "-v")) == RCheck(List(Target("a.u", None)), Phases(false, true, false), List("-v"))
   assert request(List("run", "dir")) == RUsage("run takes a file name.u, not dir")
   assert request(List("compile", "a.u")) == RUsage("compile takes -o <target.c> or -o <target.s>")
   assert request(List("compile", "a.u", "--tests", "-o", "a.c")) == RUsage("compile --tests takes a directory, whose packages and programs it compiles, not a file")
@@ -247,16 +258,7 @@ test usage_errors() :=
   assert request(List("hints", "a.u:f")) == RUsage("hints takes a file name.u, not a.u:f")
 
 function commands(): List[Str] :=
-  List(
-    "run",
-    "test",
-    "check",
-    "lint",
-    "prove",
-    "format",
-    "hints",
-    "compile",
-    "help")
+  List("run", "check", "format", "hints", "compile", "help")
 
 function usage(): Str :=
   "usage:\n" ++ join("\n", List(for c in commands() yield "  ulang " ++ synopsis(c)))
@@ -269,17 +271,8 @@ function synopsis(command: Str): Str :=
     case "run" =>
       "run <file>[:<procedure>] [-- args]"
 
-    case "test" =>
-      "test [<path>[:<name>] ...] [-- args]"
-
     case "check" =>
-      "check [<path> ...]"
-
-    case "lint" =>
-      "lint [<path> ...]"
-
-    case "prove" =>
-      "prove [<path>[:<lemma>] ...]"
+      "check [--lint] [--test] [--prove] [<path>[:<name>] ...] [-- args]"
 
     case "format" =>
       "format [<path> ...]"
@@ -299,26 +292,17 @@ function description(command: Str): Str :=
     case "run" =>
       "calls the procedure, main by default, which takes no parameters, where os_args gives the arguments after --"
 
-    case "test" =>
-      "runs the tests of the files, all or the named ones, also below directories, by default the project, in the working\n" ++ "directory, printing a line per test and lemma, where a file passes if it loads and its tests pass and its lemmas are\n" ++ "proven; with several files, it prints the files that do not pass and how many do"
-
     case "check" =>
-      "checks the files, also below directories, by default the project"
-
-    case "lint" =>
-      "checks the files as check does and prints the lints of those that load, as warnings with the rule and, where it has\n" ++ "one, the simpler expression to write, which do not fail the check"
-
-    case "prove" =>
-      "proves the lemmas of the files, all or the named ones, also below directories, by default the project, where a\n" ++ "recursive function unfolds only if the prover proves that it terminates"
+      "checks the files, also below directories, by default the project, each unit loaded once, with the errors of parsing,\n" ++ "of types, and of format, and adds the phases of the options, which run as far as the errors allow: --lint prints the\n" ++ "lints of the files that load, as warnings with the rule and, where it has one, the simpler expression to write, which\n" ++ "do not fail the check; --test runs the tests, all or the named ones, in the working directory, where the arguments\n" ++ "after -- are those of os_args, printing a line per test; --prove proves the lemmas, all or the named ones, where a\n" ++ "recursive function unfolds only if the prover proves that it terminates, unless code that the lemmas may reach has\n" ++ "errors, and a lemma whose test found a counterexample is falsified; a file passes if it loads and its phases pass, and\n" ++ "with several files, check prints the files that do not pass and how many do"
 
     case "format" =>
-      "rewrites the files, also below directories, by default the project, as format_program writes them, where lint, check,\n" ++ "and test report the files that differ"
+      "rewrites the files, also below directories, by default the project, as format_program writes them, where check\n" ++ "reports the files that differ"
 
     case "hints" =>
       "checks the file as check does and prints what the check found in it, as JSON lines of the hover and the inlay hints\n" ++ "of LSP: the qualified name and the type of each use of a name, the type of each local, formal, and pattern variable,\n" ++ "with an inlay where the source does not write it, and the inferred raises of private procedures, after the errors"
 
     case "compile" =>
-      "translates the file to C, or to assembly for x86-64 if the target ends in .s, whose main calls the procedure, main by default, or with --tests the tests of the .u files below the directory, by default the root of the project, with its packages and programs,\n" ++ "whose main takes the arguments of test, without lemmas, and runs them as test does, from the root of the project"
+      "translates the file to C, or to assembly for x86-64 if the target ends in .s, whose main calls the procedure, main by default, or with --tests the tests of the .u files below the directory, by default the root of the project, with its packages and programs,\n" ++ "whose main takes the arguments of check --test, with the tests of lemmas but without their proofs, and runs them as\n" ++ "check --test does, from the root of the project"
 
     case _ =>
       "prints the usage of all commands, or of one"
@@ -369,31 +353,58 @@ function load_status(q: Prog, errors: List[Diagnostic]): Int :=
 function no_entry(name: Name): Diagnostic :=
   Diagnostic(RuntimeKind, "UnknownEntry", None, Pos(0, 0), "there is no procedure " ++ name.base ++ " without parameters", List())
 
-// runs the tests of the targets, by default of the project, each unit loaded once, in the working directory, and the lemmas
-// of each file whose tests all run, printing a line per test and lemma, labeled by its file if there are several files
-procedure test_targets(
+// checks the targets, by default the project, each unit loaded once, and adds the phases to each unit that loads, also
+// with errors where it is runnable, printing a line per test and lemma, labeled by its file if there are several files
+procedure check_targets(
   in  targets: List[Target],
+      phases: Phases,
       args: List[Str],
   out status: Int
 ) :=
   var found: List[Target]
-  targets_of(in targets, true, out found)
-  visit_units(in found, true, lambda in source, q, unit, out failed =>
-    test_unit(in q, unit, found, args, out failed)
+  targets_of(in targets, phases.tests, out found)
+  visit_units(in found, phases.tests, lambda in source, q, unit, loaded, out failed =>
+    failed := List()
+    if phases.lints and loaded then
+      print_lints(in source, q, unit)
+    end
+    if phases.tests or phases.proofs then
+      check_unit(in q, unit, found, phases, args, out failed)
+    end
   end, out status)
 
-// runs the tests of the files of the unit, whose checked program is q, where failed are the files that do not pass
-procedure test_unit(
+// runs the tests of the files of the unit, whose checked program is q, and proves their lemmas, but those whose tests
+// falsified them, where with both phases the names select the tests and the lemmas of their names, and failed are the
+// files that do not pass
+procedure check_unit(
   in  q: Prog,
       unit: List[Target],
       found: List[Target],
+      phases: Phases,
       args: List[Str],
   out failed: List[Str]
-) :=
-  var passed: Bool
+) raises Thrown :=
   failed := List()
   for file in files_of(unit) do
-    test_module(in q, sibling(q.main, file), file, names_of(file, unit), args, label_of(file, found), out passed)
+    let m := sibling(q.main, file), names := names_of(file, unit), label := label_of(file, found), tests := test_names(q, m), lemmas := lemma_names(q, m), both := phases.tests and phases.proofs and names != List()
+    var passed := true, ran: Bool, proven: Bool, falsified: Set[Str] := empty()
+    for n in names if both and not contains(n, tests) and not contains(n, lemmas) do
+      os_println(in label ++ error_text(RuntimeKind, "there is no test or lemma " ++ n))
+      passed := false
+    end
+    for selected in selection(phases.tests, both, names, tests) do
+      test_module(in q, m, selected, args, label, out ran, falsified)
+      passed := passed and ran
+    end
+    for selected in selection(phases.proofs, both, names, lemmas) do
+      if blocks_proofs(q) then
+        os_println(in label ++ "no lemma proven, since code that the lemmas may reach has errors")
+        passed := false
+      else
+        prove_module(in without_rejected_lemmas(q), m, file, selected, falsified, label, out proven)
+        passed := passed and proven
+      end
+    end
     if not passed then
       failed := failed ++ List(file)
       if size(files_of(found)) > 1 then
@@ -402,14 +413,77 @@ procedure test_unit(
     end
   end
 
+// the names that a phase selects, all for List(), if it runs, where with both phases the names select only those of the
+// phase, own, and the phase runs only if they select one
+function selection(runs: Bool, both: Bool, names: List[Str], own: List[Str]): Option[List[Str]] :=
+  example selection(true, true, List("t", "l"), List("l")) == Some(List("l"))
+  example selection(true, true, List("t"), List("l")) == None
+  example selection(true, false, List(), List("l")) == Some(List())
+  if not runs then
+    None
+  else if both then
+    let selected := List(for n in names if contains(n, own)) in
+    if selected == List() then None else Some(selected)
+  else
+    Some(names)
+
+// the names of the tests of the module m of q
+function test_names(q: Prog, m: Id): List[Str] :=
+  List(for c in q.cmds for n in test_name(c.that, m) yield n)
+
+function test_name(cmd: Cmd, m: Id): Option[Str] :=
+  match cmd
+    case CTest(name, _, _) =>
+      if name.module == Some(m) then Some(name.base) else None
+    case _ =>
+      None
+  end
+
+// the names of the lemmas of the module m of q
+function lemma_names(q: Prog, m: Id): List[Str] :=
+  List(for c in q.cmds for n in lemma_name(c.that, m) yield n)
+
+function lemma_name(cmd: Cmd, m: Id): Option[Str] :=
+  match cmd
+    case CLemma(name, _, _, _, _, _) =>
+      if name.module == Some(m) then Some(name.base) else None
+    case _ =>
+      None
+  end
+
+// whether q has errors that make its code unsafe to run outside its lemmas and tests, which the lemmas could reach, so that
+// none is proven, while a lemma with errors of its own is only not proven
+function blocks_proofs(q: Prog): Bool :=
+  exists(q.cmds, lambda c => not is_lemma(c.that) and not is_test_cmd(c.that) and exists(cmd_errors(c), blocks_run))
+
+// q without its lemmas that have errors, which the prover does not prove
+function without_rejected_lemmas(q: Prog): Prog :=
+  q with cmds := List(for c in q.cmds if not is_lemma(c.that) or cmd_errors(c) == List())
+
+function is_lemma(cmd: Cmd): Bool :=
+  match cmd
+    case CLemma(_, _, _, _, _, _) =>
+      true
+    case _ =>
+      false
+  end
+
+function is_test_cmd(cmd: Cmd): Bool :=
+  match cmd
+    case CTest(_, _, _) =>
+      true
+    case _ =>
+      false
+  end
+
 // checks each unit of the targets once, where the error of a unit that does not load is reported at its first file, and
-// calls visit with the checked program of each unit that loads, which gives the files of the unit that fail, where tested
-// loads them with the tests of their lemmas and visits also a unit with errors if it is runnable, whose files then fail,
-// then prints how many files passed, where status is the exit status of the worst
+// calls visit with the checked program of each unit that loads, also with errors if it is runnable, whose files then
+// fail, and whether it loaded without errors, which gives the files of the unit that fail, where tested loads them with
+// the tests of their lemmas, then prints how many files passed, where status is the exit status of the worst
 procedure visit_units(
   in  found: List[Target],
       tested: Bool,
-      visit: (in Source, Prog, List[Target], out List[Str]) raises Thrown,
+      visit: (in Source, Prog, List[Target], Bool, out List[Str]) raises Thrown,
   out status: Int
 ) :=
   var units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], failed: Buffer[Str] := empty(), bad: List[Str], cache := no_cache()
@@ -420,12 +494,12 @@ procedure visit_units(
     if errors != List() then
       report(in first_path(unit), errors, size(files_of(found)) > 1)
       failed := failed ++ files_of(unit), status := max(status, load_status(q, errors))
-      if tested and is_runnable(q, errors) then
-        visit(in source, q, unit, out bad)
+      if is_runnable(q, errors) then
+        visit(in source, q, unit, false, out bad)
         status := if bad == List() then status else max(status, 3)
       end
     else
-      visit(in source, q, unit, out bad)
+      visit(in source, q, unit, true, out bad)
       failed := failed ++ bad, status := if bad == List() then status else max(status, 3)
     end
   end
@@ -453,17 +527,6 @@ procedure print_hints(in file: Str, out status: Int) :=
     end
   end
 
-// checks the files of the paths, by default of the project, each unit once, where each file must be formatted
-procedure check_paths(in paths: List[Str], lint: Bool, out status: Int) :=
-  var found: List[Target]
-  targets_of(in List(for p in paths yield Target(p, None)), false, out found)
-  visit_units(in found, false, lambda in source, q, unit, out failed =>
-    failed := List()
-    if lint then
-      print_lints(in source, q, unit)
-    end
-  end, out status)
-
 // prints the warnings of the lints of the files of the unit, each with its code, the expression to write instead if it has
 // one, and its position
 procedure print_lints(in source: Source, q: Prog, unit: List[Target]) :=
@@ -481,30 +544,6 @@ function replacement_text(source: Source, m: Id, w: Warning): Str :=
       ", write " ++ format_module_expr(source, m, r)
     case None =>
       ""
-  end
-
-// proves the lemmas of the targets, all or the named ones, by default of the project, each unit loaded once
-procedure prove_targets(in targets: List[Target], out status: Int) :=
-  var found: List[Target]
-  targets_of(in targets, false, out found)
-  visit_units(in found, false, lambda in source, q, unit, out failed =>
-    prove_unit(in q, unit, found, out failed)
-  end, out status)
-
-// proves the lemmas of the files of the unit, whose checked program is q, where failed are the files with open lemmas
-procedure prove_unit(
-  in  q: Prog,
-      unit: List[Target],
-      found: List[Target],
-  out failed: List[Str]
-) :=
-  var proven: Bool
-  failed := List()
-  for file in files_of(unit) do
-    prove_module(in q, sibling(q.main, file), file, names_of(file, unit), empty(), label_of(file, found), out proven)
-    if not proven then
-      failed := failed ++ List(file)
-    end
   end
 
 // translates the file of the target to C, whose main calls the procedure of the target, main by default
