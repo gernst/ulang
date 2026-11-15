@@ -15,3 +15,6 @@ ulang.vsix
 /bootstrap/*/ulang.bin
 /ulang.bin
 /ulang.sh
+
+# the items to address first, kept apart from ideas/
+/urgent.md
