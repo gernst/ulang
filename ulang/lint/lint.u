@@ -499,8 +499,13 @@ function local_lints(pos: Pos, name: Id, has_init: Bool, site: Option[(Span, Spa
     List(
       Warning(UnusedVariable, pos, "the local " ++ name ++ " is never read", None, map_option(site, lambda (local, decl) => EditMove(local, decl, List()))))
   else if not exists(stmts, lambda s => contains(name, stmt_names(s))) then
+    let assigns := exists(stmts, lambda s => contains(name, assigned(s))) in
+    let edit := if assigns then
+      None
+    else
+      map_option(site, lambda (local, decl) => EditDropOuts(local, decl, List(for s in stmts for span in out_calls(name, s) yield span), name)) in
     List(
-      Warning(UnusedVariable, pos, "the local " ++ name ++ " is never read, write _ at the outs that receive it", None, None))
+      Warning(UnusedVariable, pos, "the local " ++ name ++ " is never read, write _ at the outs that receive it", None, edit))
   else if has_init then
     List()
   else
@@ -938,6 +943,21 @@ function call_outs(stmt: At[Stmt]): Set[Id] :=
       Set()
   end in
   own ++ Set(for s in child_stmts(part) for x in call_outs(s) yield x)
+
+// the spans of the calls in stmt that pass name as an out
+function out_calls(name: Id, stmt: At[Stmt]): List[Span] :=
+  let part := stmt_part(stmt) in
+  let own := match part
+    case SCall(_, _, outs, _) =>
+      if exists(outs, lambda x => x.name.base == name) then
+        List(stmt.span)
+      else
+        List()
+
+    case _ =>
+      List()
+  end in
+  own ++ List(for s in child_stmts(part) for span in out_calls(name, s) yield span)
 
 // the variables that the assignments of stmt assign
 function assigned(stmt: At[Stmt]): Set[Id] :=
