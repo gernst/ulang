@@ -676,8 +676,8 @@ test procedure_values_raise() :=
 
 // a procedure value bound without a type raises what the procedure or the body of the lambda raises
 test procedure_values_raise_inferred() :=
-  var caught := 0, s: Int
-  let fail := lambda in n =>
+  var caught := 0
+  let fail := lambda in _ =>
     raise Failed
   end
   let signed := sign
@@ -688,7 +688,7 @@ test procedure_values_raise_inferred() :=
       caught := caught + 1
   end
   try
-    signed(in 0, out s)
+    signed(in 0, out _)
   catch
     case Failed =>
       caught := caught + 1
@@ -698,7 +698,7 @@ test procedure_values_raise_inferred() :=
 // a procedure value of a type that raises less fits a formal that allows more
 test procedure_values_raise_less() :=
   var ok: Bool
-  let never: (in Int) := lambda in n =>
+  let never: (in Int) := lambda in _ =>
     skip
   end
   attempt(in never, 1, out ok)
@@ -718,7 +718,7 @@ procedure attempt_all(in steps: List[(in Int) raises Failed], out failed: Int) :
 
 test procedure_values_raise_less_in_lists() :=
   var failed: Int
-  let never: (in Int) := lambda in n =>
+  let never: (in Int) := lambda in _ =>
     skip
   end
   let quiet: List[(in Int)] := List(never, never)
@@ -728,10 +728,10 @@ test procedure_values_raise_less_in_lists() :=
 // a value of one of several branches, or of several elements, raises what each of them raises
 test procedure_values_joined() :=
   var caught := 0
-  let failing: (in Int) raises Failed := lambda in n =>
+  let failing: (in Int) raises Failed := lambda in _ =>
     raise Failed
   end
-  let failing_otherwise: (in Int) raises Fail := lambda in n =>
+  let failing_otherwise: (in Int) raises Fail := lambda in _ =>
     raise Fail
   end
   let either := if caught == 0 then failing else failing_otherwise

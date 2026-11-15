@@ -130,8 +130,8 @@ function part_lints(fun: Id, expr: Expr): List[Warning] :=
     case ELam(formals, body) =>
       binder_lints(formals, expr_names(body)) ++ expr_lints(fun, body)
 
-    case EProc(_, _, _, _, stmt) =>
-      stmt_lints(fun, stmt)
+    case EProc(ins, _, _, _, stmt) =>
+      ins_lints(ins, stmt_names(stmt)) ++ stmt_lints(fun, stmt)
 
     case ELet(bindings, body) =>
       binder_lints(List(for (p, _) in bindings yield p), expr_names(body)) ++ exprs_lints(fun, List(for (_, e) in bindings yield e)) ++ expr_lints(fun, body)
@@ -773,11 +773,18 @@ function binder_lints(pats: List[At[Pat]], scope: Set[Id]): List[Warning] :=
   List(for p in pats for (pos, x) in pat_vars(p) for w in var_lints(pos, x, scope) yield w)
 
 function var_lints(pos: Pos, name: Id, scope: Set[Id]): List[Warning] :=
-  name_lints(pos, name) ++ (if contains(name, scope) then
+  name_lints(pos, name) ++ unread_lints(pos, name, scope)
+
+function unread_lints(pos: Pos, name: Id, scope: Set[Id]): List[Warning] :=
+  if contains(name, scope) then
     List()
   else
     List(
-      Warning(UnusedVariable, pos, "the variable " ++ name ++ " is never read, write _", None, Some(EditWild(Span(pos, Pos(pos.line, pos.col + size(name))))))))
+      Warning(UnusedVariable, pos, "the variable " ++ name ++ " is never read, write _", None, Some(EditWild(Span(pos, Pos(pos.line, pos.col + size(name)))))))
+
+// the ins of a procedure lambda that its body never reads, which may be _, while its outs and refs are assigned
+function ins_lints(ins: List[At[Var]], scope: Set[Id]): List[Warning] :=
+  List(for x in ins if not is_dropped(x.that) for w in unread_lints(x.pos, x.that.name.base, scope) yield w)
 
 // the warnings of the variables of the generators gens, each read in the generators after it or in scope
 function gens_binder_lints(gens: List[Gen], scope: Set[Id]): List[Warning] :=

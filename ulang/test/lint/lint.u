@@ -109,6 +109,26 @@ test lints_of_variables() :=
     (Pos(10, 34), "the local passed is never read, write _ at the outs that receive it"),
     (Pos(13, 7), "the variable x is never read, write _"))
 
+// an in of a procedure lambda that its body never reads may be _, also in a lambda inside another, which may read it
+test lints_of_lambda_ins() :=
+  var found: List[(Pos, Str)]
+  linted(in List(UnusedVariable), List(
+    "procedure p(out n: Int) :=",
+    "  let f := lambda in a, b, _, out m =>",
+    "    m := b",
+    "  end",
+    "  let g := lambda in c, out m =>",
+    "    let h := lambda in d, out k =>",
+    "      k := c",
+    "    end",
+    "    h(in 1, out m)",
+    "  end",
+    "  f(in 1, 2, 3, out n)",
+    "  g(in 1, out n)"), out found)
+  assert found == List(
+    (Pos(2, 22), "the variable a is never read, write _"),
+    (Pos(6, 24), "the variable d is never read, write _"))
+
 test lints_of_locals_too_high() :=
   var found: List[(Pos, Str)]
   linted(in List(LocalTooHigh), List(

@@ -11,7 +11,7 @@ test put_and_drop() :=
   let path := "out/test/refactor/sample.u"
   os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\n// one more\nfunction f(x: Int): Int :=\n  x + 1\n")
   let script := "@put " ++ path ++ "\nfunction f(y: Int): Int := y + 2\nfunction g(): Int := f(1)\n@drop " ++ path ++ ":g\n"
-  run_script(in script, false, "out/test/refactor/state", lambda in file, out found =>
+  run_script(in script, false, "out/test/refactor/state", lambda in _, out found =>
     found := List()
   end, out reply, status, _)
   os_read_utf8(in path, out text)
@@ -27,7 +27,7 @@ test refused_fragment() :=
   var reply: List[Str], status: Int, text: Str
   let path := "out/test/refactor/refused.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
-  run_script(in "@put " ++ path ++ "\nfunction g(x: Int): Int :=\n  x +\n", false, "out/test/refactor/state", lambda in file, out found =>
+  run_script(in "@put " ++ path ++ "\nfunction g(x: Int): Int :=\n  x +\n", false, "out/test/refactor/state", lambda in _, out found =>
     found := List()
   end, out reply, status, _)
   os_read_utf8(in path, out text)
