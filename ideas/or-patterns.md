@@ -2,7 +2,7 @@
 
 A plan: the matches that end in `case _` named by alternatives, `case A | B =>`, as Code 1 and the rule of style in `CLAUDE.md`, Style, ask, now that the language has them (`CLAUDE.md`, Syntax and translations). Delete this file when the steps below are done, and move what stays true into `CLAUDE.md`.
 
-Done: the 12 sites over `Type`, `zonk_type` of `ulang/check/check.u`, whose catch-all is a variable, and `raises_modules` of `ulang/check/uses.u` over `Raises`. The steps, each after the one before: the other sites below, one commit per package, `ulang/check` first, handed over to `main` after each package or two, since other sessions edit `ulang/check/check.u` all the time; then the lint and the refactoring.
+Done: the 12 sites over `Type`, `zonk_type` of `ulang/check/check.u`, whose catch-all is a variable, `raises_modules` of `ulang/check/uses.u` over `Raises`, and of `Expr`, outside the prover, `unknown_in_expr` of `ulang/check/check.u`, where the other matches over `Expr` with a catch-all take apart one or two shapes and keep it: `placed_lints` of `ulang/lint/lint.u`, `list_literal` and `consing` of `ulang/compile/lower.u`, `operand_of` of `ulang/compile/x86.u`, and `with_container` of `ulang/check/check.u`. The steps, each after the one before: the other sites below, one commit per package, `ulang/check` first, handed over to `main` after each package or two, since other sessions edit `ulang/check/check.u` all the time; then the lint and the refactoring.
 
 ## The sites
 
