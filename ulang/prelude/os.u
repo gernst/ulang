@@ -40,7 +40,8 @@ procedure os_println(in text: Str)
 
 builtin
 
-// the arguments of the program, after -- for the interpreter
+// the arguments of the program, after the -- of ulang.sh run for the interpreter, and without a first -- for a compiled
+// program, so that both get the same
 procedure os_args(out args: List[Str]) raises OsError
 
 // read and write files as text in UTF-8, where invalid UTF-8 raises OsError, and as bytes, where relative paths start

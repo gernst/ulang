@@ -1167,9 +1167,16 @@ static int argc = 0;
 static char **argv = NULL;
 static u_value args = NULL;
 
-void u_args(int n, char **v) {
+static void set_args(int n, char **v) {
   argc = n;
   argv = v;
+}
+
+// the arguments of main, without a first --, so that a compiled program gets the arguments that ulang.sh run gives the
+// interpreter after its --
+void u_args(int n, char **v) {
+  if (n >= 2 && strcmp(v[1], "--") == 0) set_args(n - 1, v + 1);
+  else set_args(n, v);
 }
 
 void p_os_args(u_value *result) {
@@ -1387,8 +1394,8 @@ int u_run_tests(int argc, char **argv, const char *const *files, const struct u_
       break;
     }
   // the arguments of os_args are those after --, after argv[0], here --
-  if (end < argc) u_args(argc - end, argv + end);
-  else u_args(1, argv);
+  if (end < argc) set_args(argc - end, argv + end);
+  else set_args(1, argv);
   struct selection s = {GC_MALLOC(sizeof(int) * nfiles), 0, GC_MALLOC(sizeof(char **) * nfiles), GC_MALLOC(sizeof(int) * nfiles),
                         argc};
   // the targets, by default the root, which selects all files
@@ -1451,8 +1458,11 @@ int u_run_tests(int argc, char **argv, const char *const *files, const struct u_
   return ok ? 0 : 3;
 }
 
+// flushed, as io_write_utf8 on io_stdout is, so that a program that prints a request and then reads its reply from stdin
+// does not wait on its own buffer when its output is a pipe
 void p_os_print(u_value text) {
   write_utf8(stdout, text);
+  fflush(stdout);
 }
 
 void p_os_print_error(u_value text) {

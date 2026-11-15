@@ -21,7 +21,10 @@ install: ulang.vsix
 # ulang/prelude, translated by the seed, and bootstrap/ulang.bin, the seed, is built from bootstrap/ulang.c, the C of the last
 # compiler that compiled itself to the same C, which is versioned, as the C of its backups in bootstrap/<time stamp>/ is, while
 # the binaries are not; each is linked with the runtime in ulang/runtime, GMP, and the Boehm collector
+# clang unless the environment or the command line gives CC, e.g. CC=cc or CC="clang -I shim"
+ifeq ($(origin CC),default)
 CC = clang
+endif
 CFLAGS = -O2 -std=c11 -Wall -Wno-unused-variable -Wno-unused-function -I ulang/runtime -DULANG_LIB='"$(CURDIR)/ulang/prelude"'
 LIBS = -lgmp -lgc
 RUNTIME = ulang/runtime/ulang.c ulang/runtime/ulang.h
