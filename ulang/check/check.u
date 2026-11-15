@@ -828,7 +828,7 @@ function zonk_pattern(s: State, pat: Pat): Pat :=
     case PAnnotated(inner, typ) =>
       PAnnotated(zonk_pat(s, inner), zonked(s, typ))
 
-    case _ =>
+    case PWild | PLit(_) =>
       pat
   end
 
@@ -1126,7 +1126,12 @@ function head_of(pat: Pat): Option[(Head, List[Pat])] :=
     case PLit(lit) =>
       Some((HLit(lit), List()))
 
-    case _ =>
+    case PWild | PVar(_) =>
+      None
+
+    // alternatives, whose rows heads, defaults, specialize, and is_useful split before, and annotations, which checked
+    // patterns do not have
+    case PAnnotated(_, _) | POr(_) =>
       None
   end
 
@@ -5093,7 +5098,10 @@ function pattern_constrs(pat: Pat): List[Name] :=
     case POr(alts) =>
       List(for a in alts for k in pattern_constrs(a.that) yield k)
 
-    case _ =>
+    case PAnnotated(inner, _) =>
+      pattern_constrs(inner.that)
+
+    case PWild | PLit(_) | PVar(_) =>
       List()
   end
 

@@ -328,8 +328,12 @@ procedure test_pat(in pat: Pat, s: Int, path: List[Int], fail: Str, ref e: Emit)
     case PTuple(args) =>
       test_fields(in numbered(args), s, path, fail, ref e)
 
-    case _ =>
+    case PWild | PVar(_) =>
       skip
+
+    // alternatives and annotations, which expanded_cases and expanded_handlers of ulang/syntax/syntax.u take apart before
+    case PAnnotated(_, _) | POr(_) =>
+      raise Unexpected("alternatives or an annotation, which expanded_cases takes apart")
   end
 
 procedure test_fields(
@@ -364,8 +368,12 @@ procedure bind_pat(
     case PTuple(args) =>
       bind_fields(in numbered(args), s, path, out binds, ref e)
 
-    case _ =>
+    case PWild | PLit(_) =>
       binds := List()
+
+    // alternatives and annotations, which expanded_cases and expanded_handlers of ulang/syntax/syntax.u take apart before
+    case PAnnotated(_, _) | POr(_) =>
+      raise Unexpected("alternatives or an annotation, which expanded_cases takes apart")
   end
 
 procedure bind_fields(

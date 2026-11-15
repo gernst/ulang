@@ -269,7 +269,11 @@ function pattern_tests(pat: Pat, v: CExpr): List[CExpr] :=
     case PTuple(args) =>
       field_tests(numbered(args), v)
 
-    case _ =>
+    case PWild | PVar(_) =>
+      List()
+
+    // alternatives and annotations, which expanded_cases and expanded_handlers of ulang/syntax/syntax.u take apart before
+    case PAnnotated(_, _) | POr(_) =>
       List()
   end
 
@@ -288,7 +292,11 @@ function pattern_binds(pat: Pat, v: CExpr): List[CStmt] :=
     case PTuple(args) =>
       field_binds(numbered(args), v)
 
-    case _ =>
+    case PWild | PLit(_) =>
+      List()
+
+    // alternatives and annotations, which expanded_cases and expanded_handlers of ulang/syntax/syntax.u take apart before
+    case PAnnotated(_, _) | POr(_) =>
       List()
   end
 
