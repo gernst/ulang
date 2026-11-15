@@ -473,6 +473,10 @@ procedure evaluate(
       var vs: List[Val]
       evaluate_all(in run, env, args, out vs, ref cache)
       v := VTuple(vs)
+
+    // an ascription is its expression, whose type the checker has unified with the ascribed one
+    case EAnnotated(inner, _) =>
+      evaluate(in run, env, inner, out v, ref cache)
   end
 
 procedure evaluate_all(
