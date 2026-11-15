@@ -472,6 +472,11 @@ function expanded_cases[A](cases: List[At[Branch[A]]]): List[At[Branch[A]]]
 // its alternative with, which readers of the type of a handler take apart first
 function expanded_handlers(cases: List[At[Catch]]): List[At[Catch]]
 
+// the handlers of the alternatives of the handler c that the compilers test one after another: one per alternative at
+// the top of its pattern, each of a type of its own, see handler_pattern of ulang/check/check.u, split further as the
+// pattern of a case by tested_alternatives, so that the alternatives inside stay where they stand
+function tested_handlers(c: Catch): List[Catch]
+
 // the variables of patterns that are all variables
 function pattern_vars(pats: List[At[Pat]]): Option[List[Var]]
 
@@ -1120,6 +1125,15 @@ function expanded_cases[A](cases: List[At[Branch[A]]]): List[At[Branch[A]]] :=
 
 function expanded_handlers(cases: List[At[Catch]]): List[At[Catch]] :=
   List(for d in cases for q in alternatives(d.that.pat) yield d with that := alternative_handler(d.that, q))
+
+function tested_handlers(c: Catch): List[Catch] :=
+  let tops := match c.pat.that
+    case POr(alts) =>
+      alts
+    case _ =>
+      List(c.pat)
+  end in
+  List(for top in tops for q in tested_alternatives(alternative_handler(c, top).pat, c.guard != None) yield alternative_handler(c, top) with pat := q)
 
 // the handler c of the alternative q of its pattern, whose annotation at the top is the type of the exception that it
 // matches, as the checker types the alternatives of a handler
