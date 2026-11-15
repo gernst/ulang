@@ -410,61 +410,143 @@ procedure add_addrs(
     add_bytes(in zeros(8), ref obj)
   end
 
-procedure add_line(
-  in  line: Line,
-      labels: Map[Str, Sec * Int],
-  ref obj: Obj
+// a line with the code of its instruction, which each instruction is encoded to once, for both passes
+data Item :=
+  case ItemCode(code: Code)
+  case ItemLine(line: Line)
+
+procedure items_of(
+  in  lines: List[Line],
+  out items: List[Item]
 ) raises InternalError :=
-  match line
-    case LLabel(name) =>
-      obj := obj with labels := put(name, (obj.sec, offset_of(obj)), obj.labels)
+  var buf: Buffer[Item] := empty()
+  for line in lines do
+    match line
+      case LInstr(instr) =>
+        var code: Code
+        encode_instr(in instr, out code)
+        buf := buf ++ List(ItemCode(code))
 
-    case LInstr(instr) =>
-      var code: Code
-      encode_instr(in instr, out code)
-      add_code(in code, labels, ref obj)
+      case _ =>
+        buf := buf ++ List(ItemLine(line))
+    end
+  end
+  items := List(for item in buf)
 
-    case LDirective(DText) =>
-      obj := obj with sec := SecText
+// the section after the item in sec
+function sec_after(sec: Sec, item: Item): Sec :=
+  match item
+    case ItemLine(LDirective(DText)) =>
+      SecText
 
-    case LDirective(DData) =>
-      obj := obj with sec := SecData
+    case ItemLine(LDirective(DData)) =>
+      SecData
 
-    case LDirective(DRodata) =>
-      obj := obj with sec := SecRodata
+    case ItemLine(LDirective(DRodata)) =>
+      SecRodata
 
-    case LDirective(DNoExecStack) =>
-      obj := obj with sec := SecNote
+    case ItemLine(LDirective(DNoExecStack)) =>
+      SecNote
 
-    case LDirective(DGlobal(symbol)) =>
+    case _ =>
+      sec
+  end
+
+// the number of bytes of the item at offset of its section
+function item_size(item: Item, offset: Int): Int :=
+  match item
+    case ItemCode(code) =>
+      size(code.bytes)
+
+    case ItemLine(LDirective(DAlign(n))) =>
+      (n - offset % n) % n
+
+    case ItemLine(LDirective(DInts(width, nums))) =>
+      width * size(nums)
+
+    case ItemLine(LDirective(DAddrs(symbols))) =>
+      8 * size(symbols)
+
+    case ItemLine(LDirective(DZero(n))) =>
+      n
+
+    case ItemLine(_) =>
+      0
+  end
+
+// the labels at their sections and offsets, which the sizes of the items place, since they do not depend on the labels
+procedure place(in items: List[Item], out labels: Map[Str, Sec * Int]) :=
+  var sec := SecText, offsets: Map[Sec, Int] := empty()
+  labels := empty()
+  for item in items do
+    sec := sec_after(sec, item)
+    let offset := value_or(get(sec, offsets), 0)
+    match item
+      case ItemLine(LLabel(name)) =>
+        labels := put(name, (sec, offset), labels)
+      case _ =>
+        offsets := put(sec, offset + item_size(item, offset), offsets)
+    end
+  end
+
+procedure add_item(in item: Item, ref obj: Obj) raises InternalError :=
+  let sec := sec_after(obj.sec, item)
+  if sec != obj.sec then
+    obj := obj with sec := sec
+  end
+  match item
+    case ItemCode(code) =>
+      add_code(in code, obj.labels, ref obj)
+
+    // items_of encodes every instruction
+    case ItemLine(LInstr(instr)) =>
+      raise Unexpected("instruction not encoded: " ++ format_instr(instr))
+
+    // place puts the labels, and sec_after takes the sections
+    case ItemLine(LLabel(_)) =>
+      skip
+
+    case ItemLine(LDirective(DText)) =>
+      skip
+
+    case ItemLine(LDirective(DData)) =>
+      skip
+
+    case ItemLine(LDirective(DRodata)) =>
+      skip
+
+    case ItemLine(LDirective(DNoExecStack)) =>
+      skip
+
+    case ItemLine(LDirective(DGlobal(symbol))) =>
       obj := obj with globals := insert(symbol, obj.globals)
 
-    case LDirective(DAlign(n)) =>
+    case ItemLine(LDirective(DAlign(n))) =>
       let fill := if obj.sec == SecText then 144 else 0
-      add_bytes(in List(for _ in range(0, (n - offset_of(obj) % n) % n) yield fill), ref obj)
+      add_bytes(in List(for _ in range(0, item_size(item, offset_of(obj))) yield fill), ref obj)
       obj := obj with aligns := put(obj.sec, max(n, value_or(get(obj.sec, obj.aligns), 1)), obj.aligns)
 
-    case LDirective(DInts(width, nums)) =>
+    case ItemLine(LDirective(DInts(width, nums))) =>
       add_bytes(in List(for n in nums for b in le(n, width) yield b), ref obj)
 
-    case LDirective(DAddrs(symbols)) =>
-      add_addrs(in symbols, labels, ref obj)
+    case ItemLine(LDirective(DAddrs(symbols))) =>
+      add_addrs(in symbols, obj.labels, ref obj)
 
-    case LDirective(DZero(n)) =>
+    case ItemLine(LDirective(DZero(n))) =>
       add_bytes(in zeros(n), ref obj)
 
-    case LComment(_) =>
+    case ItemLine(LComment(_)) =>
       skip
   end
 
-procedure encode_lines(
-  in  lines: List[Line],
-      labels: Map[Str, Sec * Int],
-  out obj: Obj
-) raises InternalError :=
-  obj := Obj(SecText, empty(), empty(), empty(), Map(SecText => 16, SecData => 8, SecRodata => 8), empty(), empty())
-  for line in lines do
-    add_line(in line, labels, ref obj)
+// the object of the lines, whose instructions are encoded once, placed by their sizes, and then added with the labels
+procedure encode_lines(in lines: List[Line], out obj: Obj) raises InternalError :=
+  var items: List[Item], labels: Map[Str, Sec * Int]
+  items_of(in lines, out items)
+  place(in items, out labels)
+  obj := Obj(SecText, empty(), empty(), empty(), Map(SecText => 16, SecData => 8, SecRodata => 8), labels, empty())
+  for item in items do
+    add_item(in item, ref obj)
   end
 
 // the sections of the object with their headers, in the order of their indices from 1, after the null section
@@ -595,9 +677,8 @@ procedure encode_object(
   in  f: AsmFile,
   out bytes: Array[Byte]
 ) raises InternalError :=
-  var placed: Obj, obj: Obj
-  encode_lines(in f.lines, empty(), out placed)
-  encode_lines(in f.lines, placed.labels, out obj)
+  var obj: Obj
+  encode_lines(in f.lines, out obj)
   bytes := Array(for chunk in elf_file(headers(obj)) for b in chunk yield byte(b))
 
 // the encodings of the forms of operands that need care, as GNU as encodes them: %rsp and %r12 as bases, which take a SIB
@@ -641,7 +722,6 @@ test references() :=
     LLabel("f"),
     LInstr(IJmp("f")),
     LInstr(ICallPlt("u_add")))
-  encode_lines(in lines, empty(), out obj)
-  encode_lines(in lines, obj.labels, out obj)
+  encode_lines(in lines, out obj)
   assert sec_bytes(obj, SecText) == List(233, 251, 255, 255, 255, 232, 0, 0, 0, 0)
   assert sec_relas(obj, SecText) == List(Rela(6, RelaSymbol("u_add"), r_plt32(), -4))
