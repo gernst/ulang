@@ -112,6 +112,9 @@ procedure check_all(
 // the errors that checking found in q, which holds them as the errors of its commands, in their order
 function diagnostics(q: Prog): List[Diagnostic]
 
+// the errors of cmd of q, whose main module is main, by position, as diagnostics gives them
+function command_diagnostics(main: Id, cmd: At[Cmd]): List[Diagnostic]
+
 // whether checking found errors in q, without those of proofs, which the prover adds (with_proofs of ulang/prove/lemma.u)
 function has_errors(q: Prog): Bool
 
@@ -320,7 +323,6 @@ function foreign_names(): Map[Str, Str] :=
     "count" => "size",
     "print" => "os_println(in text)",
     "println" => "os_println(in text)",
-    "append" => "xs ++ ys",
     "concat" => "xs ++ ys",
     "toString" => "show",
     "to_string" => "show",
@@ -1768,7 +1770,7 @@ procedure map_state[A, B](
   var y: B, found: Buffer[B] := empty()
   for x in xs do
     step(in x, out y, ref s)
-    found := found ++ List(y)
+    found := append(found, y)
   end
   ys := List(for z in found)
 
@@ -4175,7 +4177,7 @@ procedure check_proof(
     let outer := s.at
     s := s with at := step.pos
     proof_step(in outs, step.that, out typed_step, ref env, s)
-    steps := steps ++ List(AOk(step.pos, step.span, typed_step)), s := s with at := outer
+    steps := append(steps, AOk(step.pos, step.span, typed_step)), s := s with at := outer
   end
   match proof.split
     case Some(placed) =>
@@ -4518,7 +4520,7 @@ procedure contract(
   for a in spec.pre do
     var b: At[Expr]
     check(in bind(ins ++ refs), a, TBool(), "the requires", out b, ref s)
-    pre := pre ++ List(b)
+    pre := append(pre, b)
   end
   match spec.post
     case Some(e) =>
@@ -4554,7 +4556,7 @@ procedure claim_proof(
         let outer := s.at
         s := s with at := step.pos
         check(in env, cond, TBool(), "the invariant", out c, ref s)
-        invariants := invariants ++ List(AOk(step.pos, step.span, StepInvariant(c))), s := s with at := outer
+        invariants := append(invariants, AOk(step.pos, step.span, StepInvariant(c))), s := s with at := outer
 
       // written has only invariants
       case _ =>
@@ -5185,8 +5187,7 @@ function with_diagnostics(cmd: At[Cmd], ds: List[Diagnostic]): At[Cmd] :=
 function diagnostics(q: Prog): List[Diagnostic] :=
   distinct(List(for cmd in q.cmds ++ q.builtins for d in command_diagnostics(q.main, cmd) yield d))
 
-// the errors of cmd by position, where an error of a part without a module is of the module of cmd, and one of main has
-// none
+// an error of a part without a module is of the module of cmd, and one of main has none
 function command_diagnostics(main: Id, cmd: At[Cmd]): List[Diagnostic] :=
   let m := if is_parsed(cmd) then cmd_module(cmd.that) else None in
   let ds := List(for d in cmd_errors(cmd) if d.kind != ParseKind yield in_main_module(main, d with module := or_else(d.module, m))) in

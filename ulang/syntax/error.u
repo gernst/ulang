@@ -31,6 +31,9 @@ function diagnostic(kind: ErrorKind, message: Str): Diagnostic
 // main one, line and column if it has a position, kind, code, message, and the details, each a string but line and column
 function format_diagnostic(file: Str, d: Diagnostic): Str
 
+// d as format_diagnostic writes it, with the field severity of a warning, which does not fail the command that prints it
+function format_warning(file: Str, d: Diagnostic): Str
+
 // the text as a JSON string, in quotes, with the escapes of JSON
 function json_text(text: Str): Str
 
@@ -186,7 +189,13 @@ function diagnostic(kind: ErrorKind, message: Str): Diagnostic :=
   Diagnostic(kind, kind_name(kind), None, Pos(0, 0), message, List())
 
 function format_diagnostic(file: Str, d: Diagnostic): Str :=
-  "{" ++ join(", ", List(for (k, v) in diagnostic_fields(file, d) yield json_text(k) ++ ": " ++ v)) ++ "}"
+  json_object(diagnostic_fields(file, d))
+
+function format_warning(file: Str, d: Diagnostic): Str :=
+  json_object(diagnostic_fields(file, d) ++ List(("severity", json_text("warning"))))
+
+function json_object(fields: List[Str * Str]): Str :=
+  "{" ++ join(", ", List(for (k, v) in fields yield json_text(k) ++ ": " ++ v)) ++ "}"
 
 function diagnostic_fields(file: Str, d: Diagnostic): List[Str * Str] :=
   List(("file", json_text(file))) ++ List(for m in d.module yield ("module", json_text(m))) ++ position_fields(d.pos) ++ List(

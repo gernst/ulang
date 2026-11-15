@@ -1,5 +1,5 @@
-// the running of tests: the tests of a module, each on its own in the interpreter of ulang/run/run.u, then the proofs of
-// its lemmas by ulang/prove/lemma.u, and the enumeration that the tests of lemmas of ulang/test/generate.u call, which
+// the running of tests: the tests of a module, each on its own in the interpreter of ulang/run/run.u, the proofs of its
+// lemmas by ulang/prove/lemma.u, and the enumeration that the tests of lemmas of ulang/test/generate.u call, which
 // load_tester loads into the program under test
 
 import "ulang/syntax"
@@ -14,17 +14,17 @@ export
 // library, read through os_library from the directory next to the library, so that no second path is compiled in
 procedure load_tester(ref source: Source) raises ParseError, OsError
 
-// runs the tests of the module m of q, all or the named ones, each on its own, also after a failed one, and then proves its
-// lemmas if all are run, but those whose tests falsify them, printing a line per test and lemma after label, where passed
-// tells whether all pass and are proven
+// runs the tests of the module m of q, all or the named ones, each on its own, also after a failed one, printing a line per
+// test after label, where passed tells whether all pass, and falsified are the lemmas whose tests found a counterexample,
+// which prove_module neither proves nor takes as facts
 procedure test_module(
   in  q: Prog,
       m: Id,
-      file: Str,
       names: List[Str],
       args: List[Str],
       label: Str,
-  out passed: Bool
+  out passed: Bool,
+      falsified: Set[Str]
 ) raises Thrown
 
 // proves the lemmas of the module m of q, of the file, all or the named ones, in their order, where those before are
@@ -51,15 +51,15 @@ procedure load_tester(ref source: Source) raises ParseError, OsError :=
 procedure test_module(
   in  q: Prog,
       m: Id,
-      file: Str,
       names: List[Str],
       args: List[Str],
       label: Str,
-  out passed: Bool
+  out passed: Bool,
+      falsified: Set[Str]
 ) raises Thrown :=
   let run := load(q) with args := args
-  var tests: List[Cmd], message: Str, refuted: Bool, falsified: Set[Str] := empty()
-  tests := List(for c in definitions(q) if is_selected_test(c, m, names)), passed := true
+  var tests: List[Cmd], message: Str, refuted: Bool
+  tests := List(for c in definitions(q) if is_selected_test(c, m, names)), passed := true, falsified := empty()
   for n in names if not exists(tests, lambda c => cmd_name(c) == n) do
     os_println(in label ++ error_text(RuntimeKind, "there is no test " ++ n))
     passed := false
@@ -73,12 +73,6 @@ procedure test_module(
       os_println(in label ++ "test " ++ cmd_name(c) ++ " failed: " ++ message)
       passed := false
     end
-  end
-  // a unit with errors, also only of parsing, which has_errors leaves to the parser, proves no lemmas
-  if names == List() and not exists(q.cmds, lambda c => cmd_errors(c) != List()) then
-    var proven: Bool
-    prove_module(in q, m, file, List(), falsified, label, out proven)
-    passed := passed and proven
   end
 
 // the error of the test cmd, or else "", and whether it is a test of a lemma that found a counterexample, Falsified of

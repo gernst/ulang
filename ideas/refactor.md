@@ -49,7 +49,7 @@ The named operations are better at large changes across modules, a move of a dec
 
 ## The command
 
-`refactor` is the only command that edits sources by their meaning, as `format` is the only one that edits their layout: `check` and `lint` only report, also the edits that errors and lints propose, and `format` always rewrites, since `check`, `lint`, and `test` report the files that differ (`format --check` and `check --lint` are gone, `lint` is a command of its own as of `walks`).
+`refactor` is the only command that edits sources by their meaning, as `format` is the only one that edits their layout: `check` only reports, also the edits that errors and lints propose, and `format` always rewrites, since `check` reports the files that differ (`format --check` is gone).
 
 One command, `ulang.sh refactor --script <file> [--dry] [--json]`, or the script on stdin, whose actions are those of Edit scripts, below, run in one process, so that a unit is loaded and checked once, not per action (checking `ulang/ulang.u` takes about a second); a single action may be given on the command line, `ulang.sh refactor @rename …`, as a script of one line. The operation `fix [<path> …] [--rule <Code> …]`, the edits that the errors and lints of the files propose, all or those of the rules named, and the named operations below are further actions of the same script, `@fix`, `@move`, and so on.
 
@@ -246,7 +246,7 @@ Not every change of code belongs to a command that an agent invokes with a targe
 |---|---|---|---|---|
 | refactoring | the agent: a name, a place, a default | any, across modules | the sources | `refactor <op>`, on request |
 | fix | an error, with one obvious edit | the site of the error | the sources | listed with the error by `check`, applied by `refactor fix` |
-| canonicalization | the code alone: a normal form exists | local, one part | the sources | reported by `lint`, applied by `refactor fix` |
+| canonicalization | the code alone: a normal form exists | local, one part | the sources | reported by `check --lint`, applied by `refactor fix` |
 | optimization | the cost of evaluation | local or whole program | the C only | `compile`, always |
 
 The tests that sort a change:
@@ -289,7 +289,7 @@ Their fix is a choice of data structure or algorithm, so lint names the site and
   | find a place and the edit to make there | the rule, in `ulang/lint/lint.u` or the checker | both come from the same match, so the place found and the edit cannot drift apart |
   | the edit, a part replaced, a statement or command inserted, moved, or deleted, a name renamed | a datatype of the package of `refactor` | lints, the hints of errors, and the operations of agents make the same kinds of edits |
   | apply, print by `format_program`, check again, compare the resolutions, write or diff | the package of `refactor` | one safety check for every source of edits, and the hard part, safety under overloading |
-  | what to show | the driver | `lint` prints a warning with its edit, `refactor fix` carries it out, and a reply of a script lists the follow-ups it applied |
+  | what to show | the driver | `check --lint` prints a warning with its edit, `refactor fix` carries it out, and a reply of a script lists the follow-ups it applied |
 
   So a finding of lint and a fix carry their edits as values of that datatype, instead of the one expression of `Warning.replacement` now, and `refactor fix` takes them through the same preconditions, the re-check, the comparison of resolutions, and the replay under concurrent edits; lint never writes files by a path of its own, and has no `--apply`. The rules on `walks` without a replacement show which edits come first: `LocalTooHigh` moves a declaration into the branches that use it, `UnusedPrivate` deletes a command, `UnusedVariable` writes `_` or drops a local; their warnings that came with the merge of main at `0d44ab2` stay in the sources as the first cases: `LocalTooHigh` of `ts` and `t` in `ulang/check/check.u`, of `imported` in `ulang/parse/parse.u`, and of `typed` in `ulang/ulang.u`; `UnusedPrivate` of `starts_at` in `ulang/parse/lex.u` and of `ends_body_token` in `ulang/parse/parse.u`; and `UnusedVariable` of `imported` in `parse_mod`; since then also `UnusedVariable` of `u` in `variable` of `ulang/check/check.u` and of `more` in `declared_names` of `ulang/parse/parse.u`, and `LocalTooHigh` of `claim` in `parse_example` of `ulang/parse/parse.u`. The script that moved 84 locals by the warnings of `LocalTooHigh` on `walks`, by the text, shows the edit: the declaration leaves its `local` line and joins, or opens, the first `local` line of each branch that names it.
 - **One matcher.** The rewrites by pattern of operation 6 are the rules of lint written in ulang syntax: the library of canonical forms is a set of rules shipped with the tool, and a project adds its own for a migration, which is a lint rule that runs once.
@@ -334,7 +334,7 @@ With 3 and 4, adding a field, the most common change of data, is one `@put` of t
 
 For drafting:
 
-5. **A hole, `todo`**, an expression of any type and a statement, which raises `Todo` at runtime, is an open goal for the prover, and whose remaining uses `test` lists, so a draft checks before every case is written, and a new constructor is stubbed in each match by `@put into #h` of `case Scroll(_) => todo`.
+5. **A hole, `todo`**, an expression of any type and a statement, which raises `Todo` at runtime, is an open goal for the prover, and whose remaining uses `check --test` lists, so a draft checks before every case is written, and a new constructor is stubbed in each match by `@put into #h` of `case Scroll(_) => todo`.
 6. **An optional inline export**, `export function f(…): T := …` beside the sections, so that a fragment is the whole truth of a declaration; optional, since the tool keeps the sections in step anyway.
 
 What can stay strict: with the tool, locals in the innermost body that uses them, the canonical format, the signatures that `implementation` repeats, and the order of modes cost an agent nothing, so they stay, and docs that are nodes of the tree move with their declaration, so no structural edit loses them.
