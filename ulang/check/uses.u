@@ -204,6 +204,9 @@ function expr_modules(expr: At[Expr]): Set[Id] :=
     case ETuple(args) =>
       exprs_modules(args)
 
+    case EAnnotated(inner, typ) =>
+      expr_modules(inner) ++ type_modules(typ)
+
     case EForm(_, elems, rest) =>
       Set(for y in elems for m in yield_modules(y) yield m) ++ option_modules(rest)
 

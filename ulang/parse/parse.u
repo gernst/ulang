@@ -484,9 +484,16 @@ function hint_at(what: Str, toks: Tokens): Str :=
     case (TKw("["), _) =>
       "; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments"
 
+    case (TKw(":"), _) if what == ")" =>
+      ascription_hint()
+
     case _ =>
       ""
   end
+
+// the hint at a : or , in parentheses where an ascription cannot stand
+function ascription_hint(): Str :=
+  "; an ascription (e: T) stands alone in its parentheses, so a component of a tuple or an argument is written ((e: T), b)"
 
 // the form to write for an undeclared operator of another language, after "; ", or ""
 function operator_hint(op: Str): Str :=
@@ -1163,15 +1170,38 @@ procedure parse_expr_atom(
       parse_cases(in notation, params, parse_expr, "match", pos, out cases, ref toks)
       expr := AOk(pos, span_from(pos, toks), EMatch(a, cases))
 
+    // a tuple, an expression in parentheses, which is that expression, or an ascription (e: T), which stands alone in its
+    // parentheses, so that a component of a tuple and an argument take parentheses of their own, ((a: T), b)
     case (_, TKw("(")) =>
-      var exprs: List[At[Expr]]
       advance(ref toks)
-      parse_enclosed(in notation, params, parse_arg, ")", out exprs, ref toks)
-      match exprs
-        case List(inner) =>
-          expr := inner
-        case _ =>
-          expr := AOk(pos, span_from(pos, toks), ETuple(exprs))
+      if at_kw(toks, ")") then
+        advance(ref toks)
+        expr := AOk(pos, span_from(pos, toks), ETuple(List()))
+      else
+        var first: At[Expr]
+        parse_arg(in notation, params, out first, ref toks)
+        match head_token(toks)
+          case TKw(":") =>
+            var typ: Type
+            advance(ref toks)
+            parse_type(in notation, params, out typ, ref toks)
+            if at_comma(toks) then
+              raise ParseError(") expected but , found" ++ ascription_hint(), head_pos(toks))
+            end
+            expect(in TKw(")"), ref toks)
+            expr := AOk(pos, span_from(pos, toks), EAnnotated(first, typ))
+
+          case TKw(",") =>
+            var rest: List[At[Expr]]
+            advance(ref toks)
+            parse_separated(in notation, params, parse_arg, at_comma, out rest, ref toks)
+            expect(in TKw(")"), ref toks)
+            expr := AOk(pos, span_from(pos, toks), ETuple(List(first; rest)))
+
+          case _ =>
+            expect(in TKw(")"), ref toks)
+            expr := first
+        end
       end
 
     case _ if form_at(toks) != None =>
@@ -3932,6 +3962,22 @@ test parsed_operators() :=
   assert expr == expr_app("-", List(nowhere(EField(a, "f"))))
   parsed(in "a with f := 1, g := b.f", out expr)
   assert expr == nowhere(EUpdate(nowhere(EUpdate(a, "f", expr_int(1))), "g", nowhere(EField(b, "f"))))
+
+// an ascription (e: T) stands alone in its parentheses, so that a component of a tuple or an argument is ascribed in
+// parentheses of its own
+test parsed_ascriptions() :=
+  var expr: At[Expr], source: Source
+  let a := expr_var("a"), b := expr_var("b"), int := TSort(unqualified("Int"), List())
+  parsed(in "(a: Int)", out expr)
+  assert expr == nowhere(EAnnotated(a, int))
+  parsed(in "((a: Int), b)", out expr)
+  assert expr == nowhere(ETuple(List(nowhere(EAnnotated(a, int)), b)))
+  parsed(in "(a + b: Int).f", out expr)
+  assert expr == nowhere(EField(nowhere(EAnnotated(expr_app("+", List(a, b)), int)), "f"))
+  parse_text_recovering(in "function f(): (Int, Int) :=\n  (1: Int, 2)\n\nfunction g(): (Int, Int) :=\n  (1, 2: Int)\n", out source)
+  assert parse_errors(source) == List(
+    ParseError(") expected but , found" ++ ascription_hint(), Pos(2, 10)),
+    ParseError(") expected but : found" ++ ascription_hint(), Pos(5, 8)))
 
 test parsed_forms() :=
   var expr: At[Expr]

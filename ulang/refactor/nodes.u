@@ -251,6 +251,9 @@ function inner_expr_nodes(expr: Expr): List[Node] :=
     case ETuple(args) =>
       flat_map(args, expr_nodes)
 
+    case EAnnotated(inner, _) =>
+      expr_nodes(inner)
+
     case EForm(_, elems, rest) =>
       flat_map(elems, yield_nodes) ++ rest_nodes(rest)
 

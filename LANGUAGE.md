@@ -55,9 +55,11 @@ test shapes() :=
   assert area(s) == 6 and s.width == 2
   assert (s with height := 5).height == 5
   assert kind(1) == "small" and kind(-3) == "negative"
+  let width := lambda r => (r: Shape).width
+  assert width(s) == 2
 ```
 
-Functions are expressions: `if … then … else …`, `match`, `let p := e, … in body`, calls, and `lambda x, (a, b) => e`, whose formals may be patterns. Type parameters are declared after the name, `function keys[A](t: Tree[A]): List[A]`, and only declarations are polymorphic: a `let` does not generalize. Every pattern may carry its type, `lambda p: Point => p.x`, `case Some(n: Int) =>`. `-1` is a literal, also in patterns, and `0xFF` is hexadecimal.
+Functions are expressions: `if … then … else …`, `match`, `let p := e, … in body`, calls, and `lambda x, (a, b) => e`, whose formals may be patterns. Type parameters are declared after the name, `function keys[A](t: Tree[A]): List[A]`, and only declarations are polymorphic: a `let` does not generalize. Every pattern may carry its type, `lambda p: Point => p.x`, `case Some(n: Int) =>`, and so may an expression in parentheses, `(p: Point).x`, `(empty(): Set[Int])`, which gives the type where nothing else does yet, as for a field of the formal of a lambda bound by `let`, or an overload; an ascription stands alone in its parentheses, so a component of a tuple is written `((a: Int), b)`. `-1` is a literal, also in patterns, and `0xFF` is hexadecimal.
 
 Other declarations: a type alias, `type Pairs := List[(Str, Int)]`; an operator, `infix left 11 **` before the `function **(m: Int, n: Int): Int`, also `prefix` and `postfix`; and a pattern alias, `pattern Pair(a: Int, b: Int): List[Int] := List(a, b)`, which matches and builds.
 

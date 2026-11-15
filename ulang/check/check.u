@@ -797,6 +797,9 @@ function zonk_node(s: State, expr: Expr): Expr :=
     case ETuple(args) =>
       ETuple(List(for arg in args yield zonk_expr(s, arg)))
 
+    case EAnnotated(inner, typ) =>
+      EAnnotated(zonk_expr(s, inner), zonked(s, typ))
+
     case EForm(_, _, _) =>
       expr
 
@@ -1053,6 +1056,9 @@ function unknown_in_expr(expr: At[Expr]): Option[(Pos, Type)] :=
 
     case ETuple(args) =>
       unknown_in_exprs(args)
+
+    case EAnnotated(inner, _) =>
+      unknown_in_expr(inner)
 
     case ELit(_) | EVar(_) =>
       None
@@ -2232,6 +2238,14 @@ procedure infer_node(
           infers(in env, items, out exprs, ts, ref s)
       end
       res := ETuple(exprs), typ := TTuple(ts)
+
+    // the expression is checked against the ascribed type, which resolves its fields and overloads and reports a part of
+    // another type at the part, and the checked program keeps the ascription, which the backends take as its expression
+    case EAnnotated(inner, ascribed) =>
+      var typed_inner: At[Expr]
+      normalize(in ascribed, out typ, ref s)
+      check(in env, inner, typ, "the ascription", out typed_inner, ref s)
+      res := EAnnotated(typed_inner, typ)
 
     case EMatch(arg, cases) =>
       var c: At[Expr], u: Type, bs: List[At[Branch[At[Expr]]]]

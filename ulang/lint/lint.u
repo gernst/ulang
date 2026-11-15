@@ -145,6 +145,9 @@ function part_lints(fun: Id, expr: Expr): List[Warning] :=
     case ETuple(args) =>
       exprs_lints(fun, args)
 
+    case EAnnotated(inner, _) =>
+      expr_lints(fun, inner)
+
     case EForm(_, elems, rest) =>
       List(for y in elems for w in yield_lints(fun, y) yield w) ++ option_lints(fun, rest)
 
@@ -1032,6 +1035,9 @@ function part_names(expr: Expr): Set[Id] :=
 
     case ETuple(args) =>
       exprs_names(args)
+
+    case EAnnotated(inner, _) =>
+      expr_names(inner)
 
     case EForm(_, elems, rest) =>
       Set(for y in elems for x in yield_names(y) yield x) ++ option_names(rest)

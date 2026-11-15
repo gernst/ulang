@@ -498,6 +498,9 @@ function node_out(notation: Notation, notes: List[Comment], indent: Str, expr: A
     case ETuple(args) =>
       Out("(" ++ format_exprs(notation, notes, indent, args) ++ ")", Atom)
 
+    case EAnnotated(inner, typ) =>
+      Out("(" ++ format_expr(notation, notes, indent, inner) ++ ": " ++ format_type(typ) ++ ")", Atom)
+
     case EForm(form, elems, rest) =>
       Out(form_text(notation, notes, indent, form, elems, rest), Atom)
 
@@ -1415,6 +1418,13 @@ test operators_parenthesized() :=
   assert source(expr_app("+", List(nowhere(ELit(LHex(255))), a))) == "0xFF + a"
   assert source(nowhere(EField(expr_int(-1), "f"))) == "(-1).f"
   assert source(expr_app("+", List(nowhere(EIte(a, b, c)), expr_int(1)))) == "(if a then b else c) + 1"
+
+// an ascription keeps its parentheses, also as a component of a tuple, and its expression takes none
+test ascriptions_enclosed() :=
+  let a := expr_var("a"), b := expr_var("b"), int := TSort(unqualified("Int"), List())
+  assert source(nowhere(EField(nowhere(EAnnotated(a, TSort(unqualified("Spot"), List()))), "x"))) == "(a: Spot).x"
+  assert source(nowhere(EAnnotated(expr_app("+", List(a, b)), int))) == "(a + b: Int)"
+  assert source(nowhere(ETuple(List(nowhere(EAnnotated(a, int)), b)))) == "((a: Int), b)"
 
 test updates_closed() :=
   let r := nowhere(EUpdate(nowhere(EUpdate(expr_var("r"), "f", expr_int(1))), "g", nowhere(EIte(expr_var("c"), expr_int(2), expr_int(3))))), assignment := nowhere(SAssign(List(

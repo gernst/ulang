@@ -16,6 +16,12 @@ test alias_arity() :=
     check_text(in "ulang/test/errors/alias-arity.u", List("type P[A] :=", "  A -> A", "", "function f(x: P): Int :=", "  0"))
   end
 
+// an ascription passes its type down, so that a part of another type is reported at the part
+test ascription_part() :=
+  assert raises Located(None, Pos(2, 8), Mismatch(_, _, "argument 2 of the call")) do
+    check_text(in "ulang/test/errors/ascription-part.u", List("function f(): Int :=", "  (1 + true: Int)"))
+  end
+
 test call_arity() :=
   assert raises Located(None, Pos(5, 3), CountMismatch("procedure p", "ins", 1, 2)) do
     check_text(in "ulang/test/errors/call-arity.u", List(
