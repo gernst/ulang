@@ -1046,8 +1046,11 @@ function unknown_in_expr(expr: At[Expr]): Option[(Pos, Type)] :=
     case ETuple(args) =>
       unknown_in_exprs(args)
 
-    // literals and variables, and forms, which the checker has translated
-    case _ =>
+    case ELit(_) | EVar(_) =>
+      None
+
+    // forms, which the checker has translated
+    case EForm(_, _, _) | EFor(_, _, _, _) =>
       None
   end
 
