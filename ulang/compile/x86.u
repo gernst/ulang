@@ -668,6 +668,10 @@ procedure compile_expr(in defs: Defs, env: Slots, expr: At[Expr], ref e: Emit) :
       var as: List[Arg]
       compile_args(in defs, env, args, out as, ref e)
       call_runtime(in "u_mk_tuple", List(AVal(OImm(size(args)))) ++ as, ref e)
+
+    // an ascription is its expression, whose type the checker has unified with the ascribed one
+    case EAnnotated(inner, _) =>
+      compile_expr(in defs, env, inner, ref e)
   end
 
 // how the loops of a comprehension add the element in %rax: as a cell at the place that the slot points to, which then
