@@ -1744,6 +1744,11 @@ void p_io_listen(u_value host, u_value port, u_value *listener) {
   }
   *listener = stream_of(&u_listener_type, f, path);
   GC_REGISTER_FINALIZER(*listener, close_unreachable, NULL, NULL, NULL);
+  // the port that the system chose for port 0
+  u_value chosen;
+  p_io_port(*listener, &chosen);
+  sprintf(digits, "%lld", chosen->num);
+  (*listener)->path = host_port(u_utf8(host, NULL), digits);
 }
 
 static int listening(u_value listener) {
