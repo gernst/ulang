@@ -33,7 +33,7 @@ procedure run_script(
   in  script: Str,
       dry: Bool,
       state: Str,
-      check: (in Str, out List[Str * Diagnostic]),
+      check: (in Str, out List[(Str, Diagnostic)]),
   out reply: List[Str],
       status: Int,
       tested: List[Str]
@@ -59,7 +59,7 @@ data Range :=
 // state, the files whose uses must resolve after the writes to the names given, in order, else the script is undone,
 // and whether to run the tests
 data Edits :=
-  case Edits(files: Map[Str, Str], notes: Buffer[Str], checked: List[Str], handles: Handles, undone: List[Int], state: Str, expected: List[Str * List[Name]], tests: Bool)
+  case Edits(files: Map[Str, Str], notes: Buffer[Str], checked: List[Str], handles: Handles, undone: List[Int], state: Str, expected: List[(Str, List[Name])], tests: Bool)
 
 // the handles that the scripts so far have shown, kept in out/refactor/handles.txt of the root, the next number, and
 // whether the script changed it
@@ -80,7 +80,7 @@ data Place :=
 function actions(script: Str): List[Action] :=
   actions_of(List(for (line, i) in numbered(split(script, '\n')) yield (line, i + 1)))
 
-function actions_of(lines: List[Str * Int]): List[Action] :=
+function actions_of(lines: List[(Str, Int)]): List[Action] :=
   match lines
     case List((line, i); rest) =>
       if starts_with(line, "@") then
@@ -94,7 +94,7 @@ function actions_of(lines: List[Str * Int]): List[Action] :=
       List()
   end
 
-function fragment_lines(lines: List[Str * Int]): List[Str * Int] * List[Str * Int] :=
+function fragment_lines(lines: List[(Str, Int)]): (List[(Str, Int)], List[(Str, Int)]) :=
   match lines
     case List((line, i); rest) if not starts_with(line, "@") =>
       let (body, more) := fragment_lines(rest) in
@@ -123,7 +123,7 @@ function words_of(line: Str): List[Str] :=
   List(for w in split(line, ' ') if w != "" yield w)
 
 // a target file.u, file.u:name, or file.u:name/n, its path, name, and arity
-function target_of(word: Str): Str * Option[Str] * Option[Int] :=
+function target_of(word: Str): (Str, Option[Str], Option[Int]) :=
   example target_of("a/b.u:f/2") == ("a/b.u", Some("f"), Some(2))
   match index_of(':', chars(word))
     case Some(i) =>
@@ -238,7 +238,7 @@ function cmd_key(cmd: At[Cmd]): Option[Key] :=
       None
   end
 
-function keyed(cmds: List[At[Cmd]]): List[Key * At[Cmd] * Cmd] :=
+function keyed(cmds: List[At[Cmd]]): List[(Key, At[Cmd], Cmd)] :=
   List(for cmd in cmds for c in cmd_of(cmd) for key in key_of(c) yield (key, cmd, c))
 
 function line_at(lines: Array[Str], line: Int): Str :=
@@ -298,7 +298,7 @@ function head_range(lines: Array[Str], cmd: At[Cmd]): Range :=
   Range(start, start + size(head_lines(lines_in(lines, Range(start, cmd.span.stop.line)))) - 1)
 
 // lines with each splice, a range and the lines that replace it, where the ranges do not overlap
-function spliced(lines: List[Str], splices: List[Range * List[Str]]): List[Str] :=
+function spliced(lines: List[Str], splices: List[(Range, List[Str])]): List[Str] :=
   foldl(reverse(sort(List(for (range, new) in splices yield (range.first, range.last, new)))), lines, lambda acc, (first, last, new) => take(first - 1, acc) ++ new ++ drop(last, acc))
 
 procedure current_text(
@@ -415,7 +415,7 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
   end
 
 // the definition of key in d, or the declaration of key if it has no definition
-function decl_of(d: Mod, key: Key): Option[At[Cmd] * Cmd] :=
+function decl_of(d: Mod, key: Key): Option[(At[Cmd], Cmd)] :=
   let decls := List(for (k, cmd, c) in keyed(placed_of(d)) if k == key yield (cmd, c)) in
   match find(decls, lambda (_, c) => not is_signature(c))
     case Some(decl) =>
@@ -649,7 +649,7 @@ function get_at[A](i: Int, xs: List[A]): Option[A] :=
 // the paths of nodes, which are in preorder, in the tree of their containment, the indices among the children of the
 // nodes around each, where stack has the nodes around the next one with their paths and numbers of children so far, and
 // roots the number of nodes around none so far
-function paths_of(spans: List[Span], stack: List[Span * List[Int] * Int], roots: Int): List[List[Int]] :=
+function paths_of(spans: List[Span], stack: List[(Span, List[Int], Int)], roots: Int): List[List[Int]] :=
   example paths_of(List(
       Span(Pos(1, 1), Pos(5, 1)),
       Span(Pos(2, 3), Pos(3, 1)),
@@ -796,7 +796,7 @@ procedure put(
   for key in repeated(keys) do
     raise Refused("the fragment declares " ++ key_text(key) ++ " twice")
   end
-  var splices: List[Range * List[Str]] := List(), appended: List[Str] := List(), done: List[Str] := List(), replaced_keys: List[Key] := List()
+  var splices: List[(Range, List[Str])] := List(), appended: List[Str] := List(), done: List[Str] := List(), replaced_keys: List[Key] := List()
   for cmd in added do
     let range := cmd_range(all_lines, cmd, offset, true)
     let new := lines_in(all_lines, range), has_doc := range.first < cmd.span.start.line
@@ -828,7 +828,7 @@ procedure with_signatures(
   ref text: Str,
       done: List[Str]
 ) raises Refused, OsError :=
-  var source: Source, splices: List[Range * List[Str]] := List()
+  var source: Source, splices: List[(Range, List[Str])] := List()
   parsed(in path, text, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
   for key in keys do
@@ -1005,7 +1005,7 @@ procedure journal_numbers(
       undone: List[Int],
       undos: List[Int]
 ) :=
-  var entries: List[Str * Bool] := List()
+  var entries: List[(Str, Bool)] := List()
   try
     os_list(in os_join(dir, "journal"), out entries)
   catch
@@ -1096,7 +1096,7 @@ procedure run_script(
   in  script: Str,
       dry: Bool,
       state: Str,
-      check: (in Str, out List[Str * Diagnostic]),
+      check: (in Str, out List[(Str, Diagnostic)]),
   out reply: List[Str],
       status: Int,
       tested: List[Str]
@@ -1128,7 +1128,7 @@ procedure run_script(
       reply := List("dry") ++ List(for n in edits.notes) ++ List(for path in changed yield "would write " ++ path)
     else
       let paths := distinct(changed ++ edits.checked)
-      var before: List[Str * Diagnostic] := List(), after: List[Str * Diagnostic] := List(), found: List[Str * Diagnostic]
+      var before: List[(Str, Diagnostic)] := List(), after: List[(Str, Diagnostic)] := List(), found: List[(Str, Diagnostic)]
       var done: List[Int], undone: List[Int], undos: List[Int]
       for path in paths do
         check(in path, out found)
@@ -1137,7 +1137,7 @@ procedure run_script(
       for c in changes do
         os_write_utf8(in c.path, c.after)
       end
-      var differences: List[Str] := List(), uses: List[Span * Name * Int]
+      var differences: List[Str] := List(), uses: List[(Span, Name, Int)]
       for (path, names) in edits.expected do
         resolutions(in path, out uses)
         for difference in first_difference(List(for (span, name, _) in uses yield (span.start, name)), names) do
@@ -1193,7 +1193,7 @@ procedure run_script(
   end
 
 // the first use of found whose name is not the one of expected, as a text with its position
-function first_difference(found: List[Pos * Name], expected: List[Name]): Option[Str] :=
+function first_difference(found: List[(Pos, Name)], expected: List[Name]): Option[Str] :=
   example first_difference(List((Pos(3, 7), Name(Some("m"), "f"))), List(Name(Some("m"), "g"))) == Some("3.7: a use of m.g would resolve to m.f")
   match (found, expected)
     case (List((pos, n); rest), List(e; more)) =>
@@ -1216,7 +1216,7 @@ function first_difference(found: List[Pos * Name], expected: List[Name]): Option
 // each over the span that writes it, with the number of formals of its type at the use (hints of ulang/check/hints.u)
 procedure resolutions(
   in  path: Str,
-  out uses: List[Span * Name * Int]
+  out uses: List[(Span, Name, Int)]
 ) raises Refused, OsError :=
   var q: Prog, text: Str
   os_read_utf8(in path, out text)
@@ -1242,7 +1242,7 @@ procedure resolutions(
   end
   uses := List(for h in hints(text, q) for use in use_of(h) yield use)
 
-function use_of(h: Hint): Option[Span * Name * Int] :=
+function use_of(h: Hint): Option[(Span, Name, Int)] :=
   match h
     case HUse(span, name, typ) =>
       Some((span, name, arity_of(typ)))
@@ -1252,7 +1252,7 @@ function use_of(h: Hint): Option[Span * Name * Int] :=
 
 // the .u files below dir, without hidden directories and those named out, as check walks them
 procedure source_files(in dir: Str, out files: List[Str]) :=
-  var entries: List[Str * Bool] := List(), below: List[Str]
+  var entries: List[(Str, Bool)] := List(), below: List[Str]
   try
     os_list(in dir, out entries)
   catch
@@ -1320,7 +1320,7 @@ procedure rename(
       new: Str,
   ref edits: Edits
 ) raises Refused, OsError :=
-  var text: Str, source: Source, here: Str, root: Str, files: List[Str], uses: List[Span * Name * Int]
+  var text: Str, source: Source, here: Str, root: Str, files: List[Str], uses: List[(Span, Name, Int)]
   let (path, chosen, arity) := target_of(word)
   let base := value_or(chosen, "")
   if not is_plain_name(base) or not is_plain_name(new) then
@@ -1356,7 +1356,7 @@ procedure rename(
   source_files(in os_dirname(path), out own)
   files := distinct(List(for file in own if not contains(file, files) and not contains("./" ++ file, files)) ++ files)
   var count := 0, touched := 0
-  var expected: List[Str * List[Name]] := List()
+  var expected: List[(Str, List[Name])] := List()
   for file in files do
     var file_text: Str
     os_read_utf8(in file, out file_text)
@@ -1389,7 +1389,7 @@ procedure rename(
 
 // the lines of the file whose declarations of base are decls and constrs, with new at the name of each and in the
 // examples on them
-function declared(lines: Array[Str], decls: List[Key * At[Cmd] * Cmd], constrs: List[At[Cmd] * At[Constr]], base: Str, new: Str): List[Str] :=
+function declared(lines: Array[Str], decls: List[(Key, At[Cmd], Cmd)], constrs: List[(At[Cmd], At[Constr])], base: Str, new: Str): List[Str] :=
   let heads := List(for (_, cmd, _) in decls yield cmd.span.start.line) in
   let specs := List(for (_, cmd, _) in decls for i in range(cmd.span.start.line, tail_end(lines, cmd.span.stop.line) + 1) if starts_with(str(drop_spaces(chars(line_at(lines, i)))), "example ") yield i) in
   let cases := List(for (_, constr) in constrs yield constr.span.start.line) in
@@ -1476,12 +1476,12 @@ function line_offset(starts: Array[Int], line: Int): Int :=
 
 // the splices of the edits in the text of the module d of source, each with the label of its warning, where the edits of
 // the declarations of one statement are one splice of it
-function edit_splices(source: Source, d: Mod, text: Str, lines: Array[Str], starts: Array[Int], edits: List[Str * Edit]): List[Splice] :=
+function edit_splices(source: Source, d: Mod, text: Str, lines: Array[Str], starts: Array[Int], edits: List[(Str, Edit)]): List[Splice] :=
   let moves := List(for (label, edit) in edits for (local, decl, bodies) in move_of(edit) yield (local, decl, bodies, label)) in
   let locals := distinct(List(for (local, _, _, _) in moves yield local)) in
   List(for (label, edit) in edits for sp in simple_splice(source, d, text, lines, starts, edit) yield sp with fixed := List(label)) ++ List(for local in locals for sp in local_splices(text, lines, starts, local, List(for (l, decl, bodies, _) in moves if l == local yield (decl, bodies))) yield sp with fixed := List(for (l, _, _, label) in moves if l == local yield label))
 
-function move_of(edit: Edit): Option[Span * Span * List[Span]] :=
+function move_of(edit: Edit): Option[(Span, Span, List[Span])] :=
   match edit
     case EditMove(local, decl, bodies) =>
       Some((local, decl, bodies))
@@ -1514,7 +1514,7 @@ function simple_splice(source: Source, d: Mod, text: Str, lines: Array[Str], sta
 
 // the splices that remove the declarations of moves from the statement over local, and the statement if none is left, and
 // declare each by var at the start of the bodies that it moves into, those of one body in one var
-function local_splices(text: Str, lines: Array[Str], starts: Array[Int], local: Span, moves: List[Span * List[Span]]): List[Splice] :=
+function local_splices(text: Str, lines: Array[Str], starts: Array[Int], local: Span, moves: List[(Span, List[Span])]): List[Splice] :=
   let first := offset_of(starts, local.start), last := offset_of(starts, local.stop) in
   let stmt := slice(text, first, last) in
   let decl_texts := List(for (decl, _) in moves yield slice(text, offset_of(starts, decl.start), offset_of(starts, decl.stop))) in
@@ -1528,11 +1528,11 @@ function local_splices(text: Str, lines: Array[Str], starts: Array[Int], local: 
     removal; List(for body in bodies yield Splice(line_offset(starts, body.start.line), line_offset(starts, body.start.line), repeat(" ", body.start.col - 1) ++ "var " ++ join(", ", declared_in(body, moves, decl_texts)) ++ "\n", List())))
 
 // the texts of the declarations of moves that move into body
-function declared_in(body: Span, moves: List[Span * List[Span]], decl_texts: List[Str]): List[Str] :=
+function declared_in(body: Span, moves: List[(Span, List[Span])], decl_texts: List[Str]): List[Str] :=
   List(for ((_, spans), t) in zip(moves, decl_texts) if contains(body, spans) yield t)
 
 // stmt without the declaration from start to stop, and the comma after it, else the one before it
-function without_decl(stmt: Str, range: Int * Int): Str :=
+function without_decl(stmt: Str, range: (Int, Int)): Str :=
   example without_decl("var a: Int, b, c", (4, 10)) == "var b, c"
   example without_decl("var a: Int, b", (12, 13)) == "var a: Int"
   let (start, stop) := range in
@@ -1544,7 +1544,7 @@ function without_decl(stmt: Str, range: Int * Int): Str :=
     slice(stmt, 0, start) ++ slice(stmt, stop, size(stmt))
 
 // the splices, sorted, without those that overlap one before them, where last is the stop of the last one taken
-function without_overlaps(splices: List[Int * Int * Str * List[Str]], last: Int): List[Int * Int * Str * List[Str]] :=
+function without_overlaps(splices: List[(Int, Int, Str, List[Str])], last: Int): List[(Int, Int, Str, List[Str])] :=
   match splices
     case List((start, stop, new, labels); rest) =>
       if start < last and stop > start then
@@ -1570,7 +1570,7 @@ function diagnostic_text(file: Str, d: Diagnostic): Str :=
 
 // the lines of CLAUDE.md, README.md, and the files of ideas/ below root that write the name in backticks, as file:line
 procedure doc_references(in root: Str, name: Str, out found: List[Str]) :=
-  var entries: List[Str * Bool] := List()
+  var entries: List[(Str, Bool)] := List()
   try
     os_list(in os_join(root, "ideas"), out entries)
   catch

@@ -53,7 +53,7 @@ test handles() :=
   os_read_utf8(in path, out text)
   assert text == original
 
-procedure nothing_found(in file: Str, out found: List[Str * Diagnostic]) :=
+procedure nothing_found(in file: Str, out found: List[(Str, Diagnostic)]) :=
   found := List()
 
 // @rename renames a function at its signature, definition, and examples and its uses in the members of its package, by
@@ -77,7 +77,7 @@ test renames() :=
 test fixes() :=
   var reply: List[Str], status: Int, tested: List[Str], text: Str
   let state := "out/test/refactor/fixes", path := "out/test/refactor/fixes/f.u"
-  os_write_utf8(in path, "function is_pos(n: Int): Bool :=\n  if n > 0 and n < 10 then true else false\n\nfunction first(o: Option[Int]): Int :=\n  match o\n    case Some(x) =>\n      x\n    case None =>\n      0\n  end\n\nfunction unused_helper(n: Int): Int :=\n  n\n\nprocedure classify(in n: Int, out text: Str) :=\n  var label: Str, count := 1, spare: Int\n  let k := n + 1\n  if is_pos(n) then\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    label := \"neg\"\n    text := label\n  end\n\nfunction pairs(xs: List[Int * Int]): List[Int] :=\n  List(for (a, b) in xs yield a)\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n")
+  os_write_utf8(in path, "function is_pos(n: Int): Bool :=\n  if n > 0 and n < 10 then true else false\n\nfunction first(o: Option[Int]): Int :=\n  match o\n    case Some(x) =>\n      x\n    case None =>\n      0\n  end\n\nfunction unused_helper(n: Int): Int :=\n  n\n\nprocedure classify(in n: Int, out text: Str) :=\n  var label: Str, count := 1, spare: Int\n  let k := n + 1\n  if is_pos(n) then\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    label := \"neg\"\n    text := label\n  end\n\nfunction pairs(xs: List[(Int, Int)]): List[Int] :=\n  List(for (a, b) in xs yield a)\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n")
   run_script(in "@fix " ++ path, false, state, nothing_found, out reply, status, tested)
   os_read_utf8(in path, out text)
   assert status == 0
