@@ -370,11 +370,24 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
       if starts_with(word, "#") then
         put_at(in "replace", word, action.fragment, ref edits)
       else
-        put(in word, action.fragment, ref edits)
+        let (path, name, arity) := target_of(word)
+        put(in path, action.fragment, Anchor(if name == None then "end" else "instead", value_or(name, ""), arity), ref edits)
       end
 
     case List("put", place, word) if contains(place, List("before", "after", "into")) =>
-      put_at(in place, word, action.fragment, ref edits)
+      if starts_with(word, "#") or place == "into" then
+        put_at(in place, word, action.fragment, ref edits)
+      else
+        let (path, name, arity) := target_of(word)
+        put(in path, action.fragment, Anchor(place, value_or(name, ""), arity), ref edits)
+      end
+
+    case List("put", file, place, word) if contains(place, List("before", "after")) =>
+      let (path, name, arity) := target_of(word)
+      if path != file then
+        raise Refused("@put " ++ file ++ " " ++ place ++ " takes a declaration of " ++ file ++ ", not " ++ word)
+      end
+      put(in path, action.fragment, Anchor(place, value_or(name, ""), arity), ref edits)
 
     case List("drop", word) =>
       if starts_with(word, "#") then
@@ -417,7 +430,7 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
       edits := edits with checked := edits.checked ++ List(path)
 
     case _ =>
-      let actions := "@show T, @put F, @put [before|after|into] #h, @drop T, @patch T, @rename T new, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
+      let actions := "@show T, @put F, @put F:name, @put [before|after|into] #h, @put [before|after] F:name, @drop T, @patch T, @rename T new, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
       raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of " ++ actions)
   end
 
@@ -777,15 +790,23 @@ procedure put_at(
   end
   edits := edits with handles := handles
 
+// where @put places the declarations of a fragment that replace none of their key: side end, at the end of their
+// sections, before or after the declaration of name and arity in each section that has one, else at the end, or instead,
+// where the declaration of the fragment of that name and kind replaces it whatever its arity, and the others go after it
+data Anchor :=
+  case Anchor(side: Str, name: Str, arity: Option[Int])
+
 // writes the declarations of the fragment into the file at path: a missing or empty file is the fragment, with its
 // header, imports, and sections; else the import lines of the fragment join those of the file, the declarations after
 // a line export go into the export section and the others into the implementation, each section made if the file has
 // none, where a file without sections gets both if the fragment exports, and each replaces the one of its key in its
-// section in place, keeping its doc if the fragment writes none, while a definition gives its head to its signature in
-// export, and a comment of the fragment that is no doc of a declaration is refused, since only a new file takes it
+// section in place, keeping its doc if the fragment writes none, or is placed by anchor, while a definition gives its
+// head to its signature in export, and a comment of the fragment that is no doc of a declaration is refused, since only
+// a new file takes it
 procedure put(
   in  path: Str,
       fragment: Str,
+      anchor: Anchor,
   ref edits: Edits
 ) raises Refused, OsError :=
   var text := ""
@@ -796,13 +817,16 @@ procedure put(
       text := ""
   end
   let code := unmarked(split(fragment, '\n'))
+  if is_blank(text) and anchor.side != "end" then
+    raise Refused(path ++ " declares no " ++ anchor.name ++ ", since it is empty")
+  end
   if is_blank(text) then
     var result: Str
     formatted(in path, join("\n", code) ++ "\n", List((Range(1, size(code)), 1)), out result, _)
     edits := edits with files := Map(path => result; edits.files)
     note(in path ++ ": written from the fragment", ref edits)
   else
-    put_into(in path, text, code, ref edits)
+    put_anchored(in path, text, code, anchor, ref edits)
   end
 
 // the parts of the lines of a fragment, each line with its number in the fragment
@@ -871,9 +895,32 @@ procedure put_into(
       code: List[Str],
   ref edits: Edits
 ) raises Refused, OsError :=
-  var source: Source, combined: Source, result: Str
+  put_anchored(in path, text, code, Anchor("end", "", None), ref edits)
+
+procedure put_anchored(
+  in  path: Str,
+      text: Str,
+      code: List[Str],
+      anchor: Anchor,
+  ref edits: Edits
+) raises Refused, OsError :=
+  var source: Source, combined: Source, result: Str, anchor_key: Option[Key] := None
   parsed(in path, text, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
+  if anchor.side != "end" then
+    match distinct(List(for (k, _, _) in keyed(placed_of(d)) if is_selected(k, anchor.name, anchor.arity) yield k))
+      case List(k) =>
+        anchor_key := Some(k)
+
+      case List() =>
+        raise Refused(path ++ " declares no " ++ anchor.name)
+
+      case keys =>
+        raise Refused(path ++ " declares " ++ join(", ", List(for k in keys yield key_text(k))) ++ ", so name one by its arity")
+    end
+  end
+  let export_anchor := find(d.exported, lambda c => anchor_key != None and cmd_key(c) == anchor_key)
+  let impl_anchor := find(d.implemented, lambda c => anchor_key != None and cmd_key(c) == anchor_key and not is_signature_at(c))
   let parts := parts_of(code)
   if parts.has_builtin then
     raise Refused("@put writes no builtin section")
@@ -896,7 +943,7 @@ procedure put_into(
     match (exported_at, implemented_at)
       case (Some(e), _) =>
         List(
-          Insert(section_end(lines, e, end_at), List(""; export_lines), export_first - 1, "export"))
+          anchored_insert(lines, export_anchor, anchor.side, section_end(lines, e, end_at), export_lines, export_first, "export"))
 
       case (None, Some(i)) =>
         List(
@@ -911,7 +958,8 @@ procedure put_into(
     List(
       Insert(end_at, List("", "implementation", ""; impl_lines), impl_first - 3, "implementation"))
   else
-    List(Insert(end_at, List(""; impl_lines), impl_first - 1, "implementation")))
+    List(
+      anchored_insert(lines, impl_anchor, anchor.side, end_at, impl_lines, impl_first, "implementation")))
   let (all_lines_list, blocks) := inserted(List(for line in lines), inserts)
   let all_text := join("\n", all_lines_list)
   parsed(in path, all_text, List(for (r, ins) in blocks if ins.role != "" yield (r, ins.first)), out combined)
@@ -925,7 +973,16 @@ procedure put_into(
   for key in repeated(List(for (cmd, _, role) in added for k in cmd_key(cmd) yield (role, k))) do
     raise Refused("the fragment declares " ++ key_text(second(key)) ++ " twice")
   end
-  var splices: List[(Range, List[Str])] := List(), done: List[Str] := List(), replaced_keys: List[Key] := List()
+  // the declarations of the fragment that replace the anchor whatever their arity, by their roles
+  let instead := lambda cmd: At[Cmd] => anchor.side == "instead" and exists(cmd_key(cmd), lambda k => exists(anchor_key, lambda a => k.kind == a.kind and k.base == a.base))
+  let replacing := List(for (cmd, _, role) in added if instead(cmd) yield role)
+  for role in repeated(replacing) do
+    raise Refused("the fragment declares several " ++ anchor.name ++ " in " ++ role ++ ", which @put " ++ path ++ ":" ++ anchor.name ++ " replaces by one")
+  end
+  if anchor.side == "instead" and replacing == List() then
+    raise Refused("the fragment declares no " ++ anchor.name ++ ", which @put " ++ path ++ ":" ++ anchor.name ++ " replaces")
+  end
+  var splices: List[(Range, List[Str])] := List(), done: List[Str] := List(), replaced_keys: List[(Key, Key)] := List()
   for line in imports do
     done := done ++ List("imported " ++ slice(line, 7, size(line)))
   end
@@ -933,17 +990,26 @@ procedure put_into(
     let range := cmd_range(all_lines, cmd, r.first - 1, true)
     let new := lines_in(all_lines, range), has_doc := range.first < cmd.span.start.line, new_key := cmd_key(cmd)
     let section := if role == "export" then all.exported else all.implemented
-    let old := find(List(for c in section if contains(c, olds) yield c), lambda c => cmd_key(c) == new_key and (role == "export" or not is_signature_at(c)))
+    let wanted := if instead(cmd) then anchor_key else new_key
+    if wanted != new_key and exists(olds, lambda c => cmd_key(c) == new_key) then
+      raise Refused(path ++ " declares " ++ value_or(map_option(new_key, key_text), "") ++ " already, so the fragment cannot replace " ++ value_or(map_option(wanted, key_text), "") ++ " by it")
+    end
+    let old := find(List(for c in section if contains(c, olds) yield c), lambda c => cmd_key(c) == wanted and (role == "export" or not is_signature_at(c)))
     match old
       case Some(o) =>
         let replaced := cmd_range(all_lines, o, 0, has_doc)
+        let old_key := cmd_key(o)
         splices := splices ++ List((replaced, new), (range, List()))
-        done := done ++ List(
-          (if new == lines_in(all_lines, replaced) then
-            "unchanged "
-          else
-            "replaced ") ++ value_or(map_option(new_key, key_text), "a notation"))
-        replaced_keys := replaced_keys ++ List(for k in new_key if role != "export" yield k)
+        let what := if old_key != new_key then
+          "replaced " ++ value_or(map_option(old_key, key_text), "") ++ " by " ++ value_or(map_option(new_key, key_text), "")
+        else if new == lines_in(all_lines, replaced) then
+          "unchanged " ++ value_or(map_option(new_key, key_text), "a notation")
+        else if map_option(cmd_of(o), head_type) != map_option(cmd_of(cmd), head_type) then
+          "replaced " ++ value_or(map_option(new_key, key_text), "a notation") ++ ", of another type"
+        else
+          "replaced " ++ value_or(map_option(new_key, key_text), "a notation")
+        done := done ++ List(what)
+        replaced_keys := replaced_keys ++ List(for k in new_key for o_k in old_key if role != "export" yield (o_k, k))
 
       case None =>
         done := done ++ List(
@@ -1002,20 +1068,21 @@ function ranges_of(inserts: List[Insert], first: Int): List[(Range, Insert)] :=
       List()
   end
 
-// gives the signature of each of keys in export the head of its definition, in text, which is formatted, so that each head
-// ends in :=
+// gives the signature in export of each of keys, the key that a definition replaced and its own, which differ if its
+// arity changed, the head of the definition, in text, which is formatted, so that each head ends in :=
 procedure with_signatures(
   in  path: Str,
-      keys: List[Key],
+      keys: List[(Key, Key)],
   ref text: Str,
       done: List[Str]
 ) raises Refused, OsError :=
   var source: Source, splices: List[(Range, List[Str])] := List()
   parsed(in path, text, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
-  for key in keys do
+  for (old, key) in keys do
     let definition := find(keyed(d.implemented), lambda (k, _, c) => k == key and not is_signature(c))
-    let signature := find(keyed(d.exported), lambda (k, _, c) => k == key and is_signature(c) and not is_abstract(c))
+    let signatures := List(for (k, sig, c) in keyed(d.exported) if is_signature(c) and not is_abstract(c) yield (k, sig, c))
+    let signature := or_else(find(signatures, lambda (k, _, _) => k == old), find(signatures, lambda (k, _, _) => k == key))
     match (definition, signature)
       case (Some((_, def, _)), Some((_, sig, c))) =>
         let head := head_range(lines, sig), new_head := head_lines(lines_in(lines, cmd_range(lines, def, 0, false)))
@@ -1031,6 +1098,42 @@ procedure with_signatures(
   end
   if splices != List() then
     formatted(in path, join("\n", spliced(List(for line in lines), splices)), no_fragment(), out text, source)
+  end
+
+// the block of a section, which the fragment wrote from its line first, inserted before or after the declaration of the
+// anchor in the section, side before or after or instead, else before the line at, at the end of the section
+function anchored_insert(lines: Array[Str], anchor: Option[At[Cmd]], side: Str, at: Int, block: List[Str], first: Int, role: Str): Insert :=
+  match anchor
+    case Some(cmd) if side == "before" =>
+      Insert(cmd_range(lines, cmd, 0, true).first, block ++ List(""), first, role)
+
+    case Some(cmd) =>
+      Insert(cmd_range(lines, cmd, 0, true).last + 1, List(""; block), first - 1, role)
+
+    case None =>
+      Insert(at, List(""; block), first - 1, role)
+  end
+
+// the type of the head of a declaration of a value, by which a replacement tells that it changed the type
+function head_type(cmd: Cmd): Option[Type] :=
+  match cmd
+    case CFun(_, _, formals, typ, _, _) =>
+      Some(TFun(List(for f in formals yield f.that.typ), typ))
+
+    case CFunSig(_, _, formals, typ, _) =>
+      Some(TFun(List(for f in formals yield f.that.typ), typ))
+
+    case CProc(_, _, ins, outs, refs, raised, _, _) =>
+      Some(TProc(List(for f in ins yield f.that.typ), List(for f in outs yield f.that.typ), List(for f in refs yield f.that.typ), RWritten(raised)))
+
+    case CProcSig(_, _, ins, outs, refs, raised, _) =>
+      Some(TProc(List(for f in ins yield f.that.typ), List(for f in outs yield f.that.typ), List(for f in refs yield f.that.typ), RWritten(raised)))
+
+    case CPatAlias(_, _, formals, typ, _) =>
+      Some(TFun(List(for f in formals yield f.that.typ), typ))
+
+    case _ =>
+      None
   end
 
 function is_abstract(cmd: Cmd): Bool :=
@@ -1069,13 +1172,32 @@ procedure drop_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
   if size(keys) > 1 then
     raise Refused(path ++ " declares " ++ join(", ", List(for key in keys yield key_text(key))) ++ ", so name one by its arity")
   end
+  let exported := main_mod(source).exported
+  let sections := List(for (_, cmd) in dropped yield if contains(cmd, exported) then "export" else "implementation")
   let splices := List(for (_, cmd) in dropped yield (cmd_range(lines, cmd, 0, true), List()))
   formatted(in path, join("\n", spliced(List(for line in lines), splices)), no_fragment(), out result, source)
   edits := edits with files := Map(path => result; edits.files)
-  note(in path ++ ": dropped " ++ join(", ", List(for key in keys yield key_text(key))), ref edits)
+  note(in path ++ ": dropped " ++ join(", ", List(for key in keys yield key_text(key))) ++ sections_text(sections), ref edits)
+
+// the sections of the declarations that an edit took, if there are several, since a datatype in export and one in
+// implementation, or a signature and its definition, share a name
+function sections_text(sections: List[Str]): Str :=
+  example sections_text(List("export", "implementation")) == " (export and implementation)"
+  match sections
+    case List(_, _; _) =>
+      if size(distinct(sections)) == 1 then
+        " (" ++ show(size(sections)) ++ " in " ++ join("", take(1, sections)) ++ ")"
+      else
+        " (" ++ join(" and ", sections) ++ ")"
+
+    case _ =>
+      ""
+  end
 
 // substitutes in the text of the target, a handle or a declaration with its doc, each line old => new of the fragment,
-// where old occurs exactly once, split at the => after which it does, since => also occurs in code
+// where old occurs exactly once, split at the => after which it does, since => also occurs in code, or, if a line of
+// the fragment is => alone, which formatted code never has, the lines before it by those after it, as whole lines
+// whatever their indentation; refuses a patch that changes nothing, and rebases the handles of the declaration
 procedure patch(
   in  word: Str,
       fragment: Str,
@@ -1083,7 +1205,7 @@ procedure patch(
 ) raises Refused, OsError :=
   var path: Str, lines: Array[Str], regions: List[Range], source: Source, result: Str, key: Key, old_cmd: Option[Cmd], handles := edits.handles
   if is_blank(fragment) then
-    raise Refused("@patch " ++ word ++ " takes a fragment of lines old => new")
+    raise Refused("@patch " ++ word ++ " takes a fragment of lines old => new, or old lines, a line => alone, and new lines")
   end
   if starts_with(word, "#") then
     var place: Place
@@ -1106,29 +1228,47 @@ procedure patch(
         raise Refused("@patch takes a handle or one declaration file.u:name[/arity], whose signature and definition it patches together, not " ++ word)
     end
   end
-  var patched := List(for region in regions yield join("\n", lines_in(lines, region)))
-  for line in split(fragment, '\n') if not is_blank(line) do
-    patch_line(in line, ref patched)
+  var patched := List(for region in regions yield join("\n", lines_in(lines, region))), changed := Range(1, 0)
+  let code := split(fragment, '\n')
+  match index_of("=>", List(for line in code yield trim(line)))
+    case Some(i) =>
+      var at: (Int, Int)
+      patch_block(in unmarked(take(i, code)), unmarked(drop(i + 1, code)), out at, ref patched)
+      let (j, k) := at, first := value_or(map_option(get_at(j, regions), lambda r => r.first), 1) + k
+      changed := Range(first, first + i - 1)
+
+    case None =>
+      for (line, i) in numbered(code) if not is_blank(line) do
+        patch_line(in line, i + 1, ref patched)
+      end
   end
   let splices := List(for (region, text) in zip(regions, patched) yield (region, split(text, '\n')))
   formatted(in path, join("\n", spliced(List(for line in lines), splices)), no_fragment(), out result, source)
+  if result == join("\n", List(for line in lines)) then
+    raise Refused("@patch " ++ word ++ " changes nothing, once formatted")
+  end
   for (_, cmd) in decl_of(main_mod(source), key) do
-    for region in last(regions) do
-      for c in old_cmd do
-        rebase(in path, key, lines, c, Array(for line in split(result, '\n')), cmd, region, true, ref handles)
-      end
+    for c in old_cmd do
+      rebase(in path, key, lines, c, Array(for line in split(result, '\n')), cmd, changed, true, ref handles)
     end
   end
   edits := edits with files := Map(path => result; edits.files), handles := handles
   note(in path ++ ": patched " ++ word, ref edits)
 
-// substitutes in texts, the regions of one target, the line old => new, where old occurs exactly once in all of them, split
-// at the => after which it does, since => also occurs in code
-procedure patch_line(in line: Str, ref texts: List[Str]) raises Refused :=
+// substitutes in texts, the regions of one target, the line old => new, the line number of the fragment, where old
+// occurs exactly once in all of them, split at the => after which it does, since => also occurs in code
+procedure patch_line(
+  in  line: Str,
+      number: Int,
+  ref texts: List[Str]
+) raises Refused :=
   let splits := List(for i in occurrences(line, " => ") yield (slice(line, 0, i), slice(line, i + 4, size(line))))
   let fitting := List(for (old, new) in splits if foldl(texts, 0, lambda n, text => n + size(occurrences(text, old))) == 1 yield (old, new))
   match fitting
     case List((old, new)) =>
+      if old == new then
+        raise Refused("@patch: fragment line " ++ show(number) ++ ", " ++ quote(line) ++ ", changes nothing")
+      end
       texts := List(for text in texts yield foldl(occurrences(text, old), text, lambda acc, i => slice(acc, 0, i) ++ new ++ slice(acc, i + size(old), size(acc))))
 
     case List() =>
@@ -1137,6 +1277,44 @@ procedure patch_line(in line: Str, ref texts: List[Str]) raises Refused :=
     case _ =>
       raise Refused("@patch: " ++ quote(line) ++ " splits at several =>")
   end
+
+// substitutes in texts, the regions of one target, the lines old by the lines new, at the indentation of the first old
+// line, where old occurs exactly once as consecutive whole lines, compared without their indentation, and at is the index
+// of its region and its line in it, from 0
+procedure patch_block(
+  in  old: List[Str],
+      new: List[Str],
+  out at: (Int, Int),
+  ref texts: List[Str]
+) raises Refused :=
+  let wanted := List(for line in old yield trim(line))
+  if is_blank(join("", wanted)) then
+    raise Refused("@patch: a fragment with a line => alone takes the old lines before it")
+  end
+  if wanted == List(for line in new yield trim(line)) then
+    raise Refused("@patch: the lines before => and after it are the same, so the patch changes nothing")
+  end
+  let found := List(for (text, j) in numbered(texts) for k in block_starts(split(text, '\n'), wanted) yield (j, k))
+  match found
+    case List((j, k)) =>
+      at := (j, k)
+      texts := List(for (text, i) in numbered(texts) yield if i == j then
+        let ls := split(text, '\n') in
+        join("\n", take(k, ls) ++ indented(dedented(new), indent_of(value_or(get_at(k, ls), ""))) ++ drop(k + size(old), ls))
+      else
+        text)
+
+    case List() =>
+      raise Refused("@patch: the old lines, " ++ quote(join("\n", wanted)) ++ ", occur in no line of the target as whole lines")
+
+    case _ =>
+      raise Refused("@patch: the old lines, " ++ quote(join("\n", wanted)) ++ ", occur " ++ show(size(found)) ++ " times in the target")
+  end
+
+// the indices, from 0, at which lines continue with the lines wanted, compared without their indentation
+function block_starts(lines: List[Str], wanted: List[Str]): List[Int] :=
+  example block_starts(List("a", "  b", "c", "b", "c"), List("b", "c")) == List(1, 3)
+  List(for k in range(0, size(lines) - size(wanted) + 1) if List(for line in take(size(wanted), drop(k, lines)) yield trim(line)) == wanted)
 
 // the offsets where part occurs in text
 function occurrences(text: Str, part: Str): List[Int] :=
