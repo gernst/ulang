@@ -7,10 +7,25 @@ import "ulang/syntax"
 
 export
 
+// a pattern alias, with the names of its formals and its pattern, whose constructors the checker resolved
+data Alias :=
+  case Alias(formals: List[Name], pat: At[Pat])
+
+type Aliases :=
+  Map[Name, Alias]
+
 // q with its commands expanded
 function expanded(q: Prog): Prog
 
-function expanded_cmd(cmd: Cmd): Cmd
+// the pattern aliases of q, which expanded_cmd expands
+function aliases_of(q: Prog): Aliases
+
+// pat with each use of a pattern alias that aliases finds replaced by its pattern, with the patterns of the use for its
+// formals, at the position of the use, while the parts of the pattern of the alias stay at its declaration, as the
+// pattern of each alias that aliases finds is free of aliases
+function alias_expansion(aliases: Name -> Option[Alias], pat: At[Pat]): At[Pat]
+
+function expanded_cmd(aliases: Aliases, cmd: Cmd): Cmd
 
 // the formals and the body of the lambda of variables that a lambda of formals at pos is, where a formal that is no
 // variable is a pattern annotated by its type t, as the checker keeps it, which the body matches against a formal of the
@@ -46,21 +61,91 @@ function fold_name(form: Form): Id
 implementation
 
 function expanded(q: Prog): Prog :=
-  q with cmds := List(for cmd in q.cmds yield map_at(cmd, expanded_cmd))
+  let aliases := aliases_of(q) in
+  q with cmds := List(for cmd in q.cmds yield map_at(cmd, lambda c => expanded_cmd(aliases, c)))
 
-function expanded_cmd(cmd: Cmd): Cmd :=
+function aliases_of(q: Prog): Aliases :=
+  Map(for c in q.cmds for (name, alias) in alias_of(c) yield name => alias)
+
+function alias_of(cmd: At[Cmd]): List[(Name, Alias)] :=
+  match cmd
+    case AOk(_, _, CPatAlias(name, _, formals, _, pat)) =>
+      List((name, Alias(List(for x in vars(formals) yield x.name), pat)))
+    case _ =>
+      List()
+  end
+
+// pat with each use of a pattern alias of aliases replaced by its pattern, with the patterns of the use for its formals,
+// at the position of the use, while the parts of the pattern of the alias stay at its declaration
+function dealiased(aliases: Aliases, pat: At[Pat]): At[Pat] :=
+  alias_expansion(lambda n => get(n, aliases), pat)
+
+function alias_expansion(aliases: Name -> Option[Alias], pat: At[Pat]): At[Pat] :=
+  match pat
+    case AOk(pos, span, PApp(k, args)) =>
+      let qs := List(for q in args yield alias_expansion(aliases, q)) in
+      match aliases(k)
+        case Some(alias) =>
+          substituted(alias.pat, zip(alias.formals, qs)) with pos := pos, span := span
+        case None =>
+          AOk(pos, span, PApp(k, qs))
+      end
+
+    case _ =>
+      map_at(pat, lambda p => alias_free_parts(aliases, p))
+  end
+
+function alias_free_parts(aliases: Name -> Option[Alias], pat: Pat): Pat :=
+  match pat
+    case PApp(k, args) =>
+      PApp(k, List(for q in args yield alias_expansion(aliases, q)))
+
+    case PTuple(args) =>
+      PTuple(List(for q in args yield alias_expansion(aliases, q)))
+
+    case POr(alts) =>
+      POr(List(for q in alts yield alias_expansion(aliases, q)))
+
+    case PAnnotated(inner, typ) =>
+      PAnnotated(alias_expansion(aliases, inner), typ)
+
+    case PWild | PLit(_) | PVar(_) =>
+      pat
+  end
+
+// pat with the patterns of sub for its variables
+function substituted(pat: At[Pat], sub: List[(Name, At[Pat])]): At[Pat] :=
+  match pat.that
+    case PVar(x) =>
+      value_or(get(x.name, sub), pat)
+
+    case PApp(constr, args) =>
+      pat with that := PApp(constr, List(for q in args yield substituted(q, sub)))
+
+    case PTuple(args) =>
+      pat with that := PTuple(List(for q in args yield substituted(q, sub)))
+
+    case POr(alts) =>
+      pat with that := POr(List(for q in alts yield substituted(q, sub)))
+
+    // the pattern of an alias is checked with its annotations dropped
+    case PAnnotated(_, _) | PWild | PLit(_) =>
+      pat
+  end
+
+function expanded_cmd(aliases: Aliases, cmd: Cmd): Cmd :=
   match cmd
     case CFun(name, params, formals, typ, spec, body) =>
-      CFun(name, params, formals, typ, expanded_spec(spec), expanded_expr(body))
+      CFun(name, params, formals, typ, expanded_spec(aliases, spec), expanded_expr(aliases, body))
 
     case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
-      CProc(name, params, ins, outs, refs, raised, expanded_spec(spec), expanded_stmt(stmt))
+      CProc(name, params, ins, outs, refs, raised, expanded_spec(aliases, spec), expanded_stmt(aliases, stmt))
 
     case CTest(name, vars, stmt) =>
-      CTest(name, vars, expanded_stmt(stmt))
+      CTest(name, vars, expanded_stmt(aliases, stmt))
 
     case CLemma(name, params, ins, outs, claim, proof) =>
-      CLemma(name, params, ins, outs, expanded_claim(claim), map_option(proof, expanded_proof))
+      CLemma(name, params, ins, outs, expanded_claim(aliases, claim), map_option(proof, lambda f => expanded_proof(aliases, f)))
 
     case CSort(_, _, _)
        | CData(_, _, _)
@@ -72,178 +157,178 @@ function expanded_cmd(cmd: Cmd): Cmd :=
       cmd
   end
 
-function expanded_spec(spec: Spec): Spec :=
-  spec with pre := List(for a in spec.pre yield expanded_expr(a)), post := map_option(spec.post, expanded_expr)
+function expanded_spec(aliases: Aliases, spec: Spec): Spec :=
+  spec with pre := List(for a in spec.pre yield expanded_expr(aliases, a)), post := map_option(spec.post, lambda e => expanded_expr(aliases, e))
 
-function expanded_claim(claim: Claim): Claim :=
+function expanded_claim(aliases: Aliases, claim: Claim): Claim :=
   match claim
     case ClaimHolds(assms, concl) =>
-      ClaimHolds(List(for a in assms yield expanded_expr(a)), expanded_expr(concl))
+      ClaimHolds(List(for a in assms yield expanded_expr(aliases, a)), expanded_expr(aliases, concl))
     case ClaimCorrect(proc, ins, outs) =>
-      ClaimCorrect(proc, List(for a in ins yield expanded_expr(a)), outs)
+      ClaimCorrect(proc, List(for a in ins yield expanded_expr(aliases, a)), outs)
   end
 
-function expanded_proof(proof: Proof): Proof :=
-  Proof(List(for step in proof.steps yield map_at(step, expanded_step)), map_option(proof.split, lambda split => map_at(split, expanded_split)))
+function expanded_proof(aliases: Aliases, proof: Proof): Proof :=
+  Proof(List(for step in proof.steps yield map_at(step, lambda x => expanded_step(aliases, x))), map_option(proof.split, lambda split => map_at(split, lambda x => expanded_split(aliases, x))))
 
-function expanded_step(step: Step): Step :=
+function expanded_step(aliases: Aliases, step: Step): Step :=
   match step
     case StepLocal(x, value) =>
-      StepLocal(x, map_option(value, expanded_expr))
+      StepLocal(x, map_option(value, lambda e => expanded_expr(aliases, e)))
 
     case StepCall(name, ins, outs) =>
-      StepCall(name, List(for a in ins yield expanded_expr(a)), outs)
+      StepCall(name, List(for a in ins yield expanded_expr(aliases, a)), outs)
 
     case StepAssert(cond) =>
-      StepAssert(expanded_expr(cond))
+      StepAssert(expanded_expr(aliases, cond))
 
     case StepInvariant(cond) =>
-      StepInvariant(expanded_expr(cond))
+      StepInvariant(expanded_expr(aliases, cond))
 
     case StepAssign(upd) =>
-      StepAssign(List(for (x, e) in upd yield (x, expanded_expr(e))))
+      StepAssign(List(for (x, e) in upd yield (x, expanded_expr(aliases, e))))
   end
 
-function expanded_split(split: Split): Split :=
+function expanded_split(aliases: Aliases, split: Split): Split :=
   match split
     case SplitInduction(formal, cases) =>
-      SplitInduction(formal, List(for d in cases yield expanded_case(d, expanded_proof)))
+      SplitInduction(formal, List(for d in cases yield expanded_case(aliases, d, lambda f => expanded_proof(aliases, f))))
 
     case SplitMatch(arg, cases) =>
-      SplitMatch(expanded_expr(arg), List(for d in cases yield expanded_case(d, expanded_proof)))
+      SplitMatch(expanded_expr(aliases, arg), List(for d in cases yield expanded_case(aliases, d, lambda f => expanded_proof(aliases, f))))
 
     case SplitIf(cond, left, right) =>
-      SplitIf(expanded_expr(cond), expanded_proof(left), map_option(right, expanded_proof))
+      SplitIf(expanded_expr(aliases, cond), expanded_proof(aliases, left), map_option(right, lambda f => expanded_proof(aliases, f)))
   end
 
-function expanded_case[A](d: At[Branch[A]], expand: A -> A): At[Branch[A]] :=
-  map_at(d, lambda br => Branch(br.pat, map_option(br.guard, expanded_expr), expand(br.body)))
+function expanded_case[A](aliases: Aliases, d: At[Branch[A]], expand: A -> A): At[Branch[A]] :=
+  map_at(d, lambda br => Branch(dealiased(aliases, br.pat), map_option(br.guard, lambda e => expanded_expr(aliases, e)), expand(br.body)))
 
-function expanded_expr(expr: At[Expr]): At[Expr] :=
+function expanded_expr(aliases: Aliases, expr: At[Expr]): At[Expr] :=
   match expr
     case AOk(pos, span, that) =>
-      AOk(pos, span, expanded_node(pos, span, that))
+      AOk(pos, span, expanded_node(aliases, pos, span, that))
 
     case AErr(pos, span, that, errors) =>
-      AErr(pos, span, expanded_node(pos, span, that), errors)
+      AErr(pos, span, expanded_node(aliases, pos, span, that), errors)
 
     case AUnparsed(_, _, _, _) =>
       expr
   end
 
 // the expression expr at pos, whose expansions are at pos
-function expanded_node(pos: Pos, span: Span, expr: Expr): Expr :=
+function expanded_node(aliases: Aliases, pos: Pos, span: Span, expr: Expr): Expr :=
   match expr
     case ELit(_) | EVar(_) =>
       expr
 
     case EApp(fun, args) =>
-      EApp(expanded_expr(fun), List(for a in args yield expanded_expr(a)))
+      EApp(expanded_expr(aliases, fun), List(for a in args yield expanded_expr(aliases, a)))
 
     case EField(base, field) =>
-      EField(expanded_expr(base), field)
+      EField(expanded_expr(aliases, base), field)
 
     case EUpdate(base, field, value) =>
-      EUpdate(expanded_expr(base), field, expanded_expr(value))
+      EUpdate(expanded_expr(aliases, base), field, expanded_expr(aliases, value))
 
     case ELam(formals, body) =>
-      ELam(formals, expanded_expr(body))
+      ELam(List(for p in formals yield dealiased(aliases, p)), expanded_expr(aliases, body))
 
     case EProc(ins, outs, refs, raised, stmt) =>
-      EProc(ins, outs, refs, raised, expanded_stmt(stmt))
+      EProc(ins, outs, refs, raised, expanded_stmt(aliases, stmt))
 
     case ELet(bindings, body) =>
-      ELet(List(for (p, e) in bindings yield (p, expanded_expr(e))), expanded_expr(body))
+      ELet(List(for (p, e) in bindings yield (dealiased(aliases, p), expanded_expr(aliases, e))), expanded_expr(aliases, body))
 
     case EIte(cond, then_expr, else_expr) =>
-      EIte(expanded_expr(cond), expanded_expr(then_expr), expanded_expr(else_expr))
+      EIte(expanded_expr(aliases, cond), expanded_expr(aliases, then_expr), expanded_expr(aliases, else_expr))
 
     case EMatch(arg, cases) =>
-      EMatch(expanded_expr(arg), List(for d in cases yield expanded_case(d, expanded_expr)))
+      EMatch(expanded_expr(aliases, arg), List(for d in cases yield expanded_case(aliases, d, lambda e => expanded_expr(aliases, e))))
 
     case ETuple(args) =>
-      ETuple(List(for a in args yield expanded_expr(a)))
+      ETuple(List(for a in args yield expanded_expr(aliases, a)))
 
     case EForm(form, elems, rest) =>
-      form_expansion(pos, span, form, List(for y in elems yield expanded_yield(y)), map_option(rest, expanded_expr)).that
+      form_expansion(pos, span, form, List(for y in elems yield expanded_yield(aliases, y)), map_option(rest, lambda e => expanded_expr(aliases, e))).that
 
     case EFor(form, gens, elem, rest) =>
-      for_expansion(pos, span, form, List(for g in gens yield expanded_gen(g)), expanded_yield(elem), map_option(rest, expanded_expr))
+      for_expansion(pos, span, form, List(for g in gens yield expanded_gen(aliases, g)), expanded_yield(aliases, elem), map_option(rest, lambda e => expanded_expr(aliases, e)))
   end
 
-function expanded_yield(y: Yield): Yield :=
+function expanded_yield(aliases: Aliases, y: Yield): Yield :=
   match y
     case YVal(value) =>
-      YVal(expanded_expr(value))
+      YVal(expanded_expr(aliases, value))
     case YPair(key, value) =>
-      YPair(expanded_expr(key), expanded_expr(value))
+      YPair(expanded_expr(aliases, key), expanded_expr(aliases, value))
   end
 
-function expanded_gen(g: Gen): Gen :=
+function expanded_gen(aliases: Aliases, g: Gen): Gen :=
   match g
     case GVal(pat, over, typ) =>
-      GVal(pat, expanded_expr(over), typ)
+      GVal(dealiased(aliases, pat), expanded_expr(aliases, over), typ)
 
     case GPair(key, value, over, typ) =>
-      GPair(key, value, expanded_expr(over), typ)
+      GPair(dealiased(aliases, key), dealiased(aliases, value), expanded_expr(aliases, over), typ)
 
     case GIf(cond) =>
-      GIf(expanded_expr(cond))
+      GIf(expanded_expr(aliases, cond))
   end
 
-function expanded_stmt(stmt: At[Stmt]): At[Stmt] :=
+function expanded_stmt(aliases: Aliases, stmt: At[Stmt]): At[Stmt] :=
   match stmt
     case AOk(pos, span, that) =>
-      AOk(pos, span, expanded_statement(pos, span, that))
+      AOk(pos, span, expanded_statement(aliases, pos, span, that))
 
     case AErr(pos, span, that, errors) =>
-      AErr(pos, span, expanded_statement(pos, span, that), errors)
+      AErr(pos, span, expanded_statement(aliases, pos, span, that), errors)
 
     case AUnparsed(_, _, _, _) =>
       stmt
   end
 
 // the statement stmt at pos, whose expansions are at pos
-function expanded_statement(pos: Pos, span: Span, stmt: Stmt): Stmt :=
+function expanded_statement(aliases: Aliases, pos: Pos, span: Span, stmt: Stmt): Stmt :=
   match stmt
     case SSkip =>
       stmt
 
     case SAssign(upd) =>
-      SAssign(List(for (x, e) in upd yield (x, expanded_expr(e))))
+      SAssign(List(for (x, e) in upd yield (x, expanded_expr(aliases, e))))
 
     case SBlock(locals, stmts) =>
-      SBlock(locals, List(for d in stmts yield expanded_stmt(d)))
+      SBlock(locals, List(for d in stmts yield expanded_stmt(aliases, d)))
 
     case SLocal(mutable, decls) =>
-      SLocal(mutable, List(for (p, init) in decls yield (p, map_option(init, expanded_expr))))
+      SLocal(mutable, List(for (p, init) in decls yield (dealiased(aliases, p), map_option(init, lambda e => expanded_expr(aliases, e)))))
 
     case SIf(cond, left, right) =>
-      SIf(expanded_expr(cond), expanded_stmt(left), expanded_stmt(right))
+      SIf(expanded_expr(aliases, cond), expanded_stmt(aliases, left), expanded_stmt(aliases, right))
 
     case SWhile(cond, body) =>
-      SWhile(expanded_expr(cond), expanded_stmt(body))
+      SWhile(expanded_expr(aliases, cond), expanded_stmt(aliases, body))
 
     case SCall(proc, ins, outs, refs) =>
-      call_expansion(pos, span, proc, List(for a in ins yield expanded_expr(a)), outs, refs)
+      call_expansion(pos, span, proc, List(for a in ins yield expanded_expr(aliases, a)), outs, refs)
 
     case SMatch(arg, cases) =>
-      SMatch(expanded_expr(arg), List(for d in cases yield expanded_case(d, expanded_stmt)))
+      SMatch(expanded_expr(aliases, arg), List(for d in cases yield expanded_case(aliases, d, lambda y => expanded_stmt(aliases, y))))
 
     case SAssert(cond) =>
-      SAssert(expanded_expr(cond))
+      SAssert(expanded_expr(aliases, cond))
 
     case SAssertRaises(typ, pat, guard, body) =>
-      SAssertRaises(typ, pat, map_option(guard, expanded_expr), expanded_stmt(body))
+      SAssertRaises(typ, dealiased(aliases, pat), map_option(guard, lambda e => expanded_expr(aliases, e)), expanded_stmt(aliases, body))
 
     case SRaise(value, typ) =>
-      SRaise(expanded_expr(value), typ)
+      SRaise(expanded_expr(aliases, value), typ)
 
     case STry(body, catches) =>
-      STry(expanded_stmt(body), List(for d in catches yield map_at(d, lambda c => c with guard := map_option(c.guard, expanded_expr), body := expanded_stmt(c.body))))
+      STry(expanded_stmt(aliases, body), List(for d in catches yield map_at(d, lambda c => c with pat := dealiased(aliases, c.pat), guard := map_option(c.guard, lambda e => expanded_expr(aliases, e)), body := expanded_stmt(aliases, c.body))))
 
     case SFor(gens, body) =>
-      loop_expansion(pos, span, List(for g in gens yield expanded_gen(g)), expanded_stmt(body))
+      loop_expansion(pos, span, List(for g in gens yield expanded_gen(aliases, g)), expanded_stmt(aliases, body))
   end
 
 // a call with an out _, of the type of its out, is a block around the call with a local for each, which nothing reads,

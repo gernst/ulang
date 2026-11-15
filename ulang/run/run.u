@@ -26,9 +26,10 @@ data Val :=
   case VProc(name: Name)
   case VProcClos(env: Map[Name, Val], ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
 
-// main, the module of the loaded file, whose errors a Deferred names without their module, as the diagnostics do
+// main, the module of the loaded file, whose errors a Deferred names without their module, as the diagnostics do, and
+// aliases the pattern aliases of the program, which the expansion of a test takes
 data Run :=
-  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Id)
+  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Id, aliases: Aliases)
 
 data Thrown :=
   case Thrown(value: Val, typ: Type)
@@ -201,7 +202,7 @@ procedure unordered(in run: Run, k: Name, equating: Bool) :=
   end
 
 function load(q: Prog): Run :=
-  Run(defs_of(expanded(q)), List(), List(), q.main)
+  Run(defs_of(expanded(q)), List(), List(), q.main, aliases_of(q))
 
 // the contents of a string, as printing and declared shows give them, and the source of any other value
 function text_of(v: Val): Str :=
@@ -1643,7 +1644,7 @@ procedure run_cmd(
 ) raises RuntimeError, InternalError :=
   var env: Bindings := empty()
   try
-    match expanded_cmd(cmd)
+    match expanded_cmd(run.aliases, cmd)
       // a test with formals runs as the test that the tester generates of it
       case CTest(_, List(), stmt) =>
         exec(in run, stmt, ref env, cache)

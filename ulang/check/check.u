@@ -169,7 +169,12 @@ function covers_all(sig: Sig, t: Type, pats: List[Pat]): Bool
 implementation
 
 function covers_all(sig: Sig, t: Type, pats: List[Pat]): Bool :=
-  missing(sig, empty(), List(for p in pats yield List(p)), List(t)) == None
+  missing(sig, empty(), List(for p in pats yield List(alias_free(sig, nowhere(p)).that)), List(t)) == None
+
+// pat with the uses of the pattern aliases of sig expanded, as exhaustiveness takes them, while the checked program keeps
+// them
+function alias_free(sig: Sig, pat: At[Pat]): At[Pat] :=
+  alias_expansion(lambda n => map_option(pat_alias_of(sig, n), lambda alias => Alias(List(for x in alias.formals yield x.name), alias.pat)), pat)
 
 // the types of unknowns by their index
 type Subst :=
@@ -1777,12 +1782,12 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
 
 // the use of the alias n by the module checked, which the expansion leaves no name of, for UnusedImport
 procedure aliased(in n: Name, ref s: State) :=
-  match n.module
-    case Some(m) =>
-      s := s with aliased := Set((s.module, m); s.aliased)
-    case None =>
-      skip
-  end
+  s := s with aliased := s.aliased ++ Set(for m in n.module yield (s.module, m))
+
+// the use of the pattern alias n, which also uses the modules of the pattern of the alias, as its expansion does
+procedure pattern_aliased(in n: Name, alias: PatAlias, ref s: State) :=
+  aliased(in n, ref s)
+  s := s with aliased := s.aliased ++ Set(for m in pat_modules(alias.pat) yield (s.module, m))
 
 // reported once per command, e.g. a type parameter that its declaration omits
 procedure unknown_sort(in n: Name, ref s: State) :=
@@ -3355,8 +3360,9 @@ procedure coverage_known(
       written: List[At[Pat]],
   ref s: State
 ) :=
-  reachable(in t, List(), List(for ((p, open), w) in zip(cs, written) yield (p, w, open)), ref s)
-  match missing(s.sig, s.sub, List(for p in unguarded(cs) yield List(p)), List(t))
+  let expanded := List(for (p, open) in cs yield (alias_free(s.sig, p), open))
+  reachable(in t, List(), List(for ((p, open), w) in zip(expanded, written) yield (p, w, open)), ref s)
+  match missing(s.sig, s.sub, List(for p in unguarded(expanded) yield List(p)), List(t))
     case Some(List(w; _)) =>
       report(in NotExhaustive(with_aliases(visible_aliases(s), w)), ref s)
     case _ =>
@@ -3726,39 +3732,12 @@ procedure constructor_binders(
   instance(in head.params, out m, ref s)
   unify(in subst(head.typ, m), t, ref s)
   binder_list(in args, List(for a in head.args yield subst(a, m)), out qs, xs, ref s)
+  typed_pat := AOk(pos, span, PApp(k, qs))
   match pat_alias_of(s.sig, k)
     case Some(alias) =>
-      typed_pat := subst_pat(alias.pat, zip(List(for x in alias.formals yield x.name), qs)) with pos := pos, span := span
-      aliased(in k, ref s)
-
+      pattern_aliased(in k, alias, ref s)
     case None =>
-      typed_pat := AOk(pos, span, PApp(k, qs))
-  end
-
-// pat with the patterns of sub for its variables
-function subst_pat(pat: At[Pat], sub: List[(Name, At[Pat])]): At[Pat] :=
-  match pat.that
-    case PVar(x) =>
-      value_or(get(x.name, sub), pat)
-
-    case PApp(constr, args) =>
-      pat with that := PApp(constr, List(for a in args yield subst_pat(a, sub)))
-
-    case PTuple(args) =>
-      pat with that := PTuple(List(for a in args yield subst_pat(a, sub)))
-
-    case POr(alts) =>
-      pat with that := POr(List(for a in alts yield subst_pat(a, sub)))
-
-    // a pattern alias is typed with its annotations dropped
-    case PAnnotated(_, _) =>
-      pat
-
-    case PWild =>
-      pat
-
-    case PLit(_) =>
-      pat
+      skip
   end
 
 // the one of the constructors ks with k arguments whose datatype fits t, where open uses are solved first if
@@ -4723,7 +4702,7 @@ procedure declare_pat_aliases(in cs: List[(Id, Cmd)], ref s: State) :=
           unify(in y.typ, value_or(map_option(find(xs, lambda x => x.name == y.name), lambda x => x.typ), y.typ), ref s)
         end
         solve(ref s)
-        s := with_sig(s, with_pat_alias(s.sig, name, PatAlias(params(ps), xs, r, zonk_pat(s, checked))))
+        s := with_sig(s, with_pat_alias(s.sig, name, PatAlias(params(ps), xs, r, alias_free(s.sig, zonk_pat(s, checked)))))
         if pattern_expr(pat) != None then
           s := with_sig(s, with_fun(s.sig, name, Scheme(params(ps), TFun(List(for x in xs yield x.typ), r))))
         end
@@ -5970,7 +5949,7 @@ procedure check_package(
   // without definitions, as after an error of the declarations, the definitions as written have unresolved names, which no
   // run may take for checked code
   let written := List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, if defined == List() and is_checked(m, c) then unchecked(c) else c))
-  cmds := with_definitions(written, defined) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors, loose := List(for (i, e) in zip(range(0, size(s.errors)), s.errors) if not contains(i, s.taken) yield e)
+  cmds := List(for (m, c) in with_definitions(written, defined) for x in with_alias(s.sig, c) yield (m, x)) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors, loose := List(for (i, e) in zip(range(0, size(s.errors)), s.errors) if not contains(i, s.taken) yield e)
   exceptions := raises_errors(List(for (_, c) in defined ++ tested if cmd_errors(c) == List() yield c.that), s.sig, hidden, List(for b in s.bounds))
   let solving := s with sub := empty(), chosen := empty(), solved := Some(exceptions.solved)
   errors := errors ++ exceptions.errors, cmds := List(for (m, c) in cmds yield (m, map_at(c, lambda cmd => with_inferred(if cmd_errors(c) == List() then zonk_cmd(solving, cmd) else cmd, exceptions.inferred))))
@@ -6327,6 +6306,35 @@ procedure placed_commands(
 
 // the commands of the export and implementation sections of the modules, each at its declaration, with the checked
 // definitions in place of those that placed_definitions gives, in their order, as written where they are not checked
+// the command cmd, where a pattern alias has the pattern that checking resolved, and the function of an alias, which its
+// definition replaced, has the alias after it
+function with_alias(sig: Sig, cmd: At[Cmd]): List[At[Cmd]] :=
+  match cmd.that
+    case CPatAlias(name, params, formals, _, _) =>
+      match pat_alias_of(sig, name)
+        case Some(alias) =>
+          List(
+            cmd with that := CPatAlias(name, params, retyped(formals, alias.formals), alias.typ, alias.pat))
+
+        case None =>
+          List(cmd)
+      end
+
+    case CFun(name, params, formals, _, _, _) =>
+      match pat_alias_of(sig, name)
+        case Some(alias) =>
+          List(
+            cmd,
+            AOk(cmd.pos, cmd.span, CPatAlias(name, params, retyped(formals, alias.formals), alias.typ, alias.pat)))
+
+        case None =>
+          List(cmd)
+      end
+
+    case _ =>
+      List(cmd)
+  end
+
 function with_definitions(written: List[(Id, At[Cmd])], defined: List[(Id, At[Cmd])]): List[(Id, At[Cmd])] :=
   match (written, defined)
     case (List((m, cmd); rest), List((n, d); more)) if is_checked(m, cmd) =>

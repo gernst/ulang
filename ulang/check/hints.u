@@ -63,6 +63,11 @@ function constr_types(cmd: At[Cmd]): List[(Name, Type)] :=
       else
         TFun(List(for f in c.fields yield f.typ), typ)))
 
+    // a pattern alias, which the checked program keeps at its uses
+    case Some(CPatAlias(name, _, formals, typ, _)) =>
+      List(
+        (name, if formals == List() then typ else TFun(types_of(formals), typ)))
+
     case _ =>
       List()
   end
