@@ -15,7 +15,7 @@ function trim(s: Str): Str
 function trim_end(s: Str): Str
 
 // the longest prefix of xs whose elements satisfy p, and the rest
-function span[A](xs: List[A], p: A -> Bool): List[A] * List[A]
+function span[A](xs: List[A], p: A -> Bool): (List[A], List[A])
 
 // the characters of s escaped for the text and attributes of HTML
 function escape_html(s: Str): Str
@@ -45,7 +45,7 @@ function trim_end(s: Str): Str :=
   let (_, kept) := span(reverse(chars(s)), is_space) in
   str(reverse(kept))
 
-function span[A](xs: List[A], p: A -> Bool): List[A] * List[A] :=
+function span[A](xs: List[A], p: A -> Bool): (List[A], List[A]) :=
   match xs
     case List(x; rest) =>
       if p(x) then

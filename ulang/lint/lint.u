@@ -423,11 +423,11 @@ function declared_lints(stmts: List[At[Stmt]]): List[Warning] :=
   end
 
 // the declarations with values of a var whose variables no statement in rest assigns
-function unassigned_vars(decls: List[At[Pat] * Option[At[Expr]]], rest: List[At[Stmt]]): List[Warning] :=
+function unassigned_vars(decls: List[(At[Pat], Option[At[Expr]])], rest: List[At[Stmt]]): List[Warning] :=
   let changed := Set(for s in rest for x in assigned(s) ++ call_outs(s) yield x) in
   List(for (pat, init) in decls if init != None and forall(pat_vars(pat), lambda (_, x) => not contains(x, changed)) yield Warning(UnassignedVar, pat.pos, "the var " ++ join(", ", List(for (_, x) in pat_vars(pat) yield x)) ++ " is never assigned after its value, declare it by let", None))
 
-function decls_lints(decls: List[At[Pat] * Option[At[Expr]]], rest: List[At[Stmt]]): List[Warning] :=
+function decls_lints(decls: List[(At[Pat], Option[At[Expr]])], rest: List[At[Stmt]]): List[Warning] :=
   match decls
     case List() =>
       List()
@@ -652,7 +652,7 @@ function declared_name(cmd: Cmd): Option[Id] :=
   end
 
 // the kind and name of a declaration that may be private
-function private_decl(cmd: At[Cmd]): Option[Str * Id] :=
+function private_decl(cmd: At[Cmd]): Option[(Str, Id)] :=
   match cmd
     case AOk(_, _, CFun(name, _, _, _, _, _)) =>
       Some(("function", name.base))
@@ -790,7 +790,7 @@ function is_numbered(name: Id): Bool :=
 
 // the variables that pat binds, each at its position, where a capitalized name is a constructor or an alias without
 // formals
-function pat_vars(pat: At[Pat]): List[Pos * Id] :=
+function pat_vars(pat: At[Pat]): List[(Pos, Id)] :=
   match pat
     case AOk(pos, _, that) =>
       placed_pat_vars(pos, that)
@@ -802,7 +802,7 @@ function pat_vars(pat: At[Pat]): List[Pos * Id] :=
       List()
   end
 
-function placed_pat_vars(pos: Pos, pat: Pat): List[Pos * Id] :=
+function placed_pat_vars(pos: Pos, pat: Pat): List[(Pos, Id)] :=
   match pat
     case PVar(v) if not is_capitalized(v.name.base) =>
       List((pos, v.name.base))

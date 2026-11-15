@@ -346,7 +346,7 @@ test let_rigid() :=
 test innermost_mismatch() :=
   var q: Prog, errors: List[TypeError]
   checked_text(in "ulang/test/errors/innermost-mismatch.u", List(
-    "function g(): Int * Int :=",
+    "function g(): (Int, Int) :=",
     "  (1, \"a\")",
     "",
     "function h(): List[Int] :=",
@@ -446,7 +446,7 @@ test overload_unapplied() :=
 test pair_type() :=
   assert raises Located(None, Pos(3, 14), CannotUnify(_, _)) do
     check_text(in "ulang/test/errors/pair-type.u", List(
-      "function f(p: Int * Int): Int :=",
+      "function f(p: (Int, Int)): Int :=",
       "  match p",
       "    case (x, true) =>",
       "      x",
@@ -456,10 +456,10 @@ test pair_type() :=
 test pattern_alias_arity() :=
   assert raises Located(None, Pos(6, 10), CountMismatch("pattern alias Pair", "arguments", 2, 1)) do
     check_text(in "ulang/test/errors/pattern-alias-arity.u", List(
-      "pattern Pair(x: Int, y: Int): Int * Int :=",
+      "pattern Pair(x: Int, y: Int): (Int, Int) :=",
       "  (x, y)",
       "",
-      "function f(p: Int * Int): Int :=",
+      "function f(p: (Int, Int)): Int :=",
       "  match p",
       "    case Pair(x) =>",
       "      x",
@@ -499,7 +499,7 @@ test or_variables_missing() :=
 test or_variables_type() :=
   assert raises Located(None, Pos(3, 22), CannotUnify(_, _)) do
     check_text(in "ulang/test/errors/or-variables-type.u", List(
-      "function f(p: Int * Bool): Int :=",
+      "function f(p: (Int, Bool)): Int :=",
       "  match p",
       "    case (n, true) | (_, n) =>",
       "      0",
@@ -508,27 +508,27 @@ test or_variables_type() :=
 
 test pattern_alias_extra_variable() :=
   assert raises Located(None, Pos(1, 1), AliasVariables(_)) do
-    check_text(in "ulang/test/errors/pattern-alias-extra-variable.u", List("pattern Pair(x: Int): Int * Int :=", "  (x, y)"))
+    check_text(in "ulang/test/errors/pattern-alias-extra-variable.u", List("pattern Pair(x: Int): (Int, Int) :=", "  (x, y)"))
   end
 
 test pattern_alias_only() :=
   assert raises Located(None, Pos(5, 3), PatternOnly(Name(None, "First"))) do
     check_text(in "ulang/test/errors/pattern-alias-only.u", List(
-      "pattern First(x: Int): Int * Int :=",
+      "pattern First(x: Int): (Int, Int) :=",
       "  (x, _)",
       "",
-      "function f(): Int * Int :=",
+      "function f(): (Int, Int) :=",
       "  First(1)"))
   end
 
 test pattern_alias_type() :=
   assert raises Located(None, Pos(1, 1), CannotUnify(_, _)) do
-    check_text(in "ulang/test/errors/pattern-alias-type.u", List("pattern Pair(x: Int, y: Bool): Int * Int :=", "  (x, y)"))
+    check_text(in "ulang/test/errors/pattern-alias-type.u", List("pattern Pair(x: Int, y: Bool): (Int, Int) :=", "  (x, y)"))
   end
 
 test pattern_alias_variables() :=
   assert raises Located(None, Pos(1, 1), AliasVariables(_)) do
-    check_text(in "ulang/test/errors/pattern-alias-variables.u", List("pattern Pair(x: Int, y: Int): Int * Int :=", "  (x, _)"))
+    check_text(in "ulang/test/errors/pattern-alias-variables.u", List("pattern Pair(x: Int, y: Int): (Int, Int) :=", "  (x, _)"))
   end
 
 test pattern_arity() :=

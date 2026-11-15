@@ -21,7 +21,7 @@ function proc_name(n: Name): Str
 
 // the functions of the runtime for the builtins with their numbers of arguments, without a module, and of the builtin
 // sections of the prelude, str.u, and array.u by their qualified names
-function builtin_functions(): Map[Name, Str * Int]
+function builtin_functions(): Map[Name, (Str, Int)]
 
 // the datatypes and constructors whose descriptors the runtime defines, of OsError, which its builtins create also in
 // programs that do not import os, while each program defines those of the prelude and its modules, which it always has
@@ -51,9 +51,9 @@ function is_global_fun(defs: Defs, n: Name, k: Int): Bool
 function fields_count(defs: Defs, n: Name): Option[Int]
 
 // the procedures with their numbers of ins and of outs and refs
-function proc_arities(defs: Defs): List[Name * (Int * Int)]
+function proc_arities(defs: Defs): List[(Name, (Int, Int))]
 
-function constr_arities(defs: Defs): List[Name * Int]
+function constr_arities(defs: Defs): List[(Name, Int)]
 
 function is_small(num: Int): Bool
 
@@ -68,7 +68,7 @@ function prefix_of(text: Str): Str
 function bound_by(pats: List[At[Pat]]): List[Name]
 
 type Fusion :=
-  List[Name * At[Expr] * Var] * Option[At[Expr]] * At[Expr]
+  (List[(Name, At[Expr], Var)], Option[At[Expr]], At[Expr])
 
 // a call that compiles to loops or to an array made at once, instead of a call of its function
 data Fused :=
@@ -174,7 +174,7 @@ function native_procs(): Set[Id] :=
     "io_write_bytes",
     "io_close")
 
-function builtin_functions(): Map[Name, Str * Int] :=
+function builtin_functions(): Map[Name, (Str, Int)] :=
   Map(
     library_name("prelude", "+") => ("u_add", 2),
     library_name("prelude", "-") => ("u_sub", 2),
@@ -276,10 +276,10 @@ function is_global_fun(defs: Defs, n: Name, k: Int): Bool :=
 function fields_count(defs: Defs, n: Name): Option[Int] :=
   map_option(get(n, defs.constrs), lambda constr => constr.arity)
 
-function proc_arities(defs: Defs): List[Name * (Int * Int)] :=
+function proc_arities(defs: Defs): List[(Name, (Int, Int))] :=
   List(for n => proc in defs.procs yield (n, (size(proc.ins), size(proc.outs) + size(proc.refs))))
 
-function constr_arities(defs: Defs): List[Name * Int] :=
+function constr_arities(defs: Defs): List[(Name, Int)] :=
   List(for n => constr in defs.constrs yield (n, constr.arity))
 
 function is_small(num: Int): Bool :=
@@ -435,7 +435,7 @@ function list_literal(expr: At[Expr]): Option[List[At[Expr]]] :=
 
 // the condition and the element of a function body that puts the element in front of the accumulator acc if the condition holds,
 // and returns acc otherwise
-function consing(body: At[Expr], acc: Name): Option[Option[At[Expr]] * At[Expr]] :=
+function consing(body: At[Expr], acc: Name): Option[(Option[At[Expr]], At[Expr])] :=
   match body.that
     case EIte(cond, AOk(_, _, ECons(_, _, _, e, AOk(_, _, EName(a, _)))), AOk(_, _, EName(b, _))) if a == acc and b == acc =>
       if contains(acc, free_vars(cond, List()) ++ free_vars(e, List())) then

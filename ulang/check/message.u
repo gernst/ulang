@@ -51,7 +51,7 @@ function constructor_text(e: TypeError): Str :=
       text
   end
 
-function type_details(e: TypeError): List[Str * Str] :=
+function type_details(e: TypeError): List[(Str, Str)] :=
   match e
     case Hinted(error, _) =>
       type_details(error)
@@ -67,7 +67,7 @@ function type_details(e: TypeError): List[Str * Str] :=
   end
 
 // a candidate of an ambiguous name with its type, if known, which tells overloads of one module apart
-function candidate_text(c: Name * Scheme): Str :=
+function candidate_text(c: (Name, Scheme)): Str :=
   match c
     case (m, sc) =>
       if sc.typ == THole then
@@ -126,7 +126,7 @@ function hint_of(e: TypeError): Str :=
   end
 
 // whether the types of candidates differ, so that a type decides between them
-function are_apart(candidates: List[Name * Scheme]): Bool :=
+function are_apart(candidates: List[(Name, Scheme)]): Bool :=
   forall(candidates, lambda (_, sc) => sc.typ != THole) and size(Set(for (_, sc) in candidates yield format_type(sc.typ))) == size(candidates)
 
 function plain_message(e: TypeError): Str :=

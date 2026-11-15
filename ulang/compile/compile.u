@@ -37,7 +37,7 @@ implementation
 
 // the variables in scope with the C expressions they are accessed through
 type Vars :=
-  List[Name * CExpr]
+  List[(Name, CExpr)]
 
 data Gen :=
   case Gen(count: Int, lifted: List[CDecl])
@@ -100,7 +100,7 @@ function field_table_decls(defs: Defs): List[CDecl] :=
 
 // the positions of the field of an accessor T.f in each constructor of T, by their index of struct u_name, and the
 // name T.f, which MissingField carries, both shared by the updater T.f:=
-function field_decls(key: Name * Int, ps: List[Int]): List[CDecl] :=
+function field_decls(key: (Name, Int), ps: List[Int]): List[CDecl] :=
   match key
     case (n, 1) =>
       List(table_decl(n, ps), field_text_decl(n))
@@ -273,7 +273,7 @@ function pattern_tests(pat: Pat, v: CExpr): List[CExpr] :=
       List()
   end
 
-function field_tests(ps: List[At[Pat] * Int], v: CExpr): List[CExpr] :=
+function field_tests(ps: List[(At[Pat], Int)], v: CExpr): List[CExpr] :=
   List(for (p, i) in ps for t in pattern_tests(p.that, field(v, i)) yield t)
 
 // the declarations of the variables of pat, where v matches pat
@@ -292,7 +292,7 @@ function pattern_binds(pat: Pat, v: CExpr): List[CStmt] :=
       List()
   end
 
-function field_binds(ps: List[At[Pat] * Int], v: CExpr): List[CStmt] :=
+function field_binds(ps: List[(At[Pat], Int)], v: CExpr): List[CStmt] :=
   List(for (p, i) in ps for b in pattern_binds(p.that, field(v, i)) yield b)
 
 procedure gen_name(in stem: Str, out x: Str, ref g: Gen) :=
@@ -585,14 +585,14 @@ procedure compile_proc_lambda(
   lift(in CdFunction(LkStatic, CtVoid, f, proc_params(), decls ++ bs ++ copy_out(outs ++ refs)), ref g)
   ss := List(), r := make_closure("u_mk_proc", f, caps, env)
 
-function proc_params(): List[CType * Str] :=
+function proc_params(): List[(CType, Str)] :=
   List((value_ptr(), "env"), (value_ptr(), "ins"), (CtPtr(value_ptr()), "outs"))
 
-function unpack_pointers(xs: List[Name * Int]): List[CStmt] :=
+function unpack_pointers(xs: List[(Name, Int)]): List[CStmt] :=
   List(for (x, i) in xs yield CsDecl(value_ptr(), ref_name(x), Some(index("outs", i))))
 
 // declarations of the variables xs with the values in the array a
-function unpack(xs: List[Name * Int], a: Str): List[CStmt] :=
+function unpack(xs: List[(Name, Int)], a: Str): List[CStmt] :=
   List(for (x, i) in xs yield CsDecl(value_type(), var_name(x), Some(index(a, i))))
 
 // the cases of a match of the value v, which assign the result to t, where t stays NULL if no case applies
@@ -627,7 +627,7 @@ procedure expr_cases(
 procedure compile_loops(
   in  defs: Defs,
       env: Vars,
-      gs: List[Name * At[Expr] * Var],
+      gs: List[(Name, At[Expr], Var)],
       cond: Option[At[Expr]],
       e: At[Expr],
       add: CExpr -> List[CStmt],
@@ -672,7 +672,7 @@ procedure compile_loops(
 procedure compile_list_comprehension(
   in  defs: Defs,
       env: Vars,
-      gs: List[Name * At[Expr] * Var],
+      gs: List[(Name, At[Expr], Var)],
       cond: Option[At[Expr]],
       e: At[Expr],
       init: At[Expr],
@@ -696,7 +696,7 @@ procedure compile_list_comprehension(
 procedure compile_array_comprehension(
   in  defs: Defs,
       env: Vars,
-      gs: List[Name * At[Expr] * Var],
+      gs: List[(Name, At[Expr], Var)],
       cond: Option[At[Expr]],
       e: At[Expr],
   out ss: List[CStmt],
@@ -706,7 +706,7 @@ procedure compile_array_comprehension(
   let source := unqualified("(source)")
   match gs
     case List((f, c, x); rest) =>
-      var cs: List[CStmt], rc: CExpr, loops: List[CStmt], t: Str, n: Str, l: Str, scope: Vars, inner: List[Name * At[Expr] * Var]
+      var cs: List[CStmt], rc: CExpr, loops: List[CStmt], t: Str, n: Str, l: Str, scope: Vars, inner: List[(Name, At[Expr], Var)]
       compile_expr(in defs, env, c, out cs, rc, ref g)
       gen_name(in "t", out t, ref g)
       gen_name(in "n", out n, ref g)
@@ -826,10 +826,10 @@ function append_stmt(d: Str, re: CExpr): List[CStmt] :=
 function push_stmt(t: Str, re: CExpr): List[CStmt] :=
   List(set_var(t, c_call("u_array_push", List(CeVar(t), re))))
 
-function value_formals(xs: List[Var]): List[CType * Str] :=
+function value_formals(xs: List[Var]): List[(CType, Str)] :=
   List(for x in var_names(xs) yield (value_type(), var_name(x)))
 
-function pointer_formals(xs: List[Var]): List[CType * Str] :=
+function pointer_formals(xs: List[Var]): List[(CType, Str)] :=
   List(for x in var_names(xs) yield (value_ptr(), ref_name(x)))
 
 function prototypes(fs: List[CDecl]): List[CDecl] :=
@@ -841,7 +841,7 @@ function main_function(ms: List[CStmt]): CDecl :=
 function main_body(ms: List[CStmt]): List[CStmt] :=
   List(call_c("u_args", List(CeVar("argc"), CeVar("argv")))) ++ ms ++ List(CsReturn(Some(CeNum(0))))
 
-function main_formals(): List[CType * Str] :=
+function main_formals(): List[(CType, Str)] :=
   List((CtInt, "argc"), (CtPtr(CtPtr(CtNamed("char"))), "argv"))
 
 // statements, whose variables are local variables of C, where procedures copy outs and refs back at their end
@@ -1152,7 +1152,7 @@ procedure compile_cmd(
 ) :=
   match cmd
     case CFun(name, _, formals, _, _, body) =>
-      var bs: List[CStmt], rb: CExpr, params: List[CType * Str]
+      var bs: List[CStmt], rb: CExpr, params: List[(CType, Str)]
       compile_expr(in defs, in_scope(var_names(vars(formals))), body, out bs, rb, ref g)
       params := value_formals(vars(formals))
       if formals == List() then
@@ -1165,7 +1165,7 @@ procedure compile_cmd(
 
     // outs and refs are pointers to the variables of the caller, which the procedure assigns when it returns
     case CProc(name, _, ins, outs, refs, _, _, stmt) =>
-      var bs: List[CStmt], params: List[CType * Str]
+      var bs: List[CStmt], params: List[(CType, Str)]
       compile_stmt(in defs, in_scope(var_names(vars(ins ++ outs ++ refs))), stmt, out bs, ref g)
       params := value_formals(vars(ins)) ++ pointer_formals(vars(outs ++ refs))
       bs := copy_in(vars(outs), vars(refs)) ++ bs ++ copy_out(vars(outs ++ refs))
@@ -1270,19 +1270,19 @@ function proc_call(n: Name, k: Int, m: Int): CStmt :=
   CsExpr(c_call(proc_name(n), indexed("ins", k) ++ indexed("outs", m)))
 
 // procedures as values call the procedure with the values of the array ins and the pointers of the array outs
-function proc_wrapper(p: Name * (Int * Int)): CDecl :=
+function proc_wrapper(p: (Name, (Int, Int))): CDecl :=
   match p
     case (n, (k, m)) =>
       CdFunction(LkStatic, CtVoid, "wp_" ++ mangle(n), proc_params(), List(proc_call(n, k, m)))
   end
 
-function fun_wrapper(p: Name * Int): CDecl :=
+function fun_wrapper(p: (Name, Int)): CDecl :=
   match p
     case (n, k) =>
       wrapper("w_" ++ fun_name(n, k), fun_name(n, k), k)
   end
 
-function builtin_wrapper(p: Str * Int): CDecl :=
+function builtin_wrapper(p: (Str, Int)): CDecl :=
   match p
     case (f, k) =>
       wrapper("w" ++ f, f, k)
@@ -1291,7 +1291,7 @@ function builtin_wrapper(p: Str * Int): CDecl :=
 function wrapper(w: Str, f: Str, k: Int): CDecl :=
   CdFunction(LkStatic, value_type(), w, closure_params(), List(CsReturn(Some(c_call(f, indexed("args", k))))))
 
-function closure_params(): List[CType * Str] :=
+function closure_params(): List[(CType, Str)] :=
   List((value_ptr(), "env"), (value_ptr(), "args"))
 
 function indexed(name: Str, k: Int): List[CExpr] :=
@@ -1301,7 +1301,7 @@ function con_array(n: Name, k: Int): CExpr :=
   c_call("u_mk_con_array", List(descriptor(n), CeNum(k), CeVar("args")))
 
 // constructors without fields are no functions
-function constr_wrapper(p: Name * Int): List[CDecl] :=
+function constr_wrapper(p: (Name, Int)): List[CDecl] :=
   match p
     case (_, 0) =>
       List()
@@ -1351,7 +1351,7 @@ function test_tables(files: List[TestFile], cmds: List[Cmd]): List[CDecl] :=
 function texts(): List[CDecl] :=
   List(for p in runtime_formats() yield text_decl(p))
 
-function text_decl(p: Str * Str): CDecl :=
+function text_decl(p: (Str, Str)): CDecl :=
   match p
     case (name, text) =>
       CdGlobal(LkExtern, CtNamed("const char *const"), name, Some(CeStr(text)))

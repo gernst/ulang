@@ -293,7 +293,7 @@ test locals_anywhere() :=
   if n > 1 then
     n := 0
     // a doc of a local
-    let (a, b) := (m, k), (c, _): Int * Int := (a + b, 0)
+    let (a, b) := (m, k), (c, _): (Int, Int) := (a + b, 0)
     assert c == 9
   end
   var xs, ys
@@ -346,7 +346,7 @@ test for_keys_arrays_and_options() :=
   assert sum == 27 and text == "ab"
 
 test for_nested() :=
-  var pairs: List[Int * Int] := List()
+  var pairs: List[(Int, Int)] := List()
   for x in List(1, 2) do
     for y in Set(5, 6) do
       pairs := List((x, y); pairs)

@@ -84,7 +84,7 @@ function fun_name(cmd: Cmd): Option[Name] :=
   end
 
 // a function by its name and arity, as Defs.funs of ulang/check/defs.u, with its formals and body
-function definition(cmd: Cmd): Option[(Name * Int) * (List[Var] * Term)] :=
+function definition(cmd: Cmd): Option[((Name, Int), (List[Var], Term))] :=
   match cmd
     case CFun(name, _, formals, _, _, body) =>
       let xs := vars(formals) in
@@ -94,7 +94,7 @@ function definition(cmd: Cmd): Option[(Name * Int) * (List[Var] * Term)] :=
       None
   end
 
-function datatype(rank: Int, cmd: Cmd): Option[Int * (Name * List[Constr])] :=
+function datatype(rank: Int, cmd: Cmd): Option[(Int, (Name, List[Constr]))] :=
   match cmd
     case CData(t, _, constrs) =>
       Some((rank, (t, parts(constrs))))
@@ -102,7 +102,7 @@ function datatype(rank: Int, cmd: Cmd): Option[Int * (Name * List[Constr])] :=
       None
   end
 
-function datas_decls(datas: List[Int * (Name * List[Constr])]): Decls :=
+function datas_decls(datas: List[(Int, (Name, List[Constr]))]): Decls :=
   match datas
     case List() =>
       empty_decls()
@@ -115,22 +115,22 @@ function datas_decls(datas: List[Int * (Name * List[Constr])]): Decls :=
 
 // the definitions, each recursive if it reaches itself by the symbols in the bodies, also through other functions, where
 // a name passed without its arguments reaches the definitions of all its arities
-function with_defs(decls: Decls, defined: List[(Name * Int) * (List[Var] * Term)], ranks: Map[Name, Int]): Decls :=
+function with_defs(decls: Decls, defined: List[((Name, Int), (List[Var], Term))], ranks: Map[Name, Int]): Decls :=
   let calls := Map(for ((n, k), (_, body)) in defined yield (n, k) => symbols_in(body)) in
   let arities := Map(for ((n, _), _) in defined yield n => List(for ((m, k), _) in defined if m == n yield k)) in
   let reached := Map(for ((n, k), _) in defined yield (n, k) => reachable(calls, arities, callees(arities, value_or(get((n, k), calls), empty())), empty())) in
   let defs := Map(for ((n, k), (formals, body)) in defined yield (n, k) => definition_of((n, k), formals, body, decls, value_or(get((n, k), reached), empty()))) in
   decls with defs := defs, ranks := decls.ranks ++ ranks
 
-function definition_of(key: Name * Int, formals: List[Var], body: Term, decls: Decls, reaches: Set[Name * Int]): Def :=
+function definition_of(key: (Name, Int), formals: List[Var], body: Term, decls: Decls, reaches: Set[(Name, Int)]): Def :=
   Def(contains(key, reaches), formals, body, def_equations(decls, formals, body), reaches)
 
 // the definitions that the symbols name, by the arities of the defined names
-function callees(arities: Map[Name, List[Int]], symbols: Set[Name * Int]): List[Name * Int] :=
+function callees(arities: Map[Name, List[Int]], symbols: Set[(Name, Int)]): List[(Name, Int)] :=
   List(for (n, k) in symbols for j in value_or(get(n, arities), List()) if k == j or k == -1 yield (n, j))
 
 // the definitions that those of todo reach, with seen, which grows within the keys of calls, so that this ends
-function reachable(calls: Map[Name * Int, Set[Name * Int]], arities: Map[Name, List[Int]], todo: List[Name * Int], seen: Set[Name * Int]): Set[Name * Int] :=
+function reachable(calls: Map[(Name, Int), Set[(Name, Int)]], arities: Map[Name, List[Int]], todo: List[(Name, Int)], seen: Set[(Name, Int)]): Set[(Name, Int)] :=
   match todo
     case List() =>
       seen
@@ -146,7 +146,7 @@ function reachable(calls: Map[Name * Int, Set[Name * Int]], arities: Map[Name, L
 
 // the lemma of cmd if it belongs to module m, for all formals that satisfy its assumptions, where procs are the
 // procedures with bodies and contracts the keys of those with contracts, by name and arity
-function lemma_of(m: Id, procs: Map[Name * Int, Cmd], contracts: Set[Name * Int], cmd: Cmd): Option[Lemma] :=
+function lemma_of(m: Id, procs: Map[(Name, Int), Cmd], contracts: Set[(Name, Int)], cmd: Cmd): Option[Lemma] :=
   match cmd
     case CLemma(name, _, formals, outs, ClaimHolds(assms, concl), proof) if name.module == Some(m) =>
       let xs := vars(formals), ys := vars(outs) in
@@ -162,7 +162,7 @@ function lemma_of(m: Id, procs: Map[Name * Int, Cmd], contracts: Set[Name * Int]
   end
 
 // a procedure with a body by its name and arity
-function proc_of(cmd: Cmd): Option[(Name * Int) * Cmd] :=
+function proc_of(cmd: Cmd): Option[((Name, Int), Cmd)] :=
   match cmd
     case CProc(name, _, ins, outs, refs, _, _, _) =>
       Some(((name, size(ins) + size(outs) + size(refs)), cmd))
@@ -172,7 +172,7 @@ function proc_of(cmd: Cmd): Option[(Name * Int) * Cmd] :=
 
 // the contract of a procedure as a lemma, assumed, not proven, over its ins and the values of its refs before as formals,
 // and its outs and the values of its refs after as outs, where its requires sees the refs before and its ensures after
-function contract_of(cmd: Cmd): Option[(Name * Int) * Lemma] :=
+function contract_of(cmd: Cmd): Option[((Name, Int), Lemma)] :=
   match cmd
     case CProc(name, _, in_decls, out_decls, ref_decls, _, spec, _) if spec.pre != List() or spec.post != None =>
       let ins := vars(in_decls), outs := vars(out_decls), refs := vars(ref_decls) in
@@ -193,7 +193,7 @@ function contract_of(cmd: Cmd): Option[(Name * Int) * Lemma] :=
   end
 
 // a name of the contract of a procedure, which users cannot write
-function contract_name(key: Name * Int): Name :=
+function contract_name(key: (Name, Int)): Name :=
   match key
     case (name, arity) =>
       Name(name.module, "(contract)" ++ name.base ++ "/" ++ show(arity))
@@ -208,7 +208,7 @@ function raise_contract(): Lemma :=
 // the claim correct p(args, out outs) of the lemma name over formals: the requires of p at the arguments as its
 // assumptions, the ensures of p at them and the outs as its conclusion, and the proof that runs the body of p from the
 // arguments, by its invariants, to the values of its outs, which are the witnesses of the outs of the lemma
-function claim_of(name: Name, formals: List[Var], outs: List[Var], args: List[At[Expr]], proc: Option[Cmd], contracts: Set[Name * Int], proof: Proof): Lemma :=
+function claim_of(name: Name, formals: List[Var], outs: List[Var], args: List[At[Expr]], proc: Option[Cmd], contracts: Set[(Name, Int)], proof: Proof): Lemma :=
   let env := bind(formals, List()), all := bind(formals ++ outs, List()) in
   let at_formals := List(for a in args yield term_of(env, a)), at_all := List(for a in args yield term_of(all, a)) in
   let results := List(for i in range(0, size(outs)) yield EBound(size(outs) - 1 - i)) in
@@ -252,7 +252,7 @@ function ensures_pos(spec: Spec, pos: Pos): Pos :=
 // what the run of the body of a procedure knows: the invariants of its loops by their positions, and the procedures with
 // contracts by name and arity
 data Exec :=
-  case Exec(invariants: Map[Pos, At[Expr]], contracts: Set[Name * Int])
+  case Exec(invariants: Map[Pos, At[Expr]], contracts: Set[(Name, Int)])
 
 // what is left of a run: a statement, or the end of a body, which assigns the variables of sources to the witnesses at the
 // levels targets, the outs of the lemma at the end of the procedure, the values after the body of a loop at its end
@@ -454,7 +454,7 @@ function proof_term(formals: List[Var], env: List[Name], proof: Proof, pos: Pos)
   end
 
 // the steps under env, each local binding inside the steps after it, and the environment after them
-function steps_term(formals: List[Var], env: List[Name], steps: List[At[Step]], acc: List[StepTerm]): List[StepTerm] * List[Name] :=
+function steps_term(formals: List[Var], env: List[Name], steps: List[At[Step]], acc: List[StepTerm]): (List[StepTerm], List[Name]) :=
   match steps
     case List() =>
       (reverse(acc), env)
@@ -566,7 +566,7 @@ function unchecked(expr: At[Expr]): Term :=
   EFun(Name(Some("(unchecked)"), show(expr.that)))
 
 // a let of variables by substitution, else the match of its patterns, of a tuple if there are several
-function let_term(env: List[Name], bindings: List[At[Pat] * At[Expr]], body: At[Expr]): Term :=
+function let_term(env: List[Name], bindings: List[(At[Pat], At[Expr])], body: At[Expr]): Term :=
   let values := List(for (_, a) in bindings yield term_of(env, a)), pats := List(for (p, _) in bindings yield p) in
   match pattern_vars(pats)
     case Some(xs) =>

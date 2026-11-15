@@ -69,7 +69,7 @@ procedure os_exit(in code: Int)
 
 // the names in a directory, sorted, each with whether it is a directory, without following links, and whether path is a directory,
 // also through a link
-procedure os_list(in dir: Str, out entries: List[Str * Bool]) raises OsError
+procedure os_list(in dir: Str, out entries: List[(Str, Bool)]) raises OsError
 
 procedure os_is_dir(in path: Str, out yes: Bool)
 
@@ -94,13 +94,13 @@ procedure os_walk(in path: Str, out files: List[Str]) raises OsError :=
   end
 
 procedure os_walk_dir(in dir: Str, out files: List[Str]) :=
-  var entries: List[Str * Bool]
+  var entries: List[(Str, Bool)]
   os_list(in dir, out entries)
   os_walk_entries(in dir, entries, out files)
 
 procedure os_walk_entries(
   in  dir: Str,
-      entries: List[Str * Bool],
+      entries: List[(Str, Bool)],
   out files: List[Str]
 ) :=
   match entries

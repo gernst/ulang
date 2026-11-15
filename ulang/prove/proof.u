@@ -110,7 +110,7 @@ function block_gaps(w: Walk, scope: Scope, proof: ProofTerm): List[Gap] :=
       end
   end
 
-function steps_gaps(w: Walk, scope: Scope, steps: List[StepTerm], gaps: List[Gap]): Scope * List[Gap] :=
+function steps_gaps(w: Walk, scope: Scope, steps: List[StepTerm], gaps: List[Gap]): (Scope, List[Gap]) :=
   match steps
     case List() =>
       (scope, gaps)
@@ -122,7 +122,7 @@ function steps_gaps(w: Walk, scope: Scope, steps: List[StepTerm], gaps: List[Gap
       end
   end
 
-function step_gaps(w: Walk, scope: Scope, step: StepTerm): Scope * List[Gap] :=
+function step_gaps(w: Walk, scope: Scope, step: StepTerm): (Scope, List[Gap]) :=
   match step
     case DefineTerm(x, value, _) =>
       let k := size(scope.vars) in
@@ -260,14 +260,14 @@ function invariant_gaps(w: Walk, scope: Scope, vars: List[Int], havoc: List[Var]
 
 // the cases of the value by the leaves of the patterns of the cases (ulang/prove/patterns.u), and for induction on the
 // formal at the position p of the datatype t by its constructors, with the hypotheses for their recursive fields
-function leaves_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, on_formal: Option[Int * Name], pos: Pos): List[Gap] :=
+function leaves_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, on_formal: Option[(Int, Name)], pos: Pos): List[Gap] :=
   let rows := List(for c in cases yield (c.pat, c.guard != None)) in
   let ls := leaves(w.decls, value, size(scope.vars), rows, map_option(on_formal, lambda (_, t) => t)) in
   List(for leaf in ls for g in leaf_gaps(w, scope, cases, value, on_formal, leaf, pos) yield g)
 
 // a leaf with its variables, the equation of the value with it, its conditions, and the hypotheses of an induction for
 // the recursive fields of its constructor, which a call of the lemma itself reaches at their values
-function leaf_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, on_formal: Option[Int * Name], leaf: Leaf, pos: Pos): List[Gap] :=
+function leaf_gaps(w: Walk, scope: Scope, cases: List[CaseTerm], value: Term, on_formal: Option[(Int, Name)], leaf: Leaf, pos: Pos): List[Gap] :=
   let size_after := size(scope.vars) + size(leaf.vars) in
   let recursive := match (on_formal, leaf.value)
     case (Some((_, t)), EApp(EFun(c), args)) =>

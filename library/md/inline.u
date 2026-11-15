@@ -103,7 +103,7 @@ function code_span(cs: List[Char]): List[Inline] :=
   end
 
 // the characters up to a run of exactly n backticks, and those after it
-function close_run(cs: List[Char], n: Int, acc: List[Char]): Option[List[Char] * List[Char]] :=
+function close_run(cs: List[Char], n: Int, acc: List[Char]): Option[(List[Char], List[Char])] :=
   match cs
     case List() =>
       None
@@ -157,7 +157,7 @@ function can_open(prev: Char, after: List[Char], d: Char): Bool :=
   end
 
 // the characters up to a closing run of k delimiters d, skipping escapes and code spans, and those after it
-function close_emphasis(cs: List[Char], d: Char, k: Int, prev: Char, acc: List[Char]): Option[List[Char] * List[Char]] :=
+function close_emphasis(cs: List[Char], d: Char, k: Int, prev: Char, acc: List[Char]): Option[(List[Char], List[Char])] :=
   match cs
     case List() =>
       None
@@ -194,7 +194,7 @@ function starts_word(cs: List[Char]): Bool :=
   end
 
 // the text of a link up to its matching ], with nested brackets, and the characters after it
-function close_bracket(cs: List[Char], depth: Int, acc: List[Char]): Option[List[Char] * List[Char]] :=
+function close_bracket(cs: List[Char], depth: Int, acc: List[Char]): Option[(List[Char], List[Char])] :=
   match cs
     case List() =>
       None
@@ -216,7 +216,7 @@ function close_bracket(cs: List[Char], depth: Int, acc: List[Char]): Option[List
   end
 
 // an inline destination (url "title") after the ], and the characters after its )
-function destination(cs: List[Char]): Option[Str * Str * List[Char]] :=
+function destination(cs: List[Char]): Option[(Str, Str, List[Char])] :=
   match cs
     case List('('; rest) =>
       let (_, start) := span(rest, is_space) in

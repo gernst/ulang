@@ -29,7 +29,7 @@ type EGraph
 // the classes of a union that congruence makes equal, which the e-graph has not merged, and the parent nodes with their
 // classes whose arguments it merged
 data Union :=
-  case Union(graph: EGraph, pending: List[Int * Int], parents: List[ENode * Int])
+  case Union(graph: EGraph, pending: List[(Int, Int)], parents: List[(ENode, Int)])
 
 function empty_graph(): EGraph
 
@@ -37,7 +37,7 @@ function empty_graph(): EGraph
 function class_of(g: EGraph, i: Int): Int
 
 // the e-graph with the term t and the class of t
-function add_term(g: EGraph, t: Term): EGraph * Int
+function add_term(g: EGraph, t: Term): (EGraph, Int)
 
 // the class of t, if its nodes are all in the e-graph
 function lookup_term(g: EGraph, t: Term): Option[Int]
@@ -51,7 +51,7 @@ function class_nodes(g: EGraph, i: Int): List[ENode]
 function node_term(node: ENode, args: List[Term]): Term
 
 // the node of t and the terms of its arguments
-function shape(t: Term): Head * List[Term]
+function shape(t: Term): (Head, List[Term])
 
 // the classes, by their representatives
 function class_ids(g: EGraph): List[Int]
@@ -63,7 +63,7 @@ function node_count(g: EGraph): Int
 function ematch(g: EGraph, n: Int, p: Term, c: Int, sub: Map[Int, Int]): List[Map[Int, Int]]
 
 // the e-graph with the instance of the pattern p by sub, which binds its variables below n, and the class of it
-function add_instance(g: EGraph, n: Int, p: Term, sub: Map[Int, Int]): EGraph * Int
+function add_instance(g: EGraph, n: Int, p: Term, sub: Map[Int, Int]): (EGraph, Int)
 
 // the e-graph with i and j merged, and the classes that congruence makes equal merged too, without theories
 function close_union(g: EGraph, i: Int, j: Int): EGraph
@@ -74,7 +74,7 @@ implementation
 // their classes, the classes of the nodes, whose arguments were the representatives when they were entered, and the
 // next class
 data EGraph :=
-  case EGraph(parent: Map[Int, Int], nodes: Map[Int, List[ENode]], uses: Map[Int, List[ENode * Int]], memo: Map[ENode, Int], next: Int)
+  case EGraph(parent: Map[Int, Int], nodes: Map[Int, List[ENode]], uses: Map[Int, List[(ENode, Int)]], memo: Map[ENode, Int], next: Int)
 
 function empty_graph(): EGraph :=
   EGraph(empty(), empty(), empty(), empty(), 0)
@@ -90,7 +90,7 @@ function class_of(g: EGraph, i: Int): Int :=
 function canonical(g: EGraph, node: ENode): ENode :=
   ENode(node.head, List(for a in node.args yield class_of(g, a)))
 
-function shape(t: Term): Head * List[Term] :=
+function shape(t: Term): (Head, List[Term]) :=
   match t
     case ELevel(level) =>
       (HLevel(level), List())
@@ -154,7 +154,7 @@ function sum_of(acc: Lin, factors: List[Int], args: List[Term]): Lin :=
       acc
   end
 
-function add_term(g: EGraph, t: Term): EGraph * Int :=
+function add_term(g: EGraph, t: Term): (EGraph, Int) :=
   match shape(t)
     case (head, args) =>
       match add_terms(g, args, List())
@@ -163,7 +163,7 @@ function add_term(g: EGraph, t: Term): EGraph * Int :=
       end
   end
 
-function add_terms(g: EGraph, ts: List[Term], acc: List[Int]): EGraph * List[Int] :=
+function add_terms(g: EGraph, ts: List[Term], acc: List[Int]): (EGraph, List[Int]) :=
   match ts
     case List() =>
       (g, reverse(acc))
@@ -175,7 +175,7 @@ function add_terms(g: EGraph, ts: List[Term], acc: List[Int]): EGraph * List[Int
       end
   end
 
-function add_node(g: EGraph, node: ENode): EGraph * Int :=
+function add_node(g: EGraph, node: ENode): (EGraph, Int) :=
   let c := canonical(g, node) in
   match get(c, g.memo)
     case Some(i) =>
@@ -235,7 +235,7 @@ function unite(g: EGraph, i: Int, j: Int): Union :=
 
 // the parent nodes entered again by their canonical forms, where one that is already there with another class is
 // congruent to it
-function rehash(g: EGraph, todo: List[ENode * Int], pending: List[Int * Int], parents: List[ENode * Int]): Union :=
+function rehash(g: EGraph, todo: List[(ENode, Int)], pending: List[(Int, Int)], parents: List[(ENode, Int)]): Union :=
   match todo
     case List() =>
       Union(g, reverse(pending), parents)
@@ -309,7 +309,7 @@ function ematch_all(g: EGraph, n: Int, ps: List[Term], cs: List[Int], sub: Map[I
       List(sub)
   end
 
-function add_instance(g: EGraph, n: Int, p: Term, sub: Map[Int, Int]): EGraph * Int :=
+function add_instance(g: EGraph, n: Int, p: Term, sub: Map[Int, Int]): (EGraph, Int) :=
   match p
     case EBound(index) if index < n =>
       match get(index, sub)
@@ -331,7 +331,7 @@ function add_instance(g: EGraph, n: Int, p: Term, sub: Map[Int, Int]): EGraph * 
       end
   end
 
-function add_instances(g: EGraph, n: Int, ps: List[Term], sub: Map[Int, Int], acc: List[Int]): EGraph * List[Int] :=
+function add_instances(g: EGraph, n: Int, ps: List[Term], sub: Map[Int, Int], acc: List[Int]): (EGraph, List[Int]) :=
   match ps
     case List() =>
       (g, reverse(acc))
@@ -347,7 +347,7 @@ function close_union(g: EGraph, i: Int, j: Int): EGraph :=
   let u := unite(g, i, j) in
   close_pending(u.graph, u.pending)
 
-function close_pending(g: EGraph, pairs: List[Int * Int]): EGraph :=
+function close_pending(g: EGraph, pairs: List[(Int, Int)]): EGraph :=
   match pairs
     case List() =>
       g

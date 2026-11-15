@@ -59,10 +59,10 @@ test lambda_patterns() :=
 
 // a pattern may have a type, also inside, which the checker unifies with the type it matches
 test annotated_patterns() :=
-  assert (lambda p: Int * Int => first(p))((1, 2)) == 1
+  assert (lambda p: (Int, Int) => first(p))((1, 2)) == 1
   assert (lambda (a: Int, b), c: Str => a + b + size(c))((1, 2), "ab") == 5
   assert List(for (x: Int, s) in List((1, "a")) yield show(x) ++ s) == List("1a")
-  assert (let n: Int := 2, (a, b): Int * Int := (n, 3) in
+  assert (let n: Int := 2, (a, b): (Int, Int) := (n, 3) in
   a * b) == 6
 
 test literals() :=
@@ -76,7 +76,7 @@ test non_strict_and_or() :=
   assert true or 1 / 0 == 0
 
 type Pair[A] :=
-  A * A
+  (A, A)
 
 function swap[A](p: Pair[A]): Pair[A] :=
   match p
@@ -85,7 +85,7 @@ function swap[A](p: Pair[A]): Pair[A] :=
   end
 
 // a function of one pair, whose type Int * Int -> Int differs from (Int, Int) -> Int of add
-function sum(p: Int * Int): Int :=
+function sum(p: (Int, Int)): Int :=
   match p
     case (x, y) =>
       x + y
@@ -94,10 +94,10 @@ function sum(p: Int * Int): Int :=
 function add(x: Int, y: Int): Int :=
   x + y
 
-function apply(f: Int * Int -> Int): Int :=
+function apply(f: ((Int, Int)) -> Int): Int :=
   f((1, 2))
 
-function xor(p: Bool * Bool): Bool :=
+function xor(p: (Bool, Bool)): Bool :=
   match p
     case (true, false) =>
       true
@@ -110,19 +110,19 @@ function xor(p: Bool * Bool): Bool :=
   end
 
 // tuples are flat, unlike nested ones
-function last(t: Int * Bool * Str): Str :=
+function last(t: (Int, Bool, Str)): Str :=
   match t
     case (_, _, s) =>
       s
   end
 
-function nested(t: Int * (Bool * Str)): Str :=
+function nested(t: (Int, (Bool, Str))): Str :=
   match t
     case (_, (_, s)) =>
       s
   end
 
-function divmod(a: Int, b: Int): Int * Int :=
+function divmod(a: Int, b: Int): (Int, Int) :=
   (a / b, a % b)
 
 test tuples() :=
@@ -147,7 +147,7 @@ test let_patterns() :=
   z) == 2
 
 // overloads are told apart by their numbers of parameters
-function pick(p: Int * Int): Int :=
+function pick(p: (Int, Int)): Int :=
   1
 
 function pick(x: Int, y: Int): Int :=

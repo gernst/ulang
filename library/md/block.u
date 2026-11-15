@@ -47,7 +47,7 @@ function blocks(lines: List[Str]): List[Block] :=
   bs
 
 // the blocks of the lines, and whether a blank line separates two of them, which makes the item of a list loose
-function blocks_gap(lines: List[Str], seen: Bool, gap: Bool): List[Block] * Bool :=
+function blocks_gap(lines: List[Str], seen: Bool, gap: Bool): (List[Block], Bool) :=
   match lines
     case List() =>
       (List(), gap)
@@ -93,7 +93,7 @@ function classify(l: Str): Start :=
         end
     end
 
-function block(l: Str, rest: List[Str]): Block * List[Str] :=
+function block(l: Str, rest: List[Str]): (Block, List[Str]) :=
   match classify(l)
     case Indented =>
       indented_code(List(dedent(4, l)), rest)
@@ -125,7 +125,7 @@ function block(l: Str, rest: List[Str]): Block * List[Str] :=
   end
 
 // # to ###### and a space, without a closing sequence of #
-function atx(t: Str): Option[Int * Str] :=
+function atx(t: Str): Option[(Int, Str)] :=
   let (hashes, after) := span(chars(t), lambda c => c == '#') in
   if 1 <= size(hashes) and size(hashes) <= 6 and (after == List() or after.head == ' ') then
     Some((size(hashes), strip_closing(trim(str(after)))))
@@ -159,7 +159,7 @@ function fence(l: Str): Option[Start] :=
 
 // the lines up to a closing fence of the same character and at least the length, without the indentation of the
 // opening fence, and the lines after it
-function fence_body(c: Char, n: Int, k: Int, lines: List[Str], acc: List[Str]): List[Str] * List[Str] :=
+function fence_body(c: Char, n: Int, k: Int, lines: List[Str], acc: List[Str]): (List[Str], List[Str]) :=
   match lines
     case List() =>
       (reverse(acc), List())
@@ -172,7 +172,7 @@ function fence_body(c: Char, n: Int, k: Int, lines: List[Str], acc: List[Str]): 
         fence_body(c, n, k, rest, List(dedent(k, l); acc))
   end
 
-function indented_code(acc: List[Str], lines: List[Str]): Block * List[Str] :=
+function indented_code(acc: List[Str], lines: List[Str]): (Block, List[Str]) :=
   match lines
     case List(l; rest) =>
       if indent_of(l) >= 4 or is_blank(l) and match next_nonblank(rest)
@@ -212,7 +212,7 @@ function quote_line(l: Str): Option[Str] :=
   end
 
 // the lines of a block quote without their markers, with lazy continuations of its paragraphs
-function quote_lines(lines: List[Str], acc: List[Str]): List[Str] * List[Str] :=
+function quote_lines(lines: List[Str], acc: List[Str]): (List[Str], List[Str]) :=
   match lines
     case List(l; rest) =>
       match quote_line(l)
@@ -271,7 +271,7 @@ function to_int(ds: List[Char]): Int :=
 function same_kind(a: Marker, b: Marker): Bool :=
   a.ordered == b.ordered and a.delim == b.delim
 
-function list(m: Marker, l: Str, rest: List[Str]): Block * List[Str] :=
+function list(m: Marker, l: Str, rest: List[Str]): (Block, List[Str]) :=
   let (items, loose, more) := list_items(m, l, rest) in
   let parsed := List(for it in items yield blocks_gap(it, false, false)) in
   let tight := not loose and forall(parsed, lambda (_, g) => not g), bodies := List(for (bs, _) in parsed yield bs) in
@@ -281,7 +281,7 @@ function list(m: Marker, l: Str, rest: List[Str]): Block * List[Str] :=
     (Bullets(tight, bodies), more)
 
 // the lines of each item, whether a blank line separates two items, and the lines after the list
-function list_items(m: Marker, l: Str, rest: List[Str]): List[List[Str]] * Bool * List[Str] :=
+function list_items(m: Marker, l: Str, rest: List[Str]): (List[List[Str]], Bool, List[Str]) :=
   let first := if size(l) > m.width then slice(l, m.width, size(l)) else "" in
   let (body, after) := item_lines(m.width, rest, is_blank(first)) in
   let (blanks, next) := span(after, is_blank) in
@@ -305,7 +305,7 @@ function list_items(m: Marker, l: Str, rest: List[Str]): List[List[Str]] * Bool 
 
 // the lines after the first of an item: those indented to its content, blank lines before such, and lazy
 // continuations of a paragraph
-function item_lines(w: Int, lines: List[Str], prev_blank: Bool): List[Str] * List[Str] :=
+function item_lines(w: Int, lines: List[Str], prev_blank: Bool): (List[Str], List[Str]) :=
   match lines
     case List() =>
       (List(), List())
@@ -359,7 +359,7 @@ function setext(l: Str): Option[Int] :=
   else
     None
 
-function paragraph(acc: List[Str], lines: List[Str]): Block * List[Str] :=
+function paragraph(acc: List[Str], lines: List[Str]): (Block, List[Str]) :=
   match lines
     case List(n; more) =>
       match setext(n)
@@ -433,7 +433,7 @@ function align_of(c: Str): Align :=
   else
     AlignNone
 
-function table(aligns: List[Align], header: List[Str], lines: List[Str], rows: List[List[Str]]): Block * List[Str] :=
+function table(aligns: List[Align], header: List[Str], lines: List[Str], rows: List[List[Str]]): (Block, List[Str]) :=
   match lines
     case List(l; rest) =>
       if not is_blank(l) and classify(l) == TextStart then

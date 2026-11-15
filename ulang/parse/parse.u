@@ -87,9 +87,9 @@ procedure parse_text_recovering(
 procedure parse_texts(
   in  root: Str,
       dir: Str,
-      imported: List[Str * List[Id * Str]],
-      members: List[Id * Str],
-      main: Id * Str,
+      imported: List[(Str, List[(Id, Str)])],
+      members: List[(Id, Str)],
+      main: (Id, Str),
   out source: Source
 ) raises ParseError, OsError
 
@@ -98,7 +98,7 @@ procedure parse_texts(
 // before, e.g. the enumeration that the tests of lemmas call, which no path names
 procedure load_after_library(
   in  dir: Str,
-      members: List[Id * Str],
+      members: List[(Id, Str)],
   ref source: Source
 ) raises ParseError, OsError
 
@@ -880,7 +880,7 @@ procedure climb_infix[A](
       skip
   end
 
-function is_prec(fp: Option[Fixity * Int], prec: Int): Bool :=
+function is_prec(fp: Option[(Fixity, Int)], prec: Int): Bool :=
   match fp
     case Some((_, q)) =>
       q == prec
@@ -888,29 +888,19 @@ function is_prec(fp: Option[Fixity * Int], prec: Int): Bool :=
       false
   end
 
-// types, whose operands are lists of types, since the arguments of a function are written (A, B),
-// and where a chain A * B * C is one tuple type, while (A * B) * C stays nested
-//
-// the type of an operand, which is a list of other than one type only as the arguments of a function
-procedure as_type(in types: List[Type], pos: Pos, out typ: Type) :=
+// types, whose operands are lists of types, since the arguments of a function are written (A, B), so that a list of
+// other than one type is a tuple type, (A, B) or (), wherever it is not the arguments of a function, and a function of
+// one tuple is ((A, B)) -> C
+function as_type(types: List[Type]): Type :=
   match types
     case List(t) =>
-      typ := t
-
-    case List() =>
-      typ := TTuple(List())
-
+      t
     case _ =>
-      raise ParseError("tuple types are written A * B", pos)
+      TTuple(types)
   end
 
-procedure as_types(in args: List[List[Type]], pos: Pos, out types: List[Type]) :=
-  types := List()
-  for a in args do
-    var typ: Type
-    as_type(in a, pos, out typ)
-    types := types ++ List(typ)
-  end
+function as_types(args: List[List[Type]]): List[Type] :=
+  List(for a in args yield as_type(a))
 
 // a chain of -> or another infix operator applied from the left, where the first operand of -> is the list of
 // arguments of a function
@@ -923,26 +913,18 @@ procedure type_apply(
 ) :=
   match args
     case List(a) =>
-      var typ: Type
-      as_type(in a, pos, out typ)
-      r := List(TSort(unqualified(op), List(typ)))
+      r := List(TSort(unqualified(op), List(as_type(a))))
 
+    // A * B, the tuple type of ML
     case _ if op == "*" =>
-      var types: List[Type]
-      as_types(in args, pos, out types)
-      r := List(TTuple(types))
+      raise ParseError("tuple types are written (A, B)", pos)
 
     case List(a; more) if op == "->" =>
-      var types: List[Type]
-      as_types(in more, pos, out types)
-      r := foldl(types, a, lambda lhs, typ => List(TFun(lhs, typ)))
+      r := foldl(as_types(more), a, lambda lhs, typ => List(TFun(lhs, typ)))
 
     case List(a; more) =>
-      var first: Type, types: List[Type]
-      as_type(in a, pos, out first)
-      as_types(in more, pos, out types)
       r := List(
-        foldl(types, first, lambda lhs, typ => TSort(unqualified(op), List(lhs, typ))))
+        foldl(as_types(more), as_type(a), lambda lhs, typ => TSort(unqualified(op), List(lhs, typ))))
 
     case List() =>
       r := List()
@@ -966,10 +948,9 @@ procedure parse_type(
   out typ: Type,
   ref toks: Tokens
 ) :=
-  let start := head_pos(toks)
   var r: List[Type]
   parse_operators(in notation, params, type_ops(), out r, ref toks)
-  as_type(in r, start, out typ)
+  typ := as_type(r)
 
 // a type, a type in parentheses, the arguments (A, B) of a function, or (), where params are the type parameters in scope,
 // which distinguish TParam from TSort
@@ -1070,7 +1051,7 @@ procedure parse_expr(
   parse_operators(in notation, params, expr_ops(), out expr, ref toks)
   if at_kw(toks, "with") then
     let pos: Pos := head_pos(toks)
-    var updates: List[Id * At[Expr]]
+    var updates: List[(Id, At[Expr])]
     advance(ref toks)
     parse_separated(in notation, params, parse_update, at_update, out updates, ref toks)
     expr := apply_updates(pos, expr, updates)
@@ -1080,7 +1061,7 @@ procedure parse_expr(
 procedure parse_update(
   in  notation: Notation,
       params: List[Id],
-  out update: Id * At[Expr],
+  out update: (Id, At[Expr]),
   ref toks: Tokens
 ) :=
   var f: Id, a: At[Expr]
@@ -1090,7 +1071,7 @@ procedure parse_update(
   update := (f, a)
 
 // e with the updates in order, from the left, each at the position of with
-function apply_updates(pos: Pos, expr: At[Expr], updates: List[Id * At[Expr]]): At[Expr] :=
+function apply_updates(pos: Pos, expr: At[Expr], updates: List[(Id, At[Expr])]): At[Expr] :=
   match updates
     case List() =>
       expr
@@ -1188,7 +1169,7 @@ procedure parse_let(
   ref toks: Tokens
 ) :=
   let pos := head_pos(toks)
-  var bindings: List[At[Pat] * At[Expr]], body: At[Expr]
+  var bindings: List[(At[Pat], At[Expr])], body: At[Expr]
   advance(ref toks)
   parse_separated(in notation, params, parse_binding, at_comma, out bindings, ref toks)
   expect(in TKw("in"), ref toks)
@@ -1199,7 +1180,7 @@ procedure parse_let(
 procedure parse_binding(
   in  notation: Notation,
       params: List[Id],
-  out binding: At[Pat] * At[Expr],
+  out binding: (At[Pat], At[Expr]),
   ref toks: Tokens
 ) :=
   var pat: At[Pat], expr: At[Expr]
@@ -1770,7 +1751,7 @@ function is_mode(tok: Token): Bool :=
 procedure parse_decl(
   in  notation: Notation,
       params: List[Id],
-  out decl: At[Pat] * Option[At[Expr]],
+  out decl: (At[Pat], Option[At[Expr]]),
   ref toks: Tokens
 ) :=
   var pat: At[Pat], init: Option[At[Expr]]
@@ -1797,7 +1778,7 @@ function is_name_pattern(pat: At[Pat]): Bool :=
 procedure parse_local(
   in  notation: Notation,
       params: List[Id],
-  out decl: At[Var] * List[At[Stmt]],
+  out decl: (At[Var], List[At[Stmt]]),
   ref toks: Tokens
 ) :=
   let pos := head_pos(toks)
@@ -1877,7 +1858,7 @@ procedure parse_stmt(
       parse_for(in notation, params, out node, ref toks)
 
     case TKw(kw) if kw == "let" or kw == "var" =>
-      var decls: List[At[Pat] * Option[At[Expr]]]
+      var decls: List[(At[Pat], Option[At[Expr]])]
       advance(ref toks)
       parse_separated(in notation, params, parse_decl, at_comma, out decls, ref toks)
       if kw == "let" then
@@ -1892,7 +1873,7 @@ procedure parse_stmt(
       parse_call_of(in notation, params, out node, ref toks)
 
     case TName(_) if second_token(toks) == TKw(":=") =>
-      var assignments: List[Var * At[Expr]]
+      var assignments: List[(Var, At[Expr])]
       parse_separated(in notation, params, parse_assignment, at_comma, out assignments, ref toks)
       node := SAssign(assignments)
 
@@ -1977,7 +1958,7 @@ procedure parse_if(
 procedure parse_assignment(
   in  notation: Notation,
       params: List[Id],
-  out assignment: Var * At[Expr],
+  out assignment: (Var, At[Expr]),
   ref toks: Tokens
 ) :=
   var x: Var, expr: At[Expr]
@@ -2217,7 +2198,7 @@ procedure parse_constr(
   out constr: Constr,
   ref toks: Tokens
 ) :=
-  var name: Id, placed: List[Pos * Field] := List(), before: List[Field] := List()
+  var name: Id, placed: List[(Pos, Field)] := List(), before: List[Field] := List()
   let pos := head_pos(toks)
   parse_name_or_op(out name, ref toks)
   check_value_name(in name, pos)
@@ -2240,7 +2221,7 @@ procedure parse_constr(
 procedure parse_field(
   in  notation: Notation,
       params: List[Id],
-  out placed: Pos * Field,
+  out placed: (Pos, Field),
   ref toks: Tokens
 ) :=
   var name: Id, typ: Type
@@ -2567,7 +2548,7 @@ procedure parse_proc_example(
       invalid: Option[ParseError],
   ref toks: Tokens
 ) :=
-  var p: Id, ins: List[At[Expr]], outs: List[Option[At[Expr]] * Option[At[Expr]]], refs: List[Option[At[Expr]] * Option[At[Expr]]]
+  var p: Id, ins: List[At[Expr]], outs: List[(Option[At[Expr]], Option[At[Expr]])], refs: List[(Option[At[Expr]], Option[At[Expr]])]
   invalid := None
   parse_name(out p, ref toks)
   expect(in TKw("("), ref toks)
@@ -2600,7 +2581,7 @@ procedure parse_proc_example(
 procedure parse_example_arg(
   in  notation: Notation,
       params: List[Id],
-  out arg: Option[At[Expr]] * Option[At[Expr]],
+  out arg: (Option[At[Expr]], Option[At[Expr]]),
   ref toks: Tokens
 ) :=
   var value: Option[At[Expr]] := None, after: Option[At[Expr]] := None
@@ -2620,11 +2601,11 @@ procedure parse_example_arg(
   arg := (value, after)
 
 // the number of outs if each is _
-function raising_outs(args: List[Option[At[Expr]] * Option[At[Expr]]]): Option[Int] :=
+function raising_outs(args: List[(Option[At[Expr]], Option[At[Expr]])]): Option[Int] :=
   if forall(args, lambda a => a == (None, None)) then Some(size(args)) else None
 
 // the refs if each is given only as before the call
-function ref_befores(args: List[Option[At[Expr]] * Option[At[Expr]]]): Option[List[At[Expr]]] :=
+function ref_befores(args: List[(Option[At[Expr]], Option[At[Expr]])]): Option[List[At[Expr]]] :=
   match args
     case List() =>
       Some(List())
@@ -2637,7 +2618,7 @@ function ref_befores(args: List[Option[At[Expr]] * Option[At[Expr]]]): Option[Li
   end
 
 // the outs if each is a value
-function expected_outs(args: List[Option[At[Expr]] * Option[At[Expr]]]): Option[List[At[Expr]]] :=
+function expected_outs(args: List[(Option[At[Expr]], Option[At[Expr]])]): Option[List[At[Expr]]] :=
   match args
     case List() =>
       Some(List())
@@ -2650,7 +2631,7 @@ function expected_outs(args: List[Option[At[Expr]] * Option[At[Expr]]]): Option[
   end
 
 // the refs if each is given as before => after
-function before_after(args: List[Option[At[Expr]] * Option[At[Expr]]]): Option[List[At[Expr] * At[Expr]]] :=
+function before_after(args: List[(Option[At[Expr]], Option[At[Expr]])]): Option[List[(At[Expr], At[Expr])]] :=
   match args
     case List() =>
       Some(List())
@@ -2739,7 +2720,7 @@ procedure parse_proof(
 ) :=
   var steps: Buffer[At[Step]] := empty(), split: Option[At[Split]] := None
   while at_kw(toks, "let") or at_kw(toks, "var") do
-    var decls: List[At[Var] * List[At[Stmt]]]
+    var decls: List[(At[Var], List[At[Stmt]])]
     let at := head_pos(toks)
     advance(ref toks)
     parse_separated(in notation, params, parse_local, at_comma, out decls, ref toks)
@@ -3001,10 +2982,10 @@ function package_id(dir: Option[Str]): Id :=
 procedure package_files(
   in  root: Str,
       dir: Option[Str],
-      main: Option[Id * Str],
-  out files: List[Id * Str]
+      main: Option[(Id, Str)],
+  out files: List[(Id, Str)]
 ) :=
-  var found: Buffer[Id * Str] := empty(), main_id := ""
+  var found: Buffer[(Id, Str)] := empty(), main_id := ""
   match main
     case Some((id, _)) =>
       main_id := id
@@ -3013,7 +2994,7 @@ procedure package_files(
   end
   match dir
     case Some(d) =>
-      var entries: List[Str * Bool], text: Str
+      var entries: List[(Str, Bool)], text: Str
       os_list(in if d == "" then root else os_join(root, d), out entries)
       for (file, is_dir) in entries do
         if not is_dir and is_source(file) and file != "project.u" and module_id(d, module_name(file)) != main_id then
@@ -3023,7 +3004,7 @@ procedure package_files(
       end
 
     case None =>
-      var text: Str, lib: Str, entries: List[Str * Bool]
+      var text: Str, lib: Str, entries: List[(Str, Bool)]
       os_library_dir(out lib)
       os_list(in lib, out entries)
       for (file, is_dir) in entries do
@@ -3045,12 +3026,12 @@ procedure package_files(
 procedure load_package(
   in  root: Str,
       dir: Option[Str],
-      main: Option[Id * Str],
+      main: Option[(Id, Str)],
       loading: List[Id],
   ref source: Source
 ) :=
   if not exists(source.packages, lambda p => p.id == package_id(dir)) and not contains(package_id(dir), loading) then
-    var files: List[Id * Str]
+    var files: List[(Id, Str)]
     package_files(in root, dir, main, out files)
     load_members(in root, dir, files, main, loading, ref source)
   end
@@ -3059,13 +3040,13 @@ procedure load_package(
 procedure load_members(
   in  root: Str,
       dir: Option[Str],
-      files: List[Id * Str],
-      main: Option[Id * Str],
+      files: List[(Id, Str)],
+      main: Option[(Id, Str)],
       loading: List[Id],
   ref source: Source
 ) :=
   let id := package_id(dir)
-  var lexed: List[Id * Tokens * List[Comment]], notations: List[Id * Notation], own: Mod, mods: Buffer[Mod] := empty()
+  var lexed: List[(Id, Tokens, List[Comment])], notations: List[(Id, Notation)], own: Mod, mods: Buffer[Mod] := empty()
   lex_members(in files, main, out lexed, notations)
   for (m, toks, comments) in lexed do
     parse_member(in m, toks, comments, others_notation(m, notations), root, dir, is_main(m, main), main != None, List(id; loading), out own, ref source)
@@ -3076,9 +3057,9 @@ procedure load_members(
 procedure parse_texts(
   in  root: Str,
       dir: Str,
-      imported: List[Str * List[Id * Str]],
-      members: List[Id * Str],
-      main: Id * Str,
+      imported: List[(Str, List[(Id, Str)])],
+      members: List[(Id, Str)],
+      main: (Id, Str),
   out source: Source
 ) raises ParseError, OsError :=
   match main
@@ -3092,14 +3073,14 @@ procedure parse_texts(
 
 procedure load_after_library(
   in  dir: Str,
-      members: List[Id * Str],
+      members: List[(Id, Str)],
   ref source: Source
 ) raises ParseError, OsError :=
   let before := source.mods
   load_members(in "", Some(dir), members, None, List(), ref source)
   source := source with mods := List(for d in source.mods if is_library_module(d.name)) ++ List(for d in drop(size(before), source.mods) if not is_library_module(d.name)) ++ List(for d in before if not is_library_module(d.name))
 
-function is_main(id: Id, main: Option[Id * Str]): Bool :=
+function is_main(id: Id, main: Option[(Id, Str)]): Bool :=
   match main
     case Some((m, _)) =>
       m == id
@@ -3108,15 +3089,15 @@ function is_main(id: Id, main: Option[Id * Str]): Bool :=
   end
 
 // the notation that the other members of a package than m export
-function others_notation(m: Id, notations: List[Id * Notation]): Notation :=
+function others_notation(m: Id, notations: List[(Id, Notation)]): Notation :=
   foldl(notations, empty_notation(), lambda notation, (other, ops) => if other == m then notation else notation ++ ops)
 
 // the tokens of the members files, with the notations of their export sections
 procedure lex_members(
-  in  files: List[Id * Str],
-      main: Option[Id * Str],
-  out lexed: List[Id * Tokens * List[Comment]],
-      notations: List[Id * Notation]
+  in  files: List[(Id, Str)],
+      main: Option[(Id, Str)],
+  out lexed: List[(Id, Tokens, List[Comment])],
+      notations: List[(Id, Notation)]
 ) :=
   var toks: Tokens, comments: List[Comment], ops: Notation
   lexed := List(), notations := List()
@@ -3612,7 +3593,7 @@ procedure project_root(in dir: Str, out root: Str) raises OsError :=
 
 procedure has_file(in dir: Str, name: Str, out found: Bool) :=
   try
-    var entries: List[Str * Bool]
+    var entries: List[(Str, Bool)]
     os_list(in dir, out entries)
     found := contains((name, false), entries)
   catch
@@ -3713,7 +3694,7 @@ test parsed_spans() :=
 
 // a comma followed by name : ends the types that a procedure type raises, since it starts the next formal
 test parsed_raises() :=
-  var d: Mod, found: List[List[Type] * List[Type]] := List()
+  var d: Mod, found: List[(List[Type], List[Type])] := List()
   let e := TSort(unqualified("E"), List()), f := TSort(unqualified("F"), List()), int := TSort(unqualified("Int"), List())
   parse_text(in "procedure p(in q: (in Int) raises E, F, n: Int) raises F := skip\nprocedure r() raises E, F := skip\n", out d)
   for c in commands_of(d.implemented) do
@@ -3727,6 +3708,26 @@ test parsed_raises() :=
   assert found == List(
     (List(TProc(List(int), List(), List(), RWritten(List(e, f))), int), List(f)),
     (List(), List(e, f)))
+
+// a list of other than one type is a tuple, except as the arguments of a function, which a function of one tuple encloses
+test parsed_tuple_types() :=
+  var d: Mod, found: List[Type] := List()
+  let int := TSort(unqualified("Int"), List()), str := TSort(unqualified("Str"), List()), pair := TTuple(List(int, str))
+  parse_text(in test_notation() ++ "infix right 1 ->\nfunction f(p: (Int, Str), q: List[(Int, Str)], g: (Int, Str) -> Int, h: ((Int, Str)) -> Int, u: ()): Int := 1\n", out d)
+  for c in commands_of(d.implemented) do
+    match c
+      case CFun(_, _, formals, _, _, _) =>
+        found := List(for x in formals yield x.that.typ)
+      case _ =>
+        skip
+    end
+  end
+  assert found == List(
+    pair,
+    TSort(unqualified("List"), List(pair)),
+    TFun(List(int, str), int),
+    TFun(List(pair), int),
+    TTuple(List()))
 
 // the doc of a declaration is the run of comments right above it, without a blank line between
 test parsed_docs() :=

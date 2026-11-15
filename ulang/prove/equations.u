@@ -74,7 +74,7 @@ function level_of(t: Term): Option[Int] :=
 
 // the values of the matched variables at the leaf: its value for one variable, the components of a tuple for several,
 // or the variables themselves where the leaf leaves the tuple whole
-function leaf_values(levels: List[Int], value: Term): List[Int * Term] :=
+function leaf_values(levels: List[Int], value: Term): List[(Int, Term)] :=
   match (levels, value)
     case (List(l), _) =>
       List((l, value))
@@ -86,7 +86,7 @@ function leaf_values(levels: List[Int], value: Term): List[Int * Term] :=
       List()
   end
 
-function at_leaf(values: List[Int * Term], t: Term): Term :=
+function at_leaf(values: List[(Int, Term)], t: Term): Term :=
   foldl(values, t, lambda acc, (l, v) => replace(ELevel(l), v, acc))
 
 // the equations of the cases that match the leaf, in their order, whose variables follow those of p
@@ -95,7 +95,7 @@ function leaf_equations(decls: Decls, p: Partial, levels: List[Int], cases: List
   let q := Partial(p.vars ++ leaf.vars, List(for c in p.conds yield at_leaf(values, c)) ++ leaf.conds, List(for a in p.args yield at_leaf(values, a)), p.body) in
   hits_equations(decls, q, values, cases, leaf.hits)
 
-function hits_equations(decls: Decls, q: Partial, values: List[Int * Term], cases: List[TermBranch], hits: List[Hit]): List[DefEquation] :=
+function hits_equations(decls: Decls, q: Partial, values: List[(Int, Term)], cases: List[TermBranch], hits: List[Hit]): List[DefEquation] :=
   match hits
     case List() =>
       List()

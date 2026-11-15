@@ -77,9 +77,9 @@ function max(a: Int, b: Int): Int :=
   example max(2, -3) == 2
 
 // the components of a pair
-function first[A, B](p: A * B): A
+function first[A, B](p: (A, B)): A
 
-function second[A, B](p: A * B): B
+function second[A, B](p: (A, B)): B
 
 builtin
 
@@ -146,13 +146,13 @@ function min(a: Int, b: Int): Int :=
 function max(a: Int, b: Int): Int :=
   if a < b then b else a
 
-function first[A, B](p: A * B): A :=
+function first[A, B](p: (A, B)): A :=
   match p
     case (a, _) =>
       a
   end
 
-function second[A, B](p: A * B): B :=
+function second[A, B](p: (A, B)): B :=
   match p
     case (_, b) =>
       b

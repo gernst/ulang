@@ -10,7 +10,7 @@ data Regex :=
   // matches the empty text
   case Epsilon
   // one character in one of the ranges, or in none of them if negated
-  case Class(ranges: List[Char * Char], negated: Bool)
+  case Class(ranges: List[(Char, Char)], negated: Bool)
   case Seq(first: Regex, second: Regex)
   // a set, so that equal alternatives are one
   case Alt(alts: Set[Regex])
@@ -95,7 +95,7 @@ function derivative(c: Char, regex: Regex): Regex :=
       seq(derivative(c, body), regex)
   end
 
-function covers(ranges: List[Char * Char], c: Char): Bool :=
+function covers(ranges: List[(Char, Char)], c: Char): Bool :=
   exists(ranges, lambda (low, high) => low <= c and c <= high)
 
 function literal(text: Str): Regex :=
@@ -298,13 +298,13 @@ function escaped_char(c: Char): Char :=
   else
     c
 
-function digits(): List[Char * Char] :=
+function digits(): List[(Char, Char)] :=
   List(('0', '9'))
 
-function word_chars(): List[Char * Char] :=
+function word_chars(): List[(Char, Char)] :=
   List(('a', 'z'), ('A', 'Z'), ('0', '9'), ('_', '_'))
 
-function spaces(): List[Char * Char] :=
+function spaces(): List[(Char, Char)] :=
   List((' ', ' '), ('\t', '\t'), ('\n', '\n'), ('\r', '\r'))
 
 // after the [, where a ] right after [ or [^ is a character of the class
