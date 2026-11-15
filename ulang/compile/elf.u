@@ -460,7 +460,8 @@ procedure place(
     let next := sec_after(sec, item)
     // the offset of the section left behind, stored as the one of next is taken
     if next != sec then
-      sec := next, offset := value_or(get(next, offsets), 0), offsets := put(sec, offset, offsets)
+      offsets := put(sec, offset, offsets)
+      sec := next, offset := value_or(get(next, offsets), 0)
     end
     match item
       case ItemLine(LLabel(name)) =>

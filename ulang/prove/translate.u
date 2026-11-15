@@ -592,10 +592,14 @@ function run_stmt(exec: Exec, env: List[Name], stmt: At[Stmt], rest: List[Item],
     case SSkip =>
       run(exec, env, rest, steps, pos)
 
-    // in parallel, so that each value is of the variables before the assignment, shifted over the definitions before it
+    // one after another, each a definition of a new variable over those before
     case SAssign(upd) =>
-      let defs := List(for ((x, e), i) in zip(upd, range(0, size(upd))) yield DefineTerm(x, shift(i, term_of(env, e)), stmt.pos)) in
-      run(exec, bind(List(for (x, _) in upd yield x), env), rest, steps ++ defs, pos)
+      match upd
+        case List() =>
+          run(exec, env, rest, steps, pos)
+        case List((x, e); more) =>
+          run(exec, bind(List(x), env), List(IStmt(map_at(stmt, lambda _ => SAssign(more))); rest), steps ++ List(DefineTerm(x, term_of(env, e), stmt.pos)), pos)
+      end
 
     case SBlock(_, stmts) =>
       run(exec, env, List(for d in stmts yield IStmt(d)) ++ rest, steps, pos)

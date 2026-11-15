@@ -25,6 +25,15 @@ lemma sum_correct(in n: Int, out s: Int) :=
   correct sum(in n, out s)
   invariant 2 * s == i * (i - 1) and i <= n
 
+// the assignments of one statement one after another
+procedure shifted(in a: Int, b: Int, out x: Int, y: Int) :=
+  ensures x == b and y == a + 1
+  x := a, y := x + 1
+  x := b
+
+lemma shifted_correct(in a: Int, b: Int, out x: Int, y: Int) :=
+  correct shifted(in a, b, out x, y)
+
 // a call is proven by the contract of its procedure, not by its body
 procedure clamp(in a: Int, out c: Int) :=
   ensures c >= 0 and c >= a

@@ -1082,11 +1082,13 @@ procedure exec(
     case SSkip =>
       skip
 
-    // the variables are assigned in parallel
+    // one after another
     case SAssign(upd) =>
-      var vs: List[Val]
-      evaluate_all(in run, env, seconds(upd), out vs, ref cache)
-      env := env ++ Map(for (k, u) in zip(List(for x in firsts(upd) yield x.name), vs))
+      for (x, value) in upd do
+        var v: Val
+        evaluate(in run, env, value, out v, ref cache)
+        env := put(x.name, v, env)
+      end
 
     case SBlock(locals, stmts) =>
       scoped(in run, List(for x in locals yield x.that.name), env -- Set(for x in locals yield x.that.name), stmts, ref env, cache)
@@ -1784,8 +1786,8 @@ function procedures(): List[Cmd] :=
         (Var(unqualified("i"), THole), expr_int(0)))),
       SWhile(expr_app("<", List(expr_var("i"), expr_var("n"))), block(List(), List(
         SAssign(List(
-          (Var(unqualified("i"), THole), expr_app("+", List(expr_var("i"), expr_int(1)))),
-          (Var(unqualified("s"), THole), expr_app("+", List(expr_var("s"), expr_app("+", List(expr_var("i"), expr_int(1)))))))))))))),
+          (Var(unqualified("s"), THole), expr_app("+", List(expr_var("s"), expr_app("+", List(expr_var("i"), expr_int(1)))))),
+          (Var(unqualified("i"), THole), expr_app("+", List(expr_var("i"), expr_int(1)))))))))))),
     CProc(unqualified("count"), List(), List(), List(), unplaced_vars(List(Var(unqualified("k"), TInt()))), List(), no_spec(), block(List(), List(
       SAssign(List(
         (Var(unqualified("k"), THole), expr_app("+", List(expr_var("k"), expr_int(1)))))),

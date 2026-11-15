@@ -3960,12 +3960,18 @@ procedure statement_node(
     case SSkip =>
       y := stmt
 
+    // one after another, so that each value reads the variables that those before it assign
     case SAssign(upd) =>
-      var ys: List[Var], exprs: List[At[Expr]]
+      var typed: Buffer[(Var, At[Expr])] := empty()
       unique(in "assignment to", List(for x in firsts(upd) yield x.name), ref s)
-      variables(in env, assignable, firsts(upd), out ys, ref s)
-      checks(in env, "the assignment", seconds(upd), List(for x in ys yield x.typ), out exprs, ref s)
-      y := SAssign(zip(ys, exprs)), env := assigned(env, List(for x in ys yield x.name))
+      for (x, expr) in upd do
+        var typed_var: Var, typed_expr: At[Expr]
+        variable(in env, assignable, x, out typed_var, ref s)
+        check(in env, expr, typed_var.typ, "the assignment", out typed_expr, ref s)
+        typed := typed ++ List((typed_var, typed_expr))
+        env := assigned(env, List(typed_var.name))
+      end
+      y := SAssign(List(for a in typed))
 
     // the locals of the parser are SLocal statements, each declaring its variables for the statements after it in the
     // block, which the checked program keeps as written

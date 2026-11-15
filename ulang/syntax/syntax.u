@@ -187,7 +187,7 @@ data Branch[A] :=
 data Stmt :=
   // skip, also an else that is not written
   case SSkip
-  // assign x := a, …, which assigns in parallel
+  // assign x := a, …, which assigns one after another, each value of the variables after those before it
   case SAssign(upd: List[(Var, At[Expr])])
   // statements one after another, the body of an if, while, case, or procedure, where the parser gives no locals but
   // SLocal statements, and the checker gives no SLocal but blocks whose locals the assignments at the start of stmts
