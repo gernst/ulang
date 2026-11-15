@@ -61,7 +61,7 @@ test rename_messages() :=
   assert status == 1
   assert reply == List(
     "rejected",
-    "the rename changes the resolution of other names, so nothing is written:\n" ++ dir ++ "/p/b.u:6.3: the use y would resolve to the local y instead of " ++ dir ++ "/p/a.y")
+    "the rename changes the resolution of other names, so nothing is written:\n" ++ dir ++ "/p/b.u:6.3: the use y would resolve to the local y instead of out.test.refactor.small.rename.p.a.y")
   run_script(in "@refs ./" ++ dir ++ "/p/a.u:f", false, dir, unchecked, out reply, status, _)
   assert status == 0
   assert drop(1, reply) == List(

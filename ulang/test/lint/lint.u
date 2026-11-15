@@ -28,14 +28,13 @@ function warning_text(d: Mod, w: Warning): Str :=
 test lints_of_ifs() :=
   var found: List[(Pos, Str)]
   linted(in List(BoolIte), List(
-    "prefix 5 not",
     "function f(c: Bool): Bool :=",
     "  if c then true else false",
     "function g(c: Bool): Bool :=",
     "  if c then false else true",
     "function not(b: Bool): Bool :=",
     "  if b then false else true"), out found)
-  assert found == List((Pos(3, 3), "c"), (Pos(5, 3), "not c"))
+  assert found == List((Pos(2, 3), "c"), (Pos(4, 3), "not c"))
 
 test lints_of_matches() :=
   var found: List[(Pos, Str)]
@@ -183,7 +182,6 @@ test lints_of_privates() :=
   var found: List[(Pos, Str)]
   linted(in List(UnusedPrivate), List(
     "export",
-    "infix 6 ==",
     "function f(x: Int): Int",
     "implementation",
     "function f(x: Int): Int :=",
@@ -201,8 +199,8 @@ test lints_of_privates() :=
     "test uses_t() :=",
     "  assert t(1) == 1"), out found)
   assert found == List(
-    (Pos(9, 1), "nothing reaches the private function h"),
-    (Pos(11, 1), "nothing reaches the private function k"))
+    (Pos(8, 1), "nothing reaches the private function h"),
+    (Pos(10, 1), "nothing reaches the private function k"))
 
 test lints_of_names() :=
   var found: List[(Pos, Str)]

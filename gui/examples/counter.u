@@ -1,0 +1,37 @@
+import gui
+
+data Msg :=
+  case Inc
+  case Dec
+  case Reset
+
+function update(msg: Msg, n: Int): Int :=
+  match msg
+    case Inc =>
+      n + 1
+
+    case Dec =>
+      n - 1
+
+    case Reset =>
+      0
+  end
+
+function view(n: Int): Widget[Msg] :=
+  column(List(spacing(8)), List(
+    text("Count: " ++ show(n)),
+    row(List(spacing(4)), List(
+      button(List(on_click(Dec)), List(text("-"))),
+      button(List(on_click(Inc)), List(text("+"))),
+      button(List(on_click(Reset), disabled(n == 0)), List(text("Reset")))))))
+
+function counter(): App[Int, Msg] :=
+  App("Counter", 0, update, view)
+
+procedure main() raises GuiError, OsError :=
+  gui_run(in counter())
+
+test counts() :=
+  assert simulate(counter(), List(Inc, Inc, Dec)) == 1
+  assert click("+", view(0)) == Some(Inc) and click("Reset", view(3)) == Some(Reset)
+  assert misplaced(view(0)) == List()
