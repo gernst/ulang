@@ -633,7 +633,7 @@ procedure expr_cases(
       var bs: List[CStmt], rb: CExpr, here: List[CStmt], rest: List[CStmt]
       let env_: Vars := in_scope(pattern_names(pat)) ++ env
       compile_expr(in defs, env_, e, out bs, rb, ref g)
-      case_stmts(in defs, env_, t, List(for q in alternatives(pat) yield (pattern_tests(q.that, v), q)), v, guard, bs ++ List(CsAssign(CeVar(t), rb)), out here, ref g)
+      case_stmts(in defs, env_, t, case_alternatives(pat, v, more == List() and guard == None), v, guard, bs ++ List(CsAssign(CeVar(t), rb)), out here, ref g)
       expr_cases(in defs, env, more, v, t, out rest, ref g)
       ss := here ++ rest
 
@@ -1132,6 +1132,17 @@ procedure case_stmts(
         CsBlock(List(for x in names yield CsDecl(value_type(), var_name(x), Some(CeVar("NULL")))) ++ List(declare_int(m, 0)) ++ List(for t in tried) ++ List(CsIf(CeVar(m), body, List()))))
   end
 
+// the alternatives of the pattern of a case with their tests that v matches them, where one of them matches if the case is
+// matched, the last of a match without a guard, which is exhaustive, or of a let or for, whose pattern is irrefutable: then
+// the last alternative needs no test, as a case _ has none, and if they bind no variables, the last alone stands for all
+function case_alternatives(pat: At[Pat], v: CExpr, matched: Bool): List[(List[CExpr], At[Pat])] :=
+  let alts := alternatives(pat), n := size(alts) in
+  if not matched then
+    List(for q in alts yield (pattern_tests(q.that, v), q))
+  else
+    let tested := if pattern_names(pat) == List() then List() else take(n - 1, alts) in
+    List(for q in tested yield (pattern_tests(q.that, v), q)) ++ List(for q in drop(n - 1, alts) yield (List(), q))
+
 // the declarations of pattern_binds as assignments of the variables, which case_stmts declares
 function assigned(binds: List[CStmt]): List[CStmt] :=
   List(for b in binds yield match b
@@ -1159,7 +1170,7 @@ procedure stmt_cases(
       var bs: List[CStmt], here: List[CStmt], rest: List[CStmt]
       let env_: Vars := in_scope(pattern_names(pat)) ++ env
       compile_stmt(in defs, env_, s, out bs, ref g)
-      case_stmts(in defs, env_, d, List(for q in alternatives(pat) yield (pattern_tests(q.that, v), q)), v, guard, List(CsAssign(CeVar(d), CeNum(1))) ++ bs, out here, ref g)
+      case_stmts(in defs, env_, d, case_alternatives(pat, v, more == List() and guard == None), v, guard, List(CsAssign(CeVar(d), CeNum(1))) ++ bs, out here, ref g)
       stmt_cases(in defs, env, more, v, d, out rest, ref g)
       ss := here ++ rest
 

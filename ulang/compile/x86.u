@@ -816,19 +816,24 @@ procedure expr_cases(
       done: Str,
   ref e: Emit
 ) :=
-  for d in cases do
+  let last := size(cases) - 1
+  for (d, i) in numbered(cases) do
     match d
+      // the last case without a guard of a match, which is exhaustive, matches what the cases before leave
       case AOk(_, _, Branch(pat, guard, body)) =>
         var next: Str, binds: Slots
+        let matched := i == last and guard == None
         new_label(out next, ref e)
         if has_alternatives(pat) then
           var target: Str
           new_label(out target, ref e)
-          shared_alternatives(in defs, env, List(for q in alternatives(pat) yield (None, q)), 0, s, guard, target, out binds, ref e)
+          shared_alternatives(in defs, env, List(for q in alternatives(pat) yield (None, q)), matched, 0, s, guard, target, out binds, ref e)
           emit(in IJmp(next), ref e)
           place(in target, ref e)
         else
-          test_pat(in pat.that, s, List(), next, ref e)
+          if not matched then
+            test_pat(in pat.that, s, List(), next, ref e)
+          end
           bind_pat(in pat.that, s, List(), out binds, ref e)
           guard_test(in defs, binds ++ env, guard, next, ref e)
         end
@@ -1156,7 +1161,7 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
         new_label(out target, ref e)
         load_path(in l, List(0), ref e)
         spill(out item, ref e)
-        shared_alternatives(in defs, env, List(for q in alternatives(pat) yield (None, q)), 0, item, None, target, out binds, ref e)
+        shared_alternatives(in defs, env, List(for q in alternatives(pat) yield (None, q)), true, 0, item, None, target, out binds, ref e)
         place(in target, ref e)
         compile_stmt(in defs, binds ++ env, body, ref e)
       else
@@ -1248,7 +1253,7 @@ procedure handler_cases(
         new_label(out target, ref e)
         call_runtime(in "u_caught", List(AVal(slot(h))), ref e)
         spill(out v, ref e)
-        shared_alternatives(in defs, env, List(for c in expanded_handlers(List(d)) yield (handler_type(c.that), c.that.pat)), h, v, guard, target, out binds, ref e)
+        shared_alternatives(in defs, env, List(for c in expanded_handlers(List(d)) yield (handler_type(c.that), c.that.pat)), false, h, v, guard, target, out binds, ref e)
         emit(in IJmp(next), ref e)
         place(in target, ref e)
         compile_stmt(in defs, binds ++ env, s, ref e)
@@ -1295,11 +1300,14 @@ function handler_type(c: Catch): Option[Type] :=
 // the alternatives of a case over the value in slot s, each tested, if it has a type, by the type of the exception of
 // the handler in slot h, then by its pattern, and bound, which jump to body once the guard holds, so that the body is
 // compiled once: binds are the slots of the variables of the first alternative, into which the others move theirs, and
-// an alternative whose tests or guard fail tries the next, after the last of which the code goes on
+// an alternative whose tests or guard fail tries the next, after the last of which the code goes on; if one of them matches,
+// matched, as in the last case of a match without a guard, which is exhaustive, or in a let or for, whose pattern is
+// irrefutable, the last needs no test, as a case _ has none, and if they bind no variables, the last alone stands for all
 procedure shared_alternatives(
   in  defs: Defs,
       env: Slots,
       alts: List[(Option[Type], At[Pat])],
+      matched: Bool,
       h: Int,
       s: Int,
       guard: Option[At[Expr]],
@@ -1308,8 +1316,14 @@ procedure shared_alternatives(
   ref e: Emit
 ) :=
   var first := true
+  let n := size(alts)
+  let tried := if matched and forall(alts, lambda (_, pat) => pattern_names(pat) == List()) then
+    drop(n - 1, alts)
+  else
+    alts
+  let last := size(tried) - 1
   binds := List()
-  for (typ, pat) in alts do
+  for ((typ, pat), i) in numbered(tried) do
     var next: Str, found: Slots
     new_label(out next, ref e)
     match typ
@@ -1322,7 +1336,9 @@ procedure shared_alternatives(
       case None =>
         skip
     end
-    test_pat(in pat.that, s, List(), next, ref e)
+    if not matched or i < last then
+      test_pat(in pat.that, s, List(), next, ref e)
+    end
     bind_pat(in pat.that, s, List(), out found, ref e)
     if first then
       binds := found, first := false
@@ -1347,19 +1363,24 @@ procedure stmt_cases(
       done: Str,
   ref e: Emit
 ) :=
-  for d in cases do
+  let last := size(cases) - 1
+  for (d, i) in numbered(cases) do
     match d
+      // the last case without a guard of a match, which is exhaustive, matches what the cases before leave
       case AOk(_, _, Branch(pat, guard, body)) =>
         var next: Str, binds: Slots
+        let matched := i == last and guard == None
         new_label(out next, ref e)
         if has_alternatives(pat) then
           var target: Str
           new_label(out target, ref e)
-          shared_alternatives(in defs, env, List(for q in alternatives(pat) yield (None, q)), 0, s, guard, target, out binds, ref e)
+          shared_alternatives(in defs, env, List(for q in alternatives(pat) yield (None, q)), matched, 0, s, guard, target, out binds, ref e)
           emit(in IJmp(next), ref e)
           place(in target, ref e)
         else
-          test_pat(in pat.that, s, List(), next, ref e)
+          if not matched then
+            test_pat(in pat.that, s, List(), next, ref e)
+          end
           bind_pat(in pat.that, s, List(), out binds, ref e)
           guard_test(in defs, binds ++ env, guard, next, ref e)
         end
