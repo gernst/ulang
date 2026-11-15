@@ -2047,8 +2047,12 @@ procedure take_errors(
     errors := List()
   else
     let own := List(for (i, e) in zip(range(before, size(s.errors)), drop(before, s.errors)) if not contains(i, s.taken) yield (i, e))
-    errors := List(for (_, e) in own yield type_diagnostic(e)), s := s with taken := s.taken ++ Set(for (i, _) in own yield i)
+    errors := List(for (_, e) in own yield with_module(type_diagnostic(e), s.module)), s := s with taken := s.taken ++ Set(for (i, _) in own yield i)
   end
+
+// d of a part of the module m, which a run reaches without the command around it (require_checked of ulang/run/run.u)
+function with_module(d: Diagnostic, m: Id): Diagnostic :=
+  d with module := or_else(d.module, Some(m))
 
 // x at pos with its errors, if it has some
 function checked_at[A](pos: Pos, span: Span, x: A, errors: List[Diagnostic]): At[A] :=
@@ -4985,7 +4989,7 @@ function in_main(main: Id, e: TypeError): TypeError :=
   end
 
 // the modules in the order of mods, where the members of a package, which follow each other, are checked together, and
-// each other module, a program, on its own
+// a module of no package on its own
 function units(mods: List[Mod], packages: List[Package]): List[List[Mod]] :=
   match mods
     case List() =>

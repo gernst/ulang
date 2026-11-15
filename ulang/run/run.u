@@ -23,8 +23,9 @@ data Val :=
   case VProc(name: Name)
   case VProcClos(env: Map[Name, Val], ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
 
+// main, the module of the loaded file, whose errors a Deferred names without their module, as the diagnostics do
 data Run :=
-  case Run(defs: Defs, computing: List[Name], args: List[Str])
+  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Id)
 
 data Thrown :=
   case Thrown(value: Val, typ: Type)
@@ -197,7 +198,7 @@ procedure unordered(in run: Run, k: Name, equating: Bool) :=
   end
 
 function load(q: Prog): Run :=
-  Run(defs_of(q), List(), List())
+  Run(defs_of(q), List(), List(), q.main)
 
 // the contents of a string, as printing and declared shows give them, and the source of any other value
 function text_of(v: Val): Str :=
@@ -372,13 +373,13 @@ function match_all_into(pats: List[At[Pat]], vs: List[Val], env: Bindings): Opti
 
 // raises Deferred at a part that checking rejected or that does not parse, which a run reaches only in a program with
 // errors, whose other parts it runs
-procedure require_checked[A](in x: At[A]) raises RuntimeError :=
+procedure require_checked[A](in run: Run, x: At[A]) raises RuntimeError :=
   match x
     case AOk(_, _, _) =>
       skip
 
     case AErr(_, _, _, errors) =>
-      raise Deferred(deferred_text(errors))
+      raise Deferred(deferred_text(List(for d in errors yield if d.module == Some(run.main) then d with module := None else d)))
 
     case AUnparsed(_, _, _, error) =>
       raise Deferred(deferred_text(List(error)))
@@ -391,7 +392,7 @@ procedure evaluate(
   out v: Val,
   ref cache: Map[Name, Val]
 ) :=
-  require_checked(in expr)
+  require_checked(in run, expr)
   match expr.that
     case ELit(lit) =>
       v := VLit(lit)
@@ -1047,7 +1048,7 @@ procedure exec(
   ref env: Bindings,
       cache: Map[Name, Val]
 ) :=
-  require_checked(in stmt)
+  require_checked(in run, stmt)
   match stmt.that
     case SSkip =>
       skip

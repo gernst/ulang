@@ -639,7 +639,7 @@ test broken_sibling() :=
 // a program that imports a package with errors is checked against its signature and runs what the errors do not touch,
 // here the first test, and raises Deferred where it reaches a definition that checking rejected, of the second test
 test imports_errors() :=
-  assert raises Deferred("the type error at 13.7, expected Int but found Bool in argument 2 of the call") do
+  assert raises Deferred("the type error at 13.7 in ulang/test/errors/imports_errors/broken/broken, expected Int but found Bool in argument 2 of the call") do
     run_texts_despite_errors(in "ulang/test/errors/imports_errors", List(
       ("ulang/test/errors/imports_errors/broken", List(
         ("broken.u", List(
