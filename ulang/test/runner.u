@@ -74,7 +74,8 @@ procedure test_module(
       passed := false
     end
   end
-  if names == List() and not has_errors(q) then
+  // a unit with errors, also only of parsing, which has_errors leaves to the parser, proves no lemmas
+  if names == List() and not exists(q.cmds, lambda c => cmd_errors(c) != List()) then
     var proven: Bool
     prove_module(in q, m, file, List(), falsified, label, out proven)
     passed := passed and proven

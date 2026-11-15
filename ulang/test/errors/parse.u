@@ -258,7 +258,7 @@ test several_argument_errors() :=
 test habits() :=
   assert raises ParseErrors(List(
     ParseError("statement expected but x found; write x := x + e", Pos(4, 3)),
-    ParseError(") expected but x found", Pos(5, 9)),
+    ParseError(") expected but x found; the arguments of a call follow their modes, as in print(in a, out x)", Pos(5, 9)),
     ParseError("statement expected but return found; a function is the value of its body, and a procedure gives its results by assigning its outs", Pos(6, 3)),
     ParseError("else or end expected but elif found; write else, then if c then … end on the next line, with an end of its own", Pos(9, 3)),
     ParseError("expression expected but [ found; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments", Pos(12, 9)),
