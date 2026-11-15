@@ -432,14 +432,63 @@ function format_hint(h: Hint): List[Str] :=
       List(hover(span, format_name(name) ++ typed(typ)))
 
     case HDecl(span, name, typ, written) =>
-      List(hover(span, format_name(name) ++ typed(typ))) ++ (if written then List() else List(inlay(span.stop, typed(typ))))
+      List(hover(span, format_name(name) ++ typed(typ))) ++ (if written or has_unknown(typ) then
+        List()
+      else
+        List(inlay(span.stop, typed(typ))))
 
     case HRaises(pos, _, raised) =>
       List(inlay(pos, " raises " ++ format_types(raised)))
   end
 
 function typed(typ: Type): Str :=
-  if typ == THole then "" else ": " ++ format_type(typ)
+  if typ == THole then "" else ": " ++ format_type(unknowns_hidden(typ))
+
+// typ with each unknown of inference as TError, which format_type writes ?, since the number of an unknown is that of the
+// substitution of its command, which tells the reader nothing
+function unknowns_hidden(typ: Type): Type :=
+  match typ
+    case TMeta(_) =>
+      TError
+
+    case THole | TParam(_) | TError =>
+      typ
+
+    case TSort(name, args) =>
+      TSort(name, List(for t in args yield unknowns_hidden(t)))
+
+    case TFun(args, res) =>
+      TFun(List(for t in args yield unknowns_hidden(t)), unknowns_hidden(res))
+
+    case TProc(ins, outs, refs, raised) =>
+      TProc(List(for t in ins yield unknowns_hidden(t)), List(for t in outs yield unknowns_hidden(t)), List(for t in refs yield unknowns_hidden(t)), raised)
+
+    case TTuple(types) =>
+      TTuple(List(for t in types yield unknowns_hidden(t)))
+  end
+
+// whether typ has a part that no source can write, an unknown of inference or the type of an error, which an inlay would
+// offer
+function has_unknown(typ: Type): Bool :=
+  match typ
+    case TMeta(_) | TError =>
+      true
+
+    case THole | TParam(_) =>
+      false
+
+    case TSort(_, args) =>
+      exists(args, has_unknown)
+
+    case TFun(args, res) =>
+      exists(List(res; args), has_unknown)
+
+    case TProc(ins, outs, refs, _) =>
+      exists(ins ++ outs ++ refs, has_unknown)
+
+    case TTuple(types) =>
+      exists(types, has_unknown)
+  end
 
 function hover(span: Span, text: Str): Str :=
   json_object(List(
@@ -546,3 +595,16 @@ test sample_hints() :=
     "{\"kind\": \"hover\", \"line\": 23, \"column\": 10, \"end_line\": 23, \"end_column\": 14, \"text\": \"main.Succ: Nat -> Nat\"}",
     "{\"kind\": \"hover\", \"line\": 23, \"column\": 15, \"end_line\": 23, \"end_column\": 16, \"text\": \"k: Nat\"}",
     "{\"kind\": \"hover\", \"line\": 23, \"column\": 17, \"end_line\": 23, \"end_column\": 19, \"text\": \"main.Nat.n: Nat -> Nat\"}")
+
+// an unknown that a command leaves open, of the formal of a lambda that nothing applies, shows as ? in hovers, without an
+// inlay, which would offer a type that no source can write
+test unknown_hints() :=
+  var own: Mod, q: Prog
+  let text := "data D :=\n  case D\n\nfunction g(): D :=\n  let f := lambda x => x in\n  D\n"
+  parse_text(in text, out own)
+  check_program(in Source(List(own), List(), List("main")), out q)
+  assert List(for h in hints(text, q) for line in format_hint(h) yield line) == List(
+    "{\"kind\": \"hover\", \"line\": 5, \"column\": 7, \"end_line\": 5, \"end_column\": 8, \"text\": \"f: ? -> ?\"}",
+    "{\"kind\": \"hover\", \"line\": 5, \"column\": 19, \"end_line\": 5, \"end_column\": 20, \"text\": \"x: ?\"}",
+    "{\"kind\": \"hover\", \"line\": 5, \"column\": 24, \"end_line\": 5, \"end_column\": 25, \"text\": \"x: ?\"}",
+    "{\"kind\": \"hover\", \"line\": 6, \"column\": 3, \"end_line\": 6, \"end_column\": 4, \"text\": \"main.D: D\"}")

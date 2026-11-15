@@ -1365,14 +1365,14 @@ procedure handler_cases(
 ) :=
   for d in hs do
     match d
-      // the alternatives of the pattern of a handler may have types of their own, see expanded_handlers
+      // the alternatives of the pattern of a handler may have types of their own, see tested_handlers
       case AOk(_, _, Catch(_, pat, guard, s)) if has_alternatives(pat) =>
         var next: Str, target: Str, v: Int, binds: Slots
         new_label(out next, ref e)
         new_label(out target, ref e)
         call_runtime(in "u_caught", List(AVal(slot(h))), ref e)
         spill(out v, ref e)
-        shared_alternatives(in defs, env, List(for c in expanded_handlers(List(d)) yield (handler_type(c.that), c.that.pat)), h, v, guard, target, out binds, ref e)
+        shared_alternatives(in defs, env, List(for c in tested_handlers(d.that) yield (handler_type(c), c.pat)), h, v, guard, target, out binds, ref e)
         emit(in IJmp(next), ref e)
         place(in target, ref e)
         compile_stmt(in defs, binds ++ env, s, ref e)
@@ -1432,7 +1432,16 @@ procedure shared_alternatives(
   ref e: Emit
 ) :=
   var first := true
+  let shared := exists(alts, lambda (_, pat) => has_bound_alternatives(pat))
   binds := List()
+  // alternatives that have alternatives inside that bind variables store them into the slots of the case, by match_pat
+  if shared then
+    for x in List(for (_, pat) in take(1, alts) for x in pattern_names(pat) yield x) do
+      var t: Int
+      new_slot(out t, ref e)
+      binds := binds ++ List((x, t))
+    end
+  end
   for (typ, pat) in alts do
     var next: Str, found: Slots
     new_label(out next, ref e)
@@ -1446,15 +1455,19 @@ procedure shared_alternatives(
       case None =>
         skip
     end
-    test_pat(in pat.that, s, List(), next, ref e)
-    bind_pat(in pat.that, s, List(), out found, ref e)
-    if first then
-      binds := found, first := false
+    if shared then
+      match_pat(in pat.that, s, List(), next, binds, false, ref e)
     else
-      for (name, t) in found do
-        emit_all(in List(
-          IMov(slot(t), OReg(Rax)),
-          IMov(OReg(Rax), slot(value_or(get(name, binds), t)))), ref e)
+      test_pat(in pat.that, s, List(), next, ref e)
+      bind_pat(in pat.that, s, List(), out found, ref e)
+      if first then
+        binds := found, first := false
+      else
+        for (name, t) in found do
+          emit_all(in List(
+            IMov(slot(t), OReg(Rax)),
+            IMov(OReg(Rax), slot(value_or(get(name, binds), t)))), ref e)
+        end
       end
     end
     guard_test(in defs, binds ++ env, guard, next, ref e)
