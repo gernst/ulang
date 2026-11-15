@@ -2575,7 +2575,7 @@ function form_expr(pos: Pos, span: Span, form: Form, elems: List[Yield], rest: O
     case FMap =>
       foldl(elems, base_expr(pos, span, form, rest), lambda acc, e => step_expr(pos, span, form, e, acc))
 
-    case _ =>
+    case FList | FSet =>
       foldr(elems, base_expr(pos, span, form, rest), lambda e, acc => step_expr(pos, span, form, e, acc))
   end
 

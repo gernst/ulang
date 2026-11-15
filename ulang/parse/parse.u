@@ -2770,8 +2770,12 @@ procedure step_of(in stmt: At[Stmt], out step: Step) raises ParseError :=
     case SCall(_, _, _, _) =>
       raise ParseError("a call of a lemma has no refs", stmt.pos)
 
-    case _ =>
+    case SAssertRaises(_, _, _) =>
       raise ParseError("assert raises is no step of a proof", stmt.pos)
+
+    // parse_proof parses a statement only at assert or at a name, so that no other statement reaches here
+    case _ =>
+      raise ParseError("the statement is no step of a proof", stmt.pos)
   end
 
 // induction x, match e, or if c, with their cases, each a proof
