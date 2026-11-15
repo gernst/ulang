@@ -21,4 +21,4 @@ The `case _` of the traversals become alternatives of the constructors they stan
 
 ## Open
 
-- The backends multiply nested alternatives out into copies of the case, which needs a limit, or a test of the alternatives where they stand that binds the variables of each, only if a program ever makes many.
+- The compilers multiply nested alternatives out into the tests, bindings, and guards of each combination, while the body is compiled once; a test of the alternatives where they stand, which binds the variables of each, only if a program ever makes many.

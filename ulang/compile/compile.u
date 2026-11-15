@@ -446,7 +446,7 @@ procedure compile_expr(
       compile_expr(in defs, env, arg, out as, ra, ref g)
       gen_name(in "s", out d, ref g)
       gen_name(in "t", out t, ref g)
-      expr_cases(in defs, env, expanded_cases(cases), CeVar(d), t, out bs, ref g)
+      expr_cases(in defs, env, cases, CeVar(d), t, out bs, ref g)
       ss := as ++ List(
         CsDecl(value_type(), d, Some(ra)),
         CsDecl(value_type(), t, Some(CeVar("NULL")))) ++ bs
@@ -610,21 +610,12 @@ procedure expr_cases(
       ss := List()
 
     case List(AOk(_, _, Branch(pat, guard, e)); more) =>
-      var bs: List[CStmt], rb: CExpr, body: List[CStmt], rest: List[CStmt]
+      var bs: List[CStmt], rb: CExpr, here: List[CStmt], rest: List[CStmt]
       let env_: Vars := in_scope(pattern_names(pat)) ++ env
       compile_expr(in defs, env_, e, out bs, rb, ref g)
-      body := bs ++ List(CsAssign(CeVar(t), rb))
-      match guard
-        case Some(c) =>
-          var gs: List[CStmt], rg: CExpr
-          compile_expr(in defs, env_, c, out gs, rg, ref g)
-          body := gs ++ List(CsIf(truth(rg), body, List()))
-
-        case None =>
-          skip
-      end
+      case_stmts(in defs, env_, t, List(for q in alternatives(pat) yield (pattern_tests(q.that, v), q)), v, guard, bs ++ List(CsAssign(CeVar(t), rb)), out here, ref g)
       expr_cases(in defs, env, more, v, t, out rest, ref g)
-      ss := List(case_if(t, pattern_tests(pat.that, v), pat, v, body)) ++ rest
+      ss := here ++ rest
 
     // compile_target of the driver refuses or leaves out the code with errors, so no error node reaches here
     case _ =>
@@ -914,7 +905,7 @@ procedure compile_stmt(
       compile_expr(in defs, env, arg, out as, ra, ref g)
       gen_name(in "stmt", out d, ref g)
       gen_name(in "d", out t, ref g)
-      stmt_cases(in defs, env, expanded_cases(cases), CeVar(d), t, out bs, ref g)
+      stmt_cases(in defs, env, cases, CeVar(d), t, out bs, ref g)
       ss := as ++ List(CsDecl(value_type(), d, Some(ra)), CsDecl(CtInt, t, Some(CeNum(0)))) ++ bs
       ss := ss ++ List(
         CsIf(CeUnary("!", CeVar(t)), List(CsExpr(c_call("u_no_case", List(CeVar(d))))), List()))
@@ -951,7 +942,7 @@ procedure compile_stmt(
       if has_alternatives(pat) then
         var d: Str, ms: List[CStmt]
         gen_name(in "d", out d, ref g)
-        stmt_cases(in defs, env, expanded_cases(List(nowhere(Branch(pat, None, body)))), field(CeVar(l), 0), d, out ms, ref g)
+        stmt_cases(in defs, env, List(nowhere(Branch(pat, None, body))), field(CeVar(l), 0), d, out ms, ref g)
         bs := List(declare_int(d, 0)) ++ ms
       else
         var ms: List[CStmt]
@@ -992,7 +983,7 @@ procedure compile_try(
   var as: List[CStmt], cs: List[CStmt], t: Str, d: Str, xs: List[Name]
   gen_name(in "h", out d, ref g)
   gen_name(in "d", out t, ref g)
-  handler_cases(in defs, env, expanded_handlers(catches), d, t, out cs, ref g)
+  handler_cases(in defs, env, catches, d, t, out cs, ref g)
   xs := List(for x in distinct(changed(body)) if get(x, env) != None)
   as := List(pop_handler(d)) ++ restore_vars(env, xs, d, 0) ++ List(declare_int(t, 0))
   as := as ++ cs ++ List(CsIf(not_flag(t), List(call_c("u_reraise", List(CeVar(d)))), List()))
@@ -1039,34 +1030,89 @@ procedure handler_cases(
     case List() =>
       ss := List()
 
-    case List(AOk(_, _, Catch(typ, pat, guard, s)); more) =>
-      var bs: List[CStmt], body: List[CStmt], rest: List[CStmt]
+    // the alternatives of the pattern of a handler may have types of their own, see expanded_handlers
+    case List(AOk(pos, span, Catch(typ, pat, guard, s)); more) =>
+      var bs: List[CStmt], here: List[CStmt], rest: List[CStmt]
       let env_: Vars := in_scope(pattern_names(pat)) ++ env
-      var tests: List[CExpr]
       compile_stmt(in defs, env_, s, out bs, ref g)
-      body := List(CsAssign(CeVar(d), CeNum(1))) ++ bs
-      match guard
-        case Some(c) =>
-          var gs: List[CStmt], rg: CExpr
-          compile_expr(in defs, env_, c, out gs, rg, ref g)
-          body := gs ++ List(CsIf(truth(rg), body, List()))
-
-        case None =>
-          skip
-      end
-      match pat.that
-        case PWild =>
-          tests := List()
-        case _ =>
-          tests := List(c_call("u_has_type", List(CeVar(h), CeStr(type_key(typ))))) ++ pattern_tests(pat.that, v)
-      end
+      case_stmts(in defs, env_, d, List(for c in expanded_handlers(List(AOk(pos, span, Catch(typ, pat, guard, s)))) yield (handler_tests(c.that, h, v), c.that.pat)), v, guard, List(CsAssign(CeVar(d), CeNum(1))) ++ bs, out here, ref g)
       handler_cases(in defs, env, more, h, d, out rest, ref g)
-      ss := List(case_if(d, tests, pat, v, body)) ++ rest
+      ss := here ++ rest
 
     // compile_target of the driver refuses or leaves out the code with errors, so no error node reaches here
     case _ =>
       raise Unexpected("error node")
   end
+
+// the tests that the exception of the handler h, whose value is v, matches the handler c of one alternative, its type
+// before its pattern, which assumes it
+function handler_tests(c: Catch, h: Str, v: CExpr): List[CExpr] :=
+  match c.pat.that
+    case PWild =>
+      List()
+    case _ =>
+      List(c_call("u_has_type", List(CeVar(h), CeStr(type_key(c.typ))))) ++ pattern_tests(c.pat.that, v)
+  end
+
+// a case of the alternatives alts, each with its tests that v matches its pattern, while flag is unset, where the body
+// runs once: a case of one alternative tests, binds, and runs the guard and the body, as it always has, and one of
+// several declares the variables of the case, which each alternative that applies assigns, and sets m if the guard
+// holds, so that a guard that fails on one tries the next, before the body runs if m is set
+procedure case_stmts(
+  in  defs: Defs,
+      env: Vars,
+      flag: Str,
+      alts: List[List[CExpr] * At[Pat]],
+      v: CExpr,
+      guard: Option[At[Expr]],
+      body: List[CStmt],
+  out ss: List[CStmt],
+  ref g: Gen
+) :=
+  match alts
+    case List((tests, pat)) =>
+      var guarded_body: List[CStmt] := body
+      match guard
+        case Some(c) =>
+          var gs: List[CStmt], rg: CExpr
+          compile_expr(in defs, env, c, out gs, rg, ref g)
+          guarded_body := gs ++ List(CsIf(truth(rg), body, List()))
+
+        case None =>
+          skip
+      end
+      ss := List(case_if(flag, tests, pat, v, guarded_body))
+
+    case _ =>
+      var m: Str, tried: Buffer[CStmt] := empty()
+      gen_name(in "m", out m, ref g)
+      for (tests, pat) in alts do
+        var hit: List[CStmt] := List(CsAssign(CeVar(m), CeNum(1)))
+        match guard
+          case Some(c) =>
+            var gs: List[CStmt], rg: CExpr
+            compile_expr(in defs, env, c, out gs, rg, ref g)
+            hit := gs ++ List(CsIf(truth(rg), hit, List()))
+
+          case None =>
+            skip
+        end
+        tried := tried ++ List(
+          CsIf(conjunction(List(not_flag(flag), not_flag(m)) ++ tests), assigned(pattern_binds(pat.that, v)) ++ hit, List()))
+      end
+      let names := List(for (_, pat) in take(1, alts) for x in pattern_names(pat) yield x)
+      ss := List(
+        CsBlock(List(for x in names yield CsDecl(value_type(), var_name(x), Some(CeVar("NULL")))) ++ List(declare_int(m, 0)) ++ List(for t in tried) ++ List(CsIf(CeVar(m), body, List()))))
+  end
+
+// the declarations of pattern_binds as assignments of the variables, which case_stmts declares
+function assigned(binds: List[CStmt]): List[CStmt] :=
+  List(for b in binds yield match b
+    case CsDecl(_, name, Some(e)) =>
+      CsAssign(CeVar(name), e)
+    case _ =>
+      b
+  end)
 
 // the cases of a match statement, which set the flag d when one applies
 procedure stmt_cases(
@@ -1083,21 +1129,12 @@ procedure stmt_cases(
       ss := List()
 
     case List(AOk(_, _, Branch(pat, guard, s)); more) =>
-      var bs: List[CStmt], body: List[CStmt], rest: List[CStmt]
+      var bs: List[CStmt], here: List[CStmt], rest: List[CStmt]
       let env_: Vars := in_scope(pattern_names(pat)) ++ env
       compile_stmt(in defs, env_, s, out bs, ref g)
-      body := List(CsAssign(CeVar(d), CeNum(1))) ++ bs
-      match guard
-        case Some(c) =>
-          var gs: List[CStmt], rg: CExpr
-          compile_expr(in defs, env_, c, out gs, rg, ref g)
-          body := gs ++ List(CsIf(truth(rg), body, List()))
-
-        case None =>
-          skip
-      end
+      case_stmts(in defs, env_, d, List(for q in alternatives(pat) yield (pattern_tests(q.that, v), q)), v, guard, List(CsAssign(CeVar(d), CeNum(1))) ++ bs, out here, ref g)
       stmt_cases(in defs, env, more, v, d, out rest, ref g)
-      ss := List(case_if(d, pattern_tests(pat.that, v), pat, v, body)) ++ rest
+      ss := here ++ rest
 
     // compile_target of the driver refuses or leaves out the code with errors, so no error node reaches here
     case _ =>
