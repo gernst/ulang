@@ -319,10 +319,10 @@ function pattern_binds(pat: Pat, v: CExpr): List[CStmt] :=
 function field_binds(ps: List[(At[Pat], Int)], v: CExpr): List[CStmt] :=
   List(for (p, i) in ps for b in pattern_binds(p.that, field(v, i)) yield b)
 
-procedure gen_name(in stem: Str, out x: Str, ref g: Gen) :=
+procedure gen_name(in stem: Str, out x: Str, ref g: ulang.compile.Gen) :=
   x := stem ++ show(g.count), g := g with count := g.count + 1
 
-procedure lift(in d: CDecl, ref g: Gen) :=
+procedure lift(in d: CDecl, ref g: ulang.compile.Gen) :=
   g := g with lifted := g.lifted ++ List(d)
 
 // a function, constructor, or builtin of name n with type t as a value, which is a closure of its wrapper
@@ -370,7 +370,7 @@ procedure compile_expr(
       expr: At[Expr],
   out ss: List[CStmt],
       r: CExpr,
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   match expr.that
     case ELit(LStr(text)) =>
@@ -490,7 +490,7 @@ procedure compile_exprs(
       exprs: List[At[Expr]],
   out ss: List[CStmt],
       rs: List[CExpr],
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   var as: List[CStmt], r: CExpr
   ss := List(), rs := List()
@@ -500,7 +500,11 @@ procedure compile_exprs(
   end
 
 // the values rs in fresh variables, which later expressions do not change, as declarations
-procedure temps(in rs: List[CExpr], out ss: List[CStmt], ref g: Gen) :=
+procedure temps(
+  in  rs: List[CExpr],
+  out ss: List[CStmt],
+  ref g: ulang.compile.Gen
+) :=
   var t: Str
   ss := List()
   for r in rs do
@@ -526,7 +530,7 @@ procedure compile_named(
       args: List[At[Expr]],
   out ss: List[CStmt],
       r: CExpr,
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   match args
     // and, or are not strict
@@ -577,7 +581,7 @@ procedure compile_lambda(
       b: At[Expr],
   out ss: List[CStmt],
       r: CExpr,
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   let names := var_names(xs), caps := captured(env, free_vars(b, names))
   var f: Str, bs: List[CStmt], rb: CExpr, decls: List[CStmt]
@@ -597,7 +601,7 @@ procedure compile_proc_lambda(
       stmt: At[Stmt],
   out ss: List[CStmt],
       r: CExpr,
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   let in_names := var_names(ins), pointer_names := var_names(outs ++ refs), caps := captured(env, free_in_stmt(stmt, in_names ++ pointer_names))
   var f: Str, bs: List[CStmt], decls: List[CStmt]
@@ -627,7 +631,7 @@ procedure expr_cases(
       v: CExpr,
       t: Str,
   out ss: List[CStmt],
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   match cases
     case List() =>
@@ -656,7 +660,7 @@ procedure compile_loops(
       e: At[Expr],
       add: CExpr -> List[CStmt],
   out ss: List[CStmt],
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   match gs
     case List() =>
@@ -702,7 +706,7 @@ procedure compile_list_comprehension(
       init: At[Expr],
   out ss: List[CStmt],
       r: CExpr,
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   var is: List[CStmt], ri: CExpr, loops: List[CStmt], t: Str, d: Str
   gen_name(in "t", out t, ref g)
@@ -725,7 +729,7 @@ procedure compile_array_comprehension(
       e: At[Expr],
   out ss: List[CStmt],
       r: CExpr,
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   let source := unqualified("(source)")
   match gs
@@ -874,7 +878,7 @@ procedure compile_stmt(
       env: Vars,
       stmt: At[Stmt],
   out ss: List[CStmt],
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   match stmt.that
     case SSkip =>
@@ -1002,7 +1006,7 @@ procedure compile_try(
       bs: List[CStmt],
       catches: List[At[Catch]],
   out ss: List[CStmt],
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   var as: List[CStmt], cs: List[CStmt], t: Str, d: Str, xs: List[Name]
   gen_name(in "h", out d, ref g)
@@ -1020,7 +1024,7 @@ procedure compile_stmts(
       env: Vars,
       xs: List[At[Stmt]],
   out ss: List[CStmt],
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   var as: List[CStmt]
   ss := List()
@@ -1047,7 +1051,7 @@ procedure handler_cases(
       h: Str,
       d: Str,
   out ss: List[CStmt],
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   let v := c_call("u_caught", List(CeVar(h)))
   match hs
@@ -1092,7 +1096,7 @@ procedure case_stmts(
       guard: Option[At[Expr]],
       body: List[CStmt],
   out ss: List[CStmt],
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   match alts
     case List((tests, pat)) =>
@@ -1153,7 +1157,7 @@ procedure stmt_cases(
       v: CExpr,
       d: Str,
   out ss: List[CStmt],
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   match cases
     case List() =>
@@ -1179,7 +1183,7 @@ procedure compile_cmd(
       cmd: Cmd,
   out ds: List[CDecl],
       ms: List[CStmt],
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   match cmd
     case CFun(name, _, formals, _, _, body) =>
@@ -1218,7 +1222,7 @@ procedure compile_cmds(
       cmds: List[Cmd],
   out ds: List[CDecl],
       ms: List[CStmt],
-  ref g: Gen
+  ref g: ulang.compile.Gen
 ) :=
   var ds_: List[CDecl], ms_: List[CStmt], found_ds: Buffer[CDecl] := empty(), found_ms: Buffer[CStmt] := empty()
   for c in cmds do

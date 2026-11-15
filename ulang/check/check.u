@@ -282,19 +282,15 @@ function visibility(imports: List[(Path, List[Path])], main: Path): List[(Path, 
 function imports_of(imports: List[(Path, List[Path])], m: Path): List[Path] :=
   value_or(get(m, imports), List())
 
-// the declarations named n of a kind that the module sees, where its own declarations hide those of other modules
-// and declared tells whether a name is a declaration of that kind
+// the declarations named n of a kind that the module sees, of which none hides another, so that a name of several is
+// ambiguous unless its path tells them apart, and declared tells whether a name is a declaration of that kind
 function visible_names(s: State, n: Name, declared: Name -> Bool): List[Name] :=
   let ds := List(for d in names_of(s.sig, n.base) if declared(d)) in
   match n
     case Name(List(_; _), _) =>
       List(for d in ds if is_qualified_by(n.path, d) and (is_visible_sort(s, d) or is_unwritable(n.path)))
-
-    case Name(List(), base) =>
-      if contains(Name(s.module, base), ds) then
-        List(Name(s.module, base))
-      else
-        List(for d in ds if is_visible_sort(s, d))
+    case Name(List(), _) =>
+      List(for d in ds if is_visible_sort(s, d))
   end
 
 // whether d is a declaration of the module of the path, or of a member of the package of the path

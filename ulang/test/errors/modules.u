@@ -294,6 +294,14 @@ test private_name() :=
       "  assert secret(1) == 1"))
   end
 
+// a type of the module named like one of the library hides it not, so an unqualified use is ambiguous
+test own_type_clash() :=
+  assert raises Located(None, Pos(4, 1), Ambiguous(Name(List(), "Int"), List(
+    (Name(List("prelude", "prelude"), "Int"), _),
+    (Name(List("ulang", "test", "errors", "own-type-clash"), "Int"), _)))) do
+    check_text(in "ulang/test/errors/own-type-clash.u", List("data Int :=", "  case Zero", "", "function zero(): Int :=", "  Zero"))
+  end
+
 // a qualified name reaches no private declaration of the package of its path
 test qualified_private_name() :=
   assert raises Located(None, Pos(4, 10), UnknownVariable(Name(List("ulang", "test", "modules", "hiding"), "secret"))) do
