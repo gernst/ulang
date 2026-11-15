@@ -4,8 +4,6 @@ Open items of work, each with the problem and the desired solution, one file per
 
 The areas are in the order of their value for the agents that write ulang, which have almost no ulang in their training data and learn the language from its documentation and its errors, while its design, one way of each construct, a canonical format, exhaustive matches, pure functions, and atomic effects, already suits them: so the feedback of a run comes first, the text of what does not parse (Diagnostics 1), the fix (Diagnostics 2), and the resolution of names (Diagnostics 3), then a reference of the language (Documentation 1).
 
-The items to address first are in `urgent.md` at the root, which is not versioned.
-
 - `ideas/diagnostics.md`: diagnostics and refactorings
 - `ideas/testing.md`
 - `ideas/documentation.md`

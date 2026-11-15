@@ -64,7 +64,7 @@ Each property has a definition, a formal handle, what ulang does, and what is op
 
 **In ulang.** Builtins raise instead of guessing: `at` and the strict `slice` raise `OutOfBounds`, `chr` raises `NoCharacter`, accessors raise `MissingField`; lookups give an `Option`, so a default is visible at the use, `value_or(get(k, m), 0)`; matches are exhaustive; handlers of what nothing raises are errors (`NeverRaised`); a failed `assert` cannot be caught; and a handler that only skips is the lint `SwallowedException` (`swallowed` of `ulang/lint/lint.u`).
 
-**Open.** A handler `case _ =>` that assigns a default masks as well as one that skips, which no rule finds yet; `F3 MaskedDomain` of `ideas/lint.md`, a branch that returns a constant where a `requires` would fail, waits for Verification 1, which also gives the reversed refinement its specification; and an entry may let a checked exception escape (Urgent 10 of the unversioned `urgent.md`).
+**Open.** A handler `case _ =>` that assigns a default masks as well as one that skips, which no rule finds yet; `F3 MaskedDomain` of `ideas/lint.md`, a branch that returns a constant where a `requires` would fail, waits for Verification 1, which also gives the reversed refinement its specification.
 
 ### 2.6 Grounding
 
