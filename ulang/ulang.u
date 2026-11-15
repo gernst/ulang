@@ -715,12 +715,13 @@ procedure refactor(
       status := 1
   end
 
-// the errors of checking file, each with the file to edit
+// the errors of checking file, each with the file to edit, and the warnings of its lints, whose code is warning[Rule]
 procedure checked_diagnostics(in file: Str, out found: List[Str * Diagnostic]) :=
-  var q: Prog, errors: List[Diagnostic], path: Str
-  check_file(in file, true, false, out q, errors)
+  var source: Source, q: Prog, errors: List[Diagnostic], path: Str, cache := no_cache()
+  load_file(in file, true, false, out source, q, errors, ref cache)
+  let warnings := List(for d in find(source.mods, lambda d => d.name == source.main) for w in lints(d) yield Diagnostic(FormatKind, "warning[" ++ show(w.lint) ++ "]", None, w.pos, w.message ++ replacement_text(source, d.name, w), List()))
   found := List()
-  for d in errors do
+  for d in errors ++ warnings do
     diagnostic_file(in file, d, out path)
     found := found ++ List((path, d))
   end

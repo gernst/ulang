@@ -1136,8 +1136,8 @@ procedure run_script(
       var differences: List[Str] := List(), uses: List[Span * Name * Int]
       for (path, names) in edits.expected do
         resolutions(in path, out uses)
-        for difference in first_difference(List(for (_, name, _) in uses yield name), names) do
-          differences := differences ++ List(path ++ ": a use of " ++ difference)
+        for difference in first_difference(List(for (span, name, _) in uses yield (span.start, name)), names) do
+          differences := differences ++ List(path ++ ":" ++ difference)
         end
       end
       if differences != List() then
@@ -1167,15 +1167,16 @@ procedure run_script(
       let verdict := if after == List() then
         "ok"
       else
-        "ok, " ++ show(size(after)) ++ " diagnostics"
+        "ok, " ++ counted(size(after), "diagnostic")
       let journaled := if changes == List() then
         List()
       else
         List("script " ++ show(number) ++ " of the journal")
-      let counts := if added == List() and gone == List() then
+      let counts := if paths == List() then
         List()
       else
-        List("diagnostics: +" ++ show(size(added)) ++ " -" ++ show(size(gone)))
+        List(
+          "checked " ++ counted(size(paths), "file") ++ ", with lints: " ++ show(size(added)) ++ " new, " ++ show(size(gone)) ++ " gone")
       let listed := List(for (file, d) in added yield "  + " ++ diagnostic_text(file, d)) ++ List(for (file, d) in gone yield "  - " ++ diagnostic_text(file, d))
       reply := List(verdict) ++ List(for n in edits.notes) ++ journaled ++ counts ++ listed
       tested := if edits.tests then paths else List()
@@ -1187,24 +1188,24 @@ procedure run_script(
       reply := List("rejected", message), status := 1
   end
 
-// the first name of found that is not the one of expected, as a text
-function first_difference(found: List[Name], expected: List[Name]): Option[Str] :=
-  example first_difference(List(Name(Some("m"), "f")), List(Name(Some("m"), "g"))) == Some("m.g resolves to m.f")
+// the first use of found whose name is not the one of expected, as a text with its position
+function first_difference(found: List[Pos * Name], expected: List[Name]): Option[Str] :=
+  example first_difference(List((Pos(3, 7), Name(Some("m"), "f"))), List(Name(Some("m"), "g"))) == Some("3.7: a use of m.g would resolve to m.f")
   match (found, expected)
-    case (List(n; rest), List(e; more)) =>
+    case (List((pos, n); rest), List(e; more)) =>
       if n == e then
         first_difference(rest, more)
       else
-        Some(format_name(e) ++ " resolves to " ++ format_name(n))
+        Some(show(pos.line) ++ "." ++ show(pos.col) ++ ": a use of " ++ format_name(e) ++ " would resolve to " ++ format_name(n))
 
     case (List(), List()) =>
       None
 
-    case (List(n; _), List()) =>
-      Some(format_name(n) ++ " is new")
+    case (List((pos, n); _), List()) =>
+      Some(show(pos.line) ++ "." ++ show(pos.col) ++ ": " ++ format_name(n) ++ " would be a new use")
 
     case (List(), List(e; _)) =>
-      Some(format_name(e) ++ " is gone")
+      Some(" a use of " ++ format_name(e) ++ " would be gone")
   end
 
 // the uses of names in the main module of the file at path, as the checker resolves them, in the order of their spans,
@@ -1309,7 +1310,7 @@ function arity_of(typ: Type): Int :=
 
 // renames the function, procedure, pattern alias, or constructor of the target, a declaration file.u:name[/arity], at
 // its declarations and the examples on them, and at every use that resolves to it in the files of the project and of
-// its package that contain the name, which must resolve after the writes as before but for the new name, else the script is undone
+// its package that contain it, which resolve after the writes as before, else the script is undone; docs are listed
 procedure rename(
   in  word: Str,
       new: Str,
@@ -1375,7 +1376,12 @@ procedure rename(
     end
   end
   edits := edits with expected := expected
-  note(in "renamed " ++ format_name(target) ++ " to " ++ new ++ ": " ++ show(count) ++ " uses in " ++ show(touched) ++ " files", ref edits)
+  note(in "renamed " ++ format_name(target) ++ " to " ++ new ++ " at its declarations and " ++ counted(count, "use") ++ " in " ++ counted(touched, "file"), ref edits)
+  var found: List[Str]
+  doc_references(in if root == here then "." else root, base, out found)
+  for reference in found do
+    note(in "not renamed in the docs: " ++ reference, ref edits)
+  end
 
 // the lines of the file whose declarations of base are decls and constrs, with new at the name of each and in the
 // examples on them
@@ -1426,3 +1432,32 @@ function diagnostic_text(file: Str, d: Diagnostic): Str :=
   else
     "" in
   file ++ at ++ ": " ++ d.code ++ ": " ++ d.message
+
+// the lines of CLAUDE.md, README.md, and the files of ideas/ below root that write the name in backticks, as file:line
+procedure doc_references(in root: Str, name: Str, out found: List[Str]) :=
+  var entries: List[Str * Bool] := List()
+  try
+    os_list(in os_join(root, "ideas"), out entries)
+  catch
+    case OsError(_) =>
+      entries := List()
+  end
+  found := List()
+  let docs := List("CLAUDE.md", "README.md") ++ List(for (entry, is_dir) in entries if not is_dir and ends_with(entry, ".md") yield "ideas/" ++ entry)
+  for doc in docs do
+    var text: Str
+    try
+      os_read_utf8(in os_join(root, doc), out text)
+    catch
+      case OsError(_) =>
+        text := ""
+    end
+    for (line, i) in numbered(split(text, '\n')) if size(occurrences(line, "`" ++ name ++ "`")) > 0 do
+      found := found ++ List(doc ++ ":" ++ show(i + 1))
+    end
+  end
+
+function counted(n: Int, noun: Str): Str :=
+  example counted(1, "file") == "1 file"
+  example counted(2, "file") == "2 files"
+  show(n) ++ " " ++ noun ++ (if n == 1 then "" else "s")
