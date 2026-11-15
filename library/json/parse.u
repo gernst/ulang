@@ -340,13 +340,12 @@ test unicode_escapes() :=
   assert j == String(str(List(chr(233), chr(128512))))
 
 test errors() :=
-  var j: Json
   assert raises JsonError("\":\" expected", 2, 7) do
-    parse_json(in "{\n  \"a\" 1}", out j)
+    parse_json(in "{\n  \"a\" 1}", out _)
   end
   assert raises JsonError("leading zero", 1, 2) do
-    parse_json(in "[01]", out j)
+    parse_json(in "[01]", out _)
   end
   assert raises JsonError("lone low surrogate", 1, 3) do
-    parse_json(in "\"\\udc00\"", out j)
+    parse_json(in "\"\\udc00\"", out _)
   end

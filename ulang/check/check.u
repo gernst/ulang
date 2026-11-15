@@ -3238,9 +3238,9 @@ procedure pattern_binders(
 
         // a constructor that does not parse binds the variables of its arguments, of unknown types
         case (None, _) if contains(constr.base, s.unparsed) =>
-          var qs: List[At[Pat]], ts: List[Type]
+          var ts: List[Type]
           fresh_list(in args, out ts, ref s)
-          binder_list(in args, ts, out qs, xs, ref s)
+          binder_list(in args, ts, out _, xs, ref s)
           typed_pat := AOk(pos, span, PWild)
 
         // reported where k was resolved
@@ -5973,8 +5973,8 @@ function located(m: Id, p: Pos, e: TypeError): TypeError :=
 
 // the type of expr without a program
 procedure type_of(in expr: At[Expr], out t: Type) :=
-  var s := start("main", List()), typed_expr: At[Expr], u: Type
-  infer(in List(), expr, out typed_expr, u, ref s)
+  var s := start("main", List()), u: Type
+  infer(in List(), expr, out _, u, ref s)
   settle(ref s)
   reported(in s)
   t := zonk_type(s.sub, u)
@@ -6030,31 +6030,29 @@ test elaboration() :=
   end
 
 test coverage() :=
-  var q: Prog
   assert raises NotExhaustive(PCons(AOk(_, _, PWild), AOk(_, _, PWild))) do
     check_program(in with_lists(List(
-      CFun(unqualified("f"), List(), unplaced_vars(List(Var(unqualified("xs"), type_plain_list(TInt())))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(case_at(pat_var("Nil"), expr_int(0)))))))), out q)
+      CFun(unqualified("f"), List(), unplaced_vars(List(Var(unqualified("xs"), type_plain_list(TInt())))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(case_at(pat_var("Nil"), expr_int(0)))))))), out _)
   end
   assert raises Unreachable(PNil()) do
     check_program(in with_lists(List(
       CFun(unqualified("f"), List(), unplaced_vars(List(Var(unqualified("xs"), type_plain_list(TInt())))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(
         case_at(nowhere(PWild), expr_int(0)),
-        case_at(pat_var("Nil"), expr_int(1)))))))), out q)
+        case_at(pat_var("Nil"), expr_int(1)))))))), out _)
   end
 
 test statements() :=
-  var q: Prog
   assert raises NotAssignable(Name(None, "n")) do
     check_program(in program_of(List(
       CProc(unqualified("inc"), List(), List(), List(), unplaced_vars(List(Var(unqualified("k"), TInt()))), List(), no_spec(), nowhere(block(List(), List(
         nowhere(SAssign(List(
           (Var(unqualified("k"), THole), expr_app("+", List(expr_var("k"), expr_int(1))))))))))),
       CProc(unqualified("p"), List(), unplaced_vars(List(Var(unqualified("n"), TInt()))), List(), List(), List(), no_spec(), nowhere(block(List(), List(
-        nowhere(SCall(unqualified("inc"), List(), List(), List(Var(unqualified("n"), THole)))))))))), out q)
+        nowhere(SCall(unqualified("inc"), List(), List(), List(Var(unqualified("n"), THole)))))))))), out _)
   end
   assert raises UnknownException(TList(_)) do
     check_program(in with_lists(List(
-      CTest(unqualified("t"), List(), nowhere(block(List(), List(nowhere(SRaise(expr_var("Nil"), THole)))))))), out q)
+      CTest(unqualified("t"), List(), nowhere(block(List(), List(nowhere(SRaise(expr_var("Nil"), THole)))))))), out _)
   end
 
 function tsort(n: Id): Type :=
@@ -6250,14 +6248,13 @@ test locals() :=
   assert b == EName(unqualified("size"), TInt())
 
 test errors() :=
-  var b: Expr
   assert raises NoOverload(Name(None, "size"), _) do
-    body_of(in fun_cmd("f", List(), TInt(), expr_app("size", List(expr_int(1)))), out b)
+    body_of(in fun_cmd("f", List(), TInt(), expr_app("size", List(expr_int(1)))), out _)
   end
   assert raises Ambiguous(Name(None, "size"), List(_, _)) do
     body_of(in fun_cmd("f", List(), TBool(), nowhere(ELet(List(
-      (pat_var("h"), lambda_at(List(var_of("x", THole)), expr_app("size", List(expr_var("x")))))), nowhere(ELit(LBool(true)))))), out b)
+      (pat_var("h"), lambda_at(List(var_of("x", THole)), expr_app("size", List(expr_var("x")))))), nowhere(ELit(LBool(true)))))), out _)
   end
   assert raises WrongArity(Name(None, "size"), 2) do
-    body_of(in fun_cmd("f", List(), TInt(), expr_app("size", List(expr_int(1), expr_int(2)))), out b)
+    body_of(in fun_cmd("f", List(), TInt(), expr_app("size", List(expr_int(1), expr_int(2)))), out _)
   end

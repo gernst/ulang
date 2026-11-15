@@ -1579,8 +1579,7 @@ procedure run_proc(
 ) raises RuntimeError, InternalError :=
   var env: Bindings := empty()
   try
-    var outs: List[Val]
-    invoke(in run, n, List(), List(), out outs, ref env, cache)
+    invoke(in run, n, List(), List(), out _, ref env, cache)
   catch
     case Thrown(value, _) =>
       uncaught(in run, value, ref cache)

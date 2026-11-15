@@ -2968,8 +2968,7 @@ procedure import_package(
 // whether name is the name of a file name.u of the library, which an import of name hints at
 procedure is_library_file(in name: Str, out found: Bool) :=
   try
-    var text: Str
-    os_library(in name, out text)
+    os_library(in name, out _)
     found := true
   catch
     case OsError(_) =>
