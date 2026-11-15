@@ -98,8 +98,8 @@ procedure check_program(
   out q: Prog
 ) raises TypeError, InternalError
 
-// the checked program of source and its errors in the order of the commands, up to the first package that has errors,
-// with the tests that generate makes of each package whose definitions check without errors
+// the checked program of source and its errors in the order of the commands, each package checked against the
+// signatures of those before it, also of those with errors, with the tests that generate makes of each package whose definitions check without errors
 procedure check_all(
   in  source: Source,
       generate: Checked -> List[Pos * (Id * Cmd)],
@@ -4800,10 +4800,12 @@ procedure check_source(
       errors: List[TypeError],
   ref checks: Checks
 ) raises InternalError :=
-  var sig: Sig := empty(), imports: List[Id * List[Id]] := List(), cmds: List[Id * At[Cmd]] := List(), checked: List[Id * At[Cmd]], shown: Sig, found: List[TypeError], loose: List[TypeError] := List(), found_loose: List[TypeError], placed: List[At[Cmd]]
+  var sig: Sig := empty(), imports: List[Id * List[Id]] := List(), cmds: List[Id * At[Cmd]] := List(), checked: List[Id * At[Cmd]], shown: Sig, found: List[TypeError], loose: List[TypeError] := List(), found_loose: List[TypeError], placed: List[At[Cmd]], raised := false
   errors := List()
   let own := module_dir(source.main)
-  for mods in units(source.mods, source.packages) if errors == List() do
+  // a package after one with errors is checked against its signature, whose definitions with errors are error nodes, and
+  // none after one whose check raised, which leaves no signature; only packages checked after no errors are cached
+  for mods in units(source.mods, source.packages) if not raised do
     let id := package_of(mods)
     match get(id, checks.packages)
       case Some(done) if id != own =>
@@ -4812,13 +4814,13 @@ procedure check_source(
       case _ =>
         try
           check_package(in mods, source.packages, sig, imports, unparsed, partial, generate, out checked, shown, found, found_loose)
-          sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, errors := found, loose := found_loose
-          if id != own and found == List() and found_loose == List() and not partial then
+          if id != own and errors == List() and found == List() and found_loose == List() and not partial then
             checks := checks with packages := put(id, CheckedPackage(checked, shown), checks.packages)
           end
+          sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, errors := errors ++ found, loose := loose ++ found_loose
         catch
           case e =>
-            cmds := cmds ++ List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, unchecked(c))), errors := List(e), loose := List(e)
+            cmds := cmds ++ List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, unchecked(c))), errors := errors ++ List(e), loose := loose ++ List(e), raised := true
         end
     end
   end
@@ -5080,7 +5082,10 @@ procedure check_package(
       skip
     end, out enumerated, ref s)
   end
-  cmds := with_definitions(List(for d in mods for c in written_of(d.name, d.exported ++ d.implemented) yield c), defined) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors, loose := List(for (i, e) in zip(range(0, size(s.errors)), s.errors) if not contains(i, s.taken) yield e)
+  // without definitions, as after an error of the declarations, the definitions as written have unresolved names, which no
+  // run may take for checked code
+  let written := List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, if defined == List() and is_checked(m, c) then unchecked(c) else c))
+  cmds := with_definitions(written, defined) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors, loose := List(for (i, e) in zip(range(0, size(s.errors)), s.errors) if not contains(i, s.taken) yield e)
   exceptions := raises_errors(List(for (_, c) in defined ++ tested if cmd_errors(c) == List() yield c.that), s.sig, hidden)
   errors := errors ++ exceptions.errors, cmds := List(for (m, c) in cmds yield (m, map_at(c, lambda cmd => with_inferred(cmd, exceptions.inferred))))
   loose := loose ++ drop(size(s.errors), errors)

@@ -58,6 +58,15 @@ procedure run_text_despite_errors(
       lines: List[Str]
 ) raises ParseError, InternalError, OsError, Thrown, RuntimeError
 
+// the tests of main, the name and lines of a file in dir, despite the errors of types of main and of the packages of
+// imported, each its directory and the names and lines of its members, which main imports, as test runs a unit with
+// errors, where a test that reaches a part or a definition that checking rejected raises Deferred
+procedure run_texts_despite_errors(
+  in  dir: Str,
+      imported: List[Str * List[Str * List[Str]]],
+      main: Str * List[Str]
+) raises ParseError, InternalError, OsError, Thrown, RuntimeError
+
 // load_text, then the lemmas of the case
 procedure prove_text(
   in  path: Str,
@@ -103,7 +112,7 @@ procedure parse_case(
   var here: Str, root: Str
   os_cwd(out here)
   project_root(in normal_path(here), out root)
-  parse_texts(in root, os_dirname(path), List(), (module_in(os_dirname(path), os_basename(path)), text), out source)
+  parse_texts(in root, os_dirname(path), List(), List(), (module_in(os_dirname(path), os_basename(path)), text), out source)
   load_tester(ref source)
 
 // check_program with the tests of the lemmas
@@ -178,6 +187,23 @@ procedure run_text_despite_errors(
   checked_text(in path, lines, out q, errors)
   run_program(in q)
 
+procedure run_texts_despite_errors(
+  in  dir: Str,
+      imported: List[Str * List[Str * List[Str]]],
+      main: Str * List[Str]
+) raises ParseError, InternalError, OsError, Thrown, RuntimeError :=
+  var here: Str, root: Str, source: Source, q: Prog, errors: List[TypeError]
+  os_cwd(out here)
+  project_root(in normal_path(here), out root)
+  match main
+    case (name, lines) =>
+      parse_texts(in root, dir, List(for (d, files) in imported yield (d, List(for (m, ls) in files yield (module_in(d, m), text_of(ls))))), List(), (module_in(dir, name), text_of(lines)), out source)
+  end
+  require_parsed(in source)
+  load_tester(ref source)
+  check_all(in source, enumerated_tests, out q, errors)
+  run_program(in q)
+
 procedure prove_text(
   in  path: Str,
       lines: List[Str]
@@ -198,7 +224,7 @@ procedure load_texts(
   match main
     case (name, lines) =>
       var source: Source
-      parse_texts(in root, dir, List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), out source)
+      parse_texts(in root, dir, List(), List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), out source)
       require_parsed(in source)
       load_tester(ref source)
       check_tested(in source, out q)

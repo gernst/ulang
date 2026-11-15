@@ -78,10 +78,13 @@ procedure parse_text_recovering(
 
 // the source of texts instead of files, for the tests: the members of the package of the directory dir from the root,
 // each its module and text, and main, the module and text of the main file, which is one of them or a program in dir,
-// where the library and the imported packages are read from their files
+// where the packages of imported, each its directory and the modules and texts of its members, are loaded first, without
+// their tests, and imports take them instead of files, and the library and the other imported packages are read from
+// their files
 procedure parse_texts(
   in  root: Str,
       dir: Str,
+      imported: List[Str * List[Id * Str]],
       members: List[Id * Str],
       main: Id * Str,
   out source: Source
@@ -2882,7 +2885,12 @@ procedure import_package(
   if id == "prelude" then
     raise ParseError(library_import(), pos)
   end
-  os_is_dir(in os_join(root, id), out found)
+  // a package loaded already, also one of texts (parse_texts), needs no directory
+  if exists(source.packages, lambda p => p.id == id) then
+    found := true
+  else
+    os_is_dir(in os_join(root, id), out found)
+  end
   if not found then
     var in_library: Bool
     is_library_file(in id, out in_library)
@@ -3004,6 +3012,7 @@ procedure load_members(
 procedure parse_texts(
   in  root: Str,
       dir: Str,
+      imported: List[Str * List[Id * Str]],
       members: List[Id * Str],
       main: Id * Str,
   out source: Source
@@ -3011,6 +3020,9 @@ procedure parse_texts(
   match main
     case (id, text) =>
       source := Source(List(), List(), id)
+      for (d, files) in imported do
+        load_members(in root, Some(d), files, None, List(), ref source)
+      end
       load_members(in root, Some(dir), List(for (m, t) in members if m != id yield (m, t)) ++ List(main), Some(main), List(), ref source)
   end
 

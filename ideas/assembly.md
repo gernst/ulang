@@ -61,6 +61,31 @@ On the sources of 5496b96, when the branch `asm` was merged, by `out/ulang.bin` 
 
 The simple backend is about 1.1 times slower than `-O2` on the compiler, less than estimated, but about twice as slow on the suite, whose tests spend more in generated code than in the runtime. The assembly build compiles itself to the same `.s` and the same C as the C build.
 
+On the sources of 5ad5ed1, after step 7, at a load of 0.6 to 2.8 on 4 cores, each run once unless two times are given, by `out/ulang.bin` (C at `-O2`) and by the builds of its `.s` and `.o`, all three passing the 102 files of `ulang.sh test`:
+
+| | time |
+|---|---|
+| `compile ulang/ulang.u` to C (103,000 lines) | 4.4 s |
+| the same to `.s` (317,000 lines) | 5.4 s |
+| the same to `.o` (3.0 MB) | 10.7 s |
+| `cc -O2` of that C with the runtime | 27.4 s |
+| `cc` of that `.s` with `out/asm/ulang.o` | 0.5 s |
+| `cc` of that `.o` with `out/asm/ulang.o`, linking only | 0.04 s |
+| `ulang.sh test` of the project, by the C build | 83.2 s, 91.7 s |
+| the same, by the build of the `.o` | 88.9 s, 95.6 s |
+| the same, by the build of the `.s` | 92.9 s |
+
+So the tool takes 31.8 s from C, 5.9 s from `.s`, and 10.7 s from `.o`, while the interpreter in an assembly build is about 5 % slower, about 5 s per `make test`.
+
+The encoder is the slow part of `.o`: profiled by gprof, the compiler built from its C with `-pg`, `compile -o x.o` took 16.8 s against 9.0 s of `-o x.s`, of which gprof saw only 0.84 s, so the rest is allocation and collection in libgc, which gprof does not see; the run made 32 million more constructors, mostly list cells, for 3 million bytes. Every byte is an `Int` in a cell of the `Code` of its instruction, of the `Buffer` of its section, of `sec_bytes`, of the buffer and the `++` of `elf_file`, and of the list that `encode_object` turns into an `Array` by `byte`, and each line is encoded twice, the first time only to place the labels (`encode_lines`, `add_bytes`, `sec_bytes`, `elf_file`, and `encode_object` of `ulang/compile/elf.u`); the small `Int`s exist once in the runtime, so the bytes themselves allocate nothing.
+
+## Decision of a path
+
+`compile` has three targets but two translations: C by `compile_program` of `ulang/compile/compile.u`, and `.s` and `.o` by `assemble_program` of `ulang/compile/x86.u`, which differ only in the printer `format_asm` of `ulang/compile/asm.u` and the encoder `encode_object` of `ulang/compile/elf.u`.
+
+1. **The walks over expressions and statements are written twice**, 22 functions of the same names in `ulang/compile/compile.u` and `ulang/compile/x86.u`, and 7 of the 9 commits that changed the former since the merge of the branch `asm` changed the latter too, while `make` and `make selfcompile` build only from C, so the assembly saves no build yet. Solution: `make` builds `out/ulang.bin` through assembly, which saves about 26 s per build against about 5 s per `make test`, while the C backend stays for the seed, `make selfcompile`, other platforms, and the speed of compiled tests; else the assembly backend is frozen, and optimizations go into passes before both backends (Compiler 3).
+2. **Two outputs of the assembly to keep and test**, `make testasm` and `make selfcompileasm` next to `make testelf` and `make selfcompileelf`, which check the same translation and differ only in the printer or the encoder. Solution: the object is the path, which needs no `as`, once its encoder is faster than `as` (step 8), and `.s` stays a view for debugging (Difficulty 1), without the two targets of its own.
+
 ## Steps
 
 0. **Compiled tests**, done: `make testc`, the safety net, since every test must have the same outcome in both backends.
@@ -70,5 +95,6 @@ The simple backend is about 1.1 times slower than `-O2` on the compiler, less th
 4. Done. **`make testasm`**: the suite of `compile --tests` through assembly, all tests passing as with `make testc`.
 5. Done. **Self-compile through assembly**, `make selfcompileasm`: the compiler built from its `.s` compiles itself to the same C and the same `.s`; `make` keeps building the tool from C until this is reliable, then may switch; `bootstrap/ulang.c` stays the versioned seed.
 6. Done, not yet measured, since the machine was loaded. **Improvements**: the fusion of comprehensions as in C (`comprehension_loops`, `list_comprehension`, and `array_comprehension` of `ulang/compile/x86.u`); the last argument of a call stays in `%rax` instead of a slot, and arguments that are local variables, string literals, or constructors without fields are loaded directly into their registers (`compile_args` and `operand_of`); a single assignment and the scrutinee of a `match` on a local variable take no slot of their own (`compile_slot`). The `.s` of `compile --tests` shrank from 553,000 to 455,000 lines.
-7. Done. **An encoder of its own**, `ulang/compile/elf.u`: `compile … -o x.o` encodes the instructions of `asm.u` to machine code and writes an ELF relocatable object by `os_write_bytes` (`encode_object`), so that neither `as` nor a C compiler is needed, only the linker, `cc x.o out/asm/ulang.o -lgmp -lgc`. Every jump, call, and displacement relative to `%rip` has 4 bytes, so that sizes do not depend on labels: a first pass places the labels, the second encodes, resolves the references within a section, and writes relocations for the others, `R_X86_64_PC32` against the symbol of the section or `R_X86_64_PLT32` and `R_X86_64_PC32` against symbols of other objects, and `R_X86_64_64` for `.quad`. `make testelf` runs the suite so, and `make selfcompileelf` checks that the compiler linked from its object compiles itself to the same object and C; `encodings` of `ulang/compile/elf.u` compares the encodings of the forms of operands with those of `as`. Not measured yet; GNU `as` takes the short forms of jumps, which this encoder does not.
-8. **Later, each a project of its own**: register allocation, ARM64, unboxed small integers.
+7. Done. **An encoder of its own**, `ulang/compile/elf.u`: `compile … -o x.o` encodes the instructions of `asm.u` to machine code and writes an ELF relocatable object by `os_write_bytes` (`encode_object`), so that neither `as` nor a C compiler is needed, only the linker, `cc x.o out/asm/ulang.o -lgmp -lgc`. Every jump, call, and displacement relative to `%rip` has 4 bytes, so that sizes do not depend on labels: a first pass places the labels, the second encodes, resolves the references within a section, and writes relocations for the others, `R_X86_64_PC32` against the symbol of the section or `R_X86_64_PLT32` and `R_X86_64_PC32` against symbols of other objects, and `R_X86_64_64` for `.quad`. `make testelf` runs the suite so, and `make selfcompileelf` checks that the compiler linked from its object compiles itself to the same object and C; `encodings` of `ulang/compile/elf.u` compares the encodings of the forms of operands with those of `as`. GNU `as` takes the short forms of jumps, which this encoder does not.
+8. **A faster encoder**: `-o x.o` takes about 5 s more than `-o x.s`, where `as` takes 0.5 s (Results). Solution: each line encoded once, the second pass only placing the `Code` of the first and patching its references, and each section kept as the chunks of its lines, flattened once into the `Array`, without the copies of `sec_bytes` and `elf_file`; measured against `.s` and `as` by the runs of Results.
+9. **Later, each a project of its own**: register allocation, ARM64, unboxed small integers.
