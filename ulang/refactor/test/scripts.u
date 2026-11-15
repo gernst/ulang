@@ -1,6 +1,7 @@
 // the scripts of ulang/refactor/refactor.u on files below out/test/refactor/ of the root, which run only compiled, since
 // each parse loads the library, too slowly for the interpreter
 
+import "ulang/syntax"
 import "ulang/refactor"
 
 // a put that replaces a definition and its signature, keeping its doc, and adds a function, then a drop, on a file below
@@ -10,13 +11,13 @@ test put_and_drop() :=
   let path := "out/test/refactor/sample.u"
   os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\n// one more\nfunction f(x: Int): Int :=\n  x + 1\n")
   let script := "@put " ++ path ++ "\nfunction f(y: Int): Int := y + 2\nfunction g(): Int := f(1)\n@drop " ++ path ++ ":g\n"
-  run_script(in script, false, lambda in file, out found =>
+  run_script(in script, false, "out/test/refactor/state", lambda in file, out found =>
     found := List()
   end, out reply, status)
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "export\n\nfunction f(y: Int): Int\n\nimplementation\n\n// one more\nfunction f(y: Int): Int :=\n  y + 2\n"
-  assert reply == List(
+  assert take(3, reply) == List(
     "ok",
     path ++ ": replaced f/1, added g/0, with the signature of f/1",
     path ++ ": dropped g/0")
@@ -26,9 +27,31 @@ test refused_fragment() :=
   var reply: List[Str], status: Int, text: Str
   let path := "out/test/refactor/refused.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
-  run_script(in "@put " ++ path ++ "\nfunction g(x: Int): Int :=\n  x +\n", false, lambda in file, out found =>
+  run_script(in "@put " ++ path ++ "\nfunction g(x: Int): Int :=\n  x +\n", false, "out/test/refactor/state", lambda in file, out found =>
     found := List()
   end, out reply, status)
   os_read_utf8(in path, out text)
   assert status == 1 and text == "function f(x: Int): Int :=\n  x\n"
   assert reply == List("rejected", "fragment 2.6: expression expected but end of input found")
+
+// handles of @show name the nodes of a declaration, which @put replaces and inserts before, and @patch edits, in one
+// script, since each edit moves the handles of its declaration, and @undo restores the file
+test handles() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/handles", path := "out/test/refactor/handles.u"
+  let original := "function f(x: Int): Int :=\n  match x\n    case 0 =>\n      1\n    case _ =>\n      x\n  end\n"
+  os_write_utf8(in os_join(state, "handles.txt"), "")
+  os_write_utf8(in path, original)
+  run_script(in "@show " ++ path ++ ":f", false, state, nothing_found, out reply, status)
+  let shown := "      function f(x: Int): Int :=\n#1      match x\n#2        case 0 =>\n#3          1\n#4        case _ =>\n#5          x\n        end"
+  assert reply == List("ok", "@show " ++ path ++ ":f\n" ++ shown)
+  run_script(in "@put #3\n2\n@put before #4\n      case 1 =>\n        3\n@patch #5\nx => x + 1\n", false, state, nothing_found, out reply, status)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "function f(x: Int): Int :=\n  match x\n    case 0 =>\n      2\n\n    case 1 =>\n      3\n\n    case _ =>\n      x + 1\n  end\n"
+  run_script(in "@undo", false, state, nothing_found, out reply, status)
+  os_read_utf8(in path, out text)
+  assert text == original
+
+procedure nothing_found(in file: Str, out found: List[Str * Diagnostic]) :=
+  found := List()

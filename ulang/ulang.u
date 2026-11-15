@@ -338,7 +338,7 @@ function description(command: Str): Str :=
       "translates the file to C, or to assembly for x86-64 if the target ends in .s, whose main calls the procedure, main by default, or with --tests the tests of the .u files below the directory, by default the root of the project, with its packages and programs,\n" ++ "whose main takes the arguments of check --test, with the tests of lemmas but without their proofs, and runs them as\n" ++ "check --test does, from the root of the project"
 
     case "refactor" =>
-      "runs the script of the file, or of stdin, or the one action of the words, a line per action that starts with @,\n" ++ "followed by its fragment: @show T of a file or a declaration file.u:name[/arity], @put F of declarations, each\n" ++ "replacing the one of its name and arity or added, @drop T, and @check F, as one transaction, then checks the\n" ++ "files that changed and reports the diagnostics that are new or gone; --dry writes nothing"
+      "runs the script of the file, or of stdin, or the one action of the words, a line per action that starts with @,\n" ++ "followed by its fragment: @show T of a file, a declaration file.u:name[/arity], or a handle #n, with the handles of\n" ++ "its nodes, @put F of declarations, each replacing the one of its name and arity or added, @put [before|after|into] #n\n" ++ "of code, @drop T, @patch T of lines old => new, @undo [n] of a script of the journal, and @check F, as one\n" ++ "transaction, then checks the files that changed and reports the diagnostics that are new or gone; an inline @put or\n" ++ "@patch takes its fragment from stdin; --dry writes nothing"
 
     case _ =>
       "prints the usage of all commands, or of one"
@@ -670,7 +670,8 @@ function from_root(root: Str, file: Str): Str :=
 test paths_from_root() :=
   assert from_root(".", "./ulang/ulang.u") == "ulang/ulang.u" and from_root("../..", "../../a/b.u") == "a/b.u"
 
-// runs the refactor script of the file, of stdin, or of the inline action, and prints its reply
+// runs the refactor script of the file, of stdin, or of the inline action, whose fragment, of @put and @patch, is stdin,
+// and prints its reply
 procedure refactor(
   in  script: Option[Str],
       inline: Option[Str],
@@ -683,6 +684,12 @@ procedure refactor(
     match (inline, script)
       case (Some(action), _) =>
         text := action
+        if starts_with(action, "@put") or starts_with(action, "@patch") then
+          var io: IO, fragment: Str
+          io_stdin(out io)
+          io_read_utf8(in io, out fragment)
+          text := action ++ "\n" ++ fragment
+        end
 
       case (None, Some(path)) =>
         os_read_utf8(in path, out text)
@@ -692,7 +699,9 @@ procedure refactor(
         io_stdin(out io)
         io_read_utf8(in io, out text)
     end
-    run_script(in text, dry, checked_diagnostics, out reply, status)
+    var state: Str
+    state_dir(out state)
+    run_script(in text, dry, state, checked_diagnostics, out reply, status)
     os_println(in join("\n", reply))
   catch
     case OsError(m) =>

@@ -1,0 +1,236 @@
+// the nodes of a declaration that handles name: the parts that start their lines in formatted text, statements, cases,
+// constructors, elements spread one per line, and the body of a function, by their spans
+
+import "ulang/syntax"
+
+export
+
+// the spans of the parts of cmd that start their lines in lines, the text of its file, outer before inner, without
+// repeated starts, so that each line has at most one node
+function line_nodes(lines: Array[Str], cmd: Cmd): List[Span]
+
+implementation
+
+function line_nodes(lines: Array[Str], cmd: Cmd): List[Span] :=
+  first_starts(List(for span in cmd_nodes(cmd) if starts_line(lines, span.start) yield span), Set())
+
+function first_starts(spans: List[Span], seen: Set[Pos]): List[Span] :=
+  match spans
+    case List(span; rest) =>
+      if contains(span.start, seen) then
+        first_starts(rest, seen)
+      else
+        List(span; first_starts(rest, Set(span.start; seen)))
+
+    case List() =>
+      List()
+  end
+
+// whether only spaces stand before pos on its line
+function starts_line(lines: Array[Str], pos: Pos): Bool :=
+  pos.line >= 1 and pos.line <= size(lines) and forall(chars(slice(at(pos.line - 1, lines), 0, pos.col - 1)), lambda c => c == ' ')
+
+function cmd_nodes(cmd: Cmd): List[Span] :=
+  match cmd
+    case CFun(_, _, _, _, _, body) =>
+      expr_nodes(body)
+
+    case CProc(_, _, _, _, _, _, _, stmt) =>
+      stmt_nodes(stmt)
+
+    case CTest(_, _, stmt) =>
+      stmt_nodes(stmt)
+
+    case CData(_, _, constrs) =>
+      List(for constr in constrs yield constr.span)
+
+    case CSort(_, _, _) =>
+      List()
+
+    case CNotation(_, _, _) =>
+      List()
+
+    case CFunSig(_, _, _, _, _) =>
+      List()
+
+    case CProcSig(_, _, _, _, _, _, _) =>
+      List()
+
+    case CAbstract(_, _) =>
+      List()
+
+    case CPatAlias(_, _, _, _, _) =>
+      List()
+
+    case CLemma(_, _, _, _, _, _) =>
+      List()
+  end
+
+function stmt_nodes(stmt: At[Stmt]): List[Span] :=
+  match stmt
+    case AOk(_, span, that) =>
+      stmt_parts(span, that)
+
+    case AErr(_, span, that, _) =>
+      stmt_parts(span, that)
+
+    case AUnparsed(_, span, _, _) =>
+      List(span)
+  end
+
+// a block is no node, since its first statement starts where it does
+function stmt_parts(span: Span, stmt: Stmt): List[Span] :=
+  match stmt
+    case SBlock(_, stmts) =>
+      flat_map(stmts, stmt_nodes)
+    case _ =>
+      List(span; inner_stmt_nodes(stmt))
+  end
+
+function inner_stmt_nodes(stmt: Stmt): List[Span] :=
+  match stmt
+    case SSkip =>
+      List()
+
+    case SAssign(upd) =>
+      flat_map(upd, lambda (_, expr) => expr_nodes(expr))
+
+    case SBlock(_, stmts) =>
+      flat_map(stmts, stmt_nodes)
+
+    case SLocal(_, decls) =>
+      List(for (_, value) in decls for expr in value for span in expr_nodes(expr) yield span)
+
+    case SIf(cond, left, right) =>
+      expr_nodes(cond) ++ stmt_nodes(left) ++ stmt_nodes(right)
+
+    case SWhile(cond, body) =>
+      expr_nodes(cond) ++ stmt_nodes(body)
+
+    case SCall(_, ins, _, _) =>
+      flat_map(ins, expr_nodes)
+
+    case SMatch(arg, cases) =>
+      expr_nodes(arg) ++ flat_map(cases, lambda branch => List(branch.span; branch_nodes(branch, stmt_nodes)))
+
+    case SAssert(cond) =>
+      expr_nodes(cond)
+
+    case SAssertRaises(_, _, body) =>
+      stmt_nodes(body)
+
+    case SRaise(value, _) =>
+      expr_nodes(value)
+
+    case STry(body, catches) =>
+      stmt_nodes(body) ++ flat_map(catches, lambda handler => List(handler.span; catch_nodes(handler)))
+
+    case SFor(gens, body) =>
+      flat_map(gens, gen_nodes) ++ stmt_nodes(body)
+  end
+
+function branch_nodes[A](branch: At[Branch[A]], nodes: A -> List[Span]): List[Span] :=
+  match branch
+    case AOk(_, _, that) =>
+      nodes(that.body)
+
+    case AErr(_, _, that, _) =>
+      nodes(that.body)
+
+    case AUnparsed(_, _, _, _) =>
+      List()
+  end
+
+function catch_nodes(handler: At[Catch]): List[Span] :=
+  match handler
+    case AOk(_, _, that) =>
+      stmt_nodes(that.body)
+
+    case AErr(_, _, that, _) =>
+      stmt_nodes(that.body)
+
+    case AUnparsed(_, _, _, _) =>
+      List()
+  end
+
+function gen_nodes(gen: Gen): List[Span] :=
+  match gen
+    case GVal(_, over) =>
+      expr_nodes(over)
+
+    case GPair(_, _, over) =>
+      expr_nodes(over)
+
+    case GIf(cond) =>
+      expr_nodes(cond)
+  end
+
+function expr_nodes(expr: At[Expr]): List[Span] :=
+  match expr
+    case AOk(_, span, that) =>
+      List(span; inner_expr_nodes(that))
+
+    case AErr(_, span, that, _) =>
+      List(span; inner_expr_nodes(that))
+
+    case AUnparsed(_, span, _, _) =>
+      List(span)
+  end
+
+function inner_expr_nodes(expr: Expr): List[Span] :=
+  match expr
+    case ELit(_) =>
+      List()
+
+    case EVar(_) =>
+      List()
+
+    case EApp(fun, args) =>
+      expr_nodes(fun) ++ flat_map(args, expr_nodes)
+
+    case EField(base, _) =>
+      expr_nodes(base)
+
+    case EUpdate(base, _, value) =>
+      expr_nodes(base) ++ expr_nodes(value)
+
+    case ELam(_, body) =>
+      expr_nodes(body)
+
+    case EProc(_, _, _, _, stmt) =>
+      stmt_nodes(stmt)
+
+    case ELet(bindings, body) =>
+      flat_map(bindings, lambda (_, value) => expr_nodes(value)) ++ expr_nodes(body)
+
+    case EIte(cond, then_expr, else_expr) =>
+      expr_nodes(cond) ++ expr_nodes(then_expr) ++ expr_nodes(else_expr)
+
+    case EMatch(arg, cases) =>
+      expr_nodes(arg) ++ flat_map(cases, lambda branch => List(branch.span; branch_nodes(branch, expr_nodes)))
+
+    case ETuple(args) =>
+      flat_map(args, expr_nodes)
+
+    case EForm(_, elems, rest) =>
+      flat_map(elems, yield_nodes) ++ rest_nodes(rest)
+
+    case EFor(_, gens, elem, rest) =>
+      flat_map(gens, gen_nodes) ++ yield_nodes(elem) ++ rest_nodes(rest)
+  end
+
+function yield_nodes(elem: Yield): List[Span] :=
+  match elem
+    case YVal(value) =>
+      expr_nodes(value)
+    case YPair(key, value) =>
+      expr_nodes(key) ++ expr_nodes(value)
+  end
+
+function rest_nodes(rest: Option[At[Expr]]): List[Span] :=
+  match rest
+    case Some(expr) =>
+      expr_nodes(expr)
+    case None =>
+      List()
+  end
