@@ -1,0 +1,84 @@
+// the texts that a script checks without their files, those of a dry run, of a new package, and of --overlay, on files
+// below out/test/refactor/overlays/ of the root, which run only compiled, as those of scripts.u
+
+import "ulang/syntax"
+import "ulang/parse"
+import "ulang/check"
+import "ulang/refactor"
+
+// the errors of checking file with the overlays, as checked_diagnostics of ulang/ulang.u gives them, without the lints
+procedure checked(
+  in  file: Str,
+      overlays: Map[Str, Str],
+  out found: List[(Str, Diagnostic)]
+) :=
+  try
+    var source: Source, q: Prog
+    parse_file_overlaid(in file, overlays, out source)
+    require_parsed(in source)
+    check_all(in source, no_tests, out q, _)
+    found := List(for d in diagnostics(q) yield (file, d))
+  catch
+    case ParseErrors(errors) =>
+      found := List(for e in errors yield (file, parse_diagnostic(e)))
+
+    case e =>
+      found := List((file, parse_diagnostic(e)))
+
+    case OsError(message) =>
+      found := List(
+        (file, Diagnostic(RuntimeKind, "runtime", None, Pos(0, 0), message, List())))
+
+    case e =>
+      found := List(
+        (file, Diagnostic(InternalKind, "internal", None, Pos(0, 0), internal_message(e), List())))
+  end
+
+// a dry run checks the texts that it would write, so it reports the uses that a drop breaks, and writes nothing
+test dry_drop() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/overlays/state", path := "out/test/refactor/overlays/dry/dry.u"
+  let original := "function f(x: Int): Int :=\n  x + 1\n\nfunction g(): Int :=\n  f(1)\n"
+  os_write_utf8(in path, original)
+  run_script(in "@drop " ++ path ++ ":f", true, state, checked, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert text == original
+  assert status == 1
+  assert reply == List(
+    "dry, 1 error",
+    path ++ ": dropped f/1",
+    "would write " ++ path,
+    "checked 1 file: 1 new, 0 gone",
+    "  + " ++ path ++ ":2.3: UnknownVariable: unknown variable f")
+
+// a module of a new package and its first import are one script, since the parse and the check see the files that the
+// script writes, also in a directory that does not exist yet
+test new_package() :=
+  var reply: List[Str], status: Int, clock: Int
+  os_clock(out clock)
+  // a directory that no run before has made
+  let state := "out/test/refactor/overlays/state", dir := "out/test/refactor/overlays/p" ++ show(clock)
+  let script := "@put " ++ dir ++ "/config/config.u\nexport\nfunction port(): Int\nimplementation\nfunction port(): Int := 110\n@put " ++ dir ++ "/main.u\nimport \"" ++ dir ++ "/config\"\nfunction main_port(): Int := port()\n"
+  run_script(in script, true, state, checked, out reply, status, _)
+  assert status == 0 and take(1, reply) == List("dry, clean")
+  run_script(in script, false, state, checked, out reply, status, _)
+  assert status == 0 and take(1, reply) == List("applied, clean")
+
+// an overlay is the text of its file for the actions and the checks, which the script writes only if it changes it
+test overlaid_files() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/overlays/state", path := "out/test/refactor/overlays/buffer/buffer.u"
+  let other := "out/test/refactor/overlays/unsaved/unsaved.u"
+  os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
+  os_write_utf8(in other, "function u(): Int :=\n  1\n")
+  let overlays := Map(
+    path => "function f(x: Int): Int :=\n  x + 2\n",
+    other => "function u(): Int :=\n  true\n")
+  run_tested_script(in "@put " ++ path ++ "\nfunction g(): Int := f(1)\n@check " ++ other, false, overlays, state, checked, lambda in _, _, out tests =>
+    tests := Tests(List(), 0, 0, 0)
+  end, out reply, status)
+  assert status == 1 and take(1, reply) == List("applied, 1 error")
+  os_read_utf8(in path, out text)
+  assert text == "function f(x: Int): Int :=\n  x + 2\n\nfunction g(): Int :=\n  f(1)\n"
+  os_read_utf8(in other, out text)
+  assert text == "function u(): Int :=\n  1\n"

@@ -16,6 +16,12 @@ test alias_arity() :=
     check_text(in "ulang/test/errors/alias-arity.u", List("type P[A] :=", "  A -> A", "", "function f(x: P): Int :=", "  0"))
   end
 
+// an ascription passes its type down, so that a part of another type is reported at the part
+test ascription_part() :=
+  assert raises Located(None, Pos(2, 8), Mismatch(_, _, "argument 2 of the call")) do
+    check_text(in "ulang/test/errors/ascription-part.u", List("function f(): Int :=", "  (1 + true: Int)"))
+  end
+
 test call_arity() :=
   assert raises Located(None, Pos(5, 3), CountMismatch("procedure p", "ins", 1, 2)) do
     check_text(in "ulang/test/errors/call-arity.u", List(
@@ -383,13 +389,13 @@ test misshapen_hook() :=
   end
 
 test missing_local_type() :=
-  assert raises Located(None, Pos(2, 7), MissingType(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 7), Hinted(MissingType(Name(None, "x")), _)) do
     check_text(in "ulang/test/errors/missing-local-type.u", List("test missing_local_type() :=", "  var x", "  assert true"))
   end
 
 // a local of a proof without a value has its type, reported at the local
 test missing_proof_local_type() :=
-  assert raises Located(None, Pos(3, 7), MissingType(Name(None, "a"))) do
+  assert raises Located(None, Pos(3, 7), Hinted(MissingType(Name(None, "a")), _)) do
     check_text(in "ulang/test/errors/missing-proof-local-type.u", List(
       "lemma l(in n: Int) :=",
       "  ensures n == n",
@@ -1036,6 +1042,20 @@ test hints() :=
     (Pos(18, 10), "a comma after with continues the update, so an assignment of found takes a statement of its own"))
   assert List(for e in take(1, errors) yield located_message(e)) == List(
     "cannot unify Failed and () -> ?2; a value that is no function, such as a constructor without fields, is written without () at 8.9")
+
+// a variable applied as a function hints at the functions of its name that it hides, those that the arguments fit, and
+// is not read, so that no Unassigned follows
+test hidden_function() :=
+  var errors: List[TypeError]
+  checked_text(in "ulang/test/errors/hidden-function.u", List(
+    "procedure split_text(in text: Str, out lines: List[Str]) :=",
+    "  lines := lines(text)",
+    "",
+    "function count(size: Int, xs: List[Int]): Int :=",
+    "  size(xs)"), out _, errors)
+  assert List(for e in errors yield located_message(e)) == List(
+    "cannot unify List[Str] and Str -> ?3; the variable lines hides the function prelude/str.lines, so rename the variable to call it at 2.12",
+    "cannot unify Int and List[Int] -> ?2; the variable size hides the function prelude/list.size, so rename the variable to call it at 5.3")
 
 function error_hint(e: TypeError): Str :=
   match e
