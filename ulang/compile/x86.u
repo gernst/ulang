@@ -1177,8 +1177,8 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
       raise Unexpected("for of other generators")
 
     // a try of one handler, whose body fails with the text of the pattern if it gets to its end
-    case SAssertRaises(typ, pat, body) =>
-      compile_try(in defs, env, body, List(nowhere(Catch(typ, pat, None, nowhere(SSkip)))), Some(format_pat(pat.that)), ref e)
+    case SAssertRaises(typ, pat, guard, body) =>
+      compile_try(in defs, env, body, List(nowhere(Catch(typ, pat, guard, nowhere(SSkip)))), Some(format_pat(pat.that)), ref e)
   end
 
 // the body runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if none applies,

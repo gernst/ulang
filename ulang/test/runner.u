@@ -26,6 +26,20 @@ procedure test_module(
       falsified: Set[Str]
 )
 
+// the outcome of a test, its name, its error, "" if it passed, and the text of the error of checking that it reached,
+// Deferred of ulang/syntax/error.u, if it failed by one
+data Outcome :=
+  case Outcome(name: Str, message: Str, reached: Option[Str])
+
+// the outcomes of the tests of the module m of q, all or the named ones, run as test_module runs them, without printing
+procedure test_outcomes(
+  in  q: Prog,
+      m: Id,
+      names: List[Str],
+      args: List[Str],
+  out outcomes: List[Outcome]
+)
+
 // proves the lemmas of the module m of q, of the file, all or the named ones, in their order, where those before are
 // facts, but the falsified ones, which a test found false and which are neither proven nor facts, printing whether each
 // is proven, open, or falsified, with an error of a proof for each gap and for each function that they reach whose
@@ -64,7 +78,7 @@ procedure test_module(
     passed := false
   end
   for c in tests do
-    test_message(in run, c, out message, refuted)
+    test_message(in run, c, out message, refuted, _)
     falsified := if refuted then Set(lemma_of_test(cmd_name(c)); falsified) else falsified
     if message == "" then
       os_println(in label ++ "test " ++ cmd_name(c) ++ " passed")
@@ -74,16 +88,40 @@ procedure test_module(
     end
   end
 
-// the error of the test cmd, or else "", and whether it is a test of a lemma that found a counterexample, Falsified of
-// the enumeration, which lemma_stmt of ulang/test/generate.u raises
-procedure test_message(in run: Run, cmd: Cmd, out message: Str, falsified: Bool) :=
+procedure test_outcomes(
+  in  q: Prog,
+      m: Id,
+      names: List[Str],
+      args: List[Str],
+  out outcomes: List[Outcome]
+) :=
+  let run := load(q) with args := args
+  var message: Str, reached: Option[Str], found: Buffer[Outcome] := empty()
+  for c in definitions(q) if is_selected_test(c, m, names) do
+    test_message(in run, c, out message, _, reached)
+    found := found ++ List(Outcome(cmd_name(c), message, reached))
+  end
+  outcomes := List(for o in found)
+
+// the error of the test cmd, or else "", whether it is a test of a lemma that found a counterexample, Falsified of the
+// enumeration, which lemma_stmt of ulang/test/generate.u raises, and the text of the error of checking that it reached
+procedure test_message(
+  in  run: Run,
+      cmd: Cmd,
+  out message: Str,
+      falsified: Bool,
+      reached: Option[Str]
+) :=
   var cache: Map[Name, Val] := empty()
-  message := "", falsified := false
+  message := "", falsified := false, reached := None
   try
     run_cmd(in run, cmd, ref cache)
   catch
     case Uncaught(text) =>
       message := error_text(RuntimeKind, runtime_message(Uncaught(text))), falsified := ends_with(cmd_name(cmd), lemma_suffix()) and starts_with(text, "Falsified(")
+
+    case Deferred(text) =>
+      message := error_text(RuntimeKind, runtime_message(Deferred(text))), reached := Some(text)
 
     case e =>
       message := error_text(RuntimeKind, runtime_message(e))

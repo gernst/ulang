@@ -10,18 +10,53 @@ export
 // an else without its keyword, whose spans are empty
 function line_nodes(lines: Array[Str], cmd: Cmd): List[Span]
 
+// what a node is, by which an edit checks that a fragment fits the place of a node
+data NodeKind :=
+  case KStatement
+  case KCase
+  case KExpression
+  case KConstructor
+
+data Node :=
+  case Node(span: Span, kind: NodeKind)
+
+// the nodes of line_nodes with their kinds, where the cases of a match and the handlers of a try are cases
+function kinded_nodes(lines: Array[Str], cmd: Cmd): List[Node]
+
+// the kind with its article, as messages name it
+function kind_text(kind: NodeKind): Str :=
+  example kind_text(KCase) == "a case"
+
 implementation
 
 function line_nodes(lines: Array[Str], cmd: Cmd): List[Span] :=
-  first_starts(List(for span in cmd_nodes(cmd) if span.start != span.stop and starts_line(lines, span.start) yield span), Set())
+  List(for node in kinded_nodes(lines, cmd) yield node.span)
 
-function first_starts(spans: List[Span], seen: Set[Pos]): List[Span] :=
-  match spans
-    case List(span; rest) =>
-      if contains(span.start, seen) then
+function kinded_nodes(lines: Array[Str], cmd: Cmd): List[Node] :=
+  first_starts(List(for node in cmd_nodes(cmd) if node.span.start != node.span.stop and starts_line(lines, node.span.start) yield node), Set())
+
+function kind_text(kind: NodeKind): Str :=
+  match kind
+    case KStatement =>
+      "a statement"
+
+    case KCase =>
+      "a case"
+
+    case KExpression =>
+      "an expression"
+
+    case KConstructor =>
+      "a constructor"
+  end
+
+function first_starts(nodes: List[Node], seen: Set[Pos]): List[Node] :=
+  match nodes
+    case List(node; rest) =>
+      if contains(node.span.start, seen) then
         first_starts(rest, seen)
       else
-        List(span; first_starts(rest, Set(span.start; seen)))
+        List(node; first_starts(rest, Set(node.span.start; seen)))
 
     case List() =>
       List()
@@ -31,7 +66,7 @@ function first_starts(spans: List[Span], seen: Set[Pos]): List[Span] :=
 function starts_line(lines: Array[Str], pos: Pos): Bool :=
   pos.line >= 1 and pos.line <= size(lines) and forall(chars(slice(at(pos.line - 1, lines), 0, pos.col - 1)), lambda c => c == ' ')
 
-function cmd_nodes(cmd: Cmd): List[Span] :=
+function cmd_nodes(cmd: Cmd): List[Node] :=
   match cmd
     case CFun(_, _, _, _, _, body) =>
       expr_nodes(body)
@@ -43,7 +78,7 @@ function cmd_nodes(cmd: Cmd): List[Span] :=
       stmt_nodes(stmt)
 
     case CData(_, _, constrs) =>
-      List(for constr in constrs yield constr.span)
+      List(for constr in constrs yield Node(constr.span, KConstructor))
 
     case CSort(_, _, _) =>
       List()
@@ -67,7 +102,7 @@ function cmd_nodes(cmd: Cmd): List[Span] :=
       List()
   end
 
-function stmt_nodes(stmt: At[Stmt]): List[Span] :=
+function stmt_nodes(stmt: At[Stmt]): List[Node] :=
   match stmt
     case AOk(_, span, that) =>
       stmt_parts(span, that)
@@ -76,19 +111,19 @@ function stmt_nodes(stmt: At[Stmt]): List[Span] :=
       stmt_parts(span, that)
 
     case AUnparsed(_, span, _, _) =>
-      List(span)
+      List(Node(span, KStatement))
   end
 
 // a block is no node, since its first statement starts where it does
-function stmt_parts(span: Span, stmt: Stmt): List[Span] :=
+function stmt_parts(span: Span, stmt: Stmt): List[Node] :=
   match stmt
     case SBlock(_, stmts) =>
       flat_map(stmts, stmt_nodes)
     case _ =>
-      List(span; inner_stmt_nodes(stmt))
+      List(Node(span, KStatement); inner_stmt_nodes(stmt))
   end
 
-function inner_stmt_nodes(stmt: Stmt): List[Span] :=
+function inner_stmt_nodes(stmt: Stmt): List[Node] :=
   match stmt
     case SSkip =>
       List()
@@ -100,7 +135,7 @@ function inner_stmt_nodes(stmt: Stmt): List[Span] :=
       flat_map(stmts, stmt_nodes)
 
     case SLocal(_, decls) =>
-      List(for (_, value) in decls for expr in value for span in expr_nodes(expr) yield span)
+      List(for (_, value) in decls for expr in value for node in expr_nodes(expr) yield node)
 
     case SIf(cond, left, right) =>
       expr_nodes(cond) ++ stmt_nodes(left) ++ stmt_nodes(right)
@@ -112,25 +147,25 @@ function inner_stmt_nodes(stmt: Stmt): List[Span] :=
       flat_map(ins, expr_nodes)
 
     case SMatch(arg, cases) =>
-      expr_nodes(arg) ++ flat_map(cases, lambda branch => List(branch.span; branch_nodes(branch, stmt_nodes)))
+      expr_nodes(arg) ++ flat_map(cases, lambda branch => List(Node(branch.span, KCase); branch_nodes(branch, stmt_nodes)))
 
     case SAssert(cond) =>
       expr_nodes(cond)
 
-    case SAssertRaises(_, _, body) =>
+    case SAssertRaises(_, _, _, body) =>
       stmt_nodes(body)
 
     case SRaise(value, _) =>
       expr_nodes(value)
 
     case STry(body, catches) =>
-      stmt_nodes(body) ++ flat_map(catches, lambda handler => List(handler.span; catch_nodes(handler)))
+      stmt_nodes(body) ++ flat_map(catches, lambda handler => List(Node(handler.span, KCase); catch_nodes(handler)))
 
     case SFor(gens, body) =>
       flat_map(gens, gen_nodes) ++ stmt_nodes(body)
   end
 
-function branch_nodes[A](branch: At[Branch[A]], nodes: A -> List[Span]): List[Span] :=
+function branch_nodes[A](branch: At[Branch[A]], nodes: A -> List[Node]): List[Node] :=
   match branch
     case AOk(_, _, that) =>
       nodes(that.body)
@@ -142,7 +177,7 @@ function branch_nodes[A](branch: At[Branch[A]], nodes: A -> List[Span]): List[Sp
       List()
   end
 
-function catch_nodes(handler: At[Catch]): List[Span] :=
+function catch_nodes(handler: At[Catch]): List[Node] :=
   match handler
     case AOk(_, _, that) =>
       stmt_nodes(that.body)
@@ -154,7 +189,7 @@ function catch_nodes(handler: At[Catch]): List[Span] :=
       List()
   end
 
-function gen_nodes(gen: Gen): List[Span] :=
+function gen_nodes(gen: Gen): List[Node] :=
   match gen
     case GVal(_, over) =>
       expr_nodes(over)
@@ -166,19 +201,19 @@ function gen_nodes(gen: Gen): List[Span] :=
       expr_nodes(cond)
   end
 
-function expr_nodes(expr: At[Expr]): List[Span] :=
+function expr_nodes(expr: At[Expr]): List[Node] :=
   match expr
     case AOk(_, span, that) =>
-      List(span; inner_expr_nodes(that))
+      List(Node(span, KExpression); inner_expr_nodes(that))
 
     case AErr(_, span, that, _) =>
-      List(span; inner_expr_nodes(that))
+      List(Node(span, KExpression); inner_expr_nodes(that))
 
     case AUnparsed(_, span, _, _) =>
-      List(span)
+      List(Node(span, KExpression))
   end
 
-function inner_expr_nodes(expr: Expr): List[Span] :=
+function inner_expr_nodes(expr: Expr): List[Node] :=
   match expr
     case ELit(_) =>
       List()
@@ -208,7 +243,7 @@ function inner_expr_nodes(expr: Expr): List[Span] :=
       expr_nodes(cond) ++ expr_nodes(then_expr) ++ expr_nodes(else_expr)
 
     case EMatch(arg, cases) =>
-      expr_nodes(arg) ++ flat_map(cases, lambda branch => List(branch.span; branch_nodes(branch, expr_nodes)))
+      expr_nodes(arg) ++ flat_map(cases, lambda branch => List(Node(branch.span, KCase); branch_nodes(branch, expr_nodes)))
 
     case ETuple(args) =>
       flat_map(args, expr_nodes)
@@ -220,7 +255,7 @@ function inner_expr_nodes(expr: Expr): List[Span] :=
       flat_map(gens, gen_nodes) ++ yield_nodes(elem) ++ rest_nodes(rest)
   end
 
-function yield_nodes(elem: Yield): List[Span] :=
+function yield_nodes(elem: Yield): List[Node] :=
   match elem
     case YVal(value) =>
       expr_nodes(value)
@@ -228,7 +263,7 @@ function yield_nodes(elem: Yield): List[Span] :=
       expr_nodes(key) ++ expr_nodes(value)
   end
 
-function rest_nodes(rest: Option[At[Expr]]): List[Span] :=
+function rest_nodes(rest: Option[At[Expr]]): List[Node] :=
   match rest
     case Some(expr) =>
       expr_nodes(expr)

@@ -197,9 +197,10 @@ data Stmt :=
   case SMatch(arg: At[Expr], cases: List[At[Branch[At[Stmt]]]])
   // assert c
   case SAssert(cond: At[Expr])
-  // assert raises p do … end, which fails unless body raises an exception that p matches, where typ is THole until
-  // the checker infers it from p, as of a Catch
-  case SAssertRaises(typ: Type, pat: At[Pat], body: At[Stmt])
+  // assert raises p if g do … end, which fails unless body raises an exception that p matches and for which the guard
+  // holds, where typ is THole until the checker infers it from p, as of a Catch, and the variables of p are those of the
+  // guard only
+  case SAssertRaises(typ: Type, pat: At[Pat], guard: Option[At[Expr]], body: At[Stmt])
   // raise e, where typ is the type of e, which the checker infers
   case SRaise(value: At[Expr], typ: Type)
   // try … catch case p => … end
@@ -1153,7 +1154,7 @@ function loop_positions_in(pos: Pos, stmt: Stmt): List[Pos] :=
     case SMatch(_, cases) =>
       List(for d in cases for p in loop_positions(d.that.body) yield p)
 
-    case SAssertRaises(_, _, body) =>
+    case SAssertRaises(_, _, _, body) =>
       loop_positions(body)
 
     case STry(body, catches) =>
@@ -1313,8 +1314,8 @@ function strip_statement(stmt: Stmt): Stmt :=
     case SAssert(cond) =>
       SAssert(strip_expr(cond))
 
-    case SAssertRaises(typ, pat, body) =>
-      SAssertRaises(typ, strip_pat(pat), strip_stmt(body))
+    case SAssertRaises(typ, pat, guard, body) =>
+      SAssertRaises(typ, strip_pat(pat), map_option(guard, strip_expr), strip_stmt(body))
 
     case SRaise(value, typ) =>
       SRaise(strip_expr(value), typ)
@@ -1764,8 +1765,8 @@ function errors_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
     case SAssert(cond) =>
       errors_in_expr(cond)
 
-    case SAssertRaises(_, _, body) =>
-      errors_in_stmt(body)
+    case SAssertRaises(_, _, guard, body) =>
+      errors_in_exprs(List(for g in guard)) ++ errors_in_stmt(body)
 
     case SRaise(value, _) =>
       errors_in_expr(value)

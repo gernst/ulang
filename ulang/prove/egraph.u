@@ -114,7 +114,7 @@ function shape(t: Term): (Head, List[Term]) :=
     case ESum(constant, summands) =>
       (HSum(constant, List(for summand in summands yield summand.factor)), List(for summand in summands yield summand.term))
 
-    case _ =>
+    case EBound(_) | ELam(_, _) | EIte(_, _, _) | EMatch(_, _) =>
       (HTerm(t), List())
   end
 

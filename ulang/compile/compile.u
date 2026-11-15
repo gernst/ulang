@@ -979,13 +979,13 @@ procedure compile_stmt(
       raise Unexpected("for of other generators")
 
     // a try of one handler, whose body fails with the text of the pattern if it gets to its end
-    case SAssertRaises(typ, pat, body) =>
+    case SAssertRaises(typ, pat, guard, body) =>
       var bs: List[CStmt], ps: List[CStmt], rp: CExpr
       compile_stmt(in defs, env, body, out bs, ref g)
       compile_expr(in defs, env, nowhere(ELit(LStr(format_pat(pat.that)))), out ps, rp, ref g)
       bs := bs ++ ps ++ List(
         CsExpr(c_call("u_fail_text", List(CeVar("u_text_assertion_not_raised"), rp))))
-      compile_try(in defs, env, body, bs, List(nowhere(Catch(typ, pat, None, nowhere(SSkip)))), out ss, ref g)
+      compile_try(in defs, env, body, bs, List(nowhere(Catch(typ, pat, guard, nowhere(SSkip)))), out ss, ref g)
   end
 
 // the body, compiled to bs, runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if

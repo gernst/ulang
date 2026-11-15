@@ -90,8 +90,11 @@ function format_program(source: Source): Str :=
 
 function format_module(source: Source, name: Id): Str :=
   match find(source.mods, lambda d => d.name == name)
+    // an empty module is the empty file, which has no line to end
     case Some(d) =>
-      expand(d.comments, module_text(d.comments, format_mod(imported_notation(source.mods, seen_modules(d, source.packages)), d))) ++ "\n"
+      let text := expand(d.comments, module_text(d.comments, format_mod(imported_notation(source.mods, seen_modules(d, source.packages)), d))) in
+      if text == "" then "" else text ++ "\n"
+
     case None =>
       ""
   end
@@ -912,8 +915,20 @@ function format_stmt_node(notation: Notation, notes: List[Comment], indent: Str,
     case SAssert(cond) =>
       "assert " ++ format_expr(notation, notes, indent, cond)
 
-    case SAssertRaises(_, pat, body) =>
-      end_text(indent, "assert raises " ++ format_pattern(notation, indent, pat) ++ " do" ++ format_body(notation, from_pos(notes, pat.span.stop), deeper(indent), body))
+    case SAssertRaises(_, pat, guard, body) =>
+      let head := match guard
+        case Some(g) =>
+          format_pattern(notation, indent, pat) ++ " if " ++ format_expr(notation, notes, indent, g)
+        case None =>
+          format_pattern(notation, indent, pat)
+      end in
+      let stop := match guard
+        case Some(g) =>
+          g.span.stop
+        case None =>
+          pat.span.stop
+      end in
+      end_text(indent, "assert raises " ++ head ++ " do" ++ format_body(notation, from_pos(notes, stop), deeper(indent), body))
 
     case SRaise(value, _) =>
       "raise " ++ format_expr(notation, notes, indent, value)

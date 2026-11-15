@@ -329,8 +329,8 @@ function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
     case SAssert(cond) =>
       expr_flow(scope, cond)
 
-    case SAssertRaises(typ, pat, body) =>
-      handled(scope, stmt_flow(scope, body), List((pos, Catch(typ, pat, None, nowhere(SSkip)))))
+    case SAssertRaises(typ, pat, guard, body) =>
+      handled(scope, stmt_flow(scope, body), List((pos, Catch(typ, pat, guard, nowhere(SSkip)))))
 
     case SRaise(value, typ) =>
       with_expr(Flow(Map(for name in exception_name(typ) if is_tracked(scope.sig, typ) yield name => pos), if is_exception(scope.sig, typ) then

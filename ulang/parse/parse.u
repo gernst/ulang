@@ -518,7 +518,7 @@ function literal_at(toks: Tokens): Option[Lit] :=
     case TChar(char) =>
       Some(LChar(char))
 
-    case _ =>
+    case TName(_) | TOp(_) | TKw(_) | TEnd =>
       None
   end
 
@@ -1060,7 +1060,7 @@ function starts_expr(notation: Notation, tok: Token): Bool :=
     case TChar(_) =>
       true
 
-    case _ =>
+    case TOp(_) | TEnd =>
       false
   end
 
@@ -1458,7 +1458,7 @@ function starts_pattern(notation: Notation, tok: Token): Bool :=
     case TChar(_) =>
       true
 
-    case _ =>
+    case TOp(_) | TEnd =>
       false
   end
 
@@ -1705,7 +1705,7 @@ function ends_expr(tok: Token): Bool :=
     case TKw(kw) =>
       contains(kw, List(")", "]", "end", "skip", "true", "false"))
 
-    case _ =>
+    case TOp(_) | TEnd =>
       false
   end
 
@@ -1921,7 +1921,7 @@ procedure parse_stmt(
   end
   stmt := AOk(pos, span_from(pos, toks), node)
 
-// assert c, or assert raises p do … end
+// assert c, or assert raises p do … end, also with a guard, assert raises p if g do … end
 procedure parse_assert(
   in  notation: Notation,
       params: List[Id],
@@ -1929,14 +1929,15 @@ procedure parse_assert(
   ref toks: Tokens
 ) :=
   if at_kw(toks, "raises") then
-    var pat: At[Pat], body: At[Stmt]
+    var pat: At[Pat], guard: Option[At[Expr]], body: At[Stmt]
     let pos := head_pos(toks)
     advance(ref toks)
     parse_pattern(in notation, params, out pat, ref toks)
+    parse_optional(in notation, params, TKw("if"), parse_expr, out guard, ref toks)
     expect(in TKw("do"), ref toks)
     parse_body(in notation, params, out body, ref toks)
     expect_end(in "assert raises", pos, ref toks)
-    stmt := SAssertRaises(THole, pat, body)
+    stmt := SAssertRaises(THole, pat, guard, body)
   else
     var expr: At[Expr]
     parse_expr(in notation, params, out expr, ref toks)
@@ -2865,7 +2866,7 @@ procedure step_of(in stmt: At[Stmt], out step: Step) raises ParseError :=
     case SCall(_, _, _, _) =>
       raise ParseError("a call of a lemma has no refs", stmt.pos)
 
-    case SAssertRaises(_, _, _) =>
+    case SAssertRaises(_, _, _, _) =>
       raise ParseError("assert raises is no step of a proof", stmt.pos)
 
     // parse_proof parses a statement only at assert or at a name, so that no other statement reaches here

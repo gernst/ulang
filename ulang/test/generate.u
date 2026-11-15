@@ -294,7 +294,7 @@ function counterexamples_in(values: At[Expr], stmt: Stmt): Stmt :=
     case SFor(gens, body) =>
       SFor(gens, with_counterexamples(values, body))
 
-    case SAssertRaises(_, _, _) =>
+    case SAssertRaises(_, _, _, _) =>
       stmt
 
     case SLocal(_, _) =>

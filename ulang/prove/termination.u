@@ -95,7 +95,7 @@ function calls_in(decls: Decls, names: List[(Name, Int)], t: Term, vars: List[Va
     case ESum(_, summands) =>
       List(for summand in summands for c in calls_in(decls, names, summand.term, vars, path) yield c)
 
-    case _ =>
+    case ELeaf | ELam(_, _) =>
       List(for k in mentioned(names, t) yield Call(k, vars, None, path))
   end
 
@@ -365,7 +365,7 @@ function accesses_in(t: Term): List[Term] :=
     case ESum(_, summands) =>
       List(for summand in summands for b in accesses_in(summand.term) yield b)
 
-    case _ =>
+    case ELeaf | ELam(_, _) | EMatch(_, _) =>
       List()
   end
 

@@ -347,8 +347,8 @@ function stmt_hints(lines: Array[Str], decls: Decls, stmt: At[Stmt]): List[Hint]
     case Some(SAssert(cond)) =>
       expr_hints(lines, decls, cond)
 
-    case Some(SAssertRaises(_, pat, body)) =>
-      pat_hints(lines, decls, pat) ++ stmt_hints(lines, decls, body)
+    case Some(SAssertRaises(_, pat, guard, body)) =>
+      pat_hints(lines, decls, pat) ++ exprs_hints(lines, decls, List(for g in guard yield g)) ++ stmt_hints(lines, decls, body)
 
     case Some(SRaise(value, _)) =>
       expr_hints(lines, decls, value)
