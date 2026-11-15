@@ -736,7 +736,8 @@ procedure checked_diagnostics(in file: Str, out found: List[(Str, Diagnostic)]) 
 // the tests of the files of a refactor script, run as check --test runs them, also with deferred errors, where a test that
 // fails only by reaching an error of listed, which the reply lists, is counted, not repeated, and the tests that the
 // errors leave out of the program, the declared tests and examples that the checker generates only for a package without
-// errors, and all tests of a unit that does not run, are counted as not run, with the reason
+// errors, and all tests of a unit that does not run, are counted as not run, with the reason, while the lemmas whose tests
+// the errors leave out are named, not counted, since whether a lemma has a test depends on the types of its formals
 procedure refactor_tests(
   in  paths: List[Str],
       listed: List[(Str, Diagnostic)],
@@ -765,7 +766,24 @@ procedure refactor_tests(
         test_outcomes(in q, m, List(), List(), out outcomes)
         let names := List(for o in outcomes yield o.name), failures := List(for o in outcomes if o.message != "" yield failure_text(o, listed))
         let missing := List(for name in declared if not contains(name, names)), absent := examples - size(List(for name in names if index_of(".example.", name) != None yield name))
-        let not_run := List(for name in missing yield "test " ++ name) ++ (if absent > 0 then List(counted_text(absent, "example")) else List()), left := size(missing) + max(absent, 0)
+        let members := value_or(map_option(find(source.packages, lambda p => contains(m, p.members)), lambda p => p.members), List(m))
+        let lemmas := if is_generating(q, members) then
+          List()
+        else
+          List(for d in find(source.mods, lambda d => d.name == m) for name in untested_lemmas(d, names) yield name)
+        let lemma_tests := match lemmas
+          case List() =>
+            List()
+
+          case List(name) =>
+            List(
+              "the test of lemma " ++ name ++ ", if its formals are enumerable")
+
+          case _ =>
+            List(
+              "the tests of lemmas " ++ join(", ", lemmas) ++ ", if their formals are enumerable")
+        end
+        let not_run := List(for name in missing yield "test " ++ name) ++ (if absent > 0 then List(counted_text(absent, "example")) else List()) ++ lemma_tests, left := size(missing) + max(absent, 0)
         passed := passed + size(outcomes) - size(failures), failed := failed + size(failures), skipped := skipped + left
         let counts := show(size(outcomes) - size(failures)) ++ " passed, " ++ show(size(failures)) ++ " failed" ++ (if left == 0 then "" else ", " ++ show(left) ++ " not run")
         lines := lines ++ List("tested " ++ file ++ ": " ++ counts) ++ List(for f in failures yield "  " ++ f)
@@ -777,6 +795,26 @@ procedure refactor_tests(
     end
   end
   tests := Tests(List(for line in lines), passed, failed, skipped)
+
+// whether the checker generated the tests of the package of members in q, the tests of examples and of lemmas, which it
+// generates only for a package whose check finds no errors but those of raises and unused imports (check_package of
+// ulang/check/check.u), which blocks_run of ulang/syntax/error.u tells apart
+function is_generating(q: Prog, members: List[Id]): Bool :=
+  not exists(diagnostics(q), lambda d => d.kind == TypeKind and blocks_run(d) and contains(value_or(d.module, q.main), members))
+
+// the lemmas of d that claim to hold, which a test l.lemma tests where their formals are enumerable (enumerated_tests of
+// ulang/test/generate.u), whose tests are not among the tests names
+function untested_lemmas(d: Mod, names: List[Str]): List[Str] :=
+  List(for c in d.implemented if is_parsed(c) for name in claimed_lemma(c.that) if not contains(name ++ lemma_suffix(), names) yield name)
+
+function claimed_lemma(cmd: Cmd): Option[Str] :=
+  example claimed_lemma(CLemma(Name(None, "l"), List(), List(), List(), ClaimHolds(List(), nowhere(ELit(LBool(true)))), None)) == Some("l")
+  match cmd
+    case CLemma(name, _, _, List(), ClaimHolds(_, _), _) =>
+      Some(name.base)
+    case _ =>
+      None
+  end
 
 // the line of a test that failed, which names only the position of the error that it reached if the reply lists it
 function failure_text(o: Outcome, listed: List[(Str, Diagnostic)]): Str :=
