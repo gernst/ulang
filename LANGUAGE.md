@@ -8,7 +8,7 @@ Check after each small edit, `ulang.sh check --test file.u`, and let `ulang.sh f
 
 - No `return`, `break`, `continue`, or `+=`: a procedure gives its results by its `out` formals, and a loop ends by its condition or an exception.
 - `let x := e` binds a name once, which nothing assigns, else `x is not assignable`; `var x := e` declares a variable. Both stand anywhere in a body and hold to its end.
-- The bindings of one `let` or `var` are sequential, `let a := 1, b := a + 1`, and so are the assignments of one statement, `a := 1, b := a + 1`; a tuple assigns at once, `(x, y) := (y, x)` swaps, also from any tuple, `(q, _) := pair`. A `(` that starts a line starts such a statement, and is no call of the name that ends the line before it.
+- The bindings of one `let` or `var` are sequential, `let a := 1, b := a + 1`, and so are the assignments of one statement, `a := 1, b := a + 1`, so a swap takes a `let`: `let t := x` and then `x := y, y := t`.
 - `let x := e in body` is an expression; in statements `let x := e` stands alone, without `in`.
 - `if c then … end` and `while c do … end` in statements; `if c then a else b` in expressions always has its `else`. There is no `elif`: `else if` opens an `if` of its own, with its own `end`.
 - Containers are forms: `List(1, 2)`, `List(x; rest)`, also in patterns, `Set(…)`, `Map(k => v)`, `Array(…)`, never `[1, 2]` or `x :: rest`. `[…]` is only for type arguments, `List[Int]`.
@@ -90,7 +90,8 @@ test procedures() :=
   count_up(in 3, ref total)
   assert total == 16
   var x := 1, y := 2
-  (x, y) := (y, x)
+  let t := x
+  x := y, y := t
   assert (x, y) == (2, 1)
 ```
 

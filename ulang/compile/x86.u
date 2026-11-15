@@ -1052,10 +1052,6 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
         emit(in IMov(OReg(Rax), slot(slot_of(env, x.name))), ref e)
       end
 
-    // the checker turns each SAssignTuple into a match
-    case SAssignTuple(_, _) =>
-      raise Unexpected("tuple assignment")
-
     case SBlock(locals, stmts) =>
       var binds: Slots := List(), t: Int
       for x in var_names(vars(locals)) do

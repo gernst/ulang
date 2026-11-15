@@ -894,10 +894,6 @@ procedure compile_stmt(
         ss := ss ++ as ++ cs ++ reassign(env, List(x), cs)
       end
 
-    // the checker turns each SAssignTuple into a match
-    case SAssignTuple(_, _) =>
-      raise Unexpected("tuple assignment")
-
     case SBlock(locals, stmts) =>
       var bs: List[CStmt]
       compile_stmts(in defs, in_scope(var_names(vars(locals))) ++ env, stmts, out bs, ref g)

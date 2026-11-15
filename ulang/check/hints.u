@@ -328,10 +328,6 @@ function stmt_hints(lines: Array[Str], decls: Decls, stmt: At[Stmt]): List[Hint]
     case Some(SAssign(upd)) =>
       exprs_hints(lines, decls, seconds(upd))
 
-    // the checker gives no SAssignTuple
-    case Some(SAssignTuple(_, _)) =>
-      List()
-
     case Some(SBlock(locals, stmts)) =>
       decl_hints(lines, locals) ++ stmts_hints(lines, decls, stmts)
 

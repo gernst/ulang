@@ -276,9 +276,6 @@ function stmt_modules(stmt: At[Stmt]): Set[Id] :=
     case SAssign(upd) =>
       Set(for (x, e) in upd for m in var_modules(x) ++ expr_modules(e) yield m)
 
-    case SAssignTuple(targets, value) =>
-      Set(for x in targets for m in var_modules(x) yield m) ++ expr_modules(value)
-
     case SBlock(locals, stmts) =>
       vars_modules(locals) ++ Set(for s in stmts for m in stmt_modules(s) yield m)
 

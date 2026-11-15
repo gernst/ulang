@@ -852,10 +852,6 @@ function zonk_statement(s: State, stmt: Stmt): Stmt :=
     case SAssign(upd) =>
       SAssign(List(for p in upd yield zonk_binding(s, p)))
 
-    // the checker gives no SAssignTuple
-    case SAssignTuple(_, _) =>
-      stmt
-
     case SBlock(locals, stmts) =>
       SBlock(zonk_decls(s, locals), List(for d in stmts yield zonk_stmt(s, d)))
 
@@ -985,10 +981,6 @@ function unknown_in(stmt: At[Stmt]): Option[(Pos, Type)] :=
   match stmt.that
     case SAssign(upd) =>
       unknown_in_exprs(seconds(upd))
-
-    // the checker gives no SAssignTuple
-    case SAssignTuple(_, _) =>
-      None
 
     case SBlock(_, stmts) =>
       unknown_in_all(stmts)
@@ -3730,14 +3722,6 @@ procedure statement_node(
         env := assigned(env, List(typed_var.name))
       end
       y := SAssign(List(for a in typed))
-
-    // a match of the value whose case assigns its components, under names that users cannot write, as a let of a tuple
-    // binds them
-    case SAssignTuple(targets, value) =>
-      let components := List(for (x, i) in zip(targets, range(1, size(targets) + 1)) yield (x, generated_name(x.name.base ++ "." ++ show(i))))
-      let pat := AOk(pos, span, PTuple(List(for (x, c) in components yield AOk(pos, span, if is_dropped(x) then PWild else PName(c, THole)))))
-      let assigned := AOk(pos, span, SAssign(List(for (x, c) in components if not is_dropped(x) yield (x, AOk(pos, span, EVar(Var(c, THole)))))))
-      statement_node(in assignable, pos, span, SMatch(value, List(AOk(pos, span, Branch(pat, None, assigned)))), out y, ref env, s)
 
     // the locals of the parser are SLocal statements, each a block of the rest of its body
     case SBlock(locals, stmts) if exists(stmts, lambda d => is_local(d)) =>

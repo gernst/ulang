@@ -307,10 +307,6 @@ function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
     case SAssign(upd) =>
       exprs_flow(scope, List(for (_, e) in upd yield e))
 
-    // the checker gives no SAssignTuple
-    case SAssignTuple(_, value) =>
-      exprs_flow(scope, List(value))
-
     case SBlock(locals, stmts) =>
       stmts_flow(bound(scope, vars(locals)), stmts)
 

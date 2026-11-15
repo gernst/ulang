@@ -211,9 +211,6 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
     case SAssign(upd) =>
       exprs_lints(fun, List(for (_, e) in upd yield e))
 
-    case SAssignTuple(_, value) =>
-      expr_lints(fun, value)
-
     case SBlock(locals, stmts) =>
       locals_lints(pos, locals, stmts) ++ declared_lints(stmts) ++ collecting_loops(stmts) ++ stmts_lints(fun, stmts)
 
@@ -909,7 +906,7 @@ function child_stmts(stmt: Stmt): List[At[Stmt]] :=
     case SSkip =>
       List()
 
-    case SAssign(_) | SAssignTuple(_, _) =>
+    case SAssign(_) =>
       List()
 
     case SBlock(_, stmts) =>
@@ -978,10 +975,6 @@ function assigned(stmt: At[Stmt]): Set[Id] :=
   let own := match part
     case SAssign(upd) =>
       Set(for (x, _) in upd yield x.name.base)
-
-    case SAssignTuple(targets, _) =>
-      Set(for x in targets if not is_dropped(x) yield x.name.base)
-
     case _ =>
       Set()
   end in
@@ -1159,9 +1152,6 @@ function own_names(stmt: Stmt): Set[Id] :=
 
     case SAssign(upd) =>
       Set(for (_, e) in upd for x in expr_names(e) yield x)
-
-    case SAssignTuple(_, value) =>
-      expr_names(value)
 
     case SBlock(_, _) =>
       Set()

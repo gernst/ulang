@@ -182,9 +182,6 @@ data Stmt :=
   case SSkip
   // assign x := a, …, which assigns one after another, each value of the variables after those before it
   case SAssign(upd: List[(Var, At[Expr])])
-  // (x, y, …) := e, which assigns the components of the tuple e at once, where a target may be _, the variable of
-  // dropped_out, and which the checker turns into a match of e whose case assigns them
-  case SAssignTuple(targets: List[Var], value: At[Expr])
   // statements one after another, the body of an if, while, case, or procedure, where the parser gives no locals but
   // SLocal statements, and the checker gives no SLocal but blocks whose locals the assignments at the start of stmts
   // initialize
@@ -1172,7 +1169,7 @@ function loop_positions_in(pos: Pos, stmt: Stmt): List[Pos] :=
     case SSkip =>
       List()
 
-    case SAssign(_) | SAssignTuple(_, _) =>
+    case SAssign(_) =>
       List()
 
     case SCall(_, _, _, _) =>
@@ -1301,9 +1298,6 @@ function strip_statement(stmt: Stmt): Stmt :=
 
     case SAssign(upd) =>
       SAssign(List(for (x, e) in upd yield (x, strip_expr(e))))
-
-    case SAssignTuple(targets, value) =>
-      SAssignTuple(targets, strip_expr(value))
 
     case SBlock(locals, stmts) =>
       SBlock(strip_vars(locals), List(for d in stmts yield strip_stmt(d)))
@@ -1758,9 +1752,6 @@ function errors_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
 
     case SAssign(upd) =>
       errors_in_exprs(seconds(upd))
-
-    case SAssignTuple(_, value) =>
-      errors_in_exprs(List(value))
 
     case SBlock(_, stmts) =>
       errors_in_stmts(stmts)

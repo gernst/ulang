@@ -306,7 +306,7 @@ function counterexamples_in(values: At[Expr], stmt: Stmt): Stmt :=
     case SSkip =>
       stmt
 
-    case SAssign(_) | SAssignTuple(_, _) =>
+    case SAssign(_) =>
       stmt
 
     case SCall(_, _, _, _) =>

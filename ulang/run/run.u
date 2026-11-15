@@ -1070,10 +1070,6 @@ procedure exec(
         env := put(x.name, v, env)
       end
 
-    // the checker turns each SAssignTuple into a match
-    case SAssignTuple(_, _) =>
-      raise Unexpected("tuple assignment")
-
     case SBlock(locals, stmts) =>
       scoped(in run, List(for x in locals yield x.that.name), env -- Set(for x in locals yield x.that.name), stmts, ref env, cache)
 

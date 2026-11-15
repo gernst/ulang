@@ -131,9 +131,6 @@ function inner_stmt_nodes(stmt: Stmt): List[Node] :=
     case SAssign(upd) =>
       flat_map(upd, lambda (_, expr) => expr_nodes(expr))
 
-    case SAssignTuple(_, value) =>
-      expr_nodes(value)
-
     case SBlock(_, stmts) =>
       flat_map(stmts, stmt_nodes)
 

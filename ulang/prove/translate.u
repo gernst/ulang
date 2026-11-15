@@ -292,10 +292,6 @@ function run_stmt(exec: Exec, env: List[Name], stmt: At[Stmt], rest: List[Item],
           run(exec, bind(List(x), env), List(IStmt(map_at(stmt, lambda _ => SAssign(more))); rest), steps ++ List(DefineTerm(x, term_of(env, e), stmt.pos)), pos)
       end
 
-    // the checker gives no SAssignTuple
-    case SAssignTuple(_, _) =>
-      unsupported("tuple assignment", stmt.pos, steps)
-
     case SBlock(_, stmts) =>
       run(exec, env, List(for d in stmts yield IStmt(d)) ++ rest, steps, pos)
 
@@ -396,10 +392,6 @@ function assigned_in(stmt: Stmt): List[Var] :=
   match stmt
     case SAssign(upd) =>
       List(for (x, _) in upd yield x)
-
-    // the checker gives no SAssignTuple
-    case SAssignTuple(targets, _) =>
-      List(for x in targets if not is_dropped(x) yield x)
 
     case SCall(_, _, outs, refs) =>
       outs ++ refs
