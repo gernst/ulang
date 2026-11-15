@@ -71,7 +71,7 @@ function type_modules(typ: Type): Set[Id] :=
     case TTuple(types) =>
       types_modules(types)
 
-    case _ =>
+    case THole | TMeta(_) | TParam(_) | TError =>
       Set()
   end
 
@@ -86,7 +86,7 @@ function raises_modules(raised: Raises): Set[Id] :=
     case RSet(names) =>
       Set(for n in names for m in name_modules(n) yield m)
 
-    case _ =>
+    case RUnknown(_) | RPending =>
       Set()
   end
 

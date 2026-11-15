@@ -495,7 +495,7 @@ function has_holes(t: Type): Bool :=
     case TTuple(types) =>
       exists(types, has_holes)
 
-    case _ =>
+    case TMeta(_) | TParam(_) | TError =>
       false
   end
 
@@ -513,7 +513,7 @@ function subst(t: Type, m: List[(Type, Type)]): Type :=
     case TTuple(types) =>
       TTuple(List(for a in types yield subst(a, m)))
 
-    case _ =>
+    case THole | TMeta(_) | TParam(_) | TError =>
       value_or(get(t, m), t)
   end
 
@@ -548,7 +548,7 @@ function occurs(su: Subst, i: Int, t: Type): Bool :=
     case TTuple(types) =>
       exists(types, lambda a => occurs(su, i, a))
 
-    case _ =>
+    case THole | TParam(_) | TError =>
       false
   end
 
@@ -710,7 +710,7 @@ function solved_type(solved: Option[Map[Int, Set[Name]]], t: Type): Type :=
     case TTuple(types) =>
       TTuple(List(for a in types yield solved_type(solved, a)))
 
-    case _ =>
+    case THole | TMeta(_) | TParam(_) | TError =>
       t
   end
 
@@ -723,7 +723,8 @@ function solved_raises(solved: Option[Map[Int, Set[Name]]], raised: Raises): Rai
   end
 
 function zonk_type(su: Subst, t: Type): Type :=
-  match resolve(su, t)
+  let u := resolve(su, t) in
+  match u
     case TSort(name, args) =>
       TSort(name, List(for a in args yield zonk_type(su, a)))
 
@@ -736,7 +737,7 @@ function zonk_type(su: Subst, t: Type): Type :=
     case TTuple(types) =>
       TTuple(List(for a in types yield zonk_type(su, a)))
 
-    case u =>
+    case THole | TMeta(_) | TParam(_) | TError =>
       u
   end
 
@@ -1173,7 +1174,12 @@ function constructors_of(sig: Sig, su: Subst, t: Type): Option[List[(Head, List[
           None
       end
 
-    case _ =>
+    case THole
+       | TMeta(_)
+       | TParam(_)
+       | TError
+       | TFun(_, _)
+       | TProc(_, _, _, _) =>
       None
   end
 
@@ -1534,7 +1540,7 @@ function has_procs(t: Type): Bool :=
     case TTuple(types) =>
       exists(types, has_procs)
 
-    case _ =>
+    case THole | TMeta(_) | TParam(_) | TError =>
       false
   end
 
@@ -1563,7 +1569,7 @@ procedure loosened(in t: Type, out u: Type, ref s: State) :=
       loosened_all(in types, out us, ref s)
       u := TTuple(us)
 
-    case _ =>
+    case THole | TMeta(_) | TParam(_) | TError =>
       u := t
   end
 
@@ -1608,7 +1614,7 @@ function takes_fixed(sig: Sig, p: Type, t: Type, covariant: Bool): Bool :=
     case TTuple(types) =>
       exists(types, lambda a => takes_fixed(sig, p, a, covariant))
 
-    case _ =>
+    case THole | TMeta(_) | TError =>
       false
   end
 
@@ -2416,7 +2422,7 @@ function has_error_type(t: Type): Bool :=
     case TProc(ins, outs, refs, _) =>
       exists(ins ++ outs ++ refs, has_error_type)
 
-    case _ =>
+    case THole | TMeta(_) | TParam(_) =>
       false
   end
 
