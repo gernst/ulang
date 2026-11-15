@@ -45,6 +45,8 @@ test sorting() :=
 
 ## Language
 
+`LANGUAGE.md` describes the language for writers of programs, by example, starting with the habits of other languages that fail here.
+
 - Functions are pure expressions, procedures are statements with `in`, `out`, and `ref` parameters.
 - In a body, `let p := e, …` binds names once, where patterns take values apart, `let (q, r) := (n / 2, n % 2)`, and `var x := e, y: T` declares variables, also without a value, both anywhere in the body and each seeing those before it, as the bindings of a `let … in e` do; a call is `p(in a, out b, ref c)`, where `out _` drops a value that nothing needs, and an assignment `x := e, y := f`, whose right sides are all read before any is assigned.
 - Every pattern may carry its type, `lambda p: Point => p.x`, `case Some(n: Int) =>`.
