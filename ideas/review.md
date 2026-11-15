@@ -1,6 +1,6 @@
 # Review of smells and cleanups
 
-A read-only review of `ulang/`, `checks/`, and the Makefile against the rules of `CLAUDE.md`, Style, and the open items of `TODO.md`, now `ideas/`, as of c319a1d. No source was changed. Findings that are instances of an item of `TODO.md` are tagged with it, e.g. **[Code 1]**; untagged findings are new. Line numbers are those of c319a1d, and the parts of the compiler that `ulang/compile/lower.u` took since are there now. Checked again against main on 2026-11-13: the findings that were fixed since are gone, and those below still hold, but for those marked as fixed since; the new items that section 4 proposes are Verification 9 and Compiler 5 to 8.
+A read-only review of `ulang/`, `checks/`, and the Makefile against the rules of `CLAUDE.md`, Style, and the open items of `TODO.md`, now `ideas/`, as of c319a1d. No source was changed. Findings that are instances of an item of `TODO.md` are tagged with it, e.g. **[Code 1]**; untagged findings are new. Line numbers are those of c319a1d, and the parts of the compiler that `ulang/compile/lower.u` took since are there now. Checked again against main on 2026-11-13: the findings that were fixed since are gone, and those below still hold, but for those marked as fixed since; the new items that section 4 proposes are Verification 9 and Compiler 5 to 8, of which the latter are done.
 
 Confidence: **confirmed** means reproduced by a run, with the repro given; **likely** means read from the code and checked against it, not run.
 
@@ -43,10 +43,10 @@ Parser and driver:
 
 Prover, latent:
 
-22. **Congruence over abstract types** (`merge` of `ulang/prove/simp.u:618-652`): the e-graph treats the declared `==` as identity, so observers, matches on the representation, and `Size` follow by congruence; a non-structural `==` could prove a false lemma or termination inside its module.
-23. **Recursion through a function-valued field is not seen** (`ulang/prove/translate.u:105-117`), so such a function unfolds without a proof of termination, bounded only by the 256 unfoldings.
+22. Moved to Verification 10 of `ideas/verification.md`.
+23. Moved to Verification 9 of `ideas/verification.md`.
 24. **Fallbacks that build fake terms** where an `Unexpected` belongs: `extract` gives `ELevel(i)` of a class id (`ulang/prove/simp.u:785`), `node_term` a `false` application (`ulang/prove/egraph.u:146`), and `value_or(…, 0)` at `ulang/prove/translate.u:179, 188, 195` and `ulang/prove/patterns.u:279`.
-25. **`measure_slots` takes `acc == 0` as unset** (`ulang/prove/termination.u:193`), so a component with a recursive function of no formals gives a wrong minimum and an `OutOfBounds` in a function.
+25. Moved to Verification 11 of `ideas/verification.md`.
 
 ## 2. Cross-cutting themes
 
