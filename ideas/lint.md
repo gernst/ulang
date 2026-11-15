@@ -1,6 +1,6 @@
 # Lint on the e-graph of the prover
 
-A plan: the rules of `ulang.sh check --lint` that need the e-graph of the prover, `ulang/prove/egraph.u` (`ideas/prove.md`, section 5), so that each rewrite is an equality that the prover establishes. The walks of the syntax are done in `ulang/lint/lint.u`, described in `CLAUDE.md`, and those still open, with the suppression of warnings, are Diagnostics 5; edits are applied by `refactor fix`, Diagnostics 4 and `ideas/refactor.md`, never by lint. When this work is done, what holds goes into `CLAUDE.md`, what stays open into the items of `ideas/`, and this file is deleted. Its background is the sketch `ideas/properties.md`: structural quality as the cost of verifying a unit and a change to it.
+A plan: the rules of `ulang.sh check --lint` that need the e-graph of the prover, `ulang/prove/egraph.u` (`ideas/prove.md`, section 5), so that each rewrite is an equality that the prover establishes. The walks of the syntax are done in `ulang/lint/lint.u`, described in `CLAUDE.md`, and those still open, with the suppression of warnings, are Diagnostics 5; edits are applied by `refactor @fix` (Refactoring of `README.md`), never by lint. When this work is done, what holds goes into `CLAUDE.md`, what stays open into the items of `ideas/`, and this file is deleted. Its background is the sketch `ideas/properties.md`: structural quality as the cost of verifying a unit and a change to it.
 
 ## 1. Why an e-graph
 
@@ -31,7 +31,7 @@ Each class has printable representatives, built bottom-up:
 
 The cost of a representative is the number of tokens of its source. A lint is reported at a part whose class has a printable representative cheaper by a margin, with the edit that replaces the part by it. Then:
 
-- **Kept only if it checks**, by `refactor fix`, which drops it if a name of the replacement resolves to another declaration than in the rule, e.g. in a module that declares its own `value_or`.
+- **Kept only if it checks**, by `refactor @fix`, which drops it if a name of the replacement resolves to another declaration than in the rule, e.g. in a module that declares its own `value_or`.
 - **Strictness.** The prover's equality ignores evaluation: `value_or(o, d)` evaluates `d` where the `match` may not. So a representative from a rule is printable only if each variable that the rule's other side reaches only under a branch, a case, or a lambda is bound to a class with a plain term, a literal, a variable, or a constructor of plain terms; by class, so more precise than `is_plain` of `ulang/lint/lint.u` now.
 - **Termination.** Equations of functions that may not terminate can be proven falsely, so only functions whose termination the prover proves (`terminations` of `ulang/prove/termination.u`) contribute, the library first.
 - **Budget.** Saturation runs within `Limits` of `ulang/prove/simp.u`, `rounds` and `nodes`, per body.
@@ -69,22 +69,22 @@ Engines: **eq** (definitions and lemmas), **ctx** (extended by the path), **clas
 Rules that wait for other items, kept here until those take them:
 
 - **F3 `MaskedDomain`** (ctx, Verification 1): an `if` whose condition is the negation of the `requires` of a call in the other branch, with a constant in its own, e.g. `if d == 0 then 0 else n / d`.
-- **H1 `HookAgreement`** (eq, Testing 1): a declared `compare` must agree with structural equality, as a generated lemma, else tried on generated values.
-- **N2 `DivergentDuplicate`** (Testing 1): functions of the same type and similar shape whose bodies do not share a class, with the generated values where they differ.
+- **H1 `HookAgreement`** (eq, by the tests with formals): a declared `compare` must agree with structural equality, as a generated lemma, else tried on generated values.
+- **N2 `DivergentDuplicate`** (by the tests with formals): functions of the same type and similar shape whose bodies do not share a class, with the generated values where they differ.
 - **T4 `UnusedExport`** (opt-in, `refs` of Diagnostics 3); **T5 `ulang.bin coverage`**, the declarations that no test or example reaches, by `callees` and `reachable` of `ulang/prove/translate.u`; **L1 `ulang.bin deps file:name`**, the definitions whose bodies a proof would unfold.
 - **G1** a permutation of the arguments that fits a candidate, and **G2** the nearest visible names and the packages not imported that export the name, as hints of Diagnostics 2.
 
 ## 7. Order
 
 1. **Into `ideas/prove.md`:** the needs of section 5, which only this file lists, so that the session of the prover takes them before extraction is designed.
-2. **Lint on the e-graph:** the side table of source parts per class and extraction by the size of the source; R2 by definitions; the lemmas of R5, R6, and R1 of lists, which replace the patterns of `placed_lints` and `iterated_list`. What stays: the command, `Warning`, `format_module_expr` for the representatives, the walks of statements, and the edits for `refactor fix`.
+2. **Lint on the e-graph:** the side table of source parts per class and extraction by the size of the source; R2 by definitions; the lemmas of R5, R6, and R1 of lists, which replace the patterns of `placed_lints` and `iterated_list`. What stays: the command, `Warning`, `format_module_expr` for the representatives, the walks of statements, and the edits for `refactor @fix`.
 3. **The context:** D1, D2.
 4. **Classes:** R4, N1, P1.
 5. **Rewriting under binders**, if the prover takes slotted e-graphs: R1 of sets and maps, and generators in general.
 6. **Back to checked expressions:** `expr_of(Term)`, and extraction by the cost of evaluation for the optimizations of Compiler 3.
 7. **After their items:** F3, H1, N2, T4, T5, L1, G1, G2.
 
-When done, the items change: Diagnostics 5 keeps only what is open; item 2 gains G1 and G2; Testing 1 names N2 and H1; Compiler 3 takes the extraction by the cost of evaluation; Code 1 and Code 5 are checked by rules rather than listed by hand; `CLAUDE.md` says which rules of Style `check --lint` checks, and that the lemmas of the library are also what lint suggests.
+When done, the items change: Diagnostics 5 keeps only what is open; Diagnostics 2 gains G1 and G2; the tests with formals of `ulang/test/generate.u` take N2 and H1; Compiler 3 takes the extraction by the cost of evaluation; Code 1 is checked by rules rather than listed by hand; `CLAUDE.md` says which rules of Style `check --lint` checks, and that the lemmas of the library are also what lint suggests.
 
 ## 8. Open questions
 

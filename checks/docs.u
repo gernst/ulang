@@ -286,14 +286,13 @@ procedure keyword_problems(in doc: Str, out problems: List[Str]) :=
   end
 
 // prints the references of the documents that are not declared in their files, run at the root of the project, and fails
-// if there is one; the documents are CLAUDE.md, README.md, and those of ideas/ but review.md, whose references are those of
-// the commit that it reviewed; and the keywords of the lexer that CLAUDE.md does not list as such
+// if there is one; the documents are CLAUDE.md, README.md, and those of ideas/; and the keywords of the lexer that CLAUDE.md does not list as such
 procedure main() raises OsError :=
   var cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[(Str, Bool)]
   os_list(in "ideas", out entries)
   for doc in List(
     "CLAUDE.md",
-    "README.md"; List(for (name, is_dir) in entries if not is_dir and ends_with(name, ".md") and name != "review.md" yield "ideas/" ++ name)) do
+    "README.md"; List(for (name, is_dir) in entries if not is_dir and ends_with(name, ".md") yield "ideas/" ++ name)) do
     var problems: List[Str]
     problems_of(in doc, out problems, ref cache)
     found := found ++ problems
