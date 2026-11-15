@@ -24,4 +24,4 @@ Plans of work in progress, each deleted when its work is done:
 
 - `ideas/prove.md`: the prover, its proofs, and contracts
 - `ideas/lint.md`: the rules of lints that need the e-graph of the prover
-- `ideas/refactor.md`: the command `refactor`, built on main, its open items from use, and the design of its operations (Diagnostics 4)
+- `ideas/refactor.md`: the open items of the command `refactor`, from its uses and its design, with what working on them needs (Diagnostics 4)
