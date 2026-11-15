@@ -140,6 +140,11 @@ test operator_character() :=
     check_text(in "ulang/test/errors/operator-character.u", List("function f(): Int :=", "  1 <|> 2"))
   end
 
+test alias_bar() :=
+  assert raises ParseError("the alternatives of a pattern alias follow case, one on each line, as in pattern P(): T := case A case B", Pos(2, 3)) do
+    check_text(in "ulang/test/errors/alias-bar.u", List("pattern Small(): Int :=", "  0 | 1"))
+  end
+
 test operator_bar() :=
   assert raises ParseError("declaration expected but | found; | separates the alternatives of a pattern, and the operators of Bool are and, or, and not", Pos(2, 5)) do
     check_text(in "ulang/test/errors/operator-bar.u", List("function f(b: Bool): Bool :=", "  b | b"))
