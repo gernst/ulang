@@ -549,7 +549,8 @@ function library_name(module: Str, base: Id): Name
 function module_dir(id: Path): Path
 
 // the text of a path, as messages show it
-function path_text(id: Path): Str
+function path_text(id: Path): Str :=
+  example path_text(List("ulang", "syntax", "syntax")) == "ulang.syntax.syntax"
 
 // the path of the file or directory text from the root, of its names between /
 function dir_path(text: Str): Path :=
@@ -817,7 +818,7 @@ function module_dir(id: Path): Path :=
   take(size(id) - 1, id)
 
 function path_text(id: Path): Str :=
-  join("/", id)
+  join(".", id)
 
 function dir_path(text: Str): Path :=
   List(for name in split(text, '/') if name != "")

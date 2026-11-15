@@ -112,12 +112,16 @@ implementation
 function mangle(n: Name): Str :=
   join("", List(for run in runs(c_text(n), 0, 0) yield if is_plain(at(0, run)) then run else "_" ++ show(int(at(0, run))) ++ "_"))
 
+// the text that C names mangle: a name of the library by the name of its file, as the runtime and the seed refer to them, and
+// the other names by their paths with /, which no base contains, unlike ., e.g. the accessor T.f
 function c_text(n: Name): Str :=
   match name_module(n)
     case Some(m) if is_library_module(m) =>
-      format_name(Name(List(library_file(m)), n.base))
-    case _ =>
-      format_name(n)
+      library_file(m) ++ "." ++ n.base
+    case Some(m) =>
+      join("/", m) ++ "." ++ n.base
+    case None =>
+      n.base
   end
 
 function is_plain(c: Char): Bool :=

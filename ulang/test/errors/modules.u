@@ -226,7 +226,7 @@ test import_used_by_alias() :=
 
 // the programs of a directory see its package without importing it
 test own_package() :=
-  assert raises ParseError("import of the own package ulang/test/errors, which the files of its directory see without importing it", Pos(1, 1)) do
+  assert raises ParseError("import of the own package ulang.test.errors, which the files of its directory see without importing it", Pos(1, 1)) do
     check_text(in "ulang/test/errors/own-package.u", List("import \"ulang/test/errors\""))
   end
 
@@ -417,7 +417,7 @@ test unknown_package() :=
 
 // a path from the root names no file
 test unknown_path() :=
-  assert raises ParseError("unknown package ulang/test/errors/missing/nowhere", Pos(1, 1)) do
+  assert raises ParseError("unknown package ulang.test.errors.missing.nowhere", Pos(1, 1)) do
     check_text(in "ulang/test/errors/unknown-path.u", List("import \"ulang/test/errors/missing/nowhere\""))
   end
 
@@ -621,7 +621,7 @@ test imported_notation() :=
 
 // packages do not import each other cyclically: inner imports wrapper, which imports inner
 test cycle() :=
-  assert raises ImportError(List("ulang", "test", "modules", "wrapper", "wrapper"), "cyclic import of the package ulang/test/modules/inner", Pos(5, 1)) do
+  assert raises ImportError(List("ulang", "test", "modules", "wrapper", "wrapper"), "cyclic import of the package ulang.test.modules.inner", Pos(5, 1)) do
     check_texts(in "ulang/test/modules/inner", List(
       ("inner.u", List(
         "import \"ulang/test/modules/wrapper\"",
@@ -681,7 +681,7 @@ test broken_sibling() :=
 // a program that imports a package with errors is checked against its signature and runs what the errors do not touch,
 // here the first test, and raises Deferred where it reaches a definition that checking rejected, of the second test
 test imports_errors() :=
-  assert raises Deferred("the type error at 13.7 in ulang/test/errors/imports_errors/broken/broken, expected Int but found Bool in argument 2 of the call") do
+  assert raises Deferred("the type error at 13.7 in ulang.test.errors.imports_errors.broken.broken, expected Int but found Bool in argument 2 of the call") do
     run_texts_despite_errors(in "ulang/test/errors/imports_errors", List(
       ("ulang/test/errors/imports_errors/broken", List(
         ("broken.u", List(

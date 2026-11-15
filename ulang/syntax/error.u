@@ -282,7 +282,7 @@ test messages() :=
   assert runtime_message(AssertionUnequal("24", "120")) == "assertion failed: 24 != 120"
   assert runtime_message(CompareFunctions) == "cannot compare functions"
   assert runtime_message(CompareProcedures) == "cannot compare procedures"
-  assert runtime_message(RecursiveInitialization("ulang/test/errors/initialization.loop")) == "recursive initialization of ulang/test/errors/initialization.loop"
+  assert runtime_message(RecursiveInitialization("ulang.test.errors.initialization.loop")) == "recursive initialization of ulang.test.errors.initialization.loop"
   assert runtime_message(Uncaught("Fail(2)")) == "uncaught exception Fail(2)"
   assert runtime_message(Deferred(deferred_text(List(
     Diagnostic(TypeKind, "Mismatch", None, Pos(2, 7), "expected Int but found Bool", List()))))) == "reached the type error at 2.7, expected Int but found Bool"

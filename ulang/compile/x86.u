@@ -1509,7 +1509,7 @@ procedure data_decls(in defs: Defs, cmds: List[Cmd], ref e: Emit) :=
         let global := contains(t, runtime_referenced())
         if not contains(t, runtime_types()) then
           var text: Str
-          c_string(in c_text(t), out text, ref e)
+          c_string(in format_name(t), out text, ref e)
           add_writable(in data_label(type_name(t), global) ++ List(
             LDirective(DAddrs(List(
               text,

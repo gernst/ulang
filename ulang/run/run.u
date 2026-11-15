@@ -620,7 +620,7 @@ procedure apply_value(
           compare_values(in run, a, b, out k, ref cache)
           v := VBool(k < 0)
 
-        case ("prelude/array.foldr", List(VArr(values), acc, g)) =>
+        case ("prelude.array.foldr", List(VArr(values), acc, g)) =>
           var k: Int
           k := size(values), v := acc
           while k > 0 do
@@ -628,7 +628,7 @@ procedure apply_value(
             apply_value(in run, g, List(at(k, values), v), out v, ref cache)
           end
 
-        case ("prelude/array.foldl", List(VArr(values), acc, g)) =>
+        case ("prelude.array.foldl", List(VArr(values), acc, g)) =>
           var k: Int
           k := 0, v := acc
           while k < size(values) do
@@ -698,31 +698,31 @@ function failure(n: Name, args: List[Val]): Thrown :=
 
 procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
   match (format_name(n), vs)
-    case ("prelude/prelude.+", List(VInt(a), VInt(b))) =>
+    case ("prelude.prelude.+", List(VInt(a), VInt(b))) =>
       v := VInt(a + b)
 
-    case ("prelude/prelude.-", List(VInt(a), VInt(b))) =>
+    case ("prelude.prelude.-", List(VInt(a), VInt(b))) =>
       v := VInt(a - b)
 
-    case ("prelude/prelude.*", List(VInt(a), VInt(b))) =>
+    case ("prelude.prelude.*", List(VInt(a), VInt(b))) =>
       v := VInt(a * b)
 
-    case ("prelude/prelude./", List(VInt(_), VInt(0))) =>
+    case ("prelude.prelude./", List(VInt(_), VInt(0))) =>
       raise failure(division_by_zero_name(), List())
 
-    case ("prelude/prelude./", List(VInt(a), VInt(b))) =>
+    case ("prelude.prelude./", List(VInt(a), VInt(b))) =>
       v := VInt(a / b)
 
-    case ("prelude/prelude.%", List(VInt(_), VInt(0))) =>
+    case ("prelude.prelude.%", List(VInt(_), VInt(0))) =>
       raise failure(division_by_zero_name(), List())
 
-    case ("prelude/prelude.%", List(VInt(a), VInt(b))) =>
+    case ("prelude.prelude.%", List(VInt(a), VInt(b))) =>
       v := VInt(a % b)
 
-    case ("prelude/str.chars", List(VStr(text))) =>
+    case ("prelude.str.chars", List(VStr(text))) =>
       v := list_value(List(for c in chars(text) yield VChar(c)))
 
-    case ("prelude/str.str", List(w)) =>
+    case ("prelude.str.str", List(w)) =>
       match list_elements(w)
         case Some(ws) =>
           v := VStr(str(char_values(ws)))
@@ -730,10 +730,10 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
           raise NotList(format_value(w))
       end
 
-    case ("prelude/str.encode_utf8", List(VStr(text))) =>
+    case ("prelude.str.encode_utf8", List(VStr(text))) =>
       v := byte_values(encode_utf8(text))
 
-    case ("prelude/str.decode_utf8", List(VArr(values))) =>
+    case ("prelude.str.decode_utf8", List(VArr(values))) =>
       match decode_utf8(bytes_of(values))
         case Some(text) =>
           v := VSome(VStr(text))
@@ -741,34 +741,34 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
           v := VNone()
       end
 
-    case ("prelude/io.io_path", List(VIO(io))) =>
+    case ("prelude.io.io_path", List(VIO(io))) =>
       v := VStr(io_path(io))
 
-    case ("prelude/str.int", List(VChar(char))) =>
+    case ("prelude.str.int", List(VChar(char))) =>
       v := VInt(int(char))
 
-    case ("prelude/prelude.byte", List(VInt(num))) =>
+    case ("prelude.prelude.byte", List(VInt(num))) =>
       if num < 0 or num > 255 then
         raise failure(no_byte_name(), List(VInt(num)))
       end
       v := VByte(num)
 
-    case ("prelude/prelude.int", List(VByte(num))) =>
+    case ("prelude.prelude.int", List(VByte(num))) =>
       v := VInt(num)
 
-    case ("prelude/str.chr", List(VInt(num))) =>
+    case ("prelude.str.chr", List(VInt(num))) =>
       if not is_code_point(num) then
         raise failure(no_character_name(), List(VInt(num)))
       end
       v := VChar(chr(num))
 
-    case ("prelude/prelude.++", List(VStr(s), VStr(t))) =>
+    case ("prelude.prelude.++", List(VStr(s), VStr(t))) =>
       v := VStr(s ++ t)
 
-    case ("prelude/str.size", List(VStr(text))) =>
+    case ("prelude.str.size", List(VStr(text))) =>
       v := VInt(size(text))
 
-    case ("prelude/str.join", List(VStr(text), w)) =>
+    case ("prelude.str.join", List(VStr(text), w)) =>
       match list_elements(w)
         case Some(ws) =>
           v := VStr(join(text, str_values(ws)))
@@ -777,7 +777,7 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
       end
 
     // from i up to but excluding j, where i <= j are indices of s or its end
-    case ("prelude/str.slice", List(VStr(text), VInt(i), VInt(j))) =>
+    case ("prelude.str.slice", List(VStr(text), VInt(i), VInt(j))) =>
       if i < 0 or i > size(text) or i > j then
         raise failure(out_of_bounds_name(), List(VInt(i), VInt(size(text))))
       else
@@ -787,22 +787,22 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
       end
       v := VStr(slice(text, i, j))
 
-    case ("prelude/str.split", List(VStr(text), VChar(char))) =>
+    case ("prelude.str.split", List(VStr(text), VChar(char))) =>
       v := list_value(List(for part in split(text, char) yield VStr(part)))
 
-    case ("prelude/str.at", List(VInt(num), VStr(text))) =>
+    case ("prelude.str.at", List(VInt(num), VStr(text))) =>
       if num < 0 or num >= size(text) then
         raise failure(out_of_bounds_name(), List(VInt(num), VInt(size(text))))
       end
       v := VChar(at(num, text))
 
-    case ("prelude/str.contains", List(VChar(char), VStr(text))) =>
+    case ("prelude.str.contains", List(VChar(char), VStr(text))) =>
       v := VBool(contains(char, text))
 
-    case ("prelude/str.quote", List(VStr(text))) =>
+    case ("prelude.str.quote", List(VStr(text))) =>
       v := VStr(quote(text))
 
-    case ("prelude/str.number", List(VStr(text))) =>
+    case ("prelude.str.number", List(VStr(text))) =>
       match number(text)
         case Some(k) =>
           v := VSome(VInt(k))
@@ -810,16 +810,16 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
           v := VNone()
       end
 
-    case ("prelude/str.is_digit", List(VChar(char))) =>
+    case ("prelude.str.is_digit", List(VChar(char))) =>
       v := VBool(is_digit(char))
 
-    case ("prelude/str.is_letter", List(VChar(char))) =>
+    case ("prelude.str.is_letter", List(VChar(char))) =>
       v := VBool(is_letter(char))
 
-    case ("prelude/str.is_space", List(VChar(char))) =>
+    case ("prelude.str.is_space", List(VChar(char))) =>
       v := VBool(is_space(char))
 
-    case ("prelude/array.from_list", List(w)) =>
+    case ("prelude.array.from_list", List(w)) =>
       match list_elements(w)
         case Some(ws) =>
           v := VArr(Array(for x in ws))
@@ -827,16 +827,16 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
           raise NotList(format_value(w))
       end
 
-    case ("prelude/array.size", List(VArr(values))) =>
+    case ("prelude.array.size", List(VArr(values))) =>
       v := VInt(size(values))
 
-    case ("prelude/array.at", List(VInt(num), VArr(values))) =>
+    case ("prelude.array.at", List(VInt(num), VArr(values))) =>
       if num < 0 or num >= size(values) then
         raise failure(out_of_bounds_name(), List(VInt(num), VInt(size(values))))
       end
       v := at(num, values)
 
-    case ("prelude/array.slice", List(VArr(values), VInt(i), VInt(j))) =>
+    case ("prelude.array.slice", List(VArr(values), VInt(i), VInt(j))) =>
       if i < 0 or i > size(values) or i > j then
         raise failure(out_of_bounds_name(), List(VInt(i), VInt(size(values))))
       else
@@ -1350,11 +1350,11 @@ procedure invoke(
     case Some(proc) =>
       run_body(in run, n, empty(), proc.ins, proc.outs, proc.refs, proc.stmt, ins, refs, out outs, ref env, cache)
 
-    case None if format_name(n) == "prelude/os.os_print" =>
+    case None if format_name(n) == "prelude.os.os_print" =>
       outs := List()
       print_all(in List(for v in ins yield text_of(v)))
 
-    case None if format_name(n) == "prelude/os.os_args" =>
+    case None if format_name(n) == "prelude.os.os_args" =>
       outs := List(list_value(List(for a in run.args yield VStr(a))))
 
     case None =>
@@ -1444,54 +1444,54 @@ procedure print_all(in lines: List[Str]) :=
 procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
   try
     match (format_name(n), ins)
-      case ("prelude/os.os_read_utf8", List(VStr(path))) =>
+      case ("prelude.os.os_read_utf8", List(VStr(path))) =>
         var text: Str
         os_read_utf8(in path, out text)
         outs := List(VStr(text))
 
-      case ("prelude/os.os_write_utf8", List(VStr(path), VStr(t))) =>
+      case ("prelude.os.os_write_utf8", List(VStr(path), VStr(t))) =>
         os_write_utf8(in path, t)
         outs := List()
 
-      case ("prelude/os.os_read_bytes", List(VStr(path))) =>
+      case ("prelude.os.os_read_bytes", List(VStr(path))) =>
         var bytes: Array[Byte]
         os_read_bytes(in path, out bytes)
         outs := List(byte_values(bytes))
 
-      case ("prelude/os.os_write_bytes", List(VStr(path), VArr(values))) =>
+      case ("prelude.os.os_write_bytes", List(VStr(path), VArr(values))) =>
         os_write_bytes(in path, bytes_of(values))
         outs := List()
 
-      case ("prelude/os.os_library", List(VStr(name))) =>
+      case ("prelude.os.os_library", List(VStr(name))) =>
         var text: Str
         os_library(in name, out text)
         outs := List(VStr(text))
 
-      case ("prelude/os.os_library_dir", List()) =>
+      case ("prelude.os.os_library_dir", List()) =>
         var path: Str
         os_library_dir(out path)
         outs := List(VStr(path))
 
-      case ("prelude/os.os_list", List(VStr(path))) =>
+      case ("prelude.os.os_list", List(VStr(path))) =>
         var entries: List[(Str, Bool)]
         os_list(in path, out entries)
         outs := List(list_value(entry_values(entries)))
 
-      case ("prelude/os.os_is_dir", List(VStr(path))) =>
+      case ("prelude.os.os_is_dir", List(VStr(path))) =>
         var yes: Bool
         os_is_dir(in path, out yes)
         outs := List(VBool(yes))
 
-      case ("prelude/os.os_cwd", List()) =>
+      case ("prelude.os.os_cwd", List()) =>
         var text: Str
         os_cwd(out text)
         outs := List(VStr(text))
 
-      case ("prelude/os.os_chdir", List(VStr(path))) =>
+      case ("prelude.os.os_chdir", List(VStr(path))) =>
         os_chdir(in path)
         outs := List()
 
-      case ("prelude/os.os_env", List(VStr(name))) =>
+      case ("prelude.os.os_env", List(VStr(name))) =>
         var value: Option[Str]
         os_env(in name, out value)
         outs := List(
@@ -1502,88 +1502,88 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
               VNone()
           end)
 
-      case ("prelude/os.os_time", List()) =>
+      case ("prelude.os.os_time", List()) =>
         var seconds: Int
         os_time(out seconds)
         outs := List(VInt(seconds))
 
-      case ("prelude/os.os_clock", List()) =>
+      case ("prelude.os.os_clock", List()) =>
         var nanoseconds: Int
         os_clock(out nanoseconds)
         outs := List(VInt(nanoseconds))
 
-      case ("prelude/os.os_print_error", List(VStr(msg))) =>
+      case ("prelude.os.os_print_error", List(VStr(msg))) =>
         os_print_error(in msg)
         outs := List()
 
-      case ("prelude/os.os_exit", List(VInt(num))) =>
+      case ("prelude.os.os_exit", List(VInt(num))) =>
         os_exit(in num)
         outs := List()
 
-      case ("prelude/io.io_stdin", List()) =>
+      case ("prelude.io.io_stdin", List()) =>
         var io: IO
         io_stdin(out io)
         outs := List(VIO(io))
 
-      case ("prelude/io.io_stdout", List()) =>
+      case ("prelude.io.io_stdout", List()) =>
         var io: IO
         io_stdout(out io)
         outs := List(VIO(io))
 
-      case ("prelude/io.io_stderr", List()) =>
+      case ("prelude.io.io_stderr", List()) =>
         var io: IO
         io_stderr(out io)
         outs := List(VIO(io))
 
-      case ("prelude/io.io_open", List(VStr(path), VObj(mode, List()))) =>
+      case ("prelude.io.io_open", List(VStr(path), VObj(mode, List()))) =>
         var io: IO
         io_open(in path, mode_of(mode), out io)
         outs := List(VIO(io))
 
-      case ("prelude/io.io_read_bytes", List(VIO(io), VInt(num))) =>
+      case ("prelude.io.io_read_bytes", List(VIO(io), VInt(num))) =>
         var bytes: Array[Byte]
         io_read_bytes(in io, num, out bytes)
         outs := List(byte_values(bytes))
 
-      case ("prelude/io.io_read_until", List(VIO(io), VByte(num))) =>
+      case ("prelude.io.io_read_until", List(VIO(io), VByte(num))) =>
         var bytes: Array[Byte]
         io_read_until(in io, byte(num), out bytes)
         outs := List(byte_values(bytes))
 
-      case ("prelude/io.io_read_all", List(VIO(io))) =>
+      case ("prelude.io.io_read_all", List(VIO(io))) =>
         var bytes: Array[Byte]
         io_read_all(in io, out bytes)
         outs := List(byte_values(bytes))
 
-      case ("prelude/io.io_write_bytes", List(VIO(io), VArr(values))) =>
+      case ("prelude.io.io_write_bytes", List(VIO(io), VArr(values))) =>
         io_write_bytes(in io, bytes_of(values))
         outs := List()
 
-      case ("prelude/io.io_close", List(VIO(io))) =>
+      case ("prelude.io.io_close", List(VIO(io))) =>
         io_close(in io)
         outs := List()
 
-      case ("prelude/io.io_connect", List(VStr(host), VInt(port))) =>
+      case ("prelude.io.io_connect", List(VStr(host), VInt(port))) =>
         var io: IO
         io_connect(in host, port, out io)
         outs := List(VIO(io))
 
-      case ("prelude/io.io_listen", List(VStr(host), VInt(port))) =>
+      case ("prelude.io.io_listen", List(VStr(host), VInt(port))) =>
         var listener: Listener
         io_listen(in host, port, out listener)
         outs := List(VListener(listener))
 
-      case ("prelude/io.io_accept", List(VListener(listener))) =>
+      case ("prelude.io.io_accept", List(VListener(listener))) =>
         var io: IO
         io_accept(in listener, out io)
         outs := List(VIO(io))
 
-      case ("prelude/io.io_port", List(VListener(listener))) =>
+      case ("prelude.io.io_port", List(VListener(listener))) =>
         var port: Int
         io_port(in listener, out port)
         outs := List(VInt(port))
 
-      case ("prelude/io.io_close_listener", List(VListener(listener))) =>
+      case ("prelude.io.io_close_listener", List(VListener(listener))) =>
         io_close_listener(in listener)
         outs := List()
 

@@ -49,7 +49,7 @@ test compare_procedures() :=
   end
 
 test initialization() :=
-  assert raises RecursiveInitialization("ulang/test/errors/initialization.loop") do
+  assert raises RecursiveInitialization("ulang.test.errors.initialization.loop") do
     run_text(in "ulang/test/errors/initialization.u", List(
       "function loop(): Int :=",
       "  loop() + 1",

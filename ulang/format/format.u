@@ -1640,4 +1640,4 @@ test printing() :=
   assert format_type(TProc(List(TParam("A")), List(), List(int_type), RWritten(List()))) == "(in A, ref Int)"
   assert format_type(TProc(List(TParam("A")), List(), List(), RWritten(List(TSort(unqualified("E"), List()), int_type)))) == "(in A) raises E, Int"
   assert format_pat(PCons(nowhere(var_pat), nowhere(PApp(unqualified("Some"), List(nowhere(PWild)))))) == "List(x; Some(_))"
-  assert format_name(cons_name()) == "prelude/list.Cons" and cons_name().base == "Cons"
+  assert format_name(cons_name()) == "prelude.list.Cons" and cons_name().base == "Cons"

@@ -343,7 +343,7 @@ test messages() :=
   assert located_message(AlreadyDefined(Name(List("ulang", "test", "errors", "duplicate-signature"), "f"))) == "f is already defined"
   assert located_message(Located(None, Pos(6, 1), Ambiguous(Name(List(), "helper"), List(
     (Name(List("ulang", "test", "modules", "left", "left"), "helper"), Scheme(List(), TFun(List(TSort(Name(List("prelude", "prelude"), "Int"), List())), TSort(Name(List("prelude", "prelude"), "Int"), List())))),
-    (Name(List("ulang", "test", "errors", "own-name"), "helper"), Scheme(List(), TFun(List(TSort(Name(List("prelude", "prelude"), "Int"), List())), TSort(Name(List("prelude", "prelude"), "Int"), List())))))))) == "helper is ambiguous: ulang/test/modules/left/left.helper: Int -> Int, ulang/test/errors/own-name.helper: Int -> Int at 6.1"
+    (Name(List("ulang", "test", "errors", "own-name"), "helper"), Scheme(List(), TFun(List(TSort(Name(List("prelude", "prelude"), "Int"), List())), TSort(Name(List("prelude", "prelude"), "Int"), List())))))))) == "helper is ambiguous: ulang.test.modules.left.left.helper: Int -> Int, ulang.test.errors.own-name.helper: Int -> Int at 6.1"
   assert located_message(Located(None, Pos(1, 1), CannotUnify(TParam("A"), TParam("B")))) == "cannot unify A and B at 1.1"
   assert type_message(Mismatch(TBool(), TInt(), "the condition of if")) == "expected Bool but found Int in the condition of if"
   assert type_diagnostic(Located(Some(List("m")), Pos(2, 3), Mismatch(TBool(), TInt(), "the guard"))) == Diagnostic(TypeKind, "Mismatch", Some(List("m")), Pos(2, 3), "expected Bool but found Int in the guard", List(("expected", "Bool"), ("found", "Int")))
@@ -353,7 +353,7 @@ test messages() :=
   assert located_message(Located(None, Pos(4, 1), MisshapenHook(Name(List("ulang", "test", "errors", "misshapen-hook"), "show"), HookShow))) == "show must take one value T[A, …] of a datatype T of its module, with distinct type parameters, and give Str at 4.1"
   assert located_message(MissingDefinition(Name(List("ulang", "test", "errors", "abstract-undefined"), "T"))) == "T is exported but not defined"
   assert located_message(Located(None, Pos(1, 1), MissingType(Name(List(), "x")))) == "missing type for x at 1.1"
-  assert located_message(Located(None, Pos(1, 1), NoFold(TSort(Name(List("prelude", "prelude"), "Int"), List()), "foldr"))) == "Int is no container: prelude/prelude declares no foldr at 1.1"
+  assert located_message(Located(None, Pos(1, 1), NoFold(TSort(Name(List("prelude", "prelude"), "Int"), List()), "foldr"))) == "Int is no container: prelude.prelude declares no foldr at 1.1"
   assert located_message(Located(None, Pos(1, 1), NotAssignable(Name(List(), "k")))) == "k is not assignable at 1.1"
   assert located_message(Located(None, Pos(1, 1), NotExhaustive(PWild))) == "match is not exhaustive, missing _; add case _ => at 1.1"
   assert located_message(Located(None, Pos(1, 1), OutputUnassigned(Name(List(), "y"), Name(List(), "lambda")))) == "output y of lambda is not assigned on every path at 1.1"
@@ -364,7 +364,7 @@ test messages() :=
   assert located_message(PrivateType(Name(List("ulang", "test", "errors", "private-type"), "f"), Name(List("ulang", "test", "errors", "private-type"), "Hidden"))) == "the signature of f names the private type Hidden"
   assert located_message(Located(None, Pos(1, 1), RaisesVariables(Name(List(), "n")))) == "the pattern of assert raises binds n, which only _ may stand for without a guard at 1.1"
   assert located_message(Located(None, Pos(2, 3), NotAnException(TSort(Name(List("prelude", "prelude"), "Int"), List())))) == "only values of datatypes without type parameters are raised, not of Int at 2.3"
-  assert located_message(Located(None, Pos(3, 1), UnusedImport(List("ulang", "syntax")))) == "the module uses nothing of the imported package ulang/syntax at 3.1"
+  assert located_message(Located(None, Pos(3, 1), UnusedImport(List("ulang", "syntax")))) == "the module uses nothing of the imported package ulang.syntax at 3.1"
   assert located_message(Located(None, Pos(2, 3), UndeclaredRaise(Name(List("a"), "p"), TSort(Name(List("a"), "Failed"), List())))) == "p raises Failed, which its raises omit at 2.3"
   assert located_message(Located(None, Pos(2, 3), UntypedRaise(Name(List(), "lambda"), TSort(Name(List("a"), "Failed"), List())))) == "the procedure value lambda raises Failed, which its type omits at 2.3"
   assert located_message(Located(None, Pos(2, 3), WiderRaise(TSort(Name(List("a"), "Failed"), List())))) == "this procedure value may raise Failed by its type, but it reaches a place whose type omits Failed; add raises Failed to the procedure type that omits it, or catch Failed in the procedure at 2.3"
