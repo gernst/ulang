@@ -14,6 +14,7 @@ Lemmas about functions with proofs, the prover in `ulang/prove/`, contracts of p
 8. Next steps
 9. Proposals
 10. Open points
+11. Abstract types as quotients (design)
 
 ## 1. Status
 
@@ -197,6 +198,7 @@ In the order I would take them, each with the problem, the solution, and where.
 5. **Exhausted limits in reports**: Verification 7 of `ideas/verification.md`.
 6. **Version 2 of the proof language**, deferred (section 4).
 7. **Contracts of functions and exported lemmas** (section 2; Verification 1 of `ideas/verification.md`): with abstract types uninterpreted for lemmas of other modules.
+8. **Abstract types as quotients** (section 11; Verification 9 of `ideas/verification.md`), which needs the exported lemmas of step 7 and fixes the soundness of `==` on abstract types.
 
 ## 9. Proposals
 
@@ -225,3 +227,42 @@ In the order I would take them, each with the problem, the solution, and where.
 17. **Theories as values or tags**: a tag dispatched by `match`, as now.
 18. **Equations between functions** among the assumptions, which need extensionality.
 19. **Speed**: the e-graph is persistent maps with interned nodes; a memo of the simplified terms, threaded through simplification, did not pay (section 8, step 1).
+
+## 11. Abstract types as quotients (design)
+
+*Problem* (Verification 9 of `ideas/verification.md`): the e-graph takes `a == b` as the identity of its terms (`merge` of `ulang/prove/simp.u`), also for values of an abstract type, whose `==` is the declared `==` or `compare` of its module, which may identify different representations. With `data Frac := case Frac(n: Int, d: Int)` abstract, `num(f) := f.n`, and `==` by `a.n * b.d == b.n * a.d`, `frac(1, 2) == frac(2, 4)` holds while their `num`s differ, and still `requires a == b ensures num(a) == num(b)` is proven, inside the module and in one that imports it, since the prover unfolds `num` everywhere, as it unfolds every definition of the program (`translate` of `ulang/prove/translate.u`).
+
+*Idea*: an abstract type is a quotient. A value of it is, for its importers, its class under the declared `==`, so outside its module the e-graph identifies `a` and `b` by `a == b`, and congruence is sound, as long as nothing outside sees the representation: an importer reasons about the type only by its exported functions and the exported lemmas about them, e.g. sets and maps by `contains(x, insert(y, s)) == (x == y or contains(x, s))`, not by AVL trees. The implementation earns this by obligations that the prover generates for it: the declared `==` is an equivalence, and every exported function respects it, both on the representations that satisfy the invariant of the type, which every exported function establishes and preserves. A function that observes the representation, as `num` of `Frac`, is then a congruence obligation of its module that fails, an error there, while the lemma `num(a) == num(b)` of an importer is rightly proven from the facts of the interface.
+
+**Visibility of the prover.** Importing a module makes only its public part available, to the prover as to the checker:
+
+- A lemma of a module `m` sees the declarations that `m` sees, its own, the exports of the members of its package and of the packages it imports, and the library, as the checker resolves names, and the exported lemmas of those modules, as facts proven where they are declared.
+- A definition of another module unfolds only where its unfolding gives a term of public names only, names that `m` sees: an exported function whose body is a term over exported functions, constructors of datatypes that are not abstract, and builtins unfolds as now, while one whose body names a private function, a constructor or field of an abstract type, or a declaration of a package that `m` does not import, stays uninterpreted, known only by the exported lemmas about it. The check is per equation of the definition (`def_equations` of `ulang/prove/equations.u`), so an equation whose right side is public unfolds where another of the same function does not.
+- Within a package the same holds between its members, whose private declarations and representations of abstract types are private to their file.
+- A function that does not unfold needs no proof of termination from the importer; its own module proves it, as its lemmas.
+
+**The implementation half.** Inside the module of an abstract type `T`, the representation is visible, and a lemma there reasons about it, where `==` at `T` is the declared one, not the identity of representations:
+
+- The builtin `==` (and `compare`, `<`) at `T` is translated to a call of the declared function, or to `compare(a, b) == 0`, which unfolds, where the checked program gives the type of the operands. Where generic code reaches `==`, as `contains` over a `List[T]`, the simplifier decides by the type of the operands that the terms tell, the datatype of a constructor, the type of a variable, or the result type of a function, which `Def` would then carry, and an `==` whose operands have no known type stays an atom, no union.
+- Representation invariants: the module declares a predicate over the representation, a private function `T -> Bool`, as the invariant of `T`, e.g. that a `Set` is a balanced search tree or that the denominator of a `Frac` is positive, true where none is declared. Syntax open: a clause on the `data` of the type in `implementation`, e.g. `invariant is_valid` after its constructors.
+- Generated obligations, lemmas of the module named after what they state, proven by the default proof unless the module writes a proof, reported as open lemmas, and tested as `l.lemma` on the enumerated representations that satisfy the invariant:
+  - for the declared `==`: reflexivity, symmetry, and transitivity, over values that satisfy the invariant; for a declared `compare`, the laws of a total order, with `==` as `compare(a, b) == 0`;
+  - for each exported function whose result is of type `T`: the invariant of the result, where the formals of type `T` satisfy it, which for a function without such formals, as `empty()` or `frac(a, b)`, is the establishment;
+  - for each exported function and each formal of type `T`: congruence, `requires inv(a), inv(a_), a == a_ ensures f(…, a, …) == f(…, a_, …)`, where `==` at the result type is that of the result, the declared one at `T` and the structural one with it inside `List[T]` and the like.
+- Exported lemmas (step 7 of section 8): `lemma` in `export`, stated over the interface only and checked as an importer sees the module, as the examples of exports are, proven in the module with the representation, where formals of type `T` satisfy the invariant; imports keep them (unlike `without_tests_of` of `ulang/parse/parse.u`, which drops the lemmas now), with their names, so that importers cite them and the default proof takes them as facts. Whether a proof may follow the statement in `export` or only a repetition in `implementation`, as definitions repeat signatures, is open.
+
+*Steps*, each with its cases in `ulang/test/errors/lemmas.u` and `ulang/prove/test/`:
+
+1. Visibility: the prover sees what the module of the lemma sees, and definitions of other modules unfold only to public terms. First count the lemmas of the project that this leaves open, since the library is then opaque to its importers until it has exported lemmas.
+2. Exported lemmas, parsed, checked, kept by imports, proven in their modules, and facts of the importers.
+3. `==` at abstract types inside their modules as the declared function, and the types of terms where generic code reaches it.
+4. Invariants of abstract types, their syntax and their check.
+5. The generated obligations of equivalence, invariants, and congruence.
+6. The library: exported lemmas of `set`, `map`, and `buffer`, their invariants, and their obligations proven, the bulk of the work.
+
+*Open*:
+
+- An abstract type that declares neither `==` nor `compare`, whose `==` raises `Incomparable`, has no quotient; a lemma that compares its values states something about an exception, so `==` at it may be an error of the lemma.
+- Invariants over values that contain `T`, as an exported function returning `List[T]` or `Option[T]`: each `T` inside satisfies it, by a generated walk, or only results of type `T` count at first.
+- Whether the open obligations of a module block the lemmas of its importers that rely on them; proposed: no, the importers' lemmas count as proven, and the module reports its open obligations as errors, as open terminations are.
+- Generic lemmas: inside the module of `T`, a lemma over a parameter `A` cited at `A := T` assumes that `==` at `T` is identity of representations, which only the quotient outside gives; such citations inside the module are refused, or the lemma is stated at `T` again.
