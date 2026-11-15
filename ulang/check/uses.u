@@ -9,6 +9,8 @@ export
 
 function used_modules(cmd: Cmd): Set[Id]
 
+function pat_modules(pat: At[Pat]): Set[Id]
+
 implementation
 
 function used_modules(cmd: Cmd): Set[Id] :=

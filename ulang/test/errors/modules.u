@@ -192,6 +192,38 @@ test unused_import() :=
       "  assert 1 + 1 == 2"))
   end
 
+// an import of a module without commands, on which no command takes the error
+test unused_import_alone() :=
+  assert raises Located(None, Pos(1, 1), UnusedImport("ulang/test/modules/left")) do
+    check_text(in "ulang/test/errors/unused-import-alone.u", List("import \"ulang/test/modules/left\""))
+  end
+
+// an import that only a part that does not parse may use is not judged
+test import_used_unparsed() :=
+  var parsing: List[ParseError], errors: List[TypeError]
+  check_text_partial(in "ulang/test/errors/import-used-unparsed.u", List(
+    "import \"ulang/test/modules/left\"",
+    "",
+    "function f(n: Int): Int :=",
+    "  helper(n) +"), out parsing, errors)
+  assert size(parsing) == 1
+  assert errors == List()
+
+// a module whose commands all fail to parse gets its parse errors, not an error outside its commands
+test import_all_unparsed() :=
+  var parsing: List[ParseError], errors: List[TypeError]
+  check_text_partial(in "ulang/test/errors/import-all-unparsed.u", List("import \"ulang/test/modules/left\"", "", "function f( :="), out parsing, errors)
+  assert size(parsing) == 1
+  assert errors == List()
+
+// an import that only the pattern of an alias with _, which has no definition, uses
+test import_used_by_alias() :=
+  check_text(in "ulang/test/errors/import-used-by-alias.u", List(
+    "import \"ulang/test/modules\"",
+    "",
+    "pattern Pushed(): Stack[Int] :=",
+    "  Push(_, _)"))
+
 // the programs of a directory see its package without importing it
 test own_package() :=
   assert raises ParseError("import of the own package ulang/test/errors, which the files of its directory see without importing it", Pos(1, 1)) do

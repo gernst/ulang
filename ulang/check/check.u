@@ -5274,6 +5274,13 @@ procedure with_errors(
         match first_of(indexed, error_module(main, e))
           case Some(i) =>
             on := put(i, value_or(get(i, on), List()) ++ List(type_diagnostic(e)), on)
+
+          // of a module without commands, as one whose commands all fail to parse, on the last command, a builtin of the
+          // library unless there is none, with its module
+          case None if indexed != List() =>
+            let last := size(indexed) - 1
+            on := put(last, value_or(get(last, on), List()) ++ List(type_diagnostic(e) with module := Some(error_module(main, e))), on)
+
           case None =>
             raise Unexpected("an error outside the commands of its module, " ++ show(e))
         end
@@ -5299,7 +5306,6 @@ function error_pos(e: TypeError): Pos :=
       Pos(0, 0)
   end
 
-// the index of the last command of module m in cmds that starts at or before pos, after found
 // the first of the commands cmds of the module m
 function first_of(cmds: List[(Int, (Id, At[Cmd]))], m: Id): Option[Int] :=
   match List(for (i, (n, _)) in cmds if n == m yield i)
@@ -5309,6 +5315,7 @@ function first_of(cmds: List[(Int, (Id, At[Cmd]))], m: Id): Option[Int] :=
       None
   end
 
+// the index of the last command of module m in cmds that starts at or before pos, after found
 function container(cmds: List[(Int, (Id, At[Cmd]))], m: Id, pos: Pos, found: Option[(Int, Pos)]): Option[Int] :=
   match cmds
     case List() =>
@@ -5519,8 +5526,9 @@ procedure check_package(
   let solving := s with sub := empty(), chosen := empty(), solved := Some(exceptions.solved)
   errors := errors ++ exceptions.errors, cmds := List(for (m, c) in cmds yield (m, map_at(c, lambda cmd => with_inferred(if cmd_errors(c) == List() then zonk_cmd(solving, cmd) else cmd, exceptions.inferred))))
   loose := loose ++ drop(size(s.errors), errors)
-  if judged and errors == List() then
-    let unused := unused_imports(mods, packages, cmds, s.aliased)
+  // only for a source that parses, since an import may be used by what does not parse, and a module may have no command
+  if judged and not partial and errors == List() then
+    let unused := unused_imports(mods, packages, cmds, s.aliased ++ alias_uses(s.sig, members))
     errors := unused, loose := loose ++ unused
   end
 
@@ -5529,7 +5537,16 @@ procedure check_package(
 // for the package of the loaded file, whose members have their tests, which may need an import alone, and only for the
 // imports that the parser read, not those of the fixtures of tests at Pos(0, 0)
 function unused_imports(mods: List[Mod], packages: List[Package], cmds: List[(Id, At[Cmd])], aliased: Set[(Id, Id)]): List[TypeError] :=
-  List(for d in mods for i in d.imports if i.pos != Pos(0, 0) and not uses_package(uses_of(d.name, cmds, aliased), i.that, packages) yield Located(Some(d.name), i.pos, UnusedImport(i.that)))
+  List(for d in mods if d.imports != List() for e in unused_of(d, packages, uses_of(d.name, cmds, aliased)) yield e)
+
+// the imports of d of which the modules used do not use a member
+function unused_of(d: Mod, packages: List[Package], used: Set[Id]): List[TypeError] :=
+  List(for i in d.imports if i.pos != Pos(0, 0) and not uses_package(used, i.that, packages) yield Located(Some(d.name), i.pos, UnusedImport(i.that)))
+
+// the modules that the resolved patterns of the pattern aliases of the members use, paired with the module of each alias,
+// since an alias with _ has no definition, whose walk would find them
+function alias_uses(sig: Sig, members: List[Id]): Set[(Id, Id)] :=
+  Set(for n => alias in sig.pat_aliases for d in n.module if contains(d, members) for m in pat_modules(alias.pat) yield (d, m))
 
 function uses_of(m: Id, cmds: List[(Id, At[Cmd])], aliased: Set[(Id, Id)]): Set[Id] :=
   Set(for (n, c) in cmds if n == m for x in used_modules(c.that) yield x) ++ Set(for (n, a) in aliased if n == m yield a)
