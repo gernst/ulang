@@ -11,7 +11,7 @@ test put_and_drop() :=
   let path := "out/test/refactor/sample.u"
   os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\n// one more\nfunction f(x: Int): Int :=\n  x + 1\n")
   let script := "@put " ++ path ++ "\nfunction f(y: Int): Int := y + 2\nfunction g(): Int := f(1)\n@drop " ++ path ++ ":g\n"
-  run_script(in script, false, "out/test/refactor/state", lambda in _, out found =>
+  run_script(in script, false, "out/test/refactor/state", lambda in _, _, out found =>
     found := List()
   end, out reply, status, _)
   os_read_utf8(in path, out text)
@@ -27,7 +27,7 @@ test refused_fragment() :=
   var reply: List[Str], status: Int, text: Str
   let path := "out/test/refactor/refused.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
-  run_script(in "@put " ++ path ++ "\nfunction g(x: Int): Int :=\n  x +\n", false, "out/test/refactor/state", lambda in _, out found =>
+  run_script(in "@put " ++ path ++ "\nfunction g(x: Int): Int :=\n  x +\n", false, "out/test/refactor/state", lambda in _, _, out found =>
     found := List()
   end, out reply, status, _)
   os_read_utf8(in path, out text)
@@ -55,7 +55,11 @@ test handles() :=
   os_read_utf8(in path, out text)
   assert text == original
 
-procedure nothing_found(in file: Str, out found: List[(Str, Diagnostic)]) :=
+procedure nothing_found(
+  in  file: Str,
+      overlays: Map[Str, Str],
+  out found: List[(Str, Diagnostic)]
+) :=
   found := List()
 
 // @rename renames a function at its signature, definition, and examples and its uses in the members of its package, by
@@ -88,14 +92,25 @@ test fixes() :=
   os_read_utf8(in path, out text)
   assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  let count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n"
 
-// a check that finds an error at each use of value_or, as if the module declared another
-procedure value_or_flagged(in file: Str, out found: List[(Str, Diagnostic)]) :=
+// a check that finds an error at each use of value_or in the text of the file, the overlay if any, as if the module
+// declared another
+procedure value_or_flagged(
+  in  file: Str,
+      overlays: Map[Str, Str],
+  out found: List[(Str, Diagnostic)]
+) :=
   var text := ""
-  try
-    os_read_utf8(in file, out text)
-  catch
-    case OsError(_) =>
-      text := ""
+  match get(file, overlays)
+    case Some(overlay) =>
+      text := overlay
+
+    case None =>
+      try
+        os_read_utf8(in file, out text)
+      catch
+        case OsError(_) =>
+          text := ""
+      end
   end
   found := List(for (line, i) in numbered(split(text, '\n')) for col in index_of("value_or(", line) yield (file, Diagnostic(TypeKind, "Mismatch", None, Pos(i + 1, col + 1), "expected Int but found Bool", List())))
 

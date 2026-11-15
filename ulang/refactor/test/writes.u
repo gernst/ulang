@@ -4,7 +4,11 @@
 import "ulang/syntax"
 import "ulang/refactor"
 
-procedure unseen(in file: Str, out found: List[(Str, Diagnostic)]) :=
+procedure unseen(
+  in  file: Str,
+      overlays: Map[Str, Str],
+  out found: List[(Str, Diagnostic)]
+) :=
   found := List()
 
 // @put of a new module makes its directory, here one that no run before made, since no procedure removes directories
