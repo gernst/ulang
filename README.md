@@ -151,7 +151,7 @@ tested shapes.u: 1 passed, 0 failed
 
 Without the `@put into #1`, the reply would have listed the match that the new constructor leaves open as a new diagnostic, so the follow-ups of a change are a list of work, not a search. The status is 0 if the files are clean or have warnings only, 1 if errors remain or the script is refused (`rejected`, with the message of the refusal, and for an error of the system, such as a file that cannot be read, the line and the action of the script), and 3 if a test failed. A test that fails by reaching an error of the reply says so instead of repeating it, and the tests and examples that errors keep out of the program are counted as not run, while the lemmas whose tests they keep out are named.
 
-Two queries tell what a module offers and who uses a name, before an edit:
+Four queries tell what a module offers, what a name is, and who uses it, before an edit:
 
 ```
 $ out/ulang.sh refactor @outline shapes.u
@@ -166,6 +166,17 @@ applied
 @refs shapes.u:area: 2 uses of shapes.area/1 in 1 file
   shapes.u:20.3 in is_big/1 #9: area(s) > 100
   shapes.u:23.10 in areas/0 #10: assert area(Square(3)) == 9 and not is_big(Circle(2))
+$ out/ulang.sh refactor @sig lines
+applied
+@sig lines: 1 declaration in 1 module
+prelude/str.lines:
+  function lines(s: Str): List[Str] :=
+    example lines("a\nb\n") == List("a", "b")
+    example lines("a\n\nb") == List("a", "", "b")
+    example lines("") == List()
+$ out/ulang.sh refactor @resolve shapes.u:20.3
+applied
+@resolve shapes.u:20.3: use of shapes.area: Shape -> Int
 ```
 
 A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which is refused if the handle lies elsewhere, the node of a declaration that starts with a text, `F:name "case Listing"`, or the node at a position, `F:L.C`. The text is all between the first and the last quote of the line, read with the escapes of string literals, `F:name "case List(\"fetch\")"`, and else as written, so that `F:name "case List("fetch")"` names the same node.
@@ -174,6 +185,9 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 |---|---|
 | `@show T` | prints a file, a declaration `file.u:name[/arity]`, or a node N, with handles |
 | `@outline F` | one line per declaration of `F`: its lines, section, kind, name and arity, whether exported, its handle, and the constructors of a datatype |
+| `@sig name` | the exported declarations of the name in the modules of the project and the library, across overloads, each by its qualified name: a signature with its raises and its examples, which it leaves out beyond 4 lines, a datatype whole, and a constructor under the head of its datatype |
+| `@sig M` | the export and builtin sections of a module, a file `F` or a path from the root, `ulang/check/check`, or `prelude/str` of the library, as the file writes them, with their docs |
+| `@resolve F:L.C`, `@resolve F L.C` | the qualified name and type of the use at the position, or the type of the variable declared there, from `hints` |
 | `@refs F:name[/n]` | the uses of a function, procedure, pattern alias, or constructor in its package and its importers, by resolution, each with its position, declaration, handle, and line |
 | `@put F` | writes the declarations of the fragment into `F`, each replacing the one of its name and arity in place, or added, which the reply says with its section, and says `of another type` where a replacement's types differ; a missing or empty `F` is the fragment, header, imports, and sections, in a directory made if missing; into a file, the `import` lines join its imports and the declarations after `export` go into its export section, which is made if missing; a declaration keeps its doc unless the fragment writes one, the signature in `export` follows the head of its definition, a private procedure that the fragment exports gets the raises of its signature or else those that the check inferred in both heads, as `@export` does, and a comment of no declaration is refused |
 | `@put F:name[/n]` | the declaration of that name in the fragment replaces the target at its place, whatever its arity, with its signature, and the others follow it |
