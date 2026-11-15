@@ -4468,7 +4468,6 @@ procedure commands(
       typed_cmds := List()
 
     case List((m, cmd); more) =>
-      let errors := size(s.errors), bounds := s.bounds
       var typed_cmd: Cmd, zonked: Cmd, rest: List[Cmd]
       s := enter(s, m) with loops := List()
       command(in cmd, out typed_cmd, ref s)
@@ -4484,10 +4483,6 @@ procedure commands(
           case None =>
             skip
         end
-      end
-      // the raises pass skips a command with errors, and so its bounds
-      if size(s.errors) > errors then
-        s := s with bounds := bounds
       end
       commands(in more, out rest, ref s)
       typed_cmds := List(zonked; rest)
@@ -5384,7 +5379,7 @@ procedure example_commands(
   cmds := List()
   for x in xs do
     var errors: List[Diagnostic]
-    let before := size(s.errors)
+    let before := size(s.errors), bounds := s.bounds
     var one: List[Cmd] := List(x.cmd)
     let viewer := if x.exported then "(example)/" ++ x.module else x.module
     s := s with table := List((viewer, List(x.module; sees(x.module, s.table))); s.table)
@@ -5394,7 +5389,7 @@ procedure example_commands(
       case e =>
         s := s with errors := s.errors ++ List(e)
     end
-    s := placed_errors(s, before, (x.module, x.cmd), x.pos)
+    s := without_bounds(placed_errors(s, before, (x.module, x.cmd), x.pos), before, bounds)
     take_errors(in x.pos, before, out errors, ref s)
     cmds := cmds ++ List(for c in one yield (x.module, checked_at(x.pos, span_at(x.pos), c, errors)))
   end
@@ -5525,6 +5520,11 @@ procedure each_placed(
 
 // the commands of the definitions, checked one by one and then by after, each at its declaration, where an error is located
 // at the definition that raises it, which stays as written if checking it raises
+// s with the bounds as before a command if it reported errors after the first before, since the raises pass skips such a
+// command, and so its bounds
+function without_bounds(s: State, before: Int, bounds: Buffer[Bound]): State :=
+  if size(s.errors) > before then s with bounds := bounds else s
+
 procedure placed_commands(
   in  placed: List[Pos * (Id * Cmd)],
       after: (in List[Cmd]) raises TypeError,
@@ -5536,7 +5536,7 @@ procedure placed_commands(
       cmds := List()
 
     case List((p, d); more) =>
-      let before := size(s.errors)
+      let before := size(s.errors), bounds := s.bounds
       var one: List[Cmd] := List(second(d)), rest: List[Id * At[Cmd]], errors: List[Diagnostic]
       try
         commands(in List(d), out one, ref s)
@@ -5547,7 +5547,7 @@ procedure placed_commands(
         case e =>
           s := s with errors := s.errors ++ List(e)
       end
-      s := placed_errors(s, before, d, p)
+      s := without_bounds(placed_errors(s, before, d, p), before, bounds)
       take_errors(in p, before, out errors, ref s)
       placed_commands(in more, after, out rest, ref s)
       cmds := List(for c in one yield (first(d), checked_at(p, span_at(p), c, errors))) ++ rest
