@@ -92,7 +92,7 @@ Each property has a definition, a formal handle, what ulang does, and what is op
 
 **Formal handle.** The number of distinct semantic patterns per concern, or, building on 2.3, similar but not identical solutions to one concern as divergent redundancy at the level of idioms. Probably a metric more than a semantic property.
 
-**In ulang.** Principle 3 of `DESIGN.md`, one way to write each thing, with the decisions of `rejected.md`: one loop over containers, no early exit, `if` that always nests, containers by forms, failure by checked exceptions only, and one layout by `format`. Bounded quantifiers are deferred since each is another way to write a loop, while folds that stop early are proposed (Syntax 1).
+**In ulang.** Principle 3 of `DESIGN.md`, one way to write each thing, with the decisions of `rejected.md`: one loop over containers, no early exit, `if` that always nests, containers by forms, failure by checked exceptions only, and one layout by `format`. Bounded quantifiers are deferred since each is another way to write a loop, and folds that stop early were dropped, since `exists`, `forall`, and `find` stop at the first element that decides (Syntax 1).
 
 **Open.** Idioms above the language, such as how a package reports its errors, have no check; the `R2 Folded` rule of `ideas/lint.md`, code that spells out a library function, is the start of one.
 

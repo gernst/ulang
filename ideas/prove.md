@@ -220,7 +220,7 @@ In the order I would take them, each with the problem, the solution, and where.
 12. **Several contracts per procedure**, e.g. as claims `correct p ensures …`.
 13. **Total correctness**, by `decreases` on loops and procedures, and claims about exceptions.
 14. **Runtime checks** of contracts in the interpreter.
-15. **Quantifiers and the functions `exists` and `forall`** of the containers share their names; deferred: bounded quantifiers would replace the functions (Syntax 1 of `ideas/syntax.md`, not convinced yet), and the unbounded `forall x: T => e` occurs only in specifications.
+15. **Quantifiers and the functions `exists` and `forall`** of the containers share their names, which do not clash, since the parser tells the unbounded `forall x: T => e`, which occurs only in specifications, from the call `forall(c, p)` by the `(`; deferred: bounded quantifiers would replace the functions (Syntax 1 of `ideas/syntax.md`, not convinced yet).
 16. **Splitting on ground clauses**: settled by internal splits on disjunctive assumptions.
 17. **Theories as values or tags**: a tag dispatched by `match`, as now.
 18. **Equations between functions** among the assumptions, which need extensionality.

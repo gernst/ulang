@@ -23,7 +23,7 @@ Check after each small edit, `ulang.sh check --test file.u`, and let `ulang.sh f
 - A `try` restores every variable that its body changed, also a counter passed by `ref`, so what a failed attempt learned leaves only in the fields of its exception.
 - Arrays are immutable, and building one copies it: state that changes by index or key belongs in a `Map`.
 - `split(text, '\n')` of a text that ends with a newline gives a last empty string; `lines(text)` gives the lines.
-- Keywords are no names, also not of fields, formals, or locals: `_`, `assert`, `builtin`, `case`, `catch`, `correct`, `data`, `do`, `else`, `end`, `ensures`, `example`, `export`, `false`, `for`, `function`, `if`, `implementation`, `import`, `in`, `induction`, `invariant`, `infix`, `lambda`, `lemma`, `let`, `match`, `out`, `pattern`, `postfix`, `prefix`, `procedure`, `raise`, `raises`, `ref`, `requires`, `skip`, `test`, `then`, `true`, `type`, `try`, `var`, `while`, `with`, and `yield`; `and`, `or`, `not`, `show`, and `compare` are names, and `List`, `Set`, `Map`, and `Array` name types, and are forms only before `(`.
+- Keywords are no names, also not of fields, formals, or locals: `_`, `assert`, `builtin`, `case`, `catch`, `correct`, `data`, `do`, `else`, `end`, `ensures`, `example`, `export`, `false`, `for`, `function`, `if`, `implementation`, `import`, `in`, `induction`, `invariant`, `infix`, `lambda`, `lemma`, `let`, `match`, `out`, `pattern`, `postfix`, `prefix`, `procedure`, `raise`, `raises`, `ref`, `requires`, `skip`, `test`, `then`, `true`, `type`, `try`, `var`, `while`, `with`, and `yield`, where the error of one that is a common word names one to write instead, `keyword raises is not a name; write a name such as raised`; `and`, `or`, `not`, `show`, and `compare` are names, and `List`, `Set`, `Map`, and `Array` name types, and are forms only before `(`.
 
 ## Datatypes and functions
 
@@ -92,7 +92,7 @@ test procedures() :=
   assert (x, y) == (2, 1)
 ```
 
-Procedures are values of types such as `(in Int, out Int)`: a declared procedure by its name, or `lambda in x, out y => statements end`, which reads the variables around it and assigns only its own outs and refs. A variable of a procedure type is called as a procedure is.
+Procedures are values of types such as `(in Int, out Int)`: a declared procedure by its name, or `lambda in x, out y => statements end`, which reads the variables around it and assigns only its own outs and refs, and whose ins may be `_`, values that it does not read, `lambda in _, out y => y := 0 end`. A variable of a procedure type is called as a procedure is.
 
 ```u
 procedure twice(in step: (in Int, out Int), x: Int, out y: Int) :=
@@ -178,10 +178,10 @@ test containers() :=
 
 The containers share names and the order of their arguments, the element or key first, the container after it:
 
-- all of lists, sets, maps, and arrays: `size(c)`, `contains(x, c)`, `exists(c, p)`, `forall(c, p)`, `foldr(c, acc, f)`, `foldl(c, acc, f)`, where `p` and `f` of a map take key and value, in the order of a list and ascending for sets and maps;
+- all of lists, sets, maps, and arrays: `size(c)`, `contains(x, c)`, `exists(c, p)`, `forall(c, p)`, and `find(c, p)`, which stop at the first element that decides, `foldr(c, acc, f)`, `foldl(c, acc, f)`, where `p` and `f` of a map take key and value, in the order of a list and ascending for sets and maps;
 - `get(k, c)`, an `Option`, of maps, of lists of pairs, and by index of arrays and strings; `at(i, c)` of lists, arrays, and strings, raising `OutOfBounds`; `remove(x, c)` of lists, sets, and maps; `empty()` of sets, maps, and buffers;
 - `a ++ b` concatenates lists and strings, unites sets, and joins maps, where the second wins; `a -- b` removes the elements of a list or set, and the keys of a set from a map;
-- lists also have `reverse`, `sort`, `distinct`, `zip`, `take`, `drop`, `slice`, `range(i, j)`, `find`, `index_of`, `last`, `take_while`, `drop_while`, `span`, `flat_map`, and `concat`; sets `insert` and `intersect`; maps `put(k, v, m)`;
+- lists also have `reverse`, `sort`, `distinct`, `zip`, `take`, `drop`, `slice`, `range(i, j)`, `index_of`, `last`, `take_while`, `drop_while`, `span`, `flat_map`, and `concat`; sets `insert` and `intersect`; maps `put(k, v, m)`;
 - `Option[A]` is `None` or `Some(value)`, with `or_else`, `value_or`, and `map_option`;
 - strings: `chars(s)` and `str(cs)`, `int(c)` and `chr(n)`, `slice(s, i, j)`, `split(s, c)`, `join(sep, strs)`, `lines`, `trim`, `starts_with`, `ends_with`, `index_of(part, s)`, `number(s)` as an option, `lower`, `upper`, and `is_digit`, `is_letter`, `is_space` of characters. A `Char` is a Unicode code point, which `size`, `at`, and `slice` count, and strings have no folds, so a loop over characters goes over `chars(s)`;
 - `Buffer[A]` collects the elements of a loop that adds at the end, `b := b ++ List(x)`, read out by `List(for x in b)`;
