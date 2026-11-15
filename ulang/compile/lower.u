@@ -344,6 +344,9 @@ function free_vars(expr: At[Expr], bound: List[Name]): List[Name] :=
 
     case ETuple(args) =>
       free_in_all(args, bound)
+
+    case EAnnotated(inner, _) =>
+      free_vars(inner, bound)
   end
 
 function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=

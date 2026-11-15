@@ -48,14 +48,33 @@ procedure parse_file(
   out source: Source
 ) raises ParseError, OsError
 
-// the packages that the files of a run before have loaded without their tests, of the project at root, in load order
-data Loaded :=
-  case Loaded(root: Str, source: Source)
+// parse_file of the overlays, the texts of files by their paths, absolute or from the working directory, which loading
+// takes instead of those files, also of files and directories that do not exist, so that the overlays in a new directory
+// are a package that the file may import, and the overlays of the library replace its files
+procedure parse_file_overlaid(
+  in  path: Str,
+      overlays: Map[Str, Str],
+  out source: Source
+) raises ParseError, OsError
 
-// parse_file with the packages of loaded instead of their files, but for the package of the file and those that import
-// it, so that a run over many files reads and parses each package that they import once, which loaded then holds too
+// the text of the file at path, or of its overlay, the text of overlays at a path that is the same absolute path
+procedure overlaid_text(
+  in  path: Str,
+      overlays: Map[Str, Str],
+  out text: Str
+) raises OsError
+
+// the packages that the files of a run before have loaded without their tests, of the project at root with the overlays,
+// by their absolute and normal paths, in load order
+data Loaded :=
+  case Loaded(root: Str, overlays: Map[Str, Str], source: Source)
+
+// parse_file_overlaid with the packages of loaded instead of their files, but for the package of the file and those that
+// import it, so that a run over many files reads and parses each package that they import once, which loaded then holds
+// too, unless loaded is of another root or of other overlays
 procedure parse_file_loaded(
   in  path: Str,
+      overlays: Map[Str, Str],
   out source: Source,
   ref loaded: Loaded
 ) raises ParseError, OsError
@@ -479,9 +498,16 @@ function hint_at(what: Str, toks: Tokens): Str :=
     case (TKw("["), _) =>
       "; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments"
 
+    case (TKw(":"), _) if what == ")" =>
+      ascription_hint()
+
     case _ =>
       ""
   end
+
+// the hint at a : or , in parentheses where an ascription cannot stand
+function ascription_hint(): Str :=
+  "; an ascription (e: T) stands alone in its parentheses, so a component of a tuple or an argument is written ((e: T), b)"
 
 // the form to write for an undeclared operator of another language, after "; ", or ""
 function operator_hint(op: Str): Str :=
@@ -1206,15 +1232,38 @@ procedure parse_expr_atom(
       parse_cases(in notation, params, parse_expr, "match", pos, out cases, ref toks)
       expr := AOk(pos, span_from(pos, toks), EMatch(a, cases))
 
+    // a tuple, an expression in parentheses, which is that expression, or an ascription (e: T), which stands alone in its
+    // parentheses, so that a component of a tuple and an argument take parentheses of their own, ((a: T), b)
     case (_, TKw("(")) =>
-      var exprs: List[At[Expr]]
       advance(ref toks)
-      parse_enclosed(in notation, params, parse_arg, ")", out exprs, ref toks)
-      match exprs
-        case List(inner) =>
-          expr := inner
-        case _ =>
-          expr := AOk(pos, span_from(pos, toks), ETuple(exprs))
+      if at_kw(toks, ")") then
+        advance(ref toks)
+        expr := AOk(pos, span_from(pos, toks), ETuple(List()))
+      else
+        var first: At[Expr]
+        parse_arg(in notation, params, out first, ref toks)
+        match head_token(toks)
+          case TKw(":") =>
+            var typ: Type
+            advance(ref toks)
+            parse_type(in notation, params, out typ, ref toks)
+            if at_comma(toks) then
+              raise ParseError(") expected but , found" ++ ascription_hint(), head_pos(toks))
+            end
+            expect(in TKw(")"), ref toks)
+            expr := AOk(pos, span_from(pos, toks), EAnnotated(first, typ))
+
+          case TKw(",") =>
+            var rest: List[At[Expr]]
+            advance(ref toks)
+            parse_separated(in notation, params, parse_arg, at_comma, out rest, ref toks)
+            expect(in TKw(")"), ref toks)
+            expr := AOk(pos, span_from(pos, toks), ETuple(List(first; rest)))
+
+          case _ =>
+            expect(in TKw(")"), ref toks)
+            expr := first
+        end
       end
 
     case _ if form_at(toks) != None =>
@@ -3048,11 +3097,12 @@ procedure import_notation(
   end
 
 // the package id of import id, as parse_import gives it, loaded into source unless it is loaded already, where loading
-// are the packages being loaded, of which an import is cyclic, root is the root of the project, and dir the directory of
+// are the packages being loaded, of which an import is cyclic, root is the root of the project with the overlays, whose
+// files below a directory make it a package, and dir the directory of
 // the importing file from the root, or None for the library, which is imported only implicitly
 procedure import_package(
   in  id: Path,
-      root: Str,
+      root: Root,
       dir: Option[Str],
       loading: List[Path],
       pos: Pos,
@@ -3075,7 +3125,7 @@ procedure import_package(
   if exists(source.packages, lambda p => p.id == id) then
     found := true
   else
-    os_is_dir(in os_join(root, join("/", id)), out found)
+    overlaid_dir(in os_join(root.path, join("/", id)), root.overlays, out found)
   end
   if not found then
     var in_library: Bool
@@ -3122,10 +3172,10 @@ function package_id(dir: Option[Str]): Path :=
   end
 
 // the members of the package of the directory dir from root, with their texts: the .u files of the directory other than
-// project.u, by their names, or those of the directory of the library for None, where main, the text of the main file,
-// replaces that of its file and comes last
+// project.u, by their names, or those of the directory of the library for None, with the overlays of root in it, which
+// replace the texts of their files, where main, the text of the main file, replaces that of its file and comes last
 procedure package_files(
-  in  root: Str,
+  in  root: Root,
       dir: Option[Str],
       main: Option[(Path, Str)],
   out files: List[(Path, Str)]
@@ -3139,22 +3189,32 @@ procedure package_files(
   end
   match dir
     case Some(d) =>
-      var entries: List[(Str, Bool)], text: Str
-      os_list(in if d == "" then root else os_join(root, d), out entries)
-      for (file, is_dir) in entries do
-        if not is_dir and is_source(file) and file != "project.u" and module_id(d, module_name(file)) != main_id then
-          os_read_utf8(in os_join(os_join(root, d), file), out text)
+      var names: List[Str] := List(), text: Str, found_dir: Bool
+      let path := if d == "" then root.path else os_join(root.path, d)
+      overlaid_dir(in path, root.overlays, out found_dir)
+      // the directory of a main text that is no file yet, such as a new module of refactor, has no other members
+      if found_dir or main == None then
+        overlaid_files(in path, root.overlays, out names)
+      end
+      for file in names do
+        if is_source(file) and file != "project.u" and module_id(d, module_name(file)) != main_id then
+          overlaid_text(in os_join(path, file), root.overlays, out text)
           found := found ++ List((module_id(d, module_name(file)), text))
         end
       end
 
     case None =>
-      var text: Str, lib: Str, entries: List[(Str, Bool)]
+      var text: Str, lib: Str, names: List[Str]
       os_library_dir(out lib)
-      os_list(in lib, out entries)
-      for (file, is_dir) in entries do
-        if not is_dir and is_source(file) and library_module(module_name(file)) != main_id then
-          library_text(in library_module(module_name(file)), Pos(1, 1), out text)
+      overlaid_files(in lib, root.overlays, out names)
+      for file in names do
+        if is_source(file) and library_module(module_name(file)) != main_id then
+          match get(normal_path(os_join(lib, file)), root.overlays)
+            case Some(overlay) =>
+              text := overlay
+            case None =>
+              library_text(in library_module(module_name(file)), Pos(1, 1), out text)
+          end
           found := found ++ List((library_module(module_name(file)), text))
         end
       end
@@ -3169,7 +3229,7 @@ procedure package_files(
 // their export sections collected, and each parsed with those of the others, where main is the text of the main file, with
 // which all members keep their tests, while without it, for imports, they lose them
 procedure load_package(
-  in  root: Str,
+  in  root: Root,
       dir: Option[Str],
       main: Option[(Path, Str)],
       loading: List[Path],
@@ -3183,7 +3243,7 @@ procedure load_package(
 
 // the package of the directory dir from root of the members files, each its module and text, as load_package loads it
 procedure load_members(
-  in  root: Str,
+  in  root: Root,
       dir: Option[Str],
       files: List[(Path, Str)],
       main: Option[(Path, Str)],
@@ -3211,9 +3271,9 @@ procedure parse_texts(
     case (id, _) =>
       source := Source(List(), List(), id)
       for (d, files) in imported do
-        load_members(in root, Some(d), files, None, List(), ref source)
+        load_members(in Root(root, Map()), Some(d), files, None, List(), ref source)
       end
-      load_members(in root, Some(dir), List(for (m, t) in members if m != id yield (m, t)) ++ List(main), Some(main), List(), ref source)
+      load_members(in Root(root, Map()), Some(dir), List(for (m, t) in members if m != id yield (m, t)) ++ List(main), Some(main), List(), ref source)
   end
 
 procedure load_after_library(
@@ -3222,7 +3282,7 @@ procedure load_after_library(
   ref source: Source
 ) raises ParseError, OsError :=
   let before := source.mods
-  load_members(in "", Some(dir), members, None, List(), ref source)
+  load_members(in Root("", Map()), Some(dir), members, None, List(), ref source)
   source := source with mods := List(for d in source.mods if is_library_module(d.name)) ++ List(for d in drop(size(before), source.mods) if not is_library_module(d.name)) ++ List(for d in before if not is_library_module(d.name))
 
 function is_main(id: Path, main: Option[(Path, Str)]): Bool :=
@@ -3307,7 +3367,7 @@ procedure parse_member(
       toks: Tokens,
       comments: List[Comment],
       notation: Notation,
-      root: Str,
+      root: Root,
       dir: Option[Str],
       main: Bool,
       tested: Bool,
@@ -3333,7 +3393,7 @@ procedure parse_member(
 
 procedure import_all(
   in  names: List[Path],
-      root: Str,
+      root: Root,
       loading: List[Path],
   ref source: Source
 ) :=
@@ -3365,7 +3425,7 @@ procedure parse_mod(
       comments: List[Comment],
       implicit: List[Path],
       package: Notation,
-      root: Str,
+      root: Root,
       dir: Option[Str],
       loading: List[Path],
   out own: Mod,
@@ -3421,7 +3481,7 @@ procedure parse_mod(
 
 // a section keyword, an import, or the commands of a declaration at pos, which more gives
 procedure parse_section_or_command(
-  in  root: Str,
+  in  root: Root,
       dir: Option[Str],
       loading: List[Path],
       pos: Pos,
@@ -3604,7 +3664,7 @@ procedure parse_file_text(
   var place: Place
   place_of(in path, out place)
   source := Source(List(), List(), place.id)
-  load_package(in place.root, place.dir, Some((place.id, text)), List(), ref source)
+  load_package(in Root(place.root, Map()), place.dir, Some((place.id, text)), List(), ref source)
 
 procedure parse_file(
   in  path: Str,
@@ -3614,23 +3674,97 @@ procedure parse_file(
   os_read_utf8(in path, out text)
   parse_file_text(in path, text, out source)
 
+procedure parse_file_overlaid(
+  in  path: Str,
+      overlays: Map[Str, Str],
+  out source: Source
+) raises ParseError, OsError :=
+  var text: Str, place: Place, absolute: Map[Str, Str]
+  absolute_overlays(in overlays, out absolute)
+  overlaid_text(in path, overlays, out text)
+  place_of(in path, out place)
+  source := Source(List(), List(), place.id)
+  load_package(in Root(place.root, absolute), place.dir, Some((place.id, text)), List(), ref source)
+
 procedure parse_file_loaded(
   in  path: Str,
+      overlays: Map[Str, Str],
   out source: Source,
   ref loaded: Loaded
 ) raises ParseError, OsError :=
-  var text: Str, place: Place
-  os_read_utf8(in path, out text)
+  var text: Str, place: Place, absolute: Map[Str, Str]
+  absolute_overlays(in overlays, out absolute)
+  overlaid_text(in path, overlays, out text)
   place_of(in path, out place)
   let own := package_id(place.dir)
-  let before := if loaded.root == place.root then
+  let before := if loaded.root == place.root and loaded.overlays == absolute then
     without_dependents(loaded.source, own)
   else
     Source(List(), List(), List())
   source := before with main := place.id
-  load_package(in place.root, place.dir, Some((place.id, text)), List(), ref source)
+  load_package(in Root(place.root, absolute), place.dir, Some((place.id, text)), List(), ref source)
   source := reached(source, own)
-  loaded := Loaded(place.root, with_loaded(before, source, own))
+  loaded := Loaded(place.root, absolute, with_loaded(before, source, own))
+
+// the root of a project, the directory path, and the overlays, the texts that loading takes instead of the files of their
+// paths, absolute and normal
+data Root :=
+  case Root(path: Str, overlays: Map[Str, Str])
+
+// overlays with their paths absolute and normal, from the working directory
+procedure absolute_overlays(
+  in  overlays: Map[Str, Str],
+  out absolute: Map[Str, Str]
+) raises OsError :=
+  var here: Str
+  os_cwd(out here)
+  absolute := Map(for path => text in overlays yield absolute_path(here, path) => text)
+
+// path, absolute or from here, as an absolute and normal path
+function absolute_path(here: Str, path: Str): Str :=
+  example absolute_path("/r/s", "../a/./b.u") == "/r/a/b.u"
+  normal_path(if starts_with(path, "/") then path else os_join(here, path))
+
+procedure overlaid_text(
+  in  path: Str,
+      overlays: Map[Str, Str],
+  out text: Str
+) raises OsError :=
+  var here: Str, absolute: Map[Str, Str]
+  os_cwd(out here)
+  absolute_overlays(in overlays, out absolute)
+  match get(absolute_path(here, path), absolute)
+    case Some(overlay) =>
+      text := overlay
+    case None =>
+      os_read_utf8(in path, out text)
+  end
+
+// the names of the files of the directory dir, absolute and normal, and of the overlays in it, in the order of names,
+// where a directory that does not exist has those of the overlays, if it has some
+procedure overlaid_files(
+  in  dir: Str,
+      overlays: Map[Str, Str],
+  out names: List[Str]
+) raises OsError :=
+  let home := normal_path(dir)
+  let overlaid := List(for path => _ in overlays if os_dirname(path) == home yield os_basename(path))
+  try
+    var entries: List[(Str, Bool)]
+    os_list(in dir, out entries)
+    names := List(for (name, is_dir) in entries if not is_dir yield name)
+  catch
+    case OsError(message) if overlaid == List() =>
+      raise OsError(message)
+    case OsError(_) =>
+      names := List()
+  end
+  names := sort(distinct(names ++ overlaid))
+
+// whether dir, absolute and normal, is a directory, or one that overlays have files below
+procedure overlaid_dir(in dir: Str, overlays: Map[Str, Str], out found: Bool) :=
+  os_is_dir(in dir, out found)
+  found := found or exists(overlays, lambda path, _ => starts_with(path, normal_path(dir) ++ "/"))
 
 // the packages of source that import the package own, also through others, it, and for the library all
 function dependents(source: Source, own: Path): Set[Path] :=
@@ -3696,7 +3830,7 @@ procedure parse_text_recovering(
 ) raises ParseError, OsError :=
   var toks: Tokens, comments: List[Comment], own: Mod, loaded := Source(List(), List(), List("main"))
   lex_text(in text, out toks, comments)
-  parse_mod(in List("main"), comments, List(), empty_notation(), "", None, List(), out own, ref loaded, toks)
+  parse_mod(in List("main"), comments, List(), empty_notation(), Root("", Map()), None, List(), out own, ref loaded, toks)
   source := Source(List(own), List(), List("main"))
 
 // the file of a module: its id, the root of its project, and its directory from the root, None for the library
@@ -3950,6 +4084,22 @@ test parsed_operators() :=
   assert expr == expr_app("-", List(nowhere(EField(a, "f"))))
   parsed(in "a with f := 1, g := b.f", out expr)
   assert expr == nowhere(EUpdate(nowhere(EUpdate(a, "f", expr_int(1))), "g", nowhere(EField(b, "f"))))
+
+// an ascription (e: T) stands alone in its parentheses, so that a component of a tuple or an argument is ascribed in
+// parentheses of its own
+test parsed_ascriptions() :=
+  var expr: At[Expr], source: Source
+  let a := expr_var("a"), b := expr_var("b"), int := TSort(unqualified("Int"), List())
+  parsed(in "(a: Int)", out expr)
+  assert expr == nowhere(EAnnotated(a, int))
+  parsed(in "((a: Int), b)", out expr)
+  assert expr == nowhere(ETuple(List(nowhere(EAnnotated(a, int)), b)))
+  parsed(in "(a + b: Int).f", out expr)
+  assert expr == nowhere(EField(nowhere(EAnnotated(expr_app("+", List(a, b)), int)), "f"))
+  parse_text_recovering(in "function f(): (Int, Int) :=\n  (1: Int, 2)\n\nfunction g(): (Int, Int) :=\n  (1, 2: Int)\n", out source)
+  assert parse_errors(source) == List(
+    ParseError(") expected but , found" ++ ascription_hint(), Pos(2, 10)),
+    ParseError(") expected but : found" ++ ascription_hint(), Pos(5, 8)))
 
 test parsed_forms() :=
   var expr: At[Expr]

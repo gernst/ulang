@@ -116,6 +116,27 @@ test terminations_of_program() :=
   end
   assert open == List("loop") and proven == List("down")
 
+// a component with a function without formals, here first in the order of names, has no common slot of the sizes of
+// formals, where the least number of formals is 0
+test terminations_without_formals() :=
+  var main: Path, q: Prog, open: List[Str] := List()
+  load_text(in "ulang/test/errors/terminations-without-formals.u", List(
+    "function base(): Int :=",
+    "  count(List(1))",
+    "",
+    "function count(xs: List[Int]): Int :=",
+    "  match xs",
+    "    case List() =>",
+    "      base() - base()",
+    "    case List(_; rest) =>",
+    "      count(rest) + 1",
+    "  end"), out main, q)
+  match translate(q, main)
+    case Translation(decls, _, _) =>
+      open := List(for t in terminations(decls, Set((Name(main, "count"), 1))) if not is_terminating(t) for (n, _) in t.names yield n.base)
+  end
+  assert Set(for n in open) == Set("base", "count")
+
 // a function that a lemma reaches and whose termination is not proven is an error at the call that does not decrease,
 // and stays uninterpreted for the lemma, though the if of its body is decided, so that loop(0) == 0 stays open
 test nonterminating_function() :=
@@ -126,6 +147,23 @@ test nonterminating_function() :=
       "",
       "lemma loop_zero() :=",
       "  ensures loop(0) == 0"))
+  end
+
+// a function that calls itself only through a value that a field holds, which a datatype whose field leads back to it
+// allows, is recursive, so that it does not unfold and prove the contradiction that its equation gives, and its
+// termination is an error at the call through the function value
+test recursion_through_field() :=
+  assert raises OpenTermination("h", "h under a lambda, in a condition, or through a function value") do
+    prove_text(in "ulang/test/errors/recursion-through-field.u", List(
+      "data Box :=",
+      "  case Box(f: (Box, Int) -> Int)",
+      "",
+      "function h(b: Box, n: Int): Int :=",
+      "  b.f(b, n) + 1",
+      "",
+      "lemma contradiction(in n: Int, m: Int) :=",
+      "  requires m == h(Box(h), n)",
+      "  ensures  m != h(Box(h), n)"))
   end
 
 test vacuous() :=

@@ -22,6 +22,7 @@ Check after each small edit, `ulang.sh check --test file.u`, and let `ulang.sh f
 - Functions cannot `raise`, loop, or read files: such code is a procedure.
 - A `try` restores every variable that its body changed, also a counter passed by `ref`, so what a failed attempt learned leaves only in the fields of its exception.
 - Arrays are immutable, and building one copies it: state that changes by index or key belongs in a `Map`.
+- A local, formal, or out hides every function of its name, so `out lines: List[Str]` cannot call `lines(text)`, as the error of such a call says: rename the variable.
 - `split(text, '\n')` of a text that ends with a newline gives a last empty string; `lines(text)` gives the lines.
 - Keywords are no names, also not of fields, formals, or locals: `_`, `assert`, `builtin`, `case`, `catch`, `correct`, `data`, `do`, `else`, `end`, `ensures`, `example`, `export`, `false`, `for`, `function`, `if`, `implementation`, `import`, `in`, `induction`, `invariant`, `infix`, `lambda`, `lemma`, `let`, `match`, `out`, `pattern`, `postfix`, `prefix`, `procedure`, `raise`, `raises`, `ref`, `requires`, `skip`, `test`, `then`, `true`, `type`, `try`, `var`, `while`, `with`, and `yield`, where the error of one that is a common word names one to write instead, `keyword raises is not a name; write a name such as raised`; `and`, `or`, `not`, `show`, and `compare` are names, and `List`, `Set`, `Map`, and `Array` name types, and are forms only before `(`.
 
@@ -55,9 +56,11 @@ test shapes() :=
   assert area(s) == 6 and s.width == 2
   assert (s with height := 5).height == 5
   assert kind(1) == "small" and kind(-3) == "negative"
+  let width := lambda r => (r: Shape).width
+  assert width(s) == 2
 ```
 
-Functions are expressions: `if … then … else …`, `match`, `let p := e, … in body`, calls, and `lambda x, (a, b) => e`, whose formals may be patterns. Type parameters are declared after the name, `function keys[A](t: Tree[A]): List[A]`, and only declarations are polymorphic: a `let` does not generalize. Every pattern may carry its type, `lambda p: Point => p.x`, `case Some(n: Int) =>`. `-1` is a literal, also in patterns, and `0xFF` is hexadecimal.
+Functions are expressions: `if … then … else …`, `match`, `let p := e, … in body`, calls, and `lambda x, (a, b) => e`, whose formals may be patterns. Type parameters are declared after the name, `function keys[A](t: Tree[A]): List[A]`, and only declarations are polymorphic: a `let` does not generalize. Every pattern may carry its type, `lambda p: Point => p.x`, `case Some(n: Int) =>`, and so may an expression in parentheses, `(p: Point).x`, `(empty(): Set[Int])`, which gives the type where nothing else does yet, as for a field of the formal of a lambda bound by `let`, or an overload; an ascription stands alone in its parentheses, so a component of a tuple is written `((a: Int), b)`. `-1` is a literal, also in patterns, and `0xFF` is hexadecimal.
 
 Other declarations: a type alias, `type Pairs := List[(Str, Int)]`; an operator, `infix left 11 **` before the `function **(m: Int, n: Int): Int`, also `prefix` and `postfix`; and a pattern alias, `pattern Pair(a: Int, b: Int): List[Int] := List(a, b)`, which matches and builds.
 
@@ -65,7 +68,7 @@ Other declarations: a type alias, `type Pairs := List[(Str, Int)]`; an operator,
 
 A procedure has formals of the modes `in`, `out`, and `ref`, where a mode covers the formals after it up to the next mode, `in a: Int, b: Int, out q: Int, r: Int`. The arguments of a call go by mode in the same order, `divmod(in 7, 2, out q, r)`, and `out _` drops an out that nothing needs. A procedure works on copies of its outs and refs, which reach the caller only when it returns.
 
-Statements: `let` and `var`, assignments, calls, `if`, `while`, `for x in c if guard do … end` over any container, `match`, `try`, `raise e`, `assert`, and `skip`. A variable is read only where every path assigned it, and every path that does not raise assigns the outs. A `var` without a type gets it from its value, or as an out of the call right after it, `var q, r`.
+Statements: `let` and `var`, assignments, calls, `if`, `while`, `for x in c if guard do … end` over any container, `match`, `try`, `raise e`, `assert`, and `skip`. A variable is read only where every path assigned it, and every path that does not raise assigns the outs. A `var` without a type gets it from its value, or as an out of the call right after it, `var q, r`, so locals that are outs of several calls are each declared right before their call or with their types.
 
 ```u
 procedure divmod(in a: Int, b: Int, out q: Int, r: Int) :=

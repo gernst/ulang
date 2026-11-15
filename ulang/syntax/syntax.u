@@ -101,6 +101,9 @@ data Expr :=
   case EMatch(arg: At[Expr], cases: List[At[Branch[At[Expr]]]])
   // a tuple (a, b, …)
   case ETuple(args: List[At[Expr]])
+  // an ascription (e: T), whose type the checker unifies with that of e, and which the backends take as e, at the position
+  // of (
+  case EAnnotated(inner: At[Expr], typ: Type)
   // List(a, b; r), Set(…), Map(k => v; r), and Array(…), which the checker translates to the builders of their modules
   case EForm(form: Form, elems: List[Yield], rest: Option[At[Expr]])
   // List(for p in c if q yield e; r) and the like, which the checker translates to the folds of the modules of the
@@ -299,9 +302,10 @@ data Example :=
 
 // the checked program: the commands of the export and implementation sections of its modules with resolved names, each at
 // its declaration, the definitions checked and the signatures as written, then the tests of examples and lemmas, those of
-// the builtin sections apart, and the module of the file that is loaded, whose procedures run and compile call
+// the builtin sections apart, the imports of each module at their lines, which hold the errors of imports, and the module
+// of the file that is loaded, whose procedures run and compile call
 data Prog :=
-  case Prog(cmds: List[At[Cmd]], builtins: List[At[Cmd]], main: Path)
+  case Prog(cmds: List[At[Cmd]], builtins: List[At[Cmd]], imports: List[(Path, At[Path])], main: Path)
 
 data Pos :=
   // line and column, both from 1
@@ -450,6 +454,16 @@ function alternatives(pat: At[Pat]): List[At[Pat]] :=
 
 // whether pat has alternatives, also nested
 function has_alternatives(pat: At[Pat]): Bool
+
+// the alternatives of the pattern of a case that the compilers test one after another, inside which the others stay where
+// they stand: without a guard the pattern itself, whose test takes the first alternative that matches at each |, as the
+// first of the expansion does, since no test depends on a variable, and with a guard the pattern multiplied out at the
+// alternatives that bind variables, since a guard that fails on the variables of one tries the next
+function tested_alternatives(pat: At[Pat], guarded: Bool): List[At[Pat]] :=
+  example tested_alternatives(pat_var("x"), true) == List(pat_var("x"))
+
+// whether pat has alternatives, also nested, that bind variables
+function has_bound_alternatives(pat: At[Pat]): Bool
 
 // the cases with alternatives as the cases of their alternatives
 function expanded_cases[A](cases: List[At[Branch[A]]]): List[At[Branch[A]]]
@@ -1042,6 +1056,65 @@ function has_alternatives(pat: At[Pat]): Bool :=
       false
   end
 
+function tested_alternatives(pat: At[Pat], guarded: Bool): List[At[Pat]] :=
+  if guarded then bound_alternatives(pat) else List(pat)
+
+// the alternatives of pat multiplied out at those that bind variables, from the left as alternatives does
+function bound_alternatives(pat: At[Pat]): List[At[Pat]] :=
+  match pat.that
+    case POr(alts) =>
+      if pattern_names(pat) == List() then
+        List(pat)
+      else
+        List(for a in alts for q in bound_alternatives(a) yield q)
+
+    case PApp(constr, args) =>
+      List(for qs in bound_combinations(args) yield pat with that := PApp(constr, qs))
+
+    case PTuple(args) =>
+      List(for qs in bound_combinations(args) yield pat with that := PTuple(qs))
+
+    case PAnnotated(inner, typ) =>
+      List(for q in bound_alternatives(inner) yield pat with that := PAnnotated(q, typ))
+
+    case PWild | PLit(_) | PVar(_) =>
+      List(pat)
+  end
+
+function bound_combinations(pats: List[At[Pat]]): List[List[At[Pat]]] :=
+  match pats
+    case List() =>
+      List(List())
+    case List(p; rest) =>
+      List(for q in bound_alternatives(p) for qs in bound_combinations(rest) yield List(q; qs))
+  end
+
+function has_bound_alternatives(pat: At[Pat]): Bool :=
+  match pat.that
+    case POr(alts) =>
+      pattern_names(pat) != List() or exists(alts, has_bound_alternatives)
+
+    case PApp(_, args) | PTuple(args) =>
+      exists(args, has_bound_alternatives)
+
+    case PAnnotated(inner, _) =>
+      has_bound_alternatives(inner)
+
+    case PWild | PLit(_) | PVar(_) =>
+      false
+  end
+
+test bound_alternatives() :=
+  let a := pat_var("a"), b := pat_var("b")
+  let free := nowhere(POr(List(nowhere(PWild), nowhere(PLit(LInt(1))))))
+  let bound := nowhere(POr(List(a, nowhere(PTuple(List(nowhere(PWild), a))))))
+  let pat := nowhere(PTuple(List(free, bound)))
+  assert tested_alternatives(pat, false) == List(pat)
+  assert tested_alternatives(pat, true) == List(
+    nowhere(PTuple(List(free, a))),
+    nowhere(PTuple(List(free, nowhere(PTuple(List(nowhere(PWild), a)))))))
+  assert has_bound_alternatives(pat) and not has_bound_alternatives(nowhere(PTuple(List(free, b))))
+
 function expanded_cases[A](cases: List[At[Branch[A]]]): List[At[Branch[A]]] :=
   List(for d in cases for q in alternatives(d.that.pat) yield d with that := (d.that with pat := q))
 
@@ -1270,6 +1343,9 @@ function strip_node(expr: Expr): Expr :=
 
     case ETuple(args) =>
       ETuple(List(for a in args yield strip_expr(a)))
+
+    case EAnnotated(inner, typ) =>
+      EAnnotated(strip_expr(inner), typ)
 
     case EForm(form, elems, rest) =>
       EForm(form, List(for y in elems yield strip_yield(y)), map_option(rest, strip_expr))
@@ -1658,6 +1734,9 @@ function errors_in_node(expr: Expr): List[Diagnostic] :=
 
     case ETuple(args) =>
       errors_in_exprs(args)
+
+    case EAnnotated(inner, _) =>
+      errors_in_expr(inner)
 
     case EForm(_, elems, rest) =>
       errors_in_exprs(List(for y in elems for e in yielded(y) yield e) ++ List(for e in rest))

@@ -25,9 +25,14 @@ data Val :=
   case VProc(name: Name)
   case VProcClos(env: Map[Name, Val], ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
 
-// main, the module of the loaded file, whose errors a Deferred names without their module, as the diagnostics do
+// main, the module of the loaded file, whose errors a Deferred names without their module, as the diagnostics do, and
+// the deadline of a test, after which its calls and loops raise TimedOut
 data Run :=
-  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Path)
+  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Path, deadline: Option[Deadline])
+
+// the time of os_clock after which a run stops, and its limit in seconds, which the error names
+data Deadline :=
+  case Deadline(at: Int, seconds: Int)
 
 data Thrown :=
   case Thrown(value: Val, typ: Type)
@@ -200,7 +205,7 @@ procedure unordered(in run: Run, k: Name, equating: Bool) :=
   end
 
 function load(q: Prog): Run :=
-  Run(defs_of(q), List(), List(), q.main)
+  Run(defs_of(q), List(), List(), q.main, None)
 
 // the contents of a string, as printing and declared shows give them, and the source of any other value
 function text_of(v: Val): Str :=
@@ -468,6 +473,10 @@ procedure evaluate(
       var vs: List[Val]
       evaluate_all(in run, env, args, out vs, ref cache)
       v := VTuple(vs)
+
+    // an ascription is its expression, whose type the checker has unified with the ascribed one
+    case EAnnotated(inner, _) =>
+      evaluate(in run, env, inner, out v, ref cache)
   end
 
 procedure evaluate_all(
@@ -572,11 +581,13 @@ procedure apply_value(
 ) :=
   match f
     case VFunClos(env, formals, body) =>
+      require_time(in run)
       evaluate(in run, bind_all(formals, vs, env), body, out v, ref cache)
 
     case VFun(name, arity) =>
       match get((name, arity), run.defs.funs)
         case Some(fun) =>
+          require_time(in run)
           if fun.formals == List() then
             cached(in run, name, fun.body, out v, ref cache)
           else
@@ -1084,6 +1095,7 @@ procedure exec(
       var v: Val
       evaluate(in run, env, cond, out v, ref cache)
       while is_true(v) do
+        require_time(in run)
         exec(in run, body, ref env, cache)
         evaluate(in run, env, cond, out v, ref cache)
       end
@@ -1398,10 +1410,22 @@ procedure run_body(
   ref env: Bindings,
       cache: Map[Name, Val]
 ) :=
+  require_time(in run)
   var inner := bind_all(xs, ins, (around -- Set(for x in ys ++ zs yield x.name)) ++ Map(for (k, v) in values_in(zip(List(for x in zs yield x.name), refs), env)))
   exec(in run, body, ref inner, cache)
   read_outs(in n, List(for x in ys yield x.name), inner, out outs)
   env := env ++ Map(for (k, v) in values_in(zip(refs, List(for x in zs yield x.name)), inner))
+
+// raises TimedOut if the run has a deadline that passed, at each call and each round of a loop, which every run that does
+// not end makes again and again
+procedure require_time(in run: Run) raises RuntimeError :=
+  for d in run.deadline do
+    var now: Int
+    os_clock(out now)
+    if now > d.at then
+      raise TimedOut(d.seconds)
+    end
+  end
 
 // the pairs of the names a and the values of the names b in env, for those that have values
 function values_in(ps: List[(Name, Name)], env: Bindings): List[(Name, Val)] :=
@@ -1742,6 +1766,15 @@ test procedures() :=
         nowhere(Catch(THole, nowhere(PApp(unqualified("Fail"), List(pat_var("j")))), None, block(List(), List(SAssign(List((Var(unqualified("m"), THole), expr_var("j")))))))))),
       equals("k", 1),
       equals("m", 2))))))
+
+// a loop that does not end stops at the deadline of its run, here one that has passed
+test deadlines() :=
+  var q: Prog, cache: Map[Name, Val] := empty()
+  check_program(in with_lists(List(
+    CTest(unqualified("spin"), List(), block(List(), List(SWhile(nowhere(ELit(LBool(true))), block(List(), List(SSkip)))))))), out q)
+  assert raises TimedOut(1) do
+    run_all(in load(q) with deadline := Some(Deadline(0, 1)), definitions(q), ref cache)
+  end
 
 // a declared procedure and a lambda that captures k, called through variables
 test procedure_values() :=
