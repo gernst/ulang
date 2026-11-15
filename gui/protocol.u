@@ -1,6 +1,6 @@
-// the protocol between a program and the host of its window: the skeletons of widgets, without their handlers, the
-// patches that turn one skeleton on screen into the next, and the events of the host, each a line of fields separated
-// by tabs
+// the protocol between a program and its window: the skeletons of widgets, without their handlers, the patches
+// that turn one skeleton on screen into the next, and the events of the window, each a line of fields separated by
+// tabs
 
 export
 

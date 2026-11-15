@@ -61,7 +61,7 @@ function skeleton[E](w: Widget[E]): Node
 function misplaced[E](w: Widget[E]): List[Str] :=
   example misplaced(row(List(spacing(4)), List(button(List(spacing(2), on_click(1)), List())))) == List("spacing of button")
 
-// the event of the program that the event of the host means, for the tree on screen that the widget placed
+// the event of the program that the event of the window means, for the tree on screen that the widget placed
 function handle[E](w: Widget[E], placed: Placed, event: Event): Option[E]
 
 // the event of the first button that has a text of the caption, as a click on it

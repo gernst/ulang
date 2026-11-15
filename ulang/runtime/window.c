@@ -415,7 +415,7 @@ static void apply_line(struct window *w, char *line) {
     set_prop(w, widget_of(w, fields[1]), fields[2], fields + 3, n - 3);
   else if (!strcmp(op, "remove") && n == 2)
     remove_widget(w, widget_of(w, fields[1]));
-  else if (strcmp(op, "commit") && strcmp(op, ""))
+  else if (strcmp(op, ""))
     window_fail("window: no patch ", op);
 }
 
@@ -498,7 +498,7 @@ static int has_text(struct window *w, struct widget *x, const char *caption) {
   return 0;
 }
 
-// the next command of the script, as the commands of gui/host/host.py, which queues events or writes shots
+// the next command of the script, of those that window_next of window.u lists, which queues events or writes shots
 static void script_step(struct window *w) {
   char line[4096];
   while (w->first == w->last) {

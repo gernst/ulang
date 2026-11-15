@@ -1,6 +1,5 @@
 // a program of a window in the architecture of Elm: a model, a pure update by the events of the program, and a pure
-// view, run in a window of window.u of the library, or against the host of a window, gui/host/host.py, which starts
-// the program with the port to connect to; both take the same lines of patches and give the same lines of events
+// view, run in a window of window.u of the library, which takes the lines of patches and gives the lines of events
 
 export
 
@@ -13,7 +12,7 @@ data GuiError :=
 // the model after the events, as the window would have it after them
 function simulate[M, E](app: App[M, E], events: List[E]): M
 
-// runs the app until its window closes, in a window of its own, or of the host at the port of the first argument
+// runs the app in a window of its own until the window closes
 procedure gui_run[M, E](in app: App[M, E]) raises GuiError, OsError
 
 implementation
@@ -22,69 +21,44 @@ function simulate[M, E](app: App[M, E], events: List[E]): M :=
   foldl(events, app.init, lambda model, event => app.update(event, model))
 
 procedure gui_run[M, E](in app: App[M, E]) raises GuiError, OsError :=
-  var args
-  os_args(out args)
-  let port := match args
-    case List(arg; _) =>
-      number(arg)
-    case List() =>
-      None
-  end
-  match port
-    case Some(n) =>
-      var io
-      io_connect(in "127.0.0.1", n, out io)
-      serve(in app, LHost(io))
-      io_close(in io)
+  var window
+  window_open(in app.title, 360, 240, out window)
+  serve(in app, window)
+  window_close(in window)
 
-    case None =>
-      var window
-      window_open(in app.title, 360, 240, out window)
-      serve(in app, LWindow(window))
-      window_close(in window)
-  end
-
-// where the patches go and the events come from
-data Link :=
-  case LHost(io: IO)
-  case LWindow(window: Window)
-
-procedure serve[M, E](in app: App[M, E], link: Link) raises GuiError, OsError :=
+procedure serve[M, E](
+  in  app: App[M, E],
+      window: Window
+) raises GuiError, OsError :=
   var tree := app.view(app.init)
   require_fitting(in tree)
   let (ops, first_placed, first_next) := create(0, 0, skeleton(tree), 1)
-  send(in link, List(OTitle(app.title); ops))
+  send(in window, List(OTitle(app.title); ops))
   var model := app.init, placed := first_placed, next := first_next, open := true
   while open do
-    var line
-    receive(in link, out line)
-    match line
-      case None =>
+    var text
+    window_next(in window, out text)
+    match decode(text)
+      case Some(EClose) =>
         open := false
 
-      case Some(text) =>
-        match decode(text)
-          case Some(EClose) =>
-            open := false
+      case Some(event) =>
+        match handle(tree, placed, event)
+          case Some(e) =>
+            let updated := app.update(e, model)
+            let view := app.view(updated)
+            require_fitting(in view)
+            let (patches, now_placed, now_next) := diff(placed, skeleton(view), next)
+            send(in window, patches)
+            model := updated, tree := view, placed := now_placed, next := now_next
 
-          case Some(event) =>
-            match handle(tree, placed, event)
-              case Some(e) =>
-                let updated := app.update(e, model)
-                let view := app.view(updated)
-                require_fitting(in view)
-                let (patches, now_placed, now_next) := diff(placed, skeleton(view), next)
-                send(in link, patches)
-                model := updated, tree := view, placed := now_placed, next := now_next
-
-              // of a widget that the last patches removed
-              case None =>
-                skip
-            end
-
+          // of a widget that the last patches removed
           case None =>
-            raise GuiError("the host sent " ++ text)
+            skip
         end
+
+      case None =>
+        raise GuiError("the window sent " ++ text)
     end
   end
 
@@ -96,23 +70,5 @@ procedure require_fitting[E](in w: Widget[E]) raises GuiError :=
       raise GuiError("attributes that their widgets lack: " ++ join(", ", wrong))
   end
 
-procedure send(in link: Link, ops: List[Op]) raises OsError :=
-  let lines := join("", List(for op in ops yield encode(op) ++ "\n"))
-  match link
-    case LHost(io) =>
-      io_write_utf8(in io, lines ++ "commit\n")
-    case LWindow(window) =>
-      window_apply(in window, lines)
-  end
-
-// the next line of an event, None after the end of the host
-procedure receive(in link: Link, out line: Option[Str]) raises OsError :=
-  match link
-    case LHost(io) =>
-      io_read_line(in io, out line)
-
-    case LWindow(window) =>
-      var event
-      window_next(in window, out event)
-      line := Some(event)
-  end
+procedure send(in window: Window, ops: List[Op]) raises OsError :=
+  window_apply(in window, join("", List(for op in ops yield encode(op) ++ "\n")))

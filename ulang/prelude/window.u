@@ -21,8 +21,9 @@ procedure window_open(
 procedure window_apply(in window: Window, patches: Str) raises OsError
 
 // waits for the next event of the window, also "close" when it is asked to close, which it does only by window_close;
-// with ULANG_WINDOW_SCRIPT of the environment, the commands of that file make the events, one when the queue is empty,
-// as those of gui/host/host.py, for runs without a person
+// with ULANG_WINDOW_SCRIPT of the environment, the lines of that file make the events, one when the queue is empty,
+// for runs without a person: "click CAPTION" of the first button with a text of the caption, "type N TEXT" into the
+// N-th entry from 0, "toggle N" of the N-th check, "point N X Y" on the N-th canvas, "shot FILE" of a PNG, and "close"
 procedure window_next(in window: Window, out event: Str) raises OsError
 
 // writes the window as PNG to the path
