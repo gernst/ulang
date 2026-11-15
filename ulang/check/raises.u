@@ -502,6 +502,9 @@ function part_expr_flow(scope: Scope, pos: Pos, expr: Expr): Flow :=
     case ETuple(args) =>
       exprs_flow(scope, args)
 
+    case EAnnotated(inner, _) =>
+      expr_flow(scope, inner)
+
     case EForm(_, elems, rest) =>
       flows(List(for y in elems yield yield_flow(scope, y)) ++ List(for r in rest yield expr_flow(scope, r)))
 

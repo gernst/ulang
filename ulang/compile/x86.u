@@ -332,9 +332,133 @@ procedure test_pat(in pat: Pat, s: Int, path: List[Int], fail: Str, ref e: Emit)
     case PWild | PVar(_) =>
       skip
 
-    // alternatives and annotations, which expanded_cases and expanded_handlers of ulang/syntax/syntax.u take apart before
-    case PAnnotated(_, _) | POr(_) =>
-      raise Unexpected("alternatives or an annotation, which expanded_cases takes apart")
+    // alternatives where they stand, each but the last with a fail of its own, whose variables match_pat assigns if they
+    // bind any
+    case POr(alts) =>
+      var ok: Str
+      new_label(out ok, ref e)
+      let last := size(alts) - 1
+      for (a, i) in numbered(alts) do
+        if i < last then
+          var next: Str
+          new_label(out next, ref e)
+          test_pat(in a.that, s, path, next, ref e)
+          emit(in IJmp(ok), ref e)
+          place(in next, ref e)
+        else
+          test_pat(in a.that, s, path, fail, ref e)
+        end
+      end
+      place(in ok, ref e)
+
+    // annotations, which the checker drops but at the top of the alternatives of handlers, which expanded_handlers of
+    // ulang/syntax/syntax.u takes apart before
+    case PAnnotated(_, _) =>
+      raise Unexpected("an annotation, which expanded_handlers takes apart")
+  end
+
+// the tests of test_pat that the value at path of slot s matches pat, which store each variable into its slot of binds,
+// so that alternatives that bind variables are tested where they stand, each storing them; if matched, the value matches
+// pat, so that only the alternatives but the last at each | are tested
+procedure match_pat(
+  in  pat: Pat,
+      s: Int,
+      path: List[Int],
+      fail: Str,
+      binds: Slots,
+      matched: Bool,
+  ref e: Emit
+) :=
+  match pat
+    case PLit(_) =>
+      if not matched then
+        test_pat(in pat, s, path, fail, ref e)
+      end
+
+    case PApp(constr, args) =>
+      if not matched then
+        test_pat(in PApp(constr, List()), s, path, fail, ref e)
+      end
+      for (p, i) in numbered(args) do
+        match_pat(in p.that, s, path ++ List(i), fail, binds, matched, ref e)
+      end
+
+    case PTuple(args) =>
+      for (p, i) in numbered(args) do
+        match_pat(in p.that, s, path ++ List(i), fail, binds, matched, ref e)
+      end
+
+    case PName(name, _) =>
+      load_path(in s, path, ref e)
+      emit(in IMov(OReg(Rax), slot(slot_of(binds, name))), ref e)
+
+    case PWild =>
+      skip
+
+    case POr(alts) =>
+      var ok: Str
+      new_label(out ok, ref e)
+      let last := size(alts) - 1
+      for (a, i) in numbered(alts) do
+        if i < last then
+          var next: Str
+          new_label(out next, ref e)
+          match_pat(in a.that, s, path, next, binds, false, ref e)
+          emit(in IJmp(ok), ref e)
+          place(in next, ref e)
+        else
+          match_pat(in a.that, s, path, fail, binds, matched, ref e)
+        end
+      end
+      place(in ok, ref e)
+
+    // annotations, which the checker drops but at the top of the alternatives of handlers, which expanded_handlers of
+    // ulang/syntax/syntax.u takes apart before
+    case PAnnotated(_, _) =>
+      raise Unexpected("an annotation, which expanded_handlers takes apart")
+  end
+
+// the test of a case of the pattern pat and the guard over the value in slot s, which jumps to fail unless the case
+// applies, and binds, the slots of its variables: its alternatives, by tested_alternatives of ulang/syntax/syntax.u, one
+// tested by test_pat and bound by bind_pat, or by match_pat into slots of its own if it has alternatives inside that
+// bind variables, and several by shared_alternatives; if matched, as the last case of a match without a guard, which is
+// exhaustive, or the pattern of a for, which is irrefutable, it is one alternative, which tests only the alternatives
+// that it has inside, as a case _ tests nothing
+procedure case_test(
+  in  defs: Defs,
+      env: Slots,
+      pat: At[Pat],
+      guard: Option[At[Expr]],
+      matched: Bool,
+      s: Int,
+      fail: Str,
+  out binds: Slots,
+  ref e: Emit
+) :=
+  match tested_alternatives(pat, guard != None)
+    case List(q) =>
+      if has_bound_alternatives(q) then
+        binds := List()
+        for x in pattern_names(q) do
+          var t: Int
+          new_slot(out t, ref e)
+          binds := binds ++ List((x, t))
+        end
+        match_pat(in q.that, s, List(), fail, binds, matched, ref e)
+      else
+        if not matched then
+          test_pat(in q.that, s, List(), fail, ref e)
+        end
+        bind_pat(in q.that, s, List(), out binds, ref e)
+      end
+      guard_test(in defs, binds ++ env, guard, fail, ref e)
+
+    case alts =>
+      var target: Str
+      new_label(out target, ref e)
+      shared_alternatives(in defs, env, List(for q in alts yield (None, q)), 0, s, guard, target, out binds, ref e)
+      emit(in IJmp(fail), ref e)
+      place(in target, ref e)
   end
 
 procedure test_fields(
@@ -372,9 +496,14 @@ procedure bind_pat(
     case PWild | PLit(_) =>
       binds := List()
 
-    // alternatives and annotations, which expanded_cases and expanded_handlers of ulang/syntax/syntax.u take apart before
-    case PAnnotated(_, _) | POr(_) =>
-      raise Unexpected("alternatives or an annotation, which expanded_cases takes apart")
+    // alternatives that bind nothing, since case_test lets match_pat store the variables of the others
+    case POr(_) =>
+      binds := List()
+
+    // annotations, which the checker drops but at the top of the alternatives of handlers, which expanded_handlers of
+    // ulang/syntax/syntax.u takes apart before
+    case PAnnotated(_, _) =>
+      raise Unexpected("an annotation, which expanded_handlers takes apart")
   end
 
 procedure bind_fields(
@@ -666,6 +795,10 @@ procedure compile_expr(in defs: Defs, env: Slots, expr: At[Expr], ref e: Emit) :
       var as: List[Arg]
       compile_args(in defs, env, args, out as, ref e)
       call_runtime(in "u_mk_tuple", List(AVal(OImm(size(args)))) ++ as, ref e)
+
+    // an ascription is its expression, whose type the checker has unified with the ascribed one
+    case EAnnotated(inner, _) =>
+      compile_expr(in defs, env, inner, ref e)
   end
 
 // how the loops of a comprehension add the element in %rax: as a cell at the place that the slot points to, which then
@@ -814,22 +947,14 @@ procedure expr_cases(
       done: Str,
   ref e: Emit
 ) :=
-  for d in cases do
+  let last := size(cases) - 1
+  for (d, i) in numbered(cases) do
     match d
+      // the last case without a guard of a match, which is exhaustive, matches what the cases before leave
       case AOk(_, _, Branch(pat, guard, body)) =>
         var next: Str, binds: Slots
         new_label(out next, ref e)
-        if has_alternatives(pat) then
-          var target: Str
-          new_label(out target, ref e)
-          shared_alternatives(in defs, env, List(for q in alternatives(pat) yield (None, q)), 0, s, guard, target, out binds, ref e)
-          emit(in IJmp(next), ref e)
-          place(in target, ref e)
-        else
-          test_pat(in pat.that, s, List(), next, ref e)
-          bind_pat(in pat.that, s, List(), out binds, ref e)
-          guard_test(in defs, binds ++ env, guard, next, ref e)
-        end
+        case_test(in defs, env, pat, guard, i == last and guard == None, s, next, out binds, ref e)
         compile_expr(in defs, binds ++ env, body, ref e)
         emit(in IJmp(done), ref e)
         place(in next, ref e)
@@ -1148,14 +1273,13 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
         ILea(ORip(descriptor_name(cons_name())), Rcx),
         ICmp(OReg(Rcx), OMem(Rax, name_offset())),
         IJcc(CondNe, done)), ref e)
-      // the item in a slot of its own, which the alternatives test, one of which matches, as the pattern is irrefutable
+      // the item in a slot of its own, which the alternatives test, one of which matches, as the pattern is irrefutable,
+      // so that the case never jumps to done
       if has_alternatives(pat) then
-        var item: Int, target: Str, binds: Slots
-        new_label(out target, ref e)
+        var item: Int, binds: Slots
         load_path(in l, List(0), ref e)
         spill(out item, ref e)
-        shared_alternatives(in defs, env, List(for q in alternatives(pat) yield (None, q)), 0, item, None, target, out binds, ref e)
-        place(in target, ref e)
+        case_test(in defs, env, pat, None, true, item, done, out binds, ref e)
         compile_stmt(in defs, binds ++ env, body, ref e)
       else
         var binds: Slots
@@ -1345,22 +1469,14 @@ procedure stmt_cases(
       done: Str,
   ref e: Emit
 ) :=
-  for d in cases do
+  let last := size(cases) - 1
+  for (d, i) in numbered(cases) do
     match d
+      // the last case without a guard of a match, which is exhaustive, matches what the cases before leave
       case AOk(_, _, Branch(pat, guard, body)) =>
         var next: Str, binds: Slots
         new_label(out next, ref e)
-        if has_alternatives(pat) then
-          var target: Str
-          new_label(out target, ref e)
-          shared_alternatives(in defs, env, List(for q in alternatives(pat) yield (None, q)), 0, s, guard, target, out binds, ref e)
-          emit(in IJmp(next), ref e)
-          place(in target, ref e)
-        else
-          test_pat(in pat.that, s, List(), next, ref e)
-          bind_pat(in pat.that, s, List(), out binds, ref e)
-          guard_test(in defs, binds ++ env, guard, next, ref e)
-        end
+        case_test(in defs, env, pat, guard, i == last and guard == None, s, next, out binds, ref e)
         compile_stmt(in defs, binds ++ env, body, ref e)
         emit(in IJmp(done), ref e)
         place(in next, ref e)

@@ -65,6 +65,21 @@ test annotated_patterns() :=
   assert (let n: Int := 2, (a, b): (Int, Int) := (n, 3) in
   a * b) == 6
 
+data Spot :=
+  case Spot(x: Int, y: Int)
+
+// an ascription (e: T) unifies the type of e with T, which resolves the field of an access whose base has no type yet, an
+// overload, and the formals of a lambda, and the value is that of e
+test ascriptions() :=
+  let f := lambda p => (p: Spot).x
+  assert f(Spot(1, 2)) == 1
+  let g := (lambda p => p.y: Spot -> Int)
+  assert g(Spot(1, 2)) == 2
+  assert size((empty(): Set[Int])) == 0
+  assert ((1: Int), "a") == (1, "a")
+  assert (List(): List[Str]) == List()
+  assert (1 + 2: Int) * 3 == 9
+
 test literals() :=
   assert "a" == "a"
   assert () == ()

@@ -299,6 +299,85 @@ test alternatives() :=
     first_of((2, TMinus))) == List(1, 5, 6, -2)
   assert List(non_zero((3, 0)), non_zero((0, 4)), non_zero((0, 0)), non_zero((1, 2))) == List(3, 4, -1, -1)
 
+// the last case of a match takes what the cases before leave, with alternatives as with case _, also after a guard
+function token_weight(t: Token): Int :=
+  match t
+    case TNum(n) if n > 9 =>
+      100
+
+    case TPlus | TMinus | TEnd =>
+      1
+
+    case TNum(n) | TNeg(n) =>
+      n
+  end
+
+procedure token_count(in t: Token, out k: Int) :=
+  match t
+    case TNum(n) | TNeg(n) if n > 0 =>
+      k := n
+    case TNum(_) | TNeg(_) | TPlus | TMinus | TEnd =>
+      k := 0
+  end
+
+test last_alternatives() :=
+  assert List(for t in List(TNum(12), TNum(3), TNeg(4), TEnd) yield token_weight(t)) == List(100, 3, 4, 1)
+  var a: Int, b: Int, c: Int, d: Int
+  token_count(in TNum(2), out a)
+  token_count(in TNeg(0), out b)
+  token_count(in TNum(-1), out c)
+  token_count(in TMinus, out d)
+  assert List(a, b, c, d) == List(2, 0, 0, 0)
+
+// a product of alternatives, and alternatives that bind nothing inside a guarded case whose others bind variables
+function sign_pair(p: (Token, Token)): Int :=
+  match p
+    case (TPlus | TMinus, TPlus | TMinus | TEnd) | (TEnd, TPlus | TMinus) =>
+      1
+
+    case (TNum(n) | TNeg(n), TNum(_) | TNeg(_)) if n > 0 =>
+      n
+
+    case _ =>
+      0
+  end
+
+// without a guard the first alternative that matches binds, and a guard that fails on the variables of one tries the next
+function first_pick(p: (Int, Int)): Int :=
+  match p
+    case (x, 1 | 2) | (1 | 2, x) =>
+      x
+    case _ =>
+      0
+  end
+
+function guarded_pick(p: (Int, Int)): Int :=
+  match p
+    case (x, 1 | 2) | (1 | 2, x) if x == 2 =>
+      x
+    case _ =>
+      0
+  end
+
+test nested_alternatives() :=
+  assert List(
+    sign_pair((TPlus, TEnd)),
+    sign_pair((TEnd, TMinus)),
+    sign_pair((TEnd, TEnd)),
+    sign_pair((TNum(3), TNeg(1))),
+    sign_pair((TNeg(-2), TNum(1))),
+    sign_pair((TNum(3), TPlus))) == List(1, 1, 0, 3, 0, 0)
+  assert List(for p in List((1, 2), (3, 2), (2, 7), (3, 4)) yield first_pick(p)) == List(1, 3, 7, 0)
+  assert List(for p in List((1, 2), (2, 1), (1, 1), (2, 5)) yield guarded_pick(p)) == List(2, 2, 0, 0)
+  assert (let (TNum(n) | TNeg(n), _) | (TPlus | TMinus | TEnd, n) := (TEnd, 7) in
+  n) == 7
+  assert List(for (k, TNum(_) | TNeg(_) | TPlus | TMinus | TEnd) in List((1, TEnd), (2, TNum(0))) yield k) == List(1, 2)
+  var n := 0
+  for (TNum(k) | TNeg(k), _) | (TPlus | TMinus | TEnd, k) in List((TNeg(3), 1), (TPlus, 4)) do
+    n := n + k
+  end
+  assert n == 7
+
 test alternatives_in_irrefutable_patterns() :=
   assert (let (n, 0) | (_, n) := (4, 1) in
   n) == 1

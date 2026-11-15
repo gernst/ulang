@@ -134,7 +134,7 @@ function part_lints(fun: Id, expr: Expr): List[Warning] :=
       ins_lints(ins, stmt_names(stmt)) ++ stmt_lints(fun, stmt)
 
     case ELet(bindings, body) =>
-      binder_lints(List(for (p, _) in bindings yield p), expr_names(body)) ++ exprs_lints(fun, List(for (_, e) in bindings yield e)) ++ expr_lints(fun, body)
+      let_binder_lints(bindings, body) ++ exprs_lints(fun, List(for (_, e) in bindings yield e)) ++ expr_lints(fun, body)
 
     case EIte(cond, then_expr, else_expr) =>
       exprs_lints(fun, List(cond, then_expr, else_expr))
@@ -145,11 +145,23 @@ function part_lints(fun: Id, expr: Expr): List[Warning] :=
     case ETuple(args) =>
       exprs_lints(fun, args)
 
+    case EAnnotated(inner, _) =>
+      expr_lints(fun, inner)
+
     case EForm(_, elems, rest) =>
       List(for y in elems for w in yield_lints(fun, y) yield w) ++ option_lints(fun, rest)
 
     case EFor(_, gens, elem, rest) =>
       gens_binder_lints(gens, yield_names(elem)) ++ gens_lints(fun, gens) ++ yield_lints(fun, elem) ++ option_lints(fun, rest)
+  end
+
+// the warnings of the variables of the bindings of a let, each read by the values of the bindings after it or by the body
+function let_binder_lints(bindings: List[(At[Pat], At[Expr])], body: At[Expr]): List[Warning] :=
+  match bindings
+    case List() =>
+      List()
+    case List((pat, _); more) =>
+      binder_lints(List(pat), exprs_names(List(for (_, e) in more yield e)) ++ expr_names(body)) ++ let_binder_lints(more, body)
   end
 
 function expr_branch_lints(fun: Id, br: Branch[At[Expr]]): List[Warning] :=
@@ -839,14 +851,31 @@ function name_lints(pos: Pos, name: Id): List[Warning] :=
   else
     List()
 
-// whether name ends in a digit after a letter, as e1 or stmt2
+// whether name ends in a digit after a letter, as e1 or stmt2, but in a standard name after its last _, whose digit is no
+// index, as os_read_utf8, while those of more digits, as sha256 or x86, end in no digit after a letter
 function is_numbered(name: Id): Bool :=
+  example is_numbered("stmt2")
+  example is_numbered("os_read_utf8") == false
   match reverse(chars(name))
     case List(c, d; _) =>
-      is_digit(c) and is_letter(d)
+      is_digit(c) and is_letter(d) and not contains(value_or(last(split(name, '_')), name), standard_names())
     case _ =>
       false
   end
+
+// the names of encodings, hashes, and protocols that end in a digit after a letter
+function standard_names(): Set[Id] :=
+  Set(
+    "utf8",
+    "md5",
+    "sha1",
+    "ipv4",
+    "ipv6",
+    "pop3",
+    "http2",
+    "http3",
+    "int8",
+    "uint8")
 
 // the variables that pat binds, each at its position, where a capitalized name is a constructor or an alias without
 // formals
@@ -1025,6 +1054,9 @@ function part_names(expr: Expr): Set[Id] :=
 
     case ETuple(args) =>
       exprs_names(args)
+
+    case EAnnotated(inner, _) =>
+      expr_names(inner)
 
     case EForm(_, elems, rest) =>
       Set(for y in elems for x in yield_names(y) yield x) ++ option_names(rest)

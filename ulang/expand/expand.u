@@ -249,6 +249,9 @@ function expanded_node(aliases: Aliases, pos: Pos, span: Span, expr: Expr): Expr
     case ETuple(args) =>
       ETuple(List(for a in args yield expanded_expr(aliases, a)))
 
+    case EAnnotated(inner, typ) =>
+      EAnnotated(expanded_expr(aliases, inner), typ)
+
     case EForm(form, elems, rest) =>
       form_expansion(pos, span, form, List(for y in elems yield expanded_yield(aliases, y)), map_option(rest, lambda e => expanded_expr(aliases, e))).that
 
