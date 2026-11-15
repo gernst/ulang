@@ -294,6 +294,16 @@ test private_name() :=
       "  assert secret(1) == 1"))
   end
 
+// a qualified name reaches no private declaration of the package of its path
+test qualified_private_name() :=
+  assert raises Located(None, Pos(4, 10), UnknownVariable(Name(List("ulang", "test", "modules", "hiding"), "secret"))) do
+    check_text(in "ulang/test/errors/qualified-private-name.u", List(
+      "import \"ulang/test/modules/hiding\"",
+      "",
+      "test t() :=",
+      "  assert ulang.test.modules.hiding.secret(1) == 1"))
+  end
+
 test private_pattern() :=
   assert raises Located(None, Pos(5, 10), UnknownConstructor(Name(List(), "Full"))) do
     check_text(in "ulang/test/errors/private-pattern.u", List(

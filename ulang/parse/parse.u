@@ -580,11 +580,49 @@ procedure parse_name(out name: Id, ref toks: Tokens) :=
       raise expected("name", toks)
   end
 
-// the package of import "p", the path of its directory from the root of the project, where names have letters, digits,
-// and _, also keywords, and are separated by /
+// a name of a type or a pattern, qualified by the path of a package or a module, ulang.syntax.Expr, whose names may be
+// keywords, ulang.test.cases.Case, as the names of directories may be
+procedure parse_qualified_name(
+  in  notation: Notation,
+      params: List[Id],
+  out name: Name,
+  ref toks: Tokens
+) :=
+  var base: Id, path: Path := List()
+  parse_plain_name(in notation, params, out base, ref toks)
+  while at_kw(toks, ".") do
+    advance(ref toks)
+    path := path ++ List(base)
+    parse_path_name(out base, ref toks)
+  end
+  name := Name(path, base)
+
+// a name of a path, also a keyword, but no operator
+procedure parse_path_name(out name: Id, ref toks: Tokens) :=
+  match head_token(toks)
+    case TKw(kw) if is_module_name(kw) =>
+      name := kw
+      advance(ref toks)
+
+    case TName(n) if is_module_name(n) =>
+      name := n
+      advance(ref toks)
+
+    case _ =>
+      raise expected("name", toks)
+  end
+
+// the package of import p.q, the path of its directory from the root of the project, of names of letters, digits, and _,
+// also keywords, or of the import "p/q" before it
 procedure parse_import(out name: Path, ref toks: Tokens) :=
   let pos := head_pos(toks)
   match head_token(toks)
+    case TKw(kw) if is_module_name(kw) =>
+      parse_import_path(out name, ref toks)
+
+    case TName(n) if is_module_name(n) =>
+      parse_import_path(out name, ref toks)
+
     case TStr(path) if is_source(path) =>
       raise ParseError("an import names the directory of a package, not a file", pos)
 
@@ -597,6 +635,16 @@ procedure parse_import(out name: Path, ref toks: Tokens) :=
 
     case _ =>
       raise expected("package", toks)
+  end
+
+procedure parse_import_path(out name: Path, ref toks: Tokens) :=
+  var part: Id
+  parse_path_name(out part, ref toks)
+  name := List(part)
+  while at_kw(toks, ".") do
+    advance(ref toks)
+    parse_path_name(out part, ref toks)
+    name := name ++ List(part)
   end
 
 function is_package_path(path: Str): Bool :=
@@ -994,19 +1042,19 @@ procedure parse_type_atom(
       advance(ref toks)
       parse_enclosed(in notation, params, parse_type, ")", out r, ref toks)
     else
-      var name: Id
-      parse_plain_name(in notation, params, out name, ref toks)
+      var name: Name
+      parse_qualified_name(in notation, params, out name, ref toks)
       if at_kw(toks, "[") then
         var args: List[Type]
         advance(ref toks)
         parse_separated(in notation, params, parse_type, at_comma, out args, ref toks)
         expect(in TKw("]"), ref toks)
-        r := List(TSort(unqualified(name), args))
+        r := List(TSort(name, args))
       else
-        if contains(name, params) then
-          r := List(TParam(name))
+        if name.path == List() and contains(name.base, params) then
+          r := List(TParam(name.base))
         else
-          r := List(TSort(unqualified(name), List()))
+          r := List(TSort(name, List()))
         end
       end
     end
@@ -1101,7 +1149,8 @@ function apply_updates(pos: Pos, expr: At[Expr], updates: List[(Id, At[Expr])]):
       apply_updates(pos, AOk(pos, span_over(expr, a), EUpdate(expr, f, a)), more)
   end
 
-// f(x) at the position of f, and e.f at the position of .
+// f(x) at the position of f, and e.f at the position of ., where f may be a keyword, which is no field but a name of a
+// path, as of ulang.test.cases.case_text, which the checker reads as a qualified name
 procedure parse_app(
   in  notation: Notation,
       params: List[Id],
@@ -1118,7 +1167,7 @@ procedure parse_app(
     else
       pos := head_pos(toks)
       advance(ref toks)
-      parse_name(out f, ref toks)
+      parse_path_name(out f, ref toks)
       expr := AOk(pos, span_from(expr.span.start, toks), EField(expr, f))
     end
   end
@@ -1528,15 +1577,15 @@ procedure parse_pattern_atom(
       end
 
     case _ =>
-      var name: Id
-      parse_plain_name(in notation, params, out name, ref toks)
+      var name: Name
+      parse_qualified_name(in notation, params, out name, ref toks)
       if at_kw(toks, "(") then
         var pats: List[At[Pat]]
         advance(ref toks)
         parse_enclosed(in notation, params, parse_pattern, ")", out pats, ref toks)
-        pat := AOk(pos, span_from(pos, toks), PApp(unqualified(name), pats))
+        pat := AOk(pos, span_from(pos, toks), PApp(name, pats))
       else
-        pat := AOk(pos, span_from(pos, toks), PName(unqualified(name), THole))
+        pat := AOk(pos, span_from(pos, toks), PName(name, THole))
       end
   end
 

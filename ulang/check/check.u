@@ -53,6 +53,9 @@ data TypeError :=
   case PrivateType(name: Name, sort: Name)
   // a formal, local, pattern variable, or formal of a lambda of the name of a local around it
   case HiddenLocal(name: Name)
+  // a formal, local, pattern variable, or formal of a lambda named as the first name of a path that the module sees, of
+  // which name.x would be a qualified name
+  case QualifierLocal(name: Name)
   case VisibleEquality(sort: Name)
   // show, compare, or == of other values than those of a datatype of its module, see order_of of defs.u
   case MisshapenHook(name: Name, hook: Hook)
@@ -621,6 +624,53 @@ function bind(xs: List[Var]): Env :=
 procedure unhidden(in env: Env, xs: List[Var], ref s: State) :=
   for x in xs if not starts_with(x.name.base, "(") and not is_dropped(x) and get(x.name, env) != None do
     report(in HiddenLocal(x.name), ref s)
+  end
+
+// the first names of the paths that the module sees, of its own package and module, the packages that it imports and
+// their members, and the library, which a local may not take, since an access x.y of it would be a qualified name
+function qualifiers(s: State): Set[Id] :=
+  Set(for m in List(s.module; s.visible) for first in take(1, m) yield first)
+
+// whether path names a package or a module that the module sees
+function is_seen_path(s: State, path: Path): Bool :=
+  exists(List(s.module; s.visible), lambda m => m == path or module_dir(m) == path)
+
+// expr as a qualified name if it is one, an access x.a.….z of a name x that is no local, of which the longest x.a.….p that
+// names a path that the module sees is the path, the name after it the base, and the names after that are accesses of
+// fields, as the parser reads ulang.syntax.size, which has no syntax of its own in expressions
+function qualified(s: State, env: Env, expr: At[Expr]): Option[At[Expr]] :=
+  match access_chain(expr)
+    case Some((x, fields)) if get(unqualified(x), env) == None =>
+      let paths := List(for i in range(0, size(fields)) if is_seen_path(s, List(x; List(for (_, _, f) in take(i, fields) yield f))) yield i) in
+      match reverse(paths)
+        case List(i; _) =>
+          let path := List(x; List(for (_, _, f) in take(i, fields) yield f)) in
+          match drop(i, fields)
+            case List((_, span, base); rest) =>
+              Some(foldl(rest, AOk(span.start, span, EName(Name(path, base), THole)), lambda inner, (pos, outer, field) => AOk(pos, outer, EField(inner, field))))
+            case List() =>
+              None
+          end
+
+        case List() =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+// the name x and the fields a, …, z of an access x.a.….z, each at the position and span of its access
+function access_chain(expr: At[Expr]): Option[(Id, List[(Pos, Span, Id)])] :=
+  match expr
+    case AOk(_, _, EName(Name(List(), x), THole)) =>
+      Some((x, List()))
+
+    case AOk(pos, span, EField(base, field)) =>
+      map_option(access_chain(base), lambda (x, fields) => (x, fields ++ List((pos, span, field))))
+
+    case _ =>
+      None
   end
 
 function unassigned(xs: List[Var]): Env :=
@@ -1906,6 +1956,9 @@ procedure unique_decls(in what: Str, xs: List[At[Var]], ref s: State) :=
     case None =>
       skip
   end
+  for x in xs if contains(x.that.name.base, qualifiers(s)) do
+    report(in at_use(decl_pos(s.at, x.pos), QualifierLocal(x.that.name)), ref s)
+  end
 
 // the first of xs whose name is declared before it, in seen or in xs
 function repeated_decl(xs: List[At[Var]], seen: Set[Name]): Option[At[Var]] :=
@@ -2136,10 +2189,15 @@ procedure infer_node(
       res := EVar(z), typ := z.typ
 
     case EApp(fun, args) =>
-      application(in env, fun, args, expected, out res, typ, ref s)
+      application(in env, value_or(qualified(s, env, fun), fun), args, expected, out res, typ, ref s)
 
     case EField(base, field) =>
-      field_access(in env, pos, span, "." ++ field, base, List(), out res, typ, ref s)
+      match qualified(s, env, AOk(pos, span, expr))
+        case Some(name) =>
+          infer_node(in env, name.pos, name.span, name.that, expected, out res, typ, ref s)
+        case None =>
+          field_access(in env, pos, span, "." ++ field, base, List(), out res, typ, ref s)
+      end
 
     case EUpdate(base, field, value) =>
       field_access(in env, pos, span, "." ++ field ++ ":=", base, List(value), out res, typ, ref s)
@@ -2687,7 +2745,7 @@ function matched(s: State, pos: Pos, span: Span, pairs: List[(Var, At[Pat])], bo
 function is_pvar(s: State, p: At[Pat]): Bool :=
   match p.that
     case PVar(x) =>
-      overloads(s, x.name, lambda n => is_pattern_name(s.sig, n)) == List()
+      x.name.path == List() and overloads(s, x.name, lambda n => is_pattern_name(s.sig, n)) == List()
     case _ =>
       false
   end
@@ -3360,14 +3418,18 @@ procedure pattern_binders(
       unify(in literal(lit), t, ref s)
       typed_pat := AOk(pos, span, PLit(checked_lit(lit))), xs := List()
 
+    // a qualified name is a constructor or an alias, never a variable
     case PName(name, typ) =>
-      if overloads(s, name, lambda n => is_pattern_name(s.sig, n)) != List() then
+      if name.path != List() or overloads(s, name, lambda n => is_pattern_name(s.sig, n)) != List() then
         pattern_binders(in pos, span, PApp(name, List()), t, out typed_pat, xs, ref s)
       else
         var u: Type
         normalize(in typ, out u, ref s)
         unify(in u, t, ref s)
         typed_pat := AOk(pos, span, PName(name, u)), xs := List(Var(name, u))
+        if contains(name.base, qualifiers(s)) then
+          report(in at_use(pos, QualifierLocal(name)), ref s)
+        end
       end
 
     // a pattern of an unknown constructor is _, which binds nothing

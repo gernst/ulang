@@ -200,6 +200,13 @@ test guard_type() :=
       "  end"))
   end
 
+// a local named as the first name of a path that the module sees, prelude of the library, of which prelude.x would be a
+// qualified name
+test qualifier_local() :=
+  assert raises Located(None, Pos(1, 12), QualifierLocal(Name(List(), "prelude"))) do
+    check_text(in "ulang/test/errors/qualifier-local.u", List("function f(prelude: Int): Int :=", "  prelude + 1"))
+  end
+
 test hidden_catch() :=
   assert raises Located(None, Pos(5, 3), HiddenLocal(Name(List(), "m"))) do
     check_text(in "ulang/test/errors/hidden-catch.u", List(

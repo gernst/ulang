@@ -265,6 +265,9 @@ function plain_message(e: TypeError): Str :=
     case HiddenLocal(name) =>
       name.base ++ " hides a local of the same name"
 
+    case QualifierLocal(name) =>
+      name.base ++ " is the first name of a path that the module sees, of which " ++ name.base ++ ".x is a qualified name"
+
     case VisibleEquality(sort) =>
       sort.base ++ " declares ==, which only abstract types may"
 
@@ -350,6 +353,7 @@ test messages() :=
   assert located_message(Located(None, Pos(4, 1), CountMismatch("procedure p", "ins", 1, 2))) == "procedure p expects 1 ins, got 2 at 4.1"
   assert located_message(Duplicate("declaration", "a")) == "duplicate declaration a"
   assert located_message(Located(None, Pos(4, 1), HiddenLocal(Name(List(), "m")))) == "m hides a local of the same name at 4.1"
+  assert located_message(Located(None, Pos(2, 7), QualifierLocal(Name(List(), "ulang")))) == "ulang is the first name of a path that the module sees, of which ulang.x is a qualified name at 2.7"
   assert located_message(Located(None, Pos(4, 1), MisshapenHook(Name(List("ulang", "test", "errors", "misshapen-hook"), "show"), HookShow))) == "show must take one value T[A, …] of a datatype T of its module, with distinct type parameters, and give Str at 4.1"
   assert located_message(MissingDefinition(Name(List("ulang", "test", "errors", "abstract-undefined"), "T"))) == "T is exported but not defined"
   assert located_message(Located(None, Pos(1, 1), MissingType(Name(List(), "x")))) == "missing type for x at 1.1"

@@ -801,7 +801,7 @@ function pattern_out(notation: Notation, indent: Str, pat: Pat): Out :=
       Out(format_lit(lit), Atom)
 
     case PVar(x) =>
-      Out(x.name.base, Atom)
+      Out(format_name(x.name), Atom)
 
     case PTuple(args) =>
       Out("(" ++ format_patterns(notation, indent, args) ++ ")", Atom)
@@ -809,7 +809,7 @@ function pattern_out(notation: Notation, indent: Str, pat: Pat): Out :=
     // alternatives take parentheses, which they do not need, so that the type reads as that of all of them
     case PAnnotated(inner, typ) =>
       let d := pattern_out(notation, indent, inner.that) in
-      Out(parenthesized(d, is_alternatives(inner)) ++ ": " ++ format_type(typ), Open)
+      Out(parenthesized(d, is_alternatives(inner)) ++ ": " ++ written_type(typ), Open)
 
     case POr(alts) =>
       Out(join(" | ", List(for a in alts yield alternative_text(notation, indent, a))), Open)
@@ -830,7 +830,7 @@ function pattern_app_out(notation: Notation, indent: Str, constr: Name, pats: Li
     case Some(d) =>
       d
     case None =>
-      Out(constr.base ++ "(" ++ texts(parts) ++ ")", Atom)
+      Out(format_name(constr) ++ "(" ++ texts(parts) ++ ")", Atom)
   end
 
 function is_alternatives(pat: At[Pat]): Bool :=
@@ -1073,7 +1073,7 @@ function formal_text(x: Var): Str :=
   if x.typ == THole then
     x.name.base
   else
-    x.name.base ++ ": " ++ format_type(x.typ)
+    x.name.base ++ ": " ++ written_type(x.typ)
 
 // commands, where the notation of a command apply to those after it, each with the comments of notes inside it
 function format_cmds(notation: Notation, notes: List[Comment], cmds: List[At[Cmd]]): List[Entry] :=
@@ -1095,7 +1095,7 @@ function format_cmds(notation: Notation, notes: List[Comment], cmds: List[At[Cmd
 function format_cmd(notation: Notation, notes: List[Comment], cmd: Cmd): Option[Str] :=
   match cmd
     case CSort(name, params, typ) =>
-      Some("type " ++ name.base ++ params_text(params) ++ " :=\n  " ++ format_type(typ))
+      Some("type " ++ name.base ++ params_text(params) ++ " :=\n  " ++ written_type(typ))
 
     case CAbstract(name, params) =>
       Some("type " ++ name.base ++ params_text(params))
@@ -1116,7 +1116,7 @@ function format_cmd(notation: Notation, notes: List[Comment], cmd: Cmd): Option[
       Some(proc_head("procedure", name, params, ins, outs, refs, raised) ++ signature_spec(notation, notes, spec))
 
     case CPatAlias(name, params, formals, typ, pat) =>
-      Some("pattern " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ "): " ++ format_type(typ) ++ " :=" ++ alias_pattern_text(notation, notes, pat))
+      Some("pattern " ++ name.base ++ params_text(params) ++ "(" ++ formals_text(formals) ++ "): " ++ written_type(typ) ++ " :=" ++ alias_pattern_text(notation, notes, pat))
 
     case CNotation(fixity, prec, ops) =>
       Some(fixity_text(fixity) ++ " " ++ show(prec) ++ " " ++ join(" ", ops))
@@ -1328,9 +1328,9 @@ function data_text(notes: List[Comment], name: Name, params: List[Id], constrs: 
 // the head of a procedure or a lemma, by its keyword, where one wider than the line has one formal on each line, the modes
 // in front of the first of their group
 function proc_head(keyword: Str, name: Name, params: List[Id], ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], raised: List[Type]): Str :=
-  let flat := keyword ++ " " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")" ++ raised_text(empty(), RWritten(raised)) in
+  let flat := keyword ++ " " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")" ++ raised_text(written_bases(raised), RWritten(raised)) in
   if size(flat) > 80 then
-    spread_proc_head(keyword, name, params, ins, outs, refs) ++ raised_text(empty(), RWritten(raised))
+    spread_proc_head(keyword, name, params, ins, outs, refs) ++ raised_text(written_bases(raised), RWritten(raised))
   else
     flat
 
@@ -1351,7 +1351,7 @@ function params_text(params: List[Id]): Str :=
   if params == List() then "" else "[" ++ join(", ", params) ++ "]"
 
 function function_head(n: Name, params: List[Id], xs: List[At[Var]], r: Type): Str :=
-  "function " ++ n.base ++ params_text(params) ++ "(" ++ formals_text(xs) ++ "): " ++ format_type(r)
+  "function " ++ n.base ++ params_text(params) ++ "(" ++ formals_text(xs) ++ "): " ++ written_type(r)
 
 function fixity_text(f: Fixity): Str :=
   match f
@@ -1377,7 +1377,7 @@ function constr_text(c: Constr): Str :=
     case Constr(name, List()) =>
       name.base
     case Constr(name, fields) =>
-      name.base ++ "(" ++ join(", ", List(for f in fields yield f.name ++ ": " ++ format_type(f.typ))) ++ ")"
+      name.base ++ "(" ++ join(", ", List(for f in fields yield f.name ++ ": " ++ written_type(f.typ))) ++ ")"
   end
 
 function test_operators(): Notation :=
@@ -1422,9 +1422,10 @@ test updates_closed() :=
   assert source(expr_app("+", List(nowhere(EField(sum, "f")), r))) == "(a + b).f + (" ++ source(r) ++ ")"
 
 test bodies() :=
-  let x := Var(unqualified("x"), TInt()), y := Var(unqualified("y"), THole), body := nowhere(block(List(), List(
+  let int_type := TSort(unqualified("Int"), List())
+  let x := Var(unqualified("x"), int_type), y := Var(unqualified("y"), THole), body := nowhere(block(List(), List(
     nowhere(SLocal(true, List(
-      (nowhere(PAnnotated(nowhere(PName(x.name, THole)), TInt())), Some(expr_int(1))),
+      (nowhere(PAnnotated(nowhere(PName(x.name, THole)), int_type)), Some(expr_int(1))),
       (nowhere(PName(y.name, THole)), None)))),
     nowhere(SIf(nowhere(EVar(y)), nowhere(block(List(), List(nowhere(SSkip)))), nowhere(SIf(nowhere(EVar(x)), nowhere(block(List(), List())), nowhere(SSkip)))))))), noted := nowhere(CNotation(FLeft, 9, List("+"))), plain := nowhere(CNotation(FLeft, 8, List("-")))
   assert format_body(test_operators(), List(), "", body) == "\nvar x: Int := 1, y\nif y then\n  skip\nelse\n  if x then\n  end\nend"
@@ -1492,6 +1493,14 @@ function format_lit(lit: Lit): Str :=
 
 function array_text(texts: List[Str]): Str :=
   "Array(" ++ join(", ", texts) ++ ")"
+
+// a type as the source writes it, where a sort keeps the path that qualifies it there
+function written_type(t: Type): Str :=
+  format_type_apart(written_bases(List(t)), t)
+
+// the names of the sorts that the source qualifies in ts, which its text writes with their paths
+function written_bases(ts: List[Type]): Set[Id] :=
+  Set(for t in ts for name in sorts_in(t) if name.path != List() yield name.base)
 
 // types as the messages of the checker show them, without numbering the unknowns anew
 function format_type(t: Type): Str :=
