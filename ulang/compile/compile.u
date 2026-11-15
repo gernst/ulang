@@ -1114,7 +1114,7 @@ procedure handler_cases(
       var bs: List[CStmt], here: List[CStmt], rest: List[CStmt]
       let env_: Vars := in_scope(pattern_names(pat)) ++ env
       compile_stmt(in defs, env_, s, out bs, ref g)
-      case_stmts(in defs, env_, d, List(for c in expanded_handlers(List(AOk(pos, span, Catch(typ, pat, guard, s)))) yield (handler_tests(c.that, h, v), c.that.pat)), v, guard, List(CsAssign(CeVar(d), CeNum(1))) ++ bs, out here, ref g)
+      case_stmts(in defs, env_, d, List(for c in tested_handlers(Catch(typ, pat, guard, s)) yield (handler_tests(c, h, v), c.pat)), v, guard, List(CsAssign(CeVar(d), CeNum(1))) ++ bs, out here, ref g)
       handler_cases(in defs, env, more, h, d, out rest, ref g)
       ss := here ++ rest
 
@@ -1130,7 +1130,7 @@ function handler_tests(c: Catch, h: Str, v: CExpr): List[CExpr] :=
     case PWild =>
       List()
     case _ =>
-      List(c_call("u_has_type", List(CeVar(h), CeStr(type_key(c.typ))))) ++ pattern_tests(c.pat.that, v)
+      List(c_call("u_has_type", List(CeVar(h), CeStr(type_key(c.typ))))) ++ alternative_tests(c.pat, v, false)
   end
 
 // a case of the alternatives alts, each with its tests that v matches its pattern, while flag is unset, where the body
@@ -1192,7 +1192,7 @@ procedure case_stmts(
             skip
         end
         tried := tried ++ List(
-          CsIf(conjunction(List(not_flag(flag), not_flag(m)) ++ tests), assigned(pattern_binds(pat.that, v)) ++ hit, List()))
+          CsIf(conjunction(List(not_flag(flag), not_flag(m)) ++ tests), alternative_binds(pat, v) ++ hit, List()))
       end
       let names := List(for (_, pat) in take(1, alts) for x in pattern_names(pat) yield x)
       ss := List(
@@ -1213,6 +1213,14 @@ function alternative_tests(pat: At[Pat], v: CExpr, matched: Bool): List[CExpr] :
     List()
   else
     pattern_tests(pat.that, v)
+
+// the assignments of the variables of the alternative pat of a case, which its tests make if it has alternatives inside
+// that bind variables, see alternative_tests
+function alternative_binds(pat: At[Pat], v: CExpr): List[CStmt] :=
+  if has_bound_alternatives(pat) then
+    List()
+  else
+    assigned(pattern_binds(pat.that, v))
 
 // the declarations of pattern_binds as assignments of the variables, which case_stmts declares
 function assigned(binds: List[CStmt]): List[CStmt] :=
