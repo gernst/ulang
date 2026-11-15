@@ -44,7 +44,7 @@ test finds_refs() :=
   os_write_utf8(in os_join(dir, "b.u"), "function g(y: Int): Int :=\n  let f := 1 in\n  f + y\n\nprocedure h(in y: Int, out z: Int) :=\n  z := f(y)\n  if z > 0 then\n    z := f(z)\n  end\n")
   run_script(in "@refs " ++ dir ++ "/a.u:f", false, state, no_diagnostics, out reply, status, _)
   let found := List(
-    "@refs " ++ dir ++ "/a.u:f: 2 uses of out/test/refactor/queries/refs/p/a.f/1 in 1 file",
+    "@refs " ++ dir ++ "/a.u:f: 2 uses of out.test.refactor.queries.refs.p.a.f/1 in 1 file",
     "  " ++ dir ++ "/b.u:6.8 in h/2 #1: z := f(y)",
     "  " ++ dir ++ "/b.u:8.10 in h/2 #2: z := f(z)")
   assert drop(1, reply) == List(join("\n", found))
@@ -75,8 +75,8 @@ test sigs() :=
   run_script(in "@sig starts_with\n@sig Some\n@sig " ++ path ++ "\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 0
   assert drop(1, reply) == List(
-    "@sig starts_with: 1 declaration in 1 module\nprelude/str.starts_with: function starts_with(s: Str, start: Str): Bool",
-    "@sig Some: 1 declaration in 1 module\nprelude/option.Some:\n  data Option[A] :=\n    case Some(value: A)",
+    "@sig starts_with: 1 declaration in 1 module\nprelude.str.starts_with: function starts_with(s: Str, start: Str): Bool",
+    "@sig Some: 1 declaration in 1 module\nprelude.option.Some:\n  data Option[A] :=\n    case Some(value: A)",
     "@sig " ++ path ++ ": " ++ path ++ "\nexport\n\n// the area\nfunction area(r: Int): Int :=\n  example area(1) == 3")
   run_script(in "@sig no_such_name\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1
