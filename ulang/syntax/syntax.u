@@ -26,11 +26,19 @@ data Type :=
   case TSort(name: Name, args: List[Type])
   // a function type A -> B, (A, B, …) -> C, or () -> C
   case TFun(args: List[Type], res: Type)
-  // procedures as values, (in A, out B, ref C), whose parameters have modes as in declarations
-  // where raises is a TTuple of the types that it may raise, as written, or a TMeta of inference
-  case TProc(ins: List[Type], outs: List[Type], refs: List[Type], raised: Type)
+  // procedures as values, (in A, out B, ref C) raises E, …, whose parameters have modes as in declarations
+  case TProc(ins: List[Type], outs: List[Type], refs: List[Type], raised: Raises)
   // a tuple type A * B * …, where a chain is one tuple type, or () for none
   case TTuple(types: List[Type])
+
+// what a procedure value may raise
+data Raises :=
+  // the types after raises as written, which the checker makes a set
+  case RWritten(types: List[Type])
+  // the exceptions, by the names of their datatypes, which have no type parameters
+  case RSet(names: Set[Name])
+  // an unknown of inference, numbered across a package, whose bounds the raises pass of ulang/check/raises.u solves
+  case RUnknown(id: Int)
 
 data Lit :=
   // ()
@@ -75,8 +83,8 @@ data Expr :=
   // keeping those that are variables and matching the others in the body, so that the backends see only variables
   case ELam(formals: List[At[Pat]], body: At[Expr])
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
-  // where raised is the type of what it may raise, as of TProc, THole until the checker infers it from where it is used
-  case EProc(ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], raised: Type, stmt: At[Stmt])
+  // where raised is what it may raise, as of TProc, RUnknown(0) until the checker gives it an unknown of its own
+  case EProc(ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], raised: Raises, stmt: At[Stmt])
   // let p := a, … in body, which binds in parallel, by irrefutable patterns
   case ELet(bindings: List[At[Pat] * At[Expr]], body: At[Expr])
   // if c then a else b
@@ -376,6 +384,9 @@ function pattern_vars(pats: List[At[Pat]]): Option[List[Var]]
 
 // the sorts that t names, as written, unqualified or qualified
 function sorts_in(t: Type): List[Name]
+
+// the types of raised, the exceptions of a set as types, and none for an unknown
+function raised_types(raised: Raises): List[Type]
 
 function implicit_elem(form: Form, gens: List[Gen]): Option[Yield]
 
@@ -820,6 +831,18 @@ function pattern_value(pos: Pos, span: Span, p: Pat): Option[Expr] :=
       pattern_value(inner.pos, inner.span, inner.that)
   end
 
+function raised_types(raised: Raises): List[Type] :=
+  match raised
+    case RWritten(types) =>
+      types
+
+    case RSet(names) =>
+      List(for name in names yield TSort(name, List()))
+
+    case RUnknown(_) =>
+      List()
+  end
+
 function sorts_in(t: Type): List[Name] :=
   match t
     case TSort(name, args) =>
@@ -829,7 +852,7 @@ function sorts_in(t: Type): List[Name] :=
       List(for a in args ++ List(res) for u in sorts_in(a) yield u)
 
     case TProc(ins, outs, refs, raised) =>
-      List(for a in ins ++ outs ++ refs ++ List(raised) for u in sorts_in(a) yield u)
+      List(for a in ins ++ outs ++ refs ++ raised_types(raised) for u in sorts_in(a) yield u)
 
     case TTuple(types) =>
       List(for a in types for u in sorts_in(a) yield u)

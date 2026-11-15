@@ -1275,9 +1275,9 @@ function data_text(notes: List[Comment], name: Name, params: List[Id], constrs: 
 // the head of a procedure or a lemma, by its keyword, where one wider than the line has one formal on each line, the modes
 // in front of the first of their group
 function proc_head(keyword: Str, name: Name, params: List[Id], ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], raised: List[Type]): Str :=
-  let flat := keyword ++ " " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")" ++ raised_text(empty(), TTuple(raised)) in
+  let flat := keyword ++ " " ++ name.base ++ params_text(params) ++ "(" ++ formal_sections(ins, outs, refs) ++ ")" ++ raised_text(empty(), RWritten(raised)) in
   if size(flat) > 80 then
-    spread_proc_head(keyword, name, params, ins, outs, refs) ++ raised_text(empty(), TTuple(raised))
+    spread_proc_head(keyword, name, params, ins, outs, refs) ++ raised_text(empty(), RWritten(raised))
   else
     flat
 
@@ -1502,18 +1502,14 @@ function sort_text(clashes: Set[Id], name: Name): Str :=
 function format_list_apart(clashes: Set[Id], ts: List[Type]): Str :=
   join(", ", List(for t in ts yield format_type_apart(clashes, t)))
 
-// raises T, … after a procedure head or the modes of a procedure type, in the order written, and nothing if it raises
-// nothing or is an unknown of inference
-function raised_text(clashes: Set[Id], raised: Type): Str :=
-  match raised
-    case TTuple(List()) =>
+// raises T, … after a procedure head or the modes of a procedure type, in the order written or of a set, and nothing if
+// it raises nothing or is an unknown of inference
+function raised_text(clashes: Set[Id], raised: Raises): Str :=
+  match raised_types(raised)
+    case List() =>
       ""
-
-    case TTuple(types) =>
+    case types =>
       " raises " ++ format_list_apart(clashes, types)
-
-    case _ =>
-      ""
   end
 
 function type_section(clashes: Set[Id], mode: Str, ts: List[Type]): List[Str] :=
@@ -1597,7 +1593,7 @@ function format_name(n: Name): Str :=
 test printing() :=
   let int_type := TSort(unqualified("Int"), List()), str_type := TSort(unqualified("Str"), List()), list_type := TSort(unqualified("List"), List(TParam("A"))), fun_type := TFun(List(TParam("A")), TParam("B")), pair_type := TTuple(List(int_type, str_type)), var_pat := PName(unqualified("x"), THole)
   assert format_type(TFun(List(fun_type, pair_type), list_type)) == "(A -> B, Int * Str) -> List[A]"
-  assert format_type(TProc(List(TParam("A")), List(), List(int_type), TTuple(List()))) == "(in A, ref Int)"
-  assert format_type(TProc(List(TParam("A")), List(), List(), TTuple(List(TSort(unqualified("E"), List()), int_type)))) == "(in A) raises E, Int"
+  assert format_type(TProc(List(TParam("A")), List(), List(int_type), RWritten(List()))) == "(in A, ref Int)"
+  assert format_type(TProc(List(TParam("A")), List(), List(), RWritten(List(TSort(unqualified("E"), List()), int_type)))) == "(in A) raises E, Int"
   assert format_pat(PCons(nowhere(var_pat), nowhere(PApp(unqualified("Some"), List(nowhere(PWild)))))) == "List(x; Some(_))"
   assert format_name(cons_name()) == "prelude/list.Cons" and cons_name().base == "Cons"

@@ -972,7 +972,7 @@ procedure parse_type_atom(
     parse_sections(in notation, params, parse_type, parse_type, out ins, outs, refs, ref toks)
     expect(in TKw(")"), ref toks)
     parse_raises(in notation, params, out raised, ref toks)
-    r := List(TProc(ins, outs, refs, TTuple(raised)))
+    r := List(TProc(ins, outs, refs, RWritten(raised)))
   else
     if at_kw(toks, "(") then
       advance(ref toks)
@@ -1211,7 +1211,7 @@ procedure parse_lambda(
     expect(in TKw("=>"), ref toks)
     parse_body(in notation, params, out body, ref toks)
     expect_end(in "lambda", pos, ref toks)
-    expr := AOk(pos, span_from(pos, toks), EProc(ins, outs, refs, THole, body))
+    expr := AOk(pos, span_from(pos, toks), EProc(ins, outs, refs, RUnknown(0), body))
   else
     if head_token(toks) == TKw("=>") then
       var inner: At[Expr]
@@ -3661,7 +3661,7 @@ test parsed_raises() :=
     end
   end
   assert found == List(
-    (List(TProc(List(int), List(), List(), TTuple(List(e, f))), int), List(f)),
+    (List(TProc(List(int), List(), List(), RWritten(List(e, f))), int), List(f)),
     (List(), List(e, f)))
 
 // the doc of a declaration is the run of comments right above it, without a blank line between

@@ -2,7 +2,8 @@
 // datatype raises its type, a call raises the raises of the procedure, as written, or inferred for a private procedure
 // without raises, and a try removes the types that its unguarded handlers cover, while the exceptions of builtins
 // (unchecked_exceptions of ulang/syntax/builtins.u) are not counted; a procedure with raises, or exported, raises none
-// that they omit, and a procedure value raises none that its type omits, which the place of its use gives it
+// that they omit, and a procedure value raises none that its type omits, which the place of its use gives it, where the
+// raises of the types of values that inference left unknown are the least that their bounds allow
 
 import "ulang/syntax"
 
@@ -13,22 +14,41 @@ export
 data Exceptions :=
   case Exceptions(errors: List[TypeError], inferred: Map[Name, List[Type]])
 
-function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name]): Exceptions
+// what a procedure value of the raises sub may raise, a value of the raises sup may raise too, as unify of
+// ulang/check/check.u records it at pos of module where one of them is not a set
+data Bound :=
+  case Bound(module: Id, pos: Pos, sub: Raises, sup: Raises)
+
+function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name], bounds: List[Bound]): Exceptions
+
+// the datatype of an exception, where the checker ensures that written raises are exceptions
+function exception_name(t: Type): Option[Name]
 
 implementation
 
-// the datatypes that a part may raise, each at its first raise or call, and the errors of the parts inside it
+// the datatypes that a part may raise, each at its first raise or call, the errors of the parts inside it, and the
+// exceptions that its procedure values give the unknowns of their types
 data Flow :=
-  case Flow(raised: Map[Name, Pos], errors: List[Pos * TypeError])
+  case Flow(raised: Map[Name, Pos], errors: List[Pos * TypeError], lower: Map[Int, Map[Name, Origin]])
 
-// the raises of the procedures of the package, written or inferred so far, and the types of the locals in scope
+// where an exception entered the solution of an unknown: at the use of the procedure name as a value or a raise in a
+// lambda, or at a bound, which names none
+data Origin :=
+  case Origin(module: Option[Id], pos: Pos, name: Option[Name])
+
+// the raises of the procedures of the package, written or inferred so far, the types of the locals in scope, the
+// solutions of the unknowns so far, and the module of the command
 data Scope :=
-  case Scope(sig: Sig, procs: Map[Name, Set[Name]], locals: Map[Name, Type])
+  case Scope(sig: Sig, procs: Map[Name, Set[Name]], locals: Map[Name, Type], solved: Map[Int, Map[Name, Origin]], module: Option[Id])
 
-function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name]): Exceptions :=
+function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name], bounds: List[Bound]): Exceptions :=
   let inferred := inferred_procs(cmds, hidden) in
-  let scope := infer_procs(cmds, Scope(sig, written_procs(cmds, inferred), empty()), inferred) in
-  Exceptions(List(for cmd in cmds for (pos, e) in take(1, sort(cmd_errors(scope, cmd, inferred))) yield Located(cmd_module(cmd), pos, e)), Map(for name in inferred yield name => List(for t in proc_raises(scope, name) yield TSort(t, List()))))
+  let scope := infer_procs(cmds, bounds, Scope(sig, written_procs(cmds, inferred), empty(), empty(), None), inferred) in
+  let errors := List(for cmd in cmds for (pos, e) in take(1, sort(cmd_errors(in_module(scope, cmd), cmd, inferred))) yield Located(cmd_module(cmd), pos, e)) in
+  Exceptions(errors ++ distinct(List(for b in bounds for e in exceeded(scope.solved, b) yield e)), Map(for name in inferred yield name => List(for t in proc_raises(scope, name) yield TSort(t, List()))))
+
+function in_module(scope: Scope, cmd: Cmd): Scope :=
+  scope with module := cmd_module(cmd)
 
 // the private procedures without raises, whose raises are inferred
 function inferred_procs(cmds: List[Cmd], hidden: Set[Name]): Set[Name] :=
@@ -54,25 +74,74 @@ function proc_raised(cmd: Cmd): Option[Name * List[Type]] :=
       None
   end
 
-// the least raises of the inferred procedures, from none, by the raises of their bodies until none grows, which ends, since
-// they only grow, and there are finitely many datatypes
-function infer_procs(cmds: List[Cmd], scope: Scope, inferred: Set[Name]): Scope :=
-  let next := infer_round(cmds, scope, inferred) in
-  if next.procs == scope.procs then scope else infer_procs(cmds, next, inferred)
+// the least raises of the inferred procedures and the least solutions of the unknowns, from none, by the raises of the
+// bodies and the bounds until none grows, which ends, since they only grow, and there are finitely many datatypes
+function infer_procs(cmds: List[Cmd], bounds: List[Bound], scope: Scope, inferred: Set[Name]): Scope :=
+  let (round, lower) := infer_round(cmds, scope, inferred, empty()) in
+  let next := round with solved := solve(bounds, lower) in
+  if next.procs == scope.procs and next.solved == scope.solved then
+    scope
+  else
+    infer_procs(cmds, bounds, next, inferred)
 
-// the raises of each inferred procedure in turn, where each body sees those of the procedures before it in this round
-function infer_round(cmds: List[Cmd], scope: Scope, inferred: Set[Name]): Scope :=
+// the raises of each inferred procedure in turn, where each body sees those of the procedures before it in this round,
+// and what the procedure values of all commands give the unknowns of their types, added to lower
+function infer_round(cmds: List[Cmd], scope: Scope, inferred: Set[Name], lower: Map[Int, Map[Name, Origin]]): Scope * Map[Int, Map[Name, Origin]] :=
   match cmds
     case List() =>
-      scope
+      (scope, lower)
 
     case List(cmd; rest) =>
+      let flow := cmd_flow(in_module(scope, cmd), cmd) in
       match inferred_name(cmd, inferred)
         case Some(name) =>
-          infer_round(rest, scope with procs := put(name, keys(cmd_flow(scope, cmd).raised), scope.procs), inferred)
+          infer_round(rest, scope with procs := put(name, keys(flow.raised), scope.procs), inferred, joined(lower, flow.lower))
         case None =>
-          infer_round(rest, scope, inferred)
+          infer_round(rest, scope, inferred, joined(lower, flow.lower))
       end
+  end
+
+// the least solutions of the unknowns that include lower and satisfy the bounds whose sup is an unknown
+function solve(bounds: List[Bound], solved: Map[Int, Map[Name, Origin]]): Map[Int, Map[Name, Origin]] :=
+  let next := foldl(bounds, solved, lambda acc, b => propagated(acc, b)) in
+  if next == solved then solved else solve(bounds, next)
+
+function propagated(solved: Map[Int, Map[Name, Origin]], b: Bound): Map[Int, Map[Name, Origin]] :=
+  match b.sup
+    case RUnknown(id) =>
+      joined(solved, Map(id => bound_atoms(solved, b)))
+    case _ =>
+      solved
+  end
+
+// the exceptions of the sub of b, with their origins, where those of a set entered at b
+function bound_atoms(solved: Map[Int, Map[Name, Origin]], b: Bound): Map[Name, Origin] :=
+  match b.sub
+    case RUnknown(id) =>
+      value_or(get(id, solved), empty())
+    case raised =>
+      Map(for t in raised_set(empty(), raised) yield t => Origin(Some(b.module), b.pos, None))
+  end
+
+// the solutions of both, where the first origin of an exception stays
+function joined(a: Map[Int, Map[Name, Origin]], b: Map[Int, Map[Name, Origin]]): Map[Int, Map[Name, Origin]] :=
+  foldl(b, a, lambda acc, id, atoms => put(id, atoms ++ value_or(get(id, acc), empty()), acc))
+
+// the exceptions of the solution of the sub of b that its sup, a set, omits, each at its origin
+function exceeded(solved: Map[Int, Map[Name, Origin]], b: Bound): List[TypeError] :=
+  match b.sup
+    case RSet(allowed) =>
+      List(for t => origin in bound_atoms(solved, b) if not contains(t, allowed) yield omitted_raise(origin, t))
+    case _ =>
+      List()
+  end
+
+function omitted_raise(origin: Origin, t: Name): TypeError :=
+  match origin.name
+    case Some(name) =>
+      Located(origin.module, origin.pos, UntypedRaise(name, TSort(t, List())))
+    case None =>
+      Located(origin.module, origin.pos, WiderRaise(TSort(t, List())))
   end
 
 function keys(raised: Map[Name, Pos]): Set[Name] :=
@@ -97,7 +166,7 @@ function cmd_flow(scope: Scope, cmd: Cmd): Flow :=
       stmt_flow(bound(scope, vars(ins ++ outs ++ refs)), stmt)
 
     case CFun(_, _, formals, _, _, body) =>
-      Flow(empty(), expr_errors(bound(scope, vars(formals)), body))
+      expr_flow(bound(scope, vars(formals)), body)
 
     case CTest(_, _, stmt) =>
       stmt_flow(scope, stmt)
@@ -128,14 +197,18 @@ function cmd_flow(scope: Scope, cmd: Cmd): Flow :=
   end
 
 function none(): Flow :=
-  Flow(empty(), List())
+  Flow(empty(), List(), empty())
+
+function errors_flow(errors: List[Pos * TypeError]): Flow :=
+  Flow(empty(), errors, empty())
 
 // the flows of parts one after another, where the first raise of a type counts
 function flows(fs: List[Flow]): Flow :=
-  foldl(fs, none(), lambda acc, f => Flow(f.raised ++ acc.raised, acc.errors ++ f.errors))
+  foldl(fs, none(), lambda acc, f => Flow(f.raised ++ acc.raised, acc.errors ++ f.errors, joined(acc.lower, f.lower)))
 
-function with_errors(flow: Flow, errors: List[Pos * TypeError]): Flow :=
-  flow with errors := errors ++ flow.errors
+// flow after the parts of expr, which raise nothing
+function with_expr(flow: Flow, expr: Flow): Flow :=
+  Flow(flow.raised, expr.errors ++ flow.errors, joined(expr.lower, flow.lower))
 
 function bound(scope: Scope, xs: List[Var]): Scope :=
   scope with locals := scope.locals ++ Map(for x in xs yield x.name => x.typ)
@@ -160,20 +233,24 @@ function call_raises(scope: Scope, p: Name): Set[Name] :=
   if p.module == None then
     match get(p, scope.locals)
       case Some(TProc(_, _, _, raised)) =>
-        raised_names(raised)
+        raised_set(scope.solved, raised)
       case _ =>
         empty()
     end
   else
     proc_raises(scope, p)
 
-// the exceptions of the raises of a procedure type, none for an unknown of inference that nothing fixed
-function raised_names(raised: Type): Set[Name] :=
+// the exceptions of the raises of a procedure type, of an unknown its solution so far
+function raised_set(solved: Map[Int, Map[Name, Origin]], raised: Raises): Set[Name] :=
   match raised
-    case TTuple(types) =>
+    case RWritten(types) =>
       exception_names(types)
-    case _ =>
-      empty()
+
+    case RSet(names) =>
+      Set(for t in names if not contains(t, unchecked_exceptions()) yield t)
+
+    case RUnknown(id) =>
+      Set(for t => _ in value_or(get(id, solved), empty()) yield t)
   end
 
 function exception_names(types: List[Type]): Set[Name] :=
@@ -222,7 +299,7 @@ function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
       none()
 
     case SAssign(upd) =>
-      Flow(empty(), exprs_errors(scope, List(for (_, e) in upd yield e)))
+      exprs_flow(scope, List(for (_, e) in upd yield e))
 
     case SBlock(locals, stmts) =>
       stmts_flow(bound(scope, vars(locals)), stmts)
@@ -232,28 +309,28 @@ function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
       none()
 
     case SIf(cond, left, right) =>
-      with_errors(stmts_flow(scope, List(left, right)), expr_errors(scope, cond))
+      with_expr(stmts_flow(scope, List(left, right)), expr_flow(scope, cond))
 
     case SWhile(cond, body) =>
-      with_errors(stmt_flow(scope, body), expr_errors(scope, cond))
+      with_expr(stmt_flow(scope, body), expr_flow(scope, cond))
 
     case SCall(proc, ins, _, _) =>
-      Flow(Map(for t in call_raises(scope, proc) yield t => pos), exprs_errors(scope, ins))
+      with_expr(Flow(Map(for t in call_raises(scope, proc) yield t => pos), List(), empty()), exprs_flow(scope, ins))
 
     case SMatch(arg, cases) =>
-      with_errors(flows(List(for br in parts(cases) yield branch_flow(scope, br.pat, br.guard, br.body))), expr_errors(scope, arg))
+      with_expr(flows(List(for br in parts(cases) yield branch_flow(scope, br.pat, br.guard, br.body))), expr_flow(scope, arg))
 
     case SAssert(cond) =>
-      Flow(empty(), expr_errors(scope, cond))
+      expr_flow(scope, cond)
 
     case SAssertRaises(typ, pat, body) =>
       handled(scope, stmt_flow(scope, body), List((pos, Catch(typ, pat, None, nowhere(SSkip)))))
 
     case SRaise(value, typ) =>
-      Flow(Map(for name in exception_name(typ) if is_tracked(scope.sig, typ) yield name => pos), (if is_exception(scope.sig, typ) then
+      with_expr(Flow(Map(for name in exception_name(typ) if is_tracked(scope.sig, typ) yield name => pos), if is_exception(scope.sig, typ) then
         List()
       else
-        List((pos, NotAnException(typ)))) ++ expr_errors(scope, value))
+        List((pos, NotAnException(typ))), empty()), expr_flow(scope, value))
 
     case STry(body, catches) =>
       handled(scope, stmt_flow(scope, body), List(for c in catches yield (c.pos, c.that)))
@@ -265,7 +342,7 @@ function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
 // the flow of a case: its pattern binds, then its guard and body
 function branch_flow(scope: Scope, pat: At[Pat], guard: Option[At[Expr]], body: At[Stmt]): Flow :=
   let inner := bound(scope, pattern_variables(pat)) in
-  with_errors(stmt_flow(inner, body), List(for g in guard for e in expr_errors(inner, g) yield e))
+  with_expr(stmt_flow(inner, body), flows(List(for g in guard yield expr_flow(inner, g))))
 
 // the flow of the body of generators, in the scope of what they bind, after the errors of their containers and guards
 function gens_flow(scope: Scope, gens: List[Gen], body: Scope -> Flow): Flow :=
@@ -274,13 +351,13 @@ function gens_flow(scope: Scope, gens: List[Gen], body: Scope -> Flow): Flow :=
       body(scope)
 
     case List(GVal(pat, over); rest) =>
-      with_errors(gens_flow(bound(scope, pattern_variables(pat)), rest, body), expr_errors(scope, over))
+      with_expr(gens_flow(bound(scope, pattern_variables(pat)), rest, body), expr_flow(scope, over))
 
     case List(GPair(key, value, over); rest) =>
-      with_errors(gens_flow(bound(scope, pattern_variables(key) ++ pattern_variables(value)), rest, body), expr_errors(scope, over))
+      with_expr(gens_flow(bound(scope, pattern_variables(key) ++ pattern_variables(value)), rest, body), expr_flow(scope, over))
 
     case List(GIf(cond); rest) =>
-      with_errors(gens_flow(scope, rest, body), expr_errors(scope, cond))
+      with_expr(gens_flow(scope, rest, body), expr_flow(scope, cond))
   end
 
 // what the body of a try raises that its handlers do not catch, where the unguarded handlers of a type that cover it catch
@@ -290,7 +367,7 @@ function handled(scope: Scope, body: Flow, catches: List[Pos * Catch]): Flow :=
   let left := Map(for t => p in body.raised if not catches_all(scope.sig, TSort(t, List()), caught) yield t => p) in
   let never := List(for (p, c) in catches if c.pat.that != PWild and is_tracked(scope.sig, c.typ) and not contains_key(body.raised, c.typ) yield (p, NeverRaised(c.typ))) in
   let handlers := flows(List(for (_, c) in catches yield branch_flow(scope, c.pat, c.guard, c.body))) in
-  Flow(handlers.raised ++ left, body.errors ++ never ++ handlers.errors)
+  Flow(handlers.raised ++ left, body.errors ++ never ++ handlers.errors, joined(body.lower, handlers.lower))
 
 function catches_all(sig: Sig, t: Type, caught: List[Type * Pat]): Bool :=
   exists(caught, lambda (_, pat) => pat == PWild) or covers_all(sig, t, List(for (u, pat) in caught if u == t yield pat))
@@ -325,85 +402,95 @@ function pattern_variables(pat: At[Pat]): List[Var] :=
       List()
   end
 
-function exprs_errors(scope: Scope, exprs: List[At[Expr]]): List[Pos * TypeError] :=
-  List(for e in exprs for error in expr_errors(scope, e) yield error)
+function exprs_flow(scope: Scope, exprs: List[At[Expr]]): Flow :=
+  flows(List(for e in exprs yield expr_flow(scope, e)))
 
-// the errors of procedure values in expr, which raise nothing themselves
-function expr_errors(scope: Scope, expr: At[Expr]): List[Pos * TypeError] :=
+// the errors of procedure values in expr, which raise nothing themselves, and what they give the unknowns of their types
+function expr_flow(scope: Scope, expr: At[Expr]): Flow :=
   match expr
     case AOk(pos, _, that) =>
-      part_errors(scope, pos, that)
+      part_expr_flow(scope, pos, that)
 
     case AErr(pos, _, that, _) =>
-      part_errors(scope, pos, that)
+      part_expr_flow(scope, pos, that)
 
     case AUnparsed(_, _, _, _) =>
-      List()
+      none()
   end
 
-function part_errors(scope: Scope, pos: Pos, expr: Expr): List[Pos * TypeError] :=
+function part_expr_flow(scope: Scope, pos: Pos, expr: Expr): Flow :=
   match expr
     case ELit(_) =>
-      List()
+      none()
 
     case EVar(v) =>
-      if v.name.module != None and is_proc(scope.sig, v.name) then
-        value_errors(pos, v.name, proc_raises(scope, v.name), v.typ)
-      else
-        List()
+      match v.typ
+        case TProc(_, _, _, allowed) if v.name.module != None and is_proc(scope.sig, v.name) =>
+          value_flow(Origin(scope.module, pos, Some(v.name)), Map(for t in proc_raises(scope, v.name) yield t => pos), allowed)
+        case _ =>
+          none()
+      end
 
     case EApp(fun, args) =>
-      exprs_errors(scope, List(fun; args))
+      exprs_flow(scope, List(fun; args))
 
     case EField(base, _) =>
-      expr_errors(scope, base)
+      expr_flow(scope, base)
 
     case EUpdate(base, _, value) =>
-      exprs_errors(scope, List(base, value))
+      exprs_flow(scope, List(base, value))
 
     case ELam(formals, body) =>
-      expr_errors(bound(scope, List(for p in formals for v in pattern_variables(p) yield v)), body)
+      expr_flow(bound(scope, List(for p in formals for v in pattern_variables(p) yield v)), body)
 
     case EProc(ins, outs, refs, raised, stmt) =>
       let flow := stmt_flow(bound(scope, vars(ins ++ outs ++ refs)), stmt) in
-      flow.errors ++ List(for t => p in flow.raised if not contains(t, raised_names(raised)) yield (p, UntypedRaise(Name(None, "lambda"), TSort(t, List()))))
+      with_expr(value_flow(Origin(scope.module, pos, Some(Name(None, "lambda"))), flow.raised, raised), flow with raised := empty())
 
     case ELet(bindings, body) =>
-      exprs_errors(scope, List(for (_, e) in bindings yield e)) ++ expr_errors(bound(scope, List(for (p, _) in bindings for v in pattern_variables(p) yield v)), body)
+      with_expr(expr_flow(bound(scope, List(for (p, _) in bindings for v in pattern_variables(p) yield v)), body), exprs_flow(scope, List(for (_, e) in bindings yield e)))
 
     case EIte(cond, then_expr, else_expr) =>
-      exprs_errors(scope, List(cond, then_expr, else_expr))
+      exprs_flow(scope, List(cond, then_expr, else_expr))
 
     case EMatch(arg, cases) =>
-      expr_errors(scope, arg) ++ List(for br in parts(cases) for e in case_errors(scope, br) yield e)
+      flows(List(
+        expr_flow(scope, arg); List(for br in parts(cases) yield case_flow(scope, br))))
 
     case ETuple(args) =>
-      exprs_errors(scope, args)
+      exprs_flow(scope, args)
 
     case EForm(_, elems, rest) =>
-      List(for y in elems for e in yield_errors(scope, y) yield e) ++ List(for r in rest for e in expr_errors(scope, r) yield e)
+      flows(List(for y in elems yield yield_flow(scope, y)) ++ List(for r in rest yield expr_flow(scope, r)))
 
     case EFor(_, gens, elem, rest) =>
-      gens_flow(scope, gens, lambda inner => Flow(empty(), yield_errors(inner, elem))).errors ++ List(for r in rest for e in expr_errors(scope, r) yield e)
+      flows(List(
+        gens_flow(scope, gens, lambda inner => yield_flow(inner, elem)); List(for r in rest yield expr_flow(scope, r))))
   end
 
-function case_errors(scope: Scope, br: Branch[At[Expr]]): List[Pos * TypeError] :=
+function case_flow(scope: Scope, br: Branch[At[Expr]]): Flow :=
   let inner := bound(scope, pattern_variables(br.pat)) in
-  List(for g in br.guard for e in expr_errors(inner, g) yield e) ++ expr_errors(inner, br.body)
+  flows(List(for g in br.guard yield expr_flow(inner, g)) ++ List(expr_flow(inner, br.body)))
 
-function yield_errors(scope: Scope, elem: Yield): List[Pos * TypeError] :=
+function yield_flow(scope: Scope, elem: Yield): Flow :=
   match elem
     case YVal(value) =>
-      expr_errors(scope, value)
+      expr_flow(scope, value)
     case YPair(key, value) =>
-      exprs_errors(scope, List(key, value))
+      exprs_flow(scope, List(key, value))
   end
 
-// the raises of the procedure name, a value of type typ, that typ omits
-function value_errors(pos: Pos, name: Name, raised: Set[Name], typ: Type): List[Pos * TypeError] :=
-  match typ
-    case TProc(_, _, _, allowed) =>
-      List(for t in raised if not contains(t, raised_names(allowed)) yield (pos, UntypedRaise(name, TSort(t, List()))))
-    case _ =>
-      List()
+// a procedure value from origin that raises raised, each at its position, where a lambda keeps the position of each
+// raise, whose type allows the raises allowed: those that a set omits, or what they give an unknown
+function value_flow(origin: Origin, raised: Map[Name, Pos], allowed: Raises): Flow :=
+  match allowed
+    case RSet(names) =>
+      errors_flow(List(for t => p in raised if not contains(t, names) yield (p, UntypedRaise(value_or(origin.name, Name(None, "lambda")), TSort(t, List())))))
+
+    case RUnknown(id) =>
+      Flow(empty(), List(), Map(id => Map(for t => p in raised yield t => origin with pos := p)))
+
+    // normalize of ulang/check/check.u makes the raises of every type a set or an unknown
+    case RWritten(_) =>
+      none()
   end

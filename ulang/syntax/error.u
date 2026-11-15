@@ -158,7 +158,12 @@ function deferred_text(ds: List[Diagnostic]): Str :=
   end
 
 function blocks_run(d: Diagnostic): Bool :=
-  d.kind == ParseKind or d.kind == TypeKind and not contains(d.code, List("NotAnException", "UndeclaredRaise", "UntypedRaise", "NeverRaised"))
+  d.kind == ParseKind or d.kind == TypeKind and not contains(d.code, List(
+    "NotAnException",
+    "UndeclaredRaise",
+    "UntypedRaise",
+    "WiderRaise",
+    "NeverRaised"))
 
 function runtime_formats(): List[Str * Str] :=
   List(

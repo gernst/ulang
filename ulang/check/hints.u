@@ -71,10 +71,10 @@ function constr_types(cmd: At[Cmd]): List[Name * Type] :=
 function proc_type(cmd: At[Cmd]): Option[Name * Type] :=
   match that_of(cmd)
     case Some(CProc(name, _, ins, outs, refs, raised, _, _)) =>
-      Some((name, TProc(types_of(ins), types_of(outs), types_of(refs), TTuple(raised))))
+      Some((name, TProc(types_of(ins), types_of(outs), types_of(refs), RWritten(raised))))
 
     case Some(CProcSig(name, _, ins, outs, refs, raised, _)) =>
-      Some((name, TProc(types_of(ins), types_of(outs), types_of(refs), TTuple(raised))))
+      Some((name, TProc(types_of(ins), types_of(outs), types_of(refs), RWritten(raised))))
 
     case _ =>
       None

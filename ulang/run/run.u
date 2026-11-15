@@ -1681,7 +1681,7 @@ test procedure_values() :=
         nowhere(SAssign(List((hole_var("f"), expr_var("sum"))))),
         nowhere(SAssign(List((hole_var("k"), expr_int(10))))),
         nowhere(SAssign(List(
-          (hole_var("g"), nowhere(EProc(unplaced_vars(List(hole_var("n"))), unplaced_vars(List(hole_var("r"))), List(), THole, block(List(), List(
+          (hole_var("g"), nowhere(EProc(unplaced_vars(List(hole_var("n"))), unplaced_vars(List(hole_var("r"))), List(), RUnknown(0), block(List(), List(
             SAssign(List(
               (hole_var("r"), expr_app("+", List(expr_var("n"), expr_var("k")))))))))))))),
         nowhere(SCall(unqualified("f"), List(expr_int(4)), List(hole_var("s")), List())),

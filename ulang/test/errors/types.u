@@ -724,6 +724,30 @@ test raise_untyped_lambda() :=
       "  end)"))
   end
 
+// a value of a type that raises Failed reaches a lambda's variable, which apply takes as raising nothing
+test raise_wider_value() :=
+  assert raises Located(None, Pos(14, 8), WiderRaise(_)) do
+    check_text(in "ulang/test/errors/raise-wider-value.u", List(
+      "data Failed :=",
+      "  case Failed",
+      "",
+      "procedure fail(in n: Int) raises Failed :=",
+      "  raise Failed",
+      "",
+      "procedure apply(in q: (in Int)) :=",
+      "  q(in 1)",
+      "",
+      "procedure pass(in q: (in Int) raises Failed) :=",
+      "  var r := lambda in n =>",
+      "    skip",
+      "  end",
+      "  r := q",
+      "  apply(in r)",
+      "",
+      "test passed() :=",
+      "  pass(in fail)"))
+  end
+
 test raise_never() :=
   assert raises Located(None, Pos(8, 5), NeverRaised(_)) do
     check_text(in "ulang/test/errors/raise-never.u", List(

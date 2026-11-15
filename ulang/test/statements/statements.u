@@ -594,6 +594,27 @@ test procedure_values_raise() :=
   attempt(in fails_below, 1, out ok)
   assert ok
 
+// a procedure value bound without a type raises what the procedure or the body of the lambda raises
+test procedure_values_raise_inferred() :=
+  var caught := 0, s: Int
+  let fail := lambda in n =>
+    raise Failed
+  end
+  let signed := sign
+  try
+    fail(in 1)
+  catch
+    case Failed =>
+      caught := caught + 1
+  end
+  try
+    signed(in 0, out s)
+  catch
+    case Failed =>
+      caught := caught + 1
+  end
+  assert caught == 2
+
 // handlers apply if their guards hold
 test guarded_handlers() :=
   var n: Int

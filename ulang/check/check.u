@@ -85,6 +85,8 @@ data TypeError :=
   case UndeclaredRaise(name: Name, typ: Type)
   // the procedure value name, lambda for a lambda, raises typ, which its type omits, as the place of its use gives it
   case UntypedRaise(name: Name, typ: Type)
+  // a procedure value of a type that raises typ, which the type of the place it reaches omits
+  case WiderRaise(typ: Type)
   // a handler, or the pattern of assert raises, of typ, which the body cannot raise
   case NeverRaised(typ: Type)
   // an error with the form to write instead, which the checker knows from the part, e.g. ++ for + of strings
@@ -186,7 +188,7 @@ data Within :=
 // loop_assigned are of the command being checked, the unknown types reported, each once, and the variables that the body
 // of a while assigns which are not assigned before it, the latter of the procedure or procedure lambda being checked
 data State :=
-  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[Pos * Env], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name])
+  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[Pos * Env], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name], raises_count: Int, bounds: Buffer[Bound])
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -200,8 +202,9 @@ pattern HTuple(): Head :=
 function with_sig(s: State, sig: Sig): State :=
   s with sig := sig
 
-// the state for checking a declaration of module m, where the substitution starts empty and unknowns are numbered
-// from 1 again, since unknowns do not outlive the command that introduces them
+// the state for checking a declaration of module m, where the substitution starts empty and unknowns of types are
+// numbered from 1 again, since they do not outlive the command that introduces them, while the unknowns of raises and
+// their bounds go on, which the raises pass solves after the package
 function enter(s: State, m: Id): State :=
   s with sub := empty(), count := 0, module := m, visible := sees(m, s.table), pending := List(), chosen := empty(), at := Pos(0, 0), unknown_sorts := empty(), loop_assigned := empty()
 
@@ -209,7 +212,7 @@ function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
   value_or(get(m, vs), List(m))
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
-  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty(), empty(), empty())
+  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty(), empty(), empty(), 0, empty())
 
 function in_module(m: Id, n: Name): Name :=
   Name(Some(m), n.base)
@@ -454,7 +457,7 @@ function free(t: Type): List[Type] :=
       distinct(List(for a in args ++ List(res) for v in free(a) yield v))
 
     case TProc(ins, outs, refs, raised) =>
-      distinct(List(for a in ins ++ outs ++ refs ++ List(raised) for v in free(a) yield v))
+      distinct(List(for a in ins ++ outs ++ refs ++ raised_types(raised) for v in free(a) yield v))
 
     case TTuple(types) =>
       distinct(List(for a in types for v in free(a) yield v))
@@ -472,7 +475,7 @@ function has_holes(t: Type): Bool :=
       exists(args, has_holes) or has_holes(res)
 
     case TProc(ins, outs, refs, raised) =>
-      exists(ins ++ outs ++ refs ++ List(raised), has_holes)
+      exists(ins ++ outs ++ refs ++ raised_types(raised), has_holes)
 
     case TTuple(types) =>
       exists(types, has_holes)
@@ -490,7 +493,7 @@ function subst(t: Type, m: List[Type * Type]): Type :=
       TFun(List(for a in args yield subst(a, m)), subst(res, m))
 
     case TProc(ins, outs, refs, raised) =>
-      TProc(List(for a in ins yield subst(a, m)), List(for a in outs yield subst(a, m)), List(for a in refs yield subst(a, m)), subst(raised, m))
+      TProc(List(for a in ins yield subst(a, m)), List(for a in outs yield subst(a, m)), List(for a in refs yield subst(a, m)), raised)
 
     case TTuple(types) =>
       TTuple(List(for a in types yield subst(a, m)))
@@ -525,7 +528,7 @@ function occurs(su: Subst, i: Int, t: Type): Bool :=
       exists(args, lambda a => occurs(su, i, a)) or occurs(su, i, res)
 
     case TProc(ins, outs, refs, raised) =>
-      exists(ins ++ outs ++ refs ++ List(raised), lambda a => occurs(su, i, a))
+      exists(ins ++ outs ++ refs, lambda a => occurs(su, i, a))
 
     case TTuple(types) =>
       exists(types, lambda a => occurs(su, i, a))
@@ -566,12 +569,12 @@ function is_pattern_name(sig: Sig, n: Name): Bool :=
 function is_hook(f: Name, k: Int): Bool :=
   hook_of(f.base, k) != None
 
-// a procedure is a value of its type (in A, out B, ref C) raises …, whose raises are a parameter of their own, those of the
-// place of its use, which must include those of the procedure (raises_errors of ulang/check/raises.u)
+// a procedure is a value of its type (in A, out B, ref C) raises …, whose raises are an unknown of each instance, those of
+// the place of its use, which must include those of the procedure (raises_errors of ulang/check/raises.u)
 function proc_scheme(sig: Sig, p: Name): Scheme :=
   match proc_of(sig, p)
     case Some(proc) =>
-      Scheme(proc.params ++ List(TParam("(raised)")), TProc(proc.ins, proc.outs, proc.refs, TParam("(raised)")))
+      Scheme(proc.params, TProc(proc.ins, proc.outs, proc.refs, RUnknown(0)))
     case None =>
       Scheme(List(), THole)
   end
@@ -682,7 +685,7 @@ function zonk_type(su: Subst, t: Type): Type :=
       TFun(List(for a in args yield zonk_type(su, a)), zonk_type(su, res))
 
     case TProc(ins, outs, refs, raised) =>
-      TProc(List(for a in ins yield zonk_type(su, a)), List(for a in outs yield zonk_type(su, a)), List(for a in refs yield zonk_type(su, a)), zonk_type(su, raised))
+      TProc(List(for a in ins yield zonk_type(su, a)), List(for a in outs yield zonk_type(su, a)), List(for a in refs yield zonk_type(su, a)), raised)
 
     case TTuple(types) =>
       TTuple(List(for a in types yield zonk_type(su, a)))
@@ -733,7 +736,7 @@ function zonk_node(s: State, expr: Expr): Expr :=
       ELam(List(for p in formals yield zonk_pat(s, p)), zonk_expr(s, body))
 
     case EProc(ins, outs, refs, raised, stmt) =>
-      EProc(zonk_decls(s, ins), zonk_decls(s, outs), zonk_decls(s, refs), zonk_type(s.sub, raised), zonk_stmt(s, stmt))
+      EProc(zonk_decls(s, ins), zonk_decls(s, outs), zonk_decls(s, refs), raised, zonk_stmt(s, stmt))
 
     case ELet(bindings, body) =>
       ELet(List(for (p, e) in bindings yield (zonk_pat(s, p), zonk_expr(s, e))), zonk_expr(s, body))
@@ -1283,6 +1286,9 @@ function first_uncovered(hs: List[Head], ks: List[Head * List[Type]]): Pat :=
 procedure fresh(out t: Type, ref s: State) :=
   t := TMeta(s.count + 1), s := s with count := s.count + 1
 
+procedure fresh_raises(out r: Raises, ref s: State) :=
+  r := RUnknown(s.raises_count + 1), s := s with raises_count := s.raises_count + 1
+
 procedure bind_meta(in i: Int, t: Type, ref s: State) :=
   if occurs(s.sub, i, t) then
     report(in InfiniteType(TMeta(i), zonk_type(s.sub, t)), ref s)
@@ -1344,13 +1350,41 @@ procedure unify(in t: Type, t_: Type, ref s: State) :=
 
     case (TProc(xs, ys, zs, r), TProc(us, vs, ws, r_)) =>
       if size(xs) == size(us) and size(ys) == size(vs) and size(zs) == size(ws) then
-        unifies(in xs ++ ys ++ zs ++ List(r), us ++ vs ++ ws ++ List(r_), ref s)
+        unifies(in xs ++ ys ++ zs, us ++ vs ++ ws, ref s)
+        unify_raises(in r, r_, t, t_, ref s)
       else
         report(in CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_)), ref s)
       end
 
     case _ =>
       report(in CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_)), ref s)
+  end
+
+// the raises r and r_ of the procedure types t and t_ are equal, where two sets are compared at once, and other pairs are
+// bounds both ways, which the raises pass checks, and RUnknown(0) is the raises of the type of a call, which take none
+procedure unify_raises(
+  in  r: Raises,
+      r_: Raises,
+      t: Type,
+      t_: Type,
+  ref s: State
+) :=
+  match (r, r_)
+    case (RUnknown(0), _) =>
+      skip
+
+    case (_, RUnknown(0)) =>
+      skip
+
+    case (RSet(names), RSet(names_)) =>
+      if names != names_ then
+        report(in CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_)), ref s)
+      end
+
+    case _ =>
+      if r != r_ then
+        s := s with bounds := s.bounds ++ List(Bound(s.module, s.at, r, r_), Bound(s.module, s.at, r_, r))
+      end
   end
 
 procedure unifies(in xs: List[Type], ys: List[Type], ref s: State) :=
@@ -1385,7 +1419,15 @@ procedure instance(in ps: List[Type], out m: List[Type * Type], ref s: State) :=
 procedure instantiate(in sc: Scheme, out t: Type, ref s: State) :=
   var m: List[Type * Type]
   instance(in sc.params, out m, ref s)
-  t := subst(zonk_type(s.sub, sc.typ), m)
+  match subst(zonk_type(s.sub, sc.typ), m)
+    case TProc(ins, outs, refs, RUnknown(0)) =>
+      var r: Raises
+      fresh_raises(out r, ref s)
+      t := TProc(ins, outs, refs, r)
+
+    case u =>
+      t := u
+  end
 
 // the names ns, which must be distinct, of what they are, e.g. formals
 procedure unique(in what: Str, ns: List[Name], ref s: State) :=
@@ -1437,7 +1479,7 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
       u := TTuple(us)
 
     case TProc(ins, outs, refs, raised) =>
-      var us: List[Type], r: Type
+      var us: List[Type], r: Raises
       normalizes(in ins ++ outs ++ refs, out us, ref s)
       normalized_raises(in raised, out r, ref s)
       u := match split_at(size(ins), us)
@@ -1837,7 +1879,7 @@ procedure infer_node(
     // own, so the hint of outputs sees only those of the lambda
     case EProc(ins, outs, refs, _, stmt) =>
       let loop_assigned := s.loop_assigned
-      var xs: List[Var], ys: List[Var], zs: List[Var], r: Type, y: At[Stmt], inner: Env
+      var xs: List[Var], ys: List[Var], zs: List[Var], r: Raises, y: At[Stmt], inner: Env
       unique_decls(in "formal", ins ++ outs ++ refs, ref s)
       map_state(in ins, normalize_var, out xs, ref s)
       map_state(in outs, normalize_var, out ys, ref s)
@@ -1847,7 +1889,7 @@ procedure infer_node(
       statement(in List(for x in ys ++ zs yield x.name), stmt, out y, ref inner, s)
       outputs(in unqualified("lambda"), ys, inner, ref s)
       s := s with loop_assigned := loop_assigned
-      fresh(out r, ref s)
+      fresh_raises(out r, ref s)
       res := EProc(retyped(ins, xs), retyped(outs, ys), retyped(refs, zs), r, y), typ := TProc(List(for x in xs yield x.typ), List(for x in ys yield x.typ), List(for x in zs yield x.typ), r)
 
     // the bindings of a let are sequential, each in scope of those before it, so the checked program has one binding
@@ -2113,8 +2155,8 @@ function has_error_type(t: Type): Bool :=
     case TTuple(args) =>
       exists(args, has_error_type)
 
-    case TProc(ins, outs, refs, raised) =>
-      exists(List(raised; ins ++ outs ++ refs), has_error_type)
+    case TProc(ins, outs, refs, _) =>
+      exists(ins ++ outs ++ refs, has_error_type)
 
     case _ =>
       false
@@ -2139,17 +2181,17 @@ function at_use(pos: Pos, e: TypeError): TypeError :=
       if pos == Pos(0, 0) then e else Located(None, pos, e)
   end
 
-// the types of raises of a procedure type, as the set of the exceptions, sorted, where a hole is a hole
-procedure normalized_raises(in raised: Type, out typ: Type, ref s: State) :=
+// the raises of a procedure type as written, as the set of the exceptions, where unknowns and sets stay
+procedure normalized_raises(in raised: Raises, out r: Raises, ref s: State) :=
   match raised
-    case TTuple(types) =>
+    case RWritten(types) =>
       var us: List[Type]
       normalizes(in types, out us, ref s)
       exceptions(in us, ref s)
-      typ := TTuple(distinct(sort(us)))
+      r := RSet(Set(for u in us for name in exception_name(u) yield name))
 
     case _ =>
-      normalize(in raised, out typ, ref s)
+      r := raised
   end
 
 // raises NotAnException unless each of types is a datatype without type parameters
@@ -3583,12 +3625,11 @@ procedure call_variable(
   out stmt: Stmt,
   ref s: State
 ) :=
-  var is: List[Type], os: List[Type], rs: List[Type], r: Type, typed_ins: List[At[Expr]], typed_outs: List[Var], typed_refs: List[Var]
+  var is: List[Type], os: List[Type], rs: List[Type], typed_ins: List[At[Expr]], typed_outs: List[Var], typed_refs: List[Var]
   fresh_list(in ins, out is, ref s)
   fresh_list(in outs, out os, ref s)
   fresh_list(in refs, out rs, ref s)
-  fresh(out r, ref s)
-  unify(in typ, TProc(is, os, rs, r), ref s)
+  unify(in typ, TProc(is, os, rs, RUnknown(0)), ref s)
   unique(in "out or ref", List(for y in outs ++ refs yield y.name), ref s)
   checks(in env, "procedure " ++ p.base, ins, is, out typed_ins, ref s)
   variables(in env, assignable, outs, out typed_outs, ref s)
@@ -3634,7 +3675,7 @@ procedure overloaded_call(
   infers(in env, ins, out typed_ins, is, ref s)
   variables(in env, assignable, outs, out typed_outs, ref s)
   variables(in env, assignable, refs, out typed_refs, ref s)
-  choose(in p, List(for q in qs yield (q, proc_scheme(s.sig, q))), TProc(is, List(for x in typed_outs yield x.typ), List(for x in typed_refs yield x.typ), TTuple(List())), out m, ref s)
+  choose(in p, List(for q in qs yield (q, proc_scheme(s.sig, q))), TProc(is, List(for x in typed_outs yield x.typ), List(for x in typed_refs yield x.typ), RUnknown(0)), out m, ref s)
   stmt := SCall(m, typed_ins, typed_outs, typed_refs)
 
 procedure declared_call(
@@ -4331,7 +4372,7 @@ procedure commands(
       typed_cmds := List()
 
     case List((m, cmd); more) =>
-      let taken := s.taken
+      let taken := s.taken, errors := size(s.errors), bounds := s.bounds
       var typed_cmd: Cmd, zonked: Cmd, rest: List[Cmd]
       s := enter(s, m) with loops := List()
       command(in cmd, out typed_cmd, ref s)
@@ -4347,6 +4388,10 @@ procedure commands(
         end
       else
         zonked := cmd, s := s with taken := taken
+      end
+      // the raises pass skips a command with errors, and so its bounds
+      if size(s.errors) > errors then
+        s := s with bounds := bounds
       end
       commands(in more, out rest, ref s)
       typed_cmds := List(zonked; rest)
@@ -5040,7 +5085,7 @@ procedure check_package(
     private_of(in d, out private, private_sorts)
     hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
   end
-  s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty(), empty(), empty()), decls := seconds(placed)
+  s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty(), empty(), empty(), 0, empty()), decls := seconds(placed)
   each_placed(in declare_datas, placed, ref s)
   declare_datas(in builtins, ref s)
   each_placed(in declare_sorts, alias_order(List(for p in placed if alias_names(p) != None), List()), ref s)
@@ -5090,7 +5135,7 @@ procedure check_package(
   // run may take for checked code
   let written := List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, if defined == List() and is_checked(m, c) then unchecked(c) else c))
   cmds := with_definitions(written, defined) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors, loose := List(for (i, e) in zip(range(0, size(s.errors)), s.errors) if not contains(i, s.taken) yield e)
-  exceptions := raises_errors(List(for (_, c) in defined ++ tested if cmd_errors(c) == List() yield c.that), s.sig, hidden)
+  exceptions := raises_errors(List(for (_, c) in defined ++ tested if cmd_errors(c) == List() yield c.that), s.sig, hidden, List(for b in s.bounds))
   errors := errors ++ exceptions.errors, cmds := List(for (m, c) in cmds yield (m, map_at(c, lambda cmd => with_inferred(cmd, exceptions.inferred))))
   loose := loose ++ drop(size(s.errors), errors)
 

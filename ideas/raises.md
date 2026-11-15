@@ -29,7 +29,7 @@ The raised types of `CProc`, `CProcSig`, and `ProcSig` stay a `List[Type]`, as w
 - The lower bounds of an unknown are the raises of the declared procedures used as values of its type, the raises of the bodies of the lambdas of it, and the bounds of the checker whose `sup` it is; its solution is the union of them, each exception with the origin where it entered, the use of the procedure, the raise in the lambda, or the bound.
 - The fixpoint of `infer_procs` grows the solutions together with the raises of the inferred procedures, since a call through a local raises the solution of its type, and a value raises what its procedure raises. Both only grow, so it ends.
 - Then each upper bound, a bound whose `sup` is a set, is checked: an exception of the solution of its `sub` that the set omits is `UntypedRaise` at its origin, as now for a value or a lambda, and at the bound for one that a fixed type brought in.
-- `with_inferred` writes the solutions into the checked program, so that the hints show sets and no unknown reaches a later phase.
+- Open: the checked program keeps the unknowns, which the backends and the prover ignore, so the hints show a local of a procedure type without its raises. Writing the solutions into it, by `with_inferred`, needs the zonk walk to take them beside the substitution of types, which 40 calls of `zonk_type` of `ulang/check/check.u` pass.
 
 ## 5. Steps
 
