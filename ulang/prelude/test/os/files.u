@@ -34,6 +34,33 @@ test bytes() :=
   end
   os_chdir(in home)
 
+// a file, an empty directory, and a tree by os_remove_all, where a missing path and a directory that is not empty raise
+test removes() :=
+  var found: Bool, home: Str
+  enter_scratch(out home)
+  os_write_utf8(in "removes/a.txt", "a")
+  os_remove(in "removes/a.txt")
+  assert raises OsError("cannot remove removes/a.txt") do
+    os_remove(in "removes/a.txt")
+  end
+  os_write_utf8(in "removes/sub/b.txt", "b")
+  assert raises OsError("cannot remove removes/sub") do
+    os_remove(in "removes/sub")
+  end
+  os_remove(in "removes/sub/b.txt")
+  os_remove(in "removes/sub")
+  os_is_dir(in "removes/sub", out found)
+  assert not found
+  os_write_utf8(in "removes/tree/deep/c.txt", "c")
+  os_write_utf8(in "removes/tree/d.txt", "d")
+  os_remove_all(in "removes/tree")
+  os_is_dir(in "removes/tree", out found)
+  assert not found
+  assert raises OsError("cannot remove removes/tree") do
+    os_remove_all(in "removes/tree")
+  end
+  os_chdir(in home)
+
 // streams in the three modes, read by lines, bytes, and to the end, which are equal by identity and shown by their paths
 test streams() :=
   var io: IO, other: IO, line: Option[Str], text: Str, bytes: Array[Byte], home: Str

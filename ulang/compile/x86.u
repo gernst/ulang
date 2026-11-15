@@ -6,6 +6,7 @@
 import ulang.syntax
 import ulang.format
 import ulang.check
+import ulang.expand
 
 export
 
@@ -754,13 +755,10 @@ procedure compile_expr(in defs: Defs, env: Slots, expr: At[Expr], ref e: Emit) :
       compile_args(in defs, env, List(fun; args), out all, ref e)
       call_runtime(in "u_apply", take(1, all) ++ List(AVal(OImm(size(args)))) ++ drop(1, all), ref e)
 
-    // the checker makes the formals variables
     case ELam(formals, body) =>
-      match pattern_vars(formals)
-        case Some(xs) =>
-          compile_lambda(in defs, env, xs, body, ref e)
-        case None =>
-          raise Unexpected("lambda of patterns")
+      match expanded_lambda(expr.pos, expr.span, formals, body)
+        case (xs, b) =>
+          compile_lambda(in defs, env, xs, b, ref e)
       end
 
     case EProc(ins, outs, refs, _, stmt) =>
@@ -1266,7 +1264,7 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
 
     // the checker gives the list of the items and patterns that match every item, so that the loop walks the list and binds
     // the pattern to each item
-    case SFor(List(GVal(pat, over)), body) =>
+    case SFor(List(GVal(pat, over, _)), body) =>
       var l: Int
       match array_items(over)
         case Some(a) =>
@@ -1804,7 +1802,8 @@ procedure assemble_program(
   out f: AsmFile
 ) raises EntryError, InternalError :=
   var e := Emit(empty(), 0, empty(), empty(), empty(), 0, empty(), empty())
-  let defs := defs_of(q), cmds := definitions(q)
+  let lowered := expanded(q)
+  let defs := defs_of(lowered), cmds := definitions(lowered)
   match entry
     case EntryProc(proc) =>
       require_entry(in q, Name(m, proc))

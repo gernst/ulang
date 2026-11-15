@@ -3,6 +3,7 @@
 
 import ulang.syntax
 import ulang.check
+import ulang.expand
 
 export
 
@@ -173,6 +174,7 @@ function native_procs(): Set[Id] :=
     "os_exit",
     "os_list",
     "os_is_dir",
+    "os_remove",
     "os_cwd",
     "os_chdir",
     "os_env",
@@ -347,7 +349,8 @@ function free_vars(expr: At[Expr], bound: List[Name]): List[Name] :=
       List()
 
     case ELam(formals, body) =>
-      free_vars(body, var_names(lambda_vars(formals)) ++ bound)
+      let (xs, b) := expanded_lambda(expr.pos, expr.span, formals, body) in
+      free_vars(b, var_names(xs) ++ bound)
 
     case EProc(ins, outs, refs, _, stmt) =>
       free_in_stmt(stmt, var_names(vars(ins ++ outs ++ refs)) ++ bound)
@@ -412,7 +415,7 @@ function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
     case STry(body, catches) =>
       free_in_stmt(body, bound) ++ List(for h in catches for n in free_in_handler(h, bound) yield n)
 
-    case SFor(List(GVal(pat, over)), body) =>
+    case SFor(List(GVal(pat, over, _)), body) =>
       free_vars(over, bound) ++ free_in_stmt(body, pattern_names(pat) ++ bound)
 
     // the checker gives one generator over a list, which the case before takes

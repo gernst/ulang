@@ -279,6 +279,7 @@ void p_os_read_bytes(u_value path, u_value *bytes);
 void p_os_write_bytes(u_value path, u_value bytes);
 void p_os_list(u_value dir, u_value *entries);
 void p_os_is_dir(u_value path, u_value *yes);
+void p_os_remove(u_value path);
 void p_os_cwd(u_value *dir);
 void p_os_chdir(u_value dir);
 void p_os_library(u_value name, u_value *text);

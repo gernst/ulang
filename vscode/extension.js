@@ -3,6 +3,7 @@
 const vscode = require("vscode");
 const cp = require("child_process");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 
 // an error is one JSON object on a line, as format_diagnostic of ulang/syntax/error.u writes it, with the fields file,
@@ -57,7 +58,7 @@ function projectRoot(file) {
 }
 
 // runs ulang.bin with args in the directory of file, or for tests at the root of its project, where tests run, resolving
-// to its exit code, output, and errors, with a stack as large as the system allows, since the interpreter recurses as
+// to its exit code, output, errors, and working directory, with a stack as large as the system allows, since the interpreter recurses as
 // deeply as the programs it runs
 function ulang(args, file) {
   return new Promise((resolve) => {
@@ -68,8 +69,9 @@ function ulang(args, file) {
       return;
     }
     const script = 'ulimit -s unlimited 2>/dev/null; exec "$0" "$@"';
-    cp.execFile("sh", ["-c", script, bin, ...args], { cwd: args.includes("--test") ? projectRoot(file) : path.dirname(file) }, (error, stdout, stderr) => {
-      resolve({ code: error ? error.code || 1 : 0, stdout, stderr });
+    const cwd = args.includes("--test") ? projectRoot(file) : path.dirname(file);
+    cp.execFile("sh", ["-c", script, bin, ...args], { cwd }, (error, stdout, stderr) => {
+      resolve({ code: error ? error.code || 1 : 0, stdout, stderr, cwd });
     });
   });
 }
@@ -166,8 +168,9 @@ function activate(context) {
 
   // errors of file in the error output of ulang, without a position at the start of the file, and those of another
   // module, known by its path from the root, at the import of its package, the directory of the module, or else at the
-  // start, as for a sibling, pointing to the module, where the errors of proofs are warnings
-  function diagnose(file, stderr, stdout) {
+  // start, as for a sibling, pointing to the file of the module, the file of the diagnostic from cwd, where ulang ran, where
+  // the errors of proofs are warnings
+  function diagnose(file, stderr, stdout, cwd) {
     const found = [];
     const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n") : [];
     for (const line of (stderr + "\n" + (stdout || "")).split("\n")) {
@@ -201,7 +204,8 @@ function activate(context) {
       const position = new vscode.Position(Math.max(imported, 0), 0);
       const text = message + " in " + module + (row ? " at " + row + "." + column : "");
       const diagnostic = new vscode.Diagnostic(new vscode.Range(position, position.translate(0, 1)), text, vscode.DiagnosticSeverity.Error);
-      const source = [path.join(root, moduleFile + ".u")].find((f) => fs.existsSync(f)) || "";
+      // the file that ulang names, also of the library, else the module's path from the root
+      const source = [d.file && path.resolve(cwd, d.file), path.join(root, moduleFile + ".u")].find((f) => f && fs.existsSync(f)) || "";
       if (row && source) {
         diagnostic.relatedInformation = [new vscode.DiagnosticRelatedInformation(new vscode.Location(vscode.Uri.file(source), at), message)];
       }
@@ -219,7 +223,7 @@ function activate(context) {
     const file = document.uri.fsPath;
     const result = await ulang([...commandWords[command], ...(names.length ? names.map((name) => file + ":" + name) : [file])], file);
     if (!result) return;
-    diagnose(file, result.stderr, result.stdout);
+    diagnose(file, result.stderr, result.stdout, result.cwd);
     if (show) {
       output.clear();
       output.append(result.stdout);
@@ -246,7 +250,7 @@ function activate(context) {
     tests.forEach((t) => run.started(t));
     const result = await ulang(["check", "--test", "--prove", file.uri.fsPath], file.uri.fsPath);
     if (!result) return;
-    diagnose(file.uri.fsPath, result.stderr, result.stdout);
+    diagnose(file.uri.fsPath, result.stderr, result.stdout, result.cwd);
     const outcomes = new Map();
     for (const line of result.stdout.split("\n")) {
       const match = testLine.exec(line);
@@ -271,19 +275,39 @@ function activate(context) {
     return vscode.window.activeTextEditor && vscode.window.activeTextEditor.document;
   }
 
-  // the hints of each document by its version, from ulang hints of the saved file, refreshed on save, and none for a
-  // version that is not saved, whose positions they would miss
+  // the hints of each document by its version, from ulang hints of the file, with the text of an unsaved buffer passed by
+  // --overlay from a file of its own in a temporary directory, refreshed on save and once the edits of a buffer have
+  // paused, and none for a version of a buffer before that, so that typing runs no check per key
   const hints = new Map();
   const hintsChanged = new vscode.EventEmitter();
-  context.subscriptions.push(hintsChanged);
+  const settled = new Map();
+  const editing = new Map();
+  const buffers = fs.mkdtempSync(path.join(os.tmpdir(), "ulang-buffers-"));
+  let buffered = 0;
+  context.subscriptions.push(hintsChanged, {
+    dispose: () => {
+      editing.forEach(clearTimeout);
+      fs.rmSync(buffers, { recursive: true, force: true });
+    },
+  });
 
   function hintsOf(doc) {
-    if (doc.languageId !== "ulang" || doc.uri.scheme !== "file" || doc.isDirty) return Promise.resolve([]);
+    if (doc.languageId !== "ulang" || doc.uri.scheme !== "file") return Promise.resolve([]);
     const key = doc.uri.toString();
+    if (doc.isDirty && settled.get(key) !== doc.version) return Promise.resolve([]);
     const cached = hints.get(key);
     if (cached && cached.version === doc.version) return cached.found;
     const file = doc.uri.fsPath;
-    const found = ulang(["hints", file], file).then((result) => (result ? result.stdout.split("\n").map(parseHint).filter((h) => h) : []));
+    let args = ["hints", file], buffer;
+    if (doc.isDirty) {
+      buffer = path.join(buffers, `${buffered++}.u`);
+      fs.writeFileSync(buffer, doc.getText());
+      args = ["hints", "--overlay", `${file}=${buffer}`, file];
+    }
+    const found = ulang(args, file).then((result) => {
+      if (buffer) fs.rmSync(buffer, { force: true });
+      return result ? result.stdout.split("\n").map(parseHint).filter((h) => h) : [];
+    });
     hints.set(key, { version: doc.version, found });
     return found;
   }
@@ -291,6 +315,18 @@ function activate(context) {
   function refreshHints(doc) {
     hints.delete(doc.uri.toString());
     hintsChanged.fire();
+  }
+
+  // the hints of a buffer whose edits have paused for a while
+  function refreshLater(doc) {
+    if (doc.languageId !== "ulang") return;
+    const key = doc.uri.toString();
+    clearTimeout(editing.get(key));
+    editing.set(key, setTimeout(() => {
+      editing.delete(key);
+      settled.set(key, doc.version);
+      refreshHints(doc);
+    }, 500));
   }
 
   context.subscriptions.push(
@@ -329,7 +365,16 @@ function activate(context) {
         },
       }
     ),
-    vscode.workspace.onDidCloseTextDocument((doc) => hints.delete(doc.uri.toString()))
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      if (event.contentChanges.length > 0) refreshLater(event.document);
+    }),
+    vscode.workspace.onDidCloseTextDocument((doc) => {
+      const key = doc.uri.toString();
+      hints.delete(key);
+      settled.delete(key);
+      clearTimeout(editing.get(key));
+      editing.delete(key);
+    })
   );
 
   context.subscriptions.push(

@@ -5,6 +5,7 @@ import ulang.syntax
 import ulang.format
 import ulang.parse
 import ulang.check
+import ulang.expand
 
 export
 
@@ -478,13 +479,10 @@ procedure compile_expr(
       compile_exprs(in defs, env, args, out bs, rs, ref g)
       ss := as ++ bs, r := c_call("u_apply", List(ra, CeNum(size(args))) ++ rs)
 
-    // the checker makes the formals variables
     case ELam(formals, body) =>
-      match pattern_vars(formals)
-        case Some(xs) =>
-          compile_lambda(in defs, env, xs, body, out ss, r, ref g)
-        case None =>
-          raise Unexpected("lambda of patterns")
+      match expanded_lambda(expr.pos, expr.span, formals, body)
+        case (xs, b) =>
+          compile_lambda(in defs, env, xs, b, out ss, r, ref g)
       end
 
     case EProc(ins, outs, refs, _, stmt) =>
@@ -1020,7 +1018,7 @@ procedure compile_stmt(
     // the checker gives the list of the items and patterns that match every item, so that the loop walks the list and binds
     // the pattern to each item, where a pattern with alternatives is a match of the item with a case for each, and the list
     // of the items of an array is the array, which the loop walks by index
-    case SFor(List(GVal(pat, over)), body) =>
+    case SFor(List(GVal(pat, over, _)), body) =>
       var cs: List[CStmt], rc: CExpr, bs: List[CStmt], l: Str, i: Str, n: Str
       let walked := array_items(over)
       compile_expr(in defs, env, value_or(walked, over), out cs, rc, ref g)
@@ -1459,21 +1457,22 @@ function prototype(d: CDecl): List[CDecl] :=
 // the C of q of module m, whose main calls the procedure of the entry without parameters, or runs the tests of its files
 procedure compile_program(in q: Prog, m: Path, entry: Entry, out f: CFile) :=
   var g := Gen(0, List())
-  let defs := defs_of(q)
+  let lowered := expanded(q)
+  let defs := defs_of(lowered), cmds := definitions(lowered)
   var ds: List[CDecl], ms: List[CStmt], fs: List[CDecl], hs: List[CDecl], tables: List[CDecl]
   match entry
     case EntryProc(proc) =>
       require_entry(in q, Name(m, proc))
-      compile_cmds(in defs, false, definitions(q), out ds, ms, ref g)
+      compile_cmds(in defs, false, cmds, out ds, ms, ref g)
       ms := List(CsExpr(c_call(proc_name(Name(m, proc)), List()))), tables := List()
 
     case EntryTests(files) =>
-      compile_cmds(in defs, true, definitions(q), out ds, ms, ref g)
+      compile_cmds(in defs, true, cmds, out ds, ms, ref g)
       ms := List(
-        CsReturn(Some(c_call("u_run_tests", List(CeVar("argc"), CeVar("argv"), CeVar("u_files"), CeVar("u_tests")))))), tables := test_tables(files, definitions(q))
+        CsReturn(Some(c_call("u_run_tests", List(CeVar("argc"), CeVar("argv"), CeVar("u_files"), CeVar("u_tests")))))), tables := test_tables(files, cmds)
   end
   fs := wrappers(defs) ++ ds ++ g.lifted
-  hs := List(CdInclude("ulang.h")) ++ prototypes(fs) ++ descriptor_decls(defs, definitions(q)) ++ texts()
+  hs := List(CdInclude("ulang.h")) ++ prototypes(fs) ++ descriptor_decls(defs, cmds) ++ texts()
   f := CFile(hs ++ fs ++ tables ++ List(main_function(ms)))
 
 // the paths of the files and their tests, each with the index of its file, in the order of the files and then of the

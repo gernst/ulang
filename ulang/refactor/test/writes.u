@@ -11,18 +11,20 @@ procedure unseen(
 ) :=
   found := List()
 
-// @put of a new module makes its directory, here one that no run before made, since no procedure removes directories
+// @put of a new module makes its directory, which the test removes before and after
 test puts_into_new_directory() :=
-  var reply: List[Str], status: Int, text: Str, clock: Int, found: Bool
-  os_clock(out clock)
-  let dir := "out/test/refactor/writes/new" ++ show(clock)
+  var reply: List[Str], status: Int, text: Str, found: Bool
+  let dir := "out/test/refactor/writes/new"
   os_is_dir(in dir, out found)
-  assert not found
+  if found then
+    os_remove_all(in dir)
+  end
   let module := "function twice(n: Int): Int :=\n  2 * n\n"
   run_script(in "@put " ++ dir ++ "/deep/m.u\n" ++ module, false, "out/test/refactor/writes", unseen, out reply, status, _)
   assert status == 0
   os_read_utf8(in os_join(dir, "deep/m.u"), out text)
   assert text == module
+  os_remove_all(in dir)
 
 // an error of the system in an action that writes is refused with the action and its line in the script, while a query
 // would only be noted

@@ -296,8 +296,27 @@ function stmt_flow(scope: Scope, stmt: At[Stmt]): Flow :=
       none()
   end
 
+// the flows of stmts, each in the scope of the locals that the SLocal statements before it declare
 function stmts_flow(scope: Scope, stmts: List[At[Stmt]]): Flow :=
-  flows(List(for stmt in stmts yield stmt_flow(scope, stmt)))
+  flows(scoped_flows(scope, stmts))
+
+function scoped_flows(scope: Scope, stmts: List[At[Stmt]]): List[Flow] :=
+  match stmts
+    case List(stmt; rest) =>
+      List(
+        stmt_flow(scope, stmt); scoped_flows(bound(scope, declared_by(stmt)), rest))
+
+    case List() =>
+      List()
+  end
+
+function declared_by(stmt: At[Stmt]): List[Var] :=
+  match stmt
+    case AOk(_, _, SLocal(_, decls)) | AErr(_, _, SLocal(_, decls), _) =>
+      List(for (p, _) in decls for x in pattern_variables(p) yield x)
+    case _ =>
+      List()
+  end
 
 function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
   match stmt
@@ -310,9 +329,9 @@ function part_flow(scope: Scope, pos: Pos, stmt: Stmt): Flow :=
     case SBlock(locals, stmts) =>
       stmts_flow(bound(scope, vars(locals)), stmts)
 
-    // the checker gives no SLocal
-    case SLocal(_, _) =>
-      none()
+    // each value in the scope of the declarations before it
+    case SLocal(_, decls) =>
+      flows(List(for ((_, e), i) in numbered(decls) for x in e yield expr_flow(bound(scope, List(for (p, _) in take(i, decls) for v in pattern_variables(p) yield v)), x)))
 
     case SIf(cond, left, right) =>
       with_expr(stmts_flow(scope, List(left, right)), expr_flow(scope, cond))
@@ -356,10 +375,10 @@ function gens_flow(scope: Scope, gens: List[Gen], body: Scope -> Flow): Flow :=
     case List() =>
       body(scope)
 
-    case List(GVal(pat, over); rest) =>
+    case List(GVal(pat, over, _); rest) =>
       with_expr(gens_flow(bound(scope, pattern_variables(pat)), rest, body), expr_flow(scope, over))
 
-    case List(GPair(key, value, over); rest) =>
+    case List(GPair(key, value, over, _); rest) =>
       with_expr(gens_flow(bound(scope, pattern_variables(key) ++ pattern_variables(value)), rest, body), expr_flow(scope, over))
 
     case List(GIf(cond); rest) =>
