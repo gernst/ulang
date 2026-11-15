@@ -160,6 +160,27 @@ test array_comprehensions() :=
   assert Array(for x in Set(3, 1, 2)) == Array(1, 2, 3) and Array(for x in List(1, 2) for y in a if y > 3 yield (x, y)) == Array((1, 4), (2, 4))
   assert Array(for x in xs if x < 3 yield Array(for y in a if y <= x)) == Array(Array(1), Array(1, 2))
 
+// over sources other than lists and arrays, which compiled code builds inside their folds, also nested and past the first
+// room of the array
+test array_comprehensions_of_folds() :=
+  let s := Set(for i in range(0, 100) yield 99 - i), b: Buffer[Int] := empty() ++ List(1, 2)
+  assert Array(for x in s) == Array(for i in range(0, 100) yield i) and Array(for x in s if x % 50 == 0) == Array(0, 50)
+  assert Array(for k => v in Map(2 => "b", 1 => "a")) == Array((1, "a"), (2, "b")) and Array(for x in Some(3)) == Array(3)
+  assert Array(for x in b ++ List(3)) == Array(1, 2, 3) and size(Array(for x in Set(0) if x > 0)) == 0
+  assert Array(for x in Set(2, 1) for y in List(5, 6) yield (x, y)) == Array((1, 5), (1, 6), (2, 5), (2, 6))
+  assert Array(for x in List(2, 1) for y in Set(6, 5) if x + y != 7 yield x * y) == Array(12, 5)
+  assert Array(for x in Upto(4) yield x * x) == Array(0, 1, 4, 9) and Array(for x in Upto(2) for y in Upto(x) yield (x, y)) == Array((1, 0))
+
+// a source of the program, the numbers below n
+data Upto :=
+  case Upto(n: Int)
+
+function foldr[R](u: Upto, acc: R, f: (Int, R) -> R): R :=
+  foldr(range(0, u.n), acc, f)
+
+function foldl[R](u: Upto, acc: R, f: (R, Int) -> R): R :=
+  foldl(range(0, u.n), acc, f)
+
 // the names list, set, map, and array are ordinary names, while List, Set, Map, and Array before ( are the forms
 function map[A, B](f: A -> B, xs: List[A]): List[B] :=
   List(for x in xs yield f(x))

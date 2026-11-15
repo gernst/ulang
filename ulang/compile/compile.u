@@ -453,6 +453,9 @@ procedure compile_expr(
         case Some(FusedList((gs, q, e), init)) =>
           compile_list_comprehension(in defs, env, gs, q, e, init, out ss, r, ref g)
 
+        case Some(FusedBuilt(built)) =>
+          compile_expr(in defs, env, built, out ss, r, ref g)
+
         case None =>
           compile_named(in defs, env, name, typ, args, out ss, r, ref g)
       end
@@ -1015,25 +1018,40 @@ procedure compile_stmt(
       compile_try(in defs, env, body, bs, catches, out ss, ref g)
 
     // the checker gives the list of the items and patterns that match every item, so that the loop walks the list and binds
-    // the pattern to each item, where a pattern with alternatives is a match of the item with a case for each
+    // the pattern to each item, where a pattern with alternatives is a match of the item with a case for each, and the list
+    // of the items of an array is the array, which the loop walks by index
     case SFor(List(GVal(pat, over)), body) =>
-      var cs: List[CStmt], rc: CExpr, bs: List[CStmt], l: Str
-      compile_expr(in defs, env, over, out cs, rc, ref g)
+      var cs: List[CStmt], rc: CExpr, bs: List[CStmt], l: Str, i: Str, n: Str
+      let walked := array_items(over)
+      compile_expr(in defs, env, value_or(walked, over), out cs, rc, ref g)
       gen_name(in "l", out l, ref g)
+      let item := if walked == None then
+        field(CeVar(l), 0)
+      else
+        CeIndex(CeArrow(CeVar(l), "items"), CeVar(l ++ "_i"))
       if has_alternatives(pat) then
         var d: Str, ms: List[CStmt]
         gen_name(in "d", out d, ref g)
-        stmt_cases(in defs, env, List(nowhere(Branch(pat, None, body))), field(CeVar(l), 0), d, out ms, ref g)
+        stmt_cases(in defs, env, List(nowhere(Branch(pat, None, body))), item, d, out ms, ref g)
         bs := List(declare_int(d, 0)) ++ ms
       else
         var ms: List[CStmt]
         compile_stmt(in defs, in_scope(pattern_names(pat)) ++ env, body, out ms, ref g)
-        bs := pattern_binds(pat.that, field(CeVar(l), 0)) ++ ms
+        bs := pattern_binds(pat.that, item) ++ ms
       end
-      ss := cs ++ List(
-        CsBlock(List(
-          declare(l, rc),
-          CsWhile(is_cell(l), bs ++ List(set_var(l, field(CeVar(l), 1)))))))
+      if walked == None then
+        ss := cs ++ List(
+          CsBlock(List(
+            declare(l, rc),
+            CsWhile(is_cell(l), bs ++ List(set_var(l, field(CeVar(l), 1)))))))
+      else
+        ss := cs ++ List(
+          CsBlock(List(
+            declare(l, rc),
+            declare_size(l ++ "_n", l),
+            declare_int(l ++ "_i", 0),
+            CsWhile(CeBinary("<", CeVar(l ++ "_i"), CeVar(l ++ "_n")), bs ++ List(set_var(l ++ "_i", CeBinary("+", CeVar(l ++ "_i"), CeNum(1))))))))
+      end
 
     // the checker gives one generator over a list
     case SFor(_, _) =>

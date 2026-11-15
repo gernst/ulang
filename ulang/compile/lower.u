@@ -77,8 +77,14 @@ data Fused :=
   case FusedLiteral(elems: List[At[Expr]])
   // a comprehension of lists, onto the list init
   case FusedList(fusion: Fusion, init: At[Expr])
+  // array.from_list of a comprehension over other sources, as the expression that builds the array inside their folds
+  case FusedBuilt(built: At[Expr])
 
 function fusion_of(name: Name, args: List[At[Expr]]): Option[Fused]
+
+// the array of the items of a for statement over an array, array.foldr(a, Nil, lambda x, acc => Cons(x, acc)) of items of
+// ulang/check/check.u, which the backends walk by index instead of building the list
+function array_items(over: At[Expr]): Option[At[Expr]]
 
 function var_names(xs: List[Var]): List[Name]
 
@@ -224,7 +230,20 @@ function builtin_functions(): Map[Name, (Str, Int)] :=
     library_name("array", "at") => ("u_array_at", 2),
     library_name("array", "slice") => ("u_array_slice", 3),
     library_name("array", "foldr") => ("u_array_foldr", 3),
-    library_name("array", "foldl") => ("u_array_foldl", 3))
+    library_name("array", "foldl") => ("u_array_foldl", 3),
+    array_start_name() => ("u_array_start", 1),
+    array_push_name() => ("u_array_push", 2),
+    array_reversed_name() => ("u_array_reversed", 1))
+
+// the internal builtins of the arrays that comprehensions build inside folds, by names that users cannot write
+function array_start_name(): Name :=
+  library_name("array", "(start)")
+
+function array_push_name(): Name :=
+  library_name("array", "(push)")
+
+function array_reversed_name(): Name :=
+  library_name("array", "(reversed)")
 
 function runtime_constructors(): Set[Name] :=
   Set(os_error_name())
@@ -477,10 +496,14 @@ function fusion_of(name: Name, args: List[At[Expr]]): Option[Fused] :=
       Some(FusedArray(fusion))
 
     case (None, List(l)) if name == array_name() =>
-      match list_literal(l)
-        case Some(es) =>
+      match (list_literal(l), built_array(l))
+        case (Some(es), _) =>
           Some(FusedLiteral(es))
-        case None =>
+
+        case (None, Some(built)) =>
+          Some(FusedBuilt(built))
+
+        case (None, None) =>
           None
       end
 
@@ -539,6 +562,64 @@ function nested(f: Name, c: At[Expr], x: Var, inner: Option[Fusion]): Option[Fus
   end
 
 // the generators, condition, and element of an array comprehension Array(foldr(c, Nil, lambda x, acc => ...))
+// the array of a comprehension foldr(c, Nil, lambda x, acc => ...) over sources of any module, built by the same folds into an
+// array that grows, which is reversed at the end, since a foldr applies its function from the last element to the first, as
+// the data dependencies of a strict fold force, so that the array is the list in order; each fold passes its accumulator on
+// once, so that a push may fill the array in place
+function built_array(l: At[Expr]): Option[At[Expr]] :=
+  match l
+    case AOk(pos, span, ECall(p, s, f, typ, List(c, AOk(_, _, ENil(_)), lam))) =>
+      let start := AOk(pos, span, ECall(pos, span, array_start_name(), THole, List(AOk(pos, span, ELit(LInt(0)))))) in
+      map_option(pushing(lam), lambda lam_ => AOk(pos, span, ECall(pos, span, array_reversed_name(), THole, List(AOk(pos, span, ECall(p, s, f, typ, List(c, start, lam_)))))))
+
+    case _ =>
+      None
+  end
+
+// the function of a fold of a comprehension, which conses each element onto its accumulator, as one that pushes it
+function pushing(lam: At[Expr]): Option[At[Expr]] :=
+  match lam
+    case AOk(pos, span, ELam(List(x, AOk(pa, sa, PVar(acc))), body)) =>
+      map_option(pushed(body, acc), lambda body_ => AOk(pos, span, ELam(List(x, AOk(pa, sa, PVar(acc))), body_)))
+    case _ =>
+      None
+  end
+
+function pushed(body: At[Expr], acc: Var): Option[At[Expr]] :=
+  let pos := body.pos, span := body.span, a := AOk(body.pos, body.span, EName(acc.name, acc.typ)) in
+  match consing(body, acc.name)
+    case Some((Some(cond), e)) =>
+      Some(AOk(pos, span, EIte(cond, AOk(pos, span, ECall(pos, span, array_push_name(), THole, List(a, e))), a)))
+
+    case Some((None, e)) =>
+      Some(AOk(pos, span, ECall(pos, span, array_push_name(), THole, List(a, e))))
+
+    case None =>
+      match body.that
+        case ECall(p, s, f, typ, List(c, AOk(pa, sa, EName(name, t)), lam)) if name == acc.name and is_unused(acc.name, c, lam) =>
+          map_option(pushing(lam), lambda lam_ => AOk(pos, span, ECall(p, s, f, typ, List(c, AOk(pa, sa, EName(name, t)), lam_))))
+        case _ =>
+          None
+      end
+  end
+
+function array_items(over: At[Expr]): Option[At[Expr]] :=
+  match over.that
+    case ECall(_, _, f, _, List(
+      a,
+      AOk(_, _, ENil(_)),
+      AOk(_, _, ELam(List(AOk(_, _, PVar(x)), AOk(_, _, PVar(acc))), body)))) if f == array_foldr_name() =>
+      match consing(body, acc.name)
+        case Some((None, AOk(_, _, EName(name, _)))) if name == x.name =>
+          Some(a)
+        case _ =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
 function array_fusion(n: Name, args: List[At[Expr]]): Option[Fusion] :=
   match args
     case List(AOk(_, _, ECall(_, _, f, _, List(xs, AOk(_, _, ENil(_)), lam)))) if n == array_name() =>

@@ -212,6 +212,10 @@ int u_count(u_value c);
 u_value u_array_new(int n);
 u_value u_array_push(u_value a, u_value x);
 u_value u_array_done(u_value a, int n);
+// an empty array of a comprehension over the folds of other sources than lists and arrays, which u_array_push fills from the
+// last element to the first, and u_array_reversed turns, where the size n is ignored
+u_value u_array_start(u_value n);
+u_value u_array_reversed(u_value a);
 u_value u_array_list(u_value a);
 u_value u_array_size(u_value a);
 u_value u_array_at(u_value i, u_value a);

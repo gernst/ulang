@@ -730,6 +730,9 @@ procedure compile_expr(in defs: Defs, env: Slots, expr: At[Expr], ref e: Emit) :
         case Some(FusedList((gs, cond, elem), init)) =>
           list_comprehension(in defs, env, gs, cond, elem, init, ref e)
 
+        case Some(FusedBuilt(built)) =>
+          compile_expr(in defs, env, built, ref e)
+
         case None =>
           compile_named(in defs, env, name, typ, args, ref e)
       end
@@ -1264,37 +1267,18 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
     // the checker gives the list of the items and patterns that match every item, so that the loop walks the list and binds
     // the pattern to each item
     case SFor(List(GVal(pat, over)), body) =>
-      var l: Int, top: Str, done: Str
-      compile_expr(in defs, env, over, ref e)
-      spill(out l, ref e)
-      new_label(out top, ref e)
-      new_label(out done, ref e)
-      place(in top, ref e)
-      emit_all(in List(
-        IMov(slot(l), OReg(Rax)),
-        ILea(ORip(descriptor_name(cons_name())), Rcx),
-        ICmp(OReg(Rcx), OMem(Rax, name_offset())),
-        IJcc(CondNe, done)), ref e)
-      // the item in a slot of its own, which the alternatives test, one of which matches, as the pattern is irrefutable,
-      // so that the case never jumps to done
-      if has_alternatives(pat) then
-        var item: Int, binds: Slots
-        load_path(in l, List(0), ref e)
-        spill(out item, ref e)
-        case_test(in defs, env, pat, None, true, item, done, out binds, ref e)
-        compile_stmt(in defs, binds ++ env, body, ref e)
-      else
-        var binds: Slots
-        bind_pat(in pat.that, l, List(0), out binds, ref e)
-        compile_stmt(in defs, binds ++ env, body, ref e)
+      var l: Int
+      match array_items(over)
+        case Some(a) =>
+          compile_expr(in defs, env, a, ref e)
+          spill(out l, ref e)
+          walk_array(in defs, env, pat, body, l, ref e)
+
+        case None =>
+          compile_expr(in defs, env, over, ref e)
+          spill(out l, ref e)
+          walk_list(in defs, env, pat, body, l, ref e)
       end
-      emit_all(in List(
-        IMov(slot(l), OReg(Rax)),
-        IMov(OMem(Rax, items_offset()), OReg(Rax)),
-        IMov(OMem(Rax, 8), OReg(Rax)),
-        IMov(OReg(Rax), slot(l)),
-        IJmp(top)), ref e)
-      place(in done, ref e)
 
     // the checker gives one generator over a list
     case SFor(_, _) =>
@@ -1304,6 +1288,79 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
     case SAssertRaises(typ, pat, guard, body) =>
       compile_try(in defs, env, body, List(nowhere(Catch(typ, pat, guard, nowhere(SSkip)))), Some(format_pat(pat.that)), ref e)
   end
+
+// the loop of a for statement over the list in slot l
+procedure walk_list(
+  in  defs: Defs,
+      env: Slots,
+      pat: At[Pat],
+      body: At[Stmt],
+      l: Int,
+  ref e: Emit
+) :=
+  var top: Str, done: Str
+  new_label(out top, ref e)
+  new_label(out done, ref e)
+  place(in top, ref e)
+  emit_all(in List(
+    IMov(slot(l), OReg(Rax)),
+    ILea(ORip(descriptor_name(cons_name())), Rcx),
+    ICmp(OReg(Rcx), OMem(Rax, name_offset())),
+    IJcc(CondNe, done)), ref e)
+  // the item in a slot of its own, which the alternatives test, one of which matches, as the pattern is irrefutable,
+  // so that the case never jumps to done
+  if has_alternatives(pat) then
+    var item: Int, binds: Slots
+    load_path(in l, List(0), ref e)
+    spill(out item, ref e)
+    case_test(in defs, env, pat, None, true, item, done, out binds, ref e)
+    compile_stmt(in defs, binds ++ env, body, ref e)
+  else
+    var binds: Slots
+    bind_pat(in pat.that, l, List(0), out binds, ref e)
+    compile_stmt(in defs, binds ++ env, body, ref e)
+  end
+  emit_all(in List(
+    IMov(slot(l), OReg(Rax)),
+    IMov(OMem(Rax, items_offset()), OReg(Rax)),
+    IMov(OMem(Rax, 8), OReg(Rax)),
+    IMov(OReg(Rax), slot(l)),
+    IJmp(top)), ref e)
+  place(in done, ref e)
+
+// the loop of a for statement over the array in slot l, by index, which binds the item in a slot of its own
+procedure walk_array(
+  in  defs: Defs,
+      env: Slots,
+      pat: At[Pat],
+      body: At[Stmt],
+      l: Int,
+  ref e: Emit
+) :=
+  var top: Str, done: Str, n: Int, i: Int, item: Int, binds: Slots
+  new_label(out top, ref e)
+  new_label(out done, ref e)
+  emit_all(in List(IMov(slot(l), OReg(Rax)), IMovslq(OMem(Rax, size_offset()), Rax)), ref e)
+  spill(out n, ref e)
+  new_slot(out i, ref e)
+  emit(in IMov(OImm(0), slot(i)), ref e)
+  place(in top, ref e)
+  emit_all(in List(
+    IMov(slot(i), OReg(Rax)),
+    ICmp(slot(n), OReg(Rax)),
+    IJcc(CondGe, done),
+    IMov(slot(l), OReg(Rcx)),
+    IMov(OMem(Rcx, items_offset()), OReg(Rcx)),
+    IMov(OIndex(Rcx, Rax, 8, 0), OReg(Rax))), ref e)
+  spill(out item, ref e)
+  if has_alternatives(pat) then
+    case_test(in defs, env, pat, None, true, item, done, out binds, ref e)
+  else
+    bind_pat(in pat.that, item, List(), out binds, ref e)
+  end
+  compile_stmt(in defs, binds ++ env, body, ref e)
+  emit_all(in List(IAdd(OImm(1), slot(i)), IJmp(top)), ref e)
+  place(in done, ref e)
 
 // the body runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if none applies,
 // where the handlers start from the variables before the try, which their copies, unchanged since setjmp, restore; the
