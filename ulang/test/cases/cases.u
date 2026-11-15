@@ -153,8 +153,7 @@ procedure check_text(
   in  path: Str,
       lines: List[Str]
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
-  var main: Id, q: Prog
-  load_text(in path, lines, out main, q)
+  load_text(in path, lines, out _, _)
 
 procedure check_text_partial(
   in  path: Str,
@@ -162,9 +161,9 @@ procedure check_text_partial(
   out parsing: List[ParseError],
       errors: List[TypeError]
 ) raises ParseError, OsError, InternalError :=
-  var source: Source, q: Prog
+  var source: Source
   parse_case(in path, text_of(lines), out source)
-  check_partial(in without_unparsed(source), unparsed_names(source), enumerated_tests, out q, errors)
+  check_partial(in without_unparsed(source), unparsed_names(source), enumerated_tests, out _, errors)
   parsing := parse_errors(source)
 
 procedure checked_text(
@@ -182,25 +181,25 @@ procedure run_text(
   in  path: Str,
       lines: List[Str]
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError, Thrown, RuntimeError :=
-  var main: Id, q: Prog
-  load_text(in path, lines, out main, q)
+  var q: Prog
+  load_text(in path, lines, out _, q)
   run_program(in q)
 
 procedure run_text_despite_errors(
   in  path: Str,
       lines: List[Str]
 ) raises ParseError, InternalError, OsError, Thrown, RuntimeError :=
-  var q: Prog, errors: List[TypeError]
-  checked_text(in path, lines, out q, errors)
+  var q: Prog
+  checked_text(in path, lines, out q, _)
   run_program(in q)
 
 procedure run_text_partial(
   in  path: Str,
       lines: List[Str]
 ) raises ParseError, InternalError, OsError, Thrown, RuntimeError :=
-  var source: Source, q: Prog, errors: List[TypeError]
+  var source: Source, q: Prog
   parse_case(in path, text_of(lines), out source)
-  check_partial(in without_unparsed(source), unparsed_names(source), enumerated_tests, out q, errors)
+  check_partial(in without_unparsed(source), unparsed_names(source), enumerated_tests, out q, _)
   run_program(in q)
 
 procedure run_texts_despite_errors(
@@ -208,7 +207,7 @@ procedure run_texts_despite_errors(
       imported: List[(Str, List[(Str, List[Str])])],
       main: (Str, List[Str])
 ) raises ParseError, InternalError, OsError, Thrown, RuntimeError :=
-  var here: Str, root: Str, source: Source, q: Prog, errors: List[TypeError]
+  var here: Str, root: Str, source: Source, q: Prog
   os_cwd(out here)
   project_root(in normal_path(here), out root)
   match main
@@ -217,7 +216,7 @@ procedure run_texts_despite_errors(
   end
   require_parsed(in source)
   load_tester(ref source)
-  check_all(in source, enumerated_tests, out q, errors)
+  check_all(in source, enumerated_tests, out q, _)
   run_program(in q)
 
 procedure prove_text(
@@ -255,8 +254,7 @@ procedure check_texts(
       members: List[(Str, List[Str])],
       main: (Str, List[Str])
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
-  var q: Prog
-  load_texts(in dir, members, main, out q)
+  load_texts(in dir, members, main, out _)
 
 procedure run_texts(
   in  dir: Str,

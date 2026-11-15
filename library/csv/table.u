@@ -86,13 +86,12 @@ test parsing() :=
   assert format_table(table_of("name,city\nalan,london\nada,london\n")) == "name,city\nada,london\nalan,london\n"
 
 test parse_errors() :=
-  var table: Table
   assert raises CsvError("no header") do
-    parse_table(in "", out table)
+    parse_table(in "", out _)
   end
   assert raises CsvError("repeated column in a,a") do
-    parse_table(in "a,a\n", out table)
+    parse_table(in "a,a\n", out _)
   end
   assert raises CsvError("expected 2 fields: x") do
-    parse_table(in "a,b\nx\n", out table)
+    parse_table(in "a,b\nx\n", out _)
   end

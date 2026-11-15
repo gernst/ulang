@@ -797,8 +797,8 @@ procedure put(
   end
   let code := unmarked(split(fragment, '\n'))
   if is_blank(text) then
-    var source: Source, result: Str
-    formatted(in path, join("\n", code) ++ "\n", List((Range(1, size(code)), 1)), out result, source)
+    var result: Str
+    formatted(in path, join("\n", code) ++ "\n", List((Range(1, size(code)), 1)), out result, _)
     edits := edits with files := Map(path => result; edits.files)
     note(in path ++ ": written from the fragment", ref edits)
   else
@@ -1348,7 +1348,7 @@ procedure run_script(
     else
       let paths := distinct(changed ++ edits.checked)
       var before: List[(Str, Diagnostic)] := List(), after: List[(Str, Diagnostic)] := List(), found: List[(Str, Diagnostic)]
-      var done: List[Int], undone: List[Int], undos: List[Int]
+      var done: List[Int]
       for path => kept in written do
         os_write_utf8(in path, kept)
       end
@@ -1359,7 +1359,7 @@ procedure run_script(
       for c in changes do
         os_write_utf8(in c.path, c.after)
       end
-      journal_numbers(in dir, out done, undone, undos)
+      journal_numbers(in dir, out done, _, _)
       let number := foldl(done, 0, max) + 1
       if changes != List() then
         os_write_utf8(in os_join(dir, "journal/" ++ show(number) ++ ".txt"), journal_text(changes))
@@ -1502,11 +1502,9 @@ procedure file_hints(
     var source: Source
     parse_file_text(in path, text, out source)
     if has_errors(source) then
-      var errors: List[TypeError]
-      check_partial(in without_unparsed(source), unparsed_names(source), no_tests, out q, errors)
+      check_partial(in without_unparsed(source), unparsed_names(source), no_tests, out q, _)
     else
-      var errors: List[TypeError]
-      check_all(in source, no_tests, out q, errors)
+      check_all(in source, no_tests, out q, _)
     end
   catch
     case ParseError(message, _) =>
@@ -1650,8 +1648,8 @@ procedure rename(
       end
       edited := List(for (line, i) in numbered(edited) yield at_cols(line, List(for span in hits if span.start.line == i + 1 yield span.start.col), base, new))
       if hits != List() or file == path then
-        var result: Str, formatted_source: Source
-        formatted(in file, join("\n", edited), no_fragment(), out result, formatted_source)
+        var result: Str
+        formatted(in file, join("\n", edited), no_fragment(), out result, _)
         edits := edits with files := Map(file => result; edits.files)
         count := count + size(hits), touched := touched + 1
       end
@@ -1774,7 +1772,7 @@ procedure export_target(in word: Str, ref edits: Edits) raises Refused, OsError 
       let range := cmd_range(lines, cmd, 0, true)
       let doc := lines_in(lines, Range(range.first, cmd.span.start.line - 1))
       if is_definition_of_value(c) then
-        var result: Str, formatted_source: Source
+        var result: Str
         var found: List[Hint]
         let spec := spec_range(lines, cmd, c)
         let head := head_lines(lines_in(lines, Range(cmd.span.start.line, cmd.span.stop.line)))
@@ -1786,12 +1784,12 @@ procedure export_target(in word: Str, ref edits: Edits) raises Refused, OsError 
         let def_head := with_raises(with_assign(head), raised)
         let sig_head := if spec_lines == List() then strip_assign(def_head) else def_head
         let base := spliced(List(for line in lines), List((range, def_head ++ body)))
-        formatted(in path, join("\n", base), no_fragment(), out result, formatted_source)
+        formatted(in path, join("\n", base), no_fragment(), out result, _)
         put_into(in path, result, List("export"; doc ++ sig_head ++ spec_lines), ref edits)
       else
-        var result: Str, formatted_source: Source
+        var result: Str
         let base := spliced(List(for line in lines), List((range, List())))
-        formatted(in path, join("\n", base), no_fragment(), out result, formatted_source)
+        formatted(in path, join("\n", base), no_fragment(), out result, _)
         put_into(in path, result, List("export"; lines_in(lines, range)), ref edits)
       end
 
@@ -1865,14 +1863,14 @@ procedure unexport_target(
           List()
         match find(keyed(d.implemented), lambda (k, _, dc) => k == key and not is_signature(dc))
           case Some((_, def, _)) =>
-            var result: Str, formatted_source: Source
+            var result: Str
             let def_range := cmd_range(lines, def, 0, true)
             let def_doc := lines_in(lines, Range(def_range.first, def.span.start.line - 1))
             let def_head := head_lines(lines_in(lines, Range(def.span.start.line, def.span.stop.line)))
             let rest := lines_in(lines, Range(def.span.start.line + size(def_head), def_range.last))
             let new_def := (if def_doc == List() then sig_doc else def_doc) ++ with_assign(def_head) ++ spec_lines ++ rest
             let base := spliced(List(for line in lines), List((sig_range, List()), (def_range, new_def)))
-            formatted(in path, join("\n", base), no_fragment(), out result, formatted_source)
+            formatted(in path, join("\n", base), no_fragment(), out result, _)
             edits := edits with files := Map(path => result; edits.files)
             note(in path ++ ": unexported " ++ key_text(key), ref edits)
 
@@ -1880,9 +1878,9 @@ procedure unexport_target(
             raise Refused(word ++ " has no definition in " ++ path ++ ", such as a builtin")
         end
       else
-        var result: Str, formatted_source: Source
+        var result: Str
         let base := spliced(List(for line in lines), List((sig_range, List())))
-        formatted(in path, join("\n", base), no_fragment(), out result, formatted_source)
+        formatted(in path, join("\n", base), no_fragment(), out result, _)
         put_into(in path, result, List("implementation"; lines_in(lines, sig_range)), ref edits)
       end
 
@@ -1904,7 +1902,7 @@ procedure fix(
       rules: List[Str],
   ref edits: Edits
 ) raises Refused, OsError :=
-  var text: Str, source: Source, result: Str, formatted_source: Source
+  var text: Str, source: Source, result: Str
   let (path, name, arity) := target_of(word)
   current_text(in path, edits.files, out text)
   parsed(in path, text, no_fragment(), out source)
@@ -1916,7 +1914,7 @@ procedure fix(
   let splices := edit_splices(source, d, text, lines, starts, List(for (w, edit) in fixable yield (show(w.lint) ++ " at " ++ show(w.pos.line) ++ "." ++ show(w.pos.col), edit)))
   let taken := without_overlaps(sort(List(for sp in splices yield (sp.start, sp.stop, sp.text, sp.fixed))), -1)
   let fixed := foldl(reverse(taken), text, lambda acc, (start, stop, new, _) => slice(acc, 0, start) ++ new ++ slice(acc, stop, size(acc)))
-  formatted(in path, fixed, no_fragment(), out result, formatted_source)
+  formatted(in path, fixed, no_fragment(), out result, _)
   edits := edits with files := Map(path => result; edits.files)
   let unfixable := size(selected) - size(fixable)
   let labels := distinct(List(for (_, _, _, fixed_labels) in taken for label in fixed_labels yield label))
@@ -1947,12 +1945,27 @@ function line_offset(starts: Array[Int], line: Int): Int :=
 function edit_splices(source: Source, d: Mod, text: Str, lines: Array[Str], starts: Array[Int], edits: List[(Str, Edit)]): List[Splice] :=
   let moves := List(for (label, edit) in edits for (local, decl, bodies) in move_of(edit) yield (local, decl, bodies, label)) in
   let locals := distinct(List(for (local, _, _, _) in moves yield local)) in
-  List(for (label, edit) in edits for sp in simple_splice(source, d, text, lines, starts, edit) yield sp with fixed := List(label)) ++ List(for local in locals for sp in local_splices(text, lines, starts, local, List(for (l, decl, bodies, _) in moves if l == local yield (decl, bodies))) yield sp with fixed := List(for (l, _, _, label) in moves if l == local yield label))
+  let simple := List(for (label, edit) in edits for sp in simple_splice(source, d, text, lines, starts, edit) yield sp with fixed := List(label)) in
+  let calls := distinct(List(for (_, edit) in edits for (spans, _) in drop_outs_of(edit) for c in spans yield c)) in
+  let outs := List(for call in calls yield out_splice(text, starts, call, names_at(call, edits)) with fixed := labels_at(call, edits)) in
+  let local_edits := List(for local in locals for sp in local_splices(text, lines, starts, local, List(for (l, decl, bodies, _) in moves if l == local yield (decl, bodies))) yield sp with fixed := List(for (l, _, _, label) in moves if l == local yield label)) in
+  simple ++ outs ++ local_edits
+
+// the names that the edits drop at the outs of the call at call, and the labels of their warnings
+function names_at(call: Span, edits: List[(Str, Edit)]): List[Id] :=
+  List(for (_, edit) in edits for (spans, name) in drop_outs_of(edit) if contains(call, spans) yield name)
+
+function labels_at(call: Span, edits: List[(Str, Edit)]): List[Str] :=
+  List(for (label, edit) in edits for (spans, _) in drop_outs_of(edit) if contains(call, spans) yield label)
 
 function move_of(edit: Edit): Option[(Span, Span, List[Span])] :=
   match edit
     case EditMove(local, decl, bodies) =>
       Some((local, decl, bodies))
+
+    case EditDropOuts(local, decl, _, _) =>
+      Some((local, decl, List()))
+
     case _ =>
       None
   end
@@ -1978,7 +1991,29 @@ function simple_splice(source: Source, d: Mod, text: Str, lines: Array[Str], sta
 
     case EditMove(_, _, _) =>
       None
+
+    case EditDropOuts(_, _, _, _) =>
+      None
   end
+
+function drop_outs_of(edit: Edit): Option[(List[Span], Id)] :=
+  match edit
+    case EditDropOuts(_, _, calls, name) =>
+      Some((calls, name))
+    case _ =>
+      None
+  end
+
+// the splice of the call at span that writes _ for each of names among its outs, the arguments after its out up to its
+// ref, which the call names by their words, since the outs of a call have no positions, all in one splice, since the
+// declarations of the names go together
+function out_splice(text: Str, starts: Array[Int], span: Span, names: List[Id]): Splice :=
+  let first := offset_of(starts, span.start), last := offset_of(starts, span.stop) in
+  let call := slice(text, first, last) in
+  let outs_at := value_or(index_of("out ", call), size(call)) in
+  let refs_at := value_or(map_option(index_of(" ref ", slice(call, outs_at, size(call))), lambda i => outs_at + i), size(call)) in
+  let outs := foldl(names, slice(call, outs_at, refs_at), lambda acc, name => with_word(acc, name, "_")) in
+  Splice(first, last, slice(call, 0, outs_at) ++ outs ++ slice(call, refs_at, size(call)), List())
 
 // the splices that remove the declarations of moves from the statement over local, and the statement if none is left, and
 // declare each by var at the start of the bodies that it moves into, those of one body in one var

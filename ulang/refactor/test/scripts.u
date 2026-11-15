@@ -7,13 +7,13 @@ import "ulang/refactor"
 // a put that replaces a definition and its signature, keeping its doc, and adds a function, then a drop, on a file below
 // out/test/refactor/ of the root, with a check that finds nothing
 test put_and_drop() :=
-  var reply: List[Str], status: Int, tested: List[Str], text: Str
+  var reply: List[Str], status: Int, text: Str
   let path := "out/test/refactor/sample.u"
   os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\n// one more\nfunction f(x: Int): Int :=\n  x + 1\n")
   let script := "@put " ++ path ++ "\nfunction f(y: Int): Int := y + 2\nfunction g(): Int := f(1)\n@drop " ++ path ++ ":g\n"
   run_script(in script, false, "out/test/refactor/state", lambda in file, out found =>
     found := List()
-  end, out reply, status, tested)
+  end, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "export\n\nfunction f(y: Int): Int\n\nimplementation\n\n// one more\nfunction f(y: Int): Int :=\n  y + 2\n"
@@ -24,12 +24,12 @@ test put_and_drop() :=
 
 // a fragment that does not parse refuses the script, at its line in the fragment, and writes nothing
 test refused_fragment() :=
-  var reply: List[Str], status: Int, tested: List[Str], text: Str
+  var reply: List[Str], status: Int, text: Str
   let path := "out/test/refactor/refused.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
   run_script(in "@put " ++ path ++ "\nfunction g(x: Int): Int :=\n  x +\n", false, "out/test/refactor/state", lambda in file, out found =>
     found := List()
-  end, out reply, status, tested)
+  end, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 1 and text == "function f(x: Int): Int :=\n  x\n"
   assert reply == List("rejected", "fragment 2.6: expression expected but end of input found")
@@ -37,19 +37,19 @@ test refused_fragment() :=
 // handles of @show name the nodes of a declaration, which @put replaces and inserts before, and @patch edits, in one
 // script, since each edit moves the handles of its declaration, and @undo restores the file
 test handles() :=
-  var reply: List[Str], status: Int, tested: List[Str], text: Str
+  var reply: List[Str], status: Int, text: Str
   let state := "out/test/refactor/handles", path := "out/test/refactor/handles.u"
   let original := "function f(x: Int): Int :=\n  match x\n    case 0 =>\n      1\n    case _ =>\n      x\n  end\n"
   os_write_utf8(in os_join(state, "handles.txt"), "")
   os_write_utf8(in path, original)
-  run_script(in "@show " ++ path ++ ":f", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@show " ++ path ++ ":f", false, state, nothing_found, out reply, status, _)
   let shown := "      function f(x: Int): Int :=\n#1      match x\n#2        case 0 =>\n#3          1\n#4        case _ =>\n#5          x\n        end"
   assert reply == List("ok", "@show " ++ path ++ ":f\n" ++ shown)
-  run_script(in "@put #3\n2\n@put before #4\n      case 1 =>\n        3\n@patch #5\nx => x + 1\n", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@put #3\n2\n@put before #4\n      case 1 =>\n        3\n@patch #5\nx => x + 1\n", false, state, nothing_found, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "function f(x: Int): Int :=\n  match x\n    case 0 =>\n      2\n\n    case 1 =>\n      3\n\n    case _ =>\n      x + 1\n  end\n"
-  run_script(in "@undo", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@undo", false, state, nothing_found, out reply, status, _)
   os_read_utf8(in path, out text)
   assert text == original
 
@@ -59,13 +59,13 @@ procedure nothing_found(in file: Str, out found: List[(Str, Diagnostic)]) :=
 // @rename renames a function at its signature, definition, and examples and its uses in the members of its package, by
 // resolution, so that a local of the old name keeps it, and refuses a new name that a local would capture
 test renames() :=
-  var reply: List[Str], status: Int, tested: List[Str], text: Str, other: Str
+  var reply: List[Str], status: Int, text: Str, other: Str
   let state := "out/test/refactor/renames", dir := "out/test/refactor/renames/p"
   os_write_utf8(in os_join(dir, "a.u"), "export\n\nfunction f(x: Int): Int :=\n  example f(1) == 2\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n")
   os_write_utf8(in os_join(dir, "b.u"), "function g(y: Int): Int :=\n  let f := 1 in\n  f + y\n\nfunction h(y: Int): Int :=\n  f(y)\n")
-  run_script(in "@rename " ++ dir ++ "/a.u:f y", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@rename " ++ dir ++ "/a.u:f y", false, state, nothing_found, out reply, status, _)
   assert status == 1 and take(1, reply) == List("rejected")
-  run_script(in "@rename " ++ dir ++ "/a.u:f next", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@rename " ++ dir ++ "/a.u:f next", false, state, nothing_found, out reply, status, _)
   os_read_utf8(in os_join(dir, "a.u"), out text)
   os_read_utf8(in os_join(dir, "b.u"), out other)
   assert status == 0
@@ -75,31 +75,31 @@ test renames() :=
 // @fix applies the edit of each lint that has one, an expression rewritten, a declaration dropped, a variable written
 // _, and a local moved into the branches that use it, where a second @fix takes what the first enables, a var made let
 test fixes() :=
-  var reply: List[Str], status: Int, tested: List[Str], text: Str
+  var status: Int, text: Str
   let state := "out/test/refactor/fixes", path := "out/test/refactor/fixes/f.u"
   os_write_utf8(in path, "function is_pos(n: Int): Bool :=\n  if n > 0 and n < 10 then true else false\n\nfunction first(o: Option[Int]): Int :=\n  match o\n    case Some(x) =>\n      x\n    case None =>\n      0\n  end\n\nfunction unused_helper(n: Int): Int :=\n  n\n\nprocedure classify(in n: Int, out text: Str) :=\n  var label: Str, count := 1, spare: Int\n  let k := n + 1\n  if is_pos(n) then\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    label := \"neg\"\n    text := label\n  end\n\nfunction pairs(xs: List[(Int, Int)]): List[Int] :=\n  List(for (a, b) in xs yield a)\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n")
-  run_script(in "@fix " ++ path, false, state, nothing_found, out reply, status, tested)
+  run_script(in "@fix " ++ path, false, state, nothing_found, out _, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  var count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n"
-  run_script(in "@fix " ++ path, false, state, nothing_found, out reply, status, tested)
+  run_script(in "@fix " ++ path, false, state, nothing_found, out _, status, _)
   os_read_utf8(in path, out text)
   assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  let count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n"
 
 // @patch of a declaration patches its signature and its definition together, so that an example on the signature and
 // the body change in one script, an if without else gets no handle on its end, and @fix of nothing says so
 test patches_signatures() :=
-  var reply: List[Str], status: Int, tested: List[Str], text: Str
+  var reply: List[Str], status: Int, text: Str
   let state := "out/test/refactor/signatures", path := "out/test/refactor/signatures/s.u"
   os_write_utf8(in os_join(state, "handles.txt"), "")
   os_write_utf8(in path, "export\n\nfunction f(x: Int): Int :=\n  example f(1) == 2\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n\nprocedure p(in x: Int, out y: Int) :=\n  y := x\n  if x > 0 then\n    y := 1\n  end\n\nprocedure main() :=\n  var y: Int\n  p(in 1, out y)\n  os_println(in show(y))\n")
-  run_script(in "@patch " ++ path ++ ":f\nf(1) == 2 => f(1) == 3\nx + 1 => x + 2\n", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@patch " ++ path ++ ":f\nf(1) == 2 => f(1) == 3\nx + 1 => x + 2\n", false, state, nothing_found, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "export\n\nfunction f(x: Int): Int :=\n  example f(1) == 3\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 2\n\nprocedure p(in x: Int, out y: Int) :=\n  y := x\n  if x > 0 then\n    y := 1\n  end\n\nprocedure main() :=\n  var y: Int\n  p(in 1, out y)\n  os_println(in show(y))\n"
-  run_script(in "@show " ++ path ++ ":p", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@show " ++ path ++ ":p", false, state, nothing_found, out reply, status, _)
   assert not exists(reply, lambda r => contains("end", List(for line in split(r, '\n') if starts_with(line, "#") yield str(drop_margin(chars(line))))))
-  run_script(in "@fix " ++ path, false, state, nothing_found, out reply, status, tested)
+  run_script(in "@fix " ++ path, false, state, nothing_found, out reply, status, _)
   assert contains(path ++ ": nothing to fix", reply)
 
 function drop_margin(cs: List[Char]): List[Char] :=
@@ -113,44 +113,44 @@ function drop_margin(cs: List[Char]): List[Char] :=
 // @put writes a new module from its fragment, with its header and sections, adds an import to a program and an export
 // to a file without sections, which then gets both, and refuses a comment that is no doc
 test writes_modules() :=
-  var reply: List[Str], status: Int, tested: List[Str], text: Str
+  var reply: List[Str], status: Int, text: Str
   let state := "out/test/refactor/modules", dir := "out/test/refactor/modules/m"
   os_write_utf8(in os_join(dir, "tools.u"), "// tools\n\nfunction twice(n: Int): Int :=\n  2 * n\n")
   os_write_utf8(in "out/test/refactor/modules/prog.u", "procedure main() :=\n  skip\n")
   os_write_utf8(in os_join(dir, "wire.u"), "")
   let wire := "// the codes\n\nexport\n\nfunction code_of(line: Str): Option[Int]\n\nimplementation\n\nfunction code_of(line: Str): Option[Int] :=\n  number(slice(line, 0, 3))\n"
-  run_script(in "@put " ++ dir ++ "/wire.u\n" ++ wire, false, state, nothing_found, out reply, status, tested)
+  run_script(in "@put " ++ dir ++ "/wire.u\n" ++ wire, false, state, nothing_found, out reply, status, _)
   os_read_utf8(in os_join(dir, "wire.u"), out text)
   assert status == 0 and text == wire
-  run_script(in "@put " ++ dir ++ "/tools.u\nexport\nfunction thrice(n: Int): Int\nimplementation\nfunction thrice(n: Int): Int := 3 * n\n", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@put " ++ dir ++ "/tools.u\nexport\nfunction thrice(n: Int): Int\nimplementation\nfunction thrice(n: Int): Int := 3 * n\n", false, state, nothing_found, out reply, status, _)
   os_read_utf8(in os_join(dir, "tools.u"), out text)
   assert text == "// tools\n\nexport\n\nfunction thrice(n: Int): Int\n\nimplementation\n\nfunction twice(n: Int): Int :=\n  2 * n\n\nfunction thrice(n: Int): Int :=\n  3 * n\n"
-  run_script(in "@put out/test/refactor/modules/prog.u\nimport \"out/test/refactor/modules/m\"\nprocedure go() :=\n  skip\n", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@put out/test/refactor/modules/prog.u\nimport \"out/test/refactor/modules/m\"\nprocedure go() :=\n  skip\n", false, state, nothing_found, out reply, status, _)
   os_read_utf8(in "out/test/refactor/modules/prog.u", out text)
   assert text == "import \"out/test/refactor/modules/m\"\n\nprocedure main() :=\n  skip\n\nprocedure go() :=\n  skip\n"
-  run_script(in "@put " ++ dir ++ "/tools.u\n// a header\n\nfunction four(n: Int): Int := 4 * n\n", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@put " ++ dir ++ "/tools.u\n// a header\n\nfunction four(n: Int): Int := 4 * n\n", false, state, nothing_found, out reply, status, _)
   assert status == 1 and take(1, reply) == List("rejected")
 
 // @export gives a definition a signature with its doc and examples and a procedure its inferred raises, @unexport takes
 // them back, and refuses while another member of the package uses the name; two renames run in one script
 test exports_and_renames() :=
-  var reply: List[Str], status: Int, tested: List[Str], text: Str
+  var status: Int, text: Str
   let state := "out/test/refactor/exports", dir := "out/test/refactor/exports/p"
   os_write_utf8(in os_join(dir, "b.u"), "function use_b(): Int :=\n  0\n")
   let source := "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  g(x) + 1\n\n// g of x\nfunction g(x: Int): Int :=\n  example g(1) == 2\n  2 * x\n\nprocedure p(in x: Int) :=\n  if x < 0 then\n    raise OsError(\"negative\")\n  end\n"
   os_write_utf8(in os_join(dir, "a.u"), source)
-  run_script(in "@export " ++ dir ++ "/a.u:g\n@export " ++ dir ++ "/a.u:p\n", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@export " ++ dir ++ "/a.u:g\n@export " ++ dir ++ "/a.u:p\n", false, state, nothing_found, out _, status, _)
   os_read_utf8(in os_join(dir, "a.u"), out text)
   assert status == 0
   assert text == "export\n\nfunction f(x: Int): Int\n\n// g of x\nfunction g(x: Int): Int :=\n  example g(1) == 2\n\nprocedure p(in x: Int) raises OsError\n\nimplementation\n\nfunction f(x: Int): Int :=\n  g(x) + 1\n\nfunction g(x: Int): Int :=\n  2 * x\n\nprocedure p(in x: Int) raises OsError :=\n  if x < 0 then\n    raise OsError(\"negative\")\n  end\n"
-  run_script(in "@unexport " ++ dir ++ "/a.u:g\n", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@unexport " ++ dir ++ "/a.u:g\n", false, state, nothing_found, out _, status, _)
   os_read_utf8(in os_join(dir, "a.u"), out text)
   assert status == 0
   assert text == "export\n\nfunction f(x: Int): Int\n\nprocedure p(in x: Int) raises OsError\n\nimplementation\n\nfunction f(x: Int): Int :=\n  g(x) + 1\n\n// g of x\nfunction g(x: Int): Int :=\n  example g(1) == 2\n  2 * x\n\nprocedure p(in x: Int) raises OsError :=\n  if x < 0 then\n    raise OsError(\"negative\")\n  end\n"
   os_write_utf8(in os_join(dir, "b.u"), "function use_b(): Int :=\n  f(1)\n")
-  run_script(in "@unexport " ++ dir ++ "/a.u:f\n", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@unexport " ++ dir ++ "/a.u:f\n", false, state, nothing_found, out _, status, _)
   assert status == 1
-  run_script(in "@rename " ++ dir ++ "/a.u:f h\n@rename " ++ dir ++ "/a.u:g k\n", false, state, nothing_found, out reply, status, tested)
+  run_script(in "@rename " ++ dir ++ "/a.u:f h\n@rename " ++ dir ++ "/a.u:g k\n", false, state, nothing_found, out _, status, _)
   os_read_utf8(in os_join(dir, "b.u"), out text)
   assert status == 0 and text == "function use_b(): Int :=\n  h(1)\n"
   os_read_utf8(in os_join(dir, "a.u"), out text)

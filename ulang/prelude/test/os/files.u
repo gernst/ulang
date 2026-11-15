@@ -17,7 +17,7 @@ test files() :=
 // bytes as they are, also those that are not UTF-8, which os_read_utf8 rejects
 test bytes() :=
   let bytes := Array(for n in List(0, 104, 255, 10) yield byte(n))
-  var back: Array[Byte], t: Str, home: Str
+  var back: Array[Byte], home: Str
   enter_scratch(out home)
   os_write_bytes(in "files/b.bin", bytes)
   os_read_bytes(in "files/b.bin", out back)
@@ -30,7 +30,7 @@ test bytes() :=
   assert back == encode_utf8("ä")
   os_write_bytes(in "files/b.bin", Array(byte(255)))
   assert raises OsError("invalid UTF-8 in files/b.bin") do
-    os_read_utf8(in "files/b.bin", out t)
+    os_read_utf8(in "files/b.bin", out _)
   end
   os_chdir(in home)
 

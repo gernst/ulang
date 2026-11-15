@@ -406,16 +406,15 @@ test finite_derivatives() :=
   assert derivative('a', alt(star(literal("a")), star(literal("a")))) == star(literal("a"))
 
 test errors() :=
-  var regex: Regex
   assert raises RegexError("unmatched (", 2) do
-    parse_regex(in "a(b", out regex)
+    parse_regex(in "a(b", out _)
   end
   assert raises RegexError("unmatched [", 2) do
-    parse_regex(in "a[b", out regex)
+    parse_regex(in "a[b", out _)
   end
   assert raises RegexError("nothing to repeat", 1) do
-    parse_regex(in "*a", out regex)
+    parse_regex(in "*a", out _)
   end
   assert raises RegexError("empty range", 4) do
-    parse_regex(in "[z-a]", out regex)
+    parse_regex(in "[z-a]", out _)
   end

@@ -344,7 +344,7 @@ test let_rigid() :=
 // a part of the wrong type is reported at the innermost part, since the checker passes the expected type down to the
 // components of a tuple, the elements of a form, the body of a let, and the arguments of a call of one candidate
 test innermost_mismatch() :=
-  var q: Prog, errors: List[TypeError]
+  var errors: List[TypeError]
   checked_text(in "ulang/test/errors/innermost-mismatch.u", List(
     "function g(): (Int, Int) :=",
     "  (1, \"a\")",
@@ -354,7 +354,7 @@ test innermost_mismatch() :=
     "",
     "function k(): Int :=",
     "  let x := 1 in",
-    "  \"a\""), out q, errors)
+    "  \"a\""), out _, errors)
   assert List(for e in errors yield error_pos(e)) == List(Pos(2, 7), Pos(5, 11), Pos(9, 3))
 
 test list_type() :=
@@ -608,11 +608,11 @@ test sort_arity() :=
 
 // a type of the wrong arity in a body is reported, and the command checked on
 test sort_arity_in_body() :=
-  var q: Prog, errors: List[TypeError]
+  var q: Prog
   checked_text(in "ulang/test/errors/sort-arity-in-body.u", List(
     "procedure p() :=",
     "  var x: List[Int, Int] := List(1), y := 1 + true",
-    "  x := x"), out q, errors)
+    "  x := x"), out q, _)
   assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("SortArity", Pos(2, 7)), ("Mismatch", Pos(2, 46)))
 
 // the formals of a test have their declared types in its body
@@ -842,7 +842,7 @@ test raises_not_exception() :=
 
 // the checker reports every error of the commands, each once, where a part that fails stands for what it should be
 test several_errors() :=
-  var q: Prog, errors: List[TypeError]
+  var errors: List[TypeError]
   checked_text(in "ulang/test/errors/several-errors.u", List(
     "function f(n: Int): Int :=",
     "  n + true",
@@ -851,13 +851,13 @@ test several_errors() :=
     "  if 1 then x else false",
     "",
     "test t() :=",
-    "  assert f(1) == \"a\""), out q, errors)
+    "  assert f(1) == \"a\""), out _, errors)
   assert List(for e in errors yield error_pos(e)) == List(Pos(2, 7), Pos(5, 6), Pos(5, 13), Pos(8, 18))
 
 // the errors of raises are reported next to the type errors, of the commands without errors, where a procedure with errors
 // counts as raising what its signature declares, so that its callers make no follow-ups
 test raises_besides_types() :=
-  var q: Prog, errors: List[TypeError]
+  var errors: List[TypeError]
   checked_text(in "ulang/test/errors/raises-besides-types.u", List(
     "data Fail :=",
     "  case Fail",
@@ -876,7 +876,7 @@ test raises_besides_types() :=
     "  raise Fail",
     "",
     "procedure t() raises Str :=",
-    "  r()"), out q, errors)
+    "  r()"), out _, errors)
   assert List(for e in errors yield error_pos(e)) == List(Pos(5, 7), Pos(14, 17), Pos(11, 3))
   match reverse(errors)
     case List(Located(None, _, UndeclaredRaise(name, _)); _) =>
@@ -997,14 +997,14 @@ function is_unparsed_use(e: TypeError): Bool :=
 
 // the hints of habits of other languages, the form to write instead, which the messages give after their errors
 test hints() :=
-  var q: Prog, errors: List[TypeError]
+  var errors: List[TypeError]
   checked_text(in "ulang/test/errors/hints.u", List(
     "procedure twice(in n: Int, out m: Int) :=",
     "  m := 2 * n",
     "",
     "procedure main() :=",
     "  var s := \"a\" ++ \"b\", n := 1 + s, t := twice(2), u := sise(\"ab\"), v := length(\"a\")",
-    "  skip"), out q, errors)
+    "  skip"), out _, errors)
   assert List(for e in errors yield error_hint(e)) == List(
     "strings join by ++, and + adds integers",
     "",
@@ -1028,7 +1028,7 @@ test hints() :=
     "",
     "procedure update(ref s: State) :=",
     "  let found := false",
-    "  s := s with errors := 1, found := true"), out q, errors)
+    "  s := s with errors := 1, found := true"), out _, errors)
   assert List(for e in errors yield (error_pos(e), error_hint(e))) == List(
     (Pos(8, 9), ""),
     (Pos(11, 3), "write List(for x in xs yield f(x))"),
@@ -1055,8 +1055,8 @@ function error_pos(e: TypeError): Pos :=
 
 // an unknown type, of a type parameter that the declaration omits, once per declaration
 test unknown_sort_once() :=
-  var q: Prog, errors: List[TypeError]
-  checked_text(in "ulang/test/errors/unknown-sort-once.u", List("function f(x: A, y: A): A :=", "  x"), out q, errors)
+  var q: Prog
+  checked_text(in "ulang/test/errors/unknown-sort-once.u", List("function f(x: A, y: A): A :=", "  x"), out q, _)
   assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("UnknownSort", Pos(1, 12)))
 
 test proof_unknown_lemma() :=
@@ -1219,7 +1219,7 @@ test proof_out_one_branch() :=
 
 // a call that no declaration fits has the type TError, so that the access of a field on it makes no follow-up
 test no_follow_ups() :=
-  var q: Prog, errors: List[TypeError]
+  var q: Prog
   checked_text(in "ulang/test/errors/no-follow-ups.u", List(
     "data P :=",
     "  case P(x: Int)",
@@ -1228,24 +1228,24 @@ test no_follow_ups() :=
     "  size(n, n, n).x",
     "",
     "function g(n: Int): Int :=",
-    "  size(n).x"), out q, errors)
+    "  size(n).x"), out q, _)
   assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("WrongArity", Pos(5, 3)), ("NoOverload", Pos(8, 3)))
 
 // the errors of the translation of a form stand on the part of the form, which the diagnostics of the checked program read
 test errors_of_forms() :=
-  var q: Prog, errors: List[TypeError]
+  var q: Prog
   checked_text(in "ulang/test/errors/errors-of-forms.u", List(
     "function f(): List[Int] :=",
     "  List(true)",
     "",
     "function g(): Set[Int] :=",
-    "  Set(for x in List(1) yield x + true)"), out q, errors)
+    "  Set(for x in List(1) yield x + true)"), out q, _)
   assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("Mismatch", Pos(2, 8)), ("Mismatch", Pos(5, 34)))
 
 // a mismatch stands on the part that finds it, the call, while its diagnostic points at the argument
 test errors_on_parts() :=
-  var q: Prog, errors: List[TypeError]
-  checked_text(in "ulang/test/errors/errors-on-parts.u", List("function f(n: Int): Int :=", "  n + true"), out q, errors)
+  var q: Prog
+  checked_text(in "ulang/test/errors/errors-on-parts.u", List("function f(n: Int): Int :=", "  n + true"), out q, _)
   match reverse(q.cmds)
     case List(
       AOk(_, _, CFun(_, _, _, _, _, AErr(Pos(2, 5), _, EApp(_, _), List(d)))); _) =>

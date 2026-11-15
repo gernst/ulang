@@ -348,8 +348,7 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
   end
 
 procedure lex(in text: Str, out toks: Tokens) raises LexError :=
-  var comments: List[Comment]
-  lex_all(in text, out toks, comments)
+  lex_all(in text, out toks, _)
 
 // the tokens of text with their positions, which end with TEnd at the end of text, where line and column are those of
 // offset last, and stop is the end of the last token of code, which has no newline, and the comments wait in pending for
@@ -476,8 +475,7 @@ test escapes_round_trip() :=
 procedure lex_error(in text: Str, out e: LexError) :=
   e := LexError("none", Pos(0, 0))
   try
-    var toks: Tokens
-    lex(in text, out toks)
+    lex(in text, out _)
   catch
     case LexError(message, pos) =>
       e := LexError(message, pos)
