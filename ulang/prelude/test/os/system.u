@@ -1,0 +1,83 @@
+// a variable that make and the shells set, and one that nothing sets
+test environment() :=
+  var value: Option[Str]
+  os_env(in "PATH", out value)
+  assert value != None
+  os_env(in "ULANG_TEST_UNSET_VARIABLE", out value)
+  assert value == None
+  assert raises OsError("no name of a variable of the environment: A=B") do
+    os_env(in "A=B", out _)
+  end
+
+test clock() :=
+  var seconds: Int, start: Int, stop: Int
+  os_time(out seconds)
+  // 2026-01-01 at 00:00 UTC
+  assert seconds > 1767225600
+  os_clock(out start)
+  os_clock(out stop)
+  assert start <= stop
+
+// a connection to a listener of the same program, which the system completes before the accept, in both directions
+test sockets() :=
+  var listener: Listener, port: Int, client: IO, server: IO, line: Option[Str], message: Str
+  io_listen(in "127.0.0.1", 0, out listener)
+  io_port(in listener, out port)
+  assert port > 0 and show(listener) == "<listener 127.0.0.1:" ++ show(port) ++ ">"
+  assert compare(listener, listener) == 0
+  io_connect(in "127.0.0.1", port, out client)
+  assert io_path(client) == "127.0.0.1:" ++ show(port)
+  assert show(client) == "<io 127.0.0.1:" ++ show(port) ++ ">"
+  io_accept(in listener, out server)
+  assert starts_with(io_path(server), "127.0.0.1:")
+  io_write_utf8(in client, "ping\n")
+  io_read_line(in server, out line)
+  assert line == Some("ping")
+  io_write_utf8(in server, "pong\nend")
+  io_close(in server)
+  io_read_line(in client, out line)
+  assert line == Some("pong")
+  io_read_line(in client, out line)
+  assert line == Some("end")
+  io_read_line(in client, out line)
+  assert line == None
+  // the peer has closed, so a write fails, at the latest when the system has its reset
+  message := ""
+  try
+    while true do
+      io_write_utf8(in client, "more\n")
+    end
+  catch
+    case OsError(text) =>
+      message := text
+  end
+  assert message == "cannot write 127.0.0.1:" ++ show(port)
+  io_close(in client)
+  io_close_listener(in listener)
+  message := ""
+  try
+    io_accept(in listener, out _)
+  catch
+    case OsError(text) =>
+      message := text
+  end
+  assert message == "closed listener 127.0.0.1:" ++ show(port)
+  message := ""
+  try
+    io_connect(in "127.0.0.1", port, out _)
+  catch
+    case OsError(text) =>
+      message := text
+  end
+  assert message == "cannot connect to 127.0.0.1:" ++ show(port)
+
+test addresses() :=
+  assert raises OsError("no port: 65536") do
+    io_connect(in "127.0.0.1", 65536, out _)
+  end
+  assert raises OsError("no port: 0") do
+    io_connect(in "127.0.0.1", 0, out _)
+  end
+  assert raises OsError(_) do
+    io_connect(in "no-such-host.invalid", 80, out _)
+  end

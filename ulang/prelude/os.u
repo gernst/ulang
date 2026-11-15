@@ -79,6 +79,16 @@ procedure os_cwd(out dir: Str) raises OsError
 
 procedure os_chdir(in dir: Str) raises OsError
 
+// the value of a variable of the environment, None if it is not set, where a name with = or a NUL and a value that is
+// not UTF-8 raise OsError
+procedure os_env(in name: Str, out value: Option[Str]) raises OsError
+
+// the time of the system in seconds since the epoch, 1970-01-01 at 00:00 UTC
+procedure os_time(out seconds: Int)
+
+// nanoseconds of a monotonic clock, from an arbitrary start, for measuring durations
+procedure os_clock(out nanoseconds: Int)
+
 implementation
 
 procedure os_println(in text: Str) :=

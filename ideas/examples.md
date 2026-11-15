@@ -1,7 +1,7 @@
 # Ideas for examples
 
 Programs that show ulang on tasks of real software, beside `examples/words.u`, the most frequent words of files, `examples/csv.u`, the relational algebra on CSV files over `library/csv`, `examples/grep.u`, over the regular expressions of `library/regex`, `examples/jq.u`, queries on JSON over `library/json`, and `examples/md2html.u`, Markdown to HTML over `library/md`.
-What `os` and `io` offer bounds them: files, streams, arguments, printing, directories, and bytes, but no processes, clock, or network, so most are tools from text or bytes to text.
+What `os` and `io` offer bounds them: files, streams, arguments, printing, directories, bytes, the environment, the clock, and sockets of TCP, but no processes, so most are tools from text or bytes to text.
 
 ## Within the language as it is
 
@@ -22,8 +22,8 @@ What `os` and `io` offer bounds them: files, streams, arguments, printing, direc
 
 ## An HTTP server
 
-The language has no sockets, while `io` reads and writes the streams of the system as bytes. In the order of what it takes:
+`io` reads and writes the streams of the system and connections of TCP as bytes. In the order of what it takes:
 
 1. **Behind inetd**: `socat TCP-LISTEN:8080,fork EXEC:'out/ulang.sh run examples/http.u'` gives each connection a process whose stdin and stdout are the socket, and the program parses the request, routes it, and serves files or a generated page: a parser of requests, a `Map` of headers, routing by `match` on `(method, path)`, `OsError` as 404 or 500, and listings by `os_list`. About 150 lines. It reads the request by `io_read_line` of `io_stdin`, and its body by `io_read_bytes`. Limits: a process per request, and the start of the interpreter, seconds per request since it loads the library, milliseconds compiled.
-2. **A server of its own**: `io_listen` and `io_accept` of Library 1, whose connections are streams of `IO`, read and written as files are, and a loop that accepts, serves, and closes, one connection at a time.
+2. **A server of its own**: `io_listen` and `io_accept` of `ulang/prelude/io.u`, whose connections are streams of `IO`, read and written as files are, and a loop that accepts, serves, and closes, one connection at a time.
 3. **A web app on top of 2**: notes or todos with HTML forms and a JSON API, kept in a file, which the semantics of `try` keep consistent on errors; it shares `library/json` with `examples/jq.u`.

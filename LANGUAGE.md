@@ -6,13 +6,13 @@ Check after each small edit, `ulang.sh check --test file.u`, and let `ulang.sh f
 
 ## Habits from other languages that fail
 
-- No `return`, `break`, `continue`, or `+=`: a procedure gives its results by its `out` formals, and a loop ends by its condition or an exception. `local`, `call`, and `assign` are no keywords; a local is `let x := e` or `var x := e`, a call `p(in a, out b)`, an assignment `x := e`.
+- No `return`, `break`, `continue`, or `+=`: a procedure gives its results by its `out` formals, and a loop ends by its condition or an exception.
 - `let x := e` binds a name once, which nothing assigns, else `x is not assignable`; `var x := e` declares a variable. Both stand anywhere in a body and hold to its end.
 - The bindings of one `let` or `var` are sequential, `let a := 1, b := a + 1`, but the assignments of one statement are simultaneous: `x := y, y := x` swaps, and `y := f(x)` reads the `x` from before.
 - `let x := e in body` is an expression; in statements `let x := e` stands alone, without `in`.
 - `if c then … end` and `while c do … end` in statements; `if c then a else b` in expressions always has its `else`. There is no `elif`: `else if` opens an `if` of its own, with its own `end`.
 - Containers are forms: `List(1, 2)`, `List(x; rest)`, also in patterns, `Set(…)`, `Map(k => v)`, `Array(…)`, never `[1, 2]` or `x :: rest`. `[…]` is only for type arguments, `List[Int]`.
-- Tuple types are written as tuples are, `(Int, Str)`, also `List[(Int, Str)]`, never `Int * Str`. `(A, B) -> C` takes two arguments; a function of one pair is `((A, B)) -> C`.
+- Tuple types are written as tuples are, `(Int, Str)`, also `List[(Int, Str)]`. `(A, B) -> C` takes two arguments; a function of one pair is `((A, B)) -> C`.
 - Strings join by `++`, never `+`, which is of `Int` only; `show(x)` gives the text of any value.
 - `||` and `&&` are no operators: `Bool` has `and`, `or`, and `not`. A `|` is only between alternatives of a pattern, `case TPlus | TMinus =>`.
 - Lists have no index operator: `at(i, xs)` is the element at `i`, while `get(k, xs)` looks up the key `k` in a list of pairs. The first element is taken by a `match`, since `xs.head` raises `MissingField` on `List()`.
@@ -187,7 +187,7 @@ The containers share names and the order of their arguments, the element or key 
 - `Buffer[A]` collects the elements of a loop that adds at the end, `b := b ++ List(x)`, read out by `List(for x in b)`;
 - `Int` is unbounded, where compiled code allocates every `Int` outside -16 to 255; `/` and `%` raise `DivisionByZero`; `min`, `max`, `abs`, and `gcd`; `first` and `second` of pairs;
 - `compare(a, b)` is a total order of all values, `-1`, `0`, or `1`, which `<`, `<=`, `>`, and `>=` follow, and `==` compares structurally, also containers. A datatype may declare its own `compare`, `==`, or `show` in its module, which the builtins then use;
-- files and the system, procedures that raise `OsError`: `os_args(out args)`, `os_read_utf8(in path, out text)`, `os_write_utf8(in path, text)`, `os_read_bytes` and `os_write_bytes` of an `Array[Byte]`, `os_list`, `os_walk`, `os_cwd`, and `os_print(in text)`, `os_println`, `os_print_error`, `os_exit(in code)`; streams by `io_open`, `io_stdin`, `io_read_line`, `io_read_bytes`, `io_write_utf8`, and `io_close`, of the module `io`.
+- files and the system, procedures that raise `OsError`: `os_args(out args)`, `os_read_utf8(in path, out text)`, `os_write_utf8(in path, text)`, `os_read_bytes` and `os_write_bytes` of an `Array[Byte]`, `os_list`, `os_walk`, `os_cwd`, and `os_print(in text)`, `os_println`, `os_print_error`, `os_exit(in code)`, `os_env(in name, out value)` of a variable of the environment as an option, and `os_time(out seconds)` and `os_clock(out nanoseconds)`, which raise nothing; streams by `io_open`, `io_stdin`, `io_read_line`, `io_read_bytes`, `io_write_utf8`, and `io_close`, of the module `io`, also connections of TCP by `io_connect(in host, port, out io)`, and by `io_listen(in host, port, out listener)` and `io_accept(in listener, out io)`.
 
 ## Modules and packages
 
