@@ -258,6 +258,9 @@ function pat_modules(pat: At[Pat]): Set[Id] :=
 
     case PAnnotated(inner, typ) =>
       pat_modules(inner) ++ type_modules(typ)
+
+    case POr(alts) =>
+      pats_modules(alts)
   end
 
 function stmt_modules(stmt: At[Stmt]): Set[Id] :=
