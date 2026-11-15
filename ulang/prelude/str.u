@@ -19,6 +19,28 @@ function ends_with(s: Str, finish: Str): Bool
 // n copies of s
 function repeat(s: Str, n: Int): Str
 
+// s without the characters at its start and its end that is_space takes
+function trim(s: Str): Str :=
+  example trim(" a b\n") == "a b"
+
+// the lines of s, split at its newlines, without the empty line after a last newline, which split gives
+function lines(s: Str): List[Str] :=
+  example lines("a\nb\n") == List("a", "b")
+  example lines("a\n\nb") == List("a", "", "b")
+  example lines("") == List()
+
+// the letters of s in lower and in upper case, of ASCII, as is_letter takes them
+function lower(s: Str): Str :=
+  example lower("Ab1") == "ab1"
+
+function upper(s: Str): Str :=
+  example upper("Ab1") == "AB1"
+
+// the index of the first occurrence of part in s, from 0, where the empty part occurs at 0
+function index_of(part: Str, s: Str): Option[Int] :=
+  example index_of("lo", "hello") == Some(3)
+  example index_of("x", "hello") == None
+
 builtin
 
 // the characters of a string, and the string of characters
@@ -91,3 +113,24 @@ test strings() :=
   assert quote("a\"b") == "\"a\\\"b\"" and number("-12") == Some(-12) and number("1a") == None
   assert repeat("ab", 2) == "abab" and repeat("a", 0) == ""
   assert starts_with("abc", "ab") and not starts_with("a", "ab") and ends_with("abc", "bc") and not ends_with("abc", "ab")
+
+function trim(s: Str): Str :=
+  let kept := drop_while(chars(s), is_space) in
+  str(reverse(drop_while(reverse(kept), is_space)))
+
+function lines(s: Str): List[Str] :=
+  if s == "" then
+    List()
+  else if ends_with(s, "\n") then
+    split(slice(s, 0, size(s) - 1), '\n')
+  else
+    split(s, '\n')
+
+function lower(s: Str): Str :=
+  str(List(for c in chars(s) yield if int('A') <= int(c) and int(c) <= int('Z') then chr(int(c) + 32) else c))
+
+function upper(s: Str): Str :=
+  str(List(for c in chars(s) yield if int('a') <= int(c) and int(c) <= int('z') then chr(int(c) - 32) else c))
+
+function index_of(part: Str, s: Str): Option[Int] :=
+  find(range(0, size(s) - size(part) + 1), lambda i => slice(s, i, i + size(part)) == part)

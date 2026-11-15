@@ -169,7 +169,7 @@ Keep the small programs, which test the language on real tasks and found trip-up
 
 ## 5. Order
 
-The ranks `A`, in an order that lets each help the next: Documentation 1; Compiler 1 and Testing 6; Diagnostics 6 and 3; Syntax 5 and Modules 2; Library 2; Build 1 cut to `--test-compiled`; and the soundness items of Verification. Then the decisions without work: Compiler 2, Syntax 6, Modules 1 with Later 1, and the proposals 2.4 to 2.8, each into its item or into `ideas/rejected.md`.
+The ranks `A`, in an order that lets each help the next: Documentation 1; Compiler 1 and Testing 6; Diagnostics 6 and 3; Syntax 5 and Modules 2; Library 2, since done; Build 1 cut to `--test-compiled`; and the soundness items of Verification. Then the decisions without work: Compiler 2, Syntax 6, Modules 1 with Later 1, and the proposals 2.4 to 2.8, each into its item or into `ideas/rejected.md`.
 
 ## 6. The review of c079446
 

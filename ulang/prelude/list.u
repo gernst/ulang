@@ -24,6 +24,23 @@ function find_map[A, B](xs: List[A], f: A -> Option[B]): Option[B]
 // the index of the first x
 function index_of[A](x: A, xs: List[A]): Option[Int]
 
+// the element at index i, from 0, or else OutOfBounds with the size of the list, which at of arrays raises, since
+// functions do not raise
+function at[A](i: Int, xs: List[A]): A :=
+  example at(1, List('a', 'b')) == 'b'
+  example at(2, List('a', 'b')) raises OutOfBounds(2, 2)
+
+// the longest prefix of xs whose elements satisfy p, and what follows it
+function take_while[A](xs: List[A], p: A -> Bool): List[A] :=
+  example take_while(List(1, 2, 3, 1), lambda x => x < 3) == List(1, 2)
+
+function drop_while[A](xs: List[A], p: A -> Bool): List[A] :=
+  example drop_while(List(1, 2, 3, 1), lambda x => x < 3) == List(3, 1)
+
+// take_while and drop_while at once
+function span[A](xs: List[A], p: A -> Bool): (List[A], List[A]) :=
+  example span(List(1, 2, 3, 1), lambda x => x < 3) == (List(1, 2), List(3, 1))
+
 // the elements of the lists that f gives for the elements of xs
 function flat_map[A, B](xs: List[A], f: A -> List[B]): List[B]
 
@@ -400,3 +417,32 @@ test lists() :=
   assert replicate(2, 0) == List(0, 0) and replicate(-1, 0) == List()
   assert reverse(List(1, 2, 3)) == List(3, 2, 1) and reverse_onto(List(2, 1), List(3)) == List(1, 2, 3)
   assert firsts(List((1, true), (2, false))) == List(1, 2) and seconds(List((1, true), (2, false))) == List(true, false)
+
+function take_while[A](xs: List[A], p: A -> Bool): List[A] :=
+  let (taken, _) := span(xs, p) in
+  taken
+
+function drop_while[A](xs: List[A], p: A -> Bool): List[A] :=
+  let (_, left) := span(xs, p) in
+  left
+
+function span[A](xs: List[A], p: A -> Bool): (List[A], List[A]) :=
+  match xs
+    case List(x; rest) =>
+      if p(x) then
+        let (taken, left) := span(rest, p) in
+        (List(x; taken), left)
+      else
+        (List(), xs)
+
+    case List() =>
+      (List(), List())
+  end
+
+function at[A](i: Int, xs: List[A]): A :=
+  match drop(i, xs)
+    case List(x; _) if i >= 0 =>
+      x
+    case _ =>
+      at(i, from_list(xs))
+  end
