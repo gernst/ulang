@@ -19,7 +19,7 @@ test put_and_drop() :=
   assert text == "export\n\nfunction f(y: Int): Int\n\nimplementation\n\n// one more\nfunction f(y: Int): Int :=\n  y + 2\n"
   assert take(3, reply) == List(
     "ok",
-    path ++ ": replaced f/1, added g/0, with the signature of f/1",
+    path ++ ": replaced f/1, added g/0 to implementation, with the signature of f/1",
     path ++ ": dropped g/0")
 
 // a fragment that does not parse refuses the script, at its line in the fragment, and writes nothing

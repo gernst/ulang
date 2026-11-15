@@ -404,6 +404,12 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
     case List("rename", word, new) =>
       rename(in word, new, ref edits)
 
+    case List("outline", word) =>
+      outline(in word, ref edits)
+
+    case List("refs", word) =>
+      refs(in word, ref edits)
+
     case List("check") =>
       skip
 
@@ -417,7 +423,7 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
       edits := edits with checked := edits.checked ++ List(path)
 
     case _ =>
-      let actions := "@show T, @put F, @put [before|after|into] #h, @drop T, @patch T, @rename T new, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
+      let actions := "@show T, @put F, @put [before|after|into] #h, @drop T, @patch T, @rename T new, @outline F, @refs T, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
       raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of " ++ actions)
   end
 
@@ -947,7 +953,10 @@ procedure put_into(
 
       case None =>
         done := done ++ List(
-          (if role == "export" then "exported " else "added ") ++ value_or(map_option(new_key, key_text), "a notation"))
+          (if role == "export" then "exported " else "added ") ++ value_or(map_option(new_key, key_text), "a notation") ++ (if role == "implementation" and (has_sections or has_exports) then
+            " to implementation"
+          else
+            ""))
     end
   end
   formatted(in path, join("\n", spliced(all_lines_list, splices)), no_fragment(), out result, source)
@@ -1590,7 +1599,9 @@ function arity_of(typ: Type): Int :=
 
 // renames the function, procedure, pattern alias, or constructor of the target, a declaration file.u:name[/arity], at
 // its declarations and the examples on them, and at every use that resolves to it in the files of the project and of
-// its package that can see it, its members and the files that import it, which name it, which resolve after the writes as before, else the script is undone; docs are listed
+// its package that can see it, its members and the files that import it, which name it, which resolve after the writes
+// as before, else the script is undone; docs are listed, and so are, as a warning, the declarations of new of the same
+// arity that the uses see, among which a use that its types do not decide is ambiguous
 procedure rename(
   in  word: Str,
       new: Str,
@@ -1631,7 +1642,7 @@ procedure rename(
   source_files(in if root == here then "." else root, out files)
   source_files(in os_dirname(path), out own)
   files := distinct(List(for file in own if not contains(file, files) and not contains("./" ++ file, files)) ++ files)
-  var count := 0, touched := 0
+  var count := 0, touched := 0, also: List[Str] := List()
   var expected: List[(Str, List[Name])] := List()
   for file in files do
     var file_text: Str
@@ -1648,7 +1659,16 @@ procedure rename(
       end
       edited := List(for (line, i) in numbered(edited) yield at_cols(line, List(for span in hits if span.start.line == i + 1 yield span.start.col), base, new))
       if hits != List() or file == path then
-        var result: Str
+        var result: Str, seen_source := source
+        if file != path and file != "./" ++ path then
+          try
+            parse_file_text(in file, file_text, out seen_source)
+          catch
+            case e =>
+              raise Refused(file ++ ": " ++ parse_diagnostic(e).message)
+          end
+        end
+        also := distinct(also ++ seen_decls(seen_source, new, n))
         formatted(in file, join("\n", edited), no_fragment(), out result, _)
         edits := edits with files := Map(file => result; edits.files)
         count := count + size(hits), touched := touched + 1
@@ -1657,6 +1677,9 @@ procedure rename(
   end
   edits := edits with expected := expected
   note(in "renamed " ++ format_name(target) ++ " to " ++ new ++ " at its declarations and " ++ counted(count, "use") ++ " in " ++ counted(touched, "file"), ref edits)
+  if also != List() then
+    note(in "warning: the uses of " ++ new ++ "/" ++ show(n) ++ " also see " ++ join(", ", also) ++ ", so a use that its types do not decide is ambiguous", ref edits)
+  end
   var found: List[Str]
   doc_references(in if root == here then "." else root, base, out found)
   for reference in found do
@@ -2111,3 +2134,236 @@ function saved_entries(before: Handles, after: Handles, dry: Bool): List[Handle]
 function has_word(text: Str, name: Str): Bool :=
   example has_word("ff(f)", "f")
   exists(occurrences(text, name), lambda i => is_word_at(text, i, size(name)))
+
+// the outline of the file path, a line per declaration in the order of the file: its lines, its section, its kind, its
+// name with its arity as a target names it, whether other modules see it, the handle of its first node if it has one,
+// and the constructors of a datatype, so that an agent sees what a module offers without reading it
+procedure outline(in path: Str, ref edits: Edits) raises Refused, OsError :=
+  var text: Str, source: Source
+  current_text(in path, edits.files, out text)
+  parsed(in path, text, no_fragment(), out source)
+  let d := main_mod(source), lines := Array(for line in split(text, '\n'))
+  let has_sections := keyword_line(lines, "export") != None or keyword_line(lines, "implementation") != None or keyword_line(lines, "builtin") != None
+  let visible := List(for (key, _, _) in keyed(d.exported ++ d.builtins) yield key)
+  let sections := List(
+    ("export", d.exported),
+    ("builtin", d.builtins),
+    ("implementation", d.implemented))
+  var handles := edits.handles, rows: List[(Str, Str, Str, Str, Str, Str)] := List(), number: Int
+  for (section, cmd) in List(for (section, cmds) in sections for cmd in cmds yield (section, cmd)) do
+    let range := cmd_range(lines, cmd, 0, false)
+    let at := show(range.first) ++ (if range.last > range.first then "-" ++ show(range.last) else "")
+    let place := if has_sections then section else "none"
+    match cmd_of(cmd)
+      case None =>
+        rows := rows ++ List((at, place, "unparsed", trim(line_at(lines, range.first)), "", ""))
+
+      case Some(c) =>
+        match key_of(c)
+          case None =>
+            rows := rows ++ List(
+              (at, place, decl_kind(c), trim(line_at(lines, range.first)), "", ""))
+
+          case Some(key) =>
+            let seen := if section != "implementation" or contains(key, visible) then
+              "exported"
+            else
+              "private"
+            var handle := ""
+            for (own, _) in decl_of(d, key) if own.span == cmd.span do
+              for span in get_at(0, line_nodes(lines, c)) do
+                handle_for(in path, key, 0, hash_of(node_text(lines, span)), out number, ref handles)
+                handle := "#" ++ show(number)
+              end
+            end
+            let name := if key.kind == "value" or key.kind == "type" then
+              key_text(key)
+            else
+              key.base
+            rows := rows ++ List(
+              (at, place, decl_kind(c), name, seen, join(" ", List(for part in List(handle, constrs_text(c)) if part != "" yield part))))
+        end
+    end
+  end
+  edits := edits with handles := handles
+  let widths := List(
+    foldl(rows, 0, lambda w, (a, _, _, _, _, _) => max(w, size(a))),
+    foldl(rows, 0, lambda w, (_, s, _, _, _, _) => max(w, size(s))),
+    foldl(rows, 0, lambda w, (_, _, k, _, _, _) => max(w, size(k))),
+    foldl(rows, 0, lambda w, (_, _, _, n, _, _) => max(w, size(n))))
+  let row_text := lambda (a, s, k, n, e, h) => trim_end(join(" ", List(
+    padded(a, value_or(get_at(0, widths), 0)),
+    padded(s, value_or(get_at(1, widths), 0)),
+    padded(k, value_or(get_at(2, widths), 0)),
+    padded(n, value_or(get_at(3, widths), 0)),
+    padded(e, 8),
+    h)))
+  note(in join("\n", List("@outline " ++ path) ++ List(for row in rows yield row_text(row))), ref edits)
+
+function padded(text: Str, width: Int): Str :=
+  example padded("ab", 4) == "ab  "
+  text ++ repeat(" ", width - size(text))
+
+function trim_end(text: Str): Str :=
+  example trim_end("ab  ") == "ab"
+  str(reverse(drop_spaces(reverse(chars(text)))))
+
+// the kind of a declaration as an outline names it, where a signature has the kind of its definition
+function decl_kind(c: Cmd): Str :=
+  match c
+    case CSort(_, _, _) =>
+      "type"
+
+    case CData(_, _, _) =>
+      "data"
+
+    case CAbstract(_, _) =>
+      "type"
+
+    case CFun(_, _, _, _, _, _) =>
+      "function"
+
+    case CFunSig(_, _, _, _, _) =>
+      "function"
+
+    case CProc(_, _, _, _, _, _, _, _) =>
+      "procedure"
+
+    case CProcSig(_, _, _, _, _, _, _) =>
+      "procedure"
+
+    case CPatAlias(_, _, _, _, _) =>
+      "pattern"
+
+    case CTest(_, _, _) =>
+      "test"
+
+    case CLemma(_, _, _, _, _, _) =>
+      "lemma"
+
+    case CNotation(_, _, _) =>
+      "notation"
+  end
+
+// the constructors of a datatype with their arities, as targets name them, else ""
+function constrs_text(c: Cmd): Str :=
+  match constrs_of(c)
+    case List() =>
+      ""
+    case constrs =>
+      "cases " ++ join(", ", List(for constr in constrs yield constr_name(constr) ++ "/" ++ show(constr_arity(constr))))
+  end
+
+// the uses of the function, procedure, pattern alias, or constructor of the target file.u:name[/arity] in the members of
+// its package and the files of the project that import it, found as rename finds them, by the names that the checker
+// resolves, each with its position, the declaration around it, the handle of the innermost node there, and its line
+procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
+  var text: Str, source: Source, here: Str, root: Str, files: List[Str], own: List[Str]
+  let (path, chosen, arity) := target_of(word)
+  let base := value_or(chosen, "")
+  current_text(in path, edits.files, out text)
+  parsed(in path, text, no_fragment(), out source)
+  let d := main_mod(source)
+  let arities := distinct(List(for (key, _, _) in keyed(placed_of(d)) if key.kind == "value" and is_selected(key, base, arity) yield key.arity) ++ List(for (_, _, c) in keyed(placed_of(d)) for constr in constrs_of(c) if constr_name(constr) == base and forall(arity, lambda k => k == constr_arity(constr)) yield constr_arity(constr)))
+  match arities
+    case List(_) =>
+      skip
+
+    case List() =>
+      raise Refused(path ++ " declares no function, procedure, pattern alias, or constructor " ++ base ++ ", and the uses of types and fields are not found yet")
+
+    case _ =>
+      raise Refused(path ++ " declares " ++ base ++ " of several arities, so name one, " ++ base ++ "/n")
+  end
+  let n := value_or(get_at(0, arities), 0), target := Name(Some(d.name), base)
+  os_cwd(out here)
+  project_root(in here, out root)
+  source_files(in if root == here then "." else root, out files)
+  source_files(in os_dirname(path), out own)
+  files := distinct(List(for file in own if not contains(file, files) and not contains("./" ++ file, files)) ++ files)
+  var handles := edits.handles, found: List[Str] := List(), touched := 0
+  for file in files do
+    var file_text: Str
+    current_text(in file, edits.files, out file_text)
+    let is_own := contains(file, own) or contains(file, List(for f in own yield "./" ++ f))
+    if (is_own or size(occurrences(file_text, "import \"" ++ os_dirname(d.name) ++ "\"")) > 0) and has_word(file_text, base) then
+      var hints_found: List[Hint]
+      file_hints(in file, file_text, out hints_found)
+      let hits := List(for h in hints_found for (span, name, k) in use_of(h) if name == target and k == n yield span)
+      if hits != List() then
+        var file_source: Source
+        try
+          parse_file_text(in file, file_text, out file_source)
+        catch
+          case e =>
+            raise Refused(file ++ ": " ++ parse_diagnostic(e).message)
+        end
+        let m := main_mod(file_source), file_lines := Array(for line in split(file_text, '\n'))
+        for span in hits do
+          var around := "", handle := "", number: Int
+          for (key, cmd, c) in keyed(placed_of(m)) if cmd.span.start.line <= span.start.line and span.start.line <= cmd_range(file_lines, cmd, 0, false).last do
+            around := " in " ++ key_text(key)
+            for (own_cmd, _) in decl_of(m, key) if own_cmd.span == cmd.span do
+              let nodes := List(for (node, i) in numbered(line_nodes(file_lines, c)) if node.start <= span.start and span.stop <= node.stop yield (node, i))
+              for (node, i) in last(nodes) do
+                handle_for(in file, key, i, hash_of(node_text(file_lines, node)), out number, ref handles)
+                handle := " #" ++ show(number)
+              end
+            end
+          end
+          found := found ++ List(
+            "  " ++ file ++ ":" ++ show(span.start.line) ++ "." ++ show(span.start.col) ++ around ++ handle ++ ": " ++ trim(line_at(file_lines, span.start.line)))
+        end
+        touched := touched + 1
+      end
+    end
+  end
+  edits := edits with handles := handles
+  note(in join("\n", List(
+    "@refs " ++ word ++ ": " ++ counted(size(found), "use") ++ " of " ++ format_name(target) ++ "/" ++ show(n) ++ " in " ++ counted(touched, "file")) ++ found), ref edits)
+
+// the declarations of base of arity n that the main module of source sees, by their qualified names and types as written:
+// its own, the exports of the other members of its package and of the packages it imports, and those of the library
+function seen_decls(source: Source, base: Str, n: Int): List[Str] :=
+  let d := main_mod(source) in
+  let seen := seen_modules(d, source.packages) in
+  distinct(List(for m in source.mods if m.name == d.name or contains(m.name, seen) for cmd in if m.name == d.name then placed_of(m) else m.exported ++ m.builtins for c in cmd_of(cmd) for text in decl_texts(m.name, c, base, n) yield text))
+
+// the declarations of base of arity n in c of the module m, a value or the constructors of a datatype, with their types
+function decl_texts(m: Id, c: Cmd, base: Str, n: Int): List[Str] :=
+  let named := lambda typ: Type => List(format_name(Name(Some(m), base)) ++ ": " ++ format_type(typ)) in
+  let types := lambda xs: List[At[Var]] => List(for x in xs yield x.that.typ) in
+  match c
+    case CFun(name, _, formals, typ, _, _) if name.base == base and size(formals) == n =>
+      named(TFun(types(formals), typ))
+
+    case CFunSig(name, _, formals, typ, _) if name.base == base and size(formals) == n =>
+      named(TFun(types(formals), typ))
+
+    case CPatAlias(name, _, formals, typ, _) if name.base == base and size(formals) == n =>
+      named(TFun(types(formals), typ))
+
+    case CProc(name, _, ins, outs, refs, raised, _, _) if name.base == base and size(ins) + size(outs) + size(refs) == n =>
+      named(TProc(types(ins), types(outs), types(refs), RWritten(raised)))
+
+    case CProcSig(name, _, ins, outs, refs, raised, _) if name.base == base and size(ins) + size(outs) + size(refs) == n =>
+      named(TProc(types(ins), types(outs), types(refs), RWritten(raised)))
+
+    case CData(name, params, constrs) =>
+      List(for constr in constrs if constr_name(constr) == base and constr_arity(constr) == n for typ in constr_type(constr, TSort(name, List(for p in params yield TParam(p)))) for text in named(typ) yield text)
+
+    case _ =>
+      List()
+  end
+
+function constr_type(constr: At[Constr], result: Type): Option[Type] :=
+  match constr
+    case AOk(_, _, Constr(_, fields)) =>
+      Some(if fields == List() then
+        result
+      else
+        TFun(List(for f in fields yield f.typ), result))
+
+    case _ =>
+      None
+  end
