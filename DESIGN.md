@@ -56,6 +56,6 @@ Where the design is still in tension with its premises, each with the item that 
 - **The order of arguments is the remaining hazard of grounding**: named fields protect constructors, types most calls, but not `slice(s, i, j)`; examples on signatures are the answer, with a hint that tries permutations (`G1` of `ideas/lint.md`).
 - **Exceptions cannot become values**, so code that collects errors catches each kind into an out (Checker 1), and there is no polymorphism over raised sets (`ideas/rejected.md`).
 - **Termination is proven only for the recursive functions that lemmas reach**, so the split of functions and procedures does not yet guarantee that functions terminate (Checker 2).
-- **The library is ambient**, also `os`, so its procedures of the system show in no signature (Modules 1, Later 1).
+- **The library is ambient**, also `os`, so its procedures of the system show in no signature (Modules 4, Later 1).
 - **Verbosity has a cost in context after all**: `CLAUDE.md` describes the language, the implementation, and the workflow together in some 15,000 words loaded into every session, from which `LANGUAGE.md` splits the language for writers of programs.
 - **Limits make proofs deterministic, not robust**: a proof that closes at one limit may open at a smaller one, and the default proof does not say which limit ended its search (Verification 7).
