@@ -408,9 +408,14 @@ static u_value ordering(int c) {
   return &small_ints[c - SMALL_MIN];
 }
 
+// the sign of an integer, by which the result of a declared compare counts, whatever its size
+static int int_sign(u_value c) {
+  return c->type == &u_int_type ? sign(c->num) : mpz_sgn(c->big);
+}
+
 // -1, 0, or 1 for values of the same type, by the order of their type
 static int compare(u_value a, u_value b) {
-  return (int)a->type->compare(a, b)->num;
+  return int_sign(a->type->compare(a, b));
 }
 
 int u_equals(u_value a, u_value b) {
@@ -485,7 +490,7 @@ static u_value compare_callables(u_value a, u_value b) {
 }
 
 u_value u_compare(u_value a, u_value b) {
-  return a->type->compare(a, b);
+  return ordering(compare(a, b));
 }
 
 u_value u_apply(u_value f, int n, ...) {
@@ -1403,7 +1408,8 @@ int u_run_tests(int argc, char **argv, const char *const *files, const struct u_
   }
   if (several) printf("%d of %d files passed\n", passed, s.size + nmissing);
   fflush(stdout);
-  return ok ? 0 : 1;
+  // the status of a test that fails, as of ulang.sh test
+  return ok ? 0 : 3;
 }
 
 void p_os_print(u_value text) {

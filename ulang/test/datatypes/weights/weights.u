@@ -1,0 +1,21 @@
+// a module for ulang/test/datatypes/orders.u: weights ordered by the difference of their grams, a result of compare
+// other than -1, 0, and 1, also beyond 64 bits
+
+export
+
+type Weight
+
+function weight(grams: Int): Weight
+
+function compare(a: Weight, b: Weight): Int
+
+implementation
+
+data Weight :=
+  case Weight(grams: Int)
+
+function weight(grams: Int): Weight :=
+  Weight(grams)
+
+function compare(a: Weight, b: Weight): Int :=
+  a.grams - b.grams
