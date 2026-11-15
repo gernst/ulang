@@ -1,0 +1,324 @@
+// widgets built as in Elm, each by a function of a list of attributes and, where it has them, a list of children,
+// with the events of the program as attributes
+
+export
+
+type Widget[E]
+
+type Attr[E]
+
+function text[E](s: Str): Widget[E]
+
+function button[E](attrs: List[Attr[E]], children: List[Widget[E]]): Widget[E]
+
+function entry[E](attrs: List[Attr[E]]): Widget[E]
+
+function check[E](attrs: List[Attr[E]], children: List[Widget[E]]): Widget[E]
+
+function column[E](attrs: List[Attr[E]], children: List[Widget[E]]): Widget[E]
+
+function row[E](attrs: List[Attr[E]], children: List[Widget[E]]): Widget[E]
+
+// shapes drawn at pixels from the top left
+function canvas[E](attrs: List[Attr[E]], shapes: List[Shape]): Widget[E]
+
+function on_click[E](event: E): Attr[E]
+
+function on_input[E](f: Str -> E): Attr[E]
+
+function on_toggle[E](f: Bool -> E): Attr[E]
+
+// the pixel of a click on a canvas
+function on_pointer[E](f: (Int, Int) -> E): Attr[E]
+
+// the text of an entry
+function value[E](s: Str): Attr[E]
+
+function checked[E](on: Bool): Attr[E]
+
+function disabled[E](on: Bool): Attr[E]
+
+function spacing[E](pixels: Int): Attr[E]
+
+function size[E](width: Int, height: Int): Attr[E]
+
+function expand[E](on: Bool): Attr[E]
+
+function rect(x: Int, y: Int, width: Int, height: Int, color: Rgb): Shape
+
+function circle(x: Int, y: Int, radius: Int, color: Rgb): Shape
+
+function line(x: Int, y: Int, to_x: Int, to_y: Int, color: Rgb): Shape
+
+function label(x: Int, y: Int, s: Str, color: Rgb): Shape
+
+// the widget with the events that f makes of its own, as Html.map of Elm
+function map_events[A, B](f: A -> B, w: Widget[A]): Widget[B]
+
+function skeleton[E](w: Widget[E]): Node
+
+// the attributes that their widgets lack, as "spacing of button", which Elm would ignore
+function misplaced[E](w: Widget[E]): List[Str] :=
+  example misplaced(row(List(spacing(4)), List(button(List(spacing(2), on_click(1)), List())))) == List("spacing of button")
+
+// the event of the program that the event of the host means, for the tree on screen that the widget placed
+function handle[E](w: Widget[E], placed: Placed, event: Event): Option[E]
+
+// the event of the first button that has a text of the caption, as a click on it
+function click[E](caption: Str, w: Widget[E]): Option[E] :=
+  example click("+", row(List(), List(
+      button(List(on_click(1)), List(text("-"))),
+      button(List(on_click(2)), List(text("+")))))) == Some(2)
+
+// the event of the first entry after a text of the caption, as typing s into it
+function input[E](caption: Str, s: Str, w: Widget[E]): Option[E] :=
+  example input("Name", "Ada", column(List(), List(text("Name"), entry(List(on_input(lambda t => size(t))))))) == Some(3)
+
+implementation
+
+data Widget[E] :=
+  case Widget(kind: Kind, attrs: List[Attr[E]], children: List[Widget[E]])
+
+data Attr[E] :=
+  case AProp(prop: Prop)
+  case AClick(event: E)
+  case AInput(on_input: Str -> E)
+  case AToggle(on_toggle: Bool -> E)
+  case APointer(on_pointer: (Int, Int) -> E)
+
+function text[E](s: Str): Widget[E] :=
+  Widget(KText, List(AProp(PText(s))), List())
+
+function button[E](attrs: List[Attr[E]], children: List[Widget[E]]): Widget[E] :=
+  Widget(KButton, attrs, children)
+
+function entry[E](attrs: List[Attr[E]]): Widget[E] :=
+  Widget(KEntry, attrs, List())
+
+function check[E](attrs: List[Attr[E]], children: List[Widget[E]]): Widget[E] :=
+  Widget(KCheck, attrs, children)
+
+function column[E](attrs: List[Attr[E]], children: List[Widget[E]]): Widget[E] :=
+  Widget(KColumn, attrs, children)
+
+function row[E](attrs: List[Attr[E]], children: List[Widget[E]]): Widget[E] :=
+  Widget(KRow, attrs, children)
+
+function canvas[E](attrs: List[Attr[E]], shapes: List[Shape]): Widget[E] :=
+  Widget(KCanvas, List(AProp(PShapes(shapes)); attrs), List())
+
+function on_click[E](event: E): Attr[E] :=
+  AClick(event)
+
+function on_input[E](f: Str -> E): Attr[E] :=
+  AInput(f)
+
+function on_toggle[E](f: Bool -> E): Attr[E] :=
+  AToggle(f)
+
+function on_pointer[E](f: (Int, Int) -> E): Attr[E] :=
+  APointer(f)
+
+function value[E](s: Str): Attr[E] :=
+  AProp(PValue(s))
+
+function checked[E](on: Bool): Attr[E] :=
+  AProp(PChecked(on))
+
+function disabled[E](on: Bool): Attr[E] :=
+  AProp(PDisabled(on))
+
+function spacing[E](pixels: Int): Attr[E] :=
+  AProp(PSpacing(pixels))
+
+function size[E](width: Int, height: Int): Attr[E] :=
+  AProp(PSize(width, height))
+
+function expand[E](on: Bool): Attr[E] :=
+  AProp(PExpand(on))
+
+function rect(x: Int, y: Int, width: Int, height: Int, color: Rgb): Shape :=
+  SRect(x, y, width, height, color)
+
+function circle(x: Int, y: Int, radius: Int, color: Rgb): Shape :=
+  SCircle(x, y, radius, color)
+
+function line(x: Int, y: Int, to_x: Int, to_y: Int, color: Rgb): Shape :=
+  SLine(x, y, to_x, to_y, color)
+
+function label(x: Int, y: Int, s: Str, color: Rgb): Shape :=
+  SLabel(x, y, s, color)
+
+function map_events[A, B](f: A -> B, w: Widget[A]): Widget[B] :=
+  Widget(w.kind, List(for attr in w.attrs yield map_attr(f, attr)), List(for child in w.children yield map_events(f, child)))
+
+function map_attr[A, B](f: A -> B, attr: Attr[A]): Attr[B] :=
+  match attr
+    case AProp(prop) =>
+      AProp(prop)
+
+    case AClick(event) =>
+      AClick(f(event))
+
+    case AInput(g) =>
+      AInput(lambda s => f(g(s)))
+
+    case AToggle(g) =>
+      AToggle(lambda on => f(g(on)))
+
+    case APointer(g) =>
+      APointer(lambda x, y => f(g(x, y)))
+  end
+
+function skeleton[E](w: Widget[E]): Node :=
+  Node(w.kind, List(for attr in w.attrs for prop in prop_of(attr) yield prop), List(for child in w.children yield skeleton(child)))
+
+function prop_of[E](attr: Attr[E]): Option[Prop] :=
+  match attr
+    case AProp(prop) =>
+      Some(prop)
+    case AClick(_) | AInput(_) | AToggle(_) | APointer(_) =>
+      None
+  end
+
+function misplaced[E](w: Widget[E]): List[Str] :=
+  List(for attr in w.attrs if not fits(w.kind, attr) yield attr_name(attr) ++ " of " ++ kind_name(w.kind)) ++ concat(List(for child in w.children yield misplaced(child)))
+
+function fits[E](kind: Kind, attr: Attr[E]): Bool :=
+  match (kind, attr)
+    case (KText, AProp(PText(_))) =>
+      true
+
+    case (KButton, AClick(_) | AProp(PDisabled(_) | PSize(_, _) | PExpand(_))) =>
+      true
+
+    case (KEntry, AInput(_) | AProp(PValue(_) | PDisabled(_) | PSize(_, _) | PExpand(_))) =>
+      true
+
+    case (KCheck, AToggle(_) | AProp(PChecked(_) | PDisabled(_) | PExpand(_))) =>
+      true
+
+    case (KColumn | KRow, AProp(PSpacing(_) | PSize(_, _) | PExpand(_))) =>
+      true
+
+    case (KCanvas, APointer(_) | AProp(PShapes(_) | PSize(_, _) | PExpand(_))) =>
+      true
+
+    case _ =>
+      false
+  end
+
+function attr_name[E](attr: Attr[E]): Str :=
+  match attr
+    case AProp(prop) =>
+      value_or(find(prop_fields(prop), lambda _ => true), "")
+
+    case AClick(_) =>
+      "on_click"
+
+    case AInput(_) =>
+      "on_input"
+
+    case AToggle(_) =>
+      "on_toggle"
+
+    case APointer(_) =>
+      "on_pointer"
+  end
+
+function handle[E](w: Widget[E], placed: Placed, event: Event): Option[E] :=
+  match event
+    case EClick(id) | EInput(id, _) | EToggle(id, _) | EPointer(id, _, _) =>
+      match path_of(id, placed)
+        case Some(path) =>
+          match widget_at(path, w)
+            case Some(target) =>
+              find_event(target.attrs, event)
+            case None =>
+              None
+          end
+
+        case None =>
+          None
+      end
+
+    case EClose =>
+      None
+  end
+
+function widget_at[E](path: List[Int], w: Widget[E]): Option[Widget[E]] :=
+  match path
+    case List() =>
+      Some(w)
+
+    case List(index; rest) =>
+      match get(index, Array(for child in w.children))
+        case Some(child) =>
+          widget_at(rest, child)
+        case None =>
+          None
+      end
+  end
+
+function find_event[E](attrs: List[Attr[E]], event: Event): Option[E] :=
+  match attrs
+    case List() =>
+      None
+
+    case List(attr; rest) =>
+      match (attr, event)
+        case (AClick(e), EClick(_)) =>
+          Some(e)
+
+        case (AInput(f), EInput(_, s)) =>
+          Some(f(s))
+
+        case (AToggle(f), EToggle(_, on)) =>
+          Some(f(on))
+
+        case (APointer(f), EPointer(_, x, y)) =>
+          Some(f(x, y))
+
+        case _ =>
+          find_event(rest, event)
+      end
+  end
+
+function click[E](caption: Str, w: Widget[E]): Option[E] :=
+  match w.kind
+    case KButton if exists(w.children, lambda child => has_text(caption, child)) =>
+      find_event(w.attrs, EClick(0))
+    case _ =>
+      find(List(for child in w.children for e in click(caption, child) yield e), lambda _ => true)
+  end
+
+function has_text[E](caption: Str, w: Widget[E]): Bool :=
+  has_caption(caption, w) or exists(w.children, lambda child => has_text(caption, child))
+
+function input[E](caption: Str, s: Str, w: Widget[E]): Option[E] :=
+  entry_after(caption, s, false, flat(w))
+
+function has_caption[E](caption: Str, w: Widget[E]): Bool :=
+  exists(w.attrs, lambda attr => prop_of(attr) == Some(PText(caption)))
+
+function flat[E](w: Widget[E]): List[Widget[E]] :=
+  List(w; concat(List(for child in w.children yield flat(child))))
+
+function entry_after[E](caption: Str, s: Str, seen: Bool, ws: List[Widget[E]]): Option[E] :=
+  match ws
+    case List() =>
+      None
+
+    case List(w; rest) =>
+      if seen and w.kind == KEntry then
+        find_event(w.attrs, EInput(0, s))
+      else
+        entry_after(caption, s, seen or has_caption(caption, w), rest)
+  end
+
+test handlers() :=
+  let w := column(List(), List(text("n"), button(List(on_click("inc")), List(text("+")))))
+  let (_, placed, _) := create(0, 0, skeleton(w), 1)
+  assert handle(w, placed, EClick(3)) == Some("inc")
+  assert handle(w, placed, EClick(2)) == None
+  assert handle(map_events(lambda s => size(s), w), placed, EClick(3)) == Some(3)

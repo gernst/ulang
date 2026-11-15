@@ -1,0 +1,376 @@
+// the protocol between a program and the host of its window: the skeletons of widgets, without their handlers, the
+// patches that turn one skeleton on screen into the next, and the events of the host, each a line of fields separated
+// by tabs
+
+export
+
+data Kind :=
+  case KText
+  case KButton
+  case KEntry
+  case KCheck
+  case KColumn
+  case KRow
+  case KCanvas
+
+data Rgb :=
+  case Rgb(red: Int, green: Int, blue: Int)
+
+data Shape :=
+  case SRect(x: Int, y: Int, width: Int, height: Int, color: Rgb)
+  case SCircle(x: Int, y: Int, radius: Int, color: Rgb)
+  case SLine(x: Int, y: Int, to_x: Int, to_y: Int, color: Rgb)
+  case SLabel(x: Int, y: Int, text: Str, color: Rgb)
+
+data Prop :=
+  case PText(text: Str)
+  case PValue(text: Str)
+  case PChecked(on: Bool)
+  case PDisabled(on: Bool)
+  case PSpacing(pixels: Int)
+  case PSize(width: Int, height: Int)
+  case PExpand(on: Bool)
+  case PShapes(shapes: List[Shape])
+
+data Node :=
+  case Node(kind: Kind, props: List[Prop], children: List[Node])
+
+// a node on screen with the id of its widget
+data Placed :=
+  case Placed(id: Int, kind: Kind, props: List[Prop], children: List[Placed])
+
+// the parent 0 is the window, which has one child
+data Op :=
+  case OCreate(id: Int, parent: Int, index: Int, kind: Kind)
+  case OSet(id: Int, prop: Prop)
+  case ORemove(id: Int)
+  case OTitle(text: Str)
+
+data Event :=
+  case EClick(id: Int)
+  case EInput(id: Int, text: Str)
+  case EToggle(id: Int, on: Bool)
+  case EPointer(id: Int, x: Int, y: Int)
+  case EClose
+
+// the patches that create the node as the child at the index of the parent, numbered from next, with the node placed
+// and the next free id
+function create(parent: Int, index: Int, node: Node, next: Int): (List[Op], Placed, Int) :=
+  example create(0, 0, Node(KText, List(PText("a")), List()), 1) == (List(OCreate(1, 0, 0, KText), OSet(1, PText("a"))), Placed(1, KText, List(PText("a")), List()), 2)
+
+// the patches that turn the root on screen into the node, which keep each widget whose kind stays at its place
+function diff(old: Placed, new: Node, next: Int): (List[Op], Placed, Int)
+
+// the skeleton of what is on screen
+function skeleton_of(placed: Placed): Node
+
+// the path of child indices from the root to the widget of the id
+function path_of(id: Int, placed: Placed): Option[List[Int]]
+
+function kind_name(kind: Kind): Str
+
+// the name of the property and its values as fields
+function prop_fields(prop: Prop): List[Str]
+
+function encode(op: Op): Str :=
+  example encode(OSet(3, PText("a\tb"))) == "set\t3\ttext\ta\\tb"
+
+function decode(line: Str): Option[Event] :=
+  example decode("input\t4\ta\\tb") == Some(EInput(4, "a\tb"))
+  example decode("pointer\t2\t10\t-3") == Some(EPointer(2, 10, -3))
+  example decode("close") == Some(EClose)
+  example decode("bogus") == None
+
+implementation
+
+function create(parent: Int, index: Int, node: Node, next: Int): (List[Op], Placed, Int) :=
+  let (ops, children, after) := create_children(next, 0, node.children, next + 1), sets := List(for prop in node.props yield OSet(next, prop)) in
+  (List(OCreate(next, parent, index, node.kind); sets ++ ops), Placed(next, node.kind, node.props, children), after)
+
+function create_children(parent: Int, index: Int, nodes: List[Node], next: Int): (List[Op], List[Placed], Int) :=
+  match nodes
+    case List() =>
+      (List(), List(), next)
+
+    case List(node; rest) =>
+      let (ops, placed, after) := create(parent, index, node, next), (more, others, last) := create_children(parent, index + 1, rest, after) in
+      (ops ++ more, List(placed; others), last)
+  end
+
+function diff(old: Placed, new: Node, next: Int): (List[Op], Placed, Int) :=
+  if old.kind == new.kind then
+    update(old, new, next)
+  else
+    let (ops, placed, after) := create(0, 0, new, next) in
+    (List(ORemove(old.id); ops), placed, after)
+
+function update(old: Placed, new: Node, next: Int): (List[Op], Placed, Int) :=
+  let (ops, children, after) := update_children(old.id, 0, old.children, new.children, next) in
+  (changed_props(old.id, old.props, new.props) ++ ops, Placed(old.id, new.kind, new.props, children), after)
+
+function update_children(parent: Int, index: Int, olds: List[Placed], news: List[Node], next: Int): (List[Op], List[Placed], Int) :=
+  match (olds, news)
+    case (List(), _) =>
+      create_children(parent, index, news, next)
+
+    case (List(_; _), List()) =>
+      (List(for old in olds yield ORemove(old.id)), List(), next)
+
+    case (List(old; olds_), List(new; news_)) =>
+      let (ops, placed, after) := (if old.kind == new.kind then
+        update(old, new, next)
+      else
+        let (created, made, last) := create(parent, index, new, next) in
+        (List(ORemove(old.id); created), made, last)), (more, others, final) := update_children(parent, index + 1, olds_, news_, after) in
+      (ops ++ more, List(placed; others), final)
+  end
+
+// the properties of the new list that the old one lacks, and the defaults of those that only the old one has
+function changed_props(id: Int, olds: List[Prop], news: List[Prop]): List[Op] :=
+  example changed_props(1, List(PText("a"), PDisabled(true)), List(PText("b"))) == List(OSet(1, PText("b")), OSet(1, PDisabled(false)))
+  List(for prop in news if not contains(prop, olds) yield OSet(id, prop)) ++ List(for prop in olds if not exists(news, lambda p => slot(p) == slot(prop)) yield OSet(id, default_of(prop)))
+
+function slot(prop: Prop): Int :=
+  match prop
+    case PText(_) =>
+      0
+
+    case PValue(_) =>
+      1
+
+    case PChecked(_) =>
+      2
+
+    case PDisabled(_) =>
+      3
+
+    case PSpacing(_) =>
+      4
+
+    case PSize(_, _) =>
+      5
+
+    case PExpand(_) =>
+      6
+
+    case PShapes(_) =>
+      7
+  end
+
+function default_of(prop: Prop): Prop :=
+  match prop
+    case PText(_) =>
+      PText("")
+
+    case PValue(_) =>
+      PValue("")
+
+    case PChecked(_) =>
+      PChecked(false)
+
+    case PDisabled(_) =>
+      PDisabled(false)
+
+    case PSpacing(_) =>
+      PSpacing(0)
+
+    case PSize(_, _) =>
+      PSize(-1, -1)
+
+    case PExpand(_) =>
+      PExpand(false)
+
+    case PShapes(_) =>
+      PShapes(List())
+  end
+
+function skeleton_of(placed: Placed): Node :=
+  Node(placed.kind, placed.props, List(for child in placed.children yield skeleton_of(child)))
+
+function path_of(id: Int, placed: Placed): Option[List[Int]] :=
+  if placed.id == id then Some(List()) else child_path(id, 0, placed.children)
+
+function child_path(id: Int, index: Int, children: List[Placed]): Option[List[Int]] :=
+  match children
+    case List() =>
+      None
+
+    case List(child; rest) =>
+      match path_of(id, child)
+        case Some(path) =>
+          Some(List(index; path))
+        case None =>
+          child_path(id, index + 1, rest)
+      end
+  end
+
+function encode(op: Op): Str :=
+  match op
+    case OCreate(id, parent, index, kind) =>
+      fields(List("create", show(id), show(parent), show(index), kind_name(kind)))
+
+    case OSet(id, prop) =>
+      fields(List("set", show(id)) ++ prop_fields(prop))
+
+    case ORemove(id) =>
+      fields(List("remove", show(id)))
+
+    case OTitle(text) =>
+      fields(List("title", escaped(text)))
+  end
+
+function fields(parts: List[Str]): Str :=
+  join("\t", parts)
+
+function kind_name(kind: Kind): Str :=
+  match kind
+    case KText =>
+      "text"
+
+    case KButton =>
+      "button"
+
+    case KEntry =>
+      "entry"
+
+    case KCheck =>
+      "check"
+
+    case KColumn =>
+      "column"
+
+    case KRow =>
+      "row"
+
+    case KCanvas =>
+      "canvas"
+  end
+
+function flag(on: Bool): Str :=
+  if on then "1" else "0"
+
+function prop_fields(prop: Prop): List[Str] :=
+  match prop
+    case PText(text) =>
+      List("text", escaped(text))
+
+    case PValue(text) =>
+      List("value", escaped(text))
+
+    case PChecked(on) =>
+      List("checked", flag(on))
+
+    case PDisabled(on) =>
+      List("disabled", flag(on))
+
+    case PSpacing(pixels) =>
+      List("spacing", show(pixels))
+
+    case PSize(width, height) =>
+      List("size", show(width), show(height))
+
+    case PExpand(on) =>
+      List("expand", flag(on))
+
+    case PShapes(shapes) =>
+      List("shapes", show(size(shapes))) ++ concat(List(for shape in shapes yield shape_fields(shape)))
+  end
+
+function color_fields(color: Rgb): List[Str] :=
+  List(show(color.red), show(color.green), show(color.blue))
+
+function shape_fields(shape: Shape): List[Str] :=
+  match shape
+    case SRect(x, y, width, height, color) =>
+      List("rect", show(x), show(y), show(width), show(height)) ++ color_fields(color)
+
+    case SCircle(x, y, radius, color) =>
+      List("circle", show(x), show(y), show(radius)) ++ color_fields(color)
+
+    case SLine(x, y, to_x, to_y, color) =>
+      List("line", show(x), show(y), show(to_x), show(to_y)) ++ color_fields(color)
+
+    case SLabel(x, y, text, color) =>
+      List("label", show(x), show(y), escaped(text)) ++ color_fields(color)
+  end
+
+// a field without tabs and newlines, which unescaped gives back the text
+function escaped(text: Str): Str :=
+  example escaped("a\\b\nc") == "a\\\\b\\nc"
+  str(concat(List(for c in chars(text) yield escape_char(c))))
+
+function escape_char(c: Char): List[Char] :=
+  match c
+    case '\\' =>
+      List('\\', '\\')
+
+    case '\t' =>
+      List('\\', 't')
+
+    case '\n' =>
+      List('\\', 'n')
+
+    case _ =>
+      List(c)
+  end
+
+function unescaped(text: Str): Str :=
+  example unescaped("a\\\\b\\nc") == "a\\b\nc"
+  str(unescape_chars(chars(text)))
+
+function unescape_chars(cs: List[Char]): List[Char] :=
+  match cs
+    case List('\\', 't'; rest) =>
+      List('\t'; unescape_chars(rest))
+
+    case List('\\', 'n'; rest) =>
+      List('\n'; unescape_chars(rest))
+
+    case List('\\', c; rest) =>
+      List(c; unescape_chars(rest))
+
+    case List(c; rest) =>
+      List(c; unescape_chars(rest))
+
+    case List() =>
+      List()
+  end
+
+function decode(line: Str): Option[Event] :=
+  match split(line, '\t')
+    case List("close") =>
+      Some(EClose)
+
+    case List("click", id) =>
+      map_option(number(id), lambda n => EClick(n))
+
+    case List("input", id, text) =>
+      map_option(number(id), lambda n => EInput(n, unescaped(text)))
+
+    case List("toggle", id, on) =>
+      map_option(number(id), lambda n => EToggle(n, on == "1"))
+
+    case List("pointer", id, x, y) =>
+      match (number(id), number(x), number(y))
+        case (Some(n), Some(px), Some(py)) =>
+          Some(EPointer(n, px, py))
+        case _ =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+test diff_keeps_widgets() :=
+  let (_, placed, next) := create(0, 0, Node(KColumn, List(), List(Node(KText, List(PText("0")), List()))), 1)
+  let (ops, after, _) := diff(placed, Node(KColumn, List(), List(Node(KText, List(PText("1")), List()))), next)
+  assert ops == List(OSet(2, PText("1")))
+  assert skeleton_of(after) == Node(KColumn, List(), List(Node(KText, List(PText("1")), List())))
+
+test diff_replaces_and_trims() :=
+  let text := Node(KText, List(PText("a")), List())
+  let (_, placed, next) := create(0, 0, Node(KRow, List(), List(text, text)), 1)
+  let (ops, after, _) := diff(placed, Node(KRow, List(), List(Node(KButton, List(), List()))), next)
+  assert ops == List(ORemove(2), OCreate(4, 1, 0, KButton), ORemove(3))
+  assert path_of(4, after) == Some(List(0)) and path_of(2, after) == None

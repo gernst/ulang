@@ -1,0 +1,91 @@
+// a program of a window in the architecture of Elm: a model, a pure update by the events of the program, and a pure
+// view, run against the host of the window, gui/host/host.py, which starts the program with the port to connect to
+
+export
+
+data App[M, E] :=
+  case App(title: Str, init: M, update: (E, M) -> M, view: M -> Widget[E])
+
+data GuiError :=
+  case GuiError(message: Str)
+
+// the model after the events, as the window would have it after them
+function simulate[M, E](app: App[M, E], events: List[E]): M
+
+// connects to the host at the port of the first argument and runs the app until its window closes
+procedure gui_run[M, E](in app: App[M, E]) raises GuiError, OsError
+
+implementation
+
+function simulate[M, E](app: App[M, E], events: List[E]): M :=
+  foldl(events, app.init, lambda model, event => app.update(event, model))
+
+procedure gui_run[M, E](in app: App[M, E]) raises GuiError, OsError :=
+  var args
+  os_args(out args)
+  let port := match args
+    case List(arg; _) =>
+      number(arg)
+    case List() =>
+      None
+  end
+  match port
+    case Some(n) =>
+      var io
+      io_connect(in "127.0.0.1", n, out io)
+      serve(in app, io)
+      io_close(in io)
+
+    case None =>
+      raise GuiError("run the program by gui/host/host.py, which passes the port of its window")
+  end
+
+procedure serve[M, E](in app: App[M, E], io: IO) raises GuiError, OsError :=
+  var tree := app.view(app.init)
+  require_fitting(in tree)
+  let (ops, first_placed, first_next) := create(0, 0, skeleton(tree), 1)
+  send(in io, List(OTitle(app.title); ops))
+  var model := app.init, placed := first_placed, next := first_next, open := true
+  while open do
+    var line
+    io_read_line(in io, out line)
+    match line
+      case None =>
+        open := false
+
+      case Some(text) =>
+        match decode(text)
+          case Some(EClose) =>
+            open := false
+
+          case Some(event) =>
+            match handle(tree, placed, event)
+              case Some(e) =>
+                let updated := app.update(e, model)
+                let view := app.view(updated)
+                require_fitting(in view)
+                let (patches, now_placed, now_next) := diff(placed, skeleton(view), next)
+                send(in io, patches)
+                model := updated, tree := view, placed := now_placed, next := now_next
+
+              // of a widget that the last patches removed
+              case None =>
+                skip
+            end
+
+          case None =>
+            raise GuiError("the host sent " ++ text)
+        end
+    end
+  end
+
+procedure require_fitting[E](in w: Widget[E]) raises GuiError :=
+  match misplaced(w)
+    case List() =>
+      skip
+    case wrong =>
+      raise GuiError("attributes that their widgets lack: " ++ join(", ", wrong))
+  end
+
+procedure send(in io: IO, ops: List[Op]) raises OsError :=
+  io_write_utf8(in io, join("", List(for op in ops yield encode(op) ++ "\n")) ++ "commit\n")
