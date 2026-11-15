@@ -298,7 +298,7 @@ function expanded_statement(aliases: Aliases, pos: Pos, span: Span, stmt: Stmt):
       SAssign(List(for (x, e) in upd yield (x, expanded_expr(aliases, e))))
 
     case SBlock(locals, stmts) =>
-      SBlock(locals, List(for d in stmts yield expanded_stmt(aliases, d)))
+      block_expansion(locals, List(for d in stmts yield expanded_stmt(aliases, d)))
 
     case SLocal(mutable, decls) =>
       SLocal(mutable, List(for (p, init) in decls yield (dealiased(aliases, p), map_option(init, lambda e => expanded_expr(aliases, e)))))
@@ -636,3 +636,125 @@ function step_expansion(pos: Pos, span: Span, form: Form, elem: Yield, base: At[
     case (_, YPair(k, v)) =>
       AOk(pos, span, ECons(pos, span, THole, AOk(pos, span, ETuple(List(k, v))), base))
   end
+
+// a block of locals and stmts with SLocal statements is a block that declares its locals at its start: the statements
+// before the first SLocal, then a block of its declarations, where a run of variables is one block, whose values are the
+// assignments at its start, and a pattern is a block of its variables, assigned by a match of the value under names
+// that users cannot write, each followed by the block of the rest
+function block_expansion(locals: List[At[Var]], stmts: List[At[Stmt]]): Stmt :=
+  match stmts
+    case List(
+      AOk(at, at_span, SLocal(mutable, decls)) | AErr(at, at_span, SLocal(mutable, decls), _); rest) =>
+      let vars := leading_vars(decls) in
+      if vars != List() then
+        let inits := List(for (x, (_, init)) in zip(vars, decls) for e in init yield AOk(x.pos, x.span, SAssign(List((x.that, e))))) in
+        SBlock(locals ++ vars, inits ++ rest_expansion(at, at_span, mutable, drop(size(vars), decls), rest))
+      else
+        match decls
+          case List((pat, Some(e)); more) =>
+            let xs := placed_vars(pat) in
+            let assigned := AOk(pat.pos, pat.span, SAssign(List(for x in xs yield (x.that, AOk(x.pos, x.span, EVar(generated_var(x.that))))))) in
+            SBlock(locals ++ xs, List(
+              AOk(pat.pos, pat.span, SMatch(e, List(
+                AOk(pat.pos, pat.span, Branch(generated_pattern(pat), None, assigned)))))) ++ rest_expansion(at, at_span, mutable, more, rest))
+
+          // the checker gives a value to every declaration of a pattern that is no variable
+          case _ =>
+            SBlock(locals, stmts)
+        end
+
+    case _ =>
+      let before := before_local(stmts) in
+      match drop(size(before), stmts)
+        case List(d; rest) =>
+          SBlock(locals, before ++ List(AOk(d.pos, d.span, block_expansion(List(), List(d; rest)))))
+        case List() =>
+          SBlock(locals, stmts)
+      end
+  end
+
+// the statements after a declaration at at, which start with a block of the declarations decls after it, if there are
+// any, where the statements from the next SLocal on are a block
+function rest_expansion(at: Pos, at_span: Span, mutable: Bool, decls: List[(At[Pat], Option[At[Expr]])], rest: List[At[Stmt]]): List[At[Stmt]] :=
+  if decls == List() then
+    let before := before_local(rest) in
+    if size(before) == size(rest) then
+      before
+    else
+      before ++ List(AOk(at, at_span, block_expansion(List(), drop(size(before), rest))))
+  else
+    List(
+      AOk(at, at_span, block_expansion(List(), List(AOk(at, at_span, SLocal(mutable, decls)); rest))))
+
+function before_local(stmts: List[At[Stmt]]): List[At[Stmt]] :=
+  match stmts
+    case List(d; rest) if not is_local(d) =>
+      List(d; before_local(rest))
+    case _ =>
+      List()
+  end
+
+function is_local(stmt: At[Stmt]): Bool :=
+  match stmt
+    case AOk(_, _, SLocal(_, _)) | AErr(_, _, SLocal(_, _), _) =>
+      true
+    case _ =>
+      false
+  end
+
+// the declarations at the start of decls that are variables
+function leading_vars(decls: List[(At[Pat], Option[At[Expr]])]): List[At[Var]] :=
+  match decls
+    case List((AOk(pos, span, PVar(x)), _); more) =>
+      List(AOk(pos, span, x); leading_vars(more))
+    case _ =>
+      List()
+  end
+
+// the variables of a checked pattern at their positions, those of the first alternative
+function placed_vars(pat: At[Pat]): List[At[Var]] :=
+  match pat.that
+    case PVar(x) =>
+      List(AOk(pat.pos, pat.span, x))
+
+    case PApp(_, args) =>
+      List(for p in args for x in placed_vars(p) yield x)
+
+    case PTuple(args) =>
+      List(for p in args for x in placed_vars(p) yield x)
+
+    case PAnnotated(inner, _) =>
+      placed_vars(inner)
+
+    case POr(alts) =>
+      List(for p in take(1, alts) for x in placed_vars(p) yield x)
+
+    case PWild | PLit(_) =>
+      List()
+  end
+
+// the variable that the match of the declaration of x binds, under a name that users cannot write
+function generated_var(x: Var): Var :=
+  Var(generated_name(x.name.base), x.typ)
+
+// the pattern with the generated names of its variables
+function generated_pattern(pat: At[Pat]): At[Pat] :=
+  map_at(pat, lambda p => match p
+    case PVar(x) =>
+      PVar(generated_var(x))
+
+    case PApp(constr, args) =>
+      PApp(constr, List(for q in args yield generated_pattern(q)))
+
+    case PTuple(args) =>
+      PTuple(List(for q in args yield generated_pattern(q)))
+
+    case PAnnotated(inner, typ) =>
+      PAnnotated(generated_pattern(inner), typ)
+
+    case POr(alts) =>
+      POr(List(for q in alts yield generated_pattern(q)))
+
+    case PWild | PLit(_) =>
+      p
+  end)

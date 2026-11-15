@@ -866,9 +866,8 @@ function zonk_statement(s: State, stmt: Stmt): Stmt :=
     case SBlock(locals, stmts) =>
       SBlock(zonk_decls(s, locals), List(for d in stmts yield zonk_stmt(s, d)))
 
-    // the checker gives no SLocal
-    case SLocal(_, _) =>
-      stmt
+    case SLocal(mutable, decls) =>
+      SLocal(mutable, List(for (p, e) in decls yield (zonk_pat(s, p), map_option(e, lambda x => zonk_expr(s, x)))))
 
     case SIf(cond, left, right) =>
       SIf(zonk_expr(s, cond), zonk_stmt(s, left), zonk_stmt(s, right))
@@ -996,9 +995,8 @@ function unknown_in(stmt: At[Stmt]): Option[(Pos, Type)] :=
     case SBlock(_, stmts) =>
       unknown_in_all(stmts)
 
-    // the checker gives no SLocal
-    case SLocal(_, _) =>
-      None
+    case SLocal(_, decls) =>
+      unknown_in_exprs(List(for (_, e) in decls for x in e yield x))
 
     case SIf(cond, left, right) =>
       or_else(unknown_in_expr(cond), or_else(unknown_in(left), unknown_in(right)))
@@ -3924,13 +3922,15 @@ procedure statement_node(
       checks(in env, "the assignment", seconds(upd), List(for x in ys yield x.typ), out exprs, ref s)
       y := SAssign(zip(ys, exprs)), env := assigned(env, List(for x in ys yield x.name))
 
-    // the locals of the parser are SLocal statements, each a block of the rest of its body
+    // the locals of the parser are SLocal statements, each checked as a block of the rest of its body, of which the
+    // checked program keeps the statements as written
     case SBlock(locals, stmts) if exists(stmts, lambda d => is_local(d)) =>
-      var block: Stmt, fixed: Option[Int]
+      var block: Stmt, fixed: Option[Int], checked: Stmt
       declared(in pos, locals, stmts, out block, fixed, ref s)
       match block
         case SBlock(ls, ss) =>
-          block_statement(in assignable, ls, ss, fixed, out y, ref env, s)
+          block_statement(in assignable, ls, ss, fixed, out checked, ref env, s)
+          y := local_parts(s, locals, stmts, checked)
 
         // declared gives a block
         case _ =>
@@ -6677,3 +6677,180 @@ test errors() :=
   assert raises WrongArity(Name(None, "size"), 2) do
     body_of(in fun_cmd("f", List(), TInt(), expr_app("size", List(expr_int(1), expr_int(2)))), out _)
   end
+
+// the checked block of the block of locals and stmts as the source wrote it, with the SLocal statements that declared made
+// blocks of: checked is the checked block that declared made of them, whose statements of the rest of a declaration are
+// the block of them as written, and the errors of the parts that declared made stand on the declaration
+function local_parts(s: State, locals: List[At[Var]], stmts: List[At[Stmt]], checked: Stmt): Stmt :=
+  match (stmts, checked)
+    case (List(AOk(at, at_span, SLocal(mutable, decls)); _), SBlock(ls, ss)) =>
+      let vars := declared_vars(s, decls) in
+      if vars != List() then
+        let k := size(List(for (_, (_, init)) in zip(vars, decls) for e in init yield e)) in
+        match declared_parts(take(size(vars), drop(size(locals), ls)), decls, take(k, ss))
+          case (own, errors) =>
+            SBlock(take(size(locals), ls), merged(at, at_span, mutable, own, errors, drop(size(vars), decls), drop(k, ss)))
+        end
+      else
+        match (decls, ss)
+          case (List((pat, _); more), List(m; after)) =>
+            match matched_part(pat, m)
+              case (own, errors) =>
+                SBlock(take(size(locals), ls), merged(at, at_span, mutable, own, errors, more, after))
+            end
+
+          // declared gives a match of the pattern of the first declaration
+          case _ =>
+            checked
+        end
+
+    case (_, SBlock(ls, ss)) =>
+      match find(stmts, is_local)
+        case Some(d) =>
+          SBlock(ls, List(for x in ss for y in flattened(d.pos, x) yield y))
+        case None =>
+          checked
+      end
+
+    case _ =>
+      checked
+  end
+
+// the declaration at at of the declarations own, with the errors of the parts that declared made of them, followed by the
+// declarations more, and rest, the checked statements after them, where the declarations more are those of the SLocal
+// that starts the block of the rest
+function merged(at: Pos, at_span: Span, mutable: Bool, own: List[(At[Pat], Option[At[Expr]])], errors: List[Diagnostic], more: List[(At[Pat], Option[At[Expr]])], rest: List[At[Stmt]]): List[At[Stmt]] :=
+  let after := List(for x in rest for y in flattened(at, x) yield y) in
+  match (more, after)
+    case (List(_; _), List(d; others)) =>
+      match d
+        case AOk(_, _, SLocal(_, decls)) =>
+          List(
+            with_node_errors(AOk(at, at_span, SLocal(mutable, own ++ decls)), errors); others)
+
+        case AErr(_, _, SLocal(_, decls), inner) =>
+          List(
+            with_node_errors(AOk(at, at_span, SLocal(mutable, own ++ decls)), errors ++ inner); others)
+
+        case _ =>
+          List(
+            with_node_errors(AOk(at, at_span, SLocal(mutable, own)), errors); after)
+      end
+
+    case _ =>
+      List(
+        with_node_errors(AOk(at, at_span, SLocal(mutable, own)), errors); after)
+  end
+
+// the statements of the block of the rest of a block from the declaration at pos, which declared made, or else d
+function flattened(pos: Pos, d: At[Stmt]): List[At[Stmt]] :=
+  match d
+    case AOk(p, _, SBlock(List(), inner)) if p == pos =>
+      inner
+
+    case AErr(p, _, SBlock(List(), inner), errors) if p == pos =>
+      match inner
+        case List(first; others) =>
+          List(with_node_errors(first, errors); others)
+        case List() =>
+          List(d)
+      end
+
+    case _ =>
+      List(d)
+  end
+
+function with_node_errors[A](x: At[A], errors: List[Diagnostic]): At[A] :=
+  match (x, errors)
+    case (_, List()) =>
+      x
+
+    case (AOk(pos, span, that), _) =>
+      AErr(pos, span, that, errors)
+
+    case (AErr(pos, span, that, own), _) =>
+      AErr(pos, span, that, errors ++ own)
+
+    case (AUnparsed(_, _, _, _), _) =>
+      x
+  end
+
+// the checked declarations of variables xs of decls, whose values are those of the checked assignments inits in order,
+// with the errors of those assignments
+function declared_parts(xs: List[At[Var]], decls: List[(At[Pat], Option[At[Expr]])], inits: List[At[Stmt]]): (List[(At[Pat], Option[At[Expr]])], List[Diagnostic]) :=
+  match (xs, decls, inits)
+    case (List(x; more), List((_, Some(_)); ds), List(init; others)) =>
+      match declared_parts(more, ds, others)
+        case (rest, errors) =>
+          (List((AOk(x.pos, x.span, PVar(x.that)), assigned_value(init)); rest), node_errors(init) ++ errors)
+      end
+
+    case (List(x; more), List(_; ds), _) =>
+      match declared_parts(more, ds, inits)
+        case (rest, errors) =>
+          (List((AOk(x.pos, x.span, PVar(x.that)), None); rest), errors)
+      end
+
+    case _ =>
+      (List(), List())
+  end
+
+function assigned_value(init: At[Stmt]): Option[At[Expr]] :=
+  match init
+    case AOk(_, _, SAssign(List((_, e)))) =>
+      Some(e)
+
+    case AErr(_, _, SAssign(List((_, e))), _) =>
+      Some(e)
+
+    case _ =>
+      None
+  end
+
+function node_errors[A](x: At[A]): List[Diagnostic] :=
+  match x
+    case AErr(_, _, _, errors) =>
+      errors
+    case _ =>
+      List()
+  end
+
+// the checked declaration of the pattern pat from the checked match m that declared made of it, with the names of its
+// variables, and the errors of the parts of the match
+function matched_part(pat: At[Pat], m: At[Stmt]): (List[(At[Pat], Option[At[Expr]])], List[Diagnostic]) :=
+  match m
+    case AOk(_, _, SMatch(e, List(b))) | AErr(_, _, SMatch(e, List(b)), _) =>
+      match b
+        case AOk(_, _, Branch(p, _, assigned))
+           | AErr(_, _, Branch(p, _, assigned), _) =>
+          (List((ungenerated_pat(p), Some(e))), node_errors(m) ++ node_errors(b) ++ node_errors(assigned))
+
+        case _ =>
+          (List((pat, None)), node_errors(m))
+      end
+
+    case _ =>
+      (List((pat, None)), node_errors(m))
+  end
+
+// the checked pattern with the names of its variables as written, which generated_pat gave names that users cannot write
+function ungenerated_pat(pat: At[Pat]): At[Pat] :=
+  map_at(pat, lambda p => match p
+    case PVar(x) if starts_with(x.name.base, "(") and size(x.name.base) > 2 =>
+      PVar(Var(unqualified(slice(x.name.base, 1, size(x.name.base) - 1)), x.typ))
+
+    case PApp(constr, args) =>
+      PApp(constr, List(for q in args yield ungenerated_pat(q)))
+
+    case PTuple(args) =>
+      PTuple(List(for q in args yield ungenerated_pat(q)))
+
+    case POr(alts) =>
+      POr(List(for q in alts yield ungenerated_pat(q)))
+
+    case PAnnotated(inner, typ) =>
+      PAnnotated(ungenerated_pat(inner), typ)
+
+    case PVar(_) | PWild | PLit(_) =>
+      p
+  end)

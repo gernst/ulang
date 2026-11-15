@@ -333,9 +333,8 @@ function stmt_hints(lines: Array[Str], decls: Decls, stmt: At[Stmt]): List[Hint]
     case Some(SBlock(locals, stmts)) =>
       decl_hints(lines, locals) ++ stmts_hints(lines, decls, stmts)
 
-    // the checker gives no SLocal
-    case Some(SLocal(_, _)) =>
-      List()
+    case Some(SLocal(_, declared)) =>
+      List(for (p, e) in declared for h in pat_hints(lines, decls, p) ++ exprs_hints(lines, decls, List(for x in e yield x)) yield h)
 
     case Some(SIf(cond, left, right)) =>
       expr_hints(lines, decls, cond) ++ stmts_hints(lines, decls, List(left, right))
