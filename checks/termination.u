@@ -1,6 +1,6 @@
 // the recursive functions of ulang/ and of the library whose termination the prover does not prove, so that the rule of
 // style that code that may not terminate is a procedure is checked also where no lemma reaches the code; the program is
-// the driver ulang/ulang.u, which imports every package of ulang/
+// the driver ulang/ulang.u, which loads every package of ulang/
 
 import "ulang/syntax"
 import "ulang/parse"

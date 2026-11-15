@@ -6,6 +6,7 @@
 
 import "ulang/test/modules/counter"
 import "ulang/test/modules/counter"
+import "ulang/test/modules/aliases"
 
 export
 
@@ -38,6 +39,16 @@ test private_names() :=
 // annotations by imported abstract types, whose constructors have the names of their types
 function counted(c: Counter): Int :=
   count(c)
+
+// an import whose aliases alone a module uses is used, though their expansions name only the library
+test alias_imports() :=
+  let n: Count := 2
+  match List(n)
+    case Single(x) =>
+      assert x == 2
+    case _ =>
+      assert false
+  end
 
 test abstract_annotations() :=
   let t: Tally := tally(List(1, 2))

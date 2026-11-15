@@ -1,0 +1,10 @@
+// a module for the test alias_imports of ulang/test/modules/modules.u, whose aliases expand to a type and constructors of
+// the library, so that an importer that uses only them uses this package by its aliases alone
+
+export
+
+type Count :=
+  Int
+
+pattern Single(x: Int): List[Int] :=
+  List(x)

@@ -83,6 +83,8 @@ data TypeError :=
   case NotAnException(typ: Type)
   // the procedure name raises typ, which its raises omit
   case UndeclaredRaise(name: Name, typ: Type)
+  // an import of a package of which its module uses nothing
+  case UnusedImport(package: Id)
   // the procedure value name, lambda for a lambda, raises typ, which its type omits, as the place of its use gives it
   case UntypedRaise(name: Name, typ: Type)
   // a procedure value of a type that raises typ, which the type of the place it reaches omits
@@ -199,7 +201,7 @@ data Within :=
 // loop_assigned are of the command being checked, the unknown types reported, each once, and the variables that the body
 // of a while assigns which are not assigned before it, the latter of the procedure or procedure lambda being checked
 data State :=
-  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[Pos * Env], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name], raises_count: Int, bounds: Buffer[Bound], solved: Option[Map[Int, Set[Name]]])
+  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[Pos * Env], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name], raises_count: Int, bounds: Buffer[Bound], solved: Option[Map[Int, Set[Name]]], aliased: Set[Id * Id])
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -223,7 +225,7 @@ function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
   value_or(get(m, vs), List(m))
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
-  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty(), empty(), empty(), 0, empty(), None)
+  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty(), empty(), empty(), 0, empty(), None, empty())
 
 function in_module(m: Id, n: Name): Name :=
   Name(Some(m), n.base)
@@ -1722,6 +1724,15 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
       end
   end
 
+// the use of the alias n by the module checked, which the expansion leaves no name of, for UnusedImport
+procedure aliased(in n: Name, ref s: State) :=
+  match n.module
+    case Some(m) =>
+      s := s with aliased := Set((s.module, m); s.aliased)
+    case None =>
+      skip
+  end
+
 // reported once per command, e.g. a type parameter that its declaration omits
 procedure unknown_sort(in n: Name, ref s: State) :=
   if not contains(n, s.unknown_sorts) then
@@ -1755,6 +1766,7 @@ procedure normalize_sort(
           var us: List[Type]
           normalizes(in args, out us, ref s)
           u := subst(alias.typ, zip(params(alias.params), us))
+          aliased(in n, ref s)
 
         case None =>
           unknown_sort(in n, ref s)
@@ -3230,6 +3242,8 @@ procedure constructor_binders(
   match pat_alias_of(s.sig, k)
     case Some(alias) =>
       typed_pat := subst_pat(alias.pat, zip(List(for x in alias.formals yield x.name), qs)) with pos := pos, span := span
+      aliased(in k, ref s)
+
     case None =>
       typed_pat := AOk(pos, span, PApp(k, qs))
   end
@@ -5079,7 +5093,7 @@ procedure check_source(
 
       case _ =>
         try
-          check_package(in mods, source.packages, sig, imports, unparsed, partial, generate, out checked, shown, found, found_loose)
+          check_package(in mods, source.packages, sig, imports, unparsed, partial, exists(mods, lambda d => d.name == source.main), generate, out checked, shown, found, found_loose)
           if id != own and errors == List() and found == List() and found_loose == List() and not partial then
             checks := checks with packages := put(id, CheckedPackage(checked, shown), checks.packages)
           end
@@ -5130,8 +5144,15 @@ procedure with_errors(
     match container(indexed, error_module(main, e), error_pos(e), None)
       case Some(i) =>
         on := put(i, value_or(get(i, on), List()) ++ List(type_diagnostic(e)), on)
+
+      // before the first command of its module, as an import
       case None =>
-        raise Unexpected("an error outside the commands of its module, " ++ show(e))
+        match first_of(indexed, error_module(main, e))
+          case Some(i) =>
+            on := put(i, value_or(get(i, on), List()) ++ List(type_diagnostic(e)), on)
+          case None =>
+            raise Unexpected("an error outside the commands of its module, " ++ show(e))
+        end
     end
   end
   placed := List(for (i, (_, cmd)) in indexed yield with_diagnostics(cmd, value_or(get(i, on), List())))
@@ -5155,6 +5176,15 @@ function error_pos(e: TypeError): Pos :=
   end
 
 // the index of the last command of module m in cmds that starts at or before pos, after found
+// the first of the commands cmds of the module m
+function first_of(cmds: List[Int * (Id * At[Cmd])], m: Id): Option[Int] :=
+  match List(for (i, (n, _)) in cmds if n == m yield i)
+    case List(i; _) =>
+      Some(i)
+    case List() =>
+      None
+  end
+
 function container(cmds: List[Int * (Id * At[Cmd])], m: Id, pos: Pos, found: Option[Int * Pos]): Option[Int] :=
   match cmds
     case List() =>
@@ -5295,6 +5325,7 @@ procedure check_package(
       imports: List[Id * List[Id]],
       unparsed: Set[Id],
       partial: Bool,
+      judged: Bool,
       generate: Checked -> List[Pos * (Id * Cmd)],
   out cmds: List[Id * At[Cmd]],
       shown: Sig,
@@ -5309,7 +5340,7 @@ procedure check_package(
     private_of(in d, out private, private_sorts)
     hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
   end
-  s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty(), empty(), empty(), 0, empty(), None), decls := seconds(placed)
+  s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty(), empty(), empty(), 0, empty(), None, empty()), decls := seconds(placed)
   each_placed(in declare_datas, placed, ref s)
   declare_datas(in builtins, ref s)
   each_placed(in declare_sorts, alias_order(List(for p in placed if alias_names(p) != None), List()), ref s)
@@ -5364,6 +5395,23 @@ procedure check_package(
   let solving := s with sub := empty(), chosen := empty(), solved := Some(exceptions.solved)
   errors := errors ++ exceptions.errors, cmds := List(for (m, c) in cmds yield (m, map_at(c, lambda cmd => with_inferred(if cmd_errors(c) == List() then zonk_cmd(solving, cmd) else cmd, exceptions.inferred))))
   loose := loose ++ drop(size(s.errors), errors)
+  if judged and errors == List() then
+    let unused := unused_imports(mods, packages, cmds, s.aliased)
+    errors := unused, loose := loose ++ unused
+  end
+
+// the imports of the modules mods of a package of which their checked commands cmds use nothing, by the modules of
+// their resolved names and of the aliases that they use, which aliased pairs with the modules that use them; judged only
+// for the package of the loaded file, whose members have their tests, which may need an import alone, and only for the
+// imports that the parser read, not those of the fixtures of tests at Pos(0, 0)
+function unused_imports(mods: List[Mod], packages: List[Package], cmds: List[Id * At[Cmd]], aliased: Set[Id * Id]): List[TypeError] :=
+  List(for d in mods for i in d.imports if i.pos != Pos(0, 0) and not uses_package(uses_of(d.name, cmds, aliased), i.that, packages) yield Located(Some(d.name), i.pos, UnusedImport(i.that)))
+
+function uses_of(m: Id, cmds: List[Id * At[Cmd]], aliased: Set[Id * Id]): Set[Id] :=
+  Set(for (n, c) in cmds if n == m for x in used_modules(c.that) yield x) ++ Set(for (n, a) in aliased if n == m yield a)
+
+function uses_package(used: Set[Id], p: Id, packages: List[Package]): Bool :=
+  exists(packages, lambda k => k.id == p and exists(k.members, lambda x => contains(x, used)))
 
 // cmd with the raises inferred of it if it is a private procedure without raises, which the checked program keeps
 function with_inferred(cmd: Cmd, inferred: Map[Name, List[Type]]): Cmd :=
@@ -5881,7 +5929,8 @@ function signature_of(cmd: Cmd): Cmd :=
 
 // the program of the commands cmds of the module main, which imports bag and box, each a package of its own
 function with_bags(cmds: List[Cmd]): Source :=
-  Source(List(natives_prelude(); bags()) ++ List(Mod("main", List("bag", "box"), List(), List(), unplaced(cmds), List())), List(
+  Source(List(natives_prelude(); bags()) ++ List(
+    Mod("main", List(nowhere("bag"), nowhere("box")), List(), List(), unplaced(cmds), List())), List(
     Package("prelude", List(library_module("prelude"))),
     Package("bag", List("bag")),
     Package("box", List("box"))), "main")

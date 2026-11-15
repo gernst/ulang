@@ -3196,7 +3196,7 @@ procedure parse_mod(
   ref source: Source,
       toks: Tokens
 ) :=
-  var imports: List[Id] := List(), notation := empty_notation(), plain: List[At[Cmd]] := List(), exported: List[At[Cmd]] := List(), builtins: List[At[Cmd]] := List(), implemented: List[At[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[At[Cmd]], text: Str, names: List[Id] := List()
+  var imports: List[At[Id]] := List(), notation := empty_notation(), plain: List[At[Cmd]] := List(), exported: List[At[Cmd]] := List(), builtins: List[At[Cmd]] := List(), implemented: List[At[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, imported: Id, placed: List[At[Cmd]], text: Str, names: List[Id] := List()
   import_all(in implicit, root, loading, ref source)
   import_notations(in implicit, source.mods, ref notation)
   notation := notation ++ package
@@ -3252,7 +3252,7 @@ procedure parse_section_or_command(
   out more: List[Cmd],
   ref notation: Notation,
       section: Section,
-      imports: List[Id],
+      imports: List[At[Id]],
       source: Source,
       toks: Tokens
 ) :=
@@ -3295,7 +3295,7 @@ procedure parse_section_or_command(
       parse_import(out imported, ref toks)
       import_package(in imported, root, dir, loading, pos, ref source)
       import_notation(in package_members(imported, source.packages), source.mods, pos, ref notation)
-      imports := imports ++ List(imported)
+      imports := imports ++ List(AOk(pos, span_from(pos, toks), imported))
 
     case _ =>
       parse_command(in notation, out more, ref toks)
@@ -3469,7 +3469,7 @@ function dependents(source: Source, own: Id): Set[Id] :=
 // the packages that the members of p import, the library besides
 function imports_of(source: Source, p: Package): List[Id] :=
   List(
-    "prelude"; List(for d in source.mods if contains(d.name, p.members) for i in d.imports yield i))
+    "prelude"; List(for d in source.mods if contains(d.name, p.members) for i in d.imports yield i.that))
 
 // source without the package own and those that import it, which a load of a file of own loads again
 function without_dependents(source: Source, own: Id): Source :=

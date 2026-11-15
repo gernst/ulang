@@ -1,0 +1,306 @@
+// the modules whose declarations a checked command uses, by the modules of the resolved names that it holds: of the
+// functions, procedures, and constructors that it applies, calls, and matches, and of the datatypes in its types, which
+// UnusedImport of ulang/check/check.u compares with the imports of its module; the pattern and type aliases that checking
+// expands leave no name of theirs behind, so check.u records their uses apart
+
+import "ulang/syntax"
+
+export
+
+function used_modules(cmd: Cmd): Set[Id]
+
+implementation
+
+function used_modules(cmd: Cmd): Set[Id] :=
+  match cmd
+    case CSort(_, _, typ) =>
+      type_modules(typ)
+
+    case CData(_, _, constrs) =>
+      Set(for k in constrs for f in k.that.fields for m in type_modules(f.typ) yield m)
+
+    case CFun(_, _, formals, typ, spec, body) =>
+      vars_modules(formals) ++ type_modules(typ) ++ spec_modules(spec) ++ expr_modules(body)
+
+    case CProc(_, _, ins, outs, refs, raised, spec, stmt) =>
+      vars_modules(ins ++ outs ++ refs) ++ types_modules(raised) ++ spec_modules(spec) ++ stmt_modules(stmt)
+
+    case CNotation(_, _, _) =>
+      Set()
+
+    case CTest(_, vars, stmt) =>
+      vars_modules(vars) ++ stmt_modules(stmt)
+
+    case CFunSig(_, _, formals, typ, spec) =>
+      vars_modules(formals) ++ type_modules(typ) ++ spec_modules(spec)
+
+    case CProcSig(_, _, ins, outs, refs, raised, spec) =>
+      vars_modules(ins ++ outs ++ refs) ++ types_modules(raised) ++ spec_modules(spec)
+
+    case CAbstract(_, _) =>
+      Set()
+
+    case CPatAlias(_, _, formals, typ, pat) =>
+      vars_modules(formals) ++ type_modules(typ) ++ pat_modules(pat)
+
+    case CLemma(_, _, ins, outs, claim, proof) =>
+      vars_modules(ins ++ outs) ++ claim_modules(claim) ++ value_or(map_option(proof, proof_modules), Set())
+  end
+
+function name_modules(name: Name): Set[Id] :=
+  match name.module
+    case Some(m) =>
+      Set(m)
+    case None =>
+      Set()
+  end
+
+function type_modules(typ: Type): Set[Id] :=
+  match typ
+    case TSort(name, args) =>
+      name_modules(name) ++ types_modules(args)
+
+    case TFun(args, res) =>
+      types_modules(args) ++ type_modules(res)
+
+    case TProc(ins, outs, refs, raised) =>
+      types_modules(ins ++ outs ++ refs) ++ raises_modules(raised)
+
+    case TTuple(types) =>
+      types_modules(types)
+
+    case _ =>
+      Set()
+  end
+
+function types_modules(types: List[Type]): Set[Id] :=
+  Set(for t in types for m in type_modules(t) yield m)
+
+function raises_modules(raised: Raises): Set[Id] :=
+  match raised
+    case RWritten(types) =>
+      types_modules(types)
+
+    case RSet(names) =>
+      Set(for n in names for m in name_modules(n) yield m)
+
+    case _ =>
+      Set()
+  end
+
+function var_modules(x: Var): Set[Id] :=
+  name_modules(x.name) ++ type_modules(x.typ)
+
+function vars_modules(xs: List[At[Var]]): Set[Id] :=
+  Set(for x in xs for m in var_modules(x.that) yield m)
+
+function plain_vars_modules(xs: List[Var]): Set[Id] :=
+  Set(for x in xs for m in var_modules(x) yield m)
+
+function spec_modules(spec: Spec): Set[Id] :=
+  exprs_modules(spec.pre) ++ option_modules(spec.post) ++ Set(for x in spec.examples for m in example_modules(x.that) yield m)
+
+function example_modules(x: Example): Set[Id] :=
+  match x
+    case XHolds(expr) =>
+      expr_modules(expr)
+
+    case XRaises(expr, pat) =>
+      expr_modules(expr) ++ pat_modules(pat)
+
+    case XCall(proc, ins, outs, refs) =>
+      name_modules(proc) ++ exprs_modules(ins ++ outs) ++ Set(for (a, b) in refs for m in expr_modules(a) ++ expr_modules(b) yield m)
+
+    case XCallRaises(proc, ins, _, befores, pat) =>
+      name_modules(proc) ++ exprs_modules(ins ++ befores) ++ pat_modules(pat)
+  end
+
+function claim_modules(claim: Claim): Set[Id] :=
+  match claim
+    case ClaimHolds(assms, concl) =>
+      exprs_modules(assms) ++ expr_modules(concl)
+    case ClaimCorrect(proc, ins, outs) =>
+      name_modules(proc) ++ exprs_modules(ins) ++ plain_vars_modules(outs)
+  end
+
+function proof_modules(proof: Proof): Set[Id] :=
+  Set(for step in proof.steps for m in step_modules(step.that) yield m) ++ value_or(map_option(proof.split, lambda split => split_modules(split.that)), Set())
+
+function step_modules(step: Step): Set[Id] :=
+  match step
+    case StepLocal(variable, value) =>
+      var_modules(variable.that) ++ option_modules(value)
+
+    case StepCall(name, ins, outs) =>
+      name_modules(name) ++ exprs_modules(ins) ++ plain_vars_modules(outs)
+
+    case StepAssert(cond) =>
+      expr_modules(cond)
+
+    case StepAssign(upd) =>
+      Set(for (x, e) in upd for m in var_modules(x) ++ expr_modules(e) yield m)
+
+    case StepInvariant(cond) =>
+      expr_modules(cond)
+  end
+
+function split_modules(split: Split): Set[Id] :=
+  match split
+    case SplitInduction(formal, cases) =>
+      var_modules(formal) ++ Set(for c in cases for m in pat_modules(c.that.pat) ++ proof_modules(c.that.body) yield m)
+
+    case SplitMatch(arg, cases) =>
+      expr_modules(arg) ++ Set(for c in cases for m in pat_modules(c.that.pat) ++ proof_modules(c.that.body) yield m)
+
+    case SplitIf(cond, left, right) =>
+      expr_modules(cond) ++ proof_modules(left) ++ value_or(map_option(right, proof_modules), Set())
+  end
+
+function option_modules(expr: Option[At[Expr]]): Set[Id] :=
+  match expr
+    case Some(e) =>
+      expr_modules(e)
+    case None =>
+      Set()
+  end
+
+function exprs_modules(exprs: List[At[Expr]]): Set[Id] :=
+  Set(for e in exprs for m in expr_modules(e) yield m)
+
+function expr_modules(expr: At[Expr]): Set[Id] :=
+  match expr.that
+    case ELit(_) =>
+      Set()
+
+    case EVar(variable) =>
+      var_modules(variable)
+
+    case EApp(fun, args) =>
+      expr_modules(fun) ++ exprs_modules(args)
+
+    case EField(base, _) =>
+      expr_modules(base)
+
+    case EUpdate(base, _, value) =>
+      expr_modules(base) ++ expr_modules(value)
+
+    case ELam(formals, body) =>
+      pats_modules(formals) ++ expr_modules(body)
+
+    case EProc(ins, outs, refs, raised, stmt) =>
+      vars_modules(ins ++ outs ++ refs) ++ raises_modules(raised) ++ stmt_modules(stmt)
+
+    case ELet(bindings, body) =>
+      Set(for (p, e) in bindings for m in pat_modules(p) ++ expr_modules(e) yield m) ++ expr_modules(body)
+
+    case EIte(cond, then_expr, else_expr) =>
+      expr_modules(cond) ++ expr_modules(then_expr) ++ expr_modules(else_expr)
+
+    case EMatch(arg, cases) =>
+      expr_modules(arg) ++ Set(for c in cases for m in branch_modules(c.that) ++ expr_modules(c.that.body) yield m)
+
+    case ETuple(args) =>
+      exprs_modules(args)
+
+    case EForm(_, elems, rest) =>
+      Set(for y in elems for m in yield_modules(y) yield m) ++ option_modules(rest)
+
+    case EFor(_, gens, elem, rest) =>
+      gens_modules(gens) ++ yield_modules(elem) ++ option_modules(rest)
+  end
+
+// the pattern and the guard of a case, whose body has a type of its own
+function branch_modules[A](b: Branch[A]): Set[Id] :=
+  pat_modules(b.pat) ++ option_modules(b.guard)
+
+function yield_modules(y: Yield): Set[Id] :=
+  match y
+    case YVal(value) =>
+      expr_modules(value)
+    case YPair(key, value) =>
+      expr_modules(key) ++ expr_modules(value)
+  end
+
+function gens_modules(gens: List[Gen]): Set[Id] :=
+  Set(for g in gens for m in gen_modules(g) yield m)
+
+function gen_modules(g: Gen): Set[Id] :=
+  match g
+    case GVal(pat, over) =>
+      pat_modules(pat) ++ expr_modules(over)
+
+    case GPair(key, value, over) =>
+      pat_modules(key) ++ pat_modules(value) ++ expr_modules(over)
+
+    case GIf(cond) =>
+      expr_modules(cond)
+  end
+
+function pats_modules(pats: List[At[Pat]]): Set[Id] :=
+  Set(for p in pats for m in pat_modules(p) yield m)
+
+function pat_modules(pat: At[Pat]): Set[Id] :=
+  match pat.that
+    case PWild =>
+      Set()
+
+    case PLit(_) =>
+      Set()
+
+    case PVar(variable) =>
+      var_modules(variable)
+
+    case PApp(constr, args) =>
+      name_modules(constr) ++ pats_modules(args)
+
+    case PTuple(args) =>
+      pats_modules(args)
+
+    case PAnnotated(inner, typ) =>
+      pat_modules(inner) ++ type_modules(typ)
+  end
+
+function stmt_modules(stmt: At[Stmt]): Set[Id] :=
+  match stmt.that
+    case SSkip =>
+      Set()
+
+    case SAssign(upd) =>
+      Set(for (x, e) in upd for m in var_modules(x) ++ expr_modules(e) yield m)
+
+    case SBlock(locals, stmts) =>
+      vars_modules(locals) ++ Set(for s in stmts for m in stmt_modules(s) yield m)
+
+    case SLocal(_, decls) =>
+      Set(for (p, e) in decls for m in pat_modules(p) ++ option_modules(e) yield m)
+
+    case SIf(cond, left, right) =>
+      expr_modules(cond) ++ stmt_modules(left) ++ stmt_modules(right)
+
+    case SWhile(cond, body) =>
+      expr_modules(cond) ++ stmt_modules(body)
+
+    case SCall(proc, ins, outs, refs) =>
+      name_modules(proc) ++ exprs_modules(ins) ++ plain_vars_modules(outs ++ refs)
+
+    case SMatch(arg, cases) =>
+      expr_modules(arg) ++ Set(for c in cases for m in branch_modules(c.that) ++ stmt_modules(c.that.body) yield m)
+
+    case SAssert(cond) =>
+      expr_modules(cond)
+
+    case SAssertRaises(typ, pat, body) =>
+      type_modules(typ) ++ pat_modules(pat) ++ stmt_modules(body)
+
+    case SRaise(value, typ) =>
+      expr_modules(value) ++ type_modules(typ)
+
+    case STry(body, catches) =>
+      stmt_modules(body) ++ Set(for c in catches for m in catch_modules(c.that) yield m)
+
+    case SFor(gens, body) =>
+      gens_modules(gens) ++ stmt_modules(body)
+  end
+
+function catch_modules(c: Catch): Set[Id] :=
+  type_modules(c.typ) ++ pat_modules(c.pat) ++ option_modules(c.guard) ++ stmt_modules(c.body)

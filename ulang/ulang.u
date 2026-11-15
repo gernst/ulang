@@ -10,7 +10,6 @@ import "ulang/parse"
 import "ulang/check"
 import "ulang/run"
 import "ulang/compile"
-import "ulang/prove"
 import "ulang/lint"
 import "ulang/test"
 
@@ -784,7 +783,7 @@ test reformat_errors() :=
   assert map_option(reformat_error(p, other), lambda d => d.code) == Some("ParsesDifferently")
 
 function same_mod(d: Mod, e: Mod): Bool :=
-  d.name == e.name and d.imports == e.imports and same_sections(d, e) and comment_texts(d) == comment_texts(e)
+  d.name == e.name and import_ids(d) == import_ids(e) and same_sections(d, e) and comment_texts(d) == comment_texts(e)
 
 function same_sections(d: Mod, e: Mod): Bool :=
   same_cmds(d.exported, e.exported) and same_cmds(d.builtins, e.builtins) and same_cmds(d.implemented, e.implemented)

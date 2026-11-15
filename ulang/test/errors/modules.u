@@ -182,6 +182,16 @@ test own_name() :=
       "  assert helper(1) == 3"))
   end
 
+// an import of a package of which the module uses nothing
+test unused_import() :=
+  assert raises Located(None, Pos(1, 1), UnusedImport("ulang/test/modules/left")) do
+    check_text(in "ulang/test/errors/unused-import.u", List(
+      "import \"ulang/test/modules/left\"",
+      "",
+      "test r() :=",
+      "  assert 1 + 1 == 2"))
+  end
+
 // the programs of a directory see its package without importing it
 test own_package() :=
   assert raises ParseError("import of the own package ulang/test/errors, which the files of its directory see without importing it", Pos(1, 1)) do

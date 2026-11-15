@@ -306,7 +306,7 @@ data Span :=
 // a module without sections has all its commands implemented and exports nothing
 data Mod :=
   // a file of import "p" lines of packages, then export, builtin, and implementation, each followed by its commands
-  case Mod(name: Id, imports: List[Id], exported: List[At[Cmd]], builtins: List[At[Cmd]], implemented: List[At[Cmd]], comments: List[Comment])
+  case Mod(name: Id, imports: List[At[Id]], exported: List[At[Cmd]], builtins: List[At[Cmd]], implemented: List[At[Cmd]], comments: List[Comment])
 
 // a line of a comment, from // to the end of the line, which the tree does not hold, since format places it back by the
 // spans of the parts: its text without // and the space after it, whether only spaces come before it on its line, whether
@@ -343,6 +343,8 @@ function unqualified(x: Id): Name
 function arity(t: Type): Int
 
 // x at the position Pos(0, 0), of code that the parser did not read, e.g. of tests
+function import_ids(d: Mod): List[Id]
+
 function nowhere[A](x: A): At[A]
 
 // a name of the generated code, which users cannot write
@@ -551,6 +553,10 @@ function arity(t: Type): Int :=
 function no_spec(): Spec :=
   Spec(List(), None, List())
 
+// the packages that d imports, in the order of its import lines
+function import_ids(d: Mod): List[Id] :=
+  List(for i in d.imports yield i.that)
+
 function nowhere[A](x: A): At[A] :=
   AOk(Pos(0, 0), span_at(Pos(0, 0)), x)
 
@@ -744,7 +750,7 @@ function library_name(module: Str, base: Id): Name :=
   Name(Some(library_module(module)), base)
 
 function seen_modules(d: Mod, packages: List[Package]): List[Id] :=
-  implicit_imports(d.name, packages) ++ List(for p in packages if contains(p.id, d.imports) or p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
+  implicit_imports(d.name, packages) ++ List(for p in packages if contains(p.id, import_ids(d)) or p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
 
 // commands without positions, as programs that are not parsed have them
 function unplaced(cmds: List[Cmd]): List[At[Cmd]] :=

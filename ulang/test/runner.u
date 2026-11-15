@@ -4,7 +4,6 @@
 
 import "ulang/syntax"
 import "ulang/parse"
-import "ulang/check"
 import "ulang/run"
 import "ulang/prove"
 

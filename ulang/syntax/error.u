@@ -164,6 +164,7 @@ function blocks_run(d: Diagnostic): Bool :=
   d.kind == ParseKind or d.kind == TypeKind and not contains(d.code, List(
     "NotAnException",
     "UndeclaredRaise",
+    "UnusedImport",
     "UntypedRaise",
     "WiderRaise",
     "NeverRaised"))

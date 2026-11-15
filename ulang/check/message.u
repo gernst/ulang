@@ -283,6 +283,9 @@ function plain_message(e: TypeError): Str :=
     case UndeclaredRaise(name, typ) =>
       name.base ++ " raises " ++ format_type(typ) ++ ", which its raises omit"
 
+    case UnusedImport(package) =>
+      "the module uses nothing of the imported package " ++ package
+
     case UntypedRaise(name, typ) =>
       "the procedure value " ++ name.base ++ " raises " ++ format_type(typ) ++ ", which its type omits"
 
@@ -351,6 +354,7 @@ test messages() :=
   assert located_message(PrivateType(Name(Some("ulang/test/errors/private-type"), "f"), Name(Some("ulang/test/errors/private-type"), "Hidden"))) == "the signature of f names the private type Hidden"
   assert located_message(Located(None, Pos(1, 1), RaisesVariables(Name(None, "n")))) == "the pattern of assert raises binds n, which only _ may stand for at 1.1"
   assert located_message(Located(None, Pos(2, 3), NotAnException(TSort(Name(Some("prelude/prelude"), "Int"), List())))) == "only values of datatypes without type parameters are raised, not of Int at 2.3"
+  assert located_message(Located(None, Pos(3, 1), UnusedImport("ulang/syntax"))) == "the module uses nothing of the imported package ulang/syntax at 3.1"
   assert located_message(Located(None, Pos(2, 3), UndeclaredRaise(Name(Some("a"), "p"), TSort(Name(Some("a"), "Failed"), List())))) == "p raises Failed, which its raises omit at 2.3"
   assert located_message(Located(None, Pos(2, 3), UntypedRaise(Name(None, "lambda"), TSort(Name(Some("a"), "Failed"), List())))) == "the procedure value lambda raises Failed, which its type omits at 2.3"
   assert located_message(Located(None, Pos(2, 3), WiderRaise(TSort(Name(Some("a"), "Failed"), List())))) == "this procedure value may raise Failed by its type, but it reaches a place whose type omits Failed; add raises Failed to the procedure type that omits it, or catch Failed in the procedure at 2.3"
