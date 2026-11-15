@@ -871,8 +871,8 @@ function zonk_statement(s: State, stmt: Stmt): Stmt :=
     case SAssert(cond) =>
       SAssert(zonk_expr(s, cond))
 
-    case SAssertRaises(typ, pat, body) =>
-      SAssertRaises(zonked(s, typ), zonk_pat(s, pat), zonk_stmt(s, body))
+    case SAssertRaises(typ, pat, guard, body) =>
+      SAssertRaises(zonked(s, typ), zonk_pat(s, pat), zonk_guard(s, guard), zonk_stmt(s, body))
 
     case SRaise(value, typ) =>
       SRaise(zonk_expr(s, value), zonked(s, typ))
@@ -1001,8 +1001,8 @@ function unknown_in(stmt: At[Stmt]): Option[(Pos, Type)] :=
     case SAssert(cond) =>
       unknown_in_expr(cond)
 
-    case SAssertRaises(typ, pat, body) =>
-      or_else(if pat.that == PWild then None else unknown_at(stmt.pos, typ), unknown_in(body))
+    case SAssertRaises(typ, pat, guard, body) =>
+      or_else(if pat.that == PWild then None else unknown_at(stmt.pos, typ), or_else(unknown_in_guard(guard), unknown_in(body)))
 
     case SRaise(value, typ) =>
       or_else(unknown_at(stmt.pos, typ), unknown_in_expr(value))
@@ -3625,17 +3625,20 @@ procedure statement_node(
       end
 
     // the variables after the body are those before, as at the start of a handler, since it raises if the test passes
-    case SAssertRaises(typ, pat, body) =>
-      var u: Type, p: At[Pat], xs: List[Var], b: At[Stmt], inner: Env := env
+    // the variables of the pattern are those of the guard, without which they would be unread
+    case SAssertRaises(typ, pat, g, body) =>
+      var u: Type, p: At[Pat], xs: List[Var], typed_guard: Option[At[Expr]], b: At[Stmt], inner: Env := env
       handler_pattern(in pat, typ, out u, p, xs, ref s)
       match xs
-        case List(x; _) =>
+        case List(x; _) if g == None =>
           report(in RaisesVariables(x.name), ref s)
-        case List() =>
+        case _ =>
           skip
       end
+      unhidden(in env, xs, ref s)
+      guard(in bind(xs) ++ env, g, out typed_guard, ref s)
       statement(in assignable, body, out b, ref inner, s)
-      y := SAssertRaises(u, p, b)
+      y := SAssertRaises(u, p, typed_guard, b)
 
     case SRaise(value, typ) =>
       var c: At[Expr], t: Type, u: Type
@@ -5704,7 +5707,7 @@ function example_stmt(pos: Pos, span: Span, x: Example): At[Stmt] :=
 
     case XRaises(expr, pat) =>
       let value := Var(generated_name("value"), THole) in
-      AOk(pos, span, SAssertRaises(THole, pat, nowhere(block(List(value), List(nowhere(SAssign(List((value, expr)))))))))
+      AOk(pos, span, SAssertRaises(THole, pat, None, nowhere(block(List(value), List(nowhere(SAssign(List((value, expr)))))))))
 
     case XCall(proc, ins, outs, refs) =>
       let out_vars := generated_vars("out", size(outs)), ref_vars := generated_vars("ref", size(refs)) in
@@ -5712,7 +5715,7 @@ function example_stmt(pos: Pos, span: Span, x: Example): At[Stmt] :=
 
     case XCallRaises(proc, ins, blanks, befores, pat) =>
       let out_vars := generated_vars("out", blanks), ref_vars := generated_vars("ref", size(befores)) in
-      AOk(pos, span, SAssertRaises(THole, pat, nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, befores) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars)))))))
+      AOk(pos, span, SAssertRaises(THole, pat, None, nowhere(block(out_vars ++ ref_vars, initial_refs(ref_vars, befores) ++ List(nowhere(SCall(proc, ins, out_vars, ref_vars)))))))
   end
 
 function generated_vars(base: Id, n: Int): List[Var] :=

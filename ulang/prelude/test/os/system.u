@@ -20,7 +20,7 @@ test clock() :=
 
 // a connection to a listener of the same program, which the system completes before the accept, in both directions
 test sockets() :=
-  var listener: Listener, port: Int, client: IO, server: IO, line: Option[Str], message: Str
+  var listener: Listener, port: Int, client: IO, server: IO, line: Option[Str]
   io_listen(in "127.0.0.1", 0, out listener)
   io_port(in listener, out port)
   assert port > 0 and show(listener) == "<listener 127.0.0.1:" ++ show(port) ++ ">"
@@ -42,34 +42,19 @@ test sockets() :=
   io_read_line(in client, out line)
   assert line == None
   // the peer has closed, so a write fails, at the latest when the system has its reset
-  message := ""
-  try
+  assert raises OsError(text) if text == "cannot write 127.0.0.1:" ++ show(port) do
     while true do
       io_write_utf8(in client, "more\n")
     end
-  catch
-    case OsError(text) =>
-      message := text
   end
-  assert message == "cannot write 127.0.0.1:" ++ show(port)
   io_close(in client)
   io_close_listener(in listener)
-  message := ""
-  try
+  assert raises OsError(text) if text == "closed listener 127.0.0.1:" ++ show(port) do
     io_accept(in listener, out _)
-  catch
-    case OsError(text) =>
-      message := text
   end
-  assert message == "closed listener 127.0.0.1:" ++ show(port)
-  message := ""
-  try
+  assert raises OsError(text) if text == "cannot connect to 127.0.0.1:" ++ show(port) do
     io_connect(in "127.0.0.1", port, out _)
-  catch
-    case OsError(text) =>
-      message := text
   end
-  assert message == "cannot connect to 127.0.0.1:" ++ show(port)
 
 test addresses() :=
   assert raises OsError("no port: 65536") do

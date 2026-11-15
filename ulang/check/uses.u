@@ -294,8 +294,8 @@ function stmt_modules(stmt: At[Stmt]): Set[Id] :=
     case SAssert(cond) =>
       expr_modules(cond)
 
-    case SAssertRaises(typ, pat, body) =>
-      type_modules(typ) ++ pat_modules(pat) ++ stmt_modules(body)
+    case SAssertRaises(typ, pat, guard, body) =>
+      type_modules(typ) ++ pat_modules(pat) ++ option_modules(guard) ++ stmt_modules(body)
 
     case SRaise(value, typ) =>
       expr_modules(value) ++ type_modules(typ)

@@ -325,7 +325,7 @@ function run_stmt(exec: Exec, env: List[Name], stmt: At[Stmt], rest: List[Item],
     case SRaise(_, _) =>
       ProofTerm(steps ++ List(CallTerm(raise_name(), List(), List(), stmt.pos)), None, stmt.pos)
 
-    case SAssertRaises(_, _, _) =>
+    case SAssertRaises(_, _, _, _) =>
       unsupported("assert raises in a procedure", stmt.pos, steps)
 
     case STry(_, _) =>
@@ -408,7 +408,7 @@ function assigned_in(stmt: Stmt): List[Var] :=
     case SMatch(_, cases) =>
       List(for d in cases for x in assigned_vars(d.that.body) yield x)
 
-    case SAssertRaises(_, _, body) =>
+    case SAssertRaises(_, _, _, body) =>
       assigned_vars(body)
 
     case STry(body, catches) =>

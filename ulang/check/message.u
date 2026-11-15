@@ -284,7 +284,7 @@ function plain_message(e: TypeError): Str :=
         "the alternative does not bind " ++ name.base ++ ", which the first alternative binds"
 
     case RaisesVariables(name) =>
-      "the pattern of assert raises binds " ++ name.base ++ ", which only _ may stand for"
+      "the pattern of assert raises binds " ++ name.base ++ ", which only _ may stand for without a guard"
 
     case NotAnException(typ) =>
       "only values of datatypes without type parameters are raised, not of " ++ format_type(typ)
@@ -362,7 +362,7 @@ test messages() :=
   assert located_message(Located(None, Pos(4, 1), PatternOnly(Name(None, "First")))) == "the pattern alias First has _ or alternatives and builds no value at 4.1"
   assert located_message(Located(None, Pos(7, 1), PrivateConstructor(Name(Some("ulang/test/errors/pattern-alias-abstract"), "Small"), Name(Some("ulang/test/errors/pattern-alias-abstract"), "Box")))) == "the exported pattern alias Small matches the private constructor Box at 7.1"
   assert located_message(PrivateType(Name(Some("ulang/test/errors/private-type"), "f"), Name(Some("ulang/test/errors/private-type"), "Hidden"))) == "the signature of f names the private type Hidden"
-  assert located_message(Located(None, Pos(1, 1), RaisesVariables(Name(None, "n")))) == "the pattern of assert raises binds n, which only _ may stand for at 1.1"
+  assert located_message(Located(None, Pos(1, 1), RaisesVariables(Name(None, "n")))) == "the pattern of assert raises binds n, which only _ may stand for without a guard at 1.1"
   assert located_message(Located(None, Pos(2, 3), NotAnException(TSort(Name(Some("prelude/prelude"), "Int"), List())))) == "only values of datatypes without type parameters are raised, not of Int at 2.3"
   assert located_message(Located(None, Pos(3, 1), UnusedImport("ulang/syntax"))) == "the module uses nothing of the imported package ulang/syntax at 3.1"
   assert located_message(Located(None, Pos(2, 3), UndeclaredRaise(Name(Some("a"), "p"), TSort(Name(Some("a"), "Failed"), List())))) == "p raises Failed, which its raises omit at 2.3"

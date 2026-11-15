@@ -117,7 +117,7 @@ function inner_stmt_nodes(stmt: Stmt): List[Span] :=
     case SAssert(cond) =>
       expr_nodes(cond)
 
-    case SAssertRaises(_, _, body) =>
+    case SAssertRaises(_, _, _, body) =>
       stmt_nodes(body)
 
     case SRaise(value, _) =>

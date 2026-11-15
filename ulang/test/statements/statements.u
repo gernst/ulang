@@ -491,6 +491,22 @@ test assert_raises() :=
     end
   end
 
+// the guard of assert raises reads the variables of its pattern, also beside those before it, and an exception for which
+// it fails is raised further, as from a handler with a guard
+test assert_raises_guard() :=
+  let n := 2
+  assert raises Expected(text) if text == "a" ++ show(n) do
+    raise Expected("a2")
+  end
+  assert raises Expected(text) if size(text) > n do
+    raise Expected("abc")
+  end
+  assert raises Expected("short") do
+    assert raises Expected(text) if size(text) > 10 do
+      raise Expected("short")
+    end
+  end
+
 // a function without parameters whose computation raises computes again at its next use, instead of needing itself
 function failing_constant(): Int :=
   1 / 0

@@ -1135,13 +1135,13 @@ procedure exec(
       end
 
     // an exception that the pattern does not match raises again, from handle
-    case SAssertRaises(typ, pat, body) =>
+    case SAssertRaises(typ, pat, guard, body) =>
       var inner := env, raised := false
       try
         exec(in run, body, ref inner, cache)
       catch
         case Thrown(value, t) =>
-          handle(in run, List(Catch(typ, pat, None, nowhere(SSkip))), value, t, ref inner, cache)
+          handle(in run, List(Catch(typ, pat, guard, nowhere(SSkip))), value, t, ref inner, cache)
           raised := true
       end
       if not raised then

@@ -229,8 +229,8 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
     case SAssert(cond) =>
       expr_lints(fun, cond)
 
-    case SAssertRaises(_, _, body) =>
-      stmt_lints(fun, body)
+    case SAssertRaises(_, pat, guard, body) =>
+      binder_lints(List(pat), option_names(guard)) ++ option_lints(fun, guard) ++ stmt_lints(fun, body)
 
     case SRaise(value, _) =>
       expr_lints(fun, value)
@@ -920,7 +920,7 @@ function child_stmts(stmt: Stmt): List[At[Stmt]] :=
     case SAssert(_) =>
       List()
 
-    case SAssertRaises(_, _, body) =>
+    case SAssertRaises(_, _, _, body) =>
       List(body)
 
     case SRaise(_, _) =>
@@ -1161,8 +1161,8 @@ function own_names(stmt: Stmt): Set[Id] :=
     case SAssert(cond) =>
       expr_names(cond)
 
-    case SAssertRaises(_, pat, _) =>
-      pat_names(pat)
+    case SAssertRaises(_, pat, guard, _) =>
+      pat_names(pat) ++ option_names(guard)
 
     case SRaise(value, _) =>
       expr_names(value)

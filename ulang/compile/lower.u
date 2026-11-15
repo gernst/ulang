@@ -371,8 +371,13 @@ function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
     case SAssert(cond) =>
       free_vars(cond, bound)
 
-    case SAssertRaises(_, _, body) =>
-      free_in_stmt(body, bound)
+    case SAssertRaises(_, pat, guard, body) =>
+      free_in_stmt(body, bound) ++ match guard
+        case Some(g) =>
+          free_vars(g, pattern_names(pat) ++ bound)
+        case None =>
+          List()
+      end
 
     case SRaise(value, _) =>
       free_vars(value, bound)
@@ -579,7 +584,7 @@ function changed(stmt: At[Stmt]): List[Name] :=
     case SAssert(_) =>
       List()
 
-    case SAssertRaises(_, _, body) =>
+    case SAssertRaises(_, _, _, body) =>
       changed(body)
 
     case SRaise(_, _) =>

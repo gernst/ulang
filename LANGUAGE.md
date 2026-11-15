@@ -114,7 +114,7 @@ test values() :=
 
 ## Exceptions
 
-An exception is a value of a datatype without type parameters, raised by the statement `raise e` and caught by `try … catch case p => … end`. The handlers see the variables as they were before the `try`. `assert raises p do … end` expects its body to raise what `p` matches. A failed `assert` ends the program and cannot be caught.
+An exception is a value of a datatype without type parameters, raised by the statement `raise e` and caught by `try … catch case p => … end`. The handlers see the variables as they were before the `try`. `assert raises p do … end` expects its body to raise what `p` matches, and `assert raises p if g do … end` also that the guard `g` holds, which reads the variables of `p`, `assert raises OsError(text) if text == "cannot read " ++ path do … end`, since `p` is a pattern and cannot compute a value; without a guard, `p` binds no variables, and `_` stands for what does not matter. A failed `assert` ends the program and cannot be caught.
 
 The exceptions are checked. A procedure says what it raises after its formals, `raises Refused, OsError`, which an exported procedure, a procedure without formals such as `main`, and a formal of a procedure type, `step: (in Int, out Int) raises Refused`, must declare, while a private procedure with formals has it inferred. The errors name each place to change, and a handler of a type that the body cannot raise is an error. The builtins raise `DivisionByZero`, `OutOfBounds`, `NoCharacter`, `NoByte`, and `MissingField`, which no `raises` counts, so functions fail only by them.
 
