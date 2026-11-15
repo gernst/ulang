@@ -10,7 +10,7 @@ Each unit, a package of targets, still parses and checks its own package, joins 
 
 - The driver assembles one source for all the targets of a run, each package once, in load order, and checks it once; then it reports, runs the tests, proves, or lints per package from that one checked program, which already keeps every command with its module, and `Cache` goes.
 - Tests: a package keeps its tests if it is a target, not only if it is the package of the main file (`without_tests_of` of `ulang/parse/parse.u`); importers never see tests, so this is harmless.
-- `Source` and `Prog` have one `main`, the module of the loaded file; for a run of many targets it is none, and the driver takes the tests and the entry by the modules of the targets, as `test_targets` and `compile_tests` of `ulang/ulang.u` do now by the files of a unit.
+- `Source` and `Prog` have one `main`, the module of the loaded file; for a run of many targets it is none, and the driver takes the tests and the entry by the modules of the targets, as `check_unit` and `compile_tests` of `ulang/ulang.u` do now by the files of a unit.
 - Errors: a unit fails only by the errors of its own package and of those it imports, so with one source the diagnostics are filtered per package by the packages it sees (`seen_modules` of `ulang/syntax/syntax.u`), where per unit the source holds no others.
 - Before starting: a gprof profile of the compiled `check` of the project, to tell whether the time left is in the units' own packages, which one source does not save, or in the joins of signatures and the loads of the tester, which it does.
 
