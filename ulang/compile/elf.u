@@ -370,10 +370,10 @@ function chunk_of(bytes: List[Int]): Array[Byte] :=
   Array(for b in bytes yield byte(b))
 
 procedure add_bytes(in chunk: Array[Byte], ref obj: Obj) :=
-  obj := obj with sec_offset := obj.sec_offset + size(chunk), sec_chunks := obj.sec_chunks ++ List(chunk)
+  obj := obj with sec_offset := obj.sec_offset + size(chunk), sec_chunks := append(obj.sec_chunks, chunk)
 
 procedure add_rela(in rela: Rela, ref obj: Obj) :=
-  obj := obj with sec_relas := obj.sec_relas ++ List(rela)
+  obj := obj with sec_relas := append(obj.sec_relas, rela)
 
 // the chunk with field at offset
 function patch(chunk: Array[Byte], offset: Int, field: List[Int]): Array[Byte] :=
@@ -443,10 +443,10 @@ procedure items_of(
       case LInstr(instr) =>
         var code: Code
         encode_instr(in instr, out code)
-        buf := buf ++ List(ItemCode(chunk_of(code.bytes), code.refs))
+        buf := append(buf, ItemCode(chunk_of(code.bytes), code.refs))
 
       case _ =>
-        buf := buf ++ List(ItemLine(line))
+        buf := append(buf, ItemLine(line))
     end
   end
   items := List(for item in buf)

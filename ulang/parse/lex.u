@@ -361,14 +361,14 @@ procedure lex_all(
       else
         lex_token(in text, out tok, ref offset)
         lex_move_position(in text, last, start, ref line, column)
-        found := found ++ List((Pos(line, column), tok, stop)), last := start
+        found := append(found, (Pos(line, column), tok, stop)), last := start
         noted := noted ++ comments_before(pending, Pos(line, column), tok), pending := List()
         stop := Pos(line, column + offset - start)
       end
     end
   end
   lex_move_position(in text, last, offset, ref line, column)
-  toks := List(for t in found ++ List((Pos(line, column), TEnd, stop)))
+  toks := List(for t in append(found, (Pos(line, column), TEnd, stop)))
   comments := List(for c in noted ++ comments_before(pending, Pos(line, column), TEnd))
 
 function tokens(toks: Tokens): List[Token] :=
