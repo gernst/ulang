@@ -88,8 +88,8 @@ procedure parse_file_text(
 // whether path names a source file, name.u with a name
 function is_source(path: Str): Bool
 
-// the module of text without implicit imports and imports, which reads no files, for the tests, parsed with the empty
-// notation, so without the operators of the library, such as +
+// the module of text without implicit imports and imports, which reads no files, for the tests, parsed with the notation
+// of builtin_notation, so without the other operators of the library, such as + and ++, which text declares if it needs them
 procedure parse_text(in text: Str, out own: Mod) raises ParseError, OsError
 
 // the source of the module main of text as parse_text parses it, with its errors as its parts that do not parse
@@ -3849,7 +3849,7 @@ procedure parse_text_recovering(
 ) raises ParseError, OsError :=
   var toks: Tokens, comments: List[Comment], own: Mod, loaded := Source(List(), List(), List("main"))
   lex_text(in text, out toks, comments)
-  parse_mod(in List("main"), comments, List(), empty_notation(), Root("", Map()), None, List(), out own, ref loaded, toks)
+  parse_mod(in List("main"), comments, List(), builtin_notation(), Root("", Map()), None, List(), out own, ref loaded, toks)
   source := Source(List(own), List(), List("main"))
 
 // the file of a module: its id, the root of its project, and its directory from the root, None for the library
@@ -3938,10 +3938,10 @@ function is_source(path: Str): Bool :=
   let f := os_basename(path) in
   size(f) > 2 and ends_with(f, ".u")
 
-// the parser, tested by the trees of single constructs, parsed with their own notation from the empty context, which reads no
-// files
+// the parser, tested by the trees of single constructs, parsed with their own notation after builtin_notation, which reads
+// no files
 function test_notation(): Str :=
-  "infix right 8 ++\ninfix 6 ==\ninfix left 9 + -\ninfix left 10 *\nprefix 5 not\nprefix 11 -\n"
+  "infix right 8 ++\ninfix left 9 + -\ninfix left 10 *\nprefix 11 -\n"
 
 // the body of a function of e, with every position Pos(0, 0)
 procedure parsed(in e: Str, out body: At[Expr]) :=
@@ -3970,9 +3970,9 @@ function span_in(line: Int, start: Int, stop: Int): Span :=
 test parsed_positions() :=
   var expr: At[Expr]
   parsed_placed(in "f(a) + b.g", out expr)
-  assert expr == AOk(Pos(8, 8), span_in(8, 3, 13), ECall(Pos(8, 8), span_in(8, 8, 9), unqualified("+"), THole, List(
-    AOk(Pos(8, 3), span_in(8, 3, 7), EApp(AOk(Pos(8, 3), span_in(8, 3, 4), EName(unqualified("f"), THole)), List(AOk(Pos(8, 5), span_in(8, 5, 6), EName(unqualified("a"), THole))))),
-    AOk(Pos(8, 11), span_in(8, 10, 13), EField(AOk(Pos(8, 10), span_in(8, 10, 11), EName(unqualified("b"), THole)), "g")))))
+  assert expr == AOk(Pos(6, 8), span_in(6, 3, 13), ECall(Pos(6, 8), span_in(6, 8, 9), unqualified("+"), THole, List(
+    AOk(Pos(6, 3), span_in(6, 3, 7), EApp(AOk(Pos(6, 3), span_in(6, 3, 4), EName(unqualified("f"), THole)), List(AOk(Pos(6, 5), span_in(6, 5, 6), EName(unqualified("a"), THole))))),
+    AOk(Pos(6, 11), span_in(6, 10, 13), EField(AOk(Pos(6, 10), span_in(6, 10, 11), EName(unqualified("b"), THole)), "g")))))
 
 // a command and a statement span from their first token to the end of their last, also of the end of a block
 test parsed_spans() :=
@@ -4024,7 +4024,7 @@ test parsed_raises() :=
 test parsed_tuple_types() :=
   var d: Mod, found: List[Type] := List()
   let int := TSort(unqualified("Int"), List()), str := TSort(unqualified("Str"), List()), pair := TTuple(List(int, str))
-  parse_text(in test_notation() ++ "infix right 1 ->\nfunction f(p: (Int, Str), q: List[(Int, Str)], g: (Int, Str) -> Int, h: ((Int, Str)) -> Int, u: ()): Int := 1\n", out d)
+  parse_text(in test_notation() ++ "function f(p: (Int, Str), q: List[(Int, Str)], g: (Int, Str) -> Int, h: ((Int, Str)) -> Int, u: ()): Int := 1\n", out d)
   for c in commands_of(d.implemented) do
     match c
       case CFun(_, _, formals, _, _, _) =>
