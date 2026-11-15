@@ -468,13 +468,13 @@ function sample(): List[Str] :=
     "      k",
     "  end",
     "",
-    "procedure fail() :=",
+    "procedure fail(in m: Nat) :=",
     "  raise Oops",
     "",
     "procedure step(in m: Nat, out r: Nat) :=",
     "  let k := pred(m), f := lambda x => pred(x)",
     "",
-    "  fail()",
+    "  fail(in m)",
     "  r := f(Succ(k).n)")
 
 // a procedure value bound without a type shows the raises that the raises pass solved for it
@@ -484,10 +484,10 @@ test solved_raises_hints() :=
     "data Oops :=",
     "  case Oops",
     "",
-    "procedure fail() :=",
+    "procedure fail() raises Oops :=",
     "  raise Oops",
     "",
-    "procedure retry() :=",
+    "procedure retry() raises Oops :=",
     "  let f := fail",
     "",
     "  f()")) ++ "\n"
@@ -504,7 +504,7 @@ test sample_hints() :=
   check_program(in Source(List(own), List(), "main"), out q)
   found := hints(text, q)
   assert contains(HUse(Span(Pos(20, 12), Pos(20, 16)), Name(Some("main"), "pred"), TFun(List(TSort(Name(Some("main"), "Nat"), List())), TSort(Name(Some("main"), "Nat"), List()))), found)
-  assert contains(HRaises(Pos(16, 17), Name(Some("main"), "fail"), List(TSort(Name(Some("main"), "Oops"), List()))), found)
+  assert contains(HRaises(Pos(16, 26), Name(Some("main"), "fail"), List(TSort(Name(Some("main"), "Oops"), List()))), found)
   assert List(for h in found for line in format_hint(h) yield line) == List(
     "{\"kind\": \"hover\", \"line\": 8, \"column\": 15, \"end_line\": 8, \"end_column\": 16, \"text\": \"m: Nat\"}",
     "{\"kind\": \"hover\", \"line\": 9, \"column\": 9, \"end_line\": 9, \"end_column\": 10, \"text\": \"m: Nat\"}",
@@ -514,7 +514,8 @@ test sample_hints() :=
     "{\"kind\": \"hover\", \"line\": 12, \"column\": 15, \"end_line\": 12, \"end_column\": 16, \"text\": \"k: Nat\"}",
     "{\"kind\": \"inlay\", \"line\": 12, \"column\": 16, \"label\": \": Nat\"}",
     "{\"kind\": \"hover\", \"line\": 13, \"column\": 7, \"end_line\": 13, \"end_column\": 8, \"text\": \"k: Nat\"}",
-    "{\"kind\": \"inlay\", \"line\": 16, \"column\": 17, \"label\": \" raises Oops\"}",
+    "{\"kind\": \"hover\", \"line\": 16, \"column\": 19, \"end_line\": 16, \"end_column\": 20, \"text\": \"m: Nat\"}",
+    "{\"kind\": \"inlay\", \"line\": 16, \"column\": 26, \"label\": \" raises Oops\"}",
     "{\"kind\": \"hover\", \"line\": 17, \"column\": 9, \"end_line\": 17, \"end_column\": 13, \"text\": \"main.Oops: Oops\"}",
     "{\"kind\": \"hover\", \"line\": 19, \"column\": 19, \"end_line\": 19, \"end_column\": 20, \"text\": \"m: Nat\"}",
     "{\"kind\": \"hover\", \"line\": 19, \"column\": 31, \"end_line\": 19, \"end_column\": 32, \"text\": \"r: Nat\"}",
@@ -529,7 +530,8 @@ test sample_hints() :=
     "{\"kind\": \"inlay\", \"line\": 20, \"column\": 34, \"label\": \": Nat\"}",
     "{\"kind\": \"hover\", \"line\": 20, \"column\": 38, \"end_line\": 20, \"end_column\": 42, \"text\": \"main.pred: Nat -> Nat\"}",
     "{\"kind\": \"hover\", \"line\": 20, \"column\": 43, \"end_line\": 20, \"end_column\": 44, \"text\": \"x: Nat\"}",
-    "{\"kind\": \"hover\", \"line\": 22, \"column\": 3, \"end_line\": 22, \"end_column\": 7, \"text\": \"main.fail: () raises Oops\"}",
+    "{\"kind\": \"hover\", \"line\": 22, \"column\": 3, \"end_line\": 22, \"end_column\": 7, \"text\": \"main.fail: (in Nat) raises Oops\"}",
+    "{\"kind\": \"hover\", \"line\": 22, \"column\": 11, \"end_line\": 22, \"end_column\": 12, \"text\": \"m: Nat\"}",
     "{\"kind\": \"hover\", \"line\": 23, \"column\": 8, \"end_line\": 23, \"end_column\": 9, \"text\": \"f: Nat -> Nat\"}",
     "{\"kind\": \"hover\", \"line\": 23, \"column\": 10, \"end_line\": 23, \"end_column\": 14, \"text\": \"main.Succ: Nat -> Nat\"}",
     "{\"kind\": \"hover\", \"line\": 23, \"column\": 15, \"end_line\": 23, \"end_column\": 16, \"text\": \"k: Nat\"}",

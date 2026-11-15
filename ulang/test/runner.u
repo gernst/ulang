@@ -25,7 +25,7 @@ procedure test_module(
       label: Str,
   out passed: Bool,
       falsified: Set[Str]
-) raises Thrown
+)
 
 // proves the lemmas of the module m of q, of the file, all or the named ones, in their order, where those before are
 // facts, but the falsified ones, which a test found false and which are neither proven nor facts, printing whether each
@@ -56,7 +56,7 @@ procedure test_module(
       label: Str,
   out passed: Bool,
       falsified: Set[Str]
-) raises Thrown :=
+) :=
   let run := load(q) with args := args
   var tests: List[Cmd], message: Str, refuted: Bool
   tests := List(for c in definitions(q) if is_selected_test(c, m, names)), passed := true, falsified := empty()
