@@ -22,6 +22,13 @@ data Term :=
   // and neither c alone (a Const) nor 0 + 1·t (just t)
   case ESum(constant: Int, summands: List[Summand])
 
+// the terms without terms inside
+pattern ELeaf(): Term :=
+  case EBound(_)
+  case ELevel(_)
+  case ELit(_)
+  case EFun(_)
+
 // factor·term in a sum
 data Summand :=
   case Summand(term: Term, factor: Int)
@@ -375,7 +382,7 @@ function rebind(op: Rebind, c: Int, e: Term): Term :=
     case ESum(constant, summands) =>
       sum_term(rebind_summands(op, c, summands, Lin(constant, List())))
 
-    case _ =>
+    case ELit(_) | EFun(_) =>
       e
   end
 
@@ -451,7 +458,12 @@ function pattern_vars(p: Pat): List[Var] :=
     case PTuple(args) =>
       List(for q in args for x in pattern_vars(q.that) yield x)
 
-    case _ =>
+    case PWild | PLit(_) =>
+      List()
+
+    // alternatives, which translate of ulang/prove/translate.u takes apart, and annotations, which checked patterns do not
+    // have
+    case PAnnotated(_, _) | POr(_) =>
       List()
   end
 
@@ -484,7 +496,7 @@ function subst(c: Int, t: Term, e: Term): Term :=
     case ESum(constant, summands) =>
       sum_term(subst_summands(c, t, summands, Lin(constant, List())))
 
-    case _ =>
+    case ELevel(_) | ELit(_) | EFun(_) =>
       e
   end
 
@@ -537,7 +549,7 @@ function replace(a: Term, b: Term, e: Term): Term :=
       case ESum(constant, summands) =>
         sum_term(replace_summands(a, b, summands, Lin(constant, List())))
 
-      case _ =>
+      case ELeaf =>
         e
     end
 
@@ -580,7 +592,7 @@ function occurs(a: Term, e: Term): Bool :=
       case ESum(_, summands) =>
         exists(summands, lambda summand => occurs(a, summand.term))
 
-      case _ =>
+      case ELeaf =>
         false
     end
 
@@ -654,7 +666,7 @@ function loose(c: Int, e: Term): List[Int] :=
     case ESum(_, summands) =>
       List(for summand in summands for i in loose(c, summand.term) yield i)
 
-    case _ =>
+    case ELevel(_) | ELit(_) | EFun(_) =>
       List()
   end
 
@@ -795,7 +807,7 @@ function head_key(decls: Decls, e: Term): (Int, Int) :=
     case EMatch(_, _) =>
       (6, 0)
 
-    case _ =>
+    case EBound(_) | ELam(_, _) =>
       (7, 0)
   end
 
@@ -819,7 +831,7 @@ function args_of(e: Term): List[Term] :=
     case EMatch(expr, _) =>
       List(expr)
 
-    case _ =>
+    case ELeaf | ELam(_, _) =>
       List()
   end
 
@@ -930,7 +942,7 @@ function print_arg(names: List[Id], bound: List[Id], e: Term): Str :=
     case EInt(num) if num < 0 =>
       "(" ++ show(num) ++ ")"
 
-    case _ =>
+    case ELeaf | EApp(_, _) | EMatch(_, _) =>
       print_in(names, bound, e)
   end
 
