@@ -54,15 +54,18 @@ test dry_drop() :=
 // a module of a new package and its first import are one script, since the parse and the check see the files that the
 // script writes, also in a directory that does not exist yet
 test new_package() :=
-  var reply: List[Str], status: Int, clock: Int
-  os_clock(out clock)
-  // a directory that no run before has made
-  let state := "out/test/refactor/overlays/state", dir := "out/test/refactor/overlays/p" ++ show(clock)
-  let script := "@put " ++ dir ++ "/config/config.u\nexport\nfunction port(): Int\nimplementation\nfunction port(): Int := 110\n@put " ++ dir ++ "/main.u\nimport \"" ++ dir ++ "/config\"\nfunction main_port(): Int := port()\n"
+  var reply: List[Str], status: Int, found: Bool
+  let state := "out/test/refactor/overlays/state", dir := "out/test/refactor/overlays/p"
+  os_is_dir(in dir, out found)
+  if found then
+    os_remove_all(in dir)
+  end
+  let script := "@put " ++ dir ++ "/config/config.u\nexport\nfunction port(): Int\nimplementation\nfunction port(): Int := 110\n@put " ++ dir ++ "/main.u\nimport out.test.refactor.overlays.p.config\nfunction main_port(): Int := port()\n"
   run_script(in script, true, state, checked, out reply, status, _)
   assert status == 0 and take(1, reply) == List("dry, clean")
   run_script(in script, false, state, checked, out reply, status, _)
   assert status == 0 and take(1, reply) == List("applied, clean")
+  os_remove_all(in dir)
 
 // an overlay is the text of its file for the actions and the checks, which the script writes only if it changes it
 test overlaid_files() :=
