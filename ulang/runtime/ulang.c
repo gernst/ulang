@@ -843,6 +843,17 @@ u_value u_array_done(u_value a, int n) {
   return b;
 }
 
+u_value u_array_start(u_value n) {
+  (void)n;
+  return u_array_new(8);
+}
+
+u_value u_array_reversed(u_value a) {
+  u_value b = compound(&u_array_type, a->size);
+  for (int i = 0; i < a->size; i++) b->items[i] = a->items[a->size - 1 - i];
+  return b;
+}
+
 u_value u_array(u_value xs) {
   int n = 0;
   for (u_value c = xs; u_is_con(c, &n_list_46_Cons); c = c->items[1]) n++;

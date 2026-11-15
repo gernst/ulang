@@ -17,7 +17,6 @@ documentation is fixed from them (see the working rules of `CLAUDE.md`), when th
 - **The tests of `ulang/refactor/test/` have no command of their own**: the agents of 15 November 2026 each rebuilt them by hand from `make testerrors`; the command is now in Working on it of `ideas/refactor.md`.
 - **`os_write_utf8` makes the directories of the file it writes**, in the runtime and the interpreter, which `ulang/prelude/os.u` does not say, so an `os_mkdir` looked missing where only the listing of a directory that does not exist yet blocked `@put`.
 - **A test file for `@fix` without an entry or exports loses its declarations**: `UnusedPrivate` fires on every function and its fix drops them, which hides the edits under test.
-- **The texts of `ulang/test/lint/` parse without the notation of the library**, so `+` there is `undeclared operator +` unless the text declares it (Testing 4).
 - **The worktree of an agent may start at an older commit than `main`**, where `ideas/` numbers its items otherwise, so a brief that names items by number names others; a brief names them by their titles, and the agent merges `main` first.
 - **Imported modules drop their examples** (`without_examples` of `ulang/parse/parse.u`), so a tool that shows them, as `@sig` does, reads them from the text by the span of each command.
 - **The library of this repository has the ids `prelude/x`**, not `ulang/prelude/x`, so the id of a file checks the directory of the library before the root.
