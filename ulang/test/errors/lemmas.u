@@ -177,11 +177,12 @@ test proof_open_assert() :=
 // an open goal names the definitions of the proof where it has their values, and leaves out those that it no longer has,
 // here p, whose value a * b is folded into q first
 test proof_definitions_named() :=
-  assert raises OpenLemma("named", "forall a, b, q => b < q at 4.3") do
+  assert raises OpenLemma("named", "forall a, b, q => b < q at 5.3") do
     prove_text(in "ulang/test/errors/proof-definitions-named.u", List(
       "lemma named(in a: Int, b: Int) :=",
       "  ensures true",
-      "  let p := a * b, q := p + a",
+      "  let p := a * b",
+      "  let q := p + a",
       "  assert q > b"))
   end
 

@@ -97,7 +97,7 @@ test duplicate_formal() :=
 
 // a formal of a procedure lambda repeated in another mode
 test duplicate_lambda_formal() :=
-  assert raises Located(None, Pos(2, 36), Duplicate("formal", "x")) do
+  assert raises Located(None, Pos(2, 34), Duplicate("formal", "x")) do
     check_text(in "ulang/test/errors/duplicate-lambda-formal.u", List(
       "procedure main() :=",
       "  var p := lambda in x: Int, out x: Int =>",
@@ -159,7 +159,7 @@ test example_type() :=
   end
 
 test field_unknown_owner() :=
-  assert raises Located(None, Pos(2, 28), UnknownFieldOwner(".x")) do
+  assert raises Located(None, Pos(2, 26), UnknownFieldOwner(".x")) do
     check_text(in "ulang/test/errors/field-unknown-owner.u", List(
       "test unknown_owner() :=",
       "  let g := (lambda p => p.x)",
@@ -260,7 +260,7 @@ test hidden_pattern() :=
   end
 
 test hidden_procedure_lambda() :=
-  assert raises Located(None, Pos(2, 14), HiddenLocal(Name(None, "y"))) do
+  assert raises Located(None, Pos(2, 12), HiddenLocal(Name(None, "y"))) do
     check_text(in "ulang/test/errors/hidden-procedure-lambda.u", List(
       "procedure p(in y: Int) :=",
       "  var q := lambda in x: Int, out y: Int =>",
@@ -318,7 +318,7 @@ test let_monomorphic() :=
 
 // a local of a pattern is irrefutable, which the match that assigns its variables checks
 test refutable_local() :=
-  assert raises Located(None, Pos(2, 9), NotExhaustive(_)) do
+  assert raises Located(None, Pos(2, 7), NotExhaustive(_)) do
     check_text(in "ulang/test/errors/refutable-local.u", List(
       "procedure p(in o: Option[Int], out x: Int) :=",
       "  let Some(y) := o",
@@ -389,7 +389,7 @@ test missing_local_type() :=
 
 // a local of a proof without a value has its type, reported at the local
 test missing_proof_local_type() :=
-  assert raises Located(None, Pos(3, 9), MissingType(Name(None, "a"))) do
+  assert raises Located(None, Pos(3, 7), MissingType(Name(None, "a"))) do
     check_text(in "ulang/test/errors/missing-proof-local-type.u", List(
       "lemma l(in n: Int) :=",
       "  ensures n == n",
@@ -408,7 +408,7 @@ test missing_parameter_type() :=
   end
 
 test overload_arity() :=
-  assert raises Located(None, Pos(8, 14), WrongArity(Name(None, "f"), 3)) do
+  assert raises Located(None, Pos(8, 12), WrongArity(Name(None, "f"), 3)) do
     check_text(in "ulang/test/errors/overload-arity.u", List(
       "function f(x: Int): Int :=",
       "  x",
@@ -431,7 +431,7 @@ test overload_same_arity() :=
   end
 
 test overload_unapplied() :=
-  assert raises Located(None, Pos(8, 14), Ambiguous(Name(None, "f"), _)) do
+  assert raises Located(None, Pos(8, 12), Ambiguous(Name(None, "f"), _)) do
     check_text(in "ulang/test/errors/overload-unapplied.u", List(
       "function f(x: Int): Int :=",
       "  x",
@@ -583,7 +583,7 @@ test sort_arity_in_body() :=
     "procedure p() :=",
     "  var x: List[Int, Int] := List(1), y := 1 + true",
     "  x := x"), out q, errors)
-  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("SortArity", Pos(2, 9)), ("Mismatch", Pos(2, 48)))
+  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("SortArity", Pos(2, 7)), ("Mismatch", Pos(2, 46)))
 
 // the formals of a test have their declared types in its body
 test test_formals() :=
@@ -622,7 +622,7 @@ test unknown_constructor() :=
   end
 
 test unknown_field() :=
-  assert raises Located(None, Pos(5, 25), UnknownField(Name(Some("ulang/test/errors/unknown-field"), "Point.z"))) do
+  assert raises Located(None, Pos(5, 23), UnknownField(Name(Some("ulang/test/errors/unknown-field"), "Point.z"))) do
     check_text(in "ulang/test/errors/unknown-field.u", List(
       "data Point :=",
       "  case Point(x: Int, y: Int)",
@@ -632,7 +632,7 @@ test unknown_field() :=
   end
 
 test unknown_field_update() :=
-  assert raises Located(None, Pos(5, 27), UnknownField(_)) do
+  assert raises Located(None, Pos(5, 25), UnknownField(_)) do
     check_text(in "ulang/test/errors/unknown-field-update.u", List(
       "data Point :=",
       "  case Point(x: Int, y: Int)",
@@ -694,7 +694,7 @@ test raise_through_handler() :=
   end
 
 test raise_untyped_value() :=
-  assert raises Located(None, Pos(11, 17), UntypedRaise(Name(Some("ulang/test/errors/raise-untyped-value"), "fail"), _)) do
+  assert raises Located(None, Pos(11, 12), UntypedRaise(Name(Some("ulang/test/errors/raise-untyped-value"), "fail"), _)) do
     check_text(in "ulang/test/errors/raise-untyped-value.u", List(
       "data Failed :=",
       "  case Failed",
@@ -710,7 +710,7 @@ test raise_untyped_value() :=
   end
 
 test raise_untyped_lambda() :=
-  assert raises Located(None, Pos(9, 0), UntypedRaise(Name(None, "lambda"), _)) do
+  assert raises Located(None, Pos(9, 5), UntypedRaise(Name(None, "lambda"), _)) do
     check_text(in "ulang/test/errors/raise-untyped-lambda.u", List(
       "data Failed :=",
       "  case Failed",
@@ -786,7 +786,7 @@ test raises_besides_types() :=
     "",
     "procedure t() raises Str :=",
     "  r()"), out q, errors)
-  assert List(for e in errors yield error_pos(e)) == List(Pos(5, 7), Pos(14, 19), Pos(11, 3))
+  assert List(for e in errors yield error_pos(e)) == List(Pos(5, 7), Pos(14, 17), Pos(11, 3))
   match reverse(errors)
     case List(Located(None, _, UndeclaredRaise(name, _)); _) =>
       assert name.base == "q"
@@ -872,8 +872,8 @@ test checked_around_unparsed() :=
     "    case Red =>",
     "      skip",
     "  end"), out parsing, errors)
-  assert List(for e in parsing yield e.pos) == List(Pos(6, 19), Pos(7, 3))
-  assert List(for e in errors yield error_pos(e)) == List(Pos(6, 14), Pos(8, 23), Pos(15, 3))
+  assert List(for e in parsing yield e.pos) == List(Pos(6, 17))
+  assert List(for e in errors yield error_pos(e)) == List(Pos(6, 12), Pos(8, 16), Pos(15, 3))
 
 // a callee, a condition, and a container that do not parse are of the type TError, and a container of an error keeps it
 test checked_around_unparsed_parts() :=
@@ -893,7 +893,7 @@ test checked_around_unparsed_parts() :=
     "  for x in ys do",
     "    skip",
     "  end"), out parsing, errors)
-  assert List(for e in parsing yield e.pos) == List(Pos(2, 12), Pos(5, 7), Pos(8, 21), Pos(11, 14))
+  assert List(for e in parsing yield e.pos) == List(Pos(5, 7), Pos(8, 21), Pos(11, 14))
   assert List(for e in errors yield error_pos(e)) == List(Pos(12, 12))
 
 function is_unparsed_use(e: TypeError): Bool :=
@@ -942,7 +942,7 @@ test hints() :=
     (Pos(8, 9), ""),
     (Pos(11, 3), "write List(for x in xs yield f(x))"),
     (Pos(14, 3), "write List(for x in xs if p(x))"),
-    (Pos(18, 15), "a comma after with continues the update, so an assignment of found takes an assign of its own"))
+    (Pos(18, 10), "a comma after with continues the update, so an assignment of found takes a statement of its own"))
   assert List(for e in take(1, errors) yield located_message(e)) == List(
     "cannot unify Failed and () -> ?2; a value that is no function, such as a constructor without fields, is written without () at 8.9")
 
@@ -1095,7 +1095,7 @@ test proof_call_argument() :=
   end
 
 test proof_witness_unbound() :=
-  assert raises Located(None, Pos(4, 8), Unassigned(Name(None, "q"))) do
+  assert raises Located(None, Pos(4, 10), Unassigned(Name(None, "q"))) do
     check_text(in "ulang/test/errors/proof-witness-unbound.u", List(
       "lemma a(in n: Int) :=",
       "  ensures n == n",

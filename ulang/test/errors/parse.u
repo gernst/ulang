@@ -167,7 +167,7 @@ test prefix_as_infix() :=
   end
 
 test raises_without_do() :=
-  assert raises ParseError("do expected but local found", Pos(3, 5)) do
+  assert raises ParseError("do expected but let found", Pos(3, 5)) do
     check_text(in "ulang/test/errors/raises-without-do.u", List(
       "test missing_do() :=",
       "  assert raises DivisionByZero",
@@ -188,7 +188,7 @@ test set_literal_rest() :=
   end
 
 test statement_as_declaration() :=
-  assert raises ParseError("declaration expected but assign found", Pos(1, 1)) do
+  assert raises ParseError("declaration expected but x found; assignments stand in the bodies of procedures", Pos(1, 1)) do
     check_text(in "ulang/test/errors/statement-as-declaration.u", List("x := 1"))
   end
 
@@ -222,7 +222,6 @@ test wildcard_name() :=
 // statements after it are parsed
 test several_statement_errors() :=
   assert raises ParseErrors(List(
-    ParseError("statement expected but x found; a statement starts with its keyword, as in assign x := e", Pos(3, 3)),
     ParseError("expression expected but then found", Pos(4, 11)),
     ParseError("expression expected but while found", Pos(10, 3)),
     ParseError("statement expected but return found; a function is the value of its body, and a procedure gives its results by assigning its outs", Pos(11, 5)))) do
@@ -245,9 +244,9 @@ test several_statement_errors() :=
 // and one that does not end there is an error of its statement
 test several_argument_errors() :=
   assert raises ParseErrors(List(
-    ParseError("expression expected but , found", Pos(2, 19)),
-    ParseError("* is not a prefix operator", Pos(2, 26)),
-    ParseError("expression expected but assign found", Pos(4, 3)))) do
+    ParseError("expression expected but , found", Pos(2, 17)),
+    ParseError("* is not a prefix operator", Pos(2, 24)),
+    ParseError(") expected but := found", Pos(4, 5)))) do
     check_text(in "ulang/test/errors/several-argument-errors.u", List(
       "procedure p() :=",
       "  var x := f(1 +, g(2, * 3), 4)",
@@ -258,12 +257,11 @@ test several_argument_errors() :=
 // the hints of habits of other languages, the form to write instead, after the error
 test habits() :=
   assert raises ParseErrors(List(
-    ParseError("statement expected but x found; a statement starts with its keyword, as in assign x := e", Pos(3, 3)),
-    ParseError(":= expected but += found; write assign x := x + e", Pos(4, 12)),
-    ParseError("statement expected but print found; a procedure is called by call print(in a, out x), and a function only in an expression", Pos(5, 3)),
+    ParseError("statement expected but x found; write x := x + e", Pos(4, 3)),
+    ParseError(") expected but x found", Pos(5, 9)),
     ParseError("statement expected but return found; a function is the value of its body, and a procedure gives its results by assigning its outs", Pos(6, 3)),
     ParseError("else or end expected but elif found; write else, then if c then … end on the next line, with an end of its own", Pos(9, 3)),
-    ParseError("expression expected but [ found; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments", Pos(12, 16)),
+    ParseError("expression expected but [ found; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments", Pos(12, 9)),
     ParseError("undeclared operator ::; a list is built and matched as List(x; rest)", Pos(13, 11)),
     ParseError("undeclared operator &&; the operators of Bool are and, or, and not", Pos(14, 17)),
     ParseError("statement expected but break found; a loop ends by its condition or by an exception", Pos(16, 5)),
@@ -272,7 +270,7 @@ test habits() :=
     ParseError("the if, or an if inside it, has no else: else expected but function found; an if expression always has its else", Pos(23, 3)),
     ParseError("=> expected but ) found; a Map yields entries k => v", Pos(25, 26)),
     ParseError(") expected but , found; modes come in the order in, out, ref, each once before its group, as in ref a, b", Pos(26, 27)),
-    ParseError(") expected but , found; modes come in the order in, out, ref, each once before its group, as in ref a, b", Pos(30, 16)))) do
+    ParseError(") expected but , found; modes come in the order in, out, ref, each once before its group, as in ref a, b", Pos(30, 13)))) do
     check_text(in "ulang/test/errors/habits.u", List(
       "procedure main() :=",
       "  var x := 1, xs := List(1)",
@@ -323,7 +321,7 @@ test several_parse_errors() :=
   assert raises ParseErrors(List(
     ParseError(_, Pos(4, 1)),
     ParseError(_, Pos(5, 3)),
-    ParseError(_, Pos(9, 9)))) do
+    ParseError(_, Pos(9, 7)))) do
     check_text(in "ulang/test/errors/several-parse-errors.u", List(
       "function f(n: Int): Int :=",
       "  n +",

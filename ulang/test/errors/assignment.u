@@ -6,7 +6,7 @@ import "ulang/check"
 import "ulang/test/cases"
 
 test assign_captured() :=
-  assert raises Located(None, Pos(3, 3), NotAssignable(Name(None, "k"))) do
+  assert raises Located(None, Pos(3, 5), NotAssignable(Name(None, "k"))) do
     check_text(in "ulang/test/errors/assign-captured.u", List(
       "test capture() :=",
       "  var k := 0, p := lambda in x =>",
@@ -53,7 +53,7 @@ test call_aliasing() :=
   end
 
 test local_scope() :=
-  assert raises Located(None, Pos(5, 3), NotAssignable(Name(None, "y"))) do
+  assert raises Located(None, Pos(5, 3), UnknownVariable(Name(None, "y"))) do
     check_text(in "ulang/test/errors/local-scope.u", List(
       "procedure p(in x: Int) :=",
       "  if x > 0 then",
@@ -118,7 +118,7 @@ test unassigned_after_while() :=
   end
 
 test unassigned_lambda_output() :=
-  assert raises Located(None, Pos(2, 14), OutputUnassigned(Name(None, "y"), Name(None, "lambda"))) do
+  assert raises Located(None, Pos(2, 12), OutputUnassigned(Name(None, "y"), Name(None, "lambda"))) do
     check_text(in "ulang/test/errors/unassigned-lambda-output.u", List(
       "test unassigned_lambda_output() :=",
       "  var p := lambda in x: Int, out y: Int =>",
@@ -151,7 +151,7 @@ test unassigned_output_in_while() :=
   end
 
 test unassigned_output_after_lambda() :=
-  assert raises Located(None, Pos(7, 17), OutputUnassigned(Name(None, "z"), Name(None, "lambda"))) do
+  assert raises Located(None, Pos(7, 24), OutputUnassigned(Name(None, "z"), Name(None, "lambda"))) do
     check_text(in "ulang/test/errors/unassigned-output-after-lambda.u", List(
       "test leak() :=",
       "  let f: (out Int) := lambda out z =>",
