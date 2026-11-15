@@ -599,7 +599,7 @@ procedure compile_proc_lambda(
   var f: Str, bs: List[CStmt], decls: List[CStmt]
   gen_name(in "proc", out f, ref g)
   compile_stmt(in defs, in_scope(caps ++ in_names ++ pointer_names), stmt, out bs, ref g)
-  decls := unpack(numbered(caps), "env") ++ unpack(numbered(in_names), "ins")
+  decls := unpack(numbered(caps), "env") ++ unpack(List(for (x, i) in numbered(in_names) if x != dropped_out().name), "ins")
   decls := decls ++ unpack_pointers(numbered(pointer_names))
   decls := decls ++ copy_in(outs, refs)
   lift(in CdFunction(LkStatic, CtVoid, f, proc_params(), decls ++ bs ++ copy_out(outs ++ refs)), ref g)

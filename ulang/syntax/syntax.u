@@ -385,7 +385,8 @@ pattern CNoSpec(): Cmd :=
 function unqualified(x: Id): Name
 
 // the out _ of a call, whose value the call drops, which the parser keeps as a variable of the name _, a keyword, which
-// no other variable has, and the checker replaces by a local of a name that users cannot write
+// no other variable has, and the checker replaces by a local of a name that users cannot write; also an in _ of a
+// procedure lambda, which the checked program keeps, since the body cannot name it, and the compilers do not bind
 function dropped_out(): Var
 
 function is_dropped(x: Var): Bool

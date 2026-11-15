@@ -1201,7 +1201,7 @@ procedure parse_lambda(
   advance(ref toks)
   if at_mode(toks) then
     var ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], body: At[Stmt]
-    parse_sections(in notation, params, parse_formal, parse_formal, parse_formal, out ins, outs, refs, ref toks)
+    parse_sections(in notation, params, parse_lambda_in, parse_formal, parse_formal, out ins, outs, refs, ref toks)
     expect(in TKw("=>"), ref toks)
     parse_body(in notation, params, out body, ref toks)
     expect_end(in "lambda", pos, ref toks)
@@ -2061,6 +2061,24 @@ procedure parse_formal(
   parse_plain_name(in notation, params, out name, ref toks)
   parse_optional(in notation, params, TKw(":"), parse_type, out typ, ref toks)
   x := AOk(pos, span_from(pos, toks), Var(unqualified(name), value_or(typ, THole)))
+
+// an in of a procedure lambda, which may be _ for a value that the body does not read, the variable of dropped_out, which
+// the body cannot name, and which the compilers do not bind
+procedure parse_lambda_in(
+  in  notation: Notation,
+      params: List[Id],
+  out x: At[Var],
+  ref toks: Tokens
+) :=
+  if at_kw(toks, "_") then
+    let pos := head_pos(toks)
+    var typ: Option[Type]
+    advance(ref toks)
+    parse_optional(in notation, params, TKw(":"), parse_type, out typ, ref toks)
+    x := AOk(pos, span_from(pos, toks), dropped_out() with typ := value_or(typ, THole))
+  else
+    parse_formal(in notation, params, out x, ref toks)
+  end
 
 // formals in parentheses, which may be empty
 procedure parse_formals(

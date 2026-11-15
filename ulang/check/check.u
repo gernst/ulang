@@ -606,7 +606,7 @@ function bind(xs: List[Var]): Env :=
 // no local of xs hides one of env, except those of the translations, whose names users cannot write, such as (acc) and
 // (item), which nest
 procedure unhidden(in env: Env, xs: List[Var], ref s: State) :=
-  for x in xs if not starts_with(x.name.base, "(") and get(x.name, env) != None do
+  for x in xs if not starts_with(x.name.base, "(") and not is_dropped(x) and get(x.name, env) != None do
     report(in HiddenLocal(x.name), ref s)
   end
 
@@ -2149,7 +2149,7 @@ procedure infer_node(
     case EProc(ins, outs, refs, _, stmt) =>
       let loop_assigned := s.loop_assigned
       var xs: List[Var], ys: List[Var], zs: List[Var], r: Raises, y: At[Stmt], inner: Env
-      unique_decls(in "formal", ins ++ outs ++ refs, ref s)
+      unique_decls(in "formal", List(for x in ins if not is_dropped(x.that)) ++ outs ++ refs, ref s)
       map_state(in ins, normalize_var, out xs, ref s)
       map_state(in outs, normalize_var, out ys, ref s)
       map_state(in refs, normalize_var, out zs, ref s)
