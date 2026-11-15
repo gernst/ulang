@@ -22,7 +22,7 @@ pattern NotNot(a: Term): Term :=
 pattern Single[A](x: A): List[A] :=
   List(x)
 
-pattern Both[A, B](x: A, y: B): A * B :=
+pattern Both[A, B](x: A, y: B): (A, B) :=
   (x, y)
 
 function simp(t: Term): Term :=

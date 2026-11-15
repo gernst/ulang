@@ -165,7 +165,7 @@ function cmd_names(cmd: Cmd): List[Str] :=
       List(name.base)
   end
 
-function cmd_fields(cmd: Cmd): List[Str * Set[Str]] :=
+function cmd_fields(cmd: Cmd): List[(Str, Set[Str])] :=
   match cmd
     case CData(name, _, constrs) =>
       List(
@@ -256,7 +256,7 @@ test checked() :=
 // if there is one; the documents are CLAUDE.md, README.md, and those of ideas/ but review.md, whose references are those of
 // the commit that it reviewed
 procedure main() raises OsError :=
-  var cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[Str * Bool]
+  var cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[(Str, Bool)]
   os_list(in "ideas", out entries)
   for doc in List(
     "CLAUDE.md",

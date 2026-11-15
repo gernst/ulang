@@ -17,7 +17,7 @@ procedure count(in ws: List[Str], ref m: Map[Str, Int]) :=
   end
 
 // the n most frequent words, ties in alphabetical order
-function top(n: Int, m: Map[Str, Int]): List[Str * Int] :=
+function top(n: Int, m: Map[Str, Int]): List[(Str, Int)] :=
   take(n, List(for (c, w) in sort(List(for w => c in m yield (-c, w))) yield (w, -c)))
 
 procedure main() raises OsError :=

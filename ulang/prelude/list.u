@@ -35,7 +35,7 @@ function foldl[A, R](xs: List[A], acc: R, f: (R, A) -> R): R :=
   example foldl(List(1, 2), List(), lambda ys, x => List(x; ys)) == List(2, 1)
 
 // the value of the first pair of k in an association list of keys and values
-function get[K, V](k: K, xs: List[K * V]): Option[V] :=
+function get[K, V](k: K, xs: List[(K, V)]): Option[V] :=
   example get(1, List((1, "a"), (1, "b"))) == Some("a")
 
 // xs without the occurrences of x
@@ -62,10 +62,10 @@ function reverse_onto[A](xs: List[A], ys: List[A]): List[A]
 
 function reverse[A](xs: List[A]): List[A]
 
-function zip[A, B](xs: List[A], ys: List[B]): List[A * B]
+function zip[A, B](xs: List[A], ys: List[B]): List[(A, B)]
 
 // the elements with their indices from 0
-function numbered[A](xs: List[A]): List[A * Int] :=
+function numbered[A](xs: List[A]): List[(A, Int)] :=
   example numbered(List("a", "b")) == List(("a", 0), ("b", 1))
 
 function take[A](n: Int, xs: List[A]): List[A]
@@ -76,11 +76,11 @@ function drop[A](n: Int, xs: List[A]): List[A]
 function slice[A](xs: List[A], i: Int, j: Int): List[A]
 
 // the first n elements and the others
-function split_at[A](n: Int, xs: List[A]): List[A] * List[A] :=
+function split_at[A](n: Int, xs: List[A]): (List[A], List[A]) :=
   example split_at(1, List(1, 2, 3)) == (List(1), List(2, 3))
 
 // the elements before the first sep and those after it, all and none if xs has no sep
-function split_on[A](xs: List[A], sep: A): List[A] * List[A] :=
+function split_on[A](xs: List[A], sep: A): (List[A], List[A]) :=
   example split_on(List(1, 0, 2, 0), 0) == (List(1), List(2, 0))
   example split_on(List(1, 2), 0) == (List(1, 2), List())
 
@@ -89,9 +89,9 @@ function replicate[A](n: Int, x: A): List[A]
 // the integers from i up to j, exclusively
 function range(i: Int, j: Int): List[Int]
 
-function firsts[A, B](ps: List[A * B]): List[A]
+function firsts[A, B](ps: List[(A, B)]): List[A]
 
-function seconds[A, B](ps: List[A * B]): List[B]
+function seconds[A, B](ps: List[(A, B)]): List[B]
 
 // the elements as List(a, b), also inside other values
 function show[A](xs: List[A]): Str
@@ -114,7 +114,7 @@ function size[A](xs: List[A]): Int :=
       1 + size(ys)
   end
 
-function get[K, V](k: K, xs: List[K * V]): Option[V] :=
+function get[K, V](k: K, xs: List[(K, V)]): Option[V] :=
   match xs
     case List() =>
       None
@@ -278,7 +278,7 @@ function reverse_onto[A](xs: List[A], ys: List[A]): List[A] :=
 function reverse[A](xs: List[A]): List[A] :=
   reverse_onto(xs, List())
 
-function zip[A, B](xs: List[A], ys: List[B]): List[A * B] :=
+function zip[A, B](xs: List[A], ys: List[B]): List[(A, B)] :=
   match (xs, ys)
     case (List(x; xs_), List(y; ys_)) =>
       List((x, y); zip(xs_, ys_))
@@ -286,7 +286,7 @@ function zip[A, B](xs: List[A], ys: List[B]): List[A * B] :=
       List()
   end
 
-function numbered[A](xs: List[A]): List[A * Int] :=
+function numbered[A](xs: List[A]): List[(A, Int)] :=
   zip(xs, range(0, size(xs)))
 
 function take[A](n: Int, xs: List[A]): List[A] :=
@@ -309,10 +309,10 @@ function slice[A](xs: List[A], i: Int, j: Int): List[A] :=
   let k := max(i, 0) in
   take(j - k, drop(k, xs))
 
-function split_at[A](n: Int, xs: List[A]): List[A] * List[A] :=
+function split_at[A](n: Int, xs: List[A]): (List[A], List[A]) :=
   (take(n, xs), drop(n, xs))
 
-function split_on[A](xs: List[A], sep: A): List[A] * List[A] :=
+function split_on[A](xs: List[A], sep: A): (List[A], List[A]) :=
   match xs
     case List() =>
       (List(), List())
@@ -333,7 +333,7 @@ function replicate[A](n: Int, x: A): List[A] :=
 function range(i: Int, j: Int): List[Int] :=
   if i >= j then List() else List(i; range(i + 1, j))
 
-function firsts[A, B](ps: List[A * B]): List[A] :=
+function firsts[A, B](ps: List[(A, B)]): List[A] :=
   match ps
     case List() =>
       List()
@@ -341,7 +341,7 @@ function firsts[A, B](ps: List[A * B]): List[A] :=
       List(a; firsts(rest))
   end
 
-function seconds[A, B](ps: List[A * B]): List[B] :=
+function seconds[A, B](ps: List[(A, B)]): List[B] :=
   match ps
     case List() =>
       List()

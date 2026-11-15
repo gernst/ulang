@@ -37,7 +37,7 @@ data Lin :=
 // a function by its formals, which bind in the body, whether it calls itself, also through others, its equations, and the
 // definitions that it reaches by its body, by name and arity
 data Def :=
-  case Def(recursive: Bool, formals: List[Var], body: Term, equations: List[DefEquation], reaches: Set[Name * Int])
+  case Def(recursive: Bool, formals: List[Var], body: Term, equations: List[DefEquation], reaches: Set[(Name, Int)])
 
 // an equation of one case of a definition, f(args) == rhs where the conds hold, over the variables vars, which bind in
 // the other fields as the formals of a lemma do, the first one outermost; decided if rhs is the match or if of a case
@@ -56,7 +56,7 @@ data ConstrDecl :=
 // their structure, the abstract types and those with a declared compare, and the recursive functions whose termination
 // is proven, the only recursive ones that unfold
 data Decls :=
-  case Decls(defs: Map[Name * Int, Def], constrs: Map[Name, ConstrDecl], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int], abstracts: Set[Name], ordered: Set[Name], terminating: Set[Name * Int])
+  case Decls(defs: Map[(Name, Int), Def], constrs: Map[Name, ConstrDecl], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int], abstracts: Set[Name], ordered: Set[Name], terminating: Set[(Name, Int)])
 
 data Rebind :=
   // the count outermost binders at depth become the levels from depth on
@@ -163,12 +163,12 @@ function empty_decls(): Decls
 
 function is_constr(decls: Decls, f: Name): Bool
 
-function constr_head(decls: Decls, e: Term): Option[Name * List[Term]]
+function constr_head(decls: Decls, e: Term): Option[(Name, List[Term])]
 
 // the field of an accessor T.f, whose name has a dot and no :=, which an updater T.f:= has
 function field_of_accessor(name: Name): Option[Id]
 
-function free_head(decls: Decls, e: Term): Option[Name * List[Term]]
+function free_head(decls: Decls, e: Term): Option[(Name, List[Term])]
 
 function value_order(decls: Decls, a: Term, b: Term): Option[Int]
 
@@ -201,7 +201,7 @@ function loose(c: Int, e: Term): List[Int]
 
 // the symbols of the functions, constructors, and builtins that e names, each with the number of its arguments, or -1
 // where it is passed without them
-function symbols_in(e: Term): Set[Name * Int]
+function symbols_in(e: Term): Set[(Name, Int)]
 
 function lin_of(e: Term): Lin
 
@@ -243,7 +243,7 @@ function is_constr(decls: Decls, f: Name): Bool :=
   contains(f, decls.constrs)
 
 // the constructor and the arguments of a constructor term
-function constr_head(decls: Decls, e: Term): Option[Name * List[Term]] :=
+function constr_head(decls: Decls, e: Term): Option[(Name, List[Term])] :=
   match e
     case EFun(name) if is_constr(decls, name) =>
       Some((name, List()))
@@ -265,7 +265,7 @@ function field_of_accessor(name: Name): Option[Id] :=
 
 // the constructor and the arguments of a constructor term whose constructors are free, injective and distinct for ==,
 // which those of abstract types are not
-function free_head(decls: Decls, e: Term): Option[Name * List[Term]] :=
+function free_head(decls: Decls, e: Term): Option[(Name, List[Term])] :=
   match constr_head(decls, e)
     case Some((f, args)) =>
       match get(f, decls.constrs)
@@ -592,7 +592,7 @@ function occurs_branch(a: Term, br: TermBranch): Bool :=
       occurs(a, body)
   end
 
-function symbols_in(e: Term): Set[Name * Int] :=
+function symbols_in(e: Term): Set[(Name, Int)] :=
   match e
     case EBound(_) =>
       empty()
@@ -625,7 +625,7 @@ function symbols_in(e: Term): Set[Name * Int] :=
       Set(for summand in summands for n in symbols_in(summand.term) yield n)
   end
 
-function symbols_in_branch(br: TermBranch): Set[Name * Int] :=
+function symbols_in_branch(br: TermBranch): Set[(Name, Int)] :=
   match br
     case TermBranch(_, Some(guard), body) =>
       symbols_in(guard) ++ symbols_in(body)
@@ -769,7 +769,7 @@ function is_lex_greater(decls: Decls, ss: List[Term], ts: List[Term]): Bool :=
       false
   end
 
-function head_key(decls: Decls, e: Term): Int * Int :=
+function head_key(decls: Decls, e: Term): (Int, Int) :=
   match e
     case ELit(_) =>
       (0, 0)

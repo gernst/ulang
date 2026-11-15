@@ -63,8 +63,8 @@ procedure run_text_despite_errors(
 // errors, where a test that reaches a part or a definition that checking rejected raises Deferred
 procedure run_texts_despite_errors(
   in  dir: Str,
-      imported: List[Str * List[Str * List[Str]]],
-      main: Str * List[Str]
+      imported: List[(Str, List[(Str, List[Str])])],
+      main: (Str, List[Str])
 ) raises ParseError, InternalError, OsError, Thrown, RuntimeError
 
 // the tests of the case despite its errors of parsing and of types, as test runs a unit with errors, where a test that
@@ -84,23 +84,23 @@ procedure prove_text(
 // and main, the name and lines of the main file, which is one of them or a program in dir, each of them formatted
 procedure load_texts(
   in  dir: Str,
-      members: List[Str * List[Str]],
-      main: Str * List[Str],
+      members: List[(Str, List[Str])],
+      main: (Str, List[Str]),
   out q: Prog
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError
 
 // load_texts without its result
 procedure check_texts(
   in  dir: Str,
-      members: List[Str * List[Str]],
-      main: Str * List[Str]
+      members: List[(Str, List[Str])],
+      main: (Str, List[Str])
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError
 
 // load_texts, then the tests of main
 procedure run_texts(
   in  dir: Str,
-      members: List[Str * List[Str]],
-      main: Str * List[Str]
+      members: List[(Str, List[Str])],
+      main: (Str, List[Str])
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError, Thrown, RuntimeError
 
 implementation
@@ -205,8 +205,8 @@ procedure run_text_partial(
 
 procedure run_texts_despite_errors(
   in  dir: Str,
-      imported: List[Str * List[Str * List[Str]]],
-      main: Str * List[Str]
+      imported: List[(Str, List[(Str, List[Str])])],
+      main: (Str, List[Str])
 ) raises ParseError, InternalError, OsError, Thrown, RuntimeError :=
   var here: Str, root: Str, source: Source, q: Prog, errors: List[TypeError]
   os_cwd(out here)
@@ -230,8 +230,8 @@ procedure prove_text(
 
 procedure load_texts(
   in  dir: Str,
-      members: List[Str * List[Str]],
-      main: Str * List[Str],
+      members: List[(Str, List[Str])],
+      main: (Str, List[Str]),
   out q: Prog
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
   var here: Str, root: Str
@@ -252,16 +252,16 @@ procedure load_texts(
 
 procedure check_texts(
   in  dir: Str,
-      members: List[Str * List[Str]],
-      main: Str * List[Str]
+      members: List[(Str, List[Str])],
+      main: (Str, List[Str])
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError :=
   var q: Prog
   load_texts(in dir, members, main, out q)
 
 procedure run_texts(
   in  dir: Str,
-      members: List[Str * List[Str]],
-      main: Str * List[Str]
+      members: List[(Str, List[Str])],
+      main: (Str, List[Str])
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError, Thrown, RuntimeError :=
   var q: Prog
   load_texts(in dir, members, main, out q)

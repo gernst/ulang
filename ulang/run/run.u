@@ -463,7 +463,7 @@ procedure evaluate(
       end
 
     case EMatch(arg, cases) =>
-      var w: Val, sel: Option[At[Expr] * Bindings * List[Name]]
+      var w: Val, sel: Option[(At[Expr], Bindings, List[Name])]
       evaluate(in run, env, arg, out w, ref cache)
       select(in run, env, w, parts(cases), out sel, ref cache)
       match sel
@@ -1111,7 +1111,7 @@ procedure exec(
       env := env ++ Map(for (k, u) in zip(List(for x in outs yield x.name), vs))
 
     case SMatch(arg, cases) =>
-      var v: Val, sel: Option[At[Stmt] * Bindings * List[Name]]
+      var v: Val, sel: Option[(At[Stmt], Bindings, List[Name])]
       evaluate(in run, env, arg, out v, ref cache)
       select(in run, env, v, parts(cases), out sel, ref cache)
       match sel
@@ -1250,7 +1250,7 @@ procedure select[A](
       env: Bindings,
       v: Val,
       cases: List[Branch[A]],
-  out sel: Option[A * Bindings * List[Name]],
+  out sel: Option[(A, Bindings, List[Name])],
   ref cache: Map[Name, Val]
 ) :=
   match cases
@@ -1414,7 +1414,7 @@ procedure run_body(
   env := env ++ Map(for (k, v) in values_in(zip(refs, List(for x in zs yield x.name)), inner))
 
 // the pairs of the names a and the values of the names b in env, for those that have values
-function values_in(ps: List[Name * Name], env: Bindings): List[Name * Val] :=
+function values_in(ps: List[(Name, Name)], env: Bindings): List[(Name, Val)] :=
   match ps
     case List() =>
       List()
@@ -1483,7 +1483,7 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
         outs := List(VStr(path))
 
       case ("prelude/os.os_list", List(VStr(path))) =>
-        var entries: List[Str * Bool]
+        var entries: List[(Str, Bool)]
         os_list(in path, out entries)
         outs := List(list_value(entry_values(entries)))
 
@@ -1570,7 +1570,7 @@ function mode_of(mode: Name): IoMode :=
     IoAppend
 
 // the entries of a directory as values of the program
-function entry_values(entries: List[Str * Bool]): List[Val] :=
+function entry_values(entries: List[(Str, Bool)]): List[Val] :=
   List(for (name, dir) in entries yield VTuple(List(VStr(name), VBool(dir))))
 
 procedure constant_of(

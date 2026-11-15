@@ -19,7 +19,7 @@ function error_kinds(): List[ErrorKind]
 // an error of a phase at its position in module, None for the main module, where code is the constructor of the error, e.g.
 // CannotUnify, and details are its parts, such as the expected and the found type
 data Diagnostic :=
-  case Diagnostic(kind: ErrorKind, code: Str, module: Option[Id], pos: Pos, message: Str, details: List[Str * Str])
+  case Diagnostic(kind: ErrorKind, code: Str, module: Option[Id], pos: Pos, message: Str, details: List[(Str, Str)])
 
 // "kind error: message"
 function error_text(kind: ErrorKind, message: Str): Str
@@ -63,7 +63,7 @@ function deferred_text(ds: List[Diagnostic]): Str
 function blocks_run(d: Diagnostic): Bool
 
 // the formats of the runtime errors whose values compiled code knows only at run time, by the names of their C variables
-function runtime_formats(): List[Str * Str]
+function runtime_formats(): List[(Str, Str)]
 
 // the errors of the interpreter, the checker, and the compiler that checked programs do not raise, unlike RuntimeError,
 // since an earlier phase rules out what they meet
@@ -169,7 +169,7 @@ function blocks_run(d: Diagnostic): Bool :=
     "WiderRaise",
     "NeverRaised"))
 
-function runtime_formats(): List[Str * Str] :=
+function runtime_formats(): List[(Str, Str)] :=
   List(
     ("u_text_no_case", runtime_message(NoCase("%s"))),
     ("u_text_compare_functions", runtime_message(CompareFunctions)),
@@ -195,16 +195,16 @@ function format_diagnostic(file: Str, d: Diagnostic): Str :=
 function format_warning(file: Str, d: Diagnostic): Str :=
   json_object(diagnostic_fields(file, d) ++ List(("severity", json_text("warning"))))
 
-function json_object(fields: List[Str * Str]): Str :=
+function json_object(fields: List[(Str, Str)]): Str :=
   "{" ++ join(", ", List(for (k, v) in fields yield json_text(k) ++ ": " ++ v)) ++ "}"
 
-function diagnostic_fields(file: Str, d: Diagnostic): List[Str * Str] :=
+function diagnostic_fields(file: Str, d: Diagnostic): List[(Str, Str)] :=
   List(("file", json_text(file))) ++ List(for m in d.module yield ("module", json_text(m))) ++ position_fields(d.pos) ++ List(
     ("kind", json_text(kind_name(d.kind))),
     ("code", json_text(d.code)),
     ("message", json_text(d.message))) ++ List(for (k, v) in d.details yield (k, json_text(v)))
 
-function position_fields(pos: Pos): List[Str * Str] :=
+function position_fields(pos: Pos): List[(Str, Str)] :=
   if pos == Pos(0, 0) then
     List()
   else

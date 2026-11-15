@@ -213,7 +213,7 @@ function join[K, V](l: Map[K, V], r: Map[K, V]): Map[K, V] :=
       l
   end
 
-function least[K, V](m: Map[K, V]): Option[K * V] :=
+function least[K, V](m: Map[K, V]): Option[(K, V)] :=
   match m
     case Leaf =>
       None

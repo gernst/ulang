@@ -1,5 +1,5 @@
 test files() :=
-  var t: Str, entries: List[Str * Bool], home: Str
+  var t: Str, entries: List[(Str, Bool)], home: Str
   enter_scratch(out home)
   os_write_utf8(in "files/a.txt", "line\n\"quoted\"\n")
   os_read_utf8(in "files/a.txt", out t)
@@ -112,7 +112,7 @@ test failures() :=
 
 // a tree of files, which os_list and os_walk see in the order of their names
 test walking() :=
-  var entries: List[Str * Bool], files: List[Str], dir: Bool, home: Str
+  var entries: List[(Str, Bool)], files: List[Str], dir: Bool, home: Str
   enter_scratch(out home)
   os_write_utf8(in "walk/z.txt", "z")
   os_write_utf8(in "walk/a.txt", "a")
@@ -165,7 +165,7 @@ test printing() :=
 // the tests write stay out of the sources, where home is the working directory before, which each test enters again at
 // its end, since the tests of all files run in one working directory
 procedure enter_scratch(out home: Str) :=
-  var dir: Str, entries: List[Str * Bool], found := false
+  var dir: Str, entries: List[(Str, Bool)], found := false
   os_cwd(out home)
   dir := home
   while not found do

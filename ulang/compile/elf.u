@@ -43,7 +43,7 @@ data Rela :=
 // file, since a copy of each byte took most of the time of encoding, the relocations of each section, the alignment of
 // each section, the labels at their sections and offsets, and the global symbols
 data Obj :=
-  case Obj(chunks: Map[Sec, List[Array[Byte]]], relas: Map[Sec, List[Rela]], aligns: Map[Sec, Int], labels: Map[Str, Sec * Int], globals: Set[Str])
+  case Obj(chunks: Map[Sec, List[Array[Byte]]], relas: Map[Sec, List[Rela]], aligns: Map[Sec, Int], labels: Map[Str, (Sec, Int)], globals: Set[Str])
 
 // the ELF types of relocations of x86-64: an address of 8 bytes, a distance of 4 bytes, and one to a procedure linkage
 // table entry
@@ -452,7 +452,7 @@ data Placed :=
 procedure place(
   in  items: List[Item],
   out placed: List[Placed],
-      labels: Map[Str, Sec * Int]
+      labels: Map[Str, (Sec, Int)]
 ) :=
   var sec := SecText, offset := 0, offsets: Map[Sec, Int] := empty(), buf: Buffer[Placed] := empty()
   labels := empty()
@@ -476,7 +476,7 @@ function ref_end(p: Placed, r: Ref): Int :=
   p.offset + r.at + 4 + r.tail
 
 // the bytes of the placed item, with the distances of its references to the labels of its section
-function item_chunk(p: Placed, labels: Map[Str, Sec * Int]): Option[Array[Byte]] :=
+function item_chunk(p: Placed, labels: Map[Str, (Sec, Int)]): Option[Array[Byte]] :=
   match p.item
     case ItemCode(chunk, refs) =>
       Some(foldl(refs, chunk, lambda bytes, r => match get(r.symbol, labels)
@@ -504,7 +504,7 @@ function item_chunk(p: Placed, labels: Map[Str, Sec * Int]): Option[Array[Byte]]
 
 // the relocations of the placed item: of its references to labels of other sections and to symbols of other objects, and of
 // its addresses, of which 0 is none
-function item_relas(p: Placed, labels: Map[Str, Sec * Int]): List[Rela] :=
+function item_relas(p: Placed, labels: Map[Str, (Sec, Int)]): List[Rela] :=
   match p.item
     case ItemCode(_, refs) =>
       List(for r in refs for rela in ref_rela(p, r, labels) yield rela)
@@ -516,7 +516,7 @@ function item_relas(p: Placed, labels: Map[Str, Sec * Int]): List[Rela] :=
       List()
   end
 
-function ref_rela(p: Placed, r: Ref, labels: Map[Str, Sec * Int]): Option[Rela] :=
+function ref_rela(p: Placed, r: Ref, labels: Map[Str, (Sec, Int)]): Option[Rela] :=
   let field := p.offset + r.at in
   match get(r.symbol, labels)
     case Some((sec, _)) if sec == p.sec =>
@@ -529,7 +529,7 @@ function ref_rela(p: Placed, r: Ref, labels: Map[Str, Sec * Int]): Option[Rela] 
       Some(Rela(field, RelaSymbol(r.symbol), if r.plt then r_plt32() else r_pc32(), field - ref_end(p, r)))
   end
 
-function addr_rela(at: Int, symbol: Str, labels: Map[Str, Sec * Int]): Rela :=
+function addr_rela(at: Int, symbol: Str, labels: Map[Str, (Sec, Int)]): Rela :=
   match get(symbol, labels)
     case Some((sec, offset)) =>
       Rela(at, RelaSection(sec), r_64(), offset)
@@ -557,7 +557,7 @@ function global_of(item: Item): Option[Str] :=
 // the object of the lines, whose instructions are encoded once and placed by their sizes, so that the sections are the
 // placed items with the labels
 procedure encode_lines(in lines: List[Line], out obj: Obj) raises InternalError :=
-  var items: List[Item], placed: List[Placed], labels: Map[Str, Sec * Int]
+  var items: List[Item], placed: List[Placed], labels: Map[Str, (Sec, Int)]
   items_of(in lines, out items)
   place(in items, out placed, labels)
   obj := Obj(Map(for sec in code_secs() yield sec => List(for p in placed if p.sec == sec for chunk in item_chunk(p, labels) yield chunk)), Map(for sec in code_secs() yield sec => List(for p in placed if p.sec == sec for rela in item_relas(p, labels) yield rela)), aligns_of(placed), labels, Set(for p in placed for symbol in global_of(p.item) yield symbol))
@@ -596,7 +596,7 @@ function code_secs(): List[Sec] :=
   List(SecText, SecData, SecRodata)
 
 // a table of the texts, each ended by 0, with the offset of each text in it
-function string_table(texts: List[Str]): List[Int] * Map[Str, Int] :=
+function string_table(texts: List[Str]): (List[Int], Map[Str, Int]) :=
   let (bytes, _, offsets) := foldl(texts, (buffer_of(List(0)), 1, Map("" => 0)), lambda (bytes, n, offsets), text => if get(text, offsets) != None then
     (bytes, n, offsets)
   else

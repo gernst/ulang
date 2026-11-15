@@ -5,6 +5,12 @@ import "ulang/syntax"
 import "ulang/parse"
 import "ulang/test/cases"
 
+// the tuple type of ML, which is written (A, B)
+test tuple_star() :=
+  assert raises ParseError("tuple types are written (A, B)", Pos(1, 19)) do
+    check_text(in "ulang/test/errors/tuple-star.u", List("function f(p: Int * Int): Int :=", "  1"))
+  end
+
 // a character is shown with its escape, as a literal is written
 test character_token() :=
   assert raises ParseError("declaration expected but '\\n' found", Pos(1, 27)) do
@@ -295,7 +301,7 @@ test habits() :=
       "  raise n",
       "function choice(n: Int): Int :=",
       "  if n == 1 then 2",
-      "function entries(ps: List[Int * Int]): Map[Int, Int] :=",
+      "function entries(ps: List[(Int, Int)]): Map[Int, Int] :=",
       "  Map(for p in ps yield p)",
       "procedure modes(ref a: Int, out b: Int) :=",
       "  skip",

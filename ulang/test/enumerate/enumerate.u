@@ -117,7 +117,7 @@ function maps[K, V](k: Enumeration[K], v: Enumeration[V]): Enumeration[Map[K, V]
   let entries := lists(pairs(k, v)) in
   Enumeration(lambda n => count_of(entries, n), lambda n => List(for m in Set(for ps in values_of(entries, n) yield Map(for (a, b) in ps))))
 
-function pairs[A, B](a: Enumeration[A], b: Enumeration[B]): Enumeration[A * B] :=
+function pairs[A, B](a: Enumeration[A], b: Enumeration[B]): Enumeration[(A, B)] :=
   Enumeration(lambda n => count_of(a, n) * count_of(b, n), lambda n => List(for x in values_of(a, n) for y in values_of(b, n) yield (x, y)))
 
 function arrays[A](e: Enumeration[A]): Enumeration[Array[A]] :=

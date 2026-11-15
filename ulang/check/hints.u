@@ -39,7 +39,7 @@ function hints(text: Str, q: Prog): List[Hint] :=
   List(for _ => h in Map(for h in found yield hint_key(h) => h) yield h)
 
 // the key of h in the table, by which the hints are ordered, one of each kind per span
-function hint_key(h: Hint): Span * Int :=
+function hint_key(h: Hint): (Span, Int) :=
   match h
     case HUse(span, _, _) =>
       (span, 0)
@@ -54,7 +54,7 @@ function hint_key(h: Hint): Span * Int :=
 function decls_of(cmds: List[At[Cmd]]): Decls :=
   Decls(Map(for cmd in cmds for (name, typ) in constr_types(cmd) yield name => typ), Map(for cmd in cmds for (name, typ) in proc_type(cmd) yield name => typ))
 
-function constr_types(cmd: At[Cmd]): List[Name * Type] :=
+function constr_types(cmd: At[Cmd]): List[(Name, Type)] :=
   match that_of(cmd)
     case Some(CData(name, params, constrs)) =>
       let typ := TSort(name, List(for p in params yield TParam(p))) in
@@ -68,7 +68,7 @@ function constr_types(cmd: At[Cmd]): List[Name * Type] :=
   end
 
 // the type of a procedure as a value, where a definition follows its signature, so that its raises count, also inferred
-function proc_type(cmd: At[Cmd]): Option[Name * Type] :=
+function proc_type(cmd: At[Cmd]): Option[(Name, Type)] :=
   match that_of(cmd)
     case Some(CProc(name, _, ins, outs, refs, raised, _, _)) =>
       Some((name, TProc(types_of(ins), types_of(outs), types_of(refs), RWritten(raised))))
@@ -454,7 +454,7 @@ function inlay(pos: Pos, label: Str): Str :=
     ("column", show(pos.col)),
     ("label", json_text(label))))
 
-function json_object(fields: List[Str * Str]): Str :=
+function json_object(fields: List[(Str, Str)]): Str :=
   "{" ++ join(", ", List(for (k, v) in fields yield json_text(k) ++ ": " ++ v)) ++ "}"
 
 // the lines of a program without the library, whose private procedures raise what they infer

@@ -10,7 +10,7 @@ data Json :=
   case Number(mantissa: Int, exponent: Int)
   case String(s: Str)
   case Elements(items: List[Json])
-  case Object(fields: List[Str * Json])
+  case Object(fields: List[(Str, Json)])
 
 // the number m * 10 ^ e, normalized
 function decimal(m: Int, e: Int): Json
