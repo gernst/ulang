@@ -1595,7 +1595,8 @@ function source_pattern(pat: Pat): Pat :=
     case PCons(x, xs) =>
       PApp(Name(None, "Cons"), List(map_at(x, source_pattern), map_at(xs, source_pattern)))
 
-    case PNil() =>
+    // also the Nil of the parser, of a pattern as written, which an error names
+    case PNil() | PApp(Name(None, "Nil"), List()) =>
       PApp(Name(None, "Nil"), List())
 
     case PApp(constr, List()) =>

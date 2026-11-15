@@ -250,7 +250,7 @@ test unreachable_literal() :=
   end
 
 test unreachable_repeated() :=
-  assert raises Located(None, Pos(9, 10), Unreachable(PApp(Name(Some("prelude/list"), "Nil"), List()))) do
+  assert raises Located(None, Pos(9, 10), Unreachable(PApp(Name(None, "Nil"), List()))) do
     check_text(in "ulang/test/errors/unreachable-repeated.u", List(
       "function f(xs: List[Int]): Int :=",
       "  match xs",

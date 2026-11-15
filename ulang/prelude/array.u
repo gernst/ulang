@@ -52,7 +52,7 @@ function find[A](a: Array[A], p: A -> Bool): Option[A] :=
   find_from(a, p, 0)
 
 function exists_from[A](a: Array[A], p: A -> Bool, i: Int): Bool :=
-  i < size(a) and (p(at(i, a)) or exists_from(a, p, i + 1))
+  if i < size(a) then p(at(i, a)) or exists_from(a, p, i + 1) else false
 
 function find_from[A](a: Array[A], p: A -> Bool, i: Int): Option[A] :=
   if i < size(a) then
