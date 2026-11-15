@@ -57,17 +57,22 @@ function r_pc32(): Int :=
 function r_plt32(): Int :=
   4
 
-// the n bytes of num, the least significant first, in two's complement if it is negative
+// the n bytes of num, the least significant first, in two's complement if it is negative, byte by byte, so that no power
+// of 256 is needed, which is a bignum for 8 bytes; / and % truncate, so a negative num with a negative remainder borrows
+// one from the rest
 function le(num: Int, n: Int): List[Int] :=
   example le(258, 2) == List(2, 1)
   example le(-2, 2) == List(254, 255)
-  digits(if num < 0 then num + power(256, n) else num, n)
-
-function digits(num: Int, n: Int): List[Int] :=
-  if n <= 0 then List() else List(num % 256; digits(num / 256, n - 1))
-
-function power(base: Int, n: Int): Int :=
-  if n <= 0 then 1 else base * power(base, n - 1)
+  example le(-257, 2) == List(255, 254)
+  example le(-4, 8) == List(252, 255, 255, 255, 255, 255, 255, 255)
+  if n <= 0 then
+    List()
+  else
+    let low := num % 256 in
+    if low < 0 then
+      List(low + 256; le(num / 256 - 1, n - 1))
+    else
+      List(low; le(num / 256, n - 1))
 
 function zeros(n: Int): List[Int] :=
   List(for _ in range(0, n) yield 0)
@@ -622,7 +627,7 @@ function rela_bytes(rela: Rela, index: Map[Str, Int]): List[Int] :=
     case RelaSymbol(name) =>
       value_or(get(name, index), 0)
   end in
-  le(rela.offset, 8) ++ le(sym * power(2, 32) + rela.kind, 8) ++ le(rela.addend, 8)
+  le(rela.offset, 8) ++ le(rela.kind, 4) ++ le(sym, 4) ++ le(rela.addend, 8)
 
 function sym_bytes(sym: Sym, names: Map[Str, Int]): List[Int] :=
   le(value_or(get(sym.name, names), 0), 4) ++ List(sym.info, 0) ++ le(sym.shndx, 2) ++ le(sym.value, 8) ++ zeros(8)
