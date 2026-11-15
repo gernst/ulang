@@ -5129,7 +5129,7 @@ function in_main(main: Id, e: TypeError): TypeError :=
   end
 
 // the modules in the order of mods, where the members of a package, which follow each other, are checked together, and
-// a module of no package on its own
+// a module of no package, which only the fixtures of tests make, on its own
 function units(mods: List[Mod], packages: List[Package]): List[List[Mod]] :=
   match mods
     case List() =>
