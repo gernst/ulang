@@ -2726,12 +2726,31 @@ procedure application(
         infers_lambdas(in env, args, ts, ref typed_args, s)
         typed_expr := EApp(fun with that := EVar(x), typed_args)
       else
-        let outer := s.within
-        var typed_args: List[At[Expr]], typed_fun: At[Expr], u: Type
-        s := s with within := List(InCall(name); outer)
-        infer(in env, fun, out typed_fun, u, ref s)
-        apply(in env, u, args, expected, out typed_args, t, ref s)
-        typed_expr := EApp(typed_fun, typed_args), s := s with within := outer
+        match (get(name, env), hidden_functions(s, env, name, size(args)))
+          // the variable is not read, so that no Unassigned follows, and the call has the type TError
+          // of the functions, those that the arguments fit are named, else all
+          case (Some(l), List(f; more)) =>
+            var ts: List[Type], typed_args: List[At[Expr]], r: Type, ok: List[((Name, Scheme), State)]
+            infers_first(in env, args, out typed_args, ts, ref s)
+            infers_lambdas(in env, args, ts, ref typed_args, s)
+            fresh(out r, ref s)
+            trials(in List(f; more), TFun(ts, r), s, out ok)
+            report(in Hinted(CannotUnify(zonk_type(s.sub, l.typ), TFun(ts, r)), hiding_hint(name, if ok == List() then
+              firsts(List(f; more))
+            else
+              List(for ((m, _), _) in ok yield m))), ref s)
+            fresh(out t, ref s)
+            unify(in t, TError, ref s)
+            typed_expr := EApp(fun with that := EVar(Var(name, l.typ)), typed_args)
+
+          case _ =>
+            let outer := s.within
+            var typed_args: List[At[Expr]], typed_fun: At[Expr], u: Type
+            s := s with within := List(InCall(name); outer)
+            infer(in env, fun, out typed_fun, u, ref s)
+            apply(in env, u, args, expected, out typed_args, t, ref s)
+            typed_expr := EApp(typed_fun, typed_args), s := s with within := outer
+        end
       end
 
     case AOk(_, _, ELam(_, _)) =>
@@ -2747,6 +2766,42 @@ procedure application(
       infer(in env, fun, out typed_fun, u, ref s)
       apply(in env, u, args, expected, out typed_args, t, ref s)
       typed_expr := EApp(typed_fun, typed_args)
+  end
+
+// the functions of n of k arguments that a variable n of env hides, if its type is no function of k arguments, so that a
+// call of it likely means one of them, as lines(text) where an out lines: List[Str] hides lines of prelude/str
+function hidden_functions(s: State, env: Env, n: Name, k: Int): List[(Name, Scheme)] :=
+  match get(n, env)
+    case Some(l) if not is_applicable(zonk_type(s.sub, l.typ), k) =>
+      List(for (f, sc) in with_arity(candidates(s, List(), n), k) if is_fun(s.sig, f))
+    case _ =>
+      List()
+  end
+
+// whether a value of typ may be applied to k arguments, also where its type is not yet known
+function is_applicable(typ: Type, k: Int): Bool :=
+  match typ
+    case TFun(ps, _) =>
+      size(ps) == k
+
+    case TMeta(_) | TError =>
+      true
+
+    case _ =>
+      false
+  end
+
+// the hint of a call of a variable n that hides the functions funs of its name
+function hiding_hint(n: Name, funs: List[Name]): Str :=
+  example hiding_hint(unqualified("lines"), List(Name(Some("prelude/str"), "lines"))) == "the variable lines hides the function prelude/str.lines, so rename the variable to call it"
+  "the variable " ++ n.base ++ " hides the function" ++ (if size(funs) > 1 then "s " else " ") ++ join(" and ", List(for f in funs yield qualified_text(f))) ++ ", so rename the variable to call " ++ (if size(funs) > 1 then "them" else "it")
+
+function qualified_text(n: Name): Str :=
+  match n
+    case Name(Some(m), base) =>
+      m ++ "." ++ base
+    case Name(None, base) =>
+      base
   end
 
 // the accessor T.f, or for the suffix .f:= the updater T.f:=, applied to expr and the further arguments, of the type T of
@@ -3932,7 +3987,7 @@ procedure untyped(in xs: List[At[Var]], inits: List[Name], ref s: State) :=
 
     case List(x; rest) =>
       if has_holes(x.that.typ) and not contains(x.that.name, inits) then
-        report(in at_use(decl_pos(s.at, x.pos), MissingType(x.that.name)), ref s)
+        report(in at_use(decl_pos(s.at, x.pos), Hinted(MissingType(x.that.name), "only the call right after the declaration gives a local without a value its type, so declare each before its call or write its type")), ref s)
       end
       untyped(in rest, inits, ref s)
   end
