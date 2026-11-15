@@ -5,7 +5,7 @@
 
 import "library/regex"
 
-procedure main() :=
+procedure main() raises OsError :=
   var args: List[Str]
   os_args(out args)
   match args

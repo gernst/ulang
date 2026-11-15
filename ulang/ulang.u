@@ -38,7 +38,7 @@ data Phases :=
 data Target :=
   case Target(path: Str, name: Option[Str])
 
-procedure main() :=
+procedure main() raises OsError :=
   var args: List[Str], status := 0
   os_args(out args)
   match request(args)
@@ -383,7 +383,7 @@ procedure check_unit(
       phases: Phases,
       args: List[Str],
   out failed: List[Str]
-) raises Thrown :=
+) :=
   failed := List()
   for file in files_of(unit) do
     let m := sibling(q.main, file), names := names_of(file, unit), label := label_of(file, found), tests := test_names(q, m), lemmas := lemma_names(q, m), both := phases.tests and phases.proofs and names != List()
@@ -479,7 +479,7 @@ function is_lemma(cmd: Cmd): Bool :=
 procedure visit_units(
   in  found: List[Target],
       tested: Bool,
-      visit: (in Source, Prog, List[Target], Bool, out List[Str]) raises Thrown,
+      visit: (in Source, Prog, List[Target], Bool, out List[Str]),
   out status: Int
 ) :=
   var units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], failed: Buffer[Str] := empty(), bad: List[Str], cache := no_cache()
@@ -595,6 +595,11 @@ procedure compile_tests(in dir: Option[Str], output: Str, out status: Int) :=
     try
       compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), List(), ""), EntryTests(List(for f in files)), output)
     catch
+      // which only the entry of a procedure raises
+      case UnknownEntry(name) =>
+        report(in output, List(no_entry(name)), false)
+        status := 1
+
       case OsError(m) =>
         report(in output, List(diagnostic(RuntimeKind, m)), false)
         status := 1
@@ -1117,7 +1122,22 @@ procedure compiled_only_of(in path: Str, out skipped: List[Str]) :=
       report(in os_join(root, "project.u"), errors, false)
     else
       var v: Option[Val]
-      constant_of(in load(q), Name(Some(q.main), "project"), out v)
+      try
+        constant_of(in load(q), Name(Some(q.main), "project"), out v)
+      catch
+        case Thrown(value, _) =>
+          report(in os_join(root, "project.u"), List(
+            diagnostic(RuntimeKind, runtime_message(Uncaught(format_value(value))))), false)
+          v := None
+
+        case e =>
+          report(in os_join(root, "project.u"), List(diagnostic(RuntimeKind, runtime_message(e))), false)
+          v := None
+
+        case e =>
+          report(in os_join(root, "project.u"), List(diagnostic(InternalKind, internal_message(e))), false)
+          v := None
+      end
       match v
         case Some(VObj(_, List(dirs))) =>
           skipped := List(for d in strings_of(dirs) yield normal_path(os_join(root, d)))

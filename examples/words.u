@@ -20,7 +20,7 @@ procedure count(in ws: List[Str], ref m: Map[Str, Int]) :=
 function top(n: Int, m: Map[Str, Int]): List[Str * Int] :=
   take(n, List(for (c, w) in sort(List(for w => c in m yield (-c, w))) yield (w, -c)))
 
-procedure main() :=
+procedure main() raises OsError :=
   var args: List[Str], m := Map()
   os_args(out args)
   for path in args do

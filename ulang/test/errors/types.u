@@ -674,6 +674,21 @@ test raise_undeclared() :=
       "  raise Other"))
   end
 
+// an entry, a procedure without formals, raises only what its raises declare, though the private procedures that it calls
+// infer theirs
+test entry_raise() :=
+  assert raises Located(None, Pos(8, 3), UndeclaredRaise(Name(Some("ulang/test/errors/entry-raise"), "main"), _)) do
+    check_text(in "ulang/test/errors/entry-raise.u", List(
+      "data Failed :=",
+      "  case Failed",
+      "",
+      "procedure fail(in n: Int) :=",
+      "  raise Failed",
+      "",
+      "procedure main() :=",
+      "  fail(in 1)"))
+  end
+
 // a handler that does not cover its type lets the others of that type through
 test raise_through_handler() :=
   assert raises Located(None, Pos(9, 5), UndeclaredRaise(Name(Some("ulang/test/errors/raise-through-handler"), "p"), _)) do
@@ -798,11 +813,11 @@ test raises_besides_types() :=
     "function f(n: Int): Int :=",
     "  n + true",
     "",
-    "procedure p() :=",
+    "procedure p(in n: Int) :=",
     "  raise Fail",
     "",
     "procedure q() raises Str :=",
-    "  p()",
+    "  p(in 1)",
     "",
     "procedure r() :=",
     "  let x: Int := true",

@@ -81,7 +81,7 @@ procedure query(in args: List[Str], out result: Table) :=
       raise CsvError(usage())
   end
 
-procedure main() :=
+procedure main() raises OsError :=
   var args: List[Str]
   os_args(out args)
   try
