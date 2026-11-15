@@ -72,7 +72,7 @@ test comprehension_list() :=
   end
 
 test comprehension_test() :=
-  assert raises Located(None, Pos(2, 23), Mismatch(_, _, "the condition of if")) do
+  assert raises Located(None, Pos(2, 23), Mismatch(_, _, "the guard")) do
     check_text(in "ulang/test/errors/comprehension-test.u", List("function f(xs: List[Int]): List[Int] :=", "  List(for x in xs if x)"))
   end
 
