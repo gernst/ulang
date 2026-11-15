@@ -1443,7 +1443,7 @@ procedure compile_cmd(in defs: Defs, tests: Bool, cmd: Cmd, ref e: Emit) :=
       compile_stmt(in defs, List(), stmt, ref e)
       end_function(in test_name(name), false, outer, ref e)
 
-    case _ =>
+    case CNoCode | CTest(_, _, _) | CLemma(_, _, _, _, _, _) =>
       skip
   end
 

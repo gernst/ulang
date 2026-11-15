@@ -949,7 +949,7 @@ function zonk_cmd(s: State, cmd: Cmd): Cmd :=
     case CLemma(name, params, ins, outs, claim, proof) =>
       CLemma(name, params, zonk_decls(s, ins), zonk_decls(s, outs), zonk_claim(s, claim), map_option(proof, lambda p => zonk_proof(s, p)))
 
-    case _ =>
+    case CNoCode =>
       cmd
   end
 
@@ -1110,7 +1110,7 @@ function unknown_in_cmd(cmd: Cmd): Option[(Pos, Type)] :=
     case CLemma(_, _, _, _, claim, _) =>
       find_map(claim_exprs(claim), unknown_in_expr)
 
-    case _ =>
+    case CNoCode =>
       None
   end
 
@@ -4648,8 +4648,14 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
       end
       typed_cmd := CLemma(name, params, retyped(ins, xs), retyped(outs, ys), claim, typed_proof)
 
-    case _ =>
+    // type aliases and notations, which the checked program keeps as written
+    case CSort(_, _, _) | CNotation(_, _, _) =>
       typed_cmd := cmd
+
+    // signatures and abstract types, which is_definition leaves out, and pattern aliases, which definition_of makes
+    // functions of
+    case CAbstract(_, _) | CSig | CPatAlias(_, _, _, _, _) =>
+      raise Unexpected("a declaration without a definition")
   end
 
 // the contract of a procedure, the requires over its ins and refs, the ensures over all its formals
@@ -4900,7 +4906,7 @@ function private_in(cmd: Cmd, ex: List[Cmd]): List[Name] :=
       List()
 
     // notations, signatures, and abstract types, which enter_section of ulang/parse/parse.u keeps out of implementation sections
-    case _ =>
+    case CNotation(_, _, _) | CSig | CAbstract(_, _) =>
       List()
   end
 
@@ -5602,7 +5608,7 @@ function example_owner(cmd: Cmd): Option[Name] :=
     case CProcSig(name, _, _, _, _, _, _) =>
       Some(name)
 
-    case _ =>
+    case CNoSpec =>
       None
   end
 
@@ -5621,7 +5627,7 @@ function spec_of(cmd: Cmd): Spec :=
     case CProcSig(_, _, _, _, _, _, spec) =>
       spec
 
-    case _ =>
+    case CNoSpec =>
       no_spec()
   end
 

@@ -355,6 +355,18 @@ pattern ECall(pos: Pos, span: Span, name: Name, typ: Type, args: List[At[Expr]])
 pattern PName(name: Name, typ: Type): Pat :=
   PVar(Var(name, typ))
 
+// the signatures of functions and procedures, without bodies
+pattern CSig(): Cmd :=
+  CFunSig(_, _, _, _, _) | CProcSig(_, _, _, _, _, _, _)
+
+// the commands without a body, which only declare
+pattern CNoCode(): Cmd :=
+  CSort(_, _, _) | CData(_, _, _) | CAbstract(_, _) | CNotation(_, _, _) | CSig | CPatAlias(_, _, _, _, _)
+
+// the commands without a spec, so without examples and contracts
+pattern CNoSpec(): Cmd :=
+  CSort(_, _, _) | CData(_, _, _) | CAbstract(_, _) | CNotation(_, _, _) | CTest(_, _, _) | CPatAlias(_, _, _, _, _) | CLemma(_, _, _, _, _, _)
+
 function unqualified(x: Id): Name
 
 function arity(t: Type): Int
@@ -697,7 +709,7 @@ function rejected(cmd: Cmd, errors: List[Diagnostic]): Cmd :=
     case CTest(name, vars, stmt) =>
       CTest(name, vars, with_body_errors(stmt, errors))
 
-    case _ =>
+    case CNoCode | CLemma(_, _, _, _, _, _) =>
       cmd
   end
 

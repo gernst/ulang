@@ -661,7 +661,7 @@ function is_root(cmd: Cmd): Bool :=
     case CProc(_, _, _, _, _, _, spec, _) =>
       spec.examples != List()
 
-    case _ =>
+    case CNoCode =>
       false
   end
 
@@ -682,7 +682,12 @@ function declared_name(cmd: Cmd): Option[Id] :=
     case CPatAlias(name, _, _, _, _) =>
       Some(name.base)
 
-    case _ =>
+    case CSort(_, _, _)
+       | CData(_, _, _)
+       | CAbstract(_, _)
+       | CNotation(_, _, _)
+       | CTest(_, _, _)
+       | CLemma(_, _, _, _, _, _) =>
       None
   end
 
@@ -720,7 +725,11 @@ function cmd_names(cmd: Cmd): Set[Id] :=
     case CPatAlias(_, _, _, _, pat) =>
       pat_names(pat)
 
-    case _ =>
+    case CSort(_, _, _)
+       | CData(_, _, _)
+       | CAbstract(_, _)
+       | CNotation(_, _, _)
+       | CSig =>
       Set()
   end
 

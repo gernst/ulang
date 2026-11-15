@@ -2078,7 +2078,7 @@ function without_examples(cmd: Cmd): Cmd :=
     case CProcSig(name, params, ins, outs, refs, raised, _) =>
       CProcSig(name, params, ins, outs, refs, raised, no_spec())
 
-    case _ =>
+    case CNoSpec =>
       cmd
   end
 

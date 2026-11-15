@@ -1177,7 +1177,7 @@ procedure compile_cmd(
       compile_stmt(in defs, List(), stmt, out bs, ref g)
       ds := List(CdFunction(LkStatic, CtVoid, test_name(name), List(), bs)), ms := List()
 
-    case _ =>
+    case CNoCode | CTest(_, _, _) | CLemma(_, _, _, _, _, _) =>
       ds := List(), ms := List()
   end
 
