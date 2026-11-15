@@ -72,6 +72,13 @@ The ulang side runs in the top-level directory `gui/`, without any change to `ul
 - Learned: the diff by position is enough for these examples, since the handlers are looked up in the current tree, so a reused widget gets the event of its new place; `expand` must grow along the axis of the box around it, else an entry in a row grows tall; and the host only queues events, so a slow `update` loses nothing.
 - Open in the try-out: keys of children, effects and timers (item 4), the lemma of `realize` (item 3), and the runtime instead of the host, which items 1 and 2 still plan; or the host kept, as the backend of a browser would be another host of the same lines.
 
+## Native
+
+The window is native as well, kept next to the host: `ulang/prelude/window.u` of the library declares `Window` and the builtin procedures `window_open`, `window_apply`, `window_next`, `window_shot`, and `window_close`, in both backends and the interpreter, where `ulang/runtime/window.c` opens GTK 4 by `dlopen` and declares the 64 functions of GTK, GLib, and cairo that it calls itself, without headers, so the build needs no GTK. The builtins take the lines of the protocol, not datatypes, so that the library gets one type and five names, and the runtime reads no datatype of `gui/`; `gui_run` opens a native window unless its first argument is the port of a host. `ULANG_WINDOW_SCRIPT=FILE` drives a native window by the commands of the host's `--script`, so the three examples ran with shots in all three ways, interpreted, compiled to C, and compiled to an object by the assembly backend, with the outcomes of the host.
+
+- Learned: `gtk_widget_activate` of a button emits `clicked` only after the animation of the press, so a script that clicks twice loses a click; the runtime emits `clicked` itself. A window that no `window_close` closes stays until the program ends, since its state is of malloc, which the collector does not finalize.
+- Still to decide: whether `window.u` stays a member of the library, which every module imports (item 1), or the package `gui/` moves below the library with its own builtins; and whether the protocol stays lines, cheap to add to and the same for the host, or becomes the datatypes of item 2.
+
 ## Steps
 
 1. Item 1, the package `prelude/gui` with an empty builtin section and a test, which `make test` runs.
