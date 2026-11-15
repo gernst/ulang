@@ -1314,7 +1314,7 @@ function arity_of(typ: Type): Int :=
 
 // renames the function, procedure, pattern alias, or constructor of the target, a declaration file.u:name[/arity], at
 // its declarations and the examples on them, and at every use that resolves to it in the files of the project and of
-// its package that contain it, which resolve after the writes as before, else the script is undone; docs are listed
+// its package that can see it, its members and the files that import it, which name it, which resolve after the writes as before, else the script is undone; docs are listed
 procedure rename(
   in  word: Str,
       new: Str,
@@ -1360,7 +1360,7 @@ procedure rename(
   for file in files do
     var file_text: Str
     os_read_utf8(in file, out file_text)
-    if size(occurrences(file_text, base)) > 0 or size(occurrences(file_text, new)) > 0 then
+    if (contains(file, own) or contains(file, List(for f in own yield "./" ++ f)) or size(occurrences(file_text, "import \"" ++ os_dirname(d.name) ++ "\"")) > 0) and (has_word(file_text, base) or has_word(file_text, new)) then
       resolutions(in file, out uses)
       let hits := List(for (span, name, k) in uses if name == target and k == n yield span)
       expected := expected ++ List(
@@ -1603,3 +1603,8 @@ function saved_entries(before: Handles, after: Handles, dry: Bool): List[Handle]
     before.entries ++ List(for h in after.entries if h.number >= before.next yield h)
   else
     after.entries
+
+// whether name occurs in text as a whole word
+function has_word(text: Str, name: Str): Bool :=
+  example has_word("ff(f)", "f")
+  exists(occurrences(text, name), lambda i => is_word_at(text, i, size(name)))

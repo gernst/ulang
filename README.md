@@ -92,14 +92,86 @@ out/ulang.sh format file.u                # rewrites it in the layout that check
 out/ulang.sh hints file.u                 # checks it and prints the resolved names and types of its parts and the inferred
                                           # raises, as JSON lines of hover and inlay hints, which the VS Code extension shows
 out/ulang.sh compile file.u -o file.c     # compiles a program to C, whose main calls the procedure main
+out/ulang.sh refactor script.txt          # runs a script of edits by declaration, see Refactoring
 out/ulang.sh help                         # lists the commands
 cc -I ulang/runtime file.c ulang/runtime/ulang.c -lgmp -lgc
 make test                                 # runs all tests
 ```
 
+## Refactoring
+
+`out/ulang.sh refactor` edits sources by their meaning, as `format` edits their layout. It runs a script, from a file, from stdin, or as one action on the command line, `out/ulang.sh refactor @show shapes.u:area`. Each action is a line that starts with `@`, which ulang never uses. Its fragment is the lines up to the next action, taken verbatim. A script writes all its files or, if one action is refused, none.
+
+`@show` prints code with handles, `#n` in a margin beside each line that starts a node: a statement, a case, a constructor, or the body of a function.
+
+```
+$ out/ulang.sh refactor @show shapes.u:area
+ok
+@show shapes.u:area
+      // the area, rounded
+      function area(s: Shape): Int :=
+#1      match s
+#2        case Circle(r) =>
+#3          3 * r * r
+#4        case Square(side) =>
+#5          side * side
+        end
+```
+
+The script below adds a constructor and its case, then applies the edits of the lints, and runs the tests:
+
+```
+@put shapes.u
+data Shape :=
+  case Circle(r: Int)
+  case Square(side: Int)
+  case Rect(width: Int, height: Int)
+@put into #1
+case Rect(width, height) => width * height
+@fix shapes.u
+@check test
+```
+
+Fragments need no layout, since every edited file is printed by `format`. The reply says what each action did, shows the code that an edit by handle placed, and lists the diagnostics and lints that are new (`+`) or gone (`-`) in the files that it checked:
+
+```
+ok
+shapes.u: replaced Shape
+shapes.u: put into #1
+#1      match s
+…
+#6        case Rect(width, height) =>
+#7          width * height
+        end
+shapes.u: fixed BoolIte at 20.3
+script 1 of the journal
+checked 1 file, with lints: 0 new, 1 gone
+  - shapes.u:15.3: warning[BoolIte]: an if of true and false is its condition, write area(s) > 100
+test areas passed
+```
+
+Without the `@put into #1`, the reply would have listed the match that the new constructor leaves open as a new diagnostic, so the follow-ups of a change are a list of work, not a search.
+
+| Action | What it does |
+|---|---|
+| `@show T` | prints a file, a declaration `file.u:name[/arity]`, or a handle `#n`, with handles |
+| `@put F` | each declaration of the fragment replaces the one of its name and arity in `F`, in place, or is added; a declaration keeps its doc unless the fragment writes one, and the signature in `export` follows the head of its definition |
+| `@put #n`, `@put before #n`, `@put after #n`, `@put into #n` | replaces the node, or inserts code next to it or as its last statement or case, at its indentation; a fragment may keep the margin of `@show` |
+| `@drop T` | removes a declaration, with its doc and signature, or a node |
+| `@patch T` | lines `old => new` within the text of a handle or a definition, each `old` occurring once |
+| `@rename T new` | renames a function, procedure, pattern alias, or constructor at its declarations and at every use that resolves to it, alone in its script |
+| `@fix T [Rule …]` | applies the edits of the lints of a file or a declaration, all or of the rules named |
+| `@undo [n]` | restores the files of a script of the journal, by default the last one |
+| `@check [test] [F]` | checks `F` too, and with `test` runs the tests of the files after the reply |
+
+- A handle stays valid across edits of other declarations, and across the edits of the same script. It becomes stale when its node is changed by something else, and `@show` gives a new one.
+- `@rename` finds the uses by the names that the checker resolved, not by their text, so it never renames another overload or a local. After the writes, it checks every file that contains the name, and undoes the script if any use resolves differently, e.g. to a local of the new name. It lists the mentions in `CLAUDE.md`, `README.md`, and `ideas/` that it leaves to you.
+- `@fix` rewrites expressions, drops an unused private declaration, writes `_` for an unused pattern variable, removes an unused local, makes a `var` that nothing assigns a `let`, and moves a local that is declared too high into the branches that use it. A fix that enables another takes a second `@fix`.
+- `--dry` reports and writes nothing, and the journal and the handles are kept in `out/refactor/` of the root.
+
 ## Layout
 
-- `ulang/` is the implementation in ulang, a package per phase, each importing those before it: `ulang/syntax/` with the errors that all phases share, `ulang/format/` the printer, `ulang/parse/` lexer and parser, `ulang/check/` the checker, `ulang/run/` the interpreter, `ulang/compile/` the compiler to C, with its runtime in `ulang/runtime/`, `ulang/prove/` a prover by contextual simplification over checked programs, `ulang/lint/` the lints, and the driver `ulang/ulang.u`.
+- `ulang/` is the implementation in ulang, a package per phase, each importing those before it: `ulang/syntax/` with the errors that all phases share, `ulang/format/` the printer, `ulang/parse/` lexer and parser, `ulang/check/` the checker, `ulang/run/` the interpreter, `ulang/compile/` the compiler to C, with its runtime in `ulang/runtime/`, `ulang/prove/` a prover by contextual simplification over checked programs, `ulang/lint/` the lints, `ulang/refactor/` the scripted edits of `refactor`, and the driver `ulang/ulang.u`.
 - `bootstrap/ulang.c` is the seed, the C of the last compiler that compiled itself to the same C, from which `make` builds
   `bootstrap/ulang.bin`, which compiles the sources to `out/ulang.bin`. `make selfcompile` replaces the seed by the compiler
   compiled with itself, and `make bootstrap` by the compiler compiled with the interpreter. `bootstrap/ulang.sh` is the script
