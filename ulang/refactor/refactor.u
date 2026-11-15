@@ -431,8 +431,8 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
     case List("drop", word) =>
       drop_target(in word, ref edits)
 
-    case List("patch", word) =>
-      patch(in word, action.fragment, ref edits)
+    case List("patch"; address) =>
+      patch(in address, action.fragment, ref edits)
 
     case List("export", word) =>
       export_target(in word, ref edits)
@@ -1484,26 +1484,31 @@ function sections_text(sections: List[Str]): Str :=
       ""
   end
 
-// substitutes in the text of the target, a handle or a declaration with its doc, each line old => new of the fragment,
-// where old occurs exactly once, split at the => after which it does, since => also occurs in code, or, if a line of
-// the fragment is => alone, which formatted code never has, the lines before it by those after it, as whole lines
-// whatever their indentation; refuses a patch that changes nothing, and rebases the handles of the declaration
+// substitutes in the text of the target, a node of the address (is_node_address) or a declaration with its doc, each
+// line old => new of the fragment, where old occurs exactly once, split at the => after which it does, since => also
+// occurs in code, or, if a line of the fragment is => alone, which formatted code never has, the lines before it by those
+// after it, as whole lines whatever their indentation; refuses a patch that changes nothing, and rebases the handles of
+// the declaration
 procedure patch(
-  in  word: Str,
+  in  address: List[Str],
       fragment: Str,
   ref edits: Edits
 ) raises Refused, OsError :=
   var path: Str, lines: Array[Str], regions: List[Range], source: Source, result: Str, key: Key, old_cmd: Option[Cmd], handles := edits.handles
+  let word := join(" ", address)
   if is_blank(fragment) then
     raise Refused("@patch " ++ word ++ " takes a fragment of lines old => new, or old lines, a line => alone, and new lines")
   end
-  if starts_with(word, "#") then
+  if is_node_address(address) then
     var place: Place
-    resolved(in word, edits, out place)
+    resolved_address(in address, edits, out place, _)
     path := place.path, lines := place.lines, regions := List(Range(place.span.start.line, place.span.stop.line))
     key := place.key, old_cmd := Some(place.cmd)
   else
     var text: Str
+    if size(address) != 1 then
+      raise Refused("@patch takes a node, #n, F:name #n, F:name \"text\", or F:L.C, or one declaration file.u:name[/arity], not " ++ word)
+    end
     let (file, name, arity) := target_of(word)
     current_text(in file, edits.files, out text)
     parsed(in file, text, no_fragment(), out source)
@@ -1732,7 +1737,9 @@ test handle_round_trip() :=
   let h := Handle(7, "a/b.u", Key("value", "++", 2), 3, 12345)
   assert handle_of(handle_line(h)) == Some(h)
 
-procedure load_handles(in dir: Str, out handles: Handles) :=
+// the table of handles in dir, whose paths are from root, with the paths from the working directory here, as the script
+// names its files
+procedure load_handles(in dir: Str, here: Str, root: Str, out handles: Handles) :=
   var text := ""
   try
     os_read_utf8(in os_join(dir, "handles.txt"), out text)
@@ -1740,8 +1747,17 @@ procedure load_handles(in dir: Str, out handles: Handles) :=
     case OsError(_) =>
       text := ""
   end
-  let entries := List(for line in split(text, '\n') for h in handle_of(line) yield h)
+  let entries := List(for line in split(text, '\n') for h in handle_of(line) yield h with path := normal_file(root, here, h.path))
   handles := Handles(entries, foldl(entries, 0, lambda n, h => max(n, h.number)) + 1, false)
+
+// writes the table of handles into dir with the paths from root, so that it holds whatever the working directory here
+procedure save_handles(
+  in  dir: Str,
+      here: Str,
+      root: Str,
+      entries: List[Handle]
+) raises OsError :=
+  os_write_utf8(in os_join(dir, "handles.txt"), join("\n", List(for h in entries yield handle_line(h with path := normal_file(here, root, h.path)))) ++ "\n")
 
 procedure state_dir(out dir: Str) raises OsError :=
   var here: Str, root: Str
@@ -1786,16 +1802,18 @@ procedure run_actions(
 ) :=
   reply := List(), status := 0, tested := List()
   try
-    var handles: Handles
+    var handles: Handles, here: Str, root: Str
     let dir := state
-    load_handles(in dir, out handles)
+    os_cwd(out here)
+    project_root(in here, out root)
+    load_handles(in dir, here, root, out handles)
     var edits := Edits(Map(), empty(), List(), handles, List(), state, List(), false), written: Map[Str, Str] := Map(), failure: Option[Str] := None
     for action in actions(script) if failure == None do
       if is_rename(action) then
         flush(in edits, ref written)
       end
       try
-        perform(in action, ref edits)
+        perform(in action with words := normal_words(here, action.words), ref edits)
         if is_rename(action) then
           commit_rename(in edits, ref written)
           edits := edits with expected := List()
@@ -1814,7 +1832,7 @@ procedure run_actions(
       raise Refused(message)
     end
     if edits.handles.changed then
-      os_write_utf8(in os_join(dir, "handles.txt"), join("\n", List(for h in saved_entries(handles, edits.handles, dry) yield handle_line(h))) ++ "\n")
+      save_handles(in dir, here, root, saved_entries(handles, edits.handles, dry))
     end
     var changes: List[Change] := List(), original: Str, created: List[Str] := List()
     for path => text in edits.files do
@@ -1892,7 +1910,7 @@ procedure run_actions(
       end
       lines := lines ++ List(for (file, d) in gone if changes != List() yield "  - " ++ diagnostic_text(file, d))
       if size(labels.entries) > size(edits.handles.entries) then
-        os_write_utf8(in os_join(dir, "handles.txt"), join("\n", List(for h in labels.entries yield handle_line(h))) ++ "\n")
+        save_handles(in dir, here, root, labels.entries)
       end
       var tests := Tests(List(), 0, 0, 0)
       tested := if edits.tests then paths else List()
@@ -1909,6 +1927,17 @@ procedure run_actions(
     case OsError(message) =>
       reply := List("rejected", message), status := 1
   end
+
+// the words of an action with the path of each target F, F:name[/n], or F:L.C by normal_file from the working directory
+// here, so that ./a.u and a.u name the same file
+function normal_words(here: Str, words: List[Str]): List[Str] :=
+  example normal_words("/r", List("show", "./a.u:f/2", "#3")) == List("show", "a.u:f/2", "#3")
+  List(for word in words yield match target_of(word)
+    case (path, _, _) if ends_with(path, ".u") and not starts_with(word, "\"") and not starts_with(word, "#") =>
+      normal_file(here, here, path) ++ slice(word, size(path), size(word))
+    case _ =>
+      word
+  end)
 
 function is_rename(action: Action): Bool :=
   match action.words
@@ -1933,8 +1962,11 @@ procedure commit_rename(
   var prior: List[(Str, Str)] := List(), differences: List[Str] := List(), uses: List[(Span, Name, Int)]
   flush_into(in edits, ref written, prior)
   for (path, names) in edits.expected do
+    var text: Str
+    os_read_utf8(in path, out text)
     resolutions(in path, out uses)
-    for difference in first_difference(List(for (span, name, _) in uses yield (span.start, name)), names) do
+    let lines := Array(for line in split(text, '\n'))
+    for difference in first_difference(List(for (span, name, _) in uses yield (span.start, use_text(lines, span), name)), names) do
       differences := differences ++ List(path ++ ":" ++ difference)
     end
   end
@@ -1969,25 +2001,56 @@ procedure flush_into(
     end
   end
 
-// the first use of found whose name is not the one of expected, as a text with its position
-function first_difference(found: List[(Pos, Name)], expected: List[Name]): Option[Str] :=
-  example first_difference(List((Pos(3, 7), Name(Some("m"), "f"))), List(Name(Some("m"), "g"))) == Some("3.7: a use of m.g would resolve to m.f")
+// the first use of found, each at its position with its text, whose name is not the one of expected, the names that the
+// uses before the rename should resolve to, in their order, as a text with its position that names the use and both
+// names, where a use that is new or that would resolve to nothing, which shifts the uses after it, is told by the uses
+// after it
+function first_difference(found: List[(Pos, Str, Name)], expected: List[Name]): Option[Str] :=
+  example first_difference(List((Pos(3, 7), "g", Name(None, "g"))), List(Name(Some("m"), "g"))) == Some("3.7: the use g would resolve to the local g instead of m.g")
+  example first_difference(List((Pos(3, 7), "x", Name(None, "x"))), List(Name(Some("m"), "g"), Name(None, "x"))) == Some("3.7: the use of m.g just before x here would resolve to nothing, as an ambiguous or unknown name")
+  example first_difference(List(
+      (Pos(2, 1), "h", Name(Some("m"), "h")),
+      (Pos(3, 7), "x", Name(None, "x"))), List(Name(None, "x"))) == Some("2.1: the use h would be new, resolving to m.h")
   match (found, expected)
-    case (List((pos, n); rest), List(e; more)) =>
+    case (List((pos, text, n); rest), List(e; more)) =>
+      let at := show(pos.line) ++ "." ++ show(pos.col) in
       if n == e then
         first_difference(rest, more)
+      else if names_of(found) == more then
+        Some(at ++ ": the use of " ++ format_name(e) ++ " just before " ++ text ++ " here would resolve to nothing, as an ambiguous or unknown name")
+      else if names_of(rest) == expected then
+        Some(at ++ ": the use " ++ text ++ " would be new, resolving to " ++ resolved_text(n))
       else
-        Some(show(pos.line) ++ "." ++ show(pos.col) ++ ": a use of " ++ format_name(e) ++ " would resolve to " ++ format_name(n))
+        Some(at ++ ": the use " ++ text ++ " would resolve to " ++ resolved_text(n) ++ " instead of " ++ resolved_text(e))
 
     case (List(), List()) =>
       None
 
-    case (List((pos, n); _), List()) =>
-      Some(show(pos.line) ++ "." ++ show(pos.col) ++ ": " ++ format_name(n) ++ " would be a new use")
+    case (List((pos, text, n); _), List()) =>
+      Some(show(pos.line) ++ "." ++ show(pos.col) ++ ": the use " ++ text ++ " would be new, resolving to " ++ resolved_text(n))
 
     case (List(), List(e; _)) =>
-      Some(" a use of " ++ format_name(e) ++ " would be gone")
+      Some(" the last use of " ++ format_name(e) ++ " would resolve to nothing, as an ambiguous or unknown name")
   end
+
+// a name that a use resolves to, a local, a builtin without a module, or a declaration by its qualified name
+function resolved_text(name: Name): Str :=
+  example resolved_text(Name(None, "x")) == "the local x"
+  example resolved_text(Name(None, "show")) == "show"
+  if name.module == None and not contains(name.base, List("<", "==", "compare", "show", "and", "or")) then
+    "the local " ++ name.base
+  else
+    format_name(name)
+
+function names_of(found: List[(Pos, Str, Name)]): List[Name] :=
+  List(for (_, _, n) in found yield n)
+
+// the text of a use at span, on the line where it starts
+function use_text(lines: Array[Str], span: Span): Str :=
+  example use_text(Array("a := f(x)"), Span(Pos(1, 6), Pos(1, 7))) == "f"
+  let line := line_at(lines, span.start.line) in
+  let stop := if span.stop.line == span.start.line then span.stop.col - 1 else size(line) in
+  slice(line, span.start.col - 1, stop)
 
 // the uses of names in the main module of the file at path, as the checker resolves them, in the order of their spans,
 // each over the span that writes it, with the number of formals of its type at the use (hints of ulang/check/hints.u)
@@ -2035,6 +2098,48 @@ function use_of(h: Hint): Option[(Span, Name, Int)] :=
     case _ =>
       None
   end
+
+// the files that may use declarations of the module d of the file at path, whose texts, as the script has edited them,
+// name one of words as a whole word, each with its text: the members of the package of d, the .u files of the directory
+// of path, first those of them that the walk of the project skips, such as those below out/, then the files of the
+// project that are members or import the package, in the order of the walk, all by their normal paths (normal_file)
+procedure user_files(
+  in  path: Str,
+      d: Mod,
+      words: List[Str],
+      files: Map[Str, Str],
+  out found: List[(Str, Str)]
+) raises OsError :=
+  var here: Str, root: Str, walked: List[Str], below: List[Str]
+  os_cwd(out here)
+  project_root(in here, out root)
+  source_files(in root, out walked)
+  source_files(in os_dirname(path), out below)
+  let project := List(for file in walked yield normal_file(here, here, file))
+  let own := List(for f in List(for file in below yield normal_file(here, here, file)) if os_dirname(f) == os_dirname(path))
+  let import_line := "import \"" ++ os_dirname(d.name) ++ "\""
+  found := List()
+  for file in distinct(List(for f in own if not contains(f, project)) ++ project) do
+    var text: Str
+    current_text(in file, files, out text)
+    if (contains(file, own) or size(occurrences(text, import_line)) > 0) and exists(words, lambda word => has_word(text, word)) then
+      found := found ++ List((file, text))
+    end
+  end
+
+// the path of the file at path, absolute or from the directory from, as a path from dir if it is below dir, else as an
+// absolute path, without . and .., where from and dir are absolute and normal, so that a file has one path in the files
+// of a script and in the table of handles, however a script spells it
+function normal_file(from: Str, dir: Str, path: Str): Str :=
+  example normal_file("/r", "/r", "./a/../b.u") == "b.u"
+  example normal_file("/r/x", "/r", "y.u") == "x/y.u"
+  example normal_file("/r", "/r/x", "z.u") == "/r/z.u"
+  example normal_file("/r", "/r", "/s/t.u") == "/s/t.u"
+  let absolute := normal_path(if starts_with(path, "/") then path else os_join(from, path)) in
+  if starts_with(absolute, dir ++ "/") then
+    slice(absolute, size(dir) + 1, size(absolute))
+  else
+    absolute
 
 // the .u files below dir, without hidden directories and those named out, as check walks them
 procedure source_files(in dir: Str, out files: List[Str]) :=
@@ -2099,16 +2204,16 @@ function arity_of(typ: Type): Int :=
   end
 
 // renames the function, procedure, pattern alias, or constructor of the target, a declaration file.u:name[/arity], at
-// its declarations and the examples on them, and at every use that resolves to it in the files of the project and of
-// its package that can see it, its members and the files that import it, which name it, which resolve after the writes
-// as before, else the script is undone; docs are listed, and so are, as a warning, the declarations of new of the same
-// arity that the uses see, among which a use that its types do not decide is ambiguous
+// its declarations and the examples on them, and at every use that resolves to it in the files that can see it, of
+// user_files, which resolve after the writes as before, else the script is undone; docs are listed, and so are, as a
+// warning, the declarations of new of every arity that the uses see, among which a use that its arity and types do not
+// decide is ambiguous
 procedure rename(
   in  word: Str,
       new: Str,
   ref edits: Edits
 ) raises Refused, OsError :=
-  var text: Str, source: Source, here: Str, root: Str, files: List[Str], uses: List[(Span, Name, Int)]
+  var text: Str, source: Source, here: Str, root: Str, files: List[(Str, Str)], uses: List[(Span, Name, Int)]
   let (path, chosen, arity) := target_of(word)
   let base := value_or(chosen, "")
   if not is_plain_name(base) or not is_plain_name(new) then
@@ -2139,47 +2244,40 @@ procedure rename(
   let target := Name(Some(d.name), base), renamed := Name(Some(d.name), new)
   os_cwd(out here)
   project_root(in here, out root)
-  var own: List[Str]
-  source_files(in if root == here then "." else root, out files)
-  source_files(in os_dirname(path), out own)
-  files := distinct(List(for file in own if not contains(file, files) and not contains("./" ++ file, files)) ++ files)
+  user_files(in path, d, List(base, new), edits.files, out files)
   var count := 0, touched := 0, also: List[Str] := List()
   var expected: List[(Str, List[Name])] := List()
-  for file in files do
-    var file_text: Str
-    os_read_utf8(in file, out file_text)
-    if (contains(file, own) or contains(file, List(for f in own yield "./" ++ f)) or size(occurrences(file_text, "import \"" ++ os_dirname(d.name) ++ "\"")) > 0) and (has_word(file_text, base) or has_word(file_text, new)) then
-      resolutions(in file, out uses)
-      let hits := List(for (span, name, k) in uses if name == target and k == n yield span)
-      expected := expected ++ List(
-        (file, List(for (_, name, k) in uses yield if name == target and k == n then renamed else name)))
-      let file_lines := Array(for line in split(file_text, '\n'))
-      var edited := List(for line in file_lines)
-      if file == path or file == "./" ++ path then
-        edited := declared(lines, decls, constrs, base, new)
-      end
-      edited := List(for (line, i) in numbered(edited) yield at_cols(line, List(for span in hits if span.start.line == i + 1 yield span.start.col), base, new))
-      if hits != List() or file == path then
-        var result: Str, seen_source := source
-        if file != path and file != "./" ++ path then
-          try
-            parse_file_text(in file, file_text, out seen_source)
-          catch
-            case e =>
-              raise Refused(file ++ ": " ++ parse_diagnostic(e).message)
-          end
+  for (file, file_text) in files do
+    resolutions(in file, out uses)
+    let hits := List(for (span, name, k) in uses if name == target and k == n yield span)
+    expected := expected ++ List(
+      (file, List(for (_, name, k) in uses yield if name == target and k == n then renamed else name)))
+    let file_lines := Array(for line in split(file_text, '\n'))
+    var edited := List(for line in file_lines)
+    if file == path then
+      edited := declared(lines, decls, constrs, base, new)
+    end
+    edited := List(for (line, i) in numbered(edited) yield at_cols(line, List(for span in hits if span.start.line == i + 1 yield span.start.col), base, new))
+    if hits != List() or file == path then
+      var result: Str, seen_source := source
+      if file != path then
+        try
+          parse_file_text(in file, file_text, out seen_source)
+        catch
+          case e =>
+            raise Refused(file ++ ": " ++ parse_diagnostic(e).message)
         end
-        also := distinct(also ++ seen_decls(seen_source, new, n))
-        formatted(in file, join("\n", edited), no_fragment(), out result, _)
-        edits := edits with files := Map(file => result; edits.files)
-        count := count + size(hits), touched := touched + 1
       end
+      also := distinct(also ++ seen_decls(seen_source, new))
+      formatted(in file, join("\n", edited), no_fragment(), out result, _)
+      edits := edits with files := Map(file => result; edits.files)
+      count := count + size(hits), touched := touched + 1
     end
   end
   edits := edits with expected := expected
   note(in "renamed " ++ format_name(target) ++ " to " ++ new ++ " at its declarations and " ++ counted(count, "use") ++ " in " ++ counted(touched, "file"), ref edits)
   if also != List() then
-    note(in "warning: the uses of " ++ new ++ "/" ++ show(n) ++ " also see " ++ join(", ", also) ++ ", so a use that its types do not decide is ambiguous", ref edits)
+    note(in "warning: the uses of " ++ new ++ "/" ++ show(n) ++ " also see " ++ join(", ", also) ++ ", so a use that its arity and types do not decide is ambiguous", ref edits)
   end
   var found: List[Str]
   doc_references(in if root == here then "." else root, base, out found)
@@ -2356,22 +2454,14 @@ procedure unexport_target(
   let exported := List(for (key, cmd, c) in keyed(d.exported) if forall(name, lambda base => is_selected(key, base, arity)) yield (key, cmd, c))
   match exported
     case List((key, cmd, c)) =>
-      var here: Str, root: Str, files: List[Str], own: List[Str]
-      os_cwd(out here)
-      project_root(in here, out root)
-      source_files(in if root == here then "." else root, out files)
-      source_files(in os_dirname(path), out own)
-      var users: List[Str] := List()
-      for file in distinct(own ++ files) if file != path and file != "./" ++ path do
-        var file_text: Str
-        os_read_utf8(in file, out file_text)
-        if has_word(file_text, key.base) and (contains(file, own) or size(occurrences(file_text, "import \"" ++ os_dirname(d.name) ++ "\"")) > 0) then
-          var uses: List[(Span, Name, Int)]
-          resolutions(in file, out uses)
-          for (span, _, _) in find(uses, lambda (_, n, k) => n == Name(Some(d.name), key.base) and (key.arity < 0 or k == key.arity)) do
-            users := users ++ List(
-              file ++ ":" ++ show(span.start.line) ++ "." ++ show(span.start.col))
-          end
+      var files: List[(Str, Str)], users: List[Str] := List()
+      user_files(in path, d, List(key.base), edits.files, out files)
+      for (file, _) in files if file != path do
+        var uses: List[(Span, Name, Int)]
+        resolutions(in file, out uses)
+        for (span, _, _) in find(uses, lambda (_, n, k) => n == Name(Some(d.name), key.base) and (key.arity < 0 or k == key.arity)) do
+          users := users ++ List(
+            file ++ ":" ++ show(span.start.line) ++ "." ++ show(span.start.col))
         end
       end
       if users != List() then
@@ -2835,11 +2925,10 @@ function constrs_text(c: Cmd): Str :=
       "cases " ++ join(", ", List(for constr in constrs yield constr_name(constr) ++ "/" ++ show(constr_arity(constr))))
   end
 
-// the uses of the function, procedure, pattern alias, or constructor of the target file.u:name[/arity] in the members of
-// its package and the files of the project that import it, found as rename finds them, by the names that the checker
-// resolves, each with its position, the declaration around it, the handle of the innermost node there, and its line
+// the uses of the function, procedure, pattern alias, or constructor of the target file.u:name[/arity] in the files of
+// user_files, found as rename finds them, by the names that the checker resolves, each with its position, the declaration around it, the handle of the innermost node there, and its line
 procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
-  var text: Str, source: Source, here: Str, root: Str, files: List[Str], own: List[Str]
+  var text: Str, source: Source, files: List[(Str, Str)]
   let (path, chosen, arity) := target_of(word)
   let base := value_or(chosen, "")
   current_text(in path, edits.files, out text)
@@ -2857,81 +2946,73 @@ procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
       raise Refused(path ++ " declares " ++ base ++ " of several arities, so name one, " ++ base ++ "/n")
   end
   let n := value_or(get_at(0, arities), 0), target := Name(Some(d.name), base)
-  os_cwd(out here)
-  project_root(in here, out root)
-  source_files(in if root == here then "." else root, out files)
-  source_files(in os_dirname(path), out own)
-  files := distinct(List(for file in own if not contains(file, files) and not contains("./" ++ file, files)) ++ files)
+  user_files(in path, d, List(base), edits.files, out files)
   var handles := edits.handles, found: List[Str] := List(), touched := 0
-  for file in files do
-    var file_text: Str
-    current_text(in file, edits.files, out file_text)
-    let is_own := contains(file, own) or contains(file, List(for f in own yield "./" ++ f))
-    if (is_own or size(occurrences(file_text, "import \"" ++ os_dirname(d.name) ++ "\"")) > 0) and has_word(file_text, base) then
-      var hints_found: List[Hint]
-      file_hints(in file, file_text, out hints_found)
-      let hits := List(for h in hints_found for (span, name, k) in use_of(h) if name == target and k == n yield span)
-      if hits != List() then
-        var file_source: Source
-        try
-          parse_file_text(in file, file_text, out file_source)
-        catch
-          case e =>
-            raise Refused(file ++ ": " ++ parse_diagnostic(e).message)
-        end
-        let m := main_mod(file_source), file_lines := Array(for line in split(file_text, '\n'))
-        for span in hits do
-          var around := "", handle := "", number: Int
-          for (key, cmd, c) in keyed(placed_of(m)) if cmd.span.start.line <= span.start.line and span.start.line <= cmd_range(file_lines, cmd, 0, false).last do
-            around := " in " ++ key_text(key)
-            for (own_cmd, _) in decl_of(m, key) if own_cmd.span == cmd.span do
-              let nodes := List(for (node, i) in numbered(line_nodes(file_lines, c)) if node.start <= span.start and span.stop <= node.stop yield (node, i))
-              for (node, i) in last(nodes) do
-                handle_for(in file, key, i, hash_of(node_text(file_lines, node)), out number, ref handles)
-                handle := " #" ++ show(number)
-              end
+  for (file, file_text) in files do
+    var hints_found: List[Hint]
+    file_hints(in file, file_text, out hints_found)
+    let hits := List(for h in hints_found for (span, name, k) in use_of(h) if name == target and k == n yield span)
+    if hits != List() then
+      var file_source: Source
+      try
+        parse_file_text(in file, file_text, out file_source)
+      catch
+        case e =>
+          raise Refused(file ++ ": " ++ parse_diagnostic(e).message)
+      end
+      let m := main_mod(file_source), file_lines := Array(for line in split(file_text, '\n'))
+      for span in hits do
+        var around := "", handle := "", number: Int
+        for (key, cmd, c) in keyed(placed_of(m)) if cmd.span.start.line <= span.start.line and span.start.line <= cmd_range(file_lines, cmd, 0, false).last do
+          around := " in " ++ key_text(key)
+          for (own_cmd, _) in decl_of(m, key) if own_cmd.span == cmd.span do
+            let nodes := List(for (node, i) in numbered(line_nodes(file_lines, c)) if node.start <= span.start and span.stop <= node.stop yield (node, i))
+            for (node, i) in last(nodes) do
+              handle_for(in file, key, i, hash_of(node_text(file_lines, node)), out number, ref handles)
+              handle := " #" ++ show(number)
             end
           end
-          found := found ++ List(
-            "  " ++ file ++ ":" ++ show(span.start.line) ++ "." ++ show(span.start.col) ++ around ++ handle ++ ": " ++ trim(line_at(file_lines, span.start.line)))
         end
-        touched := touched + 1
+        found := found ++ List(
+          "  " ++ file ++ ":" ++ show(span.start.line) ++ "." ++ show(span.start.col) ++ around ++ handle ++ ": " ++ trim(line_at(file_lines, span.start.line)))
       end
+      touched := touched + 1
     end
   end
   edits := edits with handles := handles
   note(in join("\n", List(
     "@refs " ++ word ++ ": " ++ counted(size(found), "use") ++ " of " ++ format_name(target) ++ "/" ++ show(n) ++ " in " ++ counted(touched, "file")) ++ found), ref edits)
 
-// the declarations of base of arity n that the main module of source sees, by their qualified names and types as written:
-// its own, the exports of the other members of its package and of the packages it imports, and those of the library
-function seen_decls(source: Source, base: Str, n: Int): List[Str] :=
+// the declarations of base of every arity that the main module of source sees, by their qualified names and types as
+// written: its own, the exports of the other members of its package and of the packages it imports, and those of the
+// library
+function seen_decls(source: Source, base: Str): List[Str] :=
   let d := main_mod(source) in
   let seen := seen_modules(d, source.packages) in
-  distinct(List(for m in source.mods if m.name == d.name or contains(m.name, seen) for cmd in if m.name == d.name then placed_of(m) else m.exported ++ m.builtins for c in cmd_of(cmd) for text in decl_texts(m.name, c, base, n) yield text))
+  distinct(List(for m in source.mods if m.name == d.name or contains(m.name, seen) for cmd in if m.name == d.name then placed_of(m) else m.exported ++ m.builtins for c in cmd_of(cmd) for text in decl_texts(m.name, c, base) yield text))
 
-// the declarations of base of arity n in c of the module m, a value or the constructors of a datatype, with their types
-function decl_texts(m: Id, c: Cmd, base: Str, n: Int): List[Str] :=
+// the declarations of base in c of the module m, a value or the constructors of a datatype, with their types
+function decl_texts(m: Id, c: Cmd, base: Str): List[Str] :=
   let named := lambda typ: Type => List(format_name(Name(Some(m), base)) ++ ": " ++ format_type(typ)) in
   let types := lambda xs: List[At[Var]] => List(for x in xs yield x.that.typ) in
   match c
-    case CFun(name, _, formals, typ, _, _) if name.base == base and size(formals) == n =>
+    case CFun(name, _, formals, typ, _, _) if name.base == base =>
       named(TFun(types(formals), typ))
 
-    case CFunSig(name, _, formals, typ, _) if name.base == base and size(formals) == n =>
+    case CFunSig(name, _, formals, typ, _) if name.base == base =>
       named(TFun(types(formals), typ))
 
-    case CPatAlias(name, _, formals, typ, _) if name.base == base and size(formals) == n =>
+    case CPatAlias(name, _, formals, typ, _) if name.base == base =>
       named(TFun(types(formals), typ))
 
-    case CProc(name, _, ins, outs, refs, raised, _, _) if name.base == base and size(ins) + size(outs) + size(refs) == n =>
+    case CProc(name, _, ins, outs, refs, raised, _, _) if name.base == base =>
       named(TProc(types(ins), types(outs), types(refs), RWritten(raised)))
 
-    case CProcSig(name, _, ins, outs, refs, raised, _) if name.base == base and size(ins) + size(outs) + size(refs) == n =>
+    case CProcSig(name, _, ins, outs, refs, raised, _) if name.base == base =>
       named(TProc(types(ins), types(outs), types(refs), RWritten(raised)))
 
     case CData(name, params, constrs) =>
-      List(for constr in constrs if constr_name(constr) == base and constr_arity(constr) == n for typ in constr_type(constr, TSort(name, List(for p in params yield TParam(p)))) for text in named(typ) yield text)
+      List(for constr in constrs if constr_name(constr) == base for typ in constr_type(constr, TSort(name, List(for p in params yield TParam(p)))) for text in named(typ) yield text)
 
     case _ =>
       List()
