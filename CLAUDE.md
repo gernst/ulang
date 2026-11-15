@@ -78,7 +78,7 @@ Agents have almost no ulang in their training data, so what they write comes fro
 - An exported procedure that raises says so after its formals, `procedure load(in path: Str, out text: Str) raises OsError, ParseError`, in `export` and `implementation` alike, and a formal of a procedure type says what its values may raise, `step: (in Int, out Int) raises Failed`, and so does an entry, a procedure without formals such as `procedure main() raises OsError`, so that no checked exception escapes a run that its raises do not declare; private procedures with formals infer it, so the errors name each place to change: `p raises T, which its raises omit` at the raise or call, `the procedure value q raises T, which its type omits` where `q` is passed, and `the handler of T is unreachable` for a handler that nothing in its `try` can reach.
 - Layout is not written by hand: `ulang.sh format` gives it, and `check` rejects any other.
 
-Check after each small edit; which declaration an overloaded name such as `size` takes depends on the imports and the types, so read the `export` sections of the imported packages.
+Check after each small edit; which declaration an overloaded name such as `size` takes depends on the imports and the types, so read the `export` sections of the imported packages. Within one module a name is overloaded only by arity, so a `lower(s: Str): Str` beside a `lower(c: Char): Char` is no overload, and `refactor @put` of it replaces the other; and `get(k, xs)` of a list looks up an association list, since lists have no index, so the first element is taken by a `match`.
 
 ## Syntax and translations
 

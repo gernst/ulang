@@ -71,7 +71,7 @@ The library in `ulang/prelude/` contains the prelude with natural numbers, optio
 
 ## Usage
 
-Requires a C compiler, GMP, and the Boehm garbage collector. The interpreter and the compiler recurse as deeply as the programs they run, so `out/ulang.sh` runs `out/ulang.bin` with a large stack, by `ulimit -s unlimited`; compiled programs need the same limit.
+Requires a C compiler, GMP, and the Boehm garbage collector, with their headers, the packages `libgmp-dev` and `libgc-dev` on Debian and Ubuntu, `gmp` and `gc` on Arch. The interpreter and the compiler recurse as deeply as the programs they run, so `out/ulang.sh` runs `out/ulang.bin` with a large stack, by `ulimit -s unlimited`; compiled programs need the same limit.
 
 ```
 make                                      # builds out/ulang.bin and out/ulang.sh from the sources, by the seed in bootstrap/,
