@@ -1,0 +1,62 @@
+// the queries of ulang/refactor/refactor.u, @outline and @refs, which only report, and the notes of @put and @rename that
+// tell what an edit added and what a new name meets, on files below out/test/refactor/queries/ of the root, which run
+// only compiled, as the scripts of scripts.u do
+
+import "ulang/syntax"
+import "ulang/refactor"
+
+procedure no_diagnostics(in file: Str, out found: List[(Str, Diagnostic)]) :=
+  found := List()
+
+// @outline lists the declarations of a file with their lines, sections, kinds, targets, visibility, and handles, and the
+// constructors of a datatype, and writes nothing; @put names the section of what it adds
+test outlines() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/queries/outline", path := "out/test/refactor/queries/outline/o.u"
+  let source := "export\n\ndata Shape :=\n  case Circle(r: Int)\n  case Square(side: Int)\n\nfunction area(s: Shape): Int\n\nimplementation\n\nfunction area(s: Shape): Int :=\n  match s\n    case Circle(r) =>\n      3 * r * r\n    case Square(side) =>\n      side * side\n  end\n\nprocedure log(in s: Shape) :=\n  os_println(in show(area(s)))\n\ntest areas() :=\n  assert area(Square(2)) == 4\n"
+  os_write_utf8(in os_join(state, "handles.txt"), "")
+  os_write_utf8(in path, source)
+  run_script(in "@outline " ++ path, false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0 and text == source
+  let outline := List(
+    "@outline " ++ path,
+    "3-5   export         data      Shape  exported #1 cases Circle/1, Square/1",
+    "7     export         function  area/1 exported",
+    "11-17 implementation function  area/1 exported #2",
+    "19-20 implementation procedure log/1  private  #3",
+    "22-23 implementation test      areas  private  #4")
+  assert drop(1, reply) == List(join("\n", outline))
+  run_script(in "@put " ++ path ++ "\nfunction double(s: Shape): Int := 2 * area(s)\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 0 and contains(path ++ ": added double/1 to implementation", reply)
+
+// @refs lists the uses of a function in the members of its package by resolution, so that a local of its name is none,
+// each with the declaration around it and the handle of the innermost node there
+test finds_refs() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/queries/refs", dir := "out/test/refactor/queries/refs/p"
+  os_write_utf8(in os_join(state, "handles.txt"), "")
+  os_write_utf8(in os_join(dir, "a.u"), "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n")
+  os_write_utf8(in os_join(dir, "b.u"), "function g(y: Int): Int :=\n  let f := 1 in\n  f + y\n\nprocedure h(in y: Int, out z: Int) :=\n  z := f(y)\n  if z > 0 then\n    z := f(z)\n  end\n")
+  run_script(in "@refs " ++ dir ++ "/a.u:f", false, state, no_diagnostics, out reply, status, _)
+  let found := List(
+    "@refs " ++ dir ++ "/a.u:f: 2 uses of out/test/refactor/queries/refs/p/a.f/1 in 1 file",
+    "  " ++ dir ++ "/b.u:6.8 in h/2 #1: z := f(y)",
+    "  " ++ dir ++ "/b.u:8.10 in h/2 #2: z := f(z)")
+  assert drop(1, reply) == List(join("\n", found))
+  assert status == 0
+  run_script(in "@refs " ++ dir ++ "/a.u:g", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1
+
+// @rename to a name that the library declares with the same arity warns of the declarations that the uses also see
+test renames_beside_overloads() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/queries/overloads", dir := "out/test/refactor/queries/overloads/p"
+  os_write_utf8(in os_join(dir, "a.u"), "function shout(s: Str): Str :=\n  s\n\nfunction use(s: Str): Str :=\n  shout(s)\n")
+  run_script(in "@rename " ++ dir ++ "/a.u:shout size", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in os_join(dir, "a.u"), out text)
+  assert status == 0 and text == "function size(s: Str): Str :=\n  s\n\nfunction use(s: Str): Str :=\n  size(s)\n"
+  let warnings := List(for line in reply if starts_with(line, "warning: the uses of size/1 also see ") yield line)
+  assert size(warnings) == 1 and exists(warnings, lambda w => index_of("prelude/str.size: Str -> Int", w) != None)
+  run_script(in "@rename " ++ dir ++ "/a.u:size lowered", false, state, no_diagnostics, out reply, status, _)
+  assert status == 0 and not exists(reply, lambda line => starts_with(line, "warning:"))

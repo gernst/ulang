@@ -850,7 +850,13 @@ function term_rank(ctx: Ctx, t: Term): Int :=
     case ELevel(level) if contains(level, ctx.defined) =>
       4
 
-    case _ =>
+    case EBound(_)
+       | ELevel(_)
+       | EFun(_)
+       | EApp(_, _)
+       | ELam(_, _)
+       | EIte(_, _, _)
+       | EMatch(_, _) =>
       if free_head(ctx.decls, t) != None then 1 else 3
   end
 
@@ -1153,7 +1159,7 @@ function simp_term(ctx: Ctx, e: Term): Term :=
     case ELevel(_) =>
       rewrite(ctx, e)
 
-    case _ =>
+    case EBound(_) | ELit(_) | ELam(_, _) =>
       e
   end
 
@@ -1976,7 +1982,7 @@ function candidate(decls: Decls, stuck: Bool, e: Term): Option[Candidate] :=
     case ESum(_, summands) =>
       first_of(List(for summand in summands yield candidate(decls, stuck, summand.term)))
 
-    case _ =>
+    case ELeaf | ELam(_, _) =>
       None
   end
 
@@ -2232,7 +2238,7 @@ function is_plain(t: Term): Bool :=
     case EMatch(_, _) =>
       false
 
-    case _ =>
+    case ELeaf =>
       true
   end
 
@@ -2244,7 +2250,7 @@ function term_size(t: Term): Int :=
     case ESum(_, summands) =>
       foldl(summands, 1, lambda acc, summand => acc + term_size(summand.term))
 
-    case _ =>
+    case ELeaf | ELam(_, _) | EIte(_, _, _) | EMatch(_, _) =>
       1
   end
 

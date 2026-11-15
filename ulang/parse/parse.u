@@ -496,7 +496,7 @@ function literal_at(toks: Tokens): Option[Lit] :=
     case TChar(char) =>
       Some(LChar(char))
 
-    case _ =>
+    case TName(_) | TOp(_) | TKw(_) | TEnd =>
       None
   end
 
@@ -1038,7 +1038,7 @@ function starts_expr(notation: Notation, tok: Token): Bool :=
     case TChar(_) =>
       true
 
-    case _ =>
+    case TOp(_) | TEnd =>
       false
   end
 
@@ -1436,7 +1436,7 @@ function starts_pattern(notation: Notation, tok: Token): Bool :=
     case TChar(_) =>
       true
 
-    case _ =>
+    case TOp(_) | TEnd =>
       false
   end
 
@@ -1683,7 +1683,7 @@ function ends_expr(tok: Token): Bool :=
     case TKw(kw) =>
       contains(kw, List(")", "]", "end", "skip", "true", "false"))
 
-    case _ =>
+    case TOp(_) | TEnd =>
       false
   end
 

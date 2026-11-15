@@ -90,8 +90,11 @@ function format_program(source: Source): Str :=
 
 function format_module(source: Source, name: Id): Str :=
   match find(source.mods, lambda d => d.name == name)
+    // an empty module is the empty file, which has no line to end
     case Some(d) =>
-      expand(d.comments, module_text(d.comments, format_mod(imported_notation(source.mods, seen_modules(d, source.packages)), d))) ++ "\n"
+      let text := expand(d.comments, module_text(d.comments, format_mod(imported_notation(source.mods, seen_modules(d, source.packages)), d))) in
+      if text == "" then "" else text ++ "\n"
+
     case None =>
       ""
   end
