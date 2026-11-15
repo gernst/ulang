@@ -927,8 +927,10 @@ procedure compare_values(
           var v: Val
           apply_value(in run, VFun(f, 2), List(a, b), out v, ref cache)
           match v
+            // by its sign, which the orders of sets and maps take
             case VInt(num) =>
-              r := num
+              r := order(num, 0)
+
             case _ =>
               raise NotFunction(format_value(v))
           end

@@ -3,6 +3,7 @@
 // and the shows that datatypes declare
 
 import "ulang/test/datatypes/fractions"
+import "ulang/test/datatypes/weights"
 
 // sets of the same elements, built in different orders, which have different trees
 function ab(): Set[Int] :=
@@ -62,6 +63,12 @@ function show[A, B](p: Pair[A, B]): Str :=
 
 function texts[A](xs: List[A]): List[Str] :=
   List(for x in xs yield show(x))
+
+// a declared compare counts by its sign, which sets and maps take
+test compare_by_difference() :=
+  assert compare(weight(1), weight(5)) == -1 and compare(weight(100000000000000000000), weight(1)) == 1
+  assert not contains(weight(1), Set(weight(5))) and get(weight(2), Map(weight(7) => "x")) == None
+  assert weight(3) < weight(4) and List(for w in Set(weight(9), weight(-2))) == List(weight(-2), weight(9))
 
 test builtin_show() :=
   assert show(1) == "1" and show(-12) == "-12" and show(true) == "true"
