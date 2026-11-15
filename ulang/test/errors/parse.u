@@ -315,6 +315,22 @@ test habits() :=
       "  swap(ref a, ref b)"))
   end
 
+// a keyword that is a common word gets a name to write instead, where test also starts a command, at which the parse
+// resumes
+test keyword_names() :=
+  assert raises ParseErrors(List(
+    ParseError("keyword raises is not a name; write a name such as raised", Pos(2, 10)),
+    ParseError("keyword test is not a name; write a name such as check", Pos(5, 7)),
+    ParseError("name expected but := found", Pos(5, 12)))) do
+    check_text(in "ulang/test/errors/keyword-names.u", List(
+      "data R :=",
+      "  case R(raises: Int)",
+      "",
+      "procedure main() :=",
+      "  let test := 1",
+      "  skip"))
+  end
+
 // a missing end is reported at the construct that is still open where the parse ends, which the indentation does not
 // decide, so that the if takes the assignment below it into its body
 test missing_end() :=

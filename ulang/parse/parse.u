@@ -401,10 +401,32 @@ function format_token(tok: Token): Str :=
 function expected(what: Str, toks: Tokens): ParseError :=
   match head_token(toks)
     case TKw(kw) if is_keyword(kw) and (what == "name" or what == "pattern") =>
-      ParseError("keyword " ++ kw ++ " is not a name", head_pos(toks))
+      ParseError("keyword " ++ kw ++ " is not a name" ++ value_or(map_option(name_for(kw), lambda n => "; write a name such as " ++ n), ""), head_pos(toks))
     case tok =>
       ParseError(what ++ " expected but " ++ format_token(tok) ++ " found" ++ hint_at(what, toks), head_pos(toks))
   end
+
+// a name to write instead of a keyword that is a common word, and a natural name of a field or a local elsewhere
+function name_for(kw: Str): Option[Str] :=
+  example name_for("raises") == Some("raised")
+  example name_for("then") == None
+  get(kw, List(
+    ("case", "kind"),
+    ("correct", "is_correct"),
+    ("data", "datum"),
+    ("end", "stop"),
+    ("ensures", "post"),
+    ("example", "sample"),
+    ("function", "fun"),
+    ("induction", "ind"),
+    ("invariant", "inv"),
+    ("match", "matched"),
+    ("pattern", "pat"),
+    ("procedure", "proc"),
+    ("raises", "raised"),
+    ("requires", "pre"),
+    ("test", "check"),
+    ("type", "typ")))
 
 // the form to write where toks start as another language would, after "; ", or ""
 function hint_at(what: Str, toks: Tokens): Str :=
