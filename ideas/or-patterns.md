@@ -2,7 +2,7 @@
 
 A plan: the matches that end in `case _` named by alternatives, `case A | B =>`, as Code 1 and the rule of style in `CLAUDE.md`, Style, ask, now that the language has them (`CLAUDE.md`, Syntax and translations). Delete this file when the steps below are done, and move what stays true into `CLAUDE.md`.
 
-The steps, each after the one before: the sites below, one commit per package, `ulang/check` first, handed over to `main` after each package or two, since other sessions edit `ulang/check/check.u` all the time; then the lint and the refactoring.
+Done: the 12 sites over `Type` and `raises_modules` of `ulang/check/uses.u` over `Raises`. The steps, each after the one before: the other sites below, one commit per package, `ulang/check` first, handed over to `main` after each package or two, since other sessions edit `ulang/check/check.u` all the time; then the lint and the refactoring.
 
 ## The sites
 
@@ -43,7 +43,7 @@ The scan of 15 November 2026 (`main` at 1ccb2d3), by the constructor names in th
 The conversion of a site replaces its `case _` by the alternatives of the constructors that it stands for, with `_` for their fields, so that a new constructor is an error of exhaustiveness at each site:
 
 - A constructor that an earlier phase rules out gets a case of its own, as the rule of style says, where the doc of the `case _` names it, as at `unknown_in_expr`, `private_in`, and `exposed` of `ulang/check/check.u`.
-- Each site checked by `out/ulang.sh check ulang/ulang.u`, since the conversion keeps behaviour, and `make test` at the end, with `make testc` and `make testasm` after asking, since the compiler then compiles its own matches by the code of alternatives; except where naming the constructors finds one that the `case _` handled wrongly, which is a fix of its own, with a test, committed apart. Candidates found while sorting: `step_of` of `ulang/parse/parse.u`, whose `case _` raises the message `assert raises is no step of a proof` for every other statement; and `occurs` of `ulang/check/check.u`, which skips the raises of a `TProc`, which `has_holes` includes.
+- Each site checked by `out/ulang.sh check ulang/ulang.u`, since the conversion keeps behaviour, and `make test` at the end, with `make testc` and `make testasm` after asking, since the compiler then compiles its own matches by the code of alternatives; except where naming the constructors finds one that the `case _` handled wrongly, which is a fix of its own, with a test, committed apart. A candidate found while sorting: `step_of` of `ulang/parse/parse.u`, whose `case _` raises the message `assert raises is no step of a proof` for every other statement.
 
 ## The cost
 

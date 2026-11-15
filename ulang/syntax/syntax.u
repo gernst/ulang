@@ -885,7 +885,7 @@ function sorts_in(t: Type): List[Name] :=
     case TTuple(types) =>
       List(for a in types for u in sorts_in(a) yield u)
 
-    case _ =>
+    case THole | TMeta(_) | TParam(_) | TError =>
       List()
   end
 

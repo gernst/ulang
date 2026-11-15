@@ -266,7 +266,7 @@ function type_key(t: Type): Str :=
     case TTuple(types) =>
       "(" ++ join(" * ", List(for a in types yield type_key(a))) ++ ")"
 
-    case _ =>
+    case THole | TMeta(_) | TParam(_) | TError =>
       "?"
   end
 
