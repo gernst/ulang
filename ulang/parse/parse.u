@@ -2345,8 +2345,30 @@ procedure parse_pat_alias(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
   expect(in TKw(":"), ref toks)
   parse_type(in notation, params, out r, ref toks)
   expect(in TKw(":="), ref toks)
-  parse_pattern(in notation, params, out pat, ref toks)
+  if at_case(toks) then
+    let at := head_pos(toks)
+    var alts: List[At[Pat]]
+    parse_alias_cases(in notation, params, out alts, ref toks)
+    pat := AOk(at, span_from(at, toks), POr(alts))
+  else
+    parse_pattern(in notation, params, out pat, ref toks)
+  end
   cmd := CPatAlias(unqualified(name), params, xs, r, pat)
+
+// the alternatives of a pattern alias, each after case, as the constructors of a datatype are
+procedure parse_alias_cases(
+  in  notation: Notation,
+      params: List[Id],
+  out alts: List[At[Pat]],
+  ref toks: Tokens
+) :=
+  alts := List()
+  while at_case(toks) do
+    var alt: At[Pat]
+    advance(ref toks)
+    parse_pattern(in notation, params, out alt, ref toks)
+    alts := alts ++ List(alt)
+  end
 
 // a procedure, which is a signature without :=, or with := and a spec that the next command follows
 procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
@@ -3759,6 +3781,13 @@ test parsed_tuple_types() :=
     TFun(List(int, str), int),
     TFun(List(pair), int),
     TTuple(List()))
+
+// the alternatives of a pattern alias after case, one on each line, are those of the pattern written with |
+test parsed_alias_cases() :=
+  var by_case: Mod, by_bar: Mod
+  parse_text(in "pattern Small(): Int :=\n  case 0\n  case 1\n  case Some(2 | 3)\n", out by_case)
+  parse_text(in "pattern Small(): Int :=\n  0 | 1 | Some(2 | 3)\n", out by_bar)
+  assert List(for c in commands_of(by_case.implemented) yield strip_cmd(c)) == List(for c in commands_of(by_bar.implemented) yield strip_cmd(c))
 
 // the doc of a declaration is the run of comments right above it, without a blank line between
 test parsed_docs() :=
